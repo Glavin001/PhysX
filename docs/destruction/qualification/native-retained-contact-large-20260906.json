@@ -1,0 +1,188 @@
+{
+  "status": "30-second large-scale native correctness capture completed; full GPU lifecycle and performance qualification incomplete",
+  "base_revision": "e408107edef2738eafb1750d7491229adc02cf4f",
+  "capture": {
+    "summary": {
+      "backend": "native PhysX GPU task graph + resident CUDA destruction",
+      "status": "completed",
+      "frames": 1800,
+      "seconds": 30,
+      "buildings": 256,
+      "chunks": 113664,
+      "bonds": 229376,
+      "peak_clusters": 97110,
+      "projectiles": 1024,
+      "broken_bonds": 200278,
+      "corrections": 384,
+      "spawn_protocol": "clear-aerial-ballistic-v2",
+      "island_boundary_audit_enabled": true,
+      "motion_audit_enabled": true,
+      "max_motion_position_error": 0,
+      "record_fps": 60,
+      "gpu_island_repair": true,
+      "preserve_contact_pairs": true,
+      "recorded_state": false,
+      "correction_limit": 1,
+      "physics_ms_p50": 203.682,
+      "physics_ms_p95": 639.933,
+      "physics_ms_p99": 1172.8,
+      "physics_ms_max": 1703.71,
+      "missed_16_67ms": 1702,
+      "stress_included_in_physics_time": true,
+      "isolated_performance_qualification": false,
+      "sleeping": false,
+      "crushing_material_enabled": false
+    },
+    "graph": {
+      "scope": "contact graph only; excludes other physics and recording transfers",
+      "graph_builds": 2184,
+      "same_pass_reuses": 2184,
+      "host_observations": 2101,
+      "sorted_graphs": 4202,
+      "device_to_host_bytes": 5659647152,
+      "gpu_connected_answers": 35075059,
+      "gpu_splits": 3410593,
+      "retained_edges_uploaded": 85214,
+      "retained_host_to_device_bytes": 1363424,
+      "peak_retained_edges": 2878,
+      "boundary_audits": 4202,
+      "boundary_audit_failures": 0,
+      "registry_mismatch_fallbacks": 0
+    },
+    "process": {
+      "exit_code": 0,
+      "wall_seconds": 465.6390442699194,
+      "status": "completed"
+    },
+    "provenance": {
+      "base_revision": "e408107edef2738eafb1750d7491229adc02cf4f",
+      "source_sha256": {},
+      "libraries": {
+        "libPhysXDestructionGpuRuntime_64.so": "12e9422669c8fbeb3e631daba63e01e84e54b7db1d6ff4f34ed84824abe1032c",
+        "libPhysXGpuActivity_64.so": "c766ae00b67503120a4e14dd8a855b3855463f869c66a3e4183eef96c77d164c",
+        "libPVDRuntime_64.so": "7ced8c8e62fd6323cbb75910cf1a9cf29e2cfe5cfe1d053a8ad061a6bd4d1c2b",
+        "libPhysX_static_64.a": "674ebebe2c982fd67a999872e80513dc8389f5fb417f35a49271865cd557321a",
+        "libPhysXCommon_static_64.a": "989af41e4b457eda140c1a05feeb62bdd2a5a816790c923860776d666821f42b",
+        "libPhysXFoundation_static_64.a": "245eb8a7d46693f37a13639d7ddde4707bac0b6b8a2a8564cae7c40888217f7a",
+        "libPhysXExtensions_static_64.a": "cf0f5b0269efdb3b0c1bf26c8200d076aa97495194e320f10def1f39df1ee148",
+        "libPhysXPvdSDK_static_64.a": "5904d7f4e41dc89807e90d7a11bb8cdf2b1fd2b88a6ed82c040d0b0669fbc94c",
+        "libPhysXCooking_static_64.a": "8c919efa53e9ad97930c370c0757e706bcc7f12f0e0b801278ddcd33ec5826a6",
+        "libPhysXCharacterKinematic_static_64.a": "b8dd6238ef1b039717b47aeaf949202388089a15db57cbf86de6397efd4f771d",
+        "libPhysXVehicle_static_64.a": "1175dd5c09cca78bd8f19204e826b4cb3a6f1bda14b79b8ea0f4af8b51ef3075",
+        "libPhysXCudaContextManager_static_64.a": "222cf8e3d3a9b9236cec0fb9940a67b10eb4483c5bce924519eca72be4158cdb"
+      },
+      "command": [
+        "out/destruction-sdk/reference/native_destruction_demo",
+        "--grid",
+        "16",
+        "--waves",
+        "4",
+        "--seconds",
+        "30",
+        "--stress-iterations",
+        "8192",
+        "--profile-phases",
+        "1",
+        "--preserve-contact-pairs",
+        "1",
+        "--audit-motion",
+        "1",
+        "--audit-islands",
+        "1",
+        "--record-state",
+        "0",
+        "--gpu-island-repair",
+        "1",
+        "--output",
+        "/root/workspace/physx-2/out/recordings/native-retained-contact-large-audited-20260906"
+      ],
+      "isolated_performance_qualification": false,
+      "executable_sha256": "14bd152b24a91fed3bfcf878ca6c289706adc7a9e393a53f4aa18e26f0e8cb83",
+      "libraries_verified_before_rebuild": true
+    },
+    "physics_timing": {
+      "samples": 1800,
+      "min_ms": 0.965451,
+      "mean_ms": 244.89056276722224,
+      "max_ms": 1703.71,
+      "p50_ms": 203.589,
+      "p95_ms": 639.933,
+      "p99_ms": 1172.8,
+      "total_wall_seconds": 440.803012981,
+      "effective_steps_per_second": 4.083456662029635,
+      "real_time_factor": 0.06805761103382725,
+      "missed_deadlines": 1702,
+      "fixed_step_ms": 16.666666666666668
+    },
+    "capture_tick_timing": {
+      "samples": 1800,
+      "min_ms": 6.94508,
+      "mean_ms": 256.64659754444443,
+      "max_ms": 1720.24,
+      "p50_ms": 215.415,
+      "p95_ms": 651.358,
+      "p99_ms": 1184.43,
+      "total_wall_seconds": 461.96387558,
+      "effective_steps_per_second": 3.896408561686957,
+      "real_time_factor": 0.06494014269478261,
+      "missed_deadlines": 1715,
+      "fixed_step_ms": 16.666666666666668
+    }
+  },
+  "verification": {
+    "all_steps_stress_converged": true,
+    "max_resim_passes": 1,
+    "zero_motion_audit_error": true,
+    "zero_independent_boundary_mismatches": true,
+    "zero_registry_mismatch_fallbacks": true
+  },
+  "limitations": [
+    "CPU audit and profiling costs included; shared GPU; no matched-trial speedup claim",
+    "State recording disabled; this is a simulation qualification capture, not a new video",
+    "GPU island lifecycle still uses native CPU compatibility registries; graph host observations transferred 5659647152 bytes",
+    "Sleeping, crushing material and unsupported joint/correction coverage not qualified by this fixture",
+    "Original native SIGSEGV and asynchronous CUDA sanitizer causes remain unproven"
+  ],
+  "artifacts": [
+    {
+      "path": "out/recordings/native-retained-contact-large-audited-20260906/build-provenance.json",
+      "sha256": "f1b14fbc0c06574ebf15f202a8de859ea3a8c0adfcd9de5ce4c18892120adbe0"
+    },
+    {
+      "path": "out/recordings/native-retained-contact-large-audited-20260906/gpu-memory.csv",
+      "sha256": "628c19525689c1209d30ac471eff0c06f0be9de514f0e7aa91428e265e47ba52"
+    },
+    {
+      "path": "out/recordings/native-retained-contact-large-audited-20260906/native.frames.csv",
+      "sha256": "5cef1b29e1e13b7d85738acf5f45f740ce12a777894a1aa680e75ef57872cce7"
+    },
+    {
+      "path": "out/recordings/native-retained-contact-large-audited-20260906/native.graph-diagnostics.json",
+      "sha256": "6b775bc680a4594bc37720afd034621de32f2468a88368647f2e5c2c4efa25e7"
+    },
+    {
+      "path": "out/recordings/native-retained-contact-large-audited-20260906/native.launches.csv",
+      "sha256": "9b0b0d6bd524782fe3fede8e31beb89efa79e9aa10973a9ce869899b769cbaab"
+    },
+    {
+      "path": "out/recordings/native-retained-contact-large-audited-20260906/native.phases.csv",
+      "sha256": "83c43ada762db0dbfa85671724d3f524b7f00cdf376f17e49af4418d0f07af74"
+    },
+    {
+      "path": "out/recordings/native-retained-contact-large-audited-20260906/native.summary.json",
+      "sha256": "45c22a88147a925e4353fbeae93f69f06ca50af434099cce498ddca7611e6243"
+    },
+    {
+      "path": "out/recordings/native-retained-contact-large-audited-20260906/phase-summary.json",
+      "sha256": "1de0e9f02ab61da83c28208be5d817310f89d199c8c37b4fd5f5acf214b659b6"
+    },
+    {
+      "path": "out/recordings/native-retained-contact-large-audited-20260906/process-result.json",
+      "sha256": "50d6812d56c8b1f476c3a8fd1b33b8b3769cd8dd5f0fbf6fa9d18b36be42009a"
+    },
+    {
+      "path": "out/recordings/native-retained-contact-large-audited-20260906/source-files.json",
+      "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+    }
+  ]
+}

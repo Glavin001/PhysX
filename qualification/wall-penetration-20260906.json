@@ -1,0 +1,51 @@
+{
+  "projectile_clearance_step": 40,
+  "projectile_clearance_seconds": 0.6833333333333333,
+  "projectile_position_at_clearance": [
+    0.011617057025432587,
+    6.431604385375977,
+    4.940037250518799
+  ],
+  "corrected_steps": [
+    17,
+    32,
+    33
+  ],
+  "fracture_steps": [
+    17,
+    30,
+    32,
+    33
+  ],
+  "corrections_per_step_max": 1,
+  "largest_connected_cluster": 398,
+  "supported_chunks": 398,
+  "detached_chunks": 46,
+  "final_cluster_count": 43,
+  "displaced_wall_chunks": {
+    "entry": [
+      243,
+      244,
+      271,
+      272
+    ],
+    "exit": [
+      263,
+      264,
+      291,
+      292
+    ]
+  },
+  "broken_bonds": 199,
+  "all_stress_steps_converged": true,
+  "max_render_collision_position_error": 0,
+  "max_cluster_com_error": 3.84819e-06,
+  "physics_ms": {
+    "min": 0.520772,
+    "mean": 4.78826,
+    "p50": 4.56729,
+    "p95": 6.56267,
+    "p99": 8.10627,
+    "max": 9.11706
+  }
+}

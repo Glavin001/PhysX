@@ -1,0 +1,12 @@
+[embedded-destruction] chunks=113664 bonds=229376 initial_clusters=256 direct_gpu=0 native_sleep=1 correction_limit=1 max_stress_passes=2 iterations=8192
+tick 0/600, fragments 0, awake 0, broken 0
+tick 60/600, fragments 11483, awake 11221, broken 62080
+tick 120/600, fragments 15885, awake 13801, broken 71330
+tick 180/600, fragments 16069, awake 9439, broken 71606
+tick 240/600, fragments 16979, awake 10903, broken 73582
+tick 300/600, fragments 17578, awake 10022, broken 74470
+tick 360/600, fragments 17775, awake 8232, broken 74769
+tick 420/600, fragments 18240, awake 8108, broken 75665
+tick 480/600, fragments 18680, awake 7755, broken 76301
+tick 540/600, fragments 18828, awake 6653, broken 76485
+report: /root/workspace/physx-2/out/vibe-coarse-assembly-20260908/physical-polynomial-repeat/baseline2/report.md

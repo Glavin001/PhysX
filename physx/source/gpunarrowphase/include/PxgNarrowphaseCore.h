@@ -51,6 +51,7 @@
 
 namespace physx
 {
+	struct PxgShapeSim;
 	class PxgCudaKernelWranglerManager;
 	class PxgNphaseImplementationContext;
 	class PxgGpuContext;
@@ -91,10 +92,12 @@ namespace physx
 	}
 
 
+    struct PxgDestructionPreSolveContacts;
+    struct PxgDestructionSolvedContacts;
 	struct PxgContactManagers : public PxsContactManagerBase
 	{
 		PxgContactManagers(const PxU32 bucketId, Cm::VirtualAllocatorCallback& hostAlloc) : PxsContactManagerBase(bucketId), 
-			mGpuInputContactManagers(hostAlloc, PxsHeapStats::eNARROWPHASE), 
+			mGpuInputContactManagers(hostAlloc, PxsHeapStats::eNARROWPHASE),
 			mCpuContactManagerMapping(hostAlloc, PxsHeapStats::eNARROWPHASE),
 			mShapeInteractions(hostAlloc, PxsHeapStats::eNARROWPHASE),
 			mRestDistances(hostAlloc, PxsHeapStats::eNARROWPHASE),
@@ -102,6 +105,9 @@ namespace physx
 		{
 		}
 
+        // Native destruction keeps only pair identity authoritative here;
+        // geometry refs can be INVALID until resolved in the GPU input buffer.
+        // The ordinary path retains complete CPU-generated descriptors.
 		Cm::PinnableArray<PxgContactManagerInput>		mGpuInputContactManagers;
 		Cm::PinnableArray<PxsContactManager*>			mCpuContactManagerMapping;
 		Cm::PinnableArray<const Sc::ShapeInteraction*>	mShapeInteractions;
@@ -131,10 +137,15 @@ namespace physx
 	};
 
 	struct PxgNewContactManagers : public PxgContactManagers
-	{
+    {
+        // Temporary CPU-produced edge IDs and pair slots; GPU lifetime IDs are never mirrored.
+        Cm::PinnableArray<PxU32> mContactGraphEdges;
+        Cm::PinnableArray<PxU32> mContactGraphSlots;
 		Cm::PinnableArray<PxsContactManagerOutput>	mGpuOutputContactManagers;
 
 		PxgNewContactManagers(const PxU32 bucketIndex, Cm::VirtualAllocatorCallback& hostAlloc) : PxgContactManagers(bucketIndex, hostAlloc),
+            mContactGraphEdges(hostAlloc, PxsHeapStats::eNARROWPHASE),
+            mContactGraphSlots(hostAlloc, PxsHeapStats::eNARROWPHASE),
 			mGpuOutputContactManagers(hostAlloc)
 		{
 		}
@@ -155,6 +166,9 @@ namespace physx
 	struct PxgGpuContactManagers
 	{
 		PxgTypedCudaBuffer<PxgContactManagerInput>    mContactManagerInputData;
+        PxgTypedCudaBuffer<PxgContactGraphIdentity> mContactGraphIdentities;
+        PxgTypedCudaBuffer<PxU32> mContactGraphEdgeUpload;
+        PxgTypedCudaBuffer<PxU32> mContactGraphSlotUpload;
 		PxgTypedCudaBuffer<PxsContactManagerOutput>   mContactManagerOutputData;
 		PxgCudaBuffer                                 mPersistentContactManifolds;
 
@@ -171,7 +185,10 @@ namespace physx
 		const PxU32                                   mBucketIndex;
 		
 		PxgGpuContactManagers(const PxU32 bucketIndex, PxgAllocatorDesc& allocDesc) :
-			mContactManagerInputData(allocDesc.deviceAlloc, PxsHeapStats::eNARROWPHASE), 
+			mContactManagerInputData(allocDesc.deviceAlloc, PxsHeapStats::eNARROWPHASE),
+            mContactGraphIdentities(allocDesc.deviceAlloc, PxsHeapStats::eNARROWPHASE),
+            mContactGraphEdgeUpload(allocDesc.deviceAlloc, PxsHeapStats::eNARROWPHASE),
+            mContactGraphSlotUpload(allocDesc.deviceAlloc, PxsHeapStats::eNARROWPHASE),
 			mContactManagerOutputData(allocDesc.deviceAlloc, PxsHeapStats::eNARROWPHASE),
 			mPersistentContactManifolds(allocDesc.deviceAlloc, PxsHeapStats::eNARROWPHASE), 
 			mTempRunsumArray(allocDesc.deviceAlloc, PxsHeapStats::eNARROWPHASE), 
@@ -307,7 +324,29 @@ namespace physx
 		PxU32												mTotalLostFoundPatches;
 		PxU32												mTotalNumPairs;
 
-		Cm::PinnableArray<PxgPairManagementData>			mPairManagementData;
+        PxU32 mDestructionGraphFallbackPairs = 0;
+        // A receipt for one merged NP pass, consumed only at finalization.
+        // Registrations/retirements are serialized by existing NP lifecycle
+        // locks; retirement counts only grow until compaction invalidates this.
+        PxU64 mDestructionGraphCachedGeneration = 0, mDestructionGraphRetainedRevision = 0;
+        PxU64 mDestructionGraphBuildCount = 0, mDestructionGraphReuseCount = 0;
+        PxU32 mDestructionGraphRetiredCounts[GPU_BUCKET_ID::eCount] = {};
+        PxU32 mDestructionGraphPairCounts[GPU_BUCKET_ID::eCount] = {};
+		PxgTypedCudaBuffer<PxgContactGraphSequence> mContactGraphSequence;
+        // Dense pair slots (R2 milestone 2 item 2): one per registered contact
+        // manager (GPU buckets and fallback alike), independent of the island
+        // manager's edge handles. Retired slots wait in mContactSlotRetiring
+        // until removeLostPairs has compacted their device rows, so a slot is
+        // never shared by two rows the solver could both see.
+        PxArray<PxU32> mContactSlotFree, mContactSlotRetiring;
+        PxU32 mContactSlotHighWater = 0;
+        PxU32 allocateContactSlot() {
+            if(mContactSlotFree.size()) { const PxU32 slot=mContactSlotFree.back(); mContactSlotFree.popBack(); return slot; }
+            return mContactSlotHighWater++;
+        }
+        void retireContactSlot(PxU32 slot) { if(slot!=0xFFffFFff) mContactSlotRetiring.pushBack(slot); }
+        PxU32 getContactSlotHighWater() const { return mContactSlotHighWater; }
+        Cm::PinnableArray<PxgPairManagementData>			mPairManagementData;
 		PxgCudaBuffer										mGpuPairManagementData;
 	
 
@@ -346,6 +385,12 @@ namespace physx
 
 		CUstream								mStream;
 		CUstream								mSolverStream; //this is the stream handle belong to the solver, we can't destroy the solver stream
+		// Native destruction contact graph: built on its own stream as soon as the
+		// merged narrowphase outputs exist, instead of behind the rigid solver on
+		// mSolverStream (the island-repair host wait was serialized behind the
+		// whole TGS solve). Null when creation failed or PHYSX_DESTRUCTION_GRAPH_STREAM=0.
+		CUstream								mDestructionGraphStream;
+		CUevent									mDestructionMergedEvent;
 		PxgCudaKernelWranglerManager*			mGpuKernelWranglerManager;
 		PxCudaContextManager*					mCudaContextManager;
 		PxCudaContext*							mCudaContext;
@@ -580,6 +625,24 @@ namespace physx
 
 		Sc::ShapeInteraction** getGPUShapeInteractions() { return reinterpret_cast<Sc::ShapeInteraction**>(mGpuContactManagers[GPU_BUCKET_ID::eConvex]->mContactManagers.mShapeInteractions.getDevicePtr()); }
 
+        bool getDestructionPreSolveContacts(PxgDestructionPreSolveContacts& view,PxArray<PxU32>& retired);
+        bool resetDestructionContactCaches();
+    // Dormant corrected pass: reset manifolds of pairs with a non-dormant body only.
+    bool resetDestructionContactCachesScoped(const PxgShapeSim* shapes, CUdeviceptr dormantBits, PxU32 dormantWords);
+    // Dormant corrected pass: mark the friction slots of dormant-dormant pairs (all rigid buckets).
+    bool markDormantPairSlots(const PxgShapeSim* shapes, CUdeviceptr dormantBits, PxU32 dormantWords, CUdeviceptr slotMarks, PxU32 slotWords, CUstream stream);
+        bool buildDestructionContactGraph(bool reuseSamePass = false);
+        bool canReuseDestructionContactGraph(PxU64 generation,PxU64 retainedRevision) const {
+            if(!generation || generation!=mDestructionGraphCachedGeneration || retainedRevision!=mDestructionGraphRetainedRevision)return false;
+            // Retirement arrays are append-only until compaction invalidates
+            // the receipt. Include every bucket, not only the rigid prefix.
+            for(PxU32 i=GPU_BUCKET_ID::eConvex;i<GPU_BUCKET_ID::eCount;++i)
+                if(mDestructionGraphRetiredCounts[i]!=mRemovedIndices[i]->size()
+                    || mDestructionGraphPairCounts[i]!=mContactManagers[i]->getNbPassTests())return false;
+            return true;
+        }
+        PxU64 getDestructionGraphBuildCount() const { return mDestructionGraphBuildCount; }
+        PxU64 getDestructionGraphReuseCount() const { return mDestructionGraphReuseCount; }
 		PxgContactManagers& getExistingContactManagers(GPU_BUCKET_ID::Enum type) { return mContactManagers[type]->mContactManagers; }
 		PxgNewContactManagers& getNewContactManagers(GPU_BUCKET_ID::Enum type) { return mContactManagers[type]->mNewContactManagers; }
 
@@ -619,6 +682,7 @@ namespace physx
 		PxU32 addHeightfield(const Gu::HeightFieldData& hf);
 		PxU32 getHeightfieldIdxByHostPtr(const Gu::HeightFieldData* hf);
 
+        bool rebindShapeInstance(const PxNodeIndex& nodeIndex, const PxsShapeCore& shape, PxU32 index, PxActor* actor, bool deviceOwnerTransaction);
 		void registerShape(const PxNodeIndex& nodeIndex, const PxsShapeCore& shapeCore, const PxU32 transformCacheID, const bool isFemCloth, PxActor* actor);
 		void updateShapeMaterial(const PxsShapeCore& shapeCore);
 		PxU32 getShapeIndex(const PxsShapeCore& shapeCore);
@@ -642,6 +706,11 @@ namespace physx
 		void registerParticleMaterial(const PxsPBDMaterialCore& materialCore);
 		void updateParticleMaterial(const PxsPBDMaterialCore& materialCore);
 		void unregisterParticleMaterial(const PxsPBDMaterialCore& materialCore);
+
+        // Scene-internal read lease. The caller must complete destruction before
+        // recycling NP streams; public contact export remains independent.
+        bool borrowDestructionSolvedContacts(PxgDestructionSolvedContacts& view,
+            CUevent readyEvent, PxU8* basePatches, PxU8* basePoints, PxU8* baseForces);
 
 		//direct gpu contact access  
 		bool copyContactData(void* data, PxU32* numContactPairs, const PxU32 maxContactPairs, CUevent startEvent,
@@ -678,6 +747,7 @@ namespace physx
 
 	private:
 
+        void initializeContactManagerIdentities(PxgGpuContactManagers&,PxgNewContactManagers&,PxU32 manifoldBytes,CUdeviceptr emptyManifold);
 		void adjustNpIndices(PxgNewContactManagers& newContactManagers, Cm::PinnableArray<PxgContactManagerInput>& itMainInputs,
 			Cm::PinnableArray<PxsContactManager*>& itCms, Cm::PinnableArray<const Sc::ShapeInteraction*>& itSIs,
 			Cm::PinnableArray<PxReal>& itR, Cm::PinnableArray<PxsTorsionalFrictionData>& itTor,
@@ -699,6 +769,9 @@ namespace physx
 		void prepareTempContactManagers(PxgGpuContactManagers& gpuManagers, PxgNewContactManagers& newManagers);
 
 		void removeLostPairsInternal(Cm::PinnableArray<PxU32>& removedIndices, PxgContactManagers& contactManagers);
+
+        bool usesDeviceDestructionContactInputs(PxU32 bucket) const;
+        bool buildDestructionContactInputs(PxgGpuContactManagers& managers,PxU32 count);
 
 		void prepareTempContactManagersInternal(PxgNewContactManagers& newManagers, Cm::FlushPool& flushPool, PxBaseTask* continuation);
 

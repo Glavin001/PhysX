@@ -1,0 +1,159 @@
+{
+  "source_revision": "00504a89",
+  "expanded_source_identical": true,
+  "expanded_source_sha256": "589be0a7b05abdec92a9c1ffb0914ac201ddd9fdb3bf6aa9b7bf6825def52c9e",
+  "remaining_main_file_lines": 4607,
+  "fragments": [
+    {
+      "file": "StressCouplingKernels.cuh",
+      "lines": 386,
+      "moved_source_sha256": "9d43a594100013aea671ed884f7705b1046a1e29965ca0d2aeba83a290062c35"
+    },
+    {
+      "file": "StressNodeOperator.cuh",
+      "lines": 228,
+      "moved_source_sha256": "0fa7cf8026037adf7d05689a969664818e8f0487a90c54a47a08c07dfb4fafff"
+    },
+    {
+      "file": "StressNodePreconditioner.cuh",
+      "lines": 181,
+      "moved_source_sha256": "a5fb36d65c1215d7350ee8f02b9f193a32df49d1de945e7fb146ff12643fbc20"
+    },
+    {
+      "file": "StressNodeIteration.cuh",
+      "lines": 202,
+      "moved_source_sha256": "6dfc9e23ef7ddd7e1a2ca7bc7c3ca2f70b46e18f4a0ddad1c800e4b579186794"
+    },
+    {
+      "file": "StressTopologyUpdates.cuh",
+      "lines": 75,
+      "moved_source_sha256": "8df350be469f9967f6aed5a23c11762fec346bccfe2af4598448cfe022367966"
+    },
+    {
+      "file": "StressIslandReduction.cuh",
+      "lines": 283,
+      "moved_source_sha256": "6f1d53855aebf53fe74b196a15087d637a43feed4eefa939dcf9cf428b73a558"
+    },
+    {
+      "file": "StressBondIteration.cuh",
+      "lines": 333,
+      "moved_source_sha256": "280fda23f9316b3cb442ab3babe7616af0c607e6aab4d94bfee1c3fcf1193624"
+    },
+    {
+      "file": "StressDeviceIO.cuh",
+      "lines": 82,
+      "moved_source_sha256": "06f31860cdcb5d2573d789ea6eb9e9963afbe99179b5031cf878ed7f7033ec2e"
+    },
+    {
+      "file": "StressMaterialKernels.cuh",
+      "lines": 419,
+      "moved_source_sha256": "d4c41dd3fb05d3f35bf2d66ed2a3129f1761d6db31d79c08aae3cf4962aeca64"
+    },
+    {
+      "file": "StressResidentIteration.cuh",
+      "lines": 69,
+      "moved_source_sha256": "01ea21a343c978990bd87f31e29d5c1bfa942b5f8dc28e5ac7db67e25bc14c4c"
+    },
+    {
+      "file": "StressSolverLifetime.inl",
+      "lines": 169,
+      "moved_source_sha256": "e02fd23d109fced2abcc9974a438c7cc8f87ae48553b75feccfd17568bcdb028"
+    },
+    {
+      "file": "StressResidentAPI.inl",
+      "lines": 102,
+      "moved_source_sha256": "607917a7f9cf7c716e2c38f22363b669997f7bfd7eb083900fe9b06231713aa6"
+    },
+    {
+      "file": "StressBufferAllocation.inl",
+      "lines": 198,
+      "moved_source_sha256": "b1a06983baf982a0094bc830dc655410c945bf39d6b7eb09852b048fa708c351"
+    },
+    {
+      "file": "StressIterationDispatch.inl",
+      "lines": 373,
+      "moved_source_sha256": "b056e56f0c5cd1524cb0b8ac5d1d4ebb2693eca047416647f7a5743c53cbcb59"
+    },
+    {
+      "file": "StressSolveSubmission.inl",
+      "lines": 210,
+      "moved_source_sha256": "dc438fd1b57a3f6a38ba0f54bb6370eb214acc0ecfb517bc38c6043aa34cd75c"
+    },
+    {
+      "file": "StressGraphExecution.inl",
+      "lines": 156,
+      "moved_source_sha256": "5a3b23bc17d9ffa27dcc9c7496fe0776d67c4fcd6845953ae7cb7705c86a86f5"
+    }
+  ],
+  "validation": {
+    "focused_tests_passed": 9,
+    "focused_test_log": "stress-host-split-tests.txt",
+    "regression_seconds": 10,
+    "regression_chunks": 444,
+    "regression_bonds": 896,
+    "regression_projectiles": 1,
+    "timestep_seconds": "1/60",
+    "correction_limit": 1,
+    "quality": {
+      "topology_identity_sha256": "e589eb8317c456147287443232209bb950514a75b5e4fb6783e2de5fe7486d4c",
+      "projectile_clearance_step": 40,
+      "projectile_clearance_seconds": 0.6833333333333333,
+      "projectile_position_at_clearance": [
+        0.011617057025432587,
+        6.431604385375977,
+        4.940037250518799
+      ],
+      "corrected_steps": [
+        17,
+        32,
+        33
+      ],
+      "fracture_steps": [
+        17,
+        30,
+        32,
+        33
+      ],
+      "corrections_per_step_max": 1,
+      "largest_connected_cluster": 398,
+      "supported_chunks": 398,
+      "detached_chunks": 46,
+      "final_cluster_count": 43,
+      "displaced_wall_chunks": {
+        "entry": [
+          243,
+          244,
+          271,
+          272
+        ],
+        "exit": [
+          263,
+          264,
+          291,
+          292
+        ]
+      },
+      "broken_bonds": 199,
+      "all_stress_steps_converged": true,
+      "max_render_collision_position_error": 0,
+      "max_cluster_com_error": 3.848194410238648e-06,
+      "physics_ms": {
+        "min": 0.475812,
+        "mean": 3.1843518183333304,
+        "p50": 3.043165,
+        "p95": 4.348343,
+        "p99": 5.466499,
+        "max": 6.653775
+      },
+      "frozen_identity_gate_passed": true,
+      "golden_sha256": "25887814484a49c7db82f3a3e36f7adb408764c928a4f64236baf466871947da",
+      "capture": "/root/workspace/physx-2/out/stress-host-split-audit",
+      "artifacts": {
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_destruction_demo": "25ba3d523624f45f07fcee7f4dde7274824fbd185a127788fac46b2a5640142a",
+        "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so": "4e8ce43e9a7512a368fd7c320f02bcbbfea5d2d3b27786489d9fd6c01fdcaf30",
+        "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so": "58dee8c2e7d0fe7bb4bb6e297241deb4993759819146ede01fa05caad45e5ffc"
+      }
+    },
+    "long_benchmark_rerun": false
+  }
+}

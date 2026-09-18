@@ -1,0 +1,23 @@
+========= COMPUTE-SANITIZER
+resident columns: topology=asset nodes=12 bonds=9 worst relative error=0
+resident columns: topology=asset nodes=1536 bonds=1152 worst relative error=0
+resident columns: topology=asset nodes=131072 bonds=98304 worst relative error=0
+resident columns: topology=GPU nodes=12 bonds=9 worst relative error=5.09366e-07
+resident columns: topology=GPU nodes=1536 bonds=1152 worst relative error=1.01873e-06
+resident columns: topology=GPU nodes=131072 bonds=98304 worst relative error=1.01873e-06
+native history id=12 iteration=1 residual2=8192 gamma=2048 direction_energy=2048 g0=-1 mu0=-1
+native history id=12 iteration=1 residual2=8192 gamma=2048 direction_energy=2048 g0=-1 mu0=-1
+native component id=0 nodes=12 iterations=2 active=1 failed=0 residual2=20.5 tolerance2=8e-09 gamma=6.38298 direction_energy=1.40154
+native history id=12 iteration=1 residual2=8192 gamma=2048 direction_energy=2048 g0=-1 mu0=-1
+native cooperative id=1036 iterations=2 active=1 failed=0 residual2=8.18671 tolerance2=4.144e-07 gamma=7.18144 direction_energy=0.0294721
+resident mixed components: nodes=2064 bonds=2061 sizes=12,1024,1028 interleaved=0 analytic forces and iteration-cap rejection passed
+native history id=1 iteration=1 residual2=8192 gamma=2048 direction_energy=2048 g0=1 mu0=1
+native history id=1 iteration=1 residual2=8192 gamma=2048 direction_energy=2048 g0=1 mu0=1
+native component id=0 nodes=12 iterations=2 active=1 failed=0 residual2=20.5 tolerance2=8e-09 gamma=6.38298 direction_energy=1.40154
+native history id=1 iteration=1 residual2=8192 gamma=2048 direction_energy=2048 g0=1 mu0=1
+native cooperative id=3 iterations=2 active=1 failed=0 residual2=8.18672 tolerance2=4.144e-07 gamma=7.13388 direction_energy=0.0483654
+resident mixed components: nodes=2064 bonds=2061 sizes=12,1024,1028 interleaved=1 analytic forces and iteration-cap rejection passed
+resident uneven components: components=769 nodes=13828 bonds=13059 warm=0 six quiet/load transitions passed
+resident uneven components: components=769 nodes=13828 bonds=13059 warm=1 six quiet/load transitions passed
+resident topology transition: nodes=1040 bonds=1039 components=1->2->4 permuted IDs, twelve quiet/load solves passed
+========= ERROR SUMMARY: 0 errors

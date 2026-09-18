@@ -27,6 +27,7 @@
 // Copyright (c) 2001-2004 NovodeX AG. All rights reserved.
 
 #include "PxgSolverCore.h"
+#include <cstdlib>
 #include "PxgCommonDefines.h"
 #include "PxgRadixSortDesc.h"
 #include "cudamanager/PxCudaContextManager.h"
@@ -140,6 +141,7 @@ PxgSolverCore::PxgSolverCore(PxgCudaKernelWranglerManager* gpuKernelWrangler, Px
 	mPartitionJointBatchCounts(allocDesc.deviceAlloc, PxsHeapStats::eSOLVER),
 	mPartitionArtiJointBatchCounts(allocDesc.deviceAlloc, PxsHeapStats::eSOLVER),
 	mDestroyedEdgeIndices(allocDesc.deviceAlloc, PxsHeapStats::eSOLVER),
+	mFrozenEdgeIndices(allocDesc.deviceAlloc, PxsHeapStats::eSOLVER),
 	mNpIndexArray(allocDesc.deviceAlloc, PxsHeapStats::eSOLVER),
 	mGpuContactBlockBuffer(allocDesc.deviceAlloc, PxsHeapStats::eSOLVER),
 	mDataBuffer(allocDesc.deviceAlloc, PxsHeapStats::eSOLVER),
@@ -194,10 +196,68 @@ void PxgSolverCore::allocateFrictionPatchStream(PxI32 numContactBatches, PxI32 n
 	frictionAnchorPatchStream[currentIndex].allocate(sizeof(PxgFrictionAnchorPatch) * numArtiContactBatches);*/
 }
 
+bool PxgSolverCore::resetDestructionFrictionCaches()
+{
+    // Invalidate both ping-pong generations: the correction must not warm start
+    // from trial impulses or use anchors associated with the provisional state.
+    // Clearing counts makes all existing anchor/index storage unreachable.
+    for(PxU32 i=0;i<2;++i) {
+        auto& buffer=mFrictionPatchCounts[i];
+        if(buffer.getSize() && mCudaContext->memsetD32Async(buffer.getDevicePtr(),0,
+            buffer.getSize()/sizeof(PxU32),mStream)!=CUDA_SUCCESS)return false;
+    }
+    return !mCudaContext->isInAbortMode();
+}
+
+void PxgSolverCore::markDormantSolverBodies(CUdeviceptr nodes, PxU32 count)
+{
+	if(!count || !nodes) return;
+	const CUfunction kernelFunction = mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::MARK_DORMANT_SOLVER_BODIES);
+	CUdeviceptr indicesPtr = mSolverBodyIndices.getDevicePtr();
+	PxCudaKernelParam kernelParams[] = { PX_CUDA_KERNEL_PARAM(indicesPtr), PX_CUDA_KERNEL_PARAM(nodes), PX_CUDA_KERNEL_PARAM(count) };
+	CUresult result = mCudaContext->launchKernel(kernelFunction, (count + 255) / 256, 1, 1, 256, 1, 1, 0, mStream, kernelParams, sizeof(kernelParams), 0, PX_FL);
+	if(result != CUDA_SUCCESS)
+		PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR, PX_FL, "GPU markDormantSolverBodies fail to launch kernel!!\n");
+}
+
+bool PxgSolverCore::resetDestructionFrictionCachesScoped(CUdeviceptr slotMarks, PxU32 slotWords)
+{
+    const PxU32 slotCount=PxU32(PxMax(mFrictionPatchCounts[0].getSize(),mFrictionPatchCounts[1].getSize())/sizeof(PxU32));
+    if(!slotCount)return !mCudaContext->isInAbortMode();
+    CUdeviceptr counts0=mFrictionPatchCounts[0].getSize()?mFrictionPatchCounts[0].getDevicePtr():0;
+    CUdeviceptr counts1=mFrictionPatchCounts[1].getSize()?mFrictionPatchCounts[1].getDevicePtr():0;
+    const CUfunction kernel=mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::ZERO_UNMARKED_FRICTION_COUNTS);
+    PxCudaKernelParam params[]={PX_CUDA_KERNEL_PARAM(counts0),PX_CUDA_KERNEL_PARAM(counts1),PX_CUDA_KERNEL_PARAM(slotCount),PX_CUDA_KERNEL_PARAM(slotMarks),PX_CUDA_KERNEL_PARAM(slotWords)};
+    if(mCudaContext->launchKernel(kernel,(slotCount+255u)/256u,1,1,256,1,1,0,mStream,params,sizeof(params),0,PX_FL)!=CUDA_SUCCESS)return false;
+    return !mCudaContext->isInAbortMode();
+}
+
+void PxgSolverCore::clearCurrentFrictionPatchCounts(const PxU32* edges, PxU32 count)
+{
+	if(!count || !edges)return;
+	mFrozenEdgeIndices.allocate(sizeof(PxU32)*count, PX_FL);
+	mCudaContext->memcpyHtoDAsync(mFrozenEdgeIndices.getDevicePtr(), edges, count*sizeof(PxU32), mStream);
+	const PxU32 nbBlocksRequired = (count + PxgKernelBlockDim::CLEAR_FRICTION_PATCH_COUNTS - 1)/PxgKernelBlockDim::CLEAR_FRICTION_PATCH_COUNTS;
+	const CUfunction kernelFunction = mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::CLEAR_FRICTION_PATCH_COUNTS);
+	CUdeviceptr frictionPatchPtr = mFrictionPatchCounts[mCurrentIndex].getDevicePtr();
+	CUdeviceptr indicesPtr = mFrozenEdgeIndices.getDevicePtr();
+	PxCudaKernelParam kernelParams[] = { PX_CUDA_KERNEL_PARAM(frictionPatchPtr), PX_CUDA_KERNEL_PARAM(indicesPtr), PX_CUDA_KERNEL_PARAM(count) };
+	CUresult result = mCudaContext->launchKernel(kernelFunction, nbBlocksRequired, 1, 1, PxgKernelBlockDim::CLEAR_FRICTION_PATCH_COUNTS, 1, 1, 0, mStream, kernelParams, sizeof(kernelParams), 0, PX_FL);
+	if(result != CUDA_SUCCESS)
+		PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR, PX_FL, "GPU clearCurrentFrictionPatchCounts fail to launch kernel!!\n");
+}
+
 void PxgSolverCore::allocateFrictionCounts(PxU32 totalEdges)
 {
 	mFrictionPatchCounts[1 - mCurrentIndex].allocateCopyOldDataAsync(totalEdges * sizeof(PxU32), mCudaContext, mStream, PX_FL);
 	mFrictionPatchCounts[mCurrentIndex].allocate(totalEdges * sizeof(PxU32), PX_FL);
+	// Every edge this pass does not visit (a body absent from the solver list in
+	// a frozen destruction pass, an edge re-added within one pass) must read as
+	// "no previous friction patches" next pass: its index-stream entry and patch
+	// blocks would otherwise point into another pass's batch space.
+	static const bool zeroFill = []() { const char* raw = getenv("PHYSX_DESTRUCTION_FRICTION_ZEROFILL"); return !raw || raw[0] != '0'; }();
+	if(totalEdges && zeroFill)
+		mCudaContext->memsetD32Async(mFrictionPatchCounts[mCurrentIndex].getDevicePtr(), 0, totalEdges, mStream);
 }
 
 PxgBlockFrictionIndex* PxgSolverCore::allocateFrictionPatchIndexStream(PxU32 totalFrictionPatchCount)
@@ -219,7 +279,7 @@ void PxgSolverCore::uploadNodeInteractionCounts(const PxU32* nodeInteractionCoun
 void PxgSolverCore::gpuMemDMAbackSolverBodies(float4* solverBodyPool, PxU32 nbSolverBodies,
 	Cm::PinnableArray<PxAlignedTransform>& body2WorldPool,
 	Cm::PinnableArray<PxgSolverBodySleepData>& solverBodySleepDataPool,
-	const bool enableDirectGPUAPI)
+	const bool enableDirectGPUAPI, const PxU32 firstDynamicBody)
 {
 	PX_PROFILE_ZONE("GpuDynamics.DMABackBodies", 0);
 
@@ -227,8 +287,20 @@ void PxgSolverCore::gpuMemDMAbackSolverBodies(float4* solverBodyPool, PxU32 nbSo
 	{
 		mCudaContext->memcpyDtoHAsync(solverBodyPool, mOutVelocityPool.getDevicePtr(), sizeof(PxgSolverBody) * nbSolverBodies, mStream);
 		mCudaContext->memcpyDtoHAsync(body2WorldPool.begin(), mOutBody2WorldPool.getDevicePtr(), sizeof(PxAlignedTransform) * nbSolverBodies, mStream);
-		mCudaContext->memcpyDtoHAsync(solverBodySleepDataPool.begin(), mSolverBodySleepDataPool.getDevicePtr(), sizeof(PxgSolverBodySleepData) * nbSolverBodies, mStream);
-	}
+    }
+    // Native islands need sleep eligibility even when motion stays on device.
+    // This copy joins the existing solver completion fence below.
+    // The integration producer and both CPU sleep consumers cover dynamic
+    // solver bodies only. World/kinematic entries have no sleep output and must
+    // not be copied merely because their storage shares the same allocation.
+    PX_ASSERT(firstDynamicBody<=nbSolverBodies);
+    if ((!enableDirectGPUAPI || !mGpuContext->isSleepingDisabled()) && firstDynamicBody<nbSolverBodies)
+    {
+        const PxU64 offset=PxU64(firstDynamicBody)*sizeof(PxgSolverBodySleepData);
+        mCudaContext->memcpyDtoHAsync(solverBodySleepDataPool.begin()+firstDynamicBody,
+            mSolverBodySleepDataPool.getDevicePtr()+offset,
+            sizeof(PxgSolverBodySleepData)*(nbSolverBodies-firstDynamicBody),mStream);
+    }
 
 	synchronizeStreams(mCudaContext, mStream2, mStream, mIntegrateEvent);
 
@@ -266,6 +338,7 @@ void PxgSolverCore::allocateSolverBodyBuffersCommon(PxU32 numSolverBodies, Cm::P
 
 	mCudaContext->memsetD32Async(mSolverBodyIndices.getDevicePtr(), 0xFFffFFff, numSolverBodies, mStream);
 	mCudaContext->memcpyHtoDAsync(mIslandNodeIndices2.getDevicePtr(), islandNodeIndices.begin(), sizeof(PxNodeIndex) *islandNodeIndices.size(), mStream);
+    mGpuContext->prepareNativeRigidIterationLimits(mIslandNodeIndices2.getDevicePtr(),mStream);
 
 	synchronizeStreams(mCudaContext, mStream, mGpuContext->getArticulationCore()->getStream());
 
@@ -439,6 +512,7 @@ void PxgSolverCore::constructSolverDesc(PxgSolverCoreDesc& scDesc, PxU32 numIsla
 	scDesc.solverBodyDataPool = reinterpret_cast<PxgSolverBodyData*>(mSolverBodyDataPool.getDevicePtr());
 	scDesc.solverBodyTxIDataPool = reinterpret_cast<PxgSolverTxIData*>(mSolverTxIDataPool.getDevicePtr());
 	scDesc.solverBodySleepDataPool = reinterpret_cast<PxgSolverBodySleepData*>(mSolverBodySleepDataPool.getDevicePtr());
+	scDesc.solverBodyIndices = reinterpret_cast<const PxU32*>(mSolverBodyIndices.getDevicePtr());
 
 	scDesc.outArtiVelocity = reinterpret_cast<float4*>(mOutArtiVelocityPool.getDevicePtr());
 		
@@ -449,6 +523,8 @@ void PxgSolverCore::constructSolverDesc(PxgSolverCoreDesc& scDesc, PxU32 numIsla
 	scDesc.solverBodyReferences = reinterpret_cast<PxgSolverReferences*>(mSolverBodyReferences.getDevicePtr());
 
 	scDesc.contactManagerOutputBase = reinterpret_cast<PxsContactManagerOutput*>(mGpuContactManagerOutputBase);
+	scDesc.nativeContactWorkUnits = reinterpret_cast<const PxgBlockWorkUnit*>(mBlockWorkUnits.getDevicePtr());
+	scDesc.nativeResponseEpoch = mNativeResponseEpoch;
 
 	scDesc.islandContextPool = reinterpret_cast<PxgIslandContext*>(islandContextPoold);
 	scDesc.motionVelocityArray = reinterpret_cast<float4*>(motionVelocityArrayd);

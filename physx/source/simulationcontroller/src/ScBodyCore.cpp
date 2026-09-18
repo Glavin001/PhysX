@@ -40,7 +40,11 @@ static void gpu_updateBodySim(Sc::BodyCore& bodyCore)
 #if PX_SUPPORT_GPU_PHYSX
 	Sc::BodySim* bodySim = bodyCore.getSim();
 	if(bodySim)
-		bodySim->getScene().gpu_updateBodySim(*bodySim);
+    {
+        bodySim->getLowLevelBody().mGpuDynamicLimitsDamping = PxVec4(bodyCore.getMaxLinVelSq(),
+            bodyCore.getMaxAngVelSq(), bodyCore.getLinearDamping(), bodyCore.getAngularDamping());
+        bodySim->getScene().gpu_updateBodySim(*bodySim);
+    }
 #else
 	PX_UNUSED(bodyCore);
 #endif
@@ -85,6 +89,14 @@ void Sc::BodyCore::restoreDynamicData()
 //
 //--------------------------------------------------------------
 
+static void markDirectGpuHostWrite(Sc::BodySim* sim, PxU32 flags)
+{
+    if(sim && ((sim->getScene().getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_HOST_ACCESS)
+        || ((sim->getScene().getFlags() & PxSceneFlag::eENABLE_GPU_DYNAMICS)
+            && !(sim->getScene().getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_API))))
+        sim->getLowLevelBody().mGpuHostDirty |= PxU16(flags >> 16);
+}
+
 void Sc::BodyCore::setBody2World(const PxTransform& p)
 {
 	mCore.body2World = p;
@@ -94,6 +106,7 @@ void Sc::BodyCore::setBody2World(const PxTransform& p)
 	BodySim* sim = getSim();
 	if(sim)
 	{
+		markDirectGpuHostWrite(sim, PxsRigidBody::eHOST_POSE_COPY_GPU);
 		sim->postBody2WorldChange();
 		sim->getScene().gpu_updateBodySim(*sim);
 	}
@@ -113,6 +126,7 @@ void Sc::BodyCore::setCMassLocalPose(const PxTransform& newBody2Actor)
 
 void Sc::BodyCore::setLinearVelocity(const PxVec3& v, bool skipBodySimUpdate)
 {
+    markDirectGpuHostWrite(getSim(), PxsRigidBody::eHOST_LINEAR_COPY_GPU);
 	mCore.linearVelocity = v;
 
 	PX_ASSERT(!skipBodySimUpdate || (getFlags() & PxRigidBodyFlag::eKINEMATIC));
@@ -123,6 +137,7 @@ void Sc::BodyCore::setLinearVelocity(const PxVec3& v, bool skipBodySimUpdate)
 
 void Sc::BodyCore::setAngularVelocity(const PxVec3& v, bool skipBodySimUpdate)
 {
+    markDirectGpuHostWrite(getSim(), PxsRigidBody::eHOST_ANGULAR_COPY_GPU);
 	mCore.angularVelocity = v;
 
 	PX_ASSERT(!skipBodySimUpdate || (getFlags() & PxRigidBodyFlag::eKINEMATIC));
@@ -143,6 +158,7 @@ void Sc::BodyCore::setBody2Actor(const PxTransform& p)
 	PX_ASSERT(p.p.isFinite());
 	PX_ASSERT(p.q.isFinite());
 
+	markDirectGpuHostWrite(getSim(), PxsRigidBody::eHOST_COM_COPY_GPU);
 	mCore.setBody2Actor(p);
 
 	gpu_updateBodySim(*this);
@@ -203,6 +219,7 @@ PxReal Sc::BodyCore::getInverseMass() const
 
 void Sc::BodyCore::setInverseMass(PxReal m)
 {
+    markDirectGpuHostWrite(getSim(), PxsRigidBody::eHOST_MASS_COPY_GPU);
 	BodySim* sim = getSim();
 	if (!sim || (!(getFlags() & PxRigidBodyFlag::eKINEMATIC)))
 	{
@@ -236,6 +253,7 @@ const PxVec3& Sc::BodyCore::getInverseInertia() const
 
 void Sc::BodyCore::setInverseInertia(const PxVec3& i)
 {
+    markDirectGpuHostWrite(getSim(), PxsRigidBody::eHOST_INERTIA_COPY_GPU);
 	BodySim* sim = getSim();
 	if (!sim || (!(getFlags() & PxRigidBodyFlag::eKINEMATIC)))
 	{
@@ -281,6 +299,7 @@ void Sc::BodyCore::setLinearDamping(PxReal d)
 		PX_ASSERT(simStateData);
 		PX_ASSERT(simStateData->getKinematicData());
 		simStateData->getKinematicData()->backupLinearDamping = d;
+        gpu_updateBodySim(*this);
 	}
 }
 
@@ -314,6 +333,7 @@ void Sc::BodyCore::setAngularDamping(PxReal v)
 		PX_ASSERT(simStateData);
 		PX_ASSERT(simStateData->getKinematicData());
 		simStateData->getKinematicData()->backupAngularDamping = v;
+        gpu_updateBodySim(*this);
 	}
 }
 
@@ -347,6 +367,7 @@ void Sc::BodyCore::setMaxAngVelSq(PxReal v)
 		PX_ASSERT(simStateData);
 		PX_ASSERT(simStateData->getKinematicData());
 		simStateData->getKinematicData()->backupMaxAngVelSq = v;
+        gpu_updateBodySim(*this);
 	}
 }
 
@@ -380,10 +401,11 @@ void Sc::BodyCore::setMaxLinVelSq(PxReal v)
 		PX_ASSERT(simStateData);
 		PX_ASSERT(simStateData->getKinematicData());
 		simStateData->getKinematicData()->backupMaxLinVelSq = v;
+        gpu_updateBodySim(*this);
 	}
 }
 
-void Sc::BodyCore::setFlags(PxRigidBodyFlags f)
+void Sc::BodyCore::setFlags(PxRigidBodyFlags f, bool deviceOwnerTransaction)
 {
 	const PxRigidBodyFlags old = mCore.mFlags;
 	if(f != old)
@@ -406,9 +428,9 @@ void Sc::BodyCore::setFlags(PxRigidBodyFlags f)
 			// Thus, the kinematic data should only be created/destroyed when we know for sure that we are in a scene.
 
 			if(switchToKinematic)
-				sim->switchToKinematic();
+				sim->switchToKinematic(deviceOwnerTransaction);
 			else if(switchToDynamic)
-				sim->switchToDynamic();
+				sim->switchToDynamic(deviceOwnerTransaction);
 
 			const PxU32 wasSpeculativeCCD = old & PxRigidBodyFlag::eENABLE_SPECULATIVE_CCD;
 			const PxU32 isSpeculativeCCD = f & PxRigidBodyFlag::eENABLE_SPECULATIVE_CCD;
@@ -556,6 +578,7 @@ PxIntBool Sc::BodyCore::isFrozen() const
 void Sc::BodyCore::setSolverIterationCounts(PxU16 c)	
 { 
 	mCore.solverIterationCounts = c;
+    gpu_updateBodySim(*this);
 	Sc::BodySim* sim = getSim();
 	if (sim)
 		sim->getScene().setDynamicsDirty();

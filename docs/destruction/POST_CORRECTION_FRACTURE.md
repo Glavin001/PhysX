@@ -1,0 +1,78 @@
+# Two fracture evaluations, one motion correction
+
+The native scene now evaluates destruction once after the trial physics pass
+and once after a required corrected physics pass. `internalCorrectionLimit=1`
+permits at most two physics evaluations and two stress/material evaluations.
+An unchanged trial that needs no motion correction still evaluates stress once.
+
+The first evaluation uses actual trial impulses and commits its fracture
+verdict when corrected physics completes. Before evaluating the corrected
+impulses, the runtime takes a device snapshot of the corrected end-of-tick
+motion. Additional splits inherit that motion, including the COM point-velocity
+shift. They are installed and committed without scheduling another collide or
+advance task. Newly eligible contacts from those final splits are solved during
+the next normal tick, as with the external one-replay policy.
+
+Each material evaluation uses the existing timestep and equations. The second
+starts from the first accepted material state, matching the external two-tick
+calls within one replay loop. This is an intentional change from the former
+single-material-evaluation native policy, not a claim of identical fatigue or
+crushing results. Neither evaluation is submitted twice by a numerical retry.
+Scene commands are submitted only once; ordinary bodies advance by one timestep.
+
+`PxDestructionStageStatus` reports one frame receipt: aggregate contact, damage
+command and broken-bond counts, maximum numerical iteration count across the
+two evaluations, `stressPasses`, and `postCorrectionBrokenBonds` (a subset of
+`brokenBonds`). `correctionPasses` remains at most one. Device verdict buffers
+represent the most recent evaluation, while accepted topology includes both.
+Public observation remains forbidden until scene completion. The experimental
+API version is 14; rebuild all native consumers.
+
+The standard-scene compatibility fix preserves world-space shape caches during
+native ownership changes regardless of public Direct GPU mode. Rebuilding those
+caches from a not-yet-published CPU fragment previously corrupted queries for a
+split installed after the last physics pass.
+
+Tests:
+
+- `physx_native_post_correction`: four chunks, two bonds, two gravity-loaded
+  columns and one ordinary sentinel. One bond breaks in each evaluation;
+  verifies final ownership, CPU/GPU pose agreement, immediate raycast, exactly
+  one timestep of ordinary motion, and no duplicate cuts on the next tick.
+  Runs both with and without CPU contact report requests.
+- Existing standard-scene sleep/wake/query tests and native replay tests also
+  assert the stress evaluation count.
+- Frozen penetration regression retains its existing golden and tolerances.
+
+This does not complete selective correction, GPU contact lifecycle ownership,
+crush-fragment removal, or supported-joint rollback. Existing admission guards
+remain. Timing comparisons must identify whether they use one or two stress
+passes; a behavior change is not a performance optimization.
+
+## Removing unused CPU contact exports
+
+The native demo has no CPU contact callback. It now selects the simulation-only
+filter instead of the external demo's per-contact notification filter. Solving
+normal/friction contacts and borrowing native impulse streams remain enabled.
+This removes unused actor-pair report state that forced correction to rebuild
+all active contact registrations despite requesting pair reuse. Consumers that
+request CPU reports retain their existing filtering and correctness guards.
+
+The 256-building, 113,664-chunk, 229,376-bond test uses identical physical commands
+and settings before/after this deletion, including the new second evaluation.
+Two 12-second runs per arm give a measured worst complete peak of 355.506 ms
+before and 118.007 ms after; full-run means are 175.274 and 59.420 ms. All 767
+shots scheduled before the 12-second boundary are included. Counts differ in
+these chaotic runs; controlled replay, query/sleep and penetration tests are
+separate evidence. This is not an exact trajectory-equivalence claim.
+
+The two subsequent 30-second optimized runs include all 768 shots, reach up to
+40,926 bodies / 26,039 awake, and record 118.469/143.404 ms peaks. They do not
+meet 60 Hz. No 8 ms, five-trial or full lifecycle endurance gate is claimed.
+
+See the generated reports in `qualification/post-correction-performance/`,
+`qualification/post-correction-no-reports-long/`, and
+`qualification/post-correction-gpu-cost/`. The latter distinguishes actual
+CUDA checkpoint restore/installation intervals from CPU enqueue time and the
+combined CPU/GPU physics replay interval. CUDA markers run only in profiling
+captures and are collected at existing acceptance waits.

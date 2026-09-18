@@ -1,0 +1,1059 @@
+{
+  "command": [
+    "/root/workspace/physx-2/out/snapshot-finish-20260911/physical-ab-probe-v3/serialization-probe",
+    "/root/workspace/physx-2/out/snapshot-finish-20260911/local-promoted-verification/city256-late-debris-observed",
+    "--replay",
+    "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179",
+    "--repetitions",
+    "2"
+  ],
+  "binary_sha256": "aa7f714c8911674aa85a8a438addbcfeee66aa6a3022723a1a0b3dca20a9a223",
+  "samples": [
+    {
+      "unix_seconds": 1789138504.8166697,
+      "driver": "615.71.09",
+      "devices": [
+        {
+          "name": "NVIDIA GeForce RTX 5060 Ti",
+          "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+          "temperature": "39 C",
+          "clock": "2625 MHz",
+          "utilization": "3 %",
+          "memory_used": "1336 MiB",
+          "processes": [
+            {
+              "pid": 1434,
+              "name": "/usr/lib/xorg/Xorg",
+              "type": "G"
+            },
+            {
+              "pid": 1946,
+              "name": "/usr/bin/kwin_x11",
+              "type": "G"
+            },
+            {
+              "pid": 2016,
+              "name": "/usr/bin/plasmashell",
+              "type": "G"
+            },
+            {
+              "pid": 5246,
+              "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+              "type": "G"
+            },
+            {
+              "pid": 435374,
+              "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+              "type": "C"
+            },
+            {
+              "pid": 1304998,
+              "name": "/root/workspace/physx-2/out/snapshot-finish-20260911/physical-ab-probe-v3/serialization-probe",
+              "type": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "unix_seconds": 1789138505.418278,
+      "driver": "615.71.09",
+      "devices": [
+        {
+          "name": "NVIDIA GeForce RTX 5060 Ti",
+          "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+          "temperature": "39 C",
+          "clock": "2662 MHz",
+          "utilization": "3 %",
+          "memory_used": "2492 MiB",
+          "processes": [
+            {
+              "pid": 1434,
+              "name": "/usr/lib/xorg/Xorg",
+              "type": "G"
+            },
+            {
+              "pid": 1946,
+              "name": "/usr/bin/kwin_x11",
+              "type": "G"
+            },
+            {
+              "pid": 2016,
+              "name": "/usr/bin/plasmashell",
+              "type": "G"
+            },
+            {
+              "pid": 5246,
+              "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+              "type": "G"
+            },
+            {
+              "pid": 435374,
+              "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+              "type": "C"
+            },
+            {
+              "pid": 1304998,
+              "name": "/root/workspace/physx-2/out/snapshot-finish-20260911/physical-ab-probe-v3/serialization-probe",
+              "type": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "unix_seconds": 1789138506.0111797,
+      "driver": "615.71.09",
+      "devices": [
+        {
+          "name": "NVIDIA GeForce RTX 5060 Ti",
+          "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+          "temperature": "39 C",
+          "clock": "2662 MHz",
+          "utilization": "3 %",
+          "memory_used": "3522 MiB",
+          "processes": [
+            {
+              "pid": 1434,
+              "name": "/usr/lib/xorg/Xorg",
+              "type": "G"
+            },
+            {
+              "pid": 1946,
+              "name": "/usr/bin/kwin_x11",
+              "type": "G"
+            },
+            {
+              "pid": 2016,
+              "name": "/usr/bin/plasmashell",
+              "type": "G"
+            },
+            {
+              "pid": 5246,
+              "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+              "type": "G"
+            },
+            {
+              "pid": 435374,
+              "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+              "type": "C"
+            },
+            {
+              "pid": 1304998,
+              "name": "/root/workspace/physx-2/out/snapshot-finish-20260911/physical-ab-probe-v3/serialization-probe",
+              "type": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "unix_seconds": 1789138506.6062465,
+      "driver": "615.71.09",
+      "devices": [
+        {
+          "name": "NVIDIA GeForce RTX 5060 Ti",
+          "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+          "temperature": "39 C",
+          "clock": "2662 MHz",
+          "utilization": "4 %",
+          "memory_used": "4550 MiB",
+          "processes": [
+            {
+              "pid": 1434,
+              "name": "/usr/lib/xorg/Xorg",
+              "type": "G"
+            },
+            {
+              "pid": 1946,
+              "name": "/usr/bin/kwin_x11",
+              "type": "G"
+            },
+            {
+              "pid": 2016,
+              "name": "/usr/bin/plasmashell",
+              "type": "G"
+            },
+            {
+              "pid": 5246,
+              "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+              "type": "G"
+            },
+            {
+              "pid": 435374,
+              "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+              "type": "C"
+            },
+            {
+              "pid": 1304998,
+              "name": "/root/workspace/physx-2/out/snapshot-finish-20260911/physical-ab-probe-v3/serialization-probe",
+              "type": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "unix_seconds": 1789138507.2082627,
+      "driver": "615.71.09",
+      "devices": [
+        {
+          "name": "NVIDIA GeForce RTX 5060 Ti",
+          "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+          "temperature": "39 C",
+          "clock": "2662 MHz",
+          "utilization": "3 %",
+          "memory_used": "5578 MiB",
+          "processes": [
+            {
+              "pid": 1434,
+              "name": "/usr/lib/xorg/Xorg",
+              "type": "G"
+            },
+            {
+              "pid": 1946,
+              "name": "/usr/bin/kwin_x11",
+              "type": "G"
+            },
+            {
+              "pid": 2016,
+              "name": "/usr/bin/plasmashell",
+              "type": "G"
+            },
+            {
+              "pid": 5246,
+              "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+              "type": "G"
+            },
+            {
+              "pid": 435374,
+              "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+              "type": "C"
+            },
+            {
+              "pid": 1304998,
+              "name": "/root/workspace/physx-2/out/snapshot-finish-20260911/physical-ab-probe-v3/serialization-probe",
+              "type": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "unix_seconds": 1789138507.813453,
+      "driver": "615.71.09",
+      "devices": [
+        {
+          "name": "NVIDIA GeForce RTX 5060 Ti",
+          "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+          "temperature": "39 C",
+          "clock": "2662 MHz",
+          "utilization": "4 %",
+          "memory_used": "5582 MiB",
+          "processes": [
+            {
+              "pid": 1434,
+              "name": "/usr/lib/xorg/Xorg",
+              "type": "G"
+            },
+            {
+              "pid": 1946,
+              "name": "/usr/bin/kwin_x11",
+              "type": "G"
+            },
+            {
+              "pid": 2016,
+              "name": "/usr/bin/plasmashell",
+              "type": "G"
+            },
+            {
+              "pid": 5246,
+              "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+              "type": "G"
+            },
+            {
+              "pid": 435374,
+              "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+              "type": "C"
+            },
+            {
+              "pid": 1304998,
+              "name": "/root/workspace/physx-2/out/snapshot-finish-20260911/physical-ab-probe-v3/serialization-probe",
+              "type": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "unix_seconds": 1789138508.419223,
+      "driver": "615.71.09",
+      "devices": [
+        {
+          "name": "NVIDIA GeForce RTX 5060 Ti",
+          "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+          "temperature": "39 C",
+          "clock": "2625 MHz",
+          "utilization": "7 %",
+          "memory_used": "7578 MiB",
+          "processes": [
+            {
+              "pid": 1434,
+              "name": "/usr/lib/xorg/Xorg",
+              "type": "G"
+            },
+            {
+              "pid": 1946,
+              "name": "/usr/bin/kwin_x11",
+              "type": "G"
+            },
+            {
+              "pid": 2016,
+              "name": "/usr/bin/plasmashell",
+              "type": "G"
+            },
+            {
+              "pid": 5246,
+              "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+              "type": "G"
+            },
+            {
+              "pid": 435374,
+              "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+              "type": "C"
+            },
+            {
+              "pid": 1304998,
+              "name": "/root/workspace/physx-2/out/snapshot-finish-20260911/physical-ab-probe-v3/serialization-probe",
+              "type": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "unix_seconds": 1789138509.0204608,
+      "driver": "615.71.09",
+      "devices": [
+        {
+          "name": "NVIDIA GeForce RTX 5060 Ti",
+          "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+          "temperature": "39 C",
+          "clock": "2625 MHz",
+          "utilization": "6 %",
+          "memory_used": "7578 MiB",
+          "processes": [
+            {
+              "pid": 1434,
+              "name": "/usr/lib/xorg/Xorg",
+              "type": "G"
+            },
+            {
+              "pid": 1946,
+              "name": "/usr/bin/kwin_x11",
+              "type": "G"
+            },
+            {
+              "pid": 2016,
+              "name": "/usr/bin/plasmashell",
+              "type": "G"
+            },
+            {
+              "pid": 5246,
+              "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+              "type": "G"
+            },
+            {
+              "pid": 435374,
+              "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+              "type": "C"
+            },
+            {
+              "pid": 1304998,
+              "name": "/root/workspace/physx-2/out/snapshot-finish-20260911/physical-ab-probe-v3/serialization-probe",
+              "type": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "unix_seconds": 1789138509.63016,
+      "driver": "615.71.09",
+      "devices": [
+        {
+          "name": "NVIDIA GeForce RTX 5060 Ti",
+          "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+          "temperature": "39 C",
+          "clock": "2625 MHz",
+          "utilization": "14 %",
+          "memory_used": "10666 MiB",
+          "processes": [
+            {
+              "pid": 1434,
+              "name": "/usr/lib/xorg/Xorg",
+              "type": "G"
+            },
+            {
+              "pid": 1946,
+              "name": "/usr/bin/kwin_x11",
+              "type": "G"
+            },
+            {
+              "pid": 2016,
+              "name": "/usr/bin/plasmashell",
+              "type": "G"
+            },
+            {
+              "pid": 5246,
+              "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+              "type": "G"
+            },
+            {
+              "pid": 435374,
+              "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+              "type": "C"
+            },
+            {
+              "pid": 1304998,
+              "name": "/root/workspace/physx-2/out/snapshot-finish-20260911/physical-ab-probe-v3/serialization-probe",
+              "type": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "unix_seconds": 1789138510.2268858,
+      "driver": "615.71.09",
+      "devices": [
+        {
+          "name": "NVIDIA GeForce RTX 5060 Ti",
+          "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+          "temperature": "40 C",
+          "clock": "2625 MHz",
+          "utilization": "6 %",
+          "memory_used": "10666 MiB",
+          "processes": [
+            {
+              "pid": 1434,
+              "name": "/usr/lib/xorg/Xorg",
+              "type": "G"
+            },
+            {
+              "pid": 1946,
+              "name": "/usr/bin/kwin_x11",
+              "type": "G"
+            },
+            {
+              "pid": 2016,
+              "name": "/usr/bin/plasmashell",
+              "type": "G"
+            },
+            {
+              "pid": 5246,
+              "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+              "type": "G"
+            },
+            {
+              "pid": 435374,
+              "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+              "type": "C"
+            },
+            {
+              "pid": 1304998,
+              "name": "/root/workspace/physx-2/out/snapshot-finish-20260911/physical-ab-probe-v3/serialization-probe",
+              "type": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "unix_seconds": 1789138510.8235986,
+      "driver": "615.71.09",
+      "devices": [
+        {
+          "name": "NVIDIA GeForce RTX 5060 Ti",
+          "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+          "temperature": "40 C",
+          "clock": "2625 MHz",
+          "utilization": "3 %",
+          "memory_used": "10666 MiB",
+          "processes": [
+            {
+              "pid": 1434,
+              "name": "/usr/lib/xorg/Xorg",
+              "type": "G"
+            },
+            {
+              "pid": 1946,
+              "name": "/usr/bin/kwin_x11",
+              "type": "G"
+            },
+            {
+              "pid": 2016,
+              "name": "/usr/bin/plasmashell",
+              "type": "G"
+            },
+            {
+              "pid": 5246,
+              "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+              "type": "G"
+            },
+            {
+              "pid": 435374,
+              "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+              "type": "C"
+            },
+            {
+              "pid": 1304998,
+              "name": "/root/workspace/physx-2/out/snapshot-finish-20260911/physical-ab-probe-v3/serialization-probe",
+              "type": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "unix_seconds": 1789138511.4234385,
+      "driver": "615.71.09",
+      "devices": [
+        {
+          "name": "NVIDIA GeForce RTX 5060 Ti",
+          "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+          "temperature": "39 C",
+          "clock": "2625 MHz",
+          "utilization": "3 %",
+          "memory_used": "10666 MiB",
+          "processes": [
+            {
+              "pid": 1434,
+              "name": "/usr/lib/xorg/Xorg",
+              "type": "G"
+            },
+            {
+              "pid": 1946,
+              "name": "/usr/bin/kwin_x11",
+              "type": "G"
+            },
+            {
+              "pid": 2016,
+              "name": "/usr/bin/plasmashell",
+              "type": "G"
+            },
+            {
+              "pid": 5246,
+              "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+              "type": "G"
+            },
+            {
+              "pid": 435374,
+              "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+              "type": "C"
+            },
+            {
+              "pid": 1304998,
+              "name": "/root/workspace/physx-2/out/snapshot-finish-20260911/physical-ab-probe-v3/serialization-probe",
+              "type": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "unix_seconds": 1789138512.0325336,
+      "driver": "615.71.09",
+      "devices": [
+        {
+          "name": "NVIDIA GeForce RTX 5060 Ti",
+          "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+          "temperature": "39 C",
+          "clock": "2625 MHz",
+          "utilization": "3 %",
+          "memory_used": "8660 MiB",
+          "processes": [
+            {
+              "pid": 1434,
+              "name": "/usr/lib/xorg/Xorg",
+              "type": "G"
+            },
+            {
+              "pid": 1946,
+              "name": "/usr/bin/kwin_x11",
+              "type": "G"
+            },
+            {
+              "pid": 2016,
+              "name": "/usr/bin/plasmashell",
+              "type": "G"
+            },
+            {
+              "pid": 5246,
+              "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+              "type": "G"
+            },
+            {
+              "pid": 435374,
+              "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+              "type": "C"
+            },
+            {
+              "pid": 1304998,
+              "name": "/root/workspace/physx-2/out/snapshot-finish-20260911/physical-ab-probe-v3/serialization-probe",
+              "type": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "unix_seconds": 1789138512.627179,
+      "driver": "615.71.09",
+      "devices": [
+        {
+          "name": "NVIDIA GeForce RTX 5060 Ti",
+          "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+          "temperature": "39 C",
+          "clock": "2625 MHz",
+          "utilization": "3 %",
+          "memory_used": "4562 MiB",
+          "processes": [
+            {
+              "pid": 1434,
+              "name": "/usr/lib/xorg/Xorg",
+              "type": "G"
+            },
+            {
+              "pid": 1946,
+              "name": "/usr/bin/kwin_x11",
+              "type": "G"
+            },
+            {
+              "pid": 2016,
+              "name": "/usr/bin/plasmashell",
+              "type": "G"
+            },
+            {
+              "pid": 5246,
+              "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+              "type": "G"
+            },
+            {
+              "pid": 435374,
+              "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+              "type": "C"
+            },
+            {
+              "pid": 1304998,
+              "name": "/root/workspace/physx-2/out/snapshot-finish-20260911/physical-ab-probe-v3/serialization-probe",
+              "type": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "unix_seconds": 1789138513.2353704,
+      "driver": "615.71.09",
+      "devices": [
+        {
+          "name": "NVIDIA GeForce RTX 5060 Ti",
+          "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+          "temperature": "39 C",
+          "clock": "2625 MHz",
+          "utilization": "3 %",
+          "memory_used": "5586 MiB",
+          "processes": [
+            {
+              "pid": 1434,
+              "name": "/usr/lib/xorg/Xorg",
+              "type": "G"
+            },
+            {
+              "pid": 1946,
+              "name": "/usr/bin/kwin_x11",
+              "type": "G"
+            },
+            {
+              "pid": 2016,
+              "name": "/usr/bin/plasmashell",
+              "type": "G"
+            },
+            {
+              "pid": 5246,
+              "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+              "type": "G"
+            },
+            {
+              "pid": 435374,
+              "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+              "type": "C"
+            },
+            {
+              "pid": 1304998,
+              "name": "/root/workspace/physx-2/out/snapshot-finish-20260911/physical-ab-probe-v3/serialization-probe",
+              "type": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "unix_seconds": 1789138513.8473558,
+      "driver": "615.71.09",
+      "devices": [
+        {
+          "name": "NVIDIA GeForce RTX 5060 Ti",
+          "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+          "temperature": "39 C",
+          "clock": "2625 MHz",
+          "utilization": "3 %",
+          "memory_used": "5590 MiB",
+          "processes": [
+            {
+              "pid": 1434,
+              "name": "/usr/lib/xorg/Xorg",
+              "type": "G"
+            },
+            {
+              "pid": 1946,
+              "name": "/usr/bin/kwin_x11",
+              "type": "G"
+            },
+            {
+              "pid": 2016,
+              "name": "/usr/bin/plasmashell",
+              "type": "G"
+            },
+            {
+              "pid": 5246,
+              "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+              "type": "G"
+            },
+            {
+              "pid": 435374,
+              "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+              "type": "C"
+            },
+            {
+              "pid": 1304998,
+              "name": "/root/workspace/physx-2/out/snapshot-finish-20260911/physical-ab-probe-v3/serialization-probe",
+              "type": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "unix_seconds": 1789138514.4326322,
+      "driver": "615.71.09",
+      "devices": [
+        {
+          "name": "NVIDIA GeForce RTX 5060 Ti",
+          "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+          "temperature": "40 C",
+          "clock": "2625 MHz",
+          "utilization": "11 %",
+          "memory_used": "7578 MiB",
+          "processes": [
+            {
+              "pid": 1434,
+              "name": "/usr/lib/xorg/Xorg",
+              "type": "G"
+            },
+            {
+              "pid": 1946,
+              "name": "/usr/bin/kwin_x11",
+              "type": "G"
+            },
+            {
+              "pid": 2016,
+              "name": "/usr/bin/plasmashell",
+              "type": "G"
+            },
+            {
+              "pid": 5246,
+              "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+              "type": "G"
+            },
+            {
+              "pid": 435374,
+              "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+              "type": "C"
+            },
+            {
+              "pid": 1304998,
+              "name": "/root/workspace/physx-2/out/snapshot-finish-20260911/physical-ab-probe-v3/serialization-probe",
+              "type": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "unix_seconds": 1789138515.0357637,
+      "driver": "615.71.09",
+      "devices": [
+        {
+          "name": "NVIDIA GeForce RTX 5060 Ti",
+          "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+          "temperature": "39 C",
+          "clock": "2625 MHz",
+          "utilization": "7 %",
+          "memory_used": "8602 MiB",
+          "processes": [
+            {
+              "pid": 1434,
+              "name": "/usr/lib/xorg/Xorg",
+              "type": "G"
+            },
+            {
+              "pid": 1946,
+              "name": "/usr/bin/kwin_x11",
+              "type": "G"
+            },
+            {
+              "pid": 2016,
+              "name": "/usr/bin/plasmashell",
+              "type": "G"
+            },
+            {
+              "pid": 5246,
+              "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+              "type": "G"
+            },
+            {
+              "pid": 435374,
+              "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+              "type": "C"
+            },
+            {
+              "pid": 1304998,
+              "name": "/root/workspace/physx-2/out/snapshot-finish-20260911/physical-ab-probe-v3/serialization-probe",
+              "type": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "unix_seconds": 1789138515.6645753,
+      "driver": "615.71.09",
+      "devices": [
+        {
+          "name": "NVIDIA GeForce RTX 5060 Ti",
+          "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+          "temperature": "40 C",
+          "clock": "2625 MHz",
+          "utilization": "23 %",
+          "memory_used": "8660 MiB",
+          "processes": [
+            {
+              "pid": 1434,
+              "name": "/usr/lib/xorg/Xorg",
+              "type": "G"
+            },
+            {
+              "pid": 1946,
+              "name": "/usr/bin/kwin_x11",
+              "type": "G"
+            },
+            {
+              "pid": 2016,
+              "name": "/usr/bin/plasmashell",
+              "type": "G"
+            },
+            {
+              "pid": 5246,
+              "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+              "type": "G"
+            },
+            {
+              "pid": 435374,
+              "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+              "type": "C"
+            },
+            {
+              "pid": 1304998,
+              "name": "/root/workspace/physx-2/out/snapshot-finish-20260911/physical-ab-probe-v3/serialization-probe",
+              "type": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "unix_seconds": 1789138516.2819028,
+      "driver": "615.71.09",
+      "devices": [
+        {
+          "name": "NVIDIA GeForce RTX 5060 Ti",
+          "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+          "temperature": "39 C",
+          "clock": "2625 MHz",
+          "utilization": "4 %",
+          "memory_used": "3538 MiB",
+          "processes": [
+            {
+              "pid": 1434,
+              "name": "/usr/lib/xorg/Xorg",
+              "type": "G"
+            },
+            {
+              "pid": 1946,
+              "name": "/usr/bin/kwin_x11",
+              "type": "G"
+            },
+            {
+              "pid": 2016,
+              "name": "/usr/bin/plasmashell",
+              "type": "G"
+            },
+            {
+              "pid": 5246,
+              "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+              "type": "G"
+            },
+            {
+              "pid": 435374,
+              "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+              "type": "C"
+            },
+            {
+              "pid": 1304998,
+              "name": "/root/workspace/physx-2/out/snapshot-finish-20260911/physical-ab-probe-v3/serialization-probe",
+              "type": "C"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "status": "complete",
+  "diagnostic_environment": {
+    "PHYSX_SNAPSHOT_DUMP_OBSERVATIONS": "first"
+  },
+  "snapshot_inputs": {
+    "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179.pxbin": "64e2f438ee00de5ff9beb72d000c9c5fde7dd5d9eaa6acff68e942d13fa21a87",
+    "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179.destruction": "155fa684303c4ac9d3d68a72d917217106b64f5522b08df34d23ed6f50db54be",
+    "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179.scene": "9dfc90012f124e406a3eeaf23fde32fd7e87a0a8e2f8a43b87f99cd7d68d446f",
+    "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179.metadata.json": "05064a02bbd45073df1ff7044c20ec8930b86966f230243cbeb3a657db0cb4c6"
+  },
+  "before": {
+    "unix_seconds": 1789138504.5918026,
+    "driver": "615.71.09",
+    "devices": [
+      {
+        "name": "NVIDIA GeForce RTX 5060 Ti",
+        "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+        "temperature": "39 C",
+        "clock": "2625 MHz",
+        "utilization": "3 %",
+        "memory_used": "1309 MiB",
+        "processes": [
+          {
+            "pid": 1434,
+            "name": "/usr/lib/xorg/Xorg",
+            "type": "G"
+          },
+          {
+            "pid": 1946,
+            "name": "/usr/bin/kwin_x11",
+            "type": "G"
+          },
+          {
+            "pid": 2016,
+            "name": "/usr/bin/plasmashell",
+            "type": "G"
+          },
+          {
+            "pid": 5246,
+            "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+            "type": "G"
+          },
+          {
+            "pid": 435374,
+            "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+            "type": "C"
+          }
+        ]
+      }
+    ]
+  },
+  "allowed": [
+    {
+      "pid": 1434,
+      "name": "/usr/lib/xorg/Xorg",
+      "type": "G"
+    },
+    {
+      "pid": 1946,
+      "name": "/usr/bin/kwin_x11",
+      "type": "G"
+    },
+    {
+      "pid": 2016,
+      "name": "/usr/bin/plasmashell",
+      "type": "G"
+    },
+    {
+      "pid": 5246,
+      "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+      "type": "G"
+    },
+    {
+      "pid": 435374,
+      "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+      "type": "C"
+    }
+  ],
+  "gpu_pid": 1304998,
+  "modules": {
+    "/root/workspace/physx-2/out/snapshot-finish-20260911/local-promoted-verification/artifacts/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+    "/root/workspace/physx-2/out/snapshot-finish-20260911/local-promoted-verification/artifacts/libPhysXDestructionGpuRuntime_64.so": "6592867fe95f5cb642eb84666a67cb9087a5548fe7187379a6bfe9f383e2a5bf"
+  },
+  "exit_code": 0,
+  "after": {
+    "unix_seconds": 1789138516.8439333,
+    "driver": "615.71.09",
+    "devices": [
+      {
+        "name": "NVIDIA GeForce RTX 5060 Ti",
+        "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+        "temperature": "39 C",
+        "clock": "2625 MHz",
+        "utilization": "3 %",
+        "memory_used": "1309 MiB",
+        "processes": [
+          {
+            "pid": 1434,
+            "name": "/usr/lib/xorg/Xorg",
+            "type": "G"
+          },
+          {
+            "pid": 1946,
+            "name": "/usr/bin/kwin_x11",
+            "type": "G"
+          },
+          {
+            "pid": 2016,
+            "name": "/usr/bin/plasmashell",
+            "type": "G"
+          },
+          {
+            "pid": 5246,
+            "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+            "type": "G"
+          },
+          {
+            "pid": 435374,
+            "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+            "type": "C"
+          }
+        ]
+      }
+    ]
+  },
+  "elapsed_monotonic_seconds": 12.254902380998828
+}

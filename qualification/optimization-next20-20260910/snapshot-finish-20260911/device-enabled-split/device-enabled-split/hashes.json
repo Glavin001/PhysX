@@ -1,0 +1,8 @@
+{
+  "/root/workspace/physx-2/out/snapshot-finish-20260911/device-enabled-split/libPhysXDestructionGpuRuntime_64.so": "29dee12c70e46a7d54b0d50f939f46748f5deee4ffa3b5e2f2909d86bf482a1a",
+  "/root/workspace/physx-2/out/snapshot-finish-20260911/device-enabled-split/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+  "/root/workspace/physx-2/out/snapshot-finish-20260911/device-enabled-split/PxgDestructionRuntime.cu": "e188bd4635622c1dd51c0f0970fbc5a9fcf0ae90bbb836858b466060ad4b5e1b",
+  "/root/workspace/physx-2/out/snapshot-finish-20260911/device-enabled-split/PxgDestructionCommittedChanges.cuh": "a161046c980282dc72a153632fe9de12146e60b677e2d928bd3f785b381392a1",
+  "/root/workspace/physx-2/out/snapshot-finish-20260911/device-enabled-split/PxgDestructionDeviceGraph.cuh": "e94cbf1f927560be30349943d9494abae88f4fd8003394ed10afdb606117ad46",
+  "/root/workspace/physx-2/out/snapshot-finish-20260911/device-enabled-split/PxgDestructionMotionSlots.cuh": "0076aaf2deb16dae3d2a546320ec6c8d25479b6ec682a8cd1b0bec1070bef9aa"
+}

@@ -1,0 +1,10 @@
+========= COMPUTE-SANITIZER
+START fixture=large nodes=100000 bonds=199997
+cycle numeric nodes=100000 bonds=199997 squared=0 local=1.3819305422213546e-10 absolute=4.7311186790466309e-07 response=89743930.948516531 normwise=5.2717979132881256e-15 symmetry=8.1653636358772048e-20 worst-node=13020 coordinate=5
+cycle component-coordinate normwise nodes=100000 bonds=199997 squared=0 error=1.491215722323374e-12
+cycle numeric nodes=100000 bonds=199997 squared=1 local=2.5948766948268177e-09 absolute=88576 response=1.6807628495498227e+19 normwise=5.2699879714573827e-15 symmetry=2.2202071086187589e-21 worst-node=18733 coordinate=5
+cycle component-coordinate normwise nodes=100000 bonds=199997 squared=1 error=1.4497799171727944e-12
+resident V-cycle nodes=100000 bonds=199997 dense-oracle=0 squared-capture/symmetry/linearity passed
+assembled resident hierarchy nodes=100000 bonds=199997 levels=16 transitions=6 passed
+========= LEAK SUMMARY: 0 bytes leaked in 0 allocations
+========= ERROR SUMMARY: 0 errors

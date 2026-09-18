@@ -1,0 +1,3 @@
+========= COMPUTE-SANITIZER
+PASS depth=2 delayed=1 hostWait=1 nodes=100000 edges=200000 repetitions=3
+========= ERROR SUMMARY: 0 errors

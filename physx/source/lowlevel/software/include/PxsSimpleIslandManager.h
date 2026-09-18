@@ -31,6 +31,7 @@
 
 #include "foundation/PxUserAllocated.h"
 #include "PxsIslandSim.h"
+#include <atomic>
 #include "CmTask.h"
 
 /*
@@ -148,6 +149,10 @@ class AuxCpuData
 class SimpleIslandManager : public PxUserAllocated
 {
 	HandleManager<PxU32> mNodeHandles;		//! Handle manager for nodes
+    // Capacity leased to the native GPU motion allocator. No Node/BodySim exists
+    // until a GPU-selected handle is bound. Live includes deferred retirement.
+    PxBitMap mReservedNativeNodes, mBoundNativeNodes;
+    void reclaimNodeHandle(PxU32 handle);
 	HandleManager<EdgeIndex> mEdgeHandles;	//! Handle manager for edges
 
 	//An array of destroyed nodes
@@ -162,6 +167,32 @@ class SimpleIslandManager : public PxUserAllocated
 	AuxCpuData		mAuxCpuData;
 
 	PxBitMap mConnectedMap;
+    // Contact edges may outlive their active narrowphase manager. Track those
+    // lifecycle entries without scanning every active contact for GPU export.
+    PxBitMap mRetainedContactMap;
+    PxBitMap mRetainedContactChanges;
+    // Submission receipt only: suppress removals for edges never published to
+    // the device. This is not another contact/connectivity simulation.
+    PxBitMap mRetainedContactPublished;
+    std::atomic<bool> mRetainedEndpointChanges{false};
+    bool isRetainedContact(EdgeIndex edge) {
+        const PxU32 word=PxU32(PxAtomicOr(reinterpret_cast<PxI32*>(mRetainedContactMap.getWords()+(edge>>5)),0));
+        return bool(word & (1u<<(edge&31)));
+    }
+    void markRetainedContactChanged(EdgeIndex edge) {
+        PxAtomicOr(reinterpret_cast<PxI32*>(mRetainedContactChanges.getWords()+(edge>>5)),PxI32(1u<<(edge&31)));
+    }
+    std::atomic<PxU64> mRetainedContactRevision{0};
+    void setRetainedContact(EdgeIndex edge,bool retained) {
+        if(!mGPU)return;
+        PxI32* word=reinterpret_cast<PxI32*>(mRetainedContactMap.getWords()+(edge>>5));
+        const PxU32 mask=1u<<(edge&31);
+        const PxU32 previous=PxU32(retained?PxAtomicOr(word,PxI32(mask)):PxAtomicAnd(word,PxI32(~mask)));
+        if(bool(previous&mask)!=retained) {
+            markRetainedContactChanged(edge);
+            mRetainedContactRevision.fetch_add(1,std::memory_order_relaxed);
+        }
+    }
 
 	// PT: TODO: figure out why we still need both
 	IslandSim mAccurateIslandManager;
@@ -177,10 +208,50 @@ class SimpleIslandManager : public PxUserAllocated
 	const bool mGPU;
 public:
 
+    bool mDeviceConnectivityRequested = false;
+    PxU64 mDeviceConnectivityPasses = 0, mHostConnectivityRestores = 0;
+    void requestDeviceConnectivity(bool value) { if(!value)restoreHostConnectivity();mDeviceConnectivityRequested=value; }
+    bool deviceConnectivityRequested() const { return mDeviceConnectivityRequested; }
+    bool deviceConnectivityOwned() const { return mAccurateIslandManager.deviceConnectivityOwned(); }
+    void setDeviceConnectivityOwned(bool value) {
+        if(value)++mDeviceConnectivityPasses;
+        mAccurateIslandManager.setDeviceConnectivityOwned(value);
+        mSpeculativeIslandManager.setDeviceConnectivityOwned(value);
+    }
+    void restoreHostConnectivity() {
+        if(!deviceConnectivityOwned())return;
+        ++mHostConnectivityRestores;
+        mAccurateIslandManager.restoreHostConnectivity();mSpeculativeIslandManager.restoreHostConnectivity();
+    }
+    const PxBitMap& getRetainedContactMap() const { return mRetainedContactMap; }
+    // Called only at the completed native lifecycle boundary, after parallel
+    // contact registration. Coalesce endpoint changes once per transaction.
+    const PxBitMap& getRetainedContactChanges() {
+        if(mRetainedEndpointChanges.load(std::memory_order_relaxed))mRetainedContactChanges.combineInPlace<PxBitMap::OR>(mRetainedContactMap);
+        // Coalesce transient manager release/recreation before enumerating
+        // commands; otherwise churn emits removals for never-resident edges.
+        for(PxU32 i=0;i<mRetainedContactChanges.getWordCount();++i)
+            mRetainedContactChanges.getWords()[i]&=mRetainedContactMap.getWords()[i]|mRetainedContactPublished.getWords()[i];
+        return mRetainedContactChanges;
+    }
+    bool wasRetainedContactPublished(PxU32 edge) const { return mRetainedContactPublished.test(edge); }
+    void resetRetainedContactReceipt() { mRetainedContactPublished.clear(); }
+    void acknowledgeRetainedContact(PxU32 edge,bool active) {
+        if(active)mRetainedContactPublished.set(edge);else mRetainedContactPublished.reset(edge);
+    }
+    void acknowledgeRetainedContactChanges(const PxArray<PxU32>& deferred) {
+        mRetainedContactChanges.clear();mRetainedEndpointChanges.store(false,std::memory_order_relaxed);
+        for(PxU32 i=0;i<deferred.size();++i)mRetainedContactChanges.set(deferred[i]);
+    }
+    PxU64 getRetainedContactRevision() const { return mRetainedContactRevision.load(std::memory_order_relaxed); }
 	SimpleIslandManager(bool useEnhancedDeterminism, bool gpu, PxU64 contextID);
 	~SimpleIslandManager();
 
 	PxNodeIndex	addNode(bool isActive, bool isKinematic, Node::NodeType type, void* object);
+    bool reserveNativeNodeHandles(PxU32 count, PxU32* handles);
+    void releaseNativeNodeHandles(PxU32 count, const PxU32* handles);
+    bool isUnusedNativeNodeHandle(PxU32 handle) const;
+    PxNodeIndex bindNativeNodeHandle(PxU32 handle, bool active, bool kinematic, void* object);
 	void		removeNode(const PxNodeIndex index);
 
 	// PT: these two functions added for multithreaded implementation of Sc::Scene::islandInsertion

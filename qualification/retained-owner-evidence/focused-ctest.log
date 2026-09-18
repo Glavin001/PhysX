@@ -1,0 +1,22 @@
+Internal ctest changing into directory: /root/workspace/physx-2/out/destruction-sdk
+Test project /root/workspace/physx-2/out/destruction-sdk
+    Start 47: physx_native_gpu_body_allocation
+1/8 Test #47: physx_native_gpu_body_allocation ..........   Passed    2.90 sec
+    Start 48: physx_native_gpu_collision_preparation
+2/8 Test #48: physx_native_gpu_collision_preparation ....   Passed    4.47 sec
+    Start 49: physx_native_gpu_retained_registry
+3/8 Test #49: physx_native_gpu_retained_registry ........   Passed    0.45 sec
+    Start 57: physx_native_gpu_correction_bodies
+4/8 Test #57: physx_native_gpu_correction_bodies ........   Passed    3.68 sec
+    Start 67: physx_native_gpu_retained_contact_graph
+5/8 Test #67: physx_native_gpu_retained_contact_graph ...   Passed    1.27 sec
+    Start 68: physx_native_gpu_resimulation
+6/8 Test #68: physx_native_gpu_resimulation .............   Passed    7.55 sec
+    Start 69: physx_native_gpu_group_filtering
+7/8 Test #69: physx_native_gpu_group_filtering ..........   Passed    1.75 sec
+    Start 70: physx_native_gpu_publication
+8/8 Test #70: physx_native_gpu_publication ..............   Passed    1.45 sec
+
+100% tests passed, 0 tests failed out of 8
+
+Total Test time (real) =  23.52 sec

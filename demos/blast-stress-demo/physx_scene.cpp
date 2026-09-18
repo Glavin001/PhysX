@@ -1,0 +1,390 @@
+// Copyright (c) 2026 NVIDIA Corporation. All rights reserved.
+
+#include <cstdlib>
+#include <algorithm>
+#include "physx_scene.h"
+
+#include <algorithm>
+#include <cctype>
+#include <cstdio>
+#include <stdexcept>
+
+#include <cudamanager/PxCudaContext.h>
+#include <extensions/PxDefaultCpuDispatcher.h>
+#include <extensions/PxDefaultSimulationFilterShader.h>
+#include <extensions/PxExtensionsAPI.h>
+#include <extensions/PxRigidActorExt.h>
+
+namespace blast_demo
+{
+namespace
+{
+
+bool containsInsensitive(const std::string& value, const char* needle)
+{
+    std::string lower = value;
+    std::transform(lower.begin(), lower.end(), lower.begin(), [](unsigned char ch) {
+        return static_cast<char>(std::tolower(ch));
+    });
+    std::string target(needle);
+    std::transform(target.begin(), target.end(), target.begin(), [](unsigned char ch) {
+        return static_cast<char>(std::tolower(ch));
+    });
+    return lower.find(target) != std::string::npos;
+}
+
+physx::PxFilterFlags contactFilter(
+    physx::PxFilterObjectAttributes attributes0,
+    physx::PxFilterData,
+    physx::PxFilterObjectAttributes attributes1,
+    physx::PxFilterData,
+    physx::PxPairFlags& pairFlags,
+    const void*,
+    physx::PxU32)
+{
+    if (physx::PxFilterObjectIsTrigger(attributes0) || physx::PxFilterObjectIsTrigger(attributes1))
+    {
+        pairFlags = physx::PxPairFlag::eTRIGGER_DEFAULT;
+        return physx::PxFilterFlag::eDEFAULT;
+    }
+    pairFlags = physx::PxPairFlag::eCONTACT_DEFAULT
+        | physx::PxPairFlag::eNOTIFY_TOUCH_FOUND
+        | physx::PxPairFlag::eNOTIFY_TOUCH_PERSISTS
+        | physx::PxPairFlag::eNOTIFY_CONTACT_POINTS;
+    return physx::PxFilterFlag::eDEFAULT;
+}
+
+// Native destruction reads solved impulses internally. A consumer that does
+// not request CPU contact events must not allocate/export per-contact reports.
+physx::PxFilterFlags simulationFilter(
+    physx::PxFilterObjectAttributes a,physx::PxFilterData,
+    physx::PxFilterObjectAttributes b,physx::PxFilterData,
+    physx::PxPairFlags& flags,const void*,physx::PxU32)
+{
+    flags=(physx::PxFilterObjectIsTrigger(a) || physx::PxFilterObjectIsTrigger(b))
+        ? physx::PxPairFlag::eTRIGGER_DEFAULT : physx::PxPairFlag::eCONTACT_DEFAULT;
+    return physx::PxFilterFlag::eDEFAULT;
+}
+
+std::uint32_t capacityScale(const SceneCapacity& capacity)
+{
+    std::uint64_t requested = std::max<std::uint64_t>(
+        capacity.maxBodies,
+        std::max<std::uint64_t>(capacity.maxShapes, capacity.maxContactPairs / 8));
+    std::uint32_t scale = 1;
+    while (requested > 8000 && scale < 16)
+    {
+        requested = (requested + 1) / 2;
+        scale *= 2;
+    }
+    return scale;
+}
+
+} // namespace
+
+void TrackingErrorCallback::reportError(
+    physx::PxErrorCode::Enum code,
+    const char* message,
+    const char* file,
+    int line)
+{
+    m_lastMessage = message ? message : "";
+    if (code == physx::PxErrorCode::eDEBUG_WARNING || code == physx::PxErrorCode::ePERF_WARNING)
+    {
+        ++m_warningCount;
+    }
+    m_gpuFailure = m_gpuFailure
+        || code == physx::PxErrorCode::eOUT_OF_MEMORY
+        || containsInsensitive(m_lastMessage, "cuda error")
+        || containsInsensitive(m_lastMessage, "gpu simulation fallback")
+        || containsInsensitive(m_lastMessage, "failed to create cuda");
+    m_capacityWarning = m_capacityWarning
+        || containsInsensitive(m_lastMessage, "capacity")
+        || containsInsensitive(m_lastMessage, "buffer overflow")
+        || containsInsensitive(m_lastMessage, "discarding");
+    std::fprintf(
+        stderr,
+        "[PhysX:%d] %s (%s:%d)\n",
+        static_cast<int>(code),
+        m_lastMessage.c_str(),
+        file ? file : "",
+        line);
+}
+
+PhysXScene::PhysXScene(
+    PhysicsMode mode,
+    bool requireGpu,
+    const SceneCapacity& capacity,
+    physx::PxSimulationEventCallback* events,
+    bool enableDirectGpuApi,
+    bool disableSleeping,
+    bool enableGpuSleeping,
+    bool enableGpuHostAccess,
+    physx::PxSolverType::Enum solverType,
+    bool enableBodyAccelerations,
+    bool enableContactReports,
+    physx::PxPinnedHostAllocatorCallback* pinnedAllocator)
+    : m_mode(mode)
+    , m_requireGpu(requireGpu)
+    , m_directGpuApiRequested(enableDirectGpuApi)
+{
+    if (m_directGpuApiRequested && m_mode != PhysicsMode::Gpu)
+    {
+        throw std::runtime_error("Direct GPU API requires GPU physics mode");
+    }
+    m_foundation = PxCreateFoundation(
+        PX_PHYSICS_VERSION,
+        m_allocator,
+        m_errorCallback);
+    if (!m_foundation)
+    {
+        throw std::runtime_error("PxCreateFoundation failed");
+    }
+
+    m_physics = PxCreatePhysics(
+        PX_PHYSICS_VERSION,
+        *m_foundation,
+        physx::PxTolerancesScale(),
+        true,
+        nullptr);
+    if (!m_physics)
+    {
+        throw std::runtime_error("PxCreatePhysics failed");
+    }
+    if (!PxInitExtensions(*m_physics, nullptr))
+    {
+        throw std::runtime_error("PxInitExtensions failed");
+    }
+
+    m_cookingParams = std::make_unique<physx::PxCookingParams>(m_physics->getTolerancesScale());
+    m_cookingParams->buildGPUData = true;
+    m_cookingParams->convexMeshCookingType = physx::PxConvexMeshCookingType::eQUICKHULL;
+
+    if (m_mode == PhysicsMode::Gpu)
+    {
+        physx::PxCudaContextManagerDesc cudaDesc;
+        cudaDesc.pinnedHostAllocator=pinnedAllocator;
+        m_cuda = PxCreateCudaContextManager(*m_foundation, cudaDesc, PxGetProfilerCallback());
+        if (!m_cuda || !m_cuda->contextIsValid())
+        {
+            if (m_cuda)
+            {
+                m_cuda->release();
+                m_cuda = nullptr;
+            }
+            if (m_requireGpu)
+            {
+                throw std::runtime_error("a valid CUDA context is required but was not created");
+            }
+            std::fprintf(stderr, "CUDA unavailable; falling back to CPU PhysX\n");
+            m_mode = PhysicsMode::Cpu;
+        }
+    }
+
+    // PHYSX_DEMO_CPU_THREADS overrides the worker count (default 4, the
+    // count every recorded measurement used).
+    const char* cpuThreadsRaw = std::getenv("PHYSX_DEMO_CPU_THREADS");
+    const int cpuThreads = cpuThreadsRaw ? std::max(1, std::atoi(cpuThreadsRaw)) : 4;
+    // PHYSX_DEMO_DISPATCHER_MODE: 0 wait for work (PhysX default, a semaphore
+    // wake-up per task), 1 yield thread (default since 2026-09-17), 2 yield
+    // processor (spin; count from PHYSX_DEMO_DISPATCHER_SPIN, default 1000).
+    // The destruction tick is a chain of hundreds of small tasks; on the
+    // measurement VM the per-task wake-up costs 4.6 ms of a 27 ms city256
+    // tick (histories identical). Workers of modes 1/2 use CPU while idle.
+    const char* dispatcherModeRaw = std::getenv("PHYSX_DEMO_DISPATCHER_MODE");
+    const int dispatcherMode = dispatcherModeRaw ? std::atoi(dispatcherModeRaw) : 1;
+    const char* dispatcherSpinRaw = std::getenv("PHYSX_DEMO_DISPATCHER_SPIN");
+    const physx::PxU32 dispatcherSpin = static_cast<physx::PxU32>(dispatcherSpinRaw ? std::max(1, std::atoi(dispatcherSpinRaw)) : 1000);
+    m_dispatcher = physx::PxDefaultCpuDispatcherCreate(static_cast<physx::PxU32>(cpuThreads), NULL,
+        dispatcherMode == 2 ? physx::PxDefaultCpuDispatcherWaitForWorkMode::eYIELD_PROCESSOR
+        : dispatcherMode == 1 ? physx::PxDefaultCpuDispatcherWaitForWorkMode::eYIELD_THREAD
+        : physx::PxDefaultCpuDispatcherWaitForWorkMode::eWAIT_FOR_WORK,
+        dispatcherMode == 2 ? dispatcherSpin : 0u);
+    if (!m_dispatcher)
+    {
+        throw std::runtime_error("PxDefaultCpuDispatcherCreate failed");
+    }
+
+    physx::PxSceneDesc desc(m_physics->getTolerancesScale());
+    desc.gravity = physx::PxVec3(0.0f, -9.81f, 0.0f);
+    desc.cpuDispatcher = m_dispatcher;
+    desc.filterShader = enableContactReports ? contactFilter : simulationFilter;
+    desc.simulationEventCallback = events;
+    desc.solverType = solverType;
+    if (enableBodyAccelerations) desc.flags |= physx::PxSceneFlag::eENABLE_BODY_ACCELERATIONS;
+    // PHYSX_DEMO_SQ_UPDATE_MODE: 0 build+commit (PhysX default), 1 build only
+    // (pruner refit deferred to the first query), 2 no scene-query work.
+    if (const char* sqModeRaw = std::getenv("PHYSX_DEMO_SQ_UPDATE_MODE"))
+    {
+        const int sqMode = std::atoi(sqModeRaw);
+        desc.sceneQueryUpdateMode = sqMode == 2 ? physx::PxSceneQueryUpdateMode::eBUILD_DISABLED_COMMIT_DISABLED
+            : sqMode == 1 ? physx::PxSceneQueryUpdateMode::eBUILD_ENABLED_COMMIT_DISABLED
+            : physx::PxSceneQueryUpdateMode::eBUILD_ENABLED_COMMIT_ENABLED;
+    }
+    desc.flags |= physx::PxSceneFlag::eENABLE_PCM;
+    desc.flags |= physx::PxSceneFlag::eENABLE_STABILIZATION;
+    if (disableSleeping)
+    {
+        desc.flags |= physx::PxSceneFlag::eDISABLE_SLEEPING;
+    }
+
+    if (m_mode == PhysicsMode::Gpu)
+    {
+        desc.cudaContextManager = m_cuda;
+        desc.flags |= physx::PxSceneFlag::eENABLE_GPU_DYNAMICS;
+        desc.broadPhaseType = physx::PxBroadPhaseType::eGPU;
+        desc.gpuMaxNumPartitions = 8;
+        // PHYSX_DEMO_SCENE_LIMITS=1: pre-size scene and GPU dynamics storage for a
+        // city-scale fracture so the impact tick does not grow pools, pinned
+        // arrays and device buffers in-tick (each growth synchronises).
+        if (const char* limitsRaw = std::getenv("PHYSX_DEMO_SCENE_LIMITS"))
+        {
+            if (std::atoi(limitsRaw) > 0)
+            {
+                const physx::PxU32 scale = static_cast<physx::PxU32>(std::atoi(limitsRaw));
+                desc.limits.maxNbActors = 32768u * scale;
+                desc.limits.maxNbBodies = 32768u * scale;
+                desc.limits.maxNbStaticShapes = 4096u;
+                desc.limits.maxNbDynamicShapes = 131072u * scale;
+                desc.limits.maxNbAggregates = 0;
+                desc.limits.maxNbConstraints = 0;
+                desc.limits.maxNbRegions = 0;
+                desc.limits.maxNbBroadPhaseOverlaps = 262144u * scale;
+                desc.gpuDynamicsConfig.foundLostPairsCapacity = 262144u * scale;
+                desc.gpuDynamicsConfig.maxRigidContactCount = 1024u * 1024u * 2u * scale;
+                desc.gpuDynamicsConfig.maxRigidPatchCount = 1024u * 256u * scale;
+                desc.gpuDynamicsConfig.tempBufferCapacity = 16u * 1024u * 1024u * scale;
+            }
+        }
+        if (m_directGpuApiRequested)
+        {
+            desc.flags |= physx::PxSceneFlag::eENABLE_DIRECT_GPU_API;
+            desc.flags |= physx::PxSceneFlag::eDISABLE_SLEEPING;
+        }
+
+        const std::uint32_t scale = capacityScale(capacity);
+        auto& gpu = desc.gpuDynamicsConfig;
+        gpu.tempBufferCapacity *= scale;
+        gpu.maxRigidContactCount = std::max(
+            gpu.maxRigidContactCount * scale,
+            capacity.maxContactPairs * 8u);
+        gpu.maxRigidPatchCount = std::max(
+            gpu.maxRigidPatchCount * scale,
+            capacity.maxContactPairs * 2u);
+        gpu.heapCapacity *= scale;
+        gpu.foundLostPairsCapacity = std::max(
+            gpu.foundLostPairsCapacity * scale,
+            capacity.maxContactPairs * 2u);
+        gpu.foundLostAggregatePairsCapacity *= scale;
+        gpu.totalAggregatePairsCapacity *= scale;
+        gpu.collisionStackSize *= scale;
+    }
+
+    if (enableGpuSleeping)
+    {
+#if defined(PX_DIRECT_GPU_SLEEPING_VERSION)
+        if (!m_directGpuApiRequested || disableSleeping)
+            throw std::runtime_error("GPU sleeping requires Direct GPU and sleeping enabled");
+        desc.flags &= ~physx::PxSceneFlags(physx::PxSceneFlag::eDISABLE_SLEEPING);
+        desc.flags |= physx::PxSceneFlag::eENABLE_DIRECT_GPU_SLEEPING;
+#else
+        throw std::runtime_error("PhysX SDK lacks the GPU sleeping extension");
+#endif
+    }
+
+    if (enableGpuHostAccess)
+    {
+#if defined(PX_DIRECT_GPU_HOST_ACCESS_VERSION)
+        if (!enableGpuSleeping) throw std::runtime_error("GPU host access requires native GPU sleeping");
+        desc.flags |= physx::PxSceneFlag::eENABLE_DIRECT_GPU_HOST_ACCESS;
+#else
+        throw std::runtime_error("PhysX SDK lacks explicit GPU host access");
+#endif
+    }
+
+    if (!desc.isValid())
+    {
+        throw std::runtime_error("PhysX scene descriptor is invalid");
+    }
+    m_scene = m_physics->createScene(desc);
+    if (!m_scene)
+    {
+        throw std::runtime_error("PhysX scene creation failed");
+    }
+
+    m_material = m_physics->createMaterial(0.6f, 0.6f, 0.0f);
+    if (!m_material)
+    {
+        throw std::runtime_error("PhysX material creation failed");
+    }
+    m_ground = PxCreatePlane(
+        *m_physics,
+        physx::PxPlane(0.0f, 1.0f, 0.0f, 0.0f),
+        *m_material);
+    if (!m_ground)
+    {
+        throw std::runtime_error("PhysX ground creation failed");
+    }
+    m_scene->addActor(*m_ground);
+}
+
+PhysXScene::~PhysXScene()
+{
+    if (m_ground) m_ground->release();
+    if (m_material) m_material->release();
+    if (m_scene) m_scene->release();
+    if (m_dispatcher) m_dispatcher->release();
+    m_cookingParams.reset();
+    if (m_physics)
+    {
+        PxCloseExtensions();
+        m_physics->release();
+    }
+    if (m_cuda) m_cuda->release();
+    if (m_foundation) m_foundation->release();
+}
+
+bool PhysXScene::gpuActive() const
+{
+    return m_mode == PhysicsMode::Gpu
+        && m_cuda
+        && m_cuda->contextIsValid()
+        && m_scene
+        && (m_scene->getFlags() & physx::PxSceneFlag::eENABLE_GPU_DYNAMICS);
+}
+
+bool PhysXScene::directGpuApiActive() const
+{
+    return gpuActive()
+        && m_scene
+        && (m_scene->getFlags() & physx::PxSceneFlag::eENABLE_DIRECT_GPU_API);
+}
+
+bool PhysXScene::healthy() const
+{
+    if (m_errorCallback.hadGpuFailure() || m_errorCallback.hadCapacityWarning())
+    {
+        return false;
+    }
+    if (m_requireGpu && !gpuActive())
+    {
+        return false;
+    }
+    if (m_directGpuApiRequested && !directGpuApiActive())
+    {
+        return false;
+    }
+    return !m_cuda || !m_cuda->getCudaContext()->isInAbortMode();
+}
+
+physx::PxSimulationStatistics PhysXScene::statistics() const
+{
+    physx::PxSimulationStatistics stats;
+    if (m_scene)
+    {
+        m_scene->getSimulationStatistics(stats);
+    }
+    return stats;
+}
+
+} // namespace blast_demo

@@ -1,0 +1,10 @@
+[
+  {
+    "name": "ordinary-birth",
+    "command": [
+      "out/destruction-sdk/reference/native_gpu_collision_test",
+      "--native-node-births"
+    ],
+    "exit": 1
+  }
+]

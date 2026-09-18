@@ -84,21 +84,17 @@ ENDIF()
 
 SET(SOURCE_DISTRO_FILE_LIST "")
 
-# CUDA Flags that are common to all platforms:
-# Note: We need to compile to sass for all architectures we want to support.
-# However, to enable forward compatibility with new architectures,
-# we need to compile ptx for the latest arch supported by the cuda toolkit.
-# This will allow the jit compiler in the driver to compile ptx to sass of the newer arch.
 
-# No need to set --generate-code=arch=compute_75,code=[compute_75,sm_75]
-# since that's the default set in: compiler\internal\CMakeLists.txt (using CMAKE_CUDA_ARCHITECTURES)
-# see policy CMP0104
-IF(PX_GENERATE_GPU_REDUCED_ARCHITECTURES)
-	GENERATE_ARCH_CODE_LIST(SASS "80,86,89,90,100,120" PTX "120")
-ELSE()
-	# Volta is the minimum compute arch required because NGC supports V100
-	GENERATE_ARCH_CODE_LIST(SASS "70,80,86,89,90,100,120" PTX "120")
+# This fork's integrated GPU module links the integrated destruction runtime.
+# Compile only its supported architecture, including in reused CMake caches.
+# Leaving the upstream multi-architecture list here multiplies every rebuild
+# and embeds unrelated device programs in the native module.
+SET(PX_DESTRUCTION_CUDA_ARCHITECTURES "89" CACHE STRING "Native destruction CUDA architectures")
+IF(NOT PX_DESTRUCTION_CUDA_ARCHITECTURES MATCHES "^(89|120)$")
+    MESSAGE(FATAL_ERROR "Integrated destruction requires architecture 89 or 120")
 ENDIF()
+SET(CMAKE_CUDA_ARCHITECTURES "${PX_DESTRUCTION_CUDA_ARCHITECTURES}-real")
+SET(ARCH_CODE_LIST "" CACHE INTERNAL "Native module uses CMake's selected architecture" FORCE)
 
 # Force response files off because clangd does not parse them
 set(CMAKE_CUDA_USE_RESPONSE_FILE_FOR_INCLUDES 0)

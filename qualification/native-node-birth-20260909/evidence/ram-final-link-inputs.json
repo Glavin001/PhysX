@@ -1,0 +1,32 @@
+[
+  {
+    "path": "/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXNarrowphaseGpu_static_64.a",
+    "target": "/dev/shm/physx-native-birth-final-link-inputs/libPhysXNarrowphaseGpu_static_64.a",
+    "sha256": "062259e292c3b070dc65e2e9760f43d7670b2f2a644281c82168a86f058df6a5",
+    "bytes": 22579454
+  },
+  {
+    "path": "/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXSimulationControllerGpu_static_64.a",
+    "target": "/dev/shm/physx-native-birth-final-link-inputs/libPhysXSimulationControllerGpu_static_64.a",
+    "sha256": "2d2c33691f278431d88b51dc494f2a6c205a9e8a3e31a88be058dee0a1d68dd7",
+    "bytes": 6455588
+  },
+  {
+    "path": "/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXArticulationGpu_static_64.a",
+    "target": "/dev/shm/physx-native-birth-final-link-inputs/libPhysXArticulationGpu_static_64.a",
+    "sha256": "f732f4bf078ac7199a153f574c5c9dfc2db6f78aaa3482a82111af50780e24d9",
+    "bytes": 4084672
+  },
+  {
+    "path": "/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXBroadphaseGpu_static_64.a",
+    "target": "/dev/shm/physx-native-birth-final-link-inputs/libPhysXBroadphaseGpu_static_64.a",
+    "sha256": "faf1ac3b08bb418da0f64a1707ced3c21b93313904842fabbb36c047ed710a97",
+    "bytes": 1182936
+  },
+  {
+    "path": "/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXSolverGpu_static_64.a",
+    "target": "/dev/shm/physx-native-birth-final-link-inputs/libPhysXSolverGpu_static_64.a",
+    "sha256": "db5913f5522a79dc1f85979f1dcad5d3f7a152bfdbb35c31d860fef6ce4be67d",
+    "bytes": 3495402
+  }
+]

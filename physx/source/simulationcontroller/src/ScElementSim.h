@@ -85,12 +85,12 @@ namespace Sc
 		// inside the iterator implementation: it does parse all the actor interactions indeed, but filters out the ones that do not contain "this", i.e. the desired element.
 		// So this is inefficient (parsing potentially many more interactions than needed, imagine in a large compound) but it works, and the iterator has a point - it isn't
 		// just the same as parsing the actor's array.
-		PX_FORCE_INLINE	ElementInteractionIterator			getElemInteractions()			const	{ return ElementInteractionIterator(*this, mActor.getActorInteractionCount(), mActor.getActorInteractions());			}
-		PX_FORCE_INLINE	ElementInteractionReverseIterator	getElemInteractionsReverse()	const	{ return ElementInteractionReverseIterator(*this, mActor.getActorInteractionCount(), mActor.getActorInteractions());	}
+		PX_FORCE_INLINE	ElementInteractionIterator			getElemInteractions()			const	{ return ElementInteractionIterator(*this, mActor->getActorInteractionCount(), mActor->getActorInteractions());			}
+		PX_FORCE_INLINE	ElementInteractionReverseIterator	getElemInteractionsReverse()	const	{ return ElementInteractionReverseIterator(*this, mActor->getActorInteractionCount(), mActor->getActorInteractions());	}
 
-		PX_FORCE_INLINE	ActorSim&				getActor()					const	{ return mActor; }
+		PX_FORCE_INLINE	ActorSim&				getActor()					const	{ return *mActor; }
 
-		PX_FORCE_INLINE	Scene&					getScene()					const	{ return mActor.getScene();	}
+		PX_FORCE_INLINE	Scene&					getScene()					const	{ return mActor->getScene();	}
 
 		PX_FORCE_INLINE PxU32					getElementID()				const	{ return mElementID;	}
 		PX_FORCE_INLINE bool					isInBroadPhase()			const	{ return mInBroadPhase;	}
@@ -99,7 +99,7 @@ namespace Sc
 						void					addToAABBMgr(PxReal contactDistance, Bp::FilterGroup::Enum group, Bp::ElementType::Enum type);
 		PX_FORCE_INLINE	void					addToAABBMgr(PxReal contactOffset, Bp::FilterType::Enum type)
 												{
-													const PxU32 group = Bp::FilterGroup::eDYNAMICS_BASE + mActor.getActorID();
+													const PxU32 group = Bp::FilterGroup::eDYNAMICS_BASE + mActor->getActorID();
 													addToAABBMgr(contactOffset, Bp::FilterGroup::Enum((group << BP_FILTERING_TYPE_SHIFT_BIT) | type), Bp::ElementType::eSHAPE);
 												}
 
@@ -116,8 +116,10 @@ namespace Sc
 												{
 													getScene().getElementIDPool().releaseID(mElementID);
 												}
-	protected:
-						ActorSim&				mActor;
+    protected:
+        // Requires old element interactions to have been released first.
+        void rebindActor(ActorSim& actor);
+						ActorSim*				mActor;
 
 						PxU32					mElementID : 31;	// PT: ID provided by Sc::Scene::mElementIDPool
 						PxU32					mInBroadPhase : 1;

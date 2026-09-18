@@ -1,0 +1,11 @@
+native history id=12 iteration=1 residual2=8192 gamma=3432.92 q2=3158.64 g0=-156.197 mu0=-169.761
+native history id=12 iteration=2 residual2=569.441 gamma=442.023 q2=1087.06 g0=454.201 mu0=6.74825
+native history id=12 iteration=4 residual2=84.3484 gamma=51.5618 q2=62.9864 g0=6.59517 mu0=-66.5277
+native history id=12 iteration=8 residual2=3.71592 gamma=1.60146 q2=0.915769 g0=2.84522 mu0=-61.3397
+native history id=12 iteration=16 residual2=0.154484 gamma=0.0791263 q2=0.0707105 g0=1.64952 mu0=-52.6858
+native history id=12 iteration=32 residual2=0.0137777 gamma=0.00578149 q2=0.00249216 g0=0.250241 mu0=-50.8556
+native history id=12 iteration=64 residual2=0.000949559 gamma=0.000416445 q2=0.000189436 g0=0.00902423 mu0=-35.5441
+native history id=12 iteration=128 residual2=2.32157e-05 gamma=8.31431e-06 q2=2.73526e-06 g0=0.0007533 mu0=-31.9269
+native component id=12 nodes=1024 iterations=128 active=1 failed=0 residual2=2.32157e-05 tolerance2=4.096e-07 gamma=8.31431e-06 q2=2.73526e-06
+native cooperative id=1036 iterations=128 active=1 failed=0 residual2=1.75324e-05 tolerance2=4.112e-07 gamma=8.32722e-06 q2=7.99172e-06
+mixed component solve did not converge

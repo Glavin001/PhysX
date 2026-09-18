@@ -1,0 +1,19 @@
+{
+  "demos/blast-stress-demo/CMakeLists.txt": "6d8b6dd80871f5c3e1d58fb6d955f734ca5f9476bfb18f67e9f05e1d56f0b247",
+  "demos/blast-stress-demo/tests/native_accepted_properties_check.h": "e821afb18d280509f0ca10683d0013343f167503e6ef3fc6bcdf466ca41e1447",
+  "demos/blast-stress-demo/tests/native_gpu_collision_test.cpp": "82bdef24dd18897046b21c091eda5ed5bb316874ed4f4b12bcfe27c0895c277f",
+  "demos/blast-stress-demo/tests/native_post_correction_check.h": "e2c8570af8dda5a8b3dec31ff7b101966502220a65a5c5dfe1b73a20f6a5127d",
+  "docs/destruction/IMPLEMENTATION_LEDGER.md": "97f7dc39a5a98f89777b847814b303ba1b9024777a672a84907d654cdab2348d",
+  "docs/destruction/PERFORMANCE_HANDOFF.md": "878b956461045b7f46e551c8229fe57e3eb48426aac1719b009f5b34fddee2ec",
+  "physx/source/gpudestruction/include/PxgDestructionRuntime.h": "03940123af4157af52f8a7ab44ffea02e692501d4e6bf0455ac1164d91a1f639",
+  "physx/source/gpudestruction/src/PxgDestructionRuntime.cu": "55a410d9cdc776964153c73e2fa811fe93d16c957a63918d49912b0dabf44504",
+  "physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp": "c29845d953ae42523449c7c295ee4a769ba8caeeb70c7a7f28030058dd8d5bf9",
+  "physx/source/lowlevel/software/include/PxvDestructionBodyAllocator.h": "b780db2b1b39c765b945e7a783aa4ad317fc33538996b013696768617f52d4f2",
+  "physx/source/physx/src/NpDestructionBodyAllocator.h": "6b126beda0d287d472ab74c7fa30c569ff4ef20d7a34fba2b5bb615c17aa083c",
+  "physx/source/physx/src/NpShapeManager.cpp": "0b40c20262052d483fb4724a34c51287d1d43965620dc90cea630167936705ba",
+  "physx/source/physx/src/NpShapeManager.h": "be44885acb157c5ea836db1ab0392175b4654c0f895f2b89e89e88137d31c60b",
+  "tools/scripts/report-destruction-timing.py": "d036a5c911c965b110ed9f0d5aa1eda575e6b9827c8ce8ec7e3db70f35e11864",
+  "tools/scripts/test-destruction-timing.py": "dc7717de175ce64d1d75b4a0a11c24073501bfaecbb388f78ddc83f305890085",
+  "physx/source/gpudestruction/src/PxgDestructionShapePublication.cuh": "025fddbb8f297cf4479b1125bb570e56bce11815096c0b0adfb5156e9bc05ad7",
+  "demos/blast-stress-demo/tests/native_shape_publication_test.cu": "30120ceaabbd64d63e4116abbdbfb4cbc94567fbd75c06503d84de9263ad6012"
+}

@@ -29,6 +29,8 @@
 #ifndef PXG_AABBMANAGER_H
 #define PXG_AABBMANAGER_H
 
+#include "PxgDestructionOwnership.h"
+#include "PxNodeIndex.h"
 #include "BpAABBManagerBase.h"
 #include "PxgCudaBuffer.h"
 #include "PxgAggregate.h"
@@ -108,6 +110,17 @@ namespace physx
 		virtual			void				setGPUStateChanged()			PX_OVERRIDE	{ mGPUStateChanged = true;			}
 		virtual			void				setPersistentStateChanged()		PX_OVERRIDE	{ mPersistentStateChanged = true;	}
 		//~AABBManagerBase
+
+        virtual bool refilterBounds(Bp::BoundsIndex index, Bp::FilterGroup::Enum group, bool deviceOwnerTransaction = false) PX_OVERRIDE;
+        void setNativeOwnershipView(PxgDestructionOwnershipView view) { mNativeOwnership = view; }
+        PxgDestructionOwnershipView getNativeOwnershipView() const { return mNativeOwnership; }
+        void setRigidOwnershipView(const PxNodeIndex* owners, PxU32 capacity) { mRigidOwners=owners; mRigidOwnerCapacity=capacity; }
+        const PxNodeIndex* getRigidOwners() const { return mRigidOwners; }
+        PxU32 getRigidOwnerCapacity() const { return mRigidOwnerCapacity; }
+        PxU64 getHostRefilterRequests() const { return mHostRefilterRequests; }
+        PxU64 getHostRefilterUploadWords() const { return mHostRefilterUploadWords; }
+        CUdeviceptr getRefilterHandles() const { return mRefilterHandlesBuf.getDevicePtr(); }
+        PxU32 getRefilterWordCount() const { return mRefilterPending ? mRefilterHandleMap.getWordCount() : 0; }
 
 						void				markAggregateBoundsBitmap();
 
@@ -190,6 +203,14 @@ namespace physx
 		PxgCudaBuffer						mRemovedHandleBuf;
 		PxgCudaBuffer						mChangedAABBMgrHandlesBuf;
 
+        Cm::PinnableBitMap mRefilterHandleMap;
+        PxgCudaBuffer mRefilterHandlesBuf;
+        bool mRefilterPending;
+        PxgDestructionOwnershipView mNativeOwnership;
+        const PxNodeIndex* mRigidOwners = NULL;
+        PxU32 mRigidOwnerCapacity = 0;
+        PxU64 mHostRefilterRequests = 0, mHostRefilterUploadWords = 0;
+
 		PxU32								mNumAggregatesSlots;
 
 		PxU32								mMaxFoundLostPairs;
@@ -264,6 +285,7 @@ namespace physx
 			if(mAllocFailed)
 				return;
 
+            if(!mEnableChangeTracking) { BoundsArray::updateBounds(transform,geom,index,indexFrom);return; }
 			const bool isNew = indexFrom == index;
 
 			if(isNew) // new, needs to be copied from CPU
@@ -277,6 +299,7 @@ namespace physx
 			if(mAllocFailed)
 				return;
 
+            if(!mEnableChangeTracking) { BoundsArray::setBounds(bounds,index);return; }
 			mBounds[index] = bounds;
 			updateChanges(index, index, true);
 		}
@@ -296,6 +319,10 @@ namespace physx
 			mChangesMapped.clear();
 			mChangeMap.clear();
 		}
+
+        PX_FORCE_INLINE void disableChangeTracking() {
+            mEnableChangeTracking=false;resetChanges();mHasAnythingChanged=true;
+        }
 
 		PX_FORCE_INLINE bool isChangeTrackingEnabled() const
 		{ 

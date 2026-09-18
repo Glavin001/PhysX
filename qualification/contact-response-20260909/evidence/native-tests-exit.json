@@ -1,0 +1,1 @@
+{"command": ["ctest", "--test-dir", "out/destruction-sdk", "-R", "physx_native|destruction_timing|native_prefix", "--output-on-failure", "-j1"], "exit_code": 0}

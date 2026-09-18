@@ -1,0 +1,159 @@
+[
+  {
+    "name": "publication-plain",
+    "command": [
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/device-enabled-publication/publication-test"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "publication-mem",
+    "command": [
+      "/usr/local/cuda-13.4/bin/compute-sanitizer",
+      "--tool",
+      "memcheck",
+      "--error-exitcode",
+      "97",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/device-enabled-publication/publication-test"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "publication-ladder128-cold-plain",
+    "command": [
+      "python3",
+      "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/publication-ladder128-cold-plain",
+      "--binary",
+      "/root/workspace/physx-2/out/snapshot-large-20260911/final-artifacts/native_destruction_snapshot_test",
+      "--artifacts",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/device-enabled-publication",
+      "--replay-prefix",
+      "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/ladder128-cold",
+      "--repetitions",
+      "2",
+      "--watchdog-seconds",
+      "600",
+      "--allow-existing-graphics",
+      "--allow-compute-pid",
+      "435374"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "publication-ladder128-cold-mem",
+    "command": [
+      "python3",
+      "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/publication-ladder128-cold-mem",
+      "--binary",
+      "/root/workspace/physx-2/out/snapshot-large-20260911/final-artifacts/native_destruction_snapshot_test",
+      "--artifacts",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/device-enabled-publication",
+      "--replay-prefix",
+      "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/ladder128-cold",
+      "--repetitions",
+      "2",
+      "--watchdog-seconds",
+      "600",
+      "--allow-existing-graphics",
+      "--allow-compute-pid",
+      "435374",
+      "--sanitizer",
+      "memcheck"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "publication-city256-initial-impact-plain",
+    "command": [
+      "python3",
+      "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/publication-city256-initial-impact-plain",
+      "--binary",
+      "/root/workspace/physx-2/out/snapshot-large-20260911/final-artifacts/native_destruction_snapshot_test",
+      "--artifacts",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/device-enabled-publication",
+      "--replay-prefix",
+      "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-82",
+      "--repetitions",
+      "2",
+      "--watchdog-seconds",
+      "600",
+      "--allow-existing-graphics",
+      "--allow-compute-pid",
+      "435374"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "publication-city256-initial-impact-mem",
+    "command": [
+      "python3",
+      "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/publication-city256-initial-impact-mem",
+      "--binary",
+      "/root/workspace/physx-2/out/snapshot-large-20260911/final-artifacts/native_destruction_snapshot_test",
+      "--artifacts",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/device-enabled-publication",
+      "--replay-prefix",
+      "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-82",
+      "--repetitions",
+      "2",
+      "--watchdog-seconds",
+      "600",
+      "--allow-existing-graphics",
+      "--allow-compute-pid",
+      "435374",
+      "--sanitizer",
+      "memcheck"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "publication-city256-late-debris-plain",
+    "command": [
+      "python3",
+      "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/publication-city256-late-debris-plain",
+      "--binary",
+      "/root/workspace/physx-2/out/snapshot-large-20260911/final-artifacts/native_destruction_snapshot_test",
+      "--artifacts",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/device-enabled-publication",
+      "--replay-prefix",
+      "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179",
+      "--repetitions",
+      "2",
+      "--watchdog-seconds",
+      "600",
+      "--allow-existing-graphics",
+      "--allow-compute-pid",
+      "435374"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "publication-city256-late-debris-mem",
+    "command": [
+      "python3",
+      "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/publication-city256-late-debris-mem",
+      "--binary",
+      "/root/workspace/physx-2/out/snapshot-large-20260911/final-artifacts/native_destruction_snapshot_test",
+      "--artifacts",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/device-enabled-publication",
+      "--replay-prefix",
+      "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179",
+      "--repetitions",
+      "2",
+      "--watchdog-seconds",
+      "600",
+      "--allow-existing-graphics",
+      "--allow-compute-pid",
+      "435374",
+      "--sanitizer",
+      "memcheck"
+    ],
+    "exit_code": 0
+  }
+]

@@ -1,0 +1,88 @@
+Internal ctest changing into directory: /root/workspace/physx-2/out/destruction-sdk
+Test project /root/workspace/physx-2/out/destruction-sdk
+    Start 68: physx_native_gpu_connectivity_fracture
+1/5 Test #68: physx_native_gpu_connectivity_fracture ....***Failed    1.11 sec
+native t=0.0 chunks=444 bonds=896 clusters=1 shots=1 broken=0 corrections=0 step=4.54ms
+native t=1.0 chunks=444 bonds=896 clusters=1 shots=2 broken=0 corrections=0 step=0.62ms
+native t=2.0 chunks=444 bonds=896 clusters=380 shots=2 broken=783 corrections=3 step=1.50ms
+native t=3.0 chunks=444 bonds=896 clusters=380 shots=2 broken=783 corrections=3 step=1.32ms
+native t=4.0 chunks=444 bonds=896 clusters=381 shots=2 broken=784 corrections=4 step=1.23ms
+native t=5.0 chunks=444 bonds=896 clusters=381 shots=2 broken=784 corrections=4 step=1.17ms
+Traceback (most recent call last):
+  File "/root/workspace/physx-2/demos/blast-stress-demo/tests/native_connectivity_fracture_test.py", line 21, in <module>
+    assert graph['host_connectivity_restores'] > 0  # Exercises the post-partition fallback bug.
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError
+
+    Start 70: physx_native_gpu_consumer
+2/5 Test #70: physx_native_gpu_consumer .................***Failed    0.64 sec
+native t=0.0 chunks=444 bonds=896 clusters=1 shots=1 broken=0 corrections=0 step=4.60ms
+native t=1.0 chunks=444 bonds=896 clusters=1 shots=2 broken=0 corrections=0 step=0.60ms
+native t=2.0 chunks=444 bonds=896 clusters=380 shots=3 broken=783 corrections=3 step=1.48ms
+CUDA pre-solve producer omitted a live node
+
+Failed capture retained at /tmp/physx-gpu-consumer-ahz6peop
+Traceback (most recent call last):
+  File "/root/workspace/physx-2/demos/blast-stress-demo/tests/native_gpu_consumer_test.py", line 23, in <module>
+    subprocess.run(command, stdout=log, stderr=subprocess.STDOUT, check=True, timeout=120)
+  File "/usr/lib/python3.12/subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['/root/workspace/physx-2/out/destruction-sdk/reference/native_destruction_demo', '--grid', '1', '--waves', '4', '--seconds', '8', '--stress-iterations', '8192', '--preserve-contact-pairs', '1', '--gpu-island-repair', '1', '--gpu-pre-solve-islands', '1', '--gpu-pre-solve-contacts', '1', '--gpu-pre-solve-support', '1', '--audit-islands', '1', '--audit-motion', '0', '--record-state', '0', '--gpu-render', '0', '--output', '/tmp/physx-gpu-consumer-ahz6peop/resident']' returned non-zero exit status 1.
+
+    Start 71: physx_native_gpu_renderer
+3/5 Test #71: physx_native_gpu_renderer .................***Failed    0.79 sec
+native t=0.0 chunks=444 bonds=896 clusters=1 shots=1 broken=0 corrections=0 step=4.36ms
+native t=1.0 chunks=444 bonds=896 clusters=1 shots=2 broken=0 corrections=0 step=0.72ms
+native t=2.0 chunks=444 bonds=896 clusters=380 shots=3 broken=783 corrections=3 step=1.33ms
+CUDA pre-solve producer omitted a live node
+
+Failed capture retained at /tmp/physx-gpu-consumer-zhzgac1e
+Traceback (most recent call last):
+  File "/root/workspace/physx-2/demos/blast-stress-demo/tests/native_gpu_consumer_test.py", line 23, in <module>
+    subprocess.run(command, stdout=log, stderr=subprocess.STDOUT, check=True, timeout=120)
+  File "/usr/lib/python3.12/subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['/root/workspace/physx-2/out/destruction-sdk/reference/native_destruction_demo', '--grid', '1', '--waves', '4', '--seconds', '8', '--stress-iterations', '8192', '--preserve-contact-pairs', '1', '--gpu-island-repair', '1', '--gpu-pre-solve-islands', '1', '--gpu-pre-solve-contacts', '1', '--gpu-pre-solve-support', '1', '--audit-islands', '1', '--audit-motion', '0', '--record-state', '0', '--gpu-render', '1', '--output', '/tmp/physx-gpu-consumer-zhzgac1e/resident']' returned non-zero exit status 1.
+
+    Start 72: physx_native_gpu_retained_contact_graph
+4/5 Test #72: physx_native_gpu_retained_contact_graph ...***Failed    0.53 sec
+native t=0.0 chunks=444 bonds=896 clusters=1 shots=1 broken=0 corrections=0 step=4.18ms
+native t=1.0 chunks=444 bonds=896 clusters=1 shots=1 broken=0 corrections=0 step=0.53ms
+GPU graph dropped or retained the wrong contact rows
+
+Failed capture retained at /tmp/physx-retained-contact-8kvm22o_
+Traceback (most recent call last):
+  File "/root/workspace/physx-2/demos/blast-stress-demo/tests/native_retained_contact_test.py", line 18, in <module>
+    assert result.returncode == 0, f"demo exited {result.returncode}"
+           ^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: demo exited 1
+
+    Start 73: physx_native_gpu_bombardment_contacts
+5/5 Test #73: physx_native_gpu_bombardment_contacts .....***Failed    3.40 sec
+native t=0.0 chunks=113664 bonds=229376 clusters=256 shots=256 broken=0 corrections=0 step=7.45ms
+native t=1.0 chunks=113664 bonds=229376 clusters=256 shots=256 broken=0 corrections=0 step=1.14ms
+GPU graph dropped or retained the wrong contact rows
+
+Failed audit retained at /tmp/physx-bombardment-contacts-bta3kty4
+Traceback (most recent call last):
+  File "/root/workspace/physx-2/demos/blast-stress-demo/tests/native_bombardment_contacts_test.py", line 25, in <module>
+    assert result.returncode == 0, f'Bombardment audit exited {result.returncode}'
+           ^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Bombardment audit exited 1
+
+
+0% tests passed, 5 tests failed out of 5
+
+Label Time Summary:
+gpu            =   3.40 sec*proc (1 test)
+integration    =   3.40 sec*proc (1 test)
+
+Total Test time (real) =   6.49 sec
+
+The following tests FAILED:
+	 68 - physx_native_gpu_connectivity_fracture (Failed)
+	 70 - physx_native_gpu_consumer (Failed)
+	 71 - physx_native_gpu_renderer (Failed)
+	 72 - physx_native_gpu_retained_contact_graph (Failed)
+	 73 - physx_native_gpu_bombardment_contacts (Failed)
+Errors while running CTest

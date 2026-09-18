@@ -1,0 +1,12 @@
+[
+  {
+    "case": "new-gpu-old-runtime",
+    "exit": 1,
+    "error": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/usr/lib/python3.12/ctypes/__init__.py\", line 379, in __init__\n    self._handle = _dlopen(self._name, mode)\n                   ^^^^^^^^^^^^^^^^^^^^^^^^^\nOSError: /root/workspace/physx-2/out/native-owner-context-20260909/candidate/libPhysXGpuActivity_64.so: undefined symbol: PxCreateDestructionRuntimeV5\n"
+  },
+  {
+    "case": "old-gpu-new-runtime",
+    "exit": 1,
+    "error": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/usr/lib/python3.12/ctypes/__init__.py\", line 379, in __init__\n    self._handle = _dlopen(self._name, mode)\n                   ^^^^^^^^^^^^^^^^^^^^^^^^^\nOSError: /root/workspace/physx-2/out/final-properties-20260909/candidate/libPhysXGpuActivity_64.so: undefined symbol: PxCreateDestructionRuntimeV4\n"
+  }
+]

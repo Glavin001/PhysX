@@ -187,6 +187,22 @@ void CUDARTAPI __cudaRegisterFunction(void** fatCubinHandle, const char*,
 	PxGpuCudaRegisterFunction((int)(size_t) fatCubinHandle, deviceName);
 }
 
+// CUDA 13 emits these additional host stubs. PhysX launches its registered
+// kernels through CUfunction/driver dispatch, never through CUDART host stubs.
+// Fail explicitly if a caller accidentally tries this unsupported launch path.
+extern "C"
+cudaError_t CUDARTAPI __cudaGetKernel(cudaKernel_t* kernel, const void*)
+{
+    if (kernel) *kernel = nullptr;
+    return cudaErrorNotSupported;
+}
+
+extern "C"
+cudaError_t CUDARTAPI __cudaLaunchKernel(cudaKernel_t, dim3, dim3, void**, size_t, cudaStream_t)
+{
+    return cudaErrorNotSupported;
+}
+
 /* These functions are implemented just to resolve link dependencies */
 
 extern "C"

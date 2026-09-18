@@ -1,0 +1,35 @@
+========= COMPUTE-SANITIZER
+native impact fracture=1 frame=0 complete=1 error=0 stage=0 contacts=1 broken=0 corrections=0
+native impact fracture=1 frame=1 complete=1 error=0 stage=0 contacts=1 broken=0 corrections=0
+native impact fracture=1 frame=2 complete=1 error=0 stage=0 contacts=1 broken=0 corrections=0
+native impact fracture=1 frame=3 complete=1 error=0 stage=0 contacts=1 broken=0 corrections=0
+native impact fracture=1 frame=4 complete=1 error=0 stage=0 contacts=1 broken=0 corrections=0
+native impact fracture=1 frame=5 complete=1 error=0 stage=0 contacts=1 broken=0 corrections=0
+native impact fracture=1 frame=6 complete=1 error=0 stage=0 contacts=2 broken=1 corrections=1
+native impact fracture=1 frame=7 complete=1 error=0 stage=0 contacts=6 broken=0 corrections=0
+native impact fracture=1 frame=8 complete=1 error=0 stage=0 contacts=6 broken=0 corrections=0
+native impact fracture=1 frame=9 complete=1 error=0 stage=0 contacts=6 broken=0 corrections=0
+native impact fracture=1 frame=10 complete=1 error=0 stage=0 contacts=6 broken=0 corrections=0
+native impact fracture=1 frame=11 complete=1 error=0 stage=0 contacts=6 broken=0 corrections=0
+native impact fracture=1 frame=12 complete=1 error=0 stage=0 contacts=6 broken=0 corrections=0
+native impact fracture=1 frame=13 complete=1 error=0 stage=0 contacts=6 broken=0 corrections=0
+native impact fracture=1 frame=14 complete=1 error=0 stage=0 contacts=6 broken=0 corrections=0
+native impact fracture=1 frame=15 complete=1 error=0 stage=0 contacts=6 broken=0 corrections=0
+native impact fracture=1 frame=16 complete=1 error=0 stage=0 contacts=2 broken=0 corrections=0
+native impact fracture=1 frame=17 complete=1 error=0 stage=0 contacts=2 broken=0 corrections=0
+native impact fracture=1 frame=18 complete=1 error=0 stage=0 contacts=2 broken=0 corrections=0
+native impact fracture=1 frame=19 complete=1 error=0 stage=0 contacts=2 broken=0 corrections=0
+native impact fracture=1 frame=20 complete=1 error=0 stage=0 contacts=2 broken=0 corrections=0
+native impact fracture=1 frame=21 complete=1 error=0 stage=0 contacts=2 broken=0 corrections=0
+native impact fracture=1 frame=22 complete=1 error=0 stage=0 contacts=2 broken=0 corrections=0
+native impact fracture=1 frame=23 complete=1 error=0 stage=0 contacts=2 broken=0 corrections=0
+native impact fracture=1 frame=24 complete=1 error=0 stage=0 contacts=2 broken=0 corrections=0
+native impact fracture=1 frame=25 complete=1 error=0 stage=0 contacts=2 broken=0 corrections=0
+native impact fracture=1 frame=26 complete=1 error=0 stage=0 contacts=2 broken=0 corrections=0
+native impact fracture=1 frame=27 complete=1 error=0 stage=0 contacts=2 broken=0 corrections=0
+native impact fracture=1 frame=28 complete=1 error=0 stage=0 contacts=2 broken=0 corrections=0
+native impact fracture=1 frame=29 complete=1 error=0 stage=0 contacts=2 broken=0 corrections=0
+native query ownership valid; largest impact allocation=32768 bytes
+Retained owner: unique persistent contact pairs, one GPU-only retained shape and one CPU migration passed
+========= LEAK SUMMARY: 0 bytes leaked in 0 allocations
+========= ERROR SUMMARY: 0 errors

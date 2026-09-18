@@ -1,0 +1,290 @@
+[
+  {
+    "stage": "A-after",
+    "case": "idle-256",
+    "trial": 1,
+    "metrics": {
+      "max": 13.756259,
+      "mean": 1.5442131633333334,
+      "min": 1.020636,
+      "misses_120hz": 1,
+      "misses_60hz": 0,
+      "n": 600,
+      "p50": 1.460695,
+      "p95": 2.099318,
+      "p99": 2.516923
+    },
+    "initialization_ms": 2195.760414,
+    "stages_ms": {
+      "complete_step_ms": 1.5442131633333334,
+      "command_ms": 0.000318585,
+      "physics_step_ms": 1.3456561066666666,
+      "completion_ms": 0.19823847166666667
+    },
+    "scope": "physics_step_ms includes PhysX and stress; not isolated stock physics"
+  },
+  {
+    "stage": "A-after",
+    "case": "idle-256",
+    "trial": 2,
+    "metrics": {
+      "max": 14.574783,
+      "mean": 1.7690087416666667,
+      "min": 1.072819,
+      "misses_120hz": 1,
+      "misses_60hz": 0,
+      "n": 600,
+      "p50": 1.714309,
+      "p95": 2.170459,
+      "p99": 2.699112
+    },
+    "initialization_ms": 2219.140049,
+    "stages_ms": {
+      "complete_step_ms": 1.7690087416666667,
+      "command_ms": 0.00024141166666666666,
+      "physics_step_ms": 1.5460483233333333,
+      "completion_ms": 0.22271900666666666
+    },
+    "scope": "physics_step_ms includes PhysX and stress; not isolated stock physics"
+  },
+  {
+    "stage": "A-after",
+    "case": "impacts-256",
+    "trial": 1,
+    "metrics": {
+      "max": 202.023235,
+      "mean": 54.76491535666667,
+      "min": 3.009952,
+      "misses_120hz": 519,
+      "misses_60hz": 519,
+      "n": 600,
+      "p50": 30.321102,
+      "p95": 119.262221,
+      "p99": 125.578794
+    },
+    "initialization_ms": 2110.250296,
+    "stages_ms": {
+      "complete_step_ms": 54.76491535666667,
+      "command_ms": 0.058658150000000006,
+      "physics_step_ms": 54.44049335166667,
+      "completion_ms": 0.26576385500000005
+    },
+    "scope": "physics_step_ms includes PhysX and stress; not isolated stock physics"
+  },
+  {
+    "stage": "A-after",
+    "case": "impacts-256",
+    "trial": 2,
+    "metrics": {
+      "max": 207.904952,
+      "mean": 55.135943155,
+      "min": 3.352817,
+      "misses_120hz": 519,
+      "misses_60hz": 519,
+      "n": 600,
+      "p50": 30.165028,
+      "p95": 119.1736,
+      "p99": 127.596784
+    },
+    "initialization_ms": 2155.168158,
+    "stages_ms": {
+      "complete_step_ms": 55.135943155,
+      "command_ms": 0.05570325666666666,
+      "physics_step_ms": 54.80141151833333,
+      "completion_ms": 0.27882837999999976
+    },
+    "scope": "physics_step_ms includes PhysX and stress; not isolated stock physics"
+  },
+  {
+    "stage": "A-before",
+    "case": "idle-256",
+    "trial": 1,
+    "metrics": {
+      "max": 13.990064,
+      "mean": 1.7094153366666667,
+      "min": 1.174117,
+      "misses_120hz": 1,
+      "misses_60hz": 0,
+      "n": 600,
+      "p50": 1.618381,
+      "p95": 2.207493,
+      "p99": 2.832688
+    },
+    "initialization_ms": 2195.916452,
+    "stages_ms": {
+      "complete_step_ms": 1.7094153366666667,
+      "command_ms": 0.0002651283333333333,
+      "physics_step_ms": 1.4771431516666667,
+      "completion_ms": 0.23200705666666666
+    },
+    "scope": "physics_step_ms includes PhysX and stress; not isolated stock physics"
+  },
+  {
+    "stage": "A-before",
+    "case": "idle-256",
+    "trial": 2,
+    "metrics": {
+      "max": 12.047731,
+      "mean": 1.6781633033333334,
+      "min": 1.158714,
+      "misses_120hz": 1,
+      "misses_60hz": 0,
+      "n": 600,
+      "p50": 1.625861,
+      "p95": 2.177129,
+      "p99": 2.426242
+    },
+    "initialization_ms": 2162.978836,
+    "stages_ms": {
+      "complete_step_ms": 1.6781633033333334,
+      "command_ms": 0.00024152166666666666,
+      "physics_step_ms": 1.4466087666666667,
+      "completion_ms": 0.231313015
+    },
+    "scope": "physics_step_ms includes PhysX and stress; not isolated stock physics"
+  },
+  {
+    "stage": "A-before",
+    "case": "impacts-256",
+    "trial": 1,
+    "metrics": {
+      "max": 177.557375,
+      "mean": 54.936158721666665,
+      "min": 3.606029,
+      "misses_120hz": 519,
+      "misses_60hz": 519,
+      "n": 600,
+      "p50": 30.371518,
+      "p95": 118.652734,
+      "p99": 127.019008
+    },
+    "initialization_ms": 2178.441238,
+    "stages_ms": {
+      "complete_step_ms": 54.936158721666665,
+      "command_ms": 0.057119466666666674,
+      "physics_step_ms": 54.59996203833333,
+      "completion_ms": 0.27907721666666657
+    },
+    "scope": "physics_step_ms includes PhysX and stress; not isolated stock physics"
+  },
+  {
+    "stage": "A-before",
+    "case": "impacts-256",
+    "trial": 2,
+    "metrics": {
+      "max": 205.844645,
+      "mean": 54.94479561333333,
+      "min": 3.688517,
+      "misses_120hz": 519,
+      "misses_60hz": 519,
+      "n": 600,
+      "p50": 30.58408,
+      "p95": 118.318679,
+      "p99": 128.780153
+    },
+    "initialization_ms": 2149.910975,
+    "stages_ms": {
+      "complete_step_ms": 54.94479561333333,
+      "command_ms": 0.05997409333333334,
+      "physics_step_ms": 54.611706858333335,
+      "completion_ms": 0.2731146616666668
+    },
+    "scope": "physics_step_ms includes PhysX and stress; not isolated stock physics"
+  },
+  {
+    "stage": "B",
+    "case": "idle-256",
+    "trial": 1,
+    "metrics": {
+      "max": 14.923337,
+      "mean": 1.69449797,
+      "min": 1.060624,
+      "misses_120hz": 1,
+      "misses_60hz": 0,
+      "n": 600,
+      "p50": 1.663626,
+      "p95": 2.259919,
+      "p99": 2.577339
+    },
+    "initialization_ms": 2236.041826,
+    "stages_ms": {
+      "complete_step_ms": 1.69449797,
+      "command_ms": 0.00042110166666666665,
+      "physics_step_ms": 1.482554555,
+      "completion_ms": 0.21152231333333332
+    },
+    "scope": "physics_step_ms includes PhysX and stress; not isolated stock physics"
+  },
+  {
+    "stage": "B",
+    "case": "idle-256",
+    "trial": 2,
+    "metrics": {
+      "max": 14.812924,
+      "mean": 1.83005178,
+      "min": 1.285957,
+      "misses_120hz": 1,
+      "misses_60hz": 0,
+      "n": 600,
+      "p50": 1.735264,
+      "p95": 2.349625,
+      "p99": 3.067476
+    },
+    "initialization_ms": 2197.081338,
+    "stages_ms": {
+      "complete_step_ms": 1.83005178,
+      "command_ms": 0.00027818833333333333,
+      "physics_step_ms": 1.615143915,
+      "completion_ms": 0.21462967666666666
+    },
+    "scope": "physics_step_ms includes PhysX and stress; not isolated stock physics"
+  },
+  {
+    "stage": "B",
+    "case": "impacts-256",
+    "trial": 1,
+    "metrics": {
+      "max": 178.071599,
+      "mean": 54.990334223333335,
+      "min": 3.7362,
+      "misses_120hz": 519,
+      "misses_60hz": 519,
+      "n": 600,
+      "p50": 30.680286,
+      "p95": 119.734172,
+      "p99": 128.838657
+    },
+    "initialization_ms": 2154.99041,
+    "stages_ms": {
+      "complete_step_ms": 54.990334223333335,
+      "command_ms": 0.059061285000000005,
+      "physics_step_ms": 54.68603383833333,
+      "completion_ms": 0.2452390999999997
+    },
+    "scope": "physics_step_ms includes PhysX and stress; not isolated stock physics"
+  },
+  {
+    "stage": "B",
+    "case": "impacts-256",
+    "trial": 2,
+    "metrics": {
+      "max": 184.494383,
+      "mean": 54.59610944,
+      "min": 3.408256,
+      "misses_120hz": 519,
+      "misses_60hz": 519,
+      "n": 600,
+      "p50": 30.468786,
+      "p95": 117.545661,
+      "p99": 121.823381
+    },
+    "initialization_ms": 2139.503499,
+    "stages_ms": {
+      "complete_step_ms": 54.59610944,
+      "command_ms": 0.053282046666666666,
+      "physics_step_ms": 54.291190023333336,
+      "completion_ms": 0.25163737
+    },
+    "scope": "physics_step_ms includes PhysX and stress; not isolated stock physics"
+  }
+]

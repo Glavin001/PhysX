@@ -1,0 +1,83 @@
+[
+  {
+    "name": "bounded-native-mem",
+    "command": [
+      "/usr/local/cuda-13.4/bin/compute-sanitizer",
+      "--tool",
+      "memcheck",
+      "--error-exitcode",
+      "97",
+      "/root/workspace/physx-2/out/snapshot-large-20260911/final-artifacts/native_destruction_snapshot_test",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/bounded-native-mem",
+      "--replay",
+      "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82",
+      "--repetitions",
+      "2"
+    ],
+    "status": "failed",
+    "exit_code": 97,
+    "modules": {
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/bounded-native/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/bounded-native/libPhysXDestructionGpuRuntime_64.so": "ac4ab5e36ef12e1d055c5d82d512149fd08acf4e171ceb80ec1d15462e09dd13"
+    },
+    "error_summary": [
+      "11265",
+      "11165"
+    ],
+    "bounds_trap_messages": [],
+    "first_error_excerpt": "========= COMPUTE-SANITIZER\n========= Invalid __global__ read of size 4 bytes\n=========     at physx::<unnamed>::captureClusterMotion(const unsigned int *, const unsigned int *, const physx::PxDestructionClusterMassProperties *, const physx::PxDestructionClusterMotion *, physx::PxDestructionClusterMotion *, double *, unsigned int *, const physx::PxDestructionTopologyStatus *, const physx::PxDestructionClusterMotion *const *)+0x30 in PxgDestructionTopology.cu:189\n=========     by thread (96,0,0) in block (0,0,0)\n=========     Access to 0xaff7ff608 is out of bounds\n=========     and is inside the nearest allocation at 0xaff7ff600 of size 24 bytes\n=========     Saved host backtrace up to driver entry point at kernel launch time\n=========         Host Frame: cudaGraphLaunch [0x10f927] in libPhysXDestructionGpuRuntime_64.so\n=========         Host Frame: physx::(anonymous namespace)::Transaction::prepare(physx::PxgDestructionEdit const*, unsigned int const*, unsigned int, unsigned int const*, unsigned int, void*, void*, physx::PxDestructionClusterMotion const*) [0x595d1] in libPhysXDestructionGpuRuntime_64.so\n=========         Host Frame: physx::(anonymous namespace)::Runtime::advance(float, physx::PxVec3T<float> const&, physx::PxgDestructionMotionStorage const&, CUstream_st*, bool (*)(void*, unsigned int, physx::PxgDestructionMotionStorage&), void*, physx::PxgDestructionSolvedContacts const&, physx::PxgDestructionCollisionStorage const&) [0x46763] in libPhysXDestructionGpuRuntime_64.so\n=========         Host Frame: physx::PxgSimulationController::advanceDestruction(float, physx::PxVec3T<float> const&, bool, bool) [0xe70fe] in libPhysXGpuActivity_64.so\n=========         Host Frame: physx::Sc::Scene::finalizationPhase(physx::PxBaseTask*) [0x1d8df2] in native_destruction_snapshot_test",
+    "raw": "out/snapshot-finish-20260911/bounded-native-mem"
+  },
+  {
+    "name": "bounded-native-plain",
+    "command": [
+      "/root/workspace/physx-2/out/snapshot-large-20260911/final-artifacts/native_destruction_snapshot_test",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/bounded-native-plain",
+      "--replay",
+      "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82",
+      "--repetitions",
+      "2"
+    ],
+    "status": "complete",
+    "exit_code": 0,
+    "modules": {
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/bounded-native/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/bounded-native/libPhysXDestructionGpuRuntime_64.so": "ac4ab5e36ef12e1d055c5d82d512149fd08acf4e171ceb80ec1d15462e09dd13"
+    },
+    "error_summary": [],
+    "bounds_trap_messages": [],
+    "first_error_excerpt": "completed 2 independent one-tick file restores",
+    "raw": "out/snapshot-finish-20260911/bounded-native-plain"
+  },
+  {
+    "name": "high-sync-limit/native-impact",
+    "command": [
+      "/usr/local/cuda-13.4/bin/compute-sanitizer",
+      "--tool",
+      "memcheck",
+      "--error-exitcode",
+      "97",
+      "--force-synchronization-limit",
+      "1000000",
+      "/root/workspace/physx-2/out/snapshot-large-20260911/final-artifacts/native_destruction_snapshot_test",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/high-sync-limit/native-impact",
+      "--replay",
+      "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82",
+      "--repetitions",
+      "2"
+    ],
+    "status": "failed",
+    "exit_code": 97,
+    "modules": {
+      "/root/workspace/physx-2/out/snapshot-large-20260911/stable-rebuilt-artifacts/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+      "/root/workspace/physx-2/out/snapshot-large-20260911/stable-rebuilt-artifacts/libPhysXDestructionGpuRuntime_64.so": "06c8e588800787592194ecb5f4c349043bbabd9aa2c5eba4eca34ee00d3ff875"
+    },
+    "error_summary": [
+      "114",
+      "14"
+    ],
+    "bounds_trap_messages": [],
+    "first_error_excerpt": "========= COMPUTE-SANITIZER\n========= Invalid __global__ atomic of size 4 bytes\n=========     at atomicAdd(unsigned int *, unsigned int)+0x380 in device_atomic_functions.hpp:112\n=========     by thread (66,0,0) in block (0,0,0)\n=========     Access to 0xafff47220 is out of bounds\n=========     and is inside the nearest allocation at 0xafff47200 of size 44400 bytes\n=========         Device Frame: physx::<unnamed>::root(unsigned int *, unsigned int)+0x380 in PxgDestructionTopology.cu:65\n=========         Device Frame: physx::<unnamed>::connect(const physx::PxDestructionBondEndpoints *, unsigned int, unsigned int *, const unsigned int *, unsigned int *)+0x2f0 in PxgDestructionTopology.cu:79\n=========     Saved host backtrace up to driver entry point at kernel launch time\n=========         Host Frame: cudaGraphLaunch [0x10f867] in libPhysXDestructionGpuRuntime_64.so\n=========         Host Frame: physx::(anonymous namespace)::Transaction::prepare(physx::PxgDestructionEdit const*, unsigned int const*, unsigned int, unsigned int const*, unsigned int, void*, void*, physx::PxDestructionClusterMotion const*) [0x595c1] in libPhysXDestructionGpuRuntime_64.so\n=========         Host Frame: physx::(anonymous namespace)::Runtime::advance(float, physx::PxVec3T<float> const&, physx::PxgDestructionMotionStorage const&, CUstream_st*, bool (*)(void*, unsigned int, physx::PxgDestructionMotionStorage&), void*, physx::PxgDestructionSolvedContacts const&, physx::PxgDestructionCollisionStorage const&) [0x46763] in libPhysXDestructionGpuRuntime_64.so",
+    "raw": "out/snapshot-finish-20260911/high-sync-limit/native-impact"
+  }
+]

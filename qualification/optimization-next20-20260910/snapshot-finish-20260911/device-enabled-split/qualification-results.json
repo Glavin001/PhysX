@@ -1,0 +1,52 @@
+[
+  {
+    "name": "full-mem",
+    "command": [
+      "python3",
+      "tools/diagnostics/destruction-snapshot/run-suite.py",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/device-enabled-split-mem-suite",
+      "--structural-inputs",
+      "out/snapshot-large-20260911/roundtrip-regressions",
+      "--city-inputs",
+      "out/snapshot-large-20260911",
+      "--binary",
+      "out/snapshot-large-20260911/final-artifacts/native_destruction_snapshot_test",
+      "--artifacts",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/device-enabled-split",
+      "--repetitions",
+      "2",
+      "--sanitizer",
+      "memcheck",
+      "--allow-existing-graphics",
+      "--allow-compute-pid",
+      "435374"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "matched-smoke",
+    "command": [
+      "python3",
+      "tools/diagnostics/destruction-snapshot/run-matched.py",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/split-matched-smoke",
+      "--manifest",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/device-enabled-split/smoke-manifest.json",
+      "--binary",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/physical-ab-probe-v3/serialization-probe",
+      "--baseline-artifacts",
+      "out/snapshot-large-20260911/stable-rebuilt-artifacts",
+      "--candidate-artifacts",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/device-enabled-split",
+      "--candidate-commit",
+      "8589185e659c8316b1828b7847b8780eb0f11006",
+      "--control-repetitions",
+      "2",
+      "--candidate-repetitions",
+      "2",
+      "--allow-existing-graphics",
+      "--allow-compute-pid",
+      "435374"
+    ],
+    "exit_code": 0
+  }
+]

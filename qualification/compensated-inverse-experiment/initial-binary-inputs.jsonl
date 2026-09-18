@@ -1,0 +1,10 @@
+{"nodes":97280,"matrices":97280,"applications_per_node":100,"trial":0,"compensated":false,"gpu_ms":1.092896,"worst_relative_error":0}
+{"nodes":97280,"matrices":97280,"applications_per_node":100,"trial":0,"compensated":true,"gpu_ms":1.979040,"worst_relative_error":0}
+{"nodes":97280,"matrices":97280,"applications_per_node":100,"trial":1,"compensated":true,"gpu_ms":1.975296,"worst_relative_error":0}
+{"nodes":97280,"matrices":97280,"applications_per_node":100,"trial":1,"compensated":false,"gpu_ms":1.088480,"worst_relative_error":0}
+{"nodes":97280,"matrices":97280,"applications_per_node":100,"trial":2,"compensated":false,"gpu_ms":1.085440,"worst_relative_error":0}
+{"nodes":97280,"matrices":97280,"applications_per_node":100,"trial":2,"compensated":true,"gpu_ms":1.976192,"worst_relative_error":0}
+{"nodes":97280,"matrices":97280,"applications_per_node":100,"trial":3,"compensated":true,"gpu_ms":1.975104,"worst_relative_error":0}
+{"nodes":97280,"matrices":97280,"applications_per_node":100,"trial":3,"compensated":false,"gpu_ms":1.089184,"worst_relative_error":0}
+{"nodes":97280,"matrices":97280,"applications_per_node":100,"trial":4,"compensated":false,"gpu_ms":1.087488,"worst_relative_error":0}
+{"nodes":97280,"matrices":97280,"applications_per_node":100,"trial":4,"compensated":true,"gpu_ms":1.974272,"worst_relative_error":0}

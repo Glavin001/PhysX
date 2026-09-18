@@ -1,0 +1,26 @@
+{
+  "scope": "GPU first-level aggregation and coarse sparse factor construction only; not integrated into production stress solve",
+  "tests": "Captured CUDA graph correctness, memcheck, synccheck, racecheck: 4/4 pass",
+  "largest_fixture": {
+    "nodes": 100000,
+    "bonds": 199997,
+    "aggregates": 27321,
+    "rounds": 3
+  },
+  "factor_check": "Independent full coarse basis B^T P check, 2e-12 scaled tolerance, small fixtures only",
+  "rejected": "Nested/multiple conditional construction kernels failed unfiltered sanitizer checks; removed. Newer standalone checker did not resolve failure; not adopted. Final single cooperative kernel passes installed checker.",
+  "source_sha256": {
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyGraph.cuh": "7881d62583dc1ad7d18bcf7af12273c7be56d406d2f4cce0b0a9a3014853ff47",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyKernels.cuh": "ceaaca75adee9935e78b470435203d72f30d5431fa32c172819b8982c99add18",
+    "demos/blast-stress-demo/tests/gpu_resident_hierarchy_test.cu": "7732d92ba5a9f4f8a72387cf807016006953c0752a27e2182fa606237afffb4b"
+  },
+  "remaining": [
+    "recursive coarsening",
+    "restriction/prolongation and coarse application",
+    "smoother/coarse solve with free-body null spaces",
+    "production integration",
+    "affected component reuse",
+    "full scene fidelity and performance qualification"
+  ],
+  "wall_regression": "10 simulated seconds, 444 chunks, 896 bonds, one projectile, dt=1/60, correction limit one; exact frozen topology, holes, clearance, COM and convergence gates pass. Production solver is unchanged."
+}

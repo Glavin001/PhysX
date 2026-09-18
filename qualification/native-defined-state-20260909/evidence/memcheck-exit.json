@@ -1,0 +1,12 @@
+{
+  "command": [
+    "compute-sanitizer",
+    "--tool",
+    "memcheck",
+    "--error-exitcode",
+    "99",
+    "out/destruction-sdk/reference/native_gpu_collision_test",
+    "--accepted-properties"
+  ],
+  "exit_code": 0
+}

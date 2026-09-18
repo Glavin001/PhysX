@@ -1,0 +1,51 @@
+--- a/physx/source/physx/src/NpDestructionBodyAllocator.h
++++ b/physx/source/physx/src/NpDestructionBodyAllocator.h
+@@ -22,7 +22,6 @@
+     PxArray<Entry> mBodies;
+     PxArray<Entry> mAcceptedBodies;
+     PxArray<PxU32> mGrantedNodes;
+-    PxBitMap mGrantedNodeMask;
+     // Private-body membership must not scan every accepted fragment for every
+     // chunk binding. False denotes an uncommitted reservation; true denotes an
+     // accepted owner. The arrays retain deterministic allocation/teardown order.
+@@ -146,14 +145,12 @@
+         if(capacity>old) {
+             auto& islands=*mScene.getScScene().getSimpleIslandManager();
+             const PxU32 extra=capacity-old;
+-            if(PxU64(islands.getNbNodeHandles())+extra+31>PX_INVALID_NODE
+-                || !mGrantedNodeMask.resize(islands.getNbNodeHandles()+extra))return false;
++            if(PxU64(islands.getNbNodeHandles())+extra+31>PX_INVALID_NODE)return false;
+             mGrantedNodes.resize(capacity);
+             if(mGrantedNodes.size()!=capacity)return false;
+             if(!islands.reserveNativeNodeHandles(extra,mGrantedNodes.begin()+old)) {
+                 mGrantedNodes.forceSize_Unsafe(old);return false;
+             }
+-            for(PxU32 i=old;i<capacity;++i)mGrantedNodeMask.set(mGrantedNodes[i]);
+         }
+         indices=mGrantedNodes.begin();return true;
+     }
+@@ -162,14 +159,13 @@
+         // Validate all GPU-selected addresses before creating a compatibility
+         // record. In particular, ordinary and foreign allocator slots are invalid.
+         auto& islands=*mScene.getScScene().getSimpleIslandManager();
+-        PxHashMap<PxU32,PxU32> roots,targets,previous;
++        PxHashMap<PxU32,PxU32> roots,previous;
+         for(PxU32 i=0;i<mBodies.size();++i)previous.insert(mBodies[i].cluster,i);
+         for(PxU32 i=0;i<count;++i) {
+             const auto& request=requests[i];
+             if(!isValidSource(request.sourceBody) || request.needsBody>1 || request.supported>1
+                 || !roots.insert(request.cluster,i))return false;
+             if(!request.needsBody) {if(indices[i]!=request.sourceBody)return false;continue;}
+-            if(!mGrantedNodeMask.boundedTest(indices[i]) || !targets.insert(indices[i],i))return false;
+             const auto* found=previous.find(request.cluster);
+             if(found) {
+                 const auto& entry=mBodies[found->second];
+@@ -316,7 +312,7 @@
+         PX_ASSERT(mPrivateBodies.size()==0);
+         if(mGrantedNodes.size()) {
+             mScene.getScScene().getSimpleIslandManager()->releaseNativeNodeHandles(mGrantedNodes.size(),mGrantedNodes.begin());
+-            mGrantedNodes.clear();mGrantedNodeMask.clear();
++            mGrantedNodes.clear();
+         }
+     }
+     PxU32 size() const {return mBodies.size();}

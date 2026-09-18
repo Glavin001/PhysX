@@ -1,0 +1,329 @@
+{
+  "status": "experimental retained-contact coverage fixed; focused tests and 64-building audit passed; asynchronous CUDA sanitizer failure unresolved",
+  "base_revision": "f534c60c4396930d5e03d28f2ed8e8931731eaa0",
+  "final_source_sha256": {
+    "demos/blast-stress-demo/CMakeLists.txt": "6732abda1bbf32645d63a4dc39cb70cb3612b5e1f892bccd12dfafedd447d5d7",
+    "demos/blast-stress-demo/native_destruction_main.cpp": "f28a50ba25bd6bafd55614a1c3db8b37f0a4e7de337d7f20d99660858777c596",
+    "demos/blast-stress-demo/native_graph_diagnostics.h": "c69d0ad9c4267fe7f35e54a3520eb16d91cb5054789767d422ce2f2cf20c146a",
+    "demos/blast-stress-demo/tests/native_gpu_collision_test.cpp": "33af1861f640039fd79709b15bfa54c0a84ad2c6a9e735afb1fae5204673ba7d",
+    "demos/blast-stress-demo/tests/native_gpu_resimulation_test.cpp": "efeb90a94caea3a52cb4273493ce7622bb63de6517520c88c48930cf1ece77ae",
+    "demos/blast-stress-demo/tests/native_retained_contact_test.py": "52dc5f1433467d10cec0ffb0895f8bfd475641eba5d2cd38771f923b6d65ddf8",
+    "physx/source/gpudestruction/include/PxgDestructionContactGraph.h": "4efcbb7a2b54ad3c48f488bc6b134bc39dabb6caa801e06e79028d66b7d32b10",
+    "physx/source/gpudestruction/include/PxgDestructionRuntime.h": "65e4f539194c7a31cee4f643bb0cad207cb37f04b87302ff7c10de8cbfe450d4",
+    "physx/source/gpudestruction/src/PxgDestructionContactGraph.cuh": "7ff71b791e8b67ec60fa652cc4d4c89d81332f0abaf4cb1c6c63071cfe89f3e1",
+    "physx/source/gpudestruction/src/PxgDestructionRuntime.cu": "d0e6a45ebf126def785794fbb50b11511b0c54e5b6cf493d5db3a9a289a926fa",
+    "physx/source/gpudestruction/tests/contact_graph_test.cu": "5a126a568ef2ee93c373bc8c8e9eb37fb39d05a4d592aa1d7e5efa4a6deb8749",
+    "physx/source/gpunarrowphase/include/PxgNarrowphaseCore.h": "ab0152544f10cb1ff2849094adf482c71859ec52e14bd0aed6acefbf2f129686",
+    "physx/source/gpunarrowphase/src/PxgNarrowphaseCore.cpp": "9b8ac672c67fbd818db731cfc2cdf1a1b7f155ff2b0a1adc6f6fd645e47fdd31",
+    "physx/source/gpusimulationcontroller/include/PxgSimulationController.h": "02203b0b2ee96ede21758084f3afb54a58a2cdc303d336bc0558c3174d313ca9",
+    "physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp": "8e2c103388e8485a0dca9f8e039543f99428dbc61dd259d7c6f54734ca2a70e6",
+    "physx/source/gpusolver/include/PxgContext.h": "3aca6859af20ba9554153af386d7bd55ab51f9260fcda2c9a7de305d8a2a0e2b",
+    "physx/source/lowlevel/software/include/PxsIslandSim.h": "59b5b51741891f1e839bb27871c86bcbe295694d9a81e02f7752124fb9c18358",
+    "physx/source/lowlevel/software/include/PxsSimpleIslandManager.h": "61bec369be42008bbb1b9eea5340055058a27e102b8de3a484d812accdbe7314",
+    "physx/source/lowlevel/software/src/PxsIslandSim.cpp": "a662a6e7f586bf76e087c62fb30430ca37e2d8f2e99e64023b6b9215c74aef86",
+    "physx/source/lowlevel/software/src/PxsSimpleIslandManager.cpp": "d9a74470b05475e55e1ace4e69c2cc0d79164faba41ab0961eae2aa9a7ed82ee"
+  },
+  "changes": [
+    "CUDA membership heads/successors replace CPU binary search",
+    "One contact graph build per narrowphase pass; same-pass reuse with pair/retirement/lifecycle validation",
+    "Skip host graph observation when native connectivity is clean",
+    "Native manager-presence bitmap supplies retained edges to CUDA union without CPU component construction",
+    "Optional independent edge flood fill before GPU-driven native island mutation"
+  ],
+  "verification": {
+    "build_command": "python3 tools/scripts/build-destruction-sdk.py --jobs 4",
+    "focused_tests_passed": 24,
+    "tests_scope": "18 native/persistent-owner/projectile/graph tests plus 6 CPU reference contract and resimulation tests; not full SDK/Rust/WASM qualification",
+    "artifacts": [
+      {
+        "path": "out/native-retained-contact-verified-build.log",
+        "sha256": "4cf1083e7c9aa37765726ca1c04c941234537cbd81184efa39d0a00adbbf64ce"
+      },
+      {
+        "path": "out/native-retained-contact-tests.log",
+        "sha256": "5f771fbceab074511412e5ed31b9dc3171c94abb1b4ac73de6185b4d99f6b31c"
+      },
+      {
+        "path": "out/native-retained-contact-kernel-memcheck.log",
+        "sha256": "7d3e5b10c489d831074a57ba3866b302890112b6c29b11529792bcd69b22b253"
+      },
+      {
+        "path": "out/native-retained-contact-native-memcheck.log",
+        "sha256": "d31e4df1f0d36c82d86ac172f02286bf71c38d6fc6cb5fcfbc006a8305c9f4bd"
+      }
+    ],
+    "cuda_memcheck_scope": "Graph kernels and native --island-repair fixtures clean; real-fracture asynchronous memcheck failed and is not qualified"
+  },
+  "fixed_reproduction": {
+    "description": "At corrected step 82, 830 inserted dynamic speculative edges lacked a narrowphase manager, alongside 838 covered edges. Active GPU pairs alone produced incomplete connectivity. The independent audit rejected the snapshot before membership mutation.",
+    "artifacts": [
+      {
+        "path": "out/native-boundary-audit-edges.log",
+        "sha256": "b96defcb73c71a50034c60e8b091e32d2478132d1fa369afa744dc8c4eba244d"
+      },
+      {
+        "path": "out/recordings/native-boundary-audit-edges-20260906/process-result.json",
+        "sha256": "e0df502d5e7da87ea11dfdb2c193566331bbd73093a645499ac58ffcb8e79257"
+      }
+    ]
+  },
+  "audited_capture": {
+    "summary": {
+      "backend": "native PhysX GPU task graph + resident CUDA destruction",
+      "status": "completed",
+      "frames": 600,
+      "seconds": 10,
+      "buildings": 64,
+      "chunks": 28416,
+      "bonds": 57344,
+      "peak_clusters": 24254,
+      "projectiles": 256,
+      "broken_bonds": 50046,
+      "corrections": 100,
+      "spawn_protocol": "clear-aerial-ballistic-v2",
+      "island_boundary_audit_enabled": true,
+      "motion_audit_enabled": true,
+      "max_motion_position_error": 0,
+      "record_fps": 60,
+      "gpu_island_repair": true,
+      "preserve_contact_pairs": true,
+      "recorded_state": false,
+      "correction_limit": 1,
+      "physics_ms_p50": 48.0147,
+      "physics_ms_p95": 192.965,
+      "physics_ms_p99": 305.597,
+      "physics_ms_max": 440.741,
+      "missed_16_67ms": 498,
+      "stress_included_in_physics_time": true,
+      "isolated_performance_qualification": false,
+      "sleeping": false,
+      "crushing_material_enabled": false
+    },
+    "graph": {
+      "scope": "contact graph only; excludes other physics and recording transfers",
+      "graph_builds": 700,
+      "same_pass_reuses": 700,
+      "host_observations": 617,
+      "sorted_graphs": 1234,
+      "device_to_host_bytes": 435968368,
+      "gpu_connected_answers": 4231712,
+      "gpu_splits": 658792,
+      "retained_edges_uploaded": 45874,
+      "retained_host_to_device_bytes": 733984,
+      "peak_retained_edges": 3836,
+      "boundary_audits": 1234,
+      "boundary_audit_failures": 0,
+      "registry_mismatch_fallbacks": 0
+    },
+    "process": {
+      "exit_code": 0,
+      "wall_seconds": 42.55619766516611,
+      "status": "completed"
+    },
+    "physics_timing": {
+      "samples": 600,
+      "min_ms": 0.602384,
+      "mean_ms": 62.235697425,
+      "max_ms": 440.741,
+      "p50_ms": 48.0029,
+      "p95_ms": 192.965,
+      "p99_ms": 305.597,
+      "total_wall_seconds": 37.341418454999996,
+      "effective_steps_per_second": 16.06794880390143,
+      "real_time_factor": 0.26779914673169053,
+      "missed_deadlines": 498,
+      "fixed_step_ms": 16.666666666666668
+    },
+    "artifacts": [
+      {
+        "path": "out/recordings/native-retained-contact-audited-20260906/build-provenance.json",
+        "sha256": "0efcfeab3f3d4e64aa025d6ef6557840fc25a1c783f52c189aff65cd890e6464"
+      },
+      {
+        "path": "out/recordings/native-retained-contact-audited-20260906/source-files.json",
+        "sha256": "5b0affc0b708f442d9322405502156acc160086222131052799a568a2fd5a87a"
+      },
+      {
+        "path": "out/recordings/native-retained-contact-audited-20260906/native.summary.json",
+        "sha256": "82fc42d5ade67157d8169b37a089ee3ae2578742b4c136310f4f43e010ee7116"
+      },
+      {
+        "path": "out/recordings/native-retained-contact-audited-20260906/native.graph-diagnostics.json",
+        "sha256": "1026824ef53e4e6a251849e26fea97b54004040cea62a793b72a4be9f2eaaf12"
+      },
+      {
+        "path": "out/recordings/native-retained-contact-audited-20260906/native.frames.csv",
+        "sha256": "66bcdcfd6963a54736feecb54eb65650d24a5e3864f5bc962fdf88f3b789c038"
+      },
+      {
+        "path": "out/recordings/native-retained-contact-audited-20260906/native.phases.csv",
+        "sha256": "2334bbce854476e87425543882f14440ca0e8a0684f1a9aa3c66df8b228f3136"
+      },
+      {
+        "path": "out/recordings/native-retained-contact-audited-20260906/phase-summary.json",
+        "sha256": "5e0b7dd30cb996fbdfcac62589a17d15eaf969b6967cd1d8e33c9c0fe7bd5185"
+      },
+      {
+        "path": "out/recordings/native-retained-contact-audited-20260906/process-result.json",
+        "sha256": "b1ebfddf423159d9c3e52aec46f9d465b437c14810ecdb93aea3a3a938582d3f"
+      },
+      {
+        "path": "out/recordings/native-retained-contact-audited-20260906/gpu-memory.csv",
+        "sha256": "07ace2301a89c864b0361d9d5d80387c498a87dfaac60d0eac488f513f85c2c1"
+      }
+    ],
+    "limitations": [
+      "Shared GPU, single diagnostic run, expensive CPU boundary audit included in simulation time",
+      "No speedup, 60 Hz or whole-game timing claim",
+      "28,416 chunks is not a new 100k-chunk qualification; prior larger capture predates this fix",
+      "No new video recorded"
+    ]
+  },
+  "unresolved_native_segfault": {
+    "description": "Earlier final-member-link capture exited SIGSEGV after last flushed accepted step 209. No crash stack. Retained-edge omission is fixed, but causal relation to this crash is not proven.",
+    "process": {
+      "exit_code": -11,
+      "wall_seconds": 8.114965922664851,
+      "status": "incomplete"
+    },
+    "artifacts": [
+      {
+        "path": "out/native-member-links-gpu.log",
+        "sha256": "15e6680c858655aac5dd625cf736829757a44aa86d8fa7b9c44bf2543bff1177"
+      },
+      {
+        "path": "out/recordings/native-member-links-gpu-20260906/build-provenance.json",
+        "sha256": "5ed63648a6a32c62b2115b16caea1e491b4d1c88cf7679ed2b410ef6125717d3"
+      }
+    ],
+    "diagnostic_retries": "Five gdb and five process-local crash-trace runs completed. Partial ASan instrumentation of PxsIslandSim.cpp and ScPipeline.cpp produced a 600-step completion manifest without an ASan report; terminal exit code was not retained. None establishes a fix. Old isolated ASan binary/archive must not be reused against new native/GPU ABI."
+  },
+  "unresolved_cuda_failure": {
+    "description": "Real-fracture compute-sanitizer reports error 700 at Runtime::finish cudaEventSynchronize, without a faulting device PC. First attempt fails step 1; ordinary asynchronous retry fails step 150. Cascade cleanup errors follow. No root cause established.",
+    "attempts": [
+      {
+        "mode": "normal asynchronous",
+        "exit_code": 99,
+        "failed_step": 1,
+        "artifact": {
+          "path": "out/native-retained-contact-fracture-memcheck.log",
+          "sha256": "b515fa147a0e04d72c9cd647ec70df6633985c2db556f69d7cee9291bbb869b4"
+        }
+      },
+      {
+        "mode": "normal asynchronous retry",
+        "failed_step": 150,
+        "result": {
+          "test": "async-retry",
+          "exit": 99,
+          "environment": {},
+          "command": [
+            "compute-sanitizer",
+            "--tool",
+            "memcheck",
+            "--error-exitcode",
+            "99",
+            "--print-limit",
+            "10",
+            "out/destruction-sdk/reference/native_destruction_demo",
+            "--grid",
+            "1",
+            "--waves",
+            "1",
+            "--seconds",
+            "3",
+            "--stress-iterations",
+            "8192",
+            "--preserve-contact-pairs",
+            "1",
+            "--gpu-island-repair",
+            "1",
+            "--audit-islands",
+            "1",
+            "--audit-motion",
+            "1",
+            "--record-state",
+            "0",
+            "--output",
+            "out/recordings/native-retained-contact-async-retry-20260906"
+          ]
+        },
+        "artifact": {
+          "path": "out/native-retained-contact-async-retry-memcheck.log",
+          "sha256": "92c0c691d9608d885f9e2cb844b7ce628cbab3b966086a145ed5152d93e9ddd9"
+        }
+      },
+      {
+        "mode": "CPU-reference island repair",
+        "exit_code": 0,
+        "errors": 0,
+        "artifact": {
+          "path": "out/native-retained-contact-reference-fracture-memcheck.log",
+          "sha256": "6717f2f6951ed4781b328b9fcabb36972d1273fb963637ff82dae1361ad0a239"
+        }
+      },
+      {
+        "mode": "CUDA_LAUNCH_BLOCKING=1",
+        "exit_code": 0,
+        "errors": 0,
+        "artifact": {
+          "path": "out/native-retained-contact-blocking-fracture-memcheck.log",
+          "sha256": "de16ea53e5fda40ccb45a593720ca6af70caee03d60e76d006ce953a1ef1391c"
+        }
+      },
+      {
+        "mode": "BLAST_GPU_GRAPH_UPDATE=0",
+        "result": {
+          "test": "graph-reinstantiate",
+          "exit": 0,
+          "environment": {
+            "BLAST_GPU_GRAPH_UPDATE": "0"
+          },
+          "command": [
+            "compute-sanitizer",
+            "--tool",
+            "memcheck",
+            "--error-exitcode",
+            "99",
+            "--print-limit",
+            "10",
+            "out/destruction-sdk/reference/native_destruction_demo",
+            "--grid",
+            "1",
+            "--waves",
+            "1",
+            "--seconds",
+            "3",
+            "--stress-iterations",
+            "8192",
+            "--preserve-contact-pairs",
+            "1",
+            "--gpu-island-repair",
+            "1",
+            "--audit-islands",
+            "1",
+            "--audit-motion",
+            "1",
+            "--record-state",
+            "0",
+            "--output",
+            "out/recordings/native-retained-contact-graph-reinstantiate-20260906"
+          ]
+        },
+        "errors": 0,
+        "artifact": {
+          "path": "out/native-retained-contact-graph-reinstantiate-memcheck.log",
+          "sha256": "7354a74d397303644519a1f72f0021f6b193a632261ae8ee363547f4a7ac7077"
+        }
+      }
+    ],
+    "next": "Isolate conditional CUDA graph update/lifetime and asynchronous ordering with a bounded reproducer. Do not promote the path, disable graph optimization by default, or call clean comparisons a fix without causal evidence."
+  },
+  "remaining": [
+    "GPU-owned native node/edge registry, solver preparation and removal of compatibility readback",
+    "Replace retained-edge host snapshots with device lifecycle deltas",
+    "Sleeping/joints/CCD/unsupported state integration and full correction qualification",
+    "Asynchronous CUDA failure and original native SIGSEGV remain open",
+    "Full SDK/Rust/WASM/game/fidelity/performance completion gates remain unproven"
+  ]
+}

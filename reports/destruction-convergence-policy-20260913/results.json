@@ -1,0 +1,1625 @@
+{
+  "screen_sha256": "067f0d94081a397dbce09dfeb1f012b19877f3a2ec00b31765b685b75e36bb86",
+  "scenarios": [
+    {
+      "case": "tower64-cold",
+      "mode": "restored",
+      "runs": {
+        "strict": {
+          "n": 3,
+          "mean_ms": 108.90399166666667,
+          "max_ms": 111.204089,
+          "min_ms": 107.40869,
+          "sd_ms": 2.021641768740028,
+          "first_tick_ms": 111.204089,
+          "over_60hz": 3,
+          "context_setup_ms": 444.308164,
+          "restore_mean_ms": 93.06026266666666,
+          "broken_bonds": [
+            0,
+            0,
+            0
+          ],
+          "output_clusters": [
+            1,
+            1,
+            1
+          ],
+          "unconverged_ticks": 0,
+          "iterations_mean": 137,
+          "iterations_max": 137,
+          "raw": "/root/workspace/physx-2/out/destruction-convergence-policy-20260913/screen/tower64-cold-strict"
+        },
+        "tolerance": {
+          "n": 3,
+          "mean_ms": 72.32265366666667,
+          "max_ms": 73.687481,
+          "min_ms": 71.519666,
+          "sd_ms": 1.1881091392781817,
+          "first_tick_ms": 73.687481,
+          "over_60hz": 3,
+          "context_setup_ms": 434.840446,
+          "restore_mean_ms": 104.50113933333333,
+          "broken_bonds": [
+            0,
+            0,
+            0
+          ],
+          "output_clusters": [
+            1,
+            1,
+            1
+          ],
+          "unconverged_ticks": 0,
+          "iterations_mean": 89,
+          "iterations_max": 89,
+          "raw": "/root/workspace/physx-2/out/destruction-convergence-policy-20260913/screen/tower64-cold-tolerance"
+        },
+        "cap32": {
+          "n": 3,
+          "mean_ms": 28.686992,
+          "max_ms": 28.796042,
+          "min_ms": 28.526482,
+          "sd_ms": 0.14195684942967596,
+          "first_tick_ms": 28.796042,
+          "over_60hz": 3,
+          "context_setup_ms": 424.467771,
+          "restore_mean_ms": 82.77578566666668,
+          "broken_bonds": [
+            0,
+            0,
+            0
+          ],
+          "output_clusters": [
+            1,
+            1,
+            1
+          ],
+          "unconverged_ticks": 3,
+          "iterations_mean": 32,
+          "iterations_max": 32,
+          "raw": "/root/workspace/physx-2/out/destruction-convergence-policy-20260913/screen/tower64-cold-cap32"
+        },
+        "vibe32": {
+          "n": 3,
+          "mean_ms": 29.475928,
+          "max_ms": 31.322275,
+          "min_ms": 27.921894,
+          "sd_ms": 1.71893365310212,
+          "first_tick_ms": 31.322275,
+          "over_60hz": 3,
+          "context_setup_ms": 450.928441,
+          "restore_mean_ms": 100.84179466666667,
+          "broken_bonds": [
+            0,
+            0,
+            0
+          ],
+          "output_clusters": [
+            1,
+            1,
+            1
+          ],
+          "unconverged_ticks": 3,
+          "iterations_mean": 32,
+          "iterations_max": 32,
+          "raw": "/root/workspace/physx-2/out/destruction-convergence-policy-20260913/screen/tower64-cold-vibe32"
+        }
+      },
+      "comparison": {
+        "tolerance": {
+          "bond-forces": {
+            "changed_scalars": 28712,
+            "total_scalars": 29400,
+            "max_absolute": 0.00946807861328125,
+            "relative_l2": 1.1005409918297686e-05,
+            "torque_relative_l2": 0.00021041324082410456,
+            "force_relative_l2": 1.0553043479255065e-05,
+            "maximum_scaled": 0.007458871565177105
+          },
+          "health": {
+            "changed_scalars": 0,
+            "total_scalars": 4900,
+            "max_absolute": 0.0,
+            "broken_identity_differences": 0
+          },
+          "active-bonds": {
+            "changed_scalars": 0,
+            "total_scalars": 4900
+          },
+          "chunk-clusters": {
+            "changed_scalars": 0,
+            "total_scalars": 2368,
+            "physical_partition_equal": true
+          },
+          "node-accelerations": {
+            "changed_scalars": 0,
+            "total_scalars": 14208,
+            "max_absolute": 0.0
+          },
+          "surface-loads": {
+            "changed_scalars": 0,
+            "total_scalars": 28416,
+            "max_absolute": 0.0
+          },
+          "crush": {
+            "changed_scalars": 0,
+            "total_scalars": 11840,
+            "max_absolute": 0.0
+          },
+          "objects": {
+            "common_objects": 2372,
+            "unmatched_objects": 0,
+            "changed_role_mass": 0,
+            "maximum_position_m": 0,
+            "maximum_linear_m_s": 0,
+            "maximum_angular_rad_s": 0
+          },
+          "original_checker": {
+            "status": "failed",
+            "first_failure": "bond-forces: existing numerical bound exceeded"
+          }
+        },
+        "cap32": {
+          "bond-forces": {
+            "changed_scalars": 28728,
+            "total_scalars": 29400,
+            "max_absolute": 7.594970703125,
+            "relative_l2": 0.005807115814946021,
+            "torque_relative_l2": 0.05520781207248388,
+            "force_relative_l2": 0.0057495068852276504,
+            "maximum_scaled": 1.6683429094834819
+          },
+          "health": {
+            "changed_scalars": 0,
+            "total_scalars": 4900,
+            "max_absolute": 0.0,
+            "broken_identity_differences": 0
+          },
+          "active-bonds": {
+            "changed_scalars": 0,
+            "total_scalars": 4900
+          },
+          "chunk-clusters": {
+            "changed_scalars": 0,
+            "total_scalars": 2368,
+            "physical_partition_equal": true
+          },
+          "node-accelerations": {
+            "changed_scalars": 0,
+            "total_scalars": 14208,
+            "max_absolute": 0.0
+          },
+          "surface-loads": {
+            "changed_scalars": 0,
+            "total_scalars": 28416,
+            "max_absolute": 0.0
+          },
+          "crush": {
+            "changed_scalars": 0,
+            "total_scalars": 11840,
+            "max_absolute": 0.0
+          },
+          "objects": {
+            "common_objects": 2372,
+            "unmatched_objects": 0,
+            "changed_role_mass": 0,
+            "maximum_position_m": 0,
+            "maximum_linear_m_s": 0,
+            "maximum_angular_rad_s": 0
+          },
+          "original_checker": {
+            "status": "failed",
+            "first_failure": "bond-forces: existing numerical bound exceeded"
+          }
+        },
+        "vibe32": {
+          "bond-forces": {
+            "changed_scalars": 28728,
+            "total_scalars": 29400,
+            "max_absolute": 7.5950927734375,
+            "relative_l2": 0.005807115471436325,
+            "torque_relative_l2": 0.055208049517144114,
+            "force_relative_l2": 0.005749506034600383,
+            "maximum_scaled": 1.6683486008335502
+          },
+          "health": {
+            "changed_scalars": 0,
+            "total_scalars": 4900,
+            "max_absolute": 0.0,
+            "broken_identity_differences": 0
+          },
+          "active-bonds": {
+            "changed_scalars": 0,
+            "total_scalars": 4900
+          },
+          "chunk-clusters": {
+            "changed_scalars": 0,
+            "total_scalars": 2368,
+            "physical_partition_equal": true
+          },
+          "node-accelerations": {
+            "changed_scalars": 0,
+            "total_scalars": 14208,
+            "max_absolute": 0.0
+          },
+          "surface-loads": {
+            "changed_scalars": 0,
+            "total_scalars": 28416,
+            "max_absolute": 0.0
+          },
+          "crush": {
+            "changed_scalars": 0,
+            "total_scalars": 11840,
+            "max_absolute": 0.0
+          },
+          "objects": {
+            "common_objects": 2372,
+            "unmatched_objects": 0,
+            "changed_role_mass": 0,
+            "maximum_position_m": 0,
+            "maximum_linear_m_s": 0,
+            "maximum_angular_rad_s": 0
+          },
+          "original_checker": {
+            "status": "failed",
+            "first_failure": "bond-forces: existing numerical bound exceeded"
+          }
+        }
+      }
+    },
+    {
+      "case": "city25-initial-impact",
+      "mode": "restored",
+      "runs": {
+        "strict": {
+          "n": 3,
+          "mean_ms": 38.009192,
+          "max_ms": 42.184455,
+          "min_ms": 32.314461,
+          "sd_ms": 5.1074242669154675,
+          "first_tick_ms": 42.184455,
+          "over_60hz": 3,
+          "context_setup_ms": 586.560162,
+          "restore_mean_ms": 159.78031966666666,
+          "broken_bonds": [
+            3412,
+            3412,
+            3412
+          ],
+          "output_clusters": [
+            537,
+            537,
+            537
+          ],
+          "unconverged_ticks": 0,
+          "iterations_mean": 304,
+          "iterations_max": 304,
+          "raw": "/root/workspace/physx-2/out/destruction-convergence-policy-20260913/screen/city25-initial-impact-strict"
+        },
+        "tolerance": {
+          "n": 3,
+          "mean_ms": 40.35010533333333,
+          "max_ms": 45.937229,
+          "min_ms": 36.564641,
+          "sd_ms": 4.939213876668669,
+          "first_tick_ms": 45.937229,
+          "over_60hz": 3,
+          "context_setup_ms": 574.969487,
+          "restore_mean_ms": 158.021121,
+          "broken_bonds": [
+            3412,
+            3412,
+            3412
+          ],
+          "output_clusters": [
+            537,
+            537,
+            537
+          ],
+          "unconverged_ticks": 0,
+          "iterations_mean": 232,
+          "iterations_max": 232,
+          "raw": "/root/workspace/physx-2/out/destruction-convergence-policy-20260913/screen/city25-initial-impact-tolerance"
+        },
+        "cap32": {
+          "n": 3,
+          "mean_ms": 37.52614966666667,
+          "max_ms": 43.9182,
+          "min_ms": 32.807675,
+          "sd_ms": 5.741217908941475,
+          "first_tick_ms": 43.9182,
+          "over_60hz": 3,
+          "context_setup_ms": 575.133759,
+          "restore_mean_ms": 153.67244599999998,
+          "broken_bonds": [
+            3330,
+            3330,
+            3330
+          ],
+          "output_clusters": [
+            655,
+            655,
+            655
+          ],
+          "unconverged_ticks": 3,
+          "iterations_mean": 32,
+          "iterations_max": 32,
+          "raw": "/root/workspace/physx-2/out/destruction-convergence-policy-20260913/screen/city25-initial-impact-cap32"
+        },
+        "vibe32": {
+          "n": 3,
+          "mean_ms": 37.523001666666666,
+          "max_ms": 41.690898,
+          "min_ms": 33.394523,
+          "sd_ms": 4.14832795828516,
+          "first_tick_ms": 41.690898,
+          "over_60hz": 3,
+          "context_setup_ms": 572.898245,
+          "restore_mean_ms": 147.28293466666668,
+          "broken_bonds": [
+            3330,
+            3330,
+            3330
+          ],
+          "output_clusters": [
+            655,
+            655,
+            655
+          ],
+          "unconverged_ticks": 3,
+          "iterations_mean": 32,
+          "iterations_max": 32,
+          "raw": "/root/workspace/physx-2/out/destruction-convergence-policy-20260913/screen/city25-initial-impact-vibe32"
+        }
+      },
+      "comparison": {
+        "tolerance": {
+          "bond-forces": {
+            "changed_scalars": 96715,
+            "total_scalars": 134400,
+            "max_absolute": 1213.34375,
+            "relative_l2": 0.0002646648937471997,
+            "torque_relative_l2": 0.00012402967452206982,
+            "force_relative_l2": 0.0003470018107883194,
+            "maximum_scaled": 1.9798470937355441
+          },
+          "health": {
+            "changed_scalars": 5014,
+            "total_scalars": 22400,
+            "max_absolute": 8.785724639892578e-05,
+            "broken_identity_differences": 0
+          },
+          "active-bonds": {
+            "changed_scalars": 0,
+            "total_scalars": 22400
+          },
+          "chunk-clusters": {
+            "changed_scalars": 0,
+            "total_scalars": 11100,
+            "physical_partition_equal": true
+          },
+          "node-accelerations": {
+            "changed_scalars": 0,
+            "total_scalars": 66600,
+            "max_absolute": 0.0
+          },
+          "surface-loads": {
+            "changed_scalars": 0,
+            "total_scalars": 133200,
+            "max_absolute": 0.0
+          },
+          "crush": {
+            "changed_scalars": 0,
+            "total_scalars": 55500,
+            "max_absolute": 0.0
+          },
+          "objects": {
+            "common_objects": 11178,
+            "unmatched_objects": 0,
+            "changed_role_mass": 0,
+            "maximum_position_m": 0,
+            "maximum_linear_m_s": 0,
+            "maximum_angular_rad_s": 0
+          },
+          "original_checker": {
+            "status": "failed",
+            "first_failure": "bond-forces: existing numerical bound exceeded"
+          }
+        },
+        "cap32": {
+          "bond-forces": {
+            "changed_scalars": 103020,
+            "total_scalars": 134400,
+            "max_absolute": 3233537.25,
+            "relative_l2": 0.4463594221481416,
+            "torque_relative_l2": 0.3503544032645815,
+            "force_relative_l2": 0.5193327974724898,
+            "maximum_scaled": 1.999995764239277
+          },
+          "health": {
+            "changed_scalars": 7356,
+            "total_scalars": 22400,
+            "max_absolute": 1.0,
+            "broken_identity_differences": 2012
+          },
+          "active-bonds": {
+            "changed_scalars": 2012,
+            "total_scalars": 22400
+          },
+          "chunk-clusters": {
+            "changed_scalars": 375,
+            "total_scalars": 11100,
+            "physical_partition_equal": false
+          },
+          "node-accelerations": {
+            "changed_scalars": 27421,
+            "total_scalars": 66600,
+            "max_absolute": 2499.488281042124
+          },
+          "surface-loads": {
+            "changed_scalars": 3614,
+            "total_scalars": 133200,
+            "max_absolute": 2211387.0
+          },
+          "crush": {
+            "changed_scalars": 0,
+            "total_scalars": 55500,
+            "max_absolute": 0.0
+          },
+          "objects": {
+            "common_objects": 11178,
+            "unmatched_objects": 0,
+            "changed_role_mass": 10600,
+            "maximum_position_m": 0.1411590849681285,
+            "maximum_linear_m_s": 19.023436458778132,
+            "maximum_angular_rad_s": 29.66973496217209
+          },
+          "original_checker": {
+            "status": "failed",
+            "first_failure": "node-accelerations: output bytes differ"
+          }
+        },
+        "vibe32": {
+          "bond-forces": {
+            "changed_scalars": 103020,
+            "total_scalars": 134400,
+            "max_absolute": 3233537.25,
+            "relative_l2": 0.4463594221481416,
+            "torque_relative_l2": 0.3503544032645815,
+            "force_relative_l2": 0.5193327974724898,
+            "maximum_scaled": 1.999995764239277
+          },
+          "health": {
+            "changed_scalars": 7356,
+            "total_scalars": 22400,
+            "max_absolute": 1.0,
+            "broken_identity_differences": 2012
+          },
+          "active-bonds": {
+            "changed_scalars": 2012,
+            "total_scalars": 22400
+          },
+          "chunk-clusters": {
+            "changed_scalars": 375,
+            "total_scalars": 11100,
+            "physical_partition_equal": false
+          },
+          "node-accelerations": {
+            "changed_scalars": 27421,
+            "total_scalars": 66600,
+            "max_absolute": 2499.488281042124
+          },
+          "surface-loads": {
+            "changed_scalars": 3614,
+            "total_scalars": 133200,
+            "max_absolute": 2211387.0
+          },
+          "crush": {
+            "changed_scalars": 0,
+            "total_scalars": 55500,
+            "max_absolute": 0.0
+          },
+          "objects": {
+            "common_objects": 11178,
+            "unmatched_objects": 0,
+            "changed_role_mass": 10600,
+            "maximum_position_m": 0.1411590849681285,
+            "maximum_linear_m_s": 19.023436458778132,
+            "maximum_angular_rad_s": 29.66973496217209
+          },
+          "original_checker": {
+            "status": "failed",
+            "first_failure": "node-accelerations: output bytes differ"
+          }
+        }
+      }
+    },
+    {
+      "case": "city256-late-debris",
+      "mode": "restored",
+      "runs": {
+        "strict": {
+          "n": 3,
+          "mean_ms": 372.07294333333334,
+          "max_ms": 402.503169,
+          "min_ms": 340.415799,
+          "sd_ms": 31.06186368266056,
+          "first_tick_ms": 402.503169,
+          "over_60hz": 3,
+          "context_setup_ms": 1742.314142,
+          "restore_mean_ms": 906.0478586666667,
+          "broken_bonds": [
+            11051,
+            11051,
+            11051
+          ],
+          "output_clusters": [
+            16135,
+            16135,
+            16135
+          ],
+          "unconverged_ticks": 0,
+          "iterations_mean": 1084,
+          "iterations_max": 1084,
+          "raw": "/root/workspace/physx-2/out/destruction-convergence-policy-20260913/screen/city256-late-debris-strict"
+        },
+        "tolerance": {
+          "n": 3,
+          "mean_ms": 349.67909533333335,
+          "max_ms": 366.997289,
+          "min_ms": 339.275617,
+          "sd_ms": 15.099097348009666,
+          "first_tick_ms": 366.997289,
+          "over_60hz": 3,
+          "context_setup_ms": 1751.884706,
+          "restore_mean_ms": 917.6563136666666,
+          "broken_bonds": [
+            11020,
+            11020,
+            11020
+          ],
+          "output_clusters": [
+            16126,
+            16126,
+            16126
+          ],
+          "unconverged_ticks": 0,
+          "iterations_mean": 960,
+          "iterations_max": 960,
+          "raw": "/root/workspace/physx-2/out/destruction-convergence-policy-20260913/screen/city256-late-debris-tolerance"
+        },
+        "cap32": {
+          "n": 3,
+          "mean_ms": 356.201056,
+          "max_ms": 401.452459,
+          "min_ms": 319.593116,
+          "sd_ms": 41.60853396326513,
+          "first_tick_ms": 401.452459,
+          "over_60hz": 3,
+          "context_setup_ms": 1757.043153,
+          "restore_mean_ms": 920.8932933333333,
+          "broken_bonds": [
+            9970,
+            9970,
+            9970
+          ],
+          "output_clusters": [
+            16087,
+            16087,
+            16087
+          ],
+          "unconverged_ticks": 3,
+          "iterations_mean": 32,
+          "iterations_max": 32,
+          "raw": "/root/workspace/physx-2/out/destruction-convergence-policy-20260913/screen/city256-late-debris-cap32"
+        },
+        "vibe32": {
+          "n": 3,
+          "mean_ms": 340.958846,
+          "max_ms": 358.753812,
+          "min_ms": 322.789577,
+          "sd_ms": 17.985038972314253,
+          "first_tick_ms": 358.753812,
+          "over_60hz": 3,
+          "context_setup_ms": 1752.891237,
+          "restore_mean_ms": 935.343521,
+          "broken_bonds": [
+            9970,
+            9970,
+            9970
+          ],
+          "output_clusters": [
+            16087,
+            16087,
+            16087
+          ],
+          "unconverged_ticks": 3,
+          "iterations_mean": 32,
+          "iterations_max": 32,
+          "raw": "/root/workspace/physx-2/out/destruction-convergence-policy-20260913/screen/city256-late-debris-vibe32"
+        }
+      },
+      "comparison": {
+        "tolerance": {
+          "bond-forces": {
+            "changed_scalars": 806449,
+            "total_scalars": 1376256,
+            "max_absolute": 42204947.5,
+            "relative_l2": 0.062053088501808885,
+            "torque_relative_l2": 0.047949831881804905,
+            "force_relative_l2": 0.08894285811031132,
+            "maximum_scaled": 1.9986174687828457
+          },
+          "health": {
+            "changed_scalars": 5626,
+            "total_scalars": 229376,
+            "max_absolute": 1.0,
+            "broken_identity_differences": 83
+          },
+          "active-bonds": {
+            "changed_scalars": 83,
+            "total_scalars": 229376
+          },
+          "chunk-clusters": {
+            "changed_scalars": 56,
+            "total_scalars": 113664,
+            "physical_partition_equal": false
+          },
+          "node-accelerations": {
+            "changed_scalars": 1021,
+            "total_scalars": 681984,
+            "max_absolute": 29647.52734375
+          },
+          "surface-loads": {
+            "changed_scalars": 4294,
+            "total_scalars": 1363968,
+            "max_absolute": 26248591.09375
+          },
+          "crush": {
+            "changed_scalars": 0,
+            "total_scalars": 568320,
+            "max_absolute": 0.0
+          },
+          "objects": {
+            "common_objects": 126393,
+            "unmatched_objects": 0,
+            "changed_role_mass": 2009,
+            "maximum_position_m": 0.24186522465982435,
+            "maximum_linear_m_s": 19.015782418683035,
+            "maximum_angular_rad_s": 37.202447408517315
+          },
+          "original_checker": {
+            "status": "failed",
+            "first_failure": "node-accelerations: output bytes differ"
+          }
+        },
+        "cap32": {
+          "bond-forces": {
+            "changed_scalars": 805334,
+            "total_scalars": 1376256,
+            "max_absolute": 288761521.75,
+            "relative_l2": 0.9955844986610494,
+            "torque_relative_l2": 1.0264110646033466,
+            "force_relative_l2": 0.9099771412933461,
+            "maximum_scaled": 1.9999922516857205
+          },
+          "health": {
+            "changed_scalars": 10652,
+            "total_scalars": 229376,
+            "max_absolute": 1.0,
+            "broken_identity_differences": 4343
+          },
+          "active-bonds": {
+            "changed_scalars": 4343,
+            "total_scalars": 229376
+          },
+          "chunk-clusters": {
+            "changed_scalars": 4154,
+            "total_scalars": 113664,
+            "physical_partition_equal": false
+          },
+          "node-accelerations": {
+            "changed_scalars": 66638,
+            "total_scalars": 681984,
+            "max_absolute": 90198.1357421875
+          },
+          "surface-loads": {
+            "changed_scalars": 102863,
+            "total_scalars": 1363968,
+            "max_absolute": 82580752.0
+          },
+          "crush": {
+            "changed_scalars": 0,
+            "total_scalars": 568320,
+            "max_absolute": 0.0
+          },
+          "objects": {
+            "common_objects": 126393,
+            "unmatched_objects": 0,
+            "changed_role_mass": 34689,
+            "maximum_position_m": 5.934864439853141,
+            "maximum_linear_m_s": 73.80936045482638,
+            "maximum_angular_rad_s": 96.78732206707976
+          },
+          "original_checker": {
+            "status": "failed",
+            "first_failure": "node-accelerations: output bytes differ"
+          }
+        },
+        "vibe32": {
+          "bond-forces": {
+            "changed_scalars": 817114,
+            "total_scalars": 1376256,
+            "max_absolute": 288761521.75,
+            "relative_l2": 0.9955850634119395,
+            "torque_relative_l2": 1.0264107944545209,
+            "force_relative_l2": 0.9099801737414636,
+            "maximum_scaled": 1.9999922516857205
+          },
+          "health": {
+            "changed_scalars": 10658,
+            "total_scalars": 229376,
+            "max_absolute": 1.0,
+            "broken_identity_differences": 4343
+          },
+          "active-bonds": {
+            "changed_scalars": 4343,
+            "total_scalars": 229376
+          },
+          "chunk-clusters": {
+            "changed_scalars": 4154,
+            "total_scalars": 113664,
+            "physical_partition_equal": false
+          },
+          "node-accelerations": {
+            "changed_scalars": 66638,
+            "total_scalars": 681984,
+            "max_absolute": 90198.1357421875
+          },
+          "surface-loads": {
+            "changed_scalars": 102863,
+            "total_scalars": 1363968,
+            "max_absolute": 82580752.0
+          },
+          "crush": {
+            "changed_scalars": 0,
+            "total_scalars": 568320,
+            "max_absolute": 0.0
+          },
+          "objects": {
+            "common_objects": 126393,
+            "unmatched_objects": 0,
+            "changed_role_mass": 34689,
+            "maximum_position_m": 5.934864439853141,
+            "maximum_linear_m_s": 73.80936045482638,
+            "maximum_angular_rad_s": 96.78732206707976
+          },
+          "original_checker": {
+            "status": "failed",
+            "first_failure": "node-accelerations: output bytes differ"
+          }
+        }
+      }
+    },
+    {
+      "case": "idle-256",
+      "mode": "continuous",
+      "runs": {
+        "strict-0": {
+          "n": 180,
+          "mean_ms": 1.63506975,
+          "max_ms": 13.550826,
+          "min_ms": 1.116383,
+          "sd_ms": 0.9018963453204344,
+          "first_tick_ms": 13.550826,
+          "over_60hz": 0,
+          "initialization_ms": 2188.961737,
+          "total_broken": 0,
+          "final_clusters": 256.0,
+          "final_awake": 0.0,
+          "contacts": 0.0,
+          "unconverged_ticks": 0,
+          "iterations_mean": 0.4888888888888889,
+          "iterations_max": 88.0,
+          "raw": "/root/workspace/physx-2/out/destruction-convergence-policy-20260913/screen/idle-256-strict-0"
+        },
+        "tolerance-0": {
+          "n": 180,
+          "mean_ms": 1.4449837,
+          "max_ms": 9.807111,
+          "min_ms": 1.115131,
+          "sd_ms": 0.6434792369783715,
+          "first_tick_ms": 9.807111,
+          "over_60hz": 0,
+          "initialization_ms": 2159.115893,
+          "total_broken": 0,
+          "final_clusters": 256.0,
+          "final_awake": 0.0,
+          "contacts": 0.0,
+          "unconverged_ticks": 0,
+          "iterations_mean": 0.3333333333333333,
+          "iterations_max": 60.0,
+          "raw": "/root/workspace/physx-2/out/destruction-convergence-policy-20260913/screen/idle-256-tolerance-0"
+        },
+        "cap32-0": {
+          "n": 180,
+          "mean_ms": 1.544662561111111,
+          "max_ms": 7.076787,
+          "min_ms": 1.017949,
+          "sd_ms": 0.6774074007013196,
+          "first_tick_ms": 7.076787,
+          "over_60hz": 0,
+          "initialization_ms": 2199.353394,
+          "total_broken": 0,
+          "final_clusters": 256.0,
+          "final_awake": 0.0,
+          "contacts": 0.0,
+          "unconverged_ticks": 3,
+          "iterations_mean": 0.6222222222222222,
+          "iterations_max": 32.0,
+          "raw": "/root/workspace/physx-2/out/destruction-convergence-policy-20260913/screen/idle-256-cap32-0"
+        },
+        "vibe32-0": {
+          "n": 180,
+          "mean_ms": 1.5525376888888889,
+          "max_ms": 7.22569,
+          "min_ms": 1.086964,
+          "sd_ms": 0.5361028478024346,
+          "first_tick_ms": 7.22569,
+          "over_60hz": 0,
+          "initialization_ms": 2160.391817,
+          "total_broken": 0,
+          "final_clusters": 256.0,
+          "final_awake": 0.0,
+          "contacts": 0.0,
+          "unconverged_ticks": 2,
+          "iterations_mean": 0.4444444444444444,
+          "iterations_max": 32.0,
+          "raw": "/root/workspace/physx-2/out/destruction-convergence-policy-20260913/screen/idle-256-vibe32-0"
+        },
+        "vibe32-1": {
+          "n": 180,
+          "mean_ms": 1.6758922388888888,
+          "max_ms": 8.460034,
+          "min_ms": 1.240584,
+          "sd_ms": 0.6216611324853656,
+          "first_tick_ms": 8.460034,
+          "over_60hz": 0,
+          "initialization_ms": 2207.764287,
+          "total_broken": 0,
+          "final_clusters": 256.0,
+          "final_awake": 0.0,
+          "contacts": 0.0,
+          "unconverged_ticks": 2,
+          "iterations_mean": 0.4444444444444444,
+          "iterations_max": 32.0,
+          "raw": "/root/workspace/physx-2/out/destruction-convergence-policy-20260913/screen/idle-256-vibe32-1"
+        },
+        "cap32-1": {
+          "n": 180,
+          "mean_ms": 1.7873125611111111,
+          "max_ms": 8.644214,
+          "min_ms": 1.170052,
+          "sd_ms": 0.6499272175275794,
+          "first_tick_ms": 8.644214,
+          "over_60hz": 0,
+          "initialization_ms": 2164.884529,
+          "total_broken": 0,
+          "final_clusters": 256.0,
+          "final_awake": 0.0,
+          "contacts": 0.0,
+          "unconverged_ticks": 3,
+          "iterations_mean": 0.6222222222222222,
+          "iterations_max": 32.0,
+          "raw": "/root/workspace/physx-2/out/destruction-convergence-policy-20260913/screen/idle-256-cap32-1"
+        },
+        "tolerance-1": {
+          "n": 180,
+          "mean_ms": 1.6561292277777777,
+          "max_ms": 11.094834,
+          "min_ms": 1.40087,
+          "sd_ms": 0.7133825089396709,
+          "first_tick_ms": 11.094834,
+          "over_60hz": 0,
+          "initialization_ms": 2178.776071,
+          "total_broken": 0,
+          "final_clusters": 256.0,
+          "final_awake": 0.0,
+          "contacts": 0.0,
+          "unconverged_ticks": 0,
+          "iterations_mean": 0.3333333333333333,
+          "iterations_max": 60.0,
+          "raw": "/root/workspace/physx-2/out/destruction-convergence-policy-20260913/screen/idle-256-tolerance-1"
+        },
+        "strict-1": {
+          "n": 180,
+          "mean_ms": 1.3526316,
+          "max_ms": 12.456213,
+          "min_ms": 1.068859,
+          "sd_ms": 0.8408425756542797,
+          "first_tick_ms": 12.456213,
+          "over_60hz": 0,
+          "initialization_ms": 2241.811098,
+          "total_broken": 0,
+          "final_clusters": 256.0,
+          "final_awake": 0.0,
+          "contacts": 0.0,
+          "unconverged_ticks": 0,
+          "iterations_mean": 0.4888888888888889,
+          "iterations_max": 88.0,
+          "raw": "/root/workspace/physx-2/out/destruction-convergence-policy-20260913/screen/idle-256-strict-1"
+        }
+      },
+      "arms": {
+        "strict": {
+          "mean_ms": 1.493850675,
+          "range_ms": [
+            1.3526316,
+            1.63506975
+          ],
+          "peak_ms": 13.550826,
+          "misses": 0,
+          "unconverged": 0,
+          "broken": [
+            0,
+            0
+          ],
+          "different_ticks": {
+            "bodies": [
+              0,
+              0
+            ],
+            "awake_bodies": [
+              0,
+              0
+            ],
+            "logical_clusters": [
+              0,
+              0
+            ],
+            "contacts_frame": [
+              0,
+              0
+            ],
+            "stress_active_nodes": [
+              0,
+              0
+            ],
+            "stress_active_bonds": [
+              0,
+              0
+            ],
+            "stress_islands": [
+              0,
+              0
+            ],
+            "bonds_broken": [
+              0,
+              0
+            ],
+            "resim_passes": [
+              0,
+              0
+            ],
+            "post_correction_bonds_broken": [
+              0,
+              0
+            ],
+            "stress_passes": [
+              0,
+              0
+            ]
+          }
+        },
+        "tolerance": {
+          "mean_ms": 1.550556463888889,
+          "range_ms": [
+            1.4449837,
+            1.6561292277777777
+          ],
+          "peak_ms": 11.094834,
+          "misses": 0,
+          "unconverged": 0,
+          "broken": [
+            0,
+            0
+          ],
+          "different_ticks": {
+            "bodies": [
+              0,
+              0
+            ],
+            "awake_bodies": [
+              0,
+              0
+            ],
+            "logical_clusters": [
+              0,
+              0
+            ],
+            "contacts_frame": [
+              0,
+              0
+            ],
+            "stress_active_nodes": [
+              0,
+              0
+            ],
+            "stress_active_bonds": [
+              0,
+              0
+            ],
+            "stress_islands": [
+              0,
+              0
+            ],
+            "bonds_broken": [
+              0,
+              0
+            ],
+            "resim_passes": [
+              0,
+              0
+            ],
+            "post_correction_bonds_broken": [
+              0,
+              0
+            ],
+            "stress_passes": [
+              0,
+              0
+            ]
+          }
+        },
+        "cap32": {
+          "mean_ms": 1.6659875611111112,
+          "range_ms": [
+            1.544662561111111,
+            1.7873125611111111
+          ],
+          "peak_ms": 8.644214,
+          "misses": 0,
+          "unconverged": 6,
+          "broken": [
+            0,
+            0
+          ],
+          "different_ticks": {
+            "bodies": [
+              0,
+              0
+            ],
+            "awake_bodies": [
+              0,
+              0
+            ],
+            "logical_clusters": [
+              0,
+              0
+            ],
+            "contacts_frame": [
+              0,
+              0
+            ],
+            "stress_active_nodes": [
+              0,
+              0
+            ],
+            "stress_active_bonds": [
+              0,
+              0
+            ],
+            "stress_islands": [
+              0,
+              0
+            ],
+            "bonds_broken": [
+              0,
+              0
+            ],
+            "resim_passes": [
+              0,
+              0
+            ],
+            "post_correction_bonds_broken": [
+              0,
+              0
+            ],
+            "stress_passes": [
+              0,
+              0
+            ]
+          }
+        },
+        "vibe32": {
+          "mean_ms": 1.6142149638888887,
+          "range_ms": [
+            1.5525376888888889,
+            1.6758922388888888
+          ],
+          "peak_ms": 8.460034,
+          "misses": 0,
+          "unconverged": 4,
+          "broken": [
+            0,
+            0
+          ],
+          "different_ticks": {
+            "bodies": [
+              0,
+              0
+            ],
+            "awake_bodies": [
+              0,
+              0
+            ],
+            "logical_clusters": [
+              0,
+              0
+            ],
+            "contacts_frame": [
+              0,
+              0
+            ],
+            "stress_active_nodes": [
+              0,
+              0
+            ],
+            "stress_active_bonds": [
+              0,
+              0
+            ],
+            "stress_islands": [
+              0,
+              0
+            ],
+            "bonds_broken": [
+              0,
+              0
+            ],
+            "resim_passes": [
+              0,
+              0
+            ],
+            "post_correction_bonds_broken": [
+              0,
+              0
+            ],
+            "stress_passes": [
+              0,
+              0
+            ]
+          }
+        }
+      }
+    },
+    {
+      "case": "impacts-256",
+      "mode": "continuous",
+      "runs": {
+        "strict-0": {
+          "n": 180,
+          "mean_ms": 55.086053444444445,
+          "max_ms": 188.799567,
+          "min_ms": 3.757686,
+          "sd_ms": 49.01289004732113,
+          "first_tick_ms": 54.733031,
+          "over_60hz": 99,
+          "initialization_ms": 2196.634474,
+          "total_broken": 56077,
+          "final_clusters": 12248.0,
+          "final_awake": 10108.0,
+          "contacts": 17396241.0,
+          "unconverged_ticks": 0,
+          "iterations_mean": 315.8666666666667,
+          "iterations_max": 788.0,
+          "raw": "/root/workspace/physx-2/out/destruction-convergence-policy-20260913/screen/impacts-256-strict-0"
+        },
+        "tolerance-0": {
+          "n": 180,
+          "mean_ms": 45.694521816666665,
+          "max_ms": 177.368777,
+          "min_ms": 2.97924,
+          "sd_ms": 40.92251010599733,
+          "first_tick_ms": 50.228141,
+          "over_60hz": 99,
+          "initialization_ms": 2197.5408,
+          "total_broken": 58723,
+          "final_clusters": 13230.0,
+          "final_awake": 10947.0,
+          "contacts": 17568360.0,
+          "unconverged_ticks": 0,
+          "iterations_mean": 285.6,
+          "iterations_max": 816.0,
+          "raw": "/root/workspace/physx-2/out/destruction-convergence-policy-20260913/screen/impacts-256-tolerance-0"
+        },
+        "cap32-0": {
+          "n": 180,
+          "mean_ms": 23.27546698888889,
+          "max_ms": 176.681832,
+          "min_ms": 3.755659,
+          "sd_ms": 22.296944252839644,
+          "first_tick_ms": 43.533216,
+          "over_60hz": 96,
+          "initialization_ms": 2208.7575,
+          "total_broken": 33213,
+          "final_clusters": 8145.0,
+          "final_awake": 7240.0,
+          "contacts": 9326904.0,
+          "unconverged_ticks": 101,
+          "iterations_mean": 18.044444444444444,
+          "iterations_max": 32.0,
+          "raw": "/root/workspace/physx-2/out/destruction-convergence-policy-20260913/screen/impacts-256-cap32-0"
+        },
+        "vibe32-0": {
+          "n": 180,
+          "mean_ms": 23.256760033333332,
+          "max_ms": 179.369831,
+          "min_ms": 3.73568,
+          "sd_ms": 22.45009376780755,
+          "first_tick_ms": 59.336796,
+          "over_60hz": 97,
+          "initialization_ms": 2237.156258,
+          "total_broken": 33213,
+          "final_clusters": 8145.0,
+          "final_awake": 7240.0,
+          "contacts": 9326904.0,
+          "unconverged_ticks": 100,
+          "iterations_mean": 17.866666666666667,
+          "iterations_max": 32.0,
+          "raw": "/root/workspace/physx-2/out/destruction-convergence-policy-20260913/screen/impacts-256-vibe32-0"
+        },
+        "vibe32-1": {
+          "n": 180,
+          "mean_ms": 23.06367967222222,
+          "max_ms": 178.542303,
+          "min_ms": 3.650291,
+          "sd_ms": 22.258193788002945,
+          "first_tick_ms": 45.363934,
+          "over_60hz": 96,
+          "initialization_ms": 2191.928299,
+          "total_broken": 33213,
+          "final_clusters": 8145.0,
+          "final_awake": 7240.0,
+          "contacts": 9326904.0,
+          "unconverged_ticks": 100,
+          "iterations_mean": 17.866666666666667,
+          "iterations_max": 32.0,
+          "raw": "/root/workspace/physx-2/out/destruction-convergence-policy-20260913/screen/impacts-256-vibe32-1"
+        },
+        "cap32-1": {
+          "n": 180,
+          "mean_ms": 23.674825872222222,
+          "max_ms": 184.454031,
+          "min_ms": 3.76,
+          "sd_ms": 22.920994810887123,
+          "first_tick_ms": 49.728507,
+          "over_60hz": 98,
+          "initialization_ms": 2209.081548,
+          "total_broken": 33213,
+          "final_clusters": 8145.0,
+          "final_awake": 7240.0,
+          "contacts": 9326904.0,
+          "unconverged_ticks": 101,
+          "iterations_mean": 18.044444444444444,
+          "iterations_max": 32.0,
+          "raw": "/root/workspace/physx-2/out/destruction-convergence-policy-20260913/screen/impacts-256-cap32-1"
+        },
+        "tolerance-1": {
+          "n": 180,
+          "mean_ms": 45.16583653888889,
+          "max_ms": 156.972325,
+          "min_ms": 2.950396,
+          "sd_ms": 40.378842640018526,
+          "first_tick_ms": 49.084756,
+          "over_60hz": 99,
+          "initialization_ms": 2200.284763,
+          "total_broken": 58723,
+          "final_clusters": 13230.0,
+          "final_awake": 10947.0,
+          "contacts": 17568360.0,
+          "unconverged_ticks": 0,
+          "iterations_mean": 285.6,
+          "iterations_max": 816.0,
+          "raw": "/root/workspace/physx-2/out/destruction-convergence-policy-20260913/screen/impacts-256-tolerance-1"
+        },
+        "strict-1": {
+          "n": 180,
+          "mean_ms": 55.115005133333334,
+          "max_ms": 176.187681,
+          "min_ms": 3.704999,
+          "sd_ms": 48.89934404548487,
+          "first_tick_ms": 56.070795,
+          "over_60hz": 99,
+          "initialization_ms": 2194.048997,
+          "total_broken": 56077,
+          "final_clusters": 12248.0,
+          "final_awake": 10108.0,
+          "contacts": 17396241.0,
+          "unconverged_ticks": 0,
+          "iterations_mean": 315.8666666666667,
+          "iterations_max": 788.0,
+          "raw": "/root/workspace/physx-2/out/destruction-convergence-policy-20260913/screen/impacts-256-strict-1"
+        }
+      },
+      "arms": {
+        "strict": {
+          "mean_ms": 55.10052928888889,
+          "range_ms": [
+            55.086053444444445,
+            55.115005133333334
+          ],
+          "peak_ms": 188.799567,
+          "misses": 198,
+          "unconverged": 0,
+          "broken": [
+            56077,
+            56077
+          ],
+          "different_ticks": {
+            "bodies": [
+              0,
+              0
+            ],
+            "awake_bodies": [
+              0,
+              0
+            ],
+            "logical_clusters": [
+              0,
+              0
+            ],
+            "contacts_frame": [
+              0,
+              0
+            ],
+            "stress_active_nodes": [
+              0,
+              0
+            ],
+            "stress_active_bonds": [
+              0,
+              0
+            ],
+            "stress_islands": [
+              0,
+              0
+            ],
+            "bonds_broken": [
+              0,
+              0
+            ],
+            "resim_passes": [
+              0,
+              0
+            ],
+            "post_correction_bonds_broken": [
+              0,
+              0
+            ],
+            "stress_passes": [
+              0,
+              0
+            ]
+          }
+        },
+        "tolerance": {
+          "mean_ms": 45.430179177777774,
+          "range_ms": [
+            45.16583653888889,
+            45.694521816666665
+          ],
+          "peak_ms": 177.368777,
+          "misses": 198,
+          "unconverged": 0,
+          "broken": [
+            58723,
+            58723
+          ],
+          "different_ticks": {
+            "bodies": [
+              93,
+              93
+            ],
+            "awake_bodies": [
+              93,
+              93
+            ],
+            "logical_clusters": [
+              93,
+              93
+            ],
+            "contacts_frame": [
+              94,
+              94
+            ],
+            "stress_active_nodes": [
+              93,
+              93
+            ],
+            "stress_active_bonds": [
+              95,
+              95
+            ],
+            "stress_islands": [
+              84,
+              84
+            ],
+            "bonds_broken": [
+              87,
+              87
+            ],
+            "resim_passes": [
+              10,
+              10
+            ],
+            "post_correction_bonds_broken": [
+              80,
+              80
+            ],
+            "stress_passes": [
+              10,
+              10
+            ]
+          }
+        },
+        "cap32": {
+          "mean_ms": 23.475146430555554,
+          "range_ms": [
+            23.27546698888889,
+            23.674825872222222
+          ],
+          "peak_ms": 184.454031,
+          "misses": 194,
+          "unconverged": 202,
+          "broken": [
+            33213,
+            33213
+          ],
+          "different_ticks": {
+            "bodies": [
+              98,
+              98
+            ],
+            "awake_bodies": [
+              98,
+              98
+            ],
+            "logical_clusters": [
+              98,
+              98
+            ],
+            "contacts_frame": [
+              98,
+              98
+            ],
+            "stress_active_nodes": [
+              98,
+              98
+            ],
+            "stress_active_bonds": [
+              98,
+              98
+            ],
+            "stress_islands": [
+              98,
+              98
+            ],
+            "bonds_broken": [
+              90,
+              90
+            ],
+            "resim_passes": [
+              23,
+              23
+            ],
+            "post_correction_bonds_broken": [
+              76,
+              76
+            ],
+            "stress_passes": [
+              23,
+              23
+            ]
+          }
+        },
+        "vibe32": {
+          "mean_ms": 23.16021985277778,
+          "range_ms": [
+            23.06367967222222,
+            23.256760033333332
+          ],
+          "peak_ms": 179.369831,
+          "misses": 193,
+          "unconverged": 200,
+          "broken": [
+            33213,
+            33213
+          ],
+          "different_ticks": {
+            "bodies": [
+              98,
+              98
+            ],
+            "awake_bodies": [
+              98,
+              98
+            ],
+            "logical_clusters": [
+              98,
+              98
+            ],
+            "contacts_frame": [
+              98,
+              98
+            ],
+            "stress_active_nodes": [
+              98,
+              98
+            ],
+            "stress_active_bonds": [
+              98,
+              98
+            ],
+            "stress_islands": [
+              98,
+              98
+            ],
+            "bonds_broken": [
+              90,
+              90
+            ],
+            "resim_passes": [
+              23,
+              23
+            ],
+            "post_correction_bonds_broken": [
+              76,
+              76
+            ],
+            "stress_passes": [
+              23,
+              23
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "scope": "Diagnostic changed numerical policy; no equal-quality or production qualification claim",
+  "rebuild_negative_control": {
+    "status": "passed",
+    "failures": [],
+    "changed_arrays": {},
+    "objects": 11178,
+    "maximum_errors": {
+      "position_m": 0.0,
+      "orientation_dot_error": 2.7822566905921775e-07,
+      "linear_m_s": 0.0,
+      "angular_rad_s": 0.0
+    },
+    "exact_array_sha256": {
+      "node-accelerations": "86960d3f7d602ec35d4645969d7a846ffa736be0b33d9dd07fc4c7012da778a1",
+      "surface-loads": "5ac209a63e86e4adee2022789219d10c1f1a6cfef8ea9f7ba2fd967f2a5763f0",
+      "health": "7bb136f6b2aa04efe3d51c941cf430d547c6260c0affbb1a7395a0ff9db94c14",
+      "active-bonds": "900c2414429d55005ade7f1fb1dc8a7d8b40808a458d488f06be927fa37c69bc",
+      "chunk-clusters": "d6967035a8c5a237505f0f6b4ef34ce3ee10d86431b665831bb1b3df6baa2248",
+      "crush": "b5e9eafda1dc1cb670c56c6eb9c5b7d0fdbf9f586ae2985973a6bbad2268501b"
+    },
+    "numerical_arrays": {
+      "bond-forces": {
+        "changed_scalars": 0,
+        "maximum_absolute": 0.0,
+        "maximum_scaled": 0.0,
+        "scaled_bound": 0.0002,
+        "relative_l2": 0.0,
+        "reference_sha256": "e6d738e5879b54e7bc9d6e841d53f8b6e8055d6bdeb928ca4f919c9d5acd4eee",
+        "candidate_sha256": "e6d738e5879b54e7bc9d6e841d53f8b6e8055d6bdeb928ca4f919c9d5acd4eee"
+      }
+    },
+    "reference": "/root/workspace/physx-2/out/destruction-convergence-policy-20260913/screen/city25-initial-impact-original",
+    "candidate": "/root/workspace/physx-2/out/destruction-convergence-policy-20260913/screen/city25-initial-impact-strict",
+    "scope": "Post-tick physical observations; exact persistent state/loads, existing force and motion bounds; no timing claim"
+  }
+}

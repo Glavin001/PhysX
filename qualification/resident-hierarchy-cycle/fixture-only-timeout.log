@@ -1,0 +1,14 @@
+Internal ctest changing into directory: /root/workspace/physx-2/out/destruction-sdk
+Test project /root/workspace/physx-2/out/destruction-sdk
+      Start  94: blast_stress_gpu_resident_cycle_racecheck_empty
+ 1/12 Test  #94: blast_stress_gpu_resident_cycle_racecheck_empty .......   Passed    1.46 sec
+      Start  95: blast_stress_gpu_resident_cycle_racecheck_singleton
+ 2/12 Test  #95: blast_stress_gpu_resident_cycle_racecheck_singleton ...   Passed    1.70 sec
+      Start  96: blast_stress_gpu_resident_cycle_racecheck_isolated
+ 3/12 Test  #96: blast_stress_gpu_resident_cycle_racecheck_isolated ....   Passed    2.48 sec
+      Start  97: blast_stress_gpu_resident_cycle_racecheck_supported
+ 4/12 Test  #97: blast_stress_gpu_resident_cycle_racecheck_supported ...***Timeout 120.10 sec
+========= COMPUTE-SANITIZER
+START fixture=supported nodes=24 bonds=33
+
+      Start  98: blast_stress_gpu_resident_cycle_racecheck_path

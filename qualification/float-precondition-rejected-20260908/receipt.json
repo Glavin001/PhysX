@@ -1,0 +1,20 @@
+{
+  "runtime_sha256": {
+    "baseline": "1fb2da375e8323de3301fc2dabf06d804ffe7915c774b583de106ab1e97e7dfb",
+    "candidate": "af35cacc8b8e13e9b6043e13ec130d76ea77f61cdba476833cdf40b7fbc142ed"
+  },
+  "commands": [
+    {
+      "name": "analytic",
+      "command": [
+        "ctest",
+        "--test-dir",
+        "out/destruction-sdk",
+        "-R",
+        "^blast_stress_gpu_resident_(analytic|3d|motion_modes)$",
+        "--output-on-failure"
+      ],
+      "exit": 8
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "frames": 600,
+  "chunks": 444,
+  "bonds": 896,
+  "broken_bonds": 199,
+  "supported_chunks": 398,
+  "detached_chunks": 46,
+  "final_cluster_count": 43,
+  "topology_identity_sha256": "e589eb8317c456147287443232209bb950514a75b5e4fb6783e2de5fe7486d4c",
+  "identity_encoding": "JSON compact array of [step, chunk, root, cluster_chunks, supported] in observation order",
+  "source_capture": "out/penetration-demo-20260906/final",
+  "source_motion_sha256": "1cd1af3f5ad6df40bbf353962cac669779d54c8609731d52f2f7152e9ba19aca",
+  "source_summary_sha256": "0eaad357429b30b4408aeded6d8659a8e6e3691f069f753ec731f83ae4eeb57d",
+  "bond_identities_qualified": false
+}

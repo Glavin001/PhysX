@@ -1,0 +1,1003 @@
+{
+  "bonds": 896,
+  "chunks": 444,
+  "comparisons": [
+    {
+      "candidate": "2-candidate",
+      "changed_values": {
+        "linear_x": 310,
+        "linear_y": 322,
+        "linear_z": 291
+      },
+      "first_differences": {
+        "linear_x": {
+          "actual": -261.013824,
+          "id": 244,
+          "reference": -261.013855,
+          "step": 17
+        },
+        "linear_y": {
+          "actual": -175.598572,
+          "id": 271,
+          "reference": -175.598602,
+          "step": 17
+        },
+        "linear_z": {
+          "actual": 1773.83826,
+          "id": 272,
+          "reference": 1773.83789,
+          "step": 17
+        }
+      },
+      "kind": "loads",
+      "maximum_absolute_differences": {
+        "linear_x": 111.594530006,
+        "linear_y": 591.1860627,
+        "linear_z": 239.8252302197
+      },
+      "reference": "1-baseline"
+    },
+    {
+      "candidate": "2-candidate",
+      "changed_values": {
+        "bend": 40802,
+        "fx": 43055,
+        "fy": 40891,
+        "fz": 43029,
+        "normal": 41454,
+        "shear": 41843,
+        "tx": 43597,
+        "ty": 45312,
+        "tz": 43610
+      },
+      "first_differences": {
+        "bend": {
+          "actual": 219503.031,
+          "id": 112,
+          "reference": 219503.016,
+          "step": 45
+        },
+        "fx": {
+          "actual": -2481.24121,
+          "id": 423,
+          "reference": -2481.24097,
+          "step": 36
+        },
+        "fy": {
+          "actual": -210.891617,
+          "id": 423,
+          "reference": -210.891556,
+          "step": 32
+        },
+        "fz": {
+          "actual": 3425.43677,
+          "id": 423,
+          "reference": 3425.43652,
+          "step": 32
+        },
+        "normal": {
+          "actual": -2550.07568,
+          "id": 423,
+          "reference": -2550.07544,
+          "step": 36
+        },
+        "shear": {
+          "actual": 3527.1311,
+          "id": 423,
+          "reference": 3527.13086,
+          "step": 32
+        },
+        "tx": {
+          "actual": 72837.9688,
+          "id": 112,
+          "reference": 72837.9609,
+          "step": 45
+        },
+        "ty": {
+          "actual": -389.118958,
+          "id": 112,
+          "reference": -389.120331,
+          "step": 45
+        },
+        "tz": {
+          "actual": -6938.24414,
+          "id": 112,
+          "reference": -6938.24219,
+          "step": 45
+        }
+      },
+      "kind": "bonds",
+      "maximum_absolute_differences": {
+        "bend": 177887.719,
+        "fx": 39477.5899,
+        "fy": 227658.031,
+        "fz": 111024.71860000001,
+        "normal": 117630.68799999997,
+        "shear": 110587.2658,
+        "tx": 78307.12210000001,
+        "ty": 12160.326379,
+        "tz": 33847.12894
+      },
+      "reference": "1-baseline"
+    },
+    {
+      "candidate": "3-candidate",
+      "changed_values": {
+        "linear_x": 315,
+        "linear_y": 322,
+        "linear_z": 302
+      },
+      "first_differences": {
+        "linear_x": {
+          "actual": 361.657928,
+          "id": 271,
+          "reference": 361.657745,
+          "step": 17
+        },
+        "linear_y": {
+          "actual": -138.659668,
+          "id": 272,
+          "reference": -138.659729,
+          "step": 17
+        },
+        "linear_z": {
+          "actual": 1470.80457,
+          "id": 271,
+          "reference": 1470.80444,
+          "step": 17
+        }
+      },
+      "kind": "loads",
+      "maximum_absolute_differences": {
+        "linear_x": 110.42419600599999,
+        "linear_y": 36.781328169999995,
+        "linear_z": 239.8252302197
+      },
+      "reference": "1-baseline"
+    },
+    {
+      "candidate": "3-candidate",
+      "changed_values": {
+        "bend": 30594,
+        "fx": 32159,
+        "fy": 30682,
+        "fz": 32107,
+        "normal": 31170,
+        "shear": 31309,
+        "tx": 32025,
+        "ty": 33290,
+        "tz": 32111
+      },
+      "first_differences": {
+        "bend": {
+          "actual": 2554.23755,
+          "id": 202,
+          "reference": 2554.2373,
+          "step": 66
+        },
+        "fx": {
+          "actual": 224.55101,
+          "id": 479,
+          "reference": 224.550995,
+          "step": 62
+        },
+        "fy": {
+          "actual": 813.677429,
+          "id": 479,
+          "reference": 813.67804,
+          "step": 60
+        },
+        "fz": {
+          "actual": 2577.45312,
+          "id": 423,
+          "reference": 2577.45288,
+          "step": 35
+        },
+        "normal": {
+          "actual": 231.424286,
+          "id": 479,
+          "reference": 231.424271,
+          "step": 62
+        },
+        "shear": {
+          "actual": 2908.59009,
+          "id": 423,
+          "reference": 2908.58984,
+          "step": 35
+        },
+        "tx": {
+          "actual": 249.824738,
+          "id": 125,
+          "reference": 249.824753,
+          "step": 66
+        },
+        "ty": {
+          "actual": -267.853943,
+          "id": 112,
+          "reference": -267.853912,
+          "step": 66
+        },
+        "tz": {
+          "actual": -1406.02441,
+          "id": 115,
+          "reference": -1406.02429,
+          "step": 66
+        }
+      },
+      "kind": "bonds",
+      "maximum_absolute_differences": {
+        "bend": 164335.812,
+        "fx": 21164.281699999992,
+        "fy": 47018.25,
+        "fz": 108724.5316,
+        "normal": 76859.7542,
+        "shear": 108429.7658,
+        "tx": 76208.83690000001,
+        "ty": 11879.898679,
+        "tz": 11789.965380000001
+      },
+      "reference": "1-baseline"
+    },
+    {
+      "candidate": "4-baseline",
+      "changed_values": {
+        "linear_x": 302,
+        "linear_y": 291,
+        "linear_z": 290
+      },
+      "first_differences": {
+        "linear_x": {
+          "actual": 361.657806,
+          "id": 271,
+          "reference": 361.657745,
+          "step": 17
+        },
+        "linear_y": {
+          "actual": 92.5538559,
+          "id": 245,
+          "reference": 92.5538635,
+          "step": 20
+        },
+        "linear_z": {
+          "actual": 1470.80457,
+          "id": 271,
+          "reference": 1470.80444,
+          "step": 17
+        }
+      },
+      "kind": "loads",
+      "maximum_absolute_differences": {
+        "linear_x": 113.158640006,
+        "linear_y": 692.93597063,
+        "linear_z": 239.8252302197
+      },
+      "reference": "1-baseline"
+    },
+    {
+      "candidate": "4-baseline",
+      "changed_values": {
+        "bend": 26765,
+        "fx": 27190,
+        "fy": 26858,
+        "fz": 27155,
+        "normal": 26916,
+        "shear": 26927,
+        "tx": 27043,
+        "ty": 27350,
+        "tz": 27100
+      },
+      "first_differences": {
+        "bend": {
+          "actual": 2426.72778,
+          "id": 115,
+          "reference": 2426.72827,
+          "step": 80
+        },
+        "fx": {
+          "actual": -2481.24121,
+          "id": 423,
+          "reference": -2481.24097,
+          "step": 36
+        },
+        "fy": {
+          "actual": -210.891617,
+          "id": 423,
+          "reference": -210.891556,
+          "step": 32
+        },
+        "fz": {
+          "actual": 3425.43677,
+          "id": 423,
+          "reference": 3425.43652,
+          "step": 32
+        },
+        "normal": {
+          "actual": -2550.07568,
+          "id": 423,
+          "reference": -2550.07544,
+          "step": 36
+        },
+        "shear": {
+          "actual": 3527.1311,
+          "id": 423,
+          "reference": 3527.13086,
+          "step": 32
+        },
+        "tx": {
+          "actual": 390.838684,
+          "id": 113,
+          "reference": 390.838745,
+          "step": 80
+        },
+        "ty": {
+          "actual": -412.370941,
+          "id": 112,
+          "reference": -412.370972,
+          "step": 80
+        },
+        "tz": {
+          "actual": 4353.62305,
+          "id": 112,
+          "reference": 4353.62354,
+          "step": 80
+        }
+      },
+      "kind": "bonds",
+      "maximum_absolute_differences": {
+        "bend": 191971.156,
+        "fx": 39664.380900000004,
+        "fy": 298421.078,
+        "fz": 108362.42159999999,
+        "normal": 102312.82029999999,
+        "shear": 107532.1098,
+        "tx": 76794.4355,
+        "ty": 11837.876179,
+        "tz": 38231.3096
+      },
+      "reference": "1-baseline"
+    }
+  ],
+  "correction_limit": 1,
+  "frames": 128,
+  "performance_qualification": false,
+  "projectiles": 1,
+  "receipts": {
+    "1-baseline": {
+      "bonds": "67b5b29712b8eff7b3572c4ed0afc94ccacae9ec0f7c1176befd37acbcfa17b0",
+      "capture": {
+        "artifacts": {
+          "/root/workspace/physx-2/out/final-shape-owner-20260909/baseline-control/native_destruction_trace_demo": "9fb891aeb1fc497d3bf01aa8c26ce1853c41d528cf211f7bac1aa66c4c4fd92d",
+          "/root/workspace/physx-2/out/native-kinematic-inputs-20260909/candidate/libPhysXDestructionGpuRuntime_64.so": "329dae6a6c3610c4f1acf92a05a7c80cff6d599433d89f5be4d85541369abc55",
+          "/root/workspace/physx-2/out/native-kinematic-inputs-20260909/candidate/libPhysXGpuActivity_64.so": "1b4922184037a9dd455cdfb817975fb50fb933961a2ce971bf18d6570388ca60"
+        },
+        "command": [
+          "/root/workspace/physx-2/out/final-shape-owner-20260909/baseline-control/native_destruction_trace_demo",
+          "--waves",
+          "1",
+          "--launch-seconds",
+          "0",
+          "--stress-iterations",
+          "8192",
+          "--preserve-contact-pairs",
+          "1",
+          "--gpu-island-repair",
+          "1",
+          "--gpu-pre-solve-islands",
+          "1",
+          "--gpu-pre-solve-contacts",
+          "1",
+          "--gpu-pre-solve-support",
+          "1",
+          "--gpu-connectivity-owner",
+          "0",
+          "--projectile-mass",
+          "18000",
+          "--material-strength",
+          "24",
+          "--frame-strength",
+          "40",
+          "--record-state",
+          "1",
+          "--gpu-render",
+          "1",
+          "--audit-motion",
+          "1",
+          "--trace-motion",
+          "1",
+          "--grid",
+          "1",
+          "--workload",
+          "single-impact",
+          "--shot-path",
+          "through-wall",
+          "--seconds",
+          "10",
+          "--output",
+          "/root/workspace/physx-2/out/final-shape-owner-20260909/stress-diagnostic/1-baseline",
+          "--steps",
+          "128",
+          "--standard-scene",
+          "1",
+          "--sleeping",
+          "1",
+          "--trace-stress",
+          "1",
+          "--motion-path",
+          "/root/workspace/physx-2/out/final-shape-owner-20260909/stress-diagnostic/penetration-observer-ce146mes/motion.fifo"
+        ],
+        "config_sha256": "2e4e87aad5ef69bce0a58d211dacc8fd6d9d48c0c3f6d53d40267d152be2edb9",
+        "execution_seconds": 2.2856372539827134,
+        "exit_code": 0,
+        "golden_sha256": "25887814484a49c7db82f3a3e36f7adb408764c928a4f64236baf466871947da",
+        "performance_qualification": false,
+        "requested_steps": 128,
+        "schema": 1,
+        "standard_scene": true,
+        "tier": "screen",
+        "validator_sha256": "4e7fa2be094f99fbc0bd52da53ab098ae780e0945160983836e4bd64a048e7d2"
+      },
+      "loads": "e6f0661f22463d0f89f5ed0f336a109372731603cbe6b6f00e5bc0102f0310c1",
+      "quality": {
+        "artifacts": {
+          "/root/workspace/physx-2/out/final-shape-owner-20260909/baseline-control/native_destruction_trace_demo": "9fb891aeb1fc497d3bf01aa8c26ce1853c41d528cf211f7bac1aa66c4c4fd92d",
+          "/root/workspace/physx-2/out/native-kinematic-inputs-20260909/candidate/libPhysXDestructionGpuRuntime_64.so": "329dae6a6c3610c4f1acf92a05a7c80cff6d599433d89f5be4d85541369abc55",
+          "/root/workspace/physx-2/out/native-kinematic-inputs-20260909/candidate/libPhysXGpuActivity_64.so": "1b4922184037a9dd455cdfb817975fb50fb933961a2ce971bf18d6570388ca60"
+        },
+        "bonds": 896,
+        "capture": "/root/workspace/physx-2/out/final-shape-owner-20260909/stress-diagnostic/1-baseline",
+        "chunks": 444,
+        "compared_identity_sha256": "9ba1c2e69aa36d2ca2cd1adadb0549213c02cce6c637707f8b113901a95c42ac",
+        "compared_steps": 128,
+        "complete_regression": false,
+        "first_difference": null,
+        "max_position_error_m": 0.0,
+        "penetration_checks": {
+          "all_stress_steps_converged": true,
+          "broken_bonds": 199,
+          "corrected_steps": [
+            17,
+            32
+          ],
+          "corrections_per_step_max": 1,
+          "detached_chunks": 44,
+          "displaced_wall_chunks": {
+            "entry": [
+              243,
+              244,
+              271,
+              272
+            ],
+            "exit": [
+              263,
+              264,
+              291,
+              292
+            ]
+          },
+          "final_cluster_count": 41,
+          "fracture_steps": [
+            17,
+            30,
+            32,
+            33,
+            35
+          ],
+          "largest_connected_cluster": 400,
+          "max_cluster_com_error": 2.159794576073182e-06,
+          "max_render_collision_position_error": 0,
+          "physics_ms": {
+            "max": 18.017717,
+            "mean": 7.400232250000002,
+            "min": 0.571145,
+            "p50": 8.325405,
+            "p95": 9.016493,
+            "p99": 14.45075
+          },
+          "projectile_clearance_seconds": 0.7,
+          "projectile_clearance_step": 41,
+          "projectile_position_at_clearance": [
+            -0.21689903736114502,
+            6.012092590332031,
+            4.84246826171875
+          ],
+          "supported_chunks": 400,
+          "topology_identity_sha256": "eb0bdcadc232d21b5aab44f3757627113916b2ab206aed9d552bcbc0dfaa374e"
+        },
+        "performance_qualification": false,
+        "position_tolerance_m": 0.001,
+        "projectiles": 1,
+        "reference": "/root/workspace/physx-2/out/native-settled-local-20260909/wall-standard",
+        "reference_sha256": {
+          "capture.json": "d705cef57d3b0158fb71770ed00054a522ae54440a82fea74006e3c515eaa877",
+          "native.frames.csv": "af8de01cc8efe4319184100f1364808bb10049c65b17c438133e96d9c9808828",
+          "native.motion.csv.gz": "625169f0b55ab84573d8bff38ca1fb733747c9942bee5a224b39f2c9bb8d2b10",
+          "native.summary.json": "70f7a0f926d07c566b3f3d68ecf6ac684c7f05db2457b78d7c0259d1b10a0fb0",
+          "native.twstate": "841f1445bfc768060d948bb3a1d5efa18ae853f50d958a2231582408ce9b36a8",
+          "quality.json": "8142a764f163f893d03074922889683db8e9e57ca2442098aefc1b8957dc61d1"
+        },
+        "schema": 1,
+        "status": "passed",
+        "tier": "screen",
+        "validation_seconds": 1.4145478419959545
+      }
+    },
+    "2-candidate": {
+      "bonds": "c78e2d3d7c2a6f661942f0616ad180f739bf8c27a9681a5942970773b9ac76b8",
+      "capture": {
+        "artifacts": {
+          "/root/workspace/physx-2/out/destruction-sdk/reference/native_destruction_demo": "0048502e9b7dde598d07c0a2056e033fa9025c42e2476d8894f1834f9466b870",
+          "/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so": "37623256a84bb91132249f96548a4ead096494d23c699c5e8dd67683a718a1c3",
+          "/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so": "588990c603b4bff36b9984e0c26f85533896063ca26e98a3f8ef0c3beaa55a1c"
+        },
+        "command": [
+          "/root/workspace/physx-2/out/destruction-sdk/reference/native_destruction_demo",
+          "--waves",
+          "1",
+          "--launch-seconds",
+          "0",
+          "--stress-iterations",
+          "8192",
+          "--preserve-contact-pairs",
+          "1",
+          "--gpu-island-repair",
+          "1",
+          "--gpu-pre-solve-islands",
+          "1",
+          "--gpu-pre-solve-contacts",
+          "1",
+          "--gpu-pre-solve-support",
+          "1",
+          "--gpu-connectivity-owner",
+          "0",
+          "--projectile-mass",
+          "18000",
+          "--material-strength",
+          "24",
+          "--frame-strength",
+          "40",
+          "--record-state",
+          "1",
+          "--gpu-render",
+          "1",
+          "--audit-motion",
+          "1",
+          "--trace-motion",
+          "1",
+          "--grid",
+          "1",
+          "--workload",
+          "single-impact",
+          "--shot-path",
+          "through-wall",
+          "--seconds",
+          "10",
+          "--output",
+          "/root/workspace/physx-2/out/final-shape-owner-20260909/stress-diagnostic/2-candidate",
+          "--steps",
+          "128",
+          "--standard-scene",
+          "1",
+          "--sleeping",
+          "1",
+          "--trace-stress",
+          "1",
+          "--motion-path",
+          "/root/workspace/physx-2/out/final-shape-owner-20260909/stress-diagnostic/penetration-observer-b99_189k/motion.fifo"
+        ],
+        "config_sha256": "2e4e87aad5ef69bce0a58d211dacc8fd6d9d48c0c3f6d53d40267d152be2edb9",
+        "execution_seconds": 2.234085131000029,
+        "exit_code": 0,
+        "golden_sha256": "25887814484a49c7db82f3a3e36f7adb408764c928a4f64236baf466871947da",
+        "performance_qualification": false,
+        "requested_steps": 128,
+        "schema": 1,
+        "standard_scene": true,
+        "tier": "screen",
+        "validator_sha256": "4e7fa2be094f99fbc0bd52da53ab098ae780e0945160983836e4bd64a048e7d2"
+      },
+      "loads": "a5df7bbfc7f4d11d2fd207d15d4344aa563a71b9e0b6d584f96db73fdf6eb808",
+      "quality": {
+        "artifacts": {
+          "/root/workspace/physx-2/out/destruction-sdk/reference/native_destruction_demo": "0048502e9b7dde598d07c0a2056e033fa9025c42e2476d8894f1834f9466b870",
+          "/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so": "37623256a84bb91132249f96548a4ead096494d23c699c5e8dd67683a718a1c3",
+          "/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so": "588990c603b4bff36b9984e0c26f85533896063ca26e98a3f8ef0c3beaa55a1c"
+        },
+        "bonds": 896,
+        "capture": "/root/workspace/physx-2/out/final-shape-owner-20260909/stress-diagnostic/2-candidate",
+        "chunks": 444,
+        "compared_identity_sha256": "9ba1c2e69aa36d2ca2cd1adadb0549213c02cce6c637707f8b113901a95c42ac",
+        "compared_steps": 128,
+        "complete_regression": false,
+        "first_difference": null,
+        "max_position_error_m": 0.0,
+        "penetration_checks": {
+          "all_stress_steps_converged": true,
+          "broken_bonds": 199,
+          "corrected_steps": [
+            17,
+            32
+          ],
+          "corrections_per_step_max": 1,
+          "detached_chunks": 44,
+          "displaced_wall_chunks": {
+            "entry": [
+              243,
+              244,
+              271,
+              272
+            ],
+            "exit": [
+              263,
+              264,
+              291,
+              292
+            ]
+          },
+          "final_cluster_count": 41,
+          "fracture_steps": [
+            17,
+            30,
+            32,
+            33,
+            35
+          ],
+          "largest_connected_cluster": 400,
+          "max_cluster_com_error": 2.159794576073182e-06,
+          "max_render_collision_position_error": 0,
+          "physics_ms": {
+            "max": 18.503022,
+            "mean": 7.438179609375,
+            "min": 0.572487,
+            "p50": 8.345342,
+            "p95": 9.211065,
+            "p99": 14.761018
+          },
+          "projectile_clearance_seconds": 0.7,
+          "projectile_clearance_step": 41,
+          "projectile_position_at_clearance": [
+            -0.21689903736114502,
+            6.012092590332031,
+            4.84246826171875
+          ],
+          "supported_chunks": 400,
+          "topology_identity_sha256": "eb0bdcadc232d21b5aab44f3757627113916b2ab206aed9d552bcbc0dfaa374e"
+        },
+        "performance_qualification": false,
+        "position_tolerance_m": 0.001,
+        "projectiles": 1,
+        "reference": "/root/workspace/physx-2/out/native-settled-local-20260909/wall-standard",
+        "reference_sha256": {
+          "capture.json": "d705cef57d3b0158fb71770ed00054a522ae54440a82fea74006e3c515eaa877",
+          "native.frames.csv": "af8de01cc8efe4319184100f1364808bb10049c65b17c438133e96d9c9808828",
+          "native.motion.csv.gz": "625169f0b55ab84573d8bff38ca1fb733747c9942bee5a224b39f2c9bb8d2b10",
+          "native.summary.json": "70f7a0f926d07c566b3f3d68ecf6ac684c7f05db2457b78d7c0259d1b10a0fb0",
+          "native.twstate": "841f1445bfc768060d948bb3a1d5efa18ae853f50d958a2231582408ce9b36a8",
+          "quality.json": "8142a764f163f893d03074922889683db8e9e57ca2442098aefc1b8957dc61d1"
+        },
+        "schema": 1,
+        "status": "passed",
+        "tier": "screen",
+        "validation_seconds": 1.4213386019982863
+      }
+    },
+    "3-candidate": {
+      "bonds": "6c03cd0f67ff243b59add4f90d7745bbbaa2f5ef619cc2379ef6f6d9cf8dfe6b",
+      "capture": {
+        "artifacts": {
+          "/root/workspace/physx-2/out/destruction-sdk/reference/native_destruction_demo": "0048502e9b7dde598d07c0a2056e033fa9025c42e2476d8894f1834f9466b870",
+          "/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so": "37623256a84bb91132249f96548a4ead096494d23c699c5e8dd67683a718a1c3",
+          "/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so": "588990c603b4bff36b9984e0c26f85533896063ca26e98a3f8ef0c3beaa55a1c"
+        },
+        "command": [
+          "/root/workspace/physx-2/out/destruction-sdk/reference/native_destruction_demo",
+          "--waves",
+          "1",
+          "--launch-seconds",
+          "0",
+          "--stress-iterations",
+          "8192",
+          "--preserve-contact-pairs",
+          "1",
+          "--gpu-island-repair",
+          "1",
+          "--gpu-pre-solve-islands",
+          "1",
+          "--gpu-pre-solve-contacts",
+          "1",
+          "--gpu-pre-solve-support",
+          "1",
+          "--gpu-connectivity-owner",
+          "0",
+          "--projectile-mass",
+          "18000",
+          "--material-strength",
+          "24",
+          "--frame-strength",
+          "40",
+          "--record-state",
+          "1",
+          "--gpu-render",
+          "1",
+          "--audit-motion",
+          "1",
+          "--trace-motion",
+          "1",
+          "--grid",
+          "1",
+          "--workload",
+          "single-impact",
+          "--shot-path",
+          "through-wall",
+          "--seconds",
+          "10",
+          "--output",
+          "/root/workspace/physx-2/out/final-shape-owner-20260909/stress-diagnostic/3-candidate",
+          "--steps",
+          "128",
+          "--standard-scene",
+          "1",
+          "--sleeping",
+          "1",
+          "--trace-stress",
+          "1",
+          "--motion-path",
+          "/root/workspace/physx-2/out/final-shape-owner-20260909/stress-diagnostic/penetration-observer-lyc040dv/motion.fifo"
+        ],
+        "config_sha256": "2e4e87aad5ef69bce0a58d211dacc8fd6d9d48c0c3f6d53d40267d152be2edb9",
+        "execution_seconds": 2.2203307969903108,
+        "exit_code": 0,
+        "golden_sha256": "25887814484a49c7db82f3a3e36f7adb408764c928a4f64236baf466871947da",
+        "performance_qualification": false,
+        "requested_steps": 128,
+        "schema": 1,
+        "standard_scene": true,
+        "tier": "screen",
+        "validator_sha256": "4e7fa2be094f99fbc0bd52da53ab098ae780e0945160983836e4bd64a048e7d2"
+      },
+      "loads": "6b318bba0b09f3aca617d57d0dba29bb44271367d5968773ed854c20f67e8104",
+      "quality": {
+        "artifacts": {
+          "/root/workspace/physx-2/out/destruction-sdk/reference/native_destruction_demo": "0048502e9b7dde598d07c0a2056e033fa9025c42e2476d8894f1834f9466b870",
+          "/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so": "37623256a84bb91132249f96548a4ead096494d23c699c5e8dd67683a718a1c3",
+          "/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so": "588990c603b4bff36b9984e0c26f85533896063ca26e98a3f8ef0c3beaa55a1c"
+        },
+        "bonds": 896,
+        "capture": "/root/workspace/physx-2/out/final-shape-owner-20260909/stress-diagnostic/3-candidate",
+        "chunks": 444,
+        "compared_identity_sha256": "9ba1c2e69aa36d2ca2cd1adadb0549213c02cce6c637707f8b113901a95c42ac",
+        "compared_steps": 128,
+        "complete_regression": false,
+        "first_difference": null,
+        "max_position_error_m": 0.0,
+        "penetration_checks": {
+          "all_stress_steps_converged": true,
+          "broken_bonds": 199,
+          "corrected_steps": [
+            17,
+            32
+          ],
+          "corrections_per_step_max": 1,
+          "detached_chunks": 44,
+          "displaced_wall_chunks": {
+            "entry": [
+              243,
+              244,
+              271,
+              272
+            ],
+            "exit": [
+              263,
+              264,
+              291,
+              292
+            ]
+          },
+          "final_cluster_count": 41,
+          "fracture_steps": [
+            17,
+            30,
+            32,
+            33,
+            35
+          ],
+          "largest_connected_cluster": 400,
+          "max_cluster_com_error": 2.159794576073182e-06,
+          "max_render_collision_position_error": 0,
+          "physics_ms": {
+            "max": 18.382397,
+            "mean": 7.3716182343749965,
+            "min": 0.571735,
+            "p50": 8.294868,
+            "p95": 8.955178,
+            "p99": 14.873768
+          },
+          "projectile_clearance_seconds": 0.7,
+          "projectile_clearance_step": 41,
+          "projectile_position_at_clearance": [
+            -0.21689903736114502,
+            6.012092590332031,
+            4.84246826171875
+          ],
+          "supported_chunks": 400,
+          "topology_identity_sha256": "eb0bdcadc232d21b5aab44f3757627113916b2ab206aed9d552bcbc0dfaa374e"
+        },
+        "performance_qualification": false,
+        "position_tolerance_m": 0.001,
+        "projectiles": 1,
+        "reference": "/root/workspace/physx-2/out/native-settled-local-20260909/wall-standard",
+        "reference_sha256": {
+          "capture.json": "d705cef57d3b0158fb71770ed00054a522ae54440a82fea74006e3c515eaa877",
+          "native.frames.csv": "af8de01cc8efe4319184100f1364808bb10049c65b17c438133e96d9c9808828",
+          "native.motion.csv.gz": "625169f0b55ab84573d8bff38ca1fb733747c9942bee5a224b39f2c9bb8d2b10",
+          "native.summary.json": "70f7a0f926d07c566b3f3d68ecf6ac684c7f05db2457b78d7c0259d1b10a0fb0",
+          "native.twstate": "841f1445bfc768060d948bb3a1d5efa18ae853f50d958a2231582408ce9b36a8",
+          "quality.json": "8142a764f163f893d03074922889683db8e9e57ca2442098aefc1b8957dc61d1"
+        },
+        "schema": 1,
+        "status": "passed",
+        "tier": "screen",
+        "validation_seconds": 1.4217316589783877
+      }
+    },
+    "4-baseline": {
+      "bonds": "a2577a87033bf92ae160bda3401f86b3fe11b05e03f2b1c2cd651d38e871ac43",
+      "capture": {
+        "artifacts": {
+          "/root/workspace/physx-2/out/final-shape-owner-20260909/baseline-control/native_destruction_trace_demo": "9fb891aeb1fc497d3bf01aa8c26ce1853c41d528cf211f7bac1aa66c4c4fd92d",
+          "/root/workspace/physx-2/out/native-kinematic-inputs-20260909/candidate/libPhysXDestructionGpuRuntime_64.so": "329dae6a6c3610c4f1acf92a05a7c80cff6d599433d89f5be4d85541369abc55",
+          "/root/workspace/physx-2/out/native-kinematic-inputs-20260909/candidate/libPhysXGpuActivity_64.so": "1b4922184037a9dd455cdfb817975fb50fb933961a2ce971bf18d6570388ca60"
+        },
+        "command": [
+          "/root/workspace/physx-2/out/final-shape-owner-20260909/baseline-control/native_destruction_trace_demo",
+          "--waves",
+          "1",
+          "--launch-seconds",
+          "0",
+          "--stress-iterations",
+          "8192",
+          "--preserve-contact-pairs",
+          "1",
+          "--gpu-island-repair",
+          "1",
+          "--gpu-pre-solve-islands",
+          "1",
+          "--gpu-pre-solve-contacts",
+          "1",
+          "--gpu-pre-solve-support",
+          "1",
+          "--gpu-connectivity-owner",
+          "0",
+          "--projectile-mass",
+          "18000",
+          "--material-strength",
+          "24",
+          "--frame-strength",
+          "40",
+          "--record-state",
+          "1",
+          "--gpu-render",
+          "1",
+          "--audit-motion",
+          "1",
+          "--trace-motion",
+          "1",
+          "--grid",
+          "1",
+          "--workload",
+          "single-impact",
+          "--shot-path",
+          "through-wall",
+          "--seconds",
+          "10",
+          "--output",
+          "/root/workspace/physx-2/out/final-shape-owner-20260909/stress-diagnostic/4-baseline",
+          "--steps",
+          "128",
+          "--standard-scene",
+          "1",
+          "--sleeping",
+          "1",
+          "--trace-stress",
+          "1",
+          "--motion-path",
+          "/root/workspace/physx-2/out/final-shape-owner-20260909/stress-diagnostic/penetration-observer-9ze9labe/motion.fifo"
+        ],
+        "config_sha256": "2e4e87aad5ef69bce0a58d211dacc8fd6d9d48c0c3f6d53d40267d152be2edb9",
+        "execution_seconds": 2.1918543760257307,
+        "exit_code": 0,
+        "golden_sha256": "25887814484a49c7db82f3a3e36f7adb408764c928a4f64236baf466871947da",
+        "performance_qualification": false,
+        "requested_steps": 128,
+        "schema": 1,
+        "standard_scene": true,
+        "tier": "screen",
+        "validator_sha256": "4e7fa2be094f99fbc0bd52da53ab098ae780e0945160983836e4bd64a048e7d2"
+      },
+      "loads": "a05d0faccbdbaade6ee088a443f5bc17f15c3a7792d261535d01c0c3c7f37358",
+      "quality": {
+        "artifacts": {
+          "/root/workspace/physx-2/out/final-shape-owner-20260909/baseline-control/native_destruction_trace_demo": "9fb891aeb1fc497d3bf01aa8c26ce1853c41d528cf211f7bac1aa66c4c4fd92d",
+          "/root/workspace/physx-2/out/native-kinematic-inputs-20260909/candidate/libPhysXDestructionGpuRuntime_64.so": "329dae6a6c3610c4f1acf92a05a7c80cff6d599433d89f5be4d85541369abc55",
+          "/root/workspace/physx-2/out/native-kinematic-inputs-20260909/candidate/libPhysXGpuActivity_64.so": "1b4922184037a9dd455cdfb817975fb50fb933961a2ce971bf18d6570388ca60"
+        },
+        "bonds": 896,
+        "capture": "/root/workspace/physx-2/out/final-shape-owner-20260909/stress-diagnostic/4-baseline",
+        "chunks": 444,
+        "compared_identity_sha256": "9ba1c2e69aa36d2ca2cd1adadb0549213c02cce6c637707f8b113901a95c42ac",
+        "compared_steps": 128,
+        "complete_regression": false,
+        "first_difference": null,
+        "max_position_error_m": 0.0,
+        "penetration_checks": {
+          "all_stress_steps_converged": true,
+          "broken_bonds": 199,
+          "corrected_steps": [
+            17,
+            32
+          ],
+          "corrections_per_step_max": 1,
+          "detached_chunks": 44,
+          "displaced_wall_chunks": {
+            "entry": [
+              243,
+              244,
+              271,
+              272
+            ],
+            "exit": [
+              263,
+              264,
+              291,
+              292
+            ]
+          },
+          "final_cluster_count": 41,
+          "fracture_steps": [
+            17,
+            30,
+            32,
+            33,
+            35
+          ],
+          "largest_connected_cluster": 400,
+          "max_cluster_com_error": 2.159794576073182e-06,
+          "max_render_collision_position_error": 0,
+          "physics_ms": {
+            "max": 17.66466,
+            "mean": 7.374280789062504,
+            "min": 0.556127,
+            "p50": 8.281283,
+            "p95": 8.876171,
+            "p99": 14.684135
+          },
+          "projectile_clearance_seconds": 0.7,
+          "projectile_clearance_step": 41,
+          "projectile_position_at_clearance": [
+            -0.21689903736114502,
+            6.012092590332031,
+            4.84246826171875
+          ],
+          "supported_chunks": 400,
+          "topology_identity_sha256": "eb0bdcadc232d21b5aab44f3757627113916b2ab206aed9d552bcbc0dfaa374e"
+        },
+        "performance_qualification": false,
+        "position_tolerance_m": 0.001,
+        "projectiles": 1,
+        "reference": "/root/workspace/physx-2/out/native-settled-local-20260909/wall-standard",
+        "reference_sha256": {
+          "capture.json": "d705cef57d3b0158fb71770ed00054a522ae54440a82fea74006e3c515eaa877",
+          "native.frames.csv": "af8de01cc8efe4319184100f1364808bb10049c65b17c438133e96d9c9808828",
+          "native.motion.csv.gz": "625169f0b55ab84573d8bff38ca1fb733747c9942bee5a224b39f2c9bb8d2b10",
+          "native.summary.json": "70f7a0f926d07c566b3f3d68ecf6ac684c7f05db2457b78d7c0259d1b10a0fb0",
+          "native.twstate": "841f1445bfc768060d948bb3a1d5efa18ae853f50d958a2231582408ce9b36a8",
+          "quality.json": "8142a764f163f893d03074922889683db8e9e57ca2442098aefc1b8957dc61d1"
+        },
+        "schema": 1,
+        "status": "passed",
+        "tier": "screen",
+        "validation_seconds": 1.4275538529909682
+      }
+    }
+  },
+  "schema": 1
+}

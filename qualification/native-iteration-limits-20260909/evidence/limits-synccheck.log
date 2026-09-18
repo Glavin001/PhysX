@@ -1,0 +1,7 @@
+========= COMPUTE-SANITIZER
+active rigid iteration limits: 0 bodies, no bonds, PASS
+active rigid iteration limits: 1 bodies, no bonds, PASS
+active rigid iteration limits: 257 bodies, no bonds, PASS
+active rigid iteration limits: 4099 bodies, no bonds, PASS
+active rigid iteration limits: 113664 bodies, no bonds, PASS
+========= ERROR SUMMARY: 0 errors

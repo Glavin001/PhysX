@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "/root/workspace/physx-2/tools/scripts/run-destruction-penetration-regression.py", line 107, in <module>
+    if __name__=='__main__':main()
+                            ^^^^^^
+  File "/root/workspace/physx-2/tools/scripts/run-destruction-penetration-regression.py", line 88, in main
+    if process.returncode:raise RuntimeError(f'Audit simulation failed; see {log}')
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: Audit simulation failed; see /root/workspace/physx-2/out/vibe-coarse-assembly-20260908/screen-local-cycle-modern/wall.log

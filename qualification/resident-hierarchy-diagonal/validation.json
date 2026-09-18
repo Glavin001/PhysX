@@ -1,0 +1,86 @@
+{
+  "scope": "GPU hierarchy construction, rigid transfers, sparse coarse operator, and fine diagonal factors/solve; no native preconditioner integration yet",
+  "source_sha256": {
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyDiagonal.cuh": "798c91aa2c25204013bc14187e4485c00b87435e6b120b44adb81da24d2f64b9",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyGraph.cuh": "f98f2035086da3bba6e5c46c06343ff29f7e9a6528a9bdc0d1a5c98e48bf726e",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyKernels.cuh": "a568b3966518f92fee9d37f6ba39d24ff0fee5becc784cc99188d1c649dbf06e",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyOperator.cuh": "dd1ccf42399e85a1b8e4fc62ebdfd59a3aa08b58c6123dbc0c11daba039181fb",
+    "demos/blast-stress-demo/tests/gpu_resident_hierarchy_diagonal_checks.cuh": "79bfe9d885b7d3b1a799110d3655e4b2f051ec2db2bc303a724a3156eb24bd6e",
+    "demos/blast-stress-demo/tests/gpu_resident_hierarchy_operator_checks.cuh": "d41bcb887201c494815e850f844d0eb0d39a184ed1aba975f1d0611ff41542f1",
+    "demos/blast-stress-demo/tests/gpu_resident_hierarchy_test.cu": "4f355df03d754fdd8ceff9c6dfaeb96c4ec6a930db77f71be7b89c174dc2b8e5"
+  },
+  "binary_sha256": "0176471a016ec9966431e190bcafe13a915db53e7f3affcc3af32abf211270f1",
+  "fixtures": [
+    {
+      "nodes": 0,
+      "bonds": 0
+    },
+    {
+      "nodes": 1,
+      "bonds": 0
+    },
+    {
+      "nodes": 2,
+      "bonds": 1
+    },
+    {
+      "nodes": 4,
+      "bonds": 3
+    },
+    {
+      "nodes": 6,
+      "bonds": 10
+    },
+    {
+      "nodes": 24,
+      "bonds": 11
+    },
+    {
+      "nodes": 24,
+      "bonds": 33
+    },
+    {
+      "nodes": 129,
+      "bonds": 121
+    },
+    {
+      "nodes": 257,
+      "bonds": 256
+    },
+    {
+      "nodes": 100000,
+      "bonds": 199997
+    }
+  ],
+  "tests": {
+    "correctness": "pass",
+    "memcheck_and_leaks": "pass",
+    "synccheck": "pass",
+    "racecheck": "pass",
+    "small_fixture_basis_checks": "every coarse and fine scalar basis, 2e-12 scaled tolerance",
+    "largest_fixture": "100000 nodes, 199997 bonds, six topology transitions",
+    "native_inactive_rows": "isolated dynamic rows accepted; omitted live row rejected",
+    "numerical_failure": "unfactorable local block rejected, no identity fallback; subsequent valid generation recovers",
+    "rigid_null_modes": "six for coherent free graphs",
+    "repeatability": "exact repeated coarse application bytes"
+  },
+  "wall_regression": {
+    "seconds": 10,
+    "chunks": 444,
+    "bonds": 896,
+    "projectiles": 1,
+    "timestep": "1/60",
+    "correction_limit": 1,
+    "quality": "pass exact frozen gate",
+    "production_binary_artifacts_unchanged": true
+  },
+  "new_simulation_performance_claim": null,
+  "remaining": [
+    "recursive hierarchy and compact coarse work",
+    "null-space-safe terminal coarse solve",
+    "resident symmetric V-cycle and CGLS integration",
+    "affected component reuse",
+    "native exact quality and 256-building full-step comparison",
+    "GPU lifecycle/selective correction/sleep/joint and endurance gates"
+  ]
+}

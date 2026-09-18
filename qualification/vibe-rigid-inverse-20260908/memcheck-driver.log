@@ -1,0 +1,44 @@
+========= COMPUTE-SANITIZER
+GPU local inverse: 257 six-variable SPD blocks, cold/reuse/unknown/generation checks passed, scaled error 6.38784863e-16
+GPU rigid inverse: 257 six-variable SPD blocks, cold/reuse/unknown/generation checks passed, scaled error 3.50885841e-15
+polynomial oracle nodes=12 bonds=20 anchored=0 all_basis=true relative_error=2.29e-16 symmetry_error=7.08e-17 SPD=true
+polynomial oracle nodes=12 bonds=20 anchored=1 all_basis=true relative_error=2.02e-16 symmetry_error=7.08e-17 SPD=true
+first direction: one node, no previous-norm storage, beta=0 and exact output passed
+GPU warm-range lifecycle: 3 nodes, 3 bonds, supported cycle; 18 block/cooperative retirement cases passed
+GPU topology warm invalidation: 9 nodes, 7 bonds, two supported components; five cases passed
+GPU inverse topology lifetime: 6 nodes, 5 bonds, shared support; six cold/unknown/stale/cut/repeated-cut cases passed
+GPU motion modes nodes=0 bonds=0 generation=0 components=0 dimensions[0,3,4,6]=0,0,0,0 oracle_error=0
+GPU motion modes nodes=0 bonds=0 generation=0 components=0 dimensions[0,3,4,6]=0,0,0,0 oracle_error=0
+GPU motion modes nodes=1 bonds=0 generation=0 components=0 dimensions[0,3,4,6]=0,0,0,0 oracle_error=0
+GPU motion modes nodes=1 bonds=0 generation=0 components=0 dimensions[0,3,4,6]=0,0,0,0 oracle_error=0
+GPU motion modes nodes=24 bonds=23 generation=0 components=1 dimensions[0,3,4,6]=0,0,0,1 oracle_error=1.11e-16
+GPU motion modes nodes=24 bonds=23 generation=0 components=1 dimensions[0,3,4,6]=0,0,0,1 oracle_error=1.11e-16
+GPU motion modes nodes=24 bonds=23 generation=2 components=4 dimensions[0,3,4,6]=0,0,0,4 oracle_error=1.67e-16
+GPU motion modes nodes=24 bonds=23 generation=3 components=1 dimensions[0,3,4,6]=0,0,0,1 oracle_error=1.11e-16
+GPU motion rejection/recovery nodes=24 bonds=23 missing-tree/precision/consumer gates passed
+GPU motion modes nodes=24 bonds=23 generation=0 components=1 dimensions[0,3,4,6]=0,0,0,1 oracle_error=5.55e-17
+GPU motion modes nodes=24 bonds=23 generation=0 components=1 dimensions[0,3,4,6]=0,0,0,1 oracle_error=5.55e-17
+GPU motion modes nodes=24 bonds=23 generation=2 components=4 dimensions[0,3,4,6]=0,0,0,4 oracle_error=1.67e-16
+GPU motion modes nodes=24 bonds=23 generation=3 components=1 dimensions[0,3,4,6]=0,0,0,1 oracle_error=5.55e-17
+GPU motion rejection/recovery nodes=24 bonds=23 missing-tree/precision/consumer gates passed
+GPU motion modes nodes=24 bonds=24 generation=0 components=1 dimensions[0,3,4,6]=0,0,1,0 oracle_error=5.55e-17
+GPU motion modes nodes=24 bonds=24 generation=0 components=1 dimensions[0,3,4,6]=0,0,1,0 oracle_error=5.55e-17
+GPU motion modes nodes=24 bonds=24 generation=2 components=4 dimensions[0,3,4,6]=0,0,0,4 oracle_error=1.11e-16
+GPU motion modes nodes=24 bonds=24 generation=3 components=1 dimensions[0,3,4,6]=0,0,1,0 oracle_error=5.55e-17
+GPU motion rejection/recovery nodes=24 bonds=24 missing-tree/precision/consumer gates passed
+GPU motion modes nodes=24 bonds=25 generation=0 components=1 dimensions[0,3,4,6]=0,1,0,0 oracle_error=1.11e-16
+GPU motion modes nodes=24 bonds=25 generation=0 components=1 dimensions[0,3,4,6]=0,1,0,0 oracle_error=1.11e-16
+GPU motion modes nodes=24 bonds=25 generation=2 components=3 dimensions[0,3,4,6]=0,0,0,3 oracle_error=1.11e-16
+GPU motion modes nodes=24 bonds=25 generation=3 components=1 dimensions[0,3,4,6]=0,1,0,0 oracle_error=1.11e-16
+GPU motion rejection/recovery nodes=24 bonds=25 missing-tree/precision/consumer gates passed
+GPU motion modes nodes=24 bonds=23 generation=0 components=1 dimensions[0,3,4,6]=1,0,0,0 oracle_error=0
+GPU motion modes nodes=24 bonds=23 generation=0 components=1 dimensions[0,3,4,6]=1,0,0,0 oracle_error=0
+GPU motion modes nodes=24 bonds=23 generation=2 components=4 dimensions[0,3,4,6]=0,0,0,4 oracle_error=1.67e-16
+GPU motion modes nodes=24 bonds=23 generation=3 components=1 dimensions[0,3,4,6]=1,0,0,0 oracle_error=0
+GPU motion rejection/recovery nodes=24 bonds=23 missing-tree/precision/consumer gates passed
+GPU motion modes nodes=1028 bonds=771 generation=0 components=257 dimensions[0,3,4,6]=128,0,0,129 oracle_error=2.5e-16
+GPU motion modes nodes=1028 bonds=771 generation=0 components=257 dimensions[0,3,4,6]=128,0,0,129 oracle_error=2.5e-16
+GPU motion modes nodes=1028 bonds=771 generation=2 components=276 dimensions[0,3,4,6]=0,0,0,276 oracle_error=3.05e-16
+GPU motion modes nodes=1028 bonds=771 generation=3 components=257 dimensions[0,3,4,6]=128,0,0,129 oracle_error=2.5e-16
+GPU motion rejection/recovery nodes=1028 bonds=771 missing-tree/precision/consumer gates passed
+========= ERROR SUMMARY: 0 errors

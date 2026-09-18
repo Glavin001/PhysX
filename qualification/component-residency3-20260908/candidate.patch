@@ -1,0 +1,29 @@
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressComponentIteration.cuh b/blast/source/sdk/extensions/stressgpu/detail/StressComponentIteration.cuh
+index 403d95fe..40f60015 100644
+--- a/blast/source/sdk/extensions/stressgpu/detail/StressComponentIteration.cuh
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressComponentIteration.cuh
+@@ -22,7 +22,7 @@ __device__ __forceinline__ float componentSquaredNorm(float value)
+ // boundary rows are read-only. No grid rendezvous or global loop counter is
+ // involved. The operator, recurrence, norm and convergence functions are the
+ // same ones used by the cooperative large-component implementation.
+-__global__ void componentStressSolve(PersistentStressArgs a, ResidentStressComponentView c)
++__global__ __launch_bounds__(kBlockSize,3) void componentStressSolve(PersistentStressArgs a, ResidentStressComponentView c)
+ {
+     __shared__ unsigned counts[2], iteration, activeCount, slot;
+     __shared__ SolveStatus status;
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressIterationDispatch.inl b/blast/source/sdk/extensions/stressgpu/detail/StressIterationDispatch.inl
+index fa4ef6aa..276931e9 100644
+--- a/blast/source/sdk/extensions/stressgpu/detail/StressIterationDispatch.inl
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressIterationDispatch.inl
+@@ -260,7 +260,10 @@
+             components=m_deviceTopology->components();
+             // The device list controls the live work; a bounded persistent
+             // grid distributes independent components without a host count.
+-            componentStressSolve<<<std::min(m_nodeCount,unsigned(sms*2)),kBlockSize,0,m_stream>>>(args,components);
++            int componentBlocksPerSm=0;
++            checkCuda(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&componentBlocksPerSm,componentStressSolve,kBlockSize,0),"component stress occupancy");
++            if(componentBlocksPerSm<=0)throw std::runtime_error("Component stress has no legal residency");
++            componentStressSolve<<<std::min(m_nodeCount,unsigned(sms*componentBlocksPerSm)),kBlockSize,0,m_stream>>>(args,components);
+             args.islandIds=components.largeIds;
+             args.liveIslandCount=components.largeCount;
+             args.largeComponentsOnly=true;

@@ -1,0 +1,9 @@
+{
+  "previous": "qualification/native-standard-scene/sleeping-functional-quality.json",
+  "current": "standard-wall-invariants.json",
+  "same_topology_signature": true,
+  "previous_broken_bonds": 197,
+  "current_broken_bonds": 199,
+  "direct_gpu_golden_passed": false,
+  "reason": "Known ordinary-mode topology differs from Direct-GPU golden; golden unchanged."
+}

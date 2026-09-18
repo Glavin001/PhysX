@@ -1,0 +1,262 @@
+{
+  "scope": "Native scene GPU material verdicts prepare candidate connectivity, mass and COM motion; collision rebinding and resimulation incomplete",
+  "base_revision": "3ea6019fdbe8065e922c6518c6f9cbae734a4467",
+  "gpu": "NVIDIA GeForce RTX 4090",
+  "driver": "595.71.05",
+  "cuda": "12.8.93",
+  "source_sha256": {
+    "blast/include/extensions/stress/NvBlastExtStressMaterialFormula.h": "9a6d861f671ba6ba2edaa819a51ba80aa9ea403dadf69181302c28f4bcbb5610",
+    "blast/include/extensions/stressgpu/NvBlastExtStressGpu.h": "571eff07cc474aee06bd0002999768db9a4c84fbdf58ee6284d131a4b445aa23",
+    "blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp": "23be97b22543e770978eea59aec9beba3f667e9482d5a161814aa745ba57b418",
+    "blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu": "a059bad5616ef88bb6f1bd319b72c11d15ff2b9d0aee5c1f9a9ffbd01b01cbc7",
+    "demos/blast-stress-demo/CMakeLists.txt": "0b0b1aeba865b9235cd04b1ca0677101c74d3e9eaa9ebf58bc0397f463b88e4c",
+    "demos/blast-stress-demo/tests/gpu_device_input_test.cu": "b2fc873463b43c410aa7a28c4d8883e2b5c631dce5854bd840c1538b6820f3fa",
+    "demos/blast-stress-demo/tests/gpu_quiet_load_test.cpp": "4527fc3c8eb9cfccaeb07af60398c30d8e7728ce55bbe3f8244f7f03beb07a6c",
+    "demos/blast-stress-demo/tests/native_gpu_destruction_test.cpp": "cdd10d01d7aff511f1b726de68e7ac191a7e97cb547c2022d827ae870599de61",
+    "demos/blast-stress-demo/tests/native_gpu_material_test.cpp": "6ee14034344e0ce7b5a750c86dec3cc1eaab83a31b0d1aebc974b17dac641247",
+    "destruction/PhysXDestructionConfig.cmake.in": "91ebb39d05d4bebfec881b7dd89447ebfa2ca686eb15a36bcb0a1b3d62c39c82",
+    "docs/destruction/RESIMULATION.md": "13c7d81928eddb314145e4e90090bbe3fe75e614090a2897336a8b30f9d7108f",
+    "physx/include/PxDestructionScene.h": "56511322a5f246c58371a4ed8a0abff25d7bcf1cb215a0513a56d9c4946f508c",
+    "physx/include/PxDestructionTopologyTypes.h": "6b47f9182dba74d0ee9a55105bc9a33aed126c04fc31dfb275910ba8451975a6",
+    "physx/include/PxScene.h": "2701fd79001074f33f85e7e6234ccecf23957f5a6060828ce7afe6f9167990fb",
+    "physx/source/gpudestruction/CMakeLists.txt": "c7d26d14bab0a52f5f004ed3c3ca37d943e796a8aa207f3da910cd0275110fe2",
+    "physx/source/gpudestruction/include/PxgDestructionRuntime.h": "dfbdaabdfdfe5fb3bcb63260d81c13908600d3a2b9c4ac6d812b976b77257242",
+    "physx/source/gpudestruction/include/PxgDestructionTopology.h": "34ac64be57e1fdcdb1b60bcb41ffb8311ce32cd88d677561643989eb2ba53cae",
+    "physx/source/gpudestruction/runtime/CMakeLists.txt": "a671ed75394330a0fdb2c9e8d853a7660f61144dd24dba12c6f3f3b6d6aa21bb",
+    "physx/source/gpudestruction/src/PxgDestructionMaterial.cuh": "f7a144de84a87bbded31dfaf7f8c8496a63ad32137d503caeb0fe7f725f88388",
+    "physx/source/gpudestruction/src/PxgDestructionRuntime.cu": "0091c34c141a55fcd608db95147935676cdd5f988884c082a97b60ba26f5f9d5",
+    "physx/source/gpudestruction/src/PxgDestructionTopology.cu": "2bfb49b33d2ab5986ad9c50046060fa4767df61b4a4f4654ff2c861979405c2c",
+    "physx/source/gpudestruction/src/PxgDestructionTransaction.cuh": "4a1343b9ae1f0d040c526824928823559758a421711775263aa1ad382e91f54b",
+    "physx/source/gpudestruction/tests/topology_test.cu": "17555b4ab9de0cfd1dc295d689591b3539291cb54c34a39a52ca97feb5d58b29",
+    "physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp": "ae77889bbc08f0826f87dff22a2cec07c7056acd56d392029890c6806bde725a",
+    "physx/source/physx/src/NpScene.cpp": "bd353f2deca1b61101dd46d1b17358ff6837d5de5406fcf0bc8544856df2aa1a",
+    "physx/source/physx/src/NpSceneFetchResults.cpp": "602686f467f9788897685c6a23c877122423fce25d0b284f028773a57836dac2",
+    "physx/source/simulationcontroller/src/ScPipeline.cpp": "3935118524bc79967f0d3a604699eb206425d0ec3d0d02f222515e0f68830feb",
+    "tests/destruction/package-consumer/main.cpp": "5f0ad27c12b1a73808911e69e92e418a51b37424900b74151da540492bc60ef4"
+  },
+  "artifacts_sha256": {
+    "out/native-topology-sdk-build.log": "25fcf429f85286dbf0caf67290260c7068158fb6a263ef68186f6029fa2fa2e9",
+    "out/native-topology-regression.log": "d95f126d84515d1f27caf41143bd7255f9db6a0fc279841d523fa38c0b8c7e7b",
+    "out/destruction-sdk/out-native-topology-regression.xml": "f6e938f630e28dfe1d33f88aad9ebeba34b7cafbd7b92369762be5c9f78bf585",
+    "out/native-topology-package-consumer.log": "6a1a2c79b3aab92d632ba04263c2b4eb33424131a9d3b7c69203fc7923d52324",
+    "out/topology-transaction-memcheck.log": "b96536e069d0d8dd0ce60f51bf219eb9d18360fdea5dcf283f5315cab225e670",
+    "out/native-topology-memcheck.log": "c40e4314d05809267e2ae5c55f539dfa6266f2a066e928f06e74b0059373fad1",
+    "physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so": "f399766d36d08c7159688e6efddd07a7e21eebd0f073fed6f5b001ffcbb751e9",
+    "physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so": "f15ad469b663f73a9f9fbbbb6051a2bcf7445aef499b6ee517ba8e0d68986bda"
+  },
+  "native_tests": [
+    {
+      "name": "blast_stress_physx_cpu_contract",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_physx_resim_penetration",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_physx_resim_baseline",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_physx_resim_snapshot",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_velocity_fidelity_cpu",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_velocity_fidelity_gpu",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_load_path",
+      "passed": false
+    },
+    {
+      "name": "blast_stress_physx_resim_punchthrough",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_physx_resim_scoped_cascade",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_physx_direct_gpu_resim",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_physx_gpu_activity",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_reference_building_load_path",
+      "passed": false
+    },
+    {
+      "name": "blast_stress_material_behavior",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_chunk_crush",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_scene_pack_v3",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_reference_building_crush_gravity",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_reference_building_crush_ordinary_impact",
+      "passed": false
+    },
+    {
+      "name": "blast_stress_reference_building_crush_hard_impact",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_crush_wall_bite",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_crush_wall_bond_only",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_crush_multi_structure_resim",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_destruction_quality",
+      "passed": false
+    },
+    {
+      "name": "blast_stress_scene_pack_conformance",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_scene_pack",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_node_mesh",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_gpu_crush_correction",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_physx_direct_gpu_contacts",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_gpu_lazy_readback",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_gpu_lazy_cpu_observer",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_gpu_lazy_parallel_observer",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_gpu_cpu_walk_preparation",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_gpu_quiet_load",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_gpu_quiet_load_bond_space",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_gpu_quiet_load_deterministic",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_gpu_quiet_load_unrolled",
+      "passed": true
+    },
+    {
+      "name": "physx_native_gpu_material",
+      "passed": true
+    },
+    {
+      "name": "physx_native_gpu_destruction",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_gpu_device_input",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_gpu_equivalence",
+      "passed": true
+    },
+    {
+      "name": "destruction_gpu_topology",
+      "passed": true
+    }
+  ],
+  "passed": 36,
+  "failed": 4,
+  "baseline_failures_unchanged": true,
+  "native_scene_checks": [
+    "material verdict to GPU candidate connectivity",
+    "support preservation",
+    "candidate crush removal",
+    "accepted topology generation/mass preserved on incomplete step",
+    "no connectivity rebuild for nonfracturing frame",
+    "offset COM rotating cluster",
+    "analytic centrifugal load",
+    "candidate point velocity, linear/angular momentum and kinetic energy"
+  ],
+  "transaction_checks": [
+    "GPU-produced edit counts",
+    "invalid mixed batch atomic rejection",
+    "overflow without truncation",
+    "producer rejection",
+    "empty and redundant work skip rebuild",
+    "discard",
+    "candidate replacement",
+    "commit once"
+  ],
+  "graph_scale_check": {
+    "chunks": 100000,
+    "bonds": 200000,
+    "candidate_components": [
+      100,
+      100000
+    ],
+    "all_break_edits_retained": true,
+    "accepted_graph_unchanged": true,
+    "full_scene_physics_benchmark": false
+  },
+  "memcheck": {
+    "transaction_errors": 0,
+    "native_scene_errors": 0
+  },
+  "package_consumers": {
+    "installed_cpu": true,
+    "installed_gpu": true,
+    "installed_native_cpu": true,
+    "installed_native_gpu": true
+  },
+  "native_topology_commit_enabled": false,
+  "ordinary_physx_trial_motion_rolled_back": false,
+  "resimulation_policy": {
+    "initial_count": 1,
+    "additional_passes_allowed_later": true,
+    "native_correction_implemented": false
+  },
+  "performance_qualified": false,
+  "full_destruction_complete": false
+}

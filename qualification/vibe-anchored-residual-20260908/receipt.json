@@ -1,0 +1,11 @@
+{
+  "game_revision": "45b41d22d817140c25400712cd4e48e24f0403bc",
+  "engine_revision": "f3c8cc7b85dc8b7dc4ddb3535db2156cc1c2f74b",
+  "game_worktree_diff": "",
+  "binary_sha256": "2a3faa2f0ebd64c03f185a519e3110d40b606d9a6ca22a5e3a07c81380539162",
+  "runtime_hashes": {
+    "baseline": "bb3d4ca769f873a0e87fb8c77fdaa76dfef1e7d423aae3b534a6bc8ce18cf79c",
+    "candidate": "1437bd31b875b71222331224aa6c3670a8d53bc812095727b7d67d60ec733f9e"
+  },
+  "gpu_before": "name, driver_version, temperature.gpu, clocks.current.sm [MHz], memory.used [MiB]\nNVIDIA GeForce RTX 4090, 595.71.05, 57, 2595 MHz, 1484 MiB\n"
+}

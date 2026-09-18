@@ -1,0 +1,96 @@
+{
+  "scope": "Compact GPU transfers and current-level operator; not production-integrated",
+  "source_sha256": {
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyDiagonal.cuh": "798c91aa2c25204013bc14187e4485c00b87435e6b120b44adb81da24d2f64b9",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyGraph.cuh": "e33efc1d4c3c384b0cbb8a752bb08d593ad098e899dd1dd75bb7a22fba5851fd",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyKernels.cuh": "c7c4f5abc0f3e3489f91c8297210f7826c1e91db68cd44873c421ce9406f29bf",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyLevelOperator.cuh": "5709f68cee7416b2a8287300f7b20b3c07f227f46c67b81be8298857ecae5db8",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyOperator.cuh": "032df477f4f3adb667b1c810cbd87d670cfdf1157f24e9885118a3387d86e648",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyPackedLevel.cuh": "2956e217bb1d2d57a74dfe709c363bc5397f85db644ec3a70e6861c011a6e6f6",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyPacking.cuh": "23fcf08f7afe14fd32867dacf6ec06f84d235f3285da8099207f05342c381028",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyPackingPrimitives.cuh": "ea0178d5d73617bb2bf27a78338ddc57eb604637bc475526bfae0770abd4d0c6",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyTransfers.cuh": "c6681de4dbadb0130e1eba8d7e53bfb9604568956553c5f22a821560f3697802",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyViews.cuh": "cbf16d1f0edf5b0c25358d2692d83e70fdedddc470530c4a837e5d817a66ef4e",
+    "demos/blast-stress-demo/tests/gpu_resident_hierarchy_diagonal_checks.cuh": "79bfe9d885b7d3b1a799110d3655e4b2f051ec2db2bc303a724a3156eb24bd6e",
+    "demos/blast-stress-demo/tests/gpu_resident_hierarchy_operator_checks.cuh": "4ead8720e175c3ee11a0eef406dbef9665eab021cd3fab25e03e9872803c3f8c",
+    "demos/blast-stress-demo/tests/gpu_resident_hierarchy_recursive_checks.cuh": "30819270b04b01ba46a34f0af625b24e97a7a75b2e9266323b4c380efec8b176",
+    "demos/blast-stress-demo/tests/gpu_resident_hierarchy_test.cu": "1b91af08cebd95db2634f8b51b5bd567de4050ed38503bdb1aa3319d78a232c1",
+    "demos/blast-stress-demo/tests/gpu_resident_hierarchy_transfer_checks.cuh": "6758cbe55adcbd27c4645b20a83edec76c5b89a3b5d8f5f76a734401f068e274"
+  },
+  "binary_sha256": "8e406f817d01f82c03f66b73a25f622f3a5fe16fa1aa33763158a4df7ff521c5",
+  "fixtures": [
+    {
+      "nodes": 0,
+      "bonds": 0
+    },
+    {
+      "nodes": 1,
+      "bonds": 0
+    },
+    {
+      "nodes": 2,
+      "bonds": 1
+    },
+    {
+      "nodes": 4,
+      "bonds": 3
+    },
+    {
+      "nodes": 6,
+      "bonds": 10
+    },
+    {
+      "nodes": 24,
+      "bonds": 11
+    },
+    {
+      "nodes": 24,
+      "bonds": 33
+    },
+    {
+      "nodes": 129,
+      "bonds": 121
+    },
+    {
+      "nodes": 256,
+      "bonds": 0
+    },
+    {
+      "nodes": 257,
+      "bonds": 256
+    },
+    {
+      "nodes": 100000,
+      "bonds": 199997
+    }
+  ],
+  "tests": {
+    "correctness": "pass",
+    "memcheck_with_leaks": "pass",
+    "synccheck": "pass",
+    "racecheck": "pass",
+    "tolerance": 2e-12,
+    "coverage": [
+      "fine/current compact operator against independent original equations",
+      "compact P/PT full small bases, adjointness, deterministic repeated output",
+      "zero-row retirement, fixed supports, self edges, parallel bonds",
+      "existing six generation transitions and recursive failure/recovery checks"
+    ]
+  },
+  "wall_regression": {
+    "seconds": 10,
+    "chunks": 444,
+    "bonds": 896,
+    "projectiles": 1,
+    "timestep": "1/60",
+    "correction_limit": 1,
+    "exact_frozen_gate": "pass",
+    "production_artifact_hashes_unchanged": true
+  },
+  "new_simulation_performance_claim": null,
+  "remaining": [
+    "native component ordering and terminal solves",
+    "coarse smoothers and symmetric resident V-cycle",
+    "production CGLS integration and 256-building qualification"
+  ]
+}

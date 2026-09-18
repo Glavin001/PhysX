@@ -1,0 +1,64 @@
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressHierarchyCycle.cuh b/blast/source/sdk/extensions/stressgpu/detail/StressHierarchyCycle.cuh
+index 298e3df5..9caf0f64 100644
+--- a/blast/source/sdk/extensions/stressgpu/detail/StressHierarchyCycle.cuh
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressHierarchyCycle.cuh
+@@ -65,8 +65,8 @@ __device__ __forceinline__ Vector cycleCoarseEffect(CycleLevel parent,unsigned n
+ #include "StressHierarchyRowTiles.cuh"
+ template<bool Local>
+ __device__ __forceinline__ void cycleResidual(CycleLevel d,TerminalBuffers pool,unsigned level,CycleWork<Local> work){
+-    if(tiledCoarseRows(d.input)){cycleTiledRows<Local,false>(d,pool,level,work,nullptr);return;}
+-    if(coarseBlockRows(d.input)){
++    if(!Local && tiledCoarseRows(d.input)){cycleTiledRows<Local,false>(d,pool,level,work,nullptr);return;}
++    if(!Local && coarseBlockRows(d.input)){
+         for(unsigned index=Local?0u:blockIdx.x;index<work.count(d.input);index+=Local?1u:gridDim.x){
+             const unsigned node=work.node(d.input,index);
+             const bool enabled=work.enabled(d.input,node) && smoothedNode(d,pool,level,node);
+@@ -86,7 +86,7 @@ __device__ __forceinline__ void cycleResidual(CycleLevel d,TerminalBuffers pool,
+ }
+ template<bool Local>
+ __device__ __forceinline__ void cycleRestrict(CycleLevel parent,Vector* childRhs,CycleWork<Local> work){
+-    if(coarseBlockRows(parent.input)){
++    if(!Local && coarseBlockRows(parent.input)){
+         for(unsigned index=Local?0u:blockIdx.x;index<work.childCount(parent.child);index+=Local?1u:gridDim.x){
+             const unsigned node=work.childNode(parent.child,index);
+             const bool enabled=!work.active || work.active[parent.child.component[node]];
+@@ -112,9 +112,9 @@ __device__ __forceinline__ void cycleRestrict(CycleLevel parent,Vector* childRhs
+ // L(Pe), which loses small differences between large fine coordinates.
+ template<bool Local>
+ __device__ __forceinline__ void cycleCorrectAndSmooth(CycleLevel d,TerminalBuffers pool,unsigned level,const Vector* childX,CycleWork<Local> work){
+-    if(tiledCoarseRows(d.input)){
++    if(!Local && tiledCoarseRows(d.input)){
+         cycleTiledRows<Local,true>(d,pool,level,work,childX);
+-    }else if(coarseBlockRows(d.input)){
++    }else if(!Local && coarseBlockRows(d.input)){
+         for(unsigned index=Local?0u:blockIdx.x;index<work.count(d.input);index+=Local?1u:gridDim.x){
+             const unsigned node=work.node(d.input,index);
+             const bool enabled=work.enabled(d.input,node) && smoothedNode(d,pool,level,node);
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressNativeHierarchy.cuh b/blast/source/sdk/extensions/stressgpu/detail/StressNativeHierarchy.cuh
+index 6fee94e0..fc1847f6 100644
+--- a/blast/source/sdk/extensions/stressgpu/detail/StressNativeHierarchy.cuh
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressNativeHierarchy.cuh
+@@ -23,7 +23,7 @@ class NativeStressHierarchy {
+     StressHierarchy::ResidentMotionModes mModes;
+     std::unique_ptr<StressHierarchy::ResidentCycle> mCycle;
+     NativeStressCycleView mView;cudaStream_t mStream;
+-    static StressHierarchy::Input coarseWorkInput(StressHierarchy::Input input){input.componentSolverMaxNodes=kResidentComponentMaxNodes;return input;}
++    static StressHierarchy::Input coarseWorkInput(StressHierarchy::Input input){input.componentSolverMaxNodes=0;return input;}
+     template<class T>static void allocate(T*& p,size_t count){checkCuda(cudaMalloc(&p,std::max(size_t(1),size_t(count))*sizeof(T)),"allocate native hierarchy workspace");}
+     void release()noexcept{cudaFree(mView.fineInverse);cudaFree(mView.inverseValid);cudaFree(mView.inverseGeneration);cudaFree(mView.rhs);cudaFree(mView.solution);cudaFree(mView.result);cudaFree(mView.g);cudaFree(mView.gamma);cudaFree(mView.previous);cudaFree(mView.failed);cudaFree(mView.normalizer);cudaFree(mView.verification);cudaFree(mView.verificationCount);cudaFree(mView.warmRangeKnown);cudaFree(mView.warmRangeGeneration);}
+ public:
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressNativePreconditioner.cuh b/blast/source/sdk/extensions/stressgpu/detail/StressNativePreconditioner.cuh
+index 07843901..fc64696c 100644
+--- a/blast/source/sdk/extensions/stressgpu/detail/StressNativePreconditioner.cuh
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressNativePreconditioner.cuh
+@@ -70,7 +70,9 @@ __device__ __forceinline__ float preconditionNativeComponent(const PersistentStr
+     else {
+         // Apply the fixed polynomial using cached local inverses.
+         // Large components retain their cooperative multilevel schedule.
+-        result=preconditionNativePolynomial(a,nodes,count);
++        __shared__ StressHierarchy::TerminalShared terminal;
++        const auto v=a.hierarchy.cycle;
++        StressHierarchy::cyclePass<true>(v.levels,v.depth,v.pool,terminal,a.hierarchy.rhs,result,id);
+     }
+     SUBPROBE_END(0)
+     projectNativeNullspace(a,id,nodes,count,result);

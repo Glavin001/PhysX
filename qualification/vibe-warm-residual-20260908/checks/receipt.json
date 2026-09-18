@@ -1,0 +1,32 @@
+{
+  "runtime_sha256": {
+    "baseline": "1fb2da375e8323de3301fc2dabf06d804ffe7915c774b583de106ab1e97e7dfb",
+    "candidate": "acae077756672825e93240d12ff4c32114a563610e226ec49b0430e0134cc172"
+  },
+  "commands": [
+    {
+      "name": "analytic",
+      "command": [
+        "ctest",
+        "--test-dir",
+        "out/destruction-sdk",
+        "-R",
+        "^blast_stress_gpu_resident_(analytic|3d|motion_modes)$",
+        "--output-on-failure"
+      ],
+      "exit": 0
+    },
+    {
+      "name": "ordinary",
+      "command": [
+        "ctest",
+        "--test-dir",
+        "out/destruction-sdk",
+        "-R",
+        "^physx_native_standard_(reported_reuse|reuse|awake|sleep|sleep_boundary|gpu_islands|wake_boundary|late_impact)$",
+        "--output-on-failure"
+      ],
+      "exit": 0
+    }
+  ]
+}

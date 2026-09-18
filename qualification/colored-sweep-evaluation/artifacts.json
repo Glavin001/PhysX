@@ -1,0 +1,6 @@
+{
+  "patch_base": "d2095b95a0d556215a8d8f0ae8fad015a8a6a9ae",
+  "candidate_runtime_sha256": "6db3bc3e773568d757d6b8f79edd3bb9c1bed71b4f030d09dcf05d06e5060422",
+  "restored_runtime_sha256": "481eab6a7fca0d8c22aef03152bd685d84cdbe7369e7ffa3e0e9846de45b43f4",
+  "initial_probe": "Terminated our own stalled process after identifying cooperative pending-counter round race; fixed with read-before-next-reset grid barrier; corrected scale synccheck passes."
+}

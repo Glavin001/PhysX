@@ -1,0 +1,23 @@
+Internal ctest changing into directory: /root/workspace/physx-2/out/destruction-sdk
+Test project /root/workspace/physx-2/out/destruction-sdk
+    Start 139: blast_stress_gpu_resident_motion_modes
+1/3 Test #139: blast_stress_gpu_resident_motion_modes ...***Failed    0.24 sec
+resident motion modes: polynomial differs from independent operator or loses symmetry
+GPU local inverse: 257 six-variable SPD blocks, cold/reuse/unknown/generation checks passed, scaled error 6.38784863e-16
+GPU rigid inverse: 257 six-variable SPD blocks, cold/reuse/unknown/generation checks passed, scaled error 3.50885841e-15
+
+    Start 140: blast_stress_gpu_resident_3d
+2/3 Test #140: blast_stress_gpu_resident_3d .............   Passed    2.47 sec
+    Start 142: blast_stress_gpu_resident_analytic
+3/3 Test #142: blast_stress_gpu_resident_analytic .......   Passed    0.52 sec
+
+67% tests passed, 1 tests failed out of 3
+
+Label Time Summary:
+gpu    =   2.71 sec*proc (2 tests)
+
+Total Test time (real) =   3.23 sec
+
+The following tests FAILED:
+	139 - blast_stress_gpu_resident_motion_modes (Failed)
+Errors while running CTest

@@ -1,0 +1,685 @@
+{
+  "status": "passed",
+  "scope": "Compute Sanitizer memcheck with force-blocking-launches; does not clear asynchronous failure; timings excluded from performance",
+  "scenarios": [
+    {
+      "scenario": "bridge64-cold",
+      "samples": 2,
+      "status": "passed",
+      "receipt_sha256": "b8a8a61e30da78b2976105a4f5fa861514683f64ee1468b25a8e667fa8411e64",
+      "raw": "out/snapshot-finish-20260911/blocking-mem-suite/complete-bridge64-cold",
+      "broken_bonds": [
+        0
+      ],
+      "output_clusters": [
+        1
+      ]
+    },
+    {
+      "scenario": "bridge64-warm",
+      "samples": 2,
+      "status": "passed",
+      "receipt_sha256": "afea6bf5fcca1635bb53d3bf4921eb525dfce78f0bb49e087db88ffd3bc4f806",
+      "raw": "out/snapshot-finish-20260911/blocking-mem-suite/complete-bridge64-warm",
+      "broken_bonds": [
+        0
+      ],
+      "output_clusters": [
+        1
+      ]
+    },
+    {
+      "scenario": "building-cold",
+      "samples": 2,
+      "status": "passed",
+      "receipt_sha256": "19d1d8d41ed9b400fcda7daeb4d4d70779492f829e05dc649ff93b573cdae7a2",
+      "raw": "out/snapshot-finish-20260911/blocking-mem-suite/complete-building-cold",
+      "broken_bonds": [
+        0
+      ],
+      "output_clusters": [
+        1
+      ]
+    },
+    {
+      "scenario": "building-fragmented",
+      "samples": 2,
+      "status": "passed",
+      "receipt_sha256": "3cdf55a712f4b34cc046bd0f3afde5ddb6afad3faac31ae090dbf74c339caebc",
+      "raw": "out/snapshot-finish-20260911/blocking-mem-suite/complete-building-fragmented",
+      "broken_bonds": [
+        0
+      ],
+      "output_clusters": [
+        378
+      ]
+    },
+    {
+      "scenario": "building-warm",
+      "samples": 2,
+      "status": "passed",
+      "receipt_sha256": "3bae25d715d7b353ca2f5c436676c01b3d1692750ab88562f17bd7ca3223c4f6",
+      "raw": "out/snapshot-finish-20260911/blocking-mem-suite/complete-building-warm",
+      "broken_bonds": [
+        0
+      ],
+      "output_clusters": [
+        1
+      ]
+    },
+    {
+      "scenario": "cantilever64-cold",
+      "samples": 2,
+      "status": "passed",
+      "receipt_sha256": "2e89a706c6ae7968ece87a4faf1bf9e9005d38f11c918018f5927d1c78fe4636",
+      "raw": "out/snapshot-finish-20260911/blocking-mem-suite/complete-cantilever64-cold",
+      "broken_bonds": [
+        0
+      ],
+      "output_clusters": [
+        1
+      ]
+    },
+    {
+      "scenario": "cantilever64-warm",
+      "samples": 2,
+      "status": "passed",
+      "receipt_sha256": "e1c3e5f98e7383669b94407c07a6fca65e8d87cb2d9a6b6fb36a12d7ce5f51a6",
+      "raw": "out/snapshot-finish-20260911/blocking-mem-suite/complete-cantilever64-warm",
+      "broken_bonds": [
+        0
+      ],
+      "output_clusters": [
+        1
+      ]
+    },
+    {
+      "scenario": "chain256-cold",
+      "samples": 2,
+      "status": "passed",
+      "receipt_sha256": "3c6a3b68450106aa1620ba917a672d700949c15672a9080b45938c667883587e",
+      "raw": "out/snapshot-finish-20260911/blocking-mem-suite/complete-chain256-cold",
+      "broken_bonds": [
+        0
+      ],
+      "output_clusters": [
+        1
+      ]
+    },
+    {
+      "scenario": "chain256-warm",
+      "samples": 2,
+      "status": "passed",
+      "receipt_sha256": "475a7c069af776855050d939018b8f43957ec0ec80da91117fb72dabe3558db8",
+      "raw": "out/snapshot-finish-20260911/blocking-mem-suite/complete-chain256-warm",
+      "broken_bonds": [
+        0
+      ],
+      "output_clusters": [
+        1
+      ]
+    },
+    {
+      "scenario": "chain32-cold",
+      "samples": 2,
+      "status": "passed",
+      "receipt_sha256": "82c35787d99b3a1dcf45f7b8c82a4cb827af7243a57acaeb6da2e2c7b235aa03",
+      "raw": "out/snapshot-finish-20260911/blocking-mem-suite/complete-chain32-cold",
+      "broken_bonds": [
+        0
+      ],
+      "output_clusters": [
+        1
+      ]
+    },
+    {
+      "scenario": "chain32-warm",
+      "samples": 2,
+      "status": "passed",
+      "receipt_sha256": "1360072ea39fe982bf8c0d5fc5699b18872e3eea4999dda8a5870eafa0b52ff4",
+      "raw": "out/snapshot-finish-20260911/blocking-mem-suite/complete-chain32-warm",
+      "broken_bonds": [
+        0
+      ],
+      "output_clusters": [
+        1
+      ]
+    },
+    {
+      "scenario": "dense12-cold",
+      "samples": 2,
+      "status": "passed",
+      "receipt_sha256": "b9efe7f4b3a8030c3151aced330be2960181450dc4e684ecb0a40cca6111dfc5",
+      "raw": "out/snapshot-finish-20260911/blocking-mem-suite/complete-dense12-cold",
+      "broken_bonds": [
+        0
+      ],
+      "output_clusters": [
+        1
+      ]
+    },
+    {
+      "scenario": "dense12-warm",
+      "samples": 2,
+      "status": "passed",
+      "receipt_sha256": "d9f9102934f0840646b9d03ca6b8ef6b0db95b7c26d328bc749bf7c3b06844bf",
+      "raw": "out/snapshot-finish-20260911/blocking-mem-suite/complete-dense12-warm",
+      "broken_bonds": [
+        0
+      ],
+      "output_clusters": [
+        1
+      ]
+    },
+    {
+      "scenario": "destruction-cold",
+      "samples": 2,
+      "status": "passed",
+      "receipt_sha256": "461e5bf1462ffcb42d76878ce06bcda1e520593926a2b809f0dd3680e5d3d682",
+      "raw": "out/snapshot-finish-20260911/blocking-mem-suite/complete-destruction-cold",
+      "broken_bonds": [
+        0
+      ],
+      "output_clusters": [
+        1
+      ]
+    },
+    {
+      "scenario": "destruction-damaged",
+      "samples": 2,
+      "status": "passed",
+      "receipt_sha256": "de6b64ab262018dfa9f6c12c7077057d2f9616bf4470a080410b05ea25f36320",
+      "raw": "out/snapshot-finish-20260911/blocking-mem-suite/complete-destruction-damaged",
+      "broken_bonds": [
+        0
+      ],
+      "output_clusters": [
+        1
+      ]
+    },
+    {
+      "scenario": "destruction-fractured",
+      "samples": 2,
+      "status": "passed",
+      "receipt_sha256": "46a6f8956093e9352edcaf093dc8a5f5a0b7bd647207436ac093b39f024d77ef",
+      "raw": "out/snapshot-finish-20260911/blocking-mem-suite/complete-destruction-fractured",
+      "broken_bonds": [
+        0
+      ],
+      "output_clusters": [
+        2
+      ]
+    },
+    {
+      "scenario": "destruction-intact",
+      "samples": 2,
+      "status": "passed",
+      "receipt_sha256": "b54f939a2aceb56fe8b283f71eabcb0870a3beeefd39fe599a4222742a15a52a",
+      "raw": "out/snapshot-finish-20260911/blocking-mem-suite/complete-destruction-intact",
+      "broken_bonds": [
+        0
+      ],
+      "output_clusters": [
+        1
+      ]
+    },
+    {
+      "scenario": "destruction-onset",
+      "samples": 2,
+      "status": "passed",
+      "receipt_sha256": "67eb8987c66111732bcb1864716ed77fe3741d1b55a85c30bd243b2069f8fe65",
+      "raw": "out/snapshot-finish-20260911/blocking-mem-suite/complete-destruction-onset",
+      "broken_bonds": [
+        0
+      ],
+      "output_clusters": [
+        1
+      ]
+    },
+    {
+      "scenario": "destruction-stimulus",
+      "samples": 2,
+      "status": "passed",
+      "receipt_sha256": "35d88f30025e9405af00fabe313b64413196ff28c1bd0cfea1fa9822941df5f1",
+      "raw": "out/snapshot-finish-20260911/blocking-mem-suite/complete-destruction-stimulus",
+      "broken_bonds": [
+        0
+      ],
+      "output_clusters": [
+        1
+      ]
+    },
+    {
+      "scenario": "flying",
+      "samples": 2,
+      "status": "passed",
+      "receipt_sha256": "186143be5278be21316972017c4a3428a5b1c1d4d1a31be8396e286075144307",
+      "raw": "out/snapshot-finish-20260911/blocking-mem-suite/complete-flying",
+      "broken_bonds": [
+        0
+      ],
+      "output_clusters": [
+        0
+      ]
+    },
+    {
+      "scenario": "ladder128-cold",
+      "samples": 2,
+      "status": "passed",
+      "receipt_sha256": "73de1376f240ac293180ae3cd281a7969da84b5cdc8dc95d8970d77e2878753b",
+      "raw": "out/snapshot-finish-20260911/blocking-mem-suite/complete-ladder128-cold",
+      "broken_bonds": [
+        0
+      ],
+      "output_clusters": [
+        1
+      ]
+    },
+    {
+      "scenario": "ladder128-warm",
+      "samples": 2,
+      "status": "passed",
+      "receipt_sha256": "c8c30427a5431b797ce4e687b14f12c8fe223e731306e994a3205bbd2d12f103",
+      "raw": "out/snapshot-finish-20260911/blocking-mem-suite/complete-ladder128-warm",
+      "broken_bonds": [
+        0
+      ],
+      "output_clusters": [
+        1
+      ]
+    },
+    {
+      "scenario": "panel32-cold",
+      "samples": 2,
+      "status": "passed",
+      "receipt_sha256": "49b13396780cb8ec592ea19650430147766f74884c4ecf25c606ff0270630dbe",
+      "raw": "out/snapshot-finish-20260911/blocking-mem-suite/complete-panel32-cold",
+      "broken_bonds": [
+        0
+      ],
+      "output_clusters": [
+        1
+      ]
+    },
+    {
+      "scenario": "panel32-warm",
+      "samples": 2,
+      "status": "passed",
+      "receipt_sha256": "e54b041d46ca291baa46e080117820cdf44a5268d61bd0139d4ba1a44c3edcad",
+      "raw": "out/snapshot-finish-20260911/blocking-mem-suite/complete-panel32-warm",
+      "broken_bonds": [
+        0
+      ],
+      "output_clusters": [
+        1
+      ]
+    },
+    {
+      "scenario": "resting",
+      "samples": 2,
+      "status": "passed",
+      "receipt_sha256": "5df238424b47e04011ebca2a68d658a11c45d6bee5efcea4169f534a056820fa",
+      "raw": "out/snapshot-finish-20260911/blocking-mem-suite/complete-resting",
+      "broken_bonds": [
+        0
+      ],
+      "output_clusters": [
+        0
+      ]
+    },
+    {
+      "scenario": "sliding",
+      "samples": 2,
+      "status": "passed",
+      "receipt_sha256": "0c89d98b5db23575666984fe17ab05ae7a276193945f1dc75a78b450e219b439",
+      "raw": "out/snapshot-finish-20260911/blocking-mem-suite/complete-sliding",
+      "broken_bonds": [
+        0
+      ],
+      "output_clusters": [
+        0
+      ]
+    },
+    {
+      "scenario": "tower64-cold",
+      "samples": 2,
+      "status": "passed",
+      "receipt_sha256": "0252fabe2917fe2f84b984e1f11db134f832ef622f4dcc87dfed93d36ca9417c",
+      "raw": "out/snapshot-finish-20260911/blocking-mem-suite/complete-tower64-cold",
+      "broken_bonds": [
+        0
+      ],
+      "output_clusters": [
+        1
+      ]
+    },
+    {
+      "scenario": "tower64-warm",
+      "samples": 2,
+      "status": "passed",
+      "receipt_sha256": "607299a3a5896706f4c7c4e56dd4ce4ec832ff627014bfa11c12d1bee0571a46",
+      "raw": "out/snapshot-finish-20260911/blocking-mem-suite/complete-tower64-warm",
+      "broken_bonds": [
+        0
+      ],
+      "output_clusters": [
+        1
+      ]
+    },
+    {
+      "scenario": "city25-intact-idle",
+      "samples": 2,
+      "status": "passed",
+      "receipt_sha256": "11be44873023a43107be6e0cb540ec5e8c5c4fefae2b6a5c3131b8416aafd467",
+      "raw": "out/snapshot-finish-20260911/blocking-mem-suite/complete-city25-intact-idle",
+      "broken_bonds": [
+        0
+      ],
+      "output_clusters": [
+        25
+      ]
+    },
+    {
+      "scenario": "city25-airborne",
+      "samples": 2,
+      "status": "passed",
+      "receipt_sha256": "d2ad518cf938ffb79e62df99978836b8af8f007be182bf4193755509996a622a",
+      "raw": "out/snapshot-finish-20260911/blocking-mem-suite/complete-city25-airborne",
+      "broken_bonds": [
+        0
+      ],
+      "output_clusters": [
+        25
+      ]
+    },
+    {
+      "scenario": "city25-initial-impact",
+      "samples": 2,
+      "status": "passed",
+      "receipt_sha256": "1a67f3f7624c4a973adc2ed64f26087f296c48cd987ae7ecef704d2eace3aeef",
+      "raw": "out/snapshot-finish-20260911/blocking-mem-suite/complete-city25-initial-impact",
+      "broken_bonds": [
+        3412
+      ],
+      "output_clusters": [
+        537
+      ]
+    },
+    {
+      "scenario": "city25-post-impact",
+      "samples": 2,
+      "status": "passed",
+      "receipt_sha256": "f71073b9f18e2ac2ff602a2c662b9dbce7c4805b6b43e5e3dec52f46ad600383",
+      "raw": "out/snapshot-finish-20260911/blocking-mem-suite/complete-city25-post-impact",
+      "broken_bonds": [
+        0
+      ],
+      "output_clusters": [
+        526
+      ]
+    },
+    {
+      "scenario": "city25-cascading-fracture",
+      "samples": 2,
+      "status": "passed",
+      "receipt_sha256": "fec808627b30b61f5aa561abad9ca23804405831710ac370ff586421aa0e4691",
+      "raw": "out/snapshot-finish-20260911/blocking-mem-suite/complete-city25-cascading-fracture",
+      "broken_bonds": [
+        10
+      ],
+      "output_clusters": [
+        610
+      ]
+    },
+    {
+      "scenario": "city25-fragmented-loaded",
+      "samples": 2,
+      "status": "passed",
+      "receipt_sha256": "7d69bd31f7b201dc888d4f1e791ec165375759b9cdf1258b1346d0f7f04cf2f5",
+      "raw": "out/snapshot-finish-20260911/blocking-mem-suite/complete-city25-fragmented-loaded",
+      "broken_bonds": [
+        100
+      ],
+      "output_clusters": [
+        1321
+      ]
+    },
+    {
+      "scenario": "city25-late-debris",
+      "samples": 2,
+      "status": "passed",
+      "receipt_sha256": "3db344d79dd85179ba46aa6b17f69090877e7c4eb52612db3bdca82dfd390371",
+      "raw": "out/snapshot-finish-20260911/blocking-mem-suite/complete-city25-late-debris",
+      "broken_bonds": [
+        1424
+      ],
+      "output_clusters": [
+        2063
+      ]
+    },
+    {
+      "scenario": "city25-ten-second-debris",
+      "samples": 2,
+      "status": "passed",
+      "receipt_sha256": "f84ed5fd286fc2e16ab67466852315dbb6d3d695722a1f1accfd7f20cf797b90",
+      "raw": "out/snapshot-finish-20260911/blocking-mem-suite/complete-city25-ten-second-debris",
+      "broken_bonds": [
+        184
+      ],
+      "output_clusters": [
+        1776
+      ]
+    },
+    {
+      "scenario": "city64-intact-idle",
+      "samples": 2,
+      "status": "passed",
+      "receipt_sha256": "9d06dcda4e1fe72853e2cee6eb87151cb9b0bb6664aa007aad255f829105f312",
+      "raw": "out/snapshot-finish-20260911/blocking-mem-suite/complete-city64-intact-idle",
+      "broken_bonds": [
+        0
+      ],
+      "output_clusters": [
+        64
+      ]
+    },
+    {
+      "scenario": "city64-airborne",
+      "samples": 2,
+      "status": "passed",
+      "receipt_sha256": "345e9620b82cabc878816945204441a6f4bd4a0c12c63c4d56ef2274fdaa6820",
+      "raw": "out/snapshot-finish-20260911/blocking-mem-suite/complete-city64-airborne",
+      "broken_bonds": [
+        0
+      ],
+      "output_clusters": [
+        64
+      ]
+    },
+    {
+      "scenario": "city64-initial-impact",
+      "samples": 2,
+      "status": "passed",
+      "receipt_sha256": "6fd48f2e6a9faaf36c3d9a88f489a3c7df320dd685c7f9bcd150aa3392114ab7",
+      "raw": "out/snapshot-finish-20260911/blocking-mem-suite/complete-city64-initial-impact",
+      "broken_bonds": [
+        8760
+      ],
+      "output_clusters": [
+        1364
+      ]
+    },
+    {
+      "scenario": "city64-post-impact",
+      "samples": 2,
+      "status": "passed",
+      "receipt_sha256": "46c53ec51d2016218fb992a8ff1b125df5f49c8b7c6319c0a6f8f9375871bdcd",
+      "raw": "out/snapshot-finish-20260911/blocking-mem-suite/complete-city64-post-impact",
+      "broken_bonds": [
+        0
+      ],
+      "output_clusters": [
+        1320
+      ]
+    },
+    {
+      "scenario": "city64-cascading-fracture",
+      "samples": 2,
+      "status": "passed",
+      "receipt_sha256": "5784a73f6c0172b7fdf2425a763d3f008ccf0889d7a9f1a5abf11236ce5df4c6",
+      "raw": "out/snapshot-finish-20260911/blocking-mem-suite/complete-city64-cascading-fracture",
+      "broken_bonds": [
+        13
+      ],
+      "output_clusters": [
+        1473
+      ]
+    },
+    {
+      "scenario": "city64-fragmented-loaded",
+      "samples": 2,
+      "status": "passed",
+      "receipt_sha256": "2a3f2e6339db450ac1f1794f5bce84fc7a8796201f68cd38e874a920f6234043",
+      "raw": "out/snapshot-finish-20260911/blocking-mem-suite/complete-city64-fragmented-loaded",
+      "broken_bonds": [
+        425
+      ],
+      "output_clusters": [
+        3144
+      ]
+    },
+    {
+      "scenario": "city64-late-debris",
+      "samples": 2,
+      "status": "passed",
+      "receipt_sha256": "1c096fd006ea961cfa8d92a39f5be0a5b3b6c403934d09d5aaec97548b6e9735",
+      "raw": "out/snapshot-finish-20260911/blocking-mem-suite/complete-city64-late-debris",
+      "broken_bonds": [
+        2768
+      ],
+      "output_clusters": [
+        5130
+      ]
+    },
+    {
+      "scenario": "city64-ten-second-debris",
+      "samples": 2,
+      "status": "passed",
+      "receipt_sha256": "1c2ae9464e62fd2a19c83442aa6a4d62abb5ecd435c7f0aeb7e800a08ac23961",
+      "raw": "out/snapshot-finish-20260911/blocking-mem-suite/complete-city64-ten-second-debris",
+      "broken_bonds": [
+        202
+      ],
+      "output_clusters": [
+        4705
+      ]
+    },
+    {
+      "scenario": "city256-intact-idle",
+      "samples": 2,
+      "status": "passed",
+      "receipt_sha256": "cf8c7fb57d868be3428c4dcbf3db298679e6d2a0977abc11e8ff02d2bf928e05",
+      "raw": "out/snapshot-finish-20260911/blocking-mem-suite/complete-city256-intact-idle",
+      "broken_bonds": [
+        0
+      ],
+      "output_clusters": [
+        256
+      ]
+    },
+    {
+      "scenario": "city256-airborne",
+      "samples": 2,
+      "status": "passed",
+      "receipt_sha256": "553e2d58cd7c769a0f7593d189802767b420772983a5992bfd5045d607f24833",
+      "raw": "out/snapshot-finish-20260911/blocking-mem-suite/complete-city256-airborne",
+      "broken_bonds": [
+        0
+      ],
+      "output_clusters": [
+        256
+      ]
+    },
+    {
+      "scenario": "city256-initial-impact",
+      "samples": 2,
+      "status": "passed",
+      "receipt_sha256": "708886f5bdf5a15d141a3b86ce8ed9044659fe4f4b9ece1f9c96ec0c3aa28d3a",
+      "raw": "out/snapshot-finish-20260911/blocking-mem-suite/complete-city256-initial-impact",
+      "broken_bonds": [
+        34802
+      ],
+      "output_clusters": [
+        5417
+      ]
+    },
+    {
+      "scenario": "city256-post-impact",
+      "samples": 2,
+      "status": "passed",
+      "receipt_sha256": "7531a63acf9930fe4630be59384b640de1048c2b251f12d97b1503c946517adf",
+      "raw": "out/snapshot-finish-20260911/blocking-mem-suite/complete-city256-post-impact",
+      "broken_bonds": [
+        0
+      ],
+      "output_clusters": [
+        5204
+      ]
+    },
+    {
+      "scenario": "city256-cascading-fracture",
+      "samples": 2,
+      "status": "passed",
+      "receipt_sha256": "aa81471a6e0cc2dfb4ce03e1f89e3e9caeb5acb66ff1a631056aed498592b853",
+      "raw": "out/snapshot-finish-20260911/blocking-mem-suite/complete-city256-cascading-fracture",
+      "broken_bonds": [
+        25
+      ],
+      "output_clusters": [
+        5852
+      ]
+    },
+    {
+      "scenario": "city256-fragmented-loaded",
+      "samples": 2,
+      "status": "passed",
+      "receipt_sha256": "d5037f32af0967944208d0a9fa0ef1644e3b6c40cbe76205b00fcbbfd9c96143",
+      "raw": "out/snapshot-finish-20260911/blocking-mem-suite/complete-city256-fragmented-loaded",
+      "broken_bonds": [
+        1229
+      ],
+      "output_clusters": [
+        11382
+      ]
+    },
+    {
+      "scenario": "city256-late-debris",
+      "samples": 2,
+      "status": "passed",
+      "receipt_sha256": "298b006d6ba3f781fe06b74af91ed9006be7801112a1d290dcd69ae93f59159a",
+      "raw": "out/snapshot-finish-20260911/blocking-mem-suite/complete-city256-late-debris",
+      "broken_bonds": [
+        11051
+      ],
+      "output_clusters": [
+        16135
+      ]
+    },
+    {
+      "scenario": "city256-ten-second-debris",
+      "samples": 2,
+      "status": "passed",
+      "receipt_sha256": "a7e22f4b9bb17c52a17d390d40ea9bfe41b305c03fe8a67c6bdb23575e2883f7",
+      "raw": "out/snapshot-finish-20260911/blocking-mem-suite/complete-city256-ten-second-debris",
+      "broken_bonds": [
+        819
+      ],
+      "output_clusters": [
+        15187
+      ]
+    }
+  ],
+  "scenario_count": 52,
+  "tick_count": 104,
+  "harness_seconds": 652.2394109740271
+}

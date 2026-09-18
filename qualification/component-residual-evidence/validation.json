@@ -1,0 +1,151 @@
+{
+  "schema": 1,
+  "base_revision": "72e6aeb801a54ef406cfa9edee29a324ff87fc53",
+  "workload": {
+    "buildings": 256,
+    "chunks": 113664,
+    "bonds": 229376,
+    "projectiles": 256,
+    "trials": 2,
+    "simulated_seconds_per_trial": 10,
+    "dt_seconds": 0.016666666666666666,
+    "correction_limit": 1,
+    "sleeping": false,
+    "timer": "Recorded commands through accepted motion/destruction and mandatory completion; initialization/rendering/reporting excluded; every measured step retained"
+  },
+  "campaigns": {
+    "warp-incremental-impacts-256": {
+      "manifest_sha256": "7d051a0cad290e6631312aca6ee7bd04e4278d5ff2be33bde5c76db180ce459a",
+      "steps": 1200,
+      "mean_complete_ms": 11.395362759166666,
+      "max_complete_ms": 49.174363,
+      "missed_8_ms": 1038,
+      "counter_mismatches": 0,
+      "first_counter_mismatch": null
+    },
+    "component-residual-impacts-256": {
+      "manifest_sha256": "30be91d0d46a6d7d6eeb062ce39df22875365a2e2769089b347a5d7b98ad68dc",
+      "steps": 1200,
+      "mean_complete_ms": 13.486150391666667,
+      "max_complete_ms": 51.598459,
+      "missed_8_ms": 1038,
+      "counter_mismatches": 0,
+      "first_counter_mismatch": null
+    },
+    "component-residual-soa-impacts-256": {
+      "manifest_sha256": "d6fa8ba998f874276a214e383497d3b603ec7ae4b85b29264df85e2d8efbe6f0",
+      "steps": 1200,
+      "mean_complete_ms": 13.148950806666667,
+      "max_complete_ms": 50.459326,
+      "missed_8_ms": 1038,
+      "counter_mismatches": 0,
+      "first_counter_mismatch": null
+    },
+    "component-occupancy-impacts-256": {
+      "manifest_sha256": "6017b60b4b02645d49d19f90afa3267b9925cf981e21f42ed269c4004a8ec2a6",
+      "steps": 1200,
+      "mean_complete_ms": 12.461727583333333,
+      "max_complete_ms": 51.169429,
+      "missed_8_ms": 1038,
+      "counter_mismatches": 0,
+      "first_counter_mismatch": null
+    },
+    "component-single-worker-impacts-256": {
+      "manifest_sha256": "86bfa90f0ab2db645ea58172e8cf1de2ef36e91faba8c6300b61a93a89a71bc8",
+      "steps": 1200,
+      "mean_complete_ms": 11.57110349,
+      "max_complete_ms": 52.438575,
+      "missed_8_ms": 1038,
+      "counter_mismatches": 0,
+      "first_counter_mismatch": null
+    },
+    "component-restored-impacts-256": {
+      "manifest_sha256": "6898ec6d71554d19d9806d3806027825f305cbe0188abfcd5cb8cdf53e12eb16",
+      "steps": 1200,
+      "mean_complete_ms": 11.3792108975,
+      "max_complete_ms": 51.781278,
+      "missed_8_ms": 1038,
+      "counter_mismatches": 0,
+      "first_counter_mismatch": null
+    }
+  },
+  "compared_fields": [
+    "step",
+    "bonds_broken",
+    "resim_passes",
+    "logical_clusters",
+    "bodies",
+    "contacts_frame",
+    "contact_pairs",
+    "native_dynamic_bodies",
+    "native_kinematic_bodies"
+  ],
+  "compared_candidate_and_restored_steps": 6000,
+  "production_solver_restored": true,
+  "no_speedup_claimed": true,
+  "new_test": {
+    "path": "demos/blast-stress-demo/tests/gpu_resident_stress_test.cu",
+    "sha256": "861fea574e87fb721dc6ab3fd8002d2f903bc13b7240d88c25a70ad34a2c2ec4",
+    "chunks": 1040,
+    "initial_bonds": 1039,
+    "components": [
+      1,
+      2,
+      4
+    ],
+    "load_transitions": 12,
+    "authored_id_permutation_multiplier": 17,
+    "force_absolute_tolerance": 0.0002,
+    "responsibility": "Analytic forces and topology generation across cooperative-to-component solve transitions; warm/quiet/load changes"
+  },
+  "focused_suites_passed_per_candidate_and_restored": 3,
+  "wall_topology_signature_all_candidates_and_restored": "e589eb8317c456147287443232209bb950514a75b5e4fb6783e2de5fe7486d4c",
+  "final_artifacts": {
+    "/root/workspace/physx-2/out/cupti-capture-fix-20260907/deps/cupti-13.2.86/nvidia/cu13/lib/libcupti.so.13": "df23b4e21d11bfb2c86b3159def62cbd2e6e660c70a9bf75bd4612a17bd40043",
+    "/root/workspace/physx-2/out/destruction-sdk/reference/libnative_gpu_visuals.so": "cae8b0ab0624d55820b8c6377c0ddb30d8bef3d42042e2fcc572a850f5e91bf2",
+    "/root/workspace/physx-2/out/destruction-sdk/reference/native_destruction_demo": "87e7dd738819aa3e3f03b49cf8803c6cbdebac4721d0ff1ea158b4e09fd375c3",
+    "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPVDRuntime_64.so": "7ced8c8e62fd6323cbb75910cf1a9cf29e2cfe5cfe1d053a8ad061a6bd4d1c2b",
+    "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so": "5666fa5bd0203e267fbe214385d8e58e05d1fa33a580a7139f02067eb9cbd6c8",
+    "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so": "f3920e6a9dbc0a5e699800e27fc547d6587b0a3a4640274c91554be3cfb52afa",
+    "/usr/lib/x86_64-linux-gnu/libEGL.so.1": "875ecbb2a07d60e32216c9f102965abc1e9cc1da7789558e2e9b8b9c107e231d",
+    "/usr/lib/x86_64-linux-gnu/libGLdispatch.so.0": "ca01a91104c8887b3d8e59499b58cbb8f604cc285666b50d9ec888eb0c915182",
+    "/usr/lib/x86_64-linux-gnu/libOpenGL.so.0": "9a0a6024499300f918ef1b42d581427cdb20bbc17a7d8239a4b7434833a98d4a",
+    "/usr/lib/x86_64-linux-gnu/libc.so.6": "8db37cf3f2169f59a0f07ef1fea308c35656668c64c8ff294e1860f4121eb161",
+    "/usr/lib/x86_64-linux-gnu/libcuda.so.1": "76e0d9678d41cf6b6ae71d18549d88a963d3d434f08108baa12457eb53ca88d6",
+    "/usr/lib/x86_64-linux-gnu/libdl.so.2": "292d5f5af2e7360b3e18c56591a4960115373ecf40627660f9149b6c68a33f80",
+    "/usr/lib/x86_64-linux-gnu/libgcc_s.so.1": "d93224d2b0dab4247598be683adca02f5cf00586f99c187579cd7e92058fb7cb",
+    "/usr/lib/x86_64-linux-gnu/libm.so.6": "e9c4b28d340e415b8137480ec442662f981e1399386c5931dae0e886e3639e91",
+    "/usr/lib/x86_64-linux-gnu/libpthread.so.0": "a27ffa9bf233d61a5f02ddb0cf770dd6579021afc1aa8aec0fb58ee4a965281a",
+    "/usr/lib/x86_64-linux-gnu/librt.so.1": "c6e6288545e24b0b3cfbf33320bda9236521625d8c3d628f3444f1ed40e5c7c5",
+    "/usr/lib/x86_64-linux-gnu/libstdc++.so.6": "1fd75fe70354a416d75aef22bcae68c47bd25d20e2d0568c30b1a9838cf62f11",
+    "/usr/lib/x86_64-linux-gnu/libutil.so.1": "0f3f158a3bddc74152a56ae8d2be659485f90dd9abbca92d25961f973672d2f5",
+    "/usr/lib/x86_64-linux-gnu/libz.so.1": "9b64150b28505a33d6bc3ecf709c279f6de97a1c184dbda65d06ee4537f6d286",
+    "/usr/local/cuda/lib64/libcudart.so.12": "c3a75b33af334a3486d197dbd1584a2985183ba4688d237a2be5f2f679329920"
+  },
+  "full_goal_complete": false,
+  "performance_qualified": false,
+  "limitations": [
+    "Two ten-second repetitions are diagnostics, not five 60-second or endurance qualification.",
+    "Cross-candidate large-scene checks compare counters; no full trajectory/bond-identity equivalence is inferred.",
+    "Register/shared-memory requirements are compiler data; bandwidth/occupancy bottleneck claims need hardware-counter evidence."
+  ],
+  "evidence_hashes": {
+    "aos-quality.json": "bd2613222184181478de2308fd1d73f95bc22f5d91e4d568706228303c9f8a5d",
+    "aos-tests.log": "6c419ba3fb84ac07cec64f2b2dded401c7e9e3722696ed0d84df12b78f93b2b5",
+    "max-occupancy-quality.json": "49eebfb6032766bc480865101eab41b32c772bc838b252da968d6bd85bc77cd6",
+    "max-occupancy-tests.log": "6caeb62080a43673608f6fc2d5c951f440e0fe0bab9a31fe10e23ed78c736248",
+    "rejected-aos.patch.gz": "f540f15dcf8c0924a27a5ba23880979ce09d1013b3bb1db65187505197c14270",
+    "rejected-max-occupancy.patch.gz": "21181db51c78d924ad0e6aa0bb09e07d11e9ffec7f70262515af97bc9e539682",
+    "rejected-single-worker.patch.gz": "89d496c79ebc78bf586892f2971633c371ade597ebe9512436d3d79fa041630f",
+    "rejected-soa.patch.gz": "b952fef1afef5b6c08f0efb1732cb46ae617db909d79b7a489dad085816f7de3",
+    "restored-quality.json": "c67e53d7e68aafea2af735a3d833bb960ff0234828e1b798acebfc80546c3783",
+    "restored-tests.log": "462aad77495e84369934e11f4bc282960e8fc4589c0904808a0b030b73f1cbf0",
+    "single-worker-quality.json": "24ba8d50979d2722b6352d94ce1888b16cee890ba782bc6d62a2526545a84ad2",
+    "single-worker-tests.log": "3bcbe3b23323e6140315ff61f766f15e93dc6c07b616ea3e183a4b36c91eccd0",
+    "soa-kernel-resources.txt.gz": "40e443d8fdaa1432358e8c27eb46f05e45f75508360d5e435c39ce80578ee4c6",
+    "soa-quality.json": "3da43816f5a1174a3b2221c72556a7f0d398124576aa5267fae898f8afdbabab",
+    "soa-tests.log": "90244c448b27796c79aa2bfd7b6e0b9150e627ae58c60aa2ff9b2516bc7d2256"
+  },
+  "comparison_regeneration_byte_identical": true,
+  "raw_evidence_encoding": "Deterministic gzip preserves exact patch context and raw compiler output, including significant whitespace."
+}

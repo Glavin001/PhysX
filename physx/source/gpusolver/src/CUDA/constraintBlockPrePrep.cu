@@ -878,6 +878,15 @@ extern "C" __global__ void constraintContactBlockPrePrepLaunch(PxgPrePrepDesc* g
 				//We can do this in the articulation prep code!
 				PxU32 solverBodyIndexA = isStaticA ? 0 : solverBodyIndices[nodeIndexA];
 				PxU32 solverBodyIndexB = isStaticB ? 0 : solverBodyIndices[nodeIndexB];
+				// A dynamic body absent from the solver's active list (parked for an
+				// island-scoped destruction correction) is treated as the static
+				// world body: zero response, no velocity written. Its friction
+				// anchors would be correlated in the world frame, so the pair
+				// publishes no friction patches for the next pass (cold restart,
+				// as after any correction today).
+				const bool parkedPair = solverBodyIndexA == 0xFFFFFFFFu || solverBodyIndexB == 0xFFFFFFFFu;
+				if (solverBodyIndexA == 0xFFFFFFFFu) solverBodyIndexA = 0;
+				if (solverBodyIndexB == 0xFFFFFFFFu) solverBodyIndexB = 0;
 
 				batch.bodyAIndex[threadIndexInWarp] = solverBodyIndexA;
 				batch.bodyBIndex[threadIndexInWarp] = solverBodyIndexB;
@@ -956,7 +965,9 @@ extern "C" __global__ void constraintContactBlockPrePrepLaunch(PxgPrePrepDesc* g
 					}
 				}
 				
-				const PxU32 edgeIndex = constants->mEdgeIndex;
+				// Friction state is keyed by the dense pair slot, which outlives
+				// island edge handles for pairs the CPU island manager never sees.
+				const PxU32 edgeIndex = constants->mPairSlot;
 				n.mEdgeIndex[threadIndexInWarp] = edgeIndex;
 
 				n.mPatchIndex[threadIndexInWarp] = patchIndex;
@@ -968,6 +979,7 @@ extern "C" __global__ void constraintContactBlockPrePrepLaunch(PxgPrePrepDesc* g
 				const PxU32 tIndex = PxsContactManagerBase::computeBucketIndexFromId(npIndex);
 				const PxU32 cmOutputIndex = shDesc.mCmOutputOffsets[tIndex] + (npIndex >> PxsContactManagerBase::MaxBucketBits);
 
+				n.mContactManagerOutputIndex[threadIndexInWarp] = cmOutputIndex;
 				batch.shapeInteraction[threadIndexInWarp] = shDesc.mShapeInteractions[cmOutputIndex];
 				n.mRestDistance[threadIndexInWarp] = shDesc.mRestDistances[cmOutputIndex];
 				n.mTorsionalFrictionData[threadIndexInWarp] = torsionalData[cmOutputIndex];
@@ -985,11 +997,15 @@ extern "C" __global__ void constraintContactBlockPrePrepLaunch(PxgPrePrepDesc* g
 				if (cmOutput->contactForces)
 					forceIndex = reinterpret_cast<PxReal*>(cmOutput->contactForces) - shDesc.cpuForceBufferBase;
 
-				prevFrictionPatchCount = shDesc.prevFrictionPatchCount[edgeIndex];
+				// A parked pair becomes an empty constraint: no contacts, no
+				// friction warm start, nothing published. Its bodies map to the
+				// world (index 0), whose response with a kinematic or itself is
+				// undefined (zero unit response).
+				prevFrictionPatchCount = parkedPair ? 0u : shDesc.prevFrictionPatchCount[edgeIndex];
 
-				shDesc.currFrictionPatchCount[edgeIndex] = cmOutput->nbPatches;
+				shDesc.currFrictionPatchCount[edgeIndex] = parkedPair ? 0u : cmOutput->nbPatches;
 
-				if (hasContacts && patchIndex < cmOutput->nbPatches)
+				if (hasContacts && !parkedPair && patchIndex < cmOutput->nbPatches)
 				{
 					if(cmOutput->contactPatches != NULL)
 						contactPatch = shDesc.compressedPatches + patchStartIndex + patchIndex;
@@ -1104,7 +1120,8 @@ static PX_FORCE_INLINE __device__  void constraint1DPrePrep(PxU32 jointDataIndex
 			}
 			else
 			{
-				const PxU32 solverBodyIndexA = nodeIndexA == PX_INVALID_NODE ? 0 : solverBodyIndices[nodeIndexA];
+				PxU32 solverBodyIndexA = nodeIndexA == PX_INVALID_NODE ? 0 : solverBodyIndices[nodeIndexA];
+				if (solverBodyIndexA == 0xFFFFFFFFu) solverBodyIndexA = 0; // parked body: static world
 				const PxAlignedTransform pose0_ = solverBodyData[solverBodyIndexA].body2World;
 				pose0 = pose0_.getTransform();
 			}
@@ -1119,7 +1136,8 @@ static PX_FORCE_INLINE __device__  void constraint1DPrePrep(PxU32 jointDataIndex
 			}
 			else
 			{
-				const PxU32 solverBodyIndexB = nodeIndexB == PX_INVALID_NODE ? 0 : solverBodyIndices[nodeIndexB];
+				PxU32 solverBodyIndexB = nodeIndexB == PX_INVALID_NODE ? 0 : solverBodyIndices[nodeIndexB];
+				if (solverBodyIndexB == 0xFFFFFFFFu) solverBodyIndexB = 0; // parked body: static world
 				const PxAlignedTransform pose1_ = solverBodyData[solverBodyIndexB].body2World;
 				pose1 = pose1_.getTransform();
 			}
@@ -1129,8 +1147,10 @@ static PX_FORCE_INLINE __device__  void constraint1DPrePrep(PxU32 jointDataIndex
 			PX_UNUSED(bodySimEntries);
 			PX_UNUSED(articulations);
 
-			const PxU32 solverBodyIndexA = nodeIndexA == PX_INVALID_NODE ? 0 : solverBodyIndices[nodeIndexA];
-			const PxU32 solverBodyIndexB = nodeIndexB == PX_INVALID_NODE ? 0 : solverBodyIndices[nodeIndexB];
+			PxU32 solverBodyIndexA = nodeIndexA == PX_INVALID_NODE ? 0 : solverBodyIndices[nodeIndexA];
+			PxU32 solverBodyIndexB = nodeIndexB == PX_INVALID_NODE ? 0 : solverBodyIndices[nodeIndexB];
+			if (solverBodyIndexA == 0xFFFFFFFFu) solverBodyIndexA = 0; // parked body: static world
+			if (solverBodyIndexB == 0xFFFFFFFFu) solverBodyIndexB = 0;
 
 			const PxAlignedTransform pose0_ = solverBodyData[solverBodyIndexA].body2World;
 			const PxAlignedTransform pose1_ = solverBodyData[solverBodyIndexB].body2World;
@@ -1336,6 +1356,8 @@ extern "C" __global__ void constraint1DBlockPrePrepLaunch(
 
 				PxU32 solverBodyIndexA = nodeIndexA == PX_INVALID_NODE ? 0 : shDesc.solverBodyIndices[nodeIndexA];
 				PxU32 solverBodyIndexB = nodeIndexB == PX_INVALID_NODE ? 0 : shDesc.solverBodyIndices[nodeIndexB];
+				if (solverBodyIndexA == 0xFFFFFFFFu) solverBodyIndexA = 0; // parked body: static world
+				if (solverBodyIndexB == 0xFFFFFFFFu) solverBodyIndexB = 0;
 
 				batch.bodyAIndex[threadIndexInWarp] = solverBodyIndexA;
 				batch.bodyBIndex[threadIndexInWarp] = solverBodyIndexB;

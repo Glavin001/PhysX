@@ -1,0 +1,12 @@
+Internal ctest changing into directory: /root/workspace/physx-2/out/destruction-sdk
+Test project /root/workspace/physx-2/out/destruction-sdk
+    Start 76: physx_native_standard_reuse
+1/1 Test #76: physx_native_standard_reuse ......   Passed    0.85 sec
+
+100% tests passed, 0 tests failed out of 1
+
+Label Time Summary:
+gpu            =   0.85 sec*proc (1 test)
+integration    =   0.85 sec*proc (1 test)
+
+Total Test time (real) =   0.85 sec

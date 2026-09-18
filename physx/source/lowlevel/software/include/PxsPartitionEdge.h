@@ -117,7 +117,7 @@ namespace physx
 			PxU32* edgeNodeIndices = gpuData->getEdgeNodeIndexPtr();
 			if(edgeNodeIndices)	// PT: only non-null for GPU version
 			{
-				const PartitionEdge* partitionEdge = gpuData->getFirstPartitionEdge(unit.mEdgeIndex);
+				const PartitionEdge* partitionEdge = gpuData->getFirstPartitionEdgeBySlot(unit.mDeviceSlot);
 				while(partitionEdge)
 				{
 					edgeNodeIndices[partitionEdge->mUniqueIndex] = unit.mNpIndex;

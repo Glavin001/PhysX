@@ -1,0 +1,25 @@
+{
+  "runtime_sha256": "bb3d4ca769f873a0e87fb8c77fdaa76dfef1e7d423aae3b534a6bc8ce18cf79c",
+  "source_runtime_behavior": "69fe462a (queue experiment reverted)",
+  "browser_exit": 0,
+  "chunks": 444,
+  "bonds": 896,
+  "trigger_actions": 4,
+  "trigger_hold_ms": 150,
+  "dynamic_bodies_after": 8,
+  "broken_bonds_after": 299,
+  "fragments_after": 76,
+  "settling_samples": 30,
+  "lowest_settling_com_y": 0.47999668,
+  "reset_broken_bonds": 0,
+  "reset_fragments": 0,
+  "known_resource_errors": [
+    "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOriginAfterDefaultedToSameOriginByCoep",
+    "Failed to load resource: the server responded with a status of 404 ()",
+    "Failed to load resource: the server responded with a status of 404 ()",
+    "Failed to load resource: the server responded with a status of 404 ()",
+    "Failed to load resource: the server responded with a status of 404 ()",
+    "Failed to load resource: the server responded with a status of 404 ()"
+  ],
+  "local_transport_rewrite": "Public session URL host/port only rewritten to 127.0.0.1:4435; /game retained. Not an external-browser connectivity test."
+}

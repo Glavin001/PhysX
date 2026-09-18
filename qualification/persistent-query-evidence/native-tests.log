@@ -1,0 +1,34 @@
+Internal ctest changing into directory: /root/workspace/physx-2/out/destruction-sdk
+Test project /root/workspace/physx-2/out/destruction-sdk
+      Start 40: physx_persistent_shape_owner
+ 1/12 Test #40: physx_persistent_shape_owner .....................   Passed    0.84 sec
+      Start 41: physx_persistent_shape_owner_gpu_bounds
+ 2/12 Test #41: physx_persistent_shape_owner_gpu_bounds ..........   Passed    3.36 sec
+      Start 42: physx_persistent_shape_owner_gpu_bounds_growth
+ 3/12 Test #42: physx_persistent_shape_owner_gpu_bounds_growth ...   Passed    0.48 sec
+      Start 43: physx_persistent_shape_owner_host_pose_bounds
+ 4/12 Test #43: physx_persistent_shape_owner_host_pose_bounds ....   Passed    1.43 sec
+      Start 47: physx_native_gpu_body_allocation
+ 5/12 Test #47: physx_native_gpu_body_allocation .................   Passed    3.16 sec
+      Start 49: physx_native_gpu_collision_preparation
+ 6/12 Test #49: physx_native_gpu_collision_preparation ...........   Passed    4.47 sec
+      Start 51: physx_native_gpu_contact_lifetime_exhaustion
+ 7/12 Test #51: physx_native_gpu_contact_lifetime_exhaustion .....   Passed    0.78 sec
+      Start 52: physx_native_gpu_initialization_failure
+ 8/12 Test #52: physx_native_gpu_initialization_failure ..........   Passed    0.44 sec
+      Start 60: physx_native_gpu_correction_bodies
+ 9/12 Test #60: physx_native_gpu_correction_bodies ...............   Passed    4.33 sec
+      Start 71: physx_native_gpu_bombardment_contacts
+10/12 Test #71: physx_native_gpu_bombardment_contacts ............   Passed    8.46 sec
+      Start 72: physx_native_gpu_resimulation
+11/12 Test #72: physx_native_gpu_resimulation ....................   Passed    7.58 sec
+      Start 74: physx_native_gpu_publication
+12/12 Test #74: physx_native_gpu_publication .....................   Passed    2.09 sec
+
+100% tests passed, 0 tests failed out of 12
+
+Label Time Summary:
+gpu            =   8.46 sec*proc (1 test)
+integration    =   8.46 sec*proc (1 test)
+
+Total Test time (real) =  37.43 sec

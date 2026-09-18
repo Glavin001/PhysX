@@ -1,0 +1,87 @@
+{
+  "schema": 1,
+  "id": "light",
+  "target_wall_seconds": 30,
+  "scope": "Early rejection and prioritization only. Full 52x20 physical comparison, asynchronous memory and continuous trajectory gates remain mandatory for finalists.",
+  "diagnostic_observation_dumps": false,
+  "scenarios": [
+    {
+      "scenario": "bridge64-cold",
+      "repetitions": 8,
+      "purpose": "Spanning structure, two supports, bending and load redistribution.",
+      "expected_counters": {
+        "broken_bonds": 0,
+        "correction_passes": 0,
+        "stress_passes": 1,
+        "output_clusters": 1
+      }
+    },
+    {
+      "scenario": "chain256-cold",
+      "repetitions": 8,
+      "purpose": "Long sparse path; equilibrium propagation and solver iteration sensitivity.",
+      "expected_counters": {
+        "broken_bonds": 0,
+        "correction_passes": 0,
+        "stress_passes": 1,
+        "output_clusters": 1
+      }
+    },
+    {
+      "scenario": "dense12-cold",
+      "repetitions": 6,
+      "purpose": "Dense three-dimensional loops and redundant load paths.",
+      "expected_counters": {
+        "broken_bonds": 0,
+        "correction_passes": 0,
+        "stress_passes": 1,
+        "output_clusters": 1
+      }
+    },
+    {
+      "scenario": "destruction-stimulus",
+      "repetitions": 8,
+      "purpose": "CPU command submission inside the full tick.",
+      "expected_counters": {
+        "broken_bonds": 0,
+        "correction_passes": 0,
+        "stress_passes": 1,
+        "output_clusters": 1
+      }
+    },
+    {
+      "scenario": "city25-initial-impact",
+      "repetitions": 4,
+      "purpose": "11,100 chunks: contact, first fracture, correction and second stress solve.",
+      "expected_counters": {
+        "broken_bonds": 3412,
+        "correction_passes": 1,
+        "stress_passes": 2,
+        "output_clusters": 537
+      }
+    },
+    {
+      "scenario": "city256-intact-idle",
+      "repetitions": 3,
+      "purpose": "113,664 chunks: intact gravity equilibrium with 256 separate buildings.",
+      "expected_counters": {
+        "broken_bonds": 0,
+        "correction_passes": 0,
+        "stress_passes": 1,
+        "output_clusters": 256
+      }
+    },
+    {
+      "scenario": "city256-late-debris",
+      "repetitions": 3,
+      "purpose": "113,664 chunks: many fragmented owners, contacts and further fracture/correction.",
+      "expected_counters": {
+        "broken_bonds": 11051,
+        "correction_passes": 1,
+        "stress_passes": 2,
+        "output_clusters": 16135
+      }
+    }
+  ],
+  "counter_reference": "qualification/optimization-next20-20260910/snapshot-reset-20260911/report.json"
+}

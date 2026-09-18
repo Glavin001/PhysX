@@ -45,6 +45,7 @@ using namespace physx;
 PxgShapeSimManager::PxgShapeSimManager(PxgAllocatorDesc& allocDesc) :
 	mTotalNumShapes		(0),
 	mNbTotalShapeSim	(0),
+	mGpuBoundsRefresh(allocDesc.hostAlloc, PxsHeapStats::eSIMULATION),
 	mPxgShapeSimPool	(allocDesc.hostAlloc, PxsHeapStats::eSIMULATION),
 	mShapeSimBuffer		(allocDesc.deviceAlloc, PxsHeapStats::eSIMULATION),
 	mNewShapeSimBuffer	(allocDesc.deviceAlloc, PxsHeapStats::eSIMULATION)
@@ -65,7 +66,11 @@ void PxgShapeSimManager::addPxgShape(Sc::ShapeSimBase* shapeSimBase, const PxsSh
 
 	mShapeSimPtrs[index] = shapeSimBase;
 	
-	mNewShapeSims.pushBack(index);
+    if (!mShapeSims[index].mQueued)
+    {
+        mShapeSims[index].mQueued = true;
+        mNewShapeSims.pushBack(index);
+    }
 	mTotalNumShapes = PxMax(mTotalNumShapes, index+1);
 }
 
@@ -78,12 +83,47 @@ void PxgShapeSimManager::setPxgShapeBodyNodeIndex(PxNodeIndex nodeIndex, PxU32 i
 
 void PxgShapeSimManager::removePxgShape(PxU32 index)
 {
+	mShapeSims[index].mGpuBoundsRefresh = false;
 	mShapeSims[index].mBodySimIndex_GPU = PxNodeIndex(PX_INVALID_NODE);
 	mShapeSims[index].mElementIndex_GPU = PX_INVALID_U32;
 
 	mShapeSimPtrs[index] = NULL;
 
-	mNewShapeSims.pushBack(index);
+    if (!mShapeSims[index].mQueued)
+    {
+        mShapeSims[index].mQueued = true;
+        mNewShapeSims.pushBack(index);
+    }
+}
+
+bool PxgShapeSimManager::setGpuBoundsRefresh(PxU32 index, bool enabled)
+{
+    if(index >= mShapeSims.size() || mShapeSims[index].mElementIndex_GPU == PX_INVALID_U32)
+        return false;
+    PxgShapeSimData& shape = mShapeSims[index];
+    if(enabled && !shape.mGpuBoundsRefresh && !mGpuBoundsRefresh.pushBack(index))
+        return false;
+    shape.mGpuBoundsRefresh = enabled;
+    return true;
+}
+
+Cm::PinnableArray<PxU32>& PxgShapeSimManager::prepareGpuBoundsRefresh()
+{
+    PxU32 count = 0;
+    for(PxU32 i = 0; i < mGpuBoundsRefresh.size(); ++i)
+    {
+        const PxU32 index = mGpuBoundsRefresh[i];
+        PxgShapeSimData& shape = mShapeSims[index];
+        if(shape.mGpuBoundsRefresh)
+        {
+            mGpuBoundsRefresh[count++] = index;
+            // Clearing here also deduplicates an index removed and reused
+            // between simulation steps. Removal cancels its earlier request.
+            shape.mGpuBoundsRefresh = false;
+        }
+    }
+    mGpuBoundsRefresh.forceSize_Unsafe(count);
+    return mGpuBoundsRefresh;
 }
 
 namespace physx	// PT: only in physx namespace for the friend access to work
@@ -122,6 +162,19 @@ namespace physx	// PT: only in physx namespace for the friend access to work
 
 				const PxgShapeSimData& shapeLL = src[shapeIndex];
 
+                // Removal may follow a queued transfer and release the shape
+                // before upload. Never dereference the former geometry object.
+                if (shapeLL.mElementIndex_GPU == PX_INVALID_U32)
+                {
+                    shapeSim.mTransform = PxTransform(PxIdentity);
+                    shapeSim.mLocalBounds = PxBounds3(PxVec3(0), PxVec3(0));
+                    shapeSim.mElementIndex = shapeIndex;
+                    shapeSim.mBodySimIndex = PxNodeIndex(PX_INVALID_NODE);
+                    shapeSim.mShapeFlags = 0;
+                    shapeSim.mHullDataIndex = PX_INVALID_U32;
+                    shapeSim.mShapeType = 0;
+                    continue;
+                }
 				const PxsShapeCore* shapeCore = shapeLL.mShapeCore;
 
 				shapeSim.mTransform = shapeCore->getTransform();
@@ -195,6 +248,7 @@ void PxgShapeSimManager::gpuMemDmaUpShapeSim(PxCudaContext* cudaContext, CUstrea
 		mNewShapeSimBuffer.allocate(nbNewShapes * sizeof(PxgNewShapeSim), PX_FL);
 		cudaContext->memcpyHtoDAsync(mNewShapeSimBuffer.getDevicePtr(), newShapeSimPool.begin(), sizeof(PxgNewShapeSim)* nbNewShapes, stream);
 
+        mUploadedShapeCount += nbNewShapes;
 		const PxgNewShapeSim* newShapeSimsBufferDeviceData = mNewShapeSimBuffer.getTypedPtr();
 		PxgShapeSim* shapeSimsBufferDeviceData = mShapeSimBuffer.getTypedPtr();
 
@@ -216,6 +270,7 @@ void PxgShapeSimManager::gpuMemDmaUpShapeSim(PxCudaContext* cudaContext, CUstrea
 #endif
 	}
 
+    for (PxU32 i=0; i<mNewShapeSims.size(); ++i) mShapeSims[mNewShapeSims[i]].mQueued = false;
 	mNewShapeSims.clear();
 }
 

@@ -1,0 +1,1626 @@
+========= COMPUTE-SANITIZER
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at physx::radixSortWarp(const uint4 *, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, physx::RadixAccum &)+0x330 in RadixSort.cuh:147
+=========     by thread (0,0,0) in block (0,0,0)
+=========     Address 0x716034003800
+=========         Device Frame: void physx::radixSortSingleBlock<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *)+0xa0 in RadixSort.cuh:208
+=========         Device Frame: radixSortMultiBlockLaunchWithCount+0x60 in radixSortImpl.cu:104
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c4d0] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at void physx::radixSortCalculateRanks<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *, unsigned int *, unsigned int *)+0xa70 in RadixSort.cuh:312
+=========     by thread (0,0,0) in block (0,0,0)
+=========     Address 0x716034003800
+=========         Device Frame: radixSortMultiCalculateRanksLaunchWithCount+0x90 in radixSortImpl.cu:118
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c548] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at physx::radixSortWarp(const uint4 *, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, physx::RadixAccum &)+0x330 in RadixSort.cuh:147
+=========     by thread (0,0,0) in block (0,0,0)
+=========     Address 0x716034015f00
+=========         Device Frame: void physx::radixSortSingleBlock<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *)+0xa0 in RadixSort.cuh:208
+=========         Device Frame: radixSortMultiBlockLaunchWithCount+0x60 in radixSortImpl.cu:104
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c4d0] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at void physx::radixSortCalculateRanks<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *, unsigned int *, unsigned int *)+0xa60 in RadixSort.cuh:310
+=========     by thread (0,0,0) in block (0,0,0)
+=========     Address 0x716034015f80
+=========         Device Frame: radixSortMultiCalculateRanksLaunchWithCount+0x90 in radixSortImpl.cu:118
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c548] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at void physx::radixSortCalculateRanks<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *, unsigned int *, unsigned int *)+0xa70 in RadixSort.cuh:312
+=========     by thread (0,0,0) in block (0,0,0)
+=========     Address 0x716034015f00
+=========         Device Frame: radixSortMultiCalculateRanksLaunchWithCount+0x90 in radixSortImpl.cu:118
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c548] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at physx::radixSortWarp(const uint4 *, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, physx::RadixAccum &)+0x330 in RadixSort.cuh:147
+=========     by thread (0,0,0) in block (0,0,0)
+=========     Address 0x716034003800
+=========         Device Frame: void physx::radixSortSingleBlock<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *)+0xa0 in RadixSort.cuh:208
+=========         Device Frame: radixSortMultiBlockLaunchWithCount+0x60 in radixSortImpl.cu:104
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c4d0] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at void physx::radixSortCalculateRanks<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *, unsigned int *, unsigned int *)+0xa70 in RadixSort.cuh:312
+=========     by thread (0,0,0) in block (0,0,0)
+=========     Address 0x716034003800
+=========         Device Frame: radixSortMultiCalculateRanksLaunchWithCount+0x90 in radixSortImpl.cu:118
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c548] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at physx::radixSortWarp(const uint4 *, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, physx::RadixAccum &)+0x330 in RadixSort.cuh:147
+=========     by thread (0,0,0) in block (0,0,0)
+=========     Address 0x716034015f00
+=========         Device Frame: void physx::radixSortSingleBlock<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *)+0xa0 in RadixSort.cuh:208
+=========         Device Frame: radixSortMultiBlockLaunchWithCount+0x60 in radixSortImpl.cu:104
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c4d0] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at void physx::radixSortCalculateRanks<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *, unsigned int *, unsigned int *)+0xa60 in RadixSort.cuh:310
+=========     by thread (0,0,0) in block (0,0,0)
+=========     Address 0x716034015f80
+=========         Device Frame: radixSortMultiCalculateRanksLaunchWithCount+0x90 in radixSortImpl.cu:118
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c548] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at void physx::radixSortCalculateRanks<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *, unsigned int *, unsigned int *)+0xa70 in RadixSort.cuh:312
+=========     by thread (0,0,0) in block (0,0,0)
+=========     Address 0x716034015f00
+=========         Device Frame: radixSortMultiCalculateRanksLaunchWithCount+0x90 in radixSortImpl.cu:118
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c548] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at physx::radixSortWarp(const uint4 *, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, physx::RadixAccum &)+0x330 in RadixSort.cuh:147
+=========     by thread (0,0,0) in block (0,0,0)
+=========     Address 0x716034003800
+=========         Device Frame: void physx::radixSortSingleBlock<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *)+0xa0 in RadixSort.cuh:208
+=========         Device Frame: radixSortMultiBlockLaunchWithCount+0x60 in radixSortImpl.cu:104
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c4d0] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at void physx::radixSortCalculateRanks<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *, unsigned int *, unsigned int *)+0xa70 in RadixSort.cuh:312
+=========     by thread (0,0,0) in block (0,0,0)
+=========     Address 0x716034003800
+=========         Device Frame: radixSortMultiCalculateRanksLaunchWithCount+0x90 in radixSortImpl.cu:118
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c548] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at physx::radixSortWarp(const uint4 *, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, physx::RadixAccum &)+0x330 in RadixSort.cuh:147
+=========     by thread (0,0,0) in block (0,0,0)
+=========     Address 0x716034015f00
+=========         Device Frame: void physx::radixSortSingleBlock<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *)+0xa0 in RadixSort.cuh:208
+=========         Device Frame: radixSortMultiBlockLaunchWithCount+0x60 in radixSortImpl.cu:104
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c4d0] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at void physx::radixSortCalculateRanks<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *, unsigned int *, unsigned int *)+0xa60 in RadixSort.cuh:310
+=========     by thread (0,0,0) in block (0,0,0)
+=========     Address 0x716034015f80
+=========         Device Frame: radixSortMultiCalculateRanksLaunchWithCount+0x90 in radixSortImpl.cu:118
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c548] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at void physx::radixSortCalculateRanks<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *, unsigned int *, unsigned int *)+0xa70 in RadixSort.cuh:312
+=========     by thread (0,0,0) in block (0,0,0)
+=========     Address 0x716034015f00
+=========         Device Frame: radixSortMultiCalculateRanksLaunchWithCount+0x90 in radixSortImpl.cu:118
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c548] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at physx::radixSortWarp(const uint4 *, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, physx::RadixAccum &)+0x330 in RadixSort.cuh:147
+=========     by thread (0,0,0) in block (0,0,0)
+=========     Address 0x716034003800
+=========         Device Frame: void physx::radixSortSingleBlock<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *)+0xa0 in RadixSort.cuh:208
+=========         Device Frame: radixSortMultiBlockLaunchWithCount+0x60 in radixSortImpl.cu:104
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c4d0] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at void physx::radixSortCalculateRanks<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *, unsigned int *, unsigned int *)+0xa70 in RadixSort.cuh:312
+=========     by thread (0,0,0) in block (0,0,0)
+=========     Address 0x716034003800
+=========         Device Frame: radixSortMultiCalculateRanksLaunchWithCount+0x90 in radixSortImpl.cu:118
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c548] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at physx::radixSortWarp(const uint4 *, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, physx::RadixAccum &)+0x330 in RadixSort.cuh:147
+=========     by thread (0,0,0) in block (0,0,0)
+=========     Address 0x716034015f00
+=========         Device Frame: void physx::radixSortSingleBlock<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *)+0xa0 in RadixSort.cuh:208
+=========         Device Frame: radixSortMultiBlockLaunchWithCount+0x60 in radixSortImpl.cu:104
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c4d0] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at void physx::radixSortCalculateRanks<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *, unsigned int *, unsigned int *)+0xa60 in RadixSort.cuh:310
+=========     by thread (0,0,0) in block (0,0,0)
+=========     Address 0x716034015f80
+=========         Device Frame: radixSortMultiCalculateRanksLaunchWithCount+0x90 in radixSortImpl.cu:118
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c548] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at void physx::radixSortCalculateRanks<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *, unsigned int *, unsigned int *)+0xa70 in RadixSort.cuh:312
+=========     by thread (0,0,0) in block (0,0,0)
+=========     Address 0x716034015f00
+=========         Device Frame: radixSortMultiCalculateRanksLaunchWithCount+0x90 in radixSortImpl.cu:118
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c548] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at physx::radixSortWarp(const uint4 *, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, physx::RadixAccum &)+0x330 in RadixSort.cuh:147
+=========     by thread (0,0,0) in block (0,0,0)
+=========     Address 0x716034003800
+=========         Device Frame: void physx::radixSortSingleBlock<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *)+0xa0 in RadixSort.cuh:208
+=========         Device Frame: radixSortMultiBlockLaunchWithCount+0x60 in radixSortImpl.cu:104
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c740] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at void physx::radixSortCalculateRanks<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *, unsigned int *, unsigned int *)+0xa70 in RadixSort.cuh:312
+=========     by thread (0,0,0) in block (0,0,0)
+=========     Address 0x716034003800
+=========         Device Frame: radixSortMultiCalculateRanksLaunchWithCount+0x90 in radixSortImpl.cu:118
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c7b8] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at physx::radixSortWarp(const uint4 *, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, physx::RadixAccum &)+0x330 in RadixSort.cuh:147
+=========     by thread (0,0,0) in block (0,0,0)
+=========     Address 0x716034015f00
+=========         Device Frame: void physx::radixSortSingleBlock<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *)+0xa0 in RadixSort.cuh:208
+=========         Device Frame: radixSortMultiBlockLaunchWithCount+0x60 in radixSortImpl.cu:104
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c740] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at void physx::radixSortCalculateRanks<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *, unsigned int *, unsigned int *)+0xa60 in RadixSort.cuh:310
+=========     by thread (0,0,0) in block (0,0,0)
+=========     Address 0x716034015f80
+=========         Device Frame: radixSortMultiCalculateRanksLaunchWithCount+0x90 in radixSortImpl.cu:118
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c7b8] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at void physx::radixSortCalculateRanks<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *, unsigned int *, unsigned int *)+0xa70 in RadixSort.cuh:312
+=========     by thread (0,0,0) in block (0,0,0)
+=========     Address 0x716034015f00
+=========         Device Frame: radixSortMultiCalculateRanksLaunchWithCount+0x90 in radixSortImpl.cu:118
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c7b8] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at physx::radixSortWarp(const uint4 *, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, physx::RadixAccum &)+0x330 in RadixSort.cuh:147
+=========     by thread (0,0,0) in block (0,0,0)
+=========     Address 0x716034003800
+=========         Device Frame: void physx::radixSortSingleBlock<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *)+0xa0 in RadixSort.cuh:208
+=========         Device Frame: radixSortMultiBlockLaunchWithCount+0x60 in radixSortImpl.cu:104
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c740] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at void physx::radixSortCalculateRanks<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *, unsigned int *, unsigned int *)+0xa70 in RadixSort.cuh:312
+=========     by thread (0,0,0) in block (0,0,0)
+=========     Address 0x716034003800
+=========         Device Frame: radixSortMultiCalculateRanksLaunchWithCount+0x90 in radixSortImpl.cu:118
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c7b8] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at physx::radixSortWarp(const uint4 *, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, physx::RadixAccum &)+0x330 in RadixSort.cuh:147
+=========     by thread (0,0,0) in block (0,0,0)
+=========     Address 0x716034015f00
+=========         Device Frame: void physx::radixSortSingleBlock<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *)+0xa0 in RadixSort.cuh:208
+=========         Device Frame: radixSortMultiBlockLaunchWithCount+0x60 in radixSortImpl.cu:104
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c740] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at void physx::radixSortCalculateRanks<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *, unsigned int *, unsigned int *)+0xa60 in RadixSort.cuh:310
+=========     by thread (0,0,0) in block (0,0,0)
+=========     Address 0x716034015f80
+=========         Device Frame: radixSortMultiCalculateRanksLaunchWithCount+0x90 in radixSortImpl.cu:118
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c7b8] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at void physx::radixSortCalculateRanks<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *, unsigned int *, unsigned int *)+0xa70 in RadixSort.cuh:312
+=========     by thread (0,0,0) in block (0,0,0)
+=========     Address 0x716034015f00
+=========         Device Frame: radixSortMultiCalculateRanksLaunchWithCount+0x90 in radixSortImpl.cu:118
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c7b8] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at physx::radixSortWarp(const uint4 *, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, physx::RadixAccum &)+0x330 in RadixSort.cuh:147
+=========     by thread (0,0,0) in block (0,0,0)
+=========     Address 0x716034003800
+=========         Device Frame: void physx::radixSortSingleBlock<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *)+0xa0 in RadixSort.cuh:208
+=========         Device Frame: radixSortMultiBlockLaunchWithCount+0x60 in radixSortImpl.cu:104
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c740] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at void physx::radixSortCalculateRanks<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *, unsigned int *, unsigned int *)+0xa70 in RadixSort.cuh:312
+=========     by thread (0,0,0) in block (0,0,0)
+=========     Address 0x716034003800
+=========         Device Frame: radixSortMultiCalculateRanksLaunchWithCount+0x90 in radixSortImpl.cu:118
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c7b8] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at physx::radixSortWarp(const uint4 *, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, physx::RadixAccum &)+0x330 in RadixSort.cuh:147
+=========     by thread (0,0,0) in block (0,0,0)
+=========     Address 0x716034015f00
+=========         Device Frame: void physx::radixSortSingleBlock<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *)+0xa0 in RadixSort.cuh:208
+=========         Device Frame: radixSortMultiBlockLaunchWithCount+0x60 in radixSortImpl.cu:104
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c740] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at void physx::radixSortCalculateRanks<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *, unsigned int *, unsigned int *)+0xa60 in RadixSort.cuh:310
+=========     by thread (0,0,0) in block (0,0,0)
+=========     Address 0x716034015f80
+=========         Device Frame: radixSortMultiCalculateRanksLaunchWithCount+0x90 in radixSortImpl.cu:118
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c7b8] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at void physx::radixSortCalculateRanks<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *, unsigned int *, unsigned int *)+0xa70 in RadixSort.cuh:312
+=========     by thread (0,0,0) in block (0,0,0)
+=========     Address 0x716034015f00
+=========         Device Frame: radixSortMultiCalculateRanksLaunchWithCount+0x90 in radixSortImpl.cu:118
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c7b8] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at physx::radixSortWarp(const uint4 *, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, physx::RadixAccum &)+0x330 in RadixSort.cuh:147
+=========     by thread (0,0,0) in block (0,0,0)
+=========     Address 0x716034003800
+=========         Device Frame: void physx::radixSortSingleBlock<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *)+0xa0 in RadixSort.cuh:208
+=========         Device Frame: radixSortMultiBlockLaunchWithCount+0x60 in radixSortImpl.cu:104
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c740] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at void physx::radixSortCalculateRanks<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *, unsigned int *, unsigned int *)+0xa70 in RadixSort.cuh:312
+=========     by thread (0,0,0) in block (0,0,0)
+=========     Address 0x716034003800
+=========         Device Frame: radixSortMultiCalculateRanksLaunchWithCount+0x90 in radixSortImpl.cu:118
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c7b8] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at physx::radixSortWarp(const uint4 *, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, physx::RadixAccum &)+0x330 in RadixSort.cuh:147
+=========     by thread (0,0,0) in block (0,0,0)
+=========     Address 0x716034015f00
+=========         Device Frame: void physx::radixSortSingleBlock<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *)+0xa0 in RadixSort.cuh:208
+=========         Device Frame: radixSortMultiBlockLaunchWithCount+0x60 in radixSortImpl.cu:104
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c740] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at void physx::radixSortCalculateRanks<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *, unsigned int *, unsigned int *)+0xa60 in RadixSort.cuh:310
+=========     by thread (0,0,0) in block (0,0,0)
+=========     Address 0x716034015f80
+=========         Device Frame: radixSortMultiCalculateRanksLaunchWithCount+0x90 in radixSortImpl.cu:118
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c7b8] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at void physx::radixSortCalculateRanks<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *, unsigned int *, unsigned int *)+0xa70 in RadixSort.cuh:312
+=========     by thread (0,0,0) in block (0,0,0)
+=========     Address 0x716034015f00
+=========         Device Frame: radixSortMultiCalculateRanksLaunchWithCount+0x90 in radixSortImpl.cu:118
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c7b8] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Host API memory access error at host access to 0x716034002c00 of size 1024 bytes
+=========     Uninitialized access at 0x716034002c20 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoDAsync_v2 [0x367f59] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::memcpyDtoDAsync(unsigned long long, unsigned long long, unsigned long, CUstream_st*) [0x42dad] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgCudaBuffer::allocateCopyOldDataAsync(unsigned long, physx::PxCudaContext*, CUstream_st*, char const*, int) [0x3da6a] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgShapeManager::scheduleCopyHtoD(physx::PxgCopyManager&, physx::PxCudaContext*, CUstream_st*) [0x86856] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::prepareGpuNarrowphase(physx::PxsTransformCache&, float const*, bool) [0x7c997] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc26e8] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Host API memory access error at host access to 0x716034002c00 of size 1024 bytes
+=========     Uninitialized access at 0x716034002c40 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoDAsync_v2 [0x367f59] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::memcpyDtoDAsync(unsigned long long, unsigned long long, unsigned long, CUstream_st*) [0x42dad] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgCudaBuffer::allocateCopyOldDataAsync(unsigned long, physx::PxCudaContext*, CUstream_st*, char const*, int) [0x3da6a] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgShapeManager::scheduleCopyHtoD(physx::PxgCopyManager&, physx::PxCudaContext*, CUstream_st*) [0x86856] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::prepareGpuNarrowphase(physx::PxsTransformCache&, float const*, bool) [0x7c997] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc26e8] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Host API memory access error at host access to 0x716034002c00 of size 1024 bytes
+=========     Uninitialized access at 0x716034002c60 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoDAsync_v2 [0x367f59] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::memcpyDtoDAsync(unsigned long long, unsigned long long, unsigned long, CUstream_st*) [0x42dad] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgCudaBuffer::allocateCopyOldDataAsync(unsigned long, physx::PxCudaContext*, CUstream_st*, char const*, int) [0x3da6a] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgShapeManager::scheduleCopyHtoD(physx::PxgCopyManager&, physx::PxCudaContext*, CUstream_st*) [0x86856] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::prepareGpuNarrowphase(physx::PxsTransformCache&, float const*, bool) [0x7c997] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc26e8] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Host API memory access error at host access to 0x716034002c00 of size 1024 bytes
+=========     Uninitialized access at 0x716034002c80 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoDAsync_v2 [0x367f59] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::memcpyDtoDAsync(unsigned long long, unsigned long long, unsigned long, CUstream_st*) [0x42dad] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgCudaBuffer::allocateCopyOldDataAsync(unsigned long, physx::PxCudaContext*, CUstream_st*, char const*, int) [0x3da6a] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgShapeManager::scheduleCopyHtoD(physx::PxgCopyManager&, physx::PxCudaContext*, CUstream_st*) [0x86856] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::prepareGpuNarrowphase(physx::PxsTransformCache&, float const*, bool) [0x7c997] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc26e8] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Host API memory access error at host access to 0x716034002c00 of size 1024 bytes
+=========     Uninitialized access at 0x716034002ca0 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoDAsync_v2 [0x367f59] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::memcpyDtoDAsync(unsigned long long, unsigned long long, unsigned long, CUstream_st*) [0x42dad] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgCudaBuffer::allocateCopyOldDataAsync(unsigned long, physx::PxCudaContext*, CUstream_st*, char const*, int) [0x3da6a] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgShapeManager::scheduleCopyHtoD(physx::PxgCopyManager&, physx::PxCudaContext*, CUstream_st*) [0x86856] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::prepareGpuNarrowphase(physx::PxsTransformCache&, float const*, bool) [0x7c997] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc26e8] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Host API memory access error at host access to 0x716034002c00 of size 1024 bytes
+=========     Uninitialized access at 0x716034002cc0 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoDAsync_v2 [0x367f59] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::memcpyDtoDAsync(unsigned long long, unsigned long long, unsigned long, CUstream_st*) [0x42dad] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgCudaBuffer::allocateCopyOldDataAsync(unsigned long, physx::PxCudaContext*, CUstream_st*, char const*, int) [0x3da6a] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgShapeManager::scheduleCopyHtoD(physx::PxgCopyManager&, physx::PxCudaContext*, CUstream_st*) [0x86856] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::prepareGpuNarrowphase(physx::PxsTransformCache&, float const*, bool) [0x7c997] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc26e8] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Host API memory access error at host access to 0x716034002c00 of size 1024 bytes
+=========     Uninitialized access at 0x716034002ce0 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoDAsync_v2 [0x367f59] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::memcpyDtoDAsync(unsigned long long, unsigned long long, unsigned long, CUstream_st*) [0x42dad] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgCudaBuffer::allocateCopyOldDataAsync(unsigned long, physx::PxCudaContext*, CUstream_st*, char const*, int) [0x3da6a] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgShapeManager::scheduleCopyHtoD(physx::PxgCopyManager&, physx::PxCudaContext*, CUstream_st*) [0x86856] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::prepareGpuNarrowphase(physx::PxsTransformCache&, float const*, bool) [0x7c997] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc26e8] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Host API memory access error at host access to 0x716034002c00 of size 1024 bytes
+=========     Uninitialized access at 0x716034002d00 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoDAsync_v2 [0x367f59] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::memcpyDtoDAsync(unsigned long long, unsigned long long, unsigned long, CUstream_st*) [0x42dad] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgCudaBuffer::allocateCopyOldDataAsync(unsigned long, physx::PxCudaContext*, CUstream_st*, char const*, int) [0x3da6a] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgShapeManager::scheduleCopyHtoD(physx::PxgCopyManager&, physx::PxCudaContext*, CUstream_st*) [0x86856] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::prepareGpuNarrowphase(physx::PxsTransformCache&, float const*, bool) [0x7c997] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc26e8] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Host API memory access error at host access to 0x716034002c00 of size 1024 bytes
+=========     Uninitialized access at 0x716034002d20 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoDAsync_v2 [0x367f59] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::memcpyDtoDAsync(unsigned long long, unsigned long long, unsigned long, CUstream_st*) [0x42dad] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgCudaBuffer::allocateCopyOldDataAsync(unsigned long, physx::PxCudaContext*, CUstream_st*, char const*, int) [0x3da6a] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgShapeManager::scheduleCopyHtoD(physx::PxgCopyManager&, physx::PxCudaContext*, CUstream_st*) [0x86856] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::prepareGpuNarrowphase(physx::PxsTransformCache&, float const*, bool) [0x7c997] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc26e8] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Host API memory access error at host access to 0x716034002c00 of size 1024 bytes
+=========     Uninitialized access at 0x716034002d40 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoDAsync_v2 [0x367f59] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::memcpyDtoDAsync(unsigned long long, unsigned long long, unsigned long, CUstream_st*) [0x42dad] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgCudaBuffer::allocateCopyOldDataAsync(unsigned long, physx::PxCudaContext*, CUstream_st*, char const*, int) [0x3da6a] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgShapeManager::scheduleCopyHtoD(physx::PxgCopyManager&, physx::PxCudaContext*, CUstream_st*) [0x86856] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::prepareGpuNarrowphase(physx::PxsTransformCache&, float const*, bool) [0x7c997] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc26e8] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Host API memory access error at host access to 0x716034002c00 of size 1024 bytes
+=========     Uninitialized access at 0x716034002d60 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoDAsync_v2 [0x367f59] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::memcpyDtoDAsync(unsigned long long, unsigned long long, unsigned long, CUstream_st*) [0x42dad] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgCudaBuffer::allocateCopyOldDataAsync(unsigned long, physx::PxCudaContext*, CUstream_st*, char const*, int) [0x3da6a] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgShapeManager::scheduleCopyHtoD(physx::PxgCopyManager&, physx::PxCudaContext*, CUstream_st*) [0x86856] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::prepareGpuNarrowphase(physx::PxsTransformCache&, float const*, bool) [0x7c997] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc26e8] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Host API memory access error at host access to 0x716034002c00 of size 1024 bytes
+=========     Uninitialized access at 0x716034002d80 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoDAsync_v2 [0x367f59] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::memcpyDtoDAsync(unsigned long long, unsigned long long, unsigned long, CUstream_st*) [0x42dad] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgCudaBuffer::allocateCopyOldDataAsync(unsigned long, physx::PxCudaContext*, CUstream_st*, char const*, int) [0x3da6a] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgShapeManager::scheduleCopyHtoD(physx::PxgCopyManager&, physx::PxCudaContext*, CUstream_st*) [0x86856] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::prepareGpuNarrowphase(physx::PxsTransformCache&, float const*, bool) [0x7c997] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc26e8] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Host API memory access error at host access to 0x716034002c00 of size 1024 bytes
+=========     Uninitialized access at 0x716034002da0 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoDAsync_v2 [0x367f59] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::memcpyDtoDAsync(unsigned long long, unsigned long long, unsigned long, CUstream_st*) [0x42dad] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgCudaBuffer::allocateCopyOldDataAsync(unsigned long, physx::PxCudaContext*, CUstream_st*, char const*, int) [0x3da6a] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgShapeManager::scheduleCopyHtoD(physx::PxgCopyManager&, physx::PxCudaContext*, CUstream_st*) [0x86856] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::prepareGpuNarrowphase(physx::PxsTransformCache&, float const*, bool) [0x7c997] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc26e8] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Host API memory access error at host access to 0x716034002c00 of size 1024 bytes
+=========     Uninitialized access at 0x716034002dc0 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoDAsync_v2 [0x367f59] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::memcpyDtoDAsync(unsigned long long, unsigned long long, unsigned long, CUstream_st*) [0x42dad] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgCudaBuffer::allocateCopyOldDataAsync(unsigned long, physx::PxCudaContext*, CUstream_st*, char const*, int) [0x3da6a] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgShapeManager::scheduleCopyHtoD(physx::PxgCopyManager&, physx::PxCudaContext*, CUstream_st*) [0x86856] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::prepareGpuNarrowphase(physx::PxsTransformCache&, float const*, bool) [0x7c997] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc26e8] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Host API memory access error at host access to 0x716034002c00 of size 1024 bytes
+=========     Uninitialized access at 0x716034002de0 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoDAsync_v2 [0x367f59] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::memcpyDtoDAsync(unsigned long long, unsigned long long, unsigned long, CUstream_st*) [0x42dad] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgCudaBuffer::allocateCopyOldDataAsync(unsigned long, physx::PxCudaContext*, CUstream_st*, char const*, int) [0x3da6a] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgShapeManager::scheduleCopyHtoD(physx::PxgCopyManager&, physx::PxCudaContext*, CUstream_st*) [0x86856] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::prepareGpuNarrowphase(physx::PxsTransformCache&, float const*, bool) [0x7c997] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc26e8] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Host API memory access error at host access to 0x716034002c00 of size 1024 bytes
+=========     Uninitialized access at 0x716034002e00 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoDAsync_v2 [0x367f59] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::memcpyDtoDAsync(unsigned long long, unsigned long long, unsigned long, CUstream_st*) [0x42dad] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgCudaBuffer::allocateCopyOldDataAsync(unsigned long, physx::PxCudaContext*, CUstream_st*, char const*, int) [0x3da6a] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgShapeManager::scheduleCopyHtoD(physx::PxgCopyManager&, physx::PxCudaContext*, CUstream_st*) [0x86856] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::prepareGpuNarrowphase(physx::PxsTransformCache&, float const*, bool) [0x7c997] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc26e8] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Host API memory access error at host access to 0x716034002c00 of size 1024 bytes
+=========     Uninitialized access at 0x716034002e20 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoDAsync_v2 [0x367f59] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::memcpyDtoDAsync(unsigned long long, unsigned long long, unsigned long, CUstream_st*) [0x42dad] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgCudaBuffer::allocateCopyOldDataAsync(unsigned long, physx::PxCudaContext*, CUstream_st*, char const*, int) [0x3da6a] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgShapeManager::scheduleCopyHtoD(physx::PxgCopyManager&, physx::PxCudaContext*, CUstream_st*) [0x86856] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::prepareGpuNarrowphase(physx::PxsTransformCache&, float const*, bool) [0x7c997] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc26e8] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Host API memory access error at host access to 0x716034002c00 of size 1024 bytes
+=========     Uninitialized access at 0x716034002e40 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoDAsync_v2 [0x367f59] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::memcpyDtoDAsync(unsigned long long, unsigned long long, unsigned long, CUstream_st*) [0x42dad] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgCudaBuffer::allocateCopyOldDataAsync(unsigned long, physx::PxCudaContext*, CUstream_st*, char const*, int) [0x3da6a] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgShapeManager::scheduleCopyHtoD(physx::PxgCopyManager&, physx::PxCudaContext*, CUstream_st*) [0x86856] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::prepareGpuNarrowphase(physx::PxsTransformCache&, float const*, bool) [0x7c997] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc26e8] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Host API memory access error at host access to 0x716034002c00 of size 1024 bytes
+=========     Uninitialized access at 0x716034002e60 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoDAsync_v2 [0x367f59] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::memcpyDtoDAsync(unsigned long long, unsigned long long, unsigned long, CUstream_st*) [0x42dad] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgCudaBuffer::allocateCopyOldDataAsync(unsigned long, physx::PxCudaContext*, CUstream_st*, char const*, int) [0x3da6a] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgShapeManager::scheduleCopyHtoD(physx::PxgCopyManager&, physx::PxCudaContext*, CUstream_st*) [0x86856] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::prepareGpuNarrowphase(physx::PxsTransformCache&, float const*, bool) [0x7c997] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc26e8] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Host API memory access error at host access to 0x716034002c00 of size 1024 bytes
+=========     Uninitialized access at 0x716034002e80 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoDAsync_v2 [0x367f59] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::memcpyDtoDAsync(unsigned long long, unsigned long long, unsigned long, CUstream_st*) [0x42dad] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgCudaBuffer::allocateCopyOldDataAsync(unsigned long, physx::PxCudaContext*, CUstream_st*, char const*, int) [0x3da6a] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgShapeManager::scheduleCopyHtoD(physx::PxgCopyManager&, physx::PxCudaContext*, CUstream_st*) [0x86856] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::prepareGpuNarrowphase(physx::PxsTransformCache&, float const*, bool) [0x7c997] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc26e8] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Host API memory access error at host access to 0x716034002c00 of size 1024 bytes
+=========     Uninitialized access at 0x716034002ea0 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoDAsync_v2 [0x367f59] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::memcpyDtoDAsync(unsigned long long, unsigned long long, unsigned long, CUstream_st*) [0x42dad] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgCudaBuffer::allocateCopyOldDataAsync(unsigned long, physx::PxCudaContext*, CUstream_st*, char const*, int) [0x3da6a] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgShapeManager::scheduleCopyHtoD(physx::PxgCopyManager&, physx::PxCudaContext*, CUstream_st*) [0x86856] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::prepareGpuNarrowphase(physx::PxsTransformCache&, float const*, bool) [0x7c997] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc26e8] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Host API memory access error at host access to 0x716034002c00 of size 1024 bytes
+=========     Uninitialized access at 0x716034002ec0 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoDAsync_v2 [0x367f59] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::memcpyDtoDAsync(unsigned long long, unsigned long long, unsigned long, CUstream_st*) [0x42dad] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgCudaBuffer::allocateCopyOldDataAsync(unsigned long, physx::PxCudaContext*, CUstream_st*, char const*, int) [0x3da6a] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgShapeManager::scheduleCopyHtoD(physx::PxgCopyManager&, physx::PxCudaContext*, CUstream_st*) [0x86856] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::prepareGpuNarrowphase(physx::PxsTransformCache&, float const*, bool) [0x7c997] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc26e8] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Host API memory access error at host access to 0x716034002c00 of size 1024 bytes
+=========     Uninitialized access at 0x716034002ee0 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoDAsync_v2 [0x367f59] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::memcpyDtoDAsync(unsigned long long, unsigned long long, unsigned long, CUstream_st*) [0x42dad] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgCudaBuffer::allocateCopyOldDataAsync(unsigned long, physx::PxCudaContext*, CUstream_st*, char const*, int) [0x3da6a] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgShapeManager::scheduleCopyHtoD(physx::PxgCopyManager&, physx::PxCudaContext*, CUstream_st*) [0x86856] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::prepareGpuNarrowphase(physx::PxsTransformCache&, float const*, bool) [0x7c997] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc26e8] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Host API memory access error at host access to 0x716034002c00 of size 1024 bytes
+=========     Uninitialized access at 0x716034002f00 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoDAsync_v2 [0x367f59] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::memcpyDtoDAsync(unsigned long long, unsigned long long, unsigned long, CUstream_st*) [0x42dad] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgCudaBuffer::allocateCopyOldDataAsync(unsigned long, physx::PxCudaContext*, CUstream_st*, char const*, int) [0x3da6a] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgShapeManager::scheduleCopyHtoD(physx::PxgCopyManager&, physx::PxCudaContext*, CUstream_st*) [0x86856] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::prepareGpuNarrowphase(physx::PxsTransformCache&, float const*, bool) [0x7c997] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc26e8] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Host API memory access error at host access to 0x716034002c00 of size 1024 bytes
+=========     Uninitialized access at 0x716034002f20 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoDAsync_v2 [0x367f59] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::memcpyDtoDAsync(unsigned long long, unsigned long long, unsigned long, CUstream_st*) [0x42dad] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgCudaBuffer::allocateCopyOldDataAsync(unsigned long, physx::PxCudaContext*, CUstream_st*, char const*, int) [0x3da6a] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgShapeManager::scheduleCopyHtoD(physx::PxgCopyManager&, physx::PxCudaContext*, CUstream_st*) [0x86856] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::prepareGpuNarrowphase(physx::PxsTransformCache&, float const*, bool) [0x7c997] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc26e8] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Host API memory access error at host access to 0x716034002c00 of size 1024 bytes
+=========     Uninitialized access at 0x716034002f40 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoDAsync_v2 [0x367f59] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::memcpyDtoDAsync(unsigned long long, unsigned long long, unsigned long, CUstream_st*) [0x42dad] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgCudaBuffer::allocateCopyOldDataAsync(unsigned long, physx::PxCudaContext*, CUstream_st*, char const*, int) [0x3da6a] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgShapeManager::scheduleCopyHtoD(physx::PxgCopyManager&, physx::PxCudaContext*, CUstream_st*) [0x86856] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::prepareGpuNarrowphase(physx::PxsTransformCache&, float const*, bool) [0x7c997] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc26e8] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Host API memory access error at host access to 0x716034002c00 of size 1024 bytes
+=========     Uninitialized access at 0x716034002f60 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoDAsync_v2 [0x367f59] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::memcpyDtoDAsync(unsigned long long, unsigned long long, unsigned long, CUstream_st*) [0x42dad] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgCudaBuffer::allocateCopyOldDataAsync(unsigned long, physx::PxCudaContext*, CUstream_st*, char const*, int) [0x3da6a] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgShapeManager::scheduleCopyHtoD(physx::PxgCopyManager&, physx::PxCudaContext*, CUstream_st*) [0x86856] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::prepareGpuNarrowphase(physx::PxsTransformCache&, float const*, bool) [0x7c997] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc26e8] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Host API memory access error at host access to 0x716034002c00 of size 1024 bytes
+=========     Uninitialized access at 0x716034002f80 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoDAsync_v2 [0x367f59] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::memcpyDtoDAsync(unsigned long long, unsigned long long, unsigned long, CUstream_st*) [0x42dad] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgCudaBuffer::allocateCopyOldDataAsync(unsigned long, physx::PxCudaContext*, CUstream_st*, char const*, int) [0x3da6a] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgShapeManager::scheduleCopyHtoD(physx::PxgCopyManager&, physx::PxCudaContext*, CUstream_st*) [0x86856] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::prepareGpuNarrowphase(physx::PxsTransformCache&, float const*, bool) [0x7c997] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc26e8] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Host API memory access error at host access to 0x716034002c00 of size 1024 bytes
+=========     Uninitialized access at 0x716034002fa0 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoDAsync_v2 [0x367f59] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::memcpyDtoDAsync(unsigned long long, unsigned long long, unsigned long, CUstream_st*) [0x42dad] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgCudaBuffer::allocateCopyOldDataAsync(unsigned long, physx::PxCudaContext*, CUstream_st*, char const*, int) [0x3da6a] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgShapeManager::scheduleCopyHtoD(physx::PxgCopyManager&, physx::PxCudaContext*, CUstream_st*) [0x86856] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::prepareGpuNarrowphase(physx::PxsTransformCache&, float const*, bool) [0x7c997] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc26e8] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Host API memory access error at host access to 0x716034002c00 of size 1024 bytes
+=========     Uninitialized access at 0x716034002fc0 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoDAsync_v2 [0x367f59] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::memcpyDtoDAsync(unsigned long long, unsigned long long, unsigned long, CUstream_st*) [0x42dad] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgCudaBuffer::allocateCopyOldDataAsync(unsigned long, physx::PxCudaContext*, CUstream_st*, char const*, int) [0x3da6a] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgShapeManager::scheduleCopyHtoD(physx::PxgCopyManager&, physx::PxCudaContext*, CUstream_st*) [0x86856] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::prepareGpuNarrowphase(physx::PxsTransformCache&, float const*, bool) [0x7c997] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc26e8] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Host API memory access error at host access to 0x716034002c00 of size 1024 bytes
+=========     Uninitialized access at 0x716034002fe0 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoDAsync_v2 [0x367f59] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::memcpyDtoDAsync(unsigned long long, unsigned long long, unsigned long, CUstream_st*) [0x42dad] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgCudaBuffer::allocateCopyOldDataAsync(unsigned long, physx::PxCudaContext*, CUstream_st*, char const*, int) [0x3da6a] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgShapeManager::scheduleCopyHtoD(physx::PxgCopyManager&, physx::PxCudaContext*, CUstream_st*) [0x86856] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::prepareGpuNarrowphase(physx::PxsTransformCache&, float const*, bool) [0x7c997] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc26e8] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at physx::radixSortWarp(const uint4 *, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, physx::RadixAccum &)+0x330 in RadixSort.cuh:147
+=========     by thread (129,0,0) in block (0,0,0)
+=========     Address 0x71603406a810
+=========         Device Frame: void physx::radixSortSingleBlock<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *)+0xa0 in RadixSort.cuh:208
+=========         Device Frame: radixSortMultiBlockLaunchWithCount+0x60 in radixSortImpl.cu:104
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c4d0] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at void physx::radixSortCalculateRanks<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *, unsigned int *, unsigned int *)+0xa70 in RadixSort.cuh:312
+=========     by thread (129,0,0) in block (0,0,0)
+=========     Address 0x71603406a810
+=========         Device Frame: radixSortMultiCalculateRanksLaunchWithCount+0x90 in radixSortImpl.cu:118
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c548] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at physx::radixSortWarp(const uint4 *, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, physx::RadixAccum &)+0x330 in RadixSort.cuh:147
+=========     by thread (129,0,0) in block (0,0,0)
+=========     Address 0x71603406e810
+=========         Device Frame: void physx::radixSortSingleBlock<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *)+0xa0 in RadixSort.cuh:208
+=========         Device Frame: radixSortMultiBlockLaunchWithCount+0x60 in radixSortImpl.cu:104
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c4d0] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at void physx::radixSortCalculateRanks<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *, unsigned int *, unsigned int *)+0xa60 in RadixSort.cuh:310
+=========     by thread (129,0,0) in block (0,0,0)
+=========     Address 0x71603406b810
+=========         Device Frame: radixSortMultiCalculateRanksLaunchWithCount+0x90 in radixSortImpl.cu:118
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c548] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at void physx::radixSortCalculateRanks<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *, unsigned int *, unsigned int *)+0xa70 in RadixSort.cuh:312
+=========     by thread (129,0,0) in block (0,0,0)
+=========     Address 0x71603406e810
+=========         Device Frame: radixSortMultiCalculateRanksLaunchWithCount+0x90 in radixSortImpl.cu:118
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c548] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at physx::radixSortWarp(const uint4 *, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, physx::RadixAccum &)+0x330 in RadixSort.cuh:147
+=========     by thread (129,0,0) in block (0,0,0)
+=========     Address 0x71603406a810
+=========         Device Frame: void physx::radixSortSingleBlock<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *)+0xa0 in RadixSort.cuh:208
+=========         Device Frame: radixSortMultiBlockLaunchWithCount+0x60 in radixSortImpl.cu:104
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c4d0] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at void physx::radixSortCalculateRanks<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *, unsigned int *, unsigned int *)+0xa70 in RadixSort.cuh:312
+=========     by thread (129,0,0) in block (0,0,0)
+=========     Address 0x71603406a810
+=========         Device Frame: radixSortMultiCalculateRanksLaunchWithCount+0x90 in radixSortImpl.cu:118
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c548] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at physx::radixSortWarp(const uint4 *, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, physx::RadixAccum &)+0x330 in RadixSort.cuh:147
+=========     by thread (129,0,0) in block (0,0,0)
+=========     Address 0x71603406e810
+=========         Device Frame: void physx::radixSortSingleBlock<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *)+0xa0 in RadixSort.cuh:208
+=========         Device Frame: radixSortMultiBlockLaunchWithCount+0x60 in radixSortImpl.cu:104
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c4d0] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at void physx::radixSortCalculateRanks<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *, unsigned int *, unsigned int *)+0xa60 in RadixSort.cuh:310
+=========     by thread (129,0,0) in block (0,0,0)
+=========     Address 0x71603406b810
+=========         Device Frame: radixSortMultiCalculateRanksLaunchWithCount+0x90 in radixSortImpl.cu:118
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c548] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at void physx::radixSortCalculateRanks<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *, unsigned int *, unsigned int *)+0xa70 in RadixSort.cuh:312
+=========     by thread (129,0,0) in block (0,0,0)
+=========     Address 0x71603406e810
+=========         Device Frame: radixSortMultiCalculateRanksLaunchWithCount+0x90 in radixSortImpl.cu:118
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c548] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at physx::radixSortWarp(const uint4 *, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, physx::RadixAccum &)+0x330 in RadixSort.cuh:147
+=========     by thread (129,0,0) in block (0,0,0)
+=========     Address 0x71603406a810
+=========         Device Frame: void physx::radixSortSingleBlock<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *)+0xa0 in RadixSort.cuh:208
+=========         Device Frame: radixSortMultiBlockLaunchWithCount+0x60 in radixSortImpl.cu:104
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c4d0] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at void physx::radixSortCalculateRanks<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *, unsigned int *, unsigned int *)+0xa70 in RadixSort.cuh:312
+=========     by thread (129,0,0) in block (0,0,0)
+=========     Address 0x71603406a810
+=========         Device Frame: radixSortMultiCalculateRanksLaunchWithCount+0x90 in radixSortImpl.cu:118
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c548] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at physx::radixSortWarp(const uint4 *, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, physx::RadixAccum &)+0x330 in RadixSort.cuh:147
+=========     by thread (129,0,0) in block (0,0,0)
+=========     Address 0x71603406e810
+=========         Device Frame: void physx::radixSortSingleBlock<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *)+0xa0 in RadixSort.cuh:208
+=========         Device Frame: radixSortMultiBlockLaunchWithCount+0x60 in radixSortImpl.cu:104
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c4d0] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at void physx::radixSortCalculateRanks<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *, unsigned int *, unsigned int *)+0xa60 in RadixSort.cuh:310
+=========     by thread (129,0,0) in block (0,0,0)
+=========     Address 0x71603406b810
+=========         Device Frame: radixSortMultiCalculateRanksLaunchWithCount+0x90 in radixSortImpl.cu:118
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c548] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at void physx::radixSortCalculateRanks<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *, unsigned int *, unsigned int *)+0xa70 in RadixSort.cuh:312
+=========     by thread (129,0,0) in block (0,0,0)
+=========     Address 0x71603406e810
+=========         Device Frame: radixSortMultiCalculateRanksLaunchWithCount+0x90 in radixSortImpl.cu:118
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c548] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at physx::radixSortWarp(const uint4 *, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, physx::RadixAccum &)+0x330 in RadixSort.cuh:147
+=========     by thread (129,0,0) in block (0,0,0)
+=========     Address 0x71603406a810
+=========         Device Frame: void physx::radixSortSingleBlock<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *)+0xa0 in RadixSort.cuh:208
+=========         Device Frame: radixSortMultiBlockLaunchWithCount+0x60 in radixSortImpl.cu:104
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c4d0] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at void physx::radixSortCalculateRanks<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *, unsigned int *, unsigned int *)+0xa70 in RadixSort.cuh:312
+=========     by thread (129,0,0) in block (0,0,0)
+=========     Address 0x71603406a810
+=========         Device Frame: radixSortMultiCalculateRanksLaunchWithCount+0x90 in radixSortImpl.cu:118
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c548] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at physx::radixSortWarp(const uint4 *, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, physx::RadixAccum &)+0x330 in RadixSort.cuh:147
+=========     by thread (129,0,0) in block (0,0,0)
+=========     Address 0x71603406e810
+=========         Device Frame: void physx::radixSortSingleBlock<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *)+0xa0 in RadixSort.cuh:208
+=========         Device Frame: radixSortMultiBlockLaunchWithCount+0x60 in radixSortImpl.cu:104
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c4d0] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at void physx::radixSortCalculateRanks<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *, unsigned int *, unsigned int *)+0xa60 in RadixSort.cuh:310
+=========     by thread (129,0,0) in block (0,0,0)
+=========     Address 0x71603406b810
+=========         Device Frame: radixSortMultiCalculateRanksLaunchWithCount+0x90 in radixSortImpl.cu:118
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c548] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at void physx::radixSortCalculateRanks<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *, unsigned int *, unsigned int *)+0xa70 in RadixSort.cuh:312
+=========     by thread (129,0,0) in block (0,0,0)
+=========     Address 0x71603406e810
+=========         Device Frame: radixSortMultiCalculateRanksLaunchWithCount+0x90 in radixSortImpl.cu:118
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c548] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at physx::radixSortWarp(const uint4 *, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, physx::RadixAccum &)+0x330 in RadixSort.cuh:147
+=========     by thread (129,0,0) in block (0,0,0)
+=========     Address 0x71603406a810
+=========         Device Frame: void physx::radixSortSingleBlock<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *)+0xa0 in RadixSort.cuh:208
+=========         Device Frame: radixSortMultiBlockLaunchWithCount+0x60 in radixSortImpl.cu:104
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c740] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at void physx::radixSortCalculateRanks<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *, unsigned int *, unsigned int *)+0xa70 in RadixSort.cuh:312
+=========     by thread (129,0,0) in block (0,0,0)
+=========     Address 0x71603406a810
+=========         Device Frame: radixSortMultiCalculateRanksLaunchWithCount+0x90 in radixSortImpl.cu:118
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c7b8] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at physx::radixSortWarp(const uint4 *, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, physx::RadixAccum &)+0x330 in RadixSort.cuh:147
+=========     by thread (129,0,0) in block (0,0,0)
+=========     Address 0x71603406e810
+=========         Device Frame: void physx::radixSortSingleBlock<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *)+0xa0 in RadixSort.cuh:208
+=========         Device Frame: radixSortMultiBlockLaunchWithCount+0x60 in radixSortImpl.cu:104
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c740] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at void physx::radixSortCalculateRanks<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *, unsigned int *, unsigned int *)+0xa60 in RadixSort.cuh:310
+=========     by thread (129,0,0) in block (0,0,0)
+=========     Address 0x71603406b810
+=========         Device Frame: radixSortMultiCalculateRanksLaunchWithCount+0x90 in radixSortImpl.cu:118
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c7b8] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at void physx::radixSortCalculateRanks<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *, unsigned int *, unsigned int *)+0xa70 in RadixSort.cuh:312
+=========     by thread (129,0,0) in block (0,0,0)
+=========     Address 0x71603406e810
+=========         Device Frame: radixSortMultiCalculateRanksLaunchWithCount+0x90 in radixSortImpl.cu:118
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c7b8] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at physx::radixSortWarp(const uint4 *, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, physx::RadixAccum &)+0x330 in RadixSort.cuh:147
+=========     by thread (129,0,0) in block (0,0,0)
+=========     Address 0x71603406a810
+=========         Device Frame: void physx::radixSortSingleBlock<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *)+0xa0 in RadixSort.cuh:208
+=========         Device Frame: radixSortMultiBlockLaunchWithCount+0x60 in radixSortImpl.cu:104
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c740] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at void physx::radixSortCalculateRanks<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *, unsigned int *, unsigned int *)+0xa70 in RadixSort.cuh:312
+=========     by thread (129,0,0) in block (0,0,0)
+=========     Address 0x71603406a810
+=========         Device Frame: radixSortMultiCalculateRanksLaunchWithCount+0x90 in radixSortImpl.cu:118
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c7b8] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at physx::radixSortWarp(const uint4 *, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, physx::RadixAccum &)+0x330 in RadixSort.cuh:147
+=========     by thread (129,0,0) in block (0,0,0)
+=========     Address 0x71603406e810
+=========         Device Frame: void physx::radixSortSingleBlock<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *)+0xa0 in RadixSort.cuh:208
+=========         Device Frame: radixSortMultiBlockLaunchWithCount+0x60 in radixSortImpl.cu:104
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c740] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+========= Uninitialized __global__ memory read of size 16 bytes
+=========     at void physx::radixSortCalculateRanks<(unsigned int)32>(const uint4 *, const uint4 *, unsigned int, unsigned int, unsigned int *, unsigned int *, unsigned int *)+0xa60 in RadixSort.cuh:310
+=========     by thread (129,0,0) in block (0,0,0)
+=========     Address 0x71603406b810
+=========         Device Frame: radixSortMultiCalculateRanksLaunchWithCount+0x90 in radixSortImpl.cu:118
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame: physx::CudaCtx::launchKernel(CUfunc_st*, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, CUstream_st*, physx::PxCudaKernelParam*, unsigned long, void**, char const*, int) [0x429cc] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgGpuNarrowphaseCore::computeRigidsToShapes() [0x7c7b8] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::PxgSimulationController::updateBoundsAndShapes(physx::Bp::AABBManagerBase&, bool) [0xc277d] in libPhysXGpuActivity_64.so
+=========         Host Frame: physx::Cm::BaseTask::run() [0xf38f0] in native_gpu_collision_test
+=========         Host Frame: physx::Ext::CpuWorkerThread::execute() [0xc8e2d] in native_gpu_collision_test
+=========         Host Frame: physx::(anonymous namespace)::PxThreadStart(void*) [0x47b636] in native_gpu_collision_test
+=========         Host Frame:  [0x9cb83] in libc.so.6
+=========         Host Frame: __clone [0x129b63] in libc.so.6
+========= 
+begin collision fixture: chunks=4 quiet=64 sleeping=1
+[PhysX:32] Native GPU destruction stage failed; this simulation step is incomplete. (/root/workspace/physx-2/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp:915)
+[PhysX:32] Native GPU destruction stage failed; this simulation step is incomplete. (/root/workspace/physx-2/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp:915)
+[PhysX:32] Native GPU destruction stage failed; this simulation step is incomplete. (/root/workspace/physx-2/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp:915)
+begin collision fixture: chunks=4 quiet=64 sleeping=0
+[PhysX:32] Native GPU destruction stage failed; this simulation step is incomplete. (/root/workspace/physx-2/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp:915)
+[PhysX:32] Native GPU destruction stage failed; this simulation step is incomplete. (/root/workspace/physx-2/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp:915)
+[PhysX:32] Native GPU destruction stage failed; this simulation step is incomplete. (/root/workspace/physx-2/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp:915)
+begin collision fixture: chunks=257 quiet=0 sleeping=1
+[PhysX:32] Native GPU destruction stage failed; this simulation step is incomplete. (/root/workspace/physx-2/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp:915)
+[PhysX:32] Native GPU destruction stage failed; this simulation step is incomplete. (/root/workspace/physx-2/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp:915)
+[PhysX:32] Native GPU destruction stage failed; this simulation step is incomplete. (/root/workspace/physx-2/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp:915)
+[PhysX:32] Native GPU destruction stage failed; this simulation step is incomplete. (/root/workspace/physx-2/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp:915)
+[PhysX:32] Native GPU destruction stage failed; this simulation step is incomplete. (/root/workspace/physx-2/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp:915)
+[PhysX:32] Native GPU destruction stage failed; this simulation step is incomplete. (/root/workspace/physx-2/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp:915)
+[PhysX:32] Native GPU destruction stage failed; this simulation step is incomplete. (/root/workspace/physx-2/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp:915)
+GPU pair identities: 1536 surviving observations, 1288 new lifetimes; bucket merge and CPU/GPU compaction agree
+persistent GPU contact inputs enabled=0 inspected=2824 generated=0: shared geometry, capacity growth, removal/reuse and disable transition passed
+GPU pair identities: 1536 surviving observations, 1288 new lifetimes; bucket merge and CPU/GPU compaction agree
+persistent GPU contact inputs enabled=1 inspected=2824 generated=1286: shared geometry, capacity growth, removal/reuse and disable transition passed
+native GPU contact components match CPU islands: 8 dynamic groups, shared static/kinematic boundaries, infinite-mass dynamics and removal
+native collision binding preparation: 4 affected chunks, 64 unchanged structures, sleeping=1 passed
+native collision binding preparation: 4 affected chunks, 64 unchanged structures, sleeping=0 passed
+native collision binding preparation: 257 affected chunks, 0 unchanged structures, sleeping=1 passed
+native collision binding invalid shape and wrong source reject the whole batch; valid retry passed
+native crush verdict includes every destroyed collision shape passed
+========= ERROR SUMMARY: 58267 errors
+========= ERROR SUMMARY: 58167 errors were not printed. Use --print-limit option to adjust the number of printed errors

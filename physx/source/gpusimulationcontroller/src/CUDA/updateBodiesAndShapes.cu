@@ -30,6 +30,7 @@
 #include "PxNodeIndex.h"
 #include "PxgSimulationCoreDesc.h"
 #include "PxgShapeSim.h"
+#include "PxgContactManager.h"
 #include "PxgBodySim.h"
 #include "PxsRigidBody.h"
 #include "PxgD6JointData.h"
@@ -68,12 +69,29 @@ static const PxU32 PXG_BODY_SIM_BODY2ACTOR_IND = offsetof(PxgBodySim, body2Actor
 static const PxU32 PXG_BODY_SIM_SIZE_WITHOUT_ACCELERATION = offsetof(PxgBodySim, externalLinearAcceleration) / sizeof(uint4);
 
 // assert to ensure proper updateBodiesLaunch/updateBodiesLaunchDirectAPI
-PX_COMPILE_TIME_ASSERT((sizeof(PxgBodySim) < 16 * sizeof(uint4)));
+PX_COMPILE_TIME_ASSERT((sizeof(PxgBodySim) <= 16 * sizeof(uint4)));
 PX_COMPILE_TIME_ASSERT((offsetof(PxgBodySim, linearVelocityXYZ_inverseMassW) == 0));
 PX_COMPILE_TIME_ASSERT((offsetof(PxgBodySim, angularVelocityXYZ_maxPenBiasW) == sizeof(float4)));
 PX_COMPILE_TIME_ASSERT((offsetof(PxgBodySim, maxLinearVelocitySqX_maxAngularVelocitySqY_linearDampingZ_angularDampingW) == (2 * sizeof(float4))));
 PX_COMPILE_TIME_ASSERT((offsetof(PxgBodySim, articulationRemapId) % sizeof(uint4) == 0));
 PX_COMPILE_TIME_ASSERT(((offsetof(PxgBodySim, internalFlags) - offsetof(PxgBodySim, articulationRemapId)) == sizeof(PxU32)));
+
+// This state serves ordinary prescribed motion only. GPU-owned destruction
+// placeholders must not become solver inputs or cause full motion copies.
+__device__ __forceinline__ void recordKinematicInput(const PxgNewBodiesDesc* desc, PxU32 row, PxU32 bodyIndex)
+{
+	if(!desc->mKinematicInputs) return;
+	const auto& command = desc->mNewBodySim[row];
+	auto& input = desc->mKinematicInputs[bodyIndex];
+	input.valid = command.linearVelocityXYZ_inverseMassW.w == 0
+		&& !(command.internalFlags & PxsRigidBody::eDESTRUCTION_MASS_GPU);
+	if(input.valid)
+	{
+		input.body2World = command.body2World;
+		input.linearVelocity = command.linearVelocityXYZ_inverseMassW;
+		input.angularVelocity = command.angularVelocityXYZ_maxPenBiasW;
+	}
+}
 
 extern "C" __global__ void updateBodiesLaunch(const PxgNewBodiesDesc* scDesc)
 {
@@ -85,8 +103,8 @@ extern "C" __global__ void updateBodiesLaunch(const PxgNewBodiesDesc* scDesc)
 
 	const PxU32 idx = threadIdx.x + blockIdx.x * blockDim.x;
 
-	//each PxgBodySim has 224 bytes, so we need to use 16 threads to read one body. In fact,
-	//we just need to use 14 threads(each thread read one 16 bytes), however, we should use 16 threads because shfl is working in a warp
+	// Each PxgBodySim uses 16 uint4 lanes. Reserve a half-warp so shuffle
+	// groups still have a power-of-two width.
 	//for (PxU32 i = idx / 16; i < totalNbBodies; i += (blockDim.x * gridDim.x) / 16)
 	PxU32 mask_loop = FULL_MASK;
 	for (PxU32 i = idx / 16; (i < totalNbBodies) | ((mask_loop = __ballot_sync(mask_loop, i < totalNbBodies)) & 0); i += (blockDim.x * gridDim.x) / 16)
@@ -97,6 +115,8 @@ extern "C" __global__ void updateBodiesLaunch(const PxgNewBodiesDesc* scDesc)
 			data = gBodySim[i * PXG_BODY_SIM_UINT4_SIZE + index];
 
 		const PxU32 bodyIndex = __shfl_sync(mask_loop, data.w, PXG_BODY_SIM_BODYSIM_INDEX_IND, 16);
+		if(index == 0) recordKinematicInput(scDesc, i, bodyIndex);
+
 
 		if (index < PXG_BODY_SIM_UINT4_SIZE)
 			gBodySimPool[bodyIndex * PXG_BODY_SIM_UINT4_SIZE + index] = data;
@@ -116,8 +136,8 @@ extern "C" __global__ void updateBodiesLaunchDirectAPI(const PxgNewBodiesDesc* s
 
 	const PxU32 idx = threadIdx.x + blockIdx.x * blockDim.x;
 
-	//each PxgBodySim has 224 bytes, so we need to use 16 threads to read one body. In fact,
-	//we just need to use 14 threads(each thread read one 16 bytes), however, we should use 16 threads because shfl is working in a warp
+	// Each PxgBodySim uses 16 uint4 lanes. Reserve a half-warp so shuffle
+	// groups still have a power-of-two width.
 	//for (PxU32 i = idx / 16; i < totalNbBodies; i += (blockDim.x * gridDim.x) / 16)
 	PxU32 mask_loop = FULL_MASK;
 	for(PxU32 i = idx / 16; (i < totalNbBodies) | ((mask_loop = __ballot_sync(mask_loop, i < totalNbBodies)) & 0);
@@ -129,11 +149,28 @@ extern "C" __global__ void updateBodiesLaunchDirectAPI(const PxgNewBodiesDesc* s
 			data = gBodySim[i * PXG_BODY_SIM_UINT4_SIZE + index];
 
 		const PxU32 bodyIndex = __shfl_sync(mask_loop, data.w, PXG_BODY_SIM_BODYSIM_INDEX_IND, 16);
+		if(index == 0) recordKinematicInput(scDesc, i, bodyIndex);
+
 		const PxU32 internalFlags = __shfl_sync(mask_loop, data.y, PXG_BODY_SIM_FLAGS_IND, 16);
 		// preist: note that we copy this flag to persistent GPU memory on first transfer, but that is no problem
 		// because we only check the update data flag here which will be reset on CPU
 		const bool firstTransfer = internalFlags & PxsRigidBody::eFIRST_BODY_COPY_GPU;
-		const bool copyVel = internalFlags & PxsRigidBody::eVELOCITY_COPY_GPU;
+        // Scheduler updates contain CPU reservation placeholders for native
+        // fragments. They are not commands to replace device mass properties.
+        PxU32 residentFlags=0;
+        if(!firstTransfer && index==PXG_BODY_SIM_FLAGS_IND)
+            residentFlags=gBodySimPool[bodyIndex*PXG_BODY_SIM_UINT4_SIZE+index].y;
+        residentFlags=__shfl_sync(mask_loop,residentFlags,PXG_BODY_SIM_FLAGS_IND,16);
+        const bool residentMass=residentFlags & PxsRigidBody::eDESTRUCTION_MASS_GPU;
+        const bool preserveMass=residentMass && !(internalFlags & PxsRigidBody::eHOST_MASS_COPY_GPU);
+        const bool preserveInertia=residentMass && !(internalFlags & PxsRigidBody::eHOST_INERTIA_COPY_GPU);
+        const bool preserveCom=residentMass && !(internalFlags & PxsRigidBody::eHOST_COM_COPY_GPU);
+        if(index==PXG_BODY_SIM_FLAGS_IND && residentMass)data.y|=PxsRigidBody::eDESTRUCTION_MASS_GPU;
+
+        const bool copyVel = internalFlags & PxsRigidBody::eVELOCITY_COPY_GPU;
+        const bool copyPose = internalFlags & PxsRigidBody::eHOST_POSE_COPY_GPU;
+        const bool copyLinear = copyVel || (internalFlags & PxsRigidBody::eHOST_LINEAR_COPY_GPU);
+        const bool copyAngular = copyVel || (internalFlags & PxsRigidBody::eHOST_ANGULAR_COPY_GPU);
 
 
 		// figure out which threads will execute the else below.
@@ -182,9 +219,26 @@ extern "C" __global__ void updateBodiesLaunchDirectAPI(const PxgNewBodiesDesc* s
 					oldBody2Actor = *reinterpret_cast<PxAlignedTransform*>(&gBodySimPool[bodyIndex * PXG_BODY_SIM_UINT4_SIZE + PXG_BODY_SIM_BODY2ACTOR_IND]);
 				}
 
-				// load the new stuff no matter what
+                // Lane zero must finish preserving both transforms before the
+                // other lanes overwrite them with the CPU metadata upload.
+                // Volta+ independent thread scheduling does not guarantee this
+                // ordering merely because the lanes belong to one warp.
+                __syncwarp(sync_mask);
+
+				// Preserve independently owned components while accepting explicit
+                // host setters and scheduler/configuration metadata normally.
+                const auto old=gBodySimPool[bodyIndex*PXG_BODY_SIM_UINT4_SIZE+index];
+                if(index==0 && preserveMass)data.w=old.w;
+                if(index==offsetof(PxgBodySim,inverseInertiaXYZ_contactReportThresholdW)/sizeof(uint4) && preserveInertia)
+                    {data.x=old.x;data.y=old.y;data.z=old.z;}
+                // PxAlignedTransform stores quaternion before translation.
+                if(index==PXG_BODY_SIM_BODY2ACTOR_IND && preserveCom)data=old;
+                if(index==PXG_BODY_SIM_BODY2ACTOR_IND+1 && preserveCom)
+                    {data.x=old.x;data.y=old.y;data.z=old.z;}
+
+                // load the new stuff no matter what
 				// keep linear and angular velocity intact, but copy inverseMass and pen bias:
-				if(index < PXG_BODY_SIM_MAX_LIN_VEL_IND && !copyVel)
+				if(index < PXG_BODY_SIM_MAX_LIN_VEL_IND && ((index == 0 && !copyLinear) || (index == 1 && !copyAngular)))
 				{
 					gBodySimPool[bodyIndex * PXG_BODY_SIM_UINT4_SIZE + index].w = data.w;
 				}
@@ -201,18 +255,21 @@ extern "C" __global__ void updateBodiesLaunchDirectAPI(const PxgNewBodiesDesc* s
 				{
 					PxAlignedTransform newBody2Actor = *reinterpret_cast<PxAlignedTransform*>(&gBodySimPool[bodyIndex * PXG_BODY_SIM_UINT4_SIZE + PXG_BODY_SIM_BODY2ACTOR_IND]);
 
-					if (oldBody2Actor != newBody2Actor)
+					if (!copyPose && oldBody2Actor != newBody2Actor)
 					{
 						PxAlignedTransform actor2World = body2World * oldBody2Actor.getInverse();
 						body2World = actor2World * newBody2Actor;
 					}
 
 					PxAlignedTransform* body2WorldPtr = reinterpret_cast<PxAlignedTransform*>(&gBodySimPool[bodyIndex * PXG_BODY_SIM_UINT4_SIZE + PXG_BODY_SIM_BODY2WORLD_IND]);
-					*body2WorldPtr = body2World;
+					if (!copyPose) *body2WorldPtr = body2World;
 				}
 
 				__syncwarp(sync_mask);
 			}
+            else if(index == offsetof(PxgBodySim, dynamicLimitsDamping) / sizeof(uint4)
+                || index == offsetof(PxgBodySim, solverConfig) / sizeof(uint4))
+                gBodySimPool[bodyIndex * PXG_BODY_SIM_UINT4_SIZE + index] = data;
 		}
 	}
 }
@@ -935,6 +992,23 @@ extern "C" __global__ void updateBodyExternalVelocitiesLaunch(const PxgUpdatedBo
 		const PxgBodySimVelocityUpdate& updatedBody = gUpdatedBodies[i];
 		float4 linearVel = updatedBody.linearVelocityXYZ_bodySimIndexW;
 		const PxU32 bodyIndex = reinterpret_cast<PxU32&>(linearVel.w);
+        const PxU32 hostFlags = __float_as_uint(updatedBody.externalLinearAccelerationXYZ.w);
+        if(hostFlags & PxsRigidBody::eHOST_VELOCITY_DELTA_GPU)
+        {
+            float4& lv = gBodySim[bodyIndex].linearVelocityXYZ_inverseMassW;
+            float4& av = gBodySim[bodyIndex].angularVelocityXYZ_maxPenBiasW;
+            lv.x += updatedBody.externalLinearAccelerationXYZ.x;
+            lv.y += updatedBody.externalLinearAccelerationXYZ.y;
+            lv.z += updatedBody.externalLinearAccelerationXYZ.z;
+            av.x += updatedBody.externalAngularAccelerationXYZ.x;
+            av.y += updatedBody.externalAngularAccelerationXYZ.y;
+            av.z += updatedBody.externalAngularAccelerationXYZ.z;
+            if(hostFlags & PxsRigidBody::eHOST_CLEAR_FORCE_GPU)
+                gBodySim[bodyIndex].externalLinearAcceleration = make_float4(0.f);
+            if(hostFlags & PxsRigidBody::eHOST_CLEAR_TORQUE_GPU)
+                gBodySim[bodyIndex].externalAngularAcceleration = make_float4(0.f);
+            continue;
+        }
 		const float4 originalLinearV = gBodySim[bodyIndex].linearVelocityXYZ_inverseMassW;
 		linearVel.w = originalLinearV.w;
 		gBodySim[bodyIndex].linearVelocityXYZ_inverseMassW = linearVel;
@@ -1139,17 +1213,63 @@ extern "C" __global__ void getRigidDynamicAngularAcceleration(
 	}
 }
 
-extern "C" __global__ void setRigidDynamicGlobalPose(
+// Persistent shape IDs and cooked geometry survive ownership changes. Motion
+// stays authoritative in the GPU body pool, including private native clusters.
+extern "C" __global__ void refreshReboundShapeBounds(
+    const PxU32* PX_RESTRICT indices, PxU32 count,
+    const PxgShapeSim* PX_RESTRICT shapes, const PxgBodySim* PX_RESTRICT bodies,
+    PxsCachedTransform* PX_RESTRICT transforms, PxBounds3* PX_RESTRICT bounds,
+    PxgShape* PX_RESTRICT geometry, const PxNodeIndex* PX_RESTRICT sortedNodes,
+    PxU32* PX_RESTRICT updated, PxU32 updatedCapacity,
+    const PxU32* PX_RESTRICT dormantBits, PxU32 dormantWords)
+{
+    __shared__ PxU32 liveRigidEnd;
+    if(threadIdx.x==0) {
+        PxU32 lo=0,hi=count;
+        if(sortedNodes) {
+            // Valid ordinary rigid IDs precede static/deleted entries and
+            // articulation links in PhysX's 64-bit sorted ownership index.
+            // Full native correction excludes articulations at admission.
+            const PxU64 firstNonRigid=PxNodeIndex(PX_INVALID_NODE).getInd();
+            while(lo<hi) {
+                const PxU32 mid=lo+(hi-lo)/2;
+                if(sortedNodes[mid].getInd()<firstNonRigid)lo=mid+1;else hi=mid;
+            }
+        } else lo=count;
+        liveRigidEnd=lo;
+    }
+    __syncthreads();
+    for(PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;i<liveRigidEnd;i+=blockDim.x*gridDim.x) {
+        const PxU32 index=indices[i];
+        if(index==PX_INVALID_U32 || index>=updatedCapacity || !updated){asm volatile("trap;");return;}
+        const PxgShapeSim& shape=shapes[index];
+        if(shape.mBodySimIndex.isStaticBody() || shape.mBodySimIndex.isArticulation()
+            || (sortedNodes && !(shape.mBodySimIndex==sortedNodes[i]))) {asm volatile("trap;");return;}
+        const PxgBodySim& body=bodies[shape.mBodySimIndex.index()];
+        const PxTransform pose=getAbsPose(body.body2World.getTransform(),shape.mTransform,
+            body.body2Actor_maxImpulseW.getTransform());
+        updateCacheAndBound(pose,shape,index,transforms,bounds,geometry,true);
+        // Refreshing coordinates alone leaves SAP endpoints stale. Join the
+        // ordinary GPU bounds-update bitmap without treating retained shapes
+        // as new volumes or destroying their persistent contact managers.
+        // Dormant corrected pass: a dormant body's boxes already sit at these
+        // coordinates in the SAP; leave them out of the update set.
+        const PxU32 node=shape.mBodySimIndex.index();
+        if(dormantBits && (node>>5)<dormantWords && ((dormantBits[node>>5]>>(node&31))&1u))continue;
+        updated[index]=1;
+    }
+}
+
+// Body of setRigidDynamicGlobalPose for one list element, shared by the host-count
+// and device-count launches (native sleep transition, README §14).
+static __device__ void setRigidDynamicGlobalPoseFor(
 	const PxTransform* PX_RESTRICT data,
 	const PxRigidDynamicGPUIndex* PX_RESTRICT gpuIndices,
 	const PxgUpdateActorDataDesc* PX_RESTRICT updateActorDataDesc,
-	const PxU32 nbElements,
+	const PxU32 globalThreadIndex,
 	const PxU32 totalNumShapes
 )
 {
-	const PxU32 globalThreadIndex = threadIdx.x + blockDim.x*blockIdx.x;
-
-	if (globalThreadIndex < nbElements)
 	{
 		PxgBodySim* PX_RESTRICT gBodySimPool = updateActorDataDesc->mBodySimBufferDeviceData;
 		PxNodeIndex* PX_RESTRICT gRigidNodeIndices = updateActorDataDesc->mRigidNodeIndices;
@@ -1210,6 +1330,33 @@ extern "C" __global__ void setRigidDynamicGlobalPose(
 	}
 }
 
+extern "C" __global__ void setRigidDynamicGlobalPose(
+	const PxTransform* PX_RESTRICT data,
+	const PxRigidDynamicGPUIndex* PX_RESTRICT gpuIndices,
+	const PxgUpdateActorDataDesc* PX_RESTRICT updateActorDataDesc,
+	const PxU32 nbElements,
+	const PxU32 totalNumShapes
+)
+{
+	const PxU32 globalThreadIndex = threadIdx.x + blockDim.x*blockIdx.x;
+	if (globalThreadIndex < nbElements)
+		setRigidDynamicGlobalPoseFor(data, gpuIndices, updateActorDataDesc, globalThreadIndex, totalNumShapes);
+}
+
+// Device-count variant: the list and its count are produced on the device.
+extern "C" __global__ void setRigidDynamicGlobalPoseDevice(
+	const PxTransform* PX_RESTRICT data,
+	const PxRigidDynamicGPUIndex* PX_RESTRICT gpuIndices,
+	const PxgUpdateActorDataDesc* PX_RESTRICT updateActorDataDesc,
+	const PxU32* PX_RESTRICT nbElements,
+	const PxU32 totalNumShapes
+)
+{
+	const PxU32 globalThreadIndex = threadIdx.x + blockDim.x*blockIdx.x;
+	if (globalThreadIndex < *nbElements)
+		setRigidDynamicGlobalPoseFor(data, gpuIndices, updateActorDataDesc, globalThreadIndex, totalNumShapes);
+}
+
 extern "C" __global__ void setRigidDynamicLinearVelocity(
 	const PxVec3* PX_RESTRICT data,
 	const PxRigidDynamicGPUIndex* PX_RESTRICT gpuIndices,
@@ -1257,6 +1404,66 @@ extern "C" __global__ void setRigidDynamicAngularVelocity(
 		bodySim.angularVelocityXYZ_maxPenBiasW = av;
 		if(prevVelocities)
 			prevVelocities[index].angularVelocity = av;
+	}
+}
+
+// Native sleep finalization: one launch zeroes a sleeping body's velocities
+// (and previous velocities) and external accelerations, the same writes the
+// four setRigidDynamic{LinearVelocity,AngularVelocity,Force,Torque} launches
+// make with zero inputs, without four lock/launch round trips per pass.
+extern "C" __global__ void zeroNativeSleepMotion(
+	const PxRigidDynamicGPUIndex* PX_RESTRICT gpuIndices,
+	const PxgUpdateActorDataDesc* PX_RESTRICT updateActorDataDesc,
+	PxgBodySimVelocities* PX_RESTRICT prevVelocities,
+	const PxU32 nbElements
+)
+{
+	const PxU32 globalThreadIndex = threadIdx.x + blockDim.x * blockIdx.x;
+
+	if (globalThreadIndex < nbElements)
+	{
+		PxgBodySim* gBodySimPool = updateActorDataDesc->mBodySimBufferDeviceData;
+		const PxU32 index = gpuIndices[globalThreadIndex];
+		PxgBodySim& bodySim = gBodySimPool[index];
+		const float4 lv = make_float4(0.f, 0.f, 0.f, bodySim.linearVelocityXYZ_inverseMassW.w);
+		const float4 av = make_float4(0.f, 0.f, 0.f, bodySim.angularVelocityXYZ_maxPenBiasW.w);
+		bodySim.linearVelocityXYZ_inverseMassW = lv;
+		bodySim.angularVelocityXYZ_maxPenBiasW = av;
+		if(prevVelocities)
+		{
+			prevVelocities[index].linearVelocity = lv;
+			prevVelocities[index].angularVelocity = av;
+		}
+		bodySim.externalLinearAcceleration = make_float4(0.f, 0.f, 0.f, 0.f);
+		bodySim.externalAngularAcceleration = make_float4(0.f, 0.f, 0.f, 0.f);
+	}
+}
+
+extern "C" __global__ void zeroNativeSleepMotionDevice(
+	const PxRigidDynamicGPUIndex* PX_RESTRICT gpuIndices,
+	const PxgUpdateActorDataDesc* PX_RESTRICT updateActorDataDesc,
+	PxgBodySimVelocities* PX_RESTRICT prevVelocities,
+	const PxU32* PX_RESTRICT nbElements
+)
+{
+	const PxU32 globalThreadIndex = threadIdx.x + blockDim.x * blockIdx.x;
+
+	if (globalThreadIndex < *nbElements)
+	{
+		PxgBodySim* gBodySimPool = updateActorDataDesc->mBodySimBufferDeviceData;
+		const PxU32 index = gpuIndices[globalThreadIndex];
+		PxgBodySim& bodySim = gBodySimPool[index];
+		const float4 lv = make_float4(0.f, 0.f, 0.f, bodySim.linearVelocityXYZ_inverseMassW.w);
+		const float4 av = make_float4(0.f, 0.f, 0.f, bodySim.angularVelocityXYZ_maxPenBiasW.w);
+		bodySim.linearVelocityXYZ_inverseMassW = lv;
+		bodySim.angularVelocityXYZ_maxPenBiasW = av;
+		if(prevVelocities)
+		{
+			prevVelocities[index].linearVelocity = lv;
+			prevVelocities[index].angularVelocity = av;
+		}
+		bodySim.externalLinearAcceleration = make_float4(0.f, 0.f, 0.f, 0.f);
+		bodySim.externalAngularAcceleration = make_float4(0.f, 0.f, 0.f, 0.f);
 	}
 }
 
@@ -1462,4 +1669,53 @@ extern "C" __global__ void copyRigidBodyVelocitiesToPrevious(
 		prevVelocities[index].linearVelocity = bodySim.linearVelocityXYZ_inverseMassW;
 		prevVelocities[index].angularVelocity = bodySim.angularVelocityXYZ_maxPenBiasW;
 	}
+}
+
+// Dormant corrected pass helpers (PHYSX_DESTRUCTION_ISLAND_SCOPE=6).
+__device__ __forceinline__ bool dormantNode(const PxU32* PX_RESTRICT bits, PxU32 words, PxU32 node)
+{
+    return bits && (node>>5)<words && ((bits[node>>5]>>(node&31))&1u);
+}
+extern "C" __global__ void markDormantNodeBits(const PxU32* PX_RESTRICT nodes, PxU32 count, PxU32* PX_RESTRICT bits, PxU32 words)
+{
+    const PxU32 i=threadIdx.x+blockIdx.x*blockDim.x;
+    if(i<count){const PxU32 node=nodes[i];if((node>>5)<words)atomicOr(bits+(node>>5),1u<<(node&31));}
+}
+// Reset the persistent manifold of every pair with at least one non-dormant
+// body to the empty template; dormant-dormant pairs keep their trial manifold
+// so the corrected narrowphase reproduces the trial's outputs for them.
+extern "C" __global__ void resetManifoldsScoped(float4* PX_RESTRICT destination, const float4* PX_RESTRICT source, PxU32 dataSize, PxU32 count,
+    const PxgContactManagerInput* PX_RESTRICT inputs, const PxgShapeSim* PX_RESTRICT shapes, const PxU32* PX_RESTRICT bits, PxU32 words)
+{
+    const PxU32 perPair=dataSize/sizeof(float4);
+    for(PxU32 t=threadIdx.x+blockIdx.x*blockDim.x;t<count*perPair;t+=blockDim.x*gridDim.x)
+    {
+        const PxU32 pair=t/perPair,k=t-pair*perPair;
+        const PxgContactManagerInput in=inputs[pair];
+        const PxU32 nodeA=shapes[in.shapeRef0].mBodySimIndex.index(),nodeB=shapes[in.shapeRef1].mBodySimIndex.index();
+        const bool staticA=shapes[in.shapeRef0].mBodySimIndex.isStaticBody(),staticB=shapes[in.shapeRef1].mBodySimIndex.isStaticBody();
+        const bool dormantA=staticA||dormantNode(bits,words,nodeA),dormantB=staticB||dormantNode(bits,words,nodeB);
+        if(dormantA && dormantB && !(staticA && staticB))continue;
+        destination[pair*perPair+k]=source[k];
+    }
+}
+extern "C" __global__ void markDormantPairSlots(const PxgContactManagerInput* PX_RESTRICT inputs, const PxgContactGraphIdentity* PX_RESTRICT identities, PxU32 count,
+    const PxgShapeSim* PX_RESTRICT shapes, const PxU32* PX_RESTRICT bits, PxU32 words, PxU32* PX_RESTRICT slotMarks, PxU32 slotWords)
+{
+    const PxU32 pair=threadIdx.x+blockIdx.x*blockDim.x;
+    if(pair>=count)return;
+    const PxgContactManagerInput in=inputs[pair];
+    const PxNodeIndex a=shapes[in.shapeRef0].mBodySimIndex,b=shapes[in.shapeRef1].mBodySimIndex;
+    const bool dormantA=a.isStaticBody()||dormantNode(bits,words,a.index()),dormantB=b.isStaticBody()||dormantNode(bits,words,b.index());
+    if(!(dormantA && dormantB))return;
+    const PxU32 slot=identities[pair].slot;
+    if((slot>>5)<slotWords)atomicOr(slotMarks+(slot>>5),1u<<(slot&31));
+}
+extern "C" __global__ void zeroUnmarkedFrictionCounts(PxU32* PX_RESTRICT counts0, PxU32* PX_RESTRICT counts1, PxU32 slotCount, const PxU32* PX_RESTRICT slotMarks, PxU32 slotWords)
+{
+    const PxU32 slot=threadIdx.x+blockIdx.x*blockDim.x;
+    if(slot>=slotCount)return;
+    if((slot>>5)<slotWords && ((slotMarks[slot>>5]>>(slot&31))&1u))return;
+    if(counts0)counts0[slot]=0;
+    if(counts1)counts1[slot]=0;
 }

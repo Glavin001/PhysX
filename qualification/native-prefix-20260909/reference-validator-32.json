@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "status": "passed",
+  "tier": "early",
+  "compared_steps": 32,
+  "chunks": 444,
+  "bonds": 896,
+  "projectiles": 1,
+  "performance_qualification": false,
+  "complete_regression": false,
+  "position_tolerance_m": 0.001,
+  "first_difference": null,
+  "max_position_error_m": 0.0,
+  "compared_identity_sha256": "51cd7a70f8406d8e9417e70f399f01bc23ded9e82230282a0d91a5b98bf9f7a9",
+  "reference": "/root/workspace/physx-2/out/native-contact-owner-20260909/wall-order-trace-reference",
+  "reference_sha256": {
+    "capture.json": "c46b1622d2766e4a5eec9a70d09f3ced3e3854e4251407ebd3b54de313e6aae4",
+    "quality.json": "b6ee2eeeaf96f9a4a103f657bd215639e88903293adcbefd81ed359c926c94b5",
+    "native.summary.json": "260ccbe598f43a966232244bd6b20cadebcd1db08e75f60c22101a41257d9a86",
+    "native.frames.csv": "1d2d82f7bfc28e1c0c6f8dbbd668376a168ee97c6d12ea88cd526097945ef4f4",
+    "native.twstate": "86577b1f8577d5843991ac6e2b4244435491125bec2c8ffa395ea9d80ab51856",
+    "native.motion.csv.gz": "2cfa30afe8ae6476868bec9c2d3556802a94bef8fc529c9c552daae3ee6cebc4"
+  }
+}

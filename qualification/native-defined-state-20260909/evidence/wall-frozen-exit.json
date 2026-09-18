@@ -1,0 +1,8 @@
+{
+  "command": [
+    "python3",
+    "tools/scripts/run-destruction-penetration-regression.py",
+    "out/native-defined-state-20260909/wall-frozen"
+  ],
+  "exit_code": 0
+}

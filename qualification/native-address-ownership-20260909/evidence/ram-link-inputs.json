@@ -1,0 +1,200 @@
+[
+  {
+    "path": "out/vibe-native/release/build/aws-lc-sys-39a7d31119818165/out/libaws_lc_0_44_0_crypto.a",
+    "target": "/dev/shm/physx-address-link-inputs/aws-lc-sys-39a7d31119818165/out/libaws_lc_0_44_0_crypto.a",
+    "bytes": 7197858,
+    "sha256": "e7f3e3b09fba151ce0b2b3306d3197fbcdaa0789794a2f43fa774f738bf5ce9d"
+  },
+  {
+    "path": "out/vibe-native/release/build/ring-eb6c45f880b1ee59/out/libring_core_0_17_14_.a",
+    "target": "/dev/shm/physx-address-link-inputs/ring-eb6c45f880b1ee59/out/libring_core_0_17_14_.a",
+    "bytes": 4982554,
+    "sha256": "a292ac1b0ff91d2ecde65be56c278316727c2962cb31319b98efc77653914c60"
+  },
+  {
+    "path": "out/vibe-native/release/build/vibe-land-physx-bridge-f0718a790ae53fc1/out/libvibe_land_physx_bridge.a",
+    "target": "/dev/shm/physx-address-link-inputs/vibe-land-physx-bridge-f0718a790ae53fc1/out/libvibe_land_physx_bridge.a",
+    "bytes": 2206670,
+    "sha256": "98974a6d9d22f0dfc57bfb04186980dae95e0ead3daac2886317abdb5aecc02b"
+  },
+  {
+    "path": "out/vibe-native/release/build/ring-eb6c45f880b1ee59/out/25ac62e5b3c53843-curve25519.o",
+    "target": "/dev/shm/physx-address-link-inputs/ring-eb6c45f880b1ee59/out/25ac62e5b3c53843-curve25519.o",
+    "bytes": 2085088,
+    "sha256": "a9084e54f8908233860634089bc39ed10c2b8bf0767b9826ebac5dc3b7ab5f97"
+  },
+  {
+    "path": "out/vibe-native/release/build/vibe-land-physx-bridge-f0718a790ae53fc1/out/libvibe_land_blast_stress_gpu.a",
+    "target": "/dev/shm/physx-address-link-inputs/vibe-land-physx-bridge-f0718a790ae53fc1/out/libvibe_land_blast_stress_gpu.a",
+    "bytes": 1959580,
+    "sha256": "b8b034e8bb3ba1c949019621a2c9f210b988a4691d4ca7b3e873fc4d1d5aee9f"
+  },
+  {
+    "path": "out/vibe-native/release/build/aws-lc-sys-39a7d31119818165/out/f8e4fd781484bd36-bcm.o",
+    "target": "/dev/shm/physx-address-link-inputs/aws-lc-sys-39a7d31119818165/out/f8e4fd781484bd36-bcm.o",
+    "bytes": 1941456,
+    "sha256": "83a4ed469d86e4644b9b3cded6d4752ad4a1ec5de8bf47bdd6703cc265dfc4c6"
+  },
+  {
+    "path": "out/vibe-native/release/build/zstd-sys-17a9dc1c1255ab0d/out/libzstd.a",
+    "target": "/dev/shm/physx-address-link-inputs/zstd-sys-17a9dc1c1255ab0d/out/libzstd.a",
+    "bytes": 1592358,
+    "sha256": "a622b9e6093bee1fb2bc953f57c1d93a8a03df6078c1459d97d6a6c56bf7767a"
+  },
+  {
+    "path": "out/vibe-native/release/build/aws-lc-sys-39a7d31119818165/out/81d9a39ddc6b1c4e-aesni-gcm-avx512.o",
+    "target": "/dev/shm/physx-address-link-inputs/aws-lc-sys-39a7d31119818165/out/81d9a39ddc6b1c4e-aesni-gcm-avx512.o",
+    "bytes": 772440,
+    "sha256": "db96a97e9fe75a6d678f1b310fa4cd4643c1041c92cfac21ce9cc1b87fa3863a"
+  },
+  {
+    "path": "out/vibe-native/release/build/vibe-land-physx-bridge-f0718a790ae53fc1/out/93a14da3921a708a-NvBlastExtStressGpu.o",
+    "target": "/dev/shm/physx-address-link-inputs/vibe-land-physx-bridge-f0718a790ae53fc1/out/93a14da3921a708a-NvBlastExtStressGpu.o",
+    "bytes": 749376,
+    "sha256": "1ccfbea1b7532981e77b116db844df21dd51db29a469d37d7b2f5f06f4a7ee62"
+  },
+  {
+    "path": "out/vibe-native/release/build/vibe-land-physx-bridge-f0718a790ae53fc1/out/vibe_land_blast_stress_gpu_dlink.o",
+    "target": "/dev/shm/physx-address-link-inputs/vibe-land-physx-bridge-f0718a790ae53fc1/out/vibe_land_blast_stress_gpu_dlink.o",
+    "bytes": 713496,
+    "sha256": "cad4df4f03aa0816beb384514de0f9dd93b1964e79f4232dc06f273fa07c2a57"
+  },
+  {
+    "path": "out/vibe-native/release/build/vibe-land-physx-bridge-39bb5ec5655e4f59/out/libvibe_land_physx_bridge.a",
+    "target": "/dev/shm/physx-address-link-inputs/vibe-land-physx-bridge-39bb5ec5655e4f59/out/libvibe_land_physx_bridge.a",
+    "bytes": 649042,
+    "sha256": "ac19021f0dbc1f4f477fd55605a9ab830f0342f2773ba79a3db51db6a96a0501"
+  },
+  {
+    "path": "out/vibe-native/release/build/ring-eb6c45f880b1ee59/out/25ac62e5b3c53843-curve25519_64_adx.o",
+    "target": "/dev/shm/physx-address-link-inputs/ring-eb6c45f880b1ee59/out/25ac62e5b3c53843-curve25519_64_adx.o",
+    "bytes": 626120,
+    "sha256": "852096586949dc9b00da90aa08128934ebf696064a429ff5f2eb4e1db2ad4cdb"
+  },
+  {
+    "path": "out/vibe-native/release/build/ring-eb6c45f880b1ee59/out/0bbbd18bda93c05b-aes_nohw.o",
+    "target": "/dev/shm/physx-address-link-inputs/ring-eb6c45f880b1ee59/out/0bbbd18bda93c05b-aes_nohw.o",
+    "bytes": 604096,
+    "sha256": "e2377315e1f05732c7cad4681a3d23899e0238a768ff925c9bc373e1b4223d09"
+  },
+  {
+    "path": "out/vibe-native/release/build/vibe-land-physx-bridge-1dedbd5314eca8e5/out/libvibe_land_physx_bridge.a",
+    "target": "/dev/shm/physx-address-link-inputs/vibe-land-physx-bridge-1dedbd5314eca8e5/out/libvibe_land_physx_bridge.a",
+    "bytes": 583534,
+    "sha256": "769ee045ee556ace8d7f08ad2f954654d58d1822fc790a7c137d80f432a514ff"
+  },
+  {
+    "path": "out/vibe-native/release/build/vibe-land-physx-bridge-f0718a790ae53fc1/out/cc822f2f0bfcb1e8-NvBlastExtStressPhysXContactGpu.o",
+    "target": "/dev/shm/physx-address-link-inputs/vibe-land-physx-bridge-f0718a790ae53fc1/out/cc822f2f0bfcb1e8-NvBlastExtStressPhysXContactGpu.o",
+    "bytes": 445040,
+    "sha256": "56764c88949caa722127235c853ace5ce8975396e04eda5cbaec833d4d22859f"
+  },
+  {
+    "path": "out/vibe-native/release/build/vibe-land-physx-bridge-f0718a790ae53fc1/out/48d3f1b29a630f4c-destruction.o",
+    "target": "/dev/shm/physx-address-link-inputs/vibe-land-physx-bridge-f0718a790ae53fc1/out/48d3f1b29a630f4c-destruction.o",
+    "bytes": 417872,
+    "sha256": "792bc99e79c8b63dc07143f40373e33c107cd45fa3dad96da946ae79e8563fd1"
+  },
+  {
+    "path": "out/vibe-native/release/build/vibe-land-physx-bridge-f0718a790ae53fc1/out/48d3f1b29a630f4c-physx_bridge.o",
+    "target": "/dev/shm/physx-address-link-inputs/vibe-land-physx-bridge-f0718a790ae53fc1/out/48d3f1b29a630f4c-physx_bridge.o",
+    "bytes": 409048,
+    "sha256": "7da4b2e3b998a0f5a3cdae14cdbb442daa374afd503245731c49d1d98418ad6f"
+  },
+  {
+    "path": "out/vibe-native/release/build/vibe-land-physx-bridge-f0718a790ae53fc1/out/9b8e0766929ffd4b-NvBlastExtStressPhysX.o",
+    "target": "/dev/shm/physx-address-link-inputs/vibe-land-physx-bridge-f0718a790ae53fc1/out/9b8e0766929ffd4b-NvBlastExtStressPhysX.o",
+    "bytes": 363032,
+    "sha256": "9cd62fa4f5dc101845eee235a76ff4ecf2e7d7db028b45b3e5356c322331e562"
+  },
+  {
+    "path": "out/vibe-native/release/build/cxx-6246c30302d19154/out/libcxxbridge1.a",
+    "target": "/dev/shm/physx-address-link-inputs/cxx-6246c30302d19154/out/libcxxbridge1.a",
+    "bytes": 329720,
+    "sha256": "4663c2a26f54fffaacb920d8292aeb50e8966a211cd441e42ea339de97a99097"
+  },
+  {
+    "path": "out/vibe-native/release/build/ring-eb6c45f880b1ee59/out/a0330e891e733f4e-p256-nistz.o",
+    "target": "/dev/shm/physx-address-link-inputs/ring-eb6c45f880b1ee59/out/a0330e891e733f4e-p256-nistz.o",
+    "bytes": 310544,
+    "sha256": "50bf444cb9979393f87ea0ba3e9dfefe0a43de0cf92c6342f4a059b019f1a31b"
+  },
+  {
+    "path": "out/vibe-native/release/build/cxx-6246c30302d19154/out/c16f17691ff6f04b-cxx.o",
+    "target": "/dev/shm/physx-address-link-inputs/cxx-6246c30302d19154/out/c16f17691ff6f04b-cxx.o",
+    "bytes": 297352,
+    "sha256": "0b498ec581425b0db2dcebcd721c97bef9b3cf6bf4128a76cc5cd4b49243a55f"
+  },
+  {
+    "path": "out/vibe-native/release/build/vibe-land-physx-bridge-f0718a790ae53fc1/out/32bf045f436c9827-NvBlastExtStressSolver.o",
+    "target": "/dev/shm/physx-address-link-inputs/vibe-land-physx-bridge-f0718a790ae53fc1/out/32bf045f436c9827-NvBlastExtStressSolver.o",
+    "bytes": 295400,
+    "sha256": "c4cb3aff189fa6ec47cd76df10b5f29165163ce311841585649104edcf975141"
+  },
+  {
+    "path": "out/vibe-native/release/build/zstd-sys-17a9dc1c1255ab0d/out/fb80479a5fb81f6a-zstd_lazy.o",
+    "target": "/dev/shm/physx-address-link-inputs/zstd-sys-17a9dc1c1255ab0d/out/fb80479a5fb81f6a-zstd_lazy.o",
+    "bytes": 279392,
+    "sha256": "14c326717f47195b81fb44fd0ac57aaee60cccebb10244524c651052bc7627f7"
+  },
+  {
+    "path": "out/vibe-native/release/build/vibe-land-physx-bridge-1dedbd5314eca8e5/out/48d3f1b29a630f4c-physx_bridge.o",
+    "target": "/dev/shm/physx-address-link-inputs/vibe-land-physx-bridge-1dedbd5314eca8e5/out/48d3f1b29a630f4c-physx_bridge.o",
+    "bytes": 273400,
+    "sha256": "cf4e2fee2009a1e3ec79c55a36d7f318e3848cb6809dfe7123d35513faf4d702"
+  },
+  {
+    "path": "out/vibe-native/release/build/vibe-land-physx-bridge-39bb5ec5655e4f59/out/48d3f1b29a630f4c-physx_bridge.o",
+    "target": "/dev/shm/physx-address-link-inputs/vibe-land-physx-bridge-39bb5ec5655e4f59/out/48d3f1b29a630f4c-physx_bridge.o",
+    "bytes": 273400,
+    "sha256": "cf4e2fee2009a1e3ec79c55a36d7f318e3848cb6809dfe7123d35513faf4d702"
+  },
+  {
+    "path": "out/vibe-native/release/build/ring-eb6c45f880b1ee59/out/a0330e891e733f4e-gfp_p384.o",
+    "target": "/dev/shm/physx-address-link-inputs/ring-eb6c45f880b1ee59/out/a0330e891e733f4e-gfp_p384.o",
+    "bytes": 211680,
+    "sha256": "5d778002b6450dfd821b3837541af79f0a6997f00f760841ea5d04132e4cb3da"
+  },
+  {
+    "path": "out/vibe-native/release/build/zstd-sys-17a9dc1c1255ab0d/out/fb80479a5fb81f6a-zstd_compress.o",
+    "target": "/dev/shm/physx-address-link-inputs/zstd-sys-17a9dc1c1255ab0d/out/fb80479a5fb81f6a-zstd_compress.o",
+    "bytes": 175888,
+    "sha256": "6d63a5209b30a9ad4b898c04672c14a7d2c56c19b745d374c0432c2eba523dd4"
+  },
+  {
+    "path": "out/vibe-native/release/build/aws-lc-sys-39a7d31119818165/out/7ac4c9359514b807-obj.o",
+    "target": "/dev/shm/physx-address-link-inputs/aws-lc-sys-39a7d31119818165/out/7ac4c9359514b807-obj.o",
+    "bytes": 164400,
+    "sha256": "b43d3afad4cfaddd7dd149b7525f4839ca3bf498aa97e2a27b8d808945fa1341"
+  },
+  {
+    "path": "out/vibe-native/release/build/ring-eb6c45f880b1ee59/out/aaa1ba3e455ee2e1-limbs.o",
+    "target": "/dev/shm/physx-address-link-inputs/ring-eb6c45f880b1ee59/out/aaa1ba3e455ee2e1-limbs.o",
+    "bytes": 137384,
+    "sha256": "19483c50999afb89a61843c7a41f89c83ff3cf018521f61564288e18589cf92e"
+  },
+  {
+    "path": "out/vibe-native/release/build/vibe-land-physx-bridge-1dedbd5314eca8e5/out/c22fa2558e18c51c-lib.rs.o",
+    "target": "/dev/shm/physx-address-link-inputs/vibe-land-physx-bridge-1dedbd5314eca8e5/out/c22fa2558e18c51c-lib.rs.o",
+    "bytes": 135152,
+    "sha256": "24221c629b2e8e9c5d5bc49e8d5fe261c8d1ecf58c66d1cfe3eb91b6ae411a78"
+  },
+  {
+    "path": "out/vibe-native/release/build/vibe-land-physx-bridge-39bb5ec5655e4f59/out/646de7713e32614c-lib.rs.o",
+    "target": "/dev/shm/physx-address-link-inputs/vibe-land-physx-bridge-39bb5ec5655e4f59/out/646de7713e32614c-lib.rs.o",
+    "bytes": 135152,
+    "sha256": "24221c629b2e8e9c5d5bc49e8d5fe261c8d1ecf58c66d1cfe3eb91b6ae411a78"
+  },
+  {
+    "path": "out/vibe-native/release/build/vibe-land-physx-bridge-f0718a790ae53fc1/out/c50cffa7e54179cf-lib.rs.o",
+    "target": "/dev/shm/physx-address-link-inputs/vibe-land-physx-bridge-f0718a790ae53fc1/out/c50cffa7e54179cf-lib.rs.o",
+    "bytes": 134056,
+    "sha256": "db62d82b0751b1dbcadc49bc045b9ade76c83c15ba9be64af97d0254a9578078"
+  },
+  {
+    "path": "out/vibe-native/release/build/ring-eb6c45f880b1ee59/out/d5a9841f3dc6e253-poly1305.o",
+    "target": "/dev/shm/physx-address-link-inputs/ring-eb6c45f880b1ee59/out/d5a9841f3dc6e253-poly1305.o",
+    "bytes": 120088,
+    "sha256": "cb7aac0343422d166958e21b75209bde4a164552056d164f1da1e53699b91e42"
+  }
+]

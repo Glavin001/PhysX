@@ -1,0 +1,184 @@
+{
+  "before": {
+    "unix_seconds": 1789130443.0185306,
+    "driver": "615.71.09",
+    "devices": [
+      {
+        "name": "NVIDIA GeForce RTX 5060 Ti",
+        "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+        "temperature": "38 C",
+        "clock": "2632 MHz",
+        "utilization": "3 %",
+        "memory_used": "1309 MiB",
+        "processes": [
+          {
+            "pid": 1434,
+            "name": "/usr/lib/xorg/Xorg",
+            "type": "G"
+          },
+          {
+            "pid": 1946,
+            "name": "/usr/bin/kwin_x11",
+            "type": "G"
+          },
+          {
+            "pid": 2016,
+            "name": "/usr/bin/plasmashell",
+            "type": "G"
+          },
+          {
+            "pid": 5246,
+            "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+            "type": "G"
+          },
+          {
+            "pid": 435374,
+            "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+            "type": "C"
+          }
+        ]
+      }
+    ]
+  },
+  "after": {
+    "unix_seconds": 1789130453.9623666,
+    "driver": "615.71.09",
+    "devices": [
+      {
+        "name": "NVIDIA GeForce RTX 5060 Ti",
+        "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+        "temperature": "40 C",
+        "clock": "2842 MHz",
+        "utilization": "3 %",
+        "memory_used": "1309 MiB",
+        "processes": [
+          {
+            "pid": 1434,
+            "name": "/usr/lib/xorg/Xorg",
+            "type": "G"
+          },
+          {
+            "pid": 1946,
+            "name": "/usr/bin/kwin_x11",
+            "type": "G"
+          },
+          {
+            "pid": 2016,
+            "name": "/usr/bin/plasmashell",
+            "type": "G"
+          },
+          {
+            "pid": 5246,
+            "name": "/usr/lib/x86_64-linux-gnu/libexec/kscreenlocker_greet",
+            "type": "G"
+          },
+          {
+            "pid": 435374,
+            "name": "/root/workspace/vibe-land-4/target/release/web-fps-server",
+            "type": "C"
+          }
+        ]
+      }
+    ]
+  },
+  "binary_sha256": "c26647e58199a313ca474ccf339c74c5299263fb2938f6b2cf6f06c0adbdbdd5",
+  "source_sha256": "d8bac0443bafaaf727f8f3654abc0b51f4eedfa2334d0bbf681e62b4b9f0f607",
+  "runs": [
+    {
+      "name": "plain-0",
+      "command": [
+        "/root/workspace/physx-2/out/snapshot-large-20260911/delayed-cuda-repro/repro",
+        "2",
+        "1",
+        "1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 1.317832824002835,
+      "log": "/root/workspace/physx-2/out/snapshot-finish-20260911/reproducer-confirmation/plain-0.log"
+    },
+    {
+      "name": "default-0",
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "97",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/delayed-cuda-repro/repro",
+        "2",
+        "1",
+        "1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 1.7190989410009934,
+      "log": "/root/workspace/physx-2/out/snapshot-finish-20260911/reproducer-confirmation/default-0.log"
+    },
+    {
+      "name": "high-limit-0",
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "97",
+        "--force-synchronization-limit",
+        "1000000",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/delayed-cuda-repro/repro",
+        "2",
+        "1",
+        "1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 1.7194989019917557,
+      "log": "/root/workspace/physx-2/out/snapshot-finish-20260911/reproducer-confirmation/high-limit-0.log"
+    },
+    {
+      "name": "plain-1",
+      "command": [
+        "/root/workspace/physx-2/out/snapshot-large-20260911/delayed-cuda-repro/repro",
+        "2",
+        "1",
+        "1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 1.3177632729930338,
+      "log": "/root/workspace/physx-2/out/snapshot-finish-20260911/reproducer-confirmation/plain-1.log"
+    },
+    {
+      "name": "default-1",
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "97",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/delayed-cuda-repro/repro",
+        "2",
+        "1",
+        "1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 1.7187117010034854,
+      "log": "/root/workspace/physx-2/out/snapshot-finish-20260911/reproducer-confirmation/default-1.log"
+    },
+    {
+      "name": "high-limit-1",
+      "command": [
+        "/usr/local/cuda-13.4/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "97",
+        "--force-synchronization-limit",
+        "1000000",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/delayed-cuda-repro/repro",
+        "2",
+        "1",
+        "1"
+      ],
+      "exit_code": 97,
+      "elapsed_seconds": 2.119864014995983,
+      "log": "/root/workspace/physx-2/out/snapshot-finish-20260911/reproducer-confirmation/high-limit-1.log"
+    }
+  ]
+}

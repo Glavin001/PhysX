@@ -1,0 +1,57 @@
+Sep 12 05:30:46 ubuntu kernel: NVRM: GPU0 kgspHealthCheck_TU102: ****************************** GSP-CrashCat Report *******************************
+Sep 12 05:30:46 ubuntu kernel: NVRM: GPU0 kgspPrintGspBinBuildId_IMPL: GSP bin buildId: fa3de1ff30e1a8c99f84eb74a32b80d462c3703b
+Sep 12 05:30:46 ubuntu kernel: NVRM: Xid (PCI:0000:00:07): 120, pid=1671498, name=CUPTI worker th, GSP task exception: store access page fault (cause:0xf) @ pc:0x1515414, partition:4#0, task:3, gfid: 0
+Sep 12 05:30:46 ubuntu kernel: NVRM:     Reported by libos partition:4#5 kernel v3.1 [0] @ ts:447615
+Sep 12 05:30:46 ubuntu kernel: NVRM:     RISC-V CSR State:
+Sep 12 05:30:46 ubuntu kernel: NVRM:         sstatus:0x0000000200000020  sscratch:0xffffffffa3013970     sie:0x0000000000000220  sip:0x0000000000000000
+Sep 12 05:30:46 ubuntu kernel: NVRM:         sepc:0x0000000001515414     stval:0x0000000000000000  scause:0x000000000000000f
+Sep 12 05:30:46 ubuntu kernel: NVRM:     RISC-V GPR State:
+Sep 12 05:30:46 ubuntu kernel: NVRM:         ra:0x00000000015151b6   sp:0x00000007fa60f6e0   gp:0x0000000000000000   tp:0x00000007faa00000
+Sep 12 05:30:46 ubuntu kernel: NVRM:         a0:0x0000000000000000   a1:0x0000000001e4bda8   a2:0x0000000020306a38   a3:0x0000000000000000
+Sep 12 05:30:46 ubuntu kernel: NVRM:         a4:0x0000000000000000   a5:0x0000000000000000   a6:0x0000000300000000   a7:0x0000000000000003
+Sep 12 05:30:46 ubuntu kernel: NVRM:         s0:0x00000007fa60f7a0   s1:0x0000000004a1bdd8   s2:0x0000000000000000   s3:0x00000007f33e17d0
+Sep 12 05:30:46 ubuntu kernel: NVRM:         s4:0x0000000000000000   s5:0x0000000000000000   s6:0x00000007f3245d50   s7:0x0000000000000001
+Sep 12 05:30:46 ubuntu kernel: NVRM:         s8:0x0000000000000000   s9:0x00000000041932e0  s10:0x0000000000000000  s11:0x0000000000000001
+Sep 12 05:30:46 ubuntu kernel: NVRM:         t0:0x0000000000000005   t1:0x0000000001ad0ef8   t2:0x0000000000000000   t3:0x0000000000000003
+Sep 12 05:30:46 ubuntu kernel: NVRM:         t4:0x0000000300000000   t5:0x0000000040000000   t6:0x0000000000043ff8
+Sep 12 05:30:46 ubuntu kernel: NVRM:     Stack Trace:
+Sep 12 05:30:46 ubuntu kernel: NVRM:         0x0000000001515414
+Sep 12 05:30:46 ubuntu kernel: NVRM:         0x00000000015222fe
+Sep 12 05:30:46 ubuntu kernel: NVRM:         0x00000000018eb828
+Sep 12 05:30:46 ubuntu kernel: NVRM:         0x0000000001b2d058
+Sep 12 05:30:46 ubuntu kernel: NVRM:         0x0000000001045214
+Sep 12 05:30:46 ubuntu kernel: NVRM:         0x00000000010459d8
+Sep 12 05:30:46 ubuntu kernel: NVRM:         0x0000000001ac8dee
+Sep 12 05:30:46 ubuntu kernel: NVRM:         0x0000000001bda1b0
+Sep 12 05:30:46 ubuntu kernel: NVRM:         0x0000000001add628
+Sep 12 05:30:46 ubuntu kernel: NVRM:         0x0000000001c452c0
+Sep 12 05:30:46 ubuntu kernel: NVRM:         0x0000000001ad6fa0
+Sep 12 05:30:46 ubuntu kernel: NVRM:     PC Trace:
+Sep 12 05:30:46 ubuntu kernel: NVRM:         0x0000000001515414
+Sep 12 05:30:46 ubuntu kernel: NVRM:     Local I/O Register State:
+Sep 12 05:30:46 ubuntu kernel: NVRM:         0x01450800:0x00000000   0x01450900:0xbadf1002   0x01450a00:0x00000000   0x01450c00:0x00000000
+Sep 12 05:30:46 ubuntu kernel: NVRM:         0x01454a00:0x810490d2   0x01454b00:0x010800d0   0x01454c00:0x00080000   0x01400200:0x00000000
+Sep 12 05:30:46 ubuntu kernel: NVRM:     ---------------[ end report ]---------------
+Sep 12 05:30:46 ubuntu kernel: NVRM: GPU0 GSP RPC buffer contains function 76 (GSP_RM_CONTROL) sequence 14306557 and data 0x00000000b0cc0109 0x0000000000000030.
+Sep 12 05:30:46 ubuntu kernel: NVRM: GPU0 RPC history (CPU -> GSP):
+Sep 12 05:30:46 ubuntu kernel: NVRM:     entry function                     sequence data0              data1              ts_start           ts_end             duration actively_polling
+Sep 12 05:30:46 ubuntu kernel: NVRM:      0    76   GSP_RM_CONTROL          14306557 0x00000000b0cc0109 0x0000000000000030 0x00065b4280c2d23e 0x0000000000000000          y
+Sep 12 05:30:46 ubuntu kernel: NVRM:     -1    76   GSP_RM_CONTROL          14306556 0x00000000b0cc0206 0x0000000000000004 0x00065b4280c2b7ec 0x00065b4280c2d210   6692us
+Sep 12 05:30:46 ubuntu kernel: NVRM:     -2    76   GSP_RM_CONTROL          14306555 0x00000000b0cc0109 0x0000000000000030 0x00065b4280c29fee 0x00065b4280c2a1ca    476us
+Sep 12 05:30:46 ubuntu kernel: NVRM:     -3    76   GSP_RM_CONTROL          14306554 0x00000000b0cc0109 0x0000000000000030 0x00065b4280c29df7 0x00065b4280c29fd3    476us
+Sep 12 05:30:46 ubuntu kernel: NVRM:     -4    76   GSP_RM_CONTROL          14306553 0x00000000a06c0105 0x0000000000000008 0x00065b4280c29c6c 0x00065b4280c29d3f    211us
+Sep 12 05:30:46 ubuntu kernel: NVRM:     -5    76   GSP_RM_CONTROL          14306552 0x00000000a06c0105 0x0000000000000008 0x00065b4280c29a2b 0x00065b4280c29af7    204us
+Sep 12 05:30:46 ubuntu kernel: NVRM:     -6    76   GSP_RM_CONTROL          14306551 0x00000000a06c0105 0x0000000000000008 0x00065b4280c29867 0x00065b4280c29939    210us
+Sep 12 05:30:46 ubuntu kernel: NVRM:     -7    76   GSP_RM_CONTROL          14306550 0x00000000a06c0105 0x0000000000000008 0x00065b4280c28f17 0x00065b4280c28ff6    223us
+Sep 12 05:30:46 ubuntu kernel: NVRM: GPU0 RPC event history (CPU <- GSP):
+Sep 12 05:30:46 ubuntu kernel: NVRM:     entry function                     sequence data0              data1              ts_start           ts_end             duration during_incomplete_rpc
+Sep 12 05:30:46 ubuntu kernel: NVRM:      0    4099 POST_EVENT                     0 0x0000000000000000 0x0000000000000000 0x00065b34f4e29445 0x00065b34f4e2944f     10us
+Sep 12 05:30:46 ubuntu kernel: NVRM:     -1    4100 RC_TRIGGERED                   0 0x0000000000000001 0x000000000000002b 0x00065b34f4e2929a 0x00065b34f4e292cf     53us
+Sep 12 05:30:46 ubuntu kernel: NVRM:     -2    4102 OS_ERROR_LOG                   0 0x0000000000000000 0x0000000000000000 0x00065b34f4e28e80 0x00065b34f4e28e93     19us
+Sep 12 05:30:46 ubuntu kernel: NVRM:     -3    4099 POST_EVENT                     0 0x0000000000000003 0x0000000000000000 0x00065b34f4ddc353 0x00065b34f4ddc35c      9us
+Sep 12 05:30:46 ubuntu kernel: NVRM:     -4    4099 POST_EVENT                     0 0x0000000000000003 0x0000000000000000 0x00065b34f4ddc346 0x00065b34f4ddc352     12us
+Sep 12 05:30:46 ubuntu kernel: NVRM:     -5    4099 POST_EVENT                     0 0x0000000000000001 0x0000000000000000 0x00065b34f4ddbed0 0x00065b34f4ddbed2      2us
+Sep 12 05:30:46 ubuntu kernel: NVRM:     -6    4099 POST_EVENT                     0 0x0000000000000004 0x0000000000000000 0x00065b34f4ddbec1 0x00065b34f4ddbecf     14us
+Sep 12 05:30:46 ubuntu kernel: NVRM:     -7    4099 POST_EVENT                     0 0x0000000000000000 0x0000000000000000 0x00065b3494e36560 0x00065b3494e3656a     10us
+Sep 12 05:30:46 ubuntu kernel: NVRM: GPU0 krcRcAndNotifyAllChannels_IMPL: RC all user channels for critical error 120.
+Sep 12 05:31:16 ubuntu kernel: NVRM: GPU0 _threadNodeCheckTimeout: _threadNodeCheckTimeout: currentTime: fdfeb38728e00 >= fdfeb38728e00

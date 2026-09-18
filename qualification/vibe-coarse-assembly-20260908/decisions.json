@@ -1,0 +1,13 @@
+{
+  "screen-b": "🟰 comparison / intermediate",
+  "screen-tiled": "✅ superseded",
+  "screen-members": "✅ superseded",
+  "screen-self-cache": "✅ superseded",
+  "screen-wide-cache": "✅ superseded",
+  "screen-compact-build": "✅ superseded",
+  "screen-cached-rows": "❌ smaller row groups reverted",
+  "screen-expanded-cache": "✅ retained cache",
+  "screen-resident-grid": "✅ retained large solver schedule",
+  "screen-grid-constant": "❌ annotation reverted",
+  "screen-narrow-inverse": "✅ narrow call retained; no timing win"
+}

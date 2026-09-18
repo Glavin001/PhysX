@@ -1,0 +1,146 @@
+{
+  "description": "28 structural/rigid-body saved states plus all 24 native city states in destruction-snapshot-large.json. Source cold/warm labels do not serialize caches.",
+  "structural": [
+    {
+      "scenario": "bridge64-cold",
+      "purpose": "Two supports and a spanning load path; bending and load redistribution.",
+      "chunks": 768
+    },
+    {
+      "scenario": "bridge64-warm",
+      "purpose": "Two supports and a spanning load path; bending and load redistribution.",
+      "chunks": 768
+    },
+    {
+      "scenario": "building-cold",
+      "purpose": "Multi-storey wall/slab connectivity and shared supports.",
+      "chunks": 444
+    },
+    {
+      "scenario": "building-fragmented",
+      "purpose": "Multi-storey wall/slab connectivity and shared supports.",
+      "chunks": 444
+    },
+    {
+      "scenario": "building-warm",
+      "purpose": "Multi-storey wall/slab connectivity and shared supports.",
+      "chunks": 444
+    },
+    {
+      "scenario": "cantilever64-cold",
+      "purpose": "One-sided support and a long bending lever arm.",
+      "chunks": 64
+    },
+    {
+      "scenario": "cantilever64-warm",
+      "purpose": "One-sided support and a long bending lever arm.",
+      "chunks": 64
+    },
+    {
+      "scenario": "chain256-cold",
+      "purpose": "Long sparse chain with slow stress propagation.",
+      "chunks": 256
+    },
+    {
+      "scenario": "chain256-warm",
+      "purpose": "Long sparse chain with slow stress propagation.",
+      "chunks": 256
+    },
+    {
+      "scenario": "chain32-cold",
+      "purpose": "Short sparse-chain control.",
+      "chunks": 32
+    },
+    {
+      "scenario": "chain32-warm",
+      "purpose": "Short sparse-chain control.",
+      "chunks": 32
+    },
+    {
+      "scenario": "dense12-cold",
+      "purpose": "Dense 3D connectivity and redundant load paths.",
+      "chunks": 1728
+    },
+    {
+      "scenario": "dense12-warm",
+      "purpose": "Dense 3D connectivity and redundant load paths.",
+      "chunks": 1728
+    },
+    {
+      "scenario": "destruction-cold",
+      "purpose": "Fresh intact two-chunk structure.",
+      "chunks": 2
+    },
+    {
+      "scenario": "destruction-damaged",
+      "purpose": "Partially damaged bond with persistent material history.",
+      "chunks": 2
+    },
+    {
+      "scenario": "destruction-fractured",
+      "purpose": "Already fractured chunks and physical ownership.",
+      "chunks": 2
+    },
+    {
+      "scenario": "destruction-intact",
+      "purpose": "Intact bond after prior physical evolution.",
+      "chunks": 2
+    },
+    {
+      "scenario": "destruction-onset",
+      "purpose": "Projectile approaching the two-chunk fracture fixture.",
+      "chunks": 2
+    },
+    {
+      "scenario": "destruction-stimulus",
+      "purpose": "New impulse and angular velocity submitted inside the measured tick.",
+      "chunks": 2,
+      "projectile_impulse": true
+    },
+    {
+      "scenario": "flying",
+      "purpose": "Free-flight gravity reference without destruction.",
+      "chunks": 0
+    },
+    {
+      "scenario": "ladder128-cold",
+      "purpose": "Repeated loops joined by long parallel rails.",
+      "chunks": 288
+    },
+    {
+      "scenario": "ladder128-warm",
+      "purpose": "Repeated loops joined by long parallel rails.",
+      "chunks": 288
+    },
+    {
+      "scenario": "panel32-cold",
+      "purpose": "Broad thin surface with many in-plane paths.",
+      "chunks": 1024
+    },
+    {
+      "scenario": "panel32-warm",
+      "purpose": "Broad thin surface with many in-plane paths.",
+      "chunks": 1024
+    },
+    {
+      "scenario": "resting",
+      "purpose": "Resting rigid-body contact/sleep control.",
+      "chunks": 0
+    },
+    {
+      "scenario": "sliding",
+      "purpose": "Frictional rigid-body contact control.",
+      "chunks": 0
+    },
+    {
+      "scenario": "tower64-cold",
+      "purpose": "Tall slender structure under gravity and bending.",
+      "chunks": 2368
+    },
+    {
+      "scenario": "tower64-warm",
+      "purpose": "Tall slender structure under gravity and bending.",
+      "chunks": 2368
+    }
+  ]
+}

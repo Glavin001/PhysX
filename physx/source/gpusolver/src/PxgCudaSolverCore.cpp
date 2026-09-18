@@ -26,6 +26,7 @@
 // Copyright (c) 2004-2008 AGEIA Technologies, Inc. All rights reserved.
 // Copyright (c) 2001-2004 NovodeX AG. All rights reserved.
 
+#include "PxgDestructionRuntime.h"
 #include "PxgCudaSolverCore.h"
 #include "PxgCommonDefines.h"
 #include "PxgSolverConstraintDesc.h"
@@ -102,6 +103,7 @@ PxgCudaSolverCore::PxgCudaSolverCore(PxgCudaKernelWranglerManager* gpuKernelWran
 	mThresholdStreamWriteable(allocDesc.deviceAlloc, PxsHeapStats::eSOLVER),
 	mIslandIds(allocDesc.deviceAlloc, PxsHeapStats::eSOLVER),
 	mIslandStaticTouchCount(allocDesc.deviceAlloc, PxsHeapStats::eSOLVER),
+    mIslandMetadataPages(allocDesc.deviceAlloc, PxsHeapStats::eSOLVER),
 	mFrictionEveryIteration(frictionEveryIteration)
 {
 	mCudaContextManager->acquireContext();
@@ -312,7 +314,7 @@ void PxgCudaSolverCore::gpuMemDMAUpContactData(PxgPinnedHostLinearMemoryAllocato
 	PxU32 nbPartitions, const PxU32* destroyedEdges, PxU32 nbDestroyedEdges,
 	const PxU32* npIndexArray, PxU32 npIndexArraySize,
 	PxU32 totalNumJoints,
-	const PxU32* islandIds, const PxU32* nodeInteractionCounts, PxU32 nbNodes, const PxU32* islandStaticTouchCount, PxU32 nbIslands)
+	const PxU32* islandIds, const PxU32* nodeInteractionCounts, PxU32 nbNodes, const PxU32* islandStaticTouchCount, PxU32 nbIslands, bool metadataPagesOnly, const PxvIslandMetadataPage* metadataPages, PxU32 metadataPageCount)
 {
 	PX_PROFILE_ZONE("PxgCudaSolverCore.gpuMemDMAUpContactData", 0);
 	PX_UNUSED(compressedPatchStreamLowerPartSize);
@@ -338,8 +340,12 @@ void PxgCudaSolverCore::gpuMemDMAUpContactData(PxgPinnedHostLinearMemoryAllocato
 
 	mNpIndexArray.allocate(sizeof(PxU32) * npIndexArraySize, PX_FL);
 
+    // CUDA-produced inputs have their own resident storage. Native fallback
+    // allocates and uploads a complete current snapshot before consuming it.
+    if(!mPreSolveIslandIds) {
 	mIslandIds.allocate(nbNodes * sizeof(PxU32), PX_FL);
 	mIslandStaticTouchCount.allocate(nbIslands * sizeof(PxU32), PX_FL);
+    }
 	allocateNodeInteractionCounts(nbNodes);
 
 	mTotalContactManagers = totalContactManagers;
@@ -368,8 +374,22 @@ void PxgCudaSolverCore::gpuMemDMAUpContactData(PxgPinnedHostLinearMemoryAllocato
 	mCudaContext->memcpyHtoDAsync(mPartitionJointBatchCounts.getDevicePtr(), partitionJointBatchCounts, sizeof(PxU32) * nbPartitions, mStream);
 	mCudaContext->memcpyHtoDAsync(mPartitionArtiJointBatchCounts.getDevicePtr(), partitionArtiJointBatchCounts, sizeof(PxU32) * nbPartitions, mStream);
 	mCudaContext->memcpyHtoDAsync(mNpIndexArray.getDevicePtr(), npIndexArray, npIndexArraySize * sizeof(PxU32), mStream);
-	mCudaContext->memcpyHtoDAsync(mIslandIds.getDevicePtr(), islandIds, nbNodes * sizeof(PxU32), mStream);
-	mCudaContext->memcpyHtoDAsync(mIslandStaticTouchCount.getDevicePtr(), islandStaticTouchCount, sizeof(PxU32) * nbIslands, mStream);
+    if(metadataPagesOnly) {
+        if(metadataPageCount) {
+            mIslandMetadataPages.allocate(PxU64(metadataPageCount)*sizeof(PxvIslandMetadataPage),PX_FL);
+            mCudaContext->memcpyHtoDAsync(mIslandMetadataPages.getDevicePtr(),metadataPages,
+                PxU64(metadataPageCount)*sizeof(PxvIslandMetadataPage),mStream);
+            if(!PxApplyDestructionSolverIslandMetadata(mIslandMetadataPages.getTypedPtr(),metadataPageCount,
+                mIslandIds.getTypedPtr(),nbNodes,mIslandStaticTouchCount.getTypedPtr(),nbIslands,mStream)) {
+                mCudaContext->setAbortMode(true);
+                PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR,PX_FL,"GPU solver island metadata update failed; simulation is incomplete.");
+                return;
+            }
+        }
+    } else {
+        mCudaContext->memcpyHtoDAsync(mIslandIds.getDevicePtr(),islandIds,nbNodes*sizeof(PxU32),mStream);
+        mCudaContext->memcpyHtoDAsync(mIslandStaticTouchCount.getDevicePtr(),islandStaticTouchCount,sizeof(PxU32)*nbIslands,mStream);
+    }
 	uploadNodeInteractionCounts(nodeInteractionCounts, nbNodes);
 
 	mCudaContext->memcpyHtoDAsync(mDestroyedEdgeIndices.getDevicePtr(), destroyedEdges, nbDestroyedEdges*sizeof(PxU32), mStream);
@@ -881,6 +901,11 @@ void PxgCudaSolverCore::preIntegration(const PxU32 offset, const PxU32 nbSolverB
 		CUdeviceptr outTransforms = mOutBody2WorldPool.getDevicePtr();
 		CUdeviceptr solverTxIDatad = mSolverTxIDataPool.getDevicePtr();
 		CUdeviceptr outVelocities = mOutVelocityPool.getDevicePtr();
+        // Ordinary native mode publishes CPU mass frames only after correction.
+        // Direct-GPU historical reference mode has no such host publication.
+        const auto nativeBodySims=mGpuContext->usesNativeKinematicInputs()
+            ? mGpuContext->getSimulationCore()->getBodySimBufferDevicePtr() : PxgDevicePointer<PxgBodySim>(0);
+        const auto kinematicInputs=mGpuContext->getSimulationCore()->getKinematicInputs();
 
 		PxCudaKernelParam kernelParams[] =
 		{
@@ -891,7 +916,9 @@ void PxgCudaSolverCore::preIntegration(const PxU32 offset, const PxU32 nbSolverB
 			PX_CUDA_KERNEL_PARAM(outTransforms),
 			PX_CUDA_KERNEL_PARAM(outVelocities),
 			PX_CUDA_KERNEL_PARAM(islandNodeIndices),
-			PX_CUDA_KERNEL_PARAM(solverBodyIndices)
+			PX_CUDA_KERNEL_PARAM(solverBodyIndices),
+            PX_CUDA_KERNEL_PARAM(nativeBodySims),
+            PX_CUDA_KERNEL_PARAM(kinematicInputs)
 		};
 
 		CUresult launchResult = mCudaContext->launchKernel(staticInitFunction, nbStaticBlocks, 1, 1, PxgKernelBlockDim::PRE_INTEGRATION, 1, 1, 0, mStream, kernelParams, sizeof(kernelParams), 0, PX_FL);
@@ -1787,8 +1814,8 @@ void PxgCudaSolverCore::integrateCoreParallel(const PxU32 offset, const PxU32 nb
 	PX_PROFILE_ZONE("GpuDynamics.Integrate", 0);
 
 	const CUfunction kernelFunction = mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::INTEGRATE_CORE_PARALLEL);
-	CUdeviceptr islandIds = mIslandIds.getDevicePtr();
-	CUdeviceptr islandStaticTouchCounts = mIslandStaticTouchCount.getDevicePtr();
+	CUdeviceptr islandIds = mPreSolveIslandIds ? mPreSolveIslandIds : mIslandIds.getDevicePtr();
+	CUdeviceptr islandStaticTouchCounts = mPreSolveStaticTouches ? mPreSolveStaticTouches : mIslandStaticTouchCount.getDevicePtr();
 	CUdeviceptr nodeIteractionCounts = mNodeInteractionCounts.getDevicePtr();
 
 	PxCudaKernelParam kernelParams[] =

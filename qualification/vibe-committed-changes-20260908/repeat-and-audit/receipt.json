@@ -1,0 +1,135 @@
+{
+  "commands": [
+    {
+      "name": "publication",
+      "command": [
+        "ctest",
+        "--test-dir",
+        "out/destruction-sdk",
+        "-R",
+        "^destruction_gpu_committed_changes$",
+        "--output-on-failure"
+      ],
+      "exit": 0,
+      "mapped": {}
+    },
+    {
+      "name": "memcheck",
+      "command": [
+        "/usr/local/cuda/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "99",
+        "/root/workspace/physx-2/out/destruction-sdk/topology/destruction_committed_changes_test"
+      ],
+      "exit": 0,
+      "mapped": {}
+    },
+    {
+      "name": "audit-256",
+      "command": [
+        "/root/workspace/physx-2/out/vibe-native/release/examples/embedded_city_bench",
+        "/root/workspace/physx-2/out/vibe-committed-changes-20260908/repeat-and-audit/audit-256",
+        "8",
+        "600",
+        "3"
+      ],
+      "exit": 0,
+      "mapped": {
+        "libPhysXDestructionGpuRuntime_64.so": {
+          "path": "/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so",
+          "sha256": "7c7fead20c47a2c92dec0d09d628df7ed4a09c7d2a8e7a5d6f89c7dfd9d82de3"
+        },
+        "libPhysXGpuActivity_64.so": {
+          "path": "/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so",
+          "sha256": "073c0448421013734b228db718ba56656e3e3d8cb5a80d186978027b073162d0"
+        }
+      }
+    },
+    {
+      "name": "baseline1",
+      "command": [
+        "/root/workspace/physx-2/out/vibe-committed-changes-20260908/baseline/embedded_city_bench",
+        "/root/workspace/physx-2/out/vibe-committed-changes-20260908/repeat-and-audit/baseline1",
+        "8",
+        "600",
+        "3"
+      ],
+      "exit": 0,
+      "mapped": {
+        "libPhysXDestructionGpuRuntime_64.so": {
+          "path": "/root/workspace/physx-2/out/vibe-coarse-assembly-20260908/physical-polynomial/libPhysXDestructionGpuRuntime_64.so",
+          "sha256": "c00cfe8bc96922866237031f23aee18dfa5a0944854ba18bc5ef0face61a10db"
+        },
+        "libPhysXGpuActivity_64.so": {
+          "path": "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so",
+          "sha256": "f7ec9e900d68910d15563226d4fa28afd3f9c344ea16fa51ba6c235d0c529464"
+        }
+      }
+    },
+    {
+      "name": "candidate1",
+      "command": [
+        "/root/workspace/physx-2/out/vibe-native/release/examples/embedded_city_bench",
+        "/root/workspace/physx-2/out/vibe-committed-changes-20260908/repeat-and-audit/candidate1",
+        "8",
+        "600",
+        "3"
+      ],
+      "exit": 0,
+      "mapped": {
+        "libPhysXGpuActivity_64.so": {
+          "path": "/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so",
+          "sha256": "073c0448421013734b228db718ba56656e3e3d8cb5a80d186978027b073162d0"
+        },
+        "libPhysXDestructionGpuRuntime_64.so": {
+          "path": "/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so",
+          "sha256": "7c7fead20c47a2c92dec0d09d628df7ed4a09c7d2a8e7a5d6f89c7dfd9d82de3"
+        }
+      }
+    },
+    {
+      "name": "candidate2",
+      "command": [
+        "/root/workspace/physx-2/out/vibe-native/release/examples/embedded_city_bench",
+        "/root/workspace/physx-2/out/vibe-committed-changes-20260908/repeat-and-audit/candidate2",
+        "8",
+        "600",
+        "3"
+      ],
+      "exit": 0,
+      "mapped": {
+        "libPhysXDestructionGpuRuntime_64.so": {
+          "path": "/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so",
+          "sha256": "7c7fead20c47a2c92dec0d09d628df7ed4a09c7d2a8e7a5d6f89c7dfd9d82de3"
+        },
+        "libPhysXGpuActivity_64.so": {
+          "path": "/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so",
+          "sha256": "073c0448421013734b228db718ba56656e3e3d8cb5a80d186978027b073162d0"
+        }
+      }
+    },
+    {
+      "name": "baseline2",
+      "command": [
+        "/root/workspace/physx-2/out/vibe-committed-changes-20260908/baseline/embedded_city_bench",
+        "/root/workspace/physx-2/out/vibe-committed-changes-20260908/repeat-and-audit/baseline2",
+        "8",
+        "600",
+        "3"
+      ],
+      "exit": 0,
+      "mapped": {
+        "libPhysXDestructionGpuRuntime_64.so": {
+          "path": "/root/workspace/physx-2/out/vibe-coarse-assembly-20260908/physical-polynomial/libPhysXDestructionGpuRuntime_64.so",
+          "sha256": "c00cfe8bc96922866237031f23aee18dfa5a0944854ba18bc5ef0face61a10db"
+        },
+        "libPhysXGpuActivity_64.so": {
+          "path": "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so",
+          "sha256": "f7ec9e900d68910d15563226d4fa28afd3f9c344ea16fa51ba6c235d0c529464"
+        }
+      }
+    }
+  ]
+}

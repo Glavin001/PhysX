@@ -1,0 +1,1 @@
+PASS 120 production GPU transition cases; comparisons 1462232 -> 1044590; exact brute-force found/lost sets

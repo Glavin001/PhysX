@@ -1,0 +1,16 @@
+{
+  "binary": "/root/workspace/physx-2/out/destruction-baseline-20260913/plain/serialization-probe",
+  "manifest": "/root/workspace/physx-2/out/destruction-baseline-20260913/fast-manifest.json",
+  "matched_runner": "/root/workspace/physx-2/out/destruction-baseline-20260913/harness/tools/diagnostics/destruction-snapshot/run-matched.py",
+  "artifacts": "/root/workspace/physx-2/out/destruction-baseline-20260913/artifacts",
+  "source_commit": "13b11af2e0aeabf4e0070931fbd8a060f383dfaf",
+  "files_sha256": {
+    "/root/workspace/physx-2/out/destruction-baseline-20260913/plain/serialization-probe": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+    "/root/workspace/physx-2/out/destruction-baseline-20260913/fast-manifest.json": "750d42e28c5b802577c1ef38efd76be30f294bba5362da65776d071143f2da25",
+    "/root/workspace/physx-2/out/destruction-baseline-20260913/harness/tools/diagnostics/destruction-snapshot/run-matched.py": "cd2a50501e6df5bde0da0540607671144a5ceb0c95a3218e223da75ab3cb15e7",
+    "/root/workspace/physx-2/out/destruction-baseline-20260913/harness/tools/diagnostics/destruction-snapshot/run-probe.py": "5d7461ded65c2e69cf7c525851a8660d9bd2360bf0e9d74c663ca338762a6af4",
+    "/root/workspace/physx-2/out/destruction-baseline-20260913/harness/tools/diagnostics/destruction-snapshot/compare-observations.py": "6f256f04de9fd87774593cba6ef1dc5455bfbb5cbbd909779ec9e3afb0bbab31",
+    "/root/workspace/physx-2/out/destruction-baseline-20260913/artifacts/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354",
+    "/root/workspace/physx-2/out/destruction-baseline-20260913/artifacts/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5"
+  }
+}

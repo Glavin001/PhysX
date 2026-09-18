@@ -1,0 +1,681 @@
+{
+  "schema": 1,
+  "review_date": "2026-09-08",
+  "source_commit": "ab30a85b410603c284255f562f92f7733ab5ad8e",
+  "baseline_sha256": "7bd0997f0feca32ce2d5570d6bfc01ebd9d58d133067b63cd23b1db9125304c5",
+  "runtime_sha256": "c9e09e4d05f9077928428137311cf665774e053e40c4a12d03d2c7a2790f1511",
+  "assumptions_are_not_predictions": true,
+  "hardware_counters_available": false,
+  "scenario_steps": [
+    82,
+    102,
+    103
+  ],
+  "sensitivity": {
+    "baseline_peak_ms": 58.579417,
+    "results": [
+      {
+        "id": "A",
+        "title": "\ud83d\ude9a GPU-native fragment motion and shape ownership",
+        "original_rank": 1,
+        "original_savings_ms": [
+          3.027577700000002,
+          5.190133199999998
+        ],
+        "second_control_savings_ms": [
+          5.782985949999997,
+          9.913690199999998
+        ],
+        "second_control_rank": 1
+      },
+      {
+        "id": "C",
+        "title": "\ud83d\ude9a GPU admission and lifecycle for new contact pairs",
+        "original_rank": 3,
+        "original_savings_ms": [
+          0.46522774999999683,
+          0.9304555000000008
+        ],
+        "second_control_savings_ms": [
+          1.6400922500000021,
+          3.280184499999997
+        ],
+        "second_control_rank": 2
+      },
+      {
+        "id": "B",
+        "title": "\u26a1 Reduce full resident stress iteration cost",
+        "original_rank": 2,
+        "original_savings_ms": [
+          1.569479833149991,
+          2.7104206662999957
+        ],
+        "second_control_savings_ms": [
+          1.1427695989499966,
+          2.2855391979000004
+        ],
+        "second_control_rank": 3
+      },
+      {
+        "id": "D",
+        "title": "\ud83d\uddd1\ufe0f Rebuild only changed stress setup; omit unused motion-mode work",
+        "original_rank": 4,
+        "original_savings_ms": [
+          0.34429215000000113,
+          0.8033483500000003
+        ],
+        "second_control_savings_ms": [
+          0.3423926999999978,
+          0.7989163000000019
+        ],
+        "second_control_rank": 4
+      },
+      {
+        "id": "E",
+        "title": "\ud83d\uddd1\ufe0f Remove intermediate host decisions and resubmission",
+        "original_rank": 5,
+        "original_savings_ms": [
+          0.07668300000000272,
+          0.15336599999999834
+        ],
+        "second_control_savings_ms": [
+          0.0974787500000005,
+          0.194957500000001
+        ],
+        "second_control_rank": 5
+      },
+      {
+        "id": "F",
+        "title": "\u26a1 Fuse contact-load and material preparation where inputs permit",
+        "original_rank": 6,
+        "original_savings_ms": [
+          0.031027200437996783,
+          0.06205440087600067
+        ],
+        "second_control_savings_ms": [
+          0.021057600528003206,
+          0.04211520105599931
+        ],
+        "second_control_rank": 6
+      },
+      {
+        "id": "G",
+        "title": "\ud83c\udfaf Selective correction with exact dependency closure",
+        "original_rank": 7,
+        "original_savings_ms": [
+          0.0,
+          0.993499749999998
+        ],
+        "second_control_savings_ms": [
+          0.0,
+          1.3196407000000008
+        ],
+        "second_control_rank": 7
+      }
+    ],
+    "provenance": {
+      "qualification/native-contact-properties-baseline-control/report.json.gz": "bf40525fce18bd7828cebdeb13fe4b7823c7cea7fc31778b29c0498aa51d195f",
+      "qualification/native-contact-properties-initial-comparison/samples/baseline/impacts-256-phases-0/native.frames.csv.gz": "3de83adcb4ecdc1b9995bf0aef06bcf366d3bb2af221827ef753376e40eb089e",
+      "qualification/native-contact-properties-initial-comparison/samples/baseline/impacts-256-phases-0/native.summary.json": "0fc357d826514c2ca0a6e679d6482bbb4db07a541b687274c9234c375392f61c",
+      "qualification/native-contact-properties-initial-comparison/samples/baseline/impacts-256-plain-0/native.frames.csv.gz": "9792a85339263d43a6297ffeb2640ecf455082716e183d93b575d04215945c8e",
+      "qualification/native-contact-properties-initial-comparison/samples/baseline/impacts-256-plain-0/native.summary.json": "b0950f0d1eb59a843e3c06cbc9defc1283e224e2438638a03805cd5e07fc2ea3",
+      "qualification/native-contact-properties-initial-comparison/samples/baseline/impacts-256-plain-1/native.frames.csv.gz": "e140b75a43890568b67a8febc3c4f8f241265d7b655caa10ec64095f844a09ed",
+      "qualification/native-contact-properties-initial-comparison/samples/baseline/impacts-256-plain-1/native.summary.json": "07ae58056a24849c99772145b0034198160592a868e7b17b006ee91400077e61"
+    }
+  },
+  "workload": {
+    "buildings": 256,
+    "chunks": 113664,
+    "bonds": 229376,
+    "projectiles": 256,
+    "seconds": 3,
+    "correction_limit": 1,
+    "sleeping": false,
+    "crushing_material_enabled": false,
+    "projectile_mass_kg": 18000,
+    "material_strength_scale": 24,
+    "frame_strength_scale": 40,
+    "layout": "grid",
+    "shot_path": "aerial"
+  },
+  "facts": {
+    "82": {
+      "groups": {
+        "stress": 8.254274,
+        "ownership": 16.071859999999997,
+        "correction": 26.473349000000002,
+        "commit": 2.362967,
+        "checkpoint": 0.009457,
+        "trial": 3.109672,
+        "commands": 0.0,
+        "completion": 0.0
+      },
+      "cuda": {
+        "commitAndStressTopology": 0.04403200001,
+        "contactLoads": 0.05529600009,
+        "materials": 0.07680000365,
+        "stress": 7.606272221,
+        "topologyAndCandidates": 0.4526079893
+      },
+      "parts": {
+        "acceptCorrection": 2.362967,
+        "applyBindings.other": 0.104875,
+        "applyDetail.migrateShapes.other": 4.689606,
+        "applyDetail.scheduleOwners": 0.237433,
+        "applyDetail.validateOwners": 0.716226,
+        "checkpoint": 0.009457,
+        "collisionBindings": 0.092482,
+        "correctedCollisionSolve": 26.402838,
+        "correctionBodies": 0.070972,
+        "finishAndReserve.other": 0.007033,
+        "finishDetail.allocateNativeBodies": 6.079207,
+        "finishDetail.growMotionSlots": 0.027761,
+        "finishDetail.publishReservation": 0.019396,
+        "finishDetail.requestReadback": 0.158505,
+        "finishDetail.reserveBodies.other": 0.011633,
+        "finishDetail.uploadBindings": 0.0,
+        "finishDetail.waitForGpu": 8.1236,
+        "initializeReserved": 0.062316,
+        "migrateDetail.actorLinks": 0.519806,
+        "migrateDetail.queryMirror": 1.549897,
+        "migrateDetail.refilter": 0.289935,
+        "migrateDetail.registerOwner": 0.691711,
+        "migrateDetail.retireContacts": 0.5522,
+        "preparationCompletion": 0.190866,
+        "resetContactCaches": 0.005711,
+        "restoreInstall": 0.0648,
+        "submit": 0.130674,
+        "trial.other": 3.109672
+      },
+      "contact_proxy": 6.86895,
+      "handoff_proxy": 0.368767,
+      "work": {
+        "bodies": "5376",
+        "awake_bodies": "5376",
+        "logical_clusters": "5120",
+        "contacts_frame": "1024",
+        "stress_active_nodes": "92672",
+        "stress_active_bonds": "172544",
+        "stress_islands": "512",
+        "stress_iterations": "95",
+        "bonds_broken": "28160",
+        "resim_passes": "1"
+      },
+      "plain_ms": [
+        51.773672,
+        53.173993
+      ]
+    },
+    "102": {
+      "groups": {
+        "stress": 19.022033999999998,
+        "ownership": 7.794604999999999,
+        "correction": 15.112083000000002,
+        "commit": 2.331678,
+        "checkpoint": 0.264424,
+        "trial": 6.173282,
+        "commands": 0.0,
+        "completion": 0.0
+      },
+      "cuda": {
+        "commitAndStressTopology": 0.04022400081,
+        "contactLoads": 0.1167360023,
+        "materials": 0.06963200122,
+        "stress": 18.27020836,
+        "topologyAndCandidates": 0.4904960096
+      },
+      "parts": {
+        "acceptCorrection": 2.331678,
+        "applyBindings.other": 0.125723,
+        "applyDetail.migrateShapes.other": 1.230735,
+        "applyDetail.scheduleOwners": 0.061415,
+        "applyDetail.validateOwners": 0.357267,
+        "checkpoint": 0.264424,
+        "collisionBindings": 0.023834,
+        "correctedCollisionSolve": 15.08403,
+        "correctionBodies": 0.017372,
+        "finishAndReserve.other": 0.006762,
+        "finishDetail.allocateNativeBodies": 2.842762,
+        "finishDetail.growMotionSlots": 0.0,
+        "finishDetail.publishReservation": 0.005891,
+        "finishDetail.requestReadback": 0.096791,
+        "finishDetail.reserveBodies.other": 0.020988,
+        "finishDetail.uploadBindings": 0.0,
+        "finishDetail.waitForGpu": 18.866013,
+        "initializeReserved": 0.019557,
+        "migrateDetail.actorLinks": 0.24782,
+        "migrateDetail.queryMirror": 0.802173,
+        "migrateDetail.refilter": 0.14276,
+        "migrateDetail.registerOwner": 0.580041,
+        "migrateDetail.retireContacts": 1.013793,
+        "preparationCompletion": 0.198921,
+        "resetContactCaches": 0.005731,
+        "restoreInstall": 0.022322,
+        "submit": 0.156021,
+        "trial.other": 6.173282
+      },
+      "contact_proxy": 2.2067550000000002,
+      "handoff_proxy": 0.301603,
+      "work": {
+        "bodies": "10521",
+        "awake_bodies": "10521",
+        "logical_clusters": "10265",
+        "contacts_frame": "92758",
+        "stress_active_nodes": "88621",
+        "stress_active_bonds": "151280",
+        "stress_islands": "1606",
+        "stress_iterations": "282",
+        "bonds_broken": "7025",
+        "resim_passes": "1"
+      },
+      "plain_ms": [
+        49.158665,
+        48.325792
+      ]
+    },
+    "103": {
+      "groups": {
+        "stress": 19.445473,
+        "ownership": 8.650222,
+        "correction": 19.869995,
+        "commit": 2.295281,
+        "checkpoint": 0.009487,
+        "trial": 8.031608,
+        "commands": 0.0,
+        "completion": 0.0
+      },
+      "cuda": {
+        "commitAndStressTopology": 0.04095999897,
+        "contactLoads": 0.1372160017,
+        "materials": 0.06963200122,
+        "stress": 18.66752052,
+        "topologyAndCandidates": 0.4986880124
+      },
+      "parts": {
+        "acceptCorrection": 2.295281,
+        "applyBindings.other": 0.144681,
+        "applyDetail.migrateShapes.other": 1.659494,
+        "applyDetail.scheduleOwners": 0.058208,
+        "applyDetail.validateOwners": 0.342218,
+        "checkpoint": 0.009487,
+        "collisionBindings": 0.022121,
+        "correctedCollisionSolve": 19.841272,
+        "correctionBodies": 0.016992,
+        "finishAndReserve.other": 0.007504,
+        "finishDetail.allocateNativeBodies": 3.355448,
+        "finishDetail.growMotionSlots": 0.114814,
+        "finishDetail.publishReservation": 0.005911,
+        "finishDetail.requestReadback": 0.094306,
+        "finishDetail.reserveBodies.other": 0.008185,
+        "finishDetail.uploadBindings": 0.0,
+        "finishDetail.waitForGpu": 19.284403,
+        "initializeReserved": 0.027111,
+        "migrateDetail.actorLinks": 0.237648,
+        "migrateDetail.queryMirror": 0.735376,
+        "migrateDetail.refilter": 0.138885,
+        "migrateDetail.registerOwner": 0.506525,
+        "migrateDetail.retireContacts": 0.96828,
+        "preparationCompletion": 0.206515,
+        "resetContactCaches": 0.00571,
+        "restoreInstall": 0.023013,
+        "submit": 0.16107,
+        "trial.other": 8.031608
+      },
+      "contact_proxy": 1.860911,
+      "handoff_proxy": 0.306732,
+      "work": {
+        "bodies": "12072",
+        "awake_bodies": "12072",
+        "logical_clusters": "11816",
+        "contacts_frame": "109383",
+        "stress_active_nodes": "87306",
+        "stress_active_bonds": "143980",
+        "stress_islands": "1842",
+        "stress_iterations": "276",
+        "bonds_broken": "7300",
+        "resim_passes": "1"
+      },
+      "plain_ms": [
+        53.602532,
+        52.497011
+      ]
+    }
+  },
+  "ideas": [
+    {
+      "id": "A",
+      "title": "\ud83d\ude9a GPU-native fragment motion and shape ownership",
+      "basis": "ownership",
+      "fraction": [
+        0.35,
+        0.6
+      ],
+      "confidence": "Low for savings; strong evidence of CPU work",
+      "effort": "Large; requires contact-lifecycle integration",
+      "change": "Replace per-fragment NpRigidDynamic/BodySim construction and per-shape host rebinding with GPU motion slots, generation-bearing ownership transactions and explicit query observations. Keep immutable collision geometry and identities.",
+      "why": "The disjoint ownership group is 16.072 ms at step 82 and 8.650 ms at step 103. Body reservation alone is 6.079 / 3.355 ms; shape-migration remainder is 4.690 / 1.659 ms. These are concrete host lifecycle operations, not the physical stress solve.",
+      "assumption": "Scenario removes 35\u201360% of the measured ownership group NET of replacement GPU work. This is a planning assumption, not measured CUDA throughput. It deliberately leaves 40\u201365% for necessary allocation, validation, ownership, filtering and observation costs.",
+      "adversarial": "Cannot delete CPU records independently: existing contact managers, actor interaction lists, teardown and query ownership refer to them. A partial change that keeps the same CPU bridge may save almost nothing. GPU slot exhaustion, ordinary-body interaction and handle reuse must remain correct.",
+      "test": "Qualify one GPU-owned fragment lifecycle through collision, correction, query observation, removal and reuse; then measure removed CPU records/rebindings and complete-step peaks. No preallocated independently simulated body per intact chunk.",
+      "sources": [
+        "[NpDestructionBodyAllocator.h](/root/workspace/physx-2/physx/source/physx/src/NpDestructionBodyAllocator.h:93)",
+        "[ScShapeSimBase.cpp](/root/workspace/physx-2/physx/source/simulationcontroller/src/ScShapeSimBase.cpp:93)",
+        "[NpShapeManager.cpp](/root/workspace/physx-2/physx/source/physx/src/NpShapeManager.cpp:184)"
+      ],
+      "overlap": "Owns all ownership savings, including query deferral and relevant handoffs. Do not add those sub-ideas separately.",
+      "exposure_ms": {
+        "82": 16.071859999999997,
+        "102": 7.794604999999999,
+        "103": 8.650222
+      },
+      "conditional_step_savings_ms": {
+        "82": [
+          5.625150999999999,
+          9.643115999999997
+        ],
+        "102": [
+          2.7281117499999996,
+          4.676762999999999
+        ],
+        "103": [
+          3.0275776999999997,
+          5.190133199999999
+        ]
+      },
+      "conditional_observed_peak_savings_ms": [
+        3.027577700000002,
+        5.190133199999998
+      ],
+      "rank": 1
+    },
+    {
+      "id": "B",
+      "title": "\u26a1 Reduce full resident stress iteration cost",
+      "basis": "stress_cuda",
+      "fraction": [
+        0.15,
+        0.3
+      ],
+      "confidence": "Low",
+      "effort": "Medium\u2013large; first isolate current per-iteration costs",
+      "change": "Investigate a component-local layout for the ENTIRE hot recurrence, with persistent local node mapping and shared/register scratch across residual, preconditioner, direction and solution stages. Alternatively qualify a mathematically stronger component preconditioner; these are competing experiments, not additive benefits.",
+      "why": "Current componentStressSolve already runs iterations inside one CTA and retires components independently. Its hot vectors still live in global arrays and the polynomial adds a sparse traversal. Current stress intervals are 7.606 / 18.270 / 18.668 ms at steps 82 / 102 / 103.",
+      "assumption": "Scenario achieves 15\u201330% net reduction in the stress stream interval with unchanged equations, tolerances and required physical work. No present experiment proves this reduction. The percentage includes all replacement costs and may be unattainable.",
+      "adversarial": "Two limited shared caches and a four-stage polynomial already failed complete-peak screens. More shared memory/registers can reduce concurrency; stronger preconditioning can increase time despite fewer iterations. Historical component-cycle shares predate the current runtime and are not current millisecond attribution. Refresh diagnostics before another variant.",
+      "test": "Capture current component work and phase cycles; prove the proposed layout eliminates a measured repeated cost. Run an independent operator/residual oracle, then matched complete bombardment. Reject isolated-kernel wins that do not reduce peaks.",
+      "sources": [
+        "[StressComponentIteration.cuh](/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/detail/StressComponentIteration.cuh:25)",
+        "[StressNativePreconditioner.cuh](/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/detail/StressNativePreconditioner.cuh:20)",
+        "[StressNativePolynomial.cuh](/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/detail/StressNativePolynomial.cuh:27)"
+      ],
+      "overlap": "Layout, preconditioning, batching and mixed precision compete for the same stress interval. Never sum their estimates.",
+      "exposure_ms": {
+        "82": 7.606272221,
+        "102": 18.27020836,
+        "103": 18.66752052
+      },
+      "conditional_step_savings_ms": {
+        "82": [
+          1.14094083315,
+          2.2818816663
+        ],
+        "102": [
+          2.740531254,
+          5.481062508
+        ],
+        "103": [
+          2.8001280779999997,
+          5.6002561559999995
+        ]
+      },
+      "conditional_observed_peak_savings_ms": [
+        1.569479833149991,
+        2.7104206662999957
+      ],
+      "rank": 2
+    },
+    {
+      "id": "C",
+      "title": "\ud83d\ude9a GPU admission and lifecycle for new contact pairs",
+      "basis": "contact_proxy",
+      "fraction": [
+        0.25,
+        0.5
+      ],
+      "confidence": "Low",
+      "effort": "Large; coupled to A",
+      "change": "Consume PhysX GPU broad-phase pair output directly into GPU contact-manager slots and descriptors. Preserve NVIDIA narrow-phase and solver kernels; remove our native path\u2019s need to reconstruct CPU ShapeInteraction/contact-manager/edge records for every new fragment pair.",
+      "why": "Correction currently runs CPU contact preallocation followed by parallel registration/island tasks. We use preallocation plus the LONGEST registration task as a limited exposure proxy, not the sum of all tasks or the whole correction duration.",
+      "assumption": "Scenario removes 25\u201350% of that limited proxy, net of GPU pool/filter/descriptor work. The proxy is not an exact critical-path measurement: worker start offsets and other dependencies can change realizable savings. No credit is assigned to broad-phase wait.",
+      "adversarial": "GPU contact inputs exist already, but CPU contact records still carry lifetimes, reports and edge references. New fragment/ordinary-body pairs, filtering, friction caches, lost touch and capacity growth must survive. Moving only descriptor construction leaves most of this cost.",
+      "test": "Count newly allocated/retired/reused pairs and measure the actual registration critical path. Qualify native pair lifetime, newly eligible pairs and ordinary participants before deleting CPU lifecycle consumers.",
+      "sources": [
+        "[PxgNarrowphaseCore.cpp](/root/workspace/physx-2/physx/source/gpunarrowphase/src/PxgNarrowphaseCore.cpp:8258)",
+        "[ScPipeline.cpp](/root/workspace/physx-2/physx/source/simulationcontroller/src/ScPipeline.cpp:1019)"
+      ],
+      "overlap": "Correction portion only; excludes A\u2019s shape retirement/ownership time. A and C share implementation prerequisites, so joint savings still require measurement.",
+      "exposure_ms": {
+        "82": 6.86895,
+        "102": 2.2067550000000002,
+        "103": 1.860911
+      },
+      "conditional_step_savings_ms": {
+        "82": [
+          1.7172375,
+          3.434475
+        ],
+        "102": [
+          0.5516887500000001,
+          1.1033775000000001
+        ],
+        "103": [
+          0.46522775,
+          0.9304555
+        ]
+      },
+      "conditional_observed_peak_savings_ms": [
+        0.46522774999999683,
+        0.9304555000000008
+      ],
+      "rank": 3
+    },
+    {
+      "id": "D",
+      "title": "\ud83d\uddd1\ufe0f Rebuild only changed stress setup; omit unused motion-mode work",
+      "basis": "commit",
+      "fraction": [
+        0.15,
+        0.35
+      ],
+      "confidence": "Low",
+      "effort": "Medium",
+      "change": "Retain valid fine topology/motion-mode state per component, rebuild affected ranges, and avoid constructing null-motion data that anchored components do not consume. Preserve all graph validation and support-transition correctness.",
+      "why": "Unchanged generations and unused recursive hierarchy tails are already skipped. Changed stress generations still rebuild global labels/order and run motion forest/tour construction; anchored factors return early only later. Accepted-state scope is about 2.3 ms at these peaks.",
+      "assumption": "Scenario saves 15\u201335% of the accepted-state scope (roughly 0.35\u20130.83 ms). That entire scope is only a loose ceiling: it also contains mandatory commit/publication and waits. The setup-only share is not separately measured in this control.",
+      "adversarial": "Simultaneous impacts may dirty most main components, limiting caching. Anchoring cannot justify omitting topology validation or free-body nullspace work after support loss. Existing unchanged local inverse retention and hierarchy-tail skips must not be counted again.",
+      "test": "Measure setup subphases and changed-component fractions first. Test support removal, free/anchored transitions, invalid incidence, stable ordering and unchanged-component certificates.",
+      "sources": [
+        "[NvBlastExtStressGpuTopology.cuh](/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpuTopology.cuh:281)",
+        "[StressMotionModes.cuh](/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/detail/StressMotionModes.cuh:61)",
+        "[PxgDestructionTransaction.cuh](/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionTransaction.cuh:130)"
+      ],
+      "overlap": "Shares accepted-state exposure with buffer swapping or copy elimination; those are alternatives within this budget.",
+      "exposure_ms": {
+        "82": 2.362967,
+        "102": 2.331678,
+        "103": 2.295281
+      },
+      "conditional_step_savings_ms": {
+        "82": [
+          0.35444505,
+          0.8270384499999999
+        ],
+        "102": [
+          0.3497517,
+          0.8160873
+        ],
+        "103": [
+          0.34429215,
+          0.80334835
+        ]
+      },
+      "conditional_observed_peak_savings_ms": [
+        0.34429215000000113,
+        0.8033483500000003
+      ],
+      "rank": 4
+    },
+    {
+      "id": "E",
+      "title": "\ud83d\uddd1\ufe0f Remove intermediate host decisions and resubmission",
+      "basis": "handoff_proxy",
+      "fraction": [
+        0.25,
+        0.5
+      ],
+      "confidence": "Low",
+      "effort": "Coupled to A/C",
+      "change": "GPU dependencies select fracture/no-fracture, allocate within resident capacity, install ownership and publish completion. Keep the final application completion boundary and exceptional growth/retry.",
+      "why": "The current code still reads preparation verdicts and waits before the CPU ownership bridge. The model counts only request-readback, preparation-completion and reservation-publication scopes, not the 8\u201319 ms wait containing necessary stress computation.",
+      "assumption": "Scenario removes 25\u201350% of the small observed handoff proxy. It is a dependency of final architecture, not a separate multi-millisecond win.",
+      "adversarial": "Deleting a wait does not delete its preceding kernels. Critical dependencies remain, and ordinary PhysX host task scheduling cannot simply be captured into a CUDA graph. A/C may already absorb all benefit.",
+      "test": "Show no host verdict between these stages and retain exactly-once commands, damage and events. Compare task/event dependencies, not just the count of synchronization calls.",
+      "sources": [
+        "[PxgDestructionRuntime.cu](/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionRuntime.cu:1460)"
+      ],
+      "overlap": "Fully nested within A\u2019s ownership estimate. Do not add to A.",
+      "exposure_ms": {
+        "82": 0.368767,
+        "102": 0.301603,
+        "103": 0.306732
+      },
+      "conditional_step_savings_ms": {
+        "82": [
+          0.09219175,
+          0.1843835
+        ],
+        "102": [
+          0.07540075,
+          0.1508015
+        ],
+        "103": [
+          0.076683,
+          0.153366
+        ]
+      },
+      "conditional_observed_peak_savings_ms": [
+        0.07668300000000272,
+        0.15336599999999834
+      ],
+      "rank": 5
+    },
+    {
+      "id": "F",
+      "title": "\u26a1 Fuse contact-load and material preparation where inputs permit",
+      "basis": "loads_materials",
+      "fraction": [
+        0.15,
+        0.3
+      ],
+      "confidence": "Low",
+      "effort": "Small\u2013medium",
+      "change": "Fuse compatible producer/consumer stages or compact known active work, retaining normal/friction impulses, torque, support evidence and once-only damage.",
+      "why": "Contact-load plus material CUDA intervals total only about 0.13\u20130.21 ms at these peaks. Stress equations and verdicts remain necessary.",
+      "assumption": "Scenario saves 15\u201330% of these two intervals. Their full combined duration is the absolute local ceiling before dependency effects.",
+      "adversarial": "Contact accumulation and bond material evaluation have different ownership/reduction patterns. Fusion may increase contention or registers and lose performance. This is not the route from 53 ms to real time.",
+      "test": "Prove complete work/energy equivalence and a repeatable peak change larger than run noise before retaining extra complexity.",
+      "sources": [
+        "[PxgDestructionRuntime.cu](/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionRuntime.cu:1157)"
+      ],
+      "overlap": "Nested within destruction submission/completion, but separate from B\u2019s measured stress interval.",
+      "exposure_ms": {
+        "82": 0.13209600374,
+        "102": 0.18636800352,
+        "103": 0.20684800292
+      },
+      "conditional_step_savings_ms": {
+        "82": [
+          0.019814400561,
+          0.039628801122
+        ],
+        "102": [
+          0.027955200527999997,
+          0.055910401055999995
+        ],
+        "103": [
+          0.031027200438,
+          0.062054400876
+        ]
+      },
+      "conditional_observed_peak_savings_ms": [
+        0.031027200437996783,
+        0.06205440087600067
+      ],
+      "rank": 6
+    },
+    {
+      "id": "G",
+      "title": "\ud83c\udfaf Selective correction with exact dependency closure",
+      "basis": "correction",
+      "fraction": [
+        0,
+        0.05
+      ],
+      "confidence": "Very low for this workload",
+      "effort": "Very large",
+      "change": "Build GPU affected sets through contacts/constraints, preserve accepted independent work and rediscover newly eligible pairs. Recompute the complete interaction whenever reuse cannot be proven.",
+      "why": "Correction spans 26.473 / 15.112 / 19.870 ms, but these include necessary collision and response. All 256 buildings receive impacts together; many interactions are actually affected. Existing unchanged-pair reuse is already enabled.",
+      "assumption": "Credit only 0\u20135% of correction for this simultaneous-impact screen until affected-participant and reusable-pair counts prove more. No assumption that one correction can be removed.",
+      "adversarial": "A single-step dependency component is not automatically a safe replay partition. New contacts and moved ordinary participants expand closure. Could cost more than complete replay here; likely more valuable for localized impacts in a larger idle city.",
+      "test": "Record affected body/shape/contact counts, closure expansion and valid-reuse fraction. Differential tests must include incoming new contacts, ordinary bodies and supported joints. Current correction excludes joints/sleep/CCD, so these remain explicit architecture gaps.",
+      "sources": [
+        "[ScPipeline.cpp](/root/workspace/physx-2/physx/source/simulationcontroller/src/ScPipeline.cpp:2917)"
+      ],
+      "overlap": "Contains C\u2019s contact work. Do not add full correction savings to C; jointly measure.",
+      "exposure_ms": {
+        "82": 26.473349000000002,
+        "102": 15.112083000000002,
+        "103": 19.869995
+      },
+      "conditional_step_savings_ms": {
+        "82": [
+          0.0,
+          1.3236674500000003
+        ],
+        "102": [
+          0.0,
+          0.7556041500000001
+        ],
+        "103": [
+          0.0,
+          0.99349975
+        ]
+      },
+      "conditional_observed_peak_savings_ms": [
+        0.0,
+        0.993499749999998
+      ],
+      "rank": 7
+    }
+  ],
+  "provenance": {
+    "qualification/polynomial-shared-baseline-control/report.json.gz": "7bd0997f0feca32ce2d5570d6bfc01ebd9d58d133067b63cd23b1db9125304c5",
+    "qualification/polynomial-shared-scaled-fresh/samples/baseline/impacts-256-plain-0/native.frames.csv.gz": "9fad421134cd799e917e4eec71a58fdd232bd0f2c8f07ebb9ce66e45d18d1919",
+    "qualification/polynomial-shared-scaled-fresh/samples/baseline/impacts-256-plain-1/native.frames.csv.gz": "2f01fc4318bfd63dbea8a22bb2de021c7810477d8393e58a8e0cd3206e202110",
+    "qualification/polynomial-shared-scaled-fresh/samples/baseline/impacts-256-phases-0/native.frames.csv.gz": "d6abb2041b36b6f5953c50f430811e30ff3b4dfef522898c9c67b5f0517297c7",
+    "qualification/polynomial-shared-scaled-fresh/samples/baseline/impacts-256-phases-0/native.summary.json": "57a8beecd1268cae0a4da9195b6e8bc14de62ba817f6eb30cf42900248f974fd",
+    "physx/source/physx/src/NpDestructionBodyAllocator.h": "deb2d36e36e36d5b1d99bffc83be800143d4e1c1227885621e18be85e6b15e25",
+    "physx/source/simulationcontroller/src/ScShapeSimBase.cpp": "be8a9714739bece75f5270434ed810ad0bb1ea42dd56021859381db0d95c78b4",
+    "physx/source/physx/src/NpShapeManager.cpp": "8c3d9717c97102f2751d86a106b0b50a85a471397b4364aa6d30ff61ef360906",
+    "physx/source/gpunarrowphase/src/PxgNarrowphaseCore.cpp": "95a454f65428faceba36d6475ab56caf82c36ee609b258735e20b640b0a8aa6a",
+    "physx/source/simulationcontroller/src/ScPipeline.cpp": "4bcd2097c85fb72039e8861b4042afa6f4114af4a5e8b42bbc004580371cea78",
+    "blast/source/sdk/extensions/stressgpu/detail/StressComponentIteration.cuh": "d616d8dc811498f6ec5bf187cc48110de7a46367a4d6808f6098da97cd1e08f1",
+    "blast/source/sdk/extensions/stressgpu/detail/StressNativePreconditioner.cuh": "c378cb850076a44c97178e6152b91351c747e88f06f045e0e7b83114e4b23fd1",
+    "blast/source/sdk/extensions/stressgpu/detail/StressNativePolynomial.cuh": "cf03a9ea81c8760bdc2fe3339db47a18335e3a55796a010545635622d4cde32c",
+    "blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpuTopology.cuh": "547cf799787163c7410147ad29da54ed0db18beace6e6bd0cc83ab183e3a734a",
+    "blast/source/sdk/extensions/stressgpu/detail/StressMotionModes.cuh": "9758e3eef7ba591f2ad17d0764fb79926e6c4b93a3dbc50090366d78bacbc056",
+    "physx/source/gpudestruction/src/PxgDestructionTransaction.cuh": "c0c818ee796cd84a211a1b2a5ae8484031739023d31f7fbe0f6db1a270c8a178",
+    "physx/source/gpudestruction/src/PxgDestructionRuntime.cu": "9636c12f0959007dec753f5eb025eb3ca921ad595a1bd27501a4e69561d1da7a",
+    "blast/source/sdk/extensions/stressgpu/detail/StressResidentAPI.inl": "248d40b5d988277c65719151f2f7b7269021a634df059f98f5f5922a504ef05a"
+  }
+}

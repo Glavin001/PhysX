@@ -1,0 +1,19 @@
+{
+  "status": "complete",
+  "scenarios": 52,
+  "qualified_cpu_scenarios": 52,
+  "remaining_cpu_scenarios": 0,
+  "checked_qualified_ticks": 104,
+  "cpu_samples": 21401,
+  "engine_scopes": 91538,
+  "kernel_launches": 18376,
+  "maximum_motion_errors": {
+    "position_m": 0.0,
+    "orientation_dot_error": 5.233859402542507e-07,
+    "linear_m_s": 0.0,
+    "angular_rad_s": 0.0
+  },
+  "counter_status": "Prior 52-scenario selected/stress captures remain available. See the accompanying qualification report for expanded inventory status.",
+  "warm_status": "See the separate continuous attribution campaign; snapshot coverage does not establish warm coverage.",
+  "scope": "Diagnostic CPU sampling, scheduling, engine phases, CUDA/OS calls and GPU activity. No application optimization or speedup. Baseline times are separate unprofiled 20-sample restored full ticks, excluding restore and validation."
+}

@@ -1,0 +1,32 @@
+{
+  "status": "passed",
+  "objects": 827,
+  "maximum_errors": {
+    "position_m": 0.0,
+    "orientation_dot_error": 2.1081403467348991e-07,
+    "linear_m_s": 0.0,
+    "angular_rad_s": 0.0
+  },
+  "exact_array_sha256": {
+    "node-accelerations": "d9428efb7d5c77d13f0330f2c842731af00f41ece9eb1f9608a6f0a104ab171b",
+    "surface-loads": "b95a78fdbb30d46a1cfec578bef7d117c2db557b3f173713851d1f9612930b08",
+    "health": "7ed3003ab13028e4ae259eab5eaffdc79c010038b750c94de9bdfdc1433db8c7",
+    "active-bonds": "f7636f4b1d62ba067cf2df44dcbd3fa146ca5060ea82fda40f74f7f480b90878",
+    "chunk-clusters": "df8109f399e589f48ff4a7820bd73efecaaf950faff31a4fa844abc1c821d6c7",
+    "crush": "f08ad8b2fa2449ee7ef28e54673c39871ca88eedbb06e678d5dd03171a64da79"
+  },
+  "numerical_arrays": {
+    "bond-forces": {
+      "changed_scalars": 0,
+      "maximum_absolute": 0.0,
+      "maximum_scaled": 0.0,
+      "scaled_bound": 0.0002,
+      "relative_l2": 0.0,
+      "reference_sha256": "fc9fb707fdc6a06df5862d3983f5675b2e2f66b56f46f5be24653ff9fd2d473c",
+      "candidate_sha256": "fc9fb707fdc6a06df5862d3983f5675b2e2f66b56f46f5be24653ff9fd2d473c"
+    }
+  },
+  "reference": "/root/workspace/physx-2/out/snapshot-finish-20260911/split-matched-full/building-fragmented-B",
+  "candidate": "/root/workspace/physx-2/out/snapshot-reset-20260911/prepared-full20/complete-building-fragmented",
+  "scope": "Post-tick physical observations; exact persistent state/loads, existing force and motion bounds; no timing claim"
+}

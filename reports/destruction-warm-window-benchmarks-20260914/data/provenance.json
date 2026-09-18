@@ -1,0 +1,16 @@
+{
+  "out/warm-replay-20260914/final/campaign.json": "cea492d898648856b08dfad667a21be2464450dca1d75f533238e46fe27c517c",
+  "/root/workspace/physx-2/out/warm-replay-20260914/plain/build.json": "6a6c9321384c52d1dc91d4898786264d8f178177efa41ab198fab74fa8866ce4",
+  "/root/workspace/physx-2/out/warm-replay-20260914/profile/build.json": "ac29e2cf15826a947531a7f3435462499bb198a20284f693f4176d744aae80db",
+  "/root/workspace/physx-2/tools/profiles/destruction-warm-suite.json": "c8f7a7100d753595c256422d990187b9940af660b09a80a139c6b86cee9c0ab4",
+  "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/test-warm-window-contract.py": "465063a04f39e2ca1867eb2a268c8f97c5cbeb60d795813ce439151a9d9f5083",
+  "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/warm-window-contract.py": "fa48f05f575985b96a5f44049694d9c39b3e008f35ce9664b86dc2dae9ab60b0",
+  "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/compare-warm-observations.py": "d3ae3eb83ecbbf9417dcc0cc4c221db98aec95cf556c1157f2b8cb8fcf87c385",
+  "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/profile-warm-suite.py": "191e10ba9eb2deae9ca22debad694950c509c8fe90c5521dd2ecad728eb62ac1",
+  "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-warm-suite.py": "c4982a902ca0af1e96daf7ca4a62cbc90d154ffeac7c055e2c60bd59f461d0cc",
+  "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/build-warm-probe.py": "23533da23641b79ac3196a54c846ba8023de43e4fe6e9463015ece33bb7e7cab",
+  "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/analyze-warm-attribution.py": "99bfe6c90fda60df07746b776d421f067488311932358e95678c52833cddd228",
+  "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/warm-replay.inl": "51d29fc2023c8d670c9130eb2a3c094037035d8beb2841a755300599976994f4",
+  "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/export-warm-profiles.py": "6eab0d427ac90e0ad7ddd4a0a0b1f23e8cbc5763aa170dc8184ceef1288a9005",
+  "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/make-warm-screen.py": "e66854a42854c08d0161d76404aea0c9bebfbc376ad7adcd4532fc5354506418"
+}

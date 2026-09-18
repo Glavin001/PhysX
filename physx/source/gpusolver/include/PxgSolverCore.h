@@ -29,6 +29,7 @@
 #ifndef PXG_SOLVER_CORE_H
 #define PXG_SOLVER_CORE_H
 
+#include "PxvIslandMetadata.h"
 #include "CmPinnableArray.h"
 #include "foundation/PxUserAllocated.h"
 #include "PxgConstraint.h"
@@ -236,8 +237,9 @@ namespace physx
 				PxU32 nbDestroyedEdges,
 				const PxU32* npIndexArray, PxU32 npIndexArraySize,
 				PxU32 totalNumJoints,
-				const PxU32* islandIds, const PxU32* nodeInteractionCounts, PxU32 nbNodes, const PxU32* islandStaticTouchCount, PxU32 nbIslands) = 0;
+				const PxU32* islandIds, const PxU32* nodeInteractionCounts, PxU32 nbNodes, const PxU32* islandStaticTouchCount, PxU32 nbIslands, bool metadataPagesOnly, const PxvIslandMetadataPage* metadataPages, PxU32 metadataPageCount) = 0;
 
+        virtual void getSolverIslandMetadataPointers(CUdeviceptr& ids,CUdeviceptr& counts) const = 0;
 		virtual void gpuMemDmaUpBodyData(Cm::PinnableArray<PxgSolverBodyData>& solverBodyDataPool,
 			Cm::PinnableArray<PxgSolverTxIData>& solverTxIDataPool,
 			const PxU32 numSolverBodies,
@@ -304,9 +306,13 @@ namespace physx
 
 		PX_FORCE_INLINE void setGpuContactManagerOutputBase(PxsContactManagerOutput* gpuContactManagerOutputBase) { mGpuContactManagerOutputBase = reinterpret_cast<CUdeviceptr>(gpuContactManagerOutputBase); }
 
+        CUdeviceptr mPreSolveIslandIds=0,mPreSolveStaticTouches=0;
+        void setPreSolveIslands(CUdeviceptr ids,CUdeviceptr counts) { mPreSolveIslandIds=ids;mPreSolveStaticTouches=counts; }
 		PX_FORCE_INLINE CUstream getStream() { return mStream; } 
 
 		PX_FORCE_INLINE PxgDevicePointer<PxU32> getSolverBodyIndices() { return mSolverBodyIndices.getTypedDevicePtr(); }
+		// Dormant corrected pass: remap the listed nodes to the static solver body (after pre-integration).
+		void markDormantSolverBodies(CUdeviceptr nodes, PxU32 count);
 
 		PX_FORCE_INLINE PxgTypedCudaBuffer<PxgSolverBodyData>*	getSolverBodyData() { return &mSolverBodyDataPool; }
 
@@ -319,10 +325,14 @@ namespace physx
 		void allocateFrictionPatchStream(PxI32 numContactBatches, PxI32 numArtiContactBatches);
 		PxgBlockFrictionIndex* allocateFrictionPatchIndexStream(PxU32 totalFrictionPatchCount);
 		void allocateFrictionCounts(PxU32 totalEdges);
+        bool resetDestructionFrictionCaches();
+        // Dormant corrected pass: zero both friction count generations except the marked slots.
+        bool resetDestructionFrictionCachesScoped(CUdeviceptr slotMarks, PxU32 slotWords);
+        PxU32 getFrictionPatchCountCapacity() const { return PxU32(mFrictionPatchCounts[0].getSize()/sizeof(PxU32)); }
 
 		void gpuMemDMAbackSolverBodies(float4* solverBodyPool, PxU32 nbSolverBodies,
 			Cm::PinnableArray<PxAlignedTransform>& body2WorldPool,
-			Cm::PinnableArray<PxgSolverBodySleepData>& solverBodySleepDataPool, bool enableDirectGPUAPI);
+			Cm::PinnableArray<PxgSolverBodySleepData>& solverBodySleepDataPool, bool enableDirectGPUAPI, PxU32 firstDynamicBody);
 
 		void allocateSolverBodyBuffersCommon(PxU32 numSolverBodies, Cm::PinnableArray<PxNodeIndex>& islandNodeIndices);
 
@@ -420,6 +430,12 @@ namespace physx
 		PxgTypedCudaBuffer<PxU32>	mPartitionArtiJointBatchCounts;
 									
 		PxgTypedCudaBuffer<PxU32>	mDestroyedEdgeIndices;
+		// Frozen corrected pass: contact edges whose bodies are absent from the
+		// solver list this pass (their static contacts are not batched), so the
+		// current-generation friction patch counts they would have written are
+		// cleared instead of keeping stale entries.
+		PxgTypedCudaBuffer<PxU32>	mFrozenEdgeIndices;
+		void clearCurrentFrictionPatchCounts(const PxU32* edges, PxU32 count);
 		PxgTypedCudaBuffer<PxU32>	mNpIndexArray;
 
 		PxgTypedCudaBuffer<PxgBlockContactPoint>	mGpuContactBlockBuffer;
@@ -430,6 +446,8 @@ namespace physx
 		PxgTypedCudaBuffer<PxReal>					mForceBuffer; // contact write back buffer
 		PxgTypedCudaBuffer<PxFrictionPatch>			mFrictionPatches;
 
+		// Advances for every NP pass, including idle passes and correction.
+		PxU64 mNativeResponseEpoch = 0;
 		CUdeviceptr						mGpuContactManagerOutputBase;
 
 		PxgTypedCudaBuffer<PxU32>		mArtiStaticContactIndices;

@@ -30,6 +30,8 @@
 #define PXG_BROADPHASE_DESC_H
 
 #include "foundation/PxSimpleTypes.h"
+#include "PxgDestructionOwnership.h"
+#include "PxNodeIndex.h"
 
 // PT: the GPU AABB manager apparently DMAs the updated handles' *bitmap* to the GPU directly, bypassing the
 // BP API. This creates coupling between the GPU BP and the GPU AABB manager, i.e. the GPU BP cannot be used
@@ -72,6 +74,12 @@ namespace physx
 		PxU32*					aabbMngr_removedHandleMap;				// PT: data coming from the AABB manager, creating all the coupling problems
 		PxU32*					aabbMngr_aggregatedBoundHandles;		// PT: data coming from the AABB manager, creating all the coupling problems
 
+        const PxU32* refilterHandleMap;
+        PxU32 refilterWordCount;
+        PxgDestructionOwnershipView nativeOwnership;
+        const PxNodeIndex* rigidOwners;
+        PxU32 rigidOwnerCapacity;
+
 		PxBounds3*				updateData_fpBounds;					// PT: copy of updateData buffer in device memory
 		PxReal*					updateData_contactDistances;			// PT: copy of updateData buffer in device memory
 		PxgIntegerAABB*			newIntegerBounds;						// PT: computed by translateAABBsLaunch kernel.
@@ -99,6 +107,13 @@ namespace physx
 
 		PxgBroadPhasePair*		foundActorPairReport;		//device memory for GPU actor foundReport
 		PxgBroadPhasePair*		lostActorPairReport;		//device memory for GPU actor lostReport
+
+        // Native actor pairs are canonicalized on the producing stream. Raw
+        // report counts remain unchanged for aggregate processing and overflow.
+        PxU32* nativePairTileOffsets;
+        PxU32 nativePairCounts[2];
+        PxU32 nativePairError;
+        PxgBroadPhasePair* nativePairReports[2];
 
 		PxgBroadPhasePair*		foundPairReportMap;			//mapped address in the GPU for the cpu foundReport for actor pairs (not include aggregate);
 		PxgBroadPhasePair*		lostPairReportMap;			//mapped address in the GPU for the cpu lostReport  for actor pairs(not include aggregate);
@@ -152,6 +167,18 @@ namespace physx
 
 		bool 					found_lost_pairs_overflow_flags;
 	};
+
+    PX_FORCE_INLINE PX_CUDA_CALLABLE bool hasRefiltering(const PxgBroadPhaseDesc* desc)
+    {
+        return desc->refilterWordCount || desc->nativeOwnership.generation;
+    }
+
+    PX_FORCE_INLINE PX_CUDA_CALLABLE bool needsRefilter(const PxgBroadPhaseDesc* desc, PxU32 handle)
+    {
+        const PxU32 word = handle >> 5;
+        return desc->nativeOwnership.contains(handle)
+            || (word < desc->refilterWordCount && (desc->refilterHandleMap[word] & (1u << (handle & 31))));
+    }
 
 	PX_FORCE_INLINE PX_CUDA_CALLABLE PxU32 createHandle(const PxU32 handle, const bool isStart, const bool isNew)
 	{

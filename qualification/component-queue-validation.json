@@ -1,0 +1,146 @@
+{
+  "base_revision": "6edb408d49ec3dc141c1501071f5078aa9317788",
+  "change": "A persistent GPU work cursor assigns the next independent stress component to each available CUDA block. The existing solve initializer resets the cursor; no new clearing pass, host observation or numerical recurrence is introduced.",
+  "physical_equations_changed": false,
+  "component_reduction_order_changed": false,
+  "dispatch_order_changed": true,
+  "source_sha256": {
+    "blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpuTopology.cuh": "309ef66213883fd90f1d4f2870e7fc3d8e31827c73082006a701235024ca776d",
+    "blast/source/sdk/extensions/stressgpu/detail/StressComponentIteration.cuh": "a7474fa1b22d641b5e8e52c976a1ae358e76930b96f781e8c4a4879fc65bd05b",
+    "blast/source/sdk/extensions/stressgpu/detail/StressCouplingKernels.cuh": "f9a5cba9022f228c1c077d5f50ba8328ce20a0fb6652df65352ea827e94820b2",
+    "blast/source/sdk/extensions/stressgpu/detail/StressSolveSubmission.inl": "2ee29bdd11976438d290c0813451b948cd9fa00fd0cf72c8fec919861e568661",
+    "demos/blast-stress-demo/tests/gpu_resident_stress_test.cu": "0c038cb6e58e0b207ae890f670209aad2a63ad937f3d527d0b72a3b86bd70c03"
+  },
+  "timestep": 0.016666666666666666,
+  "correction_limit": 1,
+  "focused_tests_passed": 6,
+  "targeted_component_synccheck_passed": true,
+  "targeted_component_racecheck_passed": true,
+  "unfiltered_memory_test_passed": true,
+  "full_synccheck_qualified": false,
+  "existing_full_synccheck_issue": "component-stress-cub-synccheck/README.md",
+  "new_fixture": {
+    "components": 769,
+    "nodes": 13828,
+    "bonds": 13059,
+    "transitions": [
+      1,
+      0,
+      3,
+      3,
+      0,
+      2
+    ],
+    "warm_start_modes": [
+      false,
+      true
+    ],
+    "tolerance": 1e-05,
+    "analytic_relative_error_limit": 0.0002,
+    "producer_event_ordering": true
+  },
+  "test_development_note": "The first new fixture omitted an upload event before consumption on a separate nonblocking stream; it failed both committed and candidate schedulers and passed when instrumented. The fixed fixture explicitly orders its upload through the supported producer event. No solver equation or assertion was weakened.",
+  "comparisons": [
+    {
+      "case": "penetration",
+      "chunks": 444,
+      "bonds": 896,
+      "projectiles": 1,
+      "trials": 5,
+      "seconds": 60,
+      "before_mean_ms": 2.3682892104444444,
+      "after_mean_ms": 2.3182397545,
+      "mean_change_percent": -2.1133168923677115,
+      "before_peak_ms": 6.662635,
+      "after_peak_ms": 6.511654,
+      "before_missed_8ms": 0,
+      "after_missed_8ms": 0
+    },
+    {
+      "case": "impacts-16",
+      "chunks": 7104,
+      "bonds": 14336,
+      "projectiles": 16,
+      "trials": 2,
+      "seconds": 10,
+      "before_mean_ms": 4.633089300833333,
+      "after_mean_ms": 4.6300592358333335,
+      "mean_change_percent": -0.06540053090396958,
+      "before_peak_ms": 10.161802,
+      "after_peak_ms": 10.357722,
+      "before_missed_8ms": 39,
+      "after_missed_8ms": 39
+    },
+    {
+      "case": "impacts-256",
+      "chunks": 113664,
+      "bonds": 229376,
+      "projectiles": 256,
+      "trials": 2,
+      "seconds": 10,
+      "before_mean_ms": 18.661258051666668,
+      "after_mean_ms": 12.144868251666667,
+      "mean_change_percent": -34.91934885610786,
+      "before_peak_ms": 63.504573,
+      "after_peak_ms": 63.633812,
+      "before_missed_8ms": 1038,
+      "after_missed_8ms": 1038
+    }
+  ],
+  "counter_histories": [
+    {
+      "run": "plain-0",
+      "steps": 600,
+      "fields": {
+        "bonds_broken": null,
+        "resim_passes": null,
+        "logical_clusters": null,
+        "stress_iterations": 121,
+        "stress_converged": null,
+        "contacts_frame": null,
+        "bodies": null,
+        "awake_bodies": null
+      }
+    },
+    {
+      "run": "plain-1",
+      "steps": 600,
+      "fields": {
+        "bonds_broken": null,
+        "resim_passes": null,
+        "logical_clusters": null,
+        "stress_iterations": 97,
+        "stress_converged": null,
+        "contacts_frame": null,
+        "bodies": null,
+        "awake_bodies": null
+      }
+    },
+    {
+      "run": "phases-0",
+      "steps": 600,
+      "fields": {
+        "bonds_broken": null,
+        "resim_passes": null,
+        "logical_clusters": null,
+        "stress_iterations": 121,
+        "stress_converged": null,
+        "contacts_frame": null,
+        "bodies": null,
+        "awake_bodies": null
+      }
+    }
+  ],
+  "iteration_variation_note": "Baseline plain repeats differ in stress iterations on 124/600 steps (max absolute difference 18). Candidate plain runs differ from baseline plain-0 on 127/600 and 130/600 steps (max differences 34 and 17). Bond/fracture/correction/contact/body counts match on every step. This does not prove bit-identical physical trajectories.",
+  "evidence": "qualification/component-queue-evidence",
+  "full_plan_complete": false,
+  "remaining": [
+    "GPU fragment/body allocation and migrating-shape lifecycle",
+    "Removal of intermediate host decisions",
+    "Selective correction with complete validity checks",
+    "Resident multilevel preconditioning and affected topology updates",
+    "Validated sleep/wake and structural reuse",
+    "Full physical/lifecycle endurance and unsupported-environment gates",
+    "Five 60-second 256-building bombardment runs at or below 8 ms"
+  ]
+}

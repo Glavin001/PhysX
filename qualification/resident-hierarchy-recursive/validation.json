@@ -1,0 +1,163 @@
+{
+  "scope": "Recursive resident construction and exact compact sparse levels; terminal solve/V-cycle/native integration still incomplete",
+  "source_sha256": {
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyDiagonal.cuh": "798c91aa2c25204013bc14187e4485c00b87435e6b120b44adb81da24d2f64b9",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyGraph.cuh": "e33efc1d4c3c384b0cbb8a752bb08d593ad098e899dd1dd75bb7a22fba5851fd",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyKernels.cuh": "c7c4f5abc0f3e3489f91c8297210f7826c1e91db68cd44873c421ce9406f29bf",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyOperator.cuh": "032df477f4f3adb667b1c810cbd87d670cfdf1157f24e9885118a3387d86e648",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyPackedLevel.cuh": "3e32ee4f41eacd661c08528cc72cb8e7c04f0de19f25343693b2ae07b3eb61fd",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyPacking.cuh": "d13e5cc7295ed47bd2da77ade42800dab0aaed313d510f1d380c347d6bdbe649",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyPackingPrimitives.cuh": "ea0178d5d73617bb2bf27a78338ddc57eb604637bc475526bfae0770abd4d0c6",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyViews.cuh": "cbf16d1f0edf5b0c25358d2692d83e70fdedddc470530c4a837e5d817a66ef4e",
+    "demos/blast-stress-demo/tests/gpu_resident_hierarchy_diagonal_checks.cuh": "79bfe9d885b7d3b1a799110d3655e4b2f051ec2db2bc303a724a3156eb24bd6e",
+    "demos/blast-stress-demo/tests/gpu_resident_hierarchy_operator_checks.cuh": "d41bcb887201c494815e850f844d0eb0d39a184ed1aba975f1d0611ff41542f1",
+    "demos/blast-stress-demo/tests/gpu_resident_hierarchy_recursive_checks.cuh": "d28ce82582a3d475d7e3c73ff1dcf4abbfe62cab3c31c506607c9f16804d2dd5",
+    "demos/blast-stress-demo/tests/gpu_resident_hierarchy_test.cu": "651635a5d9aadad14c912d0b108ae112f926a10596428a5d0a031f896f552669"
+  },
+  "binary_sha256": "3bed14aa2ea7586ac301ec5bf839dfe3ddda6c6b2da1e48d2828cee33dfcc552",
+  "fixtures": [
+    {
+      "nodes": 0,
+      "bonds": 0
+    },
+    {
+      "nodes": 1,
+      "bonds": 0
+    },
+    {
+      "nodes": 2,
+      "bonds": 1
+    },
+    {
+      "nodes": 4,
+      "bonds": 3
+    },
+    {
+      "nodes": 6,
+      "bonds": 10
+    },
+    {
+      "nodes": 24,
+      "bonds": 11
+    },
+    {
+      "nodes": 24,
+      "bonds": 33
+    },
+    {
+      "nodes": 129,
+      "bonds": 121
+    },
+    {
+      "nodes": 256,
+      "bonds": 0
+    },
+    {
+      "nodes": 257,
+      "bonds": 256
+    },
+    {
+      "nodes": 100000,
+      "bonds": 199997
+    }
+  ],
+  "largest_fixture_levels": [
+    {
+      "level": 1,
+      "nodes": 27321,
+      "bonds": 78816,
+      "next_aggregates": 10833
+    },
+    {
+      "level": 2,
+      "nodes": 10833,
+      "bonds": 32053,
+      "next_aggregates": 4517
+    },
+    {
+      "level": 3,
+      "nodes": 4517,
+      "bonds": 13496,
+      "next_aggregates": 1927
+    },
+    {
+      "level": 4,
+      "nodes": 1927,
+      "bonds": 5772,
+      "next_aggregates": 824
+    },
+    {
+      "level": 5,
+      "nodes": 824,
+      "bonds": 2468,
+      "next_aggregates": 356
+    },
+    {
+      "level": 6,
+      "nodes": 356,
+      "bonds": 1064,
+      "next_aggregates": 152
+    },
+    {
+      "level": 7,
+      "nodes": 152,
+      "bonds": 453,
+      "next_aggregates": 66
+    },
+    {
+      "level": 8,
+      "nodes": 66,
+      "bonds": 195,
+      "next_aggregates": 30
+    }
+  ],
+  "tests": {
+    "captured_correctness": "pass",
+    "memcheck_with_leaks": "pass",
+    "synccheck": "pass",
+    "racecheck": "pass",
+    "tolerance": 2e-12,
+    "coverage": [
+      "canonical packed CSR and exact double coefficients",
+      "authored node/bond ancestry through recursion",
+      "composed B^T P and P^T L P against original fine operator",
+      "three levels for small fixtures and eight for 100000 nodes",
+      "six topology/load-state transitions",
+      "unchanged generation skips every level",
+      "rejected commands preserve all committed level statuses",
+      "capacity overflow and stale upstream generation rejected",
+      "invalid original identity rejected and recovery passes",
+      "existing local factor and free rigid mode tests"
+    ]
+  },
+  "rejected_or_corrected": [
+    "Conditional device-scan/radix-sort packing failed synchronization checks and its race-check process crashed; removed from code.",
+    "First cooperative radix boundary code assumed BlockStore retained register ordering; corrected using canonical stored order.",
+    "Mutable validation error flag could cause divergent grid exits; replaced with a frozen device stage decision. Full final checks complete without changing their timeout."
+  ],
+  "deleted_work": [
+    "exactly zero coarse columns and rows (fine physical work unchanged)",
+    "host size decisions and size-switch graph machinery",
+    "capacity-wide packing passes",
+    "serial whole-row CSR prefix"
+  ],
+  "remaining": [
+    "terminal component grouping and null-space-safe coarse solve",
+    "compact-vector transfers and coarse smoothers",
+    "resident symmetric V-cycle and native CGLS integration",
+    "affected-component hierarchy reuse",
+    "full 256-building physics/destruction timing and quality campaign",
+    "remaining native lifecycle/sleep/joint/selective-correction/endurance requirements"
+  ],
+  "wall_regression": {
+    "seconds": 10,
+    "chunks": 444,
+    "bonds": 896,
+    "projectiles": 1,
+    "timestep": "1/60",
+    "correction_limit": 1,
+    "exact_frozen_gate": "pass",
+    "production_artifact_hashes_unchanged": true
+  },
+  "new_simulation_performance_claim": null
+}

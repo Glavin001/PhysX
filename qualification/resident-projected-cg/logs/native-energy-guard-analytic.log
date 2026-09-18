@@ -1,0 +1,45 @@
+resident columns: topology=asset nodes=12 bonds=9 worst relative error=0
+resident columns: topology=asset nodes=1536 bonds=1152 worst relative error=0
+resident columns: topology=asset nodes=131072 bonds=98304 worst relative error=0
+resident columns: topology=GPU nodes=12 bonds=9 worst relative error=1.58946e-07
+resident columns: topology=GPU nodes=1536 bonds=1152 worst relative error=1.58946e-07
+resident columns: topology=GPU nodes=131072 bonds=98304 worst relative error=1.58946e-07
+native history id=12 iteration=1 residual2=8192 gamma=1004.53 direction_energy=504.088 g0=-0.371707 mu0=-0.740723
+native history id=12 iteration=2 residual2=73.2712 gamma=77.4383 direction_energy=148.182 g0=-0.172816 mu0=-0.84601
+native history id=12 iteration=4 residual2=1.17077 gamma=4.64356 direction_energy=26.956 g0=-0.0331531 mu0=-1.0546
+native history id=12 iteration=8 residual2=0.00865325 gamma=0.268598 direction_energy=7.41171 g0=-0.470398 mu0=-1.04386
+native history id=12 iteration=16 residual2=6.21175e-05 gamma=0.0183076 direction_energy=5.43152 g0=0.439188 mu0=-1.05285
+native history id=12 iteration=32 residual2=3.92453e-07 gamma=0.00102226 direction_energy=0 g0=1 mu0=-1.01107
+native component id=0 nodes=12 iterations=2 active=1 failed=0 residual2=98.9322 tolerance2=8e-09 gamma=6.99118 direction_energy=1.62294
+native history id=12 iteration=1 residual2=8192 gamma=1004.53 direction_energy=504.088 g0=-0.371707 mu0=-0.740723
+native history id=12 iteration=2 residual2=73.2712 gamma=77.4383 direction_energy=148.182 g0=-0.172816 mu0=-0.84601
+native component id=12 nodes=1024 iterations=2 active=1 failed=0 residual2=73.2712 tolerance2=4.096e-07 gamma=77.4383 direction_energy=148.182
+native cooperative id=1036 iterations=2 active=1 failed=0 residual2=56.0934 tolerance2=4.112e-07 gamma=69.2811 direction_energy=122.639
+native component id=0 nodes=12 iterations=2 active=1 failed=0 residual2=0.574473 tolerance2=4.8e-09 gamma=1.17356 direction_energy=2.83504
+native history id=12 iteration=1 residual2=8192 gamma=1004.53 direction_energy=504.088 g0=-0.371707 mu0=-0.740723
+native history id=12 iteration=2 residual2=73.2712 gamma=77.4383 direction_energy=148.182 g0=-0.172816 mu0=-0.84601
+native component id=12 nodes=1024 iterations=2 active=1 failed=0 residual2=73.2712 tolerance2=4.096e-07 gamma=77.4383 direction_energy=148.182
+native cooperative id=1036 iterations=2 active=1 failed=0 residual2=127.304 tolerance2=4.144e-07 gamma=9.06652 direction_energy=0.0554792
+native history id=12 iteration=1 residual2=0 gamma=0 direction_energy=0 g0=0 mu0=0
+resident mixed components: nodes=2064 bonds=2061 sizes=12,1024,1028 interleaved=0 analytic forces and iteration-cap rejection passed
+native history id=1 iteration=1 residual2=8192 gamma=994.157 direction_energy=493.333 g0=0.255729 mu0=0.515341
+native history id=1 iteration=2 residual2=57.8006 gamma=71.8998 direction_energy=135.056 g0=0.196272 mu0=0.629677
+native history id=1 iteration=4 residual2=1.36166 gamma=5.72848 direction_energy=34.7307 g0=0.200962 mu0=0.874105
+native history id=1 iteration=8 residual2=0.00968139 gamma=0.286604 direction_energy=8.26042 g0=-0.147414 mu0=0.897
+native history id=1 iteration=16 residual2=6.50189e-05 gamma=0.0273757 direction_energy=11.9832 g0=0.202393 mu0=0.975845
+native component id=0 nodes=12 iterations=2 active=1 failed=0 residual2=74.8631 tolerance2=8e-09 gamma=6.73155 direction_energy=1.54342
+native history id=1 iteration=1 residual2=8192 gamma=994.157 direction_energy=493.333 g0=0.255729 mu0=0.515341
+native history id=1 iteration=2 residual2=57.8006 gamma=71.8998 direction_energy=135.056 g0=0.196272 mu0=0.629677
+native component id=1 nodes=1024 iterations=2 active=1 failed=0 residual2=57.8006 tolerance2=4.096e-07 gamma=71.8998 direction_energy=135.056
+native cooperative id=3 iterations=2 active=1 failed=0 residual2=61.2968 tolerance2=4.112e-07 gamma=72.7625 direction_energy=140.703
+native component id=0 nodes=12 iterations=2 active=1 failed=0 residual2=0.268847 tolerance2=4.8e-09 gamma=0.503159 direction_energy=0.484135
+native history id=1 iteration=1 residual2=8192 gamma=994.157 direction_energy=493.333 g0=0.255729 mu0=0.515341
+native history id=1 iteration=2 residual2=57.8006 gamma=71.8998 direction_energy=135.056 g0=0.196272 mu0=0.629677
+native component id=1 nodes=1024 iterations=2 active=1 failed=0 residual2=57.8006 tolerance2=4.096e-07 gamma=71.8998 direction_energy=135.056
+native cooperative id=3 iterations=2 active=1 failed=0 residual2=86.7837 tolerance2=4.144e-07 gamma=8.88809 direction_energy=0.0971983
+native history id=1 iteration=1 residual2=0 gamma=0 direction_energy=0 g0=0 mu0=0
+transition force generation=0 load_revision=3 edge=265 expected=0 actual_y=-0.000236685 error=0.000236685 iterations=33
+transition analytic force failed
+resident mixed components: nodes=2064 bonds=2061 sizes=12,1024,1028 interleaved=1 analytic forces and iteration-cap rejection passed
+resident uneven components: components=769 nodes=13828 bonds=13059 warm=0 six quiet/load transitions passed
+resident uneven components: components=769 nodes=13828 bonds=13059 warm=1 six quiet/load transitions passed

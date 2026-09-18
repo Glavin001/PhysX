@@ -1,0 +1,535 @@
+{
+  "source": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/collector-help-2025.txt",
+  "sha256": "ac75d8e8b9801ec2b43d18ffa925b9d9e6917ea5ed0c47634af7d67ae1eae7c9",
+  "collector": "2025.3.1",
+  "default_cache_control": "all",
+  "default_clock_control": "base",
+  "interpretation": "Completed graph/configuration capture commands explicitly select cache control all and clock control none. Installed CLI defaults (all/base) do not describe the effective clock setting. Clocks remain driver-managed; telemetry is retained. Cache/replay behavior still differs from ordinary application execution.",
+  "followup": "For an experiment specifically about cross-kernel cache reuse, predeclare a targeted application-replay/cache-control-none follow-up plus unprofiled controls. Do not recapture the entire atlas without a concrete cache hypothesis.",
+  "effective_cache_control": "all",
+  "effective_clock_control": "none",
+  "command_audit": [
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/graphs-full/city64-cascading-fracture/receipt.json",
+      "sha256": "b0e541dd997f75a0cdc786c56c5a4226c3dd03626235051ac431dd2fd7e26c66",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/graphs-full/cantilever64-warm/receipt.json",
+      "sha256": "4741ce24b49d75b3818f1cdaef2dd29bc6a3a430cf9bed2414c378bf617bb2af",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/graphs-full/city25-cascading-fracture/receipt.json",
+      "sha256": "6399392ae6c33a1207261eb6d338721ccabbb228a8993dd8fdddb41dfeb709ad",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/graphs-full/destruction-stimulus/receipt.json",
+      "sha256": "fdeb2b919decf485798b08f9f430d86c4732f35de7827620386a3b3568b5eb3f",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/graphs-full/dense12-warm/receipt.json",
+      "sha256": "e0dde81a38b5f47644c76f1c34c7936286ba01e9fff85868ae6efefd174c459c",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/graphs-full/city25-ten-second-debris/receipt.json",
+      "sha256": "380093ba864d4aabd16028fe90c029e7310b0359f57dd5f695029043724ca925",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/graphs-full/destruction-onset/receipt.json",
+      "sha256": "3d51ec13969efe02f9aa8ab7aa6c2d0c76e168b5837018990c426a13c2da18c8",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/graphs-full/destruction-damaged/receipt.json",
+      "sha256": "e34ed7d982826991db23e4bad0e6218d0963b8073e014c17289b6323235f83f7",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/graphs-full/city256-fragmented-loaded/receipt.json",
+      "sha256": "06dbf4f2aabbe2e5fe0cb9b4f97ed0946091c9f5aa704fae3fded4e806419691",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/graphs-full/city64-post-impact/receipt.json",
+      "sha256": "ec224cdb7ffeb5efc0585b28e13a979fbd78b97411b011bb309eec4b70b6a4d4",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/graphs-full/ladder128-warm/receipt.json",
+      "sha256": "711742e1d4337c189e0832149b6ab4efadd3e97288d4b955fd177811f18bc6b0",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/graphs-full/city64-ten-second-debris/receipt.json",
+      "sha256": "abdf056ff4b3e293fe56dc20122d1dbf8db71b061dd3394ae8448f3a58118202",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/graphs-full/city64-initial-impact/receipt.json",
+      "sha256": "bc85065b2c7a7422f83fc4c9d7ddb4a2a24ee5ff3503c892a600da4e5a81bcaf",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/graphs-full/chain256-cold/receipt.json",
+      "sha256": "a8862ea448d17becdd57cf248ad1074642a1f46d9eb55efd313d1f09df30aa59",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/graphs-full/tower64-cold/receipt.json",
+      "sha256": "3196019ab4a072e6a97a6bbe6d94fe1b4d86e23e1dbc68510956e6fa60a2f8aa",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/graphs-full/cantilever64-cold/receipt.json",
+      "sha256": "bff5ff73c15a0cf204aa03ae1e31ebd16a0081deb4d370e761cab26ac4427447",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/graphs-full/city256-cascading-fracture/receipt.json",
+      "sha256": "cd1f683bd7161706e200cfb080d9f9a73f2c018698c967e8a6d6a08680f805f4",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/graphs-full/city256-intact-idle/receipt.json",
+      "sha256": "3e14393e83138dca27342aae833df4e3c926a5523d36349d75e705effc7982be",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/graphs-full/building-warm/receipt.json",
+      "sha256": "e150ff580ae160ef3e28f04248d80ec77f2ac97f454e7002e7eb76a36086f451",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/graphs-full/city64-late-debris/receipt.json",
+      "sha256": "cc1728975398059bfbad8312fd7818dc55f2d748d4a1c1f651fa7f55aabf6210",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/graphs-full/city256-initial-impact/receipt.json",
+      "sha256": "d76bdd8a4dcd6d2f0a03dab209802e9b32a47f96f74b9e9b8fb6b87acb71fe12",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/graphs-full/building-cold/receipt.json",
+      "sha256": "7cfb50432b90737a057d80f1ce07dcc6f1dc5e9de8f83665e2a2684fcf758db9",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/graphs-full/city256-ten-second-debris/receipt.json",
+      "sha256": "75d5fafc723d742493e8d6f127c29a8fbfdc32a7d9ef10d5379e542fa01c164e",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/graphs-full/building-fragmented/receipt.json",
+      "sha256": "9d34174870e8578652a2ac88401debb6329bcdd6a9a68e3fdb10874ee4fa8206",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/graphs-full/tower64-warm/receipt.json",
+      "sha256": "0c45e2e9d9aabb69295bab43a6d29803724c73b832d7bc6f85d766744188787d",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/graphs-full/city64-intact-idle/receipt.json",
+      "sha256": "f47b2e1df2795da1d996c65f6197a3a174eece8da45b3a2ccfb0a4cadcad2ee9",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/graphs-full/city25-intact-idle/receipt.json",
+      "sha256": "6de1e39830b4f32529258d5356dd8ebb97cfa46bb0cafa6d46579d650fbf66fb",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/graphs-full/city256-late-debris/receipt.json",
+      "sha256": "7a0a7fdb56896aeef119474152318bfff12788e354e16166951fff86c37502c8",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/graphs-full/panel32-cold/receipt.json",
+      "sha256": "73199d19b7082d68b8806cbd486362218d594b713057cdc21c6e62cdcfd0b00b",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/graphs-full/chain32-warm/receipt.json",
+      "sha256": "aa80819585bff8bb8e0d0cba56fe2e0a50037f8e61063c8310b26eb930859b1a",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/graphs-full/ladder128-cold/receipt.json",
+      "sha256": "9df1093558a53c5a738b05502f37a25d33c93500e84b442019a3162ef9ad12d4",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/graphs-full/city25-airborne/receipt.json",
+      "sha256": "9d5b2ea637e481d857e790fd3b5edd128cc2b569301e49b6ff36fb3cef229c08",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/graphs-full/bridge64-cold/receipt.json",
+      "sha256": "179093a04f28d9a66c65ab97beec0db70d6d41c7e72c127a35cbf316fc8fbdab",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/graphs-full/bridge64-warm/receipt.json",
+      "sha256": "156ebddb049a7b7afba2695c92f460082f231d165c014a719fee5cb413cb704f",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/graphs-full/panel32-warm/receipt.json",
+      "sha256": "56bed11be2c6ee5aac3a85da37492369ff629b852970136170c08d217494d964",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/graphs-full/destruction-intact/receipt.json",
+      "sha256": "ac9743d5446438b8b9a280e76ed3f83f845d48aef755e989c36d654260f0df44",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/graphs-full/city25-late-debris/receipt.json",
+      "sha256": "7b936665bd6e031f8fe07c7b00a974c73f2637ee914c57fe63210acbece5c090",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/graphs-full/city256-airborne/receipt.json",
+      "sha256": "5d41b891e96aba88c2dfeb579468604fcf996fee7e5e4305b78816de4aecd0d4",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/graphs-full/city256-post-impact/receipt.json",
+      "sha256": "59847f9f54a1cc9919f70a83189aef72023a004bdc6d794c9f72d9bb489c48bb",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/graphs-full/destruction-fractured/receipt.json",
+      "sha256": "face8f290fd08b9d34085af55cb5827fd9a35933c40b11cc52dfdbed7831cb75",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/graphs-full/dense12-cold/receipt.json",
+      "sha256": "a66041b866d0c2376dab44d5a27da2114bed8660dd2b39cda03e92c3c1bb61dc",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/graphs-full/city64-fragmented-loaded/receipt.json",
+      "sha256": "3c38fed83d7aab65f084b328974834643d271e762004af0934a4c4f6b1205000",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/graphs-full/destruction-cold/receipt.json",
+      "sha256": "e8fe0fba2d4118bfe275ddabcd810fdb23431b3923b0418e9a5b3dbe92a627c1",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/graphs-full/chain256-warm/receipt.json",
+      "sha256": "03d696aab42f96981d4c4b306da6cecbbc70a401a80ba6b3c2d52b6d568b282f",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/graphs-full/city25-post-impact/receipt.json",
+      "sha256": "937eef616378cbc303931ec8ed3f7e88e99c822c2e6f6236a17def3ec0a49669",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/graphs-full/chain32-cold/receipt.json",
+      "sha256": "7bbefc2dc9f5d72fafdfa070fc59291a7b990a44b68090a2245f81758d1ed24f",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/graphs-full/city25-fragmented-loaded/receipt.json",
+      "sha256": "5fca34b4d1f9e9e405b0dc7502bfc4441b630e40956fb6d0ef9f34a706006bca",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/graphs-full/city64-airborne/receipt.json",
+      "sha256": "5d24ba2f3fc2dbe42736bba593f9e2a2ddbea2d76a56941e554712dcf1598190",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/cantilever64-warm/receipt.json",
+      "sha256": "d4f833ecae2f5b7b01d423dbd577ee7a3704310be6eb4728867390bbf887a696",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/city25-cascading-fracture/receipt.json",
+      "sha256": "9c18ae295ed9edf03e010e3fa68e0ad7a6c21101e4850cf5b43ab44ab4e50769",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/flying/receipt.json",
+      "sha256": "897cfcc4fd977e723374ab91d6f0368bb527c609494aff3ac311c67165714bf0",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/destruction-stimulus/receipt.json",
+      "sha256": "f4341377a1d2fd0974136a48a4878058cd56cea77eb7defbfe004dc6fef187b0",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/dense12-warm/receipt.json",
+      "sha256": "9b39deed872ea787c411cfe4c58b2d7301343e126705f38759fc7f30f4d835d8",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/city25-ten-second-debris/receipt.json",
+      "sha256": "cb79db0b725b5a74a4fc42a4c87e1b2dac3eeb65f5ed03d50c42177b1f103f26",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/destruction-onset/receipt.json",
+      "sha256": "9635677e8526e82a45187ef07e13ae5c62b02ef8172a4d0a97aca078ed905eab",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/destruction-damaged/receipt.json",
+      "sha256": "cdcb2f20077536e81590c864dfaea40c8b863cd8ecd1b6d24e1a213293af5311",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/ladder128-warm/receipt.json",
+      "sha256": "f73bdc03e5f93147df2863040f76be48ae90c3d8cc7aa179360c619e60beda7c",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/city64-initial-impact/receipt.json",
+      "sha256": "d52ba2efc0ca2fb5e9e893c53492b5e983be3f9dae79ded5f38efb7588427679",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/chain256-cold/receipt.json",
+      "sha256": "8b895b47290d77e0612dc225ca70859c583f777999e865599746dc01106755ab",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/sliding/receipt.json",
+      "sha256": "a6436f7b816527e5403b1d157f62975cfe74492656464a58f4f89fb4acb0e668",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/tower64-cold/receipt.json",
+      "sha256": "aee58a2305ef9470379e9022df924b69d9d8b23ce28b4b7881693c4e720a027b",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/cantilever64-cold/receipt.json",
+      "sha256": "6e7b7c4f417e7d70c87af512a86485049d9b804d252580e6dc2944332d7aa477",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/resting/receipt.json",
+      "sha256": "4cabc679f38c13cba9290bf12638e3aa37298b9a8c27be6805ec4dffd5ca3e77",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/building-warm/receipt.json",
+      "sha256": "aa14cb9ff867731682cddf1fcb54fd81871615b23f836339af403d56f88bbb72",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/building-cold/receipt.json",
+      "sha256": "46b6735ad490b20947e5b103a53c8c5a43b064cd8e259e17e405e0e617f67a73",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/building-fragmented/receipt.json",
+      "sha256": "3291ed2633e8b02323f79788fb5024592ef8e4dc808c8c4253ba8dd9b4bc5184",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/tower64-warm/receipt.json",
+      "sha256": "e00be2a2eca17fa020d7f8fb831159d7a5a3689a028b365d8658cf37114be741",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/city64-intact-idle/receipt.json",
+      "sha256": "626fb70a4dc932130dc50479317f12e32d05bb419af7976c2388eecd7e81ecff",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/city25-intact-idle/receipt.json",
+      "sha256": "0fe41177347849eabf50e2cffb046d62a28aaa5d48803111d23580b90505cfd3",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/panel32-cold/receipt.json",
+      "sha256": "40d6425005828954fba73586b900d7bd5ba1e29b77686259717fc55b9fb14721",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/chain32-warm/receipt.json",
+      "sha256": "82e3f3d40ce0b6b91ca288728804e275da2087ae517a077769a30ceb6bc47cbf",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/ladder128-cold/receipt.json",
+      "sha256": "6185a35c876da61842798287ba68853842f2b1a5006f55fdb642619b36d34242",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/city25-airborne/receipt.json",
+      "sha256": "75491c2fae0c5bd685403f143c1c2ba8727723a7f71ab54088d3e8b30764beac",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/bridge64-cold/receipt.json",
+      "sha256": "c8762e4f799ff8d9887c5afe864fbc8e4865ec4ed046eb752f342cd5454d1a21",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/bridge64-warm/receipt.json",
+      "sha256": "756389e9b4f3df0ea36ed69c679298c4edb35f3550a1be83647b17961d7b67dc",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/panel32-warm/receipt.json",
+      "sha256": "4be70f669bc984fdf1cfe35f547d87fc7ac821d47dc294aafbdd58b9d35b53c3",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/destruction-intact/receipt.json",
+      "sha256": "adab87cacb847c8e2204ccf07ec48cb060b881d2c66cb16fe259ffd0fa5ed761",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/city25-late-debris/receipt.json",
+      "sha256": "4bdeac7757fc1ca412d76988fadaa77380e2403bbc109f5b9f8882d2ef181317",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/destruction-fractured/receipt.json",
+      "sha256": "b4602d72ffbff8765cd0e955273225ded3963163034a4cb854a2be2fc616f3d2",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/dense12-cold/receipt.json",
+      "sha256": "5a9b9b3e2f1467a3be1163a76f9938388f9eaf19df91cc656e33e97325431aa9",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/destruction-cold/receipt.json",
+      "sha256": "91aa4f11f2fe920abad2ec435bdefc78ab99230f4effe0014473116d9741b598",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/chain256-warm/receipt.json",
+      "sha256": "56456acf7a2db6812514e6be6ce1a069d9903904b6a302797bc5c513c948f5d1",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/city25-post-impact/receipt.json",
+      "sha256": "dd3bb4b08622c84bd6fd244d6bcd52243e96459f7a824137e5addea55a23011d",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/city25-initial-impact-attempt1/receipt.json",
+      "sha256": "c7ee5c30b73a2a60cf0a66a1d7c46ade4d0cd405b48cfbdb1f09db8b31613d9c",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/chain32-cold/receipt.json",
+      "sha256": "1f0a327a1ae8ec2840574ed145cdb61e95716813abb56329b7040f2dc6661d0a",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/city25-fragmented-loaded/receipt.json",
+      "sha256": "55c2753a5c3b546b718e9ec53f3595cc544ac37a9677428987d2a7dfe8f8f8b7",
+      "cache_control": "all",
+      "clock_control": "none"
+    },
+    {
+      "receipt": "/root/workspace/physx-2/out/end-to-end-attribution-20260912/configs-full/city64-airborne/receipt.json",
+      "sha256": "7098ebd11f9cfd68e591a303654817ca4f30be8e5a26e7c8083d0fed0717a960",
+      "cache_control": "all",
+      "clock_control": "none"
+    }
+  ]
+}

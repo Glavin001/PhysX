@@ -1,0 +1,17 @@
+[
+  "/usr/bin/g++",
+  "/root/workspace/physx-2/out/destruction-sdk/topology/CMakeFiles/destruction_topology_test.dir/tests/topology_test.cu.o",
+  "-o",
+  "/root/workspace/physx-2/out/snapshot-finish-20260911/device-enabled-native/destruction_topology_test",
+  "/root/workspace/physx-2/out/snapshot-finish-20260911/device-enabled-native/topology.o",
+  "/usr/local/cuda-13.4/targets/x86_64-linux/lib/libcudart.so",
+  "-ldl",
+  "/usr/lib/x86_64-linux-gnu/librt.a",
+  "-lcudadevrt",
+  "-lcudart_static",
+  "-lrt",
+  "-lpthread",
+  "-ldl",
+  "-L/usr/local/cuda-13.4/targets/x86_64-linux/lib/stubs",
+  "-L/usr/local/cuda-13.4/targets/x86_64-linux/lib"
+]

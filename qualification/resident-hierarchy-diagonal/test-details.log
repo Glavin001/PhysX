@@ -1,0 +1,475 @@
+Start testing: Sep 07 13:25 UTC
+----------------------------------------------------------
+83/92 Testing: blast_stress_gpu_resident_hierarchy
+83/92 Test: blast_stress_gpu_resident_hierarchy
+Command: "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_resident_hierarchy_test"
+Directory: /root/workspace/physx-2/out/destruction-sdk/reference
+"blast_stress_gpu_resident_hierarchy" start time: Sep 07 13:25 UTC
+Output:
+----------------------------------------------------------
+START GPU hierarchy: nodes=0 bonds=0
+coarse factor full-basis check: nodes=0 bonds=0 max scaled error=0
+coarse factor full-basis check: nodes=0 bonds=0 max scaled error=0
+GPU hierarchy: nodes=0 bonds=0 final aggregates=0 rounds=1 transitions=2 passed
+START GPU hierarchy: nodes=1 bonds=0
+resident P/PT/coarse operator: nodes=1 bonds=0 max scaled error=0 passed
+coarse factor full-basis check: nodes=1 bonds=0 max scaled error=0
+resident P/PT/coarse operator: nodes=1 bonds=0 max scaled error=0 passed
+coarse factor full-basis check: nodes=1 bonds=0 max scaled error=0
+GPU hierarchy: nodes=1 bonds=0 final aggregates=1 rounds=1 transitions=2 passed
+START GPU hierarchy: nodes=24 bonds=33
+resident P/PT/coarse operator: nodes=24 bonds=33 max scaled error=1.99e-16 passed
+coarse factor full-basis check: nodes=24 bonds=33 max scaled error=0
+resident P/PT/coarse operator: nodes=24 bonds=33 max scaled error=1.99e-16 passed
+coarse factor full-basis check: nodes=24 bonds=33 max scaled error=0
+resident P/PT/coarse operator: nodes=24 bonds=33 max scaled error=3.68e-16 passed
+coarse factor full-basis check: nodes=24 bonds=33 max scaled error=0
+resident P/PT/coarse operator: nodes=24 bonds=33 max scaled error=3.68e-16 passed
+coarse factor full-basis check: nodes=24 bonds=33 max scaled error=0
+resident P/PT/coarse operator: nodes=24 bonds=33 max scaled error=1.59e-16 passed
+coarse factor full-basis check: nodes=24 bonds=33 max scaled error=0
+resident P/PT/coarse operator: nodes=24 bonds=33 max scaled error=1.99e-16 passed
+coarse factor full-basis check: nodes=24 bonds=33 max scaled error=0
+GPU hierarchy: nodes=24 bonds=33 final aggregates=8 rounds=3 transitions=6 passed
+START GPU hierarchy: nodes=2 bonds=1
+resident P/PT/coarse operator: nodes=2 bonds=1 max scaled error=4.44e-16 passed
+coarse factor full-basis check: nodes=2 bonds=1 max scaled error=0
+resident P/PT/coarse operator: nodes=2 bonds=1 max scaled error=4.44e-16 passed
+coarse factor full-basis check: nodes=2 bonds=1 max scaled error=0
+resident P/PT/coarse operator: nodes=2 bonds=1 max scaled error=1.59e-16 passed
+coarse factor full-basis check: nodes=2 bonds=1 max scaled error=0
+resident P/PT/coarse operator: nodes=2 bonds=1 max scaled error=1.59e-16 passed
+coarse factor full-basis check: nodes=2 bonds=1 max scaled error=0
+resident P/PT/coarse operator: nodes=2 bonds=1 max scaled error=1.59e-16 passed
+coarse factor full-basis check: nodes=2 bonds=1 max scaled error=0
+resident P/PT/coarse operator: nodes=2 bonds=1 max scaled error=4.44e-16 passed
+coarse factor full-basis check: nodes=2 bonds=1 max scaled error=0
+GPU hierarchy: nodes=2 bonds=1 final aggregates=1 rounds=1 transitions=6 passed
+START GPU hierarchy: nodes=6 bonds=10
+resident P/PT/coarse operator: nodes=6 bonds=10 max scaled error=2.6e-16 passed
+coarse factor full-basis check: nodes=6 bonds=10 max scaled error=0
+resident P/PT/coarse operator: nodes=6 bonds=10 max scaled error=2.6e-16 passed
+coarse factor full-basis check: nodes=6 bonds=10 max scaled error=0
+resident P/PT/coarse operator: nodes=6 bonds=10 max scaled error=3.9e-16 passed
+coarse factor full-basis check: nodes=6 bonds=10 max scaled error=0
+resident P/PT/coarse operator: nodes=6 bonds=10 max scaled error=3.9e-16 passed
+coarse factor full-basis check: nodes=6 bonds=10 max scaled error=0
+resident P/PT/coarse operator: nodes=6 bonds=10 max scaled error=1.59e-16 passed
+coarse factor full-basis check: nodes=6 bonds=10 max scaled error=0
+resident P/PT/coarse operator: nodes=6 bonds=10 max scaled error=2.6e-16 passed
+coarse factor full-basis check: nodes=6 bonds=10 max scaled error=0
+GPU hierarchy: nodes=6 bonds=10 final aggregates=1 rounds=1 transitions=6 passed
+START GPU hierarchy: nodes=24 bonds=11
+resident P/PT/coarse operator: nodes=24 bonds=11 max scaled error=3.33e-16 passed
+coarse factor full-basis check: nodes=24 bonds=11 max scaled error=0
+resident P/PT/coarse operator: nodes=24 bonds=11 max scaled error=3.33e-16 passed
+coarse factor full-basis check: nodes=24 bonds=11 max scaled error=0
+resident P/PT/coarse operator: nodes=24 bonds=11 max scaled error=1.9e-16 passed
+coarse factor full-basis check: nodes=24 bonds=11 max scaled error=0
+resident P/PT/coarse operator: nodes=24 bonds=11 max scaled error=1.9e-16 passed
+coarse factor full-basis check: nodes=24 bonds=11 max scaled error=0
+resident P/PT/coarse operator: nodes=24 bonds=11 max scaled error=0 passed
+coarse factor full-basis check: nodes=24 bonds=11 max scaled error=0
+resident P/PT/coarse operator: nodes=24 bonds=11 max scaled error=3.33e-16 passed
+coarse factor full-basis check: nodes=24 bonds=11 max scaled error=0
+GPU hierarchy: nodes=24 bonds=11 final aggregates=5 rounds=2 transitions=6 passed
+START GPU hierarchy: nodes=257 bonds=256
+resident P/PT/coarse operator: nodes=257 bonds=256 max scaled error=1.44e-15 passed
+resident P/PT/coarse operator: nodes=257 bonds=256 max scaled error=1.44e-15 passed
+GPU hierarchy: nodes=257 bonds=256 final aggregates=1 rounds=1 transitions=2 passed
+START GPU hierarchy: nodes=4 bonds=3
+resident P/PT/coarse operator: nodes=4 bonds=3 max scaled error=0 passed
+coarse factor full-basis check: nodes=4 bonds=3 max scaled error=0
+resident P/PT/coarse operator: nodes=4 bonds=3 max scaled error=0 passed
+coarse factor full-basis check: nodes=4 bonds=3 max scaled error=0
+resident P/PT/coarse operator: nodes=4 bonds=3 max scaled error=0 passed
+coarse factor full-basis check: nodes=4 bonds=3 max scaled error=0
+resident P/PT/coarse operator: nodes=4 bonds=3 max scaled error=0 passed
+coarse factor full-basis check: nodes=4 bonds=3 max scaled error=0
+resident P/PT/coarse operator: nodes=4 bonds=3 max scaled error=0 passed
+coarse factor full-basis check: nodes=4 bonds=3 max scaled error=0
+resident P/PT/coarse operator: nodes=4 bonds=3 max scaled error=0 passed
+coarse factor full-basis check: nodes=4 bonds=3 max scaled error=0
+GPU hierarchy: nodes=4 bonds=3 final aggregates=0 rounds=1 transitions=6 passed
+START GPU hierarchy: nodes=129 bonds=121
+resident P/PT/coarse operator: nodes=129 bonds=121 max scaled error=4.44e-16 passed
+resident P/PT/coarse operator: nodes=129 bonds=121 max scaled error=4.44e-16 passed
+resident P/PT/coarse operator: nodes=129 bonds=121 max scaled error=8.88e-16 passed
+resident P/PT/coarse operator: nodes=129 bonds=121 max scaled error=8.88e-16 passed
+resident P/PT/coarse operator: nodes=129 bonds=121 max scaled error=1.9e-16 passed
+resident P/PT/coarse operator: nodes=129 bonds=121 max scaled error=4.44e-16 passed
+GPU hierarchy: nodes=129 bonds=121 final aggregates=56 rounds=2 transitions=6 passed
+START GPU hierarchy: nodes=100000 bonds=199997
+resident P/PT/coarse operator: nodes=100000 bonds=199997 max scaled error=4e-15 passed
+resident P/PT/coarse operator: nodes=100000 bonds=199997 max scaled error=4e-15 passed
+resident P/PT/coarse operator: nodes=100000 bonds=199997 max scaled error=4e-15 passed
+resident P/PT/coarse operator: nodes=100000 bonds=199997 max scaled error=4e-15 passed
+resident P/PT/coarse operator: nodes=100000 bonds=199997 max scaled error=1.9e-16 passed
+resident P/PT/coarse operator: nodes=100000 bonds=199997 max scaled error=4e-15 passed
+GPU hierarchy: nodes=100000 bonds=199997 final aggregates=27321 rounds=3 transitions=6 passed
+<end of output>
+Test time =   0.86 sec
+----------------------------------------------------------
+Test Passed.
+"blast_stress_gpu_resident_hierarchy" end time: Sep 07 13:25 UTC
+"blast_stress_gpu_resident_hierarchy" time elapsed: 00:00:00
+----------------------------------------------------------
+
+84/92 Testing: blast_stress_gpu_resident_hierarchy_memcheck
+84/92 Test: blast_stress_gpu_resident_hierarchy_memcheck
+Command: "/usr/local/cuda/bin/compute-sanitizer" "--tool" "memcheck" "--leak-check" "full" "--error-exitcode" "99" "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_resident_hierarchy_test"
+Directory: /root/workspace/physx-2/out/destruction-sdk/reference
+"blast_stress_gpu_resident_hierarchy_memcheck" start time: Sep 07 13:25 UTC
+Output:
+----------------------------------------------------------
+========= COMPUTE-SANITIZER
+START GPU hierarchy: nodes=0 bonds=0
+coarse factor full-basis check: nodes=0 bonds=0 max scaled error=0
+coarse factor full-basis check: nodes=0 bonds=0 max scaled error=0
+GPU hierarchy: nodes=0 bonds=0 final aggregates=0 rounds=1 transitions=2 passed
+START GPU hierarchy: nodes=1 bonds=0
+resident P/PT/coarse operator: nodes=1 bonds=0 max scaled error=0 passed
+coarse factor full-basis check: nodes=1 bonds=0 max scaled error=0
+resident P/PT/coarse operator: nodes=1 bonds=0 max scaled error=0 passed
+coarse factor full-basis check: nodes=1 bonds=0 max scaled error=0
+GPU hierarchy: nodes=1 bonds=0 final aggregates=1 rounds=1 transitions=2 passed
+START GPU hierarchy: nodes=24 bonds=33
+resident P/PT/coarse operator: nodes=24 bonds=33 max scaled error=1.99e-16 passed
+coarse factor full-basis check: nodes=24 bonds=33 max scaled error=0
+resident P/PT/coarse operator: nodes=24 bonds=33 max scaled error=1.99e-16 passed
+coarse factor full-basis check: nodes=24 bonds=33 max scaled error=0
+resident P/PT/coarse operator: nodes=24 bonds=33 max scaled error=3.68e-16 passed
+coarse factor full-basis check: nodes=24 bonds=33 max scaled error=0
+resident P/PT/coarse operator: nodes=24 bonds=33 max scaled error=3.68e-16 passed
+coarse factor full-basis check: nodes=24 bonds=33 max scaled error=0
+resident P/PT/coarse operator: nodes=24 bonds=33 max scaled error=1.59e-16 passed
+coarse factor full-basis check: nodes=24 bonds=33 max scaled error=0
+resident P/PT/coarse operator: nodes=24 bonds=33 max scaled error=1.99e-16 passed
+coarse factor full-basis check: nodes=24 bonds=33 max scaled error=0
+GPU hierarchy: nodes=24 bonds=33 final aggregates=8 rounds=3 transitions=6 passed
+START GPU hierarchy: nodes=2 bonds=1
+resident P/PT/coarse operator: nodes=2 bonds=1 max scaled error=4.44e-16 passed
+coarse factor full-basis check: nodes=2 bonds=1 max scaled error=0
+resident P/PT/coarse operator: nodes=2 bonds=1 max scaled error=4.44e-16 passed
+coarse factor full-basis check: nodes=2 bonds=1 max scaled error=0
+resident P/PT/coarse operator: nodes=2 bonds=1 max scaled error=1.59e-16 passed
+coarse factor full-basis check: nodes=2 bonds=1 max scaled error=0
+resident P/PT/coarse operator: nodes=2 bonds=1 max scaled error=1.59e-16 passed
+coarse factor full-basis check: nodes=2 bonds=1 max scaled error=0
+resident P/PT/coarse operator: nodes=2 bonds=1 max scaled error=1.59e-16 passed
+coarse factor full-basis check: nodes=2 bonds=1 max scaled error=0
+resident P/PT/coarse operator: nodes=2 bonds=1 max scaled error=4.44e-16 passed
+coarse factor full-basis check: nodes=2 bonds=1 max scaled error=0
+GPU hierarchy: nodes=2 bonds=1 final aggregates=1 rounds=1 transitions=6 passed
+START GPU hierarchy: nodes=6 bonds=10
+resident P/PT/coarse operator: nodes=6 bonds=10 max scaled error=2.6e-16 passed
+coarse factor full-basis check: nodes=6 bonds=10 max scaled error=0
+resident P/PT/coarse operator: nodes=6 bonds=10 max scaled error=2.6e-16 passed
+coarse factor full-basis check: nodes=6 bonds=10 max scaled error=0
+resident P/PT/coarse operator: nodes=6 bonds=10 max scaled error=3.9e-16 passed
+coarse factor full-basis check: nodes=6 bonds=10 max scaled error=0
+resident P/PT/coarse operator: nodes=6 bonds=10 max scaled error=3.9e-16 passed
+coarse factor full-basis check: nodes=6 bonds=10 max scaled error=0
+resident P/PT/coarse operator: nodes=6 bonds=10 max scaled error=1.59e-16 passed
+coarse factor full-basis check: nodes=6 bonds=10 max scaled error=0
+resident P/PT/coarse operator: nodes=6 bonds=10 max scaled error=2.6e-16 passed
+coarse factor full-basis check: nodes=6 bonds=10 max scaled error=0
+GPU hierarchy: nodes=6 bonds=10 final aggregates=1 rounds=1 transitions=6 passed
+START GPU hierarchy: nodes=24 bonds=11
+resident P/PT/coarse operator: nodes=24 bonds=11 max scaled error=3.33e-16 passed
+coarse factor full-basis check: nodes=24 bonds=11 max scaled error=0
+resident P/PT/coarse operator: nodes=24 bonds=11 max scaled error=3.33e-16 passed
+coarse factor full-basis check: nodes=24 bonds=11 max scaled error=0
+resident P/PT/coarse operator: nodes=24 bonds=11 max scaled error=1.9e-16 passed
+coarse factor full-basis check: nodes=24 bonds=11 max scaled error=0
+resident P/PT/coarse operator: nodes=24 bonds=11 max scaled error=1.9e-16 passed
+coarse factor full-basis check: nodes=24 bonds=11 max scaled error=0
+resident P/PT/coarse operator: nodes=24 bonds=11 max scaled error=0 passed
+coarse factor full-basis check: nodes=24 bonds=11 max scaled error=0
+resident P/PT/coarse operator: nodes=24 bonds=11 max scaled error=3.33e-16 passed
+coarse factor full-basis check: nodes=24 bonds=11 max scaled error=0
+GPU hierarchy: nodes=24 bonds=11 final aggregates=5 rounds=2 transitions=6 passed
+START GPU hierarchy: nodes=257 bonds=256
+resident P/PT/coarse operator: nodes=257 bonds=256 max scaled error=1.44e-15 passed
+resident P/PT/coarse operator: nodes=257 bonds=256 max scaled error=1.44e-15 passed
+GPU hierarchy: nodes=257 bonds=256 final aggregates=1 rounds=1 transitions=2 passed
+START GPU hierarchy: nodes=4 bonds=3
+resident P/PT/coarse operator: nodes=4 bonds=3 max scaled error=0 passed
+coarse factor full-basis check: nodes=4 bonds=3 max scaled error=0
+resident P/PT/coarse operator: nodes=4 bonds=3 max scaled error=0 passed
+coarse factor full-basis check: nodes=4 bonds=3 max scaled error=0
+resident P/PT/coarse operator: nodes=4 bonds=3 max scaled error=0 passed
+coarse factor full-basis check: nodes=4 bonds=3 max scaled error=0
+resident P/PT/coarse operator: nodes=4 bonds=3 max scaled error=0 passed
+coarse factor full-basis check: nodes=4 bonds=3 max scaled error=0
+resident P/PT/coarse operator: nodes=4 bonds=3 max scaled error=0 passed
+coarse factor full-basis check: nodes=4 bonds=3 max scaled error=0
+resident P/PT/coarse operator: nodes=4 bonds=3 max scaled error=0 passed
+coarse factor full-basis check: nodes=4 bonds=3 max scaled error=0
+GPU hierarchy: nodes=4 bonds=3 final aggregates=0 rounds=1 transitions=6 passed
+START GPU hierarchy: nodes=129 bonds=121
+resident P/PT/coarse operator: nodes=129 bonds=121 max scaled error=4.44e-16 passed
+resident P/PT/coarse operator: nodes=129 bonds=121 max scaled error=4.44e-16 passed
+resident P/PT/coarse operator: nodes=129 bonds=121 max scaled error=8.88e-16 passed
+resident P/PT/coarse operator: nodes=129 bonds=121 max scaled error=8.88e-16 passed
+resident P/PT/coarse operator: nodes=129 bonds=121 max scaled error=1.9e-16 passed
+resident P/PT/coarse operator: nodes=129 bonds=121 max scaled error=4.44e-16 passed
+GPU hierarchy: nodes=129 bonds=121 final aggregates=56 rounds=2 transitions=6 passed
+START GPU hierarchy: nodes=100000 bonds=199997
+resident P/PT/coarse operator: nodes=100000 bonds=199997 max scaled error=4e-15 passed
+resident P/PT/coarse operator: nodes=100000 bonds=199997 max scaled error=4e-15 passed
+resident P/PT/coarse operator: nodes=100000 bonds=199997 max scaled error=4e-15 passed
+resident P/PT/coarse operator: nodes=100000 bonds=199997 max scaled error=4e-15 passed
+resident P/PT/coarse operator: nodes=100000 bonds=199997 max scaled error=1.9e-16 passed
+resident P/PT/coarse operator: nodes=100000 bonds=199997 max scaled error=4e-15 passed
+GPU hierarchy: nodes=100000 bonds=199997 final aggregates=27321 rounds=3 transitions=6 passed
+========= LEAK SUMMARY: 0 bytes leaked in 0 allocations
+========= ERROR SUMMARY: 0 errors
+<end of output>
+Test time =   2.38 sec
+----------------------------------------------------------
+Test Passed.
+"blast_stress_gpu_resident_hierarchy_memcheck" end time: Sep 07 13:25 UTC
+"blast_stress_gpu_resident_hierarchy_memcheck" time elapsed: 00:00:02
+----------------------------------------------------------
+
+85/92 Testing: blast_stress_gpu_resident_hierarchy_synccheck
+85/92 Test: blast_stress_gpu_resident_hierarchy_synccheck
+Command: "/usr/local/cuda/bin/compute-sanitizer" "--tool" "synccheck" "--error-exitcode" "99" "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_resident_hierarchy_test"
+Directory: /root/workspace/physx-2/out/destruction-sdk/reference
+"blast_stress_gpu_resident_hierarchy_synccheck" start time: Sep 07 13:25 UTC
+Output:
+----------------------------------------------------------
+========= COMPUTE-SANITIZER
+START GPU hierarchy: nodes=0 bonds=0
+coarse factor full-basis check: nodes=0 bonds=0 max scaled error=0
+coarse factor full-basis check: nodes=0 bonds=0 max scaled error=0
+GPU hierarchy: nodes=0 bonds=0 final aggregates=0 rounds=1 transitions=2 passed
+START GPU hierarchy: nodes=1 bonds=0
+resident P/PT/coarse operator: nodes=1 bonds=0 max scaled error=0 passed
+coarse factor full-basis check: nodes=1 bonds=0 max scaled error=0
+resident P/PT/coarse operator: nodes=1 bonds=0 max scaled error=0 passed
+coarse factor full-basis check: nodes=1 bonds=0 max scaled error=0
+GPU hierarchy: nodes=1 bonds=0 final aggregates=1 rounds=1 transitions=2 passed
+START GPU hierarchy: nodes=24 bonds=33
+resident P/PT/coarse operator: nodes=24 bonds=33 max scaled error=1.99e-16 passed
+coarse factor full-basis check: nodes=24 bonds=33 max scaled error=0
+resident P/PT/coarse operator: nodes=24 bonds=33 max scaled error=1.99e-16 passed
+coarse factor full-basis check: nodes=24 bonds=33 max scaled error=0
+resident P/PT/coarse operator: nodes=24 bonds=33 max scaled error=3.68e-16 passed
+coarse factor full-basis check: nodes=24 bonds=33 max scaled error=0
+resident P/PT/coarse operator: nodes=24 bonds=33 max scaled error=3.68e-16 passed
+coarse factor full-basis check: nodes=24 bonds=33 max scaled error=0
+resident P/PT/coarse operator: nodes=24 bonds=33 max scaled error=1.59e-16 passed
+coarse factor full-basis check: nodes=24 bonds=33 max scaled error=0
+resident P/PT/coarse operator: nodes=24 bonds=33 max scaled error=1.99e-16 passed
+coarse factor full-basis check: nodes=24 bonds=33 max scaled error=0
+GPU hierarchy: nodes=24 bonds=33 final aggregates=8 rounds=3 transitions=6 passed
+START GPU hierarchy: nodes=2 bonds=1
+resident P/PT/coarse operator: nodes=2 bonds=1 max scaled error=4.44e-16 passed
+coarse factor full-basis check: nodes=2 bonds=1 max scaled error=0
+resident P/PT/coarse operator: nodes=2 bonds=1 max scaled error=4.44e-16 passed
+coarse factor full-basis check: nodes=2 bonds=1 max scaled error=0
+resident P/PT/coarse operator: nodes=2 bonds=1 max scaled error=1.59e-16 passed
+coarse factor full-basis check: nodes=2 bonds=1 max scaled error=0
+resident P/PT/coarse operator: nodes=2 bonds=1 max scaled error=1.59e-16 passed
+coarse factor full-basis check: nodes=2 bonds=1 max scaled error=0
+resident P/PT/coarse operator: nodes=2 bonds=1 max scaled error=1.59e-16 passed
+coarse factor full-basis check: nodes=2 bonds=1 max scaled error=0
+resident P/PT/coarse operator: nodes=2 bonds=1 max scaled error=4.44e-16 passed
+coarse factor full-basis check: nodes=2 bonds=1 max scaled error=0
+GPU hierarchy: nodes=2 bonds=1 final aggregates=1 rounds=1 transitions=6 passed
+START GPU hierarchy: nodes=6 bonds=10
+resident P/PT/coarse operator: nodes=6 bonds=10 max scaled error=2.6e-16 passed
+coarse factor full-basis check: nodes=6 bonds=10 max scaled error=0
+resident P/PT/coarse operator: nodes=6 bonds=10 max scaled error=2.6e-16 passed
+coarse factor full-basis check: nodes=6 bonds=10 max scaled error=0
+resident P/PT/coarse operator: nodes=6 bonds=10 max scaled error=3.9e-16 passed
+coarse factor full-basis check: nodes=6 bonds=10 max scaled error=0
+resident P/PT/coarse operator: nodes=6 bonds=10 max scaled error=3.9e-16 passed
+coarse factor full-basis check: nodes=6 bonds=10 max scaled error=0
+resident P/PT/coarse operator: nodes=6 bonds=10 max scaled error=1.59e-16 passed
+coarse factor full-basis check: nodes=6 bonds=10 max scaled error=0
+resident P/PT/coarse operator: nodes=6 bonds=10 max scaled error=2.6e-16 passed
+coarse factor full-basis check: nodes=6 bonds=10 max scaled error=0
+GPU hierarchy: nodes=6 bonds=10 final aggregates=1 rounds=1 transitions=6 passed
+START GPU hierarchy: nodes=24 bonds=11
+resident P/PT/coarse operator: nodes=24 bonds=11 max scaled error=3.33e-16 passed
+coarse factor full-basis check: nodes=24 bonds=11 max scaled error=0
+resident P/PT/coarse operator: nodes=24 bonds=11 max scaled error=3.33e-16 passed
+coarse factor full-basis check: nodes=24 bonds=11 max scaled error=0
+resident P/PT/coarse operator: nodes=24 bonds=11 max scaled error=1.9e-16 passed
+coarse factor full-basis check: nodes=24 bonds=11 max scaled error=0
+resident P/PT/coarse operator: nodes=24 bonds=11 max scaled error=1.9e-16 passed
+coarse factor full-basis check: nodes=24 bonds=11 max scaled error=0
+resident P/PT/coarse operator: nodes=24 bonds=11 max scaled error=0 passed
+coarse factor full-basis check: nodes=24 bonds=11 max scaled error=0
+resident P/PT/coarse operator: nodes=24 bonds=11 max scaled error=3.33e-16 passed
+coarse factor full-basis check: nodes=24 bonds=11 max scaled error=0
+GPU hierarchy: nodes=24 bonds=11 final aggregates=5 rounds=2 transitions=6 passed
+START GPU hierarchy: nodes=257 bonds=256
+resident P/PT/coarse operator: nodes=257 bonds=256 max scaled error=1.44e-15 passed
+resident P/PT/coarse operator: nodes=257 bonds=256 max scaled error=1.44e-15 passed
+GPU hierarchy: nodes=257 bonds=256 final aggregates=1 rounds=1 transitions=2 passed
+START GPU hierarchy: nodes=4 bonds=3
+resident P/PT/coarse operator: nodes=4 bonds=3 max scaled error=0 passed
+coarse factor full-basis check: nodes=4 bonds=3 max scaled error=0
+resident P/PT/coarse operator: nodes=4 bonds=3 max scaled error=0 passed
+coarse factor full-basis check: nodes=4 bonds=3 max scaled error=0
+resident P/PT/coarse operator: nodes=4 bonds=3 max scaled error=0 passed
+coarse factor full-basis check: nodes=4 bonds=3 max scaled error=0
+resident P/PT/coarse operator: nodes=4 bonds=3 max scaled error=0 passed
+coarse factor full-basis check: nodes=4 bonds=3 max scaled error=0
+resident P/PT/coarse operator: nodes=4 bonds=3 max scaled error=0 passed
+coarse factor full-basis check: nodes=4 bonds=3 max scaled error=0
+resident P/PT/coarse operator: nodes=4 bonds=3 max scaled error=0 passed
+coarse factor full-basis check: nodes=4 bonds=3 max scaled error=0
+GPU hierarchy: nodes=4 bonds=3 final aggregates=0 rounds=1 transitions=6 passed
+START GPU hierarchy: nodes=129 bonds=121
+resident P/PT/coarse operator: nodes=129 bonds=121 max scaled error=4.44e-16 passed
+resident P/PT/coarse operator: nodes=129 bonds=121 max scaled error=4.44e-16 passed
+resident P/PT/coarse operator: nodes=129 bonds=121 max scaled error=8.88e-16 passed
+resident P/PT/coarse operator: nodes=129 bonds=121 max scaled error=8.88e-16 passed
+resident P/PT/coarse operator: nodes=129 bonds=121 max scaled error=1.9e-16 passed
+resident P/PT/coarse operator: nodes=129 bonds=121 max scaled error=4.44e-16 passed
+GPU hierarchy: nodes=129 bonds=121 final aggregates=56 rounds=2 transitions=6 passed
+START GPU hierarchy: nodes=100000 bonds=199997
+resident P/PT/coarse operator: nodes=100000 bonds=199997 max scaled error=4e-15 passed
+resident P/PT/coarse operator: nodes=100000 bonds=199997 max scaled error=4e-15 passed
+resident P/PT/coarse operator: nodes=100000 bonds=199997 max scaled error=4e-15 passed
+resident P/PT/coarse operator: nodes=100000 bonds=199997 max scaled error=4e-15 passed
+resident P/PT/coarse operator: nodes=100000 bonds=199997 max scaled error=1.9e-16 passed
+resident P/PT/coarse operator: nodes=100000 bonds=199997 max scaled error=4e-15 passed
+GPU hierarchy: nodes=100000 bonds=199997 final aggregates=27321 rounds=3 transitions=6 passed
+========= ERROR SUMMARY: 0 errors
+<end of output>
+Test time =   1.23 sec
+----------------------------------------------------------
+Test Passed.
+"blast_stress_gpu_resident_hierarchy_synccheck" end time: Sep 07 13:25 UTC
+"blast_stress_gpu_resident_hierarchy_synccheck" time elapsed: 00:00:01
+----------------------------------------------------------
+
+86/92 Testing: blast_stress_gpu_resident_hierarchy_racecheck
+86/92 Test: blast_stress_gpu_resident_hierarchy_racecheck
+Command: "/usr/local/cuda/bin/compute-sanitizer" "--tool" "racecheck" "--error-exitcode" "99" "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_resident_hierarchy_test"
+Directory: /root/workspace/physx-2/out/destruction-sdk/reference
+"blast_stress_gpu_resident_hierarchy_racecheck" start time: Sep 07 13:25 UTC
+Output:
+----------------------------------------------------------
+========= COMPUTE-SANITIZER
+START GPU hierarchy: nodes=0 bonds=0
+coarse factor full-basis check: nodes=0 bonds=0 max scaled error=0
+coarse factor full-basis check: nodes=0 bonds=0 max scaled error=0
+GPU hierarchy: nodes=0 bonds=0 final aggregates=0 rounds=1 transitions=2 passed
+START GPU hierarchy: nodes=1 bonds=0
+resident P/PT/coarse operator: nodes=1 bonds=0 max scaled error=0 passed
+coarse factor full-basis check: nodes=1 bonds=0 max scaled error=0
+resident P/PT/coarse operator: nodes=1 bonds=0 max scaled error=0 passed
+coarse factor full-basis check: nodes=1 bonds=0 max scaled error=0
+GPU hierarchy: nodes=1 bonds=0 final aggregates=1 rounds=1 transitions=2 passed
+START GPU hierarchy: nodes=24 bonds=33
+resident P/PT/coarse operator: nodes=24 bonds=33 max scaled error=1.99e-16 passed
+coarse factor full-basis check: nodes=24 bonds=33 max scaled error=0
+resident P/PT/coarse operator: nodes=24 bonds=33 max scaled error=1.99e-16 passed
+coarse factor full-basis check: nodes=24 bonds=33 max scaled error=0
+resident P/PT/coarse operator: nodes=24 bonds=33 max scaled error=3.68e-16 passed
+coarse factor full-basis check: nodes=24 bonds=33 max scaled error=0
+resident P/PT/coarse operator: nodes=24 bonds=33 max scaled error=3.68e-16 passed
+coarse factor full-basis check: nodes=24 bonds=33 max scaled error=0
+resident P/PT/coarse operator: nodes=24 bonds=33 max scaled error=1.59e-16 passed
+coarse factor full-basis check: nodes=24 bonds=33 max scaled error=0
+resident P/PT/coarse operator: nodes=24 bonds=33 max scaled error=1.99e-16 passed
+coarse factor full-basis check: nodes=24 bonds=33 max scaled error=0
+GPU hierarchy: nodes=24 bonds=33 final aggregates=8 rounds=3 transitions=6 passed
+START GPU hierarchy: nodes=2 bonds=1
+resident P/PT/coarse operator: nodes=2 bonds=1 max scaled error=4.44e-16 passed
+coarse factor full-basis check: nodes=2 bonds=1 max scaled error=0
+resident P/PT/coarse operator: nodes=2 bonds=1 max scaled error=4.44e-16 passed
+coarse factor full-basis check: nodes=2 bonds=1 max scaled error=0
+resident P/PT/coarse operator: nodes=2 bonds=1 max scaled error=1.59e-16 passed
+coarse factor full-basis check: nodes=2 bonds=1 max scaled error=0
+resident P/PT/coarse operator: nodes=2 bonds=1 max scaled error=1.59e-16 passed
+coarse factor full-basis check: nodes=2 bonds=1 max scaled error=0
+resident P/PT/coarse operator: nodes=2 bonds=1 max scaled error=1.59e-16 passed
+coarse factor full-basis check: nodes=2 bonds=1 max scaled error=0
+resident P/PT/coarse operator: nodes=2 bonds=1 max scaled error=4.44e-16 passed
+coarse factor full-basis check: nodes=2 bonds=1 max scaled error=0
+GPU hierarchy: nodes=2 bonds=1 final aggregates=1 rounds=1 transitions=6 passed
+START GPU hierarchy: nodes=6 bonds=10
+resident P/PT/coarse operator: nodes=6 bonds=10 max scaled error=2.6e-16 passed
+coarse factor full-basis check: nodes=6 bonds=10 max scaled error=0
+resident P/PT/coarse operator: nodes=6 bonds=10 max scaled error=2.6e-16 passed
+coarse factor full-basis check: nodes=6 bonds=10 max scaled error=0
+resident P/PT/coarse operator: nodes=6 bonds=10 max scaled error=3.9e-16 passed
+coarse factor full-basis check: nodes=6 bonds=10 max scaled error=0
+resident P/PT/coarse operator: nodes=6 bonds=10 max scaled error=3.9e-16 passed
+coarse factor full-basis check: nodes=6 bonds=10 max scaled error=0
+resident P/PT/coarse operator: nodes=6 bonds=10 max scaled error=1.59e-16 passed
+coarse factor full-basis check: nodes=6 bonds=10 max scaled error=0
+resident P/PT/coarse operator: nodes=6 bonds=10 max scaled error=2.6e-16 passed
+coarse factor full-basis check: nodes=6 bonds=10 max scaled error=0
+GPU hierarchy: nodes=6 bonds=10 final aggregates=1 rounds=1 transitions=6 passed
+START GPU hierarchy: nodes=24 bonds=11
+resident P/PT/coarse operator: nodes=24 bonds=11 max scaled error=3.33e-16 passed
+coarse factor full-basis check: nodes=24 bonds=11 max scaled error=0
+resident P/PT/coarse operator: nodes=24 bonds=11 max scaled error=3.33e-16 passed
+coarse factor full-basis check: nodes=24 bonds=11 max scaled error=0
+resident P/PT/coarse operator: nodes=24 bonds=11 max scaled error=1.9e-16 passed
+coarse factor full-basis check: nodes=24 bonds=11 max scaled error=0
+resident P/PT/coarse operator: nodes=24 bonds=11 max scaled error=1.9e-16 passed
+coarse factor full-basis check: nodes=24 bonds=11 max scaled error=0
+resident P/PT/coarse operator: nodes=24 bonds=11 max scaled error=0 passed
+coarse factor full-basis check: nodes=24 bonds=11 max scaled error=0
+resident P/PT/coarse operator: nodes=24 bonds=11 max scaled error=3.33e-16 passed
+coarse factor full-basis check: nodes=24 bonds=11 max scaled error=0
+GPU hierarchy: nodes=24 bonds=11 final aggregates=5 rounds=2 transitions=6 passed
+START GPU hierarchy: nodes=257 bonds=256
+resident P/PT/coarse operator: nodes=257 bonds=256 max scaled error=1.44e-15 passed
+resident P/PT/coarse operator: nodes=257 bonds=256 max scaled error=1.44e-15 passed
+GPU hierarchy: nodes=257 bonds=256 final aggregates=1 rounds=1 transitions=2 passed
+START GPU hierarchy: nodes=4 bonds=3
+resident P/PT/coarse operator: nodes=4 bonds=3 max scaled error=0 passed
+coarse factor full-basis check: nodes=4 bonds=3 max scaled error=0
+resident P/PT/coarse operator: nodes=4 bonds=3 max scaled error=0 passed
+coarse factor full-basis check: nodes=4 bonds=3 max scaled error=0
+resident P/PT/coarse operator: nodes=4 bonds=3 max scaled error=0 passed
+coarse factor full-basis check: nodes=4 bonds=3 max scaled error=0
+resident P/PT/coarse operator: nodes=4 bonds=3 max scaled error=0 passed
+coarse factor full-basis check: nodes=4 bonds=3 max scaled error=0
+resident P/PT/coarse operator: nodes=4 bonds=3 max scaled error=0 passed
+coarse factor full-basis check: nodes=4 bonds=3 max scaled error=0
+resident P/PT/coarse operator: nodes=4 bonds=3 max scaled error=0 passed
+coarse factor full-basis check: nodes=4 bonds=3 max scaled error=0
+GPU hierarchy: nodes=4 bonds=3 final aggregates=0 rounds=1 transitions=6 passed
+START GPU hierarchy: nodes=129 bonds=121
+resident P/PT/coarse operator: nodes=129 bonds=121 max scaled error=4.44e-16 passed
+resident P/PT/coarse operator: nodes=129 bonds=121 max scaled error=4.44e-16 passed
+resident P/PT/coarse operator: nodes=129 bonds=121 max scaled error=8.88e-16 passed
+resident P/PT/coarse operator: nodes=129 bonds=121 max scaled error=8.88e-16 passed
+resident P/PT/coarse operator: nodes=129 bonds=121 max scaled error=1.9e-16 passed
+resident P/PT/coarse operator: nodes=129 bonds=121 max scaled error=4.44e-16 passed
+GPU hierarchy: nodes=129 bonds=121 final aggregates=56 rounds=2 transitions=6 passed
+START GPU hierarchy: nodes=100000 bonds=199997
+resident P/PT/coarse operator: nodes=100000 bonds=199997 max scaled error=4e-15 passed
+resident P/PT/coarse operator: nodes=100000 bonds=199997 max scaled error=4e-15 passed
+resident P/PT/coarse operator: nodes=100000 bonds=199997 max scaled error=4e-15 passed
+resident P/PT/coarse operator: nodes=100000 bonds=199997 max scaled error=4e-15 passed
+resident P/PT/coarse operator: nodes=100000 bonds=199997 max scaled error=1.9e-16 passed
+resident P/PT/coarse operator: nodes=100000 bonds=199997 max scaled error=4e-15 passed
+GPU hierarchy: nodes=100000 bonds=199997 final aggregates=27321 rounds=3 transitions=6 passed
+========= RACECHECK SUMMARY: 0 hazards displayed (0 errors, 0 warnings)
+<end of output>
+Test time =  10.93 sec
+----------------------------------------------------------
+Test Passed.
+"blast_stress_gpu_resident_hierarchy_racecheck" end time: Sep 07 13:25 UTC
+"blast_stress_gpu_resident_hierarchy_racecheck" time elapsed: 00:00:10
+----------------------------------------------------------
+
+End testing: Sep 07 13:25 UTC
+
+gpu =  15.39 sec*proc
+
+sanitizer =  14.53 sec*proc
+

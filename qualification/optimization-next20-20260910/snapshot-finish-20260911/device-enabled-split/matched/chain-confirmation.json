@@ -1,0 +1,155 @@
+{
+  "status": "complete",
+  "candidate_commit": "8589185e659c8316b1828b7847b8780eb0f11006",
+  "scenarios": [
+    {
+      "scenario": "chain256-warm",
+      "A": {
+        "n": 40,
+        "mean_ms": 7.251143575,
+        "median_ms": 7.2256745,
+        "max_ms": 10.131133,
+        "sd_ms": 0.7286027632384198,
+        "over_120hz": 2,
+        "over_60hz": 0,
+        "restore_mean_ms": 128.080688425,
+        "stages_ms": {
+          "command_ms": 0.00010335,
+          "simulate_fetch_ms": 7.05164655,
+          "completion_ms": 0.199393675
+        }
+      },
+      "saved_ms": 0.013816175000000541,
+      "descriptive_saved_ms_95": [
+        -0.4861492749999998,
+        0.5046434250000003
+      ],
+      "physical_status": "passed",
+      "raw": {
+        "A0": "/root/workspace/physx-2/out/snapshot-finish-20260911/split-chain-confirmation/chain256-warm-A0",
+        "B": "/root/workspace/physx-2/out/snapshot-finish-20260911/split-chain-confirmation/chain256-warm-B",
+        "A1": "/root/workspace/physx-2/out/snapshot-finish-20260911/split-chain-confirmation/chain256-warm-A1"
+      },
+      "A0": {
+        "n": 20,
+        "mean_ms": 7.3225525000000005,
+        "median_ms": 7.2481860000000005,
+        "max_ms": 10.131133,
+        "sd_ms": 0.7266458787825999,
+        "over_120hz": 1,
+        "over_60hz": 0,
+        "restore_mean_ms": 129.2943324,
+        "stages_ms": {
+          "command_ms": 0.00010865,
+          "simulate_fetch_ms": 7.1128852,
+          "completion_ms": 0.20955864999999999
+        }
+      },
+      "B": {
+        "n": 20,
+        "mean_ms": 7.2373274,
+        "median_ms": 7.2842994999999995,
+        "max_ms": 10.641127,
+        "sd_ms": 1.0270594630756291,
+        "over_120hz": 1,
+        "over_60hz": 0,
+        "restore_mean_ms": 129.02459385,
+        "stages_ms": {
+          "command_ms": 0.0001481,
+          "simulate_fetch_ms": 7.06895855,
+          "completion_ms": 0.16822075
+        }
+      },
+      "A1": {
+        "n": 20,
+        "mean_ms": 7.17973465,
+        "median_ms": 7.162732500000001,
+        "max_ms": 9.758094,
+        "sd_ms": 0.7422362251537242,
+        "over_120hz": 1,
+        "over_60hz": 0,
+        "restore_mean_ms": 126.86704445,
+        "stages_ms": {
+          "command_ms": 9.805e-05,
+          "simulate_fetch_ms": 6.9904079,
+          "completion_ms": 0.1892287
+        }
+      }
+    }
+  ],
+  "runs": [
+    {
+      "scenario": "chain256-warm",
+      "arm": "A0",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/snapshot-finish-20260911/split-chain-confirmation/chain256-warm-A0",
+        "--binary",
+        "/root/workspace/physx-2/out/snapshot-finish-20260911/physical-ab-probe-v3/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/stable-rebuilt-artifacts",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/chain256-warm",
+        "--repetitions",
+        "20",
+        "--watchdog-seconds",
+        "1200",
+        "--allow-existing-graphics",
+        "--allow-compute-pid",
+        "435374"
+      ],
+      "exit_code": 0
+    },
+    {
+      "scenario": "chain256-warm",
+      "arm": "B",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/snapshot-finish-20260911/split-chain-confirmation/chain256-warm-B",
+        "--binary",
+        "/root/workspace/physx-2/out/snapshot-finish-20260911/physical-ab-probe-v3/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/snapshot-finish-20260911/device-enabled-split",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/chain256-warm",
+        "--repetitions",
+        "20",
+        "--watchdog-seconds",
+        "1200",
+        "--allow-existing-graphics",
+        "--allow-compute-pid",
+        "435374"
+      ],
+      "exit_code": 0
+    },
+    {
+      "scenario": "chain256-warm",
+      "arm": "A1",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/snapshot-finish-20260911/split-chain-confirmation/chain256-warm-A1",
+        "--binary",
+        "/root/workspace/physx-2/out/snapshot-finish-20260911/physical-ab-probe-v3/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/stable-rebuilt-artifacts",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/chain256-warm",
+        "--repetitions",
+        "20",
+        "--watchdog-seconds",
+        "1200",
+        "--allow-existing-graphics",
+        "--allow-compute-pid",
+        "435374"
+      ],
+      "exit_code": 0
+    }
+  ],
+  "checker_sha256": "790e6c488889bacbd18e498bcb206c7fbcec23f91af98068aa32582bf55b76c2",
+  "force_scaled_bound": 0.0002,
+  "scope": "One full tick per independent physical restore. A-before / B / A-after per scenario. All CPU/GPU work and correction included; restore, validation and post-tick observation excluded. Shared-GPU unprofiled comparison; no profiler timings or automatic acceptance.",
+  "harness_seconds": 15.578246645003674
+}

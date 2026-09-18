@@ -1,0 +1,3 @@
+========= COMPUTE-SANITIZER
+PASS 55 production GPU pair batches: exact descending sort/unique, capacity boundaries, reuse and rejection
+========= RACECHECK SUMMARY: 0 hazards displayed (0 errors, 0 warnings)

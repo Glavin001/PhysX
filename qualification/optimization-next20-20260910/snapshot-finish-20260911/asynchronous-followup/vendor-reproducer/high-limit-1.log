@@ -1,0 +1,1105 @@
+========= COMPUTE-SANITIZER
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x1f0 in device_atomic_functions.hpp:112
+=========     by thread (29,0,0) in block (443,0,0)
+=========     Access to 0x10011a0d3bc is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x1f0 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0x1e0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (224,0,0) in block (622,0,0)
+=========     Access to 0x10011a3a2f8 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (225,0,0) in block (622,0,0)
+=========     Access to 0x10011a3a2fc is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (226,0,0) in block (622,0,0)
+=========     Access to 0x10011a3a300 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (227,0,0) in block (622,0,0)
+=========     Access to 0x10011a3a304 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (228,0,0) in block (622,0,0)
+=========     Access to 0x10011a3a308 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (229,0,0) in block (622,0,0)
+=========     Access to 0x10011a3a30c is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (230,0,0) in block (622,0,0)
+=========     Access to 0x10011a3a310 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (231,0,0) in block (622,0,0)
+=========     Access to 0x10011a3a314 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (232,0,0) in block (622,0,0)
+=========     Access to 0x10011a3a318 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (233,0,0) in block (622,0,0)
+=========     Access to 0x10011a3a31c is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (234,0,0) in block (622,0,0)
+=========     Access to 0x10011a3a320 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (235,0,0) in block (622,0,0)
+=========     Access to 0x10011a3a324 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (236,0,0) in block (622,0,0)
+=========     Access to 0x10011a3a328 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (237,0,0) in block (622,0,0)
+=========     Access to 0x10011a3a32c is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (238,0,0) in block (622,0,0)
+=========     Access to 0x10011a3a330 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (239,0,0) in block (622,0,0)
+=========     Access to 0x10011a3a334 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (240,0,0) in block (622,0,0)
+=========     Access to 0x10011a3a338 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (241,0,0) in block (622,0,0)
+=========     Access to 0x10011a3a33c is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (242,0,0) in block (622,0,0)
+=========     Access to 0x10011a3a340 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (243,0,0) in block (622,0,0)
+=========     Access to 0x10011a3a344 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (244,0,0) in block (622,0,0)
+=========     Access to 0x10011a3a348 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (245,0,0) in block (622,0,0)
+=========     Access to 0x10011a3a34c is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (246,0,0) in block (622,0,0)
+=========     Access to 0x10011a3a350 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (247,0,0) in block (622,0,0)
+=========     Access to 0x10011a3a354 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (248,0,0) in block (622,0,0)
+=========     Access to 0x10011a3a358 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (249,0,0) in block (622,0,0)
+=========     Access to 0x10011a3a35c is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (250,0,0) in block (622,0,0)
+=========     Access to 0x10011a3a360 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (251,0,0) in block (622,0,0)
+=========     Access to 0x10011a3a364 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (252,0,0) in block (622,0,0)
+=========     Access to 0x10011a3a368 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (253,0,0) in block (622,0,0)
+=========     Access to 0x10011a3a36c is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (254,0,0) in block (622,0,0)
+=========     Access to 0x10011a3a370 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (255,0,0) in block (622,0,0)
+=========     Access to 0x10011a3a374 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (128,0,0) in block (576,0,0)
+=========     Access to 0x10011a2e000 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (129,0,0) in block (576,0,0)
+=========     Access to 0x10011a2e004 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (130,0,0) in block (576,0,0)
+=========     Access to 0x10011a2e008 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (131,0,0) in block (576,0,0)
+=========     Access to 0x10011a2e00c is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (132,0,0) in block (576,0,0)
+=========     Access to 0x10011a2e010 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (133,0,0) in block (576,0,0)
+=========     Access to 0x10011a2e014 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (134,0,0) in block (576,0,0)
+=========     Access to 0x10011a2e018 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (135,0,0) in block (576,0,0)
+=========     Access to 0x10011a2e01c is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (136,0,0) in block (576,0,0)
+=========     Access to 0x10011a2e020 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (137,0,0) in block (576,0,0)
+=========     Access to 0x10011a2e024 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (138,0,0) in block (576,0,0)
+=========     Access to 0x10011a2e028 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (139,0,0) in block (576,0,0)
+=========     Access to 0x10011a2e02c is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (140,0,0) in block (576,0,0)
+=========     Access to 0x10011a2e030 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (141,0,0) in block (576,0,0)
+=========     Access to 0x10011a2e034 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (142,0,0) in block (576,0,0)
+=========     Access to 0x10011a2e038 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (143,0,0) in block (576,0,0)
+=========     Access to 0x10011a2e03c is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (144,0,0) in block (576,0,0)
+=========     Access to 0x10011a2e040 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (145,0,0) in block (576,0,0)
+=========     Access to 0x10011a2e044 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (146,0,0) in block (576,0,0)
+=========     Access to 0x10011a2e048 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (147,0,0) in block (576,0,0)
+=========     Access to 0x10011a2e04c is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (148,0,0) in block (576,0,0)
+=========     Access to 0x10011a2e050 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (149,0,0) in block (576,0,0)
+=========     Access to 0x10011a2e054 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (150,0,0) in block (576,0,0)
+=========     Access to 0x10011a2e058 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (151,0,0) in block (576,0,0)
+=========     Access to 0x10011a2e05c is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (152,0,0) in block (576,0,0)
+=========     Access to 0x10011a2e060 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (153,0,0) in block (576,0,0)
+=========     Access to 0x10011a2e064 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (154,0,0) in block (576,0,0)
+=========     Access to 0x10011a2e068 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (155,0,0) in block (576,0,0)
+=========     Access to 0x10011a2e06c is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (156,0,0) in block (576,0,0)
+=========     Access to 0x10011a2e070 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (157,0,0) in block (576,0,0)
+=========     Access to 0x10011a2e074 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (158,0,0) in block (576,0,0)
+=========     Access to 0x10011a2e078 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (159,0,0) in block (576,0,0)
+=========     Access to 0x10011a2e07c is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x270 in device_atomic_functions.hpp:112
+=========     by thread (32,0,0) in block (411,0,0)
+=========     Access to 0x10011a04f80 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x270 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0x1e0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x270 in device_atomic_functions.hpp:112
+=========     by thread (33,0,0) in block (411,0,0)
+=========     Access to 0x10011a04f84 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x270 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0x1e0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x270 in device_atomic_functions.hpp:112
+=========     by thread (34,0,0) in block (411,0,0)
+=========     Access to 0x10011a04f88 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x270 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0x1e0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x270 in device_atomic_functions.hpp:112
+=========     by thread (35,0,0) in block (411,0,0)
+=========     Access to 0x10011a04f8c is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x270 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0x1e0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x270 in device_atomic_functions.hpp:112
+=========     by thread (36,0,0) in block (411,0,0)
+=========     Access to 0x10011a04f90 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x270 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0x1e0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x270 in device_atomic_functions.hpp:112
+=========     by thread (37,0,0) in block (411,0,0)
+=========     Access to 0x10011a04f9c is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x270 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0x1e0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x270 in device_atomic_functions.hpp:112
+=========     by thread (38,0,0) in block (411,0,0)
+=========     Access to 0x10011a04fa8 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x270 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0x1e0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x270 in device_atomic_functions.hpp:112
+=========     by thread (39,0,0) in block (411,0,0)
+=========     Access to 0x10011a04fb4 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x270 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0x1e0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x270 in device_atomic_functions.hpp:112
+=========     by thread (40,0,0) in block (411,0,0)
+=========     Access to 0x10011a04fc0 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x270 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0x1e0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x270 in device_atomic_functions.hpp:112
+=========     by thread (41,0,0) in block (411,0,0)
+=========     Access to 0x10011a04fcc is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x270 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0x1e0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x270 in device_atomic_functions.hpp:112
+=========     by thread (42,0,0) in block (411,0,0)
+=========     Access to 0x10011a04fd8 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x270 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0x1e0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x270 in device_atomic_functions.hpp:112
+=========     by thread (43,0,0) in block (411,0,0)
+=========     Access to 0x10011a04fe4 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x270 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0x1e0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x270 in device_atomic_functions.hpp:112
+=========     by thread (44,0,0) in block (411,0,0)
+=========     Access to 0x10011a04ff0 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x270 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0x1e0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x270 in device_atomic_functions.hpp:112
+=========     by thread (45,0,0) in block (411,0,0)
+=========     Access to 0x10011a04ffc is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x270 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0x1e0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x270 in device_atomic_functions.hpp:112
+=========     by thread (46,0,0) in block (411,0,0)
+=========     Access to 0x10011a05008 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x270 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0x1e0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x270 in device_atomic_functions.hpp:112
+=========     by thread (47,0,0) in block (411,0,0)
+=========     Access to 0x10011a05014 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x270 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0x1e0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x270 in device_atomic_functions.hpp:112
+=========     by thread (48,0,0) in block (411,0,0)
+=========     Access to 0x10011a05020 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x270 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0x1e0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x270 in device_atomic_functions.hpp:112
+=========     by thread (49,0,0) in block (411,0,0)
+=========     Access to 0x10011a0502c is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x270 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0x1e0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x270 in device_atomic_functions.hpp:112
+=========     by thread (50,0,0) in block (411,0,0)
+=========     Access to 0x10011a05038 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x270 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0x1e0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x270 in device_atomic_functions.hpp:112
+=========     by thread (51,0,0) in block (411,0,0)
+=========     Access to 0x10011a05044 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x270 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0x1e0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x270 in device_atomic_functions.hpp:112
+=========     by thread (52,0,0) in block (411,0,0)
+=========     Access to 0x10011a05050 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x270 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0x1e0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x270 in device_atomic_functions.hpp:112
+=========     by thread (53,0,0) in block (411,0,0)
+=========     Access to 0x10011a0505c is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x270 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0x1e0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x270 in device_atomic_functions.hpp:112
+=========     by thread (54,0,0) in block (411,0,0)
+=========     Access to 0x10011a05068 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x270 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0x1e0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x270 in device_atomic_functions.hpp:112
+=========     by thread (55,0,0) in block (411,0,0)
+=========     Access to 0x10011a05074 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x270 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0x1e0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x270 in device_atomic_functions.hpp:112
+=========     by thread (56,0,0) in block (411,0,0)
+=========     Access to 0x10011a05080 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x270 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0x1e0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x270 in device_atomic_functions.hpp:112
+=========     by thread (57,0,0) in block (411,0,0)
+=========     Access to 0x10011a0508c is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x270 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0x1e0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x270 in device_atomic_functions.hpp:112
+=========     by thread (58,0,0) in block (411,0,0)
+=========     Access to 0x10011a05098 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x270 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0x1e0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x270 in device_atomic_functions.hpp:112
+=========     by thread (59,0,0) in block (411,0,0)
+=========     Access to 0x10011a050a4 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x270 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0x1e0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x270 in device_atomic_functions.hpp:112
+=========     by thread (60,0,0) in block (411,0,0)
+=========     Access to 0x10011a050b0 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x270 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0x1e0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x270 in device_atomic_functions.hpp:112
+=========     by thread (61,0,0) in block (411,0,0)
+=========     Access to 0x10011a050bc is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x270 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0x1e0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x270 in device_atomic_functions.hpp:112
+=========     by thread (62,0,0) in block (411,0,0)
+=========     Access to 0x10011a050c8 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x270 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0x1e0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x270 in device_atomic_functions.hpp:112
+=========     by thread (63,0,0) in block (411,0,0)
+=========     Access to 0x10011a050d4 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x270 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0x1e0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (224,0,0) in block (610,0,0)
+=========     Access to 0x10011a36f70 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (225,0,0) in block (610,0,0)
+=========     Access to 0x10011a36f74 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+========= Invalid __global__ atomic of size 4 bytes
+=========     at atomicAdd(unsigned int *, unsigned int)+0x170 in device_atomic_functions.hpp:112
+=========     by thread (226,0,0) in block (610,0,0)
+=========     Access to 0x10011a36f78 is out of bounds
+=========     and is inside the nearest allocation at 0x10011a00000 of size 400000 bytes
+=========         Device Frame: root(unsigned int *, unsigned int)+0x170 in repro.cu:9
+=========         Device Frame: connect(const uint2 *, unsigned int, unsigned int *)+0xc0 in repro.cu:10
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cudaGraphLaunch [0x84467] in repro
+=========         Host Frame: main [0xa456] in repro
+========= 
+cudaStreamSynchronize(stream): unspecified launch failure
+========= Target application returned an error
+========= ERROR SUMMARY: 1971 errors
+========= ERROR SUMMARY: 1871 errors were not printed. Use --print-limit option to adjust the number of printed errors

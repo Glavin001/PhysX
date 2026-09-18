@@ -193,7 +193,11 @@ void NpScene::fetchResultsPostContactCallbacks()
 
 bool NpScene::fetchResults(bool block, PxU32* errorState)
 {
-	NP_CHECK_CORRUPTION_AND_RETURN_VAL(true)
+#if PX_SUPPORT_GPU_PHYSX
+    if (errorState && mCudaContextManager && mScene.isUsingGpuDynamicsOrBp())
+        *errorState = mCudaContextManager->getCudaContext()->getLastError();
+#endif
+	NP_CHECK_CORRUPTION_AND_RETURN_VAL(false)
 
 	if(getSimulationStage() != Sc::SimulationStage::eADVANCE)
 		return outputError<PxErrorCode::eINVALID_OPERATION>(__LINE__, "PxScene::fetchResults: fetchResults() called illegally! It must be called after advance() or simulate()");
@@ -203,8 +207,12 @@ bool NpScene::fetchResults(bool block, PxU32* errorState)
 
 
 #if PX_SUPPORT_GPU_PHYSX
-	if (!checkSceneStateAndCudaErrors())
-		return true;
+    if (!checkSceneStateAndCudaErrors())
+    {
+        if (errorState && mCudaContextManager)
+            *errorState = mCudaContextManager->getCudaContext()->getLastError();
+        return false;
+    }
 #endif
 
 	PX_SIMD_GUARD
@@ -235,7 +243,7 @@ bool NpScene::fetchResults(bool block, PxU32* errorState)
 		PX_PROFILE_STOP_CROSSTHREAD("Basic.simulate", getContextId());
 
 		if(errorState)
-			*errorState = 0;
+			*errorState = mScene.getSimulationController()->getDestructionError();
 
 #if PX_SUPPORT_OMNI_PVD
 		OmniPvdPxSampler* omniPvdSampler = NpPhysics::getInstance().mOmniPvdSampler;
@@ -552,12 +560,14 @@ bool NpScene::fetchResults(bool block, PxU32* errorState)
 #if PX_SUPPORT_PVD
 	mScenePvdClient.frameEnd();
 #endif
-	return true;
+	return mScene.getSimulationController()->getDestructionError() == 0;
 }
 
 bool NpScene::fetchResultsStart(const PxContactPairHeader*& contactPairs, PxU32& nbContactPairs, bool block)
 {
-	NP_CHECK_CORRUPTION_AND_RETURN_VAL(true)
+    contactPairs = NULL;
+    nbContactPairs = 0;
+	NP_CHECK_CORRUPTION_AND_RETURN_VAL(false)
 
 	if (getSimulationStage() != Sc::SimulationStage::eADVANCE)
 		return outputError<PxErrorCode::eINVALID_OPERATION>(__LINE__, "PxScene::fetchResultsStart: fetchResultsStart() called illegally! It must be called after advance() or simulate()");
@@ -567,7 +577,7 @@ bool NpScene::fetchResultsStart(const PxContactPairHeader*& contactPairs, PxU32&
 
 #if PX_SUPPORT_GPU_PHYSX
 	if (!checkSceneStateAndCudaErrors())
-		return true;
+		return false;
 #endif
 
 	PX_SIMD_GUARD
@@ -581,7 +591,7 @@ bool NpScene::fetchResultsStart(const PxContactPairHeader*& contactPairs, PxU32&
 
 	const PxArray<PxContactPairHeader>& pairs = mScene.getQueuedContactPairHeaders();
 	nbContactPairs = pairs.size();
-	contactPairs = pairs.begin();
+	contactPairs = nbContactPairs ? pairs.begin() : NULL;
 
 	mBetweenFetchResults = true;
 	return true;
@@ -653,6 +663,10 @@ void NpScene::processCallbacks(PxBaseTask* continuation)
 
 void NpScene::fetchResultsFinish(PxU32* errorState)
 {
+#if PX_SUPPORT_GPU_PHYSX
+    if (errorState && mCudaContextManager && mScene.isUsingGpuDynamicsOrBp())
+        *errorState = mCudaContextManager->getCudaContext()->getLastError();
+#endif
 	NP_CHECK_CORRUPTION_AND_RETURN
 
 	// AD: we already checked the cuda error state in fetchResultsStart, there is no GPU work going on in-between.
@@ -668,7 +682,7 @@ void NpScene::fetchResultsFinish(PxU32* errorState)
 		fetchResultsPostContactCallbacks();
 
 		if (errorState)
-			*errorState = 0;
+			*errorState = mScene.getSimulationController()->getDestructionError();
 
 		PX_PROFILE_STOP_CROSSTHREAD("Basic.fetchResults", getContextId());
 		PX_PROFILE_STOP_CROSSTHREAD("Basic.simulate", getContextId());

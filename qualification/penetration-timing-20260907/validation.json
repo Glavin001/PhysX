@@ -1,0 +1,10 @@
+{
+  "accounting_tests_passed": 12,
+  "existing_accounting_tests_passed": 7,
+  "byte_identical_regeneration": true,
+  "report_sha256": {
+    "report.html": "9158e9ad3535ff87b3e43b99dd0aa69472fa4dc47820f579916e61c0cba32059",
+    "report.md": "cc8f1d4345eb5a5dfaf0b803039293f27ab3ccb911527798c88eafd0756f5c59",
+    "report.json.gz": "a8e0c22c367583bf3c41b4d7f58c9f0f5c946492ae63f63f7c89accbcab3fb4a"
+  }
+}

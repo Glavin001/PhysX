@@ -49,6 +49,7 @@ namespace physx
 {
 #endif
 
+class PxDestructionScene;
 class PxCollection;
 class PxConstraint;
 class PxSimulationEventCallback;
@@ -1676,6 +1677,10 @@ class PxScene : public PxSceneSQSystem
 	Each object of PxDirectGPUAPI is directly associated with a PxScene, and there is only one PxDirectGPUAPI object per scene.
 	*/
 	virtual 	PxDirectGPUAPI&	  getDirectGPUAPI() = 0;
+
+    /** Native GPU destruction stage; NULL for CPU or unsupported CCD scenes.
+        Configure only outside simulation. See PxDestructionScene.h. */
+    virtual PxDestructionScene* getDestructionScene() = 0;
 
 	/**
 	\brief Sets the post-solve callback for deformable surface GPU computations. Allows to schedule custom work to be done by the GPU as soon as possible after the deformable surface solver finishes.

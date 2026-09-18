@@ -1,0 +1,9 @@
+GPU grant uniqueness, source/target isolation, immutable lookup and committed-parent split: PASS
+stable device-count compaction, allocation, growth retry, commit: capacity=1 PASS
+stable device-count compaction, allocation, growth retry, commit: capacity=127 PASS
+stable device-count compaction, allocation, growth retry, commit: capacity=128 PASS
+stable device-count compaction, allocation, growth retry, commit: capacity=129 PASS
+stable device-count compaction, allocation, growth retry, commit: capacity=444 PASS
+stable device-count compaction, allocation, growth retry, commit: capacity=4099 PASS
+stable device-count compaction, allocation, growth retry, commit: capacity=113664 PASS
+invalid counts/owners, retained mappings, registration rejection and no partial canonical assignment: PASS

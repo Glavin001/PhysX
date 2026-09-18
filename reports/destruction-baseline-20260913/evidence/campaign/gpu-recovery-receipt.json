@@ -1,0 +1,150 @@
+{
+  "status": "recovered",
+  "pid": 1064566,
+  "actions": [
+    {
+      "command": [
+        "systemctl",
+        "stop",
+        "sddm"
+      ],
+      "exit_code": 0,
+      "log": "/root/workspace/physx-2/out/destruction-baseline-20260913/recovery/sddm-stop-flr.txt"
+    },
+    {
+      "command": [
+        "systemctl",
+        "stop",
+        "nvidia-persistenced"
+      ],
+      "exit_code": 0,
+      "log": "/root/workspace/physx-2/out/destruction-baseline-20260913/recovery/nvidia-persistenced-stop-flr.txt"
+    },
+    {
+      "command": [
+        "fuser",
+        "-v",
+        "/dev/nvidia0",
+        "/dev/nvidiactl",
+        "/dev/nvidia-uvm"
+      ],
+      "exit_code": 1,
+      "log": "/root/workspace/physx-2/out/destruction-baseline-20260913/recovery/handles-before-flr.txt"
+    },
+    {
+      "command": [
+        "modprobe",
+        "-r",
+        "nvidia_drm",
+        "nvidia_modeset",
+        "nvidia_uvm",
+        "nvidia"
+      ],
+      "exit_code": 0,
+      "log": "/root/workspace/physx-2/out/destruction-baseline-20260913/recovery/unload-driver.txt"
+    },
+    {
+      "command": [
+        "modprobe",
+        "nvidia"
+      ],
+      "exit_code": 0,
+      "log": "/root/workspace/physx-2/out/destruction-baseline-20260913/recovery/reload-nvidia.txt"
+    },
+    {
+      "command": [
+        "modprobe",
+        "nvidia_uvm"
+      ],
+      "exit_code": 0,
+      "log": "/root/workspace/physx-2/out/destruction-baseline-20260913/recovery/reload-nvidia_uvm.txt"
+    },
+    {
+      "command": [
+        "modprobe",
+        "nvidia_modeset"
+      ],
+      "exit_code": 0,
+      "log": "/root/workspace/physx-2/out/destruction-baseline-20260913/recovery/reload-nvidia_modeset.txt"
+    },
+    {
+      "command": [
+        "modprobe",
+        "nvidia_drm"
+      ],
+      "exit_code": 0,
+      "log": "/root/workspace/physx-2/out/destruction-baseline-20260913/recovery/reload-nvidia_drm.txt"
+    },
+    {
+      "command": [
+        "nvidia-smi",
+        "--query-gpu=name,temperature.gpu,pstate",
+        "--format=csv,noheader"
+      ],
+      "exit_code": 0,
+      "log": "/root/workspace/physx-2/out/destruction-baseline-20260913/recovery/health-after-flr.txt"
+    },
+    {
+      "command": [
+        "modprobe",
+        "nvidia"
+      ],
+      "exit_code": 0,
+      "log": "/root/workspace/physx-2/out/destruction-baseline-20260913/recovery/finally-nvidia.txt"
+    },
+    {
+      "command": [
+        "modprobe",
+        "nvidia_uvm"
+      ],
+      "exit_code": 0,
+      "log": "/root/workspace/physx-2/out/destruction-baseline-20260913/recovery/finally-nvidia_uvm.txt"
+    },
+    {
+      "command": [
+        "modprobe",
+        "nvidia_modeset"
+      ],
+      "exit_code": 0,
+      "log": "/root/workspace/physx-2/out/destruction-baseline-20260913/recovery/finally-nvidia_modeset.txt"
+    },
+    {
+      "command": [
+        "modprobe",
+        "nvidia_drm"
+      ],
+      "exit_code": 0,
+      "log": "/root/workspace/physx-2/out/destruction-baseline-20260913/recovery/finally-nvidia_drm.txt"
+    },
+    {
+      "command": [
+        "systemctl",
+        "start",
+        "sddm"
+      ],
+      "exit_code": 0,
+      "log": "/root/workspace/physx-2/out/destruction-baseline-20260913/recovery/sddm-restore-flr.txt"
+    },
+    {
+      "command": [
+        "systemctl",
+        "start",
+        "nvidia-persistenced"
+      ],
+      "exit_code": 0,
+      "log": "/root/workspace/physx-2/out/destruction-baseline-20260913/recovery/nvidia-persistenced-restore-flr.txt"
+    }
+  ],
+  "started_unix": 1789263992.1703548,
+  "saved_server_count": 1,
+  "service_states": {
+    "sddm": true,
+    "nvidia-persistenced": true
+  },
+  "reset_method": "flr",
+  "pci_flr_written": true,
+  "restored_servers": [
+    1064979
+  ],
+  "finished_unix": 1789264001.7904627
+}

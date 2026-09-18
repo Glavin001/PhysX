@@ -1,0 +1,76 @@
+Internal ctest changing into directory: /root/workspace/physx-2/out/destruction-sdk
+Test project /root/workspace/physx-2/out/destruction-sdk
+    Start 91: blast_stress_gpu_resident_cycle
+1/1 Test #91: blast_stress_gpu_resident_cycle ...***Failed    1.58 sec
+resident V-cycle nodes=0 bonds=0 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=0 bonds=0 dense-oracle=1 squared-capture/symmetry/linearity passed
+assembled resident hierarchy nodes=0 bonds=0 levels=7 transitions=2 passed
+resident V-cycle nodes=1 bonds=0 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=1 bonds=0 dense-oracle=1 squared-capture/symmetry/linearity passed
+assembled resident hierarchy nodes=1 bonds=0 levels=7 transitions=2 passed
+resident V-cycle nodes=256 bonds=0 dense-oracle=0 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=256 bonds=0 dense-oracle=0 squared-capture/symmetry/linearity passed
+assembled resident hierarchy nodes=256 bonds=0 levels=7 transitions=2 passed
+resident V-cycle nodes=24 bonds=33 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=24 bonds=33 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=24 bonds=33 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=24 bonds=33 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=24 bonds=33 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=24 bonds=33 dense-oracle=1 squared-capture/symmetry/linearity passed
+assembled resident hierarchy nodes=24 bonds=33 levels=7 transitions=6 passed
+resident V-cycle nodes=24 bonds=23 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=24 bonds=23 dense-oracle=1 squared-capture/symmetry/linearity passed
+assembled resident hierarchy nodes=24 bonds=23 levels=7 transitions=2 passed
+resident V-cycle nodes=2 bonds=1 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=2 bonds=1 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=2 bonds=1 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=2 bonds=1 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=2 bonds=1 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=2 bonds=1 dense-oracle=1 squared-capture/symmetry/linearity passed
+assembled resident hierarchy nodes=2 bonds=1 levels=7 transitions=6 passed
+resident V-cycle nodes=6 bonds=10 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=6 bonds=10 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=6 bonds=10 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=6 bonds=10 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=6 bonds=10 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=6 bonds=10 dense-oracle=1 squared-capture/symmetry/linearity passed
+assembled resident hierarchy nodes=6 bonds=10 levels=7 transitions=6 passed
+resident V-cycle nodes=24 bonds=11 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=24 bonds=11 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=24 bonds=11 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=24 bonds=11 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=24 bonds=11 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=24 bonds=11 dense-oracle=1 squared-capture/symmetry/linearity passed
+assembled resident hierarchy nodes=24 bonds=11 levels=7 transitions=6 passed
+resident V-cycle nodes=257 bonds=256 dense-oracle=0 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=257 bonds=256 dense-oracle=0 squared-capture/symmetry/linearity passed
+assembled resident hierarchy nodes=257 bonds=256 levels=7 transitions=2 passed
+resident V-cycle nodes=4 bonds=3 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=4 bonds=3 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=4 bonds=3 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=4 bonds=3cycle numeric nodes=100000 bonds=199997 squared=0 local=3.2489268220192713e-10 absolute=5.289912223815918e-07 response=89743930.948516486 normwise=5.8944512101331828e-15 symmetry=2.1441530476018041e-21 worst-node=13020 coordinate=5
+cycle component-coordinate normwise nodes=100000 bonds=199997 squared=0 error=2.712227745087447e-12
+resident hierarchy: cycle component-coordinate normwise linearity failed
+ dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=4 bonds=3 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=4 bonds=3 dense-oracle=1 squared-capture/symmetry/linearity passed
+assembled resident hierarchy nodes=4 bonds=3 levels=7 transitions=6 passed
+resident V-cycle nodes=129 bonds=121 dense-oracle=0 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=129 bonds=121 dense-oracle=0 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=129 bonds=121 dense-oracle=0 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=129 bonds=121 dense-oracle=0 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=129 bonds=121 dense-oracle=0 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=129 bonds=121 dense-oracle=0 squared-capture/symmetry/linearity passed
+assembled resident hierarchy nodes=129 bonds=121 levels=7 transitions=6 passed
+
+
+0% tests passed, 1 tests failed out of 1
+
+Label Time Summary:
+gpu    =   1.58 sec*proc (1 test)
+
+Total Test time (real) =   1.58 sec
+
+The following tests FAILED:
+	 91 - blast_stress_gpu_resident_cycle (Failed)
+Errors while running CTest

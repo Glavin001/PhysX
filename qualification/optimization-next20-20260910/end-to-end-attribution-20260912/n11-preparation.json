@@ -1,0 +1,36 @@
+{
+  "id": "N11",
+  "rank": 12,
+  "status": "prepared_not_built_or_gpu_qualified",
+  "title": "Cache projection-factor diagonal reciprocals",
+  "evidence": "projectMotionComponent serially divides by the same six Cholesky diagonals twice per projection, across two projections per iteration. Factors change only with validated topology setup. This serial dependency remains after node reciprocal caching. Historical component census and N08 no-gain screen substantially lower this target priority; census is not current timing.",
+  "proposed_mechanism": "After unchanged FP64 Cholesky construction, store reciprocal diagonals in the existing packed factor diagonal slots and multiply during forward/back substitution. Keep off-diagonal factors, projection basis and final physical tolerances. No new device allocation or per-iteration validation loop.",
+  "affected_scenarios": [
+    "pristine idle including initialization",
+    "first fracture and correction",
+    "later loaded destruction"
+  ],
+  "estimated_application_ms_saved": "0.05\u20130.3 ms heavy mean after historical work census and N08 failure lower the free-projection opportunity; unverified",
+  "confidence": "high algebraic equivalence, low application benefit",
+  "experiment_cost": "One private construction/application representation change; independent projection tests, numerical/sanitizer/wall gates and matched scenario suite",
+  "supporting_measurements": "Independent projector/equilibrium checks pass, serial divide instructions disappear, full-step means improve without peak/idle regression",
+  "refuting_measurements": "Projection rounding changes fail gates or arithmetic dependency is not a meaningful application cost",
+  "profile_locations": [
+    "out/optimization-20260910/E12-composition/profiles",
+    "out/optimization-20260910/E12-composition/production-phases",
+    "out/optimization-next20-20260910/N12-guarded-monitor/profiles",
+    "out/optimization-next20-20260910/N12-guarded-monitor/production-phases"
+  ],
+  "baseline": "retained N13",
+  "family": "projection_geometry_cache",
+  "research": "precision-research.md (precision reduction deferred; first remove invariant work)",
+  "range_reasoning": "Factorization requires positive finite pre-sqrt pivots. sqrt(min positive double) and sqrt(max finite double) have finite normal reciprocals; no independent reciprocal storage or new fallback is required. Construction divisions use original factors before conversion; only the projection consumer reads the private final representation.",
+  "parent": "1c1b15a82a5871800148d176c38fc05501362f19",
+  "commit": "5fc43e2e9cf453db880264e9a4a986200a677600",
+  "changed_sources": [
+    "blast/source/sdk/extensions/stressgpu/detail/StressMotionModes.cuh"
+  ],
+  "main_source_unchanged": true,
+  "main_index_unchanged": true,
+  "scope": "Independent compatible baseline. No earlier candidate composition or completed-experiment credit. Reuse identical control artifacts; run fresh matched timings."
+}

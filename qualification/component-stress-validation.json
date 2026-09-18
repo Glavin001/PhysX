@@ -1,0 +1,295 @@
+{
+  "base_simulation_revision": "fd66e927",
+  "change": "GPU topology produces stable component node ranges and a list of large components. Components of at most 1024 nodes iterate independently within one CTA, sharing mathematical operator/update/convergence bodies with cooperative large-component solving. Per-component completion status is combined on GPU; a failed component cannot be hidden by the other specialization.",
+  "new_runtime_host_decisions": 0,
+  "physical_equations_changed": false,
+  "precision_changed": false,
+  "node_storage": "Hot vectors remain in persistent GPU storage; component scalars, iteration counters and reduction bookkeeping are shared-memory local. Further vector caching/reordering and preconditioning remain.",
+  "source_sha256": {
+    "blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu": "d7f4e9cf773b572be06d099330a4a249352d4737590865dda26bf4673f9cf721",
+    "blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpuTopology.cuh": "2437524b90099dc634e48adf4c6f6e3c1e133e969d0c96fb4686f041f2ef03a2",
+    "blast/source/sdk/extensions/stressgpu/detail/StressIterationDispatch.inl": "bb8e0fe0cfd45e8df338f6cbf0739449f3616a6d22edaf080b68c8c9f416b6c3",
+    "blast/source/sdk/extensions/stressgpu/detail/StressResidentIteration.cuh": "8964fbb265764d9fbd6b1ff359d1654e0388c18889f305b181967bcd0b92e1cd",
+    "demos/blast-stress-demo/tests/gpu_resident_stress_test.cu": "52d032cd9f3ef4d6013414fe37c1e498fae03cbefd1240692bd521d2e6c5b6a2",
+    "blast/source/sdk/extensions/stressgpu/detail/StressComponentIteration.cuh": "6cd08eb3bfa036e07740b89687b25db01728f8e69421194f8321f98d98e8c0f1"
+  },
+  "focused_tests_passed": 9,
+  "focused_ctest": "qualification/component-stress-ctest.log",
+  "analytic_sizes": {
+    "column_node_counts": [
+      12,
+      1536,
+      131072
+    ],
+    "column_bond_counts": [
+      9,
+      1152,
+      98304
+    ],
+    "mixed_component_node_counts": [
+      12,
+      1024,
+      1028
+    ],
+    "mixed_total_nodes": 2064,
+    "mixed_total_bonds": 2061,
+    "coverage": [
+      "anchored/free analytic forces",
+      "quiet/warm restarts",
+      "sparse IDs and component growth after split",
+      "empty topology and unchanged-generation reuse",
+      "small/large specialization boundary",
+      "iteration-cap failures from either specialization"
+    ]
+  },
+  "synccheck": {
+    "resident_kernels_passed": true,
+    "full_audit_passed": false,
+    "unresolved": "qualification/component-stress-cub-synccheck/README.md"
+  },
+  "racecheck_new_component_kernels_passed": true,
+  "reporter_tests_passed": 26,
+  "penetration_audit": "qualification/component-stress-quality.json",
+  "motion_audits": [
+    "qualification/component-stress-motion-world-64.json",
+    "qualification/component-stress-motion-impacts-256.json"
+  ],
+  "comparisons": [
+    {
+      "case": "penetration",
+      "chunks": 444,
+      "bonds": 896,
+      "projectiles": 1,
+      "trials": 5,
+      "seconds": 60,
+      "before_mean_ms": 2.8953241906666665,
+      "after_mean_ms": 2.9174278951666666,
+      "mean_change_percent": 0.7634276179245614,
+      "before_peak_ms": 7.040818,
+      "after_peak_ms": 7.880687,
+      "before_missed_8ms": 0,
+      "after_missed_8ms": 0
+    },
+    {
+      "case": "world-256",
+      "chunks": 113664,
+      "bonds": 229376,
+      "projectiles": 1,
+      "trials": 2,
+      "seconds": 10,
+      "before_mean_ms": 6.11009308,
+      "after_mean_ms": 3.6211805341666667,
+      "mean_change_percent": -40.73444566630617,
+      "before_peak_ms": 14.647169,
+      "after_peak_ms": 9.898342,
+      "before_missed_8ms": 93,
+      "after_missed_8ms": 3
+    },
+    {
+      "case": "impacts-256",
+      "chunks": 113664,
+      "bonds": 229376,
+      "projectiles": 256,
+      "trials": 2,
+      "seconds": 10,
+      "before_mean_ms": 23.7005354,
+      "after_mean_ms": 19.733944716666667,
+      "mean_change_percent": -16.73629146510054,
+      "before_peak_ms": 98.298316,
+      "after_peak_ms": 92.771916,
+      "before_missed_8ms": 1038,
+      "after_missed_8ms": 1038
+    }
+  ],
+  "counter_history_comparisons": [
+    {
+      "case": "world-256",
+      "run": "world-256-plain-0",
+      "fields": [
+        "bonds_broken",
+        "resim_passes",
+        "logical_clusters"
+      ],
+      "steps": 600,
+      "first_difference_from_prior_plain_0": null,
+      "peak_step": 33,
+      "through_peak_matches": true
+    },
+    {
+      "case": "world-256",
+      "run": "world-256-plain-1",
+      "fields": [
+        "bonds_broken",
+        "resim_passes",
+        "logical_clusters"
+      ],
+      "steps": 600,
+      "first_difference_from_prior_plain_0": null,
+      "peak_step": 33,
+      "through_peak_matches": true
+    },
+    {
+      "case": "world-256",
+      "run": "world-256-phases-0",
+      "fields": [
+        "bonds_broken",
+        "resim_passes",
+        "logical_clusters"
+      ],
+      "steps": 600,
+      "first_difference_from_prior_plain_0": null,
+      "peak_step": 33,
+      "through_peak_matches": true
+    },
+    {
+      "case": "impacts-256",
+      "run": "impacts-256-plain-0",
+      "fields": [
+        "bonds_broken",
+        "resim_passes",
+        "logical_clusters"
+      ],
+      "steps": 600,
+      "first_difference_from_prior_plain_0": 101,
+      "peak_step": 82,
+      "through_peak_matches": true
+    },
+    {
+      "case": "impacts-256",
+      "run": "impacts-256-plain-1",
+      "fields": [
+        "bonds_broken",
+        "resim_passes",
+        "logical_clusters"
+      ],
+      "steps": 600,
+      "first_difference_from_prior_plain_0": 101,
+      "peak_step": 82,
+      "through_peak_matches": true
+    },
+    {
+      "case": "impacts-256",
+      "run": "impacts-256-phases-0",
+      "fields": [
+        "bonds_broken",
+        "resim_passes",
+        "logical_clusters"
+      ],
+      "steps": 600,
+      "first_difference_from_prior_plain_0": 101,
+      "peak_step": 82,
+      "through_peak_matches": true
+    }
+  ],
+  "new_world_64_timing": {
+    "bonds": 57344,
+    "broken_bonds_range": [
+      199,
+      199
+    ],
+    "buildings": 64,
+    "chunks": 28416,
+    "corrected_steps_range": [
+      3,
+      3
+    ],
+    "frame_strength_scale": 40,
+    "frozen_wall_counters_match": true,
+    "full_physical_quality_qualified": false,
+    "id": "world-64",
+    "initialization_ms_range": [
+      1079.897816,
+      1141.482282
+    ],
+    "label": "64 buildings, one unchanged wall impact",
+    "layout": "impact-corridor",
+    "material_strength_scale": 24,
+    "maximum_corrections_per_step": 1,
+    "metrics": {
+      "max": 7.121552,
+      "mean": 3.0372293093888887,
+      "min": 0.581023,
+      "n": 18000,
+      "p50": 3.013988,
+      "p95": 3.428289,
+      "p99": 4.26033
+    },
+    "missed_60hz": 0,
+    "missed_8ms": 0,
+    "peak": {
+      "frame": {
+        "active_dynamic_bodies": "43",
+        "active_kinematic_bodies": "1",
+        "awake_bodies": "44",
+        "bodies": "107",
+        "bonds_broken": "2",
+        "command_ms": "6.0000000000000002e-05",
+        "complete_end_ns": "37263198025165",
+        "complete_start_ns": "37263190903733",
+        "complete_step_ms": "7.1215520000000003",
+        "completion_ms": "0.05629499999999954",
+        "contact_pairs": "8",
+        "contact_pairs_with_contacts": "0",
+        "contacts_frame": "500",
+        "contacts_total": "3059",
+        "correction_status": "0",
+        "frame_host_ms": "7.1571689999999997",
+        "gpu_render_submit_and_export_ms": "0",
+        "graph_d2h_bytes": "0",
+        "logical_clusters": "106",
+        "native_dynamic_bodies": "43",
+        "native_kinematic_bodies": "64",
+        "observation_ms": "0.063167000000000001",
+        "physics_step_ms": "7.0651970000000004",
+        "pre_solve_pairs": "539",
+        "process_cpu_ms": "8.4012589999999996",
+        "projectiles_active": "1",
+        "resim_passes": "1",
+        "simulation_end_ns": "37263197970553",
+        "simulation_seconds": "0.56666672229766846",
+        "simulation_start_ns": "37263190903843",
+        "solver_rows": "0",
+        "splits_total": "42",
+        "step": "33",
+        "stress_active_bonds": "49977",
+        "stress_active_nodes": "24282",
+        "stress_converged": "1",
+        "stress_islands": "68",
+        "stress_iterations": "391",
+        "stress_solve_ms": "0"
+      },
+      "repeat": 3,
+      "step": 33
+    },
+    "population_peaks": {
+      "active_dynamic_bodies": 43,
+      "active_kinematic_bodies": 1,
+      "bodies": 107,
+      "contact_pairs": 20,
+      "contacts_frame": 537,
+      "logical_clusters": 106,
+      "stress_active_bonds": 50176,
+      "stress_active_nodes": 24320,
+      "stress_islands": 68,
+      "stress_iterations": 505
+    },
+    "projectile_mass_kg": 18000,
+    "projectiles": 1,
+    "repeated_counter_history_matches": true,
+    "sampled_gpu_memory_mib": 1570.0,
+    "seconds": 60,
+    "shot_path": "through-wall",
+    "sleeping": false,
+    "trials": 5
+  },
+  "full_plan_complete": false,
+  "remaining": [
+    "CPU native allocation/ownership/contact/query lifecycle",
+    "GPU hot-vector layouts and multilevel preconditioning",
+    "Selective correction and affected-only topology rebuilds",
+    "Validated settled-state reuse and sleeping",
+    "Resolve CUB/synccheck instrumentation-dependent failure",
+    "Full large-scene physical/bond-identity qualification and lifecycle endurance",
+    "Four-axis scaling frontier beyond current timing gates"
+  ]
+}

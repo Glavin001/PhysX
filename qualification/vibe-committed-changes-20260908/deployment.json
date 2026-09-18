@@ -1,0 +1,11 @@
+{
+  "pid": 1499199,
+  "engine_commit": "cf053e456de94d5291301aceb7a02ca6f0832613",
+  "game_commit": "97364dd1ea086d35512a0cdbeda56e0485e9d073",
+  "files": {
+    "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXSimulationControllerGpu_static_64.a": "45e6a9327119714c1662274cc1a8c5d1cd7f5fdb0369c501908dcac192e129bb",
+    "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so": "073c0448421013734b228db718ba56656e3e3d8cb5a80d186978027b073162d0",
+    "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so": "7c7fead20c47a2c92dec0d09d628df7ed4a09c7d2a8e7a5d6f89c7dfd9d82de3",
+    "/root/workspace/physx-2/out/vibe-native/release/web-fps-server": "88bc5c9e2175758396472ab806bb965ce46ad8ed9d05b80f0ae793976bc8145f"
+  }
+}

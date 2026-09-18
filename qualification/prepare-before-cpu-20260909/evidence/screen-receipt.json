@@ -1,0 +1,257 @@
+{
+  "schema": 1,
+  "sequence": [
+    {
+      "name": "1-baseline-idle",
+      "command": [
+        "/root/workspace/physx-2/out/vibe-native/release/examples/embedded_city_bench",
+        "/root/workspace/physx-2/out/prepare-before-cpu-20260909/screen/1-baseline-idle",
+        "8",
+        "96",
+        "0"
+      ],
+      "expected": {
+        "libPhysXDestructionGpuRuntime_64.so": {
+          "path": "/root/workspace/physx-2/out/ranked-storage-20260909/candidate/libPhysXDestructionGpuRuntime_64.so",
+          "sha256": "28531f5d54247e7fcdd3a211624dea850be3fb285b2a598bb593e59c47ab68fc"
+        },
+        "libPhysXGpuActivity_64.so": {
+          "path": "/root/workspace/physx-2/out/ranked-storage-20260909/candidate/libPhysXGpuActivity_64.so",
+          "sha256": "d75a74bba8adfcb95572e10047f36dec3c24bdc13b26a83f2e3e04ddc20e0eff"
+        }
+      },
+      "mapped": {
+        "libPhysXDestructionGpuRuntime_64.so": {
+          "path": "/root/workspace/physx-2/out/ranked-storage-20260909/candidate/libPhysXDestructionGpuRuntime_64.so",
+          "sha256": "28531f5d54247e7fcdd3a211624dea850be3fb285b2a598bb593e59c47ab68fc"
+        },
+        "libPhysXGpuActivity_64.so": {
+          "path": "/root/workspace/physx-2/out/ranked-storage-20260909/candidate/libPhysXGpuActivity_64.so",
+          "sha256": "d75a74bba8adfcb95572e10047f36dec3c24bdc13b26a83f2e3e04ddc20e0eff"
+        }
+      },
+      "exit": 0
+    },
+    {
+      "name": "1-baseline-shots",
+      "command": [
+        "/root/workspace/physx-2/out/vibe-native/release/examples/embedded_city_bench",
+        "/root/workspace/physx-2/out/prepare-before-cpu-20260909/screen/1-baseline-shots",
+        "8",
+        "96",
+        "1"
+      ],
+      "expected": {
+        "libPhysXDestructionGpuRuntime_64.so": {
+          "path": "/root/workspace/physx-2/out/ranked-storage-20260909/candidate/libPhysXDestructionGpuRuntime_64.so",
+          "sha256": "28531f5d54247e7fcdd3a211624dea850be3fb285b2a598bb593e59c47ab68fc"
+        },
+        "libPhysXGpuActivity_64.so": {
+          "path": "/root/workspace/physx-2/out/ranked-storage-20260909/candidate/libPhysXGpuActivity_64.so",
+          "sha256": "d75a74bba8adfcb95572e10047f36dec3c24bdc13b26a83f2e3e04ddc20e0eff"
+        }
+      },
+      "mapped": {
+        "libPhysXDestructionGpuRuntime_64.so": {
+          "path": "/root/workspace/physx-2/out/ranked-storage-20260909/candidate/libPhysXDestructionGpuRuntime_64.so",
+          "sha256": "28531f5d54247e7fcdd3a211624dea850be3fb285b2a598bb593e59c47ab68fc"
+        },
+        "libPhysXGpuActivity_64.so": {
+          "path": "/root/workspace/physx-2/out/ranked-storage-20260909/candidate/libPhysXGpuActivity_64.so",
+          "sha256": "d75a74bba8adfcb95572e10047f36dec3c24bdc13b26a83f2e3e04ddc20e0eff"
+        }
+      },
+      "exit": 0
+    },
+    {
+      "name": "2-candidate-idle",
+      "command": [
+        "/root/workspace/physx-2/out/vibe-native/release/examples/embedded_city_bench",
+        "/root/workspace/physx-2/out/prepare-before-cpu-20260909/screen/2-candidate-idle",
+        "8",
+        "96",
+        "0"
+      ],
+      "expected": {
+        "libPhysXDestructionGpuRuntime_64.so": {
+          "path": "/root/workspace/physx-2/out/prepare-before-cpu-20260909/candidate/libPhysXDestructionGpuRuntime_64.so",
+          "sha256": "d8ca468ab0fe1c5217882077e8655d36c52f0aaeaea68b7674092a856cfadcfb"
+        },
+        "libPhysXGpuActivity_64.so": {
+          "path": "/root/workspace/physx-2/out/prepare-before-cpu-20260909/candidate/libPhysXGpuActivity_64.so",
+          "sha256": "ed3043f983447130b541272813f219a4fe00ac445f2fe4e4dbfe905540af3e67"
+        }
+      },
+      "mapped": {
+        "libPhysXDestructionGpuRuntime_64.so": {
+          "path": "/root/workspace/physx-2/out/prepare-before-cpu-20260909/candidate/libPhysXDestructionGpuRuntime_64.so",
+          "sha256": "d8ca468ab0fe1c5217882077e8655d36c52f0aaeaea68b7674092a856cfadcfb"
+        },
+        "libPhysXGpuActivity_64.so": {
+          "path": "/root/workspace/physx-2/out/prepare-before-cpu-20260909/candidate/libPhysXGpuActivity_64.so",
+          "sha256": "ed3043f983447130b541272813f219a4fe00ac445f2fe4e4dbfe905540af3e67"
+        }
+      },
+      "exit": 0
+    },
+    {
+      "name": "2-candidate-shots",
+      "command": [
+        "/root/workspace/physx-2/out/vibe-native/release/examples/embedded_city_bench",
+        "/root/workspace/physx-2/out/prepare-before-cpu-20260909/screen/2-candidate-shots",
+        "8",
+        "96",
+        "1"
+      ],
+      "expected": {
+        "libPhysXDestructionGpuRuntime_64.so": {
+          "path": "/root/workspace/physx-2/out/prepare-before-cpu-20260909/candidate/libPhysXDestructionGpuRuntime_64.so",
+          "sha256": "d8ca468ab0fe1c5217882077e8655d36c52f0aaeaea68b7674092a856cfadcfb"
+        },
+        "libPhysXGpuActivity_64.so": {
+          "path": "/root/workspace/physx-2/out/prepare-before-cpu-20260909/candidate/libPhysXGpuActivity_64.so",
+          "sha256": "ed3043f983447130b541272813f219a4fe00ac445f2fe4e4dbfe905540af3e67"
+        }
+      },
+      "mapped": {
+        "libPhysXDestructionGpuRuntime_64.so": {
+          "path": "/root/workspace/physx-2/out/prepare-before-cpu-20260909/candidate/libPhysXDestructionGpuRuntime_64.so",
+          "sha256": "d8ca468ab0fe1c5217882077e8655d36c52f0aaeaea68b7674092a856cfadcfb"
+        },
+        "libPhysXGpuActivity_64.so": {
+          "path": "/root/workspace/physx-2/out/prepare-before-cpu-20260909/candidate/libPhysXGpuActivity_64.so",
+          "sha256": "ed3043f983447130b541272813f219a4fe00ac445f2fe4e4dbfe905540af3e67"
+        }
+      },
+      "exit": 0
+    },
+    {
+      "name": "3-candidate-idle",
+      "command": [
+        "/root/workspace/physx-2/out/vibe-native/release/examples/embedded_city_bench",
+        "/root/workspace/physx-2/out/prepare-before-cpu-20260909/screen/3-candidate-idle",
+        "8",
+        "96",
+        "0"
+      ],
+      "expected": {
+        "libPhysXDestructionGpuRuntime_64.so": {
+          "path": "/root/workspace/physx-2/out/prepare-before-cpu-20260909/candidate/libPhysXDestructionGpuRuntime_64.so",
+          "sha256": "d8ca468ab0fe1c5217882077e8655d36c52f0aaeaea68b7674092a856cfadcfb"
+        },
+        "libPhysXGpuActivity_64.so": {
+          "path": "/root/workspace/physx-2/out/prepare-before-cpu-20260909/candidate/libPhysXGpuActivity_64.so",
+          "sha256": "ed3043f983447130b541272813f219a4fe00ac445f2fe4e4dbfe905540af3e67"
+        }
+      },
+      "mapped": {
+        "libPhysXDestructionGpuRuntime_64.so": {
+          "path": "/root/workspace/physx-2/out/prepare-before-cpu-20260909/candidate/libPhysXDestructionGpuRuntime_64.so",
+          "sha256": "d8ca468ab0fe1c5217882077e8655d36c52f0aaeaea68b7674092a856cfadcfb"
+        },
+        "libPhysXGpuActivity_64.so": {
+          "path": "/root/workspace/physx-2/out/prepare-before-cpu-20260909/candidate/libPhysXGpuActivity_64.so",
+          "sha256": "ed3043f983447130b541272813f219a4fe00ac445f2fe4e4dbfe905540af3e67"
+        }
+      },
+      "exit": 0
+    },
+    {
+      "name": "3-candidate-shots",
+      "command": [
+        "/root/workspace/physx-2/out/vibe-native/release/examples/embedded_city_bench",
+        "/root/workspace/physx-2/out/prepare-before-cpu-20260909/screen/3-candidate-shots",
+        "8",
+        "96",
+        "1"
+      ],
+      "expected": {
+        "libPhysXDestructionGpuRuntime_64.so": {
+          "path": "/root/workspace/physx-2/out/prepare-before-cpu-20260909/candidate/libPhysXDestructionGpuRuntime_64.so",
+          "sha256": "d8ca468ab0fe1c5217882077e8655d36c52f0aaeaea68b7674092a856cfadcfb"
+        },
+        "libPhysXGpuActivity_64.so": {
+          "path": "/root/workspace/physx-2/out/prepare-before-cpu-20260909/candidate/libPhysXGpuActivity_64.so",
+          "sha256": "ed3043f983447130b541272813f219a4fe00ac445f2fe4e4dbfe905540af3e67"
+        }
+      },
+      "mapped": {
+        "libPhysXDestructionGpuRuntime_64.so": {
+          "path": "/root/workspace/physx-2/out/prepare-before-cpu-20260909/candidate/libPhysXDestructionGpuRuntime_64.so",
+          "sha256": "d8ca468ab0fe1c5217882077e8655d36c52f0aaeaea68b7674092a856cfadcfb"
+        },
+        "libPhysXGpuActivity_64.so": {
+          "path": "/root/workspace/physx-2/out/prepare-before-cpu-20260909/candidate/libPhysXGpuActivity_64.so",
+          "sha256": "ed3043f983447130b541272813f219a4fe00ac445f2fe4e4dbfe905540af3e67"
+        }
+      },
+      "exit": 0
+    },
+    {
+      "name": "4-baseline-idle",
+      "command": [
+        "/root/workspace/physx-2/out/vibe-native/release/examples/embedded_city_bench",
+        "/root/workspace/physx-2/out/prepare-before-cpu-20260909/screen/4-baseline-idle",
+        "8",
+        "96",
+        "0"
+      ],
+      "expected": {
+        "libPhysXDestructionGpuRuntime_64.so": {
+          "path": "/root/workspace/physx-2/out/ranked-storage-20260909/candidate/libPhysXDestructionGpuRuntime_64.so",
+          "sha256": "28531f5d54247e7fcdd3a211624dea850be3fb285b2a598bb593e59c47ab68fc"
+        },
+        "libPhysXGpuActivity_64.so": {
+          "path": "/root/workspace/physx-2/out/ranked-storage-20260909/candidate/libPhysXGpuActivity_64.so",
+          "sha256": "d75a74bba8adfcb95572e10047f36dec3c24bdc13b26a83f2e3e04ddc20e0eff"
+        }
+      },
+      "mapped": {
+        "libPhysXDestructionGpuRuntime_64.so": {
+          "path": "/root/workspace/physx-2/out/ranked-storage-20260909/candidate/libPhysXDestructionGpuRuntime_64.so",
+          "sha256": "28531f5d54247e7fcdd3a211624dea850be3fb285b2a598bb593e59c47ab68fc"
+        },
+        "libPhysXGpuActivity_64.so": {
+          "path": "/root/workspace/physx-2/out/ranked-storage-20260909/candidate/libPhysXGpuActivity_64.so",
+          "sha256": "d75a74bba8adfcb95572e10047f36dec3c24bdc13b26a83f2e3e04ddc20e0eff"
+        }
+      },
+      "exit": 0
+    },
+    {
+      "name": "4-baseline-shots",
+      "command": [
+        "/root/workspace/physx-2/out/vibe-native/release/examples/embedded_city_bench",
+        "/root/workspace/physx-2/out/prepare-before-cpu-20260909/screen/4-baseline-shots",
+        "8",
+        "96",
+        "1"
+      ],
+      "expected": {
+        "libPhysXDestructionGpuRuntime_64.so": {
+          "path": "/root/workspace/physx-2/out/ranked-storage-20260909/candidate/libPhysXDestructionGpuRuntime_64.so",
+          "sha256": "28531f5d54247e7fcdd3a211624dea850be3fb285b2a598bb593e59c47ab68fc"
+        },
+        "libPhysXGpuActivity_64.so": {
+          "path": "/root/workspace/physx-2/out/ranked-storage-20260909/candidate/libPhysXGpuActivity_64.so",
+          "sha256": "d75a74bba8adfcb95572e10047f36dec3c24bdc13b26a83f2e3e04ddc20e0eff"
+        }
+      },
+      "mapped": {
+        "libPhysXDestructionGpuRuntime_64.so": {
+          "path": "/root/workspace/physx-2/out/ranked-storage-20260909/candidate/libPhysXDestructionGpuRuntime_64.so",
+          "sha256": "28531f5d54247e7fcdd3a211624dea850be3fb285b2a598bb593e59c47ab68fc"
+        },
+        "libPhysXGpuActivity_64.so": {
+          "path": "/root/workspace/physx-2/out/ranked-storage-20260909/candidate/libPhysXGpuActivity_64.so",
+          "sha256": "d75a74bba8adfcb95572e10047f36dec3c24bdc13b26a83f2e3e04ddc20e0eff"
+        }
+      },
+      "exit": 0
+    }
+  ],
+  "benchmark_sha256": "2d133755071c34ecc6a195e6b041531ac87c02f11d273fddc7355ea8dcbe9b84",
+  "service_changes": false,
+  "steps": 96,
+  "prefix_of_600_step_tape": true
+}

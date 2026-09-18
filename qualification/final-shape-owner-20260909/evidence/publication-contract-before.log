@@ -1,0 +1,14 @@
+Internal ctest changing into directory: /root/workspace/physx-2/out/destruction-sdk
+Test project /root/workspace/physx-2/out/destruction-sdk
+    Start 91: physx_native_gpu_shape_publication
+1/1 Test #91: physx_native_gpu_shape_publication ...***Failed    0.17 sec
+publication overflow did not report collision ownership failure
+
+
+0% tests passed, 1 tests failed out of 1
+
+Total Test time (real) =   0.18 sec
+
+The following tests FAILED:
+	 91 - physx_native_gpu_shape_publication (Failed)
+Errors while running CTest

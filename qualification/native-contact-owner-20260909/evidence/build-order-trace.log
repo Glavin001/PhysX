@@ -1,0 +1,13 @@
+[  4%] Built target PhysXCommonGpu
+[  9%] Built target PhysXBroadphaseGpu
+[  9%] Built target PhysXDestructionGpuRuntime
+[ 13%] Building CXX object sdk_gpu_source_bin/CMakeFiles/PhysXSolverGpu.dir/root/workspace/physx-2/physx/source/gpusolver/src/PxgConstraintPartition.cpp.o
+[ 45%] Built target PhysXSimulationControllerGpu
+[ 45%] Built target PhysXCudaContextManager
+[ 68%] Built target PhysXNarrowphaseGpu
+[ 72%] Built target PhysXArticulationGpu
+[ 90%] Built target PhysXGpuDependencies
+[ 90%] Linking CXX static library /root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXSolverGpu_static_64.a
+[100%] Built target PhysXSolverGpu
+[100%] Linking CXX shared library /root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so
+[100%] Built target PhysXGpu

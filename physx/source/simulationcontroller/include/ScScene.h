@@ -343,7 +343,7 @@ namespace Sc
 					void						addStatic(StaticCore&, NpShape*const *shapes, PxU32 nbShapes, size_t shapePtrOffset, PxBounds3* uninflatedBounds);
 					void						removeStatic(StaticCore&, PxInlineArray<const ShapeCore*,64>& removedShapes, bool wakeOnLostTouch);
 
-					void						addBody(BodyCore&, NpShape*const *shapes, PxU32 nbShapes, size_t shapePtrOffset, PxBounds3* uninflatedBounds, bool compound);
+					void						addBody(BodyCore&, NpShape*const *shapes, PxU32 nbShapes, size_t shapePtrOffset, PxBounds3* uninflatedBounds, bool compound, PxNodeIndex nativeNode=PxNodeIndex());
 					void						removeBody(BodyCore&, PxInlineArray<const ShapeCore*,64>& removedShapes, bool wakeOnLostTouch);
 
 					// Batch insertion API.
@@ -390,6 +390,7 @@ namespace Sc
 	PX_FORCE_INLINE	ArticulationCore* const*	getArticulations()			{ return mArticulations.getEntries();	}
 	
 	PX_FORCE_INLINE	PxU32						getNbConstraints()	const	{ return mConstraints.size();		}
+        bool canUseGpuDestructionIslandRepair() const;
 	PX_FORCE_INLINE	ConstraintCore*const*		getConstraints()	const	{ return mConstraints.getEntries();	}
 	PX_FORCE_INLINE	ConstraintCore*const*		getConstraints()			{ return mConstraints.getEntries();	}
 
@@ -440,6 +441,9 @@ namespace Sc
 					void						postCallbacksPreSyncKinematics();
 					void						postReportsCleanup();
 					void						fireCallbacksPostSync();
+                    bool finalizeGpuSleep(BodyCore* body = NULL);
+                    static bool destructionEarlySleepCommit(void* scene);
+                    static bool destructionPendingSleepFinalize(void* scene);
 					void						syncSceneQueryBounds(SqBoundsSync& sync, SqRefFinder& finder);					
 
 					PxU32						getDefaultContactReportStreamBufferSize() const;
@@ -544,14 +548,22 @@ namespace Sc
 
 		PX_FORCE_INLINE	PxPool2<ConstraintInteraction, 4096>&	getConstraintInteractionPool()			{ return mConstraintInteractionPool;	}
 	public:
+					void captureDestructionActivityRange(PxU32 begin, PxU32 end); // parallel chunks of the activity checkpoint (worker task entry)
 		PX_FORCE_INLINE	const PxsMaterialManager&	getMaterialManager()				const	{ return mMaterialManager;			}
 		PX_FORCE_INLINE	PxsMaterialManager&			getMaterialManager()						{ return mMaterialManager;			}
 
 		PX_FORCE_INLINE	const BroadphaseManager&	getBroadphaseManager()				const	{ return mBroadphaseManager;			}
 		PX_FORCE_INLINE	BroadphaseManager&			getBroadphaseManager()						{ return mBroadphaseManager;			}
+        // Trial notifications are not accepted results while native correction is incomplete.
+        bool isSimulationResultAccepted() const;
+        bool destructionCorrectionInProgress() const { return mDestructionCorrectionInProgress; }
+        // Explicit CPU query observer: accumulate provisional GPU deltas and
+        // reconcile only accepted ownership/activity, never trial transitions.
+        bool queueDestructionQueryMembership(const PxU32* indices, PxU32 count);
+        void publishDestructionQueryMembership();
 		PX_FORCE_INLINE	bool						fireOutOfBoundsCallbacks()
 													{
-														return mBroadphaseManager.fireOutOfBoundsCallbacks(mAABBManager, *mElementIDPool, mContextId);
+														return isSimulationResultAccepted() && mBroadphaseManager.fireOutOfBoundsCallbacks(mAABBManager, *mElementIDPool, mContextId);
 													}
 		// Collision filtering
 						void						setFilterShaderData(const void* data, PxU32 dataSize);
@@ -783,6 +795,8 @@ namespace Sc
 			const	PxPairFilteringMode::Enum	mStaticKineFilteringMode;
 
 					PxCoalescedHashSet<BodyCore*> mSleepBodies;
+                    PxCoalescedHashSet<BodyCore*> mGpuSleepPendingBodies;
+        PxCoalescedHashSet<BodyCore*> mGpuSleepRollbackBodies;
 					PxCoalescedHashSet<BodyCore*> mWokeBodies;
 
 					bool						mWokeBodyListValid;
@@ -906,6 +920,28 @@ namespace Sc
 					Cm::DelegateTask<Scene, &Scene::secondPassNarrowPhase>		mSecondPassNarrowPhase;
 					Cm::DelegateTask<Scene, &Scene::postNarrowPhase>			mPostNarrowPhase;
 					Cm::DelegateTask<Scene, &Scene::finalizationPhase>			mFinalizationPhase;
+                    Cm::DelegateTask<Scene, &Scene::finalizationPhase> mDestructionFinalizationPhase;
+                    bool mDestructionCorrectionInProgress = false;
+                    struct DestructionActivity {
+                        BodySim* body;
+                        PxReal wakeCounter;
+                        PxU16 sleepFlags;
+                        bool accurateReady, speculativeReady, wakeNotify;
+                    };
+                    // Prescribed kinematic targets stay unchanged during a trial.
+                    // Restore their start poses so replay computes the same target
+                    // velocity, rather than a zero delta from the trial end pose.
+                    struct DestructionKinematic { BodyCore* body; PxTransform startPose; };
+                    PxArray<DestructionKinematic> mDestructionTrialKinematics;
+                    PxArray<DestructionActivity> mDestructionTrialActivity;
+                    PxArray<BodySim*> mDestructionTrialSleepNotifications;
+                    PxArray<IG::IslandId> mDestructionParkedIslands; // island-scoped correction
+                    PxBitMap mDestructionQueryDirty;
+                    PxArray<PxU32> mDestructionQueryShapes;
+                    PxArray<PxU32> mDestructionPartitionCandidates, mDestructionPartitionCandidatesTrial;
+                    bool mPairPoolsPreheated = false, mPairPoolsPrefaulted = false;
+                    void captureDestructionActivity(PxBaseTask* joinTask);
+                    void restoreDestructionActivity();
 					Cm::DelegateTask<Scene, &Scene::updateCCDMultiPass>			mUpdateCCDMultiPass;
 
 					//multi-pass ccd stuff

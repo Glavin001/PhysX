@@ -1,0 +1,66 @@
+{
+  "integration_base": "8dd4d265f2bd23ba19f55428256e205ad27750cd",
+  "source_revision": "2e8c2bb02ffe52dd1022636a202a8172a71708db",
+  "files": [
+    {
+      "path": "destruction/src/rig/mod.rs",
+      "previous_sha256": "ce17b8a73c229a17a752e9392369a1aa40a0e7dcebafd661116349526d8bbaec",
+      "source_sha256": "8d25b0d0c70af138965113ee7df8583d97e51b48341b64cdab45ba75dc802ce5"
+    },
+    {
+      "path": "destruction/tests/authored_structures_sim.rs",
+      "previous_sha256": "7545024aa36dde228dca79a1361db1b1032b3f4de0f67eaca5acaad7ca5ca19c",
+      "source_sha256": "5fae35616c5fbd7d129aede4bd0e169bac172b3629a2f8dbae315952527dea43"
+    },
+    {
+      "path": "destruction/tests/rig_smoke_sim.rs",
+      "previous_sha256": "3b9f4a40dea7c3c820b5aae58347528d7d88606180e87cf281577a8e3e5cf1a7",
+      "source_sha256": "4fa276a337d26f5e7e2bf2e612538ed7f64afdcf6e02d2e61b0e8d289b1677b1"
+    },
+    {
+      "path": "physx-bridge/build.rs",
+      "previous_sha256": "05b1813988a424bf067e319fcf3d72d851e42ff4483369ae85fdff7b56af5aa1",
+      "source_sha256": "6db5cc1ec088124afd4afd80dd28cbc4ee39bcc8f6317413720d82642d63c02a"
+    },
+    {
+      "path": "physx-bridge/src/physx_bridge.cc",
+      "previous_sha256": "ab601390001be7d34593b1de7e8e97611ed9955cb80673478ed28345c55c1ad3",
+      "source_sha256": "8c4d87e2ac3f6ed2df925e3204caada6bfdff1dff0a1d6e0eba2b23ecf817637"
+    },
+    {
+      "path": "physx-bridge/tests/destruction_smoke.rs",
+      "previous_sha256": "ddea6739cd0c90cece60ea282060e21dbe5f508921fbf16eabff675952912b09",
+      "source_sha256": "e9f9584016af629ba7e7a9d1f50a3de4fc70f2d033b99788732311d3c3f91f59"
+    },
+    {
+      "path": "physx-bridge/tests/freeze_wake_semantics.rs",
+      "previous_sha256": "6c41a04ed7b6fb3062651a91a09cdea59a11ecc0acbc5ac3fc4f84c7a14e2913",
+      "source_sha256": "5730bb883da2fa21c6150975d39d25ead796d72b5f50d6907f0790befd186a6f"
+    },
+    {
+      "path": "physx-bridge/tests/gpu_smoke.rs",
+      "previous_sha256": "4ce704896a9ad72fae6e46f92c8c21a548938d7010c3c27c68d99fd13e39cd7a",
+      "source_sha256": "91c3e5a6f57e0e39cc94693c26f8fc3bb89bd4083fe31a2544b31e5a7aab275a"
+    },
+    {
+      "path": "physx-bridge/tests/settle_assist.rs",
+      "previous_sha256": "ceae90282aeb5d61a51851ba0a636056921fa49eef2dea3819e72cc98bb45603",
+      "source_sha256": "c7cbceaacae0c9abbb40deef0e87d24d1d003609f1d2fd908d3e54bc3119aa97"
+    },
+    {
+      "path": "physx-bridge/tests/stub.rs",
+      "previous_sha256": "bb3e43de18b832705d7be9fdf000bd38f62dc36e1e48312aea73c4e4bdc8e467",
+      "source_sha256": "ad28ddb1d1295f4a30ea7ad6e07b749af7ce9b4ce4773eb15ace759ef44fab46"
+    },
+    {
+      "path": "physx-bridge/tests/timing_consistency.rs",
+      "previous_sha256": "cffd6dbda865b2ba736ba55d65f62d5951dd6445da21d2c8e626991c65b3fc64",
+      "source_sha256": "e529065b1221a94ad590c8fa1820ed89990d5e77b60914f4e525acb719824e71"
+    },
+    {
+      "path": "physx-bridge/tests/velocity_fidelity.rs",
+      "previous_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source_sha256": "b24e8142cc7c27e4378cd5840715941617da9b5bbcd99df6587901b3cae5b6f5"
+    }
+  ]
+}

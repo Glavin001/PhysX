@@ -1,0 +1,19 @@
+{
+  "status": "standalone GPU registration transaction tested; native integration pending",
+  "base_revision": "632ab57ab8fd57ee4bf91a2fc7f07b0ff0962d7a",
+  "sha256": {
+    "physx/source/gpudestruction/include/PxgDestructionRegistration.h": "222f42fbac16f543c7f5c55219ce104a41e39dc15fa33bf4c1ef02fbe231e008",
+    "physx/source/gpudestruction/src/PxgDestructionRegistration.cuh": "3857430a57ddcbd27f4bbfa14c4672e6524b428c7b0d4f567cec6ebd58801d39",
+    "physx/source/gpudestruction/tests/registration_test.cu": "793d34a9c42ceaa73558f4369167a5773a0ee257737da1dc6639581570015f55",
+    "out/topology-release/destruction_registration_test": "7a900a02b97e3731999f029552a562fe1ab124e57fd782c946874eb16b9f074e"
+  },
+  "commands": [
+    "cmake -S physx/source/gpudestruction -B out/topology-release -DCMAKE_BUILD_TYPE=Release -DCMAKE_CUDA_ARCHITECTURES=89 -DBUILD_TESTING=ON",
+    "cmake --build out/topology-release --target destruction_registration_test -j2",
+    "out/topology-release/destruction_registration_test",
+    "compute-sanitizer --tool memcheck --error-exitcode 99 out/topology-release/destruction_registration_test",
+    "compute-sanitizer --tool initcheck --error-exitcode 99 out/topology-release/destruction_registration_test",
+    "compute-sanitizer --tool racecheck --error-exitcode 99 out/topology-release/destruction_registration_test",
+    "compute-sanitizer --tool synccheck --error-exitcode 99 out/topology-release/destruction_registration_test"
+  ]
+}

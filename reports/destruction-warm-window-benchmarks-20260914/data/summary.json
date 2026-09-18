@@ -1,0 +1,575 @@
+{
+  "campaign_status": "complete",
+  "elapsed_seconds": 204.33778095399612,
+  "records": [
+    {
+      "case": "bridge64",
+      "trait": "Supported span at accepted static equilibrium",
+      "physical_status": "passed",
+      "processes": [
+        {
+          "n": 16,
+          "mean_ms": 1.4621870625,
+          "peak_ms": 1.745304,
+          "sd_ms": 0.10616327103505478,
+          "misses": 0,
+          "stages_ms": {
+            "command_ms": 7.225e-05,
+            "simulate_fetch_ms": 1.262677875,
+            "completion_ms": 0.1994369375
+          },
+          "iterations_mean": 0,
+          "breaks": 0,
+          "corrections": 0,
+          "arm": "A0",
+          "passed": true,
+          "raw": "out/warm-replay-20260914/final/bridge64-A0/replay.json",
+          "restore_ms": 115.1911925,
+          "setup_ms": 462.017789,
+          "warmup_ms": 21.101545,
+          "first_restored_tick_ms": [
+            11.463479,
+            8.657911
+          ],
+          "warmup_ticks": 8,
+          "measure_ticks": 8,
+          "trajectories": 2
+        },
+        {
+          "n": 16,
+          "mean_ms": 1.6912591875,
+          "peak_ms": 2.251488,
+          "sd_ms": 0.2555588927654365,
+          "misses": 0,
+          "stages_ms": {
+            "command_ms": 9.2875e-05,
+            "simulate_fetch_ms": 1.47579225,
+            "completion_ms": 0.2153740625
+          },
+          "iterations_mean": 0,
+          "breaks": 0,
+          "corrections": 0,
+          "arm": "A1",
+          "passed": true,
+          "raw": "out/warm-replay-20260914/final/bridge64-A1/replay.json",
+          "restore_ms": 113.7651,
+          "setup_ms": 463.172872,
+          "warmup_ms": 24.249973500000003,
+          "first_restored_tick_ms": [
+            11.822068,
+            8.373961
+          ],
+          "warmup_ticks": 8,
+          "measure_ticks": 8,
+          "trajectories": 2
+        }
+      ]
+    },
+    {
+      "case": "chain256",
+      "trait": "Long sparse load path after initial solve",
+      "physical_status": "passed",
+      "processes": [
+        {
+          "n": 16,
+          "mean_ms": 1.3917776875,
+          "peak_ms": 1.54102,
+          "sd_ms": 0.07676363119839041,
+          "misses": 0,
+          "stages_ms": {
+            "command_ms": 5.6875e-05,
+            "simulate_fetch_ms": 1.220246,
+            "completion_ms": 0.1714748125
+          },
+          "iterations_mean": 1,
+          "breaks": 0,
+          "corrections": 0,
+          "arm": "A0",
+          "passed": true,
+          "raw": "out/warm-replay-20260914/final/chain256-A0/replay.json",
+          "restore_ms": 109.64966100000001,
+          "setup_ms": 435.502933,
+          "warmup_ms": 19.385422499999997,
+          "first_restored_tick_ms": [
+            9.992832,
+            7.250785
+          ],
+          "warmup_ticks": 8,
+          "measure_ticks": 8,
+          "trajectories": 2
+        },
+        {
+          "n": 16,
+          "mean_ms": 1.5792781875,
+          "peak_ms": 1.799475,
+          "sd_ms": 0.1422525330287508,
+          "misses": 0,
+          "stages_ms": {
+            "command_ms": 5.0625e-05,
+            "simulate_fetch_ms": 1.4168654375,
+            "completion_ms": 0.162362125
+          },
+          "iterations_mean": 1,
+          "breaks": 0,
+          "corrections": 0,
+          "arm": "A1",
+          "passed": true,
+          "raw": "out/warm-replay-20260914/final/chain256-A1/replay.json",
+          "restore_ms": 106.06230099999999,
+          "setup_ms": 433.439596,
+          "warmup_ms": 19.982067,
+          "first_restored_tick_ms": [
+            9.829969,
+            7.258532
+          ],
+          "warmup_ticks": 8,
+          "measure_ticks": 8,
+          "trajectories": 2
+        }
+      ]
+    },
+    {
+      "case": "dense12",
+      "trait": "Dense interconnected equilibrium; cold solve remains a companion",
+      "physical_status": "passed",
+      "processes": [
+        {
+          "n": 16,
+          "mean_ms": 1.2724689375,
+          "peak_ms": 1.573741,
+          "sd_ms": 0.19252762427747652,
+          "misses": 0,
+          "stages_ms": {
+            "command_ms": 7.83125e-05,
+            "simulate_fetch_ms": 1.0825589375,
+            "completion_ms": 0.1898316875
+          },
+          "iterations_mean": 0,
+          "breaks": 0,
+          "corrections": 0,
+          "arm": "A0",
+          "passed": true,
+          "raw": "out/warm-replay-20260914/final/dense12-A0/replay.json",
+          "restore_ms": 121.4040475,
+          "setup_ms": 468.418758,
+          "warmup_ms": 40.595129,
+          "first_restored_tick_ms": [
+            31.64609,
+            30.974144
+          ],
+          "warmup_ticks": 8,
+          "measure_ticks": 8,
+          "trajectories": 2
+        },
+        {
+          "n": 16,
+          "mean_ms": 1.51520575,
+          "peak_ms": 2.351189,
+          "sd_ms": 0.2376402385583441,
+          "misses": 0,
+          "stages_ms": {
+            "command_ms": 6.7e-05,
+            "simulate_fetch_ms": 1.3210935,
+            "completion_ms": 0.19404525
+          },
+          "iterations_mean": 0,
+          "breaks": 0,
+          "corrections": 0,
+          "arm": "A1",
+          "passed": true,
+          "raw": "out/warm-replay-20260914/final/dense12-A1/replay.json",
+          "restore_ms": 113.3348475,
+          "setup_ms": 425.274448,
+          "warmup_ms": 43.7338655,
+          "first_restored_tick_ms": [
+            33.914841,
+            31.080299
+          ],
+          "warmup_ticks": 8,
+          "measure_ticks": 8,
+          "trajectories": 2
+        }
+      ]
+    },
+    {
+      "case": "tower64",
+      "trait": "Tall static structure; tests equilibrium reuse, not changed-load convergence",
+      "physical_status": "passed",
+      "processes": [
+        {
+          "n": 16,
+          "mean_ms": 1.447455,
+          "peak_ms": 1.861087,
+          "sd_ms": 0.13342514903120775,
+          "misses": 0,
+          "stages_ms": {
+            "command_ms": 0.00011350000000000001,
+            "simulate_fetch_ms": 1.224219,
+            "completion_ms": 0.2231225
+          },
+          "iterations_mean": 0,
+          "breaks": 0,
+          "corrections": 0,
+          "arm": "A0",
+          "passed": true,
+          "raw": "out/warm-replay-20260914/final/tower64-A0/replay.json",
+          "restore_ms": 128.4956135,
+          "setup_ms": 435.843134,
+          "warmup_ms": 119.7871965,
+          "first_restored_tick_ms": [
+            111.062622,
+            108.575269
+          ],
+          "warmup_ticks": 8,
+          "measure_ticks": 8,
+          "trajectories": 2
+        },
+        {
+          "n": 16,
+          "mean_ms": 1.145414125,
+          "peak_ms": 1.48847,
+          "sd_ms": 0.2020768477369851,
+          "misses": 0,
+          "stages_ms": {
+            "command_ms": 5.28125e-05,
+            "simulate_fetch_ms": 0.97035075,
+            "completion_ms": 0.1750105625
+          },
+          "iterations_mean": 0,
+          "breaks": 0,
+          "corrections": 0,
+          "arm": "A1",
+          "passed": true,
+          "raw": "out/warm-replay-20260914/final/tower64-A1/replay.json",
+          "restore_ms": 126.631785,
+          "setup_ms": 442.250905,
+          "warmup_ms": 119.039984,
+          "first_restored_tick_ms": [
+            111.19262,
+            107.860825
+          ],
+          "warmup_ticks": 8,
+          "measure_ticks": 8,
+          "trajectories": 2
+        }
+      ]
+    },
+    {
+      "case": "city25-impact",
+      "trait": "11,100 chunks; first impact and early cascading fractures at nominal ticks82..89",
+      "physical_status": "passed",
+      "processes": [
+        {
+          "n": 16,
+          "mean_ms": 22.7605918125,
+          "peak_ms": 36.917086,
+          "sd_ms": 8.406368968915963,
+          "misses": 10,
+          "stages_ms": {
+            "command_ms": 8.825e-05,
+            "simulate_fetch_ms": 22.5473173125,
+            "completion_ms": 0.21318625
+          },
+          "iterations_mean": 361,
+          "breaks": 6310,
+          "corrections": 10,
+          "arm": "A0",
+          "passed": true,
+          "raw": "out/warm-replay-20260914/final/city25-impact-A0/replay.json",
+          "restore_ms": 203.6436845,
+          "setup_ms": 569.54767,
+          "warmup_ms": 110.57773750000001,
+          "first_restored_tick_ms": [
+            14.450556,
+            10.794619
+          ],
+          "warmup_ticks": 42,
+          "measure_ticks": 8,
+          "trajectories": 2
+        },
+        {
+          "n": 16,
+          "mean_ms": 22.60690275,
+          "peak_ms": 36.771429,
+          "sd_ms": 8.072815308353837,
+          "misses": 10,
+          "stages_ms": {
+            "command_ms": 0.000117,
+            "simulate_fetch_ms": 22.3890801875,
+            "completion_ms": 0.2177055625
+          },
+          "iterations_mean": 361,
+          "breaks": 6310,
+          "corrections": 10,
+          "arm": "A1",
+          "passed": true,
+          "raw": "out/warm-replay-20260914/final/city25-impact-A1/replay.json",
+          "restore_ms": 213.91729650000002,
+          "setup_ms": 601.749338,
+          "warmup_ms": 109.06818550000003,
+          "first_restored_tick_ms": [
+            14.325662,
+            10.662235
+          ],
+          "warmup_ticks": 42,
+          "measure_ticks": 8,
+          "trajectories": 2
+        }
+      ]
+    },
+    {
+      "case": "city256-idle",
+      "trait": "113,664 chunks; large settled intact world at nominal ticks56..71",
+      "physical_status": "passed",
+      "processes": [
+        {
+          "n": 32,
+          "mean_ms": 1.69228525,
+          "peak_ms": 3.927421,
+          "sd_ms": 0.43384304951214786,
+          "misses": 0,
+          "stages_ms": {
+            "command_ms": 8.715625e-05,
+            "simulate_fetch_ms": 1.51882440625,
+            "completion_ms": 0.1733736875
+          },
+          "iterations_mean": 0,
+          "breaks": 0,
+          "corrections": 0,
+          "arm": "A0",
+          "passed": true,
+          "raw": "out/warm-replay-20260914/final/city256-idle-A0/replay.json",
+          "restore_ms": 1091.1300725,
+          "setup_ms": 1726.212499,
+          "warmup_ms": 103.9381625,
+          "first_restored_tick_ms": [
+            79.105058,
+            75.226173
+          ],
+          "warmup_ticks": 16,
+          "measure_ticks": 16,
+          "trajectories": 2
+        },
+        {
+          "n": 32,
+          "mean_ms": 1.65893146875,
+          "peak_ms": 2.483273,
+          "sd_ms": 0.16833247453333275,
+          "misses": 0,
+          "stages_ms": {
+            "command_ms": 8.278125e-05,
+            "simulate_fetch_ms": 1.453043375,
+            "completion_ms": 0.2058053125
+          },
+          "iterations_mean": 0,
+          "breaks": 0,
+          "corrections": 0,
+          "arm": "A1",
+          "passed": true,
+          "raw": "out/warm-replay-20260914/final/city256-idle-A1/replay.json",
+          "restore_ms": 1094.0344384999999,
+          "setup_ms": 1735.151957,
+          "warmup_ms": 94.25298950000001,
+          "first_restored_tick_ms": [
+            70.116673,
+            66.183898
+          ],
+          "warmup_ticks": 16,
+          "measure_ticks": 16,
+          "trajectories": 2
+        }
+      ]
+    },
+    {
+      "case": "city256-impact",
+      "trait": "113,664 chunks, 256 projectiles; first impact and cascades at nominal ticks82..89",
+      "physical_status": "passed",
+      "processes": [
+        {
+          "n": 16,
+          "mean_ms": 88.7720245625,
+          "peak_ms": 175.848198,
+          "sd_ms": 42.12880191962461,
+          "misses": 16,
+          "stages_ms": {
+            "command_ms": 9.05e-05,
+            "simulate_fetch_ms": 88.5391993125,
+            "completion_ms": 0.23273475
+          },
+          "iterations_mean": 368,
+          "breaks": 62824,
+          "corrections": 10,
+          "arm": "A0",
+          "passed": true,
+          "raw": "out/warm-replay-20260914/final/city256-impact-A0/replay.json",
+          "restore_ms": 1092.2171839999999,
+          "setup_ms": 1724.041919,
+          "warmup_ms": 238.25694549999997,
+          "first_restored_tick_ms": [
+            83.439304,
+            65.885908
+          ],
+          "warmup_ticks": 42,
+          "measure_ticks": 8,
+          "trajectories": 2
+        },
+        {
+          "n": 16,
+          "mean_ms": 90.104031375,
+          "peak_ms": 187.799978,
+          "sd_ms": 43.60843480305897,
+          "misses": 16,
+          "stages_ms": {
+            "command_ms": 0.000105375,
+            "simulate_fetch_ms": 89.86160525,
+            "completion_ms": 0.24232075
+          },
+          "iterations_mean": 368,
+          "breaks": 62824,
+          "corrections": 10,
+          "arm": "A1",
+          "passed": true,
+          "raw": "out/warm-replay-20260914/final/city256-impact-A1/replay.json",
+          "restore_ms": 1099.6064175000001,
+          "setup_ms": 1701.922841,
+          "warmup_ms": 259.17694050000006,
+          "first_restored_tick_ms": [
+            86.924711,
+            77.051676
+          ],
+          "warmup_ticks": 42,
+          "measure_ticks": 8,
+          "trajectories": 2
+        }
+      ]
+    },
+    {
+      "case": "city256-cascade",
+      "trait": "Active cascading destruction at nominal ticks95..102; pre-impact history retained",
+      "physical_status": "passed",
+      "processes": [
+        {
+          "n": 16,
+          "mean_ms": 103.736032625,
+          "peak_ms": 139.693762,
+          "sd_ms": 18.893168079629678,
+          "misses": 16,
+          "stages_ms": {
+            "command_ms": 9.2875e-05,
+            "simulate_fetch_ms": 103.5054985625,
+            "completion_ms": 0.2304411875
+          },
+          "iterations_mean": 531,
+          "breaks": 28622,
+          "corrections": 16,
+          "arm": "A0",
+          "passed": true,
+          "raw": "out/warm-replay-20260914/final/city256-cascade-A0/replay.json",
+          "restore_ms": 1102.7772465,
+          "setup_ms": 1725.47721,
+          "warmup_ms": 1347.968847,
+          "first_restored_tick_ms": [
+            92.72686,
+            64.502974
+          ],
+          "warmup_ticks": 55,
+          "measure_ticks": 8,
+          "trajectories": 2
+        },
+        {
+          "n": 16,
+          "mean_ms": 105.9449399375,
+          "peak_ms": 140.965208,
+          "sd_ms": 19.795404208794828,
+          "misses": 16,
+          "stages_ms": {
+            "command_ms": 0.0001091875,
+            "simulate_fetch_ms": 105.715823125,
+            "completion_ms": 0.229007625
+          },
+          "iterations_mean": 531,
+          "breaks": 28622,
+          "corrections": 16,
+          "arm": "A1",
+          "passed": true,
+          "raw": "out/warm-replay-20260914/final/city256-cascade-A1/replay.json",
+          "restore_ms": 1117.2611550000001,
+          "setup_ms": 1771.208529,
+          "warmup_ms": 1358.4827834999999,
+          "first_restored_tick_ms": [
+            78.891424,
+            61.630243
+          ],
+          "warmup_ticks": 55,
+          "measure_ticks": 8,
+          "trajectories": 2
+        }
+      ]
+    },
+    {
+      "case": "city256-debris",
+      "trait": "Restored late debris continued through8 real ticks; repeatable matched input, NOT the original uninterrupted trajectory",
+      "physical_status": "passed",
+      "processes": [
+        {
+          "n": 16,
+          "mean_ms": 124.662451375,
+          "peak_ms": 129.219265,
+          "sd_ms": 2.3299955230636225,
+          "misses": 16,
+          "stages_ms": {
+            "command_ms": 0.00014475,
+            "simulate_fetch_ms": 124.37799475,
+            "completion_ms": 0.284311875
+          },
+          "iterations_mean": 838.5,
+          "breaks": 1508,
+          "corrections": 16,
+          "arm": "A0",
+          "passed": true,
+          "raw": "out/warm-replay-20260914/final/city256-debris-A0/replay.json",
+          "restore_ms": 1170.794093,
+          "setup_ms": 1766.939092,
+          "warmup_ms": 1351.3340784999998,
+          "first_restored_tick_ms": [
+            434.165446,
+            334.301899
+          ],
+          "warmup_ticks": 8,
+          "measure_ticks": 8,
+          "trajectories": 2
+        },
+        {
+          "n": 16,
+          "mean_ms": 124.45479125,
+          "peak_ms": 129.016901,
+          "sd_ms": 2.664544029962537,
+          "misses": 16,
+          "stages_ms": {
+            "command_ms": 0.000118125,
+            "simulate_fetch_ms": 124.24067925,
+            "completion_ms": 0.213993875
+          },
+          "iterations_mean": 838.5,
+          "breaks": 1508,
+          "corrections": 16,
+          "arm": "A1",
+          "passed": true,
+          "raw": "out/warm-replay-20260914/final/city256-debris-A1/replay.json",
+          "restore_ms": 1187.149191,
+          "setup_ms": 1788.342039,
+          "warmup_ms": 1353.7819114999998,
+          "first_restored_tick_ms": [
+            422.514339,
+            348.522712
+          ],
+          "warmup_ticks": 8,
+          "measure_ticks": 8,
+          "trajectories": 2
+        }
+      ]
+    }
+  ],
+  "independent_processes_per_case": 2,
+  "scope": "Descriptive same-build calibration; ticks within trajectories are correlated. No candidate or runtime speedup."
+}

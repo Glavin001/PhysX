@@ -1,0 +1,1513 @@
+{
+  "schema": 1,
+  "scope": "Selected trajectory-frame timings; NOT restored identical-input snapshots",
+  "input_state_hashes_available": false,
+  "stage_timings": "Native command / integrated physics / completion fields where present; nested solver time is not separately inferred",
+  "selection_manifest": {
+    "schema": 1,
+    "scope": "Existing trajectory frames, NOT restored identical-input snapshots",
+    "reference": "out/optimization-next20-20260910/N14-response-history/screen/A-before",
+    "scenarios": [
+      {
+        "id": "first-contact-fracture-correction",
+        "case": "impacts-256",
+        "step": 82,
+        "predicates": {
+          "contacts_frame": {
+            "gt": 0
+          },
+          "bonds_broken": {
+            "gt": 0
+          },
+          "post_correction_bonds_broken": {
+            "gt": 0
+          },
+          "resim_passes": {
+            "eq": 1
+          }
+        },
+        "note": "First reported contact in this fixture; projectile identity requires richer capture."
+      },
+      {
+        "id": "loaded-fractured-no-new-breakage",
+        "case": "impacts-256",
+        "step": 83,
+        "predicates": {
+          "contacts_frame": {
+            "gt": 0
+          },
+          "bonds_broken": {
+            "eq": 0
+          },
+          "stress_iterations": {
+            "gt": 0
+          }
+        }
+      },
+      {
+        "id": "later-large-fracture-burst",
+        "case": "impacts-256",
+        "step": 103,
+        "predicates": {
+          "bonds_broken": {
+            "gt": 1000
+          },
+          "resim_passes": {
+            "eq": 1
+          }
+        },
+        "note": "Physical burst, not a demonstrated projectile-penetration classification."
+      },
+      {
+        "id": "later-contact-rich-correction",
+        "case": "impacts-256",
+        "step": 108,
+        "predicates": {
+          "contacts_frame": {
+            "gt": 100000
+          },
+          "resim_passes": {
+            "eq": 1
+          }
+        }
+      }
+    ],
+    "missing": [
+      "first-impact-without-fracture",
+      "verified-continued-penetration",
+      "post-fracture-quiescence",
+      "reawakening",
+      "additional scale/connectivity cells"
+    ]
+  },
+  "scenarios": [
+    {
+      "id": "first-contact-fracture-correction",
+      "case": "impacts-256",
+      "step": 82,
+      "predicates": {
+        "contacts_frame": {
+          "gt": 0
+        },
+        "bonds_broken": {
+          "gt": 0
+        },
+        "post_correction_bonds_broken": {
+          "gt": 0
+        },
+        "resim_passes": {
+          "eq": 1
+        }
+      },
+      "note": "First reported contact in this fixture; projectile identity requires richer capture.",
+      "arms": {
+        "A-before": {
+          "samples": 4,
+          "mean_ms": 191.6820865,
+          "median_ms": 186.1081315,
+          "min_ms": 183.812554,
+          "max_ms": 210.699529,
+          "runs": [
+            {
+              "run": "impacts-256-A-before-0",
+              "frames": "out/n20-requalification-20260912/warm180-confirm/impacts-256-A-before-0/native/native.frames.csv",
+              "decompressed_frames_sha256": "8daf482cb240c28ba52213210a5e92d2bafc80840539a333e05316145b9bd5c3",
+              "complete_step_ms": 185.428475,
+              "stages_ms": {
+                "command_ms": 0.000481,
+                "physics_step_ms": 185.168928,
+                "completion_ms": 0.25906599999999
+              },
+              "physical_and_work_counters": {
+                "contacts_frame": 39499,
+                "bonds_broken": 28596,
+                "post_correction_bonds_broken": 436,
+                "resim_passes": 1,
+                "stress_passes": 2,
+                "stress_iterations": 288,
+                "stress_active_nodes": 92596,
+                "stress_active_bonds": 172108,
+                "stress_islands": 520,
+                "bodies": 5460,
+                "awake_bodies": 5376,
+                "projectiles_active": 256,
+                "stress_converged": 1
+              }
+            },
+            {
+              "run": "impacts-256-A-before-1",
+              "frames": "out/n20-requalification-20260912/warm180-confirm/impacts-256-A-before-1/native/native.frames.csv",
+              "decompressed_frames_sha256": "794391473abe509a5b96107b7ae6a9370bc138c0807a2d12c65573f121ec353d",
+              "complete_step_ms": 186.787788,
+              "stages_ms": {
+                "command_ms": 0.000482,
+                "physics_step_ms": 186.515846,
+                "completion_ms": 0.2714599999999905
+              },
+              "physical_and_work_counters": {
+                "contacts_frame": 39499,
+                "bonds_broken": 28596,
+                "post_correction_bonds_broken": 436,
+                "resim_passes": 1,
+                "stress_passes": 2,
+                "stress_iterations": 288,
+                "stress_active_nodes": 92596,
+                "stress_active_bonds": 172108,
+                "stress_islands": 520,
+                "bodies": 5460,
+                "awake_bodies": 5376,
+                "projectiles_active": 256,
+                "stress_converged": 1
+              }
+            },
+            {
+              "run": "impacts-256-A-before-2",
+              "frames": "out/n20-requalification-20260912/warm180-confirm/impacts-256-A-before-2/native/native.frames.csv",
+              "decompressed_frames_sha256": "c55bbff3b664905c096e1b9e6af0f2735c1c2c3e79731deaa5b6b4e2cb5ff6fc",
+              "complete_step_ms": 210.699529,
+              "stages_ms": {
+                "command_ms": 0.000297,
+                "physics_step_ms": 210.474522,
+                "completion_ms": 0.22471000000001595
+              },
+              "physical_and_work_counters": {
+                "contacts_frame": 39499,
+                "bonds_broken": 28596,
+                "post_correction_bonds_broken": 436,
+                "resim_passes": 1,
+                "stress_passes": 2,
+                "stress_iterations": 288,
+                "stress_active_nodes": 92596,
+                "stress_active_bonds": 172108,
+                "stress_islands": 520,
+                "bodies": 5460,
+                "awake_bodies": 5376,
+                "projectiles_active": 256,
+                "stress_converged": 1
+              }
+            },
+            {
+              "run": "impacts-256-A-before-3",
+              "frames": "out/n20-requalification-20260912/warm180-confirm/impacts-256-A-before-3/native/native.frames.csv",
+              "decompressed_frames_sha256": "4c0615f8c276552ff3b41a96c412aebe9ff7f40d0598c53c91b66ec6dd338ae6",
+              "complete_step_ms": 183.812554,
+              "stages_ms": {
+                "command_ms": 0.000202,
+                "physics_step_ms": 183.55795,
+                "completion_ms": 0.2544019999999989
+              },
+              "physical_and_work_counters": {
+                "contacts_frame": 39499,
+                "bonds_broken": 28596,
+                "post_correction_bonds_broken": 436,
+                "resim_passes": 1,
+                "stress_passes": 2,
+                "stress_iterations": 288,
+                "stress_active_nodes": 92596,
+                "stress_active_bonds": 172108,
+                "stress_islands": 520,
+                "bodies": 5460,
+                "awake_bodies": 5376,
+                "projectiles_active": 256,
+                "stress_converged": 1
+              }
+            }
+          ]
+        },
+        "B": {
+          "samples": 4,
+          "mean_ms": 186.2163085,
+          "median_ms": 189.702987,
+          "min_ms": 163.952547,
+          "max_ms": 201.506713,
+          "runs": [
+            {
+              "run": "impacts-256-B-0",
+              "frames": "out/n20-requalification-20260912/warm180-confirm/impacts-256-B-0/native/native.frames.csv",
+              "decompressed_frames_sha256": "0d36f7677169e1ad4813d35edcafb91584b32c0cb4659d31e40774ca298f75e9",
+              "complete_step_ms": 201.506713,
+              "stages_ms": {
+                "command_ms": 0.000318,
+                "physics_step_ms": 201.242017,
+                "completion_ms": 0.26437799999999356
+              },
+              "physical_and_work_counters": {
+                "contacts_frame": 39499,
+                "bonds_broken": 28596,
+                "post_correction_bonds_broken": 436,
+                "resim_passes": 1,
+                "stress_passes": 2,
+                "stress_iterations": 288,
+                "stress_active_nodes": 92596,
+                "stress_active_bonds": 172108,
+                "stress_islands": 520,
+                "bodies": 5460,
+                "awake_bodies": 5376,
+                "projectiles_active": 256,
+                "stress_converged": 1
+              }
+            },
+            {
+              "run": "impacts-256-B-1",
+              "frames": "out/n20-requalification-20260912/warm180-confirm/impacts-256-B-1/native/native.frames.csv",
+              "decompressed_frames_sha256": "5d96ea9650225acd0b264890b5661df252657d14209d10232ccfa36a943bec20",
+              "complete_step_ms": 182.222221,
+              "stages_ms": {
+                "command_ms": 0.000547,
+                "physics_step_ms": 181.93302,
+                "completion_ms": 0.28865399999997976
+              },
+              "physical_and_work_counters": {
+                "contacts_frame": 39499,
+                "bonds_broken": 28596,
+                "post_correction_bonds_broken": 436,
+                "resim_passes": 1,
+                "stress_passes": 2,
+                "stress_iterations": 288,
+                "stress_active_nodes": 92596,
+                "stress_active_bonds": 172108,
+                "stress_islands": 520,
+                "bodies": 5460,
+                "awake_bodies": 5376,
+                "projectiles_active": 256,
+                "stress_converged": 1
+              }
+            },
+            {
+              "run": "impacts-256-B-2",
+              "frames": "out/n20-requalification-20260912/warm180-confirm/impacts-256-B-2/native/native.frames.csv",
+              "decompressed_frames_sha256": "5bc82993596fd2ca198dd678df72235c47a9a08b8e889db9635e7dca713f5dc2",
+              "complete_step_ms": 197.183753,
+              "stages_ms": {
+                "command_ms": 0.000263,
+                "physics_step_ms": 196.930595,
+                "completion_ms": 0.2528949999999952
+              },
+              "physical_and_work_counters": {
+                "contacts_frame": 39499,
+                "bonds_broken": 28596,
+                "post_correction_bonds_broken": 436,
+                "resim_passes": 1,
+                "stress_passes": 2,
+                "stress_iterations": 288,
+                "stress_active_nodes": 92596,
+                "stress_active_bonds": 172108,
+                "stress_islands": 520,
+                "bodies": 5460,
+                "awake_bodies": 5376,
+                "projectiles_active": 256,
+                "stress_converged": 1
+              }
+            },
+            {
+              "run": "impacts-256-B-3",
+              "frames": "out/n20-requalification-20260912/warm180-confirm/impacts-256-B-3/native/native.frames.csv",
+              "decompressed_frames_sha256": "4eb417c85c923adc610f5a4f232f9d0017db155624cc804fb763320c136117da",
+              "complete_step_ms": 163.952547,
+              "stages_ms": {
+                "command_ms": 0.00039,
+                "physics_step_ms": 163.697957,
+                "completion_ms": 0.2541999999999973
+              },
+              "physical_and_work_counters": {
+                "contacts_frame": 39499,
+                "bonds_broken": 28596,
+                "post_correction_bonds_broken": 436,
+                "resim_passes": 1,
+                "stress_passes": 2,
+                "stress_iterations": 288,
+                "stress_active_nodes": 92596,
+                "stress_active_bonds": 172108,
+                "stress_islands": 520,
+                "bodies": 5460,
+                "awake_bodies": 5376,
+                "projectiles_active": 256,
+                "stress_converged": 1
+              }
+            }
+          ]
+        },
+        "A-after": {
+          "samples": 4,
+          "mean_ms": 187.84821649999998,
+          "median_ms": 185.246687,
+          "min_ms": 168.435579,
+          "max_ms": 212.463913,
+          "runs": [
+            {
+              "run": "impacts-256-A-after-0",
+              "frames": "out/n20-requalification-20260912/warm180-confirm/impacts-256-A-after-0/native/native.frames.csv",
+              "decompressed_frames_sha256": "80e121abc42813afe3011d23c9a033183f19e6690c0ad5af6eab30725139eeaa",
+              "complete_step_ms": 168.435579,
+              "stages_ms": {
+                "command_ms": 0.000359,
+                "physics_step_ms": 168.183508,
+                "completion_ms": 0.2517119999999977
+              },
+              "physical_and_work_counters": {
+                "contacts_frame": 39499,
+                "bonds_broken": 28596,
+                "post_correction_bonds_broken": 436,
+                "resim_passes": 1,
+                "stress_passes": 2,
+                "stress_iterations": 288,
+                "stress_active_nodes": 92596,
+                "stress_active_bonds": 172108,
+                "stress_islands": 520,
+                "bodies": 5460,
+                "awake_bodies": 5376,
+                "projectiles_active": 256,
+                "stress_converged": 1
+              }
+            },
+            {
+              "run": "impacts-256-A-after-1",
+              "frames": "out/n20-requalification-20260912/warm180-confirm/impacts-256-A-after-1/native/native.frames.csv",
+              "decompressed_frames_sha256": "138e6151d09896e4355c8044cf2e5a2883471e0d14baf2abd3a6cd23f0dfd69f",
+              "complete_step_ms": 212.463913,
+              "stages_ms": {
+                "command_ms": 0.000461,
+                "physics_step_ms": 212.222929,
+                "completion_ms": 0.24052299999999605
+              },
+              "physical_and_work_counters": {
+                "contacts_frame": 39499,
+                "bonds_broken": 28596,
+                "post_correction_bonds_broken": 436,
+                "resim_passes": 1,
+                "stress_passes": 2,
+                "stress_iterations": 288,
+                "stress_active_nodes": 92596,
+                "stress_active_bonds": 172108,
+                "stress_islands": 520,
+                "bodies": 5460,
+                "awake_bodies": 5376,
+                "projectiles_active": 256,
+                "stress_converged": 1
+              }
+            },
+            {
+              "run": "impacts-256-A-after-2",
+              "frames": "out/n20-requalification-20260912/warm180-confirm/impacts-256-A-after-2/native/native.frames.csv",
+              "decompressed_frames_sha256": "42c6442cfcb96f2581c051fe6d9f4191811dd49640e42f114da43b5afc483c7e",
+              "complete_step_ms": 199.863622,
+              "stages_ms": {
+                "command_ms": 0.000347,
+                "physics_step_ms": 199.606584,
+                "completion_ms": 0.25669099999998934
+              },
+              "physical_and_work_counters": {
+                "contacts_frame": 39499,
+                "bonds_broken": 28596,
+                "post_correction_bonds_broken": 436,
+                "resim_passes": 1,
+                "stress_passes": 2,
+                "stress_iterations": 288,
+                "stress_active_nodes": 92596,
+                "stress_active_bonds": 172108,
+                "stress_islands": 520,
+                "bodies": 5460,
+                "awake_bodies": 5376,
+                "projectiles_active": 256,
+                "stress_converged": 1
+              }
+            },
+            {
+              "run": "impacts-256-A-after-3",
+              "frames": "out/n20-requalification-20260912/warm180-confirm/impacts-256-A-after-3/native/native.frames.csv",
+              "decompressed_frames_sha256": "a5f3a99a4de46b4d91d0e964f2c246e0b5cc4c5efa87f9e740de6d3a64ca9bac",
+              "complete_step_ms": 170.629752,
+              "stages_ms": {
+                "command_ms": 0.000364,
+                "physics_step_ms": 170.346587,
+                "completion_ms": 0.2828010000000063
+              },
+              "physical_and_work_counters": {
+                "contacts_frame": 39499,
+                "bonds_broken": 28596,
+                "post_correction_bonds_broken": 436,
+                "resim_passes": 1,
+                "stress_passes": 2,
+                "stress_iterations": 288,
+                "stress_active_nodes": 92596,
+                "stress_active_bonds": 172108,
+                "stress_islands": 520,
+                "bodies": 5460,
+                "awake_bodies": 5376,
+                "projectiles_active": 256,
+                "stress_converged": 1
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "loaded-fractured-no-new-breakage",
+      "case": "impacts-256",
+      "step": 83,
+      "predicates": {
+        "contacts_frame": {
+          "gt": 0
+        },
+        "bonds_broken": {
+          "eq": 0
+        },
+        "stress_iterations": {
+          "gt": 0
+        }
+      },
+      "arms": {
+        "A-before": {
+          "samples": 4,
+          "mean_ms": 48.461427,
+          "median_ms": 48.708201,
+          "min_ms": 47.425902,
+          "max_ms": 49.003404,
+          "runs": [
+            {
+              "run": "impacts-256-A-before-0",
+              "frames": "out/n20-requalification-20260912/warm180-confirm/impacts-256-A-before-0/native/native.frames.csv",
+              "decompressed_frames_sha256": "8daf482cb240c28ba52213210a5e92d2bafc80840539a333e05316145b9bd5c3",
+              "complete_step_ms": 48.778341,
+              "stages_ms": {
+                "command_ms": 0.000364,
+                "physics_step_ms": 48.643477,
+                "completion_ms": 0.13450000000000273
+              },
+              "physical_and_work_counters": {
+                "contacts_frame": 49444,
+                "bonds_broken": 0,
+                "post_correction_bonds_broken": 0,
+                "resim_passes": 0,
+                "stress_passes": 1,
+                "stress_iterations": 332,
+                "stress_active_nodes": 92596,
+                "stress_active_bonds": 172108,
+                "stress_islands": 520,
+                "bodies": 5460,
+                "awake_bodies": 5460,
+                "projectiles_active": 256,
+                "stress_converged": 1
+              }
+            },
+            {
+              "run": "impacts-256-A-before-1",
+              "frames": "out/n20-requalification-20260912/warm180-confirm/impacts-256-A-before-1/native/native.frames.csv",
+              "decompressed_frames_sha256": "794391473abe509a5b96107b7ae6a9370bc138c0807a2d12c65573f121ec353d",
+              "complete_step_ms": 48.638061,
+              "stages_ms": {
+                "command_ms": 0.000412,
+                "physics_step_ms": 48.527058,
+                "completion_ms": 0.11059100000000655
+              },
+              "physical_and_work_counters": {
+                "contacts_frame": 49444,
+                "bonds_broken": 0,
+                "post_correction_bonds_broken": 0,
+                "resim_passes": 0,
+                "stress_passes": 1,
+                "stress_iterations": 332,
+                "stress_active_nodes": 92596,
+                "stress_active_bonds": 172108,
+                "stress_islands": 520,
+                "bodies": 5460,
+                "awake_bodies": 5460,
+                "projectiles_active": 256,
+                "stress_converged": 1
+              }
+            },
+            {
+              "run": "impacts-256-A-before-2",
+              "frames": "out/n20-requalification-20260912/warm180-confirm/impacts-256-A-before-2/native/native.frames.csv",
+              "decompressed_frames_sha256": "c55bbff3b664905c096e1b9e6af0f2735c1c2c3e79731deaa5b6b4e2cb5ff6fc",
+              "complete_step_ms": 47.425902,
+              "stages_ms": {
+                "command_ms": 0.000307,
+                "physics_step_ms": 47.319504,
+                "completion_ms": 0.10609099999999927
+              },
+              "physical_and_work_counters": {
+                "contacts_frame": 49444,
+                "bonds_broken": 0,
+                "post_correction_bonds_broken": 0,
+                "resim_passes": 0,
+                "stress_passes": 1,
+                "stress_iterations": 332,
+                "stress_active_nodes": 92596,
+                "stress_active_bonds": 172108,
+                "stress_islands": 520,
+                "bodies": 5460,
+                "awake_bodies": 5460,
+                "projectiles_active": 256,
+                "stress_converged": 1
+              }
+            },
+            {
+              "run": "impacts-256-A-before-3",
+              "frames": "out/n20-requalification-20260912/warm180-confirm/impacts-256-A-before-3/native/native.frames.csv",
+              "decompressed_frames_sha256": "4c0615f8c276552ff3b41a96c412aebe9ff7f40d0598c53c91b66ec6dd338ae6",
+              "complete_step_ms": 49.003404,
+              "stages_ms": {
+                "command_ms": 0.000457,
+                "physics_step_ms": 48.889991,
+                "completion_ms": 0.11295600000000405
+              },
+              "physical_and_work_counters": {
+                "contacts_frame": 49444,
+                "bonds_broken": 0,
+                "post_correction_bonds_broken": 0,
+                "resim_passes": 0,
+                "stress_passes": 1,
+                "stress_iterations": 332,
+                "stress_active_nodes": 92596,
+                "stress_active_bonds": 172108,
+                "stress_islands": 520,
+                "bodies": 5460,
+                "awake_bodies": 5460,
+                "projectiles_active": 256,
+                "stress_converged": 1
+              }
+            }
+          ]
+        },
+        "B": {
+          "samples": 4,
+          "mean_ms": 49.76124275,
+          "median_ms": 49.089078,
+          "min_ms": 48.191723,
+          "max_ms": 52.675092,
+          "runs": [
+            {
+              "run": "impacts-256-B-0",
+              "frames": "out/n20-requalification-20260912/warm180-confirm/impacts-256-B-0/native/native.frames.csv",
+              "decompressed_frames_sha256": "0d36f7677169e1ad4813d35edcafb91584b32c0cb4659d31e40774ca298f75e9",
+              "complete_step_ms": 52.675092,
+              "stages_ms": {
+                "command_ms": 0.000381,
+                "physics_step_ms": 52.559135,
+                "completion_ms": 0.11557600000000434
+              },
+              "physical_and_work_counters": {
+                "contacts_frame": 49444,
+                "bonds_broken": 0,
+                "post_correction_bonds_broken": 0,
+                "resim_passes": 0,
+                "stress_passes": 1,
+                "stress_iterations": 332,
+                "stress_active_nodes": 92596,
+                "stress_active_bonds": 172108,
+                "stress_islands": 520,
+                "bodies": 5460,
+                "awake_bodies": 5460,
+                "projectiles_active": 256,
+                "stress_converged": 1
+              }
+            },
+            {
+              "run": "impacts-256-B-1",
+              "frames": "out/n20-requalification-20260912/warm180-confirm/impacts-256-B-1/native/native.frames.csv",
+              "decompressed_frames_sha256": "5d96ea9650225acd0b264890b5661df252657d14209d10232ccfa36a943bec20",
+              "complete_step_ms": 48.191723,
+              "stages_ms": {
+                "command_ms": 0.000323,
+                "physics_step_ms": 48.079538,
+                "completion_ms": 0.11186200000000213
+              },
+              "physical_and_work_counters": {
+                "contacts_frame": 49444,
+                "bonds_broken": 0,
+                "post_correction_bonds_broken": 0,
+                "resim_passes": 0,
+                "stress_passes": 1,
+                "stress_iterations": 332,
+                "stress_active_nodes": 92596,
+                "stress_active_bonds": 172108,
+                "stress_islands": 520,
+                "bodies": 5460,
+                "awake_bodies": 5460,
+                "projectiles_active": 256,
+                "stress_converged": 1
+              }
+            },
+            {
+              "run": "impacts-256-B-2",
+              "frames": "out/n20-requalification-20260912/warm180-confirm/impacts-256-B-2/native/native.frames.csv",
+              "decompressed_frames_sha256": "5bc82993596fd2ca198dd678df72235c47a9a08b8e889db9635e7dca713f5dc2",
+              "complete_step_ms": 48.414962,
+              "stages_ms": {
+                "command_ms": 0.000335,
+                "physics_step_ms": 48.303995,
+                "completion_ms": 0.1106320000000025
+              },
+              "physical_and_work_counters": {
+                "contacts_frame": 49444,
+                "bonds_broken": 0,
+                "post_correction_bonds_broken": 0,
+                "resim_passes": 0,
+                "stress_passes": 1,
+                "stress_iterations": 332,
+                "stress_active_nodes": 92596,
+                "stress_active_bonds": 172108,
+                "stress_islands": 520,
+                "bodies": 5460,
+                "awake_bodies": 5460,
+                "projectiles_active": 256,
+                "stress_converged": 1
+              }
+            },
+            {
+              "run": "impacts-256-B-3",
+              "frames": "out/n20-requalification-20260912/warm180-confirm/impacts-256-B-3/native/native.frames.csv",
+              "decompressed_frames_sha256": "4eb417c85c923adc610f5a4f232f9d0017db155624cc804fb763320c136117da",
+              "complete_step_ms": 49.763194,
+              "stages_ms": {
+                "command_ms": 0.00068,
+                "physics_step_ms": 49.651904,
+                "completion_ms": 0.1106099999999941
+              },
+              "physical_and_work_counters": {
+                "contacts_frame": 49444,
+                "bonds_broken": 0,
+                "post_correction_bonds_broken": 0,
+                "resim_passes": 0,
+                "stress_passes": 1,
+                "stress_iterations": 332,
+                "stress_active_nodes": 92596,
+                "stress_active_bonds": 172108,
+                "stress_islands": 520,
+                "bodies": 5460,
+                "awake_bodies": 5460,
+                "projectiles_active": 256,
+                "stress_converged": 1
+              }
+            }
+          ]
+        },
+        "A-after": {
+          "samples": 4,
+          "mean_ms": 51.5409725,
+          "median_ms": 50.2124675,
+          "min_ms": 49.617006,
+          "max_ms": 56.121949,
+          "runs": [
+            {
+              "run": "impacts-256-A-after-0",
+              "frames": "out/n20-requalification-20260912/warm180-confirm/impacts-256-A-after-0/native/native.frames.csv",
+              "decompressed_frames_sha256": "80e121abc42813afe3011d23c9a033183f19e6690c0ad5af6eab30725139eeaa",
+              "complete_step_ms": 50.269935,
+              "stages_ms": {
+                "command_ms": 0.000354,
+                "physics_step_ms": 50.147178,
+                "completion_ms": 0.12240299999999849
+              },
+              "physical_and_work_counters": {
+                "contacts_frame": 49444,
+                "bonds_broken": 0,
+                "post_correction_bonds_broken": 0,
+                "resim_passes": 0,
+                "stress_passes": 1,
+                "stress_iterations": 332,
+                "stress_active_nodes": 92596,
+                "stress_active_bonds": 172108,
+                "stress_islands": 520,
+                "bodies": 5460,
+                "awake_bodies": 5460,
+                "projectiles_active": 256,
+                "stress_converged": 1
+              }
+            },
+            {
+              "run": "impacts-256-A-after-1",
+              "frames": "out/n20-requalification-20260912/warm180-confirm/impacts-256-A-after-1/native/native.frames.csv",
+              "decompressed_frames_sha256": "138e6151d09896e4355c8044cf2e5a2883471e0d14baf2abd3a6cd23f0dfd69f",
+              "complete_step_ms": 50.155,
+              "stages_ms": {
+                "command_ms": 0.000396,
+                "physics_step_ms": 50.037298,
+                "completion_ms": 0.11730599999999924
+              },
+              "physical_and_work_counters": {
+                "contacts_frame": 49444,
+                "bonds_broken": 0,
+                "post_correction_bonds_broken": 0,
+                "resim_passes": 0,
+                "stress_passes": 1,
+                "stress_iterations": 332,
+                "stress_active_nodes": 92596,
+                "stress_active_bonds": 172108,
+                "stress_islands": 520,
+                "bodies": 5460,
+                "awake_bodies": 5460,
+                "projectiles_active": 256,
+                "stress_converged": 1
+              }
+            },
+            {
+              "run": "impacts-256-A-after-2",
+              "frames": "out/n20-requalification-20260912/warm180-confirm/impacts-256-A-after-2/native/native.frames.csv",
+              "decompressed_frames_sha256": "42c6442cfcb96f2581c051fe6d9f4191811dd49640e42f114da43b5afc483c7e",
+              "complete_step_ms": 56.121949,
+              "stages_ms": {
+                "command_ms": 0.000483,
+                "physics_step_ms": 56.004732,
+                "completion_ms": 0.116734000000001
+              },
+              "physical_and_work_counters": {
+                "contacts_frame": 49444,
+                "bonds_broken": 0,
+                "post_correction_bonds_broken": 0,
+                "resim_passes": 0,
+                "stress_passes": 1,
+                "stress_iterations": 332,
+                "stress_active_nodes": 92596,
+                "stress_active_bonds": 172108,
+                "stress_islands": 520,
+                "bodies": 5460,
+                "awake_bodies": 5460,
+                "projectiles_active": 256,
+                "stress_converged": 1
+              }
+            },
+            {
+              "run": "impacts-256-A-after-3",
+              "frames": "out/n20-requalification-20260912/warm180-confirm/impacts-256-A-after-3/native/native.frames.csv",
+              "decompressed_frames_sha256": "a5f3a99a4de46b4d91d0e964f2c246e0b5cc4c5efa87f9e740de6d3a64ca9bac",
+              "complete_step_ms": 49.617006,
+              "stages_ms": {
+                "command_ms": 0.000406,
+                "physics_step_ms": 49.401937,
+                "completion_ms": 0.2146630000000087
+              },
+              "physical_and_work_counters": {
+                "contacts_frame": 49444,
+                "bonds_broken": 0,
+                "post_correction_bonds_broken": 0,
+                "resim_passes": 0,
+                "stress_passes": 1,
+                "stress_iterations": 332,
+                "stress_active_nodes": 92596,
+                "stress_active_bonds": 172108,
+                "stress_islands": 520,
+                "bodies": 5460,
+                "awake_bodies": 5460,
+                "projectiles_active": 256,
+                "stress_converged": 1
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "later-large-fracture-burst",
+      "case": "impacts-256",
+      "step": 103,
+      "predicates": {
+        "bonds_broken": {
+          "gt": 1000
+        },
+        "resim_passes": {
+          "eq": 1
+        }
+      },
+      "note": "Physical burst, not a demonstrated projectile-penetration classification.",
+      "arms": {
+        "A-before": {
+          "samples": 4,
+          "mean_ms": 166.641168,
+          "median_ms": 166.95469,
+          "min_ms": 162.01558,
+          "max_ms": 170.639712,
+          "runs": [
+            {
+              "run": "impacts-256-A-before-0",
+              "frames": "out/n20-requalification-20260912/warm180-confirm/impacts-256-A-before-0/native/native.frames.csv",
+              "decompressed_frames_sha256": "8daf482cb240c28ba52213210a5e92d2bafc80840539a333e05316145b9bd5c3",
+              "complete_step_ms": 162.01558,
+              "stages_ms": {
+                "command_ms": 0.000376,
+                "physics_step_ms": 161.779613,
+                "completion_ms": 0.23559099999999944
+              },
+              "physical_and_work_counters": {
+                "contacts_frame": 183597,
+                "bonds_broken": 4308,
+                "post_correction_bonds_broken": 140,
+                "resim_passes": 1,
+                "stress_passes": 2,
+                "stress_iterations": 544,
+                "stress_active_nodes": 88309,
+                "stress_active_bonds": 148408,
+                "stress_islands": 1722,
+                "bodies": 10949,
+                "awake_bodies": 10787,
+                "projectiles_active": 256,
+                "stress_converged": 1
+              }
+            },
+            {
+              "run": "impacts-256-A-before-1",
+              "frames": "out/n20-requalification-20260912/warm180-confirm/impacts-256-A-before-1/native/native.frames.csv",
+              "decompressed_frames_sha256": "794391473abe509a5b96107b7ae6a9370bc138c0807a2d12c65573f121ec353d",
+              "complete_step_ms": 170.639712,
+              "stages_ms": {
+                "command_ms": 0.000319,
+                "physics_step_ms": 170.462119,
+                "completion_ms": 0.17727400000001126
+              },
+              "physical_and_work_counters": {
+                "contacts_frame": 183597,
+                "bonds_broken": 4308,
+                "post_correction_bonds_broken": 140,
+                "resim_passes": 1,
+                "stress_passes": 2,
+                "stress_iterations": 544,
+                "stress_active_nodes": 88309,
+                "stress_active_bonds": 148408,
+                "stress_islands": 1722,
+                "bodies": 10949,
+                "awake_bodies": 10787,
+                "projectiles_active": 256,
+                "stress_converged": 1
+              }
+            },
+            {
+              "run": "impacts-256-A-before-2",
+              "frames": "out/n20-requalification-20260912/warm180-confirm/impacts-256-A-before-2/native/native.frames.csv",
+              "decompressed_frames_sha256": "c55bbff3b664905c096e1b9e6af0f2735c1c2c3e79731deaa5b6b4e2cb5ff6fc",
+              "complete_step_ms": 165.527821,
+              "stages_ms": {
+                "command_ms": 0.000352,
+                "physics_step_ms": 165.237887,
+                "completion_ms": 0.2895819999999958
+              },
+              "physical_and_work_counters": {
+                "contacts_frame": 183597,
+                "bonds_broken": 4308,
+                "post_correction_bonds_broken": 140,
+                "resim_passes": 1,
+                "stress_passes": 2,
+                "stress_iterations": 544,
+                "stress_active_nodes": 88309,
+                "stress_active_bonds": 148408,
+                "stress_islands": 1722,
+                "bodies": 10949,
+                "awake_bodies": 10787,
+                "projectiles_active": 256,
+                "stress_converged": 1
+              }
+            },
+            {
+              "run": "impacts-256-A-before-3",
+              "frames": "out/n20-requalification-20260912/warm180-confirm/impacts-256-A-before-3/native/native.frames.csv",
+              "decompressed_frames_sha256": "4c0615f8c276552ff3b41a96c412aebe9ff7f40d0598c53c91b66ec6dd338ae6",
+              "complete_step_ms": 168.381559,
+              "stages_ms": {
+                "command_ms": 0.000348,
+                "physics_step_ms": 168.145881,
+                "completion_ms": 0.2353300000000047
+              },
+              "physical_and_work_counters": {
+                "contacts_frame": 183597,
+                "bonds_broken": 4308,
+                "post_correction_bonds_broken": 140,
+                "resim_passes": 1,
+                "stress_passes": 2,
+                "stress_iterations": 544,
+                "stress_active_nodes": 88309,
+                "stress_active_bonds": 148408,
+                "stress_islands": 1722,
+                "bodies": 10949,
+                "awake_bodies": 10787,
+                "projectiles_active": 256,
+                "stress_converged": 1
+              }
+            }
+          ]
+        },
+        "B": {
+          "samples": 4,
+          "mean_ms": 161.24113725,
+          "median_ms": 162.3531075,
+          "min_ms": 156.618582,
+          "max_ms": 163.639752,
+          "runs": [
+            {
+              "run": "impacts-256-B-0",
+              "frames": "out/n20-requalification-20260912/warm180-confirm/impacts-256-B-0/native/native.frames.csv",
+              "decompressed_frames_sha256": "0d36f7677169e1ad4813d35edcafb91584b32c0cb4659d31e40774ca298f75e9",
+              "complete_step_ms": 163.639752,
+              "stages_ms": {
+                "command_ms": 0.000346,
+                "physics_step_ms": 163.359054,
+                "completion_ms": 0.2803519999999935
+              },
+              "physical_and_work_counters": {
+                "contacts_frame": 183597,
+                "bonds_broken": 4308,
+                "post_correction_bonds_broken": 140,
+                "resim_passes": 1,
+                "stress_passes": 2,
+                "stress_iterations": 544,
+                "stress_active_nodes": 88309,
+                "stress_active_bonds": 148408,
+                "stress_islands": 1722,
+                "bodies": 10949,
+                "awake_bodies": 10787,
+                "projectiles_active": 256,
+                "stress_converged": 1
+              }
+            },
+            {
+              "run": "impacts-256-B-1",
+              "frames": "out/n20-requalification-20260912/warm180-confirm/impacts-256-B-1/native/native.frames.csv",
+              "decompressed_frames_sha256": "5d96ea9650225acd0b264890b5661df252657d14209d10232ccfa36a943bec20",
+              "complete_step_ms": 161.375621,
+              "stages_ms": {
+                "command_ms": 0.00031,
+                "physics_step_ms": 161.089193,
+                "completion_ms": 0.28611799999998766
+              },
+              "physical_and_work_counters": {
+                "contacts_frame": 183597,
+                "bonds_broken": 4308,
+                "post_correction_bonds_broken": 140,
+                "resim_passes": 1,
+                "stress_passes": 2,
+                "stress_iterations": 544,
+                "stress_active_nodes": 88309,
+                "stress_active_bonds": 148408,
+                "stress_islands": 1722,
+                "bodies": 10949,
+                "awake_bodies": 10787,
+                "projectiles_active": 256,
+                "stress_converged": 1
+              }
+            },
+            {
+              "run": "impacts-256-B-2",
+              "frames": "out/n20-requalification-20260912/warm180-confirm/impacts-256-B-2/native/native.frames.csv",
+              "decompressed_frames_sha256": "5bc82993596fd2ca198dd678df72235c47a9a08b8e889db9635e7dca713f5dc2",
+              "complete_step_ms": 163.330594,
+              "stages_ms": {
+                "command_ms": 0.00052,
+                "physics_step_ms": 162.993348,
+                "completion_ms": 0.33672599999999875
+              },
+              "physical_and_work_counters": {
+                "contacts_frame": 183597,
+                "bonds_broken": 4308,
+                "post_correction_bonds_broken": 140,
+                "resim_passes": 1,
+                "stress_passes": 2,
+                "stress_iterations": 544,
+                "stress_active_nodes": 88309,
+                "stress_active_bonds": 148408,
+                "stress_islands": 1722,
+                "bodies": 10949,
+                "awake_bodies": 10787,
+                "projectiles_active": 256,
+                "stress_converged": 1
+              }
+            },
+            {
+              "run": "impacts-256-B-3",
+              "frames": "out/n20-requalification-20260912/warm180-confirm/impacts-256-B-3/native/native.frames.csv",
+              "decompressed_frames_sha256": "4eb417c85c923adc610f5a4f232f9d0017db155624cc804fb763320c136117da",
+              "complete_step_ms": 156.618582,
+              "stages_ms": {
+                "command_ms": 0.000378,
+                "physics_step_ms": 156.345637,
+                "completion_ms": 0.2725669999999809
+              },
+              "physical_and_work_counters": {
+                "contacts_frame": 183597,
+                "bonds_broken": 4308,
+                "post_correction_bonds_broken": 140,
+                "resim_passes": 1,
+                "stress_passes": 2,
+                "stress_iterations": 544,
+                "stress_active_nodes": 88309,
+                "stress_active_bonds": 148408,
+                "stress_islands": 1722,
+                "bodies": 10949,
+                "awake_bodies": 10787,
+                "projectiles_active": 256,
+                "stress_converged": 1
+              }
+            }
+          ]
+        },
+        "A-after": {
+          "samples": 4,
+          "mean_ms": 163.340246,
+          "median_ms": 161.7848745,
+          "min_ms": 158.779328,
+          "max_ms": 171.011907,
+          "runs": [
+            {
+              "run": "impacts-256-A-after-0",
+              "frames": "out/n20-requalification-20260912/warm180-confirm/impacts-256-A-after-0/native/native.frames.csv",
+              "decompressed_frames_sha256": "80e121abc42813afe3011d23c9a033183f19e6690c0ad5af6eab30725139eeaa",
+              "complete_step_ms": 158.779328,
+              "stages_ms": {
+                "command_ms": 0.000724,
+                "physics_step_ms": 158.526576,
+                "completion_ms": 0.2520279999999957
+              },
+              "physical_and_work_counters": {
+                "contacts_frame": 183597,
+                "bonds_broken": 4308,
+                "post_correction_bonds_broken": 140,
+                "resim_passes": 1,
+                "stress_passes": 2,
+                "stress_iterations": 544,
+                "stress_active_nodes": 88309,
+                "stress_active_bonds": 148408,
+                "stress_islands": 1722,
+                "bodies": 10949,
+                "awake_bodies": 10787,
+                "projectiles_active": 256,
+                "stress_converged": 1
+              }
+            },
+            {
+              "run": "impacts-256-A-after-1",
+              "frames": "out/n20-requalification-20260912/warm180-confirm/impacts-256-A-after-1/native/native.frames.csv",
+              "decompressed_frames_sha256": "138e6151d09896e4355c8044cf2e5a2883471e0d14baf2abd3a6cd23f0dfd69f",
+              "complete_step_ms": 162.285032,
+              "stages_ms": {
+                "command_ms": 0.000326,
+                "physics_step_ms": 162.022109,
+                "completion_ms": 0.2625969999999995
+              },
+              "physical_and_work_counters": {
+                "contacts_frame": 183597,
+                "bonds_broken": 4308,
+                "post_correction_bonds_broken": 140,
+                "resim_passes": 1,
+                "stress_passes": 2,
+                "stress_iterations": 544,
+                "stress_active_nodes": 88309,
+                "stress_active_bonds": 148408,
+                "stress_islands": 1722,
+                "bodies": 10949,
+                "awake_bodies": 10787,
+                "projectiles_active": 256,
+                "stress_converged": 1
+              }
+            },
+            {
+              "run": "impacts-256-A-after-2",
+              "frames": "out/n20-requalification-20260912/warm180-confirm/impacts-256-A-after-2/native/native.frames.csv",
+              "decompressed_frames_sha256": "42c6442cfcb96f2581c051fe6d9f4191811dd49640e42f114da43b5afc483c7e",
+              "complete_step_ms": 171.011907,
+              "stages_ms": {
+                "command_ms": 0.000344,
+                "physics_step_ms": 170.754908,
+                "completion_ms": 0.25665499999999497
+              },
+              "physical_and_work_counters": {
+                "contacts_frame": 183597,
+                "bonds_broken": 4308,
+                "post_correction_bonds_broken": 140,
+                "resim_passes": 1,
+                "stress_passes": 2,
+                "stress_iterations": 544,
+                "stress_active_nodes": 88309,
+                "stress_active_bonds": 148408,
+                "stress_islands": 1722,
+                "bodies": 10949,
+                "awake_bodies": 10787,
+                "projectiles_active": 256,
+                "stress_converged": 1
+              }
+            },
+            {
+              "run": "impacts-256-A-after-3",
+              "frames": "out/n20-requalification-20260912/warm180-confirm/impacts-256-A-after-3/native/native.frames.csv",
+              "decompressed_frames_sha256": "a5f3a99a4de46b4d91d0e964f2c246e0b5cc4c5efa87f9e740de6d3a64ca9bac",
+              "complete_step_ms": 161.284717,
+              "stages_ms": {
+                "command_ms": 0.000333,
+                "physics_step_ms": 161.023113,
+                "completion_ms": 0.2612709999999936
+              },
+              "physical_and_work_counters": {
+                "contacts_frame": 183597,
+                "bonds_broken": 4308,
+                "post_correction_bonds_broken": 140,
+                "resim_passes": 1,
+                "stress_passes": 2,
+                "stress_iterations": 544,
+                "stress_active_nodes": 88309,
+                "stress_active_bonds": 148408,
+                "stress_islands": 1722,
+                "bodies": 10949,
+                "awake_bodies": 10787,
+                "projectiles_active": 256,
+                "stress_converged": 1
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "later-contact-rich-correction",
+      "case": "impacts-256",
+      "step": 108,
+      "predicates": {
+        "contacts_frame": {
+          "gt": 100000
+        },
+        "resim_passes": {
+          "eq": 1
+        }
+      },
+      "arms": {
+        "A-before": {
+          "samples": 4,
+          "mean_ms": 109.09902925,
+          "median_ms": 109.86226450000001,
+          "min_ms": 106.530904,
+          "max_ms": 110.140684,
+          "runs": [
+            {
+              "run": "impacts-256-A-before-0",
+              "frames": "out/n20-requalification-20260912/warm180-confirm/impacts-256-A-before-0/native/native.frames.csv",
+              "decompressed_frames_sha256": "8daf482cb240c28ba52213210a5e92d2bafc80840539a333e05316145b9bd5c3",
+              "complete_step_ms": 109.672953,
+              "stages_ms": {
+                "command_ms": 0.000419,
+                "physics_step_ms": 109.386023,
+                "completion_ms": 0.2865110000000186
+              },
+              "physical_and_work_counters": {
+                "contacts_frame": 206398,
+                "bonds_broken": 24,
+                "post_correction_bonds_broken": 9,
+                "resim_passes": 1,
+                "stress_passes": 2,
+                "stress_iterations": 572,
+                "stress_active_nodes": 88165,
+                "stress_active_bonds": 147640,
+                "stress_islands": 1795,
+                "bodies": 11166,
+                "awake_bodies": 11035,
+                "projectiles_active": 256,
+                "stress_converged": 1
+              }
+            },
+            {
+              "run": "impacts-256-A-before-1",
+              "frames": "out/n20-requalification-20260912/warm180-confirm/impacts-256-A-before-1/native/native.frames.csv",
+              "decompressed_frames_sha256": "794391473abe509a5b96107b7ae6a9370bc138c0807a2d12c65573f121ec353d",
+              "complete_step_ms": 106.530904,
+              "stages_ms": {
+                "command_ms": 0.000394,
+                "physics_step_ms": 106.293242,
+                "completion_ms": 0.23726800000000026
+              },
+              "physical_and_work_counters": {
+                "contacts_frame": 206398,
+                "bonds_broken": 24,
+                "post_correction_bonds_broken": 9,
+                "resim_passes": 1,
+                "stress_passes": 2,
+                "stress_iterations": 572,
+                "stress_active_nodes": 88165,
+                "stress_active_bonds": 147640,
+                "stress_islands": 1795,
+                "bodies": 11166,
+                "awake_bodies": 11035,
+                "projectiles_active": 256,
+                "stress_converged": 1
+              }
+            },
+            {
+              "run": "impacts-256-A-before-2",
+              "frames": "out/n20-requalification-20260912/warm180-confirm/impacts-256-A-before-2/native/native.frames.csv",
+              "decompressed_frames_sha256": "c55bbff3b664905c096e1b9e6af0f2735c1c2c3e79731deaa5b6b4e2cb5ff6fc",
+              "complete_step_ms": 110.140684,
+              "stages_ms": {
+                "command_ms": 0.000371,
+                "physics_step_ms": 109.881267,
+                "completion_ms": 0.2590459999999979
+              },
+              "physical_and_work_counters": {
+                "contacts_frame": 206398,
+                "bonds_broken": 24,
+                "post_correction_bonds_broken": 9,
+                "resim_passes": 1,
+                "stress_passes": 2,
+                "stress_iterations": 572,
+                "stress_active_nodes": 88165,
+                "stress_active_bonds": 147640,
+                "stress_islands": 1795,
+                "bodies": 11166,
+                "awake_bodies": 11035,
+                "projectiles_active": 256,
+                "stress_converged": 1
+              }
+            },
+            {
+              "run": "impacts-256-A-before-3",
+              "frames": "out/n20-requalification-20260912/warm180-confirm/impacts-256-A-before-3/native/native.frames.csv",
+              "decompressed_frames_sha256": "4c0615f8c276552ff3b41a96c412aebe9ff7f40d0598c53c91b66ec6dd338ae6",
+              "complete_step_ms": 110.051576,
+              "stages_ms": {
+                "command_ms": 0.000805,
+                "physics_step_ms": 109.766308,
+                "completion_ms": 0.28446300000000235
+              },
+              "physical_and_work_counters": {
+                "contacts_frame": 206398,
+                "bonds_broken": 24,
+                "post_correction_bonds_broken": 9,
+                "resim_passes": 1,
+                "stress_passes": 2,
+                "stress_iterations": 572,
+                "stress_active_nodes": 88165,
+                "stress_active_bonds": 147640,
+                "stress_islands": 1795,
+                "bodies": 11166,
+                "awake_bodies": 11035,
+                "projectiles_active": 256,
+                "stress_converged": 1
+              }
+            }
+          ]
+        },
+        "B": {
+          "samples": 4,
+          "mean_ms": 109.900868,
+          "median_ms": 109.587521,
+          "min_ms": 108.702666,
+          "max_ms": 111.725764,
+          "runs": [
+            {
+              "run": "impacts-256-B-0",
+              "frames": "out/n20-requalification-20260912/warm180-confirm/impacts-256-B-0/native/native.frames.csv",
+              "decompressed_frames_sha256": "0d36f7677169e1ad4813d35edcafb91584b32c0cb4659d31e40774ca298f75e9",
+              "complete_step_ms": 110.133636,
+              "stages_ms": {
+                "command_ms": 0.000341,
+                "physics_step_ms": 109.850583,
+                "completion_ms": 0.2827119999999894
+              },
+              "physical_and_work_counters": {
+                "contacts_frame": 206398,
+                "bonds_broken": 24,
+                "post_correction_bonds_broken": 9,
+                "resim_passes": 1,
+                "stress_passes": 2,
+                "stress_iterations": 572,
+                "stress_active_nodes": 88165,
+                "stress_active_bonds": 147640,
+                "stress_islands": 1795,
+                "bodies": 11166,
+                "awake_bodies": 11035,
+                "projectiles_active": 256,
+                "stress_converged": 1
+              }
+            },
+            {
+              "run": "impacts-256-B-1",
+              "frames": "out/n20-requalification-20260912/warm180-confirm/impacts-256-B-1/native/native.frames.csv",
+              "decompressed_frames_sha256": "5d96ea9650225acd0b264890b5661df252657d14209d10232ccfa36a943bec20",
+              "complete_step_ms": 108.702666,
+              "stages_ms": {
+                "command_ms": 0.000303,
+                "physics_step_ms": 108.443989,
+                "completion_ms": 0.2583739999999892
+              },
+              "physical_and_work_counters": {
+                "contacts_frame": 206398,
+                "bonds_broken": 24,
+                "post_correction_bonds_broken": 9,
+                "resim_passes": 1,
+                "stress_passes": 2,
+                "stress_iterations": 572,
+                "stress_active_nodes": 88165,
+                "stress_active_bonds": 147640,
+                "stress_islands": 1795,
+                "bodies": 11166,
+                "awake_bodies": 11035,
+                "projectiles_active": 256,
+                "stress_converged": 1
+              }
+            },
+            {
+              "run": "impacts-256-B-2",
+              "frames": "out/n20-requalification-20260912/warm180-confirm/impacts-256-B-2/native/native.frames.csv",
+              "decompressed_frames_sha256": "5bc82993596fd2ca198dd678df72235c47a9a08b8e889db9635e7dca713f5dc2",
+              "complete_step_ms": 109.041406,
+              "stages_ms": {
+                "command_ms": 0.000313,
+                "physics_step_ms": 108.769578,
+                "completion_ms": 0.27151499999999373
+              },
+              "physical_and_work_counters": {
+                "contacts_frame": 206398,
+                "bonds_broken": 24,
+                "post_correction_bonds_broken": 9,
+                "resim_passes": 1,
+                "stress_passes": 2,
+                "stress_iterations": 572,
+                "stress_active_nodes": 88165,
+                "stress_active_bonds": 147640,
+                "stress_islands": 1795,
+                "bodies": 11166,
+                "awake_bodies": 11035,
+                "projectiles_active": 256,
+                "stress_converged": 1
+              }
+            },
+            {
+              "run": "impacts-256-B-3",
+              "frames": "out/n20-requalification-20260912/warm180-confirm/impacts-256-B-3/native/native.frames.csv",
+              "decompressed_frames_sha256": "4eb417c85c923adc610f5a4f232f9d0017db155624cc804fb763320c136117da",
+              "complete_step_ms": 111.725764,
+              "stages_ms": {
+                "command_ms": 0.000294,
+                "physics_step_ms": 111.456066,
+                "completion_ms": 0.2694039999999944
+              },
+              "physical_and_work_counters": {
+                "contacts_frame": 206398,
+                "bonds_broken": 24,
+                "post_correction_bonds_broken": 9,
+                "resim_passes": 1,
+                "stress_passes": 2,
+                "stress_iterations": 572,
+                "stress_active_nodes": 88165,
+                "stress_active_bonds": 147640,
+                "stress_islands": 1795,
+                "bodies": 11166,
+                "awake_bodies": 11035,
+                "projectiles_active": 256,
+                "stress_converged": 1
+              }
+            }
+          ]
+        },
+        "A-after": {
+          "samples": 4,
+          "mean_ms": 110.53853575,
+          "median_ms": 111.40104500000001,
+          "min_ms": 107.207821,
+          "max_ms": 112.144232,
+          "runs": [
+            {
+              "run": "impacts-256-A-after-0",
+              "frames": "out/n20-requalification-20260912/warm180-confirm/impacts-256-A-after-0/native/native.frames.csv",
+              "decompressed_frames_sha256": "80e121abc42813afe3011d23c9a033183f19e6690c0ad5af6eab30725139eeaa",
+              "complete_step_ms": 112.144232,
+              "stages_ms": {
+                "command_ms": 0.000407,
+                "physics_step_ms": 111.690827,
+                "completion_ms": 0.452998000000008
+              },
+              "physical_and_work_counters": {
+                "contacts_frame": 206398,
+                "bonds_broken": 24,
+                "post_correction_bonds_broken": 9,
+                "resim_passes": 1,
+                "stress_passes": 2,
+                "stress_iterations": 572,
+                "stress_active_nodes": 88165,
+                "stress_active_bonds": 147640,
+                "stress_islands": 1795,
+                "bodies": 11166,
+                "awake_bodies": 11035,
+                "projectiles_active": 256,
+                "stress_converged": 1
+              }
+            },
+            {
+              "run": "impacts-256-A-after-1",
+              "frames": "out/n20-requalification-20260912/warm180-confirm/impacts-256-A-after-1/native/native.frames.csv",
+              "decompressed_frames_sha256": "138e6151d09896e4355c8044cf2e5a2883471e0d14baf2abd3a6cd23f0dfd69f",
+              "complete_step_ms": 111.320965,
+              "stages_ms": {
+                "command_ms": 0.000354,
+                "physics_step_ms": 111.062517,
+                "completion_ms": 0.2580939999999998
+              },
+              "physical_and_work_counters": {
+                "contacts_frame": 206398,
+                "bonds_broken": 24,
+                "post_correction_bonds_broken": 9,
+                "resim_passes": 1,
+                "stress_passes": 2,
+                "stress_iterations": 572,
+                "stress_active_nodes": 88165,
+                "stress_active_bonds": 147640,
+                "stress_islands": 1795,
+                "bodies": 11166,
+                "awake_bodies": 11035,
+                "projectiles_active": 256,
+                "stress_converged": 1
+              }
+            },
+            {
+              "run": "impacts-256-A-after-2",
+              "frames": "out/n20-requalification-20260912/warm180-confirm/impacts-256-A-after-2/native/native.frames.csv",
+              "decompressed_frames_sha256": "42c6442cfcb96f2581c051fe6d9f4191811dd49640e42f114da43b5afc483c7e",
+              "complete_step_ms": 107.207821,
+              "stages_ms": {
+                "command_ms": 0.000283,
+                "physics_step_ms": 106.947735,
+                "completion_ms": 0.2598030000000051
+              },
+              "physical_and_work_counters": {
+                "contacts_frame": 206398,
+                "bonds_broken": 24,
+                "post_correction_bonds_broken": 9,
+                "resim_passes": 1,
+                "stress_passes": 2,
+                "stress_iterations": 572,
+                "stress_active_nodes": 88165,
+                "stress_active_bonds": 147640,
+                "stress_islands": 1795,
+                "bodies": 11166,
+                "awake_bodies": 11035,
+                "projectiles_active": 256,
+                "stress_converged": 1
+              }
+            },
+            {
+              "run": "impacts-256-A-after-3",
+              "frames": "out/n20-requalification-20260912/warm180-confirm/impacts-256-A-after-3/native/native.frames.csv",
+              "decompressed_frames_sha256": "a5f3a99a4de46b4d91d0e964f2c246e0b5cc4c5efa87f9e740de6d3a64ca9bac",
+              "complete_step_ms": 111.481125,
+              "stages_ms": {
+                "command_ms": 0.000414,
+                "physics_step_ms": 111.322607,
+                "completion_ms": 0.15810399999999447
+              },
+              "physical_and_work_counters": {
+                "contacts_frame": 206398,
+                "bonds_broken": 24,
+                "post_correction_bonds_broken": 9,
+                "resim_passes": 1,
+                "stress_passes": 2,
+                "stress_iterations": 572,
+                "stress_active_nodes": 88165,
+                "stress_active_bonds": 147640,
+                "stress_islands": 1795,
+                "bodies": 11166,
+                "awake_bodies": 11035,
+                "projectiles_active": 256,
+                "stress_converged": 1
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "whole_trajectory_measurements": "out/n20-requalification-20260912/warm180-confirm/campaign.json"
+}

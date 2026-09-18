@@ -1,0 +1,170 @@
+{
+  "status": "gpu-contact-component-parity-qualified",
+  "base_revision": "0066dcc66f9bce186c55863cbdcd24adbb509fb6",
+  "source_sha256": {
+    "demos/blast-stress-demo/CMakeLists.txt": "25fc0578cf8dbc015f50d17ea7e843103b947fb617d745afc58cfac1a66ba7c2",
+    "demos/blast-stress-demo/tests/native_contact_graph_check.h": "4a4cf0e88b31d7d1113183904d0cb8e2a4a4d638ceba6112042ca23a5f13caf7",
+    "demos/blast-stress-demo/tests/native_gpu_collision_test.cpp": "9d699bc103f94a0309e341b5c45a5438f92c35fa0c67052ef78641ec9d3deebc",
+    "demos/blast-stress-demo/tests/native_gpu_resimulation_test.cpp": "42448789e7294672679905eddd7004239cece64b97f5f1b650ef8ff4249bebd8",
+    "physx/source/gpucommon/src/PxgCudaMemoryAllocator.cpp": "b7b2a1ed15aec22243954a07b17d3757d3261167afe5a43995b777f13dc3b5e5",
+    "physx/source/gpudestruction/CMakeLists.txt": "a93d408b92aac952b35f3a8b590907ebb334293d45092114ce7342a8e82d1bca",
+    "physx/source/gpudestruction/include/PxgDestructionContactGraph.h": "b09a379e5291e9996f309b9b427d9d3ac2596e6ef884fa2b4f7d13d09ea85d85",
+    "physx/source/gpudestruction/include/PxgDestructionRuntime.h": "c13c831b40286078c9be1a2c8fd3f93534081bad4664cb23f1be32e4607b06f7",
+    "physx/source/gpudestruction/src/PxgDestructionContactGraph.cuh": "1b92fb7bc55b762f11501c082aced6e69453b4c28812e3042154762929d804d7",
+    "physx/source/gpudestruction/src/PxgDestructionRuntime.cu": "ffc27c24c0924c6802ea90e52f41a97314d3db95dbe592e9a91cb9a10612803d",
+    "physx/source/gpudestruction/tests/contact_graph_test.cu": "85b4ef2cbe4e1ab635ca552841d6e59644bb11ab80d1033d17f57f70ce994599",
+    "physx/source/gpunarrowphase/include/PxgNarrowphaseCore.h": "460b49cad4ac544aa8e4a21c59dec2f076da9e8a0b2f4dcadbab4412056ca19c",
+    "physx/source/gpunarrowphase/src/PxgNarrowphaseCore.cpp": "7f67cd01b7860b351a4a65b5a7aae8051e27f778fc75dec7cf9ad6037ce61a0e",
+    "physx/source/gpusimulationcontroller/include/PxgSimulationController.h": "d6d6afd59136ff31fcbe7928d3627f3295df35068e4a9c866f4883e79c035352",
+    "physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp": "f8d27232c37b3694abf234f5e02bee0c29271951131cac15eb142fb1404c0624"
+  },
+  "build_command": "python3 tools/scripts/build-destruction-sdk.py --jobs 4",
+  "test_command": "ctest --test-dir out/destruction-sdk -R '^(physx_(native_gpu_|persistent_shape_owner|native_demo_projectile_launch)|destruction_gpu_contact_graph)' --output-on-failure",
+  "tests_passed": 17,
+  "memcheck_command": "compute-sanitizer --tool memcheck --error-exitcode 99 out/destruction-sdk/topology/destruction_contact_graph_test",
+  "memcheck_errors": 0,
+  "logs": {
+    "out/native-contact-graph-final-build-verified.log": "8cd3088809fcf39c0df468a283db38bf8c543f627f611239ca6ed3541748e11c",
+    "out/native-contact-graph-final-tests.log": "976854c6924a89eaf20d232535ea372ce7949cab1a1f5bc469c0bf885e89fce0",
+    "out/native-contact-graph-final-memcheck.log": "7d3e5b10c489d831074a57ba3866b302890112b6c29b11529792bcd69b22b253"
+  },
+  "kernel_coverage": {
+    "nodes": 100001,
+    "pairs": 201998,
+    "reference": "independent CPU flood fill",
+    "cases": [
+      "shuffled order and cycles",
+      "minimum-node component labels",
+      "touch versus broadphase candidates",
+      "disabled response",
+      "static/kinematic boundaries",
+      "split rebuild",
+      "retired rows and duplicate retirement entries",
+      "retirement bit-word boundaries",
+      "invalid identities, shape references, endpoints and retirement indices",
+      "explicit omitted-pair status"
+    ]
+  },
+  "native_coverage": [
+    "GPU partitions compared bidirectionally with actual PhysX accurate/speculative islands",
+    "CPU interaction ownership agrees with resident GPU owners",
+    "retirement mask exactly matches CPU pending lifecycle deltas",
+    "eight independent dynamic groups sharing a static plane and kinematic beam",
+    "infinite-mass nonkinematic dynamics",
+    "sparse removal/growth, explicit refilter, disable and teardown",
+    "full-rebuild and retained-pair one-resim correction",
+    "repeated impacts and existing motion/momentum/event assertions"
+  ],
+  "completed_capture": {
+    "directory": "out/recordings/native-contact-graph-30s-20260906",
+    "summary": {
+      "backend": "native PhysX GPU task graph + resident CUDA destruction",
+      "status": "completed",
+      "frames": 1800,
+      "seconds": 30,
+      "buildings": 256,
+      "chunks": 113664,
+      "bonds": 229376,
+      "peak_clusters": 97081,
+      "projectiles": 1024,
+      "broken_bonds": 200249,
+      "corrections": 366,
+      "spawn_protocol": "clear-aerial-ballistic-v2",
+      "motion_audit_enabled": true,
+      "max_motion_position_error": 0,
+      "record_fps": 60,
+      "preserve_contact_pairs": true,
+      "recorded_state": false,
+      "correction_limit": 1,
+      "physics_ms_p50": 127.195,
+      "physics_ms_p95": 630.221,
+      "physics_ms_p99": 1015.44,
+      "physics_ms_max": 1728.97,
+      "missed_16_67ms": 1694,
+      "stress_included_in_physics_time": true,
+      "isolated_performance_qualification": false,
+      "sleeping": false,
+      "crushing_material_enabled": false
+    },
+    "physics_timing": {
+      "samples": 1800,
+      "min_ms": 1.01958,
+      "mean_ms": 198.8356274777778,
+      "max_ms": 1728.97,
+      "p50_ms": 127.16749999999999,
+      "p95_ms": 630.221,
+      "p99_ms": 1015.44,
+      "total_wall_seconds": 357.90412946000004,
+      "effective_steps_per_second": 5.029279775888059,
+      "real_time_factor": 0.08382132959813433,
+      "missed_deadlines": 1694,
+      "fixed_step_ms": 16.666666666666668
+    },
+    "capture_tick_timing": {
+      "samples": 1800,
+      "min_ms": 6.84767,
+      "mean_ms": 209.68550744444445,
+      "max_ms": 1739.3,
+      "p50_ms": 138.53050000000002,
+      "p95_ms": 641.17,
+      "p99_ms": 1027.36,
+      "total_wall_seconds": 377.4339134,
+      "effective_steps_per_second": 4.769046808182234,
+      "real_time_factor": 0.07948411346970391,
+      "missed_deadlines": 1710,
+      "fixed_step_ms": 16.666666666666668
+    },
+    "process": {
+      "exit_code": 0,
+      "wall_seconds": 380.6132215061225,
+      "status": "completed"
+    },
+    "sampled_total_gpu_memory_peak_mib": 18336,
+    "graph_host_scope_per_accepted_step": {
+      "samples": 1800,
+      "mean_ms": 0.1987769288888889,
+      "median_ms": 0.14843699999999999,
+      "max_ms": 4.742826
+    },
+    "provenance": "out/recordings/native-contact-graph-30s-20260906/build-provenance.json",
+    "source_archive": "out/recordings/native-contact-graph-30s-20260906/source-files.json",
+    "post_capture_changes": "Only additional test assertions, header comments, documentation, and allocator failure diagnostics changed after capture; runtime kernel/lifecycle implementation is the captured version."
+  },
+  "incomplete_dense_captures": [
+    {
+      "directory": "out/recordings/native-contact-graph-large-20260906",
+      "status": "incomplete",
+      "schedule_seconds": 10,
+      "accepted_steps": 222,
+      "failed_step": 222,
+      "first_failed_allocation_bytes": 945815552,
+      "cuda_error": 2,
+      "log_sha256": "f397ad18790b54efd2faf7919bdf4b46ce7ba2e85c1f39ad907d4c25788a9957",
+      "not_a_performance_qualification": true,
+      "provenance_note": "Intermediate graph implementation before borrowing NP buffers; no complete source archive was captured for this first failed probe."
+    },
+    {
+      "directory": "out/recordings/native-contact-graph-shared-large-20260906",
+      "status": "incomplete",
+      "schedule_seconds": 10,
+      "accepted_steps": 263,
+      "failed_step": 263,
+      "first_failed_allocation_bytes": 945815552,
+      "cuda_error": 2,
+      "log_sha256": "9212a800d7269664335d923f2910514f9eefae7be496a79c3f13f47970c47aa9",
+      "not_a_performance_qualification": true,
+      "sampled_total_gpu_memory_peak_mib": 23380,
+      "provenance": "out/recordings/native-contact-graph-shared-large-20260906/build-provenance.json"
+    }
+  ],
+  "limitations": [
+    "CPU island traversal remains authoritative and still runs; this is an intermediate GPU component calculation, not complete island/solver integration.",
+    "Sleeping graph edges, joints, body-handle lifetime integration and unsupported narrowphase buckets remain separate work.",
+    "Graph labels are indexed by allocated node capacity; interpretation requires a live dynamic-node registry.",
+    "Large capture checks simulation convergence and physical motion, not a full CPU/GPU graph comparison every step; direct partition comparison is in controlled native fixtures.",
+    "Graph host scope measures enqueue/allocation/wait time, not isolated CUDA kernel time.",
+    "30-second and compressed 10-second firing schedules are different workloads and must not be used as timing comparisons.",
+    "Shared GPU diagnostics are not five isolated 60-second trials and establish no performance improvement.",
+    "Full imported CPU/Rust/WASM and game integration completion gates remain open."
+  ]
+}

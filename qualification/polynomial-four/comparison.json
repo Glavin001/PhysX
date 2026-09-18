@@ -1,0 +1,2263 @@
+{
+  "schema": 1,
+  "fixture": {
+    "buildings": 256,
+    "chunks": 113664,
+    "bonds": 229376,
+    "projectiles": 256,
+    "correction_limit": 1,
+    "sleeping": false
+  },
+  "rows": [
+    {
+      "arm": "baseline",
+      "run": "impacts-256-plain-0",
+      "mean_ms": 16.808946244444446,
+      "peak_ms": 52.593051,
+      "peak_step": 82,
+      "misses_8ms": 99,
+      "misses_60hz": 98,
+      "peak_work": {
+        "bodies": "5376",
+        "awake_bodies": "5376",
+        "logical_clusters": "5120",
+        "contacts_frame": "1024",
+        "stress_active_nodes": "92672",
+        "stress_active_bonds": "172544",
+        "stress_islands": "512",
+        "bonds_broken": "28160",
+        "resim_passes": "1",
+        "stress_converged": "1",
+        "stress_iterations": "95"
+      }
+    },
+    {
+      "arm": "baseline",
+      "run": "impacts-256-plain-1",
+      "mean_ms": 16.8021529,
+      "peak_ms": 55.268559,
+      "peak_step": 82,
+      "misses_8ms": 99,
+      "misses_60hz": 99,
+      "peak_work": {
+        "bodies": "5376",
+        "awake_bodies": "5376",
+        "logical_clusters": "5120",
+        "contacts_frame": "1024",
+        "stress_active_nodes": "92672",
+        "stress_active_bonds": "172544",
+        "stress_islands": "512",
+        "bonds_broken": "28160",
+        "resim_passes": "1",
+        "stress_converged": "1",
+        "stress_iterations": "95"
+      }
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "mean_ms": 17.76979262777778,
+      "peak_ms": 56.222911,
+      "peak_step": 82,
+      "misses_8ms": 99,
+      "misses_60hz": 99,
+      "peak_work": {
+        "bodies": "5376",
+        "awake_bodies": "5376",
+        "logical_clusters": "5120",
+        "contacts_frame": "1024",
+        "stress_active_nodes": "92672",
+        "stress_active_bonds": "172544",
+        "stress_islands": "512",
+        "bonds_broken": "28160",
+        "resim_passes": "1",
+        "stress_converged": "1",
+        "stress_iterations": "52"
+      }
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "mean_ms": 17.80567255,
+      "peak_ms": 57.835137,
+      "peak_step": 82,
+      "misses_8ms": 99,
+      "misses_60hz": 99,
+      "peak_work": {
+        "bodies": "5376",
+        "awake_bodies": "5376",
+        "logical_clusters": "5120",
+        "contacts_frame": "1024",
+        "stress_active_nodes": "92672",
+        "stress_active_bonds": "172544",
+        "stress_islands": "512",
+        "bonds_broken": "28160",
+        "resim_passes": "1",
+        "stress_converged": "1",
+        "stress_iterations": "52"
+      }
+    }
+  ],
+  "aggregates": {
+    "baseline": {
+      "runs": 2,
+      "mean_ms": 16.805549572222223,
+      "median_peak_ms": 53.93080500000001,
+      "worst_ms": 55.268559
+    },
+    "candidate": {
+      "runs": 2,
+      "mean_ms": 17.78773258888889,
+      "median_peak_ms": 57.02902400000001,
+      "worst_ms": 57.835137
+    }
+  },
+  "same_steps": {
+    "82": {
+      "baseline": {
+        "min": 52.593051,
+        "median": 53.93080500000001,
+        "max": 55.268559
+      },
+      "candidate": {
+        "min": 56.222911,
+        "median": 57.02902400000001,
+        "max": 57.835137
+      }
+    }
+  },
+  "physical_counter_differences": [],
+  "iteration_differences": [
+    {
+      "arm": "baseline",
+      "run": "impacts-256-plain-1",
+      "step": "89",
+      "baseline": "180",
+      "observed": "179"
+    },
+    {
+      "arm": "baseline",
+      "run": "impacts-256-plain-1",
+      "step": "128",
+      "baseline": "253",
+      "observed": "252"
+    },
+    {
+      "arm": "baseline",
+      "run": "impacts-256-plain-1",
+      "step": "155",
+      "baseline": "265",
+      "observed": "266"
+    },
+    {
+      "arm": "baseline",
+      "run": "impacts-256-plain-1",
+      "step": "161",
+      "baseline": "262",
+      "observed": "261"
+    },
+    {
+      "arm": "baseline",
+      "run": "impacts-256-phases-0",
+      "step": "128",
+      "baseline": "253",
+      "observed": "252"
+    },
+    {
+      "arm": "baseline",
+      "run": "impacts-256-phases-0",
+      "step": "161",
+      "baseline": "262",
+      "observed": "258"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "0",
+      "baseline": "45",
+      "observed": "25"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "82",
+      "baseline": "95",
+      "observed": "52"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "83",
+      "baseline": "145",
+      "observed": "79"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "84",
+      "baseline": "144",
+      "observed": "79"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "85",
+      "baseline": "166",
+      "observed": "91"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "86",
+      "baseline": "186",
+      "observed": "100"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "87",
+      "baseline": "212",
+      "observed": "116"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "88",
+      "baseline": "183",
+      "observed": "100"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "89",
+      "baseline": "180",
+      "observed": "99"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "90",
+      "baseline": "180",
+      "observed": "98"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "91",
+      "baseline": "193",
+      "observed": "105"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "92",
+      "baseline": "193",
+      "observed": "105"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "93",
+      "baseline": "204",
+      "observed": "111"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "94",
+      "baseline": "220",
+      "observed": "120"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "95",
+      "baseline": "210",
+      "observed": "115"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "96",
+      "baseline": "199",
+      "observed": "108"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "97",
+      "baseline": "204",
+      "observed": "111"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "98",
+      "baseline": "198",
+      "observed": "108"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "99",
+      "baseline": "193",
+      "observed": "105"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "100",
+      "baseline": "220",
+      "observed": "120"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "101",
+      "baseline": "252",
+      "observed": "138"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "102",
+      "baseline": "282",
+      "observed": "153"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "103",
+      "baseline": "276",
+      "observed": "151"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "104",
+      "baseline": "297",
+      "observed": "162"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "105",
+      "baseline": "291",
+      "observed": "159"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "106",
+      "baseline": "292",
+      "observed": "159"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "107",
+      "baseline": "291",
+      "observed": "159"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "108",
+      "baseline": "292",
+      "observed": "159"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "109",
+      "baseline": "302",
+      "observed": "164"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "110",
+      "baseline": "280",
+      "observed": "152"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "111",
+      "baseline": "268",
+      "observed": "146"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "112",
+      "baseline": "251",
+      "observed": "137"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "113",
+      "baseline": "260",
+      "observed": "140"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "114",
+      "baseline": "257",
+      "observed": "140"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "115",
+      "baseline": "266",
+      "observed": "144"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "116",
+      "baseline": "254",
+      "observed": "138"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "117",
+      "baseline": "259",
+      "observed": "139"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "118",
+      "baseline": "253",
+      "observed": "138"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "119",
+      "baseline": "265",
+      "observed": "144"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "120",
+      "baseline": "252",
+      "observed": "135"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "121",
+      "baseline": "262",
+      "observed": "143"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "122",
+      "baseline": "243",
+      "observed": "131"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "123",
+      "baseline": "254",
+      "observed": "137"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "124",
+      "baseline": "248",
+      "observed": "134"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "125",
+      "baseline": "260",
+      "observed": "139"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "126",
+      "baseline": "251",
+      "observed": "136"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "127",
+      "baseline": "247",
+      "observed": "133"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "128",
+      "baseline": "253",
+      "observed": "137"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "129",
+      "baseline": "258",
+      "observed": "141"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "130",
+      "baseline": "249",
+      "observed": "136"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "131",
+      "baseline": "263",
+      "observed": "143"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "132",
+      "baseline": "261",
+      "observed": "142"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "133",
+      "baseline": "267",
+      "observed": "145"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "134",
+      "baseline": "246",
+      "observed": "134"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "135",
+      "baseline": "244",
+      "observed": "131"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "136",
+      "baseline": "277",
+      "observed": "151"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "137",
+      "baseline": "295",
+      "observed": "161"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "138",
+      "baseline": "247",
+      "observed": "134"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "139",
+      "baseline": "271",
+      "observed": "147"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "140",
+      "baseline": "272",
+      "observed": "147"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "141",
+      "baseline": "279",
+      "observed": "150"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "142",
+      "baseline": "273",
+      "observed": "148"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "143",
+      "baseline": "273",
+      "observed": "149"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "144",
+      "baseline": "268",
+      "observed": "144"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "145",
+      "baseline": "311",
+      "observed": "169"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "146",
+      "baseline": "276",
+      "observed": "149"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "147",
+      "baseline": "266",
+      "observed": "144"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "148",
+      "baseline": "271",
+      "observed": "146"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "149",
+      "baseline": "252",
+      "observed": "137"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "150",
+      "baseline": "271",
+      "observed": "148"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "151",
+      "baseline": "276",
+      "observed": "151"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "152",
+      "baseline": "286",
+      "observed": "155"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "153",
+      "baseline": "259",
+      "observed": "140"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "154",
+      "baseline": "270",
+      "observed": "145"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "155",
+      "baseline": "265",
+      "observed": "145"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "156",
+      "baseline": "253",
+      "observed": "137"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "157",
+      "baseline": "255",
+      "observed": "139"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "158",
+      "baseline": "252",
+      "observed": "138"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "159",
+      "baseline": "329",
+      "observed": "180"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "160",
+      "baseline": "294",
+      "observed": "160"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "161",
+      "baseline": "262",
+      "observed": "140"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "162",
+      "baseline": "296",
+      "observed": "161"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "163",
+      "baseline": "313",
+      "observed": "168"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "164",
+      "baseline": "305",
+      "observed": "165"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "165",
+      "baseline": "307",
+      "observed": "168"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "166",
+      "baseline": "268",
+      "observed": "147"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "167",
+      "baseline": "270",
+      "observed": "147"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "168",
+      "baseline": "262",
+      "observed": "142"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "169",
+      "baseline": "259",
+      "observed": "140"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "170",
+      "baseline": "270",
+      "observed": "148"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "171",
+      "baseline": "259",
+      "observed": "141"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "172",
+      "baseline": "266",
+      "observed": "143"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "173",
+      "baseline": "268",
+      "observed": "146"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "174",
+      "baseline": "269",
+      "observed": "147"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "175",
+      "baseline": "277",
+      "observed": "150"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "176",
+      "baseline": "266",
+      "observed": "145"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "177",
+      "baseline": "258",
+      "observed": "140"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "178",
+      "baseline": "256",
+      "observed": "139"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-0",
+      "step": "179",
+      "baseline": "266",
+      "observed": "145"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "0",
+      "baseline": "45",
+      "observed": "25"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "82",
+      "baseline": "95",
+      "observed": "52"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "83",
+      "baseline": "145",
+      "observed": "79"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "84",
+      "baseline": "144",
+      "observed": "79"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "85",
+      "baseline": "166",
+      "observed": "91"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "86",
+      "baseline": "186",
+      "observed": "100"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "87",
+      "baseline": "212",
+      "observed": "116"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "88",
+      "baseline": "183",
+      "observed": "100"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "89",
+      "baseline": "180",
+      "observed": "98"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "90",
+      "baseline": "180",
+      "observed": "98"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "91",
+      "baseline": "193",
+      "observed": "105"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "92",
+      "baseline": "193",
+      "observed": "105"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "93",
+      "baseline": "204",
+      "observed": "111"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "94",
+      "baseline": "220",
+      "observed": "120"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "95",
+      "baseline": "210",
+      "observed": "115"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "96",
+      "baseline": "199",
+      "observed": "108"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "97",
+      "baseline": "204",
+      "observed": "111"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "98",
+      "baseline": "198",
+      "observed": "108"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "99",
+      "baseline": "193",
+      "observed": "105"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "100",
+      "baseline": "220",
+      "observed": "120"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "101",
+      "baseline": "252",
+      "observed": "138"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "102",
+      "baseline": "282",
+      "observed": "153"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "103",
+      "baseline": "276",
+      "observed": "151"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "104",
+      "baseline": "297",
+      "observed": "162"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "105",
+      "baseline": "291",
+      "observed": "159"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "106",
+      "baseline": "292",
+      "observed": "159"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "107",
+      "baseline": "291",
+      "observed": "159"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "108",
+      "baseline": "292",
+      "observed": "159"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "109",
+      "baseline": "302",
+      "observed": "164"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "110",
+      "baseline": "280",
+      "observed": "152"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "111",
+      "baseline": "268",
+      "observed": "146"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "112",
+      "baseline": "251",
+      "observed": "137"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "113",
+      "baseline": "260",
+      "observed": "140"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "114",
+      "baseline": "257",
+      "observed": "140"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "115",
+      "baseline": "266",
+      "observed": "144"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "116",
+      "baseline": "254",
+      "observed": "138"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "117",
+      "baseline": "259",
+      "observed": "139"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "118",
+      "baseline": "253",
+      "observed": "138"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "119",
+      "baseline": "265",
+      "observed": "144"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "120",
+      "baseline": "252",
+      "observed": "135"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "121",
+      "baseline": "262",
+      "observed": "143"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "122",
+      "baseline": "243",
+      "observed": "131"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "123",
+      "baseline": "254",
+      "observed": "137"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "124",
+      "baseline": "248",
+      "observed": "134"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "125",
+      "baseline": "260",
+      "observed": "139"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "126",
+      "baseline": "251",
+      "observed": "137"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "127",
+      "baseline": "247",
+      "observed": "133"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "128",
+      "baseline": "253",
+      "observed": "137"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "129",
+      "baseline": "258",
+      "observed": "141"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "130",
+      "baseline": "249",
+      "observed": "136"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "131",
+      "baseline": "263",
+      "observed": "143"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "132",
+      "baseline": "261",
+      "observed": "142"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "133",
+      "baseline": "267",
+      "observed": "145"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "134",
+      "baseline": "246",
+      "observed": "134"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "135",
+      "baseline": "244",
+      "observed": "131"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "136",
+      "baseline": "277",
+      "observed": "151"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "137",
+      "baseline": "295",
+      "observed": "161"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "138",
+      "baseline": "247",
+      "observed": "134"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "139",
+      "baseline": "271",
+      "observed": "147"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "140",
+      "baseline": "272",
+      "observed": "147"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "141",
+      "baseline": "279",
+      "observed": "150"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "142",
+      "baseline": "273",
+      "observed": "148"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "143",
+      "baseline": "273",
+      "observed": "149"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "144",
+      "baseline": "268",
+      "observed": "144"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "145",
+      "baseline": "311",
+      "observed": "169"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "146",
+      "baseline": "276",
+      "observed": "149"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "147",
+      "baseline": "266",
+      "observed": "144"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "148",
+      "baseline": "271",
+      "observed": "146"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "149",
+      "baseline": "252",
+      "observed": "137"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "150",
+      "baseline": "271",
+      "observed": "148"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "151",
+      "baseline": "276",
+      "observed": "151"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "152",
+      "baseline": "286",
+      "observed": "155"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "153",
+      "baseline": "259",
+      "observed": "140"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "154",
+      "baseline": "270",
+      "observed": "145"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "155",
+      "baseline": "265",
+      "observed": "145"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "156",
+      "baseline": "253",
+      "observed": "137"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "157",
+      "baseline": "255",
+      "observed": "139"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "158",
+      "baseline": "252",
+      "observed": "138"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "159",
+      "baseline": "329",
+      "observed": "180"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "160",
+      "baseline": "294",
+      "observed": "160"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "161",
+      "baseline": "262",
+      "observed": "142"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "162",
+      "baseline": "296",
+      "observed": "161"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "163",
+      "baseline": "313",
+      "observed": "168"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "164",
+      "baseline": "305",
+      "observed": "165"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "165",
+      "baseline": "307",
+      "observed": "168"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "166",
+      "baseline": "268",
+      "observed": "147"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "167",
+      "baseline": "270",
+      "observed": "147"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "168",
+      "baseline": "262",
+      "observed": "142"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "169",
+      "baseline": "259",
+      "observed": "140"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "170",
+      "baseline": "270",
+      "observed": "148"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "171",
+      "baseline": "259",
+      "observed": "141"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "172",
+      "baseline": "266",
+      "observed": "143"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "173",
+      "baseline": "268",
+      "observed": "146"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "174",
+      "baseline": "269",
+      "observed": "147"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "175",
+      "baseline": "277",
+      "observed": "150"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "176",
+      "baseline": "266",
+      "observed": "145"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "177",
+      "baseline": "258",
+      "observed": "140"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "178",
+      "baseline": "256",
+      "observed": "139"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-plain-1",
+      "step": "179",
+      "baseline": "266",
+      "observed": "145"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "0",
+      "baseline": "45",
+      "observed": "25"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "82",
+      "baseline": "95",
+      "observed": "52"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "83",
+      "baseline": "145",
+      "observed": "79"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "84",
+      "baseline": "144",
+      "observed": "79"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "85",
+      "baseline": "166",
+      "observed": "91"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "86",
+      "baseline": "186",
+      "observed": "100"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "87",
+      "baseline": "212",
+      "observed": "116"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "88",
+      "baseline": "183",
+      "observed": "100"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "89",
+      "baseline": "180",
+      "observed": "98"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "90",
+      "baseline": "180",
+      "observed": "98"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "91",
+      "baseline": "193",
+      "observed": "105"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "92",
+      "baseline": "193",
+      "observed": "105"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "93",
+      "baseline": "204",
+      "observed": "111"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "94",
+      "baseline": "220",
+      "observed": "120"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "95",
+      "baseline": "210",
+      "observed": "115"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "96",
+      "baseline": "199",
+      "observed": "108"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "97",
+      "baseline": "204",
+      "observed": "111"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "98",
+      "baseline": "198",
+      "observed": "108"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "99",
+      "baseline": "193",
+      "observed": "105"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "100",
+      "baseline": "220",
+      "observed": "120"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "101",
+      "baseline": "252",
+      "observed": "138"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "102",
+      "baseline": "282",
+      "observed": "153"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "103",
+      "baseline": "276",
+      "observed": "151"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "104",
+      "baseline": "297",
+      "observed": "162"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "105",
+      "baseline": "291",
+      "observed": "159"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "106",
+      "baseline": "292",
+      "observed": "159"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "107",
+      "baseline": "291",
+      "observed": "159"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "108",
+      "baseline": "292",
+      "observed": "159"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "109",
+      "baseline": "302",
+      "observed": "164"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "110",
+      "baseline": "280",
+      "observed": "152"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "111",
+      "baseline": "268",
+      "observed": "146"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "112",
+      "baseline": "251",
+      "observed": "137"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "113",
+      "baseline": "260",
+      "observed": "140"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "114",
+      "baseline": "257",
+      "observed": "140"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "115",
+      "baseline": "266",
+      "observed": "144"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "116",
+      "baseline": "254",
+      "observed": "138"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "117",
+      "baseline": "259",
+      "observed": "139"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "118",
+      "baseline": "253",
+      "observed": "138"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "119",
+      "baseline": "265",
+      "observed": "144"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "120",
+      "baseline": "252",
+      "observed": "135"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "121",
+      "baseline": "262",
+      "observed": "143"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "122",
+      "baseline": "243",
+      "observed": "131"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "123",
+      "baseline": "254",
+      "observed": "137"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "124",
+      "baseline": "248",
+      "observed": "134"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "125",
+      "baseline": "260",
+      "observed": "139"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "126",
+      "baseline": "251",
+      "observed": "137"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "127",
+      "baseline": "247",
+      "observed": "133"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "128",
+      "baseline": "253",
+      "observed": "137"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "129",
+      "baseline": "258",
+      "observed": "141"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "130",
+      "baseline": "249",
+      "observed": "136"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "131",
+      "baseline": "263",
+      "observed": "143"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "132",
+      "baseline": "261",
+      "observed": "142"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "133",
+      "baseline": "267",
+      "observed": "145"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "134",
+      "baseline": "246",
+      "observed": "134"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "135",
+      "baseline": "244",
+      "observed": "131"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "136",
+      "baseline": "277",
+      "observed": "151"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "137",
+      "baseline": "295",
+      "observed": "161"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "138",
+      "baseline": "247",
+      "observed": "134"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "139",
+      "baseline": "271",
+      "observed": "147"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "140",
+      "baseline": "272",
+      "observed": "147"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "141",
+      "baseline": "279",
+      "observed": "150"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "142",
+      "baseline": "273",
+      "observed": "148"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "143",
+      "baseline": "273",
+      "observed": "149"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "144",
+      "baseline": "268",
+      "observed": "144"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "145",
+      "baseline": "311",
+      "observed": "169"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "146",
+      "baseline": "276",
+      "observed": "149"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "147",
+      "baseline": "266",
+      "observed": "144"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "148",
+      "baseline": "271",
+      "observed": "146"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "149",
+      "baseline": "252",
+      "observed": "137"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "150",
+      "baseline": "271",
+      "observed": "148"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "151",
+      "baseline": "276",
+      "observed": "151"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "152",
+      "baseline": "286",
+      "observed": "155"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "153",
+      "baseline": "259",
+      "observed": "140"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "154",
+      "baseline": "270",
+      "observed": "145"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "155",
+      "baseline": "265",
+      "observed": "145"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "156",
+      "baseline": "253",
+      "observed": "137"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "157",
+      "baseline": "255",
+      "observed": "139"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "158",
+      "baseline": "252",
+      "observed": "138"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "159",
+      "baseline": "329",
+      "observed": "180"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "160",
+      "baseline": "294",
+      "observed": "160"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "161",
+      "baseline": "262",
+      "observed": "140"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "162",
+      "baseline": "296",
+      "observed": "161"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "163",
+      "baseline": "313",
+      "observed": "168"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "164",
+      "baseline": "305",
+      "observed": "165"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "165",
+      "baseline": "307",
+      "observed": "168"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "166",
+      "baseline": "268",
+      "observed": "147"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "167",
+      "baseline": "270",
+      "observed": "147"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "168",
+      "baseline": "262",
+      "observed": "142"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "169",
+      "baseline": "259",
+      "observed": "140"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "170",
+      "baseline": "270",
+      "observed": "148"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "171",
+      "baseline": "259",
+      "observed": "141"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "172",
+      "baseline": "266",
+      "observed": "143"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "173",
+      "baseline": "268",
+      "observed": "146"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "174",
+      "baseline": "269",
+      "observed": "147"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "175",
+      "baseline": "277",
+      "observed": "150"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "176",
+      "baseline": "266",
+      "observed": "145"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "177",
+      "baseline": "258",
+      "observed": "140"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "178",
+      "baseline": "256",
+      "observed": "139"
+    },
+    {
+      "arm": "candidate",
+      "run": "impacts-256-phases-0",
+      "step": "179",
+      "baseline": "266",
+      "observed": "145"
+    }
+  ],
+  "source_reports": {
+    "baseline": {
+      "path": "/root/workspace/physx-2/qualification/hierarchy-tail-demand-isolated/report.json.gz",
+      "sha256": "bbd285ac8119f1897abb0b1e89f542b19cbed7c7806a0dabde8786f3c59f853b"
+    },
+    "candidate": {
+      "path": "/root/workspace/physx-2/qualification/polynomial-four-impacts-256/report.json.gz",
+      "sha256": "bceab41c6c3914fff16959cd2e13527112f52cad845cea8ccbb6bcbd34a7e5fe"
+    }
+  }
+}

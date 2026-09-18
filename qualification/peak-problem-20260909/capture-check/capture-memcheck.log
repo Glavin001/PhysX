@@ -1,0 +1,6 @@
+========= COMPUTE-SANITIZER
+[PhysX:2] PxRigidBodyExt::updateMassAndInertia: inertia tensor has negative components (ill-conditioned input expected). Approximation for inertia tensor will be used instead. (/root/workspace/physx-2/physx/source/physxextensions/src/ExtRigidBodyExt.cpp:82)
+[PhysX:2] PxRigidBodyExt::updateMassAndInertia: inertia tensor has negative components (ill-conditioned input expected). Approximation for inertia tensor will be used instead. (/root/workspace/physx-2/physx/source/physxextensions/src/ExtRigidBodyExt.cpp:82)
+[PhysX:2] PxRigidBodyExt::updateMassAndInertia: inertia tensor has negative components (ill-conditioned input expected). Approximation for inertia tensor will be used instead. (/root/workspace/physx-2/physx/source/physxextensions/src/ExtRigidBodyExt.cpp:82)
+native compound sleep: 2 native chunks/1 bond + one ordinary body, 513 rotated/offset colliders; pose rollback, velocities, forces, history and all GPU bounds passed
+========= ERROR SUMMARY: 0 errors

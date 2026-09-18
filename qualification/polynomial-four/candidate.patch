@@ -1,0 +1,73 @@
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressNativePolynomial.cuh b/blast/source/sdk/extensions/stressgpu/detail/StressNativePolynomial.cuh
+index 4eda6c55..8df77090 100644
+--- a/blast/source/sdk/extensions/stressgpu/detail/StressNativePolynomial.cuh
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressNativePolynomial.cuh
+@@ -1,11 +1,10 @@
+-// Fixed two-step Chebyshev-Jacobi preconditioner for a resident component.
+-// Let L=D+E, with the same cached node-block inverse M=D^-1. The two Richardson
+-// weights give P=(a+b)M-abMLM=(a+b-ab)M-abMEM. Only the off-diagonal E needs
+-// another sparse traversal: re-evaluating D would repeat algebra already cached.
+-// Each physical bond has at most two endpoints, hence L<=2D. Weights are the
+-// two Chebyshev roots for [0.1,2.01]; P stays positive on [0,2], including the
+-// zero eigenvalue. No low mode or load is dropped. Outer projection, equations
+-// and authoritative residual acceptance remain unchanged.
++// Fixed four-step Chebyshev-Jacobi preconditioner for a resident component.
++// L=D+E and M=D^-1 share the exact cached node-block inverse. Two factored
++// quadratic updates perform the four Richardson stages using three E gathers,
++// four inverse applications, two existing vector buffers and no extra launch.
++// L<=2D because each bond has at most two endpoints. The four Chebyshev roots
++// on [0.1,2.01] keep the preconditioner positive on [0,2], including zero modes.
++// Projection, physical equations and original-residual acceptance are unchanged.
+ __device__ __forceinline__ StressHierarchy::Vector nativeOffDiagonal(
+     const StressHierarchy::Input& input,unsigned node,const StressHierarchy::Vector* x)
+ {
+@@ -28,9 +27,10 @@ __device__ __forceinline__ StressHierarchy::Vector* preconditionNativePolynomial
+     const PersistentStressArgs& a,const unsigned* nodes,unsigned count)
+ {
+     using namespace StressHierarchy;
+-    constexpr double lowWeight=0.5779388123770052,highWeight=2.6335678180143502;
+-    constexpr double coupling=lowWeight*highWeight;
+-    constexpr double diagonal=lowWeight+highWeight-coupling;
++    // Pair roots (3,0), then (2,1). This is the same fixed polynomial as four
++    // Richardson updates, evaluated without repeatedly applying the diagonal.
++    constexpr double a0=0.51618099575311882,a1=5.7905540462595786,a2=0.70399596944869713,a3=1.4502478226516293;
++    constexpr double c0=a0*a1,d0=a0+a1-c0,c1=a2*a3,d1=a2+a3-c1;
+     const auto input=a.hierarchy.cycle.levels[0].input;
+     auto* local=a.hierarchy.result;
+     auto* result=a.hierarchy.cycle.intermediate;
+@@ -39,8 +39,16 @@ __device__ __forceinline__ StressHierarchy::Vector* preconditionNativePolynomial
+     __syncthreads();
+     for(unsigned i=threadIdx.x;i<count;i+=blockDim.x){const unsigned node=nodes[i];
+         const auto off=nativeOffDiagonal(input,node,local);
+-        result[node]=sub(mul(local[node],diagonal),mul(applyNativeFineInverse(a.hierarchy,node,off),coupling));}
+-    // One disjoint destination per node. Readers consume this completed view;
+-    // there is no product buffer, copy back or second launch inside iteration.
++        result[node]=sub(mul(local[node],d0),mul(applyNativeFineInverse(a.hierarchy,node,off),c0));}
++    __syncthreads();
++    // local becomes M(r-L*x). Its old value is read only by its owning thread;
++    // the sparse gather reads the disjoint completed result, so no copy is needed.
++    for(unsigned i=threadIdx.x;i<count;i+=blockDim.x){const unsigned node=nodes[i];
++        const auto off=nativeOffDiagonal(input,node,result);
++        local[node]=sub(sub(local[node],result[node]),applyNativeFineInverse(a.hierarchy,node,off));}
++    __syncthreads();
++    for(unsigned i=threadIdx.x;i<count;i+=blockDim.x){const unsigned node=nodes[i];
++        const auto off=nativeOffDiagonal(input,node,local);
++        result[node]=add(result[node],sub(mul(local[node],d1),mul(applyNativeFineInverse(a.hierarchy,node,off),c1)));}
+     __syncthreads();return result;
+ }
+diff --git a/demos/blast-stress-demo/tests/native_polynomial_test.cuh b/demos/blast-stress-demo/tests/native_polynomial_test.cuh
+index 1981558f..ce794b86 100644
+--- a/demos/blast-stress-demo/tests/native_polynomial_test.cuh
++++ b/demos/blast-stress-demo/tests/native_polynomial_test.cuh
+@@ -43,9 +43,9 @@ void polynomialOperator(){
+         auto multiply=[&](const std::vector<long double>& m,const std::vector<long double>& x){std::vector<long double> y(size);for(unsigned r=0;r<size;++r)for(unsigned c=0;c<size;++c)y[r]+=m[r*size+c]*x[c];return y;};
+         long double worst=0,symmetry=0;std::vector<long double> actual(size*size);
+         for(unsigned column=anchored?6:0;column<size;++column){std::vector<long double> x(size),r(size);r[column]=1;
+-            const unsigned roots[2]={1,0};
++            const unsigned roots[4]={3,0,2,1};
+             for(auto root:roots){const auto ax=multiply(matrix,x);for(unsigned i=0;i<size;++i)r[i]=(i==column?1:0)-ax[i];const auto z=multiply(inverse,r);
+-                const long double weight=1/(1.055L-.955L*cosl((2*root+1)*acosl(-1.L)/4));for(unsigned i=0;i<size;++i)x[i]+=weight*z[i];}
++                const long double weight=1/(1.055L-.955L*cosl((2*root+1)*acosl(-1.L)/8));for(unsigned i=0;i<size;++i)x[i]+=weight*z[i];}
+             for(unsigned node=0;node<n;++node){auto y=unpack(observed[size_t(column)*n+node]);for(unsigned k=0;k<6;++k){const auto row=node*6+k;actual[row*size+column]=y[k];worst=std::max(worst,fabsl(y[k]-x[row])/(1+fabsl(x[row])));}}
+         }
+         for(unsigned row=anchored?6:0;row<size;++row)for(unsigned col=anchored?6:0;col<size;++col)symmetry=std::max(symmetry,fabsl(actual[row*size+col]-actual[col*size+row])/(1+fabsl(actual[row*size+col])));

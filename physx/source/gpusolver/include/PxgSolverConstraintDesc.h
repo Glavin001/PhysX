@@ -185,6 +185,7 @@ struct PxgBlockConstraintBatch
 struct PxgBlockWorkUnit
 {
 	PX_ALIGN(128, PxU32 mWriteback[32]);
+	PX_ALIGN(128, PxU32 mContactManagerOutputIndex[32]);
 	
 	PX_ALIGN(128, float	mRestDistance[32]);
 
@@ -204,6 +205,8 @@ struct PxgSolverConstraintManagerConstants
 {
 	PxU32 mEdgeIndex;
 	PxU32 mConstraintWriteBackIndex;
+	PxU32 mPairSlot;		// dense contact pair slot (PxcNpWorkUnit::mDeviceSlot); keys friction patch counts/indices. 0xFFFFFFFF for joints
+	PxU32 mPad;
 };
 
 

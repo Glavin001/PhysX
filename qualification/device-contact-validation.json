@@ -1,0 +1,99 @@
+{
+  "base_revision": "792ad95e2ba83dbec95adb8ae88233c1e9495e90",
+  "change": "GPU pair initialization owns scene-lifetime contact generation allocation. Delete CPU identity mirror and its compaction. Retain only 4-byte CPU island-edge staging until full lifecycle migration. Exhaustion rejects trial/correction acceptance without committing topology or damage.",
+  "physical_equations_changed": false,
+  "gpu_kernels_changed": true,
+  "cpu_bridge_removed": false,
+  "identity_host_to_device_bytes_per_new_pair": {
+    "before": 16,
+    "after": 4
+  },
+  "source_sha256": {
+    "demos/blast-stress-demo/CMakeLists.txt": "a93f46ed766eb1f4f111ae1341c59ab86cbb2adc87b9bc3ba81246dbb9235645",
+    "demos/blast-stress-demo/tests/native_gpu_collision_test.cpp": "300833e2249a5c67d22d79957802cd6fb39829af5e6dcebc2eccb412c0fa61ab",
+    "demos/blast-stress-demo/tests/native_gpu_resimulation_test.cpp": "251006ea9c15399449c7ad58f59d1c2813db90c2c3c2deb70ad7758f05f01376",
+    "physx/include/PxDestructionScene.h": "522cb78397d0bae813b309fb49091bfeb0d0001f872f59c86b016847fcf3e813",
+    "physx/source/gpudestruction/include/PxgDestructionContactGraph.h": "d48c0e2aa4b47be94cd435012a740475d62c54fd7e064b7e09f6911ea0513263",
+    "physx/source/gpudestruction/include/PxgDestructionRuntime.h": "3e04d46ac5d07e32735456a3e2014020c5249a53ead777b16cc3f321b4a0d545",
+    "physx/source/gpudestruction/src/PxgDestructionContactGraph.cuh": "413acc34f565366b87dbd4031829ea101b48c26fd7fcb918370dd9491aa70bf4",
+    "physx/source/gpudestruction/src/PxgDestructionRuntime.cu": "282285856303923430b37cebbafed32c4cff19aece5c2439c968b9409c265586",
+    "physx/source/gpudestruction/tests/contact_graph_test.cu": "7177362a1d8755ca7402c36e8e14850e5b8c5b31a6b794173fca7607e5348ffb",
+    "physx/source/gpunarrowphase/include/PxgContactManager.h": "f72ddf242b0c39b3ed9f0965d75ab82e94f2c0e6288e91fd0e03e718fbd248e9",
+    "physx/source/gpunarrowphase/include/PxgNarrowphaseCore.h": "8f1585e2c4e5ecc678a3ae2c524c6e103af406b189d313a4f305915a19c52392",
+    "physx/source/gpunarrowphase/src/CUDA/pairManagement.cu": "19e7135a331491d53593a4e681d6d1aa468046a9da12102874a574d0978a0f51",
+    "physx/source/gpunarrowphase/src/PxgNarrowphaseCore.cpp": "95a454f65428faceba36d6475ab56caf82c36ee609b258735e20b640b0a8aa6a",
+    "physx/source/gpusimulationcontroller/include/PxgSimulationController.h": "dbcabc991b827ca26270087d6fd41e4ee9ed74bf856e07d507bcdc24d0cb5e4e",
+    "physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp": "a6306fb68a52b354d11bb8dac0277715728a85bc3530a0bd8a4d12216c06da26",
+    "physx/source/gpunarrowphase/include/PxgContactIdentity.cuh": "4fda0613610fe41d8f8a9b6fbe63d93f8d49ca9cea1be34bef074c10b8c103c6",
+    "demos/blast-stress-demo/tests/native_contact_lifetime_check.h": "68bb32d541c89fb8b7de7cc435429f68ed40c5053e627a53023eb15a3065a834"
+  },
+  "focused_tests_passed": 7,
+  "timing_tests_passed": 29,
+  "new_checks": [
+    "concurrent GPU allocation across streams/blocks",
+    "nonmultiple tails and write guards",
+    "retained identity preservation",
+    "fresh generations on recycled storage",
+    "latched exhaustion without wrapping",
+    "empty contact graph cannot hide exhaustion",
+    "native trial rejects exhausted allocator",
+    "native correction rejects failure without committed topology or material damage"
+  ],
+  "sanitizers": {
+    "scope": "complete destruction_contact_graph_test, including production device contact lifetime routine",
+    "memcheck": "passed",
+    "synccheck": "passed",
+    "racecheck": "passed"
+  },
+  "comparisons": [
+    {
+      "label": "Shared PhysX index",
+      "chunks": 113664,
+      "bonds": 229376,
+      "projectiles": 256,
+      "trials": 2,
+      "seconds": 10,
+      "metrics": {
+        "max": 55.571877,
+        "mean": 11.529153815833332,
+        "min": 0.908136,
+        "n": 1200,
+        "p50": 9.726781,
+        "p95": 18.4953,
+        "p99": 27.352404
+      },
+      "missed_8ms": 1038
+    },
+    {
+      "label": "GPU contact lifetimes",
+      "chunks": 113664,
+      "bonds": 229376,
+      "projectiles": 256,
+      "trials": 2,
+      "seconds": 10,
+      "metrics": {
+        "max": 60.015747,
+        "mean": 11.5784706225,
+        "min": 0.902024,
+        "n": 1200,
+        "p50": 9.760809,
+        "p95": 18.427536,
+        "p99": 27.904095
+      },
+      "missed_8ms": 1038
+    }
+  ],
+  "performance_conclusion": "No demonstrated end-to-end speedup. Primary average +0.43%; worst 55.572 to 60.016 ms across two short repeats. GPU ownership migration retained; 8 ms bombardment gate fails.",
+  "full_lifecycle_endurance_qualified": false,
+  "full_synccheck_qualified": false,
+  "remaining_synccheck_issue": "Previously recorded full resident topology CUB/conditional-graph synchronization issue remains unresolved; contact graph sanitizer pass does not cover it.",
+  "evidence_hashes": {
+    "qualification/device-contact-evidence/bombardment-audit.json": "ebe88ac03f68cbedd9b34c5df8bbbbe837caed6aed811d62b878a2aeac183061",
+    "qualification/device-contact-evidence/counter-histories.json": "3aef1c6b83bf4a10de60333cfcada5ab37354bb19a15266206ecb1dacd10d5a3",
+    "qualification/device-contact-evidence/memcheck.log": "a18cfa8aa1670821962c17c2a517911a6644f3be61dfed0dc82b5f86796ab0c5",
+    "qualification/device-contact-evidence/native-tests.log": "cfc314eb6d6a5e7562095aee0581f307ccceb2ca9b41e69c43482e4443be7c4e",
+    "qualification/device-contact-evidence/penetration-quality.json": "ac5a07f9ee9bbac41671d6727fba35ee580af71d6c7e55bf8a8a01bf8091cd7e",
+    "qualification/device-contact-evidence/racecheck.log": "f2b7ed8c07c69d00ea02ef3c38c37cd0f8155cb9c09793f15ba141719d024edb",
+    "qualification/device-contact-evidence/synccheck.log": "a18cfa8aa1670821962c17c2a517911a6644f3be61dfed0dc82b5f86796ab0c5"
+  }
+}

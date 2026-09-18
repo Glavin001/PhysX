@@ -1,0 +1,4 @@
+blast_stress_demo: incomplete fracture correction at step 134: correction pass limit reached
+gravity load path (utilisation = peak stress / that bond's material elastic limit):
+  wall~wall              block-wall             bonds=440    peakUtil=0.006524   safetyFactor=153.3      peak(c/t/s)=5.22e+04/0/0 Pa
+  foundation~wall        footing-anchor         bonds=24     peakUtil=0.002485   safetyFactor=402.4      peak(c/t/s)=5.96e+04/0/0 Pa

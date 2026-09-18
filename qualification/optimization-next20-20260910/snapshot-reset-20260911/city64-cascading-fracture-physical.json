@@ -1,0 +1,32 @@
+{
+  "status": "passed",
+  "objects": 30007,
+  "maximum_errors": {
+    "position_m": 0.0,
+    "orientation_dot_error": 3.5833465561463385e-07,
+    "linear_m_s": 0.0,
+    "angular_rad_s": 0.0
+  },
+  "exact_array_sha256": {
+    "node-accelerations": "dc3bbb6112eefd87468fd3861c12b94d3a88eebedf9c3f0cd8bf58dbe23ca2f4",
+    "surface-loads": "ff120c5c03b29da2c0ba09a087d62da829454f7770180fac111d1e5eb2d3333a",
+    "health": "5e0cf77a680fe6b311776d48dc3d049ca889075857156fdf33ed9ba681ce0d1c",
+    "active-bonds": "1fd127c44d532ba3ac9c96f4535c5854448b87de103d5bc3a0fcab3091192a15",
+    "chunk-clusters": "f2daae28644938380e7817e670ab98e4efe4cfcbd12cb71a069397a026d90918",
+    "crush": "b5832e84cdf9af871071018d9491622df720898380e7408bd3e7b36191dd6e23"
+  },
+  "numerical_arrays": {
+    "bond-forces": {
+      "changed_scalars": 0,
+      "maximum_absolute": 0.0,
+      "maximum_scaled": 0.0,
+      "scaled_bound": 0.0002,
+      "relative_l2": 0.0,
+      "reference_sha256": "14bc7099e87c70cbd01ac439911f476efae813e7d26ab4ad1669e141b06ea138",
+      "candidate_sha256": "14bc7099e87c70cbd01ac439911f476efae813e7d26ab4ad1669e141b06ea138"
+    }
+  },
+  "reference": "/root/workspace/physx-2/out/snapshot-finish-20260911/split-matched-remaining/city64-cascading-fracture-B",
+  "candidate": "/root/workspace/physx-2/out/snapshot-reset-20260911/prepared-full20/complete-city64-cascading-fracture",
+  "scope": "Post-tick physical observations; exact persistent state/loads, existing force and motion bounds; no timing claim"
+}

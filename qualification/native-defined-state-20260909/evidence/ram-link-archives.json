@@ -1,0 +1,38 @@
+[
+  {
+    "path": "/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXArticulationGpu_static_64.a",
+    "ram_path": "/dev/shm/physx-defined-state-link-archives/libPhysXArticulationGpu_static_64.a",
+    "sha256": "f732f4bf078ac7199a153f574c5c9dfc2db6f78aaa3482a82111af50780e24d9",
+    "bytes": 4084672
+  },
+  {
+    "path": "/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXBroadphaseGpu_static_64.a",
+    "ram_path": "/dev/shm/physx-defined-state-link-archives/libPhysXBroadphaseGpu_static_64.a",
+    "sha256": "faf1ac3b08bb418da0f64a1707ced3c21b93313904842fabbb36c047ed710a97",
+    "bytes": 1182936
+  },
+  {
+    "path": "/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXCommonGpu_static_64.a",
+    "ram_path": "/dev/shm/physx-defined-state-link-archives/libPhysXCommonGpu_static_64.a",
+    "sha256": "cd0e9ba6ebf0e090400af78b7009166dce714a056b7e8603acb5f2179788a617",
+    "bytes": 429966
+  },
+  {
+    "path": "/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXNarrowphaseGpu_static_64.a",
+    "ram_path": "/dev/shm/physx-defined-state-link-archives/libPhysXNarrowphaseGpu_static_64.a",
+    "sha256": "062259e292c3b070dc65e2e9760f43d7670b2f2a644281c82168a86f058df6a5",
+    "bytes": 22579454
+  },
+  {
+    "path": "/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXSimulationControllerGpu_static_64.a",
+    "ram_path": "/dev/shm/physx-defined-state-link-archives/libPhysXSimulationControllerGpu_static_64.a",
+    "sha256": "235466c0722e948312c70b63bdcda8a00bd544f5e02b6ad17f9293fd9c1952b8",
+    "bytes": 6454782
+  },
+  {
+    "path": "/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXSolverGpu_static_64.a",
+    "ram_path": "/dev/shm/physx-defined-state-link-archives/libPhysXSolverGpu_static_64.a",
+    "sha256": "ce18a2516302ae96096b9552fe2c46a217091747e1dacf45f86dc1850a4ef601",
+    "bytes": 3495402
+  }
+]

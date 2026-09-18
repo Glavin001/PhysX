@@ -1,0 +1,11 @@
+========= COMPUTE-SANITIZER
+{"buildings":1,"chunks":444,"bonds":896,"solve":0,"iterations":86,"converged":1,"stress_submission_and_completion_ms":34.555691,"summed_CTA_cycles":[4188044,3910737,1289536,18205042,1387115,3720700,2790978,55169111,90661263],"precondition_CTA_cycles":[3045435,2495626,6123880,2931567],"cycle_CTA_cycles":[0,0,0,0,0]}
+{"record":"component_work","solve":0,"id":64,"nodes":380,"dynamic_nodes":380,"csr_refs_per_sweep":1540,"live_directed_refs_per_sweep":1540,"residual_sweeps":87,"verification_sweeps":1,"direction_sweeps":86,"iterations":86,"converged":1,"cta":95,"cta_cycles":35282860}
+{"record":"component_work_total","solve":0,"components":1,"operator_node_visits":66120,"operator_csr_visits":267960,"operator_live_directed_visits":267960,"component_updates":86}
+{"buildings":1,"chunks":444,"bonds":896,"solve":1,"iterations":0,"converged":1,"stress_submission_and_completion_ms":0.715724,"summed_CTA_cycles":[771537,207365,13136,0,0,0,0,60448821,61440859],"precondition_CTA_cycles":[0,0,0,0],"cycle_CTA_cycles":[0,0,0,0,0]}
+{"record":"component_work","solve":1,"id":64,"nodes":380,"dynamic_nodes":380,"csr_refs_per_sweep":1540,"live_directed_refs_per_sweep":1540,"residual_sweeps":1,"verification_sweeps":1,"direction_sweeps":0,"iterations":0,"converged":1,"cta":73,"cta_cycles":757362}
+{"record":"component_work_total","solve":1,"components":1,"operator_node_visits":760,"operator_csr_visits":3080,"operator_live_directed_visits":3080,"component_updates":0}
+{"buildings":1,"chunks":444,"bonds":896,"solve":2,"iterations":0,"converged":1,"stress_submission_and_completion_ms":0.656603,"summed_CTA_cycles":[780485,205993,13094,0,0,0,0,63004815,64004387],"precondition_CTA_cycles":[0,0,0,0],"cycle_CTA_cycles":[0,0,0,0,0]}
+{"record":"component_work","solve":2,"id":64,"nodes":380,"dynamic_nodes":380,"csr_refs_per_sweep":1540,"live_directed_refs_per_sweep":1540,"residual_sweeps":1,"verification_sweeps":1,"direction_sweeps":0,"iterations":0,"converged":1,"cta":73,"cta_cycles":755570}
+{"record":"component_work_total","solve":2,"components":1,"operator_node_visits":760,"operator_csr_visits":3080,"operator_live_directed_visits":3080,"component_updates":0}
+========= ERROR SUMMARY: 0 errors

@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "description": "Verified wall penetration; unchanged physical inputs from aa66b29c. Idle controls vary retained geometry, not active destruction.",
+  "common": ["--waves","1","--launch-seconds","0","--stress-iterations","8192","--preserve-contact-pairs","1","--gpu-island-repair","1","--gpu-pre-solve-islands","1","--gpu-pre-solve-contacts","1","--gpu-pre-solve-support","1","--gpu-connectivity-owner","1","--projectile-mass","18000","--material-strength","24","--frame-strength","40","--record-state","0","--gpu-render","0","--audit-motion","0","--trace-motion","0"],
+  "cases": [
+    {"id":"penetration","label":"One building, projectile penetration","args":["--grid","1","--workload","single-impact","--shot-path","through-wall"]},
+    {"id":"idle-1","label":"One intact building, no projectile","args":["--grid","1","--workload","idle"]},
+    {"id":"idle-16","label":"16 intact buildings, no projectiles","args":["--grid","4","--workload","idle"]}
+  ]
+}

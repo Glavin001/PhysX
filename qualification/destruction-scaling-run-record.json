@@ -1,0 +1,40 @@
+{
+  "schema": 1,
+  "base_revision": "a95cea0d",
+  "physics_changes": false,
+  "demo_change": "Optional impact-corridor layout keeps the original building and projectile at identical world coordinates; adds city geometry beside the flight corridor. Default grid and single-building fixture unchanged.",
+  "config": "tools/profiles/destruction-scaling.json",
+  "physical_timestep_seconds": 0.016666666666666666,
+  "correction_limit": 1,
+  "scenes": [
+    "world-4",
+    "world-16",
+    "world-64",
+    "world-256",
+    "impacts-16",
+    "impacts-64",
+    "impacts-256"
+  ],
+  "diagnostic_only": true,
+  "trials": 2,
+  "simulation_seconds_per_trial": 10,
+  "target_deadline_ms": 8,
+  "source_repositories_read_only": true,
+  "sleeping_enabled": false,
+  "full_plan_complete": false,
+  "launch_geometry_test": "physx_native_demo_projectile_launch passed; validated up to 1024 authored buildings with a clear flight corridor.",
+  "frozen_fixture_audit": "destruction-scaling-frozen-quality.json",
+  "report": "destruction-scaling/report.html",
+  "phase_capture": "out/scaling-impacts-256-phases",
+  "phase_capture_note": "Through peak step 82, scoped counter history matches its first untraced run. Full histories differ by one broken bond at end; both retain convergence/correction checks. No bit-identical chaotic trajectory or full fidelity qualification is claimed.",
+  "reporting_tests": 24,
+  "source_sha256": {
+    "demos/blast-stress-demo/native_destruction_main.cpp": "ef2fab3bca4e9e590d03a17ef9666f9b1fadd72b1e4a7a3e2d23f0a9aa63dc92",
+    "demos/blast-stress-demo/native_bombardment.h": "0027c372ea204985dc581d8c05c11941e3252bb33765202c81512d765ef6062b",
+    "demos/blast-stress-demo/tests/native_bombardment_test.cpp": "3e949b83ac4ba9e48fee029433c3243861d9e9d6add2f93cd42ac307f139acc4",
+    "tools/profiles/destruction-scaling.json": "49a819d09f092d38af588b0e8251442486bddce73d9bb1c896ba422b24c46e3a",
+    "tools/scripts/run-destruction-timing.py": "bb6bbabe97f4d934c8f024c00073c186d77e1ecac94c79bfe027de7d9c42ef6f",
+    "tools/scripts/report-destruction-scaling.py": "4f309769365135a13943895fc8b6cb244b951c85b3fa0e6b28c304e7ae14d273",
+    "tools/scripts/report-destruction-timing.py": "66eafb57477df8f989e0b295177f0bd2ab62c242ac2457e2eecb60909d4ea45e"
+  }
+}

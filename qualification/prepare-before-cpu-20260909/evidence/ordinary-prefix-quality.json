@@ -1,0 +1,83 @@
+{
+  "schema": 1,
+  "status": "passed",
+  "tier": "screen",
+  "compared_steps": 128,
+  "chunks": 444,
+  "bonds": 896,
+  "projectiles": 1,
+  "performance_qualification": false,
+  "complete_regression": false,
+  "position_tolerance_m": 0.001,
+  "first_difference": null,
+  "max_position_error_m": 0.0,
+  "compared_identity_sha256": "9ba1c2e69aa36d2ca2cd1adadb0549213c02cce6c637707f8b113901a95c42ac",
+  "reference": "/root/workspace/physx-2/out/native-settled-local-20260909/wall-standard",
+  "reference_sha256": {
+    "capture.json": "d705cef57d3b0158fb71770ed00054a522ae54440a82fea74006e3c515eaa877",
+    "quality.json": "8142a764f163f893d03074922889683db8e9e57ca2442098aefc1b8957dc61d1",
+    "native.summary.json": "70f7a0f926d07c566b3f3d68ecf6ac684c7f05db2457b78d7c0259d1b10a0fb0",
+    "native.frames.csv": "af8de01cc8efe4319184100f1364808bb10049c65b17c438133e96d9c9808828",
+    "native.twstate": "841f1445bfc768060d948bb3a1d5efa18ae853f50d958a2231582408ce9b36a8",
+    "native.motion.csv.gz": "625169f0b55ab84573d8bff38ca1fb733747c9942bee5a224b39f2c9bb8d2b10"
+  },
+  "penetration_checks": {
+    "topology_identity_sha256": "eb0bdcadc232d21b5aab44f3757627113916b2ab206aed9d552bcbc0dfaa374e",
+    "projectile_clearance_step": 41,
+    "projectile_clearance_seconds": 0.7,
+    "projectile_position_at_clearance": [
+      -0.21689903736114502,
+      6.012092590332031,
+      4.84246826171875
+    ],
+    "corrected_steps": [
+      17,
+      32
+    ],
+    "fracture_steps": [
+      17,
+      30,
+      32,
+      33,
+      35
+    ],
+    "corrections_per_step_max": 1,
+    "largest_connected_cluster": 400,
+    "supported_chunks": 400,
+    "detached_chunks": 44,
+    "final_cluster_count": 41,
+    "displaced_wall_chunks": {
+      "entry": [
+        243,
+        244,
+        271,
+        272
+      ],
+      "exit": [
+        263,
+        264,
+        291,
+        292
+      ]
+    },
+    "broken_bonds": 199,
+    "all_stress_steps_converged": true,
+    "max_render_collision_position_error": 0,
+    "max_cluster_com_error": 2.159794576073182e-06,
+    "physics_ms": {
+      "min": 0.555506,
+      "mean": 7.279877499999998,
+      "p50": 8.209206,
+      "p95": 9.137939,
+      "p99": 14.467572,
+      "max": 18.192833
+    }
+  },
+  "validation_seconds": 1.451619074010523,
+  "capture": "/root/workspace/physx-2/out/prepare-before-cpu-20260909/wall-standard",
+  "artifacts": {
+    "/root/workspace/physx-2/out/destruction-sdk/reference/native_destruction_demo": "738dd7d7f0e7357478b10d34e817bbdfe7ef2a849a5d848cd08b0d55a4690c06",
+    "/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so": "d8ca468ab0fe1c5217882077e8655d36c52f0aaeaea68b7674092a856cfadcfb",
+    "/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so": "ed3043f983447130b541272813f219a4fe00ac445f2fe4e4dbfe905540af3e67"
+  }
+}

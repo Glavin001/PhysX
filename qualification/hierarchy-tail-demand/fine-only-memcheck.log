@@ -1,0 +1,12 @@
+========= COMPUTE-SANITIZER
+fine-only preparation nodes=1034 bonds=1032 generation=0 fine_components=1 total_components=2 exact-factors/retirement passed
+fine-only preparation nodes=1034 bonds=1032 generation=0 fine_components=1 total_components=2 exact-factors/retirement passed
+fine-only preparation nodes=1034 bonds=1032 generation=2 fine_components=3 total_components=3 exact-factors/retirement passed
+fine-only preparation nodes=1034 bonds=1032 generation=3 fine_components=1 total_components=2 exact-factors/retirement passed
+fine-only malformed bond/endpoint/CSR rejection and recovery passed
+fine-only preparation nodes=1034 bonds=1032 generation=0 fine_components=3 total_components=3 exact-factors/retirement passed
+fine-only preparation nodes=1034 bonds=1032 generation=0 fine_components=3 total_components=3 exact-factors/retirement passed
+fine-only preparation nodes=1034 bonds=1032 generation=2 fine_components=1 total_components=2 exact-factors/retirement passed
+fine-only preparation nodes=1034 bonds=1032 generation=3 fine_components=3 total_components=3 exact-factors/retirement passed
+fine-only malformed bond/endpoint/CSR rejection and recovery passed
+========= ERROR SUMMARY: 0 errors

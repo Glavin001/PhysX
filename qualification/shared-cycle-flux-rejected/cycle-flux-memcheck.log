@@ -1,0 +1,11 @@
+========= COMPUTE-SANITIZER
+START fixture=self nodes=2 bonds=1
+resident V-cycle nodes=2 bonds=1 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=2 bonds=1 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=2 bonds=1 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=2 bonds=1 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=2 bonds=1 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=2 bonds=1 dense-oracle=1 squared-capture/symmetry/linearity passed
+assembled resident hierarchy nodes=2 bonds=1 levels=7 transitions=6 passed
+========= LEAK SUMMARY: 0 bytes leaked in 0 allocations
+========= ERROR SUMMARY: 0 errors

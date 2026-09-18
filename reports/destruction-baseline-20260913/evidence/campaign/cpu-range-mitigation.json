@@ -1,0 +1,7 @@
+{
+  "reason": "Xid120 GSP fault in CUPTI worker at city64 cascading context teardown; plain application completed but capture quarantined. Pending/retried CPU cases now capture marked full tick only. Mitigation is unproven; successful historical captures preserved with their original options.",
+  "script_sha256": "6e0edf863ab93adc04b6f81fbb69a440fad395b871a2976dd844da5c22c1c062",
+  "failed_capture": "out/destruction-baseline-20260913/cpu-full/city64-cascading-fracture",
+  "recovery": "out/destruction-baseline-20260913/recovery/flr-receipt.json",
+  "time_unix": 1789264035.486111
+}

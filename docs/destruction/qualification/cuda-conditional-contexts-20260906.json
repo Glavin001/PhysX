@@ -1,0 +1,521 @@
+{
+  "milestone": "Independent CUDA graph/context diagnostic for the open native memory gate",
+  "timestampUtc": "2026-09-06T03:19:24.030499+00:00",
+  "baseRevision": "850f76ac0655183ffab054d7169a74f6625c90fb",
+  "qualificationComplete": false,
+  "physicsImplementationChanged": false,
+  "nativeFailureCleared": false,
+  "gpu": "NVIDIA GeForce RTX 4090, 595.71.05",
+  "compiler": "nvcc: NVIDIA (R) Cuda compiler driver\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Fri_Feb_21_20:23:50_PST_2025\nCuda compilation tools, release 12.8, V12.8.93\nBuild cuda_12.8.r12.8/compiler.35583870_0",
+  "sanitizers": [
+    {
+      "version": "2025.1.0.0",
+      "build": 35583870,
+      "path": "/usr/local/cuda/bin/compute-sanitizer"
+    },
+    {
+      "version": "2026.1.0.0",
+      "build": 37182542,
+      "manifest": "https://developer.download.nvidia.com/compute/cuda/redist/redistrib_13.2.0.json",
+      "package": {
+        "relative_path": "cuda_sanitizer_api/linux-x86_64/cuda_sanitizer_api-linux-x86_64-13.2.23-archive.tar.xz",
+        "sha256": "cd283331a133e19dd974f7b472c3f5970289b065bbf69c92924189387eefa34a",
+        "md5": "a799a8c413f859b36ec0db45caeffd04",
+        "size": "10385500"
+      }
+    }
+  ],
+  "buildCommands": [
+    [
+      "cmake",
+      "-S",
+      "tests/destruction/cuda-graph-contexts",
+      "-B",
+      "out/cuda-graph-contexts",
+      "-DCMAKE_CUDA_ARCHITECTURES=89",
+      "-DCMAKE_BUILD_TYPE=Release"
+    ],
+    [
+      "cmake",
+      "--build",
+      "out/cuda-graph-contexts",
+      "--parallel",
+      "4"
+    ]
+  ],
+  "sources": {
+    "tests/destruction/cuda-graph-contexts/CMakeLists.txt": "3878e4499c19cacfd0e4e50f17d2d47da02606a879d709c78c7d0b70b6ce4557",
+    "tests/destruction/cuda-graph-contexts/main.cu": "e0b4cc58af140449833de83ba3915b98824ed662faaca5263886509adcfb437b",
+    "tests/destruction/cuda-graph-contexts/README.md": "d01f1496110c4533d7721a9bb598dc6734ca6fe262a3366e598e12b88f573d2a"
+  },
+  "binary": {
+    "path": "out/cuda-graph-contexts/cuda_graph_contexts",
+    "sha256": "0284557466d32071e03acd4d460a8ec0c88dbfb6b22a8f7e561cf22dce200c36"
+  },
+  "matrix": [
+    {
+      "name": "normal-nested",
+      "command": [
+        "/root/workspace/physx-2/out/cuda-graph-contexts/cuda_graph_contexts",
+        "nested",
+        "256"
+      ],
+      "exitCode": 0,
+      "seconds": 36.067,
+      "passedIterations": 256,
+      "completed": true,
+      "log": "out/cuda-context-normal-nested.log",
+      "logSha256": "10edc3f295db123088401ab4f831ee208f113df8fb94486c8579c6d9e51453cd"
+    },
+    {
+      "name": "normal-while",
+      "command": [
+        "/root/workspace/physx-2/out/cuda-graph-contexts/cuda_graph_contexts",
+        "while",
+        "256"
+      ],
+      "exitCode": 0,
+      "seconds": 35.992,
+      "passedIterations": 256,
+      "completed": true,
+      "log": "out/cuda-context-normal-while.log",
+      "logSha256": "33a68c11606e2a85b6cdf2dab1acca763a3647a8cff36e2e4c485ccf78131ae8"
+    },
+    {
+      "name": "2025-direct",
+      "command": [
+        "/usr/local/cuda/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "99",
+        "--print-limit",
+        "4",
+        "/root/workspace/physx-2/out/cuda-graph-contexts/cuda_graph_contexts",
+        "direct",
+        "256"
+      ],
+      "exitCode": 0,
+      "seconds": 40.754,
+      "passedIterations": 256,
+      "completed": true,
+      "log": "out/cuda-context-2025-direct.log",
+      "logSha256": "97d45c9d7dd869b5fca9dc811a86ab2257b6ed7313362e1ce76d1671568d0028"
+    },
+    {
+      "name": "2025-graph",
+      "command": [
+        "/usr/local/cuda/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "99",
+        "--print-limit",
+        "4",
+        "/root/workspace/physx-2/out/cuda-graph-contexts/cuda_graph_contexts",
+        "graph",
+        "256"
+      ],
+      "exitCode": 0,
+      "seconds": 40.649,
+      "passedIterations": 256,
+      "completed": true,
+      "log": "out/cuda-context-2025-graph.log",
+      "logSha256": "dfd332f0b04ca6ee18fb3f30d0cff43163c7e678c0c2d5a0ab755dee18ab225e"
+    },
+    {
+      "name": "2025-if",
+      "command": [
+        "/usr/local/cuda/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "99",
+        "--print-limit",
+        "4",
+        "/root/workspace/physx-2/out/cuda-graph-contexts/cuda_graph_contexts",
+        "if",
+        "256"
+      ],
+      "exitCode": 0,
+      "seconds": 40.785,
+      "passedIterations": 256,
+      "completed": true,
+      "log": "out/cuda-context-2025-if.log",
+      "logSha256": "77e8c99d6eec2b9c6ce0d9d7b9abc7e93eb1c9b0e257d8f2b4811ec0b39c4e1e"
+    },
+    {
+      "name": "2025-nested",
+      "command": [
+        "/usr/local/cuda/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "99",
+        "--print-limit",
+        "4",
+        "/root/workspace/physx-2/out/cuda-graph-contexts/cuda_graph_contexts",
+        "nested",
+        "256"
+      ],
+      "exitCode": 99,
+      "seconds": 5.558,
+      "passedIterations": 33,
+      "completed": false,
+      "log": "out/cuda-context-2025-nested.log",
+      "logSha256": "e49b71d55eed2528d2ad318191d2caea980236738154913368614855ca6fb030"
+    },
+    {
+      "name": "2025-while",
+      "command": [
+        "/usr/local/cuda/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "99",
+        "--print-limit",
+        "4",
+        "/root/workspace/physx-2/out/cuda-graph-contexts/cuda_graph_contexts",
+        "while",
+        "256"
+      ],
+      "exitCode": 99,
+      "seconds": 0.29,
+      "passedIterations": 0,
+      "completed": false,
+      "log": "out/cuda-context-2025-while.log",
+      "logSha256": "cdf5cec709e922b4c76cc6d1cfa385debda1684f218544baad9daa20aa5e1743"
+    },
+    {
+      "name": "2025-nested-reused",
+      "command": [
+        "/usr/local/cuda/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "99",
+        "--print-limit",
+        "4",
+        "/root/workspace/physx-2/out/cuda-graph-contexts/cuda_graph_contexts",
+        "nested",
+        "256",
+        "--reuse-context"
+      ],
+      "exitCode": 0,
+      "seconds": 0.473,
+      "passedIterations": 256,
+      "completed": true,
+      "log": "out/cuda-context-2025-nested-reused.log",
+      "logSha256": "94625e3fef29121a4de4428e77a91e43d723fbf663327338edc47c63771c4f40"
+    },
+    {
+      "name": "2025-intentional-fault",
+      "command": [
+        "/usr/local/cuda/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "99",
+        "--print-limit",
+        "4",
+        "/root/workspace/physx-2/out/cuda-graph-contexts/cuda_graph_contexts",
+        "nested",
+        "1",
+        "--fault"
+      ],
+      "exitCode": 99,
+      "seconds": 0.54,
+      "passedIterations": 0,
+      "completed": false,
+      "log": "out/cuda-context-2025-intentional-fault.log",
+      "logSha256": "aa80d1d8de3ddc89599006ac4bcf3197df375f73e120c2e084ae0da50fd2d581"
+    },
+    {
+      "name": "2026-direct",
+      "command": [
+        "/root/workspace/physx-2/out/tooling/cuda_sanitizer_api-linux-x86_64-13.2.23-archive/compute-sanitizer/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "99",
+        "--print-limit",
+        "4",
+        "/root/workspace/physx-2/out/cuda-graph-contexts/cuda_graph_contexts",
+        "direct",
+        "256"
+      ],
+      "exitCode": 0,
+      "seconds": 41.142,
+      "passedIterations": 256,
+      "completed": true,
+      "log": "out/cuda-context-2026-direct.log",
+      "logSha256": "97d45c9d7dd869b5fca9dc811a86ab2257b6ed7313362e1ce76d1671568d0028"
+    },
+    {
+      "name": "2026-graph",
+      "command": [
+        "/root/workspace/physx-2/out/tooling/cuda_sanitizer_api-linux-x86_64-13.2.23-archive/compute-sanitizer/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "99",
+        "--print-limit",
+        "4",
+        "/root/workspace/physx-2/out/cuda-graph-contexts/cuda_graph_contexts",
+        "graph",
+        "256"
+      ],
+      "exitCode": 0,
+      "seconds": 41.185,
+      "passedIterations": 256,
+      "completed": true,
+      "log": "out/cuda-context-2026-graph.log",
+      "logSha256": "dfd332f0b04ca6ee18fb3f30d0cff43163c7e678c0c2d5a0ab755dee18ab225e"
+    },
+    {
+      "name": "2026-if",
+      "command": [
+        "/root/workspace/physx-2/out/tooling/cuda_sanitizer_api-linux-x86_64-13.2.23-archive/compute-sanitizer/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "99",
+        "--print-limit",
+        "4",
+        "/root/workspace/physx-2/out/cuda-graph-contexts/cuda_graph_contexts",
+        "if",
+        "256"
+      ],
+      "exitCode": 0,
+      "seconds": 41.384,
+      "passedIterations": 256,
+      "completed": true,
+      "log": "out/cuda-context-2026-if.log",
+      "logSha256": "77e8c99d6eec2b9c6ce0d9d7b9abc7e93eb1c9b0e257d8f2b4811ec0b39c4e1e"
+    },
+    {
+      "name": "2026-nested",
+      "command": [
+        "/root/workspace/physx-2/out/tooling/cuda_sanitizer_api-linux-x86_64-13.2.23-archive/compute-sanitizer/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "99",
+        "--print-limit",
+        "4",
+        "/root/workspace/physx-2/out/cuda-graph-contexts/cuda_graph_contexts",
+        "nested",
+        "256"
+      ],
+      "exitCode": 99,
+      "seconds": 5.479,
+      "passedIterations": 32,
+      "completed": false,
+      "log": "out/cuda-context-2026-nested.log",
+      "logSha256": "79aa6b653ea279f959a8bc03c90d641b51c93f714c860eac2daea1f25dd073de"
+    },
+    {
+      "name": "2026-while",
+      "command": [
+        "/root/workspace/physx-2/out/tooling/cuda_sanitizer_api-linux-x86_64-13.2.23-archive/compute-sanitizer/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "99",
+        "--print-limit",
+        "4",
+        "/root/workspace/physx-2/out/cuda-graph-contexts/cuda_graph_contexts",
+        "while",
+        "256"
+      ],
+      "exitCode": 99,
+      "seconds": 0.37,
+      "passedIterations": 0,
+      "completed": false,
+      "log": "out/cuda-context-2026-while.log",
+      "logSha256": "cdf5cec709e922b4c76cc6d1cfa385debda1684f218544baad9daa20aa5e1743"
+    },
+    {
+      "name": "2026-nested-reused",
+      "command": [
+        "/root/workspace/physx-2/out/tooling/cuda_sanitizer_api-linux-x86_64-13.2.23-archive/compute-sanitizer/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "99",
+        "--print-limit",
+        "4",
+        "/root/workspace/physx-2/out/cuda-graph-contexts/cuda_graph_contexts",
+        "nested",
+        "256",
+        "--reuse-context"
+      ],
+      "exitCode": 0,
+      "seconds": 0.518,
+      "passedIterations": 256,
+      "completed": true,
+      "log": "out/cuda-context-2026-nested-reused.log",
+      "logSha256": "94625e3fef29121a4de4428e77a91e43d723fbf663327338edc47c63771c4f40"
+    },
+    {
+      "name": "2026-intentional-fault",
+      "command": [
+        "/root/workspace/physx-2/out/tooling/cuda_sanitizer_api-linux-x86_64-13.2.23-archive/compute-sanitizer/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "99",
+        "--print-limit",
+        "4",
+        "/root/workspace/physx-2/out/cuda-graph-contexts/cuda_graph_contexts",
+        "nested",
+        "1",
+        "--fault"
+      ],
+      "exitCode": 99,
+      "seconds": 0.62,
+      "passedIterations": 0,
+      "completed": false,
+      "log": "out/cuda-context-2026-intentional-fault.log",
+      "logSha256": "97b2ca9844b050636a115666733d5d88748b0842c4588c8beff91172119f44db"
+    }
+  ],
+  "sharedAddressingDiagnostic": {
+    "adopted": false,
+    "reason": "Both valid nested and while reproductions still fail. A native pass under this setting cannot establish a reliable fix.",
+    "checks": [
+      {
+        "name": "nested",
+        "command": [
+          "/usr/local/cuda/bin/compute-sanitizer",
+          "--tool",
+          "memcheck",
+          "--error-exitcode",
+          "99",
+          "--print-limit",
+          "4",
+          "/root/workspace/physx-2/out/cuda-graph-contexts/cuda_graph_contexts",
+          "nested",
+          "256"
+        ],
+        "environment": {
+          "NV_COMPUTE_SANITIZER_SHARED_ADDRESSING_SUPPORT": "none"
+        },
+        "exitCode": 99,
+        "passedIterations": 76,
+        "seconds": 12.314211878925562,
+        "log": "out/cuda-addressing-none-nested.log",
+        "logSha256": "614832cc15752815ec77dfb89bc4475cff330737abc9731967c1c9eb0211fc94"
+      },
+      {
+        "name": "while",
+        "command": [
+          "/usr/local/cuda/bin/compute-sanitizer",
+          "--tool",
+          "memcheck",
+          "--error-exitcode",
+          "99",
+          "--print-limit",
+          "4",
+          "/root/workspace/physx-2/out/cuda-graph-contexts/cuda_graph_contexts",
+          "while",
+          "256"
+        ],
+        "environment": {
+          "NV_COMPUTE_SANITIZER_SHARED_ADDRESSING_SUPPORT": "none"
+        },
+        "exitCode": 99,
+        "passedIterations": 0,
+        "seconds": 0.2876444607973099,
+        "log": "out/cuda-addressing-none-while.log",
+        "logSha256": "cdf5cec709e922b4c76cc6d1cfa385debda1684f218544baad9daa20aa5e1743"
+      },
+      {
+        "name": "fault",
+        "command": [
+          "/usr/local/cuda/bin/compute-sanitizer",
+          "--tool",
+          "memcheck",
+          "--error-exitcode",
+          "99",
+          "--print-limit",
+          "4",
+          "/root/workspace/physx-2/out/cuda-graph-contexts/cuda_graph_contexts",
+          "nested",
+          "1",
+          "--fault"
+        ],
+        "environment": {
+          "NV_COMPUTE_SANITIZER_SHARED_ADDRESSING_SUPPORT": "none"
+        },
+        "exitCode": 99,
+        "passedIterations": 0,
+        "seconds": 0.5407066969200969,
+        "log": "out/cuda-addressing-none-fault.log",
+        "logSha256": "f02972d892aeb73a224228171a1df5635c18061634fe64e34384d15a6afca3df"
+      },
+      {
+        "name": "native",
+        "command": [
+          "/usr/local/cuda/bin/compute-sanitizer",
+          "--tool",
+          "memcheck",
+          "--error-exitcode",
+          "99",
+          "--print-limit",
+          "4",
+          "/root/workspace/physx-2/out/destruction-sdk/reference/native_gpu_correction_body_test"
+        ],
+        "environment": {
+          "NV_COMPUTE_SANITIZER_SHARED_ADDRESSING_SUPPORT": "none"
+        },
+        "exitCode": 0,
+        "passedIterations": 0,
+        "nativePassedCases": 10,
+        "seconds": 6.507406167220324,
+        "log": "out/cuda-addressing-none-native.log",
+        "logSha256": "cf89b462579b60a22fbe0f88f567b8410397ecf0d53f7581b90cf06d82bf9050"
+      }
+    ]
+  },
+  "preservedExcerpts": {
+    "path": "docs/destruction/baseline/cuda-conditional-contexts-20260906.log",
+    "sha256": "cfac0174c6559b9fe268ade06b8647c0c4447aeb7063fb963db0d913349f88fd",
+    "format": "Completed-case summaries and full failure excerpts; trailing whitespace normalized. Original log hashes are recorded per case."
+  },
+  "nativeDefaultChecker": {
+    "version": "2026.1.0.0",
+    "exitCode": 99,
+    "log": "out/native-correction-sanitizer-2026.log",
+    "sha256": "08e2c526536c6f94c8ef9b11544b6243797241b92556444c84028228dd27240f"
+  },
+  "coreDump": {
+    "complete": false,
+    "testPassed": false,
+    "log": "out/native-correction-coredump.log",
+    "sha256": "3a9d05ad1f065cc5fa11b2a7f69b254898838419530eecec37610141234831f3",
+    "note": "Checker generated GPU core dump and returned zero without completing the fixture. Matching debugger identified Warp MMU Fault then aborted internally."
+  },
+  "rejectedChanges": [
+    "temporary explicit graph upload/synchronization",
+    "shared CUDA runtime linkage",
+    "shared-addressing mode override"
+  ],
+  "restoredRuntime": {
+    "path": "physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so",
+    "sha256": "81574046bd3401ce18735d2e40ca9842e1c1d491b471f0b9dfc0b505aabecc35",
+    "buildLog": "out/stress-runtime-restored-build.log"
+  },
+  "assertionsWeakened": false,
+  "performanceClaim": false,
+  "vendorReportSubmitted": false,
+  "restoredNativeFixture": {
+    "command": [
+      "out/destruction-sdk/reference/native_gpu_correction_body_test"
+    ],
+    "exitCode": 0,
+    "passedCases": 10,
+    "log": "out/native-correction-after-diagnostics.log",
+    "sha256": "e8619fd5e597f95993cb5d90ffb9e1bd42d6f3f136680ded2d3aacf157b5d9cd"
+  }
+}

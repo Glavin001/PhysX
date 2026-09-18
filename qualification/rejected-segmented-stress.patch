@@ -1,0 +1,115 @@
+diff --git a/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu b/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu
+index f439add6..6d495cbf 100644
+--- a/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu
++++ b/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu
+@@ -341,11 +341,17 @@ bool skipConvergedEnabled()
+ // until whole-city timings qualify the additional pass and topology uploads.
+ bool deterministicReductionsEnabled()
+ {
++#ifdef PHYSX_RESIDENT_DESTRUCTION
++    // The integrated solver owns fixed-order component reductions. Reference
++    // targets retain the historical switch for independent comparisons.
++    return true;
++#else
+     static const bool enabled = [] {
+         const char* raw = std::getenv("BLAST_GPU_DETERMINISTIC_REDUCTIONS");
+         return raw != nullptr && std::string(raw) != "0";
+     }();
+     return enabled;
++#endif
+ }
+ 
+ bool nodeSpaceEnabled()
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressIterationDispatch.inl b/blast/source/sdk/extensions/stressgpu/detail/StressIterationDispatch.inl
+index 1ce36766..2d30586b 100644
+--- a/blast/source/sdk/extensions/stressgpu/detail/StressIterationDispatch.inl
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressIterationDispatch.inl
+@@ -1,5 +1,5 @@
+ // Private member definitions; included once inside ExtStressGpuSolverImpl.
+-// BEGIN UNCHANGED SOURCE
++// Iteration dispatch; native uses resident segmented reductions.
+     /// One CG iteration. Parameterised on the stream so it can be captured
+     /// either into the main graph (unrolled fallback) or into a conditional
+     /// while-node's body graph, which is what gives device-side early exit.
+@@ -235,11 +235,10 @@
+     /// of the iteration and no chance of the two shapes drifting apart.
+     void launchPersistentStress(const ExtStressGpuSolveParams& params) {
+ #ifdef PHYSX_RESIDENT_DESTRUCTION
+-        if(deterministicReductionsEnabled())throw std::runtime_error("Reference reduction override is not supported by the integrated solver");
+         const unsigned nodeBlocks=(m_graphNodeCap+kBlockSize-1)/kBlockSize;
+         const unsigned islandBlocks=(m_islandCount+kBlockSize-1)/kBlockSize;
+         const unsigned slots=reductionSlots(m_graphNodeCap),maxIterations=params.maxIterations;
+-        PersistentStressArgs args{m_nsW,m_residual,m_inertia,m_nodeBondBegin,m_nodeBondRef,m_node0,m_node1,m_offset0,m_offset1,m_health,m_colScales,m_bondIsland,m_nodeIsland,m_islandActive,m_reduceSlots,slots,m_activeNodes,m_activeCounts,m_iteration,m_gradientSquared,m_islandConverged,m_deltaSquared,m_blockActiveCounts,m_islandCount,m_nsPi,m_nsQ,m_previousGradientSquared,m_projectedDirectionSquared,m_status,islandBlocks,maxIterations,m_nsMu,nodeBlocks};
++        PersistentStressArgs args{m_nsW,m_residual,m_inertia,m_nodeBondBegin,m_nodeBondRef,m_node0,m_node1,m_offset0,m_offset1,m_health,m_colScales,m_bondIsland,m_nodeIsland,m_islandActive,m_reductionInput,slots,m_activeNodes,m_activeCounts,m_iteration,m_gradientSquared,m_islandConverged,m_deltaSquared,m_blockActiveCounts,m_islandCount,m_nsPi,m_nsQ,m_previousGradientSquared,m_projectedDirectionSquared,m_status,islandBlocks,maxIterations,m_nsMu,nodeBlocks,m_reductionOrder[1].deviceOrder,m_reductionOrder[1].deviceTiles,m_reductionOrder[1].devicePartialBegin,m_deterministicPartials};
+         // Residency is a launch constraint, not a physical-work limit. All
+         // virtual node/island blocks are processed by the resident grid.
+         int blocksPerSm=0,device=0,sms=0;
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressResidentIteration.cuh b/blast/source/sdk/extensions/stressgpu/detail/StressResidentIteration.cuh
+index 7a8af6a1..09dfd5b3 100644
+--- a/blast/source/sdk/extensions/stressgpu/detail/StressResidentIteration.cuh
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressResidentIteration.cuh
+@@ -1,5 +1,5 @@
+ // Private implementation fragment; included once inside the owning .cu namespace.
+-// BEGIN UNCHANGED SOURCE
++// GPU-resident iteration with producer-owned component reduction storage.
+ #ifdef PHYSX_RESIDENT_DESTRUCTION
+ // The iteration's mathematical stages are shared with the reference kernels.
+ // One cooperative launch owns all iterations; virtual block ranges cover any
+@@ -38,27 +38,49 @@ struct PersistentStressArgs {
+     std::uint32_t maxIterations;
+     AngLin* m_nsMu;
+     unsigned nodeBlocks;
++    const std::uint32_t* nodeOrder;
++    const uint2* nodeTiles;
++    const std::uint32_t* partialBegin;
++    float* partials;
+ };
++// One warp owns a tile. Several fragmented components can reduce concurrently
++// inside a CTA; assigning a whole CTA to each tiny component serializes the
++// small-world resident grid behind unnecessary block barriers.
++__device__ __forceinline__ void residentStressReduce(const PersistentStressArgs& a, unsigned tiles)
++{
++    const unsigned lane=threadIdx.x&31u;
++    const unsigned warp=(blockIdx.x*blockDim.x+threadIdx.x)/32u;
++    const unsigned warps=gridDim.x*blockDim.x/32u;
++    for(unsigned tileIndex=warp;tileIndex<tiles;tileIndex+=warps){
++        const uint2 tile=a.nodeTiles[tileIndex];
++        const unsigned island=a.m_nodeIsland[a.nodeOrder[tile.x]];
++        float value=0;
++        if(a.m_islandActive[island])
++            for(unsigned i=tile.x+lane;i<tile.y;i+=32u)value+=a.m_reduceSlots[a.nodeOrder[i]];
++        for(unsigned offset=16;offset;offset>>=1)
++            value+=__shfl_down_sync(0xffffffffu,value,offset);
++        if(!lane)a.partials[tileIndex]=value;
++    }
++}
+ __global__ void persistentStressSolve(PersistentStressArgs a) {
+     const auto grid=cooperative_groups::this_grid();
+-    const unsigned lane=blockIdx.x*blockDim.x+threadIdx.x;
+-    const unsigned stride=gridDim.x*blockDim.x;
++    const unsigned tiles=a.partialBegin[a.m_islandCount];
+     do {
+-        for(unsigned i=lane;i<a.m_islandCount*a.slots;i+=stride)a.m_reduceSlots[i]=0;
+-        if(gridDim.x==1)__syncthreads();else grid.sync();
+         for(unsigned block=blockIdx.x;block<a.nodeBlocks;block+=gridDim.x)
+             nodeSpaceMatvecBody(a.m_nsW,a.m_residual,a.m_inertia,a.m_nodeBondBegin,a.m_nodeBondRef,a.m_node0,a.m_node1,a.m_offset0,a.m_offset1,a.m_health,a.m_colScales,a.m_bondIsland,nullptr,a.m_nodeIsland,a.m_islandActive,true,a.m_reduceSlots,a.slots,a.m_activeNodes,a.m_activeCounts,a.m_iteration,0u,block);
+         if(gridDim.x==1)__syncthreads();else grid.sync();
+-        for(unsigned block=blockIdx.x;block<a.islandBlocks;block+=gridDim.x)
+-            finalizeAndCheckConvergenceBody(a.m_reduceSlots,a.m_gradientSquared,a.slots,a.m_islandActive,a.m_islandConverged,a.m_deltaSquared,a.m_blockActiveCounts,a.m_islandCount,nullptr,block);
++        residentStressReduce(a,tiles);
+         if(gridDim.x==1)__syncthreads();else grid.sync();
+-        for(unsigned i=lane;i<a.m_islandCount*a.slots;i+=stride)a.m_reduceSlots[i]=0;
++        for(unsigned block=blockIdx.x;block<a.islandBlocks;block+=gridDim.x)
++            finalizeAndCheckConvergenceBody(a.partials,a.m_gradientSquared,a.slots,a.m_islandActive,a.m_islandConverged,a.m_deltaSquared,a.m_blockActiveCounts,a.m_islandCount,a.partialBegin,block);
+         if(gridDim.x==1)__syncthreads();else grid.sync();
+         for(unsigned block=blockIdx.x;block<a.nodeBlocks;block+=gridDim.x)
+             nodeSpaceUpdateDirectionBody(a.m_nsPi,a.m_nsQ,a.m_residual,a.m_nsW,a.m_gradientSquared,a.m_previousGradientSquared,a.m_nodeIsland,a.m_islandActive,a.m_reduceSlots,a.slots,a.m_activeNodes,a.m_activeCounts,a.m_iteration,block);
+         if(gridDim.x==1)__syncthreads();else grid.sync();
++        residentStressReduce(a,tiles);
++        if(gridDim.x==1)__syncthreads();else grid.sync();
+         for(unsigned block=blockIdx.x;block<a.islandBlocks;block+=gridDim.x)
+-            finalizeAndRetireBody(a.m_reduceSlots,a.m_projectedDirectionSquared,a.slots,a.m_islandActive,a.m_previousGradientSquared,a.m_gradientSquared,a.m_status,a.m_blockActiveCounts,a.islandBlocks,a.m_iteration,a.m_islandCount,0,a.maxIterations,nullptr,block);
++            finalizeAndRetireBody(a.partials,a.m_projectedDirectionSquared,a.slots,a.m_islandActive,a.m_previousGradientSquared,a.m_gradientSquared,a.m_status,a.m_blockActiveCounts,a.islandBlocks,a.m_iteration,a.m_islandCount,0,a.maxIterations,a.partialBegin,block);
+         if(gridDim.x==1)__syncthreads();else grid.sync();
+         for(unsigned block=blockIdx.x;block<a.nodeBlocks;block+=gridDim.x)
+             nodeSpaceUpdateSolutionBody(a.m_iteration,a.maxIterations,a.m_nsMu,a.m_residual,a.m_nsPi,a.m_nsQ,a.m_gradientSquared,a.m_projectedDirectionSquared,a.m_nodeIsland,a.m_islandActive,a.m_activeNodes,a.m_activeCounts,block);

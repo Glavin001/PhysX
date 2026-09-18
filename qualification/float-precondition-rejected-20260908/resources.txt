@@ -1,0 +1,523 @@
+
+Fatbin ptx code:
+================
+arch = sm_89
+code version = [8,7]
+host = linux
+compile_size = 64bit
+compressed
+identifier = /root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionRuntime.cu
+ptxasOptions =  --generate-line-info 
+
+Fatbin elf code:
+================
+arch = sm_89
+code version = [1,7]
+host = linux
+compile_size = 64bit
+identifier = /root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionRuntime.cu
+
+Resource usage:
+ Common:
+  GLOBAL:39 CONSTANT[4]:312
+ Function _ZN3cub17CUB_200700_890_NS23DeviceSelectSweepKernelINS0_6detail24device_select_policy_hubIN5physx25PxvDestructionBodyRequestENS0_8NullTypeEiLb0ELb0EE9Policy900EPS5_PS6_S9_PjNS0_13ScanTileStateIiLb1EEENS4_57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e39NeedsBodyES6_iLb0ELb0EEEvT0_T1_T2_T3_T4_T5_T6_T7_iNS2_7vsmem_tE:
+  REG:40 STACK:0 SHARED:5168 LOCAL:0 CONSTANT[0]:416 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN3cub17CUB_200700_890_NS23DeviceSelectSweepKernelINS0_6detail24device_select_policy_hubIN5physx27PxDestructionCorrectionBodyENS0_8NullTypeEiLb0ELb0EE9Policy900EPS5_PS6_S9_PjNS0_13ScanTileStateIiLb1EEENS4_57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e317HasCorrectionBodyES6_iLb0ELb0EEEvT0_T1_T2_T3_T4_T5_T6_T7_iNS2_7vsmem_tE:
+  REG:76 STACK:0 SHARED:32816 LOCAL:0 CONSTANT[0]:416 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN3cub17CUB_200700_890_NS23DeviceSelectSweepKernelINS0_6detail24device_select_policy_hubIN5physx29PxDestructionCollisionBindingENS0_8NullTypeEiLb0ELb0EE9Policy900EPS5_PS6_S9_PjNS0_13ScanTileStateIiLb1EEENS4_57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e328HasMigratingCollisionBindingES6_iLb0ELb0EEEvT0_T1_T2_T3_T4_T5_T6_T7_iNS2_7vsmem_tE:
+  REG:38 STACK:0 SHARED:4144 LOCAL:0 CONSTANT[0]:416 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN3cub17CUB_200700_890_NS23DeviceSelectSweepKernelINS0_6detail24device_select_policy_hubIN5physx29PxDestructionCollisionBindingENS0_8NullTypeEiLb0ELb0EE9Policy900EPS5_PS6_S9_PjNS0_13ScanTileStateIiLb1EEENS4_57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e319HasCollisionBindingES6_iLb0ELb0EEEvT0_T1_T2_T3_T4_T5_T6_T7_iNS2_7vsmem_tE:
+  REG:38 STACK:0 SHARED:4144 LOCAL:0 CONSTANT[0]:416 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN3cub17CUB_200700_890_NS23DeviceCompactInitKernelINS0_13ScanTileStateIiLb1EEEPjEEvT_iT0_:
+  REG:12 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:376 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN3cub17CUB_200700_890_NS29DeviceRadixSortOnesweepKernelINS0_21DeviceRadixSortPolicyImNS0_8NullTypeEjE9Policy900ELb0EmS3_jiiNS0_6detail21identity_decomposer_tEEEvPT5_S9_PT3_PKSA_PT1_PKSE_PT2_PKSI_T4_iiT6_:
+  REG:55 STACK:0 SHARED:31744 LOCAL:0 CONSTANT[0]:429 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN3cub17CUB_200700_890_NS33DeviceRadixSortExclusiveSumKernelINS0_21DeviceRadixSortPolicyImNS0_8NullTypeEjE9Policy900EjEEvPT0_:
+  REG:23 STACK:0 SHARED:1184 LOCAL:0 CONSTANT[0]:360 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN3cub17CUB_200700_890_NS30DeviceRadixSortHistogramKernelINS0_21DeviceRadixSortPolicyImNS0_8NullTypeEjE9Policy900ELb0EmjNS0_6detail21identity_decomposer_tEEEvPT2_PKT1_S8_iiT3_:
+  REG:55 STACK:0 SHARED:8192 LOCAL:0 CONSTANT[0]:381 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN3cub17CUB_200700_890_NS30DeviceRadixSortDownsweepKernelINS0_21DeviceRadixSortPolicyImNS0_8NullTypeEjE9Policy900ELb1ELb0EmS3_jNS0_6detail21identity_decomposer_tEEEvPKT2_PS8_PKT3_PSC_PT4_SG_iiNS0_13GridEvenShareISG_EET5_:
+  REG:157 STACK:0 SHARED:47360 LOCAL:0 CONSTANT[0]:445 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN3cub17CUB_200700_890_NS30DeviceRadixSortDownsweepKernelINS0_21DeviceRadixSortPolicyImNS0_8NullTypeEjE9Policy900ELb0ELb0EmS3_jNS0_6detail21identity_decomposer_tEEEvPKT2_PS8_PKT3_PSC_PT4_SG_iiNS0_13GridEvenShareISG_EET5_:
+  REG:92 STACK:0 SHARED:45568 LOCAL:0 CONSTANT[0]:445 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN3cub17CUB_200700_890_NS23RadixSortScanBinsKernelINS0_21DeviceRadixSortPolicyImNS0_8NullTypeEjE9Policy900EjEEvPT0_i:
+  REG:79 STACK:0 SHARED:47120 LOCAL:0 CONSTANT[0]:364 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN3cub17CUB_200700_890_NS28DeviceRadixSortUpsweepKernelINS0_21DeviceRadixSortPolicyImNS0_8NullTypeEjE9Policy900ELb1ELb0EmjNS0_6detail21identity_decomposer_tEEEvPKT2_PT3_SB_iiNS0_13GridEvenShareISB_EET4_:
+  REG:40 STACK:0 SHARED:16384 LOCAL:0 CONSTANT[0]:421 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN3cub17CUB_200700_890_NS28DeviceRadixSortUpsweepKernelINS0_21DeviceRadixSortPolicyImNS0_8NullTypeEjE9Policy900ELb0ELb0EmjNS0_6detail21identity_decomposer_tEEEvPKT2_PT3_SB_iiNS0_13GridEvenShareISB_EET4_:
+  REG:48 STACK:0 SHARED:32768 LOCAL:0 CONSTANT[0]:421 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN3cub17CUB_200700_890_NS31DeviceRadixSortSingleTileKernelINS0_21DeviceRadixSortPolicyImNS0_8NullTypeEjE9Policy900ELb0EmS3_jNS0_6detail21identity_decomposer_tEEEvPKT1_PS8_PKT2_PSC_T3_iiT4_:
+  REG:93 STACK:0 SHARED:33856 LOCAL:0 CONSTANT[0]:397 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN3cub17CUB_200700_890_NS11EmptyKernelIvEEvv:
+  REG:4 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:352 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e323commitNativeMotionSlotsEPNS_29PxDestructionMotionSlotStatusEPKNS_24PxDestructionStageStatusE:
+  REG:8 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:368 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e334finishNativeBodyShadowRegistrationEbPNS_33PxDestructionBodyAllocationStatusEPNS_24PxDestructionStageStatusE:
+  REG:12 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:376 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e323finishNativeMotionSlotsEPNS_33PxDestructionBodyAllocationStatusEPNS_24PxDestructionStageStatusE:
+  REG:8 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:368 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e323assignNativeMotionSlotsEPKNS_29PxDestructionMotionSlotStatusEPKjPKNS_25PxvDestructionBodyRequestEjPjS9_PNS_33PxDestructionBodyAllocationStatusE:
+  REG:16 STACK:0 SHARED:0 LOCAL:0 CONSTANT[2]:8 CONSTANT[0]:408 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e322beginNativeMotionSlotsEPNS_29PxDestructionMotionSlotStatusEjPKNS_34PxDestructionBodyPreparationStatusEjPNS_33PxDestructionBodyAllocationStatusE:
+  REG:16 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:392 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e327installCorrectionBodyInputsEPKNS_27PxDestructionCorrectionBodyEjPKNS_10PxgBodySimEPKNS_20PxgBodySimVelocitiesEPS4_PS7_PNS_24PxgRigidBodyAccelerationE:
+  REG:64 STACK:0 SHARED:0 LOCAL:0 CONSTANT[2]:8 CONSTANT[0]:408 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e329gatherCorrectionOwnerMetadataEPKNS_27PxDestructionCorrectionBodyEjPKjPKNS_25PxvDestructionBodyRequestEPS6_Pj:
+  REG:24 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:400 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e327finishCorrectionPreparationEPNS_40PxDestructionCorrectionPreparationStatusEPKNS_39PxDestructionCollisionPreparationStatusEmPNS_24PxDestructionStageStatusE:
+  REG:13 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:384 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e328inspectCorrectionSourceLoadsEPKNS_26PxDestructionStressClusterEPKjjPKNS_10PxgBodySimEjPKNS_39PxDestructionCollisionPreparationStatusEPNS_40PxDestructionCorrectionPreparationStatusE:
+  REG:18 STACK:0 SHARED:0 LOCAL:0 CONSTANT[2]:8 CONSTANT[0]:408 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e327prepareCorrectionBodyInputsEPKNS_29PxDestructionClusterBodyStateEPKjjNS_31PxDestructionTopologyDeviceViewEPKNS_24PxDestructionStressChunkES5_PKNS_10PxgBodySimEPKNS_20PxgBodySimVelocitiesEjjPKNS_39PxDestructionCollisionPreparationStatusEPNS_27PxDestructionCorrectionBodyEPNS_40PxDestructionCorrectionPreparationStatusE:
+  REG:96 STACK:0 SHARED:0 LOCAL:0 CONSTANT[2]:24 CONSTANT[0]:568 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e326finishCollisionPreparationEPNS_39PxDestructionCollisionPreparationStatusEPKNS_33PxDestructionBodyAllocationStatusEPNS_24PxDestructionStageStatusE:
+  REG:12 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:376 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e328installNativeCollisionOwnersEPKNS_29PxDestructionCollisionBindingEjPNS_11PxgShapeSimEjPNS_11PxNodeIndexEjPmm:
+  REG:13 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:416 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e334preparePersistentCollisionBindingsEPKNS_24PxDestructionStressChunkEjPKNS_26PxDestructionStressClusterEPKjNS_31PxDestructionTopologyDeviceViewES8_S8_PKNS_11PxgShapeSimEjPKNS_11PxNodeIndexEjPNS_29PxDestructionCollisionBindingEPNS_39PxDestructionCollisionPreparationStatusEPKNS_33PxDestructionBodyAllocationStatusE:
+  REG:18 STACK:0 SHARED:0 LOCAL:0 CONSTANT[2]:8 CONSTANT[0]:584 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e319indexCandidateRootsENS_31PxDestructionTopologyDeviceViewEPj:
+  REG:10 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:488 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e324finishBodyInitializationEPNS_33PxDestructionBodyAllocationStatusEPNS_24PxDestructionStageStatusE:
+  REG:10 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:368 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e330initializeReservedBodiesKernelEPKNS_25PxvDestructionBodyRequestEPKjjPKNS_29PxDestructionClusterBodyStateEPNS_10PxgBodySimEPNS_20PxgBodySimVelocitiesEPNS_24PxgRigidBodyAccelerationEPNS_33PxDestructionBodyAllocationStatusE:
+  REG:56 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:416 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e322validateReservedBodiesEPKNS_25PxvDestructionBodyRequestEPKjjPKNS_29PxDestructionClusterBodyStateEjjPNS_33PxDestructionBodyAllocationStatusE:
+  REG:14 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:400 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e328commitObservedTopologyMotionENS_31PxDestructionTopologyDeviceViewEPKNS_26PxDestructionClusterMotionEPKNS_24PxDestructionStageStatusE:
+  REG:34 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:496 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e321finishBodyPreparationEPKNS_38PxDestructionTopologyTransactionStatusEPNS_34PxDestructionBodyPreparationStatusEPNS_24PxDestructionStageStatusE:
+  REG:10 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:376 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e322prepareCandidateBodiesENS_31PxDestructionTopologyDeviceViewEPKNS_24PxDestructionStressChunkEPKNS_26PxDestructionStressClusterEPNS_29PxDestructionClusterBodyStateEPNS_34PxDestructionBodyPreparationStatusES1_PNS_25PxvDestructionBodyRequestEPj:
+  REG:116 STACK:176 SHARED:0 LOCAL:0 CONSTANT[2]:24 CONSTANT[0]:656 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e320beginBodyPreparationEPKNS_38PxDestructionTopologyTransactionStatusENS_31PxDestructionTopologyDeviceViewEPNS_34PxDestructionBodyPreparationStatusE:
+  REG:12 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:496 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e321inspectStressTopologyEPKN2Nv5Blast32ExtStressGpuDeviceTopologyStatusEPNS_24PxDestructionStageStatusE:
+  REG:8 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:368 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e327acceptUnchangedMotionCommitEPKjPNS_24PxDestructionStageStatusE:
+  REG:8 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:368 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e326checkUnchangedMotionCommitENS_31PxDestructionTopologyDeviceViewES1_PKNS_38PxDestructionTopologyTransactionStatusEPjPKNS_24PxDestructionStressChunkES5_PNS_39PxDestructionCollisionPreparationStatusE:
+  REG:14 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:648 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e326beginUnchangedMotionCommitEPKNS_38PxDestructionTopologyTransactionStatusEPKNS_24PxDestructionStageStatusEPj:
+  REG:10 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:376 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e326inspectTopologyTransactionEPKNS_38PxDestructionTopologyTransactionStatusEPNS_24PxDestructionStageStatusE:
+  REG:8 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:368 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e317emitTopologyEditsEPKNS_24PxDestructionBondVerdictEjPKNS_23PxDestructionCrushStateES6_jPNS_18PxgDestructionEditEPj:
+  REG:14 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:408 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e325provisionalTopologyMotionENS_31PxDestructionTopologyDeviceViewEPKNS_24PxDestructionStressChunkEPKNS_26PxDestructionStressClusterEPKNS_12PxTransformTIfEEPKNS_10PxgBodySimEPNS_26PxDestructionClusterMotionE:
+  REG:44 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:520 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e312finishStatusEPKN2Nv5Blast24ExtStressGpuDeviceStatusEPNS_24PxDestructionStageStatusEPKNS_23PxDestructionVectorPairEj:
+  REG:12 STACK:0 SHARED:0 LOCAL:0 CONSTANT[2]:8 CONSTANT[0]:380 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e313routeContactsENS_28PxgDestructionSolvedContactsEPKNS0_6LookupEjPKNS_24PxDestructionStressChunkEPKNS_12PxTransformTIfEEfPNS_23PxDestructionVectorPairEPNS_24PxDestructionSurfaceLoadEPNS_24PxDestructionStageStatusEPKNS_10PxgBodySimEPKNS_21PxDestructionMaterialEPf:
+  REG:56 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:528 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e312prepareLoadsEPKNS_24PxDestructionStressChunkEjPKNS_26PxDestructionStressClusterEPKNS_12PxTransformTIfEEPKNS_7PxVec3TIfEESC_PNS_23PxDestructionVectorPairEPNS_24PxDestructionSurfaceLoadEPf:
+  REG:34 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:432 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e333prepareNativeCorrectionAcceptanceEPNS_24PxDestructionStageStatusEPKNS_23PxgContactGraphSequenceEPj:
+  REG:10 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:376 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e325mergePostCorrectionStatusEPNS_24PxDestructionStageStatusES1_:
+  REG:18 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:416 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e310startFrameEPNS_24PxDestructionStageStatusEPKNS_23PxgContactGraphSequenceEb:
+  REG:8 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:369 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e324buildNativeContactInputsEPNS_22PxgContactManagerInputEjPKNS_11PxgShapeSimEj:
+  REG:18 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:380 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e322finishNativeCorrectionEPNS_24PxDestructionStageStatusE:
+  REG:10 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:360 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e324requireNativeConvergenceEPNS_24PxDestructionStageStatusE:
+  REG:8 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:360 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e321observeNativeClustersEPKNS_26PxDestructionStressClusterEjPKNS_10PxgBodySimEPNS_12PxTransformTIfEEPNS_7PxVec3TIfEEPKNS_24PxDestructionStageStatusE:
+  REG:34 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:400 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e319acceptChunkBindingsENS_31PxDestructionTopologyDeviceViewEPKjPNS_24PxDestructionStressChunkEPKNS_24PxDestructionStageStatusE:
+  REG:10 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:504 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e321acceptClusterBindingsENS_31PxDestructionTopologyDeviceViewEPKjPNS_26PxDestructionStressClusterEPKNS_24PxDestructionStageStatusE:
+  REG:16 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:504 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e319commitMaterialStateEPKNS_24PxDestructionBondVerdictEPfjPKNS_23PxDestructionCrushStateEPS5_jPKNS_24PxDestructionStageStatusE:
+  REG:18 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:408 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e325requireFractureCorrectionEPNS_24PxDestructionStageStatusE:
+  REG:8 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:360 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e323finalizeMaterialVerdictEPKNS_23PxDestructionStressBondEPNS_24PxDestructionBondVerdictEPKNS_23PxDestructionCrushStateEPKfjPNS_24PxDestructionStageStatusE:
+  REG:12 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:400 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e322evaluateChunkMaterialsEPKNS_24PxDestructionStressChunkEPKNS_23PxDestructionStressBondEPKNS_21PxDestructionMaterialEPKjSB_PKfPKNS_23PxDestructionVectorPairEPKNS_7PxVec3TIfEEPKNS_24PxDestructionSurfaceLoadESD_PKNS_23PxDestructionCrushStateEPSO_jfPNS_24PxDestructionStageStatusE:
+  REG:40 STACK:0 SHARED:0 LOCAL:0 CONSTANT[2]:8 CONSTANT[0]:464 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e321evaluateBondMaterialsEPKNS_24PxDestructionStressChunkEPKNS_23PxDestructionStressBondEPKNS_21PxDestructionMaterialEPKfPKNS_23PxDestructionVectorPairEjfffbPNS_24PxDestructionBondVerdictEPNS_7PxVec3TIfEEPNS_24PxDestructionStageStatusE:
+  REG:30 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:440 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx19destructionPreSolve6finishEPKNS_15PxvPreSolveNodeEjPjS4_S4_PKj:
+  REG:15 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:400 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx19destructionPreSolve20requireValidContactsEPKNS_32PxgDestructionContactGraphStatusE:
+  REG:6 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:360 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx19destructionPreSolve21connectSupportBridgesEPKNS_15PxvPreSolveEdgeEjPKNS_15PxvPreSolveNodeEjPjS7_:
+  REG:12 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:400 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx19destructionPreSolve15connectContactsENS_30PxgDestructionPreSolveContactsEPKjPKNS_15PxvPreSolveNodeEjPjPNS_32PxgDestructionContactGraphStatusES7_:
+  REG:19 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:456 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx19destructionPreSolve7connectEPKNS_15PxvPreSolveEdgeEjPKNS_15PxvPreSolveNodeEjPj:
+  REG:12 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:392 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx19destructionPreSolve4seedEPKNS_15PxvPreSolveNodeEjS3_jPKjjPjS5_:
+  REG:12 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:416 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx19destructionPreSolve10initializeEPjjS1_j:
+  REG:8 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:380 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx19destructionPreSolve11updateNodesEPKNS_21PxvPreSolveNodeUpdateEjPNS_15PxvPreSolveNodeEj:
+  REG:12 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:380 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx25destructionSolverMetadata10applyPagesEPKNS_21PxvIslandMetadataPageEjPjjS4_j:
+  REG:16 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:396 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx23destructionContactGraph8compressEPjS1_j:
+  REG:16 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:372 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx23destructionContactGraph16componentMembersEPKmPjj:
+  REG:12 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:372 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx23destructionContactGraph13componentKeysEPKjPmj:
+  REG:10 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:372 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx23destructionContactGraph20connectRetainedSlotsEPKNS_26PxgDestructionRetainedEdgeEPKjjjPjS6_PNS_32PxgDestructionContactGraphStatusE:
+  REG:18 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:400 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx23destructionContactGraph21finishRetainedUpdatesEPj:
+  REG:8 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:360 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx23destructionContactGraph20applyRetainedUpdatesEPKNS_26PxgDestructionRetainedEdgeEjPS1_jPjS5_PNS_32PxgDestructionContactGraphStatusE:
+  REG:22 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:408 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx23destructionContactGraph23validateRetainedUpdatesEPKNS_26PxgDestructionRetainedEdgeEjjPjPNS_32PxgDestructionContactGraphStatusE:
+  REG:12 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:384 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx23destructionContactGraph15connectRetainedEPKNS_26PxgDestructionRetainedEdgeEjjPjS4_PNS_32PxgDestructionContactGraphStatusE:
+  REG:18 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:392 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx23destructionContactGraph7connectEPKNS_22PxgContactManagerInputEPKNS_23PxgContactGraphIdentityEPKNS_23PxsContactManagerOutputEjPKNS_11PxgShapeSimEjjPNS_32PxgDestructionContactGraphStatusEPKjPjSH_:
+  REG:20 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:432 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx23destructionContactGraph6decodeEPKNS_22PxgContactManagerInputEPKNS_23PxgContactGraphIdentityEPKNS_23PxsContactManagerOutputEjPKNS_11PxgShapeSimEjjPNS_25PxgDestructionContactEdgeEPNS_32PxgDestructionContactGraphStatusEPKj:
+  REG:19 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:424 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx23destructionContactGraph6retireEPKjjjPjPNS_32PxgDestructionContactGraphStatusE:
+  REG:8 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:384 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx23destructionContactGraph10initializeEPjS1_jPNS_32PxgDestructionContactGraphStatusEjPKNS_23PxgContactGraphSequenceE:
+  REG:12 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:400 TEXTURE:0 SURFACE:0 SAMPLER:0
+
+Fatbin ptx code:
+================
+arch = sm_89
+code version = [8,7]
+host = linux
+compile_size = 64bit
+compressed
+identifier = /root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionTopology.cu
+ptxasOptions =  --generate-line-info 
+
+Fatbin elf code:
+================
+arch = sm_89
+code version = [1,7]
+host = linux
+compile_size = 64bit
+identifier = /root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionTopology.cu
+
+Resource usage:
+ Common:
+  GLOBAL:28 CONSTANT[4]:232
+ Function _ZN3cub17CUB_200700_890_NS16DeviceScanKernelINS0_16DeviceScanPolicyIjN4cuda3std3__44plusIvEEE9Policy900EPjSA_NS0_13ScanTileStateIjLb1EEES7_NS0_6detail10InputValueIjSA_EEjjLb0EEEvT0_T1_T2_iT3_T4_T5_:
+  REG:48 STACK:0 SHARED:7696 LOCAL:0 CONSTANT[0]:404 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN3cub17CUB_200700_890_NS20DeviceScanInitKernelINS0_13ScanTileStateIjLb1EEEEEvT_i:
+  REG:10 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:364 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN3cub17CUB_200700_890_NS23DeviceSelectSweepKernelINS0_6detail24device_select_policy_hubIjjiLb0ELb0EE9Policy900EPjS6_S6_S6_NS0_13ScanTileStateIiLb1EEENS0_8NullTypeES9_iLb0ELb0EEEvT0_T1_T2_T3_T4_T5_T6_T7_iNS2_7vsmem_tE:
+  REG:48 STACK:0 SHARED:5120 LOCAL:0 CONSTANT[0]:416 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN3cub17CUB_200700_890_NS23DeviceCompactInitKernelINS0_13ScanTileStateIiLb1EEEPjEEvT_iT0_:
+  REG:12 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:376 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN3cub17CUB_200700_890_NS29DeviceRadixSortOnesweepKernelINS0_21DeviceRadixSortPolicyIjjjE9Policy900ELb0EjjjiiNS0_6detail21identity_decomposer_tEEEvPT5_S8_PT3_PKS9_PT1_PKSD_PT2_PKSH_T4_iiT6_:
+  REG:77 STACK:0 SHARED:33280 LOCAL:0 CONSTANT[0]:429 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN3cub17CUB_200700_890_NS33DeviceRadixSortExclusiveSumKernelINS0_21DeviceRadixSortPolicyIjjjE9Policy900EjEEvPT0_:
+  REG:23 STACK:0 SHARED:1184 LOCAL:0 CONSTANT[0]:360 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN3cub17CUB_200700_890_NS30DeviceRadixSortHistogramKernelINS0_21DeviceRadixSortPolicyIjjjE9Policy900ELb0EjjNS0_6detail21identity_decomposer_tEEEvPT2_PKT1_S7_iiT3_:
+  REG:38 STACK:0 SHARED:4096 LOCAL:0 CONSTANT[0]:381 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN3cub17CUB_200700_890_NS30DeviceRadixSortDownsweepKernelINS0_21DeviceRadixSortPolicyIjjjE9Policy900ELb1ELb0EjjjNS0_6detail21identity_decomposer_tEEEvPKT2_PS7_PKT3_PSB_PT4_SF_iiNS0_13GridEvenShareISF_EET5_:
+  REG:254 STACK:0 SHARED:48384 LOCAL:0 CONSTANT[0]:445 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN3cub17CUB_200700_890_NS30DeviceRadixSortDownsweepKernelINS0_21DeviceRadixSortPolicyIjjjE9Policy900ELb0ELb0EjjjNS0_6detail21identity_decomposer_tEEEvPKT2_PS7_PKT3_PSB_PT4_SF_iiNS0_13GridEvenShareISF_EET5_:
+  REG:128 STACK:0 SHARED:47616 LOCAL:0 CONSTANT[0]:445 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN3cub17CUB_200700_890_NS23RadixSortScanBinsKernelINS0_21DeviceRadixSortPolicyIjjjE9Policy900EjEEvPT0_i:
+  REG:79 STACK:0 SHARED:47120 LOCAL:0 CONSTANT[0]:364 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN3cub17CUB_200700_890_NS28DeviceRadixSortUpsweepKernelINS0_21DeviceRadixSortPolicyIjjjE9Policy900ELb1ELb0EjjNS0_6detail21identity_decomposer_tEEEvPKT2_PT3_SA_iiNS0_13GridEvenShareISA_EET4_:
+  REG:64 STACK:0 SHARED:16384 LOCAL:0 CONSTANT[0]:421 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN3cub17CUB_200700_890_NS28DeviceRadixSortUpsweepKernelINS0_21DeviceRadixSortPolicyIjjjE9Policy900ELb0ELb0EjjNS0_6detail21identity_decomposer_tEEEvPKT2_PT3_SA_iiNS0_13GridEvenShareISA_EET4_:
+  REG:48 STACK:0 SHARED:32768 LOCAL:0 CONSTANT[0]:421 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN3cub17CUB_200700_890_NS31DeviceRadixSortSingleTileKernelINS0_21DeviceRadixSortPolicyIjjjE9Policy900ELb0EjjjNS0_6detail21identity_decomposer_tEEEvPKT1_PS7_PKT2_PSB_T3_iiT4_:
+  REG:128 STACK:0 SHARED:33856 LOCAL:0 CONSTANT[0]:397 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN3cub17CUB_200700_890_NS11EmptyKernelIvEEvv:
+  REG:4 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:352 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx58_GLOBAL__N__784570f4_25_PxgDestructionTopology_cu_3f13401018discardTransactionEPNS_38PxDestructionTopologyTransactionStatusE:
+  REG:6 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:360 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx58_GLOBAL__N__784570f4_25_PxgDestructionTopology_cu_3f13401012finishCommitEPNS_38PxDestructionTopologyTransactionStatusE:
+  REG:8 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:360 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx58_GLOBAL__N__784570f4_25_PxgDestructionTopology_cu_3f13401012chooseCommitEPKNS0_16TransactionBatchEPKNS_38PxDestructionTopologyTransactionStatusEy:
+  REG:24 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:376 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx58_GLOBAL__N__784570f4_25_PxgDestructionTopology_cu_3f13401015finishCandidateEPNS_38PxDestructionTopologyTransactionStatusEPKNS_27PxDestructionTopologyStatusE:
+  REG:14 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:368 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx58_GLOBAL__N__784570f4_25_PxgDestructionTopology_cu_3f13401014startCandidateEPKNS_27PxDestructionTopologyStatusEPS1_:
+  REG:10 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:368 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx58_GLOBAL__N__784570f4_25_PxgDestructionTopology_cu_3f13401015editTransactionEPKNS0_16TransactionBatchEPKNS_38PxDestructionTopologyTransactionStatusEPjS7_:
+  REG:14 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:384 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx58_GLOBAL__N__784570f4_25_PxgDestructionTopology_cu_3f13401013chooseRebuildEPKNS_38PxDestructionTopologyTransactionStatusEy:
+  REG:24 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:368 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx58_GLOBAL__N__784570f4_25_PxgDestructionTopology_cu_3f13401019validateTransactionEPKNS0_16TransactionBatchEPKjS5_jjPNS_38PxDestructionTopologyTransactionStatusE:
+  REG:16 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:392 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx58_GLOBAL__N__784570f4_25_PxgDestructionTopology_cu_3f13401016beginTransactionEPKNS0_16TransactionBatchEPNS_38PxDestructionTopologyTransactionStatusEy:
+  REG:24 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:376 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx58_GLOBAL__N__784570f4_25_PxgDestructionTopology_cu_3f13401020setTransactionAcceptEPNS0_16TransactionBatchEPKj:
+  REG:8 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:368 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx58_GLOBAL__N__784570f4_25_PxgDestructionTopology_cu_3f13401019setTransactionBatchEPNS0_16TransactionBatchES1_:
+  REG:18 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:408 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx58_GLOBAL__N__784570f4_25_PxgDestructionTopology_cu_3f13401010emptyBatchEPNS_27PxDestructionTopologyStatusE:
+  REG:6 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:360 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx58_GLOBAL__N__784570f4_25_PxgDestructionTopology_cu_3f13401021transferClusterMotionEPKjS2_PKNS_34PxDestructionClusterMassPropertiesES2_S2_PKdPKNS_26PxDestructionClusterMotionEPS8_PKNS_27PxDestructionTopologyStatusE:
+  REG:40 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:424 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx58_GLOBAL__N__784570f4_25_PxgDestructionTopology_cu_3f13401020captureClusterMotionEPKjS2_PKNS_34PxDestructionClusterMassPropertiesEPKNS_26PxDestructionClusterMotionEPS6_PdPjPKNS_27PxDestructionTopologyStatusEPKS8_:
+  REG:36 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:424 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx58_GLOBAL__N__784570f4_25_PxgDestructionTopology_cu_3f13401016initializeMotionEPNS_26PxDestructionClusterMotionEPKjS4_PKNS_27PxDestructionTopologyStatusE:
+  REG:12 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:384 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx58_GLOBAL__N__784570f4_25_PxgDestructionTopology_cu_3f13401014massPropertiesEPKNS_32PxDestructionChunkMassPropertiesEPKjS5_S5_S5_S5_PNS_34PxDestructionClusterMassPropertiesES5_PKNS_27PxDestructionTopologyStatusE:
+  REG:55 STACK:0 SHARED:21504 LOCAL:0 CONSTANT[0]:424 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx58_GLOBAL__N__784570f4_25_PxgDestructionTopology_cu_3f13401016finishGenerationEPNS_27PxDestructionTopologyStatusE:
+  REG:8 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:360 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx58_GLOBAL__N__784570f4_25_PxgDestructionTopology_cu_3f1340106rangesEPKjS2_S2_jPjS3_S3_:
+  REG:16 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:408 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx58_GLOBAL__N__784570f4_25_PxgDestructionTopology_cu_3f1340107flattenEPjj:
+  REG:10 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:364 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx58_GLOBAL__N__784570f4_25_PxgDestructionTopology_cu_3f1340107connectEPKNS_26PxDestructionBondEndpointsEjPjPKjS4_:
+  REG:12 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:392 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx58_GLOBAL__N__784570f4_25_PxgDestructionTopology_cu_3f13401011resetLabelsEPKjPjS3_PNS_34PxDestructionClusterMassPropertiesEj:
+  REG:16 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:388 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx58_GLOBAL__N__784570f4_25_PxgDestructionTopology_cu_3f1340109editGraphEPKNS_18PxgDestructionEditEjPjS4_PNS_27PxDestructionTopologyStatusE:
+  REG:10 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:392 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx58_GLOBAL__N__784570f4_25_PxgDestructionTopology_cu_3f1340108validateEPKNS_18PxgDestructionEditEjjjPNS_27PxDestructionTopologyStatusE:
+  REG:8 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:384 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx58_GLOBAL__N__784570f4_25_PxgDestructionTopology_cu_3f13401010startBatchEPNS_27PxDestructionTopologyStatusE:
+  REG:6 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:360 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx58_GLOBAL__N__784570f4_25_PxgDestructionTopology_cu_3f13401010initializeEPjjS1_jPNS_27PxDestructionTopologyStatusE:
+  REG:12 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:392 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx58_GLOBAL__N__784570f4_25_PxgDestructionTopology_cu_3f13401019allocateMotionSlotsEPKjS2_S2_S2_S2_PjS3_PmPNS_27PxDestructionTopologyStatusEj:
+  REG:18 STACK:0 SHARED:0 LOCAL:0 CONSTANT[2]:8 CONSTANT[0]:428 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx58_GLOBAL__N__784570f4_25_PxgDestructionTopology_cu_3f13401022compactFreeMotionSlotsEPKjS2_Pjj:
+  REG:10 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:380 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx58_GLOBAL__N__784570f4_25_PxgDestructionTopology_cu_3f13401018requestMotionSlotsEPKjS2_PjS2_S3_j:
+  REG:12 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:396 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx58_GLOBAL__N__784570f4_25_PxgDestructionTopology_cu_3f13401017retainMotionSlotsEPjPKjS3_S1_j:
+  REG:11 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:388 TEXTURE:0 SURFACE:0 SAMPLER:0
+
+Fatbin ptx code:
+================
+arch = sm_89
+code version = [8,7]
+host = linux
+compile_size = 64bit
+compressed
+identifier = /root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu
+ptxasOptions =  --generate-line-info 
+
+Fatbin elf code:
+================
+arch = sm_89
+code version = [1,7]
+host = linux
+compile_size = 64bit
+compressed
+identifier = /root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu
+
+Resource usage:
+ Common:
+  GLOBAL:29 CONSTANT[4]:240
+ Function _ZN3cub17CUB_200700_890_NS23DeviceSelectSweepKernelINS0_6detail24device_select_policy_hubIjjiLb0ELb0EE9Policy900ENS0_21CountingInputIteratorIjlEEPjS8_S8_NS0_13ScanTileStateIiLb1EEENS0_8NullTypeESB_iLb0ELb0EEEvT0_T1_T2_T3_T4_T5_T6_T7_iNS2_7vsmem_tE:
+  REG:40 STACK:0 SHARED:5120 LOCAL:0 CONSTANT[0]:416 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN3cub17CUB_200700_890_NS23DeviceCompactInitKernelINS0_13ScanTileStateIiLb1EEEPjEEvT_iT0_:
+  REG:12 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:376 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN3cub17CUB_200700_890_NS16DeviceScanKernelINS0_16DeviceScanPolicyIjN4cuda3std3__44plusIvEEE9Policy900EPjSA_NS0_13ScanTileStateIjLb1EEES7_NS0_6detail10InputValueIjSA_EEjjLb0EEEvT0_T1_T2_iT3_T4_T5_:
+  REG:48 STACK:0 SHARED:7696 LOCAL:0 CONSTANT[0]:404 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN3cub17CUB_200700_890_NS20DeviceScanInitKernelINS0_13ScanTileStateIjLb1EEEEEvT_i:
+  REG:10 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:364 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN3cub17CUB_200700_890_NS29DeviceRadixSortOnesweepKernelINS0_21DeviceRadixSortPolicyIjjjE9Policy900ELb0EjjjiiNS0_6detail21identity_decomposer_tEEEvPT5_S8_PT3_PKS9_PT1_PKSD_PT2_PKSH_T4_iiT6_:
+  REG:77 STACK:0 SHARED:33280 LOCAL:0 CONSTANT[0]:429 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN3cub17CUB_200700_890_NS33DeviceRadixSortExclusiveSumKernelINS0_21DeviceRadixSortPolicyIjjjE9Policy900EjEEvPT0_:
+  REG:23 STACK:0 SHARED:1184 LOCAL:0 CONSTANT[0]:360 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN3cub17CUB_200700_890_NS30DeviceRadixSortHistogramKernelINS0_21DeviceRadixSortPolicyIjjjE9Policy900ELb0EjjNS0_6detail21identity_decomposer_tEEEvPT2_PKT1_S7_iiT3_:
+  REG:38 STACK:0 SHARED:4096 LOCAL:0 CONSTANT[0]:381 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN3cub17CUB_200700_890_NS30DeviceRadixSortDownsweepKernelINS0_21DeviceRadixSortPolicyIjjjE9Policy900ELb1ELb0EjjjNS0_6detail21identity_decomposer_tEEEvPKT2_PS7_PKT3_PSB_PT4_SF_iiNS0_13GridEvenShareISF_EET5_:
+  REG:254 STACK:0 SHARED:48384 LOCAL:0 CONSTANT[0]:445 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN3cub17CUB_200700_890_NS30DeviceRadixSortDownsweepKernelINS0_21DeviceRadixSortPolicyIjjjE9Policy900ELb0ELb0EjjjNS0_6detail21identity_decomposer_tEEEvPKT2_PS7_PKT3_PSB_PT4_SF_iiNS0_13GridEvenShareISF_EET5_:
+  REG:128 STACK:0 SHARED:47616 LOCAL:0 CONSTANT[0]:445 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN3cub17CUB_200700_890_NS23RadixSortScanBinsKernelINS0_21DeviceRadixSortPolicyIjjjE9Policy900EjEEvPT0_i:
+  REG:79 STACK:0 SHARED:47120 LOCAL:0 CONSTANT[0]:364 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN3cub17CUB_200700_890_NS28DeviceRadixSortUpsweepKernelINS0_21DeviceRadixSortPolicyIjjjE9Policy900ELb1ELb0EjjNS0_6detail21identity_decomposer_tEEEvPKT2_PT3_SA_iiNS0_13GridEvenShareISA_EET4_:
+  REG:64 STACK:0 SHARED:16384 LOCAL:0 CONSTANT[0]:421 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN3cub17CUB_200700_890_NS28DeviceRadixSortUpsweepKernelINS0_21DeviceRadixSortPolicyIjjjE9Policy900ELb0ELb0EjjNS0_6detail21identity_decomposer_tEEEvPKT2_PT3_SA_iiNS0_13GridEvenShareISA_EET4_:
+  REG:48 STACK:0 SHARED:32768 LOCAL:0 CONSTANT[0]:421 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN3cub17CUB_200700_890_NS31DeviceRadixSortSingleTileKernelINS0_21DeviceRadixSortPolicyIjjjE9Policy900ELb0EjjjNS0_6detail21identity_decomposer_tEEEvPKT1_PS7_PKT2_PSB_T3_iiT4_:
+  REG:128 STACK:0 SHARED:33856 LOCAL:0 CONSTANT[0]:397 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN3cub17CUB_200700_890_NS11EmptyKernelIvEEvv:
+  REG:4 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:352 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb21persistentStressSolveILb0EEEvNS1_20PersistentStressArgsE:
+  REG:62 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:896 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb21persistentStressSolveILb1EEEvNS1_20PersistentStressArgsE:
+  REG:128 STACK:192 SHARED:7832 LOCAL:0 CONSTANT[0]:896 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb21finishComponentStressENS1_20PersistentStressArgsENS1_27ResidentStressComponentViewE:
+  REG:18 STACK:0 SHARED:3072 LOCAL:0 CONSTANT[0]:968 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb20componentStressSolveENS1_20PersistentStressArgsENS1_27ResidentStressComponentViewE:
+  REG:92 STACK:48 SHARED:560 LOCAL:0 CONSTANT[2]:16 CONSTANT[0]:968 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb25applyNativeStressSolutionEPNS1_6AngLinEPKNS0_15StressHierarchy6VectorEPKNS1_7InertiaEPKjSC_PKNS1_4Vec4ESF_PKfSH_SC_SC_SC_SC_:
+  REG:40 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:456 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb25resetNativeStressSolutionENS1_21NativeStressCycleViewEPNS1_6AngLinES4_jb:
+  REG:15 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:605 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb27clearChangedStressWarmStartEPKNS0_32ExtStressGpuDeviceTopologyStatusEPKjS6_PNS1_6AngLinEj:
+  REG:8 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:388 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb27markChangedStressComponentsEPKNS1_25DeviceStressTopologyBatchEPKNS0_32ExtStressGpuDeviceTopologyStatusEPKfPKjPjj:
+  REG:12 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:396 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb28publishNativeHierarchyStatusEPKNS0_15StressHierarchy6StatusES5_PNS0_32ExtStressGpuDeviceTopologyStatusE:
+  REG:10 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:376 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb25flagLargeStressComponentsEPKjS3_Pjj:
+  REG:12 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:380 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb17deviceStressTilesEPKjjS3_S3_S3_P5uint2:
+  REG:12 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:400 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb22deviceStressTileCountsEPKjS3_Pjj:
+  REG:12 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:380 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb27deviceStressReductionRangesEPKjjPjS4_:
+  REG:8 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:384 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb22markDeviceStressSolvedEPNS0_32ExtStressGpuDeviceTopologyStatusE:
+  REG:8 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:360 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb25finishDeviceStressRebuildEPKNS1_25DeviceStressTopologyBatchEPNS0_32ExtStressGpuDeviceTopologyStatusEPKj:
+  REG:20 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:376 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb24beginDeviceStressRebuildEPNS0_32ExtStressGpuDeviceTopologyStatusE:
+  REG:6 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:360 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb28refreshNativeInverseValidityEPKNS1_25DeviceStressTopologyBatchEPKNS0_32ExtStressGpuDeviceTopologyStatusEPKjS9_PKfPjPmj:
+  REG:16 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:412 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb20flagDeviceStressRowsEPKjjPj:
+  REG:10 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:376 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb22labelDeviceStressNodesEPKjS3_PjjPNS0_32ExtStressGpuDeviceTopologyStatusE:
+  REG:14 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:392 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb22labelDeviceStressBondsEPKjS3_PKfPKNS1_7InertiaES3_PjS9_j:
+  REG:12 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:412 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb27flattenDeviceStressTopologyEPjj:
+  REG:10 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:364 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb27connectDeviceStressTopologyEPKjS3_PKfPKNS1_7InertiaEjPjS9_:
+  REG:14 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:408 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb30initializeDeviceStressTopologyEPKNS1_25DeviceStressTopologyBatchEPKNS1_7InertiaEPjS8_S8_PfjjS8_:
+  REG:14 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:416 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb25chooseDeviceStressRebuildEPKNS0_32ExtStressGpuDeviceTopologyStatusEy:
+  REG:24 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:368 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb24validateDeviceStressMaskEPKNS1_25DeviceStressTopologyBatchEPKfjPNS0_32ExtStressGpuDeviceTopologyStatusE:
+  REG:12 STACK:0 SHARED:0 LOCAL:0 CONSTANT[2]:8 CONSTANT[0]:384 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb25beginDeviceStressTopologyEPKNS1_25DeviceStressTopologyBatchEPNS0_32ExtStressGpuDeviceTopologyStatusEy:
+  REG:24 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:376 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb28setDeviceStressTopologyBatchEPNS1_25DeviceStressTopologyBatchES2_:
+  REG:12 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:384 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb25bondStressCompactRemovalsEPKjS3_S3_S3_S3_jPj:
+  REG:26 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:408 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb20bondStressNullKernelEv:
+  REG:4 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:352 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb14bondStressWalkEfiPKjS3_S3_S3_S3_S3_PKfS5_S5_S5_PKNS1_6AngLinES5_ffS5_jfjPfS9_S9_S9_S9_PhPjSB_SB_SB_S9_SB_SB_SB_:
+  REG:36 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:600 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb17applyStressDamageEfPKNS1_6AngLinEPKfPKNS1_4Vec4ES6_S6_PKjPKNS0_20ExtStressGpuMaterialEjPfPjSG_jff:
+  REG:32 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:460 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb15flagActiveNodesEPKjS3_jPj:
+  REG:12 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:384 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb15flagActiveBondsEPKjS3_jPj:
+  REG:10 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:384 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb17scatterVelocitiesEPNS0_19ExtStressGpuImpulseEPKjPKS2_j:
+  REG:22 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:380 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb14gatherImpulsesEPKNS1_6AngLinEPKjPS2_j:
+  REG:18 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:380 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb22exportPhysicalImpulsesEPKNS1_6AngLinEPKfPNS0_19ExtStressGpuImpulseEjff:
+  REG:22 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:388 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb23retireDegenerateIslandsEPjPKfPfS4_PNS0_24ExtStressGpuDeviceStatusEPKjjS2_jyj:
+  REG:32 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:436 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb34updateSolutionAndResidualPerIslandEPKjjPNS1_6AngLinES5_PKS4_S7_PKfS9_PjS3_S3_S3_S3_S3_:
+  REG:26 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:464 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb28saveGradientSquaredPerIslandEPfPKfPKjj:
+  REG:8 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:380 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb24updateDirectionPerIslandEPNS1_6AngLinEPKS2_PKfS7_PKjS9_S9_S9_S9_:
+  REG:26 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:424 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb16checkConvergenceEPNS0_24ExtStressGpuDeviceStatusEPKfS5_j:
+  REG:10 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:380 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb16latchConvergenceEPNS0_24ExtStressGpuDeviceStatusEj:
+  REG:10 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:364 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb16summarizeIslandsEPNS0_24ExtStressGpuDeviceStatusEPKjjj:
+  REG:10 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:376 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb16resetActiveCountEPNS0_24ExtStressGpuDeviceStatusE:
+  REG:6 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:360 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb25checkConvergencePerIslandEPjS2_PKfS4_S2_j:
+  REG:16 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:396 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb17finalizeAndRetireEPKfPfjPjS4_S3_PNS0_24ExtStressGpuDeviceStatusEPKjjS5_jyjS9_:
+  REG:39 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:464 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb27finalizeAndCheckConvergenceEPKfPfjPjS5_S3_S5_jPKj:
+  REG:39 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:424 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb23finalizeIslandReductionEPKfPfjjPKj:
+  REG:39 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:384 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb17reduceIslandTilesEPKfPKjPK5uint2PfS5_:
+  REG:14 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:392 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb25accumulateSquaredByIslandEPKNS1_6AngLinEPKjS6_PfS6_S6_jj:
+  REG:18 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:408 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb19scatterBondTopologyEPKjPKNS1_9BondDeltaEjPjS7_PNS1_4Vec4ES9_S9_PfSA_SA_SA_S7_S7_:
+  REG:40 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:464 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb19scatterNodeBondRefsEPKjS3_jPj:
+  REG:10 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:384 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb14nodeSpaceResetEPNS1_6AngLinES3_S3_S3_j:
+  REG:10 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:388 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb22nodeSpaceApplySolutionEPNS1_6AngLinEPKS2_PKNS1_7InertiaEPKjSA_PKNS1_4Vec4ESD_PKfSF_SA_SA_SA_SA_:
+  REG:40 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:456 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb23nodeSpaceUpdateSolutionEPKjjPNS1_6AngLinES5_PKS4_S7_PKfS9_S3_S3_S3_S3_:
+  REG:30 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:448 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb24nodeSpaceUpdateDirectionEPNS1_6AngLinES3_PKS2_S5_PKfS7_PKjS9_PfjS9_S9_S9_:
+  REG:34 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:456 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb20nodeSpaceApplyJacobiEPNS1_6AngLinEPKS2_PKfPKjS9_PfjS9_S9_:
+  REG:40 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:424 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb20nodeSpaceBuildJacobiEPfPKNS1_7InertiaEPKjS7_S7_S7_PKNS1_4Vec4ESA_PKfSC_jj:
+  REG:48 STACK:288 SHARED:0 LOCAL:0 CONSTANT[0]:440 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb15nodeSpaceMatvecEPNS1_6AngLinEPKS2_PKNS1_7InertiaEPKjSA_SA_SA_PKNS1_4Vec4ESD_PKfSF_SA_SA_SA_SA_bPfjSA_SA_SA_j:
+  REG:48 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:524 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb16initializeStatusEPNS0_24ExtStressGpuDeviceStatusEPjjS4_:
+  REG:12 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:384 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb21setTolerancePerIslandEPfPjS3_PKjPKffj:
+  REG:16 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:400 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb12setToleranceEPfPKff:
+  REG:10 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:372 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb16squaredMagnitudeEPKNS1_6AngLinEPfj:
+  REG:14 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:372 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb20couplingLeftMultiplyEPNS1_6AngLinEPKS2_PKNS1_7InertiaEPKjSA_PKNS1_4Vec4ESD_PKfSF_SA_SA_SA_SA_:
+  REG:40 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:456 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb16subtractResidualEPNS1_6AngLinEPKS2_PKjS7_:
+  REG:22 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:384 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb10scaleNodesEPNS1_6AngLinEPKNS1_7InertiaEPKjS8_:
+  REG:18 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:384 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb19gatherRightMultiplyEPNS1_6AngLinEPKS2_PKjS7_PKNS1_4Vec4ESA_PKfSC_S7_S7_PKNS1_7InertiaES7_S7_:
+  REG:36 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:456 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb21couplingRightMultiplyEPNS1_6AngLinEPKS2_PKjS7_PKNS1_4Vec4ESA_PKfSC_S7_S7_S7_S7_:
+  REG:30 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:448 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb15initializeSolveEPKNS0_19ExtStressGpuImpulseEPNS1_6AngLinES6_S6_PKNS1_7InertiaEPKjSB_SB_SB_SB_SB_fffb:
+  REG:26 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:453 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb23markChangedInputIslandsEPKNS0_19ExtStressGpuImpulseES4_PKjjPj:
+  REG:20 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:392 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast15StressHierarchy20applyComponentCyclesILj2EEEvPKNS1_10CycleLevelEjNS1_15TerminalBuffersEPKNS1_6StatusEPKNS1_6VectorEPSA_SD_:
+  REG:190 STACK:0 SHARED:6376 LOCAL:0 CONSTANT[0]:432 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast15StressHierarchy20applyComponentCyclesILj1EEEvPKNS1_10CycleLevelEjNS1_15TerminalBuffersEPKNS1_6StatusEPKNS1_6VectorEPSA_SD_:
+  REG:190 STACK:0 SHARED:6376 LOCAL:0 CONSTANT[0]:432 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast15StressHierarchy10applyCycleILj2EEEvPKNS1_10CycleLevelEjNS1_15TerminalBuffersEPKNS1_6StatusEPKNS1_6VectorEPSA_SD_:
+  REG:194 STACK:0 SHARED:6376 LOCAL:0 CONSTANT[0]:432 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast15StressHierarchy10applyCycleILj1EEEvPKNS1_10CycleLevelEjNS1_15TerminalBuffersEPKNS1_6StatusEPKNS1_6VectorEPSA_SD_:
+  REG:185 STACK:0 SHARED:6376 LOCAL:0 CONSTANT[0]:432 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast15StressHierarchy9packLevelILb1EEEvNS1_5InputENS1_7BuffersEPKNS1_6StatusEPS5_NS1_14PackingBuffersEPNS1_11PackingWorkEjNS1_18TerminalRetirementE:
+  REG:80 STACK:0 SHARED:9424 LOCAL:0 CONSTANT[2]:8 CONSTANT[0]:888 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast15StressHierarchy20constructMotionModesENS1_5InputEPKjNS1_13MotionBuffersEPNS1_6StatusEPNS1_4WorkE:
+  REG:64 STACK:168 SHARED:1600 LOCAL:0 CONSTANT[0]:672 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast15StressHierarchy13prolongPackedENS1_5InputENS1_7BuffersENS1_14PackingBuffersEPKNS1_6StatusEPKNS1_6VectorEPS8_:
+  REG:40 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:856 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast15StressHierarchy14restrictPackedENS1_5InputENS1_7BuffersENS1_14PackingBuffersEPKNS1_6StatusEPKNS1_6VectorEPS8_:
+  REG:56 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:856 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast15StressHierarchy17finalizeHierarchyENS1_5InputEPKNS1_6StatusENS1_15TerminalBuffersEjPS3_:
+  REG:12 STACK:0 SHARED:8 LOCAL:0 CONSTANT[0]:648 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast15StressHierarchy19chooseHierarchyTailENS1_5InputEPKNS1_6StatusENS1_15TerminalBuffersEPS3_y:
+  REG:24 STACK:0 SHARED:12 LOCAL:0 CONSTANT[2]:16 CONSTANT[0]:648 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast15StressHierarchy17constructSmootherENS1_5InputEPKNS1_6StatusEPS3_PNS1_4WorkENS1_7BuffersENS1_15TerminalBuffersEj:
+  REG:88 STACK:0 SHARED:168 LOCAL:0 CONSTANT[0]:748 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast15StressHierarchy14applyTerminalsENS1_5InputEPKNS1_6StatusENS1_15TerminalBuffersEjPKNS1_6VectorEPS7_:
+  REG:38 STACK:0 SHARED:5992 LOCAL:0 CONSTANT[0]:656 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast15StressHierarchy18constructTerminalsENS1_5InputEPKNS1_6StatusEPS3_PNS1_4WorkENS1_15TerminalBuffersEj:
+  REG:56 STACK:0 SHARED:5992 LOCAL:0 CONSTANT[2]:8 CONSTANT[0]:652 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast15StressHierarchy10applyLevelENS1_5InputEPKNS1_6StatusEPKNS1_6VectorEPS6_:
+  REG:64 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:616 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast15StressHierarchy17applyFineDiagonalENS1_5InputENS1_7BuffersEPKNS1_6StatusEPKNS1_6VectorEPS7_:
+  REG:38 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:712 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast15StressHierarchy11applyCoarseENS1_5InputENS1_7BuffersEPKNS1_6StatusEPKNS1_6VectorEPS7_:
+  REG:72 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:712 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast15StressHierarchy16restrictResidualENS1_5InputENS1_7BuffersEPKNS1_6StatusEPKNS1_6VectorEPS7_:
+  REG:56 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:712 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast15StressHierarchy10prolongateENS1_5InputENS1_7BuffersEPKNS1_6StatusEPKNS1_6VectorEPS7_:
+  REG:40 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:712 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast15StressHierarchy14buildSelfCacheENS1_5InputENS1_7BuffersEPKNS1_6StatusEPKNS1_4WorkE:
+  REG:43 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:704 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN2Nv5Blast15StressHierarchy9constructENS1_5InputENS1_7BuffersEPNS1_6StatusEPNS1_4WorkE:
+  REG:68 STACK:24 SHARED:36 LOCAL:0 CONSTANT[2]:48 CONSTANT[0]:704 TEXTURE:0 SURFACE:0 SAMPLER:0

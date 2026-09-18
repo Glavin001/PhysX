@@ -1,0 +1,10 @@
+ Function _ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e327finishNativeIterationLimitsEPKNS0_21NativeIterationLimitsEjPS1_:
+  REG:28 STACK:0 SHARED:116 LOCAL:0 CONSTANT[0]:376 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e327reduceNativeIterationLimitsEPKNS_10PxgBodySimEjPKNS_11PxNodeIndexEjjPNS0_21NativeIterationLimitsE:
+  REG:29 STACK:0 SHARED:116 LOCAL:0 CONSTANT[0]:392 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx19destructionPreSolve6finishEPKNS_15PxvPreSolveNodeEjPjS4_S4_PKj:
+  REG:15 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:400 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx19destructionPreSolve20requireValidContactsEPKNS_32PxgDestructionContactGraphStatusE:
+  REG:6 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:360 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _ZN5physx19destructionPreSolve21connectSupportBridgesEPKNS_15PxvPreSolveEdgeEjPKNS_15PxvPreSolveNodeEjPjS7_:
+  REG:12 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:400 TEXTURE:0 SURFACE:0 SAMPLER:0

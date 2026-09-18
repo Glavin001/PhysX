@@ -1,0 +1,3 @@
+========= COMPUTE-SANITIZER
+GPU registration passed: 300 mixed lifecycle batches and 101 device-queued batches; paged order, GPU-produced handle dependencies, generations, aliasing, atomic failures, growth/retry and stream ordering
+========= ERROR SUMMARY: 0 errors

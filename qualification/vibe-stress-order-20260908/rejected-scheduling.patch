@@ -1,0 +1,71 @@
+diff --git a/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpuTopology.cuh b/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpuTopology.cuh
+index af6d9555..4ab59ff8 100644
+--- a/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpuTopology.cuh
++++ b/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpuTopology.cuh
+@@ -152,6 +152,14 @@ __global__ void flagLargeStressComponents(const unsigned* begin, const unsigned*
+     const unsigned i=blockIdx.x*blockDim.x+threadIdx.x;
+     if(i<count)flags[i]=(end[i]-begin[i])>kResidentComponentMaxNodes;
+ }
++// Schedule expensive components first without changing stable component IDs or
++// node order. Only rebuilt topology needs a new dispatch permutation.
++__global__ void sizeStressComponentWork(const unsigned* begin, const unsigned* end,
++    unsigned* sizes, unsigned count)
++{
++    const unsigned i=blockIdx.x*blockDim.x+threadIdx.x;
++    if(i<count)sizes[i]=end[i]-begin[i];
++}
+ struct ResidentStressComponentView
+ {
+     const unsigned *ids, *count, *nodes, *begin, *end, *largeIds, *largeCount;
+@@ -192,6 +200,7 @@ class DeviceStressTopology
+     unsigned *componentNodes=nullptr, *largeIslands=nullptr, *largeCount=nullptr;
+     SolveStatus* componentResults=nullptr;
+     unsigned* componentWorkCursor=nullptr;
++    unsigned* componentDispatch=nullptr;
+     void *sortScratch=nullptr, *scanScratch=nullptr;
+     size_t sortBytes=0, scanBytes=0;
+     DeviceStressTopologyBatch* batch=nullptr;
+@@ -244,6 +253,11 @@ class DeviceStressTopology
+         cub::CountingInputIterator<unsigned> indices(0u);
+         checkCuda(cub::DeviceSelect::Flagged(b.selectScratch,b.selectBytes,indices,
+             b.activeFlags,largeIslands,largeCount,b.n,captureStream), "compact large stress components");
++        sizeStressComponentWork<<<(b.n+kBlockSize-1)/kBlockSize,kBlockSize,0,captureStream>>>(
++            rangeBegin,rangeEnd,b.activeFlags,b.n);
++        checkCuda(cub::DeviceRadixSort::SortPairsDescending(sortScratch,sortBytes,
++            b.activeFlags,sortedKeys,identity,componentDispatch,b.n,0,32,captureStream),
++            "schedule largest stress components first");
+     }
+     void build(cudaStream_t ownerStream)
+     {
+@@ -342,7 +356,7 @@ public:
+         cudaFree(rangeBegin); cudaFree(rangeEnd); cudaFree(tileCounts); cudaFree(liveIslands);
+         cudaFree(sortScratch); cudaFree(scanScratch); cudaFree(batch); cudaFree(state);
+         cudaFree(componentNodes); cudaFree(largeIslands); cudaFree(largeCount); cudaFree(componentResults);
+-        cudaFree(componentWorkCursor);
++        cudaFree(componentWorkCursor); cudaFree(componentDispatch);
+     }
+     void init(cudaStream_t stream)
+     {
+@@ -351,10 +365,14 @@ public:
+ #ifdef PHYSX_RESIDENT_DESTRUCTION
+         allocate(forest,b.m); allocate(liveIslands,b.n); allocate(componentNodes,b.n);
+         allocate(largeIslands,b.n); allocate(largeCount,1); allocate(componentResults,b.n);
+-        allocate(componentWorkCursor,1);
++        allocate(componentWorkCursor,1); allocate(componentDispatch,b.n);
+         allocate(sortedKeys,b.n); allocate(rangeBegin,b.n); allocate(rangeEnd,b.n);
+         checkCuda(cub::DeviceRadixSort::SortPairs(nullptr,sortBytes,b.nodeIsland,sortedKeys,
+             identity,componentNodes,b.n), "size resident component sorting");
++        size_t dispatchBytes=0;
++        checkCuda(cub::DeviceRadixSort::SortPairsDescending(nullptr,dispatchBytes,
++            b.activeFlags,sortedKeys,identity,componentDispatch,b.n), "size component dispatch sorting");
++        sortBytes=std::max(sortBytes,dispatchBytes);
+         checkCuda(cudaMalloc(&sortScratch,sortBytes), "allocate resident component sort scratch");
+ #endif
+         checkCuda(cudaMemsetAsync(state,0,sizeof(*state),stream), "initialize stress topology status");
+@@ -383,5 +401,5 @@ public:
+     NativeStressCycleView cycleView()const{return nativeHierarchy->view();}
+ #endif
+     ResidentStressComponentView components() const
+-    { return {liveIslands,&state->islandCount,componentNodes,rangeBegin,rangeEnd,largeIslands,largeCount,componentResults,componentWorkCursor}; }
++    { return {componentDispatch,&state->islandCount,componentNodes,rangeBegin,rangeEnd,largeIslands,largeCount,componentResults,componentWorkCursor}; }
+ };

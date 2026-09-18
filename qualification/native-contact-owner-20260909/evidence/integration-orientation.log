@@ -1,0 +1,110 @@
+Internal ctest changing into directory: /root/workspace/physx-2/out/destruction-sdk
+Test project /root/workspace/physx-2/out/destruction-sdk
+      Start 38: physx_native_gpu_material
+ 1/11 Test #38: physx_native_gpu_material ..............   Passed    0.53 sec
+      Start 75: physx_native_standard_reported_reuse
+ 2/11 Test #75: physx_native_standard_reported_reuse ...   Passed    1.90 sec
+      Start 76: physx_native_standard_reuse
+ 3/11 Test #76: physx_native_standard_reuse ............***Failed    0.39 sec
+standard sleeping=1 step=6 complete=0 error=1 destruction=8192 breaks=1 corrections=1
+native_standard_scene_test: standard scene rejected correction
+
+      Start 77: physx_native_contact_owner_reuse
+ 4/11 Test #77: physx_native_contact_owner_reuse .......***Failed    0.72 sec
+[PhysX:32] Native GPU contact graph construction failed; simulation is incomplete. (/root/workspace/physx-2/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp:748)
+[PhysX:32] PhysX Internal CUDA error. Simulation cannot continue! Error code 2!
+ (/root/workspace/physx-2/physx/source/physx/src/NpScene.cpp:3132)
+[PhysX:64] PhysX failed to allocate GPU memory - aborting simulation. (/root/workspace/physx-2/physx/source/physx/src/NpScene.cpp:3137)
+standard sleeping=1 step=6 complete=0 error=2 destruction=8 breaks=1 corrections=0
+[PhysX:2] PxgCudaDeviceMemoryDeallocate fail to deallocate memory!! Result = 719
+ (/root/workspace/physx-2/physx/source/gpucommon/src/PxgCudaMemoryAllocator.cpp:191)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+[PhysX:32] Failed to unload CUDA module data, returned 719. (/root/workspace/physx-2/physx/source/cudamanager/src/CudaContextManager.cpp:776)
+native_standard_scene_test: standard scene rejected correction
+
+      Start 78: physx_native_post_correction
+ 5/11 Test #78: physx_native_post_correction ...........   Passed    0.74 sec
+      Start 79: physx_native_standard_awake
+ 6/11 Test #79: physx_native_standard_awake ............   Passed    0.44 sec
+      Start 80: physx_native_standard_sleep
+ 7/11 Test #80: physx_native_standard_sleep ............   Passed    0.81 sec
+      Start 82: physx_native_standard_sleep_boundary
+ 8/11 Test #82: physx_native_standard_sleep_boundary ...   Passed    1.52 sec
+      Start 83: physx_native_standard_gpu_islands
+ 9/11 Test #83: physx_native_standard_gpu_islands ......   Passed    0.92 sec
+      Start 84: physx_native_standard_wake_boundary
+10/11 Test #84: physx_native_standard_wake_boundary ....   Passed    0.81 sec
+      Start 85: physx_native_standard_late_impact
+11/11 Test #85: physx_native_standard_late_impact ......   Passed    0.81 sec
+
+82% tests passed, 2 tests failed out of 11
+
+Label Time Summary:
+gpu            =   9.06 sec*proc (10 tests)
+integration    =   9.06 sec*proc (10 tests)
+
+Total Test time (real) =   9.59 sec
+
+The following tests FAILED:
+	 76 - physx_native_standard_reuse (Failed)
+	 77 - physx_native_contact_owner_reuse (Failed)
+Errors while running CTest

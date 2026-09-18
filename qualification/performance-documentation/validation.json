@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "date": "2026-09-08",
+  "skill_validation": "passed",
+  "reporting_tests": {
+    "timing": 31,
+    "phase_analysis": 5,
+    "peak_opportunities": 11
+  },
+  "documented_entrypoint_help_checks": 8,
+  "local_links_checked": 60,
+  "preexisting_unrelated_missing_link": "AGENTS.md: omni/",
+  "archive_regeneration": {
+    "timing_metrics_and_phases": "identical",
+    "capacity_markdown": "byte-identical",
+    "expected_timing_report_exit": 2,
+    "new_gpu_simulation": false
+  },
+  "scope": "Documentation, repository skill, evidence preservation and reporting-only reader update; no simulation implementation change in this documentation task.",
+  "reporting_reader_update": "Peak opportunity loader now accepts current gate reports, verifies raw frame/summary hashes and permits explicit archived capture root; four added accounting/evidence tests."
+}

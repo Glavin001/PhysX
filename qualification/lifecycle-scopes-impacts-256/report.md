@@ -1,0 +1,66 @@
+# 🎯 Complete PhysX destruction advance — 8 ms gate
+
+60 Hz physical timestep. Timer includes commands, projectile insertion, simulate/fetch, destruction/correction and mandatory completion. All measured steps, including startup, remain. Rendering and report output are outside the bracket.
+
+❌ Deadline failed: 1038 steps exceeded 8.0 ms. Diagnostic only: five × 60-second qualification duration not met.
+
+This timing gate checks convergence, correction limit, frozen wall counters and repeated counter histories. It does not substitute for the independent trajectory/hole/momentum audit or the 10-minute endurance gate; overall plan qualification remains incomplete until those pass.
+
+| Scene | Chunks | Bonds | Projectiles | Peak destruction clusters | Seconds per run | Correction limit | Sleeping |
+|---|---|---|---|---|---|---|---|
+| 256 buildings, simultaneous aerial impacts | 113664 | 229376 | 256 | 14219 | 10 | 1 | Disabled |
+
+Stress chunks are geometry/connectivity units, not independently solved rigid bodies while bonded. Peak destruction clusters is the maximum across all measured repeats and excludes ordinary actors such as the projectile and ground. Idle controls measure retained geometry, not concurrent destruction.
+
+| Scene | Repeat | Steps | Min ms | Mean ms | p95 ms | p99 ms | Peak ms | Misses | Peak step | Commands at peak ms | Physics/destruction at peak ms | Completion at peak ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 256 buildings, simultaneous aerial impacts | 1 | 600 | 0.929 | 11.556 | 18.241 | 26.901 | 62.847 | 519 | 82 | 0.000 | 62.775 | 0.071 |
+| 256 buildings, simultaneous aerial impacts | 2 | 600 | 0.921 | 11.577 | 18.242 | 27.274 | 62.176 | 519 | 82 | 0.000 | 62.113 | 0.063 |
+
+Commands and completion timings are disjoint from simulate/fetch. Detailed CPU/GPU subdivisions require a separate profiling capture; they must not be inferred from another run’s maximum. No percentile or outlier removal changes the deadline verdict.
+
+## Separate phase capture: 256 buildings, simultaneous aerial impacts
+
+This is a separate instrumented run. CPU elapsed regions form a partition; CUDA stream stages overlap that partition and must not be added to it. The peak column below refers only to this scoped run, not the untraced peak above.
+
+| Operation | Owner / responsibility | Mean elapsed ms | At scoped peak ms |
+|---|---|---|---|
+| Checkpoint moving-body state | CPU submission → GPU copy; save state for possible rewind | 0.012 | 0.009 |
+| Submit contact loads and destruction | CPU queues GPU loads, stress, material and topology work | 0.118 | 0.148 |
+| Wait for GPU destruction result | CPU blocked/spinning until required GPU work completes; not extra GPU work | 5.902 | 3.697 |
+| Read fragment-allocation requests | GPU → CPU allocation metadata and completion dependency | 0.014 | 0.094 |
+| Reserve native fragment bodies | CPU PhysX body/lifecycle allocation | 0.047 | 5.778 |
+| Upload allocated body bindings | CPU → GPU indices for the reserved bodies | 0.003 | 0.022 |
+| Publish reservation metadata | CPU bookkeeping and GPU status submission | 0.002 | 0.007 |
+| Other reservation bookkeeping | Uninstrumented remainder within CPU reservation scope | 0.004 | 0.063 |
+| Other destruction completion bookkeeping | Remaining host scope around destruction completion | 0.007 | 0.007 |
+| Initialize reserved fragment bodies | CPU dispatch/lifecycle + GPU state initialization | 0.014 | 0.107 |
+| Prepare chunk collision ownership | CPU dispatch + GPU persistent-shape ownership preparation | 0.009 | 0.100 |
+| Prepare corrected motion states | CPU dispatch + GPU cluster/body preparation | 0.006 | 0.072 |
+| Observe prepared correction verdicts | GPU → CPU compact validation status at the remaining ownership bridge; includes completion wait | 0.066 | 0.178 |
+| Validate fragment owners and shape identities | CPU validates the migration batch against compatibility actors and persistent shapes | 0.066 | 7.896 |
+| Activate fragment scheduler metadata | CPU updates kinematic/dynamic type and wake/island bookkeeping; physical state is GPU-owned | 0.002 | 0.208 |
+| Mark changed collision filtering | CPU broad-phase lifecycle bookkeeping for migrating persistent shapes | 0.035 | 5.395 |
+| Retire old-owner contact managers | CPU releases shape interactions, contact managers and lost-touch bookkeeping | 0.052 | 5.861 |
+| Update narrow-phase ownership mirror | CPU updates persistent narrow-phase owner references; no geometry upload | 0.040 | 5.951 |
+| Update shape/actor links and query-bound membership | CPU transfers element ownership and registers query-bound tracking | 0.036 | 5.591 |
+| Rebind CPU query and actor-shape records | CPU query removal/insertion and compatibility shape-array updates | 0.076 | 11.082 |
+| Other shape migration work | CPU validation, target storage and gaps around instrumented migration operations | 0.195 | 31.196 |
+| Other ownership bridge work | GPU-to-CPU metadata observation, completion waits and remaining host bookkeeping | 0.031 | 0.108 |
+| Rewind and install fractured motion | CPU dispatch + GPU checkpoint restore and owner installation | 0.006 | 0.133 |
+| Invalidate incompatible contact caches | CPU dispatch + GPU contact/friction cache reset | 0.003 | 0.009 |
+| Resimulate changed interaction | CPU task scheduling + GPU collision, constraints and motion solve | 1.573 | 34.505 |
+| Accept corrected step | GPU commit/status completion and CPU publication | 0.108 | 0.393 |
+| Trial physics and remaining scene tasks | Original physics pass plus task/driver gaps outside destruction scopes | 3.602 | 3.964 |
+
+| GPU stream stage | Mean ms | At scoped peak ms |
+|---|---|---|
+| Convert solved contact impulses into chunk loads | 0.169 | 0.060 |
+| Iterative stress solve to convergence | 5.502 | 3.202 |
+| Evaluate material damage and fracture | 0.065 | 0.075 |
+| Connectivity, cluster mass and fragment candidates | 0.216 | 0.451 |
+| Commit changes and rebuild stress topology | 0.043 | 0.038 |
+
+Scoped peak: repeat 1, step 82, complete advance 151.293 ms. CUDA-event timings measure stream intervals, including gaps; they do not establish SM utilization or hardware bandwidth limits.
+
+Scoped versus first untraced counter history: complete run matches; through the scoped peak matches. Broken bonds: scoped 62728, first untraced 62728. These are separate trajectories, not a decomposition of the same measured peak.

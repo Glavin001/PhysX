@@ -1,0 +1,1305 @@
+========= COMPUTE-SANITIZER
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (0,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (1,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (2,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (3,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (4,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (5,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (6,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (7,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (8,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (9,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (10,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (11,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (12,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (13,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (14,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (15,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (16,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (17,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (18,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (19,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (20,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (21,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (22,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (23,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (24,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (25,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (26,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (27,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (28,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (29,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (30,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (31,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (32,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (33,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (34,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (35,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (36,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (37,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (38,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (39,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (40,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (41,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (42,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (43,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (44,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (45,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (46,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (47,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (48,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (49,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (50,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (51,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (52,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (53,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (54,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (55,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (56,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (57,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (58,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (59,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (60,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (61,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (62,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (63,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (64,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (65,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (66,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (67,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (68,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (69,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (70,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (71,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (72,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (73,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (74,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (75,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (76,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (77,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (78,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (79,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (80,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (81,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (82,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (83,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (84,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (85,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (86,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (87,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (88,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (89,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (90,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (91,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (92,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (93,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (94,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (95,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (96,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (97,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (98,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+========= Barrier error detected. Divergent thread(s) in warp.
+=========     at cub::CUB_200700_890_NS::CTA_SYNC()+0x1120 in util_ptx.cuh:240
+=========     by thread (99,0,0) in block (0,0,0)
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::ApplyWarpAggregates<(bool)1, cuda::std::__4::plus<void>>(T2, unsigned int, int)+0x1120 in block_reduce_warp_reductions.cuh:187
+=========         Device Frame: unsigned int cub::CUB_200700_890_NS::BlockReduceWarpReductions<unsigned int, (int)128, (int)1, (int)1, (int)0>::Sum<(bool)1>(unsigned int, int)+0x10a0 in block_reduce_warp_reductions.cuh:223
+=========         Device Frame: cub::CUB_200700_890_NS::BlockReduce<unsigned int, (int)128, (cub::CUB_200700_890_NS::BlockReduceAlgorithm)2, (int)1, (int)1, (int)0>::Sum(unsigned int)+0x1070 in block_reduce.cuh:517
+=========         Device Frame: physx::<unnamed>::countNativeMotionRequests(physx::<unnamed>::NativeMotionAllocationView)+0x1060 in PxgDestructionMotionSlots.cuh:54
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuGraphLaunch [0x369c99] in libcuda.so.1
+=========         Host Frame:  [0x2094a] in libcudart.so.12
+=========         Host Frame: cudaGraphLaunch [0x7bf95] in libcudart.so.12
+=========         Host Frame: main [0x3eed] in destruction_motion_slots_test
+========= 
+CUDA cudaDeviceSynchronize(): unspecified launch failure
+========= Target application returned an error
+========= ERROR SUMMARY: 128 errors
+========= ERROR SUMMARY: 28 errors were not printed. Use --print-limit option to adjust the number of printed errors

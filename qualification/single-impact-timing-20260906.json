@@ -1,0 +1,1692 @@
+{
+  "phases": {
+    "timings": {
+      "n": 600,
+      "min": 0.556409,
+      "mean": 1.09578517,
+      "p50": 1.11173,
+      "p95": 1.27761,
+      "p99": 2.78597,
+      "max": 8.99232
+    },
+    "first_impact": {
+      "step": "82",
+      "simulation_seconds": "1.38333",
+      "physics_step_ms": "8.99232",
+      "stress_solve_ms": "0",
+      "frame_host_ms": "9.2642",
+      "bodies": "378",
+      "awake_bodies": "378",
+      "splits_total": "376",
+      "contacts_total": "4",
+      "resim_passes": "1",
+      "correction_status": "0",
+      "contacts_frame": "4",
+      "projectiles_active": "1",
+      "bonds_broken": "780",
+      "stress_iterations": "192",
+      "stress_converged": "1",
+      "observation_ms": "0.08065",
+      "gpu_render_submit_and_export_ms": "0",
+      "logical_clusters": "377",
+      "native_dynamic_bodies": "377",
+      "native_kinematic_bodies": "1",
+      "active_dynamic_bodies": "377",
+      "active_kinematic_bodies": "1",
+      "contact_pairs": "4",
+      "contact_pairs_with_contacts": "0",
+      "solver_rows": "0",
+      "stress_active_nodes": "7",
+      "stress_active_bonds": "4",
+      "stress_islands": "3",
+      "graph_d2h_bytes": "0",
+      "pre_solve_pairs": "4",
+      "simulation_start_ns": "10312986662678",
+      "simulation_end_ns": "10312995656203",
+      "process_cpu_ms": "10.4862"
+    },
+    "windows": {
+      "preimpact": {
+        "n": 81,
+        "min": 0.556409,
+        "mean": 0.6177905925925926,
+        "p50": 0.61598,
+        "p95": 0.64319,
+        "p99": 1.00616,
+        "max": 1.00616
+      },
+      "corrected": {
+        "n": 5,
+        "min": 2.78597,
+        "mean": 4.155635999999999,
+        "p50": 2.96743,
+        "p95": 8.99232,
+        "p99": 8.99232,
+        "max": 8.99232
+      },
+      "late_rubble": {
+        "n": 120,
+        "min": 0.952928,
+        "mean": 1.0490827916666667,
+        "p50": 1.0640649999999998,
+        "p95": 1.1361,
+        "p99": 1.14345,
+        "max": 1.14905
+      }
+    },
+    "partition": {
+      "submit": {
+        "impact_ms": 0.306161,
+        "mean_ms": 0.12498675000000001
+      },
+      "finishAndReserve": {
+        "impact_ms": 3.789823,
+        "mean_ms": 0.07436609500000001
+      },
+      "initializeReserved": {
+        "impact_ms": 0.092563,
+        "mean_ms": 0.00039361833333333336
+      },
+      "collisionBindings": {
+        "impact_ms": 0.137016,
+        "mean_ms": 0.00267003
+      },
+      "correctionBodies": {
+        "impact_ms": 0.13959,
+        "mean_ms": 0.0028384833333333333
+      },
+      "applyBindings": {
+        "impact_ms": 0.470909,
+        "mean_ms": 0.0012056183333333333
+      },
+      "restoreInstall": {
+        "impact_ms": 0.041648,
+        "mean_ms": 0.00016728166666666667
+      },
+      "resetContactCaches": {
+        "impact_ms": 0.006062,
+        "mean_ms": 6.741000000000001e-05
+      },
+      "correctedCollisionSolve": {
+        "impact_ms": 2.75906,
+        "mean_ms": 0.012434808333333333
+      },
+      "acceptCorrection": {
+        "impact_ms": 0.115906,
+        "mean_ms": 0.00082953
+      },
+      "checkpoint": {
+        "impact_ms": 0.010199,
+        "mean_ms": 0.008345638333333334
+      },
+      "trial_and_remaining": {
+        "impact_ms": 1.1233829999999996,
+        "mean_ms": 0.8674799066666667
+      }
+    },
+    "phase_82": {
+      "trialDetail.postBroadPhase": 0.066625,
+      "trialDetail.preallocateContactManagers": 0.171249,
+      "trialDetail.registerInteractions": 0.003957,
+      "trialDetail.registerSceneInteractions": 0.009067,
+      "trialDetail.registerContactManagers": 0.012073,
+      "trialDetail.postBroadPhaseStage2": 0.076583,
+      "trialDetail.islandInsertion": 0.03248,
+      "trialDetail.postBroadPhaseStage3": 0.002204,
+      "task.cpuNarrowPhaseMerge": 0.006011,
+      "trialDetail.postNarrowPhase": 0.103343,
+      "trialDetail.postIslandGen": 0.011762,
+      "trialDetail.islandGen": 0.01567,
+      "trialDetail.beforeSolver": 0.002945,
+      "checkpoint": 0.010199,
+      "trialDetail.updateDynamics": 0.026359,
+      "trialDetail.updateDynamicsPostPartitioning": 0.076914,
+      "trialDetail.processLostContacts": 0.002364,
+      "trialDetail.processLostContacts2": 0.002295,
+      "task.prepareIslandRepair": 0.430413,
+      "trialDetail.processLostContacts3": 0.002425,
+      "task.accurateIsland.removeDestroyedConnections": 0.004458,
+      "task.speculativeIsland.removeDestroyedConnections": 0.004479,
+      "task.accurateIsland.boundaryAudit": 0.0045190000000000004,
+      "task.speculativeIsland.boundaryAudit": 0.004479,
+      "task.accurateIsland.removeEdgesFromIslands": 0.004458,
+      "task.speculativeIsland.removeEdgesFromIslands": 0.004407,
+      "task.accurateIsland.clearDestroyedEdges": 0.004418999999999999,
+      "task.speculativeIsland.clearDestroyedEdges": 0.004508,
+      "task.accurateIsland.clearDestroyedNodes": 0.0044480000000000006,
+      "task.speculativeIsland.clearDestroyedNodes": 0.0044480000000000006,
+      "task.accurateIsland.deactivation": 0.004647999999999999,
+      "task.speculativeIsland.deactivation": 0.004699,
+      "task.accurateIsland.resetDirtyEdges": 0.004468,
+      "task.speculativeIsland.resetDirtyEdges": 0.004479,
+      "task.accurateIslandMaintenance": 0.042388999999999996,
+      "task.speculativeIslandMaintenance": 0.041827,
+      "trialDetail.postSolver": 0.002946,
+      "task.contactGraph": 0.004880000000000001,
+      "submit": 0.306161,
+      "finishDetail.waitForGpu": 3.194803,
+      "finishDetail.requestReadback": 0.1019,
+      "finishDetail.allocateNativeBodies": 0.442947,
+      "finishDetail.uploadBindings": 0.021811,
+      "finishDetail.publishReservation": 0.007795,
+      "finishDetail.reserveBodies": 0.58919,
+      "finishAndReserve": 3.789823,
+      "initializeReserved": 0.092563,
+      "collisionBindings": 0.137016,
+      "correctionBodies": 0.13959,
+      "applyBindings": 0.470909,
+      "restoreInstall": 0.041648,
+      "resetContactCaches": 0.006062,
+      "refilter": 0.004618,
+      "detail.postBroadPhase": 0.129211,
+      "detail.preallocateContactManagers": 0.169787,
+      "detail.registerContactManagers": 0.004329,
+      "detail.postBroadPhaseStage2": 0.063408,
+      "detail.registerInteractions": 0.065432,
+      "detail.registerSceneInteractions": 0.080089,
+      "detail.islandInsertion": 0.120575,
+      "detail.postBroadPhaseStage3": 0.002444,
+      "detail.postNarrowPhase": 0.212647,
+      "detail.postIslandGen": 0.003106,
+      "detail.islandGen": 0.019957,
+      "detail.beforeSolver": 0.004238,
+      "detail.updateDynamics": 0.123119,
+      "task.accurateIsland.findPathsAndBreakIslands": 0.023885,
+      "task.restoreHostConnectivity": 0.052767999999999995,
+      "task.speculativeIsland.findPathsAndBreakIslands": 0.018342999999999998,
+      "detail.updateDynamicsPostPartitioning": 0.169887,
+      "detail.processLostContacts": 0.002635,
+      "detail.processLostContacts2": 0.002635,
+      "detail.processLostContacts3": 0.002755,
+      "detail.postSolver": 0.002635,
+      "correctedCollisionSolve": 2.75906,
+      "acceptCorrection": 0.115906
+    },
+    "trialDetail.observed_host_union_ms": 0.56792,
+    "detail.observed_host_union_ms": 1.028018
+  },
+  "gpu": {
+    "timings": {
+      "n": 600,
+      "min": 0.673446,
+      "mean": 1.3316352133333333,
+      "p50": 1.335415,
+      "p95": 1.56774,
+      "p99": 3.69681,
+      "max": 10.7789
+    },
+    "first_impact": {
+      "step": "82",
+      "simulation_seconds": "1.38333",
+      "physics_step_ms": "10.7789",
+      "stress_solve_ms": "0",
+      "frame_host_ms": "11.0137",
+      "bodies": "378",
+      "awake_bodies": "378",
+      "splits_total": "376",
+      "contacts_total": "4",
+      "resim_passes": "1",
+      "correction_status": "0",
+      "contacts_frame": "4",
+      "projectiles_active": "1",
+      "bonds_broken": "780",
+      "stress_iterations": "192",
+      "stress_converged": "1",
+      "observation_ms": "0.055113",
+      "gpu_render_submit_and_export_ms": "0",
+      "logical_clusters": "377",
+      "native_dynamic_bodies": "377",
+      "native_kinematic_bodies": "1",
+      "active_dynamic_bodies": "377",
+      "active_kinematic_bodies": "1",
+      "contact_pairs": "4",
+      "contact_pairs_with_contacts": "0",
+      "solver_rows": "0",
+      "stress_active_nodes": "7",
+      "stress_active_bonds": "4",
+      "stress_islands": "3",
+      "graph_d2h_bytes": "0",
+      "pre_solve_pairs": "4",
+      "simulation_start_ns": "1788734288070157958",
+      "simulation_end_ns": "1788734288080938187",
+      "process_cpu_ms": "12.4627"
+    },
+    "windows": {
+      "preimpact": {
+        "n": 81,
+        "min": 0.673446,
+        "mean": 0.7443896049382716,
+        "p50": 0.72319,
+        "p95": 0.835199,
+        "p99": 1.36886,
+        "max": 1.36886
+      },
+      "corrected": {
+        "n": 5,
+        "min": 3.39693,
+        "mean": 4.955356,
+        "p50": 3.50171,
+        "p95": 10.7789,
+        "p99": 10.7789,
+        "max": 10.7789
+      },
+      "late_rubble": {
+        "n": 120,
+        "min": 1.12368,
+        "mean": 1.28783325,
+        "p50": 1.265745,
+        "p95": 1.40817,
+        "p99": 1.55821,
+        "max": 3.52374
+      }
+    },
+    "partition": {
+      "submit": {
+        "impact_ms": 0.398403,
+        "mean_ms": 0.2155381783333333
+      },
+      "finishAndReserve": {
+        "impact_ms": 5.243767,
+        "mean_ms": 0.041368855
+      },
+      "initializeReserved": {
+        "impact_ms": 0.104445,
+        "mean_ms": 0.00050531
+      },
+      "collisionBindings": {
+        "impact_ms": 0.124242,
+        "mean_ms": 0.0028438633333333335
+      },
+      "correctionBodies": {
+        "impact_ms": 0.151613,
+        "mean_ms": 0.0029306416666666666
+      },
+      "applyBindings": {
+        "impact_ms": 0.490345,
+        "mean_ms": 0.0012909616666666665
+      },
+      "restoreInstall": {
+        "impact_ms": 0.052738,
+        "mean_ms": 0.00026541
+      },
+      "resetContactCaches": {
+        "impact_ms": 0.008025,
+        "mean_ms": 9.726499999999998e-05
+      },
+      "correctedCollisionSolve": {
+        "impact_ms": 2.788173,
+        "mean_ms": 0.013429145
+      },
+      "acceptCorrection": {
+        "impact_ms": 0.173234,
+        "mean_ms": 0.0012788916666666666
+      },
+      "checkpoint": {
+        "impact_ms": 0.014637,
+        "mean_ms": 0.012438871666666667
+      },
+      "trial_and_remaining": {
+        "impact_ms": 1.2292780000000008,
+        "mean_ms": 1.0396478200000001
+      }
+    },
+    "phase_82": {
+      "trialDetail.postBroadPhase": 0.024686,
+      "trialDetail.preallocateContactManagers": 0.166952,
+      "trialDetail.registerSceneInteractions": 0.003006,
+      "trialDetail.registerInteractions": 0.010319,
+      "trialDetail.registerContactManagers": 0.008206,
+      "trialDetail.postBroadPhaseStage2": 0.071193,
+      "trialDetail.islandInsertion": 0.032741,
+      "trialDetail.postBroadPhaseStage3": 0.002194,
+      "task.cpuNarrowPhaseMerge": 0.011561,
+      "trialDetail.postNarrowPhase": 0.09654,
+      "trialDetail.postIslandGen": 0.003616,
+      "trialDetail.islandGen": 0.008055,
+      "trialDetail.beforeSolver": 0.003526,
+      "checkpoint": 0.014637,
+      "trialDetail.updateDynamics": 0.03222,
+      "trialDetail.updateDynamicsPostPartitioning": 0.119744,
+      "trialDetail.processLostContacts": 0.002404,
+      "trialDetail.processLostContacts2": 0.002345,
+      "task.prepareIslandRepair": 0.436154,
+      "trialDetail.processLostContacts3": 0.002545,
+      "task.speculativeIsland.removeDestroyedConnections": 0.0044080000000000005,
+      "task.accurateIsland.removeDestroyedConnections": 0.003958,
+      "task.speculativeIsland.boundaryAudit": 0.004439,
+      "task.accurateIsland.boundaryAudit": 0.003907,
+      "task.speculativeIsland.removeEdgesFromIslands": 0.004377,
+      "task.accurateIsland.removeEdgesFromIslands": 0.003947,
+      "task.speculativeIsland.clearDestroyedEdges": 0.004328,
+      "task.accurateIsland.clearDestroyedEdges": 0.003917,
+      "task.speculativeIsland.clearDestroyedNodes": 0.004318,
+      "task.accurateIsland.clearDestroyedNodes": 0.003868,
+      "task.speculativeIsland.deactivation": 0.004648,
+      "task.accurateIsland.deactivation": 0.004118,
+      "task.speculativeIsland.resetDirtyEdges": 0.004358,
+      "task.accurateIsland.resetDirtyEdges": 0.003977,
+      "task.speculativeIslandMaintenance": 0.040284,
+      "task.accurateIslandMaintenance": 0.036298,
+      "trialDetail.postSolver": 0.003326,
+      "task.contactGraph": 0.006051,
+      "submit": 0.398403,
+      "finishDetail.waitForGpu": 4.638918,
+      "finishDetail.requestReadback": 0.10208,
+      "finishDetail.allocateNativeBodies": 0.445903,
+      "finishDetail.uploadBindings": 0.026459,
+      "finishDetail.publishReservation": 0.0104,
+      "finishDetail.reserveBodies": 0.596623,
+      "finishAndReserve": 5.243767,
+      "initializeReserved": 0.104445,
+      "collisionBindings": 0.124242,
+      "correctionBodies": 0.151613,
+      "applyBindings": 0.490345,
+      "restoreInstall": 0.052738,
+      "resetContactCaches": 0.008025,
+      "refilter": 0.004708,
+      "detail.postBroadPhase": 0.051456,
+      "detail.preallocateContactManagers": 0.166211,
+      "detail.registerContactManagers": 0.00538,
+      "detail.postBroadPhaseStage2": 0.057648,
+      "detail.registerInteractions": 0.069199,
+      "detail.registerSceneInteractions": 0.120856,
+      "detail.islandInsertion": 0.102491,
+      "detail.postBroadPhaseStage3": 0.002474,
+      "detail.postNarrowPhase": 0.166431,
+      "detail.postIslandGen": 0.002234,
+      "detail.islandGen": 0.029685,
+      "detail.beforeSolver": 0.004649,
+      "detail.updateDynamics": 0.120825,
+      "task.accurateIsland.findPathsAndBreakIslands": 0.023765,
+      "task.restoreHostConnectivity": 0.055845000000000006,
+      "task.speculativeIsland.findPathsAndBreakIslands": 0.020418000000000002,
+      "detail.updateDynamicsPostPartitioning": 0.199322,
+      "detail.processLostContacts": 0.002494,
+      "detail.processLostContacts2": 0.002474,
+      "detail.processLostContacts3": 0.002154,
+      "detail.postSolver": 0.003437,
+      "correctedCollisionSolve": 2.788173,
+      "acceptCorrection": 0.173234
+    },
+    "first_impact_regions": {
+      "finishDetail.waitForGpu": {
+        "wall_ms": 4.637556,
+        "gpu_active_ms": 2.976483,
+        "no_gpu_activity_ms": 1.661073
+      },
+      "correctedCollisionSolve": {
+        "wall_ms": 2.787051,
+        "gpu_active_ms": 0.780819,
+        "no_gpu_activity_ms": 2.006232
+      },
+      "checkpoint": {
+        "wall_ms": 0.013324,
+        "gpu_active_ms": 0.000215,
+        "no_gpu_activity_ms": 0.013109
+      }
+    },
+    "first_impact_kernel_categories": {
+      "physics body / shape updates": {
+        "calls": 7,
+        "sum_ms": 0.012254999999999999
+      },
+      "physics broad phase": {
+        "calls": 45,
+        "sum_ms": 0.08547700000000003
+      },
+      "shared physics utilities": {
+        "calls": 68,
+        "sum_ms": 0.19888299999999998
+      },
+      "destruction orchestration / motion": {
+        "calls": 42,
+        "sum_ms": 0.09811399999999998
+      },
+      "physics narrow phase / contact lifecycle": {
+        "calls": 19,
+        "sum_ms": 0.038113
+      },
+      "destruction pre-solve contacts / islands": {
+        "calls": 6,
+        "sum_ms": 0.007041
+      },
+      "physics constraint preparation / solve / integration": {
+        "calls": 117,
+        "sum_ms": 0.4923059999999999
+      },
+      "destruction contact graph": {
+        "calls": 8,
+        "sum_ms": 0.025568
+      },
+      "destruction load gathering": {
+        "calls": 2,
+        "sum_ms": 0.0073939999999999995
+      },
+      "stress solver / stress topology": {
+        "calls": 996,
+        "sum_ms": 2.5921169999999996
+      },
+      "destruction material / damage": {
+        "calls": 5,
+        "sum_ms": 0.007809
+      },
+      "destruction connectivity / mass / slots": {
+        "calls": 24,
+        "sum_ms": 0.050146
+      },
+      "shared CUDA scan / sort primitives": {
+        "calls": 14,
+        "sum_ms": 0.026688999999999997
+      },
+      "CUDA memory utility kernels": {
+        "calls": 411,
+        "sum_ms": 0.4070969999999996
+      }
+    },
+    "first_impact_kernels": [
+      {
+        "name": "_ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_e0d614f615nodeSpaceMatvecEPNS1_6AngLinEPKS2_PKNS1_7InertiaEPKjSA_SA_SA_PKNS1_4Vec4ESD_PKfSF_SA_SA_SA_SA_bPfjSA_SA_SA_j",
+        "calls": 194,
+        "sum_ms": 0.9387099999999989
+      },
+      {
+        "name": "_ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_e0d614f624nodeSpaceUpdateDirectionEPNS1_6AngLinES3_PKS2_S5_PKfS7_PKjS9_PfjS9_S9_S9_",
+        "calls": 194,
+        "sum_ms": 0.4839799999999996
+      },
+      {
+        "name": "_ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_e0d614f623nodeSpaceUpdateSolutionEPKjjPNS1_6AngLinES5_PKS4_S7_PKfS9_S3_S3_S3_S3_",
+        "calls": 194,
+        "sum_ms": 0.47706400000000065
+      },
+      {
+        "name": "memset32",
+        "calls": 394,
+        "sum_ms": 0.3886319999999996
+      },
+      {
+        "name": "_ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_e0d614f627finalizeAndCheckConvergenceEPKfPfjPjS5_S3_S5_jPKj",
+        "calls": 194,
+        "sum_ms": 0.33715400000000034
+      },
+      {
+        "name": "_ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_e0d614f617finalizeAndRetireEPKfPfjPjS4_S3_PNS0_24ExtStressGpuDeviceStatusEPKjjS5_jyjS9_",
+        "calls": 194,
+        "sum_ms": 0.32083999999999996
+      },
+      {
+        "name": "solveBlockUnified",
+        "calls": 40,
+        "sum_ms": 0.187013
+      },
+      {
+        "name": "solveStaticBlockTGS",
+        "calls": 10,
+        "sum_ms": 0.156708
+      },
+      {
+        "name": "radixSortMultiCalculateRanksLaunchWithCount",
+        "calls": 32,
+        "sum_ms": 0.11097899999999998
+      },
+      {
+        "name": "radixSortMultiBlockLaunchWithCount",
+        "calls": 32,
+        "sum_ms": 0.08009599999999999
+      },
+      {
+        "name": "propagateAverageSolverBodyVelocityTGS",
+        "calls": 10,
+        "sum_ms": 0.021507
+      },
+      {
+        "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_021480ce22prepareCandidateBodiesENS_31PxDestructionTopologyDeviceViewEPKNS_24PxDestructionStressChunkEPKNS_26PxDestructionStressClusterEPNS_29PxDestructionClusterBodyStateEPNS_34PxDestructionBodyPreparationStatusES1_PNS_25PxvDestructionBodyRequestEPj",
+        "calls": 1,
+        "sum_ms": 0.019777
+      },
+      {
+        "name": "computeAverageSolverBodyVelocityTGS",
+        "calls": 10,
+        "sum_ms": 0.01917
+      },
+      {
+        "name": "memcpy32_post",
+        "calls": 17,
+        "sum_ms": 0.018465
+      },
+      {
+        "name": "_ZN5physx23destructionContactGraph7connectEPKNS_22PxgContactManagerInputEPKNS_23PxgContactGraphIdentityEPKNS_23PxsContactManagerOutputEjPKNS_11PxgShapeSimEjjPNS_32PxgDestructionContactGraphStatusEPKjPjSH_",
+        "calls": 2,
+        "sum_ms": 0.017793
+      },
+      {
+        "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_021480ce27prepareCorrectionBodyInputsEPKNS_29PxDestructionClusterBodyStateEPKjjNS_31PxDestructionTopologyDeviceViewEPKNS_24PxDestructionStressChunkES5_PKNS_10PxgBodySimEPKNS_20PxgBodySimVelocitiesEjjPNS_27PxDestructionCorrectionBodyEPNS_40PxDestructionCorrectionPreparationStatusE",
+        "calls": 1,
+        "sum_ms": 0.017504
+      },
+      {
+        "name": "markActiveSlabTGS",
+        "calls": 5,
+        "sum_ms": 0.015136
+      },
+      {
+        "name": "propagateStaticSolverBodyVelocitiesTGS",
+        "calls": 10,
+        "sum_ms": 0.014656999999999998
+      },
+      {
+        "name": "contactConstraintBlockPrepareParallelLaunchTGS",
+        "calls": 2,
+        "sum_ms": 0.012385
+      },
+      {
+        "name": "_ZN3cub17CUB_200700_890_NS31DeviceRadixSortSingleTileKernelINS0_21DeviceRadixSortPolicyIjjjE9Policy900ELb0EjjjNS0_6detail21identity_decomposer_tEEEvPKT1_PS7_PKT2_PSB_T3_iiT4_",
+        "calls": 1,
+        "sum_ms": 0.011809
+      },
+      {
+        "name": "constraintContactBlockPrePrepLaunch",
+        "calls": 2,
+        "sum_ms": 0.010785
+      },
+      {
+        "name": "bpSignalComplete",
+        "calls": 6,
+        "sum_ms": 0.009215000000000001
+      },
+      {
+        "name": "preIntegrationLaunchTGS",
+        "calls": 2,
+        "sum_ms": 0.008352
+      },
+      {
+        "name": "boxBoxNphase_Kernel",
+        "calls": 1,
+        "sum_ms": 0.008032
+      },
+      {
+        "name": "_ZN5physx58_GLOBAL__N__784570f4_25_PxgDestructionTopology_cu_3f1340107connectEPKNS_26PxDestructionBondEndpointsEjPjPKjS4_",
+        "calls": 1,
+        "sum_ms": 0.007809
+      },
+      {
+        "name": "performIncrementalSAP",
+        "calls": 2,
+        "sum_ms": 0.007808
+      },
+      {
+        "name": "rigidSumInternalContactAndJointBatches2",
+        "calls": 2,
+        "sum_ms": 0.007456
+      },
+      {
+        "name": "_ZN5physx58_GLOBAL__N__784570f4_25_PxgDestructionTopology_cu_3f13401014massPropertiesEPKNS_32PxDestructionChunkMassPropertiesEPKjS5_S5_S5_S5_PNS_34PxDestructionClusterMassPropertiesES5_PKNS_27PxDestructionTopologyStatusE",
+        "calls": 1,
+        "sum_ms": 0.007392
+      },
+      {
+        "name": "prepareLostFoundPairs_Stage2",
+        "calls": 3,
+        "sum_ms": 0.007105
+      },
+      {
+        "name": "writebackBlocksTGS",
+        "calls": 2,
+        "sum_ms": 0.0069759999999999996
+      },
+      {
+        "name": "solveWholeIslandTGS",
+        "calls": 4,
+        "sum_ms": 0.006465
+      },
+      {
+        "name": "_ZN3cub17CUB_200700_890_NS23DeviceSelectSweepKernelINS0_6detail24device_select_policy_hubIN5physx27PxDestructionCorrectionBodyENS0_8NullTypeEiLb0ELb0EE9Policy900EPS5_PS6_S9_PjNS0_13ScanTileStateIiLb1EEENS4_57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_021480ce17HasCorrectionBodyES6_iLb0ELb0EEEvT0_T1_T2_T3_T4_T5_T6_T7_iNS2_7vsmem_tE",
+        "calls": 1,
+        "sum_ms": 0.005824
+      },
+      {
+        "name": "integrateCoreParallelLaunchTGS",
+        "calls": 2,
+        "sum_ms": 0.00544
+      },
+      {
+        "name": "sphereNphase_Kernel",
+        "calls": 2,
+        "sum_ms": 0.005376000000000001
+      },
+      {
+        "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_021480ce13routeContactsEPKNS_16PxGpuContactPairEPKjjPKNS0_6LookupEjPKNS_24PxDestructionStressChunkEPKNS_12PxTransformTIfEEfPNS_23PxDestructionVectorPairEPNS_24PxDestructionSurfaceLoadEPNS_24PxDestructionStageStatusEPKNS_10PxgBodySimEPKNS_21PxDestructionMaterialEPf",
+        "calls": 1,
+        "sum_ms": 0.005313
+      },
+      {
+        "name": "_ZN3cub17CUB_200700_890_NS23DeviceCompactInitKernelINS0_13ScanTileStateIiLb1EEEPjEEvT_iT0_",
+        "calls": 6,
+        "sum_ms": 0.00528
+      },
+      {
+        "name": "accumulateReportsStage_2",
+        "calls": 2,
+        "sum_ms": 0.005248
+      },
+      {
+        "name": "updateTransformCacheAndBoundArrayLaunch",
+        "calls": 2,
+        "sum_ms": 0.005183999999999999
+      },
+      {
+        "name": "_ZN5physx58_GLOBAL__N__784570f4_25_PxgDestructionTopology_cu_3f13401021transferClusterMotionEPKjS2_PKNS_34PxDestructionClusterMassPropertiesES2_S2_PKdPKNS_26PxDestructionClusterMotionEPS8_PKNS_27PxDestructionTopologyStatusE",
+        "calls": 1,
+        "sum_ms": 0.00512
+      },
+      {
+        "name": "MemCopyBalanced",
+        "calls": 1,
+        "sum_ms": 0.00464
+      },
+      {
+        "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_021480ce25provisionalTopologyMotionENS_31PxDestructionTopologyDeviceViewEPKNS_24PxDestructionStressChunkEPKNS_26PxDestructionStressClusterEPKNS_12PxTransformTIfEEPKNS_10PxgBodySimEPNS_26PxDestructionClusterMotionE",
+        "calls": 2,
+        "sum_ms": 0.004543999999999999
+      },
+      {
+        "name": "generateFoundPairsForNewBoundsRegion",
+        "calls": 1,
+        "sum_ms": 0.004416
+      },
+      {
+        "name": "copyReports",
+        "calls": 2,
+        "sum_ms": 0.004128
+      },
+      {
+        "name": "_ZN5physx23destructionContactGraph8compressEPjS1_j",
+        "calls": 2,
+        "sum_ms": 0.004128
+      },
+      {
+        "name": "outputEndPtsHistogram",
+        "calls": 2,
+        "sum_ms": 0.004097
+      },
+      {
+        "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_021480ce27installCorrectionBodyInputsEPKNS_27PxDestructionCorrectionBodyEjPKNS_10PxgBodySimEPKNS_20PxgBodySimVelocitiesEPS4_PS7_PNS_24PxgRigidBodyAccelerationE",
+        "calls": 1,
+        "sum_ms": 0.003808
+      },
+      {
+        "name": "prepareLostFoundPairs_Stage1",
+        "calls": 3,
+        "sum_ms": 0.0038070000000000005
+      },
+      {
+        "name": "computeIncrementalComparisonHistograms_Stage1",
+        "calls": 2,
+        "sum_ms": 0.003712
+      },
+      {
+        "name": "computeIncrementalComparisonHistograms_Stage2",
+        "calls": 2,
+        "sum_ms": 0.003585
+      },
+      {
+        "name": "computeEndPtsHistogram",
+        "calls": 2,
+        "sum_ms": 0.003457
+      },
+      {
+        "name": "accumulateReportsStage_1",
+        "calls": 2,
+        "sum_ms": 0.00336
+      },
+      {
+        "name": "markUpdatedPairsLaunch",
+        "calls": 2,
+        "sum_ms": 0.0033280000000000002
+      },
+      {
+        "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_021480ce28commitObservedTopologyMotionENS_31PxDestructionTopologyDeviceViewEPKNS_26PxDestructionClusterMotionEPKNS_24PxDestructionStageStatusE",
+        "calls": 2,
+        "sum_ms": 0.0033280000000000002
+      },
+      {
+        "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_021480ce24buildNativeContactInputsEPNS_22PxgContactManagerInputEjPKNS_11PxgShapeSimEj",
+        "calls": 3,
+        "sum_ms": 0.003232
+      },
+      {
+        "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_021480ce30initializeReservedBodiesKernelEPKNS_25PxvDestructionBodyRequestEPKjjPKNS_29PxDestructionClusterBodyStateEPNS_10PxgBodySimEPNS_20PxgBodySimVelocitiesEPNS_24PxgRigidBodyAccelerationEPNS_33PxDestructionBodyAllocationStatusE",
+        "calls": 1,
+        "sum_ms": 0.003168
+      },
+      {
+        "name": "initializeSolverVelocitiesTGS",
+        "calls": 2,
+        "sum_ms": 0.003136
+      },
+      {
+        "name": "_ZN3cub17CUB_200700_890_NS16DeviceScanKernelINS0_16DeviceScanPolicyIjN4cuda3std3__44plusIvEEE9Policy900EPjSA_NS0_13ScanTileStateIjLb1EEES7_NS0_6detail10InputValueIjSA_EEjjLb0EEEvT0_T1_T2_iT3_T4_T5_",
+        "calls": 2,
+        "sum_ms": 0.003136
+      },
+      {
+        "name": "rigidSumInternalContactAndJointBatches1",
+        "calls": 2,
+        "sum_ms": 0.003104
+      },
+      {
+        "name": "writeOutOverlapChecksForInsertedBoundsRegionsHistogram",
+        "calls": 1,
+        "sum_ms": 0.003104
+      },
+      {
+        "name": "updateHandles",
+        "calls": 2,
+        "sum_ms": 0.003072
+      },
+      {
+        "name": "_ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_e0d614f619gatherRightMultiplyEPNS1_6AngLinEPKS2_PKjS7_PKNS1_4Vec4ESA_PKfSC_S7_S7_PKNS1_7InertiaES7_S7_",
+        "calls": 1,
+        "sum_ms": 0.003072
+      },
+      {
+        "name": "initializeSapBox1DLaunch",
+        "calls": 2,
+        "sum_ms": 0.0029760000000000003
+      },
+      {
+        "name": "outputOrderedActiveRegionHistogram",
+        "calls": 1,
+        "sum_ms": 0.002976
+      },
+      {
+        "name": "updateFrictionPatches",
+        "calls": 3,
+        "sum_ms": 0.002945
+      },
+      {
+        "name": "_ZN3cub17CUB_200700_890_NS23DeviceSelectSweepKernelINS0_6detail24device_select_policy_hubIjjiLb0ELb0EE9Policy900ENS0_21CountingInputIteratorIjlEEPjS8_S8_NS0_13ScanTileStateIiLb1EEENS0_8NullTypeESB_iLb0ELb0EEEvT0_T1_T2_T3_T4_T5_T6_T7_iNS2_7vsmem_tE",
+        "calls": 2,
+        "sum_ms": 0.002944
+      },
+      {
+        "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_021480ce34preparePersistentCollisionBindingsEPKNS_24PxDestructionStressChunkEjPKNS_26PxDestructionStressClusterEPKjNS_31PxDestructionTopologyDeviceViewES8_S8_PKNS_11PxgShapeSimEjPNS_29PxDestructionCollisionBindingEPNS_39PxDestructionCollisionPreparationStatusE",
+        "calls": 1,
+        "sum_ms": 0.002912
+      },
+      {
+        "name": "writeBackBodiesTGS",
+        "calls": 2,
+        "sum_ms": 0.0028469999999999997
+      },
+      {
+        "name": "_ZN5physx58_GLOBAL__N__784570f4_25_PxgDestructionTopology_cu_3f13401011resetLabelsEPKjPjS3_PNS_34PxDestructionClusterMassPropertiesEj",
+        "calls": 1,
+        "sum_ms": 0.002816
+      },
+      {
+        "name": "writeOutStartAndActiveRegionHistogram",
+        "calls": 1,
+        "sum_ms": 0.002752
+      },
+      {
+        "name": "_ZN5physx58_GLOBAL__N__784570f4_25_PxgDestructionTopology_cu_3f13401012chooseCommitEPKNS0_16TransactionBatchEPKNS_38PxDestructionTopologyTransactionStatusEy",
+        "calls": 2,
+        "sum_ms": 0.002688
+      },
+      {
+        "name": "_ZN5physx58_GLOBAL__N__784570f4_25_PxgDestructionTopology_cu_3f1340107flattenEPjj",
+        "calls": 1,
+        "sum_ms": 0.002625
+      },
+      {
+        "name": "removeContactManagers_Stage4",
+        "calls": 1,
+        "sum_ms": 0.002624
+      },
+      {
+        "name": "concludeBlocksTGS",
+        "calls": 2,
+        "sum_ms": 0.00256
+      },
+      {
+        "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_021480ce21evaluateBondMaterialsEPKNS_24PxDestructionStressChunkEPKNS_23PxDestructionStressBondEPKNS_21PxDestructionMaterialEPKfPKNS_23PxDestructionVectorPairEjfffbPNS_24PxDestructionBondVerdictEPNS_7PxVec3TIfEEPNS_24PxDestructionStageStatusE",
+        "calls": 1,
+        "sum_ms": 0.002528
+      },
+      {
+        "name": "mergeChangedAABBMgrHandlesLaunch",
+        "calls": 2,
+        "sum_ms": 0.002495
+      },
+      {
+        "name": "constraint1DBlockPrePrepLaunch",
+        "calls": 2,
+        "sum_ms": 0.002464
+      },
+      {
+        "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_021480ce21observeNativeClustersEPKNS_26PxDestructionStressClusterEjPKNS_10PxgBodySimEPNS_12PxTransformTIfEEPNS_7PxVec3TIfEE",
+        "calls": 2,
+        "sum_ms": 0.002432
+      },
+      {
+        "name": "_ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_e0d614f625beginDeviceStressTopologyEPKNS1_25DeviceStressTopologyBatchEPNS0_32ExtStressGpuDeviceTopologyStatusEy",
+        "calls": 2,
+        "sum_ms": 0.0024000000000000002
+      },
+      {
+        "name": "updateChangedAABBMgrHandlesLaunch",
+        "calls": 2,
+        "sum_ms": 0.002304
+      },
+      {
+        "name": "refreshReboundShapeBounds",
+        "calls": 1,
+        "sum_ms": 0.002272
+      },
+      {
+        "name": "initializeRadixRanks",
+        "calls": 2,
+        "sum_ms": 0.00224
+      },
+      {
+        "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_021480ce19commitMaterialStateEPKNS_24PxDestructionBondVerdictEPfjPKNS_23PxDestructionCrushStateEPS5_jPKNS_24PxDestructionStageStatusE",
+        "calls": 2,
+        "sum_ms": 0.002209
+      },
+      {
+        "name": "computeStartAndActiveRegionHistogram",
+        "calls": 1,
+        "sum_ms": 0.002144
+      },
+      {
+        "name": "compressContactStage2",
+        "calls": 1,
+        "sum_ms": 0.002112
+      },
+      {
+        "name": "_ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_e0d614f620flagDeviceStressRowsEPKjjPj",
+        "calls": 2,
+        "sum_ms": 0.002112
+      },
+      {
+        "name": "clearFrictionPatchCounts",
+        "calls": 2,
+        "sum_ms": 0.002081
+      },
+      {
+        "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_021480ce12prepareLoadsEPKNS_24PxDestructionStressChunkEjPKNS_26PxDestructionStressClusterEPKNS_12PxTransformTIfEEPKNS_7PxVec3TIfEESC_PNS_23PxDestructionVectorPairEPNS_24PxDestructionSurfaceLoadEPf",
+        "calls": 1,
+        "sum_ms": 0.002081
+      },
+      {
+        "name": "translateAABBsLaunch",
+        "calls": 2,
+        "sum_ms": 0.0020800000000000003
+      },
+      {
+        "name": "radixSortCopyBits2",
+        "calls": 2,
+        "sum_ms": 0.0020800000000000003
+      },
+      {
+        "name": "_ZN5physx58_GLOBAL__N__784570f4_25_PxgDestructionTopology_cu_3f13401019validateTransactionEPKNS0_16TransactionBatchEPKjS5_jjPNS_38PxDestructionTopologyTransactionStatusE",
+        "calls": 1,
+        "sum_ms": 0.00208
+      },
+      {
+        "name": "ZeroBodiesTGS",
+        "calls": 2,
+        "sum_ms": 0.002048
+      },
+      {
+        "name": "initStaticKinematics",
+        "calls": 2,
+        "sum_ms": 0.002016
+      },
+      {
+        "name": "_ZN3cub17CUB_200700_890_NS23DeviceSelectSweepKernelINS0_6detail24device_select_policy_hubIN5physx29PxDestructionCollisionBindingENS0_8NullTypeEiLb0ELb0EE9Policy900EPS5_PS6_S9_PjNS0_13ScanTileStateIiLb1EEENS4_57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_021480ce19HasCollisionBindingES6_iLb0ELb0EEEvT0_T1_T2_T3_T4_T5_T6_T7_iNS2_7vsmem_tE",
+        "calls": 1,
+        "sum_ms": 0.001952
+      },
+      {
+        "name": "_ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_e0d614f627connectDeviceStressTopologyEPKjS3_PKfPKNS1_7InertiaEjPj",
+        "calls": 1,
+        "sum_ms": 0.001952
+      },
+      {
+        "name": "_ZN5physx23destructionContactGraph20connectRetainedSlotsEPKNS_26PxgDestructionRetainedEdgeEPKjjjPjS6_PNS_32PxgDestructionContactGraphStatusE",
+        "calls": 2,
+        "sum_ms": 0.001951
+      },
+      {
+        "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_021480ce26checkUnchangedMotionCommitENS_31PxDestructionTopologyDeviceViewES1_PKNS_38PxDestructionTopologyTransactionStatusEPjPKNS_24PxDestructionStressChunkES5_PNS_39PxDestructionCollisionPreparationStatusE",
+        "calls": 1,
+        "sum_ms": 0.00192
+      },
+      {
+        "name": "createRegionsKernel",
+        "calls": 1,
+        "sum_ms": 0.001888
+      },
+      {
+        "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_021480ce21inspectStressTopologyEPKN2Nv5Blast32ExtStressGpuDeviceTopologyStatusEPNS_24PxDestructionStageStatusE",
+        "calls": 2,
+        "sum_ms": 0.0018570000000000001
+      },
+      {
+        "name": "_ZN3cub17CUB_200700_890_NS20DeviceScanInitKernelINS0_13ScanTileStateIjLb1EEEEEvT_i",
+        "calls": 2,
+        "sum_ms": 0.001824
+      },
+      {
+        "name": "_ZN5physx19destructionPreSolve4seedEPKNS_15PxvPreSolveNodeEjS3_jPKjjPjS5_",
+        "calls": 1,
+        "sum_ms": 0.00176
+      },
+      {
+        "name": "_ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_e0d614f622nodeSpaceApplySolutionEPNS1_6AngLinEPKS2_PKNS1_7InertiaEPKjSA_PKNS1_4Vec4ESD_PKfSF_SA_SA_SA_SA_",
+        "calls": 1,
+        "sum_ms": 0.00176
+      },
+      {
+        "name": "_ZN3cub17CUB_200700_890_NS23DeviceSelectSweepKernelINS0_6detail24device_select_policy_hubIN5physx25PxvDestructionBodyRequestENS0_8NullTypeEiLb0ELb0EE9Policy900EPS5_PS6_S9_PjNS0_13ScanTileStateIiLb1EEENS4_57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_021480ce9NeedsBodyES6_iLb0ELb0EEEvT0_T1_T2_T3_T4_T5_T6_T7_iNS2_7vsmem_tE",
+        "calls": 1,
+        "sum_ms": 0.00176
+      },
+      {
+        "name": "_ZN5physx58_GLOBAL__N__784570f4_25_PxgDestructionTopology_cu_3f13401020captureClusterMotionEPKjS2_PKNS_34PxDestructionClusterMassPropertiesEPKNS_26PxDestructionClusterMotionEPS6_PdPjPKNS_27PxDestructionTopologyStatusEPKS8_",
+        "calls": 1,
+        "sum_ms": 0.001728
+      },
+      {
+        "name": "_ZN5physx23destructionContactGraph10initializeEPjS1_jPNS_32PxgDestructionContactGraphStatusEj",
+        "calls": 2,
+        "sum_ms": 0.001696
+      },
+      {
+        "name": "_ZN3cub17CUB_200700_890_NS23DeviceSelectSweepKernelINS0_6detail24device_select_policy_hubIjjiLb0ELb0EE9Policy900EPjS6_S6_S6_NS0_13ScanTileStateIiLb1EEENS0_8NullTypeES9_iLb0ELb0EEEvT0_T1_T2_T3_T4_T5_T6_T7_iNS2_7vsmem_tE",
+        "calls": 1,
+        "sum_ms": 0.001696
+      },
+      {
+        "name": "_ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_e0d614f614nodeSpaceResetEPNS1_6AngLinES3_S3_S3_j",
+        "calls": 1,
+        "sum_ms": 0.001664
+      },
+      {
+        "name": "_ZN5physx58_GLOBAL__N__784570f4_25_PxgDestructionTopology_cu_3f13401020setTransactionAcceptEPNS0_16TransactionBatchEPKj",
+        "calls": 2,
+        "sum_ms": 0.001664
+      },
+      {
+        "name": "_ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_e0d614f628setDeviceStressTopologyBatchEPNS1_25DeviceStressTopologyBatchES2_",
+        "calls": 2,
+        "sum_ms": 0.001664
+      },
+      {
+        "name": "_ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_e0d614f627flattenDeviceStressTopologyEPjj",
+        "calls": 1,
+        "sum_ms": 0.001664
+      },
+      {
+        "name": "_ZN5physx58_GLOBAL__N__784570f4_25_PxgDestructionTopology_cu_3f13401019allocateMotionSlotsEPKjS2_S2_S2_S2_PjS3_PmPNS_27PxDestructionTopologyStatusEj",
+        "calls": 1,
+        "sum_ms": 0.001632
+      },
+      {
+        "name": "_ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_e0d614f615initializeSolveEPKNS0_19ExtStressGpuImpulseEPNS1_6AngLinES6_S6_PKNS1_7InertiaEPKjSB_SB_SB_SB_SB_fffb",
+        "calls": 1,
+        "sum_ms": 0.0016
+      },
+      {
+        "name": "_ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_e0d614f625accumulateSquaredByIslandEPKNS1_6AngLinEPKjS6_PfS6_S6_jj",
+        "calls": 1,
+        "sum_ms": 0.001536
+      },
+      {
+        "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_021480ce22evaluateChunkMaterialsEPKNS_24PxDestructionStressChunkEPKNS_23PxDestructionStressBondEPKNS_21PxDestructionMaterialEPKjSB_PKfPKNS_23PxDestructionVectorPairEPKNS_7PxVec3TIfEEPKNS_24PxDestructionSurfaceLoadESD_PKNS_23PxDestructionCrushStateEPSO_jfPNS_24PxDestructionStageStatusE",
+        "calls": 1,
+        "sum_ms": 0.001536
+      },
+      {
+        "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_021480ce23finalizeMaterialVerdictEPKNS_23PxDestructionStressBondEPNS_24PxDestructionBondVerdictEPKNS_23PxDestructionCrushStateEPKfjPNS_24PxDestructionStageStatusE",
+        "calls": 1,
+        "sum_ms": 0.001536
+      },
+      {
+        "name": "_ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_e0d614f622labelDeviceStressBondsEPKjS3_PKfPKNS1_7InertiaES3_PjS9_j",
+        "calls": 1,
+        "sum_ms": 0.001536
+      },
+      {
+        "name": "_ZN5physx58_GLOBAL__N__784570f4_25_PxgDestructionTopology_cu_3f13401016beginTransactionEPKNS0_16TransactionBatchEPNS_38PxDestructionTopologyTransactionStatusEy",
+        "calls": 1,
+        "sum_ms": 0.001504
+      },
+      {
+        "name": "clearNewFlagLaunch",
+        "calls": 1,
+        "sum_ms": 0.001504
+      },
+      {
+        "name": "compressContactStage1",
+        "calls": 1,
+        "sum_ms": 0.001472
+      },
+      {
+        "name": "_ZN5physx58_GLOBAL__N__784570f4_25_PxgDestructionTopology_cu_3f1340106rangesEPKjS2_S2_jPjS3_S3_",
+        "calls": 1,
+        "sum_ms": 0.001472
+      },
+      {
+        "name": "computeRegionsHistogram",
+        "calls": 1,
+        "sum_ms": 0.001441
+      },
+      {
+        "name": "outputStartRegionsHistogram",
+        "calls": 1,
+        "sum_ms": 0.00144
+      },
+      {
+        "name": "removeContactManagers_Stage3",
+        "calls": 1,
+        "sum_ms": 0.00144
+      },
+      {
+        "name": "computeStartRegionsHistogram",
+        "calls": 1,
+        "sum_ms": 0.001409
+      },
+      {
+        "name": "_ZN5physx58_GLOBAL__N__784570f4_25_PxgDestructionTopology_cu_3f13401015editTransactionEPKNS0_16TransactionBatchEPKNS_38PxDestructionTopologyTransactionStatusEPjS7_",
+        "calls": 1,
+        "sum_ms": 0.001408
+      },
+      {
+        "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_021480ce22validateReservedBodiesEPKNS_25PxvDestructionBodyRequestEPKjjPKNS_29PxDestructionClusterBodyStateEjjPNS_33PxDestructionBodyAllocationStatusE",
+        "calls": 1,
+        "sum_ms": 0.001376
+      },
+      {
+        "name": "computeOverlapChecksForRegionsHistogram",
+        "calls": 1,
+        "sum_ms": 0.001376
+      },
+      {
+        "name": "outputOverlapChecksForRegionHistogram",
+        "calls": 1,
+        "sum_ms": 0.001376
+      },
+      {
+        "name": "_ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_e0d614f624validateDeviceStressMaskEPKNS1_25DeviceStressTopologyBatchEPKfjPNS0_32ExtStressGpuDeviceTopologyStatusE",
+        "calls": 1,
+        "sum_ms": 0.001376
+      },
+      {
+        "name": "outputRegionsHistogram",
+        "calls": 1,
+        "sum_ms": 0.001345
+      },
+      {
+        "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_021480ce28inspectCorrectionSourceLoadsEPKNS_26PxDestructionStressClusterEPKjjPKNS_10PxgBodySimEjPNS_40PxDestructionCorrectionPreparationStatusE",
+        "calls": 1,
+        "sum_ms": 0.001344
+      },
+      {
+        "name": "_ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_e0d614f630initializeDeviceStressTopologyEPKNS1_25DeviceStressTopologyBatchEPKNS1_7InertiaEPjS8_S8_Pfjj",
+        "calls": 1,
+        "sum_ms": 0.001344
+      },
+      {
+        "name": "_ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_e0d614f625finishDeviceStressRebuildEPKNS1_25DeviceStressTopologyBatchEPNS0_32ExtStressGpuDeviceTopologyStatusEPKj",
+        "calls": 1,
+        "sum_ms": 0.001313
+      },
+      {
+        "name": "_ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_e0d614f616subtractResidualEPNS1_6AngLinEPKS2_PKjS7_",
+        "calls": 1,
+        "sum_ms": 0.001312
+      },
+      {
+        "name": "_ZN5physx58_GLOBAL__N__784570f4_25_PxgDestructionTopology_cu_3f13401018requestMotionSlotsEPKjS2_PjS2_S3_j",
+        "calls": 1,
+        "sum_ms": 0.001312
+      },
+      {
+        "name": "_ZN5physx58_GLOBAL__N__784570f4_25_PxgDestructionTopology_cu_3f13401017retainMotionSlotsEPjPKjS3_S1_j",
+        "calls": 1,
+        "sum_ms": 0.001312
+      },
+      {
+        "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_021480ce12finishStatusEPKN2Nv5Blast24ExtStressGpuDeviceStatusEPNS_24PxDestructionStageStatusEPKNS_23PxDestructionVectorPairEj",
+        "calls": 1,
+        "sum_ms": 0.001311
+      },
+      {
+        "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_021480ce17emitTopologyEditsEPKNS_24PxDestructionBondVerdictEjPKNS_23PxDestructionCrushStateES6_jPNS_18PxgDestructionEditEPj",
+        "calls": 1,
+        "sum_ms": 0.00128
+      },
+      {
+        "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_021480ce29gatherCorrectionOwnerMetadataEPKNS_27PxDestructionCorrectionBodyEjPKjPKNS_25PxvDestructionBodyRequestEPS6_Pj",
+        "calls": 1,
+        "sum_ms": 0.00128
+      },
+      {
+        "name": "_ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_e0d614f622labelDeviceStressNodesEPKjS3_PjjPNS0_32ExtStressGpuDeviceTopologyStatusE",
+        "calls": 1,
+        "sum_ms": 0.00128
+      },
+      {
+        "name": "_ZN5physx19destructionPreSolve6finishEPKNS_15PxvPreSolveNodeEjPjS4_S4_PKj",
+        "calls": 1,
+        "sum_ms": 0.001249
+      },
+      {
+        "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_021480ce21acceptClusterBindingsENS_31PxDestructionTopologyDeviceViewEPKjPNS_26PxDestructionStressClusterE",
+        "calls": 1,
+        "sum_ms": 0.001248
+      },
+      {
+        "name": "_ZN5physx58_GLOBAL__N__784570f4_25_PxgDestructionTopology_cu_3f13401013chooseRebuildEPKNS_38PxDestructionTopologyTransactionStatusEy",
+        "calls": 1,
+        "sum_ms": 0.001217
+      },
+      {
+        "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_021480ce19acceptChunkBindingsENS_31PxDestructionTopologyDeviceViewEPKjPNS_24PxDestructionStressChunkE",
+        "calls": 1,
+        "sum_ms": 0.001216
+      },
+      {
+        "name": "_ZN5physx19destructionPreSolve15connectContactsENS_30PxgDestructionPreSolveContactsEPKjPKNS_15PxvPreSolveNodeEjPjPNS_32PxgDestructionContactGraphStatusES7_",
+        "calls": 1,
+        "sum_ms": 0.001184
+      },
+      {
+        "name": "_ZN5physx58_GLOBAL__N__784570f4_25_PxgDestructionTopology_cu_3f13401022compactFreeMotionSlotsEPKjS2_Pjj",
+        "calls": 1,
+        "sum_ms": 0.001184
+      },
+      {
+        "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_021480ce20beginBodyPreparationEPKNS_38PxDestructionTopologyTransactionStatusENS_31PxDestructionTopologyDeviceViewEPNS_34PxDestructionBodyPreparationStatusE",
+        "calls": 1,
+        "sum_ms": 0.001152
+      },
+      {
+        "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_021480ce28installNativeCollisionOwnersEPKNS_29PxDestructionCollisionBindingEjPNS_11PxgShapeSimEj",
+        "calls": 1,
+        "sum_ms": 0.001152
+      },
+      {
+        "name": "_ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_e0d614f625chooseDeviceStressRebuildEPKNS0_32ExtStressGpuDeviceTopologyStatusEy",
+        "calls": 1,
+        "sum_ms": 0.001152
+      },
+      {
+        "name": "_ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_e0d614f622exportPhysicalImpulsesEPKNS1_6AngLinEPKfPNS0_19ExtStressGpuImpulseEjff",
+        "calls": 1,
+        "sum_ms": 0.001121
+      },
+      {
+        "name": "removeContactManagers_Stage2",
+        "calls": 1,
+        "sum_ms": 0.00112
+      },
+      {
+        "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_021480ce21finishBodyPreparationEPKNS_38PxDestructionTopologyTransactionStatusEPNS_34PxDestructionBodyPreparationStatusEPNS_24PxDestructionStageStatusE",
+        "calls": 1,
+        "sum_ms": 0.001088
+      },
+      {
+        "name": "radixSortCopy2",
+        "calls": 1,
+        "sum_ms": 0.001088
+      },
+      {
+        "name": "_ZN5physx19destructionPreSolve11updateNodesEPKNS_21PxvPreSolveNodeUpdateEjPNS_15PxvPreSolveNodeEj",
+        "calls": 1,
+        "sum_ms": 0.001088
+      },
+      {
+        "name": "_ZN5physx58_GLOBAL__N__784570f4_25_PxgDestructionTopology_cu_3f13401016finishGenerationEPNS_27PxDestructionTopologyStatusE",
+        "calls": 1,
+        "sum_ms": 0.001088
+      },
+      {
+        "name": "_ZN5physx58_GLOBAL__N__784570f4_25_PxgDestructionTopology_cu_3f13401014startCandidateEPKNS_27PxDestructionTopologyStatusEPS1_",
+        "calls": 1,
+        "sum_ms": 0.001088
+      },
+      {
+        "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_021480ce25requireFractureCorrectionEPNS_24PxDestructionStageStatusE",
+        "calls": 1,
+        "sum_ms": 0.001056
+      },
+      {
+        "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_021480ce26beginUnchangedMotionCommitEPKNS_38PxDestructionTopologyTransactionStatusEPKNS_24PxDestructionStageStatusEPj",
+        "calls": 1,
+        "sum_ms": 0.001056
+      },
+      {
+        "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_021480ce19indexCandidateRootsENS_31PxDestructionTopologyDeviceViewEPj",
+        "calls": 1,
+        "sum_ms": 0.001056
+      },
+      {
+        "name": "removeContactManagers_Stage5",
+        "calls": 1,
+        "sum_ms": 0.001056
+      },
+      {
+        "name": "_ZN5physx58_GLOBAL__N__784570f4_25_PxgDestructionTopology_cu_3f13401015finishCandidateEPNS_38PxDestructionTopologyTransactionStatusEPKNS_27PxDestructionTopologyStatusE",
+        "calls": 1,
+        "sum_ms": 0.001056
+      },
+      {
+        "name": "_ZN5physx58_GLOBAL__N__784570f4_25_PxgDestructionTopology_cu_3f13401012finishCommitEPNS_38PxDestructionTopologyTransactionStatusE",
+        "calls": 1,
+        "sum_ms": 0.001055
+      },
+      {
+        "name": "removeContactManagers_Stage1",
+        "calls": 1,
+        "sum_ms": 0.001024
+      },
+      {
+        "name": "_ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_e0d614f624beginDeviceStressRebuildEPNS0_32ExtStressGpuDeviceTopologyStatusE",
+        "calls": 1,
+        "sum_ms": 0.000992
+      },
+      {
+        "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_021480ce21bindReservedBodySlotsEPKNS_25PxvDestructionBodyRequestEPKjjPj",
+        "calls": 1,
+        "sum_ms": 0.00096
+      },
+      {
+        "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_021480ce24finishBodyInitializationEPNS_33PxDestructionBodyAllocationStatusEPNS_24PxDestructionStageStatusE",
+        "calls": 1,
+        "sum_ms": 0.00096
+      },
+      {
+        "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_021480ce26finishCollisionPreparationEPNS_39PxDestructionCollisionPreparationStatusEPKNS_33PxDestructionBodyAllocationStatusEPNS_24PxDestructionStageStatusE",
+        "calls": 1,
+        "sum_ms": 0.00096
+      },
+      {
+        "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_021480ce27finishCorrectionPreparationEPNS_40PxDestructionCorrectionPreparationStatusEPKNS_39PxDestructionCollisionPreparationStatusEmPNS_24PxDestructionStageStatusE",
+        "calls": 1,
+        "sum_ms": 0.00096
+      },
+      {
+        "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_021480ce22finishNativeCorrectionEPNS_24PxDestructionStageStatusE",
+        "calls": 1,
+        "sum_ms": 0.00096
+      },
+      {
+        "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_021480ce24requireNativeConvergenceEPNS_24PxDestructionStageStatusE",
+        "calls": 1,
+        "sum_ms": 0.000929
+      },
+      {
+        "name": "_ZN5physx19destructionPreSolve20requireValidContactsEPKNS_32PxgDestructionContactGraphStatusE",
+        "calls": 1,
+        "sum_ms": 0.000928
+      },
+      {
+        "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_021480ce10startFrameEPNS_24PxDestructionStageStatusE",
+        "calls": 1,
+        "sum_ms": 0.000928
+      },
+      {
+        "name": "_ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_e0d614f623finalizeIslandReductionEPKfPfjjPKj",
+        "calls": 1,
+        "sum_ms": 0.000928
+      },
+      {
+        "name": "_ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_e0d614f621setTolerancePerIslandEPfPjS3_PKjPKffj",
+        "calls": 1,
+        "sum_ms": 0.000928
+      },
+      {
+        "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_021480ce26inspectTopologyTransactionEPKNS_38PxDestructionTopologyTransactionStatusEPNS_24PxDestructionStageStatusE",
+        "calls": 1,
+        "sum_ms": 0.000928
+      },
+      {
+        "name": "_ZN5physx58_GLOBAL__N__784570f4_25_PxgDestructionTopology_cu_3f13401019setTransactionBatchEPNS0_16TransactionBatchES1_",
+        "calls": 1,
+        "sum_ms": 0.000896
+      },
+      {
+        "name": "_ZN5physx57_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_021480ce27acceptUnchangedMotionCommitEPKjPNS_24PxDestructionStageStatusE",
+        "calls": 1,
+        "sum_ms": 0.000896
+      },
+      {
+        "name": "_ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_e0d614f622markDeviceStressSolvedEPNS0_32ExtStressGpuDeviceTopologyStatusE",
+        "calls": 1,
+        "sum_ms": 0.000895
+      },
+      {
+        "name": "_ZN5physx19destructionPreSolve10initializeEPjjS1_j",
+        "calls": 1,
+        "sum_ms": 0.000832
+      },
+      {
+        "name": "_ZN2Nv5Blast55_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_e0d614f616initializeStatusEPNS0_24ExtStressGpuDeviceStatusEPjj",
+        "calls": 1,
+        "sum_ms": 0.000768
+      }
+    ]
+  },
+  "plain1": {
+    "timings": {
+      "n": 600,
+      "min": 0.461241,
+      "mean": 1.0213567816666667,
+      "p50": 1.051675,
+      "p95": 1.18042,
+      "p99": 2.63222,
+      "max": 8.54831
+    },
+    "first_impact": {
+      "step": "82",
+      "simulation_seconds": "1.38333",
+      "physics_step_ms": "8.54831",
+      "stress_solve_ms": "0",
+      "frame_host_ms": "8.63063",
+      "bodies": "378",
+      "awake_bodies": "378",
+      "splits_total": "376",
+      "contacts_total": "4",
+      "resim_passes": "1",
+      "correction_status": "0",
+      "contacts_frame": "4",
+      "projectiles_active": "1",
+      "bonds_broken": "780",
+      "stress_iterations": "192",
+      "stress_converged": "1",
+      "observation_ms": "0.054792",
+      "gpu_render_submit_and_export_ms": "0",
+      "logical_clusters": "377",
+      "native_dynamic_bodies": "377",
+      "native_kinematic_bodies": "1",
+      "active_dynamic_bodies": "377",
+      "active_kinematic_bodies": "1",
+      "contact_pairs": "4",
+      "contact_pairs_with_contacts": "0",
+      "solver_rows": "0",
+      "stress_active_nodes": "7",
+      "stress_active_bonds": "4",
+      "stress_islands": "3",
+      "graph_d2h_bytes": "0",
+      "pre_solve_pairs": "4",
+      "simulation_start_ns": "10315518568383",
+      "simulation_end_ns": "10315527118029",
+      "process_cpu_ms": "9.76136"
+    },
+    "windows": {
+      "preimpact": {
+        "n": 81,
+        "min": 0.461241,
+        "mean": 0.5207741481481482,
+        "p50": 0.517216,
+        "p95": 0.567489,
+        "p99": 0.977885,
+        "max": 0.977885
+      },
+      "corrected": {
+        "n": 5,
+        "min": 2.63222,
+        "mean": 3.902836,
+        "p50": 2.75875,
+        "p95": 8.54831,
+        "p99": 8.54831,
+        "max": 8.54831
+      },
+      "late_rubble": {
+        "n": 120,
+        "min": 0.893227,
+        "mean": 0.99199195,
+        "p50": 1.0037500000000001,
+        "p95": 1.07296,
+        "p99": 1.10127,
+        "max": 1.10607
+      }
+    }
+  },
+  "plain2": {
+    "timings": {
+      "n": 600,
+      "min": 0.486768,
+      "mean": 1.033769825,
+      "p50": 1.0534599999999998,
+      "p95": 1.20583,
+      "p99": 2.61838,
+      "max": 9.07194
+    },
+    "first_impact": {
+      "step": "82",
+      "simulation_seconds": "1.38333",
+      "physics_step_ms": "9.07194",
+      "stress_solve_ms": "0",
+      "frame_host_ms": "9.16281",
+      "bodies": "378",
+      "awake_bodies": "378",
+      "splits_total": "376",
+      "contacts_total": "4",
+      "resim_passes": "1",
+      "correction_status": "0",
+      "contacts_frame": "4",
+      "projectiles_active": "1",
+      "bonds_broken": "780",
+      "stress_iterations": "192",
+      "stress_converged": "1",
+      "observation_ms": "0.059891",
+      "gpu_render_submit_and_export_ms": "0",
+      "logical_clusters": "377",
+      "native_dynamic_bodies": "377",
+      "native_kinematic_bodies": "1",
+      "active_dynamic_bodies": "377",
+      "active_kinematic_bodies": "1",
+      "contact_pairs": "4",
+      "contact_pairs_with_contacts": "0",
+      "solver_rows": "0",
+      "stress_active_nodes": "7",
+      "stress_active_bonds": "4",
+      "stress_islands": "3",
+      "graph_d2h_bytes": "0",
+      "pre_solve_pairs": "4",
+      "simulation_start_ns": "10316619232237",
+      "simulation_end_ns": "10316628305641",
+      "process_cpu_ms": "10.7965"
+    },
+    "windows": {
+      "preimpact": {
+        "n": 81,
+        "min": 0.486768,
+        "mean": 0.5363834691358025,
+        "p50": 0.532774,
+        "p95": 0.574913,
+        "p99": 0.747645,
+        "max": 0.747645
+      },
+      "corrected": {
+        "n": 5,
+        "min": 2.61838,
+        "mean": 4.087026,
+        "p50": 2.90096,
+        "p95": 9.07194,
+        "p99": 9.07194,
+        "max": 9.07194
+      },
+      "late_rubble": {
+        "n": 120,
+        "min": 0.881876,
+        "mean": 0.994411625,
+        "p50": 1.011125,
+        "p95": 1.07821,
+        "p99": 1.09642,
+        "max": 1.11532
+      }
+    }
+  },
+  "campaign": {
+    "revision": "53f7f16f4d0ec2f29ca3390616e4cc151e4b672f",
+    "runs": [
+      {
+        "name": "phases",
+        "command": [
+          "/root/workspace/physx-2/out/destruction-sdk/reference/native_destruction_demo",
+          "--grid",
+          "1",
+          "--waves",
+          "1",
+          "--workload",
+          "single-impact",
+          "--seconds",
+          "10",
+          "--launch-seconds",
+          "0",
+          "--stress-iterations",
+          "8192",
+          "--preserve-contact-pairs",
+          "1",
+          "--gpu-island-repair",
+          "1",
+          "--gpu-pre-solve-islands",
+          "1",
+          "--gpu-pre-solve-contacts",
+          "1",
+          "--gpu-pre-solve-support",
+          "1",
+          "--gpu-connectivity-owner",
+          "1",
+          "--output",
+          "/root/workspace/physx-2/out/single-impact-timing-20260906/phases",
+          "--profile-phases",
+          "1",
+          "--profile-gpu",
+          "0"
+        ],
+        "returncode": 0
+      },
+      {
+        "name": "gpu",
+        "command": [
+          "/root/workspace/physx-2/out/destruction-sdk/reference/native_destruction_demo",
+          "--grid",
+          "1",
+          "--waves",
+          "1",
+          "--workload",
+          "single-impact",
+          "--seconds",
+          "10",
+          "--launch-seconds",
+          "0",
+          "--stress-iterations",
+          "8192",
+          "--preserve-contact-pairs",
+          "1",
+          "--gpu-island-repair",
+          "1",
+          "--gpu-pre-solve-islands",
+          "1",
+          "--gpu-pre-solve-contacts",
+          "1",
+          "--gpu-pre-solve-support",
+          "1",
+          "--gpu-connectivity-owner",
+          "1",
+          "--output",
+          "/root/workspace/physx-2/out/single-impact-timing-20260906/gpu",
+          "--profile-phases",
+          "1",
+          "--profile-gpu",
+          "1"
+        ],
+        "returncode": 0
+      },
+      {
+        "name": "plain1",
+        "command": [
+          "/root/workspace/physx-2/out/destruction-sdk/reference/native_destruction_demo",
+          "--grid",
+          "1",
+          "--waves",
+          "1",
+          "--workload",
+          "single-impact",
+          "--seconds",
+          "10",
+          "--launch-seconds",
+          "0",
+          "--stress-iterations",
+          "8192",
+          "--preserve-contact-pairs",
+          "1",
+          "--gpu-island-repair",
+          "1",
+          "--gpu-pre-solve-islands",
+          "1",
+          "--gpu-pre-solve-contacts",
+          "1",
+          "--gpu-pre-solve-support",
+          "1",
+          "--gpu-connectivity-owner",
+          "1",
+          "--output",
+          "/root/workspace/physx-2/out/single-impact-timing-20260906/plain1",
+          "--profile-phases",
+          "0",
+          "--profile-gpu",
+          "0"
+        ],
+        "returncode": 0
+      },
+      {
+        "name": "plain2",
+        "command": [
+          "/root/workspace/physx-2/out/destruction-sdk/reference/native_destruction_demo",
+          "--grid",
+          "1",
+          "--waves",
+          "1",
+          "--workload",
+          "single-impact",
+          "--seconds",
+          "10",
+          "--launch-seconds",
+          "0",
+          "--stress-iterations",
+          "8192",
+          "--preserve-contact-pairs",
+          "1",
+          "--gpu-island-repair",
+          "1",
+          "--gpu-pre-solve-islands",
+          "1",
+          "--gpu-pre-solve-contacts",
+          "1",
+          "--gpu-pre-solve-support",
+          "1",
+          "--gpu-connectivity-owner",
+          "1",
+          "--output",
+          "/root/workspace/physx-2/out/single-impact-timing-20260906/plain2",
+          "--profile-phases",
+          "0",
+          "--profile-gpu",
+          "0"
+        ],
+        "returncode": 0
+      }
+    ],
+    "rendering": false,
+    "motion_trace": false,
+    "gpu_processes_before": "pid, process_name, used_gpu_memory [MiB]\n"
+  }
+}

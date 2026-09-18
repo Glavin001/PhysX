@@ -1,0 +1,5 @@
+{
+  "binary_sha256": "eae49da7d0ad3c804b43aef4e12a68da1cab31117181b9a499b77ad6f11b8956",
+  "runtime_sha256": "007cf78206ac00abdacf5498d7244cd5fd1c3678597be9e67c57f2d8ca5e0372",
+  "note": "Diagnostic replay of the previously frozen downtown three-shot tape, not an exact replay of the user session. No code or settings changed in production."
+}

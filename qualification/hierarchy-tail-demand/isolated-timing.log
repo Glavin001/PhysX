@@ -1,0 +1,6 @@
+RUN impacts-256-warmup-0
+RUN impacts-256-plain-0
+RUN impacts-256-plain-1
+RUN impacts-256-phases-0
+CAPTURE COMPLETE /root/workspace/physx-2/out/hierarchy-tail-demand-isolated/campaign.json
+qualification/hierarchy-tail-demand-isolated/report.html

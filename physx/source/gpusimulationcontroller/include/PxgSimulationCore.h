@@ -30,6 +30,7 @@
 #define	PXG_SIMULATION_CORE_H
 
 #include "PxgCudaBuffer.h"
+#include "PxgBodySim.h"
 #include "PxgSimulationCoreDesc.h"
 #include "PxgArticulationLink.h"
 #include "PxgArticulationBlockData.h"
@@ -48,6 +49,7 @@
 
 namespace physx
 {
+    class PxgDestructionRuntime;
 	namespace Bp
 	{
 		class BoundsArray;
@@ -71,18 +73,6 @@ namespace physx
 	class PxgBodySimManager;
 	class PxgGpuContext;
 	
-	// PdHC: GPU-compatible rigid body acceleration struct
-	// Aligned to 16 bytes for efficient GPU memory access
-	// Note: Two PxVec3s (2 x 12 bytes = 24 bytes), padded to 32 bytes for GPU alignment
-	PX_ALIGN_PREFIX(16)
-	struct PxgRigidBodyAcceleration
-	{
-		PxVec3	linear;
-		PxReal	_padLinear;		// Padding to align angular to 16 bytes
-		PxVec3	angular;
-		PxReal	_padAngular;	// Padding to maintain 32-byte struct size
-	}
-	PX_ALIGN_SUFFIX(16);
 
 	struct SoftBodyAttachmentAndFilterData
 	{
@@ -118,6 +108,9 @@ namespace physx
 			const bool useGpuBroadphase);
 
 		~PxgSimulationCore();
+
+		void reserveBodySimCapacity(PxU32 nbTotalBodies, bool enableBodyAccelerations);
+		void reserveBodySimStorage(PxU32 nbTotalBodies, bool enableBodyAccelerations);
 
 		void gpuMemDmaUpBodySim(Cm::PinnableArray<PxgBodySimVelocityUpdate>& updatedBodySim,
 			Cm::PinnableArray<PxgBodySim>& newBodySim,
@@ -203,7 +196,7 @@ namespace physx
 
 		void syncDmaback(PxU32& nbFrozenShapesThisFrame, PxU32& nbUnfrozenShapesThisFrame, bool didSimulate);
 
-		void updateBodies(const PxU32 nbUpdatedBodies, const PxU32 nbNewBodies);
+		bool updateBodies(const PxU32 nbUpdatedBodies, const PxU32 nbNewBodies, PxgDestructionRuntime* commandInputs, PxU32 bodyCount);
 
 		void updateArticulations(const PxU32 nbNewArticulations, PxgArticulationSimUpdate* updates,
 			const PxU32 nbUpdatedArticulations, PxReal* dofData);
@@ -225,6 +218,8 @@ namespace physx
 		PxgArticulationBuffer** getArticulationDataBuffer() { return mArticulationDataBuffer.begin(); }
 		PxgTypedCudaBuffer<PxBounds3>*	getBoundArrayBuffer();
 
+        bool refreshReboundShapeBounds(CUstream npStream, bool allRigidShapes=false, CUdeviceptr dormantBits=0, PxU32 dormantWords=0);
+        PxU64 getReboundShapeIndexUploadCount() const { return mReboundShapeIndexUploadCount; }
 		void gpuDmaUpdateData();
 		void initDirectGPUAPIDescriptor();
 
@@ -246,14 +241,20 @@ namespace physx
 
 		// PT: wrappers to make it easier to find the places where this is used.
 		PX_FORCE_INLINE PxgDevicePointer<PxgBodySim>		getBodySimBufferDevicePtr()		const	{ return mBodySimCudaBuffer.getTypedDevicePtr();									}
+		PX_FORCE_INLINE PxgKinematicMotionInput* getKinematicInputs() const
+		{
+			return mKinematicInputs.getTypedPtr();
+		}
 		PX_FORCE_INLINE PxgDevicePointer<PxgBodySim>		getBodySimBufferDeviceData() { return mBodySimCudaBuffer.getTypedDevicePtr(); }
 
 		PX_FORCE_INLINE PxgDevicePointer<PxgBodySimVelocities>	getBodySimPrevVelocitiesBufferDevicePtr()	const	{ return mBodySimPreviousVelocitiesCudaBuffer.getTypedDevicePtr();	}
 		PX_FORCE_INLINE PxgDevicePointer<PxgBodySimVelocities>	getBodySimPrevVelocitiesBufferDeviceData()			{ return mBodySimPreviousVelocitiesCudaBuffer.getTypedDevicePtr();	}
 
+		PX_FORCE_INLINE PxgRigidBodyAcceleration* getRigidBodyAccelerationsDevice() { return mBodySimAccelerationsCudaBuffer.getTypedPtr(); }
 		PX_FORCE_INLINE PxgRigidBodyAcceleration* getRigidBodyAccelerations() { return mBodySimAccelerationsPinned.begin(); }
 		PX_FORCE_INLINE const PxgRigidBodyAcceleration* getRigidBodyAccelerations() const { return mBodySimAccelerationsPinned.begin(); }
 		PX_FORCE_INLINE PxU32 getNbRigidBodyAccelerations() const { return mBodySimAccelerationsPinned.size(); }
+		PX_FORCE_INLINE PxU32 getBodySimStorageCapacity() const { return mBodySimStorageCapacity; }
 		PX_FORCE_INLINE bool hasAccelerationBuffers() const { return mBodySimAccelerationsCudaBuffer.getSize() > 0; }
 
 		PX_FORCE_INLINE PxgTypedCudaBuffer<PxgArticulation>&  getArticulationBuffer() { return mArticulationBuffer; }
@@ -337,6 +338,7 @@ namespace physx
 		PX_FORCE_INLINE PxU32 getNumTotalFEMCloths() { return mNbTotalFEMCloths; }
 
 		PX_FORCE_INLINE PxU32 getNumTotalShapes() { return mPxgShapeSimManager.getNbTotalShapeSims();  }
+		void noteDevicePoseWrites(); // AABB manager: GPU-side bounds changed (as setRigidDynamicData does)
 		PX_FORCE_INLINE PxU32 getNumTotalSoftbodies() { return mNbTotalSoftBodies; }
 
 		PX_FORCE_INLINE PxU32 getNbRigidSoftBodyAttachments() const { return mNbRigidSoftBodyAttachments; }
@@ -434,6 +436,49 @@ namespace physx
 		PxgTypedCudaBuffer<PxU32>	mDeactivateBuffer;
 
 		PxgTypedCudaBuffer<PxU32>	mUpdatedDirectBuffer;
+		// Compacted CPU mirror of the transform cache and bounds (see gpuMemDmaBack).
+		PxgTypedCudaBuffer<PxU32>	mTouchedBuffer;
+		PxgTypedCudaBuffer<PxU32>	mCompactCountBuffer;
+		PxgTypedCudaBuffer<PxU32>	mCompactIndicesStaging;
+		PxgTypedCudaBuffer<PxBounds3>	mCompactBoundsStaging;
+		PxgTypedCudaBuffer<PxsCachedTransform>	mCompactTransformsStaging;
+		PxU32*						mCompactIndicesMapped = NULL;
+		PxBounds3*					mCompactBoundsMapped = NULL;
+		PxsCachedTransform*			mCompactTransformsMapped = NULL;
+		PxU32*						mCompactCountMapped = NULL;
+		PxU32						mCompactCapacity = 0;
+		PxU32						mCompactEstimate = 0;		// entries DMA'd this pass (prefix of the staging)
+		PxU32						mCompactLastCount = 0;		// gathered entries of the previous pass
+		PxU32						mCompactLastElements = 0;
+		bool						mCompactGathered = false;	// this pass gathered (else full copies + count only)
+		PxU32						mCompactPassCounter = 0;
+		// Copy-backs on a side stream so the core stream (and the destruction
+		// chain queued behind it) does not wait for host-bound transfers.
+		CUstream					mDmaBackStream = NULL;
+		CUevent						mDmaBackReady = NULL;
+		CUevent						mDmaBackDone = NULL;
+		bool						mDmaBackOnSideStream = false;
+	public:
+		// Event completing the latest copy-back; core-stream writers of the
+		// copied buffers (sleep pose-sets) wait on it.
+		CUevent						getDmaBackDoneEvent() const { return mDmaBackOnSideStream ? mDmaBackDone : NULL; }
+		// When set, the next copy-back's side stream joins this event instead of the core
+		// stream head (an early-submitted destruction chain queued behind it must not delay
+		// the copy-back). Cleared by gpuMemDmaBack.
+		CUevent						mDmaBackJoinEvent = NULL;
+		void						setDmaBackJoinEvent(CUevent e) { mDmaBackJoinEvent = e; }
+	private:
+		PxBounds3*					mDmaBackBounds = NULL;
+		PxsCachedTransform*			mDmaBackTransforms = NULL;
+		PxU32						mDmaBackElementCount = 0;
+		bool						mCompactPending = false;
+		PxBounds3*					mVerifyBounds = NULL;
+		PxsCachedTransform*			mVerifyTransforms = NULL;
+		PxU32						mVerifyCapacity = 0;
+		void						ensureTouchedCapacity(PxU32 elements);
+		void						releaseCompactMirror();
+        PxgTypedCudaBuffer<PxU32> mReboundShapeIndices;
+        PxU64 mReboundShapeIndexUploadCount=0;
 
 		// PT: new naming convention with "CudaBuffer" suffix and specific prefix for easier searching
 		PxgTypedCudaBuffer<PxgBodySim>	mBodySimCudaBuffer;						// PT: contains PxgBodySim structs.
@@ -499,6 +544,7 @@ namespace physx
 
 		PxgTypedCudaBuffer<PxgBodySimVelocityUpdate>	mUpdatedBodySimBuffer;
 		PxgTypedCudaBuffer<PxgBodySim>	mNewBodySimBuffer;
+		PxgTypedCudaBuffer<PxgKinematicMotionInput> mKinematicInputs;
 		PxgTypedCudaBuffer<PxgArticulation>	mNewArticulationBuffer;
 		PxgTypedCudaBuffer<PxgArticulationLink>	mNewLinkBuffer;
 		PxgTypedCudaBuffer<PxReal>	mNewLinkWakeCounterBuffer;
@@ -585,6 +631,7 @@ namespace physx
 		PxU32			mNbClothClothVertTriFilters;
 
 		PxU32			mNbTotalBodySim;
+		PxU32 mBodySimStorageCapacity = 0;
 		PxU32			mNbTotalArticulations; //this is used for articulation
 		PxU32			mNbTotalSoftBodies;
 		PxU32			mNbTotalFEMCloths;

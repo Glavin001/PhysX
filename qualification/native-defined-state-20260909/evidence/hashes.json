@@ -1,0 +1,22 @@
+{
+  "libPhysXGpuActivity_64.so": {
+    "path": "/root/workspace/physx-2/out/native-defined-state-20260909/candidate/libPhysXGpuActivity_64.so",
+    "bytes": 36690808,
+    "sha256": "1b8164a469983274ceb80fe6ec02ebcaf544edf1825330c6f0b77a002ee6e74d"
+  },
+  "libPhysXDestructionGpuRuntime_64.so": {
+    "path": "/root/workspace/physx-2/out/native-defined-state-20260909/candidate/libPhysXDestructionGpuRuntime_64.so",
+    "bytes": 11445288,
+    "sha256": "b91886130e1c4330286264f373f923575a5d720738ac56f3212664176919fbab"
+  },
+  "libPhysX_static_64.a": {
+    "path": "/root/workspace/physx-2/out/native-defined-state-20260909/candidate/libPhysX_static_64.a",
+    "bytes": 6348528,
+    "sha256": "aa3b3bc37e2f3ea7ec93b5a546f8b984fe97980e158b745d034eee12f37b9b91"
+  },
+  "embedded_city_bench": {
+    "path": "/root/workspace/physx-2/out/native-defined-state-20260909/candidate/embedded_city_bench",
+    "bytes": 6287896,
+    "sha256": "be1c0d9ccfcae8fea1d3d9e229ac34ea4f1f5f4b6c15119d448bfa9ec59caab2"
+  }
+}

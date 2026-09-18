@@ -1,0 +1,135 @@
+{
+  "status": "measurement_records_consistent",
+  "scenarios": 24,
+  "samples": 480,
+  "repeatability_passed": 15,
+  "repeatability_failed": 9,
+  "scope": "Record consistency only, not a memory or physical-equivalence qualification.",
+  "module_sha256": {
+    "libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+    "libPhysXDestructionGpuRuntime_64.so": "6bda98b4c263664a3b12df86c0298bf24930047fd78214f04be19089585a8c56"
+  },
+  "binary_sha256": "dbd63a9dcd336a06d4c46d20a0c1f4fbc8dfd2d8c9eac14b5386f304a979292a",
+  "cases": [
+    {
+      "scenario": "city25-intact-idle",
+      "repeatability_passed": true,
+      "samples": 20
+    },
+    {
+      "scenario": "city25-airborne",
+      "repeatability_passed": true,
+      "samples": 20
+    },
+    {
+      "scenario": "city25-initial-impact",
+      "repeatability_passed": true,
+      "samples": 20
+    },
+    {
+      "scenario": "city25-post-impact",
+      "repeatability_passed": false,
+      "samples": 20
+    },
+    {
+      "scenario": "city25-cascading-fracture",
+      "repeatability_passed": true,
+      "samples": 20
+    },
+    {
+      "scenario": "city25-fragmented-loaded",
+      "repeatability_passed": true,
+      "samples": 20
+    },
+    {
+      "scenario": "city25-late-debris",
+      "repeatability_passed": false,
+      "samples": 20
+    },
+    {
+      "scenario": "city25-ten-second-debris",
+      "repeatability_passed": false,
+      "samples": 20
+    },
+    {
+      "scenario": "city64-intact-idle",
+      "repeatability_passed": true,
+      "samples": 20
+    },
+    {
+      "scenario": "city64-airborne",
+      "repeatability_passed": true,
+      "samples": 20
+    },
+    {
+      "scenario": "city64-initial-impact",
+      "repeatability_passed": true,
+      "samples": 20
+    },
+    {
+      "scenario": "city64-post-impact",
+      "repeatability_passed": true,
+      "samples": 20
+    },
+    {
+      "scenario": "city64-cascading-fracture",
+      "repeatability_passed": true,
+      "samples": 20
+    },
+    {
+      "scenario": "city64-fragmented-loaded",
+      "repeatability_passed": false,
+      "samples": 20
+    },
+    {
+      "scenario": "city64-late-debris",
+      "repeatability_passed": false,
+      "samples": 20
+    },
+    {
+      "scenario": "city64-ten-second-debris",
+      "repeatability_passed": false,
+      "samples": 20
+    },
+    {
+      "scenario": "city256-intact-idle",
+      "repeatability_passed": true,
+      "samples": 20
+    },
+    {
+      "scenario": "city256-airborne",
+      "repeatability_passed": true,
+      "samples": 20
+    },
+    {
+      "scenario": "city256-initial-impact",
+      "repeatability_passed": true,
+      "samples": 20
+    },
+    {
+      "scenario": "city256-post-impact",
+      "repeatability_passed": true,
+      "samples": 20
+    },
+    {
+      "scenario": "city256-cascading-fracture",
+      "repeatability_passed": true,
+      "samples": 20
+    },
+    {
+      "scenario": "city256-fragmented-loaded",
+      "repeatability_passed": false,
+      "samples": 20
+    },
+    {
+      "scenario": "city256-late-debris",
+      "repeatability_passed": false,
+      "samples": 20
+    },
+    {
+      "scenario": "city256-ten-second-debris",
+      "repeatability_passed": false,
+      "samples": 20
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+Internal ctest changing into directory: /root/workspace/physx-2/out/destruction-sdk
+Test project /root/workspace/physx-2/out/destruction-sdk
+      Start 13: blast_stress_physx_gpu_activity
+ 1/14 Test #13: blast_stress_physx_gpu_activity ..........   Passed    9.44 sec
+      Start 51: physx_native_gpu_collision_preparation
+ 2/14 Test #51: physx_native_gpu_collision_preparation ...   Passed    4.53 sec
+      Start 52: physx_native_gpu_retained_registry
+ 3/14 Test #52: physx_native_gpu_retained_registry .......   Passed    0.46 sec
+      Start 56: physx_native_gpu_pre_solve_islands
+ 4/14 Test #56: physx_native_gpu_pre_solve_islands .......   Passed    1.23 sec
+      Start 57: physx_native_gpu_pre_solve_contacts
+ 5/14 Test #57: physx_native_gpu_pre_solve_contacts ......   Passed    1.25 sec
+      Start 58: physx_native_gpu_pre_solve_support
+ 6/14 Test #58: physx_native_gpu_pre_solve_support .......   Passed    1.31 sec
+      Start 59: physx_native_gpu_connectivity_owner
+ 7/14 Test #59: physx_native_gpu_connectivity_owner ......   Passed    1.30 sec
+      Start 74: physx_native_gpu_resimulation
+ 8/14 Test #74: physx_native_gpu_resimulation ............   Passed    7.82 sec
+      Start 75: physx_native_standard_awake
+ 9/14 Test #75: physx_native_standard_awake ..............   Passed    0.51 sec
+      Start 76: physx_native_standard_sleep
+10/14 Test #76: physx_native_standard_sleep ..............   Passed    0.86 sec
+      Start 77: physx_native_standard_sleep_boundary
+11/14 Test #77: physx_native_standard_sleep_boundary .....   Passed    1.54 sec
+      Start 78: physx_native_standard_gpu_islands
+12/14 Test #78: physx_native_standard_gpu_islands ........   Passed    0.98 sec
+      Start 79: physx_native_standard_wake_boundary
+13/14 Test #79: physx_native_standard_wake_boundary ......   Passed    0.85 sec
+      Start 81: physx_native_gpu_publication
+14/14 Test #81: physx_native_gpu_publication .............   Passed    2.08 sec
+
+100% tests passed, 0 tests failed out of 14
+
+Label Time Summary:
+gpu            =   4.73 sec*proc (5 tests)
+integration    =   4.73 sec*proc (5 tests)
+
+Total Test time (real) =  34.15 sec

@@ -1,0 +1,5 @@
+cold: maxRelative=0.000203624 rmsRelative=1.61352e-05
+cold CPU iterations=-25 peakImpulse=299.334
+warm: maxRelative=0.000145318 rmsRelative=1.39835e-05
+damage: compactBreaks=112
+gpu solve: 0.151808 ms, 25 iterations, 1536 B H2D, 916 B D2H

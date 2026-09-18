@@ -1,0 +1,16 @@
+native 3D nodes=18 bonds=33 supported=0 amplitude=0.5 iterations=7 converged=1 topology_error=0 CPU_iterations=27
+native 3D all-force/moment maximum_relative_error=5.27128577e-07
+native 3D nodes=18 bonds=33 supported=0 amplitude=1 iterations=6 converged=1 topology_error=0 CPU_iterations=27
+native 3D all-force/moment maximum_relative_error=3.0582305e-06
+native 3D nodes=18 bonds=33 supported=0 amplitude=0 iterations=24 converged=1 topology_error=0 CPU_iterations=0
+native 3D all-force/moment maximum_relative_error=1.64317377e-08
+native 3D nodes=18 bonds=33 supported=0 amplitude=-0.75 iterations=7 converged=1 topology_error=0 CPU_iterations=27
+native 3D all-force/moment maximum_relative_error=8.40984285e-07
+native 3D nodes=18 bonds=33 supported=1 amplitude=0.5 iterations=9 converged=1 topology_error=0 CPU_iterations=66
+native 3D all-force/moment maximum_relative_error=8.16518362e-07
+native 3D nodes=18 bonds=33 supported=1 amplitude=1 iterations=9 converged=1 topology_error=0 CPU_iterations=66
+native 3D all-force/moment maximum_relative_error=1.07506803e-06
+native 3D nodes=18 bonds=33 supported=1 amplitude=0 iterations=27 converged=1 topology_error=0 CPU_iterations=0
+native 3D all-force/moment maximum_relative_error=6.00456929e-07
+native 3D nodes=18 bonds=33 supported=1 amplitude=-0.75 iterations=9 converged=1 topology_error=0 CPU_iterations=70
+native 3D all-force/moment maximum_relative_error=1.01327896e-06

@@ -57,6 +57,11 @@ void BodySim::calculateKinematicVelocity(PxReal oneOverDt)
 	PX_ASSERT(isActive());
 
 	BodyCore& core = getBodyCore();
+    if(mScene.getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_HOST_ACCESS)
+    {
+        getLowLevelBody().mGpuHostDirty |= PxU16((PxsRigidBody::eHOST_LINEAR_COPY_GPU
+            | PxsRigidBody::eHOST_ANGULAR_COPY_GPU) >> 16);
+    }
 
 	if (readInternalFlag(BF_KINEMATIC_MOVED))
 	{
@@ -327,6 +332,13 @@ public:
 // PT: warning, this runs in parallel with ScAfterIntegrationTask and updateArticulationAfterIntegration, and all of these touching the getChangedAABBMgActorHandleMap() bitmap
 void Sc::Scene::updateKinematicCached(PxBaseTask* continuation)
 {
+    // The Direct GPU host bridge publishes exact kinematic targets through
+    // the device pose API after integration. That updates GPU bounds/caches.
+    // The native CPU cache task marks the entire host bounds array changed;
+    // on a GPU-owned scene its other entries are stale and can overwrite
+    // moving dynamic bounds, dropping unrelated broadphase pairs.
+    if(mPublicFlags & PxSceneFlag::eENABLE_DIRECT_GPU_HOST_ACCESS)
+        return;
 	PX_PROFILE_ZONE("Sim.updateKinematicCached", mContextId);
 
 	const PxU32 nbKinematics = getActiveKinematicBodiesCount();

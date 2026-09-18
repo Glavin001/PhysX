@@ -1,0 +1,1051 @@
+{
+  "status": "diagnostic qualification; pair reuse remains opt-in",
+  "scenes": {
+    "reference": {
+      "summary": {
+        "backend": "native PhysX GPU task graph + resident CUDA destruction",
+        "status": "completed",
+        "frames": 1800,
+        "seconds": 30,
+        "buildings": 9,
+        "chunks": 3996,
+        "bonds": 8064,
+        "peak_clusters": 3100,
+        "projectiles": 36,
+        "broken_bonds": 6716,
+        "corrections": 151,
+        "spawn_protocol": "clear-aerial-ballistic-v2",
+        "motion_audit_enabled": true,
+        "max_motion_position_error": 0,
+        "record_fps": 60,
+        "preserve_contact_pairs": false,
+        "recorded_state": false,
+        "correction_limit": 1,
+        "physics_ms_p50": 1.91581,
+        "physics_ms_p95": 14.7999,
+        "physics_ms_p99": 19.9533,
+        "physics_ms_max": 35.6585,
+        "missed_16_67ms": 46,
+        "stress_included_in_physics_time": true,
+        "isolated_performance_qualification": false,
+        "sleeping": false,
+        "crushing_material_enabled": false
+      },
+      "phases": {
+        "status": "validated-native-phase-capture",
+        "physics_timing": {
+          "samples": 1800,
+          "min_ms": 0.490425,
+          "mean_ms": 3.3993561316666665,
+          "max_ms": 35.6585,
+          "p50_ms": 1.915625,
+          "p95_ms": 14.7999,
+          "p99_ms": 19.9533,
+          "total_wall_seconds": 6.118841037,
+          "effective_steps_per_second": 294.1733555612224,
+          "real_time_factor": 4.9028892593537075,
+          "missed_deadlines": 46,
+          "fixed_step_ms": 16.666666666666668
+        },
+        "capture_tick_timing": {
+          "samples": 1800,
+          "min_ms": 0.807997,
+          "mean_ms": 3.9597578666666666,
+          "max_ms": 36.7663,
+          "p50_ms": 2.4217750000000002,
+          "p95_ms": 15.5781,
+          "p99_ms": 20.5007,
+          "total_wall_seconds": 7.1275641599999995,
+          "effective_steps_per_second": 252.54069407072163,
+          "real_time_factor": 4.209011567845361,
+          "missed_deadlines": 68,
+          "fixed_step_ms": 16.666666666666668
+        },
+        "capture_tick_scope": "physics, input placement, explicit GPU observations/audit and recording I/O; excludes setup and offline rendering",
+        "frames": 1800,
+        "corrected_steps": 151,
+        "timing_kind": "host wall intervals, including GPU waits; not CUDA kernel timings",
+        "profiling_overhead_in_simulation_time": true,
+        "nested_phase": "refilter is included in correctedCollisionSolve",
+        "unmeasured_interval": "ordinary trial, checkpoint, remaining PhysX work and callback overhead",
+        "phases": {
+          "acceptCorrection": {
+            "samples": 151,
+            "mean_ms": 0.12474065562913907,
+            "median_ms": 0.119333,
+            "max_ms": 0.252341
+          },
+          "applyBindings": {
+            "samples": 151,
+            "mean_ms": 0.1870796357615894,
+            "median_ms": 0.122899,
+            "max_ms": 0.961844
+          },
+          "collisionBindings": {
+            "samples": 1800,
+            "mean_ms": 0.004986879444444444,
+            "median_ms": 9e-05,
+            "max_ms": 0.528555
+          },
+          "correctedCollisionSolve": {
+            "samples": 151,
+            "mean_ms": 9.821044655629139,
+            "median_ms": 10.159567,
+            "max_ms": 16.82072
+          },
+          "correctionBodies": {
+            "samples": 1800,
+            "mean_ms": 0.006393193333333333,
+            "median_ms": 9e-05,
+            "max_ms": 1.766815
+          },
+          "detail.islandInsertion": {
+            "samples": 151,
+            "mean_ms": 1.2516418874172186,
+            "median_ms": 1.327034,
+            "max_ms": 2.188382
+          },
+          "detail.postBroadPhase": {
+            "samples": 151,
+            "mean_ms": 0.2062911059602649,
+            "median_ms": 0.178683,
+            "max_ms": 1.721902
+          },
+          "detail.postBroadPhaseStage2": {
+            "samples": 151,
+            "mean_ms": 0.029507509933774833,
+            "median_ms": 0.025077,
+            "max_ms": 0.137286
+          },
+          "detail.postBroadPhaseStage3": {
+            "samples": 151,
+            "mean_ms": 8.266225165562914e-05,
+            "median_ms": 7e-05,
+            "max_ms": 0.000561
+          },
+          "detail.postNarrowPhase": {
+            "samples": 151,
+            "mean_ms": 0.44455993377483444,
+            "median_ms": 0.422929,
+            "max_ms": 1.143041
+          },
+          "detail.postSolver": {
+            "samples": 151,
+            "mean_ms": 0.0006449668874172186,
+            "median_ms": 0.000581,
+            "max_ms": 0.001753
+          },
+          "detail.preallocateContactManagers": {
+            "samples": 151,
+            "mean_ms": 0.36818550331125827,
+            "median_ms": 0.307132,
+            "max_ms": 1.294153
+          },
+          "detail.registerContactManagers": {
+            "samples": 151,
+            "mean_ms": 0.3713838609271523,
+            "median_ms": 0.362445,
+            "max_ms": 0.811474
+          },
+          "detail.registerInteractions": {
+            "samples": 151,
+            "mean_ms": 0.3515812251655629,
+            "median_ms": 0.341537,
+            "max_ms": 0.873169
+          },
+          "detail.registerSceneInteractions": {
+            "samples": 151,
+            "mean_ms": 0.37252585430463575,
+            "median_ms": 0.349041,
+            "max_ms": 0.976111
+          },
+          "finishAndReserve": {
+            "samples": 1800,
+            "mean_ms": 0.8535031205555556,
+            "median_ms": 0.363132,
+            "max_ms": 23.167986
+          },
+          "initializeReserved": {
+            "samples": 151,
+            "mean_ms": 0.047412582781456956,
+            "median_ms": 0.040275,
+            "max_ms": 0.212185
+          },
+          "refilter": {
+            "samples": 151,
+            "mean_ms": 2.768871966887417,
+            "median_ms": 2.818155,
+            "max_ms": 5.167848
+          },
+          "restoreInstall": {
+            "samples": 151,
+            "mean_ms": 0.015274324503311258,
+            "median_ms": 0.014447,
+            "max_ms": 0.049813
+          },
+          "submit": {
+            "samples": 1800,
+            "mean_ms": 0.14007809166666665,
+            "median_ms": 0.125905,
+            "max_ms": 1.011005
+          }
+        },
+        "corrected_step_mean_ms": {
+          "acceptCorrection": 0.12474065562913907,
+          "applyBindings": 0.1870796357615894,
+          "collisionBindings": 0.058397099337748344,
+          "correctedCollisionSolve": 9.821044655629139,
+          "correctionBodies": 0.07511439072847682,
+          "finishAndReserve": 3.174688344370861,
+          "initializeReserved": 0.047412582781456956,
+          "refilter": 2.768871966887417,
+          "resetContactCaches": 0,
+          "restoreInstall": 0.015274324503311258,
+          "submit": 0.1829007880794702
+        },
+        "corrected_pass_excluding_refilter_mean_ms": 7.052172688741722,
+        "unmeasured_interval_mean_ms": 1.53910133,
+        "isolated_performance_qualification": false
+      }
+    },
+    "reuse": {
+      "summary": {
+        "backend": "native PhysX GPU task graph + resident CUDA destruction",
+        "status": "completed",
+        "frames": 1800,
+        "seconds": 30,
+        "buildings": 9,
+        "chunks": 3996,
+        "bonds": 8064,
+        "peak_clusters": 3191,
+        "projectiles": 36,
+        "broken_bonds": 6814,
+        "corrections": 185,
+        "spawn_protocol": "clear-aerial-ballistic-v2",
+        "motion_audit_enabled": true,
+        "max_motion_position_error": 0,
+        "record_fps": 60,
+        "preserve_contact_pairs": true,
+        "recorded_state": false,
+        "correction_limit": 1,
+        "physics_ms_p50": 1.54748,
+        "physics_ms_p95": 6.36904,
+        "physics_ms_p99": 9.98709,
+        "physics_ms_max": 16.8145,
+        "missed_16_67ms": 1,
+        "stress_included_in_physics_time": true,
+        "isolated_performance_qualification": false,
+        "sleeping": false,
+        "crushing_material_enabled": false
+      },
+      "phases": {
+        "status": "validated-native-phase-capture",
+        "physics_timing": {
+          "samples": 1800,
+          "min_ms": 0.495624,
+          "mean_ms": 2.2713494155555556,
+          "max_ms": 16.8145,
+          "p50_ms": 1.54734,
+          "p95_ms": 6.36904,
+          "p99_ms": 9.98709,
+          "total_wall_seconds": 4.088428948,
+          "effective_steps_per_second": 440.2669149675534,
+          "real_time_factor": 7.337781916125891,
+          "missed_deadlines": 1,
+          "fixed_step_ms": 16.666666666666668
+        },
+        "capture_tick_timing": {
+          "samples": 1800,
+          "min_ms": 0.87388,
+          "mean_ms": 2.7857381855555556,
+          "max_ms": 17.4376,
+          "p50_ms": 2.03103,
+          "p95_ms": 6.99988,
+          "p99_ms": 10.6846,
+          "total_wall_seconds": 5.014328733999999,
+          "effective_steps_per_second": 358.9712792053254,
+          "real_time_factor": 5.982854653422091,
+          "missed_deadlines": 1,
+          "fixed_step_ms": 16.666666666666668
+        },
+        "capture_tick_scope": "physics, input placement, explicit GPU observations/audit and recording I/O; excludes setup and offline rendering",
+        "frames": 1800,
+        "corrected_steps": 185,
+        "timing_kind": "host wall intervals, including GPU waits; not CUDA kernel timings",
+        "profiling_overhead_in_simulation_time": true,
+        "nested_phase": "refilter is included in correctedCollisionSolve",
+        "unmeasured_interval": "ordinary trial, checkpoint, remaining PhysX work and callback overhead",
+        "phases": {
+          "acceptCorrection": {
+            "samples": 185,
+            "mean_ms": 0.10472592972972973,
+            "median_ms": 0.103112,
+            "max_ms": 0.225721
+          },
+          "applyBindings": {
+            "samples": 185,
+            "mean_ms": 0.16885091351351353,
+            "median_ms": 0.11244,
+            "max_ms": 0.767592
+          },
+          "collisionBindings": {
+            "samples": 1800,
+            "mean_ms": 0.004887231111111111,
+            "median_ms": 9e-05,
+            "max_ms": 0.131695
+          },
+          "correctedCollisionSolve": {
+            "samples": 185,
+            "mean_ms": 1.6392706702702702,
+            "median_ms": 1.41582,
+            "max_ms": 7.506048
+          },
+          "correctionBodies": {
+            "samples": 1800,
+            "mean_ms": 0.006027301666666667,
+            "median_ms": 9e-05,
+            "max_ms": 0.247672
+          },
+          "detail.islandInsertion": {
+            "samples": 185,
+            "mean_ms": 0.02846043783783784,
+            "median_ms": 0.015208,
+            "max_ms": 0.192759
+          },
+          "detail.postBroadPhase": {
+            "samples": 185,
+            "mean_ms": 0.1711383891891892,
+            "median_ms": 0.159588,
+            "max_ms": 1.504265
+          },
+          "detail.postBroadPhaseStage2": {
+            "samples": 185,
+            "mean_ms": 0.010612356756756756,
+            "median_ms": 0.007985,
+            "max_ms": 0.149609
+          },
+          "detail.postBroadPhaseStage3": {
+            "samples": 185,
+            "mean_ms": 9.167027027027027e-05,
+            "median_ms": 8e-05,
+            "max_ms": 0.000411
+          },
+          "detail.postNarrowPhase": {
+            "samples": 185,
+            "mean_ms": 0.21013525945945946,
+            "median_ms": 0.157503,
+            "max_ms": 2.606251
+          },
+          "detail.postSolver": {
+            "samples": 185,
+            "mean_ms": 0.0004322810810810811,
+            "median_ms": 0.000381,
+            "max_ms": 0.001253
+          },
+          "detail.preallocateContactManagers": {
+            "samples": 185,
+            "mean_ms": 0.0115186,
+            "median_ms": 0.005029,
+            "max_ms": 0.340424
+          },
+          "detail.registerContactManagers": {
+            "samples": 185,
+            "mean_ms": 0.005112540540540541,
+            "median_ms": 0.003687,
+            "max_ms": 0.039895
+          },
+          "detail.registerInteractions": {
+            "samples": 185,
+            "mean_ms": 0.009099827027027028,
+            "median_ms": 0.004118,
+            "max_ms": 0.09115
+          },
+          "detail.registerSceneInteractions": {
+            "samples": 185,
+            "mean_ms": 0.01356432972972973,
+            "median_ms": 0.005491,
+            "max_ms": 0.175287
+          },
+          "finishAndReserve": {
+            "samples": 1800,
+            "mean_ms": 0.5646163777777777,
+            "median_ms": 0.174871,
+            "max_ms": 11.160624
+          },
+          "initializeReserved": {
+            "samples": 185,
+            "mean_ms": 0.04529111891891892,
+            "median_ms": 0.038602,
+            "max_ms": 0.431485
+          },
+          "refilter": {
+            "samples": 185,
+            "mean_ms": 0.034775535135135136,
+            "median_ms": 0.031508,
+            "max_ms": 0.100708
+          },
+          "resetContactCaches": {
+            "samples": 185,
+            "mean_ms": 0.009063108108108108,
+            "median_ms": 0.008686,
+            "max_ms": 0.015609
+          },
+          "restoreInstall": {
+            "samples": 185,
+            "mean_ms": 0.014711194594594594,
+            "median_ms": 0.014096,
+            "max_ms": 0.038442
+          },
+          "submit": {
+            "samples": 1800,
+            "mean_ms": 0.13156085444444446,
+            "median_ms": 0.122949,
+            "max_ms": 2.584119
+          }
+        },
+        "corrected_step_mean_ms": {
+          "acceptCorrection": 0.10472592972972973,
+          "applyBindings": 0.16885091351351353,
+          "collisionBindings": 0.04674709189189189,
+          "correctedCollisionSolve": 1.6392706702702702,
+          "correctionBodies": 0.05782198378378378,
+          "finishAndReserve": 2.361410054054054,
+          "initializeReserved": 0.04529111891891892,
+          "refilter": 0.034775535135135136,
+          "resetContactCaches": 0.009063108108108108,
+          "restoreInstall": 0.014711194594594594,
+          "submit": 0.1448984162162162
+        },
+        "corrected_pass_excluding_refilter_mean_ms": 1.604495135135135,
+        "unmeasured_interval_mean_ms": 1.3605610433333333,
+        "isolated_performance_qualification": false
+      }
+    },
+    "reuse_large": {
+      "summary": {
+        "backend": "native PhysX GPU task graph + resident CUDA destruction",
+        "status": "completed",
+        "frames": 1800,
+        "seconds": 30,
+        "buildings": 256,
+        "chunks": 113664,
+        "bonds": 229376,
+        "peak_clusters": 97096,
+        "projectiles": 1024,
+        "broken_bonds": 200264,
+        "corrections": 360,
+        "spawn_protocol": "clear-aerial-ballistic-v2",
+        "motion_audit_enabled": true,
+        "max_motion_position_error": 0,
+        "record_fps": 60,
+        "preserve_contact_pairs": true,
+        "recorded_state": false,
+        "correction_limit": 1,
+        "physics_ms_p50": 134.301,
+        "physics_ms_p95": 804.621,
+        "physics_ms_p99": 1103.18,
+        "physics_ms_max": 1386.12,
+        "missed_16_67ms": 1697,
+        "stress_included_in_physics_time": true,
+        "isolated_performance_qualification": false,
+        "sleeping": false,
+        "crushing_material_enabled": false
+      },
+      "phases": {
+        "status": "validated-native-phase-capture",
+        "physics_timing": {
+          "samples": 1800,
+          "min_ms": 0.992341,
+          "mean_ms": 201.2678915638889,
+          "max_ms": 1386.12,
+          "p50_ms": 134.291,
+          "p95_ms": 804.621,
+          "p99_ms": 1103.18,
+          "total_wall_seconds": 362.282204815,
+          "effective_steps_per_second": 4.968502388681147,
+          "real_time_factor": 0.08280837314468578,
+          "missed_deadlines": 1697,
+          "fixed_step_ms": 16.666666666666668
+        },
+        "capture_tick_timing": {
+          "samples": 1800,
+          "min_ms": 7.10976,
+          "mean_ms": 212.98849582222223,
+          "max_ms": 1397.81,
+          "p50_ms": 146.0985,
+          "p95_ms": 816.033,
+          "p99_ms": 1117.22,
+          "total_wall_seconds": 383.37929248,
+          "effective_steps_per_second": 4.695089263575449,
+          "real_time_factor": 0.0782514877262575,
+          "missed_deadlines": 1711,
+          "fixed_step_ms": 16.666666666666668
+        },
+        "capture_tick_scope": "physics, input placement, explicit GPU observations/audit and recording I/O; excludes setup and offline rendering",
+        "frames": 1800,
+        "corrected_steps": 360,
+        "timing_kind": "host wall intervals, including GPU waits; not CUDA kernel timings",
+        "profiling_overhead_in_simulation_time": true,
+        "nested_phase": "refilter is included in correctedCollisionSolve",
+        "unmeasured_interval": "ordinary trial, checkpoint, remaining PhysX work and callback overhead",
+        "phases": {
+          "acceptCorrection": {
+            "samples": 360,
+            "mean_ms": 0.33939195555555557,
+            "median_ms": 0.3324795,
+            "max_ms": 1.593582
+          },
+          "applyBindings": {
+            "samples": 360,
+            "mean_ms": 0.8194202777777778,
+            "median_ms": 0.8886970000000001,
+            "max_ms": 3.640579
+          },
+          "collisionBindings": {
+            "samples": 1800,
+            "mean_ms": 0.015936679444444445,
+            "median_ms": 0.000281,
+            "max_ms": 2.310249
+          },
+          "correctedCollisionSolve": {
+            "samples": 360,
+            "mean_ms": 51.459086,
+            "median_ms": 40.9240265,
+            "max_ms": 435.049964
+          },
+          "correctionBodies": {
+            "samples": 1800,
+            "mean_ms": 0.03919046888888889,
+            "median_ms": 0.000271,
+            "max_ms": 2.432797
+          },
+          "detail.islandInsertion": {
+            "samples": 360,
+            "mean_ms": 1.7433250666666666,
+            "median_ms": 1.6749785,
+            "max_ms": 4.877446
+          },
+          "detail.postBroadPhase": {
+            "samples": 360,
+            "mean_ms": 15.83870873611111,
+            "median_ms": 13.5025215,
+            "max_ms": 93.923003
+          },
+          "detail.postBroadPhaseStage2": {
+            "samples": 360,
+            "mean_ms": 0.29588305833333334,
+            "median_ms": 0.22694799999999998,
+            "max_ms": 2.58149
+          },
+          "detail.postBroadPhaseStage3": {
+            "samples": 360,
+            "mean_ms": 0.00013379166666666666,
+            "median_ms": 0.00013,
+            "max_ms": 0.000881
+          },
+          "detail.postNarrowPhase": {
+            "samples": 360,
+            "mean_ms": 1.7842661333333334,
+            "median_ms": 1.4622480000000002,
+            "max_ms": 13.354946
+          },
+          "detail.postSolver": {
+            "samples": 360,
+            "mean_ms": 0.0017968361111111112,
+            "median_ms": 0.001814,
+            "max_ms": 0.00523
+          },
+          "detail.preallocateContactManagers": {
+            "samples": 360,
+            "mean_ms": 0.49797708333333335,
+            "median_ms": 0.48579649999999996,
+            "max_ms": 1.476865
+          },
+          "detail.registerContactManagers": {
+            "samples": 360,
+            "mean_ms": 0.1620056138888889,
+            "median_ms": 0.121832,
+            "max_ms": 0.892464
+          },
+          "detail.registerInteractions": {
+            "samples": 360,
+            "mean_ms": 0.35323371666666664,
+            "median_ms": 0.30274999999999996,
+            "max_ms": 1.573665
+          },
+          "detail.registerSceneInteractions": {
+            "samples": 360,
+            "mean_ms": 0.5626473666666667,
+            "median_ms": 0.5151060000000001,
+            "max_ms": 1.700862
+          },
+          "finishAndReserve": {
+            "samples": 1800,
+            "mean_ms": 2.2181315755555557,
+            "median_ms": 1.207103,
+            "max_ms": 11.866972
+          },
+          "initializeReserved": {
+            "samples": 360,
+            "mean_ms": 0.07547349166666667,
+            "median_ms": 0.052352499999999996,
+            "max_ms": 2.353499
+          },
+          "refilter": {
+            "samples": 360,
+            "mean_ms": 1.3583957805555555,
+            "median_ms": 1.3525719999999999,
+            "max_ms": 2.834676
+          },
+          "resetContactCaches": {
+            "samples": 360,
+            "mean_ms": 0.013869347222222222,
+            "median_ms": 0.013455499999999999,
+            "max_ms": 0.038462
+          },
+          "restoreInstall": {
+            "samples": 360,
+            "mean_ms": 0.02405128611111111,
+            "median_ms": 0.022116,
+            "max_ms": 0.100878
+          },
+          "submit": {
+            "samples": 1800,
+            "mean_ms": 0.2584856088888889,
+            "median_ms": 0.234473,
+            "max_ms": 0.983807
+          }
+        },
+        "corrected_step_mean_ms": {
+          "acceptCorrection": 0.33939195555555557,
+          "applyBindings": 0.8194202777777778,
+          "collisionBindings": 0.0784361638888889,
+          "correctedCollisionSolve": 51.459086,
+          "correctionBodies": 0.19470622777777777,
+          "finishAndReserve": 5.887069894444444,
+          "initializeReserved": 0.07547349166666667,
+          "refilter": 1.3583957805555555,
+          "resetContactCaches": 0.013869347222222222,
+          "restoreInstall": 0.02405128611111111,
+          "submit": 0.3164968888888889
+        },
+        "corrected_pass_excluding_refilter_mean_ms": 50.100690219444445,
+        "unmeasured_interval_mean_ms": 188.18988875944444,
+        "isolated_performance_qualification": false
+      }
+    }
+  },
+  "controlled_tests": {
+    "full_contact_trajectory": "32 ordinary friction participants x 30 steps, existing 2e-4 tolerance; passed",
+    "repeated_impacts": "matching fracture steps 6 and 16, 720 position/velocity samples within 2e-4; passed",
+    "observation_order": "CUDA event orders ID/value uploads before GPU API commands and reads"
+  },
+  "limitations": [
+    "Shared GPU; not isolated benchmark qualification",
+    "Chaotic bombardments produce different trajectories and correction counts; timing ratios do not establish matched-fidelity speedup",
+    "Large mean simulation time approximately unchanged despite faster corrected pass",
+    "Trigger, CPU fallback and contact-report guard branches still need dedicated tests"
+  ],
+  "island_hotspot_probe": {
+    "summary": {
+      "backend": "native PhysX GPU task graph + resident CUDA destruction",
+      "status": "completed",
+      "frames": 600,
+      "seconds": 10,
+      "buildings": 256,
+      "chunks": 113664,
+      "bonds": 229376,
+      "peak_clusters": 97087,
+      "projectiles": 1024,
+      "broken_bonds": 200255,
+      "corrections": 188,
+      "spawn_protocol": "clear-aerial-ballistic-v2",
+      "motion_audit_enabled": true,
+      "max_motion_position_error": 0,
+      "record_fps": 60,
+      "preserve_contact_pairs": true,
+      "recorded_state": false,
+      "correction_limit": 1,
+      "physics_ms_p50": 483.424,
+      "physics_ms_p95": 1819.04,
+      "physics_ms_p99": 2900.01,
+      "physics_ms_max": 4134.14,
+      "missed_16_67ms": 517,
+      "stress_included_in_physics_time": true,
+      "isolated_performance_qualification": false,
+      "sleeping": false,
+      "crushing_material_enabled": false
+    },
+    "per_call_tasks": {
+      "GpuDestruction.task.speculativeIslandMaintenance": {
+        "calls": 788,
+        "mean_per_call_ms": 89.8298349251269,
+        "max_per_call_ms": 599.728061
+      },
+      "GpuDestruction.task.accurateIslandMaintenance": {
+        "calls": 788,
+        "mean_per_call_ms": 80.04150188705584,
+        "max_per_call_ms": 824.840725
+      }
+    },
+    "phases": {
+      "status": "validated-native-phase-capture",
+      "physics_timing": {
+        "samples": 600,
+        "min_ms": 2.17179,
+        "mean_ms": 669.3380799,
+        "max_ms": 4134.14,
+        "p50_ms": 481.69899999999996,
+        "p95_ms": 1819.04,
+        "p99_ms": 2900.01,
+        "total_wall_seconds": 401.60284794,
+        "effective_steps_per_second": 1.4940133096108938,
+        "real_time_factor": 0.024900221826848232,
+        "missed_deadlines": 517,
+        "fixed_step_ms": 16.666666666666668
+      },
+      "capture_tick_timing": {
+        "samples": 600,
+        "min_ms": 9.46727,
+        "mean_ms": 680.9082668333333,
+        "max_ms": 4144.43,
+        "p50_ms": 493.957,
+        "p95_ms": 1831.17,
+        "p99_ms": 2911.15,
+        "total_wall_seconds": 408.5449601,
+        "effective_steps_per_second": 1.468626610528098,
+        "real_time_factor": 0.024477110175468303,
+        "missed_deadlines": 518,
+        "fixed_step_ms": 16.666666666666668
+      },
+      "capture_tick_scope": "physics, input placement, explicit GPU observations/audit and recording I/O; excludes setup and offline rendering",
+      "frames": 600,
+      "corrected_steps": 188,
+      "timing_kind": "host wall intervals, including GPU waits; not CUDA kernel timings",
+      "profiling_overhead_in_simulation_time": true,
+      "nested_phase": "refilter is included in correctedCollisionSolve",
+      "task_scope_totals": "task.* sums calls per step across trial/correction; task and detail scopes can overlap and are not additive simulation costs",
+      "unmeasured_interval": "ordinary trial, checkpoint, remaining PhysX work and callback overhead",
+      "phases": {
+        "acceptCorrection": {
+          "samples": 188,
+          "mean_ms": 0.3703477234042553,
+          "median_ms": 0.360267,
+          "max_ms": 2.387665
+        },
+        "applyBindings": {
+          "samples": 188,
+          "mean_ms": 1.588677244680851,
+          "median_ms": 0.43157,
+          "max_ms": 5.334621
+        },
+        "collisionBindings": {
+          "samples": 600,
+          "mean_ms": 0.027770675,
+          "median_ms": 0.000311,
+          "max_ms": 2.323004
+        },
+        "correctedCollisionSolve": {
+          "samples": 188,
+          "mean_ms": 234.03183426595746,
+          "median_ms": 115.881238,
+          "max_ms": 1347.122659
+        },
+        "correctionBodies": {
+          "samples": 600,
+          "mean_ms": 0.066954815,
+          "median_ms": 0.00029,
+          "max_ms": 2.428921
+        },
+        "detail.beforeSolver": {
+          "samples": 188,
+          "mean_ms": 0.0033012925531914895,
+          "median_ms": 0.0036115,
+          "max_ms": 0.015379
+        },
+        "detail.islandGen": {
+          "samples": 188,
+          "mean_ms": 3.2633955319148935,
+          "median_ms": 1.2615635,
+          "max_ms": 17.909269
+        },
+        "detail.islandInsertion": {
+          "samples": 188,
+          "mean_ms": 4.054802595744681,
+          "median_ms": 2.8088949999999997,
+          "max_ms": 20.532022
+        },
+        "detail.postBroadPhase": {
+          "samples": 188,
+          "mean_ms": 41.14202951595745,
+          "median_ms": 36.095932,
+          "max_ms": 149.271661
+        },
+        "detail.postBroadPhaseStage2": {
+          "samples": 188,
+          "mean_ms": 0.8725556861702127,
+          "median_ms": 0.4302975,
+          "max_ms": 5.911047
+        },
+        "detail.postBroadPhaseStage3": {
+          "samples": 188,
+          "mean_ms": 0.00020036170212765956,
+          "median_ms": 0.00016,
+          "max_ms": 0.001042
+        },
+        "detail.postIslandGen": {
+          "samples": 188,
+          "mean_ms": 0.0007547393617021277,
+          "median_ms": 0.0007365,
+          "max_ms": 0.002896
+        },
+        "detail.postNarrowPhase": {
+          "samples": 188,
+          "mean_ms": 7.4570595,
+          "median_ms": 3.720796,
+          "max_ms": 42.767401
+        },
+        "detail.postSolver": {
+          "samples": 188,
+          "mean_ms": 0.0019284255319148935,
+          "median_ms": 0.001973,
+          "max_ms": 0.008746
+        },
+        "detail.preallocateContactManagers": {
+          "samples": 188,
+          "mean_ms": 1.086778914893617,
+          "median_ms": 1.0036475,
+          "max_ms": 2.700508
+        },
+        "detail.processLostContacts": {
+          "samples": 188,
+          "mean_ms": 0.0034738297872340426,
+          "median_ms": 0.003126,
+          "max_ms": 0.025448
+        },
+        "detail.processLostContacts2": {
+          "samples": 188,
+          "mean_ms": 9.748200260638297,
+          "median_ms": 2.1062195,
+          "max_ms": 79.72304
+        },
+        "detail.processLostContacts3": {
+          "samples": 188,
+          "mean_ms": 19.6233705106383,
+          "median_ms": 6.608553000000001,
+          "max_ms": 124.780067
+        },
+        "detail.registerContactManagers": {
+          "samples": 188,
+          "mean_ms": 0.5405604521276596,
+          "median_ms": 0.3116065,
+          "max_ms": 3.008222
+        },
+        "detail.registerInteractions": {
+          "samples": 188,
+          "mean_ms": 0.8781509787234043,
+          "median_ms": 0.560821,
+          "max_ms": 2.938011
+        },
+        "detail.registerSceneInteractions": {
+          "samples": 188,
+          "mean_ms": 1.179375835106383,
+          "median_ms": 1.1014694999999999,
+          "max_ms": 3.913161
+        },
+        "detail.updateDynamics": {
+          "samples": 188,
+          "mean_ms": 1.7222069787234042,
+          "median_ms": 1.4517835,
+          "max_ms": 10.909131
+        },
+        "detail.updateDynamicsPostPartitioning": {
+          "samples": 188,
+          "mean_ms": 0.4411451914893617,
+          "median_ms": 0.332831,
+          "max_ms": 2.022933
+        },
+        "finishAndReserve": {
+          "samples": 600,
+          "mean_ms": 2.64947728,
+          "median_ms": 1.606677,
+          "max_ms": 13.810995
+        },
+        "initializeReserved": {
+          "samples": 188,
+          "mean_ms": 0.07895388297872341,
+          "median_ms": 0.056680499999999995,
+          "max_ms": 2.361565
+        },
+        "refilter": {
+          "samples": 188,
+          "mean_ms": 1.548264414893617,
+          "median_ms": 1.5284515,
+          "max_ms": 2.967175
+        },
+        "resetContactCaches": {
+          "samples": 188,
+          "mean_ms": 0.01516558510638298,
+          "median_ms": 0.0146925,
+          "max_ms": 0.032451
+        },
+        "restoreInstall": {
+          "samples": 188,
+          "mean_ms": 0.027716664893617023,
+          "median_ms": 0.024205,
+          "max_ms": 0.10151
+        },
+        "submit": {
+          "samples": 600,
+          "mean_ms": 0.2889148166666667,
+          "median_ms": 0.239446,
+          "max_ms": 2.501807
+        },
+        "task.accurateIslandMaintenance": {
+          "samples": 600,
+          "mean_ms": 105.12117247833334,
+          "median_ms": 66.02980249999999,
+          "max_ms": 824.840725
+        },
+        "task.speculativeIslandMaintenance": {
+          "samples": 600,
+          "mean_ms": 117.976516535,
+          "median_ms": 82.8370495,
+          "max_ms": 854.722855
+        },
+        "trialDetail.beforeSolver": {
+          "samples": 600,
+          "mean_ms": 0.00430563,
+          "median_ms": 0.004809,
+          "max_ms": 0.013225
+        },
+        "trialDetail.islandGen": {
+          "samples": 600,
+          "mean_ms": 6.634279686666667,
+          "median_ms": 5.781946,
+          "max_ms": 21.423875
+        },
+        "trialDetail.islandInsertion": {
+          "samples": 600,
+          "mean_ms": 50.957623105,
+          "median_ms": 30.8050505,
+          "max_ms": 259.512862
+        },
+        "trialDetail.postBroadPhase": {
+          "samples": 600,
+          "mean_ms": 47.87292201333333,
+          "median_ms": 50.8488165,
+          "max_ms": 147.920413
+        },
+        "trialDetail.postBroadPhaseStage2": {
+          "samples": 600,
+          "mean_ms": 2.1111818066666665,
+          "median_ms": 1.1074005,
+          "max_ms": 23.731191
+        },
+        "trialDetail.postBroadPhaseStage3": {
+          "samples": 600,
+          "mean_ms": 0.00031678,
+          "median_ms": 0.00031,
+          "max_ms": 0.007153
+        },
+        "trialDetail.postIslandGen": {
+          "samples": 600,
+          "mean_ms": 0.0009057983333333334,
+          "median_ms": 0.000862,
+          "max_ms": 0.015278
+        },
+        "trialDetail.postNarrowPhase": {
+          "samples": 600,
+          "mean_ms": 27.862929916666666,
+          "median_ms": 20.146122,
+          "max_ms": 130.695267
+        },
+        "trialDetail.postSolver": {
+          "samples": 600,
+          "mean_ms": 0.0020382316666666665,
+          "median_ms": 0.0020735,
+          "max_ms": 0.007794
+        },
+        "trialDetail.preallocateContactManagers": {
+          "samples": 600,
+          "mean_ms": 23.766161838333332,
+          "median_ms": 14.817130500000001,
+          "max_ms": 123.441336
+        },
+        "trialDetail.processLostContacts": {
+          "samples": 600,
+          "mean_ms": 0.004959225,
+          "median_ms": 0.004724,
+          "max_ms": 0.071123
+        },
+        "trialDetail.processLostContacts2": {
+          "samples": 600,
+          "mean_ms": 11.584712941666666,
+          "median_ms": 3.950038,
+          "max_ms": 84.175718
+        },
+        "trialDetail.processLostContacts3": {
+          "samples": 600,
+          "mean_ms": 20.82334353,
+          "median_ms": 9.5154705,
+          "max_ms": 151.250277
+        },
+        "trialDetail.registerContactManagers": {
+          "samples": 518,
+          "mean_ms": 23.74805151930502,
+          "median_ms": 18.6417355,
+          "max_ms": 113.461099
+        },
+        "trialDetail.registerInteractions": {
+          "samples": 518,
+          "mean_ms": 28.671094806949807,
+          "median_ms": 21.0838565,
+          "max_ms": 130.211485
+        },
+        "trialDetail.registerSceneInteractions": {
+          "samples": 518,
+          "mean_ms": 40.2996913069498,
+          "median_ms": 28.26959,
+          "max_ms": 262.915749
+        },
+        "trialDetail.updateDynamics": {
+          "samples": 600,
+          "mean_ms": 28.23567958,
+          "median_ms": 17.205571499999998,
+          "max_ms": 176.113318
+        },
+        "trialDetail.updateDynamicsPostPartitioning": {
+          "samples": 600,
+          "mean_ms": 1.7960190133333334,
+          "median_ms": 0.8150999999999999,
+          "max_ms": 694.095415
+        }
+      },
+      "corrected_step_mean_ms": {
+        "acceptCorrection": 0.3703477234042553,
+        "applyBindings": 1.588677244680851,
+        "collisionBindings": 0.0879496170212766,
+        "correctedCollisionSolve": 234.03183426595746,
+        "correctionBodies": 0.21301950531914893,
+        "finishAndReserve": 5.664940452127659,
+        "initializeReserved": 0.07895388297872341,
+        "refilter": 1.548264414893617,
+        "resetContactCaches": 0.01516558510638298,
+        "restoreInstall": 0.027716664893617023,
+        "submit": 0.3926467127659575
+      },
+      "corrected_pass_excluding_refilter_mean_ms": 232.48356985106383,
+      "unmeasured_interval_mean_ms": 592.3229844316667,
+      "isolated_performance_qualification": false
+    },
+    "scope": "10-second denser launch schedule; not a timing comparison with the 30-second workload"
+  },
+  "ordinary_pass_profile_capture": "out/recordings/native-reuse-trial-profile-large-20260906",
+  "final_verification": {
+    "independent_sdk_build_install": "passed; out/native-island-maintenance-profile-build.log",
+    "focused_tests": "16/16 passed; out/native-pair-island-final-tests.log",
+    "phase_validation": "all completed captures parsed; repeated task scopes aggregate while duplicated primary phases still reject",
+    "gpu_contact_graph_replacement": "not implemented; measured next target"
+  }
+}

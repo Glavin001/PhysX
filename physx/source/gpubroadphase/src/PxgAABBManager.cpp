@@ -27,6 +27,8 @@
 // Copyright (c) 2001-2004 NovodeX AG. All rights reserved.  
 
 #include "PxgAABBManager.h"
+#include <cstdlib>
+#include <cstdio>
 #include "PxgAggregate.h"
 #include "PxgAggregateDesc.h"
 #include "common/PxPhysXCommonConfig.h"
@@ -163,6 +165,9 @@ PxgAABBManager::PxgAABBManager(PxgCudaKernelWranglerManager* gpuKernelWrangler,
 	mAddedHandleBuf				(allocDesc.deviceAlloc, PxsHeapStats::eBROADPHASE),
 	mRemovedHandleBuf			(allocDesc.deviceAlloc, PxsHeapStats::eBROADPHASE),
 	mChangedAABBMgrHandlesBuf	(allocDesc.deviceAlloc, PxsHeapStats::eBROADPHASE),
+    mRefilterHandleMap(allocDesc.hostAlloc, PxsHeapStats::eBROADPHASE),
+    mRefilterHandlesBuf(allocDesc.deviceAlloc, PxsHeapStats::eBROADPHASE),
+    mRefilterPending(false),
 	mMaxFoundLostPairs			(config.foundLostAggregatePairsCapacity),
 	mMaxAggPairs				(config.totalAggregatePairsCapacity),
 	mFoundPairTask				(this),
@@ -422,8 +427,31 @@ bool PxgAABBManager::addBounds(BoundsIndex index, PxReal contactDistance, Filter
 	return true;
 }
 
+bool PxgAABBManager::refilterBounds(BoundsIndex index, FilterGroup::Enum group, bool deviceOwnerTransaction)
+{
+    // Aggregate pair persistence needs its own invalidation transaction. Keep
+    // the legacy reset path until that integration is available; do not create
+    // duplicate aggregate pairs while refreshing a neighboring single actor.
+    if (mNbAggregates || index >= mVolumeData.size() || !mVolumeData[index].isSingleActor()
+        || mGroups[index] == FilterGroup::eINVALID || (!deviceOwnerTransaction && group == FilterGroup::eINVALID))
+        return false;
+    if(!deviceOwnerTransaction) {
+        mRefilterHandleMap.growAndSet(index);
+        mRefilterPending = true;
+        mChangedHandleMap.growAndSet(index);
+        ++mHostRefilterRequests;
+        mGroups[index] = group;
+        mPersistentStateChanged = true;
+    }
+    // Native rigid group identity comes from NP's GPU shape-to-motion map.
+    // No CPU group reconstruction or whole-world metadata DMA is requested.
+    mGPUStateChanged = true;
+    return true;
+}
+
 bool PxgAABBManager::removeBounds(BoundsIndex index)
 {
+    mRefilterHandleMap.boundedReset(index);
 	// PT: TODO: shouldn't it be compared to mUsedSize?
 	PX_ASSERT(index < mVolumeData.size());
 
@@ -816,6 +844,12 @@ void PxgAABBManager::preBpUpdate_GPU()
 		Local::dmaBitmap(mCudaContext, bpStream, mRemovedHandleBuf, mRemovedHandleMap);
 	}
 
+    if (mRefilterPending)
+    {
+        Local::dmaBitmap(mCudaContext, bpStream, mRefilterHandlesBuf, mRefilterHandleMap);
+        mHostRefilterUploadWords+=mRefilterHandleMap.getWordCount();
+    }
+
 	//KS - skip pre broad phase 
 	if(stateChanged)
 	{
@@ -823,6 +857,11 @@ void PxgAABBManager::preBpUpdate_GPU()
 
 		// PT: this updateData is actually only used for preBroadPhase(), which doesn't actually use all the data.
 		// PT: the code below does NOT modify e.g. mGPUStateChanged so the bool doesn't need to be in updateData here.
+		{	// PHYSX_BP_DIAG=1: per-pass handle churn (added/updated/removed) to size the insertion path.
+			static const bool bpDiag = []{ const char* raw = ::getenv("PHYSX_BP_DIAG"); return raw && raw[0]=='1'; }();
+			if(bpDiag && (mAddedHandles.size() || mRemovedHandles.size()))
+				printf("[bp-diag] added=%u updated=%u removed=%u boxes=%u\n", mAddedHandles.size(), mUpdatedHandles.size(), mRemovedHandles.size(), mBoundsArray.size());
+		}
 		const BroadPhaseUpdateData updateData(mAddedHandles.begin(), mAddedHandles.size(),
 			mUpdatedHandles.begin(), mUpdatedHandles.size(),
 			mRemovedHandles.begin(), mRemovedHandles.size(),
@@ -882,7 +921,21 @@ void PxgAABBManager::postBroadPhase(PxBaseTask* continuation, Cm::FlushPool& /*f
 void PxgAABBManager::reallocateChangedAABBMgActorHandleMap(const PxU32 size)
 {
 	mChangedHandleMap.resizeAndClear(size);
-	mChangedAABBMgrHandlesBuf.allocate(size * sizeof(PxU32), PX_FL);
+    // size counts shape bits, not words. Initial static scenes may allocate
+    // their first bitmap here, then skip the next pre-BP upload. Native bounds
+    // merging still reads it, so newly allocated storage must be defined.
+    const PxU64 bytes=PxU64(mChangedHandleMap.getWordCount()) * sizeof(PxU32);
+    const bool grows=bytes>mChangedAABBMgrHandlesBuf.getSize();
+    mChangedAABBMgrHandlesBuf.allocate(bytes, PX_FL);
+    if(grows) {
+        // This is the bitmap reset boundary, before dynamics produces new
+        // changed bits. Allocation discarded the old contents; initialize the
+        // complete new bitmap once, never clear ordinary unchanged steps.
+        PxScopedCudaLock lock(*mCudaContextManager);
+        if(mCudaContext->memsetD32Async(mChangedAABBMgrHandlesBuf.getDevicePtr(),0,
+            mChangedHandleMap.getWordCount(),getGPUBroadPhase(mBroadPhase).getBpStream())!=CUDA_SUCCESS)
+            mCudaContext->setAbortMode(true);
+    }
 }
 
 void PxgAABBManager::processFoundPairs()
@@ -962,6 +1015,8 @@ void PxgAABBManager::processFoundPairs()
 			PX_PROFILE_ZONE("PxgAABBManager::processFoundPairs - clear bitmaps", mContextID);
 			mAddedHandleMap.clear();
 			mRemovedHandleMap.clear();
+            if (mRefilterPending) mRefilterHandleMap.clear();
+            mRefilterPending = false;
 		}
 
 		{

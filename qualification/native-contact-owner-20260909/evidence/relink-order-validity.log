@@ -1,0 +1,12 @@
+[  0%] Linking CXX executable native_standard_scene_test
+[100%] Built target native_standard_scene_test
+[  7%] Built target NvBlastExtStressGpu
+[ 71%] Built target blast_stress_core
+[ 92%] Built target NvBlastExtStressPhysX
+[ 92%] Linking CXX executable native_gpu_material_test
+[100%] Built target native_gpu_material_test
+[ 25%] Built target native_gpu_visuals
+[ 25%] Linking CXX executable native_destruction_demo
+[100%] Built target native_destruction_demo
+[ 50%] Linking CXX executable native_gpu_collision_test
+[100%] Built target native_gpu_collision_test

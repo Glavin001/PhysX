@@ -1,0 +1,186 @@
+========= COMPUTE-SANITIZER
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at consume(const unsigned int *, unsigned int *, unsigned int)+0x90 in scan-probe.cu:6
+=========     by thread (0,0,0) in block (0,0,0)
+=========     Address 0x10010400200
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: main [0xafb5] in scan-probe
+========= 
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at consume(const unsigned int *, unsigned int *, unsigned int)+0x90 in scan-probe.cu:6
+=========     by thread (0,0,0) in block (0,0,0)
+=========     Address 0x10010400200
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: main [0xafb5] in scan-probe
+========= 
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at consume(const unsigned int *, unsigned int *, unsigned int)+0x90 in scan-probe.cu:6
+=========     by thread (1,0,0) in block (0,0,0)
+=========     Address 0x10010400204
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: main [0xafb5] in scan-probe
+========= 
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at consume(const unsigned int *, unsigned int *, unsigned int)+0x90 in scan-probe.cu:6
+=========     by thread (0,0,0) in block (0,0,0)
+=========     Address 0x10010400200
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: main [0xafb5] in scan-probe
+========= 
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at consume(const unsigned int *, unsigned int *, unsigned int)+0x90 in scan-probe.cu:6
+=========     by thread (1,0,0) in block (0,0,0)
+=========     Address 0x10010400204
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: main [0xafb5] in scan-probe
+========= 
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at consume(const unsigned int *, unsigned int *, unsigned int)+0x90 in scan-probe.cu:6
+=========     by thread (2,0,0) in block (0,0,0)
+=========     Address 0x10010400208
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: main [0xafb5] in scan-probe
+========= 
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at consume(const unsigned int *, unsigned int *, unsigned int)+0x90 in scan-probe.cu:6
+=========     by thread (4,0,0) in block (0,0,0)
+=========     Address 0x10010400210
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: main [0xafb5] in scan-probe
+========= 
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at consume(const unsigned int *, unsigned int *, unsigned int)+0x90 in scan-probe.cu:6
+=========     by thread (4,0,0) in block (0,0,0)
+=========     Address 0x10010400210
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: main [0xafb5] in scan-probe
+========= 
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at consume(const unsigned int *, unsigned int *, unsigned int)+0x90 in scan-probe.cu:6
+=========     by thread (5,0,0) in block (0,0,0)
+=========     Address 0x10010400214
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: main [0xafb5] in scan-probe
+========= 
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at consume(const unsigned int *, unsigned int *, unsigned int)+0x90 in scan-probe.cu:6
+=========     by thread (4,0,0) in block (0,0,0)
+=========     Address 0x10010400210
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: main [0xafb5] in scan-probe
+========= 
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at consume(const unsigned int *, unsigned int *, unsigned int)+0x90 in scan-probe.cu:6
+=========     by thread (5,0,0) in block (0,0,0)
+=========     Address 0x10010400214
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: main [0xafb5] in scan-probe
+========= 
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at consume(const unsigned int *, unsigned int *, unsigned int)+0x90 in scan-probe.cu:6
+=========     by thread (6,0,0) in block (0,0,0)
+=========     Address 0x10010400218
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: main [0xafb5] in scan-probe
+========= 
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at consume(const unsigned int *, unsigned int *, unsigned int)+0x90 in scan-probe.cu:6
+=========     by thread (8,0,0) in block (0,0,0)
+=========     Address 0x10010400220
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: main [0xafb5] in scan-probe
+========= 
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at consume(const unsigned int *, unsigned int *, unsigned int)+0x90 in scan-probe.cu:6
+=========     by thread (8,0,0) in block (0,0,0)
+=========     Address 0x10010400220
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: main [0xafb5] in scan-probe
+========= 
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at consume(const unsigned int *, unsigned int *, unsigned int)+0x90 in scan-probe.cu:6
+=========     by thread (9,0,0) in block (0,0,0)
+=========     Address 0x10010400224
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: main [0xafb5] in scan-probe
+========= 
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at consume(const unsigned int *, unsigned int *, unsigned int)+0x90 in scan-probe.cu:6
+=========     by thread (8,0,0) in block (0,0,0)
+=========     Address 0x10010400220
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: main [0xafb5] in scan-probe
+========= 
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at consume(const unsigned int *, unsigned int *, unsigned int)+0x90 in scan-probe.cu:6
+=========     by thread (9,0,0) in block (0,0,0)
+=========     Address 0x10010400224
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: main [0xafb5] in scan-probe
+========= 
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at consume(const unsigned int *, unsigned int *, unsigned int)+0x90 in scan-probe.cu:6
+=========     by thread (10,0,0) in block (0,0,0)
+=========     Address 0x10010400228
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: main [0xafb5] in scan-probe
+========= 
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at consume(const unsigned int *, unsigned int *, unsigned int)+0x90 in scan-probe.cu:6
+=========     by thread (12,0,0) in block (0,0,0)
+=========     Address 0x10010400230
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: main [0xafb5] in scan-probe
+========= 
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at consume(const unsigned int *, unsigned int *, unsigned int)+0x90 in scan-probe.cu:6
+=========     by thread (12,0,0) in block (0,0,0)
+=========     Address 0x10010400230
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: main [0xafb5] in scan-probe
+========= 
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at consume(const unsigned int *, unsigned int *, unsigned int)+0x90 in scan-probe.cu:6
+=========     by thread (13,0,0) in block (0,0,0)
+=========     Address 0x10010400234
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: main [0xafb5] in scan-probe
+========= 
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at consume(const unsigned int *, unsigned int *, unsigned int)+0x90 in scan-probe.cu:6
+=========     by thread (12,0,0) in block (0,0,0)
+=========     Address 0x10010400230
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: main [0xafb5] in scan-probe
+========= 
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at consume(const unsigned int *, unsigned int *, unsigned int)+0x90 in scan-probe.cu:6
+=========     by thread (13,0,0) in block (0,0,0)
+=========     Address 0x10010400234
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: main [0xafb5] in scan-probe
+========= 
+========= Uninitialized __global__ memory read of size 4 bytes
+=========     at consume(const unsigned int *, unsigned int *, unsigned int)+0x90 in scan-probe.cu:6
+=========     by thread (14,0,0) in block (0,0,0)
+=========     Address 0x10010400238
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: main [0xafb5] in scan-probe
+========= 
+n=1 PASS
+n=2 PASS
+n=3 PASS
+n=4 PASS
+n=5 PASS
+n=6 PASS
+n=7 PASS
+n=8 PASS
+n=9 PASS
+n=10 PASS
+n=11 PASS
+n=12 PASS
+n=13 PASS
+n=14 PASS
+n=15 PASS
+n=16 PASS
+========= ERROR SUMMARY: 24 errors

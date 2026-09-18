@@ -1,0 +1,4 @@
+interface:
+  display_name: "Insight Reporting"
+  short_description: "Archive precise analytics with plots and evidence"
+  default_prompt: "Use $insight-reporting to turn these findings into a clear, auditable report under reports/."

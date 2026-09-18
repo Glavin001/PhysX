@@ -1,0 +1,11 @@
+{
+  "asset": "../destruction/assets/scenes/fractured-downtown.json",
+  "grid": 1,
+  "target": [
+    -56.62198,
+    5.12215,
+    1.09159
+  ],
+  "triggerActions": 4,
+  "holdMs": 750
+}

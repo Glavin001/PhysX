@@ -1,0 +1,18 @@
+{
+  "status": "device-queued transaction tested; native integration pending",
+  "base_revision": "85ecd1ada57ba29c11803b913cb01631017c83c8",
+  "sha256": {
+    "physx/source/gpudestruction/include/PxgDestructionRegistration.h": "29c5f66d001fb799c307c4565134feb42b95f9d5633218a0e25dc3f10722fafb",
+    "physx/source/gpudestruction/src/PxgDestructionRegistration.cuh": "59074f3488c681aacd0ffa7c9d93db656420b72074235447e8eeb1b6efcd6898",
+    "physx/source/gpudestruction/tests/registration_test.cu": "b9abb6973dca012e4df74cc2bb19733199a55ad9a4f1c2d1dc15ac9229f5b0f1",
+    "out/topology-release/destruction_registration_test": "cd191fb7252b8533186da474e30b345bf66207540c1acaf3357ed34eafc8ca1f"
+  },
+  "commands": [
+    "cmake --build out/topology-release --target destruction_registration_test -j2",
+    "out/topology-release/destruction_registration_test",
+    "compute-sanitizer --tool memcheck --error-exitcode 99 out/topology-release/destruction_registration_test",
+    "compute-sanitizer --tool initcheck --error-exitcode 99 out/topology-release/destruction_registration_test",
+    "compute-sanitizer --tool racecheck --error-exitcode 99 out/topology-release/destruction_registration_test",
+    "compute-sanitizer --tool synccheck --error-exitcode 99 out/topology-release/destruction_registration_test"
+  ]
+}

@@ -99,7 +99,7 @@ namespace Sc
 						void				setAngularDamping(PxReal d);
 
 		PX_FORCE_INLINE	PxRigidBodyFlags	getFlags()					const	{ return mCore.mFlags;		}
-						void				setFlags(PxRigidBodyFlags f);
+						void				setFlags(PxRigidBodyFlags f, bool deviceOwnerTransaction = false);
 
 		PX_FORCE_INLINE	PxRigidDynamicLockFlags	getRigidDynamicLockFlags()					const	{ return mCore.lockFlags; }
 

@@ -1,0 +1,26 @@
+{
+  "engine_revision": "45ae3488bc9df66ef6bb5cc020392065c2cf3b76",
+  "runtime_sha256": "1437bd31b875b71222331224aa6c3670a8d53bc812095727b7d67d60ec733f9e",
+  "server_pid": 1258798,
+  "browser_exit": 0,
+  "chunks": 444,
+  "bonds": 896,
+  "trigger_actions": 4,
+  "hold_ms": 150,
+  "dynamic_bodies_after": 7,
+  "broken_bonds_after": 265,
+  "fragments_after": 57,
+  "settling_samples": 30,
+  "minimum_settling_com_y": 0.47999752,
+  "reset_broken_bonds": 0,
+  "reset_fragments": 0,
+  "resource_errors": [
+    "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOriginAfterDefaultedToSameOriginByCoep",
+    "Failed to load resource: the server responded with a status of 404 ()",
+    "Failed to load resource: the server responded with a status of 404 ()",
+    "Failed to load resource: the server responded with a status of 404 ()",
+    "Failed to load resource: the server responded with a status of 404 ()",
+    "Failed to load resource: the server responded with a status of 404 ()"
+  ],
+  "transport_test": "Local browser rewrites public WT host/port to 127.0.0.1:4435, preserving /game; not an independent external-browser connectivity test."
+}

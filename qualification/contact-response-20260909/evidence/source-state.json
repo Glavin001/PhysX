@@ -1,0 +1,31 @@
+{
+  "base_before_continuation": "965803d8",
+  "response_fix_commit": "4dae31ae",
+  "qualification_scope": "Final combined response validity + deferred public shape ownership worktree; no independent timing claim for the first commit",
+  "private_interface": 7,
+  "public_abi": 15,
+  "remaining_worktree_files": {
+    "demos/blast-stress-demo/CMakeLists.txt": "b02b7a1826cb0ff7dc9b2d0e9bf18c8be63775de577c4709f3a212b422e3712f",
+    "demos/blast-stress-demo/native_destruction_main.cpp": "6645417be6b37d60153478ef67348afbe1d665d82797c45c1a81bd38198e1ea0",
+    "demos/blast-stress-demo/native_stress_trace.h": "88ae78b84d9d288cab0af9adaa865eabeceef9f254c29634a1f08df67ae3e311",
+    "demos/blast-stress-demo/tests/native_accepted_properties_check.h": "e821afb18d280509f0ca10683d0013343f167503e6ef3fc6bcdf466ca41e1447",
+    "demos/blast-stress-demo/tests/native_gpu_collision_test.cpp": "ca341e2dc05cc9ee7e7e35574613388abe5a296b626c333e12520849c7e99321",
+    "demos/blast-stress-demo/tests/native_post_correction_check.h": "e2c8570af8dda5a8b3dec31ff7b101966502220a65a5c5dfe1b73a20f6a5127d",
+    "demos/blast-stress-demo/tests/native_shape_publication_test.cu": "30120ceaabbd64d63e4116abbdbfb4cbc94567fbd75c06503d84de9263ad6012",
+    "docs/destruction/IMPLEMENTATION_LEDGER.md": "c009efc1e198088fc20282964886a63b28f4034f10cf29f637af03e7374bbe8c",
+    "docs/destruction/PERFORMANCE_HANDOFF.md": "59e993dd0b56f5432336ee3ae2df7338266d289648f1e49f467760163c08cd99",
+    "physx/source/gpudestruction/include/PxgDestructionRuntime.h": "3a3ba3c9f090e519a5e1c8011c0298cbf02c404e5752d58ac8ad69dd8b6b53b0",
+    "physx/source/gpudestruction/src/PxgDestructionRuntime.cu": "a3219f50f4632fbdbda1d3099a17f32022ef474e1575625548c5f20884d28373",
+    "physx/source/gpudestruction/src/PxgDestructionShapePublication.cuh": "025fddbb8f297cf4479b1125bb570e56bce11815096c0b0adfb5156e9bc05ad7",
+    "physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp": "d887f6c2fd9cb288715a389828865870bd2040a5b9499d8ae27abc9350bd99c4",
+    "physx/source/lowlevel/software/include/PxvDestructionBodyAllocator.h": "b780db2b1b39c765b945e7a783aa4ad317fc33538996b013696768617f52d4f2",
+    "physx/source/physx/src/NpDestructionBodyAllocator.h": "6b126beda0d287d472ab74c7fa30c569ff4ef20d7a34fba2b5bb615c17aa083c",
+    "physx/source/physx/src/NpShapeManager.cpp": "0b40c20262052d483fb4724a34c51287d1d43965620dc90cea630167936705ba",
+    "physx/source/physx/src/NpShapeManager.h": "be44885acb157c5ea836db1ab0392175b4654c0f895f2b89e89e88137d31c60b",
+    "tools/scripts/report-destruction-timing.py": "d036a5c911c965b110ed9f0d5aa1eda575e6b9827c8ce8ec7e3db70f35e11864",
+    "tools/scripts/run-destruction-penetration-regression.py": "0cf9d7cf3255152df21e45f6d571ab95d16d911fbe319e440d546091d19b1ca3",
+    "tools/scripts/test-destruction-timing.py": "dc7717de175ce64d1d75b4a0a11c24073501bfaecbb388f78ddc83f305890085",
+    "tools/scripts/test-native-prefix.py": "c6d9b2a6ff443b9c6efec26b3be0eb52267fff8ba4faeaa957687f84d804e1af",
+    "tools/scripts/verify-native-prefix.py": "4e7fa2be094f99fbc0bd52da53ab098ae780e0945160983836e4bd64a048e7d2"
+  }
+}

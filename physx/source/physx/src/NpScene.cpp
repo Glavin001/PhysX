@@ -27,6 +27,7 @@
 // Copyright (c) 2001-2004 NovodeX AG. All rights reserved.  
 
 #include "NpScene.h"
+#include "NpDestructionBodyAllocator.h"
 #include "NpRigidStatic.h"
 #include "NpRigidDynamic.h"
 #include "NpArticulationReducedCoordinate.h"
@@ -233,6 +234,7 @@ NpScene::NpScene(const PxSceneDesc& desc, NpPhysics& physics) :
 
 NpScene::~NpScene()
 {
+    if(mDestructionBodyAllocator)mDestructionBodyAllocator->clear();
 #if PX_SUPPORT_OMNI_PVD
 	OMNI_PVD_WRITE_SCOPE_BEGIN(pvdWriter, pvdRegData)
 	OMNI_PVD_DESTROY_EXPLICIT(pvdWriter, pvdRegData, OMNI_PVD_CONTEXT_HANDLE, PxGpuDynamicsMemoryConfig, this->mGpuDynamicsConfig)
@@ -284,6 +286,7 @@ NpScene::~NpScene()
 	mScenePvdClient.releasePvdInstance();
 #endif
 	mScene.release();
+    PX_DELETE(mDestructionBodyAllocator);
 
 #if PX_SUPPORT_GPU_PHYSX
 	PX_DELETE(mDirectGPUAPI);
@@ -1027,6 +1030,12 @@ void NpScene::removeRigidDynamic(NpRigidDynamic& body, bool wakeOnLostTouch, boo
 
 bool NpScene::addArticulation(PxArticulationReducedCoordinate& articulation)
 {
+    if(getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_SLEEPING)
+    {
+        outputError<PxErrorCode::eINVALID_OPERATION>(__LINE__, "Direct GPU sleeping currently supports rigid bodies only; articulation insertion rejected.");
+        return false;
+    }
+
 	PX_PROFILE_ZONE("API.addArticulation", getContextId());
 	NP_WRITE_CHECK(this);
 	PX_CHECK_AND_RETURN_VAL(articulation.getNbLinks()>0, "PxScene::addArticulation: Empty articulations may not be added to a scene.", false);
@@ -1275,6 +1284,12 @@ bool NpScene::addArticulationMimicJointInternal(NpArticulationReducedCoordinate*
 
 bool NpScene::addArticulationInternal(PxArticulationReducedCoordinate& npa)
 {
+    if(getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_SLEEPING)
+    {
+        outputError<PxErrorCode::eINVALID_OPERATION>(__LINE__, "Direct GPU sleeping currently supports rigid bodies only; articulation insertion rejected.");
+        return false;
+    }
+
 	// Add root link first
 	const PxU32 nbLinks = npa.getNbLinks();
 	PX_ASSERT(nbLinks > 0);
@@ -2928,6 +2943,9 @@ bool NpScene::simulateOrCollide(PxReal elapsedTime, PxBaseTask* completionTask, 
 
 		if (!checkGpuErrorsPreSim(true))
 			return false;
+        if(!mScene.finalizeGpuSleep())
+            return outputError<PxErrorCode::eINTERNAL_ERROR>(__LINE__, "GPU sleep finalization failed before simulate.");
+
 
 		PX_CHECK_AND_RETURN_VAL(elapsedTime > 0, "PxScene::collide/simulate: The elapsed time must be positive!", false);
 
@@ -3806,6 +3824,32 @@ void NpScene::setDeformableSurfaceGpuPostSolveCallback(PxPostSolveCallback* post
 void NpScene::setDeformableVolumeGpuPostSolveCallback(PxPostSolveCallback* postSolveCallback)
 {
 	mScene.setDeformableVolumeGpuPostSolveCallback(postSolveCallback);
+}
+
+PxDestructionScene* NpScene::getDestructionScene()
+{
+    NP_WRITE_CHECK(this);
+    if(isAPIWriteForbidden() || !(mScene.getFlags() & PxSceneFlag::eENABLE_GPU_DYNAMICS)
+        || (mScene.getFlags() & PxSceneFlag::eENABLE_CCD))
+        return NULL;
+    if(!mDestructionBodyAllocator)mDestructionBodyAllocator=PX_NEW(NpDestructionBodyAllocator)(*this);
+    if(!mDestructionBodyAllocator)return NULL;
+    return mScene.getSimulationController()->getDestructionScene(this, [](void* scene) {
+        return !static_cast<NpScene*>(scene)->isAPIWriteForbidden();
+    }, mDestructionBodyAllocator);
+}
+
+NpRigidDynamic* NpScene::getDestructionBodyCandidate(PxU32 cluster) const
+{
+    return mDestructionBodyAllocator?mDestructionBodyAllocator->find(cluster):NULL;
+}
+PxU32 NpScene::getNbDestructionBodyCandidates() const
+{
+    return mDestructionBodyAllocator?mDestructionBodyAllocator->size():0;
+}
+bool NpScene::hasDestructionPlaceholder(PxU32 node) const
+{
+    return mDestructionBodyAllocator && mDestructionBodyAllocator->hasPlaceholder(node);
 }
 
 PxDirectGPUAPI& NpScene::getDirectGPUAPI()

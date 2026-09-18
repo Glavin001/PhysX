@@ -1,0 +1,263 @@
+========= COMPUTE-SANITIZER
+========= Invalid __global__ read of size 8 bytes
+=========     at Nv::Blast::<unnamed>::applyNativeFineInverse(const double *, unsigned int, unsigned int, Nv::Blast::StressHierarchy::Vector)+0x1de0 in StressNativeFineInverse.cuh:27
+=========     by thread (0,0,0) in block (0,0,0)
+=========     Address 0x75d1038019c0 is out of bounds
+=========     and is 33837553601 bytes after the nearest allocation at 0x75c922a00000 of size 512 bytes
+=========         Device Frame: Nv::Blast::<unnamed>::preconditionNativePolynomial(const Nv::Blast::<unnamed>::PersistentStressArgs &, const unsigned int *, unsigned int)+0x18e0 in StressNativePolynomial.cuh:42
+=========         Device Frame: MotionModeTest::polynomialBasis(Nv::Blast::<unnamed>::PersistentStressArgs, const unsigned int *, unsigned int, unsigned int, Nv::Blast::StressHierarchy::Vector *, unsigned int)+0x2f0 in native_polynomial_test.cuh:7
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame:  [0x13e88] in libcudart.so.12
+=========         Host Frame: cudaLaunchKernel [0x79f87] in libcudart.so.12
+=========         Host Frame: MotionModeTest::polynomialOperator() [0x21435] in gpu_resident_motion_modes_test
+=========         Host Frame: main [0x89c0] in gpu_resident_motion_modes_test
+========= 
+========= Invalid __global__ read of size 8 bytes
+=========     at Nv::Blast::<unnamed>::applyNativeFineInverse(const double *, unsigned int, unsigned int, Nv::Blast::StressHierarchy::Vector)+0x1de0 in StressNativeFineInverse.cuh:27
+=========     by thread (1,0,0) in block (0,0,0)
+=========     Address 0x75d1038019c8 is out of bounds
+=========     and is 33837553609 bytes after the nearest allocation at 0x75c922a00000 of size 512 bytes
+=========         Device Frame: Nv::Blast::<unnamed>::preconditionNativePolynomial(const Nv::Blast::<unnamed>::PersistentStressArgs &, const unsigned int *, unsigned int)+0x18e0 in StressNativePolynomial.cuh:42
+=========         Device Frame: MotionModeTest::polynomialBasis(Nv::Blast::<unnamed>::PersistentStressArgs, const unsigned int *, unsigned int, unsigned int, Nv::Blast::StressHierarchy::Vector *, unsigned int)+0x2f0 in native_polynomial_test.cuh:7
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame:  [0x13e88] in libcudart.so.12
+=========         Host Frame: cudaLaunchKernel [0x79f87] in libcudart.so.12
+=========         Host Frame: MotionModeTest::polynomialOperator() [0x21435] in gpu_resident_motion_modes_test
+=========         Host Frame: main [0x89c0] in gpu_resident_motion_modes_test
+========= 
+========= Invalid __global__ read of size 8 bytes
+=========     at Nv::Blast::<unnamed>::applyNativeFineInverse(const double *, unsigned int, unsigned int, Nv::Blast::StressHierarchy::Vector)+0x1de0 in StressNativeFineInverse.cuh:27
+=========     by thread (2,0,0) in block (0,0,0)
+=========     Address 0x75d1038019d0 is out of bounds
+=========     and is 33837553617 bytes after the nearest allocation at 0x75c922a00000 of size 512 bytes
+=========         Device Frame: Nv::Blast::<unnamed>::preconditionNativePolynomial(const Nv::Blast::<unnamed>::PersistentStressArgs &, const unsigned int *, unsigned int)+0x18e0 in StressNativePolynomial.cuh:42
+=========         Device Frame: MotionModeTest::polynomialBasis(Nv::Blast::<unnamed>::PersistentStressArgs, const unsigned int *, unsigned int, unsigned int, Nv::Blast::StressHierarchy::Vector *, unsigned int)+0x2f0 in native_polynomial_test.cuh:7
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame:  [0x13e88] in libcudart.so.12
+=========         Host Frame: cudaLaunchKernel [0x79f87] in libcudart.so.12
+=========         Host Frame: MotionModeTest::polynomialOperator() [0x21435] in gpu_resident_motion_modes_test
+=========         Host Frame: main [0x89c0] in gpu_resident_motion_modes_test
+========= 
+========= Invalid __global__ read of size 8 bytes
+=========     at Nv::Blast::<unnamed>::applyNativeFineInverse(const double *, unsigned int, unsigned int, Nv::Blast::StressHierarchy::Vector)+0x1de0 in StressNativeFineInverse.cuh:27
+=========     by thread (3,0,0) in block (0,0,0)
+=========     Address 0x75d1038019d8 is out of bounds
+=========     and is 33837553625 bytes after the nearest allocation at 0x75c922a00000 of size 512 bytes
+=========         Device Frame: Nv::Blast::<unnamed>::preconditionNativePolynomial(const Nv::Blast::<unnamed>::PersistentStressArgs &, const unsigned int *, unsigned int)+0x18e0 in StressNativePolynomial.cuh:42
+=========         Device Frame: MotionModeTest::polynomialBasis(Nv::Blast::<unnamed>::PersistentStressArgs, const unsigned int *, unsigned int, unsigned int, Nv::Blast::StressHierarchy::Vector *, unsigned int)+0x2f0 in native_polynomial_test.cuh:7
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame:  [0x13e88] in libcudart.so.12
+=========         Host Frame: cudaLaunchKernel [0x79f87] in libcudart.so.12
+=========         Host Frame: MotionModeTest::polynomialOperator() [0x21435] in gpu_resident_motion_modes_test
+=========         Host Frame: main [0x89c0] in gpu_resident_motion_modes_test
+========= 
+========= Invalid __global__ read of size 8 bytes
+=========     at Nv::Blast::<unnamed>::applyNativeFineInverse(const double *, unsigned int, unsigned int, Nv::Blast::StressHierarchy::Vector)+0x1de0 in StressNativeFineInverse.cuh:27
+=========     by thread (4,0,0) in block (0,0,0)
+=========     Address 0x75d1038019e0 is out of bounds
+=========     and is 33837553633 bytes after the nearest allocation at 0x75c922a00000 of size 512 bytes
+=========         Device Frame: Nv::Blast::<unnamed>::preconditionNativePolynomial(const Nv::Blast::<unnamed>::PersistentStressArgs &, const unsigned int *, unsigned int)+0x18e0 in StressNativePolynomial.cuh:42
+=========         Device Frame: MotionModeTest::polynomialBasis(Nv::Blast::<unnamed>::PersistentStressArgs, const unsigned int *, unsigned int, unsigned int, Nv::Blast::StressHierarchy::Vector *, unsigned int)+0x2f0 in native_polynomial_test.cuh:7
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame:  [0x13e88] in libcudart.so.12
+=========         Host Frame: cudaLaunchKernel [0x79f87] in libcudart.so.12
+=========         Host Frame: MotionModeTest::polynomialOperator() [0x21435] in gpu_resident_motion_modes_test
+=========         Host Frame: main [0x89c0] in gpu_resident_motion_modes_test
+========= 
+========= Invalid __global__ read of size 8 bytes
+=========     at Nv::Blast::<unnamed>::applyNativeFineInverse(const double *, unsigned int, unsigned int, Nv::Blast::StressHierarchy::Vector)+0x1de0 in StressNativeFineInverse.cuh:27
+=========     by thread (5,0,0) in block (0,0,0)
+=========     Address 0x75d1038019e8 is out of bounds
+=========     and is 33837553641 bytes after the nearest allocation at 0x75c922a00000 of size 512 bytes
+=========         Device Frame: Nv::Blast::<unnamed>::preconditionNativePolynomial(const Nv::Blast::<unnamed>::PersistentStressArgs &, const unsigned int *, unsigned int)+0x18e0 in StressNativePolynomial.cuh:42
+=========         Device Frame: MotionModeTest::polynomialBasis(Nv::Blast::<unnamed>::PersistentStressArgs, const unsigned int *, unsigned int, unsigned int, Nv::Blast::StressHierarchy::Vector *, unsigned int)+0x2f0 in native_polynomial_test.cuh:7
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame:  [0x13e88] in libcudart.so.12
+=========         Host Frame: cudaLaunchKernel [0x79f87] in libcudart.so.12
+=========         Host Frame: MotionModeTest::polynomialOperator() [0x21435] in gpu_resident_motion_modes_test
+=========         Host Frame: main [0x89c0] in gpu_resident_motion_modes_test
+========= 
+========= Invalid __global__ read of size 8 bytes
+=========     at Nv::Blast::<unnamed>::applyNativeFineInverse(const double *, unsigned int, unsigned int, Nv::Blast::StressHierarchy::Vector)+0x1de0 in StressNativeFineInverse.cuh:27
+=========     by thread (6,0,0) in block (0,0,0)
+=========     Address 0x75d1038019f0 is out of bounds
+=========     and is 33837553649 bytes after the nearest allocation at 0x75c922a00000 of size 512 bytes
+=========         Device Frame: Nv::Blast::<unnamed>::preconditionNativePolynomial(const Nv::Blast::<unnamed>::PersistentStressArgs &, const unsigned int *, unsigned int)+0x18e0 in StressNativePolynomial.cuh:42
+=========         Device Frame: MotionModeTest::polynomialBasis(Nv::Blast::<unnamed>::PersistentStressArgs, const unsigned int *, unsigned int, unsigned int, Nv::Blast::StressHierarchy::Vector *, unsigned int)+0x2f0 in native_polynomial_test.cuh:7
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame:  [0x13e88] in libcudart.so.12
+=========         Host Frame: cudaLaunchKernel [0x79f87] in libcudart.so.12
+=========         Host Frame: MotionModeTest::polynomialOperator() [0x21435] in gpu_resident_motion_modes_test
+=========         Host Frame: main [0x89c0] in gpu_resident_motion_modes_test
+========= 
+========= Invalid __global__ read of size 8 bytes
+=========     at Nv::Blast::<unnamed>::applyNativeFineInverse(const double *, unsigned int, unsigned int, Nv::Blast::StressHierarchy::Vector)+0x1de0 in StressNativeFineInverse.cuh:27
+=========     by thread (7,0,0) in block (0,0,0)
+=========     Address 0x75d1038019f8 is out of bounds
+=========     and is 33837553657 bytes after the nearest allocation at 0x75c922a00000 of size 512 bytes
+=========         Device Frame: Nv::Blast::<unnamed>::preconditionNativePolynomial(const Nv::Blast::<unnamed>::PersistentStressArgs &, const unsigned int *, unsigned int)+0x18e0 in StressNativePolynomial.cuh:42
+=========         Device Frame: MotionModeTest::polynomialBasis(Nv::Blast::<unnamed>::PersistentStressArgs, const unsigned int *, unsigned int, unsigned int, Nv::Blast::StressHierarchy::Vector *, unsigned int)+0x2f0 in native_polynomial_test.cuh:7
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame:  [0x13e88] in libcudart.so.12
+=========         Host Frame: cudaLaunchKernel [0x79f87] in libcudart.so.12
+=========         Host Frame: MotionModeTest::polynomialOperator() [0x21435] in gpu_resident_motion_modes_test
+=========         Host Frame: main [0x89c0] in gpu_resident_motion_modes_test
+========= 
+========= Invalid __global__ read of size 8 bytes
+=========     at Nv::Blast::<unnamed>::applyNativeFineInverse(const double *, unsigned int, unsigned int, Nv::Blast::StressHierarchy::Vector)+0x1de0 in StressNativeFineInverse.cuh:27
+=========     by thread (8,0,0) in block (0,0,0)
+=========     Address 0x75d103801a00 is out of bounds
+=========     and is 33837553665 bytes after the nearest allocation at 0x75c922a00000 of size 512 bytes
+=========         Device Frame: Nv::Blast::<unnamed>::preconditionNativePolynomial(const Nv::Blast::<unnamed>::PersistentStressArgs &, const unsigned int *, unsigned int)+0x18e0 in StressNativePolynomial.cuh:42
+=========         Device Frame: MotionModeTest::polynomialBasis(Nv::Blast::<unnamed>::PersistentStressArgs, const unsigned int *, unsigned int, unsigned int, Nv::Blast::StressHierarchy::Vector *, unsigned int)+0x2f0 in native_polynomial_test.cuh:7
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame:  [0x13e88] in libcudart.so.12
+=========         Host Frame: cudaLaunchKernel [0x79f87] in libcudart.so.12
+=========         Host Frame: MotionModeTest::polynomialOperator() [0x21435] in gpu_resident_motion_modes_test
+=========         Host Frame: main [0x89c0] in gpu_resident_motion_modes_test
+========= 
+========= Invalid __global__ read of size 8 bytes
+=========     at Nv::Blast::<unnamed>::applyNativeFineInverse(const double *, unsigned int, unsigned int, Nv::Blast::StressHierarchy::Vector)+0x1de0 in StressNativeFineInverse.cuh:27
+=========     by thread (9,0,0) in block (0,0,0)
+=========     Address 0x75d103801a08 is out of bounds
+=========     and is 33837553673 bytes after the nearest allocation at 0x75c922a00000 of size 512 bytes
+=========         Device Frame: Nv::Blast::<unnamed>::preconditionNativePolynomial(const Nv::Blast::<unnamed>::PersistentStressArgs &, const unsigned int *, unsigned int)+0x18e0 in StressNativePolynomial.cuh:42
+=========         Device Frame: MotionModeTest::polynomialBasis(Nv::Blast::<unnamed>::PersistentStressArgs, const unsigned int *, unsigned int, unsigned int, Nv::Blast::StressHierarchy::Vector *, unsigned int)+0x2f0 in native_polynomial_test.cuh:7
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame:  [0x13e88] in libcudart.so.12
+=========         Host Frame: cudaLaunchKernel [0x79f87] in libcudart.so.12
+=========         Host Frame: MotionModeTest::polynomialOperator() [0x21435] in gpu_resident_motion_modes_test
+=========         Host Frame: main [0x89c0] in gpu_resident_motion_modes_test
+========= 
+========= Invalid __global__ read of size 8 bytes
+=========     at Nv::Blast::<unnamed>::applyNativeFineInverse(const double *, unsigned int, unsigned int, Nv::Blast::StressHierarchy::Vector)+0x1de0 in StressNativeFineInverse.cuh:27
+=========     by thread (10,0,0) in block (0,0,0)
+=========     Address 0x75d103801a10 is out of bounds
+=========     and is 33837553681 bytes after the nearest allocation at 0x75c922a00000 of size 512 bytes
+=========         Device Frame: Nv::Blast::<unnamed>::preconditionNativePolynomial(const Nv::Blast::<unnamed>::PersistentStressArgs &, const unsigned int *, unsigned int)+0x18e0 in StressNativePolynomial.cuh:42
+=========         Device Frame: MotionModeTest::polynomialBasis(Nv::Blast::<unnamed>::PersistentStressArgs, const unsigned int *, unsigned int, unsigned int, Nv::Blast::StressHierarchy::Vector *, unsigned int)+0x2f0 in native_polynomial_test.cuh:7
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame:  [0x13e88] in libcudart.so.12
+=========         Host Frame: cudaLaunchKernel [0x79f87] in libcudart.so.12
+=========         Host Frame: MotionModeTest::polynomialOperator() [0x21435] in gpu_resident_motion_modes_test
+=========         Host Frame: main [0x89c0] in gpu_resident_motion_modes_test
+========= 
+========= Invalid __global__ read of size 8 bytes
+=========     at Nv::Blast::<unnamed>::applyNativeFineInverse(const double *, unsigned int, unsigned int, Nv::Blast::StressHierarchy::Vector)+0x1de0 in StressNativeFineInverse.cuh:27
+=========     by thread (11,0,0) in block (0,0,0)
+=========     Address 0x75d103801a18 is out of bounds
+=========     and is 33837553689 bytes after the nearest allocation at 0x75c922a00000 of size 512 bytes
+=========         Device Frame: Nv::Blast::<unnamed>::preconditionNativePolynomial(const Nv::Blast::<unnamed>::PersistentStressArgs &, const unsigned int *, unsigned int)+0x18e0 in StressNativePolynomial.cuh:42
+=========         Device Frame: MotionModeTest::polynomialBasis(Nv::Blast::<unnamed>::PersistentStressArgs, const unsigned int *, unsigned int, unsigned int, Nv::Blast::StressHierarchy::Vector *, unsigned int)+0x2f0 in native_polynomial_test.cuh:7
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x368d1a] in libcuda.so.1
+=========         Host Frame:  [0x13e88] in libcudart.so.12
+=========         Host Frame: cudaLaunchKernel [0x79f87] in libcudart.so.12
+=========         Host Frame: MotionModeTest::polynomialOperator() [0x21435] in gpu_resident_motion_modes_test
+=========         Host Frame: main [0x89c0] in gpu_resident_motion_modes_test
+========= 
+========= Program hit cudaErrorLaunchFailure (error 719) due to "unspecified launch failure" on CUDA API call to cudaDeviceSynchronize.
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: MotionModeTest::polynomialOperator() [0x21469] in gpu_resident_motion_modes_test
+=========         Host Frame: main [0x89c0] in gpu_resident_motion_modes_test
+========= 
+========= Program hit cudaErrorLaunchFailure (error 719) due to "unspecified launch failure" on CUDA API call to cudaFree.
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: MotionModeTest::polynomialOperator() [clone .cold] [0x63b6] in gpu_resident_motion_modes_test
+=========         Host Frame: main [0x89c0] in gpu_resident_motion_modes_test
+========= 
+========= Program hit cudaErrorLaunchFailure (error 719) due to "unspecified launch failure" on CUDA API call to cudaFree.
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: MotionModeTest::polynomialOperator() [clone .cold] [0x63c2] in gpu_resident_motion_modes_test
+=========         Host Frame: main [0x89c0] in gpu_resident_motion_modes_test
+========= 
+========= Program hit cudaErrorLaunchFailure (error 719) due to "unspecified launch failure" on CUDA API call to cudaFree.
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: MotionModeTest::polynomialOperator() [clone .cold] [0x63ce] in gpu_resident_motion_modes_test
+=========         Host Frame: main [0x89c0] in gpu_resident_motion_modes_test
+========= 
+========= Program hit cudaErrorLaunchFailure (error 719) due to "unspecified launch failure" on CUDA API call to cudaFree.
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: MotionModeTest::polynomialOperator() [clone .cold] [0x63da] in gpu_resident_motion_modes_test
+=========         Host Frame: main [0x89c0] in gpu_resident_motion_modes_test
+========= 
+========= Program hit cudaErrorLaunchFailure (error 719) due to "unspecified launch failure" on CUDA API call to cudaFree.
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: MotionModeTest::polynomialOperator() [clone .cold] [0x63e6] in gpu_resident_motion_modes_test
+=========         Host Frame: main [0x89c0] in gpu_resident_motion_modes_test
+========= 
+========= Program hit cudaErrorLaunchFailure (error 719) due to "unspecified launch failure" on CUDA API call to cudaFree.
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: MotionModeTest::polynomialOperator() [clone .cold] [0x63f2] in gpu_resident_motion_modes_test
+=========         Host Frame: main [0x89c0] in gpu_resident_motion_modes_test
+========= 
+========= Program hit cudaErrorLaunchFailure (error 719) due to "unspecified launch failure" on CUDA API call to cudaFree.
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: MotionModeTest::polynomialOperator() [clone .cold] [0x63fe] in gpu_resident_motion_modes_test
+=========         Host Frame: main [0x89c0] in gpu_resident_motion_modes_test
+========= 
+========= Program hit cudaErrorLaunchFailure (error 719) due to "unspecified launch failure" on CUDA API call to cudaFree.
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: MotionModeTest::polynomialOperator() [clone .cold] [0x640a] in gpu_resident_motion_modes_test
+=========         Host Frame: main [0x89c0] in gpu_resident_motion_modes_test
+========= 
+========= Program hit cudaErrorLaunchFailure (error 719) due to "unspecified launch failure" on CUDA API call to cudaFree.
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: MotionModeTest::polynomialOperator() [clone .cold] [0x6416] in gpu_resident_motion_modes_test
+=========         Host Frame: main [0x89c0] in gpu_resident_motion_modes_test
+========= 
+========= Program hit cudaErrorLaunchFailure (error 719) due to "unspecified launch failure" on CUDA API call to cudaFree.
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: MotionModeTest::polynomialOperator() [clone .cold] [0x6422] in gpu_resident_motion_modes_test
+=========         Host Frame: main [0x89c0] in gpu_resident_motion_modes_test
+========= 
+========= Program hit cudaErrorLaunchFailure (error 719) due to "unspecified launch failure" on CUDA API call to cudaFree.
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: MotionModeTest::polynomialOperator() [clone .cold] [0x642e] in gpu_resident_motion_modes_test
+=========         Host Frame: main [0x89c0] in gpu_resident_motion_modes_test
+========= 
+========= Program hit cudaErrorLaunchFailure (error 719) due to "unspecified launch failure" on CUDA API call to cudaFree.
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: MotionModeTest::polynomialOperator() [clone .cold] [0x643a] in gpu_resident_motion_modes_test
+=========         Host Frame: main [0x89c0] in gpu_resident_motion_modes_test
+========= 
+========= Program hit cudaErrorLaunchFailure (error 719) due to "unspecified launch failure" on CUDA API call to cudaFree.
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: MotionModeTest::polynomialOperator() [clone .cold] [0x6446] in gpu_resident_motion_modes_test
+=========         Host Frame: main [0x89c0] in gpu_resident_motion_modes_test
+========= 
+========= Program hit cudaErrorLaunchFailure (error 719) due to "unspecified launch failure" on CUDA API call to cudaFree.
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: MotionModeTest::polynomialOperator() [clone .cold] [0x6452] in gpu_resident_motion_modes_test
+=========         Host Frame: main [0x89c0] in gpu_resident_motion_modes_test
+========= 
+========= Program hit cudaErrorLaunchFailure (error 719) due to "unspecified launch failure" on CUDA API call to cudaFree.
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: MotionModeTest::polynomialOperator() [clone .cold] [0x645e] in gpu_resident_motion_modes_test
+=========         Host Frame: main [0x89c0] in gpu_resident_motion_modes_test
+========= 
+========= Program hit cudaErrorLaunchFailure (error 719) due to "unspecified launch failure" on CUDA API call to cudaFree.
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: MotionModeTest::polynomialOperator() [clone .cold] [0x646a] in gpu_resident_motion_modes_test
+=========         Host Frame: main [0x89c0] in gpu_resident_motion_modes_test
+========= 
+========= Program hit cudaErrorLaunchFailure (error 719) due to "unspecified launch failure" on CUDA API call to cudaFree.
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: MotionModeTest::polynomialOperator() [clone .cold] [0x6476] in gpu_resident_motion_modes_test
+=========         Host Frame: main [0x89c0] in gpu_resident_motion_modes_test
+========= 
+resident motion modes: unspecified launch failure
+GPU local inverse: 257 six-variable SPD blocks, cold/reuse/unknown/generation checks passed, scaled error 6.38784863e-16
+========= Target application returned an error
+========= ERROR SUMMARY: 30 errors

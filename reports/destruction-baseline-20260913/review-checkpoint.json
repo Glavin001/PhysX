@@ -1,0 +1,62 @@
+{
+  "utc": "2026-09-13T02:17:58Z",
+  "status": "baseline_collection_incomplete",
+  "coverage": {
+    "cpu-full": {
+      "status": "complete",
+      "complete": 52,
+      "latest": [
+        {
+          "scenario": "city256-ten-second-debris",
+          "case": null,
+          "mode": null,
+          "status": "complete"
+        }
+      ]
+    },
+    "graphs-full": {
+      "status": "running",
+      "complete": 45,
+      "latest": [
+        {
+          "scenario": "city256-airborne",
+          "case": null,
+          "mode": null,
+          "status": "running"
+        }
+      ]
+    },
+    "continuous200": {
+      "status": "queued_before_ordinary_counters",
+      "complete": 0,
+      "latest": []
+    },
+    "configs-full": {
+      "status": "not_started"
+    },
+    "warm": {
+      "status": "complete",
+      "complete": 2,
+      "latest": [
+        {
+          "scenario": null,
+          "case": "impacts-256",
+          "mode": null,
+          "status": "complete"
+        }
+      ]
+    },
+    "phase-only": {
+      "status": "waiting_primary_campaign",
+      "complete": 0,
+      "latest": []
+    },
+    "allocation-pilots": {
+      "status": "waiting_phase_campaign",
+      "complete": 0,
+      "latest": []
+    }
+  },
+  "pause_after_report": true,
+  "optimization_started": false
+}

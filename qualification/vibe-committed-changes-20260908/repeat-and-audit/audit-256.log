@@ -1,0 +1,12 @@
+[embedded-destruction] chunks=113664 bonds=229376 initial_clusters=256 direct_gpu=0 native_sleep=1 correction_limit=1 max_stress_passes=2 iterations=8192
+tick 0/600, fragments 0, awake 0, broken 0
+tick 60/600, fragments 11483, awake 11221, broken 62080
+tick 120/600, fragments 15958, awake 13914, broken 71391
+tick 180/600, fragments 16054, awake 9579, broken 71537
+tick 240/600, fragments 16932, awake 10852, broken 73392
+tick 300/600, fragments 17599, awake 9993, broken 74496
+tick 360/600, fragments 17744, awake 8108, broken 74720
+tick 420/600, fragments 18071, awake 7917, broken 75334
+tick 480/600, fragments 18547, awake 7852, broken 76087
+tick 540/600, fragments 18815, awake 6716, broken 76454
+report: /root/workspace/physx-2/out/vibe-committed-changes-20260908/repeat-and-audit/audit-256/report.md

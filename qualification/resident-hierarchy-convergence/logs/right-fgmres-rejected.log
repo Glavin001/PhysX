@@ -1,0 +1,17 @@
+resident right-FGMRES candidate nodes=12 bonds=11 anchored=0 axial=1 incompatible=0 closed=0 local=1 iterations=1 converged=1 error=0 gradient2=0 threshold2=2.4e-09 bond_error=0
+resident right-FGMRES candidate nodes=12 bonds=11 anchored=0 axial=1 incompatible=0 closed=0 local=0 iterations=1 converged=1 error=0 gradient2=0 threshold2=2.4e-09 bond_error=0
+resident right-FGMRES candidate nodes=1024 bonds=1023 anchored=0 axial=1 incompatible=0 closed=0 local=1 iterations=1 converged=1 error=0 gradient2=0 threshold2=2.048e-07 bond_error=0
+resident right-FGMRES candidate nodes=1024 bonds=1023 anchored=0 axial=1 incompatible=0 closed=0 local=0 iterations=1 converged=1 error=0 gradient2=0 threshold2=2.048e-07 bond_error=0
+resident right-FGMRES candidate nodes=1028 bonds=1027 anchored=0 axial=1 incompatible=0 closed=0 local=1 iterations=1 converged=1 error=0 gradient2=0 threshold2=2.056e-07 bond_error=0
+resident right-FGMRES candidate nodes=1028 bonds=1027 anchored=0 axial=1 incompatible=0 closed=0 local=0 iterations=1 converged=1 error=0 gradient2=0 threshold2=2.056e-07 bond_error=0
+resident right-FGMRES candidate nodes=24 bonds=23 anchored=1 axial=0 incompatible=0 closed=0 local=1 iterations=17 converged=1 error=0 gradient2=5.32830475e-08 threshold2=8.10863281e-08 bond_error=0.000310729007
+resident right-FGMRES candidate nodes=24 bonds=23 anchored=1 axial=0 incompatible=0 closed=0 local=0 iterations=17 converged=1 error=0 gradient2=5.32830475e-08 threshold2=8.10863281e-08 bond_error=0.000310729007
+resident right-FGMRES candidate nodes=24 bonds=23 anchored=0 axial=0 incompatible=0 closed=0 local=1 iterations=17 converged=1 error=0 gradient2=3.53883642e-08 threshold2=8.33582031e-08 bond_error=0.000379655001
+resident right-FGMRES candidate nodes=24 bonds=23 anchored=0 axial=0 incompatible=0 closed=0 local=0 iterations=17 converged=1 error=0 gradient2=3.53883642e-08 threshold2=8.33582031e-08 bond_error=0.000379655001
+resident right-FGMRES candidate nodes=24 bonds=23 anchored=0 axial=0 incompatible=1 closed=0 local=1 iterations=128 converged=0 error=0 gradient2=30.3413816 threshold2=8.33582031e-08 bond_error=1.96141434
+resident right-FGMRES candidate nodes=24 bonds=23 anchored=0 axial=0 incompatible=1 closed=0 local=0 iterations=128 converged=0 error=0 gradient2=30.3413816 threshold2=8.33582031e-08 bond_error=1.96141434
+resident right-FGMRES candidate nodes=24 bonds=24 anchored=0 axial=0 incompatible=1 closed=1 local=1 iterations=128 converged=0 error=0 gradient2=173.976505 threshold2=0.121475189 bond_error=54.3653294
+resident right-FGMRES candidate nodes=24 bonds=24 anchored=0 axial=0 incompatible=1 closed=1 local=0 iterations=128 converged=0 error=0 gradient2=173.976505 threshold2=0.121475189 bond_error=54.3653294
+resident right-FGMRES candidate nodes=128 bonds=127 anchored=0 axial=0 incompatible=1 closed=0 local=1 iterations=128 converged=0 error=0 gradient2=194.982846 threshold2=4.70042969e-07 bond_error=1.67871564
+resident right-FGMRES candidate nodes=128 bonds=127 anchored=0 axial=0 incompatible=1 closed=0 local=0 iterations=128 converged=0 error=0 gradient2=194.982846 threshold2=4.70042969e-07 bond_error=1.67871564
+resident Krylov candidate: candidate convergence or physical bond response failed

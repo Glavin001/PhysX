@@ -1,0 +1,19 @@
+{
+  "status": "fast-tier prerequisite implemented; native contact owner remains physically unqualified",
+  "base_revision": "0843812273432d333998628b9ceba6bace777e03",
+  "source_sha256": {
+    "demos/blast-stress-demo/native_destruction_main.cpp": "b6325822b11e5a35e38b5ab9f4ff4b28d7fcc19765ddde5615393628f4559915",
+    "tools/scripts/run-destruction-penetration-regression.py": "f3e0d3cb94d250f56514c98faa3a23b721e7524ee518a01b78906bded3538dc9",
+    "tools/scripts/verify-native-prefix.py": "f120887499d5e3dbed1f888c903d00082ae1764cd7664ef0cd5375ca22e1fe3e",
+    "tools/scripts/test-native-prefix.py": "b2adab1249028b0aea7459254e34d0e07d53ca634871d1a800b77ed9e8ee6931",
+    "out/destruction-sdk/reference/native_destruction_demo": "f7ace314902dac66ac44c67b0f282ef424955a3a9d0e34dd43ef8ac34b4d03bb"
+  },
+  "native_runs": [
+    "owner-early",
+    "owner-standard-early"
+  ],
+  "expected_failure_step": 17,
+  "no_simulation_speedup_claim": true,
+  "ordinary_reference_quality": "out/native-settled-local-20260909/wall-standard/quality.json",
+  "validation_note": "Captured run receipts retain the verifier hash used at execution; final verifier adds reference-motion hashing and explicit fixed-contract checks, covered by recorded unit tests."
+}

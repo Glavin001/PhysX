@@ -1,0 +1,33 @@
+[  0%] Building CUDA object reference/CMakeFiles/gpu_resident_motion_modes_test.dir/tests/gpu_resident_motion_modes_test.cu.o
+[100%] Linking CUDA executable gpu_resident_motion_modes_test
+[100%] Built target gpu_resident_motion_modes_test
+[100%] Building CUDA object reference/CMakeFiles/gpu_resident_stress_phase_probe.dir/tests/gpu_resident_stress_phase_probe.cu.o
+[100%] Linking CUDA executable gpu_resident_stress_phase_probe
+[100%] Built target gpu_resident_stress_phase_probe
+[ 50%] Building CUDA object reference/CMakeFiles/gpu_resident_stress_test_core.dir/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu.o
+/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu(285): warning #177-D: function "Nv::Blast::<unnamed>::conditionalLoopEnabled" was declared but never referenced
+  bool conditionalLoopEnabled()
+       ^
+
+Remark: The warnings can be suppressed with "-diag-suppress <warning-number>"
+
+/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu(379): warning #177-D: function "Nv::Blast::<unnamed>::verifyPartitionEnabled" was declared but never referenced
+  bool verifyPartitionEnabled()
+       ^
+
+/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu(558): warning #177-D: variable "Nv::Blast::<unnamed>::kQRefresh" was declared but never referenced
+  static constexpr std::uint32_t kQRefresh = 16u;
+                                 ^
+
+/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu(3234): warning #177-D: function "Nv::Blast::<unnamed>::ExtStressGpuSolverImpl::verifyPartitionAgainstRebuild" was declared but never referenced
+      void verifyPartitionAgainstRebuild()
+           ^
+
+[ 50%] Built target gpu_resident_stress_test_core
+[ 50%] Linking CUDA executable gpu_resident_stress_test
+[100%] Built target gpu_resident_stress_test
+[  8%] Built target NvBlastExtStressGpu
+[ 16%] Built target gpu_resident_stress_test_core
+[ 91%] Built target blast_stress_core
+[ 91%] Linking CXX executable gpu_resident_stress_3d_test
+[100%] Built target gpu_resident_stress_3d_test

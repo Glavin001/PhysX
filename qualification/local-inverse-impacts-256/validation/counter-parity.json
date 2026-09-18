@@ -1,0 +1,25 @@
+{
+  "fields": [
+    "bodies",
+    "awake_bodies",
+    "logical_clusters",
+    "bonds_broken",
+    "stress_converged",
+    "resim_passes",
+    "correction_status",
+    "contacts_frame",
+    "stress_active_nodes",
+    "stress_active_bonds",
+    "stress_islands",
+    "pre_solve_pairs"
+  ],
+  "steps": 180,
+  "physical_differences": [],
+  "iteration_differences": [
+    {
+      "step": 112,
+      "before": "579",
+      "after": "580"
+    }
+  ]
+}

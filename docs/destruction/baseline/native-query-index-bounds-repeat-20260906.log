@@ -1,0 +1,12 @@
+Internal ctest changing into directory: /root/workspace/physx-2/out/destruction-sdk
+Test project /root/workspace/physx-2/out/destruction-sdk
+    Start 41: physx_persistent_shape_owner_gpu_bounds
+    Test #41: physx_persistent_shape_owner_gpu_bounds ...   Passed    3.51 sec
+    Start 41: physx_persistent_shape_owner_gpu_bounds
+    Test #41: physx_persistent_shape_owner_gpu_bounds ...   Passed    3.46 sec
+    Start 41: physx_persistent_shape_owner_gpu_bounds
+1/1 Test #41: physx_persistent_shape_owner_gpu_bounds ...   Passed    3.53 sec
+
+100% tests passed, 0 tests failed out of 1
+
+Total Test time (real) =  10.49 sec

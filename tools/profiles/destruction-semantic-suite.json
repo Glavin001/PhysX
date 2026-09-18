@@ -1,0 +1,729 @@
+{
+  "schema": 1,
+  "scope": "Complete accepted ticks reached by fresh-process fixed-prefix execution; NOT full-state snapshot restore.",
+  "common": [
+    "--waves",
+    "1",
+    "--launch-seconds",
+    "0",
+    "--stress-iterations",
+    "8192",
+    "--preserve-contact-pairs",
+    "1",
+    "--gpu-island-repair",
+    "1",
+    "--gpu-pre-solve-islands",
+    "1",
+    "--gpu-pre-solve-contacts",
+    "1",
+    "--gpu-pre-solve-support",
+    "1",
+    "--gpu-connectivity-owner",
+    "0",
+    "--projectile-mass",
+    "18000",
+    "--material-strength",
+    "24",
+    "--frame-strength",
+    "40",
+    "--record-state",
+    "0",
+    "--gpu-render",
+    "0",
+    "--audit-motion",
+    "0",
+    "--trace-motion",
+    "0",
+    "--standard-scene",
+    "1",
+    "--sleeping",
+    "1"
+  ],
+  "fixtures": [
+    {
+      "id": "idle-1",
+      "args": [
+        "--grid",
+        "1",
+        "--workload",
+        "idle"
+      ],
+      "steps": 61,
+      "seconds": 3
+    },
+    {
+      "id": "idle-256",
+      "args": [
+        "--grid",
+        "16",
+        "--workload",
+        "idle"
+      ],
+      "steps": 61,
+      "seconds": 3
+    },
+    {
+      "id": "impacts-16",
+      "args": [
+        "--grid",
+        "4",
+        "--workload",
+        "bombardment"
+      ],
+      "steps": 180,
+      "seconds": 3
+    },
+    {
+      "id": "impacts-256",
+      "args": [
+        "--grid",
+        "16",
+        "--workload",
+        "bombardment"
+      ],
+      "steps": 180,
+      "seconds": 3
+    },
+    {
+      "id": "wall-1",
+      "args": [
+        "--grid",
+        "1",
+        "--workload",
+        "single-impact",
+        "--shot-path",
+        "through-wall"
+      ],
+      "steps": 180,
+      "seconds": 3
+    },
+    {
+      "id": "localized-256",
+      "args": [
+        "--grid",
+        "16",
+        "--workload",
+        "single-impact",
+        "--shot-path",
+        "through-wall",
+        "--layout",
+        "impact-corridor"
+      ],
+      "steps": 180,
+      "seconds": 3
+    },
+    {
+      "id": "chain32",
+      "args": [
+        "--grid",
+        "1",
+        "--workload",
+        "idle",
+        "--geometry",
+        "chain32",
+        "--material-strength",
+        "1000",
+        "--frame-strength",
+        "1"
+      ],
+      "steps": 2,
+      "seconds": 3
+    },
+    {
+      "id": "chain256",
+      "args": [
+        "--grid",
+        "1",
+        "--workload",
+        "idle",
+        "--geometry",
+        "chain256",
+        "--material-strength",
+        "1000",
+        "--frame-strength",
+        "1"
+      ],
+      "steps": 2,
+      "seconds": 3
+    },
+    {
+      "id": "cantilever64",
+      "args": [
+        "--grid",
+        "1",
+        "--workload",
+        "idle",
+        "--geometry",
+        "cantilever64",
+        "--material-strength",
+        "1000",
+        "--frame-strength",
+        "1"
+      ],
+      "steps": 2,
+      "seconds": 3
+    },
+    {
+      "id": "dense12",
+      "args": [
+        "--grid",
+        "1",
+        "--workload",
+        "idle",
+        "--geometry",
+        "dense12",
+        "--material-strength",
+        "1000",
+        "--frame-strength",
+        "1"
+      ],
+      "steps": 2,
+      "seconds": 3
+    },
+    {
+      "id": "tower64",
+      "args": [
+        "--grid",
+        "1",
+        "--workload",
+        "idle",
+        "--geometry",
+        "tower64",
+        "--material-strength",
+        "1000",
+        "--frame-strength",
+        "1"
+      ],
+      "steps": 2,
+      "seconds": 3
+    },
+    {
+      "id": "panel32",
+      "args": [
+        "--grid",
+        "1",
+        "--workload",
+        "idle",
+        "--geometry",
+        "panel32",
+        "--material-strength",
+        "1000",
+        "--frame-strength",
+        "1"
+      ],
+      "steps": 2,
+      "seconds": 3
+    },
+    {
+      "id": "bridge64",
+      "args": [
+        "--grid",
+        "1",
+        "--workload",
+        "idle",
+        "--geometry",
+        "bridge64",
+        "--material-strength",
+        "1000",
+        "--frame-strength",
+        "1"
+      ],
+      "steps": 2,
+      "seconds": 3
+    },
+    {
+      "id": "ladder128",
+      "args": [
+        "--grid",
+        "1",
+        "--workload",
+        "idle",
+        "--geometry",
+        "ladder128",
+        "--material-strength",
+        "1000",
+        "--frame-strength",
+        "1"
+      ],
+      "steps": 2,
+      "seconds": 3
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "R01",
+      "name": "Single building: first gravity equilibrium",
+      "fixture": "idle-1",
+      "origin": "integrated trajectory",
+      "why": "Small-work launch/setup floor.",
+      "selection": {
+        "step": 0,
+        "where": {
+          "bonds_broken": {
+            "eq": 0
+          }
+        }
+      }
+    },
+    {
+      "id": "R02",
+      "name": "Single building: intact quiescence",
+      "fixture": "idle-1",
+      "origin": "integrated trajectory",
+      "why": "Unavoidable full-tick cost when valid equilibrium can be reused.",
+      "selection": {
+        "step": 60,
+        "where": {
+          "awake_bodies": {
+            "eq": 0
+          },
+          "stress_iterations": {
+            "eq": 0
+          }
+        }
+      }
+    },
+    {
+      "id": "R03",
+      "name": "City: first gravity equilibrium",
+      "fixture": "idle-256",
+      "origin": "integrated trajectory",
+      "why": "Setup and independent-component scale at 113664 authored chunks.",
+      "selection": {
+        "step": 0,
+        "where": {
+          "bonds_broken": {
+            "eq": 0
+          }
+        }
+      }
+    },
+    {
+      "id": "R04",
+      "name": "City: intact quiescence",
+      "fixture": "idle-256",
+      "origin": "integrated trajectory",
+      "why": "Does idle cost grow with retained geometry despite no changed loads?",
+      "selection": {
+        "step": 60,
+        "where": {
+          "awake_bodies": {
+            "eq": 0
+          },
+          "stress_iterations": {
+            "eq": 0
+          }
+        }
+      }
+    },
+    {
+      "id": "R05",
+      "name": "City: projectiles in flight",
+      "fixture": "impacts-256",
+      "origin": "integrated trajectory",
+      "why": "Moving non-destructible bodies with intact stress state; CPU/GPU coordination control.",
+      "selection": {
+        "step": 60,
+        "where": {
+          "contacts_frame": {
+            "eq": 0
+          },
+          "projectiles_active": {
+            "eq": 256
+          }
+        }
+      }
+    },
+    {
+      "id": "R06",
+      "name": "City: first fracture and correction cascade",
+      "fixture": "impacts-256",
+      "origin": "integrated trajectory",
+      "why": "Current-contact stress, fragmentation, correction and second verdict on the critical path.",
+      "selection": {
+        "first": true,
+        "after": -1,
+        "where": {
+          "bonds_broken": {
+            "gt": 0
+          },
+          "post_correction_bonds_broken": {
+            "gt": 0
+          },
+          "resim_passes": {
+            "eq": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "R07",
+      "name": "City: changed loads on fractured topology",
+      "fixture": "impacts-256",
+      "origin": "integrated trajectory",
+      "why": "Numerical work without new topology edits; warm-start opportunity.",
+      "selection": {
+        "first": true,
+        "after_scenario": "R06",
+        "where": {
+          "bonds_broken": {
+            "eq": 0
+          },
+          "contacts_frame": {
+            "gt": 0
+          },
+          "stress_iterations": {
+            "gt": 0
+          }
+        }
+      }
+    },
+    {
+      "id": "R08",
+      "name": "City: later mass fracture burst",
+      "fixture": "impacts-256",
+      "origin": "integrated trajectory",
+      "why": "Large topology transaction after fragmentation has already increased component counts.",
+      "selection": {
+        "first": true,
+        "after": 99,
+        "where": {
+          "bonds_broken": {
+            "gt": 1000
+          },
+          "resim_passes": {
+            "eq": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "R09",
+      "name": "City: dense fragment contacts",
+      "fixture": "impacts-256",
+      "origin": "integrated trajectory",
+      "why": "Contact/ownership/publication cost with more than 200000 reported contacts.",
+      "selection": {
+        "first": true,
+        "after": 82,
+        "where": {
+          "contacts_frame": {
+            "gt": 200000
+          },
+          "resim_passes": {
+            "eq": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "R10",
+      "name": "Wall: first puncture fracture",
+      "fixture": "wall-1",
+      "origin": "integrated trajectory",
+      "why": "Localized onset in the existing geometric penetration fixture; small active topology.",
+      "selection": {
+        "first": true,
+        "after": -1,
+        "where": {
+          "bonds_broken": {
+            "gt": 0
+          },
+          "resim_passes": {
+            "eq": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "R11",
+      "name": "Wall: subsequent fracture episode",
+      "fixture": "wall-1",
+      "origin": "integrated trajectory",
+      "why": "Repeated fracture and invalidation on already damaged geometry; participant trace needed to attribute rear-wall penetration.",
+      "selection": {
+        "first": true,
+        "after_scenario": "R10",
+        "where": {
+          "bonds_broken": {
+            "gt": 0
+          },
+          "resim_passes": {
+            "eq": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "R12",
+      "name": "Wall: moving fragments after impact",
+      "fixture": "wall-1",
+      "origin": "integrated trajectory",
+      "why": "Late small-component rigid motion and continued equilibrium; not labelled settled.",
+      "selection": {
+        "step": 120,
+        "where": {
+          "splits_total": {
+            "gt": 0
+          },
+          "awake_bodies": {
+            "gt": 0
+          }
+        }
+      }
+    },
+    {
+      "id": "R13",
+      "name": "16 buildings: first correction cascade",
+      "fixture": "impacts-16",
+      "origin": "integrated trajectory",
+      "why": "Intermediate parallelism; compare scaling against city onset.",
+      "selection": {
+        "first": true,
+        "after": -1,
+        "where": {
+          "bonds_broken": {
+            "gt": 0
+          },
+          "resim_passes": {
+            "eq": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "R14",
+      "name": "16 buildings: loaded fractured state",
+      "fixture": "impacts-16",
+      "origin": "integrated trajectory",
+      "why": "Moderate component population with changed loads and no topology transaction.",
+      "selection": {
+        "first": true,
+        "after_scenario": "R13",
+        "where": {
+          "bonds_broken": {
+            "eq": 0
+          },
+          "contacts_frame": {
+            "gt": 0
+          },
+          "stress_iterations": {
+            "gt": 0
+          }
+        }
+      }
+    },
+    {
+      "id": "R15",
+      "name": "16 buildings: fragment contact burst",
+      "fixture": "impacts-16",
+      "origin": "integrated trajectory",
+      "why": "Coordination scaling versus the large contact burst, not just total bond count.",
+      "selection": {
+        "first": true,
+        "after": 82,
+        "where": {
+          "contacts_frame": {
+            "gt": 5000
+          },
+          "resim_passes": {
+            "eq": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "R16",
+      "name": "One localized impact in a retained city",
+      "fixture": "localized-256",
+      "origin": "integrated trajectory",
+      "why": "Sparse active work within large authored state; exposes global scans/transfers.",
+      "selection": {
+        "first": true,
+        "after": -1,
+        "where": {
+          "bonds_broken": {
+            "gt": 0
+          },
+          "resim_passes": {
+            "eq": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "S01",
+      "name": "32-node vertical chain",
+      "fixture": "chain32",
+      "origin": "synthetic physical structure",
+      "why": "Short acyclic load path; compare tree algorithms to long-chain scaling.",
+      "selection": {
+        "step": 0,
+        "where": {
+          "bonds_broken": {
+            "eq": 0
+          },
+          "stress_iterations": {
+            "gt": 0
+          }
+        }
+      }
+    },
+    {
+      "id": "S02",
+      "name": "256-node vertical chain",
+      "fixture": "chain256",
+      "origin": "synthetic physical structure",
+      "why": "Long load propagation and convergence difficulty without redundant bonds.",
+      "selection": {
+        "step": 0,
+        "where": {
+          "bonds_broken": {
+            "eq": 0
+          },
+          "stress_iterations": {
+            "gt": 0
+          }
+        }
+      }
+    },
+    {
+      "id": "S03",
+      "name": "64-node horizontal cantilever",
+      "fixture": "cantilever64",
+      "origin": "synthetic physical structure",
+      "why": "Bending moments and force/torque coupling over a long path.",
+      "selection": {
+        "step": 0,
+        "where": {
+          "bonds_broken": {
+            "eq": 0
+          },
+          "stress_iterations": {
+            "gt": 0
+          }
+        }
+      }
+    },
+    {
+      "id": "S04",
+      "name": "12 cubed solid block",
+      "fixture": "dense12",
+      "origin": "synthetic physical structure",
+      "why": "1728 nodes and many redundant local cycles; bond work versus node work.",
+      "selection": {
+        "step": 0,
+        "where": {
+          "bonds_broken": {
+            "eq": 0
+          },
+          "stress_iterations": {
+            "gt": 0
+          }
+        }
+      }
+    },
+    {
+      "id": "S05",
+      "name": "64-storey hollow frame",
+      "fixture": "tower64",
+      "origin": "synthetic physical structure",
+      "why": "Tall building with slabs and loops; height and bending versus the default 12-storey asset.",
+      "selection": {
+        "step": 0,
+        "where": {
+          "bonds_broken": {
+            "eq": 0
+          },
+          "stress_iterations": {
+            "gt": 0
+          }
+        }
+      }
+    },
+    {
+      "id": "S06",
+      "name": "32 by 32 corner-supported panel",
+      "fixture": "panel32",
+      "origin": "synthetic physical structure",
+      "why": "Wide load redistribution with only four supports and many cycles.",
+      "selection": {
+        "step": 0,
+        "where": {
+          "bonds_broken": {
+            "eq": 0
+          },
+          "stress_iterations": {
+            "gt": 0
+          }
+        }
+      }
+    },
+    {
+      "id": "S07",
+      "name": "64-span hollow bridge",
+      "fixture": "bridge64",
+      "origin": "synthetic physical structure",
+      "why": "Two supported ends, redundant paths and long-span bending.",
+      "selection": {
+        "step": 0,
+        "where": {
+          "bonds_broken": {
+            "eq": 0
+          },
+          "stress_iterations": {
+            "gt": 0
+          }
+        }
+      }
+    },
+    {
+      "id": "S08",
+      "name": "128-high ladder with sparse rungs",
+      "fixture": "ladder128",
+      "origin": "synthetic physical structure",
+      "why": "Long paths with controlled extra loops; separates chain length from redundancy.",
+      "selection": {
+        "step": 0,
+        "where": {
+          "bonds_broken": {
+            "eq": 0
+          },
+          "stress_iterations": {
+            "gt": 0
+          }
+        }
+      }
+    }
+  ],
+  "requirements": {
+    "dt_seconds": "1/60",
+    "correction_limit": 1,
+    "solver_tolerance": 1e-05,
+    "iteration_cap": 8192,
+    "ordinary_api": true,
+    "sleeping": true
+  },
+  "additional_required_coverage": [
+    {
+      "id": "G01",
+      "name": "Subthreshold contact without fracture",
+      "status": "requires a separately authored and frozen low-energy shot; current demo requires demonstrated fracture"
+    },
+    {
+      "id": "G02",
+      "name": "Verified post-fracture quiescence",
+      "status": "requires 60 consecutive ticks with stable topology, no new commands, zero awake bodies and converged equilibrium; not yet observed"
+    },
+    {
+      "id": "G03",
+      "name": "Reawakening of settled rubble",
+      "status": "requires G02 plus a subsequent explicit command/contact"
+    },
+    {
+      "id": "G04",
+      "name": "Support-loss redistribution",
+      "status": "requires explicit support removal and current-tick load/material evidence"
+    }
+  ]
+}

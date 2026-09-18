@@ -1,0 +1,3 @@
+========= COMPUTE-SANITIZER
+GPU cooperative retirement: two CTAs, sparse IDs, active/retired/empty/prior-status cases passed
+========= ERROR SUMMARY: 0 errors

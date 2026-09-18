@@ -1,0 +1,22 @@
+Internal ctest changing into directory: /root/workspace/physx-2/out/vm-topology
+Test project /root/workspace/physx-2/out/vm-topology
+    Start 1: destruction_gpu_motion_slots
+1/8 Test #1: destruction_gpu_motion_slots .............   Passed    0.82 sec
+    Start 2: destruction_gpu_rigid_iteration_limits
+2/8 Test #2: destruction_gpu_rigid_iteration_limits ...   Passed    0.39 sec
+    Start 3: destruction_gpu_registration
+3/8 Test #3: destruction_gpu_registration .............   Passed    0.37 sec
+    Start 4: destruction_gpu_contact_ownership
+4/8 Test #4: destruction_gpu_contact_ownership ........   Passed    0.32 sec
+    Start 5: destruction_gpu_committed_changes
+5/8 Test #5: destruction_gpu_committed_changes ........   Passed    0.32 sec
+    Start 6: destruction_gpu_topology
+6/8 Test #6: destruction_gpu_topology .................   Passed    0.60 sec
+    Start 7: destruction_gpu_body_state
+7/8 Test #7: destruction_gpu_body_state ...............   Passed    0.32 sec
+    Start 8: destruction_gpu_contact_graph
+8/8 Test #8: destruction_gpu_contact_graph ............   Passed    1.02 sec
+
+100% tests passed, 0 tests failed out of 8
+
+Total Test time (real) =   4.17 sec

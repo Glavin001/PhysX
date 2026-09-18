@@ -1,0 +1,144 @@
+{
+  "protocol": "one-complete-tick-per-independent-restore",
+  "preset": "light",
+  "repetitions": null,
+  "restore_timed": false,
+  "validation_timed": false,
+  "preset_sha256": "c48dbc2c0dcfe931e00cf05f592ad0395ca3eb58f762e98ae9fe423d9e758e62",
+  "target_wall_seconds": 30,
+  "sanitizer": null,
+  "sanitizer_blocking_launches": false,
+  "performance_qualification": false,
+  "scenarios": [
+    {
+      "scenario": "bridge64-cold",
+      "purpose": "Spanning structure, two supports, bending and load redistribution.",
+      "chunks": 768,
+      "group": "structural",
+      "prefix": "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/bridge64-cold",
+      "repetitions": 8,
+      "expected_counters": {
+        "broken_bonds": 0,
+        "correction_passes": 0,
+        "stress_passes": 1,
+        "output_clusters": 1
+      },
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/bridge64-cold.pxbin": "0f6cc6b80f3a283350c788cef1da4e506726fdcb8958679a33821a0fa27870f5",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/bridge64-cold.destruction": "4e90a286c24c793165569b793d8e729eada9ed71b193399cf78b675841586fd9"
+      }
+    },
+    {
+      "scenario": "chain256-cold",
+      "purpose": "Long sparse path; equilibrium propagation and solver iteration sensitivity.",
+      "chunks": 256,
+      "group": "structural",
+      "prefix": "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/chain256-cold",
+      "repetitions": 8,
+      "expected_counters": {
+        "broken_bonds": 0,
+        "correction_passes": 0,
+        "stress_passes": 1,
+        "output_clusters": 1
+      },
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/chain256-cold.pxbin": "f5f67c9b8e10603997cc26cae27e99b0e2a6801f52161a710eaf834c9360bb63",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/chain256-cold.destruction": "83f60c174b0dc368aa9bf6a318f4426db6168b32f3b11cf62338f5805a18502c"
+      }
+    },
+    {
+      "scenario": "dense12-cold",
+      "purpose": "Dense three-dimensional loops and redundant load paths.",
+      "chunks": 1728,
+      "group": "structural",
+      "prefix": "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/dense12-cold",
+      "repetitions": 6,
+      "expected_counters": {
+        "broken_bonds": 0,
+        "correction_passes": 0,
+        "stress_passes": 1,
+        "output_clusters": 1
+      },
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/dense12-cold.pxbin": "e9919b2d9aa7754f305bf1638f1eb36dab3c8fe9641b3c5d771e1c3d65cb23e9",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/dense12-cold.destruction": "18902de5ff44999e5cbee1cb041a396840899d402684c7977746356ca8b6bf9b"
+      }
+    },
+    {
+      "scenario": "destruction-stimulus",
+      "purpose": "CPU command submission inside the full tick.",
+      "chunks": 2,
+      "projectile_impulse": true,
+      "group": "structural",
+      "prefix": "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/destruction-stimulus",
+      "repetitions": 8,
+      "expected_counters": {
+        "broken_bonds": 0,
+        "correction_passes": 0,
+        "stress_passes": 1,
+        "output_clusters": 1
+      },
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/destruction-stimulus.pxbin": "32ebd013092065b0a9f0a2a9b891b7d2e279db41e94190b150c701cd68da83bd",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/destruction-stimulus.destruction": "0df8429b87ff907110030fc4ad30a15154275a38c4b15aa00d59385e1cb700db"
+      }
+    },
+    {
+      "scenario": "city25-initial-impact",
+      "group": "city",
+      "purpose": "11,100 chunks: contact, first fracture, correction and second stress solve.",
+      "prefix": "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82",
+      "repetitions": 4,
+      "expected_counters": {
+        "broken_bonds": 3412,
+        "correction_passes": 1,
+        "stress_passes": 2,
+        "output_clusters": 537
+      },
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.pxbin": "8d340fe0be8824034f58e99a8a581d25421f560f75b8337cf883e226af080963",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.destruction": "9543dbfe549a92d460628d44c5227f057b83041f657e0b4ebd50f41462456b8e",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.scene": "516c2574ba53c436e5b0ce16a6c88cb4e1d22c8c44c894b6f642a68d31d2d848",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.metadata.json": "beed82f2bdc0228d9391c52b3eb2d5ec23529a74b52733b6b62f203d6bb90ab1"
+      }
+    },
+    {
+      "scenario": "city256-intact-idle",
+      "group": "city",
+      "purpose": "113,664 chunks: intact gravity equilibrium with 256 separate buildings.",
+      "prefix": "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-idle/native/snapshot-40",
+      "repetitions": 3,
+      "expected_counters": {
+        "broken_bonds": 0,
+        "correction_passes": 0,
+        "stress_passes": 1,
+        "output_clusters": 256
+      },
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-idle/native/snapshot-40.pxbin": "f930468625d37115e130cb8b66d11873440ca0838387f25d83444027a93a5824",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-idle/native/snapshot-40.destruction": "e386aa8e52f7e32f75698f8921abd90055425124b5a8a5f4f3a2a135055e61d4",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-idle/native/snapshot-40.scene": "9dfc90012f124e406a3eeaf23fde32fd7e87a0a8e2f8a43b87f99cd7d68d446f",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-idle/native/snapshot-40.metadata.json": "5d3677ec118d6f15925bdbb973357c1d7f4d5f3aa81f95859e1145e2ae0e0b24"
+      }
+    },
+    {
+      "scenario": "city256-late-debris",
+      "group": "city",
+      "purpose": "113,664 chunks: many fragmented owners, contacts and further fracture/correction.",
+      "prefix": "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179",
+      "repetitions": 3,
+      "expected_counters": {
+        "broken_bonds": 11051,
+        "correction_passes": 1,
+        "stress_passes": 2,
+        "output_clusters": 16135
+      },
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179.pxbin": "64e2f438ee00de5ff9beb72d000c9c5fde7dd5d9eaa6acff68e942d13fa21a87",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179.destruction": "155fa684303c4ac9d3d68a72d917217106b64f5522b08df34d23ed6f50db54be",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179.scene": "9dfc90012f124e406a3eeaf23fde32fd7e87a0a8e2f8a43b87f99cd7d68d446f",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179.metadata.json": "05064a02bbd45073df1ff7044c20ec8930b86966f230243cbeb3a657db0cb4c6"
+      }
+    }
+  ]
+}

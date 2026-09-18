@@ -1,0 +1,2767 @@
+{
+  "schema": 1,
+  "config": {
+    "schema": 1,
+    "description": "World-size sweep preserves building zero and its frozen through-wall launch; extra buildings are outside the flight corridor. Concurrent bombardment uses the existing safe aerial launches, reported separately.",
+    "common": [
+      "--waves",
+      "1",
+      "--launch-seconds",
+      "0",
+      "--stress-iterations",
+      "8192",
+      "--preserve-contact-pairs",
+      "1",
+      "--gpu-island-repair",
+      "1",
+      "--gpu-pre-solve-islands",
+      "1",
+      "--gpu-pre-solve-contacts",
+      "1",
+      "--gpu-pre-solve-support",
+      "1",
+      "--gpu-connectivity-owner",
+      "1",
+      "--projectile-mass",
+      "18000",
+      "--material-strength",
+      "24",
+      "--frame-strength",
+      "40",
+      "--record-state",
+      "0",
+      "--gpu-render",
+      "0",
+      "--audit-motion",
+      "0",
+      "--trace-motion",
+      "0"
+    ],
+    "cases": [
+      {
+        "id": "impacts-256",
+        "label": "256 buildings, simultaneous aerial impacts",
+        "args": [
+          "--grid",
+          "16",
+          "--workload",
+          "bombardment",
+          "--shot-path",
+          "aerial"
+        ]
+      }
+    ]
+  },
+  "config_sha256": "fb83ecfdcfdbfee8cc4daef0a52ff77cd8eaf90f0d8059cebfddb11ec86bc4cc",
+  "seconds": 10,
+  "gpu_seconds": 10,
+  "gpu_trials": 3,
+  "gpu_trace_buffer_mb": 512,
+  "trials": 2,
+  "gate_only": true,
+  "phase_scopes": true,
+  "deadline_ms": 8.0,
+  "revision": "f4d007ec4559b7e0aa5495cc812bf25f586fbfb9",
+  "git_status": " M demos/blast-stress-demo/native_destruction_main.cpp\n M demos/blast-stress-demo/native_phase_profiler.h\n M physx/source/physx/src/NpDestructionBodyAllocator.h\n M physx/source/physx/src/NpShapeManager.cpp\n M physx/source/simulationcontroller/src/ScShapeSimBase.cpp\n M tools/scripts/report-destruction-timing.py\n M tools/scripts/test-destruction-timing.py\n?? qualification/lifecycle-final-impacts-256/\n?? qualification/lifecycle-light-impacts-256/\n?? qualification/lifecycle-scopes-impacts-256/\n",
+  "binary": "/root/workspace/physx-2/out/destruction-sdk/reference/native_destruction_demo",
+  "artifacts": {
+    "/root/workspace/physx-2/out/cupti-capture-fix-20260907/deps/cupti-13.2.86/nvidia/cu13/lib/libcupti.so.13": "df23b4e21d11bfb2c86b3159def62cbd2e6e660c70a9bf75bd4612a17bd40043",
+    "/root/workspace/physx-2/out/destruction-sdk/reference/libnative_gpu_visuals.so": "2c9f7d4c14afba176d37465e754ffd9fea2155aa6a641ce61b648eb98cd982f1",
+    "/root/workspace/physx-2/out/destruction-sdk/reference/native_destruction_demo": "ae1c5305b121b81a8a0658b4fe9c4928430e4a103368ba94b5029bb5ad4f6caa",
+    "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPVDRuntime_64.so": "7ced8c8e62fd6323cbb75910cf1a9cf29e2cfe5cfe1d053a8ad061a6bd4d1c2b",
+    "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so": "8007f18d2bb8d79c53ef59837eb3fe3772c7180e95480719717b0b18ff171d4f",
+    "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so": "454058a05f0374e3434749a5fe64b6005431b9f9352e31f1432501eb7938f41a",
+    "/usr/lib/x86_64-linux-gnu/libEGL.so.1": "875ecbb2a07d60e32216c9f102965abc1e9cc1da7789558e2e9b8b9c107e231d",
+    "/usr/lib/x86_64-linux-gnu/libGLdispatch.so.0": "ca01a91104c8887b3d8e59499b58cbb8f604cc285666b50d9ec888eb0c915182",
+    "/usr/lib/x86_64-linux-gnu/libOpenGL.so.0": "9a0a6024499300f918ef1b42d581427cdb20bbc17a7d8239a4b7434833a98d4a",
+    "/usr/lib/x86_64-linux-gnu/libc.so.6": "8db37cf3f2169f59a0f07ef1fea308c35656668c64c8ff294e1860f4121eb161",
+    "/usr/lib/x86_64-linux-gnu/libcuda.so.1": "76e0d9678d41cf6b6ae71d18549d88a963d3d434f08108baa12457eb53ca88d6",
+    "/usr/lib/x86_64-linux-gnu/libdl.so.2": "292d5f5af2e7360b3e18c56591a4960115373ecf40627660f9149b6c68a33f80",
+    "/usr/lib/x86_64-linux-gnu/libgcc_s.so.1": "d93224d2b0dab4247598be683adca02f5cf00586f99c187579cd7e92058fb7cb",
+    "/usr/lib/x86_64-linux-gnu/libm.so.6": "e9c4b28d340e415b8137480ec442662f981e1399386c5931dae0e886e3639e91",
+    "/usr/lib/x86_64-linux-gnu/libpthread.so.0": "a27ffa9bf233d61a5f02ddb0cf770dd6579021afc1aa8aec0fb58ee4a965281a",
+    "/usr/lib/x86_64-linux-gnu/librt.so.1": "c6e6288545e24b0b3cfbf33320bda9236521625d8c3d628f3444f1ed40e5c7c5",
+    "/usr/lib/x86_64-linux-gnu/libstdc++.so.6": "1fd75fe70354a416d75aef22bcae68c47bd25d20e2d0568c30b1a9838cf62f11",
+    "/usr/lib/x86_64-linux-gnu/libutil.so.1": "0f3f158a3bddc74152a56ae8d2be659485f90dd9abbca92d25961f973672d2f5",
+    "/usr/lib/x86_64-linux-gnu/libz.so.1": "9b64150b28505a33d6bc3ecf709c279f6de97a1c184dbda65d06ee4537f6d286",
+    "/usr/local/cuda/lib64/libcudart.so.12": "c3a75b33af334a3486d197dbd1584a2985183ba4688d237a2be5f2f679329920"
+  },
+  "ldd": "\tlinux-vdso.so.1 (0x00007fb339a50000)\n\tlibcupti.so.13 => /root/workspace/physx-2/out/cupti-capture-fix-20260907/deps/cupti-13.2.86/nvidia/cu13/lib/libcupti.so.13 (0x00007fb338e3b000)\n\tlibz.so.1 => /usr/lib/x86_64-linux-gnu/libz.so.1 (0x00007fb338e0f000)\n\tlibnative_gpu_visuals.so => /root/workspace/physx-2/out/destruction-sdk/reference/libnative_gpu_visuals.so (0x00007fb338df7000)\n\tlibOpenGL.so.0 => /usr/lib/x86_64-linux-gnu/libOpenGL.so.0 (0x00007fb338dcc000)\n\tlibEGL.so.1 => /usr/lib/x86_64-linux-gnu/libEGL.so.1 (0x00007fb338db8000)\n\tlibPVDRuntime_64.so => /root/workspace/physx-2/physx/bin/linux.x86_64/release/libPVDRuntime_64.so (0x00007fb338dac000)\n\tlibcuda.so.1 => /usr/lib/x86_64-linux-gnu/libcuda.so.1 (0x00007fb333600000)\n\tlibstdc++.so.6 => /usr/lib/x86_64-linux-gnu/libstdc++.so.6 (0x00007fb333382000)\n\tlibm.so.6 => /usr/lib/x86_64-linux-gnu/libm.so.6 (0x00007fb333299000)\n\tlibgcc_s.so.1 => /usr/lib/x86_64-linux-gnu/libgcc_s.so.1 (0x00007fb33326b000)\n\tlibc.so.6 => /usr/lib/x86_64-linux-gnu/libc.so.6 (0x00007fb333057000)\n\tlibpthread.so.0 => /usr/lib/x86_64-linux-gnu/libpthread.so.0 (0x00007fb333052000)\n\tlibrt.so.1 => /usr/lib/x86_64-linux-gnu/librt.so.1 (0x00007fb33304d000)\n\tlibdl.so.2 => /usr/lib/x86_64-linux-gnu/libdl.so.2 (0x00007fb333048000)\n\tlibutil.so.1 => /usr/lib/x86_64-linux-gnu/libutil.so.1 (0x00007fb333043000)\n\t/lib64/ld-linux-x86-64.so.2 (0x00007fb339a52000)\n\tlibcudart.so.12 => /usr/local/cuda/lib64/libcudart.so.12 (0x00007fb332c00000)\n\tlibGLdispatch.so.0 => /usr/lib/x86_64-linux-gnu/libGLdispatch.so.0 (0x00007fb332f89000)\n",
+  "runner_sha256": "bb6bbabe97f4d934c8f024c00073c186d77e1ecac94c79bfe027de7d9c42ef6f",
+  "runs": [
+    {
+      "name": "impacts-256-warmup-0",
+      "case": "impacts-256",
+      "mode": "warmup",
+      "trial": 0,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_destruction_demo",
+        "--waves",
+        "1",
+        "--launch-seconds",
+        "0",
+        "--stress-iterations",
+        "8192",
+        "--preserve-contact-pairs",
+        "1",
+        "--gpu-island-repair",
+        "1",
+        "--gpu-pre-solve-islands",
+        "1",
+        "--gpu-pre-solve-contacts",
+        "1",
+        "--gpu-pre-solve-support",
+        "1",
+        "--gpu-connectivity-owner",
+        "1",
+        "--projectile-mass",
+        "18000",
+        "--material-strength",
+        "24",
+        "--frame-strength",
+        "40",
+        "--record-state",
+        "0",
+        "--gpu-render",
+        "0",
+        "--audit-motion",
+        "0",
+        "--trace-motion",
+        "0",
+        "--grid",
+        "16",
+        "--workload",
+        "bombardment",
+        "--shot-path",
+        "aerial",
+        "--seconds",
+        "10",
+        "--output",
+        "/root/workspace/physx-2/out/lifecycle-verified-impacts-256/impacts-256-warmup-0",
+        "--gpu-trace-buffer-mb",
+        "512",
+        "--profile-phases",
+        "0",
+        "--profile-gpu",
+        "0"
+      ],
+      "samples": [
+        {
+          "unix_seconds": 1788770664.0714335,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "42 C",
+              "clock": "210 MHz",
+              "utilization": "0 %",
+              "memory_used": "1 MiB",
+              "processes": []
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770664.2441537,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "42 C",
+              "clock": "210 MHz",
+              "utilization": "0 %",
+              "memory_used": "21 MiB",
+              "processes": [
+                {
+                  "pid": 749817,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770664.5940647,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "42 C",
+              "clock": "210 MHz",
+              "utilization": "0 %",
+              "memory_used": "1472 MiB",
+              "processes": [
+                {
+                  "pid": 749817,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770664.943768,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "42 C",
+              "clock": "210 MHz",
+              "utilization": "0 %",
+              "memory_used": "2498 MiB",
+              "processes": [
+                {
+                  "pid": 749817,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770665.2949893,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "43 C",
+              "clock": "210 MHz",
+              "utilization": "0 %",
+              "memory_used": "2498 MiB",
+              "processes": [
+                {
+                  "pid": 749817,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770665.6430223,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "43 C",
+              "clock": "210 MHz",
+              "utilization": "0 %",
+              "memory_used": "2500 MiB",
+              "processes": [
+                {
+                  "pid": 749817,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770665.993282,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "43 C",
+              "clock": "210 MHz",
+              "utilization": "0 %",
+              "memory_used": "3890 MiB",
+              "processes": [
+                {
+                  "pid": 749817,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770666.3438647,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "46 C",
+              "clock": "210 MHz",
+              "utilization": "76 %",
+              "memory_used": "4918 MiB",
+              "processes": [
+                {
+                  "pid": 749817,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770666.6956315,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "46 C",
+              "clock": "210 MHz",
+              "utilization": "76 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 749817,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770667.0444543,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "46 C",
+              "clock": "210 MHz",
+              "utilization": "76 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 749817,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770667.396434,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "49 C",
+              "clock": "210 MHz",
+              "utilization": "80 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 749817,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770667.7480254,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "48 C",
+              "clock": "210 MHz",
+              "utilization": "80 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 749817,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770668.100202,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "48 C",
+              "clock": "210 MHz",
+              "utilization": "80 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 749817,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770668.4548666,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "49 C",
+              "clock": "210 MHz",
+              "utilization": "80 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 749817,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770668.8074324,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "49 C",
+              "clock": "210 MHz",
+              "utilization": "82 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 749817,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770669.1601968,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "49 C",
+              "clock": "210 MHz",
+              "utilization": "82 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 749817,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770669.5084345,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "49 C",
+              "clock": "210 MHz",
+              "utilization": "82 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 749817,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770669.8587291,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "49 C",
+              "clock": "210 MHz",
+              "utilization": "85 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 749817,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770670.2073734,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "49 C",
+              "clock": "210 MHz",
+              "utilization": "85 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 749817,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770670.5598736,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "49 C",
+              "clock": "210 MHz",
+              "utilization": "85 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 749817,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770670.9134197,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "49 C",
+              "clock": "210 MHz",
+              "utilization": "86 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 749817,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770671.2652144,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "49 C",
+              "clock": "210 MHz",
+              "utilization": "86 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 749817,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770671.6167598,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "49 C",
+              "clock": "210 MHz",
+              "utilization": "86 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 749817,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770671.9684048,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "50 C",
+              "clock": "210 MHz",
+              "utilization": "86 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 749817,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770672.3216975,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "50 C",
+              "clock": "210 MHz",
+              "utilization": "86 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 749817,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770672.6714518,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "50 C",
+              "clock": "210 MHz",
+              "utilization": "86 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 749817,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770673.0232518,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "50 C",
+              "clock": "210 MHz",
+              "utilization": "86 %",
+              "memory_used": "5574 MiB",
+              "processes": [
+                {
+                  "pid": 749817,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770673.3886344,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "46 C",
+              "clock": "210 MHz",
+              "utilization": "71 %",
+              "memory_used": "361 MiB",
+              "processes": []
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770673.7374992,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "45 C",
+              "clock": "210 MHz",
+              "utilization": "71 %",
+              "memory_used": "1 MiB",
+              "processes": []
+            }
+          ]
+        }
+      ],
+      "pid": 395518,
+      "gpu_pid": 749817,
+      "exit_code": 0,
+      "csv_storage": "lossless gzip, mtime=0, after simulation",
+      "files": {
+        "native.frames.csv.gz": "753be0621cb60c820e7ad7e636972fc7c21c8fddb5f238820eb88351c5310882",
+        "native.graph-diagnostics.json": "cfddf6e6e1636f0c94325bba27f33003e396e22a7a3dd94b5f2dfac217ea2ccc",
+        "native.launches.csv.gz": "999560f3f0424bb9dd07557e4b7e7780020b68a8c17dfc73d2838eb74f7b08bc",
+        "native.summary.json": "41fe04232d3975a7f3b03c95aa9e1d9e046bb15ac86490e49fec80455fbd4d4a"
+      },
+      "log_sha256": "bbb80ed0f5df958e8a6e769e9126f1e5f96ab2806548449313d3016a17c46a54"
+    },
+    {
+      "name": "impacts-256-plain-0",
+      "case": "impacts-256",
+      "mode": "plain",
+      "trial": 0,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_destruction_demo",
+        "--waves",
+        "1",
+        "--launch-seconds",
+        "0",
+        "--stress-iterations",
+        "8192",
+        "--preserve-contact-pairs",
+        "1",
+        "--gpu-island-repair",
+        "1",
+        "--gpu-pre-solve-islands",
+        "1",
+        "--gpu-pre-solve-contacts",
+        "1",
+        "--gpu-pre-solve-support",
+        "1",
+        "--gpu-connectivity-owner",
+        "1",
+        "--projectile-mass",
+        "18000",
+        "--material-strength",
+        "24",
+        "--frame-strength",
+        "40",
+        "--record-state",
+        "0",
+        "--gpu-render",
+        "0",
+        "--audit-motion",
+        "0",
+        "--trace-motion",
+        "0",
+        "--grid",
+        "16",
+        "--workload",
+        "bombardment",
+        "--shot-path",
+        "aerial",
+        "--seconds",
+        "10",
+        "--output",
+        "/root/workspace/physx-2/out/lifecycle-verified-impacts-256/impacts-256-plain-0",
+        "--gpu-trace-buffer-mb",
+        "512",
+        "--profile-phases",
+        "0",
+        "--profile-gpu",
+        "0"
+      ],
+      "samples": [
+        {
+          "unix_seconds": 1788770673.838162,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "45 C",
+              "clock": "210 MHz",
+              "utilization": "71 %",
+              "memory_used": "1 MiB",
+              "processes": []
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770673.9779902,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "45 C",
+              "clock": "210 MHz",
+              "utilization": "71 %",
+              "memory_used": "21 MiB",
+              "processes": [
+                {
+                  "pid": 750005,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770674.3257506,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "45 C",
+              "clock": "2730 MHz",
+              "utilization": "0 %",
+              "memory_used": "1472 MiB",
+              "processes": [
+                {
+                  "pid": 750005,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770674.6710567,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "45 C",
+              "clock": "2730 MHz",
+              "utilization": "0 %",
+              "memory_used": "2498 MiB",
+              "processes": [
+                {
+                  "pid": 750005,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770675.0207362,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "45 C",
+              "clock": "2730 MHz",
+              "utilization": "0 %",
+              "memory_used": "2498 MiB",
+              "processes": [
+                {
+                  "pid": 750005,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770675.3673952,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "45 C",
+              "clock": "2730 MHz",
+              "utilization": "1 %",
+              "memory_used": "2500 MiB",
+              "processes": [
+                {
+                  "pid": 750005,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770675.727129,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "45 C",
+              "clock": "2730 MHz",
+              "utilization": "1 %",
+              "memory_used": "3890 MiB",
+              "processes": [
+                {
+                  "pid": 750005,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770676.0782533,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "45 C",
+              "clock": "2730 MHz",
+              "utilization": "1 %",
+              "memory_used": "4918 MiB",
+              "processes": [
+                {
+                  "pid": 750005,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770676.4294755,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "47 C",
+              "clock": "2730 MHz",
+              "utilization": "52 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 750005,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770676.781826,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "50 C",
+              "clock": "2730 MHz",
+              "utilization": "52 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 750005,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770677.1324112,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "50 C",
+              "clock": "2730 MHz",
+              "utilization": "52 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 750005,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770677.4840515,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "50 C",
+              "clock": "2730 MHz",
+              "utilization": "52 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 750005,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770677.8337636,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "50 C",
+              "clock": "2730 MHz",
+              "utilization": "80 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 750005,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770678.184638,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "50 C",
+              "clock": "2730 MHz",
+              "utilization": "80 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 750005,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770678.5366683,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "50 C",
+              "clock": "2730 MHz",
+              "utilization": "80 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 750005,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770678.8870196,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "50 C",
+              "clock": "2730 MHz",
+              "utilization": "84 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 750005,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770679.2383158,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "50 C",
+              "clock": "2730 MHz",
+              "utilization": "84 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 750005,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770679.5898075,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "50 C",
+              "clock": "2730 MHz",
+              "utilization": "84 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 750005,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770679.9408753,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "51 C",
+              "clock": "2730 MHz",
+              "utilization": "87 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 750005,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770680.2991219,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "50 C",
+              "clock": "2730 MHz",
+              "utilization": "86 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 750005,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770680.6494823,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "50 C",
+              "clock": "2730 MHz",
+              "utilization": "86 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 750005,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770680.999403,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "50 C",
+              "clock": "2730 MHz",
+              "utilization": "86 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 750005,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770681.3506706,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "50 C",
+              "clock": "2730 MHz",
+              "utilization": "85 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 750005,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770681.7009957,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "50 C",
+              "clock": "2730 MHz",
+              "utilization": "85 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 750005,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770682.0544848,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "50 C",
+              "clock": "2730 MHz",
+              "utilization": "85 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 750005,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770682.4052734,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "51 C",
+              "clock": "2730 MHz",
+              "utilization": "86 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 750005,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770682.7597892,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "48 C",
+              "clock": "2730 MHz",
+              "utilization": "86 %",
+              "memory_used": "5574 MiB",
+              "processes": [
+                {
+                  "pid": 750005,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770683.1292276,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "48 C",
+              "clock": "2730 MHz",
+              "utilization": "86 %",
+              "memory_used": "361 MiB",
+              "processes": []
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770683.479633,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "46 C",
+              "clock": "2730 MHz",
+              "utilization": "86 %",
+              "memory_used": "1 MiB",
+              "processes": []
+            }
+          ]
+        }
+      ],
+      "pid": 395639,
+      "gpu_pid": 750005,
+      "exit_code": 0,
+      "csv_storage": "lossless gzip, mtime=0, after simulation",
+      "files": {
+        "native.frames.csv.gz": "1fc8b688fc1edac67d7aec214bfbadc0ed21760836b04e343a84fd237bd273cd",
+        "native.graph-diagnostics.json": "cfddf6e6e1636f0c94325bba27f33003e396e22a7a3dd94b5f2dfac217ea2ccc",
+        "native.launches.csv.gz": "999560f3f0424bb9dd07557e4b7e7780020b68a8c17dfc73d2838eb74f7b08bc",
+        "native.summary.json": "ce24d48e01cb59749df0ad9ae54830dec9ee5b5219c72d7fe62e63252b2dfda7"
+      },
+      "log_sha256": "9b3222e11543f126c7995ec967ee253c7b34a39c8b5d887065c2904357a01bd6"
+    },
+    {
+      "name": "impacts-256-plain-1",
+      "case": "impacts-256",
+      "mode": "plain",
+      "trial": 1,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_destruction_demo",
+        "--waves",
+        "1",
+        "--launch-seconds",
+        "0",
+        "--stress-iterations",
+        "8192",
+        "--preserve-contact-pairs",
+        "1",
+        "--gpu-island-repair",
+        "1",
+        "--gpu-pre-solve-islands",
+        "1",
+        "--gpu-pre-solve-contacts",
+        "1",
+        "--gpu-pre-solve-support",
+        "1",
+        "--gpu-connectivity-owner",
+        "1",
+        "--projectile-mass",
+        "18000",
+        "--material-strength",
+        "24",
+        "--frame-strength",
+        "40",
+        "--record-state",
+        "0",
+        "--gpu-render",
+        "0",
+        "--audit-motion",
+        "0",
+        "--trace-motion",
+        "0",
+        "--grid",
+        "16",
+        "--workload",
+        "bombardment",
+        "--shot-path",
+        "aerial",
+        "--seconds",
+        "10",
+        "--output",
+        "/root/workspace/physx-2/out/lifecycle-verified-impacts-256/impacts-256-plain-1",
+        "--gpu-trace-buffer-mb",
+        "512",
+        "--profile-phases",
+        "0",
+        "--profile-gpu",
+        "0"
+      ],
+      "samples": [
+        {
+          "unix_seconds": 1788770683.579113,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "46 C",
+              "clock": "2730 MHz",
+              "utilization": "86 %",
+              "memory_used": "1 MiB",
+              "processes": []
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770683.7268245,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "46 C",
+              "clock": "2730 MHz",
+              "utilization": "86 %",
+              "memory_used": "21 MiB",
+              "processes": [
+                {
+                  "pid": 750236,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770684.0753856,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "46 C",
+              "clock": "2730 MHz",
+              "utilization": "0 %",
+              "memory_used": "1472 MiB",
+              "processes": [
+                {
+                  "pid": 750236,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770684.4241188,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "46 C",
+              "clock": "2730 MHz",
+              "utilization": "0 %",
+              "memory_used": "2498 MiB",
+              "processes": [
+                {
+                  "pid": 750236,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770684.776657,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "45 C",
+              "clock": "2730 MHz",
+              "utilization": "0 %",
+              "memory_used": "2498 MiB",
+              "processes": [
+                {
+                  "pid": 750236,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770685.1261783,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "45 C",
+              "clock": "2730 MHz",
+              "utilization": "0 %",
+              "memory_used": "2500 MiB",
+              "processes": [
+                {
+                  "pid": 750236,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770685.4782608,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "45 C",
+              "clock": "2730 MHz",
+              "utilization": "0 %",
+              "memory_used": "3890 MiB",
+              "processes": [
+                {
+                  "pid": 750236,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770685.8277814,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "48 C",
+              "clock": "2730 MHz",
+              "utilization": "79 %",
+              "memory_used": "4918 MiB",
+              "processes": [
+                {
+                  "pid": 750236,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770686.1791108,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "48 C",
+              "clock": "2730 MHz",
+              "utilization": "79 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 750236,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770686.5310245,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "48 C",
+              "clock": "2730 MHz",
+              "utilization": "79 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 750236,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770686.8810546,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "50 C",
+              "clock": "2730 MHz",
+              "utilization": "81 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 750236,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770687.2328293,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "50 C",
+              "clock": "2730 MHz",
+              "utilization": "81 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 750236,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770687.5841184,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "50 C",
+              "clock": "2730 MHz",
+              "utilization": "81 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 750236,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770687.9373543,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "50 C",
+              "clock": "2730 MHz",
+              "utilization": "82 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 750236,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770688.2876618,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "50 C",
+              "clock": "2730 MHz",
+              "utilization": "83 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 750236,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770688.6384573,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "50 C",
+              "clock": "2730 MHz",
+              "utilization": "83 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 750236,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770688.9885638,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "50 C",
+              "clock": "2730 MHz",
+              "utilization": "83 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 750236,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770689.3380153,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "51 C",
+              "clock": "2730 MHz",
+              "utilization": "84 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 750236,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770689.6875415,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "51 C",
+              "clock": "2730 MHz",
+              "utilization": "84 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 750236,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770690.0376706,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "51 C",
+              "clock": "2730 MHz",
+              "utilization": "84 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 750236,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770690.3877616,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "50 C",
+              "clock": "2730 MHz",
+              "utilization": "85 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 750236,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770690.7379804,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "50 C",
+              "clock": "2730 MHz",
+              "utilization": "85 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 750236,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770691.089268,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "50 C",
+              "clock": "2730 MHz",
+              "utilization": "85 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 750236,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770691.4409893,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "50 C",
+              "clock": "2730 MHz",
+              "utilization": "86 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 750236,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770691.791937,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "50 C",
+              "clock": "2730 MHz",
+              "utilization": "87 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 750236,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770692.1440556,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "50 C",
+              "clock": "2730 MHz",
+              "utilization": "87 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 750236,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770692.4957588,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "50 C",
+              "clock": "2730 MHz",
+              "utilization": "87 %",
+              "memory_used": "5574 MiB",
+              "processes": [
+                {
+                  "pid": 750236,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770692.86551,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "46 C",
+              "clock": "2730 MHz",
+              "utilization": "64 %",
+              "memory_used": "4 MiB",
+              "processes": []
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770693.215274,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "46 C",
+              "clock": "2730 MHz",
+              "utilization": "64 %",
+              "memory_used": "1 MiB",
+              "processes": []
+            }
+          ]
+        }
+      ],
+      "pid": 395835,
+      "gpu_pid": 750236,
+      "exit_code": 0,
+      "csv_storage": "lossless gzip, mtime=0, after simulation",
+      "files": {
+        "native.frames.csv.gz": "792c2ebb48f2d217a2a9bcc510a7e5382a949ac3e5835ea7a9ca6a8d14b62904",
+        "native.graph-diagnostics.json": "cfddf6e6e1636f0c94325bba27f33003e396e22a7a3dd94b5f2dfac217ea2ccc",
+        "native.launches.csv.gz": "999560f3f0424bb9dd07557e4b7e7780020b68a8c17dfc73d2838eb74f7b08bc",
+        "native.summary.json": "722e0d78cc99555c5f4c3ccb213cf05e00b3b362cca8fa8a6ce6badb3e8b01c7"
+      },
+      "log_sha256": "0fec3ee2b663667d28ce6e306ce362d1da51280bec7b9ffa5c7780c88cd7b750"
+    },
+    {
+      "name": "impacts-256-phases-0",
+      "case": "impacts-256",
+      "mode": "phases",
+      "trial": 0,
+      "command": [
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_destruction_demo",
+        "--waves",
+        "1",
+        "--launch-seconds",
+        "0",
+        "--stress-iterations",
+        "8192",
+        "--preserve-contact-pairs",
+        "1",
+        "--gpu-island-repair",
+        "1",
+        "--gpu-pre-solve-islands",
+        "1",
+        "--gpu-pre-solve-contacts",
+        "1",
+        "--gpu-pre-solve-support",
+        "1",
+        "--gpu-connectivity-owner",
+        "1",
+        "--projectile-mass",
+        "18000",
+        "--material-strength",
+        "24",
+        "--frame-strength",
+        "40",
+        "--record-state",
+        "0",
+        "--gpu-render",
+        "0",
+        "--audit-motion",
+        "0",
+        "--trace-motion",
+        "0",
+        "--grid",
+        "16",
+        "--workload",
+        "bombardment",
+        "--shot-path",
+        "aerial",
+        "--seconds",
+        "10",
+        "--output",
+        "/root/workspace/physx-2/out/lifecycle-verified-impacts-256/impacts-256-phases-0",
+        "--gpu-trace-buffer-mb",
+        "512",
+        "--profile-phases",
+        "1",
+        "--profile-gpu",
+        "0"
+      ],
+      "samples": [
+        {
+          "unix_seconds": 1788770693.3204122,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "46 C",
+              "clock": "2730 MHz",
+              "utilization": "64 %",
+              "memory_used": "1 MiB",
+              "processes": []
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770693.4694238,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "46 C",
+              "clock": "2730 MHz",
+              "utilization": "64 %",
+              "memory_used": "21 MiB",
+              "processes": [
+                {
+                  "pid": 750396,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770693.817375,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "46 C",
+              "clock": "2730 MHz",
+              "utilization": "64 %",
+              "memory_used": "1472 MiB",
+              "processes": [
+                {
+                  "pid": 750396,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770694.164552,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "46 C",
+              "clock": "2730 MHz",
+              "utilization": "64 %",
+              "memory_used": "2498 MiB",
+              "processes": [
+                {
+                  "pid": 750396,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770694.5195758,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "46 C",
+              "clock": "2730 MHz",
+              "utilization": "64 %",
+              "memory_used": "2498 MiB",
+              "processes": [
+                {
+                  "pid": 750396,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770694.867215,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "45 C",
+              "clock": "2730 MHz",
+              "utilization": "1 %",
+              "memory_used": "2500 MiB",
+              "processes": [
+                {
+                  "pid": 750396,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770695.2162654,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "45 C",
+              "clock": "2730 MHz",
+              "utilization": "1 %",
+              "memory_used": "3890 MiB",
+              "processes": [
+                {
+                  "pid": 750396,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770695.5666857,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "45 C",
+              "clock": "2730 MHz",
+              "utilization": "1 %",
+              "memory_used": "4916 MiB",
+              "processes": [
+                {
+                  "pid": 750396,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770695.9166024,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "48 C",
+              "clock": "2730 MHz",
+              "utilization": "36 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 750396,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770696.267572,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "49 C",
+              "clock": "2730 MHz",
+              "utilization": "36 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 750396,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770696.6169386,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "49 C",
+              "clock": "2730 MHz",
+              "utilization": "36 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 750396,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770696.965725,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "50 C",
+              "clock": "2730 MHz",
+              "utilization": "36 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 750396,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770697.3161378,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "50 C",
+              "clock": "2730 MHz",
+              "utilization": "78 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 750396,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770697.6713538,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "50 C",
+              "clock": "2730 MHz",
+              "utilization": "78 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 750396,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770698.0225701,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "50 C",
+              "clock": "2730 MHz",
+              "utilization": "78 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 750396,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770698.3755884,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "50 C",
+              "clock": "2730 MHz",
+              "utilization": "81 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 750396,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770698.7297559,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "50 C",
+              "clock": "2730 MHz",
+              "utilization": "81 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 750396,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770699.0788362,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "50 C",
+              "clock": "2730 MHz",
+              "utilization": "81 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 750396,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770699.4303126,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "50 C",
+              "clock": "2730 MHz",
+              "utilization": "86 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 750396,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770699.780224,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "50 C",
+              "clock": "2730 MHz",
+              "utilization": "86 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 750396,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770700.1320908,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "50 C",
+              "clock": "2730 MHz",
+              "utilization": "86 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 750396,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770700.4799259,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "50 C",
+              "clock": "2730 MHz",
+              "utilization": "86 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 750396,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770700.8317316,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "50 C",
+              "clock": "2730 MHz",
+              "utilization": "85 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 750396,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770701.1835072,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "50 C",
+              "clock": "2730 MHz",
+              "utilization": "85 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 750396,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770701.5357258,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "50 C",
+              "clock": "2730 MHz",
+              "utilization": "85 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 750396,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770701.8872778,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "50 C",
+              "clock": "2730 MHz",
+              "utilization": "83 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 750396,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770702.2411964,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "50 C",
+              "clock": "2730 MHz",
+              "utilization": "83 %",
+              "memory_used": "5948 MiB",
+              "processes": [
+                {
+                  "pid": 750396,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770702.591625,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "50 C",
+              "clock": "2730 MHz",
+              "utilization": "83 %",
+              "memory_used": "5574 MiB",
+              "processes": [
+                {
+                  "pid": 750396,
+                  "name": "",
+                  "type": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770702.9385579,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "46 C",
+              "clock": "2730 MHz",
+              "utilization": "76 %",
+              "memory_used": "1 MiB",
+              "processes": []
+            }
+          ]
+        },
+        {
+          "unix_seconds": 1788770703.2862184,
+          "driver": "595.71.05",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 4090",
+              "uuid": "GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+              "temperature": "46 C",
+              "clock": "2730 MHz",
+              "utilization": "0 %",
+              "memory_used": "1 MiB",
+              "processes": []
+            }
+          ]
+        }
+      ],
+      "pid": 395940,
+      "gpu_pid": 750396,
+      "exit_code": 0,
+      "csv_storage": "lossless gzip, mtime=0, after simulation",
+      "files": {
+        "native.frames.csv.gz": "f85805fe44bb00d56c494052882830efe56594efc4b8f0e06f6d0a319192cc18",
+        "native.graph-diagnostics.json": "cfddf6e6e1636f0c94325bba27f33003e396e22a7a3dd94b5f2dfac217ea2ccc",
+        "native.launches.csv.gz": "999560f3f0424bb9dd07557e4b7e7780020b68a8c17dfc73d2838eb74f7b08bc",
+        "native.phases.csv.device.csv.gz": "7ca7d75848f9b30ae94247f7e6742a679b45bc402edae9969102280417188ccf",
+        "native.phases.csv.gz": "44887c2dac7255b7291e342a9eefdb695b80e7d8b5b0c8dc138ac9100251daf2",
+        "native.summary.json": "91ce61f63ed699eb53f1cb5f2cae81e51af3ab6ef1207c9df7960df84a63bbcc"
+      },
+      "log_sha256": "b57389f2ebfc48cc95c518c9de0a68364e6acb95b9ac0ea7078fb647b3654af4"
+    }
+  ],
+  "status": "complete",
+  "warmup": "One separate process per case is discarded. All measured frames, including first impact and first allocation, are retained.",
+  "monitor": "Require no GPU process before/after and at most one stable GPU PID during each run. GPU PIDs are in the host namespace; ownership is inferred from this lifecycle, not a container PID comparison. Clocks are observed, not locked.",
+  "kernel_classification": {
+    "file": "kernel-classification.json",
+    "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+  }
+}

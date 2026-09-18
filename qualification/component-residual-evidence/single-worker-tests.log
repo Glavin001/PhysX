@@ -1,0 +1,16 @@
+Internal ctest changing into directory: /root/workspace/physx-2/out/destruction-sdk
+Test project /root/workspace/physx-2/out/destruction-sdk
+    Start 83: blast_stress_gpu_resident_cpu_parity
+1/3 Test #83: blast_stress_gpu_resident_cpu_parity ...   Passed    0.26 sec
+    Start 84: blast_stress_gpu_resident_analytic
+2/3 Test #84: blast_stress_gpu_resident_analytic .....   Passed    0.35 sec
+    Start 85: blast_stress_gpu_resident_memory
+3/3 Test #85: blast_stress_gpu_resident_memory .......   Passed    1.30 sec
+
+100% tests passed, 0 tests failed out of 3
+
+Label Time Summary:
+gpu          =   1.30 sec*proc (1 test)
+sanitizer    =   1.30 sec*proc (1 test)
+
+Total Test time (real) =   1.91 sec

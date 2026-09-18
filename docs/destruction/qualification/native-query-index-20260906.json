@@ -1,0 +1,68 @@
+{
+  "scope": "native MVP private actor query indexing and allocation regression",
+  "full_objective_complete": false,
+  "fix": "Translate NP_UNUSED_BASE_INDEX to ActorShapeMap uncached sentinel for private actor query metadata",
+  "tests": {
+    "total": 60,
+    "passed": 54,
+    "known_failures": [
+      "blast_stress_load_path",
+      "blast_stress_reference_building_load_path",
+      "blast_stress_reference_building_crush_ordinary_impact",
+      "blast_stress_crush_wall_bite",
+      "blast_stress_destruction_quality"
+    ],
+    "additional_observed_failure": "physx_persistent_shape_owner_gpu_bounds",
+    "additional_failure_repeat": "passed three consecutive isolated reruns without code or assertion changes; intermittent failure remains unqualified",
+    "native_resimulation": "passed, including allocation limit, explicit observed-pose raycast/cache lookup, private actor list, momentum and once-only correction checks"
+  },
+  "short_workload": {
+    "buildings": 9,
+    "chunks": 3996,
+    "bonds": 8064,
+    "seconds": 3,
+    "first_fracture_step": 136,
+    "before_first_fracture_ms": 2062.53,
+    "after_first_fracture_ms": 9.01273,
+    "after_worst_ms": 15.2224,
+    "both_peak_clusters": 1877,
+    "both_broken_bonds": 4588,
+    "both_corrections": 27,
+    "isolated_performance_qualification": false
+  },
+  "capture": {
+    "backend": "native PhysX GPU task graph + resident CUDA destruction",
+    "status": "completed",
+    "frames": 1800,
+    "seconds": 30,
+    "buildings": 9,
+    "chunks": 3996,
+    "bonds": 8064,
+    "peak_clusters": 3001,
+    "projectiles": 36,
+    "broken_bonds": 6607,
+    "corrections": 265,
+    "correction_limit": 1,
+    "physics_ms_p50": 2.73007,
+    "physics_ms_p95": 21.3391,
+    "physics_ms_p99": 24.7533,
+    "physics_ms_max": 38.1567,
+    "missed_16_67ms": 201,
+    "stress_included_in_physics_time": true,
+    "isolated_performance_qualification": false,
+    "sleeping": false,
+    "crushing_material_enabled": false
+  },
+  "validation": {
+    "status": "passed-native-rigid-proof",
+    "frames": 1800,
+    "unconverged_stress_steps": 0,
+    "max_stress_iterations": 924,
+    "max_corrections_per_step": 1,
+    "total_corrections": 265,
+    "incomplete_steps": 0,
+    "full_sdk_qualification": false
+  },
+  "artifacts": "out/recordings/native-mvp-20260906-e",
+  "earlier_verified_video": "out/recordings/native-mvp-20260906-d/native-physx-gpu-destruction.mp4"
+}

@@ -25,12 +25,14 @@
 // Copyright (c) 2008-2026 NVIDIA Corporation. All rights reserved.
 
 #include "ScShapeSimBase.h"
+#include <cstdlib>
 #include "ScSqBoundsManager.h"
 #include "ScTriggerInteraction.h"
 #include "ScSimulationController.h"
 #include "CmTransformUtils.h"
 #include "ScShapeInteraction.h"
 #include "ScArticulationSim.h"
+#include "foundation/PxProfiler.h"
 
 #if PX_SUPPORT_GPU_PHYSX
 	#include "cudamanager/PxCudaContextManager.h"
@@ -89,10 +91,104 @@ void ShapeSimBase::onFilterDataChange()
 	setElementInteractionsDirty(*this, InteractionDirtyFlag::eFILTER_STATE, InteractionFlag::eFILTERABLE);
 }
 
+bool ShapeSimBase::rebindRigidOwner(RigidSim& owner, const PxTransform& shapeToActor, bool deviceOwnerTransaction)
+{
+    Scene& scene = getScene();
+    if(deviceOwnerTransaction) {
+        const PxTransform old = getPxsShapeCore()->getTransform();
+        if(old.p != shapeToActor.p || !(old.q == shapeToActor.q))return false;
+    }
+    if (&owner.getScene() != &scene || !isInBroadPhase() || !owner.isDynamicRigid()
+        || owner.getActorType() != PxActorType::eRIGID_DYNAMIC) return false;
+    BodySim& body = static_cast<BodySim&>(owner);
+    // Migrated shapes take the host refilter path (group update + host refilter map, which re-reports
+    // overlaps that already existed). The device-owner refilter (PHYSX_DESTRUCTION_HOST_REFILTER=0 restores
+    // it) never created the pairs between a migrated chunk and its former neighbours, so fragments fell
+    // through their parent structure (2026-09-18, warm-screen.md "Bugs found through the demo videos").
+    static const bool hostRefilter=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_HOST_REFILTER");return !raw || raw[0]!='0';}();
+    const bool deviceRefilter = deviceOwnerTransaction && !hostRefilter;
+    const Bp::FilterGroup::Enum group = deviceRefilter ? Bp::FilterGroup::eINVALID
+        : Bp::getFilterGroup(false, owner.getActorID(), body.isKinematic() && !body.hasForcedKinematicNotif());
+    // Per-shape zones (four per migrated shape) cost ~2-4 us each under the demo's phase
+    // profiler and inflate an impact tick by >10 ms; opt in with PHYSX_DESTRUCTION_PROFILE_FINE=1.
+    static const bool fineProfile=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_PROFILE_FINE");return raw && raw[0]=='1';}();
+    PxProfilerCallback* profiler=(deviceOwnerTransaction && fineProfile)?PxGetProfilerCallback():NULL;
+    const PxU64 profileContext=PxU64(reinterpret_cast<size_t>(&scene));
+    {
+        PxProfileScoped profile(profiler,"GpuDestruction.migrateDetail.refilter",false,profileContext);
+        if (!scene.getAABBManager()->refilterBounds(getElementID(), group, deviceRefilter)) return false;
+    }
+    // Native transactions already own resident GPU motion and bounds, including
+    // ordinary API mode. Their new CPU compatibility body has no fitted pose
+    // yet. Its pending FIRST_COPY flag cannot make it a bounds producer.
+    // Public transfers retain their upload/explicit-host-pose checks.
+    const bool gpuBounds = deviceOwnerTransaction || (scene.isDirectGPUAPIInitialized()
+        && !(body.getLowLevelBody().mInternalFlags & PxsRigidBody::eFIRST_BODY_COPY_GPU)
+        && !(body.getLowLevelBody().mGpuHostDirty & (PxsRigidBody::eHOST_POSE_COPY_GPU >> 16)));
+    // Native correction consumes the GPU rigid-to-shape view instead of a host list.
+    if(gpuBounds && !deviceOwnerTransaction && !scene.getSimulationController()->setGpuShapeBoundsRefresh(getElementID(), true))
+    {
+        // Refiltering has already changed BP bookkeeping. Do not let a failed
+        // allocation turn this into an accepted step with mismatched owners.
+        PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR, PX_FL, "Failed to queue GPU shape bounds refresh");
+#if PX_SUPPORT_GPU_PHYSX
+        scene.getCudaContextManager()->getCudaContext()->setAbortMode(true);
+#endif
+        return false;
+    }
+    PxvNphaseImplementationContext* np = scene.getLowLevelContext()->getNphaseImplementationContext();
+    PxsContactManagerOutputIterator outputs = np->getContactManagerOutputs();
+    {
+        PxProfileScoped profile(profiler,"GpuDestruction.migrateDetail.retireContacts",false,profileContext);
+        scene.getNPhaseCore()->onVolumeRemoved(this, PairReleaseFlag::eWAKE_ON_LOST_TOUCH, outputs);
+    }
+    // ShapeSim, contact/transform index, geometry registration and shape refcount
+    // all persist. Only incompatible contact rows and ownership maps change.
+    {
+    PxProfileScoped profile(profiler,"GpuDestruction.migrateDetail.registerOwner",false,profileContext);
+    if (!np->rebindShapeInstance(body.getNodeIndex(), getCore(), getElementID(), owner.getPxActor(), deviceOwnerTransaction))
+    {
+        PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR, PX_FL, "Persistent shape owner update failed in GPU narrowphase");
+#if PX_SUPPORT_GPU_PHYSX
+        scene.getCudaContextManager()->getCudaContext()->setAbortMode(true);
+#endif
+        return false;
+    }
+    }
+    PxProfileScoped links(profiler,"GpuDestruction.migrateDetail.actorLinks",false,profileContext);
+    destroySqBounds();
+    rebindActor(owner);
+    mShapeCore->setTransform(shapeToActor);
+    // Native CUDA ownership installation preserves resident geometry and local
+    // coordinates. Keep the CPU compatibility owner current without queuing a
+    // complete shape upload. Any independently queued shape update stays queued.
+    if(deviceOwnerTransaction)
+        scene.getSimulationController()->setPxgShapeBodyNodeIndex(body.getNodeIndex(), getElementID());
+    else
+        scene.getSimulationController()->addPxgShape(this, getPxsShapeCore(), body.getNodeIndex(), getElementID());
+    if(!gpuBounds)
+    {
+        // A later transfer to a not-yet-uploaded body cancels an earlier GPU
+        // request. An explicit pending host pose also takes precedence.
+        scene.getSimulationController()->setGpuShapeBoundsRefresh(getElementID(), false);
+        UpdateCachedParams params(scene.getLowLevelContext()->getTransformCache(), scene.getBoundsArray());
+        updateCached(params, &scene.getAABBManager()->getChangedAABBMgActorHandleMap(), false, false);
+    }
+    if (body.isActive()) createSqBounds();
+    return true;
+}
+
 void ShapeSimBase::onResetFiltering()
 {
-	if (isInBroadPhase())
-		reinsertBroadPhase();
+    if (!isInBroadPhase()) return;
+    Scene& scene = getScene();
+    if (scene.getAABBManager()->refilterBounds(getElementID(), getBPGroup(*this)))
+    {
+        PxsContactManagerOutputIterator outputs = scene.getLowLevelContext()->getNphaseImplementationContext()->getContactManagerOutputs();
+        scene.getNPhaseCore()->onVolumeRemoved(this, PairReleaseFlag::eWAKE_ON_LOST_TOUCH, outputs);
+        return;
+    }
+    reinsertBroadPhase();
 }
 
 void ShapeSimBase::onRestOffsetChange()
@@ -240,7 +336,7 @@ void ShapeSimBase::initSubsystemsDependingOnElementID(PxU32 indexFrom)
 	//	if(scScene.getDirtyShapeSimMap().size() <= index)
 	//		scScene.getDirtyShapeSimMap().resize(PxMax(index+1, (scScene.getDirtyShapeSimMap().size()+1) * 2u));
 
-	ActorSim& owner = mActor;
+	ActorSim& owner = *mActor;
 
 	if (owner.isDynamicRigid() && static_cast<BodySim&>(owner).isActive())
 		createSqBounds();
@@ -248,7 +344,7 @@ void ShapeSimBase::initSubsystemsDependingOnElementID(PxU32 indexFrom)
 
 PxNodeIndex ShapeSimBase::getActorNodeIndex() const
 {
-	ActorSim& owner = mActor;
+	ActorSim& owner = *mActor;
 	return owner.getActorType() == PxActorType::eRIGID_STATIC ? PxNodeIndex(PX_INVALID_NODE) : static_cast<BodySim&>(owner).getNodeIndex();
 }
 

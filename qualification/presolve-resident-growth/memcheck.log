@@ -1,0 +1,10 @@
+========= COMPUTE-SANITIZER
+pre-solve growth retained GPU history: old domain=1030 new domain=2077, added bodies=1047, no new full snapshots/fallbacks
+CUDA pre-solve producer: 41 passes, 6 fallbacks
+PGS solver metadata (GPU sleeping 0): 53 exact pre-solve comparisons; 5 full, 0 sparse, 3 quiet; 54136 / 528860 H2D bytes
+pre-solve growth retained GPU history: old domain=1030 new domain=2077, added bodies=1047, no new full snapshots/fallbacks
+CUDA pre-solve producer: 41 passes, 6 fallbacks
+TGS solver metadata (GPU sleeping 0): 53 exact pre-solve comparisons; 5 full, 0 sparse, 3 quiet; 54136 / 528860 H2D bytes
+CUDA pre-solve producer: 0 passes, 25 fallbacks
+TGS solver metadata (GPU sleeping 1): 27 exact pre-solve comparisons; 5 full, 10 sparse, 12 quiet; 44736 / 123612 H2D bytes
+========= ERROR SUMMARY: 0 errors

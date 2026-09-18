@@ -1,0 +1,34 @@
+{
+  "id": "N22",
+  "rank": 4,
+  "status": "prepared_not_built_or_gpu_qualified",
+  "parent": "1c1b15a82a5871800148d176c38fc05501362f19",
+  "commit": "e1da25a60b1a0198498486718df8cf17d3cd0710",
+  "title": "Iteratively refined lower-precision multilevel smoother application",
+  "family": "mixed_precision_large_component_preconditioner",
+  "changed_sources": [
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyOperator.cuh",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyCycle.cuh"
+  ],
+  "main_index_unchanged": true,
+  "main_source_unchanged": true,
+  "evidence": "Large connected tower/dense cases spend109/32ms full steps mostly in multilevel iteration. Small-component N13 already qualifies guarded mixed arithmetic; large-component triangular applications still use FP64. Lower-precision preconditioning with authoritative residual checks is supported as a general approach in NVIDIA research, not as a guarantee for this CG recurrence.",
+  "proposed_mechanism": "Apply the existing6x6 factors in FP32 only in the V-cycle, refine within the call using at most two FP64 residual corrections to a1e-14 local backward-error gate, and use original FP64 application for conversion-range or residual failures. Keep original FP64 factors/operators/residuals and all application gates. No new allocations/launches, no across-tick convergence or changed caps.",
+  "affected_scenarios": [
+    "tower64 and dense12 cold/warm",
+    "larger connected panels",
+    "all cities as unchanged small-component and setup controls"
+  ],
+  "estimated_application_ms_saved": "Low-confidence0 to40ms tower,0 to10ms dense; verification/extra registers can erase savings. No expected small-component city gain.",
+  "confidence": "Medium physical-quality protection from unchanged outer gates plus local backward checks; low performance confidence until resources/timing measured.",
+  "experiment_cost": "Two private headers; existing independent hierarchy/cycle/current-load and memory oracles; four targeted20/20/20 cases and light before any full-suite acceptance.",
+  "supporting_measurements": "Cheaper time to the original convergence/physical quality without excessive new iterations, spills or city regressions.",
+  "refuting_measurements": "Changed material verdict or force/motion gate failure, fallback/check cost or occupancy loss removes application gain.",
+  "research": [
+    {
+      "url": "https://developer.nvidia.com/blog/tensor-cores-mixed-precision-scientific-computing/",
+      "relevance": "Primary-source general method: lower-precision solves accelerate a system while residuals and convergence remain authoritative. Its hardware, algorithms and reported speedups are not predictions here."
+    }
+  ],
+  "scope": "Independent compatible baseline. No N21 reciprocal cache or other candidate composition. Preserve even the existing2e-12 internal cycle linearity/symmetry oracle. The earlier unbuilt design using a1e-5 local guard is superseded before any GPU experiment; no tolerance is relaxed. No completed-experiment credit until measured."
+}

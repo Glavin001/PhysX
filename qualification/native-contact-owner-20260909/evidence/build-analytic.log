@@ -1,0 +1,45 @@
+[  4%] Built target PhysXCommonGpu
+[  9%] Built target PhysXBroadphaseGpu
+[  9%] Building CUDA object sdk_gpu_source_bin/destruction-runtime/CMakeFiles/PhysXDestructionGpuRuntime.dir/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionRuntime.cu.o
+[ 40%] Built target PhysXSimulationControllerGpu
+[ 54%] Built target PhysXSolverGpu
+[ 54%] Building CXX object sdk_gpu_source_bin/CMakeFiles/PhysXNarrowphaseGpu.dir/root/workspace/physx-2/physx/source/gpunarrowphase/src/PxgNarrowphaseCore.cpp.o
+[ 54%] Built target PhysXCudaContextManager
+[ 59%] Built target PhysXArticulationGpu
+[ 77%] Built target PhysXGpuDependencies
+/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionRuntime.cu(174): warning #3152-D: nonstandard use of explicit constructor "physx::PxNodeIndex::PxNodeIndex" (declared at line 70 of /root/workspace/physx-2/physx/include/PxNodeIndex.h) for default aggregate element initialization
+      PxGpuContactPair p{};
+                         ^
+
+Remark: The warnings can be suppressed with "-diag-suppress <warning-number>"
+
+/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionRuntime.cu(174): warning #3152-D: nonstandard use of explicit constructor "physx::PxNodeIndex::PxNodeIndex" (declared at line 70 of /root/workspace/physx-2/physx/include/PxNodeIndex.h) for default aggregate element initialization
+      PxGpuContactPair p{};
+                         ^
+
+[ 81%] Linking CXX static library /root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXNarrowphaseGpu_static_64.a
+[100%] Built target PhysXNarrowphaseGpu
+/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionRuntime.cu(174): warning #3152-D: nonstandard use of explicit constructor "physx::PxNodeIndex::PxNodeIndex" (declared at line 70 of /root/workspace/physx-2/physx/include/PxNodeIndex.h) for default aggregate element initialization
+      PxGpuContactPair p{};
+                         ^
+
+Remark: The warnings can be suppressed with "-diag-suppress <warning-number>"
+
+/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionRuntime.cu(174): warning #3152-D: nonstandard use of explicit constructor "physx::PxNodeIndex::PxNodeIndex" (declared at line 70 of /root/workspace/physx-2/physx/include/PxNodeIndex.h) for default aggregate element initialization
+      PxGpuContactPair p{};
+                         ^
+
+In destructor ‘physx::PxProfileScoped::~PxProfileScoped()’,
+    inlined from ‘void physx::_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e3::Runtime::reserveBodySlots()’ at /root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionRuntime.cu:1371:1:
+/root/workspace/physx-2/physx/include/foundation/PxProfiler.h:129:42: warning: ‘records.physx::PxProfileScoped::mContextId’ may be used uninitialized [-Wmaybe-uninitialized]
+  129 |                         mCallback->zoneEnd(mProfilerData, mEventName, mDetached, mContextId);
+      |                         ~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionRuntime.cu: In member function ‘void physx::_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e3::Runtime::reserveBodySlots()’:
+/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionRuntime.cu:1369:17: note: ‘records.physx::PxProfileScoped::mContextId’ was declared here
+ 1369 |             PxProfileScoped records(mProfiler,"GpuDestruction.finishDetail.allocateNativeBodies",false,mProfileContext);
+      |                 ^~~~~~~
+[100%] Linking CUDA shared library /root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so
+[100%] Built target PhysXDestructionGpuRuntime
+[100%] Linking CXX shared library /root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so
+[100%] Built target PhysXGpu
+Built target PhysXDestructionGpuRuntime

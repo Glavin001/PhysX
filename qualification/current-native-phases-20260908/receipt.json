@@ -1,0 +1,59 @@
+{
+  "commands": [
+    {
+      "name": "restored-numerical",
+      "command": [
+        "ctest",
+        "--test-dir",
+        "out/destruction-sdk",
+        "-R",
+        "^blast_stress_gpu_resident_(analytic|3d|motion_modes)$",
+        "--output-on-failure"
+      ],
+      "exit": 0,
+      "mapped": {}
+    },
+    {
+      "name": "idle",
+      "command": [
+        "/root/workspace/physx-2/out/vibe-current-phases-20260908/profiled-bench",
+        "/root/workspace/physx-2/out/vibe-current-phases-20260908/capture/idle",
+        "8",
+        "600",
+        "0"
+      ],
+      "exit": 0,
+      "mapped": {
+        "libPhysXDestructionGpuRuntime_64.so": {
+          "path": "/root/workspace/physx-2/out/vibe-coarse-assembly-20260908/shared-normalization/libPhysXDestructionGpuRuntime_64.so",
+          "sha256": "a85f2170833f1cc39a56062be9f5f783a25d0a120d72537138059f1541ec5af5"
+        },
+        "libPhysXGpuActivity_64.so": {
+          "path": "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so",
+          "sha256": "073c0448421013734b228db718ba56656e3e3d8cb5a80d186978027b073162d0"
+        }
+      }
+    },
+    {
+      "name": "shots",
+      "command": [
+        "/root/workspace/physx-2/out/vibe-current-phases-20260908/profiled-bench",
+        "/root/workspace/physx-2/out/vibe-current-phases-20260908/capture/shots",
+        "8",
+        "600",
+        "3"
+      ],
+      "exit": 0,
+      "mapped": {
+        "libPhysXDestructionGpuRuntime_64.so": {
+          "path": "/root/workspace/physx-2/out/vibe-coarse-assembly-20260908/shared-normalization/libPhysXDestructionGpuRuntime_64.so",
+          "sha256": "a85f2170833f1cc39a56062be9f5f783a25d0a120d72537138059f1541ec5af5"
+        },
+        "libPhysXGpuActivity_64.so": {
+          "path": "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so",
+          "sha256": "073c0448421013734b228db718ba56656e3e3d8cb5a80d186978027b073162d0"
+        }
+      }
+    }
+  ]
+}

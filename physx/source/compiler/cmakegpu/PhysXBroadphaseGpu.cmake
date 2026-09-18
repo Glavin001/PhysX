@@ -37,6 +37,7 @@ include(${PHYSX_ROOT_DIR}/${PROJECT_CMAKE_FILES_DIR}/${TARGET_BUILD_PLATFORM}/Ph
 # setup grouping
 # broadphase
 SET(PHYXGPU_BROADPHASE_HEADERS
+	${BROAD_PHASE_SOURCE_DIR}/CUDA/PxgNativePairCanonicalization.cuh
 	${PHYSX_SOURCE_DIR}/gpubroadphase/include/PxgBroadPhaseCommonDefines.h
 	${PHYSX_SOURCE_DIR}/gpubroadphase/include/PxgBroadPhaseDesc.h
 	${PHYSX_SOURCE_DIR}/gpubroadphase/include/PxgBroadPhaseKernelIndices.h
@@ -133,7 +134,8 @@ TARGET_COMPILE_DEFINITIONS(PhysXBroadphaseGpu
 # Since we are setting the C++ standard explicitly for Linux
 # we need to do this for CUDA as well.
 IF(TARGET_BUILD_PLATFORM STREQUAL "linux")
-	TARGET_COMPILE_FEATURES(PhysXBroadphaseGpu PRIVATE cuda_std_11)
+	# Destruction pair canonicalization uses current CCCL/CUB.
+	SET_TARGET_PROPERTIES(PhysXBroadphaseGpu PROPERTIES CUDA_STANDARD 17 CUDA_STANDARD_REQUIRED ON)
 ENDIF()
 
 TARGET_COMPILE_OPTIONS(PhysXBroadphaseGpu PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:${ARCH_CODE_LIST}>)

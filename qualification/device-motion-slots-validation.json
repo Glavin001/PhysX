@@ -1,0 +1,131 @@
+{
+  "base_revision": "58e5b1225da3b30f4a47f4eeb974773bf10b523d",
+  "change": "CUDA chooses and commits native motion addresses from CPU-granted index capacity. CPU compatibility objects bind at those exact addresses; the CPU-selected index upload and allocation-status overwrite are deleted.",
+  "physical_equations_changed": false,
+  "gpu_allocation_owner": true,
+  "cpu_fragment_lifecycle_removed": false,
+  "host_allocation_metadata_readback_removed": false,
+  "source_sha256": {
+    "demos/blast-stress-demo/CMakeLists.txt": "e07db1b20018458fc15a53e7110d3f2142649c9904f8b737dd98567eb5b7f82f",
+    "demos/blast-stress-demo/tests/native_gpu_allocation_test.cpp": "9f9aec53cc3f7d7eda4ab33fe1f98e87e0876f4b154371fce184abb707bdc410",
+    "physx/include/PxDestructionScene.h": "ba0a2fdd920af730f4b2f4157b2a8cdd1b1f43b859eb1cc3b5bfa3829730c7d5",
+    "physx/include/PxDestructionTopologyTypes.h": "ddafd1b5ab58abda8381f555f327e7507f71ea99c1bbbc9c6aba17e519289ca0",
+    "physx/source/gpudestruction/src/PxgDestructionRuntime.cu": "a0be4477d448b6396486ddd09e0482f6ea71e5c147c7001b414ead601b034dd7",
+    "physx/source/lowlevel/software/include/PxsSimpleIslandManager.h": "3e5c2e7d55ebcf8a5ce73dd67ad86d6c12cf8311f73bacf0e92d259a18638e56",
+    "physx/source/lowlevel/software/include/PxvDestructionBodyAllocator.h": "7727b876bce67d961341d49e007768d611c0a83062b7ff3a29f05c120dd1ed31",
+    "physx/source/lowlevel/software/src/PxsSimpleIslandManager.cpp": "8126f44081d8bb6804d9bcea43d1dbe74370b6ff92db712b1abae05612c2456a",
+    "physx/source/physx/src/NpDestructionBodyAllocator.h": "d703c8e09f16f1c0400723b40fde8792c2bcc36c2f4b6721b11f3e1fcad28cd1",
+    "physx/source/simulationcontroller/include/ScScene.h": "d57b85713475b9220b04d1304de59f8b592ce6eba26456ee5aec32df97552dcb",
+    "physx/source/simulationcontroller/src/ScBodySim.cpp": "db70ca2bf570152bb55f2a26ff60c7cfdd268c0a2e83b1f22bad9edf4ff815b3",
+    "physx/source/simulationcontroller/src/ScBodySim.h": "0ca2f372bea2d8bdc0dfbc2c96ca34fc33ce6ea5542ab16c60e657aee94248cd",
+    "physx/source/simulationcontroller/src/ScScene.cpp": "d2b43da445aafe9bed6bf7b6a21b7c6a9ce1b44f4b6f6b92c3407f8b17455e21",
+    "tools/scripts/report-destruction-timing.py": "c64c86ea3e1f0d58c7e48e9e9725e3651139865812da8b4a28c901fb0cb6d8c5",
+    "physx/source/gpudestruction/src/PxgDestructionMotionSlots.cuh": "bef12ace1062d58d24a97ae31206fbb20281dbc6e7f1b643b98e98f915896a43",
+    "demos/blast-stress-demo/tests/native_gpu_motion_slots_test.cu": "5d99588f2c3970560b6df5c9fdee18d5a22744e08fb7634785bac97bc9667e41"
+  },
+  "native_tests_passed": 9,
+  "timing_tests_passed": 29,
+  "checks": [
+    "spare capacity creates no island nodes, active bodies or public actors",
+    "GPU stable compact assignment preserves retained owners",
+    "unaccepted retries do not consume capacity",
+    "accepted correction consumes exactly the pending range",
+    "invalid capacity/mapping/registration rejects commit",
+    "ordinary and duplicate native addresses rejected before mutation",
+    "native capacity overflow rejects before bitmap allocation",
+    "discarded native address cannot be reused before deferred node retirement",
+    "pending and accepted records clear without double-free across reuse cycles"
+  ],
+  "sanitizers": {
+    "native_allocation_memcheck": "zero errors",
+    "motion_slot_memcheck": "zero errors",
+    "motion_slot_synccheck": "zero errors",
+    "scope": "Does not qualify the entire resident topology/conditional graph synchronization path."
+  },
+  "comparisons": [
+    {
+      "label": "Baseline",
+      "chunks": 113664,
+      "bonds": 229376,
+      "projectiles": 256,
+      "trials": 2,
+      "seconds": 10,
+      "metrics": {
+        "max": 54.04763,
+        "mean": 11.553532488333333,
+        "min": 0.912612,
+        "n": 1200,
+        "p50": 9.799423,
+        "p95": 18.43238,
+        "p99": 27.316536
+      },
+      "missed_8ms": 1038
+    },
+    {
+      "label": "GPU slots",
+      "chunks": 113664,
+      "bonds": 229376,
+      "projectiles": 256,
+      "trials": 2,
+      "seconds": 10,
+      "metrics": {
+        "max": 59.477526,
+        "mean": 11.548444981666666,
+        "min": 0.930504,
+        "n": 1200,
+        "p50": 9.771026,
+        "p95": 18.427837,
+        "p99": 27.315577
+      },
+      "missed_8ms": 1038
+    }
+  ],
+  "performance_conclusion": "No demonstrated end-to-end speedup. Both builds fail the 8 ms primary bombardment gate. This change establishes GPU allocation ownership; CPU compatibility lifecycle and full correction remain dominant.",
+  "scoped_peak": {
+    "step": 82,
+    "complete_ms": 60.003195999999996,
+    "partition_ms": {
+      "acceptCorrection": 0.44005,
+      "applyBindings.other": 0.115446,
+      "applyDetail.migrateShapes.other": 4.432455,
+      "applyDetail.scheduleOwners": 0.218637,
+      "applyDetail.validateOwners": 0.749646,
+      "checkpoint": 0.007454,
+      "collisionBindings": 0.104635,
+      "correctedCollisionSolve": 30.317963,
+      "correctionBodies": 0.073597,
+      "finishAndReserve.other": 0.008035,
+      "finishDetail.allocateNativeBodies": 6.696668,
+      "finishDetail.growMotionSlots": 0.042739,
+      "finishDetail.publishReservation": 0.024716,
+      "finishDetail.requestReadback": 0.195344,
+      "finishDetail.reserveBodies.other": 0.072696,
+      "finishDetail.uploadBindings": 0.0,
+      "finishDetail.waitForGpu": 3.65472,
+      "initializeReserved": 0.07004,
+      "migrateDetail.actorLinks": 0.518736,
+      "migrateDetail.queryMirror": 5.896271,
+      "migrateDetail.refilter": 0.230622,
+      "migrateDetail.registerOwner": 0.999364,
+      "migrateDetail.retireContacts": 0.698568,
+      "preparationCompletion": 0.183231,
+      "resetContactCaches": 0.00516,
+      "restoreInstall": 0.060863,
+      "submit": 0.165278,
+      "trial.other": 4.020262
+    },
+    "stress_stream_mean_ms": 5.4871402669765
+  },
+  "full_lifecycle_endurance_qualified": false,
+  "full_synccheck_qualified": false,
+  "evidence_hashes": {
+    "qualification/device-motion-slots-evidence/bombardment-audit.json": "de3a9a90e706aef0dedd3ca63128a5ccf71fd08ddc74577bacd914f8d8da55ea",
+    "qualification/device-motion-slots-evidence/counter-histories.json": "2d8106f164c9d2c27c838466dbbf160a832daaa43f125281d9e65c5f8c6f32dc",
+    "qualification/device-motion-slots-evidence/motion-slot-memcheck.log": "dfa0ee25460182ca95bdb22ab07de93eb1c1a95ebee9d13fbee4c5e6be072726",
+    "qualification/device-motion-slots-evidence/motion-slot-synccheck.log": "dfa0ee25460182ca95bdb22ab07de93eb1c1a95ebee9d13fbee4c5e6be072726",
+    "qualification/device-motion-slots-evidence/native-allocation-memcheck.log": "8d86ab068950c690ecdde6f827f45b4c8ddeeab4766974a79ebdd4b549fdc39f",
+    "qualification/device-motion-slots-evidence/native-tests.log": "65422a1cf8a39edbd8698f9b9393559e56d2774fd3b51f32d7701b81351f3b55",
+    "qualification/device-motion-slots-evidence/penetration-quality.json": "bb3df82f4bc38fe9e2e8db94bad26e09e067f5ecb8fbd5fd751b759bffc89466",
+    "qualification/device-motion-slots-evidence/timing-tests.log": "575a5a1588cc91f2d6f80fa82dd9ae80872e9f18328b14455a2119348577e2a4"
+  }
+}

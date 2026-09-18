@@ -1,0 +1,82 @@
+[
+  {
+    "name": "wall-standard-driver",
+    "command": [
+      "python3",
+      "tools/scripts/run-destruction-penetration-regression.py",
+      "out/native-node-birth-20260909/wall-standard",
+      "--standard-scene",
+      "--tier",
+      "screen",
+      "--reference",
+      "out/native-settled-local-20260909/wall-standard",
+      "--expected-runtime",
+      "/root/workspace/physx-2/out/native-node-birth-20260909/candidate/libPhysXDestructionGpuRuntime_64.so"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "allocation-memcheck",
+    "command": [
+      "compute-sanitizer",
+      "--tool",
+      "memcheck",
+      "--error-exitcode",
+      "99",
+      "out/destruction-sdk/topology/destruction_motion_slots_test",
+      "--address-isolation"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "allocation-initcheck",
+    "command": [
+      "compute-sanitizer",
+      "--tool",
+      "initcheck",
+      "--error-exitcode",
+      "99",
+      "out/destruction-sdk/topology/destruction_motion_slots_test"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "allocation-synccheck",
+    "command": [
+      "compute-sanitizer",
+      "--tool",
+      "synccheck",
+      "--error-exitcode",
+      "99",
+      "out/destruction-sdk/topology/destruction_motion_slots_test",
+      "--address-isolation"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "allocation-racecheck",
+    "command": [
+      "compute-sanitizer",
+      "--tool",
+      "racecheck",
+      "--error-exitcode",
+      "99",
+      "out/destruction-sdk/topology/destruction_motion_slots_test",
+      "--address-isolation"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "node-birth-initcheck",
+    "command": [
+      "compute-sanitizer",
+      "--tool",
+      "initcheck",
+      "--error-exitcode",
+      "99",
+      "out/destruction-sdk/reference/native_gpu_collision_test",
+      "--native-node-births"
+    ],
+    "exit": 0
+  }
+]

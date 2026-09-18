@@ -1,0 +1,21 @@
+cmake -S /root/workspace/physx-2/tests/destruction/package-consumer -B /root/workspace/physx-2/out/relocated-consumer -DCMAKE_PREFIX_PATH=/root/workspace/physx-2/out/sdk-relocated-nk5d_zkv
+-- The CXX compiler identification is GNU 13.3.0
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+-- Found Threads: TRUE  
+-- Found CUDAToolkit: /usr/local/cuda/targets/x86_64-linux/include (found version "12.8.93") 
+-- Configuring done (0.3s)
+-- Generating done (0.0s)
+-- Build files have been written to: /root/workspace/physx-2/out/relocated-consumer
+cmake --build /root/workspace/physx-2/out/relocated-consumer -j 4
+[ 50%] Building CXX object CMakeFiles/package_consumer.dir/main.cpp.o
+[100%] Linking CXX executable package_consumer
+[100%] Built target package_consumer
+/root/workspace/physx-2/out/relocated-consumer/package_consumer
+/root/workspace/physx-2/out/relocated-consumer/package_consumer --gpu
+CPU and GPU installed SDK consumers passed from a relocated prefix.

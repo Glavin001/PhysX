@@ -32,6 +32,7 @@
 #include "PxvDynamics.h"
 #include "CmSpatialVector.h"
 #include "foundation/PxMutex.h"
+#include "foundation/PxVec4.h"
 #include "foundation/PxArray.h"
 
 namespace physx
@@ -54,12 +55,14 @@ class PxsRigidBody
 		eDEACTIVATE_THIS_FRAME	= 1 << 4,
 		eSLEEPING_FLAGS			= eFROZEN | eFREEZE_THIS_FRAME | eUNFREEZE_THIS_FRAME | eACTIVATE_THIS_FRAME | eDEACTIVATE_THIS_FRAME,
 
+		// Mass and COM were authored by the native GPU topology transaction.
+        eDESTRUCTION_MASS_GPU = 1 << 5,
 		eSPECULATIVE_CCD_GPU	= 1 << 6,
 		eENABLE_GYROSCOPIC_GPU	= 1 << 7,
 		eRETAIN_ACCELERATION_GPU= 1 << 8,
 		eFIRST_BODY_COPY_GPU	= 1 << 9,	// Flag to raise to indicate that the body is DMA'd to the GPU for the first time
 		eVELOCITY_COPY_GPU		= 1 << 10,	// Flag to raise to indicate that linear and angular velocities should be  DMA'd to the GPU
-		eGPU_FLAGS				= eSPECULATIVE_CCD_GPU | eENABLE_GYROSCOPIC_GPU | eRETAIN_ACCELERATION_GPU | eFIRST_BODY_COPY_GPU | eVELOCITY_COPY_GPU,
+		eGPU_FLAGS				= eDESTRUCTION_MASS_GPU | eSPECULATIVE_CCD_GPU | eENABLE_GYROSCOPIC_GPU | eRETAIN_ACCELERATION_GPU | eFIRST_BODY_COPY_GPU | eVELOCITY_COPY_GPU,
 
 		// PT: these free slots can be reused by higher levels (to save memory)
 		eFREE_FLAG_1			= 1 << 11,
@@ -67,12 +70,24 @@ class PxsRigidBody
 		eFREE_FLAG_3			= 1 << 13,
 		eFREE_FLAG_4			= 1 << 14,
 		eFREE_FLAG_5			= 1 << 15,
+        // Upload-only flags stored separately from the 16-bit native flags.
+        eHOST_POSE_COPY_GPU = 1 << 16,
+        eHOST_LINEAR_COPY_GPU = 1 << 17,
+        eHOST_ANGULAR_COPY_GPU = 1 << 18,
+        eHOST_VELOCITY_DELTA_GPU = 1 << 19,
+        eHOST_CLEAR_FORCE_GPU = 1 << 20,
+        eHOST_CLEAR_TORQUE_GPU = 1 << 21,
+        eHOST_MASS_COPY_GPU = 1 << 22,
+        eHOST_INERTIA_COPY_GPU = 1 << 23,
+        eHOST_COM_COPY_GPU = 1 << 24,
 		eFREE_FLAGS				= eFREE_FLAG_1 | eFREE_FLAG_2 | eFREE_FLAG_3 | eFREE_FLAG_4 | eFREE_FLAG_5
 	};
 
 	PX_FORCE_INLINE						PxsRigidBody(PxsBodyCore* core, PxReal freeze_count) :
 											mLastTransform	(core->body2World),
 											mInternalFlags	(0),
+                                            mGpuHostDirty   (0),
+                                            mGpuDynamicLimitsDamping(core->maxLinearVelocitySq, core->maxAngularVelocitySq, core->linearDamping, core->angularDamping),
 											mCCD			(NULL),
 											mCore			(core),
 											mSleepLinVelAcc	(PxVec3(0.0f)),
@@ -135,7 +150,10 @@ class PxsRigidBody
 					PxTransform			mLastTransform;
 
 					PxU16				mInternalFlags;			// PT: PxsRigidBodyFlags
-					PxU16				mPadding16;				// PT: free space here
+					PxU16               mGpuHostDirty;          // Sparse CPU commands
+                    // Authored dynamic settings survive kinematic overrides.
+                    // Configuration data only; runtime motion remains on GPU.
+                    PxVec4              mGpuDynamicLimitsDamping;
 
 					PxsCCDBody*			mCCD;					// only valid during CCD	
 

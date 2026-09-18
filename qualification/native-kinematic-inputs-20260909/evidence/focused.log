@@ -1,0 +1,20 @@
+Internal ctest changing into directory: /root/workspace/physx-2/out/destruction-sdk
+Test project /root/workspace/physx-2/out/destruction-sdk
+    Start 55: physx_native_gpu_preparation_before_compatibility
+1/5 Test #55: physx_native_gpu_preparation_before_compatibility ...   Passed    0.42 sec
+    Start 56: physx_native_gpu_kinematic_inputs
+2/5 Test #56: physx_native_gpu_kinematic_inputs ...................   Passed    4.47 sec
+    Start 57: physx_native_gpu_accepted_properties
+3/5 Test #57: physx_native_gpu_accepted_properties ................   Passed    0.40 sec
+    Start 58: physx_native_gpu_accepted_properties_pgs
+4/5 Test #58: physx_native_gpu_accepted_properties_pgs ............   Passed    0.41 sec
+    Start 81: physx_native_post_correction
+5/5 Test #81: physx_native_post_correction ........................   Passed    0.75 sec
+
+100% tests passed, 0 tests failed out of 5
+
+Label Time Summary:
+gpu            =   0.75 sec*proc (1 test)
+integration    =   0.75 sec*proc (1 test)
+
+Total Test time (real) =   6.44 sec

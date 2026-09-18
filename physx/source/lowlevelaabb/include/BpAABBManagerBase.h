@@ -209,6 +209,11 @@ namespace Bp
 		virtual			bool					addBounds(BoundsIndex index, PxReal contactDistance, Bp::FilterGroup::Enum group, void* userdata, AggregateHandle aggregateHandle, ElementType::Enum volumeType, PxU32 envID) = 0;
 		virtual			bool					removeBounds(BoundsIndex index) = 0;
 
+        // Caller has invalidated all interactions for this volume. Re-evaluate
+        // current overlaps without changing the persistent element identity.
+        // CPU/aggregate implementations may reject without side effects.
+        virtual bool refilterBounds(BoundsIndex, Bp::FilterGroup::Enum, bool = false) { return false; }
+
 						void					reserveSpaceForBounds(BoundsIndex index);
 
 		PX_FORCE_INLINE	PxIntBool				isMarkedForRemove(BoundsIndex index)	const	{ return mRemovedHandleMap.boundedTest(index);	}

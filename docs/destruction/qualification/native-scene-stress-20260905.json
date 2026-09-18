@@ -1,0 +1,207 @@
+{
+  "scope": "Native scene GPU contact loads and stress solve; fracture/correction incomplete",
+  "gpu": "NVIDIA GeForce RTX 4090",
+  "driver": "595.71.05",
+  "cuda": "12.8.93",
+  "base_revision": "4026f86350a4cb60eada3c3a9182179594f4cd12",
+  "source_sha256": {
+    "physx/include/PxDestructionScene.h": "5bf41c9ed70e3d6a5e893e1dfdee7d1f7b0a76ac75605c0d97a9f249f1438c46",
+    "physx/include/PxScene.h": "2701fd79001074f33f85e7e6234ccecf23957f5a6060828ce7afe6f9167990fb",
+    "physx/source/gpudestruction/include/PxgDestructionRuntime.h": "fd821ce6f28c36868492e8d46fd02e6f14acdbeab92665d1e200794ad1e09d40",
+    "physx/source/gpudestruction/src/PxgDestructionRuntime.cu": "833f868c953e28b3ca131228aeea3b184b7e6baee4a7ca64d1ebc8188c5530e7",
+    "physx/source/gpudestruction/runtime/CMakeLists.txt": "8521d2d29e49c510672e85ce1609d60ad3e1473b3528e4490fa8560190d9cf48",
+    "physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp": "b2fc5e5958a855c45e69c5dfefece8d79b24f4d76a4ce5ba25784d84a332d8f4",
+    "physx/source/simulationcontroller/src/ScPipeline.cpp": "3935118524bc79967f0d3a604699eb206425d0ec3d0d02f222515e0f68830feb",
+    "physx/source/physx/src/NpScene.cpp": "bd353f2deca1b61101dd46d1b17358ff6837d5de5406fcf0bc8544856df2aa1a",
+    "physx/source/physx/src/NpSceneFetchResults.cpp": "602686f467f9788897685c6a23c877122423fce25d0b284f028773a57836dac2",
+    "blast/include/extensions/stressgpu/NvBlastExtStressGpu.h": "571eff07cc474aee06bd0002999768db9a4c84fbdf58ee6284d131a4b445aa23",
+    "blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu": "a059bad5616ef88bb6f1bd319b72c11d15ff2b9d0aee5c1f9a9ffbd01b01cbc7",
+    "demos/blast-stress-demo/tests/native_gpu_destruction_test.cpp": "bb4d8477afa7d4aaaaf330f1a2363da2962ad0d31ffd9cf4e4da47551e244560",
+    "demos/blast-stress-demo/tests/gpu_device_input_test.cu": "b2fc873463b43c410aa7a28c4d8883e2b5c631dce5854bd840c1538b6820f3fa",
+    "demos/blast-stress-demo/tests/gpu_quiet_load_test.cpp": "4527fc3c8eb9cfccaeb07af60398c30d8e7728ce55bbe3f8244f7f03beb07a6c",
+    "destruction/PhysXDestructionConfig.cmake.in": "829dfc3d2518265f4ede7143d91924381252fe4ca07474e9b6c114ba805ba14f",
+    "tests/destruction/package-consumer/main.cpp": "0836cdee095716de375689572f4b88c34ec9a58b536c19383f4723b10f415a43"
+  },
+  "artifacts_sha256": {
+    "out/native-regression.log": "8ff33b6b227804156f017cb4e8f48e43a8d1a6681bf97b0afb549a3a09309184",
+    "out/destruction-sdk/out-native-regression.xml": "d60a5f4851dc73cdc9a720eea431a65e4d77b5adab1a52d02a713aa514aff8f9",
+    "out/native-relocation-20260905/consumer.log": "0c213c20bc78de14712859f4a46e91f9beeed4209fa486479da665fdeb855b60",
+    "out/native-relocation-20260905/native-library-load.log": "6535d74975b6162457f76b52016e695d925900a8c4fcdeedd37eed5d61b74829",
+    "physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so": "52179842fc2d0104e5c866009ccf82ca645aaf150c67186eaa42f2b0c4f1a0cf",
+    "physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so": "e1757b511a7f9406d3e54c199564ef39e12ba8f1fcffe94e3e662e504a92ab5e"
+  },
+  "native_tests": [
+    {
+      "name": "blast_stress_physx_cpu_contract",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_physx_resim_penetration",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_physx_resim_baseline",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_physx_resim_snapshot",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_velocity_fidelity_cpu",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_velocity_fidelity_gpu",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_load_path",
+      "passed": false
+    },
+    {
+      "name": "blast_stress_physx_resim_punchthrough",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_physx_resim_scoped_cascade",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_physx_direct_gpu_resim",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_physx_gpu_activity",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_reference_building_load_path",
+      "passed": false
+    },
+    {
+      "name": "blast_stress_material_behavior",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_chunk_crush",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_scene_pack_v3",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_reference_building_crush_gravity",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_reference_building_crush_ordinary_impact",
+      "passed": false
+    },
+    {
+      "name": "blast_stress_reference_building_crush_hard_impact",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_crush_wall_bite",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_crush_wall_bond_only",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_crush_multi_structure_resim",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_destruction_quality",
+      "passed": false
+    },
+    {
+      "name": "blast_stress_scene_pack_conformance",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_scene_pack",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_node_mesh",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_gpu_crush_correction",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_physx_direct_gpu_contacts",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_gpu_lazy_readback",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_gpu_lazy_cpu_observer",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_gpu_lazy_parallel_observer",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_gpu_cpu_walk_preparation",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_gpu_quiet_load",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_gpu_quiet_load_bond_space",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_gpu_quiet_load_deterministic",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_gpu_quiet_load_unrolled",
+      "passed": true
+    },
+    {
+      "name": "physx_native_gpu_destruction",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_gpu_device_input",
+      "passed": true
+    },
+    {
+      "name": "blast_stress_gpu_equivalence",
+      "passed": true
+    },
+    {
+      "name": "destruction_gpu_topology",
+      "passed": true
+    }
+  ],
+  "passed": 35,
+  "failed": 4,
+  "baseline_failures_unchanged": true,
+  "native_momentum_error_kg_m_s": 4.77433e-06,
+  "native_torque_relative_error": 5.95374e-09,
+  "supported_gravity_force_N": 19.62,
+  "package_consumers": {
+    "installed_cpu": true,
+    "installed_gpu": true,
+    "relocated_cpu": true,
+    "relocated_gpu": true,
+    "relocated_native_cpu": true,
+    "relocated_native_gpu": true
+  },
+  "performance_qualified": false,
+  "full_destruction_complete": false
+}

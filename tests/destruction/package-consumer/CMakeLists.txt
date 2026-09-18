@@ -1,0 +1,11 @@
+cmake_minimum_required(VERSION 3.24)
+project(DestructionPackageConsumer LANGUAGES CXX)
+find_package(PhysXDestruction CONFIG REQUIRED)
+add_executable(package_consumer main.cpp)
+target_compile_features(package_consumer PRIVATE cxx_std_17)
+target_link_libraries(package_consumer PRIVATE PhysXDestruction::Sdk)
+
+add_executable(native_scene_consumer main.cpp)
+target_compile_features(native_scene_consumer PRIVATE cxx_std_17)
+target_compile_definitions(native_scene_consumer PRIVATE PXD_NATIVE_ONLY)
+target_link_libraries(native_scene_consumer PRIVATE PhysXDestruction::NativeScene)

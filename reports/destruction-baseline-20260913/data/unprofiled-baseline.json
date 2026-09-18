@@ -1,0 +1,4014 @@
+{
+  "scope": "Unprofiled selected controls from N29b A0/B/A1 campaign; rejected B excluded. A0/A1 kept separate. First-use samples included; restore and validation excluded.",
+  "scenarios": [
+    {
+      "scenario": "bridge64-cold",
+      "purpose": "Two supports and a spanning load path; bending and load redistribution.",
+      "group": "structural",
+      "A0": {
+        "n": 20,
+        "mean_ms": 8.74405115,
+        "max_ms": 11.701534,
+        "min_ms": 8.380501,
+        "median_ms": 8.517443,
+        "sd_ms": 0.7482607292336623,
+        "misses_60hz": 0,
+        "first_tick_ms": 11.701534,
+        "context_setup_ms": 445.142748,
+        "restore_mean_ms": 21.4093639,
+        "stages_ms": {
+          "command_ms": 0.0001166,
+          "simulate_fetch_ms": 8.5428934,
+          "completion_ms": 0.20104115
+        }
+      },
+      "representative_work": {
+        "stress_iterations": 184,
+        "broken_bonds": 0,
+        "correction_passes": 0,
+        "stress_passes": 1,
+        "output_clusters": 1,
+        "stress_islands": 1,
+        "stress_active_nodes": 744,
+        "stress_active_bonds": 1500,
+        "normal_contacts": 0,
+        "friction_anchors": 0
+      },
+      "chunks": 768,
+      "bonds": 1524,
+      "A1": {
+        "n": 20,
+        "mean_ms": 8.7337011,
+        "max_ms": 11.233626,
+        "min_ms": 8.417329,
+        "median_ms": 8.525224,
+        "sd_ms": 0.6166110725249834,
+        "misses_60hz": 0,
+        "first_tick_ms": 11.233626,
+        "context_setup_ms": 436.585234,
+        "restore_mean_ms": 21.0502573,
+        "stages_ms": {
+          "command_ms": 0.00011705,
+          "simulate_fetch_ms": 8.53879645,
+          "completion_ms": 0.1947876
+        }
+      }
+    },
+    {
+      "scenario": "bridge64-warm",
+      "purpose": "Two supports and a spanning load path; bending and load redistribution.",
+      "group": "structural",
+      "A0": {
+        "n": 20,
+        "mean_ms": 8.78758075,
+        "max_ms": 11.724564,
+        "min_ms": 8.10788,
+        "median_ms": 8.632778,
+        "sd_ms": 0.7520419348802354,
+        "misses_60hz": 0,
+        "first_tick_ms": 11.724564,
+        "context_setup_ms": 443.801501,
+        "restore_mean_ms": 21.29724995,
+        "stages_ms": {
+          "command_ms": 0.0001416,
+          "simulate_fetch_ms": 8.6060438,
+          "completion_ms": 0.18139535
+        }
+      },
+      "representative_work": {
+        "stress_iterations": 184,
+        "broken_bonds": 0,
+        "correction_passes": 0,
+        "stress_passes": 1,
+        "output_clusters": 1,
+        "stress_islands": 1,
+        "stress_active_nodes": 744,
+        "stress_active_bonds": 1500,
+        "normal_contacts": 0,
+        "friction_anchors": 0
+      },
+      "chunks": 768,
+      "bonds": 1524,
+      "A1": {
+        "n": 20,
+        "mean_ms": 7.9052733,
+        "max_ms": 10.514882,
+        "min_ms": 7.25391,
+        "median_ms": 7.7760505,
+        "sd_ms": 0.7235736167883825,
+        "misses_60hz": 0,
+        "first_tick_ms": 10.514882,
+        "context_setup_ms": 455.665664,
+        "restore_mean_ms": 19.55842495,
+        "stages_ms": {
+          "command_ms": 8.675e-05,
+          "simulate_fetch_ms": 7.7100281,
+          "completion_ms": 0.19515845
+        }
+      }
+    },
+    {
+      "scenario": "building-cold",
+      "purpose": "Multi-storey wall/slab connectivity and shared supports.",
+      "group": "structural",
+      "A0": {
+        "n": 20,
+        "mean_ms": 4.47798335,
+        "max_ms": 7.030874,
+        "min_ms": 3.467949,
+        "median_ms": 4.4770710000000005,
+        "sd_ms": 0.6942314146814125,
+        "misses_60hz": 0,
+        "first_tick_ms": 7.030874,
+        "context_setup_ms": 416.790381,
+        "restore_mean_ms": 18.28982595,
+        "stages_ms": {
+          "command_ms": 8.53e-05,
+          "simulate_fetch_ms": 4.31100265,
+          "completion_ms": 0.1668954
+        }
+      },
+      "representative_work": {
+        "stress_iterations": 88,
+        "broken_bonds": 0,
+        "correction_passes": 0,
+        "stress_passes": 1,
+        "output_clusters": 1,
+        "stress_islands": 1,
+        "stress_active_nodes": 380,
+        "stress_active_bonds": 784,
+        "normal_contacts": 0,
+        "friction_anchors": 0
+      },
+      "chunks": 444,
+      "bonds": 896,
+      "A1": {
+        "n": 20,
+        "mean_ms": 4.8014208499999995,
+        "max_ms": 7.413749,
+        "min_ms": 4.481393,
+        "median_ms": 4.655502,
+        "sd_ms": 0.6311574364736813,
+        "misses_60hz": 0,
+        "first_tick_ms": 7.413749,
+        "context_setup_ms": 470.281823,
+        "restore_mean_ms": 20.66533395,
+        "stages_ms": {
+          "command_ms": 0.00011495,
+          "simulate_fetch_ms": 4.6343034,
+          "completion_ms": 0.1670025
+        }
+      }
+    },
+    {
+      "scenario": "building-fragmented",
+      "purpose": "Multi-storey wall/slab connectivity and shared supports.",
+      "group": "structural",
+      "A0": {
+        "n": 20,
+        "mean_ms": 8.20424985,
+        "max_ms": 15.020766,
+        "min_ms": 6.399903,
+        "median_ms": 7.8640365,
+        "sd_ms": 1.7779083996387819,
+        "misses_60hz": 0,
+        "first_tick_ms": 15.020766,
+        "context_setup_ms": 437.358978,
+        "restore_mean_ms": 21.442092849999998,
+        "stages_ms": {
+          "command_ms": 0.0001067,
+          "simulate_fetch_ms": 8.0300253,
+          "completion_ms": 0.17411785
+        }
+      },
+      "representative_work": {
+        "stress_iterations": 4,
+        "broken_bonds": 0,
+        "correction_passes": 0,
+        "stress_passes": 1,
+        "output_clusters": 378,
+        "stress_islands": 3,
+        "stress_active_nodes": 6,
+        "stress_active_bonds": 3,
+        "normal_contacts": 4537,
+        "friction_anchors": 762
+      },
+      "chunks": 444,
+      "bonds": 896,
+      "A1": {
+        "n": 20,
+        "mean_ms": 8.6464437,
+        "max_ms": 14.920165,
+        "min_ms": 7.715046,
+        "median_ms": 8.194946999999999,
+        "sd_ms": 1.5399338068807442,
+        "misses_60hz": 0,
+        "first_tick_ms": 14.920165,
+        "context_setup_ms": 476.053705,
+        "restore_mean_ms": 21.26150715,
+        "stages_ms": {
+          "command_ms": 8.96e-05,
+          "simulate_fetch_ms": 8.4607547,
+          "completion_ms": 0.1855994
+        }
+      }
+    },
+    {
+      "scenario": "building-warm",
+      "purpose": "Multi-storey wall/slab connectivity and shared supports.",
+      "group": "structural",
+      "A0": {
+        "n": 20,
+        "mean_ms": 4.4642165,
+        "max_ms": 7.410943,
+        "min_ms": 3.535722,
+        "median_ms": 4.4727755,
+        "sd_ms": 0.7908095345247904,
+        "misses_60hz": 0,
+        "first_tick_ms": 7.410943,
+        "context_setup_ms": 452.741266,
+        "restore_mean_ms": 19.28226155,
+        "stages_ms": {
+          "command_ms": 0.00011485,
+          "simulate_fetch_ms": 4.29140905,
+          "completion_ms": 0.1726926
+        }
+      },
+      "representative_work": {
+        "stress_iterations": 88,
+        "broken_bonds": 0,
+        "correction_passes": 0,
+        "stress_passes": 1,
+        "output_clusters": 1,
+        "stress_islands": 1,
+        "stress_active_nodes": 380,
+        "stress_active_bonds": 784,
+        "normal_contacts": 0,
+        "friction_anchors": 0
+      },
+      "chunks": 444,
+      "bonds": 896,
+      "A1": {
+        "n": 20,
+        "mean_ms": 4.26469665,
+        "max_ms": 5.960441,
+        "min_ms": 3.63588,
+        "median_ms": 4.2537685,
+        "sd_ms": 0.5308435750278464,
+        "misses_60hz": 0,
+        "first_tick_ms": 5.960441,
+        "context_setup_ms": 463.522053,
+        "restore_mean_ms": 19.72420585,
+        "stages_ms": {
+          "command_ms": 0.0001397,
+          "simulate_fetch_ms": 4.01855815,
+          "completion_ms": 0.2459988
+        }
+      }
+    },
+    {
+      "scenario": "cantilever64-cold",
+      "purpose": "One-sided support and a long bending lever arm.",
+      "group": "structural",
+      "A0": {
+        "n": 20,
+        "mean_ms": 7.38740185,
+        "max_ms": 10.272427,
+        "min_ms": 7.049022,
+        "median_ms": 7.2351405,
+        "sd_ms": 0.6882513550398863,
+        "misses_60hz": 0,
+        "first_tick_ms": 10.272427,
+        "context_setup_ms": 407.30564,
+        "restore_mean_ms": 16.06837035,
+        "stages_ms": {
+          "command_ms": 0.0001234,
+          "simulate_fetch_ms": 7.1385003,
+          "completion_ms": 0.24877815
+        }
+      },
+      "representative_work": {
+        "stress_iterations": 984,
+        "broken_bonds": 0,
+        "correction_passes": 0,
+        "stress_passes": 1,
+        "output_clusters": 1,
+        "stress_islands": 1,
+        "stress_active_nodes": 63,
+        "stress_active_bonds": 63,
+        "normal_contacts": 0,
+        "friction_anchors": 0
+      },
+      "chunks": 64,
+      "bonds": 63,
+      "A1": {
+        "n": 20,
+        "mean_ms": 7.20559915,
+        "max_ms": 9.83211,
+        "min_ms": 6.835722,
+        "median_ms": 7.043771,
+        "sd_ms": 0.6310840629621112,
+        "misses_60hz": 0,
+        "first_tick_ms": 9.83211,
+        "context_setup_ms": 457.164306,
+        "restore_mean_ms": 17.9028993,
+        "stages_ms": {
+          "command_ms": 0.0001778,
+          "simulate_fetch_ms": 7.054825,
+          "completion_ms": 0.15059635
+        }
+      }
+    },
+    {
+      "scenario": "cantilever64-warm",
+      "purpose": "One-sided support and a long bending lever arm.",
+      "group": "structural",
+      "A0": {
+        "n": 20,
+        "mean_ms": 7.06937195,
+        "max_ms": 9.794548,
+        "min_ms": 6.340187,
+        "median_ms": 6.9630425,
+        "sd_ms": 0.6755510621577553,
+        "misses_60hz": 0,
+        "first_tick_ms": 9.794548,
+        "context_setup_ms": 453.694631,
+        "restore_mean_ms": 17.5042701,
+        "stages_ms": {
+          "command_ms": 0.0001334,
+          "simulate_fetch_ms": 6.86102555,
+          "completion_ms": 0.208213
+        }
+      },
+      "representative_work": {
+        "stress_iterations": 984,
+        "broken_bonds": 0,
+        "correction_passes": 0,
+        "stress_passes": 1,
+        "output_clusters": 1,
+        "stress_islands": 1,
+        "stress_active_nodes": 63,
+        "stress_active_bonds": 63,
+        "normal_contacts": 0,
+        "friction_anchors": 0
+      },
+      "chunks": 64,
+      "bonds": 63,
+      "A1": {
+        "n": 20,
+        "mean_ms": 6.862486,
+        "max_ms": 9.521216,
+        "min_ms": 6.279821,
+        "median_ms": 6.7605545,
+        "sd_ms": 0.6598249618859457,
+        "misses_60hz": 0,
+        "first_tick_ms": 9.521216,
+        "context_setup_ms": 463.988708,
+        "restore_mean_ms": 17.06725575,
+        "stages_ms": {
+          "command_ms": 0.00015565,
+          "simulate_fetch_ms": 6.6790958,
+          "completion_ms": 0.18323455
+        }
+      }
+    },
+    {
+      "scenario": "chain256-cold",
+      "purpose": "Long sparse chain with slow stress propagation.",
+      "group": "structural",
+      "A0": {
+        "n": 20,
+        "mean_ms": 6.59846635,
+        "max_ms": 7.871381,
+        "min_ms": 5.96565,
+        "median_ms": 6.4617085,
+        "sd_ms": 0.5275473013754836,
+        "misses_60hz": 0,
+        "first_tick_ms": 7.871381,
+        "context_setup_ms": 382.307241,
+        "restore_mean_ms": 15.98426465,
+        "stages_ms": {
+          "command_ms": 0.00012055,
+          "simulate_fetch_ms": 6.42045325,
+          "completion_ms": 0.17789255
+        }
+      },
+      "representative_work": {
+        "stress_iterations": 492,
+        "broken_bonds": 0,
+        "correction_passes": 0,
+        "stress_passes": 1,
+        "output_clusters": 1,
+        "stress_islands": 1,
+        "stress_active_nodes": 255,
+        "stress_active_bonds": 255,
+        "normal_contacts": 0,
+        "friction_anchors": 0
+      },
+      "chunks": 256,
+      "bonds": 255,
+      "A1": {
+        "n": 20,
+        "mean_ms": 6.38366945,
+        "max_ms": 9.160528,
+        "min_ms": 5.882529,
+        "median_ms": 6.1616335,
+        "sd_ms": 0.7114090092775095,
+        "misses_60hz": 0,
+        "first_tick_ms": 9.160528,
+        "context_setup_ms": 456.949753,
+        "restore_mean_ms": 16.09445995,
+        "stages_ms": {
+          "command_ms": 0.00014545,
+          "simulate_fetch_ms": 6.19569375,
+          "completion_ms": 0.18783025
+        }
+      }
+    },
+    {
+      "scenario": "chain256-warm",
+      "purpose": "Long sparse chain with slow stress propagation.",
+      "group": "structural",
+      "A0": {
+        "n": 20,
+        "mean_ms": 6.99794935,
+        "max_ms": 9.761734,
+        "min_ms": 6.479483,
+        "median_ms": 6.8535565,
+        "sd_ms": 0.688888010178591,
+        "misses_60hz": 0,
+        "first_tick_ms": 9.761734,
+        "context_setup_ms": 469.628443,
+        "restore_mean_ms": 17.7898534,
+        "stages_ms": {
+          "command_ms": 0.00015595,
+          "simulate_fetch_ms": 6.7814746,
+          "completion_ms": 0.2163188
+        }
+      },
+      "representative_work": {
+        "stress_iterations": 492,
+        "broken_bonds": 0,
+        "correction_passes": 0,
+        "stress_passes": 1,
+        "output_clusters": 1,
+        "stress_islands": 1,
+        "stress_active_nodes": 255,
+        "stress_active_bonds": 255,
+        "normal_contacts": 0,
+        "friction_anchors": 0
+      },
+      "chunks": 256,
+      "bonds": 255,
+      "A1": {
+        "n": 20,
+        "mean_ms": 6.9347506,
+        "max_ms": 10.029662,
+        "min_ms": 5.826041,
+        "median_ms": 6.702863,
+        "sd_ms": 0.8770755874452087,
+        "misses_60hz": 0,
+        "first_tick_ms": 10.029662,
+        "context_setup_ms": 419.775046,
+        "restore_mean_ms": 17.3756225,
+        "stages_ms": {
+          "command_ms": 0.0001068,
+          "simulate_fetch_ms": 6.712458,
+          "completion_ms": 0.2221858
+        }
+      }
+    },
+    {
+      "scenario": "chain32-cold",
+      "purpose": "Short sparse-chain control.",
+      "group": "structural",
+      "A0": {
+        "n": 20,
+        "mean_ms": 2.90112805,
+        "max_ms": 4.325372,
+        "min_ms": 2.278189,
+        "median_ms": 2.868433,
+        "sd_ms": 0.41039873628928175,
+        "misses_60hz": 0,
+        "first_tick_ms": 4.325372,
+        "context_setup_ms": 434.234881,
+        "restore_mean_ms": 16.21240885,
+        "stages_ms": {
+          "command_ms": 0.0006032499999999999,
+          "simulate_fetch_ms": 2.7371482,
+          "completion_ms": 0.1633766
+        }
+      },
+      "representative_work": {
+        "stress_iterations": 32,
+        "broken_bonds": 0,
+        "correction_passes": 0,
+        "stress_passes": 1,
+        "output_clusters": 1,
+        "stress_islands": 1,
+        "stress_active_nodes": 31,
+        "stress_active_bonds": 31,
+        "normal_contacts": 0,
+        "friction_anchors": 0
+      },
+      "chunks": 32,
+      "bonds": 31,
+      "A1": {
+        "n": 20,
+        "mean_ms": 2.9716743,
+        "max_ms": 6.928729,
+        "min_ms": 2.016251,
+        "median_ms": 2.824954,
+        "sd_ms": 1.0023695679323332,
+        "misses_60hz": 0,
+        "first_tick_ms": 6.928729,
+        "context_setup_ms": 435.585618,
+        "restore_mean_ms": 16.15292965,
+        "stages_ms": {
+          "command_ms": 0.0001018,
+          "simulate_fetch_ms": 2.7984899,
+          "completion_ms": 0.1730826
+        }
+      }
+    },
+    {
+      "scenario": "chain32-warm",
+      "purpose": "Short sparse-chain control.",
+      "group": "structural",
+      "A0": {
+        "n": 20,
+        "mean_ms": 2.6639713,
+        "max_ms": 6.079256,
+        "min_ms": 1.853,
+        "median_ms": 2.5300535,
+        "sd_ms": 0.8589594828313529,
+        "misses_60hz": 0,
+        "first_tick_ms": 6.079256,
+        "context_setup_ms": 446.243669,
+        "restore_mean_ms": 16.61972785,
+        "stages_ms": {
+          "command_ms": 0.0001033,
+          "simulate_fetch_ms": 2.4191491,
+          "completion_ms": 0.2447189
+        }
+      },
+      "representative_work": {
+        "stress_iterations": 32,
+        "broken_bonds": 0,
+        "correction_passes": 0,
+        "stress_passes": 1,
+        "output_clusters": 1,
+        "stress_islands": 1,
+        "stress_active_nodes": 31,
+        "stress_active_bonds": 31,
+        "normal_contacts": 0,
+        "friction_anchors": 0
+      },
+      "chunks": 32,
+      "bonds": 31,
+      "A1": {
+        "n": 20,
+        "mean_ms": 2.38237335,
+        "max_ms": 5.621271,
+        "min_ms": 1.791287,
+        "median_ms": 2.0343125,
+        "sd_ms": 0.8542107956908945,
+        "misses_60hz": 0,
+        "first_tick_ms": 5.621271,
+        "context_setup_ms": 420.29299,
+        "restore_mean_ms": 15.73717955,
+        "stages_ms": {
+          "command_ms": 0.00011945,
+          "simulate_fetch_ms": 2.2512048,
+          "completion_ms": 0.1310491
+        }
+      }
+    },
+    {
+      "scenario": "dense12-cold",
+      "purpose": "Dense 3D connectivity and redundant load paths.",
+      "group": "structural",
+      "A0": {
+        "n": 20,
+        "mean_ms": 31.03738165,
+        "max_ms": 32.863033,
+        "min_ms": 29.977774,
+        "median_ms": 30.79608,
+        "sd_ms": 0.7584412870571271,
+        "misses_60hz": 20,
+        "first_tick_ms": 32.863033,
+        "context_setup_ms": 441.217806,
+        "restore_mean_ms": 37.1597023,
+        "stages_ms": {
+          "command_ms": 0.000204,
+          "simulate_fetch_ms": 30.83702525,
+          "completion_ms": 0.2001524
+        }
+      },
+      "representative_work": {
+        "stress_iterations": 34,
+        "broken_bonds": 0,
+        "correction_passes": 0,
+        "stress_passes": 1,
+        "output_clusters": 1,
+        "stress_islands": 1,
+        "stress_active_nodes": 1584,
+        "stress_active_bonds": 4488,
+        "normal_contacts": 0,
+        "friction_anchors": 0
+      },
+      "chunks": 1728,
+      "bonds": 4752,
+      "A1": {
+        "n": 20,
+        "mean_ms": 30.849457,
+        "max_ms": 33.073033,
+        "min_ms": 29.938138,
+        "median_ms": 30.711907500000002,
+        "sd_ms": 0.7423059402389998,
+        "misses_60hz": 20,
+        "first_tick_ms": 33.073033,
+        "context_setup_ms": 429.22299,
+        "restore_mean_ms": 35.7228608,
+        "stages_ms": {
+          "command_ms": 0.0001891,
+          "simulate_fetch_ms": 30.63431885,
+          "completion_ms": 0.21494905
+        }
+      }
+    },
+    {
+      "scenario": "dense12-warm",
+      "purpose": "Dense 3D connectivity and redundant load paths.",
+      "group": "structural",
+      "A0": {
+        "n": 20,
+        "mean_ms": 31.2349511,
+        "max_ms": 33.734196,
+        "min_ms": 29.683356,
+        "median_ms": 31.209275499999997,
+        "sd_ms": 0.7648398893048686,
+        "misses_60hz": 20,
+        "first_tick_ms": 33.734196,
+        "context_setup_ms": 437.936756,
+        "restore_mean_ms": 36.2303037,
+        "stages_ms": {
+          "command_ms": 0.0001796,
+          "simulate_fetch_ms": 31.07018645,
+          "completion_ms": 0.16458505
+        }
+      },
+      "representative_work": {
+        "stress_iterations": 34,
+        "broken_bonds": 0,
+        "correction_passes": 0,
+        "stress_passes": 1,
+        "output_clusters": 1,
+        "stress_islands": 1,
+        "stress_active_nodes": 1584,
+        "stress_active_bonds": 4488,
+        "normal_contacts": 0,
+        "friction_anchors": 0
+      },
+      "chunks": 1728,
+      "bonds": 4752,
+      "A1": {
+        "n": 20,
+        "mean_ms": 31.32747515,
+        "max_ms": 33.648387,
+        "min_ms": 30.784817,
+        "median_ms": 31.2084715,
+        "sd_ms": 0.6081150593672111,
+        "misses_60hz": 20,
+        "first_tick_ms": 33.648387,
+        "context_setup_ms": 432.961831,
+        "restore_mean_ms": 35.02587925,
+        "stages_ms": {
+          "command_ms": 0.0001851,
+          "simulate_fetch_ms": 31.12598805,
+          "completion_ms": 0.201302
+        }
+      }
+    },
+    {
+      "scenario": "destruction-cold",
+      "purpose": "Fresh intact two-chunk structure.",
+      "group": "structural",
+      "A0": {
+        "n": 20,
+        "mean_ms": 3.13299455,
+        "max_ms": 6.886448,
+        "min_ms": 2.242068,
+        "median_ms": 3.0134955,
+        "sd_ms": 0.9312197216808249,
+        "misses_60hz": 0,
+        "first_tick_ms": 6.886448,
+        "context_setup_ms": 416.104962,
+        "restore_mean_ms": 14.51829865,
+        "stages_ms": {
+          "command_ms": 7.8e-05,
+          "simulate_fetch_ms": 2.97027445,
+          "completion_ms": 0.1626421
+        }
+      },
+      "representative_work": {
+        "stress_iterations": 1,
+        "broken_bonds": 0,
+        "correction_passes": 0,
+        "stress_passes": 1,
+        "output_clusters": 1,
+        "stress_islands": 1,
+        "stress_active_nodes": 1,
+        "stress_active_bonds": 1,
+        "normal_contacts": 0,
+        "friction_anchors": 0
+      },
+      "chunks": 2,
+      "bonds": 1,
+      "A1": {
+        "n": 20,
+        "mean_ms": 2.62677635,
+        "max_ms": 6.634902,
+        "min_ms": 1.803476,
+        "median_ms": 2.2291575,
+        "sd_ms": 1.0492427055278477,
+        "misses_60hz": 0,
+        "first_tick_ms": 6.634902,
+        "context_setup_ms": 449.104438,
+        "restore_mean_ms": 16.013213450000002,
+        "stages_ms": {
+          "command_ms": 0.00013115,
+          "simulate_fetch_ms": 2.46256445,
+          "completion_ms": 0.16408075
+        }
+      }
+    },
+    {
+      "scenario": "destruction-damaged",
+      "purpose": "Partially damaged bond with persistent material history.",
+      "group": "structural",
+      "A0": {
+        "n": 20,
+        "mean_ms": 3.07374475,
+        "max_ms": 6.784647,
+        "min_ms": 1.873915,
+        "median_ms": 3.077916,
+        "sd_ms": 0.9955109503521492,
+        "misses_60hz": 0,
+        "first_tick_ms": 6.784647,
+        "context_setup_ms": 462.602147,
+        "restore_mean_ms": 15.810159800000001,
+        "stages_ms": {
+          "command_ms": 7.23e-05,
+          "simulate_fetch_ms": 2.9132855,
+          "completion_ms": 0.16038695
+        }
+      },
+      "representative_work": {
+        "stress_iterations": 1,
+        "broken_bonds": 0,
+        "correction_passes": 0,
+        "stress_passes": 1,
+        "output_clusters": 1,
+        "stress_islands": 1,
+        "stress_active_nodes": 1,
+        "stress_active_bonds": 1,
+        "normal_contacts": 0,
+        "friction_anchors": 0
+      },
+      "chunks": 2,
+      "bonds": 1,
+      "A1": {
+        "n": 20,
+        "mean_ms": 3.5275672499999997,
+        "max_ms": 7.22617,
+        "min_ms": 2.955424,
+        "median_ms": 3.2096065,
+        "sd_ms": 0.9234408306978209,
+        "misses_60hz": 0,
+        "first_tick_ms": 7.22617,
+        "context_setup_ms": 430.750372,
+        "restore_mean_ms": 15.699695649999999,
+        "stages_ms": {
+          "command_ms": 8.425e-05,
+          "simulate_fetch_ms": 3.3665701,
+          "completion_ms": 0.1609129
+        }
+      }
+    },
+    {
+      "scenario": "destruction-fractured",
+      "purpose": "Already fractured chunks and physical ownership.",
+      "group": "structural",
+      "A0": {
+        "n": 20,
+        "mean_ms": 4.84389555,
+        "max_ms": 9.357663,
+        "min_ms": 2.958197,
+        "median_ms": 4.8173995,
+        "sd_ms": 1.2548109748628937,
+        "misses_60hz": 0,
+        "first_tick_ms": 9.357663,
+        "context_setup_ms": 442.476411,
+        "restore_mean_ms": 16.93204785,
+        "stages_ms": {
+          "command_ms": 0.00012575,
+          "simulate_fetch_ms": 4.66617735,
+          "completion_ms": 0.17759245
+        }
+      },
+      "representative_work": {
+        "stress_iterations": 0,
+        "broken_bonds": 0,
+        "correction_passes": 0,
+        "stress_passes": 1,
+        "output_clusters": 2,
+        "stress_islands": 0,
+        "stress_active_nodes": 0,
+        "stress_active_bonds": 0,
+        "normal_contacts": 1,
+        "friction_anchors": 1
+      },
+      "chunks": 2,
+      "bonds": 1,
+      "A1": {
+        "n": 20,
+        "mean_ms": 5.2409983,
+        "max_ms": 10.152203,
+        "min_ms": 4.356155,
+        "median_ms": 4.737493000000001,
+        "sd_ms": 1.27615129488957,
+        "misses_60hz": 0,
+        "first_tick_ms": 10.152203,
+        "context_setup_ms": 434.319838,
+        "restore_mean_ms": 15.98853775,
+        "stages_ms": {
+          "command_ms": 0.00011805,
+          "simulate_fetch_ms": 5.076575,
+          "completion_ms": 0.16430525
+        }
+      }
+    },
+    {
+      "scenario": "destruction-intact",
+      "purpose": "Intact bond after prior physical evolution.",
+      "group": "structural",
+      "A0": {
+        "n": 20,
+        "mean_ms": 3.3311049500000003,
+        "max_ms": 6.459831,
+        "min_ms": 2.365634,
+        "median_ms": 3.109924,
+        "sd_ms": 0.8424239698517528,
+        "misses_60hz": 0,
+        "first_tick_ms": 6.459831,
+        "context_setup_ms": 438.37749,
+        "restore_mean_ms": 15.63403155,
+        "stages_ms": {
+          "command_ms": 9.27e-05,
+          "simulate_fetch_ms": 3.2023129,
+          "completion_ms": 0.12869935
+        }
+      },
+      "representative_work": {
+        "stress_iterations": 1,
+        "broken_bonds": 0,
+        "correction_passes": 0,
+        "stress_passes": 1,
+        "output_clusters": 1,
+        "stress_islands": 1,
+        "stress_active_nodes": 1,
+        "stress_active_bonds": 1,
+        "normal_contacts": 0,
+        "friction_anchors": 0
+      },
+      "chunks": 2,
+      "bonds": 1,
+      "A1": {
+        "n": 20,
+        "mean_ms": 2.71234695,
+        "max_ms": 6.086308,
+        "min_ms": 2.048229,
+        "median_ms": 2.5566575,
+        "sd_ms": 0.8263728244027105,
+        "misses_60hz": 0,
+        "first_tick_ms": 6.086308,
+        "context_setup_ms": 433.254166,
+        "restore_mean_ms": 15.633390649999999,
+        "stages_ms": {
+          "command_ms": 0.00010195,
+          "simulate_fetch_ms": 2.5286786,
+          "completion_ms": 0.1835664
+        }
+      }
+    },
+    {
+      "scenario": "destruction-onset",
+      "purpose": "Projectile approaching the two-chunk fracture fixture.",
+      "group": "structural",
+      "A0": {
+        "n": 20,
+        "mean_ms": 4.03848775,
+        "max_ms": 7.451875,
+        "min_ms": 3.512168,
+        "median_ms": 3.7332745,
+        "sd_ms": 0.8788672755897893,
+        "misses_60hz": 0,
+        "first_tick_ms": 7.451875,
+        "context_setup_ms": 447.050664,
+        "restore_mean_ms": 17.200483549999998,
+        "stages_ms": {
+          "command_ms": 0.00010290000000000001,
+          "simulate_fetch_ms": 3.8836211,
+          "completion_ms": 0.15476375
+        }
+      },
+      "representative_work": {
+        "stress_iterations": 1,
+        "broken_bonds": 0,
+        "correction_passes": 0,
+        "stress_passes": 1,
+        "output_clusters": 1,
+        "stress_islands": 1,
+        "stress_active_nodes": 1,
+        "stress_active_bonds": 1,
+        "normal_contacts": 0,
+        "friction_anchors": 0
+      },
+      "chunks": 2,
+      "bonds": 1,
+      "A1": {
+        "n": 20,
+        "mean_ms": 3.0992419,
+        "max_ms": 5.251917,
+        "min_ms": 2.251,
+        "median_ms": 2.9226295,
+        "sd_ms": 0.6440790980120294,
+        "misses_60hz": 0,
+        "first_tick_ms": 5.251917,
+        "context_setup_ms": 443.840706,
+        "restore_mean_ms": 15.34763495,
+        "stages_ms": {
+          "command_ms": 9.755e-05,
+          "simulate_fetch_ms": 2.9293003,
+          "completion_ms": 0.16984405
+        }
+      }
+    },
+    {
+      "scenario": "destruction-stimulus",
+      "purpose": "New impulse and angular velocity submitted inside the measured tick.",
+      "group": "structural",
+      "A0": {
+        "n": 20,
+        "mean_ms": 3.2989318,
+        "max_ms": 7.996117,
+        "min_ms": 2.426656,
+        "median_ms": 3.059238,
+        "sd_ms": 1.2035692135299993,
+        "misses_60hz": 0,
+        "first_tick_ms": 7.996117,
+        "context_setup_ms": 424.02442,
+        "restore_mean_ms": 15.74408035,
+        "stages_ms": {
+          "command_ms": 0.00261675,
+          "simulate_fetch_ms": 3.1423014,
+          "completion_ms": 0.15401365
+        }
+      },
+      "representative_work": {
+        "stress_iterations": 1,
+        "broken_bonds": 0,
+        "correction_passes": 0,
+        "stress_passes": 1,
+        "output_clusters": 1,
+        "stress_islands": 1,
+        "stress_active_nodes": 1,
+        "stress_active_bonds": 1,
+        "normal_contacts": 0,
+        "friction_anchors": 0
+      },
+      "chunks": 2,
+      "bonds": 1,
+      "A1": {
+        "n": 20,
+        "mean_ms": 2.90966615,
+        "max_ms": 6.705431,
+        "min_ms": 2.275087,
+        "median_ms": 2.6865825,
+        "sd_ms": 0.9382073013883151,
+        "misses_60hz": 0,
+        "first_tick_ms": 6.705431,
+        "context_setup_ms": 430.162581,
+        "restore_mean_ms": 16.3174715,
+        "stages_ms": {
+          "command_ms": 0.0017588,
+          "simulate_fetch_ms": 2.76165805,
+          "completion_ms": 0.1462493
+        }
+      }
+    },
+    {
+      "scenario": "flying",
+      "purpose": "Free-flight gravity reference without destruction.",
+      "group": "structural",
+      "A0": {
+        "n": 20,
+        "mean_ms": 2.01426575,
+        "max_ms": 3.052404,
+        "min_ms": 1.647582,
+        "median_ms": 1.9635090000000002,
+        "sd_ms": 0.30705469493095977,
+        "misses_60hz": 0,
+        "first_tick_ms": 3.052404,
+        "context_setup_ms": 436.57106,
+        "restore_mean_ms": 7.1036402,
+        "stages_ms": {
+          "command_ms": 0.0001386,
+          "simulate_fetch_ms": 2.0136589,
+          "completion_ms": 0.00046825
+        }
+      },
+      "representative_work": {
+        "stress_iterations": 0,
+        "broken_bonds": 0,
+        "correction_passes": 0,
+        "stress_passes": 0,
+        "output_clusters": 0,
+        "stress_islands": 0,
+        "stress_active_nodes": 0,
+        "stress_active_bonds": 0,
+        "normal_contacts": 0,
+        "friction_anchors": 0
+      },
+      "chunks": 0,
+      "bonds": 0,
+      "A1": {
+        "n": 20,
+        "mean_ms": 1.6211279,
+        "max_ms": 2.880637,
+        "min_ms": 0.978109,
+        "median_ms": 1.6790775,
+        "sd_ms": 0.4484528931469661,
+        "misses_60hz": 0,
+        "first_tick_ms": 2.880637,
+        "context_setup_ms": 431.00051,
+        "restore_mean_ms": 6.9799753,
+        "stages_ms": {
+          "command_ms": 8.52e-05,
+          "simulate_fetch_ms": 1.6206311,
+          "completion_ms": 0.0004116
+        }
+      }
+    },
+    {
+      "scenario": "ladder128-cold",
+      "purpose": "Repeated loops joined by long parallel rails.",
+      "group": "structural",
+      "A0": {
+        "n": 20,
+        "mean_ms": 5.4955741,
+        "max_ms": 8.333881,
+        "min_ms": 5.112962,
+        "median_ms": 5.31322,
+        "sd_ms": 0.6881535251858985,
+        "misses_60hz": 0,
+        "first_tick_ms": 8.333881,
+        "context_setup_ms": 436.994786,
+        "restore_mean_ms": 18.968158,
+        "stages_ms": {
+          "command_ms": 0.0001047,
+          "simulate_fetch_ms": 5.32177,
+          "completion_ms": 0.1736994
+        }
+      },
+      "representative_work": {
+        "stress_iterations": 192,
+        "broken_bonds": 0,
+        "correction_passes": 0,
+        "stress_passes": 1,
+        "output_clusters": 1,
+        "stress_islands": 1,
+        "stress_active_nodes": 285,
+        "stress_active_bonds": 316,
+        "normal_contacts": 0,
+        "friction_anchors": 0
+      },
+      "chunks": 288,
+      "bonds": 318,
+      "A1": {
+        "n": 20,
+        "mean_ms": 5.38684565,
+        "max_ms": 7.736356,
+        "min_ms": 4.85185,
+        "median_ms": 5.1516055000000005,
+        "sd_ms": 0.6354154600495047,
+        "misses_60hz": 0,
+        "first_tick_ms": 7.736356,
+        "context_setup_ms": 418.169798,
+        "restore_mean_ms": 18.7041993,
+        "stages_ms": {
+          "command_ms": 0.00010510000000000001,
+          "simulate_fetch_ms": 5.22342625,
+          "completion_ms": 0.1633143
+        }
+      }
+    },
+    {
+      "scenario": "ladder128-warm",
+      "purpose": "Repeated loops joined by long parallel rails.",
+      "group": "structural",
+      "A0": {
+        "n": 20,
+        "mean_ms": 5.3866695,
+        "max_ms": 8.213811,
+        "min_ms": 4.97455,
+        "median_ms": 5.220948,
+        "sd_ms": 0.6905701738062464,
+        "misses_60hz": 0,
+        "first_tick_ms": 8.213811,
+        "context_setup_ms": 431.724055,
+        "restore_mean_ms": 19.4286181,
+        "stages_ms": {
+          "command_ms": 0.0001188,
+          "simulate_fetch_ms": 5.23343025,
+          "completion_ms": 0.15312045
+        }
+      },
+      "representative_work": {
+        "stress_iterations": 192,
+        "broken_bonds": 0,
+        "correction_passes": 0,
+        "stress_passes": 1,
+        "output_clusters": 1,
+        "stress_islands": 1,
+        "stress_active_nodes": 285,
+        "stress_active_bonds": 316,
+        "normal_contacts": 0,
+        "friction_anchors": 0
+      },
+      "chunks": 288,
+      "bonds": 318,
+      "A1": {
+        "n": 20,
+        "mean_ms": 4.92240085,
+        "max_ms": 6.611247,
+        "min_ms": 4.411094,
+        "median_ms": 4.7949625000000005,
+        "sd_ms": 0.5780444405761345,
+        "misses_60hz": 0,
+        "first_tick_ms": 6.611247,
+        "context_setup_ms": 462.011195,
+        "restore_mean_ms": 21.7046798,
+        "stages_ms": {
+          "command_ms": 0.0001362,
+          "simulate_fetch_ms": 4.7422548,
+          "completion_ms": 0.18000985
+        }
+      }
+    },
+    {
+      "scenario": "panel32-cold",
+      "purpose": "Broad thin surface with many in-plane paths.",
+      "group": "structural",
+      "A0": {
+        "n": 20,
+        "mean_ms": 20.9220647,
+        "max_ms": 23.376105,
+        "min_ms": 20.346872,
+        "median_ms": 20.8050315,
+        "sd_ms": 0.645365120485181,
+        "misses_60hz": 20,
+        "first_tick_ms": 23.376105,
+        "context_setup_ms": 434.502455,
+        "restore_mean_ms": 25.57462175,
+        "stages_ms": {
+          "command_ms": 0.00017025,
+          "simulate_fetch_ms": 20.7371606,
+          "completion_ms": 0.18473385
+        }
+      },
+      "representative_work": {
+        "stress_iterations": 492,
+        "broken_bonds": 0,
+        "correction_passes": 0,
+        "stress_passes": 1,
+        "output_clusters": 1,
+        "stress_islands": 1,
+        "stress_active_nodes": 1020,
+        "stress_active_bonds": 1984,
+        "normal_contacts": 0,
+        "friction_anchors": 0
+      },
+      "chunks": 1024,
+      "bonds": 1984,
+      "A1": {
+        "n": 20,
+        "mean_ms": 20.767557,
+        "max_ms": 23.649057,
+        "min_ms": 19.989153,
+        "median_ms": 20.65138,
+        "sd_ms": 0.7571377044232197,
+        "misses_60hz": 20,
+        "first_tick_ms": 23.649057,
+        "context_setup_ms": 451.54543,
+        "restore_mean_ms": 25.6773617,
+        "stages_ms": {
+          "command_ms": 0.00013135,
+          "simulate_fetch_ms": 20.57529725,
+          "completion_ms": 0.1921284
+        }
+      }
+    },
+    {
+      "scenario": "panel32-warm",
+      "purpose": "Broad thin surface with many in-plane paths.",
+      "group": "structural",
+      "A0": {
+        "n": 20,
+        "mean_ms": 20.6599825,
+        "max_ms": 22.700264,
+        "min_ms": 20.096386,
+        "median_ms": 20.495992,
+        "sd_ms": 0.563928634956541,
+        "misses_60hz": 20,
+        "first_tick_ms": 22.700264,
+        "context_setup_ms": 464.992554,
+        "restore_mean_ms": 26.3992277,
+        "stages_ms": {
+          "command_ms": 0.0001753,
+          "simulate_fetch_ms": 20.46910825,
+          "completion_ms": 0.19069895
+        }
+      },
+      "representative_work": {
+        "stress_iterations": 492,
+        "broken_bonds": 0,
+        "correction_passes": 0,
+        "stress_passes": 1,
+        "output_clusters": 1,
+        "stress_islands": 1,
+        "stress_active_nodes": 1020,
+        "stress_active_bonds": 1984,
+        "normal_contacts": 0,
+        "friction_anchors": 0
+      },
+      "chunks": 1024,
+      "bonds": 1984,
+      "A1": {
+        "n": 20,
+        "mean_ms": 21.0935033,
+        "max_ms": 24.582143,
+        "min_ms": 20.121905,
+        "median_ms": 20.996299999999998,
+        "sd_ms": 0.861988945849203,
+        "misses_60hz": 20,
+        "first_tick_ms": 24.582143,
+        "context_setup_ms": 450.285469,
+        "restore_mean_ms": 30.20769465,
+        "stages_ms": {
+          "command_ms": 0.0002101,
+          "simulate_fetch_ms": 20.8982275,
+          "completion_ms": 0.1950657
+        }
+      }
+    },
+    {
+      "scenario": "resting",
+      "purpose": "Resting rigid-body contact/sleep control.",
+      "group": "structural",
+      "A0": {
+        "n": 20,
+        "mean_ms": 1.54290495,
+        "max_ms": 2.808636,
+        "min_ms": 1.232359,
+        "median_ms": 1.4087524999999999,
+        "sd_ms": 0.424711690058026,
+        "misses_60hz": 0,
+        "first_tick_ms": 2.808636,
+        "context_setup_ms": 448.949244,
+        "restore_mean_ms": 7.13165545,
+        "stages_ms": {
+          "command_ms": 0.00012305,
+          "simulate_fetch_ms": 1.5423439,
+          "completion_ms": 0.000438
+        }
+      },
+      "representative_work": {
+        "stress_iterations": 0,
+        "broken_bonds": 0,
+        "correction_passes": 0,
+        "stress_passes": 0,
+        "output_clusters": 0,
+        "stress_islands": 0,
+        "stress_active_nodes": 0,
+        "stress_active_bonds": 0,
+        "normal_contacts": 0,
+        "friction_anchors": 0
+      },
+      "chunks": 0,
+      "bonds": 0,
+      "A1": {
+        "n": 20,
+        "mean_ms": 1.525285,
+        "max_ms": 2.749886,
+        "min_ms": 1.227619,
+        "median_ms": 1.3804210000000001,
+        "sd_ms": 0.394243092387372,
+        "misses_60hz": 0,
+        "first_tick_ms": 2.749886,
+        "context_setup_ms": 402.087256,
+        "restore_mean_ms": 6.34965965,
+        "stages_ms": {
+          "command_ms": 0.0001015,
+          "simulate_fetch_ms": 1.5247331,
+          "completion_ms": 0.0004504
+        }
+      }
+    },
+    {
+      "scenario": "sliding",
+      "purpose": "Frictional rigid-body contact control.",
+      "group": "structural",
+      "A0": {
+        "n": 20,
+        "mean_ms": 2.89247255,
+        "max_ms": 4.245342,
+        "min_ms": 2.227602,
+        "median_ms": 2.7368075000000003,
+        "sd_ms": 0.6361109904102283,
+        "misses_60hz": 0,
+        "first_tick_ms": 4.01395,
+        "context_setup_ms": 452.171291,
+        "restore_mean_ms": 7.097955549999999,
+        "stages_ms": {
+          "command_ms": 0.0001289,
+          "simulate_fetch_ms": 2.89185935,
+          "completion_ms": 0.0004843
+        }
+      },
+      "representative_work": {
+        "stress_iterations": 0,
+        "broken_bonds": 0,
+        "correction_passes": 0,
+        "stress_passes": 0,
+        "output_clusters": 0,
+        "stress_islands": 0,
+        "stress_active_nodes": 0,
+        "stress_active_bonds": 0,
+        "normal_contacts": 0,
+        "friction_anchors": 0
+      },
+      "chunks": 0,
+      "bonds": 0,
+      "A1": {
+        "n": 20,
+        "mean_ms": 2.32037395,
+        "max_ms": 3.556051,
+        "min_ms": 1.7995,
+        "median_ms": 2.229924,
+        "sd_ms": 0.41982246690294106,
+        "misses_60hz": 0,
+        "first_tick_ms": 3.556051,
+        "context_setup_ms": 437.955602,
+        "restore_mean_ms": 7.247406750000001,
+        "stages_ms": {
+          "command_ms": 0.00013035,
+          "simulate_fetch_ms": 2.3197349,
+          "completion_ms": 0.0005087000000000001
+        }
+      }
+    },
+    {
+      "scenario": "tower64-cold",
+      "purpose": "Tall slender structure under gravity and bending.",
+      "group": "structural",
+      "A0": {
+        "n": 20,
+        "mean_ms": 107.8852244,
+        "max_ms": 110.274218,
+        "min_ms": 106.827847,
+        "median_ms": 107.799977,
+        "sd_ms": 0.6864101197637948,
+        "misses_60hz": 20,
+        "first_tick_ms": 110.274218,
+        "context_setup_ms": 411.761923,
+        "restore_mean_ms": 39.07493805,
+        "stages_ms": {
+          "command_ms": 0.00016885,
+          "simulate_fetch_ms": 107.70654805,
+          "completion_ms": 0.17850749999999999
+        }
+      },
+      "representative_work": {
+        "stress_iterations": 137,
+        "broken_bonds": 0,
+        "correction_passes": 0,
+        "stress_passes": 1,
+        "output_clusters": 1,
+        "stress_islands": 1,
+        "stress_active_nodes": 2304,
+        "stress_active_bonds": 4788,
+        "normal_contacts": 0,
+        "friction_anchors": 0
+      },
+      "chunks": 2368,
+      "bonds": 4900,
+      "A1": {
+        "n": 20,
+        "mean_ms": 108.16918295,
+        "max_ms": 111.560704,
+        "min_ms": 106.962494,
+        "median_ms": 107.98311749999999,
+        "sd_ms": 1.1282164189200063,
+        "misses_60hz": 20,
+        "first_tick_ms": 111.560704,
+        "context_setup_ms": 431.169294,
+        "restore_mean_ms": 41.0242641,
+        "stages_ms": {
+          "command_ms": 0.00021565,
+          "simulate_fetch_ms": 107.9907997,
+          "completion_ms": 0.1781676
+        }
+      }
+    },
+    {
+      "scenario": "tower64-warm",
+      "purpose": "Tall slender structure under gravity and bending.",
+      "group": "structural",
+      "A0": {
+        "n": 20,
+        "mean_ms": 108.04222435,
+        "max_ms": 110.602792,
+        "min_ms": 106.921165,
+        "median_ms": 107.89551599999999,
+        "sd_ms": 0.7714775564338766,
+        "misses_60hz": 20,
+        "first_tick_ms": 110.602792,
+        "context_setup_ms": 395.780585,
+        "restore_mean_ms": 38.8263755,
+        "stages_ms": {
+          "command_ms": 0.00017225,
+          "simulate_fetch_ms": 107.8721442,
+          "completion_ms": 0.1699079
+        }
+      },
+      "representative_work": {
+        "stress_iterations": 137,
+        "broken_bonds": 0,
+        "correction_passes": 0,
+        "stress_passes": 1,
+        "output_clusters": 1,
+        "stress_islands": 1,
+        "stress_active_nodes": 2304,
+        "stress_active_bonds": 4788,
+        "normal_contacts": 0,
+        "friction_anchors": 0
+      },
+      "chunks": 2368,
+      "bonds": 4900,
+      "A1": {
+        "n": 20,
+        "mean_ms": 108.57647645,
+        "max_ms": 111.346631,
+        "min_ms": 107.183171,
+        "median_ms": 108.3299195,
+        "sd_ms": 1.1479801781374428,
+        "misses_60hz": 20,
+        "first_tick_ms": 110.731879,
+        "context_setup_ms": 410.817314,
+        "restore_mean_ms": 36.0315014,
+        "stages_ms": {
+          "command_ms": 0.0001771,
+          "simulate_fetch_ms": 108.39119955,
+          "completion_ms": 0.1850998
+        }
+      }
+    },
+    {
+      "scenario": "city25-intact-idle",
+      "purpose": "Pristine supported buildings, no shots: global setup and gravity equilibrium.",
+      "group": "city",
+      "A0": {
+        "n": 20,
+        "mean_ms": 9.6862409,
+        "max_ms": 12.707923,
+        "min_ms": 9.264556,
+        "median_ms": 9.484756,
+        "sd_ms": 0.74269994077398,
+        "misses_60hz": 0,
+        "first_tick_ms": 12.707923,
+        "context_setup_ms": 531.116068,
+        "restore_mean_ms": 59.4541668,
+        "stages_ms": {
+          "command_ms": 0.00011205,
+          "simulate_fetch_ms": 9.51483425,
+          "completion_ms": 0.1712946
+        }
+      },
+      "representative_work": {
+        "stress_iterations": 88,
+        "broken_bonds": 0,
+        "correction_passes": 0,
+        "stress_passes": 1,
+        "output_clusters": 25,
+        "stress_islands": 25,
+        "stress_active_nodes": 9500,
+        "stress_active_bonds": 19600,
+        "normal_contacts": 0,
+        "friction_anchors": 0
+      },
+      "chunks": 11100,
+      "bonds": 22400,
+      "A1": {
+        "n": 20,
+        "mean_ms": 9.78963945,
+        "max_ms": 12.920121,
+        "min_ms": 9.382644,
+        "median_ms": 9.5556635,
+        "sd_ms": 0.7839872546834227,
+        "misses_60hz": 0,
+        "first_tick_ms": 12.920121,
+        "context_setup_ms": 573.266556,
+        "restore_mean_ms": 60.6984246,
+        "stages_ms": {
+          "command_ms": 8.46e-05,
+          "simulate_fetch_ms": 9.5792249,
+          "completion_ms": 0.21032995
+        }
+      }
+    },
+    {
+      "scenario": "city25-airborne",
+      "purpose": "One shot per building approaching the intact city; no authored fractures.",
+      "group": "city",
+      "A0": {
+        "n": 20,
+        "mean_ms": 10.79106755,
+        "max_ms": 16.752976,
+        "min_ms": 8.86448,
+        "median_ms": 10.539571500000001,
+        "sd_ms": 1.4651815261599743,
+        "misses_60hz": 1,
+        "first_tick_ms": 16.752976,
+        "context_setup_ms": 531.095285,
+        "restore_mean_ms": 59.89083115,
+        "stages_ms": {
+          "command_ms": 9.215e-05,
+          "simulate_fetch_ms": 10.6166348,
+          "completion_ms": 0.1743406
+        }
+      },
+      "representative_work": {
+        "stress_iterations": 88,
+        "broken_bonds": 0,
+        "correction_passes": 0,
+        "stress_passes": 1,
+        "output_clusters": 25,
+        "stress_islands": 25,
+        "stress_active_nodes": 9500,
+        "stress_active_bonds": 19600,
+        "normal_contacts": 0,
+        "friction_anchors": 0
+      },
+      "chunks": 11100,
+      "bonds": 22400,
+      "A1": {
+        "n": 20,
+        "mean_ms": 10.7184465,
+        "max_ms": 14.109736,
+        "min_ms": 8.590531,
+        "median_ms": 10.634901,
+        "sd_ms": 0.9547668421679825,
+        "misses_60hz": 0,
+        "first_tick_ms": 14.109736,
+        "context_setup_ms": 576.366174,
+        "restore_mean_ms": 61.50267595,
+        "stages_ms": {
+          "command_ms": 9.28e-05,
+          "simulate_fetch_ms": 10.53618805,
+          "completion_ms": 0.18216565
+        }
+      }
+    },
+    {
+      "scenario": "city25-initial-impact",
+      "purpose": "Historical first impact/peak input; measure actual restored fracture and correction.",
+      "group": "city",
+      "A0": {
+        "n": 20,
+        "mean_ms": 39.53507315,
+        "max_ms": 49.891963,
+        "min_ms": 36.839917,
+        "median_ms": 38.7596845,
+        "sd_ms": 2.70127975011111,
+        "misses_60hz": 20,
+        "first_tick_ms": 49.891963,
+        "context_setup_ms": 577.966777,
+        "restore_mean_ms": 60.34504305,
+        "stages_ms": {
+          "command_ms": 9.19e-05,
+          "simulate_fetch_ms": 39.27961055,
+          "completion_ms": 0.2553707
+        }
+      },
+      "representative_work": {
+        "stress_iterations": 304,
+        "broken_bonds": 3412,
+        "correction_passes": 1,
+        "stress_passes": 2,
+        "output_clusters": 537,
+        "stress_islands": 77,
+        "stress_active_nodes": 9040,
+        "stress_active_bonds": 16188,
+        "normal_contacts": 3931,
+        "friction_anchors": 625
+      },
+      "chunks": 11100,
+      "bonds": 22400,
+      "A1": {
+        "n": 20,
+        "mean_ms": 38.90300945,
+        "max_ms": 47.934617,
+        "min_ms": 36.41012,
+        "median_ms": 37.8838765,
+        "sd_ms": 2.771059132566719,
+        "misses_60hz": 20,
+        "first_tick_ms": 47.934617,
+        "context_setup_ms": 574.923508,
+        "restore_mean_ms": 64.20732455,
+        "stages_ms": {
+          "command_ms": 0.00011070000000000001,
+          "simulate_fetch_ms": 38.6709187,
+          "completion_ms": 0.23198005
+        }
+      }
+    },
+    {
+      "scenario": "city25-post-impact",
+      "purpose": "Immediately after historical first impact: many newly separated owners.",
+      "group": "city",
+      "A0": {
+        "n": 20,
+        "mean_ms": 22.47403505,
+        "max_ms": 29.413356,
+        "min_ms": 21.113725,
+        "median_ms": 21.697539,
+        "sd_ms": 1.9897832413153493,
+        "misses_60hz": 20,
+        "first_tick_ms": 29.413356,
+        "context_setup_ms": 580.106278,
+        "restore_mean_ms": 64.42874379999999,
+        "stages_ms": {
+          "command_ms": 0.00013705,
+          "simulate_fetch_ms": 22.2898681,
+          "completion_ms": 0.1840299
+        }
+      },
+      "representative_work": {
+        "stress_iterations": 332,
+        "broken_bonds": 0,
+        "correction_passes": 0,
+        "stress_passes": 1,
+        "output_clusters": 526,
+        "stress_islands": 53,
+        "stress_active_nodes": 9027,
+        "stress_active_bonds": 16776,
+        "normal_contacts": 4675,
+        "friction_anchors": 1060
+      },
+      "chunks": 11100,
+      "bonds": 22400,
+      "A1": {
+        "n": 20,
+        "mean_ms": 22.42881805,
+        "max_ms": 28.915042,
+        "min_ms": 18.429715,
+        "median_ms": 21.796675,
+        "sd_ms": 2.3803876818753813,
+        "misses_60hz": 20,
+        "first_tick_ms": 28.915042,
+        "context_setup_ms": 603.512157,
+        "restore_mean_ms": 64.9872632,
+        "stages_ms": {
+          "command_ms": 9.135e-05,
+          "simulate_fetch_ms": 22.22082145,
+          "completion_ms": 0.20790524999999999
+        }
+      }
+    },
+    {
+      "scenario": "city25-cascading-fracture",
+      "purpose": "Continuing projectile penetration and cascading fractures.",
+      "group": "city",
+      "A0": {
+        "n": 20,
+        "mean_ms": 39.09737295,
+        "max_ms": 49.896434,
+        "min_ms": 36.245316,
+        "median_ms": 38.130104,
+        "sd_ms": 3.101287638688662,
+        "misses_60hz": 20,
+        "first_tick_ms": 49.896434,
+        "context_setup_ms": 558.553065,
+        "restore_mean_ms": 62.4646574,
+        "stages_ms": {
+          "command_ms": 8.37e-05,
+          "simulate_fetch_ms": 38.9142371,
+          "completion_ms": 0.18305215
+        }
+      },
+      "representative_work": {
+        "stress_iterations": 388,
+        "broken_bonds": 10,
+        "correction_passes": 1,
+        "stress_passes": 2,
+        "output_clusters": 610,
+        "stress_islands": 64,
+        "stress_active_nodes": 8954,
+        "stress_active_bonds": 16476,
+        "normal_contacts": 10900,
+        "friction_anchors": 2028
+      },
+      "chunks": 11100,
+      "bonds": 22400,
+      "A1": {
+        "n": 20,
+        "mean_ms": 40.58063825,
+        "max_ms": 50.606012,
+        "min_ms": 37.71103,
+        "median_ms": 39.9216045,
+        "sd_ms": 2.9000672146518633,
+        "misses_60hz": 20,
+        "first_tick_ms": 50.606012,
+        "context_setup_ms": 579.559587,
+        "restore_mean_ms": 63.29879235,
+        "stages_ms": {
+          "command_ms": 0.0001318,
+          "simulate_fetch_ms": 40.4017485,
+          "completion_ms": 0.17875795
+        }
+      }
+    },
+    {
+      "scenario": "city25-fragmented-loaded",
+      "purpose": "Historical later stress peak with many independent motion clusters.",
+      "group": "city",
+      "A0": {
+        "n": 20,
+        "mean_ms": 52.5684633,
+        "max_ms": 61.314973,
+        "min_ms": 46.271734,
+        "median_ms": 52.630849,
+        "sd_ms": 3.290568074611228,
+        "misses_60hz": 20,
+        "first_tick_ms": 61.314973,
+        "context_setup_ms": 588.532738,
+        "restore_mean_ms": 65.5199592,
+        "stages_ms": {
+          "command_ms": 0.0001483,
+          "simulate_fetch_ms": 52.38860735,
+          "completion_ms": 0.17970765
+        }
+      },
+      "representative_work": {
+        "stress_iterations": 536,
+        "broken_bonds": 100,
+        "correction_passes": 1,
+        "stress_passes": 2,
+        "output_clusters": 1321,
+        "stress_islands": 169,
+        "stress_active_nodes": 8348,
+        "stress_active_bonds": 13645,
+        "normal_contacts": 26560,
+        "friction_anchors": 5092
+      },
+      "chunks": 11100,
+      "bonds": 22400,
+      "A1": {
+        "n": 20,
+        "mean_ms": 51.5028946,
+        "max_ms": 62.744194,
+        "min_ms": 47.5195,
+        "median_ms": 51.344268,
+        "sd_ms": 3.104608755494803,
+        "misses_60hz": 20,
+        "first_tick_ms": 62.744194,
+        "context_setup_ms": 594.280133,
+        "restore_mean_ms": 66.5626369,
+        "stages_ms": {
+          "command_ms": 0.0001322,
+          "simulate_fetch_ms": 51.29139555,
+          "completion_ms": 0.21136685
+        }
+      }
+    },
+    {
+      "scenario": "city25-late-debris",
+      "purpose": "Debris collisions and remaining load paths at three seconds.",
+      "group": "city",
+      "A0": {
+        "n": 20,
+        "mean_ms": 66.8605464,
+        "max_ms": 75.383106,
+        "min_ms": 56.135834,
+        "median_ms": 66.648312,
+        "sd_ms": 3.7849107834170503,
+        "misses_60hz": 20,
+        "first_tick_ms": 75.383106,
+        "context_setup_ms": 587.652932,
+        "restore_mean_ms": 66.81652625,
+        "stages_ms": {
+          "command_ms": 0.00011775,
+          "simulate_fetch_ms": 66.6572984,
+          "completion_ms": 0.20313025
+        }
+      },
+      "representative_work": {
+        "stress_iterations": 676,
+        "broken_bonds": 1424,
+        "correction_passes": 1,
+        "stress_passes": 2,
+        "output_clusters": 2063,
+        "stress_islands": 323,
+        "stress_active_nodes": 7746,
+        "stress_active_bonds": 11825,
+        "normal_contacts": 33694,
+        "friction_anchors": 7643
+      },
+      "chunks": 11100,
+      "bonds": 22400,
+      "A1": {
+        "n": 20,
+        "mean_ms": 69.16357125,
+        "max_ms": 86.900793,
+        "min_ms": 65.367945,
+        "median_ms": 67.4040415,
+        "sd_ms": 4.812550220160581,
+        "misses_60hz": 20,
+        "first_tick_ms": 86.900793,
+        "context_setup_ms": 596.453815,
+        "restore_mean_ms": 70.51960125,
+        "stages_ms": {
+          "command_ms": 0.0001436,
+          "simulate_fetch_ms": 68.924176,
+          "completion_ms": 0.23925165
+        }
+      }
+    },
+    {
+      "scenario": "city25-ten-second-debris",
+      "purpose": "Late post-destruction state near ten seconds; not assumed asleep or fully settled.",
+      "group": "city",
+      "A0": {
+        "n": 20,
+        "mean_ms": 68.77113925,
+        "max_ms": 88.203082,
+        "min_ms": 63.879413,
+        "median_ms": 67.4720605,
+        "sd_ms": 5.492939396060104,
+        "misses_60hz": 20,
+        "first_tick_ms": 88.203082,
+        "context_setup_ms": 587.338573,
+        "restore_mean_ms": 71.5364036,
+        "stages_ms": {
+          "command_ms": 0.00018229999999999999,
+          "simulate_fetch_ms": 68.5553237,
+          "completion_ms": 0.21563325
+        }
+      },
+      "representative_work": {
+        "stress_iterations": 716,
+        "broken_bonds": 184,
+        "correction_passes": 1,
+        "stress_passes": 2,
+        "output_clusters": 1776,
+        "stress_islands": 285,
+        "stress_active_nodes": 8007,
+        "stress_active_bonds": 12556,
+        "normal_contacts": 7349,
+        "friction_anchors": 2317
+      },
+      "chunks": 11100,
+      "bonds": 22400,
+      "A1": {
+        "n": 20,
+        "mean_ms": 62.8159742,
+        "max_ms": 86.305642,
+        "min_ms": 54.681317,
+        "median_ms": 61.5359495,
+        "sd_ms": 6.44907178219117,
+        "misses_60hz": 20,
+        "first_tick_ms": 86.305642,
+        "context_setup_ms": 607.87507,
+        "restore_mean_ms": 66.74108340000001,
+        "stages_ms": {
+          "command_ms": 9.065e-05,
+          "simulate_fetch_ms": 62.6248476,
+          "completion_ms": 0.19103595
+        }
+      }
+    },
+    {
+      "scenario": "city64-intact-idle",
+      "purpose": "Pristine supported buildings, no shots: global setup and gravity equilibrium.",
+      "group": "city",
+      "A0": {
+        "n": 20,
+        "mean_ms": 18.670328950000002,
+        "max_ms": 23.708798,
+        "min_ms": 13.623159,
+        "median_ms": 19.5156385,
+        "sd_ms": 2.5444184326502732,
+        "misses_60hz": 14,
+        "first_tick_ms": 23.708798,
+        "context_setup_ms": 1281.560159,
+        "restore_mean_ms": 152.2797882,
+        "stages_ms": {
+          "command_ms": 0.0001187,
+          "simulate_fetch_ms": 18.4814116,
+          "completion_ms": 0.18879865
+        }
+      },
+      "representative_work": {
+        "stress_iterations": 88,
+        "broken_bonds": 0,
+        "correction_passes": 0,
+        "stress_passes": 1,
+        "output_clusters": 64,
+        "stress_islands": 64,
+        "stress_active_nodes": 24320,
+        "stress_active_bonds": 50176,
+        "normal_contacts": 0,
+        "friction_anchors": 0
+      },
+      "chunks": 28416,
+      "bonds": 57344,
+      "A1": {
+        "n": 20,
+        "mean_ms": 16.19820145,
+        "max_ms": 21.346699,
+        "min_ms": 13.737004,
+        "median_ms": 15.819597000000002,
+        "sd_ms": 2.077208846730035,
+        "misses_60hz": 4,
+        "first_tick_ms": 21.346699,
+        "context_setup_ms": 1286.634726,
+        "restore_mean_ms": 149.9273288,
+        "stages_ms": {
+          "command_ms": 0.0001409,
+          "simulate_fetch_ms": 16.00287685,
+          "completion_ms": 0.19518370000000002
+        }
+      }
+    },
+    {
+      "scenario": "city64-airborne",
+      "purpose": "One shot per building approaching the intact city; no authored fractures.",
+      "group": "city",
+      "A0": {
+        "n": 20,
+        "mean_ms": 18.082692,
+        "max_ms": 23.104911,
+        "min_ms": 15.9489,
+        "median_ms": 17.6327505,
+        "sd_ms": 1.7595496836229672,
+        "misses_60hz": 18,
+        "first_tick_ms": 23.104911,
+        "context_setup_ms": 1271.883851,
+        "restore_mean_ms": 147.4239534,
+        "stages_ms": {
+          "command_ms": 0.0001022,
+          "simulate_fetch_ms": 17.80351715,
+          "completion_ms": 0.27907265
+        }
+      },
+      "representative_work": {
+        "stress_iterations": 88,
+        "broken_bonds": 0,
+        "correction_passes": 0,
+        "stress_passes": 1,
+        "output_clusters": 64,
+        "stress_islands": 64,
+        "stress_active_nodes": 24320,
+        "stress_active_bonds": 50176,
+        "normal_contacts": 0,
+        "friction_anchors": 0
+      },
+      "chunks": 28416,
+      "bonds": 57344,
+      "A1": {
+        "n": 20,
+        "mean_ms": 17.9241145,
+        "max_ms": 24.369188,
+        "min_ms": 16.778949,
+        "median_ms": 17.612648,
+        "sd_ms": 1.5729616669492752,
+        "misses_60hz": 20,
+        "first_tick_ms": 24.369188,
+        "context_setup_ms": 1272.02732,
+        "restore_mean_ms": 147.86758245000001,
+        "stages_ms": {
+          "command_ms": 0.00012905,
+          "simulate_fetch_ms": 17.7191432,
+          "completion_ms": 0.20484225
+        }
+      }
+    },
+    {
+      "scenario": "city64-initial-impact",
+      "purpose": "Historical first impact/peak input; measure actual restored fracture and correction.",
+      "group": "city",
+      "A0": {
+        "n": 20,
+        "mean_ms": 59.5992312,
+        "max_ms": 78.026749,
+        "min_ms": 54.799157,
+        "median_ms": 58.7394025,
+        "sd_ms": 4.661604303826973,
+        "misses_60hz": 20,
+        "first_tick_ms": 78.026749,
+        "context_setup_ms": 1297.127103,
+        "restore_mean_ms": 145.45796405000002,
+        "stages_ms": {
+          "command_ms": 9.08e-05,
+          "simulate_fetch_ms": 59.4144915,
+          "completion_ms": 0.1846489
+        }
+      },
+      "representative_work": {
+        "stress_iterations": 304,
+        "broken_bonds": 8760,
+        "correction_passes": 1,
+        "stress_passes": 2,
+        "output_clusters": 1364,
+        "stress_islands": 196,
+        "stress_active_nodes": 23152,
+        "stress_active_bonds": 41416,
+        "normal_contacts": 11977,
+        "friction_anchors": 2040
+      },
+      "chunks": 28416,
+      "bonds": 57344,
+      "A1": {
+        "n": 20,
+        "mean_ms": 60.787021100000004,
+        "max_ms": 77.637618,
+        "min_ms": 51.369057,
+        "median_ms": 60.470509,
+        "sd_ms": 5.420980784887158,
+        "misses_60hz": 20,
+        "first_tick_ms": 77.637618,
+        "context_setup_ms": 1282.762262,
+        "restore_mean_ms": 146.09140475,
+        "stages_ms": {
+          "command_ms": 0.0001209,
+          "simulate_fetch_ms": 60.5881887,
+          "completion_ms": 0.19871149999999999
+        }
+      }
+    },
+    {
+      "scenario": "city64-post-impact",
+      "purpose": "Immediately after historical first impact: many newly separated owners.",
+      "group": "city",
+      "A0": {
+        "n": 20,
+        "mean_ms": 36.2177469,
+        "max_ms": 48.444095,
+        "min_ms": 28.539705,
+        "median_ms": 35.708618,
+        "sd_ms": 4.446389042449021,
+        "misses_60hz": 20,
+        "first_tick_ms": 48.444095,
+        "context_setup_ms": 1308.206357,
+        "restore_mean_ms": 152.42425375,
+        "stages_ms": {
+          "command_ms": 0.00011475,
+          "simulate_fetch_ms": 36.0095781,
+          "completion_ms": 0.20805405
+        }
+      },
+      "representative_work": {
+        "stress_iterations": 332,
+        "broken_bonds": 0,
+        "correction_passes": 0,
+        "stress_passes": 1,
+        "output_clusters": 1320,
+        "stress_islands": 132,
+        "stress_active_nodes": 23132,
+        "stress_active_bonds": 42929,
+        "normal_contacts": 13100,
+        "friction_anchors": 3027
+      },
+      "chunks": 28416,
+      "bonds": 57344,
+      "A1": {
+        "n": 20,
+        "mean_ms": 36.08270195,
+        "max_ms": 47.023469,
+        "min_ms": 30.060217,
+        "median_ms": 36.1484065,
+        "sd_ms": 3.926804317085163,
+        "misses_60hz": 20,
+        "first_tick_ms": 47.023469,
+        "context_setup_ms": 1299.675039,
+        "restore_mean_ms": 149.21991939999998,
+        "stages_ms": {
+          "command_ms": 0.00014065,
+          "simulate_fetch_ms": 35.87497735,
+          "completion_ms": 0.20758395
+        }
+      }
+    },
+    {
+      "scenario": "city64-cascading-fracture",
+      "purpose": "Continuing projectile penetration and cascading fractures.",
+      "group": "city",
+      "A0": {
+        "n": 20,
+        "mean_ms": 57.0554251,
+        "max_ms": 73.029572,
+        "min_ms": 53.518117,
+        "median_ms": 55.1441835,
+        "sd_ms": 4.597245938851731,
+        "misses_60hz": 20,
+        "first_tick_ms": 73.029572,
+        "context_setup_ms": 1315.108607,
+        "restore_mean_ms": 151.0679225,
+        "stages_ms": {
+          "command_ms": 0.0001519,
+          "simulate_fetch_ms": 56.86962245,
+          "completion_ms": 0.18565075
+        }
+      },
+      "representative_work": {
+        "stress_iterations": 400,
+        "broken_bonds": 13,
+        "correction_passes": 1,
+        "stress_passes": 2,
+        "output_clusters": 1473,
+        "stress_islands": 153,
+        "stress_active_nodes": 23000,
+        "stress_active_bonds": 42266,
+        "normal_contacts": 25861,
+        "friction_anchors": 4942
+      },
+      "chunks": 28416,
+      "bonds": 57344,
+      "A1": {
+        "n": 20,
+        "mean_ms": 55.88309175,
+        "max_ms": 74.085565,
+        "min_ms": 47.500058,
+        "median_ms": 54.3848715,
+        "sd_ms": 6.313523635574577,
+        "misses_60hz": 20,
+        "first_tick_ms": 74.085565,
+        "context_setup_ms": 1251.169121,
+        "restore_mean_ms": 150.04837385,
+        "stages_ms": {
+          "command_ms": 0.00012745,
+          "simulate_fetch_ms": 55.69996705,
+          "completion_ms": 0.18299725
+        }
+      }
+    },
+    {
+      "scenario": "city64-fragmented-loaded",
+      "purpose": "Historical later stress peak with many independent motion clusters.",
+      "group": "city",
+      "A0": {
+        "n": 20,
+        "mean_ms": 88.7259488,
+        "max_ms": 112.848841,
+        "min_ms": 77.903294,
+        "median_ms": 87.129583,
+        "sd_ms": 7.3249092011697385,
+        "misses_60hz": 20,
+        "first_tick_ms": 112.848841,
+        "context_setup_ms": 1304.209051,
+        "restore_mean_ms": 158.1862237,
+        "stages_ms": {
+          "command_ms": 0.0001847,
+          "simulate_fetch_ms": 88.53313085,
+          "completion_ms": 0.19263325
+        }
+      },
+      "representative_work": {
+        "stress_iterations": 644,
+        "broken_bonds": 425,
+        "correction_passes": 1,
+        "stress_passes": 2,
+        "output_clusters": 3144,
+        "stress_islands": 481,
+        "stress_active_nodes": 21657,
+        "stress_active_bonds": 35407,
+        "normal_contacts": 68873,
+        "friction_anchors": 12553
+      },
+      "chunks": 28416,
+      "bonds": 57344,
+      "A1": {
+        "n": 20,
+        "mean_ms": 86.78874225,
+        "max_ms": 102.250294,
+        "min_ms": 81.56579,
+        "median_ms": 85.757104,
+        "sd_ms": 4.1834766297182435,
+        "misses_60hz": 20,
+        "first_tick_ms": 102.250294,
+        "context_setup_ms": 1260.651365,
+        "restore_mean_ms": 154.35655815,
+        "stages_ms": {
+          "command_ms": 0.00011045,
+          "simulate_fetch_ms": 86.6144291,
+          "completion_ms": 0.1742027
+        }
+      }
+    },
+    {
+      "scenario": "city64-late-debris",
+      "purpose": "Debris collisions and remaining load paths at three seconds.",
+      "group": "city",
+      "A0": {
+        "n": 20,
+        "mean_ms": 130.3947537,
+        "max_ms": 150.87172,
+        "min_ms": 119.858919,
+        "median_ms": 130.0735355,
+        "sd_ms": 7.084336815123637,
+        "misses_60hz": 20,
+        "first_tick_ms": 150.87172,
+        "context_setup_ms": 1294.577911,
+        "restore_mean_ms": 171.52003715,
+        "stages_ms": {
+          "command_ms": 0.00019545,
+          "simulate_fetch_ms": 130.1497028,
+          "completion_ms": 0.24485545
+        }
+      },
+      "representative_work": {
+        "stress_iterations": 948,
+        "broken_bonds": 2768,
+        "correction_passes": 1,
+        "stress_passes": 2,
+        "output_clusters": 5130,
+        "stress_islands": 772,
+        "stress_active_nodes": 19955,
+        "stress_active_bonds": 30912,
+        "normal_contacts": 94508,
+        "friction_anchors": 23594
+      },
+      "chunks": 28416,
+      "bonds": 57344,
+      "A1": {
+        "n": 20,
+        "mean_ms": 123.42593,
+        "max_ms": 154.962436,
+        "min_ms": 115.638869,
+        "median_ms": 121.27781250000001,
+        "sd_ms": 8.94998193272475,
+        "misses_60hz": 20,
+        "first_tick_ms": 154.962436,
+        "context_setup_ms": 1279.924915,
+        "restore_mean_ms": 159.93136375,
+        "stages_ms": {
+          "command_ms": 0.00017185,
+          "simulate_fetch_ms": 123.2140332,
+          "completion_ms": 0.21172495
+        }
+      }
+    },
+    {
+      "scenario": "city64-ten-second-debris",
+      "purpose": "Late post-destruction state near ten seconds; not assumed asleep or fully settled.",
+      "group": "city",
+      "A0": {
+        "n": 20,
+        "mean_ms": 100.94496895,
+        "max_ms": 136.854479,
+        "min_ms": 87.320122,
+        "median_ms": 98.150756,
+        "sd_ms": 10.136897212424538,
+        "misses_60hz": 20,
+        "first_tick_ms": 136.854479,
+        "context_setup_ms": 1249.776378,
+        "restore_mean_ms": 164.5845836,
+        "stages_ms": {
+          "command_ms": 0.00016055,
+          "simulate_fetch_ms": 100.71264504999999,
+          "completion_ms": 0.23216335
+        }
+      },
+      "representative_work": {
+        "stress_iterations": 736,
+        "broken_bonds": 202,
+        "correction_passes": 1,
+        "stress_passes": 2,
+        "output_clusters": 4705,
+        "stress_islands": 823,
+        "stress_active_nodes": 20435,
+        "stress_active_bonds": 31870,
+        "normal_contacts": 17730,
+        "friction_anchors": 5190
+      },
+      "chunks": 28416,
+      "bonds": 57344,
+      "A1": {
+        "n": 20,
+        "mean_ms": 100.04164475,
+        "max_ms": 140.173119,
+        "min_ms": 80.931097,
+        "median_ms": 96.911109,
+        "sd_ms": 12.172861868168889,
+        "misses_60hz": 20,
+        "first_tick_ms": 140.173119,
+        "context_setup_ms": 1257.453463,
+        "restore_mean_ms": 165.07681929999998,
+        "stages_ms": {
+          "command_ms": 0.00012445,
+          "simulate_fetch_ms": 99.81726015,
+          "completion_ms": 0.22426015
+        }
+      }
+    },
+    {
+      "scenario": "city256-intact-idle",
+      "purpose": "Pristine supported buildings, no shots: global setup and gravity equilibrium.",
+      "group": "city",
+      "A0": {
+        "n": 20,
+        "mean_ms": 60.71109885,
+        "max_ms": 76.775871,
+        "min_ms": 48.987585,
+        "median_ms": 59.664848,
+        "sd_ms": 5.4616602120236015,
+        "misses_60hz": 20,
+        "first_tick_ms": 76.775871,
+        "context_setup_ms": 1798.626806,
+        "restore_mean_ms": 444.48388655,
+        "stages_ms": {
+          "command_ms": 0.0001387,
+          "simulate_fetch_ms": 60.4517425,
+          "completion_ms": 0.25921765
+        }
+      },
+      "representative_work": {
+        "stress_iterations": 88,
+        "broken_bonds": 0,
+        "correction_passes": 0,
+        "stress_passes": 1,
+        "output_clusters": 256,
+        "stress_islands": 256,
+        "stress_active_nodes": 97280,
+        "stress_active_bonds": 200704,
+        "normal_contacts": 0,
+        "friction_anchors": 0
+      },
+      "chunks": 113664,
+      "bonds": 229376,
+      "A1": {
+        "n": 20,
+        "mean_ms": 60.8262096,
+        "max_ms": 81.674489,
+        "min_ms": 47.384776,
+        "median_ms": 60.454617,
+        "sd_ms": 7.016325012586194,
+        "misses_60hz": 20,
+        "first_tick_ms": 81.674489,
+        "context_setup_ms": 1766.259807,
+        "restore_mean_ms": 428.6314405,
+        "stages_ms": {
+          "command_ms": 0.00019355,
+          "simulate_fetch_ms": 60.58517045,
+          "completion_ms": 0.2408456
+        }
+      }
+    },
+    {
+      "scenario": "city256-airborne",
+      "purpose": "One shot per building approaching the intact city; no authored fractures.",
+      "group": "city",
+      "A0": {
+        "n": 20,
+        "mean_ms": 65.41685125,
+        "max_ms": 82.020996,
+        "min_ms": 56.744057,
+        "median_ms": 63.8102585,
+        "sd_ms": 5.7552493214055405,
+        "misses_60hz": 20,
+        "first_tick_ms": 71.642478,
+        "context_setup_ms": 1743.851669,
+        "restore_mean_ms": 436.9395594,
+        "stages_ms": {
+          "command_ms": 0.00012585,
+          "simulate_fetch_ms": 65.1898546,
+          "completion_ms": 0.2268708
+        }
+      },
+      "representative_work": {
+        "stress_iterations": 88,
+        "broken_bonds": 0,
+        "correction_passes": 0,
+        "stress_passes": 1,
+        "output_clusters": 256,
+        "stress_islands": 256,
+        "stress_active_nodes": 97280,
+        "stress_active_bonds": 200704,
+        "normal_contacts": 0,
+        "friction_anchors": 0
+      },
+      "chunks": 113664,
+      "bonds": 229376,
+      "A1": {
+        "n": 20,
+        "mean_ms": 65.46916725,
+        "max_ms": 78.017961,
+        "min_ms": 57.958177,
+        "median_ms": 63.986380999999994,
+        "sd_ms": 5.579864680228251,
+        "misses_60hz": 20,
+        "first_tick_ms": 69.384256,
+        "context_setup_ms": 1726.158575,
+        "restore_mean_ms": 428.039572,
+        "stages_ms": {
+          "command_ms": 0.0001575,
+          "simulate_fetch_ms": 65.1567174,
+          "completion_ms": 0.31229235
+        }
+      }
+    },
+    {
+      "scenario": "city256-initial-impact",
+      "purpose": "Historical first impact/peak input; measure actual restored fracture and correction.",
+      "group": "city",
+      "A0": {
+        "n": 20,
+        "mean_ms": 222.70324535,
+        "max_ms": 234.849371,
+        "min_ms": 200.066772,
+        "median_ms": 223.4118155,
+        "sd_ms": 9.510813994704373,
+        "misses_60hz": 20,
+        "first_tick_ms": 230.535078,
+        "context_setup_ms": 1710.040453,
+        "restore_mean_ms": 431.98593925,
+        "stages_ms": {
+          "command_ms": 0.00012495,
+          "simulate_fetch_ms": 222.4687109,
+          "completion_ms": 0.2344095
+        }
+      },
+      "representative_work": {
+        "stress_iterations": 312,
+        "broken_bonds": 34802,
+        "correction_passes": 1,
+        "stress_passes": 2,
+        "output_clusters": 5417,
+        "stress_islands": 776,
+        "stress_active_nodes": 92639,
+        "stress_active_bonds": 165902,
+        "normal_contacts": 42625,
+        "friction_anchors": 6310
+      },
+      "chunks": 113664,
+      "bonds": 229376,
+      "A1": {
+        "n": 20,
+        "mean_ms": 212.54894075,
+        "max_ms": 248.62941,
+        "min_ms": 184.473224,
+        "median_ms": 209.42597849999999,
+        "sd_ms": 16.71089662841862,
+        "misses_60hz": 20,
+        "first_tick_ms": 236.11932,
+        "context_setup_ms": 1754.665599,
+        "restore_mean_ms": 431.22898680000003,
+        "stages_ms": {
+          "command_ms": 0.0001301,
+          "simulate_fetch_ms": 212.3359156,
+          "completion_ms": 0.21289505
+        }
+      }
+    },
+    {
+      "scenario": "city256-post-impact",
+      "purpose": "Immediately after historical first impact: many newly separated owners.",
+      "group": "city",
+      "A0": {
+        "n": 20,
+        "mean_ms": 125.79716385,
+        "max_ms": 185.274465,
+        "min_ms": 101.988315,
+        "median_ms": 122.5264455,
+        "sd_ms": 18.230084342647515,
+        "misses_60hz": 20,
+        "first_tick_ms": 185.274465,
+        "context_setup_ms": 1789.035514,
+        "restore_mean_ms": 481.5639398,
+        "stages_ms": {
+          "command_ms": 0.00015975,
+          "simulate_fetch_ms": 125.58256955,
+          "completion_ms": 0.21443455
+        }
+      },
+      "representative_work": {
+        "stress_iterations": 332,
+        "broken_bonds": 0,
+        "correction_passes": 0,
+        "stress_passes": 1,
+        "output_clusters": 5204,
+        "stress_islands": 520,
+        "stress_active_nodes": 92596,
+        "stress_active_bonds": 172108,
+        "normal_contacts": 49093,
+        "friction_anchors": 11093
+      },
+      "chunks": 113664,
+      "bonds": 229376,
+      "A1": {
+        "n": 20,
+        "mean_ms": 134.58128715,
+        "max_ms": 174.291801,
+        "min_ms": 110.520847,
+        "median_ms": 133.695593,
+        "sd_ms": 13.884062785913557,
+        "misses_60hz": 20,
+        "first_tick_ms": 174.291801,
+        "context_setup_ms": 1734.497228,
+        "restore_mean_ms": 479.65945655,
+        "stages_ms": {
+          "command_ms": 0.00021885,
+          "simulate_fetch_ms": 134.35565855,
+          "completion_ms": 0.22540975
+        }
+      }
+    },
+    {
+      "scenario": "city256-cascading-fracture",
+      "purpose": "Continuing projectile penetration and cascading fractures.",
+      "group": "city",
+      "A0": {
+        "n": 20,
+        "mean_ms": 192.70420025,
+        "max_ms": 217.039308,
+        "min_ms": 167.663988,
+        "median_ms": 193.96682700000002,
+        "sd_ms": 12.294086492269058,
+        "misses_60hz": 20,
+        "first_tick_ms": 207.015866,
+        "context_setup_ms": 1802.999346,
+        "restore_mean_ms": 476.247304,
+        "stages_ms": {
+          "command_ms": 0.00015395,
+          "simulate_fetch_ms": 192.46007325,
+          "completion_ms": 0.24397305
+        }
+      },
+      "representative_work": {
+        "stress_iterations": 416,
+        "broken_bonds": 25,
+        "correction_passes": 1,
+        "stress_passes": 2,
+        "output_clusters": 5852,
+        "stress_islands": 627,
+        "stress_active_nodes": 92055,
+        "stress_active_bonds": 169616,
+        "normal_contacts": 105527,
+        "friction_anchors": 20206
+      },
+      "chunks": 113664,
+      "bonds": 229376,
+      "A1": {
+        "n": 20,
+        "mean_ms": 190.31165555,
+        "max_ms": 223.96145,
+        "min_ms": 157.557516,
+        "median_ms": 191.213297,
+        "sd_ms": 14.044518511344338,
+        "misses_60hz": 20,
+        "first_tick_ms": 223.96145,
+        "context_setup_ms": 1724.533048,
+        "restore_mean_ms": 468.95993004999997,
+        "stages_ms": {
+          "command_ms": 0.00019875,
+          "simulate_fetch_ms": 190.08729,
+          "completion_ms": 0.2241668
+        }
+      }
+    },
+    {
+      "scenario": "city256-fragmented-loaded",
+      "purpose": "Historical later stress peak with many independent motion clusters.",
+      "group": "city",
+      "A0": {
+        "n": 20,
+        "mean_ms": 270.83063945,
+        "max_ms": 322.839738,
+        "min_ms": 225.182725,
+        "median_ms": 267.982746,
+        "sd_ms": 23.84724672758131,
+        "misses_60hz": 20,
+        "first_tick_ms": 322.839738,
+        "context_setup_ms": 1774.508474,
+        "restore_mean_ms": 491.72297415,
+        "stages_ms": {
+          "command_ms": 0.0001728,
+          "simulate_fetch_ms": 270.6254162,
+          "completion_ms": 0.20505045
+        }
+      },
+      "representative_work": {
+        "stress_iterations": 604,
+        "broken_bonds": 1229,
+        "correction_passes": 1,
+        "stress_passes": 2,
+        "output_clusters": 11382,
+        "stress_islands": 1857,
+        "stress_active_nodes": 87755,
+        "stress_active_bonds": 146435,
+        "normal_contacts": 241561,
+        "friction_anchors": 46983
+      },
+      "chunks": 113664,
+      "bonds": 229376,
+      "A1": {
+        "n": 20,
+        "mean_ms": 272.2395134,
+        "max_ms": 315.134254,
+        "min_ms": 230.918776,
+        "median_ms": 274.2407185,
+        "sd_ms": 19.616475214888005,
+        "misses_60hz": 20,
+        "first_tick_ms": 315.134254,
+        "context_setup_ms": 1754.891159,
+        "restore_mean_ms": 499.7657727,
+        "stages_ms": {
+          "command_ms": 0.00013535,
+          "simulate_fetch_ms": 272.0057862,
+          "completion_ms": 0.23359185
+        }
+      }
+    },
+    {
+      "scenario": "city256-late-debris",
+      "purpose": "Debris collisions and remaining load paths at three seconds.",
+      "group": "city",
+      "A0": {
+        "n": 20,
+        "mean_ms": 350.88511355,
+        "max_ms": 407.887256,
+        "min_ms": 317.079173,
+        "median_ms": 346.05454899999995,
+        "sd_ms": 25.150908604583385,
+        "misses_60hz": 20,
+        "first_tick_ms": 407.887256,
+        "context_setup_ms": 1790.21073,
+        "restore_mean_ms": 505.15577735,
+        "stages_ms": {
+          "command_ms": 0.00013835,
+          "simulate_fetch_ms": 350.6662604,
+          "completion_ms": 0.2187148
+        }
+      },
+      "representative_work": {
+        "stress_iterations": 1084,
+        "broken_bonds": 11051,
+        "correction_passes": 1,
+        "stress_passes": 2,
+        "output_clusters": 16135,
+        "stress_islands": 2762,
+        "stress_active_nodes": 83885,
+        "stress_active_bonds": 133656,
+        "normal_contacts": 267054,
+        "friction_anchors": 61120
+      },
+      "chunks": 113664,
+      "bonds": 229376,
+      "A1": {
+        "n": 20,
+        "mean_ms": 334.403421,
+        "max_ms": 401.87741,
+        "min_ms": 257.765099,
+        "median_ms": 336.02651849999995,
+        "sd_ms": 28.544346670579532,
+        "misses_60hz": 20,
+        "first_tick_ms": 401.87741,
+        "context_setup_ms": 1738.894651,
+        "restore_mean_ms": 486.9302787,
+        "stages_ms": {
+          "command_ms": 0.0001714,
+          "simulate_fetch_ms": 334.15993375,
+          "completion_ms": 0.24331585
+        }
+      }
+    },
+    {
+      "scenario": "city256-ten-second-debris",
+      "purpose": "Late post-destruction state near ten seconds; not assumed asleep or fully settled.",
+      "group": "city",
+      "A0": {
+        "n": 20,
+        "mean_ms": 258.20044985,
+        "max_ms": 336.654086,
+        "min_ms": 230.907292,
+        "median_ms": 252.087643,
+        "sd_ms": 26.90136695560676,
+        "misses_60hz": 20,
+        "first_tick_ms": 336.654086,
+        "context_setup_ms": 1834.984796,
+        "restore_mean_ms": 516.90996385,
+        "stages_ms": {
+          "command_ms": 0.000173,
+          "simulate_fetch_ms": 257.954367,
+          "completion_ms": 0.24590985
+        }
+      },
+      "representative_work": {
+        "stress_iterations": 676,
+        "broken_bonds": 819,
+        "correction_passes": 1,
+        "stress_passes": 2,
+        "output_clusters": 15187,
+        "stress_islands": 3035,
+        "stress_active_nodes": 85126,
+        "stress_active_bonds": 137219,
+        "normal_contacts": 31798,
+        "friction_anchors": 8627
+      },
+      "chunks": 113664,
+      "bonds": 229376,
+      "A1": {
+        "n": 20,
+        "mean_ms": 240.9512317,
+        "max_ms": 334.353302,
+        "min_ms": 202.313695,
+        "median_ms": 228.0146045,
+        "sd_ms": 34.34431117175089,
+        "misses_60hz": 20,
+        "first_tick_ms": 334.353302,
+        "context_setup_ms": 1754.661509,
+        "restore_mean_ms": 499.3657862,
+        "stages_ms": {
+          "command_ms": 0.0002124,
+          "simulate_fetch_ms": 240.72891125,
+          "completion_ms": 0.22210805
+        }
+      }
+    }
+  ],
+  "total_samples": 2080,
+  "misses_60hz": 1097,
+  "means_over_60hz": 28,
+  "sources": [
+    {
+      "scenario": "bridge64-cold",
+      "arm": "A0",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/bridge64-cold-A0/replay.json",
+      "sha256": "133889cee35f7f34fe8929c8f77b7b7439645cda95a4d5986c6a40aa9001ef2d",
+      "receipt_sha256": "c82810c5686bb2b136d99022bc1aad1c0ba472c2c9cc81c3eac4132bf0071148",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "bridge64-cold",
+      "arm": "A1",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/bridge64-cold-A1/replay.json",
+      "sha256": "3ca5fb13aacf5a661d83030a5fdc3a84dc3f477b92a3ffe20d5223303d0f54f8",
+      "receipt_sha256": "8222a00f700f41f2b6144ab30521d71298a44ff67c7f0f1a5ea29a7b8d2aaa77",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "bridge64-warm",
+      "arm": "A0",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/bridge64-warm-A0/replay.json",
+      "sha256": "11b7bc8ede7fbfb3f3268c924b45990e388e8d3025a3472127f45ab5f9a9cde1",
+      "receipt_sha256": "94ee99e8e73df11e29c66c024e9ba851e979897c946bcd49a84a2d4a53a84135",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "bridge64-warm",
+      "arm": "A1",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/bridge64-warm-A1/replay.json",
+      "sha256": "cfcd2f1a8fb9609d6b4c86cb2a63a3b7457096c90fa68af2a2fbb4c8b3e1e993",
+      "receipt_sha256": "84cac5ee889260844987484bd44e9ad68464faa331e675335bbd8eb8eb726c7d",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "building-cold",
+      "arm": "A0",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/building-cold-A0/replay.json",
+      "sha256": "a6bb99ee70eb970c0aa42a6b15c07a1a50a9522d6cb0d1d1c1dd688822abf3c8",
+      "receipt_sha256": "01c0e5cb3145e1121606435bc2430b5c3943b7794b0a17f6d3b1690bda74d8d0",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "building-cold",
+      "arm": "A1",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/building-cold-A1/replay.json",
+      "sha256": "03a40b8d87ec7d847c2be63cc725f129ef9fce7988a6709fac85b0ae789a4bce",
+      "receipt_sha256": "3183ec27d23c85b1f1ce8bda86f686114259fd08ed313c314e95a6ba8482feae",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "building-fragmented",
+      "arm": "A0",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/building-fragmented-A0/replay.json",
+      "sha256": "8e3f705847b489ff014f2a431dcb364153292411d00b0f401e88b714ef817a1c",
+      "receipt_sha256": "58abf49a9599606885c98e38f2004e53b4cc21462527205de7e30eb8e5516cca",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "building-fragmented",
+      "arm": "A1",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/building-fragmented-A1/replay.json",
+      "sha256": "71e8eefb1e1040f099a1a41f65ebb29d4104a95280cde7093342e9fb50cd05f3",
+      "receipt_sha256": "08a71d640a008ca592d8847ca254d57fac310ae32e04f68f1847a38664ddb268",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "building-warm",
+      "arm": "A0",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/building-warm-A0/replay.json",
+      "sha256": "9f6065e32833d8d475e41729c1cf8e56590c4a5bfa3a695726903d1d78e81ed5",
+      "receipt_sha256": "f94cb99e21647cf0034447a1324de4389504b19b1d31e3d7f880b38d70ff9a6e",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "building-warm",
+      "arm": "A1",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/building-warm-A1/replay.json",
+      "sha256": "e7ed4c6af74b720601f0537c1ab808b14c61ffb9d78230ae12b5ff009c35d35c",
+      "receipt_sha256": "6fac8ad18070b18628d1b6e354b855c219475068111b4d05c1871fca6c00fe73",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "cantilever64-cold",
+      "arm": "A0",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/cantilever64-cold-A0/replay.json",
+      "sha256": "9a076a97bcdb78d36201b47f07d4ffb279a1bbc4b0b83c7278c8c94bd43724eb",
+      "receipt_sha256": "51abfed01669161dbe1167b7d63bf8410f35c835585e73dedd7dd07fc73c255e",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "cantilever64-cold",
+      "arm": "A1",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/cantilever64-cold-A1/replay.json",
+      "sha256": "4fbe752d74f057a95ed0ca0ce28362fdd9bc2dc738e6df817e7f638b11b8bc9e",
+      "receipt_sha256": "32e6cca49a02ca3d676ef52d394431abc40deba918fe8470ae8b1ea6363952fc",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "cantilever64-warm",
+      "arm": "A0",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/cantilever64-warm-A0/replay.json",
+      "sha256": "b696de73d5d83beb00983833268f587a440a4205dc83da537727a7ce21194667",
+      "receipt_sha256": "c0fe41d403f86767a7aad12bfdc803ba02d215bcb8b9afc7e481f601c84e0e8b",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "cantilever64-warm",
+      "arm": "A1",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/cantilever64-warm-A1/replay.json",
+      "sha256": "bcf378ffa3fe2d4fd106d7e3c60eefbf5296458255c67cbcfd9dbc2cd7242bb6",
+      "receipt_sha256": "40717d98020d21ede5586c113d298d067f002522dfa0949e9bce2469f9c37332",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "chain256-cold",
+      "arm": "A0",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/chain256-cold-A0/replay.json",
+      "sha256": "339a2b300a0e224d6593a1dd74914530e57a70a144a8600c65518c175ddd4db3",
+      "receipt_sha256": "9b7dda9d9a514717d69ab5ed897cf28a24576a2e8d666c77f03ad4438db1977f",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "chain256-cold",
+      "arm": "A1",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/chain256-cold-A1/replay.json",
+      "sha256": "b5c2a17b16fb6ed3a35ab519bfaba9612e5f205f2d6a40be039499ce595bbede",
+      "receipt_sha256": "ee3389b132ad7cf8e4b49dda7842f8a5da059f94c7a6b867872540031cb687ef",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "chain256-warm",
+      "arm": "A0",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/chain256-warm-A0/replay.json",
+      "sha256": "fa4c91eebc398ade73278a770fcd474bdd515242a67336f7f49b72033ff8109e",
+      "receipt_sha256": "2e8216058813ff66278b0eb35cae96c78c30481f764e9e70d96c39b18736d35e",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "chain256-warm",
+      "arm": "A1",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/chain256-warm-A1/replay.json",
+      "sha256": "a03dd52489d59d45207ffedaf1b00f274e51c6cb9892fe6a2aeaafab8f0df337",
+      "receipt_sha256": "c79a3cefe9294f6cc4dd809823b8b95ff64aaf857d7d0aa9c423c4655d5bd450",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "chain32-cold",
+      "arm": "A0",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/chain32-cold-A0/replay.json",
+      "sha256": "92589278465f4d0cbf555adbf4daac70946e42f41097893c910d30c67e646405",
+      "receipt_sha256": "f5040df8d6c2bcbe4313920effbea94c900aeb3ef2da628bf3eafc5af2be8e6d",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "chain32-cold",
+      "arm": "A1",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/chain32-cold-A1/replay.json",
+      "sha256": "857e4787d079c094936db5fa4792bb9aa978df68fe4088276d5ce8312ef414e6",
+      "receipt_sha256": "ccaebaab28df4d49a307406e817110180cc739e663ec660ae7ef01f546476566",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "chain32-warm",
+      "arm": "A0",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/chain32-warm-A0/replay.json",
+      "sha256": "2b52e0972fc42331f6d2c261b91930944c491c20a5405ff450b10b4715c48e66",
+      "receipt_sha256": "b51a56852f6b53e58346d57d2542dbe27a8e4c52d2b7d065e0214b49a29612cf",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "chain32-warm",
+      "arm": "A1",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/chain32-warm-A1/replay.json",
+      "sha256": "ccabce02b968d687f04aefc08ab53459cab697431181928202eaf9184187599d",
+      "receipt_sha256": "6ef40dd15b6f0f8b3303f2526e78cfbeb0963632474ff56d6d9760092c7638df",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "dense12-cold",
+      "arm": "A0",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/dense12-cold-A0/replay.json",
+      "sha256": "f98fea153be1422d367d09da706c6077dc47e11cd37c705f4cbe113b8c318a0c",
+      "receipt_sha256": "b03ade64a15473c4bd0d48b5f6d6aa9d3c7d09c155cf5436fde8b3d5c26e84d4",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "dense12-cold",
+      "arm": "A1",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/dense12-cold-A1/replay.json",
+      "sha256": "0a16529271863e63fd26fe09f41868f472ff933ed387d512168a5c5d2bfe60a6",
+      "receipt_sha256": "e7acb564a4cb867cd4bdbfc6ec3edd9c78c0e9e065a878bdb0913b13e09c5b97",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "dense12-warm",
+      "arm": "A0",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/dense12-warm-A0/replay.json",
+      "sha256": "3defd1020b2485e4f1aa3f6f2283c2d36e8693edeeb90b479baccb50c01b5b9e",
+      "receipt_sha256": "b05c1c3c0d2e2b6807f4ee5115fd94152053e31572225f9324b7d29bce595790",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "dense12-warm",
+      "arm": "A1",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/dense12-warm-A1/replay.json",
+      "sha256": "a0240e0169b3e5874f6b0155a9cfc6f0117e0f2c732891aa01350e06bf7fff48",
+      "receipt_sha256": "aba506ba3927b3ff631b2ff3e8220427e3f70aef4ff480a04a5ad0b57b0b172e",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "destruction-cold",
+      "arm": "A0",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/destruction-cold-A0/replay.json",
+      "sha256": "f54ed47f68313684c5f3e318365d76183e4314824088c8d9da961ae6a25ae645",
+      "receipt_sha256": "ba9b4050321cf81d78b74fb91a08b178686197e789e8945eb64d6f68a6a4976f",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "destruction-cold",
+      "arm": "A1",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/destruction-cold-A1/replay.json",
+      "sha256": "a2960a0e71269d4320409ced1b82d7612ef9bff895fa1dd8ea443490640bb147",
+      "receipt_sha256": "1473c41935c18bebecbb8c16b5a4e7acda746b519980be33631b8f150cf528ce",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "destruction-damaged",
+      "arm": "A0",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/destruction-damaged-A0/replay.json",
+      "sha256": "9b165093af29be237dbccab35102b3bfd3706ece64e18ce96453927224738cc7",
+      "receipt_sha256": "2fb412132652398c39bf925e0600f49a971222a3d25dfda135544079b803f7c7",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "destruction-damaged",
+      "arm": "A1",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/destruction-damaged-A1/replay.json",
+      "sha256": "0ffe84d16f8d202f753ab17ff0978a68b9414727ca7b75745b88d255eee9494d",
+      "receipt_sha256": "e07d36e0d43aa66b788c483f05a4ec7b97d004c1cc52090b9cc6f5da527dcd8b",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "destruction-fractured",
+      "arm": "A0",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/destruction-fractured-A0/replay.json",
+      "sha256": "f541fecfeb3ba44997f70ff966796982f3f0ae5d9a4aee8737d72e1eed7e1796",
+      "receipt_sha256": "26ca1da159a9b746de0c1787505b2a71d45516175749f9f5dc522c4e6371b531",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "destruction-fractured",
+      "arm": "A1",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/destruction-fractured-A1/replay.json",
+      "sha256": "b4ae8b13f00b1111c5db6e53ccb461e820c80b8f903c6718ca8fcee7fcb7001a",
+      "receipt_sha256": "21f195a8ebcf8df51ec63f6d14dc8d1d75e1cc6be0426150e1071a2f900c251b",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "destruction-intact",
+      "arm": "A0",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/destruction-intact-A0/replay.json",
+      "sha256": "5be92d2cbb0536fca6977fe2b0fe68d69bd965e69041f0047898bb5612c771d8",
+      "receipt_sha256": "2fcbec404f8bf46e3dd19a8318d021a5cb6f14a7619751ba529033adad214656",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "destruction-intact",
+      "arm": "A1",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/destruction-intact-A1/replay.json",
+      "sha256": "de637508291e8127fdc3f431591d705e50a1a69184b5156b60d2ac96f56f2aad",
+      "receipt_sha256": "4a14cbdccb1ab516e9f7675ba073676283d2453ce135ec0a46f00a1c07ed8bbb",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "destruction-onset",
+      "arm": "A0",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/destruction-onset-A0/replay.json",
+      "sha256": "6f138e403d2c33c473bd32dfc7bf6d6d082fa4eac41c91d4a7d640d371443cfe",
+      "receipt_sha256": "ee31c21af765c3211e0642a6f724dca4f7ef4dbba67441d786898f035f3bed07",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "destruction-onset",
+      "arm": "A1",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/destruction-onset-A1/replay.json",
+      "sha256": "f9d99cca5772f13534e0f73b0bcaf6f308f9392ec54be1fb1768673e8d608f84",
+      "receipt_sha256": "63e6f53f23082f24b7ea2cf45979c76f176aaf6f8f1d1d3866328a0ec722cfd1",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "destruction-stimulus",
+      "arm": "A0",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/destruction-stimulus-A0/replay.json",
+      "sha256": "f848e48a3051bb4a5ca2397febec28f20f0b5f8257a63704e70006ac66213bcd",
+      "receipt_sha256": "4f7ba4adfa12e64bfddfb137f268cd366e64c9f0b88d3006e913ee58cc9afc05",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "destruction-stimulus",
+      "arm": "A1",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/destruction-stimulus-A1/replay.json",
+      "sha256": "4b6b04ad86906d948babaf1b25c9baa8ab673fb9483cea9c5ec3382be8f67105",
+      "receipt_sha256": "9853e7a088874eaaf8d4246c2277881157e1f788226830a72b18c113b66e6d8b",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "flying",
+      "arm": "A0",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/flying-A0/replay.json",
+      "sha256": "f302ead04c65e455d6a4fc1ccb6f53c8f2bb8a4c74b5eeedc9bff9aa8249f73e",
+      "receipt_sha256": "2361f71bf4b9b2988d01cc864b1cfca6154bbe00514188b5e836febf4d24f4d5",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "flying",
+      "arm": "A1",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/flying-A1/replay.json",
+      "sha256": "10318cc9cca1fc8486a19193f121e5860505278299b94d28eb300ffcddd13ed9",
+      "receipt_sha256": "925e1bb2153c71255754367582751bdf132e34ab6b9327de2b5fa1dda05a1e61",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "ladder128-cold",
+      "arm": "A0",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/ladder128-cold-A0/replay.json",
+      "sha256": "cce139d7289a1b76d14de31fe8d2cc5ee52231382aa393a3518715ac7c70e0a6",
+      "receipt_sha256": "ef500c622b94dd4b468f1e926548bcff787c03d6f78e98ea026530df61024407",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "ladder128-cold",
+      "arm": "A1",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/ladder128-cold-A1/replay.json",
+      "sha256": "0d51f1d8d419ca2e20a23d585143d314fac823b81b8476acaf3909a91bd3dd71",
+      "receipt_sha256": "45d620560d394b223aaf3799130c250a5ae5280ae5388cd32a9e00562f5eb4e9",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "ladder128-warm",
+      "arm": "A0",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/ladder128-warm-A0/replay.json",
+      "sha256": "1a954463504a83e2e3b6ecfc009da7e8ee7d4acbeb6021fe133563ef6f8acfcf",
+      "receipt_sha256": "9e220148baee46846918c30fa2ace1db62778247931197a49bf7b87145f256fd",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "ladder128-warm",
+      "arm": "A1",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/ladder128-warm-A1/replay.json",
+      "sha256": "31a1392e54f96ac45840d50c44b8046295ead66972829df7a4fd7b62d4a319ab",
+      "receipt_sha256": "7e5a8c08dcf497bcb1611799eff4dbd3dc6fe2380d45e7a40f79e1a277baec5f",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "panel32-cold",
+      "arm": "A0",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/panel32-cold-A0/replay.json",
+      "sha256": "6e0849e25dc35759c3ae74320f06e5dd628de7627256cf44fa8b4dfa13dd2341",
+      "receipt_sha256": "72a87a271c82d0c832eb0637012678d1020e21faf664b62b2f879f6b30c734c3",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "panel32-cold",
+      "arm": "A1",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/panel32-cold-A1/replay.json",
+      "sha256": "2346801458f86f4700e7ebcbc500401b6b53e65632606f3e8c549be404c4de76",
+      "receipt_sha256": "ef25692b826e1cf9cdcf9420fcfea1a9d214fe54d25a2b8643583cdae4d2488c",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "panel32-warm",
+      "arm": "A0",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/panel32-warm-A0/replay.json",
+      "sha256": "6e98c15ada7ec0f694982309edc3c2f595354e0fd17421203b92522a4ea2a178",
+      "receipt_sha256": "f55930ac0d5b13875a818bbfad5cbb1c92b1c5ebdca9ce620a2d0e1cfb58c967",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "panel32-warm",
+      "arm": "A1",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/panel32-warm-A1/replay.json",
+      "sha256": "17322de75369223f1ac618f43e2993a077aadfe983ebeca1150f157ca971c9db",
+      "receipt_sha256": "17f5cff19ac4746f05595b4f88dae81f1597da57039e8362ea220b2a96ecfa2c",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "resting",
+      "arm": "A0",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/resting-A0/replay.json",
+      "sha256": "1d5079f25296d7fa8cee0f810961e9120846af016d23d5a85b7cc949ec072117",
+      "receipt_sha256": "7415c70f5f7475b3378e21c728d7729ada779d3b65558ac2d66ea53fe708ad1e",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "resting",
+      "arm": "A1",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/resting-A1/replay.json",
+      "sha256": "d1cb8ab6642063cfd1d9379c0625ce2c9c5d6809ea600849074ae0207b805352",
+      "receipt_sha256": "c3e791e20573bdef8fea037d994ef2ba31b960891d05d502d867d7408d0e3589",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "sliding",
+      "arm": "A0",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/sliding-A0/replay.json",
+      "sha256": "e238aab2efe9c022c148c1eb1b876bc7295feafd439649d86bc028250195d65a",
+      "receipt_sha256": "8e669aaa468e40d95947d02d49a0cf7602c23c0f8b11621f3b545ed8e1e7241b",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "sliding",
+      "arm": "A1",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/sliding-A1/replay.json",
+      "sha256": "28ac8b231d57b36e995586e469ab35160dbc5cafac16cc5f9c20f22ab5c1340b",
+      "receipt_sha256": "2d572dc7b78b450b780b4c5e530ecc85b4e00cc8397cb4678f0d3f26ea5b11af",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "tower64-cold",
+      "arm": "A0",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/tower64-cold-A0/replay.json",
+      "sha256": "b988cc72b9068a1f8e88cd3ac574cdd8e943437d42e9b579c7cec591c29b7986",
+      "receipt_sha256": "5f817a5ffc3cf78b825ccde884351dadcaaf7f591892ff5274e9424b51a0f89c",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "tower64-cold",
+      "arm": "A1",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/tower64-cold-A1/replay.json",
+      "sha256": "4479d76f6d6b3801899adc47b40dd31b4d576da25a1ea7f66cc9809376e58850",
+      "receipt_sha256": "1d4785262d0ea16177e9cf14a6b7966d03c1ddab1058b2424b7bc7a4efb718bd",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "tower64-warm",
+      "arm": "A0",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/tower64-warm-A0/replay.json",
+      "sha256": "fa758deff51c7425f62abf81c17cdb102642c9293491c5c75c6167742eb3fff6",
+      "receipt_sha256": "956f4f9141158306a2c2b332baa1a21fad3c16f09656208ed3a8c98024862b2f",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "tower64-warm",
+      "arm": "A1",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/tower64-warm-A1/replay.json",
+      "sha256": "976908c7b819ca8a3ff7ca3860d15ec391095950f954dbcd0edd511fe214a35d",
+      "receipt_sha256": "c8a97de73348402d39845a36e1f7e5e57aa43fae1a5de38a8ec8a749f2693ae9",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "city25-intact-idle",
+      "arm": "A0",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/city25-intact-idle-A0/replay.json",
+      "sha256": "a82b3668d6a0036dd5645c4551081b7cfda146849acc82e8f19a33d8ed4d00c6",
+      "receipt_sha256": "732b69e56a002ab5f0b212e956f7b1dfa81ded9ea3575a3cfdf3346e1642f8f3",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "city25-intact-idle",
+      "arm": "A1",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/city25-intact-idle-A1/replay.json",
+      "sha256": "5e32743174209a42c26963a3ec441333befca7c99f07a18d8979d4b814f4f2f3",
+      "receipt_sha256": "12756de5223b0f231ba4976dd28242e02f89b1290931e73d3ab475ade79a94b1",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "city25-airborne",
+      "arm": "A0",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/city25-airborne-A0/replay.json",
+      "sha256": "ab61ba12751bd55f7f3d671985aecf4dd0a1490d5d3d7424958f0058b3de2017",
+      "receipt_sha256": "c6bf3ef7d42862ee5f7166a6057c80d407fa79bf988810ff4932dc837d655e46",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "city25-airborne",
+      "arm": "A1",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/city25-airborne-A1/replay.json",
+      "sha256": "fde8b2c714c04f6060cdfd8688ffa1726bd783b3e9974ca70d2d21122d12157e",
+      "receipt_sha256": "828f5fbdbf89d6f5b1335de2467007d4c739bc5513a655fb02cf07f8b00c1fae",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "city25-initial-impact",
+      "arm": "A0",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/city25-initial-impact-A0/replay.json",
+      "sha256": "0288d513e6aaee03809e45617f1ab1ee1f0ef4097e7de2b966223fcd2d0df4dc",
+      "receipt_sha256": "43507be13ad9627e078be85e8f269ecb4f9a08405da0a424d6d28b8349487794",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "city25-initial-impact",
+      "arm": "A1",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/city25-initial-impact-A1/replay.json",
+      "sha256": "e476381cac12192866bea72a254d32ec0e44740b0753b76f17879c5c93a11d80",
+      "receipt_sha256": "7499c3355c9adbaad7adba62d3f8891c8a5cb02b8ab8835fe2e586e37717e5fa",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "city25-post-impact",
+      "arm": "A0",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/city25-post-impact-A0/replay.json",
+      "sha256": "d14cc1519a1ce7d83310bf3fc9328ec6d21eb5d8a75220d4d0ee971cd9aabcd3",
+      "receipt_sha256": "1ce799b32df75a9e9e9681e2f1653141a54a6061a3c86d8e2683bbeba8267324",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "city25-post-impact",
+      "arm": "A1",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/city25-post-impact-A1/replay.json",
+      "sha256": "9f71fc8f3dfff9232e933791d685139fe654e250b67c817ad55aa3ed9ece420f",
+      "receipt_sha256": "4fe2f9ee824ec7ac20841de71ad7bc7db47147763f972aafa8ebf53a36525195",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "city25-cascading-fracture",
+      "arm": "A0",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/city25-cascading-fracture-A0/replay.json",
+      "sha256": "5a21bd2ce037578c864986e9bce545dea9db382536e96cb0207ab40f2bc33c47",
+      "receipt_sha256": "8e13566238c9cc3fdf3772df2663854255a1847f6760d5b0fabb0ac6e58ae44f",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "city25-cascading-fracture",
+      "arm": "A1",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/city25-cascading-fracture-A1/replay.json",
+      "sha256": "bee1a43c224ee7da116e9a48388b7475469ad6b703d0234ede51e5ca648c61f1",
+      "receipt_sha256": "d6963a69bf413197d06311189f76adbd982d05b42638263e7b987878ba1f241e",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "city25-fragmented-loaded",
+      "arm": "A0",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/city25-fragmented-loaded-A0/replay.json",
+      "sha256": "9ae911b8d8965e257381bbaae3843be3a6b31109755412097bc20994803c1b51",
+      "receipt_sha256": "5a2414b9a62725a169dbabf4920ee4e95af2405ee9465e5008d9b82dccdf1585",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "city25-fragmented-loaded",
+      "arm": "A1",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/city25-fragmented-loaded-A1/replay.json",
+      "sha256": "7cf9ce209aa013241db65f4e185460c4aac29f4b7b3d4be7663247064c5d8fb5",
+      "receipt_sha256": "fbb3f65a84904e410fb7e966f15adb298847ecadeadd265c39d9753dd173b85a",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "city25-late-debris",
+      "arm": "A0",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/city25-late-debris-A0/replay.json",
+      "sha256": "cfeac0233e5336d3d0e03827612aea4a7160ddbe65862d96cb87296f9a09bece",
+      "receipt_sha256": "408251517c079990c616218e0fc68af03b6b194aec39d5579d68eae7e0adbb51",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "city25-late-debris",
+      "arm": "A1",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/city25-late-debris-A1/replay.json",
+      "sha256": "46d908a37b07f8c0ab601d3b964bf7e8756776ed40dfbf3e494779048690c9f5",
+      "receipt_sha256": "e40fb01b353c4c288f0d96294c5b75e9eea02d7f43759bb89df90f4afa2580bf",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "city25-ten-second-debris",
+      "arm": "A0",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/city25-ten-second-debris-A0/replay.json",
+      "sha256": "53c54f3320af30ece4256bbe3b75b59a983c2f5d2da7ecd8d6ab45f8958a5da5",
+      "receipt_sha256": "e35fa1f9e02cfe30928b617d1be42fb03ca7660a558f956001c0edc3ffe126e9",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "city25-ten-second-debris",
+      "arm": "A1",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/city25-ten-second-debris-A1/replay.json",
+      "sha256": "55a9ca7023282f6ecb07c881a24b3e0d884f6f6bb402a031cec8fe84c003bcdf",
+      "receipt_sha256": "0b0c0c94e954f98b6532a63ae3f268206b89573c0c5ca2d6573c6b0830249d79",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "city64-intact-idle",
+      "arm": "A0",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/city64-intact-idle-A0/replay.json",
+      "sha256": "2f9ec4df2de539886927d01dabc056522eca460ba3aa59a6acca392e256265db",
+      "receipt_sha256": "34d2a9b54907825c96ad31f667ee20e620cbc65110d119d75cec50dd69f9d72a",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "city64-intact-idle",
+      "arm": "A1",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/city64-intact-idle-A1/replay.json",
+      "sha256": "aaeef2b4f7c7b4f52c691b2830c1a9e2fbcb26ad2a5f29e7237e278f09022002",
+      "receipt_sha256": "26af259e4eeb3aa6645a9644f48f319a584e9a475eb64878e7dfc4719f71b9bd",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "city64-airborne",
+      "arm": "A0",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/city64-airborne-A0/replay.json",
+      "sha256": "83f2b703517315efc99ba4077483c8208389b94f5f526fb7ed2757785ba64286",
+      "receipt_sha256": "7b6e41373723cd40f64cd0961377f495276388051470c6137057c3aab2470ad5",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "city64-airborne",
+      "arm": "A1",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/city64-airborne-A1/replay.json",
+      "sha256": "b486fb1b9e129cf891f88bca8ed36754ba41ab99b22b1d99c4371e68984450f3",
+      "receipt_sha256": "366efa3cbaf87108a00d447543b509be26384273a74a9a1bc3c3c40c9ce5baac",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "city64-initial-impact",
+      "arm": "A0",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/city64-initial-impact-A0/replay.json",
+      "sha256": "18cce94036c01b789e799363c65696a1fba3ec9a3c12a26ee96559bc76db7a6d",
+      "receipt_sha256": "072aa905ad177d07c4a3dd8192f9b08e7e647869998969cd7401a1d3495e65c5",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "city64-initial-impact",
+      "arm": "A1",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/city64-initial-impact-A1/replay.json",
+      "sha256": "5d69a80b192f71409c1c5ef8a3cc237af2252741b937e1cdffc958df7272e6e7",
+      "receipt_sha256": "2e8387737e109b2f08a768c5908cb91f3610b8e21021f29e39044b82d9185d7b",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "city64-post-impact",
+      "arm": "A0",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/city64-post-impact-A0/replay.json",
+      "sha256": "320d700aaad01367ec7f7bad082b893982d91a1539c214084bac8205f14baebf",
+      "receipt_sha256": "800b8ac7395eb85b7eecf23a2491c95fe445879a0f3dfb65c9f69df7cf45cc9c",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "city64-post-impact",
+      "arm": "A1",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/city64-post-impact-A1/replay.json",
+      "sha256": "28c4dd3a73a08a891ddedc33644367cc789c7103a0323252268dda3188181237",
+      "receipt_sha256": "0a99e8fc50b7d4b7f83ce857a438d016f4e7d84f5fe60fbc5e8a41b9820f2899",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "city64-cascading-fracture",
+      "arm": "A0",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/city64-cascading-fracture-A0/replay.json",
+      "sha256": "61df1905d555dcdadbb6458c82742f90cc84da72b75ee5d5396dfe35f05165ab",
+      "receipt_sha256": "1781a7051043a2f88b2c9cfcf37326e2a6355207fefe947a75f21b73917e2a9e",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "city64-cascading-fracture",
+      "arm": "A1",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/city64-cascading-fracture-A1/replay.json",
+      "sha256": "909f1e22c9555714d3fc33ea3fcfd001c428c0d90b5bede4c2a47fbe8d32e266",
+      "receipt_sha256": "53a03e8ecc395db70ebd6674765c890dcd098ab814c8f6ec9b3acada13e4aa5f",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "city64-fragmented-loaded",
+      "arm": "A0",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/city64-fragmented-loaded-A0/replay.json",
+      "sha256": "02e7196d03686f1a64db567e867e9ac724e94d689f2d4347f4b8a6c0f72964d8",
+      "receipt_sha256": "9b5606938482db0ac4bf8b6c36310127d666a145365e632d1dca84697fb1c298",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "city64-fragmented-loaded",
+      "arm": "A1",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/city64-fragmented-loaded-A1/replay.json",
+      "sha256": "f97fdf532e68024ca4612d9239c25ec18c9c13f63e94a2c68571e2af3fe08c66",
+      "receipt_sha256": "329d36dea41a771bcb8c3c54e8ef0243b669d8fe79a00af5a1b5779d63e76a96",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "city64-late-debris",
+      "arm": "A0",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/city64-late-debris-A0/replay.json",
+      "sha256": "25580192cfc1ea3e47adfad26926fa8f5b9714b0839564575e4fa93e84ff4e06",
+      "receipt_sha256": "4d34483902ccfb8cd4321b9e8d8b075eae97b2d554efa42c3d6b9f35e915f2f3",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "city64-late-debris",
+      "arm": "A1",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/city64-late-debris-A1/replay.json",
+      "sha256": "75fff79cc73b15b76bfa811c1a29c8600a360facd272a78d14743511c27b58fe",
+      "receipt_sha256": "9ad4920b3a4c963a325e4fa8d70fc0135846320f790c997fa96f575dd678c541",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "city64-ten-second-debris",
+      "arm": "A0",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/city64-ten-second-debris-A0/replay.json",
+      "sha256": "57364f9a5d0f3409bf30204a3f67dc6037c9c08c345cce9167085a81cbdaf253",
+      "receipt_sha256": "20f602ab7ca0f4074815bd1f650956f159cfeee7734b2c73359b04ccd49cc1b6",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "city64-ten-second-debris",
+      "arm": "A1",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/city64-ten-second-debris-A1/replay.json",
+      "sha256": "b94c4e3b7488d068980877a28f4c41fb6453885244f594addcb15a120b50c5d7",
+      "receipt_sha256": "cf25b044173bcb51b414e19b3a7a04d617f8421dea2e8bc2d479643b211538e3",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "city256-intact-idle",
+      "arm": "A0",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/city256-intact-idle-A0/replay.json",
+      "sha256": "f0518e04c38d0853f4f6386fec211f0729b4a3d1cc59aec041fdcf09c7cbdcef",
+      "receipt_sha256": "aa7ac44ffbeb0b0b20f710bf79824b2c055c0072584c3f1c63ef8c26d44f7051",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "city256-intact-idle",
+      "arm": "A1",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/city256-intact-idle-A1/replay.json",
+      "sha256": "6b3e400a3e9dc1f9cb0ece000c6f6277e53d232717652ec6c1fc9f47ca3e3889",
+      "receipt_sha256": "491be1731a4ac3d6debbb155b24ab2bfd0d24fb86b01f862f9f73bc372da43e6",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "city256-airborne",
+      "arm": "A0",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/city256-airborne-A0/replay.json",
+      "sha256": "3831080cff04a2f707b81f2698306469cc833853cf2f1202e390b19e0da0d11a",
+      "receipt_sha256": "3e8eff5a24e9b22bab4f1ef61921e96134f76772935deb1394b88876c2d4c53c",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "city256-airborne",
+      "arm": "A1",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/city256-airborne-A1/replay.json",
+      "sha256": "be876b4d34deb480274838b4b37c7d8f8f1daffbbd612df2a5a033698730cca1",
+      "receipt_sha256": "d2864f190533d5630e3929131fbb108f231430f4bbf778b09a4b33464db8650f",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "city256-initial-impact",
+      "arm": "A0",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/city256-initial-impact-A0/replay.json",
+      "sha256": "705754aa5aa894215c07d627fbab5ebfc95ef237ab75f9d9e94f9ea3c86d0dff",
+      "receipt_sha256": "7dc88acc860a39b6ff824139992ddb810ed3cde8f5f390b98d11f87a200c13b2",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "city256-initial-impact",
+      "arm": "A1",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/city256-initial-impact-A1/replay.json",
+      "sha256": "e39b5783c23dca1a2398dd595d5f2fa33dc25d1d20b19a501fc5d1ece62ca87c",
+      "receipt_sha256": "1340fc1e660d46c34294da8a1e90aeb2a142735f505d30c7e7d2eeea1e278bbb",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "city256-post-impact",
+      "arm": "A0",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/city256-post-impact-A0/replay.json",
+      "sha256": "2024e9d9de36e47cfb330ac899022430f45b7ff983675e656ed3142fbb2ee9eb",
+      "receipt_sha256": "37e409ce8192f73f316073d219ef8f1ea3ad839f528e1e48b4919023a88adf59",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "city256-post-impact",
+      "arm": "A1",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/city256-post-impact-A1/replay.json",
+      "sha256": "3093ad1d3da1df6734ecbf97e33eb2c1c02ea17bfc3dce59fcfa61e091be05cf",
+      "receipt_sha256": "0c53d487380d9bef230b6d2b97d80dc1ded2cc7d18fab4f02abf3cf7154af38d",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "city256-cascading-fracture",
+      "arm": "A0",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/city256-cascading-fracture-A0/replay.json",
+      "sha256": "5e1d53cb0cc5709082d3ae002d0b04521b8e355f61c387eca163a75e2f0c790e",
+      "receipt_sha256": "261c1fcff57cff46fbb5c74023bcccda012fb7c99c02d2bc9bd51c38455396a3",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "city256-cascading-fracture",
+      "arm": "A1",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/city256-cascading-fracture-A1/replay.json",
+      "sha256": "00e8dfe544fb25ab8b1e3ffce85073d58159d2b90416705412f93c58cc8cef81",
+      "receipt_sha256": "4560669034c25404c629ba34f859bcbee347eff30af3c6163a5d65e22584b6bc",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "city256-fragmented-loaded",
+      "arm": "A0",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/city256-fragmented-loaded-A0/replay.json",
+      "sha256": "12def077535cc69cf69d6383896b3579796ed418e3f4f2f6699f4ea49ac67647",
+      "receipt_sha256": "5af4280095b27c5863261e7e2b9a5a1c5bf0c56db0bf72146cba8b9a443b783c",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "city256-fragmented-loaded",
+      "arm": "A1",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/city256-fragmented-loaded-A1/replay.json",
+      "sha256": "ac7b93a21fe49ad69b02aa5d7aeda25ab96203a3f6db5f96606522ecf36782c0",
+      "receipt_sha256": "bda0186e8635dd6ae1f22230a1366421562174a10e85c1ee37e756a7f798eb1c",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "city256-late-debris",
+      "arm": "A0",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/city256-late-debris-A0/replay.json",
+      "sha256": "ccb891fcd483045c16ebede436f9ab5dd36bbb26e5d9a4e9433f047fed814f08",
+      "receipt_sha256": "0fe17076f041a4895649eee93a95d4a6a4347fad3ddc6c88942467b207264a23",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "city256-late-debris",
+      "arm": "A1",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/city256-late-debris-A1/replay.json",
+      "sha256": "ff5af0f9b712871cabf0c59eeb176e832b326de8d9e7fdee08bc0aba0f2aa523",
+      "receipt_sha256": "2507d215102b29adf9c8a49f2b5ddd2521b04498c37605d917a8c09861b4660f",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "city256-ten-second-debris",
+      "arm": "A0",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/city256-ten-second-debris-A0/replay.json",
+      "sha256": "b1059541aae8d8c60eca76adfcc3f28e722f611924134d9eb3d149591435d5ff",
+      "receipt_sha256": "ced8a46975e406c73300b423a27872f332b011e7169dec6e9443963e86924314",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    },
+    {
+      "scenario": "city256-ten-second-debris",
+      "arm": "A1",
+      "path": "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/full52/city256-ten-second-debris-A1/replay.json",
+      "sha256": "ff6cee0873cbf6818e37c4b506f3dc0b6272aea3323c4ef56d8921faf5a11b58",
+      "receipt_sha256": "407cd68ac7053a95ba12d77cf2875195b58ec3dffdc95e5e499907e60d696c84",
+      "binary_sha256": "e51a37a5d0e0da74fdca25f20acef44e0112867b427950c93feb4dd2492b4d61",
+      "modules": {
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n29b-cheap-rejection-20260913/build/A/libPhysXDestructionGpuRuntime_64.so": "d5770a80c2f4686b0ad311edcbfc8e128d14baee64653bf5e032305c12cf9354"
+      }
+    }
+  ]
+}

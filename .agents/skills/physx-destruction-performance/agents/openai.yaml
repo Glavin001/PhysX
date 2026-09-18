@@ -1,0 +1,4 @@
+interface:
+  display_name: "PhysX Destruction Performance"
+  short_description: "Remove destruction work and verify full-step gains"
+  default_prompt: "Use $physx-destruction-performance to identify a substantial removal or architecture improvement, prove its work reduction, and verify complete-step gains without changing fracture fidelity."

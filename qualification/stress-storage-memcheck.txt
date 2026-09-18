@@ -1,0 +1,30 @@
+78/81 Testing: blast_stress_gpu_resident_memory
+78/81 Test: blast_stress_gpu_resident_memory
+Command: "/usr/local/cuda/bin/compute-sanitizer" "--tool" "memcheck" "--leak-check" "full" "--error-exitcode" "99" "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_resident_stress_test"
+Directory: /root/workspace/physx-2/out/destruction-sdk/reference
+"blast_stress_gpu_resident_memory" start time: Sep 07 03:03 UTC
+Output:
+----------------------------------------------------------
+========= COMPUTE-SANITIZER
+resident columns: topology=asset nodes=12 bonds=9 worst relative error=0
+resident columns: topology=asset nodes=1536 bonds=1152 worst relative error=0
+resident columns: topology=asset nodes=131072 bonds=98304 worst relative error=0
+resident columns: topology=GPU nodes=12 bonds=9 worst relative error=0
+resident columns: topology=GPU nodes=1536 bonds=1152 worst relative error=0
+resident columns: topology=GPU nodes=131072 bonds=98304 worst relative error=0
+========= LEAK SUMMARY: 0 bytes leaked in 0 allocations
+========= ERROR SUMMARY: 0 errors
+<end of output>
+Test time =   0.53 sec
+----------------------------------------------------------
+Test Passed.
+"blast_stress_gpu_resident_memory" end time: Sep 07 03:03 UTC
+"blast_stress_gpu_resident_memory" time elapsed: 00:00:00
+----------------------------------------------------------
+
+End testing: Sep 07 03:03 UTC
+
+gpu =   0.53 sec*proc
+
+sanitizer =   0.53 sec*proc
+

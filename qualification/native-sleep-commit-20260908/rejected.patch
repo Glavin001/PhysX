@@ -1,0 +1,211 @@
+diff --git a/physx/source/gpucommon/include/PxgKernelNames.h b/physx/source/gpucommon/include/PxgKernelNames.h
+index 2834ceba..0a1b696e 100644
+--- a/physx/source/gpucommon/include/PxgKernelNames.h
++++ b/physx/source/gpucommon/include/PxgKernelNames.h
+@@ -611,4 +611,4 @@ KERNEL_DEF(sdf_CalculateDenseGridPointCloud, "sdfCalculateDenseGridPointCloud")
+ 
+ #endif
+ 
+-KERNEL_DEF(NATIVE_SLEEP_GATHER_POSES, "gatherNativeSleepPoses")
++KERNEL_DEF(NATIVE_SLEEP_COMMIT, "commitNativeSleepingBodies")
+diff --git a/physx/source/gpusimulationcontroller/include/PxgSimulationController.h b/physx/source/gpusimulationcontroller/include/PxgSimulationController.h
+index f18a7c45..a0166e6d 100644
+--- a/physx/source/gpusimulationcontroller/include/PxgSimulationController.h
++++ b/physx/source/gpusimulationcontroller/include/PxgSimulationController.h
+@@ -691,7 +691,6 @@ class PxProfilerCallback;
+ 		Cm::PinnableArray<PxU32>									mTendonTendonJointMapPool; //store each start index of the attachment to the corresponding tendons
+ 
+         CUdeviceptr mNativeSleepIndices = 0;
+-        CUdeviceptr mNativeSleepZeros = 0;
+         CUdeviceptr mNativeSleepPoses = 0;
+         PxU32 mNativeSleepCapacity = 0;
+         CUevent mNativeSleepReady = NULL;
+diff --git a/physx/source/gpusimulationcontroller/include/PxgSimulationCore.h b/physx/source/gpusimulationcontroller/include/PxgSimulationCore.h
+index 4839073c..9ba192d5 100644
+--- a/physx/source/gpusimulationcontroller/include/PxgSimulationCore.h
++++ b/physx/source/gpusimulationcontroller/include/PxgSimulationCore.h
+@@ -284,6 +284,7 @@ namespace physx
+ 		PX_FORCE_INLINE PxgTypedCudaBuffer<PxgD6JointData>&  getD6ArtiJointBuffer() { return mArtiJointBuffer; }
+ 		PX_FORCE_INLINE PxgTypedCudaBuffer<PxgConstraintPrePrep>&  getD6ArtiJointPrePreBuffer() { return mArtiJointPrePrepBuffer; }
+ 		PX_FORCE_INLINE CUstream getStream() { return mStream; }
++        bool commitNativeSleep(CUdeviceptr indices, PxU32 count, bool rollbackPose, CUdeviceptr solverDesc, CUdeviceptr solverIndices, CUevent ready);
+ 
+ 		bool getD6JointData(void* data, const PxD6JointGPUIndex* gpuIndices, PxD6JointGPUAPIReadType::Enum dataType, PxU32 nbElements, PxF32 oneOverDt, 
+ 			PxU32 directGpuApiIndexMapHostSize, CUevent startEvent, CUevent finishEvent) const;
+diff --git a/physx/source/gpusimulationcontroller/src/CUDA/updateBodiesAndShapes.cu b/physx/source/gpusimulationcontroller/src/CUDA/updateBodiesAndShapes.cu
+index f7a22209..2cc71ea7 100644
+--- a/physx/source/gpusimulationcontroller/src/CUDA/updateBodiesAndShapes.cu
++++ b/physx/source/gpusimulationcontroller/src/CUDA/updateBodiesAndShapes.cu
+@@ -29,6 +29,7 @@
+ #include "PxDirectGPUAPI.h"
+ #include "PxNodeIndex.h"
+ #include "PxgSimulationCoreDesc.h"
++#include "PxgSolverCoreDesc.h"
+ #include "PxgShapeSim.h"
+ #include "PxgBodySim.h"
+ #include "PxsRigidBody.h"
+@@ -1555,4 +1556,5 @@ extern "C" __global__ void copyRigidBodyVelocitiesToPrevious(
+ 		prevVelocities[index].linearVelocity = bodySim.linearVelocityXYZ_inverseMassW;
+ 		prevVelocities[index].angularVelocity = bodySim.angularVelocityXYZ_maxPenBiasW;
+ 	}
+-}
+\ No newline at end of file
++}
++#include "nativeSleepCommit.cuh"
+diff --git a/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp b/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp
+index e4bf1e3f..6b937bb6 100644
+--- a/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp
++++ b/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp
+@@ -241,7 +241,6 @@ namespace physx
+             PxScopedCudaLock lock(*mCudaContextManager);
+             PxCudaContext* cuda = mCudaContextManager->getCudaContext();
+             if(mNativeSleepIndices) cuda->memFree(mNativeSleepIndices);
+-            if(mNativeSleepZeros) cuda->memFree(mNativeSleepZeros);
+             if(mNativeSleepPoses) cuda->memFree(mNativeSleepPoses);
+             if(mNativeSleepReady) cuda->eventDestroy(mNativeSleepReady);
+         }
+@@ -3295,24 +3294,16 @@ namespace physx
+         if(!mNativeSleepReady && cuda->eventCreate(&mNativeSleepReady,2u)!=0) return false;
+             if(count > mNativeSleepCapacity)
+             {
+-                CUdeviceptr newIndices = 0, newZeros = 0, newPoses = 0;
++                CUdeviceptr newIndices = 0, newPoses = 0;
+                 if(cuda->memAlloc(&newIndices, PxU64(count)*sizeof(PxU32)) != 0) return false;
+-                if(cuda->memAlloc(&newZeros, PxU64(count)*sizeof(PxVec3)) != 0)
+-                {
+-                    cuda->memFree(newIndices);
+-                    return false;
+-                }
+                 if(cuda->memAlloc(&newPoses, PxU64(count)*sizeof(PxTransform)) != 0)
+                 {
+                     cuda->memFree(newIndices);
+-                    cuda->memFree(newZeros);
+                     return false;
+                 }
+                 if(mNativeSleepIndices) cuda->memFree(mNativeSleepIndices);
+-                if(mNativeSleepZeros) cuda->memFree(mNativeSleepZeros);
+                 if(mNativeSleepPoses) cuda->memFree(mNativeSleepPoses);
+                 mNativeSleepIndices = newIndices;
+-                mNativeSleepZeros = newZeros;
+                 mNativeSleepPoses = newPoses;
+                 mNativeSleepCapacity = count;
+             }
+@@ -3339,51 +3330,15 @@ namespace physx
+     {
+         if(!count) return true;
+         if(!reserveNativeTransitionBuffers(count)) return false;
+-        {
+-            PxScopedCudaLock lock(*mCudaContextManager);
+-            mSimulationCore->gpuDmaUpdateData();
+-            PxCudaContext* cuda = mCudaContextManager->getCudaContext();
+-            if(cuda->memcpyHtoD(mNativeSleepIndices, indices, PxU64(count)*sizeof(PxU32)) != 0
+-                || cuda->memsetD32(mNativeSleepZeros, 0, PxU64(count)*3) != 0
+-                || cuda->eventRecord(mNativeSleepReady,NULL) != 0) return false;
+-        }
+-        if(rollbackPose)
+-        {
+-            {
+-                PxScopedCudaLock lock(*mCudaContextManager);
+-                PxgSolverCore* solver = mDynamicContext->getGpuSolverCore();
+-                const CUdeviceptr desc = solver->getSolverCoreDescDeviceptr();
+-                const CUdeviceptr solverIndices = solver->getSolverBodyIndices();
+-                PxCudaKernelParam params[] = {
+-                    PX_CUDA_KERNEL_PARAM(mNativeSleepPoses), PX_CUDA_KERNEL_PARAM(mNativeSleepIndices),
+-                    PX_CUDA_KERNEL_PARAM(desc), PX_CUDA_KERNEL_PARAM(solverIndices), PX_CUDA_KERNEL_PARAM(count)
+-                };
+-                const CUfunction kernel = mGpuWranglerManager->getCuFunction(PxgKernelIds::NATIVE_SLEEP_GATHER_POSES);
+-                PxCudaContext* cuda = mCudaContextManager->getCudaContext();
+-                if(cuda->streamWaitEvent(solver->getStream(),mNativeSleepReady,0) != 0
+-                    || cuda->launchKernel(kernel, (count+255)/256, 1, 1, 256, 1, 1, 0, solver->getStream(),
+-                    params, sizeof(params), 0, PX_FL) != 0 || cuda->streamSynchronize(solver->getStream()) != 0)
+-                    return false;
+-            }
+-            // The setter also refreshes GPU shape bounds and transform caches.
+-            if(!setRigidDynamicData(reinterpret_cast<void*>(mNativeSleepPoses),
+-                reinterpret_cast<PxRigidDynamicGPUIndex*>(mNativeSleepIndices),
+-                PxRigidDynamicGPUAPIWriteType::eGLOBAL_POSE, count, mNativeSleepReady, NULL)) return false;
+-        }
+-        // Sparse transition work completes before fetch returns or commands
+-        // wake a body. No stale CPU pose/velocity can overwrite a later write.
+-        return setRigidDynamicData(reinterpret_cast<void*>(mNativeSleepZeros),
+-                   reinterpret_cast<PxRigidDynamicGPUIndex*>(mNativeSleepIndices),
+-                   PxRigidDynamicGPUAPIWriteType::eLINEAR_VELOCITY, count, mNativeSleepReady, NULL)
+-            && setRigidDynamicData(reinterpret_cast<void*>(mNativeSleepZeros),
+-                   reinterpret_cast<PxRigidDynamicGPUIndex*>(mNativeSleepIndices),
+-                   PxRigidDynamicGPUAPIWriteType::eANGULAR_VELOCITY, count, mNativeSleepReady, NULL)
+-            && setRigidDynamicData(reinterpret_cast<void*>(mNativeSleepZeros),
+-                   reinterpret_cast<PxRigidDynamicGPUIndex*>(mNativeSleepIndices),
+-                   PxRigidDynamicGPUAPIWriteType::eFORCE, count, mNativeSleepReady, NULL)
+-            && setRigidDynamicData(reinterpret_cast<void*>(mNativeSleepZeros),
+-                   reinterpret_cast<PxRigidDynamicGPUIndex*>(mNativeSleepIndices),
+-                   PxRigidDynamicGPUAPIWriteType::eTORQUE, count, mNativeSleepReady, NULL);
++        PxScopedCudaLock lock(*mCudaContextManager);
++        PxCudaContext* cuda = mCudaContextManager->getCudaContext();
++        PxgSolverCore* solver = mDynamicContext->getGpuSolverCore();
++        // Only selected transition identities are uploaded. Depend directly on
++        // the completed solver stream, then commit on the simulation stream.
++        if(cuda->memcpyHtoD(mNativeSleepIndices, indices, PxU64(count)*sizeof(PxU32)) != 0
++            || cuda->eventRecord(mNativeSleepReady,solver->getStream()) != 0) return false;
++        return mSimulationCore->commitNativeSleep(mNativeSleepIndices,count,rollbackPose,
++            solver->getSolverCoreDescDeviceptr(),solver->getSolverBodyIndices(),mNativeSleepReady);
+     }
+ 
+ 	void PxgSimulationController::updateScBodyAndShapeSim(PxsTransformCache& cache, Bp::BoundsArray& boundArray, PxBaseTask* continuation)
+diff --git a/physx/source/gpusimulationcontroller/src/PxgSimulationCore.cpp b/physx/source/gpusimulationcontroller/src/PxgSimulationCore.cpp
+index dc2b2964..19381f19 100644
+--- a/physx/source/gpusimulationcontroller/src/PxgSimulationCore.cpp
++++ b/physx/source/gpusimulationcontroller/src/PxgSimulationCore.cpp
+@@ -3162,6 +3162,26 @@ bool PxgSimulationCore::setRigidDynamicData(const void* PX_RESTRICT data, const
+ 	return success;
+ }
+ 
++// Internal sleep transaction: one kernel and one application completion
++// boundary. General-purpose public GPU setters are not part of this path.
++bool PxgSimulationCore::commitNativeSleep(CUdeviceptr indices, PxU32 count, bool rollbackPose,
++    CUdeviceptr solverDesc, CUdeviceptr solverIndices, CUevent ready)
++{
++    PxScopedCudaLock lock(*mCudaContextManager);
++    gpuDmaUpdateData();
++    if(mCudaContext->streamWaitEvent(mStream,ready)!=CUDA_SUCCESS)return false;
++    const CUdeviceptr updated=mUpdatedActorDescBuffer.getDevicePtr();
++    const CUdeviceptr previous=getBodySimPrevVelocitiesBufferDevicePtr();
++    const PxU32 shapes=getNumTotalShapes();
++    if(rollbackPose)mGpuContext->mGpuBp->getAABBManager()->setGPUStateChanged();
++    PxCudaKernelParam params[]={PX_CUDA_KERNEL_PARAM(indices),PX_CUDA_KERNEL_PARAM(count),
++        PX_CUDA_KERNEL_PARAM(rollbackPose),PX_CUDA_KERNEL_PARAM(updated),PX_CUDA_KERNEL_PARAM(solverDesc),
++        PX_CUDA_KERNEL_PARAM(solverIndices),PX_CUDA_KERNEL_PARAM(previous),PX_CUDA_KERNEL_PARAM(shapes)};
++    const CUfunction kernel=mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::NATIVE_SLEEP_COMMIT);
++    if(mCudaContext->launchKernel(kernel,count,1,1,128,1,1,0,mStream,params,sizeof(params),0,PX_FL)!=CUDA_SUCCESS)return false;
++    return mCudaContext->streamSynchronize(mStream)==CUDA_SUCCESS;
++}
++
+ bool PxgSimulationCore::getD6JointData(void* data, const PxD6JointGPUIndex* gpuIndices, PxD6JointGPUAPIReadType::Enum dataType, PxU32 nbElements, PxF32 oneOverDt, 
+ 	PxU32 constraintIdMapHostSize, CUevent startEvent, CUevent finishEvent) const
+ {
+diff --git a/physx/source/gpusolver/src/CUDA/integration.cu b/physx/source/gpusolver/src/CUDA/integration.cu
+index 8d872555..60c27c15 100644
+--- a/physx/source/gpusolver/src/CUDA/integration.cu
++++ b/physx/source/gpusolver/src/CUDA/integration.cu
+@@ -113,22 +113,3 @@ extern "C" __global__ void integrateCoreParallelLaunch(
+ 		assert(body2World.isSane());
+ 	}
+ }
+-
+-// The CPU island manager can retire a body in parallel with integration.
+-// Recover the existing pre-step transform on device, matching native sleep's
+-// last-CCD-pose rollback without copying motion to the CPU.
+-extern "C" __global__ void gatherNativeSleepPoses(PxTransform* poses, const PxU32* indices,
+-    const PxgSolverCoreDesc* desc, const PxU32* solverIndices, PxU32 count)
+-{
+-    const PxU32 i = threadIdx.x + blockIdx.x * blockDim.x;
+-    if(i < count)
+-    {
+-        const PxU32 node = indices[i];
+-        const PxU32 solverIndex = solverIndices[node];
+-        const PxgBodySim& body = desc->mBodySimBufferDeviceData[node];
+-        const bool solved=solverIndex<desc->numSolverBodies
+-            && desc->solverBodyDataPool[solverIndex].islandNodeIndex.index()==node;
+-        const auto world=solved?desc->solverBodyDataPool[solverIndex].body2World:body.body2World;
+-        poses[i] = (world * body.body2Actor_maxImpulseW.getInverse()).getTransform();
+-    }
+-}

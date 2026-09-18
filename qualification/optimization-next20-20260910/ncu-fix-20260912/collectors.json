@@ -1,0 +1,32 @@
+[
+  {
+    "path": "/opt/nvidia/nsight-compute/2026.3.0/ncu",
+    "sha256": "a44ff2c735c4dcf66c78f3f430155805d6a0b1f74f26331f98ecec03bfbf3f1a",
+    "bytes": 310
+  },
+  {
+    "path": "/opt/nvidia/nsight-compute/2026.3.0/target/linux-desktop-glibc_2_11_3-x64/ncu",
+    "sha256": "3fe75e7a3382422e012f2f71095c7455788a2c2f6055c0879610ca30441adb67",
+    "bytes": 72861952
+  },
+  {
+    "path": "/opt/nvidia/nsight-compute/2026.3.0/target/linux-desktop-glibc_2_11_3-x64/libcuda-injection.so",
+    "sha256": "9f5c52e849ba1e90b87e8460fc348ceb9f962b315ef52524b0343517db57388b",
+    "bytes": 16510984
+  },
+  {
+    "path": "/opt/nvidia/nsight-compute/2025.3.1/ncu",
+    "sha256": "a44ff2c735c4dcf66c78f3f430155805d6a0b1f74f26331f98ecec03bfbf3f1a",
+    "bytes": 310
+  },
+  {
+    "path": "/opt/nvidia/nsight-compute/2025.3.1/target/linux-desktop-glibc_2_11_3-x64/ncu",
+    "sha256": "8b9b097792d1894302d146bd19b2cf59b6ee2995738b65a4c15a91c69ad7a995",
+    "bytes": 66549040
+  },
+  {
+    "path": "/opt/nvidia/nsight-compute/2025.3.1/target/linux-desktop-glibc_2_11_3-x64/libcuda-injection.so",
+    "sha256": "e25cba2ebf50f2d68da689136130ad622227ad37305696ea479a88793aec72f4",
+    "bytes": 14815496
+  }
+]

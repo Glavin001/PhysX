@@ -26,6 +26,7 @@
 // Copyright (c) 2004-2008 AGEIA Technologies, Inc. All rights reserved.
 // Copyright (c) 2001-2004 NovodeX AG. All rights reserved.  
 
+#include "PxgDestructionRuntime.h"
 #include "PxgSimulationCore.h"
 #include "PxDirectGPUAPI.h"
 #include "cudamanager/PxCudaContextManager.h"
@@ -45,6 +46,9 @@
 #include "PxsCachedTransform.h"
 #include "PxgCudaBroadPhaseSap.h"
 #include "PxgCudaUtils.h"
+#include <cstdlib>
+#include <cstring>
+#include <cstdio>
 #include "PxgKernelWrangler.h"
 #include "PxgKernelIndices.h"
 #include "PxgKernelLauncher.h"
@@ -86,6 +90,22 @@
 #define GPU_VERIFY_JOINT_UPDATE	0
 
 using namespace physx;
+
+// PHYSX_GPU_COMPACT_DMABACK: 1 (default) compacted CPU mirror of the transform
+// cache and bounds, 0 full copies every pass, 2 compacted plus a verifying
+// full copy (mismatches reported on stderr).
+// PHYSX_GPU_DMABACK_STREAM (default 1): issue the post-integration copy-backs on a
+// side stream; 0 keeps them on the core stream.
+static bool dmaBackSideStream()
+{
+	static const bool value = []{ const char* raw = ::getenv("PHYSX_GPU_DMABACK_STREAM"); return raw ? ::atoi(raw) != 0 : true; }();
+	return value;
+}
+static int compactDmaBackMode()
+{
+	static const int value = []{ const char* raw = ::getenv("PHYSX_GPU_COMPACT_DMABACK"); return raw ? ::atoi(raw) : 1; }();
+	return value;
+}
 
 PxgArticulationBuffer::PxgArticulationBuffer(PxgHeapMemoryAllocator& deviceAlloc) :
 	links(deviceAlloc, PxsHeapStats::eSIMULATION_ARTICULATION),
@@ -342,6 +362,12 @@ PxgSimulationCore::PxgSimulationCore(PxgCudaKernelWranglerManager* gpuKernelWran
 	mActivateBuffer(allocDesc.deviceAlloc, PxsHeapStats::eSIMULATION),
 	mDeactivateBuffer(allocDesc.deviceAlloc, PxsHeapStats::eSIMULATION),
 	mUpdatedDirectBuffer(allocDesc.deviceAlloc, PxsHeapStats::eSIMULATION),
+	mTouchedBuffer(allocDesc.deviceAlloc, PxsHeapStats::eSIMULATION),
+	mCompactCountBuffer(allocDesc.deviceAlloc, PxsHeapStats::eSIMULATION),
+	mCompactIndicesStaging(allocDesc.deviceAlloc, PxsHeapStats::eSIMULATION),
+	mCompactBoundsStaging(allocDesc.deviceAlloc, PxsHeapStats::eSIMULATION),
+	mCompactTransformsStaging(allocDesc.deviceAlloc, PxsHeapStats::eSIMULATION),
+	mReboundShapeIndices(allocDesc.deviceAlloc, PxsHeapStats::eSIMULATION),
 	mBodySimCudaBuffer(allocDesc.deviceAlloc, PxsHeapStats::eSIMULATION),
 	mBodySimPreviousVelocitiesCudaBuffer(allocDesc.deviceAlloc, PxsHeapStats::eSIMULATION),
 	mBodySimAccelerationsCudaBuffer(allocDesc.deviceAlloc, PxsHeapStats::eSIMULATION),
@@ -384,6 +410,7 @@ PxgSimulationCore::PxgSimulationCore(PxgCudaKernelWranglerManager* gpuKernelWran
 	mGpuConstraintIdMapDevice(allocDesc.deviceAlloc, PxsHeapStats::eSIMULATION),
 	mUpdatedBodySimBuffer(allocDesc.deviceAlloc, PxsHeapStats::eSIMULATION),
 	mNewBodySimBuffer(allocDesc.deviceAlloc, PxsHeapStats::eSIMULATION),
+	mKinematicInputs(allocDesc.deviceAlloc, PxsHeapStats::eSIMULATION),
 	mNewArticulationBuffer(allocDesc.deviceAlloc, PxsHeapStats::eSIMULATION_ARTICULATION),
 	mNewLinkBuffer(allocDesc.deviceAlloc, PxsHeapStats::eSIMULATION),
 	mNewLinkWakeCounterBuffer(allocDesc.deviceAlloc, PxsHeapStats::eSIMULATION),
@@ -570,6 +597,13 @@ void PxgSimulationCore::createGpuStreamsAndEvents()
 {
 	//create stream
 	mCudaContext->streamCreate(&mStream, CU_STREAM_NON_BLOCKING);
+	if(dmaBackSideStream())
+	{
+		mCudaContext->streamCreate(&mDmaBackStream, CU_STREAM_NON_BLOCKING);
+		mCudaContext->eventCreate(&mDmaBackReady, CU_EVENT_DISABLE_TIMING);
+		mCudaContext->eventCreate(&mDmaBackDone, CU_EVENT_DISABLE_TIMING);
+		mDmaBackOnSideStream = mDmaBackStream && mDmaBackReady && mDmaBackDone;
+	}
 
 	//create event
 	mCudaContext->eventCreate(&mEvent, CU_EVENT_DISABLE_TIMING);
@@ -599,6 +633,10 @@ void PxgSimulationCore::releaseGpuStreamsAndEvents()
 	mCudaContext->eventDestroy(mDmaEvent);
 	mDmaEvent = NULL;
 
+	releaseCompactMirror();
+	if(mDmaBackStream) { mCudaContext->streamSynchronize(mDmaBackStream); mCudaContext->streamDestroy(mDmaBackStream); mDmaBackStream = NULL; }
+	if(mDmaBackReady) { mCudaContext->eventDestroy(mDmaBackReady); mDmaBackReady = NULL; }
+	if(mDmaBackDone) { mCudaContext->eventDestroy(mDmaBackDone); mDmaBackDone = NULL; }
 	PX_PINNED_MEMORY_FREE(*mCudaContextManager, mEventMapped);
 }
 
@@ -611,6 +649,8 @@ void PxgSimulationCore::constructDescriptor(CUdeviceptr boundsd, CUdeviceptr cha
 	desc.mFrozenBlockAndRes = mFrozenBlockAndResBuffer.getTypedPtr();
 	desc.mUnfrozenBlockAndRes = mUnfrozenBlockAndResBuffer.getTypedPtr();
 	desc.mUpdated = mUpdatedBuffer.getTypedPtr();
+	desc.mTouched = mTouchedBuffer.getTypedPtr();
+	desc.mTouchedCapacity = PxU32(mTouchedBuffer.getSize() / sizeof(PxU32));
 	desc.mActivate = mActivateBuffer.getTypedPtr();
 	desc.mDeactivate = mDeactivateBuffer.getTypedPtr();
 
@@ -632,6 +672,63 @@ void PxgSimulationCore::constructDescriptor(CUdeviceptr boundsd, CUdeviceptr cha
 
 	desc.mTotalFrozenShapes = 0;
 	desc.mTotalUnfrozenShapes = 0;
+}
+
+// Also used at the native destruction boundary, after the trial GPU work completes.
+void PxgSimulationCore::reserveBodySimStorage(PxU32 nbTotalBodies, bool enableBodyAccelerations)
+{
+    reserveBodySimCapacity(nbTotalBodies, enableBodyAccelerations);
+    mNbTotalBodySim = PxMax(mNbTotalBodySim, nbTotalBodies);
+    if(enableBodyAccelerations)mBodySimAccelerationsPinned.forceSize_Unsafe(mNbTotalBodySim);
+}
+
+// Memory grants must not extend live-body traversal, acceleration observations
+// or OVD address validation. Those retain the registered-body high-water mark.
+void PxgSimulationCore::reserveBodySimCapacity(PxU32 nbTotalBodies, bool enableBodyAccelerations)
+{
+	if (nbTotalBodies > mBodySimStorageCapacity)
+	{
+		{
+			const PxU64 oldCapacity = mBodySimCudaBuffer.getSize();
+			mBodySimCudaBuffer.allocateCopyOldDataAsync(nbTotalBodies*sizeof(PxgBodySim), mCudaContext, mStream, PX_FL);
+
+			if (oldCapacity < mBodySimCudaBuffer.getSize())
+				mCudaContext->memsetD32Async(mBodySimCudaBuffer.getDevicePtr() + oldCapacity, 0xFFFFFFFF, (mBodySimCudaBuffer.getSize() - oldCapacity) / sizeof(PxU32), mStream);
+		}
+
+		// PT: GPU acceleration buffers for acceleration getters
+		if(enableBodyAccelerations)
+		{
+			// PT: we may be allocating more than needed here, as this is only needed for rigid bodies
+			const PxU64 oldCapacity = mBodySimPreviousVelocitiesCudaBuffer.getSize();
+			mBodySimPreviousVelocitiesCudaBuffer.allocateCopyOldDataAsync(nbTotalBodies*sizeof(PxgBodySimVelocities), mCudaContext, mStream, PX_FL);
+
+			// PT: initialize this buffer to zero to make sure the initial previous velocities are 0.0
+			if (oldCapacity < mBodySimPreviousVelocitiesCudaBuffer.getSize())
+				mCudaContext->memsetD32Async(mBodySimPreviousVelocitiesCudaBuffer.getDevicePtr() + oldCapacity, 0, (mBodySimPreviousVelocitiesCudaBuffer.getSize() - oldCapacity) / sizeof(PxU32), mStream);
+
+            const PxU64 oldAccelerationBytes=mBodySimAccelerationsCudaBuffer.getSize();
+			mBodySimAccelerationsCudaBuffer.allocateCopyOldDataAsync(nbTotalBodies * sizeof(PxgRigidBodyAcceleration), mCudaContext, mStream, PX_FL);
+            // A quiet first step may never run the acceleration producer. Native
+            // checkpoints and accepted CPU observations still copy these records,
+            // including padding. Define new entries without touching live history.
+            if(oldAccelerationBytes<mBodySimAccelerationsCudaBuffer.getSize())
+                mCudaContext->memsetD32Async(mBodySimAccelerationsCudaBuffer.getDevicePtr()+oldAccelerationBytes,0,
+                    (mBodySimAccelerationsCudaBuffer.getSize()-oldAccelerationBytes)/sizeof(PxU32),mStream);
+			if (mBodySimAccelerationsPinned.capacity() < nbTotalBodies)
+			{
+				mBodySimAccelerationsPinned.reserve(nbTotalBodies);
+			}
+		}
+		else
+		{
+			PX_ASSERT(getBodySimPrevVelocitiesBufferDevicePtr().mPtr == 0);
+			PX_ASSERT(getBodySimPrevVelocitiesBufferDeviceData().mPtr == 0);
+		}
+
+		mBodySimStorageCapacity = nbTotalBodies;
+	}
+
 }
 
 //new articulation and rigid bodies are both in newBodySimPool. We store the new rigid bodies first, then store new articulations
@@ -673,42 +770,16 @@ void PxgSimulationCore::gpuMemDmaUpBodySim(Cm::PinnableArray<PxgBodySimVelocityU
 	//nbNewLinks = nbNewJoints = nbNewJointData
 	const PxU32 nbNewLinks = newLinkPool.size();
 
-	//This will dma rigid body and articulation altogether
-	if (nbTotalBodies > mNbTotalBodySim)
+	reserveBodySimStorage(nbTotalBodies, enableBodyAccelerations);
+	// Once initialized, retain authored input updates through clear/reconfigure.
+	// No inactive-body scan is needed: existing command producers own updates.
+	if(mGpuContext->usesNativeKinematicInputs() || mKinematicInputs.getDevicePtr())
 	{
-		{
-			const PxU64 oldCapacity = mBodySimCudaBuffer.getSize();
-			mBodySimCudaBuffer.allocateCopyOldDataAsync(nbTotalBodies*sizeof(PxgBodySim), mCudaContext, mStream, PX_FL);
-
-			if (oldCapacity < mBodySimCudaBuffer.getSize())
-				mCudaContext->memsetD32Async(mBodySimCudaBuffer.getDevicePtr() + oldCapacity, 0xFFFFFFFF, (mBodySimCudaBuffer.getSize() - oldCapacity) / sizeof(PxU32), mStream);
-		}
-
-		// PT: GPU acceleration buffers for acceleration getters
-		if(enableBodyAccelerations)
-		{
-			// PT: we may be allocating more than needed here, as this is only needed for rigid bodies
-			const PxU64 oldCapacity = mBodySimPreviousVelocitiesCudaBuffer.getSize();
-			mBodySimPreviousVelocitiesCudaBuffer.allocateCopyOldDataAsync(nbTotalBodies*sizeof(PxgBodySimVelocities), mCudaContext, mStream, PX_FL);
-
-			// PT: initialize this buffer to zero to make sure the initial previous velocities are 0.0
-			if (oldCapacity < mBodySimPreviousVelocitiesCudaBuffer.getSize())
-				mCudaContext->memsetD32Async(mBodySimPreviousVelocitiesCudaBuffer.getDevicePtr() + oldCapacity, 0, (mBodySimPreviousVelocitiesCudaBuffer.getSize() - oldCapacity) / sizeof(PxU32), mStream);
-
-			mBodySimAccelerationsCudaBuffer.allocateCopyOldDataAsync(nbTotalBodies * sizeof(PxgRigidBodyAcceleration), mCudaContext, mStream, PX_FL);
-			if (mBodySimAccelerationsPinned.capacity() < nbTotalBodies)
-			{
-				mBodySimAccelerationsPinned.reserve(nbTotalBodies);
-				mBodySimAccelerationsPinned.forceSize_Unsafe(nbTotalBodies);
-			}
-		}
-		else
-		{
-			PX_ASSERT(getBodySimPrevVelocitiesBufferDevicePtr().mPtr == 0);
-			PX_ASSERT(getBodySimPrevVelocitiesBufferDeviceData().mPtr == 0);
-		}
-
-		mNbTotalBodySim = nbTotalBodies;
+		const PxU64 oldBytes = mKinematicInputs.getSize();
+		mKinematicInputs.allocateCopyOldDataAsync(size_t(nbTotalBodies)*sizeof(PxgKinematicMotionInput), mCudaContext, mStream, PX_FL);
+		const PxU64 bytes = mKinematicInputs.getSize();
+		if(bytes > oldBytes)
+			mCudaContext->memsetD32Async(mKinematicInputs.getDevicePtr()+oldBytes, 0, (bytes-oldBytes)/sizeof(PxU32), mStream);
 	}
 
 	//This will dma articulation 
@@ -1047,6 +1118,7 @@ void PxgSimulationCore::gpuMemDmaUpBodySim(Cm::PinnableArray<PxgBodySimVelocityU
 		//fill in descriptor
 		PxgNewBodiesDesc& newBodiesDesc = mNewBodiesDesc.get();
 		newBodiesDesc.mNewBodySim = mNewBodySimBuffer.getTypedPtr();
+		newBodiesDesc.mKinematicInputs = mKinematicInputs.getTypedPtr();
 		newBodiesDesc.mBodySimBufferDeviceData = getBodySimBufferDeviceData().getPointer();
 		// PdHC: For new bodies, kernel will initialize their previous velocities to their initial velocity
 		newBodiesDesc.mPrevVelocitiesBuffer = getBodySimPrevVelocitiesBufferDeviceData().getPointer();
@@ -2100,6 +2172,13 @@ void PxgSimulationCore::mergeChangedAABBMgHandle()
 	
 	CUstream stream = mGpuContext->getGpuBroadPhase()->getBpStream();
 
+    // Creation/removal and native observation can resize the buffers since
+    // the preceding fetch. Publish the current descriptor before BP consumes it.
+    gpuDmaUpdateData();
+    if(mCudaContext->eventRecord(mDmaEvent,mStream)!=CUDA_SUCCESS
+        || mCudaContext->streamWaitEvent(stream,mDmaEvent,0)!=CUDA_SUCCESS) {
+        mCudaContext->setAbortMode(true);return;
+    }
 	CUdeviceptr updatedActorDescd = mUpdatedActorDescBuffer.getDevicePtr();
 	CUfunction kernelFunction = mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::MERGE_AABBMGR_HANDLES);
 
@@ -2141,6 +2220,9 @@ void PxgSimulationCore::gpuMemDmaUp(const PxU32 nbTotalBodies, const PxU32 nbTot
 	//const PxU32 roundElement = (nbTotalShapes + 31) & (~31);
 	const PxU32 roundElement = bitMapWordCounts * 32;
 	mUpdatedBuffer.allocate(roundElement * sizeof(PxU32), PX_FL);
+	ensureTouchedCapacity(roundElement);
+	if(mDmaBackOnSideStream)
+		mCudaContext->streamWaitEvent(mStream, mDmaBackDone, 0);
 
 	//initialize all the sleeping stage buffers to be 0
 	mCudaContext->memsetD32Async(mFrozenBuffer.getDevicePtr(), 0, nbTotalShapes, mStream);
@@ -2187,23 +2269,34 @@ void PxgSimulationCore::gpuMemDmaBack(Cm::PinnableArray<PxU32>& frozenArray,
 	PxBounds3* bounds = boundArray.getBounds();
 	PxU32 boundCapacity = boundArray.size();
 
+	// Copy-backs go to a side stream that waits for everything queued on the
+	// core stream so far; the core stream keeps running. Core-stream writers of
+	// the copied buffers (sleep pose-sets, the next pass's memsets) wait on
+	// mDmaBackDone instead.
+	CUstream dmaStream = mStream;
+	if(mDmaBackOnSideStream)
+	{
+		if(mDmaBackJoinEvent) { mCudaContext->streamWaitEvent(mDmaBackStream, mDmaBackJoinEvent, 0); mDmaBackJoinEvent = NULL; }
+		else { mCudaContext->eventRecord(mDmaBackReady, mStream); mCudaContext->streamWaitEvent(mDmaBackStream, mDmaBackReady, 0); }
+		dmaStream = mDmaBackStream;
+	}
 	// AD: DtoH memcopies, need to be skip safe!
-	mCudaContext->memcpyDtoHAsync(mUpdatedCacheAndBoundsDesc.data(), mUpdatedCacheAndBoundsDescBuffer.getDevicePtr(), sizeof(PxgSimulationCoreDesc), mStream);
-	mCudaContext->memcpyDtoHAsync(activateArray.begin(), mActivateBuffer.getDevicePtr(), sizeof(PxU32)*numActiveBodies, mStream);
-	mCudaContext->memcpyDtoHAsync(deactiveArray.begin(), mDeactivateBuffer.getDevicePtr(), sizeof(PxU32)*numActiveBodies, mStream);
+	mCudaContext->memcpyDtoHAsync(mUpdatedCacheAndBoundsDesc.data(), mUpdatedCacheAndBoundsDescBuffer.getDevicePtr(), sizeof(PxgSimulationCoreDesc), dmaStream);
+	mCudaContext->memcpyDtoHAsync(activateArray.begin(), mActivateBuffer.getDevicePtr(), sizeof(PxU32)*numActiveBodies, dmaStream);
+	mCudaContext->memcpyDtoHAsync(deactiveArray.begin(), mDeactivateBuffer.getDevicePtr(), sizeof(PxU32)*numActiveBodies, dmaStream);
 
 	// DMA accelerations back to CPU (kernel was launched in update())
 	if (hasAccelerationBuffers())
 	{
 		const PxU32 nbBodies = mNbTotalBodySim;
-		mCudaContext->memcpyDtoHAsync(mBodySimAccelerationsPinned.begin(), mBodySimAccelerationsCudaBuffer.getDevicePtr(), sizeof(PxgRigidBodyAcceleration) * nbBodies, mStream);
+		mCudaContext->memcpyDtoHAsync(mBodySimAccelerationsPinned.begin(), mBodySimAccelerationsCudaBuffer.getDevicePtr(), sizeof(PxgRigidBodyAcceleration) * nbBodies, dmaStream);
 	}
 
 	// AD: frozen/unfrozen arrays are only needed for SQ tree updates, skipping for direct-GPU.
 	if (!enableDirectGPUAPI)
 	{
-		mCudaContext->memcpyDtoHAsync(frozenArray.begin(), mFrozenBlockAndResBuffer.getDevicePtr(), sizeof(PxU32)*numShapes, mStream);
-		mCudaContext->memcpyDtoHAsync(unfrozenArray.begin(), mUnfrozenBlockAndResBuffer.getDevicePtr(), sizeof(PxU32)*numShapes, mStream);
+		mCudaContext->memcpyDtoHAsync(frozenArray.begin(), mFrozenBlockAndResBuffer.getDevicePtr(), sizeof(PxU32)*numShapes, dmaStream);
+		mCudaContext->memcpyDtoHAsync(unfrozenArray.begin(), mUnfrozenBlockAndResBuffer.getDevicePtr(), sizeof(PxU32)*numShapes, dmaStream);
 	}
 	
 	// AD safety if the copies above fail.
@@ -2224,10 +2317,117 @@ void PxgSimulationCore::gpuMemDmaBack(Cm::PinnableArray<PxU32>& frozenArray,
 	if(!mGpuContext->getEnableDirectGPUAPI())
 	{
 		CUdeviceptr boundsd = mUseGpuBp ? mGpuContext->mGpuBp->getBoundsBuffer().getDevicePtr() : mBoundsBuffer.getDevicePtr();
-		mCudaContext->memcpyDtoHAsync(bounds, boundsd, sizeof(PxBounds3)*boundCapacity, mStream);
-		mCudaContext->memcpyDtoHAsync(cachedTransforms, mGpuContext->mGpuNpCore->getTransformCache().getDevicePtr(), sizeof(PxsCachedTransform)*cachedCapacity, mStream);
+		// PHYSX_GPU_COMPACT_DMABACK (default 1, adaptive): copy back only the
+		// elements a device kernel touched since the last DMA back
+		// (post-integration update, Direct-API pose sets) when the previous
+		// pass gathered at most half of them; otherwise full copies plus a
+		// count. 3 = always gather; 0 = full copies; 2 = gather and verify
+		// against a full copy (mismatches on stderr). The gather lands in
+		// device staging and only a prefix (previous count with headroom) is
+		// DMA'd; the rare remainder is fetched synchronously in syncDmaback.
+		const int compact = compactDmaBackMode();
+		const PxU32 elementCount = PxMin(PxMin(boundCapacity, cachedCapacity), PxU32(mTouchedBuffer.getSize() / sizeof(PxU32)));
+		bool handled = false;
+		if(compact && mUseGpuBp && elementCount)
+		{
+			if(elementCount > mCompactCapacity)
+			{
+				releaseCompactMirror();
+				mCompactCapacity = elementCount;
+				mCompactIndicesMapped = PX_PINNED_MEMORY_ALLOC_FLAGS(PxU32, *mCudaContextManager, elementCount, CU_MEMHOSTALLOC_PORTABLE);
+				mCompactBoundsMapped = PX_PINNED_MEMORY_ALLOC_FLAGS(PxBounds3, *mCudaContextManager, elementCount, CU_MEMHOSTALLOC_PORTABLE);
+				mCompactTransformsMapped = PX_PINNED_MEMORY_ALLOC_FLAGS(PxsCachedTransform, *mCudaContextManager, elementCount, CU_MEMHOSTALLOC_PORTABLE);
+				mCompactCountMapped = PX_PINNED_MEMORY_ALLOC_FLAGS(PxU32, *mCudaContextManager, 1, CU_MEMHOSTALLOC_PORTABLE);
+				mCompactCountBuffer.allocate(sizeof(PxU32), PX_FL);
+				mCompactIndicesStaging.allocate(sizeof(PxU32) * elementCount, PX_FL);
+				mCompactBoundsStaging.allocate(sizeof(PxBounds3) * elementCount, PX_FL);
+				mCompactTransformsStaging.allocate(sizeof(PxsCachedTransform) * elementCount, PX_FL);
+				mCompactLastCount = 0; mCompactLastElements = 0;
+			}
+			if(mCompactIndicesMapped && mCompactBoundsMapped && mCompactTransformsMapped && mCompactCountMapped)
+			{
+				const bool gather = compact != 1 || mCompactLastElements == 0 || mCompactLastCount * 2u <= mCompactLastElements;
+				// While most elements move, the full copies stay and the touched marks
+				// accumulate; they are counted (as a conservative union) every eighth
+				// pass only, so the all-awake regime pays nothing per pass.
+				++mCompactPassCounter;
+				if(!gather && (mCompactPassCounter & 7u) != 0)
+				{
+					mCudaContext->memcpyDtoHAsync(bounds, boundsd, sizeof(PxBounds3)*boundCapacity, dmaStream);
+					mCudaContext->memcpyDtoHAsync(cachedTransforms, mGpuContext->mGpuNpCore->getTransformCache().getDevicePtr(), sizeof(PxsCachedTransform)*cachedCapacity, dmaStream);
+					handled = true;
+				}
+				else
+				{
+				CUdeviceptr scDescd = mUpdatedCacheAndBoundsDescBuffer.getDevicePtr();
+				CUdeviceptr directd = mUpdatedDirectBuffer.getDevicePtr();
+				if(PxU32(mUpdatedDirectBuffer.getSize() / sizeof(PxU32)) < elementCount)
+					directd = 0;
+				CUdeviceptr indicesd = gather ? mCompactIndicesStaging.getDevicePtr() : 0;
+				CUdeviceptr boundsOutd = gather ? mCompactBoundsStaging.getDevicePtr() : 0;
+				CUdeviceptr transformsOutd = gather ? mCompactTransformsStaging.getDevicePtr() : 0;
+				CUdeviceptr countd = mCompactCountBuffer.getDevicePtr();
+				const PxU32 capacity = gather ? mCompactCapacity : 0u;
+				mCudaContext->memsetD32Async(countd, 0, 1, dmaStream);
+				PxCudaKernelParam params[] =
+				{
+					PX_CUDA_KERNEL_PARAM(scDescd),
+					PX_CUDA_KERNEL_PARAM(directd),
+					PX_CUDA_KERNEL_PARAM(elementCount),
+					PX_CUDA_KERNEL_PARAM(indicesd),
+					PX_CUDA_KERNEL_PARAM(boundsOutd),
+					PX_CUDA_KERNEL_PARAM(transformsOutd),
+					PX_CUDA_KERNEL_PARAM(countd),
+					PX_CUDA_KERNEL_PARAM(capacity)
+				};
+				CUfunction compactFunction = mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::COMPACT_TOUCHED_CACHE_AND_BOUNDS);
+				const PxU32 blocks = PxMin(2048u, (elementCount + 255u) / 256u);
+				CUresult compactResult = mCudaContext->launchKernel(compactFunction, blocks, 1, 1, 256, 1, 1, 0, dmaStream, params, sizeof(params), 0, PX_FL);
+				PX_ASSERT(compactResult == CUDA_SUCCESS); PX_UNUSED(compactResult);
+				mCudaContext->memcpyDtoHAsync(mCompactCountMapped, countd, sizeof(PxU32), dmaStream);
+				if(gather)
+				{
+					// Prefix sized from the previous pass with headroom; the
+					// remainder (rare) is fetched synchronously after the sync.
+					mCompactEstimate = PxMin(mCompactCapacity, PxMax(mCompactLastCount + (mCompactLastCount >> 2) + 1024u, 4096u));
+					mCudaContext->memcpyDtoHAsync(mCompactIndicesMapped, indicesd, sizeof(PxU32) * mCompactEstimate, dmaStream);
+					mCudaContext->memcpyDtoHAsync(mCompactBoundsMapped, boundsOutd, sizeof(PxBounds3) * mCompactEstimate, dmaStream);
+					mCudaContext->memcpyDtoHAsync(mCompactTransformsMapped, transformsOutd, sizeof(PxsCachedTransform) * mCompactEstimate, dmaStream);
+				}
+				else
+				{
+					mCudaContext->memcpyDtoHAsync(bounds, boundsd, sizeof(PxBounds3)*boundCapacity, dmaStream);
+					mCudaContext->memcpyDtoHAsync(cachedTransforms, mGpuContext->mGpuNpCore->getTransformCache().getDevicePtr(), sizeof(PxsCachedTransform)*cachedCapacity, dmaStream);
+				}
+				mCudaContext->memsetD32Async(mTouchedBuffer.getDevicePtr(), 0, mTouchedBuffer.getSize() / sizeof(PxU32), dmaStream);
+				mDmaBackBounds = bounds; mDmaBackTransforms = cachedTransforms; mDmaBackElementCount = elementCount;
+				mCompactPending = true; mCompactGathered = gather; mCompactLastElements = elementCount;
+				if(compact == 2 && gather)
+				{
+					if(mVerifyCapacity < PxMax(boundCapacity, cachedCapacity))
+					{
+						if(mVerifyBounds) PX_PINNED_MEMORY_FREE(*mCudaContextManager, mVerifyBounds);
+						if(mVerifyTransforms) PX_PINNED_MEMORY_FREE(*mCudaContextManager, mVerifyTransforms);
+						mVerifyCapacity = PxMax(boundCapacity, cachedCapacity);
+						mVerifyBounds = PX_PINNED_MEMORY_ALLOC_FLAGS(PxBounds3, *mCudaContextManager, mVerifyCapacity, CU_MEMHOSTALLOC_PORTABLE);
+						mVerifyTransforms = PX_PINNED_MEMORY_ALLOC_FLAGS(PxsCachedTransform, *mCudaContextManager, mVerifyCapacity, CU_MEMHOSTALLOC_PORTABLE);
+					}
+					mCudaContext->memcpyDtoHAsync(mVerifyBounds, boundsd, sizeof(PxBounds3)*boundCapacity, dmaStream);
+					mCudaContext->memcpyDtoHAsync(mVerifyTransforms, mGpuContext->mGpuNpCore->getTransformCache().getDevicePtr(), sizeof(PxsCachedTransform)*cachedCapacity, dmaStream);
+				}
+				handled = true;
+				}
+			}
+		}
+		if(!handled)
+		{
+			mCudaContext->memcpyDtoHAsync(bounds, boundsd, sizeof(PxBounds3)*boundCapacity, dmaStream);
+			mCudaContext->memcpyDtoHAsync(cachedTransforms, mGpuContext->mGpuNpCore->getTransformCache().getDevicePtr(), sizeof(PxsCachedTransform)*cachedCapacity, dmaStream);
+			if(mTouchedBuffer.getSize())
+				mCudaContext->memsetD32Async(mTouchedBuffer.getDevicePtr(), 0, mTouchedBuffer.getSize() / sizeof(PxU32), dmaStream);
+		}
 	}
-	else
+    if(mGpuContext->getEnableDirectGPUAPI() || mGpuContext->getSimulationController()->usesDeviceDestructionContactInputs())
 	{
 		//reset the changes in case they were made through cpu api and were already copied over
 		PxgBoundsArray& directGPUBoundsArray = static_cast<PxgBoundsArray&>(boundArray);
@@ -2237,7 +2437,7 @@ void PxgSimulationCore::gpuMemDmaBack(Cm::PinnableArray<PxU32>& frozenArray,
 	// AD: I'm not sure about that one. It will bring back the list of changed AABB manager handles to CPU, which will then be appended
 	// with changes done using the public API. Then we copy back to GPU. Should be fine to skip if we're not allowing CPU-side updates?
 	CUdeviceptr changeAABBHandlesd = mUseGpuBp ? mGpuContext->getGpuBroadPhase()->getAABBManager()->getChangedAABBMgrHandles() : mChangedAABBMgrHandlesBuffer.getDevicePtr();
-	mCudaContext->memcpyDtoHAsync(changedAABBMgrHandles.getWords(), changeAABBHandlesd, sizeof(PxU32)*changedAABBMgrHandles.getWordCount(), mStream);
+	mCudaContext->memcpyDtoHAsync(changedAABBMgrHandles.getWords(), changeAABBHandlesd, sizeof(PxU32)*changedAABBMgrHandles.getWordCount(), dmaStream);
 
 	
 	*mEventMapped = 0;
@@ -2250,16 +2450,18 @@ void PxgSimulationCore::gpuMemDmaBack(Cm::PinnableArray<PxU32>& frozenArray,
 		PX_CUDA_KERNEL_PARAM(devicePtr)
 	};
 
-	CUresult resultR = mCudaContext->launchKernel(signalFunction, 1, 1, 1, 1, 1, 1, 0, mStream, signalParams, sizeof(signalParams), 0, PX_FL);
+	CUresult resultR = mCudaContext->launchKernel(signalFunction, 1, 1, 1, 1, 1, 1, 0, dmaStream, signalParams, sizeof(signalParams), 0, PX_FL);
 	PX_UNUSED(resultR);
 	PX_ASSERT(resultR == CUDA_SUCCESS);
 
 #if SC_GPU_DEBUG
-	mCudaContext->streamSynchronize(mStream);
+	mCudaContext->streamSynchronize(dmaStream);
 #else
 	//This push all the commands in the queue to execute, but it doesn't wait for the result
-	mCudaContext->streamFlush(mStream);
+	mCudaContext->streamFlush(dmaStream);
 #endif
+	if(mDmaBackOnSideStream)
+		mCudaContext->eventRecord(mDmaBackDone, dmaStream);
 }
 
 void PxgSimulationCore::syncDmaback(PxU32& nbFrozenShapesThisFrame, PxU32& nbUnfrozenShapesThisFrame, bool didSimulate)
@@ -2274,17 +2476,103 @@ void PxgSimulationCore::syncDmaback(PxU32& nbFrozenShapesThisFrame, PxU32& nbUnf
 		volatile PxU32* pEvent = mEventMapped;
 			
 		if (!spinWait(*pEvent, 0.1f))
-			mCudaContext->streamSynchronize(mStream);
+			mCudaContext->streamSynchronize(mDmaBackOnSideStream ? mDmaBackStream : mStream);
 	}
 
 	nbFrozenShapesThisFrame = mUpdatedCacheAndBoundsDesc.get().mTotalFrozenShapes;
 	nbUnfrozenShapesThisFrame = mUpdatedCacheAndBoundsDesc.get().mTotalUnfrozenShapes;
+
+	if (mCompactPending)
+	{
+		mCompactPending = false;
+		if (didSimulate && mDmaBackBounds && mDmaBackTransforms)
+		{
+			const PxU32 total = *mCompactCountMapped;
+			mCompactLastCount = total;
+			if (total > mCompactCapacity)
+				PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR, PX_FL, "Compacted cache/bounds DMA back overflowed (%u > %u).", total, mCompactCapacity);
+			const PxU32 count = PxMin(total, mCompactCapacity);
+			const PxU32 limit = mDmaBackElementCount;
+			if (mCompactGathered)
+			{
+				if (count > mCompactEstimate)
+				{
+					// The prefix estimate was short: fetch the remainder now (synchronous, rare).
+					const PxU32 from = mCompactEstimate, n = count - from;
+					mCudaContext->memcpyDtoH(mCompactIndicesMapped + from, mCompactIndicesStaging.getDevicePtr() + sizeof(PxU32) * from, sizeof(PxU32) * n);
+					mCudaContext->memcpyDtoH(mCompactBoundsMapped + from, mCompactBoundsStaging.getDevicePtr() + sizeof(PxBounds3) * from, sizeof(PxBounds3) * n);
+					mCudaContext->memcpyDtoH(mCompactTransformsMapped + from, mCompactTransformsStaging.getDevicePtr() + sizeof(PxsCachedTransform) * from, sizeof(PxsCachedTransform) * n);
+				}
+				for (PxU32 i = 0; i < count; ++i)
+				{
+					const PxU32 index = mCompactIndicesMapped[i];
+					if (index < limit)
+					{
+						mDmaBackBounds[index] = mCompactBoundsMapped[i];
+						mDmaBackTransforms[index] = mCompactTransformsMapped[i];
+					}
+				}
+				if (compactDmaBackMode() == 2 && mVerifyBounds && mVerifyTransforms)
+				{
+					PxU32 boundMismatch = 0, transformMismatch = 0;
+					for (PxU32 i = 0; i < limit; ++i)
+					{
+						if (memcmp(&mDmaBackBounds[i], &mVerifyBounds[i], sizeof(PxBounds3)) != 0) ++boundMismatch;
+						if (memcmp(&mDmaBackTransforms[i], &mVerifyTransforms[i], sizeof(PxsCachedTransform)) != 0) ++transformMismatch;
+					}
+					static PxU32 passes = 0; ++passes;
+					if (boundMismatch || transformMismatch || (passes % 64) == 0)
+						fprintf(stderr, "[compact-dmaback] pass %u: gathered %u of %u elements (prefix %u), mismatches bounds=%u transforms=%u\n",
+							passes, count, limit, mCompactEstimate, boundMismatch, transformMismatch);
+				}
+			}
+		}
+	}
 }
 
-void PxgSimulationCore::updateBodies(const PxU32 nbUpdatedBodies, const PxU32 nbNewBodies)
+void PxgSimulationCore::ensureTouchedCapacity(PxU32 elements)
 {
+	const PxU64 required = PxU64(elements) * sizeof(PxU32);
+	const PxU64 current = mTouchedBuffer.getSize();
+	if (required <= current)
+		return;
+	// Preserve pending marks (the merge kernel folds Direct-API handles in
+	// before the DMA back) and zero the new tail.
+	mTouchedBuffer.allocateCopyOldDataAsync(required, mCudaContext, mStream, PX_FL);
+	const PxU64 grown = mTouchedBuffer.getSize();
+	if (grown > current)
+		mCudaContext->memsetD32Async(mTouchedBuffer.getDevicePtr() + current, 0, (grown - current) / sizeof(PxU32), mStream);
+	// The Direct-API descriptor lives on the device between gpuDmaUpdateData
+	// calls: refresh its touched pointer so the merge kernel never writes into
+	// the released buffer.
+	PxgUpdateActorDataDesc& actorDesc = mUpdatedActorDataDesc.get();
+	actorDesc.mTouched = mTouchedBuffer.getTypedPtr();
+	actorDesc.mTouchedCapacity = PxU32(grown / sizeof(PxU32));
+	if (mUpdatedActorDescBuffer.getDevicePtr())
+		mCudaContext->memcpyHtoDAsync(mUpdatedActorDescBuffer.getDevicePtr() + PX_OFFSET_OF(PxgUpdateActorDataDesc, mTouched),
+			&actorDesc.mTouched, sizeof(PxgUpdateActorDataDesc) - PX_OFFSET_OF(PxgUpdateActorDataDesc, mTouched), mStream);
+}
+
+void PxgSimulationCore::releaseCompactMirror()
+{
+	if (mCompactIndicesMapped) PX_PINNED_MEMORY_FREE(*mCudaContextManager, mCompactIndicesMapped);
+	if (mCompactBoundsMapped) PX_PINNED_MEMORY_FREE(*mCudaContextManager, mCompactBoundsMapped);
+	if (mCompactTransformsMapped) PX_PINNED_MEMORY_FREE(*mCudaContextManager, mCompactTransformsMapped);
+	if (mCompactCountMapped) PX_PINNED_MEMORY_FREE(*mCudaContextManager, mCompactCountMapped);
+	mCompactIndicesMapped = NULL; mCompactBoundsMapped = NULL; mCompactTransformsMapped = NULL; mCompactCountMapped = NULL;
+	mCompactCapacity = 0; mCompactPending = false;
+	if (mVerifyBounds) PX_PINNED_MEMORY_FREE(*mCudaContextManager, mVerifyBounds);
+	if (mVerifyTransforms) PX_PINNED_MEMORY_FREE(*mCudaContextManager, mVerifyTransforms);
+	mVerifyBounds = NULL; mVerifyTransforms = NULL; mVerifyCapacity = 0;
+}
+
+bool PxgSimulationCore::updateBodies(const PxU32 nbUpdatedBodies, const PxU32 nbNewBodies, PxgDestructionRuntime* commandInputs, PxU32 bodyCount)
+{
+    const auto updateVelocities = [&]()
 	{
-		if (nbUpdatedBodies > 0 && !mGpuContext->getEnableDirectGPUAPI())
+        if(commandInputs && !commandInputs->captureCommandInputs(getBodySimBufferDevicePtr().getPointer(),bodyCount,
+            reinterpret_cast<const PxgBodySimVelocityUpdate*>(mUpdatedBodySimBuffer.getDevicePtr()),nbUpdatedBodies,mStream))return false;
+		if (nbUpdatedBodies > 0)
 		{
 			CUdeviceptr descptr = mUpdatedBodiesDescBuffer.getDevicePtr();
 			PxCudaKernelParam kernelParams[] =
@@ -2304,7 +2592,11 @@ void PxgSimulationCore::updateBodies(const PxU32 nbUpdatedBodies, const PxU32 nb
 				PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR, PX_FL, "GPU update bodies velocities kernel fail!\n");
 #endif
 		}
-	}
+        return true;
+	};
+    const bool residentDestruction=!mGpuContext->getEnableDirectGPUAPI()
+        && mGpuContext->getSimulationController()->usesDeviceDestructionContactInputs();
+    if(!mGpuContext->getEnableDirectGPUAPI() && !residentDestruction && !updateVelocities())return false;
 
 	{
 		if (nbNewBodies > 0)
@@ -2318,7 +2610,7 @@ void PxgSimulationCore::updateBodies(const PxU32 nbUpdatedBodies, const PxU32 nb
 			CUfunction kernelFunction = mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::UPDATE_BODIES);
 			// if direct GPU API is enabled, we must not write stale transform data to the GPU which the DIRECT_API kernel version implements
 			// this kernel will still write the full data in the first step - we check that inside the kernel. Otherwise this would not work with the immutability of the direct-GPU flag.
-			if(mGpuContext->getEnableDirectGPUAPI()) // AD: switch to initialization check as soon as possible, for now let's stay on the safe side.
+			if(mGpuContext->getEnableDirectGPUAPI() || residentDestruction) // AD: switch to initialization check as soon as possible, for now let's stay on the safe side.
 			{
 				kernelFunction = mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::UPDATE_BODIES_DIRECT_API);
 			}
@@ -2335,6 +2627,15 @@ void PxgSimulationCore::updateBodies(const PxU32 nbUpdatedBodies, const PxU32 nb
 #endif
 		}
 	}
+    if(mGpuContext->getEnableDirectGPUHostAccess() || residentDestruction) {
+        if(!updateVelocities())return false;
+    } else if(mGpuContext->getEnableDirectGPUAPI() && commandInputs) {
+        // This mode admits no ordinary host delta upload. Publish an explicit
+        // empty generation; direct GPU forces remain in checkpoint accumulators.
+        if(!commandInputs->captureCommandInputs(getBodySimBufferDevicePtr().getPointer(),bodyCount,
+            nullptr,0,mStream))return false;
+    }
+    return true;
 }
 
 void PxgSimulationCore::updateArticulations(const PxU32 nbNewArticulations, PxgArticulationSimUpdate* updates, 
@@ -3007,6 +3308,8 @@ void PxgSimulationCore::ovdSnapshotRigidDynamicForces(const PxRigidDynamicGPUInd
 
 #endif
 
+void PxgSimulationCore::noteDevicePoseWrites() { mGpuContext->mGpuBp->getAABBManager()->setGPUStateChanged(); }
+
 bool PxgSimulationCore::setRigidDynamicData(const void* PX_RESTRICT data, const PxRigidDynamicGPUIndex* PX_RESTRICT gpuIndices,
                                                 PxRigidDynamicGPUAPIWriteType::Enum dataType, PxU32 nbElements,
                                                 CUevent startEvent, CUevent finishEvent)
@@ -3204,6 +3507,75 @@ bool PxgSimulationCore::getD6JointData(void* data, const PxD6JointGPUIndex* gpuI
 	return success;
 }
 
+bool PxgSimulationCore::refreshReboundShapeBounds(CUstream npStream, bool allRigidShapes, CUdeviceptr dormantBits, PxU32 dormantWords)
+{
+    Cm::PinnableArray<PxU32>& indices = mPxgShapeSimManager.prepareGpuBoundsRefresh();
+    const auto& ownership=mGpuContext->mGpuNpCore->mGpuShapesManager;
+    const PxU32 count=allRigidShapes ? PxU32(ownership.mMaxTransformCacheID+1) : indices.size();
+    // Shape insertion may grow NP before the end-of-step Direct GPU descriptor
+    // reset. Preserve pending command flags while extending this shared buffer;
+    // resetting its prefix would lose ordinary actors' broad-phase updates.
+    const PxU64 required=PxMax(PxU64(ownership.mMaxTransformCacheID)+1,
+        PxU64(mGpuContext->mGpuBp->getAABBManager()->getChangedAABBMgrHandlesWordCount())*32);
+    if(required>PX_MAX_U32)return false;
+    const PxU64 oldBytes=mUpdatedDirectBuffer.getSize();
+    if(oldBytes<required*sizeof(PxU32)) {
+        mUpdatedDirectBuffer.allocateCopyOldDataAsync(required*sizeof(PxU32),mCudaContext,mStream,PX_FL);
+        const PxU64 newBytes=mUpdatedDirectBuffer.getSize();
+        if(!mUpdatedDirectBuffer.getDevicePtr() || newBytes<required*sizeof(PxU32)
+            || newBytes/sizeof(PxU32)>PX_MAX_U32)return false;
+        if(mCudaContext->memsetD32Async(mUpdatedDirectBuffer.getDevicePtr()+oldBytes,0,
+            (newBytes-oldBytes)/sizeof(PxU32),mStream)!=CUDA_SUCCESS)return false;
+        auto& descriptor=mUpdatedActorDataDesc.get();descriptor.mUpdated=mUpdatedDirectBuffer.getTypedPtr();
+        if(mCudaContext->memcpyHtoDAsync(mUpdatedActorDescBuffer.getDevicePtr()+PX_OFFSET_OF(PxgUpdateActorDataDesc,mUpdated),
+            &descriptor.mUpdated,sizeof(descriptor.mUpdated),mStream)!=CUDA_SUCCESS)return false;
+    }
+
+    // Native sleep setters also need this persistent update bitmap, even when
+    // no shape migrated. Allocating it must not read uninitialized motion slots.
+    if(!count){indices.clear();return true;}
+
+    // Shape metadata was uploaded on the simulation stream. Geometry/cache
+    // allocation and merges precede this call on NP's stream. Read only the
+    // current GPU pointers, without changing the Direct GPU API descriptor.
+    if(mCudaContext->eventRecord(mDmaEvent, mStream) != CUDA_SUCCESS
+        || mCudaContext->streamWaitEvent(npStream, mDmaEvent, 0) != CUDA_SUCCESS)
+        return false;
+    CUdeviceptr ids=ownership.mGpuShapeIndiceBuffer.getDevicePtr();
+    const PxNodeIndex* sortedNodes=nullptr;
+    if(allRigidShapes) {
+        if(ownership.mGpuShapeIndiceBuffer.getSize()<PxU64(count)*sizeof(PxU32)
+            || ownership.mGpuRigidIndiceBuffer.getSize()<PxU64(count)*sizeof(PxNodeIndex))return false;
+        sortedNodes=reinterpret_cast<const PxNodeIndex*>(ownership.mGpuRigidIndiceBuffer.getDevicePtr());
+    } else {
+        mReboundShapeIndices.allocate(PxU64(count) * sizeof(PxU32), PX_FL);
+        ids=mReboundShapeIndices.getDevicePtr();
+        if(!ids || mCudaContext->memcpyHtoDAsync(ids,indices.begin(),PxU64(count)*sizeof(PxU32),npStream)!=CUDA_SUCCESS)return false;
+        mReboundShapeIndexUploadCount+=count;
+    }
+    const PxgShapeSim* shapes = mPxgShapeSimManager.getShapeSimsDeviceTypedPtr();
+    const PxgBodySim* bodies = getBodySimBufferDeviceData().getPointer();
+    const CUdeviceptr transforms = mGpuContext->mGpuNpCore->getTransformCache().getDevicePtr();
+    const CUdeviceptr bounds = getBoundArrayBuffer()->getDevicePtr();
+    const CUdeviceptr geometry = mGpuContext->mGpuNpCore->mGpuShapesManager.mGpuShapesBuffer.getDevicePtr();
+    PxU32* updated=mUpdatedDirectBuffer.getTypedPtr();
+    const PxU32 updatedCapacity=PxU32(mUpdatedDirectBuffer.getSize()/sizeof(PxU32));
+    if(!updated || updatedCapacity<PxU32(ownership.mMaxTransformCacheID+1))return false;
+    PxCudaKernelParam params[] = { PX_CUDA_KERNEL_PARAM(ids), PX_CUDA_KERNEL_PARAM(count),
+        PX_CUDA_KERNEL_PARAM(shapes), PX_CUDA_KERNEL_PARAM(bodies), PX_CUDA_KERNEL_PARAM(transforms),
+        PX_CUDA_KERNEL_PARAM(bounds), PX_CUDA_KERNEL_PARAM(geometry), PX_CUDA_KERNEL_PARAM(sortedNodes),
+        PX_CUDA_KERNEL_PARAM(updated), PX_CUDA_KERNEL_PARAM(updatedCapacity),
+        PX_CUDA_KERNEL_PARAM(dormantBits), PX_CUDA_KERNEL_PARAM(dormantWords) };
+    const CUfunction kernel = mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::REFRESH_REBOUND_SHAPE_BOUNDS);
+    const PxU32 blocks=PxMin(128u,(count+255)/256);
+    const CUresult result = mCudaContext->launchKernel(kernel, blocks, 1, 1, 256, 1, 1,
+        0, npStream, params, sizeof(params), 0, PX_FL);
+    // The existing pre-BP merge consumes the GPU-written update flags.
+    // Keep pinned storage alive until fetch completes, just like shape uploads.
+    indices.clear();
+    return result == CUDA_SUCCESS;
+}
+
 void PxgSimulationCore::gpuDmaUpdateData()
 {
 	// this descriptor is only for the direct-GPU updates.
@@ -3224,6 +3596,9 @@ void PxgSimulationCore::gpuDmaUpdateData()
 	desc.mShapes = reinterpret_cast<PxgShape*>(mGpuContext->mGpuNpCore->mGpuShapesManager.mGpuShapesBuffer.getDevicePtr());
 	desc.mTransformCache = reinterpret_cast<PxsCachedTransform*>(mGpuContext->mGpuNpCore->getTransformCache().getDevicePtr());
 	desc.mShapeSimsBufferDeviceData = mPxgShapeSimManager.getShapeSimsDeviceTypedPtr();
+	ensureTouchedCapacity(desc.mBitMapWordCounts * 32);
+	desc.mTouched = mTouchedBuffer.getTypedPtr();
+	desc.mTouchedCapacity = PxU32(mTouchedBuffer.getSize() / sizeof(PxU32));
 	mCudaContext->memcpyHtoDAsync(mUpdatedActorDescBuffer.getDevicePtr(), &desc, sizeof(PxgUpdateActorDataDesc), mStream);
 }
 

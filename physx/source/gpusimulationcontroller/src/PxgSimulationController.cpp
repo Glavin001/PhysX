@@ -1,3 +1,4 @@
+#include "PxgDestructionRuntime.h"
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions
 // are met:
@@ -25,6 +26,27 @@
 // Copyright (c) 2008-2026 NVIDIA Corporation. All rights reserved.
 
 #include "PxgSimulationController.h"
+#include "foundation/PxTime.h"
+#include "foundation/PxThread.h"
+#include <cstdlib>
+#include <cstdio>
+namespace {
+// PHYSX_DESTRUCTION_ISLAND_SCOPE=1: island-scoped destruction correction.
+// 1: full (park islands, reinstate GPU state, skip parked stress components);
+// 2: stress skip only (bisection); 3: park + reinstate without the stress skip;
+// 4: frozen pass (bodies removed from the solver list); 6: dormant pass (README
+// section 17): bodies of islands without a correction target keep their trial
+// end-of-tick state, are reinstated after the pass-start bounds refresh (cache
+// and bounds stay at start of step), map to the static solver body for the
+// pass and skip integration; the solver body list is unchanged.
+// Default 0. Mode 6 (dormant corrected pass, README section 17) was flipped on 2026-09-18 and reverted the same day: faster on the
+// 3 s ensemble (-0.9 ms) but neutral-to-slower on the 600-tick heavy trajectory (18.05-18.10 ms, 258-259 misses vs 17.4-18.1, 246-248):
+// its +4.6 % fracture costs more later than the dormant pass saves per tick. Opt in with PHYSX_DESTRUCTION_ISLAND_SCOPE=6.
+int islandScopedCorrectionMode() { static const int value=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_ISLAND_SCOPE");return raw?std::atoi(raw):0;}(); return value; }
+bool islandScopedCorrectionEnabled() { return islandScopedCorrectionMode()!=0; }
+
+}
+#include "PxgDestructionNativeSnapshot.h"
 #include "PxgNarrowphaseCore.h"
 #include "PxDirectGPUAPI.h"
 #include "PxsRigidBody.h"
@@ -90,6 +112,8 @@ void addRef(PxCudaContextManager* cudaContextManager);
 
 using namespace physx;
 
+static const char gDestructionCorrectionZone[] = "GpuDestruction.correctedCollisionSolve";
+
 static PX_FORCE_INLINE void getGRBVertexIndices(PxU32& vref0, PxU32& vref1, PxU32& vref2, PxU32 triIndex, const Gu::TriangleMesh* triangleMesh)
 {
 	const PxU32 offset = triIndex * 3;
@@ -124,6 +148,90 @@ namespace physx
 		initSimulationControllerKernels2();
 #endif
 	}
+
+// Frozen corrected pass (mode 4), called by PxgGpuContext::update before the
+// solver body list is built. Returns the rigid active list without the frozen
+// bodies, or NULL when the ordinary list applies.
+const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNodes(const IG::IslandSim& sim)
+{
+    mDestructionDormantCount=0;
+    const int scopeMode=islandScopedCorrectionMode();
+    if((scopeMode!=4 && scopeMode!=6) || !mDestructionCorrecting || !mDestructionFreezePending || !mDestruction)return NULL;
+    mDestructionFreezePending=false;
+    const PxU32 islandCount=sim.getNbIslands(),nodeCount=sim.getNbNodes();
+    const IG::IslandId* ids=sim.getIslandIds();
+    PxBitMap affected;affected.resizeAndClear(PxMax(1u,islandCount));
+    for(PxU32 i=0;i<mDestructionAffectedNodes.size();++i) {
+        const PxU32 node=mDestructionAffectedNodes[i];
+        if(node<nodeCount && ids[node]!=IG_INVALID_ISLAND && ids[node]<islandCount)affected.set(ids[node]);
+    }
+    PxBitMap frozen;frozen.resizeAndClear(PxMax(1u,nodeCount));
+    mDestructionFrozenNodes.clear();mDestructionFrozenStaticEdges.clear();PxU32 merged=0;
+    PxArray<PxU32> mergedNodes;
+    for(PxU32 i=0;i<mDestructionParkedNodes.size();++i) {
+        const PxU32 node=mDestructionParkedNodes[i];
+        if(node>=nodeCount || ids[node]==IG_INVALID_ISLAND || ids[node]>=islandCount)continue;
+        if(affected.test(ids[node])){++merged;mergedNodes.pushBack(node);continue;}
+        const IG::Node& n=sim.getNode(PxNodeIndex(node));
+        if(!n.isActive() || n.isKinematic())continue;
+        frozen.set(node);mDestructionFrozenNodes.pushBack(node);
+        // Static contacts of a frozen body are not batched this pass: their
+        // current friction patch counts must be cleared (see PxgContext).
+        // The dormant pass batches and neutralises them instead.
+        if(scopeMode!=6 && node<mBodySimManager.mStaticConstraints.size()) {
+            const PxgStaticConstraints& sc=mBodySimManager.mStaticConstraints[node];
+            for(PxU32 k=0;k<sc.mStaticContacts.size();++k)mDestructionFrozenStaticEdges.pushBack(sc.mStaticContacts[k].uniqueId);
+        }
+    }
+    const PxU32 activeCount=sim.getNbActiveNodes(IG::Node::eRIGID_BODY_TYPE);
+    const PxNodeIndex* active=sim.getActiveNodes(IG::Node::eRIGID_BODY_TYPE);
+    mDestructionSolverNodes.clear();mDestructionSolverNodes.reserve(activeCount);
+    PxU32 removed=0;
+    for(PxU32 a=0;a<activeCount;++a){if(frozen.boundedTest(active[a].index()))++removed;else mDestructionSolverNodes.pushBack(active[a]);}
+    bool ok=true;
+    // Bisection aid: bit0 reinstates the frozen bodies' trial state, bit1 removes
+    // them from the solver list (default both).
+    static const int freezeBits=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_ISLAND_SCOPE_FREEZE_BITS");return raw?std::atoi(raw):3;}();
+    static const bool stressSkip=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_ISLAND_SCOPE_STRESS_SKIP");return !raw || raw[0]!='0';}();
+    {
+        PxScopedCudaLock lock(*mCudaContextManager);
+        // Candidates already carry their trial state (install); merged ones go
+        // back to the checkpoint and are solved like any affected body. With
+        // reinstatement at finalize instead, everything sat at the checkpoint
+        // through broadphase/narrowphase and only the frozen bodies move now.
+        if(mDestructionReinstatedAtInstall && mergedNodes.size())
+            ok=mDestruction->restoreCheckpointBodies(mergedNodes.begin(),mergedNodes.size(),
+                mSimulationCore->getBodySimBufferDevicePtr().getPointer(),mSimulationCore->getBodySimPrevVelocitiesBufferDevicePtr().getPointer(),
+                mSimulationCore->getRigidBodyAccelerationsDevice(),mSimulationCore->getStream());
+        // Mode 6 reinstated and marked its stress components at pass start with
+        // the candidate set; merged candidates went back to the checkpoint above.
+        if(ok && mDestructionFrozenNodes.size() && (freezeBits&1) && scopeMode!=6)
+            ok=mDestruction->reinstateTrialState(mDestructionFrozenNodes.begin(),mDestructionFrozenNodes.size(),
+                mSimulationCore->getBodySimBufferDevicePtr().getPointer(),mSimulationCore->getBodySimPrevVelocitiesBufferDevicePtr().getPointer(),
+                mSimulationCore->getRigidBodyAccelerationsDevice(),mSimulationCore->getStream(),!mDestructionReinstatedAtInstall,stressSkip);
+        // skipStressComponents: their contacts are neutralised in the corrected
+        // rigid solve, so the corrected stress solve republishes their trial
+        // result instead of solving with missing contact loads.
+    }
+    static const bool scopeDiag=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_ISLAND_SCOPE_DIAG");return raw && raw[0]=='1';}();
+    if(scopeDiag)printf("[island-scope] frozen pass: candidates=%u merged=%u frozen=%u removedFromSolver=%u active=%u staticEdges=%u reinstate=%d\n",
+        mDestructionParkedNodes.size(),merged,mDestructionFrozenNodes.size(),removed,activeCount,mDestructionFrozenStaticEdges.size(),int(ok));
+    if(!ok){mDestructionError=1;return NULL;}
+    if(scopeMode==6) {
+        // Dormant pass: keep the ordinary list; hand the frozen nodes to the
+        // solver, which remaps them to the static body after pre-integration.
+        const PxU32 count=mDestructionFrozenNodes.size();
+        if(count) {
+            PxScopedCudaLock lock(*mCudaContextManager);
+            CUdeviceptr device=0;
+            if(uploadDormantList(mDestructionFrozenNodes.begin(),count,mDynamicContext->getGpuSolverCore()->getStream(),device))
+                mDestructionDormantCount=count;
+        }
+        return NULL;
+    }
+    if(!(freezeBits&2))return NULL;
+    return &mDestructionSolverNodes;
+}
 
 	PxgSimulationController::PxgSimulationController(PxsKernelWranglerManager* gpuWranglerManager, PxCudaContextManager* cudaContextManager, PxgGpuContext* dynamicContext,
 		PxgNphaseImplementationContext* npContext, Bp::BroadPhase* bp, bool useGpuBroadphase, PxsSimulationControllerCallback* callback,
@@ -213,6 +321,10 @@ namespace physx
 #if PX_SUPPORT_OMNI_PVD
 		,mOvdCallbacks(NULL)
 #endif
+		,mDestructionDormantDevice(allocDesc.deviceAlloc, PxsHeapStats::eSIMULATION)
+		,mDestructionDormantDevice1(allocDesc.deviceAlloc, PxsHeapStats::eSIMULATION)
+		,mDestructionDormantBits(allocDesc.deviceAlloc, PxsHeapStats::eSIMULATION)
+		,mDestructionSlotMarks(allocDesc.deviceAlloc, PxsHeapStats::eSIMULATION)
 	{
 		// OMPE-70739: Hold a reference so the context manager is not destroyed while GPU simulation tasks may still run (use-after-free fix).
 		addRef(mCudaContextManager);
@@ -230,6 +342,32 @@ namespace physx
 
 	PxgSimulationController::~PxgSimulationController()
 	{
+        if(mDestructionCorrectionProfiler)
+            mDestructionCorrectionProfiler->zoneEnd(mDestructionCorrectionProfileData,
+                gDestructionCorrectionZone,true,PxU64(reinterpret_cast<size_t>(this)));
+        if(mDestruction) mDestruction->release();
+        {
+            PxScopedCudaLock lock(*mCudaContextManager);
+            PxCudaContext* cuda = mCudaContextManager->getCudaContext();
+            if(mNativeSleepZeros) cuda->memFree(mNativeSleepZeros);
+            if(mDestructionDormantHost) PX_PINNED_MEMORY_FREE(*mCudaContextManager, mDestructionDormantHost);
+            if(mDestructionDormantHost1) PX_PINNED_MEMORY_FREE(*mCudaContextManager, mDestructionDormantHost1);
+            if(mDestructionDormantRefreshed) cuda->eventDestroy(mDestructionDormantRefreshed);
+            if(mDestructionDormantBitsReady) cuda->eventDestroy(mDestructionDormantBitsReady);
+            for(PxU32 k=0;k<sNativeSleepRing;++k)
+            {
+                if(mNativeSleepIndicesRing[k]) cuda->memFree(mNativeSleepIndicesRing[k]);
+                if(mNativeSleepPosesRing[k]) cuda->memFree(mNativeSleepPosesRing[k]);
+                if(mNativeSleepIndicesHost[k]) PX_PINNED_MEMORY_FREE(*mCudaContextManager, mNativeSleepIndicesHost[k]);
+                if(mNativeSleepGathered[k]) cuda->eventDestroy(mNativeSleepGathered[k]);
+                if(mNativeSleepPosed[k]) cuda->eventDestroy(mNativeSleepPosed[k]);
+            }
+            if(mNativeSleepReady) cuda->eventDestroy(mNativeSleepReady);
+            if(mDestructionTransitionPoses) cuda->memFree(mDestructionTransitionPoses);mDestructionTransitionPoses=0;mDestructionTransitionPoseCapacity=0;
+            if(mDestructionTransitionStaged) cuda->eventDestroy(mDestructionTransitionStaged);if(mDestructionTransitionGathered) cuda->eventDestroy(mDestructionTransitionGathered);if(mDestructionTransitionDone) cuda->eventDestroy(mDestructionTransitionDone);
+            mDestructionTransitionStaged=mDestructionTransitionGathered=mDestructionTransitionDone=NULL;
+        }
+
 		PX_DELETE(mSimulationCore);
 
 		if (mPBDParticleSystemCore)
@@ -254,6 +392,11 @@ namespace physx
 		mCudaContextManager->release();
 	}
 
+    bool PxgSimulationController::setGpuShapeBoundsRefresh(PxU32 index, bool enabled)
+    {
+        return mSimulationCore->mPxgShapeSimManager.setGpuBoundsRefresh(index, enabled);
+    }
+
 	void PxgSimulationController::addPxgShape(Sc::ShapeSimBase* shapeSimBase, const PxsShapeCore* shapeCore, PxNodeIndex nodeIndex, PxU32 index)
 	{
 		mSimulationCore->mPxgShapeSimManager.addPxgShape(shapeSimBase, shapeCore, nodeIndex, index);
@@ -268,6 +411,14 @@ namespace physx
 	{
 		mSimulationCore->mPxgShapeSimManager.removePxgShape(index);
 	}
+
+    void PxgSimulationController::removeDynamic(const PxNodeIndex& nodeIndex)
+    {
+        // BodySim storage can be reused before the next upload. Do not leave
+        // a pending entry dereferencing the removed body's old address.
+        const PxU32 index = nodeIndex.index();
+        if(index < mBodySimManager.mBodies.size()) mBodySimManager.mBodies[index] = NULL;
+    }
 
 	void PxgSimulationController::addDynamic(PxsRigidBody* rigidBody, const PxNodeIndex& nodeIndex)
 	{
@@ -604,6 +755,1027 @@ namespace physx
 		return artiCore->computeArticulationData(data, gpuIndices, operation, nbElements, mMaxLinks, mMaxDofs, startEvent, finishEvent);
 	}
 
+    PxDestructionScene* PxgSimulationController::getDestructionScene(void* scene, bool (*gate)(void*), PxvDestructionBodyAllocator* allocator)
+    {
+        if(!mDestruction) {
+            mDestruction = PxCreateDestructionRuntimeV20(mCudaContextManager->getContext(), scene, gate, allocator);
+            if(mDestruction)mDynamicContext->activateDestructionNodeTracking();
+        }
+        return mDestruction;
+    }
+
+    bool PxgSimulationController::preservesDestructionContactPairs() const
+    {
+        return mDestructionCorrecting && mDestructionPreservePairs;
+    }
+
+    PxU64 PxgSimulationController::getDestructionContactGraphGeneration() const {
+        return usesDeviceDestructionContactInputs() ? mDestruction->getContactGraphView().generation : 0;
+    }
+    PxU32 PxgSimulationController::destructionReservedContactPairs() const {
+        return (mDestruction && mDestruction->configured()) ? mDestruction->reservedContactPairs() : 0u;
+    }
+    bool PxgSimulationController::usesGpuDestructionIslandRepair() const {
+        return usesDeviceDestructionContactInputs() && mDestruction->gpuIslandRepairEnabled();
+    }
+    // PHYSX_DESTRUCTION_DEVICE_SLEEP: 0 = CPU early sleep commit at the arm (previous
+    // default); 8 = audit of the device sleep reduction; 9 (default) = device-driven
+    // sleep transition and stress submit at the solver issue (README §14): lossless
+    // (identical histories on g16 and identical warm-window signatures, including the
+    // late-debris window once bodies pending outside the island passes are finalized
+    // before the issue-time submit). Falls back to the CPU commit and the ordinary
+    // submit on passes where the device enqueue cannot run or no finalizer is registered.
+    static int destructionDeviceSleepMode() {
+        static const int mode=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_DEVICE_SLEEP");return raw?std::atoi(raw):9;}();
+        return mode;
+    }
+    // Mode 9 isolation knobs: keep the CPU rollback commit too (double application),
+    // and/or keep the stress submit at the CPU arm instead of the solver issue.
+    static bool deviceSleepKeepCpuCommit(){static const bool v=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_DEVICE_SLEEP_KEEP_CPU");return raw && raw[0]=='1';}();return v;}
+    static unsigned deviceSleepKernelMask(){static const unsigned v=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_DEVICE_SLEEP_KERNELS");return raw?unsigned(std::atoi(raw)):7u;}();return v;}
+    // R2 stage 0 (PHYSX_DESTRUCTION_DEVICE_READINESS=1, modes 8/9): the device applies the
+    // solver's frame flags to its readiness mirrors; the host stops recording those deltas.
+    static bool deviceReadinessEnabled(){static const bool v=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_DEVICE_READINESS");return raw && raw[0]=='1';}();return v;}
+    // R2 stage 0(b) (PHYSX_DESTRUCTION_DEVICE_VERDICT=1, modes 8/9 with device readiness): the
+    // CPU island sims consume the pre-solve device verdict (mode-4 semantics) instead of walking.
+    static bool deviceVerdictEnabled(){static const bool v=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_DEVICE_VERDICT");return raw && raw[0]=='1';}();return v;}
+    static bool readinessAuditEnabled(){static const bool v=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_READINESS_AUDIT");return raw && raw[0]=='1';}();return v;}
+    bool PxgSimulationController::deviceOwnsSolverReadiness() const { return destructionDeviceSleepMode()>=8 && deviceReadinessEnabled(); }
+    static bool deviceSleepAtArm(){static const bool v=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_DEVICE_SLEEP_AT_ARM");return raw && raw[0]=='1';}();return v;}
+    static bool deviceSleepSubmitAtArm(){static const bool v=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_DEVICE_SLEEP_SUBMIT_AT_ARM");return raw && raw[0]=='1';}();return v;}
+
+    void PxgSimulationController::enqueueDestructionSleepVerdicts() {
+        const int mode=destructionDeviceSleepMode();
+        if(mode!=1 && mode!=2)return;
+        if(!mDestruction || !usesGpuDestructionIslandRepair())return;
+        PxgSolverCore* core=mDynamicContext->getGpuSolverCore();
+        const PxU32 bodies=mDynamicContext->getActiveNodeCount();
+        if(!core || !bodies)return;
+        PxScopedCudaLock lock(*mCudaContextManager);
+        mDestruction->enqueueComponentSleepVerdicts(core->getSolverBodySleepData().getPointer(),core->getGpuIslandNodeIndices().getPointer(),bodies,core->getStream());
+    }
+
+    void PxgSimulationController::prepareGpuDestructionIslandRepair(IG::SimpleIslandManager& islands) {
+        PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.task.prepareIslandRepair",false,PxU64(reinterpret_cast<size_t>(this)));
+        PxScopedCudaLock lock(*mCudaContextManager);
+        islands.getAccurateIslandSim().setGpuContactComponents(NULL,NULL,0);
+        islands.getSpeculativeIslandSim().setGpuContactComponents(NULL,NULL,0);
+        {
+            PxProfileScoped graph(PxGetProfilerCallback(),"GpuDestruction.task.prepareIslandRepair.contactGraph",false,PxU64(reinterpret_cast<size_t>(this)));
+            if(!mNpContext->getGpuNarrowphaseCore()->buildDestructionContactGraph()){islands.restoreHostConnectivity();return;}
+        }
+        const PxU32 *accurate=NULL,*speculative=NULL;const PxU32 *aMembers=NULL,*sMembers=NULL;PxU32 count=0;
+        const bool owned=mDynamicContext->deviceConnectivityOwnershipReady();
+        // R2 core increment 1 (PHYSX_DESTRUCTION_DEVICE_SLEEP=1 use, 2 audit, 3 flat CPU):
+        // the island sims deactivate from the device verdict of the previous tick's
+        // final pass (enqueued after that pass's integration, published here on the
+        // trial pass; a corrected pass keeps the same verdict, like the restored
+        // CPU readiness).
+        {
+            const int deviceSleep=destructionDeviceSleepMode();
+            islands.getAccurateIslandSim().setGpuSleepVerdicts(NULL,0,0);islands.getSpeculativeIslandSim().setGpuSleepVerdicts(NULL,0,0);
+            if(deviceSleep==3) { islands.getAccurateIslandSim().setGpuSleepVerdicts(NULL,0,3);islands.getSpeculativeIslandSim().setGpuSleepVerdicts(NULL,0,3); }
+            else if(deviceSleep>=6 && deviceSleep<=9) {
+                // Device mirror of the readiness flag maintained by deltas; the
+                // reduction reads the mirror. Mode 7 also audits mirror == CPU flags.
+                // Modes 8/9 (device sleep transition, README §14) keep only the
+                // accurate mirror and reduce on the device at the solver issue.
+                for(int which=0;which<((deviceSleep>=8 && !deviceReadinessEnabled())?1:2);++which) {
+                    IG::IslandSim& sim=which?islands.getSpeculativeIslandSim():islands.getAccurateIslandSim();
+                    const PxU32 nodeCount=sim.getNbNodes();
+                    const auto cpuFlags=[&](PxU32 i){const IG::Node& node=sim.getNode(PxNodeIndex(i));
+                        return PxU8((!node.isDeleted() && !node.isKinematic() && node.mType==IG::Node::eRIGID_BODY_TYPE && !node.isReadyForSleeping())?1u:0u);};
+                    PxU32 deltaCount=0;bool overflow=false;const PxU32* deltas=sim.readinessDeltas(deltaCount,overflow);
+                    if(mDestructionReadinessSeeded[which] && overflow){mDestructionReadinessSeeded[which]=false;++mDestructionReadinessReseeds;}
+                    if(!mDestructionReadinessSeeded[which]) {
+                        sim.setReadinessRecording(true);
+                        mDestructionReadinessScratch.forceSize_Unsafe(0);mDestructionReadinessScratch.resize(nodeCount);
+                        for(PxU32 i=0;i<nodeCount;++i)mDestructionReadinessScratch[i]=cpuFlags(i);
+                        mDestructionReadinessSeeded[which]=mDestruction->initReadinessMirror(mDestructionReadinessScratch.begin(),nodeCount,which!=0);
+                    } else {
+                        if(!mDestruction->applyReadinessDeltas(deltas,deltaCount,which!=0))mDestructionReadinessSeeded[which]=false;
+                    }
+                    sim.clearReadinessDeltas(PxMax(4u*nodeCount,65536u));
+                    if(deviceSleep<8){
+                    PxU32 capacity=0;const PxU8* verdicts=mDestructionReadinessSeeded[which]?mDestruction->reduceMirroredReadiness(which!=0,capacity):NULL;
+                    if(verdicts && capacity)sim.setGpuSleepVerdicts(verdicts,capacity,deviceSleep==6?4u:5u,0);
+                    }
+                    if(deviceSleep==7 || readinessAuditEnabled()) {
+                        PxU32 mirrorCapacity=0;const PxU8* mirror=mDestruction->readinessMirror(which!=0,mirrorCapacity);
+                        static PxU64 passes[2]={0,0},checked[2]={0,0},diffs[2]={0,0};++passes[which];
+                        if(mirror){
+                            static PxU32 shownDiff=0;
+                            for(PxU32 i=0;i<nodeCount;++i){const IG::Node& node=sim.getNode(PxNodeIndex(i));
+                                // Only active rigid nodes are evaluated by the third pass; sleeping nodes' flags never matter.
+                                if(node.isDeleted() || node.isKinematic() || node.mType!=IG::Node::eRIGID_BODY_TYPE || !node.isActive())continue;
+                                ++checked[which];const PxU8 cpu=cpuFlags(i);const PxU8 dev=i<mirrorCapacity?mirror[i]:0xFF;
+                                if(cpu!=dev){++diffs[which];if(shownDiff<12){++shownDiff;fprintf(stderr,"   readiness diff (%s) node %u: cpu notReady %d mirror %d\n",which?"speculative":"accurate",i,int(cpu),int(dev));}}}
+                        }
+                        if((passes[which]%64)==0)fprintf(stderr,"readiness mirror audit (%s): passes=%llu checked=%llu diffs=%llu\n",which?"speculative":"accurate",
+                            (unsigned long long)passes[which],(unsigned long long)checked[which],(unsigned long long)diffs[which]);
+                    }
+                }
+            }
+            else if(deviceSleep==4 || deviceSleep==5) {
+                // Half-step: CPU readiness reduced per device component. Exact when
+                // device components and CPU islands coincide for the active set.
+                PxgSolverCore* core=mDynamicContext->getGpuSolverCore();
+                for(int which=0;which<2;++which) {
+                    IG::IslandSim& sim=which?islands.getSpeculativeIslandSim():islands.getAccurateIslandSim();
+                    const PxU32 nodeCount=sim.getNbNodes();
+                    mDestructionReadinessScratch.forceSize_Unsafe(0);mDestructionReadinessScratch.resize(nodeCount);
+                    for(PxU32 i=0;i<nodeCount;++i) {
+                        const IG::Node& node=sim.getNode(PxNodeIndex(i));
+                        mDestructionReadinessScratch[i]=PxU8((!node.isDeleted() && !node.isKinematic() && node.mType==IG::Node::eRIGID_BODY_TYPE && !node.isReadyForSleeping())?1u:0u);
+                    }
+                    PxU32 capacity=0;const PxU8* verdicts=NULL;
+                    if(core){verdicts=mDestruction->reduceCpuReadiness(mDestructionReadinessScratch.begin(),nodeCount,which!=0,core->getStream(),capacity);}
+                    if(verdicts && capacity)sim.setGpuSleepVerdicts(verdicts,capacity,PxU32(deviceSleep),0);
+                }
+            }
+            else if(deviceSleep) {
+                PxU32 capacity=0;
+                const PxU8* verdicts=mDestructionCorrecting
+                    ?mDestruction->componentSleepVerdictsForCorrection(mDestruction->reservedBodyIndices(),mDestruction->reservedBodyCount(),capacity)
+                    :mDestruction->publishComponentSleepVerdicts(capacity);
+                static PxU32 sleepPassTick=0;if(!mDestructionCorrecting)++sleepPassTick;
+                const PxU32 tag=(sleepPassTick<<1)|(mDestructionCorrecting?1u:0u);
+                if(verdicts && capacity){islands.getAccurateIslandSim().setGpuSleepVerdicts(verdicts,capacity,PxU32(deviceSleep),tag);islands.getSpeculativeIslandSim().setGpuSleepVerdicts(verdicts,capacity,PxU32(deviceSleep),tag);}
+            }
+        }
+        if(destructionDeviceSleepMode()>=8 && deviceReadinessEnabled() && deviceVerdictEnabled() && mDestructionReadinessSeeded[0] && mDestructionReadinessSeeded[1])
+            mDestructionVerdictEnqueued=mDestruction->enqueueDeviceSleepVerdicts();
+        else mDestructionVerdictEnqueued=false;
+        if(destructionDeviceSleepMode()>=8){
+            mDestructionAuditIslands=&islands;mDestructionInPrepare=true;
+            if(destructionDeviceSleepMode()==8){const IG::IslandSim& sim=islands.getAccurateIslandSim();const PxU32 n=sim.getNbNodes();
+                mDestructionAuditReadyAtPrepare.forceSize_Unsafe(0);mDestructionAuditReadyAtPrepare.resize(n);
+                for(PxU32 i=0;i<n;++i)mDestructionAuditReadyAtPrepare[i]=PxU8(sim.getNode(PxNodeIndex(i)).isReadyForSleeping()?1u:0u);}
+            noteDestructionSleepTransitionArrival();mDestructionInPrepare=false;
+        }
+        if(!owned)islands.restoreHostConnectivity();
+        islands.setDeviceConnectivityOwned(owned);
+        const bool needAccurate=islands.getAccurateIslandSim().gpuComponentAuditEnabled()
+            || (!owned && islands.getAccurateIslandSim().hasPendingConnectivityChanges());
+        const bool needSpeculative=islands.getSpeculativeIslandSim().gpuComponentAuditEnabled()
+            || (!owned && islands.getSpeculativeIslandSim().hasPendingConnectivityChanges());
+        if(!needAccurate && !needSpeculative)return;
+        bool observed=false;
+        {
+            PxProfileScoped observe(PxGetProfilerCallback(),"GpuDestruction.task.prepareIslandRepair.observeComponents",false,PxU64(reinterpret_cast<size_t>(this)));
+            observed=mDestruction->observeContactComponents(accurate,speculative,aMembers,sMembers,count,needAccurate,needSpeculative);
+        }
+        if(observed) {
+            PxProfileScoped install(PxGetProfilerCallback(),"GpuDestruction.task.prepareIslandRepair.installComponents",false,PxU64(reinterpret_cast<size_t>(this)));
+            islands.getAccurateIslandSim().setGpuContactComponents(accurate,aMembers,count);
+            islands.getSpeculativeIslandSim().setGpuContactComponents(speculative,sMembers,count);
+        }
+        if(mDestructionVerdictEnqueued) {
+            // The observation synchronised the observe stream: the verdict copies are complete.
+            for(int which=0;which<2;++which){PxU32 cap=0;const PxU8* v=mDestruction->deviceSleepVerdict(which!=0,cap);
+                if(v && cap)(which?islands.getSpeculativeIslandSim():islands.getAccurateIslandSim()).setGpuSleepVerdicts(v,cap,4u,0);}
+        }
+    }
+
+    bool PxgSimulationController::usesDeviceDestructionContactInputs() const
+    {
+        return mDestruction && mDestruction->configured() && mDestruction->correctionEnabled();
+    }
+
+    bool PxgSimulationController::buildDestructionContactInputs(PxgContactManagerInput* inputs,PxU32 count,CUstream stream)
+    {
+        if(!usesDeviceDestructionContactInputs())return false;
+        const auto& shapes=mSimulationCore->mPxgShapeSimManager;
+        const bool ok=mDestruction->buildContactInputs(inputs,count,shapes.getShapeSimsDeviceTypedPtr(),shapes.getNbTotalShapeSims(),stream);
+        if(ok)mDestructionContactInputCount+=count;
+        else {
+            mDestructionError=1;
+            mCudaContextManager->getCudaContext()->setAbortMode(true);
+            PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR,PX_FL,"Native GPU contact input construction failed; simulation is incomplete.");
+        }
+        return ok;
+    }
+
+    bool PxgSimulationController::buildDestructionContactGraph(const PxgContactManagerInput* inputs,
+        const PxgContactGraphIdentity* identities,const PxsContactManagerOutput* outputs,PxU32 count,PxU32 omitted,const PxU32* retired,PxU32 retiredCount,CUstream stream,const PxgContactGraphSequence* sequence)
+    {
+        static_assert(PxU32(PxgDestructionContactFlags::eKINEMATIC_PAIR)==PxU32(PxcNpWorkUnitFlag::eHAS_KINEMATIC_ACTOR),"GPU graph kinematic flag ABI");
+        static_assert(PxU32(PxgDestructionContactFlags::eDISABLE_RESPONSE)==PxU32(PxcNpWorkUnitFlag::eDISABLE_RESPONSE),"GPU graph response flag ABI");
+        static_assert(PxU32(PxgDestructionContactFlags::eARTICULATION)==PxU32(PxcNpWorkUnitFlag::eARTICULATION_BODY0|PxcNpWorkUnitFlag::eARTICULATION_BODY1),"GPU graph articulation flag ABI");
+        static_assert(PxU32(PxgDestructionContactFlags::eSOFT_BODY)==PxU32(PxcNpWorkUnitFlag::eSOFT_BODY),"GPU graph deformable flag ABI");
+        if(!usesDeviceDestructionContactInputs())return true;
+        const auto& shapes=mSimulationCore->mPxgShapeSimManager;
+        auto& islands=mDynamicContext->getIslandManager();
+        const auto& spec=islands.getSpeculativeIslandSim();const auto& accurate=islands.getAccurateIslandSim();
+        // Initialize a new runtime from the current retained set. Subsequent
+        // transactions upload coalesced lifecycle deltas, including removals.
+        // CUDA owns persistent edge-indexed storage between graph builds.
+        const bool reset=!mDestruction->getContactGraphView().generation;
+        PxProfileScoped retainedScope(PxGetProfilerCallback(),"GpuDestruction.contactGraph.retainedUpdates",false,PxU64(reinterpret_cast<size_t>(this)));
+        PxArray<PxgDestructionRetainedEdge> retainedUpdates;
+        PxArray<PxU32> deferred;
+        const auto& retainedMap=islands.getRetainedContactMap();
+        PxBitMap::Iterator retainedIterator(reset?retainedMap:islands.getRetainedContactChanges());
+        PxU32 edgeIndex;
+        while((edgeIndex=retainedIterator.getNext())!=PxBitMap::Iterator::DONE) {
+            PxgDestructionRetainedEdge update={edgeIndex,PX_INVALID_NODE,PX_INVALID_NODE,PxgDestructionRetainedEdge::eREMOVED};
+            if(retainedMap.test(edgeIndex) && edgeIndex<spec.getNbEdges()) {
+                const auto& edge=spec.getEdge(edgeIndex);
+                if(!edge.isPendingDestroyed()) {
+                    if(!edge.isInserted())deferred.pushBack(edgeIndex);
+                    else {
+                        const auto a=spec.mCpuData.getNodeIndex1(edgeIndex),b=spec.mCpuData.getNodeIndex2(edgeIndex);
+                        PxU32 flags=0;
+                        if(edgeIndex<accurate.getNbEdges() && accurate.getEdge(edgeIndex).isInserted()
+                            && !accurate.getEdge(edgeIndex).isPendingDestroyed())flags|=PxgDestructionRetainedEdge::eACCURATE;
+                        if(a.isArticulation() || b.isArticulation() || edge.mEdgeType!=IG::Edge::eCONTACT_MANAGER)
+                            flags|=PxgDestructionRetainedEdge::eUNSUPPORTED;
+                        const PxNodeIndex endpoints[2]={a,b};
+                        for(const auto node:endpoints)if(node.isValid() && node.index()<spec.getNbNodes()
+                            && spec.getNode(node).isKinematic())flags|=PxgDestructionRetainedEdge::eKINEMATIC;
+                        update={edgeIndex,a.index(),b.index(),flags};
+                    }
+                }
+            }
+            if(!(update.flags&PxgDestructionRetainedEdge::eREMOVED)
+                || (!reset && islands.wasRetainedContactPublished(edgeIndex)))retainedUpdates.pushBack(update);
+        }
+        retainedScope.~PxProfileScoped();new(&retainedScope)PxProfileScoped(PxGetProfilerCallback(),"GpuDestruction.contactGraph.buildSubmit",false,PxU64(reinterpret_cast<size_t>(this)));
+        const bool ok=mDestruction->buildContactGraph(inputs,identities,outputs,count,omitted,
+            shapes.getShapeSimsDeviceTypedPtr(),shapes.getNbTotalShapeSims(),mBodySimManager.mBodies.size(),retired,retiredCount,stream,
+            retainedUpdates.begin(),retainedUpdates.size(),islands.getNbEdgeHandles(),sequence);
+        if(ok) {
+            if(reset)islands.resetRetainedContactReceipt();
+            for(PxU32 i=0;i<retainedUpdates.size();++i)
+                islands.acknowledgeRetainedContact(retainedUpdates[i].edgeIndex,!(retainedUpdates[i].flags&PxgDestructionRetainedEdge::eREMOVED));
+            islands.acknowledgeRetainedContactChanges(deferred);
+        }
+        if(!ok) {
+            mDestructionError=1;mCudaContextManager->getCudaContext()->setAbortMode(true);
+            PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR,PX_FL,"Native GPU contact graph construction failed; simulation is incomplete.");
+        }
+        return ok;
+    }
+
+    // streamIndex: the contact/patch streams the solver wrote this pass. They
+    // flip in postSolver (mergeResults), so a submission before it reads the
+    // current index and the ordinary one after it reads the other.
+    bool PxgSimulationController::submitDestructionInternal(PxReal dt, const PxVec3& gravity, bool postCorrection, PxU32 streamIndex)
+    {
+        const PxU64 profileContext=PxU64(reinterpret_cast<size_t>(this));
+        mDestruction->setProfiler(PxGetProfilerCallback(),profileContext);
+        bool ok;
+        {
+        PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.submit",false,profileContext);
+        {
+            PxProfileScoped prepare(PxGetProfilerCallback(),"GpuDestruction.submitDetail.prepareFrame",false,profileContext);
+            ok = mDestruction->prepareFrame(postCorrection);
+        }
+        PxgDestructionSolvedContacts contacts;
+        {
+            PxProfileScoped borrow(PxGetProfilerCallback(),"GpuDestruction.submitDetail.borrowContacts",false,profileContext);
+            if(ok)ok=mNpContext->getGpuNarrowphaseCore()->borrowDestructionSolvedContacts(
+                contacts,mDestruction->inputEvent(),mDynamicContext->getPatchStream(streamIndex),
+                mDynamicContext->getContactStream(streamIndex),mNpContext->getContext().mForceAndIndiceStreamPool->mDataStream);
+        }
+        if(ok) {
+            static const bool retiredDiag=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_RETIRED_DIAG");return raw && raw[0]=='1';}();
+            if(retiredDiag){static PxU32 passes=0;++passes;fprintf(stderr,"[retired-diag] submit %u %s pairs %u epoch %u\n",passes,postCorrection?"corrected":"trial",contacts.pairCount,unsigned(contacts.responseEpoch));}
+            const auto growStorage=[](void* owner,PxU32 capacity,PxgDestructionMotionStorage& storage)->bool {
+                auto& controller=*static_cast<PxgSimulationController*>(owner);
+                PxScopedCudaLock lock(*controller.mCudaContextManager);
+                if(controller.mCudaContextManager->getCudaContext()->isInAbortMode())return false;
+                auto& core=*controller.mSimulationCore;
+                core.reserveBodySimCapacity(capacity,core.hasAccelerationBuffers());
+                core.gpuDmaUpdateData();
+                storage={core.getBodySimBufferDevicePtr().getPointer(),core.getBodySimPrevVelocitiesBufferDevicePtr().getPointer(),
+                    core.getRigidBodyAccelerationsDevice(),core.getBodySimStorageCapacity()};
+                return !controller.mCudaContextManager->getCudaContext()->isInAbortMode();
+            };
+            const PxgDestructionMotionStorage storage={mSimulationCore->getBodySimBufferDevicePtr().getPointer(),
+                mSimulationCore->getBodySimPrevVelocitiesBufferDevicePtr().getPointer(),mSimulationCore->getRigidBodyAccelerationsDevice(),
+                mSimulationCore->getBodySimStorageCapacity()};
+            const auto& shapes=mSimulationCore->mPxgShapeSimManager;
+            const auto& remap=mNpContext->getGpuNarrowphaseCore()->mGpuShapesManager.mGpuShapesRemapTableBuffer;
+            const PxgDestructionCollisionStorage collision={shapes.getShapeSimsDeviceTypedPtr(),
+                reinterpret_cast<const PxNodeIndex*>(remap.getDevicePtr()),shapes.getNbTotalShapeSims(),
+                PxU32(remap.getSize()/sizeof(PxNodeIndex))};
+            PxProfileScoped adv(PxGetProfilerCallback(),"GpuDestruction.submitDetail.advance",false,profileContext);
+            ok=mDestruction->advance(dt,gravity,storage,mSimulationCore->getStream(),growStorage,this,contacts,collision);
+        }
+        }
+        return ok;
+    }
+
+    // PHYSX_DESTRUCTION_EARLY_SUBMIT (default on, 0 disables): each pass commits
+    // its sleep transitions and submits loads and the stress solve as soon as
+    // both the third island pass and the solver launch issue are done, so the
+    // stress chain is queued behind integration on the device without waiting
+    // for the CPU post-solve chain; the corrected pass also runs its device
+    // acceptance there. Lossless (identical histories). It only pays once the
+    // sleep finalization and the pose setter are asynchronous (no host waits on
+    // the core stream) and the copy-backs run on their own stream: g16 3 s
+    // bombardment 20.8 -> 20.0-20.6 ms mean, late window 34.0 -> 32.5-33.2.
+    static bool destructionEarlySubmit() {
+        static const bool value=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_EARLY_SUBMIT");return raw?std::atoi(raw)!=0:true;}();
+        return value;
+    }
+    bool PxgSimulationController::submitDestructionEarly(PxReal dt, const PxVec3& gravity, bool (*commit)(void*), void* user)
+    {
+        if(!destructionEarlySubmit() || !mDestruction || !mDestruction->configured()) return false;
+        if(destructionDeviceSleepMode()>=8 && mDestructionAuditIslands) {
+            // The CPU rollback set re-applies the previous pass's decision list
+            // (inserted by afterIntegration after the pending sets were cleared);
+            // record this pass's fresh list for the next pass's device apply list.
+            const IG::IslandSim& asim=mDestructionAuditIslands->getAccurateIslandSim();
+            const PxU32 nd=asim.getNbNodesToDeactivate(IG::Node::eRIGID_BODY_TYPE);const PxNodeIndex* di=asim.getNodesToDeactivate(IG::Node::eRIGID_BODY_TYPE);
+            mDestructionPrevFresh.forceSize_Unsafe(0);mDestructionPrevFresh.reserve(nd);mDestructionPrevFreshObjects.forceSize_Unsafe(0);mDestructionPrevFreshObjects.reserve(nd);
+            for(PxU32 i=0;i<nd;++i){mDestructionPrevFresh.pushBack(di[i].index());mDestructionPrevFreshObjects.pushBack(asim.getObject(di[i],IG::Node::eRIGID_BODY_TYPE));}
+            mDestructionFinalizedSince.forceSize_Unsafe(0); // individual finalizations after this point drop entries from the carry
+            if(destructionDeviceSleepMode()==9 && mDestructionTransitionApplied && !deviceSleepKeepCpuCommit() && (nd || mDestructionCarried.size()))mSimulationCore->noteDevicePoseWrites();
+        }
+        if(destructionDeviceSleepMode()==9 && !deviceSleepSubmitAtArm() && !deviceSleepAtArm()) {
+            // The device transition and the submit ran at the solver issue; the CPU
+            // commit keeps its bookkeeping (pending-set inserts/clears, non-rollback
+            // finalizations) and skips only the rollback application (see
+            // finalizeSleepingRigidBodies).
+            PxMutex::ScopedLock lock(mDestructionEarlyMutex);
+            if(commit){mDestructionInEarlyCommit=true;commit(user);mDestructionInEarlyCommit=false;}
+            return false;
+        }
+        PxMutex::ScopedLock lock(mDestructionEarlyMutex);
+        if(mDestructionEarlySubmitted || mDestructionEarlyArmed) return false;
+        mDestructionEarlyArmed=true;mDestructionEarlyDt=dt;mDestructionEarlyGravity=gravity;mDestructionEarlyCommit=commit;mDestructionEarlyUser=user;
+        if(mDestructionSolverIssued)runDestructionEarlySubmit();
+        return true;
+    }
+    void PxgSimulationController::flushDeferredDestructionWork()
+    {
+        if(mDestruction && mDestructionCorrecting)mDestruction->flushDeferredWork();
+    }
+    void PxgSimulationController::noteDestructionSolverIssued(void* solverEvent)
+    {
+        if(!destructionEarlySubmit() || !mDestruction) return;
+        {
+            PxMutex::ScopedLock lock(mDestructionEarlyMutex);
+            mDestructionSolverIssued=true;mDestructionSolverIssuedEvent=solverEvent;
+            if(destructionDeviceSleepMode()==8)noteDestructionSleepTransitionArrival();
+            if((destructionDeviceSleepMode()!=9 || deviceSleepSubmitAtArm() || deviceSleepAtArm()) && mDestructionEarlyArmed && !mDestructionEarlySubmitted && !mDestructionCorrecting)runDestructionEarlySubmit();
+        }
+        // Mode 9: the arrival takes the CUDA context lock first, then the early
+        // mutex (prepareGpuDestructionIslandRepair arrives holding the context).
+        if(destructionDeviceSleepMode()==9)noteDestructionSleepTransitionArrival();
+    }
+    // Device sleep transition (README §14): the second of {solver issued, mirror
+    // updated for this pass} enqueues the device deactivation list on the solver
+    // stream (arrival counter: no lock order against the CUDA context lock,
+    // which prepareGpuDestructionIslandRepair holds for its whole body).
+    void PxgSimulationController::noteDestructionSleepTransitionArrival()
+    {
+        const PxI32 arrival=PxAtomicIncrement(&mDestructionTransitionArrivals);if(arrival!=2)return;
+        static PxU64 fromPrepare=0,fromIssue=0,afterUpdate=0,beforeUpdate=0,passes=0;++passes;
+        if(mDestructionAuditIslands && mDestructionInPrepare)++fromPrepare;else ++fromIssue;
+        if(mDestructionPostUpdateRan)++afterUpdate;else ++beforeUpdate;
+        if((passes%64)==0)fprintf(stderr,"[arrival diag] passes %llu secondArrival fromPrepare %llu fromIssue %llu | transition afterPostUpdate %llu beforePostUpdate %llu\n",(unsigned long long)passes,(unsigned long long)fromPrepare,(unsigned long long)fromIssue,(unsigned long long)afterUpdate,(unsigned long long)beforeUpdate);
+        PxgSolverCore* core=mDynamicContext->getGpuSolverCore();
+        const PxU32 bodies=mDynamicContext->getActiveNodeCount();
+        if(!core || !mDestruction)return;
+        // Carried set = previous pass's decision list minus bodies finalized
+        // individually since (wake/command paths erase them from the CPU set),
+        // minus deleted or re-assigned nodes.
+        mDestructionCarried.forceSize_Unsafe(0);
+        // The CPU's rollback set re-lists the previous pass's decisions (afterIntegration
+        // inserts them after the pending sets were cleared), but at the device level that
+        // re-application is a no-op (pass-end device-state diff, 2026-09-18: the default
+        // leaves those bodies with their corrected-pass motion); applying it changed the
+        // history. PHYSX_DESTRUCTION_DEVICE_SLEEP_CARRY=1 re-enables it for audits.
+        static const bool carry=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_DEVICE_SLEEP_CARRY");return raw && raw[0]=='1';}();
+        if(mDestructionAuditIslands && carry) {
+            const IG::IslandSim& asim=mDestructionAuditIslands->getAccurateIslandSim();
+            PxHashSet<PxU32> finalized;for(PxU32 i=0;i<mDestructionFinalizedSince.size();++i)finalized.insert(mDestructionFinalizedSince[i]);
+            for(PxU32 i=0;i<mDestructionPrevFresh.size();++i) {
+                const PxU32 n=mDestructionPrevFresh[i];
+                if(finalized.contains(n) || n>=asim.getNbNodes())continue;
+                const IG::Node& node=asim.getNode(PxNodeIndex(n));
+                if(node.isDeleted() || node.mType!=IG::Node::eRIGID_BODY_TYPE || asim.getObject(PxNodeIndex(n),IG::Node::eRIGID_BODY_TYPE)!=mDestructionPrevFreshObjects[i])continue;
+                mDestructionCarried.pushBack(n);
+            }
+        }
+        PxScopedCudaLock lock(*mCudaContextManager);
+        mDestructionTransitionEnqueued=mDestruction->enqueueDeviceSleepTransition(core->getGpuIslandNodeIndices().getPointer(),bodies,1u+mDynamicContext->getKinematicCount(),core->getStream(),mDestructionCarried.begin(),mDestructionCarried.size());
+        if(mDestructionTransitionEnqueued && deviceReadinessEnabled())mDestruction->enqueueDeviceReadinessFromSleep(core->getGpuIslandNodeIndices().getPointer(),core->getSolverBodySleepData().getPointer(),1u+mDynamicContext->getKinematicCount(),bodies,core->getStream());
+        if(destructionDeviceSleepMode()==9 && mDestructionTransitionEnqueued && !deviceSleepAtArm()) {
+            PxMutex::ScopedLock early(mDestructionEarlyMutex);
+            if(mDestructionEarlySubmitted)return;
+            // Bodies pending outside the island passes (snapshot loads, user sleeps) were
+            // finalized by the arm-time commit before the loads; do the same here. Without
+            // a registered finalizer (first pass of a scene) leave the pass to the ordinary path.
+            if(!mDestructionSleepFinalizer)return;
+            if(!mDestructionSleepFinalizer(mDestructionSleepFinalizerUser)){mDestructionEarlyOk=false;mDestructionEarlySubmitted=true;return;}
+            static const int syncKnob=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_DEVICE_SLEEP_SYNC");return raw?std::atoi(raw):0;}();
+            const auto syncAll=[&]{PxScopedCudaLock l(*mCudaContextManager);PxCudaContext* c=mCudaContextManager->getCudaContext();c->streamSynchronize(mSimulationCore->getStream());c->streamSynchronize(mDynamicContext->getGpuSolverCore()->getStream());c->streamSynchronize(mNpContext->getGpuNarrowphaseCore()->getStream());};
+            if(syncKnob&2)syncAll();
+            mDestructionTransitionApplied=runDestructionDeviceSleepTransition();
+            if(!mDestructionTransitionApplied){mDestructionEarlyOk=false;mDestructionEarlySubmitted=true;return;}
+            if(syncKnob&1)syncAll();
+            if(deviceSleepSubmitAtArm())return;
+            mDestructionEarlyDt=mDestructionStepDt;mDestructionEarlyGravity=mDestructionStepGravity;mDestructionEarlyCommit=NULL;mDestructionEarlyUser=NULL;
+            mDestructionEarlyArmed=true;runDestructionEarlySubmit();
+        }
+    }
+    // Mode 9: apply the device transition list (pose rollback to the pre-step
+    // transform, cache/bounds refresh, motion zeroing) on the core stream after
+    // this pass's integration, exactly where the CPU's early sleep commit ran.
+    bool PxgSimulationController::runDestructionDeviceSleepTransition()
+    {
+        const PxU32* list=NULL;const PxU32* count=NULL;PxU32 capacity=0;CUevent ready=NULL;
+        if(!mDestruction->deviceSleepTransitionApply(list,count,capacity,ready) || !capacity)return true;
+        PxProfileScoped zone(PxGetProfilerCallback(),"GpuDestruction.sleepDetail.deviceTransition",false,PxU64(reinterpret_cast<size_t>(this)));
+        PxScopedCudaLock lock(*mCudaContextManager);
+        PxCudaContext* cuda=mCudaContextManager->getCudaContext();
+        if(cuda->isInAbortMode())return false;
+        const CUstream stream=mSimulationCore->getStream();
+        PxgSolverCore* solver=mDynamicContext->getGpuSolverCore();
+        if(capacity>mDestructionTransitionPoseCapacity) {
+            cuda->streamSynchronize(stream);
+            if(mDestructionTransitionPoses)cuda->memFree(mDestructionTransitionPoses);mDestructionTransitionPoses=0;
+            if(cuda->memAlloc(&mDestructionTransitionPoses,PxU64(capacity)*sizeof(PxTransform))!=0){mDestructionTransitionPoseCapacity=0;return false;}
+            mDestructionTransitionPoseCapacity=capacity;
+        }
+        if(!mDestructionTransitionStaged && cuda->eventCreate(&mDestructionTransitionStaged,2u)!=0)return false;
+        if(!mDestructionTransitionGathered && cuda->eventCreate(&mDestructionTransitionGathered,2u)!=0)return false;
+        if(mDestructionSolverIssuedEvent && cuda->streamWaitEvent(stream,reinterpret_cast<CUevent>(mDestructionSolverIssuedEvent),0)!=0)return false;
+        if(ready && cuda->streamWaitEvent(stream,ready,0)!=0)return false;
+        if(CUevent done=mSimulationCore->getDmaBackDoneEvent())if(cuda->streamWaitEvent(stream,done,0)!=0)return false;
+        mSimulationCore->gpuDmaUpdateData();
+        // The gather runs on the solver stream, like the CPU commit's: the core
+        // stream can lag into the next pass's solver preparation, which rewrites
+        // the solver body data and index map the gather reads.
+        const CUstream solverStream=solver->getStream();
+        if(cuda->eventRecord(mDestructionTransitionStaged,stream)!=0 || cuda->streamWaitEvent(solverStream,mDestructionTransitionStaged,0)!=0)return false;
+        const CUdeviceptr desc=solver->getSolverCoreDescDeviceptr();const CUdeviceptr solverIndices=solver->getSolverBodyIndices();
+        const CUdeviceptr actorDesc=CUdeviceptr(reinterpret_cast<size_t>(mSimulationCore->getUpdatedActorDescDesc().getPointer()));
+        const CUdeviceptr prevVelocities=mSimulationCore->getBodySimPrevVelocitiesBufferDevicePtr();
+        const PxU32 totalShapes=mSimulationCore->getNumTotalShapes();
+        const CUdeviceptr listPtr=CUdeviceptr(reinterpret_cast<size_t>(list)),countPtr=CUdeviceptr(reinterpret_cast<size_t>(count));
+        const PxU32 blocks=(capacity+255)/256;
+        const unsigned mask=deviceSleepKernelMask();
+        if(mask&1u){
+            PxCudaKernelParam params[]={PX_CUDA_KERNEL_PARAM(mDestructionTransitionPoses),PX_CUDA_KERNEL_PARAM(listPtr),PX_CUDA_KERNEL_PARAM(desc),PX_CUDA_KERNEL_PARAM(solverIndices),PX_CUDA_KERNEL_PARAM(countPtr)};
+            if(cuda->launchKernel(mGpuWranglerManager->getCuFunction(PxgKernelIds::NATIVE_SLEEP_GATHER_POSES_DEVICE),blocks,1,1,256,1,1,0,solverStream,params,sizeof(params),0,PX_FL)!=0)return false;
+        }
+        if(cuda->eventRecord(mDestructionTransitionGathered,solverStream)!=0 || cuda->streamWaitEvent(stream,mDestructionTransitionGathered,0)!=0)return false;
+        if(mask&2u){
+            PxCudaKernelParam params[]={PX_CUDA_KERNEL_PARAM(mDestructionTransitionPoses),PX_CUDA_KERNEL_PARAM(listPtr),PX_CUDA_KERNEL_PARAM(actorDesc),PX_CUDA_KERNEL_PARAM(countPtr),PX_CUDA_KERNEL_PARAM(totalShapes)};
+            if(cuda->launchKernel(mGpuWranglerManager->getCuFunction(PxgKernelIds::RIGID_DYNAMIC_SET_GLOBAL_POSE_DEVICE),blocks,1,1,256,1,1,0,stream,params,sizeof(params),0,PX_FL)!=0)return false;
+            // The AABB manager's GPU-state-changed flag is raised at the arm, exactly
+            // when the CPU commit would have (non-empty rollback list): see submitDestructionEarly.
+        }
+        if(mask&4u){
+            PxCudaKernelParam params[]={PX_CUDA_KERNEL_PARAM(listPtr),PX_CUDA_KERNEL_PARAM(actorDesc),PX_CUDA_KERNEL_PARAM(prevVelocities),PX_CUDA_KERNEL_PARAM(countPtr)};
+            if(cuda->launchKernel(mGpuWranglerManager->getCuFunction(PxgKernelIds::NATIVE_SLEEP_ZERO_MOTION_DEVICE),blocks,1,1,256,1,1,0,stream,params,sizeof(params),0,PX_FL)!=0)return false;
+        }
+        // Note: joining the post-solve copy-back to an event recorded here (instead of the
+        // core-stream head) breaks identity: the core stream also carries the correction's
+        // acceptance and installs after this point, which the copy-back must include.
+        return true;
+    }
+    // Mode 8 audit: the device list against the CPU rollback set of this pass's
+    // early sleep commit (collected in finalizeSleepingRigidBodies).
+    void PxgSimulationController::auditDestructionSleepTransition()
+    {
+        static PxU64 passes=0,cpuTotal=0,devTotal=0,cpuOnly=0,devOnly=0,mismatchPasses=0,shown=0;++passes;
+        const PxU32* list=NULL;const PxU32 count=mDestructionTransitionEnqueued?mDestruction->readDeviceSleepTransition(list):0;
+        // Reference = this pass's fresh decision list of the accurate island sim
+        // (node index == GPU body index for rigid bodies). The early commit's
+        // rollback set also carries entries persisted from the trial's
+        // afterIntegration; those are reported separately as "carried".
+        PxArray<PxU32>& pending=mDestructionSleepAuditCpu;
+        PxArray<PxU32> cpu;PxU32 carried=0;
+        if(mDestructionAuditIslands) {
+            const IG::IslandSim& asim=mDestructionAuditIslands->getAccurateIslandSim();
+            const PxU32 nd=asim.getNbNodesToDeactivate(IG::Node::eRIGID_BODY_TYPE);const PxNodeIndex* di=asim.getNodesToDeactivate(IG::Node::eRIGID_BODY_TYPE);
+            cpu.reserve(nd);for(PxU32 i=0;i<nd;++i)cpu.pushBack(di[i].index());
+            PxHashSet<PxU32> fresh;for(PxU32 i=0;i<nd;++i)fresh.insert(di[i].index());
+            for(PxU32 i=0;i<pending.size();++i)if(!fresh.contains(pending[i]))++carried;
+        }
+        static PxU64 carriedTotal=0;carriedTotal+=carried;
+        PxU32 co=0,dof=0,stale=0;
+        PxHashSet<PxU32> solverSet;
+        {
+            PxgSolverCore* core=mDynamicContext->getGpuSolverCore();const PxU32 bodies=mDynamicContext->getActiveNodeCount();
+            if(core && bodies){PxArray<PxNodeIndex> host(bodies);PxScopedCudaLock lock(*mCudaContextManager);
+                mCudaContextManager->getCudaContext()->memcpyDtoH(host.begin(),CUdeviceptr(reinterpret_cast<size_t>(core->getGpuIslandNodeIndices().getPointer())),sizeof(PxNodeIndex)*bodies);
+                for(PxU32 i=0;i<bodies;++i)if(!host[i].isArticulation())solverSet.insert(host[i].index());}
+        }
+        {
+            PxHashSet<PxU32> dev;for(PxU32 i=0;i<count;++i)dev.insert(list[i]);
+            PxHashSet<PxU32> cpuSet;for(PxU32 i=0;i<cpu.size();++i)cpuSet.insert(cpu[i]);
+            // CPU entries not in this pass's solver list are already asleep on
+            // the device (the CPU list persists across passes): no-op commits.
+            for(PxU32 i=0;i<cpu.size();++i)if(!dev.contains(cpu[i])){if(solverSet.contains(cpu[i]))++co;else ++stale;}
+            for(PxU32 i=0;i<count;++i)if(!cpuSet.contains(list[i]))++dof;
+        }
+        static PxU64 staleTotal=0,class1Total=0,class2Total=0;staleTotal+=stale;
+        cpuTotal+=cpu.size();devTotal+=count;cpuOnly+=co;devOnly+=dof;if(co||dof)++mismatchPasses;
+        {
+            PxHashSet<PxU32> dev;for(PxU32 i=0;i<count;++i)dev.insert(list[i]);
+            for(PxU32 i=0;i<cpu.size();++i)if(!dev.contains(cpu[i]) && solverSet.contains(cpu[i])) {
+                const PxU32 n=cpu[i];
+                if(n<mDestructionAuditReadyAtPrepare.size() && mDestructionAuditReadyAtPrepare[n])++class2Total;else ++class1Total;
+            }
+        }
+        if((co||dof) && shown<12 && mDestructionAuditIslands) {
+            // Classify the first mismatched nodes with CPU-side state.
+            const IG::IslandSim& sim=mDestructionAuditIslands->getAccurateIslandSim();
+            PxU32 mirrorCap=0;const PxU8* mirror=mDestruction->readinessMirror(false,mirrorCap);
+            PxHashSet<PxU32> dev;for(PxU32 i=0;i<count;++i)dev.insert(list[i]);
+            PxHashSet<PxU32> cpuSet;for(PxU32 i=0;i<cpu.size();++i)cpuSet.insert(cpu[i]);
+            const IG::IslandId* islandIds=sim.getIslandIds();const PxU32 nodeCount=sim.getNbNodes();
+            PxU32 printed=0;
+            const PxArray<PxU32>& dnr=sim.deactivatedNotReady();PxHashSet<PxU32> dnrSet;for(PxU32 i=0;i<dnr.size();++i)dnrSet.insert(dnr[i]);
+            fprintf(stderr,"   decision audit: %u nodes were pushed to the deactivation list while not ready this pass\n",dnr.size());
+            const auto describe=[&](const char* kind,PxU32 n){
+                if(printed>=6 || n>=nodeCount)return;++printed;
+                const IG::Node& node=sim.getNode(PxNodeIndex(n));const IG::IslandId island=islandIds[n];
+                const PxU32 root=(island!=IG_INVALID_ISLAND && island<sim.getNbIslands())?sim.getIsland(island).mRootNode.index():0xFFFFFFFFu;
+                // Readiness deltas the CPU recorded for this node since the mirror update.
+                char seq[64];seq[0]=0;
+                {PxU32 dc=0;bool ov=false;const PxU32* dl=sim.readinessDeltas(dc,ov);PxU32 len=0;
+                    for(PxU32 k=0;k<dc && len<60;++k)if((dl[k]>>1)==n){seq[len++]=(dl[k]&1u)?'1':'0';seq[len]=0;}
+                    if(ov){seq[len++]='!';seq[len]=0;}}
+                fprintf(stderr,"   %s node %u: readyAtPrepare %d readyNow %d deltasThisPass [%s] notReadyAtDecision %d active %d kinematic %d island %u root %u inSolver %d mirrorNotReady %d islandWoken %d\n",
+                    kind,n,n<mDestructionAuditReadyAtPrepare.size()?int(mDestructionAuditReadyAtPrepare[n]):-1,int(node.isReadyForSleeping()!=0),seq,int(dnrSet.contains(n)),int(node.isActive()!=0),int(node.isKinematic()!=0),
+                    unsigned(island),root,int(solverSet.contains(n)),n<mirrorCap?int(mirror[n]):-1,
+                    (island!=IG_INVALID_ISLAND && island<sim.mIslandWokenThisFrame.size())?int(sim.mIslandWokenThisFrame.test(island)):-1);
+            };
+            for(PxU32 i=0;i<cpu.size() && printed<3;++i)if(!dev.contains(cpu[i]) && solverSet.contains(cpu[i]))describe("cpuOnly",cpu[i]);
+            // Class 2: the device component of a ready CPU island holds a not-ready
+            // member; list those members with their CPU island and kinematic flag.
+            {
+                PxU32 lc=0;const PxU32* labels=sim.gpuComponentLabels(lc);PxU32 shownMembers=0;
+                for(PxU32 i=0;i<cpu.size() && shownMembers<6 && labels;++i) {
+                    const PxU32 n=cpu[i];
+                    if(dev.contains(n) || !solverSet.contains(n) || n>=lc || n>=mDestructionAuditReadyAtPrepare.size() || !mDestructionAuditReadyAtPrepare[n])continue;
+                    const PxU32 label=labels[n];
+                    for(PxU32 m=0;m<lc && m<nodeCount && shownMembers<6;++m) {
+                        if(labels[m]!=label || m==n)continue;
+                        const IG::Node& mn=sim.getNode(PxNodeIndex(m));
+                        const bool notReady=(m<mirrorCap && mirror[m]) || !(m<mDestructionAuditReadyAtPrepare.size() && mDestructionAuditReadyAtPrepare[m]);
+                        if(!notReady)continue;
+                        ++shownMembers;
+                        fprintf(stderr,"   class2 node %u (island %u) shares device component %u with not-ready node %u: island %u kinematic %d active %d readyAtPrepare %d mirrorNotReady %d inSolver %d\n",
+                            n,unsigned(islandIds[n]),label,m,unsigned(islandIds[m]),int(mn.isKinematic()!=0),int(mn.isActive()!=0),
+                            m<mDestructionAuditReadyAtPrepare.size()?int(mDestructionAuditReadyAtPrepare[m]):-1,m<mirrorCap?int(mirror[m]):-1,int(solverSet.contains(m)));
+                    }
+                }
+            }
+            for(PxU32 i=0;i<count && printed<6;++i)if(!cpuSet.contains(list[i]))describe("devOnly",list[i]);
+        }
+        if(((co||dof) && shown<12) || (passes%64)==0) {
+            ++shown;
+            fprintf(stderr,"[sleep-transition audit] pass %llu (%s, enqueued %d): fresh %u (stale %u) pending %u (carried %u) dev %u cpuOnly %u devOnly %u | totals cpu %llu dev %llu cpuOnly %llu (class1 %llu class2 %llu) devOnly %llu stale %llu carried %llu mismatchPasses %llu\n",
+                (unsigned long long)passes,mDestructionCorrecting?"corrected":"trial",int(mDestructionTransitionEnqueued),cpu.size(),stale,pending.size(),carried,count,co,dof,
+                (unsigned long long)cpuTotal,(unsigned long long)devTotal,(unsigned long long)cpuOnly,(unsigned long long)class1Total,(unsigned long long)class2Total,(unsigned long long)devOnly,(unsigned long long)staleTotal,(unsigned long long)carriedTotal,(unsigned long long)mismatchPasses);
+        }
+        pending.forceSize_Unsafe(0);
+    }
+    // Under mDestructionEarlyMutex: the sleep commit and the submission, with
+    // the simulation core stream joined to the solver's issued launches.
+    void PxgSimulationController::runDestructionEarlySubmit()
+    {
+        mDestructionEarlyArmed=false;
+        PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.earlySubmit",false,PxU64(reinterpret_cast<size_t>(this)));
+        {
+            PxScopedCudaLock lock(*mCudaContextManager);
+            PxCudaContext* cuda=mCudaContextManager->getCudaContext();
+            if(cuda->isInAbortMode())return;
+            if(mDestructionSolverIssuedEvent && cuda->streamWaitEvent(mSimulationCore->getStream(),reinterpret_cast<CUevent>(mDestructionSolverIssuedEvent),0)!=0)return;
+        }
+        if(destructionDeviceSleepMode()==9 && deviceSleepAtArm() && mDestructionTransitionEnqueued && !mDestructionTransitionApplied){mDestructionTransitionApplied=runDestructionDeviceSleepTransition();if(!mDestructionTransitionApplied){mDestructionEarlyOk=false;mDestructionEarlySubmitted=true;return;}}
+        mDestructionInEarlyCommit=true;
+        if(mDestructionEarlyCommit && !mDestructionEarlyCommit(mDestructionEarlyUser)){mDestructionInEarlyCommit=false;return;}
+        mDestructionInEarlyCommit=false;
+        if(destructionDeviceSleepMode()==8)auditDestructionSleepTransition();
+        if(destructionDeviceSleepMode()==9 && deviceSleepKeepCpuCommit() && deviceSleepAtArm()) {
+            static PxU64 passes=0,devOnlyT=0,cpuOnlyT=0,devT=0,cpuT=0,nonRollT=0,shown=0;++passes;
+            const PxU32* apply=NULL;const PxU32 n=mDestruction->readDeviceSleepApply(apply);
+            PxHashSet<PxU32> dev;for(PxU32 i=0;i<n;++i)dev.insert(apply[i]);
+            PxHashSet<PxU32> cpuSet;for(PxU32 i=0;i<mDestructionSleepAuditCpu.size();++i)cpuSet.insert(mDestructionSleepAuditCpu[i]);
+            PxU32 devOnly=0,cpuOnly=0;PxArray<PxU32> devOnlyNodes;
+            for(PxHashSet<PxU32>::Iterator it=dev.getIterator();!it.done();++it)if(!cpuSet.contains(*it)){++devOnly;if(devOnlyNodes.size()<4)devOnlyNodes.pushBack(*it);}
+            for(PxHashSet<PxU32>::Iterator it=cpuSet.getIterator();!it.done();++it)if(!dev.contains(*it))++cpuOnly;
+            devOnlyT+=devOnly;cpuOnlyT+=cpuOnly;devT+=dev.size();cpuT+=cpuSet.size();nonRollT+=mDestructionSleepAuditNonRollback;
+            if(((devOnly||cpuOnly) && shown<10) || (passes%64)==0) {
+                ++shown;
+                fprintf(stderr,"[apply audit] pass %llu (%s): device apply %u (unique %u) cpu rollback %u (unique %u) nonRollback %u devOnly %u cpuOnly %u | totals dev %llu cpu %llu devOnly %llu cpuOnly %llu nonRollback %llu\n",
+                    (unsigned long long)passes,mDestructionCorrecting?"corrected":"trial",n,dev.size(),mDestructionSleepAuditCpu.size(),cpuSet.size(),mDestructionSleepAuditNonRollback,devOnly,cpuOnly,
+                    (unsigned long long)devT,(unsigned long long)cpuT,(unsigned long long)devOnlyT,(unsigned long long)cpuOnlyT,(unsigned long long)nonRollT);
+                if(mDestructionAuditIslands)for(PxU32 i=0;i<devOnlyNodes.size();++i){const PxU32 m=devOnlyNodes[i];const IG::IslandSim& sim=mDestructionAuditIslands->getAccurateIslandSim();
+                    if(m<sim.getNbNodes()){const IG::Node& nd=sim.getNode(PxNodeIndex(m));fprintf(stderr,"   devOnly node %u: ready %d active %d kinematic %d deleted %d\n",m,int(nd.isReadyForSleeping()!=0),int(nd.isActive()!=0),int(nd.isKinematic()!=0),int(nd.isDeleted()!=0));}}
+            }
+            // Pose audit: my gathered poses (apply order) vs the CPU's last gathered slot.
+            if(n && mNativeSleepLastRollbackCount && mDestructionTransitionPoses && mNativeSleepPoses) {
+                PxScopedCudaLock lock(*mCudaContextManager);PxCudaContext* cuda=mCudaContextManager->getCudaContext();
+                cuda->streamSynchronize(mSimulationCore->getStream());cuda->streamSynchronize(mDynamicContext->getGpuSolverCore()->getStream());
+                PxArray<PxTransform> mine(n),cpuPoses(mNativeSleepLastRollbackCount);PxArray<PxU32> cpuIdx(mNativeSleepLastRollbackCount);
+                cuda->memcpyDtoH(mine.begin(),mDestructionTransitionPoses,sizeof(PxTransform)*n);
+                cuda->memcpyDtoH(cpuPoses.begin(),mNativeSleepPoses,sizeof(PxTransform)*mNativeSleepLastRollbackCount);
+                cuda->memcpyDtoH(cpuIdx.begin(),mNativeSleepIndices,sizeof(PxU32)*mNativeSleepLastRollbackCount);
+                PxHashMap<PxU32,PxTransform> cpuMap;for(PxU32 i=0;i<cpuIdx.size();++i)cpuMap[cpuIdx[i]]=cpuPoses[i];
+                PxU32 compared=0,differ=0;float worst=0;PxU32 worstNode=0;
+                for(PxU32 i=0;i<n;++i){const PxTransform* c=cpuMap.find(apply[i])?&cpuMap.find(apply[i])->second:NULL;if(!c)continue;++compared;
+                    const float d=(mine[i].p-c->p).magnitude()+(mine[i].q.x-c->q.x)*(mine[i].q.x-c->q.x)+(mine[i].q.y-c->q.y)*(mine[i].q.y-c->q.y)+(mine[i].q.z-c->q.z)*(mine[i].q.z-c->q.z)+(mine[i].q.w-c->q.w)*(mine[i].q.w-c->q.w);
+                    if(d>0){++differ;if(d>worst){worst=d;worstNode=apply[i];}}}
+                static PxU64 pc=0,dc=0;pc+=compared;dc+=differ;
+                if(differ || (passes%64)==0)fprintf(stderr,"   pose audit: compared %u differ %u worst %.3g at node %u | totals compared %llu differ %llu\n",compared,differ,double(worst),worstNode,(unsigned long long)pc,(unsigned long long)dc);
+            }
+            mDestructionSleepAuditCpu.forceSize_Unsafe(0);mDestructionSleepAuditNonRollback=0;
+        }
+        // Mode 9 submits at the solver issue, while the CPU's lost-contact stage may still
+        // mutate the narrowphase's removed-pair arrays that a graph rebuild reads; the
+        // prepare-time graph already serves the chain, so the reuse/rebuild is skipped there.
+        static const bool graphAtIssue=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_DEVICE_SLEEP_GRAPH_AT_ISSUE");return raw && raw[0]=='1';}();
+        if(usesDeviceDestructionContactInputs() && (destructionDeviceSleepMode()!=9 || graphAtIssue || mDestructionEarlyCommit)) {
+            PxProfileScoped graph(PxGetProfilerCallback(),"GpuDestruction.task.contactGraph",false,PxU64(reinterpret_cast<size_t>(this)));
+            PxScopedCudaLock lock(*mCudaContextManager);
+            if(!mNpContext->getGpuNarrowphaseCore()->buildDestructionContactGraph(true))return;
+        }
+        const bool postCorrection=mDestructionCorrecting;
+        if(postCorrection && !acceptDestructionCorrectionDevice()){mDestructionEarlyOk=false;mDestructionEarlySubmitted=true;return;}
+        mDestructionEarlyOk=submitDestructionInternal(mDestructionEarlyDt,mDestructionEarlyGravity,postCorrection,mDynamicContext->getCurrentContactStreamIndex());
+        mDestructionEarlySubmitted=true;
+    }
+
+    // Two-slot pinned ring upload of a node list (dormant pass). The slot's
+    // previous consumer finished before the host reached the next pass.
+    bool PxgSimulationController::uploadDormantList(const PxU32* nodes, PxU32 count, CUstream stream, CUdeviceptr& device)
+    {
+        device=0;
+        if(!count)return false;
+        PxCudaContext* cuda=mCudaContextManager->getCudaContext();
+        if(count>mDestructionDormantHostCapacity) {
+            // Growth is the only host wait: both slots may be in flight.
+            cuda->streamSynchronize(mDynamicContext->getGpuSolverCore()->getStream());
+            cuda->streamSynchronize(mNpContext->getGpuNarrowphaseCore()->getStream());
+            if(mDestructionDormantHost)PX_PINNED_MEMORY_FREE(*mCudaContextManager,mDestructionDormantHost);
+            if(mDestructionDormantHost1)PX_PINNED_MEMORY_FREE(*mCudaContextManager,mDestructionDormantHost1);
+            mDestructionDormantHostCapacity=PxMax(count,2u*mDestructionDormantHostCapacity);
+            mDestructionDormantHost=PX_PINNED_MEMORY_ALLOC(PxU32,*mCudaContextManager,mDestructionDormantHostCapacity);
+            mDestructionDormantHost1=PX_PINNED_MEMORY_ALLOC(PxU32,*mCudaContextManager,mDestructionDormantHostCapacity);
+            mDestructionDormantDevice.allocate(sizeof(PxU32)*PxU64(mDestructionDormantHostCapacity),PX_FL);
+            mDestructionDormantDevice1.allocate(sizeof(PxU32)*PxU64(mDestructionDormantHostCapacity),PX_FL);
+        }
+        mDestructionDormantSlot^=1u;
+        PxU32* host=mDestructionDormantSlot?mDestructionDormantHost1:mDestructionDormantHost;
+        const CUdeviceptr target=mDestructionDormantSlot?mDestructionDormantDevice1.getDevicePtr():mDestructionDormantDevice.getDevicePtr();
+        if(!host || !target)return false;
+        PxMemCopy(host,nodes,count*sizeof(PxU32));
+        if(cuda->memcpyHtoDAsync(target,host,count*sizeof(PxU32),stream)!=CUDA_SUCCESS)return false;
+        device=target;return true;
+    }
+
+    // Device side of the corrected pass's acceptance (the transaction and the
+    // corrected-motion snapshot for split COM fitting); host bookkeeping of the
+    // correction state stays in advanceDestruction.
+    bool PxgSimulationController::acceptDestructionCorrectionDevice()
+    {
+        PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.acceptCorrection",false,PxU64(reinterpret_cast<size_t>(this)));
+        PxScopedCudaLock lock(*mCudaContextManager);
+        const bool accepted=!mCudaContextManager->getCudaContext()->isInAbortMode()
+            && mDestruction->acceptCorrection(mSimulationCore->getBodySimBufferDevicePtr().getPointer(),mSimulationCore->getStream());
+        if(!accepted)return false;
+        // A second fracture evaluation uses corrected end-of-tick motion.
+        // Keep a stable source snapshot for split COM fitting; never rewind
+        // to the original trial input and never schedule a third physics pass.
+        return mDestruction->captureRigidState(mSimulationCore->getBodySimBufferDevicePtr().getPointer(),
+            mSimulationCore->getBodySimPrevVelocitiesBufferDevicePtr().getPointer(),
+            mSimulationCore->getRigidBodyAccelerationsDevice(),mBodySimManager.mTotalNumBodies,mSimulationCore->getStream(),
+            PxgDestructionCheckpointPurpose::CorrectedMotion);
+    }
+
+    bool PxgSimulationController::advanceDestruction(PxReal dt, const PxVec3& gravity, bool canCorrect, bool canReuseContactPairs)
+    {
+        if(!mDestruction) return false;
+        if(usesDeviceDestructionContactInputs()) {
+            PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.task.contactGraph",false,PxU64(reinterpret_cast<size_t>(this)));
+            PxScopedCudaLock lock(*mCudaContextManager);
+            if(!mNpContext->getGpuNarrowphaseCore()->buildDestructionContactGraph(true))return false;
+        }
+        const bool postCorrection=mDestructionCorrecting;
+        if(postCorrection) {
+            if(mDestructionCorrectionProfiler) {
+                mDestructionCorrectionProfiler->zoneEnd(mDestructionCorrectionProfileData,
+                    gDestructionCorrectionZone,true,PxU64(reinterpret_cast<size_t>(this)));
+                mDestructionCorrectionProfiler=NULL;mDestructionCorrectionProfileData=NULL;
+            }
+            bool accepted;
+            {
+                PxMutex::ScopedLock earlyLock(mDestructionEarlyMutex);
+                // An early submission of this corrected pass already ran the
+                // device acceptance (its result is in mDestructionEarlyOk).
+                accepted=mDestructionEarlySubmitted?mDestructionEarlyOk:acceptDestructionCorrectionDevice();
+            }
+            mDestructionCorrecting=false;mDestructionError=accepted?0:1;
+            if(!accepted)return false;
+        }
+        if(!mDestruction->configured())
+        {
+            mDestructionError = mDestruction->finish() ? 0 : 1;
+            return false;
+        }
+        PX_PROFILE_ZONE("GpuDestruction.contactStress", 0);
+        const PxU64 profileContext=PxU64(reinterpret_cast<size_t>(this));
+        bool ok;
+        {
+            PxMutex::ScopedLock earlyLock(mDestructionEarlyMutex);
+            const bool reuse=mDestructionEarlySubmitted;
+            mDestructionEarlySubmitted=false;mDestructionEarlyArmed=false;mDestructionSolverIssued=false;mDestructionTransitionArrivals=0;mDestructionTransitionEnqueued=false;mDestructionTransitionApplied=false;mDestructionPostUpdateRan=false;
+            if(reuse)ok=mDestructionEarlyOk;
+            else ok=submitDestructionInternal(dt,gravity,postCorrection,1-mDynamicContext->getCurrentContactStreamIndex());
+        }
+        // Complete before contact buffers can be recycled or the scene is
+        // published. Only compact new-body allocation metadata and status leave
+        // the GPU; no bond graph, contact loads or physical body state readback.
+        bool complete;
+        {
+            PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.finishAndReserve",false,profileContext);
+            complete=mDestruction->finish();
+        }
+        // PHYSX_DESTRUCTION_PASS_DUMP=1: after the finish wait (host already joined the
+        // device), dump body sims, previous velocities and bounds of trial ordinals
+        // 85..92 for a pass-boundary device-state diff between sleep-transition variants.
+        {
+            static const bool passDump=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_PASS_DUMP");return raw && raw[0]=='1';}();
+            static PxU32 trialOrdinal=0;if(!postCorrection)++trialOrdinal;
+            static const bool passTrace=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_PASS_TRACE");return raw && raw[0]=='1';}();
+            if(passTrace && trialOrdinal>=84 && trialOrdinal<=92) {
+                const PxU32* apply=NULL;const PxU32 applyCount=mDestruction->readDeviceSleepApply(apply);
+                fprintf(stderr,"[pass-trace] ordinal %u %s arrivals %d enqueued %d applied %d carried %u applyCount %u gpuRepair %d earlySubmitted %d earlyOk %d\n",
+                    trialOrdinal,postCorrection?"corrected":"trial",int(mDestructionTransitionArrivals),int(mDestructionTransitionEnqueued),int(mDestructionTransitionApplied),
+                    mDestructionCarried.size(),applyCount,int(usesGpuDestructionIslandRepair()),int(mDestructionEarlySubmitted),int(mDestructionEarlyOk));
+            }
+            if(passDump && trialOrdinal>=85 && trialOrdinal<=92) {
+                PxScopedCudaLock lock(*mCudaContextManager);PxCudaContext* cuda=mCudaContextManager->getCudaContext();
+                cuda->streamSynchronize(mSimulationCore->getStream());cuda->streamSynchronize(mDynamicContext->getGpuSolverCore()->getStream());
+                const PxU32 nbBodies=mBodySimManager.mTotalNumBodies;const PxU32 bodyBytes=PxU32(sizeof(PxgBodySim));
+                const PxU32 nbShapes=mSimulationCore->getNumTotalShapes();
+                PxArray<PxU8> hb(nbBodies*bodyBytes);PxArray<PxgBodySimVelocities> hv(nbBodies);PxArray<PxBounds3> hs(nbShapes);
+                cuda->memcpyDtoH(hb.begin(),mSimulationCore->getBodySimBufferDevicePtr(),PxU64(nbBodies)*bodyBytes);
+                cuda->memcpyDtoH(hv.begin(),mSimulationCore->getBodySimPrevVelocitiesBufferDevicePtr(),PxU64(nbBodies)*sizeof(PxgBodySimVelocities));
+                cuda->memcpyDtoH(hs.begin(),mDynamicContext->getGpuBroadPhase()->getBoundsBuffer().getDevicePtr(),PxU64(nbShapes)*sizeof(PxBounds3));
+                char name[160];snprintf(name,sizeof(name),"%s/pass-%u-%s.bin",::getenv("PHYSX_DESTRUCTION_PASS_DUMP_DIR")?::getenv("PHYSX_DESTRUCTION_PASS_DUMP_DIR"):".",trialOrdinal,postCorrection?"c":"t");
+                if(FILE* f=fopen(name,"wb")){fwrite(&nbBodies,4,1,f);fwrite(&bodyBytes,4,1,f);fwrite(&nbShapes,4,1,f);fwrite(hb.begin(),1,hb.size(),f);fwrite(hv.begin(),sizeof(PxgBodySimVelocities),nbBodies,f);fwrite(hs.begin(),sizeof(PxBounds3),nbShapes,f);fclose(f);}
+            }
+        }
+        if(ok) {
+            PxProfileScoped validation(PxGetProfilerCallback(),"GpuDestruction.validatePreparation",false,profileContext);
+            ok=mDestruction->observeCorrectionPreparation();
+        }
+        if(ok && !complete && !(mDestruction->correctionEnabled() && canCorrect)) {
+            // No corrected pass will follow: the accepted stress topology stands.
+            PxScopedCudaLock lock(*mCudaContextManager);
+            mDestruction->discardSpeculativeTopology();
+        }
+        if(ok && !complete && mDestruction->correctionEnabled() && canCorrect) {
+            if(ok) {
+                {
+                PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.restoreInstall",false,profileContext);
+                PxScopedCudaLock lock(*mCudaContextManager);
+                const auto checkpoint=mDestruction->rigidCheckpoint();
+                auto* bodies=mSimulationCore->getBodySimBufferDevicePtr().getPointer();
+                auto* previous=mSimulationCore->getBodySimPrevVelocitiesBufferDevicePtr().getPointer();
+                auto* acceleration=mSimulationCore->getRigidBodyAccelerationsDevice();
+                const auto capacity=mSimulationCore->getBodySimStorageCapacity();const auto stream=mSimulationCore->getStream();
+                mDestructionParkedNodes.clear();mDestructionAffectedNodes.clear();mDestructionFrozenNodes.clear();mDestructionFrozenStaticEdges.clear();mDestructionFreezePending=false;
+                mDestruction->requestTrialSnapshot(islandScopedCorrectionMode()==1 || islandScopedCorrectionMode()==3 || islandScopedCorrectionMode()==4 || islandScopedCorrectionMode()==6);
+                ok=mDestruction->restoreRigidState(bodies,previous,acceleration,capacity,checkpoint.generation,stream)
+                    && mDestruction->installCorrectionBodies(bodies,previous,acceleration,capacity,checkpoint.generation,stream)
+                    && mDestruction->installCollisionOwners(
+                        mSimulationCore->mPxgShapeSimManager.getMutableShapeSimsDeviceTypedPtr(),
+                        mSimulationCore->mPxgShapeSimManager.getNbTotalShapeSims(),
+                        reinterpret_cast<PxNodeIndex*>(mNpContext->getGpuNarrowphaseCore()->mGpuShapesManager.mGpuShapesRemapTableBuffer.getDevicePtr()),
+                        PxU32(mNpContext->getGpuNarrowphaseCore()->mGpuShapesManager.mGpuShapesRemapTableBuffer.getSize()/sizeof(PxNodeIndex)),stream);
+                }
+                // GPU motion and persistent shape ownership now precede CPU
+                // BodySim construction. The existing solver still requires CPU
+                // registration/rebinding, so materialize those compatibility
+                // records before scheduling corrected physics.
+                if(ok) {
+                    PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.preparationCompletion",false,profileContext);
+                    ok=mDestruction->completeCorrectionPreparation();
+                }
+                if(ok) {
+                    PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.applyBindings",false,profileContext);
+                    ok=mDestruction->applyCorrectionBindings();
+                }
+                if(ok) {
+                    PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.publishReservedMetadata",false,profileContext);
+                    mSimulationCore->reserveBodySimStorage(mBodySimManager.mTotalNumBodies,mSimulationCore->hasAccelerationBuffers());
+                    // Changed owners include every newly registered body. One
+                    // suppression/compaction after rebinding covers both sets.
+                    const auto* indices=mDestruction->correctionBodyIndices();
+                    for(PxU32 i=0;i<mDestruction->correctionBodyCount();++i) {
+                        const PxU32 id=indices[i];auto& body=*static_cast<PxsRigidBody*>(mBodySimManager.mBodies[id]);
+                        body.mInternalFlags &= ~(PxsRigidBody::eFIRST_BODY_COPY_GPU | PxsRigidBody::eVELOCITY_COPY_GPU);
+                        body.mGpuHostDirty=0;mBodySimManager.mUpdatedMap.reset(id);
+                    }
+                    mDynamicContext->acknowledgeNativeNodeBirths(mDestruction->reservedBodyIndices(),mDestruction->reservedBodyCount());
+                    // Island-scoped correction (PHYSX_DESTRUCTION_ISLAND_SCOPE=1): now that
+                    // the correction targets are known, every rigid node of a trial
+                    // island holding neither a target nor a reserved body, nor an edge
+                    // to one, is reinstated to its trial end-of-tick state on the GPU
+                    // and parked for the pass by the scene (restoreDestructionActivity).
+                    // Islands holding kinematics or articulations are never parked.
+                    if(islandScopedCorrectionEnabled()) {
+                        const IG::IslandSim& sim=mDynamicContext->getIslandManager().getAccurateIslandSim();
+                        const PxU32 islandCount=sim.getNbIslands();
+                        PxArray<PxU8> affected(islandCount,PxU8(0));
+                        const IG::IslandId* ids=sim.getIslandIds();
+                        PxArray<IG::IslandId> neighbours(4096u);
+                        auto markNode=[&](PxU32 node){
+                            if(node>=sim.getNbNodes())return;
+                            if(ids[node]!=IG_INVALID_ISLAND && ids[node]<islandCount)affected[ids[node]]=1;
+                            PxU32 n=sim.collectNeighbourIslands(PxNodeIndex(node),neighbours.begin(),neighbours.size());
+                            while(n==neighbours.size()){neighbours.resize(neighbours.size()*2u);n=sim.collectNeighbourIslands(PxNodeIndex(node),neighbours.begin(),neighbours.size());}
+                            for(PxU32 k=0;k<n;++k)if(neighbours[k]<islandCount)affected[neighbours[k]]=1;
+                        };
+                        for(PxU32 i=0;i<mDestruction->correctionBodyCount();++i)markNode(indices[i]);
+                        const PxU32* reserved=mDestruction->reservedBodyIndices();
+                        for(PxU32 i=0;i<mDestruction->reservedBodyCount();++i)markNode(reserved[i]);
+                        // Candidates = active rigid nodes of unaffected islands without
+                        // articulations or kinematics. Two linear scans over the active
+                        // node array (island id per node) instead of walking every
+                        // island's node chain.
+                        const PxU32* activeRigid=reinterpret_cast<const PxU32*>(sim.getActiveNodes(IG::Node::eRIGID_BODY_TYPE));
+                        const PxU32 activeRigidCount=sim.getNbActiveNodes(IG::Node::eRIGID_BODY_TYPE);
+                        PxArray<PxU8> parkable(islandCount,PxU8(1));
+                        for(PxU32 i=0;i<activeRigidCount;++i) {
+                            const PxNodeIndex nodeIndex(activeRigid[i]);const PxU32 node=nodeIndex.index();
+                            if(node>=sim.getNbNodes())continue;
+                            const IG::IslandId island=ids[node];
+                            if(island==IG_INVALID_ISLAND || island>=islandCount)continue;
+                            if(sim.getNode(nodeIndex).isKinematic())parkable[island]=0;
+                        }
+                        for(PxU32 a=0;a<sim.getNbActiveIslands();++a) {
+                            const IG::IslandId island=sim.getActiveIslands()[a];
+                            if(island<islandCount && sim.getIsland(island).mNodeCount[IG::Node::eARTICULATION_TYPE])parkable[island]=0;
+                        }
+                        mDestructionParkedNodes.reserve(activeRigidCount);
+                        for(PxU32 i=0;i<activeRigidCount;++i) {
+                            const PxU32 node=PxNodeIndex(activeRigid[i]).index();
+                            if(node>=sim.getNbNodes())continue;
+                            const IG::IslandId island=ids[node];
+                            if(island==IG_INVALID_ISLAND || island>=islandCount || affected[island] || !parkable[island])continue;
+                            mDestructionParkedNodes.pushBack(node);
+                        }
+                        const int mode=islandScopedCorrectionMode();
+                        if(mode==4 || mode==6) {
+                            // Frozen pass: candidates keep their CPU trial state now
+                            // (restoreDestructionActivity skips them); the GPU side is
+                            // finalized after the corrected island gen.
+                            // Bisection aid: PHYSX_DESTRUCTION_ISLAND_SCOPE_FREEZE_MAXNODES
+                            // limits candidates to islands of at most that many nodes.
+                            static const PxU32 maxNodes=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_ISLAND_SCOPE_FREEZE_MAXNODES");return raw?PxU32(std::atoi(raw)):0xffffffffu;}();
+                            if(maxNodes!=0xffffffffu) {
+                                PxArray<PxU32> kept;
+                                for(PxU32 i=0;i<mDestructionParkedNodes.size();++i) {
+                                    const PxU32 node=mDestructionParkedNodes[i];
+                                    const IG::IslandId island=ids[node];
+                                    if(island<islandCount && sim.getIsland(island).mNodeCount[IG::Node::eRIGID_BODY_TYPE]<=maxNodes)kept.pushBack(node);
+                                }
+                                mDestructionParkedNodes=kept;
+                            }
+                            // Bisection aid: PHYSX_DESTRUCTION_ISLAND_SCOPE_FREEZE_ISOLATED=1 keeps
+                            // only bodies without any island edge or static contact (their
+                            // trial and corrected results are identical by construction).
+                            static const bool isolatedOnly=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_ISLAND_SCOPE_FREEZE_ISOLATED");return raw && raw[0]=='1';}();
+                            if(isolatedOnly) {
+                                PxArray<PxU32> kept;
+                                for(PxU32 i=0;i<mDestructionParkedNodes.size();++i) {
+                                    const PxU32 node=mDestructionParkedNodes[i];
+                                    if(sim.getNode(PxNodeIndex(node)).mFirstEdgeIndex!=IG_INVALID_EDGE)continue;
+                                    if(node<mBodySimManager.mStaticConstraints.size()) {
+                                        const PxgStaticConstraints& sc=mBodySimManager.mStaticConstraints[node];
+                                        if(sc.mStaticContacts.size() || sc.mStaticJoints.size())continue;
+                                    }
+                                    kept.pushBack(node);
+                                }
+                                mDestructionParkedNodes=kept;
+                            }
+                            for(PxU32 i=0;i<mDestruction->correctionBodyCount();++i)mDestructionAffectedNodes.pushBack(indices[i]);
+                            for(PxU32 i=0;i<mDestruction->reservedBodyCount();++i)mDestructionAffectedNodes.pushBack(reserved[i]);
+                            mDestructionFreezePending=mDestructionParkedNodes.size()!=0;
+                            // Candidates sit at their trial end-of-tick state through the
+                            // corrected broadphase/narrowphase (their contact caches then
+                            // evolve as the next tick expects); a candidate that a new touch
+                            // merges into an affected island is gathered back to the
+                            // checkpoint before the solve (destructionFilteredActiveNodes).
+                            static const bool reinstateAtInstall=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_ISLAND_SCOPE_REINSTATE_AT_INSTALL");return !raw || raw[0]!='0';}();
+                            // Mode 6 reinstates after the pass-start bounds refresh (updateBoundsAndShapes).
+                            mDestructionReinstatedAtInstall=mode==6?true:reinstateAtInstall;
+                            mDestructionDormantReinstated=false;
+                            if(mode==4 && mDestructionFreezePending && reinstateAtInstall) {
+                                PxScopedCudaLock lock(*mCudaContextManager);
+                                ok=ok && mDestruction->reinstateTrialState(mDestructionParkedNodes.begin(),mDestructionParkedNodes.size(),
+                                    mSimulationCore->getBodySimBufferDevicePtr().getPointer(),mSimulationCore->getBodySimPrevVelocitiesBufferDevicePtr().getPointer(),
+                                    mSimulationCore->getRigidBodyAccelerationsDevice(),mSimulationCore->getStream(),true,false);
+                            }
+                        } else {
+                        PxScopedCudaLock lock(*mCudaContextManager);
+                        ok=ok && mDestruction->reinstateTrialState(mDestructionParkedNodes.begin(),mDestructionParkedNodes.size(),
+                            mSimulationCore->getBodySimBufferDevicePtr().getPointer(),mSimulationCore->getBodySimPrevVelocitiesBufferDevicePtr().getPointer(),
+                            mSimulationCore->getRigidBodyAccelerationsDevice(),mSimulationCore->getStream(),mode==1||mode==3,mode==1||mode==2);
+                        if(mode==2)mDestructionParkedNodes.clear(); // stress skip only: nothing parked in the scene
+                        }
+                    }
+                    // R5 diagnostic (PHYSX_DESTRUCTION_ISLAND_SCOPE_DIAG=1): how much of the
+                    // trial island structure an island-scoped correction would touch. The
+                    // accurate island sim still holds the trial islands here; body sim
+                    // indices are node indices. Reserved (new) bodies have no island yet.
+                    {
+                        static const bool scopeDiag=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_ISLAND_SCOPE_DIAG");return raw && raw[0]=='1';}();
+                        if(scopeDiag) {
+                            const IG::IslandSim& sim=mDynamicContext->getIslandManager().getAccurateIslandSim();
+                            const PxU32 islandCount=sim.getNbIslands();
+                            PxArray<PxU8> touched(islandCount,PxU8(0));
+                            const IG::IslandId* ids=sim.getIslandIds();
+                            PxU32 affectedIslands=0,affectedBodies=0,unislanded=0;
+                            for(PxU32 i=0;i<mDestruction->correctionBodyCount();++i) {
+                                const PxU32 node=indices[i];
+                                if(node>=sim.getNbNodes() || ids[node]==IG_INVALID_ISLAND){++unislanded;continue;}
+                                const IG::IslandId island=ids[node];
+                                if(island<islandCount && !touched[island]){touched[island]=1;++affectedIslands;affectedBodies+=sim.getIsland(island).mNodeCount[IG::Node::eRIGID_BODY_TYPE];}
+                            }
+                            static PxU32 pass=0;++pass;
+                            if(pass<=2) for(PxU32 i=0;i<mDestruction->correctionBodyCount() && i<6;++i) {
+                                const PxU32 node=indices[i];
+                                const bool inRange=node<sim.getNbNodes();
+                                IG::IslandId nb[64];const PxU32 nn=inRange?sim.collectNeighbourIslands(PxNodeIndex(node),nb,64):0;
+                                printf("  target[%u]=%u island=%d activeIndex=%d type=%d kinematic=%d deleted=%d neighbourIslands=%u first=%d\n",i,node,inRange?int(ids[node]):-2,
+                                    inRange?int(sim.getActiveNodeIndex(PxNodeIndex(node))):-2,inRange?int(sim.getNode(PxNodeIndex(node)).mType):-2,
+                                    inRange?int(sim.getNode(PxNodeIndex(node)).isKinematic()):-2,inRange?int(sim.getNode(PxNodeIndex(node)).isDeleted()):-2,nn,nn?int(nb[0]):-1);
+                            }
+                            if(pass<=2) { const PxNodeIndex* an=sim.getActiveNodes(IG::Node::eRIGID_BODY_TYPE);
+                                for(PxU32 a=0;a<sim.getNbActiveNodes(IG::Node::eRIGID_BODY_TYPE) && a<3;++a){IG::IslandId nb[64];const PxU32 nn=sim.collectNeighbourIslands(an[a],nb,64);
+                                    printf("  projectile node=%u island=%d neighbourIslands=%u first=%d\n",an[a].index(),int(ids[an[a].index()]),nn,nn?int(nb[0]):-1);} }
+                            if(pass<=2) {
+                                const IG::IslandId* act=sim.getActiveIslands();
+                                for(PxU32 a=0;a<sim.getNbActiveIslands() && a<6;++a){const IG::Island& isl=sim.getIsland(act[a]);
+                                    printf("  activeIsland[%u]=%u rigidNodes=%u root=%u rootKinematic=%d rootActiveIndex=%d\n",a,act[a],isl.mNodeCount[IG::Node::eRIGID_BODY_TYPE],isl.mRootNode.index(),int(sim.getNode(isl.mRootNode).isKinematic()),int(sim.getActiveNodeIndex(isl.mRootNode)));}
+                                const PxNodeIndex* an=sim.getActiveNodes(IG::Node::eRIGID_BODY_TYPE);
+                                for(PxU32 a=0;a<sim.getNbActiveNodes(IG::Node::eRIGID_BODY_TYPE) && a<6;++a)printf("  activeNode[%u]=%u island=%d kinematic=%d\n",a,an[a].index(),int(ids[an[a].index()]),int(sim.getNode(an[a]).isKinematic()));
+                            }
+                            printf("island scope: pass=%u activeIslands=%u affectedIslands=%u activeBodies=%u affectedIslandBodies=%u correctionTargets=%u notInIsland=%u reserved=%u\n",
+                                pass,sim.getNbActiveIslands(),affectedIslands,sim.getNbActiveNodes(IG::Node::eRIGID_BODY_TYPE),affectedBodies,mDestruction->correctionBodyCount(),unislanded,mDestruction->reservedBodyCount());
+                        }
+                    }
+                    auto& pending=mBodySimManager.mNewOrUpdatedBodySims;PxU32 kept=0;
+                    for(PxU32 i=0;i<pending.size();++i)if(mBodySimManager.mUpdatedMap.boundedTest(pending[i]))pending[kept++]=pending[i];
+                    pending.forceSize_Unsafe(kept);
+                }
+                if(postCorrection) {
+                    // The snapshot just restored is the end-of-tick state. Only
+                    // split ownership/mass changed; no additional integration.
+                    if(ok)ok=mDestruction->acceptCorrection(mSimulationCore->getBodySimBufferDevicePtr().getPointer(),mSimulationCore->getStream());
+                    complete=ok;
+                }
+                mDestructionPreservePairs=false;
+                if(!postCorrection && ok && mDestruction->preserveUnchangedContactPairs() && (!canReuseContactPairs || mNpContext->hasCpuContactManagers()))
+                    ++mDestructionContactReuseFallbackCount;
+                if(!postCorrection && ok && mDestruction->preserveUnchangedContactPairs() && canReuseContactPairs && !mNpContext->hasCpuContactManagers()) {
+                    PxProfileScoped caches(PxGetProfilerCallback(),"GpuDestruction.resetContactCaches",false,profileContext);
+                    PxScopedCudaLock lock(*mCudaContextManager);
+                    // The dormant pass (mode 6) resets caches at pass start, scoped to
+                    // pairs with a non-dormant body (updateBoundsAndShapes).
+                    if(islandScopedCorrectionMode()!=6)
+                        ok=mNpContext->getGpuNarrowphaseCore()->resetDestructionContactCaches()
+                            && mDynamicContext->getGpuSolverCore()->resetDestructionFrictionCaches();
+                    mDestructionPreservePairs=ok;
+                }
+                if(ok && !postCorrection) {
+                    // This event spans the task-graph continuation, including
+                    // CPU refiltering. Keep the callback/token paired even when
+                    // the corrected finalization executes on a different worker.
+                    mDestructionCorrectionProfiler=PxGetProfilerCallback();
+                    if(mDestructionCorrectionProfiler)
+                        mDestructionCorrectionProfileData=mDestructionCorrectionProfiler->zoneStart(
+                            gDestructionCorrectionZone,true,profileContext);
+                    mDestructionCorrecting=true;mDestructionError=1;return true;
+                }
+            }
+        }
+        if(postCorrection && ok && complete) {
+            PxProfileScoped publication(PxGetProfilerCallback(),"GpuDestruction.finalPublication",false,profileContext);
+            ok=mDestruction->finishPostCorrection();
+        }
+        mDestructionError = ok && complete ? 0 : 1;
+        if(mDestructionError)
+            PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR, PX_FL,
+                "Native GPU destruction stage failed; this simulation step is incomplete.");
+        return false;
+    }
+
 	bool PxgSimulationController::copyContactData(void* PX_RESTRICT data, PxU32* PX_RESTRICT numContactPairs, const PxU32 maxContactPairs, CUevent startEvent, CUevent copyEvent)
 	{
 		PxgGpuNarrowphaseCore* npCore = mNpContext->getGpuNarrowphaseCore();
@@ -684,7 +1856,8 @@ namespace physx
 		const PxU32 boundsArraySize = numBounds * sizeof(PxBounds3);
 		PxU32 totalTransformCacheSize = transformCache.getTotalSize();
 
-		if(mDynamicContext->getEnableDirectGPUAPI())
+        const bool resident=usesDeviceDestructionContactInputs();
+		if(mDynamicContext->getEnableDirectGPUAPI() || resident)
 		{
 			PxgBoundsArray& directGPUBoundsArray = static_cast<PxgBoundsArray&>(boundsArray);
 			const PxU32 numChanges = directGPUBoundsArray.getNumberOfChanges();
@@ -706,8 +1879,10 @@ namespace physx
 												totalTransformCacheSize, numChanges, updatedActorDescd, npStream);
 			}
 		}
-		else
-		{
+        else
+        {
+            auto& tracked=static_cast<PxgBoundsArray&>(boundsArray);
+            if(tracked.isChangeTrackingEnabled())tracked.disableChangeTracking();
 			copyBoundsAndTransforms(boundsArray, transformCache, gpuTransformCache, boundsArraySize, totalTransformCacheSize,
 											   npStream);
 		}
@@ -783,23 +1958,163 @@ namespace physx
 
 		PxgGpuNarrowphaseCore* npCore = mDynamicContext->getNarrowphaseCore();
 		CUstream npStream = npCore->getStream();
+        // Broad phase borrows GPU-written ownership generations only for the
+        // corrected pass. NP's producer event below and its ordinary BP stream
+        // dependency order these reads; no host bitmap or additional upload.
+        static_cast<PxgAABBManager&>(aabbManager).setNativeOwnershipView(
+            mDestructionCorrecting ? mDestruction->collisionOwnershipView() : PxgDestructionOwnershipView{});
 		const bool hasShapeInstanceChanged = npCore->mGpuShapesManager.mHasShapeInstanceChanged; // we reset it in updateNarrowPhaseShape, but cache for computeRigidsToShapes.
 
 		// we are in Pxg-land, so GPU NP and dynamics is implied. Upload to GPU if dirty.
 		// The bounds array is shared by NP and BP, and at this point we are before NP and BP.
-		if (!isDirectApiInitialized || hasShapeInstanceChanged)
+		if (!isDirectApiInitialized || hasShapeInstanceChanged
+            || static_cast<PxgBoundsArray&>(aabbManager.getBoundsArray()).getNumberOfChanges())
 			updateBoundsAndTransformCache(aabbManager, npStream, mNpContext->getContext().getTransformCache(), npCore->getTransformCache());
 			
+        // Native ownership writes the narrowphase remap on the simulation stream.
+        // Join its producer before remap growth/copies and rigid-to-shape sorting.
+        if(mDestructionCorrecting && mCudaContextManager->getCudaContext()->streamWaitEvent(
+            npStream,mDestruction->getDeviceView().readyEvent,0)!=CUDA_SUCCESS) {
+            PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR,PX_FL,"Native owner remap dependency failed");
+            mCudaContextManager->getCudaContext()->setAbortMode(true);return;
+        }
 		mNpContext->updateNarrowPhaseShape();
+        // Capture after NP growth/uploads so broad phase never borrows a retired
+        // allocation. The existing NP -> articulation -> BP event chain orders
+        // reads on ordinary and corrected passes alike.
+        const bool nativeGroups=mDestruction && mDestruction->configured();
+        const bool initializeNativeAccess=nativeGroups && !mDynamicContext->mEnableDirectGPUAPI && !mNativeShapeAccessInitialized;
+        const auto& rigidOwners=npCore->mGpuShapesManager.mGpuShapesRemapTableBuffer;
+        static_cast<PxgAABBManager&>(aabbManager).setRigidOwnershipView(
+            nativeGroups ? reinterpret_cast<const PxNodeIndex*>(rigidOwners.getDevicePtr()) : NULL,
+            nativeGroups ? PxU32(rigidOwners.getSize()/sizeof(PxNodeIndex)) : 0);
+        if(nativeGroups && !isDirectApiInitialized) {
+            // The normal direct-GPU NP -> articulation -> BP dependency below
+            // is absent on initialization. Order this new consumer explicitly.
+            auto* bp=static_cast<PxgCudaBroadPhaseSap*>(aabbManager.getBroadPhase());
+            npCore->synchronizedStreams(bp->getBpStream());
+        }
 
 		// AD TODO: remove this if again once we have the warm-start implemented, or find a way to avoid doing this alltogether.
 		// this needs to run even if direct-GPU API is not initialized, because it is part of the initialization.
-		if (mDynamicContext->mEnableDirectGPUAPI && hasShapeInstanceChanged)
+		if ((mDynamicContext->mEnableDirectGPUAPI || nativeGroups) && (hasShapeInstanceChanged || initializeNativeAccess))
 		{
 			//run in np stream
 			npCore->computeRigidsToShapes();
 		}
 
+        // New actors still obtain initial geometry from their ordinary insertion.
+        // Their motion slots are uploaded later; never refresh them from the GPU
+        // merely to initialize the ownership index. Correction slots are ready.
+        // Dormant corrected pass: node bitmap of this pass's candidates, built on
+        // the narrowphase stream before the refresh so their boxes stay out of the
+        // broad-phase update set (they do not move) and their pair caches are kept.
+        CUdeviceptr dormantBits=0;PxU32 dormantWords=0;
+        const bool dormantPass=islandScopedCorrectionMode()==6 && mDestructionCorrecting && mDestructionFreezePending && !mDestructionDormantReinstated && mDestruction && mDestructionParkedNodes.size();
+        if(dormantPass)
+        {
+            PxCudaContext* cuda=mCudaContextManager->getCudaContext();
+            const PxU32 nodeCount=mDynamicContext->getIslandManager().getAccurateIslandSim().getNbNodes();
+            dormantWords=(nodeCount+31u)/32u;
+            mDestructionDormantBits.allocate(sizeof(PxU32)*PxU64(PxMax(dormantWords,1u)),PX_FL);
+            dormantBits=mDestructionDormantBits.getDevicePtr();
+            CUdeviceptr list=0;
+            if(dormantBits && uploadDormantList(mDestructionParkedNodes.begin(),mDestructionParkedNodes.size(),npStream,list))
+            {
+                cuda->memsetD32Async(dormantBits,0,dormantWords,npStream);
+                const PxU32 count=mDestructionParkedNodes.size();
+                PxCudaKernelParam params[]={PX_CUDA_KERNEL_PARAM(list),PX_CUDA_KERNEL_PARAM(count),PX_CUDA_KERNEL_PARAM(dormantBits),PX_CUDA_KERNEL_PARAM(dormantWords)};
+                const CUfunction kernel=mGpuWranglerManager->getCuFunction(PxgKernelIds::MARK_DORMANT_NODE_BITS);
+                if(cuda->launchKernel(kernel,(count+255u)/256u,1,1,256,1,1,0,npStream,params,sizeof(params),0,PX_FL)!=CUDA_SUCCESS){dormantBits=0;dormantWords=0;}
+                mDestructionDormantBitWords=dormantWords;
+            } else {dormantBits=0;dormantWords=0;}
+        }
+        if ((isDirectApiInitialized || nativeGroups) && !mSimulationCore->refreshReboundShapeBounds(npStream,mDestructionCorrecting,dormantBits,dormantWords))
+        {
+            PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR, PX_FL,
+                "Failed to refresh persistent shape bounds from GPU motion");
+            mCudaContextManager->getCudaContext()->setAbortMode(true);
+            return;
+        }
+        // Dormant corrected pass: the transform cache and bounds above were
+        // computed from the restored (start-of-step) poses for every body;
+        // now the candidates take their trial end-of-tick body state back, so
+        // the broad phase and narrowphase see the trial's inputs while the
+        // solver (static remap) and integration (skip) leave them untouched.
+        if(islandScopedCorrectionMode()==6 && mDestructionCorrecting && mDestructionFreezePending && !mDestructionDormantReinstated && mDestruction && mDestructionParkedNodes.size())
+        {
+            mDestructionDormantReinstated=true;
+            // On the core stream behind the refresh: the solver's pre-integration
+            // waits for the core stream (syncData), not for the narrowphase stream.
+            PxCudaContext* cuda=mCudaContextManager->getCudaContext();
+            const CUstream coreStream=mSimulationCore->getStream();
+            if(!mDestructionDormantRefreshed)cuda->eventCreate(&mDestructionDormantRefreshed,CU_EVENT_DISABLE_TIMING);
+            if(!mDestructionDormantRefreshed || cuda->eventRecord(mDestructionDormantRefreshed,npStream)!=CUDA_SUCCESS
+                || cuda->streamWaitEvent(coreStream,mDestructionDormantRefreshed,0)!=CUDA_SUCCESS
+                || !mDestruction->reinstateTrialState(mDestructionParkedNodes.begin(),mDestructionParkedNodes.size(),
+                mSimulationCore->getBodySimBufferDevicePtr().getPointer(),mSimulationCore->getBodySimPrevVelocitiesBufferDevicePtr().getPointer(),
+                mSimulationCore->getRigidBodyAccelerationsDevice(),coreStream,true,false))
+            {
+                PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR, PX_FL, "Dormant corrected pass: reinstatement failed");
+                mCudaContextManager->getCudaContext()->setAbortMode(true);
+                return;
+            }
+            // Stress components of every body outside the affected islands keep
+            // their trial result (the corrected pass cannot change their loads:
+            // a body touching an affected one shares its island). Affected =
+            // active rigid nodes that are not candidates.
+            {
+                const IG::IslandSim& sim=mDynamicContext->getIslandManager().getAccurateIslandSim();
+                const PxU32 nodeCount=sim.getNbNodes();
+                PxBitMap parkedMap;parkedMap.resizeAndClear(PxMax(nodeCount,1u));
+                for(PxU32 i=0;i<mDestructionParkedNodes.size();++i)if(mDestructionParkedNodes[i]<nodeCount)parkedMap.set(mDestructionParkedNodes[i]);
+                const PxNodeIndex* activeRigid=sim.getActiveNodes(IG::Node::eRIGID_BODY_TYPE);
+                const PxU32 activeCount=sim.getNbActiveNodes(IG::Node::eRIGID_BODY_TYPE);
+                mDestructionAffectedNodes.clear();
+                for(PxU32 i=0;i<activeCount;++i){const PxU32 node=activeRigid[i].index();if(node<nodeCount && !parkedMap.test(node))mDestructionAffectedNodes.pushBack(node);}
+                for(PxU32 i=0;i<mDestruction->reservedBodyCount();++i)mDestructionAffectedNodes.pushBack(mDestruction->reservedBodyIndices()[i]);
+                if(!mDestruction->markStressParkedComplement(mDestructionAffectedNodes.begin(),mDestructionAffectedNodes.size(),mBodySimManager.mTotalNumBodies,coreStream))
+                {
+                    PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR, PX_FL, "Dormant corrected pass: stress parking failed");
+                    mCudaContextManager->getCudaContext()->setAbortMode(true);
+                    return;
+                }
+            }
+            // Scoped cache resets (the unscoped ones at correction start are
+            // skipped in this mode): manifolds of pairs with a non-dormant body
+            // on the narrowphase stream; friction counts of all but the
+            // dormant-dormant pairs' slots on the solver stream.
+            if(dormantBits)
+            {
+                PxgGpuNarrowphaseCore* dormantNp=mNpContext->getGpuNarrowphaseCore();
+                const PxgShapeSim* dormantShapes=mSimulationCore->mPxgShapeSimManager.getShapeSimsDeviceTypedPtr();
+                PxgSolverCore* dormantSolver=mDynamicContext->getGpuSolverCore();
+                const PxU32 slotCount=dormantSolver->getFrictionPatchCountCapacity();
+                const PxU32 slotWords=(slotCount+31u)/32u;
+                mDestructionSlotMarks.allocate(sizeof(PxU32)*PxU64(PxMax(slotWords,1u)),PX_FL);
+                const CUdeviceptr slotMarks=mDestructionSlotMarks.getDevicePtr();
+                if(!mDestructionDormantBitsReady)cuda->eventCreate(&mDestructionDormantBitsReady,CU_EVENT_DISABLE_TIMING);
+                bool dormantOk=dormantNp->resetDestructionContactCachesScoped(dormantShapes,dormantBits,dormantWords);
+                if(dormantOk && slotMarks && slotWords)
+                {
+                    cuda->memsetD32Async(slotMarks,0,slotWords,npStream);
+                    dormantOk=dormantNp->markDormantPairSlots(dormantShapes,dormantBits,dormantWords,slotMarks,slotWords,npStream)
+                        && mDestructionDormantBitsReady && cuda->eventRecord(mDestructionDormantBitsReady,npStream)==CUDA_SUCCESS
+                        && cuda->streamWaitEvent(dormantSolver->getStream(),mDestructionDormantBitsReady,0)==CUDA_SUCCESS
+                        && dormantSolver->resetDestructionFrictionCachesScoped(slotMarks,slotWords);
+                }
+                if(!dormantOk)
+                {
+                    PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR, PX_FL, "Dormant corrected pass: scoped cache reset failed");
+                    mCudaContextManager->getCudaContext()->setAbortMode(true);
+                    return;
+                }
+            }
+        }
+
+        mNativeShapeAccessInitialized=nativeGroups;
+        if(nativeGroups && !isDirectApiInitialized)
+            npCore->synchronizedStreams(static_cast<PxgCudaBroadPhaseSap*>(aabbManager.getBroadPhase())->getBpStream());
 		if (isDirectApiInitialized)
 		{
 			// we have a data-dependency between computeRigidsToShapes and updateArticulationsKinematic - so we need to make sure the articulation stream does not start too early.
@@ -822,7 +2137,26 @@ namespace physx
 		// pre integration. We can probably remove that dependency in the future
 		// when moving gravityScale and damping to the actor.
 		npCore->uploadDataChunksToGpuBp();
-	}
+	
+        // PHYSX_DESTRUCTION_BP_DUMP=1: dump the broad-phase inputs of corrected passes
+        // (trial ordinal 84..92) for a device-state diff between sleep-transition variants.
+        {
+            static const bool bpDump=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_BP_DUMP");return raw && raw[0]=='1';}();
+            static PxU32 trialOrdinal=0;if(!mDestructionCorrecting)++trialOrdinal;
+            if(bpDump && trialOrdinal>=86 && trialOrdinal<=91) {
+                PxCudaContext* cuda=mCudaContextManager->getCudaContext();
+                cuda->streamSynchronize(npStream);cuda->streamSynchronize(mSimulationCore->getStream());
+                PxgAABBManager& mgr=static_cast<PxgAABBManager&>(aabbManager);
+                const PxU32 nbShapes=mSimulationCore->getNumTotalShapes();
+                const CUdeviceptr bounds=mDynamicContext->getGpuBroadPhase()->getBoundsBuffer().getDevicePtr();
+                const PxU32 words=mgr.getChangedAABBMgrHandlesWordCount();const CUdeviceptr changed=mgr.getChangedAABBMgrHandles();
+                PxArray<PxBounds3> hb(nbShapes);PxArray<PxU32> hw(words);
+                cuda->memcpyDtoH(hb.begin(),bounds,sizeof(PxBounds3)*nbShapes);if(words)cuda->memcpyDtoH(hw.begin(),changed,sizeof(PxU32)*words);
+                char name[128];snprintf(name,sizeof(name),"%s/bpdump-%u-%s.bin",::getenv("PHYSX_DESTRUCTION_BP_DUMP_DIR")?::getenv("PHYSX_DESTRUCTION_BP_DUMP_DIR"):".",trialOrdinal,mDestructionCorrecting?"c":"t");
+                if(FILE* f=fopen(name,"wb")){fwrite(&nbShapes,4,1,f);fwrite(&words,4,1,f);fwrite(hb.begin(),sizeof(PxBounds3),nbShapes,f);if(words)fwrite(hw.begin(),4,words,f);fclose(f);}
+            }
+        }
+}
 
 	void PxgSimulationController::copyToGpuBodySim(PxBaseTask* continuation)
 	{
@@ -833,6 +2167,15 @@ namespace physx
 		mRecomputeArticulationBlockFormat = false;
 
 		const PxU32 nbNewArticulations = mBodySimManager.mNewArticulationSims.size();
+        // Compact once per upload, rather than scanning the queue per removal.
+        PxArray<PxU32>& pendingBodies = mBodySimManager.mNewOrUpdatedBodySims;
+        PxU32 liveCount = 0;
+        for(PxU32 i = 0; i < pendingBodies.size(); ++i)
+        {
+            if(mBodySimManager.mBodies[pendingBodies[i]] && (!mDestructionCorrecting || mDynamicContext->mEnableDirectGPUAPI
+                || mBodySimManager.mUpdatedMap.boundedTest(pendingBodies[i]))) pendingBodies[liveCount++] = pendingBodies[i];
+        }
+        pendingBodies.forceSize_Unsafe(liveCount);
 		const PxU32 nbNewBodies = mBodySimManager.mNewOrUpdatedBodySims.size();
 
 		const PxU32 totalNumNewBodies = nbNewBodies + nbNewArticulations;
@@ -1289,6 +2632,8 @@ namespace physx
 			//fill in body sim data
 			bodySim.freezeThresholdX_wakeCounterY_sleepThresholdZ_bodySimIndex = make_float4(0.f, core->wakeCounter, core->sleepThreshold, reinterpret_cast<const PxReal&>(index.nodeIndex));
 			bodySim.articulationRemapId = index.remapIndex;
+            bodySim.dynamicLimitsDamping=make_float4(0.f);
+            bodySim.solverConfig=make_uint4(0,0,0,0);
 			bodySim.internalFlags = PxsRigidBody::eFIRST_BODY_COPY_GPU;
 			//Note: we can raise eFIRST_BODY_COPY_GPU here because this function only processes new articulations.
 			//We therefore know that every articulation encountered here is a new articulation.
@@ -2391,6 +3736,8 @@ namespace physx
 			bodySim.linearVelocityXYZ_inverseMassW = make_float4(reinterpret_cast<float3&>(bcLL.linearVelocity), bcLL.inverseMass);
 			bodySim.angularVelocityXYZ_maxPenBiasW = make_float4(reinterpret_cast<float3&>(bcLL.angularVelocity), bcLL.maxPenBias);
 			bodySim.maxLinearVelocitySqX_maxAngularVelocitySqY_linearDampingZ_angularDampingW = make_float4(bcLL.maxLinearVelocitySq, bcLL.maxAngularVelocitySq, bcLL.linearDamping, bcLL.angularDamping);
+            bodySim.dynamicLimitsDamping=make_float4(rbLL.mGpuDynamicLimitsDamping.x,rbLL.mGpuDynamicLimitsDamping.y,rbLL.mGpuDynamicLimitsDamping.z,rbLL.mGpuDynamicLimitsDamping.w);
+            bodySim.solverConfig=make_uint4(bcLL.solverIterationCounts,0,0,0);
 			bodySim.inverseInertiaXYZ_contactReportThresholdW = make_float4(reinterpret_cast<float3&>(bcLL.inverseInertia), bcLL.contactReportThreshold);
 			bodySim.body2World = PxAlignedTransform(bcLL.body2World.p.x, bcLL.body2World.p.y, bcLL.body2World.p.z,
 				PxAlignedQuat(bcLL.body2World.q.x, bcLL.body2World.q.y, bcLL.body2World.q.z, bcLL.body2World.q.w));
@@ -2401,7 +3748,9 @@ namespace physx
 			
 			bodySim.externalLinearAcceleration = make_float4(0.0f);
 			bodySim.externalAngularAcceleration = make_float4(0.0f);
-			if (mBodySimManager.mExternalAccelerations && mBodySimManager.mExternalAccelerations->hasAccelerations())
+			if (!mDynamicContext->getEnableDirectGPUHostAccess()
+                && !(!mDynamicContext->mEnableDirectGPUAPI && usesDeviceDestructionContactInputs())
+                && mBodySimManager.mExternalAccelerations && mBodySimManager.mExternalAccelerations->hasAccelerations())
 			{
 				const PxsRigidBodyExternalAcceleration& acc = mBodySimManager.mExternalAccelerations->get(index);
 				bodySim.externalLinearAcceleration = make_float4(acc.linearAcceleration.x, acc.linearAcceleration.y, acc.linearAcceleration.z, 0.0f);
@@ -2413,7 +3762,8 @@ namespace physx
 			bodySim.sleepAngVelAccXYZ_accelScaleW = make_float4(reinterpret_cast<float3&>(rbLL.mSleepAngVelAcc), rbLL.mAccelScale);
 			bodySim.disableGravity = bcLL.disableGravity;
 			bodySim.lockFlags = bcLL.lockFlags;
-			bodySim.internalFlags = rbLL.mInternalFlags;
+			bodySim.internalFlags = rbLL.mInternalFlags | (PxU32(rbLL.mGpuHostDirty) << 16);
+            rbLL.mGpuHostDirty = 0;
 			//Note: it might be tempting to copy the pattern for new articulations and use this opportunity to raise bodySim.internalFlags with eFIRST_BODY_COPY_GPU.
 			//This is possible for new articulations because we process new articulations in a single function that iterates over mBodySimManager.mNewArticulationSims.
 			//It is not possible for rigid bodies because we bundle new and updated bodies here so we cannot tell which bodies are new and which are updated.
@@ -2467,10 +3817,26 @@ namespace physx
 			mMaxLinks, mMaxDofs, mMaxMimicJoints, mMaxSpatialTendons, mMaxAttachments,
 			mMaxFixedTendons, mMaxTendonJoints, enableBodyAccelerations);
 
-		mSimulationCore->updateBodies(updatedBodySimPool.size(), mNewBodySimPool.size());
+		if(!mSimulationCore->updateBodies(updatedBodySimPool.size(), mNewBodySimPool.size(),
+            !mDestructionCorrecting && usesDeviceDestructionContactInputs()?mDestruction:nullptr,nbTotalBodies)) {
+            mDestructionError=1;mCudaContextManager->getCudaContext()->setAbortMode(true);
+        }
 
 		mSimulationCore->updateArticulations(mBodySimManager.mNewArticulationSims.size(), mArticulationUpdatePoolMapped.begin(),
 			mArticulationUpdatePoolMapped.size(), mArticulationDofDataPoolMapped.begin());
+
+        // Input velocities/forces are now resident. Preserve every rigid slot,
+        // including ordinary participants, before the solver changes them. All
+        // copies stay on the scene stream; no motion is read back to the host.
+        if(mDestruction && !mDestructionCorrecting)
+        {
+            PxProfileScoped checkpointProfile(PxGetProfilerCallback(),"GpuDestruction.checkpoint",false,0);
+            if(!mDestruction->captureRigidState(
+                mSimulationCore->getBodySimBufferDevicePtr().getPointer(),
+                mSimulationCore->getBodySimPrevVelocitiesBufferDevicePtr().getPointer(),
+                mSimulationCore->getRigidBodyAccelerationsDevice(),nbTotalBodies,mSimulationCore->getStream()))
+                mDestructionError=1;
+        }
 
 		//this is for kinematic bodies. Because for kinematic bodies, we still update the transform everyframe but we don't need to simulate(solve and integrate) so mHasBeenSimulated
 		//flag will be false, but we still need to reset the new bodies/shapes sim managers
@@ -2681,6 +4047,7 @@ namespace physx
 
 	void PxgSimulationController::preIntegrateAndUpdateBound(PxBaseTask* continuation, const PxVec3 gravity, const PxReal dt)
 	{
+        mDestructionStepDt=dt;mDestructionStepGravity=gravity;
 		PX_PROFILE_ZONE("GpuSimulationController.integrateAndUpdateBoundParticleSystems", 0);
 
 		mPostUpdateParticleSystemTask.setGravity(gravity);
@@ -2804,6 +4171,7 @@ namespace physx
 	//This is called after solver integration gpu task
 	void PxgSimulationController::update(Cm::PinnableBitMap& changedHandleMap)
 	{
+        mDestructionPostUpdateRan=true;
 		PX_PROFILE_ZONE("GpuSimulationController.update", 0);
 		if(mSimulationCore->mCudaContext->isInAbortMode())
 		{
@@ -2851,6 +4219,18 @@ namespace physx
 	{
 		if (mHasBeenSimulated)
 		{
+            // Mode 9: the copy-back's stream dependency is captured at enqueue time, so
+            // the device sleep transition must be enqueued first (the CPU commit at the
+            // arm always precedes this call). Bounded wait for the second arrival.
+            if(destructionDeviceSleepMode()==9 && mDestruction && usesGpuDestructionIslandRepair() && !mDestructionTransitionEnqueued && mDestructionSolverIssued) {
+                PxProfileScoped wait(PxGetProfilerCallback(),"GpuDestruction.sleepDetail.dmaWaitsTransition",false,PxU64(reinterpret_cast<size_t>(this)));
+                PxTime timer;
+                while(!mDestructionTransitionEnqueued && mDestructionTransitionArrivals<2 && timer.peekElapsedSeconds()<0.02){PxThread::yield();}
+            }
+            // Mode 9: the copy-back's stream dependency is captured at enqueue time,
+            // so the device sleep transition must be enqueued first (the CPU commit
+            // at the arm always precedes this call). Wait (bounded) for the second
+            // arrival when the island repair will provide it.
 			mCudaContextManager->acquireContext();
 
 			const PxU32 nbTotalBodies = mBodySimManager.mTotalNumBodies;
@@ -2886,6 +4266,185 @@ namespace physx
 		}
 	}
 
+    bool PxgSimulationController::reserveNativeTransitionBuffers(PxU32 count)
+    {
+        PxScopedCudaLock lock(*mCudaContextManager);
+        PxCudaContext* cuda = mCudaContextManager->getCudaContext();
+        if(!mNativeSleepReady && cuda->eventCreate(&mNativeSleepReady,2u)!=0) return false;
+        for(PxU32 k=0;k<sNativeSleepRing;++k)
+        {
+            if(!mNativeSleepGathered[k] && cuda->eventCreate(&mNativeSleepGathered[k],2u)!=0) return false;
+            if(!mNativeSleepPosed[k] && cuda->eventCreate(&mNativeSleepPosed[k],2u)!=0) return false;
+        }
+        if(count > mNativeSleepCapacity)
+        {
+            // Nothing in flight may still read the old ring: join both streams once.
+            cuda->streamSynchronize(mSimulationCore->getStream());
+            cuda->streamSynchronize(mDynamicContext->getGpuSolverCore()->getStream());
+            const PxU32 capacity = PxMax(count, PxMax(2u * mNativeSleepCapacity, 256u));
+            CUdeviceptr newZeros = 0;
+            if(cuda->memAlloc(&newZeros, PxU64(capacity)*sizeof(PxVec3)) != 0) return false;
+            if(cuda->memsetD32(newZeros, 0, PxU64(capacity)*3) != 0) { cuda->memFree(newZeros); return false; }
+            CUdeviceptr newIndices[4] = {0,0,0,0}, newPoses[4] = {0,0,0,0};
+            PxU32* newHost[4] = {NULL,NULL,NULL,NULL};
+            bool ok = true;
+            for(PxU32 k=0;k<sNativeSleepRing && ok;++k)
+            {
+                ok = cuda->memAlloc(&newIndices[k], PxU64(capacity)*sizeof(PxU32)) == 0
+                    && cuda->memAlloc(&newPoses[k], PxU64(capacity)*sizeof(PxTransform)) == 0;
+                newHost[k] = PX_PINNED_MEMORY_ALLOC(PxU32, *mCudaContextManager, capacity);
+                ok = ok && newHost[k];
+            }
+            if(!ok)
+            {
+                cuda->memFree(newZeros);
+                for(PxU32 k=0;k<sNativeSleepRing;++k)
+                {
+                    if(newIndices[k]) cuda->memFree(newIndices[k]);
+                    if(newPoses[k]) cuda->memFree(newPoses[k]);
+                    if(newHost[k]) PX_PINNED_MEMORY_FREE(*mCudaContextManager, newHost[k]);
+                }
+                return false;
+            }
+            if(mNativeSleepZeros) cuda->memFree(mNativeSleepZeros);
+            for(PxU32 k=0;k<sNativeSleepRing;++k)
+            {
+                if(mNativeSleepIndicesRing[k]) cuda->memFree(mNativeSleepIndicesRing[k]);
+                if(mNativeSleepPosesRing[k]) cuda->memFree(mNativeSleepPosesRing[k]);
+                if(mNativeSleepIndicesHost[k]) PX_PINNED_MEMORY_FREE(*mCudaContextManager, mNativeSleepIndicesHost[k]);
+                mNativeSleepIndicesRing[k] = newIndices[k]; mNativeSleepPosesRing[k] = newPoses[k]; mNativeSleepIndicesHost[k] = newHost[k];
+            }
+            mNativeSleepZeros = newZeros;
+            mNativeSleepIndices = mNativeSleepIndicesRing[0]; mNativeSleepPoses = mNativeSleepPosesRing[0];
+            mNativeSleepCapacity = capacity;
+        }
+        return true;
+    }
+
+    bool PxgSimulationController::publishHostRigidPoses(const PxU32* indices, const PxTransform* poses, PxU32 count)
+    {
+        if(!count) return true;
+        if(!reserveNativeTransitionBuffers(count)) return false;
+        {
+            PxScopedCudaLock lock(*mCudaContextManager);
+            PxCudaContext* cuda = mCudaContextManager->getCudaContext();
+            if(cuda->memcpyHtoD(mNativeSleepIndices,indices,PxU64(count)*sizeof(PxU32)) != 0
+                || cuda->memcpyHtoD(mNativeSleepPoses,poses,PxU64(count)*sizeof(PxTransform)) != 0
+                || cuda->eventRecord(mNativeSleepReady,NULL) != 0) return false;
+        }
+        return setRigidDynamicData(reinterpret_cast<void*>(mNativeSleepPoses),
+            reinterpret_cast<PxRigidDynamicGPUIndex*>(mNativeSleepIndices),
+            PxRigidDynamicGPUAPIWriteType::eGLOBAL_POSE,count,mNativeSleepReady,NULL);
+    }
+
+    bool PxgSimulationController::finalizeSleepingRigidBodies(const PxU32* indices, PxU32 count, bool rollbackPose)
+    {
+        if(!count) return true;
+        if(rollbackPose && destructionDeviceSleepMode()>=8)for(PxU32 i=0;i<count;++i)mDestructionSleepAuditCpu.pushBack(indices[i]);
+        if(rollbackPose && destructionDeviceSleepMode()>=8)mNativeSleepLastRollbackCount=count;
+        if(!rollbackPose && destructionDeviceSleepMode()>=8){mDestructionSleepAuditNonRollback+=count;
+            static const bool nrDiag=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_NONROLLBACK_DIAG");return raw && raw[0]=='1';}();
+            if(nrDiag && mDestructionAuditIslands){static PxU32 shown=0;const IG::IslandSim& sim=mDestructionAuditIslands->getAccurateIslandSim();
+                PxHashSet<PxU32> solverSet;{PxgSolverCore* core=mDynamicContext->getGpuSolverCore();const PxU32 bodies=mDynamicContext->getActiveNodeCount();
+                    if(core && bodies){PxArray<PxNodeIndex> host(bodies);PxScopedCudaLock lock(*mCudaContextManager);mCudaContextManager->getCudaContext()->memcpyDtoH(host.begin(),CUdeviceptr(reinterpret_cast<size_t>(core->getGpuIslandNodeIndices().getPointer())),sizeof(PxNodeIndex)*bodies);for(PxU32 i=0;i<bodies;++i)if(!host[i].isArticulation())solverSet.insert(host[i].index());}}
+                PxU32 inSolver=0,active=0,deleted=0;for(PxU32 i=0;i<count;++i){const PxU32 n=indices[i];if(solverSet.contains(n))++inSolver;if(n<sim.getNbNodes()){const IG::Node& nd=sim.getNode(PxNodeIndex(n));if(nd.isActive())++active;if(nd.isDeleted())++deleted;}}
+                if(shown<12){++shown;fprintf(stderr,"[nonrollback-diag] %s count %u inSolver %u active %u deleted %u first %u %u %u\n",mDestructionCorrecting?"corrected":"trial",count,inSolver,active,deleted,count?indices[0]:0,count>1?indices[1]:0,count>2?indices[2]:0);}}}
+        // Mode 9 replaces only the early commit's application (the device transition at
+        // the solver issue); individual finalizations (wake/command paths, after the
+        // correction restore) and the fetch-time re-application keep the CPU path.
+        if(rollbackPose && destructionDeviceSleepMode()==9 && mDestructionInEarlyCommit && mDestructionTransitionApplied && !deviceSleepKeepCpuCommit())return true;
+        const PxU64 zoneContext=PxU64(reinterpret_cast<size_t>(this));
+        PxProfileScoped zoneAll(PxGetProfilerCallback(),rollbackPose?"GpuDestruction.sleepDetail.finalizeRollback":"GpuDestruction.sleepDetail.finalize",false,zoneContext);
+        {
+            PxProfileScoped zoneReserve(PxGetProfilerCallback(),"GpuDestruction.sleepDetail.reserve",false,zoneContext);
+            if(!reserveNativeTransitionBuffers(count)) return false;
+        }
+        // Everything below is asynchronous: the indices go through a pinned ring
+        // slot on the core stream, the rollback gather runs on the solver stream
+        // behind integration and hands its poses to the setter by event, and the
+        // zeroing waits for the copy-back of the previous state (it rewrites
+        // bounds and transforms the side-stream copy may still be reading).
+        const PxU32 slot = mNativeSleepSlot; mNativeSleepSlot = (mNativeSleepSlot + 1) % sNativeSleepRing;
+        mNativeSleepIndices = mNativeSleepIndicesRing[slot]; mNativeSleepPoses = mNativeSleepPosesRing[slot];
+        {
+            PxProfileScoped zoneUpload(PxGetProfilerCallback(),"GpuDestruction.sleepDetail.upload",false,zoneContext);
+            PxScopedCudaLock lock(*mCudaContextManager);
+            mSimulationCore->gpuDmaUpdateData();
+            PxCudaContext* cuda = mCudaContextManager->getCudaContext();
+            const CUstream stream = mSimulationCore->getStream();
+            if(CUevent done = mSimulationCore->getDmaBackDoneEvent())
+                if(cuda->streamWaitEvent(stream, done, 0) != 0) return false;
+            PxMemCopy(mNativeSleepIndicesHost[slot], indices, count * sizeof(PxU32));
+            if(cuda->memcpyHtoDAsync(mNativeSleepIndices, mNativeSleepIndicesHost[slot], PxU64(count)*sizeof(PxU32), stream) != 0
+                || cuda->eventRecord(mNativeSleepReady, stream) != 0) return false;
+        }
+        CUevent posesReady = mNativeSleepReady;
+        if(rollbackPose)
+        {
+            PxProfileScoped zoneGather(PxGetProfilerCallback(),"GpuDestruction.sleepDetail.gather",false,zoneContext);
+            PxScopedCudaLock lock(*mCudaContextManager);
+            PxgSolverCore* solver = mDynamicContext->getGpuSolverCore();
+            const CUdeviceptr desc = solver->getSolverCoreDescDeviceptr();
+            const CUdeviceptr solverIndices = solver->getSolverBodyIndices();
+            PxCudaKernelParam params[] = {
+                PX_CUDA_KERNEL_PARAM(mNativeSleepPoses), PX_CUDA_KERNEL_PARAM(mNativeSleepIndices),
+                PX_CUDA_KERNEL_PARAM(desc), PX_CUDA_KERNEL_PARAM(solverIndices), PX_CUDA_KERNEL_PARAM(count)
+            };
+            const CUfunction kernel = mGpuWranglerManager->getCuFunction(PxgKernelIds::NATIVE_SLEEP_GATHER_POSES);
+            PxCudaContext* cuda = mCudaContextManager->getCudaContext();
+            if(cuda->streamWaitEvent(solver->getStream(),mNativeSleepReady,0) != 0
+                || cuda->launchKernel(kernel, (count+255)/256, 1, 1, 256, 1, 1, 0, solver->getStream(),
+                params, sizeof(params), 0, PX_FL) != 0
+                || cuda->eventRecord(mNativeSleepGathered[slot], solver->getStream()) != 0)
+                return false;
+            posesReady = mNativeSleepGathered[slot];
+        }
+        if(rollbackPose)
+        {
+            PxProfileScoped zoneSet(PxGetProfilerCallback(),"GpuDestruction.sleepDetail.setPose",false,zoneContext);
+            // The setter also refreshes GPU shape bounds and transform caches.
+            // A finish event keeps it asynchronous (without one the setter
+            // synchronises the whole core stream on the host).
+            if(!setRigidDynamicData(reinterpret_cast<void*>(mNativeSleepPoses),
+                reinterpret_cast<PxRigidDynamicGPUIndex*>(mNativeSleepIndices),
+                PxRigidDynamicGPUAPIWriteType::eGLOBAL_POSE, count, posesReady, mNativeSleepPosed[slot])) return false;
+            posesReady = mNativeSleepPosed[slot];
+        }
+        // Sparse transition work completes before fetch returns or commands
+        // wake a body. No stale CPU pose/velocity can overwrite a later write.
+        // PHYSX_DESTRUCTION_SLEEP_FUSED=0 restores the four generic setters
+        // (a lock and a launch each, ~0.5 ms of host latency per pass).
+        static const bool fused=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_SLEEP_FUSED");return raw?std::atoi(raw)!=0:true;}();
+        if(fused)
+        {
+            PxProfileScoped zoneZero(PxGetProfilerCallback(),"GpuDestruction.sleepDetail.zero",false,zoneContext);
+            PxScopedCudaLock lock(*mCudaContextManager);
+            PxCudaContext* cuda = mCudaContextManager->getCudaContext();
+            const CUstream stream = mSimulationCore->getStream();
+            const CUdeviceptr actorDesc = CUdeviceptr(reinterpret_cast<size_t>(mSimulationCore->getUpdatedActorDescDesc().getPointer()));
+            const CUdeviceptr prevVelocities = mSimulationCore->getBodySimPrevVelocitiesBufferDevicePtr();
+            PxCudaKernelParam params[] = {
+                PX_CUDA_KERNEL_PARAM(mNativeSleepIndices), PX_CUDA_KERNEL_PARAM(actorDesc),
+                PX_CUDA_KERNEL_PARAM(prevVelocities), PX_CUDA_KERNEL_PARAM(count)
+            };
+            const CUfunction kernel = mGpuWranglerManager->getCuFunction(PxgKernelIds::NATIVE_SLEEP_ZERO_MOTION);
+            return cuda->streamWaitEvent(stream, posesReady, 0) == 0
+                && cuda->launchKernel(kernel, (count+255)/256, 1, 1, 256, 1, 1, 0, stream, params, sizeof(params), 0, PX_FL) == 0;
+        }
+        return setRigidDynamicData(reinterpret_cast<void*>(mNativeSleepZeros),
+                   reinterpret_cast<PxRigidDynamicGPUIndex*>(mNativeSleepIndices),
+                   PxRigidDynamicGPUAPIWriteType::eLINEAR_VELOCITY, count, posesReady, NULL)
+            && setRigidDynamicData(reinterpret_cast<void*>(mNativeSleepZeros),
+                   reinterpret_cast<PxRigidDynamicGPUIndex*>(mNativeSleepIndices),
+                   PxRigidDynamicGPUAPIWriteType::eANGULAR_VELOCITY, count, posesReady, NULL)
+            && setRigidDynamicData(reinterpret_cast<void*>(mNativeSleepZeros),
+                   reinterpret_cast<PxRigidDynamicGPUIndex*>(mNativeSleepIndices),
+                   PxRigidDynamicGPUAPIWriteType::eFORCE, count, posesReady, NULL)
+            && setRigidDynamicData(reinterpret_cast<void*>(mNativeSleepZeros),
+                   reinterpret_cast<PxRigidDynamicGPUIndex*>(mNativeSleepIndices),
+                   PxRigidDynamicGPUAPIWriteType::eTORQUE, count, posesReady, NULL);
+    }
+
 	void PxgSimulationController::updateScBodyAndShapeSim(PxsTransformCache& cache, Bp::BoundsArray& boundArray, PxBaseTask* continuation)
 	{
 		PX_UNUSED(cache);
@@ -2894,7 +4453,18 @@ namespace physx
 		PX_PROFILE_ZONE("GpuSimulationController.updateScBodyAndShapeSim", 0);
 
 		mCudaContextManager->acquireContext();
-		mSimulationCore->syncDmaback(mNbFrozenShapes, mNbUnfrozenShapes, mHasBeenSimulated);
+        {
+            PxProfileScoped profile(usesDeviceDestructionContactInputs()?PxGetProfilerCallback():NULL,
+                "GpuDestruction.task.bodyDmaWait",false,PxU64(reinterpret_cast<size_t>(this)));
+            mSimulationCore->syncDmaback(mNbFrozenShapes, mNbUnfrozenShapes, mHasBeenSimulated);
+        }
+        // Direct GPU omits the CPU scene-query frozen/unfrozen index arrays.
+        // Activity callbacks may run, but must never consume those arrays.
+        if(mDynamicContext->getEnableDirectGPUAPI())
+        {
+            mNbFrozenShapes = 0;
+            mNbUnfrozenShapes = 0;
+        }
 		if (mFEMClothCore)
 			mFEMClothCore->syncCloths();
 		if (mSoftBodyCore)
@@ -2910,7 +4480,7 @@ namespace physx
 #if PXG_SC_DEBUG
 			mSimulationCore->mPxgShapeSimManager.validateCacheAndBounds(boundArray.getBounds(), cache.getTransforms());
 #endif
-			if ( (!mDynamicContext->getEnableDirectGPUAPI()) || mEnableOVDReadback)
+			if ((!mDynamicContext->getEnableDirectGPUAPI()) || !mDynamicContext->isSleepingDisabled() || mEnableOVDReadback)
 			{
 				mCallback->updateScBodyAndShapeSim(continuation);
 				//Now update sleep state for FEM cloth...
@@ -4244,4 +5814,4 @@ namespace physx
 #endif
 }
 
-
+#include "PxgDestructionNativeSnapshot.cpp.inl"

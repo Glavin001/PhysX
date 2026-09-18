@@ -57,6 +57,7 @@ class PxgCudaBroadPhaseSap : public Bp::BroadPhase
 {
 												PX_NOCOPY(PxgCudaBroadPhaseSap)
 	public:
+        PxU64 getHostGroupUploadBytes() const { return mHostGroupUploadBytes; }
 												PxgCudaBroadPhaseSap(const PxGpuBroadPhaseDesc& desc,
 																	 PxgCudaKernelWranglerManager* gpuKernelWrangler,
 																	 PxCudaContextManager* cudaContextManager,
@@ -176,6 +177,7 @@ class PxgCudaBroadPhaseSap : public Bp::BroadPhase
 					PxgTypedCudaBuffer<PxBounds3>           mBoxFpBoundsBuf;            // box bounds in device memory              |BroadPhaseUpdateData::getAABBs()           |updateData_fpBounds
 					PxgTypedCudaBuffer<PxReal>              mBoxContactDistancesBuf;    // contact distances in device memory       |BroadPhaseUpdateData::getContactDistance() |updateData_contactDistances
 					PxgTypedCudaBuffer<PxU32>               mBoxGroupsBuf;              // box groups in device memory              |BroadPhaseUpdateData::getGroups            |updateData_groups
+        PxU64 mHostGroupUploadBytes = 0;
 					PxgTypedCudaBuffer<PxU32>               mBoxEnvIDsBuf;              // box env IDs in device memory             |BroadPhaseUpdateData::getEnvIDs            |updateData_envIDs
 					PxgTypedCudaBuffer<PxgIntegerAABB>      mNewIntegerBoundsBuf;       // integer bounds in device memory          |translateAABBsLaunch kernel                |newIntegerBounds
 					PxgTypedCudaBuffer<PxgIntegerAABB>      mOldIntegerBoundsBuf;       // integer bounds in device memory          |-                                          |oldIntegerBounds
@@ -228,6 +230,7 @@ class PxgCudaBroadPhaseSap : public Bp::BroadPhase
 					PxgTypedCudaBuffer<int>               mBlockRegionAccumBuf;
 					PxU32                                 mRegionAccumTotal; //need to write back to cpu every frame
 	
+					PxgTypedCudaBuffer<PxU32> mNativePairTileOffsets;
 					PxgTypedCudaBuffer<PxgBroadPhasePair> mFoundPairsBuf;     //total found pairs(include actors and aggregates)
 					PxgTypedCudaBuffer<PxgBroadPhasePair> mLostPairsBuf;      //total lost pairs(include actors and aggregates)
 	

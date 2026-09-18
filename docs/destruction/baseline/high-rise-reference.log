@@ -1,0 +1,322 @@
+   Compiling proc-macro2 v1.0.106
+   Compiling unicode-ident v1.0.24
+   Compiling quote v1.0.45
+   Compiling autocfg v1.5.0
+   Compiling libm v0.2.16
+   Compiling libc v0.2.186
+   Compiling num-traits v0.2.19
+   Compiling cfg-if v1.0.4
+   Compiling serde_core v1.0.228
+   Compiling syn v2.0.117
+   Compiling zerocopy v0.8.50
+   Compiling bitflags v2.11.0
+   Compiling serde v1.0.228
+   Compiling bytemuck v1.25.0
+   Compiling equivalent v1.0.2
+   Compiling getrandom v0.3.4
+   Compiling paste v1.0.15
+   Compiling safe_arch v0.7.4
+   Compiling matrixmultiply v0.3.10
+   Compiling heapless v0.8.0
+   Compiling zmij v1.0.21
+   Compiling either v1.15.0
+   Compiling typenum v1.19.0
+   Compiling byteorder v1.5.0
+   Compiling hash32 v0.3.1
+   Compiling wide v0.7.33
+   Compiling num-integer v0.1.46
+   Compiling num-complex v0.4.6
+   Compiling approx v0.5.1
+   Compiling stable_deref_trait v1.2.1
+   Compiling serde_json v1.0.149
+   Compiling smallvec v1.15.1
+   Compiling foldhash v0.2.0
+   Compiling thiserror v2.0.18
+   Compiling rustix v1.1.4
+   Compiling allocator-api2 v0.2.21
+   Compiling getrandom v0.4.2
+   Compiling rawpointer v0.2.1
+   Compiling hashbrown v0.16.1
+   Compiling zerocopy-derive v0.8.50
+   Compiling serde_derive v1.0.228
+   Compiling nalgebra-macros v0.3.0
+   Compiling thiserror-impl v2.0.18
+   Compiling simba v0.9.1
+   Compiling num-rational v0.4.2
+   Compiling rand_core v0.9.5
+   Compiling memchr v2.8.0
+   Compiling linux-raw-sys v0.12.1
+   Compiling log v0.4.29
+   Compiling regex-syntax v0.8.10
+   Compiling once_cell v1.21.4
+   Compiling itoa v1.0.18
+   Compiling bit-vec v0.8.0
+   Compiling robust v1.2.0
+   Compiling shlex v1.3.0
+   Compiling find-msvc-tools v0.1.9
+   Compiling cc v1.2.59
+   Compiling half v2.7.1
+   Compiling spade v2.15.1
+   Compiling nalgebra v0.34.2
+   Compiling ena v0.14.4
+   Compiling rstar v0.12.2
+   Compiling num-derive v0.4.2
+   Compiling profiling-procmacros v1.0.17
+   Compiling ordered-float v5.3.0
+   Compiling fastrand v2.4.1
+   Compiling downcast-rs v2.0.2
+   Compiling clap_lex v1.1.0
+   Compiling anstyle v1.0.14
+   Compiling arrayvec v0.7.6
+   Compiling ciborium-io v0.2.2
+   Compiling static_assertions v1.1.0
+   Compiling slab v0.4.12
+   Compiling ciborium-ll v0.2.2
+   Compiling clap_builder v4.6.0
+   Compiling tempfile v3.27.0
+   Compiling profiling v1.0.17
+   Compiling blast-stress-solver v0.1.1 (/root/workspace/physx-2/out/reference-high-rise/blast/blast-stress-solver-rs)
+   Compiling regex-automata v0.4.14
+   Compiling ppv-lite86 v0.2.21
+   Compiling itertools v0.10.5
+   Compiling wait-timeout v0.2.1
+   Compiling quick-error v1.2.3
+   Compiling foldhash v0.1.5
+   Compiling wasmparser v0.224.1
+   Compiling cast v0.3.0
+   Compiling fnv v1.0.7
+   Compiling rustc-hash v2.1.2
+   Compiling hashbrown v0.17.0
+   Compiling parry3d v0.25.3
+   Compiling same-file v1.0.6
+   Compiling rusty-fork v0.3.1
+   Compiling walkdir v2.5.0
+   Compiling indexmap v2.14.0
+   Compiling criterion-plot v0.5.0
+   Compiling hashbrown v0.15.5
+   Compiling regex v1.12.3
+   Compiling clap v4.6.1
+   Compiling rand_chacha v0.9.0
+   Compiling ciborium v0.2.2
+   Compiling tinytemplate v1.2.1
+   Compiling bit-set v0.8.0
+   Compiling rand_xorshift v0.4.0
+   Compiling rand v0.9.4
+   Compiling is-terminal v0.4.17
+   Compiling semver v1.0.28
+   Compiling unarray v0.1.4
+   Compiling oorandom v11.1.5
+   Compiling anes v0.1.6
+   Compiling proptest v1.11.0
+   Compiling criterion v0.5.1
+   Compiling rapier3d v0.30.1
+warning: blast-stress-solver@0.1.1: In file included from /root/workspace/physx-2/out/reference-high-rise/blast/rust_stress_example/ffi/stress_bridge.cpp:6:
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/out/reference-high-rise/blast/source/shared/stress_solver/anglin6.h:167:25: warning: ignoring attributes on template argument '__m128' [-Wignored-attributes]
+warning: blast-stress-solver@0.1.1:   167 | struct AngLin6Ops<__m128>
+warning: blast-stress-solver@0.1.1:       |                         ^
+warning: blast-stress-solver@0.1.1: In file included from /root/workspace/physx-2/out/reference-high-rise/blast/source/shared/stress_solver/bond.h:29,
+warning: blast-stress-solver@0.1.1:                  from /root/workspace/physx-2/out/reference-high-rise/blast/source/shared/stress_solver/stress.h:29,
+warning: blast-stress-solver@0.1.1:                  from /root/workspace/physx-2/out/reference-high-rise/blast/rust_stress_example/ffi/stress_bridge.cpp:8:
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/out/reference-high-rise/blast/source/shared/stress_solver/coupling.h:121:43: warning: ignoring attributes on template argument 'SIMD_Scalar' {aka '__m128'} [-Wignored-attributes]
+warning: blast-stress-solver@0.1.1:   121 | struct CouplingMatrixOps<Elem, SIMD_Scalar>
+warning: blast-stress-solver@0.1.1:       |                                           ^
+warning: blast-stress-solver@0.1.1: In file included from /root/workspace/physx-2/out/reference-high-rise/blast/source/shared/stress_solver/bond.h:30:
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/out/reference-high-rise/blast/source/shared/stress_solver/inertia.h:86:36: warning: ignoring attributes on template argument 'SIMD_Scalar' {aka '__m128'} [-Wignored-attributes]
+warning: blast-stress-solver@0.1.1:    86 | struct InertiaMatrixOps<SIMD_Scalar>
+warning: blast-stress-solver@0.1.1:       |                                    ^
+warning: blast-stress-solver@0.1.1: In file included from /root/workspace/physx-2/out/reference-high-rise/blast/rust_stress_example/ffi/ext_stress_bridge.cpp:17:
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/out/reference-high-rise/blast/include/extensions/stress/NvBlastExtStressSolver.h: In constructor 'Nv::Blast::ExtStressMaterial::ExtStressMaterial()':
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/out/reference-high-rise/blast/include/extensions/stress/NvBlastExtStressSolver.h:216:11: warning: 'Nv::Blast::ExtStressMaterial::elasticModulusPa' will be initialized after [-Wreorder]
+warning: blast-stress-solver@0.1.1:   216 |     float elasticModulusPa;
+warning: blast-stress-solver@0.1.1:       |           ^~~~~~~~~~~~~~~~
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/out/reference-high-rise/blast/include/extensions/stress/NvBlastExtStressSolver.h:209:11: warning:   'float Nv::Blast::ExtStressMaterial::residualAreaFraction' [-Wreorder]
+warning: blast-stress-solver@0.1.1:   209 |     float residualAreaFraction;
+warning: blast-stress-solver@0.1.1:       |           ^~~~~~~~~~~~~~~~~~~~
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/out/reference-high-rise/blast/include/extensions/stress/NvBlastExtStressSolver.h:221:5: warning:   when initialized here [-Wreorder]
+warning: blast-stress-solver@0.1.1:   221 |     ExtStressMaterial() :
+warning: blast-stress-solver@0.1.1:       |     ^~~~~~~~~~~~~~~~~
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/out/reference-high-rise/blast/rust_stress_example/ffi/ext_stress_bridge.cpp: In function 'uint8_t ext_stress_solver_apply_fracture_commands(ExtStressSolverHandle*, const ExtStressFractureCommands*, uint32_t, ExtStressSplitEvent*, uint32_t, ExtStressActor*, uint32_t, uint32_t*, uint32_t*, uint32_t*, uint32_t, uint32_t*)':
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/out/reference-high-rise/blast/rust_stress_example/ffi/ext_stress_bridge.cpp:2178:18: warning: variable 'childStored' set but not used [-Wunused-but-set-variable]
+warning: blast-stress-solver@0.1.1:  2178 |             bool childStored = false;
+warning: blast-stress-solver@0.1.1:       |                  ^~~~~~~~~~~
+warning: blast-stress-solver@0.1.1: In file included from /root/workspace/physx-2/out/reference-high-rise/blast/source/shared/stress_solver/coupling.h:30,
+warning: blast-stress-solver@0.1.1:                  from /root/workspace/physx-2/out/reference-high-rise/blast/source/shared/stress_solver/bond.h:29,
+warning: blast-stress-solver@0.1.1:                  from /root/workspace/physx-2/out/reference-high-rise/blast/source/shared/stress_solver/stress.h:29,
+warning: blast-stress-solver@0.1.1:                  from /root/workspace/physx-2/out/reference-high-rise/blast/source/shared/stress_solver/stress.cpp:27:
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/out/reference-high-rise/blast/source/shared/stress_solver/anglin6.h:167:25: warning: ignoring attributes on template argument '__m128' [-Wignored-attributes]
+warning: blast-stress-solver@0.1.1:   167 | struct AngLin6Ops<__m128>
+warning: blast-stress-solver@0.1.1:       |                         ^
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/out/reference-high-rise/blast/source/shared/stress_solver/coupling.h:121:43: warning: ignoring attributes on template argument 'SIMD_Scalar' {aka '__m128'} [-Wignored-attributes]
+warning: blast-stress-solver@0.1.1:   121 | struct CouplingMatrixOps<Elem, SIMD_Scalar>
+warning: blast-stress-solver@0.1.1:       |                                           ^
+warning: blast-stress-solver@0.1.1: In file included from /root/workspace/physx-2/out/reference-high-rise/blast/source/shared/stress_solver/bond.h:30:
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/out/reference-high-rise/blast/source/shared/stress_solver/inertia.h:86:36: warning: ignoring attributes on template argument 'SIMD_Scalar' {aka '__m128'} [-Wignored-attributes]
+warning: blast-stress-solver@0.1.1:    86 | struct InertiaMatrixOps<SIMD_Scalar>
+warning: blast-stress-solver@0.1.1:       |                                    ^
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/out/reference-high-rise/blast/source/shared/stress_solver/stress.cpp:41:45: warning: ignoring attributes on template argument 'SIMD_Scalar' {aka '__m128'} [-Wignored-attributes]
+warning: blast-stress-solver@0.1.1:    41 | typedef CGNR<AngLin6, AngLin6Ops<SIMD_Scalar>, BondMatrixS, BondMatrixOpsS<SIMD_Scalar>, SIMD_Scalar, AngLin6ErrorSq>       CGNR_SIMD;
+warning: blast-stress-solver@0.1.1:       |                                             ^
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/out/reference-high-rise/blast/source/shared/stress_solver/stress.cpp:41:87: warning: ignoring attributes on template argument 'SIMD_Scalar' {aka '__m128'} [-Wignored-attributes]
+warning: blast-stress-solver@0.1.1:    41 | typedef CGNR<AngLin6, AngLin6Ops<SIMD_Scalar>, BondMatrixS, BondMatrixOpsS<SIMD_Scalar>, SIMD_Scalar, AngLin6ErrorSq>       CGNR_SIMD;
+warning: blast-stress-solver@0.1.1:       |                                                                                       ^
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/out/reference-high-rise/blast/source/shared/stress_solver/stress.cpp:41:117: warning: ignoring attributes on template argument 'SIMD_Scalar' {aka '__m128'} [-Wignored-attributes]
+warning: blast-stress-solver@0.1.1:    41 | typedef CGNR<AngLin6, AngLin6Ops<SIMD_Scalar>, BondMatrixS, BondMatrixOpsS<SIMD_Scalar>, SIMD_Scalar, AngLin6ErrorSq>       CGNR_SIMD;
+warning: blast-stress-solver@0.1.1:       |                                                                                                                     ^
+warning: blast-stress-solver@0.1.1: In file included from /root/workspace/physx-2/out/reference-high-rise/blast/source/shared/stress_solver/stress.cpp:30:
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/out/reference-high-rise/blast/source/shared/stress_solver/simd/simd_device_query.h:144:1: warning: 'void print_supported_instruction_sets()' defined but not used [-Wunused-function]
+warning: blast-stress-solver@0.1.1:   144 | print_supported_instruction_sets()
+warning: blast-stress-solver@0.1.1:       | ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/out/reference-high-rise/blast/source/sdk/globals/NvBlastGlobals.cpp: In member function 'virtual void Nv::Blast::DefaultErrorCallback::reportError(nvidia::NvErrorCode::Enum, const char*, const char*, int)':
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/out/reference-high-rise/blast/source/sdk/globals/NvBlastGlobals.cpp:120:14: warning: variable 'critical' set but not used [-Wunused-but-set-variable]
+warning: blast-stress-solver@0.1.1:   120 |         bool critical = false;
+warning: blast-stress-solver@0.1.1:       |              ^~~~~~~~
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/out/reference-high-rise/blast/source/sdk/lowlevel/NvBlastFamily.cpp: In function 'NvBlastFamily* Nv::Blast::createFamily(void*, const NvBlastAssetMemSizeData&, NvBlastLog)':
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/out/reference-high-rise/blast/source/sdk/lowlevel/NvBlastFamily.cpp:106:20: warning: unused variable 'bondCount' [-Wunused-variable]
+warning: blast-stress-solver@0.1.1:   106 |     const uint32_t bondCount = sizeData.bondCount;
+warning: blast-stress-solver@0.1.1:       |                    ^~~~~~~~~
+warning: blast-stress-solver@0.1.1: In file included from /root/workspace/physx-2/out/reference-high-rise/blast/source/sdk/lowlevel/NvBlastFamilyGraph.h:37,
+warning: blast-stress-solver@0.1.1:                  from /root/workspace/physx-2/out/reference-high-rise/blast/source/sdk/lowlevel/NvBlastFamilyGraph.cpp:28:
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/out/reference-high-rise/blast/source/sdk/common/NvBlastFixedPriorityQueue.h: In instantiation of 'Nv::Blast::FixedPriorityQueue<Element, Comparator>::FixedPriorityQueue(const Comparator&) [with Element = Nv::Blast::FamilyGraph::QueueElement; Comparator = Nv::Blast::FamilyGraph::NodeComparator]':
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/out/reference-high-rise/blast/source/sdk/lowlevel/NvBlastFamilyGraph.cpp:440:71:   required from here
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/out/reference-high-rise/blast/source/sdk/common/NvBlastFixedPriorityQueue.h:75:94: warning: implicitly-declared 'constexpr Nv::Blast::FamilyGraph::NodeComparator::NodeComparator(const Nv::Blast::FamilyGraph::NodeComparator&)' is deprecated [-Wdeprecated-copy]
+warning: blast-stress-solver@0.1.1:    75 |     FixedPriorityQueue(const Comparator& less = Comparator()) : Comparator(less), mHeapSize(0)
+warning: blast-stress-solver@0.1.1:       |                                                                                              ^
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/out/reference-high-rise/blast/source/sdk/lowlevel/NvBlastFamilyGraph.h:236:25: note: because 'Nv::Blast::FamilyGraph::NodeComparator' has user-provided 'Nv::Blast::FamilyGraph::NodeComparator& Nv::Blast::FamilyGraph::NodeComparator::operator=(const Nv::Blast::FamilyGraph::NodeComparator&)'
+warning: blast-stress-solver@0.1.1:   236 |         NodeComparator& operator = (const NodeComparator&);
+warning: blast-stress-solver@0.1.1:       |                         ^~~~~~~~
+warning: blast-stress-solver@0.1.1: In file included from /root/workspace/physx-2/out/reference-high-rise/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp:29:
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/out/reference-high-rise/blast/include/extensions/stress/NvBlastExtStressSolver.h: In constructor 'Nv::Blast::ExtStressMaterial::ExtStressMaterial()':
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/out/reference-high-rise/blast/include/extensions/stress/NvBlastExtStressSolver.h:216:11: warning: 'Nv::Blast::ExtStressMaterial::elasticModulusPa' will be initialized after [-Wreorder]
+warning: blast-stress-solver@0.1.1:   216 |     float elasticModulusPa;
+warning: blast-stress-solver@0.1.1:       |           ^~~~~~~~~~~~~~~~
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/out/reference-high-rise/blast/include/extensions/stress/NvBlastExtStressSolver.h:209:11: warning:   'float Nv::Blast::ExtStressMaterial::residualAreaFraction' [-Wreorder]
+warning: blast-stress-solver@0.1.1:   209 |     float residualAreaFraction;
+warning: blast-stress-solver@0.1.1:       |           ^~~~~~~~~~~~~~~~~~~~
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/out/reference-high-rise/blast/include/extensions/stress/NvBlastExtStressSolver.h:221:5: warning:   when initialized here [-Wreorder]
+warning: blast-stress-solver@0.1.1:   221 |     ExtStressMaterial() :
+warning: blast-stress-solver@0.1.1:       |     ^~~~~~~~~~~~~~~~~
+warning: blast-stress-solver@0.1.1: In file included from /root/workspace/physx-2/out/reference-high-rise/blast/source/shared/stress_solver/coupling.h:30,
+warning: blast-stress-solver@0.1.1:                  from /root/workspace/physx-2/out/reference-high-rise/blast/source/shared/stress_solver/bond.h:29,
+warning: blast-stress-solver@0.1.1:                  from /root/workspace/physx-2/out/reference-high-rise/blast/source/shared/stress_solver/stress.h:29,
+warning: blast-stress-solver@0.1.1:                  from /root/workspace/physx-2/out/reference-high-rise/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp:43:
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/out/reference-high-rise/blast/source/shared/stress_solver/anglin6.h: At global scope:
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/out/reference-high-rise/blast/source/shared/stress_solver/anglin6.h:167:25: warning: ignoring attributes on template argument '__m128' [-Wignored-attributes]
+warning: blast-stress-solver@0.1.1:   167 | struct AngLin6Ops<__m128>
+warning: blast-stress-solver@0.1.1:       |                         ^
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/out/reference-high-rise/blast/source/shared/stress_solver/coupling.h:121:43: warning: ignoring attributes on template argument 'SIMD_Scalar' {aka '__m128'} [-Wignored-attributes]
+warning: blast-stress-solver@0.1.1:   121 | struct CouplingMatrixOps<Elem, SIMD_Scalar>
+warning: blast-stress-solver@0.1.1:       |                                           ^
+warning: blast-stress-solver@0.1.1: In file included from /root/workspace/physx-2/out/reference-high-rise/blast/source/shared/stress_solver/bond.h:30:
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/out/reference-high-rise/blast/source/shared/stress_solver/inertia.h:86:36: warning: ignoring attributes on template argument 'SIMD_Scalar' {aka '__m128'} [-Wignored-attributes]
+warning: blast-stress-solver@0.1.1:    86 | struct InertiaMatrixOps<SIMD_Scalar>
+warning: blast-stress-solver@0.1.1:       |                                    ^
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/out/reference-high-rise/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp: In member function 'void Nv::Blast::SupportGraphProcessor::addBond(uint32_t, uint32_t, uint32_t)':
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/out/reference-high-rise/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp:1560:13: warning: missing initializer for member 'Nv::Blast::SupportGraphProcessor::BondData::stressShear' [-Wmissing-field-initializers]
+warning: blast-stress-solver@0.1.1:  1560 |             };
+warning: blast-stress-solver@0.1.1:       |             ^
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/out/reference-high-rise/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp:1560:13: warning: missing initializer for member 'Nv::Blast::SupportGraphProcessor::BondData::stressBend' [-Wmissing-field-initializers]
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/out/reference-high-rise/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp:1560:13: warning: missing initializer for member 'Nv::Blast::SupportGraphProcessor::BondData::normal' [-Wmissing-field-initializers]
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/out/reference-high-rise/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp:1560:13: warning: missing initializer for member 'Nv::Blast::SupportGraphProcessor::BondData::centroid' [-Wmissing-field-initializers]
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/out/reference-high-rise/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp: In member function 'void Nv::Blast::SupportGraphProcessor::syncNodes(const NvBlastBond*)':
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/out/reference-high-rise/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp:4007:24: warning: unused variable 'STATIC_NODES_COUNT_PENALTY' [-Wunused-variable]
+warning: blast-stress-solver@0.1.1:  4007 |         const uint32_t STATIC_NODES_COUNT_PENALTY = 2 << 2;
+warning: blast-stress-solver@0.1.1:       |                        ^~~~~~~~~~~~~~~~~~~~~~~~~~
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/out/reference-high-rise/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp: In member function 'virtual bool Nv::Blast::ExtStressSolverImpl::getExcessForces(uint32_t, const NvcVec3&, NvcVec3&, NvcVec3&)':
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/out/reference-high-rise/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp:5281:20: warning: unused variable 'retCount' [-Wunused-variable]
+warning: blast-stress-solver@0.1.1:  5281 |     const uint32_t retCount = NvBlastActorGetGraphNodeIndices(nodeIndices, nodeCount, actor, logLL);
+warning: blast-stress-solver@0.1.1:       |                    ^~~~~~~~
+warning: blast-stress-solver@0.1.1: In file included from /root/workspace/physx-2/out/reference-high-rise/blast/source/shared/NsFoundation/include/NsHashMap.h:30,
+warning: blast-stress-solver@0.1.1:                  from /root/workspace/physx-2/out/reference-high-rise/blast/source/sdk/common/NvBlastHashMap.h:33,
+warning: blast-stress-solver@0.1.1:                  from /root/workspace/physx-2/out/reference-high-rise/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp:34:
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/out/reference-high-rise/blast/source/shared/NsFoundation/include/NsHashInternals.h: In instantiation of 'nvidia::shdfnd::internal::HashBase<Entry, Key, HashFn, GetKey, Allocator, compacting>::Iter nvidia::shdfnd::internal::HashBase<Entry, Key, HashFn, GetKey, Allocator, compacting>::Iter::operator++() [with Entry = const NvBlastActor*; Key = const NvBlastActor*; HashFn = nvidia::shdfnd::Hash<const NvBlastActor*>; GetKey = nvidia::shdfnd::internal::HashSetBase<const NvBlastActor*, nvidia::shdfnd::Hash<const NvBlastActor*>, Nv::Blast::Allocator, false>::GetKey; Allocator = Nv::Blast::Allocator; bool compacting = false]':
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/out/reference-high-rise/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp:5990:68:   required from here
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/out/reference-high-rise/blast/source/shared/NsFoundation/include/NsHashInternals.h:459:21: warning: implicitly-declared 'constexpr nvidia::shdfnd::internal::HashBase<const NvBlastActor*, const NvBlastActor*, nvidia::shdfnd::Hash<const NvBlastActor*>, nvidia::shdfnd::internal::HashSetBase<const NvBlastActor*, nvidia::shdfnd::Hash<const NvBlastActor*>, Nv::Blast::Allocator, false>::GetKey, Nv::Blast::Allocator, false>::Iter::Iter(const nvidia::shdfnd::internal::HashBase<const NvBlastActor*, const NvBlastActor*, nvidia::shdfnd::Hash<const NvBlastActor*>, nvidia::shdfnd::internal::HashSetBase<const NvBlastActor*, nvidia::shdfnd::Hash<const NvBlastActor*>, Nv::Blast::Allocator, false>::GetKey, Nv::Blast::Allocator, false>::Iter&)' is deprecated [-Wdeprecated-copy]
+warning: blast-stress-solver@0.1.1:   459 |             return *this;
+warning: blast-stress-solver@0.1.1:       |                     ^~~~
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/out/reference-high-rise/blast/source/shared/NsFoundation/include/NsHashInternals.h:490:15: note: because 'nvidia::shdfnd::internal::HashBase<const NvBlastActor*, const NvBlastActor*, nvidia::shdfnd::Hash<const NvBlastActor*>, nvidia::shdfnd::internal::HashSetBase<const NvBlastActor*, nvidia::shdfnd::Hash<const NvBlastActor*>, Nv::Blast::Allocator, false>::GetKey, Nv::Blast::Allocator, false>::Iter' has user-provided 'nvidia::shdfnd::internal::HashBase<Entry, Key, HashFn, GetKey, Allocator, compacting>::Iter& nvidia::shdfnd::internal::HashBase<Entry, Key, HashFn, GetKey, Allocator, compacting>::Iter::operator=(const nvidia::shdfnd::internal::HashBase<Entry, Key, HashFn, GetKey, Allocator, compacting>::Iter&) [with Entry = const NvBlastActor*; Key = const NvBlastActor*; HashFn = nvidia::shdfnd::Hash<const NvBlastActor*>; GetKey = nvidia::shdfnd::internal::HashSetBase<const NvBlastActor*, nvidia::shdfnd::Hash<const NvBlastActor*>, Nv::Blast::Allocator, false>::GetKey; Allocator = Nv::Blast::Allocator; bool compacting = false]'
+warning: blast-stress-solver@0.1.1:   490 |         Iter& operator=(const Iter&);
+warning: blast-stress-solver@0.1.1:       |               ^~~~~~~~
+warning: blast-stress-solver@0.1.1: In file included from /root/workspace/physx-2/out/reference-high-rise/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp:45:
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/out/reference-high-rise/blast/source/shared/stress_solver/simd/simd_device_query.h: At global scope:
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/out/reference-high-rise/blast/source/shared/stress_solver/simd/simd_device_query.h:144:1: warning: 'void print_supported_instruction_sets()' defined but not used [-Wunused-function]
+warning: blast-stress-solver@0.1.1:   144 | print_supported_instruction_sets()
+warning: blast-stress-solver@0.1.1:       | ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+warning: blast-stress-solver@0.1.1: In file included from /root/workspace/physx-2/out/reference-high-rise/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp:32:
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/out/reference-high-rise/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp: In member function 'virtual void Nv::Blast::ExtStressSolverImpl::release()':
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/out/reference-high-rise/blast/include/globals/NvBlastGlobals.h:138:9: warning: 'nonnull' argument 'this' compared to NULL [-Wnonnull-compare]
+warning: blast-stress-solver@0.1.1:   138 |         if ((obj) != nullptr)                                       \
+warning: blast-stress-solver@0.1.1:       |         ^~
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/out/reference-high-rise/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp:5223:5: note: in expansion of macro 'NVBLAST_DELETE'
+warning: blast-stress-solver@0.1.1:  5223 |     NVBLAST_DELETE(this, ExtStressSolverImpl);
+warning: blast-stress-solver@0.1.1:       |     ^~~~~~~~~~~~~~
+warning: use of deprecated method `rapier3d::dynamics::RigidBodyBuilder::position`: renamed to `RigidBodyBuilder::pose`
+   --> src/backends/rapier_backend.rs:275:14
+    |
+275 |             .position(to_iso(cb.pose))
+    |              ^^^^^^^^
+    |
+    = note: `#[warn(deprecated)]` on by default
+
+warning: associated function `kind_of` is never used
+   --> src/backends/rapier_backend.rs:151:8
+    |
+121 | impl RapierWorld {
+    | ---------------- associated function in this implementation
+...
+151 |     fn kind_of(body: &RigidBody) -> BodyKind {
+    |        ^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `blast-stress-solver` (lib) generated 2 warnings
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 18.44s
+     Running tests/high_rise_scenarios_test.rs (out/reference-high-rise-target/debug/deps/high_rise_scenarios_test-6a256daa8666f92d)
+
+running 5 tests
+test high_rise::big_infill_hit_does_not_glass_cascade ... FAILED
+test high_rise::light_hit_blows_out_local_infill_only ... FAILED
+test high_rise::heavy_hit_punches_bounded_hole ... FAILED
+test high_rise::high_rise_is_deterministic ... ok
+test high_rise::high_rise_stable_under_gravity ... FAILED
+
+failures:
+
+---- high_rise::big_infill_hit_does_not_glass_cascade stdout ----
+[big/infill] Metrics { total_fractures: 2192, skeleton_fractures: 721, infill_fractures: 1471, foundation_fractures: 168, peak_actor_count: 66, final_actor_count: 66 } frac_ratio=0.672
+
+thread 'high_rise::big_infill_hit_does_not_glass_cascade' (3810510) panicked at tests/high_rise_scenarios_test.rs:228:9:
+a big infill hit must not blow out the whole structure (ratio 0.672)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- high_rise::light_hit_blows_out_local_infill_only stdout ----
+[light/infill] target_node=638 Metrics { total_fractures: 2122, skeleton_fractures: 741, infill_fractures: 1381, foundation_fractures: 158, peak_actor_count: 30, final_actor_count: 30 }
+
+thread 'high_rise::light_hit_blows_out_local_infill_only' (3810514) panicked at tests/high_rise_scenarios_test.rs:175:9:
+assertion `left == right` failed: a light infill hit must not break any skeleton (column/slab) bond
+  left: 741
+ right: 0
+
+---- high_rise::heavy_hit_punches_bounded_hole stdout ----
+[heavy/column] target_node=27 Metrics { total_fractures: 1742, skeleton_fractures: 862, infill_fractures: 880, foundation_fractures: 111, peak_actor_count: 48, final_actor_count: 48 } frac_ratio=0.534 total_bonds=3261
+
+thread 'high_rise::heavy_hit_punches_bounded_hole' (3810511) panicked at tests/high_rise_scenarios_test.rs:210:9:
+heavy hit must punch a LOCAL hole, not shatter the whole structure (ratio 0.534)
+
+---- high_rise::high_rise_stable_under_gravity stdout ----
+[gravity] Metrics { total_fractures: 2127, skeleton_fractures: 1154, infill_fractures: 973, foundation_fractures: 140, peak_actor_count: 5, final_actor_count: 5 }  bonds=3261
+
+thread 'high_rise::high_rise_stable_under_gravity' (3810513) panicked at tests/high_rise_scenarios_test.rs:144:9:
+assertion `left == right` failed: building must be stable under gravity
+  left: 2127
+ right: 0
+
+
+failures:
+    high_rise::big_infill_hit_does_not_glass_cascade
+    high_rise::heavy_hit_punches_bounded_hole
+    high_rise::high_rise_stable_under_gravity
+    high_rise::light_hit_blows_out_local_infill_only
+
+test result: FAILED. 1 passed; 4 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.10s
+
+error: test failed, to rerun pass `--test high_rise_scenarios_test`

@@ -1,0 +1,35 @@
+{
+  "status": "failed",
+  "pid": 1043497,
+  "runs": [],
+  "sources": {
+    "/root/workspace/physx-2/tools/scripts/run-destruction-regression.py": "15a7cfcbcfb6ba8a3ee00279eb65933470879562d718d2c5f91ccee04ecb74f8",
+    "/root/workspace/physx-2/tools/scripts/destruction_physics_contract.py": "0ac6f399116412c95dec2385b085e9260d732ab788efecd325611900a4241840",
+    "/root/workspace/physx-2/tools/scripts/verify-native-prefix.py": "e16e2aa65c78d0a8369b65e90591fa7265e92b71a5cfe77be8216e1df3f2989e",
+    "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/compare-observations.py": "112daa195824346744e35c49b47edf4164b1103279ca64a5d0fc348e78180b4b",
+    "/root/workspace/physx-2/demos/blast-stress-demo/CMakeLists.txt": "79873d91a8ea04de91a48ba691a02161823f1455787cfd147e8195e39fc08957",
+    "/root/workspace/physx-2/physx/source/gpudestruction/CMakeLists.txt": "e2b10ee14736991027ca3a2ba446065670cdae0cb72597331b869dd83e2c46b5",
+    "/root/workspace/physx-2/reports/destruction-regression-suite/finish-validation.py": "8d3ad62d791a7d0efeb92bf00f8c4ef471faea7493e4106130856e0faa911f9b"
+  },
+  "wait_for": [
+    "/root/workspace/physx-2/out/destruction-baseline-20260913/campaign.json",
+    "/root/workspace/physx-2/out/destruction-baseline-20260913/phase-only/campaign.json"
+  ],
+  "performance_qualification": false,
+  "scope": "Fresh CPU/native/sanitizer validation and separate physical-model audit; no full52 rerun or runtime promotion",
+  "attribution_status": [
+    {
+      "status": "failed",
+      "pid": 1005028,
+      "phase": "cpu-full",
+      "error": "RuntimeError('cpu-full failed; original logs preserved')"
+    },
+    {
+      "status": "waiting_primary_campaign",
+      "pid": 1017080,
+      "phase": null,
+      "error": null
+    }
+  ],
+  "error": "RuntimeError('Attribution failed; leave GPU validation queued for explicit failure review')"
+}

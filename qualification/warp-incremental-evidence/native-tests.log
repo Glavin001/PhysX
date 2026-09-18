@@ -1,0 +1,40 @@
+Internal ctest changing into directory: /root/workspace/physx-2/out/destruction-sdk
+Test project /root/workspace/physx-2/out/destruction-sdk
+      Start 40: physx_persistent_shape_owner
+ 1/15 Test #40: physx_persistent_shape_owner .....................   Passed    0.83 sec
+      Start 41: physx_persistent_shape_owner_gpu_bounds
+ 2/15 Test #41: physx_persistent_shape_owner_gpu_bounds ..........   Passed    3.38 sec
+      Start 42: physx_persistent_shape_owner_gpu_bounds_growth
+ 3/15 Test #42: physx_persistent_shape_owner_gpu_bounds_growth ...   Passed    0.47 sec
+      Start 43: physx_persistent_shape_owner_host_pose_bounds
+ 4/15 Test #43: physx_persistent_shape_owner_host_pose_bounds ....   Passed    1.42 sec
+      Start 44: physx_persistent_shape_owner_overflow
+ 5/15 Test #44: physx_persistent_shape_owner_overflow ............   Passed    0.51 sec
+      Start 45: physx_persistent_shape_owner_overflow_split
+ 6/15 Test #45: physx_persistent_shape_owner_overflow_split ......   Passed    0.49 sec
+      Start 47: physx_native_gpu_body_allocation
+ 7/15 Test #47: physx_native_gpu_body_allocation .................   Passed    3.20 sec
+      Start 48: physx_native_gpu_incremental_pairs
+ 8/15 Test #48: physx_native_gpu_incremental_pairs ...............   Passed    0.32 sec
+      Start 51: physx_native_gpu_collision_preparation
+ 9/15 Test #51: physx_native_gpu_collision_preparation ...........   Passed    4.44 sec
+      Start 53: physx_native_gpu_contact_lifetime_exhaustion
+10/15 Test #53: physx_native_gpu_contact_lifetime_exhaustion .....   Passed    0.78 sec
+      Start 54: physx_native_gpu_initialization_failure
+11/15 Test #54: physx_native_gpu_initialization_failure ..........   Passed    0.44 sec
+      Start 62: physx_native_gpu_correction_bodies
+12/15 Test #62: physx_native_gpu_correction_bodies ...............   Passed    4.33 sec
+      Start 73: physx_native_gpu_bombardment_contacts
+13/15 Test #73: physx_native_gpu_bombardment_contacts ............   Passed    8.46 sec
+      Start 74: physx_native_gpu_resimulation
+14/15 Test #74: physx_native_gpu_resimulation ....................   Passed    7.53 sec
+      Start 76: physx_native_gpu_publication
+15/15 Test #76: physx_native_gpu_publication .....................   Passed    2.10 sec
+
+100% tests passed, 0 tests failed out of 15
+
+Label Time Summary:
+gpu            =   8.46 sec*proc (1 test)
+integration    =   8.46 sec*proc (1 test)
+
+Total Test time (real) =  38.70 sec

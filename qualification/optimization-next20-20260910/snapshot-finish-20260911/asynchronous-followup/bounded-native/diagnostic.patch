@@ -1,0 +1,58 @@
+--- production/PxgDestructionTopology.cu
++++ candidate/PxgDestructionTopology.cu
+@@ -1,6 +1,7 @@
+ // Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
+ #include "PxgDestructionTopology.h"
+ #include <cuda_runtime.h>
++#include <cstdio>
+ #include <cub/device/device_radix_sort.cuh>
+ #include <cub/device/device_select.cuh>
+ #include <cub/device/device_scan.cuh>
+@@ -60,23 +61,25 @@
+     }
+ }
+ 
+-__device__ unsigned root(unsigned* labels, unsigned i) {
++__device__ unsigned root(unsigned* labels, unsigned i, unsigned n) {
++    if (i >= n) { printf("BAD_INITIAL_INDEX %u limit %u\n",i,n); asm("trap;"); }
+     unsigned p = atomicAdd(labels + i, 0u);
+-    while (p != i) { i = p; p = atomicAdd(labels + i, 0u); }
++    while (p != i) { if (p >= n) { printf("BAD_PARENT_INDEX %u limit %u\n",p,n); asm("trap;"); } i = p; p = atomicAdd(labels + i, 0u); }
+     return i;
+ }
+ 
+ // Every successful union points a larger root at a smaller root. CAS retries
+ // resolve concurrent unions without cycles; labels are independent of edge order.
+ __global__ void connect(const PxgDestructionBond* bonds, unsigned m, unsigned* activeBonds,
+-    const unsigned* alive, unsigned* labels) {
++    const unsigned* alive, unsigned* labels, unsigned n) {
+     const unsigned i = blockIdx.x * blockDim.x + threadIdx.x;
+     if (i >= m || !activeBonds[i]) return;
+     const auto b = bonds[i];
++    if (b.chunk0 >= n || b.chunk1 >= n) { printf("BAD_EDGE_INDEX %u %u limit %u\n",b.chunk0,b.chunk1,n); asm("trap;"); }
+     if (!alive[b.chunk0] || !alive[b.chunk1]) { activeBonds[i] = 0; return; }
+     unsigned a = b.chunk0, c = b.chunk1;
+     for (;;) {
+-        a = root(labels, a); c = root(labels, c);
++        a = root(labels, a, n); c = root(labels, c, n);
+         if (a == c) return;
+         const unsigned hi = max(a, c), lo = min(a, c);
+         if (atomicCAS(labels + hi, hi, lo) == hi) return;
+@@ -86,7 +89,7 @@
+ __global__ void flatten(unsigned* labels, unsigned n) {
+     const unsigned i = blockIdx.x * blockDim.x + threadIdx.x;
+     if (i < n && atomicAdd(labels + i, 0u) != INVALID) {
+-        const unsigned r = root(labels, i);
++        const unsigned r = root(labels, i, n);
+         atomicExch(labels + i, r);
+     }
+ }
+@@ -248,7 +251,7 @@
+     bool rebuild(bool transfer = false, bool signal = true) {
+         const unsigned grid = (mN + BLOCK - 1)/BLOCK;
+         resetLabels<<<grid, BLOCK, 0, mStream>>>(mActiveChunks, mLabels, mIndices, mClusters, mN);
+-        if (mM) connect<<<(mM+BLOCK-1)/BLOCK, BLOCK, 0, mStream>>>(mBonds, mM, mActiveBonds, mActiveChunks, mLabels);
++        if (mM) connect<<<(mM+BLOCK-1)/BLOCK, BLOCK, 0, mStream>>>(mBonds, mM, mActiveBonds, mActiveChunks, mLabels, mN);
+         flatten<<<grid, BLOCK, 0, mStream>>>(mLabels, mN);
+         if (cub::DeviceRadixSort::SortPairs(mTemp, mTempBytes, mLabels, mKeys,
+             mIndices, mOrder, mN, 0, 32, mStream) != cudaSuccess) return false;

@@ -1,0 +1,439 @@
+{
+  "status": "complete",
+  "candidate_commit": "8589185e659c8316b1828b7847b8780eb0f11006",
+  "scenarios": [
+    {
+      "scenario": "flying",
+      "A": {
+        "n": 4,
+        "mean_ms": 2.547752,
+        "median_ms": 2.5904084999999997,
+        "max_ms": 2.852267,
+        "sd_ms": 0.28776553606133354,
+        "over_120hz": 0,
+        "over_60hz": 0,
+        "restore_mean_ms": 121.9944275,
+        "stages_ms": {
+          "command_ms": 0.0001895,
+          "simulate_fetch_ms": 2.5471485,
+          "completion_ms": 0.000414
+        }
+      },
+      "saved_ms": 0.058574000000000126,
+      "descriptive_saved_ms_95": [
+        -0.5786915000000001,
+        0.6992417500000001
+      ],
+      "physical_status": "passed",
+      "raw": {
+        "A0": "/root/workspace/physx-2/out/snapshot-finish-20260911/split-matched-smoke/flying-A0",
+        "B": "/root/workspace/physx-2/out/snapshot-finish-20260911/split-matched-smoke/flying-B",
+        "A1": "/root/workspace/physx-2/out/snapshot-finish-20260911/split-matched-smoke/flying-A1"
+      },
+      "A0": {
+        "n": 2,
+        "mean_ms": 2.3775684999999998,
+        "median_ms": 2.3775684999999998,
+        "max_ms": 2.597213,
+        "sd_ms": 0.3106242308006573,
+        "over_120hz": 0,
+        "over_60hz": 0,
+        "restore_mean_ms": 119.1178965,
+        "stages_ms": {
+          "command_ms": 0.000146,
+          "simulate_fetch_ms": 2.3769665,
+          "completion_ms": 0.000456
+        }
+      },
+      "B": {
+        "n": 2,
+        "mean_ms": 2.489178,
+        "median_ms": 2.489178,
+        "max_ms": 2.95626,
+        "sd_ms": 0.66055369914035,
+        "over_120hz": 0,
+        "over_60hz": 0,
+        "restore_mean_ms": 127.562909,
+        "stages_ms": {
+          "command_ms": 0.00017,
+          "simulate_fetch_ms": 2.488612,
+          "completion_ms": 0.000396
+        }
+      },
+      "A1": {
+        "n": 2,
+        "mean_ms": 2.7179355,
+        "median_ms": 2.7179355,
+        "max_ms": 2.852267,
+        "sd_ms": 0.18997342915392149,
+        "over_120hz": 0,
+        "over_60hz": 0,
+        "restore_mean_ms": 124.8709585,
+        "stages_ms": {
+          "command_ms": 0.000233,
+          "simulate_fetch_ms": 2.7173305,
+          "completion_ms": 0.00037200000000000004
+        }
+      }
+    },
+    {
+      "scenario": "city25-initial-impact",
+      "A": {
+        "n": 4,
+        "mean_ms": 43.961914750000005,
+        "median_ms": 44.111527,
+        "max_ms": 49.977389,
+        "sd_ms": 5.4753919216459375,
+        "over_120hz": 4,
+        "over_60hz": 4,
+        "restore_mean_ms": 323.464952,
+        "stages_ms": {
+          "command_ms": 9.375e-05,
+          "simulate_fetch_ms": 43.75314575,
+          "completion_ms": 0.20867525
+        }
+      },
+      "saved_ms": -6.8675712499999975,
+      "descriptive_saved_ms_95": [
+        -17.696798499999993,
+        3.961656000000005
+      ],
+      "physical_status": "passed",
+      "raw": {
+        "A0": "/root/workspace/physx-2/out/snapshot-finish-20260911/split-matched-smoke/city25-initial-impact-A0",
+        "B": "/root/workspace/physx-2/out/snapshot-finish-20260911/split-matched-smoke/city25-initial-impact-B",
+        "A1": "/root/workspace/physx-2/out/snapshot-finish-20260911/split-matched-smoke/city25-initial-impact-A1"
+      },
+      "A0": {
+        "n": 2,
+        "mean_ms": 43.8123025,
+        "median_ms": 43.8123025,
+        "max_ms": 49.977389,
+        "sd_ms": 8.718748941503277,
+        "over_120hz": 2,
+        "over_60hz": 2,
+        "restore_mean_ms": 320.566171,
+        "stages_ms": {
+          "command_ms": 9.3e-05,
+          "simulate_fetch_ms": 43.589517,
+          "completion_ms": 0.22269250000000002
+        }
+      },
+      "B": {
+        "n": 2,
+        "mean_ms": 50.829486,
+        "median_ms": 50.829486,
+        "max_ms": 58.57617,
+        "sd_ms": 10.955465576218655,
+        "over_120hz": 2,
+        "over_60hz": 2,
+        "restore_mean_ms": 319.836818,
+        "stages_ms": {
+          "command_ms": 0.000132,
+          "simulate_fetch_ms": 50.592404,
+          "completion_ms": 0.23695
+        }
+      },
+      "A1": {
+        "n": 2,
+        "mean_ms": 44.111527,
+        "median_ms": 44.111527,
+        "max_ms": 46.741511,
+        "sd_ms": 3.7193590416242426,
+        "over_120hz": 2,
+        "over_60hz": 2,
+        "restore_mean_ms": 326.363733,
+        "stages_ms": {
+          "command_ms": 9.449999999999999e-05,
+          "simulate_fetch_ms": 43.9167745,
+          "completion_ms": 0.194658
+        }
+      }
+    },
+    {
+      "scenario": "city256-late-debris",
+      "A": {
+        "n": 4,
+        "mean_ms": 513.3182772499999,
+        "median_ms": 462.8948895,
+        "max_ms": 739.589579,
+        "sd_ms": 156.25688104022694,
+        "over_120hz": 4,
+        "over_60hz": 4,
+        "restore_mean_ms": 2107.55839775,
+        "stages_ms": {
+          "command_ms": 0.00016025,
+          "simulate_fetch_ms": 513.03037325,
+          "completion_ms": 0.28774375
+        }
+      },
+      "saved_ms": 28.287380749999897,
+      "descriptive_saved_ms_95": [
+        -107.45852674999998,
+        179.17617374999998
+      ],
+      "physical_status": "passed",
+      "raw": {
+        "A0": "/root/workspace/physx-2/out/snapshot-finish-20260911/split-matched-smoke/city256-late-debris-A0",
+        "B": "/root/workspace/physx-2/out/snapshot-finish-20260911/split-matched-smoke/city256-late-debris-B",
+        "A1": "/root/workspace/physx-2/out/snapshot-finish-20260911/split-matched-smoke/city256-late-debris-A1"
+      },
+      "A0": {
+        "n": 2,
+        "mean_ms": 563.741665,
+        "median_ms": 563.741665,
+        "max_ms": 739.589579,
+        "sd_ms": 248.6865048938176,
+        "over_120hz": 2,
+        "over_60hz": 2,
+        "restore_mean_ms": 2209.266694,
+        "stages_ms": {
+          "command_ms": 0.000152,
+          "simulate_fetch_ms": 563.465598,
+          "completion_ms": 0.275915
+        }
+      },
+      "B": {
+        "n": 2,
+        "mean_ms": 485.03089650000004,
+        "median_ms": 485.03089650000004,
+        "max_ms": 532.852847,
+        "sd_ms": 67.6304509762348,
+        "over_120hz": 2,
+        "over_60hz": 2,
+        "restore_mean_ms": 2049.6469779999998,
+        "stages_ms": {
+          "command_ms": 0.000174,
+          "simulate_fetch_ms": 484.4233325,
+          "completion_ms": 0.60739
+        }
+      },
+      "A1": {
+        "n": 2,
+        "mean_ms": 462.8948895,
+        "median_ms": 462.8948895,
+        "max_ms": 487.730235,
+        "sd_ms": 35.1224824323216,
+        "over_120hz": 2,
+        "over_60hz": 2,
+        "restore_mean_ms": 2005.8501015000002,
+        "stages_ms": {
+          "command_ms": 0.00016849999999999998,
+          "simulate_fetch_ms": 462.5951485,
+          "completion_ms": 0.2995725
+        }
+      }
+    }
+  ],
+  "runs": [
+    {
+      "scenario": "flying",
+      "arm": "A0",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/snapshot-finish-20260911/split-matched-smoke/flying-A0",
+        "--binary",
+        "/root/workspace/physx-2/out/snapshot-finish-20260911/physical-ab-probe-v3/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/stable-rebuilt-artifacts",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/flying",
+        "--repetitions",
+        "2",
+        "--watchdog-seconds",
+        "1200",
+        "--allow-existing-graphics",
+        "--allow-compute-pid",
+        "435374"
+      ],
+      "exit_code": 0
+    },
+    {
+      "scenario": "flying",
+      "arm": "B",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/snapshot-finish-20260911/split-matched-smoke/flying-B",
+        "--binary",
+        "/root/workspace/physx-2/out/snapshot-finish-20260911/physical-ab-probe-v3/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/snapshot-finish-20260911/device-enabled-split",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/flying",
+        "--repetitions",
+        "2",
+        "--watchdog-seconds",
+        "1200",
+        "--allow-existing-graphics",
+        "--allow-compute-pid",
+        "435374"
+      ],
+      "exit_code": 0
+    },
+    {
+      "scenario": "flying",
+      "arm": "A1",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/snapshot-finish-20260911/split-matched-smoke/flying-A1",
+        "--binary",
+        "/root/workspace/physx-2/out/snapshot-finish-20260911/physical-ab-probe-v3/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/stable-rebuilt-artifacts",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/flying",
+        "--repetitions",
+        "2",
+        "--watchdog-seconds",
+        "1200",
+        "--allow-existing-graphics",
+        "--allow-compute-pid",
+        "435374"
+      ],
+      "exit_code": 0
+    },
+    {
+      "scenario": "city25-initial-impact",
+      "arm": "A0",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/snapshot-finish-20260911/split-matched-smoke/city25-initial-impact-A0",
+        "--binary",
+        "/root/workspace/physx-2/out/snapshot-finish-20260911/physical-ab-probe-v3/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/stable-rebuilt-artifacts",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82",
+        "--repetitions",
+        "2",
+        "--watchdog-seconds",
+        "1200",
+        "--allow-existing-graphics",
+        "--allow-compute-pid",
+        "435374"
+      ],
+      "exit_code": 0
+    },
+    {
+      "scenario": "city25-initial-impact",
+      "arm": "B",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/snapshot-finish-20260911/split-matched-smoke/city25-initial-impact-B",
+        "--binary",
+        "/root/workspace/physx-2/out/snapshot-finish-20260911/physical-ab-probe-v3/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/snapshot-finish-20260911/device-enabled-split",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82",
+        "--repetitions",
+        "2",
+        "--watchdog-seconds",
+        "1200",
+        "--allow-existing-graphics",
+        "--allow-compute-pid",
+        "435374"
+      ],
+      "exit_code": 0
+    },
+    {
+      "scenario": "city25-initial-impact",
+      "arm": "A1",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/snapshot-finish-20260911/split-matched-smoke/city25-initial-impact-A1",
+        "--binary",
+        "/root/workspace/physx-2/out/snapshot-finish-20260911/physical-ab-probe-v3/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/stable-rebuilt-artifacts",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82",
+        "--repetitions",
+        "2",
+        "--watchdog-seconds",
+        "1200",
+        "--allow-existing-graphics",
+        "--allow-compute-pid",
+        "435374"
+      ],
+      "exit_code": 0
+    },
+    {
+      "scenario": "city256-late-debris",
+      "arm": "A0",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/snapshot-finish-20260911/split-matched-smoke/city256-late-debris-A0",
+        "--binary",
+        "/root/workspace/physx-2/out/snapshot-finish-20260911/physical-ab-probe-v3/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/stable-rebuilt-artifacts",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179",
+        "--repetitions",
+        "2",
+        "--watchdog-seconds",
+        "1200",
+        "--allow-existing-graphics",
+        "--allow-compute-pid",
+        "435374"
+      ],
+      "exit_code": 0
+    },
+    {
+      "scenario": "city256-late-debris",
+      "arm": "B",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/snapshot-finish-20260911/split-matched-smoke/city256-late-debris-B",
+        "--binary",
+        "/root/workspace/physx-2/out/snapshot-finish-20260911/physical-ab-probe-v3/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/snapshot-finish-20260911/device-enabled-split",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179",
+        "--repetitions",
+        "2",
+        "--watchdog-seconds",
+        "1200",
+        "--allow-existing-graphics",
+        "--allow-compute-pid",
+        "435374"
+      ],
+      "exit_code": 0
+    },
+    {
+      "scenario": "city256-late-debris",
+      "arm": "A1",
+      "command": [
+        "/usr/bin/python3",
+        "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+        "/root/workspace/physx-2/out/snapshot-finish-20260911/split-matched-smoke/city256-late-debris-A1",
+        "--binary",
+        "/root/workspace/physx-2/out/snapshot-finish-20260911/physical-ab-probe-v3/serialization-probe",
+        "--artifacts",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/stable-rebuilt-artifacts",
+        "--replay-prefix",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179",
+        "--repetitions",
+        "2",
+        "--watchdog-seconds",
+        "1200",
+        "--allow-existing-graphics",
+        "--allow-compute-pid",
+        "435374"
+      ],
+      "exit_code": 0
+    }
+  ],
+  "scope": "One full tick per independent physical restore. A-before / B / A-after per scenario. All CPU/GPU work and correction included; restore, validation and post-tick observation excluded. Shared-GPU unprofiled comparison; no profiler timings or automatic acceptance.",
+  "harness_seconds": 63.648933973992825
+}

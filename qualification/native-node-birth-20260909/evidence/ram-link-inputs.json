@@ -1,0 +1,44 @@
+[
+  {
+    "path": "out/vibe-native/release/deps/libvibe_land_physx_bridge-2a2a656a114f8644.rlib",
+    "target": "/dev/shm/physx-native-birth-link-inputs/libvibe_land_physx_bridge-2a2a656a114f8644.rlib",
+    "sha256": "6882fdd7af6bad9e42c749d33f303d67dabccc2dfde307b0fface010ce14c6cd",
+    "bytes": 21530272
+  },
+  {
+    "path": "out/vibe-native/release/deps/libglam-66de8bf3a172be01.rlib",
+    "target": "/dev/shm/physx-native-birth-link-inputs/libglam-66de8bf3a172be01.rlib",
+    "sha256": "840330df86e55dd6109bde25ad5b9f95eed2d02fb375f396b505c640ffca261a",
+    "bytes": 20907282
+  },
+  {
+    "path": "out/vibe-native/release/deps/libvibe_land_physx_bridge-f9e7a150bdb81fdf.rlib",
+    "target": "/dev/shm/physx-native-birth-link-inputs/libvibe_land_physx_bridge-f9e7a150bdb81fdf.rlib",
+    "sha256": "75dc4955d53cf8180a61a5481c044b09d0394e2dcdc3af4de7839193d0e15dad",
+    "bytes": 18186454
+  },
+  {
+    "path": "out/vibe-native/release/deps/libvibe_land_physx_bridge-29a04644e05b689f.rlib",
+    "target": "/dev/shm/physx-native-birth-link-inputs/libvibe_land_physx_bridge-29a04644e05b689f.rlib",
+    "sha256": "944d00aab0556fa3c804df191dccda32634ce2ed9495b530a67162ad71621ab7",
+    "bytes": 18101528
+  },
+  {
+    "path": "out/vibe-native/release/deps/libopenssl_sys-6cba10eec31724d3.rlib",
+    "target": "/dev/shm/physx-native-birth-link-inputs/libopenssl_sys-6cba10eec31724d3.rlib",
+    "sha256": "df3b0ae5f1c1acfa21e46e3eec64ac97fa1f72e1d0f4a98f4e356f0e53656498",
+    "bytes": 15912568
+  },
+  {
+    "path": "out/vibe-native/release/deps/libzerocopy-ef8f0e5e807ca002.rlib",
+    "target": "/dev/shm/physx-native-birth-link-inputs/libzerocopy-ef8f0e5e807ca002.rlib",
+    "sha256": "7c4d50d91d390873536d7b1d3666111067941c462b01fe9fe6397f6444d4fa0d",
+    "bytes": 15214094
+  },
+  {
+    "path": "out/vibe-native/release/deps/libsimba-eb7bf9653c89671b.rlib",
+    "target": "/dev/shm/physx-native-birth-link-inputs/libsimba-eb7bf9653c89671b.rlib",
+    "sha256": "087014fd897c5c29fd23d8f19d5ad7c35c2f62b3d7d93cb7149146fcaa5473e4",
+    "bytes": 12774070
+  }
+]

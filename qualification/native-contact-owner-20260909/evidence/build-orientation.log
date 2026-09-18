@@ -1,0 +1,146 @@
+[  0%] Built target PhysXTask
+[  5%] Built target PhysXFoundation
+[  8%] Built target LowLevel
+[ 12%] Built target LowLevelAABB
+[ 17%] Built target LowLevelDynamics
+[ 19%] Built target SceneQuery
+[ 71%] Built target PhysXCommon
+[ 71%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScActorSim.cpp.o
+[ 71%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScActorCore.cpp.o
+[ 71%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScGpuActorSim.cpp.o
+[ 73%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScArticulationJointCore.cpp.o
+[ 73%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScArticulationJointSim.cpp.o
+[ 73%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScArticulationSim.cpp.o
+[ 73%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScArticulationTendonSim.cpp.o
+[ 73%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScBroadphase.cpp.o
+[ 73%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScDeformableSurfaceCore.cpp.o
+[ 73%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScDeformableSurfaceSim.cpp.o
+[ 73%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScDeformableVolumeCore.cpp.o
+[ 73%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScDeformableVolumeSim.cpp.o
+[ 75%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScFiltering.cpp.o
+[ 75%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScParticleSystemCore.cpp.o
+[ 75%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScParticleSystemSim.cpp.o
+[ 75%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScBodyCore.cpp.o
+[ 75%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScBodySim.cpp.o
+[ 75%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScConstraintBreakage.cpp.o
+[ 75%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScConstraintInteraction.cpp.o
+[ 75%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScConstraintSim.cpp.o
+[ 75%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScElementInteractionMarker.cpp.o
+[ 75%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScElementSim.cpp.o
+[ 75%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScInteraction.cpp.o
+[ 76%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScIterators.cpp.o
+[ 76%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScKinematics.cpp.o
+[ 76%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScNPhaseCore.cpp.o
+[ 76%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScPhysics.cpp.o
+[ 76%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScRigidCore.cpp.o
+[ 76%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScRigidSim.cpp.o
+[ 76%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScScene.cpp.o
+[ 78%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScCCD.cpp.o
+[ 78%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScShapeCore.cpp.o
+[ 78%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScShapeInteraction.cpp.o
+[ 78%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScShapeSim.cpp.o
+[ 78%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScShapeSimBase.cpp.o
+[ 80%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScSimulationController.cpp.o
+[ 80%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScSqBoundsManager.cpp.o
+[ 80%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScTriggerInteraction.cpp.o
+[ 80%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScVisualize.cpp.o
+[ 80%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScSleep.cpp.o
+[ 82%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScPipeline.cpp.o
+[ 85%] Built target SimulationController
+[ 87%] Built target PhysXPvdSDK
+[ 89%] Building CXX object sdk_source_bin/CMakeFiles/PhysX.dir/root/workspace/physx-2/physx/source/physx/src/NpActor.cpp.o
+[ 89%] Building CXX object sdk_source_bin/CMakeFiles/PhysX.dir/root/workspace/physx-2/physx/source/physx/src/NpDeformableAttachment.cpp.o
+[ 89%] Building CXX object sdk_source_bin/CMakeFiles/PhysX.dir/root/workspace/physx-2/physx/source/physx/src/NpAggregate.cpp.o
+[ 89%] Building CXX object sdk_source_bin/CMakeFiles/PhysX.dir/root/workspace/physx-2/physx/source/physx/src/NpDeformableElementFilter.cpp.o
+[ 89%] Building CXX object sdk_source_bin/CMakeFiles/PhysX.dir/root/workspace/physx-2/physx/source/physx/src/NpDeformableSurface.cpp.o
+[ 89%] Building CXX object sdk_source_bin/CMakeFiles/PhysX.dir/root/workspace/physx-2/physx/source/physx/src/NpDeformableVolume.cpp.o
+[ 91%] Building CXX object sdk_source_bin/CMakeFiles/PhysX.dir/root/workspace/physx-2/physx/source/physx/src/NpPBDParticleSystem.cpp.o
+[ 91%] Building CXX object sdk_source_bin/CMakeFiles/PhysX.dir/root/workspace/physx-2/physx/source/physx/src/NpParticleBuffer.cpp.o
+[ 91%] Building CXX object sdk_source_bin/CMakeFiles/PhysX.dir/root/workspace/physx-2/physx/source/physx/src/NpConstraint.cpp.o
+[ 91%] Building CXX object sdk_source_bin/CMakeFiles/PhysX.dir/root/workspace/physx-2/physx/source/physx/src/NpFactory.cpp.o
+[ 91%] Building CXX object sdk_source_bin/CMakeFiles/PhysX.dir/root/workspace/physx-2/physx/source/physx/src/NpPhysics.cpp.o
+[ 91%] Building CXX object sdk_source_bin/CMakeFiles/PhysX.dir/root/workspace/physx-2/physx/source/physx/src/NpBounds.cpp.o
+[ 92%] Building CXX object sdk_source_bin/CMakeFiles/PhysX.dir/root/workspace/physx-2/physx/source/physx/src/NpPruningStructure.cpp.o
+[ 92%] Building CXX object sdk_source_bin/CMakeFiles/PhysX.dir/root/workspace/physx-2/physx/source/physx/src/NpCheck.cpp.o
+[ 92%] Building CXX object sdk_source_bin/CMakeFiles/PhysX.dir/root/workspace/physx-2/physx/source/physx/src/NpRigidDynamic.cpp.o
+[ 92%] Building CXX object sdk_source_bin/CMakeFiles/PhysX.dir/root/workspace/physx-2/physx/source/physx/src/NpRigidStatic.cpp.o
+[ 92%] Building CXX object sdk_source_bin/CMakeFiles/PhysX.dir/root/workspace/physx-2/physx/source/physx/src/NpScene.cpp.o
+[ 92%] Building CXX object sdk_source_bin/CMakeFiles/PhysX.dir/root/workspace/physx-2/physx/source/physx/src/NpSceneFetchResults.cpp.o
+[ 92%] Building CXX object sdk_source_bin/CMakeFiles/PhysX.dir/root/workspace/physx-2/physx/source/physx/src/NpSceneQueries.cpp.o
+[ 94%] Building CXX object sdk_source_bin/CMakeFiles/PhysX.dir/root/workspace/physx-2/physx/source/physx/src/NpSerializerAdapter.cpp.o
+[ 94%] Building CXX object sdk_source_bin/CMakeFiles/PhysX.dir/root/workspace/physx-2/physx/source/physx/src/NpShape.cpp.o
+[ 94%] Building CXX object sdk_source_bin/CMakeFiles/PhysX.dir/root/workspace/physx-2/physx/source/physx/src/NpShapeManager.cpp.o
+[ 94%] Building CXX object sdk_source_bin/CMakeFiles/PhysX.dir/root/workspace/physx-2/physx/source/physx/src/NpDebugViz.cpp.o
+[ 94%] Building CXX object sdk_source_bin/CMakeFiles/PhysX.dir/root/workspace/physx-2/physx/source/physx/src/NpDirectGPUAPI.cpp.o
+[ 94%] Building CXX object sdk_source_bin/CMakeFiles/PhysX.dir/root/workspace/physx-2/physx/source/immediatemode/src/NpImmediateMode.cpp.o
+[ 96%] Building CXX object sdk_source_bin/CMakeFiles/PhysX.dir/root/workspace/physx-2/physx/source/physx/src/NpMaterial.cpp.o
+[ 96%] Building CXX object sdk_source_bin/CMakeFiles/PhysX.dir/root/workspace/physx-2/physx/source/physx/src/NpDeformableSurfaceMaterial.cpp.o
+[ 96%] Building CXX object sdk_source_bin/CMakeFiles/PhysX.dir/root/workspace/physx-2/physx/source/physx/src/NpDeformableVolumeMaterial.cpp.o
+[ 96%] Building CXX object sdk_source_bin/CMakeFiles/PhysX.dir/root/workspace/physx-2/physx/source/physx/src/NpPBDMaterial.cpp.o
+[ 96%] Building CXX object sdk_source_bin/CMakeFiles/PhysX.dir/root/workspace/physx-2/physx/source/physx/src/NpArticulationReducedCoordinate.cpp.o
+[ 96%] Building CXX object sdk_source_bin/CMakeFiles/PhysX.dir/root/workspace/physx-2/physx/source/physx/src/NpArticulationJointReducedCoordinate.cpp.o
+[ 96%] Building CXX object sdk_source_bin/CMakeFiles/PhysX.dir/root/workspace/physx-2/physx/source/physx/src/NpArticulationLink.cpp.o
+[ 98%] Building CXX object sdk_source_bin/CMakeFiles/PhysX.dir/root/workspace/physx-2/physx/source/physx/src/NpArticulationTendon.cpp.o
+[ 98%] Building CXX object sdk_source_bin/CMakeFiles/PhysX.dir/root/workspace/physx-2/physx/source/physx/src/NpArticulationMimicJoint.cpp.o
+[ 98%] Linking CXX static library /root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysX_static_64.a
+[100%] Built target PhysX
+[  4%] Built target PhysXCommonGpu
+[  9%] Built target PhysXBroadphaseGpu
+[  9%] Building CUDA object sdk_gpu_source_bin/destruction-runtime/CMakeFiles/PhysXDestructionGpuRuntime.dir/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionRuntime.cu.o
+[  9%] Building CXX object sdk_gpu_source_bin/CMakeFiles/PhysXNarrowphaseGpu.dir/root/workspace/physx-2/physx/source/gpunarrowphase/src/PxgNarrowphaseCore.cpp.o
+[  9%] Building CXX object sdk_gpu_source_bin/CMakeFiles/PhysXSimulationControllerGpu.dir/root/workspace/physx-2/physx/source/gpusimulationcontroller/src/PxgSimulationCore.cpp.o
+[  9%] Building CXX object sdk_gpu_source_bin/CMakeFiles/PhysXSimulationControllerGpu.dir/root/workspace/physx-2/physx/source/gpusimulationcontroller/src/PxgShapeSimManager.cpp.o
+[ 13%] Building CXX object sdk_gpu_source_bin/CMakeFiles/PhysXSimulationControllerGpu.dir/root/workspace/physx-2/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp.o
+/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionRuntime.cu(174): warning #3152-D: nonstandard use of explicit constructor "physx::PxNodeIndex::PxNodeIndex" (declared at line 70 of /root/workspace/physx-2/physx/include/PxNodeIndex.h) for default aggregate element initialization
+      PxGpuContactPair p{};
+                         ^
+
+Remark: The warnings can be suppressed with "-diag-suppress <warning-number>"
+
+/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionRuntime.cu(174): warning #3152-D: nonstandard use of explicit constructor "physx::PxNodeIndex::PxNodeIndex" (declared at line 70 of /root/workspace/physx-2/physx/include/PxNodeIndex.h) for default aggregate element initialization
+      PxGpuContactPair p{};
+                         ^
+
+[ 13%] Building CXX object sdk_gpu_source_bin/CMakeFiles/PhysXNarrowphaseGpu.dir/root/workspace/physx-2/physx/source/gpunarrowphase/src/PxgNphaseImplementationContext.cpp.o
+[ 18%] Linking CXX static library /root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXNarrowphaseGpu_static_64.a
+/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionRuntime.cu(174): warning #3152-D: nonstandard use of explicit constructor "physx::PxNodeIndex::PxNodeIndex" (declared at line 70 of /root/workspace/physx-2/physx/include/PxNodeIndex.h) for default aggregate element initialization
+      PxGpuContactPair p{};
+                         ^
+
+Remark: The warnings can be suppressed with "-diag-suppress <warning-number>"
+
+/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionRuntime.cu(174): warning #3152-D: nonstandard use of explicit constructor "physx::PxNodeIndex::PxNodeIndex" (declared at line 70 of /root/workspace/physx-2/physx/include/PxNodeIndex.h) for default aggregate element initialization
+      PxGpuContactPair p{};
+                         ^
+
+[ 18%] Building CXX object sdk_gpu_source_bin/CMakeFiles/PhysXSimulationControllerGpu.dir/root/workspace/physx-2/physx/source/gpusimulationcontroller/src/PxgParticleSystemCore.cpp.o
+[ 36%] Built target PhysXNarrowphaseGpu
+[ 36%] Building CXX object sdk_gpu_source_bin/CMakeFiles/PhysXSolverGpu.dir/root/workspace/physx-2/physx/source/gpusolver/src/PxgCudaSolverCore.cpp.o
+[ 36%] Building CXX object sdk_gpu_source_bin/CMakeFiles/PhysXSolverGpu.dir/root/workspace/physx-2/physx/source/gpusolver/src/PxgTGSCudaSolverCore.cpp.o
+[ 36%] Building CXX object sdk_gpu_source_bin/CMakeFiles/PhysXSimulationControllerGpu.dir/root/workspace/physx-2/physx/source/gpusimulationcontroller/src/PxgPBDParticleSystemCore.cpp.o
+[ 40%] Building CXX object sdk_gpu_source_bin/CMakeFiles/PhysXSolverGpu.dir/root/workspace/physx-2/physx/source/gpusolver/src/PxgContext.cpp.o
+[ 40%] Building CXX object sdk_gpu_source_bin/CMakeFiles/PhysXSimulationControllerGpu.dir/root/workspace/physx-2/physx/source/gpusimulationcontroller/src/PxgSoftBodyCore.cpp.o
+[ 40%] Building CXX object sdk_gpu_source_bin/CMakeFiles/PhysXSimulationControllerGpu.dir/root/workspace/physx-2/physx/source/gpusimulationcontroller/src/PxgFEMClothCore.cpp.o
+[ 40%] Linking CXX static library /root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXSolverGpu_static_64.a
+[ 50%] Built target PhysXSolverGpu
+[ 50%] Built target PhysXCudaContextManager
+[ 50%] Building CXX object sdk_gpu_source_bin/CMakeFiles/PhysXArticulationGpu.dir/root/workspace/physx-2/physx/source/gpuarticulation/src/PxgArticulationCore.cpp.o
+[ 54%] Linking CXX static library /root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXSimulationControllerGpu_static_64.a
+[ 54%] Linking CXX static library /root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXArticulationGpu_static_64.a
+[ 77%] Built target PhysXSimulationControllerGpu
+[ 95%] Built target PhysXGpuDependencies
+[100%] Built target PhysXArticulationGpu
+In destructor ‘physx::PxProfileScoped::~PxProfileScoped()’,
+    inlined from ‘void physx::_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e3::Runtime::reserveBodySlots()’ at /root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionRuntime.cu:1371:1:
+/root/workspace/physx-2/physx/include/foundation/PxProfiler.h:129:42: warning: ‘records.physx::PxProfileScoped::mContextId’ may be used uninitialized [-Wmaybe-uninitialized]
+  129 |                         mCallback->zoneEnd(mProfilerData, mEventName, mDetached, mContextId);
+      |                         ~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionRuntime.cu: In member function ‘void physx::_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e3::Runtime::reserveBodySlots()’:
+/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionRuntime.cu:1369:17: note: ‘records.physx::PxProfileScoped::mContextId’ was declared here
+ 1369 |             PxProfileScoped records(mProfiler,"GpuDestruction.finishDetail.allocateNativeBodies",false,mProfileContext);
+      |                 ^~~~~~~
+[100%] Linking CUDA shared library /root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so
+[100%] Built target PhysXDestructionGpuRuntime
+[100%] Linking CXX shared library /root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so
+[100%] Built target PhysXGpu
+Built target PhysXDestructionGpuRuntime

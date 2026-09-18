@@ -67,6 +67,21 @@ extern "C" __global__ void integrateCoreParallelLaunch(
 		const PxU32 nodeIndex = data.islandNodeIndex.index();// >> 2;
 
 		PxgBodySim&	bodySim = solverCoreDesc->mBodySimBufferDeviceData[nodeIndex];
+		// Dormant corrected pass: a body remapped to the static index keeps its
+		// trial end-of-tick state; publish it unchanged and skip integration.
+		if(solverCoreDesc->solverBodyIndices && solverCoreDesc->solverBodyIndices[nodeIndex] != a)
+		{
+			const float4 lv = bodySim.linearVelocityXYZ_inverseMassW, av = bodySim.angularVelocityXYZ_maxPenBiasW;
+			outSolverVelocity[a] = make_float4(lv.x, lv.y, lv.z, 0.f);
+			outSolverVelocity[a + numSolverBodies] = make_float4(av.x, av.y, av.z, 0.f);
+			outBody2World[a] = bodySim.body2World;
+			// The per-pass sleep slot is otherwise stale (another body's from
+			// the previous pass): publish this body's persistent state.
+			PxgSolverBodySleepData& dormantSleep = solverCoreDesc->solverBodySleepDataPool[a];
+			dormantSleep.wakeCounter = bodySim.freezeThresholdX_wakeCounterY_sleepThresholdZ_bodySimIndex.y;
+			dormantSleep.internalFlags = bodySim.internalFlags & ~PxU32(PxsRigidBody::eFREEZE_THIS_FRAME | PxsRigidBody::eUNFREEZE_THIS_FRAME | PxsRigidBody::eACTIVATE_THIS_FRAME | PxsRigidBody::eDEACTIVATE_THIS_FRAME);
+			return;
+		}
 
 		//KS - TODO - access all data via shared memory
 		// PT: TODO: TGS version uses a copy here, what's better?
@@ -112,4 +127,40 @@ extern "C" __global__ void integrateCoreParallelLaunch(
 		bodySim.body2World = body2World;
 		assert(body2World.isSane());
 	}
+}
+
+// The CPU island manager can retire a body in parallel with integration.
+// Recover the existing pre-step transform on device, matching native sleep's
+// last-CCD-pose rollback without copying motion to the CPU.
+extern "C" __global__ void gatherNativeSleepPoses(PxTransform* poses, const PxU32* indices,
+    const PxgSolverCoreDesc* desc, const PxU32* solverIndices, PxU32 count)
+{
+    const PxU32 i = threadIdx.x + blockIdx.x * blockDim.x;
+    if(i < count)
+    {
+        const PxU32 node = indices[i];
+        const PxU32 solverIndex = solverIndices[node];
+        const PxgBodySim& body = desc->mBodySimBufferDeviceData[node];
+        const bool solved=solverIndex<desc->numSolverBodies
+            && desc->solverBodyDataPool[solverIndex].islandNodeIndex.index()==node;
+        const auto world=solved?desc->solverBodyDataPool[solverIndex].body2World:body.body2World;
+        poses[i] = (world * body.body2Actor_maxImpulseW.getInverse()).getTransform();
+    }
+}
+
+// Device-count variant for the native sleep transition (README §14).
+extern "C" __global__ void gatherNativeSleepPosesDevice(PxTransform* poses, const PxU32* indices,
+    const PxgSolverCoreDesc* desc, const PxU32* solverIndices, const PxU32* count)
+{
+    const PxU32 i = threadIdx.x + blockIdx.x * blockDim.x;
+    if(i < *count)
+    {
+        const PxU32 node = indices[i];
+        const PxU32 solverIndex = solverIndices[node];
+        const PxgBodySim& body = desc->mBodySimBufferDeviceData[node];
+        const bool solved=solverIndex<desc->numSolverBodies
+            && desc->solverBodyDataPool[solverIndex].islandNodeIndex.index()==node;
+        const auto world=solved?desc->solverBodyDataPool[solverIndex].body2World:body.body2World;
+        poses[i] = (world * body.body2Actor_maxImpulseW.getInverse()).getTransform();
+    }
 }

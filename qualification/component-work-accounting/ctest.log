@@ -1,0 +1,14 @@
+Internal ctest changing into directory: /root/workspace/physx-2/out/destruction-sdk
+Test project /root/workspace/physx-2/out/destruction-sdk
+    Start 125: blast_stress_component_work_1
+1/2 Test #125: blast_stress_component_work_1 .....   Passed    0.26 sec
+    Start 126: blast_stress_component_work_256
+2/2 Test #126: blast_stress_component_work_256 ...   Passed    0.38 sec
+
+100% tests passed, 0 tests failed out of 2
+
+Label Time Summary:
+diagnostic    =   0.64 sec*proc (2 tests)
+gpu           =   0.64 sec*proc (2 tests)
+
+Total Test time (real) =   0.64 sec

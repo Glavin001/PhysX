@@ -73,6 +73,9 @@ public:
 	PX_FORCE_INLINE	NpShape* const*			getShapes()			const	{ return reinterpret_cast<NpShape*const*>(mShapes.getPtrs());	}
 					PxU32					getShapes(PxShape** buffer, PxU32 bufferSize, PxU32 startIndex=0) const;
 
+        // Internal ownership transaction boundary. Does not compute fracture,
+        // allocate bodies, fit motion, or expose a second simulation path.
+        static bool rebindShape(PxRigidActor& from, PxRigidActor& to, PxShape& shape, const PxTransform& shapeToActor);
 					bool					attachShape(NpShape& shape, PxRigidActor& actor);
 					bool					detachShape(NpShape& s, PxRigidActor& actor, bool wakeOnLostTouch);
 					void					detachAll(PxSceneQuerySystem* pxsq, const PxRigidActor& actor);
@@ -111,6 +114,10 @@ public:
 	PX_FORCE_INLINE	const Cm::PtrTable&		getShapeTable() const 		{	return mShapes; }
 	static PX_FORCE_INLINE size_t			getShapeTableOffset()		{	return PX_OFFSET_OF_RT(NpShapeManager, mShapes); }
 private:
+    friend class NpDestructionBodyAllocator;
+    static bool rebindShapeInternal(PxRigidActor& from, PxRigidActor& to, PxShape& shape,
+        const PxTransform& shapeToActor, bool nativeTransaction, bool deferObservation = false);
+    static bool publishNativeShapeOwner(PxRigidActor& to, PxShape& shape);
 					Cm::PtrTable			mShapes;
 					Sq::PruningStructure*	mPruningStructure;  // Shape scene query data are pre-build in pruning structure
 //					NpCompoundId			mSqCompoundId;

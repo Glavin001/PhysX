@@ -30,6 +30,9 @@
 #include "foundation/PxFoundation.h"
 #include "NpDirectGPUAPI.h"
 #include "NpScene.h"
+#include "NpRigidDynamic.h"
+#include "ScBodySim.h"
+#include "ScShapeSim.h"
 
 using namespace physx;
 
@@ -300,3 +303,52 @@ bool NpDirectGPUAPI::getD6JointData(void* data, const PxD6JointGPUIndex* gpuIndi
 }
 
 #endif // PX_SUPPORT_GPU_PHYSX
+
+
+bool NpDirectGPUAPI::publishRigidDynamicHostData(PxRigidDynamic* const* bodies,
+    const PxTransform* poses, const PxVec3* linear, const PxVec3* angular, PxU32 count)
+{
+#if PX_SUPPORT_GPU_PHYSX
+    if(mNpScene.isAPIWriteForbidden() || !mNpScene.isDirectGPUAPIInitialized()
+        || !(mNpScene.getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_HOST_ACCESS)) return false;
+    if(!count) return true;
+    if(!bodies || !poses || !linear || !angular) return false;
+    for(PxU32 i = 0; i < count; ++i)
+    {
+        if(!bodies[i] || bodies[i]->getScene() != &mNpScene || !poses[i].isSane()
+            || !linear[i].isFinite() || !angular[i].isFinite()) return false;
+        const Sc::BodySim* sim = static_cast<NpRigidDynamic*>(bodies[i])->getCore().getSim();
+        if(!sim || (sim->getLowLevelBody().mGpuHostDirty & ((PxsRigidBody::eHOST_POSE_COPY_GPU
+            | PxsRigidBody::eHOST_LINEAR_COPY_GPU | PxsRigidBody::eHOST_ANGULAR_COPY_GPU) >> 16))
+            || (sim->getLowLevelBody().mInternalFlags & PxsRigidBody::eFIRST_BODY_COPY_GPU)) return false;
+    }
+    for(PxU32 i = 0; i < count; ++i)
+    {
+        NpRigidDynamic& body = *static_cast<NpRigidDynamic*>(bodies[i]);
+        Sc::BodyCore& core = body.getCore();
+        core.getCore().body2World = poses[i] * core.getBody2Actor();
+        core.setLinearVelocityInternal(linear[i]);
+        core.setAngularVelocityInternal(angular[i]);
+        body.getShapeManager().markActorForSQUpdate(mNpScene.getSQAPI(), body);
+    }
+    return true;
+#else
+    PX_UNUSED(bodies); PX_UNUSED(poses); PX_UNUSED(linear); PX_UNUSED(angular); PX_UNUSED(count);
+    return false;
+#endif
+}
+
+PxU32 NpDirectGPUAPI::getShapeContactIndex(const PxShape& shape) const
+{
+#if PX_SUPPORT_GPU_PHYSX
+    if(mNpScene.isAPIWriteForbidden() || !mNpScene.isDirectGPUAPIInitialized()
+        || !(mNpScene.getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_API)) return PX_INVALID_U32;
+    const NpShape& npShape = static_cast<const NpShape&>(shape);
+    if(!npShape.isExclusive() || npShape.getNpScene() != &mNpScene) return PX_INVALID_U32;
+    const Sc::ShapeSim* sim = npShape.getCore().getExclusiveSim();
+    return sim ? sim->getTransformCacheID() : PX_INVALID_U32;
+#else
+    PX_UNUSED(shape);
+    return PX_INVALID_U32;
+#endif
+}

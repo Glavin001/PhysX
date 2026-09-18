@@ -1,0 +1,243 @@
+{
+  "schema": 1,
+  "scope": "Timing capture qualification; no new physical algorithm or performance optimization",
+  "collector_tests": "Internal ctest changing into directory: /root/workspace/physx-2/out/destruction-sdk\nTest project /root/workspace/physx-2/out/destruction-sdk\n    Start 60: physx_native_cupti_long_capture\n1/2 Test #60: physx_native_cupti_long_capture ........   Passed    7.22 sec\n    Start 61: physx_native_cupti_overflow_rejected\n2/2 Test #61: physx_native_cupti_overflow_rejected ...   Passed    3.05 sec\n\n100% tests passed, 0 tests failed out of 2\n\nTotal Test time (real) =  10.27 sec\n",
+  "accounting_tests": "16 destruction timing tests and 7 native GPU accounting tests passed",
+  "soak": {
+    "seconds": 60,
+    "frames": 3600,
+    "activity_status": {
+      "schema": 2,
+      "cupti_header_version": 130202,
+      "cupti_runtime_version": 130202,
+      "device_graph_buffer_bytes": 536870912,
+      "complete": true,
+      "records": 8698540,
+      "dropped": 0,
+      "invalid_timestamps": 0,
+      "concurrent_kernel_tracing": true,
+      "runtime_and_driver_api": true,
+      "clock": "CUPTI nanoseconds"
+    },
+    "command": [
+      "/root/workspace/physx-2/out/destruction-sdk/reference/native_destruction_demo",
+      "--waves",
+      "1",
+      "--launch-seconds",
+      "0",
+      "--stress-iterations",
+      "8192",
+      "--preserve-contact-pairs",
+      "1",
+      "--gpu-island-repair",
+      "1",
+      "--gpu-pre-solve-islands",
+      "1",
+      "--gpu-pre-solve-contacts",
+      "1",
+      "--gpu-pre-solve-support",
+      "1",
+      "--gpu-connectivity-owner",
+      "1",
+      "--projectile-mass",
+      "18000",
+      "--material-strength",
+      "24",
+      "--frame-strength",
+      "40",
+      "--record-state",
+      "0",
+      "--gpu-render",
+      "0",
+      "--audit-motion",
+      "0",
+      "--trace-motion",
+      "0",
+      "--grid",
+      "1",
+      "--workload",
+      "single-impact",
+      "--shot-path",
+      "through-wall",
+      "--seconds",
+      "60",
+      "--output",
+      "/root/workspace/physx-2/out/cupti-capture-fix-20260907/penetration-60s",
+      "--gpu-trace-buffer-mb",
+      "512",
+      "--profile-phases",
+      "1",
+      "--profile-gpu",
+      "1"
+    ],
+    "first_600_frame_topology_signature_matches_untraced": true,
+    "all_frames_stress_converged": true,
+    "max_correction_passes_per_step": 1,
+    "files": {
+      "native.activity.csv.gz": "eaf380e61b1e218ac4517638caf8dbb6f25f3771fd20a5d45d0d0030dd15f22d",
+      "native.activity.names.tsv": "f13be25dcd1a426816ccae9ff8e73d5f0425400569e98b4e76007b4189304121",
+      "native.activity.status.json": "61955d99c1dc678bbe92cffdf37bdb9af1c31295497c7342be2d371d39cfdd55",
+      "native.frames.csv.gz": "aa653f6686cab4485df3cfa413ab6c539468db6950a451db8b3e28fd0cb4452e",
+      "native.graph-diagnostics.json": "8fd8dfa21856a49f49a75a0c9a1b53b1f0648f95b9c37254afa019977b80f61c",
+      "native.launches.csv.gz": "f89f8bc008d9931d2449d4e09ddcb6a1efbf9f4e41e68f2de0bab11401c5cf36",
+      "native.phases.csv.device.csv.gz": "dfdd51c2e247fdd257981eea905b7681dc32fb6aa4a97c608e386c22e5fb49db",
+      "native.phases.csv.gz": "64abc44ebed39133e40f1e039a06fe42fadb8a3e18c6a4441b1c4e296148fb05",
+      "native.summary.json": "1e44b5b5b74922b58f28cecccd6a5d89bfd0aa85392cb83a3b7fb8e3ff8c0606"
+    }
+  },
+  "full_gpu_captures": [
+    {
+      "name": "penetration-gpu-0",
+      "seconds": 10,
+      "status": {
+        "schema": 2,
+        "cupti_header_version": 130202,
+        "cupti_runtime_version": 130202,
+        "device_graph_buffer_bytes": 536870912,
+        "complete": true,
+        "records": 1536578,
+        "dropped": 0,
+        "invalid_timestamps": 0,
+        "concurrent_kernel_tracing": true,
+        "runtime_and_driver_api": true,
+        "clock": "CUPTI nanoseconds"
+      }
+    },
+    {
+      "name": "idle-1-gpu-0",
+      "seconds": 10,
+      "status": {
+        "schema": 2,
+        "cupti_header_version": 130202,
+        "cupti_runtime_version": 130202,
+        "device_graph_buffer_bytes": 536870912,
+        "complete": true,
+        "records": 167535,
+        "dropped": 0,
+        "invalid_timestamps": 0,
+        "concurrent_kernel_tracing": true,
+        "runtime_and_driver_api": true,
+        "clock": "CUPTI nanoseconds"
+      }
+    },
+    {
+      "name": "idle-16-gpu-0",
+      "seconds": 10,
+      "status": {
+        "schema": 2,
+        "cupti_header_version": 130202,
+        "cupti_runtime_version": 130202,
+        "device_graph_buffer_bytes": 536870912,
+        "complete": true,
+        "records": 183095,
+        "dropped": 0,
+        "invalid_timestamps": 0,
+        "concurrent_kernel_tracing": true,
+        "runtime_and_driver_api": true,
+        "clock": "CUPTI nanoseconds"
+      }
+    },
+    {
+      "name": "penetration-gpu-1",
+      "seconds": 10,
+      "status": {
+        "schema": 2,
+        "cupti_header_version": 130202,
+        "cupti_runtime_version": 130202,
+        "device_graph_buffer_bytes": 536870912,
+        "complete": true,
+        "records": 1536284,
+        "dropped": 0,
+        "invalid_timestamps": 0,
+        "concurrent_kernel_tracing": true,
+        "runtime_and_driver_api": true,
+        "clock": "CUPTI nanoseconds"
+      }
+    },
+    {
+      "name": "idle-1-gpu-1",
+      "seconds": 10,
+      "status": {
+        "schema": 2,
+        "cupti_header_version": 130202,
+        "cupti_runtime_version": 130202,
+        "device_graph_buffer_bytes": 536870912,
+        "complete": true,
+        "records": 167535,
+        "dropped": 0,
+        "invalid_timestamps": 0,
+        "concurrent_kernel_tracing": true,
+        "runtime_and_driver_api": true,
+        "clock": "CUPTI nanoseconds"
+      }
+    },
+    {
+      "name": "idle-16-gpu-1",
+      "seconds": 10,
+      "status": {
+        "schema": 2,
+        "cupti_header_version": 130202,
+        "cupti_runtime_version": 130202,
+        "device_graph_buffer_bytes": 536870912,
+        "complete": true,
+        "records": 183095,
+        "dropped": 0,
+        "invalid_timestamps": 0,
+        "concurrent_kernel_tracing": true,
+        "runtime_and_driver_api": true,
+        "clock": "CUPTI nanoseconds"
+      }
+    },
+    {
+      "name": "penetration-gpu-2",
+      "seconds": 10,
+      "status": {
+        "schema": 2,
+        "cupti_header_version": 130202,
+        "cupti_runtime_version": 130202,
+        "device_graph_buffer_bytes": 536870912,
+        "complete": true,
+        "records": 1536144,
+        "dropped": 0,
+        "invalid_timestamps": 0,
+        "concurrent_kernel_tracing": true,
+        "runtime_and_driver_api": true,
+        "clock": "CUPTI nanoseconds"
+      }
+    },
+    {
+      "name": "idle-1-gpu-2",
+      "seconds": 10,
+      "status": {
+        "schema": 2,
+        "cupti_header_version": 130202,
+        "cupti_runtime_version": 130202,
+        "device_graph_buffer_bytes": 536870912,
+        "complete": true,
+        "records": 167549,
+        "dropped": 0,
+        "invalid_timestamps": 0,
+        "concurrent_kernel_tracing": true,
+        "runtime_and_driver_api": true,
+        "clock": "CUPTI nanoseconds"
+      }
+    },
+    {
+      "name": "idle-16-gpu-2",
+      "seconds": 10,
+      "status": {
+        "schema": 2,
+        "cupti_header_version": 130202,
+        "cupti_runtime_version": 130202,
+        "device_graph_buffer_bytes": 536870912,
+        "complete": true,
+        "records": 183095,
+        "dropped": 0,
+        "invalid_timestamps": 0,
+        "concurrent_kernel_tracing": true,
+        "runtime_and_driver_api": true,
+        "clock": "CUPTI nanoseconds"
+      }
+    }
+  ]
+}

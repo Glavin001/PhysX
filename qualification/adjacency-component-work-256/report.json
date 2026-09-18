@@ -1,0 +1,74 @@
+{
+  "iteration_counter_differences": [],
+  "physical_counter_differences": [],
+  "schema": 1,
+  "source_capture_sha256": "6e286939dad051723f394557ba03ae3d230d974ca14d1636d0a83f057f7946b0",
+  "steps": [
+    {
+      "excluded_csr_share": 0.0,
+      "over_256_components": 256,
+      "over_256_live_share": 99.95942090594781,
+      "step": 103,
+      "total": {
+        "component_updates": 94420,
+        "components": 1606,
+        "operator_csr_visits": 202764507,
+        "operator_live_visits": 202764507,
+        "operator_node_visits": 58552259,
+        "phase_cycles": [
+          1718613120,
+          1990465806,
+          79859290,
+          2816963980,
+          384462241,
+          2040564321,
+          901852750,
+          705900,
+          9933487408
+        ],
+        "precondition_cycles": [
+          1211547920,
+          226433884,
+          519612318,
+          751285273
+        ],
+        "record": "total",
+        "solve": 103,
+        "unmeasured_components": 0
+      }
+    },
+    {
+      "excluded_csr_share": 0.0,
+      "over_256_components": 256,
+      "over_256_live_share": 99.99516975053976,
+      "step": 87,
+      "total": {
+        "component_updates": 80249,
+        "components": 732,
+        "operator_csr_visits": 208684874,
+        "operator_live_visits": 208684874,
+        "operator_node_visits": 56374908,
+        "phase_cycles": [
+          1506906751,
+          1903639025,
+          75179750,
+          2622884408,
+          385680661,
+          1987803122,
+          857623167,
+          694380,
+          9340411264
+        ],
+        "precondition_cycles": [
+          1200042649,
+          101526221,
+          498610665,
+          720245905
+        ],
+        "record": "total",
+        "solve": 87,
+        "unmeasured_components": 0
+      }
+    }
+  ]
+}

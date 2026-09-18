@@ -1,0 +1,449 @@
+{
+  "id": "N06a",
+  "source_queue_id": "N06",
+  "status": "rejected_application_regression",
+  "title": "Single cooperative block for complete structural problems through4096 nodes",
+  "commit": "c76c60678f42e8e62cdfab02d8b317df69b3fbdb",
+  "family": "heterogeneous_component_execution",
+  "hypothesis": "Reduce cross-SM rendezvous for tower/dense complete problems, without changing equations, multilevel preconditioner or small-component eligibility.",
+  "evidence": "Tower baseline instruction samples show substantial barriers and short-scoreboard stalls; those samples were explicitly not treated as saved milliseconds.",
+  "estimated_application_ms_saved": "Predeclared0\u201330ms in tower/dense, low confidence; loss of FP64 parallelism is the refutation risk.",
+  "correctness": "Four A/B\u00d7scenario normal asynchronous memcheck runs pass with zero errors; all compare against the existing unprofiled physical reference. Matched A/B/A physical checks pass, iteration counts remain34 dense and137 tower.",
+  "timings": {
+    "status": "complete",
+    "candidate_commit": "c76c60678f42e8e62cdfab02d8b317df69b3fbdb",
+    "scenarios": [
+      {
+        "scenario": "dense12-cold",
+        "A": {
+          "n": 8,
+          "mean_ms": 32.106086875,
+          "median_ms": 31.5150225,
+          "max_ms": 34.480759,
+          "sd_ms": 1.303010238928024,
+          "peak_sample_index": 4,
+          "over_8ms": 8,
+          "over_120hz": 8,
+          "over_60hz": 8,
+          "budget_miss_percent": {
+            "8ms": 100.0,
+            "120hz": 100.0,
+            "60hz": 100.0
+          },
+          "stress_iterations": {
+            "min": 34,
+            "max": 34,
+            "mean": 34
+          },
+          "restore_mean_ms": 72.985225,
+          "stages_ms": {
+            "command_ms": 0.000146875,
+            "simulate_fetch_ms": 31.9303705,
+            "completion_ms": 0.1755695
+          }
+        },
+        "context_setup_ms": {
+          "A0": 559.492307,
+          "B": 529.41549,
+          "A1": 535.24514
+        },
+        "first_tick_ms": {
+          "A0": 33.909679,
+          "B": 514.950268,
+          "A1": 34.480759
+        },
+        "later_tick_mean_ms": {
+          "A0": 31.433509333333333,
+          "B": 512.8482283333334,
+          "A1": 31.385909666666667
+        },
+        "saved_ms": -481.26765137500007,
+        "descriptive_saved_ms_95": [
+          -482.5953668750001,
+          -479.9785496250001
+        ],
+        "physical_status": "passed",
+        "raw": {
+          "A0": "/root/workspace/physx-2/out/n06-granularity-20260912/screen/matched/dense12-cold-A0",
+          "B": "/root/workspace/physx-2/out/n06-granularity-20260912/screen/matched/dense12-cold-B",
+          "A1": "/root/workspace/physx-2/out/n06-granularity-20260912/screen/matched/dense12-cold-A1"
+        },
+        "A0": {
+          "n": 4,
+          "mean_ms": 32.05255175,
+          "median_ms": 31.5233465,
+          "max_ms": 33.909679,
+          "sd_ms": 1.2446741296985788,
+          "peak_sample_index": 0,
+          "over_8ms": 4,
+          "over_120hz": 4,
+          "over_60hz": 4,
+          "budget_miss_percent": {
+            "8ms": 100.0,
+            "120hz": 100.0,
+            "60hz": 100.0
+          },
+          "stress_iterations": {
+            "min": 34,
+            "max": 34,
+            "mean": 34
+          },
+          "restore_mean_ms": 73.144177,
+          "stages_ms": {
+            "command_ms": 0.000154,
+            "simulate_fetch_ms": 31.89754275,
+            "completion_ms": 0.154855
+          }
+        },
+        "B": {
+          "n": 4,
+          "mean_ms": 513.3737382500001,
+          "median_ms": 513.1953305,
+          "max_ms": 514.950268,
+          "sd_ms": 1.1617383224319162,
+          "peak_sample_index": 0,
+          "over_8ms": 4,
+          "over_120hz": 4,
+          "over_60hz": 4,
+          "budget_miss_percent": {
+            "8ms": 100.0,
+            "120hz": 100.0,
+            "60hz": 100.0
+          },
+          "stress_iterations": {
+            "min": 34,
+            "max": 34,
+            "mean": 34
+          },
+          "restore_mean_ms": 76.803046,
+          "stages_ms": {
+            "command_ms": 0.0001755,
+            "simulate_fetch_ms": 513.2432645,
+            "completion_ms": 0.13029825
+          }
+        },
+        "A1": {
+          "n": 4,
+          "mean_ms": 32.159622,
+          "median_ms": 31.435544999999998,
+          "max_ms": 34.480759,
+          "sd_ms": 1.5507289291347253,
+          "peak_sample_index": 0,
+          "over_8ms": 4,
+          "over_120hz": 4,
+          "over_60hz": 4,
+          "budget_miss_percent": {
+            "8ms": 100.0,
+            "120hz": 100.0,
+            "60hz": 100.0
+          },
+          "stress_iterations": {
+            "min": 34,
+            "max": 34,
+            "mean": 34
+          },
+          "restore_mean_ms": 72.826273,
+          "stages_ms": {
+            "command_ms": 0.00013975,
+            "simulate_fetch_ms": 31.96319825,
+            "completion_ms": 0.196284
+          }
+        }
+      },
+      {
+        "scenario": "tower64-cold",
+        "A": {
+          "n": 8,
+          "mean_ms": 109.12093325000001,
+          "median_ms": 108.767493,
+          "max_ms": 111.091317,
+          "sd_ms": 1.1592150849084721,
+          "peak_sample_index": 4,
+          "over_8ms": 8,
+          "over_120hz": 8,
+          "over_60hz": 8,
+          "budget_miss_percent": {
+            "8ms": 100.0,
+            "120hz": 100.0,
+            "60hz": 100.0
+          },
+          "stress_iterations": {
+            "min": 137,
+            "max": 137,
+            "mean": 137
+          },
+          "restore_mean_ms": 75.569244875,
+          "stages_ms": {
+            "command_ms": 0.00015725,
+            "simulate_fetch_ms": 108.97237625,
+            "completion_ms": 0.14839975
+          }
+        },
+        "context_setup_ms": {
+          "A0": 540.459085,
+          "B": 501.591921,
+          "A1": 471.700857
+        },
+        "first_tick_ms": {
+          "A0": 110.682796,
+          "B": 2287.329328,
+          "A1": 111.091317
+        },
+        "later_tick_mean_ms": {
+          "A0": 108.44933966666666,
+          "B": 2284.1044453333334,
+          "A1": 108.61511133333333
+        },
+        "saved_ms": -2175.7897327499995,
+        "descriptive_saved_ms_95": [
+          -2177.602769875,
+          -2174.2049633750003
+        ],
+        "physical_status": "passed",
+        "raw": {
+          "A0": "/root/workspace/physx-2/out/n06-granularity-20260912/screen/matched/tower64-cold-A0",
+          "B": "/root/workspace/physx-2/out/n06-granularity-20260912/screen/matched/tower64-cold-B",
+          "A1": "/root/workspace/physx-2/out/n06-granularity-20260912/screen/matched/tower64-cold-A1"
+        },
+        "A0": {
+          "n": 4,
+          "mean_ms": 109.00770374999999,
+          "median_ms": 108.7040995,
+          "max_ms": 110.682796,
+          "sd_ms": 1.2324678357589076,
+          "peak_sample_index": 0,
+          "over_8ms": 4,
+          "over_120hz": 4,
+          "over_60hz": 4,
+          "budget_miss_percent": {
+            "8ms": 100.0,
+            "120hz": 100.0,
+            "60hz": 100.0
+          },
+          "stress_iterations": {
+            "min": 137,
+            "max": 137,
+            "mean": 137
+          },
+          "restore_mean_ms": 76.7324615,
+          "stages_ms": {
+            "command_ms": 0.00018125000000000001,
+            "simulate_fetch_ms": 108.84988675,
+            "completion_ms": 0.15763575
+          }
+        },
+        "B": {
+          "n": 4,
+          "mean_ms": 2284.9106659999998,
+          "median_ms": 2284.5203460000002,
+          "max_ms": 2287.329328,
+          "sd_ms": 1.7823281622281808,
+          "peak_sample_index": 0,
+          "over_8ms": 4,
+          "over_120hz": 4,
+          "over_60hz": 4,
+          "budget_miss_percent": {
+            "8ms": 100.0,
+            "120hz": 100.0,
+            "60hz": 100.0
+          },
+          "stress_iterations": {
+            "min": 137,
+            "max": 137,
+            "mean": 137
+          },
+          "restore_mean_ms": 77.246477,
+          "stages_ms": {
+            "command_ms": 0.000175,
+            "simulate_fetch_ms": 2284.767034,
+            "completion_ms": 0.143457
+          }
+        },
+        "A1": {
+          "n": 4,
+          "mean_ms": 109.23416275,
+          "median_ms": 108.767493,
+          "max_ms": 111.091317,
+          "sd_ms": 1.2579028891575523,
+          "peak_sample_index": 0,
+          "over_8ms": 4,
+          "over_120hz": 4,
+          "over_60hz": 4,
+          "budget_miss_percent": {
+            "8ms": 100.0,
+            "120hz": 100.0,
+            "60hz": 100.0
+          },
+          "stress_iterations": {
+            "min": 137,
+            "max": 137,
+            "mean": 137
+          },
+          "restore_mean_ms": 74.40602824999999,
+          "stages_ms": {
+            "command_ms": 0.00013325,
+            "simulate_fetch_ms": 109.09486575,
+            "completion_ms": 0.13916375
+          }
+        }
+      }
+    ],
+    "runs": [
+      {
+        "scenario": "dense12-cold",
+        "arm": "A0",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n06-granularity-20260912/screen/matched/dense12-cold-A0",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n06-granularity-20260912/build/A",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/dense12-cold",
+          "--repetitions",
+          "4",
+          "--watchdog-seconds",
+          "1200"
+        ],
+        "exit_code": 0
+      },
+      {
+        "scenario": "dense12-cold",
+        "arm": "B",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n06-granularity-20260912/screen/matched/dense12-cold-B",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n06-granularity-20260912/build/B",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/dense12-cold",
+          "--repetitions",
+          "4",
+          "--watchdog-seconds",
+          "1200"
+        ],
+        "exit_code": 0
+      },
+      {
+        "scenario": "dense12-cold",
+        "arm": "A1",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n06-granularity-20260912/screen/matched/dense12-cold-A1",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n06-granularity-20260912/build/A",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/dense12-cold",
+          "--repetitions",
+          "4",
+          "--watchdog-seconds",
+          "1200"
+        ],
+        "exit_code": 0
+      },
+      {
+        "scenario": "tower64-cold",
+        "arm": "A0",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n06-granularity-20260912/screen/matched/tower64-cold-A0",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n06-granularity-20260912/build/A",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/tower64-cold",
+          "--repetitions",
+          "4",
+          "--watchdog-seconds",
+          "1200"
+        ],
+        "exit_code": 0
+      },
+      {
+        "scenario": "tower64-cold",
+        "arm": "B",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n06-granularity-20260912/screen/matched/tower64-cold-B",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n06-granularity-20260912/build/B",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/tower64-cold",
+          "--repetitions",
+          "4",
+          "--watchdog-seconds",
+          "1200"
+        ],
+        "exit_code": 0
+      },
+      {
+        "scenario": "tower64-cold",
+        "arm": "A1",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n06-granularity-20260912/screen/matched/tower64-cold-A1",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n06-granularity-20260912/build/A",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/tower64-cold",
+          "--repetitions",
+          "4",
+          "--watchdog-seconds",
+          "1200"
+        ],
+        "exit_code": 0
+      }
+    ],
+    "runner_sha256": "cd2a50501e6df5bde0da0540607671144a5ceb0c95a3218e223da75ab3cb15e7",
+    "repetition_policy": "Equal per-process counts in A-before/B/A-after; all first-use ticks included at equal weight. Pooled controls have twice the candidate sample count.",
+    "binaries": {
+      "A": {
+        "path": "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+        "sha256": "3c5c8f673ba3a9f5e54c6b957976648b0016e5304e7455211399dfb0a4b2454e"
+      },
+      "B": {
+        "path": "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+        "sha256": "3c5c8f673ba3a9f5e54c6b957976648b0016e5304e7455211399dfb0a4b2454e"
+      }
+    },
+    "modules": {
+      "A": {
+        "/root/workspace/physx-2/out/n06-granularity-20260912/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n06-granularity-20260912/build/A/libPhysXDestructionGpuRuntime_64.so": "612a214637970a6b52e79698604806d4ce6cc10210c9ecb6073662a77832ba44"
+      },
+      "B": {
+        "/root/workspace/physx-2/out/n06-granularity-20260912/build/B/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n06-granularity-20260912/build/B/libPhysXDestructionGpuRuntime_64.so": "b8bce791af9e1edda11e4618d5da076b04b61fb68a9512cc91e63fb2a69047b2"
+      }
+    },
+    "checker_sha256": "790e6c488889bacbd18e498bcb206c7fbcec23f91af98068aa32582bf55b76c2",
+    "force_scaled_bound": 0.0002,
+    "scope": "One full tick per independent physical restore. A-before / B / A-after per scenario. All CPU/GPU work and correction included; restore, validation and post-tick observation excluded. Unprofiled comparison with recorded GPU admission; no profiler timings or automatic acceptance.",
+    "harness_seconds": 29.095216628000344
+  },
+  "profiles": [
+    "out/ncu-fix-20260912/full/tower64-cold-counters-0/counters.ncu-rep",
+    "/root/workspace/physx-2/qualification/optimization-next20-20260910/end-to-end-attribution-20260912/tower-source-review.json",
+    "/root/workspace/physx-2/qualification/optimization-next20-20260910/end-to-end-attribution-20260912/structural-stress-counter-review.json"
+  ],
+  "candidate_profile": "Not collected after decisive unprofiled regression; identical device instructions and baseline counter evidence retained.",
+  "conclusion": "Reject. Dense full-step mean32.106\u2192513.374ms and tower109.121\u21922284.911ms. Reduced parallelism overwhelms any synchronization benefit. This rejects the one-block pilot, not every size-specialized or component-local multilevel design.",
+  "remaining_scenarios": "No idle/heavy timing win claimed; other50 scenarios were not run after this decisive structural regression.",
+  "next": "Prioritize unnecessary CPU work and stronger/reusable solver algorithms. Do not infer that barrier samples are removable time or launch more one-block threshold variants."
+}

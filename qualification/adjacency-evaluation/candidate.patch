@@ -1,0 +1,264 @@
+diff --git a/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpuTopology.cuh b/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpuTopology.cuh
+index 1356e5d3..fa51bb8c 100644
+--- a/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpuTopology.cuh
++++ b/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpuTopology.cuh
+@@ -158,6 +158,9 @@ struct ResidentStressComponentView
+ 
+ 
+ #include "detail/StressNativeHierarchy.cuh"
++#ifdef PHYSX_RESIDENT_DESTRUCTION
++#include "detail/StressNativeAdjacency.cuh"
++#endif
+ struct DeviceStressTopologyBuffers
+ {
+     unsigned n, m;
+@@ -179,6 +182,7 @@ class DeviceStressTopology
+     DeviceStressTopologyBuffers b;
+ #ifdef PHYSX_RESIDENT_DESTRUCTION
+     std::unique_ptr<NativeStressHierarchy> nativeHierarchy;
++    std::unique_ptr<NativeStressAdjacency> nativeAdjacency;
+ #endif
+     unsigned *parent=nullptr, *rootFlags=nullptr, *identity=nullptr, *sortedKeys=nullptr, *forest=nullptr;
+     unsigned *rangeBegin=nullptr, *rangeEnd=nullptr, *tileCounts=nullptr;
+@@ -255,6 +259,9 @@ class DeviceStressTopology
+         checkCuda(cudaStreamBeginCaptureToGraph(captureStream,body,nullptr,nullptr,0,cudaStreamCaptureModeThreadLocal), "capture stress topology rebuild");
+         beginDeviceStressRebuild<<<1,1,0,captureStream>>>(state);
+         initializeDeviceStressTopology<<<std::max(nodeBlocks,bondBlocks),kBlockSize,0,captureStream>>>(batch,b.inertia,parent,identity,rootFlags,b.health,b.n,b.m,forest);
++#ifdef PHYSX_RESIDENT_DESTRUCTION
++        nativeAdjacency->rebuild(b.nodeBondBegin,b.nodeBondRef,b.health,captureStream);
++#endif
+         connectDeviceStressTopology<<<bondBlocks,kBlockSize,0,captureStream>>>(b.node0,b.node1,b.health,b.inertia,b.m,parent,forest);
+         flattenDeviceStressTopology<<<nodeBlocks,kBlockSize,0,captureStream>>>(parent,b.n);
+         labelDeviceStressBonds<<<bondBlocks,kBlockSize,0,captureStream>>>(b.node0,b.node1,b.health,b.inertia,parent,rootFlags,b.bondIsland,b.m);
+@@ -295,7 +302,7 @@ class DeviceStressTopology
+         checkCuda(cudaStreamEndCapture(captureStream,&captured), "finish stress topology capture");
+ #ifdef PHYSX_RESIDENT_DESTRUCTION
+         static_assert(sizeof(Inertia)==sizeof(float2) && sizeof(Vec4)==sizeof(float4),"native operator view layout");
+-        StressHierarchy::Input input{b.n,b.m,b.nodeBondBegin,b.nodeBondRef,b.node0,b.node1,b.nodeIsland,b.health,b.colScales,
++        StressHierarchy::Input input{b.n,b.m,nativeAdjacency->rowBegin(),nativeAdjacency->rowRefs(),b.node0,b.node1,b.nodeIsland,b.health,b.colScales,
+             b.positions,reinterpret_cast<const float4*>(b.offset0),reinterpret_cast<const float4*>(b.offset1),reinterpret_cast<const float2*>(b.inertia),&state->generation,nullptr};
+         input.partition={componentNodes,liveIslands,rangeBegin,rangeEnd,b.activeCounts+1,&state->islandCount};
+         nativeHierarchy.reset(new NativeStressHierarchy(input,forest,state,ownerStream));
+@@ -314,6 +321,7 @@ public:
+         if (graph) cudaGraphDestroy(graph);
+ #ifdef PHYSX_RESIDENT_DESTRUCTION
+         nativeHierarchy.reset();
++        nativeAdjacency.reset();
+ #endif
+         if (captureStream) cudaStreamDestroy(captureStream);
+         cudaFree(parent); cudaFree(forest); cudaFree(rootFlags); cudaFree(identity); cudaFree(sortedKeys);
+@@ -327,6 +335,7 @@ public:
+         allocate(parent,b.n); allocate(rootFlags,b.n); allocate(identity,std::max(b.n,b.m));
+         allocate(batch,1); allocate(state,1);
+ #ifdef PHYSX_RESIDENT_DESTRUCTION
++        nativeAdjacency.reset(new NativeStressAdjacency);nativeAdjacency->init(b.n,b.m);
+         allocate(forest,b.m); allocate(liveIslands,b.n); allocate(componentNodes,b.n);
+         allocate(largeIslands,b.n); allocate(largeCount,1); allocate(componentResults,b.n);
+         allocate(componentWorkCursor,1);
+@@ -358,6 +367,8 @@ public:
+     ExtStressGpuDeviceTopologyStatus* status() const { return state; }
+     const unsigned* islandIds() const { return liveIslands; }
+ #ifdef PHYSX_RESIDENT_DESTRUCTION
++    const unsigned* liveRowBegin()const{return nativeAdjacency->rowBegin();}
++    const unsigned* liveRowRefs()const{return nativeAdjacency->rowRefs();}
+     NativeStressCycleView cycleView()const{return nativeHierarchy->view();}
+ #endif
+     ResidentStressComponentView components() const
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressIterationDispatch.inl b/blast/source/sdk/extensions/stressgpu/detail/StressIterationDispatch.inl
+index 322c3749..2586d89c 100644
+--- a/blast/source/sdk/extensions/stressgpu/detail/StressIterationDispatch.inl
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressIterationDispatch.inl
+@@ -243,7 +243,7 @@
+         // Residency is a launch constraint, not a physical-work limit. All
+         // virtual node/island blocks are processed by the resident grid.
+         const auto kernel=m_deviceTopology?persistentStressSolve<true>:persistentStressSolve<false>;
+-        if(m_deviceTopology){args.hierarchy=m_deviceTopology->cycleView();args.input=m_input;args.impulses=m_impulses;args.originalRhs=m_rhs;args.warmStart=params.warmStart && m_hasWarmStart;}
++        if(m_deviceTopology){args.m_nodeBondBegin=m_deviceTopology->liveRowBegin();args.m_nodeBondRef=m_deviceTopology->liveRowRefs();args.hierarchy=m_deviceTopology->cycleView();args.input=m_input;args.impulses=m_impulses;args.originalRhs=m_rhs;args.warmStart=params.warmStart && m_hasWarmStart;}
+         int blocksPerSm=0,device=0,sms=0;
+         checkCuda(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&blocksPerSm,kernel,kBlockSize,0),"persistent stress occupancy");
+         checkCuda(cudaGetDevice(&device),"persistent stress device");
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressResidentIteration.cuh b/blast/source/sdk/extensions/stressgpu/detail/StressResidentIteration.cuh
+index 478e29cc..35d8d1d2 100644
+--- a/blast/source/sdk/extensions/stressgpu/detail/StressResidentIteration.cuh
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressResidentIteration.cuh
+@@ -8,8 +8,8 @@ struct PersistentStressArgs {
+     AngLin* m_nsW;
+     AngLin* m_residual;
+     Inertia* m_inertia;
+-    std::uint32_t* m_nodeBondBegin;
+-    std::uint32_t* m_nodeBondRef;
++    const std::uint32_t* m_nodeBondBegin;
++    const std::uint32_t* m_nodeBondRef;
+     std::uint32_t* m_node0;
+     std::uint32_t* m_node1;
+     Vec4* m_offset0;
+diff --git a/demos/blast-stress-demo/CMakeLists.txt b/demos/blast-stress-demo/CMakeLists.txt
+index 31adb211..5dae12c8 100644
+--- a/demos/blast-stress-demo/CMakeLists.txt
++++ b/demos/blast-stress-demo/CMakeLists.txt
+@@ -952,6 +952,12 @@ if(CMAKE_CUDA_COMPILER AND CUDAToolkit_VERSION VERSION_GREATER_EQUAL "12.8")
+                 PROPERTIES TIMEOUT 120 LABELS "gpu;sanitizer" RUN_SERIAL TRUE)
+         endforeach()
+     endforeach()
++    add_executable(gpu_resident_adjacency_test EXCLUDE_FROM_ALL tests/gpu_resident_adjacency_test.cu)
++    target_include_directories(gpu_resident_adjacency_test PRIVATE "${BLAST_ROOT}/source/sdk/extensions/stressgpu")
++    set_target_properties(gpu_resident_adjacency_test PROPERTIES CUDA_ARCHITECTURES 89 CUDA_STANDARD 17)
++    target_link_libraries(gpu_resident_adjacency_test PRIVATE CUDA::cudart)
++    add_test(NAME blast_stress_gpu_resident_adjacency COMMAND gpu_resident_adjacency_test)
++    set_tests_properties(blast_stress_gpu_resident_adjacency PROPERTIES TIMEOUT 60 LABELS "gpu" RUN_SERIAL TRUE)
+     add_executable(gpu_resident_stress_phase_probe EXCLUDE_FROM_ALL tests/gpu_resident_stress_phase_probe.cu)
+     target_include_directories(gpu_resident_stress_phase_probe PRIVATE
+         "${BLAST_ROOT}/source/sdk/extensions/stressgpu"
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressNativeAdjacency.cuh b/blast/source/sdk/extensions/stressgpu/detail/StressNativeAdjacency.cuh
+new file mode 100644
+index 00000000..7fb78c85
+--- /dev/null
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressNativeAdjacency.cuh
+@@ -0,0 +1,85 @@
++// Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
++// Private native topology cache. Immutable authored CSR remains the source of
++// truth: rebuilding can restore a reference if a supported topology update
++// restores its health. Only dead references are removed; live order is exact.
++#pragma once
++
++// Eight adjacent lanes cooperate on a row. This fits ordinary low-degree
++// chunk graphs while allowing unbounded-degree support rows to stream tiles.
++// Each subgroup has its own ballot mask; groups may finish independently.
++constexpr unsigned kStressAdjacencyLanes = 8;
++__global__ void countNativeStressAdjacency(const unsigned* sourceBegin,
++    const unsigned* sourceRefs,const float* health,unsigned nodes,unsigned* counts)
++{
++    const unsigned thread=blockIdx.x*blockDim.x+threadIdx.x;
++    const unsigned node=thread/kStressAdjacencyLanes,lane=thread%kStressAdjacencyLanes;
++    if(node>=nodes)return;
++    const unsigned warpBase=(threadIdx.x&31u)&~(kStressAdjacencyLanes-1u);
++    const unsigned mask=((1u<<kStressAdjacencyLanes)-1u)<<warpBase;
++    unsigned count=0;
++    for(unsigned tile=sourceBegin[node];tile<sourceBegin[node+1];tile+=kStressAdjacencyLanes){
++        const unsigned slot=tile+lane;
++        const unsigned ref=slot<sourceBegin[node+1]?sourceRefs[slot]:kDeadBondRef;
++        const bool live=ref!=kDeadBondRef && health[ref&0x7fffffffu]>0;
++        count+=__popc(__ballot_sync(mask,live));
++    }
++    if(!lane){counts[node]=count;if(!node)counts[nodes]=0;}
++}
++__global__ void scatterNativeStressAdjacency(const unsigned* sourceBegin,
++    const unsigned* sourceRefs,const float* health,unsigned nodes,
++    const unsigned* liveBegin,unsigned* liveRefs)
++{
++    const unsigned thread=blockIdx.x*blockDim.x+threadIdx.x;
++    const unsigned node=thread/kStressAdjacencyLanes,lane=thread%kStressAdjacencyLanes;
++    if(node>=nodes)return;
++    const unsigned warpBase=(threadIdx.x&31u)&~(kStressAdjacencyLanes-1u);
++    const unsigned mask=((1u<<kStressAdjacencyLanes)-1u)<<warpBase;
++    unsigned output=liveBegin[node];
++    for(unsigned tile=sourceBegin[node];tile<sourceBegin[node+1];tile+=kStressAdjacencyLanes){
++        const unsigned slot=tile+lane;
++        const unsigned ref=slot<sourceBegin[node+1]?sourceRefs[slot]:kDeadBondRef;
++        const bool live=ref!=kDeadBondRef && health[ref&0x7fffffffu]>0;
++        const unsigned votes=__ballot_sync(mask,live)>>warpBase;
++        if(live)liveRefs[output+__popc(votes&((1u<<lane)-1u))]=ref;
++        output+=__popc(votes);
++    }
++}
++class NativeStressAdjacency
++{
++    unsigned* counts=nullptr;
++    unsigned* begin=nullptr;
++    unsigned* refs=nullptr;
++    void* scratch=nullptr;
++    size_t scratchBytes=0;
++    unsigned nodes=0;
++public:
++    NativeStressAdjacency()=default;
++    NativeStressAdjacency(const NativeStressAdjacency&)=delete;
++    NativeStressAdjacency& operator=(const NativeStressAdjacency&)=delete;
++    ~NativeStressAdjacency(){cudaFree(counts);cudaFree(begin);cudaFree(refs);cudaFree(scratch);}
++    void init(unsigned nodeCount,unsigned bondCount)
++    {
++        if(!nodeCount || !bondCount || nodeCount==0xffffffffu || bondCount>0x7fffffffu)
++            throw std::runtime_error("Native stress adjacency size is invalid");
++        nodes=nodeCount;
++        checkCuda(cudaMalloc(&counts,(size_t(nodes)+1)*sizeof(unsigned)),"allocate live stress row counts");
++        checkCuda(cudaMalloc(&begin,(size_t(nodes)+1)*sizeof(unsigned)),"allocate live stress row offsets");
++        checkCuda(cudaMalloc(&refs,size_t(bondCount)*2*sizeof(unsigned)),"allocate live stress references");
++        checkCuda(cub::DeviceScan::ExclusiveSum(nullptr,scratchBytes,counts,begin,size_t(nodes)+1),"size live stress row scan");
++        checkCuda(cudaMalloc(&scratch,scratchBytes),"allocate live stress scan scratch");
++    }
++    // Capture into the generation-guarded topology transaction. No allocation,
++    // host counts or synchronization between count, scan and scatter.
++    void rebuild(const unsigned* sourceBegin,const unsigned* sourceRefs,
++        const float* health,cudaStream_t stream)
++    {
++        constexpr unsigned threads=256,nodesPerBlock=threads/kStressAdjacencyLanes;
++        const unsigned blocks=(nodes+nodesPerBlock-1)/nodesPerBlock;
++        countNativeStressAdjacency<<<blocks,threads,0,stream>>>(sourceBegin,sourceRefs,health,nodes,counts);
++        checkCuda(cub::DeviceScan::ExclusiveSum(scratch,scratchBytes,counts,begin,size_t(nodes)+1,stream),"scan live stress rows");
++        scatterNativeStressAdjacency<<<blocks,threads,0,stream>>>(sourceBegin,sourceRefs,health,nodes,begin,refs);
++        checkCuda(cudaGetLastError(),"compact live stress adjacency");
++    }
++    const unsigned* rowBegin()const{return begin;}
++    const unsigned* rowRefs()const{return refs;}
++};
+diff --git a/demos/blast-stress-demo/tests/gpu_resident_adjacency_test.cu b/demos/blast-stress-demo/tests/gpu_resident_adjacency_test.cu
+new file mode 100644
+index 00000000..8ffa3b1e
+--- /dev/null
++++ b/demos/blast-stress-demo/tests/gpu_resident_adjacency_test.cu
+@@ -0,0 +1,56 @@
++// Exact stable filtering oracle, including empty/high-degree rows, health
++// changes, tombstones, restoration and repeated graph execution.
++#include <cuda_runtime.h>
++#include <cub/cub.cuh>
++#include <vector>
++#include <stdexcept>
++#include <cstdio>
++#include <cstring>
++namespace {
++constexpr unsigned kDeadBondRef=0xffffffffu;
++void checkCuda(cudaError_t e,const char* operation){if(e!=cudaSuccess)throw std::runtime_error(std::string(operation)+": "+cudaGetErrorString(e));}
++#include "detail/StressNativeAdjacency.cuh"
++template<class T>struct Buffer{
++    T* data=nullptr;
++    explicit Buffer(size_t n){checkCuda(cudaMalloc(&data,n*sizeof(T)),"test allocation");}
++    ~Buffer(){cudaFree(data);}
++    void upload(const std::vector<T>& v,cudaStream_t stream){checkCuda(cudaMemcpyAsync(data,v.data(),v.size()*sizeof(T),cudaMemcpyHostToDevice,stream),"test upload");}
++};
++void run(unsigned nodes){
++    std::vector<unsigned> starts(nodes+1),refs;
++    for(unsigned node=0;node<nodes;++node){
++        starts[node]=unsigned(refs.size());
++        const unsigned degree=node==nodes/2?4097:node%19;
++        for(unsigned j=0;j<degree;++j){const unsigned id=refs.size();refs.push_back(id%31==0?kDeadBondRef:id|((id&1)?0x80000000u:0u));}
++    }
++    starts[nodes]=refs.size();const unsigned bonds=refs.size();
++    std::vector<float> health(bonds,1);
++    Buffer<unsigned> deviceStarts(starts.size()),deviceRefs(refs.size());Buffer<float> deviceHealth(bonds);
++    cudaStream_t stream=nullptr;checkCuda(cudaStreamCreateWithFlags(&stream,cudaStreamNonBlocking),"test stream");
++    deviceStarts.upload(starts,stream);deviceRefs.upload(refs,stream);deviceHealth.upload(health,stream);
++    checkCuda(cudaStreamSynchronize(stream),"finish test input");
++    NativeStressAdjacency live;live.init(nodes,bonds);
++    cudaGraph_t graph=nullptr;cudaGraphExec_t exec=nullptr;
++    checkCuda(cudaStreamBeginCapture(stream,cudaStreamCaptureModeThreadLocal),"capture test graph");
++    live.rebuild(deviceStarts.data,deviceRefs.data,deviceHealth.data,stream);
++    checkCuda(cudaStreamEndCapture(stream,&graph),"finish test graph");checkCuda(cudaGraphInstantiate(&exec,graph,0),"instantiate test graph");
++    unsigned restored=0;
++    for(unsigned step=0;step<6;++step){
++        for(unsigned b=0;b<bonds;++b)health[b]=step==2?0.0f:step==1?(b%3?0.0f:0.25f):step==4?(b%5?1.0f:0.0f):1.0f;
++        deviceHealth.upload(health,stream);checkCuda(cudaGraphLaunch(exec,stream),"replay test graph");
++        std::vector<unsigned> expectedStarts(nodes+1),expectedRefs;
++        for(unsigned node=0;node<nodes;++node){expectedStarts[node]=expectedRefs.size();for(unsigned j=starts[node];j<starts[node+1];++j){const unsigned ref=refs[j];if(ref!=kDeadBondRef && health[ref&0x7fffffffu]>0)expectedRefs.push_back(ref);}}
++        expectedStarts[nodes]=expectedRefs.size();
++        std::vector<unsigned> actualStarts(nodes+1),actualRefs(expectedRefs.size()),unchanged(refs.size());
++        checkCuda(cudaMemcpyAsync(actualStarts.data(),live.rowBegin(),actualStarts.size()*sizeof(unsigned),cudaMemcpyDeviceToHost,stream),"read row starts");
++        if(!actualRefs.empty())checkCuda(cudaMemcpyAsync(actualRefs.data(),live.rowRefs(),actualRefs.size()*sizeof(unsigned),cudaMemcpyDeviceToHost,stream),"read live refs");
++        checkCuda(cudaMemcpyAsync(unchanged.data(),deviceRefs.data,unchanged.size()*sizeof(unsigned),cudaMemcpyDeviceToHost,stream),"read source refs");
++        checkCuda(cudaStreamSynchronize(stream),"finish test graph");
++        if(actualStarts!=expectedStarts || actualRefs!=expectedRefs || unchanged!=refs)throw std::runtime_error("stable adjacency mismatch");
++        if(step==3)restored=actualRefs.size();
++    }
++    checkCuda(cudaGraphExecDestroy(exec),"destroy test graph exec");checkCuda(cudaGraphDestroy(graph),"destroy test graph");checkCuda(cudaStreamDestroy(stream),"destroy test stream");
++    std::printf("PASS nodes=%u authored_references=%u maximum_row_degree=4097 graph_replays=6 restored_live_references=%u exact_order=true\n",nodes,bonds,restored);
++}
++}
++int main(){try{run(1);run(2051);return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}

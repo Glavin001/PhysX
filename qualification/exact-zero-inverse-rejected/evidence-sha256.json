@@ -1,0 +1,10 @@
+{
+  "qualification/exact-zero-inverse-rejected/README.md": "9fbeb3d18fd1e587e86aa125c11c9c2d1d8a2b6a3fa4151affc62340b34af6dd",
+  "qualification/exact-zero-inverse-rejected/candidate.patch": "45d7a074ba02f5fe19afa8c8ff08b99096353515cdfbb301f5b6fe4bf4333856",
+  "qualification/exact-zero-inverse-rejected/restored-memcheck.log": "86ecb7ab153137f80d1898f871af5e8adb11e1ecaf4335015799ea74a56c9da1",
+  "qualification/exact-zero-inverse-rejected/restored-tests.log": "776009aa59b88cb7371933c8a59f87b1438f624816d9040e91c9108f55af05f5",
+  "qualification/exact-zero-inverse-rejected/sparse-inverse-memcheck.log": "17e75d8a7a4f2938ac74fa806a08d16d48e5a7821e4a2f5b84be739a17aa0dd6",
+  "qualification/exact-zero-inverse-rejected/sparse-inverse-ref-memcheck.log": "d8efdb7139b8088ef3afe9d24f592c03bf1397cd57ee061ac955df81040bdd71",
+  "qualification/exact-zero-inverse-rejected/sparse-inverse-tests.log": "c7fb57c2faf7c7af02f39340a01c7399fb81e80062f70d2a65018254d9834d8d",
+  "qualification/exact-zero-inverse-rejected/sparse-inverse-view-memcheck.log": "54c8666c1b96cab3ccd3bb106ee9f7c3a1659968730354b0be45af0cccf6f4ff"
+}

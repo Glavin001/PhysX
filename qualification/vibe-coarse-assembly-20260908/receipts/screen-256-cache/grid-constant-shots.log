@@ -1,0 +1,12 @@
+[embedded-destruction] chunks=113664 bonds=229376 initial_clusters=256 direct_gpu=0 native_sleep=1 correction_limit=1 max_stress_passes=2 iterations=8192
+tick 0/600, fragments 0, awake 0, broken 0
+tick 60/600, fragments 11483, awake 11221, broken 62080
+tick 120/600, fragments 15969, awake 13944, broken 71423
+tick 180/600, fragments 16118, awake 10086, broken 71640
+tick 240/600, fragments 16884, awake 10986, broken 73457
+tick 300/600, fragments 17737, awake 10323, broken 74834
+tick 360/600, fragments 18020, awake 9064, broken 75213
+tick 420/600, fragments 18512, awake 9088, broken 76107
+tick 480/600, fragments 18892, awake 8433, broken 76662
+tick 540/600, fragments 19050, awake 7258, broken 76842
+report: /root/workspace/physx-2/out/vibe-coarse-assembly-20260908/screen-256-cache/grid-constant-shots/report.md

@@ -1,0 +1,17 @@
+[
+  {
+    "tool": "initcheck",
+    "exit": 97,
+    "log": "/root/workspace/physx-2/out/device-preparation-20260909/baseline-initcheck.log"
+  },
+  {
+    "tool": "synccheck",
+    "exit": 97,
+    "log": "/root/workspace/physx-2/out/device-preparation-20260909/baseline-synccheck.log"
+  },
+  {
+    "tool": "racecheck",
+    "exit": 97,
+    "log": "/root/workspace/physx-2/out/device-preparation-20260909/baseline-racecheck.log"
+  }
+]

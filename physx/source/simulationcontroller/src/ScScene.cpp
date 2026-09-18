@@ -27,6 +27,8 @@
 // Copyright (c) 2001-2004 NovodeX AG. All rights reserved.  
 
 #include "ScScene.h"
+#include <cstdlib>
+#include <cstdio>
 #include "BpBroadPhase.h"
 #include "ScConstraintCore.h"
 #include "ScArticulationJointCore.h"
@@ -225,11 +227,17 @@ namespace
 					unfrozen[i]->createSqBounds();
 				}
 			
+				// R2 stage 0: when the device applies the solver's frame flags to its readiness
+				// mirrors, the host's identical application must not be recorded as deltas.
+				const bool deviceReadiness = mScene.getSimulationController()->deviceOwnsSolverReadiness();
+				IG::SimpleIslandManager* islands = mScene.getSimpleIslandManager();
+				if(deviceReadiness){islands->getAccurateIslandSim().pauseReadinessRecording(true);islands->getSpeculativeIslandSim().pauseReadinessRecording(true);}
 				for(PxU32 i = 0; i < nbActivated; ++i)
 					activateBodies[i]->notifyNotReadyForSleeping();
 
 				for(PxU32 i = 0; i < nbDeactivated; ++i)
 					deactivateBodies[i]->notifyReadyForSleeping();
+				if(deviceReadiness){islands->getAccurateIslandSim().pauseReadinessRecording(false);islands->getSpeculativeIslandSim().pauseReadinessRecording(false);}
 
 				mContext->getLock().unlock();
 			}
@@ -370,6 +378,8 @@ namespace
 
 		virtual void runInternal() PX_OVERRIDE
 		{
+            PxProfileScoped profile(mScene.getSimulationController()->usesDeviceDestructionContactInputs()?PxGetProfilerCallback():NULL,
+                "GpuDestruction.task.bodyStatusWork",false,PxU64(reinterpret_cast<size_t>(mScene.getSimulationController())));
 			IG::SimpleIslandManager& islandManager = *mScene.getSimpleIslandManager();
 			const IG::IslandSim& islandSim = islandManager.getAccurateIslandSim();
 
@@ -487,6 +497,30 @@ namespace
 				PxU32* unfrozenShapeIndices = simulationController->getUnfrozenShapes();
 				PxU32* frozenShapeIndices = simulationController->getFrozenShapes();
 
+                if(simulationController->usesDeviceDestructionContactInputs()) {
+                    {
+                        static const bool scopeDiag=::getenv("PHYSX_DESTRUCTION_ISLAND_SCOPE_DIAG")!=NULL;
+                        if(scopeDiag){static PxU32 passes=0;++passes;
+                            if(nbFrozenShapes+nbUnfrozenShapes>0){
+                                PxU32 parkedCount=0;const PxU32* parked=simulationController->destructionParkedNodes(parkedCount);
+                                PxBitMap parkedMap;PxU32 parkedUnfrozen=0,activeUnfrozen=0,sample[4]={0,0,0,0};
+                                PxBitMap seenBodies;seenBodies.resizeAndClear(mScene->getSimpleIslandManager()->getAccurateIslandSim().getNbNodes());PxU32 distinctBodies=0,distinctParked=0;
+                                if(parkedCount){parkedMap.resizeAndClear(mScene->getSimpleIslandManager()->getAccurateIslandSim().getNbNodes());for(PxU32 k=0;k<parkedCount;++k)parkedMap.set(parked[k]);}
+                                Sc::ShapeSimBase** shapes=simulationController->getShapeSims();const PxU32 shapeCount=simulationController->getNbShapes();
+                                for(PxU32 k=0;k<nbUnfrozenShapes;++k){const PxU32 id=unfrozenShapeIndices[k];if(id>=shapeCount||!shapes[id])continue;
+                                    Sc::BodySim* body=shapes[id]->getBodySim();if(!body)continue;const PxU32 node=body->getNodeIndex().index();
+                                    const bool isParked=parkedCount&&parkedMap.boundedTest(node);if(isParked)++parkedUnfrozen;else ++activeUnfrozen;
+                                    if(!seenBodies.boundedTest(node)){seenBodies.growAndSet(node);++distinctBodies;if(isParked)++distinctParked;}
+                                    if(k<2){sample[k*2]=node;sample[k*2+1]=PxU32(body->getLowLevelBody().mInternalFlags)|(body->isActive()?0x10000:0);}}
+                                fprintf(stderr,"[query-diag] pass %u correcting %d frozen %u unfrozen %u parkedUnfrozen %u activeUnfrozen %u distinctBodies %u distinctParked %u parkedList %u sample node %u flags 0x%x node %u flags 0x%x\n",
+                                    passes,int(mScene->destructionCorrectionInProgress()),nbFrozenShapes,nbUnfrozenShapes,parkedUnfrozen,activeUnfrozen,distinctBodies,distinctParked,parkedCount,sample[0],sample[1],sample[2],sample[3]);}}
+                    }
+                    if(!mScene->queueDestructionQueryMembership(frozenShapeIndices,nbFrozenShapes)
+                        || !mScene->queueDestructionQueryMembership(unfrozenShapeIndices,nbUnfrozenShapes)) {
+                        PxGetFoundation().error(PxErrorCode::eOUT_OF_MEMORY,PX_FL,"Native query observation queue failed; simulation is incomplete");
+                        mScene->getCudaContextManager()->getCudaContext()->setAbortMode(true);
+                    }
+                } else {
 				Sc::ShapeSimBase** shapeSimsLL = simulationController->getShapeSims();
 	
 				for(PxU32 i=0; i<nbFrozenShapes; ++i)
@@ -502,6 +536,7 @@ namespace
 					PX_ASSERT(shape);
 					shape->createSqBounds();
 				}
+                }
 			}
 
 			if (simulationController->hasDeformableSurfaces())
@@ -625,6 +660,8 @@ Sc::Scene::Scene(const PxSceneDesc& desc, PxU64 contextID) :
 	mKineKineFilteringMode			(desc.kineKineFilteringMode),
 	mStaticKineFilteringMode		(desc.staticKineFilteringMode),
 	mSleepBodies					("sceneSleepBodies"),
+    mGpuSleepPendingBodies("sceneGpuSleepPendingBodies"),
+    mGpuSleepRollbackBodies("sceneGpuSleepRollbackBodies"),
 	mWokeBodies						("sceneWokeBodies"),
 	mEnableStabilization			(desc.flags & PxSceneFlag::eENABLE_STABILIZATION),
 	mActiveActors					("clientActiveActors"),
@@ -648,6 +685,7 @@ Sc::Scene::Scene(const PxSceneDesc& desc, PxU64 contextID) :
 	mSecondPassNarrowPhase			(contextID, this, "ScScene.secondPassNarrowPhase"),
 	mPostNarrowPhase				(contextID, this, "ScScene.postNarrowPhase"),
 	mFinalizationPhase				(contextID, this, "ScScene.finalizationPhase"),
+    mDestructionFinalizationPhase(contextID, this, "ScScene.destructionFinalizationPhase"),
 	mUpdateCCDMultiPass				(contextID, this, "ScScene.updateCCDMultiPass"),
 	mAfterIntegration				(contextID, this, "ScScene.afterIntegration"),
 	mPostSolver						(contextID, this, "ScScene.postSolver"),
@@ -842,10 +880,11 @@ Sc::Scene::Scene(const PxSceneDesc& desc, PxU64 contextID) :
 
 #if PX_SUPPORT_GPU_PHYSX
 	const bool directAPI = mPublicFlags & PxSceneFlag::eENABLE_DIRECT_GPU_API;
-	if(directAPI)
+	if(directAPI || useGpuDynamics)
 	{
 		PX_ASSERT(mHeapMemoryAllocationManager);
-		// Direct pipeline needs mapped bounds: mergeBoundsAndTransformsChanges
+		// GPU dynamics can enable resident destruction later. Mapped bounds
+        // support its command-only updates without changing the public API mode.
 		mBoundsArray = PxvGetPhysXGpu(true)->createGpuBounds(*mHeapMemoryAllocationManager->mPinnedHostMappedMemoryAllocator);
 	}
 	else
@@ -1525,6 +1564,10 @@ void Sc::Scene::advance(PxReal timeStep, PxBaseTask* continuation)
 
 void Sc::Scene::collide(PxReal timeStep, PxBaseTask* continuation)
 {
+    if(mSimpleIslandManager->deviceConnectivityOwned() && !canUseGpuDestructionIslandRepair())
+    {
+        mSimpleIslandManager->restoreHostConnectivity();
+    }
 	mDt = timeStep;
 
 	stepSetupCollide(continuation);
@@ -1649,9 +1692,16 @@ PxSimulationEventCallback* Sc::Scene::getSimulationEventCallback() const
 void Sc::Scene::removeBody(BodySim& body)	//this also notifies any connected joints!
 {
 	BodyCore& core = body.getBodyCore();
+    if(!body.isArticulationLink() && body.getNodeIndex().isValid())
+    {
+        mSimulationController->removeDynamic(body.getNodeIndex());
+    }
+
 
 	// Remove from sleepBodies array
 	mSleepBodies.erase(&core);
+    mGpuSleepPendingBodies.erase(&core);
+    mGpuSleepRollbackBodies.erase(&core);
 	PX_ASSERT(!mSleepBodies.contains(&core));
 
 	// Remove from wokeBodies array
@@ -1852,6 +1902,11 @@ void Sc::Scene::deallocateConstraintBlock(void* ptr, PxU32 size)
 		PX_FREE(ptr);
 }
 
+bool Sc::Scene::isSimulationResultAccepted() const
+{
+    return mSimulationController->getDestructionError() == 0;
+}
+
 void Sc::Scene::postReportsCleanup()
 {
 	mElementIDPool->processPendingReleases();
@@ -1940,12 +1995,13 @@ void Sc::Scene::finalizeContactStreamAndCreateHeader(PxContactPairHeader& header
 
 const PxArray<PxContactPairHeader>& Sc::Scene::getQueuedContactPairHeaders()
 {
+    mQueuedContactPairHeaders.clear();
+    if (!isSimulationResultAccepted()) return mQueuedContactPairHeaders;
 	const PxU32 removedShapeTestMask = PxU32(ContactStreamManagerFlag::eTEST_FOR_REMOVED_SHAPES);
 
 	ActorPairReport*const* actorPairs = mNPhaseCore->getContactReportActorPairs();
 	PxU32 nbActorPairs = mNPhaseCore->getNbContactReportActorPairs();
 	mQueuedContactPairHeaders.reserve(nbActorPairs);
-	mQueuedContactPairHeaders.clear();
 
 	for (PxU32 i = 0; i < nbActorPairs; i++)
 	{
@@ -1975,7 +2031,7 @@ Threading: called in the context of the user thread, but only after the physics 
 */
 void Sc::Scene::fireQueuedContactCallbacks()
 {
-	if(mSimulationEventCallback)
+	if(mSimulationEventCallback && isSimulationResultAccepted())
 	{
 		const PxU32 removedShapeTestMask = PxU32(ContactStreamManagerFlag::eTEST_FOR_REMOVED_SHAPES);
 
@@ -2034,7 +2090,7 @@ void Sc::Scene::fireTriggerCallbacks()
 		//
 		const bool hasRemovedShapes = mElementIDPool->getDeletedIDCount() > 0;
 
-		if(mSimulationEventCallback)
+		if(mSimulationEventCallback && isSimulationResultAccepted())
 		{
 			if (hasRemovedShapes)
 			{
@@ -2062,8 +2118,72 @@ void Sc::Scene::fireTriggerCallbacks()
 /*
 Threading: called in the context of the user thread, but only after the physics thread has finished its run
 */
+bool Sc::Scene::finalizeGpuSleep(BodyCore* body)
+{
+    const bool nativeSleep=!(mPublicFlags & PxSceneFlag::eENABLE_DIRECT_GPU_API)
+        && mSimulationController->usesDeviceDestructionContactInputs();
+    if((!(mPublicFlags & PxSceneFlag::eENABLE_DIRECT_GPU_SLEEPING) && !nativeSleep) || mGpuSleepPendingBodies.size() == 0)
+        return true;
+#if PX_SUPPORT_GPU_PHYSX
+    if(body && !mGpuSleepPendingBodies.contains(body)) return true;
+    if(body)mSimulationController->noteDestructionSleepFinalized(static_cast<PxRigidDynamic*>(body->getPxActor())->getGPUIndex());
+    PxProfileScoped profile(nativeSleep?PxGetProfilerCallback():NULL,
+        "GpuDestruction.task.sleepCommit",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
+    PxArray<PxU32> indices, rollbackIndices;
+    const PxU32 count = body ? 1 : mGpuSleepPendingBodies.size();
+    BodyCore* const* entries = mGpuSleepPendingBodies.getEntries();
+    indices.reserve(count);
+    for(PxU32 i = 0; i < count; ++i)
+    {
+        BodyCore* core = body ? body : entries[i];
+        // A not-yet-uploaded body will start with the CPU's zero velocities.
+        if(!(core->getSim()->getLowLevelBody().mInternalFlags & PxsRigidBody::eFIRST_BODY_COPY_GPU))
+        {
+            PxArray<PxU32>& target = mGpuSleepRollbackBodies.contains(core) ? rollbackIndices : indices;
+            target.pushBack(static_cast<PxRigidDynamic*>(core->getPxActor())->getGPUIndex());
+        }
+    }
+    if(rollbackIndices.size() && !mSimulationController->finalizeSleepingRigidBodies(rollbackIndices.begin(), rollbackIndices.size(), true))
+        return false;
+    if(indices.size() && !mSimulationController->finalizeSleepingRigidBodies(indices.begin(), indices.size(), false))
+        return false;
+    if(body)
+    {
+        mGpuSleepPendingBodies.erase(body);
+        mGpuSleepRollbackBodies.erase(body);
+    }
+    else
+    {
+        mGpuSleepPendingBodies.clear();
+        mGpuSleepRollbackBodies.clear();
+    }
+#endif
+    return true;
+}
+
 void Sc::Scene::fireCallbacksPostSync()
 {
+    if(mPublicFlags & PxSceneFlag::eENABLE_DIRECT_GPU_HOST_ACCESS)
+    {
+        PxArray<PxU32> indices;
+        PxArray<PxTransform> poses;
+        const PxU32 count = getActiveKinematicBodiesCount();
+        BodyCore* const* bodies = getActiveKinematicBodies();
+        indices.reserve(count); poses.reserve(count);
+        for(PxU32 i=0; i<count; ++i)
+        {
+            BodyCore& core = *bodies[i];
+            indices.pushBack(static_cast<PxRigidDynamic*>(core.getPxActor())->getGPUIndex());
+            poses.pushBack(core.getBody2World() * core.getBody2Actor().getInverse());
+        }
+        if(count && !mSimulationController->publishHostRigidPoses(indices.begin(),poses.begin(),count))
+            PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR,PX_FL,"GPU kinematic target publication failed.");
+    }
+    if(!finalizeGpuSleep())
+    {
+        PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR, PX_FL, "GPU sleeping velocity finalization failed.");
+    }
+
 	//
 	// Fire sleep & woken callbacks
 	//
@@ -2081,7 +2201,7 @@ void Sc::Scene::fireCallbacksPostSync()
 	const PxU32 maxGpuSizeNeeded = gpu_cleanUpSleepAndWokenBodies();
 #endif
 
-	if(mSimulationEventCallback || mOnSleepingStateChanged)
+	if((mSimulationEventCallback || mOnSleepingStateChanged) && isSimulationResultAccepted())
 	{
 		// allocate temporary data
 		const PxU32 nbSleep = mSleepBodies.size();
@@ -2311,12 +2431,16 @@ void Sc::Scene::removeStatic(StaticCore& ro, PxInlineArray<const Sc::ShapeCore*,
 	}
 }
 
-void Sc::Scene::addBody(BodyCore& body, NpShape*const *shapes, PxU32 nbShapes, size_t shapePtrOffset, PxBounds3* outBounds, bool compound)
+void Sc::Scene::addBody(BodyCore& body, NpShape*const *shapes, PxU32 nbShapes, size_t shapePtrOffset, PxBounds3* outBounds, bool compound, PxNodeIndex nativeNode)
 {
 	// sim objects do all the necessary work of adding themselves to broad phase,
 	// activation, registering with the interaction system, etc
 
-	BodySim* sim = mBodySimPool->construct(*this, body, compound);
+    if(nativeNode.isValid() && (body.getActorCoreType()!=PxActorType::eRIGID_DYNAMIC || !mSimpleIslandManager->isUnusedNativeNodeHandle(nativeNode.index()))) {
+        PxGetFoundation().error(PxErrorCode::eINVALID_OPERATION,PX_FL,"Native GPU body slot is not an unused reservation");
+        return;
+    }
+	BodySim* sim = mBodySimPool->construct(*this, body, compound, nativeNode);
 
 	const bool isArticulationLink = sim->isArticulationLink();
 
@@ -2716,6 +2840,17 @@ void Sc::Scene::clearSleepWakeBodies()
 
 void Sc::Scene::onBodySleep(BodySim* body)
 {
+    if(((mPublicFlags & PxSceneFlag::eENABLE_DIRECT_GPU_SLEEPING)
+        || (!(mPublicFlags & PxSceneFlag::eENABLE_DIRECT_GPU_API) && mSimulationController->usesDeviceDestructionContactInputs()))
+        && !body->isKinematic() && !body->notInScene()
+        && !(body->getLowLevelBody().mInternalFlags & PxsRigidBody::eFIRST_BODY_COPY_GPU))
+    {
+        // Creation calls deactivate before GPU registration; later pre-upload
+        // sleep commands are already represented by the CPU initial state.
+        // Neither has resident motion to finalize. Keep CPU callbacks below.
+        mGpuSleepPendingBodies.insert(&body->getBodyCore());
+    }
+
 	if (!mSimulationEventCallback && !mOnSleepingStateChanged)
 		return;
 

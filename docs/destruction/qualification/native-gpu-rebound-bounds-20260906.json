@@ -1,0 +1,280 @@
+{
+  "milestone": "GPU-authoritative persistent collision bounds and explicit host pose commands",
+  "timestampUtc": "2026-09-06T02:39:13.397104+00:00",
+  "baseRevision": "24452e674495e96884b60b4944c24c45a439eb74",
+  "gpu": "NVIDIA GeForce RTX 4090, 595.71.05",
+  "qualificationComplete": false,
+  "buildCommand": {
+    "command": [
+      "python3",
+      "tools/scripts/build-destruction-sdk.py",
+      "--jobs",
+      "4"
+    ],
+    "returncode": 0,
+    "log": "out/native-rebound-bounds-build.log"
+  },
+  "buildCacheCheck": {
+    "removedCachedVariable": "PX_OUTPUT_ARCH",
+    "builderRestores": "x86",
+    "reason": "Fresh SDK configuration otherwise emitted unsuffixed libraries and failed reference configuration"
+  },
+  "regression": {
+    "tests": 58,
+    "passed": 53,
+    "failed": [
+      "blast_stress_load_path",
+      "blast_stress_reference_building_load_path",
+      "blast_stress_reference_building_crush_ordinary_impact",
+      "blast_stress_crush_wall_bite",
+      "blast_stress_destruction_quality"
+    ],
+    "newFailures": [],
+    "existingAssertionsWeakened": false
+  },
+  "checks": [
+    {
+      "label": "regression",
+      "command": [
+        "ctest",
+        "--test-dir",
+        "out/destruction-sdk",
+        "--output-on-failure",
+        "--output-junit",
+        "/root/workspace/physx-2/out/native-rebound-final-regression.xml"
+      ],
+      "returncode": 8,
+      "log": "out/native-rebound-final-regression.log",
+      "sha256": "751babeca2f7b2a9a688450f72bec89b8978bc19a5209d7d5e8dddec4cb4008b"
+    },
+    {
+      "label": "geometry-memcheck",
+      "command": [
+        "/usr/local/cuda/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "99",
+        "out/destruction-sdk/reference/persistent_shape_owner_test",
+        "--gpu-bounds"
+      ],
+      "returncode": 0,
+      "log": "out/native-rebound-final-geometry-memcheck.log",
+      "sha256": "568e7434179570d6fa3614b3928fbf1a2b20f6fb20b9a95a46d8d841f62f165b",
+      "zeroErrors": true
+    },
+    {
+      "label": "growth-memcheck",
+      "command": [
+        "/usr/local/cuda/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "99",
+        "out/destruction-sdk/reference/persistent_shape_owner_test",
+        "--gpu-bounds-growth"
+      ],
+      "returncode": 0,
+      "log": "out/native-rebound-final-growth-memcheck.log",
+      "sha256": "c0f790b6f5787b40088ef111e9cad3883dc2bd9d5f441926992fbd88482ad6f4",
+      "zeroErrors": true
+    },
+    {
+      "label": "host-pose-memcheck",
+      "command": [
+        "/usr/local/cuda/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "99",
+        "out/destruction-sdk/reference/persistent_shape_owner_test",
+        "--host-pose-bounds"
+      ],
+      "returncode": 0,
+      "log": "out/native-rebound-final-host-pose-memcheck.log",
+      "sha256": "3f4bd89446336503a209ca5ee7ef3b71224157e51bec8b2d050ff3dc2b375f4f",
+      "zeroErrors": true
+    },
+    {
+      "label": "consumer-build",
+      "command": [
+        "cmake",
+        "--build",
+        "out/package-consumer",
+        "--parallel",
+        "4"
+      ],
+      "returncode": 0,
+      "log": "out/native-rebound-final-consumer-build.log",
+      "sha256": "f0afd7fa93ea4811ecc655ffdeb9c9b429c3499842201f28a318bb68f39233d1"
+    },
+    {
+      "label": "consumer-cpu",
+      "command": [
+        "out/package-consumer/package_consumer"
+      ],
+      "returncode": 0,
+      "log": "out/native-rebound-final-consumer-cpu.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "label": "consumer-gpu",
+      "command": [
+        "out/package-consumer/package_consumer",
+        "--gpu"
+      ],
+      "returncode": 0,
+      "log": "out/native-rebound-final-consumer-gpu.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "label": "native-consumer-cpu",
+      "command": [
+        "out/package-consumer/native_scene_consumer"
+      ],
+      "returncode": 0,
+      "log": "out/native-rebound-final-native-consumer-cpu.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "label": "native-consumer-gpu",
+      "command": [
+        "out/package-consumer/native_scene_consumer",
+        "--gpu"
+      ],
+      "returncode": 0,
+      "log": "out/native-rebound-final-native-consumer-gpu.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "checkpointMemoryCheck": {
+    "command": [
+      "/usr/local/cuda/bin/compute-sanitizer",
+      "--tool",
+      "memcheck",
+      "--error-exitcode",
+      "99",
+      "--print-limit",
+      "10",
+      "out/destruction-sdk/reference/native_gpu_checkpoint_test"
+    ],
+    "returncode": 0,
+    "log": "out/native-rebound-checkpoint-memcheck.log",
+    "zeroErrors": true
+  },
+  "unresolvedStressMemoryCheck": {
+    "command": [
+      "/usr/local/cuda/bin/compute-sanitizer",
+      "--tool",
+      "memcheck",
+      "--error-exitcode",
+      "99",
+      "out/destruction-sdk/reference/native_gpu_correction_body_test"
+    ],
+    "returncode": 99,
+    "log": "out/native-rebound-bounds-correction-memcheck-failed.log",
+    "reportedErrors": 402,
+    "runtimeMatchesPreviousQualifiedBinary": true,
+    "baseline": {
+      "revision": "24452e674495e96884b60b4944c24c45a439eb74",
+      "worktree": "/root/workspace/physx-rebound-baseline",
+      "sourceClean": true,
+      "configurationAdjustment": "cmake -S physx/compiler/public -B out/sdk-release -DPX_OUTPUT_ARCH=x86",
+      "buildReturncode": 0,
+      "buildLog": "out/native-rebound-baseline-build-fixed-config.log",
+      "command": [
+        "/usr/local/cuda/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "99",
+        "--print-limit",
+        "10",
+        "/root/workspace/physx-rebound-baseline/out/destruction-sdk/reference/native_gpu_correction_body_test"
+      ],
+      "returncode": 99,
+      "reportedErrors": 360,
+      "log": "out/native-rebound-baseline-correction-memcheck.log",
+      "librarySha256": {
+        "libPhysXDestructionGpuRuntime_64.so": "0fa4704b76bc3911db7111aed5701e99783cbb315c982a205514e00beb391b86",
+        "libPhysXGpuActivity_64.so": "895d5e2940d3f11689764a8bafb495cb7f9e6a6d3616c1a3cbb54c97a1c150a6",
+        "libPhysX_static_64.a": "b6a76632ba5e0dec25bb45bd74a64d49b8968720bbff69fcee57d49d1cda6e07"
+      }
+    },
+    "finding": "The previous revision reproduces CUDA address errors in native stress graph execution under Compute Sanitizer; root cause is unresolved.",
+    "diagnostics": [
+      "out/native-rebound-bounds-correction-memcheck-diagnostic.log",
+      "out/native-rebound-bounds-correction-memcheck-blocking.log",
+      "out/native-rebound-correction-launch-blocking.log"
+    ],
+    "passingIsolation": [
+      "out/conditional-graph-repro-memcheck.log",
+      "out/stress-context-repro-memcheck.log"
+    ]
+  },
+  "sourceSha256": {
+    "demos/blast-stress-demo/CMakeLists.txt": "74fe3f444e3ad6437c955d2f9109976e301df9774e0589c4346aaf2501ff6f2e",
+    "demos/blast-stress-demo/tests/persistent_shape_owner_test.cpp": "63b6c89ddc9ecc9ed274079d644a3a04fbab4a9b482778051710ef7fcee3d177",
+    "physx/source/gpucommon/include/PxgKernelNames.h": "46a3c0537376cf19a89deebf37e1916f4802939d8529f75b17f0df7af2df2f3b",
+    "physx/source/gpusimulationcontroller/include/PxgShapeSimManager.h": "5e2f2131ac89886e09b46ee758c76ecaedc49b95bc0a16c4f6db99f50843319a",
+    "physx/source/gpusimulationcontroller/include/PxgSimulationController.h": "46e05766dfeaf52a57f71ba39030766fc84debd05ac0d6b0689b09c7c4824723",
+    "physx/source/gpusimulationcontroller/include/PxgSimulationCore.h": "56822c98064d224a210c5e1951f2ef5d0ad75e77a16161e78b43ebe00efb5761",
+    "physx/source/gpusimulationcontroller/src/CUDA/updateBodiesAndShapes.cu": "31365845642dc0abe4cf498c5d544b89ae1caf0a7f63c245351bf9960bbc80bc",
+    "physx/source/gpusimulationcontroller/src/PxgShapeSimManager.cpp": "56d2de10e9f16530f5d4e7979c6681881982147c3fc2ed5861d4ec5a400c906c",
+    "physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp": "571d8522590786348ba3e5f818c914ebfeb797bb7c9cfd1a7e89fa4125994bfb",
+    "physx/source/gpusimulationcontroller/src/PxgSimulationCore.cpp": "a4aa703c8f87cf9d67badcea553970da9cec826cc2eee305618aa3903ebc604e",
+    "physx/source/lowlevel/software/include/PxsSimulationController.h": "61a75fda0713a0f6de1ec9f169536265b2b2877bcc9ade28078d25e8de8ad83f",
+    "physx/source/simulationcontroller/src/ScPipeline.cpp": "a043402647fc68e6d39f817188e21b1548910da96be00c57f3bf0f867d5b195f",
+    "physx/source/simulationcontroller/src/ScShapeSimBase.cpp": "0a07b6483e4620d87de0517804dae6f8d49225250085ad1b8a401b0085e37d94",
+    "tools/scripts/build-destruction-sdk.py": "a04212121428bcdd076882fcd0b26e2ef19f2d04129de6d50246316094055b30"
+  },
+  "librarySha256": {
+    "libPhysXDestructionGpuRuntime_64.so": "4a6ecbe1903ce26890ae5f15e50dd9f84db9a7c2c2005721aac89b130a609c16",
+    "libPhysXGpuActivity_64.so": "0ba62476107d23c3f98df410129928c8bd59d3892c00818b8f4ece890256eaec",
+    "libPhysX_static_64.a": "7b1730181811bf8c8a3c5ddbc90355529955e0dda55843e7f31e8034b2dd6682"
+  },
+  "coverage": [
+    "GPU-only body translation/rotation without CPU pose publication",
+    "Box, sphere, capsule and scaled cooked convex geometry; rotated/offset COM",
+    "Persistent shape IDs and new actor/node contact ownership; contact points at actual commanded locations",
+    "First-step collision/depenetration; merge invalidation; observed CPU queries",
+    "Queue growth from one to 257, repeated transfers, cancellation/removal and simultaneous 1100-shape storage growth",
+    "Transfers to new bodies with pending first upload",
+    "Explicit host pose commands before/after transfers and without ownership changes",
+    "Full native regression and installed CPU/GPU consumers"
+  ],
+  "limitations": [
+    "Native material-driven ownership changes still fail explicitly before acceptance; internal one-resim transaction remains incomplete",
+    "CPU submits this boundary; it is not yet device-produced atomic topology/ownership commit",
+    "Native private cluster acceptance, aggregates, command/crush-energy accounting, capacity retry, lifecycle, full consumer integration and scale qualification remain incomplete",
+    "The stress sanitizer failure predates this change and remains unresolved; no full native memory qualification claim",
+    "No isolated 60 Hz or massive-scene performance claim"
+  ],
+  "logsSha256": {
+    "out/native-rebound-final-regression.log": "751babeca2f7b2a9a688450f72bec89b8978bc19a5209d7d5e8dddec4cb4008b",
+    "out/native-rebound-final-geometry-memcheck.log": "568e7434179570d6fa3614b3928fbf1a2b20f6fb20b9a95a46d8d841f62f165b",
+    "out/native-rebound-final-growth-memcheck.log": "c0f790b6f5787b40088ef111e9cad3883dc2bd9d5f441926992fbd88482ad6f4",
+    "out/native-rebound-final-host-pose-memcheck.log": "3f4bd89446336503a209ca5ee7ef3b71224157e51bec8b2d050ff3dc2b375f4f",
+    "out/native-rebound-final-consumer-build.log": "f0afd7fa93ea4811ecc655ffdeb9c9b429c3499842201f28a318bb68f39233d1",
+    "out/native-rebound-final-consumer-cpu.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "out/native-rebound-final-consumer-gpu.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "out/native-rebound-final-native-consumer-cpu.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "out/native-rebound-final-native-consumer-gpu.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "out/native-rebound-bounds-build.log": "49acd698b730af6616439254470bbd2f8d7c081ff0b95ef041c612eb7901e88e",
+    "out/native-rebound-build-cache-reset.log": "49947bf5677aeac2b833106b3a54af389280565a2b6c91ba9b921857d995aa0c",
+    "out/native-rebound-final-regression.xml": "46169a2fa404b3cd8f81dcc0629e4364dd1a1cc1f67388ce93e5ad00a21e2c04",
+    "out/native-rebound-checkpoint-memcheck.log": "3572b942bec29ed764ffbd4af98621260b682422bcfba26bfa6056e6de13e305",
+    "out/native-rebound-bounds-before.log": "508f786f396e23277b5fb99327a8d61d1223a30b2ac5dff9bc1c2514ff04c4c4",
+    "out/native-rebound-host-pose-before.log": "663c66b87eb0b04ec4a20743d070c95ac1a01333dcfced68d44598f8d859a972",
+    "out/native-rebound-bounds-correction-memcheck-failed.log": "c0c744be2e57312b5d6a38592dadef04a19d1a45a18fe7e9d1ed64d8f32481a4",
+    "out/native-rebound-baseline-correction-memcheck.log": "d1397ac026902f2d5a8e8957ed35130e5d0dfdcb58ace49fc2c4297534ca4986",
+    "out/native-rebound-baseline-build-fixed-config.log": "32b1da44dbfe723b41cf4fef37b2adb147f9daf3b7ccfcf015cb8f35acaf84c2",
+    "out/native-rebound-bounds-correction-memcheck-diagnostic.log": "cc4db4c1d9211a33e7cf77bad91ba8cd9a15ea1103b5190911bf584c562fc2b0",
+    "out/native-rebound-bounds-correction-memcheck-blocking.log": "2cb9097622cedf319320167f22d8206e42719f4c12f94e300ff93b4cfae2774b",
+    "out/native-rebound-correction-launch-blocking.log": "ca3ad99aa51298add4b98b86dce19d7670c67dde9a6b90336f383cbed1d958eb",
+    "out/conditional-graph-repro-memcheck.log": "accf372d8fd1c2a54ccf17bebe1f8878f4f95f6563b6b7707b47895d6c93d8c2",
+    "out/stress-context-repro-memcheck.log": "c8b50d104a9375fb7a646bb55c6ff65a195f2119ff726a17c7474e8e12ed7b05",
+    "out/conditional-graph-repro.cu": "2c672ac82f46aae8779e2d3f72e1153310e2edd302a0c38f171af6f270023141",
+    "out/stress-context-repro.cu": "7fc9e0019610cad02888ce8529016ac6b27211d20d6ab2828ba0f399f5cc1b6c"
+  }
+}

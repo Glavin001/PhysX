@@ -1,0 +1,32 @@
+[
+  {
+    "capture": "wall-baseline-repeat-4",
+    "exit_code": 0,
+    "status": "passed",
+    "first_difference": null
+  },
+  {
+    "capture": "wall-baseline-repeat-5",
+    "exit_code": 0,
+    "status": "passed",
+    "first_difference": null
+  },
+  {
+    "capture": "wall-baseline-repeat-6",
+    "exit_code": 0,
+    "status": "passed",
+    "first_difference": null
+  },
+  {
+    "capture": "wall-baseline-repeat-7",
+    "exit_code": 0,
+    "status": "passed",
+    "first_difference": null
+  },
+  {
+    "capture": "wall-baseline-repeat-8",
+    "exit_code": 0,
+    "status": "passed",
+    "first_difference": null
+  }
+]

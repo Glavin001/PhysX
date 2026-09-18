@@ -1,0 +1,277 @@
+{
+  "base_simulation_revision": "40d0cafb",
+  "change": "Small-component node producers return norm contributions to registers. Warp sums fully overwrite local partials and combine them in fixed order, replacing global atomic accumulation and clearing inside the component loop. Scalar finalizers address the local value through an explicit component-ID base; stable result identities remain unchanged.",
+  "physical_equations_changed": false,
+  "summation_order_changed": true,
+  "timestep": 0.016666666666666666,
+  "correction_limit": 1,
+  "precision": "float32, preserving the global-atomic subnormal operand behavior",
+  "subnormal_reference": "https://docs.nvidia.com/cuda/archive/12.1.1/parallel-thread-execution/index.html",
+  "source_sha256": {
+    "blast/source/sdk/extensions/stressgpu/detail/StressComponentIteration.cuh": "0b6b928fce48fa60c061a2b537bda1d14f66f3ba2557ce84252d3c0adeabbd9b",
+    "blast/source/sdk/extensions/stressgpu/detail/StressIslandReduction.cuh": "ffcaf06b1b83ba004618655395de3f7a524d3630483bfa4b33d448e931081473",
+    "blast/source/sdk/extensions/stressgpu/detail/StressNodeIteration.cuh": "62cffe9ed6848c018b693fe1a99911462f84768758575db15a155c12585ea512",
+    "blast/source/sdk/extensions/stressgpu/detail/StressNodeOperator.cuh": "82b89f9528031b652caeeecdd8a7dc9dc22be366f12f2bc49e89ba12672f1abc",
+    "demos/blast-stress-demo/tests/gpu_resident_stress_test.cu": "cf84e526eeb5acfc70dc73675759a038ba15d4a0488cffd03232ab28b9069793"
+  },
+  "component_sass_sha256": "79c2393fcc5bb37bb3b86ec853fbf99ab055648d1a73ba3749d39eb13b4741a6",
+  "component_atomic_instructions_present": false,
+  "focused_tests_passed": 9,
+  "focused_ctest": "qualification/producer-norm-ctest.log",
+  "new_tests": [
+    "interleaved authored IDs for 12/1024/1028-node components (2064 nodes, 2061 bonds)",
+    "subnormal contributions must preserve original convergence and zero force",
+    "existing sparse-ID, empty topology, mixed-size and failed-component propagation checks"
+  ],
+  "targeted_synccheck_passed": true,
+  "targeted_racecheck_passed": true,
+  "unfiltered_memory_check_passed": true,
+  "full_synccheck_qualification": false,
+  "existing_full_synccheck_issue": "qualification/component-stress-cub-synccheck/README.md",
+  "reporter_tests_passed": 26,
+  "different_workload_comparison_rejected": true,
+  "penetration_audit": "qualification/producer-norm-quality.json",
+  "motion_audits": [
+    "qualification/producer-norm-motion-world-144.json",
+    "qualification/producer-norm-motion-impacts-256.json"
+  ],
+  "comparisons": [
+    {
+      "case": "penetration",
+      "chunks": 444,
+      "bonds": 896,
+      "projectiles": 1,
+      "trials": 5,
+      "seconds": 60,
+      "before_mean_ms": 2.9174278951666666,
+      "after_mean_ms": 2.8166386019444443,
+      "mean_change_percent": -3.454731251085963,
+      "before_peak_ms": 7.880687,
+      "after_peak_ms": 6.201072,
+      "before_missed_8ms": 0,
+      "after_missed_8ms": 0
+    },
+    {
+      "case": "world-256",
+      "chunks": 113664,
+      "bonds": 229376,
+      "projectiles": 1,
+      "trials": 2,
+      "seconds": 10,
+      "before_mean_ms": 3.6211805341666667,
+      "after_mean_ms": 3.4720101916666666,
+      "mean_change_percent": -4.1193843027859,
+      "before_peak_ms": 9.898342,
+      "after_peak_ms": 9.526094,
+      "before_missed_8ms": 3,
+      "after_missed_8ms": 4
+    },
+    {
+      "case": "impacts-256",
+      "chunks": 113664,
+      "bonds": 229376,
+      "projectiles": 256,
+      "trials": 2,
+      "seconds": 10,
+      "before_mean_ms": 19.733944716666667,
+      "after_mean_ms": 18.896497015,
+      "mean_change_percent": -4.24369133333683,
+      "before_peak_ms": 92.771916,
+      "after_peak_ms": 86.242865,
+      "before_missed_8ms": 1038,
+      "after_missed_8ms": 1038
+    }
+  ],
+  "counter_histories": [
+    {
+      "case": "world-256",
+      "run": "world-256-plain-0",
+      "fields": [
+        "bonds_broken",
+        "resim_passes",
+        "logical_clusters"
+      ],
+      "steps": 600,
+      "first_difference_from_prior_plain_0": null,
+      "peak_step": 33,
+      "through_peak_matches": true
+    },
+    {
+      "case": "world-256",
+      "run": "world-256-plain-1",
+      "fields": [
+        "bonds_broken",
+        "resim_passes",
+        "logical_clusters"
+      ],
+      "steps": 600,
+      "first_difference_from_prior_plain_0": null,
+      "peak_step": 33,
+      "through_peak_matches": true
+    },
+    {
+      "case": "world-256",
+      "run": "world-256-phases-0",
+      "fields": [
+        "bonds_broken",
+        "resim_passes",
+        "logical_clusters"
+      ],
+      "steps": 600,
+      "first_difference_from_prior_plain_0": null,
+      "peak_step": 33,
+      "through_peak_matches": true
+    },
+    {
+      "case": "impacts-256",
+      "run": "impacts-256-plain-0",
+      "fields": [
+        "bonds_broken",
+        "resim_passes",
+        "logical_clusters"
+      ],
+      "steps": 600,
+      "first_difference_from_prior_plain_0": null,
+      "peak_step": 82,
+      "through_peak_matches": true
+    },
+    {
+      "case": "impacts-256",
+      "run": "impacts-256-plain-1",
+      "fields": [
+        "bonds_broken",
+        "resim_passes",
+        "logical_clusters"
+      ],
+      "steps": 600,
+      "first_difference_from_prior_plain_0": null,
+      "peak_step": 82,
+      "through_peak_matches": true
+    },
+    {
+      "case": "impacts-256",
+      "run": "impacts-256-phases-0",
+      "fields": [
+        "bonds_broken",
+        "resim_passes",
+        "logical_clusters"
+      ],
+      "steps": 600,
+      "first_difference_from_prior_plain_0": null,
+      "peak_step": 82,
+      "through_peak_matches": true
+    }
+  ],
+  "world_144_timing": {
+    "bonds": 129024,
+    "broken_bonds_range": [
+      199,
+      199
+    ],
+    "buildings": 144,
+    "chunks": 63936,
+    "corrected_steps_range": [
+      3,
+      3
+    ],
+    "frame_strength_scale": 40,
+    "frozen_wall_counters_match": true,
+    "full_physical_quality_qualified": false,
+    "id": "world-144",
+    "initialization_ms_range": [
+      1286.9542,
+      1303.915013
+    ],
+    "label": "144 buildings, one unchanged wall impact",
+    "layout": "impact-corridor",
+    "material_strength_scale": 24,
+    "maximum_corrections_per_step": 1,
+    "metrics": {
+      "max": 7.785695,
+      "mean": 3.0575782364444444,
+      "min": 0.702045,
+      "n": 18000,
+      "p50": 3.031646,
+      "p95": 3.430608,
+      "p99": 4.208314
+    },
+    "missed_60hz": 0,
+    "missed_8ms": 0,
+    "peak": {
+      "frame": {
+        "active_dynamic_bodies": "43",
+        "active_kinematic_bodies": "1",
+        "awake_bodies": "44",
+        "bodies": "187",
+        "bonds_broken": "2",
+        "command_ms": "6.0000000000000002e-05",
+        "complete_end_ns": "39190866179681",
+        "complete_start_ns": "39190858394046",
+        "complete_step_ms": "7.7856949999999996",
+        "completion_ms": "0.052277999999999381",
+        "contact_pairs": "8",
+        "contact_pairs_with_contacts": "0",
+        "contacts_frame": "500",
+        "contacts_total": "3059",
+        "correction_status": "0",
+        "frame_host_ms": "7.8195180000000004",
+        "gpu_render_submit_and_export_ms": "0",
+        "graph_d2h_bytes": "0",
+        "logical_clusters": "186",
+        "native_dynamic_bodies": "43",
+        "native_kinematic_bodies": "144",
+        "observation_ms": "0.056585999999999997",
+        "physics_step_ms": "7.7333569999999998",
+        "pre_solve_pairs": "539",
+        "process_cpu_ms": "8.9584980000000005",
+        "projectiles_active": "1",
+        "resim_passes": "1",
+        "simulation_end_ns": "39190866129217",
+        "simulation_seconds": "0.56666672229766846",
+        "simulation_start_ns": "39190858394106",
+        "solver_rows": "0",
+        "splits_total": "42",
+        "step": "33",
+        "stress_active_bonds": "112697",
+        "stress_active_nodes": "54682",
+        "stress_converged": "1",
+        "stress_islands": "148",
+        "stress_iterations": "390",
+        "stress_solve_ms": "0"
+      },
+      "repeat": 4,
+      "step": 33
+    },
+    "population_peaks": {
+      "active_dynamic_bodies": 43,
+      "active_kinematic_bodies": 1,
+      "bodies": 187,
+      "contact_pairs": 20,
+      "contacts_frame": 537,
+      "logical_clusters": 186,
+      "stress_active_bonds": 112896,
+      "stress_active_nodes": 54720,
+      "stress_islands": 148,
+      "stress_iterations": 503
+    },
+    "projectile_mass_kg": 18000,
+    "projectiles": 1,
+    "repeated_counter_history_matches": true,
+    "sampled_gpu_memory_mib": 2698.0,
+    "seconds": 60,
+    "shot_path": "through-wall",
+    "sleeping": false,
+    "trials": 5
+  },
+  "rejected_layout_comparison": "qualification/producer-norm-layout-comparison/report.html",
+  "full_plan_complete": false,
+  "remaining": [
+    "GPU native body allocation and ownership/contact/query lifecycle",
+    "Selective correction work sets",
+    "Affected-only topology/hierarchy updates and GPU multilevel preconditioning",
+    "Validated structural reuse and sleep/wake",
+    "Resolve full synccheck issue",
+    "Exact bond identity and physical/lifecycle endurance qualification",
+    "Four-axis maximum-size frontier"
+  ]
+}

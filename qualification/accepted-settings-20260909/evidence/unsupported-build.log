@@ -1,0 +1,6 @@
+usage: build-destruction-sdk.py [-h] [--jobs JOBS] [--cuda CUDA]
+                                [--cuda-architectures CUDA_ARCHITECTURES]
+                                [--cc CC] [--cxx CXX] [--test]
+                                [--gpu-renderer] [--gpu-profiler]
+                                [--cupti-root CUPTI_ROOT]
+build-destruction-sdk.py: error: Integrated destruction supports only RTX 4090 architecture 89

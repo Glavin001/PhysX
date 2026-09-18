@@ -1,0 +1,196 @@
+{
+  "createdUtc": "2026-09-05T22:47:54.959243+00:00",
+  "baseRevision": "275641d83cf01ef0fc08f7faf710dbac29c80544",
+  "branch": "codex/gpu-destruction",
+  "scope": "GPU-owned stress connectivity; native bond-cut commit only when every chunk keeps the same active state and rigid owner. Native splitting/collision ownership/internal resimulation remain incomplete.",
+  "apiVersion": 4,
+  "gpu": "NVIDIA GeForce RTX 4090, 595.71.05, GPU-85708f39-437f-f244-cb88-77ef400c4ebe",
+  "cudaArchitectures": "89",
+  "compilers": {
+    "/usr/local/cuda/bin/nvcc": "nvcc: NVIDIA (R) Cuda compiler driver\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Fri_Feb_21_20:23:50_PST_2025\nCuda compilation tools, release 12.8, V12.8.93\nBuild cuda_12.8.r12.8/compiler.35583870_0\n",
+    "clang": "Ubuntu clang version 18.1.3 (1ubuntu1)\nTarget: x86_64-pc-linux-gnu\nThread model: posix\nInstalledDir: /usr/bin\n",
+    "clang++": "Ubuntu clang version 18.1.3 (1ubuntu1)\nTarget: x86_64-pc-linux-gnu\nThread model: posix\nInstalledDir: /usr/bin\n"
+  },
+  "commands": {
+    "build": "python3 tools/scripts/build-destruction-sdk.py --jobs 4",
+    "regression": "ctest --test-dir out/destruction-sdk --output-on-failure --output-junit /root/workspace/physx-2/out/native-stress-topology-regression.xml"
+  },
+  "regression": {
+    "tests": 46,
+    "passed": 41,
+    "failed": [
+      "blast_stress_load_path",
+      "blast_stress_reference_building_load_path",
+      "blast_stress_reference_building_crush_ordinary_impact",
+      "blast_stress_crush_wall_bite",
+      "blast_stress_destruction_quality"
+    ],
+    "newFailures": [],
+    "assertionsWeakened": false,
+    "note": "Four pre-existing failures plus the separately documented single-verdict wall-bite gap; unchanged by this stress-topology change."
+  },
+  "newCoverage": {
+    "stressModes": [
+      "default",
+      "deterministic reductions",
+      "Jacobi",
+      "bond space"
+    ],
+    "graphNodes": 100000,
+    "graphBonds": 200000,
+    "graphPartitionComponents": 100,
+    "forceRelativeTolerance": 0.0002,
+    "nativeFixture": "One weak triangle edge commits generation 1, retains one rigid body/three shapes; following solves carry 20 N and 10 N. A later three-cluster split preserves accepted generation and fails with error 8.",
+    "scopeLimit": "Large graph checks cover connectivity and complete-removal zero forces, not large-scene nonzero-load solve or collision throughput."
+  },
+  "memoryChecks": [
+    {
+      "name": "device-stress-topology-memcheck",
+      "command": [
+        "/usr/local/cuda/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "99",
+        "out/destruction-sdk/reference/gpu_stress_topology_test"
+      ],
+      "environment": {},
+      "returncode": 0,
+      "log": "out/device-stress-topology-memcheck.log",
+      "sha256": "d37b613c3d9c6759e78542e35f616e0c73a1272a43c31af9c8c0f9fa16cdc6b0",
+      "zeroErrors": true
+    },
+    {
+      "name": "device-stress-topology-deterministic-memcheck",
+      "command": [
+        "/usr/local/cuda/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "99",
+        "out/destruction-sdk/reference/gpu_stress_topology_test"
+      ],
+      "environment": {
+        "BLAST_GPU_DETERMINISTIC_REDUCTIONS": "1"
+      },
+      "returncode": 0,
+      "log": "out/device-stress-topology-deterministic-memcheck.log",
+      "sha256": "0f730ab79b87356e0f5131795d6fc7acba32fbd3fdd772cf279935877efbc04b",
+      "zeroErrors": true
+    },
+    {
+      "name": "native-stress-topology-memcheck",
+      "command": [
+        "/usr/local/cuda/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "99",
+        "out/destruction-sdk/reference/native_gpu_material_test"
+      ],
+      "environment": {},
+      "returncode": 0,
+      "log": "out/native-stress-topology-memcheck.log",
+      "sha256": "6356fd59954e3ebb5be4791020c90286b74b4d77a0923f3061736f76baeb0ace",
+      "zeroErrors": true
+    }
+  ],
+  "installedConsumers": [
+    {
+      "command": [
+        "cmake",
+        "-S",
+        "tests/destruction/package-consumer",
+        "-B",
+        "out/package-consumer",
+        "-DCMAKE_PREFIX_PATH=/root/workspace/physx-2/out/install"
+      ],
+      "returncode": 0
+    },
+    {
+      "command": [
+        "cmake",
+        "--build",
+        "out/package-consumer",
+        "--parallel",
+        "4"
+      ],
+      "returncode": 0
+    },
+    {
+      "command": [
+        "out/package-consumer/package_consumer"
+      ],
+      "returncode": 0
+    },
+    {
+      "command": [
+        "out/package-consumer/package_consumer",
+        "--gpu"
+      ],
+      "returncode": 0
+    },
+    {
+      "command": [
+        "out/package-consumer/native_scene_consumer"
+      ],
+      "returncode": 0
+    },
+    {
+      "command": [
+        "out/package-consumer/native_scene_consumer",
+        "--gpu"
+      ],
+      "returncode": 0
+    }
+  ],
+  "stepContract": {
+    "maxPhysicsResimPassesTarget": 1,
+    "configurableMoreLater": true,
+    "internalResimulationImplemented": false,
+    "nativeMaterialEvaluationsPerStep": 1,
+    "stressCgIterationsSeparate": true,
+    "cpuStageObservationBytes": 40,
+    "perUpdateHostGraphTransfer": false
+  },
+  "limitations": [
+    "Native PhysX body/collision rebinding and internal participant checkpoint/restore incomplete",
+    "Incomplete steps do not roll back ordinary PhysX provisional motion",
+    "Changed topology rebuilds the whole configured graph",
+    "Sparse labels currently launch scalar island work at node capacity",
+    "Fixed support masses, compliance, immutable endpoints and capacity; no resurrection",
+    "Shared GPU correctness checks; no isolated performance, scaling or 60 Hz qualification"
+  ],
+  "sourceSha256": {
+    "blast/include/extensions/stressgpu/NvBlastExtStressGpu.h": "06e335124178dd407689fb47629310f0ce704cd7186f380442f24d36c99eb063",
+    "blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu": "acad0b4e17d30d67eb886fd16e55c9a9bbc081285883561f5c8fbc671279cf68",
+    "demos/blast-stress-demo/CMakeLists.txt": "9ed4cdd8ad81b8cc15f4651104886c7101ba9e4a58318942bb479db97d4ae975",
+    "demos/blast-stress-demo/tests/native_gpu_material_test.cpp": "cd710ad4debfb5048d1f46b44265d19ef428f9a5e8f87422f0f0f3cebe6ff25a",
+    "physx/include/PxDestructionScene.h": "27322da844dddf9400a4f8fb0510f26508c430d2663ccd01354e0c8a49172992",
+    "physx/source/gpudestruction/src/PxgDestructionMaterial.cuh": "2112fe150dfe0b0b05caab4ede613b803dd1367d5fc6ef53770e0daaa6680c90",
+    "physx/source/gpudestruction/src/PxgDestructionRuntime.cu": "cd6290bc9a9b8838f75640756ee6711566cce4567f3e138c2e11070f38ab85e4",
+    "blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpuTopology.cuh": "7bd37967b422f676bacb0b09b2f34391de47e05683729df61a15b4369a42f52c",
+    "demos/blast-stress-demo/tests/gpu_stress_topology_test.cu": "7e2eaf62326fec62ebda88850a1f2a9b0b3a7e2d0f546abac9ed46c33a13a109"
+  },
+  "artifactLibraries": {
+    "libPhysXDestructionGpuRuntime_64.so": "22ca8340ed7018cb2b90fd356c282daa0ff838ce20065931ff725f82e2f51c89",
+    "libPhysXGpuActivity_64.so": "f15ad469b663f73a9f9fbbbb6051a2bcf7445aef499b6ee517ba8e0d68986bda",
+    "libPVDRuntime_64.so": "7ced8c8e62fd6323cbb75910cf1a9cf29e2cfe5cfe1d053a8ad061a6bd4d1c2b",
+    "libPhysX_static_64.a": "8e42405784fae38fe446083f579cd4b5d5ec1782c44e42ffd3520a88c0233509",
+    "libPhysXCommon_static_64.a": "989af41e4b457eda140c1a05feeb62bdd2a5a816790c923860776d666821f42b",
+    "libPhysXFoundation_static_64.a": "245eb8a7d46693f37a13639d7ddde4707bac0b6b8a2a8564cae7c40888217f7a",
+    "libPhysXExtensions_static_64.a": "cf0f5b0269efdb3b0c1bf26c8200d076aa97495194e320f10def1f39df1ee148",
+    "libPhysXPvdSDK_static_64.a": "5904d7f4e41dc89807e90d7a11bb8cdf2b1fd2b88a6ed82c040d0b0669fbc94c",
+    "libPhysXCooking_static_64.a": "8c919efa53e9ad97930c370c0757e706bcc7f12f0e0b801278ddcd33ec5826a6",
+    "libPhysXCharacterKinematic_static_64.a": "b8dd6238ef1b039717b47aeaf949202388089a15db57cbf86de6397efd4f771d",
+    "libPhysXVehicle_static_64.a": "1175dd5c09cca78bd8f19204e826b4cb3a6f1bda14b79b8ea0f4af8b51ef3075",
+    "libPhysXCudaContextManager_static_64.a": "222cf8e3d3a9b9236cec0fb9940a67b10eb4483c5bce924519eca72be4158cdb"
+  },
+  "evidenceSha256": {
+    "out/native-stress-topology-sdk-build.log": "51210d6be3e4c6e88b505bfedc8fb0ebf7bf0b009a2536ac447660b4066230b8",
+    "out/native-stress-topology-regression.log": "63f29b0632a664a5d95bf84c9b1438a6f5ff59546be03179c116acc228d20be2",
+    "out/native-stress-topology-regression.xml": "5a12970d1b4a3db55caf43d5b722ed4e8c851b08efae38845f8228b60db8b047",
+    "out/native-stress-topology-package-consumer.log": "6a9127f029e4da3ece8d6ba775a088c8a51b246f36d2416bb326e8418d9bcb66",
+    "out/sdk-artifacts.json": "32a3ef4213a11c00be81d9e75ec4eb92df65d79f6389bfe00743d9d7b30f9108"
+  }
+}

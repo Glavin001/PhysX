@@ -1,0 +1,62 @@
+{
+  "complete_runs": 56,
+  "failed_capacity_runs": 6,
+  "zero_drop_successful_traces": 24,
+  "complete_simulation_steps": 40320,
+  "accounting_tests": 7,
+  "legacy_analysis_tests": 4,
+  "native_regression_tests": 35,
+  "native_regression_log": "out/profile-regression-tests.log",
+  "gpu": "name, driver_version, memory.total [MiB]\nNVIDIA GeForce RTX 4090, 595.71.05, 24564 MiB\n",
+  "cpu_affinity_at_report": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31
+  ],
+  "physx_dispatcher_threads": 4,
+  "cgroup_cpu_quota_at_report": {
+    "/sys/fs/cgroup/cpu,cpuacct/cpu.cfs_quota_us": "3071999",
+    "/sys/fs/cgroup/cpu,cpuacct/cpu.cfs_period_us": "100000"
+  },
+  "campaign_manifests": {
+    "out/scaling-profile-20260906/campaign.json": "86a1886df6032ad16a77fea0f1c77023e7568765fac2bad6b9963b7777c6ca6b",
+    "out/scaling-controls-20260906/campaign.json": "94b57c3ec3e91e0b0a59305534fa61d7c2541c61fcabb803486bfb67cbdbe336",
+    "out/scaling-final-20260906/campaign.json": "067b0645801f38702818a24054c713a4494f93c4651458fdc25ab72c70f577ab"
+  },
+  "report_sha256": "da2db35acf561c288c73d5c9e768b0ffc09c8594c8de67e7641e174938137926",
+  "limits": [
+    "shared GPU",
+    "11-second measured windows",
+    "sleeping disabled in integrated correction",
+    "no sanitizer qualification claimed"
+  ]
+}

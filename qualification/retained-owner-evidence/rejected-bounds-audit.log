@@ -1,0 +1,3 @@
+native t=0.0 chunks=113664 bonds=229376 clusters=256 shots=256 broken=0 corrections=0 step=4.98ms
+native t=1.0 chunks=113664 bonds=229376 clusters=256 shots=256 broken=0 corrections=0 step=1.12ms
+two live contact managers resolve to the same persistent shape pair: shapes=48638,48645 rows=9120,19994 edges=7425,17626 graph-generation=100

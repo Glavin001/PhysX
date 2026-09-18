@@ -1,0 +1,51 @@
+{
+  "production_baseline": "a6a0562ab8049951e8e106334d647efe8eeec9bd",
+  "production_modified": false,
+  "integration_applied": false,
+  "files": {
+    "physx/source/gpudestruction/tests/static_registration_prototype.cuh": {
+      "bytes": 8723,
+      "sha256": "733115360c19c75fdc0b5ea8595f3dea810b5f3a9ff79eed45a99f55cd41103b"
+    },
+    "physx/source/gpudestruction/tests/static_registration_prototype_test.cu": {
+      "bytes": 6841,
+      "sha256": "1bacdc8024c6f8ae4da2951179ffe7b78976825c66c67c46dafc89971b648a19"
+    },
+    "out/native-static-registration-20260909/static_registration_extended_test": {
+      "bytes": 3763088,
+      "sha256": "ca2e6da36db0bf8783eb37876eb4f62d5b5882e2d9291e4c1e02086f1065c75d"
+    },
+    "qualification/native-static-registration-20260909/extended-build.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "qualification/native-static-registration-20260909/extended-initcheck.log": {
+      "bytes": 516,
+      "sha256": "ead708210047160da8d3c37fe008e4eb27521d74d7d3fbd4a47c97915e36cb58"
+    },
+    "qualification/native-static-registration-20260909/extended-memcheck.log": {
+      "bytes": 516,
+      "sha256": "ead708210047160da8d3c37fe008e4eb27521d74d7d3fbd4a47c97915e36cb58"
+    },
+    "qualification/native-static-registration-20260909/extended-oracle.log": {
+      "bytes": 454,
+      "sha256": "886c04e9334f9408297f5a8a0c81b5c5b51a0af1e56386b5917d2b6f59941002"
+    },
+    "qualification/native-static-registration-20260909/extended-racecheck.log": {
+      "bytes": 554,
+      "sha256": "380c683f967044bf288d5da8829275da266a2477ed1e18805ef1de75cad3a119"
+    },
+    "qualification/native-static-registration-20260909/extended-synccheck.log": {
+      "bytes": 516,
+      "sha256": "ead708210047160da8d3c37fe008e4eb27521d74d7d3fbd4a47c97915e36cb58"
+    },
+    "qualification/native-static-registration-20260909/integration-review.patch": {
+      "bytes": 36681,
+      "sha256": "572cfa1aedb09db49361da85cee0b6056ecfd5e5c8a46eb91ccf4cd808ae3e5a"
+    },
+    "qualification/native-static-registration-20260909/prepare-integration-patch.py": {
+      "bytes": 15701,
+      "sha256": "a2301c5d2f036e4a59f8a355325cc56b23abc9885e191cb4c1c1625b2c7aab35"
+    }
+  }
+}

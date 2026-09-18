@@ -1,0 +1,46 @@
+{
+  "base_revision": "f6e97d2780afec8a41baec7a40aa174ea7948227",
+  "status": "unqualified_wip",
+  "physical_oracle_passed": false,
+  "performance_measured": false,
+  "source_sha256": {
+    "demos/blast-stress-demo/CMakeLists.txt": "a02ebbedd856603df1c76afd0047bebeefe7d3dc387662660fc837a4ccf8dbe2",
+    "demos/blast-stress-demo/tests/native_standard_scene_test.cpp": "d433a064bfd136555782d2c3692a202e9390e17324428163adf4e94b5db0b520",
+    "docs/destruction/CONTACT_OWNERSHIP_REVIEW.md": "6648713e22d1d6a6ad3c96a07eea633666ddc97e5ae4d926a7bf79c3903d9ea0",
+    "docs/destruction/IMPLEMENTATION_LEDGER.md": "1d165ee1440017978bd6a90f666c99df8333998c01bca983e473ed013ed5c403",
+    "docs/destruction/OPTIMIZATION_INDEX.json": "5f514db3892033ccc94990786df0e243a7eaf3dc17233a36affd2fa8f0ba2c3b",
+    "physx/source/gpudestruction/CMakeLists.txt": "626a95cda98e11cc30677b57ab0c03d368876589c3ae6d2f82f1348a8e5d26b4",
+    "physx/source/gpudestruction/include/PxgDestructionRuntime.h": "df0dc5ae16a957280ba597e3818f17d55bcaefe5c0bdd624b8c737dd2b42e183",
+    "physx/source/gpudestruction/src/PxgDestructionRuntime.cu": "7a4cbf9c5ba10b69051c4aa337b76591b30bad3c612c1b8336d4bd6a916e2b34",
+    "physx/source/gpunarrowphase/include/PxgNarrowphaseCore.h": "a7f7c60f4bfb80be5c68e4435cb2091486421ffc3fd0163a3ffb2af7c6523006",
+    "physx/source/gpunarrowphase/include/PxgNphaseImplementationContext.h": "19325659f37f2cb495ff09f84084eb59a9a67276cf6e90e5210301227e315f45",
+    "physx/source/gpunarrowphase/src/PxgNarrowphaseCore.cpp": "83ba289843e06ef6dece5e13c3559a6fba95c0b11f5be707d5c1894ee303df20",
+    "physx/source/gpunarrowphase/src/PxgNphaseImplementationContext.cpp": "af6b42a2711d740b2473146b78f0d18873fe18dc4845eb9b10e46dc4050dd67b",
+    "physx/source/lowlevel/software/include/PxvNphaseImplementationContext.h": "f0c14afb5daafe5a5a2bba1748a64425dc888a8a67181b4a1d7555a7df500478",
+    "physx/source/simulationcontroller/src/ScElementSimInteraction.h": "19d848414453c9e92660988023073c99fc840392d9634e018caeaddf2e437d2c",
+    "physx/source/simulationcontroller/src/ScFiltering.cpp": "1a597447a32f565acbd0bc274dc522ecbcc51545fabf208e7a41f85b2c69897b",
+    "physx/source/simulationcontroller/src/ScInteraction.cpp": "00e849e110776b33299315fccbd45dc3c57d924de3866389f71e61142aad6096",
+    "physx/source/simulationcontroller/src/ScInteraction.h": "d8639ea26eb5d5ce3d596c80c99a604468f6e7f48f78a5cbc33f3cda2c22efc3",
+    "physx/source/simulationcontroller/src/ScNPhaseCore.cpp": "e33ed637759ca4953c525879ae53e81e8ab778936f8e253214d660af926a3861",
+    "physx/source/simulationcontroller/src/ScNPhaseCore.h": "237cb3bc7aca9f91d605d080c7f3ecffec4acc597b5519291305a71c977c7359",
+    "physx/source/simulationcontroller/src/ScShapeInteraction.cpp": "9aafca1fcc89ef0abaf9c813adc828b61e3b239d41960ae42e4ff3ab0107a283",
+    "physx/source/simulationcontroller/src/ScShapeInteraction.h": "a214a16c91736184c85f685abeb8ade8bc91158350f6d23fd298978a6768ea7f",
+    "physx/source/simulationcontroller/src/ScShapeSimBase.cpp": "c30bb35a30433b0111197679cf2fe811ca45e9740c6c92b57a73c0354124b990",
+    "physx/source/gpudestruction/src/PxgDestructionContactOwnership.cuh": "fcf35c28b2f6dcc3d575016143fb23edb2f88b768e597cc024dfae400bcff310",
+    "physx/source/gpudestruction/tests/contact_ownership_test.cu": "88c9e2d81405042f7b5ee8a1d3c872576c522f0d0e2fe201d7653fe0314a0102",
+    "physx/source/gpunarrowphase/include/PxgContactOwnership.h": "a4832ef3be2e4e3955936ab0131143ef9a3fe13c7948094db4d0d073bb04a0d9"
+  },
+  "frozen_required": {
+    "supported_chunks": 398,
+    "detached_chunks": 46,
+    "broken_bonds": 199,
+    "clusters": 43
+  },
+  "observed": {
+    "supported_chunks": 404,
+    "detached_chunks": 40,
+    "broken_bonds": 179,
+    "clusters": 31
+  },
+  "capture": "/root/workspace/physx-2/out/native-contact-owner-20260909/wall-touch-transition"
+}

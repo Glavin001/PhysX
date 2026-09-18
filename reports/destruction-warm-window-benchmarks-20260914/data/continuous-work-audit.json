@@ -1,0 +1,546 @@
+[
+  {
+    "case": "city256-idle",
+    "arm": "A0",
+    "archived_run": "idle-256-A-after-0",
+    "different_ticks_per_counter": {
+      "broken_bonds": 0,
+      "correction_passes": 0,
+      "stress_passes": 0,
+      "output_clusters": 0,
+      "stress_iterations": 0,
+      "normal_contacts": 0,
+      "stress_active_nodes": 0,
+      "stress_active_bonds": 0,
+      "stress_islands": 0
+    },
+    "scope": "Work counters only; no archived full endpoint comparison"
+  },
+  {
+    "case": "city256-idle",
+    "arm": "A0",
+    "archived_run": "idle-256-A-after-1",
+    "different_ticks_per_counter": {
+      "broken_bonds": 0,
+      "correction_passes": 0,
+      "stress_passes": 0,
+      "output_clusters": 0,
+      "stress_iterations": 0,
+      "normal_contacts": 0,
+      "stress_active_nodes": 0,
+      "stress_active_bonds": 0,
+      "stress_islands": 0
+    },
+    "scope": "Work counters only; no archived full endpoint comparison"
+  },
+  {
+    "case": "city256-idle",
+    "arm": "A0",
+    "archived_run": "idle-256-A-before-0",
+    "different_ticks_per_counter": {
+      "broken_bonds": 0,
+      "correction_passes": 0,
+      "stress_passes": 0,
+      "output_clusters": 0,
+      "stress_iterations": 0,
+      "normal_contacts": 0,
+      "stress_active_nodes": 0,
+      "stress_active_bonds": 0,
+      "stress_islands": 0
+    },
+    "scope": "Work counters only; no archived full endpoint comparison"
+  },
+  {
+    "case": "city256-idle",
+    "arm": "A0",
+    "archived_run": "idle-256-A-before-1",
+    "different_ticks_per_counter": {
+      "broken_bonds": 0,
+      "correction_passes": 0,
+      "stress_passes": 0,
+      "output_clusters": 0,
+      "stress_iterations": 0,
+      "normal_contacts": 0,
+      "stress_active_nodes": 0,
+      "stress_active_bonds": 0,
+      "stress_islands": 0
+    },
+    "scope": "Work counters only; no archived full endpoint comparison"
+  },
+  {
+    "case": "city256-idle",
+    "arm": "A1",
+    "archived_run": "idle-256-A-after-0",
+    "different_ticks_per_counter": {
+      "broken_bonds": 0,
+      "correction_passes": 0,
+      "stress_passes": 0,
+      "output_clusters": 0,
+      "stress_iterations": 0,
+      "normal_contacts": 0,
+      "stress_active_nodes": 0,
+      "stress_active_bonds": 0,
+      "stress_islands": 0
+    },
+    "scope": "Work counters only; no archived full endpoint comparison"
+  },
+  {
+    "case": "city256-idle",
+    "arm": "A1",
+    "archived_run": "idle-256-A-after-1",
+    "different_ticks_per_counter": {
+      "broken_bonds": 0,
+      "correction_passes": 0,
+      "stress_passes": 0,
+      "output_clusters": 0,
+      "stress_iterations": 0,
+      "normal_contacts": 0,
+      "stress_active_nodes": 0,
+      "stress_active_bonds": 0,
+      "stress_islands": 0
+    },
+    "scope": "Work counters only; no archived full endpoint comparison"
+  },
+  {
+    "case": "city256-idle",
+    "arm": "A1",
+    "archived_run": "idle-256-A-before-0",
+    "different_ticks_per_counter": {
+      "broken_bonds": 0,
+      "correction_passes": 0,
+      "stress_passes": 0,
+      "output_clusters": 0,
+      "stress_iterations": 0,
+      "normal_contacts": 0,
+      "stress_active_nodes": 0,
+      "stress_active_bonds": 0,
+      "stress_islands": 0
+    },
+    "scope": "Work counters only; no archived full endpoint comparison"
+  },
+  {
+    "case": "city256-idle",
+    "arm": "A1",
+    "archived_run": "idle-256-A-before-1",
+    "different_ticks_per_counter": {
+      "broken_bonds": 0,
+      "correction_passes": 0,
+      "stress_passes": 0,
+      "output_clusters": 0,
+      "stress_iterations": 0,
+      "normal_contacts": 0,
+      "stress_active_nodes": 0,
+      "stress_active_bonds": 0,
+      "stress_islands": 0
+    },
+    "scope": "Work counters only; no archived full endpoint comparison"
+  },
+  {
+    "case": "city256-impact",
+    "arm": "A0",
+    "archived_run": "impacts-256-A-after-0",
+    "different_ticks_per_counter": {
+      "broken_bonds": 0,
+      "correction_passes": 0,
+      "stress_passes": 0,
+      "output_clusters": 0,
+      "stress_iterations": 0,
+      "normal_contacts": 0,
+      "stress_active_nodes": 0,
+      "stress_active_bonds": 0,
+      "stress_islands": 0
+    },
+    "scope": "Work counters only; no archived full endpoint comparison"
+  },
+  {
+    "case": "city256-impact",
+    "arm": "A0",
+    "archived_run": "impacts-256-A-after-1",
+    "different_ticks_per_counter": {
+      "broken_bonds": 0,
+      "correction_passes": 0,
+      "stress_passes": 0,
+      "output_clusters": 0,
+      "stress_iterations": 0,
+      "normal_contacts": 0,
+      "stress_active_nodes": 0,
+      "stress_active_bonds": 0,
+      "stress_islands": 0
+    },
+    "scope": "Work counters only; no archived full endpoint comparison"
+  },
+  {
+    "case": "city256-impact",
+    "arm": "A0",
+    "archived_run": "impacts-256-A-before-0",
+    "different_ticks_per_counter": {
+      "broken_bonds": 0,
+      "correction_passes": 0,
+      "stress_passes": 0,
+      "output_clusters": 0,
+      "stress_iterations": 0,
+      "normal_contacts": 0,
+      "stress_active_nodes": 0,
+      "stress_active_bonds": 0,
+      "stress_islands": 0
+    },
+    "scope": "Work counters only; no archived full endpoint comparison"
+  },
+  {
+    "case": "city256-impact",
+    "arm": "A0",
+    "archived_run": "impacts-256-A-before-1",
+    "different_ticks_per_counter": {
+      "broken_bonds": 0,
+      "correction_passes": 0,
+      "stress_passes": 0,
+      "output_clusters": 0,
+      "stress_iterations": 0,
+      "normal_contacts": 0,
+      "stress_active_nodes": 0,
+      "stress_active_bonds": 0,
+      "stress_islands": 0
+    },
+    "scope": "Work counters only; no archived full endpoint comparison"
+  },
+  {
+    "case": "city256-impact",
+    "arm": "A1",
+    "archived_run": "impacts-256-A-after-0",
+    "different_ticks_per_counter": {
+      "broken_bonds": 0,
+      "correction_passes": 0,
+      "stress_passes": 0,
+      "output_clusters": 0,
+      "stress_iterations": 0,
+      "normal_contacts": 0,
+      "stress_active_nodes": 0,
+      "stress_active_bonds": 0,
+      "stress_islands": 0
+    },
+    "scope": "Work counters only; no archived full endpoint comparison"
+  },
+  {
+    "case": "city256-impact",
+    "arm": "A1",
+    "archived_run": "impacts-256-A-after-1",
+    "different_ticks_per_counter": {
+      "broken_bonds": 0,
+      "correction_passes": 0,
+      "stress_passes": 0,
+      "output_clusters": 0,
+      "stress_iterations": 0,
+      "normal_contacts": 0,
+      "stress_active_nodes": 0,
+      "stress_active_bonds": 0,
+      "stress_islands": 0
+    },
+    "scope": "Work counters only; no archived full endpoint comparison"
+  },
+  {
+    "case": "city256-impact",
+    "arm": "A1",
+    "archived_run": "impacts-256-A-before-0",
+    "different_ticks_per_counter": {
+      "broken_bonds": 0,
+      "correction_passes": 0,
+      "stress_passes": 0,
+      "output_clusters": 0,
+      "stress_iterations": 0,
+      "normal_contacts": 0,
+      "stress_active_nodes": 0,
+      "stress_active_bonds": 0,
+      "stress_islands": 0
+    },
+    "scope": "Work counters only; no archived full endpoint comparison"
+  },
+  {
+    "case": "city256-impact",
+    "arm": "A1",
+    "archived_run": "impacts-256-A-before-1",
+    "different_ticks_per_counter": {
+      "broken_bonds": 0,
+      "correction_passes": 0,
+      "stress_passes": 0,
+      "output_clusters": 0,
+      "stress_iterations": 0,
+      "normal_contacts": 0,
+      "stress_active_nodes": 0,
+      "stress_active_bonds": 0,
+      "stress_islands": 0
+    },
+    "scope": "Work counters only; no archived full endpoint comparison"
+  },
+  {
+    "case": "city256-cascade",
+    "arm": "A0",
+    "archived_run": "impacts-256-A-after-0",
+    "different_ticks_per_counter": {
+      "broken_bonds": 0,
+      "correction_passes": 0,
+      "stress_passes": 0,
+      "output_clusters": 0,
+      "stress_iterations": 0,
+      "normal_contacts": 0,
+      "stress_active_nodes": 0,
+      "stress_active_bonds": 0,
+      "stress_islands": 0
+    },
+    "scope": "Work counters only; no archived full endpoint comparison"
+  },
+  {
+    "case": "city256-cascade",
+    "arm": "A0",
+    "archived_run": "impacts-256-A-after-1",
+    "different_ticks_per_counter": {
+      "broken_bonds": 0,
+      "correction_passes": 0,
+      "stress_passes": 0,
+      "output_clusters": 0,
+      "stress_iterations": 0,
+      "normal_contacts": 0,
+      "stress_active_nodes": 0,
+      "stress_active_bonds": 0,
+      "stress_islands": 0
+    },
+    "scope": "Work counters only; no archived full endpoint comparison"
+  },
+  {
+    "case": "city256-cascade",
+    "arm": "A0",
+    "archived_run": "impacts-256-A-before-0",
+    "different_ticks_per_counter": {
+      "broken_bonds": 0,
+      "correction_passes": 0,
+      "stress_passes": 0,
+      "output_clusters": 0,
+      "stress_iterations": 0,
+      "normal_contacts": 0,
+      "stress_active_nodes": 0,
+      "stress_active_bonds": 0,
+      "stress_islands": 0
+    },
+    "scope": "Work counters only; no archived full endpoint comparison"
+  },
+  {
+    "case": "city256-cascade",
+    "arm": "A0",
+    "archived_run": "impacts-256-A-before-1",
+    "different_ticks_per_counter": {
+      "broken_bonds": 0,
+      "correction_passes": 0,
+      "stress_passes": 0,
+      "output_clusters": 0,
+      "stress_iterations": 0,
+      "normal_contacts": 0,
+      "stress_active_nodes": 0,
+      "stress_active_bonds": 0,
+      "stress_islands": 0
+    },
+    "scope": "Work counters only; no archived full endpoint comparison"
+  },
+  {
+    "case": "city256-cascade",
+    "arm": "A1",
+    "archived_run": "impacts-256-A-after-0",
+    "different_ticks_per_counter": {
+      "broken_bonds": 0,
+      "correction_passes": 0,
+      "stress_passes": 0,
+      "output_clusters": 0,
+      "stress_iterations": 0,
+      "normal_contacts": 0,
+      "stress_active_nodes": 0,
+      "stress_active_bonds": 0,
+      "stress_islands": 0
+    },
+    "scope": "Work counters only; no archived full endpoint comparison"
+  },
+  {
+    "case": "city256-cascade",
+    "arm": "A1",
+    "archived_run": "impacts-256-A-after-1",
+    "different_ticks_per_counter": {
+      "broken_bonds": 0,
+      "correction_passes": 0,
+      "stress_passes": 0,
+      "output_clusters": 0,
+      "stress_iterations": 0,
+      "normal_contacts": 0,
+      "stress_active_nodes": 0,
+      "stress_active_bonds": 0,
+      "stress_islands": 0
+    },
+    "scope": "Work counters only; no archived full endpoint comparison"
+  },
+  {
+    "case": "city256-cascade",
+    "arm": "A1",
+    "archived_run": "impacts-256-A-before-0",
+    "different_ticks_per_counter": {
+      "broken_bonds": 0,
+      "correction_passes": 0,
+      "stress_passes": 0,
+      "output_clusters": 0,
+      "stress_iterations": 0,
+      "normal_contacts": 0,
+      "stress_active_nodes": 0,
+      "stress_active_bonds": 0,
+      "stress_islands": 0
+    },
+    "scope": "Work counters only; no archived full endpoint comparison"
+  },
+  {
+    "case": "city256-cascade",
+    "arm": "A1",
+    "archived_run": "impacts-256-A-before-1",
+    "different_ticks_per_counter": {
+      "broken_bonds": 0,
+      "correction_passes": 0,
+      "stress_passes": 0,
+      "output_clusters": 0,
+      "stress_iterations": 0,
+      "normal_contacts": 0,
+      "stress_active_nodes": 0,
+      "stress_active_bonds": 0,
+      "stress_islands": 0
+    },
+    "scope": "Work counters only; no archived full endpoint comparison"
+  },
+  {
+    "case": "city256-debris",
+    "arm": "A0",
+    "archived_run": "impacts-256-A-after-0",
+    "different_ticks_per_counter": {
+      "broken_bonds": 8,
+      "correction_passes": 0,
+      "stress_passes": 0,
+      "output_clusters": 8,
+      "stress_iterations": 8,
+      "normal_contacts": 8,
+      "stress_active_nodes": 8,
+      "stress_active_bonds": 8,
+      "stress_islands": 8
+    },
+    "scope": "Work counters only; no archived full endpoint comparison"
+  },
+  {
+    "case": "city256-debris",
+    "arm": "A0",
+    "archived_run": "impacts-256-A-after-1",
+    "different_ticks_per_counter": {
+      "broken_bonds": 8,
+      "correction_passes": 0,
+      "stress_passes": 0,
+      "output_clusters": 8,
+      "stress_iterations": 8,
+      "normal_contacts": 8,
+      "stress_active_nodes": 8,
+      "stress_active_bonds": 8,
+      "stress_islands": 8
+    },
+    "scope": "Work counters only; no archived full endpoint comparison"
+  },
+  {
+    "case": "city256-debris",
+    "arm": "A0",
+    "archived_run": "impacts-256-A-before-0",
+    "different_ticks_per_counter": {
+      "broken_bonds": 8,
+      "correction_passes": 0,
+      "stress_passes": 0,
+      "output_clusters": 8,
+      "stress_iterations": 8,
+      "normal_contacts": 8,
+      "stress_active_nodes": 8,
+      "stress_active_bonds": 8,
+      "stress_islands": 8
+    },
+    "scope": "Work counters only; no archived full endpoint comparison"
+  },
+  {
+    "case": "city256-debris",
+    "arm": "A0",
+    "archived_run": "impacts-256-A-before-1",
+    "different_ticks_per_counter": {
+      "broken_bonds": 8,
+      "correction_passes": 0,
+      "stress_passes": 0,
+      "output_clusters": 8,
+      "stress_iterations": 8,
+      "normal_contacts": 8,
+      "stress_active_nodes": 8,
+      "stress_active_bonds": 8,
+      "stress_islands": 8
+    },
+    "scope": "Work counters only; no archived full endpoint comparison"
+  },
+  {
+    "case": "city256-debris",
+    "arm": "A1",
+    "archived_run": "impacts-256-A-after-0",
+    "different_ticks_per_counter": {
+      "broken_bonds": 8,
+      "correction_passes": 0,
+      "stress_passes": 0,
+      "output_clusters": 8,
+      "stress_iterations": 8,
+      "normal_contacts": 8,
+      "stress_active_nodes": 8,
+      "stress_active_bonds": 8,
+      "stress_islands": 8
+    },
+    "scope": "Work counters only; no archived full endpoint comparison"
+  },
+  {
+    "case": "city256-debris",
+    "arm": "A1",
+    "archived_run": "impacts-256-A-after-1",
+    "different_ticks_per_counter": {
+      "broken_bonds": 8,
+      "correction_passes": 0,
+      "stress_passes": 0,
+      "output_clusters": 8,
+      "stress_iterations": 8,
+      "normal_contacts": 8,
+      "stress_active_nodes": 8,
+      "stress_active_bonds": 8,
+      "stress_islands": 8
+    },
+    "scope": "Work counters only; no archived full endpoint comparison"
+  },
+  {
+    "case": "city256-debris",
+    "arm": "A1",
+    "archived_run": "impacts-256-A-before-0",
+    "different_ticks_per_counter": {
+      "broken_bonds": 8,
+      "correction_passes": 0,
+      "stress_passes": 0,
+      "output_clusters": 8,
+      "stress_iterations": 8,
+      "normal_contacts": 8,
+      "stress_active_nodes": 8,
+      "stress_active_bonds": 8,
+      "stress_islands": 8
+    },
+    "scope": "Work counters only; no archived full endpoint comparison"
+  },
+  {
+    "case": "city256-debris",
+    "arm": "A1",
+    "archived_run": "impacts-256-A-before-1",
+    "different_ticks_per_counter": {
+      "broken_bonds": 8,
+      "correction_passes": 0,
+      "stress_passes": 0,
+      "output_clusters": 8,
+      "stress_iterations": 8,
+      "normal_contacts": 8,
+      "stress_active_nodes": 8,
+      "stress_active_bonds": 8,
+      "stress_islands": 8
+    },
+    "scope": "Work counters only; no archived full endpoint comparison"
+  }
+]

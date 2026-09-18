@@ -149,7 +149,7 @@ void* physx::PxgCudaDeviceMemoryAllocate(PxCudaContext& cudaContext, size_t size
 		if (!result)
 		{
 			cudaContext.setAbortMode(true);
-			PxGetFoundation().error(PxErrorCode::eOUT_OF_MEMORY, PX_FL, "PxDeviceAllocatorCallback failed to allocate memory %zu bytes!", size);
+			PxGetFoundation().error(PxErrorCode::eOUT_OF_MEMORY, PX_FL, "PxDeviceAllocatorCallback failed to allocate memory %zu bytes requested at %s:%i!", size, filename ? filename : "(unknown)", line);
 			return NULL;
 		}
 	}
@@ -161,7 +161,7 @@ void* physx::PxgCudaDeviceMemoryAllocate(PxCudaContext& cudaContext, size_t size
 		if (result != CUDA_SUCCESS)
 		{
 			cudaContext.setAbortMode(true);
-			PxGetFoundation().error(PxErrorCode::eOUT_OF_MEMORY, PX_FL, "PxgCudaDeviceMemoryAllocator failed to allocate memory %zu bytes! Result = %i", size, result);
+			PxGetFoundation().error(PxErrorCode::eOUT_OF_MEMORY, PX_FL, "PxgCudaDeviceMemoryAllocator failed to allocate memory %zu bytes requested at %s:%i! Result = %i", size, filename ? filename : "(unknown)", line, result);
 			return NULL;
 		}
 	}

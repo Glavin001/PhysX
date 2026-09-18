@@ -1,0 +1,7 @@
+PASS: Python compilation of recording, annotation and comparison scripts.
+PASS: Seven report-validation checks, including rejection of wrong Direct GPU/sleep/correction flags, incomplete capture, broken-bond count mismatch and timer-closure mismatch.
+PASS: Six measured runs, 10800 accepted steps; convergence, correction limit, complete-timer closure and counter totals validated.
+PASS: Two video runs, 3600 accepted simulation steps; 30 seconds and 900 encoded frames each; Direct GPU off and sleeping on.
+PASS: Repeated report regeneration is byte-identical.
+Performance: 8 ms deadline and five-times-60-second qualification gates NOT passed.
+Physical parity/endurance: not qualified by these captures.

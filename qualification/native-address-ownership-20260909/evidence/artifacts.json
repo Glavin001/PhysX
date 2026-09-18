@@ -1,0 +1,732 @@
+[
+  {
+    "path": "out/native-address-ownership-20260909/candidate/embedded_city_bench",
+    "size": 6287896,
+    "sha256": "be1c0d9ccfcae8fea1d3d9e229ac34ea4f1f5f4b6c15119d448bfa9ec59caab2"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/candidate/hashes.json",
+    "size": 398,
+    "sha256": "f6e250819f1d6e4e84518bb25c421f7eda9db877c9df5925f7cb6f760a64810c"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/candidate/libPhysXDestructionGpuRuntime_64.so",
+    "size": 11458144,
+    "sha256": "75ef8106f300c177862a7876adfcf38bee835e2afb594a7437fd49442eda0b2f"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/candidate/libPhysXGpuActivity_64.so",
+    "size": 36690808,
+    "sha256": "1b8164a469983274ceb80fe6ec02ebcaf544edf1825330c6f0b77a002ee6e74d"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/candidate/libPhysX_static_64.a",
+    "size": 6348528,
+    "sha256": "aa3b3bc37e2f3ea7ec93b5a546f8b984fe97980e158b745d034eee12f37b9b91"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/profile/baseline/commands.json",
+    "size": 11097,
+    "sha256": "4629dee8470bbbb269d4ca1105ddef804ae60cb22f45ac13954b6f43b3924ea9"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/profile/baseline/native.phases.csv",
+    "size": 14095198,
+    "sha256": "9efe4595ed6c6d59b78fdfafc5822c250904a29c09fbac602d26d773b595a799"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/profile/baseline/native.phases.csv.device.csv",
+    "size": 76833,
+    "sha256": "200b45abafd42740b10c7565afb9ba113d4f4bc5632a6f875d4e4f7f411cb083"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/profile/baseline/report.json",
+    "size": 2753,
+    "sha256": "ccaf27e1ee10609e1f97c97d637ee83675a3426896f34933c5902727a3cf88b4"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/profile/baseline/report.md",
+    "size": 1292,
+    "sha256": "d7507075fb019d39154bd8b6d9302406ffdc3854bc7ac0a5ede788a0f7890d31"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/profile/baseline/steps.json",
+    "size": 68613,
+    "sha256": "ca6338237d32f708bbbdee8f255beeb52730378e06001044b5dced7a8666c018"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/profile/baseline/steps.jsonl",
+    "size": 68612,
+    "sha256": "617d9f53f46f61fe71d5337fff043c27da77700a04d42729f2efcf42620ea3cc"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/profile/baseline.log",
+    "size": 348,
+    "sha256": "625ce24e9c9d107645ebc8183d4e97e10e8eb010599d7780558090f0a714c9e7"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/profile/candidate/commands.json",
+    "size": 11097,
+    "sha256": "4629dee8470bbbb269d4ca1105ddef804ae60cb22f45ac13954b6f43b3924ea9"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/profile/candidate/native.phases.csv",
+    "size": 14089714,
+    "sha256": "dc4d2a3cddec54a6e028fbb2a182b64f380f31aec5d27c3e174651239712f09e"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/profile/candidate/native.phases.csv.device.csv",
+    "size": 76780,
+    "sha256": "bb8e304610d9c26fe85231f314e39cad9ce6bba8cc3415fc6cead03cad1b20c2"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/profile/candidate/report.json",
+    "size": 2792,
+    "sha256": "67e891e77a1dd58de194318f964a622bda08bfb0217a378cf6faff61f6c3a1a8"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/profile/candidate/report.md",
+    "size": 1292,
+    "sha256": "d609df026261ea55cfaeb483994a8c10ce3f7fe26c21b8d9a94a2632b87c335f"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/profile/candidate/steps.json",
+    "size": 68430,
+    "sha256": "f0217254d60b47d293e1b5abefb1ff0bf90e5deb7d1a174af1209950dfadac35"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/profile/candidate/steps.jsonl",
+    "size": 68429,
+    "sha256": "d00fe1e9a53279747ecd05c3e051d9b751a147a6ee50e8491b45c4c23b6291c8"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/profile/candidate.log",
+    "size": 349,
+    "sha256": "a53fce4f80cb568583786915c0771b3812a6724007d8356f9856c3e7f4f54770"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/profile/receipt-initial-path-declaration.json",
+    "size": 1563,
+    "sha256": "e44990b9a41f68fad30a54e41c84f0e1206b2aed88bd0d76a9597f700dddea9d"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/profile/receipt.json",
+    "size": 2978,
+    "sha256": "605d67b83f4fa6d926c4ab34e53d5e4d278f9a15049f5bab666449e7da6c6b3e"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/profile-driver.log",
+    "size": 431,
+    "sha256": "624bc16a1c552686c88b4c4c3882cbf396970623e13c8f13dfea728e411d16f7"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/profile-resume-driver.log",
+    "size": 269,
+    "sha256": "6bc31e80da54e28720f00dc20b2e1c7ac6c4e8e3938db1a0c0af2d3fa0a9461d"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/profiled-bench",
+    "size": 6324888,
+    "sha256": "9d7ad1b2e8ad0cd2575e5959b163b9e0127563c91e494871fce33d0f69849efb"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/screen/1-baseline-idle/commands.json",
+    "size": 2,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/screen/1-baseline-idle/report.json",
+    "size": 2755,
+    "sha256": "ecdf57bc4fd0a48d0faa7137992e45f441d190ef8e712f009e48adedb0a309f4"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/screen/1-baseline-idle/report.md",
+    "size": 1285,
+    "sha256": "0259eca87a6cc3bf32d13755421424a824ffcacb82ac836b22901517e8650828"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/screen/1-baseline-idle/steps.json",
+    "size": 66680,
+    "sha256": "32ff9c3a6517f5a46b4b1200e36b93d84c436187831506d045139e311eb3a8c5"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/screen/1-baseline-idle/steps.jsonl",
+    "size": 66679,
+    "sha256": "33b7e42f8998bc5aaa2d12d3bd2978a83acb365dc0c431ce6c3690b03f43563c"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/screen/1-baseline-idle.log",
+    "size": 342,
+    "sha256": "02f8c2bda88c6b3d934b46c46d432ab353ac076c96e74f3e141ee01e72ee69f7"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/screen/1-baseline-shots/commands.json",
+    "size": 11097,
+    "sha256": "4629dee8470bbbb269d4ca1105ddef804ae60cb22f45ac13954b6f43b3924ea9"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/screen/1-baseline-shots/report.json",
+    "size": 2777,
+    "sha256": "cee045c3f7bf981063246cb17bc3f8dca4a19e25f1d32242cc3399a3b1422669"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/screen/1-baseline-shots/report.md",
+    "size": 1292,
+    "sha256": "94735853d0c44d36cce82a96d7131d2984d18845f1acaa2c69ac40382ebc2675"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/screen/1-baseline-shots/steps.json",
+    "size": 68432,
+    "sha256": "d294516ed1a67bc301edb40720f97a5361ce51fe877ec0466b6cc159b736694a"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/screen/1-baseline-shots/steps.jsonl",
+    "size": 68431,
+    "sha256": "8a957d7526718a96bd2d26d0e1b9645e4382428752ac7d8ada83f60dbd2c458f"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/screen/1-baseline-shots.log",
+    "size": 355,
+    "sha256": "7154d60219ec06b2a9557ecc2a363d456b75c6c3e32bd22c8d2217dddf3a7d39"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/screen/2-candidate-idle/commands.json",
+    "size": 2,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/screen/2-candidate-idle/report.json",
+    "size": 2755,
+    "sha256": "01aff282bff95f462fbfded66b6d36f456f8776d9c98144afa89dae3dc324333"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/screen/2-candidate-idle/report.md",
+    "size": 1285,
+    "sha256": "79900b64b96417a4f38c8514b3743060b8c9f58d4e0036d8e164f311f880af28"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/screen/2-candidate-idle/steps.json",
+    "size": 66796,
+    "sha256": "ac46da951bc7df53ba62692543c4da954222f5d5a8922fba7d87c45066492f20"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/screen/2-candidate-idle/steps.jsonl",
+    "size": 66795,
+    "sha256": "cf54b427a27deb25a0aaab64bf07ac8ba416f7e8b9a4e03f1959e787c2035429"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/screen/2-candidate-idle.log",
+    "size": 343,
+    "sha256": "9ad8f44ec877cc3cd14d9fe845da6e7dd090bdbc78ee4b54a38342b861043e70"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/screen/2-candidate-shots/commands.json",
+    "size": 11097,
+    "sha256": "4629dee8470bbbb269d4ca1105ddef804ae60cb22f45ac13954b6f43b3924ea9"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/screen/2-candidate-shots/report.json",
+    "size": 2820,
+    "sha256": "831f209b07991cc949d4a44a0a453da0e2c2c4ef9c9c355de1f489008fa64dc1"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/screen/2-candidate-shots/report.md",
+    "size": 1292,
+    "sha256": "a19cf8e8f78e6ffea09d1cae583f9aa477dc2b345ffc14072d5aa98722878ac3"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/screen/2-candidate-shots/steps.json",
+    "size": 68879,
+    "sha256": "a579af6800b763ec7b7e6cdec4a5022340d73887bfeae95911ed4307c1f3fcd8"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/screen/2-candidate-shots/steps.jsonl",
+    "size": 68878,
+    "sha256": "fa60bb43f32e8592f7b7aad5a98ccd0696755a690a4e29364d168a649f5d2507"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/screen/2-candidate-shots.log",
+    "size": 356,
+    "sha256": "77053a6680307c0af493b9e385ed40e283f40f2931da86b5a667fa4df58b1f01"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/screen/3-candidate-idle/commands.json",
+    "size": 2,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/screen/3-candidate-idle/report.json",
+    "size": 2758,
+    "sha256": "ea256dabbd1d377be1d636407190063bd885e6b08e21c3aec712ce052268c0b5"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/screen/3-candidate-idle/report.md",
+    "size": 1285,
+    "sha256": "8daf127c2873d389cc0203de222506582aaedd5188b6830f68a3cede3fb6b377"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/screen/3-candidate-idle/steps.json",
+    "size": 67009,
+    "sha256": "a2a1243edd51eb4656a05c5ad45430b6acef6ad510a7a0dff38650bcb91a930b"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/screen/3-candidate-idle/steps.jsonl",
+    "size": 67008,
+    "sha256": "db09ccb094466ccdd99adec6e5b14ca06465196148215e175dd4b5a103b2e4ca"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/screen/3-candidate-idle.log",
+    "size": 343,
+    "sha256": "0374aed1ed0446170840e15ac160970666eab22a0c8df661daa90b88be4645ef"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/screen/3-candidate-shots/commands.json",
+    "size": 11097,
+    "sha256": "4629dee8470bbbb269d4ca1105ddef804ae60cb22f45ac13954b6f43b3924ea9"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/screen/3-candidate-shots/report.json",
+    "size": 2820,
+    "sha256": "aef3e7a36fe166447430114c58835a222a07bb8a90051e17bb795a481ea4b011"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/screen/3-candidate-shots/report.md",
+    "size": 1292,
+    "sha256": "66513a682e1db934933df619fbb4e44e5482e60e9b1fff13e0b8de5c1ca3edcf"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/screen/3-candidate-shots/steps.json",
+    "size": 68599,
+    "sha256": "0d7a4c4e0670fbee06df876201bbe8dfbfa1f7922798107b557123a400a60cd6"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/screen/3-candidate-shots/steps.jsonl",
+    "size": 68598,
+    "sha256": "75528435e0d3b9efe31fb64c1cd3ab471a8c84eee999afb6c01b337f8bde22c0"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/screen/3-candidate-shots.log",
+    "size": 356,
+    "sha256": "bb7e7e82ab1f9749db83268b2e52d24fa0089ff5c1126c0ec47c909b6b9c3dc4"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/screen/4-baseline-idle/commands.json",
+    "size": 2,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/screen/4-baseline-idle/report.json",
+    "size": 2725,
+    "sha256": "ed0586f231688b08b85c0866ebfc3bf4a2d5f8b79c39b3375ea06c1cdff52031"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/screen/4-baseline-idle/report.md",
+    "size": 1285,
+    "sha256": "6bbdc159593ba735dc77eb47bcd2607d6e3a0815dd6373083e09eee9bd84e17c"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/screen/4-baseline-idle/steps.json",
+    "size": 67117,
+    "sha256": "5d3842d9a616bcea0553f76ff3b8a9efde502647fe500c9e75550fc9b47b593b"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/screen/4-baseline-idle/steps.jsonl",
+    "size": 67116,
+    "sha256": "2a2549055159348fd15fd6f8592c36fe118eb1500608bf25b8a3f238e8fe20f0"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/screen/4-baseline-idle.log",
+    "size": 342,
+    "sha256": "66750b850a87eb843ce2c8d4e7683ac7e3aecddb9a631135fe0a87c98668e03f"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/screen/4-baseline-shots/commands.json",
+    "size": 11097,
+    "sha256": "4629dee8470bbbb269d4ca1105ddef804ae60cb22f45ac13954b6f43b3924ea9"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/screen/4-baseline-shots/report.json",
+    "size": 2786,
+    "sha256": "073280b726dbe897efbd6ca435ba772951e573c8184dd9acc43d17450548639c"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/screen/4-baseline-shots/report.md",
+    "size": 1292,
+    "sha256": "e5c9c2bf949fa80332c89f1ef1d3b27b0506ff1fd653b93e4b48003215258f85"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/screen/4-baseline-shots/steps.json",
+    "size": 68536,
+    "sha256": "ee75fb28b4ac97997dd4d1a49b9da7e000fa6ba61c0b92140a87a1c708c1017c"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/screen/4-baseline-shots/steps.jsonl",
+    "size": 68535,
+    "sha256": "cd1e778dd1f0db0237965137503baf12c60cddfd523752f9e0d74a63be5451f5"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/screen/4-baseline-shots.log",
+    "size": 355,
+    "sha256": "93d318a0b1333140cded97e2ae6076b346fe9a2ab62982a3eb975c405e609131"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/screen/receipt.json",
+    "size": 12561,
+    "sha256": "24414405ffcf9db345f900ef92130bc7c0547329fa2b45ee82d2e5ff10db1a7b"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/screen-driver.log",
+    "size": 535,
+    "sha256": "a3b810dc29aac6d8e3637b626b15dad9210bcc15cc5895595865fef67df8ab9e"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/wall-frozen/capture.json",
+    "size": 2008,
+    "sha256": "d0d476a5848d788ca9d7db9e98919bfbd0414d30baa9219431cebd1743487be9"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/wall-frozen/native.body-words.csv",
+    "size": 11003521,
+    "sha256": "ceff9e51e63956f1fc1321c84f578eed01c751a90c647efb54e2e239f88699bb"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/wall-frozen/native.frames.csv",
+    "size": 185585,
+    "sha256": "38cc4710c328cd22a252fca3b478257fab50bbb2a9af5a1c627ad39e5e384809"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/wall-frozen/native.graph-diagnostics.json",
+    "size": 1392,
+    "sha256": "55a853755766f49019f2aaba859853f5a4efbefaf840b61582120fbdc00b8cb1"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/wall-frozen/native.launches.csv",
+    "size": 89,
+    "sha256": "31c42c0e08f2af0080595fc063be296c067326dbd1178bfd6467b80a28cdb538"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/wall-frozen/native.motion.csv.gz",
+    "size": 8172492,
+    "sha256": "2cfa30afe8ae6476868bec9c2d3556802a94bef8fc529c9c552daae3ee6cebc4"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/wall-frozen/native.summary.json",
+    "size": 2328,
+    "sha256": "5b347c4363274a6baed747f2c0007b797303fc43fe6012b9442bdffa6f5e78b0"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/wall-frozen/native.twstate",
+    "size": 747487,
+    "sha256": "86577b1f8577d5843991ac6e2b4244435491125bec2c8ffa395ea9d80ab51856"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/wall-frozen/quality.json",
+    "size": 1829,
+    "sha256": "8b31afb094bb03f31118afdadb66f4af6657b695c23489b77d3a92f0a7f70cd5"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/wall-frozen.log",
+    "size": 907,
+    "sha256": "618057b9b5f3f12b0058b73e37b603b5469b5e5fed2bd349a43a352dd39e0ebe"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/wall-standard/capture.json",
+    "size": 2098,
+    "sha256": "34f305103678ddfc6f6dfc1c18c823281c45add1da65dd56daf9a78e293a6936"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/wall-standard/native.body-words.csv",
+    "size": 1858716,
+    "sha256": "8bfb44626dd16042470f8df5b673b851dae87bcd45807b85ac8039fda0de332f"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/wall-standard/native.frames.csv",
+    "size": 39937,
+    "sha256": "01cbb089b4655fb897888a3a77542c832e6e082db710faba71f51a7454ec7d4c"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/wall-standard/native.graph-diagnostics.json",
+    "size": 1407,
+    "sha256": "84b827768c59adacb7f79f25664715a8a516150558a85750ec36ebfb7477081a"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/wall-standard/native.launches.csv",
+    "size": 89,
+    "sha256": "31c42c0e08f2af0080595fc063be296c067326dbd1178bfd6467b80a28cdb538"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/wall-standard/native.motion.csv.gz",
+    "size": 1370828,
+    "sha256": "ba91bf30848bdeb7f1eb2749542c6872678bbc3c82d44a703d45b3e38c76533a"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/wall-standard/native.summary.json",
+    "size": 2372,
+    "sha256": "11c0b6a1363718bcebb5b8cf18d9b52ae2a032367bf2239aa45b028f8fcf3311"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/wall-standard/native.twstate",
+    "size": 178048,
+    "sha256": "55e468579ce85084404bb91356866bfee886cff13838a5404c381ab3ca95fef3"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/wall-standard/quality.json",
+    "size": 2884,
+    "sha256": "2765e121dcc7c8c1b9d5a0e46ed998ecf9f1d3513d773aa239149689c42b63cc"
+  },
+  {
+    "path": "out/native-address-ownership-20260909/wall-standard.log",
+    "size": 270,
+    "sha256": "c050b46b66b83db875d69ab89fbb61e3c024ac618597a62468183bc53854d5b1"
+  },
+  {
+    "path": "out/native-address-ownership-repeat-20260909/screen/1-baseline-idle/commands.json",
+    "size": 2,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  {
+    "path": "out/native-address-ownership-repeat-20260909/screen/1-baseline-idle/report.json",
+    "size": 2750,
+    "sha256": "b97c4469fb1bc40c24d0a2152af1a10a681980450de7ff13bd2211e3158560c2"
+  },
+  {
+    "path": "out/native-address-ownership-repeat-20260909/screen/1-baseline-idle/report.md",
+    "size": 1285,
+    "sha256": "edfaf4424fc39249fac9633b9065948f34aaade8367957e5b07f7df445451341"
+  },
+  {
+    "path": "out/native-address-ownership-repeat-20260909/screen/1-baseline-idle/steps.json",
+    "size": 67096,
+    "sha256": "05249f0ca176de10afca7202718c139b59f31bc644a161ddb65ad6473290ab1c"
+  },
+  {
+    "path": "out/native-address-ownership-repeat-20260909/screen/1-baseline-idle/steps.jsonl",
+    "size": 67095,
+    "sha256": "ed730282adfcb34989f3ec56751a2a5db59550a0e7947e5456e14dfa7f3ecdce"
+  },
+  {
+    "path": "out/native-address-ownership-repeat-20260909/screen/1-baseline-idle.log",
+    "size": 349,
+    "sha256": "52cbecb657d7496baa805c24babc9e8ecc94af99f436a8e67cde7a0b48f6b7b5"
+  },
+  {
+    "path": "out/native-address-ownership-repeat-20260909/screen/1-baseline-shots/commands.json",
+    "size": 11097,
+    "sha256": "4629dee8470bbbb269d4ca1105ddef804ae60cb22f45ac13954b6f43b3924ea9"
+  },
+  {
+    "path": "out/native-address-ownership-repeat-20260909/screen/1-baseline-shots/report.json",
+    "size": 2777,
+    "sha256": "dd6dae1e371ab02658ee9b84ee93530d2f3f056cbf1f121f6c23a98abead5762"
+  },
+  {
+    "path": "out/native-address-ownership-repeat-20260909/screen/1-baseline-shots/report.md",
+    "size": 1292,
+    "sha256": "3d37a95c496197f6641f1959ee6560404477f3b4a7926d8e23b01306e778022e"
+  },
+  {
+    "path": "out/native-address-ownership-repeat-20260909/screen/1-baseline-shots/steps.json",
+    "size": 68499,
+    "sha256": "df7112f2cd57a5cdf5d2d4e181ae451b6f1e8b9d061dfa35a339e8286c65f396"
+  },
+  {
+    "path": "out/native-address-ownership-repeat-20260909/screen/1-baseline-shots/steps.jsonl",
+    "size": 68498,
+    "sha256": "bda953bad486c1177e63f5390d85b77b87772fe3876c4a7b01d557035dcee9df"
+  },
+  {
+    "path": "out/native-address-ownership-repeat-20260909/screen/1-baseline-shots.log",
+    "size": 362,
+    "sha256": "289abd2f1f71f2454d483cff9cd7a7b23fefaee2e5879b42ff4a94749dd2c4cd"
+  },
+  {
+    "path": "out/native-address-ownership-repeat-20260909/screen/2-candidate-idle/commands.json",
+    "size": 2,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  {
+    "path": "out/native-address-ownership-repeat-20260909/screen/2-candidate-idle/report.json",
+    "size": 2757,
+    "sha256": "3791a3f118b8732410c298732b235b01b775149de4f16a1cacdcb78935a11eb4"
+  },
+  {
+    "path": "out/native-address-ownership-repeat-20260909/screen/2-candidate-idle/report.md",
+    "size": 1285,
+    "sha256": "b31c1a4cc6849b180c1d4e70679e6ff6c88498d3bb639c7ad697c221cf8a7887"
+  },
+  {
+    "path": "out/native-address-ownership-repeat-20260909/screen/2-candidate-idle/steps.json",
+    "size": 67384,
+    "sha256": "d16dc107c1870b5843908dbbb09e41b88e07b7fc0efed0a3d46be6306455474c"
+  },
+  {
+    "path": "out/native-address-ownership-repeat-20260909/screen/2-candidate-idle/steps.jsonl",
+    "size": 67383,
+    "sha256": "81af91f0fb87f99a6839175ab644723bc6d8728ea93e13fa7721443025ccc519"
+  },
+  {
+    "path": "out/native-address-ownership-repeat-20260909/screen/2-candidate-idle.log",
+    "size": 350,
+    "sha256": "06b5cff2e34d4c045668f750b2c8ea04e82fa0a82dfc001e61378ed32b109946"
+  },
+  {
+    "path": "out/native-address-ownership-repeat-20260909/screen/2-candidate-shots/commands.json",
+    "size": 11097,
+    "sha256": "4629dee8470bbbb269d4ca1105ddef804ae60cb22f45ac13954b6f43b3924ea9"
+  },
+  {
+    "path": "out/native-address-ownership-repeat-20260909/screen/2-candidate-shots/report.json",
+    "size": 2795,
+    "sha256": "b2e05607b4ce309ef39887e7462f7a459cb1baf87041ad1eea2cc6c3e074501e"
+  },
+  {
+    "path": "out/native-address-ownership-repeat-20260909/screen/2-candidate-shots/report.md",
+    "size": 1292,
+    "sha256": "87b4b01ec02859c0d5e5cdd11cac0f203a48543c8ec6edeb38e4139a9b8fa8e4"
+  },
+  {
+    "path": "out/native-address-ownership-repeat-20260909/screen/2-candidate-shots/steps.json",
+    "size": 68507,
+    "sha256": "5d5a4fbe998c05d85ee423f092cd2d2b63dcf04c67eea23bfc81beae6a5983e4"
+  },
+  {
+    "path": "out/native-address-ownership-repeat-20260909/screen/2-candidate-shots/steps.jsonl",
+    "size": 68506,
+    "sha256": "dbaeee55c7d98cdaf3c2afce774d606f6deb279453a6b18f999b055b8f15876b"
+  },
+  {
+    "path": "out/native-address-ownership-repeat-20260909/screen/2-candidate-shots.log",
+    "size": 363,
+    "sha256": "e205015b87c810c551615dbc947b9e3115ae6532e44aa662b0506c4e6a711e97"
+  },
+  {
+    "path": "out/native-address-ownership-repeat-20260909/screen/3-candidate-idle/commands.json",
+    "size": 2,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  {
+    "path": "out/native-address-ownership-repeat-20260909/screen/3-candidate-idle/report.json",
+    "size": 2795,
+    "sha256": "8ccde23e43e1abd916f22a49b4f527abed2d142b1d859c1d6d185fe95b87e91d"
+  },
+  {
+    "path": "out/native-address-ownership-repeat-20260909/screen/3-candidate-idle/report.md",
+    "size": 1285,
+    "sha256": "1be1f0e6bf9e7693422ef4cac843652989faa5186aa355e4b31892220eead752"
+  },
+  {
+    "path": "out/native-address-ownership-repeat-20260909/screen/3-candidate-idle/steps.json",
+    "size": 67027,
+    "sha256": "26ba16bd79609caae3d6d0cdcad57db7b9df746ae5e0c38a24abe76c69e0144a"
+  },
+  {
+    "path": "out/native-address-ownership-repeat-20260909/screen/3-candidate-idle/steps.jsonl",
+    "size": 67026,
+    "sha256": "519703949cadc82f331aea4b1f4977d600b98b12576a0bfb45ae602427a202d0"
+  },
+  {
+    "path": "out/native-address-ownership-repeat-20260909/screen/3-candidate-idle.log",
+    "size": 350,
+    "sha256": "4466e6eff160b11ed83b2c78ae364340cec58de0886321e6c820b528a9bb940c"
+  },
+  {
+    "path": "out/native-address-ownership-repeat-20260909/screen/3-candidate-shots/commands.json",
+    "size": 11097,
+    "sha256": "4629dee8470bbbb269d4ca1105ddef804ae60cb22f45ac13954b6f43b3924ea9"
+  },
+  {
+    "path": "out/native-address-ownership-repeat-20260909/screen/3-candidate-shots/report.json",
+    "size": 2795,
+    "sha256": "0845d2e20d86b17a03f84fd8cf4a80240931e58e192db4ada62e265de305609f"
+  },
+  {
+    "path": "out/native-address-ownership-repeat-20260909/screen/3-candidate-shots/report.md",
+    "size": 1292,
+    "sha256": "df100880d7f6ec5593cbeab9fe7e9ffee2cef62b57a1cacee733bbe1f8244ed2"
+  },
+  {
+    "path": "out/native-address-ownership-repeat-20260909/screen/3-candidate-shots/steps.json",
+    "size": 68748,
+    "sha256": "94af8aa83b5be9f1bbe3733bc9de4a1642940bb337b5999529134feb51543f89"
+  },
+  {
+    "path": "out/native-address-ownership-repeat-20260909/screen/3-candidate-shots/steps.jsonl",
+    "size": 68747,
+    "sha256": "630490b5519318781ee2c95ba6475c67e7ce07bcfd39ed008e6bb12558dda49a"
+  },
+  {
+    "path": "out/native-address-ownership-repeat-20260909/screen/3-candidate-shots.log",
+    "size": 363,
+    "sha256": "ec003079c5ed8b12e7c1b4d444c03aa3ca6ac73173d640d9d111218fa98cce0b"
+  },
+  {
+    "path": "out/native-address-ownership-repeat-20260909/screen/4-baseline-idle/commands.json",
+    "size": 2,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  {
+    "path": "out/native-address-ownership-repeat-20260909/screen/4-baseline-idle/report.json",
+    "size": 2748,
+    "sha256": "efdfddacd87fdfb2133a35aefdb4479a650edda7d4d1a77bd4a3ccaa0c4c8a93"
+  },
+  {
+    "path": "out/native-address-ownership-repeat-20260909/screen/4-baseline-idle/report.md",
+    "size": 1285,
+    "sha256": "e5485427fb031394906bd7d1cf7f735d0ff76fa4eaa2681c01285a3d979c0744"
+  },
+  {
+    "path": "out/native-address-ownership-repeat-20260909/screen/4-baseline-idle/steps.json",
+    "size": 67222,
+    "sha256": "fa003f2eb3b4bf75624e874d6c51386517207b2737377746cd1946a56bedde18"
+  },
+  {
+    "path": "out/native-address-ownership-repeat-20260909/screen/4-baseline-idle/steps.jsonl",
+    "size": 67221,
+    "sha256": "553f77b8195878af95c7bdf1679aeda8c21cdbc7878918f543326b0866524864"
+  },
+  {
+    "path": "out/native-address-ownership-repeat-20260909/screen/4-baseline-idle.log",
+    "size": 349,
+    "sha256": "a9adb2b056e1e4bb6a762d872158c6de71fb83c5f6de5e63d9045909cf37b0cd"
+  },
+  {
+    "path": "out/native-address-ownership-repeat-20260909/screen/4-baseline-shots/commands.json",
+    "size": 11097,
+    "sha256": "4629dee8470bbbb269d4ca1105ddef804ae60cb22f45ac13954b6f43b3924ea9"
+  },
+  {
+    "path": "out/native-address-ownership-repeat-20260909/screen/4-baseline-shots/report.json",
+    "size": 2773,
+    "sha256": "0b58f9700f025d185166ed94335fc16b21d9697cda61ecc20d47ecd0948430a8"
+  },
+  {
+    "path": "out/native-address-ownership-repeat-20260909/screen/4-baseline-shots/report.md",
+    "size": 1292,
+    "sha256": "23e4e56713bf0d1379b7e4040c57c7c1d68000a52cd290bb4d7311d0d0c5096f"
+  },
+  {
+    "path": "out/native-address-ownership-repeat-20260909/screen/4-baseline-shots/steps.json",
+    "size": 68312,
+    "sha256": "e2ba83939f5113220baaeb228251100e2264a06b2f94625904a0f2645e7e412b"
+  },
+  {
+    "path": "out/native-address-ownership-repeat-20260909/screen/4-baseline-shots/steps.jsonl",
+    "size": 68311,
+    "sha256": "14729ef1971e139e483cbab498ee03351f3eeefbff58b0ba6c7959abb7ef3dec"
+  },
+  {
+    "path": "out/native-address-ownership-repeat-20260909/screen/4-baseline-shots.log",
+    "size": 362,
+    "sha256": "d5e90c1ef10a0bcf6c05702b476d9711329e34ea6d421d68724fa2863736e925"
+  },
+  {
+    "path": "out/native-address-ownership-repeat-20260909/screen/receipt.json",
+    "size": 12617,
+    "sha256": "250ff4fa0cfb7786986ce0ca102da50ca547c31aae8c1d263398f0a9ce7c25d4"
+  },
+  {
+    "path": "out/native-address-ownership-repeat-20260909/screen-driver.log",
+    "size": 549,
+    "sha256": "cad91db70b93b9a81d7e3231955e756b768227bef6903777c12fe48f0cb95de9"
+  }
+]

@@ -1,0 +1,3124 @@
+{
+  "scenarios": [
+    {
+      "scenario": "city25-intact-idle",
+      "purpose": "Pristine supported buildings, no shots: global setup and gravity equilibrium.",
+      "metadata": {
+        "schema": 1,
+        "source": "native_destruction_demo",
+        "next_step": 40,
+        "buildings": 25,
+        "chunks": 11100,
+        "bonds": 22400,
+        "projectiles": 0,
+        "input_clusters": 25,
+        "physical_bytes": 3027668,
+        "destruction_bytes": 3171696,
+        "dt": 0.016666666666666666,
+        "pending_gameplay_commands": false
+      },
+      "raw": "out/snapshot-large-20260911/complete-city25-intact-idle",
+      "status": "complete",
+      "uninterrupted_source_tick": {
+        "step": "40",
+        "bonds_broken": "0",
+        "logical_clusters": "25",
+        "stress_iterations": "0",
+        "resim_passes": "0",
+        "complete_step_ms": "1.9107479999999999"
+      },
+      "source_comparison_scope": "Diagnostic context only: not the independent-restore gate and not matched warm/cold performance.",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-idle/native/snapshot-40.pxbin": "9e0e4fb616b2e09fe4c93c0a03ed50a6dbf58d0b555bb5f50ff4cbb976a0c582",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-idle/native/snapshot-40.destruction": "9df4e3cc5a15a1b600cf8f21301b2b4c49751693538a51e56c42666c2b0d84c9",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-idle/native/snapshot-40.scene": "516c2574ba53c436e5b0ce16a6c88cb4e1d22c8c44c894b6f642a68d31d2d848",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-idle/native/snapshot-40.metadata.json": "bdf6b77c8f086b7ca71a1eeebe9d9674db21b6212fad3e9da7773064bfb0cb54"
+      },
+      "wall_seconds": 10.791384000011021,
+      "timings": {
+        "qualified": true,
+        "repeatability_passed": true,
+        "receipt_status": "complete",
+        "replay_contract": "physical-file-replay-v20-complete-step",
+        "metadata": {
+          "schema": 1,
+          "source": "native_destruction_demo",
+          "next_step": 40,
+          "buildings": 25,
+          "chunks": 11100,
+          "bonds": 22400,
+          "projectiles": 0,
+          "input_clusters": 25,
+          "physical_bytes": 3027668,
+          "destruction_bytes": 3171696,
+          "dt": 0.016666666666666666,
+          "pending_gameplay_commands": false
+        },
+        "sd_ms": 2.6831964228860934,
+        "cv_percent": 24.143785711649453,
+        "comparison_failure_reasons": [],
+        "failed_comparisons": 0,
+        "maximum_observed_bond_health_difference": 0,
+        "descriptive_bootstrap_mean_95_ms": [
+          10.2585293,
+          12.4707802
+        ],
+        "first_half_mean_ms": 11.8095777,
+        "last_half_mean_ms": 10.4172301,
+        "harness_wall_seconds": 10.791384000011021,
+        "harness_clock": "monotonic",
+        "mean_stages_ms": {
+          "command_ms": 0.00018055,
+          "simulate_fetch_ms": 10.81082115,
+          "completion_ms": 0.3024022
+        },
+        "active_work": {
+          "output_clusters": [
+            25
+          ],
+          "stress_islands": [
+            25
+          ],
+          "stress_active_nodes": [
+            9500
+          ],
+          "stress_active_bonds": [
+            19600
+          ],
+          "normal_contacts": [
+            0
+          ],
+          "friction_anchors": [
+            0
+          ]
+        },
+        "scenario": "city25-intact-idle",
+        "samples": 20,
+        "mean_ms": 11.1134039,
+        "median_ms": 10.5008415,
+        "min_ms": 9.366485,
+        "max_ms": 21.974864,
+        "restore_mean_ms": 308.95051355,
+        "restore_max_ms": 382.68755,
+        "over_8_ms": 20,
+        "over_120hz": 20,
+        "over_60hz": 1,
+        "corrections": [
+          0
+        ],
+        "stress_evaluations": [
+          1
+        ],
+        "stress_iterations": [
+          88
+        ],
+        "broken_bonds": [
+          0
+        ],
+        "motion_comparisons_unavailable": 0,
+        "max_position_error_m": 0,
+        "max_linear_error_m_s": 0,
+        "max_angular_error_rad_s": 0,
+        "input_sha256": {
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-idle/native/snapshot-40.pxbin": "9e0e4fb616b2e09fe4c93c0a03ed50a6dbf58d0b555bb5f50ff4cbb976a0c582",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-idle/native/snapshot-40.destruction": "9df4e3cc5a15a1b600cf8f21301b2b4c49751693538a51e56c42666c2b0d84c9",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-idle/native/snapshot-40.scene": "516c2574ba53c436e5b0ce16a6c88cb4e1d22c8c44c894b6f642a68d31d2d848",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-idle/native/snapshot-40.metadata.json": "bdf6b77c8f086b7ca71a1eeebe9d9674db21b6212fad3e9da7773064bfb0cb54"
+        },
+        "raw": "out/snapshot-large-20260911/complete-city25-intact-idle/replay.json"
+      }
+    },
+    {
+      "scenario": "city25-airborne",
+      "purpose": "One shot per building approaching the intact city; no authored fractures.",
+      "metadata": {
+        "schema": 1,
+        "source": "native_destruction_demo",
+        "next_step": 40,
+        "buildings": 25,
+        "chunks": 11100,
+        "bonds": 22400,
+        "projectiles": 25,
+        "input_clusters": 25,
+        "physical_bytes": 3042068,
+        "destruction_bytes": 3176196,
+        "dt": 0.016666666666666666,
+        "pending_gameplay_commands": false
+      },
+      "raw": "out/snapshot-large-20260911/complete-city25-airborne",
+      "status": "complete",
+      "uninterrupted_source_tick": {
+        "step": "40",
+        "bonds_broken": "0",
+        "logical_clusters": "25",
+        "stress_iterations": "0",
+        "resim_passes": "0",
+        "complete_step_ms": "2.6792590000000001"
+      },
+      "source_comparison_scope": "Diagnostic context only: not the independent-restore gate and not matched warm/cold performance.",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-40.pxbin": "002385a55308e543fb395313d8778d79b4aac4eedee41388c1d8f7861878096d",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-40.destruction": "960db094046e47e3e58c1d2b64a2e3b8db3971a7f63b1f2e3674e464b5db439c",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-40.scene": "516c2574ba53c436e5b0ce16a6c88cb4e1d22c8c44c894b6f642a68d31d2d848",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-40.metadata.json": "1a4090bba42001872dae41decb05930d6234fd8089def53ca8aa58678571bfb6"
+      },
+      "wall_seconds": 10.659906374989077,
+      "timings": {
+        "qualified": true,
+        "repeatability_passed": true,
+        "receipt_status": "complete",
+        "replay_contract": "physical-file-replay-v20-complete-step",
+        "metadata": {
+          "schema": 1,
+          "source": "native_destruction_demo",
+          "next_step": 40,
+          "buildings": 25,
+          "chunks": 11100,
+          "bonds": 22400,
+          "projectiles": 25,
+          "input_clusters": 25,
+          "physical_bytes": 3042068,
+          "destruction_bytes": 3176196,
+          "dt": 0.016666666666666666,
+          "pending_gameplay_commands": false
+        },
+        "sd_ms": 1.7846054131242632,
+        "cv_percent": 14.739773605860535,
+        "comparison_failure_reasons": [],
+        "failed_comparisons": 0,
+        "maximum_observed_bond_health_difference": 0,
+        "descriptive_bootstrap_mean_95_ms": [
+          11.46265405,
+          12.9633634
+        ],
+        "first_half_mean_ms": 12.557561100000001,
+        "last_half_mean_ms": 11.6572669,
+        "harness_wall_seconds": 10.659906374989077,
+        "harness_clock": "monotonic",
+        "mean_stages_ms": {
+          "command_ms": 0.00017685,
+          "simulate_fetch_ms": 11.83917865,
+          "completion_ms": 0.2680585
+        },
+        "active_work": {
+          "output_clusters": [
+            25
+          ],
+          "stress_islands": [
+            25
+          ],
+          "stress_active_nodes": [
+            9500
+          ],
+          "stress_active_bonds": [
+            19600
+          ],
+          "normal_contacts": [
+            0
+          ],
+          "friction_anchors": [
+            0
+          ]
+        },
+        "scenario": "city25-airborne",
+        "samples": 20,
+        "mean_ms": 12.107414,
+        "median_ms": 11.6225415,
+        "min_ms": 10.439262,
+        "max_ms": 18.478829,
+        "restore_mean_ms": 313.5869601,
+        "restore_max_ms": 380.429817,
+        "over_8_ms": 20,
+        "over_120hz": 20,
+        "over_60hz": 1,
+        "corrections": [
+          0
+        ],
+        "stress_evaluations": [
+          1
+        ],
+        "stress_iterations": [
+          88
+        ],
+        "broken_bonds": [
+          0
+        ],
+        "motion_comparisons_unavailable": 0,
+        "max_position_error_m": 0,
+        "max_linear_error_m_s": 0,
+        "max_angular_error_rad_s": 0,
+        "input_sha256": {
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-40.pxbin": "002385a55308e543fb395313d8778d79b4aac4eedee41388c1d8f7861878096d",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-40.destruction": "960db094046e47e3e58c1d2b64a2e3b8db3971a7f63b1f2e3674e464b5db439c",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-40.scene": "516c2574ba53c436e5b0ce16a6c88cb4e1d22c8c44c894b6f642a68d31d2d848",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-40.metadata.json": "1a4090bba42001872dae41decb05930d6234fd8089def53ca8aa58678571bfb6"
+        },
+        "raw": "out/snapshot-large-20260911/complete-city25-airborne/replay.json"
+      }
+    },
+    {
+      "scenario": "city25-initial-impact",
+      "purpose": "Historical first impact/peak input; measure actual restored fracture and correction.",
+      "metadata": {
+        "schema": 1,
+        "source": "native_destruction_demo",
+        "next_step": 82,
+        "buildings": 25,
+        "chunks": 11100,
+        "bonds": 22400,
+        "projectiles": 25,
+        "input_clusters": 25,
+        "physical_bytes": 3042068,
+        "destruction_bytes": 3176196,
+        "dt": 0.016666666666666666,
+        "pending_gameplay_commands": false
+      },
+      "raw": "out/snapshot-large-20260911/complete-city25-initial-impact",
+      "status": "complete",
+      "uninterrupted_source_tick": {
+        "step": "82",
+        "bonds_broken": "2824",
+        "logical_clusters": "526",
+        "stress_iterations": "288",
+        "resim_passes": "1",
+        "complete_step_ms": "38.326438000000003"
+      },
+      "source_comparison_scope": "Diagnostic context only: not the independent-restore gate and not matched warm/cold performance.",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.pxbin": "8d340fe0be8824034f58e99a8a581d25421f560f75b8337cf883e226af080963",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.destruction": "9543dbfe549a92d460628d44c5227f057b83041f657e0b4ebd50f41462456b8e",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.scene": "516c2574ba53c436e5b0ce16a6c88cb4e1d22c8c44c894b6f642a68d31d2d848",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.metadata.json": "beed82f2bdc0228d9391c52b3eb2d5ec23529a74b52733b6b62f203d6bb90ab1"
+      },
+      "wall_seconds": 11.767319584992947,
+      "timings": {
+        "qualified": true,
+        "repeatability_passed": true,
+        "receipt_status": "complete",
+        "replay_contract": "physical-file-replay-v20-complete-step",
+        "metadata": {
+          "schema": 1,
+          "source": "native_destruction_demo",
+          "next_step": 82,
+          "buildings": 25,
+          "chunks": 11100,
+          "bonds": 22400,
+          "projectiles": 25,
+          "input_clusters": 25,
+          "physical_bytes": 3042068,
+          "destruction_bytes": 3176196,
+          "dt": 0.016666666666666666,
+          "pending_gameplay_commands": false
+        },
+        "sd_ms": 3.8516100944246188,
+        "cv_percent": 8.598030277424899,
+        "comparison_failure_reasons": [],
+        "failed_comparisons": 0,
+        "maximum_observed_bond_health_difference": 0,
+        "descriptive_bootstrap_mean_95_ms": [
+          43.2161025,
+          46.50007055
+        ],
+        "first_half_mean_ms": 45.9715803,
+        "last_half_mean_ms": 43.6212676,
+        "harness_wall_seconds": 11.767319584992947,
+        "harness_clock": "monotonic",
+        "mean_stages_ms": {
+          "command_ms": 0.0001931,
+          "simulate_fetch_ms": 44.5414661,
+          "completion_ms": 0.25476475
+        },
+        "active_work": {
+          "output_clusters": [
+            537
+          ],
+          "stress_islands": [
+            77
+          ],
+          "stress_active_nodes": [
+            9040
+          ],
+          "stress_active_bonds": [
+            16188
+          ],
+          "normal_contacts": [
+            3931
+          ],
+          "friction_anchors": [
+            625
+          ]
+        },
+        "scenario": "city25-initial-impact",
+        "samples": 20,
+        "mean_ms": 44.79642395,
+        "median_ms": 44.354689500000006,
+        "min_ms": 39.297682,
+        "max_ms": 53.13773,
+        "restore_mean_ms": 329.0242214,
+        "restore_max_ms": 489.970928,
+        "over_8_ms": 20,
+        "over_120hz": 20,
+        "over_60hz": 20,
+        "corrections": [
+          1
+        ],
+        "stress_evaluations": [
+          2
+        ],
+        "stress_iterations": [
+          304
+        ],
+        "broken_bonds": [
+          3412
+        ],
+        "motion_comparisons_unavailable": 0,
+        "max_position_error_m": 0,
+        "max_linear_error_m_s": 0,
+        "max_angular_error_rad_s": 0,
+        "input_sha256": {
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.pxbin": "8d340fe0be8824034f58e99a8a581d25421f560f75b8337cf883e226af080963",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.destruction": "9543dbfe549a92d460628d44c5227f057b83041f657e0b4ebd50f41462456b8e",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.scene": "516c2574ba53c436e5b0ce16a6c88cb4e1d22c8c44c894b6f642a68d31d2d848",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82.metadata.json": "beed82f2bdc0228d9391c52b3eb2d5ec23529a74b52733b6b62f203d6bb90ab1"
+        },
+        "raw": "out/snapshot-large-20260911/complete-city25-initial-impact/replay.json"
+      }
+    },
+    {
+      "scenario": "city25-post-impact",
+      "purpose": "Immediately after historical first impact: many newly separated owners.",
+      "metadata": {
+        "schema": 1,
+        "source": "native_destruction_demo",
+        "next_step": 83,
+        "buildings": 25,
+        "chunks": 11100,
+        "bonds": 22400,
+        "projectiles": 25,
+        "input_clusters": 526,
+        "physical_bytes": 3194164,
+        "destruction_bytes": 3332508,
+        "dt": 0.016666666666666666,
+        "pending_gameplay_commands": false
+      },
+      "raw": "out/snapshot-large-20260911/complete-city25-post-impact",
+      "status": "failed",
+      "uninterrupted_source_tick": {
+        "step": "83",
+        "bonds_broken": "0",
+        "logical_clusters": "526",
+        "stress_iterations": "332",
+        "resim_passes": "0",
+        "complete_step_ms": "14.225185"
+      },
+      "source_comparison_scope": "Diagnostic context only: not the independent-restore gate and not matched warm/cold performance.",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-83.pxbin": "57418bdf1af61cd8a6f18481418de8a13e9af12fa6c1ad9faaa51f2a2e7da37e",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-83.destruction": "0ff5545bc5f0d12dfd5aa6b9cc5d0ea3bf6cfc9c812a92847c0758ac4553b8b5",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-83.scene": "516c2574ba53c436e5b0ce16a6c88cb4e1d22c8c44c894b6f642a68d31d2d848",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-83.metadata.json": "2da612d044e945453737fefc949422ae550e82326bcb161da66e861469958237"
+      },
+      "wall_seconds": 12.925203173988848,
+      "failure_log": "health differences=2 max=5.960464478e-08 bond=21729 values=0.9751030207/0.9751030803\nrepeat 13 comparison failed: bond health changed between equivalent states\none-tick repeatability gate failed; all samples retained\n",
+      "timings": {
+        "qualified": false,
+        "repeatability_passed": false,
+        "receipt_status": "failed",
+        "replay_contract": "physical-file-replay-v20-complete-step",
+        "metadata": {
+          "schema": 1,
+          "source": "native_destruction_demo",
+          "next_step": 83,
+          "buildings": 25,
+          "chunks": 11100,
+          "bonds": 22400,
+          "projectiles": 25,
+          "input_clusters": 526,
+          "physical_bytes": 3194164,
+          "destruction_bytes": 3332508,
+          "dt": 0.016666666666666666,
+          "pending_gameplay_commands": false
+        },
+        "sd_ms": 3.466438715552371,
+        "cv_percent": 14.300346098224512,
+        "comparison_failure_reasons": [
+          "bond health changed between equivalent states"
+        ],
+        "failed_comparisons": 1,
+        "maximum_observed_bond_health_difference": 5.960464478e-08,
+        "descriptive_bootstrap_mean_95_ms": [
+          22.83331305,
+          25.79958425
+        ],
+        "first_half_mean_ms": 25.319467,
+        "last_half_mean_ms": 23.16102,
+        "harness_wall_seconds": 12.925203173988848,
+        "harness_clock": "monotonic",
+        "mean_stages_ms": {
+          "command_ms": 0.00019795000000000001,
+          "simulate_fetch_ms": 23.911608649999998,
+          "completion_ms": 0.3284369
+        },
+        "active_work": {
+          "output_clusters": [
+            526
+          ],
+          "stress_islands": [
+            53
+          ],
+          "stress_active_nodes": [
+            9027
+          ],
+          "stress_active_bonds": [
+            16776
+          ],
+          "normal_contacts": [
+            4675
+          ],
+          "friction_anchors": [
+            1060
+          ]
+        },
+        "scenario": "city25-post-impact",
+        "samples": 20,
+        "mean_ms": 24.2402435,
+        "median_ms": 23.2281345,
+        "min_ms": 19.167121,
+        "max_ms": 33.632429,
+        "restore_mean_ms": 350.65018415,
+        "restore_max_ms": 498.767839,
+        "over_8_ms": 20,
+        "over_120hz": 20,
+        "over_60hz": 20,
+        "corrections": [
+          0
+        ],
+        "stress_evaluations": [
+          1
+        ],
+        "stress_iterations": [
+          332
+        ],
+        "broken_bonds": [
+          0
+        ],
+        "motion_comparisons_unavailable": 0,
+        "max_position_error_m": 0,
+        "max_linear_error_m_s": 0,
+        "max_angular_error_rad_s": 0,
+        "input_sha256": {
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-83.pxbin": "57418bdf1af61cd8a6f18481418de8a13e9af12fa6c1ad9faaa51f2a2e7da37e",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-83.destruction": "0ff5545bc5f0d12dfd5aa6b9cc5d0ea3bf6cfc9c812a92847c0758ac4553b8b5",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-83.scene": "516c2574ba53c436e5b0ce16a6c88cb4e1d22c8c44c894b6f642a68d31d2d848",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-83.metadata.json": "2da612d044e945453737fefc949422ae550e82326bcb161da66e861469958237"
+        },
+        "raw": "out/snapshot-large-20260911/complete-city25-post-impact/replay.json"
+      }
+    },
+    {
+      "scenario": "city25-cascading-fracture",
+      "purpose": "Continuing projectile penetration and cascading fractures.",
+      "metadata": {
+        "schema": 1,
+        "source": "native_destruction_demo",
+        "next_step": 87,
+        "buildings": 25,
+        "chunks": 11100,
+        "bonds": 22400,
+        "projectiles": 25,
+        "input_clusters": 600,
+        "physical_bytes": 3216788,
+        "destruction_bytes": 3355596,
+        "dt": 0.016666666666666666,
+        "pending_gameplay_commands": false
+      },
+      "raw": "out/snapshot-large-20260911/complete-city25-cascading-fracture",
+      "status": "complete",
+      "uninterrupted_source_tick": {
+        "step": "87",
+        "bonds_broken": "9",
+        "logical_clusters": "609",
+        "stress_iterations": "416",
+        "resim_passes": "1",
+        "complete_step_ms": "26.039656999999998"
+      },
+      "source_comparison_scope": "Diagnostic context only: not the independent-restore gate and not matched warm/cold performance.",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-87.pxbin": "2b696e3d51043007b171fc6a64c4ed6506607659ab01b7cf449befd95ee64fc8",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-87.destruction": "40ee78271e39a864cd2f0b5ab9529e869cb7147a323452b9700939067bf24d0f",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-87.scene": "516c2574ba53c436e5b0ce16a6c88cb4e1d22c8c44c894b6f642a68d31d2d848",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-87.metadata.json": "b43f97f83968681b1840b218a7ef94e6fb53b84e19f4efc5439ce0019e11b983"
+      },
+      "wall_seconds": 12.74027229299827,
+      "timings": {
+        "qualified": true,
+        "repeatability_passed": true,
+        "receipt_status": "complete",
+        "replay_contract": "physical-file-replay-v20-complete-step",
+        "metadata": {
+          "schema": 1,
+          "source": "native_destruction_demo",
+          "next_step": 87,
+          "buildings": 25,
+          "chunks": 11100,
+          "bonds": 22400,
+          "projectiles": 25,
+          "input_clusters": 600,
+          "physical_bytes": 3216788,
+          "destruction_bytes": 3355596,
+          "dt": 0.016666666666666666,
+          "pending_gameplay_commands": false
+        },
+        "sd_ms": 3.413829891384827,
+        "cv_percent": 8.416429250150589,
+        "comparison_failure_reasons": [],
+        "failed_comparisons": 0,
+        "maximum_observed_bond_health_difference": 0,
+        "descriptive_bootstrap_mean_95_ms": [
+          39.3292249,
+          42.2901293
+        ],
+        "first_half_mean_ms": 41.8740992,
+        "last_half_mean_ms": 39.2488994,
+        "harness_wall_seconds": 12.74027229299827,
+        "harness_clock": "monotonic",
+        "mean_stages_ms": {
+          "command_ms": 0.0001663,
+          "simulate_fetch_ms": 40.2885947,
+          "completion_ms": 0.2727383
+        },
+        "active_work": {
+          "output_clusters": [
+            610
+          ],
+          "stress_islands": [
+            64
+          ],
+          "stress_active_nodes": [
+            8954
+          ],
+          "stress_active_bonds": [
+            16476
+          ],
+          "normal_contacts": [
+            10900
+          ],
+          "friction_anchors": [
+            2028
+          ]
+        },
+        "scenario": "city25-cascading-fracture",
+        "samples": 20,
+        "mean_ms": 40.5614993,
+        "median_ms": 39.861736500000006,
+        "min_ms": 37.375254,
+        "max_ms": 52.502035,
+        "restore_mean_ms": 335.8519463,
+        "restore_max_ms": 503.644181,
+        "over_8_ms": 20,
+        "over_120hz": 20,
+        "over_60hz": 20,
+        "corrections": [
+          1
+        ],
+        "stress_evaluations": [
+          2
+        ],
+        "stress_iterations": [
+          388
+        ],
+        "broken_bonds": [
+          10
+        ],
+        "motion_comparisons_unavailable": 0,
+        "max_position_error_m": 0,
+        "max_linear_error_m_s": 0,
+        "max_angular_error_rad_s": 0,
+        "input_sha256": {
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-87.pxbin": "2b696e3d51043007b171fc6a64c4ed6506607659ab01b7cf449befd95ee64fc8",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-87.destruction": "40ee78271e39a864cd2f0b5ab9529e869cb7147a323452b9700939067bf24d0f",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-87.scene": "516c2574ba53c436e5b0ce16a6c88cb4e1d22c8c44c894b6f642a68d31d2d848",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-87.metadata.json": "b43f97f83968681b1840b218a7ef94e6fb53b84e19f4efc5439ce0019e11b983"
+        },
+        "raw": "out/snapshot-large-20260911/complete-city25-cascading-fracture/replay.json"
+      }
+    },
+    {
+      "scenario": "city25-fragmented-loaded",
+      "purpose": "Historical later stress peak with many independent motion clusters.",
+      "metadata": {
+        "schema": 1,
+        "source": "native_destruction_demo",
+        "next_step": 108,
+        "buildings": 25,
+        "chunks": 11100,
+        "bonds": 22400,
+        "projectiles": 25,
+        "input_clusters": 1282,
+        "physical_bytes": 3424756,
+        "destruction_bytes": 3568380,
+        "dt": 0.016666666666666666,
+        "pending_gameplay_commands": false
+      },
+      "raw": "out/snapshot-large-20260911/complete-city25-fragmented-loaded",
+      "status": "complete",
+      "uninterrupted_source_tick": {
+        "step": "108",
+        "bonds_broken": "1",
+        "logical_clusters": "1283",
+        "stress_iterations": "532",
+        "resim_passes": "1",
+        "complete_step_ms": "31.039276999999998"
+      },
+      "source_comparison_scope": "Diagnostic context only: not the independent-restore gate and not matched warm/cold performance.",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-108.pxbin": "e4be1340319e84da519ee0c47f6f0178f981b19c5978502c8cfc45046e4a8724",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-108.destruction": "01306cba441d75be60e168d3d13f4c6d8e796e35157cb44cac50e2b6839bfacd",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-108.scene": "516c2574ba53c436e5b0ce16a6c88cb4e1d22c8c44c894b6f642a68d31d2d848",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-108.metadata.json": "29af17e81a46c034bd0e1b5d60a0d3183273fd3a53328714af1b3d4314345ece"
+      },
+      "wall_seconds": 13.334386005008128,
+      "timings": {
+        "qualified": true,
+        "repeatability_passed": true,
+        "receipt_status": "complete",
+        "replay_contract": "physical-file-replay-v20-complete-step",
+        "metadata": {
+          "schema": 1,
+          "source": "native_destruction_demo",
+          "next_step": 108,
+          "buildings": 25,
+          "chunks": 11100,
+          "bonds": 22400,
+          "projectiles": 25,
+          "input_clusters": 1282,
+          "physical_bytes": 3424756,
+          "destruction_bytes": 3568380,
+          "dt": 0.016666666666666666,
+          "pending_gameplay_commands": false
+        },
+        "sd_ms": 5.143089621439712,
+        "cv_percent": 9.301765510957624,
+        "comparison_failure_reasons": [],
+        "failed_comparisons": 0,
+        "maximum_observed_bond_health_difference": 0,
+        "descriptive_bootstrap_mean_95_ms": [
+          53.2577293,
+          57.5822117
+        ],
+        "first_half_mean_ms": 56.6142018,
+        "last_half_mean_ms": 53.968883000000005,
+        "harness_wall_seconds": 13.334386005008128,
+        "harness_clock": "monotonic",
+        "mean_stages_ms": {
+          "command_ms": 0.0001883,
+          "simulate_fetch_ms": 55.03458425,
+          "completion_ms": 0.25676985
+        },
+        "active_work": {
+          "output_clusters": [
+            1321
+          ],
+          "stress_islands": [
+            169
+          ],
+          "stress_active_nodes": [
+            8348
+          ],
+          "stress_active_bonds": [
+            13645
+          ],
+          "normal_contacts": [
+            26560
+          ],
+          "friction_anchors": [
+            5092
+          ]
+        },
+        "scenario": "city25-fragmented-loaded",
+        "samples": 20,
+        "mean_ms": 55.2915424,
+        "median_ms": 54.3547925,
+        "min_ms": 46.737187,
+        "max_ms": 68.101657,
+        "restore_mean_ms": 338.3455985,
+        "restore_max_ms": 444.876511,
+        "over_8_ms": 20,
+        "over_120hz": 20,
+        "over_60hz": 20,
+        "corrections": [
+          1
+        ],
+        "stress_evaluations": [
+          2
+        ],
+        "stress_iterations": [
+          536
+        ],
+        "broken_bonds": [
+          100
+        ],
+        "motion_comparisons_unavailable": 0,
+        "max_position_error_m": 0,
+        "max_linear_error_m_s": 0,
+        "max_angular_error_rad_s": 0,
+        "input_sha256": {
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-108.pxbin": "e4be1340319e84da519ee0c47f6f0178f981b19c5978502c8cfc45046e4a8724",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-108.destruction": "01306cba441d75be60e168d3d13f4c6d8e796e35157cb44cac50e2b6839bfacd",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-108.scene": "516c2574ba53c436e5b0ce16a6c88cb4e1d22c8c44c894b6f642a68d31d2d848",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-108.metadata.json": "29af17e81a46c034bd0e1b5d60a0d3183273fd3a53328714af1b3d4314345ece"
+        },
+        "raw": "out/snapshot-large-20260911/complete-city25-fragmented-loaded/replay.json"
+      }
+    },
+    {
+      "scenario": "city25-late-debris",
+      "purpose": "Debris collisions and remaining load paths at three seconds.",
+      "metadata": {
+        "schema": 1,
+        "source": "native_destruction_demo",
+        "next_step": 179,
+        "buildings": 25,
+        "chunks": 11100,
+        "bonds": 22400,
+        "projectiles": 25,
+        "input_clusters": 1488,
+        "physical_bytes": 3487700,
+        "destruction_bytes": 3632652,
+        "dt": 0.016666666666666666,
+        "pending_gameplay_commands": false
+      },
+      "raw": "out/snapshot-large-20260911/complete-city25-late-debris",
+      "status": "failed",
+      "uninterrupted_source_tick": {
+        "step": "179",
+        "bonds_broken": "0",
+        "logical_clusters": "1488",
+        "stress_iterations": "576",
+        "resim_passes": "0",
+        "complete_step_ms": "15.387321999999999"
+      },
+      "source_comparison_scope": "Diagnostic context only: not the independent-restore gate and not matched warm/cold performance.",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-179.pxbin": "fb3decfc4c2b7ac7fd7ef7ce46d8eb5c22a8cccc65ef4a3e0e530fecad3ef3a2",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-179.destruction": "7b94a5454c5353b891997cdeb8dc866bcda5c304ff605cbc41d836cbd6acdc35",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-179.scene": "516c2574ba53c436e5b0ce16a6c88cb4e1d22c8c44c894b6f642a68d31d2d848",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-179.metadata.json": "0e91d7d26029be88bf2a6f0d8ed59705c1690b5cdc9adf47a662721156ea1eeb"
+      },
+      "wall_seconds": 14.935244806998526,
+      "failure_log": "health differences=79 max=6.079673767e-06 bond=17555 values=0.9643288851/0.9643228054\nrepeat 1 comparison failed: bond health changed between equivalent states\nhealth differences=69 max=6.079673767e-06 bond=17555 values=0.9643288851/0.9643228054\nrepeat 2 comparison failed: bond health changed between equivalent states\nhealth differences=75 max=6.079673767e-06 bond=17555 values=0.9643288851/0.9643228054\nrepeat 3 comparison failed: bond health changed between equivalent states\nhealth differences=84 max=2.920627594e-06 bond=17555 values=0.9643288851/0.9643259645\nrepeat 4 comparison failed: bond health changed between equivalent states\nhealth differences=84 max=6.079673767e-06 bond=17555 values=0.9643288851/0.9643228054\nrepeat 5 comparison failed: bond health changed between equivalent states\nhealth differences=68 max=2.980232239e-06 bond=17555 values=0.9643288851/0.9643259048\nrepeat 6 comparison failed: bond health changed between equivalent states\nhealth differences=56 max=5.24520874e-06 bond=17555 values=0.9643288851/0.9643236399\nrepeat 7 comparison failed: bond health changed between equivalent states\nhealth differences=93 max=6.079673767e-06 bond=17555 values=0.9643288851/0.9643228054\nrepeat 8 comparison failed: bond health changed between equivalent states\nhealth differences=89 max=2.920627594e-06 bond=17555 values=0.9643288851/0.9643259645\nrepeat 9 comparison failed: bond health changed between equivalent states\nhealth differences=96 max=4.589557648e-06 bond=17555 values=0.9643288851/0.9643242955\nrepeat 10 comparison failed: bond health changed between equivalent states\nhealth differences=70 max=3.933906555e-06 bond=17555 values=0.9643288851/0.9643249512\nrepeat 11 comparison failed: bond health changed between equivalent states\nhealth differences=65 max=6.079673767e-06 bond=17555 values=0.9643288851/0.9643228054\nrepeat 12 comparison failed: bond health changed between equivalent states\nhealth differences=83 max=3.635883331e-06 bond=17555 values=0.9643288851/0.9643252492\nrepeat 13 comparison failed: bond health changed between equivalent states\nhealth differences=75 max=3.635883331e-06 bond=17555 values=0.9643288851/0.9643252492\nrepeat 14 comparison failed: bond health changed between equivalent states\nhealth differences=76 max=6.079673767e-06 bond=17555 values=0.9643288851/0.9643228054\nrepeat 15 comparison failed: bond health changed between equivalent states\nhealth differences=65 max=2.980232239e-06 bond=17555 values=0.9643288851/0.9643259048\nrepeat 16 comparison failed: bond health changed between equivalent states\nhealth differences=98 max=6.079673767e-06 bond=17555 values=0.9643288851/0.9643228054\nrepeat 17 comparison failed: bond health changed between equivalent states\nhealth differences=60 max=6.079673767e-06 bond=17555 values=0.9643288851/0.9643228054\nrepeat 18 comparison failed: bond health changed between equivalent states\nhealth differences=71 max=5.24520874e-06 bond=17555 values=0.9643288851/0.9643236399\nrepeat 19 comparison failed: bond health changed between equivalent states\none-tick repeatability gate failed; all samples retained\n",
+      "timings": {
+        "qualified": false,
+        "repeatability_passed": false,
+        "receipt_status": "failed",
+        "replay_contract": "physical-file-replay-v20-complete-step",
+        "metadata": {
+          "schema": 1,
+          "source": "native_destruction_demo",
+          "next_step": 179,
+          "buildings": 25,
+          "chunks": 11100,
+          "bonds": 22400,
+          "projectiles": 25,
+          "input_clusters": 1488,
+          "physical_bytes": 3487700,
+          "destruction_bytes": 3632652,
+          "dt": 0.016666666666666666,
+          "pending_gameplay_commands": false
+        },
+        "sd_ms": 5.339327999703086,
+        "cv_percent": 7.366551294970869,
+        "comparison_failure_reasons": [
+          "bond health changed between equivalent states"
+        ],
+        "failed_comparisons": 19,
+        "maximum_observed_bond_health_difference": 6.079673767e-06,
+        "descriptive_bootstrap_mean_95_ms": [
+          70.41371245,
+          75.1261166
+        ],
+        "first_half_mean_ms": 74.6417014,
+        "last_half_mean_ms": 70.3197001,
+        "harness_wall_seconds": 14.935244806998526,
+        "harness_clock": "monotonic",
+        "mean_stages_ms": {
+          "command_ms": 0.00020795,
+          "simulate_fetch_ms": 72.19636179999999,
+          "completion_ms": 0.284131
+        },
+        "active_work": {
+          "output_clusters": [
+            2063
+          ],
+          "stress_islands": [
+            323
+          ],
+          "stress_active_nodes": [
+            7746
+          ],
+          "stress_active_bonds": [
+            11825
+          ],
+          "normal_contacts": [
+            33694
+          ],
+          "friction_anchors": [
+            7643
+          ]
+        },
+        "scenario": "city25-late-debris",
+        "samples": 20,
+        "mean_ms": 72.48070075,
+        "median_ms": 71.799238,
+        "min_ms": 64.8896,
+        "max_ms": 90.524626,
+        "restore_mean_ms": 346.7021007,
+        "restore_max_ms": 492.662,
+        "over_8_ms": 20,
+        "over_120hz": 20,
+        "over_60hz": 20,
+        "corrections": [
+          1
+        ],
+        "stress_evaluations": [
+          2
+        ],
+        "stress_iterations": [
+          676
+        ],
+        "broken_bonds": [
+          1424
+        ],
+        "motion_comparisons_unavailable": 0,
+        "max_position_error_m": 0,
+        "max_linear_error_m_s": 0,
+        "max_angular_error_rad_s": 0,
+        "input_sha256": {
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-179.pxbin": "fb3decfc4c2b7ac7fd7ef7ce46d8eb5c22a8cccc65ef4a3e0e530fecad3ef3a2",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-179.destruction": "7b94a5454c5353b891997cdeb8dc866bcda5c304ff605cbc41d836cbd6acdc35",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-179.scene": "516c2574ba53c436e5b0ce16a6c88cb4e1d22c8c44c894b6f642a68d31d2d848",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-179.metadata.json": "0e91d7d26029be88bf2a6f0d8ed59705c1690b5cdc9adf47a662721156ea1eeb"
+        },
+        "raw": "out/snapshot-large-20260911/complete-city25-late-debris/replay.json"
+      }
+    },
+    {
+      "scenario": "city25-ten-second-debris",
+      "purpose": "Late post-destruction state near ten seconds; not assumed asleep or fully settled.",
+      "metadata": {
+        "schema": 1,
+        "source": "native_destruction_demo",
+        "next_step": 599,
+        "buildings": 25,
+        "chunks": 11100,
+        "bonds": 22400,
+        "projectiles": 25,
+        "input_clusters": 1683,
+        "physical_bytes": 3547396,
+        "destruction_bytes": 3693492,
+        "dt": 0.016666666666666666,
+        "pending_gameplay_commands": false
+      },
+      "raw": "out/snapshot-large-20260911/complete-city25-ten-second-debris",
+      "status": "failed",
+      "uninterrupted_source_tick": {
+        "step": "599",
+        "bonds_broken": "0",
+        "logical_clusters": "1683",
+        "stress_iterations": "488",
+        "resim_passes": "0",
+        "complete_step_ms": "16.436312999999998"
+      },
+      "source_comparison_scope": "Diagnostic context only: not the independent-restore gate and not matched warm/cold performance.",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-599.pxbin": "22f7ccf3c583cb61b2ceaa9edacfb12279e71d0fed2938523ef2e36885f1305a",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-599.destruction": "604981bba37d24d314a0c12ebb66a4861fb95a268d08a4f5e2a69aab7a1f534a",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-599.scene": "516c2574ba53c436e5b0ce16a6c88cb4e1d22c8c44c894b6f642a68d31d2d848",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-599.metadata.json": "09747e0191269cb38d168518719489b770dd45c0b776cde78ff15ee399e1f37f"
+      },
+      "wall_seconds": 14.895373645005748,
+      "failure_log": "health differences=12 max=5.960464478e-07 bond=13704 values=0.9604405165/0.9604411125\nrepeat 1 comparison failed: bond health changed between equivalent states\nhealth differences=12 max=5.960464478e-07 bond=13704 values=0.9604405165/0.9604411125\nrepeat 2 comparison failed: bond health changed between equivalent states\nhealth differences=12 max=5.960464478e-07 bond=13704 values=0.9604405165/0.9604411125\nrepeat 3 comparison failed: bond health changed between equivalent states\nhealth differences=12 max=5.960464478e-07 bond=13704 values=0.9604405165/0.9604411125\nrepeat 4 comparison failed: bond health changed between equivalent states\nhealth differences=13 max=5.960464478e-07 bond=13704 values=0.9604405165/0.9604411125\nrepeat 5 comparison failed: bond health changed between equivalent states\nhealth differences=12 max=5.960464478e-07 bond=13704 values=0.9604405165/0.9604411125\nrepeat 6 comparison failed: bond health changed between equivalent states\nhealth differences=12 max=5.960464478e-07 bond=13704 values=0.9604405165/0.9604411125\nrepeat 7 comparison failed: bond health changed between equivalent states\nhealth differences=12 max=5.960464478e-07 bond=13704 values=0.9604405165/0.9604411125\nrepeat 8 comparison failed: bond health changed between equivalent states\nhealth differences=12 max=5.960464478e-07 bond=13704 values=0.9604405165/0.9604411125\nrepeat 9 comparison failed: bond health changed between equivalent states\nhealth differences=12 max=5.960464478e-07 bond=13704 values=0.9604405165/0.9604411125\nrepeat 10 comparison failed: bond health changed between equivalent states\nhealth differences=12 max=5.960464478e-07 bond=13704 values=0.9604405165/0.9604411125\nrepeat 11 comparison failed: bond health changed between equivalent states\nhealth differences=12 max=5.960464478e-07 bond=13704 values=0.9604405165/0.9604411125\nrepeat 12 comparison failed: bond health changed between equivalent states\nhealth differences=11 max=5.960464478e-07 bond=13704 values=0.9604405165/0.9604411125\nrepeat 13 comparison failed: bond health changed between equivalent states\nhealth differences=12 max=5.960464478e-07 bond=13704 values=0.9604405165/0.9604411125\nrepeat 14 comparison failed: bond health changed between equivalent states\nhealth differences=12 max=5.960464478e-07 bond=13704 values=0.9604405165/0.9604411125\nrepeat 15 comparison failed: bond health changed between equivalent states\nhealth differences=17 max=5.960464478e-07 bond=13704 values=0.9604405165/0.9604411125\nrepeat 16 comparison failed: bond health changed between equivalent states\nhealth differences=13 max=5.960464478e-07 bond=13704 values=0.9604405165/0.9604411125\nrepeat 17 comparison failed: bond health changed between equivalent states\nhealth differences=12 max=5.960464478e-07 bond=13704 values=0.9604405165/0.9604411125\nrepeat 18 comparison failed: bond health changed between equivalent states\nhealth differences=12 max=5.960464478e-07 bond=13704 values=0.9604405165/0.9604411125\nrepeat 19 comparison failed: bond health changed between equivalent states\none-tick repeatability gate failed; all samples retained\n",
+      "timings": {
+        "qualified": false,
+        "repeatability_passed": false,
+        "receipt_status": "failed",
+        "replay_contract": "physical-file-replay-v20-complete-step",
+        "metadata": {
+          "schema": 1,
+          "source": "native_destruction_demo",
+          "next_step": 599,
+          "buildings": 25,
+          "chunks": 11100,
+          "bonds": 22400,
+          "projectiles": 25,
+          "input_clusters": 1683,
+          "physical_bytes": 3547396,
+          "destruction_bytes": 3693492,
+          "dt": 0.016666666666666666,
+          "pending_gameplay_commands": false
+        },
+        "sd_ms": 5.488518492933555,
+        "cv_percent": 7.386386113759263,
+        "comparison_failure_reasons": [
+          "bond health changed between equivalent states"
+        ],
+        "failed_comparisons": 19,
+        "maximum_observed_bond_health_difference": 5.960464478e-07,
+        "descriptive_bootstrap_mean_95_ms": [
+          72.0848854,
+          76.72541875
+        ],
+        "first_half_mean_ms": 75.0763074,
+        "last_half_mean_ms": 73.5354334,
+        "harness_wall_seconds": 14.895373645005748,
+        "harness_clock": "monotonic",
+        "mean_stages_ms": {
+          "command_ms": 0.00019255,
+          "simulate_fetch_ms": 74.05155125,
+          "completion_ms": 0.2541266
+        },
+        "active_work": {
+          "output_clusters": [
+            1776
+          ],
+          "stress_islands": [
+            285
+          ],
+          "stress_active_nodes": [
+            8007
+          ],
+          "stress_active_bonds": [
+            12556
+          ],
+          "normal_contacts": [
+            7349
+          ],
+          "friction_anchors": [
+            2317
+          ]
+        },
+        "scenario": "city25-ten-second-debris",
+        "samples": 20,
+        "mean_ms": 74.3058704,
+        "median_ms": 74.2204995,
+        "min_ms": 66.911091,
+        "max_ms": 87.829549,
+        "restore_mean_ms": 352.17506665,
+        "restore_max_ms": 511.719781,
+        "over_8_ms": 20,
+        "over_120hz": 20,
+        "over_60hz": 20,
+        "corrections": [
+          1
+        ],
+        "stress_evaluations": [
+          2
+        ],
+        "stress_iterations": [
+          716
+        ],
+        "broken_bonds": [
+          184
+        ],
+        "motion_comparisons_unavailable": 0,
+        "max_position_error_m": 0,
+        "max_linear_error_m_s": 0,
+        "max_angular_error_rad_s": 0,
+        "input_sha256": {
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-599.pxbin": "22f7ccf3c583cb61b2ceaa9edacfb12279e71d0fed2938523ef2e36885f1305a",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-599.destruction": "604981bba37d24d314a0c12ebb66a4861fb95a268d08a4f5e2a69aab7a1f534a",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-599.scene": "516c2574ba53c436e5b0ce16a6c88cb4e1d22c8c44c894b6f642a68d31d2d848",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-599.metadata.json": "09747e0191269cb38d168518719489b770dd45c0b776cde78ff15ee399e1f37f"
+        },
+        "raw": "out/snapshot-large-20260911/complete-city25-ten-second-debris/replay.json"
+      }
+    },
+    {
+      "scenario": "city64-intact-idle",
+      "purpose": "Pristine supported buildings, no shots: global setup and gravity equilibrium.",
+      "metadata": {
+        "schema": 1,
+        "source": "native_destruction_demo",
+        "next_step": 40,
+        "buildings": 64,
+        "chunks": 28416,
+        "bonds": 57344,
+        "projectiles": 0,
+        "input_clusters": 64,
+        "physical_bytes": 7749780,
+        "destruction_bytes": 8119080,
+        "dt": 0.016666666666666666,
+        "pending_gameplay_commands": false
+      },
+      "raw": "out/snapshot-large-20260911/complete-city64-intact-idle",
+      "status": "complete",
+      "uninterrupted_source_tick": {
+        "step": "40",
+        "bonds_broken": "0",
+        "logical_clusters": "64",
+        "stress_iterations": "0",
+        "resim_passes": "0",
+        "complete_step_ms": "2.0760730000000001"
+      },
+      "source_comparison_scope": "Diagnostic context only: not the independent-restore gate and not matched warm/cold performance.",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-idle/native/snapshot-40.pxbin": "bfb6fe3fb2bdce9c812c6024e696381c9b8b7b52570efc97efc6b9f04d89e334",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-idle/native/snapshot-40.destruction": "b3b952acc1667186d3d2e26d60909ad72a225262bdf41ab0978a6bc9e206a52f",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-idle/native/snapshot-40.scene": "d9195bd00c030266477765c2326ba6e6a62d6c6c7ffcbf7b3d5a887b2139305d",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-idle/native/snapshot-40.metadata.json": "2f32905b5a59117515a349298d813c3a127587df57b2b95aa4b16faf3e4cdbd0"
+      },
+      "wall_seconds": 35.226961780004785,
+      "timings": {
+        "qualified": true,
+        "repeatability_passed": true,
+        "receipt_status": "complete",
+        "replay_contract": "physical-file-replay-v20-complete-step",
+        "metadata": {
+          "schema": 1,
+          "source": "native_destruction_demo",
+          "next_step": 40,
+          "buildings": 64,
+          "chunks": 28416,
+          "bonds": 57344,
+          "projectiles": 0,
+          "input_clusters": 64,
+          "physical_bytes": 7749780,
+          "destruction_bytes": 8119080,
+          "dt": 0.016666666666666666,
+          "pending_gameplay_commands": false
+        },
+        "sd_ms": 2.983898582791312,
+        "cv_percent": 15.715993614746148,
+        "comparison_failure_reasons": [],
+        "failed_comparisons": 0,
+        "maximum_observed_bond_health_difference": 0,
+        "descriptive_bootstrap_mean_95_ms": [
+          17.7836289,
+          20.3265164
+        ],
+        "first_half_mean_ms": 20.0803948,
+        "last_half_mean_ms": 17.8923692,
+        "harness_wall_seconds": 35.226961780004785,
+        "harness_clock": "monotonic",
+        "mean_stages_ms": {
+          "command_ms": 0.0002042,
+          "simulate_fetch_ms": 18.6727048,
+          "completion_ms": 0.313473
+        },
+        "active_work": {
+          "output_clusters": [
+            64
+          ],
+          "stress_islands": [
+            64
+          ],
+          "stress_active_nodes": [
+            24320
+          ],
+          "stress_active_bonds": [
+            50176
+          ],
+          "normal_contacts": [
+            0
+          ],
+          "friction_anchors": [
+            0
+          ]
+        },
+        "scenario": "city64-intact-idle",
+        "samples": 20,
+        "mean_ms": 18.986382,
+        "median_ms": 18.046632000000002,
+        "min_ms": 14.201801,
+        "max_ms": 25.728722,
+        "restore_mean_ms": 1079.6596667,
+        "restore_max_ms": 1273.637669,
+        "over_8_ms": 20,
+        "over_120hz": 20,
+        "over_60hz": 17,
+        "corrections": [
+          0
+        ],
+        "stress_evaluations": [
+          1
+        ],
+        "stress_iterations": [
+          88
+        ],
+        "broken_bonds": [
+          0
+        ],
+        "motion_comparisons_unavailable": 0,
+        "max_position_error_m": 0,
+        "max_linear_error_m_s": 0,
+        "max_angular_error_rad_s": 0,
+        "input_sha256": {
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-idle/native/snapshot-40.pxbin": "bfb6fe3fb2bdce9c812c6024e696381c9b8b7b52570efc97efc6b9f04d89e334",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-idle/native/snapshot-40.destruction": "b3b952acc1667186d3d2e26d60909ad72a225262bdf41ab0978a6bc9e206a52f",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-idle/native/snapshot-40.scene": "d9195bd00c030266477765c2326ba6e6a62d6c6c7ffcbf7b3d5a887b2139305d",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-idle/native/snapshot-40.metadata.json": "2f32905b5a59117515a349298d813c3a127587df57b2b95aa4b16faf3e4cdbd0"
+        },
+        "raw": "out/snapshot-large-20260911/complete-city64-intact-idle/replay.json"
+      }
+    },
+    {
+      "scenario": "city64-airborne",
+      "purpose": "One shot per building approaching the intact city; no authored fractures.",
+      "metadata": {
+        "schema": 1,
+        "source": "native_destruction_demo",
+        "next_step": 40,
+        "buildings": 64,
+        "chunks": 28416,
+        "bonds": 57344,
+        "projectiles": 64,
+        "input_clusters": 64,
+        "physical_bytes": 7786644,
+        "destruction_bytes": 8130600,
+        "dt": 0.016666666666666666,
+        "pending_gameplay_commands": false
+      },
+      "raw": "out/snapshot-large-20260911/complete-city64-airborne",
+      "status": "complete",
+      "uninterrupted_source_tick": {
+        "step": "40",
+        "bonds_broken": "0",
+        "logical_clusters": "64",
+        "stress_iterations": "0",
+        "resim_passes": "0",
+        "complete_step_ms": "2.9612259999999999"
+      },
+      "source_comparison_scope": "Diagnostic context only: not the independent-restore gate and not matched warm/cold performance.",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-40.pxbin": "a0c00ccf44b74bcc3b9b3562d01a3513084491cba2fa4863a05b2b002b14f077",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-40.destruction": "cfd6d87f57b23a10ce53e1c925f7246530090a25acb29f8aaf94b2c541efd0f3",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-40.scene": "d9195bd00c030266477765c2326ba6e6a62d6c6c7ffcbf7b3d5a887b2139305d",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-40.metadata.json": "95ae354b871ec3833b874704c226ebdc4202f0d8d00790b13a1adb2963747b63"
+      },
+      "wall_seconds": 35.236354865002795,
+      "timings": {
+        "qualified": true,
+        "repeatability_passed": true,
+        "receipt_status": "complete",
+        "replay_contract": "physical-file-replay-v20-complete-step",
+        "metadata": {
+          "schema": 1,
+          "source": "native_destruction_demo",
+          "next_step": 40,
+          "buildings": 64,
+          "chunks": 28416,
+          "bonds": 57344,
+          "projectiles": 64,
+          "input_clusters": 64,
+          "physical_bytes": 7786644,
+          "destruction_bytes": 8130600,
+          "dt": 0.016666666666666666,
+          "pending_gameplay_commands": false
+        },
+        "sd_ms": 1.4826116783479104,
+        "cv_percent": 7.449889846276385,
+        "comparison_failure_reasons": [],
+        "failed_comparisons": 0,
+        "maximum_observed_bond_health_difference": 0,
+        "descriptive_bootstrap_mean_95_ms": [
+          19.28034415,
+          20.55546525
+        ],
+        "first_half_mean_ms": 19.8647854,
+        "last_half_mean_ms": 19.9374589,
+        "harness_wall_seconds": 35.236354865002795,
+        "harness_clock": "monotonic",
+        "mean_stages_ms": {
+          "command_ms": 0.0002059,
+          "simulate_fetch_ms": 19.5928337,
+          "completion_ms": 0.30808255
+        },
+        "active_work": {
+          "output_clusters": [
+            64
+          ],
+          "stress_islands": [
+            64
+          ],
+          "stress_active_nodes": [
+            24320
+          ],
+          "stress_active_bonds": [
+            50176
+          ],
+          "normal_contacts": [
+            0
+          ],
+          "friction_anchors": [
+            0
+          ]
+        },
+        "scenario": "city64-airborne",
+        "samples": 20,
+        "mean_ms": 19.90112215,
+        "median_ms": 19.6960965,
+        "min_ms": 16.598755,
+        "max_ms": 23.106324,
+        "restore_mean_ms": 1089.7190206,
+        "restore_max_ms": 1487.14376,
+        "over_8_ms": 20,
+        "over_120hz": 20,
+        "over_60hz": 19,
+        "corrections": [
+          0
+        ],
+        "stress_evaluations": [
+          1
+        ],
+        "stress_iterations": [
+          88
+        ],
+        "broken_bonds": [
+          0
+        ],
+        "motion_comparisons_unavailable": 0,
+        "max_position_error_m": 0,
+        "max_linear_error_m_s": 0,
+        "max_angular_error_rad_s": 0,
+        "input_sha256": {
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-40.pxbin": "a0c00ccf44b74bcc3b9b3562d01a3513084491cba2fa4863a05b2b002b14f077",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-40.destruction": "cfd6d87f57b23a10ce53e1c925f7246530090a25acb29f8aaf94b2c541efd0f3",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-40.scene": "d9195bd00c030266477765c2326ba6e6a62d6c6c7ffcbf7b3d5a887b2139305d",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-40.metadata.json": "95ae354b871ec3833b874704c226ebdc4202f0d8d00790b13a1adb2963747b63"
+        },
+        "raw": "out/snapshot-large-20260911/complete-city64-airborne/replay.json"
+      }
+    },
+    {
+      "scenario": "city64-initial-impact",
+      "purpose": "Historical first impact/peak input; measure actual restored fracture and correction.",
+      "metadata": {
+        "schema": 1,
+        "source": "native_destruction_demo",
+        "next_step": 82,
+        "buildings": 64,
+        "chunks": 28416,
+        "bonds": 57344,
+        "projectiles": 64,
+        "input_clusters": 64,
+        "physical_bytes": 7786644,
+        "destruction_bytes": 8130600,
+        "dt": 0.016666666666666666,
+        "pending_gameplay_commands": false
+      },
+      "raw": "out/snapshot-large-20260911/complete-city64-initial-impact",
+      "status": "complete",
+      "uninterrupted_source_tick": {
+        "step": "82",
+        "bonds_broken": "7247",
+        "logical_clusters": "1320",
+        "stress_iterations": "288",
+        "resim_passes": "1",
+        "complete_step_ms": "54.290196000000002"
+      },
+      "source_comparison_scope": "Diagnostic context only: not the independent-restore gate and not matched warm/cold performance.",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-82.pxbin": "7ff4e921a88da60994bc3d38fe1eb4bf167cf94c71395aa48d863ae9f848227c",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-82.destruction": "640900939d73af2186cd2712a2fc0f2a2e02bc44247858616e9a838e453f1c67",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-82.scene": "d9195bd00c030266477765c2326ba6e6a62d6c6c7ffcbf7b3d5a887b2139305d",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-82.metadata.json": "f981cc88b586e92ca467e0c80831c64b05738d9ab2623f1f421e1836643e94c2"
+      },
+      "wall_seconds": 35.80412443699606,
+      "timings": {
+        "qualified": true,
+        "repeatability_passed": true,
+        "receipt_status": "complete",
+        "replay_contract": "physical-file-replay-v20-complete-step",
+        "metadata": {
+          "schema": 1,
+          "source": "native_destruction_demo",
+          "next_step": 82,
+          "buildings": 64,
+          "chunks": 28416,
+          "bonds": 57344,
+          "projectiles": 64,
+          "input_clusters": 64,
+          "physical_bytes": 7786644,
+          "destruction_bytes": 8130600,
+          "dt": 0.016666666666666666,
+          "pending_gameplay_commands": false
+        },
+        "sd_ms": 8.015002008556284,
+        "cv_percent": 11.741896391101628,
+        "comparison_failure_reasons": [],
+        "failed_comparisons": 0,
+        "maximum_observed_bond_health_difference": 0,
+        "descriptive_bootstrap_mean_95_ms": [
+          65.059837,
+          71.97531545
+        ],
+        "first_half_mean_ms": 67.4865782,
+        "last_half_mean_ms": 69.0331413,
+        "harness_wall_seconds": 35.80412443699606,
+        "harness_clock": "monotonic",
+        "mean_stages_ms": {
+          "command_ms": 0.0001825,
+          "simulate_fetch_ms": 67.9881374,
+          "completion_ms": 0.27153985
+        },
+        "active_work": {
+          "output_clusters": [
+            1364
+          ],
+          "stress_islands": [
+            196
+          ],
+          "stress_active_nodes": [
+            23152
+          ],
+          "stress_active_bonds": [
+            41416
+          ],
+          "normal_contacts": [
+            11977
+          ],
+          "friction_anchors": [
+            2040
+          ]
+        },
+        "scenario": "city64-initial-impact",
+        "samples": 20,
+        "mean_ms": 68.25985975,
+        "median_ms": 66.49709250000001,
+        "min_ms": 56.887176,
+        "max_ms": 91.881517,
+        "restore_mean_ms": 1061.39811325,
+        "restore_max_ms": 1226.648508,
+        "over_8_ms": 20,
+        "over_120hz": 20,
+        "over_60hz": 20,
+        "corrections": [
+          1
+        ],
+        "stress_evaluations": [
+          2
+        ],
+        "stress_iterations": [
+          304
+        ],
+        "broken_bonds": [
+          8760
+        ],
+        "motion_comparisons_unavailable": 0,
+        "max_position_error_m": 0,
+        "max_linear_error_m_s": 0,
+        "max_angular_error_rad_s": 0,
+        "input_sha256": {
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-82.pxbin": "7ff4e921a88da60994bc3d38fe1eb4bf167cf94c71395aa48d863ae9f848227c",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-82.destruction": "640900939d73af2186cd2712a2fc0f2a2e02bc44247858616e9a838e453f1c67",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-82.scene": "d9195bd00c030266477765c2326ba6e6a62d6c6c7ffcbf7b3d5a887b2139305d",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-82.metadata.json": "f981cc88b586e92ca467e0c80831c64b05738d9ab2623f1f421e1836643e94c2"
+        },
+        "raw": "out/snapshot-large-20260911/complete-city64-initial-impact/replay.json"
+      }
+    },
+    {
+      "scenario": "city64-post-impact",
+      "purpose": "Immediately after historical first impact: many newly separated owners.",
+      "metadata": {
+        "schema": 1,
+        "source": "native_destruction_demo",
+        "next_step": 83,
+        "buildings": 64,
+        "chunks": 28416,
+        "bonds": 57344,
+        "projectiles": 64,
+        "input_clusters": 1320,
+        "physical_bytes": 8167956,
+        "destruction_bytes": 8522472,
+        "dt": 0.016666666666666666,
+        "pending_gameplay_commands": false
+      },
+      "raw": "out/snapshot-large-20260911/complete-city64-post-impact",
+      "status": "complete",
+      "uninterrupted_source_tick": {
+        "step": "83",
+        "bonds_broken": "0",
+        "logical_clusters": "1320",
+        "stress_iterations": "332",
+        "resim_passes": "0",
+        "complete_step_ms": "17.891221999999999"
+      },
+      "source_comparison_scope": "Diagnostic context only: not the independent-restore gate and not matched warm/cold performance.",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-83.pxbin": "0ecb1ad8c8aa73c63227e84de2e90447cf8ab7cf03ea3339261eb3e71163f36f",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-83.destruction": "3dcfe32d317ab6b264ff215c806d734288383e0341800e828c25b1ec04a0dd30",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-83.scene": "d9195bd00c030266477765c2326ba6e6a62d6c6c7ffcbf7b3d5a887b2139305d",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-83.metadata.json": "9596fde07041ae19eb91410609d8d525790c735933f22925f49efe0ac610ff07"
+      },
+      "wall_seconds": 37.82749688900367,
+      "timings": {
+        "qualified": true,
+        "repeatability_passed": true,
+        "receipt_status": "complete",
+        "replay_contract": "physical-file-replay-v20-complete-step",
+        "metadata": {
+          "schema": 1,
+          "source": "native_destruction_demo",
+          "next_step": 83,
+          "buildings": 64,
+          "chunks": 28416,
+          "bonds": 57344,
+          "projectiles": 64,
+          "input_clusters": 1320,
+          "physical_bytes": 8167956,
+          "destruction_bytes": 8522472,
+          "dt": 0.016666666666666666,
+          "pending_gameplay_commands": false
+        },
+        "sd_ms": 5.528041843073716,
+        "cv_percent": 13.662271405132723,
+        "comparison_failure_reasons": [],
+        "failed_comparisons": 0,
+        "maximum_observed_bond_health_difference": 0,
+        "descriptive_bootstrap_mean_95_ms": [
+          38.17668185,
+          42.91062335
+        ],
+        "first_half_mean_ms": 42.118448,
+        "last_half_mean_ms": 38.8057509,
+        "harness_wall_seconds": 37.82749688900367,
+        "harness_clock": "monotonic",
+        "mean_stages_ms": {
+          "command_ms": 0.0002056,
+          "simulate_fetch_ms": 40.1914514,
+          "completion_ms": 0.27044245
+        },
+        "active_work": {
+          "output_clusters": [
+            1320
+          ],
+          "stress_islands": [
+            132
+          ],
+          "stress_active_nodes": [
+            23132
+          ],
+          "stress_active_bonds": [
+            42929
+          ],
+          "normal_contacts": [
+            13100
+          ],
+          "friction_anchors": [
+            3027
+          ]
+        },
+        "scenario": "city64-post-impact",
+        "samples": 20,
+        "mean_ms": 40.462099450000004,
+        "median_ms": 39.431373,
+        "min_ms": 30.135502,
+        "max_ms": 54.142245,
+        "restore_mean_ms": 1126.851595,
+        "restore_max_ms": 1330.0148,
+        "over_8_ms": 20,
+        "over_120hz": 20,
+        "over_60hz": 20,
+        "corrections": [
+          0
+        ],
+        "stress_evaluations": [
+          1
+        ],
+        "stress_iterations": [
+          332
+        ],
+        "broken_bonds": [
+          0
+        ],
+        "motion_comparisons_unavailable": 0,
+        "max_position_error_m": 0,
+        "max_linear_error_m_s": 0,
+        "max_angular_error_rad_s": 0,
+        "input_sha256": {
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-83.pxbin": "0ecb1ad8c8aa73c63227e84de2e90447cf8ab7cf03ea3339261eb3e71163f36f",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-83.destruction": "3dcfe32d317ab6b264ff215c806d734288383e0341800e828c25b1ec04a0dd30",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-83.scene": "d9195bd00c030266477765c2326ba6e6a62d6c6c7ffcbf7b3d5a887b2139305d",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-83.metadata.json": "9596fde07041ae19eb91410609d8d525790c735933f22925f49efe0ac610ff07"
+        },
+        "raw": "out/snapshot-large-20260911/complete-city64-post-impact/replay.json"
+      }
+    },
+    {
+      "scenario": "city64-cascading-fracture",
+      "purpose": "Continuing projectile penetration and cascading fractures.",
+      "metadata": {
+        "schema": 1,
+        "source": "native_destruction_demo",
+        "next_step": 87,
+        "buildings": 64,
+        "chunks": 28416,
+        "bonds": 57344,
+        "projectiles": 64,
+        "input_clusters": 1460,
+        "physical_bytes": 8210692,
+        "destruction_bytes": 8566152,
+        "dt": 0.016666666666666666,
+        "pending_gameplay_commands": false
+      },
+      "raw": "out/snapshot-large-20260911/complete-city64-cascading-fracture",
+      "status": "complete",
+      "uninterrupted_source_tick": {
+        "step": "87",
+        "bonds_broken": "12",
+        "logical_clusters": "1472",
+        "stress_iterations": "392",
+        "resim_passes": "1",
+        "complete_step_ms": "29.993483000000001"
+      },
+      "source_comparison_scope": "Diagnostic context only: not the independent-restore gate and not matched warm/cold performance.",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-87.pxbin": "4e21697b1a968db984d9fd524ce802132925d1d559280d266dee9eb5346ce4bd",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-87.destruction": "0ac6edbb1a59a53d935bba42b954ef18793481bb751ff083ba5a4edb686e5f5a",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-87.scene": "d9195bd00c030266477765c2326ba6e6a62d6c6c7ffcbf7b3d5a887b2139305d",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-87.metadata.json": "a6f0b12a4d2e6cf38f1c0980607e5468acf24c5fe29b7bade6b9b36077922c3c"
+      },
+      "wall_seconds": 38.361924995988375,
+      "timings": {
+        "qualified": true,
+        "repeatability_passed": true,
+        "receipt_status": "complete",
+        "replay_contract": "physical-file-replay-v20-complete-step",
+        "metadata": {
+          "schema": 1,
+          "source": "native_destruction_demo",
+          "next_step": 87,
+          "buildings": 64,
+          "chunks": 28416,
+          "bonds": 57344,
+          "projectiles": 64,
+          "input_clusters": 1460,
+          "physical_bytes": 8210692,
+          "destruction_bytes": 8566152,
+          "dt": 0.016666666666666666,
+          "pending_gameplay_commands": false
+        },
+        "sd_ms": 4.977150129420338,
+        "cv_percent": 7.986335100306561,
+        "comparison_failure_reasons": [],
+        "failed_comparisons": 0,
+        "maximum_observed_bond_health_difference": 0,
+        "descriptive_bootstrap_mean_95_ms": [
+          60.31848925,
+          64.61793915
+        ],
+        "first_half_mean_ms": 62.133416499999996,
+        "last_half_mean_ms": 62.5082387,
+        "harness_wall_seconds": 38.361924995988375,
+        "harness_clock": "monotonic",
+        "mean_stages_ms": {
+          "command_ms": 0.0002112,
+          "simulate_fetch_ms": 62.05174425,
+          "completion_ms": 0.26887215
+        },
+        "active_work": {
+          "output_clusters": [
+            1473
+          ],
+          "stress_islands": [
+            153
+          ],
+          "stress_active_nodes": [
+            23000
+          ],
+          "stress_active_bonds": [
+            42266
+          ],
+          "normal_contacts": [
+            25861
+          ],
+          "friction_anchors": [
+            4942
+          ]
+        },
+        "scenario": "city64-cascading-fracture",
+        "samples": 20,
+        "mean_ms": 62.3208276,
+        "median_ms": 62.551711,
+        "min_ms": 53.735873,
+        "max_ms": 76.200497,
+        "restore_mean_ms": 1099.65834175,
+        "restore_max_ms": 1495.892508,
+        "over_8_ms": 20,
+        "over_120hz": 20,
+        "over_60hz": 20,
+        "corrections": [
+          1
+        ],
+        "stress_evaluations": [
+          2
+        ],
+        "stress_iterations": [
+          396
+        ],
+        "broken_bonds": [
+          13
+        ],
+        "motion_comparisons_unavailable": 0,
+        "max_position_error_m": 0,
+        "max_linear_error_m_s": 0,
+        "max_angular_error_rad_s": 0,
+        "input_sha256": {
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-87.pxbin": "4e21697b1a968db984d9fd524ce802132925d1d559280d266dee9eb5346ce4bd",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-87.destruction": "0ac6edbb1a59a53d935bba42b954ef18793481bb751ff083ba5a4edb686e5f5a",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-87.scene": "d9195bd00c030266477765c2326ba6e6a62d6c6c7ffcbf7b3d5a887b2139305d",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-87.metadata.json": "a6f0b12a4d2e6cf38f1c0980607e5468acf24c5fe29b7bade6b9b36077922c3c"
+        },
+        "raw": "out/snapshot-large-20260911/complete-city64-cascading-fracture/replay.json"
+      }
+    },
+    {
+      "scenario": "city64-fragmented-loaded",
+      "purpose": "Historical later stress peak with many independent motion clusters.",
+      "metadata": {
+        "schema": 1,
+        "source": "native_destruction_demo",
+        "next_step": 108,
+        "buildings": 64,
+        "chunks": 28416,
+        "bonds": 57344,
+        "projectiles": 64,
+        "input_clusters": 3010,
+        "physical_bytes": 8683732,
+        "destruction_bytes": 9049752,
+        "dt": 0.016666666666666666,
+        "pending_gameplay_commands": false
+      },
+      "raw": "out/snapshot-large-20260911/complete-city64-fragmented-loaded",
+      "status": "failed",
+      "uninterrupted_source_tick": {
+        "step": "108",
+        "bonds_broken": "11",
+        "logical_clusters": "3010",
+        "stress_iterations": "600",
+        "resim_passes": "0",
+        "complete_step_ms": "23.176658"
+      },
+      "source_comparison_scope": "Diagnostic context only: not the independent-restore gate and not matched warm/cold performance.",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-108.pxbin": "266edac819c12f5746288867c213b63f1ae2cb2457afafb9d0eae034a23cc914",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-108.destruction": "0d32dd5a68487c5bd3aab361fca6cd00b5711d17f68e9a66bb43a7510390795e",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-108.scene": "d9195bd00c030266477765c2326ba6e6a62d6c6c7ffcbf7b3d5a887b2139305d",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-108.metadata.json": "7d6e7a2e7b9b641e3902a77d6743c649d7be543fcea6052806e7ec1479260749"
+      },
+      "wall_seconds": 41.622661650006194,
+      "failure_log": "health differences=15 max=5.960464478e-08 bond=20601 values=0.9396182299/0.9396181703\nrepeat 3 comparison failed: bond health changed between equivalent states\nhealth differences=7 max=5.960464478e-08 bond=55697 values=0.9242488742/0.9242489338\nrepeat 4 comparison failed: bond health changed between equivalent states\nhealth differences=3 max=5.960464478e-08 bond=5243 values=0.9913157821/0.9913158417\nrepeat 5 comparison failed: bond health changed between equivalent states\nhealth differences=15 max=5.960464478e-08 bond=5243 values=0.9913157821/0.9913158417\nrepeat 6 comparison failed: bond health changed between equivalent states\nhealth differences=17 max=5.960464478e-08 bond=5243 values=0.9913157821/0.9913158417\nrepeat 7 comparison failed: bond health changed between equivalent states\nhealth differences=8 max=5.960464478e-08 bond=5243 values=0.9913157821/0.9913158417\nrepeat 8 comparison failed: bond health changed between equivalent states\nhealth differences=14 max=5.960464478e-08 bond=30607 values=0.9643570781/0.9643570185\nrepeat 9 comparison failed: bond health changed between equivalent states\nhealth differences=1 max=5.960464478e-08 bond=5243 values=0.9913157821/0.9913158417\nrepeat 10 comparison failed: bond health changed between equivalent states\nhealth differences=15 max=5.960464478e-08 bond=20601 values=0.9396182299/0.9396181703\nrepeat 11 comparison failed: bond health changed between equivalent states\nhealth differences=7 max=5.960464478e-08 bond=30607 values=0.9643570781/0.9643570185\nrepeat 12 comparison failed: bond health changed between equivalent states\nhealth differences=14 max=5.960464478e-08 bond=30607 values=0.9643570781/0.9643570185\nrepeat 13 comparison failed: bond health changed between equivalent states\nhealth differences=7 max=5.960464478e-08 bond=30607 values=0.9643570781/0.9643570185\nrepeat 14 comparison failed: bond health changed between equivalent states\nhealth differences=7 max=5.960464478e-08 bond=55697 values=0.9242488742/0.9242489338\nrepeat 15 comparison failed: bond health changed between equivalent states\nhealth differences=7 max=5.960464478e-08 bond=55697 values=0.9242488742/0.9242489338\nrepeat 16 comparison failed: bond health changed between equivalent states\nhealth differences=4 max=5.960464478e-08 bond=5243 values=0.9913157821/0.9913158417\nrepeat 17 comparison failed: bond health changed between equivalent states\nhealth differences=7 max=5.960464478e-08 bond=30607 values=0.9643570781/0.9643570185\nrepeat 19 comparison failed: bond health changed between equivalent states\none-tick repeatability gate failed; all samples retained\n",
+      "timings": {
+        "qualified": false,
+        "repeatability_passed": false,
+        "receipt_status": "failed",
+        "replay_contract": "physical-file-replay-v20-complete-step",
+        "metadata": {
+          "schema": 1,
+          "source": "native_destruction_demo",
+          "next_step": 108,
+          "buildings": 64,
+          "chunks": 28416,
+          "bonds": 57344,
+          "projectiles": 64,
+          "input_clusters": 3010,
+          "physical_bytes": 8683732,
+          "destruction_bytes": 9049752,
+          "dt": 0.016666666666666666,
+          "pending_gameplay_commands": false
+        },
+        "sd_ms": 10.035277059473346,
+        "cv_percent": 10.267508191193516,
+        "comparison_failure_reasons": [
+          "bond health changed between equivalent states"
+        ],
+        "failed_comparisons": 16,
+        "maximum_observed_bond_health_difference": 5.960464478e-08,
+        "descriptive_bootstrap_mean_95_ms": [
+          93.8255474,
+          102.20787695
+        ],
+        "first_half_mean_ms": 99.3472916,
+        "last_half_mean_ms": 96.1290961,
+        "harness_wall_seconds": 41.622661650006194,
+        "harness_clock": "monotonic",
+        "mean_stages_ms": {
+          "command_ms": 0.00020355000000000001,
+          "simulate_fetch_ms": 97.4778108,
+          "completion_ms": 0.2601795
+        },
+        "active_work": {
+          "output_clusters": [
+            3144
+          ],
+          "stress_islands": [
+            481
+          ],
+          "stress_active_nodes": [
+            21657
+          ],
+          "stress_active_bonds": [
+            35407
+          ],
+          "normal_contacts": [
+            68873
+          ],
+          "friction_anchors": [
+            12553
+          ]
+        },
+        "scenario": "city64-fragmented-loaded",
+        "samples": 20,
+        "mean_ms": 97.73819385,
+        "median_ms": 98.332522,
+        "min_ms": 82.66776,
+        "max_ms": 128.962415,
+        "restore_mean_ms": 1147.44594735,
+        "restore_max_ms": 1412.074871,
+        "over_8_ms": 20,
+        "over_120hz": 20,
+        "over_60hz": 20,
+        "corrections": [
+          1
+        ],
+        "stress_evaluations": [
+          2
+        ],
+        "stress_iterations": [
+          644
+        ],
+        "broken_bonds": [
+          425
+        ],
+        "motion_comparisons_unavailable": 0,
+        "max_position_error_m": 0,
+        "max_linear_error_m_s": 0,
+        "max_angular_error_rad_s": 0,
+        "input_sha256": {
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-108.pxbin": "266edac819c12f5746288867c213b63f1ae2cb2457afafb9d0eae034a23cc914",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-108.destruction": "0d32dd5a68487c5bd3aab361fca6cd00b5711d17f68e9a66bb43a7510390795e",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-108.scene": "d9195bd00c030266477765c2326ba6e6a62d6c6c7ffcbf7b3d5a887b2139305d",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-108.metadata.json": "7d6e7a2e7b9b641e3902a77d6743c649d7be543fcea6052806e7ec1479260749"
+        },
+        "raw": "out/snapshot-large-20260911/complete-city64-fragmented-loaded/replay.json"
+      }
+    },
+    {
+      "scenario": "city64-late-debris",
+      "purpose": "Debris collisions and remaining load paths at three seconds.",
+      "metadata": {
+        "schema": 1,
+        "source": "native_destruction_demo",
+        "next_step": 179,
+        "buildings": 64,
+        "chunks": 28416,
+        "bonds": 57344,
+        "projectiles": 64,
+        "input_clusters": 3957,
+        "physical_bytes": 8972772,
+        "destruction_bytes": 9345216,
+        "dt": 0.016666666666666666,
+        "pending_gameplay_commands": false
+      },
+      "raw": "out/snapshot-large-20260911/complete-city64-late-debris",
+      "status": "failed",
+      "uninterrupted_source_tick": {
+        "step": "179",
+        "bonds_broken": "0",
+        "logical_clusters": "3957",
+        "stress_iterations": "704",
+        "resim_passes": "0",
+        "complete_step_ms": "24.268166000000001"
+      },
+      "source_comparison_scope": "Diagnostic context only: not the independent-restore gate and not matched warm/cold performance.",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-179.pxbin": "06b57ebb6be355583b981db0d64b201d0c5f0b75d5c8abb4f09ff5b49bb12867",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-179.destruction": "2f7364dcd95363b71c012b0d0fb8cd549bb44fd7d00c8bffd06c1da43029cab9",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-179.scene": "d9195bd00c030266477765c2326ba6e6a62d6c6c7ffcbf7b3d5a887b2139305d",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-179.metadata.json": "78796699afa94c53e637200bdcc97c6321a7978f28051a93260b2ac03de7ce21"
+      },
+      "wall_seconds": 43.455172736998065,
+      "failure_log": "health differences=146 max=6.556510925e-07 bond=14167 values=0.9908151627/0.990814507\nrepeat 1 comparison failed: bond health changed between equivalent states\nhealth differences=175 max=1.728534698e-06 bond=54031 values=0.9675578475/0.967556119\nrepeat 2 comparison failed: bond health changed between equivalent states\nhealth differences=179 max=3.9935112e-06 bond=51282 values=0.9222298861/0.9222338796\nrepeat 3 comparison failed: bond health changed between equivalent states\nhealth differences=120 max=3.039836884e-06 bond=53877 values=0.9998880625/0.9998911023\nrepeat 4 comparison failed: bond health changed between equivalent states\nhealth differences=123 max=3.9935112e-06 bond=51282 values=0.9222298861/0.9222338796\nrepeat 5 comparison failed: bond health changed between equivalent states\nhealth differences=157 max=1.728534698e-06 bond=54031 values=0.9675578475/0.967556119\nrepeat 6 comparison failed: bond health changed between equivalent states\nhealth differences=149 max=3.9935112e-06 bond=51282 values=0.9222298861/0.9222338796\nrepeat 7 comparison failed: bond health changed between equivalent states\nhealth differences=185 max=3.039836884e-06 bond=53877 values=0.9998880625/0.9998911023\nrepeat 8 comparison failed: bond health changed between equivalent states\nhealth differences=169 max=3.039836884e-06 bond=53877 values=0.9998880625/0.9998911023\nrepeat 9 comparison failed: bond health changed between equivalent states\nhealth differences=148 max=7.152557373e-07 bond=13842 values=0.9940425158/0.9940418005\nrepeat 10 comparison failed: bond health changed between equivalent states\nhealth differences=177 max=3.9935112e-06 bond=51282 values=0.9222298861/0.9222338796\nrepeat 11 comparison failed: bond health changed between equivalent states\nhealth differences=177 max=3.9935112e-06 bond=51282 values=0.9222298861/0.9222338796\nrepeat 12 comparison failed: bond health changed between equivalent states\nhealth differences=179 max=3.039836884e-06 bond=53877 values=0.9998880625/0.9998911023\nrepeat 13 comparison failed: bond health changed between equivalent states\nhealth differences=145 max=3.9935112e-06 bond=51282 values=0.9222298861/0.9222338796\nrepeat 14 comparison failed: bond health changed between equivalent states\nhealth differences=163 max=3.9935112e-06 bond=51282 values=0.9222298861/0.9222338796\nrepeat 15 comparison failed: bond health changed between equivalent states\nhealth differences=168 max=3.9935112e-06 bond=51282 values=0.9222298861/0.9222338796\nrepeat 16 comparison failed: bond health changed between equivalent states\nhealth differences=184 max=3.039836884e-06 bond=53877 values=0.9998880625/0.9998911023\nrepeat 17 comparison failed: bond health changed between equivalent states\nhealth differences=164 max=1.788139343e-06 bond=53877 values=0.9998880625/0.9998898506\nrepeat 18 comparison failed: bond health changed between equivalent states\nhealth differences=143 max=3.039836884e-06 bond=53877 values=0.9998880625/0.9998911023\nrepeat 19 comparison failed: bond health changed between equivalent states\none-tick repeatability gate failed; all samples retained\n",
+      "timings": {
+        "qualified": false,
+        "repeatability_passed": false,
+        "receipt_status": "failed",
+        "replay_contract": "physical-file-replay-v20-complete-step",
+        "metadata": {
+          "schema": 1,
+          "source": "native_destruction_demo",
+          "next_step": 179,
+          "buildings": 64,
+          "chunks": 28416,
+          "bonds": 57344,
+          "projectiles": 64,
+          "input_clusters": 3957,
+          "physical_bytes": 8972772,
+          "destruction_bytes": 9345216,
+          "dt": 0.016666666666666666,
+          "pending_gameplay_commands": false
+        },
+        "sd_ms": 11.285400507488157,
+        "cv_percent": 7.588512349013196,
+        "comparison_failure_reasons": [
+          "bond health changed between equivalent states"
+        ],
+        "failed_comparisons": 19,
+        "maximum_observed_bond_health_difference": 3.9935112e-06,
+        "descriptive_bootstrap_mean_95_ms": [
+          144.162207,
+          153.83404165
+        ],
+        "first_half_mean_ms": 149.9609266,
+        "last_half_mean_ms": 147.4728783,
+        "harness_wall_seconds": 43.455172736998065,
+        "harness_clock": "monotonic",
+        "mean_stages_ms": {
+          "command_ms": 0.0001935,
+          "simulate_fetch_ms": 148.46115405,
+          "completion_ms": 0.2555549
+        },
+        "active_work": {
+          "output_clusters": [
+            5130
+          ],
+          "stress_islands": [
+            772
+          ],
+          "stress_active_nodes": [
+            19955
+          ],
+          "stress_active_bonds": [
+            30912
+          ],
+          "normal_contacts": [
+            94508
+          ],
+          "friction_anchors": [
+            23594
+          ]
+        },
+        "scenario": "city64-late-debris",
+        "samples": 20,
+        "mean_ms": 148.71690245,
+        "median_ms": 146.78073799999999,
+        "min_ms": 129.247186,
+        "max_ms": 176.701733,
+        "restore_mean_ms": 1150.48194555,
+        "restore_max_ms": 1566.946647,
+        "over_8_ms": 20,
+        "over_120hz": 20,
+        "over_60hz": 20,
+        "corrections": [
+          1
+        ],
+        "stress_evaluations": [
+          2
+        ],
+        "stress_iterations": [
+          936,
+          940,
+          948,
+          956,
+          960,
+          964,
+          976,
+          980,
+          1000,
+          1004,
+          1008
+        ],
+        "broken_bonds": [
+          2768
+        ],
+        "motion_comparisons_unavailable": 0,
+        "max_position_error_m": 0,
+        "max_linear_error_m_s": 0,
+        "max_angular_error_rad_s": 0,
+        "input_sha256": {
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-179.pxbin": "06b57ebb6be355583b981db0d64b201d0c5f0b75d5c8abb4f09ff5b49bb12867",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-179.destruction": "2f7364dcd95363b71c012b0d0fb8cd549bb44fd7d00c8bffd06c1da43029cab9",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-179.scene": "d9195bd00c030266477765c2326ba6e6a62d6c6c7ffcbf7b3d5a887b2139305d",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-179.metadata.json": "78796699afa94c53e637200bdcc97c6321a7978f28051a93260b2ac03de7ce21"
+        },
+        "raw": "out/snapshot-large-20260911/complete-city64-late-debris/replay.json"
+      }
+    },
+    {
+      "scenario": "city64-ten-second-debris",
+      "purpose": "Late post-destruction state near ten seconds; not assumed asleep or fully settled.",
+      "metadata": {
+        "schema": 1,
+        "source": "native_destruction_demo",
+        "next_step": 599,
+        "buildings": 64,
+        "chunks": 28416,
+        "bonds": 57344,
+        "projectiles": 64,
+        "input_clusters": 4565,
+        "physical_bytes": 9158500,
+        "destruction_bytes": 9534912,
+        "dt": 0.016666666666666666,
+        "pending_gameplay_commands": false
+      },
+      "raw": "out/snapshot-large-20260911/complete-city64-ten-second-debris",
+      "status": "failed",
+      "uninterrupted_source_tick": {
+        "step": "599",
+        "bonds_broken": "0",
+        "logical_clusters": "4565",
+        "stress_iterations": "364",
+        "resim_passes": "0",
+        "complete_step_ms": "11.610376"
+      },
+      "source_comparison_scope": "Diagnostic context only: not the independent-restore gate and not matched warm/cold performance.",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-599.pxbin": "3f404309d2d5b122ff7b1c64a57c346592f961d9794c1c3b160110463030ce85",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-599.destruction": "d8d6928b1eb60a26a5f03ab114c6c4e1eecf37731d4360049a96999c7189b0b5",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-599.scene": "d9195bd00c030266477765c2326ba6e6a62d6c6c7ffcbf7b3d5a887b2139305d",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-599.metadata.json": "08ea4f509331deb009f664bc20d73da2e86d205769640143941bd75adf62a8c2"
+      },
+      "wall_seconds": 44.848610897999606,
+      "failure_log": "health differences=15 max=4.768371582e-07 bond=48029 values=0.9286528826/0.9286533594\nrepeat 1 comparison failed: bond health changed between equivalent states\nhealth differences=17 max=4.768371582e-07 bond=48029 values=0.9286528826/0.9286533594\nrepeat 2 comparison failed: bond health changed between equivalent states\nhealth differences=18 max=5.36441803e-07 bond=48029 values=0.9286528826/0.928653419\nrepeat 3 comparison failed: bond health changed between equivalent states\nhealth differences=17 max=4.768371582e-07 bond=48029 values=0.9286528826/0.9286533594\nrepeat 4 comparison failed: bond health changed between equivalent states\nhealth differences=9 max=6.556510925e-07 bond=48029 values=0.9286528826/0.9286535382\nrepeat 5 comparison failed: bond health changed between equivalent states\nhealth differences=12 max=5.960464478e-08 bond=14470 values=0.9373393059/0.9373393655\nrepeat 6 comparison failed: bond health changed between equivalent states\nhealth differences=12 max=4.768371582e-07 bond=48029 values=0.9286528826/0.9286533594\nrepeat 7 comparison failed: bond health changed between equivalent states\nhealth differences=19 max=5.36441803e-07 bond=48029 values=0.9286528826/0.928653419\nrepeat 8 comparison failed: bond health changed between equivalent states\nhealth differences=19 max=2.384185791e-07 bond=48029 values=0.9286528826/0.928653121\nrepeat 9 comparison failed: bond health changed between equivalent states\nhealth differences=21 max=2.980232239e-07 bond=48029 values=0.9286528826/0.9286531806\nrepeat 10 comparison failed: bond health changed between equivalent states\nhealth differences=21 max=4.768371582e-07 bond=48029 values=0.9286528826/0.9286533594\nrepeat 11 comparison failed: bond health changed between equivalent states\nhealth differences=25 max=1.132488251e-06 bond=48029 values=0.9286528826/0.9286540151\nrepeat 12 comparison failed: bond health changed between equivalent states\nhealth differences=24 max=4.768371582e-07 bond=48029 values=0.9286528826/0.9286533594\nrepeat 13 comparison failed: bond health changed between equivalent states\nhealth differences=21 max=1.788139343e-07 bond=29886 values=0.9681545496/0.9681547284\nrepeat 14 comparison failed: bond health changed between equivalent states\nhealth differences=17 max=1.311302185e-06 bond=48029 values=0.9286528826/0.9286541939\nrepeat 15 comparison failed: bond health changed between equivalent states\nhealth differences=19 max=1.132488251e-06 bond=48029 values=0.9286528826/0.9286540151\nrepeat 16 comparison failed: bond health changed between equivalent states\nhealth differences=31 max=1.013278961e-06 bond=48029 values=0.9286528826/0.9286518693\nrepeat 17 comparison failed: bond health changed between equivalent states\nhealth differences=10 max=2.384185791e-07 bond=48029 values=0.9286528826/0.928653121\nrepeat 18 comparison failed: bond health changed between equivalent states\nhealth differences=28 max=7.152557373e-07 bond=48029 values=0.9286528826/0.9286535978\nrepeat 19 comparison failed: bond health changed between equivalent states\none-tick repeatability gate failed; all samples retained\n",
+      "timings": {
+        "qualified": false,
+        "repeatability_passed": false,
+        "receipt_status": "failed",
+        "replay_contract": "physical-file-replay-v20-complete-step",
+        "metadata": {
+          "schema": 1,
+          "source": "native_destruction_demo",
+          "next_step": 599,
+          "buildings": 64,
+          "chunks": 28416,
+          "bonds": 57344,
+          "projectiles": 64,
+          "input_clusters": 4565,
+          "physical_bytes": 9158500,
+          "destruction_bytes": 9534912,
+          "dt": 0.016666666666666666,
+          "pending_gameplay_commands": false
+        },
+        "sd_ms": 8.843926866440821,
+        "cv_percent": 8.332319452426812,
+        "comparison_failure_reasons": [
+          "bond health changed between equivalent states"
+        ],
+        "failed_comparisons": 19,
+        "maximum_observed_bond_health_difference": 1.311302185e-06,
+        "descriptive_bootstrap_mean_95_ms": [
+          102.4803599,
+          110.1563939
+        ],
+        "first_half_mean_ms": 108.3653071,
+        "last_half_mean_ms": 103.9147649,
+        "harness_wall_seconds": 44.848610897999606,
+        "harness_clock": "monotonic",
+        "mean_stages_ms": {
+          "command_ms": 0.00018735,
+          "simulate_fetch_ms": 105.86270365,
+          "completion_ms": 0.277145
+        },
+        "active_work": {
+          "output_clusters": [
+            4705
+          ],
+          "stress_islands": [
+            823
+          ],
+          "stress_active_nodes": [
+            20435
+          ],
+          "stress_active_bonds": [
+            31870
+          ],
+          "normal_contacts": [
+            17730
+          ],
+          "friction_anchors": [
+            5190
+          ]
+        },
+        "scenario": "city64-ten-second-debris",
+        "samples": 20,
+        "mean_ms": 106.140036,
+        "median_ms": 103.732665,
+        "min_ms": 91.16726,
+        "max_ms": 128.425602,
+        "restore_mean_ms": 1208.42459015,
+        "restore_max_ms": 1467.055283,
+        "over_8_ms": 20,
+        "over_120hz": 20,
+        "over_60hz": 20,
+        "corrections": [
+          1
+        ],
+        "stress_evaluations": [
+          2
+        ],
+        "stress_iterations": [
+          736
+        ],
+        "broken_bonds": [
+          202
+        ],
+        "motion_comparisons_unavailable": 0,
+        "max_position_error_m": 0,
+        "max_linear_error_m_s": 0,
+        "max_angular_error_rad_s": 0,
+        "input_sha256": {
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-599.pxbin": "3f404309d2d5b122ff7b1c64a57c346592f961d9794c1c3b160110463030ce85",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-599.destruction": "d8d6928b1eb60a26a5f03ab114c6c4e1eecf37731d4360049a96999c7189b0b5",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-599.scene": "d9195bd00c030266477765c2326ba6e6a62d6c6c7ffcbf7b3d5a887b2139305d",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-8-bombardment/native/snapshot-599.metadata.json": "08ea4f509331deb009f664bc20d73da2e86d205769640143941bd75adf62a8c2"
+        },
+        "raw": "out/snapshot-large-20260911/complete-city64-ten-second-debris/replay.json"
+      }
+    },
+    {
+      "scenario": "city256-intact-idle",
+      "purpose": "Pristine supported buildings, no shots: global setup and gravity equilibrium.",
+      "metadata": {
+        "schema": 1,
+        "source": "native_destruction_demo",
+        "next_step": 40,
+        "buildings": 256,
+        "chunks": 113664,
+        "bonds": 229376,
+        "projectiles": 0,
+        "input_clusters": 256,
+        "physical_bytes": 30997140,
+        "destruction_bytes": 32475432,
+        "dt": 0.016666666666666666,
+        "pending_gameplay_commands": false
+      },
+      "raw": "out/snapshot-large-20260911/complete-city256-intact-idle",
+      "status": "complete",
+      "uninterrupted_source_tick": {
+        "step": "40",
+        "bonds_broken": "0",
+        "logical_clusters": "256",
+        "stress_iterations": "0",
+        "resim_passes": "0",
+        "complete_step_ms": "1.771342"
+      },
+      "source_comparison_scope": "Diagnostic context only: not the independent-restore gate and not matched warm/cold performance.",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-idle/native/snapshot-40.pxbin": "f930468625d37115e130cb8b66d11873440ca0838387f25d83444027a93a5824",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-idle/native/snapshot-40.destruction": "e386aa8e52f7e32f75698f8921abd90055425124b5a8a5f4f3a2a135055e61d4",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-idle/native/snapshot-40.scene": "9dfc90012f124e406a3eeaf23fde32fd7e87a0a8e2f8a43b87f99cd7d68d446f",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-idle/native/snapshot-40.metadata.json": "5d3677ec118d6f15925bdbb973357c1d7f4d5f3aa81f95859e1145e2ae0e0b24"
+      },
+      "wall_seconds": 62.41960862799897,
+      "timings": {
+        "qualified": true,
+        "repeatability_passed": true,
+        "receipt_status": "complete",
+        "replay_contract": "physical-file-replay-v20-complete-step",
+        "metadata": {
+          "schema": 1,
+          "source": "native_destruction_demo",
+          "next_step": 40,
+          "buildings": 256,
+          "chunks": 113664,
+          "bonds": 229376,
+          "projectiles": 0,
+          "input_clusters": 256,
+          "physical_bytes": 30997140,
+          "destruction_bytes": 32475432,
+          "dt": 0.016666666666666666,
+          "pending_gameplay_commands": false
+        },
+        "sd_ms": 7.978878882759251,
+        "cv_percent": 11.533935409023535,
+        "comparison_failure_reasons": [],
+        "failed_comparisons": 0,
+        "maximum_observed_bond_health_difference": 0,
+        "descriptive_bootstrap_mean_95_ms": [
+          65.7226187,
+          72.53289885
+        ],
+        "first_half_mean_ms": 65.8072797,
+        "last_half_mean_ms": 72.5475593,
+        "harness_wall_seconds": 62.41960862799897,
+        "harness_clock": "monotonic",
+        "mean_stages_ms": {
+          "command_ms": 0.00019425,
+          "simulate_fetch_ms": 68.85447395,
+          "completion_ms": 0.3227513
+        },
+        "active_work": {
+          "output_clusters": [
+            256
+          ],
+          "stress_islands": [
+            256
+          ],
+          "stress_active_nodes": [
+            97280
+          ],
+          "stress_active_bonds": [
+            200704
+          ],
+          "normal_contacts": [
+            0
+          ],
+          "friction_anchors": [
+            0
+          ]
+        },
+        "scenario": "city256-intact-idle",
+        "samples": 20,
+        "mean_ms": 69.1774195,
+        "median_ms": 68.9480265,
+        "min_ms": 54.232295,
+        "max_ms": 85.129307,
+        "restore_mean_ms": 1862.6048496,
+        "restore_max_ms": 2269.558365,
+        "over_8_ms": 20,
+        "over_120hz": 20,
+        "over_60hz": 20,
+        "corrections": [
+          0
+        ],
+        "stress_evaluations": [
+          1
+        ],
+        "stress_iterations": [
+          88
+        ],
+        "broken_bonds": [
+          0
+        ],
+        "motion_comparisons_unavailable": 0,
+        "max_position_error_m": 0,
+        "max_linear_error_m_s": 0,
+        "max_angular_error_rad_s": 0,
+        "input_sha256": {
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-idle/native/snapshot-40.pxbin": "f930468625d37115e130cb8b66d11873440ca0838387f25d83444027a93a5824",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-idle/native/snapshot-40.destruction": "e386aa8e52f7e32f75698f8921abd90055425124b5a8a5f4f3a2a135055e61d4",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-idle/native/snapshot-40.scene": "9dfc90012f124e406a3eeaf23fde32fd7e87a0a8e2f8a43b87f99cd7d68d446f",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-idle/native/snapshot-40.metadata.json": "5d3677ec118d6f15925bdbb973357c1d7f4d5f3aa81f95859e1145e2ae0e0b24"
+        },
+        "raw": "out/snapshot-large-20260911/complete-city256-intact-idle/replay.json"
+      }
+    },
+    {
+      "scenario": "city256-airborne",
+      "purpose": "One shot per building approaching the intact city; no authored fractures.",
+      "metadata": {
+        "schema": 1,
+        "source": "native_destruction_demo",
+        "next_step": 40,
+        "buildings": 256,
+        "chunks": 113664,
+        "bonds": 229376,
+        "projectiles": 256,
+        "input_clusters": 256,
+        "physical_bytes": 31144596,
+        "destruction_bytes": 32521512,
+        "dt": 0.016666666666666666,
+        "pending_gameplay_commands": false
+      },
+      "raw": "out/snapshot-large-20260911/complete-city256-airborne",
+      "status": "complete",
+      "uninterrupted_source_tick": {
+        "step": "40",
+        "bonds_broken": "0",
+        "logical_clusters": "256",
+        "stress_iterations": "0",
+        "resim_passes": "0",
+        "complete_step_ms": "4.04941"
+      },
+      "source_comparison_scope": "Diagnostic context only: not the independent-restore gate and not matched warm/cold performance.",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-40.pxbin": "4d739c49091ac3e2687b8d29396abdb121dc821d48715ffbcfa8b6f38306b612",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-40.destruction": "e84c2e94279e1454315c42dce77e48cb6286b3c2d5f309134ab4c56ef4bcabbf",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-40.scene": "9dfc90012f124e406a3eeaf23fde32fd7e87a0a8e2f8a43b87f99cd7d68d446f",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-40.metadata.json": "7db8d418a371322b4d203d8d4047a921c4057474264d42eccd6721b89dc01564"
+      },
+      "wall_seconds": 61.36734310298925,
+      "timings": {
+        "qualified": true,
+        "repeatability_passed": true,
+        "receipt_status": "complete",
+        "replay_contract": "physical-file-replay-v20-complete-step",
+        "metadata": {
+          "schema": 1,
+          "source": "native_destruction_demo",
+          "next_step": 40,
+          "buildings": 256,
+          "chunks": 113664,
+          "bonds": 229376,
+          "projectiles": 256,
+          "input_clusters": 256,
+          "physical_bytes": 31144596,
+          "destruction_bytes": 32521512,
+          "dt": 0.016666666666666666,
+          "pending_gameplay_commands": false
+        },
+        "sd_ms": 6.904695860959198,
+        "cv_percent": 9.202478984297924,
+        "comparison_failure_reasons": [],
+        "failed_comparisons": 0,
+        "maximum_observed_bond_health_difference": 0,
+        "descriptive_bootstrap_mean_95_ms": [
+          72.14022655,
+          77.94070675
+        ],
+        "first_half_mean_ms": 72.4040497,
+        "last_half_mean_ms": 77.6575994,
+        "harness_wall_seconds": 61.36734310298925,
+        "harness_clock": "monotonic",
+        "mean_stages_ms": {
+          "command_ms": 0.00020005,
+          "simulate_fetch_ms": 74.74989135,
+          "completion_ms": 0.28073315
+        },
+        "active_work": {
+          "output_clusters": [
+            256
+          ],
+          "stress_islands": [
+            256
+          ],
+          "stress_active_nodes": [
+            97280
+          ],
+          "stress_active_bonds": [
+            200704
+          ],
+          "normal_contacts": [
+            0
+          ],
+          "friction_anchors": [
+            0
+          ]
+        },
+        "scenario": "city256-airborne",
+        "samples": 20,
+        "mean_ms": 75.03082455,
+        "median_ms": 76.2789325,
+        "min_ms": 62.768374,
+        "max_ms": 84.846361,
+        "restore_mean_ms": 1846.9962578,
+        "restore_max_ms": 2243.240204,
+        "over_8_ms": 20,
+        "over_120hz": 20,
+        "over_60hz": 20,
+        "corrections": [
+          0
+        ],
+        "stress_evaluations": [
+          1
+        ],
+        "stress_iterations": [
+          88
+        ],
+        "broken_bonds": [
+          0
+        ],
+        "motion_comparisons_unavailable": 0,
+        "max_position_error_m": 0,
+        "max_linear_error_m_s": 0,
+        "max_angular_error_rad_s": 0,
+        "input_sha256": {
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-40.pxbin": "4d739c49091ac3e2687b8d29396abdb121dc821d48715ffbcfa8b6f38306b612",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-40.destruction": "e84c2e94279e1454315c42dce77e48cb6286b3c2d5f309134ab4c56ef4bcabbf",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-40.scene": "9dfc90012f124e406a3eeaf23fde32fd7e87a0a8e2f8a43b87f99cd7d68d446f",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-40.metadata.json": "7db8d418a371322b4d203d8d4047a921c4057474264d42eccd6721b89dc01564"
+        },
+        "raw": "out/snapshot-large-20260911/complete-city256-airborne/replay.json"
+      }
+    },
+    {
+      "scenario": "city256-initial-impact",
+      "purpose": "Historical first impact/peak input; measure actual restored fracture and correction.",
+      "metadata": {
+        "schema": 1,
+        "source": "native_destruction_demo",
+        "next_step": 82,
+        "buildings": 256,
+        "chunks": 113664,
+        "bonds": 229376,
+        "projectiles": 256,
+        "input_clusters": 256,
+        "physical_bytes": 31144596,
+        "destruction_bytes": 32521512,
+        "dt": 0.016666666666666666,
+        "pending_gameplay_commands": false
+      },
+      "raw": "out/snapshot-large-20260911/complete-city256-initial-impact",
+      "status": "complete",
+      "uninterrupted_source_tick": {
+        "step": "82",
+        "bonds_broken": "28596",
+        "logical_clusters": "5204",
+        "stress_iterations": "288",
+        "resim_passes": "1",
+        "complete_step_ms": "212.28362799999999"
+      },
+      "source_comparison_scope": "Diagnostic context only: not the independent-restore gate and not matched warm/cold performance.",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-82.pxbin": "876e0bed4ca9b354a96b4c971cf1d5c842682b3c290e367fc84ba3e11d9bb945",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-82.destruction": "316033bdc3faf7603979463b26c15e52a9fbc87c199a44809e1737ef3cf62c13",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-82.scene": "9dfc90012f124e406a3eeaf23fde32fd7e87a0a8e2f8a43b87f99cd7d68d446f",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-82.metadata.json": "30215c64b211142eab5510643ccf48e79db7378ddfb9838298f74d2e047c5809"
+      },
+      "wall_seconds": 67.75379381100356,
+      "timings": {
+        "qualified": true,
+        "repeatability_passed": true,
+        "receipt_status": "complete",
+        "replay_contract": "physical-file-replay-v20-complete-step",
+        "metadata": {
+          "schema": 1,
+          "source": "native_destruction_demo",
+          "next_step": 82,
+          "buildings": 256,
+          "chunks": 113664,
+          "bonds": 229376,
+          "projectiles": 256,
+          "input_clusters": 256,
+          "physical_bytes": 31144596,
+          "destruction_bytes": 32521512,
+          "dt": 0.016666666666666666,
+          "pending_gameplay_commands": false
+        },
+        "sd_ms": 16.547937533880432,
+        "cv_percent": 6.353528665937932,
+        "comparison_failure_reasons": [],
+        "failed_comparisons": 0,
+        "maximum_observed_bond_health_difference": 0,
+        "descriptive_bootstrap_mean_95_ms": [
+          253.42291455,
+          267.28246195
+        ],
+        "first_half_mean_ms": 261.8346356,
+        "last_half_mean_ms": 259.07078260000003,
+        "harness_wall_seconds": 67.75379381100356,
+        "harness_clock": "monotonic",
+        "mean_stages_ms": {
+          "command_ms": 0.00021705,
+          "simulate_fetch_ms": 260.2012777,
+          "completion_ms": 0.25121435
+        },
+        "active_work": {
+          "output_clusters": [
+            5417
+          ],
+          "stress_islands": [
+            776
+          ],
+          "stress_active_nodes": [
+            92639
+          ],
+          "stress_active_bonds": [
+            165902
+          ],
+          "normal_contacts": [
+            42625
+          ],
+          "friction_anchors": [
+            6310
+          ]
+        },
+        "scenario": "city256-initial-impact",
+        "samples": 20,
+        "mean_ms": 260.4527091,
+        "median_ms": 262.523945,
+        "min_ms": 231.870397,
+        "max_ms": 288.677659,
+        "restore_mean_ms": 1856.1501178,
+        "restore_max_ms": 2027.568096,
+        "over_8_ms": 20,
+        "over_120hz": 20,
+        "over_60hz": 20,
+        "corrections": [
+          1
+        ],
+        "stress_evaluations": [
+          2
+        ],
+        "stress_iterations": [
+          312
+        ],
+        "broken_bonds": [
+          34802
+        ],
+        "motion_comparisons_unavailable": 0,
+        "max_position_error_m": 0,
+        "max_linear_error_m_s": 0,
+        "max_angular_error_rad_s": 0,
+        "input_sha256": {
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-82.pxbin": "876e0bed4ca9b354a96b4c971cf1d5c842682b3c290e367fc84ba3e11d9bb945",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-82.destruction": "316033bdc3faf7603979463b26c15e52a9fbc87c199a44809e1737ef3cf62c13",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-82.scene": "9dfc90012f124e406a3eeaf23fde32fd7e87a0a8e2f8a43b87f99cd7d68d446f",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-82.metadata.json": "30215c64b211142eab5510643ccf48e79db7378ddfb9838298f74d2e047c5809"
+        },
+        "raw": "out/snapshot-large-20260911/complete-city256-initial-impact/replay.json"
+      }
+    },
+    {
+      "scenario": "city256-post-impact",
+      "purpose": "Immediately after historical first impact: many newly separated owners.",
+      "metadata": {
+        "schema": 1,
+        "source": "native_destruction_demo",
+        "next_step": 83,
+        "buildings": 256,
+        "chunks": 113664,
+        "bonds": 229376,
+        "projectiles": 256,
+        "input_clusters": 5204,
+        "physical_bytes": 32646772,
+        "destruction_bytes": 34065288,
+        "dt": 0.016666666666666666,
+        "pending_gameplay_commands": false
+      },
+      "raw": "out/snapshot-large-20260911/complete-city256-post-impact",
+      "status": "complete",
+      "uninterrupted_source_tick": {
+        "step": "83",
+        "bonds_broken": "0",
+        "logical_clusters": "5204",
+        "stress_iterations": "332",
+        "resim_passes": "0",
+        "complete_step_ms": "49.508082000000002"
+      },
+      "source_comparison_scope": "Diagnostic context only: not the independent-restore gate and not matched warm/cold performance.",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-83.pxbin": "801bf9928dbc5d8ec317a000cf5a2a96471849c71386d25c7d6a47a82ccb65ff",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-83.destruction": "2051ed43d850d49dc400c24ba8e6a8e53c2ea542269d5eb5c1a1fe9304fefede",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-83.scene": "9dfc90012f124e406a3eeaf23fde32fd7e87a0a8e2f8a43b87f99cd7d68d446f",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-83.metadata.json": "f05b29c7156636e5abdccc24b59f13e3cf03c78b3b9bb4e610e7e9c7f874a9e7"
+      },
+      "wall_seconds": 72.35959531400295,
+      "timings": {
+        "qualified": true,
+        "repeatability_passed": true,
+        "receipt_status": "complete",
+        "replay_contract": "physical-file-replay-v20-complete-step",
+        "metadata": {
+          "schema": 1,
+          "source": "native_destruction_demo",
+          "next_step": 83,
+          "buildings": 256,
+          "chunks": 113664,
+          "bonds": 229376,
+          "projectiles": 256,
+          "input_clusters": 5204,
+          "physical_bytes": 32646772,
+          "destruction_bytes": 34065288,
+          "dt": 0.016666666666666666,
+          "pending_gameplay_commands": false
+        },
+        "sd_ms": 9.995033889093051,
+        "cv_percent": 6.68556062060974,
+        "comparison_failure_reasons": [],
+        "failed_comparisons": 0,
+        "maximum_observed_bond_health_difference": 0,
+        "descriptive_bootstrap_mean_95_ms": [
+          145.20677955,
+          153.8757977
+        ],
+        "first_half_mean_ms": 152.3586956,
+        "last_half_mean_ms": 146.644917,
+        "harness_wall_seconds": 72.35959531400295,
+        "harness_clock": "monotonic",
+        "mean_stages_ms": {
+          "command_ms": 0.0001877,
+          "simulate_fetch_ms": 149.2444654,
+          "completion_ms": 0.2571532
+        },
+        "active_work": {
+          "output_clusters": [
+            5204
+          ],
+          "stress_islands": [
+            520
+          ],
+          "stress_active_nodes": [
+            92596
+          ],
+          "stress_active_bonds": [
+            172108
+          ],
+          "normal_contacts": [
+            49093
+          ],
+          "friction_anchors": [
+            11093
+          ]
+        },
+        "scenario": "city256-post-impact",
+        "samples": 20,
+        "mean_ms": 149.5018063,
+        "median_ms": 149.128037,
+        "min_ms": 126.174619,
+        "max_ms": 172.789294,
+        "restore_mean_ms": 1953.29772555,
+        "restore_max_ms": 2089.495725,
+        "over_8_ms": 20,
+        "over_120hz": 20,
+        "over_60hz": 20,
+        "corrections": [
+          0
+        ],
+        "stress_evaluations": [
+          1
+        ],
+        "stress_iterations": [
+          332
+        ],
+        "broken_bonds": [
+          0
+        ],
+        "motion_comparisons_unavailable": 0,
+        "max_position_error_m": 0,
+        "max_linear_error_m_s": 0,
+        "max_angular_error_rad_s": 0,
+        "input_sha256": {
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-83.pxbin": "801bf9928dbc5d8ec317a000cf5a2a96471849c71386d25c7d6a47a82ccb65ff",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-83.destruction": "2051ed43d850d49dc400c24ba8e6a8e53c2ea542269d5eb5c1a1fe9304fefede",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-83.scene": "9dfc90012f124e406a3eeaf23fde32fd7e87a0a8e2f8a43b87f99cd7d68d446f",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-83.metadata.json": "f05b29c7156636e5abdccc24b59f13e3cf03c78b3b9bb4e610e7e9c7f874a9e7"
+        },
+        "raw": "out/snapshot-large-20260911/complete-city256-post-impact/replay.json"
+      }
+    },
+    {
+      "scenario": "city256-cascading-fracture",
+      "purpose": "Continuing projectile penetration and cascading fractures.",
+      "metadata": {
+        "schema": 1,
+        "source": "native_destruction_demo",
+        "next_step": 87,
+        "buildings": 256,
+        "chunks": 113664,
+        "bonds": 229376,
+        "projectiles": 256,
+        "input_clusters": 5827,
+        "physical_bytes": 32836708,
+        "destruction_bytes": 34259664,
+        "dt": 0.016666666666666666,
+        "pending_gameplay_commands": false
+      },
+      "raw": "out/snapshot-large-20260911/complete-city256-cascading-fracture",
+      "status": "complete",
+      "uninterrupted_source_tick": {
+        "step": "87",
+        "bonds_broken": "23",
+        "logical_clusters": "5850",
+        "stress_iterations": "436",
+        "resim_passes": "1",
+        "complete_step_ms": "102.017467"
+      },
+      "source_comparison_scope": "Diagnostic context only: not the independent-restore gate and not matched warm/cold performance.",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-87.pxbin": "38564b53212897e384c0cd330381f17ed2846206d25ec0f5195748ff024cce9e",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-87.destruction": "8a3f8aa6699ad8d9e1c498a8cac956aaebb9a5ece3aaf33e075fd5f7fe0ee647",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-87.scene": "9dfc90012f124e406a3eeaf23fde32fd7e87a0a8e2f8a43b87f99cd7d68d446f",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-87.metadata.json": "fb5408fae895343a86b6f78b0cf1b66437078f53a9489fbfb1c4803fb3c5b7c6"
+      },
+      "wall_seconds": 74.60728629499499,
+      "timings": {
+        "qualified": true,
+        "repeatability_passed": true,
+        "receipt_status": "complete",
+        "replay_contract": "physical-file-replay-v20-complete-step",
+        "metadata": {
+          "schema": 1,
+          "source": "native_destruction_demo",
+          "next_step": 87,
+          "buildings": 256,
+          "chunks": 113664,
+          "bonds": 229376,
+          "projectiles": 256,
+          "input_clusters": 5827,
+          "physical_bytes": 32836708,
+          "destruction_bytes": 34259664,
+          "dt": 0.016666666666666666,
+          "pending_gameplay_commands": false
+        },
+        "sd_ms": 16.81478747337528,
+        "cv_percent": 8.006314621526366,
+        "comparison_failure_reasons": [],
+        "failed_comparisons": 0,
+        "maximum_observed_bond_health_difference": 0,
+        "descriptive_bootstrap_mean_95_ms": [
+          202.60283475,
+          217.1347688
+        ],
+        "first_half_mean_ms": 214.0413928,
+        "last_half_mean_ms": 205.99674629999998,
+        "harness_wall_seconds": 74.60728629499499,
+        "harness_clock": "monotonic",
+        "mean_stages_ms": {
+          "command_ms": 0.00026615,
+          "simulate_fetch_ms": 209.73315075,
+          "completion_ms": 0.28565265
+        },
+        "active_work": {
+          "output_clusters": [
+            5852
+          ],
+          "stress_islands": [
+            627
+          ],
+          "stress_active_nodes": [
+            92055
+          ],
+          "stress_active_bonds": [
+            169616
+          ],
+          "normal_contacts": [
+            105527
+          ],
+          "friction_anchors": [
+            20206
+          ]
+        },
+        "scenario": "city256-cascading-fracture",
+        "samples": 20,
+        "mean_ms": 210.01906955,
+        "median_ms": 208.396299,
+        "min_ms": 178.117174,
+        "max_ms": 242.847002,
+        "restore_mean_ms": 1998.2659734000001,
+        "restore_max_ms": 2451.092457,
+        "over_8_ms": 20,
+        "over_120hz": 20,
+        "over_60hz": 20,
+        "corrections": [
+          1
+        ],
+        "stress_evaluations": [
+          2
+        ],
+        "stress_iterations": [
+          416
+        ],
+        "broken_bonds": [
+          25
+        ],
+        "motion_comparisons_unavailable": 0,
+        "max_position_error_m": 0,
+        "max_linear_error_m_s": 0,
+        "max_angular_error_rad_s": 0,
+        "input_sha256": {
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-87.pxbin": "38564b53212897e384c0cd330381f17ed2846206d25ec0f5195748ff024cce9e",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-87.destruction": "8a3f8aa6699ad8d9e1c498a8cac956aaebb9a5ece3aaf33e075fd5f7fe0ee647",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-87.scene": "9dfc90012f124e406a3eeaf23fde32fd7e87a0a8e2f8a43b87f99cd7d68d446f",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-87.metadata.json": "fb5408fae895343a86b6f78b0cf1b66437078f53a9489fbfb1c4803fb3c5b7c6"
+        },
+        "raw": "out/snapshot-large-20260911/complete-city256-cascading-fracture/replay.json"
+      }
+    },
+    {
+      "scenario": "city256-fragmented-loaded",
+      "purpose": "Historical later stress peak with many independent motion clusters.",
+      "metadata": {
+        "schema": 1,
+        "source": "native_destruction_demo",
+        "next_step": 108,
+        "buildings": 256,
+        "chunks": 113664,
+        "bonds": 229376,
+        "projectiles": 256,
+        "input_clusters": 10905,
+        "physical_bytes": 34387140,
+        "destruction_bytes": 35844000,
+        "dt": 0.016666666666666666,
+        "pending_gameplay_commands": false
+      },
+      "raw": "out/snapshot-large-20260911/complete-city256-fragmented-loaded",
+      "status": "failed",
+      "uninterrupted_source_tick": {
+        "step": "108",
+        "bonds_broken": "24",
+        "logical_clusters": "10910",
+        "stress_iterations": "572",
+        "resim_passes": "1",
+        "complete_step_ms": "119.093638"
+      },
+      "source_comparison_scope": "Diagnostic context only: not the independent-restore gate and not matched warm/cold performance.",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-108.pxbin": "d977fa55b6ae0182a46aaf832d8aa465fb75aa37a3b9c26b08973ecd17f9d45a",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-108.destruction": "0525bb111ed7d0d7dea053fdf45f3ef25767a69c3d7fdc9bf9a78dd72f5b0ebd",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-108.scene": "9dfc90012f124e406a3eeaf23fde32fd7e87a0a8e2f8a43b87f99cd7d68d446f",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-108.metadata.json": "76a740f4dfca38794653fc5287d9c6ed5489c39aa888944417b166417445f5ad"
+      },
+      "wall_seconds": 85.46746926200285,
+      "failure_log": "health differences=8 max=5.960464478e-08 bond=6751 values=0.9745417833/0.9745417237\nrepeat 1 comparison failed: bond health changed between equivalent states\nhealth differences=3 max=5.960464478e-08 bond=4025 values=0.9324054122/0.9324054718\nrepeat 2 comparison failed: bond health changed between equivalent states\nhealth differences=9 max=5.960464478e-08 bond=6751 values=0.9745417833/0.9745417237\nrepeat 3 comparison failed: bond health changed between equivalent states\nhealth differences=11 max=5.960464478e-08 bond=6751 values=0.9745417833/0.9745417237\nrepeat 4 comparison failed: bond health changed between equivalent states\nhealth differences=5 max=5.960464478e-08 bond=6751 values=0.9745417833/0.9745417237\nrepeat 5 comparison failed: bond health changed between equivalent states\nhealth differences=4 max=5.960464478e-08 bond=6751 values=0.9745417833/0.9745417237\nrepeat 6 comparison failed: bond health changed between equivalent states\nhealth differences=9 max=5.960464478e-08 bond=6751 values=0.9745417833/0.9745417237\nrepeat 7 comparison failed: bond health changed between equivalent states\nhealth differences=4 max=5.960464478e-08 bond=6751 values=0.9745417833/0.9745417237\nrepeat 8 comparison failed: bond health changed between equivalent states\nhealth differences=5 max=5.960464478e-08 bond=6751 values=0.9745417833/0.9745417237\nrepeat 9 comparison failed: bond health changed between equivalent states\nhealth differences=10 max=5.960464478e-08 bond=6751 values=0.9745417833/0.9745417237\nrepeat 10 comparison failed: bond health changed between equivalent states\nhealth differences=8 max=5.960464478e-08 bond=6751 values=0.9745417833/0.9745417237\nrepeat 11 comparison failed: bond health changed between equivalent states\nhealth differences=16 max=5.960464478e-08 bond=6751 values=0.9745417833/0.9745417237\nrepeat 12 comparison failed: bond health changed between equivalent states\nhealth differences=5 max=5.960464478e-08 bond=1782 values=0.9617024064/0.9617023468\nrepeat 13 comparison failed: bond health changed between equivalent states\nhealth differences=9 max=5.960464478e-08 bond=6751 values=0.9745417833/0.9745417237\nrepeat 14 comparison failed: bond health changed between equivalent states\nhealth differences=10 max=5.960464478e-08 bond=13767 values=0.9879220724/0.9879220128\nrepeat 15 comparison failed: bond health changed between equivalent states\nhealth differences=12 max=5.960464478e-08 bond=31507 values=0.9862466455/0.9862467051\nrepeat 16 comparison failed: bond health changed between equivalent states\nhealth differences=3 max=5.960464478e-08 bond=6751 values=0.9745417833/0.9745417237\nrepeat 17 comparison failed: bond health changed between equivalent states\nhealth differences=18 max=5.960464478e-08 bond=13767 values=0.9879220724/0.9879220128\nrepeat 18 comparison failed: bond health changed between equivalent states\nhealth differences=15 max=5.960464478e-08 bond=6751 values=0.9745417833/0.9745417237\nrepeat 19 comparison failed: bond health changed between equivalent states\none-tick repeatability gate failed; all samples retained\n",
+      "timings": {
+        "qualified": false,
+        "repeatability_passed": false,
+        "receipt_status": "failed",
+        "replay_contract": "physical-file-replay-v20-complete-step",
+        "metadata": {
+          "schema": 1,
+          "source": "native_destruction_demo",
+          "next_step": 108,
+          "buildings": 256,
+          "chunks": 113664,
+          "bonds": 229376,
+          "projectiles": 256,
+          "input_clusters": 10905,
+          "physical_bytes": 34387140,
+          "destruction_bytes": 35844000,
+          "dt": 0.016666666666666666,
+          "pending_gameplay_commands": false
+        },
+        "sd_ms": 18.70056267926378,
+        "cv_percent": 5.777104939447718,
+        "comparison_failure_reasons": [
+          "bond health changed between equivalent states"
+        ],
+        "failed_comparisons": 19,
+        "maximum_observed_bond_health_difference": 5.960464478e-08,
+        "descriptive_bootstrap_mean_95_ms": [
+          315.8781695,
+          331.71179455
+        ],
+        "first_half_mean_ms": 322.3970017,
+        "last_half_mean_ms": 325.0055598,
+        "harness_wall_seconds": 85.46746926200285,
+        "harness_clock": "monotonic",
+        "mean_stages_ms": {
+          "command_ms": 0.00018605,
+          "simulate_fetch_ms": 323.43222125,
+          "completion_ms": 0.26887345
+        },
+        "active_work": {
+          "output_clusters": [
+            11382
+          ],
+          "stress_islands": [
+            1857
+          ],
+          "stress_active_nodes": [
+            87755
+          ],
+          "stress_active_bonds": [
+            146435
+          ],
+          "normal_contacts": [
+            241561
+          ],
+          "friction_anchors": [
+            46983
+          ]
+        },
+        "scenario": "city256-fragmented-loaded",
+        "samples": 20,
+        "mean_ms": 323.70128075,
+        "median_ms": 324.6480835,
+        "min_ms": 282.299248,
+        "max_ms": 363.873026,
+        "restore_mean_ms": 2072.0676234000002,
+        "restore_max_ms": 2254.520147,
+        "over_8_ms": 20,
+        "over_120hz": 20,
+        "over_60hz": 20,
+        "corrections": [
+          1
+        ],
+        "stress_evaluations": [
+          2
+        ],
+        "stress_iterations": [
+          604
+        ],
+        "broken_bonds": [
+          1229
+        ],
+        "motion_comparisons_unavailable": 0,
+        "max_position_error_m": 0,
+        "max_linear_error_m_s": 0,
+        "max_angular_error_rad_s": 0,
+        "input_sha256": {
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-108.pxbin": "d977fa55b6ae0182a46aaf832d8aa465fb75aa37a3b9c26b08973ecd17f9d45a",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-108.destruction": "0525bb111ed7d0d7dea053fdf45f3ef25767a69c3d7fdc9bf9a78dd72f5b0ebd",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-108.scene": "9dfc90012f124e406a3eeaf23fde32fd7e87a0a8e2f8a43b87f99cd7d68d446f",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-108.metadata.json": "76a740f4dfca38794653fc5287d9c6ed5489c39aa888944417b166417445f5ad"
+        },
+        "raw": "out/snapshot-large-20260911/complete-city256-fragmented-loaded/replay.json"
+      }
+    },
+    {
+      "scenario": "city256-late-debris",
+      "purpose": "Debris collisions and remaining load paths at three seconds.",
+      "metadata": {
+        "schema": 1,
+        "source": "native_destruction_demo",
+        "next_step": 179,
+        "buildings": 256,
+        "chunks": 113664,
+        "bonds": 229376,
+        "projectiles": 256,
+        "input_clusters": 12214,
+        "physical_bytes": 34787460,
+        "destruction_bytes": 36252408,
+        "dt": 0.016666666666666666,
+        "pending_gameplay_commands": false
+      },
+      "raw": "out/snapshot-large-20260911/complete-city256-late-debris",
+      "status": "failed",
+      "uninterrupted_source_tick": {
+        "step": "179",
+        "bonds_broken": "80",
+        "logical_clusters": "12248",
+        "stress_iterations": "588",
+        "resim_passes": "1",
+        "complete_step_ms": "119.611389"
+      },
+      "source_comparison_scope": "Diagnostic context only: not the independent-restore gate and not matched warm/cold performance.",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179.pxbin": "64e2f438ee00de5ff9beb72d000c9c5fde7dd5d9eaa6acff68e942d13fa21a87",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179.destruction": "155fa684303c4ac9d3d68a72d917217106b64f5522b08df34d23ed6f50db54be",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179.scene": "9dfc90012f124e406a3eeaf23fde32fd7e87a0a8e2f8a43b87f99cd7d68d446f",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179.metadata.json": "05064a02bbd45073df1ff7044c20ec8930b86966f230243cbeb3a657db0cb4c6"
+      },
+      "wall_seconds": 90.68529150100949,
+      "failure_log": "health differences=522 max=5.36441803e-07 bond=56433 values=0.9755166769/0.9755172133\nrepeat 1 comparison failed: bond health changed between equivalent states\nhealth differences=545 max=6.556510925e-07 bond=85328 values=0.9910851717/0.991084516\nrepeat 2 comparison failed: bond health changed between equivalent states\nhealth differences=516 max=5.36441803e-07 bond=29145 values=0.9741249681/0.9741244316\nrepeat 3 comparison failed: bond health changed between equivalent states\nhealth differences=535 max=5.36441803e-07 bond=204454 values=0.9949420691/0.9949415326\nrepeat 4 comparison failed: bond health changed between equivalent states\nhealth differences=495 max=9.536743164e-07 bond=29133 values=0.9667997956/0.9668007493\nrepeat 5 comparison failed: bond health changed between equivalent states\nhealth differences=483 max=8.344650269e-07 bond=56433 values=0.9755166769/0.9755175114\nrepeat 6 comparison failed: bond health changed between equivalent states\nhealth differences=582 max=7.152557373e-07 bond=109517 values=0.9924755692/0.992474854\nrepeat 7 comparison failed: bond health changed between equivalent states\nhealth differences=548 max=8.344650269e-07 bond=56433 values=0.9755166769/0.9755175114\nrepeat 8 comparison failed: bond health changed between equivalent states\nhealth differences=623 max=6.556510925e-07 bond=85328 values=0.9910851717/0.991084516\nrepeat 9 comparison failed: bond health changed between equivalent states\nhealth differences=481 max=4.768371582e-07 bond=114048 values=0.9885248542/0.988525331\nrepeat 10 comparison failed: bond health changed between equivalent states\nhealth differences=513 max=1.37090683e-06 bond=125897 values=0.9738856554/0.9738870263\nrepeat 11 comparison failed: bond health changed between equivalent states\nhealth differences=559 max=6.556510925e-07 bond=85328 values=0.9910851717/0.991084516\nrepeat 12 comparison failed: bond health changed between equivalent states\nhealth differences=620 max=4.768371582e-07 bond=114048 values=0.9885248542/0.988525331\nrepeat 13 comparison failed: bond health changed between equivalent states\nhealth differences=496 max=1.37090683e-06 bond=125897 values=0.9738856554/0.9738870263\nrepeat 14 comparison failed: bond health changed between equivalent states\nhealth differences=569 max=1.37090683e-06 bond=29133 values=0.9667997956/0.9668011665\nrepeat 15 comparison failed: bond health changed between equivalent states\nhealth differences=653 max=9.536743164e-07 bond=125897 values=0.9738856554/0.9738847017\nrepeat 16 comparison failed: bond health changed between equivalent states\nhealth differences=496 max=5.36441803e-07 bond=98800 values=0.9682804942/0.9682799578\nrepeat 17 comparison failed: bond health changed between equivalent states\nhealth differences=469 max=4.768371582e-07 bond=114048 values=0.9885248542/0.988525331\nrepeat 18 comparison failed: bond health changed between equivalent states\nhealth differences=544 max=6.556510925e-07 bond=98800 values=0.9682804942/0.9682798386\nrepeat 19 comparison failed: bond health changed between equivalent states\none-tick repeatability gate failed; all samples retained\n",
+      "timings": {
+        "qualified": false,
+        "repeatability_passed": false,
+        "receipt_status": "failed",
+        "replay_contract": "physical-file-replay-v20-complete-step",
+        "metadata": {
+          "schema": 1,
+          "source": "native_destruction_demo",
+          "next_step": 179,
+          "buildings": 256,
+          "chunks": 113664,
+          "bonds": 229376,
+          "projectiles": 256,
+          "input_clusters": 12214,
+          "physical_bytes": 34787460,
+          "destruction_bytes": 36252408,
+          "dt": 0.016666666666666666,
+          "pending_gameplay_commands": false
+        },
+        "sd_ms": 22.300511921539062,
+        "cv_percent": 4.815738385302711,
+        "comparison_failure_reasons": [
+          "bond health changed between equivalent states"
+        ],
+        "failed_comparisons": 19,
+        "maximum_observed_bond_health_difference": 1.37090683e-06,
+        "descriptive_bootstrap_mean_95_ms": [
+          453.501663,
+          472.49988565
+        ],
+        "first_half_mean_ms": 462.9860238,
+        "last_half_mean_ms": 463.16528,
+        "harness_wall_seconds": 90.68529150100949,
+        "harness_clock": "monotonic",
+        "mean_stages_ms": {
+          "command_ms": 0.0002092,
+          "simulate_fetch_ms": 462.8051775,
+          "completion_ms": 0.2702652
+        },
+        "active_work": {
+          "output_clusters": [
+            16135
+          ],
+          "stress_islands": [
+            2762
+          ],
+          "stress_active_nodes": [
+            83885
+          ],
+          "stress_active_bonds": [
+            133656
+          ],
+          "normal_contacts": [
+            267054
+          ],
+          "friction_anchors": [
+            61120
+          ]
+        },
+        "scenario": "city256-late-debris",
+        "samples": 20,
+        "mean_ms": 463.0756519,
+        "median_ms": 469.6032625,
+        "min_ms": 420.04582,
+        "max_ms": 502.287742,
+        "restore_mean_ms": 2097.32729855,
+        "restore_max_ms": 2254.897214,
+        "over_8_ms": 20,
+        "over_120hz": 20,
+        "over_60hz": 20,
+        "corrections": [
+          1
+        ],
+        "stress_evaluations": [
+          2
+        ],
+        "stress_iterations": [
+          1080,
+          1084,
+          1120,
+          1128,
+          1144
+        ],
+        "broken_bonds": [
+          11051
+        ],
+        "motion_comparisons_unavailable": 0,
+        "max_position_error_m": 0,
+        "max_linear_error_m_s": 0,
+        "max_angular_error_rad_s": 0,
+        "input_sha256": {
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179.pxbin": "64e2f438ee00de5ff9beb72d000c9c5fde7dd5d9eaa6acff68e942d13fa21a87",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179.destruction": "155fa684303c4ac9d3d68a72d917217106b64f5522b08df34d23ed6f50db54be",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179.scene": "9dfc90012f124e406a3eeaf23fde32fd7e87a0a8e2f8a43b87f99cd7d68d446f",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179.metadata.json": "05064a02bbd45073df1ff7044c20ec8930b86966f230243cbeb3a657db0cb4c6"
+        },
+        "raw": "out/snapshot-large-20260911/complete-city256-late-debris/replay.json"
+      }
+    },
+    {
+      "scenario": "city256-ten-second-debris",
+      "purpose": "Late post-destruction state near ten seconds; not assumed asleep or fully settled.",
+      "metadata": {
+        "schema": 1,
+        "source": "native_destruction_demo",
+        "next_step": 599,
+        "buildings": 256,
+        "chunks": 113664,
+        "bonds": 229376,
+        "projectiles": 256,
+        "input_clusters": 14795,
+        "physical_bytes": 35576420,
+        "destruction_bytes": 37057680,
+        "dt": 0.016666666666666666,
+        "pending_gameplay_commands": false
+      },
+      "raw": "out/snapshot-large-20260911/complete-city256-ten-second-debris",
+      "status": "failed",
+      "uninterrupted_source_tick": {
+        "step": "599",
+        "bonds_broken": "0",
+        "logical_clusters": "14795",
+        "stress_iterations": "508",
+        "resim_passes": "0",
+        "complete_step_ms": "21.510476000000001"
+      },
+      "source_comparison_scope": "Diagnostic context only: not the independent-restore gate and not matched warm/cold performance.",
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-599.pxbin": "7a56fde9552f8dece601c85528cc262e12637ab5f650d5a6af39e741e62b111e",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-599.destruction": "d8b281d6dbe152d9f14fd8b025b544a281c370f51c8e0b6d5d99fc80134e5e89",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-599.scene": "9dfc90012f124e406a3eeaf23fde32fd7e87a0a8e2f8a43b87f99cd7d68d446f",
+        "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-599.metadata.json": "0512f4505ccb592f48422fe378e8a5614fd5357aae451fc61d47c78289374158"
+      },
+      "wall_seconds": 91.54651113800355,
+      "failure_log": "health differences=69 max=1.788139343e-07 bond=111502 values=0.9808524251/0.9808526039\nrepeat 1 comparison failed: bond health changed between equivalent states\nhealth differences=40 max=2.980232239e-07 bond=111365 values=0.9768165946/0.9768168926\nrepeat 2 comparison failed: bond health changed between equivalent states\nhealth differences=64 max=1.788139343e-07 bond=97106 values=0.969876945/0.9698767662\nrepeat 3 comparison failed: bond health changed between equivalent states\nhealth differences=76 max=2.980232239e-07 bond=111326 values=0.975169003/0.975169301\nrepeat 4 comparison failed: bond health changed between equivalent states\nhealth differences=81 max=2.384185791e-07 bond=150908 values=0.9627264738/0.9627267122\nrepeat 5 comparison failed: bond health changed between equivalent states\nhealth differences=64 max=2.384185791e-07 bond=97106 values=0.969876945/0.9698767066\nrepeat 6 comparison failed: bond health changed between equivalent states\nhealth differences=66 max=1.788139343e-07 bond=111502 values=0.9808524251/0.9808526039\nrepeat 7 comparison failed: bond health changed between equivalent states\nhealth differences=82 max=1.788139343e-07 bond=97106 values=0.969876945/0.9698767662\nrepeat 8 comparison failed: bond health changed between equivalent states\nhealth differences=97 max=3.576278687e-07 bond=111230 values=0.9775330424/0.9775334001\nrepeat 9 comparison failed: bond health changed between equivalent states\nhealth differences=73 max=2.384185791e-07 bond=97106 values=0.969876945/0.9698767066\nrepeat 10 comparison failed: bond health changed between equivalent states\nhealth differences=87 max=2.384185791e-07 bond=97106 values=0.969876945/0.9698767066\nrepeat 11 comparison failed: bond health changed between equivalent states\nhealth differences=83 max=2.980232239e-07 bond=97106 values=0.969876945/0.969876647\nrepeat 12 comparison failed: bond health changed between equivalent states\nhealth differences=66 max=1.788139343e-07 bond=97106 values=0.969876945/0.9698767662\nrepeat 13 comparison failed: bond health changed between equivalent states\nhealth differences=93 max=1.788139343e-07 bond=111230 values=0.9775330424/0.9775332212\nrepeat 14 comparison failed: bond health changed between equivalent states\nhealth differences=70 max=2.980232239e-07 bond=97106 values=0.969876945/0.969876647\nrepeat 15 comparison failed: bond health changed between equivalent states\nhealth differences=70 max=2.384185791e-07 bond=111230 values=0.9775330424/0.977532804\nrepeat 16 comparison failed: bond health changed between equivalent states\nhealth differences=82 max=2.980232239e-07 bond=97106 values=0.969876945/0.969876647\nrepeat 17 comparison failed: bond health changed between equivalent states\nhealth differences=87 max=2.384185791e-07 bond=111230 values=0.9775330424/0.977532804\nrepeat 18 comparison failed: bond health changed between equivalent states\nhealth differences=58 max=2.384185791e-07 bond=97106 values=0.969876945/0.9698767066\nrepeat 19 comparison failed: bond health changed between equivalent states\none-tick repeatability gate failed; all samples retained\n",
+      "timings": {
+        "qualified": false,
+        "repeatability_passed": false,
+        "receipt_status": "failed",
+        "replay_contract": "physical-file-replay-v20-complete-step",
+        "metadata": {
+          "schema": 1,
+          "source": "native_destruction_demo",
+          "next_step": 599,
+          "buildings": 256,
+          "chunks": 113664,
+          "bonds": 229376,
+          "projectiles": 256,
+          "input_clusters": 14795,
+          "physical_bytes": 35576420,
+          "destruction_bytes": 37057680,
+          "dt": 0.016666666666666666,
+          "pending_gameplay_commands": false
+        },
+        "sd_ms": 25.324826090709433,
+        "cv_percent": 9.224853803375265,
+        "comparison_failure_reasons": [
+          "bond health changed between equivalent states"
+        ],
+        "failed_comparisons": 19,
+        "maximum_observed_bond_health_difference": 3.576278687e-07,
+        "descriptive_bootstrap_mean_95_ms": [
+          264.79511665,
+          286.5500865
+        ],
+        "first_half_mean_ms": 283.5613295,
+        "last_half_mean_ms": 265.495092,
+        "harness_wall_seconds": 91.54651113800355,
+        "harness_clock": "monotonic",
+        "mean_stages_ms": {
+          "command_ms": 0.0001979,
+          "simulate_fetch_ms": 274.2592963,
+          "completion_ms": 0.26871655
+        },
+        "active_work": {
+          "output_clusters": [
+            15187
+          ],
+          "stress_islands": [
+            3035
+          ],
+          "stress_active_nodes": [
+            85126
+          ],
+          "stress_active_bonds": [
+            137219
+          ],
+          "normal_contacts": [
+            31798
+          ],
+          "friction_anchors": [
+            8627
+          ]
+        },
+        "scenario": "city256-ten-second-debris",
+        "samples": 20,
+        "mean_ms": 274.52821074999997,
+        "median_ms": 268.619335,
+        "min_ms": 242.709916,
+        "max_ms": 357.08648,
+        "restore_mean_ms": 2227.662845,
+        "restore_max_ms": 2567.6348,
+        "over_8_ms": 20,
+        "over_120hz": 20,
+        "over_60hz": 20,
+        "corrections": [
+          1
+        ],
+        "stress_evaluations": [
+          2
+        ],
+        "stress_iterations": [
+          676
+        ],
+        "broken_bonds": [
+          819
+        ],
+        "motion_comparisons_unavailable": 0,
+        "max_position_error_m": 0,
+        "max_linear_error_m_s": 0,
+        "max_angular_error_rad_s": 0,
+        "input_sha256": {
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-599.pxbin": "7a56fde9552f8dece601c85528cc262e12637ab5f650d5a6af39e741e62b111e",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-599.destruction": "d8b281d6dbe152d9f14fd8b025b544a281c370f51c8e0b6d5d99fc80134e5e89",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-599.scene": "9dfc90012f124e406a3eeaf23fde32fd7e87a0a8e2f8a43b87f99cd7d68d446f",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-599.metadata.json": "0512f4505ccb592f48422fe378e8a5614fd5357aae451fc61d47c78289374158"
+        },
+        "raw": "out/snapshot-large-20260911/complete-city256-ten-second-debris/replay.json"
+      }
+    }
+  ],
+  "passed": 15,
+  "measured": 24,
+  "total": 24,
+  "summed_replay_harness_seconds": 1020.6392971879977,
+  "summed_measured_tick_seconds": 54.458189877,
+  "summed_restore_seconds": 551.0659700560001,
+  "other_harness_seconds": 415.11513725499765
+}

@@ -1,0 +1,209 @@
+{
+  "scope": "CUDA construction of native narrowphase geometry references from persistent GPU shape identities",
+  "full_objective_complete": false,
+  "independent_sdk_build_install": {
+    "status": "passed",
+    "log": "out/native-device-contact-sdk-build.log",
+    "note": "Demo-only --record-state switch added afterward; demo rebuild passed in out/native-device-contact-record-switch-build.log"
+  },
+  "targeted_tests": {
+    "passed": 6,
+    "log": "out/native-device-contact-final-tests.log",
+    "names": [
+      "physx_native_gpu_body_allocation",
+      "physx_native_gpu_collision_preparation",
+      "physx_native_gpu_rigid_checkpoint",
+      "physx_native_gpu_correction_bodies",
+      "physx_native_gpu_resimulation",
+      "physx_native_gpu_publication"
+    ],
+    "collision_inputs": {
+      "reference": {
+        "inspected": 1798,
+        "native_generated": 0
+      },
+      "native": {
+        "inspected": 1798,
+        "native_generated": 772
+      },
+      "geometry": [
+        "box",
+        "sphere",
+        "capsule",
+        "cooked convex",
+        "plane"
+      ],
+      "lifecycle": [
+        "shape capacity growth",
+        "sparse removal",
+        "deferred ID reuse and reinsertion",
+        "return to ordinary PhysX"
+      ]
+    }
+  },
+  "build_provenance": {
+    "head": "b21d3de6b3db7336becf4356b729fccf41de24bc",
+    "sha256": {
+      "out/destruction-sdk/reference/native_destruction_demo": "69e5f57466d78d3f990ad6d4e5712e0c472edddde9c8de0ae7779bb859467449",
+      "physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so": "36fffc0c99c8c9498e7444996df4a0d6c668e7742140510edf9039ec7975bdc2",
+      "physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so": "8e8ba9c2132172d5627099e5e674d1e2564a9a34238adab2b6bdfdef2715d968"
+    }
+  },
+  "captures": {
+    "native-device-contact-113664-20260906": {
+      "path": "out/recordings/native-device-contact-113664-20260906",
+      "summary": {
+        "backend": "native PhysX GPU task graph + resident CUDA destruction",
+        "status": "completed",
+        "frames": 180,
+        "seconds": 3,
+        "buildings": 256,
+        "chunks": 113664,
+        "bonds": 229376,
+        "peak_clusters": 89920,
+        "projectiles": 252,
+        "broken_bonds": 185008,
+        "corrections": 56,
+        "correction_limit": 1,
+        "physics_ms_p50": 0.506495,
+        "physics_ms_p95": 578.018,
+        "physics_ms_p99": 705.846,
+        "physics_ms_max": 728.024,
+        "missed_16_67ms": 56,
+        "stress_included_in_physics_time": true,
+        "isolated_performance_qualification": false,
+        "sleeping": false,
+        "crushing_material_enabled": false
+      },
+      "stress": {
+        "iteration_cap": 2048,
+        "tolerance": 1e-05,
+        "max_iterations": 170,
+        "all_converged": true
+      },
+      "phase_summary": "out/recordings/native-device-contact-113664-20260906/phase-summary.json"
+    },
+    "native-device-contact-sustained-20260906": {
+      "path": "out/recordings/native-device-contact-sustained-20260906",
+      "summary": {
+        "backend": "native PhysX GPU task graph + resident CUDA destruction",
+        "status": "completed",
+        "frames": 1800,
+        "seconds": 30,
+        "buildings": 9,
+        "chunks": 3996,
+        "bonds": 8064,
+        "peak_clusters": 2937,
+        "projectiles": 36,
+        "broken_bonds": 6541,
+        "corrections": 228,
+        "correction_limit": 1,
+        "physics_ms_p50": 2.18926,
+        "physics_ms_p95": 12.8534,
+        "physics_ms_p99": 15.9526,
+        "physics_ms_max": 49.139,
+        "missed_16_67ms": 12,
+        "stress_included_in_physics_time": true,
+        "isolated_performance_qualification": false,
+        "sleeping": false,
+        "crushing_material_enabled": false
+      },
+      "stress": {
+        "iteration_cap": 8192,
+        "tolerance": 1e-05,
+        "max_iterations": 2350,
+        "all_converged": true
+      },
+      "phase_summary": "out/recordings/native-device-contact-sustained-20260906/phase-summary.json"
+    },
+    "native-device-contact-113664-sustained-20260906": {
+      "path": "out/recordings/native-device-contact-113664-sustained-20260906",
+      "status": "completed",
+      "frames_target": 1800,
+      "seconds_target": 30,
+      "chunks": 113664,
+      "bonds": 229376,
+      "iteration_cap": 8192,
+      "tolerance": 1e-05,
+      "recorded_state": false,
+      "note": "Only raw playback output disabled; GPU observations, topology/motion validity checks and telemetry remain enabled",
+      "build_provenance": {
+        "head": "b21d3de6b3db7336becf4356b729fccf41de24bc",
+        "sha256": {
+          "out/destruction-sdk/reference/native_destruction_demo": "ff662416ac3fb8771c4887eb6bd691adadf06f045b350d34872a43ea90cc8469",
+          "physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so": "36fffc0c99c8c9498e7444996df4a0d6c668e7742140510edf9039ec7975bdc2",
+          "physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so": "8e8ba9c2132172d5627099e5e674d1e2564a9a34238adab2b6bdfdef2715d968"
+        },
+        "command": "out/destruction-sdk/reference/native_destruction_demo --grid 16 --waves 4 --seconds 30 --stress-iterations 8192 --profile-phases 1 --record-state 0 --output out/recordings/native-device-contact-113664-sustained-20260906",
+        "recording_disabled_only": true
+      },
+      "summary": {
+        "backend": "native PhysX GPU task graph + resident CUDA destruction",
+        "status": "completed",
+        "frames": 1800,
+        "seconds": 30,
+        "buildings": 256,
+        "chunks": 113664,
+        "bonds": 229376,
+        "peak_clusters": 87506,
+        "projectiles": 1024,
+        "broken_bonds": 190334,
+        "corrections": 1398,
+        "recorded_state": false,
+        "correction_limit": 1,
+        "physics_ms_p50": 794.973,
+        "physics_ms_p95": 994.614,
+        "physics_ms_p99": 1109.01,
+        "physics_ms_max": 1349.69,
+        "missed_16_67ms": 1659,
+        "stress_included_in_physics_time": true,
+        "isolated_performance_qualification": false,
+        "sleeping": false,
+        "crushing_material_enabled": false
+      },
+      "stress": {
+        "iteration_cap": 8192,
+        "tolerance": 1e-05,
+        "max_iterations": 831,
+        "all_1800_converged": true
+      },
+      "phase_summary": "out/recordings/native-device-contact-113664-sustained-20260906/phase-summary.json"
+    }
+  },
+  "video": {
+    "path": "out/recordings/native-device-contact-sustained-20260906/native-gpu-contact-inputs.mp4",
+    "programs": [],
+    "streams": [
+      {
+        "codec_name": "h264",
+        "width": 1920,
+        "height": 1080,
+        "r_frame_rate": "60/1",
+        "nb_frames": "1800"
+      }
+    ],
+    "format": {
+      "duration": "30.000000",
+      "size": "141084089"
+    },
+    "sha256": "6754d7b132a207f8a47567ec807b6a42735d44b53e3020e097540cf7c71ddc29",
+    "full_decode": "passed; ffmpeg -v error -i VIDEO -f null -",
+    "state_archive": {
+      "raw_name": "native.twstate",
+      "raw_bytes": 170345932,
+      "raw_sha256": "b127e3f04e17706c1c3ce8d3e1882f2dacad42d74a8ed9a780190eb37bb03421",
+      "archive_name": "native.twstate.gz",
+      "archive_bytes": 139712611,
+      "archive_sha256": "1afd0b281bd63661d7a057eba338118140c6e567f181dc8bdd06e1059ab51ae0",
+      "round_trip_verified": true
+    }
+  },
+  "limitations": [
+    "CPU contact manager lifecycle, filtering, interaction registration and solver partitioning remain",
+    "Complete correction still refilters and rebuilds contacts",
+    "No isolated performance qualification or 60 Hz claim",
+    "Full imported suite not rerun; existing fidelity gaps remain",
+    "8192-iteration sustained stress runs preserve tolerance but are not matched-setting comparisons against 2048-iteration captures",
+    "Large sustained diagnostic shared GPU and CPU conditions; final portion overlapped a CPU static-library build"
+  ]
+}

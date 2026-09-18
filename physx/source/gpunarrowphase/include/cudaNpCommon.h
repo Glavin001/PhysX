@@ -51,6 +51,7 @@ namespace physx
 struct PxgPersistentContactManifold;
 struct PxgPersistentContactMultiManifold;
 struct PxgContactManagerInput;
+struct PxgContactGraphIdentity;
 struct PxsContactManagerOutput;
 class PxsContactManager;
 struct PxsTorsionalFrictionData;
@@ -64,6 +65,7 @@ namespace Sc
 struct PxgPairManagementData
 {
 	PxgContactManagerInput*			mContactManagerInputData;
+    PxgContactGraphIdentity* mContactGraphIdentities;
 	PxsContactManagerOutput*		mContactManagerOutputData;
 	PxsContactManager**				mCpuContactManagerMapping;
 	Sc::ShapeInteraction**			mShapeInteractions;
@@ -77,7 +79,7 @@ struct PxgPairManagementData
 
 	void*							mPersistentContactManagers;// either PxgPersistentContactManifold or PxgPersistentMultiManagementData
 
-	PxgPairManagementData() : mContactManagerInputData(NULL), mContactManagerOutputData(NULL), mCpuContactManagerMapping(NULL), mShapeInteractions(NULL), 
+	PxgPairManagementData() : mContactManagerInputData(NULL), mContactGraphIdentities(NULL), mContactManagerOutputData(NULL), mCpuContactManagerMapping(NULL), mShapeInteractions(NULL),
 		mRestDistances(NULL), mTorsionalData(NULL), mTempAccumulator(NULL), mBlockSharedAccumulator(NULL), mNbPairs(0)
 	{
 	}

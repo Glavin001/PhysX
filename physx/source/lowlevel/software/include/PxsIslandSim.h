@@ -29,9 +29,11 @@
 #ifndef PXS_ISLAND_SIM_H
 #define PXS_ISLAND_SIM_H
 
+#include "PxvIslandMetadata.h"
 #include "foundation/PxAssert.h"
 #include "foundation/PxBitMap.h"
 #include "foundation/PxArray.h"
+#include "foundation/PxAtomic.h"
 #include "CmPriorityQueue.h"
 #include "CmBlockArray.h"
 #include "PxNodeIndex.h"
@@ -56,6 +58,7 @@
 namespace physx
 {
 struct PartitionEdge;
+class PxProfilerCallback;
 
 namespace IG
 {
@@ -460,6 +463,28 @@ class GPUExternalData
 
 					PxArray<PartitionEdge*>		mFirstPartitionEdges;
 
+	// Contact partition edges are also reachable by the dense pair slot of their
+	// contact manager (PxcNpWorkUnit::mDeviceSlot), independent of island edge
+	// handles. The GPU partition mirrors every head update of a contact edge
+	// into this map; narrowphase-driven lookups use it, island-driven ones the
+	// edge-handle map above (joints live only there).
+	PX_FORCE_INLINE PartitionEdge*				getFirstPartitionEdgeBySlot(PxU32 slot)	const { return slot < mFirstPartitionEdgesBySlot.size() ? mFirstPartitionEdgesBySlot[slot] : NULL; }
+	PX_FORCE_INLINE void						setFirstPartitionEdgeBySlot(PxU32 slot, PartitionEdge* partitionEdge)
+	{
+		if(slot == 0xFFFFFFFF)
+			return;
+		if(slot >= mFirstPartitionEdgesBySlot.size())
+		{
+			const PxU32 oldSize = mFirstPartitionEdgesBySlot.size();
+			mFirstPartitionEdgesBySlot.resize(PxMax(2u * (slot + 1u), 1024u));
+			for(PxU32 i = oldSize; i < mFirstPartitionEdgesBySlot.size(); ++i)
+				mFirstPartitionEdgesBySlot[i] = NULL;
+		}
+		mFirstPartitionEdgesBySlot[slot] = partitionEdge;
+	}
+
+					PxArray<PartitionEdge*>		mFirstPartitionEdgesBySlot;
+
 	///////////////////////////////////////////////////////////////////////////
 
 	PX_FORCE_INLINE PxU32						getNbDestroyedPartitionEdges()	const	{ return mDestroyedPartitionEdges.size();		}
@@ -491,6 +516,22 @@ class IslandSim
 	HandleManager<IslandId>							mIslandHandles;								//! Handle manager for islands
 
 	// PT: these arrays are parallel, all indexed by PxNodeIndex::index()
+    PxBitMap mSolverIslandIdPages,mSolverStaticTouchPages;
+    PxArray<PxU64> mPreSolveLifetimes;
+    PxArray<PxvPreSolveEdge> mPreSolveMerges;
+    bool mTrackPreSolveMerges=false,mRecordPreSolveMerges=true,mRecordPreSolveSupport=true;
+    PxBitMap mPreSolveNodeChanges;
+    void markPreSolveNode(PxU32 index) { if(mTrackPreSolveMerges)mPreSolveNodeChanges.growAndSet(index); }
+    void markPreSolveSupport(PxU32 index) { if(mRecordPreSolveSupport)markPreSolveNode(index); }
+
+    PX_FORCE_INLINE IslandId& writeIslandId(PxU32 index) {
+        if(mGpuData)mSolverIslandIdPages.growAndSet(index>>PxvIslandMetadataPage::ePAGE_SHIFT);
+        return mIslandIds[index];
+    }
+    PX_FORCE_INLINE PxU32& writeIslandStaticTouchCount(PxU32 index) {
+        if(mGpuData)mSolverStaticTouchPages.growAndSet(index>>PxvIslandMetadataPage::ePAGE_SHIFT);
+        return mIslandStaticTouchCount[index];
+    }
 	PxArray<Node>									mNodes;										//! The nodes used in the constraint graph
 	PxArray<PxU32>									mActiveNodeIndex;							//! The active node index for each node
 	PxArray<PxU32>									mHopCounts;									//! The observed number of "hops" from a given node to its root node. May be inaccurate but used to accelerate searches.
@@ -552,6 +593,36 @@ public:
 
 	IslandSim(const CPUExternalData& cpuData, GPUExternalData* gpuData, PxU64 contextID);
 	~IslandSim() {}
+    // Borrowed for one third-pass task only; this updates CPU compatibility
+    // lists while CUDA supplies connectivity and deterministic membership.
+    void setGpuContactComponents(const PxU32* labels,const PxU32* members,PxU32 count) {
+        mGpuComponentLabels=labels;mGpuComponentMembers=members;mGpuComponentCount=count;
+    }
+    bool hasPendingConnectivityChanges() const {
+        // removeDestroyedEdges() runs inside the third-pass task and can add
+        // dirty nodes. Account for pending removals as well as existing dirt.
+        if(!mDestroyedEdges.empty())return true;
+        PxBitMap::Iterator dirty(mDirtyMap);
+        return dirty.getNext()!=PxBitMap::Iterator::DONE;
+    }
+    // Expensive independent diagnostic, disabled in ordinary simulation.
+    // Runs before GPU components can mutate the compatibility island registry.
+    void setGpuComponentAudit(bool enabled) { mGpuComponentAudit=enabled; }
+    bool auditGpuContactComponents();
+    bool gpuComponentAuditEnabled() const { return mGpuComponentAudit; }
+    void setDeviceConnectivityOwned(bool value) { mDeviceConnectivityOwned=value; }
+    bool deviceConnectivityOwned() const { return mDeviceConnectivityOwned; }
+    // The GPU library is loaded separately from the statically linked host.
+    // Dispatch these host-only operations through callbacks installed by its constructor.
+    void restoreHostConnectivity() { mRestoreHostConnectivity(*this); }
+    bool buildIndependentPreSolveAudit(PxArray<PxU32>& labels,PxArray<PxU32>& touches) const {
+        return mBuildIndependentPreSolveAudit(*this,labels,touches);
+    }
+    PxU64 getGpuComponentAudits() const { return mGpuComponentAudits; }
+    PxU64 getGpuComponentAuditFailures() const { return mGpuComponentAuditFailures; }
+    PxU64 getGpuRouteCount() const { return mGpuRouteCount; }
+    PxU64 getGpuSplitCount() const { return mGpuSplitCount; }
+    PxU64 getGpuRepairFallbackCount() const { return mGpuRepairFallbackCount; }
 
 	void addNode(bool isActive, bool isKinematic, Node::NodeType type, PxNodeIndex nodeIndex, void* object);
 
@@ -593,12 +664,56 @@ public:
 			mNodesToPutToSleep[i].forceSize_Unsafe(0);
 			mDeactivatingEdges[i].forceSize_Unsafe(0);
 		}
+		mDeactivatedNotReady.forceSize_Unsafe(0);
 	}
+	// Audit: nodes pushed to the deactivation list while their readiness flag was clear.
+	PxArray<PxU32> mDeactivatedNotReady;
+	PX_FORCE_INLINE const PxArray<PxU32>& deactivatedNotReady() const { return mDeactivatedNotReady; }
+	PX_FORCE_INLINE const PxU32* gpuComponentLabels(PxU32& count) const { count = mGpuComponentCount; return mGpuComponentLabels; }
 
 	PX_FORCE_INLINE const Island&				getIsland(IG::IslandId islandIndex)		const { return mIslands[islandIndex]; }
 	PX_FORCE_INLINE const Island&				getIsland(const PxNodeIndex& nodeIndex)	const { PX_ASSERT(mIslandIds[nodeIndex.index()] != IG_INVALID_ISLAND); return mIslands[mIslandIds[nodeIndex.index()]]; }
 
 	PX_FORCE_INLINE PxU32						getNbActiveIslands()	const	{ return mActiveIslands.size();		}
+	// Island-scoped destruction correction: remove an awake island and its
+	// dynamic nodes from the active lists for one pass without touching edge
+	// activity, sleep state or user notifications; the inverse re-adds them
+	// unless a new touch woke the island through the ordinary path meanwhile.
+	// Returns false (and parks nothing) when the island holds a kinematic or
+	// an articulation node.
+	bool parkIslandForPass(IslandId island);
+	// R2 core: device sleep verdicts (per node: nonzero when the node's device
+	// component holds a body not ready to sleep). Mode 1 uses them in place of the
+	// per-island node walk, mode 2 audits them against the walk. Cleared after use.
+	void setGpuSleepVerdicts(const PxU8* nodeNotReady, PxU32 capacity, PxU32 mode, PxU32 passTag = 0) { mGpuSleepNotReady = nodeNotReady; mGpuSleepCapacity = capacity; mGpuSleepMode = mode; mGpuSleepPassTag = passTag; }
+	const PxU8* mGpuSleepNotReady = NULL; PxU32 mGpuSleepCapacity = 0, mGpuSleepMode = 0, mGpuSleepPassTag = 0;
+	// Diagnostic: number of active-list entries whose node does not point back (0 = consistent).
+	PxU32 validateActiveLists(const char* tag) const;
+	void unparkIslandForPass(IslandId island);
+	// Islands of the dynamic nodes connected to `node` by any edge (contacts
+	// and constraints, active or not). Returns the number written (capped).
+	// Inline: called from the GPU module, which does not link this library.
+	PX_FORCE_INLINE PxU32 collectNeighbourIslands(PxNodeIndex nodeIndex, IslandId* out, PxU32 capacity) const
+	{
+		if(nodeIndex.index() >= mNodes.size()) return 0;
+		const Node& node = mNodes[nodeIndex.index()];
+		PxU32 count = 0;
+		EdgeInstanceIndex index = node.mFirstEdgeIndex;
+		while(index != IG_INVALID_EDGE && count < capacity)
+		{
+			const EdgeIndex idx = index / 2;
+			const PxNodeIndex nodeIndex1 = mCpuData.mEdgeNodeIndices[idx * 2];
+			const PxNodeIndex nodeIndex2 = mCpuData.mEdgeNodeIndices[idx * 2 + 1];
+			const PxNodeIndex other = nodeIndex1.index() == nodeIndex.index() ? nodeIndex2 : nodeIndex1;
+			if(other.index() != PX_INVALID_NODE && !other.isStaticBody() && other.index() < mNodes.size())
+			{
+				const IslandId island = mIslandIds[other.index()];
+				if(island != IG_INVALID_ISLAND) out[count++] = island;
+			}
+			index = mEdgeInstances[index].mNextEdge;
+		}
+		return count;
+	}
 	PX_FORCE_INLINE const IslandId*				getActiveIslands()		const	{ return mActiveIslands.begin();	}
 
 	PX_FORCE_INLINE PxU32						getNbDeactivatingEdges(const IG::Edge::EdgeType edgeType)	const	{ return mDeactivatingEdges[edgeType].size();	}
@@ -623,6 +738,15 @@ public:
 	PX_FORCE_INLINE const PxU32*				getActiveNodeIndex()								const { return mActiveNodeIndex.begin();			}
 	//PX_FORCE_INLINE PxU32						getNbActiveNodeIndex()								const { return mActiveNodeIndex.size();				}
 	
+    const PxBitMap& getSolverIslandIdPages() const { return mSolverIslandIdPages; }
+    const PxBitMap& getSolverStaticTouchPages() const { return mSolverStaticTouchPages; }
+    void trackPreSolveMerges(bool enabled,bool record=true,bool support=true) { mRecordPreSolveSupport=support;mRecordPreSolveMerges=record;mTrackPreSolveMerges=enabled;if(!enabled){mPreSolveMerges.clear();mPreSolveNodeChanges.clear();} }
+    const PxBitMap& getPreSolveNodeChanges() const { return mPreSolveNodeChanges; }
+    void acknowledgeDeviceNodeBirth(PxU32 node) { mPreSolveNodeChanges.boundedReset(node); }
+    void acknowledgePreSolveNodes() { mPreSolveNodeChanges.clear(); }
+    PxU64 getPreSolveLifetime(PxU32 index) const { return index<mPreSolveLifetimes.size()?mPreSolveLifetimes[index]:0; }
+    const PxArray<PxvPreSolveEdge>& getPreSolveMerges() const { return mPreSolveMerges; }
+    void acknowledgeSolverIslandMetadata() { mPreSolveMerges.clear(); mSolverIslandIdPages.clear();mSolverStaticTouchPages.clear(); }
 	PX_FORCE_INLINE	PxU32						getNbIslands()				const { return mIslandStaticTouchCount.size(); }
 	PX_FORCE_INLINE	const PxU32*				getIslandStaticTouchCount()	const { return mIslandStaticTouchCount.begin(); }
 	PX_FORCE_INLINE PxU32						getIslandStaticTouchCount(const PxNodeIndex& nodeIndex) const
@@ -645,11 +769,52 @@ public:
 	{
 		IG::Node& node = mNodes[index.index()];
 		node.clearIsReadyForSleeping(); //Clear the "isReadyForSleeping" flag. Just in case it was set
+		noteReadiness(index.index(), false);
+		noteNodeWoken(index.index());
 	}
+	// R2 core: every change of the readiness flag is recorded so a device mirror
+	// of the flag can be maintained by deltas (node index << 1 | ready).
+	// Recorded from multi-threaded island/solver tasks: an atomic slot counter
+	// into a preallocated buffer; overflow is reported so the consumer reseeds.
+	PX_FORCE_INLINE void noteReadiness(PxU32 index, bool ready)
+	{
+		if(!mReadinessRecording || mReadinessPaused) return;
+		const PxU32 slot = PxU32(PxAtomicIncrement(&mReadinessDeltaCount)) - 1u;
+		if(slot < mReadinessDeltas.size()) mReadinessDeltas[slot] = (index << 1) | (ready ? 1u : 0u);
+		else mReadinessDeltaOverflow = true;
+	}
+	PX_FORCE_INLINE const PxU32* readinessDeltas(PxU32& count, bool& overflow) const
+	{
+		const PxU32 recorded = PxU32(mReadinessDeltaCount);
+		count = PxMin(recorded, mReadinessDeltas.size()); overflow = mReadinessDeltaOverflow || recorded > mReadinessDeltas.size();
+		return mReadinessDeltas.begin();
+	}
+	PX_FORCE_INLINE void clearReadinessDeltas(PxU32 capacityHint)
+	{
+		mReadinessDeltaCount = 0; mReadinessDeltaOverflow = false;
+		if(mReadinessDeltas.size() < capacityHint) mReadinessDeltas.resize(capacityHint);
+	}
+	PX_FORCE_INLINE void setReadinessRecording(bool on) { mReadinessRecording = on; mReadinessDeltaCount = 0; mReadinessDeltaOverflow = false; if(!on) mReadinessDeltas.reset(); }
+	PxArray<PxU32> mReadinessDeltas;
+	volatile PxI32 mReadinessDeltaCount = 0;
+	bool mReadinessRecording = false, mReadinessDeltaOverflow = false;
+	// R2 stage 0: solver-driven readiness changes are applied on the device; the host
+	// pauses delta recording around its own application of the same rule.
+	bool mReadinessPaused = false;
+	PX_FORCE_INLINE void pauseReadinessRecording(bool pause) { mReadinessPaused = pause; }
+	// R2 core: islands with a node woken this frame by a CPU-side path cannot be
+	// deactivated by a device verdict (the device saw only the solver's flags).
+	PX_INLINE void noteNodeWoken(PxU32 index)
+	{
+		if(index < mIslandIds.size()) { const IslandId island = mIslandIds[index]; if(island != IG_INVALID_ISLAND) { if(island >= mIslandWokenThisFrame.size()) mIslandWokenThisFrame.resize(island + 1u); mIslandWokenThisFrame.set(island); } }
+	}
+	PxBitMap mIslandWokenThisFrame;
+	PxBitMap mIslandNotReadyFlat; // mode 3 scratch
 	PX_INLINE void deactivateNode_ForGPUSolver(PxNodeIndex index)
 	{
 		IG::Node& node = mNodes[index.index()];
 		node.setIsReadyForSleeping();
+		noteReadiness(index.index(), true);
 	}
 
 	// PT: these three functions added for multithreaded implementation of Sc::Scene::islandInsertion
@@ -665,7 +830,7 @@ public:
 
 	// PT: called by ThirdPassTask::runInternal. Made public to remove friendship, make the API clearer, and unit-testable.
 	void removeDestroyedEdges();	// PT: this is always followed by a call to processLostEdges(). Merge the two?
-	void processLostEdges(const PxArray<PxNodeIndex>& destroyedNodes, bool allowDeactivation, bool permitKinematicDeactivation, PxU32 dirtyNodeLimit);
+	void processLostEdges(const PxArray<PxNodeIndex>& destroyedNodes, bool allowDeactivation, bool permitKinematicDeactivation, PxU32 dirtyNodeLimit, PxProfilerCallback* profiler = NULL);
 
 private:
 	void wakeIslandsInternal(bool flag);
@@ -688,6 +853,7 @@ private:
 
 	void activateIsland(IslandId island);
 
+
 	void deactivateIsland(IslandId island);
 
 #if IG_SANITY_CHECKS
@@ -695,6 +861,22 @@ private:
 #endif
 	bool tryFastPath(PxNodeIndex startNode, PxNodeIndex targetNode, IslandId islandId);
 
+    const PxU32* mGpuComponentLabels = NULL;
+    const PxU32* mGpuComponentMembers = NULL;
+    PxU32 mGpuComponentCount = 0;
+    bool mGpuSplit = false;
+    bool mGpuComponentAudit = false;
+    bool mDeviceConnectivityOwned = false;
+    void (*mRestoreHostConnectivity)(IslandSim&);
+    bool (*mBuildIndependentPreSolveAudit)(const IslandSim&,PxArray<PxU32>&,PxArray<PxU32>&);
+    void restoreHostConnectivityImpl();
+    void rebuildHostConnectivity(PxU32 dirtyNodeLimit,PxProfilerCallback* profiler);
+    bool buildIndependentPreSolveAuditImpl(PxArray<PxU32>&,PxArray<PxU32>&) const;
+    // Diagnostic-only independent previous-phase topology; never a simulation input.
+    PxArray<PxU32> mAuditPreviousLabels;
+    PxArray<PxU64> mAuditPreviousLifetimes;
+    PxU64 mGpuComponentAudits = 0, mGpuComponentAuditFailures = 0;
+    PxU64 mGpuRouteCount = 0, mGpuSplitCount = 0, mGpuRepairFallbackCount = 0;
 	bool findRoute(PxNodeIndex startNode, PxNodeIndex targetNode, IslandId islandId);
 
 #if PX_DEBUG
@@ -880,6 +1062,9 @@ private:
 
 	void removeEdgeFromActivatingList(EdgeIndex index);
 };
+
+// Diagnostic: rejection reasons of IslandSim::parkIslandForPass (island-scoped correction).
+PxU32 parkRejectReason(PxU32 reason);
 }
 }
 

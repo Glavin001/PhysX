@@ -1,0 +1,35 @@
+#pragma once
+// Test-only resident stage probe. Normal SDK builds compile out all storage,
+// clock reads and publication. SM-cycle deltas are local to one CTA; summed
+// cycles describe resident work, not additive multi-SM elapsed milliseconds.
+#ifdef BLAST_GPU_COMPONENT_PHASE_PROBE
+__device__ unsigned long long componentPhaseClocks[9];
+__device__ unsigned long long componentPreconditionClocks[4];
+// Direct-solve split: [0] gather [1] forward wide levels [2] forward narrow
+// levels [3] backward wide [4] backward narrow [5] Woodbury apply [6] scatter [7] levels visited.
+__device__ unsigned long long directSolveClocks[8];
+// Forward narrow level timeline (warp 0 lane 0): [0] index loads [1] entry
+// loads + FMAs [2] warp reduce [3] partial sum + 6x6 finish [4] barrier wait [5] levels.
+__device__ unsigned long long directNarrowClocks[6];
+// Explicitly share one CTA allocation across the caller and callee.
+#define COMPONENT_SUBPROBE_PARAMETER , unsigned long long* subProbe
+#define COMPONENT_SUBPROBE_ARGUMENT , probeSubCycles
+#define COMPONENT_PROBE_BEGIN \
+    __shared__ unsigned long long probeCycles[8],probeLast,probeStart,probeSubCycles[4]; \
+    if(!threadIdx.x){for(unsigned subI=0;subI<4;++subI)probeSubCycles[subI]=0;for(unsigned probeI=0;probeI<8;++probeI)probeCycles[probeI]=0;probeStart=probeLast=clock64();}
+#define COMPONENT_PROBE_END(phase) \
+    if(!threadIdx.x){const auto probeNow=clock64();probeCycles[phase]+=probeNow-probeLast;probeLast=probeNow;}
+#define COMPONENT_PROBE_PUBLISH \
+    COMPONENT_PROBE_END(7) \
+    if(!threadIdx.x){ \
+        for(unsigned subI=0;subI<4;++subI)atomicAdd(componentPreconditionClocks+subI,probeSubCycles[subI]); \
+        for(unsigned probeI=0;probeI<8;++probeI)atomicAdd(componentPhaseClocks+probeI,probeCycles[probeI]); \
+        atomicAdd(componentPhaseClocks+8,probeLast-probeStart); \
+    }
+#else
+#define COMPONENT_SUBPROBE_PARAMETER
+#define COMPONENT_SUBPROBE_ARGUMENT
+#define COMPONENT_PROBE_BEGIN
+#define COMPONENT_PROBE_END(phase)
+#define COMPONENT_PROBE_PUBLISH
+#endif

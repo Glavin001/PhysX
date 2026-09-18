@@ -45,7 +45,7 @@ extern "C" __global__ void preIntegrationLaunch(
 extern "C" __global__ void initStaticKinematics(
 	const uint32_t nbStaticKinematics, const uint32_t nbSolverBodies, PxgSolverBodyData* PX_RESTRICT solverBodyDataPool,
 	PxgSolverTxIData* PX_RESTRICT solverTxIDataPool, PxAlignedTransform* gTransforms, float4* gOutVelocityPool, 
-	PxNodeIndex* activeNodeIndices, PxU32* solverBodyIndices)
+	PxNodeIndex* activeNodeIndices, PxU32* solverBodyIndices, const PxgBodySim* nativeBodySims, PxgKinematicMotionInput* kinematicInputs)
 {
 	const uint32_t idx = threadIdx.x + blockIdx.x * blockDim.x;
 
@@ -56,6 +56,36 @@ extern "C" __global__ void initStaticKinematics(
 		if (!index.isStaticBody())
 		{
 			solverBodyIndices[index.index()] = idx;
+            // Fracture motion is canonical. Ordinary prescribed motion is
+            // captured by the existing upload producer, independently of the
+            // collision-pose update policy, and survives inactive command frames.
+            if(nativeBodySims) {
+                const auto& body=nativeBodySims[index.index()];
+                auto& data=solverBodyDataPool[idx];
+                data.islandNodeIndex=index;
+                data.body2World=body.body2World;
+                data.initialLinVelXYZ_invMassW=body.linearVelocityXYZ_inverseMassW;
+                data.initialAngVelXYZ_penBiasClamp=body.angularVelocityXYZ_maxPenBiasW;
+                if(!(body.internalFlags & PxsRigidBody::eDESTRUCTION_MASS_GPU)) {
+                    auto& input=kinematicInputs[index.index()];
+                    // Native mode may first be enabled while an ordinary
+                    // kinematic is already stationary. Its ordinary persistent
+                    // body is the accepted source until an authored update.
+                    if(!input.valid) {
+                        input.body2World=body.body2World;
+                        input.linearVelocity=body.linearVelocityXYZ_inverseMassW;
+                        input.angularVelocity=body.angularVelocityXYZ_maxPenBiasW;
+                        input.valid=1;
+                    }
+                    data.body2World=input.body2World;
+                    data.initialLinVelXYZ_invMassW=input.linearVelocity;
+                    data.initialAngVelXYZ_penBiasClamp=input.angularVelocity;
+                }
+                data.reportThreshold=body.inverseInertiaXYZ_contactReportThresholdW.w;
+                data.maxImpulse=body.body2Actor_maxImpulseW.p.w;
+                data.flags=PxRigidBodyFlag::eKINEMATIC;
+                data.offsetSlop=0.0f;
+            }
 		}
 		gTransforms[idx] = solverBodyDataPool[idx].body2World;
 		gOutVelocityPool[idx] = solverBodyDataPool[idx].initialLinVelXYZ_invMassW;
@@ -63,4 +93,16 @@ extern "C" __global__ void initStaticKinematics(
 		solverTxIDataPool[idx].deltaBody2World = PxTransform(PxIdentity);
 		solverTxIDataPool[idx].sqrtInvInertia = PxMat33(PxZero);
 	}
+}
+
+// Dormant corrected pass (PHYSX_DESTRUCTION_ISLAND_SCOPE=6): bodies that keep
+// their trial result map to the static body for this pass, so every constraint
+// touching them is neutralised in prep and their integration is skipped
+// (integrateCoreParallel* detects the remapped index). The solver body list
+// itself is unchanged, so nothing else is renumbered.
+extern "C" __global__ void markDormantSolverBodies(PxU32* PX_RESTRICT solverBodyIndices, const PxU32* PX_RESTRICT nodes, const PxU32 count)
+{
+	const PxU32 i = threadIdx.x + blockIdx.x * blockDim.x;
+	if(i < count)
+		solverBodyIndices[nodes[i]] = 0;
 }

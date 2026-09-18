@@ -58,6 +58,8 @@
 #include "cudamanager/PxCudaContextManager.h"
 
 #include "PxgKernelLauncher.h"
+#include <cstdlib>
+#include <cstdio>
 
 // PT: TODO:
 // - most of these functions don't need to be member functions
@@ -150,6 +152,7 @@ PxgCudaBroadPhaseSap::PxgCudaBroadPhaseSap(const PxGpuBroadPhaseDesc& desc, PxgC
 	mBlockStartRegionAccumBuf			(allocDesc.deviceAlloc, PxsHeapStats::eBROADPHASE),
 	mRegionAccumBuf						(allocDesc.deviceAlloc, PxsHeapStats::eBROADPHASE),
 	mBlockRegionAccumBuf				(allocDesc.deviceAlloc, PxsHeapStats::eBROADPHASE),
+	mNativePairTileOffsets                 (allocDesc.deviceAlloc, PxsHeapStats::eBROADPHASE),
 	mFoundPairsBuf						(allocDesc.deviceAlloc, PxsHeapStats::eBROADPHASE),
 	mLostPairsBuf						(allocDesc.deviceAlloc, PxsHeapStats::eBROADPHASE),
 	mFoundAggregateBuf					(allocDesc.deviceAlloc, PxsHeapStats::eBROADPHASE),
@@ -377,6 +380,7 @@ void PxgCudaBroadPhaseSap::gpuDMAUp(const Bp::BroadPhaseUpdateData& updateData, 
 	{
 		mCudaContext->memcpyHtoDAsync(mBoxContactDistancesBuf.getDevicePtr(), mContactDistances, sizeof(PxReal)* mBoxesCapacity, mStream);
 		mCudaContext->memcpyHtoDAsync(mBoxGroupsBuf.getDevicePtr(), mBoxGroups, sizeof(PxU32)* mBoxesCapacity, mStream);
+        mHostGroupUploadBytes+=sizeof(PxU32)*PxU64(mBoxesCapacity);
 		mCudaContext->memcpyHtoDAsync(mBoxFpBoundsBuf.getDevicePtr(), mBoxBoundsMinMax, sizeof(PxBounds3)* mBoxesCapacity, mStream);			
 	}*/
 		
@@ -398,7 +402,7 @@ void PxgCudaBroadPhaseSap::freeBuffers()
 	mFoundActorPairsMapped.forceSize_Unsafe(0);
 }
 
-void PxgCudaBroadPhaseSap::runCopyResultsKernel(PxgBroadPhaseDesc& /*desc*/)
+void PxgCudaBroadPhaseSap::runCopyResultsKernel(PxgBroadPhaseDesc& desc)
 {
 	PX_PROFILE_ZONE("PxgCudaBroadPhaseSap.runCopyResultsKernel", mContextID);
 
@@ -414,15 +418,39 @@ void PxgCudaBroadPhaseSap::runCopyResultsKernel(PxgBroadPhaseDesc& /*desc*/)
 #endif
 	}
 
-	{
-		KERNEL_PARAM_TYPE kernelParams[] = { CUDA_KERNEL_PARAM(bpBuff) };
-		_launch<GPU_BP_DEBUG>(PROLOG, PxgKernelIds::BP_COPY_REPORTS, PxgBPKernelGridDim::BP_COPY_REPORTS, 1, 1, PxgBPKernelBlockDim::BP_COPY_REPORTS, 1, 1, 0, EPILOG);
-	}
+    if (desc.rigidOwners)
+    {
+        // Device counts select work; never read counts back between stages.
+        {
+            KERNEL_PARAM_TYPE kernelParams[] = { CUDA_KERNEL_PARAM(bpBuff) };
+            _launch<GPU_BP_DEBUG>(PROLOG, PxgKernelIds::BP_NATIVE_PAIR_TILES, 128, 2, 1, 128, 1, 1, 0, EPILOG);
+        }
+        for (PxU64 width = 1024; width < mMaxFoundLostPairs; width *= 2)
+        {
+            PxU32 runLength = PxU32(width);
+            KERNEL_PARAM_TYPE kernelParams[] = { CUDA_KERNEL_PARAM(bpBuff), CUDA_KERNEL_PARAM(runLength) };
+            _launch<GPU_BP_DEBUG>(PROLOG, PxgKernelIds::BP_NATIVE_PAIR_MERGE, 128, 2, 1, 128, 1, 1, 0, EPILOG);
+        }
+        {
+            KERNEL_PARAM_TYPE kernelParams[] = { CUDA_KERNEL_PARAM(bpBuff) };
+            _launch<GPU_BP_DEBUG>(PROLOG, PxgKernelIds::BP_NATIVE_PAIR_COUNTS, 128, 2, 1, 128, 1, 1, 0, EPILOG);
+            _launch<GPU_BP_DEBUG>(PROLOG, PxgKernelIds::BP_NATIVE_PAIR_PREFIX, 1, 2, 1, 128, 1, 1, 0, EPILOG);
+            _launch<GPU_BP_DEBUG>(PROLOG, PxgKernelIds::BP_NATIVE_PAIR_SCATTER, 128, 2, 1, 128, 1, 1, 0, EPILOG);
+        }
+    }
+    {
+        KERNEL_PARAM_TYPE kernelParams[] = { CUDA_KERNEL_PARAM(bpBuff) };
+        _launch<GPU_BP_DEBUG>(PROLOG, PxgKernelIds::BP_COPY_REPORTS, PxgBPKernelGridDim::BP_COPY_REPORTS, 1, 1, PxgBPKernelBlockDim::BP_COPY_REPORTS, 1, 1, 0, EPILOG);
+    }
 }
 
 void PxgCudaBroadPhaseSap::gpuDMABack(const PxgBroadPhaseDesc& desc)
 {
 	PX_PROFILE_ZONE("PxgCudaBroadPhaseSap.gpuDMABack", mContextID);
+    // Capture routing before the asynchronous descriptor readback overwrites it.
+    const bool native = desc.rigidOwners != NULL;
+    const bool correction = desc.nativeOwnership.generation != 0;
+
 
 	//mCudaContext->eventRecord(mEvent, mStream);
 
@@ -444,6 +472,10 @@ void PxgCudaBroadPhaseSap::gpuDMABack(const PxgBroadPhaseDesc& desc)
 
 	{
 		PX_PROFILE_ZONE("PxgCudaBroadPhaseSap.Synchronize", mContextID);
+        PxProfileScoped completionWait(native ? PxGetProfilerCallback() : NULL,
+            correction ? "GpuDestruction.detail.broadPhaseWait" : "GpuDestruction.trialDetail.broadPhaseWait",
+            false, mContextID);
+
 		//mCudaContext->streamSynchronize(mStream);
 		volatile PxU32* eventPtr = mEventMapped;
 
@@ -474,6 +506,7 @@ void PxgCudaBroadPhaseSap::gpuDMABack(const PxgBroadPhaseDesc& desc)
 	PX_ASSERT(desc.sharedFoundPairIndex >= desc.sharedFoundAggPairIndex);
 	PX_ASSERT(desc.sharedLostPairIndex >= desc.sharedLostAggPairIndex);
 
+
 	PxU32 foundLostPairsNeeded = PxMax(desc.sharedFoundPairIndex, desc.sharedLostPairIndex);
 #if PX_ENABLE_SIM_STATS
 	mFoundLostPairsStats = PxMax(mFoundLostPairsStats, foundLostPairsNeeded);
@@ -485,13 +518,24 @@ void PxgCudaBroadPhaseSap::gpuDMABack(const PxgBroadPhaseDesc& desc)
 	{
 		PxGetFoundation().error(PxErrorCode::eINVALID_PARAMETER, PX_FL,
 			"The application needs to increase PxGpuDynamicsMemoryConfig::foundLostPairsCapacity to %i, otherwise, the simulation will miss interactions\n", foundLostPairsNeeded);
+        // Ownership refresh cannot accept a truncated set of new interactions.
+        // Fail the step explicitly; capacity growth/retry belongs to the scene
+        // correction transaction. Ordinary upstream overflow policy is retained.
+        if (hasRefiltering(&desc) || desc.rigidOwners) mCudaContext->setAbortMode(true);
 	}
+
+    if (desc.rigidOwners && desc.nativePairError)
+    {
+        PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR, PX_FL,
+            "Native GPU broad-phase pair canonicalization failed; simulation step incomplete");
+        mCudaContext->setAbortMode(true);
+    }
 
 	// AD: safety in case copyReports did not run due to abort mode
 	if(!mCudaContext->isInAbortMode())
 	{
-		mFoundActorPairsMapped.forceSize_Unsafe(PxMin(mMaxFoundLostPairs, desc.sharedFoundPairIndex) - desc.sharedFoundAggPairIndex);
-		mLostActorPairsMapped.forceSize_Unsafe(PxMin(mMaxFoundLostPairs, desc.sharedLostPairIndex) - desc.sharedLostAggPairIndex);
+		mFoundActorPairsMapped.forceSize_Unsafe(desc.rigidOwners ? desc.nativePairCounts[0] : PxMin(mMaxFoundLostPairs, desc.sharedFoundPairIndex) - desc.sharedFoundAggPairIndex);
+		mLostActorPairsMapped.forceSize_Unsafe(desc.rigidOwners ? desc.nativePairCounts[1] : PxMin(mMaxFoundLostPairs, desc.sharedLostPairIndex) - desc.sharedLostAggPairIndex);
 	}
 	else
 	{
@@ -628,12 +672,12 @@ void PxgCudaBroadPhaseSap::purgeDuplicates(Cm::PinnableArray<PxgBroadPhasePair>&
 
 void PxgCudaBroadPhaseSap::purgeDuplicateFoundPairs()
 {
-	purgeDuplicates(mFoundActorPairsMapped);
+	if (!mBpDesc.get().rigidOwners) purgeDuplicates(mFoundActorPairsMapped);
 }
 
 void PxgCudaBroadPhaseSap::purgeDuplicateLostPairs()
 {
-	purgeDuplicates(mLostActorPairsMapped);
+	if (!mBpDesc.get().rigidOwners) purgeDuplicates(mLostActorPairsMapped);
 }
 
 void PxgCudaBroadPhaseSap::runRadixSort(const PxU32 numOfKeys, CUdeviceptr radixSortDescBuf)
@@ -843,7 +887,7 @@ void PxgCudaBroadPhaseSap::computeRegionHistogramKernel()
 {
 	PX_PROFILE_ZONE("PxgCudaBroadPhaseSap.computeRegionHistogramKernel", mContextID);
 
-	if(mUpdateData_CreatedHandleSize)
+	if(mUpdateData_CreatedHandleSize || hasRefiltering(&mBpDesc.get()))
 	{
 		const PxU32 nbProjections = (mNumOfBoxes + mUpdateData_RemovedHandleSize) * 2; 
 		const PxU32 totalNbProjectionRegions = (nbProjections*64 + 3)&(~3);
@@ -873,7 +917,7 @@ void PxgCudaBroadPhaseSap::computeStartAndActiveHistogramKernel()
 {
 	PX_PROFILE_ZONE("PxgCudaBroadPhaseSap.computeStartAndActiveHistogramKernel", mContextID);
 
-	if(mUpdateData_CreatedHandleSize)
+	if(mUpdateData_CreatedHandleSize || hasRefiltering(&mBpDesc.get()))
 	{
 		CUdeviceptr bpDescd = mBPDescBuf.getDevicePtr();
 		KERNEL_PARAM_TYPE kernelParams[] = { CUDA_KERNEL_PARAM(bpDescd) };
@@ -896,6 +940,20 @@ void PxgCudaBroadPhaseSap::performIncrementalSapKernel()
 		_launch<GPU_BP_DEBUG>(PROLOG, PxgKernelIds::BP_COMPUTE_INCREMENTAL_CMP_COUNTS1, PxgBPKernelGridDim::BP_COMPUTE_INCREMENTAL_CMP_COUNTS1, 1, 1, PxgBPKernelBlockDim::BP_COMPUTE_INCREMENTAL_CMP_COUNTS1, 1, 1, 0, EPILOG);
 		_launch<GPU_BP_DEBUG>(PROLOG, PxgKernelIds::BP_COMPUTE_INCREMENTAL_CMP_COUNTS2, PxgBPKernelGridDim::BP_COMPUTE_INCREMENTAL_CMP_COUNTS2, 1, 1, PxgBPKernelBlockDim::BP_COMPUTE_INCREMENTAL_CMP_COUNTS2, 1, 1, 0, EPILOG);
 		_launch<GPU_BP_DEBUG>(PROLOG, PxgKernelIds::BP_INCREMENTAL_SAP, PxgBPKernelGridDim::BP_INCREMENTAL_SAP, 3, 1, PxgBPKernelBlockDim::BP_INCREMENTAL_SAP, 1, 1, 0, EPILOG);
+		// PHYSX_BP_SAP_DIAG=1: per launch, the incremental SAP's comparison totals per axis
+		// (its work) with the handle counts and the launch's wall time (stream-synchronous).
+		static const bool sapDiag = []{ const char* raw = ::getenv("PHYSX_BP_SAP_DIAG"); return raw && raw[0] == '1'; }();
+		if(sapDiag)
+		{
+			static PxU32 launches = 0; ++launches;
+			mCudaContext->streamSynchronize(mStream);
+			PxgBroadPhaseDesc desc; mCudaContext->memcpyDtoH(&desc, bpDescd, sizeof(desc));
+			const PxU64 cmp = PxU64(desc.totalIncrementalComparisons[0]) + desc.totalIncrementalComparisons[1] + desc.totalIncrementalComparisons[2];
+			if(cmp > 200000u || (launches % 64u) == 0)
+				fprintf(stderr, "[bp-sap] launch %u boxes %u created %u removed %u updated %u comparisons %llu (%u/%u/%u)\n", launches, mNumOfBoxes,
+					mUpdateData_CreatedHandleSize, mUpdateData_RemovedHandleSize, mUpdateData_UpdatedHandleSize, (unsigned long long)cmp,
+					desc.totalIncrementalComparisons[0], desc.totalIncrementalComparisons[1], desc.totalIncrementalComparisons[2]);
+		}
 	}
 }
 
@@ -903,7 +961,7 @@ void PxgCudaBroadPhaseSap::generateNewPairsKernel()
 {
 	PX_PROFILE_ZONE("PxgCudaBroadPhaseSap.generateNewPairsKernel", mContextID);
 
-	if(mUpdateData_CreatedHandleSize)
+	if(mUpdateData_CreatedHandleSize || hasRefiltering(&mBpDesc.get()))
 	{
 		//Need to generate pairs for created handles...
 		CUdeviceptr bpDescd = mBPDescBuf.getDevicePtr();
@@ -922,7 +980,7 @@ void PxgCudaBroadPhaseSap::clearNewFlagKernel()
 {
 	PX_PROFILE_ZONE("PxgCudaBroadPhaseSap.clearNewFlagKernel", mContextID);
 
-	if(mUpdateData_CreatedHandleSize)
+	if(mUpdateData_CreatedHandleSize || hasRefiltering(&mBpDesc.get()))
 	{
 		CUdeviceptr bpDescd = mBPDescBuf.getDevicePtr();
 		KERNEL_PARAM_TYPE kernelParams[] = { CUDA_KERNEL_PARAM(bpDescd) };
@@ -990,8 +1048,23 @@ void PxgCudaBroadPhaseSap::updateDescriptor(PxgBroadPhaseDesc& desc)
 	desc.numRemovedHandles = mUpdateData_RemovedHandleSize;
 	
 	// PT: TODO: replace with adapter? I think this won't work without the bitmaps anyway?
+	desc.nativeOwnership = {};
 	if(mAABBManager)
 	{
+		desc.nativeOwnership = mAABBManager->getNativeOwnershipView();
+        desc.rigidOwners=mAABBManager->getRigidOwners();
+        desc.rigidOwnerCapacity=mAABBManager->getRigidOwnerCapacity();
+        if (desc.rigidOwners)
+        {
+            const PxU64 tiles = (PxU64(mMaxFoundLostPairs) + 1023) / 1024;
+            mNativePairTileOffsets.allocate(2 * tiles * sizeof(PxU32), PX_FL);
+            desc.nativePairTileOffsets = reinterpret_cast<PxU32*>(mNativePairTileOffsets.getDevicePtr());
+            if (!desc.nativePairTileOffsets)
+            {
+                PxGetFoundation().error(PxErrorCode::eOUT_OF_MEMORY, PX_FL, "Native GPU pair scratch allocation failed");
+                mCudaContext->setAbortMode(true);
+            }
+        }
 		// PT: this data is used in:
 		// - markUpdatedPairsLaunch (BP_UPDATE_UPDATEDPAIRS)
 		{
@@ -1007,6 +1080,8 @@ void PxgCudaBroadPhaseSap::updateDescriptor(PxgBroadPhaseDesc& desc)
 		// - accumulateReportsStage_1 (BP_ACCUMULATE_REPORT_STAGE_1)
 		// - accumulateReportsStage_2 (BP_ACCUMULATE_REPORT_STAGE_2)
 		desc.aabbMngr_volumeData = reinterpret_cast<Bp::VolumeData*>(mAABBManager->getVolumeData());
+        desc.refilterHandleMap = reinterpret_cast<const PxU32*>(mAABBManager->getRefilterHandles());
+        desc.refilterWordCount = mAABBManager->getRefilterWordCount();
 	}
 #ifdef SUPPORT_UPDATE_HANDLES_ARRAY_FOR_GPU
 	else
@@ -1237,6 +1312,7 @@ void PxgCudaBroadPhaseSap::preBroadPhase(const Bp::BroadPhaseUpdateData& updateD
 	}
 	mCudaContext->memcpyHtoDAsync(mBoxContactDistancesBuf.getDevicePtr(), updateData.getContactDistance(), distanceSize, mStream);
 	mCudaContext->memcpyHtoDAsync(mBoxGroupsBuf.getDevicePtr(), updateData.getGroups(), groupSize, mStream);
+    mHostGroupUploadBytes+=groupSize;
 	if(updateData.getEnvIDs())
 		mCudaContext->memcpyHtoDAsync(mBoxEnvIDsBuf.getDevicePtr(), updateData.getEnvIDs(), envIDSize, mStream);
 }

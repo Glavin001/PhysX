@@ -197,6 +197,7 @@ namespace physx
 		virtual void				unregisterContactManager(PxsContactManager* cm)	PX_OVERRIDE PX_FINAL;
 		virtual void				refreshContactManager(PxsContactManager* cm)	PX_OVERRIDE PX_FINAL;
 
+        virtual bool rebindShapeInstance(const PxNodeIndex& nodeIndex, const PxsShapeCore& shape, PxU32 index, PxActor* actor, bool deviceOwnerTransaction) PX_OVERRIDE PX_FINAL;
 		virtual void				registerShape(const PxNodeIndex& nodeIndex, const PxsShapeCore& shapeCore, const PxU32 transformCacheID, PxActor* actor, const bool isFemCloth)	PX_OVERRIDE PX_FINAL;
 		virtual void				updateShapeMaterial(const PxsShapeCore& shapeCore)	PX_OVERRIDE PX_FINAL;
 		virtual void				unregisterShape(const PxsShapeCore& shapeCore, const PxU32 transformCacheID, const bool isFemCloth)	PX_OVERRIDE PX_FINAL;
@@ -254,6 +255,7 @@ namespace physx
 		virtual PxsContactManager**				getLostFoundPatchManagers()		PX_OVERRIDE PX_FINAL;
 		virtual PxU32							getNbLostFoundPatchManagers()	PX_OVERRIDE PX_FINAL;
 
+        bool hasCpuContactManagers() const { return mNbPairCount[GPU_BUCKET_ID::eFallback]!=0; }
 		virtual PxsContactManagerOutput*		getGPUContactManagerOutputBase()	PX_OVERRIDE PX_FINAL;
 		virtual PxReal*							getGPURestDistances()				PX_OVERRIDE PX_FINAL;
 		virtual Sc::ShapeInteraction**			getGPUShapeInteractions()			PX_OVERRIDE PX_FINAL;

@@ -1,0 +1,7 @@
+{
+  "/root/workspace/physx-2/out/snapshot-finish-20260911/device-enabled-publication/libPhysXDestructionGpuRuntime_64.so": "3f2fe4807700a33cfd21a0854409b02a92a0cb957f43e07690e148aeee78e5a2",
+  "/root/workspace/physx-2/out/snapshot-finish-20260911/device-enabled-publication/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+  "/root/workspace/physx-2/out/snapshot-finish-20260911/device-enabled-publication/PxgDestructionRuntime.cu": "e188bd4635622c1dd51c0f0970fbc5a9fcf0ae90bbb836858b466060ad4b5e1b",
+  "/root/workspace/physx-2/out/snapshot-finish-20260911/device-enabled-publication/PxgDestructionCommittedChanges.cuh": "a161046c980282dc72a153632fe9de12146e60b677e2d928bd3f785b381392a1",
+  "/root/workspace/physx-2/out/snapshot-finish-20260911/device-enabled-publication/PxgDestructionDeviceGraph.cuh": "8c5acae6eba6f664847fffd74a0498ae52a0e94553e8bcfe08058b729b290b88"
+}

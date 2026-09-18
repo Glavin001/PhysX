@@ -1,0 +1,54 @@
+Building CUDA object sdk_gpu_source_bin/destruction-runtime/CMakeFiles/PhysXDestructionGpuRuntime.dir/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionRuntime.cu.o
+Building CUDA object sdk_gpu_source_bin/destruction-runtime/CMakeFiles/PhysXDestructionGpuRuntime.dir/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu.o
+/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionRuntime.cu(171): warning #3152-D: nonstandard use of explicit constructor "physx::PxNodeIndex::PxNodeIndex" (declared at line 70 of /root/workspace/physx-2/physx/include/PxNodeIndex.h) for default aggregate element initialization
+      PxGpuContactPair p{};
+                         ^
+
+Remark: The warnings can be suppressed with "-diag-suppress <warning-number>"
+
+/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionRuntime.cu(171): warning #3152-D: nonstandard use of explicit constructor "physx::PxNodeIndex::PxNodeIndex" (declared at line 70 of /root/workspace/physx-2/physx/include/PxNodeIndex.h) for default aggregate element initialization
+      PxGpuContactPair p{};
+                         ^
+
+/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionRuntime.cu(171): warning #3152-D: nonstandard use of explicit constructor "physx::PxNodeIndex::PxNodeIndex" (declared at line 70 of /root/workspace/physx-2/physx/include/PxNodeIndex.h) for default aggregate element initialization
+      PxGpuContactPair p{};
+                         ^
+
+Remark: The warnings can be suppressed with "-diag-suppress <warning-number>"
+
+/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionRuntime.cu(171): warning #3152-D: nonstandard use of explicit constructor "physx::PxNodeIndex::PxNodeIndex" (declared at line 70 of /root/workspace/physx-2/physx/include/PxNodeIndex.h) for default aggregate element initialization
+      PxGpuContactPair p{};
+                         ^
+
+/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu(285): warning #177-D: function "Nv::Blast::<unnamed>::conditionalLoopEnabled" was declared but never referenced
+  bool conditionalLoopEnabled()
+       ^
+
+Remark: The warnings can be suppressed with "-diag-suppress <warning-number>"
+
+/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu(379): warning #177-D: function "Nv::Blast::<unnamed>::verifyPartitionEnabled" was declared but never referenced
+  bool verifyPartitionEnabled()
+       ^
+
+/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu(558): warning #177-D: variable "Nv::Blast::<unnamed>::kQRefresh" was declared but never referenced
+  static constexpr std::uint32_t kQRefresh = 16u;
+                                 ^
+
+/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu(3235): warning #177-D: function "Nv::Blast::<unnamed>::ExtStressGpuSolverImpl::verifyPartitionAgainstRebuild" was declared but never referenced
+      void verifyPartitionAgainstRebuild()
+           ^
+
+In destructor ‘physx::PxProfileScoped::~PxProfileScoped()’,
+    inlined from ‘void physx::_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e3::Runtime::reserveBodySlots()’ at /root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionRuntime.cu:1340:1:
+/root/workspace/physx-2/physx/include/foundation/PxProfiler.h:129:42: warning: ‘records.physx::PxProfileScoped::mContextId’ may be used uninitialized [-Wmaybe-uninitialized]
+  129 |                         mCallback->zoneEnd(mProfilerData, mEventName, mDetached, mContextId);
+      |                         ~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionRuntime.cu: In member function ‘void physx::_GLOBAL__N__2d3fc3ea_24_PxgDestructionRuntime_cu_ef6454e3::Runtime::reserveBodySlots()’:
+/root/workspace/physx-2/physx/source/gpudestruction/src/PxgDestructionRuntime.cu:1338:17: note: ‘records.physx::PxProfileScoped::mContextId’ was declared here
+ 1338 |             PxProfileScoped records(mProfiler,"GpuDestruction.finishDetail.allocateNativeBodies",false,mProfileContext);
+      |                 ^~~~~~~
+/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu:285:13: warning: ‘bool Nv::Blast::_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb::conditionalLoopEnabled()’ defined but not used [-Wunused-function]
+  285 | bool conditionalLoopEnabled()
+      |             ^~~~~~~~~~~~~~~~~     
+Linking CUDA shared library /root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so
+Built target PhysXDestructionGpuRuntime

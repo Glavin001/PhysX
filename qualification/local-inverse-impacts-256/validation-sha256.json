@@ -1,0 +1,16 @@
+{
+  "blast/source/sdk/extensions/stressgpu/detail/StressNativeHierarchy.cuh": "06ca7a31c0e5da32583b1aa162c7f188702286753ddf979890f7be33a95375aa",
+  "blast/source/sdk/extensions/stressgpu/detail/StressNativeFineInverse.cuh": "31ec12590ffe5a0306defec6e2c900ac3cab0f25568e278b0ff6b54d68f9c28c",
+  "blast/source/sdk/extensions/stressgpu/detail/StressNativePreconditioner.cuh": "260615bb731efeed95178c9c269011b83fb166b68807f2bbfda2deb68d772446",
+  "blast/source/sdk/extensions/stressgpu/detail/StressComponentIteration.cuh": "65f3ae4c480ced9f02346372ae4e2fdb00296355864f928553f802176a660e52",
+  "qualification/local-inverse-impacts-256/validation/basis-test.log": "60667f39339e5e7bb9073800be67b6af9b5c4ee3dff17d9d10baf52288149b34",
+  "qualification/local-inverse-impacts-256/validation/final-analytic.log": "ef5b71561e6fa9f003d99a10dc424bb1961f49499354b0dd043abe81fd120c95",
+  "qualification/local-inverse-impacts-256/validation/final-3d.log": "a2a1b60c80a7259f80763486c5cb98c5417d83fe8373c5649f2c74b6a9c97f03",
+  "qualification/local-inverse-impacts-256/validation/native-memcheck.log": "560a3c632453ff26f7848279d56bb664f84bec5930076dd14ba183b5e807b2fb",
+  "qualification/local-inverse-impacts-256/validation/cache-synccheck.log": "4a5e650563af693467b71f67e54a2c3c85b9010cd756825c50753fcd7e3b0430",
+  "qualification/local-inverse-impacts-256/validation/cache-initcheck.log": "4a5e650563af693467b71f67e54a2c3c85b9010cd756825c50753fcd7e3b0430",
+  "qualification/local-inverse-impacts-256/validation/counter-parity.json": "d423cb865cd077f27d1c64436fcc38361503956270ed16d413d8cf8680727306",
+  "qualification/local-inverse-impacts-256/validation/direct-results.jsonl": "4f42640b3ce2547b5ce7a2a0120ab94ff43c454aa75f65818a0131787dec9e44",
+  "qualification/local-inverse-impacts-256/validation/wall-quality.json": "5997b3577a06e5c88cdab318787cf49b10987f2586a125cf9650d1719915740b",
+  "qualification/local-inverse-impacts-256/validation/wall-capture.json": "c7310791dbace98992cc355f825052817f5d92c5b61a804a5bf0bc348011f9ff"
+}

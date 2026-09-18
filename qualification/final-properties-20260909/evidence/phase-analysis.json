@@ -1,0 +1,676 @@
+{
+  "status": "validated-native-phase-capture",
+  "physics_timing": {
+    "samples": 64,
+    "min_ms": 0.599828,
+    "mean_ms": 6.556327453125,
+    "max_ms": 18.643957,
+    "p50_ms": 8.069037,
+    "p95_ms": 9.469193,
+    "p99_ms": 18.643957,
+    "total_wall_seconds": 0.419604957,
+    "effective_steps_per_second": 152.52441357598164,
+    "real_time_factor": 2.542073692179162,
+    "missed_deadlines": 1,
+    "fixed_step_ms": 16.66666753590107
+  },
+  "cuda_stages": {
+    "device_controlled_preparation": true,
+    "optional_phases": {
+      "allocationAndPreparation": {
+        "samples": 64,
+        "min_ms": 0.009216000326,
+        "mean_ms": 0.010752000016078124,
+        "max_ms": 0.060415999036,
+        "p95_ms": 0.01126400009
+      },
+      "allocationAndPreparationRetry": {
+        "samples": 64,
+        "min_ms": 0,
+        "mean_ms": 0.00081599998515625,
+        "max_ms": 0.05222399905,
+        "p95_ms": 0
+      }
+    },
+    "scope": "Consecutive CUDA event intervals on the destruction stream; includes cross-stream dependencies, contention and host submission gaps, not pure kernel execution. Excludes ordinary/corrected rigid solving, reservation and acceptance after correction. Optional allocation/retry intervals are reported separately; they are not included in this total. Collected after an existing completion wait, with no added synchronization.",
+    "phases": {
+      "commitAndStressTopology": {
+        "samples": 64,
+        "min_ms": 0.03993599862,
+        "mean_ms": 0.06691149988921875,
+        "max_ms": 0.5510079861,
+        "p95_ms": 0.0858559981
+      },
+      "contactLoads": {
+        "samples": 64,
+        "min_ms": 0.006144000217,
+        "mean_ms": 0.0194089998478125,
+        "max_ms": 0.06963199936,
+        "p95_ms": 0.02934399992
+      },
+      "materials": {
+        "samples": 64,
+        "min_ms": 0.01535999961,
+        "mean_ms": 0.02036899977234375,
+        "max_ms": 0.0460800007,
+        "p95_ms": 0.02150399983
+      },
+      "stress": {
+        "samples": 64,
+        "min_ms": 0.03071999922,
+        "mean_ms": 5.360940001726094,
+        "max_ms": 14.151679992,
+        "p95_ms": 7.794464111
+      },
+      "topologyAndCandidates": {
+        "samples": 64,
+        "min_ms": 0.02150399983,
+        "mean_ms": 0.03914199961625,
+        "max_ms": 0.16697599361999999,
+        "p95_ms": 0.1300480068
+      }
+    },
+    "total": {
+      "samples": 64,
+      "min_ms": 0.117759998428,
+      "mean_ms": 5.506771500851719,
+      "max_ms": 14.48857598307,
+      "p95_ms": 8.1378555351
+    }
+  },
+  "capture_tick_timing": {
+    "samples": 64,
+    "min_ms": 0.752002,
+    "mean_ms": 6.77753578125,
+    "max_ms": 19.135303,
+    "p50_ms": 8.2476205,
+    "p95_ms": 9.667763,
+    "p99_ms": 19.135303,
+    "total_wall_seconds": 0.43376229,
+    "effective_steps_per_second": 147.54625165779163,
+    "real_time_factor": 2.4591043225488054,
+    "missed_deadlines": 1,
+    "fixed_step_ms": 16.66666753590107
+  },
+  "capture_tick_scope": "physics, input placement, explicit GPU observations/audit and recording I/O; excludes setup and offline rendering",
+  "frames": 64,
+  "corrected_steps": 2,
+  "timing_kind": "host wall intervals, including GPU waits; not CUDA kernel timings",
+  "profiling_overhead_in_simulation_time": true,
+  "nested_phase": "refilter is included in correctedCollisionSolve",
+  "task_scope_totals": "task.* sums calls per step across trial/correction; task and detail scopes can overlap and are not additive simulation costs",
+  "unmeasured_interval": "ordinary trial, checkpoint, remaining PhysX work and callback overhead",
+  "phases": {
+    "acceptCorrection": {
+      "samples": 2,
+      "mean_ms": 0.582776,
+      "median_ms": 0.582776,
+      "max_ms": 0.608955
+    },
+    "applyBindings": {
+      "samples": 2,
+      "mean_ms": 0.1433375,
+      "median_ms": 0.1433375,
+      "max_ms": 0.154108
+    },
+    "applyDetail.migrateShapes": {
+      "samples": 2,
+      "mean_ms": 0.046672,
+      "median_ms": 0.046672,
+      "max_ms": 0.047359
+    },
+    "applyDetail.scheduleOwners": {
+      "samples": 2,
+      "mean_ms": 0.006377,
+      "median_ms": 0.006377,
+      "max_ms": 0.009127
+    },
+    "applyDetail.validateOwners": {
+      "samples": 2,
+      "mean_ms": 0.008521,
+      "median_ms": 0.008521,
+      "max_ms": 0.010149
+    },
+    "checkpoint": {
+      "samples": 64,
+      "mean_ms": 0.008920234375,
+      "median_ms": 0.008150000000000001,
+      "max_ms": 0.029775
+    },
+    "compatibility.allocateNativeBodies": {
+      "samples": 2,
+      "mean_ms": 0.0318495,
+      "median_ms": 0.0318495,
+      "max_ms": 0.0376
+    },
+    "compatibility.publishReservation": {
+      "samples": 2,
+      "mean_ms": 0.0013475,
+      "median_ms": 0.0013475,
+      "max_ms": 0.001393
+    },
+    "compatibility.requestReadback": {
+      "samples": 2,
+      "mean_ms": 0.050138,
+      "median_ms": 0.050138,
+      "max_ms": 0.053349
+    },
+    "correctedCollisionSolve": {
+      "samples": 2,
+      "mean_ms": 1.8729015,
+      "median_ms": 1.8729015,
+      "max_ms": 1.95804
+    },
+    "detail.beforeSolver": {
+      "samples": 2,
+      "mean_ms": 0.0029305,
+      "median_ms": 0.0029305,
+      "max_ms": 0.003006
+    },
+    "detail.broadPhaseWait": {
+      "samples": 2,
+      "mean_ms": 0.147024,
+      "median_ms": 0.147024,
+      "max_ms": 0.147505
+    },
+    "detail.islandGen": {
+      "samples": 2,
+      "mean_ms": 0.0082755,
+      "median_ms": 0.0082755,
+      "max_ms": 0.009157
+    },
+    "detail.islandInsertion": {
+      "samples": 2,
+      "mean_ms": 0.0262185,
+      "median_ms": 0.0262185,
+      "max_ms": 0.029555
+    },
+    "detail.postBroadPhase": {
+      "samples": 2,
+      "mean_ms": 0.1593075,
+      "median_ms": 0.1593075,
+      "max_ms": 0.16069
+    },
+    "detail.postBroadPhaseStage2": {
+      "samples": 2,
+      "mean_ms": 0.0048544999999999994,
+      "median_ms": 0.0048544999999999994,
+      "max_ms": 0.00501
+    },
+    "detail.postBroadPhaseStage3": {
+      "samples": 2,
+      "mean_ms": 0.0017035,
+      "median_ms": 0.0017035,
+      "max_ms": 0.001774
+    },
+    "detail.postIslandGen": {
+      "samples": 2,
+      "mean_ms": 0.0019034999999999998,
+      "median_ms": 0.0019034999999999998,
+      "max_ms": 0.001924
+    },
+    "detail.postNarrowPhase": {
+      "samples": 2,
+      "mean_ms": 0.16411599999999998,
+      "median_ms": 0.16411599999999998,
+      "max_ms": 0.192269
+    },
+    "detail.postSolver": {
+      "samples": 2,
+      "mean_ms": 0.0024395,
+      "median_ms": 0.0024395,
+      "max_ms": 0.002585
+    },
+    "detail.preallocateContactManagers": {
+      "samples": 2,
+      "mean_ms": 0.0185645,
+      "median_ms": 0.0185645,
+      "max_ms": 0.032931
+    },
+    "detail.processLostContacts": {
+      "samples": 2,
+      "mean_ms": 0.0032315,
+      "median_ms": 0.0032315,
+      "max_ms": 0.004689
+    },
+    "detail.processLostContacts2": {
+      "samples": 2,
+      "mean_ms": 0.003456,
+      "median_ms": 0.003456,
+      "max_ms": 0.005069
+    },
+    "detail.processLostContacts3": {
+      "samples": 2,
+      "mean_ms": 0.0018485,
+      "median_ms": 0.0018485,
+      "max_ms": 0.002164
+    },
+    "detail.registerContactManagers": {
+      "samples": 2,
+      "mean_ms": 0.00255,
+      "median_ms": 0.00255,
+      "max_ms": 0.003176
+    },
+    "detail.registerInteractions": {
+      "samples": 2,
+      "mean_ms": 0.020814,
+      "median_ms": 0.020814,
+      "max_ms": 0.026119
+    },
+    "detail.registerSceneInteractions": {
+      "samples": 2,
+      "mean_ms": 0.014221500000000002,
+      "median_ms": 0.014221500000000002,
+      "max_ms": 0.016601
+    },
+    "detail.updateDynamics": {
+      "samples": 2,
+      "mean_ms": 0.0319045,
+      "median_ms": 0.0319045,
+      "max_ms": 0.033623
+    },
+    "detail.updateDynamicsPostPartitioning": {
+      "samples": 2,
+      "mean_ms": 0.145547,
+      "median_ms": 0.145547,
+      "max_ms": 0.149459
+    },
+    "finalPublication": {
+      "samples": 2,
+      "mean_ms": 0.09694050000000001,
+      "median_ms": 0.09694050000000001,
+      "max_ms": 0.122328
+    },
+    "finishAndReserve": {
+      "samples": 64,
+      "mean_ms": 5.4032375,
+      "median_ms": 6.9136685,
+      "max_ms": 14.361434
+    },
+    "finishDetail.growMotionSlots": {
+      "samples": 1,
+      "mean_ms": 0.12306,
+      "median_ms": 0.12306,
+      "max_ms": 0.12306
+    },
+    "finishDetail.reserveBodies": {
+      "samples": 64,
+      "mean_ms": 0.0035795312500000002,
+      "median_ms": 0.001603,
+      "max_ms": 0.126706
+    },
+    "finishDetail.waitForGpu": {
+      "samples": 64,
+      "mean_ms": 5.394001296875,
+      "median_ms": 6.907557499999999,
+      "max_ms": 14.348028
+    },
+    "migrateDetail.actorLinks": {
+      "samples": 2,
+      "mean_ms": 0.0043765,
+      "median_ms": 0.0043765,
+      "max_ms": 0.005949000000000001
+    },
+    "migrateDetail.queryMirror": {
+      "samples": 2,
+      "mean_ms": 0.005927999999999999,
+      "median_ms": 0.005927999999999999,
+      "max_ms": 0.007051999999999999
+    },
+    "migrateDetail.refilter": {
+      "samples": 2,
+      "mean_ms": 0.0014530000000000007,
+      "median_ms": 0.0014530000000000007,
+      "max_ms": 0.001713000000000001
+    },
+    "migrateDetail.registerOwner": {
+      "samples": 2,
+      "mean_ms": 0.002661,
+      "median_ms": 0.002661,
+      "max_ms": 0.0039889999999999995
+    },
+    "migrateDetail.retireContacts": {
+      "samples": 2,
+      "mean_ms": 0.0070785,
+      "median_ms": 0.0070785,
+      "max_ms": 0.010147
+    },
+    "preparationCompletion": {
+      "samples": 64,
+      "mean_ms": 0.004107859375,
+      "median_ms": 0.0013325,
+      "max_ms": 0.090419
+    },
+    "publishReservedMetadata": {
+      "samples": 2,
+      "mean_ms": 0.0015025,
+      "median_ms": 0.0015025,
+      "max_ms": 0.001553
+    },
+    "refilter": {
+      "samples": 2,
+      "mean_ms": 0.003371,
+      "median_ms": 0.003371,
+      "max_ms": 0.003757
+    },
+    "reportRepair": {
+      "samples": 2,
+      "mean_ms": 0.0013575,
+      "median_ms": 0.0013575,
+      "max_ms": 0.001433
+    },
+    "resetContactCaches": {
+      "samples": 2,
+      "mean_ms": 0.0091475,
+      "median_ms": 0.0091475,
+      "max_ms": 0.012614
+    },
+    "restoreInstall": {
+      "samples": 2,
+      "mean_ms": 0.041688,
+      "median_ms": 0.041688,
+      "max_ms": 0.057467
+    },
+    "submit": {
+      "samples": 64,
+      "mean_ms": 0.1634058125,
+      "median_ms": 0.13681500000000002,
+      "max_ms": 1.4326
+    },
+    "task.accurateIsland.boundaryAudit": {
+      "samples": 64,
+      "mean_ms": 0.00146628125,
+      "median_ms": 0.0014225000000000002,
+      "max_ms": 0.002804
+    },
+    "task.accurateIsland.clearDestroyedEdges": {
+      "samples": 64,
+      "mean_ms": 0.00161728125,
+      "median_ms": 0.001538,
+      "max_ms": 0.002865
+    },
+    "task.accurateIsland.clearDestroyedNodes": {
+      "samples": 64,
+      "mean_ms": 0.001430453125,
+      "median_ms": 0.001373,
+      "max_ms": 0.002694
+    },
+    "task.accurateIsland.deactivation": {
+      "samples": 64,
+      "mean_ms": 0.001596765625,
+      "median_ms": 0.001483,
+      "max_ms": 0.003446
+    },
+    "task.accurateIsland.findPathsAndBreakIslands": {
+      "samples": 64,
+      "mean_ms": 0.002342046875,
+      "median_ms": 0.001899,
+      "max_ms": 0.010209
+    },
+    "task.accurateIsland.removeDestroyedConnections": {
+      "samples": 64,
+      "mean_ms": 0.001852,
+      "median_ms": 0.0016535,
+      "max_ms": 0.00533
+    },
+    "task.accurateIsland.removeEdgesFromIslands": {
+      "samples": 64,
+      "mean_ms": 0.0017634999999999999,
+      "median_ms": 0.0015574999999999999,
+      "max_ms": 0.004709
+    },
+    "task.accurateIsland.resetDirtyEdges": {
+      "samples": 64,
+      "mean_ms": 0.001474125,
+      "median_ms": 0.001422,
+      "max_ms": 0.002856
+    },
+    "task.accurateIslandMaintenance": {
+      "samples": 64,
+      "mean_ms": 0.01779153125,
+      "median_ms": 0.016716,
+      "max_ms": 0.031066999999999997
+    },
+    "task.activityCheckpoint": {
+      "samples": 64,
+      "mean_ms": 0.002197953125,
+      "median_ms": 0.001954,
+      "max_ms": 0.013986
+    },
+    "task.activityRestore": {
+      "samples": 2,
+      "mean_ms": 0.001673,
+      "median_ms": 0.001673,
+      "max_ms": 0.001853
+    },
+    "task.afterIntegration": {
+      "samples": 64,
+      "mean_ms": 0.012039875,
+      "median_ms": 0.012163,
+      "max_ms": 0.027541000000000003
+    },
+    "task.bodyDmaWait": {
+      "samples": 64,
+      "mean_ms": 0.006659703125,
+      "median_ms": 0.006372,
+      "max_ms": 0.02154
+    },
+    "task.bodyStatusWork": {
+      "samples": 64,
+      "mean_ms": 0.002033359375,
+      "median_ms": 0.001979,
+      "max_ms": 0.005119
+    },
+    "task.contactGraph": {
+      "samples": 64,
+      "mean_ms": 0.003754046875,
+      "median_ms": 0.0020534999999999998,
+      "max_ms": 0.108062
+    },
+    "task.cpuNarrowPhaseMerge": {
+      "samples": 64,
+      "mean_ms": 0.002469,
+      "median_ms": 0.0024200000000000003,
+      "max_ms": 0.00549
+    },
+    "task.prepareIslandRepair": {
+      "samples": 64,
+      "mean_ms": 0.222636828125,
+      "median_ms": 0.19033,
+      "max_ms": 1.128916
+    },
+    "task.sleepCommit": {
+      "samples": 1,
+      "mean_ms": 0.140422,
+      "median_ms": 0.140422,
+      "max_ms": 0.140422
+    },
+    "task.speculativeIsland.boundaryAudit": {
+      "samples": 64,
+      "mean_ms": 0.001592734375,
+      "median_ms": 0.001553,
+      "max_ms": 0.0029950000000000003
+    },
+    "task.speculativeIsland.clearDestroyedEdges": {
+      "samples": 64,
+      "mean_ms": 0.00170046875,
+      "median_ms": 0.001653,
+      "max_ms": 0.003156
+    },
+    "task.speculativeIsland.clearDestroyedNodes": {
+      "samples": 64,
+      "mean_ms": 0.0015538593750000001,
+      "median_ms": 0.001503,
+      "max_ms": 0.0030150000000000003
+    },
+    "task.speculativeIsland.deactivation": {
+      "samples": 64,
+      "mean_ms": 0.00171959375,
+      "median_ms": 0.001663,
+      "max_ms": 0.0036569999999999997
+    },
+    "task.speculativeIsland.findPathsAndBreakIslands": {
+      "samples": 64,
+      "mean_ms": 0.00223140625,
+      "median_ms": 0.0017385,
+      "max_ms": 0.009258
+    },
+    "task.speculativeIsland.removeDestroyedConnections": {
+      "samples": 64,
+      "mean_ms": 0.00205696875,
+      "median_ms": 0.001883,
+      "max_ms": 0.003928
+    },
+    "task.speculativeIsland.removeEdgesFromIslands": {
+      "samples": 64,
+      "mean_ms": 0.0018975625,
+      "median_ms": 0.001778,
+      "max_ms": 0.003467
+    },
+    "task.speculativeIsland.resetDirtyEdges": {
+      "samples": 64,
+      "mean_ms": 0.001608984375,
+      "median_ms": 0.001553,
+      "max_ms": 0.003105
+    },
+    "task.speculativeIslandMaintenance": {
+      "samples": 64,
+      "mean_ms": 0.018863328125,
+      "median_ms": 0.017883999999999997,
+      "max_ms": 0.035406
+    },
+    "trialDetail.beforeSolver": {
+      "samples": 64,
+      "mean_ms": 0.0050454375000000004,
+      "median_ms": 0.0046485,
+      "max_ms": 0.024115
+    },
+    "trialDetail.broadPhaseWait": {
+      "samples": 64,
+      "mean_ms": 0.056683437499999996,
+      "median_ms": 0.054316500000000004,
+      "max_ms": 0.081882
+    },
+    "trialDetail.islandGen": {
+      "samples": 64,
+      "mean_ms": 0.007106671875,
+      "median_ms": 0.0055105,
+      "max_ms": 0.025788
+    },
+    "trialDetail.islandInsertion": {
+      "samples": 64,
+      "mean_ms": 0.003406984375,
+      "median_ms": 0.002605,
+      "max_ms": 0.036588
+    },
+    "trialDetail.postBroadPhase": {
+      "samples": 64,
+      "mean_ms": 0.068940125,
+      "median_ms": 0.067521,
+      "max_ms": 0.100257
+    },
+    "trialDetail.postBroadPhaseStage2": {
+      "samples": 64,
+      "mean_ms": 0.00553346875,
+      "median_ms": 0.0039074999999999995,
+      "max_ms": 0.076843
+    },
+    "trialDetail.postBroadPhaseStage3": {
+      "samples": 64,
+      "mean_ms": 0.001667046875,
+      "median_ms": 0.001668,
+      "max_ms": 0.002264
+    },
+    "trialDetail.postIslandGen": {
+      "samples": 64,
+      "mean_ms": 0.003508078125,
+      "median_ms": 0.002129,
+      "max_ms": 0.022482
+    },
+    "trialDetail.postNarrowPhase": {
+      "samples": 64,
+      "mean_ms": 0.098427578125,
+      "median_ms": 0.1187365,
+      "max_ms": 0.190274
+    },
+    "trialDetail.postSolver": {
+      "samples": 64,
+      "mean_ms": 0.002379328125,
+      "median_ms": 0.002274,
+      "max_ms": 0.003336
+    },
+    "trialDetail.preallocateContactManagers": {
+      "samples": 64,
+      "mean_ms": 0.0061204531250000005,
+      "median_ms": 0.002014,
+      "max_ms": 0.178793
+    },
+    "trialDetail.processLostContacts": {
+      "samples": 64,
+      "mean_ms": 0.00370978125,
+      "median_ms": 0.0037264999999999998,
+      "max_ms": 0.011081
+    },
+    "trialDetail.processLostContacts2": {
+      "samples": 64,
+      "mean_ms": 0.003354046875,
+      "median_ms": 0.0024495,
+      "max_ms": 0.015459
+    },
+    "trialDetail.processLostContacts3": {
+      "samples": 64,
+      "mean_ms": 0.002406265625,
+      "median_ms": 0.0023899999999999998,
+      "max_ms": 0.006903
+    },
+    "trialDetail.registerContactManagers": {
+      "samples": 41,
+      "mean_ms": 0.0028756585365853657,
+      "median_ms": 0.002705,
+      "max_ms": 0.007544
+    },
+    "trialDetail.registerInteractions": {
+      "samples": 41,
+      "mean_ms": 0.0025077073170731707,
+      "median_ms": 0.002274,
+      "max_ms": 0.004639
+    },
+    "trialDetail.registerSceneInteractions": {
+      "samples": 41,
+      "mean_ms": 0.002806951219512195,
+      "median_ms": 0.002454,
+      "max_ms": 0.01601
+    },
+    "trialDetail.updateDynamics": {
+      "samples": 64,
+      "mean_ms": 0.0149935,
+      "median_ms": 0.014457000000000001,
+      "max_ms": 0.029234
+    },
+    "trialDetail.updateDynamicsPostPartitioning": {
+      "samples": 64,
+      "mean_ms": 0.0541830625,
+      "median_ms": 0.056365,
+      "max_ms": 0.107651
+    }
+  },
+  "corrected_step_mean_ms": {
+    "acceptCorrection": 0.582776,
+    "applyBindings": 0.1433375,
+    "collisionBindings": 0,
+    "correctedCollisionSolve": 1.8729015,
+    "correctionBodies": 0,
+    "finalPublication": 0.09694050000000001,
+    "finishAndReserve": 12.378422,
+    "initializeReserved": 0,
+    "preparationCompletion": 0.087834,
+    "publishReservedMetadata": 0.0015025,
+    "refilter": 0.003371,
+    "resetContactCaches": 0.0091475,
+    "restoreInstall": 0.041688,
+    "submit": 0.27471249999999997
+  },
+  "corrected_pass_excluding_refilter_mean_ms": 1.8695305,
+  "unmeasured_interval_mean_ms": 0.899692109375,
+  "isolated_performance_qualification": false
+}

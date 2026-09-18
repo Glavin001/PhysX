@@ -1,0 +1,115 @@
+Internal ctest changing into directory: /root/workspace/physx-2/out/destruction-sdk
+Test project /root/workspace/physx-2/out/destruction-sdk
+      Start  38: physx_native_gpu_material
+ 1/52 Test  #38: physx_native_gpu_material ..................................   Passed    0.51 sec
+      Start  39: physx_native_gpu_destruction
+ 2/52 Test  #39: physx_native_gpu_destruction ...............................   Passed    0.90 sec
+      Start  46: physx_native_gpu_body_state
+ 3/52 Test  #46: physx_native_gpu_body_state ................................   Passed    0.41 sec
+      Start  47: physx_native_gpu_body_allocation
+ 4/52 Test  #47: physx_native_gpu_body_allocation ...........................   Passed    3.19 sec
+      Start  48: physx_native_gpu_incremental_pairs
+ 5/52 Test  #48: physx_native_gpu_incremental_pairs .........................   Passed    0.24 sec
+      Start  49: physx_native_gpu_pairs
+ 6/52 Test  #49: physx_native_gpu_pairs .....................................   Passed    0.49 sec
+      Start  50: physx_native_gpu_motion_slots
+ 7/52 Test  #50: physx_native_gpu_motion_slots ..............................   Passed    0.26 sec
+      Start  51: physx_native_gpu_collision_preparation
+ 8/52 Test  #51: physx_native_gpu_collision_preparation .....................   Passed    4.51 sec
+      Start  52: physx_native_gpu_contact_response
+ 9/52 Test  #52: physx_native_gpu_contact_response ..........................   Passed    0.91 sec
+      Start  53: physx_native_gpu_retained_registry
+10/52 Test  #53: physx_native_gpu_retained_registry .........................   Passed    0.40 sec
+      Start  54: physx_native_gpu_contact_lifetime_exhaustion
+11/52 Test  #54: physx_native_gpu_contact_lifetime_exhaustion ...............   Passed    0.75 sec
+      Start  55: physx_native_gpu_initialization_failure
+12/52 Test  #55: physx_native_gpu_initialization_failure ....................   Passed    0.40 sec
+      Start  56: physx_native_gpu_preparation_before_compatibility
+13/52 Test  #56: physx_native_gpu_preparation_before_compatibility ..........   Passed    0.41 sec
+      Start  57: physx_native_gpu_kinematic_inputs
+14/52 Test  #57: physx_native_gpu_kinematic_inputs ..........................   Passed    5.25 sec
+      Start  58: physx_native_gpu_accepted_properties
+15/52 Test  #58: physx_native_gpu_accepted_properties .......................   Passed    0.41 sec
+      Start  59: physx_native_gpu_accepted_properties_pgs
+16/52 Test  #59: physx_native_gpu_accepted_properties_pgs ...................   Passed    0.42 sec
+      Start  60: physx_native_gpu_state_initcheck_accepted-properties
+17/52 Test  #60: physx_native_gpu_state_initcheck_accepted-properties .......   Passed    1.22 sec
+      Start  61: physx_native_gpu_state_initcheck_accepted-properties-pgs
+18/52 Test  #61: physx_native_gpu_state_initcheck_accepted-properties-pgs ...   Passed    1.18 sec
+      Start  62: physx_native_gpu_solver_metadata
+19/52 Test  #62: physx_native_gpu_solver_metadata ...........................   Passed    1.61 sec
+      Start  63: physx_native_gpu_pre_solve_islands
+20/52 Test  #63: physx_native_gpu_pre_solve_islands .........................   Passed    1.22 sec
+      Start  64: physx_native_gpu_pre_solve_contacts
+21/52 Test  #64: physx_native_gpu_pre_solve_contacts ........................   Passed    1.22 sec
+      Start  65: physx_native_gpu_pre_solve_support
+22/52 Test  #65: physx_native_gpu_pre_solve_support .........................   Passed    1.24 sec
+      Start  66: physx_native_gpu_connectivity_owner
+23/52 Test  #66: physx_native_gpu_connectivity_owner ........................   Passed    1.25 sec
+      Start  67: physx_native_gpu_kinematic_support
+24/52 Test  #67: physx_native_gpu_kinematic_support .........................   Passed    0.71 sec
+      Start  68: physx_native_gpu_rigid_checkpoint
+25/52 Test  #68: physx_native_gpu_rigid_checkpoint ..........................   Passed    2.67 sec
+      Start  69: physx_native_gpu_correction_bodies
+26/52 Test  #69: physx_native_gpu_correction_bodies .........................   Passed    4.40 sec
+      Start  70: physx_native_demo_projectile_launch
+27/52 Test  #70: physx_native_demo_projectile_launch ........................   Passed    0.00 sec
+      Start  71: physx_native_gpu_visual_consumer
+28/52 Test  #71: physx_native_gpu_visual_consumer ...........................   Passed    0.17 sec
+      Start  72: physx_native_cupti_long_capture
+29/52 Test  #72: physx_native_cupti_long_capture ............................   Passed    7.16 sec
+      Start  73: physx_native_cupti_overflow_rejected
+30/52 Test  #73: physx_native_cupti_overflow_rejected .......................   Passed    3.05 sec
+      Start  74: physx_native_destruction_timing_accounting
+31/52 Test  #74: physx_native_destruction_timing_accounting .................   Passed    0.17 sec
+      Start  75: physx_native_gpu_connectivity_fracture
+32/52 Test  #75: physx_native_gpu_connectivity_fracture .....................   Passed    1.53 sec
+      Start  76: physx_native_profile_accounting
+33/52 Test  #76: physx_native_profile_accounting ............................   Passed    0.04 sec
+      Start  77: physx_native_gpu_consumer
+34/52 Test  #77: physx_native_gpu_consumer ..................................   Passed    2.77 sec
+      Start  78: physx_native_gpu_renderer
+35/52 Test  #78: physx_native_gpu_renderer ..................................   Passed    3.12 sec
+      Start  79: physx_native_gpu_retained_contact_graph
+36/52 Test  #79: physx_native_gpu_retained_contact_graph ....................   Passed    1.23 sec
+      Start  80: physx_native_gpu_bombardment_contacts
+37/52 Test  #80: physx_native_gpu_bombardment_contacts ......................   Passed   13.32 sec
+      Start  81: physx_native_gpu_resimulation
+38/52 Test  #81: physx_native_gpu_resimulation ..............................   Passed    7.63 sec
+      Start  82: physx_native_standard_reported_reuse
+39/52 Test  #82: physx_native_standard_reported_reuse .......................   Passed    1.93 sec
+      Start  83: physx_native_standard_reuse
+40/52 Test  #83: physx_native_standard_reuse ................................   Passed    0.83 sec
+      Start  84: physx_native_post_correction
+41/52 Test  #84: physx_native_post_correction ...............................   Passed    0.75 sec
+      Start  85: physx_native_standard_awake
+42/52 Test  #85: physx_native_standard_awake ................................   Passed    0.44 sec
+      Start  86: physx_native_standard_sleep
+43/52 Test  #86: physx_native_standard_sleep ................................   Passed    0.80 sec
+      Start  87: physx_native_compound_sleep
+44/52 Test  #87: physx_native_compound_sleep ................................   Passed    0.44 sec
+      Start  88: physx_native_standard_sleep_boundary
+45/52 Test  #88: physx_native_standard_sleep_boundary .......................   Passed    1.53 sec
+      Start  89: physx_native_standard_gpu_islands
+46/52 Test  #89: physx_native_standard_gpu_islands ..........................   Passed    0.96 sec
+      Start  90: physx_native_standard_wake_boundary
+47/52 Test  #90: physx_native_standard_wake_boundary ........................   Passed    0.85 sec
+      Start  91: physx_native_standard_late_impact
+48/52 Test  #91: physx_native_standard_late_impact ..........................   Passed    0.86 sec
+      Start  92: physx_native_gpu_group_filtering
+49/52 Test  #92: physx_native_gpu_group_filtering ...........................   Passed    1.75 sec
+      Start  93: physx_native_gpu_publication
+50/52 Test  #93: physx_native_gpu_publication ...............................   Passed    2.11 sec
+      Start  94: physx_native_gpu_shape_publication
+51/52 Test  #94: physx_native_gpu_shape_publication .........................   Passed    0.15 sec
+      Start 153: destruction_gpu_motion_slots
+52/52 Test #153: destruction_gpu_motion_slots ...............................   Passed    0.25 sec
+
+100% tests passed, 0 tests failed out of 52
+
+Label Time Summary:
+gpu            =  25.10 sec*proc (13 tests)
+integration    =  25.10 sec*proc (13 tests)
+sanitizer      =   2.39 sec*proc (2 tests)
+
+Total Test time (real) =  90.04 sec

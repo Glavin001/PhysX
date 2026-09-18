@@ -1,0 +1,25 @@
+{
+  "status": "native-body-input-parity-passed-memory-qualification-open",
+  "build_exit_code": 0,
+  "focused_tests": {
+    "exit_code": 0,
+    "passed": 35,
+    "failed": 0
+  },
+  "native_contact_memcheck": {
+    "exit_code": 99,
+    "reported_errors": 330,
+    "first_error": "CUDA illegal address 700 reported at Runtime::finish event synchronization",
+    "cause": "unresolved; no native kernel attribution"
+  },
+  "sha256": {
+    "physx/source/gpudestruction/include/PxgDestructionRuntime.h": "59d1bf5173b3387a01ac044e1de1e83d8cbbdd175c1efd969f6ec721cdc33113",
+    "physx/source/gpudestruction/src/PxgDestructionRuntime.cu": "97baf7116b0ebff0b213d1161c8b1e5d653711e3078333f4fea277ecdfb0bac5",
+    "physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp": "3f8f47071774bd3883022995f666cbc38c919d8fa668701ab6ffe428b2aa2438",
+    "physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so": "51b0d9f0c64556296b2113ffcf5e6ea2730d66c2658ae159aef59d59cff092da",
+    "physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so": "39a36718db2b654aaffd6a90c2c4aa3f1d43760ed59bb07500e3a8c4b572655c",
+    "out/native-body-pool-input-build2.log": "09b8da0a90addbb9e3f971d320d4b184b927b8914ab9089a3cd90ce43a6957fb",
+    "out/native-body-pool-input-tests.log": "d0b70bb9a2a88bdebec1c64240aef13a2dfbb21fc0a5644217e45fea21b4e521",
+    "out/native-body-pool-input-contact-memcheck.log": "6ca082e99ac70aed202da75ffa1a8b0d8e3423b1b1647c2d36eb2c86486e4e8d"
+  }
+}

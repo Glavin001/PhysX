@@ -1,0 +1,18 @@
+{
+  "status": "pass",
+  "captures": [
+    {
+      "solve": 0,
+      "nodes": 2,
+      "bonds": 1,
+      "inactive_rows": 1
+    },
+    {
+      "solve": 1,
+      "nodes": 2,
+      "bonds": 1,
+      "inactive_rows": 1
+    }
+  ],
+  "unselected_solves_present": true
+}

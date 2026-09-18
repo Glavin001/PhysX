@@ -1,0 +1,174 @@
+{
+  "status": "timing_screen_not_qualified",
+  "physical_status": "all seven comparisons passed; 16 native and three normal asynchronous memory checks pass per arm",
+  "original_report": "/root/workspace/physx-2/out/n20-requalification-20260912/matched-light/report.json",
+  "original_report_sha256": "f576005a0f217f3f74d49590a9e1dd83450cb6f6781253f2d966e86b7a18c146",
+  "preserved_runner": "/root/workspace/physx-2/out/n20-requalification-20260912/run-matched-before-balanced-cohorts.py",
+  "preserved_runner_sha256": "f4cba7d261d1bf5d4599fa40a5bf92d2971f69d4e7d2855b021702cb30725c1e",
+  "reason": "A-before and A-after were each half as long as B, doubling first-use-tick weight in pooled controls. First-use ticks are visibly slower. No startup correction is subtracted and no ticks are discarded.",
+  "remedy": "Equal per-process lengths A/B/A. Original seven light inputs/counts:40 ticks each process cohort,120 total. Rerun in matched-light-balanced. Controls now have80 samples total and candidate40.",
+  "historical_scope": "Earlier10/20/10 restored comparisons have the same weighting limitation; their physical evidence survives but small timing differences are not unbiased speedup evidence. Existing600/600/600 continuous comparisons and retained N13 gains are a different equal-length protocol.",
+  "scenarios": [
+    {
+      "scenario": "bridge64-cold",
+      "cohorts": {
+        "A0": {
+          "samples": 4,
+          "first_ms": 10.754135,
+          "later_mean_ms": 8.904893666666666
+        },
+        "B": {
+          "samples": 8,
+          "first_ms": 11.466668,
+          "later_mean_ms": 8.726360571428572
+        },
+        "A1": {
+          "samples": 4,
+          "first_ms": 11.223037,
+          "later_mean_ms": 8.876638333333334
+        }
+      },
+      "control_first_use_fraction": 0.25,
+      "candidate_first_use_fraction": 0.125,
+      "reported_saved_ms": 0.3463219999999989
+    },
+    {
+      "scenario": "chain256-cold",
+      "cohorts": {
+        "A0": {
+          "samples": 4,
+          "first_ms": 9.458285,
+          "later_mean_ms": 7.224865666666667
+        },
+        "B": {
+          "samples": 8,
+          "first_ms": 9.254103,
+          "later_mean_ms": 7.015878142857143
+        },
+        "A1": {
+          "samples": 4,
+          "first_ms": 9.580359,
+          "later_mean_ms": 7.5273390000000004
+        }
+      },
+      "control_first_use_fraction": 0.25,
+      "candidate_first_use_fraction": 0.125,
+      "reported_saved_ms": 0.6162509999999992
+    },
+    {
+      "scenario": "dense12-cold",
+      "cohorts": {
+        "A0": {
+          "samples": 3,
+          "first_ms": 33.394608,
+          "later_mean_ms": 31.0908725
+        },
+        "B": {
+          "samples": 6,
+          "first_ms": 33.555697,
+          "later_mean_ms": 31.195284000000004
+        },
+        "A1": {
+          "samples": 3,
+          "first_ms": 33.624468,
+          "later_mean_ms": 31.252470000000002
+        }
+      },
+      "control_first_use_fraction": 0.3333333333333333,
+      "candidate_first_use_fraction": 0.16666666666666666,
+      "reported_saved_ms": 0.36227400000000287
+    },
+    {
+      "scenario": "destruction-stimulus",
+      "cohorts": {
+        "A0": {
+          "samples": 4,
+          "first_ms": 7.814741,
+          "later_mean_ms": 4.218941666666667
+        },
+        "B": {
+          "samples": 8,
+          "first_ms": 7.203813,
+          "later_mean_ms": 4.0807587142857145
+        },
+        "A1": {
+          "samples": 4,
+          "first_ms": 7.541577,
+          "later_mean_ms": 4.085496
+        }
+      },
+      "control_first_use_fraction": 0.25,
+      "candidate_first_use_fraction": 0.125,
+      "reported_saved_ms": 0.5625633750000008
+    },
+    {
+      "scenario": "city25-initial-impact",
+      "cohorts": {
+        "A0": {
+          "samples": 2,
+          "first_ms": 44.200525,
+          "later_mean_ms": 39.141375
+        },
+        "B": {
+          "samples": 4,
+          "first_ms": 46.421693,
+          "later_mean_ms": 39.652225666666666
+        },
+        "A1": {
+          "samples": 2,
+          "first_ms": 49.096053,
+          "later_mean_ms": 42.751719
+        }
+      },
+      "control_first_use_fraction": 0.5,
+      "candidate_first_use_fraction": 0.25,
+      "reported_saved_ms": 2.452825500000003
+    },
+    {
+      "scenario": "city256-intact-idle",
+      "cohorts": {
+        "A0": {
+          "samples": 2,
+          "first_ms": 73.168088,
+          "later_mean_ms": 59.427344
+        },
+        "B": {
+          "samples": 4,
+          "first_ms": 84.378438,
+          "later_mean_ms": 74.79987633333333
+        },
+        "A1": {
+          "samples": 2,
+          "first_ms": 72.9915,
+          "later_mean_ms": 79.201829
+        }
+      },
+      "control_first_use_fraction": 0.5,
+      "candidate_first_use_fraction": 0.25,
+      "reported_saved_ms": -5.9973265
+    },
+    {
+      "scenario": "city256-late-debris",
+      "cohorts": {
+        "A0": {
+          "samples": 2,
+          "first_ms": 507.059798,
+          "later_mean_ms": 418.25174
+        },
+        "B": {
+          "samples": 4,
+          "first_ms": 448.872472,
+          "later_mean_ms": 379.7325446666667
+        },
+        "A1": {
+          "samples": 2,
+          "first_ms": 496.490451,
+          "later_mean_ms": 415.753739
+        }
+      },
+      "control_first_use_fraction": 0.5,
+      "candidate_first_use_fraction": 0.25,
+      "reported_saved_ms": 62.37140549999998
+    }
+  ]
+}

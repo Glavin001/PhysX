@@ -35,6 +35,7 @@
 KERNEL_DEF(MERGE_AABBMGR_HANDLES, "mergeChangedAABBMgrHandlesLaunch")
 KERNEL_DEF(UPDATE_BODY_EXTERNAL_VELOCITIES, "updateBodyExternalVelocitiesLaunch")
 KERNEL_DEF(UPDATE_SHAPES, "updateShapesLaunch")
+KERNEL_DEF(REFRESH_REBOUND_SHAPE_BOUNDS, "refreshReboundShapeBounds")
 KERNEL_DEF(UPDATE_BODIES, "updateBodiesLaunch")
 KERNEL_DEF(UPDATE_BODIES_DIRECT_API, "updateBodiesLaunchDirectAPI")
 KERNEL_DEF(NEW_ARTICULATIONS, "newArticulationsLaunch")
@@ -44,6 +45,7 @@ KERNEL_DEF(UPDATE_TRANSFORMCACHE_AND_BOUNDARRAY, "updateTransformCacheAndBoundAr
 KERNEL_DEF(MERGE_TRANSFORMCACHE_AND_BOUNDARRAY_CHANGES, "mergeTransformCacheAndBoundArrayChanges")
 KERNEL_DEF(UPDATE_AABBMGR_HANDLES, "updateChangedAABBMgrHandlesLaunch")
 KERNEL_DEF(COMPUTE_FROZEN_UNFROZEN_HISTOGRAM, "computeFrozenAndUnfrozenHistogramLaunch")
+KERNEL_DEF(COMPACT_TOUCHED_CACHE_AND_BOUNDS, "compactTouchedCacheAndBoundsLaunch")
 KERNEL_DEF(OUTPUT_FROZEN_UNFROZEN_HISTOGRAM, "outputFrozenAndUnfrozenHistogram")
 KERNEL_DEF(CREATE_FROZEN_UNFROZEN_ARRAY, "createFrozenAndUnfrozenArray")
 
@@ -79,6 +81,11 @@ KERNEL_DEF(BP_GENERATE_FOUNDPAIR_NEWBOUNDS, "generateFoundPairsForNewBoundsRegio
 KERNEL_DEF(BP_WRITEOUT_OVERLAPCHECKS_HISTOGRAM_NEWBOUNDS, "writeOutOverlapChecksForInsertedBoundsRegionsHistogram")
 KERNEL_DEF(BP_ACCUMULATE_REPORT_STAGE_1, "accumulateReportsStage_1")
 KERNEL_DEF(BP_ACCUMULATE_REPORT_STAGE_2, "accumulateReportsStage_2")
+KERNEL_DEF(BP_NATIVE_PAIR_TILES, "nativePairSortTiles")
+KERNEL_DEF(BP_NATIVE_PAIR_MERGE, "nativePairMerge")
+KERNEL_DEF(BP_NATIVE_PAIR_COUNTS, "nativePairUniqueCounts")
+KERNEL_DEF(BP_NATIVE_PAIR_PREFIX, "nativePairUniquePrefix")
+KERNEL_DEF(BP_NATIVE_PAIR_SCATTER, "nativePairUniqueScatter")
 KERNEL_DEF(BP_COPY_REPORTS, "copyReports")
 
 ///////////////////////////////////////////////
@@ -604,3 +611,14 @@ KERNEL_DEF(sdf_ApplyHoleCorrections, "sdfApplyHoleCorrections")
 KERNEL_DEF(sdf_CalculateDenseGridPointCloud, "sdfCalculateDenseGridPointCloud")
 
 #endif
+
+KERNEL_DEF(NATIVE_SLEEP_GATHER_POSES, "gatherNativeSleepPoses")
+KERNEL_DEF(NATIVE_SLEEP_ZERO_MOTION, "zeroNativeSleepMotion")
+KERNEL_DEF(NATIVE_SLEEP_GATHER_POSES_DEVICE, "gatherNativeSleepPosesDevice")
+KERNEL_DEF(NATIVE_SLEEP_ZERO_MOTION_DEVICE, "zeroNativeSleepMotionDevice")
+KERNEL_DEF(RIGID_DYNAMIC_SET_GLOBAL_POSE_DEVICE, "setRigidDynamicGlobalPoseDevice")
+KERNEL_DEF(MARK_DORMANT_SOLVER_BODIES, "markDormantSolverBodies")
+KERNEL_DEF(MARK_DORMANT_NODE_BITS, "markDormantNodeBits")
+KERNEL_DEF(RESET_MANIFOLDS_SCOPED, "resetManifoldsScoped")
+KERNEL_DEF(MARK_DORMANT_PAIR_SLOTS, "markDormantPairSlots")
+KERNEL_DEF(ZERO_UNMARKED_FRICTION_COUNTS, "zeroUnmarkedFrictionCounts")

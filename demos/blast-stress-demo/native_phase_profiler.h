@@ -1,0 +1,92 @@
+// Optional host-wall phase capture; never synchronizes a CUDA stream.
+#pragma once
+#include "native_gpu_activity.h"
+#include <foundation/PxFoundation.h>
+#include <foundation/PxProfiler.h>
+#include <atomic>
+#include <chrono>
+#include <cstring>
+#include <fstream>
+#include <iomanip>
+#include <mutex>
+#include <new>
+#include <stdexcept>
+#include <string>
+#include <vector>
+namespace blast_demo {
+class NativePhaseProfiler final : public physx::PxProfilerCallback {
+    using Clock=std::chrono::steady_clock;
+    struct Token {Clock::time_point start;const char* name;uint64_t context;unsigned step;bool detached,wallOnly;uint64_t stamp,cpu;uint32_t tid;};
+    struct Row {std::string name;uint64_t context;unsigned step;bool detached;double ms;uint64_t start,end;uint32_t tid,endTid;double cpu;};
+    struct DeviceRow {std::string name;uint64_t context;unsigned step;float ms;};
+    std::ofstream mFile,mDeviceFile;
+    std::vector<DeviceRow> mDeviceRows;
+    std::atomic<unsigned> mStep{~0u};
+    std::atomic<bool> mFailed{false};
+    std::mutex mMutex;
+    std::vector<Row> mRows;
+    bool mEnabled=false;
+    static uint32_t threadId() {
+        // An OS thread's ID is constant for its lifetime. Deep per-shape scopes
+        // must not issue two gettid syscalls for every tiny operation.
+        thread_local const uint32_t id=nativeThreadId();
+        return id;
+    }
+public:
+    // Declare before the scene/context: the callback must outlive tasks and
+    // incomplete-correction teardown. Registration itself needs no foundation.
+    explicit NativePhaseProfiler(const std::string& path) {
+        if(path.empty())return;
+        if(PxGetProfilerCallback())throw std::runtime_error("phase capture requires an unused profiler callback");
+        mFile.open(path);if(!mFile)throw std::runtime_error("cannot open phase capture");
+        mFile<<"step,phase,context,detached,host_wall_ms,accepted_step,start_ns,end_ns,thread,end_thread,thread_cpu_ms\n"<<std::setprecision(10);
+        mDeviceFile.open(path+".device.csv");
+        if(!mDeviceFile)throw std::runtime_error("cannot open CUDA stage capture");
+        mDeviceFile<<"step,phase,context,cuda_elapsed_ms,accepted_step\n"<<std::setprecision(10);
+        mRows.reserve(32);mEnabled=true;PxSetProfilerCallback(this);
+    }
+    ~NativePhaseProfiler() override {
+        if(mEnabled){PxSetProfilerCallback(nullptr);writeRows(false);}
+    }
+    void begin(unsigned step){mStep=step;}
+    void* zoneStart(const char* name,bool detached,uint64_t context) override {
+        if(std::strncmp(name,"GpuDestruction.",15)!=0 || mStep==~0u)return nullptr;
+        // Leaves need wall intervals; their parent retains the CPU clock,
+        // including collection cost. -1 means leaf CPU time is not measured.
+        // Never subtract estimated instrumentation overhead.
+        const bool wallOnly=!detached && std::strncmp(name,"GpuDestruction.migrateDetail.",28)==0;
+        auto* token=new(std::nothrow) Token{wallOnly?Clock::time_point{}:Clock::now(),name,context,mStep.load(),detached,wallOnly,nativeProfileTimestamp(),wallOnly?0:nativeThreadCpuNs(),threadId()};
+        if(!token)mFailed=true;
+        return token;
+    }
+    void zoneEnd(void* data,const char* name,bool detached,uint64_t context) override {
+        if(!data)return;
+        auto* token=static_cast<Token*>(data);
+        const auto end=nativeProfileTimestamp(),cpu=token->wallOnly?0:nativeThreadCpuNs();const auto tid=threadId();
+        const double elapsed=token->wallOnly?double(end-token->stamp)/1e6:std::chrono::duration<double,std::milli>(Clock::now()-token->start).count();
+        if(end<token->stamp)mFailed=true;
+        if(token->name!=name || token->context!=context || token->detached!=detached)mFailed=true;
+        try {std::lock_guard<std::mutex> lock(mMutex);mRows.push_back({token->name,context,token->step,detached,elapsed,token->stamp,end,token->tid,tid,!token->wallOnly && tid==token->tid?double(cpu-token->cpu)/1e6:-1.0});}
+        catch(...){mFailed=true;}
+        delete token;
+    }
+    void recordData(float value,const char* name,uint64_t context) override {
+        if(std::strncmp(name,"GpuDestruction.cuda.",20)!=0 || mStep==~0u)return;
+        try {std::lock_guard<std::mutex> lock(mMutex);mDeviceRows.push_back({name,context,mStep.load(),value});}
+        catch(...){mFailed=true;}
+    }
+    void acceptedFrame() {
+        if(!mEnabled)return;
+        writeRows(true);
+        if(mFailed || !mFile || !mDeviceFile)throw std::runtime_error("native phase capture incomplete");
+    }
+private:
+    void writeRows(bool accepted) {
+        std::lock_guard<std::mutex> lock(mMutex);
+        for(const auto& row:mRows)mFile<<row.step<<','<<std::quoted(row.name)<<','<<row.context<<','<<row.detached<<','<<row.ms<<','<<accepted<<','<<row.start<<','<<row.end<<','<<row.tid<<','<<row.endTid<<','<<row.cpu<<'\n';
+        mRows.clear();mFile.flush();
+        for(const auto& row:mDeviceRows)mDeviceFile<<row.step<<','<<std::quoted(row.name)<<','<<row.context<<','<<row.ms<<','<<accepted<<'\n';
+        mDeviceRows.clear();mDeviceFile.flush();
+    }
+};
+}

@@ -1,0 +1,41 @@
+{
+  "reason": "Versioned/unversioned Runtime API wrapper rows share a GPU correlation ID. Coalesce only after identical GPU nodes, same thread and overlapping API intervals; archive both wrappers.",
+  "script_sha256": "4924e60d4d90c1e449af5fbba2420073f0a4c8c56bb9788aa7a8706282894552",
+  "checks": [
+    {
+      "scenario": "bridge64-cold",
+      "graphs": 6,
+      "api_wrappers": 12
+    },
+    {
+      "scenario": "chain256-cold",
+      "graphs": 6,
+      "api_wrappers": 12
+    },
+    {
+      "scenario": "dense12-cold",
+      "graphs": 6,
+      "api_wrappers": 12
+    },
+    {
+      "scenario": "destruction-stimulus",
+      "graphs": 6,
+      "api_wrappers": 12
+    },
+    {
+      "scenario": "city25-initial-impact",
+      "graphs": 18,
+      "api_wrappers": 36
+    },
+    {
+      "scenario": "city256-intact-idle",
+      "graphs": 6,
+      "api_wrappers": 12
+    },
+    {
+      "scenario": "city256-late-debris",
+      "graphs": 18,
+      "api_wrappers": 36
+    }
+  ]
+}

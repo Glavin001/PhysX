@@ -1,0 +1,23 @@
+Internal ctest changing into directory: /root/workspace/physx-2/out/destruction-sdk
+Test project /root/workspace/physx-2/out/destruction-sdk
+    Start 68: physx_native_gpu_bombardment_contacts
+1/6 Test #68: physx_native_gpu_bombardment_contacts ...   Passed    8.61 sec
+    Start 69: physx_native_gpu_resimulation
+2/6 Test #69: physx_native_gpu_resimulation ...........   Passed    7.52 sec
+    Start 71: physx_native_gpu_publication
+3/6 Test #71: physx_native_gpu_publication ............   Passed    1.44 sec
+    Start 78: blast_stress_gpu_resident_cpu_parity
+4/6 Test #78: blast_stress_gpu_resident_cpu_parity ....   Passed    0.22 sec
+    Start 79: blast_stress_gpu_resident_analytic
+5/6 Test #79: blast_stress_gpu_resident_analytic ......   Passed    0.35 sec
+    Start 80: blast_stress_gpu_resident_memory
+6/6 Test #80: blast_stress_gpu_resident_memory ........   Passed    1.13 sec
+
+100% tests passed, 0 tests failed out of 6
+
+Label Time Summary:
+gpu            =   9.74 sec*proc (2 tests)
+integration    =   8.61 sec*proc (1 test)
+sanitizer      =   1.13 sec*proc (1 test)
+
+Total Test time (real) =  19.28 sec

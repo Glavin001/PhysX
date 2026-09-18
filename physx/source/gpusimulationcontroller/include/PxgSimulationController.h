@@ -29,6 +29,7 @@
 #ifndef PXG_SIMULATION_CONTROLLER_H
 #define	PXG_SIMULATION_CONTROLLER_H
 
+#include "PxgCudaBuffer.h"
 #include "PxgBodySimManager.h"
 #include "PxgJointManager.h"
 #include "PxgArticulationLink.h"
@@ -46,6 +47,7 @@
 
 namespace physx
 {
+class PxProfilerCallback;
 	//this is needed to force PhysXSimulationControllerGpu linkage as Static Library!
 	void createPxgSimulationController();
 
@@ -56,6 +58,10 @@ namespace physx
 
 	class PxsKernelWranglerManager;
 
+	class PxgDestructionRuntime;
+    struct PxgContactManagerInput;
+    struct PxgContactGraphIdentity;
+    struct PxgContactGraphSequence;
 	class PxgSimulationCore;
 	class PxgParticleSystemCore;
 	class PxgPBDParticleSystemCore;
@@ -330,6 +336,7 @@ namespace physx
 
 		virtual ~PxgSimulationController();
 
+        virtual bool setGpuShapeBoundsRefresh(PxU32 index, bool enabled) PX_OVERRIDE;
 		virtual void addPxgShape(Sc::ShapeSimBase* shapeSimBase, const PxsShapeCore* shapeCore, PxNodeIndex nodeIndex, PxU32 index)	PX_OVERRIDE;
 		virtual void setPxgShapeBodyNodeIndex(PxNodeIndex nodeIndex, PxU32 index)	PX_OVERRIDE;
 		virtual void removePxgShape(PxU32 index)	PX_OVERRIDE;
@@ -480,6 +487,12 @@ namespace physx
 
 		// new direct-GPU API
 		virtual bool	getRigidDynamicData(void* data, const PxRigidDynamicGPUIndex* gpuIndices, PxRigidDynamicGPUAPIReadType::Enum dataType, PxU32 nbElements, CUevent startEvent, CUevent finishEvent) const PX_OVERRIDE PX_FINAL;
+        virtual void removeDynamic(const PxNodeIndex& nodeIndex) PX_OVERRIDE;
+        bool finalizeSleepingRigidBodies(const PxU32* indices, PxU32 count, bool rollbackPose) PX_OVERRIDE PX_FINAL;
+    bool exportNativeSnapshot(const PxU32*,PxU32,void*,PxU32) const PX_OVERRIDE PX_FINAL;
+        bool importNativeSnapshot(const PxU32*,PxU32,const void*,PxU32) PX_OVERRIDE PX_FINAL;
+        bool publishHostRigidPoses(const PxU32* indices, const PxTransform* poses, PxU32 count) PX_OVERRIDE PX_FINAL;
+        bool reserveNativeTransitionBuffers(PxU32 count);
 		virtual bool 	setRigidDynamicData(const void* data, const PxRigidDynamicGPUIndex* gpuIndices, PxRigidDynamicGPUAPIWriteType::Enum dataType, PxU32 nbElements, CUevent startEvent, CUevent finishEvent) PX_OVERRIDE PX_FINAL;
 		
 		virtual bool 	getArticulationData(void* data, const PxArticulationGPUIndex* gpuIndices, PxArticulationGPUAPIReadType::Enum dataType, PxU32 nbElements, CUevent startEvent, CUevent finishEvent) const PX_OVERRIDE PX_FINAL;
@@ -487,6 +500,66 @@ namespace physx
 		virtual	bool	computeArticulationData(void* data, const PxArticulationGPUIndex* gpuIndices, PxArticulationGPUAPIComputeType::Enum operation, PxU32 nbElements, CUevent startEvent, CUevent finishEvent) PX_OVERRIDE PX_FINAL;
 
 		virtual bool 	evaluateSDFDistances(PxVec4* localGradientAndSDFConcatenated, const PxShapeGPUIndex* shapeIndices, const PxVec4* localSamplePointsConcatenated, const PxU32* samplePointCountPerShape, PxU32 nbElements, PxU32 maxPointCount, CUevent startEvent, CUevent finishEvent) PX_OVERRIDE PX_FINAL;
+        virtual bool isRigidBodyRegistered(PxU32 index, const PxsRigidBody* body) const PX_OVERRIDE PX_FINAL {
+            return index < mBodySimManager.mBodies.size() && mBodySimManager.mBodies[index] == body;
+        }
+        virtual PxDestructionScene* getDestructionScene(void* scene, bool (*writeAllowed)(void*), PxvDestructionBodyAllocator* allocator) PX_OVERRIDE PX_FINAL;
+        virtual bool advanceDestruction(PxReal dt, const PxVec3& gravity, bool canCorrect, bool canReuseContactPairs) PX_OVERRIDE PX_FINAL;
+        virtual bool submitDestructionEarly(PxReal dt, const PxVec3& gravity, bool (*commit)(void*), void* user) PX_OVERRIDE PX_FINAL;
+        virtual void noteDestructionSolverIssued(void* solverEvent) PX_OVERRIDE PX_FINAL;
+        virtual void flushDeferredDestructionWork() PX_OVERRIDE PX_FINAL;
+        bool submitDestructionInternal(PxReal dt, const PxVec3& gravity, bool postCorrection, PxU32 streamIndex);
+        void runDestructionEarlySubmit();
+        bool acceptDestructionCorrectionDevice();
+        virtual PxU32 getDestructionError() const PX_OVERRIDE PX_FINAL { return mDestructionError; }
+        virtual bool preservesDestructionContactPairs() const PX_OVERRIDE PX_FINAL;
+        bool usesDeviceDestructionContactInputs() const override;
+        bool usesGpuDestructionIslandRepair() const override;
+        PxU32 destructionReservedContactPairs() const override;
+        PxgDestructionRuntime* getNativeDestructionRuntime() const { return mDestruction; }
+        bool isDestructionCorrecting() const { return mDestructionCorrecting; }
+        const PxU32* destructionParkedNodes(PxU32& count) const override { count=mDestructionParkedNodes.size(); return mDestructionParkedNodes.begin(); }
+        PxArray<PxU32> mDestructionParkedNodes; // island-scoped correction: nodes left at their trial result
+        // Frozen corrected pass (PHYSX_DESTRUCTION_ISLAND_SCOPE=4): candidates
+        // are finalized after the corrected island gen (islands merged by a new
+        // touch with an affected body leave the set), reinstated to their trial
+        // state on the GPU and removed from the solver's active body list for
+        // the pass. The incremental partition is untouched; their constraints
+        // resolve to the static world and skip writeback.
+        PxArray<PxU32> mDestructionAffectedNodes;
+        PxArray<PxNodeIndex> mDestructionSolverNodes;
+        PxArray<PxU32> mDestructionFrozenNodes;
+        PxArray<PxU32> mDestructionFrozenStaticEdges; // static contact edges of the frozen bodies (not batched this pass)
+        bool mDestructionFreezePending = false;
+        bool mDestructionReinstatedAtInstall = true;
+        const PxU32* destructionFrozenStaticEdges(PxU32& count) const { count=mDestructionFrozenStaticEdges.size(); return mDestructionFrozenStaticEdges.begin(); }
+        const PxArray<PxNodeIndex>* destructionFilteredActiveNodes(const IG::IslandSim& islandSim);
+        void noteDestructionSleepFinalized(PxU32 gpuIndex) override { mDestructionFinalizedSince.pushBack(gpuIndex); }
+        void registerDestructionSleepFinalizer(bool (*fn)(void*), void* user) override { mDestructionSleepFinalizer=fn; mDestructionSleepFinalizerUser=user; }
+        bool deviceOwnsSolverReadiness() const override;
+        bool mDestructionVerdictEnqueued=false;
+        bool (*mDestructionSleepFinalizer)(void*)=NULL; void* mDestructionSleepFinalizerUser=NULL;
+        PxArray<PxU32> mDestructionFinalizedSince;PxArray<void*> mDestructionPrevFreshObjects;PxArray<PxU32> mDestructionCarried;
+        void discardDestructionTrialBodyUpload(PxU32 id) override {
+            if(id<mBodySimManager.mBodies.size() && mBodySimManager.mBodies[id]) {
+                mBodySimManager.mUpdatedMap.reset(id);
+            }
+        }
+        PxU64 getDestructionContactGraphGeneration() const;
+        void prepareGpuDestructionIslandRepair(IG::SimpleIslandManager&) override;
+        // Enqueue the device sleep verdict of this pass on the solver stream (after integration).
+        void enqueueDestructionSleepVerdicts();
+        PxArray<PxU8> mDestructionReadinessScratch;
+        bool mDestructionReadinessSeeded[2]={false,false};PxU32 mDestructionReadinessReseeds=0;
+        IG::SimpleIslandManager* mDestructionAuditIslands=NULL;PxArray<PxU8> mDestructionAuditReadyAtPrepare;volatile PxI32 mDestructionTransitionArrivals=0;bool mDestructionTransitionEnqueued=false;PxArray<PxU32> mDestructionSleepAuditCpu;
+        void noteDestructionSleepTransitionArrival();void auditDestructionSleepTransition();
+        bool runDestructionDeviceSleepTransition();bool mDestructionTransitionApplied=false;PxU32 mDestructionSleepAuditNonRollback=0;PxArray<PxU32> mDestructionPrevFresh;PxU32 mNativeSleepLastRollbackCount=0;CUevent mDestructionTransitionStaged=NULL,mDestructionTransitionGathered=NULL,mDestructionTransitionDone=NULL;bool mDestructionInEarlyCommit=false;bool mDestructionPostUpdateRan=false;bool mDestructionInPrepare=false;PxReal mDestructionStepDt=0;PxVec3 mDestructionStepGravity=PxVec3(0.f);CUdeviceptr mDestructionTransitionPoses=0;PxU32 mDestructionTransitionPoseCapacity=0;
+        bool buildDestructionContactInputs(PxgContactManagerInput* inputs, PxU32 count, CUstream stream);
+        bool buildDestructionContactGraph(const PxgContactManagerInput* inputs,const PxgContactGraphIdentity* identities,
+            const PxsContactManagerOutput* outputs,PxU32 count,PxU32 omitted,const PxU32* retired,PxU32 retiredCount,CUstream stream,const PxgContactGraphSequence* sequence);
+        PxU64 getDestructionContactInputCount() const { return mDestructionContactInputCount; }
+        PxU64 getDestructionContactReuseFallbackCount() const { return mDestructionContactReuseFallbackCount; }
+
 		virtual	bool	copyContactData(void* data, PxU32* numContactPairs, const PxU32 maxContactPairs, CUevent startEvent, CUevent copyEvent) PX_OVERRIDE PX_FINAL;
 
 		virtual PxArticulationGPUAPIMaxCounts getArticulationGPUAPIMaxCounts()	const	PX_OVERRIDE PX_FINAL;
@@ -569,6 +642,7 @@ namespace physx
 		virtual void ovdSnapshotRigidDynamicForces(const PxRigidDynamicGPUIndex* gpuIndices, PxU32 nbElements) PX_OVERRIDE;
 		virtual void ovdSnapshotArticulationForces(const PxArticulationGPUIndex* gpuIndices, PxU32 nbElements) PX_OVERRIDE;
 #endif
+
 		virtual bool hasDeformableSurfaces() const PX_OVERRIDE	{ return mFEMClothCore != NULL;  }
 		virtual bool hasDeformableVolumes() const PX_OVERRIDE	{ return mSoftBodyCore != NULL; }
 
@@ -656,6 +730,20 @@ namespace physx
 		Cm::PinnableArray<PxGpuTendonJointCoefficientData>			mTendonJointCoefficientDataPool;
 		Cm::PinnableArray<PxU32>									mTendonTendonJointMapPool; //store each start index of the attachment to the corresponding tendons
 
+        CUdeviceptr mNativeSleepIndices = 0;
+        CUdeviceptr mNativeSleepZeros = 0;
+        CUdeviceptr mNativeSleepPoses = 0;
+        PxU32 mNativeSleepCapacity = 0;
+        CUevent mNativeSleepReady = NULL;
+        // Asynchronous sleep finalization: a ring of pinned index staging and
+        // gather events so no host synchronisation sits on the post-solve path.
+        static const PxU32 sNativeSleepRing = 4;
+        PxU32* mNativeSleepIndicesHost[4] = {NULL, NULL, NULL, NULL};
+        CUdeviceptr mNativeSleepIndicesRing[4] = {0, 0, 0, 0};
+        CUdeviceptr mNativeSleepPosesRing[4] = {0, 0, 0, 0};
+        CUevent mNativeSleepGathered[4] = {NULL, NULL, NULL, NULL};
+        CUevent mNativeSleepPosed[4] = {NULL, NULL, NULL, NULL};
+        PxU32 mNativeSleepSlot = 0;
 		Cm::PinnableArray<PxU32>									mPathToRootPool;
 
 		Cm::PinnableArray<Dy::ArticulationMimicJointCore>			mMimicJointPool;
@@ -724,6 +812,16 @@ namespace physx
 		PxI32													mSharedPathToRootIndex;
 
 		PxgCudaKernelWranglerManager*							mGpuWranglerManager;
+        PxgDestructionRuntime* mDestruction = NULL;
+        bool mNativeShapeAccessInitialized = false;
+        PxU32 mDestructionError = 0;
+        bool mDestructionCorrecting = false;
+        bool mDestructionEarlySubmitted = false, mDestructionEarlyOk = false; // PHYSX_DESTRUCTION_EARLY_SUBMIT
+        PxMutex mDestructionEarlyMutex; bool mDestructionEarlyArmed = false, mDestructionSolverIssued = false;
+        void* mDestructionSolverIssuedEvent = NULL; PxReal mDestructionEarlyDt = 0; PxVec3 mDestructionEarlyGravity;
+        bool (*mDestructionEarlyCommit)(void*) = NULL; void* mDestructionEarlyUser = NULL;
+        PxProfilerCallback* mDestructionCorrectionProfiler = NULL;
+        void* mDestructionCorrectionProfileData = NULL;
 		PxCudaContextManager*									mCudaContextManager;
 		PxgAllocatorDesc										mAllocDesc;
 		PxgCudaBroadPhaseSap*									mBroadPhase;
@@ -747,6 +845,23 @@ namespace physx
 #if PX_SUPPORT_OMNI_PVD
 		PxsSimulationControllerOVDCallbacks*					mOvdCallbacks;
 #endif
+    public:
+        // Dormant corrected pass (mode 6): device list of the nodes remapped to the static solver body this pass.
+        CUdeviceptr destructionDormantNodesDevice(PxU32& count) const { count=mDestructionDormantCount; return mDestructionDormantCount?(mDestructionDormantSlot?mDestructionDormantDevice1.getDevicePtr():mDestructionDormantDevice.getDevicePtr()):0; }
+        PxgTypedCudaBuffer<PxU32> mDestructionDormantDevice;      // slot 0
+        PxgTypedCudaBuffer<PxU32> mDestructionDormantDevice1;     // slot 1 (alternating passes, no host wait)
+        PxU32* mDestructionDormantHost=NULL; PxU32* mDestructionDormantHost1=NULL; PxU32 mDestructionDormantHostCapacity=0; PxU32 mDestructionDormantCount=0; PxU32 mDestructionDormantSlot=0;
+        bool mDestructionDormantReinstated=false;
+        CUevent mDestructionDormantRefreshed=NULL;
+        PxgTypedCudaBuffer<PxU32> mDestructionDormantBits;      // node-indexed bitmap of this pass's candidates
+        PxgTypedCudaBuffer<PxU32> mDestructionSlotMarks;        // friction slots of dormant-dormant pairs
+        PxU32 mDestructionDormantBitWords=0;
+        CUevent mDestructionDormantBitsReady=NULL;
+        bool uploadDormantList(const PxU32* nodes, PxU32 count, CUstream stream, CUdeviceptr& device);
+    private:
+        PxU64 mDestructionContactInputCount = 0;
+        PxU64 mDestructionContactReuseFallbackCount = 0;
+        bool mDestructionPreservePairs = false;
 		friend class PxgCopyToBodySimTask;
 		friend class PxgCopyToArticulationSimTask;
 		friend class PxgUpdateArticulationSimTask;

@@ -1,0 +1,6260 @@
+{
+  "status": "measured_pending_review",
+  "id": "N14",
+  "commit": "8e4d46f6919efde1b668e80fa6040cb57d74724a",
+  "warm": {
+    "status": "complete",
+    "candidate_commit": "8e4d46f6919efde1b668e80fa6040cb57d74724a",
+    "runs": [
+      {
+        "name": "idle-256-A-before-0",
+        "case": "idle-256",
+        "stage": "A-before",
+        "arm": "A",
+        "trial": 0,
+        "status": "complete",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n14-closure-20260912/warm600/idle-256-A-before-0",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/native_destruction_demo",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n14-closure-20260912/build/A",
+          "--native-args-json",
+          "/root/workspace/physx-2/out/n14-closure-20260912/warm600/idle-256-args.json",
+          "--watchdog-seconds",
+          "600"
+        ],
+        "exit_code": 0,
+        "harness_seconds": 5.363783571003296,
+        "mean_ms": 1.5913928016666667,
+        "peak_ms": 14.084878,
+        "peak_step": 0,
+        "initialization_ms": 2336.527422,
+        "initialization_plus_steps_ms": 3291.363103,
+        "misses": {
+          "8ms": 1,
+          "120hz": 1,
+          "60hz": 0
+        },
+        "stages_ms": {
+          "command_ms": 0.0002532433333333333,
+          "physics_step_ms": 1.3735355083333334,
+          "completion_ms": 0.21760405
+        },
+        "frames_sha256": "aa8ed4558fac56af4a5a2cb840aa8955b50a459c0fd2b980dcdd8e49fbc9bc9d",
+        "summary": {
+          "complete_timer_schema": 1,
+          "phase_output_outside_complete_timer": true,
+          "phase_output_timing_schema": 1,
+          "complete_step_ms_max": 14.084878,
+          "complete_step_ms_mean": 1.5913928016666665,
+          "missed_8ms": 1,
+          "initialization_ms": 2336.527422,
+          "frame_strength_scale": 40,
+          "layout": "grid",
+          "shot_path": "aerial",
+          "material_strength_scale": 24,
+          "color_by_cluster": false,
+          "projectile_mass_kg": 18000,
+          "motion_trace_enabled": false,
+          "motion_trace_readback_bytes": 0,
+          "max_cluster_com_error": 0,
+          "gpu_connectivity_owner": false,
+          "workload": "idle",
+          "profile_gpu": false,
+          "free_bodies": 0,
+          "launch_seconds": 0,
+          "physics_ms_min": 1.00434,
+          "physics_ms_mean": 1.3735355083333325,
+          "simulation_realtime_fraction": 12.13413600562117,
+          "gpu_render_submit_and_export_ms_mean": 0,
+          "gpu_render_submit_and_export_ms_max": 0,
+          "stress_stats_readback_bytes": 28800,
+          "topology_stats_readback_bytes": 14400,
+          "gpu_rendered_frames": 0,
+          "gpu_renderer": "",
+          "consumer_pose_readback_bytes": 0,
+          "consumer_query_readback_bytes": 8,
+          "export_pixel_readback_bytes": 0,
+          "backend": "native PhysX GPU task graph + resident CUDA destruction",
+          "status": "completed",
+          "frames": 600,
+          "seconds": 10,
+          "buildings": 256,
+          "chunks": 113664,
+          "bonds": 229376,
+          "peak_clusters": 256,
+          "projectiles": 0,
+          "broken_bonds": 0,
+          "corrections": 0,
+          "spawn_protocol": "gpu-clear-aerial-ballistic-v3",
+          "contact_producer_audits": 0,
+          "heavy_audit_inside_simulation_timer": false,
+          "island_boundary_audit_enabled": false,
+          "motion_audit_enabled": false,
+          "max_motion_position_error": 0,
+          "record_fps": 60,
+          "gpu_island_repair": true,
+          "gpu_pre_solve_islands": true,
+          "gpu_pre_solve_support": true,
+          "gpu_pre_solve_contacts": true,
+          "preserve_contact_pairs": true,
+          "recorded_state": false,
+          "correction_limit": 1,
+          "physics_ms_p50": 1.348501,
+          "physics_ms_p95": 1.571161,
+          "physics_ms_p99": 1.746229,
+          "physics_ms_max": 13.871668,
+          "missed_16_67ms": 0,
+          "stress_included_in_physics_time": true,
+          "isolated_performance_qualification": false,
+          "sleeping": true,
+          "direct_gpu_mode": false,
+          "crushing_material_enabled": false
+        }
+      },
+      {
+        "name": "idle-256-A-before-1",
+        "case": "idle-256",
+        "stage": "A-before",
+        "arm": "A",
+        "trial": 1,
+        "status": "complete",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n14-closure-20260912/warm600/idle-256-A-before-1",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/native_destruction_demo",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n14-closure-20260912/build/A",
+          "--native-args-json",
+          "/root/workspace/physx-2/out/n14-closure-20260912/warm600/idle-256-args.json",
+          "--watchdog-seconds",
+          "600"
+        ],
+        "exit_code": 0,
+        "harness_seconds": 5.238722084999608,
+        "mean_ms": 1.515152865,
+        "peak_ms": 14.084241,
+        "peak_step": 0,
+        "initialization_ms": 2246.577499,
+        "initialization_plus_steps_ms": 3155.669218,
+        "misses": {
+          "8ms": 1,
+          "120hz": 1,
+          "60hz": 0
+        },
+        "stages_ms": {
+          "command_ms": 0.00022148833333333334,
+          "physics_step_ms": 1.3025556583333333,
+          "completion_ms": 0.21237571833333335
+        },
+        "frames_sha256": "c23bbe1b8acb9e45d6b73508191454a0771bd47512cd0b951122681602ed3d0a",
+        "summary": {
+          "complete_timer_schema": 1,
+          "phase_output_outside_complete_timer": true,
+          "phase_output_timing_schema": 1,
+          "complete_step_ms_max": 14.084241,
+          "complete_step_ms_mean": 1.5151528650000003,
+          "missed_8ms": 1,
+          "initialization_ms": 2246.577499,
+          "frame_strength_scale": 40,
+          "layout": "grid",
+          "shot_path": "aerial",
+          "material_strength_scale": 24,
+          "color_by_cluster": false,
+          "projectile_mass_kg": 18000,
+          "motion_trace_enabled": false,
+          "motion_trace_readback_bytes": 0,
+          "max_cluster_com_error": 0,
+          "gpu_connectivity_owner": false,
+          "workload": "idle",
+          "profile_gpu": false,
+          "free_bodies": 0,
+          "launch_seconds": 0,
+          "physics_ms_min": 0.909845,
+          "physics_ms_mean": 1.3025556583333346,
+          "simulation_realtime_fraction": 12.795358539989184,
+          "gpu_render_submit_and_export_ms_mean": 0,
+          "gpu_render_submit_and_export_ms_max": 0,
+          "stress_stats_readback_bytes": 28800,
+          "topology_stats_readback_bytes": 14400,
+          "gpu_rendered_frames": 0,
+          "gpu_renderer": "",
+          "consumer_pose_readback_bytes": 0,
+          "consumer_query_readback_bytes": 8,
+          "export_pixel_readback_bytes": 0,
+          "backend": "native PhysX GPU task graph + resident CUDA destruction",
+          "status": "completed",
+          "frames": 600,
+          "seconds": 10,
+          "buildings": 256,
+          "chunks": 113664,
+          "bonds": 229376,
+          "peak_clusters": 256,
+          "projectiles": 0,
+          "broken_bonds": 0,
+          "corrections": 0,
+          "spawn_protocol": "gpu-clear-aerial-ballistic-v3",
+          "contact_producer_audits": 0,
+          "heavy_audit_inside_simulation_timer": false,
+          "island_boundary_audit_enabled": false,
+          "motion_audit_enabled": false,
+          "max_motion_position_error": 0,
+          "record_fps": 60,
+          "gpu_island_repair": true,
+          "gpu_pre_solve_islands": true,
+          "gpu_pre_solve_support": true,
+          "gpu_pre_solve_contacts": true,
+          "preserve_contact_pairs": true,
+          "recorded_state": false,
+          "correction_limit": 1,
+          "physics_ms_p50": 1.294188,
+          "physics_ms_p95": 1.481882,
+          "physics_ms_p99": 1.575621,
+          "physics_ms_max": 13.864098,
+          "missed_16_67ms": 0,
+          "stress_included_in_physics_time": true,
+          "isolated_performance_qualification": false,
+          "sleeping": true,
+          "direct_gpu_mode": false,
+          "crushing_material_enabled": false
+        }
+      },
+      {
+        "name": "idle-256-B-0",
+        "case": "idle-256",
+        "stage": "B",
+        "arm": "B",
+        "trial": 0,
+        "status": "complete",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n14-closure-20260912/warm600/idle-256-B-0",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/native_destruction_demo",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n14-closure-20260912/build/B",
+          "--native-args-json",
+          "/root/workspace/physx-2/out/n14-closure-20260912/warm600/idle-256-args.json",
+          "--watchdog-seconds",
+          "600"
+        ],
+        "exit_code": 0,
+        "harness_seconds": 5.13327309899978,
+        "mean_ms": 1.43751822,
+        "peak_ms": 12.156865,
+        "peak_step": 0,
+        "initialization_ms": 2187.179748,
+        "initialization_plus_steps_ms": 3049.6906799999997,
+        "misses": {
+          "8ms": 1,
+          "120hz": 1,
+          "60hz": 0
+        },
+        "stages_ms": {
+          "command_ms": 0.000279985,
+          "physics_step_ms": 1.2786523666666667,
+          "completion_ms": 0.15858586833333332
+        },
+        "frames_sha256": "ea51fa89b00920302ae4de0f9dade1943d803cce178fc6ed102ebe97e87b44d5",
+        "summary": {
+          "complete_timer_schema": 1,
+          "phase_output_outside_complete_timer": true,
+          "phase_output_timing_schema": 1,
+          "complete_step_ms_max": 12.156865,
+          "complete_step_ms_mean": 1.4375182199999992,
+          "missed_8ms": 1,
+          "initialization_ms": 2187.179748,
+          "frame_strength_scale": 40,
+          "layout": "grid",
+          "shot_path": "aerial",
+          "material_strength_scale": 24,
+          "color_by_cluster": false,
+          "projectile_mass_kg": 18000,
+          "motion_trace_enabled": false,
+          "motion_trace_readback_bytes": 0,
+          "max_cluster_com_error": 0,
+          "gpu_connectivity_owner": false,
+          "workload": "idle",
+          "profile_gpu": false,
+          "free_bodies": 0,
+          "launch_seconds": 0,
+          "physics_ms_min": 0.919895,
+          "physics_ms_mean": 1.2786523666666672,
+          "simulation_realtime_fraction": 13.03455661691315,
+          "gpu_render_submit_and_export_ms_mean": 0,
+          "gpu_render_submit_and_export_ms_max": 0,
+          "stress_stats_readback_bytes": 28800,
+          "topology_stats_readback_bytes": 14400,
+          "gpu_rendered_frames": 0,
+          "gpu_renderer": "",
+          "consumer_pose_readback_bytes": 0,
+          "consumer_query_readback_bytes": 8,
+          "export_pixel_readback_bytes": 0,
+          "backend": "native PhysX GPU task graph + resident CUDA destruction",
+          "status": "completed",
+          "frames": 600,
+          "seconds": 10,
+          "buildings": 256,
+          "chunks": 113664,
+          "bonds": 229376,
+          "peak_clusters": 256,
+          "projectiles": 0,
+          "broken_bonds": 0,
+          "corrections": 0,
+          "spawn_protocol": "gpu-clear-aerial-ballistic-v3",
+          "contact_producer_audits": 0,
+          "heavy_audit_inside_simulation_timer": false,
+          "island_boundary_audit_enabled": false,
+          "motion_audit_enabled": false,
+          "max_motion_position_error": 0,
+          "record_fps": 60,
+          "gpu_island_repair": true,
+          "gpu_pre_solve_islands": true,
+          "gpu_pre_solve_support": true,
+          "gpu_pre_solve_contacts": true,
+          "preserve_contact_pairs": true,
+          "recorded_state": false,
+          "correction_limit": 1,
+          "physics_ms_p50": 1.264073,
+          "physics_ms_p95": 1.436855,
+          "physics_ms_p99": 1.617372,
+          "physics_ms_max": 11.976368,
+          "missed_16_67ms": 0,
+          "stress_included_in_physics_time": true,
+          "isolated_performance_qualification": false,
+          "sleeping": true,
+          "direct_gpu_mode": false,
+          "crushing_material_enabled": false
+        }
+      },
+      {
+        "name": "idle-256-B-1",
+        "case": "idle-256",
+        "stage": "B",
+        "arm": "B",
+        "trial": 1,
+        "status": "complete",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n14-closure-20260912/warm600/idle-256-B-1",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/native_destruction_demo",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n14-closure-20260912/build/B",
+          "--native-args-json",
+          "/root/workspace/physx-2/out/n14-closure-20260912/warm600/idle-256-args.json",
+          "--watchdog-seconds",
+          "600"
+        ],
+        "exit_code": 0,
+        "harness_seconds": 5.193292291001853,
+        "mean_ms": 1.66127891,
+        "peak_ms": 13.25099,
+        "peak_step": 0,
+        "initialization_ms": 2251.744173,
+        "initialization_plus_steps_ms": 3248.5115190000006,
+        "misses": {
+          "8ms": 1,
+          "120hz": 1,
+          "60hz": 0
+        },
+        "stages_ms": {
+          "command_ms": 0.0002663366666666667,
+          "physics_step_ms": 1.4283358266666666,
+          "completion_ms": 0.23267674666666666
+        },
+        "frames_sha256": "e4f583ad172ab5768cc50514131b4769ac10f87673332162e74045903b20d123",
+        "summary": {
+          "complete_timer_schema": 1,
+          "phase_output_outside_complete_timer": true,
+          "phase_output_timing_schema": 1,
+          "complete_step_ms_max": 13.25099,
+          "complete_step_ms_mean": 1.6612789100000005,
+          "missed_8ms": 1,
+          "initialization_ms": 2251.744173,
+          "frame_strength_scale": 40,
+          "layout": "grid",
+          "shot_path": "aerial",
+          "material_strength_scale": 24,
+          "color_by_cluster": false,
+          "projectile_mass_kg": 18000,
+          "motion_trace_enabled": false,
+          "motion_trace_readback_bytes": 0,
+          "max_cluster_com_error": 0,
+          "gpu_connectivity_owner": false,
+          "workload": "idle",
+          "profile_gpu": false,
+          "free_bodies": 0,
+          "launch_seconds": 0,
+          "physics_ms_min": 1.033467,
+          "physics_ms_mean": 1.4283358266666648,
+          "simulation_realtime_fraction": 11.668591066263453,
+          "gpu_render_submit_and_export_ms_mean": 0,
+          "gpu_render_submit_and_export_ms_max": 0,
+          "stress_stats_readback_bytes": 28800,
+          "topology_stats_readback_bytes": 14400,
+          "gpu_rendered_frames": 0,
+          "gpu_renderer": "",
+          "consumer_pose_readback_bytes": 0,
+          "consumer_query_readback_bytes": 8,
+          "export_pixel_readback_bytes": 0,
+          "backend": "native PhysX GPU task graph + resident CUDA destruction",
+          "status": "completed",
+          "frames": 600,
+          "seconds": 10,
+          "buildings": 256,
+          "chunks": 113664,
+          "bonds": 229376,
+          "peak_clusters": 256,
+          "projectiles": 0,
+          "broken_bonds": 0,
+          "corrections": 0,
+          "spawn_protocol": "gpu-clear-aerial-ballistic-v3",
+          "contact_producer_audits": 0,
+          "heavy_audit_inside_simulation_timer": false,
+          "island_boundary_audit_enabled": false,
+          "motion_audit_enabled": false,
+          "max_motion_position_error": 0,
+          "record_fps": 60,
+          "gpu_island_repair": true,
+          "gpu_pre_solve_islands": true,
+          "gpu_pre_solve_support": true,
+          "gpu_pre_solve_contacts": true,
+          "preserve_contact_pairs": true,
+          "recorded_state": false,
+          "correction_limit": 1,
+          "physics_ms_p50": 1.391502,
+          "physics_ms_p95": 1.66922,
+          "physics_ms_p99": 1.889272,
+          "physics_ms_max": 13.032801,
+          "missed_16_67ms": 0,
+          "stress_included_in_physics_time": true,
+          "isolated_performance_qualification": false,
+          "sleeping": true,
+          "direct_gpu_mode": false,
+          "crushing_material_enabled": false
+        }
+      },
+      {
+        "name": "idle-256-A-after-0",
+        "case": "idle-256",
+        "stage": "A-after",
+        "arm": "A",
+        "trial": 0,
+        "status": "complete",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n14-closure-20260912/warm600/idle-256-A-after-0",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/native_destruction_demo",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n14-closure-20260912/build/A",
+          "--native-args-json",
+          "/root/workspace/physx-2/out/n14-closure-20260912/warm600/idle-256-args.json",
+          "--watchdog-seconds",
+          "600"
+        ],
+        "exit_code": 0,
+        "harness_seconds": 5.162223756000458,
+        "mean_ms": 1.4516709566666666,
+        "peak_ms": 14.801913,
+        "peak_step": 0,
+        "initialization_ms": 2295.555444,
+        "initialization_plus_steps_ms": 3166.558017999999,
+        "misses": {
+          "8ms": 1,
+          "120hz": 1,
+          "60hz": 0
+        },
+        "stages_ms": {
+          "command_ms": 0.000231545,
+          "physics_step_ms": 1.2868121266666666,
+          "completion_ms": 0.164627285
+        },
+        "frames_sha256": "745f3c90cb7cf4c822a091311b41bdc5faf43b53cbdd73b659a84df740c3975d",
+        "summary": {
+          "complete_timer_schema": 1,
+          "phase_output_outside_complete_timer": true,
+          "phase_output_timing_schema": 1,
+          "complete_step_ms_max": 14.801913,
+          "complete_step_ms_mean": 1.4516709566666648,
+          "missed_8ms": 1,
+          "initialization_ms": 2295.555444,
+          "frame_strength_scale": 40,
+          "layout": "grid",
+          "shot_path": "aerial",
+          "material_strength_scale": 24,
+          "color_by_cluster": false,
+          "projectile_mass_kg": 18000,
+          "motion_trace_enabled": false,
+          "motion_trace_readback_bytes": 0,
+          "max_cluster_com_error": 0,
+          "gpu_connectivity_owner": false,
+          "workload": "idle",
+          "profile_gpu": false,
+          "free_bodies": 0,
+          "launch_seconds": 0,
+          "physics_ms_min": 0.959961,
+          "physics_ms_mean": 1.2868121266666668,
+          "simulation_realtime_fraction": 12.951903639453318,
+          "gpu_render_submit_and_export_ms_mean": 0,
+          "gpu_render_submit_and_export_ms_max": 0,
+          "stress_stats_readback_bytes": 28800,
+          "topology_stats_readback_bytes": 14400,
+          "gpu_rendered_frames": 0,
+          "gpu_renderer": "",
+          "consumer_pose_readback_bytes": 0,
+          "consumer_query_readback_bytes": 8,
+          "export_pixel_readback_bytes": 0,
+          "backend": "native PhysX GPU task graph + resident CUDA destruction",
+          "status": "completed",
+          "frames": 600,
+          "seconds": 10,
+          "buildings": 256,
+          "chunks": 113664,
+          "bonds": 229376,
+          "peak_clusters": 256,
+          "projectiles": 0,
+          "broken_bonds": 0,
+          "corrections": 0,
+          "spawn_protocol": "gpu-clear-aerial-ballistic-v3",
+          "contact_producer_audits": 0,
+          "heavy_audit_inside_simulation_timer": false,
+          "island_boundary_audit_enabled": false,
+          "motion_audit_enabled": false,
+          "max_motion_position_error": 0,
+          "record_fps": 60,
+          "gpu_island_repair": true,
+          "gpu_pre_solve_islands": true,
+          "gpu_pre_solve_support": true,
+          "gpu_pre_solve_contacts": true,
+          "preserve_contact_pairs": true,
+          "recorded_state": false,
+          "correction_limit": 1,
+          "physics_ms_p50": 1.240613,
+          "physics_ms_p95": 1.462623,
+          "physics_ms_p99": 2.138017,
+          "physics_ms_max": 14.60886,
+          "missed_16_67ms": 0,
+          "stress_included_in_physics_time": true,
+          "isolated_performance_qualification": false,
+          "sleeping": true,
+          "direct_gpu_mode": false,
+          "crushing_material_enabled": false
+        }
+      },
+      {
+        "name": "idle-256-A-after-1",
+        "case": "idle-256",
+        "stage": "A-after",
+        "arm": "A",
+        "trial": 1,
+        "status": "complete",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n14-closure-20260912/warm600/idle-256-A-after-1",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/native_destruction_demo",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n14-closure-20260912/build/A",
+          "--native-args-json",
+          "/root/workspace/physx-2/out/n14-closure-20260912/warm600/idle-256-args.json",
+          "--watchdog-seconds",
+          "600"
+        ],
+        "exit_code": 0,
+        "harness_seconds": 5.21293063900157,
+        "mean_ms": 1.5145033783333333,
+        "peak_ms": 13.536478,
+        "peak_step": 0,
+        "initialization_ms": 2249.039059,
+        "initialization_plus_steps_ms": 3157.741086000001,
+        "misses": {
+          "8ms": 1,
+          "120hz": 1,
+          "60hz": 0
+        },
+        "stages_ms": {
+          "command_ms": 0.0002599216666666667,
+          "physics_step_ms": 1.2987579766666666,
+          "completion_ms": 0.21548548
+        },
+        "frames_sha256": "1ae24c4f60f2ccacf17fc052a6084fb7c111704453ecda9830adc871a9332e69",
+        "summary": {
+          "complete_timer_schema": 1,
+          "phase_output_outside_complete_timer": true,
+          "phase_output_timing_schema": 1,
+          "complete_step_ms_max": 13.536478,
+          "complete_step_ms_mean": 1.5145033783333341,
+          "missed_8ms": 1,
+          "initialization_ms": 2249.039059,
+          "frame_strength_scale": 40,
+          "layout": "grid",
+          "shot_path": "aerial",
+          "material_strength_scale": 24,
+          "color_by_cluster": false,
+          "projectile_mass_kg": 18000,
+          "motion_trace_enabled": false,
+          "motion_trace_readback_bytes": 0,
+          "max_cluster_com_error": 0,
+          "gpu_connectivity_owner": false,
+          "workload": "idle",
+          "profile_gpu": false,
+          "free_bodies": 0,
+          "launch_seconds": 0,
+          "physics_ms_min": 0.963933,
+          "physics_ms_mean": 1.298757976666667,
+          "simulation_realtime_fraction": 12.832773285013866,
+          "gpu_render_submit_and_export_ms_mean": 0,
+          "gpu_render_submit_and_export_ms_max": 0,
+          "stress_stats_readback_bytes": 28800,
+          "topology_stats_readback_bytes": 14400,
+          "gpu_rendered_frames": 0,
+          "gpu_renderer": "",
+          "consumer_pose_readback_bytes": 0,
+          "consumer_query_readback_bytes": 8,
+          "export_pixel_readback_bytes": 0,
+          "backend": "native PhysX GPU task graph + resident CUDA destruction",
+          "status": "completed",
+          "frames": 600,
+          "seconds": 10,
+          "buildings": 256,
+          "chunks": 113664,
+          "bonds": 229376,
+          "peak_clusters": 256,
+          "projectiles": 0,
+          "broken_bonds": 0,
+          "corrections": 0,
+          "spawn_protocol": "gpu-clear-aerial-ballistic-v3",
+          "contact_producer_audits": 0,
+          "heavy_audit_inside_simulation_timer": false,
+          "island_boundary_audit_enabled": false,
+          "motion_audit_enabled": false,
+          "max_motion_position_error": 0,
+          "record_fps": 60,
+          "gpu_island_repair": true,
+          "gpu_pre_solve_islands": true,
+          "gpu_pre_solve_support": true,
+          "gpu_pre_solve_contacts": true,
+          "preserve_contact_pairs": true,
+          "recorded_state": false,
+          "correction_limit": 1,
+          "physics_ms_p50": 1.272213,
+          "physics_ms_p95": 1.462984,
+          "physics_ms_p99": 1.552259,
+          "physics_ms_max": 13.304267,
+          "missed_16_67ms": 0,
+          "stress_included_in_physics_time": true,
+          "isolated_performance_qualification": false,
+          "sleeping": true,
+          "direct_gpu_mode": false,
+          "crushing_material_enabled": false
+        }
+      },
+      {
+        "name": "impacts-256-A-before-0",
+        "case": "impacts-256",
+        "stage": "A-before",
+        "arm": "A",
+        "trial": 0,
+        "status": "complete",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n14-closure-20260912/warm600/impacts-256-A-before-0",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/native_destruction_demo",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n14-closure-20260912/build/A",
+          "--native-args-json",
+          "/root/workspace/physx-2/out/n14-closure-20260912/warm600/impacts-256-args.json",
+          "--watchdog-seconds",
+          "600"
+        ],
+        "exit_code": 0,
+        "harness_seconds": 35.365020544999425,
+        "mean_ms": 51.61552313,
+        "peak_ms": 187.88026,
+        "peak_step": 82,
+        "initialization_ms": 2215.787486,
+        "initialization_plus_steps_ms": 33185.101364,
+        "misses": {
+          "8ms": 519,
+          "120hz": 519,
+          "60hz": 519
+        },
+        "stages_ms": {
+          "command_ms": 0.05201603666666667,
+          "physics_step_ms": 51.339675416666665,
+          "completion_ms": 0.22383167666666667
+        },
+        "frames_sha256": "7092d4e44684680232e48069bb97d27d8bf2eabbd2c25a47163c142e376052de",
+        "summary": {
+          "complete_timer_schema": 1,
+          "phase_output_outside_complete_timer": true,
+          "phase_output_timing_schema": 1,
+          "complete_step_ms_max": 187.88026,
+          "complete_step_ms_mean": 51.61552313000001,
+          "missed_8ms": 519,
+          "initialization_ms": 2215.787486,
+          "frame_strength_scale": 40,
+          "layout": "grid",
+          "shot_path": "aerial",
+          "material_strength_scale": 24,
+          "color_by_cluster": false,
+          "projectile_mass_kg": 18000,
+          "motion_trace_enabled": false,
+          "motion_trace_readback_bytes": 0,
+          "max_cluster_com_error": 0,
+          "gpu_connectivity_owner": false,
+          "workload": "bombardment",
+          "profile_gpu": false,
+          "free_bodies": 0,
+          "launch_seconds": 0,
+          "physics_ms_min": 3.573266,
+          "physics_ms_mean": 51.339675416666736,
+          "simulation_realtime_fraction": 0.32463521694288033,
+          "gpu_render_submit_and_export_ms_mean": 0,
+          "gpu_render_submit_and_export_ms_max": 0,
+          "stress_stats_readback_bytes": 28800,
+          "topology_stats_readback_bytes": 14400,
+          "gpu_rendered_frames": 0,
+          "gpu_renderer": "",
+          "consumer_pose_readback_bytes": 0,
+          "consumer_query_readback_bytes": 1032,
+          "export_pixel_readback_bytes": 0,
+          "backend": "native PhysX GPU task graph + resident CUDA destruction",
+          "status": "completed",
+          "frames": 600,
+          "seconds": 10,
+          "buildings": 256,
+          "chunks": 113664,
+          "bonds": 229376,
+          "peak_clusters": 14795,
+          "projectiles": 256,
+          "broken_bonds": 62666,
+          "corrections": 235,
+          "spawn_protocol": "gpu-clear-aerial-ballistic-v3",
+          "contact_producer_audits": 0,
+          "heavy_audit_inside_simulation_timer": false,
+          "island_boundary_audit_enabled": false,
+          "motion_audit_enabled": false,
+          "max_motion_position_error": 0,
+          "record_fps": 60,
+          "gpu_island_repair": true,
+          "gpu_pre_solve_islands": true,
+          "gpu_pre_solve_support": true,
+          "gpu_pre_solve_contacts": true,
+          "preserve_contact_pairs": true,
+          "recorded_state": false,
+          "correction_limit": 1,
+          "physics_ms_p50": 28.967956,
+          "physics_ms_p95": 112.740133,
+          "physics_ms_p99": 117.173868,
+          "physics_ms_max": 187.703292,
+          "missed_16_67ms": 519,
+          "stress_included_in_physics_time": true,
+          "isolated_performance_qualification": false,
+          "sleeping": true,
+          "direct_gpu_mode": false,
+          "crushing_material_enabled": false
+        }
+      },
+      {
+        "name": "impacts-256-A-before-1",
+        "case": "impacts-256",
+        "stage": "A-before",
+        "arm": "A",
+        "trial": 1,
+        "status": "complete",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n14-closure-20260912/warm600/impacts-256-A-before-1",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/native_destruction_demo",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n14-closure-20260912/build/A",
+          "--native-args-json",
+          "/root/workspace/physx-2/out/n14-closure-20260912/warm600/impacts-256-args.json",
+          "--watchdog-seconds",
+          "600"
+        ],
+        "exit_code": 0,
+        "harness_seconds": 35.71575971399943,
+        "mean_ms": 51.87057229166667,
+        "peak_ms": 187.56122,
+        "peak_step": 82,
+        "initialization_ms": 2224.266647,
+        "initialization_plus_steps_ms": 33346.61002200001,
+        "misses": {
+          "8ms": 519,
+          "120hz": 519,
+          "60hz": 519
+        },
+        "stages_ms": {
+          "command_ms": 0.055835916666666666,
+          "physics_step_ms": 51.595093375,
+          "completion_ms": 0.2196430000000003
+        },
+        "frames_sha256": "78f02baa953d18e31795f6de19a073888ef55bd8454cd2480bda798e53562766",
+        "summary": {
+          "complete_timer_schema": 1,
+          "phase_output_outside_complete_timer": true,
+          "phase_output_timing_schema": 1,
+          "complete_step_ms_max": 187.56122,
+          "complete_step_ms_mean": 51.87057229166668,
+          "missed_8ms": 519,
+          "initialization_ms": 2224.266647,
+          "frame_strength_scale": 40,
+          "layout": "grid",
+          "shot_path": "aerial",
+          "material_strength_scale": 24,
+          "color_by_cluster": false,
+          "projectile_mass_kg": 18000,
+          "motion_trace_enabled": false,
+          "motion_trace_readback_bytes": 0,
+          "max_cluster_com_error": 0,
+          "gpu_connectivity_owner": false,
+          "workload": "bombardment",
+          "profile_gpu": false,
+          "free_bodies": 0,
+          "launch_seconds": 0,
+          "physics_ms_min": 3.554856,
+          "physics_ms_mean": 51.595093375,
+          "simulation_realtime_fraction": 0.32302813264686076,
+          "gpu_render_submit_and_export_ms_mean": 0,
+          "gpu_render_submit_and_export_ms_max": 0,
+          "stress_stats_readback_bytes": 28800,
+          "topology_stats_readback_bytes": 14400,
+          "gpu_rendered_frames": 0,
+          "gpu_renderer": "",
+          "consumer_pose_readback_bytes": 0,
+          "consumer_query_readback_bytes": 1032,
+          "export_pixel_readback_bytes": 0,
+          "backend": "native PhysX GPU task graph + resident CUDA destruction",
+          "status": "completed",
+          "frames": 600,
+          "seconds": 10,
+          "buildings": 256,
+          "chunks": 113664,
+          "bonds": 229376,
+          "peak_clusters": 14795,
+          "projectiles": 256,
+          "broken_bonds": 62666,
+          "corrections": 235,
+          "spawn_protocol": "gpu-clear-aerial-ballistic-v3",
+          "contact_producer_audits": 0,
+          "heavy_audit_inside_simulation_timer": false,
+          "island_boundary_audit_enabled": false,
+          "motion_audit_enabled": false,
+          "max_motion_position_error": 0,
+          "record_fps": 60,
+          "gpu_island_repair": true,
+          "gpu_pre_solve_islands": true,
+          "gpu_pre_solve_support": true,
+          "gpu_pre_solve_contacts": true,
+          "preserve_contact_pairs": true,
+          "recorded_state": false,
+          "correction_limit": 1,
+          "physics_ms_p50": 27.235514,
+          "physics_ms_p95": 112.14297,
+          "physics_ms_p99": 121.397452,
+          "physics_ms_max": 187.293682,
+          "missed_16_67ms": 519,
+          "stress_included_in_physics_time": true,
+          "isolated_performance_qualification": false,
+          "sleeping": true,
+          "direct_gpu_mode": false,
+          "crushing_material_enabled": false
+        }
+      },
+      {
+        "name": "impacts-256-B-0",
+        "case": "impacts-256",
+        "stage": "B",
+        "arm": "B",
+        "trial": 0,
+        "status": "complete",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n14-closure-20260912/warm600/impacts-256-B-0",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/native_destruction_demo",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n14-closure-20260912/build/B",
+          "--native-args-json",
+          "/root/workspace/physx-2/out/n14-closure-20260912/warm600/impacts-256-args.json",
+          "--watchdog-seconds",
+          "600"
+        ],
+        "exit_code": 0,
+        "harness_seconds": 35.67732629099919,
+        "mean_ms": 51.96952090166667,
+        "peak_ms": 194.167463,
+        "peak_step": 82,
+        "initialization_ms": 2199.198189,
+        "initialization_plus_steps_ms": 33380.91072999999,
+        "misses": {
+          "8ms": 519,
+          "120hz": 519,
+          "60hz": 519
+        },
+        "stages_ms": {
+          "command_ms": 0.051103905,
+          "physics_step_ms": 51.679085515,
+          "completion_ms": 0.23933148166666648
+        },
+        "frames_sha256": "4905a0f6625b84bc916160494bebef13f0889617e83c7ce96941717c4b7cbb98",
+        "summary": {
+          "complete_timer_schema": 1,
+          "phase_output_outside_complete_timer": true,
+          "phase_output_timing_schema": 1,
+          "complete_step_ms_max": 194.167463,
+          "complete_step_ms_mean": 51.96952090166664,
+          "missed_8ms": 519,
+          "initialization_ms": 2199.198189,
+          "frame_strength_scale": 40,
+          "layout": "grid",
+          "shot_path": "aerial",
+          "material_strength_scale": 24,
+          "color_by_cluster": false,
+          "projectile_mass_kg": 18000,
+          "motion_trace_enabled": false,
+          "motion_trace_readback_bytes": 0,
+          "max_cluster_com_error": 0,
+          "gpu_connectivity_owner": false,
+          "workload": "bombardment",
+          "profile_gpu": false,
+          "free_bodies": 0,
+          "launch_seconds": 0,
+          "physics_ms_min": 3.579187,
+          "physics_ms_mean": 51.679085514999954,
+          "simulation_realtime_fraction": 0.322503126759647,
+          "gpu_render_submit_and_export_ms_mean": 0,
+          "gpu_render_submit_and_export_ms_max": 0,
+          "stress_stats_readback_bytes": 28800,
+          "topology_stats_readback_bytes": 14400,
+          "gpu_rendered_frames": 0,
+          "gpu_renderer": "",
+          "consumer_pose_readback_bytes": 0,
+          "consumer_query_readback_bytes": 1032,
+          "export_pixel_readback_bytes": 0,
+          "backend": "native PhysX GPU task graph + resident CUDA destruction",
+          "status": "completed",
+          "frames": 600,
+          "seconds": 10,
+          "buildings": 256,
+          "chunks": 113664,
+          "bonds": 229376,
+          "peak_clusters": 14795,
+          "projectiles": 256,
+          "broken_bonds": 62666,
+          "corrections": 235,
+          "spawn_protocol": "gpu-clear-aerial-ballistic-v3",
+          "contact_producer_audits": 0,
+          "heavy_audit_inside_simulation_timer": false,
+          "island_boundary_audit_enabled": false,
+          "motion_audit_enabled": false,
+          "max_motion_position_error": 0,
+          "record_fps": 60,
+          "gpu_island_repair": true,
+          "gpu_pre_solve_islands": true,
+          "gpu_pre_solve_support": true,
+          "gpu_pre_solve_contacts": true,
+          "preserve_contact_pairs": true,
+          "recorded_state": false,
+          "correction_limit": 1,
+          "physics_ms_p50": 29.619521,
+          "physics_ms_p95": 110.858273,
+          "physics_ms_p99": 119.915237,
+          "physics_ms_max": 193.846264,
+          "missed_16_67ms": 519,
+          "stress_included_in_physics_time": true,
+          "isolated_performance_qualification": false,
+          "sleeping": true,
+          "direct_gpu_mode": false,
+          "crushing_material_enabled": false
+        }
+      },
+      {
+        "name": "impacts-256-B-1",
+        "case": "impacts-256",
+        "stage": "B",
+        "arm": "B",
+        "trial": 1,
+        "status": "complete",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n14-closure-20260912/warm600/impacts-256-B-1",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/native_destruction_demo",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n14-closure-20260912/build/B",
+          "--native-args-json",
+          "/root/workspace/physx-2/out/n14-closure-20260912/warm600/impacts-256-args.json",
+          "--watchdog-seconds",
+          "600"
+        ],
+        "exit_code": 0,
+        "harness_seconds": 35.569750299997395,
+        "mean_ms": 51.83897799166667,
+        "peak_ms": 197.226529,
+        "peak_step": 82,
+        "initialization_ms": 2253.633318,
+        "initialization_plus_steps_ms": 33357.02011299999,
+        "misses": {
+          "8ms": 519,
+          "120hz": 519,
+          "60hz": 519
+        },
+        "stages_ms": {
+          "command_ms": 0.05039920666666667,
+          "physics_step_ms": 51.56024391,
+          "completion_ms": 0.22833487499999983
+        },
+        "frames_sha256": "e7313cb9ff5bec122d33b41b7e39601bf0788c588fd6a44912e7945522080532",
+        "summary": {
+          "complete_timer_schema": 1,
+          "phase_output_outside_complete_timer": true,
+          "phase_output_timing_schema": 1,
+          "complete_step_ms_max": 197.226529,
+          "complete_step_ms_mean": 51.838977991666646,
+          "missed_8ms": 519,
+          "initialization_ms": 2253.633318,
+          "frame_strength_scale": 40,
+          "layout": "grid",
+          "shot_path": "aerial",
+          "material_strength_scale": 24,
+          "color_by_cluster": false,
+          "projectile_mass_kg": 18000,
+          "motion_trace_enabled": false,
+          "motion_trace_readback_bytes": 0,
+          "max_cluster_com_error": 0,
+          "gpu_connectivity_owner": false,
+          "workload": "bombardment",
+          "profile_gpu": false,
+          "free_bodies": 0,
+          "launch_seconds": 0,
+          "physics_ms_min": 3.535552,
+          "physics_ms_mean": 51.56024390999999,
+          "simulation_realtime_fraction": 0.3232464667110352,
+          "gpu_render_submit_and_export_ms_mean": 0,
+          "gpu_render_submit_and_export_ms_max": 0,
+          "stress_stats_readback_bytes": 28800,
+          "topology_stats_readback_bytes": 14400,
+          "gpu_rendered_frames": 0,
+          "gpu_renderer": "",
+          "consumer_pose_readback_bytes": 0,
+          "consumer_query_readback_bytes": 1032,
+          "export_pixel_readback_bytes": 0,
+          "backend": "native PhysX GPU task graph + resident CUDA destruction",
+          "status": "completed",
+          "frames": 600,
+          "seconds": 10,
+          "buildings": 256,
+          "chunks": 113664,
+          "bonds": 229376,
+          "peak_clusters": 14795,
+          "projectiles": 256,
+          "broken_bonds": 62666,
+          "corrections": 235,
+          "spawn_protocol": "gpu-clear-aerial-ballistic-v3",
+          "contact_producer_audits": 0,
+          "heavy_audit_inside_simulation_timer": false,
+          "island_boundary_audit_enabled": false,
+          "motion_audit_enabled": false,
+          "max_motion_position_error": 0,
+          "record_fps": 60,
+          "gpu_island_repair": true,
+          "gpu_pre_solve_islands": true,
+          "gpu_pre_solve_support": true,
+          "gpu_pre_solve_contacts": true,
+          "preserve_contact_pairs": true,
+          "recorded_state": false,
+          "correction_limit": 1,
+          "physics_ms_p50": 29.852808,
+          "physics_ms_p95": 110.6412,
+          "physics_ms_p99": 119.268741,
+          "physics_ms_max": 197.04704,
+          "missed_16_67ms": 519,
+          "stress_included_in_physics_time": true,
+          "isolated_performance_qualification": false,
+          "sleeping": true,
+          "direct_gpu_mode": false,
+          "crushing_material_enabled": false
+        }
+      },
+      {
+        "name": "impacts-256-A-after-0",
+        "case": "impacts-256",
+        "stage": "A-after",
+        "arm": "A",
+        "trial": 0,
+        "status": "complete",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n14-closure-20260912/warm600/impacts-256-A-after-0",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/native_destruction_demo",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n14-closure-20260912/build/A",
+          "--native-args-json",
+          "/root/workspace/physx-2/out/n14-closure-20260912/warm600/impacts-256-args.json",
+          "--watchdog-seconds",
+          "600"
+        ],
+        "exit_code": 0,
+        "harness_seconds": 35.64053171999694,
+        "mean_ms": 52.12257587,
+        "peak_ms": 180.780588,
+        "peak_step": 82,
+        "initialization_ms": 2281.148724,
+        "initialization_plus_steps_ms": 33554.69424599999,
+        "misses": {
+          "8ms": 519,
+          "120hz": 519,
+          "60hz": 519
+        },
+        "stages_ms": {
+          "command_ms": 0.052143415,
+          "physics_step_ms": 51.84552678833333,
+          "completion_ms": 0.2249056666666668
+        },
+        "frames_sha256": "151b4e9aa8f1c0a08bcb6965075eabb704dc5f1eb64c145c8e7dbf4c5ef2cd82",
+        "summary": {
+          "complete_timer_schema": 1,
+          "phase_output_outside_complete_timer": true,
+          "phase_output_timing_schema": 1,
+          "complete_step_ms_max": 180.780588,
+          "complete_step_ms_mean": 52.12257586999999,
+          "missed_8ms": 519,
+          "initialization_ms": 2281.148724,
+          "frame_strength_scale": 40,
+          "layout": "grid",
+          "shot_path": "aerial",
+          "material_strength_scale": 24,
+          "color_by_cluster": false,
+          "projectile_mass_kg": 18000,
+          "motion_trace_enabled": false,
+          "motion_trace_readback_bytes": 0,
+          "max_cluster_com_error": 0,
+          "gpu_connectivity_owner": false,
+          "workload": "bombardment",
+          "profile_gpu": false,
+          "free_bodies": 0,
+          "launch_seconds": 0,
+          "physics_ms_min": 3.578212,
+          "physics_ms_mean": 51.84552678833335,
+          "simulation_realtime_fraction": 0.3214677851516617,
+          "gpu_render_submit_and_export_ms_mean": 0,
+          "gpu_render_submit_and_export_ms_max": 0,
+          "stress_stats_readback_bytes": 28800,
+          "topology_stats_readback_bytes": 14400,
+          "gpu_rendered_frames": 0,
+          "gpu_renderer": "",
+          "consumer_pose_readback_bytes": 0,
+          "consumer_query_readback_bytes": 1032,
+          "export_pixel_readback_bytes": 0,
+          "backend": "native PhysX GPU task graph + resident CUDA destruction",
+          "status": "completed",
+          "frames": 600,
+          "seconds": 10,
+          "buildings": 256,
+          "chunks": 113664,
+          "bonds": 229376,
+          "peak_clusters": 14795,
+          "projectiles": 256,
+          "broken_bonds": 62666,
+          "corrections": 235,
+          "spawn_protocol": "gpu-clear-aerial-ballistic-v3",
+          "contact_producer_audits": 0,
+          "heavy_audit_inside_simulation_timer": false,
+          "island_boundary_audit_enabled": false,
+          "motion_audit_enabled": false,
+          "max_motion_position_error": 0,
+          "record_fps": 60,
+          "gpu_island_repair": true,
+          "gpu_pre_solve_islands": true,
+          "gpu_pre_solve_support": true,
+          "gpu_pre_solve_contacts": true,
+          "preserve_contact_pairs": true,
+          "recorded_state": false,
+          "correction_limit": 1,
+          "physics_ms_p50": 29.486268,
+          "physics_ms_p95": 111.169398,
+          "physics_ms_p99": 120.669811,
+          "physics_ms_max": 180.561328,
+          "missed_16_67ms": 519,
+          "stress_included_in_physics_time": true,
+          "isolated_performance_qualification": false,
+          "sleeping": true,
+          "direct_gpu_mode": false,
+          "crushing_material_enabled": false
+        }
+      },
+      {
+        "name": "impacts-256-A-after-1",
+        "case": "impacts-256",
+        "stage": "A-after",
+        "arm": "A",
+        "trial": 1,
+        "status": "complete",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n14-closure-20260912/warm600/impacts-256-A-after-1",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/native_destruction_demo",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n14-closure-20260912/build/A",
+          "--native-args-json",
+          "/root/workspace/physx-2/out/n14-closure-20260912/warm600/impacts-256-args.json",
+          "--watchdog-seconds",
+          "600"
+        ],
+        "exit_code": 0,
+        "harness_seconds": 35.92167736999909,
+        "mean_ms": 52.467610828333335,
+        "peak_ms": 204.631232,
+        "peak_step": 82,
+        "initialization_ms": 2190.438503,
+        "initialization_plus_steps_ms": 33671.004999999976,
+        "misses": {
+          "8ms": 519,
+          "120hz": 519,
+          "60hz": 519
+        },
+        "stages_ms": {
+          "command_ms": 0.054016640000000005,
+          "physics_step_ms": 52.19249130833333,
+          "completion_ms": 0.22110287999999959
+        },
+        "frames_sha256": "369404777675f448ec59b175a3e7ef0b4e93f46d7cd032d2f7de707b571f6ca0",
+        "summary": {
+          "complete_timer_schema": 1,
+          "phase_output_outside_complete_timer": true,
+          "phase_output_timing_schema": 1,
+          "complete_step_ms_max": 204.631232,
+          "complete_step_ms_mean": 52.4676108283333,
+          "missed_8ms": 519,
+          "initialization_ms": 2190.438503,
+          "frame_strength_scale": 40,
+          "layout": "grid",
+          "shot_path": "aerial",
+          "material_strength_scale": 24,
+          "color_by_cluster": false,
+          "projectile_mass_kg": 18000,
+          "motion_trace_enabled": false,
+          "motion_trace_readback_bytes": 0,
+          "max_cluster_com_error": 0,
+          "gpu_connectivity_owner": false,
+          "workload": "bombardment",
+          "profile_gpu": false,
+          "free_bodies": 0,
+          "launch_seconds": 0,
+          "physics_ms_min": 3.517511,
+          "physics_ms_mean": 52.192491308333345,
+          "simulation_realtime_fraction": 0.3193307360671165,
+          "gpu_render_submit_and_export_ms_mean": 0,
+          "gpu_render_submit_and_export_ms_max": 0,
+          "stress_stats_readback_bytes": 28800,
+          "topology_stats_readback_bytes": 14400,
+          "gpu_rendered_frames": 0,
+          "gpu_renderer": "",
+          "consumer_pose_readback_bytes": 0,
+          "consumer_query_readback_bytes": 1032,
+          "export_pixel_readback_bytes": 0,
+          "backend": "native PhysX GPU task graph + resident CUDA destruction",
+          "status": "completed",
+          "frames": 600,
+          "seconds": 10,
+          "buildings": 256,
+          "chunks": 113664,
+          "bonds": 229376,
+          "peak_clusters": 14795,
+          "projectiles": 256,
+          "broken_bonds": 62666,
+          "corrections": 235,
+          "spawn_protocol": "gpu-clear-aerial-ballistic-v3",
+          "contact_producer_audits": 0,
+          "heavy_audit_inside_simulation_timer": false,
+          "island_boundary_audit_enabled": false,
+          "motion_audit_enabled": false,
+          "max_motion_position_error": 0,
+          "record_fps": 60,
+          "gpu_island_repair": true,
+          "gpu_pre_solve_islands": true,
+          "gpu_pre_solve_support": true,
+          "gpu_pre_solve_contacts": true,
+          "preserve_contact_pairs": true,
+          "recorded_state": false,
+          "correction_limit": 1,
+          "physics_ms_p50": 30.176655,
+          "physics_ms_p95": 110.231046,
+          "physics_ms_p99": 123.719419,
+          "physics_ms_max": 204.390942,
+          "missed_16_67ms": 519,
+          "stress_included_in_physics_time": true,
+          "isolated_performance_qualification": false,
+          "sleeping": true,
+          "direct_gpu_mode": false,
+          "crushing_material_enabled": false
+        }
+      }
+    ],
+    "comparisons": [
+      {
+        "name": "idle-256-A-before-0",
+        "reference": "idle-256-A-before-0",
+        "differences": [],
+        "iteration_differences": []
+      },
+      {
+        "name": "idle-256-A-before-1",
+        "reference": "idle-256-A-before-0",
+        "differences": [],
+        "iteration_differences": []
+      },
+      {
+        "name": "idle-256-B-0",
+        "reference": "idle-256-A-before-0",
+        "differences": [],
+        "iteration_differences": []
+      },
+      {
+        "name": "idle-256-B-1",
+        "reference": "idle-256-A-before-0",
+        "differences": [],
+        "iteration_differences": []
+      },
+      {
+        "name": "idle-256-A-after-0",
+        "reference": "idle-256-A-before-0",
+        "differences": [],
+        "iteration_differences": []
+      },
+      {
+        "name": "idle-256-A-after-1",
+        "reference": "idle-256-A-before-0",
+        "differences": [],
+        "iteration_differences": []
+      },
+      {
+        "name": "impacts-256-A-before-0",
+        "reference": "impacts-256-A-before-0",
+        "differences": [],
+        "iteration_differences": []
+      },
+      {
+        "name": "impacts-256-A-before-1",
+        "reference": "impacts-256-A-before-0",
+        "differences": [],
+        "iteration_differences": []
+      },
+      {
+        "name": "impacts-256-B-0",
+        "reference": "impacts-256-A-before-0",
+        "differences": [],
+        "iteration_differences": [
+          {
+            "step": 88,
+            "control": "380",
+            "observed": "384"
+          },
+          {
+            "step": 89,
+            "control": "396",
+            "observed": "376"
+          },
+          {
+            "step": 111,
+            "control": "556",
+            "observed": "560"
+          },
+          {
+            "step": 113,
+            "control": "540",
+            "observed": "552"
+          },
+          {
+            "step": 114,
+            "control": "516",
+            "observed": "520"
+          },
+          {
+            "step": 115,
+            "control": "544",
+            "observed": "524"
+          },
+          {
+            "step": 116,
+            "control": "496",
+            "observed": "500"
+          },
+          {
+            "step": 117,
+            "control": "492",
+            "observed": "540"
+          },
+          {
+            "step": 120,
+            "control": "544",
+            "observed": "540"
+          },
+          {
+            "step": 121,
+            "control": "492",
+            "observed": "536"
+          },
+          {
+            "step": 122,
+            "control": "500",
+            "observed": "544"
+          },
+          {
+            "step": 123,
+            "control": "508",
+            "observed": "520"
+          },
+          {
+            "step": 124,
+            "control": "556",
+            "observed": "544"
+          },
+          {
+            "step": 125,
+            "control": "532",
+            "observed": "536"
+          },
+          {
+            "step": 136,
+            "control": "684",
+            "observed": "708"
+          },
+          {
+            "step": 137,
+            "control": "704",
+            "observed": "752"
+          },
+          {
+            "step": 138,
+            "control": "784",
+            "observed": "788"
+          },
+          {
+            "step": 139,
+            "control": "728",
+            "observed": "700"
+          },
+          {
+            "step": 141,
+            "control": "736",
+            "observed": "684"
+          },
+          {
+            "step": 142,
+            "control": "680",
+            "observed": "712"
+          },
+          {
+            "step": 143,
+            "control": "704",
+            "observed": "744"
+          },
+          {
+            "step": 144,
+            "control": "756",
+            "observed": "720"
+          },
+          {
+            "step": 146,
+            "control": "716",
+            "observed": "684"
+          },
+          {
+            "step": 149,
+            "control": "700",
+            "observed": "676"
+          },
+          {
+            "step": 150,
+            "control": "668",
+            "observed": "664"
+          },
+          {
+            "step": 152,
+            "control": "672",
+            "observed": "692"
+          },
+          {
+            "step": 153,
+            "control": "692",
+            "observed": "672"
+          },
+          {
+            "step": 154,
+            "control": "680",
+            "observed": "700"
+          },
+          {
+            "step": 156,
+            "control": "696",
+            "observed": "672"
+          },
+          {
+            "step": 157,
+            "control": "684",
+            "observed": "692"
+          },
+          {
+            "step": 159,
+            "control": "696",
+            "observed": "724"
+          },
+          {
+            "step": 173,
+            "control": "584",
+            "observed": "548"
+          },
+          {
+            "step": 174,
+            "control": "556",
+            "observed": "572"
+          },
+          {
+            "step": 187,
+            "control": "560",
+            "observed": "572"
+          },
+          {
+            "step": 218,
+            "control": "628",
+            "observed": "640"
+          },
+          {
+            "step": 219,
+            "control": "632",
+            "observed": "600"
+          },
+          {
+            "step": 220,
+            "control": "624",
+            "observed": "640"
+          },
+          {
+            "step": 241,
+            "control": "608",
+            "observed": "604"
+          },
+          {
+            "step": 244,
+            "control": "564",
+            "observed": "612"
+          },
+          {
+            "step": 245,
+            "control": "592",
+            "observed": "612"
+          },
+          {
+            "step": 246,
+            "control": "580",
+            "observed": "568"
+          },
+          {
+            "step": 247,
+            "control": "576",
+            "observed": "580"
+          },
+          {
+            "step": 255,
+            "control": "596",
+            "observed": "604"
+          },
+          {
+            "step": 256,
+            "control": "592",
+            "observed": "596"
+          },
+          {
+            "step": 257,
+            "control": "580",
+            "observed": "588"
+          },
+          {
+            "step": 262,
+            "control": "560",
+            "observed": "580"
+          },
+          {
+            "step": 263,
+            "control": "604",
+            "observed": "596"
+          },
+          {
+            "step": 264,
+            "control": "612",
+            "observed": "604"
+          },
+          {
+            "step": 270,
+            "control": "600",
+            "observed": "604"
+          },
+          {
+            "step": 271,
+            "control": "580",
+            "observed": "600"
+          },
+          {
+            "step": 272,
+            "control": "588",
+            "observed": "580"
+          },
+          {
+            "step": 273,
+            "control": "580",
+            "observed": "584"
+          },
+          {
+            "step": 274,
+            "control": "560",
+            "observed": "568"
+          },
+          {
+            "step": 276,
+            "control": "580",
+            "observed": "596"
+          },
+          {
+            "step": 277,
+            "control": "584",
+            "observed": "596"
+          },
+          {
+            "step": 278,
+            "control": "584",
+            "observed": "592"
+          },
+          {
+            "step": 281,
+            "control": "600",
+            "observed": "580"
+          },
+          {
+            "step": 283,
+            "control": "600",
+            "observed": "596"
+          },
+          {
+            "step": 284,
+            "control": "580",
+            "observed": "564"
+          },
+          {
+            "step": 285,
+            "control": "592",
+            "observed": "584"
+          },
+          {
+            "step": 287,
+            "control": "604",
+            "observed": "600"
+          },
+          {
+            "step": 288,
+            "control": "576",
+            "observed": "596"
+          },
+          {
+            "step": 289,
+            "control": "580",
+            "observed": "572"
+          },
+          {
+            "step": 292,
+            "control": "584",
+            "observed": "588"
+          },
+          {
+            "step": 293,
+            "control": "564",
+            "observed": "552"
+          },
+          {
+            "step": 294,
+            "control": "568",
+            "observed": "564"
+          },
+          {
+            "step": 295,
+            "control": "580",
+            "observed": "604"
+          },
+          {
+            "step": 297,
+            "control": "584",
+            "observed": "568"
+          },
+          {
+            "step": 298,
+            "control": "564",
+            "observed": "592"
+          },
+          {
+            "step": 299,
+            "control": "584",
+            "observed": "576"
+          },
+          {
+            "step": 300,
+            "control": "580",
+            "observed": "576"
+          },
+          {
+            "step": 301,
+            "control": "580",
+            "observed": "588"
+          },
+          {
+            "step": 302,
+            "control": "576",
+            "observed": "568"
+          },
+          {
+            "step": 303,
+            "control": "588",
+            "observed": "592"
+          },
+          {
+            "step": 305,
+            "control": "568",
+            "observed": "596"
+          },
+          {
+            "step": 306,
+            "control": "568",
+            "observed": "576"
+          },
+          {
+            "step": 308,
+            "control": "572",
+            "observed": "560"
+          },
+          {
+            "step": 309,
+            "control": "576",
+            "observed": "564"
+          },
+          {
+            "step": 310,
+            "control": "568",
+            "observed": "560"
+          },
+          {
+            "step": 311,
+            "control": "552",
+            "observed": "560"
+          },
+          {
+            "step": 312,
+            "control": "584",
+            "observed": "592"
+          },
+          {
+            "step": 313,
+            "control": "564",
+            "observed": "576"
+          },
+          {
+            "step": 314,
+            "control": "588",
+            "observed": "572"
+          },
+          {
+            "step": 315,
+            "control": "564",
+            "observed": "568"
+          },
+          {
+            "step": 316,
+            "control": "580",
+            "observed": "588"
+          },
+          {
+            "step": 317,
+            "control": "596",
+            "observed": "608"
+          },
+          {
+            "step": 319,
+            "control": "568",
+            "observed": "588"
+          },
+          {
+            "step": 320,
+            "control": "588",
+            "observed": "564"
+          },
+          {
+            "step": 321,
+            "control": "540",
+            "observed": "572"
+          },
+          {
+            "step": 322,
+            "control": "576",
+            "observed": "560"
+          },
+          {
+            "step": 323,
+            "control": "540",
+            "observed": "556"
+          },
+          {
+            "step": 324,
+            "control": "580",
+            "observed": "560"
+          },
+          {
+            "step": 325,
+            "control": "600",
+            "observed": "592"
+          },
+          {
+            "step": 328,
+            "control": "592",
+            "observed": "576"
+          },
+          {
+            "step": 329,
+            "control": "532",
+            "observed": "556"
+          },
+          {
+            "step": 330,
+            "control": "580",
+            "observed": "568"
+          },
+          {
+            "step": 331,
+            "control": "576",
+            "observed": "592"
+          },
+          {
+            "step": 332,
+            "control": "592",
+            "observed": "576"
+          },
+          {
+            "step": 333,
+            "control": "576",
+            "observed": "564"
+          },
+          {
+            "step": 334,
+            "control": "604",
+            "observed": "584"
+          },
+          {
+            "step": 335,
+            "control": "560",
+            "observed": "580"
+          },
+          {
+            "step": 336,
+            "control": "552",
+            "observed": "556"
+          },
+          {
+            "step": 337,
+            "control": "596",
+            "observed": "616"
+          },
+          {
+            "step": 338,
+            "control": "560",
+            "observed": "556"
+          },
+          {
+            "step": 339,
+            "control": "596",
+            "observed": "564"
+          },
+          {
+            "step": 340,
+            "control": "572",
+            "observed": "588"
+          },
+          {
+            "step": 341,
+            "control": "592",
+            "observed": "560"
+          },
+          {
+            "step": 342,
+            "control": "544",
+            "observed": "556"
+          },
+          {
+            "step": 343,
+            "control": "564",
+            "observed": "552"
+          },
+          {
+            "step": 344,
+            "control": "564",
+            "observed": "560"
+          },
+          {
+            "step": 345,
+            "control": "592",
+            "observed": "576"
+          },
+          {
+            "step": 347,
+            "control": "552",
+            "observed": "544"
+          },
+          {
+            "step": 349,
+            "control": "604",
+            "observed": "624"
+          },
+          {
+            "step": 350,
+            "control": "600",
+            "observed": "612"
+          },
+          {
+            "step": 352,
+            "control": "600",
+            "observed": "596"
+          },
+          {
+            "step": 353,
+            "control": "576",
+            "observed": "572"
+          },
+          {
+            "step": 356,
+            "control": "612",
+            "observed": "600"
+          },
+          {
+            "step": 357,
+            "control": "592",
+            "observed": "588"
+          },
+          {
+            "step": 358,
+            "control": "556",
+            "observed": "580"
+          },
+          {
+            "step": 359,
+            "control": "544",
+            "observed": "556"
+          },
+          {
+            "step": 361,
+            "control": "568",
+            "observed": "584"
+          },
+          {
+            "step": 362,
+            "control": "560",
+            "observed": "584"
+          },
+          {
+            "step": 363,
+            "control": "576",
+            "observed": "572"
+          },
+          {
+            "step": 364,
+            "control": "572",
+            "observed": "560"
+          },
+          {
+            "step": 365,
+            "control": "564",
+            "observed": "552"
+          },
+          {
+            "step": 366,
+            "control": "552",
+            "observed": "556"
+          },
+          {
+            "step": 367,
+            "control": "552",
+            "observed": "560"
+          },
+          {
+            "step": 368,
+            "control": "544",
+            "observed": "564"
+          },
+          {
+            "step": 369,
+            "control": "552",
+            "observed": "544"
+          },
+          {
+            "step": 370,
+            "control": "552",
+            "observed": "568"
+          },
+          {
+            "step": 371,
+            "control": "544",
+            "observed": "560"
+          },
+          {
+            "step": 372,
+            "control": "580",
+            "observed": "568"
+          },
+          {
+            "step": 373,
+            "control": "540",
+            "observed": "576"
+          },
+          {
+            "step": 374,
+            "control": "552",
+            "observed": "560"
+          },
+          {
+            "step": 375,
+            "control": "552",
+            "observed": "572"
+          },
+          {
+            "step": 376,
+            "control": "584",
+            "observed": "564"
+          },
+          {
+            "step": 377,
+            "control": "552",
+            "observed": "556"
+          },
+          {
+            "step": 378,
+            "control": "564",
+            "observed": "548"
+          },
+          {
+            "step": 379,
+            "control": "520",
+            "observed": "536"
+          },
+          {
+            "step": 380,
+            "control": "536",
+            "observed": "540"
+          },
+          {
+            "step": 381,
+            "control": "520",
+            "observed": "556"
+          },
+          {
+            "step": 382,
+            "control": "536",
+            "observed": "540"
+          },
+          {
+            "step": 383,
+            "control": "548",
+            "observed": "564"
+          },
+          {
+            "step": 384,
+            "control": "544",
+            "observed": "560"
+          },
+          {
+            "step": 385,
+            "control": "544",
+            "observed": "548"
+          },
+          {
+            "step": 386,
+            "control": "552",
+            "observed": "540"
+          },
+          {
+            "step": 387,
+            "control": "556",
+            "observed": "548"
+          },
+          {
+            "step": 388,
+            "control": "552",
+            "observed": "544"
+          },
+          {
+            "step": 389,
+            "control": "552",
+            "observed": "528"
+          },
+          {
+            "step": 390,
+            "control": "544",
+            "observed": "560"
+          },
+          {
+            "step": 391,
+            "control": "544",
+            "observed": "548"
+          },
+          {
+            "step": 392,
+            "control": "552",
+            "observed": "540"
+          },
+          {
+            "step": 393,
+            "control": "548",
+            "observed": "544"
+          },
+          {
+            "step": 394,
+            "control": "536",
+            "observed": "524"
+          },
+          {
+            "step": 396,
+            "control": "560",
+            "observed": "564"
+          },
+          {
+            "step": 397,
+            "control": "548",
+            "observed": "540"
+          },
+          {
+            "step": 399,
+            "control": "524",
+            "observed": "528"
+          },
+          {
+            "step": 400,
+            "control": "560",
+            "observed": "556"
+          },
+          {
+            "step": 401,
+            "control": "556",
+            "observed": "560"
+          },
+          {
+            "step": 403,
+            "control": "544",
+            "observed": "548"
+          },
+          {
+            "step": 404,
+            "control": "544",
+            "observed": "568"
+          },
+          {
+            "step": 405,
+            "control": "564",
+            "observed": "556"
+          },
+          {
+            "step": 406,
+            "control": "532",
+            "observed": "552"
+          },
+          {
+            "step": 407,
+            "control": "560",
+            "observed": "556"
+          },
+          {
+            "step": 408,
+            "control": "540",
+            "observed": "544"
+          },
+          {
+            "step": 409,
+            "control": "544",
+            "observed": "540"
+          },
+          {
+            "step": 410,
+            "control": "572",
+            "observed": "592"
+          },
+          {
+            "step": 411,
+            "control": "552",
+            "observed": "576"
+          },
+          {
+            "step": 412,
+            "control": "540",
+            "observed": "560"
+          },
+          {
+            "step": 413,
+            "control": "536",
+            "observed": "548"
+          },
+          {
+            "step": 414,
+            "control": "548",
+            "observed": "524"
+          },
+          {
+            "step": 415,
+            "control": "528",
+            "observed": "568"
+          },
+          {
+            "step": 416,
+            "control": "528",
+            "observed": "540"
+          },
+          {
+            "step": 417,
+            "control": "524",
+            "observed": "540"
+          },
+          {
+            "step": 418,
+            "control": "536",
+            "observed": "544"
+          },
+          {
+            "step": 419,
+            "control": "544",
+            "observed": "540"
+          },
+          {
+            "step": 420,
+            "control": "544",
+            "observed": "520"
+          },
+          {
+            "step": 421,
+            "control": "508",
+            "observed": "540"
+          },
+          {
+            "step": 422,
+            "control": "524",
+            "observed": "540"
+          },
+          {
+            "step": 423,
+            "control": "508",
+            "observed": "528"
+          },
+          {
+            "step": 424,
+            "control": "508",
+            "observed": "576"
+          },
+          {
+            "step": 425,
+            "control": "504",
+            "observed": "548"
+          },
+          {
+            "step": 426,
+            "control": "516",
+            "observed": "544"
+          },
+          {
+            "step": 427,
+            "control": "512",
+            "observed": "540"
+          },
+          {
+            "step": 428,
+            "control": "524",
+            "observed": "540"
+          },
+          {
+            "step": 429,
+            "control": "508",
+            "observed": "540"
+          },
+          {
+            "step": 430,
+            "control": "520",
+            "observed": "544"
+          },
+          {
+            "step": 431,
+            "control": "520",
+            "observed": "540"
+          },
+          {
+            "step": 432,
+            "control": "516",
+            "observed": "528"
+          },
+          {
+            "step": 433,
+            "control": "516",
+            "observed": "524"
+          },
+          {
+            "step": 434,
+            "control": "532",
+            "observed": "544"
+          },
+          {
+            "step": 435,
+            "control": "524",
+            "observed": "528"
+          },
+          {
+            "step": 436,
+            "control": "516",
+            "observed": "524"
+          },
+          {
+            "step": 437,
+            "control": "512",
+            "observed": "544"
+          },
+          {
+            "step": 439,
+            "control": "524",
+            "observed": "532"
+          },
+          {
+            "step": 440,
+            "control": "612",
+            "observed": "616"
+          },
+          {
+            "step": 441,
+            "control": "516",
+            "observed": "540"
+          },
+          {
+            "step": 442,
+            "control": "516",
+            "observed": "540"
+          },
+          {
+            "step": 443,
+            "control": "548",
+            "observed": "544"
+          },
+          {
+            "step": 446,
+            "control": "572",
+            "observed": "608"
+          },
+          {
+            "step": 447,
+            "control": "596",
+            "observed": "620"
+          },
+          {
+            "step": 449,
+            "control": "588",
+            "observed": "580"
+          },
+          {
+            "step": 451,
+            "control": "544",
+            "observed": "576"
+          },
+          {
+            "step": 452,
+            "control": "544",
+            "observed": "568"
+          },
+          {
+            "step": 453,
+            "control": "520",
+            "observed": "568"
+          },
+          {
+            "step": 454,
+            "control": "488",
+            "observed": "544"
+          },
+          {
+            "step": 455,
+            "control": "564",
+            "observed": "568"
+          },
+          {
+            "step": 456,
+            "control": "564",
+            "observed": "576"
+          },
+          {
+            "step": 457,
+            "control": "564",
+            "observed": "576"
+          },
+          {
+            "step": 458,
+            "control": "564",
+            "observed": "544"
+          },
+          {
+            "step": 459,
+            "control": "544",
+            "observed": "548"
+          },
+          {
+            "step": 460,
+            "control": "500",
+            "observed": "544"
+          },
+          {
+            "step": 461,
+            "control": "492",
+            "observed": "532"
+          },
+          {
+            "step": 462,
+            "control": "560",
+            "observed": "536"
+          },
+          {
+            "step": 463,
+            "control": "536",
+            "observed": "544"
+          },
+          {
+            "step": 466,
+            "control": "564",
+            "observed": "532"
+          },
+          {
+            "step": 467,
+            "control": "548",
+            "observed": "540"
+          },
+          {
+            "step": 468,
+            "control": "512",
+            "observed": "544"
+          },
+          {
+            "step": 469,
+            "control": "536",
+            "observed": "544"
+          },
+          {
+            "step": 470,
+            "control": "504",
+            "observed": "532"
+          },
+          {
+            "step": 471,
+            "control": "532",
+            "observed": "536"
+          },
+          {
+            "step": 473,
+            "control": "524",
+            "observed": "536"
+          },
+          {
+            "step": 474,
+            "control": "544",
+            "observed": "536"
+          },
+          {
+            "step": 476,
+            "control": "536",
+            "observed": "472"
+          },
+          {
+            "step": 478,
+            "control": "540",
+            "observed": "532"
+          },
+          {
+            "step": 480,
+            "control": "536",
+            "observed": "504"
+          },
+          {
+            "step": 481,
+            "control": "532",
+            "observed": "556"
+          },
+          {
+            "step": 482,
+            "control": "500",
+            "observed": "560"
+          },
+          {
+            "step": 483,
+            "control": "440",
+            "observed": "556"
+          },
+          {
+            "step": 484,
+            "control": "504",
+            "observed": "556"
+          },
+          {
+            "step": 486,
+            "control": "500",
+            "observed": "540"
+          },
+          {
+            "step": 487,
+            "control": "504",
+            "observed": "556"
+          },
+          {
+            "step": 488,
+            "control": "492",
+            "observed": "564"
+          },
+          {
+            "step": 489,
+            "control": "456",
+            "observed": "532"
+          },
+          {
+            "step": 490,
+            "control": "488",
+            "observed": "472"
+          },
+          {
+            "step": 491,
+            "control": "456",
+            "observed": "540"
+          },
+          {
+            "step": 492,
+            "control": "484",
+            "observed": "540"
+          },
+          {
+            "step": 493,
+            "control": "452",
+            "observed": "536"
+          },
+          {
+            "step": 494,
+            "control": "488",
+            "observed": "532"
+          },
+          {
+            "step": 495,
+            "control": "464",
+            "observed": "532"
+          },
+          {
+            "step": 496,
+            "control": "480",
+            "observed": "556"
+          },
+          {
+            "step": 497,
+            "control": "464",
+            "observed": "536"
+          },
+          {
+            "step": 498,
+            "control": "504",
+            "observed": "540"
+          },
+          {
+            "step": 499,
+            "control": "504",
+            "observed": "544"
+          },
+          {
+            "step": 500,
+            "control": "472",
+            "observed": "556"
+          },
+          {
+            "step": 501,
+            "control": "484",
+            "observed": "540"
+          },
+          {
+            "step": 502,
+            "control": "480",
+            "observed": "556"
+          },
+          {
+            "step": 503,
+            "control": "468",
+            "observed": "560"
+          },
+          {
+            "step": 504,
+            "control": "476",
+            "observed": "560"
+          },
+          {
+            "step": 505,
+            "control": "504",
+            "observed": "540"
+          },
+          {
+            "step": 506,
+            "control": "500",
+            "observed": "532"
+          },
+          {
+            "step": 507,
+            "control": "492",
+            "observed": "544"
+          },
+          {
+            "step": 508,
+            "control": "460",
+            "observed": "544"
+          },
+          {
+            "step": 509,
+            "control": "508",
+            "observed": "544"
+          },
+          {
+            "step": 510,
+            "control": "488",
+            "observed": "544"
+          },
+          {
+            "step": 511,
+            "control": "508",
+            "observed": "532"
+          },
+          {
+            "step": 512,
+            "control": "452",
+            "observed": "532"
+          },
+          {
+            "step": 513,
+            "control": "512",
+            "observed": "540"
+          },
+          {
+            "step": 514,
+            "control": "484",
+            "observed": "560"
+          },
+          {
+            "step": 515,
+            "control": "476",
+            "observed": "544"
+          },
+          {
+            "step": 516,
+            "control": "476",
+            "observed": "540"
+          },
+          {
+            "step": 517,
+            "control": "492",
+            "observed": "532"
+          },
+          {
+            "step": 518,
+            "control": "512",
+            "observed": "540"
+          },
+          {
+            "step": 519,
+            "control": "480",
+            "observed": "532"
+          },
+          {
+            "step": 520,
+            "control": "500",
+            "observed": "532"
+          },
+          {
+            "step": 521,
+            "control": "472",
+            "observed": "532"
+          },
+          {
+            "step": 522,
+            "control": "508",
+            "observed": "556"
+          },
+          {
+            "step": 523,
+            "control": "448",
+            "observed": "560"
+          },
+          {
+            "step": 524,
+            "control": "500",
+            "observed": "540"
+          },
+          {
+            "step": 525,
+            "control": "496",
+            "observed": "548"
+          },
+          {
+            "step": 526,
+            "control": "492",
+            "observed": "544"
+          },
+          {
+            "step": 527,
+            "control": "480",
+            "observed": "540"
+          },
+          {
+            "step": 528,
+            "control": "504",
+            "observed": "540"
+          },
+          {
+            "step": 529,
+            "control": "472",
+            "observed": "532"
+          },
+          {
+            "step": 530,
+            "control": "460",
+            "observed": "532"
+          },
+          {
+            "step": 531,
+            "control": "504",
+            "observed": "556"
+          },
+          {
+            "step": 532,
+            "control": "480",
+            "observed": "560"
+          },
+          {
+            "step": 533,
+            "control": "464",
+            "observed": "544"
+          },
+          {
+            "step": 534,
+            "control": "496",
+            "observed": "532"
+          },
+          {
+            "step": 535,
+            "control": "472",
+            "observed": "540"
+          },
+          {
+            "step": 536,
+            "control": "500",
+            "observed": "556"
+          },
+          {
+            "step": 537,
+            "control": "492",
+            "observed": "544"
+          },
+          {
+            "step": 538,
+            "control": "492",
+            "observed": "532"
+          },
+          {
+            "step": 539,
+            "control": "456",
+            "observed": "532"
+          },
+          {
+            "step": 540,
+            "control": "464",
+            "observed": "532"
+          },
+          {
+            "step": 541,
+            "control": "492",
+            "observed": "560"
+          },
+          {
+            "step": 542,
+            "control": "468",
+            "observed": "540"
+          },
+          {
+            "step": 543,
+            "control": "456",
+            "observed": "540"
+          },
+          {
+            "step": 544,
+            "control": "488",
+            "observed": "540"
+          },
+          {
+            "step": 545,
+            "control": "500",
+            "observed": "532"
+          },
+          {
+            "step": 546,
+            "control": "464",
+            "observed": "532"
+          },
+          {
+            "step": 547,
+            "control": "524",
+            "observed": "532"
+          },
+          {
+            "step": 548,
+            "control": "496",
+            "observed": "548"
+          },
+          {
+            "step": 549,
+            "control": "488",
+            "observed": "560"
+          },
+          {
+            "step": 550,
+            "control": "508",
+            "observed": "532"
+          },
+          {
+            "step": 551,
+            "control": "436",
+            "observed": "532"
+          },
+          {
+            "step": 552,
+            "control": "500",
+            "observed": "540"
+          },
+          {
+            "step": 553,
+            "control": "464",
+            "observed": "544"
+          },
+          {
+            "step": 554,
+            "control": "492",
+            "observed": "560"
+          },
+          {
+            "step": 555,
+            "control": "480",
+            "observed": "540"
+          },
+          {
+            "step": 556,
+            "control": "496",
+            "observed": "540"
+          },
+          {
+            "step": 557,
+            "control": "520",
+            "observed": "556"
+          },
+          {
+            "step": 558,
+            "control": "496",
+            "observed": "556"
+          },
+          {
+            "step": 559,
+            "control": "504",
+            "observed": "532"
+          },
+          {
+            "step": 560,
+            "control": "448",
+            "observed": "540"
+          },
+          {
+            "step": 561,
+            "control": "496",
+            "observed": "532"
+          },
+          {
+            "step": 562,
+            "control": "448",
+            "observed": "532"
+          },
+          {
+            "step": 563,
+            "control": "476",
+            "observed": "528"
+          },
+          {
+            "step": 564,
+            "control": "448",
+            "observed": "532"
+          },
+          {
+            "step": 565,
+            "control": "500",
+            "observed": "536"
+          },
+          {
+            "step": 566,
+            "control": "504",
+            "observed": "560"
+          },
+          {
+            "step": 567,
+            "control": "496",
+            "observed": "540"
+          },
+          {
+            "step": 568,
+            "control": "456",
+            "observed": "536"
+          },
+          {
+            "step": 569,
+            "control": "476",
+            "observed": "544"
+          },
+          {
+            "step": 570,
+            "control": "456",
+            "observed": "540"
+          },
+          {
+            "step": 571,
+            "control": "500",
+            "observed": "540"
+          },
+          {
+            "step": 572,
+            "control": "496",
+            "observed": "540"
+          },
+          {
+            "step": 573,
+            "control": "472",
+            "observed": "560"
+          },
+          {
+            "step": 574,
+            "control": "444",
+            "observed": "544"
+          },
+          {
+            "step": 575,
+            "control": "472",
+            "observed": "532"
+          },
+          {
+            "step": 576,
+            "control": "496",
+            "observed": "544"
+          },
+          {
+            "step": 577,
+            "control": "504",
+            "observed": "548"
+          },
+          {
+            "step": 578,
+            "control": "504",
+            "observed": "528"
+          },
+          {
+            "step": 579,
+            "control": "504",
+            "observed": "544"
+          },
+          {
+            "step": 580,
+            "control": "504",
+            "observed": "560"
+          },
+          {
+            "step": 581,
+            "control": "508",
+            "observed": "532"
+          },
+          {
+            "step": 582,
+            "control": "488",
+            "observed": "540"
+          },
+          {
+            "step": 583,
+            "control": "464",
+            "observed": "544"
+          },
+          {
+            "step": 584,
+            "control": "468",
+            "observed": "532"
+          },
+          {
+            "step": 585,
+            "control": "444",
+            "observed": "540"
+          },
+          {
+            "step": 586,
+            "control": "488",
+            "observed": "532"
+          },
+          {
+            "step": 587,
+            "control": "508",
+            "observed": "560"
+          },
+          {
+            "step": 588,
+            "control": "452",
+            "observed": "544"
+          },
+          {
+            "step": 589,
+            "control": "504",
+            "observed": "540"
+          },
+          {
+            "step": 590,
+            "control": "456",
+            "observed": "540"
+          },
+          {
+            "step": 591,
+            "control": "476",
+            "observed": "544"
+          },
+          {
+            "step": 592,
+            "control": "496",
+            "observed": "544"
+          },
+          {
+            "step": 594,
+            "control": "472",
+            "observed": "544"
+          },
+          {
+            "step": 595,
+            "control": "464",
+            "observed": "532"
+          },
+          {
+            "step": 596,
+            "control": "524",
+            "observed": "544"
+          },
+          {
+            "step": 597,
+            "control": "464",
+            "observed": "560"
+          },
+          {
+            "step": 599,
+            "control": "508",
+            "observed": "532"
+          }
+        ]
+      },
+      {
+        "name": "impacts-256-B-1",
+        "reference": "impacts-256-A-before-0",
+        "differences": [],
+        "iteration_differences": [
+          {
+            "step": 88,
+            "control": "380",
+            "observed": "384"
+          },
+          {
+            "step": 89,
+            "control": "396",
+            "observed": "376"
+          },
+          {
+            "step": 111,
+            "control": "556",
+            "observed": "560"
+          },
+          {
+            "step": 113,
+            "control": "540",
+            "observed": "552"
+          },
+          {
+            "step": 114,
+            "control": "516",
+            "observed": "520"
+          },
+          {
+            "step": 115,
+            "control": "544",
+            "observed": "524"
+          },
+          {
+            "step": 116,
+            "control": "496",
+            "observed": "500"
+          },
+          {
+            "step": 117,
+            "control": "492",
+            "observed": "540"
+          },
+          {
+            "step": 120,
+            "control": "544",
+            "observed": "540"
+          },
+          {
+            "step": 121,
+            "control": "492",
+            "observed": "536"
+          },
+          {
+            "step": 122,
+            "control": "500",
+            "observed": "544"
+          },
+          {
+            "step": 123,
+            "control": "508",
+            "observed": "520"
+          },
+          {
+            "step": 124,
+            "control": "556",
+            "observed": "544"
+          },
+          {
+            "step": 125,
+            "control": "532",
+            "observed": "536"
+          },
+          {
+            "step": 136,
+            "control": "684",
+            "observed": "708"
+          },
+          {
+            "step": 137,
+            "control": "704",
+            "observed": "752"
+          },
+          {
+            "step": 138,
+            "control": "784",
+            "observed": "788"
+          },
+          {
+            "step": 139,
+            "control": "728",
+            "observed": "700"
+          },
+          {
+            "step": 141,
+            "control": "736",
+            "observed": "684"
+          },
+          {
+            "step": 142,
+            "control": "680",
+            "observed": "712"
+          },
+          {
+            "step": 143,
+            "control": "704",
+            "observed": "744"
+          },
+          {
+            "step": 144,
+            "control": "756",
+            "observed": "720"
+          },
+          {
+            "step": 146,
+            "control": "716",
+            "observed": "684"
+          },
+          {
+            "step": 149,
+            "control": "700",
+            "observed": "676"
+          },
+          {
+            "step": 150,
+            "control": "668",
+            "observed": "664"
+          },
+          {
+            "step": 152,
+            "control": "672",
+            "observed": "692"
+          },
+          {
+            "step": 153,
+            "control": "692",
+            "observed": "672"
+          },
+          {
+            "step": 154,
+            "control": "680",
+            "observed": "700"
+          },
+          {
+            "step": 156,
+            "control": "696",
+            "observed": "672"
+          },
+          {
+            "step": 157,
+            "control": "684",
+            "observed": "692"
+          },
+          {
+            "step": 159,
+            "control": "696",
+            "observed": "724"
+          },
+          {
+            "step": 173,
+            "control": "584",
+            "observed": "548"
+          },
+          {
+            "step": 174,
+            "control": "556",
+            "observed": "572"
+          },
+          {
+            "step": 187,
+            "control": "560",
+            "observed": "572"
+          },
+          {
+            "step": 218,
+            "control": "628",
+            "observed": "640"
+          },
+          {
+            "step": 219,
+            "control": "632",
+            "observed": "600"
+          },
+          {
+            "step": 220,
+            "control": "624",
+            "observed": "640"
+          },
+          {
+            "step": 241,
+            "control": "608",
+            "observed": "604"
+          },
+          {
+            "step": 244,
+            "control": "564",
+            "observed": "612"
+          },
+          {
+            "step": 245,
+            "control": "592",
+            "observed": "612"
+          },
+          {
+            "step": 246,
+            "control": "580",
+            "observed": "568"
+          },
+          {
+            "step": 247,
+            "control": "576",
+            "observed": "580"
+          },
+          {
+            "step": 255,
+            "control": "596",
+            "observed": "604"
+          },
+          {
+            "step": 256,
+            "control": "592",
+            "observed": "596"
+          },
+          {
+            "step": 257,
+            "control": "580",
+            "observed": "588"
+          },
+          {
+            "step": 262,
+            "control": "560",
+            "observed": "580"
+          },
+          {
+            "step": 263,
+            "control": "604",
+            "observed": "596"
+          },
+          {
+            "step": 264,
+            "control": "612",
+            "observed": "604"
+          },
+          {
+            "step": 270,
+            "control": "600",
+            "observed": "604"
+          },
+          {
+            "step": 271,
+            "control": "580",
+            "observed": "600"
+          },
+          {
+            "step": 272,
+            "control": "588",
+            "observed": "580"
+          },
+          {
+            "step": 273,
+            "control": "580",
+            "observed": "584"
+          },
+          {
+            "step": 274,
+            "control": "560",
+            "observed": "568"
+          },
+          {
+            "step": 276,
+            "control": "580",
+            "observed": "596"
+          },
+          {
+            "step": 277,
+            "control": "584",
+            "observed": "596"
+          },
+          {
+            "step": 278,
+            "control": "584",
+            "observed": "592"
+          },
+          {
+            "step": 281,
+            "control": "600",
+            "observed": "580"
+          },
+          {
+            "step": 283,
+            "control": "600",
+            "observed": "596"
+          },
+          {
+            "step": 284,
+            "control": "580",
+            "observed": "564"
+          },
+          {
+            "step": 285,
+            "control": "592",
+            "observed": "584"
+          },
+          {
+            "step": 287,
+            "control": "604",
+            "observed": "600"
+          },
+          {
+            "step": 288,
+            "control": "576",
+            "observed": "596"
+          },
+          {
+            "step": 289,
+            "control": "580",
+            "observed": "572"
+          },
+          {
+            "step": 292,
+            "control": "584",
+            "observed": "588"
+          },
+          {
+            "step": 293,
+            "control": "564",
+            "observed": "552"
+          },
+          {
+            "step": 294,
+            "control": "568",
+            "observed": "564"
+          },
+          {
+            "step": 295,
+            "control": "580",
+            "observed": "604"
+          },
+          {
+            "step": 297,
+            "control": "584",
+            "observed": "568"
+          },
+          {
+            "step": 298,
+            "control": "564",
+            "observed": "592"
+          },
+          {
+            "step": 299,
+            "control": "584",
+            "observed": "576"
+          },
+          {
+            "step": 300,
+            "control": "580",
+            "observed": "576"
+          },
+          {
+            "step": 301,
+            "control": "580",
+            "observed": "588"
+          },
+          {
+            "step": 302,
+            "control": "576",
+            "observed": "568"
+          },
+          {
+            "step": 303,
+            "control": "588",
+            "observed": "592"
+          },
+          {
+            "step": 305,
+            "control": "568",
+            "observed": "596"
+          },
+          {
+            "step": 306,
+            "control": "568",
+            "observed": "576"
+          },
+          {
+            "step": 308,
+            "control": "572",
+            "observed": "560"
+          },
+          {
+            "step": 309,
+            "control": "576",
+            "observed": "564"
+          },
+          {
+            "step": 310,
+            "control": "568",
+            "observed": "560"
+          },
+          {
+            "step": 311,
+            "control": "552",
+            "observed": "560"
+          },
+          {
+            "step": 312,
+            "control": "584",
+            "observed": "592"
+          },
+          {
+            "step": 313,
+            "control": "564",
+            "observed": "576"
+          },
+          {
+            "step": 314,
+            "control": "588",
+            "observed": "572"
+          },
+          {
+            "step": 315,
+            "control": "564",
+            "observed": "568"
+          },
+          {
+            "step": 316,
+            "control": "580",
+            "observed": "588"
+          },
+          {
+            "step": 317,
+            "control": "596",
+            "observed": "608"
+          },
+          {
+            "step": 319,
+            "control": "568",
+            "observed": "588"
+          },
+          {
+            "step": 320,
+            "control": "588",
+            "observed": "564"
+          },
+          {
+            "step": 321,
+            "control": "540",
+            "observed": "572"
+          },
+          {
+            "step": 322,
+            "control": "576",
+            "observed": "560"
+          },
+          {
+            "step": 323,
+            "control": "540",
+            "observed": "556"
+          },
+          {
+            "step": 324,
+            "control": "580",
+            "observed": "560"
+          },
+          {
+            "step": 325,
+            "control": "600",
+            "observed": "592"
+          },
+          {
+            "step": 328,
+            "control": "592",
+            "observed": "576"
+          },
+          {
+            "step": 329,
+            "control": "532",
+            "observed": "556"
+          },
+          {
+            "step": 330,
+            "control": "580",
+            "observed": "568"
+          },
+          {
+            "step": 331,
+            "control": "576",
+            "observed": "592"
+          },
+          {
+            "step": 332,
+            "control": "592",
+            "observed": "576"
+          },
+          {
+            "step": 333,
+            "control": "576",
+            "observed": "564"
+          },
+          {
+            "step": 334,
+            "control": "604",
+            "observed": "584"
+          },
+          {
+            "step": 335,
+            "control": "560",
+            "observed": "580"
+          },
+          {
+            "step": 336,
+            "control": "552",
+            "observed": "556"
+          },
+          {
+            "step": 337,
+            "control": "596",
+            "observed": "616"
+          },
+          {
+            "step": 338,
+            "control": "560",
+            "observed": "556"
+          },
+          {
+            "step": 339,
+            "control": "596",
+            "observed": "564"
+          },
+          {
+            "step": 340,
+            "control": "572",
+            "observed": "588"
+          },
+          {
+            "step": 341,
+            "control": "592",
+            "observed": "560"
+          },
+          {
+            "step": 342,
+            "control": "544",
+            "observed": "556"
+          },
+          {
+            "step": 343,
+            "control": "564",
+            "observed": "552"
+          },
+          {
+            "step": 344,
+            "control": "564",
+            "observed": "560"
+          },
+          {
+            "step": 345,
+            "control": "592",
+            "observed": "576"
+          },
+          {
+            "step": 347,
+            "control": "552",
+            "observed": "544"
+          },
+          {
+            "step": 349,
+            "control": "604",
+            "observed": "624"
+          },
+          {
+            "step": 350,
+            "control": "600",
+            "observed": "612"
+          },
+          {
+            "step": 352,
+            "control": "600",
+            "observed": "596"
+          },
+          {
+            "step": 353,
+            "control": "576",
+            "observed": "572"
+          },
+          {
+            "step": 356,
+            "control": "612",
+            "observed": "600"
+          },
+          {
+            "step": 357,
+            "control": "592",
+            "observed": "588"
+          },
+          {
+            "step": 358,
+            "control": "556",
+            "observed": "580"
+          },
+          {
+            "step": 359,
+            "control": "544",
+            "observed": "556"
+          },
+          {
+            "step": 361,
+            "control": "568",
+            "observed": "584"
+          },
+          {
+            "step": 362,
+            "control": "560",
+            "observed": "584"
+          },
+          {
+            "step": 363,
+            "control": "576",
+            "observed": "572"
+          },
+          {
+            "step": 364,
+            "control": "572",
+            "observed": "560"
+          },
+          {
+            "step": 365,
+            "control": "564",
+            "observed": "552"
+          },
+          {
+            "step": 366,
+            "control": "552",
+            "observed": "556"
+          },
+          {
+            "step": 367,
+            "control": "552",
+            "observed": "560"
+          },
+          {
+            "step": 368,
+            "control": "544",
+            "observed": "564"
+          },
+          {
+            "step": 369,
+            "control": "552",
+            "observed": "544"
+          },
+          {
+            "step": 370,
+            "control": "552",
+            "observed": "568"
+          },
+          {
+            "step": 371,
+            "control": "544",
+            "observed": "560"
+          },
+          {
+            "step": 372,
+            "control": "580",
+            "observed": "568"
+          },
+          {
+            "step": 373,
+            "control": "540",
+            "observed": "576"
+          },
+          {
+            "step": 374,
+            "control": "552",
+            "observed": "560"
+          },
+          {
+            "step": 375,
+            "control": "552",
+            "observed": "572"
+          },
+          {
+            "step": 376,
+            "control": "584",
+            "observed": "564"
+          },
+          {
+            "step": 377,
+            "control": "552",
+            "observed": "556"
+          },
+          {
+            "step": 378,
+            "control": "564",
+            "observed": "548"
+          },
+          {
+            "step": 379,
+            "control": "520",
+            "observed": "536"
+          },
+          {
+            "step": 380,
+            "control": "536",
+            "observed": "540"
+          },
+          {
+            "step": 381,
+            "control": "520",
+            "observed": "556"
+          },
+          {
+            "step": 382,
+            "control": "536",
+            "observed": "540"
+          },
+          {
+            "step": 383,
+            "control": "548",
+            "observed": "564"
+          },
+          {
+            "step": 384,
+            "control": "544",
+            "observed": "560"
+          },
+          {
+            "step": 385,
+            "control": "544",
+            "observed": "548"
+          },
+          {
+            "step": 386,
+            "control": "552",
+            "observed": "540"
+          },
+          {
+            "step": 387,
+            "control": "556",
+            "observed": "548"
+          },
+          {
+            "step": 388,
+            "control": "552",
+            "observed": "544"
+          },
+          {
+            "step": 389,
+            "control": "552",
+            "observed": "528"
+          },
+          {
+            "step": 390,
+            "control": "544",
+            "observed": "560"
+          },
+          {
+            "step": 391,
+            "control": "544",
+            "observed": "548"
+          },
+          {
+            "step": 392,
+            "control": "552",
+            "observed": "540"
+          },
+          {
+            "step": 393,
+            "control": "548",
+            "observed": "544"
+          },
+          {
+            "step": 394,
+            "control": "536",
+            "observed": "524"
+          },
+          {
+            "step": 396,
+            "control": "560",
+            "observed": "564"
+          },
+          {
+            "step": 397,
+            "control": "548",
+            "observed": "540"
+          },
+          {
+            "step": 399,
+            "control": "524",
+            "observed": "528"
+          },
+          {
+            "step": 400,
+            "control": "560",
+            "observed": "556"
+          },
+          {
+            "step": 401,
+            "control": "556",
+            "observed": "560"
+          },
+          {
+            "step": 403,
+            "control": "544",
+            "observed": "548"
+          },
+          {
+            "step": 404,
+            "control": "544",
+            "observed": "568"
+          },
+          {
+            "step": 405,
+            "control": "564",
+            "observed": "556"
+          },
+          {
+            "step": 406,
+            "control": "532",
+            "observed": "552"
+          },
+          {
+            "step": 407,
+            "control": "560",
+            "observed": "556"
+          },
+          {
+            "step": 408,
+            "control": "540",
+            "observed": "544"
+          },
+          {
+            "step": 409,
+            "control": "544",
+            "observed": "540"
+          },
+          {
+            "step": 410,
+            "control": "572",
+            "observed": "592"
+          },
+          {
+            "step": 411,
+            "control": "552",
+            "observed": "576"
+          },
+          {
+            "step": 412,
+            "control": "540",
+            "observed": "560"
+          },
+          {
+            "step": 413,
+            "control": "536",
+            "observed": "548"
+          },
+          {
+            "step": 414,
+            "control": "548",
+            "observed": "524"
+          },
+          {
+            "step": 415,
+            "control": "528",
+            "observed": "568"
+          },
+          {
+            "step": 416,
+            "control": "528",
+            "observed": "540"
+          },
+          {
+            "step": 417,
+            "control": "524",
+            "observed": "540"
+          },
+          {
+            "step": 418,
+            "control": "536",
+            "observed": "544"
+          },
+          {
+            "step": 419,
+            "control": "544",
+            "observed": "540"
+          },
+          {
+            "step": 420,
+            "control": "544",
+            "observed": "520"
+          },
+          {
+            "step": 421,
+            "control": "508",
+            "observed": "540"
+          },
+          {
+            "step": 422,
+            "control": "524",
+            "observed": "540"
+          },
+          {
+            "step": 423,
+            "control": "508",
+            "observed": "528"
+          },
+          {
+            "step": 424,
+            "control": "508",
+            "observed": "576"
+          },
+          {
+            "step": 425,
+            "control": "504",
+            "observed": "548"
+          },
+          {
+            "step": 426,
+            "control": "516",
+            "observed": "544"
+          },
+          {
+            "step": 427,
+            "control": "512",
+            "observed": "540"
+          },
+          {
+            "step": 428,
+            "control": "524",
+            "observed": "540"
+          },
+          {
+            "step": 429,
+            "control": "508",
+            "observed": "540"
+          },
+          {
+            "step": 430,
+            "control": "520",
+            "observed": "544"
+          },
+          {
+            "step": 431,
+            "control": "520",
+            "observed": "540"
+          },
+          {
+            "step": 432,
+            "control": "516",
+            "observed": "528"
+          },
+          {
+            "step": 433,
+            "control": "516",
+            "observed": "524"
+          },
+          {
+            "step": 434,
+            "control": "532",
+            "observed": "544"
+          },
+          {
+            "step": 435,
+            "control": "524",
+            "observed": "528"
+          },
+          {
+            "step": 436,
+            "control": "516",
+            "observed": "524"
+          },
+          {
+            "step": 437,
+            "control": "512",
+            "observed": "544"
+          },
+          {
+            "step": 439,
+            "control": "524",
+            "observed": "532"
+          },
+          {
+            "step": 440,
+            "control": "612",
+            "observed": "616"
+          },
+          {
+            "step": 441,
+            "control": "516",
+            "observed": "540"
+          },
+          {
+            "step": 442,
+            "control": "516",
+            "observed": "540"
+          },
+          {
+            "step": 443,
+            "control": "548",
+            "observed": "544"
+          },
+          {
+            "step": 446,
+            "control": "572",
+            "observed": "608"
+          },
+          {
+            "step": 447,
+            "control": "596",
+            "observed": "620"
+          },
+          {
+            "step": 449,
+            "control": "588",
+            "observed": "580"
+          },
+          {
+            "step": 451,
+            "control": "544",
+            "observed": "576"
+          },
+          {
+            "step": 452,
+            "control": "544",
+            "observed": "568"
+          },
+          {
+            "step": 453,
+            "control": "520",
+            "observed": "568"
+          },
+          {
+            "step": 454,
+            "control": "488",
+            "observed": "544"
+          },
+          {
+            "step": 455,
+            "control": "564",
+            "observed": "568"
+          },
+          {
+            "step": 456,
+            "control": "564",
+            "observed": "576"
+          },
+          {
+            "step": 457,
+            "control": "564",
+            "observed": "576"
+          },
+          {
+            "step": 458,
+            "control": "564",
+            "observed": "544"
+          },
+          {
+            "step": 459,
+            "control": "544",
+            "observed": "548"
+          },
+          {
+            "step": 460,
+            "control": "500",
+            "observed": "544"
+          },
+          {
+            "step": 461,
+            "control": "492",
+            "observed": "532"
+          },
+          {
+            "step": 462,
+            "control": "560",
+            "observed": "536"
+          },
+          {
+            "step": 463,
+            "control": "536",
+            "observed": "544"
+          },
+          {
+            "step": 466,
+            "control": "564",
+            "observed": "532"
+          },
+          {
+            "step": 467,
+            "control": "548",
+            "observed": "540"
+          },
+          {
+            "step": 468,
+            "control": "512",
+            "observed": "544"
+          },
+          {
+            "step": 469,
+            "control": "536",
+            "observed": "544"
+          },
+          {
+            "step": 470,
+            "control": "504",
+            "observed": "532"
+          },
+          {
+            "step": 471,
+            "control": "532",
+            "observed": "536"
+          },
+          {
+            "step": 473,
+            "control": "524",
+            "observed": "536"
+          },
+          {
+            "step": 474,
+            "control": "544",
+            "observed": "536"
+          },
+          {
+            "step": 476,
+            "control": "536",
+            "observed": "472"
+          },
+          {
+            "step": 478,
+            "control": "540",
+            "observed": "532"
+          },
+          {
+            "step": 480,
+            "control": "536",
+            "observed": "504"
+          },
+          {
+            "step": 481,
+            "control": "532",
+            "observed": "556"
+          },
+          {
+            "step": 482,
+            "control": "500",
+            "observed": "560"
+          },
+          {
+            "step": 483,
+            "control": "440",
+            "observed": "556"
+          },
+          {
+            "step": 484,
+            "control": "504",
+            "observed": "556"
+          },
+          {
+            "step": 486,
+            "control": "500",
+            "observed": "540"
+          },
+          {
+            "step": 487,
+            "control": "504",
+            "observed": "556"
+          },
+          {
+            "step": 488,
+            "control": "492",
+            "observed": "564"
+          },
+          {
+            "step": 489,
+            "control": "456",
+            "observed": "532"
+          },
+          {
+            "step": 490,
+            "control": "488",
+            "observed": "472"
+          },
+          {
+            "step": 491,
+            "control": "456",
+            "observed": "540"
+          },
+          {
+            "step": 492,
+            "control": "484",
+            "observed": "540"
+          },
+          {
+            "step": 493,
+            "control": "452",
+            "observed": "536"
+          },
+          {
+            "step": 494,
+            "control": "488",
+            "observed": "532"
+          },
+          {
+            "step": 495,
+            "control": "464",
+            "observed": "532"
+          },
+          {
+            "step": 496,
+            "control": "480",
+            "observed": "556"
+          },
+          {
+            "step": 497,
+            "control": "464",
+            "observed": "536"
+          },
+          {
+            "step": 498,
+            "control": "504",
+            "observed": "540"
+          },
+          {
+            "step": 499,
+            "control": "504",
+            "observed": "544"
+          },
+          {
+            "step": 500,
+            "control": "472",
+            "observed": "556"
+          },
+          {
+            "step": 501,
+            "control": "484",
+            "observed": "540"
+          },
+          {
+            "step": 502,
+            "control": "480",
+            "observed": "556"
+          },
+          {
+            "step": 503,
+            "control": "468",
+            "observed": "560"
+          },
+          {
+            "step": 504,
+            "control": "476",
+            "observed": "560"
+          },
+          {
+            "step": 505,
+            "control": "504",
+            "observed": "540"
+          },
+          {
+            "step": 506,
+            "control": "500",
+            "observed": "532"
+          },
+          {
+            "step": 507,
+            "control": "492",
+            "observed": "544"
+          },
+          {
+            "step": 508,
+            "control": "460",
+            "observed": "544"
+          },
+          {
+            "step": 509,
+            "control": "508",
+            "observed": "544"
+          },
+          {
+            "step": 510,
+            "control": "488",
+            "observed": "544"
+          },
+          {
+            "step": 511,
+            "control": "508",
+            "observed": "532"
+          },
+          {
+            "step": 512,
+            "control": "452",
+            "observed": "532"
+          },
+          {
+            "step": 513,
+            "control": "512",
+            "observed": "540"
+          },
+          {
+            "step": 514,
+            "control": "484",
+            "observed": "560"
+          },
+          {
+            "step": 515,
+            "control": "476",
+            "observed": "544"
+          },
+          {
+            "step": 516,
+            "control": "476",
+            "observed": "540"
+          },
+          {
+            "step": 517,
+            "control": "492",
+            "observed": "532"
+          },
+          {
+            "step": 518,
+            "control": "512",
+            "observed": "540"
+          },
+          {
+            "step": 519,
+            "control": "480",
+            "observed": "532"
+          },
+          {
+            "step": 520,
+            "control": "500",
+            "observed": "532"
+          },
+          {
+            "step": 521,
+            "control": "472",
+            "observed": "532"
+          },
+          {
+            "step": 522,
+            "control": "508",
+            "observed": "556"
+          },
+          {
+            "step": 523,
+            "control": "448",
+            "observed": "560"
+          },
+          {
+            "step": 524,
+            "control": "500",
+            "observed": "540"
+          },
+          {
+            "step": 525,
+            "control": "496",
+            "observed": "548"
+          },
+          {
+            "step": 526,
+            "control": "492",
+            "observed": "544"
+          },
+          {
+            "step": 527,
+            "control": "480",
+            "observed": "540"
+          },
+          {
+            "step": 528,
+            "control": "504",
+            "observed": "540"
+          },
+          {
+            "step": 529,
+            "control": "472",
+            "observed": "532"
+          },
+          {
+            "step": 530,
+            "control": "460",
+            "observed": "532"
+          },
+          {
+            "step": 531,
+            "control": "504",
+            "observed": "556"
+          },
+          {
+            "step": 532,
+            "control": "480",
+            "observed": "560"
+          },
+          {
+            "step": 533,
+            "control": "464",
+            "observed": "544"
+          },
+          {
+            "step": 534,
+            "control": "496",
+            "observed": "532"
+          },
+          {
+            "step": 535,
+            "control": "472",
+            "observed": "540"
+          },
+          {
+            "step": 536,
+            "control": "500",
+            "observed": "556"
+          },
+          {
+            "step": 537,
+            "control": "492",
+            "observed": "544"
+          },
+          {
+            "step": 538,
+            "control": "492",
+            "observed": "532"
+          },
+          {
+            "step": 539,
+            "control": "456",
+            "observed": "532"
+          },
+          {
+            "step": 540,
+            "control": "464",
+            "observed": "532"
+          },
+          {
+            "step": 541,
+            "control": "492",
+            "observed": "560"
+          },
+          {
+            "step": 542,
+            "control": "468",
+            "observed": "540"
+          },
+          {
+            "step": 543,
+            "control": "456",
+            "observed": "540"
+          },
+          {
+            "step": 544,
+            "control": "488",
+            "observed": "540"
+          },
+          {
+            "step": 545,
+            "control": "500",
+            "observed": "532"
+          },
+          {
+            "step": 546,
+            "control": "464",
+            "observed": "532"
+          },
+          {
+            "step": 547,
+            "control": "524",
+            "observed": "532"
+          },
+          {
+            "step": 548,
+            "control": "496",
+            "observed": "548"
+          },
+          {
+            "step": 549,
+            "control": "488",
+            "observed": "560"
+          },
+          {
+            "step": 550,
+            "control": "508",
+            "observed": "532"
+          },
+          {
+            "step": 551,
+            "control": "436",
+            "observed": "532"
+          },
+          {
+            "step": 552,
+            "control": "500",
+            "observed": "540"
+          },
+          {
+            "step": 553,
+            "control": "464",
+            "observed": "544"
+          },
+          {
+            "step": 554,
+            "control": "492",
+            "observed": "560"
+          },
+          {
+            "step": 555,
+            "control": "480",
+            "observed": "540"
+          },
+          {
+            "step": 556,
+            "control": "496",
+            "observed": "540"
+          },
+          {
+            "step": 557,
+            "control": "520",
+            "observed": "556"
+          },
+          {
+            "step": 558,
+            "control": "496",
+            "observed": "556"
+          },
+          {
+            "step": 559,
+            "control": "504",
+            "observed": "532"
+          },
+          {
+            "step": 560,
+            "control": "448",
+            "observed": "540"
+          },
+          {
+            "step": 561,
+            "control": "496",
+            "observed": "532"
+          },
+          {
+            "step": 562,
+            "control": "448",
+            "observed": "532"
+          },
+          {
+            "step": 563,
+            "control": "476",
+            "observed": "528"
+          },
+          {
+            "step": 564,
+            "control": "448",
+            "observed": "532"
+          },
+          {
+            "step": 565,
+            "control": "500",
+            "observed": "536"
+          },
+          {
+            "step": 566,
+            "control": "504",
+            "observed": "560"
+          },
+          {
+            "step": 567,
+            "control": "496",
+            "observed": "540"
+          },
+          {
+            "step": 568,
+            "control": "456",
+            "observed": "536"
+          },
+          {
+            "step": 569,
+            "control": "476",
+            "observed": "544"
+          },
+          {
+            "step": 570,
+            "control": "456",
+            "observed": "540"
+          },
+          {
+            "step": 571,
+            "control": "500",
+            "observed": "540"
+          },
+          {
+            "step": 572,
+            "control": "496",
+            "observed": "540"
+          },
+          {
+            "step": 573,
+            "control": "472",
+            "observed": "560"
+          },
+          {
+            "step": 574,
+            "control": "444",
+            "observed": "544"
+          },
+          {
+            "step": 575,
+            "control": "472",
+            "observed": "532"
+          },
+          {
+            "step": 576,
+            "control": "496",
+            "observed": "544"
+          },
+          {
+            "step": 577,
+            "control": "504",
+            "observed": "548"
+          },
+          {
+            "step": 578,
+            "control": "504",
+            "observed": "528"
+          },
+          {
+            "step": 579,
+            "control": "504",
+            "observed": "544"
+          },
+          {
+            "step": 580,
+            "control": "504",
+            "observed": "560"
+          },
+          {
+            "step": 581,
+            "control": "508",
+            "observed": "532"
+          },
+          {
+            "step": 582,
+            "control": "488",
+            "observed": "540"
+          },
+          {
+            "step": 583,
+            "control": "464",
+            "observed": "544"
+          },
+          {
+            "step": 584,
+            "control": "468",
+            "observed": "532"
+          },
+          {
+            "step": 585,
+            "control": "444",
+            "observed": "540"
+          },
+          {
+            "step": 586,
+            "control": "488",
+            "observed": "532"
+          },
+          {
+            "step": 587,
+            "control": "508",
+            "observed": "560"
+          },
+          {
+            "step": 588,
+            "control": "452",
+            "observed": "544"
+          },
+          {
+            "step": 589,
+            "control": "504",
+            "observed": "540"
+          },
+          {
+            "step": 590,
+            "control": "456",
+            "observed": "540"
+          },
+          {
+            "step": 591,
+            "control": "476",
+            "observed": "544"
+          },
+          {
+            "step": 592,
+            "control": "496",
+            "observed": "544"
+          },
+          {
+            "step": 594,
+            "control": "472",
+            "observed": "544"
+          },
+          {
+            "step": 595,
+            "control": "464",
+            "observed": "532"
+          },
+          {
+            "step": 596,
+            "control": "524",
+            "observed": "544"
+          },
+          {
+            "step": 597,
+            "control": "464",
+            "observed": "560"
+          },
+          {
+            "step": 599,
+            "control": "508",
+            "observed": "532"
+          }
+        ]
+      },
+      {
+        "name": "impacts-256-A-after-0",
+        "reference": "impacts-256-A-before-0",
+        "differences": [],
+        "iteration_differences": []
+      },
+      {
+        "name": "impacts-256-A-after-1",
+        "reference": "impacts-256-A-before-0",
+        "differences": [],
+        "iteration_differences": []
+      }
+    ],
+    "scope": "2 trials of600 ticks per A-before/B/A-after stage and selected idle/heavy case. Every complete tick included. Physical work/convergence counters checked; this does not replace full body/force trajectory qualification or the52-case gates.",
+    "iteration_history_policy": "reported separately; unchanged physical/work/convergence gates",
+    "runner_sha256": "5d5330f9af11c74cc49c69dcf202d8c41e64ad7533617278996e86e383579dbb",
+    "binaries": {
+      "A": {
+        "path": "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/native_destruction_demo",
+        "sha256": "858f785590596416d091121bfde825d2b3fa3d7652e2730e16c2ca08a314ce5f"
+      },
+      "B": {
+        "path": "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/native_destruction_demo",
+        "sha256": "858f785590596416d091121bfde825d2b3fa3d7652e2730e16c2ca08a314ce5f"
+      }
+    }
+  },
+  "light": {
+    "status": "complete",
+    "candidate_commit": "8e4d46f6919efde1b668e80fa6040cb57d74724a",
+    "scenarios": [
+      {
+        "scenario": "bridge64-cold",
+        "A": {
+          "n": 16,
+          "mean_ms": 8.5361706875,
+          "median_ms": 8.095766999999999,
+          "max_ms": 11.458254,
+          "sd_ms": 1.0739496143630898,
+          "peak_sample_index": 8,
+          "over_8ms": 12,
+          "over_120hz": 7,
+          "over_60hz": 0,
+          "budget_miss_percent": {
+            "8ms": 75.0,
+            "120hz": 43.75,
+            "60hz": 0.0
+          },
+          "stress_iterations": {
+            "min": 184,
+            "max": 184,
+            "mean": 184
+          },
+          "restore_mean_ms": 35.7714506875,
+          "stages_ms": {
+            "command_ms": 9.756249999999999e-05,
+            "simulate_fetch_ms": 8.3611105625,
+            "completion_ms": 0.1749625625
+          }
+        },
+        "context_setup_ms": {
+          "A0": 587.639432,
+          "B": 479.047341,
+          "A1": 527.544555
+        },
+        "first_tick_ms": {
+          "A0": 10.666752,
+          "B": 11.297352,
+          "A1": 11.458254
+        },
+        "later_tick_mean_ms": {
+          "A0": 7.888882285714286,
+          "B": 8.576903428571429,
+          "A1": 8.461649857142858
+        },
+        "saved_ms": -0.3807888125000005,
+        "descriptive_saved_ms_95": [
+          -1.2424936874999997,
+          0.3676517500000003
+        ],
+        "physical_status": "passed",
+        "raw": {
+          "A0": "/root/workspace/physx-2/out/n14-closure-20260912/screen/matched-light/bridge64-cold-A0",
+          "B": "/root/workspace/physx-2/out/n14-closure-20260912/screen/matched-light/bridge64-cold-B",
+          "A1": "/root/workspace/physx-2/out/n14-closure-20260912/screen/matched-light/bridge64-cold-A1"
+        },
+        "A0": {
+          "n": 8,
+          "mean_ms": 8.236115999999999,
+          "median_ms": 8.037405,
+          "max_ms": 10.666752,
+          "sd_ms": 1.0193087238900127,
+          "peak_sample_index": 0,
+          "over_8ms": 5,
+          "over_120hz": 1,
+          "over_60hz": 0,
+          "budget_miss_percent": {
+            "8ms": 62.5,
+            "120hz": 12.5,
+            "60hz": 0.0
+          },
+          "stress_iterations": {
+            "min": 184,
+            "max": 184,
+            "mean": 184
+          },
+          "restore_mean_ms": 36.2740665,
+          "stages_ms": {
+            "command_ms": 9.2625e-05,
+            "simulate_fetch_ms": 8.061437,
+            "completion_ms": 0.174586375
+          }
+        },
+        "B": {
+          "n": 8,
+          "mean_ms": 8.9169595,
+          "median_ms": 8.566662,
+          "max_ms": 11.297352,
+          "sd_ms": 0.9707383229549705,
+          "peak_sample_index": 0,
+          "over_8ms": 8,
+          "over_120hz": 8,
+          "over_60hz": 0,
+          "budget_miss_percent": {
+            "8ms": 100.0,
+            "120hz": 100.0,
+            "60hz": 0.0
+          },
+          "stress_iterations": {
+            "min": 184,
+            "max": 184,
+            "mean": 184
+          },
+          "restore_mean_ms": 36.724753125,
+          "stages_ms": {
+            "command_ms": 0.000134,
+            "simulate_fetch_ms": 8.7119175,
+            "completion_ms": 0.204908
+          }
+        },
+        "A1": {
+          "n": 8,
+          "mean_ms": 8.836225375,
+          "median_ms": 8.567799,
+          "max_ms": 11.458254,
+          "sd_ms": 1.107575192082743,
+          "peak_sample_index": 0,
+          "over_8ms": 7,
+          "over_120hz": 6,
+          "over_60hz": 0,
+          "budget_miss_percent": {
+            "8ms": 87.5,
+            "120hz": 75.0,
+            "60hz": 0.0
+          },
+          "stress_iterations": {
+            "min": 184,
+            "max": 184,
+            "mean": 184
+          },
+          "restore_mean_ms": 35.268834875,
+          "stages_ms": {
+            "command_ms": 0.0001025,
+            "simulate_fetch_ms": 8.660784125,
+            "completion_ms": 0.17533875
+          }
+        }
+      },
+      {
+        "scenario": "chain256-cold",
+        "A": {
+          "n": 16,
+          "mean_ms": 7.613277875,
+          "median_ms": 7.263634,
+          "max_ms": 10.019539,
+          "sd_ms": 0.9171012569240743,
+          "peak_sample_index": 0,
+          "over_8ms": 2,
+          "over_120hz": 2,
+          "over_60hz": 0,
+          "budget_miss_percent": {
+            "8ms": 12.5,
+            "120hz": 12.5,
+            "60hz": 0.0
+          },
+          "stress_iterations": {
+            "min": 492,
+            "max": 492,
+            "mean": 492
+          },
+          "restore_mean_ms": 32.6661564375,
+          "stages_ms": {
+            "command_ms": 0.000133625,
+            "simulate_fetch_ms": 7.394769625,
+            "completion_ms": 0.218374625
+          }
+        },
+        "context_setup_ms": {
+          "A0": 480.28946,
+          "B": 541.20579,
+          "A1": 535.3124
+        },
+        "first_tick_ms": {
+          "A0": 10.019539,
+          "B": 9.899775,
+          "A1": 9.815822
+        },
+        "later_tick_mean_ms": {
+          "A0": 7.181268428571428,
+          "B": 7.032665857142857,
+          "A1": 7.386886571428572
+        },
+        "saved_ms": 0.22222337499999956,
+        "descriptive_saved_ms_95": [
+          -0.6286144375000005,
+          0.9277674375
+        ],
+        "physical_status": "passed",
+        "raw": {
+          "A0": "/root/workspace/physx-2/out/n14-closure-20260912/screen/matched-light/chain256-cold-A0",
+          "B": "/root/workspace/physx-2/out/n14-closure-20260912/screen/matched-light/chain256-cold-B",
+          "A1": "/root/workspace/physx-2/out/n14-closure-20260912/screen/matched-light/chain256-cold-A1"
+        },
+        "A0": {
+          "n": 8,
+          "mean_ms": 7.53605225,
+          "median_ms": 7.169478,
+          "max_ms": 10.019539,
+          "sd_ms": 1.0061856926704862,
+          "peak_sample_index": 0,
+          "over_8ms": 1,
+          "over_120hz": 1,
+          "over_60hz": 0,
+          "budget_miss_percent": {
+            "8ms": 12.5,
+            "120hz": 12.5,
+            "60hz": 0.0
+          },
+          "stress_iterations": {
+            "min": 492,
+            "max": 492,
+            "mean": 492
+          },
+          "restore_mean_ms": 33.029139375,
+          "stages_ms": {
+            "command_ms": 0.0001295,
+            "simulate_fetch_ms": 7.362503125,
+            "completion_ms": 0.173419625
+          }
+        },
+        "B": {
+          "n": 8,
+          "mean_ms": 7.3910545,
+          "median_ms": 7.054221999999999,
+          "max_ms": 9.899775,
+          "sd_ms": 1.024270918068764,
+          "peak_sample_index": 0,
+          "over_8ms": 1,
+          "over_120hz": 1,
+          "over_60hz": 0,
+          "budget_miss_percent": {
+            "8ms": 12.5,
+            "120hz": 12.5,
+            "60hz": 0.0
+          },
+          "stress_iterations": {
+            "min": 492,
+            "max": 492,
+            "mean": 492
+          },
+          "restore_mean_ms": 32.416760375,
+          "stages_ms": {
+            "command_ms": 0.00011825,
+            "simulate_fetch_ms": 7.208541,
+            "completion_ms": 0.18239525
+          }
+        },
+        "A1": {
+          "n": 8,
+          "mean_ms": 7.6905035,
+          "median_ms": 7.353536,
+          "max_ms": 9.815822,
+          "sd_ms": 0.8810571929162312,
+          "peak_sample_index": 0,
+          "over_8ms": 1,
+          "over_120hz": 1,
+          "over_60hz": 0,
+          "budget_miss_percent": {
+            "8ms": 12.5,
+            "120hz": 12.5,
+            "60hz": 0.0
+          },
+          "stress_iterations": {
+            "min": 492,
+            "max": 492,
+            "mean": 492
+          },
+          "restore_mean_ms": 32.3031735,
+          "stages_ms": {
+            "command_ms": 0.00013775000000000001,
+            "simulate_fetch_ms": 7.427036125,
+            "completion_ms": 0.263329625
+          }
+        }
+      },
+      {
+        "scenario": "dense12-cold",
+        "A": {
+          "n": 12,
+          "mean_ms": 31.691639083333335,
+          "median_ms": 31.363417,
+          "max_ms": 33.809339,
+          "sd_ms": 0.9993998906255935,
+          "peak_sample_index": 0,
+          "over_8ms": 12,
+          "over_120hz": 12,
+          "over_60hz": 12,
+          "budget_miss_percent": {
+            "8ms": 100.0,
+            "120hz": 100.0,
+            "60hz": 100.0
+          },
+          "stress_iterations": {
+            "min": 34,
+            "max": 34,
+            "mean": 34
+          },
+          "restore_mean_ms": 55.84719991666667,
+          "stages_ms": {
+            "command_ms": 0.00015925,
+            "simulate_fetch_ms": 31.521629666666666,
+            "completion_ms": 0.16985016666666666
+          }
+        },
+        "context_setup_ms": {
+          "A0": 488.966924,
+          "B": 478.550523,
+          "A1": 528.808293
+        },
+        "first_tick_ms": {
+          "A0": 33.809339,
+          "B": 33.445404,
+          "A1": 33.798644
+        },
+        "later_tick_mean_ms": {
+          "A0": 31.2318636,
+          "B": 30.9851956,
+          "A1": 31.3064736
+        },
+        "saved_ms": 0.2964087500000012,
+        "descriptive_saved_ms_95": [
+          -0.6839539166666668,
+          1.1286321666666659
+        ],
+        "physical_status": "passed",
+        "raw": {
+          "A0": "/root/workspace/physx-2/out/n14-closure-20260912/screen/matched-light/dense12-cold-A0",
+          "B": "/root/workspace/physx-2/out/n14-closure-20260912/screen/matched-light/dense12-cold-B",
+          "A1": "/root/workspace/physx-2/out/n14-closure-20260912/screen/matched-light/dense12-cold-A1"
+        },
+        "A0": {
+          "n": 6,
+          "mean_ms": 31.661442833333332,
+          "median_ms": 31.285381,
+          "max_ms": 33.809339,
+          "sd_ms": 1.0609871743530963,
+          "peak_sample_index": 0,
+          "over_8ms": 6,
+          "over_120hz": 6,
+          "over_60hz": 6,
+          "budget_miss_percent": {
+            "8ms": 100.0,
+            "120hz": 100.0,
+            "60hz": 100.0
+          },
+          "stress_iterations": {
+            "min": 34,
+            "max": 34,
+            "mean": 34
+          },
+          "restore_mean_ms": 55.546706,
+          "stages_ms": {
+            "command_ms": 0.00015350000000000002,
+            "simulate_fetch_ms": 31.506452166666666,
+            "completion_ms": 0.15483716666666666
+          }
+        },
+        "B": {
+          "n": 6,
+          "mean_ms": 31.395230333333334,
+          "median_ms": 31.0292915,
+          "max_ms": 33.445404,
+          "sd_ms": 1.0159957289651715,
+          "peak_sample_index": 0,
+          "over_8ms": 6,
+          "over_120hz": 6,
+          "over_60hz": 6,
+          "budget_miss_percent": {
+            "8ms": 100.0,
+            "120hz": 100.0,
+            "60hz": 100.0
+          },
+          "stress_iterations": {
+            "min": 34,
+            "max": 34,
+            "mean": 34
+          },
+          "restore_mean_ms": 54.487103166666664,
+          "stages_ms": {
+            "command_ms": 0.0001265,
+            "simulate_fetch_ms": 31.201515833333332,
+            "completion_ms": 0.193588
+          }
+        },
+        "A1": {
+          "n": 6,
+          "mean_ms": 31.721835333333335,
+          "median_ms": 31.375829000000003,
+          "max_ms": 33.798644,
+          "sd_ms": 1.034155778626155,
+          "peak_sample_index": 0,
+          "over_8ms": 6,
+          "over_120hz": 6,
+          "over_60hz": 6,
+          "budget_miss_percent": {
+            "8ms": 100.0,
+            "120hz": 100.0,
+            "60hz": 100.0
+          },
+          "stress_iterations": {
+            "min": 34,
+            "max": 34,
+            "mean": 34
+          },
+          "restore_mean_ms": 56.147693833333335,
+          "stages_ms": {
+            "command_ms": 0.000165,
+            "simulate_fetch_ms": 31.536807166666666,
+            "completion_ms": 0.18486316666666666
+          }
+        }
+      },
+      {
+        "scenario": "destruction-stimulus",
+        "A": {
+          "n": 16,
+          "mean_ms": 3.838915,
+          "median_ms": 3.6881765,
+          "max_ms": 7.875938,
+          "sd_ms": 1.6928148948982775,
+          "peak_sample_index": 0,
+          "over_8ms": 0,
+          "over_120hz": 0,
+          "over_60hz": 0,
+          "budget_miss_percent": {
+            "8ms": 0.0,
+            "120hz": 0.0,
+            "60hz": 0.0
+          },
+          "stress_iterations": {
+            "min": 1,
+            "max": 1,
+            "mean": 1
+          },
+          "restore_mean_ms": 30.258288312500003,
+          "stages_ms": {
+            "command_ms": 0.001685875,
+            "simulate_fetch_ms": 3.6698870625,
+            "completion_ms": 0.1673420625
+          }
+        },
+        "context_setup_ms": {
+          "A0": 529.412344,
+          "B": 548.805416,
+          "A1": 484.724443
+        },
+        "first_tick_ms": {
+          "A0": 7.875938,
+          "B": 7.532257,
+          "A1": 7.864081
+        },
+        "later_tick_mean_ms": {
+          "A0": 2.6648587142857143,
+          "B": 3.729496,
+          "A1": 3.86123
+        },
+        "saved_ms": -0.36592612499999966,
+        "descriptive_saved_ms_95": [
+          -1.5745837500000004,
+          0.7469591250000001
+        ],
+        "physical_status": "passed",
+        "raw": {
+          "A0": "/root/workspace/physx-2/out/n14-closure-20260912/screen/matched-light/destruction-stimulus-A0",
+          "B": "/root/workspace/physx-2/out/n14-closure-20260912/screen/matched-light/destruction-stimulus-B",
+          "A1": "/root/workspace/physx-2/out/n14-closure-20260912/screen/matched-light/destruction-stimulus-A1"
+        },
+        "A0": {
+          "n": 8,
+          "mean_ms": 3.3162436250000003,
+          "median_ms": 2.6914275,
+          "max_ms": 7.875938,
+          "sd_ms": 1.8703789148352448,
+          "peak_sample_index": 0,
+          "over_8ms": 0,
+          "over_120hz": 0,
+          "over_60hz": 0,
+          "budget_miss_percent": {
+            "8ms": 0.0,
+            "120hz": 0.0,
+            "60hz": 0.0
+          },
+          "stress_iterations": {
+            "min": 1,
+            "max": 1,
+            "mean": 1
+          },
+          "restore_mean_ms": 28.86560275,
+          "stages_ms": {
+            "command_ms": 0.00158125,
+            "simulate_fetch_ms": 3.148341375,
+            "completion_ms": 0.166321
+          }
+        },
+        "B": {
+          "n": 8,
+          "mean_ms": 4.204841125,
+          "median_ms": 3.765459,
+          "max_ms": 7.532257,
+          "sd_ms": 1.351553406479209,
+          "peak_sample_index": 0,
+          "over_8ms": 0,
+          "over_120hz": 0,
+          "over_60hz": 0,
+          "budget_miss_percent": {
+            "8ms": 0.0,
+            "120hz": 0.0,
+            "60hz": 0.0
+          },
+          "stress_iterations": {
+            "min": 1,
+            "max": 1,
+            "mean": 1
+          },
+          "restore_mean_ms": 28.414008875,
+          "stages_ms": {
+            "command_ms": 0.0017395,
+            "simulate_fetch_ms": 4.0413725,
+            "completion_ms": 0.161729125
+          }
+        },
+        "A1": {
+          "n": 8,
+          "mean_ms": 4.361586375,
+          "median_ms": 3.9067505000000002,
+          "max_ms": 7.864081,
+          "sd_ms": 1.4205203860612827,
+          "peak_sample_index": 0,
+          "over_8ms": 0,
+          "over_120hz": 0,
+          "over_60hz": 0,
+          "budget_miss_percent": {
+            "8ms": 0.0,
+            "120hz": 0.0,
+            "60hz": 0.0
+          },
+          "stress_iterations": {
+            "min": 1,
+            "max": 1,
+            "mean": 1
+          },
+          "restore_mean_ms": 31.650973875000002,
+          "stages_ms": {
+            "command_ms": 0.0017905,
+            "simulate_fetch_ms": 4.19143275,
+            "completion_ms": 0.168363125
+          }
+        }
+      },
+      {
+        "scenario": "city25-initial-impact",
+        "A": {
+          "n": 8,
+          "mean_ms": 42.047867000000004,
+          "median_ms": 40.2839355,
+          "max_ms": 47.569937,
+          "sd_ms": 3.6552310320870287,
+          "peak_sample_index": 0,
+          "over_8ms": 8,
+          "over_120hz": 8,
+          "over_60hz": 8,
+          "budget_miss_percent": {
+            "8ms": 100.0,
+            "120hz": 100.0,
+            "60hz": 100.0
+          },
+          "stress_iterations": {
+            "min": 304,
+            "max": 304,
+            "mean": 304
+          },
+          "restore_mean_ms": 124.930290375,
+          "stages_ms": {
+            "command_ms": 0.000104,
+            "simulate_fetch_ms": 41.8367255,
+            "completion_ms": 0.2110375
+          }
+        },
+        "context_setup_ms": {
+          "A0": 699.784511,
+          "B": 644.536085,
+          "A1": 623.5451
+        },
+        "first_tick_ms": {
+          "A0": 47.569937,
+          "B": 49.002818,
+          "A1": 47.10911
+        },
+        "later_tick_mean_ms": {
+          "A0": 39.445909,
+          "B": 37.11937533333333,
+          "A1": 41.122054
+        },
+        "saved_ms": 1.9576310000000063,
+        "descriptive_saved_ms_95": [
+          -4.265390499999995,
+          7.730913125000001
+        ],
+        "physical_status": "passed",
+        "raw": {
+          "A0": "/root/workspace/physx-2/out/n14-closure-20260912/screen/matched-light/city25-initial-impact-A0",
+          "B": "/root/workspace/physx-2/out/n14-closure-20260912/screen/matched-light/city25-initial-impact-B",
+          "A1": "/root/workspace/physx-2/out/n14-closure-20260912/screen/matched-light/city25-initial-impact-A1"
+        },
+        "A0": {
+          "n": 4,
+          "mean_ms": 41.476916,
+          "median_ms": 40.179282,
+          "max_ms": 47.569937,
+          "sd_ms": 4.217836045944731,
+          "peak_sample_index": 0,
+          "over_8ms": 4,
+          "over_120hz": 4,
+          "over_60hz": 4,
+          "budget_miss_percent": {
+            "8ms": 100.0,
+            "120hz": 100.0,
+            "60hz": 100.0
+          },
+          "stress_iterations": {
+            "min": 304,
+            "max": 304,
+            "mean": 304
+          },
+          "restore_mean_ms": 125.27868649999999,
+          "stages_ms": {
+            "command_ms": 8.999999999999999e-05,
+            "simulate_fetch_ms": 41.2708875,
+            "completion_ms": 0.2059385
+          }
+        },
+        "B": {
+          "n": 4,
+          "mean_ms": 40.090236,
+          "median_ms": 39.1204395,
+          "max_ms": 49.002818,
+          "sd_ms": 6.620582339542396,
+          "peak_sample_index": 0,
+          "over_8ms": 4,
+          "over_120hz": 4,
+          "over_60hz": 4,
+          "budget_miss_percent": {
+            "8ms": 100.0,
+            "120hz": 100.0,
+            "60hz": 100.0
+          },
+          "stress_iterations": {
+            "min": 304,
+            "max": 304,
+            "mean": 304
+          },
+          "restore_mean_ms": 124.87525525000001,
+          "stages_ms": {
+            "command_ms": 9.875e-05,
+            "simulate_fetch_ms": 39.89401625,
+            "completion_ms": 0.196121
+          }
+        },
+        "A1": {
+          "n": 4,
+          "mean_ms": 42.618818000000005,
+          "median_ms": 41.804677,
+          "max_ms": 47.10911,
+          "sd_ms": 3.537734406787485,
+          "peak_sample_index": 0,
+          "over_8ms": 4,
+          "over_120hz": 4,
+          "over_60hz": 4,
+          "budget_miss_percent": {
+            "8ms": 100.0,
+            "120hz": 100.0,
+            "60hz": 100.0
+          },
+          "stress_iterations": {
+            "min": 304,
+            "max": 304,
+            "mean": 304
+          },
+          "restore_mean_ms": 124.58189425,
+          "stages_ms": {
+            "command_ms": 0.000118,
+            "simulate_fetch_ms": 42.4025635,
+            "completion_ms": 0.2161365
+          }
+        }
+      },
+      {
+        "scenario": "city256-intact-idle",
+        "A": {
+          "n": 6,
+          "mean_ms": 77.59735933333333,
+          "median_ms": 75.9393585,
+          "max_ms": 86.649071,
+          "sd_ms": 7.064782975990636,
+          "peak_sample_index": 3,
+          "over_8ms": 6,
+          "over_120hz": 6,
+          "over_60hz": 6,
+          "budget_miss_percent": {
+            "8ms": 100.0,
+            "120hz": 100.0,
+            "60hz": 100.0
+          },
+          "stress_iterations": {
+            "min": 88,
+            "max": 88,
+            "mean": 88
+          },
+          "restore_mean_ms": 842.9267843333333,
+          "stages_ms": {
+            "command_ms": 0.00019866666666666665,
+            "simulate_fetch_ms": 77.35253266666666,
+            "completion_ms": 0.244628
+          }
+        },
+        "context_setup_ms": {
+          "A0": 1785.993862,
+          "B": 1793.941572,
+          "A1": 1880.449012
+        },
+        "first_tick_ms": {
+          "A0": 85.462576,
+          "B": 75.066939,
+          "A1": 86.649071
+        },
+        "later_tick_mean_ms": {
+          "A0": 71.9745315,
+          "B": 74.953011,
+          "A1": 74.76172299999999
+        },
+        "saved_ms": 2.6063723333333257,
+        "descriptive_saved_ms_95": [
+          -2.4424278333333405,
+          7.818323500000005
+        ],
+        "physical_status": "passed",
+        "raw": {
+          "A0": "/root/workspace/physx-2/out/n14-closure-20260912/screen/matched-light/city256-intact-idle-A0",
+          "B": "/root/workspace/physx-2/out/n14-closure-20260912/screen/matched-light/city256-intact-idle-B",
+          "A1": "/root/workspace/physx-2/out/n14-closure-20260912/screen/matched-light/city256-intact-idle-A1"
+        },
+        "A0": {
+          "n": 3,
+          "mean_ms": 76.47054633333333,
+          "median_ms": 74.566391,
+          "max_ms": 85.462576,
+          "sd_ms": 8.20732500955094,
+          "peak_sample_index": 0,
+          "over_8ms": 3,
+          "over_120hz": 3,
+          "over_60hz": 3,
+          "budget_miss_percent": {
+            "8ms": 100.0,
+            "120hz": 100.0,
+            "60hz": 100.0
+          },
+          "stress_iterations": {
+            "min": 88,
+            "max": 88,
+            "mean": 88
+          },
+          "restore_mean_ms": 842.2527496666667,
+          "stages_ms": {
+            "command_ms": 0.000223,
+            "simulate_fetch_ms": 76.21111133333333,
+            "completion_ms": 0.259212
+          }
+        },
+        "B": {
+          "n": 3,
+          "mean_ms": 74.990987,
+          "median_ms": 75.066939,
+          "max_ms": 76.14078,
+          "sd_ms": 1.1895888899485432,
+          "peak_sample_index": 1,
+          "over_8ms": 3,
+          "over_120hz": 3,
+          "over_60hz": 3,
+          "budget_miss_percent": {
+            "8ms": 100.0,
+            "120hz": 100.0,
+            "60hz": 100.0
+          },
+          "stress_iterations": {
+            "min": 88,
+            "max": 88,
+            "mean": 88
+          },
+          "restore_mean_ms": 838.2800916666667,
+          "stages_ms": {
+            "command_ms": 0.00024,
+            "simulate_fetch_ms": 74.74299566666667,
+            "completion_ms": 0.24775133333333332
+          }
+        },
+        "A1": {
+          "n": 3,
+          "mean_ms": 78.72417233333333,
+          "median_ms": 77.312326,
+          "max_ms": 86.649071,
+          "sd_ms": 7.32178870367825,
+          "peak_sample_index": 0,
+          "over_8ms": 3,
+          "over_120hz": 3,
+          "over_60hz": 3,
+          "budget_miss_percent": {
+            "8ms": 100.0,
+            "120hz": 100.0,
+            "60hz": 100.0
+          },
+          "stress_iterations": {
+            "min": 88,
+            "max": 88,
+            "mean": 88
+          },
+          "restore_mean_ms": 843.600819,
+          "stages_ms": {
+            "command_ms": 0.00017433333333333333,
+            "simulate_fetch_ms": 78.493954,
+            "completion_ms": 0.230044
+          }
+        }
+      },
+      {
+        "scenario": "city256-late-debris",
+        "A": {
+          "n": 6,
+          "mean_ms": 416.89506216666666,
+          "median_ms": 408.32613649999996,
+          "max_ms": 463.560947,
+          "sd_ms": 32.881285879694786,
+          "peak_sample_index": 0,
+          "over_8ms": 6,
+          "over_120hz": 6,
+          "over_60hz": 6,
+          "budget_miss_percent": {
+            "8ms": 100.0,
+            "120hz": 100.0,
+            "60hz": 100.0
+          },
+          "stress_iterations": {
+            "min": 1084,
+            "max": 1084,
+            "mean": 1084
+          },
+          "restore_mean_ms": 953.6270486666666,
+          "stages_ms": {
+            "command_ms": 0.00018533333333333333,
+            "simulate_fetch_ms": 416.6466408333333,
+            "completion_ms": 0.248236
+          }
+        },
+        "context_setup_ms": {
+          "A0": 1853.686881,
+          "B": 1793.785244,
+          "A1": 1832.942154
+        },
+        "first_tick_ms": {
+          "A0": 463.560947,
+          "B": 470.424046,
+          "A1": 446.34672
+        },
+        "later_tick_mean_ms": {
+          "A0": 393.938769,
+          "B": 407.365187,
+          "A1": 401.79258400000003
+        },
+        "saved_ms": -11.489744499999972,
+        "descriptive_saved_ms_95": [
+          -53.800226833333284,
+          26.224844666666684
+        ],
+        "physical_status": "passed",
+        "raw": {
+          "A0": "/root/workspace/physx-2/out/n14-closure-20260912/screen/matched-light/city256-late-debris-A0",
+          "B": "/root/workspace/physx-2/out/n14-closure-20260912/screen/matched-light/city256-late-debris-B",
+          "A1": "/root/workspace/physx-2/out/n14-closure-20260912/screen/matched-light/city256-late-debris-A1"
+        },
+        "A0": {
+          "n": 3,
+          "mean_ms": 417.14616166666667,
+          "median_ms": 394.238613,
+          "max_ms": 463.560947,
+          "sd_ms": 40.197501534036896,
+          "peak_sample_index": 0,
+          "over_8ms": 3,
+          "over_120hz": 3,
+          "over_60hz": 3,
+          "budget_miss_percent": {
+            "8ms": 100.0,
+            "120hz": 100.0,
+            "60hz": 100.0
+          },
+          "stress_iterations": {
+            "min": 1084,
+            "max": 1084,
+            "mean": 1084
+          },
+          "restore_mean_ms": 944.1956303333334,
+          "stages_ms": {
+            "command_ms": 0.00016833333333333332,
+            "simulate_fetch_ms": 416.9057406666667,
+            "completion_ms": 0.24025266666666667
+          }
+        },
+        "B": {
+          "n": 3,
+          "mean_ms": 428.38480666666663,
+          "median_ms": 410.441528,
+          "max_ms": 470.424046,
+          "sd_ms": 36.53679113910034,
+          "peak_sample_index": 0,
+          "over_8ms": 3,
+          "over_120hz": 3,
+          "over_60hz": 3,
+          "budget_miss_percent": {
+            "8ms": 100.0,
+            "120hz": 100.0,
+            "60hz": 100.0
+          },
+          "stress_iterations": {
+            "min": 1084,
+            "max": 1084,
+            "mean": 1084
+          },
+          "restore_mean_ms": 956.190016,
+          "stages_ms": {
+            "command_ms": 0.000124,
+            "simulate_fetch_ms": 428.1294853333333,
+            "completion_ms": 0.25519733333333333
+          }
+        },
+        "A1": {
+          "n": 3,
+          "mean_ms": 416.64396266666665,
+          "median_ms": 422.41366,
+          "max_ms": 446.34672,
+          "sd_ms": 32.96845644400024,
+          "peak_sample_index": 0,
+          "over_8ms": 3,
+          "over_120hz": 3,
+          "over_60hz": 3,
+          "budget_miss_percent": {
+            "8ms": 100.0,
+            "120hz": 100.0,
+            "60hz": 100.0
+          },
+          "stress_iterations": {
+            "min": 1084,
+            "max": 1084,
+            "mean": 1084
+          },
+          "restore_mean_ms": 963.058467,
+          "stages_ms": {
+            "command_ms": 0.00020233333333333334,
+            "simulate_fetch_ms": 416.387541,
+            "completion_ms": 0.25621933333333335
+          }
+        }
+      }
+    ],
+    "runs": [
+      {
+        "scenario": "bridge64-cold",
+        "arm": "A0",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n14-closure-20260912/screen/matched-light/bridge64-cold-A0",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n14-closure-20260912/build/A",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/bridge64-cold",
+          "--repetitions",
+          "8",
+          "--watchdog-seconds",
+          "1200"
+        ],
+        "exit_code": 0
+      },
+      {
+        "scenario": "bridge64-cold",
+        "arm": "B",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n14-closure-20260912/screen/matched-light/bridge64-cold-B",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n14-closure-20260912/build/B",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/bridge64-cold",
+          "--repetitions",
+          "8",
+          "--watchdog-seconds",
+          "1200"
+        ],
+        "exit_code": 0
+      },
+      {
+        "scenario": "bridge64-cold",
+        "arm": "A1",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n14-closure-20260912/screen/matched-light/bridge64-cold-A1",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n14-closure-20260912/build/A",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/bridge64-cold",
+          "--repetitions",
+          "8",
+          "--watchdog-seconds",
+          "1200"
+        ],
+        "exit_code": 0
+      },
+      {
+        "scenario": "chain256-cold",
+        "arm": "A0",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n14-closure-20260912/screen/matched-light/chain256-cold-A0",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n14-closure-20260912/build/A",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/chain256-cold",
+          "--repetitions",
+          "8",
+          "--watchdog-seconds",
+          "1200"
+        ],
+        "exit_code": 0
+      },
+      {
+        "scenario": "chain256-cold",
+        "arm": "B",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n14-closure-20260912/screen/matched-light/chain256-cold-B",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n14-closure-20260912/build/B",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/chain256-cold",
+          "--repetitions",
+          "8",
+          "--watchdog-seconds",
+          "1200"
+        ],
+        "exit_code": 0
+      },
+      {
+        "scenario": "chain256-cold",
+        "arm": "A1",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n14-closure-20260912/screen/matched-light/chain256-cold-A1",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n14-closure-20260912/build/A",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/chain256-cold",
+          "--repetitions",
+          "8",
+          "--watchdog-seconds",
+          "1200"
+        ],
+        "exit_code": 0
+      },
+      {
+        "scenario": "dense12-cold",
+        "arm": "A0",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n14-closure-20260912/screen/matched-light/dense12-cold-A0",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n14-closure-20260912/build/A",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/dense12-cold",
+          "--repetitions",
+          "6",
+          "--watchdog-seconds",
+          "1200"
+        ],
+        "exit_code": 0
+      },
+      {
+        "scenario": "dense12-cold",
+        "arm": "B",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n14-closure-20260912/screen/matched-light/dense12-cold-B",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n14-closure-20260912/build/B",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/dense12-cold",
+          "--repetitions",
+          "6",
+          "--watchdog-seconds",
+          "1200"
+        ],
+        "exit_code": 0
+      },
+      {
+        "scenario": "dense12-cold",
+        "arm": "A1",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n14-closure-20260912/screen/matched-light/dense12-cold-A1",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n14-closure-20260912/build/A",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/dense12-cold",
+          "--repetitions",
+          "6",
+          "--watchdog-seconds",
+          "1200"
+        ],
+        "exit_code": 0
+      },
+      {
+        "scenario": "destruction-stimulus",
+        "arm": "A0",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n14-closure-20260912/screen/matched-light/destruction-stimulus-A0",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n14-closure-20260912/build/A",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/destruction-stimulus",
+          "--repetitions",
+          "8",
+          "--watchdog-seconds",
+          "1200",
+          "--projectile-impulse"
+        ],
+        "exit_code": 0
+      },
+      {
+        "scenario": "destruction-stimulus",
+        "arm": "B",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n14-closure-20260912/screen/matched-light/destruction-stimulus-B",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n14-closure-20260912/build/B",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/destruction-stimulus",
+          "--repetitions",
+          "8",
+          "--watchdog-seconds",
+          "1200",
+          "--projectile-impulse"
+        ],
+        "exit_code": 0
+      },
+      {
+        "scenario": "destruction-stimulus",
+        "arm": "A1",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n14-closure-20260912/screen/matched-light/destruction-stimulus-A1",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n14-closure-20260912/build/A",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/destruction-stimulus",
+          "--repetitions",
+          "8",
+          "--watchdog-seconds",
+          "1200",
+          "--projectile-impulse"
+        ],
+        "exit_code": 0
+      },
+      {
+        "scenario": "city25-initial-impact",
+        "arm": "A0",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n14-closure-20260912/screen/matched-light/city25-initial-impact-A0",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n14-closure-20260912/build/A",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82",
+          "--repetitions",
+          "4",
+          "--watchdog-seconds",
+          "1200"
+        ],
+        "exit_code": 0
+      },
+      {
+        "scenario": "city25-initial-impact",
+        "arm": "B",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n14-closure-20260912/screen/matched-light/city25-initial-impact-B",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n14-closure-20260912/build/B",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82",
+          "--repetitions",
+          "4",
+          "--watchdog-seconds",
+          "1200"
+        ],
+        "exit_code": 0
+      },
+      {
+        "scenario": "city25-initial-impact",
+        "arm": "A1",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n14-closure-20260912/screen/matched-light/city25-initial-impact-A1",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n14-closure-20260912/build/A",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82",
+          "--repetitions",
+          "4",
+          "--watchdog-seconds",
+          "1200"
+        ],
+        "exit_code": 0
+      },
+      {
+        "scenario": "city256-intact-idle",
+        "arm": "A0",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n14-closure-20260912/screen/matched-light/city256-intact-idle-A0",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n14-closure-20260912/build/A",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-idle/native/snapshot-40",
+          "--repetitions",
+          "3",
+          "--watchdog-seconds",
+          "1200"
+        ],
+        "exit_code": 0
+      },
+      {
+        "scenario": "city256-intact-idle",
+        "arm": "B",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n14-closure-20260912/screen/matched-light/city256-intact-idle-B",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n14-closure-20260912/build/B",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-idle/native/snapshot-40",
+          "--repetitions",
+          "3",
+          "--watchdog-seconds",
+          "1200"
+        ],
+        "exit_code": 0
+      },
+      {
+        "scenario": "city256-intact-idle",
+        "arm": "A1",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n14-closure-20260912/screen/matched-light/city256-intact-idle-A1",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n14-closure-20260912/build/A",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-idle/native/snapshot-40",
+          "--repetitions",
+          "3",
+          "--watchdog-seconds",
+          "1200"
+        ],
+        "exit_code": 0
+      },
+      {
+        "scenario": "city256-late-debris",
+        "arm": "A0",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n14-closure-20260912/screen/matched-light/city256-late-debris-A0",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n14-closure-20260912/build/A",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179",
+          "--repetitions",
+          "3",
+          "--watchdog-seconds",
+          "1200"
+        ],
+        "exit_code": 0
+      },
+      {
+        "scenario": "city256-late-debris",
+        "arm": "B",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n14-closure-20260912/screen/matched-light/city256-late-debris-B",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n14-closure-20260912/build/B",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179",
+          "--repetitions",
+          "3",
+          "--watchdog-seconds",
+          "1200"
+        ],
+        "exit_code": 0
+      },
+      {
+        "scenario": "city256-late-debris",
+        "arm": "A1",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n14-closure-20260912/screen/matched-light/city256-late-debris-A1",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n14-closure-20260912/build/A",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179",
+          "--repetitions",
+          "3",
+          "--watchdog-seconds",
+          "1200"
+        ],
+        "exit_code": 0
+      }
+    ],
+    "runner_sha256": "cd2a50501e6df5bde0da0540607671144a5ceb0c95a3218e223da75ab3cb15e7",
+    "repetition_policy": "Equal per-process counts in A-before/B/A-after; all first-use ticks included at equal weight. Pooled controls have twice the candidate sample count.",
+    "binaries": {
+      "A": {
+        "path": "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+        "sha256": "3c5c8f673ba3a9f5e54c6b957976648b0016e5304e7455211399dfb0a4b2454e"
+      },
+      "B": {
+        "path": "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+        "sha256": "3c5c8f673ba3a9f5e54c6b957976648b0016e5304e7455211399dfb0a4b2454e"
+      }
+    },
+    "modules": {
+      "A": {
+        "/root/workspace/physx-2/out/n14-closure-20260912/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n14-closure-20260912/build/A/libPhysXDestructionGpuRuntime_64.so": "f2fb1a1ae02ce6e9af5f43b1647095582d415b777bfc5052f0d0bf9887d9a394"
+      },
+      "B": {
+        "/root/workspace/physx-2/out/n14-closure-20260912/build/B/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n14-closure-20260912/build/B/libPhysXDestructionGpuRuntime_64.so": "76c025ea5cc88a9cd14730f7652179142e3d0452ff51a03c868b29f1849eb1ba"
+      }
+    },
+    "checker_sha256": "790e6c488889bacbd18e498bcb206c7fbcec23f91af98068aa32582bf55b76c2",
+    "force_scaled_bound": 0.0002,
+    "scope": "One full tick per independent physical restore. A-before / B / A-after per scenario. All CPU/GPU work and correction included; restore, validation and post-tick observation excluded. Unprofiled comparison with recorded GPU admission; no profiler timings or automatic acceptance.",
+    "harness_seconds": 132.38024352299908
+  },
+  "scope": "Unprofiled complete ticks including CPU, GPU, transfers, waits, correction and publication. Equal600 ticks per run, two runs per stage per scenario; no restore cost. Both continuous trajectories and cold light scenarios are preserved. This report does not automatically qualify retention.",
+  "group_means": [
+    {
+      "case": "idle-256",
+      "A-before": 1.5532728333333332,
+      "B": 1.5493985650000002,
+      "A-after": 1.4830871675
+    },
+    {
+      "case": "impacts-256",
+      "A-before": 51.74304771083334,
+      "B": 51.90424944666667,
+      "A-after": 52.29509334916666
+    }
+  ],
+  "conclusion": "No verified warm application improvement. Heavy mean between controls; peak and semantic-frame spread retained. Full52/policy qualification remains open."
+}

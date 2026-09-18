@@ -1,0 +1,809 @@
+warning: blast-stress-solver@0.1.1: In file included from /root/workspace/physx-2/blast/rust_stress_example/ffi/stress_bridge.cpp:6:
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/shared/stress_solver/anglin6.h:167:25: warning: ignoring attributes on template argument '__m128' [-Wignored-attributes]
+warning: blast-stress-solver@0.1.1:   167 | struct AngLin6Ops<__m128>
+warning: blast-stress-solver@0.1.1:       |                         ^
+warning: blast-stress-solver@0.1.1: In file included from /root/workspace/physx-2/blast/source/shared/stress_solver/bond.h:29,
+warning: blast-stress-solver@0.1.1:                  from /root/workspace/physx-2/blast/source/shared/stress_solver/stress.h:29,
+warning: blast-stress-solver@0.1.1:                  from /root/workspace/physx-2/blast/rust_stress_example/ffi/stress_bridge.cpp:8:
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/shared/stress_solver/coupling.h:121:43: warning: ignoring attributes on template argument 'SIMD_Scalar' {aka '__m128'} [-Wignored-attributes]
+warning: blast-stress-solver@0.1.1:   121 | struct CouplingMatrixOps<Elem, SIMD_Scalar>
+warning: blast-stress-solver@0.1.1:       |                                           ^
+warning: blast-stress-solver@0.1.1: In file included from /root/workspace/physx-2/blast/source/shared/stress_solver/bond.h:30:
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/shared/stress_solver/inertia.h:86:36: warning: ignoring attributes on template argument 'SIMD_Scalar' {aka '__m128'} [-Wignored-attributes]
+warning: blast-stress-solver@0.1.1:    86 | struct InertiaMatrixOps<SIMD_Scalar>
+warning: blast-stress-solver@0.1.1:       |                                    ^
+warning: blast-stress-solver@0.1.1: In file included from /root/workspace/physx-2/blast/rust_stress_example/ffi/ext_stress_bridge.cpp:17:
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/include/extensions/stress/NvBlastExtStressSolver.h: In constructor 'Nv::Blast::ExtStressMaterial::ExtStressMaterial()':
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/include/extensions/stress/NvBlastExtStressSolver.h:216:11: warning: 'Nv::Blast::ExtStressMaterial::elasticModulusPa' will be initialized after [-Wreorder]
+warning: blast-stress-solver@0.1.1:   216 |     float elasticModulusPa;
+warning: blast-stress-solver@0.1.1:       |           ^~~~~~~~~~~~~~~~
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/include/extensions/stress/NvBlastExtStressSolver.h:209:11: warning:   'float Nv::Blast::ExtStressMaterial::residualAreaFraction' [-Wreorder]
+warning: blast-stress-solver@0.1.1:   209 |     float residualAreaFraction;
+warning: blast-stress-solver@0.1.1:       |           ^~~~~~~~~~~~~~~~~~~~
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/include/extensions/stress/NvBlastExtStressSolver.h:221:5: warning:   when initialized here [-Wreorder]
+warning: blast-stress-solver@0.1.1:   221 |     ExtStressMaterial() :
+warning: blast-stress-solver@0.1.1:       |     ^~~~~~~~~~~~~~~~~
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/rust_stress_example/ffi/ext_stress_bridge.cpp: In function 'uint8_t ext_stress_solver_apply_fracture_commands(ExtStressSolverHandle*, const ExtStressFractureCommands*, uint32_t, ExtStressSplitEvent*, uint32_t, ExtStressActor*, uint32_t, uint32_t*, uint32_t*, uint32_t*, uint32_t, uint32_t*)':
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/rust_stress_example/ffi/ext_stress_bridge.cpp:2178:18: warning: variable 'childStored' set but not used [-Wunused-but-set-variable]
+warning: blast-stress-solver@0.1.1:  2178 |             bool childStored = false;
+warning: blast-stress-solver@0.1.1:       |                  ^~~~~~~~~~~
+warning: blast-stress-solver@0.1.1: In file included from /root/workspace/physx-2/blast/source/shared/stress_solver/coupling.h:30,
+warning: blast-stress-solver@0.1.1:                  from /root/workspace/physx-2/blast/source/shared/stress_solver/bond.h:29,
+warning: blast-stress-solver@0.1.1:                  from /root/workspace/physx-2/blast/source/shared/stress_solver/stress.h:29,
+warning: blast-stress-solver@0.1.1:                  from /root/workspace/physx-2/blast/source/shared/stress_solver/stress.cpp:27:
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/shared/stress_solver/anglin6.h:167:25: warning: ignoring attributes on template argument '__m128' [-Wignored-attributes]
+warning: blast-stress-solver@0.1.1:   167 | struct AngLin6Ops<__m128>
+warning: blast-stress-solver@0.1.1:       |                         ^
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/shared/stress_solver/coupling.h:121:43: warning: ignoring attributes on template argument 'SIMD_Scalar' {aka '__m128'} [-Wignored-attributes]
+warning: blast-stress-solver@0.1.1:   121 | struct CouplingMatrixOps<Elem, SIMD_Scalar>
+warning: blast-stress-solver@0.1.1:       |                                           ^
+warning: blast-stress-solver@0.1.1: In file included from /root/workspace/physx-2/blast/source/shared/stress_solver/bond.h:30:
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/shared/stress_solver/inertia.h:86:36: warning: ignoring attributes on template argument 'SIMD_Scalar' {aka '__m128'} [-Wignored-attributes]
+warning: blast-stress-solver@0.1.1:    86 | struct InertiaMatrixOps<SIMD_Scalar>
+warning: blast-stress-solver@0.1.1:       |                                    ^
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/shared/stress_solver/stress.cpp:41:45: warning: ignoring attributes on template argument 'SIMD_Scalar' {aka '__m128'} [-Wignored-attributes]
+warning: blast-stress-solver@0.1.1:    41 | typedef CGNR<AngLin6, AngLin6Ops<SIMD_Scalar>, BondMatrixS, BondMatrixOpsS<SIMD_Scalar>, SIMD_Scalar, AngLin6ErrorSq>       CGNR_SIMD;
+warning: blast-stress-solver@0.1.1:       |                                             ^
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/shared/stress_solver/stress.cpp:41:87: warning: ignoring attributes on template argument 'SIMD_Scalar' {aka '__m128'} [-Wignored-attributes]
+warning: blast-stress-solver@0.1.1:    41 | typedef CGNR<AngLin6, AngLin6Ops<SIMD_Scalar>, BondMatrixS, BondMatrixOpsS<SIMD_Scalar>, SIMD_Scalar, AngLin6ErrorSq>       CGNR_SIMD;
+warning: blast-stress-solver@0.1.1:       |                                                                                       ^
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/shared/stress_solver/stress.cpp:41:117: warning: ignoring attributes on template argument 'SIMD_Scalar' {aka '__m128'} [-Wignored-attributes]
+warning: blast-stress-solver@0.1.1:    41 | typedef CGNR<AngLin6, AngLin6Ops<SIMD_Scalar>, BondMatrixS, BondMatrixOpsS<SIMD_Scalar>, SIMD_Scalar, AngLin6ErrorSq>       CGNR_SIMD;
+warning: blast-stress-solver@0.1.1:       |                                                                                                                     ^
+warning: blast-stress-solver@0.1.1: In file included from /root/workspace/physx-2/blast/source/shared/stress_solver/stress.cpp:30:
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/shared/stress_solver/simd/simd_device_query.h:144:1: warning: 'void print_supported_instruction_sets()' defined but not used [-Wunused-function]
+warning: blast-stress-solver@0.1.1:   144 | print_supported_instruction_sets()
+warning: blast-stress-solver@0.1.1:       | ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/sdk/globals/NvBlastGlobals.cpp: In member function 'virtual void Nv::Blast::DefaultErrorCallback::reportError(nvidia::NvErrorCode::Enum, const char*, const char*, int)':
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/sdk/globals/NvBlastGlobals.cpp:120:14: warning: variable 'critical' set but not used [-Wunused-but-set-variable]
+warning: blast-stress-solver@0.1.1:   120 |         bool critical = false;
+warning: blast-stress-solver@0.1.1:       |              ^~~~~~~~
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/sdk/lowlevel/NvBlastFamily.cpp: In function 'NvBlastFamily* Nv::Blast::createFamily(void*, const NvBlastAssetMemSizeData&, NvBlastLog)':
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/sdk/lowlevel/NvBlastFamily.cpp:106:20: warning: unused variable 'bondCount' [-Wunused-variable]
+warning: blast-stress-solver@0.1.1:   106 |     const uint32_t bondCount = sizeData.bondCount;
+warning: blast-stress-solver@0.1.1:       |                    ^~~~~~~~~
+warning: blast-stress-solver@0.1.1: In file included from /root/workspace/physx-2/blast/source/sdk/lowlevel/NvBlastFamilyGraph.h:37,
+warning: blast-stress-solver@0.1.1:                  from /root/workspace/physx-2/blast/source/sdk/lowlevel/NvBlastFamilyGraph.cpp:28:
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/sdk/common/NvBlastFixedPriorityQueue.h: In instantiation of 'Nv::Blast::FixedPriorityQueue<Element, Comparator>::FixedPriorityQueue(const Comparator&) [with Element = Nv::Blast::FamilyGraph::QueueElement; Comparator = Nv::Blast::FamilyGraph::NodeComparator]':
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/sdk/lowlevel/NvBlastFamilyGraph.cpp:440:71:   required from here
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/sdk/common/NvBlastFixedPriorityQueue.h:75:94: warning: implicitly-declared 'constexpr Nv::Blast::FamilyGraph::NodeComparator::NodeComparator(const Nv::Blast::FamilyGraph::NodeComparator&)' is deprecated [-Wdeprecated-copy]
+warning: blast-stress-solver@0.1.1:    75 |     FixedPriorityQueue(const Comparator& less = Comparator()) : Comparator(less), mHeapSize(0)
+warning: blast-stress-solver@0.1.1:       |                                                                                              ^
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/sdk/lowlevel/NvBlastFamilyGraph.h:236:25: note: because 'Nv::Blast::FamilyGraph::NodeComparator' has user-provided 'Nv::Blast::FamilyGraph::NodeComparator& Nv::Blast::FamilyGraph::NodeComparator::operator=(const Nv::Blast::FamilyGraph::NodeComparator&)'
+warning: blast-stress-solver@0.1.1:   236 |         NodeComparator& operator = (const NodeComparator&);
+warning: blast-stress-solver@0.1.1:       |                         ^~~~~~~~
+warning: blast-stress-solver@0.1.1: In file included from /root/workspace/physx-2/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp:29:
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/include/extensions/stress/NvBlastExtStressSolver.h: In constructor 'Nv::Blast::ExtStressMaterial::ExtStressMaterial()':
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/include/extensions/stress/NvBlastExtStressSolver.h:216:11: warning: 'Nv::Blast::ExtStressMaterial::elasticModulusPa' will be initialized after [-Wreorder]
+warning: blast-stress-solver@0.1.1:   216 |     float elasticModulusPa;
+warning: blast-stress-solver@0.1.1:       |           ^~~~~~~~~~~~~~~~
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/include/extensions/stress/NvBlastExtStressSolver.h:209:11: warning:   'float Nv::Blast::ExtStressMaterial::residualAreaFraction' [-Wreorder]
+warning: blast-stress-solver@0.1.1:   209 |     float residualAreaFraction;
+warning: blast-stress-solver@0.1.1:       |           ^~~~~~~~~~~~~~~~~~~~
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/include/extensions/stress/NvBlastExtStressSolver.h:221:5: warning:   when initialized here [-Wreorder]
+warning: blast-stress-solver@0.1.1:   221 |     ExtStressMaterial() :
+warning: blast-stress-solver@0.1.1:       |     ^~~~~~~~~~~~~~~~~
+warning: blast-stress-solver@0.1.1: In file included from /root/workspace/physx-2/blast/source/shared/stress_solver/coupling.h:30,
+warning: blast-stress-solver@0.1.1:                  from /root/workspace/physx-2/blast/source/shared/stress_solver/bond.h:29,
+warning: blast-stress-solver@0.1.1:                  from /root/workspace/physx-2/blast/source/shared/stress_solver/stress.h:29,
+warning: blast-stress-solver@0.1.1:                  from /root/workspace/physx-2/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp:43:
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/shared/stress_solver/anglin6.h: At global scope:
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/shared/stress_solver/anglin6.h:167:25: warning: ignoring attributes on template argument '__m128' [-Wignored-attributes]
+warning: blast-stress-solver@0.1.1:   167 | struct AngLin6Ops<__m128>
+warning: blast-stress-solver@0.1.1:       |                         ^
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/shared/stress_solver/coupling.h:121:43: warning: ignoring attributes on template argument 'SIMD_Scalar' {aka '__m128'} [-Wignored-attributes]
+warning: blast-stress-solver@0.1.1:   121 | struct CouplingMatrixOps<Elem, SIMD_Scalar>
+warning: blast-stress-solver@0.1.1:       |                                           ^
+warning: blast-stress-solver@0.1.1: In file included from /root/workspace/physx-2/blast/source/shared/stress_solver/bond.h:30:
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/shared/stress_solver/inertia.h:86:36: warning: ignoring attributes on template argument 'SIMD_Scalar' {aka '__m128'} [-Wignored-attributes]
+warning: blast-stress-solver@0.1.1:    86 | struct InertiaMatrixOps<SIMD_Scalar>
+warning: blast-stress-solver@0.1.1:       |                                    ^
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp: In member function 'void Nv::Blast::SupportGraphProcessor::addBond(uint32_t, uint32_t, uint32_t)':
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp:1560:13: warning: missing initializer for member 'Nv::Blast::SupportGraphProcessor::BondData::stressShear' [-Wmissing-field-initializers]
+warning: blast-stress-solver@0.1.1:  1560 |             };
+warning: blast-stress-solver@0.1.1:       |             ^
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp:1560:13: warning: missing initializer for member 'Nv::Blast::SupportGraphProcessor::BondData::stressBend' [-Wmissing-field-initializers]
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp:1560:13: warning: missing initializer for member 'Nv::Blast::SupportGraphProcessor::BondData::normal' [-Wmissing-field-initializers]
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp:1560:13: warning: missing initializer for member 'Nv::Blast::SupportGraphProcessor::BondData::centroid' [-Wmissing-field-initializers]
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp: In member function 'void Nv::Blast::SupportGraphProcessor::syncNodes(const NvBlastBond*)':
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp:4007:24: warning: unused variable 'STATIC_NODES_COUNT_PENALTY' [-Wunused-variable]
+warning: blast-stress-solver@0.1.1:  4007 |         const uint32_t STATIC_NODES_COUNT_PENALTY = 2 << 2;
+warning: blast-stress-solver@0.1.1:       |                        ^~~~~~~~~~~~~~~~~~~~~~~~~~
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp: In member function 'virtual bool Nv::Blast::ExtStressSolverImpl::getExcessForces(uint32_t, const NvcVec3&, NvcVec3&, NvcVec3&)':
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp:5281:20: warning: unused variable 'retCount' [-Wunused-variable]
+warning: blast-stress-solver@0.1.1:  5281 |     const uint32_t retCount = NvBlastActorGetGraphNodeIndices(nodeIndices, nodeCount, actor, logLL);
+warning: blast-stress-solver@0.1.1:       |                    ^~~~~~~~
+warning: blast-stress-solver@0.1.1: In file included from /root/workspace/physx-2/blast/source/shared/NsFoundation/include/NsHashMap.h:30,
+warning: blast-stress-solver@0.1.1:                  from /root/workspace/physx-2/blast/source/sdk/common/NvBlastHashMap.h:33,
+warning: blast-stress-solver@0.1.1:                  from /root/workspace/physx-2/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp:34:
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/shared/NsFoundation/include/NsHashInternals.h: In instantiation of 'nvidia::shdfnd::internal::HashBase<Entry, Key, HashFn, GetKey, Allocator, compacting>::Iter nvidia::shdfnd::internal::HashBase<Entry, Key, HashFn, GetKey, Allocator, compacting>::Iter::operator++() [with Entry = const NvBlastActor*; Key = const NvBlastActor*; HashFn = nvidia::shdfnd::Hash<const NvBlastActor*>; GetKey = nvidia::shdfnd::internal::HashSetBase<const NvBlastActor*, nvidia::shdfnd::Hash<const NvBlastActor*>, Nv::Blast::Allocator, false>::GetKey; Allocator = Nv::Blast::Allocator; bool compacting = false]':
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp:5990:68:   required from here
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/shared/NsFoundation/include/NsHashInternals.h:459:21: warning: implicitly-declared 'constexpr nvidia::shdfnd::internal::HashBase<const NvBlastActor*, const NvBlastActor*, nvidia::shdfnd::Hash<const NvBlastActor*>, nvidia::shdfnd::internal::HashSetBase<const NvBlastActor*, nvidia::shdfnd::Hash<const NvBlastActor*>, Nv::Blast::Allocator, false>::GetKey, Nv::Blast::Allocator, false>::Iter::Iter(const nvidia::shdfnd::internal::HashBase<const NvBlastActor*, const NvBlastActor*, nvidia::shdfnd::Hash<const NvBlastActor*>, nvidia::shdfnd::internal::HashSetBase<const NvBlastActor*, nvidia::shdfnd::Hash<const NvBlastActor*>, Nv::Blast::Allocator, false>::GetKey, Nv::Blast::Allocator, false>::Iter&)' is deprecated [-Wdeprecated-copy]
+warning: blast-stress-solver@0.1.1:   459 |             return *this;
+warning: blast-stress-solver@0.1.1:       |                     ^~~~
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/shared/NsFoundation/include/NsHashInternals.h:490:15: note: because 'nvidia::shdfnd::internal::HashBase<const NvBlastActor*, const NvBlastActor*, nvidia::shdfnd::Hash<const NvBlastActor*>, nvidia::shdfnd::internal::HashSetBase<const NvBlastActor*, nvidia::shdfnd::Hash<const NvBlastActor*>, Nv::Blast::Allocator, false>::GetKey, Nv::Blast::Allocator, false>::Iter' has user-provided 'nvidia::shdfnd::internal::HashBase<Entry, Key, HashFn, GetKey, Allocator, compacting>::Iter& nvidia::shdfnd::internal::HashBase<Entry, Key, HashFn, GetKey, Allocator, compacting>::Iter::operator=(const nvidia::shdfnd::internal::HashBase<Entry, Key, HashFn, GetKey, Allocator, compacting>::Iter&) [with Entry = const NvBlastActor*; Key = const NvBlastActor*; HashFn = nvidia::shdfnd::Hash<const NvBlastActor*>; GetKey = nvidia::shdfnd::internal::HashSetBase<const NvBlastActor*, nvidia::shdfnd::Hash<const NvBlastActor*>, Nv::Blast::Allocator, false>::GetKey; Allocator = Nv::Blast::Allocator; bool compacting = false]'
+warning: blast-stress-solver@0.1.1:   490 |         Iter& operator=(const Iter&);
+warning: blast-stress-solver@0.1.1:       |               ^~~~~~~~
+warning: blast-stress-solver@0.1.1: In file included from /root/workspace/physx-2/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp:45:
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/shared/stress_solver/simd/simd_device_query.h: At global scope:
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/shared/stress_solver/simd/simd_device_query.h:144:1: warning: 'void print_supported_instruction_sets()' defined but not used [-Wunused-function]
+warning: blast-stress-solver@0.1.1:   144 | print_supported_instruction_sets()
+warning: blast-stress-solver@0.1.1:       | ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+warning: blast-stress-solver@0.1.1: In file included from /root/workspace/physx-2/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp:32:
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp: In member function 'virtual void Nv::Blast::ExtStressSolverImpl::release()':
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/include/globals/NvBlastGlobals.h:138:9: warning: 'nonnull' argument 'this' compared to NULL [-Wnonnull-compare]
+warning: blast-stress-solver@0.1.1:   138 |         if ((obj) != nullptr)                                       \
+warning: blast-stress-solver@0.1.1:       |         ^~
+warning: blast-stress-solver@0.1.1: /root/workspace/physx-2/blast/source/sdk/extensions/stress/NvBlastExtStressSolver.cpp:5223:5: note: in expansion of macro 'NVBLAST_DELETE'
+warning: blast-stress-solver@0.1.1:  5223 |     NVBLAST_DELETE(this, ExtStressSolverImpl);
+warning: blast-stress-solver@0.1.1:       |     ^~~~~~~~~~~~~~
+warning: use of deprecated method `rapier3d::dynamics::RigidBodyBuilder::position`: renamed to `RigidBodyBuilder::pose`
+   --> src/backends/rapier_backend.rs:275:14
+    |
+275 |             .position(to_iso(cb.pose))
+    |              ^^^^^^^^
+    |
+    = note: `#[warn(deprecated)]` on by default
+
+warning: associated function `kind_of` is never used
+   --> src/backends/rapier_backend.rs:151:8
+    |
+121 | impl RapierWorld {
+    | ---------------- associated function in this implementation
+...
+151 |     fn kind_of(body: &RigidBody) -> BodyKind {
+    |        ^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `blast-stress-solver` (lib) generated 2 warnings
+warning: variable `total_splits` is assigned to, but never used
+   --> tests/stress_solver_test.rs:512:9
+    |
+512 |     let mut total_splits = 0;
+    |         ^^^^^^^^^^^^^^^^
+    |
+    = note: consider using `_total_splits` instead
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: value assigned to `total_splits` is never read
+   --> tests/stress_solver_test.rs:527:17
+    |
+527 |                 total_splits += events.len();
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+    = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `events`
+   --> tests/headless_scenarios_test.rs:334:13
+    |
+334 |         let events = solver.apply_fracture_commands(&cmds);
+    |             ^^^^^^ help: if this is intentional, prefix it with an underscore: `_events`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: fields `total_split_events` and `converged` are never read
+  --> tests/headless_scenarios_test.rs:37:9
+   |
+35 |     struct SimResult {
+   |            --------- fields in this struct
+36 |         total_fractures: u32,
+37 |         total_split_events: u32,
+   |         ^^^^^^^^^^^^^^^^^^
+38 |         actor_count: u32,
+39 |         converged: bool,
+   |         ^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `blast-stress-solver` (test "stress_solver_test") generated 2 warnings
+warning: `blast-stress-solver` (test "headless_scenarios_test") generated 2 warnings (run `cargo fix --test "headless_scenarios_test" -p blast-stress-solver` to apply 1 suggestion)
+warning: `blast-stress-solver` (lib test) generated 2 warnings (2 duplicates)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.08s
+     Running unittests src/lib.rs (blast/blast-stress-solver-rs/target/debug/deps/blast_stress_solver-e2455c35881d6688)
+
+running 42 tests
+test ids::tests::a_bond_past_the_field_is_loud - should panic ... ok
+test ids::tests::a_node_past_the_field_is_loud - should panic ... ok
+test ids::tests::a_serial_past_the_field_is_loud - should panic ... ok
+test ids::tests::an_alternate_layout_is_self_consistent ... ok
+test ids::tests::a_structure_past_the_field_is_loud - should panic ... ok
+test ids::tests::consecutive_chunks_stay_dense_for_gap_coding ... ok
+test ids::tests::district_and_downtown_packs_round_trip ... ok
+test ids::tests::every_packed_id_stays_inside_the_namespace_payload ... ok
+test ids::tests::ids_round_trip ... ok
+test ids::tests::other_namespaces_are_not_mistaken_for_ours ... ok
+test ids::tests::structure_space_is_the_minimum_across_packings ... ok
+test ids::tests::the_default_layout_matches_the_shipped_one ... ok
+test ids::tests::unpacking_a_foreign_entity_is_loud - should panic ... ok
+test pipeline::motion_fit::tests::collinear_cloud_does_not_produce_nan ... ok
+test pipeline::motion_fit::tests::empty_or_massless_center_of_mass_is_none ... ok
+test pipeline::motion_fit::tests::single_point_cloud_is_singular ... ok
+test pipeline::split_planner::tests::exact_matches_are_always_reused ... ok
+test pipeline::split_planner::tests::complex_reparenting_is_optimal_and_matches_reference ... ok
+test pipeline::split_planner::tests::mostly_persist_one_shatters_uses_fastpath_correctly ... ok
+test pipeline::split_planner::tests::ties_are_resolved_equally_optimally ... ok
+test rapier::motion_fit::tests::collinear_cloud_does_not_produce_nan ... ok
+test rapier::motion_fit::tests::empty_or_massless_center_of_mass_is_none ... ok
+test rapier::collision_groups::tests::debris_ground_only_only_keeps_ground_for_debris ... ok
+test rapier::collision_groups::tests::debris_none_disables_debris_collisions ... ok
+test rapier::motion_fit::tests::single_point_cloud_is_singular ... ok
+test rapier::collision_groups::tests::no_debris_pairs_filters_debris_but_not_multi ... ok
+test rapier::split_migrator::tests::exact_matches_are_always_reused ... ok
+test rapier::split_migrator::tests::ties_are_resolved_equally_optimally ... ok
+test rapier::split_migrator::tests::complex_reparenting_is_optimal_and_matches_reference ... ok
+test rapier::split_migrator::tests::mostly_persist_one_shatters_uses_fastpath_correctly ... ok
+test rapier::motion_fit::tests::fit_recovers_rigid_motion ... ok
+test pipeline::motion_fit::tests::fit_recovers_rigid_motion ... ok
+test pipeline::motion_fit::tests::solve_round_trips_spd ... ok
+test rapier::motion_fit::tests::solve_round_trips_spd ... ok
+test pipeline::motion_fit::tests::fit_linvel_is_mass_weighted_mean ... ok
+test rapier::motion_fit::tests::fit_linvel_is_mass_weighted_mean ... ok
+test pipeline::split_planner::tests::scales_to_large_inputs ... ok
+test rapier::split_migrator::tests::scales_to_large_inputs ... ok
+test pipeline::split_planner::tests::randomized_fractures_planner_equals_reference_and_optimum ... ok
+test rapier::split_migrator::tests::randomized_fractures_planner_equals_reference_and_optimum ... ok
+test pipeline::split_planner::tests::cascade_fastpath_equals_reference_and_is_optimal ... ok
+test rapier::split_migrator::tests::cascade_fastpath_equals_reference_and_is_optimal ... ok
+
+test result: ok. 42 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.32s
+
+     Running tests/backend_conformance_test.rs (blast/blast-stress-solver-rs/target/debug/deps/backend_conformance_test-9a69565b1da7ea06)
+
+running 2 tests
+test the_suite_actually_exercises_the_optional_paths ... ok
+test rapier_backend_satisfies_the_contract ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/batched_forces_test.rs (blast/blast-stress-solver-rs/target/debug/deps/batched_forces_test-fdaa48cc257b8d5c)
+
+running 3 tests
+test batched_forces_empty_is_noop ... ok
+test batched_forces_match_per_call_injection ... ok
+test batched_forces_match_per_call_after_fracture ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/bond_stress_test.rs (blast/blast-stress-solver-rs/target/debug/deps/bond_stress_test-cf5afe94e8db4590)
+
+running 9 tests
+test mixed_linear_shear_plus_twist ... ok
+test non_positive_area_is_zero ... ok
+test pure_bend_adds_to_normal ... ok
+test out_of_range_nodes_are_zero ... ok
+test pure_compression_against_normal ... ok
+test pure_linear_shear ... ok
+test pure_tension_along_normal ... ok
+test pure_twist_adds_to_shear ... ok
+test stress_components_are_non_negative ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/byo_world_test.rs (blast/blast-stress-solver-rs/target/debug/deps/byo_world_test-cdae792efda8b6c8)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/centrifugal_wiring_test.rs (blast/blast-stress-solver-rs/target/debug/deps/centrifugal_wiring_test-485a7557363d93bc)
+
+running 2 tests
+test centrifugal_no_spin_no_fracture ... ok
+test centrifugal_flag_enables_spin_fracture ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/city_build_test.rs (blast/blast-stress-solver-rs/target/debug/deps/city_build_test-0978d6c906eaf4d1)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/city_content_test.rs (blast/blast-stress-solver-rs/target/debug/deps/city_content_test-991ed476be79971a)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/cross_validation_test.rs (blast/blast-stress-solver-rs/target/debug/deps/cross_validation_test-185bbc08d2bab544)
+
+running 13 tests
+test parity::column_gravity_down_parity ... ok
+test parity::tower_default_shape_matches_js ... ok
+test parity::wall_default_bond_areas_match_js ... ok
+test parity::wall_default_shape_matches_js ... ok
+test parity::wall_default_centroids_match_js ... ok
+test parity::bridge_default_shape_matches_js ... ok
+test parity::determinism_parity_with_js ... FAILED
+test parity::wall_weak_gravity_parity ... FAILED
+test parity::stronger_material_fewer_fractures ... ok
+test parity::determinism_two_identical_runs_match ... FAILED
+test parity::wall_strong_gravity_parity ... ok
+test parity::tower_weak_gravity_parity ... FAILED
+test parity::tower_strong_gravity_parity ... ok
+
+failures:
+
+---- parity::determinism_parity_with_js stdout ----
+
+thread 'parity::determinism_parity_with_js' (3664868) panicked at tests/cross_validation_test.rs:266:9:
+assertion `left == right` failed: JS reference: 86 fractures
+  left: 60
+ right: 86
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- parity::wall_weak_gravity_parity stdout ----
+
+thread 'parity::wall_weak_gravity_parity' (3664878) panicked at tests/cross_validation_test.rs:175:9:
+assertion `left == right` failed: JS: 86 fractures (weak wall under gravity)
+  left: 60
+ right: 86
+
+---- parity::determinism_two_identical_runs_match stdout ----
+
+thread 'parity::determinism_two_identical_runs_match' (3664869) panicked at tests/cross_validation_test.rs:242:9:
+assertion `left == right` failed: measured: 32 connected components
+  left: 6
+ right: 32
+
+---- parity::tower_weak_gravity_parity stdout ----
+
+thread 'parity::tower_weak_gravity_parity' (3664873) panicked at tests/cross_validation_test.rs:197:9:
+assertion `left == right` failed: JS: 706 fractures (weak tower)
+  left: 704
+ right: 706
+
+
+failures:
+    parity::determinism_parity_with_js
+    parity::determinism_two_identical_runs_match
+    parity::tower_weak_gravity_parity
+    parity::wall_weak_gravity_parity
+
+test result: FAILED. 9 passed; 4 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+error: test failed, to rerun pass `--test cross_validation_test`
+     Running tests/cuda_stress_smoke_test.rs (blast/blast-stress-solver-rs/target/debug/deps/cuda_stress_smoke_test-56e61434404f8974)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/destruction_events_test.rs (blast/blast-stress-solver-rs/target/debug/deps/destruction_events_test-204d2e09f92b637f)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/excess_force_integration_test.rs (blast/blast-stress-solver-rs/target/debug/deps/excess_force_integration_test-a24a5ffd65b9956f)
+
+running 1 test
+test excess_forces_impart_fragment_momentum ... FAILED
+
+failures:
+
+---- excess_forces_impart_fragment_momentum stdout ----
+
+thread 'excess_forces_impart_fragment_momentum' (3664882) panicked at tests/excess_force_integration_test.rs:107:5:
+with excess forces, fragments should be thrown by the impact, got 0.0002 m/s
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    excess_forces_impart_fragment_momentum
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.20s
+
+error: test failed, to rerun pass `--test excess_force_integration_test`
+     Running tests/excess_force_persistence_test.rs (blast/blast-stress-solver-rs/target/debug/deps/excess_force_persistence_test-2049a6ad3b79562b)
+
+running 2 tests
+test excess_force_kick_should_be_one_shot ... FAILED
+test excess_force_kick_is_bounded_when_forces_are_reset ... FAILED
+
+failures:
+
+---- excess_force_kick_should_be_one_shot stdout ----
+
+thread 'excess_force_kick_should_be_one_shot' (3664906) panicked at tests/excess_force_persistence_test.rs:120:5:
+the impact should have thrown fragments (early=0.00)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- excess_force_kick_is_bounded_when_forces_are_reset stdout ----
+
+thread 'excess_force_kick_is_bounded_when_forces_are_reset' (3664905) panicked at tests/excess_force_persistence_test.rs:107:5:
+the impact should have thrown fragments (early=0.00)
+
+
+failures:
+    excess_force_kick_is_bounded_when_forces_are_reset
+    excess_force_kick_should_be_one_shot
+
+test result: FAILED. 0 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.20s
+
+error: test failed, to rerun pass `--test excess_force_persistence_test`
+     Running tests/ffi_abi_test.rs (blast/blast-stress-solver-rs/target/debug/deps/ffi_abi_test-3706395bdb85b237)
+
+running 4 tests
+test abi_version_matches_the_linked_bridge ... ok
+test material_desc_still_carries_the_crush_fields ... ok
+test repr_c_mirrors_match_the_c_abi ... ok
+test the_old_six_field_layout_would_be_rejected ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/fracture_policy_test.rs (blast/blast-stress-solver-rs/target/debug/deps/fracture_policy_test-b91b285521cfb121)
+
+running 6 tests
+test child_qualifies_at_the_min_node_count ... ok
+test clamp_fractures_respects_the_budget ... ok
+test clamp_new_bodies_and_migrations_respect_budgets ... ok
+test dynamic_body_cap_of_zero_or_negative_is_unlimited ... ok
+test should_suppress_at_the_dynamic_body_cap ... ok
+test split_budgets_unlimited_only_when_both_unlimited ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/fragment_momentum_test.rs (blast/blast-stress-solver-rs/target/debug/deps/fragment_momentum_test-fc079f1561f4ea2f)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/free_island_load_test.rs (blast/blast-stress-solver-rs/target/debug/deps/free_island_load_test-5df5fc3ffc9e6ce8)
+
+running 4 tests
+test anchored_stack_carries_its_own_weight ... ok
+test free_island_that_is_spinning_carries_load ... ok
+test free_island_resting_on_the_ground_carries_its_weight_again ... ok
+test free_island_under_gravity_alone_carries_nothing ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/gravity_orientation_test.rs (blast/blast-stress-solver-rs/target/debug/deps/gravity_orientation_test-7f768cd98919a37f)
+
+running 2 tests
+test actor_rotation_changes_fracture_behavior ... ok
+test gravity_direction_changes_fracture_behavior ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/headless_scenarios_test.rs (blast/blast-stress-solver-rs/target/debug/deps/headless_scenarios_test-2f768bee5d66dfab)
+
+running 31 tests
+test headless::diagonals_increase_bond_count ... ok
+test headless::non_normalized_areas_are_consistent ... ok
+test headless::acceleration_mode_affects_nodes ... ok
+test headless::actors_contain_all_nodes_after_split ... ok
+test headless::solver_converges_on_simple_topology ... ok
+test headless::manual_bond_cutting_splits_structure ... ok
+test headless::force_impact_breaks_bonds ... ok
+test headless::tower_custom_options ... ok
+test headless::tower_normalized_areas_are_isotropic ... ok
+test headless::tower_support_nodes_at_bottom_layer ... ok
+test headless::all_bond_normals_are_unit_vectors ... ok
+test headless::wall_custom_options ... ok
+test headless::settings_change_affects_behavior ... ok
+test headless::wall_small_scenario_bond_count ... ok
+test headless::excess_forces_on_separated_actor ... ok
+test headless::wall_normalized_areas_are_isotropic ... ok
+test headless::solver_has_expected_api ... ok
+test headless::wall_support_nodes_at_bottom_row ... ok
+test headless::reset_clears_forces ... FAILED
+test headless::all_bond_areas_positive ... ok
+test headless::wall_collapses_with_weak_bonds ... ok
+test headless::large_tower_converges_or_has_low_error ... ok
+test headless::progressive_destruction_over_many_frames ... ok
+test headless::stronger_material_loses_fewer_bonds ... ok
+test headless::tower_base_more_stressed_than_top ... ok
+test headless::tower_collapses_with_weak_bonds ... ok
+test headless::wall_stable_under_normal_gravity ... ok
+test headless::bridge_collapses_with_weak_bonds ... ok
+test headless::very_strong_material_resists_gravity ... ok
+test headless::tower_stable_under_normal_gravity ... ok
+test headless::bridge_stable_under_normal_gravity ... ok
+
+failures:
+
+---- headless::reset_clears_forces stdout ----
+
+thread 'headless::reset_clears_forces' (3664942) panicked at tests/headless_scenarios_test.rs:471:9:
+assertion `left == right` failed: should have 0 overstressed after reset + update with no forces
+  left: 60
+ right: 0
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    headless::reset_clears_forces
+
+test result: FAILED. 30 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.04s
+
+error: test failed, to rerun pass `--test headless_scenarios_test`
+     Running tests/high_rise_scenarios_test.rs (blast/blast-stress-solver-rs/target/debug/deps/high_rise_scenarios_test-6a256daa8666f92d)
+
+running 5 tests
+test high_rise::big_infill_hit_does_not_glass_cascade ... ok
+test high_rise::heavy_hit_punches_bounded_hole ... ok
+test high_rise::high_rise_is_deterministic ... ok
+test high_rise::high_rise_stable_under_gravity ... ok
+test high_rise::light_hit_blows_out_local_infill_only ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/id_layout_conformance_test.rs (blast/blast-stress-solver-rs/target/debug/deps/id_layout_conformance_test-db24827fb70fbe86)
+
+running 3 tests
+test every_vector_round_trips ... ok
+test no_two_vectors_collide ... ok
+test the_committed_vectors_match_the_layout ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/kinematic_invariants_test.rs (blast/blast-stress-solver-rs/target/debug/deps/kinematic_invariants_test-512b51b35a95a4a3)
+
+running 5 tests
+test split_preserves_point_velocity_for_aligned_com_child ... ok
+test dynamic_mass_conserved_across_split ... ok
+test split_preserves_point_velocity_for_offset_com_child ... ok
+test split_produces_finite_state ... ok
+test simulation_is_deterministic_across_runs ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/multi_fracture_test.rs (blast/blast-stress-solver-rs/target/debug/deps/multi_fracture_test-6544b825f99ecc5a)
+
+running 3 tests
+test cascading_cuboid_split_stays_continuous ... ok
+test node_mapping_stays_consistent_through_fractures ... ok
+test tower_collapse_is_deterministic_at_scale ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+     Running tests/perf_regression_test.rs (blast/blast-stress-solver-rs/target/debug/deps/perf_regression_test-2120e81dc13c6435)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/physx_conformance_test.rs (blast/blast-stress-solver-rs/target/debug/deps/physx_conformance_test-0603a7ad15c3472f)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/physx_runtime_thread_safety_test.rs (blast/blast-stress-solver-rs/target/debug/deps/physx_runtime_thread_safety_test-022f0339b53fbd02)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/projectile_impact_test.rs (blast/blast-stress-solver-rs/target/debug/deps/projectile_impact_test-a076276aa2d58974)
+
+running 1 test
+test projectile_fragments_stay_bounded ... FAILED
+
+failures:
+
+---- projectile_fragments_stay_bounded stdout ----
+BALL: m=2 v0=30 p0=60.00 v_final=0.26
+FRAGMENTS: bodies=24 max_speed=0.44 total_|p|=1.09
+RATIOS: max_frag_speed/ball_speed=0.01  total_frag_p/ball_p0=0.02
+
+thread 'projectile_fragments_stay_bounded' (3665015) panicked at tests/projectile_impact_test.rs:127:5:
+fragments should be thrown by the impact (got 0.44)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    projectile_fragments_stay_bounded
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.38s
+
+error: test failed, to rerun pass `--test projectile_impact_test`
+     Running tests/rapier_integration_test.rs (blast/blast-stress-solver-rs/target/debug/deps/rapier_integration_test-0b7026804a5281ce)
+
+running 24 tests
+test destructible_set_from_scenario_convenience ... ok
+test debris_cleanup_after_support_contact_requires_sleeping_body ... ok
+test debris_ground_only_assigns_small_dynamic_bodies_to_ground_only_groups ... ok
+test debris_cleanup_removes_small_bodies_and_solver_bonds_after_ttl ... ok
+test collider_migration_budget_defers_split_until_budget_is_available ... ok
+test no_debris_pairs_activates_only_after_support_contact ... ok
+test resimulation_snapshot_restores_pose_velocity_and_sleep_state ... ok
+test skip_single_bodies_drops_singleton_children_instead_of_spawning_bodies ... ok
+test support_contact_promotes_small_body_damping ... ok
+test support_contact_configures_sleep_thresholds ... ok
+test body_tracker_support_detection ... ok
+test body_tracker_all_nodes_mapped_after_init ... ok
+test split_reuses_existing_collider_handles_instead_of_recreating_colliders ... ok
+test destructible_set_idle_skip ... ok
+test destructible_set_initializes ... ok
+test destructible_set_step_stable ... ok
+test fracture_policy_limits_bodies ... ok
+test destructible_set_add_force_triggers_activity ... ok
+test destructible_set_force_impact ... ok
+test destructible_set_fractures_under_heavy_gravity ... ok
+test solver_and_rapier_body_correspondence ... ok
+test policy_max_dynamic_bodies_caps_world ... ok
+test end_to_end_wall_destruction_full_pipeline ... ok
+test rapier_world_remains_valid_after_split_body_removal ... ok
+
+test result: ok. 24 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/resim_recenter_teleport_test.rs (blast/blast-stress-solver-rs/target/debug/deps/resim_recenter_teleport_test-97e3b1acb0adcb78)
+
+running 1 test
+test resim_restore_does_not_teleport_recentered_reused_fragment ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/resimulation_test.rs (blast/blast-stress-solver-rs/target/debug/deps/resimulation_test-1ecef076af6c94bd)
+
+running 2 tests
+test snapshot_round_trip_is_exact ... ok
+test resimulation_imparts_fragment_momentum_without_excess_force ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+
+     Running tests/scenario_invariants_test.rs (blast/blast-stress-solver-rs/target/debug/deps/scenario_invariants_test-867b0f9b2d06544d)
+
+running 3 tests
+test shipped_scenario_builders_are_structurally_valid ... ok
+test cuboid_wall_split_is_point_velocity_continuous ... ok
+test wall_collapse_is_deterministic ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/scene_pack_test.rs (blast/blast-stress-solver-rs/target/debug/deps/scene_pack_test-e5b03a3264a1c7e0)
+
+running 9 tests
+test a_bond_referencing_a_missing_node_is_rejected ... ok
+test defaults_are_optional_all_the_way_down ... ok
+test an_out_of_range_bond_material_names_the_bond ... ok
+test negative_limits_inherit_compression_at_parse ... ok
+test unknown_versions_are_rejected ... ok
+test v2_without_materials_is_an_error_not_a_guess ... ok
+test every_shipped_pack_loads ... ok
+test collider_geometry_survives_into_the_scenario ... ok
+test v2_packs_carry_real_material_strength ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.38s
+
+     Running tests/settle_edges_test.rs (blast/blast-stress-solver-rs/target/debug/deps/settle_edges_test-bbee4079c52d8939)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/solver_mechanisms_test.rs (blast/blast-stress-solver-rs/target/debug/deps/solver_mechanisms_test-fd8a4f38e331e69c)
+
+running 3 tests
+test add_actor_gravity_is_direction_sensitive ... ok
+test excess_force_reports_released_load ... FAILED
+test add_gravity_is_direction_sensitive ... ok
+
+failures:
+
+---- excess_force_reports_released_load stdout ----
+
+thread 'excess_force_reports_released_load' (3665087) panicked at tests/solver_mechanisms_test.rs:119:5:
+excess force should report the released load (~1000 N), got |f| = 2.0 N (Vec3 { x: 0.0, y: 2.0, z: 0.0 }) — near-zero would mean the momentum-transfer mechanism is dormant
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    excess_force_reports_released_load
+
+test result: FAILED. 2 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--test solver_mechanisms_test`
+     Running tests/split_migrator_test.rs (blast/blast-stress-solver-rs/target/debug/deps/split_migrator_test-cac4685bc5cf95cb)
+
+running 13 tests
+test empty_bodies_all_create ... ok
+test creates_unmatched_children ... ok
+test empty_children_empty_plan ... ok
+test fixed_body_can_be_reused_for_dynamic_child_when_it_minimizes_edits ... ok
+test no_double_assignment ... ok
+test policy_clamp_fractures_per_frame ... ok
+test partial_overlap_reuses_existing_body ... ok
+test policy_clamp_new_bodies_per_frame ... ok
+test policy_default_unlimited ... ok
+test policy_idle_skip_default_true ... ok
+test policy_min_child_node_count ... ok
+test policy_suppress_at_body_limit ... ok
+test reuses_exact_body_match ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/split_planner_equivalence_test.rs (blast/blast-stress-solver-rs/target/debug/deps/split_planner_equivalence_test-5329b51b0189c067)
+
+running 2 tests
+test plan_order_is_deterministic_across_runs ... ok
+test generalised_planner_matches_the_rapier_bound_original ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/split_position_continuity_test.rs (blast/blast-stress-solver-rs/target/debug/deps/split_position_continuity_test-51749c0f5011547a)
+
+running 2 tests
+test split_preserves_chunk_world_position_for_small_beam ... ok
+test split_preserves_chunk_world_position_for_recentered_halves ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/stress_solver_test.rs (blast/blast-stress-solver-rs/target/debug/deps/stress_solver_test-fdc6451b3cba55e7)
+
+running 32 tests
+test bond_stress_angular_impulse_bend ... ok
+test bond_stress_combined_linear_angular ... ok
+test bond_stress_angular_impulse_twist ... ok
+test bond_stress_computation ... ok
+test bond_stress_out_of_range_returns_default ... ok
+test bond_stress_zero_area_returns_default ... ok
+test ext_solver_actor_gravity_invalid_index ... ok
+test ext_solver_actor_gravity ... ok
+test ext_solver_actors_query ... ok
+test ext_solver_add_force_to_node ... ok
+test ext_solver_centrifugal_acceleration_invalid_actor_returns_false ... ok
+test ext_solver_empty_input_rejected ... ok
+test ext_solver_centrifugal_acceleration_causes_overstress ... ok
+test ext_solver_creates_successfully ... ok
+test ext_solver_excess_forces ... ok
+test ext_solver_fracture_and_split ... ok
+test ext_solver_gravity_creates_stress ... ok
+test ext_solver_multiple_fracture_rounds ... ok
+test ext_solver_reset ... ok
+test ext_solver_set_settings ... ok
+test ext_solver_strong_gravity_causes_overstress ... ok
+test stress_limits_all_failure_modes ... ok
+test stress_limits_default_fallback_behavior ... ok
+test stress_limits_failure_detection ... ok
+test full_lifecycle_gravity_fracture_split ... ok
+test stress_limits_severity_at_fatal ... ok
+test stress_limits_severity_below_elastic ... ok
+test stress_limits_severity_between_elastic_fatal ... ok
+test stress_processor_empty_rejected ... ok
+test stress_processor_low_level ... ok
+test stress_processor_remove_bond ... ok
+test vec3_math_operations ... ok
+
+test result: ok. 32 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/structural_invariants_test.rs (blast/blast-stress-solver-rs/target/debug/deps/structural_invariants_test-fe37bd3f8181e6e3)
+
+running 3 tests
+test every_fracture_breaks_a_distinct_bond ... ok
+test component_count_is_bounded_by_graph_size ... ok
+test actor_count_equals_independent_component_count ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/two_engine_destruction_test.rs (blast/blast-stress-solver-rs/target/debug/deps/two_engine_destruction_test-6ff75bc5183cd424)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/two_engine_scene_test.rs (blast/blast-stress-solver-rs/target/debug/deps/two_engine_scene_test-937efc7ba384b1d5)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/wasm_smoke_test.rs (blast/blast-stress-solver-rs/target/debug/deps/wasm_smoke_test-68ea5026f7e0bed2)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: 6 targets failed:
+    `--test cross_validation_test`
+    `--test excess_force_integration_test`
+    `--test excess_force_persistence_test`
+    `--test headless_scenarios_test`
+    `--test projectile_impact_test`
+    `--test solver_mechanisms_test`

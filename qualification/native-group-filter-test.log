@@ -1,0 +1,8 @@
+Internal ctest changing into directory: /root/workspace/physx-2/out/destruction-sdk
+Test project /root/workspace/physx-2/out/destruction-sdk
+    Start 69: physx_native_gpu_group_filtering
+1/1 Test #69: physx_native_gpu_group_filtering ...   Passed    1.76 sec
+
+100% tests passed, 0 tests failed out of 1
+
+Total Test time (real) =   1.76 sec

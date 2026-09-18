@@ -1,0 +1,317 @@
+{
+  "status": "passed",
+  "scenarios": [
+    {
+      "scenario": "bridge64-cold",
+      "scopes": 48,
+      "native_nvtx_match": true,
+      "main_scheduler_partition": true
+    },
+    {
+      "scenario": "bridge64-warm",
+      "scopes": 48,
+      "native_nvtx_match": true,
+      "main_scheduler_partition": true
+    },
+    {
+      "scenario": "building-cold",
+      "scopes": 48,
+      "native_nvtx_match": true,
+      "main_scheduler_partition": true
+    },
+    {
+      "scenario": "building-fragmented",
+      "scopes": 50,
+      "native_nvtx_match": true,
+      "main_scheduler_partition": true
+    },
+    {
+      "scenario": "building-warm",
+      "scopes": 48,
+      "native_nvtx_match": true,
+      "main_scheduler_partition": true
+    },
+    {
+      "scenario": "cantilever64-cold",
+      "scopes": 48,
+      "native_nvtx_match": true,
+      "main_scheduler_partition": true
+    },
+    {
+      "scenario": "cantilever64-warm",
+      "scopes": 48,
+      "native_nvtx_match": true,
+      "main_scheduler_partition": true
+    },
+    {
+      "scenario": "chain256-cold",
+      "scopes": 48,
+      "native_nvtx_match": true,
+      "main_scheduler_partition": true
+    },
+    {
+      "scenario": "chain256-warm",
+      "scopes": 48,
+      "native_nvtx_match": true,
+      "main_scheduler_partition": true
+    },
+    {
+      "scenario": "chain32-cold",
+      "scopes": 48,
+      "native_nvtx_match": true,
+      "main_scheduler_partition": true
+    },
+    {
+      "scenario": "chain32-warm",
+      "scopes": 48,
+      "native_nvtx_match": true,
+      "main_scheduler_partition": true
+    },
+    {
+      "scenario": "dense12-cold",
+      "scopes": 48,
+      "native_nvtx_match": true,
+      "main_scheduler_partition": true
+    },
+    {
+      "scenario": "dense12-warm",
+      "scopes": 48,
+      "native_nvtx_match": true,
+      "main_scheduler_partition": true
+    },
+    {
+      "scenario": "destruction-cold",
+      "scopes": 48,
+      "native_nvtx_match": true,
+      "main_scheduler_partition": true
+    },
+    {
+      "scenario": "destruction-damaged",
+      "scopes": 48,
+      "native_nvtx_match": true,
+      "main_scheduler_partition": true
+    },
+    {
+      "scenario": "destruction-fractured",
+      "scopes": 50,
+      "native_nvtx_match": true,
+      "main_scheduler_partition": true
+    },
+    {
+      "scenario": "destruction-intact",
+      "scopes": 48,
+      "native_nvtx_match": true,
+      "main_scheduler_partition": true
+    },
+    {
+      "scenario": "destruction-onset",
+      "scopes": 49,
+      "native_nvtx_match": true,
+      "main_scheduler_partition": true
+    },
+    {
+      "scenario": "destruction-stimulus",
+      "scopes": 49,
+      "native_nvtx_match": true,
+      "main_scheduler_partition": true
+    },
+    {
+      "scenario": "flying",
+      "scopes": 20,
+      "native_nvtx_match": true,
+      "main_scheduler_partition": true
+    },
+    {
+      "scenario": "ladder128-cold",
+      "scopes": 48,
+      "native_nvtx_match": true,
+      "main_scheduler_partition": true
+    },
+    {
+      "scenario": "ladder128-warm",
+      "scopes": 48,
+      "native_nvtx_match": true,
+      "main_scheduler_partition": true
+    },
+    {
+      "scenario": "panel32-cold",
+      "scopes": 48,
+      "native_nvtx_match": true,
+      "main_scheduler_partition": true
+    },
+    {
+      "scenario": "panel32-warm",
+      "scopes": 48,
+      "native_nvtx_match": true,
+      "main_scheduler_partition": true
+    },
+    {
+      "scenario": "resting",
+      "scopes": 20,
+      "native_nvtx_match": true,
+      "main_scheduler_partition": true
+    },
+    {
+      "scenario": "sliding",
+      "scopes": 20,
+      "native_nvtx_match": true,
+      "main_scheduler_partition": true
+    },
+    {
+      "scenario": "tower64-cold",
+      "scopes": 48,
+      "native_nvtx_match": true,
+      "main_scheduler_partition": true
+    },
+    {
+      "scenario": "tower64-warm",
+      "scopes": 48,
+      "native_nvtx_match": true,
+      "main_scheduler_partition": true
+    },
+    {
+      "scenario": "city25-intact-idle",
+      "scopes": 48,
+      "native_nvtx_match": true,
+      "main_scheduler_partition": true
+    },
+    {
+      "scenario": "city25-airborne",
+      "scopes": 49,
+      "native_nvtx_match": true,
+      "main_scheduler_partition": true
+    },
+    {
+      "scenario": "city25-initial-impact",
+      "scopes": 2611,
+      "native_nvtx_match": true,
+      "main_scheduler_partition": true
+    },
+    {
+      "scenario": "city25-post-impact",
+      "scopes": 50,
+      "native_nvtx_match": true,
+      "main_scheduler_partition": true
+    },
+    {
+      "scenario": "city25-cascading-fracture",
+      "scopes": 214,
+      "native_nvtx_match": true,
+      "main_scheduler_partition": true
+    },
+    {
+      "scenario": "city25-fragmented-loaded",
+      "scopes": 384,
+      "native_nvtx_match": true,
+      "main_scheduler_partition": true
+    },
+    {
+      "scenario": "city25-late-debris",
+      "scopes": 4633,
+      "native_nvtx_match": true,
+      "main_scheduler_partition": true
+    },
+    {
+      "scenario": "city25-ten-second-debris",
+      "scopes": 1955,
+      "native_nvtx_match": true,
+      "main_scheduler_partition": true
+    },
+    {
+      "scenario": "city64-intact-idle",
+      "scopes": 48,
+      "native_nvtx_match": true,
+      "main_scheduler_partition": true
+    },
+    {
+      "scenario": "city64-airborne",
+      "scopes": 49,
+      "native_nvtx_match": true,
+      "main_scheduler_partition": true
+    },
+    {
+      "scenario": "city64-initial-impact",
+      "scopes": 6416,
+      "native_nvtx_match": true,
+      "main_scheduler_partition": true
+    },
+    {
+      "scenario": "city64-post-impact",
+      "scopes": 50,
+      "native_nvtx_match": true,
+      "main_scheduler_partition": true
+    },
+    {
+      "scenario": "city64-cascading-fracture",
+      "scopes": 238,
+      "native_nvtx_match": true,
+      "main_scheduler_partition": true
+    },
+    {
+      "scenario": "city64-fragmented-loaded",
+      "scopes": 1026,
+      "native_nvtx_match": true,
+      "main_scheduler_partition": true
+    },
+    {
+      "scenario": "city64-late-debris",
+      "scopes": 10216,
+      "native_nvtx_match": true,
+      "main_scheduler_partition": true
+    },
+    {
+      "scenario": "city64-ten-second-debris",
+      "scopes": 2099,
+      "native_nvtx_match": true,
+      "main_scheduler_partition": true
+    },
+    {
+      "scenario": "city256-intact-idle",
+      "scopes": 48,
+      "native_nvtx_match": true,
+      "main_scheduler_partition": true
+    },
+    {
+      "scenario": "city256-airborne",
+      "scopes": 49,
+      "native_nvtx_match": true,
+      "main_scheduler_partition": true
+    },
+    {
+      "scenario": "city256-initial-impact",
+      "scopes": 24998,
+      "native_nvtx_match": true,
+      "main_scheduler_partition": true
+    },
+    {
+      "scenario": "city256-post-impact",
+      "scopes": 52,
+      "native_nvtx_match": true,
+      "main_scheduler_partition": true
+    },
+    {
+      "scenario": "city256-cascading-fracture",
+      "scopes": 338,
+      "native_nvtx_match": true,
+      "main_scheduler_partition": true
+    },
+    {
+      "scenario": "city256-fragmented-loaded",
+      "scopes": 3538,
+      "native_nvtx_match": true,
+      "main_scheduler_partition": true
+    },
+    {
+      "scenario": "city256-late-debris",
+      "scopes": 26959,
+      "native_nvtx_match": true,
+      "main_scheduler_partition": true
+    },
+    {
+      "scenario": "city256-ten-second-debris",
+      "scopes": 4204,
+      "native_nvtx_match": true,
+      "main_scheduler_partition": true
+    }
+  ]
+}

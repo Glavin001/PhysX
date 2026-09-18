@@ -1,0 +1,42 @@
+{
+  "scope": "Resident first-level P, P^T and sparse P^T L P; not yet native preconditioner integration",
+  "source_sha256": {
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyKernels.cuh": "b20bc851e252d543e8c628d2969c0a260dff40b2a9105401f97867f4ffac3aca",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyGraph.cuh": "c9bdb52fc0b0e185c9a963af1ed17047ca060c958ad1b4ab3b0b569e86fed9e2",
+    "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyOperator.cuh": "18ff782e01669621b13d48170dcef4adf3d52fb3f323ba402580a0d1cda850fe",
+    "demos/blast-stress-demo/tests/gpu_resident_hierarchy_test.cu": "2e3e504f51e3c5f6d6e21636c083f189b996455a915f203136846ad029b400c1",
+    "demos/blast-stress-demo/tests/gpu_resident_hierarchy_operator_checks.cuh": "5e4a99cea95d6dc0d8dfd7a1dd2f2f83c46140457e930b3bd399cc06162bb53d"
+  },
+  "tests": {
+    "captured_graph": "pass",
+    "memcheck_with_leaks": "pass",
+    "synccheck": "pass",
+    "racecheck": "pass",
+    "full_basis_small_fixtures": "pass at 2e-12 scaled tolerance",
+    "parallel_bonds": "pass; each fine member contributes exactly once",
+    "free_body_modes": "six null modes pass for coherent free fixtures",
+    "invalid_inertia_and_recovery": "pass",
+    "bit_repeatability": "pass"
+  },
+  "largest_fixture": {
+    "nodes": 100000,
+    "bonds": 199997,
+    "transitions": 6
+  },
+  "wall_regression": {
+    "seconds": 10,
+    "chunks": 444,
+    "bonds": 896,
+    "projectiles": 1,
+    "correction_limit": 1,
+    "result": "exact frozen topology, entry/exit holes, clearance, COM and convergence gates pass"
+  },
+  "performance_claim": null,
+  "remaining": [
+    "coarse solve and smoothing",
+    "recursive hierarchy",
+    "native CGLS integration",
+    "affected component reuse",
+    "full-scene fidelity/performance qualification"
+  ]
+}

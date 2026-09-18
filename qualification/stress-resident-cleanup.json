@@ -1,0 +1,62 @@
+{
+  "schema": 1,
+  "base_commit": "cfbca064",
+  "workload": {
+    "chunks": 444,
+    "bonds": 896,
+    "projectiles": 1,
+    "timestep_seconds": 0.016666666666666666,
+    "correction_limit": 1
+  },
+  "rejected_experiments": [
+    {
+      "implementation": "CTA per reduction tile",
+      "report": "eight-ms-segmented-after/report.html",
+      "reason": "Complete-step mean and peak regressed; 12 deadline misses in 1200 measured steps.",
+      "physical_audit": "out/stress-segmented-audit/quality.json",
+      "retained_in_production": false
+    },
+    {
+      "implementation": "Warp per reduction tile",
+      "report": "eight-ms-segmented-warp/report.html",
+      "reason": "Complete-step mean regressed against matched two-run 10-second baseline despite preserving the frozen topology history.",
+      "physical_audit": "out/stress-segmented-warp-audit/quality.json",
+      "retained_in_production": false,
+      "source_patch": "rejected-segmented-stress.patch"
+    }
+  ],
+  "baseline_report": "eight-ms-segmented-before/report.html",
+  "retained_change": {
+    "description": "Remove unused bond-space vectors, reference Jacobi storage, unused dense reduction storage/workspace, reference-only stream and unnecessary preconditioner-vector reset.",
+    "numerical_operator_changed": false,
+    "removed_array_bytes_formula": "64*bonds + 216*nodes + 4*max(nodes,bonds)",
+    "removed_array_bytes_wall": 156832,
+    "removed_array_bytes_100k_nodes_200k_bonds": 35200000,
+    "memory_formula_scope": "Requested device array bytes, excluding allocator rounding, unused CUB workspace and CUDA stream overhead. Nodes are stress nodes, not independently simulated rigid bodies.",
+    "lifecycle_fix": "Release the pinned island-skip array on solver destruction; leak-check previously found one allocation of 4*nodes bytes leaked per solver."
+  },
+  "validation": {
+    "focused_tests": 14,
+    "test_log": "stress-storage-tests.txt",
+    "reporting_tests": 21,
+    "reporting_test_log": "stress-storage-report-tests.txt",
+    "sanitizer": "Registered blast_stress_gpu_resident_memory CTest uses memcheck with leak-check full and error exit code 99; passed after fixing the leak.",
+    "pre_fix_leak_log": "stress-storage-leak-before.txt",
+    "frozen_penetration_audit": "stress-storage-quality.json",
+    "performance": "eight-ms-storage-final-qualified/report.html",
+    "sanitizer_log": "stress-storage-memcheck.txt",
+    "complete_steps": 54000,
+    "deadline_misses": 0,
+    "wall_complete_step_peak_ms": 7.037243,
+    "wall_trials": 5,
+    "seconds_per_trial": 60,
+    "full_goal_complete": false
+  },
+  "source_sha256": {
+    "blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu": "2c259efa7a16b24b61a581368e302640adfb98621b3109b8d1e6b40ec0698142",
+    "blast/source/sdk/extensions/stressgpu/detail/StressBufferAllocation.inl": "b9722b2611c38a230183f455e1e2612a5ba6d09a3106839819d4e2811078d49e",
+    "blast/source/sdk/extensions/stressgpu/detail/StressNodeIteration.cuh": "a45b88bef19020746549f72a423e0c843d8b328cf0da0201b196188bca72c26d",
+    "blast/source/sdk/extensions/stressgpu/detail/StressSolverLifetime.inl": "e102ff14bb2c21fcf3105b5a0dfb3f3dc0bf55e2402a5aa7e116ff4580bf9ad4",
+    "demos/blast-stress-demo/tests/gpu_resident_stress_test.cu": "a8e68afeaf4012be33e0028ae537065fb442d435cbce539e21f21d2986403962"
+  }
+}

@@ -1,0 +1,21 @@
+Internal ctest changing into directory: /root/workspace/physx-2/out/destruction-sdk
+Test project /root/workspace/physx-2/out/destruction-sdk
+    Start 56: physx_native_gpu_kinematic_inputs
+1/1 Test #56: physx_native_gpu_kinematic_inputs ...***Failed    4.80 sec
+[PhysX:32] Native GPU destruction stage failed; this simulation step is incomplete. (/root/workspace/physx-2/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp:914)
+ordinary step failed
+2 chunks / 1 bond plus ordinary platform, cargo and sentinel: 64-step translation/rotation, COM offset, settling/wake, clear/reconfigure; GPU inputs match ordinary producer and motion/CCD match native baseline
+2 chunks / 1 bond plus ordinary platform, cargo and sentinel: 64-step translation/rotation, COM offset, settling/wake, clear/reconfigure; GPU inputs match ordinary producer and motion/CCD match native baseline
+2 chunks / 1 bond plus ordinary platform, cargo and sentinel: 64-step translation/rotation, COM offset, settling/wake, clear/reconfigure; GPU inputs match ordinary producer and motion/CCD match native baseline
+2 chunks / 1 bond plus ordinary platform, cargo and sentinel: 64-step translation/rotation, COM offset, settling/wake, clear/reconfigure; GPU inputs match ordinary producer and motion/CCD match native baseline
+2 chunks / 1 bond plus ordinary platform, cargo and sentinel: 64-step translation/rotation, COM offset, settling/wake, clear/reconfigure; GPU inputs match ordinary producer and motion/CCD match native baseline
+2 chunks / 1 bond plus ordinary platform, cargo and sentinel: 64-step translation/rotation, COM offset, settling/wake, clear/reconfigure; GPU inputs match ordinary producer and motion/CCD match native baseline
+
+
+0% tests passed, 1 tests failed out of 1
+
+Total Test time (real) =   4.80 sec
+
+The following tests FAILED:
+	 56 - physx_native_gpu_kinematic_inputs (Failed)
+Errors while running CTest

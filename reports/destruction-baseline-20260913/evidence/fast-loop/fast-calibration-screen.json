@@ -1,0 +1,180 @@
+{
+  "status": "complete",
+  "pid": 1103187,
+  "hypothesis": "Same-build A/A/A calibration: measure fast-loop wall time and false positive noise, not an optimization",
+  "candidate_commit": "13b11af2e0aeabf4e0070931fbd8a060f383dfaf",
+  "baseline": "/root/workspace/physx-2/out/destruction-baseline-20260913/fast-baseline.json",
+  "budget_seconds": 180.0,
+  "scope": "Prioritization screen, not promotion. Unprofiled full ticks; restore/check/export outside latency. Compilation excluded from screen wall time.",
+  "queue_seconds": 7.373800326604396e-05,
+  "command": [
+    "/usr/bin/python3",
+    "/root/workspace/physx-2/out/destruction-baseline-20260913/harness/tools/diagnostics/destruction-snapshot/run-matched.py",
+    "/root/workspace/physx-2/out/destruction-baseline-20260913/fast-calibration/matched",
+    "--manifest",
+    "/root/workspace/physx-2/out/destruction-baseline-20260913/fast-manifest.json",
+    "--use-case-repetitions",
+    "--binary",
+    "/root/workspace/physx-2/out/destruction-baseline-20260913/plain/serialization-probe",
+    "--candidate-binary",
+    "/root/workspace/physx-2/out/destruction-baseline-20260913/plain/serialization-probe",
+    "--baseline-artifacts",
+    "/root/workspace/physx-2/out/destruction-baseline-20260913/artifacts",
+    "--candidate-artifacts",
+    "/root/workspace/physx-2/out/destruction-baseline-20260913/artifacts",
+    "--candidate-commit",
+    "13b11af2e0aeabf4e0070931fbd8a060f383dfaf"
+  ],
+  "signals": [
+    {
+      "scenario": "bridge64-cold",
+      "signal": "inconclusive",
+      "saved_ms": -0.2791830000000015,
+      "control_drift_ms": 0.56632675,
+      "means_ms": {
+        "A0": 8.35703975,
+        "B": 8.919386125,
+        "A1": 8.9233665
+      },
+      "peaks_ms": {
+        "A0": 11.533552,
+        "B": 12.030478,
+        "A1": 9.524164
+      },
+      "misses_60hz": {
+        "A0": 0,
+        "B": 0,
+        "A1": 0
+      }
+    },
+    {
+      "scenario": "chain256-cold",
+      "signal": "inconclusive",
+      "saved_ms": 0.6040354375000003,
+      "control_drift_ms": 0.172577875,
+      "means_ms": {
+        "A0": 7.43367225,
+        "B": 6.9159257499999995,
+        "A1": 7.606250125
+      },
+      "peaks_ms": {
+        "A0": 9.5634,
+        "B": 9.840927,
+        "A1": 10.876436
+      },
+      "misses_60hz": {
+        "A0": 0,
+        "B": 0,
+        "A1": 0
+      }
+    },
+    {
+      "scenario": "dense12-cold",
+      "signal": "inconclusive",
+      "saved_ms": 0.3040500000000037,
+      "control_drift_ms": 0.48142233333333095,
+      "means_ms": {
+        "A0": 31.538281166666668,
+        "B": 31.47494233333333,
+        "A1": 32.0197035
+      },
+      "peaks_ms": {
+        "A0": 32.872187,
+        "B": 33.500932,
+        "A1": 34.444988
+      },
+      "misses_60hz": {
+        "A0": 6,
+        "B": 6,
+        "A1": 6
+      }
+    },
+    {
+      "scenario": "destruction-stimulus",
+      "signal": "inconclusive",
+      "saved_ms": -0.5509101249999997,
+      "control_drift_ms": 0.9546400000000004,
+      "means_ms": {
+        "A0": 4.4100280000000005,
+        "B": 4.483618125,
+        "A1": 3.455388
+      },
+      "peaks_ms": {
+        "A0": 7.809954,
+        "B": 9.608262,
+        "A1": 5.172388
+      },
+      "misses_60hz": {
+        "A0": 0,
+        "B": 0,
+        "A1": 0
+      }
+    },
+    {
+      "scenario": "city25-initial-impact",
+      "signal": "inconclusive",
+      "saved_ms": 3.222191499999994,
+      "control_drift_ms": 5.497449499999995,
+      "means_ms": {
+        "A0": 43.8076125,
+        "B": 37.83669625,
+        "A1": 38.310163
+      },
+      "peaks_ms": {
+        "A0": 51.23916,
+        "B": 45.807392,
+        "A1": 40.057472
+      },
+      "misses_60hz": {
+        "A0": 4,
+        "B": 4,
+        "A1": 4
+      }
+    },
+    {
+      "scenario": "city256-intact-idle",
+      "signal": "inconclusive",
+      "saved_ms": 8.450489166666657,
+      "control_drift_ms": 2.599446333333333,
+      "means_ms": {
+        "A0": 74.11038966666666,
+        "B": 64.36017733333334,
+        "A1": 71.51094333333333
+      },
+      "peaks_ms": {
+        "A0": 83.037614,
+        "B": 80.507238,
+        "A1": 87.954648
+      },
+      "misses_60hz": {
+        "A0": 3,
+        "B": 3,
+        "A1": 3
+      }
+    },
+    {
+      "scenario": "city256-late-debris",
+      "signal": "inconclusive",
+      "saved_ms": 17.03083349999997,
+      "control_drift_ms": 5.881141666666679,
+      "means_ms": {
+        "A0": 387.925992,
+        "B": 373.83572933333335,
+        "A1": 393.8071336666667
+      },
+      "peaks_ms": {
+        "A0": 424.115525,
+        "B": 414.879639,
+        "A1": 455.766682
+      },
+      "misses_60hz": {
+        "A0": 3,
+        "B": 3,
+        "A1": 3
+      }
+    }
+  ],
+  "qualification": "Screen only. Descriptive intervals do not measure between-process uncertainty; small effects require another independent comparison. No automatic promotion.",
+  "desktop_restore_exit_code": 0,
+  "wall_seconds_including_admission_restore_checks_reports": 134.1047296379984
+}

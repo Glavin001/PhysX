@@ -1,0 +1,108 @@
+diff --git a/physx/source/simulationcontroller/include/ScScene.h b/physx/source/simulationcontroller/include/ScScene.h
+index 26f548ee..02c9e5b6 100644
+--- a/physx/source/simulationcontroller/include/ScScene.h
++++ b/physx/source/simulationcontroller/include/ScScene.h
+@@ -553,6 +553,10 @@ namespace Sc
+ 		PX_FORCE_INLINE	BroadphaseManager&			getBroadphaseManager()						{ return mBroadphaseManager;			}
+         // Trial notifications are not accepted results while native correction is incomplete.
+         bool isSimulationResultAccepted() const;
++        // Explicit CPU query observer: accumulate provisional GPU deltas and
++        // reconcile only accepted ownership/activity, never trial transitions.
++        bool queueDestructionQueryMembership(const PxU32* indices, PxU32 count);
++        void publishDestructionQueryMembership();
+ 		PX_FORCE_INLINE	bool						fireOutOfBoundsCallbacks()
+ 													{
+ 														return isSimulationResultAccepted() && mBroadphaseManager.fireOutOfBoundsCallbacks(mAABBManager, *mElementIDPool, mContextId);
+@@ -922,6 +926,8 @@ namespace Sc
+                     };
+                     PxArray<DestructionActivity> mDestructionTrialActivity;
+                     PxArray<BodySim*> mDestructionTrialSleepNotifications;
++                    PxBitMap mDestructionQueryDirty;
++                    PxArray<PxU32> mDestructionQueryShapes;
+                     void captureDestructionActivity();
+                     void restoreDestructionActivity();
+ 					Cm::DelegateTask<Scene, &Scene::updateCCDMultiPass>			mUpdateCCDMultiPass;
+diff --git a/physx/source/simulationcontroller/src/ScPipeline.cpp b/physx/source/simulationcontroller/src/ScPipeline.cpp
+index 5af5ced6..27e14d36 100644
+--- a/physx/source/simulationcontroller/src/ScPipeline.cpp
++++ b/physx/source/simulationcontroller/src/ScPipeline.cpp
+@@ -1987,6 +1987,40 @@ namespace
+ 	};
+ }
+ 
++bool Sc::Scene::queueDestructionQueryMembership(const PxU32* indices, PxU32 count)
++{
++    PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.task.queryMembershipQueue",false,
++        PxU64(reinterpret_cast<size_t>(mSimulationController)));
++    for(PxU32 i=0;i<count;++i) {
++        const PxU32 id=indices[i];
++        if(mDestructionQueryDirty.boundedTest(id))continue;
++        if(!mDestructionQueryDirty.growAndSet(id))return false;
++        mDestructionQueryShapes.pushBack(id);
++    }
++    return true;
++}
++
++void Sc::Scene::publishDestructionQueryMembership()
++{
++    if(mDestructionQueryShapes.empty())return;
++    PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.task.queryMembership",false,
++        PxU64(reinterpret_cast<size_t>(mSimulationController)));
++    const bool accepted=isSimulationResultAccepted();
++    auto** shapes=mSimulationController->getShapeSims();
++    const PxU32 count=mSimulationController->getNbShapes();
++    for(const PxU32 id:mDestructionQueryShapes) {
++        mDestructionQueryDirty.reset(id);
++        if(!accepted || id>=count || !shapes[id])continue;
++        auto& shape=*shapes[id];
++        auto* body=shape.getBodySim();
++        // Final activity includes correction and final-pass ownership changes.
++        // The two GPU lists are deltas; their union must survive trial rejection.
++        if(!body || !body->isActive() || body->isFrozen())shape.destroySqBounds();
++        else shape.createSqBounds();
++    }
++    mDestructionQueryShapes.clear();
++}
++
+ void Sc::Scene::captureDestructionActivity()
+ {
+     PxProfileScoped profile(mSimulationController->usesDeviceDestructionContactInputs()?PxGetProfilerCallback():NULL,
+@@ -3039,6 +3073,7 @@ void Sc::Scene::finalizationPhase(PxBaseTask* continuation)
+     }
+     mDestructionCorrectionInProgress=false;
+     mDestructionTrialActivity.clear();mDestructionTrialSleepNotifications.clear();
++    publishDestructionQueryMembership();
+ 
+ 	fireOnAdvanceCallback();  // placed here because it needs to be done after sleep check and after potential CCD passes
+ 
+diff --git a/physx/source/simulationcontroller/src/ScScene.cpp b/physx/source/simulationcontroller/src/ScScene.cpp
+index 9690b283..c64b97c9 100644
+--- a/physx/source/simulationcontroller/src/ScScene.cpp
++++ b/physx/source/simulationcontroller/src/ScScene.cpp
+@@ -486,11 +486,16 @@ namespace
+ 
+ 			if(nbFrozenShapes || nbUnfrozenShapes)
+ 			{
+-                PxProfileScoped profile(simulationController->usesDeviceDestructionContactInputs()?PxGetProfilerCallback():NULL,
+-                    "GpuDestruction.task.queryMembership",false,PxU64(reinterpret_cast<size_t>(simulationController)));
+ 				PxU32* unfrozenShapeIndices = simulationController->getUnfrozenShapes();
+ 				PxU32* frozenShapeIndices = simulationController->getFrozenShapes();
+ 
++                if(simulationController->usesDeviceDestructionContactInputs()) {
++                    if(!mScene->queueDestructionQueryMembership(frozenShapeIndices,nbFrozenShapes)
++                        || !mScene->queueDestructionQueryMembership(unfrozenShapeIndices,nbUnfrozenShapes)) {
++                        PxGetFoundation().error(PxErrorCode::eOUT_OF_MEMORY,PX_FL,"Native query observation queue failed; simulation is incomplete");
++                        mScene->getCudaContextManager()->getCudaContext()->setAbortMode(true);
++                    }
++                } else {
+ 				Sc::ShapeSimBase** shapeSimsLL = simulationController->getShapeSims();
+ 	
+ 				for(PxU32 i=0; i<nbFrozenShapes; ++i)
+@@ -506,6 +511,7 @@ namespace
+ 					PX_ASSERT(shape);
+ 					shape->createSqBounds();
+ 				}
++                }
+ 			}
+ 
+ 			if (simulationController->hasDeformableSurfaces())

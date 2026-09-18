@@ -1,0 +1,32 @@
+Internal ctest changing into directory: /root/workspace/physx-2/out/destruction-sdk
+Test project /root/workspace/physx-2/out/destruction-sdk
+      Start 38: physx_native_gpu_material
+ 1/11 Test #38: physx_native_gpu_material ..............   Passed    0.53 sec
+      Start 75: physx_native_standard_reported_reuse
+ 2/11 Test #75: physx_native_standard_reported_reuse ...   Passed    1.91 sec
+      Start 76: physx_native_standard_reuse
+ 3/11 Test #76: physx_native_standard_reuse ............   Passed    0.81 sec
+      Start 77: physx_native_contact_owner_reuse
+ 4/11 Test #77: physx_native_contact_owner_reuse .......   Passed    0.96 sec
+      Start 78: physx_native_post_correction
+ 5/11 Test #78: physx_native_post_correction ...........   Passed    0.75 sec
+      Start 79: physx_native_standard_awake
+ 6/11 Test #79: physx_native_standard_awake ............   Passed    0.43 sec
+      Start 80: physx_native_standard_sleep
+ 7/11 Test #80: physx_native_standard_sleep ............   Passed    0.80 sec
+      Start 82: physx_native_standard_sleep_boundary
+ 8/11 Test #82: physx_native_standard_sleep_boundary ...   Passed    1.49 sec
+      Start 83: physx_native_standard_gpu_islands
+ 9/11 Test #83: physx_native_standard_gpu_islands ......   Passed    0.92 sec
+      Start 84: physx_native_standard_wake_boundary
+10/11 Test #84: physx_native_standard_wake_boundary ....   Passed    0.80 sec
+      Start 85: physx_native_standard_late_impact
+11/11 Test #85: physx_native_standard_late_impact ......   Passed    0.82 sec
+
+100% tests passed, 0 tests failed out of 11
+
+Label Time Summary:
+gpu            =   9.70 sec*proc (10 tests)
+integration    =   9.70 sec*proc (10 tests)
+
+Total Test time (real) =  10.23 sec

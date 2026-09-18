@@ -1,0 +1,1 @@
+PASS: web-fps-server --features embedded-destruction has no embedded-profiling feature in cargo tree.

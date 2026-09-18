@@ -432,6 +432,7 @@ void PxsContext::swapStreams()
 void PxsContext::mergeCMDiscreteUpdateResults(PxBaseTask* /*continuation*/)
 {
 	PX_PROFILE_ZONE("Sim.narrowPhaseMerge", mContextID);
+        PxProfileScoped nativeProfile(PxGetProfilerCallback(),"GpuDestruction.task.cpuNarrowPhaseMerge",false,mContextID);
 
 	mNpImplementationContext->appendContactManagers();
 

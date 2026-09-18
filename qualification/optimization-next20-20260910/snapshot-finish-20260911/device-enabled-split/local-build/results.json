@@ -1,0 +1,186 @@
+[
+  {
+    "command": [
+      "python3",
+      "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/local-promoted-verification/correction-mem",
+      "--binary",
+      "/root/workspace/physx-2/out/snapshot-large-20260911/final-artifacts/native_gpu_correction_body_test",
+      "--sanitizer",
+      "memcheck",
+      "--artifacts",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/local-promoted-verification/artifacts",
+      "--allow-existing-graphics",
+      "--allow-compute-pid",
+      "435374",
+      "--watchdog-seconds",
+      "600"
+    ],
+    "exit_code": 0
+  },
+  {
+    "command": [
+      "python3",
+      "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/local-promoted-verification/dense12-cold",
+      "--binary",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/physical-ab-probe-v3/serialization-probe",
+      "--replay-prefix",
+      "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/dense12-cold",
+      "--repetitions",
+      "2",
+      "--artifacts",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/local-promoted-verification/artifacts",
+      "--allow-existing-graphics",
+      "--allow-compute-pid",
+      "435374",
+      "--watchdog-seconds",
+      "600"
+    ],
+    "exit_code": 0
+  },
+  {
+    "command": [
+      "python3",
+      "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/compare-observations.py",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/split-matched-full/dense12-cold-B/observation-0.json",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/local-promoted-verification/dense12-cold/observation-0.json",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/local-promoted-verification/dense12-cold-physical.json"
+    ],
+    "exit_code": 1
+  },
+  {
+    "command": [
+      "python3",
+      "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/compare-observations.py",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/split-matched-full/dense12-cold-B",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/local-promoted-verification/dense12-cold",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/local-promoted-verification/dense12-cold-physical-checked.json"
+    ],
+    "exit_code": 1
+  },
+  {
+    "command": [
+      "python3",
+      "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/local-promoted-verification/dense12-cold-observed",
+      "--binary",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/physical-ab-probe-v3/serialization-probe",
+      "--replay-prefix",
+      "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/dense12-cold",
+      "--repetitions",
+      "2",
+      "--artifacts",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/local-promoted-verification/artifacts",
+      "--allow-existing-graphics",
+      "--allow-compute-pid",
+      "435374",
+      "--watchdog-seconds",
+      "600"
+    ],
+    "exit_code": 0
+  },
+  {
+    "command": [
+      "python3",
+      "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/compare-observations.py",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/split-matched-full/dense12-cold-B",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/local-promoted-verification/dense12-cold-observed",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/local-promoted-verification/dense12-cold-physical-final.json"
+    ],
+    "exit_code": 0
+  },
+  {
+    "command": [
+      "python3",
+      "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/local-promoted-verification/ladder128-cold-observed",
+      "--binary",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/physical-ab-probe-v3/serialization-probe",
+      "--replay-prefix",
+      "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/ladder128-cold",
+      "--repetitions",
+      "2",
+      "--artifacts",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/local-promoted-verification/artifacts",
+      "--allow-existing-graphics",
+      "--allow-compute-pid",
+      "435374",
+      "--watchdog-seconds",
+      "600"
+    ],
+    "exit_code": 0
+  },
+  {
+    "command": [
+      "python3",
+      "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/compare-observations.py",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/split-matched-remaining/ladder128-cold-B",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/local-promoted-verification/ladder128-cold-observed",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/local-promoted-verification/ladder128-cold-physical-final.json"
+    ],
+    "exit_code": 0
+  },
+  {
+    "command": [
+      "python3",
+      "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/local-promoted-verification/city25-initial-impact-observed",
+      "--binary",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/physical-ab-probe-v3/serialization-probe",
+      "--replay-prefix",
+      "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82",
+      "--repetitions",
+      "2",
+      "--artifacts",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/local-promoted-verification/artifacts",
+      "--allow-existing-graphics",
+      "--allow-compute-pid",
+      "435374",
+      "--watchdog-seconds",
+      "600"
+    ],
+    "exit_code": 0
+  },
+  {
+    "command": [
+      "python3",
+      "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/compare-observations.py",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/split-matched-remaining/city25-initial-impact-B",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/local-promoted-verification/city25-initial-impact-observed",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/local-promoted-verification/city25-initial-impact-physical-final.json"
+    ],
+    "exit_code": 0
+  },
+  {
+    "command": [
+      "python3",
+      "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/local-promoted-verification/city256-late-debris-observed",
+      "--binary",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/physical-ab-probe-v3/serialization-probe",
+      "--replay-prefix",
+      "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179",
+      "--repetitions",
+      "2",
+      "--artifacts",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/local-promoted-verification/artifacts",
+      "--allow-existing-graphics",
+      "--allow-compute-pid",
+      "435374",
+      "--watchdog-seconds",
+      "600"
+    ],
+    "exit_code": 0
+  },
+  {
+    "command": [
+      "python3",
+      "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/compare-observations.py",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/split-matched-remaining/city256-late-debris-B",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/local-promoted-verification/city256-late-debris-observed",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/local-promoted-verification/city256-late-debris-physical-final.json"
+    ],
+    "exit_code": 0
+  }
+]

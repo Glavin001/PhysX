@@ -1,0 +1,6 @@
+[ 25%] Building CUDA object CMakeFiles/PhysXDestructionTopologyGpu.dir/src/PxgDestructionTopology.cu.o
+[ 50%] Linking CUDA static library libPhysXDestructionTopologyGpu.a
+[ 50%] Built target PhysXDestructionTopologyGpu
+[ 75%] Building CUDA object CMakeFiles/destruction_chunk_index_test.dir/tests/chunk_index_test.cu.o
+[100%] Linking CUDA executable destruction_chunk_index_test
+[100%] Built target destruction_chunk_index_test

@@ -1,0 +1,21 @@
+Minimal, env-gated relaxation of the stress solver's device-name gate so that any CC 12.0
+(sm_120) device with cooperative launch is accepted when PHYSX_DESTRUCTION_DEVICE_GATE=sm120.
+Default behaviour is unchanged (exact RTX 4090 / RTX 5060 Ti names). Needed on Modal, whose
+sm_120 part is "NVIDIA RTX PRO 6000 Blackwell Server Edition". Rebuild after applying:
+  cmake --build out/sdk-release --target PhysXDestructionGpuRuntime PhysXDestructionGpuWorkDiagnostic -j8
+  cmake --build out/destruction-sdk --target gpu_resident_stress_test gpu_resident_stress_3d_test gpu_resident_motion_modes_test -j8
+then `modal run tools/modal/gpu_run.py::push`. The harness sets PHYSX_DESTRUCTION_DEVICE_GATE=sm120 in every container.
+
+--- a/blast/source/sdk/extensions/stressgpu/detail/StressSolverLifetime.inl
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressSolverLifetime.inl
+@@
+         checkCuda(cudaGetDeviceProperties(&properties, device), "query destruction capabilities");
+-        const bool supportedDevice =
++        const char* gate = std::getenv("PHYSX_DESTRUCTION_DEVICE_GATE");
++        const bool anySm120 = gate && std::string(gate)=="sm120" && properties.major==12 && properties.minor==0;
++        const bool supportedDevice = anySm120 ||
+             (properties.major==8 && properties.minor==9 && std::string(properties.name)=="NVIDIA GeForce RTX 4090") ||
+             (properties.major==12 && properties.minor==0 && std::string(properties.name)=="NVIDIA GeForce RTX 5060 Ti");
+         if(!supportedDevice || !properties.cooperativeLaunch)
+-            throw std::runtime_error("Integrated destruction requires RTX 4090 sm_89 or RTX 5060 Ti sm_120 with cooperative CUDA execution");
++            throw std::runtime_error("Integrated destruction requires RTX 4090 sm_89 or RTX 5060 Ti sm_120 with cooperative CUDA execution (or PHYSX_DESTRUCTION_DEVICE_GATE=sm120 on another sm_120 device)");

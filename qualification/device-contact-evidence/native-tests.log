@@ -1,0 +1,24 @@
+Internal ctest changing into directory: /root/workspace/physx-2/out/destruction-sdk
+Test project /root/workspace/physx-2/out/destruction-sdk
+    Start 48: physx_native_gpu_collision_preparation
+1/7 Test #48: physx_native_gpu_collision_preparation .........   Passed    4.52 sec
+    Start 49: physx_native_gpu_retained_registry
+2/7 Test #49: physx_native_gpu_retained_registry .............   Passed    0.45 sec
+    Start 50: physx_native_gpu_contact_lifetime_exhaustion
+3/7 Test #50: physx_native_gpu_contact_lifetime_exhaustion ...   Passed    0.80 sec
+    Start 69: physx_native_gpu_bombardment_contacts
+4/7 Test #69: physx_native_gpu_bombardment_contacts ..........   Passed    8.51 sec
+    Start 70: physx_native_gpu_resimulation
+5/7 Test #70: physx_native_gpu_resimulation ..................   Passed    7.50 sec
+    Start 72: physx_native_gpu_publication
+6/7 Test #72: physx_native_gpu_publication ...................   Passed    1.45 sec
+    Start 84: destruction_gpu_contact_graph
+7/7 Test #84: destruction_gpu_contact_graph ..................   Passed    0.51 sec
+
+100% tests passed, 0 tests failed out of 7
+
+Label Time Summary:
+gpu            =   8.51 sec*proc (1 test)
+integration    =   8.51 sec*proc (1 test)
+
+Total Test time (real) =  23.74 sec

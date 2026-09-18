@@ -1,0 +1,14 @@
+[
+  {
+    "case": "old-producer-new-runtime",
+    "status": "expected incompatibility rejection",
+    "returncode": 1,
+    "stderr": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/usr/lib/python3.12/ctypes/__init__.py\", line 379, in __init__\n    self._handle = _dlopen(self._name, mode)\n                   ^^^^^^^^^^^^^^^^^^^^^^^^^\nOSError: /root/workspace/physx-2/out/ranked-storage-20260909/baseline/libPhysXGpuActivity_64.so: undefined symbol: PxCreateDestructionRuntime\n"
+  },
+  {
+    "case": "new-producer-old-runtime",
+    "status": "expected incompatibility rejection",
+    "returncode": 1,
+    "stderr": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/usr/lib/python3.12/ctypes/__init__.py\", line 379, in __init__\n    self._handle = _dlopen(self._name, mode)\n                   ^^^^^^^^^^^^^^^^^^^^^^^^^\nOSError: /root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so: undefined symbol: PxCreateDestructionRuntimeV2\n"
+  }
+]

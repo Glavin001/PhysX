@@ -1,0 +1,198 @@
+{
+  "schema": 1,
+  "qualification": "diagnostic only; initial candidate bond verdict failure unresolved",
+  "records": [
+    {
+      "capture": "out/final-shape-owner-20260909/wall-baseline-control",
+      "quality_sha256": "18b52047f0d454d40decb0f48f57a26bc3a32b17046e875165546206e3b52f28",
+      "status": "passed",
+      "first_difference": null,
+      "artifacts": {
+        "/root/workspace/physx-2/out/final-shape-owner-20260909/baseline-control/native_destruction_demo": "cd6b7b61e4c38ba14e122ada0505a90c371ed8cdcf48d65ecfb8bea333b35f37",
+        "/root/workspace/physx-2/out/native-kinematic-inputs-20260909/candidate/libPhysXDestructionGpuRuntime_64.so": "329dae6a6c3610c4f1acf92a05a7c80cff6d599433d89f5be4d85541369abc55",
+        "/root/workspace/physx-2/out/native-kinematic-inputs-20260909/candidate/libPhysXGpuActivity_64.so": "1b4922184037a9dd455cdfb817975fb50fb933961a2ce971bf18d6570388ca60"
+      }
+    },
+    {
+      "capture": "out/final-shape-owner-20260909/wall-baseline-repeat-2",
+      "quality_sha256": "b2e6a53cf728cda41d69c99756187e225d1eec6a9f0186dd9d7882131c43ca0e",
+      "status": "passed",
+      "first_difference": null,
+      "artifacts": {
+        "/root/workspace/physx-2/out/final-shape-owner-20260909/baseline-control/native_destruction_demo": "cd6b7b61e4c38ba14e122ada0505a90c371ed8cdcf48d65ecfb8bea333b35f37",
+        "/root/workspace/physx-2/out/native-kinematic-inputs-20260909/candidate/libPhysXDestructionGpuRuntime_64.so": "329dae6a6c3610c4f1acf92a05a7c80cff6d599433d89f5be4d85541369abc55",
+        "/root/workspace/physx-2/out/native-kinematic-inputs-20260909/candidate/libPhysXGpuActivity_64.so": "1b4922184037a9dd455cdfb817975fb50fb933961a2ce971bf18d6570388ca60"
+      }
+    },
+    {
+      "capture": "out/final-shape-owner-20260909/wall-baseline-repeat-3",
+      "quality_sha256": "d470cef20974e028dfaed311fea9fa8435fa93e9a1522cbbfdf7b0a9dbf60cfa",
+      "status": "passed",
+      "first_difference": null,
+      "artifacts": {
+        "/root/workspace/physx-2/out/final-shape-owner-20260909/baseline-control/native_destruction_demo": "cd6b7b61e4c38ba14e122ada0505a90c371ed8cdcf48d65ecfb8bea333b35f37",
+        "/root/workspace/physx-2/out/native-kinematic-inputs-20260909/candidate/libPhysXDestructionGpuRuntime_64.so": "329dae6a6c3610c4f1acf92a05a7c80cff6d599433d89f5be4d85541369abc55",
+        "/root/workspace/physx-2/out/native-kinematic-inputs-20260909/candidate/libPhysXGpuActivity_64.so": "1b4922184037a9dd455cdfb817975fb50fb933961a2ce971bf18d6570388ca60"
+      }
+    },
+    {
+      "capture": "out/final-shape-owner-20260909/wall-baseline-repeat-4",
+      "quality_sha256": "9fd4cf6997d418e6199b6fa57339af65e9077799ac199b4316f74274a04e8709",
+      "status": "passed",
+      "first_difference": null,
+      "artifacts": {
+        "/root/workspace/physx-2/out/final-shape-owner-20260909/baseline-control/native_destruction_demo": "cd6b7b61e4c38ba14e122ada0505a90c371ed8cdcf48d65ecfb8bea333b35f37",
+        "/root/workspace/physx-2/out/native-kinematic-inputs-20260909/candidate/libPhysXDestructionGpuRuntime_64.so": "329dae6a6c3610c4f1acf92a05a7c80cff6d599433d89f5be4d85541369abc55",
+        "/root/workspace/physx-2/out/native-kinematic-inputs-20260909/candidate/libPhysXGpuActivity_64.so": "1b4922184037a9dd455cdfb817975fb50fb933961a2ce971bf18d6570388ca60"
+      }
+    },
+    {
+      "capture": "out/final-shape-owner-20260909/wall-baseline-repeat-5",
+      "quality_sha256": "05082f859006a78494b7849c4c36b1b6df762f3bb3144504b6b09fc2744129be",
+      "status": "passed",
+      "first_difference": null,
+      "artifacts": {
+        "/root/workspace/physx-2/out/final-shape-owner-20260909/baseline-control/native_destruction_demo": "cd6b7b61e4c38ba14e122ada0505a90c371ed8cdcf48d65ecfb8bea333b35f37",
+        "/root/workspace/physx-2/out/native-kinematic-inputs-20260909/candidate/libPhysXDestructionGpuRuntime_64.so": "329dae6a6c3610c4f1acf92a05a7c80cff6d599433d89f5be4d85541369abc55",
+        "/root/workspace/physx-2/out/native-kinematic-inputs-20260909/candidate/libPhysXGpuActivity_64.so": "1b4922184037a9dd455cdfb817975fb50fb933961a2ce971bf18d6570388ca60"
+      }
+    },
+    {
+      "capture": "out/final-shape-owner-20260909/wall-baseline-repeat-6",
+      "quality_sha256": "628f0f0d8293421c97c3a7248d698736f9010b5cb36d0782fae64af8880f1056",
+      "status": "passed",
+      "first_difference": null,
+      "artifacts": {
+        "/root/workspace/physx-2/out/final-shape-owner-20260909/baseline-control/native_destruction_demo": "cd6b7b61e4c38ba14e122ada0505a90c371ed8cdcf48d65ecfb8bea333b35f37",
+        "/root/workspace/physx-2/out/native-kinematic-inputs-20260909/candidate/libPhysXDestructionGpuRuntime_64.so": "329dae6a6c3610c4f1acf92a05a7c80cff6d599433d89f5be4d85541369abc55",
+        "/root/workspace/physx-2/out/native-kinematic-inputs-20260909/candidate/libPhysXGpuActivity_64.so": "1b4922184037a9dd455cdfb817975fb50fb933961a2ce971bf18d6570388ca60"
+      }
+    },
+    {
+      "capture": "out/final-shape-owner-20260909/wall-baseline-repeat-7",
+      "quality_sha256": "4d6d86c8ac82320e520930e124b547896c767cc63bb41533f50d7f05358e3ce9",
+      "status": "passed",
+      "first_difference": null,
+      "artifacts": {
+        "/root/workspace/physx-2/out/final-shape-owner-20260909/baseline-control/native_destruction_demo": "cd6b7b61e4c38ba14e122ada0505a90c371ed8cdcf48d65ecfb8bea333b35f37",
+        "/root/workspace/physx-2/out/native-kinematic-inputs-20260909/candidate/libPhysXDestructionGpuRuntime_64.so": "329dae6a6c3610c4f1acf92a05a7c80cff6d599433d89f5be4d85541369abc55",
+        "/root/workspace/physx-2/out/native-kinematic-inputs-20260909/candidate/libPhysXGpuActivity_64.so": "1b4922184037a9dd455cdfb817975fb50fb933961a2ce971bf18d6570388ca60"
+      }
+    },
+    {
+      "capture": "out/final-shape-owner-20260909/wall-baseline-repeat-8",
+      "quality_sha256": "d8a612777c34fcb0ca44cc71a8662528774772c6ee525cd8d57f1991430e0011",
+      "status": "passed",
+      "first_difference": null,
+      "artifacts": {
+        "/root/workspace/physx-2/out/final-shape-owner-20260909/baseline-control/native_destruction_demo": "cd6b7b61e4c38ba14e122ada0505a90c371ed8cdcf48d65ecfb8bea333b35f37",
+        "/root/workspace/physx-2/out/native-kinematic-inputs-20260909/candidate/libPhysXDestructionGpuRuntime_64.so": "329dae6a6c3610c4f1acf92a05a7c80cff6d599433d89f5be4d85541369abc55",
+        "/root/workspace/physx-2/out/native-kinematic-inputs-20260909/candidate/libPhysXGpuActivity_64.so": "1b4922184037a9dd455cdfb817975fb50fb933961a2ce971bf18d6570388ca60"
+      }
+    },
+    {
+      "capture": "out/final-shape-owner-20260909/wall-candidate-repeat-3",
+      "quality_sha256": "1b71100b7ee9ab3e69990e4de441f7448644287b2a83fc2b27b63008bdb35b8f",
+      "status": "passed",
+      "first_difference": null,
+      "artifacts": {
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_destruction_demo": "82d74d2f109cb2408ed8739a60b421fab29039ea742d90bf75d82a43924d2a58",
+        "/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so": "c5810df80ed3f7f8e0f22b00549bd197b492077be6320ef866851c125cbd059a",
+        "/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so": "588990c603b4bff36b9984e0c26f85533896063ca26e98a3f8ef0c3beaa55a1c"
+      }
+    },
+    {
+      "capture": "out/final-shape-owner-20260909/wall-candidate-repeat-4",
+      "quality_sha256": "206976d70d448186da27edf583cd9923918fa504c957f03faa361011e49afa96",
+      "status": "passed",
+      "first_difference": null,
+      "artifacts": {
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_destruction_demo": "82d74d2f109cb2408ed8739a60b421fab29039ea742d90bf75d82a43924d2a58",
+        "/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so": "c5810df80ed3f7f8e0f22b00549bd197b492077be6320ef866851c125cbd059a",
+        "/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so": "588990c603b4bff36b9984e0c26f85533896063ca26e98a3f8ef0c3beaa55a1c"
+      }
+    },
+    {
+      "capture": "out/final-shape-owner-20260909/wall-final-frozen",
+      "quality_sha256": "aee61213a8a5166d4331a9e81445869b2275cbe35e3e852cc448f18bc16efee6",
+      "status": "historical-quality",
+      "first_difference": null,
+      "artifacts": {
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_destruction_demo": "82d74d2f109cb2408ed8739a60b421fab29039ea742d90bf75d82a43924d2a58",
+        "/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so": "37623256a84bb91132249f96548a4ead096494d23c699c5e8dd67683a718a1c3",
+        "/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so": "588990c603b4bff36b9984e0c26f85533896063ca26e98a3f8ef0c3beaa55a1c"
+      }
+    },
+    {
+      "capture": "out/final-shape-owner-20260909/wall-final-standard",
+      "quality_sha256": "bcc64df63609a71425e66dc592bcc63f7cfe577b8d7742af9e919d6bbbee7ce7",
+      "status": "passed",
+      "first_difference": null,
+      "artifacts": {
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_destruction_demo": "82d74d2f109cb2408ed8739a60b421fab29039ea742d90bf75d82a43924d2a58",
+        "/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so": "37623256a84bb91132249f96548a4ead096494d23c699c5e8dd67683a718a1c3",
+        "/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so": "588990c603b4bff36b9984e0c26f85533896063ca26e98a3f8ef0c3beaa55a1c"
+      }
+    },
+    {
+      "capture": "out/final-shape-owner-20260909/wall-fixed-frozen",
+      "quality_sha256": "eb789d96304747ac010c7efee5f29e25d8e9d8f95d1e23e19353cd0f6b29389f",
+      "status": "historical-quality",
+      "first_difference": null,
+      "artifacts": {
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_destruction_demo": "82d74d2f109cb2408ed8739a60b421fab29039ea742d90bf75d82a43924d2a58",
+        "/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so": "186b0f701978f49c15bd2f86efe62c68f7465afeef473d45b83129761767cf9c",
+        "/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so": "588990c603b4bff36b9984e0c26f85533896063ca26e98a3f8ef0c3beaa55a1c"
+      }
+    },
+    {
+      "capture": "out/final-shape-owner-20260909/wall-fixed-standard",
+      "quality_sha256": "78d424698835ad9d74cb630497a0b1867f7181f3830f077770192f0065f7c9f4",
+      "status": "passed",
+      "first_difference": null,
+      "artifacts": {
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_destruction_demo": "82d74d2f109cb2408ed8739a60b421fab29039ea742d90bf75d82a43924d2a58",
+        "/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so": "186b0f701978f49c15bd2f86efe62c68f7465afeef473d45b83129761767cf9c",
+        "/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so": "588990c603b4bff36b9984e0c26f85533896063ca26e98a3f8ef0c3beaa55a1c"
+      }
+    },
+    {
+      "capture": "out/final-shape-owner-20260909/wall-frozen",
+      "quality_sha256": "77013d820499d8ee3e8cfba55d141af734abf841be518b267175c16a559ea301",
+      "status": "historical-quality",
+      "first_difference": null,
+      "artifacts": {
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_destruction_demo": "82d74d2f109cb2408ed8739a60b421fab29039ea742d90bf75d82a43924d2a58",
+        "/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so": "c5810df80ed3f7f8e0f22b00549bd197b492077be6320ef866851c125cbd059a",
+        "/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so": "588990c603b4bff36b9984e0c26f85533896063ca26e98a3f8ef0c3beaa55a1c"
+      }
+    },
+    {
+      "capture": "out/final-shape-owner-20260909/wall-standard",
+      "quality_sha256": "cb4ab595d15b456c9adf2f42935bfa6dd4890c07c0ccac9a6701f2131e300025",
+      "status": "failed",
+      "first_difference": {
+        "step": 84,
+        "kind": "bonds_broken",
+        "actual": "1",
+        "reference": "0"
+      },
+      "artifacts": {
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_destruction_demo": "82d74d2f109cb2408ed8739a60b421fab29039ea742d90bf75d82a43924d2a58",
+        "/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so": "c5810df80ed3f7f8e0f22b00549bd197b492077be6320ef866851c125cbd059a",
+        "/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so": "588990c603b4bff36b9984e0c26f85533896063ca26e98a3f8ef0c3beaa55a1c"
+      }
+    },
+    {
+      "capture": "out/final-shape-owner-20260909/wall-standard-repeat",
+      "quality_sha256": "fcb5bb7752edfee38875b71a905c8b832ebf3c638d2e995e87e4e769b0bcfd47",
+      "status": "passed",
+      "first_difference": null,
+      "artifacts": {
+        "/root/workspace/physx-2/out/destruction-sdk/reference/native_destruction_demo": "82d74d2f109cb2408ed8739a60b421fab29039ea742d90bf75d82a43924d2a58",
+        "/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so": "c5810df80ed3f7f8e0f22b00549bd197b492077be6320ef866851c125cbd059a",
+        "/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so": "588990c603b4bff36b9984e0c26f85533896063ca26e98a3f8ef0c3beaa55a1c"
+      }
+    }
+  ]
+}

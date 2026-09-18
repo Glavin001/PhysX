@@ -1,0 +1,16 @@
+{
+  "command": [
+    "/usr/local/cuda-13.4/bin/compute-sanitizer",
+    "--tool",
+    "memcheck",
+    "--error-exitcode",
+    "97",
+    "--force-synchronization-limit",
+    "1000000",
+    "/root/workspace/physx-2/out/snapshot-large-20260911/delayed-cuda-repro/repro",
+    "2",
+    "1",
+    "1"
+  ],
+  "exit_code": 0
+}

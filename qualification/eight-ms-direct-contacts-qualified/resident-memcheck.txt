@@ -1,0 +1,5 @@
+========= COMPUTE-SANITIZER
+resident columns: nodes=12 bonds=9 worst relative error=0
+resident columns: nodes=1536 bonds=1152 worst relative error=0
+resident columns: nodes=131072 bonds=98304 worst relative error=0
+========= ERROR SUMMARY: 0 errors

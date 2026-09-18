@@ -1,0 +1,6 @@
+{
+  "/root/workspace/physx-2/out/snapshot-finish-20260911/device-enabled-native/libPhysXDestructionGpuRuntime_64.so": "c22bd54340da110048549cb4f216b54c886a7decac6b4e7c4d527d5bcc15b787",
+  "/root/workspace/physx-2/out/snapshot-finish-20260911/device-enabled-native/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+  "/root/workspace/physx-2/out/snapshot-finish-20260911/device-enabled-native/PxgDestructionTopology.cu": "0521969d1bdf47c8b1d7a4fdb0dfb3367c6ab96b2eab31e00858f7fb80311022",
+  "/root/workspace/physx-2/out/snapshot-finish-20260911/device-enabled-native/PxgDestructionTransaction.cuh": "c62ba0e9fc7bca8914f7e27985f852dd7fa51f19037c54513db01994fb988d02"
+}

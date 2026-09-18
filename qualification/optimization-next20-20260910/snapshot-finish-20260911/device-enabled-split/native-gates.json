@@ -1,0 +1,53 @@
+[
+  {
+    "name": "split-correction-plain",
+    "command": [
+      "python3",
+      "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/split-correction-plain",
+      "--binary",
+      "/root/workspace/physx-2/out/snapshot-large-20260911/final-artifacts/native_gpu_correction_body_test",
+      "--artifacts",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/device-enabled-split",
+      "--watchdog-seconds",
+      "600",
+      "--allow-existing-graphics",
+      "--allow-compute-pid",
+      "435374"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "split-correction-mem",
+    "command": [
+      "python3",
+      "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/split-correction-mem",
+      "--binary",
+      "/root/workspace/physx-2/out/snapshot-large-20260911/final-artifacts/native_gpu_correction_body_test",
+      "--artifacts",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/device-enabled-split",
+      "--watchdog-seconds",
+      "600",
+      "--allow-existing-graphics",
+      "--allow-compute-pid",
+      "435374",
+      "--sanitizer",
+      "memcheck"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "split-wall",
+    "command": [
+      "python3",
+      "/root/workspace/physx-2/tools/scripts/run-destruction-penetration-regression.py",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/split-wall",
+      "--binary",
+      "/root/workspace/physx-2/out/snapshot-large-20260911/final-artifacts/native_destruction_demo",
+      "--expected-runtime",
+      "/root/workspace/physx-2/out/snapshot-finish-20260911/device-enabled-split/libPhysXDestructionGpuRuntime_64.so"
+    ],
+    "exit_code": 0
+  }
+]

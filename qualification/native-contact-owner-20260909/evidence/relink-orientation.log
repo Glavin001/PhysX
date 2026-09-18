@@ -1,0 +1,104 @@
+[  0%] Building CXX object reference/CMakeFiles/native_standard_scene_test.dir/tests/native_standard_scene_test.cpp.o
+In file included from /root/workspace/physx-2/demos/blast-stress-demo/tests/native_standard_scene_test.cpp:4:
+In file included from /root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/source/physx/src/NpScene.h:61:
+In file included from /root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/source/simulationcontroller/include/ScScene.h:44:
+In file included from /root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/source/lowlevel/api/include/PxvManager.h:37:
+In file included from /root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/source/lowlevel/api/include/PxvGeometry.h:44:
+/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/source/geomutils/src/GuGeometryChecks.h:93:24: warning: offset of on non-standard-layout type 'physx::PxCapsuleGeometry' [-Winvalid-offsetof]
+   93 | PX_COMPILE_TIME_ASSERT(PX_OFFSET_OF(physx::PxCapsuleGeometry, radius) == PX_OFFSET_OF(physx::PxSphereGeometry, radius));
+      |                        ^                                      ~~~~~~
+/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/include/foundation/PxPreprocessor.h:432:29: note: expanded from macro 'PX_OFFSET_OF'
+  432 |         #define PX_OFFSET_OF(X, Y) __builtin_offsetof(X, Y)
+      |                                    ^                     ~
+/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/include/foundation/PxPreprocessor.h:425:15: note: expanded from macro 'PX_COMPILE_TIME_ASSERT'
+  425 | static_assert(exp, "") \
+      |               ^~~
+In file included from /root/workspace/physx-2/demos/blast-stress-demo/tests/native_standard_scene_test.cpp:4:
+In file included from /root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/source/physx/src/NpScene.h:61:
+In file included from /root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/source/simulationcontroller/include/ScScene.h:44:
+In file included from /root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/source/lowlevel/api/include/PxvManager.h:37:
+In file included from /root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/source/lowlevel/api/include/PxvGeometry.h:44:
+/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/source/geomutils/src/GuGeometryChecks.h:93:74: warning: offset of on non-standard-layout type 'physx::PxSphereGeometry' [-Winvalid-offsetof]
+   93 | PX_COMPILE_TIME_ASSERT(PX_OFFSET_OF(physx::PxCapsuleGeometry, radius) == PX_OFFSET_OF(physx::PxSphereGeometry, radius));
+      |                                                                          ^                                     ~~~~~~
+/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/include/foundation/PxPreprocessor.h:432:29: note: expanded from macro 'PX_OFFSET_OF'
+  432 |         #define PX_OFFSET_OF(X, Y) __builtin_offsetof(X, Y)
+      |                                    ^                     ~
+/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/include/foundation/PxPreprocessor.h:425:15: note: expanded from macro 'PX_COMPILE_TIME_ASSERT'
+  425 | static_assert(exp, "") \
+      |               ^~~
+2 warnings generated.
+[  0%] Linking CXX executable native_standard_scene_test
+[100%] Built target native_standard_scene_test
+[  7%] Built target NvBlastExtStressGpu
+[ 71%] Built target blast_stress_core
+[ 92%] Built target NvBlastExtStressPhysX
+[ 92%] Linking CXX executable native_gpu_material_test
+[100%] Built target native_gpu_material_test
+[ 25%] Built target native_gpu_visuals
+[ 50%] Building CXX object reference/CMakeFiles/native_destruction_demo.dir/native_destruction_main.cpp.o
+In file included from /root/workspace/physx-2/demos/blast-stress-demo/native_destruction_main.cpp:8:
+In file included from /root/workspace/physx-2/demos/blast-stress-demo/native_graph_diagnostics.h:3:
+In file included from /root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/source/physx/src/NpScene.h:61:
+In file included from /root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/source/simulationcontroller/include/ScScene.h:44:
+In file included from /root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/source/lowlevel/api/include/PxvManager.h:37:
+In file included from /root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/source/lowlevel/api/include/PxvGeometry.h:44:
+/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/source/geomutils/src/GuGeometryChecks.h:93:24: warning: offset of on non-standard-layout type 'physx::PxCapsuleGeometry' [-Winvalid-offsetof]
+   93 | PX_COMPILE_TIME_ASSERT(PX_OFFSET_OF(physx::PxCapsuleGeometry, radius) == PX_OFFSET_OF(physx::PxSphereGeometry, radius));
+      |                        ^                                      ~~~~~~
+/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/include/foundation/PxPreprocessor.h:432:29: note: expanded from macro 'PX_OFFSET_OF'
+  432 |         #define PX_OFFSET_OF(X, Y) __builtin_offsetof(X, Y)
+      |                                    ^                     ~
+/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/include/foundation/PxPreprocessor.h:425:15: note: expanded from macro 'PX_COMPILE_TIME_ASSERT'
+  425 | static_assert(exp, "") \
+      |               ^~~
+In file included from /root/workspace/physx-2/demos/blast-stress-demo/native_destruction_main.cpp:8:
+In file included from /root/workspace/physx-2/demos/blast-stress-demo/native_graph_diagnostics.h:3:
+In file included from /root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/source/physx/src/NpScene.h:61:
+In file included from /root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/source/simulationcontroller/include/ScScene.h:44:
+In file included from /root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/source/lowlevel/api/include/PxvManager.h:37:
+In file included from /root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/source/lowlevel/api/include/PxvGeometry.h:44:
+/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/source/geomutils/src/GuGeometryChecks.h:93:74: warning: offset of on non-standard-layout type 'physx::PxSphereGeometry' [-Winvalid-offsetof]
+   93 | PX_COMPILE_TIME_ASSERT(PX_OFFSET_OF(physx::PxCapsuleGeometry, radius) == PX_OFFSET_OF(physx::PxSphereGeometry, radius));
+      |                                                                          ^                                     ~~~~~~
+/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/include/foundation/PxPreprocessor.h:432:29: note: expanded from macro 'PX_OFFSET_OF'
+  432 |         #define PX_OFFSET_OF(X, Y) __builtin_offsetof(X, Y)
+      |                                    ^                     ~
+/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/include/foundation/PxPreprocessor.h:425:15: note: expanded from macro 'PX_COMPILE_TIME_ASSERT'
+  425 | static_assert(exp, "") \
+      |               ^~~
+2 warnings generated.
+[ 50%] Linking CXX executable native_destruction_demo
+[100%] Built target native_destruction_demo
+[ 50%] Building CXX object reference/CMakeFiles/native_gpu_collision_test.dir/tests/native_gpu_collision_test.cpp.o
+In file included from /root/workspace/physx-2/demos/blast-stress-demo/tests/native_gpu_collision_test.cpp:4:
+In file included from /root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/source/physx/src/NpScene.h:61:
+In file included from /root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/source/simulationcontroller/include/ScScene.h:44:
+In file included from /root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/source/lowlevel/api/include/PxvManager.h:37:
+In file included from /root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/source/lowlevel/api/include/PxvGeometry.h:44:
+/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/source/geomutils/src/GuGeometryChecks.h:93:24: warning: offset of on non-standard-layout type 'physx::PxCapsuleGeometry' [-Winvalid-offsetof]
+   93 | PX_COMPILE_TIME_ASSERT(PX_OFFSET_OF(physx::PxCapsuleGeometry, radius) == PX_OFFSET_OF(physx::PxSphereGeometry, radius));
+      |                        ^                                      ~~~~~~
+/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/include/foundation/PxPreprocessor.h:432:29: note: expanded from macro 'PX_OFFSET_OF'
+  432 |         #define PX_OFFSET_OF(X, Y) __builtin_offsetof(X, Y)
+      |                                    ^                     ~
+/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/include/foundation/PxPreprocessor.h:425:15: note: expanded from macro 'PX_COMPILE_TIME_ASSERT'
+  425 | static_assert(exp, "") \
+      |               ^~~
+In file included from /root/workspace/physx-2/demos/blast-stress-demo/tests/native_gpu_collision_test.cpp:4:
+In file included from /root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/source/physx/src/NpScene.h:61:
+In file included from /root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/source/simulationcontroller/include/ScScene.h:44:
+In file included from /root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/source/lowlevel/api/include/PxvManager.h:37:
+In file included from /root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/source/lowlevel/api/include/PxvGeometry.h:44:
+/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/source/geomutils/src/GuGeometryChecks.h:93:74: warning: offset of on non-standard-layout type 'physx::PxSphereGeometry' [-Winvalid-offsetof]
+   93 | PX_COMPILE_TIME_ASSERT(PX_OFFSET_OF(physx::PxCapsuleGeometry, radius) == PX_OFFSET_OF(physx::PxSphereGeometry, radius));
+      |                                                                          ^                                     ~~~~~~
+/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/include/foundation/PxPreprocessor.h:432:29: note: expanded from macro 'PX_OFFSET_OF'
+  432 |         #define PX_OFFSET_OF(X, Y) __builtin_offsetof(X, Y)
+      |                                    ^                     ~
+/root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/include/foundation/PxPreprocessor.h:425:15: note: expanded from macro 'PX_COMPILE_TIME_ASSERT'
+  425 | static_assert(exp, "") \
+      |               ^~~
+2 warnings generated.
+[100%] Linking CXX executable native_gpu_collision_test
+[100%] Built target native_gpu_collision_test

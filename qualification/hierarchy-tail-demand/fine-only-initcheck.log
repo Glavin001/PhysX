@@ -1,0 +1,1113 @@
+========= COMPUTE-SANITIZER
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556800 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556820 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556840 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556860 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556880 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d65568a0 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d65568c0 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d65568e0 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556900 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556920 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556940 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556960 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556980 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d65569a0 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d65569c0 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d65569e0 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556a00 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556a20 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556a40 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556a60 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556a80 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556aa0 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556ac0 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556ae0 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556b00 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556b20 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556b40 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556b60 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556b80 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556ba0 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556bc0 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556be0 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556c00 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556c20 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556c40 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556c60 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556c80 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556ca0 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556cc0 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556ce0 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556d00 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556d20 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556d40 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556d60 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556d80 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556da0 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556dc0 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556de0 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556e00 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556e20 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556e40 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556e60 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556e80 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556ea0 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556ec0 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556ee0 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556f00 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556f20 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556f40 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556f60 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556f80 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556fa0 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556fc0 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6556fe0 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6557000 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6557020 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6557040 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6557060 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6557080 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d65570a0 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d65570c0 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d65570e0 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6557100 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6557120 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6557140 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6557160 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6557180 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d65571a0 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d65571c0 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d65571e0 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6557200 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6557220 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6557240 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6557260 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6557280 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d65572a0 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d65572c0 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d65572e0 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6557300 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6557320 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6557340 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6557360 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6557380 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d65573a0 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d65573c0 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d65573e0 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6557400 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6557420 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6557440 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+========= Host API memory access error at host access to 0x7bf9d6556800 of size 4136 bytes
+=========     Uninitialized access at 0x7bf9d6557460 on access by cudaMemcpy source
+=========     Saved host backtrace up to driver entry point at error
+=========         Host Frame: cuMemcpyDtoHAsync_v2 [0x367f09] in libcuda.so.1
+=========         Host Frame:  [0x481c0] in libcudart.so.12
+=========         Host Frame:  [0x17057] in libcudart.so.12
+=========         Host Frame: cudaMemcpyAsync [0x768a0] in libcudart.so.12
+=========         Host Frame: std::vector<unsigned int, std::allocator<unsigned int> > (anonymous namespace)::download<unsigned int>(unsigned int const*, unsigned long, CUstream_st*) [0x31724] in gpu_resident_hierarchy_test
+=========         Host Frame: (anonymous namespace)::verifyFineOnlyPreparation(bool) [0x1e3d3] in gpu_resident_hierarchy_test
+=========         Host Frame: main [0x91b8] in gpu_resident_hierarchy_test
+========= 
+fine-only preparation nodes=1034 bonds=1032 generation=0 fine_components=1 total_components=2 exact-factors/retirement passed
+fine-only preparation nodes=1034 bonds=1032 generation=0 fine_components=1 total_components=2 exact-factors/retirement passed
+fine-only preparation nodes=1034 bonds=1032 generation=2 fine_components=3 total_components=3 exact-factors/retirement passed
+fine-only preparation nodes=1034 bonds=1032 generation=3 fine_components=1 total_components=2 exact-factors/retirement passed
+fine-only malformed bond/endpoint/CSR rejection and recovery passed
+fine-only preparation nodes=1034 bonds=1032 generation=0 fine_components=3 total_components=3 exact-factors/retirement passed
+fine-only preparation nodes=1034 bonds=1032 generation=0 fine_components=3 total_components=3 exact-factors/retirement passed
+fine-only preparation nodes=1034 bonds=1032 generation=2 fine_components=1 total_components=2 exact-factors/retirement passed
+fine-only preparation nodes=1034 bonds=1032 generation=3 fine_components=3 total_components=3 exact-factors/retirement passed
+fine-only malformed bond/endpoint/CSR rejection and recovery passed
+========= ERROR SUMMARY: 1040 errors
+========= ERROR SUMMARY: 940 errors were not printed. Use --print-limit option to adjust the number of printed errors

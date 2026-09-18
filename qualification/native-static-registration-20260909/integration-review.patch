@@ -1,0 +1,553 @@
+--- a/physx/source/gpudestruction/CMakeLists.txt
++++ b/physx/source/gpudestruction/CMakeLists.txt
+@@ -30,6 +30,13 @@
+     target_include_directories(destruction_rigid_iteration_limits_test PRIVATE ../gpusimulationcontroller/include ../gpucommon/include)
+     set_target_properties(destruction_rigid_iteration_limits_test PROPERTIES CUDA_STANDARD 17 CUDA_ARCHITECTURES "89")
+     add_test(NAME destruction_gpu_rigid_iteration_limits COMMAND destruction_rigid_iteration_limits_test)
++
++    add_executable(destruction_static_registration_test tests/static_registration_test.cu)
++    target_link_libraries(destruction_static_registration_test PRIVATE PhysXDestructionTopologyGpu)
++    target_compile_options(destruction_static_registration_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
++    target_include_directories(destruction_static_registration_test PRIVATE ../gpucommon/include)
++    set_target_properties(destruction_static_registration_test PROPERTIES CUDA_STANDARD 17 CUDA_ARCHITECTURES "89")
++    add_test(NAME destruction_gpu_static_registration COMMAND destruction_static_registration_test)
+ 
+     add_executable(destruction_registration_test tests/registration_test.cu)
+     target_link_libraries(destruction_registration_test PRIVATE PhysXDestructionTopologyGpu)
+--- a/physx/source/gpudestruction/include/PxgDestructionRuntime.h
++++ b/physx/source/gpudestruction/include/PxgDestructionRuntime.h
+@@ -1,6 +1,7 @@
+ // Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
+ #pragma once
+ #include "PxvIslandMetadata.h"
++#include "PxgDestructionStaticConstraints.h"
+ #include "foundation/PxProfiler.h"
+ #include "PxDestructionScene.h"
+ #include "PxContact.h"
+@@ -42,6 +43,8 @@
+     // foundation singleton from the CUDA runtime shared library.
+     virtual void setProfiler(PxProfilerCallback* callback, PxU64 context) = 0;
+     virtual bool configured() const = 0;
++    virtual bool updateStaticConstraints(const PxgDestructionStaticCommand*,PxU32,PxU32,PxU32,PxgDestructionStaticStats&,CUstream) = 0;
++    virtual bool gatherStaticConstraints(const PxNodeIndex*,PxU32,PxU32,PxU32*,PxU32,PxU32*,PxU32,PxU32*,PxU32*,CUstream) = 0;
+     virtual bool prepareRigidIterationLimits(const PxgBodySim*,PxU32,const PxNodeIndex*,PxU32,PxU32,CUstream) = 0;
+     virtual bool readRigidIterationLimits(PxU32& position,PxU32& velocity) = 0;
+     virtual bool correctionEnabled() const = 0;
+@@ -144,7 +147,7 @@
+ // Version the symbol so mixed GPU/runtime binaries fail resolution rather than
+ // violating lifecycle ordering. Public scene ABI is intact.
+ extern "C" PX_DESTRUCTION_RUNTIME_EXPORT physx::PxgDestructionRuntime*
+-PxCreateDestructionRuntimeV10(CUcontext context, void* scene, bool (*writeAllowed)(void*), physx::PxvDestructionBodyAllocator* allocator);
++PxCreateDestructionRuntimeV11(CUcontext context, void* scene, bool (*writeAllowed)(void*), physx::PxvDestructionBodyAllocator* allocator);
+ 
+ extern "C" PX_DESTRUCTION_RUNTIME_EXPORT bool
+ PxApplyDestructionSolverIslandMetadata(const physx::PxvIslandMetadataPage* pages,physx::PxU32 count,
+--- /dev/null
++++ b/physx/source/gpudestruction/include/PxgDestructionStaticConstraints.h
+@@ -0,0 +1,7 @@
++// Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
++#pragma once
++#include "foundation/PxSimpleTypes.h"
++namespace physx {
++struct PxgDestructionStaticCommand { PxU32 edge,node,kind,add; };
++struct PxgDestructionStaticStats { PxU32 contacts,joints,maxContacts,maxJoints,error; };
++}
+--- a/physx/source/gpudestruction/src/PxgDestructionRuntime.cu
++++ b/physx/source/gpudestruction/src/PxgDestructionRuntime.cu
+@@ -34,6 +34,7 @@
+ void check(cudaError_t e) { if(e!=cudaSuccess) throw std::runtime_error(cudaGetErrorString(e)); }
+ template<class T> void allocate(T*& p, size_t n) { check(cudaMalloc(&p, sizeof(T)*std::max<size_t>(n,1))); }
+ #include "PxgRigidIterationLimits.cuh"
++#include "PxgDestructionStaticConstraints.cuh"
+ #include "PxgDestructionMaterial.cuh"
+ #include "PxgDestructionCommittedChanges.cuh"
+ #include "PxgDestructionShapePublication.cuh"
+@@ -568,6 +569,7 @@
+ 
+     cudaEvent_t mGraphReady{};
+     NativeRigidIterationLimits mRigidIterationLimits;
++    StaticRegistry* mStaticConstraints=nullptr;
+     bool mPending=false; bool mFailed=false;
+     bool mCorrectionEnabled=false, mGpuIslandRepair=false;
+     PxU32 *mGraphHostAccurate{}, *mGraphHostSpeculative{};
+@@ -585,7 +587,7 @@
+ public:
+     Runtime(CUcontext c,void* scene,bool(*gate)(void*),PxvDestructionBodyAllocator* allocator) : mContext(c),mScene(scene),mWriteAllowed(gate),mBodyAllocator(allocator) {
+         Context current(c);
+-        mRigidIterationLimits.initialize();
++        mRigidIterationLimits.initialize();mStaticConstraints=new StaticRegistry;
+         check(cudaStreamCreateWithFlags(&mStream,cudaStreamNonBlocking));
+         check(cudaEventCreateWithFlags(&mInput,cudaEventDisableTiming));
+         check(cudaEventCreateWithFlags(&mReady,cudaEventDisableTiming));
+@@ -599,6 +601,16 @@
+         check(cudaMemset(mCompletion,0,sizeof(*mCompletion)));
+         mStatus=&mCompletion->stage;mHostStatus=&mHostCompletion->stage;
+         check(cudaEventRecord(mReady,mStream));
++    }
++    bool updateStaticConstraints(const PxgDestructionStaticCommand* commands,PxU32 count,PxU32 capacity,PxU32 nodes,PxgDestructionStaticStats& stats,CUstream stream) override {
++        if(mFailed)return false;
++        try {Context current(mContext);stats=mStaticConstraints->update(commands,count,capacity,nodes,reinterpret_cast<cudaStream_t>(stream));return true;}
++        catch(...){mFailed=true;return false;}
++    }
++    bool gatherStaticConstraints(const PxNodeIndex* active,PxU32 offset,PxU32 count,PxU32* contacts,PxU32 contactCapacity,PxU32* joints,PxU32 jointCapacity,PxU32* contactCounts,PxU32* jointCounts,CUstream stream) override {
++        if(mFailed)return false;
++        try {Context current(mContext);mStaticConstraints->gather(active,offset,count,contacts,contactCapacity,joints,jointCapacity,contactCounts,jointCounts,reinterpret_cast<cudaStream_t>(stream));return true;}
++        catch(...){mFailed=true;return false;}
+     }
+     bool prepareRigidIterationLimits(const PxgBodySim* bodies,PxU32 capacity,const PxNodeIndex* active,PxU32 offset,PxU32 count,CUstream stream) override {
+         if(mFailed)return false;
+@@ -921,7 +933,7 @@
+         for(auto event:mStageEvents)if(event)cudaEventDestroy(event);
+         for(auto event:mMotionAllocationEvents)if(event)cudaEventDestroy(event);
+         for(auto event:mCorrectionEvents)if(event)cudaEventDestroy(event);
+-        mRigidIterationLimits.clear();
++        mRigidIterationLimits.clear();delete mStaticConstraints;mStaticConstraints=nullptr;
+         cudaFree(mCompletion);cudaFreeHost(mHostCompletion);
+         cudaEventDestroy(mPreReady);cudaEventDestroy(mGraphReady);cudaEventDestroy(mInput);cudaEventDestroy(mReady);cudaEventDestroy(mCheckpointReady);cudaStreamDestroy(mStream);
+     }
+@@ -1850,7 +1862,7 @@
+ };
+ }}
+ extern "C" PX_DESTRUCTION_RUNTIME_EXPORT physx::PxgDestructionRuntime*
+-PxCreateDestructionRuntimeV10(CUcontext c,void* scene,bool(*gate)(void*),physx::PxvDestructionBodyAllocator* allocator) {
++PxCreateDestructionRuntimeV11(CUcontext c,void* scene,bool(*gate)(void*),physx::PxvDestructionBodyAllocator* allocator) {
+     try {return new physx::Runtime(c,scene,gate,allocator);}catch(...){return nullptr;}
+ }
+ 
+--- /dev/null
++++ b/physx/source/gpudestruction/src/PxgDestructionStaticConstraints.cuh
+@@ -0,0 +1,122 @@
++// Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
++// GPU-owned rigid/static registration order. Host partitioning submits deltas.
++using StaticCommand=PxgDestructionStaticCommand;
++struct StaticEntry { unsigned node,kind; unsigned long long sequence; };
++using StaticStats=PxgDestructionStaticStats;
++__global__ void commandKeys(const StaticCommand* cmd,unsigned n,unsigned* keys,unsigned* ids) {
++    unsigned i=blockIdx.x*blockDim.x+threadIdx.x;if(i<n){keys[i]=cmd[i].edge;ids[i]=i;}
++}
++__global__ void applyCommands(const StaticCommand* cmd,const unsigned* keys,const unsigned* ids,
++    unsigned n,StaticEntry* entries,unsigned capacity,unsigned nodes,unsigned long long sequence,StaticStats* status) {
++    unsigned i=blockIdx.x*blockDim.x+threadIdx.x;
++    if(i>=n || (i && keys[i-1]==keys[i]))return;
++    unsigned edge=keys[i];if(edge>=capacity){atomicOr(&status->error,1u);return;}
++    auto value=entries[edge];
++    // Only same-registration updates serialize. Stable grouping preserves the
++    // producer order; independent registrations execute concurrently.
++    for(unsigned j=i;j<n && keys[j]==edge;++j){
++        unsigned ordinal=ids[j];auto c=cmd[ordinal];
++        if(c.node>=nodes || c.kind>1 || c.add>1){atomicOr(&status->error,2u);return;}
++        if(c.add){
++            if(value.node!=~0u){atomicOr(&status->error,4u);return;}
++            value={c.node,c.kind,sequence+ordinal};
++        }else{
++            if(value.node!=c.node || value.kind!=c.kind){atomicOr(&status->error,8u);return;}
++            value.node=~0u;
++        }
++    }
++    entries[edge]=value;
++}
++__global__ void sequenceKeys(const StaticEntry* entries,unsigned n,unsigned long long* keys,unsigned* ids){
++    unsigned i=blockIdx.x*blockDim.x+threadIdx.x;
++    if(i<n){keys[i]=entries[i].node==~0u?~0ull:entries[i].sequence;ids[i]=i;}
++}
++__global__ void ownerKeys(const StaticEntry* entries,const unsigned* ids,unsigned n,unsigned long long* keys){
++    unsigned i=blockIdx.x*blockDim.x+threadIdx.x;
++    if(i<n){auto e=entries[ids[i]];keys[i]=e.node==~0u?~0ull:static_cast<unsigned long long>(e.node)*2+e.kind;}
++}
++__global__ void ownerRanges(const unsigned long long* keys,unsigned n,uint2* ranges){
++    unsigned i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=n || keys[i]==~0ull)return;
++    auto key=keys[i];if(!i || keys[i-1]!=key)ranges[key].x=i;
++    if(i+1==n || keys[i+1]!=key)ranges[key].y=i+1;
++}
++__global__ void rangeStats(const uint2* ranges,unsigned nodes,StaticStats* stats){
++    unsigned i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=nodes)return;
++    auto c=ranges[size_t(i)*2],j=ranges[size_t(i)*2+1];unsigned nc=c.y-c.x,nj=j.y-j.x;
++    if(nc){atomicAdd(&stats->contacts,nc);atomicMax(&stats->maxContacts,nc);}
++    if(nj){atomicAdd(&stats->joints,nj);atomicMax(&stats->maxJoints,nj);}
++}
++__global__ void gatherRegistrations(const unsigned* ordered,const uint2* ranges,unsigned nodes,
++    const PxNodeIndex* active,unsigned offset,unsigned count,unsigned* contacts,unsigned contactCapacity,
++    unsigned* joints,unsigned jointCapacity,unsigned* contactCounts,unsigned* jointCounts,StaticStats* stats){
++    unsigned i=blockIdx.x;if(i>=count)return;
++    const auto handle=active[size_t(offset)+i];
++    if(!handle.isValid() || handle.isArticulation() || handle.index()>=nodes){
++        if(!threadIdx.x)atomicOr(&stats->error,16u);asm volatile("trap;");return;
++    }
++    unsigned node=handle.index();
++    auto c=ranges[size_t(node)*2],j=ranges[size_t(node)*2+1];unsigned nc=c.y-c.x,nj=j.y-j.x;
++    if(size_t(nc)*count>contactCapacity || size_t(nj)*count>jointCapacity){if(!threadIdx.x)atomicOr(&stats->error,32u);asm volatile("trap;");return;}
++    if(!threadIdx.x){contactCounts[i]=nc;jointCounts[i]=nj;}
++    for(unsigned k=threadIdx.x;k<nc;k+=blockDim.x)contacts[size_t(k)*count+i]=ordered[c.x+k];
++    for(unsigned k=threadIdx.x;k<nj;k+=blockDim.x)joints[size_t(k)*count+i]=ordered[j.x+k];
++}
++class StaticRegistry {
++    StaticEntry* entries{};unsigned capacity=0,nodes=0,commandCapacity=0;
++    StaticCommand* commands{};unsigned *commandKey[2]{},*commandId[2]{},*ids[2]{};
++    unsigned long long* keys[2]{};uint2* ranges{};void* scratch{};size_t scratchBytes=0;
++    unsigned long long sequence=0;bool failed=false;StaticStats cached{};
++    void reserveScratch(size_t bytes){if(bytes>scratchBytes){check(cudaFree(scratch));check(cudaMalloc(&scratch,bytes));scratchBytes=bytes;}}
++public:
++    StaticStats* status{};
++    StaticRegistry(){allocate(status,1);check(cudaMemset(status,0,sizeof(*status)));}
++    ~StaticRegistry(){
++        cudaDeviceSynchronize();cudaFree(entries);cudaFree(commands);cudaFree(ranges);cudaFree(scratch);cudaFree(status);
++        for(auto p:commandKey)cudaFree(p);for(auto p:commandId)cudaFree(p);for(auto p:ids)cudaFree(p);for(auto p:keys)cudaFree(p);
++    }
++    StaticRegistry(const StaticRegistry&)=delete;StaticRegistry& operator=(const StaticRegistry&)=delete;
++    StaticStats update(const StaticCommand* host,unsigned count,unsigned requestedCapacity,unsigned requestedNodes,cudaStream_t stream){
++        if(failed)throw std::runtime_error("latched static registration failure");
++        if((count && !host) || count>0x7fffffffu || requestedCapacity>0x7fffffffu || requestedNodes>0x7fffffffu || count>~0ull-sequence)
++            throw std::runtime_error("invalid static registration dimensions");
++        bool changed=count || requestedCapacity>capacity || requestedNodes>nodes;
++        if(!changed)return cached;
++        unsigned wanted=std::max(1u,requestedCapacity),wantedNodes=std::max(1u,requestedNodes);
++        if(wanted>capacity){
++            StaticEntry* next{};allocate(next,wanted);check(cudaMemsetAsync(next,255,size_t(wanted)*sizeof(*next),stream));
++            if(capacity)check(cudaMemcpyAsync(next,entries,size_t(capacity)*sizeof(*next),cudaMemcpyDeviceToDevice,stream));
++            check(cudaStreamSynchronize(stream));check(cudaFree(entries));entries=next;
++            for(auto& p:keys){check(cudaFree(p));allocate(p,wanted);}for(auto& p:ids){check(cudaFree(p));allocate(p,wanted);}capacity=wanted;
++        }
++        if(wantedNodes>nodes){check(cudaFree(ranges));allocate(ranges,size_t(wantedNodes)*2);nodes=wantedNodes;}
++        if(count>commandCapacity){
++            check(cudaFree(commands));allocate(commands,count);
++            for(auto& p:commandKey){check(cudaFree(p));allocate(p,count);}for(auto& p:commandId){check(cudaFree(p));allocate(p,count);}commandCapacity=count;
++        }
++        check(cudaMemsetAsync(status,0,sizeof(*status),stream));
++        if(count){
++            check(cudaMemcpyAsync(commands,host,size_t(count)*sizeof(*host),cudaMemcpyHostToDevice,stream));
++            commandKeys<<<(count+255)/256,256,0,stream>>>(commands,count,commandKey[0],commandId[0]);
++            size_t bytes=0;check(cub::DeviceRadixSort::SortPairs(nullptr,bytes,commandKey[0],commandKey[1],commandId[0],commandId[1],count,0,32,stream));reserveScratch(bytes);
++            check(cub::DeviceRadixSort::SortPairs(scratch,scratchBytes,commandKey[0],commandKey[1],commandId[0],commandId[1],count,0,32,stream));
++            applyCommands<<<(count+255)/256,256,0,stream>>>(commands,commandKey[1],commandId[1],count,entries,capacity,nodes,sequence,status);sequence+=count;
++        }
++        sequenceKeys<<<(capacity+255)/256,256,0,stream>>>(entries,capacity,keys[0],ids[0]);
++        size_t bytes=0;check(cub::DeviceRadixSort::SortPairs(nullptr,bytes,keys[0],keys[1],ids[0],ids[1],capacity,0,64,stream));reserveScratch(bytes);
++        check(cub::DeviceRadixSort::SortPairs(scratch,scratchBytes,keys[0],keys[1],ids[0],ids[1],capacity,0,64,stream));
++        ownerKeys<<<(capacity+255)/256,256,0,stream>>>(entries,ids[1],capacity,keys[0]);
++        check(cub::DeviceRadixSort::SortPairs(scratch,scratchBytes,keys[0],keys[1],ids[1],ids[0],capacity,0,64,stream));
++        check(cudaMemsetAsync(ranges,0,size_t(nodes)*2*sizeof(*ranges),stream));
++        ownerRanges<<<(capacity+255)/256,256,0,stream>>>(keys[1],capacity,ranges);
++        rangeStats<<<(nodes+255)/256,256,0,stream>>>(ranges,nodes,status);check(cudaGetLastError());
++        check(cudaMemcpyAsync(&cached,status,sizeof(cached),cudaMemcpyDeviceToHost,stream));check(cudaStreamSynchronize(stream));
++        if(cached.error){failed=true;throw std::runtime_error("invalid static registration transaction");}
++        return cached;
++    }
++    void gather(const PxNodeIndex* active,unsigned offset,unsigned count,unsigned* contacts,unsigned contactCapacity,
++        unsigned* joints,unsigned jointCapacity,unsigned* contactCounts,unsigned* jointCounts,cudaStream_t stream){
++        if(failed)throw std::runtime_error("latched static registration failure");
++        if(count)gatherRegistrations<<<count,128,0,stream>>>(ids[0],ranges,nodes,active,offset,count,contacts,contactCapacity,joints,jointCapacity,contactCounts,jointCounts,status);
++        check(cudaGetLastError());
++    }
++};
+--- /dev/null
++++ b/physx/source/gpudestruction/tests/static_registration_test.cu
+@@ -0,0 +1,94 @@
++// Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
++#include "PxgDestructionStaticConstraints.h"
++#include "PxNodeIndex.h"
++using namespace physx;
++#include <cuda_runtime.h>
++#include <cub/cub.cuh>
++#include <algorithm>
++#include <cstdio>
++#include <random>
++#include <stdexcept>
++#include <vector>
++void check(cudaError_t e){if(e!=cudaSuccess)throw std::runtime_error(cudaGetErrorString(e));}
++void require(bool b,const char* why){if(!b)throw std::runtime_error(why);}
++template<class T> void allocate(T*& p,size_t n){check(cudaMalloc(&p,std::max<size_t>(n,1)*sizeof(T)));}
++#include "../src/PxgDestructionStaticConstraints.cuh"
++template<class T> struct Buffer {
++    T* p{};size_t n;
++    explicit Buffer(size_t size):n(size){allocate(p,n);check(cudaMemset(p,0xfd,std::max<size_t>(n,1)*sizeof(T)));}
++    ~Buffer(){cudaFree(p);}
++    void upload(const std::vector<T>& v){require(v.size()==n,"upload size");if(n)check(cudaMemcpy(p,v.data(),n*sizeof(T),cudaMemcpyHostToDevice));}
++    std::vector<T> read(){std::vector<T> v(n);if(n)check(cudaMemcpy(v.data(),p,n*sizeof(T),cudaMemcpyDeviceToHost));return v;}
++};
++struct Oracle {
++    struct Owner {unsigned node=~0u,kind=0;};
++    std::vector<Owner> owners;std::vector<std::vector<unsigned>> lists;
++    void resize(unsigned edges,unsigned nodes){owners.resize(edges);lists.resize(size_t(nodes)*2);}
++    void apply(StaticCommand c){
++        auto& owner=owners.at(c.edge);auto& list=lists.at(size_t(c.node)*2+c.kind);
++        if(c.add){require(owner.node==~0u,"oracle duplicate add");list.push_back(c.edge);owner={c.node,c.kind};}
++        else{require(owner.node==c.node && owner.kind==c.kind,"oracle stale removal");auto it=std::find(list.begin(),list.end(),c.edge);require(it!=list.end(),"oracle missing edge");list.erase(it);owner.node=~0u;}
++    }
++    StaticStats stats(){StaticStats s{};for(size_t i=0;i<lists.size();++i){unsigned n=unsigned(lists[i].size());if(i&1){s.joints+=n;s.maxJoints=std::max(s.maxJoints,n);}else{s.contacts+=n;s.maxContacts=std::max(s.maxContacts,n);}}return s;}
++};
++void verify(StaticRegistry& gpu,Oracle& cpu,StaticStats actual,cudaStream_t stream,std::mt19937& rng){
++    auto expected=cpu.stats();require(actual.contacts==expected.contacts && actual.joints==expected.joints && actual.maxContacts==expected.maxContacts && actual.maxJoints==expected.maxJoints && !actual.error,"GPU aggregate disagreement");
++    std::vector<unsigned> active;for(unsigned i=0;i<cpu.lists.size()/2;++i)if(i%5!=3)active.push_back(i);
++    std::shuffle(active.begin(),active.end(),rng);unsigned count=unsigned(active.size());active.insert(active.begin(),3,~0u);
++    std::vector<PxNodeIndex> handles;for(unsigned id:active)handles.push_back(id==~0u?PxNodeIndex():PxNodeIndex(id));
++    Buffer<PxNodeIndex> ids(active.size());ids.upload(handles);
++    Buffer<unsigned> contacts(size_t(actual.maxContacts)*count),joints(size_t(actual.maxJoints)*count),nc(count),nj(count);
++    gpu.gather(ids.p,3,count,contacts.p,unsigned(contacts.n),joints.p,unsigned(joints.n),nc.p,nj.p,stream);check(cudaStreamSynchronize(stream));
++    auto c=contacts.read(),j=joints.read(),cs=nc.read(),js=nj.read();
++    for(unsigned i=0;i<count;++i){auto& cl=cpu.lists[size_t(active[i+3])*2];auto& jl=cpu.lists[size_t(active[i+3])*2+1];
++        require(cs[i]==cl.size() && js[i]==jl.size(),"GPU active membership disagreement");
++        for(unsigned k=0;k<cl.size();++k)require(c[size_t(k)*count+i]==cl[k],"contact insertion/removal order changed");
++        for(unsigned k=0;k<jl.size();++k)require(j[size_t(k)*count+i]==jl[k],"joint insertion/removal order changed");
++    }
++    StaticStats status{};check(cudaMemcpy(&status,gpu.status,sizeof(status),cudaMemcpyDeviceToHost));require(!status.error,"gather rejected valid input");
++}
++void run(unsigned nodes,unsigned edges,unsigned batches){
++    cudaStream_t stream;check(cudaStreamCreateWithFlags(&stream,cudaStreamNonBlocking));
++    {
++        StaticRegistry gpu;Oracle cpu;std::mt19937 rng(1967);cpu.resize(1,1);
++        verify(gpu,cpu,gpu.update(nullptr,0,1,1,stream),stream,rng);
++        for(unsigned batch=0;batch<batches;++batch){
++            unsigned e=batch<2?std::min(32u,edges):edges,n=batch<2?std::min(4u,nodes):nodes;cpu.resize(e,n);
++            std::vector<StaticCommand> tape;
++            for(unsigned k=0;k<std::min(2048u,e*4);++k){unsigned id=rng()%e;auto owner=cpu.owners[id];
++                StaticCommand c=owner.node==~0u?StaticCommand{id,unsigned(rng()%n),unsigned(rng()%2),1}:StaticCommand{id,owner.node,owner.kind,0};
++                tape.push_back(c);cpu.apply(c);
++            }
++            auto s=gpu.update(tape.data(),unsigned(tape.size()),e,n,stream);verify(gpu,cpu,s,stream,rng);
++            // An unchanged update neither rebuilds membership nor changes order.
++            verify(gpu,cpu,gpu.update(nullptr,0,e,n,stream),stream,rng);
++        }
++        std::vector<StaticCommand> retire;for(unsigned i=0;i<cpu.owners.size();++i){auto o=cpu.owners[i];if(o.node!=~0u){StaticCommand c{i,o.node,o.kind,0};retire.push_back(c);cpu.apply(c);}}
++        verify(gpu,cpu,gpu.update(retire.data(),unsigned(retire.size()),edges,nodes,stream),stream,rng);
++        std::printf("PASS static registration: %u node slots, %u edge slots, %u batches; exact active order, growth/reuse/retirement; no stress bonds\n",nodes,edges,batches);
++    }
++    check(cudaStreamDestroy(stream));
++}
++void highDegree(){
++    StaticRegistry gpu;Oracle cpu;cpu.resize(4099,2);std::mt19937 rng(7);
++    std::vector<StaticCommand> tape;
++    for(unsigned edge=4099;edge;--edge){StaticCommand c{edge-1,0,0,1};tape.push_back(c);cpu.apply(c);}
++    verify(gpu,cpu,gpu.update(tape.data(),unsigned(tape.size()),4099,2,0),0,rng);
++    tape.clear();
++    for(unsigned edge=0;edge<4099;edge+=2){
++        StaticCommand remove{edge,0,0,0},add{edge,1,1,1};
++        tape.push_back(remove);tape.push_back(add);cpu.apply(remove);cpu.apply(add);
++    }
++    verify(gpu,cpu,gpu.update(tape.data(),unsigned(tape.size()),4099,2,0),0,rng);
++    std::puts("PASS 4099 contacts on one node; ordered partial removal, same-batch identity reuse and joint reclassification; no stress bonds");
++}
++void negative(){
++    for(StaticCommand bad: {StaticCommand{0,0,0,0},StaticCommand{1,0,0,1},StaticCommand{0,1,0,1},StaticCommand{0,0,2,1}}){
++        StaticRegistry gpu;bool rejected=false;try{gpu.update(&bad,1,1,1,0);}catch(const std::runtime_error&){rejected=true;}require(rejected,"invalid command accepted");
++        rejected=false;try{gpu.update(nullptr,0,1,1,0);}catch(const std::runtime_error&){rejected=true;}require(rejected,"invalid scene failure not latched");
++    }
++    StaticRegistry gpu;StaticCommand duplicates[]={{0,0,0,1},{0,0,0,1}};bool rejected=false;
++    try{gpu.update(duplicates,2,1,1,0);}catch(const std::runtime_error&){rejected=true;}require(rejected,"duplicate registration accepted");
++    std::puts("PASS explicit invalid/stale/duplicate registration failures");
++}
++int main(){try{run(513,4099,24);run(113664,32768,4);highDegree();negative();return 0;}catch(const std::exception& e){std::fprintf(stderr,"FAIL %s\n",e.what());return 1;}}
+--- a/physx/source/gpusimulationcontroller/include/PxgBodySimManager.h
++++ b/physx/source/gpusimulationcontroller/include/PxgBodySimManager.h
+@@ -37,6 +37,7 @@
+ #include "CmBlockArray.h"
+ #include "PxsHeapStats.h"
+ #include "PxgBodySim.h"
++#include "PxgDestructionStaticConstraints.h"
+ 
+ namespace physx
+ {
+@@ -128,6 +129,16 @@
+ 		{
+ 		}
+ 
++        void enableNativeStaticConstraints();
++        bool nativeStaticConstraints=false;
++        PxArray<PxgDestructionStaticCommand> nativeStaticCommands;
++        PxU32 nativeStaticCapacity=0;
++        void nativeStaticCommand(PxU32 edge,PxU32 node,PxU32 kind,PxU32 add) {
++            // Existing special-case partition insertion/removal is serialized.
++            // No CPU per-body registration arrays or ordering cache are kept.
++            nativeStaticCommands.pushBack({edge,node,kind,add});
++            nativeStaticCapacity=PxMax(nativeStaticCapacity,edge==0xffffffffu?edge:edge+1);
++        }
+ 		~PxgBodySimManager();
+ 
+ 		void	addBody(PxsRigidBody* bodyCore, const PxU32 nodeIndex);
+--- a/physx/source/gpusimulationcontroller/src/PxgBodySimManager.cpp
++++ b/physx/source/gpusimulationcontroller/src/PxgBodySimManager.cpp
+@@ -263,8 +263,26 @@
+ 	return remove(uniqueIndex, mStaticConstraints[nodeIndex.index()].mStaticJoints, mTotalStaticArticJoints);
+ }
+ 
++void PxgBodySimManager::enableNativeStaticConstraints()
++{
++    if(nativeStaticConstraints)return;
++    // One-time adoption if the destruction API is attached to an existing scene.
++    // Articulation lists retain their upstream owner and link ordering.
++    for(PxU32 node=0;node<mTotalNumBodies;++node) {
++        if(mNodeToRemapMap.find(node))continue;
++        auto& lists=mStaticConstraints[node];
++        for(PxU32 i=0;i<lists.mStaticContacts.size();++i)
++            nativeStaticCommand(lists.mStaticContacts[i].uniqueId,node,0,1);
++        for(PxU32 i=0;i<lists.mStaticJoints.size();++i)
++            nativeStaticCommand(lists.mStaticJoints[i].uniqueId,node,1,1);
++        lists.mStaticContacts.reset();lists.mStaticJoints.reset();
++    }
++    nativeStaticConstraints=true;
++}
++
+ bool PxgBodySimManager::addStaticRBContactManager(PxU32 uniqueIndex, const PxNodeIndex nodeIndex)
+ {
++    if(nativeStaticConstraints){nativeStaticCommand(uniqueIndex,nodeIndex.index(),0,1);return true;}
+ 	PxgStaticConstraints& staticConstraints = mStaticConstraints[nodeIndex.index()];
+ 	{
+ 		PX_ASSERT(!nodeIndex.isArticulation());
+@@ -281,11 +299,13 @@
+ bool PxgBodySimManager::removeStaticRBContactManager(PxU32 uniqueIndex, const PxNodeIndex nodeIndex)
+ {
+ 	PX_ASSERT(!nodeIndex.isArticulation());
++	if(nativeStaticConstraints){nativeStaticCommand(uniqueIndex,nodeIndex.index(),0,0);return true;}
+ 	return remove(uniqueIndex, mStaticConstraints[nodeIndex.index()].mStaticContacts, mTotalStaticRBContacts);
+ }
+ 
+ bool PxgBodySimManager::addStaticRBJoint(PxU32 uniqueIndex, const PxNodeIndex nodeIndex)
+ {
++    if(nativeStaticConstraints){nativeStaticCommand(uniqueIndex,nodeIndex.index(),1,1);return true;}
+ 	PX_ASSERT(!nodeIndex.isArticulation());
+ 	PxgStaticConstraints& staticConstraints = mStaticConstraints[nodeIndex.index()];
+ 
+@@ -305,6 +325,7 @@
+ bool PxgBodySimManager::removeStaticRBJoint(PxU32 uniqueIndex, const PxNodeIndex nodeIndex)
+ {
+ 	PX_ASSERT(!nodeIndex.isArticulation());
++	if(nativeStaticConstraints){nativeStaticCommand(uniqueIndex,nodeIndex.index(),1,0);return true;}
+ 	return remove(uniqueIndex, mStaticConstraints[nodeIndex.index()].mStaticJoints, mTotalStaticRBJoints);
+ }
+ 
+--- a/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp
++++ b/physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp
+@@ -636,8 +636,8 @@
+     PxDestructionScene* PxgSimulationController::getDestructionScene(void* scene, bool (*gate)(void*), PxvDestructionBodyAllocator* allocator)
+     {
+         if(!mDestruction) {
+-            mDestruction = PxCreateDestructionRuntimeV10(mCudaContextManager->getContext(), scene, gate, allocator);
+-            if(mDestruction)mDynamicContext->activateDestructionNodeTracking();
++            mDestruction = PxCreateDestructionRuntimeV11(mCudaContextManager->getContext(), scene, gate, allocator);
++            if(mDestruction){mDynamicContext->activateDestructionNodeTracking();mBodySimManager.enableNativeStaticConstraints();}
+         }
+         return mDestruction;
+     }
+--- a/physx/source/gpusolver/include/PxgContext.h
++++ b/physx/source/gpusolver/include/PxgContext.h
+@@ -405,6 +405,9 @@
+ 		//this method make sure we get PxgSimultionController instead of PxsSimulationController
+ 		PxgSimulationController*			getSimulationController();
+         bool usesNativeKinematicInputs();
++        bool usesNativeStaticConstraints();
++        bool updateNativeStaticConstraints(CUstream stream);
++        void gatherNativeStaticConstraints(CUdeviceptr active,CUdeviceptr contacts,PxU32 contactCapacity,CUdeviceptr joints,PxU32 jointCapacity,CUdeviceptr contactCounts,CUdeviceptr jointCounts,CUstream stream);
+         void prepareNativeRigidIterationLimits(CUdeviceptr active,CUstream stream);
+         PxU64 getNativeRigidIterationPasses() const {return mNativeRigidIterationPasses;}
+         void getCachedIterationLimits(PxU32& position,PxU32& velocity) const {position=PxU32(mCachedPositionIterations);velocity=PxU32(mCachedVelocityIterations);}
+--- a/physx/source/gpusolver/src/PxgContext.cpp
++++ b/physx/source/gpusolver/src/PxgContext.cpp
+@@ -545,6 +545,7 @@
+ 
+ 	void PxgGpuContext::doStaticRigidConstraintPrePrep(physx::PxBaseTask* continuation)
+ 	{
++        if(usesNativeStaticConstraints())return;
+ 		PX_PROFILE_ZONE("Rigid Static constraint", 0);
+ 		PxgBodySimManager& bodyManager = getSimulationController()->getBodySimManager();
+ 
+@@ -1178,6 +1179,42 @@
+ 		}
+ 	};
+ 
++    bool PxgGpuContext::usesNativeStaticConstraints() {
++        return getSimulationController()->getBodySimManager().nativeStaticConstraints;
++    }
++    bool PxgGpuContext::updateNativeStaticConstraints(CUstream stream) {
++        if(!usesNativeStaticConstraints())return true;
++        PX_PROFILE_ZONE("GpuDynamics.NativeStaticRegistration",0);
++        auto& manager=getSimulationController()->getBodySimManager();
++        auto* runtime=getSimulationController()->getNativeDestructionRuntime();
++        PxgDestructionStaticStats stats{};
++        if(!runtime || !runtime->updateStaticConstraints(manager.nativeStaticCommands.begin(),manager.nativeStaticCommands.size(),
++            manager.nativeStaticCapacity,manager.mTotalNumBodies,stats,stream))return false;
++        manager.nativeStaticCommands.clear();
++        manager.mTotalStaticRBContacts=stats.contacts;manager.mTotalStaticRBJoints=stats.joints;
++        // Preserve upstream historical capacity maxima; these do not suppress work.
++        manager.mMaxStaticRBContacts=PxMax(manager.mMaxStaticRBContacts,stats.maxContacts);
++        manager.mMaxStaticRBJoints=PxMax(manager.mMaxStaticRBJoints,stats.maxJoints);
++        // The existing solver interface accepts 32-bit element counts. Validate
++        // BEFORE any multiplication in allocation/batching, not after wrapping.
++        const PxU64 contactElements=PxU64(manager.mMaxStaticRBContacts)*mBodyCount;
++        const PxU64 jointElements=PxU64(manager.mMaxStaticRBJoints)*mBodyCount;
++        if(contactElements>0xffffffffull || jointElements>0xffffffffull) {
++            PxGetFoundation().error(PxErrorCode::eOUT_OF_MEMORY,PX_FL,
++                "Native static constraint layout exceeds the solver address range.");
++            return false;
++        }
++        return true;
++    }
++    void PxgGpuContext::gatherNativeStaticConstraints(CUdeviceptr active,CUdeviceptr contacts,PxU32 contactCapacity,
++        CUdeviceptr joints,PxU32 jointCapacity,CUdeviceptr contactCounts,CUdeviceptr jointCounts,CUstream stream) {
++        auto* runtime=getSimulationController()->getNativeDestructionRuntime();
++        if(!runtime || !runtime->gatherStaticConstraints(reinterpret_cast<const PxNodeIndex*>(active),1+mKinematicCount,mBodyCount,
++            reinterpret_cast<PxU32*>(contacts),contactCapacity,reinterpret_cast<PxU32*>(joints),jointCapacity,
++            reinterpret_cast<PxU32*>(contactCounts),reinterpret_cast<PxU32*>(jointCounts),stream))
++            getNarrowphaseCore()->mCudaContext->setAbortMode(true);
++    }
++
+     bool PxgGpuContext::usesNativeKinematicInputs()
+     {
+         return !mEnableDirectGPUAPI && getSimulationController()->usesDeviceDestructionContactInputs();
+@@ -1737,7 +1774,7 @@
+ 			mArtiStaticJointIndices.begin(), mArtiStaticJointIndices.size(), mArtiStaticContactCounts.begin(), mArtiStaticJointCounts.begin(),
+ 			mArtiSelfContactIndices.begin(), mArtiSelfContactIndices.size(),
+ 			mArtiSelfJointIndices.begin(), mArtiSelfJointIndices.size(), mArtiSelfContactCounts.begin(), mArtiSelfJointCounts.begin(),
+-			mRigidStaticContactIndices.begin(), mRigidStaticContactIndices.size(), mRigidStaticJointIndices.begin(), mRigidStaticJointIndices.size(), 
++			mRigidStaticContactIndices.begin(), usesNativeStaticConstraints()?bodySimManager.mMaxStaticRBContacts*mBodyCount:mRigidStaticContactIndices.size(), mRigidStaticJointIndices.begin(), usesNativeStaticConstraints()?bodySimManager.mMaxStaticRBJoints*mBodyCount:mRigidStaticJointIndices.size(), 
+ 			mRigidStaticContactCounts.begin(), mRigidStaticJointCounts.begin(), mLengthScale, hasForceThresholds);
+ 
+ 		//Make sure that the GPU articulation work has completed now...
+@@ -2458,6 +2495,13 @@
+ 	Cm::PinnableArray<PxU32>& islandStaticTouchCounts = mIslandStaticTouchCounts;
+ 
+ 	const PxU32 nbConstraints = islandSim.getNbActiveEdges(IG::Edge::eCONSTRAINT);
++
++    if(!updateNativeStaticConstraints(mGpuSolverCore->getStream())) {
++        getNarrowphaseCore()->mCudaContext->setAbortMode(true);
++        mGpuSolverCore->releaseContext();
++        if(needsSolve(islandSim,mBodyCount,mArticulationCount))mGpuTask.getContinuation()->removeReference();
++        return;
++    }
+ 
+ 	// At this point we are ready to allocate the pinned memory for the solver.
+ 	allocateTempPinnedSolverMemoryCommon();
+--- a/physx/source/gpusolver/src/PxgCudaSolverCore.cpp
++++ b/physx/source/gpusolver/src/PxgCudaSolverCore.cpp
+@@ -660,10 +660,15 @@
+ 	mTempContactHeaderBlockBuffer.allocate(numBlocks * sizeof(PxU32), PX_FL);
+ 	mTempConstraintHeaderBlockBuffer.allocate(numBlocks * sizeof(PxU32), PX_FL);
+ 
++    if(mGpuContext->usesNativeStaticConstraints()) {
++        mGpuContext->gatherNativeStaticConstraints(mIslandNodeIndices2.getDevicePtr(),mRigidStaticContactIndices.getDevicePtr(),rigidStaticContactIndSize,
++            mRigidStaticJointIndices.getDevicePtr(),rigidStaticJointSize,mRigidStaticContactCounts.getDevicePtr(),mRigidStaticJointCounts.getDevicePtr(),mStream);
++    } else {
+ 	mCudaContext->memcpyHtoDAsync(mRigidStaticContactIndices.getDevicePtr(), rigidStaticContactIndices, sizeof(PxU32)*rigidStaticContactIndSize, mStream);
+ 	mCudaContext->memcpyHtoDAsync(mRigidStaticJointIndices.getDevicePtr(), rigidStaticJointIndices, sizeof(PxU32)*rigidStaticJointSize, mStream);
+ 	mCudaContext->memcpyHtoDAsync(mRigidStaticContactCounts.getDevicePtr(), rigidStaticContactCounts, sizeof(PxU32)*islandContextPool->mBodyCount, mStream);
+ 	mCudaContext->memcpyHtoDAsync(mRigidStaticJointCounts.getDevicePtr(), rigidStaticJointCounts, sizeof(PxU32)*islandContextPool->mBodyCount, mStream);
++    }
+ 
+ 	mArtiStaticContactIndices.allocate(artiStaticContactIndSize*sizeof(PxU32), PX_FL);
+ 	mArtiStaticJointIndices.allocate(artiStaticJointSize * sizeof(PxU32), PX_FL);
+--- a/physx/source/gpusolver/src/PxgTGSCudaSolverCore.cpp
++++ b/physx/source/gpusolver/src/PxgTGSCudaSolverCore.cpp
+@@ -647,10 +647,15 @@
+ 	mTempContactHeaderBlockBuffer.allocate(numBlocks * sizeof(PxU32), PX_FL);
+ 	mTempConstraintHeaderBlockBuffer.allocate(numBlocks * sizeof(PxU32), PX_FL);
+ 
++    if(mGpuContext->usesNativeStaticConstraints()) {
++        mGpuContext->gatherNativeStaticConstraints(mIslandNodeIndices2.getDevicePtr(),mRigidStaticContactIndices.getDevicePtr(),rigidStaticContactIndSize,
++            mRigidStaticJointIndices.getDevicePtr(),rigidStaticJointSize,mRigidStaticContactCounts.getDevicePtr(),mRigidStaticJointCounts.getDevicePtr(),mStream);
++    } else {
+ 	mCudaContext->memcpyHtoDAsync(mRigidStaticContactIndices.getDevicePtr(), rigidStaticContactIndices, sizeof(PxU32)*rigidStaticContactIndSize, mStream);
+ 	mCudaContext->memcpyHtoDAsync(mRigidStaticJointIndices.getDevicePtr(), rigidStaticJointIndices, sizeof(PxU32)*rigidStaticJointSize, mStream);
+ 	mCudaContext->memcpyHtoDAsync(mRigidStaticContactCounts.getDevicePtr(), rigidStaticContactCounts, sizeof(PxU32)*islandContextPool->mBodyCount, mStream);
+ 	mCudaContext->memcpyHtoDAsync(mRigidStaticJointCounts.getDevicePtr(), rigidStaticJointCounts, sizeof(PxU32)*islandContextPool->mBodyCount, mStream);
++    }
+ 
+ 	mArtiStaticContactIndices.allocate(artiStaticContactIndSize * sizeof(PxU32), PX_FL);
+ 	mArtiStaticJointIndices.allocate(artiStaticJointSize * sizeof(PxU32), PX_FL);

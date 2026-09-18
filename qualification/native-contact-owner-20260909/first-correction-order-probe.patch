@@ -1,0 +1,31 @@
+diff --git a/physx/source/simulationcontroller/src/ScPipeline.cpp b/physx/source/simulationcontroller/src/ScPipeline.cpp
+index d634e550..64e69a0a 100644
+--- a/physx/source/simulationcontroller/src/ScPipeline.cpp
++++ b/physx/source/simulationcontroller/src/ScPipeline.cpp
+@@ -1790,6 +1790,26 @@ void Sc::Scene::postIslandGen(PxBaseTask* continuation)
+ void Sc::Scene::setEdgesConnected(PxBaseTask*)
+ {
+ 	PX_PROFILE_ZONE("Sim.preIslandGen.islandTouches", mContextId);
++    // TEMPORARY qualification-only counterfactual; not production ordering.
++    static bool orderProbeApplied=false;
++    if(!orderProbeApplied && mTouchFoundEvents.size()==128) {
++        static const PxU64 order[]={1181116006712ull,1181116006711ull,1181116006704ull,1181116006703ull,1181116006678ull,1181116006676ull,1176821039415ull,1176821039414ull,1176821039407ull,1176821039406ull,1176821039405ull,1176821039379ull,1172526072118ull,1172526072117ull,1172526072116ull,1172526072110ull,1172526072109ull,1172526072082ull,1168231104821ull,1168231104820ull,1168231104819ull,1168231104812ull,1168231104811ull,1163936137523ull,1163936137522ull,1163936137516ull,1163936137515ull,1163936137514ull,1163936137488ull,1159641170227ull,1159641170226ull,1159641170225ull,1159641170218ull,1159641170217ull,1159641170197ull,1155346202894ull,1073741824275ull,1069446856974ull,1065151889683ull,1060856922390ull,1060856922388ull,1060856922387ull,1060856922386ull,1060856922362ull,1060856922360ull,1056561955091ull,1056561955090ull,1056561955089ull,1056561955063ull,1052266987794ull,1052266987793ull,1052266987766ull,1047972020496ull,1047972020495ull,1043677053200ull,1043677053199ull,1043677053198ull,1043677053172ull,1039382085909ull,1039382085903ull,1039382085902ull,1039382085901ull,1039382085881ull,1035087118606ull,1035087118578ull,949187772658ull,944892805367ull,940597838074ull,940597838072ull,940597838071ull,940597838070ull,940597838046ull,940597838044ull,936302870775ull,936302870774ull,936302870773ull,936302870747ull,932007903478ull,932007903477ull,932007903450ull,927712936180ull,927712936179ull,923417968884ull,923417968883ull,923417968882ull,923417968856ull,919123001593ull,919123001587ull,919123001586ull,919123001585ull,919123001565ull,914828034290ull,914828034262ull,704374636763ull,700079669467ull,700079669466ull,695784702171ull,695784702170ull,695784702169ull,691489734874ull,691489734873ull,687194767576ull,687194767575ull,682899800280ull,682899800279ull,682899800278ull,678604832983ull,678604832982ull,670014898395ull,665719931099ull,665719931098ull,661424963803ull,661424963802ull,661424963801ull,657129996505ull,657129996504ull,652835029208ull,652835029207ull,648540061912ull,648540061911ull,648540061910ull,644245094615ull,644245094614ull,639950127318ull,1047972020669ull,1052266987965ull,1168231104957ull,1172526072253ull};
++        const auto rank=[](PxvContactManagerTouchEvent event)->PxU32 {
++            const auto* si=getSI(event);
++            const PxU32 a=si->getShape0().getTransformCacheID(),b=si->getShape1().getTransformCacheID();
++            const PxU64 key=(PxU64(PxMin(a,b))<<32)|PxMax(a,b);
++            for(PxU32 i=0;i<128;++i)if(order[i]==key)return i;
++            return 128;
++        };
++        bool matches=true;
++        for(PxU32 i=0;i<128;++i)matches=matches && rank(mTouchFoundEvents[i])<128;
++        if(matches) {
++            PxSort(mTouchFoundEvents.begin(),mTouchFoundEvents.size(),[&](const PxvContactManagerTouchEvent& a,const PxvContactManagerTouchEvent& b){return rank(a)<rank(b);});
++            orderProbeApplied=true;
++            printf("CTORDER reference first-correction event order applied\n");
++        }
++    }
++
+ 
+ #if USE_SPLIT_SECOND_PASS_ISLAND_GEN
+ 	// PT: this is now running in parallel with "islandGen" tasks and the Pxg constraint partitioning code.

@@ -1,0 +1,6 @@
+{
+  "status": "failed",
+  "error": "[Errno 2] No such file or directory: '/root/workspace/physx-2/out/snapshot-finish-20260911/local-promoted-verification/dense12-cold/observation-0.json'",
+  "reference": "/root/workspace/physx-2/out/snapshot-finish-20260911/split-matched-full/dense12-cold-B",
+  "candidate": "/root/workspace/physx-2/out/snapshot-finish-20260911/local-promoted-verification/dense12-cold"
+}

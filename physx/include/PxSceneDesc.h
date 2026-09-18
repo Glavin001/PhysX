@@ -377,6 +377,26 @@ struct PxSceneFlag
 		*/
 		eDISABLE_SLEEPING = (1 << 20),
 
+        /**
+        \brief Experimental rigid-body native sleeping with Direct GPU motion ownership.
+
+        Requires eENABLE_DIRECT_GPU_API and forbids eDISABLE_SLEEPING. Rigid-body
+        sleep metadata is read back; motion remains device-owned. CPU motion
+        getters and scene queries retain the Direct GPU restrictions. Call
+        PxRigidDynamic::wakeUp() before device writes to sleeping bodies.
+        Articulations are not supported by this experimental mode.
+        */
+        eENABLE_DIRECT_GPU_SLEEPING = (1 << 21),
+
+        /** Explicit host observation and sparse host motion commands with GPU
+        motion ownership. Requires eENABLE_DIRECT_GPU_SLEEPING. Call
+        publishRigidDynamicHostData with completed device readbacks before CPU
+        motion reads, queries, or metadata edits that depend on body pose.
+        Host pose/velocity writes are queued in the existing metadata upload;
+        they become device-visible at the next simulate, not immediately.
+        */
+        eENABLE_DIRECT_GPU_HOST_ACCESS = (1 << 22),
+
 		eMUTABLE_FLAGS = eENABLE_ACTIVE_ACTORS|eEXCLUDE_KINEMATICS_FROM_ACTIVE_ACTORS
 	};
 };
@@ -1195,6 +1215,16 @@ PX_INLINE bool PxSceneDesc::isValid() const
 	if(!gpuDynamicsConfig.isValid())
 		return false;
 
+    if((flags & PxSceneFlag::eENABLE_DIRECT_GPU_HOST_ACCESS)
+        && !(flags & PxSceneFlag::eENABLE_DIRECT_GPU_SLEEPING))
+        return false;
+
+    if(flags & PxSceneFlag::eENABLE_DIRECT_GPU_SLEEPING)
+    {
+        if(!(flags & PxSceneFlag::eENABLE_DIRECT_GPU_API) || (flags & PxSceneFlag::eDISABLE_SLEEPING))
+            return false;
+    }
+
 	if(flags & PxSceneFlag::eENABLE_DIRECT_GPU_API)
 	{
 		if(!(flags & PxSceneFlag::eENABLE_GPU_DYNAMICS && broadPhaseType == PxBroadPhaseType::eGPU))
@@ -1217,5 +1247,9 @@ PX_INLINE bool PxSceneDesc::isValid() const
 #if !PX_DOXYGEN
 } // namespace physx
 #endif
+
+// Feature detection for consumers of this opt-in engine extension.
+#define PX_DIRECT_GPU_SLEEPING_VERSION 1
+#define PX_DIRECT_GPU_HOST_ACCESS_VERSION 1
 
 #endif

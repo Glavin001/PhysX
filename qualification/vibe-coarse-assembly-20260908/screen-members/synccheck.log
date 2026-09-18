@@ -1,0 +1,5 @@
+========= COMPUTE-SANITIZER
+START fixture=supported nodes=24 bonds=33
+resident V-cycle nodes=24 bonds=33 dense-oracle=1 squared-capture/symmetry/linearity passed
+assembled resident hierarchy nodes=24 bonds=33 levels=7 transitions=6 passed
+========= ERROR SUMMARY: 0 errors

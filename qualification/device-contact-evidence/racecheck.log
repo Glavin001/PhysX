@@ -1,0 +1,9 @@
+========= COMPUTE-SANITIZER
+GPU contact lifetimes: concurrent block allocation, tails, retained storage, reuse and exhaustion passed
+CUDA node transactions: sparse persistence, lifetime/live/support changes and boundary indices passed
+CUDA pre-solve contacts: prior lost connection, current touch, managerless edge, retired invalid geometry, static/kinematic/disabled/deleted exclusions passed
+CUDA pre-solve graph: 100001 nodes, previous components, new merges, deleted/prescribed nodes, lifetime reuse, exact static counts passed
+GPU solver metadata pages: persistent updates, disjoint order, partial tails and guards passed
+CUDA retained registry: persistence, bit boundaries, contact changes, removal/reuse, exact counts and atomic rejection passed
+GPU contact graph: 100001 nodes, 201998 pairs, shuffled order, split rebuild, static/kinematic boundaries, touch/response, explicit invalid inputs: passed
+========= RACECHECK SUMMARY: 0 hazards displayed (0 errors, 0 warnings)

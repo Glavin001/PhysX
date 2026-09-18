@@ -1,0 +1,3 @@
+{"buildings":1,"chunks":444,"bonds":896,"solve":0,"iterations":86,"converged":1,"stress_submission_and_completion_ms":3.205118,"summed_CTA_cycles":[638222,967764,69613,3629018,176968,1114235,519152,307386,7422358],"precondition_CTA_cycles":[2631683,39339,295529,586511]}
+{"buildings":1,"chunks":444,"bonds":896,"solve":1,"iterations":0,"converged":1,"stress_submission_and_completion_ms":0.095198,"summed_CTA_cycles":[11379,11405,389,742,394,1249,899,254510,280967],"precondition_CTA_cycles":[0,0,0,0]}
+{"buildings":1,"chunks":444,"bonds":896,"solve":2,"iterations":0,"converged":1,"stress_submission_and_completion_ms":0.042950,"summed_CTA_cycles":[11678,11534,389,752,403,1259,910,201732,228657],"precondition_CTA_cycles":[0,0,0,0]}

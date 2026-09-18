@@ -1,0 +1,203 @@
+{
+  "scope": "One full tick per fresh restore, fixed file inputs, ordinary GPU/TGS, dt=1/60, at most one correction. Independent physical reconstructions; shared-GPU descriptive timings, not matched A/B performance qualification. Restore includes scene creation and stress configuration; context initialization and validation are outside both reported intervals. No capture-prefix simulation.",
+  "scenarios": [
+    {
+      "scenario": "building-warm",
+      "samples": 20,
+      "mean_ms": 4.67644395,
+      "median_ms": 4.4568555,
+      "min_ms": 3.767287,
+      "max_ms": 8.305536,
+      "restore_mean_ms": 139.35494255,
+      "restore_max_ms": 235.615289,
+      "over_8_ms": 1,
+      "over_120hz": 0,
+      "over_60hz": 0,
+      "corrections": [
+        0
+      ],
+      "stress_evaluations": [
+        1
+      ],
+      "stress_iterations": [
+        88
+      ],
+      "broken_bonds": [
+        0
+      ],
+      "max_position_error_m": 0,
+      "max_linear_error_m_s": 0,
+      "max_angular_error_rad_s": 0,
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-20260911/physical-state-v20/final-suite/building-warm.pxbin": "e02c9c92562413a016a3e176211d2bd270fe10cea31612cc68277a98946aab5e",
+        "/root/workspace/physx-2/out/snapshot-20260911/physical-state-v20/final-suite/building-warm.destruction": "774ce0665063e598e7708a8f55b087f6a62830d4f81ff78428281d371a919cbe"
+      },
+      "raw": "out/snapshot-20260911/physical-state-v20/file-building-warm/replay.json"
+    },
+    {
+      "scenario": "building-fragmented",
+      "samples": 20,
+      "mean_ms": 8.9085934,
+      "median_ms": 8.438516,
+      "min_ms": 7.709756,
+      "max_ms": 13.780633,
+      "restore_mean_ms": 142.72482795,
+      "restore_max_ms": 257.059084,
+      "over_8_ms": 18,
+      "over_120hz": 13,
+      "over_60hz": 0,
+      "corrections": [
+        0
+      ],
+      "stress_evaluations": [
+        1
+      ],
+      "stress_iterations": [
+        4
+      ],
+      "broken_bonds": [
+        0
+      ],
+      "max_position_error_m": 0,
+      "max_linear_error_m_s": 0,
+      "max_angular_error_rad_s": 0,
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-20260911/physical-state-v20/final-suite/building-fragmented.pxbin": "c7126d12ece5a2dd3e9d148f818d29713c261ca3bd2d10512d9a51e3ddc4289d",
+        "/root/workspace/physx-2/out/snapshot-20260911/physical-state-v20/final-suite/building-fragmented.destruction": "7d52cb6a01cda38b76d134f50c03f47a5928ba198a1c15de9892a4b623747e97"
+      },
+      "raw": "out/snapshot-20260911/physical-state-v20/file-building-fragmented/replay.json"
+    },
+    {
+      "scenario": "tower64-warm",
+      "samples": 20,
+      "mean_ms": 117.78777720000001,
+      "median_ms": 117.748762,
+      "min_ms": 116.063818,
+      "max_ms": 120.781844,
+      "restore_mean_ms": 150.89349325,
+      "restore_max_ms": 223.585901,
+      "over_8_ms": 20,
+      "over_120hz": 20,
+      "over_60hz": 20,
+      "corrections": [
+        0
+      ],
+      "stress_evaluations": [
+        1
+      ],
+      "stress_iterations": [
+        137
+      ],
+      "broken_bonds": [
+        0
+      ],
+      "max_position_error_m": 0,
+      "max_linear_error_m_s": 0,
+      "max_angular_error_rad_s": 0,
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-20260911/physical-state-v20/final-suite/tower64-warm.pxbin": "3f360fb335f648e48db0478b9910dab09e488c2cacd90fbe822526012b53ee5c",
+        "/root/workspace/physx-2/out/snapshot-20260911/physical-state-v20/final-suite/tower64-warm.destruction": "f20f7f2858fe0e2b10d510da8c9e15503b35a2162dfc757cfed25b85ee81b09a"
+      },
+      "raw": "out/snapshot-20260911/physical-state-v20/file-tower64-warm/replay.json"
+    },
+    {
+      "scenario": "destruction-damaged",
+      "samples": 20,
+      "mean_ms": 3.1665338,
+      "median_ms": 2.9812570000000003,
+      "min_ms": 2.749798,
+      "max_ms": 6.314883,
+      "restore_mean_ms": 128.2903482,
+      "restore_max_ms": 201.774447,
+      "over_8_ms": 0,
+      "over_120hz": 0,
+      "over_60hz": 0,
+      "corrections": [
+        0
+      ],
+      "stress_evaluations": [
+        1
+      ],
+      "stress_iterations": [
+        1
+      ],
+      "broken_bonds": [
+        0
+      ],
+      "max_position_error_m": 0,
+      "max_linear_error_m_s": 0,
+      "max_angular_error_rad_s": 0,
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-20260911/physical-state-v20/final-suite/destruction-damaged.pxbin": "3e8bb34db9627b28481533f05c5e498313bfaca096f4b902d045d5d47b4a7d23",
+        "/root/workspace/physx-2/out/snapshot-20260911/physical-state-v20/final-suite/destruction-damaged.destruction": "1a165f6c482f2919d19b2b53ad9250306642cd842b17a9c1d87196c89ec41c04"
+      },
+      "raw": "out/snapshot-20260911/physical-state-v20/file-destruction-damaged/replay.json"
+    },
+    {
+      "scenario": "destruction-onset-first-fracture",
+      "samples": 20,
+      "mean_ms": 11.18551305,
+      "median_ms": 10.869485000000001,
+      "min_ms": 8.244976,
+      "max_ms": 19.041515,
+      "restore_mean_ms": 128.0621643,
+      "restore_max_ms": 206.336963,
+      "over_8_ms": 20,
+      "over_120hz": 19,
+      "over_60hz": 1,
+      "corrections": [
+        1
+      ],
+      "stress_evaluations": [
+        2
+      ],
+      "stress_iterations": [
+        4
+      ],
+      "broken_bonds": [
+        1
+      ],
+      "max_position_error_m": 0,
+      "max_linear_error_m_s": 0,
+      "max_angular_error_rad_s": 0,
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-20260911/physical-state-v20/final-suite/destruction-onset-first-fracture.pxbin": "0edc2c215c3201eb65efd54766699b159adf6b230879629507b3cad2a9f23265",
+        "/root/workspace/physx-2/out/snapshot-20260911/physical-state-v20/final-suite/destruction-onset-first-fracture.destruction": "debfe8f789b461ed10bd29884d766c82172e2847d787472a1f66151b9f7f6f4f"
+      },
+      "raw": "out/snapshot-20260911/physical-state-v20/file-destruction-onset-first-fracture/replay.json"
+    },
+    {
+      "scenario": "destruction-stimulus",
+      "samples": 20,
+      "mean_ms": 4.1960279499999995,
+      "median_ms": 3.887068,
+      "min_ms": 3.363463,
+      "max_ms": 8.214615,
+      "restore_mean_ms": 129.9066329,
+      "restore_max_ms": 223.911654,
+      "over_8_ms": 1,
+      "over_120hz": 0,
+      "over_60hz": 0,
+      "corrections": [
+        0
+      ],
+      "stress_evaluations": [
+        1
+      ],
+      "stress_iterations": [
+        1
+      ],
+      "broken_bonds": [
+        0
+      ],
+      "max_position_error_m": 0,
+      "max_linear_error_m_s": 0,
+      "max_angular_error_rad_s": 0,
+      "input_sha256": {
+        "/root/workspace/physx-2/out/snapshot-20260911/physical-state-v20/final-suite/destruction-stimulus.pxbin": "e78952f5c05d3ac69c285795e90f04d2f37b9a090387b850b5ce5f8428e83a07",
+        "/root/workspace/physx-2/out/snapshot-20260911/physical-state-v20/final-suite/destruction-stimulus.destruction": "0df8429b87ff907110030fc4ad30a15154275a38c4b15aa00d59385e1cb700db"
+      },
+      "raw": "out/snapshot-20260911/physical-state-v20/file-destruction-stimulus/replay.json"
+    }
+  ]
+}

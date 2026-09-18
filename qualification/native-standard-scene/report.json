@@ -1,0 +1,96 @@
+{
+  "schema": 1,
+  "status": "working prototype; full migration parity unqualified",
+  "base_revision": "3c3fe9b73649f6ce18264c2d316d2d715986b08b",
+  "tests_passed": 15,
+  "memcheck_errors": 0,
+  "test_artifact_sha256": {
+    "physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so": "a9ff88c5fe70bda1a2bb8617a46693a02c26382dd1f05cb7b6334ca6bd39377c",
+    "physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so": "d21c85ba291cde8a33f3ccfef7bfb3a3f7dd7a86061047a5dd42175a4daae726",
+    "out/destruction-sdk/reference/native_standard_scene_test": "ca915570edf68bf1eb8849914e253ebe82cbe0b647f1b6b35cada074398e2420",
+    "out/destruction-sdk/reference/native_destruction_demo": "607378c6c95ae447519ed9bc2e9f0c39213cbbb91297fd98e09197b4315c026f"
+  },
+  "sleeping_building": {
+    "chunks": 444,
+    "bonds": 896,
+    "projectiles": 1,
+    "steps": 600,
+    "dt_seconds": 0.016666666666666666,
+    "correction_limit": 1,
+    "direct_gpu_mode": false,
+    "sleeping": true,
+    "quality": {
+      "topology_identity_sha256": "83b0a17674a8199b2bc590d51b8b9aa5985811a9b599544dd9e63ae0520904c1",
+      "projectile_clearance_step": 40,
+      "projectile_clearance_seconds": 0.6833333333333333,
+      "projectile_position_at_clearance": [
+        -0.2441404163837433,
+        6.147822380065918,
+        4.7766218185424805
+      ],
+      "corrected_steps": [
+        17,
+        32
+      ],
+      "fracture_steps": [
+        17,
+        30,
+        32
+      ],
+      "corrections_per_step_max": 1,
+      "largest_connected_cluster": 400,
+      "supported_chunks": 400,
+      "detached_chunks": 44,
+      "final_cluster_count": 41,
+      "displaced_wall_chunks": {
+        "entry": [
+          243,
+          244,
+          271,
+          272
+        ],
+        "exit": [
+          263,
+          264,
+          291,
+          292
+        ]
+      },
+      "broken_bonds": 197,
+      "all_stress_steps_converged": true,
+      "max_render_collision_position_error": 0,
+      "max_cluster_com_error": 7.64428114052862e-06,
+      "physics_ms": {
+        "min": 0.567687,
+        "mean": 3.8273479633333243,
+        "p50": 0.808226,
+        "p95": 9.193983,
+        "p99": 9.965861,
+        "max": 10.871137
+      },
+      "frozen_identity_gate_passed": false,
+      "qualification": "functional invariants pass; frozen cross-mode topology parity fails"
+    },
+    "capture": "out/standard-scene-sleeping-wall-v4",
+    "capture_artifacts": {
+      "/root/workspace/physx-2/out/destruction-sdk/reference/native_destruction_demo": "4ee1b2d260415fe22258fbe674820657605c0f705a4321f8990ab576bc3d8746",
+      "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so": "d21c85ba291cde8a33f3ccfef7bfb3a3f7dd7a86061047a5dd42175a4daae726",
+      "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so": "646673f7e61007278ae9702a13f1bab275792684186740a2faab2f9bce7ca610"
+    },
+    "video": "out/standard-scene-sleeping-wall-v4/native-captioned.mp4",
+    "complete_step_ms": {
+      "min": 0.611019,
+      "mean": 3.887371328333336,
+      "max": 10.916222
+    },
+    "performance_qualified": false,
+    "frozen_gate_passed": false
+  },
+  "remaining": [
+    "Cross-mode frozen topology parity: 197 vs 199 broken bonds, 400 vs 398 supported chunks",
+    "GPU-owned sleep scheduling without native component membership mirror",
+    "Moving kinematic/controller, joint and CCD correction qualification",
+    "Sparse CPU observation and GPU-owned fragment/contact lifecycle",
+    "256-building ordinary-mode performance qualification"
+  ]
+}

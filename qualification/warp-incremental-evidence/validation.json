@@ -1,0 +1,81 @@
+{
+  "schema": 1,
+  "sources": {
+    "physx/source/gpubroadphase/src/CUDA/broadphase.cu": "92fde55ac8e7a21beaa64114c82fc02f4aa7608539addbc1edf7bfa1b15906f2",
+    "physx/source/gpubroadphase/src/PxgCudaBroadPhaseSap.cpp": "e3cb62d11b880a9653ef6aa171337f66d8c9561c0d6548dc3c14e9e49a41cf95",
+    "demos/blast-stress-demo/CMakeLists.txt": "1a7c69502bcd9b67617c0a8aaa5761ff51014f6a0efcaa1f306624de9f6a3372",
+    "demos/blast-stress-demo/tests/native_gpu_incremental_pairs_test.cu": "69d181d17fcbb1ad7a8a21ada880186a61919dbd6ce7f7e8ea5f1b73576f9089",
+    "tools/scripts/report-destruction-timing.py": "4737f0dfb7ad90683059bfd9df03fedb42670d7f9894c6ec3d4262218e364fa4",
+    "tools/scripts/test-destruction-timing.py": "c1fce5600685918dded549686a06d065feb2f9652a5eecc98297568c8cbf1051",
+    "tools/scripts/report-native-broadphase-trace.py": "0dd6ee29e190243107fc2c4e130e0089d2026082238bf76e89c26dd4f80cc75e"
+  },
+  "artifacts": {
+    "/root/workspace/physx-2/out/destruction-sdk/reference/native_destruction_demo": "87e7dd738819aa3e3f03b49cf8803c6cbdebac4721d0ff1ea158b4e09fd375c3",
+    "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so": "5a8706880c2520fa814e45217f72ceb942bddcbcddf3fd1b47d0f8dea762474c",
+    "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so": "f3920e6a9dbc0a5e699800e27fc547d6587b0a3a4640274c91554be3cfb52afa"
+  },
+  "production_kernel_cases": 120,
+  "kernel_fixture_population": "2, 17, 129 or 257 AABBs; no stress bonds; sparse/full/minimum-only/maximum-only movement and refilter cases",
+  "native_tests_passed": 15,
+  "timing_tests_passed": 30,
+  "sanitizers": "Production and isolated candidate: memory/synchronization 0 errors, race 0 hazards",
+  "parity": {
+    "penetration": {
+      "compared_steps": 1200,
+      "fields": [
+        "step",
+        "bonds_broken",
+        "resim_passes",
+        "logical_clusters",
+        "bodies",
+        "contacts_frame",
+        "contact_pairs",
+        "native_dynamic_bodies",
+        "native_kinematic_bodies"
+      ],
+      "mismatches": 0
+    },
+    "impacts-16": {
+      "compared_steps": 1200,
+      "fields": [
+        "step",
+        "bonds_broken",
+        "resim_passes",
+        "logical_clusters",
+        "bodies",
+        "contacts_frame",
+        "contact_pairs",
+        "native_dynamic_bodies",
+        "native_kinematic_bodies"
+      ],
+      "mismatches": 0
+    },
+    "impacts-256": {
+      "compared_steps": 1200,
+      "fields": [
+        "step",
+        "bonds_broken",
+        "resim_passes",
+        "logical_clusters",
+        "bodies",
+        "contacts_frame",
+        "contact_pairs",
+        "native_dynamic_bodies",
+        "native_kinematic_bodies"
+      ],
+      "mismatches": 0
+    }
+  },
+  "frozen_wall_signature": "e589eb8317c456147287443232209bb950514a75b5e4fb6783e2de5fe7486d4c",
+  "rejected_experiment": {
+    "name": "Skip unchanged endpoints",
+    "failure": "seed=51, n=17, min/max-only movement, no refilter: GPU found 31 pairs instead of 33",
+    "disposition": "Rejected by brute-force oracle and removed before production SDK build; assertions unchanged"
+  },
+  "approval_review": "Initial production rewrite rejected before validation. Candidate was instead built and checked in an isolated test target; the validated production application was subsequently approved. No pending permission blocker.",
+  "hardware_counters": "Unavailable: ERR_NVGPUCTRPERM. No driver or service configuration changed; no occupancy/bandwidth bound claimed.",
+  "validation_order": "Integrated native tests preceded the wait-only profiler scope addition. Final three-scene timing campaigns, wall audit and large audit use the final artifacts. GPU kernel code did not change after those integrated tests.",
+  "performance_qualified": false,
+  "full_goal_complete": false,
+  "gpu_report_regeneration_byte_identical": true
+}

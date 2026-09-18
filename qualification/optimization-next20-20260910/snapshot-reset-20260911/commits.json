@@ -1,0 +1,70 @@
+[
+  {
+    "experiment": "R0",
+    "commit": "025d9160e5327e5a951b74d8f680cc1bfb942a8b",
+    "parent": "b966e357374e1790f0396f14f2215fd9b2ba19e8",
+    "files": {
+      "tools/diagnostics/destruction-snapshot/serialization-probe.cpp": "ccd02eaa8187833b106c99d74fc54e950110d4538df376401ed3995c353a946e",
+      "tools/diagnostics/destruction-snapshot/file-replay.inl": "b3fe134d90458cbeb5760f649d71f733c2603554494aabda623a762804a0722e"
+    }
+  },
+  {
+    "experiment": "R1-rejected",
+    "commit": "43ee31a2396b2c9e5100183c30cee63108acb465",
+    "parent": "025d9160e5327e5a951b74d8f680cc1bfb942a8b",
+    "files": {
+      "tools/diagnostics/destruction-snapshot/serialization-probe.cpp": "a9b984d5841b2e7aa28684225076051f544ae0b0f7f9f497751ebac08f51515d",
+      "tools/diagnostics/destruction-snapshot/file-replay.inl": "3a7a25f533a954c34ded442955e506c1ca517fa2f0c673863dc6a4018c091c28"
+    }
+  },
+  {
+    "experiment": "R2",
+    "commit": "b98589e7959c7e6505b6a318e7865bb08a445019",
+    "parent": "43ee31a2396b2c9e5100183c30cee63108acb465",
+    "files": {
+      "tools/diagnostics/destruction-snapshot/serialization-probe.cpp": "1b8e3dd795c720740274527ea89f57db9fe01d415a97b5db55adc37520ae641a",
+      "tools/diagnostics/destruction-snapshot/file-replay.inl": "821054f0d7f4df3db60f6b5330d5571717dd656655bc7f23b2b244a99f003bb0",
+      "tools/diagnostics/destruction-snapshot/pinned-memory-pool.h": "5e0496be3715ec84c6fbfaf1fed44eb99db7d7aac62c760c6d5bc79c5faf1b99",
+      "demos/blast-stress-demo/physx_scene.h": "8ddd059f602bd2d62ca57507b04f1579d1c06eb7d1b688b78ecc7c98cc81d022",
+      "demos/blast-stress-demo/physx_scene.cpp": "7c5a655e5b6e9136568e629f7faa71538ddf5d37a55cfe7bea7687cc41db6028"
+    }
+  },
+  {
+    "experiment": "R3",
+    "commit": "d6045e50cff95aedc44e5255a616004f6d4899c5",
+    "parent": "b98589e7959c7e6505b6a318e7865bb08a445019",
+    "files": {
+      "physx/source/gpudestruction/src/PxgDestructionSnapshot.cuh": "d62a7b6a84e022a1f514ab3b645fe3ab4b43eb757fd7a02ab3d9d4b7072ff2e7",
+      "physx/source/gpudestruction/src/PxgDestructionSnapshotAPI.inl": "23f76c46467b7490ab5f2af1881c49c04dbbc2d3ce8d1b1591a66702880c93d4"
+    }
+  },
+  {
+    "experiment": "R3-timers",
+    "commit": "222547a14656490645acc4aa6a6b4b214a1d79cb",
+    "parent": "d6045e50cff95aedc44e5255a616004f6d4899c5",
+    "files": {
+      "tools/diagnostics/destruction-snapshot/serialization-probe.cpp": "40f2ac9aa8d04bba71537c365eb36035f7cfc0dddea2672df4d5a027ac0095db",
+      "tools/diagnostics/destruction-snapshot/file-replay.inl": "e28f44c804a01df30319ae65041bde3b76af9456b0f86f441adb21b0700be6fa"
+    }
+  },
+  {
+    "experiment": "R4",
+    "commit": "ecde0026eb847e1c6ee444254cb097dd673bea4b",
+    "parent": "222547a14656490645acc4aa6a6b4b214a1d79cb",
+    "files": {
+      "tools/diagnostics/destruction-snapshot/serialization-probe.cpp": "575660c31fcef7bfde66ca36d66260b937ccd4b997e736ea7ff71bca90282708",
+      "tools/diagnostics/destruction-snapshot/file-replay.inl": "f300bafe899a17015141d2d5fa4a7ded044001fa38cac3059e1299bd2af35d68",
+      "physx/source/gpudestruction/src/PxgDestructionSnapshot.cuh": "3547a7f74980114737fd7eae526c9ecc31e6d27ace6108eaa90c80c8d5c56808"
+    }
+  },
+  {
+    "experiment": "R4-hardening",
+    "commit": "38112ec7123fc63da56d651660b9bdd5f25b16d4",
+    "parent": "ecde0026eb847e1c6ee444254cb097dd673bea4b",
+    "files": {
+      "tools/diagnostics/destruction-snapshot/pinned-memory-pool.h": "7023690e784ac196cffdac1152bb19f186600f680c3e864160827fb66d7d9b32",
+      "tools/diagnostics/destruction-snapshot/file-replay.inl": "6c4aa44de2880b8fe9cf521b80dd358ebfc2ac835c1f347805a151ec413c6691",
+      "physx/source/gpudestruction/src/PxgDestructionSnapshot.cuh": "42001efeb32dc2f4c27665a737237cfffd63591cc714944f033ce38925e9bf44"
+    }
+  }
+]

@@ -62,11 +62,11 @@ ADD_LIBRARY(PhysXGpu ${PHYSXGPU_LIBTYPE}
 )
 
 # Match the output name expected by the runtime loader (PX_PHYSX_GPU_SHARED_LIB_NAME).
-# The PhysX runtime does dlopen("libPhysXGpu_64.so") / LoadLibrary("PhysXGpu_64.dll"),
+# The PhysX runtime does dlopen("libPhysXGpuActivity_64.so") / LoadLibrary("PhysXGpuActivity_64.dll"),
 # so the built library must use the _64 suffix to be found at runtime.
 #
 # In the standalone build (via source/compiler/cmake/CMakeLists.txt), NvidiaBuildOptions.cmake
-# sets CMAKE_DEBUG_POSTFIX="_64" etc., so OUTPUT_NAME="PhysXGpu" + postfix="_64" produces the
+# sets CMAKE_DEBUG_POSTFIX="_64" etc., so OUTPUT_NAME="PhysXGpuActivity" + postfix="_64" produces the
 # correct name. We only override OUTPUT_NAME when postfixes are NOT set (FetchContent path).
 IF(NOT CMAKE_DEBUG_POSTFIX)
 	IF(CMAKE_SIZEOF_VOID_P EQUAL 8)
@@ -74,7 +74,7 @@ IF(NOT CMAKE_DEBUG_POSTFIX)
 	ELSE()
 		SET(_PX_GPU_BITNESS "32")
 	ENDIF()
-	SET_TARGET_PROPERTIES(PhysXGpu PROPERTIES OUTPUT_NAME "PhysXGpu_${_PX_GPU_BITNESS}")
+	SET_TARGET_PROPERTIES(PhysXGpu PROPERTIES OUTPUT_NAME "PhysXGpuActivity_${_PX_GPU_BITNESS}")
 ENDIF()
 
 TARGET_INCLUDE_DIRECTORIES(PhysXGpu
@@ -110,11 +110,11 @@ TARGET_INCLUDE_DIRECTORIES(PhysXGpu
 # Add CUDA manager include directory
 TARGET_INCLUDE_DIRECTORIES(PhysXGpu PRIVATE ${PHYSX_SOURCE_DIR}/physx/src/opensource/cudamanager/include)
 
-# For standalone builds (CMAKE_DEBUG_POSTFIX is set), keep the base name as "PhysXGpu"
+# For standalone builds (CMAKE_DEBUG_POSTFIX is set), keep the base name as "PhysXGpuActivity"
 # and let the postfix system add "_64". For FetchContent builds (no postfix), the
-# OUTPUT_NAME was already set to "PhysXGpu_64" above.
+# OUTPUT_NAME was already set to "PhysXGpuActivity_64" above.
 IF(CMAKE_DEBUG_POSTFIX)
-	SET_TARGET_PROPERTIES(PhysXGpu PROPERTIES OUTPUT_NAME "PhysXGpu")
+	SET_TARGET_PROPERTIES(PhysXGpu PROPERTIES OUTPUT_NAME "PhysXGpuActivity")
 ENDIF()
 
 IF(PHYSXGPU_LIBTYPE STREQUAL "STATIC")
@@ -164,3 +164,12 @@ SET_TARGET_PROPERTIES(PhysXGpu PROPERTIES
 	POSITION_INDEPENDENT_CODE TRUE
 )
 
+
+# Destruction uses the same scene CUDA context and native simulation lifecycle.
+add_subdirectory(${PHYSX_SOURCE_DIR}/gpudestruction/runtime ${CMAKE_CURRENT_BINARY_DIR}/destruction-runtime)
+target_include_directories(PhysXSimulationControllerGpu PRIVATE ${PHYSX_SOURCE_DIR}/gpudestruction/include)
+target_include_directories(PhysXSolverGpu PRIVATE ${PHYSX_SOURCE_DIR}/gpudestruction/include)
+target_include_directories(PhysXNarrowphaseGpu PRIVATE ${PHYSX_SOURCE_DIR}/gpudestruction/include)
+target_link_libraries(PhysXGpu PRIVATE PhysXDestructionGpuRuntime)
+set_property(TARGET PhysXGpu APPEND PROPERTY BUILD_RPATH "$ORIGIN")
+set_property(TARGET PhysXGpu APPEND PROPERTY INSTALL_RPATH "$ORIGIN")

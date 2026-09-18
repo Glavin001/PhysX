@@ -1,0 +1,12 @@
+[destruction] CUDA stress solver active; configured iteration budget 8192. Convergence depends on the current load and topology.
+tick 0/600, fragments 27, awake 0, broken 0
+tick 60/600, fragments 30, awake 3, broken 15
+tick 120/600, fragments 31, awake 0, broken 16
+tick 180/600, fragments 34, awake 0, broken 19
+tick 240/600, fragments 1237, awake 1173, broken 5882
+tick 300/600, fragments 1311, awake 1241, broken 6363
+tick 360/600, fragments 1743, awake 1671, broken 8586
+tick 420/600, fragments 2459, awake 2391, broken 11252
+tick 480/600, fragments 3229, awake 3161, broken 13957
+tick 540/600, fragments 3307, awake 3230, broken 14165
+report: /root/workspace/physx-2/out/vibe-coarse-assembly-20260908/external-reference/external-shots/report.md

@@ -1,0 +1,42 @@
+{
+  "base_revision": "ab30a85b410603c284255f562f92f7733ab5ad8e",
+  "note": "Current source snapshot of the contact-property WIP used in this campaign; no physics implementation changes occurred between the capture and this documentation archive.",
+  "source_sha256": {
+    "demos/blast-stress-demo/CMakeLists.txt": "76caf42776e0e9c144c2d16d4078dc1a210b96641d9deb055fcb1df434b79489",
+    "demos/blast-stress-demo/tests/native_gpu_collision_test.cpp": "e93b080b3c460b37b55174b5f908c14f747a411b6868478371a8e4a78e01e5e2",
+    "physx/source/gpudestruction/include/PxgDestructionRuntime.h": "811072fe93c7faa3eb8ba41c10dda2f7b8c72bff9749e7ac3d353164fcabd698",
+    "physx/source/gpudestruction/src/PxgDestructionRuntime.cu": "c877dd47d4e9c2d7dae99c48d234487b17b17a24be6374f205d8ff175fadce09",
+    "physx/source/gpunarrowphase/include/PxgContactManager.h": "8e27be8fd9fc6ab30b75d0de1568b39fc2f0e3400f02e2c5fab6812991f9f655",
+    "physx/source/gpunarrowphase/include/PxgNarrowphaseCore.h": "6d8a75719d0e14e8ce904b2205c7059d48f3d26203cb74705e3f2d411df5272e",
+    "physx/source/gpunarrowphase/include/PxgShapeManager.h": "5d98532943599bb5c90191463bef694f0644f465184c287920a72b5105aa4520",
+    "physx/source/gpunarrowphase/src/PxgNarrowphaseCore.cpp": "b6e51e4ee79e338c1e6adae6f5064aef9773a01722bab5c3935622c693e62000",
+    "physx/source/gpunarrowphase/src/PxgShapeManager.cpp": "2c80eebbfa7a15bca240b246c3ca89028a25f5afa2d48596a3ba6dd24c776cbe",
+    "physx/source/gpusimulationcontroller/include/PxgSimulationController.h": "c348ea78a3322e0b37952b14a91f16cc9fcc3f023e0836f2165fe201dd2afa22",
+    "physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp": "9366c8b082935c4309ea8b11898ade85e35988b0bd635843eecd92f004ec539a",
+    "physx/source/lowlevel/software/include/PxsSimulationController.h": "7153c28f5eb92b55556bfbe37bd402081d8acd2b61565f1d495a5fe66083e320",
+    "physx/source/physx/src/NpShape.cpp": "488c671055b8667e6d0790ffe655628c0b272b3547a046bc21e3f478059d8621",
+    "physx/source/gpunarrowphase/src/PxgShapeContactProperties.inl": "18811567fc482c317922baa1125ce68bfcf216be26fa550575a31196dd0e224d"
+  },
+  "runtime_artifacts_from_capture": {
+    "/root/workspace/physx-2/out/cupti-capture-fix-20260907/deps/cupti-13.2.86/nvidia/cu13/lib/libcupti.so.13": "df23b4e21d11bfb2c86b3159def62cbd2e6e660c70a9bf75bd4612a17bd40043",
+    "/root/workspace/physx-2/out/destruction-sdk/reference/libnative_gpu_visuals.so": "cae8b0ab0624d55820b8c6377c0ddb30d8bef3d42042e2fcc572a850f5e91bf2",
+    "/root/workspace/physx-2/out/destruction-sdk/reference/native_destruction_demo": "f3ec0f9530a3fb3703e4c04e9e77815ba5ee03c009d450f95d6bd69a67c56915",
+    "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPVDRuntime_64.so": "7ced8c8e62fd6323cbb75910cf1a9cf29e2cfe5cfe1d053a8ad061a6bd4d1c2b",
+    "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so": "c79113558e0a22834645f0f12e18e1060e65bd3eba3d838f2138f726530b5098",
+    "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so": "bee246b39bf5747db103294e3619ecafed5fb27ba8b4d7f83377c6d68723105f",
+    "/usr/lib/x86_64-linux-gnu/libEGL.so.1": "875ecbb2a07d60e32216c9f102965abc1e9cc1da7789558e2e9b8b9c107e231d",
+    "/usr/lib/x86_64-linux-gnu/libGLdispatch.so.0": "ca01a91104c8887b3d8e59499b58cbb8f604cc285666b50d9ec888eb0c915182",
+    "/usr/lib/x86_64-linux-gnu/libOpenGL.so.0": "9a0a6024499300f918ef1b42d581427cdb20bbc17a7d8239a4b7434833a98d4a",
+    "/usr/lib/x86_64-linux-gnu/libc.so.6": "8db37cf3f2169f59a0f07ef1fea308c35656668c64c8ff294e1860f4121eb161",
+    "/usr/lib/x86_64-linux-gnu/libcuda.so.1": "76e0d9678d41cf6b6ae71d18549d88a963d3d434f08108baa12457eb53ca88d6",
+    "/usr/lib/x86_64-linux-gnu/libdl.so.2": "292d5f5af2e7360b3e18c56591a4960115373ecf40627660f9149b6c68a33f80",
+    "/usr/lib/x86_64-linux-gnu/libgcc_s.so.1": "d93224d2b0dab4247598be683adca02f5cf00586f99c187579cd7e92058fb7cb",
+    "/usr/lib/x86_64-linux-gnu/libm.so.6": "e9c4b28d340e415b8137480ec442662f981e1399386c5931dae0e886e3639e91",
+    "/usr/lib/x86_64-linux-gnu/libpthread.so.0": "a27ffa9bf233d61a5f02ddb0cf770dd6579021afc1aa8aec0fb58ee4a965281a",
+    "/usr/lib/x86_64-linux-gnu/librt.so.1": "c6e6288545e24b0b3cfbf33320bda9236521625d8c3d628f3444f1ed40e5c7c5",
+    "/usr/lib/x86_64-linux-gnu/libstdc++.so.6": "1fd75fe70354a416d75aef22bcae68c47bd25d20e2d0568c30b1a9838cf62f11",
+    "/usr/lib/x86_64-linux-gnu/libutil.so.1": "0f3f158a3bddc74152a56ae8d2be659485f90dd9abbca92d25961f973672d2f5",
+    "/usr/lib/x86_64-linux-gnu/libz.so.1": "9b64150b28505a33d6bc3ecf709c279f6de97a1c184dbda65d06ee4537f6d286",
+    "/usr/local/cuda/lib64/libcudart.so.12": "c3a75b33af334a3486d197dbd1584a2985183ba4688d237a2be5f2f679329920"
+  }
+}

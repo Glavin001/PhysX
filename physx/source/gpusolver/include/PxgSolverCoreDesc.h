@@ -204,6 +204,9 @@ namespace physx
 		PxgSolverBodyData* solverBodyDataPool;
 		PxgSolverTxIData* solverBodyTxIDataPool;
 		PxgSolverBodySleepData* solverBodySleepDataPool;
+		// Node -> solver body index (0 = static). A dormant corrected pass remaps
+		// bodies that keep their trial result to 0; integration detects and skips them.
+		const PxU32* solverBodyIndices;
 
 		float4* outArtiVelocity;
 
@@ -235,6 +238,8 @@ namespace physx
 
 		PxgSolverReferences* solverBodyReferences;
 		PxsContactManagerOutput* contactManagerOutputBase;
+		const PxgBlockWorkUnit* nativeContactWorkUnits;
+		PxU64 nativeResponseEpoch;
 		PxgBodySim*	mBodySimBufferDeviceData;
 		PxgBodySimVelocities* mBodySimPrevVelocitiesBufferDeviceData;
 

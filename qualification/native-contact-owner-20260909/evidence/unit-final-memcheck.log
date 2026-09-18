@@ -1,0 +1,3 @@
+========= COMPUTE-SANITIZER
+GPU contact ownership passed: 1025 persistent pairs, sparse/tail updates, repeat endpoints, unchanged lifetimes, endpoint reversal, cooperative PCM invalidation and atomic stale-batch rejection
+========= ERROR SUMMARY: 0 errors

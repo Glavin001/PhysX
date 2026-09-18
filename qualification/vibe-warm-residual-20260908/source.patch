@@ -1,0 +1,128 @@
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressIterationDispatch.inl b/blast/source/sdk/extensions/stressgpu/detail/StressIterationDispatch.inl
+index f7668251..fa4ef6aa 100644
+--- a/blast/source/sdk/extensions/stressgpu/detail/StressIterationDispatch.inl
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressIterationDispatch.inl
+@@ -256,6 +256,7 @@
+         const unsigned blocks=m_nodeCount<=1024 ? 1u : std::min(std::max(nodeBlocks*8u,islandBlocks),unsigned(blocksPerSm*sms));
+         ResidentStressComponentView components{};
+         if(m_deviceTopology) {
++            initializeNativeWarmResidual<<<nodeBlocks,kBlockSize,0,m_stream>>>(args);
+             components=m_deviceTopology->components();
+             // The device list controls the live work; a bounded persistent
+             // grid distributes independent components without a host count.
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressNodeOperator.cuh b/blast/source/sdk/extensions/stressgpu/detail/StressNodeOperator.cuh
+index 655f335d..1001eb8e 100644
+--- a/blast/source/sdk/extensions/stressgpu/detail/StressNodeOperator.cuh
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressNodeOperator.cuh
+@@ -140,6 +140,11 @@ __device__ __forceinline__ void nodeSpaceMatvecBody(
+         }
+         const std::uint32_t other = isSecond ? node0[bond] : node1[bond];
+         const Inertia otherInv = inertia[other];
++        // Norm-only passes need the canonical endpoint's contribution once.
++        // Reject the duplicate before loading motion/offsets or forming the
++        // bond response. Matrix-vector passes still require both endpoints.
++        const bool owns = !isSecond || (otherInv.angular == 0.0f && otherInv.linear == 0.0f);
++        if (!w && !owns) continue;
+         const AngLin otherRho = rho[other];
+         const Vec4 otherAng = mul(otherRho.angular, otherInv.angular);
+         const Vec4 otherLin = mul(otherRho.linear, otherInv.linear);
+@@ -167,9 +172,6 @@ __device__ __forceinline__ void nodeSpaceMatvecBody(
+ 
+         // Own the bond from the node-0 side, or from the dynamic side when
+         // node 0 is static (that side never runs). Exactly once, either way.
+-        const bool node0Dynamic =
+-            !(inertia[node0[bond]].angular == 0.0f && inertia[node0[bond]].linear == 0.0f);
+-        const bool owns = isSecond ? !node0Dynamic : true;
+         if (owns)
+         {
+             // ||s_j t_j||^2 == |s_j^2 t_j|^2 / s_j^2
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressReliableResidual.cuh b/blast/source/sdk/extensions/stressgpu/detail/StressReliableResidual.cuh
+index ea2886dd..e419541c 100644
+--- a/blast/source/sdk/extensions/stressgpu/detail/StressReliableResidual.cuh
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressReliableResidual.cuh
+@@ -2,6 +2,10 @@
+ // recursive FP32 update alone can drift while a poorly conditioned component
+ // accumulates a large displacement potential. This changes no physical load,
+ // bond equation, requested tolerance or iteration cap.
++__device__ __forceinline__ StressHierarchy::Vector nativeWarmBondSolution(const PersistentStressArgs& a,unsigned edge){
++    const auto warm=a.impulses[edge];
++    return {{warm.angular.x,warm.angular.y,warm.angular.z},{warm.linear.x,warm.linear.y,warm.linear.z}};
++}
+ __device__ __forceinline__ StressHierarchy::Vector nativeBondSolution(const PersistentStressArgs& a,unsigned edge){
+     using namespace StressHierarchy;
+     const unsigned first=a.m_node0[edge],second=a.m_node1[edge];
+@@ -9,9 +13,9 @@ __device__ __forceinline__ StressHierarchy::Vector nativeBondSolution(const Pers
+     const auto y=scaledValue(a.hierarchy.solution[second],make_float2(a.m_inertia[second].angular,a.m_inertia[second].linear));
+     const auto u=a.m_offset0[edge],v=a.m_offset1[edge];
+     const auto delta=mul(sub(couple(x,make_double3(u.x,u.y,u.z)),couple(y,make_double3(v.x,v.y,v.z))),double(a.m_colScales[edge]));
+-    const auto warm=a.impulses[edge];
+-    return add(Vector{{warm.angular.x,warm.angular.y,warm.angular.z},{warm.linear.x,warm.linear.y,warm.linear.z}},delta);
++    return add(nativeWarmBondSolution(a,edge),delta);
+ }
++template<bool Accumulated=true>
+ __device__ __forceinline__ void rebuildNativeResidualNode(const PersistentStressArgs& a,unsigned node){
+     using namespace StressHierarchy;
+     Vector response{};
+@@ -19,7 +23,10 @@ __device__ __forceinline__ void rebuildNativeResidualNode(const PersistentStress
+         const unsigned ref=a.m_nodeBondRef[slot];if(ref==kDeadBondRef)continue;
+         const unsigned edge=ref&0x7fffffffu;if(a.m_health[edge]<=0)continue;
+         const bool second=ref>>31;const auto offset=second?a.m_offset1[edge]:a.m_offset0[edge];
+-        const auto force=mul(nativeBondSolution(a,edge),double(a.m_colScales[edge])*(second?-1.:1.));
++        Vector impulse;
++        if constexpr(Accumulated)impulse=nativeBondSolution(a,edge);
++        else impulse=nativeWarmBondSolution(a,edge);
++        const auto force=mul(impulse,double(a.m_colScales[edge])*(second?-1.:1.));
+         response=add(response,transposeCouple(force,make_double3(offset.x,offset.y,offset.z)));
+     }
+     const auto d=a.m_inertia[node];response=scaledValue(response,make_float2(d.angular,d.linear));
+@@ -27,3 +34,11 @@ __device__ __forceinline__ void rebuildNativeResidualNode(const PersistentStress
+     a.m_residual[node]={{float(double(b.angular.x)-response.angular.x),float(double(b.angular.y)-response.angular.y),float(double(b.angular.z)-response.angular.z),0},
+                        {float(double(b.linear.x)-response.linear.x),float(double(b.linear.y)-response.linear.y),float(double(b.linear.z)-response.linear.z),0}};
+ }
++// Initialize from the same physical residual used for final verification.
++// No accumulated node correction exists yet, so its zero products and loads
++// are absent. Cold starts already have their exact RHS from initializeSolve.
++__global__ void initializeNativeWarmResidual(PersistentStressArgs a){
++    if(!a.warmStart)return;
++    const unsigned slot=blockIdx.x*blockDim.x+threadIdx.x;
++    if(slot<a.m_activeCounts[1])rebuildNativeResidualNode<false>(a,a.m_activeNodes[slot]);
++}
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressSolveSubmission.inl b/blast/source/sdk/extensions/stressgpu/detail/StressSolveSubmission.inl
+index 8b7a744d..f971baee 100644
+--- a/blast/source/sdk/extensions/stressgpu/detail/StressSolveSubmission.inl
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressSolveSubmission.inl
+@@ -61,7 +61,13 @@
+         // pulverizes" (3726 bonds vs a <=2028 band), T2 bodies (1087 vs <=707)
+         // and T4 awake-declined (0.42 vs <=0.10). So the graph has to tolerate
+         // the flip instead.
+-        if (warmStart || stableGraphEnabled())
++        // Native solving initializes directly with its accurate verification
++        // operator after reset. Avoid the adapter's FP32 multiply/subtract pair.
++        bool nativeResidual = false;
++#ifdef PHYSX_RESIDENT_DESTRUCTION
++        nativeResidual = m_deviceTopology != nullptr;
++#endif
++        if (!nativeResidual && (warmStart || stableGraphEnabled()))
+         {
+             rightMultiply(m_stream, m_impulses, m_projectedDirection, islandSkip);
+             m_kernelProfile.begin("subtractResidual", m_stream);
+diff --git a/demos/blast-stress-demo/tests/gpu_resident_motion_modes_test.cu b/demos/blast-stress-demo/tests/gpu_resident_motion_modes_test.cu
+index 3aa47d4b..3e7c99b3 100644
+--- a/demos/blast-stress-demo/tests/gpu_resident_motion_modes_test.cu
++++ b/demos/blast-stress-demo/tests/gpu_resident_motion_modes_test.cu
+@@ -190,6 +190,7 @@ void run(Fixture f,bool transitions){
+ }
+ }
+ #include "native_warm_range_test.cuh"
++#include "native_warm_residual_test.cuh"
+ #include "native_fine_inverse_test.cuh"
+ #include "native_rigid_inverse_test.cuh"
+ #include "native_polynomial_test.cuh"
+@@ -208,6 +209,7 @@ int main(int argc,char** argv){try{
+     firstDirectionWithoutHistory();
+     cooperativeRetirement();
+     warmRangeLifecycle();
++    accurateWarmResidual();
+     topologyWarmInvalidation();
+     inverseTopologyLifetime();
+     run(Fixture(0),false);run(Fixture(1),false);

@@ -1,0 +1,13 @@
+memcheck 0
+resident-suite 0
+standard-suite 0
+penetration 0
+baseline-a 0
+baseline-a mean None peak 151.16497
+candidate-a 0
+candidate-a mean None peak 150.722036
+candidate-b 0
+candidate-b mean None peak 150.593868
+baseline-b 0
+baseline-b mean None peak 149.300578
+server restore 0

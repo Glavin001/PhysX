@@ -1,0 +1,12 @@
+{
+  "baseline": {
+    "GpuDestruction.finishDetail.growMotionSlots": 0.609407,
+    "GpuDestruction.cuda.allocationAndPreparation": 0.021503999830000002,
+    "GpuDestruction.cuda.allocationAndPreparationRetry": 0.37878400079999996
+  },
+  "candidate": {
+    "GpuDestruction.finishDetail.growMotionSlots": 0.692361,
+    "GpuDestruction.cuda.allocationAndPreparation": 0.02047999948,
+    "GpuDestruction.cuda.allocationAndPreparationRetry": 0.3829759955
+  }
+}

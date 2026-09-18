@@ -68,6 +68,7 @@ namespace physx
 	namespace IG
 	{
 		class IslandSim;
+        class SimpleIslandManager;
 	}
 
 	namespace Sc
@@ -76,6 +77,8 @@ namespace physx
 		class ShapeSimBase;
 	}
 
+	class PxDestructionScene;
+    class PxvDestructionBodyAllocator;
 	class PxsTransformCache;
 	class PxvNphaseImplementationContext;
 	class PxBaseTask;
@@ -118,6 +121,8 @@ namespace physx
 					PxsSimulationController(PxsSimulationControllerCallback* callback, PxIntBool gpu) : mCallback(callback), mGPU(gpu)	{}
 		virtual		~PxsSimulationController(){}
 
+        // Refresh persistent rebound geometry from authoritative GPU motion.
+        virtual bool setGpuShapeBoundsRefresh(PxU32 /*index*/, bool enabled) { return !enabled; }
 		virtual void addPxgShape(Sc::ShapeSimBase* /*shapeSimBase*/, const PxsShapeCore* /*shapeCore*/, PxNodeIndex /*nodeIndex*/, PxU32 /*index*/){}
 		virtual void setPxgShapeBodyNodeIndex(PxNodeIndex /*nodeIndex*/, PxU32 /*index*/) {}
 		virtual void removePxgShape(PxU32 /*index*/){}
@@ -299,6 +304,39 @@ namespace physx
 		virtual	bool	computeArticulationData(void* /*data*/, const PxArticulationGPUIndex* /*gpuIndices*/, PxArticulationGPUAPIComputeType::Enum /*operation*/, PxU32 /*nbElements*/, CUevent /*startEvent*/, CUevent /*finishEvent*/) { return false; }
 
 		virtual bool 	evaluateSDFDistances(PxVec4* /*localGradientAndSDFConcatenated*/, const PxShapeGPUIndex* /*shapeIndices*/, const PxVec4* /*localSamplePointsConcatenated*/, const PxU32* /*samplePointCountPerShape*/, PxU32 /*nbElements*/, PxU32 /*maxPointCount*/, CUevent /*startEvent = NULL*/, CUevent /*finishEvent = NULL*/) { return false; }
+        virtual bool isRigidBodyRegistered(PxU32, const PxsRigidBody*) const { return false; }
+    virtual bool exportNativeSnapshot(const PxU32*,PxU32,void*,PxU32) const { return false; }
+    virtual bool importNativeSnapshot(const PxU32*,PxU32,const void*,PxU32) { return false; }
+        virtual PxDestructionScene* getDestructionScene(void*, bool (*)(void*), PxvDestructionBodyAllocator*) { return NULL; }
+        virtual bool advanceDestruction(PxReal, const PxVec3&, bool, bool) { return false; }
+        // Optional early submission of the trial stress solve (before the CPU post-solve chain); the later advanceDestruction reuses it.
+        // The scene arms it after its island passes with a sleep-commit callback; the GPU context reports the solver launch issue.
+        // Whichever arrives second runs the commit and the submission.
+        virtual bool submitDestructionEarly(PxReal, const PxVec3&, bool (*)(void*), void*) { return false; }
+        virtual void noteDestructionSolverIssued(void* /*CUevent*/) {}
+        virtual void flushDeferredDestructionWork() {}
+        virtual PxU32 getDestructionError() const { return 0; }
+        virtual void discardDestructionTrialBodyUpload(PxU32) {}
+        // A body's pending native sleep finalization was applied individually (wake/command
+        // paths); it leaves the CPU's carried rollback set. Device sleep transition mirrors this.
+        virtual void noteDestructionSleepFinalized(PxU32 /*gpuIndex*/) {}
+        // Pending-only native sleep finalization (bodies pending outside the island passes:
+        // snapshot loads, user sleeps). Registered each pass by the scene; the device sleep
+        // transition applies it before an issue-time stress submit.
+        virtual void registerDestructionSleepFinalizer(bool (*)(void*), void*) {}
+        // R2 stage 0: the device applies the solver's activate/deactivate frame flags to its
+        // readiness mirrors; the host's after-integration application must not record deltas.
+        virtual bool deviceOwnsSolverReadiness() const { return false; }
+        // Island-scoped correction: rigid nodes whose islands hold no correction
+        // target and stay at their trial result for the corrected pass.
+        virtual const PxU32* destructionParkedNodes(PxU32& count) const { count=0; return NULL; }
+        virtual bool preservesDestructionContactPairs() const { return false; }
+        virtual bool usesDeviceDestructionContactInputs() const { return false; }
+        virtual bool usesGpuDestructionIslandRepair() const { return false; }
+        // Contact-pair storage the destruction scene asked to reserve (page-touched) at the next step.
+        virtual PxU32 destructionReservedContactPairs() const { return 0; }
+        virtual void prepareGpuDestructionIslandRepair(IG::SimpleIslandManager&) {}
+
 		virtual	bool	copyContactData(void* /*data*/, PxU32* /*numContactPairs*/, const PxU32 /*maxContactPairs*/, CUevent /*startEvent*/, CUevent /*copyEvent*/) { return false; }
 
 		virtual PxArticulationGPUAPIMaxCounts getArticulationGPUAPIMaxCounts()	const	{ return PxArticulationGPUAPIMaxCounts(); }
@@ -332,6 +370,11 @@ namespace physx
 		virtual bool					hasDeformableSurfaces()					const	{ return false;	}
 		virtual bool					hasDeformableVolumes()					const	{ return false;	}
 #endif
+
+        // Experimental native activity bridge; append to preserve existing virtual slots.
+        virtual void removeDynamic(const PxNodeIndex& /*nodeIndex*/) {}
+        virtual bool finalizeSleepingRigidBodies(const PxU32* /*indices*/, PxU32 /*count*/, bool /*rollbackPose*/) { return false; }
+        virtual bool publishHostRigidPoses(const PxU32*, const PxTransform*, PxU32) { return false; }
 
 	protected:
 		PxsSimulationControllerCallback*	mCallback;

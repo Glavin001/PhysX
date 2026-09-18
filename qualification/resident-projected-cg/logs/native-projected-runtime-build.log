@@ -1,0 +1,24 @@
+Building CUDA object sdk_gpu_source_bin/destruction-runtime/CMakeFiles/PhysXDestructionGpuRuntime.dir/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu.o
+/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu(285): warning #177-D: function "Nv::Blast::<unnamed>::conditionalLoopEnabled" was declared but never referenced
+  bool conditionalLoopEnabled()
+       ^
+
+Remark: The warnings can be suppressed with "-diag-suppress <warning-number>"
+
+/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu(379): warning #177-D: function "Nv::Blast::<unnamed>::verifyPartitionEnabled" was declared but never referenced
+  bool verifyPartitionEnabled()
+       ^
+
+/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu(558): warning #177-D: variable "Nv::Blast::<unnamed>::kQRefresh" was declared but never referenced
+  static constexpr std::uint32_t kQRefresh = 16u;
+                                 ^
+
+/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu(3233): warning #177-D: function "Nv::Blast::<unnamed>::ExtStressGpuSolverImpl::verifyPartitionAgainstRebuild" was declared but never referenced
+      void verifyPartitionAgainstRebuild()
+           ^
+
+/root/workspace/physx-2/blast/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu:285:13: warning: ‘bool Nv::Blast::_GLOBAL__N__4c903375_22_NvBlastExtStressGpu_cu_097227fb::conditionalLoopEnabled()’ defined but not used [-Wunused-function]
+  285 | bool conditionalLoopEnabled()
+      |             ^~~~~~~~~~~~~~~~~     
+Linking CUDA shared library /root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so
+Built target PhysXDestructionGpuRuntime

@@ -88,6 +88,7 @@ namespace physx
 							void					onRestOffsetChange();
 							void					onFlagChange(PxShapeFlags oldFlags);
 							void					onResetFiltering();
+            bool rebindRigidOwner(RigidSim& owner, const PxTransform& shapeToActor, bool deviceOwnerTransaction = false);
 							void					onVolumeOrTransformChange();
 							void					onContactOffsetChange();
 							void					markBoundsForUpdate();

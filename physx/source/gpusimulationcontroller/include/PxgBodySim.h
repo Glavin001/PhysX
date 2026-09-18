@@ -34,6 +34,19 @@
 namespace physx
 {
 
+	// PdHC: GPU-compatible rigid body acceleration struct
+	// Aligned to 16 bytes for efficient GPU memory access
+	// Note: Two PxVec3s (2 x 12 bytes = 24 bytes), padded to 32 bytes for GPU alignment
+	PX_ALIGN_PREFIX(16)
+	struct PxgRigidBodyAcceleration
+	{
+		PxVec3	linear;
+		PxReal	_padLinear;		// Padding to align angular to 16 bytes
+		PxVec3	angular;
+		PxReal	_padAngular;	// Padding to maintain 32-byte struct size
+	}
+	PX_ALIGN_SUFFIX(16);
+
 struct PxgBodySim
 {
 	float4		linearVelocityXYZ_inverseMassW;													//16	16
@@ -57,6 +70,12 @@ struct PxgBodySim
 
 	float4		externalLinearAcceleration;														//208	16
 	float4		externalAngularAcceleration;													//224	16
+    // Authored values, including while the effective body is kinematic. Native
+    // fragments becoming dynamic inherit these without CPU configuration reads.
+    float4      dynamicLimitsDamping;
+    // x: packed position/velocity iteration counts; remaining lanes reserved/zero.
+    uint4       solverConfig;
+
 };
 
 struct PxgBodySimVelocities
@@ -72,6 +91,16 @@ struct PxgBodySimVelocityUpdate
 	float4 externalLinearAccelerationXYZ;
 	float4 externalAngularAccelerationXYZ;
 };
+
+	// Prescribed kinematic motion differs from persistent collision state in
+	// ordinary native mode. Preserve only these solver inputs when their command
+	// staging buffer is reused; destruction motion remains in PxgBodySim.
+	struct PxgKinematicMotionInput
+	{
+		PxAlignedTransform body2World;
+		float4 linearVelocity, angularVelocity;
+		PxU32 valid;
+	};
 
 }//physx
 

@@ -1,0 +1,64 @@
+diff --git a/blast/source/sdk/extensions/stressgpu/detail/StressNativePolynomial.cuh b/blast/source/sdk/extensions/stressgpu/detail/StressNativePolynomial.cuh
+index a47925a9..704317fa 100644
+--- a/blast/source/sdk/extensions/stressgpu/detail/StressNativePolynomial.cuh
++++ b/blast/source/sdk/extensions/stressgpu/detail/StressNativePolynomial.cuh
+@@ -7,7 +7,7 @@
+ // zero eigenvalue. No low mode or load is dropped. Outer projection, equations
+ // and authoritative residual acceptance remain unchanged.
+ __device__ __forceinline__ StressHierarchy::Vector nativeOffDiagonal(
+-    const StressHierarchy::Input& input,unsigned node,const StressHierarchy::Vector* x)
++    const StressHierarchy::Input& input,unsigned node,const StressHierarchy::Vector* physical)
+ {
+     using namespace StressHierarchy;
+     Vector value{};
+@@ -18,11 +18,11 @@ __device__ __forceinline__ StressHierarchy::Vector nativeOffDiagonal(
+         const unsigned other=back?input.node0[edge]:input.node1[edge];
+         // Fixed boundaries contribute to D, but have no off-diagonal motion.
+         if(other==node || input.component[other]==Invalid)continue;
+-        const auto remote=couple(scaledValue(x[other],input.inertia[other]),sourceOffset(input,edge,!back));
++        const auto remote=couple(physical[other],sourceOffset(input,edge,!back));
+         const double scale=input.scale[edge];
+-        value=add(value,scaledValue(transposeCouple(mul(remote,-scale*scale),sourceOffset(input,edge,back)),input.inertia[node]));
++        value=add(value,transposeCouple(mul(remote,-scale*scale),sourceOffset(input,edge,back)));
+     }
+-    return value;
++    return scaledValue(value,input.inertia[node]);
+ }
+ __device__ __forceinline__ StressHierarchy::Vector* preconditionNativePolynomial(
+     const PersistentStressArgs& a,const unsigned* nodes,unsigned count)
+@@ -34,11 +34,16 @@ __device__ __forceinline__ StressHierarchy::Vector* preconditionNativePolynomial
+     const auto input=a.hierarchy.cycle.levels[0].input;
+     auto* local=a.hierarchy.result;
+     auto* result=a.hierarchy.cycle.intermediate;
++    // The small-component solve owns these fine-level rows; the cooperative
++    // hierarchy only uses rows belonging to large components. Reuse its fine
++    // residual workspace for scaled local values, without a new allocation.
++    auto* physical=a.hierarchy.cycle.levels[0].residual;
+     for(unsigned i=threadIdx.x;i<count;i+=blockDim.x){const unsigned node=nodes[i];
+-        local[node]=applyNativeRigidInverse(a.hierarchy,node,a.hierarchy.rhs[node]);}
++        local[node]=applyNativeRigidInverse(a.hierarchy,node,a.hierarchy.rhs[node]);
++        physical[node]=scaledValue(local[node],input.inertia[node]);}
+     __syncthreads();
+     for(unsigned i=threadIdx.x;i<count;i+=blockDim.x){const unsigned node=nodes[i];
+-        const auto off=nativeOffDiagonal(input,node,local);
++        const auto off=nativeOffDiagonal(input,node,physical);
+         result[node]=sub(mul(local[node],diagonal),mul(applyNativeRigidInverse(a.hierarchy,node,off),coupling));}
+     // One disjoint destination per node. Readers consume this completed view;
+     // there is no product buffer, copy back or second launch inside iteration.
+diff --git a/demos/blast-stress-demo/tests/native_polynomial_test.cuh b/demos/blast-stress-demo/tests/native_polynomial_test.cuh
+index 7d8ee6d3..d2f9c0cd 100644
+--- a/demos/blast-stress-demo/tests/native_polynomial_test.cuh
++++ b/demos/blast-stress-demo/tests/native_polynomial_test.cuh
+@@ -40,10 +40,10 @@ void polynomialOperator(){
+         }
+         Device<unsigned> a(f.a.size()),b(f.b.size()),begin(f.begin.size()),refs(f.refs.size()),component(n),nodes(order.size());
+         Device<float> health(f.health.size()),scale(f.scale.size());Device<float4> offset0(f.offset0.size()),offset1(f.offset1.size());Device<float2> inertia(n);
+-        Device<double> factors(packed.size());Device<Vector> rhs(n),out(n),scratch(n),columns(size*n);Device<CycleLevel> level(1);
++        Device<double> factors(packed.size());Device<Vector> rhs(n),out(n),scratch(n),physical(n),columns(size*n);Device<CycleLevel> level(1);
+         a.put(f.a);b.put(f.b);begin.put(f.begin);refs.put(f.refs);component.put(labels);nodes.put(order);health.put(f.health);scale.put(f.scale);offset0.put(f.offset0);offset1.put(f.offset1);factors.put(packed);
+         std::vector<float2> mass(n);for(unsigned i=0;i<n;++i)mass[i]={f.inertia[i].angular,f.inertia[i].linear};inertia.put(mass);
+-        CycleLevel descriptor{};descriptor.input={n,unsigned(f.a.size()),begin.data,refs.data,a.data,b.data,component.data,health.data,scale.data,nullptr,offset0.data,offset1.data,inertia.data,nullptr,nullptr};level.put({descriptor});
++        CycleLevel descriptor{};descriptor.residual=physical.data;descriptor.input={n,unsigned(f.a.size()),begin.data,refs.data,a.data,b.data,component.data,health.data,scale.data,nullptr,offset0.data,offset1.data,inertia.data,nullptr,nullptr};level.put({descriptor});
+         PersistentStressArgs args{};args.hierarchy.cycle.levels=level.data;args.hierarchy.cycle.intermediate=scratch.data;args.hierarchy.rhs=rhs.data;args.hierarchy.result=out.data;args.hierarchy.fineInverse=factors.data;args.hierarchy.inverseStride=n;
+         for(unsigned column=anchored?6:0;column<size;++column)polynomialBasis<<<1,kBlockSize>>>(args,nodes.data,order.size(),column,columns.data,n);
+         check(cudaGetLastError());check(cudaDeviceSynchronize());const auto observed=columns.get();

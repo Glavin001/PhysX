@@ -1,0 +1,6 @@
+RUN penetration-warmup-0
+RUN penetration-plain-0
+RUN penetration-plain-1
+RUN penetration-phases-0
+CAPTURE COMPLETE /root/workspace/physx-2/out/warp-incremental-penetration/campaign.json
+qualification/warp-incremental-penetration/report.html

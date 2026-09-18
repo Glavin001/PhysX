@@ -1,0 +1,150 @@
+{
+  "milestone": "Native GPU persistent collision binding preparation",
+  "timestampUtc": "2026-09-06T01:18:55.582871+00:00",
+  "baseRevision": "48fa7af1bb5882aadbc9be29f13f0766fcb166f0",
+  "gpu": "NVIDIA GeForce RTX 4090, 595.71.05",
+  "buildCommand": "python3 tools/scripts/build-destruction-sdk.py --jobs 4",
+  "buildReturncode": 0,
+  "regressionCommand": {
+    "command": [
+      "ctest",
+      "--test-dir",
+      "out/destruction-sdk",
+      "--output-on-failure",
+      "--output-junit",
+      "/root/workspace/physx-2/out/native-collision-preparation-regression.xml"
+    ],
+    "returncode": 8
+  },
+  "regression": {
+    "tests": 53,
+    "passed": 48,
+    "failed": [
+      "blast_stress_load_path",
+      "blast_stress_reference_building_load_path",
+      "blast_stress_reference_building_crush_ordinary_impact",
+      "blast_stress_crush_wall_bite",
+      "blast_stress_destruction_quality"
+    ],
+    "newFailures": [],
+    "existingAssertionsWeakened": false
+  },
+  "newTest": "physx_native_gpu_collision_preparation",
+  "memoryChecks": [
+    {
+      "command": [
+        "/usr/local/cuda/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "99",
+        "out/destruction-sdk/reference/native_gpu_collision_test"
+      ],
+      "returncode": 0,
+      "log": "out/native-collision-preparation-native_gpu_collision_test-memcheck.log",
+      "zeroErrors": true,
+      "sha256": "f353ffc669051715ee10c5ca54f94c12db2e7635f76159b7e4223f67d1c16f5b"
+    },
+    {
+      "command": [
+        "/usr/local/cuda/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "99",
+        "out/destruction-sdk/reference/native_gpu_allocation_test"
+      ],
+      "returncode": 0,
+      "log": "out/native-collision-preparation-native_gpu_allocation_test-memcheck.log",
+      "zeroErrors": true,
+      "sha256": "647ae9708bb3dd63dee3119a6e41aca29ea51ba135f28a24a5ea9f335e1053ba"
+    },
+    {
+      "command": [
+        "/usr/local/cuda/bin/compute-sanitizer",
+        "--tool",
+        "memcheck",
+        "--error-exitcode",
+        "99",
+        "out/destruction-sdk/reference/native_gpu_material_test"
+      ],
+      "returncode": 0,
+      "log": "out/native-collision-preparation-native_gpu_material_test-memcheck.log",
+      "zeroErrors": true,
+      "sha256": "1da96108616e96e3511233f4df091345fbf8e3ea2f799b75e6a68e2b5e2cceab"
+    }
+  ],
+  "installedConsumers": [
+    {
+      "command": [
+        "out/package-consumer/package_consumer"
+      ],
+      "returncode": 0
+    },
+    {
+      "command": [
+        "out/package-consumer/package_consumer",
+        "--gpu"
+      ],
+      "returncode": 0
+    },
+    {
+      "command": [
+        "out/package-consumer/native_scene_consumer"
+      ],
+      "returncode": 0
+    },
+    {
+      "command": [
+        "out/package-consumer/native_scene_consumer",
+        "--gpu"
+      ],
+      "returncode": 0
+    }
+  ],
+  "sourceSha256": {
+    "demos/blast-stress-demo/CMakeLists.txt": "f8630fb2094903aea92d62167423e0b0f9e5badf7b43fe74e568b4540a4064c5",
+    "physx/include/PxDestructionScene.h": "a4cf109a412ad4a27fba6f478680714171de3b0e797c87decaae2a933fd5f2e5",
+    "physx/include/PxDestructionTopologyTypes.h": "96189fc76578b26f1d28ef8e73334a3f20effde6a58b4fb40a5073ef6a384256",
+    "physx/include/PxDirectGPUAPI.h": "0f07c536d4def7a51cdca23a6fe3c7bf48143fc82c88f144e5b411c5e81c22b2",
+    "physx/source/gpudestruction/include/PxgDestructionRuntime.h": "32db5c86fa75994aaf497d657f48b4983ed1b00ce7ed85dce93c1bb3cb3b8b4c",
+    "physx/source/gpudestruction/src/PxgDestructionRuntime.cu": "11642a03d09e73f95d74e28e931fc342c89e67a774febd08859b27232f25a1ee",
+    "physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp": "2377c14162137942d394716d81da88558788e9291ffe303dd8b352fe058942dd",
+    "physx/source/physx/src/NpDirectGPUAPI.cpp": "76f3d445ae979e53babfd22026dcc751fc6ee6640f497b0cebbaecca542df84d",
+    "demos/blast-stress-demo/tests/native_gpu_collision_test.cpp": "e62333583a46c02ee46f63ac81a75b14fda331b2d8aa8e7331707ef1c4c69fd0"
+  },
+  "librarySha256": {
+    "libPhysXDestructionGpuRuntime_64.so": "9fed1ac3edff7458f9c9805c43e0c48b0d33eae01562906c8018598e3fedc42a",
+    "libPhysXGpuActivity_64.so": "044f77b56780c6c93ad3b7cee35ceb0557be09c1793341bf4beac432c742a784",
+    "libPhysX_static_64.a": "b04d4bcd7978921d4b69675e596ad372d8492a4812439d174befeceb7d001c73"
+  },
+  "logsSha256": {
+    "out/native-collision-preparation-build.log": "502397c61dd811c0def063a852534bcfc26c246ea2fb15a3e071196f3491a3c0",
+    "out/native-collision-preparation-native_gpu_allocation_test-memcheck.log": "647ae9708bb3dd63dee3119a6e41aca29ea51ba135f28a24a5ea9f335e1053ba",
+    "out/native-collision-preparation-native_gpu_collision_test-memcheck.log": "f353ffc669051715ee10c5ca54f94c12db2e7635f76159b7e4223f67d1c16f5b",
+    "out/native-collision-preparation-native_gpu_material_test-memcheck.log": "1da96108616e96e3511233f4df091345fbf8e3ea2f799b75e6a68e2b5e2cceab",
+    "out/native-collision-preparation-package-build.log": "0084f1aa255c6af70590d26148d27cb2a2288e3a1605422a8905a271e0684e65",
+    "out/native-collision-preparation-package-consumers.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "out/native-collision-preparation-regression.log": "5478cfdb1a5d84d647eecbc086e6f03a882d3a0ed41fb1a96609cb5a9176b2c7",
+    "out/native-collision-preparation-regression.xml": "5227e727101f86f192262b3f31596768e8c841e93f43d92af9b8a1313124fe9a",
+    "out/native-collision-preparation-test.log": "2ac5b9b21e4e1bc43f3071ab822a311a60b0fc10f2c69dbd6f4350b3561a7a78",
+    "out/native-collision-preparation-tests-build.log": "3aca4332fe0b7813792d3060be2579390e9e1c78725f67a5a4be3696460d4121"
+  },
+  "coverage": [
+    "Actual native GPU material verdict drives persistent shape binding preparation through simulate/fetchResults",
+    "Four affected chunk shapes among 64 unchanged structures with sleeping enabled and disabled",
+    "257 affected shapes and 256 new native bodies, stable ordering and identical retry bindings without truncation",
+    "Retained owners included for mass/COM/constraint invalidation",
+    "Invalid shape IDs and wrong native ownership reject the complete batch; valid configuration recovers",
+    "Actual GPU crushing verdict produces explicit collision removals",
+    "Nonfracturing frame clears stale preparation",
+    "Shape identity lookup requires initialized Direct GPU metadata but no CPU motion observation"
+  ],
+  "limitations": [
+    "Prepared binding batch does not yet mutate persistent GPU or CPU collision ownership",
+    "Native ownership-changing steps still report incomplete error 8; ordinary trial motion is not rewound",
+    "Retained solver-body update, checkpoint/restore of ordinary participants and joints, one internal resim and committed-only publication remain required",
+    "Full generation-bearing shape lifecycle and scene-wide capacity growth remain unfinished",
+    "Rust/WASM/game integration, full native demo/video and isolated large-scene 60 Hz qualification remain unfinished"
+  ]
+}

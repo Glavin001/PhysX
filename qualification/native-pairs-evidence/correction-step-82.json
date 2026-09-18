@@ -1,0 +1,53 @@
+{
+  "scope": "Separate instrumented runs, correction step 82. Nested/concurrent CPU task spans must not be summed. These are not untraced maxima.",
+  "captures": {
+    "previous": {
+      "path": "/root/workspace/physx-2/out/persistent-query-impacts-256/impacts-256-phases-0",
+      "host_wall_ms": {
+        "GpuDestruction.detail.postBroadPhase": 9.252936,
+        "GpuDestruction.detail.preallocateContactManagers": 3.841029,
+        "GpuDestruction.detail.registerContactManagers": 0.304207,
+        "GpuDestruction.detail.registerInteractions": 0.689785,
+        "GpuDestruction.detail.postBroadPhaseStage2": 1.564296,
+        "GpuDestruction.detail.registerSceneInteractions": 2.598413,
+        "GpuDestruction.detail.islandInsertion": 1.330159,
+        "GpuDestruction.detail.postBroadPhaseStage3": 0.001342,
+        "GpuDestruction.detail.postNarrowPhase": 0.842921,
+        "GpuDestruction.detail.postIslandGen": 0.001843,
+        "GpuDestruction.detail.islandGen": 0.188421,
+        "GpuDestruction.detail.beforeSolver": 0.003196,
+        "GpuDestruction.detail.updateDynamics": 1.343995,
+        "GpuDestruction.detail.updateDynamicsPostPartitioning": 0.67094,
+        "GpuDestruction.detail.processLostContacts": 0.004137,
+        "GpuDestruction.detail.processLostContacts2": 0.001984,
+        "GpuDestruction.detail.processLostContacts3": 0.002415,
+        "GpuDestruction.detail.postSolver": 0.002505,
+        "GpuDestruction.correctedCollisionSolve": 30.071677
+      }
+    },
+    "gpu_pairs": {
+      "path": "/root/workspace/physx-2/out/native-pairs-final-impacts-256/impacts-256-phases-0",
+      "host_wall_ms": {
+        "GpuDestruction.detail.postBroadPhase": 9.236021,
+        "GpuDestruction.detail.preallocateContactManagers": 3.827387,
+        "GpuDestruction.detail.registerContactManagers": 0.310099,
+        "GpuDestruction.detail.registerInteractions": 0.571205,
+        "GpuDestruction.detail.postBroadPhaseStage2": 1.510025,
+        "GpuDestruction.detail.registerSceneInteractions": 3.004652,
+        "GpuDestruction.detail.islandInsertion": 2.387232,
+        "GpuDestruction.detail.postBroadPhaseStage3": 0.001994,
+        "GpuDestruction.detail.postNarrowPhase": 0.854192,
+        "GpuDestruction.detail.postIslandGen": 0.002014,
+        "GpuDestruction.detail.islandGen": 0.088425,
+        "GpuDestruction.detail.beforeSolver": 0.003186,
+        "GpuDestruction.detail.updateDynamics": 1.275107,
+        "GpuDestruction.detail.updateDynamicsPostPartitioning": 0.688033,
+        "GpuDestruction.detail.processLostContacts": 0.004879,
+        "GpuDestruction.detail.processLostContacts2": 0.002264,
+        "GpuDestruction.detail.processLostContacts3": 0.002625,
+        "GpuDestruction.detail.postSolver": 0.003426,
+        "GpuDestruction.correctedCollisionSolve": 28.220168
+      }
+    }
+  }
+}

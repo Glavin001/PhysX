@@ -1,0 +1,24 @@
+{
+  "status": "passed",
+  "scenarios": 52,
+  "captures": 62,
+  "launches": 86,
+  "physical_ticks": 124,
+  "light_seconds": 238.47829684900353,
+  "full_seconds": 1280.284229123994,
+  "full_reused_cases": 7,
+  "max_position_error_m": 0.0,
+  "max_linear_error_m_s": 0.0,
+  "max_angular_error_rad_s": 0.0,
+  "max_force_scaled": 5.441013126983307e-05,
+  "metric_count_range": [
+    2250,
+    2250
+  ],
+  "ncu_warning_launches": 12,
+  "collector": {
+    "path": "/opt/nvidia/nsight-compute/2025.3.1/ncu",
+    "sha256": "a44ff2c735c4dcf66c78f3f430155805d6a0b1f74f26331f98ecec03bfbf3f1a",
+    "version": "NVIDIA (R) Nsight Compute Command Line Profiler\nCopyright (c) 2018-2025 NVIDIA Corporation\nVersion 2025.3.1.0 (build 36398880) (public-release)"
+  }
+}

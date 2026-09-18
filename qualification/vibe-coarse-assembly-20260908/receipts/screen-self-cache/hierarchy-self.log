@@ -1,0 +1,4 @@
+START fixture=coarse-self-columns nodes=24 bonds=184
+resident V-cycle nodes=24 bonds=184 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=24 bonds=184 dense-oracle=1 squared-capture/symmetry/linearity passed
+assembled resident hierarchy nodes=24 bonds=184 levels=7 transitions=2 passed

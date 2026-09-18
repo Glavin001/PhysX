@@ -1,0 +1,11 @@
+{
+  "status": "pruned_before_gpu_experiment",
+  "prepared_commit": "57302b10646ad7c8ad394d82dc5f64974062d3e3",
+  "reason": "The parameter cachedCapacity is populated from PxsTransformCache::getTotalSize(), which returns mUsedSize=max(index+1), already a used-index bound. The original assumption of copying allocation capacity is false. No measured or proven useful range gap in the agreed rigid workloads.",
+  "evidence": [
+    "physx/source/lowlevel/software/include/PxsTransformCache.h:70",
+    "physx/source/lowlevel/software/include/PxsTransformCache.h:102",
+    "physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp:3275"
+  ],
+  "scope": "Preparation/CPU build only; no GPU experiment or completed-experiment credit. The isolated patch is not retained. Active-record N19 is a separate valid hypothesis."
+}

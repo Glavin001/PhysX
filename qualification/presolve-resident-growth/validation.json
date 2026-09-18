@@ -1,0 +1,27 @@
+{
+  "base_commit": "5a74dba50ef17770557641dd5dfb7af19f044071",
+  "files": {
+    "physx/source/gpudestruction/src/PxgDestructionRuntime.cu": "9636c12f0959007dec753f5eb025eb3ca921ad595a1bd27501a4e69561d1da7a",
+    "physx/source/gpudestruction/src/PxgPreSolveStorage.inl": "789844729e0ed989ae9ccbd1ddecd065d3b6020c222e68def19cd6cf516e619f",
+    "demos/blast-stress-demo/tests/native_gpu_collision_test.cpp": "90240dcab74c45adc6fb0e71e4b3c3d272330a119ad5cde9913f10c635425e39",
+    "tools/scripts/compare-destruction-candidates.py": "cec21b6e184a7c6424166365200995df193a91e6c2334d04e786a82e92aafb74",
+    "physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so": "77cb67306d865ad3c3bea2f84f40879d397e96ca474cfb284b231e3c4c49fd0e",
+    "out/destruction-sdk/reference/native_gpu_collision_test": "a56831f260edf348326274f033dcd0071cc9a1341b04009267415b75f5075044"
+  },
+  "evidence": {
+    "metadata-tests.log": "074a17bf9efa835625161600896cae27075df27ddca1be8a21c4269d7f3f7758",
+    "obsolete-growth-expectation.log": "9785b7036ca88a15f2c77fa6d3348c97a443a967ec685bf1c9e8fb1c94dc76d1",
+    "timing.log": "2d836951b8d3fcb93159b414d6281b15840b0d6683f7bfc6c3d051d5a8ab350f",
+    "memcheck.log": "f88b7ae963a9ea0609b37301456d66e4a6c3cbd6eb4b3d65176669dfafbba55d",
+    "wall.log": "60ab1fe0e949587990d55420863819a3f55d2a4b9b48386aada0228d7648aeda",
+    "island-audit-capture.json": "f6d8d80548a7e543e8b658bad25ac43e2dcc93b5a8a5d9a873a405427c3e29f8",
+    "island-audit.log": "cb66197554264f1f88df4e90565787b1bbb7e1a5865e107897c9ae4f22ce7fb2",
+    "baseline-timing.log": "0a233533a0e89cb11a4a1d39771f07e881f34a2d5562e03ba2a0773e9750e960",
+    "comparison.json": "619c026628f3ec0ab89d247da84314adbde8751928ca3ccf41885f5cd26fcbf1",
+    "wall-quality.json": "b05f118054a83e30978ac8357923a2c52026a26837547326c7b7e6a8790c84aa",
+    "island-audit-graph.json": "8a304759c54d10b4fbcc550f1e41e9993d1cd8484efd780c7705339cb38c4a8e",
+    "island-audit-summary.json": "ce50cdb3529016ccedd1415c2a87eb318c38f586904ed088bb4ac8cf8ea30314",
+    "report-integrity-test.log": "f51e0ce1821cf80c6b6f27743e822ce205dd9c136c49a1e99ce611b834cb7463"
+  },
+  "qualified_scope": "Focused metadata/lifecycle tests, memory check, frozen 10s penetration, independent 256-building island audit, two matched 3s timing trials per arm. Full peak and endurance qualification incomplete."
+}

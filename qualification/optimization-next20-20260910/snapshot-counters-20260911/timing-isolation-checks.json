@@ -1,0 +1,27 @@
+[
+  {
+    "command": [
+      "python3",
+      "tools/diagnostics/destruction-snapshot/run-probe.py",
+      "out/snapshot-counters-20260911/rejected-profile-as-timing",
+      "--binary",
+      "out/snapshot-counters-20260911/probe/serialization-probe",
+      "--artifacts",
+      "out/snapshot-reset-20260911/local-artifacts"
+    ],
+    "exit_code": 2,
+    "expected_rejection": true,
+    "output": "usage: run-probe.py [-h] --binary BINARY --artifacts ARTIFACTS\n                    [--allow-existing-graphics]\n                    [--allow-compute-pid ALLOW_COMPUTE_PID]\n                    [--require-complete-shapes]\n                    [--sanitizer {memcheck,initcheck,synccheck}]\n                    [--profiler {nsys,ncu,pm}] [--ncu-kernel NCU_KERNEL]\n                    [--ncu-count NCU_COUNT] [--ncu-mode {full,hardware}]\n                    [--ncu-replay {kernel,application}]\n                    [--nsys-range {process,first-tick}]\n                    [--sanitizer-blocking-launches]\n                    [--sanitizer-sync-limit SANITIZER_SYNC_LIMIT]\n                    [--watchdog-seconds WATCHDOG_SECONDS]\n                    [--replay-prefix REPLAY_PREFIX]\n                    [--repetitions REPETITIONS] [--projectile-impulse]\n                    [--native-args-json NATIVE_ARGS_JSON]\n                    output\nrun-probe.py: error: Profiling-only probe requires --profiler; rebuild without --profile for performance timings\n"
+  },
+  {
+    "command": [
+      "python3",
+      "tools/diagnostics/destruction-snapshot/report-file-replay.py",
+      "out/snapshot-counters-20260911/rejected-timing-report",
+      "out/snapshot-counters-20260911/process-window-bridge"
+    ],
+    "exit_code": 1,
+    "expected_rejection": true,
+    "output": "Instrumented timings cannot enter the unprofiled performance report: out/snapshot-counters-20260911/process-window-bridge\n"
+  }
+]

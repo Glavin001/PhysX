@@ -1069,6 +1069,13 @@ PxRigidDynamic* NpFactory::createRigidDynamic(const PxTransform& pose)
 	return npBody;
 }
 
+NpRigidDynamic* NpFactory::createDestructionRigidDynamic()
+{
+    PxMutex::ScopedLock lock(mRigidDynamicPoolLock);
+    const PxTransform pose(PxIdentity);
+    return mRigidDynamicPool.construct(pose);
+}
+
 void NpFactory::releaseRigidDynamicToPool(NpRigidDynamic& rigidDynamic)
 {
 	PX_ASSERT(rigidDynamic.getBaseFlags() & PxBaseFlag::eOWNS_MEMORY);

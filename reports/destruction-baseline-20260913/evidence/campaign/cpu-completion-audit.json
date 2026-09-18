@@ -1,0 +1,13 @@
+{
+  "cpu_samples": 22134,
+  "engine_scopes": 91538,
+  "kernel_launches": 18376,
+  "cases": 52,
+  "checked_ticks": 104,
+  "maximum_errors": {
+    "position_m": 0.0,
+    "orientation_dot_error": 5.233859402542507e-07,
+    "linear_m_s": 0.0,
+    "angular_rad_s": 0.0
+  }
+}

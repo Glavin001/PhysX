@@ -54,7 +54,7 @@ static void updateBPGroup(ActorSim* sim)
 	}
 }
 
-BodySim::BodySim(Scene& scene, BodyCore& core, bool compound) :
+BodySim::BodySim(Scene& scene, BodyCore& core, bool compound, PxNodeIndex nativeNode) :
 	RigidSim		(scene, core),
 	mLLBody			(&core.getCore(), PX_FREEZE_INTERVAL),
 	mSimStateData	(NULL),
@@ -87,7 +87,9 @@ BodySim::BodySim(Scene& scene, BodyCore& core, bool compound) :
 	IG::SimpleIslandManager* simpleIslandManager = scene.getSimpleIslandManager();
 	if(!isArticulationLink())
 	{
-		mNodeIndex = simpleIslandManager->addNode(isAwake, isKine, IG::Node::eRIGID_BODY_TYPE, &mLLBody);
+        mNodeIndex = nativeNode.isValid()
+            ? simpleIslandManager->bindNativeNodeHandle(nativeNode.index(),isAwake,isKine,&mLLBody)
+            : simpleIslandManager->addNode(isAwake,isKine,IG::Node::eRIGID_BODY_TYPE,&mLLBody);
 	}
 	else
 	{
@@ -182,6 +184,9 @@ bool BodySim::setupSimStateData(bool isKinematic)
 		PX_PLACEMENT_NEW(data, SimStateData(SimStateData::eKine));
 		Kinematic* kine = data->getKinematicData();
 		kine->targetValid = 0;
+        const auto& properties=getBodyCore().getCore();
+        mLLBody.mGpuDynamicLimitsDamping=PxVec4(properties.maxLinearVelocitySq,properties.maxAngularVelocitySq,
+            properties.linearDamping,properties.angularDamping);
 		simStateBackupAndClearBodyProperties(data, getBodyCore().getCore());
 	}
 	else
@@ -210,7 +215,7 @@ void BodySim::tearDownSimStateData(bool isKinematic)
 	}
 }
 
-void BodySim::switchToKinematic()
+void BodySim::switchToKinematic(bool deviceOwnerTransaction)
 {
 	setupSimStateData(true);
 
@@ -225,7 +230,7 @@ void BodySim::switchToKinematic()
 
 		mScene.getSimpleIslandManager()->setKinematic(mNodeIndex);
 
-		updateBPGroup(this);
+		if(!deviceOwnerTransaction)updateBPGroup(this);
 	}
 
 	mScene.setDynamicsDirty();
@@ -233,7 +238,7 @@ void BodySim::switchToKinematic()
 	mFilterFlags |= PxFilterObjectFlag::eKINEMATIC;
 }
 
-void BodySim::switchToDynamic()
+void BodySim::switchToDynamic(bool deviceOwnerTransaction)
 {
 	tearDownSimStateData(true);
 
@@ -255,7 +260,7 @@ void BodySim::switchToDynamic()
 			mScene.swapInActiveBodyList(*this);
 
 		//
-		updateBPGroup(this);
+		if(!deviceOwnerTransaction)updateBPGroup(this);
 	}
 
 	mScene.setDynamicsDirty();
@@ -290,6 +295,13 @@ void BodySim::addSpatialAcceleration(const PxVec3* linAcc, const PxVec3* angAcc)
 
 void BodySim::setSpatialAcceleration(const PxVec3* linAcc, const PxVec3* angAcc)
 {
+    if((mScene.getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_HOST_ACCESS) || (!(mScene.getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_API)
+        && mScene.getSimulationController()->usesDeviceDestructionContactInputs()))
+    {
+        const PxU32 flags = (linAcc ? PxsRigidBody::eHOST_CLEAR_FORCE_GPU : 0)
+            | (angAcc ? PxsRigidBody::eHOST_CLEAR_TORQUE_GPU : 0);
+        getLowLevelBody().mGpuHostDirty |= PxU16(flags >> 16);
+    }
 	notifyDirtySpatialAcceleration();
 
 	if (!mSimStateData || !mSimStateData->isVelMod())
@@ -304,6 +316,14 @@ void BodySim::setSpatialAcceleration(const PxVec3* linAcc, const PxVec3* angAcc)
 
 void BodySim::clearSpatialAcceleration(bool force, bool torque)
 {
+    if((mScene.getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_HOST_ACCESS) || (!(mScene.getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_API)
+        && mScene.getSimulationController()->usesDeviceDestructionContactInputs()))
+    {
+        if(!mSimStateData) setupSimStateData(false);
+        const PxU32 flags = (force ? PxsRigidBody::eHOST_CLEAR_FORCE_GPU : 0)
+            | (torque ? PxsRigidBody::eHOST_CLEAR_TORQUE_GPU : 0);
+        getLowLevelBody().mGpuHostDirty |= PxU16(flags >> 16);
+    }
 	PX_ASSERT(force || torque);
 
 	notifyDirtySpatialAcceleration();
@@ -703,7 +723,18 @@ bool BodySim::updateForces(PxReal dt, PxsRigidBody** updatedBodySims, PxU32* upd
 			angVelDt += velmod->getAngularVelModPerSec()*dt;
 		}
 
-		if (acceleration)
+        if((mScene.getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_HOST_ACCESS) || (!(mScene.getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_API)
+        && mScene.getSimulationController()->usesDeviceDestructionContactInputs()))
+        {
+            PX_ASSERT(externalAccelerations);
+            // Preserve native integration ordering and rounding: these values
+            // are delta velocities, not acceleration reconstructed with 1/dt.
+            PxsRigidBodyExternalAcceleration delta(linVelDt,angVelDt);
+            externalAccelerations->setValue(delta,
+                getNodeIndex().index(),maxNumExternalAccelerations);
+            getLowLevelBody().mGpuHostDirty |= PxU16(PxsRigidBody::eHOST_VELOCITY_DELTA_GPU >> 16);
+        }
+        else if (acceleration)
 		{
 			const PxReal invDt = 1.f / dt;
 			acceleration->linear = linVelDt * invDt;

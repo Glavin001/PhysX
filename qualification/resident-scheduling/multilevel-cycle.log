@@ -1,0 +1,100 @@
+START fixture=empty nodes=0 bonds=0
+resident V-cycle nodes=0 bonds=0 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=0 bonds=0 dense-oracle=1 squared-capture/symmetry/linearity passed
+assembled resident hierarchy nodes=0 bonds=0 levels=7 transitions=2 passed
+START fixture=singleton nodes=1 bonds=0
+resident V-cycle nodes=1 bonds=0 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=1 bonds=0 dense-oracle=1 squared-capture/symmetry/linearity passed
+assembled resident hierarchy nodes=1 bonds=0 levels=7 transitions=2 passed
+START fixture=isolated nodes=256 bonds=0
+resident V-cycle nodes=256 bonds=0 dense-oracle=0 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=256 bonds=0 dense-oracle=0 squared-capture/symmetry/linearity passed
+assembled resident hierarchy nodes=256 bonds=0 levels=7 transitions=2 passed
+START fixture=supported nodes=24 bonds=33
+resident V-cycle nodes=24 bonds=33 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=24 bonds=33 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=24 bonds=33 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=24 bonds=33 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=24 bonds=33 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=24 bonds=33 dense-oracle=1 squared-capture/symmetry/linearity passed
+assembled resident hierarchy nodes=24 bonds=33 levels=7 transitions=6 passed
+START fixture=path nodes=24 bonds=23
+resident V-cycle nodes=24 bonds=23 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=24 bonds=23 dense-oracle=1 squared-capture/symmetry/linearity passed
+assembled resident hierarchy nodes=24 bonds=23 levels=7 transitions=2 passed
+START fixture=self nodes=2 bonds=1
+resident V-cycle nodes=2 bonds=1 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=2 bonds=1 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=2 bonds=1 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=2 bonds=1 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=2 bonds=1 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=2 bonds=1 dense-oracle=1 squared-capture/symmetry/linearity passed
+assembled resident hierarchy nodes=2 bonds=1 levels=7 transitions=6 passed
+START fixture=parallel nodes=6 bonds=10
+resident V-cycle nodes=6 bonds=10 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=6 bonds=10 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=6 bonds=10 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=6 bonds=10 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=6 bonds=10 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=6 bonds=10 dense-oracle=1 squared-capture/symmetry/linearity passed
+assembled resident hierarchy nodes=6 bonds=10 levels=7 transitions=6 passed
+START fixture=omitted nodes=24 bonds=11
+resident V-cycle nodes=24 bonds=11 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=24 bonds=11 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=24 bonds=11 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=24 bonds=11 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=24 bonds=11 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=24 bonds=11 dense-oracle=1 squared-capture/symmetry/linearity passed
+assembled resident hierarchy nodes=24 bonds=11 levels=7 transitions=6 passed
+START fixture=star nodes=257 bonds=256
+resident V-cycle nodes=257 bonds=256 dense-oracle=0 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=257 bonds=256 dense-oracle=0 squared-capture/symmetry/linearity passed
+assembled resident hierarchy nodes=257 bonds=256 levels=7 transitions=2 passed
+START fixture=fixed nodes=4 bonds=3
+resident V-cycle nodes=4 bonds=3 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=4 bonds=3 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=4 bonds=3 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=4 bonds=3 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=4 bonds=3 dense-oracle=1 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=4 bonds=3 dense-oracle=1 squared-capture/symmetry/linearity passed
+assembled resident hierarchy nodes=4 bonds=3 levels=7 transitions=6 passed
+START fixture=mixed nodes=129 bonds=121
+resident V-cycle nodes=129 bonds=121 dense-oracle=0 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=129 bonds=121 dense-oracle=0 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=129 bonds=121 dense-oracle=0 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=129 bonds=121 dense-oracle=0 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=129 bonds=121 dense-oracle=0 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=129 bonds=121 dense-oracle=0 squared-capture/symmetry/linearity passed
+assembled resident hierarchy nodes=129 bonds=121 levels=7 transitions=6 passed
+START fixture=large nodes=100000 bonds=199997
+cycle numeric nodes=100000 bonds=199997 squared=0 local=1.3819305422213546e-10 absolute=4.7311186790466309e-07 response=89743930.948516531 normwise=5.2717979132881256e-15 symmetry=8.1653636358772048e-20 worst-node=13020 coordinate=5
+cycle component-coordinate normwise nodes=100000 bonds=199997 squared=0 error=1.491215722323374e-12
+cycle numeric nodes=100000 bonds=199997 squared=1 local=2.5948766948268177e-09 absolute=88576 response=1.6807628495498227e+19 normwise=5.2699879714573827e-15 symmetry=2.2202071086187589e-21 worst-node=18733 coordinate=5
+cycle component-coordinate normwise nodes=100000 bonds=199997 squared=1 error=1.4497799171727944e-12
+cycle numeric nodes=100000 bonds=199997 squared=0 local=1.3819305422213546e-10 absolute=4.7311186790466309e-07 response=89743930.948516531 normwise=5.2717979132881256e-15 symmetry=8.1653636358772048e-20 worst-node=13020 coordinate=5
+cycle component-coordinate normwise nodes=100000 bonds=199997 squared=0 error=1.491215722323374e-12
+cycle numeric nodes=100000 bonds=199997 squared=1 local=2.5948766948268177e-09 absolute=88576 response=1.6807628495498227e+19 normwise=5.2699879714573827e-15 symmetry=2.2202071086187589e-21 worst-node=18733 coordinate=5
+cycle component-coordinate normwise nodes=100000 bonds=199997 squared=1 error=1.4497799171727944e-12
+cycle numeric nodes=100000 bonds=199997 squared=0 local=3.2928014467956697e-10 absolute=1.0803341865539551e-07 response=146636261.75986435 normwise=7.3674422246465926e-16 symmetry=3.860015637024342e-21 worst-node=89614 coordinate=1
+cycle component-coordinate normwise nodes=100000 bonds=199997 squared=0 error=1.6510082521657734e-12
+cycle numeric nodes=100000 bonds=199997 squared=1 local=3.8616823810305912e-08 absolute=12544 response=3.5476812818073608e+19 normwise=3.5358305900606377e-16 symmetry=4.2584619191828683e-19 worst-node=30324 coordinate=4
+cycle component-coordinate normwise nodes=100000 bonds=199997 squared=1 error=1.5103117527221378e-12
+cycle numeric nodes=100000 bonds=199997 squared=0 local=3.2928014467956697e-10 absolute=1.0803341865539551e-07 response=146636261.75986435 normwise=7.3674422246465926e-16 symmetry=3.860015637024342e-21 worst-node=89614 coordinate=1
+cycle component-coordinate normwise nodes=100000 bonds=199997 squared=0 error=1.6510082521657734e-12
+cycle numeric nodes=100000 bonds=199997 squared=1 local=3.8616823810305912e-08 absolute=12544 response=3.5476812818073608e+19 normwise=3.5358305900606377e-16 symmetry=4.2584619191828683e-19 worst-node=30324 coordinate=4
+cycle component-coordinate normwise nodes=100000 bonds=199997 squared=1 error=1.5103117527221378e-12
+cycle numeric nodes=100000 bonds=199997 squared=0 local=0 absolute=0 response=1 normwise=0 symmetry=0 worst-node=0 coordinate=0
+cycle component-coordinate normwise nodes=100000 bonds=199997 squared=0 error=0
+cycle numeric nodes=100000 bonds=199997 squared=1 local=0 absolute=0 response=1 normwise=0 symmetry=0 worst-node=0 coordinate=0
+cycle component-coordinate normwise nodes=100000 bonds=199997 squared=1 error=0
+cycle numeric nodes=100000 bonds=199997 squared=0 local=1.3819305422213546e-10 absolute=4.7311186790466309e-07 response=89743930.948516531 normwise=5.2717979132881256e-15 symmetry=8.1653636358772048e-20 worst-node=13020 coordinate=5
+cycle component-coordinate normwise nodes=100000 bonds=199997 squared=0 error=1.491215722323374e-12
+cycle numeric nodes=100000 bonds=199997 squared=1 local=2.5948766948268177e-09 absolute=88576 response=1.6807628495498227e+19 normwise=5.2699879714573827e-15 symmetry=2.2202071086187589e-21 worst-node=18733 coordinate=5
+cycle component-coordinate normwise nodes=100000 bonds=199997 squared=1 error=1.4497799171727944e-12
+resident V-cycle nodes=100000 bonds=199997 dense-oracle=0 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=100000 bonds=199997 dense-oracle=0 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=100000 bonds=199997 dense-oracle=0 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=100000 bonds=199997 dense-oracle=0 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=100000 bonds=199997 dense-oracle=0 squared-capture/symmetry/linearity passed
+resident V-cycle nodes=100000 bonds=199997 dense-oracle=0 squared-capture/symmetry/linearity passed
+assembled resident hierarchy nodes=100000 bonds=199997 levels=16 transitions=6 passed

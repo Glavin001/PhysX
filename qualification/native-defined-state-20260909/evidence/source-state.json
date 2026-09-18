@@ -1,0 +1,16 @@
+{
+  "base_commit": "6d573e011cb69e5bfd420730e13b8caaa7cb7ff6",
+  "private_runtime": 8,
+  "public_abi": 15,
+  "sources": {
+    "demos/blast-stress-demo/CMakeLists.txt": "83e0b5bc654b66b652d8ba017fd02d1eecc427ec5c3a901d433fa4fc85912fcf",
+    "physx/source/gpubroadphase/src/PxgAABBManager.cpp": "a25a4779183fd62b5de85c94f40890c87aaabb7fdcbc00d87d19276fe33242ea",
+    "physx/source/gpudestruction/src/PxgDestructionTransaction.cuh": "21ebe3992bb11b6d7b9b80c73e9c0f57feb549f2e1194ee28aaab94531a173d7",
+    "physx/source/gpudestruction/tests/topology_test.cu": "c93bbc11ce82f1402106881562427b367546444945aa45ce4efd3da693bc1ff4",
+    "physx/source/gpusimulationcontroller/src/PxgSimulationCore.cpp": "df2707d89097044079b4535a8e4f9f2d664f621b9890e07905fda630e656cd9d",
+    "physx/source/gpusolver/include/PxgSolverCore.h": "334dcb4f0c59a6ba501b7b2767cdd48668ba7db1982e41d776f7b3853e9fda66",
+    "physx/source/gpusolver/src/PxgContext.cpp": "172e81ab3a13bfe632b42b68369c2bb9c62f33c0bb535732a6af2258a2a90a45",
+    "physx/source/gpusolver/src/PxgSolverCore.cpp": "78344f98eb9aa4ec4aa6a97099f2c906bf53904f0d1ebc930a5fa0b8e0db566c"
+  },
+  "qualification": "Native52, both unfiltered initialization fixtures, frozen600/ordinary128, memcheck and nonzero-motion topology initcheck pass; paired96-step screen only. No full real-time/endurance qualification."
+}

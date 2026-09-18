@@ -81,6 +81,7 @@ class NpAggregate;
 class NpObjectFactory;
 class NpRigidStatic;
 class NpRigidDynamic;
+class NpDestructionBodyAllocator;
 class NpConstraint;
 class NpArticulationLink;
 class NpArticulationJointReducedCoordinate;
@@ -349,6 +350,12 @@ class NpScene : public NpSceneAccessor, public PxUserAllocated
 	virtual			PxSolverType::Enum				getSolverType()	const	PX_OVERRIDE PX_FINAL;
 
 	virtual 		PxDirectGPUAPI&					getDirectGPUAPI()	PX_OVERRIDE	PX_FINAL;
+    virtual PxDestructionScene* getDestructionScene() PX_OVERRIDE PX_FINAL;
+    // Internal transaction reservations, not committed public actors.
+    NpRigidDynamic* getDestructionBodyCandidate(PxU32 cluster) const;
+    PxU32 getNbDestructionBodyCandidates() const;
+    // True when a granted native node handle already owns an inactive pooled placeholder body.
+    bool hasDestructionPlaceholder(PxU32 node) const;
 
 	// NpSceneAccessor
 	virtual			PxsSimulationController*		getSimulationController()	PX_OVERRIDE PX_FINAL;
@@ -822,6 +829,7 @@ private:
 #endif
 
 					NpPhysics&					mPhysics;
+    NpDestructionBodyAllocator* mDestructionBodyAllocator = NULL;
 					const char*				    mName;
 };
 

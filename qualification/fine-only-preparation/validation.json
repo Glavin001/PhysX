@@ -1,0 +1,62 @@
+{
+  "buildings": 256,
+  "chunks": 113664,
+  "bonds": 229376,
+  "projectiles": 256,
+  "seconds_per_trial": 3,
+  "correction_limit": 1,
+  "physical_counter_fields": [
+    "bodies",
+    "awake_bodies",
+    "logical_clusters",
+    "bonds_broken",
+    "stress_converged",
+    "resim_passes",
+    "correction_status",
+    "contacts_frame",
+    "stress_active_nodes",
+    "stress_active_bonds",
+    "stress_islands",
+    "pre_solve_pairs"
+  ],
+  "physical_counter_comparison_steps": 180,
+  "physical_counter_differences": [],
+  "numerical_iteration_differences": [
+    {
+      "step": 112,
+      "before": 580,
+      "after": 579
+    }
+  ],
+  "timing": {
+    "guarded-residual-impacts-256": [
+      {
+        "steps": 180,
+        "complete_mean_ms": 21.78324853333333,
+        "complete_peak_ms": 69.971083,
+        "over_8ms": 99
+      },
+      {
+        "steps": 180,
+        "complete_mean_ms": 21.776679655555554,
+        "complete_peak_ms": 67.673555,
+        "over_8ms": 99
+      }
+    ],
+    "fine-only-validated-impacts-256": [
+      {
+        "steps": 180,
+        "complete_mean_ms": 20.057423611111112,
+        "complete_peak_ms": 64.737752,
+        "over_8ms": 99
+      },
+      {
+        "steps": 180,
+        "complete_mean_ms": 20.292090644444446,
+        "complete_peak_ms": 64.346526,
+        "over_8ms": 99
+      }
+    ]
+  },
+  "full_8ms_gate_passed": false
+}

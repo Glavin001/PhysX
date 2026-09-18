@@ -1,0 +1,138 @@
+// Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
+#pragma once
+#include "PxgDestructionContactGraph.h"
+#include "PxgShapeSim.h"
+#include "PxsContactManagerState.h"
+namespace physx { namespace destructionContactGraph {
+__global__ void initialize(PxU32* accurate,PxU32* speculative,PxU32 n,
+    PxgDestructionContactGraphStatus* status,PxU32 omitted,const PxgContactGraphSequence* sequence=nullptr) {
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;
+    if(i<n){accurate[i]=i;speculative[i]=i;}
+    if(i==0)*status={(omitted?PxgDestructionContactGraphStatus::eMISSING_PAIRS:0u)
+        | (sequence && sequence->error?PxgDestructionContactGraphStatus::eLIFETIME_EXHAUSTED:0u),omitted};
+}
+__global__ void retire(const PxU32* indices,PxU32 count,PxU32 pairs,PxU32* retired,PxgDestructionContactGraphStatus* status) {
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
+    const PxU32 index=indices[i];
+    if(index>=pairs){atomicOr(&status->error,PxgDestructionContactGraphStatus::eINVALID_IDENTITY);return;}
+    atomicOr(retired+(index>>5),1u<<(index&31));
+}
+__device__ inline PxgDestructionContactEdge decodeAt(PxU32 i,const PxgContactManagerInput* inputs,const PxgContactGraphIdentity* identities,
+    const PxsContactManagerOutput* outputs,const PxgShapeSim* shapes,PxU32 shapeCapacity,
+    PxU32 nodeCapacity,PxgDestructionContactGraphStatus* status,const PxU32* retired) {
+    const auto id=identities[i];const auto input=inputs[i];const auto output=outputs[i];
+    PxgDestructionContactEdge edge={id,PX_INVALID_NODE,PX_INVALID_NODE,output.flags,
+        (output.statusFlag&PxsContactManagerStatusFlag::eHAS_TOUCH)?1u:0u};
+    // Retired managers remain in NP buckets until next pass compaction. Their
+    // geometry or CPU interaction may already be gone: do not dereference it.
+    if(retired && (retired[i>>5]&(1u<<(i&31)))){edge.flags|=PxgDestructionContactFlags::eRETIRED;return edge;}
+    if(!id.generation || id.edgeIndex==~PxU32(0) || input.transformCacheRef0>=shapeCapacity || input.transformCacheRef1>=shapeCapacity) {
+        atomicOr(&status->error,PxgDestructionContactGraphStatus::eINVALID_IDENTITY);return edge;
+    }
+    const auto a=shapes[input.transformCacheRef0].mBodySimIndex,b=shapes[input.transformCacheRef1].mBodySimIndex;
+    if(a.isArticulation() || b.isArticulation() || (output.flags&(PxgDestructionContactFlags::eARTICULATION|PxgDestructionContactFlags::eSOFT_BODY))) {
+        atomicOr(&status->error,PxgDestructionContactGraphStatus::eUNSUPPORTED_ENDPOINT);return edge;
+    }
+    if((a.isValid() && a.index()>=nodeCapacity) || (b.isValid() && b.index()>=nodeCapacity)) {
+        atomicOr(&status->error,PxgDestructionContactGraphStatus::eINVALID_IDENTITY);return edge;
+    }
+    edge.node0=a.index();edge.node1=b.index();return edge;
+}
+// Optional diagnostic materialization, exercised by kernel tests. Production
+// connects directly from borrowed NP records without this per-edge allocation.
+__global__ void decode(const PxgContactManagerInput* inputs,const PxgContactGraphIdentity* identities,
+    const PxsContactManagerOutput* outputs,PxU32 count,const PxgShapeSim* shapes,PxU32 shapeCapacity,
+    PxU32 nodeCapacity,PxgDestructionContactEdge* edges,PxgDestructionContactGraphStatus* status,const PxU32* retired) {
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i<count)
+        edges[i]=decodeAt(i,inputs,identities,outputs,shapes,shapeCapacity,nodeCapacity,status,retired);
+}
+// Monotone concurrent union-find. Atomic loads avoid races with root hooks.
+// Every successful hook lowers a parent; no cycle or iteration-budget shortcut
+// is possible. The final compression kernel runs after all unions complete.
+__device__ inline PxU32 root(PxU32* parents,PxU32 node) {
+    for(;;){const PxU32 next=atomicAdd(parents+node,0u);if(next==node)return node;
+        const PxU32 grand=atomicAdd(parents+next,0u);atomicCAS(parents+node,next,grand);node=next;}
+}
+__device__ inline void unite(PxU32* parents,PxU32 a,PxU32 b) {
+    for(;;){a=root(parents,a);b=root(parents,b);if(a==b)return;
+        const PxU32 high=a>b?a:b,low=a<b?a:b;
+        if(atomicCAS(parents+high,high,low)==high)return;
+    }
+}
+__global__ void connect(const PxgContactManagerInput* inputs,const PxgContactGraphIdentity* identities,
+    const PxsContactManagerOutput* outputs,PxU32 count,const PxgShapeSim* shapes,PxU32 shapeCapacity,
+    PxU32 nodeCapacity,PxgDestructionContactGraphStatus* status,const PxU32* retired,PxU32* accurate,PxU32* speculative) {
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
+    const auto edge=decodeAt(i,inputs,identities,outputs,shapes,shapeCapacity,nodeCapacity,status,retired);
+    if(edge.node0==PX_INVALID_NODE || edge.node1==PX_INVALID_NODE || (edge.flags&PxgDestructionContactFlags::eKINEMATIC_PAIR))return;
+    // Speculative islands contain broadphase pairs before touch is established.
+    unite(speculative,edge.node0,edge.node1);
+    if(edge.touching && !(edge.flags&PxgDestructionContactFlags::eDISABLE_RESPONSE))unite(accurate,edge.node0,edge.node1);
+}
+__device__ inline void connectRetainedEdge(const PxgDestructionRetainedEdge& e,PxU32 n,
+    PxU32* accurate,PxU32* speculative,PxgDestructionContactGraphStatus* status) {
+    if(e.flags&PxgDestructionRetainedEdge::eUNSUPPORTED){atomicOr(&status->error,PxgDestructionContactGraphStatus::eUNSUPPORTED_ENDPOINT);return;}
+    if((e.node0!=PX_INVALID_NODE && e.node0>=n) || (e.node1!=PX_INVALID_NODE && e.node1>=n)) {
+        atomicOr(&status->error,PxgDestructionContactGraphStatus::eINVALID_IDENTITY);return;
+    }
+    if(e.node0==PX_INVALID_NODE || e.node1==PX_INVALID_NODE || (e.flags&PxgDestructionRetainedEdge::eKINEMATIC))return;
+    unite(speculative,e.node0,e.node1);
+    if(e.flags&PxgDestructionRetainedEdge::eACCURATE)unite(accurate,e.node0,e.node1);
+}
+// Snapshot reference for kernel qualification; production applies deltas below.
+__global__ void connectRetained(const PxgDestructionRetainedEdge* edges,PxU32 count,PxU32 n,
+    PxU32* accurate,PxU32* speculative,PxgDestructionContactGraphStatus* status) {
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i<count)connectRetainedEdge(edges[i],n,accurate,speculative,status);
+}
+// Updates are unique and sorted by native edge index, coalesced at the host
+// lifecycle boundary. Deletion/reuse within a transaction publishes final state.
+// Transactions are ordered on the graph producer stream; no stale snapshot is
+// accepted across reconfiguration, which resets slots before a full import.
+__global__ void validateRetainedUpdates(const PxgDestructionRetainedEdge* updates,PxU32 count,
+    PxU32 capacity,PxU32* counts,PxgDestructionContactGraphStatus* status) {
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
+    if(updates[i].edgeIndex>=capacity || (i && updates[i-1].edgeIndex>=updates[i].edgeIndex)) {
+        atomicExch(counts+2,1u);atomicOr(&status->error,PxgDestructionContactGraphStatus::eINVALID_IDENTITY);
+    }
+}
+__global__ void applyRetainedUpdates(const PxgDestructionRetainedEdge* updates,PxU32 count,
+    PxgDestructionRetainedEdge* slots,PxU32 capacity,PxU32* active,PxU32* counts,PxgDestructionContactGraphStatus* status) {
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
+    if(counts[2])return;
+    const auto update=updates[i];
+    const PxU32 word=update.edgeIndex>>5,bit=1u<<(update.edgeIndex&31);
+    if(update.flags&PxgDestructionRetainedEdge::eREMOVED) {
+        if(atomicAnd(active+word,~bit)&bit)atomicSub(counts,1u);
+    } else {
+        slots[update.edgeIndex]=update;
+        if(!(atomicOr(active+word,bit)&bit))atomicAdd(counts,1u);
+    }
+}
+__global__ void finishRetainedUpdates(PxU32* counts) { counts[1]=max(counts[0],counts[1]); }
+__global__ void connectRetainedSlots(const PxgDestructionRetainedEdge* slots,const PxU32* active,PxU32 capacity,PxU32 n,
+    PxU32* accurate,PxU32* speculative,PxgDestructionContactGraphStatus* status) {
+    const PxU32 word=blockIdx.x*blockDim.x+threadIdx.x;if(size_t(word)*32>=capacity)return;
+    PxU32 bits=active[word];
+    while(bits) {
+        const PxU32 index=word*32+(__ffs(bits)-1);bits&=bits-1;
+        if(index>=capacity){atomicOr(&status->error,PxgDestructionContactGraphStatus::eINVALID_IDENTITY);continue;}
+        connectRetainedEdge(slots[index],n,accurate,speculative,status);
+    }
+}
+__global__ void componentKeys(const PxU32* labels,PxU64* keys,PxU32 n) {
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;
+    if(i<n)keys[i]=(PxU64(labels[i])<<32)|i;
+}
+// Sorted component keys become a deterministic member list. The first n words
+// store heads by minimum-node label; the next n store successors by node ID.
+__global__ void componentMembers(const PxU64* sorted,PxU32* members,PxU32 n) {
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=n)return;
+    const PxU32 label=PxU32(sorted[i]>>32),node=PxU32(sorted[i]);
+    if(i==0 || PxU32(sorted[i-1]>>32)!=label)members[label]=node;
+    members[size_t(n)+node]=(i+1<n && PxU32(sorted[i+1]>>32)==label)?PxU32(sorted[i+1]):PX_INVALID_NODE;
+}
+__global__ void compress(PxU32* accurate,PxU32* speculative,PxU32 n) {
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=n)return;
+    atomicExch(accurate+i,root(accurate,i));atomicExch(speculative+i,root(speculative,i));
+}
+}}

@@ -30,6 +30,7 @@
 // Ideally they should be listed in the order in which they are called in the single-threaded version, to help
 // understanding and following the pipeline.
 
+#include "foundation/PxHashSet.h"
 #include "ScScene.h"
 #include "BpBroadPhase.h"
 #include "ScArticulationSim.h"
@@ -47,6 +48,9 @@
 #endif
 
 #include "ScShapeInteraction.h"
+#include "ScActorPair.h"
+#include "ScContactStream.h"
+#include "foundation/PxSort.h"
 #include "ScElementInteractionMarker.h"
 
 #if PX_SUPPORT_GPU_PHYSX
@@ -63,6 +67,8 @@
 #include "ScArticulationCore.h"
 #include "ScArticulationSim.h"
 #include "ScConstraintCore.h"
+#include <cstdio>
+#include <cstdlib>
 #include "ScConstraintSim.h"
 #include "DyIslandManager.h"
 
@@ -106,6 +112,48 @@ void Sc::Scene::stepSetupCollide(PxBaseTask* continuation)
 
 void Sc::Scene::simulate(PxReal timeStep, PxBaseTask* continuation)
 {
+	// R2: pre-heat the pair pools once so the first impact's corrected pass does not
+	// pay slab growth for ~100 k contact managers, shape interactions and markers
+	// on one thread (PHYSX_DESTRUCTION_PREHEAT_PAIRS=N). Order-changing: warm free
+	// lists assign contact-manager indices differently from cold slab growth.
+	{
+		// Index-preserving variant: reserve raw, page-touched slabs only (no elements
+		// constructed, free lists untouched), so the first impact's growth is
+		// bit-identical to cold growth minus the page faults (PHYSX_DESTRUCTION_PREFAULT_PAIRS=N).
+		static const PxU32 prefaultEnv = []{ const char* raw = ::getenv("PHYSX_DESTRUCTION_PREFAULT_PAIRS"); return raw ? PxU32(::atoi(raw)) : 0u; }();
+		// The destruction scene may be configured after the scene's first step, so
+		// the request is re-checked each step until it is served once.
+		const PxU32 prefault = prefaultEnv ? prefaultEnv : mSimulationController->destructionReservedContactPairs();
+		if(prefault && !mPairPoolsPrefaulted)
+		{
+			mPairPoolsPrefaulted = true;
+			PX_PROFILE_ZONE("Sim.prefaultPairPools", mContextId);
+			Cm::PoolList<PxsContactManager>& cmPool = mLLContext->getContactManagerPool();
+			cmPool.reserveSlabs((prefault + cmPool.getEltsPerSlab() - 1) / cmPool.getEltsPerSlab());
+			mNPhaseCore->mShapeInteractionPool.reserveSlabs((prefault + mNPhaseCore->mShapeInteractionPool.getElementsPerSlab() - 1) / mNPhaseCore->mShapeInteractionPool.getElementsPerSlab());
+			mNPhaseCore->mInteractionMarkerPool.reserveSlabs((prefault / 4 + mNPhaseCore->mInteractionMarkerPool.getElementsPerSlab() - 1) / mNPhaseCore->mInteractionMarkerPool.getElementsPerSlab());
+		}
+		static const PxU32 preheat = []{ const char* raw = ::getenv("PHYSX_DESTRUCTION_PREHEAT_PAIRS"); return raw ? PxU32(::atoi(raw)) : 0u; }();
+		if(preheat && !mPairPoolsPreheated)
+		{
+			mPairPoolsPreheated = true;
+			PX_PROFILE_ZONE("Sim.preheatPairPools", mContextId);
+			Cm::PoolList<PxsContactManager>& cmPool = mLLContext->getContactManagerPool();
+			PxArray<PxsContactManager*> cms(preheat);
+			const PxU32 got = cmPool.preallocate(preheat, cms.begin());
+			for(PxU32 i = got; i > 0; --i) cmPool.put(cms[i - 1]);
+			PxArray<ShapeInteraction*> sis(preheat);
+			for(PxU32 i = 0; i < preheat; ++i) sis[i] = mNPhaseCore->mShapeInteractionPool.allocate();
+			for(PxU32 i = preheat; i > 0; --i) mNPhaseCore->mShapeInteractionPool.deallocate(sis[i - 1]);
+			PxArray<ElementInteractionMarker*> markers(preheat / 4 + 1);
+			for(PxU32 i = 0; i < markers.size(); ++i) markers[i] = mNPhaseCore->mInteractionMarkerPool.allocate();
+			for(PxU32 i = markers.size(); i > 0; --i) mNPhaseCore->mInteractionMarkerPool.deallocate(markers[i - 1]);
+		}
+	}
+    if(mSimpleIslandManager->deviceConnectivityOwned() && !canUseGpuDestructionIslandRepair())
+    {
+        mSimpleIslandManager->restoreHostConnectivity();
+    }
 	if(timeStep != 0.0f)
 	{
 		setElapsedTime(timeStep);
@@ -222,6 +270,19 @@ void Sc::Scene::updateDirtyShapes(PxBaseTask* continuation)
 		{
 			hasDirtyShapes = true;
 			changedMap.growAndSet(index);
+            const BodySim* body = shapeSim->getBodySim();
+            if(isDirectGPUAPIInitialized() && body
+                && (body->getLowLevelBody().mGpuHostDirty & (PxsRigidBody::eHOST_POSE_COPY_GPU >> 16)))
+            {
+                // Only explicit pending host pose commands own these CPU
+                // transforms. Stage their sparse GPU bounds updates here:
+                // the worker path deliberately bypasses change tracking.
+                // This also supersedes a GPU refresh queued by an earlier
+                // ownership transfer in the same command interval.
+                mSimulationController->setGpuShapeBoundsRefresh(index, false);
+                shapeSim->updateCached_NotThreadSafe(task->mParams, &changedMap, false, false);
+                continue;
+            }
 			task->mShapes[nbDirtyShapes++] = shapeSim;
 
 			// PT: consider better load balancing?
@@ -350,7 +411,10 @@ void Sc::Scene::broadPhaseFirstPass(PxBaseTask* continuation)
 	
 	// AD: this combines the update flags of the normal pipeline with the update flags
 	// marking updated bounds for the direct-GPU API.
-	if (isDirectGPUAPIInitialized())
+	// Sleep rollback and native pose publication also write these flags on
+    // ordinary passes. Consume them before shape IDs can be retired/reused.
+    if (isDirectGPUAPIInitialized() || mDestructionCorrectionInProgress
+        || mSimulationController->usesDeviceDestructionContactInputs())
 	{
 		mSimulationController->mergeChangedAABBMgHandle();
 	}
@@ -416,12 +480,17 @@ void Sc::Scene::unblockNarrowPhase(PxBaseTask*)
 
 void Sc::Scene::postBroadPhase(PxBaseTask* continuation)
 {
+    PxProfileScoped destructionDetail(mSimulationController->usesDeviceDestructionContactInputs()?PxGetProfilerCallback():NULL,
+        mDestructionCorrectionInProgress?"GpuDestruction.detail.postBroadPhase":"GpuDestruction.trialDetail.postBroadPhase",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
 	PX_PROFILE_START_CROSSTHREAD("Basic.postBroadPhase", mContextId);
 
 	//Notify narrow phase that broad phase has completed
 	mLLContext->getNphaseImplementationContext()->postBroadPhaseUpdateContactManager(continuation);
 
 	mAABBManager->postBroadPhase(continuation, *getFlushPool());
+    // The corrected pass's broad phase has run: release device work the
+    // destruction runtime held back so it would not overlap it.
+    if(mDestructionCorrectionInProgress)mSimulationController->flushDeferredDestructionWork();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -694,6 +763,8 @@ namespace
 
 void Sc::Scene::preallocateContactManagers(PxBaseTask* continuation)
 {
+    PxProfileScoped destructionDetail(mSimulationController->usesDeviceDestructionContactInputs()?PxGetProfilerCallback():NULL,
+        mDestructionCorrectionInProgress?"GpuDestruction.detail.preallocateContactManagers":"GpuDestruction.trialDetail.preallocateContactManagers",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
 	//Iterate over all filter tasks and work out how many pairs we need...
 	PxU32 totalCreatedPairs = 0;
 	PxU32 totalSuppressPairs = 0;
@@ -997,6 +1068,8 @@ namespace
 
 void Sc::Scene::postBroadPhaseStage2(PxBaseTask* continuation)
 {
+    PxProfileScoped destructionDetail(mSimulationController->usesDeviceDestructionContactInputs()?PxGetProfilerCallback():NULL,
+        mDestructionCorrectionInProgress?"GpuDestruction.detail.postBroadPhaseStage2":"GpuDestruction.trialDetail.postBroadPhaseStage2",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
 	// PT: TODO: can we overlap this with something?
 	// - Wakes actors that lost touch if appropriate
 	processLostTouchPairs();
@@ -1130,6 +1203,8 @@ void Sc::Scene::postBroadPhaseStage2(PxBaseTask* continuation)
 // PT: islandInsertion / registerContactManagers / registerInteractions / registerSceneInteractions run in parallel
 void Sc::Scene::islandInsertion(PxBaseTask* /*continuation*/)
 {
+    PxProfileScoped destructionDetail(mSimulationController->usesDeviceDestructionContactInputs()?PxGetProfilerCallback():NULL,
+        mDestructionCorrectionInProgress?"GpuDestruction.detail.islandInsertion":"GpuDestruction.trialDetail.islandInsertion",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
 	PX_PROFILE_ZONE("Sim.processNewOverlaps.islandInsertion", mContextId);
 
 	// PT: TODO: get rid of this one
@@ -1186,6 +1261,8 @@ void Sc::Scene::islandInsertion(PxBaseTask* /*continuation*/)
 // PT: islandInsertion / registerContactManagers / registerInteractions / registerSceneInteractions run in parallel
 void Sc::Scene::registerContactManagers(PxBaseTask* /*continuation*/)
 {
+    PxProfileScoped destructionDetail(mSimulationController->usesDeviceDestructionContactInputs()?PxGetProfilerCallback():NULL,
+        mDestructionCorrectionInProgress?"GpuDestruction.detail.registerContactManagers":"GpuDestruction.trialDetail.registerContactManagers",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
 	PX_PROFILE_ZONE("Sim.processNewOverlaps.registerCms", mContextId);
 
 	// PT: we sometimes iterate over this array in vain (all ptrs are unused). Would be better
@@ -1215,6 +1292,8 @@ void Sc::Scene::registerContactManagers(PxBaseTask* /*continuation*/)
 // PT: islandInsertion / registerContactManagers / registerInteractions / registerSceneInteractions run in parallel
 void Sc::Scene::registerInteractions(PxBaseTask* /*continuation*/)
 {
+    PxProfileScoped destructionDetail(mSimulationController->usesDeviceDestructionContactInputs()?PxGetProfilerCallback():NULL,
+        mDestructionCorrectionInProgress?"GpuDestruction.detail.registerInteractions":"GpuDestruction.trialDetail.registerInteractions",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
 	PX_PROFILE_ZONE("Sim.processNewOverlaps.registerInteractions", mContextId);
 
 	PX_ASSERT(mPreallocatedShapeInteractions.size() || mPreallocatedInteractionMarkers.size());	// PT: otherwise we should have skipped the task entirely
@@ -1258,6 +1337,8 @@ void Sc::Scene::registerInteractions(PxBaseTask* /*continuation*/)
 // PT: islandInsertion / registerContactManagers / registerInteractions / registerSceneInteractions run in parallel
 void Sc::Scene::registerSceneInteractions(PxBaseTask* /*continuation*/)
 {
+    PxProfileScoped destructionDetail(mSimulationController->usesDeviceDestructionContactInputs()?PxGetProfilerCallback():NULL,
+        mDestructionCorrectionInProgress?"GpuDestruction.detail.registerSceneInteractions":"GpuDestruction.trialDetail.registerSceneInteractions",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
 	PX_PROFILE_ZONE("Sim.processNewOverlaps.registerInteractionsScene", mContextId);
 
 	PX_ASSERT(mPreallocatedShapeInteractions.size() || mPreallocatedInteractionMarkers.size());	// PT: otherwise we should have skipped the task entirely
@@ -1381,6 +1462,8 @@ void Sc::Scene::finishBroadPhaseStage2(PxU32 ccdPass)
 
 void Sc::Scene::postBroadPhaseStage3(PxBaseTask* /*continuation*/)
 {
+    PxProfileScoped destructionDetail(mSimulationController->usesDeviceDestructionContactInputs()?PxGetProfilerCallback():NULL,
+        mDestructionCorrectionInProgress?"GpuDestruction.detail.postBroadPhaseStage3":"GpuDestruction.trialDetail.postBroadPhaseStage3",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
 	finishBroadPhaseStage2(0);
 
 	PX_PROFILE_STOP_CROSSTHREAD("Basic.postBroadPhase", mContextId);
@@ -1395,21 +1478,22 @@ void Sc::Scene::advanceStep(PxBaseTask* continuation)
 
 	if(mDt != 0.0f)
 	{
-		mFinalizationPhase.setContinuation(continuation);
+        auto& finalization=mDestructionCorrectionInProgress?mDestructionFinalizationPhase:mFinalizationPhase;
+		finalization.setContinuation(continuation);
 
 		// Chain: afterIntegration -> [CCD ->] [bodyAcceleration ->] finalizationPhase -> continuation
 		if(mBodyAccelerationTask)
-			mBodyAccelerationTask->setContinuation(*mTaskManager, &mFinalizationPhase);
+			mBodyAccelerationTask->setContinuation(*mTaskManager, &finalization);
 
 		if(mPublicFlags & PxSceneFlag::eENABLE_CCD)
 		{
-			mUpdateCCDMultiPass.setContinuation(mBodyAccelerationTask ? mBodyAccelerationTask : &mFinalizationPhase);
+			mUpdateCCDMultiPass.setContinuation(mBodyAccelerationTask ? mBodyAccelerationTask : &finalization);
 			mAfterIntegration.setContinuation(&mUpdateCCDMultiPass);
 			mUpdateCCDMultiPass.removeReference();
 		}
 		else
 		{
-			mAfterIntegration.setContinuation(mBodyAccelerationTask ? mBodyAccelerationTask : &mFinalizationPhase);
+			mAfterIntegration.setContinuation(mBodyAccelerationTask ? mBodyAccelerationTask : &finalization);
 		}
 
 		const bool useGpu = isUsingGpuDynamicsOrBp();
@@ -1439,7 +1523,7 @@ void Sc::Scene::advanceStep(PxBaseTask* continuation)
 		mPostNarrowPhase.setContinuation(&mIslandGen);
 		mSecondPassNarrowPhase.setContinuation(&mPostNarrowPhase);
 
-		mFinalizationPhase.removeReference();
+		finalization.removeReference();
 		if(mBodyAccelerationTask)
 			mBodyAccelerationTask->removeReference();
 		mAfterIntegration.removeReference();
@@ -1545,6 +1629,8 @@ void Sc::Scene::releaseConstraints(bool endOfScene)
 
 void Sc::Scene::postNarrowPhase(PxBaseTask* /*continuation*/)
 {
+    PxProfileScoped destructionDetail(mSimulationController->usesDeviceDestructionContactInputs()?PxGetProfilerCallback():NULL,
+        mDestructionCorrectionInProgress?"GpuDestruction.detail.postNarrowPhase":"GpuDestruction.trialDetail.postNarrowPhase",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
 	setCollisionPhaseToInactive();
 
 	mHasContactDistanceChanged = false;
@@ -1563,6 +1649,8 @@ void Sc::Scene::postNarrowPhase(PxBaseTask* /*continuation*/)
 
 void Sc::Scene::islandGen(PxBaseTask* continuation)
 {
+    PxProfileScoped destructionDetail(mSimulationController->usesDeviceDestructionContactInputs()?PxGetProfilerCallback():NULL,
+        mDestructionCorrectionInProgress?"GpuDestruction.detail.islandGen":"GpuDestruction.trialDetail.islandGen",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
 	PX_PROFILE_ZONE("Sc::Scene::islandGen", mContextId);
 
 	//mLLContext->runModifiableContactManagers(); //KS - moved here so that we can get up-to-date touch found/lost events in IG
@@ -1630,6 +1718,8 @@ namespace
 
 void Sc::Scene::processNarrowPhaseTouchEvents(PxBaseTask* continuation)
 {
+    PxProfileScoped destructionDetail(mSimulationController->usesDeviceDestructionContactInputs()?PxGetProfilerCallback():NULL,
+        mDestructionCorrectionInProgress?"GpuDestruction.detail.processNarrowPhaseTouchEvents":"GpuDestruction.trialDetail.processNarrowPhaseTouchEvents",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
 	PX_PROFILE_ZONE("Sc::Scene::processNarrowPhaseTouchEvents", mContextId);
 
 	PxsContext* context = mLLContext;
@@ -1694,6 +1784,8 @@ void Sc::Scene::processNarrowPhaseTouchEvents(PxBaseTask* continuation)
 
 void Sc::Scene::postIslandGen(PxBaseTask* continuation)
 {
+    PxProfileScoped destructionDetail(mSimulationController->usesDeviceDestructionContactInputs()?PxGetProfilerCallback():NULL,
+        mDestructionCorrectionInProgress?"GpuDestruction.detail.postIslandGen":"GpuDestruction.trialDetail.postIslandGen",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
 	PX_PROFILE_ZONE("Sim.postIslandGen", mContextId);
 
 	//
@@ -1743,6 +1835,8 @@ void Sc::Scene::postIslandGen(PxBaseTask* continuation)
 
 void Sc::Scene::setEdgesConnected(PxBaseTask*)
 {
+    PxProfileScoped destructionDetail(mSimulationController->usesDeviceDestructionContactInputs()?PxGetProfilerCallback():NULL,
+        mDestructionCorrectionInProgress?"GpuDestruction.detail.setEdgesConnected":"GpuDestruction.trialDetail.setEdgesConnected",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
 	PX_PROFILE_ZONE("Sim.preIslandGen.islandTouches", mContextId);
 
 #if USE_SPLIT_SECOND_PASS_ISLAND_GEN
@@ -1788,9 +1882,16 @@ void Sc::Scene::solver(PxBaseTask* continuation)
 #if USE_SPLIT_SECOND_PASS_ISLAND_GEN
 	// PT: we run here the last part of Sc::Scene::setEdgesConnected()
 	// PT: TODO: move to a non solver part?
+	{
+	PxProfileScoped destructionDetail(mSimulationController->usesDeviceDestructionContactInputs()?PxGetProfilerCallback():NULL,
+		mDestructionCorrectionInProgress?"GpuDestruction.detail.islandGenPart2":"GpuDestruction.trialDetail.islandGenPart2",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
 	mSimpleIslandManager->secondPassIslandGenPart2();
-
+	}
+	{
+	PxProfileScoped destructionDetail(mSimulationController->usesDeviceDestructionContactInputs()?PxGetProfilerCallback():NULL,
+		mDestructionCorrectionInProgress?"GpuDestruction.detail.wakeObjectsUp":"GpuDestruction.trialDetail.wakeObjectsUp",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
 	wakeObjectsUp();
+	}
 #endif
 
 	//Update forces per body in parallel. This can overlap with the other work in this phase.
@@ -1947,9 +2048,199 @@ namespace
 	};
 }
 
+bool Sc::Scene::queueDestructionQueryMembership(const PxU32* indices, PxU32 count)
+{
+    PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.task.queryMembershipQueue",false,
+        PxU64(reinterpret_cast<size_t>(mSimulationController)));
+    // The copied frozen/unfrozen index lists are only meaningful below the
+    // shape count; an index beyond it is a stale or uninitialised copy-back
+    // entry (seen intermittently as ~100k bogus entries) and is dropped.
+    const PxU32 shapeCount=mSimulationController->getNbShapes();
+    PxU32 dropped=0;
+    for(PxU32 i=0;i<count;++i) {
+        const PxU32 id=indices[i];
+        if(id>=shapeCount){++dropped;continue;}
+        if(mDestructionQueryDirty.boundedTest(id))continue;
+        if(!mDestructionQueryDirty.growAndSet(id))return false;
+        mDestructionQueryShapes.pushBack(id);
+    }
+    if(dropped){
+        static const bool scopeDiag=::getenv("PHYSX_DESTRUCTION_ISLAND_SCOPE_DIAG")!=NULL;
+        if(scopeDiag)fprintf(stderr,"[query-diag] dropped %u of %u query indices beyond the shape count %u\n",dropped,count,shapeCount);
+    }
+    return true;
+}
+
+void Sc::Scene::publishDestructionQueryMembership()
+{
+    if(mDestructionQueryShapes.empty())return;
+    PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.task.queryMembership",false,
+        PxU64(reinterpret_cast<size_t>(mSimulationController)));
+    const bool accepted=isSimulationResultAccepted();
+    auto** shapes=mSimulationController->getShapeSims();
+    const PxU32 count=mSimulationController->getNbShapes();
+    for(const PxU32 id:mDestructionQueryShapes) {
+        mDestructionQueryDirty.reset(id);
+        if(!accepted || id>=count || !shapes[id])continue;
+        auto& shape=*shapes[id];
+        auto* body=shape.getBodySim();
+        // Final activity includes correction and final-pass ownership changes.
+        // The two GPU lists are deltas; their union must survive trial rejection.
+        if(!body || !body->isActive() || body->isFrozen())shape.destroySqBounds();
+        else shape.createSqBounds();
+    }
+    mDestructionQueryShapes.clear();
+}
+
+namespace
+{
+    // One chunk of the trial activity checkpoint (README R6): records are written
+    // in place into the pre-sized array, so chunking keeps the array order.
+    class ScDestructionCaptureTask : public Cm::Task
+    {
+    public:
+        Sc::Scene* mScene; PxU32 mBegin, mEnd;
+        ScDestructionCaptureTask(PxU64 contextID, Sc::Scene* scene, PxU32 begin, PxU32 end) : Cm::Task(contextID), mScene(scene), mBegin(begin), mEnd(end) {}
+        virtual void runInternal() PX_OVERRIDE { mScene->captureDestructionActivityRange(mBegin, mEnd); }
+        virtual const char* getName() const PX_OVERRIDE { return "ScScene.destructionActivityCapture"; }
+    private:
+        PX_NOCOPY(ScDestructionCaptureTask)
+    };
+}
+void Sc::Scene::captureDestructionActivityRange(PxU32 begin, PxU32 end)
+{
+    PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.task.activityCheckpointChunk",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
+    const auto& accurate=mSimpleIslandManager->getAccurateIslandSim();
+    const auto& speculative=mSimpleIslandManager->getSpeculativeIslandSim();
+    const auto* active=accurate.getActiveNodes(IG::Node::eRIGID_BODY_TYPE);
+    for(PxU32 i=begin;i<end;++i) {
+        auto* rigid=getRigidBodyFromIG(accurate,active[i]);
+        auto* body=reinterpret_cast<BodySim*>(reinterpret_cast<PxU8*>(rigid)-BodySim::getRigidBodyOffset());
+        mDestructionTrialActivity[i]={body,rigid->getCore().wakeCounter,
+            PxU16(rigid->mInternalFlags & PxsRigidBody::eSLEEPING_FLAGS),
+            bool(accurate.getNode(active[i]).isReadyForSleeping()),bool(speculative.getNode(active[i]).isReadyForSleeping()),bool(body->readInternalFlag(ActorSim::BF_WAKEUP_NOTIFY))};
+    }
+}
+void Sc::Scene::captureDestructionActivity(PxBaseTask* joinTask)
+{
+    PxProfileScoped profile(mSimulationController->usesDeviceDestructionContactInputs()?PxGetProfilerCallback():NULL,
+        "GpuDestruction.task.activityCheckpoint",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
+    mDestructionTrialActivity.clear();mDestructionTrialSleepNotifications.clear();
+    mDestructionTrialKinematics.clear();
+    if(mSimulationController->usesDeviceDestructionContactInputs()
+        && !(mPublicFlags & PxSceneFlag::eENABLE_DIRECT_GPU_API)) {
+        for(PxU32 i=0;i<mActiveKinematicBodyCount;++i) {
+            auto* body=mActiveBodies[i];
+            if(body->getHasValidKinematicTarget())
+                mDestructionTrialKinematics.pushBack({body,body->getCore().body2World});
+        }
+    }
+    if((mPublicFlags & (PxSceneFlag::eDISABLE_SLEEPING | PxSceneFlag::eENABLE_DIRECT_GPU_API))
+        || !mSimulationController->usesDeviceDestructionContactInputs())return;
+    for(PxU32 i=0;i<mSleepBodies.size();++i) {
+        auto* body=mSleepBodies.getEntries()[i]->getSim();
+        if(body && body->readInternalFlag(ActorSim::BF_SLEEP_NOTIFY))mDestructionTrialSleepNotifications.pushBack(body);
+    }
+    const auto& accurate=mSimpleIslandManager->getAccurateIslandSim();
+    const auto& speculative=mSimpleIslandManager->getSpeculativeIslandSim();
+    const auto* active=accurate.getActiveNodes(IG::Node::eRIGID_BODY_TYPE);
+    const PxU32 count=accurate.getNbActiveNodes(IG::Node::eRIGID_BODY_TYPE);
+    PX_UNUSED(active);PX_UNUSED(speculative);
+    // Chunked onto worker tasks (PHYSX_DESTRUCTION_ACTIVITY_CAPTURE_TASKS=0 keeps the
+    // inline loop). Nothing between beforeSolver and afterIntegration writes the
+    // captured fields (wake counters, sleep flags, readiness, wake notify), and the
+    // join task is the first writer, so the records are identical to the inline capture.
+    static const PxU32 chunk=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_ACTIVITY_CAPTURE_TASKS");if(!raw)return 1024u;const int v=std::atoi(raw);return v<=0?0u:PxU32(v);}();
+    mDestructionTrialActivity.forceSize_Unsafe(0);mDestructionTrialActivity.resize(count);
+    if(joinTask && chunk && count>2u*chunk) {
+        Cm::FlushPool& flushPool=mLLContext->getTaskPool();
+        for(PxU32 begin=0;begin<count;begin+=chunk) {
+            ScDestructionCaptureTask* task=PX_PLACEMENT_NEW(flushPool.allocate(sizeof(ScDestructionCaptureTask)),ScDestructionCaptureTask)(mContextId,this,begin,PxMin(count,begin+chunk));
+            startTask(task,joinTask);
+        }
+    }
+    else captureDestructionActivityRange(0,count);
+}
+void Sc::Scene::restoreDestructionActivity()
+{
+    PxProfileScoped profile(mSimulationController->usesDeviceDestructionContactInputs()?PxGetProfilerCallback():NULL,
+        "GpuDestruction.task.activityRestore",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
+    for(const auto& saved:mDestructionTrialKinematics) {
+        saved.body->getCore().body2World=saved.startPose;
+        // kinematicsSetup uploads the restored pose and recomputes velocity
+        // against the unchanged user target during the corrected simulation.
+    }
+    mDestructionTrialKinematics.clear();
+    // Island-scoped correction: bodies of islands without a correction target
+    // keep their trial result and their islands are parked in the accurate
+    // island sim for the corrected pass (edges, contact managers, sleep state
+    // and notifications untouched); the GPU restore already skipped them.
+    PxU32 parkedCount=0;const PxU32* parked=mSimulationController->destructionParkedNodes(parkedCount);
+    PxBitMap parkedMap;
+    static const bool scopeTrace=::getenv("PHYSX_DESTRUCTION_ISLAND_SCOPE_TRACE")!=NULL;
+    // Mode 4 (frozen pass) keeps the island sim untouched: bodies are removed
+    // from the solver's active list by the GPU context instead of parked.
+    static const bool parkIslands=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_ISLAND_SCOPE");const int mode=raw?std::atoi(raw):0;return mode==1||mode==3;}();
+    if(parkedCount) {
+        auto& accurate=mSimpleIslandManager->getAccurateIslandSim();
+        if(scopeTrace)accurate.validateActiveLists("before park");
+        parkedMap.resizeAndClear(accurate.getNbNodes());
+        const IG::IslandId* ids=accurate.getIslandIds();
+        mDestructionParkedIslands.clear();
+        PxBitMap islandSeen;islandSeen.resizeAndClear(accurate.getNbIslands());
+        for(PxU32 i=0;i<parkedCount;++i) {
+            const PxU32 node=parked[i];
+            if(node>=accurate.getNbNodes() || ids[node]==IG_INVALID_ISLAND)continue;
+            parkedMap.set(node);
+            if(!parkIslands)continue;
+            const IG::IslandId island=ids[node];
+            if(island>=accurate.getNbIslands() || islandSeen.test(island))continue;
+            islandSeen.set(island);
+            if(accurate.parkIslandForPass(island))mDestructionParkedIslands.pushBack(island);
+        }
+        static const bool scopeDiag=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_ISLAND_SCOPE_DIAG");return raw && raw[0]=='1';}();
+        if(scopeDiag){printf("island scope: parked nodes=%u islands=%u activeIslandsNow=%u activeRigidNow=%u rejects=%u/%u/%u/%u/%u/%u/%u/%u\n",parkedCount,mDestructionParkedIslands.size(),accurate.getNbActiveIslands(),accurate.getNbActiveNodes(IG::Node::eRIGID_BODY_TYPE),
+            IG::parkRejectReason(0),IG::parkRejectReason(1),IG::parkRejectReason(2),IG::parkRejectReason(3),IG::parkRejectReason(4),IG::parkRejectReason(5),IG::parkRejectReason(6),IG::parkRejectReason(7));}
+    }
+    for(const auto& saved:mDestructionTrialActivity) {
+        auto& body=*saved.body;auto& rigid=body.getLowLevelBody();auto& core=rigid.getCore();
+        if(parkedCount && parkedMap.boundedTest(body.getNodeIndex().index())) {
+            // Parked: trial end-of-tick pose, wake state and flags stand.
+            mSimulationController->discardDestructionTrialBodyUpload(body.getNodeIndex().index());
+            continue;
+        }
+        // A changed cluster has already received its GPU-computed COM frame.
+        // Unchanged bodies retain the first trial's pre-integration transform.
+        core.body2World=rigid.mLastTransform;
+        core.wakeCounter=core.solverWakeCounter=saved.wakeCounter;
+        body.setActive(true);
+        const auto id=body.getNodeIndex();
+        auto& accurate=mSimpleIslandManager->getAccurateIslandSim();
+        auto& speculative=mSimpleIslandManager->getSpeculativeIslandSim();
+        accurate.activateNode(id);speculative.activateNode(id);
+        // Keep activation queued while restoring readiness; deactivateNode()
+        // would cancel a queued activation and strand the CPU actor as active.
+        if(saved.accurateReady)accurate.deactivateNode_ForGPUSolver(id);
+        if(saved.speculativeReady)speculative.deactivateNode_ForGPUSolver(id);
+        rigid.mInternalFlags=PxU16((rigid.mInternalFlags & ~PxsRigidBody::eSLEEPING_FLAGS)|saved.sleepFlags);
+        // This restores the CPU scheduler, not a host physical command. The
+        // authoritative body/sleep accumulators were restored on the GPU.
+        mSimulationController->discardDestructionTrialBodyUpload(id.index());
+        if(saved.wakeNotify)onBodyWakeUp(&body);
+    }
+    for(auto* body:mDestructionTrialSleepNotifications)if(!body->isActive())onBodySleep(body);
+    mDestructionTrialSleepNotifications.clear();
+    mDestructionTrialActivity.clear();
+}
+
 void Sc::Scene::beforeSolver(PxBaseTask* continuation)
 {
+    PxProfileScoped destructionDetail(mSimulationController->usesDeviceDestructionContactInputs()?PxGetProfilerCallback():NULL,
+        mDestructionCorrectionInProgress?"GpuDestruction.detail.beforeSolver":"GpuDestruction.trialDetail.beforeSolver",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
 	PX_PROFILE_ZONE("Sim.updateForces", mContextId);
+    // The activity checkpoint runs on worker tasks joined at afterIntegration (the
+    // first writer of the captured state); the solver's CPU chain no longer waits for it.
+    if(!mDestructionCorrectionInProgress)captureDestructionActivity(&mAfterIntegration);
 
 	// Note: For contact notifications it is important that force threshold checks are done after new/lost touches have been processed
 	//       because pairs might get added to the list processed below
@@ -2069,7 +2360,164 @@ void Sc::Scene::updateBodies(PxBaseTask* continuation)
 
 void Sc::Scene::updateDynamics(PxBaseTask* /*continuation*/)
 {
+    PxProfileScoped destructionDetail(mSimulationController->usesDeviceDestructionContactInputs()?PxGetProfilerCallback():NULL,
+        mDestructionCorrectionInProgress?"GpuDestruction.detail.updateDynamics":"GpuDestruction.trialDetail.updateDynamics",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
 	PX_PROFILE_START_CROSSTHREAD("Basic.dynamics", mContextId);
+
+	// R2 step 4 audit: would this pass's narrowphase touch-found events, gated by
+	// endpoint activity, reproduce the island sim's activated contact list that
+	// the GPU partition turns into new partition edges?
+	{
+		static const bool npAudit = []{ const char* raw = ::getenv("PHYSX_DESTRUCTION_PARTITION_NP_AUDIT"); return raw && raw[0] == '1'; }();
+		if(npAudit && mSimpleIslandManager->getAccurateIslandSim().mGpuData)
+		{
+			static PxU64 passes = 0, islandSet = 0, npSet = 0, both = 0, islandOnly = 0, islandOnlyWoken = 0, npOnly = 0, npOnlyEdgeInactive = 0;
+			static PxU64 islandOnlyCorrected = 0, islandOnlyBitSet = 0, islandOnlyNewCm = 0, correctedPasses = 0;
+			++passes; if(mDestructionCorrectionInProgress) ++correctedPasses;
+			const PxBitMap& touchBits = mLLContext->getContactManagerTouchEvents();
+			const IG::IslandSim& sim = mSimpleIslandManager->getAccurateIslandSim();
+			const IG::GPUExternalData& gpu = *sim.mGpuData;
+			const PxBitMap& activeCM = gpu.getActiveContactManagerBitmap();
+			PxsContactManagerOutputIterator outputs = mLLContext->getNphaseImplementationContext()->getContactManagerOutputs();
+			PxHashSet<PxU32> a, b;
+			const PxU32 n = sim.getNbActivatedEdges(IG::Edge::eCONTACT_MANAGER);
+			const IG::EdgeIndex* edges = sim.getActivatedEdges(IG::Edge::eCONTACT_MANAGER);
+			for(PxU32 i = 0; i < n; ++i)
+			{
+				const IG::EdgeIndex e = edges[i];
+				if(!activeCM.test(e) || gpu.getFirstPartitionEdge(e)) continue;
+				PxsContactManager* cm = mSimpleIslandManager->getContactManager(e);
+				if(!cm) continue;
+				const PxsContactManagerOutput& o = outputs.getContactManagerOutput(cm->getWorkUnit().mNpIndex);
+				if(!o.nbPatches) continue;
+				a.insert(e);
+				if(o.prevPatches) ++islandOnlyWoken;	// counted below only if missing from b
+			}
+			for(PxU32 i = 0; i < mTouchFoundEvents.size(); ++i)
+			{
+				const ShapeInteraction* si = getSI(mTouchFoundEvents[i]);
+				const PxsContactManager* cm = si ? si->getContactManager() : NULL;
+				if(!cm) continue;
+				const PxcNpWorkUnit& unit = cm->getWorkUnit();
+				if(unit.mFlags & PxcNpWorkUnitFlag::eDISABLE_RESPONSE) continue;
+				const IG::EdgeIndex e = unit.mEdgeIndex;
+				if(e == IG_INVALID_EDGE || gpu.getFirstPartitionEdge(e)) continue;
+				const PxNodeIndex n0 = si->getActorSim0().getNodeIndex(), n1 = si->getActorSim1().getNodeIndex();
+				const bool active0 = !n0.isValid() || sim.getNode(n0).isActive() || sim.getNode(n0).isActivating();
+				const bool active1 = !n1.isValid() || sim.getNode(n1).isActive() || sim.getNode(n1).isActivating();
+				if(active0 && active1) b.insert(e);
+			}
+			// Bitmap-derived set (touch bit set this pass, touching, activity-gated),
+			// plus the trial pass's set carried into the corrected pass.
+			static PxHashSet<PxU32>* carriedPtr = new PxHashSet<PxU32>(); PxHashSet<PxU32>& carried = *carriedPtr; static PxU64 bitmapSet = 0, coveredByBitmapOrCarry = 0;
+			static PxU64 stageBits = 0, stageCm = 0, stageTouch = 0, stageEdge = 0, stageActive = 0;
+			static PxU64 gateIsland = 0, gateBoth = 0, gateEither = 0, gateNeither = 0, gateListedEither = 0, gateDeleted = 0, gateKinematic = 0;
+			{
+				const PxU32* words = touchBits.getWords();
+				const PxU32 last = words ? touchBits.findLast() : PX_INVALID_U32;
+				if(last != PX_INVALID_U32)
+					for(PxU32 w = 0; w <= last >> 5; ++w)
+						for(PxU32 bw = words[w]; bw; bw &= bw-1)
+						{
+							const PxU32 index = PxU32(w<<5|PxLowestSetBit(bw));
+							++stageBits;
+							PxsContactManager* cm = mLLContext->getContactManagerPool().findByIndexFast(index);
+							if(!cm) continue;
+							++stageCm;
+							const PxcNpWorkUnit& unit = cm->getWorkUnit();
+							// Touch per this pass's narrowphase output, not the cached status
+							// (which is only updated once the touch events are processed).
+							if(unit.mNpIndex == 0xFFffFFff || !outputs.getContactManagerOutput(unit.mNpIndex).nbPatches) continue;
+							++stageTouch;
+							if(unit.mFlags & PxcNpWorkUnitFlag::eDISABLE_RESPONSE) continue;
+							const IG::EdgeIndex e = unit.mEdgeIndex;
+							if(e == IG_INVALID_EDGE || gpu.getFirstPartitionEdge(e)) continue;
+							++stageEdge;
+							const PxNodeIndex n0 = sim.mCpuData.getNodeIndex1(e), n1 = sim.mCpuData.getNodeIndex2(e);
+							const bool dyn0 = n0.isValid() && !sim.getNode(n0).isKinematic(), dyn1 = n1.isValid() && !sim.getNode(n1).isKinematic();
+							const bool active0 = !n0.isValid() || sim.getNode(n0).isActive() || sim.getNode(n0).isActivating();
+							const bool active1 = !n1.isValid() || sim.getNode(n1).isActive() || sim.getNode(n1).isActivating();
+							const bool listed0 = n0.isValid() && sim.getActiveNodeIndex(n0) != PX_INVALID_NODE;
+							const bool listed1 = n1.isValid() && sim.getActiveNodeIndex(n1) != PX_INVALID_NODE;
+							if(a.contains(e))
+							{
+								++gateIsland;
+								if(active0 && active1) ++gateBoth; else if((dyn0 && active0) || (dyn1 && active1)) ++gateEither; else ++gateNeither;
+								if(listed0 || listed1) ++gateListedEither;
+								if(!active0 && n0.isValid()) { if(sim.getNode(n0).isDeleted()) ++gateDeleted; if(sim.getNode(n0).isKinematic()) ++gateKinematic; }
+							}
+							// Either dynamic endpoint active: the island sim wakes the other one.
+							if((dyn0 && active0) || (dyn1 && active1) || (!dyn0 && !dyn1)) { b.insert(e); ++stageActive; }
+						}
+				bitmapSet += b.size();
+				if(!mDestructionCorrectionInProgress) { carried.clear(); for(PxHashSet<PxU32>::Iterator it = b.getIterator(); !it.done(); ++it) carried.insert(*it); }
+				else for(PxHashSet<PxU32>::Iterator it = carried.getIterator(); !it.done(); ++it) if(!gpu.getFirstPartitionEdge(*it)) b.insert(*it);
+			}
+			islandSet += a.size(); npSet += b.size();
+			for(PxHashSet<PxU32>::Iterator it = a.getIterator(); !it.done(); ++it)
+			{
+				if(b.contains(*it)) { ++both; ++coveredByBitmapOrCarry; continue; }
+				++islandOnly;
+				if(mDestructionCorrectionInProgress) ++islandOnlyCorrected;
+				PxsContactManager* cm = mSimpleIslandManager->getContactManager(*it);
+				if(cm && touchBits.boundedTest(cm->getIndex())) ++islandOnlyBitSet;
+				if(cm && (cm->getWorkUnit().mNpIndex & PxsContactManagerBase::NEW_CONTACT_MANAGER_MASK)) ++islandOnlyNewCm;
+			}
+			for(PxHashSet<PxU32>::Iterator it = b.getIterator(); !it.done(); ++it) if(!a.contains(*it)) { ++npOnly; if(!activeCM.test(*it)) ++npOnlyEdgeInactive; }
+			if((passes % 32) == 0)
+			{
+				fprintf(stderr, "  bitmap stages: bits=%llu cm=%llu touching=%llu edge=%llu active=%llu\n", (unsigned long long)stageBits, (unsigned long long)stageCm, (unsigned long long)stageTouch, (unsigned long long)stageEdge, (unsigned long long)stageActive);
+				fprintf(stderr, "  island items among bitmap-touching: %llu, gate both=%llu either=%llu neither=%llu listedEither=%llu n0deleted=%llu n0kinematic=%llu\n",
+					(unsigned long long)gateIsland, (unsigned long long)gateBoth, (unsigned long long)gateEither, (unsigned long long)gateNeither, (unsigned long long)gateListedEither, (unsigned long long)gateDeleted, (unsigned long long)gateKinematic);
+				fprintf(stderr, "sc np-source audit (events+bitmap+carry): passes=%llu (corrected=%llu) island=%llu np=%llu both=%llu islandOnly=%llu (corrected=%llu bitSet=%llu newCm=%llu wokenTotal=%llu) npOnly=%llu (edgeInactive=%llu) touchFound=%u\n",
+					(unsigned long long)passes, (unsigned long long)correctedPasses, (unsigned long long)islandSet, (unsigned long long)npSet, (unsigned long long)both, (unsigned long long)islandOnly,
+					(unsigned long long)islandOnlyCorrected, (unsigned long long)islandOnlyBitSet, (unsigned long long)islandOnlyNewCm, (unsigned long long)islandOnlyWoken,
+					(unsigned long long)npOnly, (unsigned long long)npOnlyEdgeInactive, mTouchFoundEvents.size());
+			}
+		}
+	}
+
+	// R2 step 4 (env-gated): narrowphase-driven candidate list for new partition edges:
+	// touch bit set this pass, touching per narrowphase output, either dynamic endpoint
+	// active; corrected passes replay the trial pass's list.
+	{
+		static const bool npSource = []{ const char* raw = ::getenv("PHYSX_DESTRUCTION_PARTITION_NP_SOURCE"); return raw && raw[0] == '1'; }();
+		if(npSource && mSimpleIslandManager->getAccurateIslandSim().mGpuData)
+		{
+			const IG::IslandSim& sim = mSimpleIslandManager->getAccurateIslandSim();
+			PxsContactManagerOutputIterator outputs = mLLContext->getNphaseImplementationContext()->getContactManagerOutputs();
+			const PxBitMap& touchBits = mLLContext->getContactManagerTouchEvents();
+			if(!mDestructionCorrectionInProgress) mDestructionPartitionCandidatesTrial.forceSize_Unsafe(0);
+			mDestructionPartitionCandidates.forceSize_Unsafe(0);
+			const PxU32* words = touchBits.getWords();
+			const PxU32 last = words ? touchBits.findLast() : PX_INVALID_U32;
+			if(last != PX_INVALID_U32)
+				for(PxU32 w = 0; w <= last >> 5; ++w)
+					for(PxU32 bw = words[w]; bw; bw &= bw-1)
+					{
+						const PxU32 index = PxU32(w<<5|PxLowestSetBit(bw));
+						PxsContactManager* cm = mLLContext->getContactManagerPool().findByIndexFast(index);
+						if(!cm) continue;
+						const PxcNpWorkUnit& unit = cm->getWorkUnit();
+						if(unit.mNpIndex == 0xFFffFFff || !outputs.getContactManagerOutput(unit.mNpIndex).nbPatches) continue;
+						if(unit.mFlags & PxcNpWorkUnitFlag::eDISABLE_RESPONSE) continue;
+						const IG::EdgeIndex e = unit.mEdgeIndex;
+						if(e == IG_INVALID_EDGE || e >= sim.getNbEdges()) continue;
+						const PxNodeIndex n0 = sim.mCpuData.getNodeIndex1(e), n1 = sim.mCpuData.getNodeIndex2(e);
+						const bool dyn0 = n0.isValid() && !sim.getNode(n0).isKinematic(), dyn1 = n1.isValid() && !sim.getNode(n1).isKinematic();
+						const bool active0 = !n0.isValid() || sim.getNode(n0).isActive() || sim.getNode(n0).isActivating();
+						const bool active1 = !n1.isValid() || sim.getNode(n1).isActive() || sim.getNode(n1).isActivating();
+						if((dyn0 && active0) || (dyn1 && active1) || (!dyn0 && !dyn1))
+						{
+							mDestructionPartitionCandidates.pushBack(e);
+							if(!mDestructionCorrectionInProgress) mDestructionPartitionCandidatesTrial.pushBack(e);
+						}
+					}
+			if(mDestructionCorrectionInProgress)
+				for(PxU32 i = 0; i < mDestructionPartitionCandidatesTrial.size(); ++i) mDestructionPartitionCandidates.pushBack(mDestructionPartitionCandidatesTrial[i]);
+			mDynamicsContext->setPartitionCandidateEdges(mDestructionPartitionCandidates.begin(), mDestructionPartitionCandidates.size());
+		}
+	}
 
 	//Allow processLostContactsTask to run until after 2nd pass of solver completes (update bodies, run sleeping logic etc.)
 	mProcessLostContactsTask3.setContinuation(&mPostSolver);
@@ -2124,6 +2572,8 @@ void Sc::Scene::updateDynamics(PxBaseTask* /*continuation*/)
 
 void Sc::Scene::updateDynamicsPostPartitioning(PxBaseTask* /*continuation*/)
 {
+    PxProfileScoped destructionDetail(mSimulationController->usesDeviceDestructionContactInputs()?PxGetProfilerCallback():NULL,
+        mDestructionCorrectionInProgress?"GpuDestruction.detail.updateDynamicsPostPartitioning":"GpuDestruction.trialDetail.updateDynamicsPostPartitioning",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
 	PX_PROFILE_ZONE("Scene::updateDynamicsPostPartitioning", mContextId);
 
 	{
@@ -2161,6 +2611,8 @@ static PX_FORCE_INLINE void findInteractions(const NPhaseCore& core, PxU32 count
 
 void Sc::Scene::processLostContacts(PxBaseTask* continuation)
 {
+    PxProfileScoped destructionDetail(mSimulationController->usesDeviceDestructionContactInputs()?PxGetProfilerCallback():NULL,
+        mDestructionCorrectionInProgress?"GpuDestruction.detail.processLostContacts":"GpuDestruction.trialDetail.processLostContacts",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
 	PX_PROFILE_ZONE("Sc::Scene::processLostContacts", mContextId);
 
 	// PT: don't bother starting the tasks if we don't need to
@@ -2297,6 +2749,8 @@ void Sc::Scene::processNarrowPhaseLostTouchEvents(PxBaseTask*)
 
 void Sc::Scene::processLostContacts2(PxBaseTask* continuation)
 {
+    PxProfileScoped destructionDetail(mSimulationController->usesDeviceDestructionContactInputs()?PxGetProfilerCallback():NULL,
+        mDestructionCorrectionInProgress?"GpuDestruction.detail.processLostContacts2":"GpuDestruction.trialDetail.processLostContacts2",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
 	PxU32 destroyedOverlapCount;
 	AABBOverlap* PX_RESTRICT p = mAABBManager->getDestroyedOverlaps(ElementType::eSHAPE, destroyedOverlapCount);
 
@@ -2386,13 +2840,30 @@ void Sc::Scene::unregisterInteractions(PxBaseTask*)
 
 ///////////////////////////////////////////////////////////////////////////////
 
+bool Sc::Scene::canUseGpuDestructionIslandRepair() const
+{
+    bool gpuRepair=mSimulationController->usesGpuDestructionIslandRepair()
+        && !(mPublicFlags & (PxSceneFlag::eENABLE_CCD | PxSceneFlag::eENABLE_DIRECT_GPU_SLEEPING))
+        && !mArticulations.size() && !mConstraints.size() && !mFilterCallback
+        && !getContactModifyCallback();
+#if PX_SUPPORT_GPU_PHYSX
+    gpuRepair=gpuRepair && !mDeformableSurfaces.size() && !mDeformableVolumes.size() && !mParticleSystems.size();
+#endif
+    if(gpuRepair) {
+        PxBitMap::Iterator speculative(mSpeculativeCCDRigidBodyBitMap);
+        gpuRepair=speculative.getNext()==PxBitMap::Iterator::DONE;
+    }
+    return gpuRepair;
+}
+
 void Sc::Scene::destroyManagers(PxBaseTask*)
 {
 	PX_PROFILE_ZONE("Sim.destroyManagers", mContextId);
 
 	mPostThirdPassIslandGenTask.setContinuation(mProcessLostContactsTask3.getContinuation());
 
-	mSimpleIslandManager->thirdPassIslandGen(&mPostThirdPassIslandGenTask);
+    const bool gpuRepair=canUseGpuDestructionIslandRepair();
+    if(!gpuRepair)mSimpleIslandManager->thirdPassIslandGen(&mPostThirdPassIslandGenTask);
 
 	PxU32 destroyedOverlapCount;
 	const AABBOverlap* PX_RESTRICT p = mAABBManager->getDestroyedOverlaps(ElementType::eSHAPE, destroyedOverlapCount);
@@ -2411,12 +2882,18 @@ void Sc::Scene::destroyManagers(PxBaseTask*)
 		}
 		p++;
 	}
+    if(gpuRepair) {
+        mSimulationController->prepareGpuDestructionIslandRepair(*mSimpleIslandManager);
+        mSimpleIslandManager->thirdPassIslandGen(&mPostThirdPassIslandGenTask);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
 void Sc::Scene::processLostContacts3(PxBaseTask* /*continuation*/)
 {
+    PxProfileScoped destructionDetail(mSimulationController->usesDeviceDestructionContactInputs()?PxGetProfilerCallback():NULL,
+        mDestructionCorrectionInProgress?"GpuDestruction.detail.processLostContacts3":"GpuDestruction.trialDetail.processLostContacts3",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
 	{
 		PX_PROFILE_ZONE("Sim.processLostOverlapsStage2", mContextId);
 
@@ -2484,6 +2961,10 @@ void Sc::Scene::postThirdPassIslandGen(PxBaseTask* /*continuation*/)
 
 			const PxU32 nbDeactivatingEdges = islandSim.getNbDeactivatingEdges(edgeType);
 			const IG::EdgeIndex* deactivatingEdgeIds = islandSim.getDeactivatingEdges(edgeType);
+            {static const bool retiredDiag=::getenv("PHYSX_DESTRUCTION_RETIRED_DIAG")!=NULL;
+             if(retiredDiag && edgeType==IG::Edge::eCONTACT_MANAGER){static PxU32 passes=0;++passes;
+                PxU32 destroyedOverlaps=0;mAABBManager->getDestroyedOverlaps(ElementType::eSHAPE,destroyedOverlaps);
+                fprintf(stderr,"[retired-diag] pass %u %s deactivatingContactEdges %u destroyedOverlaps %u\n",passes,mDestructionCorrectionInProgress?"corrected":"trial",nbDeactivatingEdges,destroyedOverlaps);}}
 
 			for(PxU32 i = 0; i < nbDeactivatingEdges; ++i)
 			{
@@ -2506,6 +2987,57 @@ void Sc::Scene::postThirdPassIslandGen(PxBaseTask* /*continuation*/)
 	PxvNphaseImplementationContext*	implCtx = mLLContext->getNphaseImplementationContext();
 	PxsContactManagerOutputIterator outputs = implCtx->getContactManagerOutputs();
 	mNPhaseCore->processPersistentContactEvents(outputs);
+#if PX_SUPPORT_GPU_PHYSX
+    // Early trial stress submission (PHYSX_DESTRUCTION_EARLY_SUBMIT): arm the
+    // controller with the sleep commit of the transitions known here; it runs
+    // the commit and the submission once the solver launches are issued, so the
+    // solve overlaps the CPU post-solve chain. Experiment: the rollback set that
+    // afterIntegration adds is applied later (order-changing until made exact).
+    // Both passes: the corrected pass's acceptance and stress chain are
+    // enqueued the same way (the controller performs the acceptance first).
+    if(!(mPublicFlags & PxSceneFlag::eENABLE_DIRECT_GPU_API)
+        && mSimulationController->usesDeviceDestructionContactInputs()) {
+        mSimulationController->registerDestructionSleepFinalizer(&Scene::destructionPendingSleepFinalize, this);
+        mSimulationController->submitDestructionEarly(mDt, mGravity, &Scene::destructionEarlySleepCommit, this);
+    }
+#endif
+}
+
+// Pending-only finalization for the device sleep transition: bodies pending outside
+// the island passes (snapshot loads, user sleeps) are zeroed/rolled back before an
+// issue-time stress submit, as the arm-time commit did before the loads.
+bool Sc::Scene::destructionPendingSleepFinalize(void* user)
+{
+    Scene* scene=static_cast<Scene*>(user);
+    return scene->finalizeGpuSleep();
+}
+
+bool Sc::Scene::destructionEarlySleepCommit(void* user)
+{
+    Scene* scene=static_cast<Scene*>(user);
+    // The same set afterIntegration commits later: bodies the accurate island
+    // sim deactivated this pass may still have reached the solver, so their
+    // pre-step pose is rolled back and their motion zeroed (device gather).
+    // Committing them here keeps the early solve's inputs identical to the
+    // ordinary order; afterIntegration's re-insertion is then a no-op commit.
+    {
+        const IG::IslandSim& islandSim=scene->mSimpleIslandManager->getAccurateIslandSim();
+        const PxU32 count=islandSim.getNbNodesToDeactivate(IG::Node::eRIGID_BODY_TYPE);
+        const PxNodeIndex* indices=islandSim.getNodesToDeactivate(IG::Node::eRIGID_BODY_TYPE);
+        const PxU32 rigidBodyOffset=BodySim::getRigidBodyOffset();
+        for(PxU32 i=0;i<count;++i) {
+            PxsRigidBody* rigid=getRigidBodyFromIG(islandSim,indices[i]);
+            BodySim* sim=reinterpret_cast<BodySim*>(reinterpret_cast<PxU8*>(rigid)-rigidBodyOffset);
+            scene->mGpuSleepPendingBodies.insert(&sim->getBodyCore());
+            scene->mGpuSleepRollbackBodies.insert(&sim->getBodyCore());
+        }
+    }
+    if(scene->finalizeGpuSleep())return true;
+    PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR,PX_FL,"Native destruction early sleep commit failed");
+#if PX_SUPPORT_GPU_PHYSX
+    scene->getCudaContextManager()->getCudaContext()->setAbortMode(true);
+#endif
+    return false;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -2513,6 +3045,8 @@ void Sc::Scene::postThirdPassIslandGen(PxBaseTask* /*continuation*/)
 //This is called after solver finish
 void Sc::Scene::updateSimulationController(PxBaseTask* continuation)
 {
+    PxProfileScoped destructionDetail(mSimulationController->usesDeviceDestructionContactInputs()?PxGetProfilerCallback():NULL,
+        mDestructionCorrectionInProgress?"GpuDestruction.detail.updateSimulationController":"GpuDestruction.trialDetail.updateSimulationController",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
 	PX_PROFILE_ZONE("Sim.updateSimulationController", mContextId);
 	
 	PX_ASSERT(isUsingGpuDynamicsOrBp());	// PT: this is not called anymore in the CPU pipeline
@@ -2536,6 +3070,8 @@ void Sc::Scene::updateSimulationController(PxBaseTask* continuation)
 
 void Sc::Scene::postSolver(PxBaseTask* /*continuation*/)
 {
+    PxProfileScoped destructionDetail(mSimulationController->usesDeviceDestructionContactInputs()?PxGetProfilerCallback():NULL,
+        mDestructionCorrectionInProgress?"GpuDestruction.detail.postSolver":"GpuDestruction.trialDetail.postSolver",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
 	PX_PROFILE_ZONE("Sc::Scene::postSolver", mContextId);
 
 	PxcNpMemBlockPool& blockPool = mLLContext->getNpMemBlockPool();
@@ -2631,6 +3167,8 @@ void Sc::Scene::checkForceThresholdContactEvents(PxU32 ccdPass)
 
 void Sc::Scene::afterIntegration(PxBaseTask* continuation)
 {
+    PxProfileScoped profile(mSimulationController->usesDeviceDestructionContactInputs()?PxGetProfilerCallback():NULL,
+        "GpuDestruction.task.afterIntegration",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
 	PX_PROFILE_ZONE("Sc::Scene::afterIntegration", mContextId);
 
 	mLLContext->getTransformCache().resetChangedState(); //Reset the changed state. If anything outside of the GPU kernels updates any shape's transforms, this will be raised again
@@ -2658,6 +3196,25 @@ void Sc::Scene::afterIntegration(PxBaseTask* continuation)
 		const PxNodeIndex*const deactivatingIndices = islandSim.getNodesToDeactivate(IG::Node::eRIGID_BODY_TYPE);
 
 		PxU32 previousNumBodiesToDeactivate = mNumDeactivatingNodes[IG::Node::eRIGID_BODY_TYPE];
+        {
+            static const bool scopeDiag=::getenv("PHYSX_DESTRUCTION_ISLAND_SCOPE_DIAG")!=NULL;
+            if(scopeDiag){static PxU32 passes=0;++passes;if(numBodiesToDeactivate>previousNumBodiesToDeactivate || (passes%32)==0)
+                fprintf(stderr,"[deact-diag] pass %u correcting %d deactivating %u (previous %u) active %u\n",passes,int(mDestructionCorrectionInProgress),numBodiesToDeactivate,previousNumBodiesToDeactivate,islandSim.getNbActiveNodes(IG::Node::eRIGID_BODY_TYPE));}
+        }
+        if((mPublicFlags & PxSceneFlag::eENABLE_DIRECT_GPU_SLEEPING)
+            || (!(mPublicFlags & PxSceneFlag::eENABLE_DIRECT_GPU_API) && mSimulationController->usesDeviceDestructionContactInputs()))
+        {
+            // Include explicitly slept bodies: they may still have reached
+            // the solver while accurate island generation ran in parallel.
+            for(PxU32 i = 0; i < numBodiesToDeactivate; ++i)
+            {
+                PxsRigidBody* rigid = getRigidBodyFromIG(islandSim, deactivatingIndices[i]);
+                BodySim* sim = reinterpret_cast<BodySim*>(reinterpret_cast<PxU8*>(rigid) - rigidBodyOffset);
+                mGpuSleepPendingBodies.insert(&sim->getBodyCore());
+                mGpuSleepRollbackBodies.insert(&sim->getBodyCore());
+            }
+        }
+
 
 		{
 			PX_PROFILE_ZONE("AfterIntegration::deactivateStage", mContextId);
@@ -2673,11 +3230,14 @@ void Sc::Scene::afterIntegration(PxBaseTask* continuation)
 				//user perceives the same behavior as before.
 
 				//if(!islandSim.getNode(bodySim->getNodeIndex()).isActive())
-				rigid->setPose(rigid->getLastCCDTransform());
-
-				// PT: we are not inside a task here so we can run the non-thread-safe version, but we still need atomics for the bitmap update, as there are other parts running in parallel
-				// that also update the same bitmap.
-				bodySim->updateCached_NotThreadSafe(params, &changedAABBMgrActorHandles, false, true);
+                // GPU-owned motion/cache are already current. CPU CCD poses
+                // and shape bounds are stale in this mode and must not feed
+                // the GPU bounds merge on a native sleep transition.
+                if(!(mPublicFlags & PxSceneFlag::eENABLE_DIRECT_GPU_SLEEPING))
+                {
+                    rigid->setPose(rigid->getLastCCDTransform());
+                    bodySim->updateCached_NotThreadSafe(params, &changedAABBMgrActorHandles, false, true);
+                }
 
 				gpu_updateBodySim(*bodySim);
 
@@ -2685,8 +3245,8 @@ void Sc::Scene::afterIntegration(PxBaseTask* continuation)
 				//might have processed bodies that are now considered deactivated. This could have resulted in either freezing or unfreezing one of these bodies this frame, so we need to process those
 				//events to ensure that the SqManager's bounds arrays are consistently maintained. Also, we need to clear the frame flags for these bodies.
 
-				if(rigid->isFreezeThisFrame())
-					bodySim->freezeTransforms(params, &changedAABBMgrActorHandles);
+				if(rigid->isFreezeThisFrame() && !(mPublicFlags & PxSceneFlag::eENABLE_DIRECT_GPU_SLEEPING))
+                    bodySim->freezeTransforms(params, &changedAABBMgrActorHandles);
 
 				//KS - the IG deactivates bodies in parallel with the solver. It appears that under certain circumstances, the solver's integration (which performs
 				//sleep checks) could decide that the body is no longer a candidate for sleeping on the same frame that the island gen decides to deactivate the island
@@ -2757,7 +3317,7 @@ void Sc::Scene::afterIntegration(PxBaseTask* continuation)
 
 void Sc::Scene::fireOnAdvanceCallback()
 {
-	if(!mSimulationEventCallback)
+	if(!mSimulationEventCallback || !isSimulationResultAccepted())
 		return;
 
 	const PxU32 nbPosePreviews = mPosePreviewBodies.size();
@@ -2791,7 +3351,7 @@ void Sc::Scene::fireOnAdvanceCallback()
 	}
 }
 
-void Sc::Scene::finalizationPhase(PxBaseTask* /*continuation*/)
+void Sc::Scene::finalizationPhase(PxBaseTask* continuation)
 {
 	PX_PROFILE_ZONE("Sim.sceneFinalization", mContextId);
 
@@ -2818,9 +3378,141 @@ void Sc::Scene::finalizationPhase(PxBaseTask* /*continuation*/)
 	}
 #endif
 
+#if PX_SUPPORT_GPU_PHYSX
+    // Publish native sleep transitions on CUDA before stress observes motion or
+    // accepted topology is exposed. Only transition indices cross this boundary.
+    if(!(mPublicFlags & PxSceneFlag::eENABLE_DIRECT_GPU_API)
+        && mSimulationController->usesDeviceDestructionContactInputs() && !finalizeGpuSleep()) {
+        PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR,PX_FL,"Native destruction sleep commit failed");
+        getCudaContextManager()->getCudaContext()->setAbortMode(true);
+    }
+#endif
+    // The ordinary trial solve and integration have finished. Native stress
+    // consumes solved impulses before the scene publishes its results.
+    // First end-to-end rigid MVP excludes state whose rollback is not yet
+    // implemented. Rejection remains explicit when such a scene fractures.
+    bool canCorrect=!(mPublicFlags & (PxSceneFlag::eENABLE_CCD | PxSceneFlag::eENABLE_DIRECT_GPU_SLEEPING))
+        && !mArticulations.size() && !mConstraints.size() && !mFilterCallback;
+#if PX_SUPPORT_GPU_PHYSX
+    canCorrect=canCorrect && !mDeformableSurfaces.size() && !mDeformableVolumes.size() && !mParticleSystems.size();
+#endif
+    if(canCorrect) {
+        PxBitMap::Iterator speculative(mSpeculativeCCDRigidBodyBitMap);
+        canCorrect=speculative.getNext()==PxBitMap::Iterator::DONE;
+        // CPU-authored targets are replayable after restoring the captured
+        // start pose. Direct GPU target commands are not captured here.
+        if(mPublicFlags & PxSceneFlag::eENABLE_DIRECT_GPU_API)
+            for(PxU32 i=0;canCorrect && i<mActiveKinematicBodyCount;++i)
+                canCorrect=!mActiveBodies[i]->getHasValidKinematicTarget();
+    }
+    // Triggers and contact-modification state still require full repair.
+    // Ordinary reports repair only their participating active dynamic
+    // shapes below; a single projectile report must not refilter the city.
+    const bool canReuseContactPairs=!getNbInteractions(InteractionType::eTRIGGER)
+        && !getContactModifyCallback();
+    if(mSimulationController->advanceDestruction(mDt, mGravity, canCorrect, canReuseContactPairs)) {
+        {
+        // Available in release builds when a profiler callback is installed.
+        PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.refilter",false,
+            PxU64(reinterpret_cast<size_t>(mSimulationController)));
+        // The full rigid checkpoint and new cluster inputs are installed. Drop
+        // trial reporting, invalidate contact rows/caches, refresh all dynamic
+        // bounds from GPU motion and rediscover newly eligible fragment pairs.
+        // Retained interactions survive correction, but their trial report
+        // allocations do not. Invalidate BOTH levels of report deduplication
+        // before recycling storage. Otherwise a retained actor/shape pair can
+        // reuse its trial bufferIndex/reportStreamIndex while a new corrected
+        // pair allocates over that memory. The public scene timestamp still
+        // advances once per accepted tick, not once per physics pass.
+        PxArray<PxU32> reportRepairShapes;
+        const bool preservePairs=mSimulationController->preservesDestructionContactPairs();
+        Sc::ShapeSimBase** shapeSims=mSimulationController->getShapeSims();
+        const PxU32 shapeCapacity=mSimulationController->getNbShapes();
+        ActorPairReport*const* reportedPairs=mNPhaseCore->getContactReportActorPairs();
+        for(PxU32 i=0;i<mNPhaseCore->getNbContactReportActorPairs();++i) {
+            if(preservePairs) {
+                const auto& stream=reportedPairs[i]->getContactStreamManager();
+                if(!(stream.getFlags()&ContactStreamManagerFlag::eINVALID_STREAM)) {
+                    const auto* pairs=stream.getShapePairs(mNPhaseCore->getContactReportPairData(stream.bufferIndex));
+                    for(PxU32 pair=0;pair<stream.currentPairCount;++pair)for(PxU32 side=0;side<2;++side) {
+                        const PxU32 id=pairs[pair].shapeID[side];
+                        // Static boundaries need no repair: resetting the ground
+                        // would connect every resting fragment to this work set.
+                        if(id<shapeCapacity && !getElementIDPool().isDeletedID(id) && shapeSims[id]
+                            && shapeSims[id]->isInBroadPhase()) {
+                            const auto* body=shapeSims[id]->getBodySim();
+                            // Match the complete path's activity rule. Refilter
+                            // must not invent wakes for settled participants.
+                            if(body && body->isActive() && !body->isKinematic())reportRepairShapes.pushBack(id);
+                        }
+                    }
+                }
+            }
+            reportedPairs[i]->streamResetStamp(~mTimeStamp);
+        }
+        ++mReportShapePairTimeStamp;
+        mNPhaseCore->clearContactReportStream();
+        mNPhaseCore->clearContactReportActorPairs(false);
+        mQueuedContactPairHeaders.clear();
+        mTriggerBufferAPI.clear();mTriggerBufferExtraData->clear();
+        clearBrokenConstraintBuffer();clearSleepWakeBodies();releaseConstraints(true);
+        // Full correction refreshes every live rigid shape from the GPU's
+        // sorted ownership index. No CPU bounds-list walk/upload is required.
+        // CPU interaction invalidation remains necessary when pair reuse is
+        // invalid; this is not the work set for GPU geometry refresh.
+        if(preservePairs) {
+            PxProfileScoped repair(PxGetProfilerCallback(),"GpuDestruction.reportRepair",false,
+                PxU64(reinterpret_cast<size_t>(mSimulationController)));
+            // Recreate reporting relationships exactly as the complete path
+            // does, while preserving unrelated GPU collision managers/islands.
+            PxSort(reportRepairShapes.begin(),reportRepairShapes.size());
+            for(PxU32 i=0;i<reportRepairShapes.size();++i)
+                if(!i || reportRepairShapes[i]!=reportRepairShapes[i-1])
+                    shapeSims[reportRepairShapes[i]]->onResetFiltering();
+        } else {
+            Sc::ShapeSimBase** shapes=mSimulationController->getShapeSims();
+            const PxU32 count=mSimulationController->getNbShapes();
+            for(PxU32 i=0;i<count;++i) {
+                if(!shapes[i] || !shapes[i]->isInBroadPhase())continue;
+                const auto* body=shapes[i]->getBodySim();
+                // Fixed and sleeping geometry did not move. Removing its
+                // contacts would invent lost-touch wakeups in unrelated islands.
+                // Migrating shapes already retire incompatible contacts in the
+                // ownership transaction; active participants rebuild their rows.
+                if(body && body->isActive() && !body->isKinematic())shapes[i]->onResetFiltering();
+            }
+        }
+        }
+        restoreDestructionActivity();
+        PX_PROFILE_STOP_CROSSTHREAD("Basic.rigidBodySolver", mContextId);
+        // Use a separate finalization task: this trial finalization is still
+        // running and must not have its continuation overwritten by the retry.
+        mDestructionCorrectionInProgress=true;
+        mAdvanceStep.setContinuation(continuation);
+        stepSetupCollide(&mAdvanceStep);
+        mCollideStep.setContinuation(&mAdvanceStep);
+        mAdvanceStep.removeReference();mCollideStep.removeReference();
+        return;
+    }
+    mDestructionCorrectionInProgress=false;
+    if(mDestructionParkedIslands.size()) {
+        auto& accurate=mSimpleIslandManager->getAccurateIslandSim();
+        if(::getenv("PHYSX_DESTRUCTION_ISLAND_SCOPE_TRACE"))accurate.validateActiveLists("before unpark");
+        for(PxU32 i=0;i<mDestructionParkedIslands.size();++i)accurate.unparkIslandForPass(mDestructionParkedIslands[i]);
+        if(::getenv("PHYSX_DESTRUCTION_ISLAND_SCOPE_TRACE"))accurate.validateActiveLists("after unpark");
+        static const bool scopeDiag=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_ISLAND_SCOPE_DIAG");return raw && raw[0]=='1';}();
+        if(scopeDiag)printf("island scope: unparked islands=%u activeIslandsNow=%u activeRigidNow=%u\n",mDestructionParkedIslands.size(),accurate.getNbActiveIslands(),accurate.getNbActiveNodes(IG::Node::eRIGID_BODY_TYPE));
+        mDestructionParkedIslands.clear();
+    }
+    mDestructionTrialKinematics.clear();
+    mDestructionTrialActivity.clear();mDestructionTrialSleepNotifications.clear();
+    publishDestructionQueryMembership();
+
 	fireOnAdvanceCallback();  // placed here because it needs to be done after sleep check and after potential CCD passes
 
-	checkConstraintBreakage(); // Performs breakage tests on breakable constraints
+    // A trial constraint verdict must not destroy a joint before correction.
+    if (isSimulationResultAccepted())
+	    checkConstraintBreakage(); // Performs breakage tests on breakable constraints
 
 	PX_PROFILE_STOP_CROSSTHREAD("Basic.rigidBodySolver", mContextId);
 

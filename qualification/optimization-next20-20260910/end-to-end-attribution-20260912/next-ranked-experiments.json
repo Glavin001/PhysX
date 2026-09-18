@@ -1,0 +1,281 @@
+{
+  "scope": "Updated hypotheses, not speedup claims or completed N-series experiments. Savings are conservative guesses, not profiler-time subtraction. Preserve best N13; isolate source and verify baseline before each candidate.",
+  "experiments": [
+    {
+      "rank": 1,
+      "title": "Batch fragment creation and shape ownership publication",
+      "family": "fragment_lifecycle",
+      "evidence": "Warm heavy peak82 exposes allocateNativeBodies and migrateShapes. High-rate profiling reports34.88/20.89ms thread CPU; lower-rate migration is13.888ms and includes per-shape instrumentation. Wall-only migration subscopes expose contact retirement1.660ms, registration1.377ms, actor links0.735ms and refilter0.565ms. These overlapping instrumented observations are not removable application time.",
+      "proposed_mechanism": "Batch native body reservations and changed ShapeSim ownership/refilter/contact-retirement operations at the existing fracture-to-correction boundary. Shapes and geometry already persist; preserve that invariant. Remove redundant per-shape traversal and repeated pool/registry work while keeping current correction contacts and final ordinary actor/query publication.",
+      "affected_scenarios": [
+        "initial impact",
+        "cascading fracture",
+        "many newly created islands",
+        "large fragmented cities"
+      ],
+      "estimated_application_ms_saved": "Hypothesis: 5\u201320ms fracture peak; 1\u20135ms heavy mean. Zero expected idle benefit.",
+      "confidence": "Medium diagnosis, low savings estimate until phase-only attribution.",
+      "experiment_cost": "CPU allocator/shape lifecycle and GPU ownership publication changes; memory, query, motion, correction and full-suite gates.",
+      "supporting_measurements": "Fewer lifecycle calls/allocations and lower unprofiled first-fracture full ticks with identical ownership, contacts, mass/COM, correction and accepted physical observations.",
+      "refuting_measurements": "Mandatory PhysX registration dominates unchanged; savings disappear outside the profiler, or any query/contact/sleep/physical mismatch.",
+      "prior_work": "N20 capacity patch is a smaller preserved experiment; rerun its memory qualification on the corrected baseline before reusing it. E1 already tested one factory-pool lock per actor batch (commit7f06ebc63cf983c6cd4154120e541cfe62d625b7). Native behavior and wall comparisons passed, but candidate/control memory findings prevented timing. Preserve that history; requalifying it is not a new invention.",
+      "profile_locations": [
+        "out/end-to-end-attribution-20260912/cpu-full/campaign.json",
+        "out/end-to-end-attribution-20260912/warm-reduced-sampling/campaign.json",
+        "out/end-to-end-attribution-20260912/warm/campaign.json"
+      ],
+      "status": "queued_not_run",
+      "source_audit": "NpDestructionBodyAllocator::applyBindings already uses persistent ShapeSim IDs and defers actor/query observation in ordinary mode. ScShapeSimBase::rebindRigidOwner still refilters each migrated shape, retires contacts via onVolumeRemoved, rebinds narrowphase ownership and updates actor/SQ links. Audit batching of these actual operations; do not propose recreating or removing a full-geometry upload already absent. applyBindings still re-resolves validated source/target bodies during scheduling and per-shape migration. A scoped validated transaction could remove those repeated pointer/membership lookups, but must prove bodies remain live through flags, refilter and ownership changes; preserve all pre-mutation validation.",
+      "prepared_follow_up": {
+        "status": "built_not_gpu_qualified",
+        "commit": "b7918affda83942dba04e8626db696cca7fd283a",
+        "parent": "77a7baa37802808681093a7695ca7a9a686d8b06",
+        "branch": "refs/heads/codex/n20-requalification-20260912",
+        "prior_experiment": "1c98b9efa4dbfc32b548bd8edf0a8bafa08390b9",
+        "mechanism": "Reserve lifetime capacity to existing node capacity before original resize/increment. No size, initialization, generation, lifetime, body, contact or phase-order changes.",
+        "baseline_scope": "Corrected snapshot-compatible runtime; unaccepted N14 numerical source remains unchanged. This requalification does not promote N14 or replace retained N13 evidence.",
+        "main_index_unchanged": true,
+        "main_source_unchanged": true,
+        "build_evidence": "n20-build-preparation.json",
+        "control_demo_and_probe_byte_identical": true
+      },
+      "queued_gpu_screen": "N20 native/asynchronous and equal-length light/targeted/warm screens pass; full52\u00d720/20/20 now runs at a clean counter pause boundary. See n20-followup.md.",
+      "capacity_followup_result": "Large restored debris saves38.525ms; no substantial warm600 gain. Smaller impact regression does not consistently repeat in reversed order. Do not retain before full suite/trajectory review."
+    },
+    {
+      "title": "Separate anchored and free component execution",
+      "evidence": "Source audit: isolated no-live-bond chunks are already omitted by labelDeviceStressBonds/rootFlags and labelDeviceStressNodes, so the original empty-system hypothesis has no reachable target. Current common component kernel retains free-projection code/resources even for the overwhelmingly anchored iterative work. N10 uses108 registers,32.09% occupancy in the later selected capture. Current matching selected captures use109 registers/thread, about32% occupancy and11\u201314% issue activity at113,664 chunks; register pressure is a hypothesis, not a diagnosed sole cause.",
+      "proposed_mechanism": "Use separate GPU-owned anchored/free work queues and template the component recurrence/preparation/preconditioning so the anchored specialization omits certified zero-dimensional nullspace work and its compiler resource footprint. Current validated mode dimension selects ownership; free components retain all projection. Preserve current equations and per-component numerical order; no CPU count readback.",
+      "affected_scenarios": [
+        "idle including setup",
+        "first fracture trial/correction",
+        "later heavy destruction"
+      ],
+      "estimated_application_ms_saved": "Potential1\u20135 ms heavy mean if reduced anchored register/shared footprint improves residency; charge queue preparation and extra launch. No established saving.",
+      "confidence": "high semantic equivalence under current mode certificate; medium compiler/resource benefit",
+      "experiment_cost": "Private GPU component queues and templated recurrence/preconditioner, kernel launch updates; original free/anchored/interleaved/cap/topology tests, sanitizers, full A/B and counters",
+      "supporting_measurements": "Both queue ownership and original physical gates pass, anchored resources fall, complete-step heavy mean/peaks improve without idle regression; independent queues enable later size decomposition",
+      "refuting_measurements": "Queue divergence or invalid certificate, resource footprint unchanged, extra launch/cache costs erase benefit, full-suite regression",
+      "profile_locations": [
+        "out/optimization-20260910/E12-composition/profiles",
+        "out/optimization-20260910/E12-composition/production-phases",
+        "out/optimization-next20-20260910/N12-guarded-monitor/profiles",
+        "out/optimization-next20-20260910/N12-guarded-monitor/production-phases"
+      ],
+      "family": "anchored_free_execution_decomposition",
+      "rank": 2,
+      "prior_work": "N15 in the preserved main queue; source audit/preparation is not a completed experiment.",
+      "status": "built_gpu_screen_queued",
+      "source_queue_id": "N15",
+      "prior_experiment_id": "N15",
+      "prepared_20260912": {
+        "commit": "dccbe23f0022b2d3b68c66bb97a877ff5e3532a4",
+        "path": "out/n15-anchored-20260912",
+        "resources": "Anchored registers109\u2192108, stack48\u21920bytes, shared1600\u21921168bytes. Compiler resources only; no performance claim.",
+        "qualification": "Fresh existing analytic/3D/motion oracle consumers built for A/B; GPU gates and equal-length light screen queued after N20 full52."
+      }
+    },
+    {
+      "rank": 3,
+      "status": "reassess_after_rejected_one_block_pilot",
+      "title": "Size-specialized warp/block component execution",
+      "evidence": "Thousands of small fragments occupy whole CTAs and block-wide reductions; earlier four-lane row gathering regressed. Current same-runtime selected stress captures use109 registers/thread, about32% occupancy and11\u201314% issue activity at the largest scale. Later-debris local-memory sectors increase sharply. These counters motivate investigating decomposition/resource lifetime; they do not prove spills or predict saved application time.",
+      "proposed_mechanism": "Use a dedicated small-component warp/block implementation, preserving row order and convergence; retain larger block path for larger components.",
+      "affected_scenarios": [
+        "pristine idle including initialization",
+        "first fracture and correction",
+        "later loaded destruction"
+      ],
+      "estimated_application_ms_saved": "2\u201312 ms later loaded steps",
+      "confidence": "medium",
+      "experiment_cost": "coherent solver/reduction specialization and size dispatch, sanitizer tests",
+      "supporting_measurements": "Better useful-lane occupancy and lower complete steps without sort/peak regressions",
+      "refuting_measurements": "More loops/registers or dispatch overhead offsets small-component savings",
+      "profile_locations": [
+        "out/optimization-20260910/E12-composition/profiles",
+        "out/optimization-20260910/E12-composition/production-phases",
+        "out/optimization-next20-20260910/N12-guarded-monitor/profiles",
+        "out/optimization-next20-20260910/N12-guarded-monitor/production-phases",
+        "out/end-to-end-attribution-20260912/current-stress-counter-review.json"
+      ],
+      "baseline": "retained N13",
+      "family": "heterogeneous_component_execution",
+      "prior_experiment_id": "N06",
+      "first_semantic_pilot": {
+        "status": "rejected_application_regression",
+        "title": "Reduce oversized cooperative execution for moderate connected structures",
+        "evidence": "Tower64 has2304 active stress nodes and137 iterations; unprofiled mean/peak117.766/120.598ms. Dense12 has1584 nodes and34 iterations;33.748/36.679ms. Matching selected persistent-kernel captures take104.043/27.141ms at72/56 blocks. Tower unique-instruction sampling reports48.8% of non-issued samples at barriers and32.5% short-scoreboard; these are not removable wall-time fractions.",
+        "proposed_mechanism": "First test a single-block cooperative launch for complete problems up to4096 nodes, retaining the existing multilevel preconditioner, equations, iteration cap and final checks. This isolates execution granularity from preconditioner strength. A later component-local multilevel implementation using existing cyclePass<true> would be a separate experiment; do not silently replace the multilevel method with the small-component block-Jacobi method.",
+        "affected_scenarios": [
+          "tower64 cold/warm",
+          "dense12 cold/warm",
+          "panel32 and bridge controls",
+          "all city cases as unchanged-routing controls"
+        ],
+        "estimated_application_ms_saved": "Low-confidence hypothesis:0\u201330ms on tower/dense, no expected city gain; reduced FP64 parallelism can make it slower.",
+        "confidence": "High attribution to this kernel; low confidence that one block improves application time.",
+        "experiment_cost": "One isolated launch-policy edit, numerical/native/memory gates, matched structural and light screen before full qualification.",
+        "supporting_measurements": "Lower unprofiled tower/dense complete steps with unchanged physical quality and no other-scenario regression. Fewer sampled barriers alone is insufficient.",
+        "refuting_measurements": "Loss of useful FP64 parallelism outweighs coordination savings, physical gates fail, or profiler-only improvement.",
+        "source_locations": [
+          "blast/source/sdk/extensions/stressgpu/detail/StressIterationDispatch.inl:255",
+          "blast/source/sdk/extensions/stressgpu/detail/StressHierarchyCycle.cuh:158"
+        ],
+        "profile_locations": [
+          "structural-stress-counter-review.json",
+          "tower-source-review.json"
+        ],
+        "result": "n06a-result.md"
+      },
+      "prepared_pilot": {
+        "commit": "c76c60678f42e8e62cdfab02d8b317df69b3fbdb",
+        "evidence": "qualification/optimization-next20-20260910/end-to-end-attribution-20260912/n06-build-preparation.json",
+        "runtime": "out/n06-granularity-20260912/build/{A,B}",
+        "scope": "Physical/asynchronous memory gates pass. Dense/tower means32.106/109.121\u2192513.374/2284.911ms. One-block pilot rejected; broader component specialization remains untested."
+      },
+      "pilot_result": "/root/workspace/physx-2/qualification/optimization-next20-20260910/end-to-end-attribution-20260912/n06a-result.json"
+    },
+    {
+      "rank": 4,
+      "title": "Cached direct solves for tiny supported or projected free components",
+      "family": "cached_dense_equilibrium",
+      "evidence": "Existing N04 targets repeated small operators after fracture. Current lower-rate step179 has2,270 stress islands,87,303 active nodes and144,627 active bonds, with61.296ms aggregate stress time. Size/conditioning-weighted time share still requires a census.",
+      "proposed_mechanism": "Factor eligible small supported or explicitly projected free operators once per matching topology/material generation and apply the factor to each current load. Keep direct-tree elimination as a separate experiment. Preserve exact nullspace treatment, authoritative residual, damage and correction order.",
+      "affected_scenarios": [
+        "chain32/256",
+        "cantilever",
+        "tower",
+        "small fracture islands",
+        "mixed-size debris; dense panels/loops are controls"
+      ],
+      "estimated_application_ms_saved": "Existing N04 hypothesis:3\u201315ms on later heavy steps, with factor setup and cache storage charged. No measured eligible-component time share yet.",
+      "confidence": "High algorithmic motivation, low application share estimate.",
+      "experiment_cost": "Bounded GPU component census, one direct-solve backend, independent force/moment/energy and singular/free-mode oracles.",
+      "supporting_measurements": "Lower time to the same equilibrium for eligible components and complete-step benefit across the fixed suite.",
+      "refuting_measurements": "Factorization/setup outweighs iterations; nullspace/conditioning failure; dense or mixed-case regression.",
+      "prior_work": "N04; the historical N03 tree census must not be used to inflate dense-factor coverage.",
+      "profile_locations": [
+        "out/end-to-end-attribution-20260912/cpu-full/campaign.json",
+        "out/end-to-end-attribution-20260912/warm-reduced-sampling/campaign.json",
+        "out/end-to-end-attribution-20260912/warm/campaign.json"
+      ],
+      "status": "queued_not_run"
+    },
+    {
+      "rank": 5,
+      "title": "Compact accepted CPU mirror updates at the producer",
+      "family": "host_mirror",
+      "evidence": "Current lower-rate continuous trace: idle steps81/82/179 have only~2KB H2D/~1KB D2H and0.004\u20130.005ms total copy union. Pre-impact active-projectile step81 reads7.741MB D2H; first fracture reads24.516MB; later step179 reads35.386MB. Copy unions1.106/4.321/6.674ms overlap kernels by0/0.013/0.081ms, but also overlap CPU work. These are diagnostic exposure, not removable full-step cost. Historical N19 failed memory qualification before the later asynchronous fix.",
+      "proposed_mechanism": "Build an explicit dirty set of current accepted bounds/transforms on GPU, transfer one compact contiguous batch, and update the ordinary CPU query mirror at its required boundary. Avoid redundant full-array transfer and repeated receipt waits. Preserve the trial CPU mirrors needed by afterIntegration for activity/sleep and newly sleeping-body rollback. A final-only mirror requires separately redesigning and qualifying that dependency; deferred actor/query observation is already implemented.",
+      "affected_scenarios": [
+        "large idle",
+        "initial impact with correction",
+        "late debris",
+        "mixed sleeping/awake islands"
+      ],
+      "estimated_application_ms_saved": "Hypothesis: effectively zero on fully idle warm scenes with negligible transfers; 0.3\u20130.9ms on active-projectile pre-impact ticks and0.5\u20132ms heavy mean, after packing/scatter/overlap costs.",
+      "confidence": "Medium exposure, low net saving until measured.",
+      "experiment_cost": "Producer dirty-set and compact receipt implementation; normal asynchronous memory, query/sleep and trajectory checks.",
+      "supporting_measurements": "Lower bytes and critical-path transfer/wait time, exact current accepted query/body state and lower full steps.",
+      "refuting_measurements": "Packing/scatter or synchronization costs offset DMA savings; stale mirrors or missing correction participants.",
+      "prior_work": "N18 metadata combination was neutral; N19 direct mapped scatter was not memory-qualified. These are evidence, not accepted implementations.",
+      "profile_locations": [
+        "out/end-to-end-attribution-20260912/cpu-full/campaign.json",
+        "out/end-to-end-attribution-20260912/warm-reduced-sampling/campaign.json",
+        "out/end-to-end-attribution-20260912/warm/campaign.json",
+        "qualification/optimization-next20-20260910/end-to-end-attribution-20260912/dataflow.json"
+      ],
+      "status": "queued_not_run"
+    },
+    {
+      "rank": 6,
+      "title": "Skip equilibrium work only for exactly unchanged current inputs",
+      "family": "verified_equilibrium_reuse",
+      "evidence": "Lower-rate continuous heavy trace: stress kernels take41.386ms aggregate at first-fracture step82 and61.296ms at later step179. Fully idle step81 has0.059ms material evaluation,0.044ms prepareLoads and0.030ms resetNativeStressSolution. Identify verified unchanged current inputs before skipping anything; constant load can still accumulate material damage, so unchanged force alone is insufficient.",
+      "proposed_mechanism": "Verify the recovered stored output against the authoritative current equations and publish its exact-input certificate immediately. Reuse only when current connectivity, material/health and projected loads match. Retain material/damage evaluation and solve every changed component in this tick, including after correction.",
+      "affected_scenarios": [
+        "intact idle",
+        "unaffected buildings during impact",
+        "fragmented-loaded",
+        "late debris and settled structures"
+      ],
+      "estimated_application_ms_saved": "Existing N09 hypothesis:0\u20134ms in unchanged-load phases. The unchanged-input fraction is unmeasured; retain material/damage evaluation and expect zero benefit where inputs keep changing.",
+      "confidence": "Medium potential; unchanged-input fraction not yet measured.",
+      "experiment_cost": "GPU input/certificate audit then one cache-publication change, independent equilibrium/energy and stale-input negative tests.",
+      "supporting_measurements": "Substantial verified unchanged-input fraction, eliminated launches/iterations, unchanged residual/forces/damage and lower complete steps.",
+      "refuting_measurements": "Most inputs differ; certificate overhead exceeds skipped work; any stale-data acceptance.",
+      "prior_work": "N09: an exact-input cache already exists, but currently needs a zero-update warm solve to certify rounded outputs. Requalify immediate post-recovery verification/publication; do not present this as inventing an absent cache.",
+      "profile_locations": [
+        "out/end-to-end-attribution-20260912/cpu-full/campaign.json",
+        "out/end-to-end-attribution-20260912/warm-reduced-sampling/campaign.json",
+        "out/end-to-end-attribution-20260912/warm/campaign.json"
+      ],
+      "status": "queued_not_run"
+    },
+    {
+      "rank": 7,
+      "title": "Share canonical operator factors across repeated structures",
+      "family": "shared_structure_direct_solve",
+      "evidence": "The city suite instantiates25/64/256 copies of the building layout. Current heavy stress costs41.386ms at first fracture and61.296ms at later step179 under lower-rate Systems. Equality of their actual supported/damaged operators has NOT been measured; repeated geometry alone is insufficient.",
+      "proposed_mechanism": "First census canonical topology/material/health/support and operator-equivalence classes. If many match, share an immutable symbolic/numerical factor or response basis, applying each instance current-tick load independently. Keep per-instance damage, changed topology and nullspace handling exact. Factor reuse within existing components already exists; this targets reuse between equivalent instances and a direct-solve route. prepareLoads already transforms gravity, angular velocity and contact impulses into the current cluster frame, so do not propose a redundant CPU transform or upload.",
+      "affected_scenarios": [
+        "repeated intact city structures at first impact",
+        "repeated supported structures with different current loads",
+        "post-fracture divergent patterns as controls",
+        "unique bridge/chain/panel/tower structures as controls"
+      ],
+      "estimated_application_ms_saved": "Exploratory hypothesis: 5\u201320ms on heavily repeated loaded structures; possibly zero after fracture creates mostly unique operators. No measured application share of reusable factors yet.",
+      "confidence": "Low until exact operator-equivalence census and sparse-factor fill/cost are measured.",
+      "experiment_cost": "Start with a bounded read-only component/operator census. A subsequent shared factor/direct response prototype requires independent equilibrium/energy oracles, singular-mode and current-tick correction checks, full scenario and continuous acceptance.",
+      "supporting_measurements": "Many physically equivalent operators with different current RHS; factor application plus all cache/bookkeeping costs beat existing time to the required equilibrium and lower full steps.",
+      "refuting_measurements": "Operator diversity or factor fill dominates; cheap kernel time saved is offset by setup/application; any damage/support/nullspace or physical mismatch.",
+      "profile_locations": [
+        "out/end-to-end-attribution-20260912/warm-reduced-sampling/campaign.json",
+        "physx/source/gpudestruction/src/PxgDestructionRuntime.cu:127"
+      ],
+      "status": "queued_not_run",
+      "research": "reference-factor-research.md",
+      "separate_follow_up": "A shared reference inverse used only as a preconditioner is a separate experiment, contingent on current weighted component census and an independently verified SPD/projected formulation. It is not combined with exact operator sharing.",
+      "physical_census": "physical-traits.json; distinct partial-health patterns are not proof of distinct operators because health membership and compliance weights are separate."
+    },
+    {
+      "rank": 8,
+      "title": "Direct equilibrium on certified free trees",
+      "family": "direct_tree_equilibrium",
+      "evidence": "Historical N03 census: no free trees before first fracture; correction has256 nontrivial trees/768 nodes, and later1,276 trees/3,853 nodes, max10 nodes. Singletons are already excluded. New long-chain/structural cases broaden coverage but do not establish a large city benefit.",
+      "proposed_mechanism": "Solve certified free-tree components from projected subtree force/moment balances, then verify the recovered bond response with the unchanged residual. Do not combine this with the separate tiny dense-factor experiment.",
+      "affected_scenarios": [
+        "chain32/256",
+        "cantilever",
+        "tower",
+        "small fracture islands",
+        "mixed-size debris; dense panels/loops are controls"
+      ],
+      "estimated_application_ms_saved": "Likely below1ms heavy mean under the historical census; no first-trial benefit. A larger claim requires a current per-component time census.",
+      "confidence": "Medium algebra, low city application share.",
+      "experiment_cost": "Bounded GPU component census, one direct-solve backend, independent force/moment/energy and singular/free-mode oracles.",
+      "supporting_measurements": "Lower time to the same equilibrium for eligible components and complete-step benefit across the fixed suite.",
+      "refuting_measurements": "Factorization/setup outweighs iterations; nullspace/conditioning failure; dense or mixed-case regression.",
+      "prior_work": "N03 historical coverage lowers this target priority; retain chain/tower semantic controls.",
+      "profile_locations": [
+        "out/end-to-end-attribution-20260912/cpu-full/campaign.json",
+        "out/end-to-end-attribution-20260912/warm-reduced-sampling/campaign.json",
+        "out/end-to-end-attribution-20260912/warm/campaign.json"
+      ],
+      "status": "queued_not_run"
+    }
+  ],
+  "queue_audit": {
+    "removed_before_execution": [
+      {
+        "id": "N02",
+        "reason": "Intermediate residual projection removal was already rejected by the unchanged subnormal fixture. It was mistakenly copied into this follow-up queue; do not retry it or relabel it queued."
+      }
+    ],
+    "already_retained": [
+      "N10 neighbor and mass-scaled vector caches are already present in the current component solver. Do not schedule them as a new optimization."
+    ],
+    "new_experiment_count": 0,
+    "completed_batch_experiments": 12
+  }
+}

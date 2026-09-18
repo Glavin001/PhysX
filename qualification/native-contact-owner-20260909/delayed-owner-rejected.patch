@@ -1,0 +1,80 @@
+diff --git a/physx/source/lowlevel/software/include/PxsSimpleIslandManager.h b/physx/source/lowlevel/software/include/PxsSimpleIslandManager.h
+index d67ca461..bc90edea 100644
+--- a/physx/source/lowlevel/software/include/PxsSimpleIslandManager.h
++++ b/physx/source/lowlevel/software/include/PxsSimpleIslandManager.h
+@@ -161,6 +161,7 @@ class SimpleIslandManager : public PxUserAllocated
+ 
+ 	//Edges destroyed this frame
+ 	PxArray<EdgeIndex> mDestroyedEdges;
++    PxArray<EdgeIndex> mNativeOwnerEdges;
+ 	GPUExternalData	mGpuData;
+ 
+ 	CPUExternalData	mCpuData;
+@@ -258,7 +259,7 @@ public:
+ 	void preallocateContactManagers(PxU32 nb, EdgeIndex* handles);
+ 	bool addPreallocatedContactManager(EdgeIndex handle, PxsContactManager* manager, PxNodeIndex nodeHandle1, PxNodeIndex nodeHandle2, Sc::Interaction* interaction, Edge::EdgeType edgeType);
+ 
+-	EdgeIndex addContactManager(PxsContactManager* manager, PxNodeIndex nodeHandle1, PxNodeIndex nodeHandle2, Sc::Interaction* interaction, Edge::EdgeType edgeType);
++	EdgeIndex addContactManager(PxsContactManager* manager, PxNodeIndex nodeHandle1, PxNodeIndex nodeHandle2, Sc::Interaction* interaction, Edge::EdgeType edgeType, bool deferNativeOwner = false);
+ 	EdgeIndex addConstraint(Dy::Constraint* constraint, PxNodeIndex nodeHandle1, PxNodeIndex nodeHandle2, Sc::Interaction* interaction);
+ 
+ 	PX_FORCE_INLINE	PxIntBool isEdgeConnected(EdgeIndex edgeIndex) const { return mConnectedMap.test(edgeIndex); }
+diff --git a/physx/source/lowlevel/software/src/PxsSimpleIslandManager.cpp b/physx/source/lowlevel/software/src/PxsSimpleIslandManager.cpp
+index ffd9fa7b..9a3eb863 100644
+--- a/physx/source/lowlevel/software/src/PxsSimpleIslandManager.cpp
++++ b/physx/source/lowlevel/software/src/PxsSimpleIslandManager.cpp
+@@ -289,11 +289,19 @@ bool SimpleIslandManager::addPreallocatedContactManager(EdgeIndex handle, PxsCon
+ 
+ ///////////////////////////////////////////////////////////////////////////////
+ 
+-EdgeIndex SimpleIslandManager::addContactManager(PxsContactManager* manager, PxNodeIndex nodeHandle1, PxNodeIndex nodeHandle2, Sc::Interaction* interaction, Edge::EdgeType edgeType)
++EdgeIndex SimpleIslandManager::addContactManager(PxsContactManager* manager, PxNodeIndex nodeHandle1, PxNodeIndex nodeHandle2, Sc::Interaction* interaction, Edge::EdgeType edgeType, bool deferNativeOwner)
+ {
+ 	const EdgeIndex handle = addEdge(manager, nodeHandle1, nodeHandle2, interaction);
+ 
+-	mSpeculativeIslandManager.addConnection(nodeHandle1, nodeHandle2, edgeType, handle);
++    if(deferNativeOwner) {
++        // A rebound edge belongs to the next collision transaction. Queue it
++        // alongside delayed broadphase insertion, not in the trial graph.
++        mSpeculativeIslandManager.preallocateConnections(handle);
++        if(mSpeculativeIslandManager.addConnectionPreallocated(nodeHandle1,nodeHandle2,edgeType,handle))
++            mNativeOwnerEdges.pushBack(handle);
++    } else {
++        mSpeculativeIslandManager.addConnection(nodeHandle1,nodeHandle2,edgeType,handle);
++    }
+ 
+ 	if (manager)
+ 		manager->getWorkUnit().mEdgeIndex = handle;
+@@ -349,6 +357,11 @@ void SimpleIslandManager::removeConnection(EdgeIndex edgeIndex)
+ void SimpleIslandManager::firstPassIslandGen()
+ {
+ 	PX_PROFILE_ZONE("Basic.firstPassIslandGen", mContextID);
++    if(!mNativeOwnerEdges.empty()) {
++        mSpeculativeIslandManager.addDelayedDirtyEdges(mNativeOwnerEdges.size(),mNativeOwnerEdges.begin());
++        mNativeOwnerEdges.clear();
++    }
++
+ 
+ 	mSpeculativeIslandManager.clearDeactivations();
+ 
+diff --git a/physx/source/simulationcontroller/src/ScShapeInteraction.cpp b/physx/source/simulationcontroller/src/ScShapeInteraction.cpp
+index eff3d6d2..51016908 100644
+--- a/physx/source/simulationcontroller/src/ScShapeInteraction.cpp
++++ b/physx/source/simulationcontroller/src/ScShapeInteraction.cpp
+@@ -1198,6 +1198,7 @@ void Sc::ShapeInteraction::onShapeChangeWhileSleeping(bool shapeOfDynamicChanged
+ // retain the complete reconstruction path until their migration is qualified.
+ bool Sc::ShapeInteraction::rebindNativeRigidOwner(ShapeSimBase& shape, BodySim& owner)
+ {
++
+     ActorSim& previous=shape.getActor();
+     const bool first=&shape==&getShape0();
+     ActorSim& other=first?getActor1():getActor0();
+@@ -1237,7 +1238,7 @@ bool Sc::ShapeInteraction::rebindNativeRigidOwner(ShapeSimBase& shape, BodySim&
+     const PxReal slop0=mManager->mRigidBody0?mManager->mRigidBody0->getCore().offsetSlop:0.0f;
+     const PxReal slop1=mManager->mRigidBody1?mManager->mRigidBody1->getCore().offsetSlop:0.0f;
+     unit.mOffsetSlop=PxMax(slop0,slop1);
+-    mEdgeIndex=islands->addContactManager(mManager,a.getNodeIndex(),b.isStaticRigid()?PxNodeIndex():b.getNodeIndex(),this,IG::Edge::eCONTACT_MANAGER);
++    mEdgeIndex=islands->addContactManager(mManager,a.getNodeIndex(),b.isStaticRigid()?PxNodeIndex():b.getNodeIndex(),this,IG::Edge::eCONTACT_MANAGER,true);
+     // The old touch belonged to the trial body edge. Let narrowphase establish
+     // touch for the new edge after restored motion, exactly as for a new pair.
+     clearFlag(TOUCH_KNOWN);unit.mStatusFlags=0;

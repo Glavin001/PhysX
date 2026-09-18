@@ -1,0 +1,5 @@
+{
+  "physx/source/gpudestruction/tests/static_registration_prototype.cuh": "733115360c19c75fdc0b5ea8595f3dea810b5f3a9ff79eed45a99f55cd41103b",
+  "physx/source/gpudestruction/tests/static_registration_prototype_test.cu": "4ace0bb3af031941e027ebe40dbae9242e5baf6c6fc3efd1b6ef70e4340c2b62",
+  "out/native-static-registration-20260909/static_registration_test": "b748018d6d6d243936a3f4ab0f4ef3fad236aaf27e497e97d2be496d333f342a"
+}

@@ -33,6 +33,24 @@
 
 namespace physx
 {
+    // Scene-lifetime GPU allocator. Zero is invalid; exhaustion never wraps.
+    // Kept across destruction reconfiguration and pair-buffer compaction.
+    struct PxgContactGraphSequence {
+        PxU64 next;
+        PxU32 error, reserved;
+    };
+    // Independent of bucket slots. Zero generation is invalid/unavailable.
+    // slot is the dense pair key of the contact manager (PxcNpWorkUnit::
+    // mDeviceSlot): allocated by the GPU NP context when the manager registers,
+    // kept across refreshes, recycled only after the retired row is compacted.
+    // It keys the solver's friction state; edgeIndex remains the CPU island
+    // edge handle used by the retained-edge and ownership paths.
+    struct PxgContactGraphIdentity {
+        PxU32 edgeIndex;
+        PxU32 slot;
+        PxU64 generation;
+    };
+
 	struct PX_ALIGN_PREFIX(16) PxgContactManagerInput
 	{
 		//Body refs are not needed here. World-space transforms are computed using transforCacheRefs instead!

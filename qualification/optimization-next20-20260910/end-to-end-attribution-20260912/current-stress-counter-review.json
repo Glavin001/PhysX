@@ -1,0 +1,322 @@
+[
+  {
+    "scenario": "city25-initial-impact",
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/city25-initial-impact-counters-0",
+    "record": 0,
+    "name": "unnamed>::componentStressSolve(unnamed>::PersistentStressArgs, unnamed>::ResidentStressComponentView)",
+    "metrics": {
+      "gpu__time_duration.sum": {
+        "value": 4.67536,
+        "unit": "ms"
+      },
+      "launch__registers_per_thread": {
+        "value": 109.0,
+        "unit": "register/thread"
+      },
+      "sm__warps_active.avg.pct_of_peak_sustained_active": {
+        "value": 32.728864,
+        "unit": "%"
+      },
+      "smsp__warps_eligible.avg.per_cycle_active": {
+        "value": 0.15893,
+        "unit": "warp"
+      },
+      "smsp__issue_active.avg.pct_of_peak_sustained_active": {
+        "value": 12.783145,
+        "unit": "%"
+      },
+      "dram__bytes.sum.per_second": {
+        "value": 1.095705,
+        "unit": "Gbyte/s"
+      },
+      "l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum": {
+        "value": 0.0,
+        "unit": "sector"
+      },
+      "l1tex__t_sectors_pipe_lsu_mem_local_op_st.sum": {
+        "value": 0.0,
+        "unit": "sector"
+      }
+    }
+  },
+  {
+    "scenario": "city25-initial-impact",
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/city25-initial-impact-counters-0",
+    "record": 1,
+    "name": "unnamed>::componentStressSolve(unnamed>::PersistentStressArgs, unnamed>::ResidentStressComponentView)",
+    "metrics": {
+      "gpu__time_duration.sum": {
+        "value": 6.752832,
+        "unit": "ms"
+      },
+      "launch__registers_per_thread": {
+        "value": 109.0,
+        "unit": "register/thread"
+      },
+      "sm__warps_active.avg.pct_of_peak_sustained_active": {
+        "value": 19.439321,
+        "unit": "%"
+      },
+      "smsp__warps_eligible.avg.per_cycle_active": {
+        "value": 0.112915,
+        "unit": "warp"
+      },
+      "smsp__issue_active.avg.pct_of_peak_sustained_active": {
+        "value": 9.857961,
+        "unit": "%"
+      },
+      "dram__bytes.sum.per_second": {
+        "value": 0.639997,
+        "unit": "Gbyte/s"
+      },
+      "l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum": {
+        "value": 7056.0,
+        "unit": "sector"
+      },
+      "l1tex__t_sectors_pipe_lsu_mem_local_op_st.sum": {
+        "value": 155232.0,
+        "unit": "sector"
+      }
+    }
+  },
+  {
+    "scenario": "city64-initial-impact",
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-initial-impact-counters-0",
+    "record": 0,
+    "name": "unnamed>::componentStressSolve(unnamed>::PersistentStressArgs, unnamed>::ResidentStressComponentView)",
+    "metrics": {
+      "gpu__time_duration.sum": {
+        "value": 4.744352,
+        "unit": "ms"
+      },
+      "launch__registers_per_thread": {
+        "value": 109.0,
+        "unit": "register/thread"
+      },
+      "sm__warps_active.avg.pct_of_peak_sustained_active": {
+        "value": 32.616894,
+        "unit": "%"
+      },
+      "smsp__warps_eligible.avg.per_cycle_active": {
+        "value": 0.163693,
+        "unit": "warp"
+      },
+      "smsp__issue_active.avg.pct_of_peak_sustained_active": {
+        "value": 13.274563,
+        "unit": "%"
+      },
+      "dram__bytes.sum.per_second": {
+        "value": 24.925071,
+        "unit": "Gbyte/s"
+      },
+      "l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum": {
+        "value": 0.0,
+        "unit": "sector"
+      },
+      "l1tex__t_sectors_pipe_lsu_mem_local_op_st.sum": {
+        "value": 0.0,
+        "unit": "sector"
+      }
+    }
+  },
+  {
+    "scenario": "city64-initial-impact",
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city64-initial-impact-counters-0",
+    "record": 1,
+    "name": "unnamed>::componentStressSolve(unnamed>::PersistentStressArgs, unnamed>::ResidentStressComponentView)",
+    "metrics": {
+      "gpu__time_duration.sum": {
+        "value": 7.184928,
+        "unit": "ms"
+      },
+      "launch__registers_per_thread": {
+        "value": 109.0,
+        "unit": "register/thread"
+      },
+      "sm__warps_active.avg.pct_of_peak_sustained_active": {
+        "value": 30.209968,
+        "unit": "%"
+      },
+      "smsp__warps_eligible.avg.per_cycle_active": {
+        "value": 0.154763,
+        "unit": "warp"
+      },
+      "smsp__issue_active.avg.pct_of_peak_sustained_active": {
+        "value": 12.816012,
+        "unit": "%"
+      },
+      "dram__bytes.sum.per_second": {
+        "value": 18.399191,
+        "unit": "Gbyte/s"
+      },
+      "l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum": {
+        "value": 18432.0,
+        "unit": "sector"
+      },
+      "l1tex__t_sectors_pipe_lsu_mem_local_op_st.sum": {
+        "value": 405504.0,
+        "unit": "sector"
+      }
+    }
+  },
+  {
+    "scenario": "city256-initial-impact",
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city256-initial-impact-counters-0",
+    "record": 0,
+    "name": "unnamed>::componentStressSolve(unnamed>::PersistentStressArgs, unnamed>::ResidentStressComponentView)",
+    "metrics": {
+      "gpu__time_duration.sum": {
+        "value": 16.618272,
+        "unit": "ms"
+      },
+      "launch__registers_per_thread": {
+        "value": 109.0,
+        "unit": "register/thread"
+      },
+      "sm__warps_active.avg.pct_of_peak_sustained_active": {
+        "value": 32.747541,
+        "unit": "%"
+      },
+      "smsp__warps_eligible.avg.per_cycle_active": {
+        "value": 0.168755,
+        "unit": "warp"
+      },
+      "smsp__issue_active.avg.pct_of_peak_sustained_active": {
+        "value": 13.795132,
+        "unit": "%"
+      },
+      "dram__bytes.sum.per_second": {
+        "value": 9.910187,
+        "unit": "Gbyte/s"
+      },
+      "l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum": {
+        "value": 0.0,
+        "unit": "sector"
+      },
+      "l1tex__t_sectors_pipe_lsu_mem_local_op_st.sum": {
+        "value": 0.0,
+        "unit": "sector"
+      }
+    }
+  },
+  {
+    "scenario": "city256-initial-impact",
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/full/city256-initial-impact-counters-0",
+    "record": 1,
+    "name": "unnamed>::componentStressSolve(unnamed>::PersistentStressArgs, unnamed>::ResidentStressComponentView)",
+    "metrics": {
+      "gpu__time_duration.sum": {
+        "value": 25.670432,
+        "unit": "ms"
+      },
+      "launch__registers_per_thread": {
+        "value": 109.0,
+        "unit": "register/thread"
+      },
+      "sm__warps_active.avg.pct_of_peak_sustained_active": {
+        "value": 31.912718,
+        "unit": "%"
+      },
+      "smsp__warps_eligible.avg.per_cycle_active": {
+        "value": 0.161744,
+        "unit": "warp"
+      },
+      "smsp__issue_active.avg.pct_of_peak_sustained_active": {
+        "value": 13.337842,
+        "unit": "%"
+      },
+      "dram__bytes.sum.per_second": {
+        "value": 6.948603,
+        "unit": "Gbyte/s"
+      },
+      "l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum": {
+        "value": 55584.0,
+        "unit": "sector"
+      },
+      "l1tex__t_sectors_pipe_lsu_mem_local_op_st.sum": {
+        "value": 1222848.0,
+        "unit": "sector"
+      }
+    }
+  },
+  {
+    "scenario": "city256-late-debris",
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/city256-late-debris-counters-0",
+    "record": 0,
+    "name": "unnamed>::componentStressSolve(unnamed>::PersistentStressArgs, unnamed>::ResidentStressComponentView)",
+    "metrics": {
+      "gpu__time_duration.sum": {
+        "value": 37.391904,
+        "unit": "ms"
+      },
+      "launch__registers_per_thread": {
+        "value": 109.0,
+        "unit": "register/thread"
+      },
+      "sm__warps_active.avg.pct_of_peak_sustained_active": {
+        "value": 32.300272,
+        "unit": "%"
+      },
+      "smsp__warps_eligible.avg.per_cycle_active": {
+        "value": 0.131459,
+        "unit": "warp"
+      },
+      "smsp__issue_active.avg.pct_of_peak_sustained_active": {
+        "value": 10.995852,
+        "unit": "%"
+      },
+      "dram__bytes.sum.per_second": {
+        "value": 4.983051,
+        "unit": "Gbyte/s"
+      },
+      "l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum": {
+        "value": 1864584.0,
+        "unit": "sector"
+      },
+      "l1tex__t_sectors_pipe_lsu_mem_local_op_st.sum": {
+        "value": 27331884.0,
+        "unit": "sector"
+      }
+    }
+  },
+  {
+    "scenario": "city256-late-debris",
+    "path": "/root/workspace/physx-2/out/ncu-fix-20260912/light-full/city256-late-debris-counters-0",
+    "record": 1,
+    "name": "unnamed>::componentStressSolve(unnamed>::PersistentStressArgs, unnamed>::ResidentStressComponentView)",
+    "metrics": {
+      "gpu__time_duration.sum": {
+        "value": 29.12352,
+        "unit": "ms"
+      },
+      "launch__registers_per_thread": {
+        "value": 109.0,
+        "unit": "register/thread"
+      },
+      "sm__warps_active.avg.pct_of_peak_sustained_active": {
+        "value": 31.893486,
+        "unit": "%"
+      },
+      "smsp__warps_eligible.avg.per_cycle_active": {
+        "value": 0.132196,
+        "unit": "warp"
+      },
+      "smsp__issue_active.avg.pct_of_peak_sustained_active": {
+        "value": 11.094948,
+        "unit": "%"
+      },
+      "dram__bytes.sum.per_second": {
+        "value": 4.959321,
+        "unit": "Gbyte/s"
+      },
+      "l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum": {
+        "value": 1349376.0,
+        "unit": "sector"
+      },
+      "l1tex__t_sectors_pipe_lsu_mem_local_op_st.sum": {
+        "value": 18222816.0,
+        "unit": "sector"
+      }
+    }
+  }
+]

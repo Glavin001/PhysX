@@ -1,0 +1,366 @@
+[
+  {
+    "scenario": "bridge64-cold",
+    "configs": 18,
+    "launches": 30,
+    "kernel_time_coverage": 0.9900881924610531,
+    "omitted_ms": 0.054496000000000024
+  },
+  {
+    "scenario": "bridge64-warm",
+    "configs": 18,
+    "launches": 30,
+    "kernel_time_coverage": 0.9901360627799707,
+    "omitted_ms": 0.05459199999999999
+  },
+  {
+    "scenario": "building-cold",
+    "configs": 47,
+    "launches": 55,
+    "kernel_time_coverage": 0.990052838772727,
+    "omitted_ms": 0.018016
+  },
+  {
+    "scenario": "building-fragmented",
+    "configs": 103,
+    "launches": 140,
+    "kernel_time_coverage": 0.9902985307421163,
+    "omitted_ms": 0.009952
+  },
+  {
+    "scenario": "building-warm",
+    "configs": 47,
+    "launches": 60,
+    "kernel_time_coverage": 0.9901950572992874,
+    "omitted_ms": 0.017792000000000002
+  },
+  {
+    "scenario": "cantilever64-cold",
+    "configs": 22,
+    "launches": 35,
+    "kernel_time_coverage": 0.9901353037696959,
+    "omitted_ms": 0.047296000000000005
+  },
+  {
+    "scenario": "cantilever64-warm",
+    "configs": 22,
+    "launches": 35,
+    "kernel_time_coverage": 0.9900928089358452,
+    "omitted_ms": 0.04745600000000001
+  },
+  {
+    "scenario": "chain256-cold",
+    "configs": 25,
+    "launches": 43,
+    "kernel_time_coverage": 0.9900705952106691,
+    "omitted_ms": 0.044480000000000006
+  },
+  {
+    "scenario": "chain256-warm",
+    "configs": 23,
+    "launches": 35,
+    "kernel_time_coverage": 0.9902678126519299,
+    "omitted_ms": 0.04496
+  },
+  {
+    "scenario": "chain32-cold",
+    "configs": 66,
+    "launches": 79,
+    "kernel_time_coverage": 0.9909213987554473,
+    "omitted_ms": 0.004352
+  },
+  {
+    "scenario": "chain32-warm",
+    "configs": 66,
+    "launches": 79,
+    "kernel_time_coverage": 0.9910631980564133,
+    "omitted_ms": 0.004256
+  },
+  {
+    "scenario": "dense12-cold",
+    "configs": 2,
+    "launches": 4,
+    "kernel_time_coverage": 0.9918427247168125,
+    "omitted_ms": 0.23738299999999998
+  },
+  {
+    "scenario": "dense12-warm",
+    "configs": 2,
+    "launches": 6,
+    "kernel_time_coverage": 0.9920160504473411,
+    "omitted_ms": 0.23715399999999992
+  },
+  {
+    "scenario": "destruction-cold",
+    "configs": 68,
+    "launches": 86,
+    "kernel_time_coverage": 0.9902288338338483,
+    "omitted_ms": 0.003296
+  },
+  {
+    "scenario": "destruction-damaged",
+    "configs": 68,
+    "launches": 76,
+    "kernel_time_coverage": 0.9902689878181704,
+    "omitted_ms": 0.0032319999999999996
+  },
+  {
+    "scenario": "destruction-fractured",
+    "configs": 103,
+    "launches": 116,
+    "kernel_time_coverage": 0.9908164616886521,
+    "omitted_ms": 0.003744
+  },
+  {
+    "scenario": "destruction-intact",
+    "configs": 68,
+    "launches": 81,
+    "kernel_time_coverage": 0.9903165110677007,
+    "omitted_ms": 0.003232
+  },
+  {
+    "scenario": "destruction-onset",
+    "configs": 84,
+    "launches": 105,
+    "kernel_time_coverage": 0.9900691650272698,
+    "omitted_ms": 0.0036799999999999992
+  },
+  {
+    "scenario": "destruction-stimulus",
+    "configs": 86,
+    "launches": 98,
+    "kernel_time_coverage": 0.9900537314723721,
+    "omitted_ms": 0.0036799999999999992
+  },
+  {
+    "scenario": "flying",
+    "configs": 41,
+    "launches": 49,
+    "kernel_time_coverage": 0.9920371752805215,
+    "omitted_ms": 0.001376
+  },
+  {
+    "scenario": "ladder128-cold",
+    "configs": 38,
+    "launches": 53,
+    "kernel_time_coverage": 0.9903213127818077,
+    "omitted_ms": 0.026816999999999997
+  },
+  {
+    "scenario": "ladder128-warm",
+    "configs": 39,
+    "launches": 47,
+    "kernel_time_coverage": 0.9903934389972859,
+    "omitted_ms": 0.026495999999999992
+  },
+  {
+    "scenario": "panel32-cold",
+    "configs": 4,
+    "launches": 12,
+    "kernel_time_coverage": 0.9928964073856433,
+    "omitted_ms": 0.13276800000000005
+  },
+  {
+    "scenario": "panel32-warm",
+    "configs": 4,
+    "launches": 12,
+    "kernel_time_coverage": 0.9931089046963413,
+    "omitted_ms": 0.1326080000000001
+  },
+  {
+    "scenario": "resting",
+    "configs": 26,
+    "launches": 30,
+    "kernel_time_coverage": 0.9954411408545013,
+    "omitted_ms": 0.00064
+  },
+  {
+    "scenario": "sliding",
+    "configs": 53,
+    "launches": 63,
+    "kernel_time_coverage": 0.9917460511762314,
+    "omitted_ms": 0.001888
+  },
+  {
+    "scenario": "tower64-cold",
+    "configs": 2,
+    "launches": 4,
+    "kernel_time_coverage": 0.9977496362714148,
+    "omitted_ms": 0.260708
+  },
+  {
+    "scenario": "tower64-warm",
+    "configs": 2,
+    "launches": 4,
+    "kernel_time_coverage": 0.9977038482281482,
+    "omitted_ms": 0.262339
+  },
+  {
+    "scenario": "city25-intact-idle",
+    "configs": 39,
+    "launches": 52,
+    "kernel_time_coverage": 0.9901035130812255,
+    "omitted_ms": 0.029983999999999993
+  },
+  {
+    "scenario": "city25-airborne",
+    "configs": 56,
+    "launches": 74,
+    "kernel_time_coverage": 0.9902092397741965,
+    "omitted_ms": 0.03062399999999999
+  },
+  {
+    "scenario": "city25-initial-impact",
+    "configs": 93,
+    "launches": 215,
+    "kernel_time_coverage": 0.9902328946653721,
+    "omitted_ms": 0.14025699999999997
+  },
+  {
+    "scenario": "city25-post-impact",
+    "configs": 55,
+    "launches": 85,
+    "kernel_time_coverage": 0.9900018680822582,
+    "omitted_ms": 0.08220799999999999
+  },
+  {
+    "scenario": "city25-cascading-fracture",
+    "configs": 85,
+    "launches": 238,
+    "kernel_time_coverage": 0.9902218942639067,
+    "omitted_ms": 0.16134599999999993
+  },
+  {
+    "scenario": "city25-fragmented-loaded",
+    "configs": 76,
+    "launches": 216,
+    "kernel_time_coverage": 0.9900029638412648,
+    "omitted_ms": 0.23398500000000003
+  },
+  {
+    "scenario": "city25-late-debris",
+    "configs": 97,
+    "launches": 249,
+    "kernel_time_coverage": 0.9900587617911909,
+    "omitted_ms": 0.24326700000000007
+  },
+  {
+    "scenario": "city25-ten-second-debris",
+    "configs": 63,
+    "launches": 186,
+    "kernel_time_coverage": 0.9901295921862511,
+    "omitted_ms": 0.3316199999999999
+  },
+  {
+    "scenario": "city64-intact-idle",
+    "configs": 36,
+    "launches": 48,
+    "kernel_time_coverage": 0.9902146963991578,
+    "omitted_ms": 0.040639999999999996
+  },
+  {
+    "scenario": "city64-airborne",
+    "configs": 52,
+    "launches": 77,
+    "kernel_time_coverage": 0.9901210149812817,
+    "omitted_ms": 0.039169
+  },
+  {
+    "scenario": "city64-initial-impact",
+    "configs": 89,
+    "launches": 240,
+    "kernel_time_coverage": 0.9901876613347438,
+    "omitted_ms": 0.18169899999999994
+  },
+  {
+    "scenario": "city64-post-impact",
+    "configs": 56,
+    "launches": 96,
+    "kernel_time_coverage": 0.9901294800673522,
+    "omitted_ms": 0.10403299999999999
+  },
+  {
+    "scenario": "city64-cascading-fracture",
+    "configs": 79,
+    "launches": 240,
+    "kernel_time_coverage": 0.9900509196573207,
+    "omitted_ms": 0.21546000000000007
+  },
+  {
+    "scenario": "city64-fragmented-loaded",
+    "configs": 88,
+    "launches": 282,
+    "kernel_time_coverage": 0.9902330061689709,
+    "omitted_ms": 0.31315799999999994
+  },
+  {
+    "scenario": "city64-late-debris",
+    "configs": 92,
+    "launches": 286,
+    "kernel_time_coverage": 0.9900439259263016,
+    "omitted_ms": 0.3663689999999999
+  },
+  {
+    "scenario": "city64-ten-second-debris",
+    "configs": 78,
+    "launches": 256,
+    "kernel_time_coverage": 0.9901689498992724,
+    "omitted_ms": 0.3796509999999999
+  },
+  {
+    "scenario": "city256-intact-idle",
+    "configs": 25,
+    "launches": 42,
+    "kernel_time_coverage": 0.9908027531066973,
+    "omitted_ms": 0.14294499999999993
+  },
+  {
+    "scenario": "city256-airborne",
+    "configs": 32,
+    "launches": 57,
+    "kernel_time_coverage": 0.9903912494621351,
+    "omitted_ms": 0.14832100000000004
+  },
+  {
+    "scenario": "city256-initial-impact",
+    "configs": 55,
+    "launches": 167,
+    "kernel_time_coverage": 0.990246295215944,
+    "omitted_ms": 0.7939860000000002
+  },
+  {
+    "scenario": "city256-post-impact",
+    "configs": 43,
+    "launches": 104,
+    "kernel_time_coverage": 0.9901464735465084,
+    "omitted_ms": 0.34867400000000015
+  },
+  {
+    "scenario": "city256-cascading-fracture",
+    "configs": 59,
+    "launches": 186,
+    "kernel_time_coverage": 0.9900068680298693,
+    "omitted_ms": 0.7536429999999997
+  },
+  {
+    "scenario": "city256-fragmented-loaded",
+    "configs": 70,
+    "launches": 185,
+    "kernel_time_coverage": 0.9901847469383377,
+    "omitted_ms": 1.040365000000001
+  },
+  {
+    "scenario": "city256-late-debris",
+    "configs": 75,
+    "launches": 199,
+    "kernel_time_coverage": 0.9902843680194163,
+    "omitted_ms": 1.0894160000000002
+  },
+  {
+    "scenario": "city256-ten-second-debris",
+    "configs": 61,
+    "launches": 202,
+    "kernel_time_coverage": 0.9901434631435628,
+    "omitted_ms": 0.8522989999999999
+  }
+]

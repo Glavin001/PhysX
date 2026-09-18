@@ -1,0 +1,216 @@
+Start testing: Sep 08 00:23 UTC
+----------------------------------------------------------
+127/134 Testing: blast_stress_gpu_resident_motion_modes
+127/134 Test: blast_stress_gpu_resident_motion_modes
+Command: "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_resident_motion_modes_test"
+Directory: /root/workspace/physx-2/out/destruction-sdk/reference
+"blast_stress_gpu_resident_motion_modes" start time: Sep 08 00:23 UTC
+Output:
+----------------------------------------------------------
+GPU local inverse: 257 six-variable SPD blocks, cold/reuse/unknown/generation checks passed, scaled error 6.38784863e-16
+polynomial oracle nodes=12 bonds=20 anchored=0 all_basis=true relative_error=2.62e-16 symmetry_error=1.38e-16 SPD=true
+polynomial oracle nodes=12 bonds=20 anchored=1 all_basis=true relative_error=2.62e-16 symmetry_error=1.38e-16 SPD=true
+colored sweep oracle nodes=12 bonds=30 anchored=0 all_basis=true relative_error=7.15e-17 symmetry_error=7.89e-17 SPD=true
+colored sweep oracle nodes=12 bonds=30 anchored=1 all_basis=true relative_error=5.12e-17 symmetry_error=4.74e-17 SPD=true
+first direction: one node, no previous-norm storage, beta=0 and exact output passed
+GPU warm-range lifecycle: 3 nodes, 3 bonds, supported cycle; 18 block/cooperative retirement cases passed
+GPU topology warm invalidation: 9 nodes, 7 bonds, two supported components; five cases passed
+GPU motion modes nodes=0 bonds=0 generation=0 components=0 dimensions[0,3,4,6]=0,0,0,0 oracle_error=0
+GPU motion modes nodes=0 bonds=0 generation=0 components=0 dimensions[0,3,4,6]=0,0,0,0 oracle_error=0
+GPU motion modes nodes=1 bonds=0 generation=0 components=0 dimensions[0,3,4,6]=0,0,0,0 oracle_error=0
+GPU motion modes nodes=1 bonds=0 generation=0 components=0 dimensions[0,3,4,6]=0,0,0,0 oracle_error=0
+GPU motion modes nodes=24 bonds=23 generation=0 components=1 dimensions[0,3,4,6]=0,0,0,1 oracle_error=1.11e-16
+GPU motion modes nodes=24 bonds=23 generation=0 components=1 dimensions[0,3,4,6]=0,0,0,1 oracle_error=1.11e-16
+GPU motion modes nodes=24 bonds=23 generation=2 components=4 dimensions[0,3,4,6]=0,0,0,4 oracle_error=1.67e-16
+GPU motion modes nodes=24 bonds=23 generation=3 components=1 dimensions[0,3,4,6]=0,0,0,1 oracle_error=1.11e-16
+GPU motion rejection/recovery nodes=24 bonds=23 missing-tree/precision/consumer gates passed
+GPU motion modes nodes=24 bonds=23 generation=0 components=1 dimensions[0,3,4,6]=0,0,0,1 oracle_error=5.55e-17
+GPU motion modes nodes=24 bonds=23 generation=0 components=1 dimensions[0,3,4,6]=0,0,0,1 oracle_error=5.55e-17
+GPU motion modes nodes=24 bonds=23 generation=2 components=4 dimensions[0,3,4,6]=0,0,0,4 oracle_error=1.67e-16
+GPU motion modes nodes=24 bonds=23 generation=3 components=1 dimensions[0,3,4,6]=0,0,0,1 oracle_error=5.55e-17
+GPU motion rejection/recovery nodes=24 bonds=23 missing-tree/precision/consumer gates passed
+GPU motion modes nodes=24 bonds=24 generation=0 components=1 dimensions[0,3,4,6]=0,0,1,0 oracle_error=5.55e-17
+GPU motion modes nodes=24 bonds=24 generation=0 components=1 dimensions[0,3,4,6]=0,0,1,0 oracle_error=5.55e-17
+GPU motion modes nodes=24 bonds=24 generation=2 components=4 dimensions[0,3,4,6]=0,0,0,4 oracle_error=1.11e-16
+GPU motion modes nodes=24 bonds=24 generation=3 components=1 dimensions[0,3,4,6]=0,0,1,0 oracle_error=5.55e-17
+GPU motion rejection/recovery nodes=24 bonds=24 missing-tree/precision/consumer gates passed
+GPU motion modes nodes=24 bonds=25 generation=0 components=1 dimensions[0,3,4,6]=0,1,0,0 oracle_error=1.11e-16
+GPU motion modes nodes=24 bonds=25 generation=0 components=1 dimensions[0,3,4,6]=0,1,0,0 oracle_error=1.11e-16
+GPU motion modes nodes=24 bonds=25 generation=2 components=3 dimensions[0,3,4,6]=0,0,0,3 oracle_error=1.11e-16
+GPU motion modes nodes=24 bonds=25 generation=3 components=1 dimensions[0,3,4,6]=0,1,0,0 oracle_error=1.11e-16
+GPU motion rejection/recovery nodes=24 bonds=25 missing-tree/precision/consumer gates passed
+GPU motion modes nodes=24 bonds=23 generation=0 components=1 dimensions[0,3,4,6]=1,0,0,0 oracle_error=0
+GPU motion modes nodes=24 bonds=23 generation=0 components=1 dimensions[0,3,4,6]=1,0,0,0 oracle_error=0
+GPU motion modes nodes=24 bonds=23 generation=2 components=4 dimensions[0,3,4,6]=0,0,0,4 oracle_error=1.67e-16
+GPU motion modes nodes=24 bonds=23 generation=3 components=1 dimensions[0,3,4,6]=1,0,0,0 oracle_error=0
+GPU motion rejection/recovery nodes=24 bonds=23 missing-tree/precision/consumer gates passed
+GPU motion modes nodes=1028 bonds=771 generation=0 components=257 dimensions[0,3,4,6]=128,0,0,129 oracle_error=2.5e-16
+GPU motion modes nodes=1028 bonds=771 generation=0 components=257 dimensions[0,3,4,6]=128,0,0,129 oracle_error=2.5e-16
+GPU motion modes nodes=1028 bonds=771 generation=2 components=276 dimensions[0,3,4,6]=0,0,0,276 oracle_error=3.05e-16
+GPU motion modes nodes=1028 bonds=771 generation=3 components=257 dimensions[0,3,4,6]=128,0,0,129 oracle_error=2.5e-16
+GPU motion rejection/recovery nodes=1028 bonds=771 missing-tree/precision/consumer gates passed
+GPU motion modes nodes=100000 bonds=199997 generation=0 components=1 dimensions[0,3,4,6]=0,0,0,1 oracle_error=1.11e-16
+GPU motion modes nodes=100000 bonds=199997 generation=0 components=1 dimensions[0,3,4,6]=0,0,0,1 oracle_error=1.11e-16
+GPU motion modes nodes=100000 bonds=199997 generation=2 components=1 dimensions[0,3,4,6]=0,0,0,1 oracle_error=1.11e-16
+GPU motion modes nodes=100000 bonds=199997 generation=3 components=1 dimensions[0,3,4,6]=0,0,0,1 oracle_error=1.11e-16
+GPU motion rejection/recovery nodes=100000 bonds=199997 missing-tree/precision/consumer gates passed
+<end of output>
+Test time =   1.04 sec
+----------------------------------------------------------
+Test Passed.
+"blast_stress_gpu_resident_motion_modes" end time: Sep 08 00:23 UTC
+"blast_stress_gpu_resident_motion_modes" time elapsed: 00:00:01
+----------------------------------------------------------
+
+128/134 Testing: blast_stress_gpu_resident_3d
+128/134 Test: blast_stress_gpu_resident_3d
+Command: "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_resident_stress_3d_test"
+Directory: /root/workspace/physx-2/out/destruction-sdk/reference
+"blast_stress_gpu_resident_3d" start time: Sep 08 00:23 UTC
+Output:
+----------------------------------------------------------
+independent cold CGLS iterations=26 true_gradient2=1.16863841318e-13 threshold2=1.92937016228e-13
+native 3D nodes=18 bonds=33 supported=0 amplitude=0.5 iterations=9 converged=1 topology_error=0 CPU_iterations=27
+published residual label=legacy CPU rhs2=19.2937011719 residual2=18.6883873298 gradient2=1.51956810902e-12 threshold2=1.92937001971e-09
+published residual label=precise CPU rhs2=19.2937011719 residual2=18.6883873298 gradient2=1.19975315059e-13 threshold2=1.92937001971e-09
+published residual label=native rhs2=19.2937011719 residual2=18.6883873299 gradient2=2.89185835995e-10 threshold2=1.92937001971e-09
+native 3D all-force/moment maximum_relative_error=4.30969521e-07
+independent cold CGLS iterations=26 true_gradient2=4.67455365272e-13 threshold2=7.71748064912e-13
+native 3D nodes=18 bonds=33 supported=0 amplitude=1 iterations=8 converged=1 topology_error=0 CPU_iterations=27
+published residual label=legacy CPU rhs2=77.1748046875 residual2=74.7535493193 gradient2=6.07827243609e-12 threshold2=7.71748007883e-09
+published residual label=precise CPU rhs2=77.1748046875 residual2=74.7535493193 gradient2=4.79901260234e-13 threshold2=7.71748007883e-09
+published residual label=native rhs2=77.1748046875 residual2=74.7535493197 gradient2=2.27659282356e-09 threshold2=7.71748007883e-09
+native 3D all-force/moment maximum_relative_error=1.8235296e-06
+independent cold CGLS iterations=0 true_gradient2=0 threshold2=0
+native 3D nodes=18 bonds=33 supported=0 amplitude=0 iterations=0 converged=1 topology_error=0 CPU_iterations=0
+published residual label=legacy CPU rhs2=0 residual2=0 gradient2=0 threshold2=0
+published residual label=precise CPU rhs2=0 residual2=0 gradient2=0 threshold2=0
+published residual label=native rhs2=0 residual2=0 gradient2=0 threshold2=0
+native 3D all-force/moment maximum_relative_error=0
+independent cold CGLS iterations=26 true_gradient2=2.62943642965e-13 threshold2=4.34108286513e-13
+native 3D nodes=18 bonds=33 supported=0 amplitude=-0.75 iterations=9 converged=1 topology_error=0 CPU_iterations=27
+published residual label=legacy CPU rhs2=43.4108276367 residual2=42.0488714921 gradient2=2.67637326439e-12 threshold2=4.34108254434e-09
+published residual label=precise CPU rhs2=43.4108276367 residual2=42.0488714921 gradient2=2.70707318671e-13 threshold2=4.34108254434e-09
+published residual label=native rhs2=43.4108276367 residual2=42.0488714922 gradient2=6.51844311571e-10 threshold2=4.34108254434e-09
+native 3D all-force/moment maximum_relative_error=6.45872205e-07
+independent cold CGLS iterations=63 true_gradient2=1.62769008116e-13 threshold2=1.81628422214e-13
+native 3D nodes=18 bonds=33 supported=1 amplitude=0.5 iterations=25 converged=1 topology_error=0 CPU_iterations=66
+published residual label=legacy CPU rhs2=18.1628417969 residual2=2.96553025565e-11 gradient2=1.36651834415e-10 threshold2=1.81628408792e-09
+published residual label=precise CPU rhs2=18.1628417969 residual2=4.35533073709e-13 gradient2=2.74020948969e-12 threshold2=1.81628408792e-09
+published residual label=native rhs2=18.1628417969 residual2=1.58448969194e-10 gradient2=9.27560479831e-10 threshold2=1.81628408792e-09
+native 3D all-force/moment maximum_relative_error=8.34465027e-07
+independent cold CGLS iterations=63 true_gradient2=6.51076032462e-13 threshold2=7.26513688855e-13
+native 3D nodes=18 bonds=33 supported=1 amplitude=1 iterations=25 converged=1 topology_error=0 CPU_iterations=66
+published residual label=legacy CPU rhs2=72.6513671875 residual2=1.18621210226e-10 gradient2=5.46607337662e-10 threshold2=7.26513635168e-09
+published residual label=precise CPU rhs2=72.6513671875 residual2=1.74213229483e-12 gradient2=1.09608379588e-11 threshold2=7.26513635168e-09
+published residual label=native rhs2=72.6513671875 residual2=1.61952164644e-10 gradient2=9.06092281109e-10 threshold2=7.26513635168e-09
+native 3D all-force/moment maximum_relative_error=8.94069672e-07
+independent cold CGLS iterations=0 true_gradient2=0 threshold2=0
+native 3D nodes=18 bonds=33 supported=1 amplitude=0 iterations=0 converged=1 topology_error=0 CPU_iterations=0
+published residual label=legacy CPU rhs2=0 residual2=0 gradient2=0 threshold2=0
+published residual label=precise CPU rhs2=0 residual2=0 gradient2=0 threshold2=0
+published residual label=native rhs2=0 residual2=0 gradient2=0 threshold2=0
+native 3D all-force/moment maximum_relative_error=0
+independent cold CGLS iterations=63 true_gradient2=3.66229419824e-13 threshold2=4.08663949981e-13
+native 3D nodes=18 bonds=33 supported=1 amplitude=-0.75 iterations=25 converged=1 topology_error=0 CPU_iterations=70
+published residual label=legacy CPU rhs2=40.866394043 residual2=6.62354784709e-11 gradient2=2.95048820335e-10 threshold2=4.08663919782e-09
+published residual label=precise CPU rhs2=40.866394043 residual2=1.02716066943e-12 gradient2=5.74507481356e-12 threshold2=4.08663919782e-09
+published residual label=native rhs2=40.866394043 residual2=3.47136622063e-10 gradient2=1.92453342734e-09 threshold2=4.08663919782e-09
+native 3D all-force/moment maximum_relative_error=1.1920929e-06
+independent cold CGLS iterations=371 true_gradient2=1.06989412044e-11 threshold2=1.13222829795e-11
+native 3D nodes=1058 bonds=2553 supported=0 amplitude=0.5 iterations=103 converged=1 topology_error=0 CPU_iterations=377
+published residual label=legacy CPU rhs2=1132.22827148 residual2=1062.18875466 gradient2=1.59329634526e-09 threshold2=1.13222821428e-07
+published residual label=precise CPU rhs2=1132.22827148 residual2=1062.18875466 gradient2=1.1041638931e-11 threshold2=1.13222821428e-07
+published residual label=native rhs2=1132.22827148 residual2=1062.18875468 gradient2=9.58792304427e-08 threshold2=1.13222821428e-07
+native 3D all-force/moment maximum_relative_error=8.3334744e-06
+independent cold CGLS iterations=371 true_gradient2=4.27957648174e-11 threshold2=4.52891319179e-11
+native 3D nodes=1058 bonds=2553 supported=0 amplitude=1 iterations=100 converged=1 topology_error=0 CPU_iterations=377
+published residual label=legacy CPU rhs2=4528.91308594 residual2=4248.75501866 gradient2=6.37318538103e-09 threshold2=4.52891285712e-07
+published residual label=precise CPU rhs2=4528.91308594 residual2=4248.75501866 gradient2=4.4166555724e-11 threshold2=4.52891285712e-07
+published residual label=native rhs2=4528.91308594 residual2=4248.75501871 gradient2=3.32012403946e-07 threshold2=4.52891285712e-07
+native 3D all-force/moment maximum_relative_error=1.05425715e-05
+independent cold CGLS iterations=0 true_gradient2=0 threshold2=0
+native 3D nodes=1058 bonds=2553 supported=0 amplitude=0 iterations=0 converged=1 topology_error=0 CPU_iterations=0
+published residual label=legacy CPU rhs2=0 residual2=0 gradient2=0 threshold2=0
+published residual label=precise CPU rhs2=0 residual2=0 gradient2=0 threshold2=0
+published residual label=native rhs2=0 residual2=0 gradient2=0 threshold2=0
+native 3D all-force/moment maximum_relative_error=0
+independent cold CGLS iterations=371 true_gradient2=2.40726177098e-11 threshold2=2.54751367038e-11
+native 3D nodes=1058 bonds=2553 supported=0 amplitude=-0.75 iterations=103 converged=1 topology_error=0 CPU_iterations=378
+published residual label=legacy CPU rhs2=2547.51361084 residual2=2389.92469799 gradient2=2.68762371374e-09 threshold2=2.54751348213e-07
+published residual label=precise CPU rhs2=2547.51361084 residual2=2389.92469799 gradient2=2.46867318068e-11 threshold2=2.54751348213e-07
+published residual label=native rhs2=2547.51361084 residual2=2389.92469803 gradient2=2.15716773942e-07 threshold2=2.54751348213e-07
+native 3D all-force/moment maximum_relative_error=1.24722719e-05
+independent cold CGLS iterations=984 true_gradient2=8.36495245037e-12 threshold2=1.13109743855e-11
+native 3D nodes=1058 bonds=2553 supported=1 amplitude=0.5 iterations=149 converged=1 topology_error=0 CPU_iterations=1586
+published residual label=legacy CPU rhs2=1131.09741211 residual2=0.00120642884682 gradient2=0.006949744495 threshold2=1.13109735496e-07
+published residual label=precise CPU rhs2=1131.09741211 residual2=1.78098997661e-07 gradient2=1.15890510708e-06 threshold2=1.13109735496e-07
+published residual label=native rhs2=1131.09741211 residual2=4.59660678654e-07 gradient2=2.87435595906e-06 threshold2=1.13109735496e-07
+native 3D all-force/moment maximum_relative_error=9.23871994e-06
+independent cold CGLS iterations=984 true_gradient2=3.34598098015e-11 threshold2=4.52438975418e-11
+native 3D nodes=1058 bonds=2553 supported=1 amplitude=1 iterations=142 converged=1 topology_error=0 CPU_iterations=1586
+published residual label=legacy CPU rhs2=4524.38964844 residual2=0.00482571538729 gradient2=0.02779897798 threshold2=4.52438941985e-07
+published residual label=precise CPU rhs2=4524.38964844 residual2=7.12395990646e-07 gradient2=4.63562042833e-06 threshold2=4.52438941985e-07
+published residual label=native rhs2=4524.38964844 residual2=1.6496714717e-06 gradient2=1.03744819676e-05 threshold2=4.52438941985e-07
+native 3D all-force/moment maximum_relative_error=9.32812691e-06
+independent cold CGLS iterations=0 true_gradient2=0 threshold2=0
+native 3D nodes=1058 bonds=2553 supported=1 amplitude=0 iterations=0 converged=1 topology_error=0 CPU_iterations=0
+published residual label=legacy CPU rhs2=0 residual2=0 gradient2=0 threshold2=0
+published residual label=precise CPU rhs2=0 residual2=0 gradient2=0 threshold2=0
+published residual label=native rhs2=0 residual2=0 gradient2=0 threshold2=0
+native 3D all-force/moment maximum_relative_error=0
+independent cold CGLS iterations=984 true_gradient2=1.88215517359e-11 threshold2=2.54496923673e-11
+native 3D nodes=1058 bonds=2553 supported=1 amplitude=-0.75 iterations=154 converged=1 topology_error=0 CPU_iterations=1625
+published residual label=legacy CPU rhs2=2544.96917725 residual2=0.000408088691276 gradient2=0.0024715337495 threshold2=2.54496904866e-07
+published residual label=precise CPU rhs2=2544.96917725 residual2=2.27018094132e-07 gradient2=1.515908184e-06 threshold2=2.54496904866e-07
+published residual label=native rhs2=2544.96917725 residual2=5.30949174247e-07 gradient2=3.11090539037e-06 threshold2=2.54496904866e-07
+native 3D all-force/moment maximum_relative_error=5.48362732e-06
+<end of output>
+Test time =   2.39 sec
+----------------------------------------------------------
+Test Passed.
+"blast_stress_gpu_resident_3d" end time: Sep 08 00:23 UTC
+"blast_stress_gpu_resident_3d" time elapsed: 00:00:02
+----------------------------------------------------------
+
+130/134 Testing: blast_stress_gpu_resident_analytic
+130/134 Test: blast_stress_gpu_resident_analytic
+Command: "/root/workspace/physx-2/out/destruction-sdk/reference/gpu_resident_stress_test"
+Directory: /root/workspace/physx-2/out/destruction-sdk/reference
+"blast_stress_gpu_resident_analytic" start time: Sep 08 00:23 UTC
+Output:
+----------------------------------------------------------
+resident columns: topology=asset nodes=12 bonds=9 worst relative error=0
+resident columns: topology=asset nodes=1536 bonds=1152 worst relative error=0
+resident columns: topology=asset nodes=131072 bonds=98304 worst relative error=0
+resident columns: topology=GPU nodes=12 bonds=9 worst relative error=4.76837e-07
+resident columns: topology=GPU nodes=1536 bonds=1152 worst relative error=4.76837e-07
+resident columns: topology=GPU nodes=131072 bonds=98304 worst relative error=4.76837e-07
+native history id=12 iteration=1 residual2=8192 gamma=2048 direction_energy=2048 g0=-1 mu0=-1
+native component id=0 nodes=12 iterations=2 active=1 failed=0 residual2=20.5 tolerance2=8e-09 gamma=7.01812 direction_energy=1.00286
+native history id=12 iteration=1 residual2=8192 gamma=2048 direction_energy=2048 g0=-1 mu0=-1
+native history id=12 iteration=1 residual2=8192 gamma=2048 direction_energy=2048 g0=-1 mu0=-1
+native cooperative id=1036 iterations=2 active=1 failed=0 residual2=8.18674 tolerance2=4.144e-07 gamma=7.49416 direction_energy=0.026542
+resident mixed components: nodes=2064 bonds=2061 sizes=12,1024,1028 interleaved=0 analytic forces and iteration-cap rejection passed
+native history id=1 iteration=1 residual2=8192 gamma=2048 direction_energy=2048 g0=1 mu0=1
+native component id=0 nodes=12 iterations=2 active=1 failed=0 residual2=20.5 tolerance2=8e-09 gamma=7.01812 direction_energy=1.00286
+native history id=1 iteration=1 residual2=8192 gamma=2048 direction_energy=2048 g0=1 mu0=1
+native history id=1 iteration=1 residual2=8192 gamma=2048 direction_energy=2048 g0=1 mu0=1
+native cooperative id=3 iterations=2 active=1 failed=0 residual2=8.18674 tolerance2=4.144e-07 gamma=7.63748 direction_energy=0.0386129
+resident mixed components: nodes=2064 bonds=2061 sizes=12,1024,1028 interleaved=1 analytic forces and iteration-cap rejection passed
+resident uneven components: components=769 nodes=13828 bonds=13059 warm=0 six quiet/load transitions passed
+resident uneven components: components=769 nodes=13828 bonds=13059 warm=1 six quiet/load transitions passed
+resident topology transition: nodes=1040 bonds=1039 components=1->2->4 permuted IDs, twelve quiet/load solves passed
+resident unaffected warm column: 64 nodes, 62 bonds, two supported columns; cold=18 preserved=0; fracture/doubled/zero loads passed
+<end of output>
+Test time =   0.54 sec
+----------------------------------------------------------
+Test Passed.
+"blast_stress_gpu_resident_analytic" end time: Sep 08 00:23 UTC
+"blast_stress_gpu_resident_analytic" time elapsed: 00:00:00
+----------------------------------------------------------
+
+End testing: Sep 08 00:23 UTC
+
+gpu =   3.43 sec*proc
+

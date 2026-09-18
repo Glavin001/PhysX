@@ -1,0 +1,75 @@
+{
+  "base_revision": "0e87e796fded08f795469d9717a627e577a94f61",
+  "change": "GPU ownership installation stamps affected persistent shapes. Broad phase borrows generation-tagged storage and uses it for changed projections, new-pair discovery and refilter overflow handling. Native CPU refilter bitmap requests and uploads are removed.",
+  "physical_equations_changed": false,
+  "additional_normal_step_kernels": 0,
+  "per_step_generation_clear": false,
+  "persistent_generation_bytes_per_shape": 8,
+  "capacity_growth_in_complete_timer": true,
+  "source_sha256": {
+    "demos/blast-stress-demo/tests/native_gpu_resimulation_test.cpp": "30097475320b02ab8d4fea21ac502e6e75eb7be0150b07b77a17b40a02dfdb7b",
+    "demos/blast-stress-demo/tests/native_refilter_check.h": "0afd93641a72c66bfa0f0d4ecea346d026c698d6dc81f1de34fa11e838d6277e",
+    "physx/source/gpubroadphase/include/PxgAABBManager.h": "bd1d47db70d26b80d6c7353c5238f3e9f17142c89d69bcb5cd2540000cd44a82",
+    "physx/source/gpubroadphase/include/PxgBroadPhaseDesc.h": "560791de91dcb2eb7b2044c945ea8f71910ebac367855b58d0b814ca36809f04",
+    "physx/source/gpubroadphase/src/CUDA/broadphase.cu": "7ac8d228db38df6ecb7a82ea2d0ba2bfcb1a05d37e9cb1143aec8446df116fe4",
+    "physx/source/gpubroadphase/src/PxgAABBManager.cpp": "2533e1d4fef8f67a0eab0d7f33b47617b889e3723e9eee080f3db9e1a4b30118",
+    "physx/source/gpubroadphase/src/PxgCudaBroadPhaseSap.cpp": "ed6e058740b720ec0c50041a255d5eab1b90812c4d4894b267fd335914e58254",
+    "physx/source/gpucommon/include/PxgDestructionOwnership.h": "10107a4200a061909a9dbd7661d44edb9dd4c6699fea88c3c153bfd6ec15566c",
+    "physx/source/gpudestruction/include/PxgDestructionRuntime.h": "697e40568ee2da4bb7d6063b18eb5ef4063be570502a358e1419ef8793e852dd",
+    "physx/source/gpudestruction/src/PxgDestructionRuntime.cu": "959c35bb3cfe9713699c3d3698a7acacd2ef522848fb7909832db5aced527c76",
+    "physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp": "8cd8fd8e5bc3f5285c5a131254ca19de24a7a496eb86284c62fc490e741013da",
+    "physx/source/lowlevelaabb/include/BpAABBManagerBase.h": "eadcae6b64f7773887a2bb0af2a29ad42a055637f00b8b0b00d91eb0255a408d",
+    "physx/source/simulationcontroller/src/ScShapeSimBase.cpp": "3f9b91ea4516422a123dac9c3ccd42912eed5910f362567716d7d413b1cdc933"
+  },
+  "focused_ctest": "qualification/native-refilter-ctest.log",
+  "focused_tests_passed": 12,
+  "quality": "qualification/native-refilter-quality.json",
+  "baseline_deadline_report": "qualification/native-refilter-qualified/report.html",
+  "scaling_report": "qualification/native-refilter-scaling/report.html",
+  "prior_counter_comparisons": [
+    {
+      "case": "world-256",
+      "before": "out/device-bounds-world-256/world-256-plain-0/native.frames.csv.gz",
+      "after": "out/native-refilter-world-256/world-256-plain-0/native.frames.csv.gz",
+      "compared_steps": 600,
+      "fields": [
+        "step",
+        "bonds_broken",
+        "resim_passes",
+        "logical_clusters"
+      ],
+      "matches": true,
+      "full_physical_qualification": false
+    },
+    {
+      "case": "impacts-256",
+      "before": "out/device-bounds-impacts-256/impacts-256-plain-0/native.frames.csv.gz",
+      "after": "out/native-refilter-impacts-256/impacts-256-plain-0/native.frames.csv.gz",
+      "compared_steps": 600,
+      "fields": [
+        "step",
+        "bonds_broken",
+        "resim_passes",
+        "logical_clusters"
+      ],
+      "matches": true,
+      "full_physical_qualification": false
+    }
+  ],
+  "coverage": [
+    "Current GPU generation on affected retained/new owners",
+    "Ordinary projectile not stamped",
+    "Broad phase borrows the installed GPU ownership view",
+    "No native CPU refilter bitmap construction/upload when contact reuse is valid",
+    "Ordinary steps disable previous generations",
+    "Existing public rebind/growth/overflow and complete-correction checks preserved"
+  ],
+  "remaining": [
+    "CPU actor allocation and shape/contact/query lifecycle bridge",
+    "CPU group/type mirror and group uploads",
+    "Component-local stress and GPU multilevel preconditioning",
+    "Selective correction scheduling",
+    "Larger five-run deadline and full lifecycle endurance qualification"
+  ],
+  "full_plan_complete": false
+}

@@ -1,0 +1,246 @@
+{
+  "status": "PGS/TGS persistent solver metadata integrated and focused-qualified; CPU island producer and full GPU island lifecycle remain open",
+  "base_revision": "8569af9281b274dd4e1f2f05cfe95fb0f15dc7f0",
+  "source_sha256": {
+    "demos/blast-stress-demo/CMakeLists.txt": "97ce3eca24d4413b81e9c0c09ec8188f5b529855fc0e4f36b8d8f41fda69d959",
+    "demos/blast-stress-demo/native_graph_diagnostics.h": "250e82328ec95eb8d55b7956bc7a3e91685dd0f8723c27e5f9d155f8ab97d7da",
+    "demos/blast-stress-demo/tests/native_gpu_collision_test.cpp": "2603ea157475d5fb6c4fc71ace876f6663108093c0c09cd4ba2b8cf9df98f330",
+    "physx/source/compiler/cmakegpu/PhysXGpu.cmake": "7c6e808da7a9eff80e5addc105ee9e1300f50afbd6399a6b94ead3132594eddc",
+    "physx/source/gpudestruction/CMakeLists.txt": "28502be60c3191084112b0d29a818d4bc167a972b4ddae1dbfd6f48cbfd0d4fe",
+    "physx/source/gpudestruction/include/PxgDestructionRuntime.h": "9ec38b43b8f88d950bbc0aed6ddd9b2438696a028dc29b5de12984ee55182a5f",
+    "physx/source/gpudestruction/src/PxgDestructionRuntime.cu": "87bcac7c9a2e54ebb1353fa98db0e71b80d5d05fa4bc8d76187204d650121e5c",
+    "physx/source/gpudestruction/src/PxgSolverIslandMetadata.cuh": "95d9f5db17a3e1507c3e84da394703794b2dbf7002718e4c5e7e3e562ceda39a",
+    "physx/source/gpudestruction/tests/contact_graph_test.cu": "ba5e76017f967b82f4630a705a0e0b8f3611961ec2702a07c7afc890004df6e4",
+    "physx/source/gpusolver/include/PxgContext.h": "23511925567578627671d6ab2a41f895fc92d051b61caff0ba08a8ff804807de",
+    "physx/source/gpusolver/include/PxgCudaSolverCore.h": "a4683143a72d6132ba2ac2a655fcaa65c9f909a3824cd69164326e8e2df42a7d",
+    "physx/source/gpusolver/include/PxgSolverCore.h": "83ebd20a50686c534fd3eb1e780642934ab37e3f25489f9ed1741378a824ac85",
+    "physx/source/gpusolver/include/PxgTGSCudaSolverCore.h": "2c46efdfc18bc44342b0fe8952cdebdbbfe0bf536f2c35eaef76616c3da3cdde",
+    "physx/source/gpusolver/src/PxgContext.cpp": "54e5e6aaccd49e369c0202220bbbda188dc11d898799904c11b25671634fb63d",
+    "physx/source/gpusolver/src/PxgCudaSolverCore.cpp": "98733cb27cbe00ee1bf2fc9f7b3dfa9c823b37b5c9038d78a065383374b39dac",
+    "physx/source/gpusolver/src/PxgTGSCudaSolverCore.cpp": "e7da6cb2de6797c24d296c918cd099de7a6f81e506ab0d93aa1d0be9622a855a",
+    "physx/source/lowlevel/api/include/PxvIslandMetadata.h": "9f18a5d866477dce420e120c49431bbcc213f06a733cc26fab8890ba3a0df93c",
+    "physx/source/lowlevel/software/include/PxsIslandSim.h": "8e2d7d6f20022fc601bb3ca46912c0e0b3c258f54714d798eef8db00b2c72d1f",
+    "physx/source/lowlevel/software/src/PxsIslandSim.cpp": "f18799ebb9ecb4d9150a53807edbc462fa101cde171d04a09b8599cfd6ea0db3"
+  },
+  "libraries": {
+    "libPhysXDestructionGpuRuntime_64.so": "c52967039f3d76477c10f1f49a4c8f57ad0386e626001ca1567b37f7f7c8ed8c",
+    "libPhysXGpuActivity_64.so": "2f12d613906c08cafb42c492222f2ed24a6befbf5cb379bcfc697f4dbef6ba96",
+    "libPVDRuntime_64.so": "7ced8c8e62fd6323cbb75910cf1a9cf29e2cfe5cfe1d053a8ad061a6bd4d1c2b",
+    "libPhysX_static_64.a": "07c3134ecaa42ea206506d66379edc140f5f8c5ac9dc6e3a9b49d717edc1c041",
+    "libPhysXCommon_static_64.a": "989af41e4b457eda140c1a05feeb62bdd2a5a816790c923860776d666821f42b",
+    "libPhysXFoundation_static_64.a": "245eb8a7d46693f37a13639d7ddde4707bac0b6b8a2a8564cae7c40888217f7a",
+    "libPhysXExtensions_static_64.a": "cf0f5b0269efdb3b0c1bf26c8200d076aa97495194e320f10def1f39df1ee148",
+    "libPhysXPvdSDK_static_64.a": "5904d7f4e41dc89807e90d7a11bb8cdf2b1fd2b88a6ed82c040d0b0669fbc94c",
+    "libPhysXCooking_static_64.a": "8c919efa53e9ad97930c370c0757e706bcc7f12f0e0b801278ddcd33ec5826a6",
+    "libPhysXCharacterKinematic_static_64.a": "b8dd6238ef1b039717b47aeaf949202388089a15db57cbf86de6397efd4f771d",
+    "libPhysXVehicle_static_64.a": "1175dd5c09cca78bd8f19204e826b4cb3a6f1bda14b79b8ea0f4af8b51ef3075",
+    "libPhysXCudaContextManager_static_64.a": "222cf8e3d3a9b9236cec0fb9940a67b10eb4483c5bce924519eca72be4158cdb"
+  },
+  "built_executable_sha256": {
+    "out/destruction-sdk/reference/native_gpu_collision_test": "2daf97ad82a945ed804c51f49827d35d4969ae4896654f77543c441942a46bb2",
+    "out/destruction-sdk/reference/native_destruction_demo": "205a0feaf7bc20bab6577a9f0fc6748a31a1f572e0f3fc1817b9d28cdcca342c",
+    "out/destruction-sdk/topology/destruction_contact_graph_test": "aeedf1bd70ca8897b09eedcd8e5d8b0b8bb5588298f9b8d169554c354f5dc07e"
+  },
+  "build": {
+    "command": [
+      "python3",
+      "tools/scripts/build-destruction-sdk.py",
+      "--jobs",
+      "4"
+    ],
+    "exit_code": 0,
+    "log": "out/native-solver-metadata-final-build.log"
+  },
+  "verification": {
+    "stages": [
+      {
+        "stage": "tests",
+        "command": [
+          "ctest",
+          "--test-dir",
+          "out/destruction-sdk",
+          "-R",
+          "^(physx_(native_gpu_|persistent_shape_owner|native_demo_projectile_launch)|destruction_gpu_contact_graph|blast_stress_physx_(cpu_contract|resim_penetration|resim_baseline|resim_snapshot|resim_punchthrough|resim_scoped_cascade)$)",
+          "--output-on-failure"
+        ],
+        "exit_code": 0,
+        "log": "out/native-solver-metadata-final-tests.log"
+      },
+      {
+        "stage": "kernel-memcheck",
+        "command": [
+          "compute-sanitizer",
+          "--tool",
+          "memcheck",
+          "--error-exitcode",
+          "99",
+          "out/destruction-sdk/topology/destruction_contact_graph_test"
+        ],
+        "exit_code": 0,
+        "log": "out/native-solver-metadata-final-kernel-memcheck.log"
+      },
+      {
+        "stage": "native-memcheck",
+        "command": [
+          "compute-sanitizer",
+          "--tool",
+          "memcheck",
+          "--error-exitcode",
+          "99",
+          "out/destruction-sdk/reference/native_gpu_collision_test",
+          "--solver-metadata"
+        ],
+        "exit_code": 0,
+        "log": "out/native-solver-metadata-final-native-memcheck.log"
+      }
+    ],
+    "focused_tests_passed": 26,
+    "focused_test_seconds": 33.95,
+    "native_exact_comparisons": 108,
+    "native_cases": [
+      "PGS and TGS; GPU sleeping enabled and disabled",
+      "quiet pages; static support creation/removal",
+      "contact node removal/reinsertion; dynamic/kinematic transitions",
+      "domain growth; full reference switch and re-enable"
+    ],
+    "kernel_cases": [
+      "persistent sparse updates",
+      "partial last pages",
+      "untouched entries and allocation guards",
+      "reversed nonoverlapping command order"
+    ],
+    "sleep_scope": "Sleeping-enabled configuration covered; new fixture does not independently establish all sleep/wake transitions.",
+    "assertions_and_tolerances": "Existing fracture decisions and physical tolerances unchanged"
+  },
+  "capture": {
+    "directory": "out/recordings/native-solver-metadata-audited-20260906",
+    "command": [
+      "out/destruction-sdk/reference/native_destruction_demo",
+      "--grid",
+      "8",
+      "--waves",
+      "4",
+      "--seconds",
+      "10",
+      "--stress-iterations",
+      "8192",
+      "--profile-phases",
+      "1",
+      "--preserve-contact-pairs",
+      "1",
+      "--audit-motion",
+      "1",
+      "--audit-islands",
+      "1",
+      "--record-state",
+      "0",
+      "--gpu-island-repair",
+      "1",
+      "--output",
+      "/root/workspace/physx-2/out/recordings/native-solver-metadata-audited-20260906"
+    ],
+    "process": {
+      "exit_code": 0,
+      "wall_seconds": 38.483259161002934,
+      "status": "completed"
+    },
+    "summary": {
+      "backend": "native PhysX GPU task graph + resident CUDA destruction",
+      "status": "completed",
+      "frames": 600,
+      "seconds": 10,
+      "buildings": 64,
+      "chunks": 28416,
+      "bonds": 57344,
+      "peak_clusters": 24260,
+      "projectiles": 256,
+      "broken_bonds": 50052,
+      "corrections": 106,
+      "spawn_protocol": "clear-aerial-ballistic-v2",
+      "island_boundary_audit_enabled": true,
+      "motion_audit_enabled": true,
+      "max_motion_position_error": 0,
+      "record_fps": 60,
+      "gpu_island_repair": true,
+      "preserve_contact_pairs": true,
+      "recorded_state": false,
+      "correction_limit": 1,
+      "physics_ms_p50": 39.9195,
+      "physics_ms_p95": 191.955,
+      "physics_ms_p99": 307.381,
+      "physics_ms_max": 500.35,
+      "missed_16_67ms": 495,
+      "stress_included_in_physics_time": true,
+      "isolated_performance_qualification": false,
+      "sleeping": false,
+      "crushing_material_enabled": false
+    },
+    "graph": {
+      "scope": "contact graph and pre-solver island metadata submissions (including correction); excludes diagnostic reads, other physics and recording transfers",
+      "graph_builds": 706,
+      "same_pass_reuses": 706,
+      "host_observations": 623,
+      "sorted_graphs": 1246,
+      "device_to_host_bytes": 440686864,
+      "gpu_connected_answers": 4122283,
+      "gpu_splits": 635889,
+      "retained_edges_uploaded": 7593,
+      "retained_host_to_device_bytes": 242976,
+      "retained_delta_updates": 15186,
+      "retained_slot_capacity": 451584,
+      "peak_retained_edges": 3836,
+      "boundary_audits": 1246,
+      "boundary_audit_failures": 0,
+      "solver_metadata_passes": 706,
+      "solver_metadata_full_uploads": 682,
+      "solver_metadata_page_uploads": 11,
+      "solver_metadata_quiet_passes": 13,
+      "solver_metadata_host_to_device_bytes": 66696100,
+      "solver_metadata_full_equivalent_bytes": 66837236,
+      "solver_metadata_pages": 495,
+      "registry_mismatch_fallbacks": 0
+    },
+    "physics_timing": {
+      "samples": 600,
+      "min_ms": 0.592816,
+      "mean_ms": 58.000704436666666,
+      "max_ms": 500.35,
+      "p50_ms": 39.7667,
+      "p95_ms": 191.955,
+      "p99_ms": 307.381,
+      "total_wall_seconds": 34.800422661999995,
+      "effective_steps_per_second": 17.241169908409315,
+      "real_time_factor": 0.2873528318068219,
+      "missed_deadlines": 495,
+      "fixed_step_ms": 16.666666666666668
+    },
+    "solver_metadata_audit": "All 600 accepted steps compare actual final-pass device metadata against independent full native pre-solve snapshots. Intermediate trial snapshots are not separately observed.",
+    "converged_stress_steps": 600,
+    "metadata_transfer_reduction_fraction": 0.002111637291524193,
+    "scope": "Audited/profiled shared-GPU correctness capture, not isolated performance comparison. No state/video recording."
+  },
+  "limitations": [
+    "CPU still computes native island membership and static-touch counts",
+    "CUDA component-to-CPU registry observation bridge remains",
+    "682 of 706 bombardment passes require full metadata upload; sparse staging alone is not a rubble-scale solution",
+    "No new selective correction scheduling or full SDK qualification",
+    "Existing unexplained native crash and real-fracture sanitizer error remain open; clean focused memchecks do not close them"
+  ],
+  "artifact_sha256": {
+    "out/recordings/native-solver-metadata-audited-20260906/native.phases.csv": "412c0f7abde640be5528bccd5ff9e2d7c5e98b46b047654a1a93aa631a10c5c7",
+    "out/recordings/native-solver-metadata-audited-20260906/native.frames.csv": "3146030e0c92f2238d058dce7e1f4f35bf2dcc3e55f2efb5cf6b038ef05cb55f",
+    "out/recordings/native-solver-metadata-audited-20260906/native.launches.csv": "d144b861eae2f18253405d5af60ece869858374f8d3eac26da8b76e32524ab3d",
+    "out/recordings/native-solver-metadata-audited-20260906/build-provenance.json": "9f3af87b2dede5eefde73c277c07c01c2d038c0ee8fa99f1aa9cc43546f09f64",
+    "out/recordings/native-solver-metadata-audited-20260906/source-files.json": "8e95719758dd2fe0f500e37c53375b047f2c13d1587268880d15d5877b0bb022",
+    "out/recordings/native-solver-metadata-audited-20260906/native.graph-diagnostics.json": "a3722a27cf4d75af0f1a6ec1674c03f948e0db2de771da132a080c84468a3de2",
+    "out/recordings/native-solver-metadata-audited-20260906/native.summary.json": "f2eae033887af08e87ddb09ddaa34bffa30220e06ad9b184c488edf279fcef4c",
+    "out/recordings/native-solver-metadata-audited-20260906/process-result.json": "c48c1751d91cf45be54ca0c0e08d4fea0523dbfe35a606d7b9be034dca2d3371",
+    "out/recordings/native-solver-metadata-audited-20260906/gpu-memory.csv": "41d4c93b5e72f9e461c43eb3088843431e55e054ccb9f280c34b604d030bd9cb",
+    "out/recordings/native-solver-metadata-audited-20260906/phase-summary.json": "011c4950637eddf65ab9f3dcab25729621c908c82279271641f9999169650aed",
+    "out/native-solver-metadata-final-build.log": "b8100803c52107302b83cb579e52f974544b9bacc50fd41d90d83ddf1cfe9f22",
+    "out/native-solver-metadata-final-tests.log": "90d567f5fcdd4681f74b6ae4a37e56ebc72ae9b3e34425180ea13fa1488a217f",
+    "out/native-solver-metadata-final-kernel-memcheck.log": "73b22c868e3fa5d9939f6d5af7f6cc1fc2aa9a05b3a87785d64e697d92ea21dd",
+    "out/native-solver-metadata-final-native-memcheck.log": "d1cbe69b7519546b46c235758756267cfd05a139e3e1611dba571e237420765a",
+    "out/native-solver-metadata-final-results.json": "68f0ce1fba50e07ba575b2454a1bfffa71e887168cb14579b15cfcc7173e2455"
+  }
+}

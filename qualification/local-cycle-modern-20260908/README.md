@@ -1,0 +1,7 @@
+# Rejected block-local multilevel experiment
+
+The modern coarse-cache implementation was re-tested as a small-component V-cycle. Native analytic/3D/motion tests passed. The original deep-row tile schedule serializes a single block and was stopped during the wall audit (incomplete, not a pass). The compact eight-lane local row schedule passed the exact 444-chunk / 896-bond wall audit (398 retained / 46 detached / 199 broken).
+
+The compact candidate is rejected: [256-building destruction comparison](shots/report.md) and [pristine idle](idle/report.md). One 600-step run per arm, 113,664 chunks / 229,376 bonds; destruction has 768 physical projectiles. Complete destruction peak 138.788 to 257.110 ms, mean 46.192 to 107.527 ms. Idle first-step peak also worsens. Numerical iteration savings do not offset the per-iteration hierarchy cost. Production changes reverted.
+
+The compact schedule also changes reduction ordering relative to the cooperative schedule, so the existing byte-identical hierarchy-cycle gate would need a design preserving that contract before acceptance. It was not run after the clear performance rejection; no full qualification is claimed. No assertions or tolerances changed. Runtime hashes, patches and capture receipts are retained. The initial test build overlapped the first numerical test launch; completed numerical tests and wall are screening evidence, not final qualification. No builds overlapped the large-scene timing captures.

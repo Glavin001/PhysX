@@ -1,0 +1,65 @@
+{
+  "base_revision": "86c98bcccba12722d634ef4e43cf45e874236817",
+  "change": "Keep retained shape owners on GPU; export only true migrations to the remaining CPU ownership bridge. Stamp only migrating shapes for pair recreation. Mark all refreshed rigid bounds in the existing GPU update flags so sweep-and-prune sees checkpoint restoration.",
+  "physical_equations_changed": false,
+  "source_sha256": {
+    "demos/blast-stress-demo/CMakeLists.txt": "68cc1d518fe4c388998311efde1a7ecab3a32c3c9c50a8a4bedd98ce82a8585b",
+    "demos/blast-stress-demo/native_graph_diagnostics.h": "6dc578f640c78815df5c9204bc94e02073eb8a93b329e0564f39f96dcca29f21",
+    "demos/blast-stress-demo/tests/native_contact_graph_check.h": "0528c4b8af765c4c48efbd4994e6fcd510b0ad31094a65555acacd19aeca7ed7",
+    "demos/blast-stress-demo/tests/native_gpu_resimulation_test.cpp": "3671b040d90d2ecefd6935ec0f3bd36f46189954cb8f192bf366dd164985be46",
+    "physx/source/gpucommon/include/PxgDestructionOwnership.h": "d30053297355082259c8975509be1bf9d91feabd96d9b339141faad62fd639e4",
+    "physx/source/gpudestruction/src/PxgDestructionRuntime.cu": "c11876c1c664e474590b27adb304cda964b1b187b9db93c0f4fbd99475c0c631",
+    "physx/source/gpusimulationcontroller/src/CUDA/updateBodiesAndShapes.cu": "49b755685a058edd172af8905d22b25b2377755cb02b0f6e137302c4d7fa47d6",
+    "physx/source/gpusimulationcontroller/src/PxgSimulationCore.cpp": "9bb8b1774e98e4b05e4422cf93325281c89e07c5abb553e948607ae02b8ad04c",
+    "physx/source/physx/src/NpDestructionBodyAllocator.h": "2fcc6724bc09c7cf9ffc7b83c426cd45b7dd0991e9b6fa8019fdb88da8a2477c",
+    "physx/source/physx/src/NpShapeManager.cpp": "ea91f722679cb1dc1e7e7c262df9aac5ccffc8336319489653a9165ac06c4cc4",
+    "demos/blast-stress-demo/tests/native_bombardment_contacts_test.py": "6d121256e371205eda18521f5e594a8583f50b1a2f367846c29e1f3a353fc145"
+  },
+  "timestep": 0.016666666666666666,
+  "correction_limit": 1,
+  "focused_native_tests_passed": 8,
+  "new_bombardment_regression_passed": true,
+  "final_retained_owner_memcheck": {
+    "errors": 0,
+    "leaked_bytes": 0,
+    "fixture": "2 destruction chunks, 1 bond, projectile and persistent ordinary contact; correction enabled"
+  },
+  "evidence": "qualification/retained-owner-evidence",
+  "penetration_quality": "retained-owner-evidence/penetration-quality.json",
+  "large_audit": "retained-owner-evidence/bombardment-audit.json",
+  "large_audit_render_buffer": false,
+  "large_audit_full_momentum": false,
+  "full_plan_complete": false,
+  "full_synccheck_qualified": false,
+  "full_synccheck_existing_issue": "component-stress-cub-synccheck/README.md",
+  "reports": [
+    "retained-owner-final-scaling/report.html",
+    "retained-owner-final-comparison/report.html"
+  ],
+  "comparison_caveat": "Recorded workload/settings match, but full bombardment fracture histories differ. No identical-trajectory speedup or full physical parity is claimed. Both large-scene builds miss the 8 ms gate.",
+  "rejected_attempts": [
+    {
+      "reports": [
+        "migrating-owner-world-256",
+        "migrating-owner-impacts-256"
+      ],
+      "reason": "Retained managers plus unconditional ownership generation produced duplicate pairs."
+    },
+    {
+      "reports": [
+        "retained-owner-world-256",
+        "retained-owner-impacts-256"
+      ],
+      "reason": "Restored bounds were not marked dirty, leaving stale broad-phase endpoints and duplicate pairs on re-entry."
+    }
+  ],
+  "remaining": [
+    "GPU body allocation and migrating-shape lifecycle",
+    "Device-controlled scheduling without intermediate host decisions",
+    "Validated affected correction scheduling",
+    "Stress preconditioning and affected topology updates",
+    "Sleep/wake and structural reuse qualification",
+    "Exact bond identities, full physical and lifecycle endurance qualification",
+    "Five 60-second bombardment runs below 8 ms"
+  ]
+}

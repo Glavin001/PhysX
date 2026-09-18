@@ -1,0 +1,47 @@
+{
+  "penetration": {
+    "compared_steps": 1200,
+    "fields": [
+      "step",
+      "bonds_broken",
+      "resim_passes",
+      "logical_clusters",
+      "bodies",
+      "contacts_frame",
+      "contact_pairs",
+      "native_dynamic_bodies",
+      "native_kinematic_bodies"
+    ],
+    "mismatching_steps": 0
+  },
+  "impacts-16": {
+    "compared_steps": 1200,
+    "fields": [
+      "step",
+      "bonds_broken",
+      "resim_passes",
+      "logical_clusters",
+      "bodies",
+      "contacts_frame",
+      "contact_pairs",
+      "native_dynamic_bodies",
+      "native_kinematic_bodies"
+    ],
+    "mismatching_steps": 0
+  },
+  "impacts-256": {
+    "compared_steps": 1200,
+    "fields": [
+      "step",
+      "bonds_broken",
+      "resim_passes",
+      "logical_clusters",
+      "bodies",
+      "contacts_frame",
+      "contact_pairs",
+      "native_dynamic_bodies",
+      "native_kinematic_bodies"
+    ],
+    "mismatching_steps": 0
+  }
+}

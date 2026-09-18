@@ -1,0 +1,39 @@
+{
+  "status": "passed",
+  "completed_utc": "2026-09-13T06:01:05.184200+00:00",
+  "measured_ticks_recomputed": 7480,
+  "native_continuous_ticks": 4800,
+  "native_restored_ticks": 2080,
+  "vibe_deduplicated_ticks": 600,
+  "browser": "Google Chrome 142.0.7444.175, headless, GPU disabled",
+  "browser_controls": {
+    "desktop": "PASS: tabs, 6 reports, 8 runs, 52 scenarios, 3 slider positions, embedded figures, no horizontal overflow",
+    "narrow": "PASS: tabs, 6 reports, 8 runs, 52 scenarios, 3 slider positions, embedded figures, no horizontal overflow"
+  },
+  "requested_viewports": [
+    "1440 x 1800",
+    "480 x 1400"
+  ],
+  "visual_inspection": "All four plots and desktop/narrow browser screenshots inspected",
+  "local_report_links": 24,
+  "missing_links": 0,
+  "source_hash_checks": "Vibe ten compressed sample hashes match original manifest; referenced source files freshly hashed.",
+  "raw_p4_available": false,
+  "scope": "No new physics tests or runtime change. Read-only source/archive analysis plus report generation.",
+  "environment_note": "Temporary plotting dependencies installed outside repositories. Initial browser sandbox launch failed at socket permissions; authorized headless local verification then passed.",
+  "artifact_sha256": {
+    "README.md": "bd0937e57b8cbc0feff05d5330b1b7546b39726ec5ac54cde010f3a4bca059f9",
+    "build-report.py": "8c4a147ebd6807f5bb49d012e4b70efdf446f60404a1ce632ddc6c22d5348db7",
+    "build-interactive.py": "c85e46d14139369a1f2887a41c01c4ce1c8a7225b7d67ce24c4a0f3f39642827",
+    "comparison.html": "3a4506293f593ca5cfdd9776f08745fc1e32c6632758f10ed0d8a0a41d81428b",
+    "provenance.json": "a840c8ce6ba645f2d5e5868a5b1f085544cb4f57c44d979207534d60a40bb395",
+    "figures/ownership.svg": "39efb17963badd4bac614596277857eca24cba8a3d470e591ac488ed05285a01",
+    "figures/bottlenecks.svg": "2e6cc93d9ebfe160b727db7e878f8581ae211bb336a97ce5feb6bab09462f707",
+    "figures/bottlenecks.png": "64f58c0c00ea24f680449dcc892c1457c809e70894bdf02e38adec63dcd4dbce",
+    "figures/comparison-traps.svg": "2d78b7fb81563e8836a70a5b516ad67e1a430db6885ce47fa8ca64bb3731535f",
+    "figures/performance-context.svg": "29c79a945fb74f7b20fa82b25aa451cb5bf94380b48f4a23f84442489bc2f727",
+    "figures/ownership.png": "3578d40c2a492b6702bf4231d2e4f48771e9640c55330281462c1c3f56726329",
+    "figures/performance-context.png": "a3dfa5533059f47665c373f41f2aaed634b3fd97a525da7363701f75216a499e",
+    "figures/comparison-traps.png": "ea4425bdf21cb01d87f91ab919648df1f59791db8d5f2d5fcba1963dd72143c6"
+  }
+}

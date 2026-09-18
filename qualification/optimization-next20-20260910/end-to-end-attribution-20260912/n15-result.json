@@ -1,0 +1,2292 @@
+{
+  "status": "rejected_no_verified_application_gain",
+  "commit": "dccbe23f0022b2d3b68c66bb97a877ff5e3532a4",
+  "hypothesis": {
+    "id": "N15",
+    "rank": 6,
+    "status": "prepared_not_built_or_gpu_qualified",
+    "title": "Separate anchored and free component execution",
+    "evidence": "Source audit: isolated no-live-bond chunks are already omitted by labelDeviceStressBonds/rootFlags and labelDeviceStressNodes, so the original empty-system hypothesis has no reachable target. Current common component kernel retains free-projection code/resources even for the overwhelmingly anchored iterative work. N10 uses108 registers,32.09% occupancy in the later selected capture.",
+    "proposed_mechanism": "Use separate GPU-owned anchored/free work queues and template the component recurrence/preparation/preconditioning so the anchored specialization omits certified zero-dimensional nullspace work and its compiler resource footprint. Current validated mode dimension selects ownership; free components retain all projection. Preserve current equations and per-component numerical order; no CPU count readback.",
+    "affected_scenarios": [
+      "idle including setup",
+      "first fracture trial/correction",
+      "later heavy destruction"
+    ],
+    "estimated_application_ms_saved": "Potential1\u20135 ms heavy mean if reduced anchored register/shared footprint improves residency; charge queue preparation and extra launch. No established saving.",
+    "confidence": "high semantic equivalence under current mode certificate; medium compiler/resource benefit",
+    "experiment_cost": "Private GPU component queues and templated recurrence/preconditioner, kernel launch updates; original free/anchored/interleaved/cap/topology tests, sanitizers, full A/B and counters",
+    "supporting_measurements": "Both queue ownership and original physical gates pass, anchored resources fall, complete-step heavy mean/peaks improve without idle regression; independent queues enable later size decomposition",
+    "refuting_measurements": "Queue divergence or invalid certificate, resource footprint unchanged, extra launch/cache costs erase benefit, full-suite regression",
+    "profile_locations": [
+      "out/optimization-20260910/E12-composition/profiles",
+      "out/optimization-20260910/E12-composition/production-phases",
+      "out/optimization-next20-20260910/N12-guarded-monitor/profiles",
+      "out/optimization-next20-20260910/N12-guarded-monitor/production-phases"
+    ],
+    "baseline": "retained N13",
+    "family": "anchored_free_execution_decomposition",
+    "reassessment": "Original no-live-interface singleton target removed before experiment: native topology already omits those rows. This audit does not count as a completed experiment.",
+    "parent": "4cb343a2ae0c3c9e4dc3cd55dfd23fea14ae1735",
+    "commit": "dccbe23f0022b2d3b68c66bb97a877ff5e3532a4",
+    "changed_sources": [
+      "blast/source/sdk/extensions/stressgpu/detail/StressNativePreconditioner.cuh",
+      "blast/source/sdk/extensions/stressgpu/detail/StressComponentIteration.cuh",
+      "blast/source/sdk/extensions/stressgpu/detail/StressNativeResponseHistory.cuh",
+      "blast/source/sdk/extensions/stressgpu/detail/StressIterationDispatch.inl"
+    ],
+    "main_index_unchanged": true,
+    "main_source_unchanged": true,
+    "baseline_scope": "Current snapshot-compatible runtime includes unaccepted N14 numerical work. This experiment does not promote N14 or replace frozen N13.",
+    "source_review": "Mode readiness checked before class selection; both passes initialize verification to zero; successful small components keep their own results/history. No per-component floating atomics or changed reduction order. Extra list scan, cursor reset and launch are charged. Free kernel retains all projection. Large cooperative stage is unchanged."
+  },
+  "resources": {
+    "scope": "Compiler resources only, not runtime or occupancy measurement",
+    "kernels": [
+      {
+        "arm": "A",
+        "name": "_ZN2Nv5Blast55_GLOBAL__N__616c872d_22_NvBlastExtStressGpu_cu_097227fb20componentStressSolveENS1_20PersistentStressArgsENS1_27ResidentStressComponentViewE",
+        "resources": "REG:109 STACK:48 SHARED:1600 LOCAL:0 CONSTANT[0]:1592 TEXTURE:0 SURFACE:0 SAMPLER:0",
+        "module_sha256": "ae237c9e2f4399da22a87b24a58f3e5ef02c7fbab92b5ddef9569c18cb13c46c"
+      },
+      {
+        "arm": "B",
+        "name": "_ZN2Nv5Blast55_GLOBAL__N__0cea7477_22_NvBlastExtStressGpu_cu_097227fb20componentStressSolveILb0EEEvNS1_20PersistentStressArgsENS1_27ResidentStressComponentViewE",
+        "resources": "REG:109 STACK:48 SHARED:1600 LOCAL:0 CONSTANT[0]:1592 TEXTURE:0 SURFACE:0 SAMPLER:0",
+        "module_sha256": "2086f4622386aedd749ef7e9037779875987f3012b0808864610a1ebc15703e5"
+      },
+      {
+        "arm": "B",
+        "name": "_ZN2Nv5Blast55_GLOBAL__N__0cea7477_22_NvBlastExtStressGpu_cu_097227fb20componentStressSolveILb1EEEvNS1_20PersistentStressArgsENS1_27ResidentStressComponentViewE",
+        "resources": "REG:108 STACK:0 SHARED:1168 LOCAL:0 CONSTANT[0]:1592 TEXTURE:0 SURFACE:0 SAMPLER:0",
+        "module_sha256": "2086f4622386aedd749ef7e9037779875987f3012b0808864610a1ebc15703e5"
+      }
+    ]
+  },
+  "correctness": {
+    "status": "passed",
+    "stages": [
+      {
+        "name": "A-gpu_resident_stress_test",
+        "command": [
+          "/root/workspace/physx-2/out/n15-anchored-20260912/oracles/A/gpu_resident_stress_test"
+        ],
+        "status": "passed",
+        "gpu_before": {
+          "unix_seconds": 1789223671.4516814,
+          "driver": "615.71.09",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 5060 Ti",
+              "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+              "temperature": "44 C",
+              "clock": "180 MHz",
+              "utilization": "0 %",
+              "memory_used": "2 MiB",
+              "processes": []
+            }
+          ]
+        },
+        "gpu_after": {
+          "unix_seconds": 1789223672.6800103,
+          "driver": "615.71.09",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 5060 Ti",
+              "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+              "temperature": "46 C",
+              "clock": "2835 MHz",
+              "utilization": "0 %",
+              "memory_used": "2 MiB",
+              "processes": []
+            }
+          ]
+        },
+        "exit_code": 0,
+        "seconds": 1.406300596001529,
+        "fault_audit": {
+          "exit_code": 1,
+          "stdout": "-- No entries --\n",
+          "stderr": ""
+        }
+      },
+      {
+        "name": "A-gpu_resident_stress_3d_test",
+        "command": [
+          "/root/workspace/physx-2/out/n15-anchored-20260912/oracles/A/gpu_resident_stress_3d_test"
+        ],
+        "status": "passed",
+        "gpu_before": {
+          "unix_seconds": 1789223672.852405,
+          "driver": "615.71.09",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 5060 Ti",
+              "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+              "temperature": "46 C",
+              "clock": "2835 MHz",
+              "utilization": "0 %",
+              "memory_used": "2 MiB",
+              "processes": []
+            }
+          ]
+        },
+        "gpu_after": {
+          "unix_seconds": 1789223679.0106072,
+          "driver": "615.71.09",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 5060 Ti",
+              "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+              "temperature": "46 C",
+              "clock": "2722 MHz",
+              "utilization": "0 %",
+              "memory_used": "2 MiB",
+              "processes": []
+            }
+          ]
+        },
+        "exit_code": 0,
+        "seconds": 6.3126814310016925,
+        "fault_audit": {
+          "exit_code": 1,
+          "stdout": "-- No entries --\n",
+          "stderr": ""
+        }
+      },
+      {
+        "name": "A-gpu_resident_motion_modes_test",
+        "command": [
+          "/root/workspace/physx-2/out/n15-anchored-20260912/oracles/A/gpu_resident_motion_modes_test"
+        ],
+        "status": "passed",
+        "gpu_before": {
+          "unix_seconds": 1789223679.1820617,
+          "driver": "615.71.09",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 5060 Ti",
+              "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+              "temperature": "46 C",
+              "clock": "2835 MHz",
+              "utilization": "0 %",
+              "memory_used": "2 MiB",
+              "processes": []
+            }
+          ]
+        },
+        "gpu_after": {
+          "unix_seconds": 1789223680.6991153,
+          "driver": "615.71.09",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 5060 Ti",
+              "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+              "temperature": "46 C",
+              "clock": "2820 MHz",
+              "utilization": "0 %",
+              "memory_used": "2 MiB",
+              "processes": []
+            }
+          ]
+        },
+        "exit_code": 0,
+        "seconds": 1.676485447002051,
+        "fault_audit": {
+          "exit_code": 1,
+          "stdout": "-- No entries --\n",
+          "stderr": ""
+        }
+      },
+      {
+        "name": "A-memcheck",
+        "command": [
+          "/usr/local/cuda-13.4/bin/compute-sanitizer",
+          "--tool",
+          "memcheck",
+          "--error-exitcode",
+          "97",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/oracles/A/gpu_resident_stress_3d_test"
+        ],
+        "status": "passed",
+        "gpu_before": {
+          "unix_seconds": 1789223680.881913,
+          "driver": "615.71.09",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 5060 Ti",
+              "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+              "temperature": "46 C",
+              "clock": "2820 MHz",
+              "utilization": "0 %",
+              "memory_used": "2 MiB",
+              "processes": []
+            }
+          ]
+        },
+        "gpu_after": {
+          "unix_seconds": 1789223705.818128,
+          "driver": "615.71.09",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 5060 Ti",
+              "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+              "temperature": "49 C",
+              "clock": "2827 MHz",
+              "utilization": "0 %",
+              "memory_used": "2 MiB",
+              "processes": []
+            }
+          ]
+        },
+        "exit_code": 0,
+        "seconds": 25.0937301390004,
+        "fault_audit": {
+          "exit_code": 1,
+          "stdout": "-- No entries --\n",
+          "stderr": ""
+        }
+      },
+      {
+        "name": "A-initcheck",
+        "command": [
+          "/usr/local/cuda-13.4/bin/compute-sanitizer",
+          "--tool",
+          "initcheck",
+          "--error-exitcode",
+          "97",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/oracles/A/gpu_resident_stress_3d_test"
+        ],
+        "status": "passed",
+        "gpu_before": {
+          "unix_seconds": 1789223705.9794896,
+          "driver": "615.71.09",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 5060 Ti",
+              "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+              "temperature": "49 C",
+              "clock": "2835 MHz",
+              "utilization": "0 %",
+              "memory_used": "2 MiB",
+              "processes": []
+            }
+          ]
+        },
+        "gpu_after": {
+          "unix_seconds": 1789223726.2178555,
+          "driver": "615.71.09",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 5060 Ti",
+              "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+              "temperature": "49 C",
+              "clock": "2827 MHz",
+              "utilization": "0 %",
+              "memory_used": "2 MiB",
+              "processes": []
+            }
+          ]
+        },
+        "exit_code": 0,
+        "seconds": 20.382413819999783,
+        "fault_audit": {
+          "exit_code": 1,
+          "stdout": "-- No entries --\n",
+          "stderr": ""
+        }
+      },
+      {
+        "name": "A-synccheck",
+        "command": [
+          "/usr/local/cuda-13.4/bin/compute-sanitizer",
+          "--tool",
+          "synccheck",
+          "--error-exitcode",
+          "97",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/oracles/A/gpu_resident_stress_3d_test"
+        ],
+        "status": "passed",
+        "gpu_before": {
+          "unix_seconds": 1789223726.4035575,
+          "driver": "615.71.09",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 5060 Ti",
+              "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+              "temperature": "49 C",
+              "clock": "2827 MHz",
+              "utilization": "0 %",
+              "memory_used": "2 MiB",
+              "processes": []
+            }
+          ]
+        },
+        "gpu_after": {
+          "unix_seconds": 1789223735.0779366,
+          "driver": "615.71.09",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 5060 Ti",
+              "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+              "temperature": "50 C",
+              "clock": "2827 MHz",
+              "utilization": "0 %",
+              "memory_used": "2 MiB",
+              "processes": []
+            }
+          ]
+        },
+        "exit_code": 0,
+        "seconds": 8.842101067999465,
+        "fault_audit": {
+          "exit_code": 1,
+          "stdout": "-- No entries --\n",
+          "stderr": ""
+        }
+      },
+      {
+        "name": "B-gpu_resident_stress_test",
+        "command": [
+          "/root/workspace/physx-2/out/n15-anchored-20260912/oracles/B/gpu_resident_stress_test"
+        ],
+        "status": "passed",
+        "gpu_before": {
+          "unix_seconds": 1789223735.2484496,
+          "driver": "615.71.09",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 5060 Ti",
+              "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+              "temperature": "49 C",
+              "clock": "2835 MHz",
+              "utilization": "0 %",
+              "memory_used": "2 MiB",
+              "processes": []
+            }
+          ]
+        },
+        "gpu_after": {
+          "unix_seconds": 1789223736.3779645,
+          "driver": "615.71.09",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 5060 Ti",
+              "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+              "temperature": "49 C",
+              "clock": "2827 MHz",
+              "utilization": "0 %",
+              "memory_used": "2 MiB",
+              "processes": []
+            }
+          ]
+        },
+        "exit_code": 0,
+        "seconds": 1.284701025000686,
+        "fault_audit": {
+          "exit_code": 1,
+          "stdout": "-- No entries --\n",
+          "stderr": ""
+        }
+      },
+      {
+        "name": "B-gpu_resident_stress_3d_test",
+        "command": [
+          "/root/workspace/physx-2/out/n15-anchored-20260912/oracles/B/gpu_resident_stress_3d_test"
+        ],
+        "status": "passed",
+        "gpu_before": {
+          "unix_seconds": 1789223736.5430663,
+          "driver": "615.71.09",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 5060 Ti",
+              "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+              "temperature": "49 C",
+              "clock": "2835 MHz",
+              "utilization": "0 %",
+              "memory_used": "2 MiB",
+              "processes": []
+            }
+          ]
+        },
+        "gpu_after": {
+          "unix_seconds": 1789223743.4837391,
+          "driver": "615.71.09",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 5060 Ti",
+              "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+              "temperature": "49 C",
+              "clock": "2835 MHz",
+              "utilization": "0 %",
+              "memory_used": "2 MiB",
+              "processes": []
+            }
+          ]
+        },
+        "exit_code": 0,
+        "seconds": 7.088185593998787,
+        "fault_audit": {
+          "exit_code": 1,
+          "stdout": "-- No entries --\n",
+          "stderr": ""
+        }
+      },
+      {
+        "name": "B-gpu_resident_motion_modes_test",
+        "command": [
+          "/root/workspace/physx-2/out/n15-anchored-20260912/oracles/B/gpu_resident_motion_modes_test"
+        ],
+        "status": "passed",
+        "gpu_before": {
+          "unix_seconds": 1789223743.646413,
+          "driver": "615.71.09",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 5060 Ti",
+              "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+              "temperature": "49 C",
+              "clock": "2835 MHz",
+              "utilization": "0 %",
+              "memory_used": "2 MiB",
+              "processes": []
+            }
+          ]
+        },
+        "gpu_after": {
+          "unix_seconds": 1789223745.2713354,
+          "driver": "615.71.09",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 5060 Ti",
+              "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+              "temperature": "48 C",
+              "clock": "2722 MHz",
+              "utilization": "0 %",
+              "memory_used": "2 MiB",
+              "processes": []
+            }
+          ]
+        },
+        "exit_code": 0,
+        "seconds": 1.7800472529997933,
+        "fault_audit": {
+          "exit_code": 1,
+          "stdout": "-- No entries --\n",
+          "stderr": ""
+        }
+      },
+      {
+        "name": "B-memcheck",
+        "command": [
+          "/usr/local/cuda-13.4/bin/compute-sanitizer",
+          "--tool",
+          "memcheck",
+          "--error-exitcode",
+          "97",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/oracles/B/gpu_resident_stress_3d_test"
+        ],
+        "status": "passed",
+        "gpu_before": {
+          "unix_seconds": 1789223745.4497862,
+          "driver": "615.71.09",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 5060 Ti",
+              "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+              "temperature": "48 C",
+              "clock": "2587 MHz",
+              "utilization": "0 %",
+              "memory_used": "2 MiB",
+              "processes": []
+            }
+          ]
+        },
+        "gpu_after": {
+          "unix_seconds": 1789223771.1082647,
+          "driver": "615.71.09",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 5060 Ti",
+              "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+              "temperature": "50 C",
+              "clock": "2827 MHz",
+              "utilization": "0 %",
+              "memory_used": "2 MiB",
+              "processes": []
+            }
+          ]
+        },
+        "exit_code": 0,
+        "seconds": 25.8115448009994,
+        "fault_audit": {
+          "exit_code": 1,
+          "stdout": "-- No entries --\n",
+          "stderr": ""
+        }
+      },
+      {
+        "name": "B-initcheck",
+        "command": [
+          "/usr/local/cuda-13.4/bin/compute-sanitizer",
+          "--tool",
+          "initcheck",
+          "--error-exitcode",
+          "97",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/oracles/B/gpu_resident_stress_3d_test"
+        ],
+        "status": "passed",
+        "gpu_before": {
+          "unix_seconds": 1789223771.280801,
+          "driver": "615.71.09",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 5060 Ti",
+              "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+              "temperature": "50 C",
+              "clock": "2835 MHz",
+              "utilization": "0 %",
+              "memory_used": "2 MiB",
+              "processes": []
+            }
+          ]
+        },
+        "gpu_after": {
+          "unix_seconds": 1789223791.1478882,
+          "driver": "615.71.09",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 5060 Ti",
+              "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+              "temperature": "50 C",
+              "clock": "2827 MHz",
+              "utilization": "1 %",
+              "memory_used": "2 MiB",
+              "processes": []
+            }
+          ]
+        },
+        "exit_code": 0,
+        "seconds": 20.020718782001495,
+        "fault_audit": {
+          "exit_code": 1,
+          "stdout": "-- No entries --\n",
+          "stderr": ""
+        }
+      },
+      {
+        "name": "B-synccheck",
+        "command": [
+          "/usr/local/cuda-13.4/bin/compute-sanitizer",
+          "--tool",
+          "synccheck",
+          "--error-exitcode",
+          "97",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/oracles/B/gpu_resident_stress_3d_test"
+        ],
+        "status": "passed",
+        "gpu_before": {
+          "unix_seconds": 1789223791.3054605,
+          "driver": "615.71.09",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 5060 Ti",
+              "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+              "temperature": "50 C",
+              "clock": "2835 MHz",
+              "utilization": "0 %",
+              "memory_used": "2 MiB",
+              "processes": []
+            }
+          ]
+        },
+        "gpu_after": {
+          "unix_seconds": 1789223800.2501848,
+          "driver": "615.71.09",
+          "devices": [
+            {
+              "name": "NVIDIA GeForce RTX 5060 Ti",
+              "uuid": "GPU-b4dc2d3d-cfe0-2785-8a5a-523e1e937534",
+              "temperature": "50 C",
+              "clock": "2827 MHz",
+              "utilization": "0 %",
+              "memory_used": "2 MiB",
+              "processes": []
+            }
+          ]
+        },
+        "exit_code": 0,
+        "seconds": 9.085443432999455,
+        "fault_audit": {
+          "exit_code": 1,
+          "stdout": "-- No entries --\n",
+          "stderr": ""
+        }
+      },
+      {
+        "name": "A-flying-memcheck",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/screen/A-flying-memcheck",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/build/A",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/flying",
+          "--repetitions",
+          "2",
+          "--sanitizer",
+          "memcheck",
+          "--watchdog-seconds",
+          "900"
+        ],
+        "status": "passed",
+        "exit_code": 0,
+        "seconds": 3.275993470000685
+      },
+      {
+        "name": "A-flying-physical",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/compare-observations.py",
+          "/root/workspace/physx-2/out/snapshot-reset-20260911/prepared-full20/complete-flying",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/screen/A-flying-memcheck",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/screen/A-flying-physical.json"
+        ],
+        "status": "passed",
+        "exit_code": 0,
+        "seconds": 0.11521901000014623
+      },
+      {
+        "name": "A-city25-initial-impact-memcheck",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/screen/A-city25-initial-impact-memcheck",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/build/A",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82",
+          "--repetitions",
+          "2",
+          "--sanitizer",
+          "memcheck",
+          "--watchdog-seconds",
+          "900"
+        ],
+        "status": "passed",
+        "exit_code": 0,
+        "seconds": 9.948177588998078
+      },
+      {
+        "name": "A-city25-initial-impact-physical",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/compare-observations.py",
+          "/root/workspace/physx-2/out/snapshot-reset-20260911/prepared-full20/complete-city25-initial-impact",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/screen/A-city25-initial-impact-memcheck",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/screen/A-city25-initial-impact-physical.json"
+        ],
+        "status": "passed",
+        "exit_code": 0,
+        "seconds": 0.6165997789976245
+      },
+      {
+        "name": "A-city256-late-debris-memcheck",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/screen/A-city256-late-debris-memcheck",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/build/A",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179",
+          "--repetitions",
+          "2",
+          "--sanitizer",
+          "memcheck",
+          "--watchdog-seconds",
+          "900"
+        ],
+        "status": "passed",
+        "exit_code": 0,
+        "seconds": 31.126293225002883
+      },
+      {
+        "name": "A-city256-late-debris-physical",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/compare-observations.py",
+          "/root/workspace/physx-2/out/snapshot-reset-20260911/prepared-full20/complete-city256-late-debris",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/screen/A-city256-late-debris-memcheck",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/screen/A-city256-late-debris-physical.json"
+        ],
+        "status": "passed",
+        "exit_code": 0,
+        "seconds": 6.189831503001187
+      },
+      {
+        "name": "B-flying-memcheck",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/screen/B-flying-memcheck",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/build/B",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/flying",
+          "--repetitions",
+          "2",
+          "--sanitizer",
+          "memcheck",
+          "--watchdog-seconds",
+          "900"
+        ],
+        "status": "passed",
+        "exit_code": 0,
+        "seconds": 3.7778299329984293
+      },
+      {
+        "name": "B-flying-physical",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/compare-observations.py",
+          "/root/workspace/physx-2/out/snapshot-reset-20260911/prepared-full20/complete-flying",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/screen/B-flying-memcheck",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/screen/B-flying-physical.json"
+        ],
+        "status": "passed",
+        "exit_code": 0,
+        "seconds": 0.06473081500007538
+      },
+      {
+        "name": "B-city25-initial-impact-memcheck",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/screen/B-city25-initial-impact-memcheck",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/build/B",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82",
+          "--repetitions",
+          "2",
+          "--sanitizer",
+          "memcheck",
+          "--watchdog-seconds",
+          "900"
+        ],
+        "status": "passed",
+        "exit_code": 0,
+        "seconds": 9.850498289997631
+      },
+      {
+        "name": "B-city25-initial-impact-physical",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/compare-observations.py",
+          "/root/workspace/physx-2/out/snapshot-reset-20260911/prepared-full20/complete-city25-initial-impact",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/screen/B-city25-initial-impact-memcheck",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/screen/B-city25-initial-impact-physical.json"
+        ],
+        "status": "passed",
+        "exit_code": 0,
+        "seconds": 0.6169052680015739
+      },
+      {
+        "name": "B-city256-late-debris-memcheck",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/screen/B-city256-late-debris-memcheck",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/build/B",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179",
+          "--repetitions",
+          "2",
+          "--sanitizer",
+          "memcheck",
+          "--watchdog-seconds",
+          "900"
+        ],
+        "status": "passed",
+        "exit_code": 0,
+        "seconds": 33.03927033700165
+      },
+      {
+        "name": "B-city256-late-debris-physical",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/compare-observations.py",
+          "/root/workspace/physx-2/out/snapshot-reset-20260911/prepared-full20/complete-city256-late-debris",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/screen/B-city256-late-debris-memcheck",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/screen/B-city256-late-debris-physical.json"
+        ],
+        "status": "passed",
+        "exit_code": 0,
+        "seconds": 6.2364020429995435
+      },
+      {
+        "name": "matched-light",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-matched.py",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/screen/matched-light",
+          "--manifest",
+          "/root/workspace/physx-2/out/snapshot-light-20260911/confirmation/manifest.json",
+          "--use-case-repetitions",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--baseline-artifacts",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/build/A",
+          "--candidate-artifacts",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/build/B",
+          "--candidate-commit",
+          "dccbe23f0022b2d3b68c66bb97a877ff5e3532a4"
+        ],
+        "status": "passed",
+        "exit_code": 0,
+        "seconds": 140.61785580900323
+      }
+    ],
+    "scope": "Existing analytic, independent3D and motion-mode oracles; 3D memcheck/initcheck/synccheck; flying,city25 impact,city256 late-debris normal asynchronous memchecks and unprofiled-reference comparisons, both arms. Seven matched light physical comparisons. Full52 not run after no useful screen signal."
+  },
+  "measurements": {
+    "status": "complete",
+    "candidate_commit": "dccbe23f0022b2d3b68c66bb97a877ff5e3532a4",
+    "scenarios": [
+      {
+        "scenario": "bridge64-cold",
+        "A": {
+          "n": 16,
+          "mean_ms": 8.8310835,
+          "median_ms": 8.759817,
+          "max_ms": 11.051069,
+          "sd_ms": 0.7972523759283088,
+          "peak_sample_index": 8,
+          "over_8ms": 15,
+          "over_120hz": 11,
+          "over_60hz": 0,
+          "budget_miss_percent": {
+            "8ms": 93.75,
+            "120hz": 68.75,
+            "60hz": 0.0
+          },
+          "stress_iterations": {
+            "min": 184,
+            "max": 184,
+            "mean": 184
+          },
+          "restore_mean_ms": 37.1115563125,
+          "stages_ms": {
+            "command_ms": 0.000109375,
+            "simulate_fetch_ms": 8.66663475,
+            "completion_ms": 0.164339375
+          }
+        },
+        "context_setup_ms": {
+          "A0": 625.994838,
+          "B": 534.043367,
+          "A1": 549.696034
+        },
+        "first_tick_ms": {
+          "A0": 9.990596,
+          "B": 11.480853,
+          "A1": 11.051069
+        },
+        "later_tick_mean_ms": {
+          "A0": 8.24313,
+          "B": 8.795712142857143,
+          "A1": 8.93625157142857
+        },
+        "saved_ms": -0.30027124999999977,
+        "descriptive_saved_ms_95": [
+          -1.0887295624999993,
+          0.3374411249999998
+        ],
+        "physical_status": "passed",
+        "raw": {
+          "A0": "/root/workspace/physx-2/out/n15-anchored-20260912/screen/matched-light/bridge64-cold-A0",
+          "B": "/root/workspace/physx-2/out/n15-anchored-20260912/screen/matched-light/bridge64-cold-B",
+          "A1": "/root/workspace/physx-2/out/n15-anchored-20260912/screen/matched-light/bridge64-cold-A1"
+        },
+        "A0": {
+          "n": 8,
+          "mean_ms": 8.461563250000001,
+          "median_ms": 8.255474,
+          "max_ms": 9.990596,
+          "sd_ms": 0.6817765811363196,
+          "peak_sample_index": 0,
+          "over_8ms": 7,
+          "over_120hz": 3,
+          "over_60hz": 0,
+          "budget_miss_percent": {
+            "8ms": 87.5,
+            "120hz": 37.5,
+            "60hz": 0.0
+          },
+          "stress_iterations": {
+            "min": 184,
+            "max": 184,
+            "mean": 184
+          },
+          "restore_mean_ms": 35.66929475,
+          "stages_ms": {
+            "command_ms": 9.9375e-05,
+            "simulate_fetch_ms": 8.30265325,
+            "completion_ms": 0.158810625
+          }
+        },
+        "B": {
+          "n": 8,
+          "mean_ms": 9.13135475,
+          "median_ms": 8.794151,
+          "max_ms": 11.480853,
+          "sd_ms": 0.9554906960336063,
+          "peak_sample_index": 0,
+          "over_8ms": 8,
+          "over_120hz": 8,
+          "over_60hz": 0,
+          "budget_miss_percent": {
+            "8ms": 100.0,
+            "120hz": 100.0,
+            "60hz": 0.0
+          },
+          "stress_iterations": {
+            "min": 184,
+            "max": 184,
+            "mean": 184
+          },
+          "restore_mean_ms": 36.852226625,
+          "stages_ms": {
+            "command_ms": 9.6e-05,
+            "simulate_fetch_ms": 8.920199,
+            "completion_ms": 0.21105975
+          }
+        },
+        "A1": {
+          "n": 8,
+          "mean_ms": 9.200603749999999,
+          "median_ms": 8.910401,
+          "max_ms": 11.051069,
+          "sd_ms": 0.764919386526403,
+          "peak_sample_index": 0,
+          "over_8ms": 8,
+          "over_120hz": 8,
+          "over_60hz": 0,
+          "budget_miss_percent": {
+            "8ms": 100.0,
+            "120hz": 100.0,
+            "60hz": 0.0
+          },
+          "stress_iterations": {
+            "min": 184,
+            "max": 184,
+            "mean": 184
+          },
+          "restore_mean_ms": 38.553817875,
+          "stages_ms": {
+            "command_ms": 0.000119375,
+            "simulate_fetch_ms": 9.03061625,
+            "completion_ms": 0.169868125
+          }
+        }
+      },
+      {
+        "scenario": "chain256-cold",
+        "A": {
+          "n": 16,
+          "mean_ms": 7.6433630625,
+          "median_ms": 7.3748594999999995,
+          "max_ms": 9.598604,
+          "sd_ms": 0.7615660698045372,
+          "peak_sample_index": 8,
+          "over_8ms": 2,
+          "over_120hz": 2,
+          "over_60hz": 0,
+          "budget_miss_percent": {
+            "8ms": 12.5,
+            "120hz": 12.5,
+            "60hz": 0.0
+          },
+          "stress_iterations": {
+            "min": 492,
+            "max": 492,
+            "mean": 492
+          },
+          "restore_mean_ms": 32.1955460625,
+          "stages_ms": {
+            "command_ms": 0.00014306250000000001,
+            "simulate_fetch_ms": 7.4343249375000005,
+            "completion_ms": 0.2088950625
+          }
+        },
+        "context_setup_ms": {
+          "A0": 545.494257,
+          "B": 481.644688,
+          "A1": 531.469238
+        },
+        "first_tick_ms": {
+          "A0": 9.511964,
+          "B": 10.643651,
+          "A1": 9.598604
+        },
+        "later_tick_mean_ms": {
+          "A0": 7.424422428571429,
+          "B": 7.368123571428571,
+          "A1": 7.316040571428571
+        },
+        "saved_ms": -0.1342014374999998,
+        "descriptive_saved_ms_95": [
+          -1.0625309375,
+          0.5567608125000003
+        ],
+        "physical_status": "passed",
+        "raw": {
+          "A0": "/root/workspace/physx-2/out/n15-anchored-20260912/screen/matched-light/chain256-cold-A0",
+          "B": "/root/workspace/physx-2/out/n15-anchored-20260912/screen/matched-light/chain256-cold-B",
+          "A1": "/root/workspace/physx-2/out/n15-anchored-20260912/screen/matched-light/chain256-cold-A1"
+        },
+        "A0": {
+          "n": 8,
+          "mean_ms": 7.685365125000001,
+          "median_ms": 7.428513000000001,
+          "max_ms": 9.511964,
+          "sd_ms": 0.7594783141635427,
+          "peak_sample_index": 0,
+          "over_8ms": 1,
+          "over_120hz": 1,
+          "over_60hz": 0,
+          "budget_miss_percent": {
+            "8ms": 12.5,
+            "120hz": 12.5,
+            "60hz": 0.0
+          },
+          "stress_iterations": {
+            "min": 492,
+            "max": 492,
+            "mean": 492
+          },
+          "restore_mean_ms": 32.336382875,
+          "stages_ms": {
+            "command_ms": 0.0001815,
+            "simulate_fetch_ms": 7.484547375,
+            "completion_ms": 0.20063625000000002
+          }
+        },
+        "B": {
+          "n": 8,
+          "mean_ms": 7.7775644999999995,
+          "median_ms": 7.3212325,
+          "max_ms": 10.643651,
+          "sd_ms": 1.1761223210222895,
+          "peak_sample_index": 0,
+          "over_8ms": 1,
+          "over_120hz": 1,
+          "over_60hz": 0,
+          "budget_miss_percent": {
+            "8ms": 12.5,
+            "120hz": 12.5,
+            "60hz": 0.0
+          },
+          "stress_iterations": {
+            "min": 492,
+            "max": 492,
+            "mean": 492
+          },
+          "restore_mean_ms": 32.433232875,
+          "stages_ms": {
+            "command_ms": 9.2625e-05,
+            "simulate_fetch_ms": 7.54283625,
+            "completion_ms": 0.23463562500000001
+          }
+        },
+        "A1": {
+          "n": 8,
+          "mean_ms": 7.601361,
+          "median_ms": 7.3232285,
+          "max_ms": 9.598604,
+          "sd_ms": 0.8136219936890665,
+          "peak_sample_index": 0,
+          "over_8ms": 1,
+          "over_120hz": 1,
+          "over_60hz": 0,
+          "budget_miss_percent": {
+            "8ms": 12.5,
+            "120hz": 12.5,
+            "60hz": 0.0
+          },
+          "stress_iterations": {
+            "min": 492,
+            "max": 492,
+            "mean": 492
+          },
+          "restore_mean_ms": 32.05470925,
+          "stages_ms": {
+            "command_ms": 0.00010462500000000001,
+            "simulate_fetch_ms": 7.3841025,
+            "completion_ms": 0.217153875
+          }
+        }
+      },
+      {
+        "scenario": "dense12-cold",
+        "A": {
+          "n": 12,
+          "mean_ms": 31.625526583333333,
+          "median_ms": 31.259225,
+          "max_ms": 34.018814,
+          "sd_ms": 1.01945443653157,
+          "peak_sample_index": 6,
+          "over_8ms": 12,
+          "over_120hz": 12,
+          "over_60hz": 12,
+          "budget_miss_percent": {
+            "8ms": 100.0,
+            "120hz": 100.0,
+            "60hz": 100.0
+          },
+          "stress_iterations": {
+            "min": 34,
+            "max": 34,
+            "mean": 34
+          },
+          "restore_mean_ms": 60.171328583333334,
+          "stages_ms": {
+            "command_ms": 0.00013808333333333335,
+            "simulate_fetch_ms": 31.443543833333333,
+            "completion_ms": 0.18184466666666668
+          }
+        },
+        "context_setup_ms": {
+          "A0": 495.610602,
+          "B": 566.314918,
+          "A1": 621.81501
+        },
+        "first_tick_ms": {
+          "A0": 33.506468,
+          "B": 33.727775,
+          "A1": 34.018814
+        },
+        "later_tick_mean_ms": {
+          "A0": 31.2879842,
+          "B": 31.4186266,
+          "A1": 31.108223199999998
+        },
+        "saved_ms": -0.1779580833333334,
+        "descriptive_saved_ms_95": [
+          -1.1195048333333375,
+          0.6527749999999983
+        ],
+        "physical_status": "passed",
+        "raw": {
+          "A0": "/root/workspace/physx-2/out/n15-anchored-20260912/screen/matched-light/dense12-cold-A0",
+          "B": "/root/workspace/physx-2/out/n15-anchored-20260912/screen/matched-light/dense12-cold-B",
+          "A1": "/root/workspace/physx-2/out/n15-anchored-20260912/screen/matched-light/dense12-cold-A1"
+        },
+        "A0": {
+          "n": 6,
+          "mean_ms": 31.6577315,
+          "median_ms": 31.312691,
+          "max_ms": 33.506468,
+          "sd_ms": 0.913616948045459,
+          "peak_sample_index": 0,
+          "over_8ms": 6,
+          "over_120hz": 6,
+          "over_60hz": 6,
+          "budget_miss_percent": {
+            "8ms": 100.0,
+            "120hz": 100.0,
+            "60hz": 100.0
+          },
+          "stress_iterations": {
+            "min": 34,
+            "max": 34,
+            "mean": 34
+          },
+          "restore_mean_ms": 60.753681,
+          "stages_ms": {
+            "command_ms": 0.0001445,
+            "simulate_fetch_ms": 31.431276333333333,
+            "completion_ms": 0.22631066666666666
+          }
+        },
+        "B": {
+          "n": 6,
+          "mean_ms": 31.803484666666666,
+          "median_ms": 31.455053,
+          "max_ms": 33.727775,
+          "sd_ms": 0.9558580924031911,
+          "peak_sample_index": 0,
+          "over_8ms": 6,
+          "over_120hz": 6,
+          "over_60hz": 6,
+          "budget_miss_percent": {
+            "8ms": 100.0,
+            "120hz": 100.0,
+            "60hz": 100.0
+          },
+          "stress_iterations": {
+            "min": 34,
+            "max": 34,
+            "mean": 34
+          },
+          "restore_mean_ms": 56.95688,
+          "stages_ms": {
+            "command_ms": 0.00014683333333333334,
+            "simulate_fetch_ms": 31.612416666666668,
+            "completion_ms": 0.19092116666666667
+          }
+        },
+        "A1": {
+          "n": 6,
+          "mean_ms": 31.593321666666665,
+          "median_ms": 31.19887,
+          "max_ms": 34.018814,
+          "sd_ms": 1.203846776889263,
+          "peak_sample_index": 0,
+          "over_8ms": 6,
+          "over_120hz": 6,
+          "over_60hz": 6,
+          "budget_miss_percent": {
+            "8ms": 100.0,
+            "120hz": 100.0,
+            "60hz": 100.0
+          },
+          "stress_iterations": {
+            "min": 34,
+            "max": 34,
+            "mean": 34
+          },
+          "restore_mean_ms": 59.58897616666667,
+          "stages_ms": {
+            "command_ms": 0.00013166666666666668,
+            "simulate_fetch_ms": 31.455811333333333,
+            "completion_ms": 0.13737866666666668
+          }
+        }
+      },
+      {
+        "scenario": "destruction-stimulus",
+        "A": {
+          "n": 16,
+          "mean_ms": 4.5186558125000005,
+          "median_ms": 4.074521,
+          "max_ms": 7.606974,
+          "sd_ms": 1.2067509190316628,
+          "peak_sample_index": 8,
+          "over_8ms": 0,
+          "over_120hz": 0,
+          "over_60hz": 0,
+          "budget_miss_percent": {
+            "8ms": 0.0,
+            "120hz": 0.0,
+            "60hz": 0.0
+          },
+          "stress_iterations": {
+            "min": 1,
+            "max": 1,
+            "mean": 1
+          },
+          "restore_mean_ms": 32.6220169375,
+          "stages_ms": {
+            "command_ms": 0.0030458125,
+            "simulate_fetch_ms": 4.3264069375,
+            "completion_ms": 0.1892030625
+          }
+        },
+        "context_setup_ms": {
+          "A0": 551.852992,
+          "B": 580.246346,
+          "A1": 504.816939
+        },
+        "first_tick_ms": {
+          "A0": 7.496531,
+          "B": 9.265156,
+          "A1": 7.606974
+        },
+        "later_tick_mean_ms": {
+          "A0": 3.986078142857143,
+          "B": 4.276102142857143,
+          "A1": 4.184634428571429
+        },
+        "saved_ms": -0.3810780624999994,
+        "descriptive_saved_ms_95": [
+          -1.8057788124999998,
+          0.7444895625000001
+        ],
+        "physical_status": "passed",
+        "raw": {
+          "A0": "/root/workspace/physx-2/out/n15-anchored-20260912/screen/matched-light/destruction-stimulus-A0",
+          "B": "/root/workspace/physx-2/out/n15-anchored-20260912/screen/matched-light/destruction-stimulus-B",
+          "A1": "/root/workspace/physx-2/out/n15-anchored-20260912/screen/matched-light/destruction-stimulus-A1"
+        },
+        "A0": {
+          "n": 8,
+          "mean_ms": 4.42488475,
+          "median_ms": 4.007415,
+          "max_ms": 7.496531,
+          "sd_ms": 1.2427253538688667,
+          "peak_sample_index": 0,
+          "over_8ms": 0,
+          "over_120hz": 0,
+          "over_60hz": 0,
+          "budget_miss_percent": {
+            "8ms": 0.0,
+            "120hz": 0.0,
+            "60hz": 0.0
+          },
+          "stress_iterations": {
+            "min": 1,
+            "max": 1,
+            "mean": 1
+          },
+          "restore_mean_ms": 31.87932,
+          "stages_ms": {
+            "command_ms": 0.0033525,
+            "simulate_fetch_ms": 4.22936725,
+            "completion_ms": 0.192165
+          }
+        },
+        "B": {
+          "n": 8,
+          "mean_ms": 4.899733875,
+          "median_ms": 4.1678045,
+          "max_ms": 9.265156,
+          "sd_ms": 1.80354856981297,
+          "peak_sample_index": 0,
+          "over_8ms": 1,
+          "over_120hz": 1,
+          "over_60hz": 0,
+          "budget_miss_percent": {
+            "8ms": 12.5,
+            "120hz": 12.5,
+            "60hz": 0.0
+          },
+          "stress_iterations": {
+            "min": 1,
+            "max": 1,
+            "mean": 1
+          },
+          "restore_mean_ms": 31.229789125,
+          "stages_ms": {
+            "command_ms": 0.002787875,
+            "simulate_fetch_ms": 4.71506575,
+            "completion_ms": 0.18188025
+          }
+        },
+        "A1": {
+          "n": 8,
+          "mean_ms": 4.612426875,
+          "median_ms": 4.2961925,
+          "max_ms": 7.606974,
+          "sd_ms": 1.247423881337562,
+          "peak_sample_index": 0,
+          "over_8ms": 0,
+          "over_120hz": 0,
+          "over_60hz": 0,
+          "budget_miss_percent": {
+            "8ms": 0.0,
+            "120hz": 0.0,
+            "60hz": 0.0
+          },
+          "stress_iterations": {
+            "min": 1,
+            "max": 1,
+            "mean": 1
+          },
+          "restore_mean_ms": 33.364713875,
+          "stages_ms": {
+            "command_ms": 0.002739125,
+            "simulate_fetch_ms": 4.4234466249999995,
+            "completion_ms": 0.186241125
+          }
+        }
+      },
+      {
+        "scenario": "city25-initial-impact",
+        "A": {
+          "n": 8,
+          "mean_ms": 41.7043405,
+          "median_ms": 40.5974975,
+          "max_ms": 49.081829,
+          "sd_ms": 3.9965754484969467,
+          "peak_sample_index": 4,
+          "over_8ms": 8,
+          "over_120hz": 8,
+          "over_60hz": 8,
+          "budget_miss_percent": {
+            "8ms": 100.0,
+            "120hz": 100.0,
+            "60hz": 100.0
+          },
+          "stress_iterations": {
+            "min": 304,
+            "max": 304,
+            "mean": 304
+          },
+          "restore_mean_ms": 134.537033375,
+          "stages_ms": {
+            "command_ms": 0.000183,
+            "simulate_fetch_ms": 41.426875125,
+            "completion_ms": 0.277282375
+          }
+        },
+        "context_setup_ms": {
+          "A0": 723.980964,
+          "B": 740.511989,
+          "A1": 610.717436
+        },
+        "first_tick_ms": {
+          "A0": 46.221832,
+          "B": 49.386287,
+          "A1": 49.081829
+        },
+        "later_tick_mean_ms": {
+          "A0": 38.610634,
+          "B": 40.90624533333333,
+          "A1": 40.833053666666665
+        },
+        "saved_ms": -1.3219152500000035,
+        "descriptive_saved_ms_95": [
+          -5.7558229999999995,
+          2.782174750000003
+        ],
+        "physical_status": "passed",
+        "raw": {
+          "A0": "/root/workspace/physx-2/out/n15-anchored-20260912/screen/matched-light/city25-initial-impact-A0",
+          "B": "/root/workspace/physx-2/out/n15-anchored-20260912/screen/matched-light/city25-initial-impact-B",
+          "A1": "/root/workspace/physx-2/out/n15-anchored-20260912/screen/matched-light/city25-initial-impact-A1"
+        },
+        "A0": {
+          "n": 4,
+          "mean_ms": 40.5134335,
+          "median_ms": 39.496243,
+          "max_ms": 46.221832,
+          "sd_ms": 4.04241182505935,
+          "peak_sample_index": 0,
+          "over_8ms": 4,
+          "over_120hz": 4,
+          "over_60hz": 4,
+          "budget_miss_percent": {
+            "8ms": 100.0,
+            "120hz": 100.0,
+            "60hz": 100.0
+          },
+          "stress_iterations": {
+            "min": 304,
+            "max": 304,
+            "mean": 304
+          },
+          "restore_mean_ms": 135.56512425,
+          "stages_ms": {
+            "command_ms": 0.00018350000000000002,
+            "simulate_fetch_ms": 40.27328775,
+            "completion_ms": 0.23996225
+          }
+        },
+        "B": {
+          "n": 4,
+          "mean_ms": 43.026255750000004,
+          "median_ms": 41.188593999999995,
+          "max_ms": 49.386287,
+          "sd_ms": 4.2807239165540985,
+          "peak_sample_index": 0,
+          "over_8ms": 4,
+          "over_120hz": 4,
+          "over_60hz": 4,
+          "budget_miss_percent": {
+            "8ms": 100.0,
+            "120hz": 100.0,
+            "60hz": 100.0
+          },
+          "stress_iterations": {
+            "min": 304,
+            "max": 304,
+            "mean": 304
+          },
+          "restore_mean_ms": 135.77034375,
+          "stages_ms": {
+            "command_ms": 0.00013175,
+            "simulate_fetch_ms": 42.77013825,
+            "completion_ms": 0.25598575
+          }
+        },
+        "A1": {
+          "n": 4,
+          "mean_ms": 42.895247499999996,
+          "median_ms": 41.04721,
+          "max_ms": 49.081829,
+          "sd_ms": 4.140811162778334,
+          "peak_sample_index": 0,
+          "over_8ms": 4,
+          "over_120hz": 4,
+          "over_60hz": 4,
+          "budget_miss_percent": {
+            "8ms": 100.0,
+            "120hz": 100.0,
+            "60hz": 100.0
+          },
+          "stress_iterations": {
+            "min": 304,
+            "max": 304,
+            "mean": 304
+          },
+          "restore_mean_ms": 133.50894250000002,
+          "stages_ms": {
+            "command_ms": 0.0001825,
+            "simulate_fetch_ms": 42.580462499999996,
+            "completion_ms": 0.3146025
+          }
+        }
+      },
+      {
+        "scenario": "city256-intact-idle",
+        "A": {
+          "n": 6,
+          "mean_ms": 73.726603,
+          "median_ms": 71.98708,
+          "max_ms": 86.62488,
+          "sd_ms": 8.376322592510798,
+          "peak_sample_index": 0,
+          "over_8ms": 6,
+          "over_120hz": 6,
+          "over_60hz": 6,
+          "budget_miss_percent": {
+            "8ms": 100.0,
+            "120hz": 100.0,
+            "60hz": 100.0
+          },
+          "stress_iterations": {
+            "min": 88,
+            "max": 88,
+            "mean": 88
+          },
+          "restore_mean_ms": 950.4651001666666,
+          "stages_ms": {
+            "command_ms": 0.00019966666666666668,
+            "simulate_fetch_ms": 73.42977766666667,
+            "completion_ms": 0.2966256666666667
+          }
+        },
+        "context_setup_ms": {
+          "A0": 1903.838664,
+          "B": 1891.061351,
+          "A1": 1842.878629
+        },
+        "first_tick_ms": {
+          "A0": 86.62488,
+          "B": 87.067773,
+          "A1": 76.381521
+        },
+        "later_tick_mean_ms": {
+          "A0": 66.8907985,
+          "B": 66.3450615,
+          "A1": 72.78581
+        },
+        "saved_ms": 0.4739709999999917,
+        "descriptive_saved_ms_95": [
+          -13.349636000000004,
+          11.847096333333326
+        ],
+        "physical_status": "passed",
+        "raw": {
+          "A0": "/root/workspace/physx-2/out/n15-anchored-20260912/screen/matched-light/city256-intact-idle-A0",
+          "B": "/root/workspace/physx-2/out/n15-anchored-20260912/screen/matched-light/city256-intact-idle-B",
+          "A1": "/root/workspace/physx-2/out/n15-anchored-20260912/screen/matched-light/city256-intact-idle-A1"
+        },
+        "A0": {
+          "n": 3,
+          "mean_ms": 73.46882566666667,
+          "median_ms": 67.592639,
+          "max_ms": 86.62488,
+          "sd_ms": 11.415073556646684,
+          "peak_sample_index": 0,
+          "over_8ms": 3,
+          "over_120hz": 3,
+          "over_60hz": 3,
+          "budget_miss_percent": {
+            "8ms": 100.0,
+            "120hz": 100.0,
+            "60hz": 100.0
+          },
+          "stress_iterations": {
+            "min": 88,
+            "max": 88,
+            "mean": 88
+          },
+          "restore_mean_ms": 962.467877,
+          "stages_ms": {
+            "command_ms": 0.000223,
+            "simulate_fetch_ms": 73.143636,
+            "completion_ms": 0.3249666666666667
+          }
+        },
+        "B": {
+          "n": 3,
+          "mean_ms": 73.252632,
+          "median_ms": 67.586197,
+          "max_ms": 87.067773,
+          "sd_ms": 12.028466567554279,
+          "peak_sample_index": 0,
+          "over_8ms": 3,
+          "over_120hz": 3,
+          "over_60hz": 3,
+          "budget_miss_percent": {
+            "8ms": 100.0,
+            "120hz": 100.0,
+            "60hz": 100.0
+          },
+          "stress_iterations": {
+            "min": 88,
+            "max": 88,
+            "mean": 88
+          },
+          "restore_mean_ms": 992.8227163333333,
+          "stages_ms": {
+            "command_ms": 0.00029733333333333337,
+            "simulate_fetch_ms": 73.01611466666667,
+            "completion_ms": 0.23622
+          }
+        },
+        "A1": {
+          "n": 3,
+          "mean_ms": 73.98438033333333,
+          "median_ms": 76.381521,
+          "max_ms": 79.157151,
+          "sd_ms": 6.701022210836296,
+          "peak_sample_index": 2,
+          "over_8ms": 3,
+          "over_120hz": 3,
+          "over_60hz": 3,
+          "budget_miss_percent": {
+            "8ms": 100.0,
+            "120hz": 100.0,
+            "60hz": 100.0
+          },
+          "stress_iterations": {
+            "min": 88,
+            "max": 88,
+            "mean": 88
+          },
+          "restore_mean_ms": 938.4623233333333,
+          "stages_ms": {
+            "command_ms": 0.00017633333333333333,
+            "simulate_fetch_ms": 73.71591933333333,
+            "completion_ms": 0.26828466666666667
+          }
+        }
+      },
+      {
+        "scenario": "city256-late-debris",
+        "A": {
+          "n": 6,
+          "mean_ms": 458.2393178333333,
+          "median_ms": 461.894585,
+          "max_ms": 506.81457,
+          "sd_ms": 40.644472920743745,
+          "peak_sample_index": 0,
+          "over_8ms": 6,
+          "over_120hz": 6,
+          "over_60hz": 6,
+          "budget_miss_percent": {
+            "8ms": 100.0,
+            "120hz": 100.0,
+            "60hz": 100.0
+          },
+          "stress_iterations": {
+            "min": 1084,
+            "max": 1084,
+            "mean": 1084
+          },
+          "restore_mean_ms": 1095.2318283333332,
+          "stages_ms": {
+            "command_ms": 0.00020683333333333334,
+            "simulate_fetch_ms": 458.00709666666665,
+            "completion_ms": 0.23201433333333332
+          }
+        },
+        "context_setup_ms": {
+          "A0": 1931.803769,
+          "B": 1874.814985,
+          "A1": 1957.916262
+        },
+        "first_tick_ms": {
+          "A0": 506.81457,
+          "B": 542.774732,
+          "A1": 490.157138
+        },
+        "later_tick_mean_ms": {
+          "A0": 435.7248025,
+          "B": 453.868136,
+          "A1": 440.507297
+        },
+        "saved_ms": -25.264350166666702,
+        "descriptive_saved_ms_95": [
+          -84.03623849999997,
+          26.071119333333343
+        ],
+        "physical_status": "passed",
+        "raw": {
+          "A0": "/root/workspace/physx-2/out/n15-anchored-20260912/screen/matched-light/city256-late-debris-A0",
+          "B": "/root/workspace/physx-2/out/n15-anchored-20260912/screen/matched-light/city256-late-debris-B",
+          "A1": "/root/workspace/physx-2/out/n15-anchored-20260912/screen/matched-light/city256-late-debris-A1"
+        },
+        "A0": {
+          "n": 3,
+          "mean_ms": 459.42139166666664,
+          "median_ms": 475.133698,
+          "max_ms": 506.81457,
+          "sd_ms": 56.900316861431214,
+          "peak_sample_index": 0,
+          "over_8ms": 3,
+          "over_120hz": 3,
+          "over_60hz": 3,
+          "budget_miss_percent": {
+            "8ms": 100.0,
+            "120hz": 100.0,
+            "60hz": 100.0
+          },
+          "stress_iterations": {
+            "min": 1084,
+            "max": 1084,
+            "mean": 1084
+          },
+          "restore_mean_ms": 1067.320733,
+          "stages_ms": {
+            "command_ms": 0.0002486666666666667,
+            "simulate_fetch_ms": 459.1929446666667,
+            "completion_ms": 0.22819833333333334
+          }
+        },
+        "B": {
+          "n": 3,
+          "mean_ms": 483.503668,
+          "median_ms": 468.006266,
+          "max_ms": 542.774732,
+          "sd_ms": 53.24172227366401,
+          "peak_sample_index": 0,
+          "over_8ms": 3,
+          "over_120hz": 3,
+          "over_60hz": 3,
+          "budget_miss_percent": {
+            "8ms": 100.0,
+            "120hz": 100.0,
+            "60hz": 100.0
+          },
+          "stress_iterations": {
+            "min": 1084,
+            "max": 1084,
+            "mean": 1084
+          },
+          "restore_mean_ms": 1097.797879,
+          "stages_ms": {
+            "command_ms": 0.00020933333333333332,
+            "simulate_fetch_ms": 483.2927133333333,
+            "completion_ms": 0.21074533333333334
+          }
+        },
+        "A1": {
+          "n": 3,
+          "mean_ms": 457.05724399999997,
+          "median_ms": 448.655472,
+          "max_ms": 490.157138,
+          "sd_ms": 29.80092268603526,
+          "peak_sample_index": 0,
+          "over_8ms": 3,
+          "over_120hz": 3,
+          "over_60hz": 3,
+          "budget_miss_percent": {
+            "8ms": 100.0,
+            "120hz": 100.0,
+            "60hz": 100.0
+          },
+          "stress_iterations": {
+            "min": 1084,
+            "max": 1084,
+            "mean": 1084
+          },
+          "restore_mean_ms": 1123.1429236666665,
+          "stages_ms": {
+            "command_ms": 0.000165,
+            "simulate_fetch_ms": 456.82124866666663,
+            "completion_ms": 0.23583033333333334
+          }
+        }
+      }
+    ],
+    "runs": [
+      {
+        "scenario": "bridge64-cold",
+        "arm": "A0",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/screen/matched-light/bridge64-cold-A0",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/build/A",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/bridge64-cold",
+          "--repetitions",
+          "8",
+          "--watchdog-seconds",
+          "1200"
+        ],
+        "exit_code": 0
+      },
+      {
+        "scenario": "bridge64-cold",
+        "arm": "B",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/screen/matched-light/bridge64-cold-B",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/build/B",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/bridge64-cold",
+          "--repetitions",
+          "8",
+          "--watchdog-seconds",
+          "1200"
+        ],
+        "exit_code": 0
+      },
+      {
+        "scenario": "bridge64-cold",
+        "arm": "A1",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/screen/matched-light/bridge64-cold-A1",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/build/A",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/bridge64-cold",
+          "--repetitions",
+          "8",
+          "--watchdog-seconds",
+          "1200"
+        ],
+        "exit_code": 0
+      },
+      {
+        "scenario": "chain256-cold",
+        "arm": "A0",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/screen/matched-light/chain256-cold-A0",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/build/A",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/chain256-cold",
+          "--repetitions",
+          "8",
+          "--watchdog-seconds",
+          "1200"
+        ],
+        "exit_code": 0
+      },
+      {
+        "scenario": "chain256-cold",
+        "arm": "B",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/screen/matched-light/chain256-cold-B",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/build/B",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/chain256-cold",
+          "--repetitions",
+          "8",
+          "--watchdog-seconds",
+          "1200"
+        ],
+        "exit_code": 0
+      },
+      {
+        "scenario": "chain256-cold",
+        "arm": "A1",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/screen/matched-light/chain256-cold-A1",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/build/A",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/chain256-cold",
+          "--repetitions",
+          "8",
+          "--watchdog-seconds",
+          "1200"
+        ],
+        "exit_code": 0
+      },
+      {
+        "scenario": "dense12-cold",
+        "arm": "A0",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/screen/matched-light/dense12-cold-A0",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/build/A",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/dense12-cold",
+          "--repetitions",
+          "6",
+          "--watchdog-seconds",
+          "1200"
+        ],
+        "exit_code": 0
+      },
+      {
+        "scenario": "dense12-cold",
+        "arm": "B",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/screen/matched-light/dense12-cold-B",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/build/B",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/dense12-cold",
+          "--repetitions",
+          "6",
+          "--watchdog-seconds",
+          "1200"
+        ],
+        "exit_code": 0
+      },
+      {
+        "scenario": "dense12-cold",
+        "arm": "A1",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/screen/matched-light/dense12-cold-A1",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/build/A",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/dense12-cold",
+          "--repetitions",
+          "6",
+          "--watchdog-seconds",
+          "1200"
+        ],
+        "exit_code": 0
+      },
+      {
+        "scenario": "destruction-stimulus",
+        "arm": "A0",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/screen/matched-light/destruction-stimulus-A0",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/build/A",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/destruction-stimulus",
+          "--repetitions",
+          "8",
+          "--watchdog-seconds",
+          "1200",
+          "--projectile-impulse"
+        ],
+        "exit_code": 0
+      },
+      {
+        "scenario": "destruction-stimulus",
+        "arm": "B",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/screen/matched-light/destruction-stimulus-B",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/build/B",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/destruction-stimulus",
+          "--repetitions",
+          "8",
+          "--watchdog-seconds",
+          "1200",
+          "--projectile-impulse"
+        ],
+        "exit_code": 0
+      },
+      {
+        "scenario": "destruction-stimulus",
+        "arm": "A1",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/screen/matched-light/destruction-stimulus-A1",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/build/A",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/roundtrip-regressions/destruction-stimulus",
+          "--repetitions",
+          "8",
+          "--watchdog-seconds",
+          "1200",
+          "--projectile-impulse"
+        ],
+        "exit_code": 0
+      },
+      {
+        "scenario": "city25-initial-impact",
+        "arm": "A0",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/screen/matched-light/city25-initial-impact-A0",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/build/A",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82",
+          "--repetitions",
+          "4",
+          "--watchdog-seconds",
+          "1200"
+        ],
+        "exit_code": 0
+      },
+      {
+        "scenario": "city25-initial-impact",
+        "arm": "B",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/screen/matched-light/city25-initial-impact-B",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/build/B",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82",
+          "--repetitions",
+          "4",
+          "--watchdog-seconds",
+          "1200"
+        ],
+        "exit_code": 0
+      },
+      {
+        "scenario": "city25-initial-impact",
+        "arm": "A1",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/screen/matched-light/city25-initial-impact-A1",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/build/A",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-5-bombardment/native/snapshot-82",
+          "--repetitions",
+          "4",
+          "--watchdog-seconds",
+          "1200"
+        ],
+        "exit_code": 0
+      },
+      {
+        "scenario": "city256-intact-idle",
+        "arm": "A0",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/screen/matched-light/city256-intact-idle-A0",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/build/A",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-idle/native/snapshot-40",
+          "--repetitions",
+          "3",
+          "--watchdog-seconds",
+          "1200"
+        ],
+        "exit_code": 0
+      },
+      {
+        "scenario": "city256-intact-idle",
+        "arm": "B",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/screen/matched-light/city256-intact-idle-B",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/build/B",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-idle/native/snapshot-40",
+          "--repetitions",
+          "3",
+          "--watchdog-seconds",
+          "1200"
+        ],
+        "exit_code": 0
+      },
+      {
+        "scenario": "city256-intact-idle",
+        "arm": "A1",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/screen/matched-light/city256-intact-idle-A1",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/build/A",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-idle/native/snapshot-40",
+          "--repetitions",
+          "3",
+          "--watchdog-seconds",
+          "1200"
+        ],
+        "exit_code": 0
+      },
+      {
+        "scenario": "city256-late-debris",
+        "arm": "A0",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/screen/matched-light/city256-late-debris-A0",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/build/A",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179",
+          "--repetitions",
+          "3",
+          "--watchdog-seconds",
+          "1200"
+        ],
+        "exit_code": 0
+      },
+      {
+        "scenario": "city256-late-debris",
+        "arm": "B",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/screen/matched-light/city256-late-debris-B",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/build/B",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179",
+          "--repetitions",
+          "3",
+          "--watchdog-seconds",
+          "1200"
+        ],
+        "exit_code": 0
+      },
+      {
+        "scenario": "city256-late-debris",
+        "arm": "A1",
+        "command": [
+          "/usr/bin/python3",
+          "/root/workspace/physx-2/tools/diagnostics/destruction-snapshot/run-probe.py",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/screen/matched-light/city256-late-debris-A1",
+          "--binary",
+          "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+          "--artifacts",
+          "/root/workspace/physx-2/out/n15-anchored-20260912/build/A",
+          "--replay-prefix",
+          "/root/workspace/physx-2/out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179",
+          "--repetitions",
+          "3",
+          "--watchdog-seconds",
+          "1200"
+        ],
+        "exit_code": 0
+      }
+    ],
+    "runner_sha256": "cd2a50501e6df5bde0da0540607671144a5ceb0c95a3218e223da75ab3cb15e7",
+    "repetition_policy": "Equal per-process counts in A-before/B/A-after; all first-use ticks included at equal weight. Pooled controls have twice the candidate sample count.",
+    "binaries": {
+      "A": {
+        "path": "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+        "sha256": "3c5c8f673ba3a9f5e54c6b957976648b0016e5304e7455211399dfb0a4b2454e"
+      },
+      "B": {
+        "path": "/root/workspace/physx-2/out/n20-requalification-20260912/build/A/serialization-probe",
+        "sha256": "3c5c8f673ba3a9f5e54c6b957976648b0016e5304e7455211399dfb0a4b2454e"
+      }
+    },
+    "modules": {
+      "A": {
+        "/root/workspace/physx-2/out/n15-anchored-20260912/build/A/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n15-anchored-20260912/build/A/libPhysXDestructionGpuRuntime_64.so": "ae237c9e2f4399da22a87b24a58f3e5ef02c7fbab92b5ddef9569c18cb13c46c"
+      },
+      "B": {
+        "/root/workspace/physx-2/out/n15-anchored-20260912/build/B/libPhysXGpuActivity_64.so": "4c82a91759eae6fb7fa06714a04552ba18ec23eb5332d52875f74a59284894e5",
+        "/root/workspace/physx-2/out/n15-anchored-20260912/build/B/libPhysXDestructionGpuRuntime_64.so": "2086f4622386aedd749ef7e9037779875987f3012b0808864610a1ebc15703e5"
+      }
+    },
+    "checker_sha256": "790e6c488889bacbd18e498bcb206c7fbcec23f91af98068aa32582bf55b76c2",
+    "force_scaled_bound": 0.0002,
+    "scope": "One full tick per independent physical restore. A-before / B / A-after per scenario. All CPU/GPU work and correction included; restore, validation and post-tick observation excluded. Unprofiled comparison with recorded GPU admission; no profiler timings or automatic acceptance.",
+    "harness_seconds": 139.32540048300143
+  },
+  "conclusion": "Reject. No convincing scenario improvement; city256 late-debris mean483.504ms versus459.421/457.057ms controls,5.51% above pooled control. Three large-case samples are screening evidence, not a precise regression estimate. Anchored specialization changes109 to108 registers, stack48 to0, shared1600 to1168bytes; free path retains original resources. No occupancy or critical-path benefit established. Additional dispatch does not earn retention or a neutral architecture exemption.",
+  "profile_locations": [
+    "out/n15-anchored-20260912/resources.json",
+    "qualification/optimization-next20-20260910/end-to-end-attribution-20260912/tower-source-review.json"
+  ],
+  "profiling_scope": "Existing matched baseline attribution and compiler resource inspection. No candidate NCU capture: correctness-qualified unprofiled screen provides no promising application result.",
+  "retained": "Frozen N13 and main runtime unchanged; N20 remains independently under full memory qualification. No N14 promotion.",
+  "next": "N19 reduces GPU-to-CPU publication traffic; N16 tests component-local vector storage independently, with extra shared-storage cost explicitly charged. Reconsider anchored specialization only if a concrete later design makes its measured resource change valuable."
+}

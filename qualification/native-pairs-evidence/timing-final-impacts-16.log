@@ -1,0 +1,6 @@
+RUN impacts-16-warmup-0
+RUN impacts-16-plain-0
+RUN impacts-16-plain-1
+RUN impacts-16-phases-0
+CAPTURE COMPLETE /root/workspace/physx-2/out/native-pairs-final-impacts-16/campaign.json
+qualification/native-pairs-impacts-16/report.html

@@ -27,6 +27,7 @@
 // Copyright (c) 2001-2004 NovodeX AG. All rights reserved.
 
 #include "PxgBroadPhaseDesc.h"
+#include "PxgBroadPhaseGroups.h"
 #include "PxgIntegerAABB.h"
 #include "PxgSapBox1D.h"
 #include "PxgBroadPhasePairReport.h"
@@ -35,6 +36,7 @@
 #include "PxgBroadPhaseKernelIndices.h"
 #include "reduction.cuh"
 #include "PxgCommonDefines.h"
+#include "PxgNativePairCanonicalization.cuh"
 #include <assert.h>
 #include <stdio.h>
 
@@ -59,10 +61,8 @@ extern "C" __host__ void initBroadphaseKernels0() {}
 #define CHECK64(x)	if(x>0x00000000ffffffff)	{ printf("FOUND OVERFLOW! %s = %lld\n", #x, x);	}
 
 #if USE_ENV_IDS
-static __device__ PX_FORCE_INLINE bool filtering(PxU32 groupId, PxU32 otherGroupId, PxU32 envId, PxU32 otherEnvId)
+static __device__ PX_FORCE_INLINE bool filtering(const PxgBroadPhaseDesc* desc, PxU32 handle, PxU32 otherHandle, PxU32 envId, PxU32 otherEnvId)
 {
-	if(0)
-		printf("%d %d %d %d\n", groupId, otherGroupId, envId, otherEnvId);
 	// PT: filtering uses two distinct IDs: group IDs and environment IDs.
 	//
 	// Group IDs are for the standard group-based filtering implemented by all broadphases. This is typically used by
@@ -75,7 +75,7 @@ static __device__ PX_FORCE_INLINE bool filtering(PxU32 groupId, PxU32 otherGroup
 	// everything else. This is for e.g. ground plane shapes, which should support all other shapes regardless of their
 	// environment. The alternative would be to duplicate the ground plane in each environment, which would be a waste.
 	//
-	return	(groupId != otherGroupId									// PT: true if shapes are not part of the same actor
+	return	(differentBroadPhaseGroups(desc, handle, otherHandle)									// PT: true if shapes are not part of the same actor
 		&&	((envId == otherEnvId)										// PT: true is shapes belong to the same environment
 		||	(envId==PX_INVALID_U32) || (otherEnvId==PX_INVALID_U32)));	// PT: true for shapes shared by all environments
 }
@@ -335,6 +335,12 @@ extern "C" __global__ void initializeSapBox1DLaunch(const PxgBroadPhaseDesc* bpD
 		PxgSapBox1D& sapBoxY = boxSapBox1DY[handleY];
 		PxgSapBox1D& sapBoxZ = boxSapBox1DZ[handleZ];
 
+        // Treat an existing volume whose ownership/filtering changed as new
+        // for overlap discovery. Sorted endpoints and element IDs stay intact.
+        if (needsRefilter(bpDesc, handleX)) bpDesc->boxHandles[0][0][i] |= 2u;
+        if (needsRefilter(bpDesc, handleY)) bpDesc->boxHandles[0][1][i] |= 2u;
+        if (needsRefilter(bpDesc, handleZ)) bpDesc->boxHandles[0][2][i] |= 2u;
+
 		sapBoxX.mMinMax[!isStartProjection(sortedHandleX)] = i;
 		sapBoxY.mMinMax[!isStartProjection(sortedHandleY)] = i;
 		sapBoxZ.mMinMax[!isStartProjection(sortedHandleZ)] = i;
@@ -374,7 +380,8 @@ extern "C" __global__ void markUpdatedPairsLaunch(const PxgBroadPhaseDesc* bpDes
 	for(PxU32 handle = globalThreadIdx; handle < numElements; handle += blockDim.x*gridDim.x)
 	{
 		const PxU32 word = handle / 32;
-		const PxU32 mask = changedAABBMgrHandles[word];
+		const PxU32 mask = changedAABBMgrHandles[word]
+            | (needsRefilter(bpDesc, handle) ? (1u << threadIndexInWarp) : 0u);
 
 		//printf("mask %i\n", mask);
 
@@ -1503,7 +1510,6 @@ static __device__ PX_FORCE_INLINE void updatePair(PxU32 handle, PxU32 otherHandl
 
 extern "C" __global__ void performIncrementalSAP(PxgBroadPhaseDesc* bpDesc)	// BP_INCREMENTAL_SAP
 {
-	const PxU32 WARP_PERBLOCK_SIZE = PxgBPKernelBlockDim::BP_INCREMENTAL_SAP / WARP_SIZE;
 	__shared__ PxU32 sTotalComparisons;
 	__shared__ const PxU32* sComparisonHistograms;
 	__shared__ const PxU32* sRanks;
@@ -1512,10 +1518,7 @@ extern "C" __global__ void performIncrementalSAP(PxgBroadPhaseDesc* bpDesc)	// B
 	__shared__ const PxgIntegerAABB* sAabbs[2];
 
 	//0 = created pairs, 1 = destroyed pairs
-	__shared__ PxU32 sFoundLostAccumulator[2][PxgBPKernelBlockDim::BP_INCREMENTAL_SAP];
-	__shared__ PxU32 sFoundAccum[2][WARP_PERBLOCK_SIZE];
 
-	__shared__ PxU32 sBaseWriteIndex[2];
 
 	__shared__ PxU32* sSharedPointers[2];
 
@@ -1556,7 +1559,6 @@ extern "C" __global__ void performIncrementalSAP(PxgBroadPhaseDesc* bpDesc)	// B
 		sSharedPointers[1] = &bpDesc->sharedLostPairIndex;
 	}
 
-	const PxU32* groupIds = bpDesc->updateData_groups;
 #if USE_ENV_IDS
 	const PxU32* envIds = bpDesc->updateData_envIDs;
 #endif
@@ -1567,7 +1569,6 @@ extern "C" __global__ void performIncrementalSAP(PxgBroadPhaseDesc* bpDesc)	// B
 	PxU32 blockId = blockIdx.x;
 
 	const PxU32 threadIndexInWarp = threadIdx.x&(WARP_SIZE-1);
-	const PxU32 warpIndex = threadIdx.x/WARP_SIZE;
 
 	PxU32 axis = blockIdx.y;
 	{
@@ -1596,7 +1597,11 @@ extern "C" __global__ void performIncrementalSAP(PxgBroadPhaseDesc* bpDesc)	// B
 			{
 				//Then we have something to do...
 				//Stage 1 -> work out which projection we're processing...
-				PxU32 index = binarySearch(histogram, nbProjections, workId);
+                const unsigned active = __activemask();
+                PxU32 index = threadIndexInWarp == 0 ? binarySearch(histogram, nbProjections, workId) : 0;
+                index = __shfl_sync(active, index, 0);
+                const PxU32 rangeEnd = index + 1 < nbProjections ? histogram[index + 1] : totalCmpsThisAxis;
+                if (workId >= rangeEnd) index = binarySearch(histogram, nbProjections, workId);
 
 				const PxU32 sortedHandle = sSortedHandles[index];
 
@@ -1604,7 +1609,6 @@ extern "C" __global__ void performIncrementalSAP(PxgBroadPhaseDesc* bpDesc)	// B
 
 				handle = getHandle(sortedHandle);
 
-				const PxU32 groupId = groupIds[handle];
 #if USE_ENV_IDS
 				const PxU32 envId = envIds ? envIds[handle] : PX_INVALID_U32;
 #endif
@@ -1637,12 +1641,11 @@ extern "C" __global__ void performIncrementalSAP(PxgBroadPhaseDesc* bpDesc)	// B
 
 				//Perform the swap...
 
-				const PxU32 otherGroupId = groupIds[otherHandle];
 #if USE_ENV_IDS
 				const PxU32 otherEnvId = envIds ? envIds[otherHandle] : PX_INVALID_U32;
-				if(filtering(groupId, otherGroupId, envId, otherEnvId))
+				if(filtering(bpDesc, handle, otherHandle, envId, otherEnvId))
 #else
-				if((groupId != otherGroupId))// && (isStartHandle ^ isStartProjection(otherSortedHandle)))
+				if(differentBroadPhaseGroups(bpDesc, handle, otherHandle))// && (isStartHandle ^ isStartProjection(otherSortedHandle)))
 #endif
 				{
 					//Then we need to do actual work...
@@ -1659,7 +1662,8 @@ extern "C" __global__ void performIncrementalSAP(PxgBroadPhaseDesc* bpDesc)	// B
 					const PxgIntegerAABB& otherAABB = aabbs0[otherHandle];
 					const PxgIntegerAABB& otherOldAABB = aabbs1[otherHandle];
 
-					if(aabb.intersects(otherAABB) && !oldAABB.intersects1D(otherOldAABB, axis))
+	                if (!needsRefilter(bpDesc, handle) && !needsRefilter(bpDesc, otherHandle)
+                    && aabb.intersects(otherAABB) && !oldAABB.intersects1D(otherOldAABB, axis))
 					{
 						//If this is a down sweep, this is a found pair. If this is an up sweep, this is a lost pair
 						if(!isSeparatedBeforeAxis(axis, oldAABB, otherOldAABB))
@@ -1671,47 +1675,22 @@ extern "C" __global__ void performIncrementalSAP(PxgBroadPhaseDesc* bpDesc)	// B
 				}
 			}
 
-			const PxU32 val0 = foundOrLostID == 0 ? foundOrLostPair : 0;
-			const PxU32 val1 = foundOrLostID == 0 ? 0 : foundOrLostPair;
-
-			const PxU32 res0 = warpScanAddWriteToSharedMem<WARP_SIZE>(FULL_MASK, threadIdx.x, threadIndexInWarp, sFoundLostAccumulator[0], val0, val0);
-			const PxU32 res1 = warpScanAddWriteToSharedMem<WARP_SIZE>(FULL_MASK, threadIdx.x, threadIndexInWarp, sFoundLostAccumulator[1], val1, val1);
-
-			if(threadIndexInWarp == (WARP_SIZE-1))
-			{
-				sFoundAccum[0][warpIndex] = res0 + val0;
-				sFoundAccum[1][warpIndex] = res1 + val1;
-			}
-			 
-			__syncthreads();
-
-			const unsigned mask_warpIndex = __ballot_sync(FULL_MASK, warpIndex < 2 && threadIndexInWarp < WARP_PERBLOCK_SIZE);
-			if(warpIndex < 2 && threadIndexInWarp < WARP_PERBLOCK_SIZE)
-			{
-				const PxU32 val = sFoundAccum[warpIndex][threadIndexInWarp];
-
-				const PxU32 totalAccum = warpScanAddWriteToSharedMem<WARP_PERBLOCK_SIZE>(mask_warpIndex, threadIndexInWarp, threadIndexInWarp, sFoundAccum[warpIndex], val, val) + val;
-
-				if(totalAccum > 0 && threadIndexInWarp == (WARP_PERBLOCK_SIZE-1))
-				{
-					//Atomic add and reserve space
-					sBaseWriteIndex[warpIndex] = atomicAdd(sSharedPointers[warpIndex], totalAccum);
-				}
-			}
-
-			__syncthreads();
-
-			//Now write out found/lost pairs...
-
-			if(foundOrLostPair)
-			{
-				const PxU32 writeIndex = sBaseWriteIndex[foundOrLostID] + sFoundLostAccumulator[foundOrLostID][threadIdx.x] + sFoundAccum[foundOrLostID][warpIndex];
-
-				if (writeIndex < max_found_lost_pair)
-					updatePair(handle, otherHandle, sFoundOrLost[foundOrLostID], writeIndex);
-			}
-
-			__syncthreads(); //Make sure all writes complete before we go round the loop again
+            for (PxU32 reportType = 0; reportType < 2; ++reportType)
+            {
+                const bool emit = foundOrLostPair && foundOrLostID == reportType;
+                const unsigned mask = __ballot_sync(FULL_MASK, emit);
+                if (mask)
+                {
+                    PxU32 base = threadIndexInWarp == 0 ? atomicAdd(sSharedPointers[reportType], __popc(mask)) : 0;
+                    base = __shfl_sync(FULL_MASK, base, 0);
+                    if (emit)
+                    {
+                        const PxU32 index = base + __popc(mask & ((1u << threadIndexInWarp) - 1u));
+                        if (index < max_found_lost_pair)
+                            updatePair(handle, otherHandle, sFoundOrLost[reportType], index);
+                    }
+                }
+            }
 		}
 
 		nbBlocksProcessed += nbBlocksRequired;
@@ -1753,7 +1732,6 @@ extern "C" __global__ void generateFoundPairsForNewBoundsRegion(PxgBroadPhaseDes
 
 	const PxgIntegerRegion* regionRange = bpDesc->regionRange;
 	
-	const PxU32* boxGroups = bpDesc->updateData_groups;
 #if USE_ENV_IDS
 	const PxU32* boxEnvIDs = bpDesc->updateData_envIDs;
 #endif
@@ -1824,7 +1802,6 @@ extern "C" __global__ void generateFoundPairsForNewBoundsRegion(PxgBroadPhaseDes
 
 				if(otherIndex < regionEndIndex)
 				{
-					const PxU32 group = boxGroups[handle];
 #if USE_ENV_IDS
 					const PxU32 envID = boxEnvIDs ? boxEnvIDs[handle] : PX_INVALID_U32;
 #endif
@@ -1843,12 +1820,11 @@ extern "C" __global__ void generateFoundPairsForNewBoundsRegion(PxgBroadPhaseDes
 					
 					if(regionIndex == otherRegionIndex)
 					{
-						const PxU32 otherGroup = boxGroups[otherHandle];
 #if USE_ENV_IDS
 						const PxU32 otherEnvID = boxEnvIDs ? boxEnvIDs[otherHandle] : PX_INVALID_U32;
-						if(filtering(group, otherGroup, envID, otherEnvID))
+						if(filtering(bpDesc, handle, otherHandle, envID, otherEnvID))
 #else
-						if(group != otherGroup)
+						if(differentBroadPhaseGroups(bpDesc, handle, otherHandle))
 #endif
 						{
 							const PxgIntegerAABB& iaabb = newBounds[handle];
@@ -1911,6 +1887,13 @@ extern "C" __global__ void generateFoundPairsForNewBoundsRegion(PxgBroadPhaseDes
 
 extern "C" __global__ void clearNewFlagLaunch(const PxgBroadPhaseDesc* bpDesc)	// BP_CLEAR_NEWFLAG //###ONESHOT
 {
+    if (hasRefiltering(bpDesc))
+    {
+        const PxU32 count = 2u * (bpDesc->numPreviousHandles + bpDesc->numCreatedHandles - bpDesc->numRemovedHandles);
+        for (PxU32 i=threadIdx.x + blockDim.x*blockIdx.x; i<count; i+=blockDim.x*gridDim.x)
+            for (PxU32 axis=0; axis<3; ++axis) bpDesc->boxHandles[0][axis][i] &= ~2u;
+        return;
+    }
 	const PxU32 numCreatedHandleSize = bpDesc->numCreatedHandles;
 	
 	const PxU32* createdHandles = bpDesc->updateData_createdHandles;
@@ -2050,11 +2033,14 @@ extern "C" __global__ void computeIncrementalComparisonHistograms_Stage1(const P
 			comparisons1 = isNewProjection(sortedHandle1) ? 0 : startEndAccum1[end1] - startEndAccum1[start1];
 			comparisons2 = isNewProjection(sortedHandle2) ? 0 : startEndAccum2[end2] - startEndAccum2[start2];*/
 
-			if(!isDeletedProjection(sortedHandle0))
+            // Ownership/refilter pairs are discovered by the insertion pass.
+            // Incremental SAP unconditionally rejects them. Do not schedule
+            // their endpoint-crossing work only to discard it in the consumer.
+			if(!isDeletedProjection(sortedHandle0) && !needsRefilter(bpDesc, getHandle(sortedHandle0)))
 				comparisons0 = startEndAccum0[end0] - startEndAccum0[start0];
-			if (!isDeletedProjection(sortedHandle1))
+			if(!isDeletedProjection(sortedHandle1) && !needsRefilter(bpDesc, getHandle(sortedHandle1)))
 				comparisons1 = startEndAccum1[end1] - startEndAccum1[start1];
-			if(!isDeletedProjection(sortedHandle2))
+			if(!isDeletedProjection(sortedHandle2) && !needsRefilter(bpDesc, getHandle(sortedHandle2)))
 				comparisons2 = startEndAccum2[end2] - startEndAccum2[start2];
 		}
 
@@ -2569,11 +2555,11 @@ extern "C" __global__ void copyReports(PxgBroadPhaseDesc* bpDesc)	// BP_COPY_REP
 	// of aggregate pairs in the pairs list.
 	// this means that we need to correct the total size to account for the max size of the pairs buffer, and can then 
 	// subtract the number of aggregate pairs written to that buffer to get the final actor count.
-	const PxU32 nbCreatedPairs = PxMin(bpDesc->sharedFoundPairIndex, max_found_lost_pairs) - bpDesc->sharedFoundAggPairIndex;
-	const PxU32 nbLostPairs = PxMin(bpDesc->sharedLostPairIndex, max_found_lost_pairs) - bpDesc->sharedLostAggPairIndex;
+	const PxU32 nbCreatedPairs = bpDesc->rigidOwners ? (bpDesc->nativePairError ? 0 : bpDesc->nativePairCounts[0]) : PxMin(bpDesc->sharedFoundPairIndex, max_found_lost_pairs) - bpDesc->sharedFoundAggPairIndex;
+	const PxU32 nbLostPairs = bpDesc->rigidOwners ? (bpDesc->nativePairError ? 0 : bpDesc->nativePairCounts[1]) : PxMin(bpDesc->sharedLostPairIndex, max_found_lost_pairs) - bpDesc->sharedLostAggPairIndex;
 
-	const PxU32* foundReports = reinterpret_cast<const PxU32*>(bpDesc->foundActorPairReport);
-	const PxU32* lostReports = reinterpret_cast<const PxU32*>(bpDesc->lostActorPairReport);
+	const PxU32* foundReports = reinterpret_cast<const PxU32*>(bpDesc->rigidOwners ? bpDesc->nativePairReports[0] : bpDesc->foundActorPairReport);
+	const PxU32* lostReports = reinterpret_cast<const PxU32*>(bpDesc->rigidOwners ? bpDesc->nativePairReports[1] : bpDesc->lostActorPairReport);
 
 	PxU32* foundReportMap = reinterpret_cast<PxU32*>(bpDesc->foundPairReportMap);
 	PxU32* lostReportMap = reinterpret_cast<PxU32*>(bpDesc->lostPairReportMap);

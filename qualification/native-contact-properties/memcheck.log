@@ -1,0 +1,20 @@
+========= COMPUTE-SANITIZER
+contact property audit enabled=0 observation=1 refilter=0
+contact property audit enabled=0 observation=2 refilter=0
+contact property audit enabled=0 observation=3 refilter=0
+contact property audit enabled=0 observation=4 refilter=0
+contact property audit enabled=0 observation=5 refilter=1
+contact property audit enabled=0 observation=6 refilter=0
+contact property audit enabled=0 observation=7 refilter=0
+GPU pair identities: 1922 surviving observations, 1416 new lifetimes; bucket merge and CPU/GPU compaction agree
+persistent GPU contact inputs enabled=0 inspected=3338 generated=0: shared geometry, capacity growth, removal/reuse and disable transition passed
+contact property audit enabled=1 observation=1 refilter=0
+contact property audit enabled=1 observation=2 refilter=0
+contact property audit enabled=1 observation=3 refilter=0
+contact property audit enabled=1 observation=4 refilter=0
+contact property audit enabled=1 observation=5 refilter=1
+contact property audit enabled=1 observation=6 refilter=0
+contact property audit enabled=1 observation=7 refilter=0
+GPU pair identities: 1922 surviving observations, 1416 new lifetimes; bucket merge and CPU/GPU compaction agree
+persistent GPU contact inputs enabled=1 inspected=3338 generated=1414: shared geometry, capacity growth, removal/reuse and disable transition passed
+========= ERROR SUMMARY: 0 errors

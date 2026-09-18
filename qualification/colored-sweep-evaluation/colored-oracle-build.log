@@ -1,0 +1,3 @@
+[  0%] Building CUDA object reference/CMakeFiles/gpu_resident_motion_modes_test.dir/tests/gpu_resident_motion_modes_test.cu.o
+[100%] Linking CUDA executable gpu_resident_motion_modes_test
+[100%] Built target gpu_resident_motion_modes_test

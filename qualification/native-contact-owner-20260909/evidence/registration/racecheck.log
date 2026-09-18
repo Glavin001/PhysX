@@ -1,0 +1,3 @@
+========= COMPUTE-SANITIZER
+GPU registration passed: 300 deterministic mixed lifecycle batches; paged order, generations, aliased commands, multi-block tails, atomic stale/duplicate/overflow failures and growth/retry
+========= RACECHECK SUMMARY: 0 hazards displayed (0 errors, 0 warnings)

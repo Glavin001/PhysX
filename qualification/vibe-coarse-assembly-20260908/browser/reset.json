@@ -1,0 +1,121 @@
+{
+  "route": "/city",
+  "mode": "multiplayer",
+  "matchId": "city-default",
+  "connected": true,
+  "statusText": "Player #1",
+  "playerId": 1,
+  "transport": "webtransport",
+  "pointerLocked": true,
+  "debugOverlayVisible": false,
+  "position": [
+    -90.962,
+    0.81,
+    67.156
+  ],
+  "velocity": [
+    0,
+    -0.5,
+    0
+  ],
+  "hp": 100,
+  "onGround": true,
+  "inVehicle": false,
+  "dead": false,
+  "cameraPosition": [
+    -90.962,
+    1.61,
+    67.156
+  ],
+  "cameraYaw": 1.6812968068230065,
+  "cameraPitch": 0.13226555838323628,
+  "movementTelemetry": {
+    "renderedPosition": [
+      -90.962,
+      0.81,
+      67.156
+    ],
+    "authoritativePosition": [
+      -90.962,
+      0.81,
+      67.156
+    ],
+    "presentationOffset": [
+      0,
+      0,
+      0
+    ],
+    "authoritativeVelocity": [
+      0,
+      -0.5,
+      0
+    ],
+    "frameDeltaMs": 100
+  },
+  "drivenVehicleId": null,
+  "nearestVehicleId": null,
+  "remotePlayers": [],
+  "shotsFired": 8,
+  "lastShotOutcome": "shot 8 result confirmed=no player_hit=0 server=0 dyn_body=0 dyn_toi=0.00 dyn_impulse=0.00",
+  "debugStats": {
+    "fps": 0,
+    "transport": "webtransport",
+    "pingMs": 0,
+    "remotePlayers": 0,
+    "playerId": 1,
+    "position": [
+      -90.962,
+      0.81,
+      67.156
+    ],
+    "velocity": [
+      0,
+      -0.5,
+      0
+    ],
+    "hp": 100,
+    "onGround": true,
+    "inVehicle": false,
+    "dead": false,
+    "shotsFired": 8,
+    "lastShotOutcome": "shot 8 result confirmed=no player_hit=0 server=0 dyn_body=0 dyn_toi=0.00 dyn_impulse=0.00",
+    "snapshotsPerSec": 0,
+    "serverTick": 4707,
+    "datagramSnapshotsReceived": 0,
+    "reliableSnapshotsReceived": 0,
+    "lastSnapshotGapMs": 0,
+    "interpolationDelayMs": 8.33,
+    "jitterMs": 0,
+    "snapshotGapP95Ms": 0,
+    "snapshotGapMaxMs": 0,
+    "playerCorrectionMagnitude": 2.2289080164477343e-71,
+    "playerCorrectionPeak5sM": 0
+  },
+  "city": {
+    "wireVersion": 2,
+    "chunksTotal": 24105,
+    "chunksAwake": 0,
+    "chunksSettled": 0,
+    "brokenBonds": 0,
+    "liveIslands": 0,
+    "topoSeqGaps": 0,
+    "datagramsReceived": 284,
+    "bytesPerSecond": 31.942333440350446,
+    "manifestHash": "fa6396d1f93d1943e5f8415ffd2b2161e871e70257fc4770a01b5999522bb9dd",
+    "rendered": true,
+    "minChunkY": 0.3009999990463257,
+    "chunksBelowGround": 0,
+    "chunkUpdateP95Ms": 13.219999998807907,
+    "orphanedChunks": 0,
+    "orphanedByRetire": 0,
+    "staleDrawnChunks": 0,
+    "bootstraps": 2,
+    "settleRejects": 0,
+    "valveApplies": 0,
+    "valveTicksAhead": 0,
+    "hashChecks": 39,
+    "hashMismatches": 0,
+    "structureRepairs": 0,
+    "deepest": null
+  }
+}

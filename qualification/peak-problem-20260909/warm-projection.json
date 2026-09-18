@@ -1,0 +1,56 @@
+[
+  {
+    "component": 5836,
+    "parents": [
+      {
+        "component": 5836,
+        "nodes": 361,
+        "bonds": 667,
+        "capture_residual_scaled_error": 3.729610410875888e-08
+      }
+    ],
+    "nodes": 324,
+    "native_cold_updates": 357,
+    "oracle_cold": {
+      "converged": true,
+      "updates": 357,
+      "gradient_squared": 0.0003607371592029595,
+      "threshold": 0.0005650703678838909,
+      "verifications": 1
+    },
+    "oracle_reprojected": {
+      "converged": true,
+      "updates": 367,
+      "gradient_squared": 0.0005397557844335449,
+      "threshold": 0.0005650703678838909,
+      "verifications": 1
+    }
+  },
+  {
+    "component": 24484,
+    "parents": [
+      {
+        "component": 24484,
+        "nodes": 361,
+        "bonds": 667,
+        "capture_residual_scaled_error": 2.774405771794348e-08
+      }
+    ],
+    "nodes": 321,
+    "native_cold_updates": 342,
+    "oracle_cold": {
+      "converged": true,
+      "updates": 341,
+      "gradient_squared": 0.00023699739843940072,
+      "threshold": 0.0002376501215621829,
+      "verifications": 1
+    },
+    "oracle_reprojected": {
+      "converged": true,
+      "updates": 354,
+      "gradient_squared": 0.00017964591639907075,
+      "threshold": 0.0002376501215621829,
+      "verifications": 1
+    }
+  }
+]

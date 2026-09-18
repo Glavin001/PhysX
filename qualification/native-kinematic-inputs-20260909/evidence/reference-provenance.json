@@ -1,0 +1,11 @@
+{
+  "baseline_commit": "720113560d141cd88e1d64eca3294e3cee6a9900",
+  "baseline_modules": "out/native-owner-context-20260909/candidate",
+  "baseline_hash_manifest": "90f199a6fb4ff5d3a0d9e2f4a12b04a33000c6fdfb1696f0cfb198b388bc5355  embedded_city_bench\n9b7742b970cb954079b93e086baebce6107b126a9b0c601028614d444b1d4da1  libPhysXDestructionGpuRuntime_64.so\n794cbf50d043ae869cfc05811e45b156e124d7faabf4d24425112f17e642b022  libPhysXGpuActivity_64.so\n",
+  "reference_file": "demos/blast-stress-demo/tests/fixtures/native-kinematic-inputs.csv",
+  "reference_sha256": "1790c16c3c6786620eafcb38a7c54efa12518009b217cdb66db0450a71c9ba68",
+  "rows": 384,
+  "modes": "PGS/TGS x clear/reconfigure, continuous native, late enable",
+  "command": "LD_LIBRARY_PATH=out/native-owner-context-20260909/candidate:out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release:/usr/local/cuda/lib64 out/destruction-sdk/reference/native_gpu_collision_test --kinematic-inputs-capture /tmp/native-kinematic-inputs-expanded-baseline.csv",
+  "original_128_rows_byte_identical": true
+}

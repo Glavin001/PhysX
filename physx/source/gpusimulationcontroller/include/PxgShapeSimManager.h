@@ -60,7 +60,7 @@ namespace physx
 
 	struct PxgShapeSimData
 	{
-		PxgShapeSimData() : mShapeCore(NULL), mElementIndex_GPU(PX_INVALID_U32)
+		PxgShapeSimData() : mShapeCore(NULL), mElementIndex_GPU(PX_INVALID_U32), mQueued(false), mGpuBoundsRefresh(false)
 		{
 		}
 
@@ -71,6 +71,8 @@ namespace physx
 
 		// ElementID - copy of ElementSim's getElementID()
 		PxU32			mElementIndex_GPU;	//	12	or	16	transform cache and bound index
+        bool mQueued;
+        bool mGpuBoundsRefresh;
 	};
 
 	class PxgShapeSimManager
@@ -82,6 +84,10 @@ namespace physx
 						void							addPxgShape(Sc::ShapeSimBase* shapeSimBase, const PxsShapeCore* shapeCore, PxNodeIndex nodeIndex, PxU32 index);
 						void							setPxgShapeBodyNodeIndex(PxNodeIndex nodeIndex, PxU32 index);
 						void							removePxgShape(PxU32 index);
+
+        bool setGpuBoundsRefresh(PxU32 index, bool enabled);
+        // Remove cancelled/reused entries and deduplicate before asynchronous DMA.
+        Cm::PinnableArray<PxU32>& prepareGpuBoundsRefresh();
 
 		// PT: copies new shapes from CPU memory (mShapeSims) to GPU *host* memory (mPxgShapeSimPool)
 						void							copyToGpuShapeSim(PxgGpuNarrowphaseCore* npCore, PxBaseTask* continuation, Cm::FlushPool& flushPool);
@@ -98,6 +104,9 @@ namespace physx
 		PX_FORCE_INLINE	const PxgShapeSim*				getShapeSimsDeviceTypedPtr()	const	{ return mShapeSimBuffer.getTypedPtr();		}
 		PX_FORCE_INLINE	Sc::ShapeSimBase**				getShapeSims()							{ return mShapeSimPtrs.begin();				}
 
+        PxgShapeSim* getMutableShapeSimsDeviceTypedPtr() { return mShapeSimBuffer.getTypedPtr(); }
+        PxU64 getUploadedShapeCount() const { return mUploadedShapeCount; }
+
 #if PXG_SC_DEBUG
 		void											validateCacheAndBounds(const PxBounds3* bounds, const PxsCachedTransform* cachedTransforms);
 #endif
@@ -109,10 +118,12 @@ namespace physx
 						PxU32							mTotalNumShapes;
 						PxU32							mNbTotalShapeSim;
 
+                        Cm::PinnableArray<PxU32> mGpuBoundsRefresh;
 						Cm::PinnableArray<PxgNewShapeSim>	mPxgShapeSimPool;
 						PxgTypedCudaBuffer<PxgShapeSim>		mShapeSimBuffer;
 						PxgTypedCudaBuffer<PxgNewShapeSim>	mNewShapeSimBuffer;
 
+        PxU64 mUploadedShapeCount = 0;
 		friend class PxgCopyToShapeSimTask;
 	};
 }

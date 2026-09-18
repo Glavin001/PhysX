@@ -29,6 +29,8 @@
 #ifndef PXG_CONTEXT_H
 #define PXG_CONTEXT_H
 
+#include "PxvIslandMetadata.h"
+#include "PxsSimpleIslandManager.h"
 #include "DyContext.h"
 #include "PxgConstraintPartition.h"
 #include "PxgSolverBody.h"
@@ -330,7 +332,52 @@ namespace physx
 
 		virtual ~PxgGpuContext();
 
+        IG::SimpleIslandManager& getIslandManager() { return mIslandManager; }
+
+        void enableDeviceConnectivityOwnership(bool enabled) { mIslandManager.requestDeviceConnectivity(enabled); }
+        virtual void setPartitionCandidateEdges(const PxU32* edges, PxU32 count) PX_OVERRIDE { mIncrementalPartition.setCandidateEdges(edges, count); }
+        bool deviceConnectivityOwnershipRequested() const { return mIslandManager.deviceConnectivityRequested() && mCudaPreSolveIslands && mCudaPreSolveContacts && mCudaPreSolveSupport && mPreSolveSleepingDisabled; }
+        bool deviceConnectivityOwnershipReady() const;
+        void enableCudaPreSolveIslands(bool enabled) { if(!enabled)mIslandManager.restoreHostConnectivity(); if(enabled!=mCudaPreSolveIslands)mPreForceNodeSnapshot=true;mCudaPreSolveIslands=enabled;mIslandManager.getAccurateIslandSim().trackPreSolveMerges(enabled,!mCudaPreSolveContacts,!(mCudaPreSolveSupport && mCudaPreSolveContacts)); }
+        void enableCudaPreSolveContacts(bool enabled) { if(!enabled)mIslandManager.restoreHostConnectivity(); if(enabled!=mCudaPreSolveContacts)mPreForceNodeSnapshot=true;mCudaPreSolveContacts=enabled;
+            mIslandManager.getAccurateIslandSim().trackPreSolveMerges(mCudaPreSolveIslands,!enabled,!(mCudaPreSolveSupport && enabled)); }
+        void enableCudaPreSolveSupport(bool enabled) { if(!enabled)mIslandManager.restoreHostConnectivity(); if(enabled!=mCudaPreSolveSupport)mPreForceNodeSnapshot=true;mCudaPreSolveSupport=enabled;
+            mIslandManager.getAccurateIslandSim().trackPreSolveMerges(mCudaPreSolveIslands,!mCudaPreSolveContacts,!(enabled && mCudaPreSolveContacts)); }
+        void activateDestructionNodeTracking() {
+            // Called only when the scene first requests its destruction API.
+            // Explicit diagnostic/reference settings remain authoritative.
+            enableCudaPreSolveIslands(mCudaPreSolveIslands);
+        }
+        void acknowledgeNativeNodeBirths(const PxU32* indices,PxU32 count) {
+            // These births already exist in the GPU roster. Preserve ordinary
+            // commands and retained-owner type changes; only new nodes qualify.
+            // Roster production also runs with ordinary sleeping enabled;
+            // full union-find ownership has a narrower, independent contract.
+            if(mCudaPreSolveIslands && mCudaPreSolveContacts && mCudaPreSolveSupport)
+                for(PxU32 i=0;i<count;++i)mIslandManager.getAccurateIslandSim().acknowledgeDeviceNodeBirth(indices[i]);
+        }
+        bool preSolveNodesUseNativeSupport() const { return mPreSolveNodesUseNativeSupport; }
+        CUdeviceptr getPreSolveSupportDevicePointer() const { return mPreSolveSupportDevicePointer; }
+        PxU64 getCudaPreSolveSupportPasses() const { return mCudaPreSolveSupportPasses; }
+        PxU64 getCudaPreSolveContactPasses() const { return mCudaPreSolveContactPasses; }
+        PxU64 getCudaPreSolveContactPairs() const { return mCudaPreSolveContactPairs; }
+        PxU64 getCudaPreSolveRetiredBytes() const { return mCudaPreSolveRetiredBytes; }
+        CUdeviceptr getPreSolveNodeDevicePointer() const { return mPreSolveNodeDevicePointer; }
+        const PxArray<PxvPreSolveNode>& getExpectedPreSolveNodes() const { return mExpectedPreSolveNodes; }
+        PxU64 getCudaPreSolveFullHostBytes() const { return mCudaPreSolveFullHostBytes; }
+        PxU64 getCudaPreSolveNodeUpdates() const { return mCudaPreSolveNodeUpdates; }
+        PxU64 getCudaPreSolveFullSnapshots() const { return mCudaPreSolveFullSnapshots; }
+        PxU64 getCudaPreSolveHostBytes() const { return mCudaPreSolveHostBytes; }
+        PxU64 getCudaPreSolvePasses() const { return mCudaPreSolvePasses; }
+        PxU64 getCudaPreSolveFallbacks() const { return mCudaPreSolveFallbacks; }
+        PxvIslandMetadataStats getSolverIslandMetadataStats() const { return mSolverIslandMetadataStats; }
+        // Expensive independent full snapshot for qualification only; off by default.
+        void captureSolverIslandMetadata(bool enabled) { mCaptureSolverMetadata=enabled; }
+        const PxArray<PxU32>& getExpectedSolverIslandIds() const { return mExpectedSolverIslandIds; }
+        const PxArray<PxU32>& getExpectedSolverStaticTouches() const { return mExpectedSolverStaticTouches; }
 		PX_FORCE_INLINE PxgSolverCore* getGpuSolverCore() { return mGpuSolverCore;}
+		PX_FORCE_INLINE PxU32 getActiveNodeCount() const { return mActiveNodeIndex.size(); } // solver body order (world, kinematics, rigid, articulations)
+		PX_FORCE_INLINE PxU32 getKinematicCount() const { return mKinematicCount; } // solver bodies [1, 1+count) are the active kinematics
 
 		PX_FORCE_INLINE PxgArticulationCore* getArticulationCore() { return mGpuArticulationCore; }
 
@@ -360,6 +407,10 @@ namespace physx
 
 		//this method make sure we get PxgSimultionController instead of PxsSimulationController
 		PxgSimulationController*			getSimulationController();
+        bool usesNativeKinematicInputs();
+        void prepareNativeRigidIterationLimits(CUdeviceptr active,CUstream stream);
+        PxU64 getNativeRigidIterationPasses() const {return mNativeRigidIterationPasses;}
+        void getCachedIterationLimits(PxU32& position,PxU32& velocity) const {position=PxU32(mCachedPositionIterations);velocity=PxU32(mCachedVelocityIterations);}
 
 		virtual void						setSimulationController(PxsSimulationController* mSimulationController)	PX_OVERRIDE;
 
@@ -409,6 +460,7 @@ namespace physx
 		void 								allocateTempPinnedSolverMemoryCommon();
 
 		PX_FORCE_INLINE bool				getEnableDirectGPUAPI() const { return mEnableDirectGPUAPI;	}
+        PX_FORCE_INLINE bool getEnableDirectGPUHostAccess() const { return mEnableDirectGPUHostAccess; }
 
 		PxvSimStats&			 			getSimStats() { return mSimStats; }
 
@@ -416,6 +468,7 @@ namespace physx
 
 		PxU32									mTotalEdges;
 		PxU32									mTotalPreviousEdges;
+		PxArray<PxU32>	mDestructionFrozenEdgeScratch; // frozen corrected pass: edge indices whose friction counts are cleared
 
 		PxsContactManagerOutputIterator			mOutputIterator;
 
@@ -544,6 +597,28 @@ namespace physx
 		Cm::PinnableArray<PxU32>				mIslandIds;
 		Cm::PinnableArray<PxU32>				mIslandStaticTouchCounts;
 
+        Cm::PinnableArray<PxvIslandMetadataPage> mSolverIslandMetadataPages;
+        Cm::PinnableArray<PxvPreSolveNodeUpdate> mPreSolveNodes;
+        Cm::PinnableArray<PxvPreSolveEdge> mPreSolveMerges;
+        Cm::PinnableArray<PxU32> mPreSolveRetired;
+        bool mCudaPreSolveContacts=true,mCudaPreSolveSupport=true,mPreSolveNodesUseNativeSupport=true;
+        CUdeviceptr mPreSolveSupportDevicePointer=0;
+        PxU64 mCudaPreSolveSupportPasses=0;
+        PxU64 mCudaPreSolveContactPasses=0,mCudaPreSolveContactPairs=0,mCudaPreSolveRetiredBytes=0;
+        // Ordinary sleeping consumes a GPU-repaired native membership mirror.
+        // Do not discard that mirror until the sleep scheduler consumes device components.
+        bool mPreSolveSleepingDisabled;
+        bool mCudaPreSolveIslands=true,mPreForceNodeSnapshot=true;
+        bool mNativeRigidIterationPending=false;PxU64 mNativeRigidIterationPasses=0;
+        PxU64 mCudaPreSolvePasses=0,mCudaPreSolveFallbacks=0,mCudaPreSolveHostBytes=0;
+        PxU64 mCudaPreSolveFullHostBytes=0,mCudaPreSolveNodeUpdates=0,mCudaPreSolveFullSnapshots=0;
+
+        PxvIslandMetadataStats mSolverIslandMetadataStats;
+        PxU32 mSolverMetadataNodes=0,mSolverMetadataIslands=0;
+        bool mSolverMetadataIncremental=false,mCaptureSolverMetadata=false;
+        PxArray<PxU32> mExpectedSolverIslandIds,mExpectedSolverStaticTouches;
+        PxArray<PxvPreSolveNode> mExpectedPreSolveNodes;
+        CUdeviceptr mPreSolveNodeDevicePointer=0;
 		//other joint type(not d6) cpu constraints
 		PxgConstraintBatchHeader*				mConstraintBatchHeaders;
 		PxgConstraintBatchHeader*				mArticConstraintBatchHeaders;
@@ -574,6 +649,7 @@ namespace physx
 		PxU32									mMaxNumStaticPartitions;
 
 		const bool								mEnableDirectGPUAPI;
+        bool mEnableDirectGPUHostAccess;
 		bool									mRecomputeArticulationBlockFormat;
 
 		// when Direct GPU API is enabled, the constraint writeback data might have to be copied to host to
@@ -585,6 +661,7 @@ namespace physx
 		PxgGpuPrePrepTask						mGpuPrePrepTask;
 		PxgGpuIntegrationTask					mGpuIntegrationTask;
 		PxgGpuTask								mGpuTask; //this task include preprepare constraint, prepare constraint, solve and integration tasks
+		CUevent									mDestructionSolverIssuedEvent = NULL; // recorded after the pass's solver launches (early destruction submit)
 		PxgPostSolveTask						mPostSolveTask;
 
 		void									doConstraintPrepGPU();

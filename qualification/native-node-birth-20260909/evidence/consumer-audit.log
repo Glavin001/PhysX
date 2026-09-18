@@ -1,0 +1,4 @@
+[embedded-destruction] chunks=113664 bonds=229376 initial_clusters=256 direct_gpu=0 native_sleep=1 correction_limit=1 max_stress_passes=2 iterations=8192
+tick 0/96, fragments 0, awake 0, broken 0
+tick 60/96, fragments 11483, awake 11221, broken 62080
+report: /root/workspace/physx-2/out/native-node-birth-20260909/consumer-audit/report.md

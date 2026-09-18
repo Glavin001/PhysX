@@ -1,0 +1,69 @@
+{
+  "instrumented": true,
+  "service_changes": false,
+  "binary_sha256": "1e7fc78505ad4999c095143f5501829d8ec67f8953e4fbb62a59b2b560e26681",
+  "runs": [
+    {
+      "arm": "baseline",
+      "command": [
+        "/root/workspace/physx-2/out/native-sleep-notification-20260909/profiled-bench",
+        "/root/workspace/physx-2/out/native-chunk-index-20260909/profile/baseline",
+        "8",
+        "600",
+        "3"
+      ],
+      "expected": {
+        "libPhysXDestructionGpuRuntime_64.so": {
+          "path": "/root/workspace/physx-2/out/native-settled-local-20260909/candidate/libPhysXDestructionGpuRuntime_64.so",
+          "sha256": "69f601ad367b7b6977e628907c8953ed4a2606d6862572b2e83b27a5ad63f15b"
+        },
+        "libPhysXGpuActivity_64.so": {
+          "path": "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so",
+          "sha256": "073c0448421013734b228db718ba56656e3e3d8cb5a80d186978027b073162d0"
+        }
+      },
+      "mapped": {
+        "libPhysXDestructionGpuRuntime_64.so": {
+          "path": "/root/workspace/physx-2/out/native-settled-local-20260909/candidate/libPhysXDestructionGpuRuntime_64.so",
+          "sha256": "69f601ad367b7b6977e628907c8953ed4a2606d6862572b2e83b27a5ad63f15b"
+        },
+        "libPhysXGpuActivity_64.so": {
+          "path": "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so",
+          "sha256": "073c0448421013734b228db718ba56656e3e3d8cb5a80d186978027b073162d0"
+        }
+      },
+      "exit": 0
+    },
+    {
+      "arm": "candidate",
+      "command": [
+        "/root/workspace/physx-2/out/native-sleep-notification-20260909/profiled-bench",
+        "/root/workspace/physx-2/out/native-chunk-index-20260909/profile/candidate",
+        "8",
+        "600",
+        "3"
+      ],
+      "expected": {
+        "libPhysXDestructionGpuRuntime_64.so": {
+          "path": "/root/workspace/physx-2/out/native-chunk-index-20260909/candidate/libPhysXDestructionGpuRuntime_64.so",
+          "sha256": "f6bfe73470a2fa3cef5723ab502091e436059cd2fb80ef5353006c50a67c5c3e"
+        },
+        "libPhysXGpuActivity_64.so": {
+          "path": "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so",
+          "sha256": "073c0448421013734b228db718ba56656e3e3d8cb5a80d186978027b073162d0"
+        }
+      },
+      "mapped": {
+        "libPhysXDestructionGpuRuntime_64.so": {
+          "path": "/root/workspace/physx-2/out/native-chunk-index-20260909/candidate/libPhysXDestructionGpuRuntime_64.so",
+          "sha256": "f6bfe73470a2fa3cef5723ab502091e436059cd2fb80ef5353006c50a67c5c3e"
+        },
+        "libPhysXGpuActivity_64.so": {
+          "path": "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so",
+          "sha256": "073c0448421013734b228db718ba56656e3e3d8cb5a80d186978027b073162d0"
+        }
+      },
+      "exit": 0
+    }
+  ]
+}

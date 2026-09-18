@@ -1,0 +1,12 @@
+[  0%] Built target PhysXTask
+[  5%] Built target PhysXFoundation
+[  8%] Built target LowLevel
+[ 12%] Built target LowLevelAABB
+[ 17%] Built target LowLevelDynamics
+[ 19%] Built target SceneQuery
+[ 71%] Built target PhysXCommon
+[ 71%] Building CXX object sdk_source_bin/CMakeFiles/SimulationController.dir/root/workspace/physx-2/physx/source/simulationcontroller/src/ScShapeInteraction.cpp.o
+[ 85%] Built target SimulationController
+[ 87%] Built target PhysXPvdSDK
+[ 87%] Linking CXX static library /root/workspace/physx-2/out/vibe-committed-changes-20260908/sdk/physx/bin/linux.x86_64/release/libPhysX_static_64.a
+[100%] Built target PhysX
