@@ -2563,3 +2563,32 @@ components between impacts, order-changing).
 `cantilever64`, `bridge64`, `panel32` were authored with their bottom row at y = 0 (static stress benchmarks), so in the
 videos they lie on the ground and the "cantilever" is just blocks being knocked off. New `--structure-elevation H`
 lifts a structure by H metres (supports are fixed nodes, so it stays up); re-recordings pending.
+
+### All videos re-recorded with the collision fix (2026-09-18), `videos/*-realtime.mp4`
+
+Twenty scenes, real-time playback (frames held for max(16.7 ms, tick)), 1080p, with the collision fix, the bridge,
+cantilever and plate lifted off the ground (`--structure-elevation`), and a 24 s tower collapse. Recipe:
+`tools/scripts/demo-videos/rerecord-all.sh`; skill `.agents/skills/physx-destruction-demo-videos`.
+
+| video (…-realtime.mp4) | ticks | physics mean ms | max ms | ticks >16.7 ms | sim → wall | bonds broken | fragments at end |
+|---|---:|---:|---:|---:|---|---:|---:|
+| through-wall | 360 | 2.78 | 12.0 | 0 | 6 → 6.0 s | 182 | 8 |
+| building-close | 480 | 2.92 | 14.2 | 0 | 8 → 8.0 s | 194 | 33 |
+| building-weak | 480 | 3.08 | 15.0 | 0 | 8 → 8.0 s | 498 | 53 |
+| building-strong | 480 | 2.69 | 16.6 | 0 | 8 → 8.0 s | 151 | 22 |
+| building-heavy-shot | 480 | 3.55 | 15.9 | 0 | 8 → 8.0 s | 578 | 108 |
+| city256-close / -mid / -overview | 480 | 21.5–22.0 | 112–121 | 257–261 | 8 → 12.2–12.4 s | 61,406 | 1,311 |
+| city16-staggered-close / -mid | 600 | 4.6–5.0 | 19.5–20.6 | 2 | 10 → 10.0 s | 4,042 | 97 |
+| city64-staggered-overview / -mid | 720 | 8.24 | 21–23 | 21–25 | 12 → 12.0 s | 15,494 / 16,210 | 484 / 505 |
+| city256-staggered-overview / -mid | 1200 | 19.0–19.3 | 45–46 | 714–724 | 20 → 26.4–26.5 s | 63,026 | 736 |
+| tower64-collapse (strength 8) | 1440 | 87.7 | 476 | 989 | 24 → 129.8 s | 3,424 | 631 |
+| tower64-stands (strength 24) | 720 | 9.21 | 221 | 23 | 12 → 14.0 s | 294 | 15 |
+| bridge64-midspan (10 m up) | 600 | 4.66 | 25.2 | 12 | 10 → 10.0 s | 823 | 115 |
+| cantilever64-tip (10 m up) | 600 | 1.84 | 17.9 | 1 | 10 → 10.0 s | 62 | 1 |
+| panel32-plate (8 m up) | 600 | 2.72 | 50.3 | 3 | 10 → 10.0 s | 1,789 | 1 |
+| dense12-block | 600 | 4.17 | 57.6 | 6 | 10 → 10.1 s | 4,465 | 1,204 |
+
+With correct fragment–parent contacts the city bombardment now breaks 61,406 bonds in 8 s (fragments push on the
+buildings they fall inside) and the staggered city 63,026; the sustained city rate is unchanged (19–22 ms with the
+renderer sharing the GPU). The standing tower runs at 9.2 ms mean after its base hit; the toppling tower is the open
+performance item (88 ms mean, its 1,440-tick real-time video plays 130 s).
