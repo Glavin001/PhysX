@@ -2266,3 +2266,12 @@ Two env-gated pieces, both lossless on the g16 bombardment (56,077 bonds in ever
 Conclusion for the R2 core: readiness and sleep verdicts can be device-owned exactly (decisions identical), but no
 tick time is released until the CPU island sims stop being the source of the solver's active list and the
 registration pipeline (stages 0(c) onward, order-changing by body order, ensemble-judged). The pieces stay opt-in.
+
+Stage-0 checkpoint, active-node readiness audit (2026-09-18): restricted to active rigid nodes, the mirror differs
+from the CPU flags on 4,423 of 1.67 M checks with host deltas only (control) and on 11,129 with device readiness
+on; the first differing nodes are the impact fragments (5460 onward), CPU "not ready" vs mirror "ready". Every
+readiness write in `PxsIslandSim` records a delta (`addNode`, `activateNode`, `deactivateNode`, the `_ForGPUSolver`
+variants), so the gap is in the delta stream's order or capacity around the impact tick (thousands of births and
+island wakes in one pass), not a missing record; decisions are unaffected (identity holds in every variant).
+Next: a per-node delta trace (recorded values vs CPU flag transitions) for one fragment across the birth tick,
+then the device rule's own residual. Stage 0 stays opt-in and off.

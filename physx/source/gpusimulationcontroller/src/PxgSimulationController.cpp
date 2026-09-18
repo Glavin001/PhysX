@@ -861,9 +861,12 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
                         PxU32 mirrorCapacity=0;const PxU8* mirror=mDestruction->readinessMirror(which!=0,mirrorCapacity);
                         static PxU64 passes[2]={0,0},checked[2]={0,0},diffs[2]={0,0};++passes[which];
                         if(mirror){
+                            static PxU32 shownDiff=0;
                             for(PxU32 i=0;i<nodeCount;++i){const IG::Node& node=sim.getNode(PxNodeIndex(i));
-                                if(node.isDeleted() || node.isKinematic() || node.mType!=IG::Node::eRIGID_BODY_TYPE)continue;
-                                ++checked[which];const PxU8 cpu=cpuFlags(i);const PxU8 dev=i<mirrorCapacity?mirror[i]:0xFF;if(cpu!=dev)++diffs[which];}
+                                // Only active rigid nodes are evaluated by the third pass; sleeping nodes' flags never matter.
+                                if(node.isDeleted() || node.isKinematic() || node.mType!=IG::Node::eRIGID_BODY_TYPE || !node.isActive())continue;
+                                ++checked[which];const PxU8 cpu=cpuFlags(i);const PxU8 dev=i<mirrorCapacity?mirror[i]:0xFF;
+                                if(cpu!=dev){++diffs[which];if(shownDiff<12){++shownDiff;fprintf(stderr,"   readiness diff (%s) node %u: cpu notReady %d mirror %d\n",which?"speculative":"accurate",i,int(cpu),int(dev));}}}
                         }
                         if((passes[which]%64)==0)fprintf(stderr,"readiness mirror audit (%s): passes=%llu checked=%llu diffs=%llu\n",which?"speculative":"accurate",
                             (unsigned long long)passes[which],(unsigned long long)checked[which],(unsigned long long)diffs[which]);
