@@ -2230,3 +2230,15 @@ work. It requires device-owned island membership first, i.e. the R2 core.
 Remaining plan items after this session: the R2 core (device-owned island membership → steps 6/7, found-pair
 creation and shape migration on the impact tick), R5 CPU-level scoping beyond mode 6, and the owner's decision on
 mode 6.
+
+### Corrected broad-phase wait explained from the device timeline (2026-09-18, closes the candidate)
+
+Late corrected pass (`nsys-g`): trial verdict → topology transaction (0.2–0.6 ms, s27) → device stress topology
+(1.0–1.6, s32) → correction body inputs (1.9, s34) → eager refactor `factorNativeDirect` at 2.44 ms, one launch
+of 5.5 ms on the factor stream → corrected bounds refresh 3.98, handle marks 4.14, histograms 4.46, SAP 4.55 (0.8 ms
+while the factor runs; 0.5 ms typical) → narrowphase 5.12. The host, meanwhile, spends 1.5 ms in `activityRestore`
+and enqueues the corrected broad phase 2.6 ms after the trial finish; its 1.95 ms wait is the verdict-to-BP kernel
+chain plus the contention with the refactor, not broad-phase work (0.5 ms; region/histogram kernels 0.11 ms). The
+refactor cannot be deferred without delaying the corrected stress solve it feeds (it finishes at ~7.9 ms, the
+corrected stress solve starts at ~8–9 ms). Candidate closed; the corrected pass's remaining levers are its scope
+(mode 6) and the per-pass CPU pipeline (R2 core).
