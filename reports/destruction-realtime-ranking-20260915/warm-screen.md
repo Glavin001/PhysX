@@ -2308,3 +2308,13 @@ g16 3 s bombardment, three interleaved pairs (A = inline, B = tasks), identity 5
 
 Mean −0.24 ms, late −0.5 ms (the checkpoint sat between the island passes and the solver issue on the critical path;
 the rest of the before-solver chain still runs there). Runner: `out/direct-factor-feasibility-20260915/run-env-pairs.sh`.
+
+### Correction activity restore on worker chunks: neutral, not kept (2026-09-18)
+
+The corrected pass's activity restore (1.25 ms serial on the late window, 2.4 ms at most) was split into worker
+chunks for bodies that stayed active in Sc and both island sims (per-body fields, readiness deltas) with a serial
+finish task (activations, woken marks, notifications, corrected-pass setup). Lossless (56,077 in all six runs) but
+neutral: A (one thread) 20.30/20.12/20.24 ms, B (chunks) 20.39/20.27/20.43; late 32.62/32.41/32.79 vs
+32.45/32.40/32.80. The corrected pass start is device-bound (eager refactor and the corrected broad phase), so the
+CPU restore only overlaps a wait that reappears in `broadPhaseWait`. Patch kept at
+`out/direct-factor-feasibility-20260915/restore-tasks-neutral.patch`; code reverted.
