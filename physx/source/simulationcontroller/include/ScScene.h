@@ -443,6 +443,7 @@ namespace Sc
 					void						fireCallbacksPostSync();
                     bool finalizeGpuSleep(BodyCore* body = NULL);
                     static bool destructionEarlySleepCommit(void* scene);
+                    static bool destructionPendingSleepFinalize(void* scene);
 					void						syncSceneQueryBounds(SqBoundsSync& sync, SqRefFinder& finder);					
 
 					PxU32						getDefaultContactReportStreamBufferSize() const;

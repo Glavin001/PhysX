@@ -2155,3 +2155,45 @@ path at debris scale (candidates: apply-list capacity with thousands of transiti
 delta overflow reseed path, and passes without a repair graph falling back mid-tick). Measured value of mode 9
 where it is exact: g16 −0.6 ms mean / −1.1 ms late window; continuous 600-tick heavy 19.3 → 18.2 ms (`20260917h2`);
 cascade 56.8 → 55.6, impact 59.2 → 54.5, city25 14.1 → 14.3 (warm 17g → 17h3).
+
+## §14 shipped (second attempt): mode 9 default with the pending-only finalizer (`results-18a-v4`, 2026-09-18)
+
+The late-debris failure was a load-time artefact, not a transition error: the probe restores a snapshot with ~2,100
+sleeping bodies whose native sleep finalization is still pending; mode 0 applied it at the first early commit
+(before the loads), mode 9 at the arm (after the issue-time submit), so the first pass's loads read un-zeroed
+velocities. The scene now registers a pending-only finalizer each pass (`Sc::Scene::destructionPendingSleepFinalize`
+→ `finalizeGpuSleep()`), which mode 9 runs at the arrival before the transition and the submit; passes without a
+registered finalizer (the first pass of a scene) take the ordinary path. With that, and the graph rebuild removed
+from the issue-time submit (it raced `removeLostPairs`), the debris-only plan passes with the default's signature
+and the full screen passes all nine windows with signatures identical to every screen since `16d`:
+
+| window | A0 / B / A1 mean | previous B (`17g`, mode 0) | B max | misses A0/B/A1 |
+|---|---:|---:|---:|---:|
+| city256 cascade | 112.5 / 55.9 / 111.9 ms | 56.8 | 90.5 | 16/16/16 of 16 |
+| city256 impact | 93.7 / 57.5 / 94.4 | 59.2 | 150.0 | 16/16/16 |
+| city256 debris | 130.7 / 62.2 / 130.0 | 66.2 | 68.2 | 16/16/16 |
+| city25 impact | 24.4 / 13.6 / 23.5 | 14.1 | 30.8 | 10/4/10 |
+| city256 idle | 1.79 / 1.94 / 1.55 | 2.65 | 2.50 | 0/0/0 of 32 |
+| bridge64, chain256, dense12, tower64 | 1.6–1.8 / 1.3–1.8 / 1.3–1.7 | 1.4–1.7 | ≤2.5 | 0 |
+
+g16 3 s bombardment with the shipped build: 56,077 bonds (identical), mean 19.91 ms, late window 32.3; native tests
+8/8. Default: `PHYSX_DESTRUCTION_DEVICE_SLEEP=9`; `0` restores the CPU commit at the arm. Continuous 600-tick A/B
+of this exact build below (`20260918a`).
+
+## Continuous 600-tick A/B/A of the shipped mode-9 default (`direct-continuous-ab-20260918a`)
+
+Same procedure (`--seconds 10`, two trials per arm, A/B/A, desktop stopped; exit 2 = the fixed 8 ms gate).
+Physical counter differences: none in any comparison.
+
+| case | A before | B (mode 9 default) | A after |
+|---|---:|---:|---:|
+| impacts-256 mean | 53.21 / 53.26 ms | 18.10 / 17.40 | 54.75 / 54.31 |
+| impacts-256 peak | 189 / 195 | 97.4 / 96.8 | 197 / 183 |
+| impacts-256 60 Hz misses /600 | 519 / 519 | 248 / 246 | 519 / 519 |
+| idle-256 mean | 1.81 / 1.67 | 1.05 / 1.07 | 1.65 / 1.64 |
+
+Campaign state after this commit: sustained city256 heavy tick 54 → 17.4–18.1 ms (3.0×), peak 195 → 97, 60 Hz misses
+519 → 246, idle 1.7 → 1.05; warm windows cascade 112 → 56, impact 94 → 57, debris 131 → 62, city25 24 → 13.6 ms;
+every change lossless (identical histories and signatures). Remaining plan items: R2 registry migration (steps 6/7,
+impact tick), the relocated copy-back/observe waits behind the early chain (~2.7 ms), R5 CPU-level scoping of the
+corrected pass (mode 6 opt-in awaiting the owner's decision).

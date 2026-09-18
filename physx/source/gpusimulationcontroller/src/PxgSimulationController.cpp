@@ -775,14 +775,15 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
     bool PxgSimulationController::usesGpuDestructionIslandRepair() const {
         return usesDeviceDestructionContactInputs() && mDestruction->gpuIslandRepairEnabled();
     }
-    // PHYSX_DESTRUCTION_DEVICE_SLEEP: 0 (default) = CPU early sleep commit at the arm;
-    // 8 = audit of the device sleep reduction; 9 = device-driven sleep transition and
-    // stress submit at the solver issue (README §14). Mode 9 is identical to 0 on the
-    // g16 bombardment and the warm impact/cascade windows but fails the physical
-    // contract in the city256 late-debris window (warm screen 17h3: force relL2 0.41,
-    // health drift 1.0), so it stays opt-in until that divergence is found.
+    // PHYSX_DESTRUCTION_DEVICE_SLEEP: 0 = CPU early sleep commit at the arm (previous
+    // default); 8 = audit of the device sleep reduction; 9 (default) = device-driven
+    // sleep transition and stress submit at the solver issue (README §14): lossless
+    // (identical histories on g16 and identical warm-window signatures, including the
+    // late-debris window once bodies pending outside the island passes are finalized
+    // before the issue-time submit). Falls back to the CPU commit and the ordinary
+    // submit on passes where the device enqueue cannot run or no finalizer is registered.
     static int destructionDeviceSleepMode() {
-        static const int mode=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_DEVICE_SLEEP");return raw?std::atoi(raw):0;}();
+        static const int mode=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_DEVICE_SLEEP");return raw?std::atoi(raw):9;}();
         return mode;
     }
     // Mode 9 isolation knobs: keep the CPU rollback commit too (double application),
@@ -1142,6 +1143,11 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
         if(destructionDeviceSleepMode()==9 && mDestructionTransitionEnqueued && !deviceSleepAtArm()) {
             PxMutex::ScopedLock early(mDestructionEarlyMutex);
             if(mDestructionEarlySubmitted)return;
+            // Bodies pending outside the island passes (snapshot loads, user sleeps) were
+            // finalized by the arm-time commit before the loads; do the same here. Without
+            // a registered finalizer (first pass of a scene) leave the pass to the ordinary path.
+            if(!mDestructionSleepFinalizer)return;
+            if(!mDestructionSleepFinalizer(mDestructionSleepFinalizerUser)){mDestructionEarlyOk=false;mDestructionEarlySubmitted=true;return;}
             static const int syncKnob=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_DEVICE_SLEEP_SYNC");return raw?std::atoi(raw):0;}();
             const auto syncAll=[&]{PxScopedCudaLock l(*mCudaContextManager);PxCudaContext* c=mCudaContextManager->getCudaContext();c->streamSynchronize(mSimulationCore->getStream());c->streamSynchronize(mDynamicContext->getGpuSolverCore()->getStream());c->streamSynchronize(mNpContext->getGpuNarrowphaseCore()->getStream());};
             if(syncKnob&2)syncAll();
@@ -4312,7 +4318,13 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
         if(!count) return true;
         if(rollbackPose && destructionDeviceSleepMode()>=8)for(PxU32 i=0;i<count;++i)mDestructionSleepAuditCpu.pushBack(indices[i]);
         if(rollbackPose && destructionDeviceSleepMode()>=8)mNativeSleepLastRollbackCount=count;
-        if(!rollbackPose && destructionDeviceSleepMode()>=8)mDestructionSleepAuditNonRollback+=count;
+        if(!rollbackPose && destructionDeviceSleepMode()>=8){mDestructionSleepAuditNonRollback+=count;
+            static const bool nrDiag=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_NONROLLBACK_DIAG");return raw && raw[0]=='1';}();
+            if(nrDiag && mDestructionAuditIslands){static PxU32 shown=0;const IG::IslandSim& sim=mDestructionAuditIslands->getAccurateIslandSim();
+                PxHashSet<PxU32> solverSet;{PxgSolverCore* core=mDynamicContext->getGpuSolverCore();const PxU32 bodies=mDynamicContext->getActiveNodeCount();
+                    if(core && bodies){PxArray<PxNodeIndex> host(bodies);PxScopedCudaLock lock(*mCudaContextManager);mCudaContextManager->getCudaContext()->memcpyDtoH(host.begin(),CUdeviceptr(reinterpret_cast<size_t>(core->getGpuIslandNodeIndices().getPointer())),sizeof(PxNodeIndex)*bodies);for(PxU32 i=0;i<bodies;++i)if(!host[i].isArticulation())solverSet.insert(host[i].index());}}
+                PxU32 inSolver=0,active=0,deleted=0;for(PxU32 i=0;i<count;++i){const PxU32 n=indices[i];if(solverSet.contains(n))++inSolver;if(n<sim.getNbNodes()){const IG::Node& nd=sim.getNode(PxNodeIndex(n));if(nd.isActive())++active;if(nd.isDeleted())++deleted;}}
+                if(shown<12){++shown;fprintf(stderr,"[nonrollback-diag] %s count %u inSolver %u active %u deleted %u first %u %u %u\n",mDestructionCorrecting?"corrected":"trial",count,inSolver,active,deleted,count?indices[0]:0,count>1?indices[1]:0,count>2?indices[2]:0);}}}
         // Mode 9 replaces only the early commit's application (the device transition at
         // the solver issue); individual finalizations (wake/command paths, after the
         // correction restore) and the fetch-time re-application keep the CPU path.

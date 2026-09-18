@@ -320,6 +320,10 @@ namespace physx
         // A body's pending native sleep finalization was applied individually (wake/command
         // paths); it leaves the CPU's carried rollback set. Device sleep transition mirrors this.
         virtual void noteDestructionSleepFinalized(PxU32 /*gpuIndex*/) {}
+        // Pending-only native sleep finalization (bodies pending outside the island passes:
+        // snapshot loads, user sleeps). Registered each pass by the scene; the device sleep
+        // transition applies it before an issue-time stress submit.
+        virtual void registerDestructionSleepFinalizer(bool (*)(void*), void*) {}
         // Island-scoped correction: rigid nodes whose islands hold no correction
         // target and stay at their trial result for the corrected pass.
         virtual const PxU32* destructionParkedNodes(PxU32& count) const { count=0; return NULL; }

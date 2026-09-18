@@ -535,6 +535,8 @@ class PxProfilerCallback;
         const PxU32* destructionFrozenStaticEdges(PxU32& count) const { count=mDestructionFrozenStaticEdges.size(); return mDestructionFrozenStaticEdges.begin(); }
         const PxArray<PxNodeIndex>* destructionFilteredActiveNodes(const IG::IslandSim& islandSim);
         void noteDestructionSleepFinalized(PxU32 gpuIndex) override { mDestructionFinalizedSince.pushBack(gpuIndex); }
+        void registerDestructionSleepFinalizer(bool (*fn)(void*), void* user) override { mDestructionSleepFinalizer=fn; mDestructionSleepFinalizerUser=user; }
+        bool (*mDestructionSleepFinalizer)(void*)=NULL; void* mDestructionSleepFinalizerUser=NULL;
         PxArray<PxU32> mDestructionFinalizedSince;PxArray<void*> mDestructionPrevFreshObjects;PxArray<PxU32> mDestructionCarried;
         void discardDestructionTrialBodyUpload(PxU32 id) override {
             if(id<mBodySimManager.mBodies.size() && mBodySimManager.mBodies[id]) {

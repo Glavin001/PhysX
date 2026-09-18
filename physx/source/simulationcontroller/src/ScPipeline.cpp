@@ -2947,9 +2947,20 @@ void Sc::Scene::postThirdPassIslandGen(PxBaseTask* /*continuation*/)
     // Both passes: the corrected pass's acceptance and stress chain are
     // enqueued the same way (the controller performs the acceptance first).
     if(!(mPublicFlags & PxSceneFlag::eENABLE_DIRECT_GPU_API)
-        && mSimulationController->usesDeviceDestructionContactInputs())
+        && mSimulationController->usesDeviceDestructionContactInputs()) {
+        mSimulationController->registerDestructionSleepFinalizer(&Scene::destructionPendingSleepFinalize, this);
         mSimulationController->submitDestructionEarly(mDt, mGravity, &Scene::destructionEarlySleepCommit, this);
+    }
 #endif
+}
+
+// Pending-only finalization for the device sleep transition: bodies pending outside
+// the island passes (snapshot loads, user sleeps) are zeroed/rolled back before an
+// issue-time stress submit, as the arm-time commit did before the loads.
+bool Sc::Scene::destructionPendingSleepFinalize(void* user)
+{
+    Scene* scene=static_cast<Scene*>(user);
+    return scene->finalizeGpuSleep();
 }
 
 bool Sc::Scene::destructionEarlySleepCommit(void* user)
