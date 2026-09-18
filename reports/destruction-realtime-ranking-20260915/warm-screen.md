@@ -2327,3 +2327,25 @@ neutral: A (one thread) 20.30/20.12/20.24 ms, B (chunks) 20.39/20.27/20.43; late
 56,077 in all six. The corrected pass start is device-bound (eager refactor and the corrected broad phase), so the CPU
 restore only overlaps a wait that reappears in `broadPhaseWait`. Patch kept at
 `out/direct-factor-feasibility-20260915/restore-tasks-neutral.patch`; code reverted.
+
+### Requalification 18c (2026-09-18): capture-task default
+
+Nine-window warm screen (`results-18c-v4`, contract v4, probes relinked, both GPU modules refreshed in the B arm's
+artifacts — the first attempt, 18b, ran a stale `libPhysXGpuActivity_64.so` copy and every B job segfaulted; the
+requalification script now copies both modules): all nine pass, force/health signatures identical to 18a.
+Native tests 8/8.
+
+| window | A0 | B | A1 | B max | B check |
+|---|---:|---:|---:|---:|---|
+| city25-impact | 24.36 | 14.13 | 24.16 | 27.00 | passed |
+| city256-cascade | 113.09 | 53.28 | 110.07 | 87.27 | passed |
+| city256-debris | 130.49 | 60.09 | 127.89 | 64.13 | passed |
+| city256-impact | 93.58 | 56.60 | 92.47 | 158.79 | passed |
+| city256-idle | 1.71 | 1.66 | 1.79 | 2.25 | passed |
+| bridge64 / chain256 / dense12 / tower64 | 1.5–1.7 | 1.3–1.7 | 1.4–1.6 | ≤2.1 | passed |
+
+Versus 18a (cascade 55.9, impact 57.5, debris 62.2, city25 13.6, idle 1.94): cascade −2.6, impact −0.9, debris −2.1.
+
+Measurement note: the demo's phase profiler inflates the g16 impact tick from 93–98 ms (unprofiled runs) to 105–121 ms,
+mostly through the four per-shape `migrateDetail.*` zones (5,492 shapes × 4 zones); those zones are now gated behind
+`PHYSX_DESTRUCTION_PROFILE_FINE=1` so `--profile-phases 1` attributes the impact tick honestly.

@@ -27,6 +27,7 @@
 // Copyright (c) 2001-2004 NovodeX AG. All rights reserved.  
 
 #include "NpShapeManager.h"
+#include <cstdlib>
 #include "foundation/PxProfiler.h"
 #include "NpPtrTableStorageManager.h"
 #include "NpRigidDynamic.h"
@@ -229,7 +230,8 @@ bool NpShapeManager::rebindShapeInternal(PxRigidActor& from, PxRigidActor& to, P
         b.mShapes.replaceWithLast(targetIndex, storage);
         return false;
     }
-    PxProfileScoped query(nativeTransaction?PxGetProfilerCallback():NULL,
+    static const bool fineProfile=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_PROFILE_FINE");return raw && raw[0]=='1';}();
+    PxProfileScoped query((nativeTransaction && fineProfile)?PxGetProfilerCallback():NULL,
         "GpuDestruction.migrateDetail.queryMirror",false,PxU64(reinterpret_cast<size_t>(scene)));
     if (isSceneQuery(s)) {
         if(nativeTransaction) {

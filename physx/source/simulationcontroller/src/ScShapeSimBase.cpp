@@ -25,6 +25,7 @@
 // Copyright (c) 2008-2026 NVIDIA Corporation. All rights reserved.
 
 #include "ScShapeSimBase.h"
+#include <cstdlib>
 #include "ScSqBoundsManager.h"
 #include "ScTriggerInteraction.h"
 #include "ScSimulationController.h"
@@ -102,7 +103,10 @@ bool ShapeSimBase::rebindRigidOwner(RigidSim& owner, const PxTransform& shapeToA
     BodySim& body = static_cast<BodySim&>(owner);
     const Bp::FilterGroup::Enum group = deviceOwnerTransaction ? Bp::FilterGroup::eINVALID
         : Bp::getFilterGroup(false, owner.getActorID(), body.isKinematic() && !body.hasForcedKinematicNotif());
-    PxProfilerCallback* profiler=deviceOwnerTransaction?PxGetProfilerCallback():NULL;
+    // Per-shape zones (four per migrated shape) cost ~2-4 us each under the demo's phase
+    // profiler and inflate an impact tick by >10 ms; opt in with PHYSX_DESTRUCTION_PROFILE_FINE=1.
+    static const bool fineProfile=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_PROFILE_FINE");return raw && raw[0]=='1';}();
+    PxProfilerCallback* profiler=(deviceOwnerTransaction && fineProfile)?PxGetProfilerCallback():NULL;
     const PxU64 profileContext=PxU64(reinterpret_cast<size_t>(&scene));
     {
         PxProfileScoped profile(profiler,"GpuDestruction.migrateDetail.refilter",false,profileContext);
