@@ -2322,5 +2322,8 @@ The corrected pass's activity restore (1.25 ms serial on the late window, 2.4 ms
 chunks for bodies that stayed active in Sc and both island sims (per-body fields, readiness deltas) with a serial
 finish task (activations, woken marks, notifications, corrected-pass setup). Lossless (56,077 in all six runs) but
 neutral: A (one thread) 20.30/20.12/20.24 ms, B (chunks) 20.39/20.27/20.43; late 32.62/32.41/32.79 vs
-32.45/32.40/32.80. INVALID: both arms ran the stale SDK (see the build note above); re-measured below. Patch kept at
-`out/direct-factor-feasibility-20260915/restore-tasks-neutral.patch`.
+32.45/32.40/32.80 (that first run compared stale binaries). Re-measured on the rebuilt SDK (object 01:31): A (one thread)
+20.38/20.15/20.01 ms, B (chunks) 20.11/20.20/20.21; late 32.51/32.35/32.18 vs 31.92/32.13/32.48 — neutral, identity
+56,077 in all six. The corrected pass start is device-bound (eager refactor and the corrected broad phase), so the CPU
+restore only overlaps a wait that reappears in `broadPhaseWait`. Patch kept at
+`out/direct-factor-feasibility-20260915/restore-tasks-neutral.patch`; code reverted.
