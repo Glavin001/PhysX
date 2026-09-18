@@ -113,7 +113,7 @@ struct NativeDirectView {
     // Dense direct step for components below minNodes with at most kDenseTinyMaxNodes nodes (default off, measured slower).
     unsigned denseTiny = 0;
 };
-constexpr unsigned kDirectCounterCount = 28u; // [24] Woodbury build failed (slot invalidated) [25] big refactor on a never-built slot (generation 0) [26] big refactor on an invalidated slot [27] unused // [20] inherit: valid slots visited [21] transferred [22] table overflow [23] largest child kept the id // [16] refactor: no valid factor (new slot) [17] stale but too many removed bonds [18] stale but pin changed [19] stale, other (no buffer / Woodbury failed) // [12..14] full refactors by present-node count (<=64, <=256, >256), [15] their present nodes summed // [9] Woodbury builds [10] Woodbury applications [11] dense tiny applications
+constexpr unsigned kDirectCounterCount = 32u; // [27] partial-refactor gate: affected columns [28] present columns [29] affected blocks [30] present blocks (elimination-tree closure of changed columns, diagnostics only) // [24] Woodbury build failed (slot invalidated) [25] big refactor on a never-built slot (generation 0) [26] big refactor on an invalidated slot [27] unused // [20] inherit: valid slots visited [21] transferred [22] table overflow [23] largest child kept the id // [16] refactor: no valid factor (new slot) [17] stale but too many removed bonds [18] stale but pin changed [19] stale, other (no buffer / Woodbury failed) // [12..14] full refactors by present-node count (<=64, <=256, >256), [15] their present nodes summed // [9] Woodbury builds [10] Woodbury applications [11] dense tiny applications
 struct NativeDirectOperator {
     const unsigned *node0, *node1, *nodeBondBegin, *nodeBondRef, *nodeIsland;
     const Vec4 *offset0, *offset1;
@@ -467,6 +467,47 @@ __global__ void __launch_bounds__(kBlockSize, BLAST_GPU_FACTOR_MIN_BLOCKS) facto
                 if (i < P.nodes && op.nodeIsland[P.order[i]] == id && P.order[i] != pinned) bits |= 1u << bit;
             }
             presentMask[wd] = bits;
+        }
+        if (v.diagnostics && v.counters && v.slots.slotPresent) {
+            // Partial-refactorization gate (diagnostic): columns whose node departed since
+            // the last factor or has a bond that is no longer alive, closed over the
+            // elimination-tree parents (first off-diagonal row of each column, rows sorted).
+            __shared__ unsigned changedMask[kWoodburyPresentWords];
+            __syncthreads();
+            for (unsigned wd = threadIdx.x; wd < kWoodburyPresentWords; wd += blockDim.x) changedMask[wd] = 0u;
+            __syncthreads();
+            const unsigned* wasPresent = v.slots.slotPresent + size_t(s) * kWoodburyPresentWords;
+            for (unsigned j = threadIdx.x; j < P.nodes; j += blockDim.x) {
+                const unsigned jnode = P.order[j];
+                const bool now = woodburyPresent(presentMask, j), was = woodburyPresent(wasPresent, j);
+                bool mark = now != was;
+                if (!mark && now) {
+                    for (unsigned r = op.nodeBondBegin[jnode]; r < op.nodeBondBegin[jnode + 1] && !mark; ++r) {
+                        const unsigned ref = op.nodeBondRef[r];
+                        if (ref == kDeadBondRef) { mark = true; break; }
+                        const unsigned edge = ref & 0x7fffffffu;
+                        if (op.health[edge] > 0.f) continue;
+                        const unsigned other = ((ref >> 31) != 0u) ? op.node0[edge] : op.node1[edge];
+                        if (v.pattern.nodeParent[other] == p) mark = true;
+                    }
+                }
+                if (mark) atomicOr(&changedMask[j >> 5], 1u << (j & 31u));
+            }
+            __syncthreads();
+            if (!threadIdx.x) {
+                unsigned affCols = 0, totCols = 0, affBlocks = 0, totBlocks = 0;
+                for (unsigned e = 0; e < P.nodes; ++e) {
+                    const unsigned j = P.levelCols[e], p0 = P.colPtr[j], p1 = P.colPtr[j + 1];
+                    if (!woodburyPresent(presentMask, j)) continue;
+                    ++totCols; totBlocks += p1 - p0;
+                    if (!woodburyPresent(changedMask, j)) continue;
+                    ++affCols; affBlocks += p1 - p0;
+                    if (p1 > p0 + 1u) { const unsigned parent = P.rowIdx[p0 + 1u]; changedMask[parent >> 5] |= 1u << (parent & 31u); }
+                }
+                atomicAdd(v.counters + 27, affCols); atomicAdd(v.counters + 28, totCols);
+                atomicAdd(v.counters + 29, affBlocks); atomicAdd(v.counters + 30, totBlocks);
+            }
+            __syncthreads();
         }
         __syncthreads();
         // Stale factor with few removed bonds and the same pinning: Woodbury

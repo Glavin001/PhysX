@@ -2428,3 +2428,14 @@ tail columns still apply their right-looking rank-6 updates into affected later 
 the sums round identically). Needs a per-slot alive-bond bitmask at factor time (the Woodbury list is capped at 16).
 Gate before building it: the affected-column and affected-block fraction of the 256 impact factors, measured in the
 kernel (next diagnostic). If the affected share is above ~70 % the item is closed.
+
+### Closing note (2026-09-18): partial-refactor gate diagnostic added, measurement not taken
+
+The factor kernel now accumulates, under `BLAST_GPU_NATIVE_DIRECT_DIAG=1`, the elimination-tree closure of the
+changed columns per refactor (`partialGate=cols affected/present blocks affected/present` in the per-solve line;
+counters [27..30]). The first run used a runtime built before the change (the stressgpu objects the demo loads are
+compiled in `out/sdk-release`, not `out/destruction-sdk`); the rebuild was stopped when the owner ended the
+optimization work. To take the measurement: build `out/sdk-release` then `out/destruction-sdk`, run the g16
+bombardment with the diag, and read the second refactoring line (`refactored=256`). If the affected share is under
+~70 %, the partial refactorization (design in the previous section: mark changed columns, close over parents,
+recompute only those with the original gather order, zero departed rows in unchanged columns) is worth building.
