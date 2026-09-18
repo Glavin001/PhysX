@@ -2212,3 +2212,21 @@ Remaining plan items and their nature: R2 step 6 (skip island insertion and mana
 at the impact tick) is order-changing and worth at most ~7 ms of a ~97 ms impact tick; step 7 (device retained-edge
 deltas) replaces well under 0.5 ms of host staging; R5 beyond mode 6 is multi-week and mode 6 itself awaits the
 owner's decision (+4.6 % bonds under the ensemble, −1.2 ms mean, −2.5 ms late window).
+
+### R2 steps 6 and 7 sized against the mode-9 profile (2026-09-18)
+
+Step 7 (device retained-edge deltas replacing the host walk in `buildDestructionContactGraph`): the walk
+(`contactGraph.retainedUpdates`) costs 0.07 ms per tick in the late window; the graph submit 0.36 and the
+component observation 2.0 (the latter mostly the wait for the graph behind the early stress chain, not host
+work). No timing value; structural value only for a device-owned edge lifecycle.
+
+Step 6 (skip island insertion, manager registration and handle preallocation for native pairs): at the 256-impact
+tick those scopes are 4.6 + 1.7 (+ manager registration) ms and run in parallel with the interaction registration
+the step keeps, so the wall-time prize is ≤5 ms of a ~97 ms peak. More importantly, it is not implementable as
+described: without the CPU edge insertion, islands no longer merge through native contacts (the device-owned
+connectivity only provides splits and sleep components), which changes sleeping semantics rather than reordering
+work. It requires device-owned island membership first, i.e. the R2 core.
+
+Remaining plan items after this session: the R2 core (device-owned island membership → steps 6/7, found-pair
+creation and shape migration on the impact tick), R5 CPU-level scoping beyond mode 6, and the owner's decision on
+mode 6.
