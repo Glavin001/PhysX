@@ -2122,3 +2122,36 @@ modes (sanitizer: illegal write in `updateTransformCacheAndBoundArrayLaunch`); a
 and failed only city256-cascade-B with pinned host memory exhaustion in its second scene lifetime. The controller's
 transition buffer and events were not released on scene destruction; fixed, standalone cascade re-run and `17h3`
 below.
+
+### Warm screen `results-17h3-v4` of the mode-9 build (`04452fb3`) and the decision to keep mode 9 opt-in
+
+With relinked probes and the graph rebuild at the solver issue removed (it raced `removeLostPairs`, which the
+lost-contacts task runs concurrently with the solver, and broke the cascade window's repeatability), the screen
+passes eight of nine windows with the best city figures of the campaign, but fails the late-debris window's
+physical contract:
+
+| window | A0 / B / A1 mean | B max | misses A0/B/A1 | B check |
+|---|---:|---:|---:|---|
+| city256 cascade | 110.4 / 55.6 / 113.5 ms | 101.2 | 16/16/16 | passed (signature identical) |
+| city256 impact | 93.5 / 54.5 / 94.5 | 136.8 | 16/16/16 | passed (signature identical) |
+| city256 debris | 132.7 / 62.6 / 131.4 | 66.7 | 16/16/16 | **failed**: force relL2 4.1e-01, health drift 1.0 |
+| city25 impact | 24.8 / 14.3 / 24.6 | 33.7 | 10/4/10 | passed |
+| city256 idle | 4.83 / 1.87 / 1.64 | 2.46 | 0/0/0 | passed |
+| bridge64, chain256, dense12, tower64 | 1.3–1.8 / 1.4–1.7 / 1.7–1.9 | ≤2.2 | 0 | passed |
+
+The debris window (snapshot-179 of the capture-16 bombardment, 8 warm-up ticks: ~17k clusters, thousands of sleep
+transitions per pass) produces different physics under mode 9 (a maximal health drift means a different fracture
+history within the window), while the g16 bombardment (8 identical runs), the cascade and the impact windows are
+bit-identical. Mode 9 is therefore reverted to opt-in (`PHYSX_DESTRUCTION_DEVICE_SLEEP=9`; default 0) and the
+debris window is its reproduction case:
+
+```
+out/warm-replay-20260915/plain/serialization-probe <out> --replay out/snapshot-large-20260911/capture-16-bombardment/native/snapshot-179 --repetitions 2 --warmup-ticks 8 --measure-ticks 8
+```
+
+Next step for the lead: run that window with `PHYSX_DESTRUCTION_DEVICE_SLEEP=8` (audit) and with the mode-9
+apply-list audit to find the first pass where the device transition set or the submit inputs differ from the CPU
+path at debris scale (candidates: apply-list capacity with thousands of transitions per pass, the readiness mirror's
+delta overflow reseed path, and passes without a repair graph falling back mid-tick). Measured value of mode 9
+where it is exact: g16 −0.6 ms mean / −1.1 ms late window; continuous 600-tick heavy 19.3 → 18.2 ms (`20260917h2`);
+cascade 56.8 → 55.6, impact 59.2 → 54.5, city25 14.1 → 14.3 (warm 17g → 17h3).

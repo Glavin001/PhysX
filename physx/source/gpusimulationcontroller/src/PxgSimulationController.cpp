@@ -775,13 +775,14 @@ const PxArray<PxNodeIndex>* PxgSimulationController::destructionFilteredActiveNo
     bool PxgSimulationController::usesGpuDestructionIslandRepair() const {
         return usesDeviceDestructionContactInputs() && mDestruction->gpuIslandRepairEnabled();
     }
-    // PHYSX_DESTRUCTION_DEVICE_SLEEP: 0 = CPU early sleep commit at the arm (previous
-    // default); 8 = audit of the device sleep reduction; 9 (default) = device-driven
-    // sleep transition and stress submit at the solver issue (README §14). Mode 9 is
-    // lossless (identical histories, g16) and falls back to the CPU commit and the
-    // ordinary submit on passes where the device enqueue cannot run.
+    // PHYSX_DESTRUCTION_DEVICE_SLEEP: 0 (default) = CPU early sleep commit at the arm;
+    // 8 = audit of the device sleep reduction; 9 = device-driven sleep transition and
+    // stress submit at the solver issue (README §14). Mode 9 is identical to 0 on the
+    // g16 bombardment and the warm impact/cascade windows but fails the physical
+    // contract in the city256 late-debris window (warm screen 17h3: force relL2 0.41,
+    // health drift 1.0), so it stays opt-in until that divergence is found.
     static int destructionDeviceSleepMode() {
-        static const int mode=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_DEVICE_SLEEP");return raw?std::atoi(raw):9;}();
+        static const int mode=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_DEVICE_SLEEP");return raw?std::atoi(raw):0;}();
         return mode;
     }
     // Mode 9 isolation knobs: keep the CPU rollback commit too (double application),
