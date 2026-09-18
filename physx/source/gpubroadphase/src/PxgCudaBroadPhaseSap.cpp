@@ -58,6 +58,8 @@
 #include "cudamanager/PxCudaContextManager.h"
 
 #include "PxgKernelLauncher.h"
+#include <cstdlib>
+#include <cstdio>
 
 // PT: TODO:
 // - most of these functions don't need to be member functions
@@ -938,6 +940,20 @@ void PxgCudaBroadPhaseSap::performIncrementalSapKernel()
 		_launch<GPU_BP_DEBUG>(PROLOG, PxgKernelIds::BP_COMPUTE_INCREMENTAL_CMP_COUNTS1, PxgBPKernelGridDim::BP_COMPUTE_INCREMENTAL_CMP_COUNTS1, 1, 1, PxgBPKernelBlockDim::BP_COMPUTE_INCREMENTAL_CMP_COUNTS1, 1, 1, 0, EPILOG);
 		_launch<GPU_BP_DEBUG>(PROLOG, PxgKernelIds::BP_COMPUTE_INCREMENTAL_CMP_COUNTS2, PxgBPKernelGridDim::BP_COMPUTE_INCREMENTAL_CMP_COUNTS2, 1, 1, PxgBPKernelBlockDim::BP_COMPUTE_INCREMENTAL_CMP_COUNTS2, 1, 1, 0, EPILOG);
 		_launch<GPU_BP_DEBUG>(PROLOG, PxgKernelIds::BP_INCREMENTAL_SAP, PxgBPKernelGridDim::BP_INCREMENTAL_SAP, 3, 1, PxgBPKernelBlockDim::BP_INCREMENTAL_SAP, 1, 1, 0, EPILOG);
+		// PHYSX_BP_SAP_DIAG=1: per launch, the incremental SAP's comparison totals per axis
+		// (its work) with the handle counts and the launch's wall time (stream-synchronous).
+		static const bool sapDiag = []{ const char* raw = ::getenv("PHYSX_BP_SAP_DIAG"); return raw && raw[0] == '1'; }();
+		if(sapDiag)
+		{
+			static PxU32 launches = 0; ++launches;
+			mCudaContext->streamSynchronize(mStream);
+			PxgBroadPhaseDesc desc; mCudaContext->memcpyDtoH(&desc, bpDescd, sizeof(desc));
+			const PxU64 cmp = PxU64(desc.totalIncrementalComparisons[0]) + desc.totalIncrementalComparisons[1] + desc.totalIncrementalComparisons[2];
+			if(cmp > 200000u || (launches % 64u) == 0)
+				fprintf(stderr, "[bp-sap] launch %u boxes %u created %u removed %u updated %u comparisons %llu (%u/%u/%u)\n", launches, mNumOfBoxes,
+					mUpdateData_CreatedHandleSize, mUpdateData_RemovedHandleSize, mUpdateData_UpdatedHandleSize, (unsigned long long)cmp,
+					desc.totalIncrementalComparisons[0], desc.totalIncrementalComparisons[1], desc.totalIncrementalComparisons[2]);
+		}
 	}
 }
 

@@ -2362,3 +2362,20 @@ Honest impact tick (`--profile-phases 1` without the fine zones, step 82 = 94.4 
 pipeline (prealloc 1.3, register 4.4, stage 2 1.8, island insertion 4.2, narrowphase ~7, post-NP 2.7,
 `setEdgesConnected` 6.0 = wakeIslands + processNewEdges), dynamics ~4, contact graph 1.4 + submit 1.8, corrected GPU
 wait 2.6 + finish 3.1, publication 4.3.
+
+### Impact-tick device timeline (nsys, 2026-09-18) and the incremental SAP's work
+
+`out/direct-factor-feasibility-20260915/nsys-impact.sqlite` (g16 bombardment, cuda trace). Around the impact tick the
+device is busy 61.6 of 120 ms; the two long items are one `performIncrementalSAP` launch of 12.2 ms (the corrected
+pass's broad phase; the trial pass of the same tick is cheap) and the fresh-factor burst `factorNativeDirect` of
+22.0 ms (grid 288 = 36 SMs × 8 CTAs, list-driven) that the narrowphase kernels queue behind (`boxBoxNphase` runs only
+after the burst ends; the impact refactor list is the 256 impacted buildings plus every fragment component with ≥8
+nodes). Sustained ticks: SAP ≤ 1.8 ms, refactor 5.3 ms per launch overlapped.
+
+`PHYSX_BP_SAP_DIAG=1` (new, in `PxgCudaBroadPhaseSap::performIncrementalSapKernel`, stream-synchronous readback of the
+descriptor) prints the SAP's comparison totals per axis. On the g16 run the launches after the impact do 7–80 M
+comparisons each with no created/removed handles, and the Y axis carries 85–90 % of them (e.g. 79.9 M =
+7.7 M / 70.5 M / 1.7 M): falling fragments' Y projections cross the densely stacked endpoints of the intact
+buildings' chunks every tick. The SAP cost after an impact is therefore the incremental sort work along the
+vertical axis, not handle churn; the levers are the broad-phase algorithm/axis choice (application-level) rather
+than the destruction pipeline. Not pursued further in this session.
