@@ -101,7 +101,13 @@ bool ShapeSimBase::rebindRigidOwner(RigidSim& owner, const PxTransform& shapeToA
     if (&owner.getScene() != &scene || !isInBroadPhase() || !owner.isDynamicRigid()
         || owner.getActorType() != PxActorType::eRIGID_DYNAMIC) return false;
     BodySim& body = static_cast<BodySim&>(owner);
-    const Bp::FilterGroup::Enum group = deviceOwnerTransaction ? Bp::FilterGroup::eINVALID
+    // Migrated shapes take the host refilter path (group update + host refilter map, which re-reports
+    // overlaps that already existed). The device-owner refilter (PHYSX_DESTRUCTION_HOST_REFILTER=0 restores
+    // it) never created the pairs between a migrated chunk and its former neighbours, so fragments fell
+    // through their parent structure (2026-09-18, warm-screen.md "Bugs found through the demo videos").
+    static const bool hostRefilter=[]{const char* raw=::getenv("PHYSX_DESTRUCTION_HOST_REFILTER");return !raw || raw[0]!='0';}();
+    const bool deviceRefilter = deviceOwnerTransaction && !hostRefilter;
+    const Bp::FilterGroup::Enum group = deviceRefilter ? Bp::FilterGroup::eINVALID
         : Bp::getFilterGroup(false, owner.getActorID(), body.isKinematic() && !body.hasForcedKinematicNotif());
     // Per-shape zones (four per migrated shape) cost ~2-4 us each under the demo's phase
     // profiler and inflate an impact tick by >10 ms; opt in with PHYSX_DESTRUCTION_PROFILE_FINE=1.
@@ -110,7 +116,7 @@ bool ShapeSimBase::rebindRigidOwner(RigidSim& owner, const PxTransform& shapeToA
     const PxU64 profileContext=PxU64(reinterpret_cast<size_t>(&scene));
     {
         PxProfileScoped profile(profiler,"GpuDestruction.migrateDetail.refilter",false,profileContext);
-        if (!scene.getAABBManager()->refilterBounds(getElementID(), group, deviceOwnerTransaction)) return false;
+        if (!scene.getAABBManager()->refilterBounds(getElementID(), group, deviceRefilter)) return false;
     }
     // Native transactions already own resident GPU motion and bounds, including
     // ordinary API mode. Their new CPU compatibility body has no fitted pose

@@ -2507,3 +2507,59 @@ Two findings for the engine, not the videos:
   (`INCOMPLETE native step 88: stage=4136`, 201 bonds broken in one tick, `PxgSimulationController.cpp:1774`). Not
   investigated; recorded here as a known defect. The default bridge (strength 24–100) fractures under its own
   weight before the shot arrives and the demo aborts on that check, hence strength 300.
+
+## Bugs found through the demo videos (2026-09-18)
+
+### 1. Fragments fall through their parent structure (interpenetration)
+
+Owner report: in `building-strong` the broken chunks fall through other chunks. Measured with a new demo audit
+(`--audit-penetration 1`: chunk pairs whose centres are closer than 0.9 m overlap for any orientation; chunks of one
+rigid cluster never are, 1 m pitch): on the 1-building strength-100 bombardment, interpenetration starts 9 ticks after
+the impact, 22–23 chunk pairs per tick, worst overlap growing linearly to a full cube (0.96 m), for the rest of the run.
+Every flagged pair is a fragment chunk directly above the parent chunk it was bonded to (same x, z; y + 1): fragments
+sink straight down their former bond.
+
+Bisection (all identical: 4,141 pairs, first at tick 91): device sleep transition off, pair preservation off, the
+direct-GPU scene path (`--standard-scene 0`), body pool, compacted mirror off, kernel copies off, no-op transaction
+skip off, late flush off, speculative topology off, stream priority 0. Contact offset 0.1 m makes it worse (starts
+at tick 84). Contact reports (`--log-contacts 1`): the parent body has ~10 actor pairs per tick while 44 fragments
+surround it; a shape-pair trace (`--trace-pair 320,372`) of a sinking pair never fires (no touch found/persists
+event, ever) → the pair is never created in the broad phase / narrowphase. Motion audit passes (max position error
+6e-6 m) → not a transform mismatch. So: the collision pair between a migrated chunk and its former neighbour in the
+parent is never generated; pairs with other bodies (ground, projectiles, other fragments that move into contact) are.
+Root cause and fix: the device-owner refilter path (`refilterBounds(..., deviceOwnerTransaction=true)`, which leaves
+the host groups and the host refilter map untouched and relies on the device ownership view for the corrected pass's
+insertion pass) never created those pairs. Routing migrated shapes through the host refilter path instead
+(`ShapeSimBase::rebindRigidOwner`, now the default; `PHYSX_DESTRUCTION_HOST_REFILTER=0` restores the device path):
+
+| | old (device refilter) | fixed (host refilter) |
+|---|---:|---:|
+| 1 building, strength 100: interpenetrating pair-ticks | 4,216 (150 ticks, worst 0.96 m) | 0 |
+| traced pair 320/372 | never paired | touch found at tick 83, persists |
+| parent contact pairs / other pairs per tick | 9–10 / 10 | 23 / 55–70 |
+| g16 city bombardment: pair-ticks | 76,885 (93 ticks, worst 0.96 m) | 511 (26 impact ticks, worst 0.42 m, recovering) |
+| g16 bonds (deterministic, two runs) | 56,077 | 56,735 |
+| g16 mean / late / peak ms | 19.2 / 30.3 / 93 | 19.9–20.5 / 30.5–31.1 / 94–95 |
+
+The remaining city-scale interpenetration is transient impact compression (18 t projectiles into 1 t chunks) that the
+solver recovers from within the impact ticks. Every physics history changes with this fix (fragments now rest on and
+push against their parent), so all earlier identity signatures (56,077 on g16) are superseded by 56,735; timing moves
+by about +0.5 ms per tick for the extra, correct contacts. The videos are re-recorded with the fix.
+
+### 2. Tall tower on the direct solver
+
+`kResidentComponentMaxNodes` 1024 → 4096 and `kDirectMaxBlocks` 16,384 → 262,144 (slots are budget-bound, 2 GB
+default): the 64-storey tower (2,304 nodes, 45,654 blocks, 350 levels, 333-level narrow tail) now has a direct
+pattern. Anchored remnant (strength 24, tower stands): late window 46 → 8.8 ms/tick, 4 iterations, Woodbury updates.
+Free remnant (strength 8, tower topples): 96–125 ms/tick; the stale factor of the intact tower only halves the residual
+per application (`direct attempt` diagnostic), six refinement attempts (`BLAST_GPU_NATIVE_DIRECT_ATTEMPTS`, new knob,
+default 2) cut iterations 400 → 48 but each application of the 45k-block factor costs milliseconds and a refactor of
+the free remnant up to a second (max tick 1.1 s). A toppling free body carries no internal stress until it hits
+something; solving it every tick is the wrong treatment — open item (skip or defer stress solves of large free
+components between impacts, order-changing).
+
+### 3. Structures resting on the ground
+
+`cantilever64`, `bridge64`, `panel32` were authored with their bottom row at y = 0 (static stress benchmarks), so in the
+videos they lie on the ground and the "cantilever" is just blocks being knocked off. New `--structure-elevation H`
+lifts a structure by H metres (supports are fixed nodes, so it stays up); re-recordings pending.

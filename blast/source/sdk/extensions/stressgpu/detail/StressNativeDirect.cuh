@@ -112,6 +112,9 @@ struct NativeDirectView {
     unsigned pipeline = 1;
     // Dense direct step for components below minNodes with at most kDenseTinyMaxNodes nodes (default off, measured slower).
     unsigned denseTiny = 0;
+    // Refinement applications of a fresh factor per solve (each must reduce the true residual);
+    // BLAST_GPU_NATIVE_DIRECT_ATTEMPTS (default 2). Large free components need more (FP32 factor).
+    unsigned attempts = 2;
 };
 constexpr unsigned kDirectCounterCount = 32u; // [27] partial-refactor gate: affected columns [28] present columns [29] affected blocks [30] present blocks (elimination-tree closure of changed columns, diagnostics only) // [24] Woodbury build failed (slot invalidated) [25] big refactor on a never-built slot (generation 0) [26] big refactor on an invalidated slot [27] unused // [20] inherit: valid slots visited [21] transferred [22] table overflow [23] largest child kept the id // [16] refactor: no valid factor (new slot) [17] stale but too many removed bonds [18] stale but pin changed [19] stale, other (no buffer / Woodbury failed) // [12..14] full refactors by present-node count (<=64, <=256, >256), [15] their present nodes summed // [9] Woodbury builds [10] Woodbury applications [11] dense tiny applications
 struct NativeDirectOperator {

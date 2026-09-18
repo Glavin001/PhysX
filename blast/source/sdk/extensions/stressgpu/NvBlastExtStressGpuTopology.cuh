@@ -170,7 +170,7 @@ __global__ void deviceStressTiles(const unsigned* keys, unsigned count, const un
 
 // Workload specialization, not a device/backend fallback. Larger components
 // retain cooperative iteration; small components synchronize within one CTA.
-constexpr unsigned kResidentComponentMaxNodes = 1024u;
+constexpr unsigned kResidentComponentMaxNodes = 4096u; // 1024 until 2026-09-18: a 64-storey tower (2,368 nodes) fell back to PCG at 45-70 ms/tick
 __global__ void stressComponentSizeKeys(const unsigned* live,const unsigned* rangeBegin,const unsigned* rangeEnd,unsigned* keys,unsigned n){
     const unsigned id=blockIdx.x*blockDim.x+threadIdx.x;if(id>=n)return;
     keys[id]=live[id]?(rangeEnd[id]-rangeBegin[id]):0u;

@@ -162,7 +162,7 @@ __global__ void __launch_bounds__(kBlockSize, BLAST_GPU_SOLVE_MIN_BLOCKS) compon
             if(a.hierarchy.direct.counters && !threadIdx.x)atomicAdd(a.hierarchy.direct.counters,1u);
             // A stale factor (topology changed since it was built) is a
             // preconditioner rather than a solver: allow more refinement steps.
-            const unsigned attempts=(!dense && directSlotStale(a.hierarchy.direct,id))?kDirectStaleAttempts:2u;
+            const unsigned attempts=(!dense && directSlotStale(a.hierarchy.direct,id))?kDirectStaleAttempts:a.hierarchy.direct.attempts;
             float previous=INFINITY;
             // Every application must reduce the true residual norm; one that does
             // not (a stale factor of a much-changed operator) is undone, so the
@@ -187,6 +187,7 @@ __global__ void __launch_bounds__(kBlockSize, BLAST_GPU_SOLVE_MIN_BLOCKS) compon
                     }
                     break;
                 }
+                if(a.hierarchy.direct.diagnostics>=2u && count>=1024u && !threadIdx.x)printf("direct attempt: component=%u nodes=%u attempt=%u norm=%.3e target=%.3e\n",id,count,attempt,norm,a.m_deltaSquared[id]);
                 if(attempt && !(norm<previous)){
                     if(Tiny && dense)denseUndoTinyComponent(a,c.nodes+begin,count,id,directX);else directUndoNativeComponent(a,c.nodes+begin,id,directX);
                     for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)rebuildNativeResidualNode(a,c.nodes[begin+i]);

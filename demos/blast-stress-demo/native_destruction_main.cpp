@@ -27,6 +27,8 @@
 #include <filesystem>
 #include <fstream>
 #include <map>
+#include <unordered_map>
+#include <unordered_set>
 #include <set>
 #include <cstring>
 #include <stdexcept>
@@ -39,6 +41,24 @@
 using namespace physx;
 using namespace blast_demo;
 namespace {
+
+// --log-contacts 1: per-tick count of reported contact pairs that involve a structure's parent body
+// (and pairs among the other actors), to separate "no pair" from "no response" in penetration audits.
+struct ContactLog final : physx::PxSimulationEventCallback {
+    std::unordered_set<const physx::PxActor*> parents;unsigned parentPairs=0,otherPairs=0,parentPairsTotal=0;const physx::PxShape* traceA=nullptr;const physx::PxShape* traceB=nullptr;unsigned traceEvents=0;unsigned traceFlags=0;unsigned traceContacts=0;
+    void onConstraintBreak(physx::PxConstraintInfo*,physx::PxU32) override {}
+    void onWake(physx::PxActor**,physx::PxU32) override {}
+    void onSleep(physx::PxActor**,physx::PxU32) override {}
+    void onTrigger(physx::PxTriggerPair*,physx::PxU32) override {}
+    void onAdvance(const physx::PxRigidBody*const*,const physx::PxTransform*,physx::PxU32) override {}
+    void onContact(const physx::PxContactPairHeader& h,const physx::PxContactPair* pairs,physx::PxU32 n) override {
+        if(parents.count(h.actors[0]) || parents.count(h.actors[1])){++parentPairs;++parentPairsTotal;} else ++otherPairs;
+        if(traceA)for(physx::PxU32 i=0;i<n;++i){const auto& p=pairs[i];
+            if((p.shapes[0]==traceA && p.shapes[1]==traceB) || (p.shapes[0]==traceB && p.shapes[1]==traceA)){++traceEvents;traceFlags|=unsigned(p.events);traceContacts+=p.contactCount;}}
+    }
+    void resetTick(){parentPairs=0;otherPairs=0;traceEvents=0;traceFlags=0;traceContacts=0;}
+};
+
 void require(bool x,const char* why){if(!x)throw std::runtime_error(why);}
 void check(CUresult x){if(x!=CUDA_SUCCESS){const char* name=nullptr;cuGetErrorName(x,&name);throw std::runtime_error(name?name:"CUDA observation failed");}}
 template<class T> void read(std::vector<T>& out,const T* ptr,size_t count){out.resize(count);if(count)check(cuMemcpyDtoH(out.data(),CUdeviceptr(ptr),sizeof(T)*count));}
@@ -55,7 +75,7 @@ int run(int argc,char** argv){
     std::string geometryName="building";
     const auto initializationBegin=Clock::now();
     bool standardScene=true,standardSleeping=true,traceStress=false,sceneQueryShapes=true;
-    unsigned renderWidth=960,renderHeight=540;PxVec3 impactTarget(0);bool impactTargetSet=false;
+    unsigned renderWidth=960,renderHeight=540;bool auditPenetration=false,logContacts=false;unsigned tracePairA=~0u,tracePairB=~0u;float structureElevation=0,contactOffset=0;PxVec3 impactTarget(0);bool impactTargetSet=false;
     unsigned grid=3,waves=4,stressIterations=2048,recordFps=60,gpuTraceBufferMiB=512,stepLimit=0,reservePairs=~0u;bool profilePhases=false,recordState=false,preservePairs=false,auditMotion=false,gpuIslandRepair=false,auditIslands=false,preSolveIslands=false,preSolveContacts=false,preSolveSupport=false;float seconds=30;std::string output,statePath,motionPath,videoPath,gpuCamera="overview";bool gpuRender=false,profileGpu=false;std::string workload="bombardment";float launchSeconds=-1;unsigned freeBodies=0;bool deviceConnectivity=false,traceMotion=false,colorByCluster=false;float projectileMass=20000,materialStrength=1,frameStrength=1;std::string shotPath="aerial",layout="grid";
     for(int i=1;i<argc;++i){std::string flag=argv[i];require(i+1<argc,"missing option value");const char* value=argv[++i];
         if(flag=="--profile-gpu"){require(std::string(value)=="0" || std::string(value)=="1","--profile-gpu requires 0 or 1");profileGpu=std::string(value)=="1";}
@@ -88,6 +108,11 @@ int run(int argc,char** argv){
         else if(flag=="--record-fps"){recordFps=std::stoul(value);require(recordFps==30 || recordFps==60,"--record-fps requires 30 or 60");}
         else if(flag=="--gpu-render"){require(std::string(value)=="0" || std::string(value)=="1","--gpu-render requires 0 or 1");gpuRender=std::string(value)=="1";}
         else if(flag=="--gpu-video")videoPath=value;
+        else if(flag=="--trace-pair"){require(std::sscanf(value,"%u,%u",&tracePairA,&tracePairB)==2,"--trace-pair requires chunkA,chunkB");}
+        else if(flag=="--log-contacts"){require(std::string(value)=="0" || std::string(value)=="1","--log-contacts requires 0 or 1");logContacts=std::string(value)=="1";}
+        else if(flag=="--contact-offset"){contactOffset=std::stof(value);require(std::isfinite(contactOffset) && contactOffset>0 && contactOffset<=1,"--contact-offset requires 0..1 metres");}
+        else if(flag=="--structure-elevation"){structureElevation=std::stof(value);require(std::isfinite(structureElevation) && structureElevation>=0 && structureElevation<=200,"--structure-elevation requires 0..200 metres");}
+        else if(flag=="--audit-penetration"){require(std::string(value)=="0" || std::string(value)=="1","--audit-penetration requires 0 or 1");auditPenetration=std::string(value)=="1";}
         else if(flag=="--impact-target"){float x=0,y=0,z=0;require(std::sscanf(value,"%f,%f,%f",&x,&y,&z)==3,"--impact-target requires x,y,z (metres, relative to the structure origin)");impactTarget=PxVec3(x,y,z);impactTargetSet=true;}
         else if(flag=="--gpu-resolution"){const std::string v(value);const auto x=v.find('x');require(x!=std::string::npos,"--gpu-resolution requires WIDTHxHEIGHT");renderWidth=unsigned(std::atoi(v.substr(0,x).c_str()));renderHeight=unsigned(std::atoi(v.substr(x+1).c_str()));require(renderWidth>=320 && renderWidth<=3840 && renderHeight>=180 && renderHeight<=2160,"--gpu-resolution out of range");}
         else if(flag=="--gpu-camera"){gpuCamera=value;require(gpuCamera=="close" || gpuCamera=="overview" || gpuCamera=="diagnostic" || gpuCamera=="penetration" || gpuCamera=="mid" || gpuCamera=="structure","--gpu-camera requires close, overview, diagnostic or penetration");}
@@ -129,7 +154,8 @@ int run(int argc,char** argv){
     NativeGpuActivity gpuActivity(profileGpu?output:"",uint64_t(gpuTraceBufferMiB)*1024*1024);
     NativePhaseProfiler phaseProfiler(profilePhases?output+"/native.phases.csv":"");
     NativeGraphBoundaryAudit graphBoundaryAudit(auditIslands);
-    PhysXScene context(PhysicsMode::Gpu,true,capacity,nullptr,!standardScene,!standardScene || !standardSleeping,false,false,PxSolverType::eTGS,false,false);
+    ContactLog contactLog;
+    PhysXScene context(PhysicsMode::Gpu,true,capacity,logContacts?&contactLog:nullptr,!standardScene,!standardScene || !standardSleeping,false,false,PxSolverType::eTGS,false,logContacts);
     auto& physics=context.physics();auto& scene=context.scene();auto& cuda=*context.cudaContextManager();
     require(context.gpuActive(),"native GPU physics is required");
     setNativeGraphAudit(scene,auditIslands);graphBoundaryAudit.bind(scene);
@@ -146,14 +172,14 @@ int run(int argc,char** argv){
     std::vector<PxVec3> origins;
     for(unsigned building=0;building<buildings;++building){
         const PxVec3 origin=nativeBuildingOrigin(building,grid,layout=="impact-corridor");origins.push_back(origin);
-        auto* parent=physics.createRigidDynamic(PxTransform(origin));require(parent,"parent allocation failed");
+        auto* parent=physics.createRigidDynamic(PxTransform(origin));require(parent,"parent allocation failed");if(logContacts)contactLog.parents.insert(parent);
         parent->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC,true);parent->setLinearDamping(0);parent->setAngularDamping(0);
         std::map<std::tuple<int,int,int>,unsigned> ids;PxVec3 center(0);unsigned count=0;
         for(int y=0;y<geometry.ny;++y)for(int z=0;z<geometry.nz;++z)for(int x=0;x<geometry.nx;++x){
             if(!geometry.present(x,y,z))continue;
             const bool supported=geometry.supported(x,y,z);
-            const PxVec3 p(float(x)-float(geometry.nx-1)*.5f,float(y),float(z)-float(geometry.nz-1)*.5f);auto* shape=physics.createShape(PxBoxGeometry(half),context.material(),true);
-            require(shape,"chunk shape allocation failed");if(!sceneQueryShapes)shape->setFlag(PxShapeFlag::eSCENE_QUERY_SHAPE,false);shape->setLocalPose(PxTransform(p));require(parent->attachShape(*shape),"persistent chunk attachment failed");
+            const PxVec3 p(float(x)-float(geometry.nx-1)*.5f,float(y)+structureElevation,float(z)-float(geometry.nz-1)*.5f);auto* shape=physics.createShape(PxBoxGeometry(half),context.material(),true);
+            require(shape,"chunk shape allocation failed");if(!sceneQueryShapes)shape->setFlag(PxShapeFlag::eSCENE_QUERY_SHAPE,false);if(contactOffset>0)shape->setContactOffset(contactOffset);shape->setLocalPose(PxTransform(p));require(parent->attachShape(*shape),"persistent chunk attachment failed");
             const unsigned id=unsigned(chunks.size());ids[{x,y,z}]=id;chunks.push_back({p,shape,building});
             const bool frameMember=geometry.frame(x,y,z);
             nodes.push_back({p,supported?0.0f:massPerChunk,supported?0.0f:inertia,building,PX_INVALID_U32,8*half.x*half.y*half.z,(frameStrength>1 && frameMember)?1u:0u});
@@ -180,6 +206,7 @@ int run(int argc,char** argv){
     }
     scene.simulate(dt);require(scene.fetchResults(true),"native setup step failed");
     auto* destruction=scene.getDestructionScene();require(destruction,"native destruction unavailable");
+    if(logContacts && tracePairA<chunks.size() && tracePairB<chunks.size()){contactLog.traceA=chunks[tracePairA].shape;contactLog.traceB=chunks[tracePairB].shape;}
     for(unsigned i=0;i<chunks.size();++i)nodes[i].contactIndex=destruction->getShapeContactIndex(*chunks[i].shape);
     for(unsigned i=0;i<parents.size();++i)clusters[i].body=parents[i]->getGPUIndex();
     PxDestructionMaterial material;material.compressionElasticLimit=250000;material.compressionFatalLimit=500000;
@@ -239,7 +266,8 @@ int run(int argc,char** argv){
         motionTrace<<"step,chunk,root,slot,generation,body,cluster_chunks,supported,render_x,render_y,render_z,physics_x,physics_y,physics_z,com_x,com_y,com_z,vx,vy,vz,wx,wy,wz,origin_x,origin_y,origin_z,qx,qy,qz,qw,local_x,local_y,local_z,com_local_x,com_local_y,com_local_z,correction\n";
     }
     if(gpuRender)gpuConsumer.enableRenderer(renderWidth,renderHeight,gpuView,videoPath,recordFps);
-    const bool observePoses=recordState || auditMotion;
+    const bool observePoses=recordState || auditMotion || auditPenetration;
+    unsigned penetrationTicks=0,penetrationPairsTotal=0,penetrationFirstTick=~0u;float penetrationMax=0;
     unsigned long long poseReadbackBytes=0,motionTraceReadbackBytes=0;float maxComError=0;
     StateWriter writer;if(recordState)require(writer.open(statePath,recordFps,recordFrames,renderWidth,renderHeight,buildings,seconds,0,cameras),"state output failed");
     if(recordState)for(unsigned i=0;i<chunks.size();++i){VisualActor visual;visual.parameters=half;visual.part=chunks[i].building%4;require(writer.defineActor(i,visual),"chunk visual definition failed");}
@@ -278,7 +306,7 @@ int run(int argc,char** argv){
             auto launch=nativeBombardmentLaunch(origin,wave,12.5f);
             if(impactTargetSet){
                 // Authored aim point (metres, relative to the structure origin); same approach distance and flight time.
-                launch.target=origin+impactTarget;
+                launch.target=origin+impactTarget+PxVec3(0,structureElevation,0);
                 const PxVec3 directions[]={PxVec3(0,0,1),PxVec3(1,0,0),PxVec3(0,0,-1),PxVec3(-1,0,0)};
                 launch.position=launch.target-directions[wave%4]*48;launch.position.y=PxMax(launch.target.y+15.5f,24.0f);
                 launch.velocity=(launch.target-launch.position)/1.5f;launch.velocity.y+=.5f*9.81f*1.5f;
@@ -357,6 +385,23 @@ int run(int argc,char** argv){
             require(pose.isValid(),"invalid committed cluster motion");const auto chunkPose=pose*PxTransform(chunks[i].position);
             observedChunkTop=std::max(observedChunkTop,chunkPose.p.y+half.magnitude());poses.push_back({i,chunkPose,false});}
         for(unsigned i=0;i<shots.size();++i){require(shotPoses[i].isValid(),"nonfinite projectile motion");poses.push_back({shots[i].visual,shotPoses[i],false});}
+        if(auditPenetration){
+            // Interpenetration audit: two 0.96 m cubes whose centres are closer than 0.9 m overlap for any
+            // orientation (their inscribed spheres overlap), so this counts only definite interpenetration.
+            // Chunks of one rigid cluster sit on the 1 m pitch and are never closer than 0.96 m.
+            const float cell=1.0f,limit=.9f;std::unordered_map<long long,std::vector<unsigned>> grid;grid.reserve(chunks.size());
+            auto key=[&](const PxVec3& q){const long long gx=(long long)std::floor(q.x/cell),gy=(long long)std::floor(q.y/cell),gz=(long long)std::floor(q.z/cell);return (gx&0x1fffffLL)|((gy&0x1fffffLL)<<21)|((gz&0x1fffffLL)<<42);};
+            for(unsigned i=0;i<chunks.size();++i)grid[key(poses[i].pose.p)].push_back(i);
+            unsigned pairs=0;float worst=0;unsigned worstA=0,worstB=0;
+            for(unsigned i=0;i<chunks.size();++i){const PxVec3 a=poses[i].pose.p;
+                for(int dx=-1;dx<=1;++dx)for(int dy=-1;dy<=1;++dy)for(int dz=-1;dz<=1;++dz){
+                    auto it=grid.find(key(a+PxVec3(float(dx)*cell,float(dy)*cell,float(dz)*cell)));if(it==grid.end())continue;
+                    for(unsigned j:it->second){if(j<=i)continue;const float d=(poses[j].pose.p-a).magnitude();
+                        if(d<limit){++pairs;if(.96f-d>worst){worst=.96f-d;worstA=i;worstB=j;}}}}}
+            if(pairs){++penetrationTicks;penetrationPairsTotal+=pairs;penetrationMax=std::max(penetrationMax,worst);if(penetrationFirstTick==~0u)penetrationFirstTick=frame;
+                std::fprintf(stderr,"[penetration] step %u pairs %u worst %.3f m (chunks %u/%u, clusters %u/%u, awake %u)\n",frame,pairs,worst,worstA,worstB,membership[worstA],membership[worstB],unsigned(scene.getNbActors(PxActorTypeFlag::eRIGID_DYNAMIC)));}
+        }
+        if(logContacts){if(contactLog.parentPairs || contactLog.otherPairs)std::fprintf(stderr,"[contacts] step %u pairs with a parent body %u, other pairs %u\n",frame,contactLog.parentPairs,contactLog.otherPairs);if(contactLog.traceA && contactLog.traceEvents)std::fprintf(stderr,"[trace-pair] step %u events %u flags 0x%x contacts %u\n",frame,contactLog.traceEvents,contactLog.traceFlags,contactLog.traceContacts);contactLog.resetTick();}
           poseReadbackBytes+=chunks.size()*2*sizeof(PxU32)+view.acceptedTopology.slotCapacity*sizeof(PxDestructionClusterMotion)+shots.size()*sizeof(PxTransform);
         }
         if(auditMotion) {
@@ -436,6 +481,7 @@ int run(int argc,char** argv){
     writeNativeGraphDiagnostics(scene,output+"/native.graph-diagnostics.json");
     require(destruction->clearStress(),"native fragment cleanup failed");for(auto* parent:parents)parent->release();for(auto& shot:shots)shot.actor->release();for(auto& chunk:chunks)chunk.shape->release();for(auto* actor:freeActors)actor->release();
     require(context.healthy(),"native demo GPU health failed");
+    if(auditPenetration)std::fprintf(stderr,"[penetration] summary: ticks with interpenetration %u (first %u), pairs total %u, worst %.3f m\n",penetrationTicks,penetrationFirstTick,penetrationPairsTotal,penetrationMax);
     std::ofstream manifest(output+"/native.summary.json");
     manifest<<std::setprecision(17);
     // Separate authored provenance; recording is outside complete-step timing.
@@ -445,4 +491,5 @@ int run(int argc,char** argv){
     return 0;
 }
 }
+
 int main(int argc,char** argv){try{return run(argc,argv);}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}

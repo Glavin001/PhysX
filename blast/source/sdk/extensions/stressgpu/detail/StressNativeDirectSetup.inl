@@ -186,7 +186,7 @@
                 std::sort(col.begin() + 1, col.end());
                 blocks += unsigned(col.size());
             }
-            if (blocks > kDirectMaxBlocks) { for (unsigned i = 0; i < np; ++i) local[group[i]] = kNoIsland; continue; }
+            if (blocks > kDirectMaxBlocks) { if (std::getenv("BLAST_GPU_NATIVE_DIRECT_DIAG")) std::fprintf(stderr, "native direct: pattern skipped, nodes=%u blocks=%u > kDirectMaxBlocks=%u\n", np, blocks, kDirectMaxBlocks); for (unsigned i = 0; i < np; ++i) local[group[i]] = kNoIsland; continue; }
             // Row structures with positions in the owning column.
             std::vector<std::vector<std::pair<unsigned, unsigned>>> rows(np);
             std::vector<unsigned> columnBase(np + 1, 0);
@@ -203,7 +203,7 @@
             }
             // A chain-like elimination tree (depth close to the node count) makes
             // the level-synchronous solve slower than the iteration; leave it to PCG.
-            if (levels * 2u > np) { for (unsigned i = 0; i < np; ++i) local[group[i]] = kNoIsland; continue; }
+            if (levels * 2u > np) { if (std::getenv("BLAST_GPU_NATIVE_DIRECT_DIAG")) std::fprintf(stderr, "native direct: pattern skipped, nodes=%u levels=%u (chain-like)\n", np, levels); for (unsigned i = 0; i < np; ++i) local[group[i]] = kNoIsland; continue; }
             std::vector<unsigned> levelCount(levels + 1, 0);
             for (unsigned j = 0; j < np; ++j) ++levelCount[level[j] + 1];
             for (unsigned l = 0; l < levels; ++l) levelCount[l + 1] += levelCount[l];
@@ -288,6 +288,7 @@
         view.pattern.lateBwdPtr = directUpload(lateBwdPtr); view.pattern.lateBwdIdx = directUpload(lateBwdIdx); view.pattern.patternLateBwdBegin = directUpload(patternLateBwdBegin);
         view.denseTiny = nativeDirectDenseTiny() ? 1u : 0u;
         view.skipVerify = nativeDirectSkipVerify() ? 1u : 0u;
+        { const char* raw = std::getenv("BLAST_GPU_NATIVE_DIRECT_ATTEMPTS"); const long v = raw ? std::atol(raw) : 2L; view.attempts = unsigned(std::min(12L, std::max(1L, v))); }
         view.pipeline = nativeDirectPipeline() ? (std::getenv("BLAST_GPU_NATIVE_DIRECT_PIPELINE") ? unsigned(std::atoi(std::getenv("BLAST_GPU_NATIVE_DIRECT_PIPELINE"))) : 1u) : 0u;
         if (nativeDirectDiagInverse() && nativeDirectClusterSize() <= 1u) {
             unsigned maxNodes = 0;

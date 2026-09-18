@@ -807,7 +807,7 @@ using SolveStatus = ExtStressGpuDeviceStatus;
 /// Bonds/nodes that belong to no solvable island (static-static bonds, and
 /// static nodes, which are fixed boundaries carrying no coupling).
 static constexpr std::uint32_t kNoIsland = 0xFFFFFFFFu;
-static constexpr unsigned kDirectMaxBlocks = 16384u;
+static constexpr unsigned kDirectMaxBlocks = 262144u; // 16384 until 2026-09-18: a 64-storey tower pattern needs 45,654 blocks; slots are budget-bound (BLAST_GPU_NATIVE_DIRECT_BUDGET_MB)
 
 /// Padded per-island reduction accumulators, as a power-of-two shift. The
 /// stride is fixed at compile time so the indexing is a shift rather than a
