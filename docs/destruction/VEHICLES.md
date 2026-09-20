@@ -100,7 +100,12 @@ All in `native_vehicle_wall_test`, all passing, each under a second:
 
 ## The demonstration video
 
-`/root/recordings/vehicle-destruction-demo.mp4`: three clips from the same
+`tools/scripts/record-vehicle-demo.sh` records and renders it into
+`/root/recordings/vehicle-demo/<UTC time>-<short sha>[-dirty]/`, every run
+kept so two can be compared, with the three recordings, the clips, the
+stitched `vehicle-demo-<stamp>.mp4` and a `manifest.txt` carrying the
+commit, the test output and the exact commands
+(`VEHICLE_DEMO_WALL_STRENGTH` scales the mortar). Three clips from the same
 executable. A 22-brick, 12-course wall of 0.35 m bricks; the car, its roof
 trimmed to fit under the course boundary at 1.40 m, punches a car-sized hole
 at 13.6 m/s -- 179 of 494 bonds, 55 bricks released, 209 standing, 40 of
