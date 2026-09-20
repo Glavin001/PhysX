@@ -98,6 +98,34 @@ All in `native_vehicle_wall_test`, all passing, each under a second:
 | `physx_native_vehicle_scale` (`--scale`) | Beside a 600-brick wall the vehicle's own step -- the model plus four scene queries against GPU-resident bodies -- costs 10 µs per frame. |
 | `physx_native_vehicle_wall_sweep` (`--sweep`) | The ram with cylinder sweeps instead of raycasts. |
 
+## The demonstration video
+
+`/root/recordings/vehicle-destruction-demo.mp4`: two clips from the same
+executable, rendered with the recorder's new chase camera.
+
+```
+native_vehicle_wall_test --demo   --frames 480 --state demo-wall.twstate     # 24x8 wall, the low car through it
+native_vehicle_wall_test --rubble --frames 360 --state demo-rubble.twstate   # 160 loose half-bricks, the raised car across
+blast-mini-city-recorder render --state demo-wall.twstate --output demo-wall.mp4 \
+    --camera 3 --chase-part 1 --compact-hud --no-sleep-tint --ground-y 0 --title "..."
+ffmpeg -f concat -safe 0 -i list.txt -c copy vehicle-destruction-demo.mp4
+```
+
+`--chase-part N` replaces the fourth pane with a camera that follows the
+centroid of the actors of part `N` (the chassis is part 1), trailing 9 m
+behind and 3.2 m up along the subject's own motion, smoothed.
+
+Two vehicles, deliberately. The snippet car's 0.13 m bumper is a bulldozer
+blade against loose bricks and is what carries it through a wall; a car with
+0.40 m of clearance lets the bricks under, climbs its own debris and
+high-centres in the hole it made. Clearance is what crosses a *scattered*
+field. A brick house with a roof slab was tried first and taught the same
+lesson twice: head-on, the car punches a car-sized hole and stops under the
+lintel the roof still holds up; at the corner, the joined walls spread the
+impulse below the fatal limit two bricks out and the remainder stays
+kinematic. Both are what brick does to a car. The free-standing wall is the
+geometry that releases in one step and hands the car its momentum back.
+
 ## A stage fault found on the way, pinned
 
 `physx_native_fragment_resting_on_static` (`--resting-course`, no car) is

@@ -176,6 +176,69 @@ impl ImpactObserverCamera {
     }
 }
 
+/// Follows the centroid of every visible actor of one part, trailing it along
+/// its own motion. Smoothed so a car bouncing over rubble does not shake the
+/// shot, and pointed a little ahead of the subject so what it is about to hit
+/// is in frame.
+struct ChaseCamera {
+    part: u8,
+    distance: f32,
+    height: f32,
+    target: Option<Vec3>,
+    eye: Option<Vec3>,
+    heading: Vec3,
+}
+
+impl ChaseCamera {
+    fn new(part: u8, distance: f32, height: f32) -> Self {
+        Self {
+            part,
+            distance,
+            height,
+            target: None,
+            eye: None,
+            heading: Vec3::Z,
+        }
+    }
+
+    fn update(&mut self, actors: &[Actor], fallback: Camera) -> Camera {
+        let mut sum = Vec3::ZERO;
+        let mut count = 0usize;
+        for actor in actors {
+            if actor.visible && actor.part == self.part && actor.pose.position.y > -50.0 {
+                sum += actor.pose.position;
+                count += 1;
+            }
+        }
+        if count == 0 {
+            return self.eye.zip(self.target).map_or(fallback, |(eye, target)| Camera {
+                eye,
+                direction: (target - eye).normalize_or_zero(),
+                fov_degrees: fallback.fov_degrees,
+            });
+        }
+        let centroid = sum / count as f32;
+        if let Some(previous) = self.target {
+            let motion = centroid - previous;
+            let planar = Vec3::new(motion.x, 0.0, motion.z);
+            if planar.length() > 0.01 {
+                self.heading = (self.heading * 0.9 + planar.normalize() * 0.1).normalize_or_zero();
+            }
+        }
+        let target = self.target.map_or(centroid, |t| t.lerp(centroid, 0.25));
+        let desired_eye = target - self.heading * self.distance + Vec3::Y * self.height;
+        let eye = self.eye.map_or(desired_eye, |e| e.lerp(desired_eye, 0.08));
+        self.target = Some(target);
+        self.eye = Some(eye);
+        let look_at = target + self.heading * 3.0 + Vec3::Y * 0.8;
+        Camera {
+            eye,
+            direction: (look_at - eye).normalize_or_zero(),
+            fov_degrees: fallback.fov_degrees,
+        }
+    }
+}
+
 fn scene_bounds(actors: &[Actor]) -> Option<SceneBounds> {
     let mut minimum = Vec3::splat(f32::INFINITY);
     let mut maximum = Vec3::splat(f32::NEG_INFINITY);
@@ -313,6 +376,7 @@ pub fn render_recording(
     state_path: &Path,
     output_path: &Path,
     chase_projectile: bool,
+    chase_part: Option<u8>,
     sleep_tint: bool,
     simulation_telemetry_path: Option<&Path>,
     render_frames_path: &Path,
@@ -323,6 +387,7 @@ pub fn render_recording(
         state_path,
         output_path,
         chase_projectile,
+        chase_part,
         sleep_tint,
         simulation_telemetry_path,
         render_frames_path,
@@ -344,6 +409,7 @@ async fn render_recording_async(
     state_path: &Path,
     output_path: &Path,
     chase_projectile: bool,
+    chase_part: Option<u8>,
     sleep_tint: bool,
     simulation_telemetry_path: Option<&Path>,
     render_frames_path: &Path,
@@ -518,6 +584,7 @@ async fn render_recording_async(
         state.header.pane_width as f32 / state.header.pane_height as f32,
     );
     let mut impact_camera = chase_projectile.then(ImpactObserverCamera::default);
+    let mut chase_camera = chase_part.map(|part| ChaseCamera::new(part, 9.0, 3.2));
     let mut orbit_camera = None;
     let camera_aspect = state.header.pane_width as f32 / state.header.pane_height as f32;
 
@@ -639,6 +706,11 @@ async fn render_recording_async(
         }
         if let Some(observer) = impact_camera.as_mut() {
             let camera = observer.update(&state.actors, state.header.cameras[3]);
+            let uniform = camera_uniform(camera, camera_aspect);
+            queue.write_buffer(&camera_buffers[3], 0, bytemuck::bytes_of(&uniform));
+        }
+        if let Some(chase) = chase_camera.as_mut() {
+            let camera = chase.update(&state.actors, state.header.cameras[3]);
             let uniform = camera_uniform(camera, camera_aspect);
             queue.write_buffer(&camera_buffers[3], 0, bytemuck::bytes_of(&uniform));
         }

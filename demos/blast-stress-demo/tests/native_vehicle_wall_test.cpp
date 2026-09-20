@@ -28,6 +28,11 @@
 //                      was replayed exactly once
 //   --scale            a 600-brick wall: the vehicle's own step cost stays in
 //                      microseconds
+//   --demo             the demonstration: a 24-brick, 8-course wall and the
+//                      snippet car through it at 13 m/s, coasting out with the
+//                      collapse behind it; --state records it. The rubble
+//                      crossing records too (--rubble --state) and the two
+//                      clips are the demonstration video.
 //   --resting-course   no car: pins a stage fault found while writing --park.
 //                      A released fragment that was already resting on a
 //                      static shape while part of the kinematic parent never
@@ -58,7 +63,7 @@ namespace {
 void require(bool ok,const char* message){if(!ok)throw std::runtime_error(message);}
 
 struct Options{
-    enum Mode{eRAM,ePARK,eRUBBLE,eREMOTE_FRACTURE,eSCALE,eRESTING_COURSE} mode=eRAM;
+    enum Mode{eRAM,ePARK,eRUBBLE,eREMOTE_FRACTURE,eSCALE,eRESTING_COURSE,eDEMO} mode=eRAM;
     bool fracture=true,dropConstraints=false,constrainWall=false,sweep=false,verbose=false;
     unsigned frames=480;std::string statePath;
 };
@@ -79,8 +84,8 @@ const float kChassisFront=1.37003f+2.46971f;
 // cubes because the car has to push what it breaks, and two tonnes cannot
 // shove sixteen tonnes of concrete cubes across a 0.6-friction floor.
 struct Wall {
-    static constexpr float pitch=0.4f;
-    PxVec3 half{pitch*.475f};
+    float pitch=0.4f;
+    PxVec3 half{0.4f*.475f};
     int width=15,height=6;
     float chunkMass=0;
     PxRigidDynamic* actor=nullptr;
@@ -89,15 +94,16 @@ struct Wall {
     std::vector<PxDestructionStressBond> bonds;
     PxVec3 center{0};
     PxDestructionMaterial material;
+    std::vector<PxDestructionMaterial> extraMaterials; // bond.material 1.. index these
     PxDestructionStressCluster cluster{};
 
     // lift raises the whole wall so the first released course does not start
     // in contact with the ground; see --resting-course.
-    void build(PxPhysics& physics,PxMaterial& material_,PxScene& scene,int w,int h,float lift=0) {
-        width=w;height=h;
+    void build(PxPhysics& physics,PxMaterial& material_,PxScene& scene,int w,int h,float lift=0,float pitch_=0.4f,const PxVec3& origin=PxVec3(0)) {
+        width=w;height=h;pitch=pitch_;half=PxVec3(pitch*.475f);
         const float density=1800,volume=8*half.x*half.y*half.z;chunkMass=density*volume;
         const float inertia=chunkMass*(half.y*half.y+half.z*half.z)*4/12; // cube: m(a^2+b^2)/12 with a=2h
-        actor=physics.createRigidDynamic(PxTransform(PxVec3(0,0,0)));
+        actor=physics.createRigidDynamic(PxTransform(origin));
         actor->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC,true);
         actor->setLinearDamping(0);actor->setAngularDamping(0);
         for(int y=0;y<height;++y)for(int x=0;x<width;++x) {
@@ -127,13 +133,24 @@ struct Wall {
         material.shearElasticLimit=1e12f;material.shearFatalLimit=2e12f;
     }
     // Contact identities exist only after a step has seen the shapes.
-    void configure(PxDestructionScene& destruction) {
-        for(unsigned i=0;i<shapes.size();++i){chunks[i].contactIndex=destruction.getShapeContactIndex(*shapes[i]);require(chunks[i].contactIndex!=PX_INVALID_U32,"chunk identity unavailable");}
-        cluster={actor->getGPUIndex(),center};
+    void configure(PxDestructionScene& destruction) {std::vector<Wall*> one{this};configureAll(destruction,one);}
+    // One stage configuration for several walls: chunk ids offset per wall,
+    // one cluster each, the first wall's materials for all.
+    static void configureAll(PxDestructionScene& destruction,const std::vector<Wall*>& walls) {
+        std::vector<PxDestructionStressChunk> chunks;std::vector<PxDestructionChunkMassProperties> properties;
+        std::vector<PxDestructionStressBond> bonds;std::vector<PxDestructionStressCluster> clusters;
+        for(unsigned c=0;c<walls.size();++c) {
+            Wall& w=*walls[c];const PxU32 base=PxU32(chunks.size());
+            for(unsigned i=0;i<w.shapes.size();++i){w.chunks[i].contactIndex=destruction.getShapeContactIndex(*w.shapes[i]);require(w.chunks[i].contactIndex!=PX_INVALID_U32,"chunk identity unavailable");
+                auto chunk=w.chunks[i];chunk.cluster=c;chunks.push_back(chunk);properties.push_back(w.properties[i]);}
+            for(auto bond:w.bonds){bond.chunk0+=base;bond.chunk1+=base;bonds.push_back(bond);}
+            w.cluster={w.actor->getGPUIndex(),w.center};clusters.push_back(w.cluster);
+        }
+        std::vector<PxDestructionMaterial> materials{walls[0]->material};materials.insert(materials.end(),walls[0]->extraMaterials.begin(),walls[0]->extraMaterials.end());
         PxDestructionStressDesc desc;
         desc.chunks=chunks.data();desc.chunkCount=PxU32(chunks.size());desc.chunkMassProperties=properties.data();
-        desc.clusters=&cluster;desc.clusterCount=1;desc.bonds=bonds.data();desc.bondCount=PxU32(bonds.size());
-        desc.materials=&material;desc.materialCount=1;desc.maxIterations=256;desc.tolerance=1e-5f;desc.internalCorrectionLimit=1;desc.gpuIslandRepair=true;
+        desc.clusters=clusters.data();desc.clusterCount=PxU32(clusters.size());desc.bonds=bonds.data();desc.bondCount=PxU32(bonds.size());
+        desc.materials=materials.data();desc.materialCount=PxU32(materials.size());desc.maxIterations=256;desc.tolerance=1e-5f;desc.internalCorrectionLimit=1;desc.gpuIslandRepair=true;
         require(destruction.configureStress(desc),"native destruction configuration failed");
     }
     unsigned promoted(PxRigidDynamic*& first) const {
@@ -200,20 +217,25 @@ struct Fixture {
 // a sphere in the projectile colour.
 struct Recording {
     blast_demo::StateWriter writer;bool active=false;
-    const Wall* wall=nullptr;std::vector<NativeVehicle*> vehicles;std::vector<PxRigidDynamic*> rounds;
+    std::vector<const Wall*> walls;std::vector<NativeVehicle*> vehicles;std::vector<PxRigidDynamic*> rounds;
+    std::vector<PxRigidDynamic*> boxes;PxVec3 boxHalf{0};
     void open(const std::string& path,unsigned frames,const Wall& w,const std::vector<NativeVehicle*>& cars,const std::vector<PxRigidDynamic*>& shots,const NativeVehicleDesc& desc,const PxVec3& focus) {
+        openAll(path,frames,{&w},cars,shots,desc,focus);
+    }
+    void openAll(const std::string& path,unsigned frames,const std::vector<const Wall*>& ws,const std::vector<NativeVehicle*>& cars,const std::vector<PxRigidDynamic*>& shots,const NativeVehicleDesc& desc,const PxVec3& focus) {
         if(path.empty())return;
-        active=true;wall=&w;vehicles=cars;rounds=shots;
+        active=true;walls=ws;vehicles=cars;rounds=shots;
         std::array<blast_demo::Camera,4> cameras;
         const PxVec3 offsets[4]={PxVec3(-14,7,-16),PxVec3(-13,3.5f,-7),PxVec3(16,5,-14),PxVec3(0,4,-24)};
         for(unsigned i=0;i<4;++i){cameras[i].eye=focus+offsets[i];cameras[i].direction=(focus-cameras[i].eye).getNormalized();cameras[i].fovDegrees=50;}
         require(writer.open(path,60,frames,1280,720,1,float(frames)/60,0,cameras),"state output failed");
         unsigned id=0;
-        for(unsigned i=0;i<wall->shapes.size();++i){blast_demo::VisualActor visual;visual.parameters=wall->half;visual.part=PxU8((i/unsigned(wall->width))%2?2:0);require(writer.defineActor(id++,visual),"brick visual failed");}
+        for(const Wall* wall:walls)for(unsigned i=0;i<wall->shapes.size();++i){blast_demo::VisualActor visual;visual.parameters=wall->half;visual.part=PxU8((i/unsigned(wall->width))%2?2:0);require(writer.defineActor(id++,visual),"brick visual failed");}
         for(size_t c=0;c<vehicles.size();++c) {
             {blast_demo::VisualActor visual;visual.parameters=desc.chassisHalfExtents;visual.part=1;require(writer.defineActor(id++,visual),"chassis visual failed");}
             for(unsigned w=0;w<4;++w){blast_demo::VisualActor visual;visual.shape=blast_demo::VisualActor::Shape::Sphere;visual.parameters=PxVec3(desc.wheelRadius);visual.part=4;require(writer.defineActor(id++,visual),"wheel visual failed");}
         }
+        for(size_t b=0;b<boxes.size();++b){blast_demo::VisualActor visual;visual.parameters=boxHalf;visual.part=PxU8(b%2?2:0);require(writer.defineActor(id++,visual),"box visual failed");}
         for(auto* shot:rounds) {
             PxShape* shape=nullptr;shot->getShapes(&shape,1);require(shape && shape->getGeometry().getType()==PxGeometryType::eSPHERE,"round is not a sphere");
             const float radius=static_cast<const PxSphereGeometry&>(shape->getGeometry()).radius;
@@ -223,13 +245,14 @@ struct Recording {
     void frame(unsigned index) {
         if(!active)return;
         std::vector<blast_demo::VisualPose> poses;unsigned id=0;
-        for(auto* shape:wall->shapes){auto* actor=shape->getActor();auto* body=actor->is<PxRigidDynamic>();
+        for(const Wall* wall:walls)for(auto* shape:wall->shapes){auto* actor=shape->getActor();auto* body=actor->is<PxRigidDynamic>();
             poses.push_back({id++,actor->getGlobalPose()*shape->getLocalPose(),body&&body->isSleeping()});}
         for(auto* vehicle:vehicles) {
             const NativeVehicleState vs=vehicle->state();
             poses.push_back({id++,vs.pose*vehicle->chassisShape()->getLocalPose(),vs.sleeping});
             for(unsigned w=0;w<4;++w)poses.push_back({id++,vs.pose*vs.wheels[w].localPose,vs.sleeping});
         }
+        for(auto* box:boxes)poses.push_back({id++,box->getGlobalPose(),box->isSleeping()});
         for(auto* shot:rounds)poses.push_back({id++,shot->getGlobalPose(),shot->isSleeping()});
         require(writer.writeFrame(index,poses),"state capture failed");
     }
@@ -449,12 +472,15 @@ void rubble(const Options& options) {
     carDesc.chassisLocalPose.p.y+=0.27f;
     NativeVehicle* vehicle=f.car(carDesc,PxVec3(0,0.1f,-16),PxQuat(PxIdentity),"crossing");
     f.warmUp();
+    Recording recording;recording.boxes=bricks;recording.boxHalf=half;
+    Wall none;recording.openAll(options.statePath,options.frames,{},{vehicle},{},carDesc,PxVec3(0,0.5f,0));
     unsigned brickRoadFrames=0,onRoadFrames=0;float maxY=-1e9f,maxZ=-1e9f,minY=1e9f;
     for(unsigned i=0;i<options.frames;++i) {
         vehicle->setCommands(1,0,0,0);
         vehicle->step(kDt);
         f.scene.simulate(kDt);PxU32 error=0;
         require(f.scene.fetchResults(true,&error)&&!error,"rubble crossing step failed");
+        recording.frame(i);
         const NativeVehicleState vs=vehicle->state();
         require(vs.pose.isFinite(),"vehicle state is not finite");
         maxY=PxMax(maxY,vs.pose.p.y);minY=PxMin(minY,vs.pose.p.y);maxZ=PxMax(maxZ,vs.pose.p.z);
@@ -462,8 +488,9 @@ void rubble(const Options& options) {
         for(unsigned w=0;w<4;++w){onRoad&=vs.wheels[w].onRoad;onBrick|=vs.wheels[w].onRoad && vs.wheels[w].roadActor && vs.wheels[w].roadActor->is<PxRigidDynamic>();}
         brickRoadFrames+=onBrick;onRoadFrames+=onRoad;
         if(options.verbose && i%20==0)std::fprintf(stderr,"frame=%3u z=%7.3f y=%6.3f speed=%6.3f onBrick=%u\n",i,vs.pose.p.z,vs.pose.p.y,vs.forwardSpeed,onBrick);
-        if(vs.pose.p.z>8)break;
+        if(!recording.active && vs.pose.p.z>8)break;
     }
+    recording.finish();
     std::fprintf(stderr,"rubble crossing: max z=%.2f y in [%.2f,%.2f] frames with a brick under a wheel=%u all wheels on road=%u\n",maxZ,minY,maxY,brickRoadFrames,onRoadFrames);
     require(maxZ>8,"the car did not cross the rubble field");
     require(brickRoadFrames>0,"no wheel ever stood on a brick; dynamic road queries did nothing");
@@ -548,6 +575,40 @@ void scale(const Options& options) {
     require(f.context.healthy(),"GPU errors");
     std::printf("scale passed: vehicle step %.1f us/frame beside %u bricks\n",vehicleUs/frames,unsigned(wall.shapes.size()));
 }
+// The demonstration. A bigger wall than the test's, the low snippet car
+// through it at full throttle -- its 0.13 m bumper is a bulldozer blade
+// against loose bricks, which is why it gets through where a car with
+// ground clearance climbs its own debris and high-centres -- then off the
+// throttle to coast out of the collapse.
+void demo(const Options& options) {
+    Fixture f;Wall wall;wall.build(f.physics,f.context.material(),f.scene,24,8);
+    NativeVehicleDesc carDesc;carDesc.driveTopSpeed=45;
+    NativeVehicle* vehicle=f.car(carDesc,PxVec3(0,0.1f,-26),PxQuat(PxIdentity),"demo");
+    f.warmUp();wall.configure(*f.destruction);
+    Recording recording;recording.open(options.statePath,options.frames,wall,{vehicle},{},carDesc,PxVec3(0,1,0));
+    unsigned brokenBonds=0,corrections=0;float peakSpeed=0,maxZ=-1e9f;
+    for(unsigned i=0;i<options.frames;++i) {
+        const float t=float(i)/60;
+        vehicle->setCommands(t<4.5f?1.0f:0.0f,t>7.0f?0.3f:0.0f,0,0);
+        const auto status=f.step(vehicle,"demo");
+        require(status.correctionBlockers==0,"demo reported correction blockers");
+        brokenBonds+=status.brokenBonds;corrections+=status.correctionPasses;
+        recording.frame(i);
+        const NativeVehicleState vs=vehicle->state();
+        require(vs.pose.isFinite(),"vehicle state is not finite");
+        peakSpeed=PxMax(peakSpeed,vs.forwardSpeed);maxZ=PxMax(maxZ,vs.pose.p.z);
+        if(options.verbose && i%30==0)std::fprintf(stderr,"t=%5.2f pos=(%6.2f,%5.2f,%6.2f) speed=%5.2f broken=%u corrections=%u\n",t,vs.pose.p.x,vs.pose.p.y,vs.pose.p.z,vs.forwardSpeed,brokenBonds,corrections);
+    }
+    std::fprintf(stderr,"demo: broken=%u of %zu, corrections=%u peak speed=%.1f m/s max z=%.1f\n",brokenBonds,wall.bonds.size(),corrections,peakSpeed,maxZ);
+    require(brokenBonds>0,"the car broke nothing");
+    require(maxZ+kChassisFront>wall.half.z+2,"the car did not get through the wall");
+    recording.finish();
+    require(f.destruction->clearStress(),"destruction teardown failed");
+    vehicle->release();wall.release();
+    require(f.context.healthy(),"GPU errors");
+    std::printf("demo passed: %u bonds broken in %u corrections, through the wall\n",brokenBonds,corrections);
+}
+
 // No car. The wall sits with its first released course resting on the ground
 // plane, a round opens it, and the two halves of that course must come to rest
 // on the ground like every other brick. Today they never touch it.
@@ -588,6 +649,7 @@ int main(int argc,char** argv) {
         else if(!std::strcmp(argv[i],"--remote-fracture"))options.mode=Options::eREMOTE_FRACTURE;
         else if(!std::strcmp(argv[i],"--scale"))options.mode=Options::eSCALE;
         else if(!std::strcmp(argv[i],"--resting-course"))options.mode=Options::eRESTING_COURSE;
+        else if(!std::strcmp(argv[i],"--demo"))options.mode=Options::eDEMO;
         else if(!std::strcmp(argv[i],"--verbose"))options.verbose=true;
         else if(!std::strcmp(argv[i],"--frames")&&i+1<argc)options.frames=unsigned(std::atoi(argv[++i]));
         else if(!std::strcmp(argv[i],"--state")&&i+1<argc)options.statePath=argv[++i];
@@ -600,6 +662,7 @@ int main(int argc,char** argv) {
             case Options::eREMOTE_FRACTURE:remoteFracture(options);break;
             case Options::eSCALE:scale(options);break;
             case Options::eRESTING_COURSE:restingCourse(options);break;
+            case Options::eDEMO:demo(options);break;
             default:ram(options);break;
         }
         return 0;

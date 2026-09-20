@@ -871,9 +871,10 @@ if(BLAST_ENABLE_CUDA_STRESS)
     add_test(NAME physx_native_vehicle_rubble_crossing COMMAND native_vehicle_wall_test --rubble)
     add_test(NAME physx_native_vehicle_force_replay COMMAND native_vehicle_wall_test --remote-fracture)
     add_test(NAME physx_native_vehicle_scale COMMAND native_vehicle_wall_test --scale)
+    add_test(NAME physx_native_vehicle_demo COMMAND native_vehicle_wall_test --demo)
     set_tests_properties(physx_native_vehicle_wall physx_native_vehicle_wall_control physx_native_vehicle_wall_no_constraints
         physx_native_vehicle_wall_constraint_gate physx_native_vehicle_wall_sweep physx_native_vehicle_parked_sleeps
-        physx_native_vehicle_rubble_crossing physx_native_vehicle_force_replay physx_native_vehicle_scale
+        physx_native_vehicle_rubble_crossing physx_native_vehicle_force_replay physx_native_vehicle_scale physx_native_vehicle_demo
         PROPERTIES RUN_SERIAL TRUE TIMEOUT 120 LABELS "gpu;integration")
     # A stage fault found while writing the parked-car case, pinned as an
     # expected failure: a fragment released while already resting on a static

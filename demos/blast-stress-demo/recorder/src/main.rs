@@ -137,6 +137,10 @@ struct RecordArgs {
     #[arg(long)]
     chase_projectile: bool,
 
+    /// Replace the fourth pane with a camera that follows the actors of this part.
+    #[arg(long)]
+    chase_part: Option<u8>,
+
     /// Disable darkening sleeping bodies in the offline renderer.
     #[arg(long)]
     no_sleep_tint: bool,
@@ -161,6 +165,11 @@ struct RenderArgs {
     /// Replace the fourth pane with a close projectile chase camera.
     #[arg(long)]
     chase_projectile: bool,
+
+    /// Replace the fourth pane with a camera that follows the actors of this
+    /// part (a vehicle chassis, say), trailing them along their motion.
+    #[arg(long)]
+    chase_part: Option<u8>,
 
     /// Disable darkening sleeping bodies in the offline renderer.
     #[arg(long)]
@@ -290,6 +299,7 @@ fn record(args: RecordArgs) -> Result<()> {
         &state_path,
         &output,
         args.chase_projectile,
+        args.chase_part,
         !args.no_sleep_tint,
         Some(&frame_telemetry_path),
         &args.presentation,
@@ -312,6 +322,7 @@ fn render(args: &RenderArgs) -> Result<()> {
         &args.state,
         &args.output,
         args.chase_projectile,
+        args.chase_part,
         !args.no_sleep_tint,
         args.frame_telemetry.as_deref(),
         &args.presentation,
@@ -323,6 +334,7 @@ fn render_with_telemetry(
     state_path: &Path,
     output: &Path,
     chase_projectile: bool,
+    chase_part: Option<u8>,
     sleep_tint: bool,
     simulation_frames: Option<&Path>,
     presentation: &PresentationArgs,
@@ -336,6 +348,7 @@ fn render_with_telemetry(
         state_path,
         output,
         chase_projectile,
+        chase_part,
         sleep_tint,
         simulation_frames,
         &render_frames,
