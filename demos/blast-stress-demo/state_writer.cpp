@@ -16,7 +16,7 @@ constexpr std::uint8_t kRecordEnd = 255;
 
 bool samePose(const VisualPose& a, const VisualPose& b)
 {
-    return a.sleeping == b.sleeping
+    return a.sleeping == b.sleeping && a.group == b.group
         && a.pose.p.x == b.pose.p.x
         && a.pose.p.y == b.pose.p.y
         && a.pose.p.z == b.pose.p.z
@@ -58,7 +58,7 @@ bool StateWriter::open(
     }
     const char magic[8] = {'T', 'W', 'S', 'T', 'A', 'T', 'E', '1'};
     if (!writeBytes(magic, sizeof(magic))
-        || !writeU32(2) // format version 2: adds VisualActor::Shape::Mesh
+        || !writeU32(3) // format version 3: adds a per-frame rendering group to each pose
         || !writeU32(fps)
         || !writeU32(frameCount)
         || !writeU32(paneWidth)
@@ -162,7 +162,8 @@ bool StateWriter::writeFrame(std::uint32_t frameIndex, const std::vector<VisualP
     {
         if (!writeU32(pose->actorId)
             || !writeTransform(pose->pose)
-            || !writeU8(pose->sleeping ? 1 : 0))
+            || !writeU8(pose->sleeping ? 1 : 0)
+            || !writeU32(pose->group))
         {
             return false;
         }

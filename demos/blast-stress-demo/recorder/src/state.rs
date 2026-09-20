@@ -53,6 +53,9 @@ pub struct Actor {
     pub pose: Transform,
     pub sleeping: bool,
     pub visible: bool,
+    /// A per-frame rendering group (format 3): `Some(id)` colours the actor by
+    /// a stable palette entry for `id` instead of its part.
+    pub group: Option<u32>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -76,6 +79,7 @@ pub struct Header {
 
 pub struct StateReader {
     reader: BufReader<File>,
+    version: u32,
     pub header: Header,
     pub actors: Vec<Actor>,
     ended: bool,
@@ -93,10 +97,10 @@ impl StateReader {
         }
 
         let version = read_u32(&mut reader)?;
-        if version != 2 {
+        if version != 2 && version != 3 {
             bail!(
-                "unsupported TWSTATE state version {version} (this reader expects 2, added \
-                 with Shape::Mesh support); re-run the writer to regenerate the recording"
+                "unsupported TWSTATE state version {version} (this reader expects 2 or 3); \
+                 re-run the writer to regenerate the recording"
             );
         }
 
@@ -127,6 +131,7 @@ impl StateReader {
 
         Ok(Self {
             reader,
+            version,
             header: Header {
                 fps,
                 frame_count,
@@ -212,6 +217,7 @@ impl StateReader {
             pose: Transform::IDENTITY,
             sleeping: false,
             visible: false,
+            group: None,
         });
         Ok(())
     }
@@ -223,12 +229,19 @@ impl StateReader {
             let id = read_u32(&mut self.reader)? as usize;
             let pose = read_transform(&mut self.reader)?;
             let sleeping = read_u8(&mut self.reader)? != 0;
+            let group = if self.version >= 3 {
+                let raw = read_u32(&mut self.reader)?;
+                (raw != u32::MAX).then_some(raw)
+            } else {
+                None
+            };
             let actor = self
                 .actors
                 .get_mut(id)
                 .with_context(|| format!("frame {frame_index} references undefined actor {id}"))?;
             actor.pose = pose;
             actor.sleeping = sleeping;
+            actor.group = group;
             actor.visible = true;
         }
         Ok(frame_index)

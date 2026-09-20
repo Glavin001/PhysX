@@ -111,6 +111,11 @@ blast-mini-city-recorder render --state demo-wall.twstate --output demo-wall.mp4
 ffmpeg -f concat -safe 0 -i list.txt -c copy vehicle-destruction-demo.mp4
 ```
 
+Chunks are coloured by rigid body: the recording carries a per-frame group per
+pose (TWSTATE1 format 3) numbered in order of first sight, so the intact wall
+is one colour and every released body keeps its own hue for the rest of the
+clip. That is how the video shows, at a glance, which bricks travel together.
+
 `--chase-part N` replaces the fourth pane with a camera that follows the
 centroid of the actors of part `N` (the chassis is part 1), trailing 9 m
 behind and 3.2 m up along the subject's own motion, smoothed.

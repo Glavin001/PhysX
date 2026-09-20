@@ -986,7 +986,7 @@ fn collect_instances(actors: &[Actor], sleep_tint: bool) -> (Vec<InstanceRaw>, V
     let mut spheres = Vec::with_capacity(16);
     for actor in actors.iter().filter(|actor| actor.visible) {
         let actor_matrix = transform_matrix(actor.pose);
-        let color = part_color(actor.part, actor.sleeping && sleep_tint);
+        let color = actor_color(actor, actor.sleeping && sleep_tint);
         for shape in &actor.shapes {
             match shape {
                 Shape::Box {
@@ -1085,7 +1085,7 @@ fn update_mesh_instances(
         let model = transform_matrix(actor.pose) * transform_matrix(*local);
         let raw = InstanceRaw {
             model: model.to_cols_array_2d(),
-            color: part_color(actor.part, actor.sleeping && sleep_tint),
+            color: actor_color(actor, actor.sleeping && sleep_tint),
         };
         queue.write_buffer(&mesh_actor.instances, 0, bytemuck::bytes_of(&raw));
         visible.push(index);
@@ -1095,6 +1095,54 @@ fn update_mesh_instances(
 
 fn transform_matrix(transform: Transform) -> Mat4 {
     Mat4::from_rotation_translation(transform.rotation, transform.position)
+}
+
+/// Colour for an actor: a stable palette entry for its rendering group when
+/// the recording carries one, else its part. Group 0 is the intact structure
+/// and reads as masonry; every fragment body gets a hue from the golden-ratio
+/// sequence so neighbours differ and the colour stays with the body.
+fn actor_color(actor: &Actor, apply_sleep_tint: bool) -> [f32; 4] {
+    match actor.group {
+        Some(group) => group_color(group, apply_sleep_tint),
+        None => part_color(actor.part, apply_sleep_tint),
+    }
+}
+
+fn group_color(group: u32, apply_sleep_tint: bool) -> [f32; 4] {
+    let mut rgb = if group == 0 {
+        [0.72, 0.68, 0.60]
+    } else {
+        let hue = (group as f32 * 0.618_034) % 1.0;
+        let band = (group / 3) % 3;
+        let (saturation, value) = match band {
+            0 => (0.62, 0.88),
+            1 => (0.50, 0.70),
+            _ => (0.75, 0.95),
+        };
+        hsv_to_rgb(hue, saturation, value)
+    };
+    if apply_sleep_tint {
+        for channel in &mut rgb {
+            *channel *= 0.25;
+        }
+    }
+    [rgb[0], rgb[1], rgb[2], 1.0]
+}
+
+fn hsv_to_rgb(h: f32, s: f32, v: f32) -> [f32; 3] {
+    let i = (h * 6.0).floor();
+    let f = h * 6.0 - i;
+    let p = v * (1.0 - s);
+    let q = v * (1.0 - f * s);
+    let t = v * (1.0 - (1.0 - f) * s);
+    match (i as i32).rem_euclid(6) {
+        0 => [v, t, p],
+        1 => [q, v, p],
+        2 => [p, v, t],
+        3 => [p, q, v],
+        4 => [t, p, v],
+        _ => [v, p, q],
+    }
 }
 
 fn part_color(part: u8, apply_sleep_tint: bool) -> [f32; 4] {

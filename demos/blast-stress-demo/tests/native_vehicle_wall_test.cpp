@@ -47,6 +47,7 @@
 #include <PxNativeVehicle.h>
 #include "extensions/PxD6Joint.h"
 #include <algorithm>
+#include <map>
 #include <array>
 #include <chrono>
 #include <cstdio>
@@ -219,6 +220,16 @@ struct Recording {
     blast_demo::StateWriter writer;bool active=false;
     std::vector<const Wall*> walls;std::vector<NativeVehicle*> vehicles;std::vector<PxRigidDynamic*> rounds;
     std::vector<PxRigidDynamic*> boxes;PxVec3 boxHalf{0};
+    // One rendering group per rigid body, numbered in order of first sight so
+    // a fragment keeps its colour for the rest of the recording. The intact
+    // walls are group 0.
+    std::map<const PxRigidActor*,std::uint32_t> groups;
+    std::uint32_t groupOf(const PxRigidActor* actor,bool parent) {
+        if(parent)return 0;
+        auto found=groups.find(actor);
+        if(found!=groups.end())return found->second;
+        const std::uint32_t id=std::uint32_t(groups.size())+1;groups.emplace(actor,id);return id;
+    }
     void open(const std::string& path,unsigned frames,const Wall& w,const std::vector<NativeVehicle*>& cars,const std::vector<PxRigidDynamic*>& shots,const NativeVehicleDesc& desc,const PxVec3& focus) {
         openAll(path,frames,{&w},cars,shots,desc,focus);
     }
@@ -246,7 +257,7 @@ struct Recording {
         if(!active)return;
         std::vector<blast_demo::VisualPose> poses;unsigned id=0;
         for(const Wall* wall:walls)for(auto* shape:wall->shapes){auto* actor=shape->getActor();auto* body=actor->is<PxRigidDynamic>();
-            poses.push_back({id++,actor->getGlobalPose()*shape->getLocalPose(),body&&body->isSleeping()});}
+            poses.push_back({id++,actor->getGlobalPose()*shape->getLocalPose(),body&&body->isSleeping(),groupOf(actor,actor==wall->actor)});}
         for(auto* vehicle:vehicles) {
             const NativeVehicleState vs=vehicle->state();
             poses.push_back({id++,vs.pose*vehicle->chassisShape()->getLocalPose(),vs.sleeping});

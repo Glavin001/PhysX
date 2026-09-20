@@ -36,7 +36,12 @@ cargo run --release --locked -- render \
 
 The first overview pane orbits slowly. `--chase-projectile` additionally
 replaces the fourth static pane with a close impact observer locked onto the
-front-center buildings. `--chase-part N` replaces it instead with a camera
+front-center buildings. A recording can carry a per-frame rendering group on each pose (format
+version 3, `VisualPose::group`); the renderer then colours the actor by a
+stable palette entry for that group instead of its part, so every chunk of
+one rigid body shares a colour that follows the body as it fractures. Group
+0 renders as masonry. Version 2 recordings still play. `--chase-part N`
+replaces the fourth pane instead with a camera
 that follows the actors of part `N` -- a vehicle chassis, say -- trailing them
 along their own motion; pair it with `--camera 3` for a full-frame chase shot. The fixed world-space reference makes fragment motion
 easy to distinguish from camera motion and avoids jumps between projectiles.

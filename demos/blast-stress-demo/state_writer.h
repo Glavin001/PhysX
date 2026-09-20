@@ -51,6 +51,12 @@ struct VisualPose
     std::uint32_t actorId{0};
     physx::PxTransform pose{physx::PxIdentity};
     bool sleeping{false};
+    // Rendering group. kNoGroup colours the actor by its part; any other
+    // value colours it by a stable palette entry for that id, so every chunk
+    // of one rigid body can share a colour that follows the body as it
+    // fractures. Format version 3.
+    static constexpr std::uint32_t kNoGroup = 0xFFFFFFFFu;
+    std::uint32_t group{kNoGroup};
 };
 
 class StateWriter
