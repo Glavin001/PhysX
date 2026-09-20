@@ -66,7 +66,7 @@ void require(bool ok,const char* message){if(!ok)throw std::runtime_error(messag
 struct Options{
     enum Mode{eRAM,ePARK,eRUBBLE,eREMOTE_FRACTURE,eSCALE,eRESTING_COURSE,eDEMO} mode=eRAM;
     bool fracture=true,dropConstraints=false,constrainWall=false,sweep=false,verbose=false;
-    unsigned frames=480;std::string statePath;
+    unsigned frames=480;std::string statePath;float wallStrength=1;
 };
 
 const float kDt=1.0f/60;
@@ -586,18 +586,26 @@ void scale(const Options& options) {
     require(f.context.healthy(),"GPU errors");
     std::printf("scale passed: vehicle step %.1f us/frame beside %u bricks\n",vehicleUs/frames,unsigned(wall.shapes.size()));
 }
-// The demonstration. A bigger wall than the test's, the low snippet car
-// through it at full throttle -- its 0.13 m bumper is a bulldozer blade
-// against loose bricks, which is why it gets through where a car with
-// ground clearance climbs its own debris and high-centres -- then off the
-// throttle to coast out of the collapse.
+// The demonstration. A tall wall of 0.35 m bricks, 22 wide and 12 courses,
+// and a car whose roof fits under a course boundary, so the hole it punches
+// leaves the courses above standing as an arch. The mortar is strong enough
+// that the stopping impulse of the trial solve -- the car meeting an
+// immovable wall -- decays below the limits a few bricks out instead of
+// shattering the whole wall, and strong enough for the arch's own span.
 void demo(const Options& options) {
-    Fixture f;Wall wall;wall.build(f.physics,f.context.material(),f.scene,24,8);
+    Fixture f;Wall wall;wall.build(f.physics,f.context.material(),f.scene,22,12,0,0.35f);
+    // Self-weight puts about 70 kPa of compression on the bottom bonds; the
+    // seven-course arch over a 2.5 m hole needs about 30 kPa of tension.
+    wall.material.compressionElasticLimit=600000*options.wallStrength;wall.material.compressionFatalLimit=1200000*options.wallStrength;
+    wall.material.tensionElasticLimit=150000*options.wallStrength;wall.material.tensionFatalLimit=300000*options.wallStrength;
+    wall.material.shearElasticLimit=200000*options.wallStrength;wall.material.shearFatalLimit=400000*options.wallStrength;
+    // Roof at 1.33 m, under the course boundary at 1.40 m.
     NativeVehicleDesc carDesc;carDesc.driveTopSpeed=45;
+    carDesc.chassisHalfExtents.y=0.58f;carDesc.chassisLocalPose.p.y=0.78f;
     NativeVehicle* vehicle=f.car(carDesc,PxVec3(0,0.1f,-26),PxQuat(PxIdentity),"demo");
     f.warmUp();wall.configure(*f.destruction);
-    Recording recording;recording.open(options.statePath,options.frames,wall,{vehicle},{},carDesc,PxVec3(0,1,0));
-    unsigned brokenBonds=0,corrections=0;float peakSpeed=0,maxZ=-1e9f;
+    Recording recording;recording.open(options.statePath,options.frames,wall,{vehicle},{},carDesc,PxVec3(0,1.5f,0));
+    unsigned brokenBonds=0,corrections=0;float peakSpeed=0,maxZ=-1e9f,speedAfter=0;bool hit=false;
     for(unsigned i=0;i<options.frames;++i) {
         const float t=float(i)/60;
         vehicle->setCommands(t<4.5f?1.0f:0.0f,t>7.0f?0.3f:0.0f,0,0);
@@ -608,16 +616,26 @@ void demo(const Options& options) {
         const NativeVehicleState vs=vehicle->state();
         require(vs.pose.isFinite(),"vehicle state is not finite");
         peakSpeed=PxMax(peakSpeed,vs.forwardSpeed);maxZ=PxMax(maxZ,vs.pose.p.z);
+        if(status.correctionPasses && !hit){hit=true;speedAfter=vs.forwardSpeed;}
         if(options.verbose && i%30==0)std::fprintf(stderr,"t=%5.2f pos=(%6.2f,%5.2f,%6.2f) speed=%5.2f broken=%u corrections=%u\n",t,vs.pose.p.x,vs.pose.p.y,vs.pose.p.z,vs.forwardSpeed,brokenBonds,corrections);
+        if(options.verbose && (status.brokenBonds || status.correctionPasses))std::fprintf(stderr,"  frame %u: converged=%u broken=%u corrections=%u speed=%.2f\n",i,status.converged,status.brokenBonds,status.correctionPasses,vs.forwardSpeed);
     }
-    std::fprintf(stderr,"demo: broken=%u of %zu, corrections=%u peak speed=%.1f m/s max z=%.1f\n",brokenBonds,wall.bonds.size(),corrections,peakSpeed,maxZ);
+    // What is left standing: bricks still on the kinematic parent, and how
+    // many of them are above the hole (courses 5+), which is the arch.
+    unsigned standing=0,arch=0;PxRigidDynamic* first=nullptr;const unsigned released=wall.promoted(first);
+    for(unsigned k=0;k<wall.shapes.size();++k)if(wall.shapes[k]->getActor()==wall.actor){++standing;const unsigned course=k/unsigned(wall.width);const int col=int(k%unsigned(wall.width));
+        if(course>=5 && std::abs(col-(wall.width-1)/2)<=3)++arch;}
+    std::fprintf(stderr,"demo: broken=%u of %zu, corrections=%u, released %u bricks, %u standing, %u in the arch over the hole, first hit left %.1f m/s, peak %.1f m/s, max z=%.1f\n",
+        brokenBonds,wall.bonds.size(),corrections,released,standing,arch,speedAfter,peakSpeed,maxZ);
     require(brokenBonds>0,"the car broke nothing");
     require(maxZ+kChassisFront>wall.half.z+2,"the car did not get through the wall");
+    require(standing>wall.shapes.size()/2,"more than half the wall came down; that is not a hole");
+    require(arch>=14,"the courses over the hole did not stay up as an arch");
     recording.finish();
     require(f.destruction->clearStress(),"destruction teardown failed");
     vehicle->release();wall.release();
     require(f.context.healthy(),"GPU errors");
-    std::printf("demo passed: %u bonds broken in %u corrections, through the wall\n",brokenBonds,corrections);
+    std::printf("demo passed: %u bonds broken, %u bricks released, %u standing with an arch of %u over the hole\n",brokenBonds,released,standing,arch);
 }
 
 // No car. The wall sits with its first released course resting on the ground
@@ -664,6 +682,7 @@ int main(int argc,char** argv) {
         else if(!std::strcmp(argv[i],"--verbose"))options.verbose=true;
         else if(!std::strcmp(argv[i],"--frames")&&i+1<argc)options.frames=unsigned(std::atoi(argv[++i]));
         else if(!std::strcmp(argv[i],"--state")&&i+1<argc)options.statePath=argv[++i];
+        else if(!std::strcmp(argv[i],"--wall-strength")&&i+1<argc)options.wallStrength=float(std::atof(argv[++i]));
         else{std::fprintf(stderr,"usage: native_vehicle_wall_test [--no-fracture] [--drop-constraints] [--constrain-wall] [--sweep] [--park|--rubble|--remote-fracture|--scale|--resting-course] [--frames N] [--state RECORDING.twstate] [--verbose]\n");return 2;}
     }
     try {

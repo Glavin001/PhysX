@@ -100,14 +100,21 @@ All in `native_vehicle_wall_test`, all passing, each under a second:
 
 ## The demonstration video
 
-`/root/recordings/vehicle-destruction-demo.mp4`: two clips from the same
-executable, rendered with the recorder's new chase camera.
+`/root/recordings/vehicle-destruction-demo.mp4`: three clips from the same
+executable. A 22-brick, 12-course wall of 0.35 m bricks; the car, its roof
+trimmed to fit under the course boundary at 1.40 m, punches a car-sized hole
+at 13.6 m/s -- 179 of 494 bonds, 55 bricks released, 209 standing, 40 of
+them in the seven courses over the hole -- and keeps 8.2 m/s. First on the
+chase camera, then from a fixed front view that shows the arch, then the
+raised-clearance car crossing 160 loose half-bricks.
 
 ```
-native_vehicle_wall_test --demo   --frames 480 --state demo-wall.twstate     # 24x8 wall, the low car through it
-native_vehicle_wall_test --rubble --frames 360 --state demo-rubble.twstate   # 160 loose half-bricks, the raised car across
+native_vehicle_wall_test --demo   --frames 480 --state demo-wall.twstate
+native_vehicle_wall_test --rubble --frames 360 --state demo-rubble.twstate
 blast-mini-city-recorder render --state demo-wall.twstate --output demo-wall.mp4 \
     --camera 3 --chase-part 1 --compact-hud --no-sleep-tint --ground-y 0 --title "..."
+blast-mini-city-recorder render --state demo-wall.twstate --output demo-wall-front.mp4 \
+    --camera 1 --focus-center 0 -5.5 -1 --focus-radius 5.5 --camera-margin 0 ...
 ffmpeg -f concat -safe 0 -i list.txt -c copy vehicle-destruction-demo.mp4
 ```
 
@@ -120,16 +127,25 @@ clip. That is how the video shows, at a glance, which bricks travel together.
 centroid of the actors of part `N` (the chassis is part 1), trailing 9 m
 behind and 3.2 m up along the subject's own motion, smoothed.
 
+Why the hole is a hole. The trial solve meets an immovable wall, so the stress
+solver is loaded with the full stopping impulse, an upper bound on what a
+yielding wall would see. With brick-scale mortar (20 kPa tension) that load
+decayed below the limits nowhere in a 7 m wall and 274 of 352 bonds went in
+one step, every brick its own body -- the colouring showed it. With mortar at
+150 kPa tension, 200 kPa shear and 600 kPa compression the shatter zone is the
+car's own outline plus a brick, and the seven courses above carry their 2.5 m
+span (about 30 kPa of bond tension) as an arch. `--wall-strength` scales the
+limits: at 0.5 the wall comes down, at 2 the hole is too small and the car
+stops in it.
+
 Two vehicles, deliberately. The snippet car's 0.13 m bumper is a bulldozer
 blade against loose bricks and is what carries it through a wall; a car with
 0.40 m of clearance lets the bricks under, climbs its own debris and
 high-centres in the hole it made. Clearance is what crosses a *scattered*
-field. A brick house with a roof slab was tried first and taught the same
-lesson twice: head-on, the car punches a car-sized hole and stops under the
-lintel the roof still holds up; at the corner, the joined walls spread the
-impulse below the fatal limit two bricks out and the remainder stays
-kinematic. Both are what brick does to a car. The free-standing wall is the
-geometry that releases in one step and hands the car its momentum back.
+field. A brick house with a roof slab was tried first: head-on the car stopped
+under the lintel because its roof was taller than the hole; at the corner the
+joined walls stayed kinematic. The tall wall with the car sized to the course
+boundary is what gives a hole and an arch.
 
 ## A stage fault found on the way, pinned
 
