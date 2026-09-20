@@ -618,7 +618,7 @@ void demo(const Options& options) {
         peakSpeed=PxMax(peakSpeed,vs.forwardSpeed);maxZ=PxMax(maxZ,vs.pose.p.z);
         if(status.correctionPasses && !hit){hit=true;speedAfter=vs.forwardSpeed;}
         if(options.verbose && i%30==0)std::fprintf(stderr,"t=%5.2f pos=(%6.2f,%5.2f,%6.2f) speed=%5.2f broken=%u corrections=%u\n",t,vs.pose.p.x,vs.pose.p.y,vs.pose.p.z,vs.forwardSpeed,brokenBonds,corrections);
-        if(options.verbose && (status.brokenBonds || status.correctionPasses))std::fprintf(stderr,"  frame %u: converged=%u broken=%u corrections=%u speed=%.2f\n",i,status.converged,status.brokenBonds,status.correctionPasses,vs.forwardSpeed);
+        if(options.verbose && (status.brokenBonds || status.correctionPasses || (i%60==0)))std::fprintf(stderr,"  frame %u: converged=%u iterations=%u broken=%u corrections=%u speed=%.2f\n",i,status.converged,status.iterations,status.brokenBonds,status.correctionPasses,vs.forwardSpeed);
     }
     // What is left standing: bricks still on the kinematic parent, and how
     // many of them are above the hole (courses 5+), which is the arch.
