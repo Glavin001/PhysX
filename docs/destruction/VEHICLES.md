@@ -86,6 +86,35 @@ Chassis collision is on and scene queries off by default so the wheel queries
 never see the car itself. `tests/destruction/package-consumer/vehicle_consumer.cpp`
 builds against the installed package and drives on a native GPU scene.
 
+## The questions a game asks before shipping a car
+
+All in `native_vehicle_wall_test`, all passing, each under a second:
+
+| ctest | what it proves |
+|---|---|
+| `physx_native_vehicle_parked_sleeps` (`--park`) | A car parked where a round pushes a wall's bricks onto and against it goes to sleep with the rubble (car asleep at frame 51, every fragment by frame 149), and full throttle wakes it on the first frame. The vehicle SDK applies its forces with `autowake` off and wakes only on a throttle or steer intent, so a parked car cannot hold a contact island awake -- the reason `/city` lost its vehicle. |
+| `physx_native_vehicle_rubble_crossing` (`--rubble`) | Sweep road queries with `eDYNAMIC` bodies as road: the car crosses a 6 m field of 160 loose half-bricks at ~5 m/s, rising 0.35 m over them, with bricks reported as the road actor under the wheels. Debris a car can climb is smaller than its wheel radius; a 0.38 m brick is a kerb, and the snippet car's 0.13 m bumper clearance bulldozes it, so the test raises the chassis 0.27 m. |
+| `physx_native_vehicle_force_replay` (`--remote-fracture`) | A round fractures the wall while the car accelerates 40 m away. On every correction frame the car's speed gain equals its uncorrected neighbours' (worst 10.7 %, most exact), so the checkpoint replays the vehicle's `addForce` once, neither dropped nor doubled. |
+| `physx_native_vehicle_scale` (`--scale`) | Beside a 600-brick wall the vehicle's own step -- the model plus four scene queries against GPU-resident bodies -- costs 10 µs per frame. |
+| `physx_native_vehicle_wall_sweep` (`--sweep`) | The ram with cylinder sweeps instead of raycasts. |
+
+## A stage fault found on the way, pinned
+
+`physx_native_fragment_resting_on_static` (`--resting-course`, no car) is
+registered `WILL_FAIL`. A wall whose first released course rests on the ground
+plane is opened by a round; the two seven-brick halves of that course are
+released, never touch the ground, and free-fall out of the world (y = -291 m
+after eight seconds, zero angular velocity). Single bricks knocked away land
+normally, and lifting the wall 5 cm so the course must *create* its ground
+pair after release makes every fragment rest. The pair a chunk had with the
+static ground while its owner was kinematic (which PhysX kills by default)
+is not re-evaluated when ownership migrates to a dynamic fragment:
+`PxgAABBManager::refilterBounds` in the device-owner path requests no
+refilter and keeps the old group. The same run also leaves six top-course
+bricks asleep 1.2 m below the ground. It reproduces without any vehicle and
+without the vehicle's constraints, in under a second. The parked-car fixture
+lifts its wall 5 cm until this is fixed.
+
 ## Two things that looked like bugs and were not
 
 - The vehicle SDK's rigid-body pose is the centre-of-mass frame

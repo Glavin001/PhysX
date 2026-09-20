@@ -865,7 +865,21 @@ if(BLAST_ENABLE_CUDA_STRESS)
     # Pins the remaining limitation: a constraint on a body the stage owns
     # refuses the fracture step, and the status says so before it happens.
     add_test(NAME physx_native_vehicle_wall_constraint_gate COMMAND native_vehicle_wall_test --constrain-wall)
-    set_tests_properties(physx_native_vehicle_wall physx_native_vehicle_wall_control physx_native_vehicle_wall_no_constraints physx_native_vehicle_wall_constraint_gate PROPERTIES RUN_SERIAL TRUE TIMEOUT 120 LABELS "gpu;integration")
+    add_test(NAME physx_native_vehicle_wall_sweep COMMAND native_vehicle_wall_test --sweep)
+    # The questions a game asks before it ships a car on this stage.
+    add_test(NAME physx_native_vehicle_parked_sleeps COMMAND native_vehicle_wall_test --park)
+    add_test(NAME physx_native_vehicle_rubble_crossing COMMAND native_vehicle_wall_test --rubble)
+    add_test(NAME physx_native_vehicle_force_replay COMMAND native_vehicle_wall_test --remote-fracture)
+    add_test(NAME physx_native_vehicle_scale COMMAND native_vehicle_wall_test --scale)
+    set_tests_properties(physx_native_vehicle_wall physx_native_vehicle_wall_control physx_native_vehicle_wall_no_constraints
+        physx_native_vehicle_wall_constraint_gate physx_native_vehicle_wall_sweep physx_native_vehicle_parked_sleeps
+        physx_native_vehicle_rubble_crossing physx_native_vehicle_force_replay physx_native_vehicle_scale
+        PROPERTIES RUN_SERIAL TRUE TIMEOUT 120 LABELS "gpu;integration")
+    # A stage fault found while writing the parked-car case, pinned as an
+    # expected failure: a fragment released while already resting on a static
+    # shape never forms a contact with it. Flip WILL_FAIL off when it is fixed.
+    add_test(NAME physx_native_fragment_resting_on_static COMMAND native_vehicle_wall_test --resting-course --frames 240)
+    set_tests_properties(physx_native_fragment_resting_on_static PROPERTIES WILL_FAIL TRUE RUN_SERIAL TRUE TIMEOUT 120 LABELS "gpu;integration;known-fault")
 
     add_executable(native_group_filter_test tests/native_group_filter_test.cpp physx_scene.cpp)
     target_compile_definitions(native_group_filter_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG PX_SUPPORT_PVD=0 PX_SUPPORT_OMNI_PVD=0)
