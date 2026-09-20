@@ -501,11 +501,12 @@ class PxProfilerCallback;
             return index < mBodySimManager.mBodies.size() && mBodySimManager.mBodies[index] == body;
         }
         virtual PxDestructionScene* getDestructionScene(void* scene, bool (*writeAllowed)(void*), PxvDestructionBodyAllocator* allocator) PX_OVERRIDE PX_FINAL;
-        virtual bool advanceDestruction(PxReal dt, const PxVec3& gravity, bool canCorrect, bool canReuseContactPairs) PX_OVERRIDE PX_FINAL;
+        virtual bool advanceDestruction(PxReal dt, const PxVec3& gravity, PxU32 correctionBlockers, bool canReuseContactPairs) PX_OVERRIDE PX_FINAL;
         virtual PxU32 getDestructionError() const PX_OVERRIDE PX_FINAL { return mDestructionError; }
         virtual bool preservesDestructionContactPairs() const PX_OVERRIDE PX_FINAL;
         bool usesDeviceDestructionContactInputs() const override;
         bool usesGpuDestructionIslandRepair() const override;
+        bool isDestructionBody(PxU32 gpuIndex) const override;
         PxgDestructionRuntime* getNativeDestructionRuntime() const { return mDestruction; }
         bool isDestructionCorrecting() const { return mDestructionCorrecting; }
         void discardDestructionTrialBodyUpload(PxU32 id) override {

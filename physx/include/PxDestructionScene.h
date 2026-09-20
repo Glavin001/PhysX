@@ -1,7 +1,7 @@
 // Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
 #ifndef PX_DESTRUCTION_SCENE_H
 #define PX_DESTRUCTION_SCENE_H
-#define PX_DESTRUCTION_SCENE_VERSION 15
+#define PX_DESTRUCTION_SCENE_VERSION 16
 #include "foundation/PxTransform.h"
 #include "PxDirectGPUAPI.h"
 #include "PxDestructionTopologyTypes.h"
@@ -71,7 +71,9 @@ struct PxDestructionStressDesc {
     const PxDestructionChunkMassProperties* chunkMassProperties = NULL;
     // Experimental internal rigid correction. 0 retains diagnostic preparation;
     // 1 permits one intact trial plus one full supported-scene corrected solve.
-    // Current support: rigid scenes with CPU-authored kinematic targets, no joints,
+    // Current support: rigid scenes with CPU-authored kinematic targets and
+    // constraints on bodies the stage does not own (a vehicle's suspension, a
+    // door hinge), no constraints on cluster parents or fragments, no
     // articulations, CCD, custom filter callbacks or deformables. Crushing/removal
     // and unapportioned force commands on fractured sources reject explicitly.
     // Native sleeping is supported with ordinary CPU actor access (Direct GPU
@@ -114,6 +116,26 @@ struct PxDestructionStageStatus {
     PxU32 correctionPasses;
     PxU32 stressPasses; // one trial evaluation plus one after corrected physics
     PxU32 postCorrectionBrokenBonds; // subset of brokenBonds from the second evaluation
+    // Why the scene could not run a correction this step, as
+    // PxDestructionCorrectionBlocker bits; zero when correction was permitted.
+    // Set whenever error bit 8 is, and also on steps that needed no correction,
+    // so a consumer can check its scene before the first fracture.
+    PxU32 correctionBlockers;
+};
+// Scene state that the native rigid correction cannot yet roll back. Any bit
+// set makes the stage refuse a fracture step with status error 8.
+struct PxDestructionCorrectionBlocker {
+    enum Enum {
+        eCCD = 1,                              // PxSceneFlag::eENABLE_CCD
+        eDIRECT_GPU_SLEEPING = 2,              // PxSceneFlag::eENABLE_DIRECT_GPU_SLEEPING
+        eARTICULATION = 4,                     // any articulation in the scene
+        eCONSTRAINT_ON_DESTRUCTION_BODY = 8,   // a PxConstraint attached to a cluster parent or fragment
+        eFILTER_CALLBACK = 16,                 // a custom PxSimulationFilterCallback
+        eDEFORMABLE = 32,                      // deformable surfaces or volumes
+        ePARTICLE_SYSTEM = 64,
+        eSPECULATIVE_CCD_BODY = 128,           // a rigid body with eENABLE_SPECULATIVE_CCD
+        eDIRECT_GPU_KINEMATIC_TARGET = 256     // Direct GPU kinematic targets are not captured
+    };
 };
 struct PxDestructionStressTopologyStatus {
     PxU64 generation, solvedGeneration, rebuilds;

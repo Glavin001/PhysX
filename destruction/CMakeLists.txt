@@ -14,6 +14,7 @@ option(BLAST_ENABLE_CUDA_STRESS "Require the CUDA stress backend" ON)
 
 # Reference executables and SDK libraries share the same source targets. Keep
 # this path until test target definitions have been separated from demo setup.
+add_subdirectory("${DESTRUCTION_REPO}/destruction/vehicle" vehicle)
 add_subdirectory("${DESTRUCTION_REPO}/demos/blast-stress-demo" reference)
 if(BLAST_ENABLE_CUDA_STRESS)
     enable_language(CUDA)

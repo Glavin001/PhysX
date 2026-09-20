@@ -636,7 +636,7 @@ namespace physx
     PxDestructionScene* PxgSimulationController::getDestructionScene(void* scene, bool (*gate)(void*), PxvDestructionBodyAllocator* allocator)
     {
         if(!mDestruction) {
-            mDestruction = PxCreateDestructionRuntimeV10(mCudaContextManager->getContext(), scene, gate, allocator);
+            mDestruction = PxCreateDestructionRuntimeV11(mCudaContextManager->getContext(), scene, gate, allocator);
             if(mDestruction)mDynamicContext->activateDestructionNodeTracking();
         }
         return mDestruction;
@@ -672,6 +672,11 @@ namespace physx
             islands.getAccurateIslandSim().setGpuContactComponents(accurate,aMembers,count);
             islands.getSpeculativeIslandSim().setGpuContactComponents(speculative,sMembers,count);
         }
+    }
+
+    bool PxgSimulationController::isDestructionBody(PxU32 gpuIndex) const
+    {
+        return mDestruction && mDestruction->ownsBody(gpuIndex);
     }
 
     bool PxgSimulationController::usesDeviceDestructionContactInputs() const
@@ -752,9 +757,11 @@ namespace physx
         return ok;
     }
 
-    bool PxgSimulationController::advanceDestruction(PxReal dt, const PxVec3& gravity, bool canCorrect, bool canReuseContactPairs)
+    bool PxgSimulationController::advanceDestruction(PxReal dt, const PxVec3& gravity, PxU32 correctionBlockers, bool canReuseContactPairs)
     {
         if(!mDestruction) return false;
+        const bool canCorrect=correctionBlockers==0;
+        mDestruction->setCorrectionBlockers(correctionBlockers);
         if(usesDeviceDestructionContactInputs()) {
             PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.task.contactGraph",false,PxU64(reinterpret_cast<size_t>(this)));
             PxScopedCudaLock lock(*mCudaContextManager);

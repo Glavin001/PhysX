@@ -45,6 +45,13 @@ public:
     virtual bool prepareRigidIterationLimits(const PxgBodySim*,PxU32,const PxNodeIndex*,PxU32,PxU32,CUstream) = 0;
     virtual bool readRigidIterationLimits(PxU32& position,PxU32& velocity) = 0;
     virtual bool correctionEnabled() const = 0;
+    // True for a body the stage owns: an authored cluster parent from
+    // configureStress or a fragment it allocated. A PxConstraint attached to
+    // such a body is outside the rigid checkpoint; one attached to any other
+    // body is replayable and does not block correction.
+    virtual bool ownsBody(PxU32 gpuIndex) const = 0;
+    // Recorded by the scene each step and reported in PxDestructionStageStatus.
+    virtual void setCorrectionBlockers(PxU32 blockers) = 0;
     virtual bool gpuIslandRepairEnabled() const = 0;
     // Ordered host observation for the existing CPU island registry. Membership packs n heads followed by n successors, in node-ID order;
     // connectivity and membership links are computed on CUDA.
@@ -141,10 +148,11 @@ public:
 #define PX_DESTRUCTION_RUNTIME_EXPORT __attribute__((visibility("default")))
 #endif
 // Private producer ABI v4 supplies borrowed collision storage for device-controlled preparation.
+// v11 adds ownsBody() so the scene can admit constraints on ordinary bodies.
 // Version the symbol so mixed GPU/runtime binaries fail resolution rather than
 // violating lifecycle ordering. Public scene ABI is intact.
 extern "C" PX_DESTRUCTION_RUNTIME_EXPORT physx::PxgDestructionRuntime*
-PxCreateDestructionRuntimeV10(CUcontext context, void* scene, bool (*writeAllowed)(void*), physx::PxvDestructionBodyAllocator* allocator);
+PxCreateDestructionRuntimeV11(CUcontext context, void* scene, bool (*writeAllowed)(void*), physx::PxvDestructionBodyAllocator* allocator);
 
 extern "C" PX_DESTRUCTION_RUNTIME_EXPORT bool
 PxApplyDestructionSolverIslandMetadata(const physx::PxvIslandMetadataPage* pages,physx::PxU32 count,

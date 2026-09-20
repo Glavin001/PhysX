@@ -852,24 +852,20 @@ if(BLAST_ENABLE_CUDA_STRESS)
     add_test(NAME physx_native_standard_late_impact COMMAND native_standard_scene_test --late-impact)
     set_tests_properties(physx_native_post_correction physx_native_standard_reported_reuse physx_native_standard_reuse physx_native_standard_late_impact physx_native_standard_wake_boundary physx_native_standard_awake physx_native_standard_sleep physx_native_standard_sleep_boundary physx_native_standard_gpu_islands PROPERTIES RUN_SERIAL TRUE TIMEOUT 120 LABELS "gpu;integration")
 
-    # A vehicle SDK car ramming a native-destruction wall. The snippet vehicle
-    # sources are compiled in directly; their JSON loader needs rapidjson, which
-    # this build does not carry, so the test transcribes the parameters instead.
-    set(NATIVE_VEHICLE_SNIPPET_SOURCES
-        "${PHYSX_ROOT}/snippets/snippetvehiclecommon/base/Base.cpp"
-        "${PHYSX_ROOT}/snippets/snippetvehiclecommon/directdrivetrain/DirectDrivetrain.cpp"
-        "${PHYSX_ROOT}/snippets/snippetvehiclecommon/physxintegration/PhysXIntegration.cpp")
-    add_executable(native_vehicle_wall_test tests/native_vehicle_wall_test.cpp physx_scene.cpp state_writer.cpp ${NATIVE_VEHICLE_SNIPPET_SOURCES})
+    # A vehicle SDK car ramming a native-destruction wall, through the packaged
+    # PxNativeVehicle helper (destruction/vehicle).
+    add_executable(native_vehicle_wall_test tests/native_vehicle_wall_test.cpp physx_scene.cpp state_writer.cpp)
     target_compile_definitions(native_vehicle_wall_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG PX_SUPPORT_PVD=0 PX_SUPPORT_OMNI_PVD=0)
-    target_include_directories(native_vehicle_wall_test PRIVATE ${PHYSX_ROOT}/include ${PHYSX_ROOT}/snippets)
+    target_include_directories(native_vehicle_wall_test PRIVATE ${PHYSX_ROOT}/include)
     target_link_options(native_vehicle_wall_test PRIVATE "-Wl,-rpath,${PHYSX_LIB_DIR}")
-    target_link_libraries(native_vehicle_wall_test PRIVATE ${PHYSX_VEHICLE} ${NATIVE_DESTRUCTION_TEST_LIBS})
+    target_link_libraries(native_vehicle_wall_test PRIVATE PhysXNativeVehicle ${PHYSX_VEHICLE} ${NATIVE_DESTRUCTION_TEST_LIBS})
     add_test(NAME physx_native_vehicle_wall COMMAND native_vehicle_wall_test)
     add_test(NAME physx_native_vehicle_wall_control COMMAND native_vehicle_wall_test --no-fracture)
-    # Pins the known limitation: a scene holding the vehicle SDK's PxConstraints
-    # drives, but the first fracture step is refused as correction-required.
-    add_test(NAME physx_native_vehicle_wall_constraint_gate COMMAND native_vehicle_wall_test --keep-constraints)
-    set_tests_properties(physx_native_vehicle_wall physx_native_vehicle_wall_control physx_native_vehicle_wall_constraint_gate PROPERTIES RUN_SERIAL TRUE TIMEOUT 120 LABELS "gpu;integration")
+    add_test(NAME physx_native_vehicle_wall_no_constraints COMMAND native_vehicle_wall_test --drop-constraints)
+    # Pins the remaining limitation: a constraint on a body the stage owns
+    # refuses the fracture step, and the status says so before it happens.
+    add_test(NAME physx_native_vehicle_wall_constraint_gate COMMAND native_vehicle_wall_test --constrain-wall)
+    set_tests_properties(physx_native_vehicle_wall physx_native_vehicle_wall_control physx_native_vehicle_wall_no_constraints physx_native_vehicle_wall_constraint_gate PROPERTIES RUN_SERIAL TRUE TIMEOUT 120 LABELS "gpu;integration")
 
     add_executable(native_group_filter_test tests/native_group_filter_test.cpp physx_scene.cpp)
     target_compile_definitions(native_group_filter_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG PX_SUPPORT_PVD=0 PX_SUPPORT_OMNI_PVD=0)

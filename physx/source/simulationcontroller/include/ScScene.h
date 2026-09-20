@@ -391,6 +391,12 @@ namespace Sc
 	
 	PX_FORCE_INLINE	PxU32						getNbConstraints()	const	{ return mConstraints.size();		}
         bool canUseGpuDestructionIslandRepair() const;
+        // PxDestructionCorrectionBlocker bits for the current scene state.
+        PxU32 computeDestructionCorrectionBlockers() const;
+        // A constraint attached to a stage-owned body (bit 0) or joining two
+        // bodies (bit 1). World-attached constraints on ordinary bodies, such as
+        // a vehicle's suspension limits, are replayable and add no island edge.
+        PxU32 classifyDestructionConstraints() const;
 	PX_FORCE_INLINE	ConstraintCore*const*		getConstraints()	const	{ return mConstraints.getEntries();	}
 	PX_FORCE_INLINE	ConstraintCore*const*		getConstraints()			{ return mConstraints.getEntries();	}
 

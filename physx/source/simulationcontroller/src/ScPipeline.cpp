@@ -67,6 +67,7 @@
 #include "ScArticulationSim.h"
 #include "ScConstraintCore.h"
 #include "ScConstraintSim.h"
+#include "PxDestructionScene.h"
 #include "DyIslandManager.h"
 
 using namespace physx;
@@ -2546,11 +2547,57 @@ void Sc::Scene::unregisterInteractions(PxBaseTask*)
 
 ///////////////////////////////////////////////////////////////////////////////
 
+PxU32 Sc::Scene::classifyDestructionConstraints() const
+{
+    PxU32 bits=0;
+    ConstraintCore*const* cores=mConstraints.getEntries();
+    for(PxU32 i=0;i<mConstraints.size() && bits!=3;++i) {
+        const ConstraintSim* sim=cores[i]->getSim();
+        if(!sim)continue;
+        const BodySim* body0=sim->getBody(0);const BodySim* body1=sim->getBody(1);
+        if(body0 && body1)bits|=2;
+        if(body0 && mSimulationController->isDestructionBody(body0->getNodeIndex().index()))bits|=1;
+        if(body1 && mSimulationController->isDestructionBody(body1->getNodeIndex().index()))bits|=1;
+    }
+    return bits;
+}
+
+PxU32 Sc::Scene::computeDestructionCorrectionBlockers() const
+{
+    PxU32 blockers=0;
+    if(mPublicFlags & PxSceneFlag::eENABLE_CCD)blockers|=PxDestructionCorrectionBlocker::eCCD;
+    if(mPublicFlags & PxSceneFlag::eENABLE_DIRECT_GPU_SLEEPING)blockers|=PxDestructionCorrectionBlocker::eDIRECT_GPU_SLEEPING;
+    if(mArticulations.size())blockers|=PxDestructionCorrectionBlocker::eARTICULATION;
+    // A world-attached constraint on an ordinary body is prepared on the CPU
+    // from the restored start pose and its unchanged constant block, so the
+    // corrected solve rebuilds it exactly. Only constraints on stage-owned
+    // bodies stay outside the checkpoint.
+    if(classifyDestructionConstraints() & 1)blockers|=PxDestructionCorrectionBlocker::eCONSTRAINT_ON_DESTRUCTION_BODY;
+    if(mFilterCallback)blockers|=PxDestructionCorrectionBlocker::eFILTER_CALLBACK;
+#if PX_SUPPORT_GPU_PHYSX
+    if(mDeformableSurfaces.size() || mDeformableVolumes.size())blockers|=PxDestructionCorrectionBlocker::eDEFORMABLE;
+    if(mParticleSystems.size())blockers|=PxDestructionCorrectionBlocker::ePARTICLE_SYSTEM;
+#endif
+    {
+        PxBitMap::Iterator speculative(mSpeculativeCCDRigidBodyBitMap);
+        if(speculative.getNext()!=PxBitMap::Iterator::DONE)blockers|=PxDestructionCorrectionBlocker::eSPECULATIVE_CCD_BODY;
+    }
+    // CPU-authored targets are replayable after restoring the captured
+    // start pose. Direct GPU target commands are not captured here.
+    if(mPublicFlags & PxSceneFlag::eENABLE_DIRECT_GPU_API)
+        for(PxU32 i=0;i<mActiveKinematicBodyCount;++i)
+            if(mActiveBodies[i]->getHasValidKinematicTarget()){blockers|=PxDestructionCorrectionBlocker::eDIRECT_GPU_KINEMATIC_TARGET;break;}
+    return blockers;
+}
+
 bool Sc::Scene::canUseGpuDestructionIslandRepair() const
 {
+    // GPU repair rebuilds islands from contact components alone. A constraint
+    // joining two bodies is an island edge it would not see; one attached to
+    // the world connects nothing and is safe.
     bool gpuRepair=mSimulationController->usesGpuDestructionIslandRepair()
         && !(mPublicFlags & (PxSceneFlag::eENABLE_CCD | PxSceneFlag::eENABLE_DIRECT_GPU_SLEEPING))
-        && !mArticulations.size() && !mConstraints.size() && !mFilterCallback
+        && !mArticulations.size() && !classifyDestructionConstraints() && !mFilterCallback
         && !getContactModifyCallback();
 #if PX_SUPPORT_GPU_PHYSX
     gpuRepair=gpuRepair && !mDeformableSurfaces.size() && !mDeformableVolumes.size() && !mParticleSystems.size();
@@ -3033,28 +3080,16 @@ void Sc::Scene::finalizationPhase(PxBaseTask* continuation)
 #endif
     // The ordinary trial solve and integration have finished. Native stress
     // consumes solved impulses before the scene publishes its results.
-    // First end-to-end rigid MVP excludes state whose rollback is not yet
-    // implemented. Rejection remains explicit when such a scene fractures.
-    bool canCorrect=!(mPublicFlags & (PxSceneFlag::eENABLE_CCD | PxSceneFlag::eENABLE_DIRECT_GPU_SLEEPING))
-        && !mArticulations.size() && !mConstraints.size() && !mFilterCallback;
-#if PX_SUPPORT_GPU_PHYSX
-    canCorrect=canCorrect && !mDeformableSurfaces.size() && !mDeformableVolumes.size() && !mParticleSystems.size();
-#endif
-    if(canCorrect) {
-        PxBitMap::Iterator speculative(mSpeculativeCCDRigidBodyBitMap);
-        canCorrect=speculative.getNext()==PxBitMap::Iterator::DONE;
-        // CPU-authored targets are replayable after restoring the captured
-        // start pose. Direct GPU target commands are not captured here.
-        if(mPublicFlags & PxSceneFlag::eENABLE_DIRECT_GPU_API)
-            for(PxU32 i=0;canCorrect && i<mActiveKinematicBodyCount;++i)
-                canCorrect=!mActiveBodies[i]->getHasValidKinematicTarget();
-    }
+    // The rigid MVP excludes state whose rollback is not yet implemented.
+    // Rejection remains explicit when such a scene fractures, and the status
+    // reports which state it was.
+    const PxU32 correctionBlockers=computeDestructionCorrectionBlockers();
     // Triggers and contact-modification state still require full repair.
     // Ordinary reports repair only their participating active dynamic
     // shapes below; a single projectile report must not refilter the city.
     const bool canReuseContactPairs=!getNbInteractions(InteractionType::eTRIGGER)
         && !getContactModifyCallback();
-    if(mSimulationController->advanceDestruction(mDt, mGravity, canCorrect, canReuseContactPairs)) {
+    if(mSimulationController->advanceDestruction(mDt, mGravity, correctionBlockers, canReuseContactPairs)) {
         {
         // Available in release builds when a profiler callback is installed.
         PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.refilter",false,

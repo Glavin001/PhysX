@@ -9,3 +9,7 @@ add_executable(native_scene_consumer main.cpp)
 target_compile_features(native_scene_consumer PRIVATE cxx_std_17)
 target_compile_definitions(native_scene_consumer PRIVATE PXD_NATIVE_ONLY)
 target_link_libraries(native_scene_consumer PRIVATE PhysXDestruction::NativeScene)
+
+add_executable(vehicle_consumer vehicle_consumer.cpp)
+target_compile_features(vehicle_consumer PRIVATE cxx_std_17)
+target_link_libraries(vehicle_consumer PRIVATE PhysXDestruction::NativeVehicle)

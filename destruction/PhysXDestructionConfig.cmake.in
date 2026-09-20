@@ -32,6 +32,16 @@ if(NOT TARGET PhysXDestruction::NativeScene)
     unset(_pxn_lib)
 endif()
 
+# A vehicle SDK car on a native scene: PxNativeVehicle.h plus the PhysX
+# vehicle library, on top of NativeScene.
+if(NOT TARGET PhysXDestruction::NativeVehicle)
+    add_library(PhysXDestruction::NativeVehicle INTERFACE IMPORTED)
+    set_property(TARGET PhysXDestruction::NativeVehicle PROPERTY INTERFACE_INCLUDE_DIRECTORIES
+        "${PACKAGE_PREFIX_DIR}/include/physx-destruction")
+    set_property(TARGET PhysXDestruction::NativeVehicle PROPERTY INTERFACE_LINK_LIBRARIES
+        "${PACKAGE_PREFIX_DIR}/lib/libPhysXNativeVehicle_static_64.a;${PACKAGE_PREFIX_DIR}/lib/libPhysXVehicle_static_64.a;PhysXDestruction::NativeScene")
+endif()
+
 if(NOT TARGET PhysXDestruction::Sdk)
     add_library(PhysXDestruction::Sdk INTERFACE IMPORTED)
     set(_pxd_root "${PACKAGE_PREFIX_DIR}")

@@ -11,3 +11,6 @@
 # claude/native-destruction-fixes-and-cuda-12.8, which this branch does not
 # descend from, so switching here silently dropped the protection.
 reports/
+
+# Stable live-server runtime copies; see bin/README.md
+bin/linux.x86_64/

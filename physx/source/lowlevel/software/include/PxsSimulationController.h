@@ -306,12 +306,15 @@ namespace physx
 		virtual bool 	evaluateSDFDistances(PxVec4* /*localGradientAndSDFConcatenated*/, const PxShapeGPUIndex* /*shapeIndices*/, const PxVec4* /*localSamplePointsConcatenated*/, const PxU32* /*samplePointCountPerShape*/, PxU32 /*nbElements*/, PxU32 /*maxPointCount*/, CUevent /*startEvent = NULL*/, CUevent /*finishEvent = NULL*/) { return false; }
         virtual bool isRigidBodyRegistered(PxU32, const PxsRigidBody*) const { return false; }
         virtual PxDestructionScene* getDestructionScene(void*, bool (*)(void*), PxvDestructionBodyAllocator*) { return NULL; }
-        virtual bool advanceDestruction(PxReal, const PxVec3&, bool, bool) { return false; }
+        // correctionBlockers: PxDestructionCorrectionBlocker bits; zero permits correction.
+        virtual bool advanceDestruction(PxReal, const PxVec3&, PxU32 /*correctionBlockers*/, bool) { return false; }
         virtual PxU32 getDestructionError() const { return 0; }
         virtual void discardDestructionTrialBodyUpload(PxU32) {}
         virtual bool preservesDestructionContactPairs() const { return false; }
         virtual bool usesDeviceDestructionContactInputs() const { return false; }
         virtual bool usesGpuDestructionIslandRepair() const { return false; }
+        // A body the destruction stage owns (cluster parent or fragment).
+        virtual bool isDestructionBody(PxU32 /*gpuIndex*/) const { return false; }
         virtual void prepareGpuDestructionIslandRepair(IG::SimpleIslandManager&) {}
 
 		virtual	bool	copyContactData(void* /*data*/, PxU32* /*numContactPairs*/, const PxU32 /*maxContactPairs*/, CUevent /*startEvent*/, CUevent /*copyEvent*/) { return false; }

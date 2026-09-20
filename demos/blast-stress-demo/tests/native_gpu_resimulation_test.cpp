@@ -486,11 +486,14 @@ void unconvergedStress() {
         auto* stage=scene.getDestructionScene();require(stage->configureStress(desc),"cantilever stress configuration failed");
         scene.simulate(1.0f/60);PxU32 error=0;const bool accepted=scene.fetchResults(true,&error);const auto status=stage->getLastStatus();
         require(!status.converged && status.iterations==1,"fixture did not exhaust its stress budget");
-        if(native)require(!accepted && error && (status.error&4096u) && !status.correctionPasses,"native mode accepted an unconverged stress result");
+        // An unconverged solve no longer fails the step (status error 4096 is
+        // retired): the tick keeps its warm-started iterate, withholds every
+        // fracture verdict and refines the same solve next tick.
+        if(native)require(accepted && !error && !status.error && !status.correctionPasses && !status.brokenBonds,"native mode failed or fractured on an unconverged stress result");
         else require(accepted && !error && !status.error,"diagnostic compatibility changed");
         require(stage->clearStress(),"cantilever cleanup failed");parent->release();require(context.healthy(),"cantilever GPU health failed");
     }
-    std::puts("native convergence gate rejects exhausted stress budget; diagnostic reference remains selectable");
+    std::puts("native convergence gate withholds verdicts on an exhausted stress budget; diagnostic reference remains selectable");
 }
 }
 int main(int argc,char** argv){try {

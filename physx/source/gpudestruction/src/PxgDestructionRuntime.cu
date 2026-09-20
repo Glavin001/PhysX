@@ -512,6 +512,10 @@ class Runtime final : public PxgDestructionRuntime {
     PxDestructionBodyAllocationStatus* mBodyAllocationObservation{};
     cudaEvent_t mMotionAllocationEvents[2]{};bool mMotionTimingPending=false,mMotionTimingRetry=false;
     std::vector<PxU32> mHostReservedIndices;
+    // Host mirror of stage-owned body indices: cluster parents at configure,
+    // accepted fragments as they are committed. Read by ownsBody() only.
+    std::set<PxU32> mHostOwnedBodies;
+    PxU32 mCorrectionBlockers=0;
     bool mCompatibilityPrepared=false;
     PxU32* mAffectedClusters{};PxU32* mCandidateSlots{};
     PxDestructionCollisionBinding *mCollisionBindings{},*mCompactCollisionBindings{};
@@ -923,6 +927,7 @@ public:
         cudaEventDestroy(mPreReady);cudaEventDestroy(mGraphReady);cudaEventDestroy(mInput);cudaEventDestroy(mReady);cudaEventDestroy(mCheckpointReady);cudaStreamDestroy(mStream);
     }
     void clear() {
+        mHostOwnedBodies.clear();
         cudaEventSynchronize(mPreReady);cudaEventSynchronize(mReady);
         cudaFree(mPreNodeStorage);cudaFree(mPreNodes);mPreNodeStorage=nullptr;mPreNodes=nullptr;mPrePrevious=nullptr;mPreRegistryCapacity=0;
         cudaFree(mPreUpdates);mPreUpdates=nullptr;mPreUpdateCapacity=0;mPreRosterValid=false;
@@ -1106,6 +1111,7 @@ public:
             check(cudaMemcpy(mClusters,d.clusters,sizeof(*mClusters)*d.clusterCount,cudaMemcpyHostToDevice));
             if(!map.empty())check(cudaMemcpy(mMap,map.data(),sizeof(*mMap)*map.size(),cudaMemcpyHostToDevice));
             mN=d.chunkCount;mM=d.bondCount;mC=d.clusterCount;mMapCount=PxU32(map.size());
+            for(PxU32 i=0;i<d.clusterCount;++i)mHostOwnedBodies.insert(d.clusters[i].body);
             if(d.materialCount) {
                 allocate(mMaterials,d.materialCount);allocate(mBonds,d.bondCount);allocate(mHealth,d.bondCount);
                 allocate(mRates,d.chunkCount);allocate(mNodeBegin,begin.size());allocate(mNodeRefs,refs.size());
@@ -1250,7 +1256,10 @@ public:
         v.chunkCount=mN;v.bondCount=mM;v.readyEvent=reinterpret_cast<CUevent>(mReady);return v;
     }
     void setConsumerEvent(CUevent e) override {if(mWriteAllowed(mScene))mConsumer=e;}
-    PxDestructionStageStatus getLastStatus() const override {return *mHostStatus;}
+    PxDestructionStageStatus getLastStatus() const override {
+        PxDestructionStageStatus status=*mHostStatus;status.correctionBlockers=mCorrectionBlockers;return status;
+    }
+    void setCorrectionBlockers(PxU32 blockers) override {mCorrectionBlockers=blockers;}
     bool prepareFrame(bool postCorrection=false) override {
         try {Context current(mContext);if(!configured() || mPending)return false;
             mPostCorrection=postCorrection;
@@ -1593,6 +1602,7 @@ public:
             check(cudaEventRecord(mCheckpointReady,stream));mRestoredCheckpointGeneration=generation;return true;
         }catch(...) {mCheckpointValid=false;mFailed=true;return false;}
     }
+    bool ownsBody(PxU32 gpuIndex) const override {return mHostOwnedBodies.count(gpuIndex)!=0;}
     PxU32 reservedBodyCount() const override {return PxU32(mHostReservedIndices.size());}
     const PxU32* reservedBodyIndices() const override {return mHostReservedIndices.data();}
     bool initializeReservedBodies(PxgBodySim* bodies,PxgBodySimVelocities* previous,
@@ -1842,6 +1852,7 @@ public:
             collectCorrectionTimings();
             if(mHostStatus->error)return false;
             mCommittedMotionSlots+=mHostBodyAllocation.reserved;
+            mHostOwnedBodies.insert(mHostReservedIndices.begin(),mHostReservedIndices.end());
             mBodyAllocator->acceptReservations();return true;
         }catch(...){mFailed=true;return false;}
     }
@@ -1858,7 +1869,7 @@ public:
 };
 }}
 extern "C" PX_DESTRUCTION_RUNTIME_EXPORT physx::PxgDestructionRuntime*
-PxCreateDestructionRuntimeV10(CUcontext c,void* scene,bool(*gate)(void*),physx::PxvDestructionBodyAllocator* allocator) {
+PxCreateDestructionRuntimeV11(CUcontext c,void* scene,bool(*gate)(void*),physx::PxvDestructionBodyAllocator* allocator) {
     try {return new physx::Runtime(c,scene,gate,allocator);}catch(...){return nullptr;}
 }
 
