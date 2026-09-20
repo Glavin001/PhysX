@@ -1435,7 +1435,8 @@ void Sc::Scene::advanceStep(PxBaseTask* continuation)
 
 	if(mDt != 0.0f)
 	{
-        auto& finalization=mDestructionCorrectionInProgress?mDestructionFinalizationPhase:mFinalizationPhase;
+        const PxU32 correctionPass=mSimulationController->getDestructionCorrectionPass();
+        auto& finalization=correctionPass?mDestructionFinalizationPhase[correctionPass&1]:mFinalizationPhase;
 		finalization.setContinuation(continuation);
 
 		// Chain: afterIntegration -> [CCD ->] [bodyAcceleration ->] finalizationPhase -> continuation
@@ -2102,7 +2103,13 @@ void Sc::Scene::beforeSolver(PxBaseTask* continuation)
     PxProfileScoped destructionDetail(mSimulationController->usesDeviceDestructionContactInputs()?PxGetProfilerCallback():NULL,
         mDestructionCorrectionInProgress?"GpuDestruction.detail.beforeSolver":"GpuDestruction.trialDetail.beforeSolver",false,PxU64(reinterpret_cast<size_t>(mSimulationController)));
 	PX_PROFILE_ZONE("Sim.updateForces", mContextId);
-    if(!mDestructionCorrectionInProgress)captureDestructionActivity();
+    // Every traversal that another rewind may follow needs its own activity
+    // snapshot: the restore consumes it, and fragments born this tick are only
+    // visible to a capture taken after their island insertion.
+    if(!mDestructionCorrectionInProgress
+        || mSimulationController->getDestructionCorrectionPass()<mSimulationController->getDestructionCorrectionLimit()) {
+        captureDestructionActivity();
+    }
 
 	// Note: For contact notifications it is important that force threshold checks are done after new/lost touches have been processed
 	//       because pairs might get added to the list processed below
@@ -3164,8 +3171,8 @@ void Sc::Scene::finalizationPhase(PxBaseTask* continuation)
         }
         restoreDestructionActivity();
         PX_PROFILE_STOP_CROSSTHREAD("Basic.rigidBodySolver", mContextId);
-        // Use a separate finalization task: this trial finalization is still
-        // running and must not have its continuation overwritten by the retry.
+        // advanceStep picks a finalization task other than this running one:
+        // its continuation must not be overwritten by the retry it schedules.
         mDestructionCorrectionInProgress=true;
         mAdvanceStep.setContinuation(continuation);
         stepSetupCollide(&mAdvanceStep);

@@ -3,8 +3,11 @@
 #include <foundation/PxProfiler.h>
 // Two independent loaded columns. The weak bond fails on the trial; the
 // subfatal bond loses section once and fails only when stress is re-evaluated.
-// The latter must split at the accepted pose without a third physics pass.
-void postCorrectionFracture(bool reports) {
+// At limit 1 the latter must split at the accepted pose without a third
+// physics pass. At limit>=2 that verdict rewinds and solves once more, so the
+// late fragment falls for exactly one timestep; limit 3 exits early at the
+// third evaluation with the same counts.
+void postCorrectionFracture(bool reports,PxU32 limit=1) {
     PxRigidDynamic* owners[2]{};PxShape* shapes[4]{};
     struct Observe final:PxProfilerCallback {
         PxRigidDynamic** owners;PxShape** shapes;unsigned bindings=0,publications=0;bool failed=false,watching=false;
@@ -61,7 +64,7 @@ void postCorrectionFracture(bool reports) {
     desc.clusters=clusters;desc.clusterCount=2;desc.bonds=bonds;desc.bondCount=2;
     desc.materials=materials;desc.materialCount=2;desc.damageRate=60;
     desc.preserveUnchangedContactPairs=true;
-    desc.maxIterations=128;desc.tolerance=1e-5f;desc.internalCorrectionLimit=1;
+    desc.maxIterations=128;desc.tolerance=1e-5f;desc.internalCorrectionLimit=limit;
     require(stage->configureStress(desc),"post-stress configuration failed");
     scene.setGravity(PxVec3(0,-9.81f,0));sentinel->setLinearVelocity(PxVec3(3,0,0));
     publication.watching=true;
@@ -72,17 +75,29 @@ void postCorrectionFracture(bool reports) {
     require(!publication.failed && publication.bindings==2 && publication.publications==1,
         "public shape owners did not wait for the union of both fracture evaluations");
     const auto status=stage->getLastStatus();
-    std::fprintf(stderr,"post-stress complete=%u error=%u stage=%u passes=%u correction=%u broken=%u second=%u\n",
-        complete,error,status.error,status.stressPasses,status.correctionPasses,status.brokenBonds,status.postCorrectionBrokenBonds);
+    std::fprintf(stderr,"post-stress limit=%u complete=%u error=%u stage=%u passes=%u correction=%u broken=%u second=%u\n",
+        limit,complete,error,status.error,status.stressPasses,status.correctionPasses,status.brokenBonds,status.postCorrectionBrokenBonds);
     require(complete && !error && !status.error,"post-correction fracture did not commit");
-    require(status.frame==1 && status.correctionPasses==1 && status.stressPasses==2,"wrong physics/stress pass budget");
+    // The second verdict is the last that changes membership: one corrected
+    // solve at limit 1, two at any higher limit (the third evaluation exits).
+    const PxU32 expectedCorrections=PxMin(limit,2u);
+    require(status.frame==1 && status.correctionPasses==expectedCorrections && status.stressPasses==expectedCorrections+1,"wrong physics/stress pass budget");
     require(status.brokenBonds==2 && status.postCorrectionBrokenBonds==1,"second stress verdict missing or applied twice");
     require(PxAbs(sentinel->getGlobalPose().p.x-before.x-.05f)<1e-4f
         && PxAbs(sentinel->getLinearVelocity().y+9.81f/60)<1e-5f,"ordinary body integrated/forced more than once");
     auto* late=shapes[3]->getActor()->is<PxRigidDynamic>();
     require(late && late!=owners[1],"second-pass fragment kept original owner");
-    require((late->getGlobalPose().transform(shapes[3]->getLocalPose().p)-PxVec3(10,5,0)).magnitude()<1e-5f
-        && late->getLinearVelocity().magnitude()<1e-5f,"second-pass fragment was rewound or integrated a third time");
+    // Limit 1 installs the late fragment at the accepted end-of-tick pose with
+    // no further motion. A higher limit rewinds and solves it once: it rests
+    // on the kinematic base chunk, so it keeps its pose up to the contact
+    // solver's residual velocity instead of the exact zero of an install.
+    {
+        const PxVec3 p=late->getGlobalPose().transform(shapes[3]->getLocalPose().p),v=late->getLinearVelocity();
+        std::fprintf(stderr,"late fragment: position %g %g %g velocity %g %g %g\n",double(p.x),double(p.y),double(p.z),double(v.x),double(v.y),double(v.z));
+        const float poseTolerance=limit>1?2e-3f:1e-5f,velocityTolerance=limit>1?2e-2f:1e-5f;
+        require((p-PxVec3(10,5,0)).magnitude()<poseTolerance && v.magnitude()<velocityTolerance,
+            "second-pass fragment was rewound or integrated too often");
+    }
     // Final CPU observation must not overwrite the exposed last-trial binding
     // batch with a different, two-pass publication batch (whose source is unset).
     {
@@ -92,7 +107,8 @@ void postCorrectionFracture(bool reports) {
         PxDestructionCollisionPreparationStatus prepared{};
         require(cuMemcpyDtoH(&prepared,CUdeviceptr(view.collisionPreparation),sizeof(prepared))==CUDA_SUCCESS,
             "trial binding status readback failed");
-        require(prepared.count>0 && prepared.count<=4,"missing final trial binding view");
+        // At limit>=2 the last evaluation changes nothing, so its batch is empty.
+        require(prepared.count<=4 && (limit>1 || prepared.count>0),"missing final trial binding view");
         std::vector<PxDestructionCollisionBinding> bindings(prepared.count);
         require(cuMemcpyDtoH(bindings.data(),CUdeviceptr(view.trialCollisionBindings),bindings.size()*sizeof(bindings[0]))==CUDA_SUCCESS,
             "trial binding view readback failed");
@@ -130,5 +146,5 @@ void postCorrectionFracture(bool reports) {
     require(stage->clearStress(),"post-stress cleanup failed");
     for(auto* owner:owners)owner->release();sentinel->release();for(auto* shape:shapes)shape->release();
     require(context.healthy(),"post-stress GPU health failed");
-    std::puts("post-correction: 4 chunks, 2 bonds, 2 columns, ordinary sentinel; both verdicts and one-time motion passed");
+    std::printf("post-correction limit=%u: 4 chunks, 2 bonds, 2 columns, ordinary sentinel; both verdicts and one-time motion passed\n",limit);
 }

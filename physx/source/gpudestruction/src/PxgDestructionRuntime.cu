@@ -93,18 +93,23 @@ __device__ PxU32 findChunk(const Lookup* map, PxU32 count, PxU32 contact) {
 __device__ void add(PxVec3& target,const PxVec3& value) {
     atomicAdd(&target.x,value.x); atomicAdd(&target.y,value.y); atomicAdd(&target.z,value.z);
 }
-__global__ void startFrame(PxDestructionStageStatus* status,const PxgContactGraphSequence* sequence,bool postCorrection) {
-    const PxU64 frame=status->frame+(postCorrection?0:1); *status={}; status->frame=frame;
+// Every pass starts from an empty per-pass status; only the trial advances
+// the frame. Prior passes are merged back in by mergePostCorrectionStatus.
+__global__ void startFrame(PxDestructionStageStatus* status,const PxgContactGraphSequence* sequence,bool correctedPass) {
+    const PxU64 frame=status->frame+(correctedPass?0:1); *status={}; status->frame=frame;
     if(sequence && sequence->error)status->error|=8192u;
 }
-__global__ void mergePostCorrectionStatus(PxDestructionStageStatus* status,PxDestructionStageStatus first) {
-    status->postCorrectionBrokenBonds=status->brokenBonds;
-    status->normalContacts+=first.normalContacts;status->frictionAnchors+=first.frictionAnchors;
-    status->iterations=max(status->iterations,first.iterations);
-    status->converged= status->converged && first.converged;
-    status->bondCommands+=first.bondCommands;status->brokenBonds+=first.brokenBonds;
-    status->crushedChunks+=first.crushedChunks;status->error|=first.error;
-    status->correctionPasses=1;status->stressPasses=2;
+// prior: host-accumulated sum of every earlier evaluation this frame.
+// passes: corrected physics passes that ran; one more stress evaluation than that.
+__global__ void mergePostCorrectionStatus(PxDestructionStageStatus* status,PxDestructionStageStatus prior,
+    PxU32 passes,PxU32 firstPassBrokenBonds) {
+    status->postCorrectionBrokenBonds=status->brokenBonds+prior.brokenBonds-firstPassBrokenBonds;
+    status->normalContacts+=prior.normalContacts;status->frictionAnchors+=prior.frictionAnchors;
+    status->iterations=max(status->iterations,prior.iterations);
+    status->converged= status->converged && prior.converged;
+    status->bondCommands+=prior.bondCommands;status->brokenBonds+=prior.brokenBonds;
+    status->crushedChunks+=prior.crushedChunks;status->error|=prior.error;
+    status->correctionPasses=passes;status->stressPasses=passes+1;
 }
 __global__ void prepareNativeCorrectionAcceptance(PxDestructionStageStatus* status,
     const PxgContactGraphSequence* sequence,PxU32* accept) {
@@ -416,7 +421,9 @@ __global__ void finishCollisionPreparation(PxDestructionCollisionPreparationStat
 #include "PxgDestructionPreparationGraph.cuh"
 class Runtime final : public PxgDestructionRuntime {
     bool mPreserveContactPairs=false;
-    bool mPostCorrection=false;PxDestructionStageStatus mFirstPassStatus{};
+    // Pass 0 is the trial evaluation; pass p>0 evaluates the p-th corrected
+    // solve. mPriorPasses sums every earlier pass of the current frame.
+    PxU32 mPass=0,mCorrectionLimit=0,mFirstPassBrokenBonds=0;PxDestructionStageStatus mPriorPasses{};
     PxProfilerCallback* mProfiler=nullptr;PxU64 mProfileContext=0;
     cudaEvent_t mStageEvents[6]{};bool mStageTimingPending=false;
     void stageMarker(PxU32 stage) {
@@ -453,7 +460,7 @@ class Runtime final : public PxgDestructionRuntime {
             {"GpuDestruction.cuda.finalSplitState","GpuDestruction.cuda.finalSplitFragments","GpuDestruction.cuda.finalSplitOwners"}};
         for(PxU32 i=0;i<3;++i)if(mCorrectionTimingMask&(1u<<i)) {
             float elapsed=0;check(cudaEventElapsedTime(&elapsed,mCorrectionEvents[2*i],mCorrectionEvents[2*i+1]));
-            if(mProfiler)mProfiler->recordData(elapsed,names[mPostCorrection?1:0][i],mProfileContext);
+            if(mProfiler)mProfiler->recordData(elapsed,names[mPass==mCorrectionLimit?1:0][i],mProfileContext);
         }
         mCorrectionTimingMask=0;
     }
@@ -963,7 +970,8 @@ public:
         cudaFreeHost(mGraphHostAccurateMembers);mGraphHostAccurateMembers=nullptr;
         cudaFreeHost(mGraphHostSpeculativeMembers);mGraphHostSpeculativeMembers=nullptr;
         mGraphObservationCapacity=0;mGpuIslandRepair=false;
-        mHostCorrectionTargets.clear();mCorrectionEnabled=false;
+        mHostCorrectionTargets.clear();mCorrectionEnabled=false;mCorrectionLimit=0;
+        mPass=0;mFirstPassBrokenBonds=0;mPriorPasses={};
         cudaFree(mCorrectionOwnerRequests);mCorrectionOwnerRequests=nullptr;
         cudaFree(mCorrectionOwnerTargets);mCorrectionOwnerTargets=nullptr;
         cudaFree(mPropertyEpochs);mPropertyEpochs=nullptr;mPropertyCount=nullptr;mPendingPropertyCapacity=0;
@@ -1012,7 +1020,7 @@ public:
     bool configureStress(const PxDestructionStressDesc& d) override {
         if(!mWriteAllowed(mScene) || !d.chunks || (d.bondCount && !d.bonds) || !d.clusters
             || !d.chunkCount || !d.clusterCount || !d.maxIterations
-            || d.internalCorrectionLimit>1 || (d.internalCorrectionLimit && !d.chunkMassProperties)
+            || (d.internalCorrectionLimit && !d.chunkMassProperties)
             || !std::isfinite(d.tolerance) || d.tolerance<=0)return false;
         try {
         std::vector<PxDestructionMaterial> materials;
@@ -1096,7 +1104,7 @@ public:
             // work before releasing buffers even if the last stage failed.
             check(cudaEventSynchronize(mInput));check(cudaStreamSynchronize(mStream));
             if(mConsumer)check(cudaEventSynchronize(reinterpret_cast<cudaEvent_t>(mConsumer)));
-            clear();mPending=false;mFailed=false;mCorrectionEnabled=d.internalCorrectionLimit==1;mPreserveContactPairs=d.preserveUnchangedContactPairs;mGpuIslandRepair=d.gpuIslandRepair;
+            clear();mPending=false;mFailed=false;mCorrectionEnabled=d.internalCorrectionLimit>0;mCorrectionLimit=d.internalCorrectionLimit;mPreserveContactPairs=d.preserveUnchangedContactPairs;mGpuIslandRepair=d.gpuIslandRepair;
             if(d.bondCount) {
                 mSolver=ExtStressGpuSolver::create(nodes.data(),d.chunkCount,bonds.data(),d.bondCount,NULL,0,mContext);
                 if(!mSolver || !mSolver->prepareDeviceSolve()){clear();return false;}
@@ -1260,17 +1268,29 @@ public:
         PxDestructionStageStatus status=*mHostStatus;status.correctionBlockers=mCorrectionBlockers;return status;
     }
     void setCorrectionBlockers(PxU32 blockers) override {mCorrectionBlockers=blockers;}
-    bool prepareFrame(bool postCorrection=false) override {
-        try {Context current(mContext);if(!configured() || mPending)return false;
-            mPostCorrection=postCorrection;
-            if(postCorrection) {
+    bool prepareFrame(PxU32 pass=0) override {
+        try {Context current(mContext);if(!configured() || mPending || pass>mCorrectionLimit || (pass && pass!=mPass+1))return false;
+            mPass=pass;
+            if(pass) {
+                // The previous pass was accepted: its per-pass status carries
+                // exactly one corrected solve and one evaluation. Fold it into
+                // the frame total before this evaluation overwrites the device row.
                 if(mHostStatus->error || mHostStatus->correctionPasses!=1 || mHostStatus->stressPasses!=1)return false;
-                mFirstPassStatus=*mHostStatus;
+                const auto& previous=*mHostStatus;
+                if(pass==1){mPriorPasses=previous;mFirstPassBrokenBonds=previous.brokenBonds;}
+                else {
+                    auto& prior=mPriorPasses;
+                    prior.normalContacts+=previous.normalContacts;prior.frictionAnchors+=previous.frictionAnchors;
+                    prior.iterations=std::max(prior.iterations,previous.iterations);
+                    prior.converged=prior.converged && previous.converged;
+                    prior.bondCommands+=previous.bondCommands;prior.brokenBonds+=previous.brokenBonds;
+                    prior.crushedChunks+=previous.crushedChunks;prior.error|=previous.error;
+                }
             }
-            if(!postCorrection){mInstalledOwnerGeneration=0;mPendingPropertyCapacity=0;mPendingShapeCapacity=0;}
+            if(!pass){mInstalledOwnerGeneration=0;mPendingPropertyCapacity=0;mPendingShapeCapacity=0;}
             if(mConsumer)check(cudaStreamWaitEvent(mStream,reinterpret_cast<cudaEvent_t>(mConsumer),0));
-            startFrame<<<1,1,0,mStream>>>(mStatus,mContactSequence,postCorrection);
-            if(mTopology && !postCorrection)mChanges.start(mTopology->accepted(),mStatus,mStream);
+            startFrame<<<1,1,0,mStream>>>(mStatus,mContactSequence,pass>0);
+            if(mTopology && !pass)mChanges.start(mTopology->accepted(),mStatus,mStream);
             if(mBodyAllocation)check(cudaMemsetAsync(mBodyAllocation,0,sizeof(*mBodyAllocation),mStream));
             mHostCompletion->correction={};mCorrectionBodyCapacity=0;
             mCollisionPreparationSubmitted=mCorrectionPreparationSubmitted=false;mPreparationObserved=false;
@@ -1283,9 +1303,9 @@ public:
         }catch(...){mFailed=true;return false;}
     }
     bool finishPostCorrection() override {
-        if(!mPostCorrection || mFailed || mPending || mHostStatus->error)return false;
+        if(!mPass || mFailed || mPending || mHostStatus->error)return false;
         try {Context current(mContext);
-            mergePostCorrectionStatus<<<1,1,0,mStream>>>(mStatus,mFirstPassStatus);
+            mergePostCorrectionStatus<<<1,1,0,mStream>>>(mStatus,mPriorPasses,mPass,mFirstPassBrokenBonds);
             if(mTopology)mChanges.publish(mStream);
             const PxU32 capacity=std::min(mC,mPendingPropertyCapacity);
             std::vector<PxvDestructionBodyProperties> observations(capacity);PxU32 count=0;
@@ -1322,7 +1342,7 @@ public:
             if(count && !mBodyAllocator->publishCorrectionProperties(observations.data(),count))return false;
             const PxU32 shapeCount=shapeCapacity?mHostCompletion->shapeCount:0;
             if(shapeCount>shapeCapacity || (shapeCount && !mBodyAllocator->publishShapeOwners(shapeObservations.data(),shapeCount)))return false;
-            mPendingPropertyCapacity=0;mPendingShapeCapacity=0;mPostCorrection=false;return true;
+            mPendingPropertyCapacity=0;mPendingShapeCapacity=0;mPass=0;return true;
         }catch(...){mFailed=true;return false;}
     }
     CUevent inputEvent() const override {return reinterpret_cast<CUevent>(mInput);}
@@ -1406,7 +1426,7 @@ public:
             if(!mTopology)stageMarker(4);
             if(mMaterials)commitMaterialState<<<(std::max(mM,mN)+127)/128,128,0,mStream>>>(mVerdicts,mHealth,mM,mTrialCrush,mCrush,mN,mStatus);
             stageMarker(5);
-            if(mTopology && !mPostCorrection)mChanges.publish(mStream);
+            if(mTopology && !mPass)mChanges.publish(mStream);
             check(cudaGetLastError());
             if(mBodyPreparation) {
                 // The GPU producer consumes its own count. CPU compatibility
@@ -1553,8 +1573,11 @@ public:
             if(mCheckpointValid)check(cudaStreamWaitEvent(stream,mCheckpointReady,0));
             mCheckpointValid=false;mRestoredCheckpointGeneration=0;
             if(count>mCheckpointCapacity || bool(previous)!=mCheckpointHasPrevious || bool(accelerations)!=mCheckpointHasAccelerations) {
-                // Grow only at the ordered pre-solve boundary. Allocation failure
-                // cannot truncate the checkpoint or mutate accepted body state.
+                // Growth happens at an ordered boundary: pre-solve, or right after
+                // a pass installed fragments that read the old checkpoint on this
+                // stream. Drain those readers before their source is released.
+                // Allocation failure cannot truncate the checkpoint or mutate
+                // accepted body state.
                 PxgBodySim* freshBodies=nullptr;PxgBodySimVelocities* freshPrevious=nullptr;
                 PxgRigidBodyAcceleration* freshAccelerations=nullptr;
                 const PxU64 grown=std::max<PxU64>(256,PxU64(mCheckpointCapacity)+mCheckpointCapacity/2);
@@ -1564,6 +1587,7 @@ public:
                     if(previous)allocate(freshPrevious,capacity);
                     if(accelerations)allocate(freshAccelerations,capacity);
                 }catch(...) {cudaFree(freshBodies);cudaFree(freshPrevious);cudaFree(freshAccelerations);throw;}
+                check(cudaEventRecord(mCheckpointReady,stream));check(cudaEventSynchronize(mCheckpointReady));
                 cudaFree(mCheckpointBodies);cudaFree(mCheckpointPrevious);cudaFree(mCheckpointAccelerations);
                 mCheckpointBodies=freshBodies;mCheckpointPrevious=freshPrevious;mCheckpointAccelerations=freshAccelerations;
                 mCheckpointCapacity=capacity;
@@ -1785,6 +1809,7 @@ public:
     }
     bool preserveUnchangedContactPairs() const override { return mPreserveContactPairs; }
     bool correctionEnabled() const override { return mCorrectionEnabled; }
+    PxU32 correctionLimit() const override { return mCorrectionLimit; }
     PxU32 correctionBodyCount() const override { return PxU32(mHostCorrectionTargets.size()); }
     const PxU32* correctionBodyIndices() const override { return mHostCorrectionTargets.data(); }
     bool applyCorrectionBindings() override {

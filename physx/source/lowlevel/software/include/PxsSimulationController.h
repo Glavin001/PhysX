@@ -309,6 +309,11 @@ namespace physx
         // correctionBlockers: PxDestructionCorrectionBlocker bits; zero permits correction.
         virtual bool advanceDestruction(PxReal, const PxVec3&, PxU32 /*correctionBlockers*/, bool) { return false; }
         virtual PxU32 getDestructionError() const { return 0; }
+        // Index of the corrected traversal currently running (0 = trial) and
+        // the configured maximum; the pipeline uses them to decide whether
+        // another corrected pass may still follow this one.
+        virtual PxU32 getDestructionCorrectionPass() const { return 0; }
+        virtual PxU32 getDestructionCorrectionLimit() const { return 0; }
         virtual void discardDestructionTrialBodyUpload(PxU32) {}
         virtual bool preservesDestructionContactPairs() const { return false; }
         virtual bool usesDeviceDestructionContactInputs() const { return false; }

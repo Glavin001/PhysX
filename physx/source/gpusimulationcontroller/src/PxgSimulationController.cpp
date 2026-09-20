@@ -644,7 +644,7 @@ namespace physx
 
     bool PxgSimulationController::preservesDestructionContactPairs() const
     {
-        return mDestructionCorrecting && mDestructionPreservePairs;
+        return isDestructionCorrecting() && mDestructionPreservePairs;
     }
 
     PxU64 PxgSimulationController::getDestructionContactGraphGeneration() const {
@@ -682,6 +682,10 @@ namespace physx
     bool PxgSimulationController::usesDeviceDestructionContactInputs() const
     {
         return mDestruction && mDestruction->configured() && mDestruction->correctionEnabled();
+    }
+    PxU32 PxgSimulationController::getDestructionCorrectionLimit() const
+    {
+        return mDestruction && mDestruction->configured() ? mDestruction->correctionLimit() : 0;
     }
 
     bool PxgSimulationController::buildDestructionContactInputs(PxgContactManagerInput* inputs,PxU32 count,CUstream stream)
@@ -767,8 +771,16 @@ namespace physx
             PxScopedCudaLock lock(*mCudaContextManager);
             if(!mNpContext->getGpuNarrowphaseCore()->buildDestructionContactGraph(true))return false;
         }
-        const bool postCorrection=mDestructionCorrecting;
-        if(postCorrection) {
+        // One tick is a bounded loop over task-graph traversals: pass 0 is the
+        // trial solve, pass p>0 the p-th corrected solve. Each entry evaluates
+        // the motion the previous traversal produced. A fracture verdict at
+        // pass<limit rewinds and schedules pass+1; at pass==limit it is applied
+        // to the final motion without another solve.
+        const PxU32 pass=mDestructionCorrectionPass;
+        const PxU32 limit=mDestruction->configured() ? mDestruction->correctionLimit() : 0;
+        const bool tail=pass==limit;
+        mDestructionCorrectionPass=0;
+        if(pass) {
             if(mDestructionCorrectionProfiler) {
                 mDestructionCorrectionProfiler->zoneEnd(mDestructionCorrectionProfileData,
                     gDestructionCorrectionZone,true,PxU64(reinterpret_cast<size_t>(this)));
@@ -778,12 +790,13 @@ namespace physx
             PxScopedCudaLock lock(*mCudaContextManager);
             const bool accepted=!mCudaContextManager->getCudaContext()->isInAbortMode()
                 && mDestruction->acceptCorrection(mSimulationCore->getBodySimBufferDevicePtr().getPointer(),mSimulationCore->getStream());
-            mDestructionCorrecting=false;mDestructionError=accepted?0:1;
+            mDestructionError=accepted?0:1;
             if(!accepted)return false;
-            // A second fracture evaluation uses corrected end-of-tick motion.
-            // Keep a stable source snapshot for split COM fitting; never rewind
-            // to the original trial input and never schedule a third physics pass.
-            if(!mDestruction->captureRigidState(mSimulationCore->getBodySimBufferDevicePtr().getPointer(),
+            // The final evaluation uses corrected end-of-tick motion and any
+            // split it produces is installed at that motion, so snapshot it as
+            // the split source. Earlier passes keep the start-of-tick snapshot
+            // taken after their own install: it is what the next rewind restores.
+            if(tail && !mDestruction->captureRigidState(mSimulationCore->getBodySimBufferDevicePtr().getPointer(),
                 mSimulationCore->getBodySimPrevVelocitiesBufferDevicePtr().getPointer(),
                 mSimulationCore->getRigidBodyAccelerationsDevice(),mBodySimManager.mTotalNumBodies,mSimulationCore->getStream())) {
                 mDestructionError=1;return false;
@@ -800,7 +813,7 @@ namespace physx
         bool ok;
         {
         PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.submit",false,profileContext);
-        ok = mDestruction->prepareFrame(postCorrection);
+        ok = mDestruction->prepareFrame(pass);
         PxgDestructionSolvedContacts contacts;
         const PxU32 streamIndex=1-mDynamicContext->getCurrentContactStreamIndex();
         if(ok)ok=mNpContext->getGpuNarrowphaseCore()->borrowDestructionSolvedContacts(
@@ -887,23 +900,33 @@ namespace physx
                     for(PxU32 i=0;i<pending.size();++i)if(mBodySimManager.mUpdatedMap.boundedTest(pending[i]))pending[kept++]=pending[i];
                     pending.forceSize_Unsafe(kept);
                 }
-                if(postCorrection) {
+                if(tail) {
                     // The snapshot just restored is the end-of-tick state. Only
                     // split ownership/mass changed; no additional integration.
                     if(ok)ok=mDestruction->acceptCorrection(mSimulationCore->getBodySimBufferDevicePtr().getPointer(),mSimulationCore->getStream());
                     complete=ok;
+                } else if(ok && pass+1<limit) {
+                    // Another rewind may follow the corrected solve. Its restore
+                    // must include the fragments just installed, and their split
+                    // source must be this start-of-tick motion: re-snapshot now.
+                    // Storage may have grown above; take the current pointers.
+                    PxProfileScoped profile(PxGetProfilerCallback(),"GpuDestruction.checkpoint",false,profileContext);
+                    PxScopedCudaLock lock(*mCudaContextManager);
+                    ok=mDestruction->captureRigidState(mSimulationCore->getBodySimBufferDevicePtr().getPointer(),
+                        mSimulationCore->getBodySimPrevVelocitiesBufferDevicePtr().getPointer(),
+                        mSimulationCore->getRigidBodyAccelerationsDevice(),mBodySimManager.mTotalNumBodies,mSimulationCore->getStream());
                 }
                 mDestructionPreservePairs=false;
-                if(!postCorrection && ok && mDestruction->preserveUnchangedContactPairs() && (!canReuseContactPairs || mNpContext->hasCpuContactManagers()))
+                if(!tail && ok && mDestruction->preserveUnchangedContactPairs() && (!canReuseContactPairs || mNpContext->hasCpuContactManagers()))
                     ++mDestructionContactReuseFallbackCount;
-                if(!postCorrection && ok && mDestruction->preserveUnchangedContactPairs() && canReuseContactPairs && !mNpContext->hasCpuContactManagers()) {
+                if(!tail && ok && mDestruction->preserveUnchangedContactPairs() && canReuseContactPairs && !mNpContext->hasCpuContactManagers()) {
                     PxProfileScoped caches(PxGetProfilerCallback(),"GpuDestruction.resetContactCaches",false,profileContext);
                     PxScopedCudaLock lock(*mCudaContextManager);
                     ok=mNpContext->getGpuNarrowphaseCore()->resetDestructionContactCaches()
                         && mDynamicContext->getGpuSolverCore()->resetDestructionFrictionCaches();
                     mDestructionPreservePairs=ok;
                 }
-                if(ok && !postCorrection) {
+                if(ok && !tail) {
                     // This event spans the task-graph continuation, including
                     // CPU refiltering. Keep the callback/token paired even when
                     // the corrected finalization executes on a different worker.
@@ -911,11 +934,11 @@ namespace physx
                     if(mDestructionCorrectionProfiler)
                         mDestructionCorrectionProfileData=mDestructionCorrectionProfiler->zoneStart(
                             gDestructionCorrectionZone,true,profileContext);
-                    mDestructionCorrecting=true;mDestructionError=1;return true;
+                    mDestructionCorrectionPass=pass+1;mDestructionError=1;return true;
                 }
             }
         }
-        if(postCorrection && ok && complete) {
+        if(pass && ok && complete) {
             PxProfileScoped publication(PxGetProfilerCallback(),"GpuDestruction.finalPublication",false,profileContext);
             ok=mDestruction->finishPostCorrection();
         }
@@ -1112,7 +1135,7 @@ namespace physx
         // corrected pass. NP's producer event below and its ordinary BP stream
         // dependency order these reads; no host bitmap or additional upload.
         static_cast<PxgAABBManager&>(aabbManager).setNativeOwnershipView(
-            mDestructionCorrecting ? mDestruction->collisionOwnershipView() : PxgDestructionOwnershipView{});
+            isDestructionCorrecting() ? mDestruction->collisionOwnershipView() : PxgDestructionOwnershipView{});
 		const bool hasShapeInstanceChanged = npCore->mGpuShapesManager.mHasShapeInstanceChanged; // we reset it in updateNarrowPhaseShape, but cache for computeRigidsToShapes.
 
 		// we are in Pxg-land, so GPU NP and dynamics is implied. Upload to GPU if dirty.
@@ -1123,7 +1146,7 @@ namespace physx
 			
         // Native ownership writes the narrowphase remap on the simulation stream.
         // Join its producer before remap growth/copies and rigid-to-shape sorting.
-        if(mDestructionCorrecting && mCudaContextManager->getCudaContext()->streamWaitEvent(
+        if(isDestructionCorrecting() && mCudaContextManager->getCudaContext()->streamWaitEvent(
             npStream,mDestruction->getDeviceView().readyEvent,0)!=CUDA_SUCCESS) {
             PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR,PX_FL,"Native owner remap dependency failed");
             mCudaContextManager->getCudaContext()->setAbortMode(true);return;
@@ -1156,7 +1179,7 @@ namespace physx
         // New actors still obtain initial geometry from their ordinary insertion.
         // Their motion slots are uploaded later; never refresh them from the GPU
         // merely to initialize the ownership index. Correction slots are ready.
-        if ((isDirectApiInitialized || nativeGroups) && !mSimulationCore->refreshReboundShapeBounds(npStream,mDestructionCorrecting))
+        if ((isDirectApiInitialized || nativeGroups) && !mSimulationCore->refreshReboundShapeBounds(npStream,isDestructionCorrecting()))
         {
             PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR, PX_FL,
                 "Failed to refresh persistent shape bounds from GPU motion");
@@ -1205,7 +1228,7 @@ namespace physx
         PxU32 liveCount = 0;
         for(PxU32 i = 0; i < pendingBodies.size(); ++i)
         {
-            if(mBodySimManager.mBodies[pendingBodies[i]] && (!mDestructionCorrecting || mDynamicContext->mEnableDirectGPUAPI
+            if(mBodySimManager.mBodies[pendingBodies[i]] && (!isDestructionCorrecting() || mDynamicContext->mEnableDirectGPUAPI
                 || mBodySimManager.mUpdatedMap.boundedTest(pendingBodies[i]))) pendingBodies[liveCount++] = pendingBodies[i];
         }
         pendingBodies.forceSize_Unsafe(liveCount);
@@ -2858,7 +2881,7 @@ namespace physx
         // Input velocities/forces are now resident. Preserve every rigid slot,
         // including ordinary participants, before the solver changes them. All
         // copies stay on the scene stream; no motion is read back to the host.
-        if(mDestruction && !mDestructionCorrecting)
+        if(mDestruction && !isDestructionCorrecting())
         {
             PxProfileScoped checkpointProfile(PxGetProfilerCallback(),"GpuDestruction.checkpoint",false,0);
             if(!mDestruction->captureRigidState(

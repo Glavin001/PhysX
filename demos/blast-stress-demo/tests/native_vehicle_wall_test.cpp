@@ -70,6 +70,8 @@ struct Options{
 };
 
 const float kDt=1.0f/60;
+// Corrected solves one tick may run; --correction-limit N drives every mode.
+static PxU32 gCorrectionLimit=1;
 // Chassis box front in actor space: local pose z plus half extent.
 const float kChassisFront=1.37003f+2.46971f;
 
@@ -151,7 +153,7 @@ struct Wall {
         PxDestructionStressDesc desc;
         desc.chunks=chunks.data();desc.chunkCount=PxU32(chunks.size());desc.chunkMassProperties=properties.data();
         desc.clusters=clusters.data();desc.clusterCount=PxU32(clusters.size());desc.bonds=bonds.data();desc.bondCount=PxU32(bonds.size());
-        desc.materials=materials.data();desc.materialCount=PxU32(materials.size());desc.maxIterations=256;desc.tolerance=1e-5f;desc.internalCorrectionLimit=1;desc.gpuIslandRepair=true;
+        desc.materials=materials.data();desc.materialCount=PxU32(materials.size());desc.maxIterations=256;desc.tolerance=1e-5f;desc.internalCorrectionLimit=gCorrectionLimit;desc.gpuIslandRepair=true;
         require(destruction.configureStress(desc),"native destruction configuration failed");
     }
     unsigned promoted(PxRigidDynamic*& first) const {
@@ -293,7 +295,7 @@ void ram(const Options& options) {
     Recording recording;recording.open(options.statePath,options.frames,wall,{vehicle},{},carDesc,PxVec3(0,1,-4));
 
     const float wallFront=-wall.half.z,wallBack=wall.half.z;
-    unsigned brokenBonds=0,corrections=0,fragmentFrames=0,contactFrame=0;float peakSpeed=0,maxZ=-1e9f,momentumBefore=0,zBefore=start.z;
+    unsigned brokenBonds=0,corrections=0,fragmentFrames=0,contactFrame=0,deepestTick=0;float peakSpeed=0,maxZ=-1e9f,momentumBefore=0,zBefore=start.z;
     PxRigidDynamic* fragment=nullptr;
     for(unsigned i=0;i<options.frames;++i) {
         vehicle->setCommands(/*throttle*/1,/*brake*/0,/*handbrake*/0,/*steer*/0);
@@ -316,6 +318,8 @@ void ram(const Options& options) {
         }
         require(complete&&!error&&!status.error,"scene rejected a step with a vehicle present");
         brokenBonds+=status.brokenBonds;corrections+=status.correctionPasses;
+        require(status.correctionPasses<=gCorrectionLimit && status.stressPasses==status.correctionPasses+1,"a tick exceeded its correction budget");
+        deepestTick=PxMax(deepestTick,status.correctionPasses);
         recording.frame(i);
         const NativeVehicleState vs=vehicle->state();const auto pose=vs.pose;const auto velocity=vs.linearVelocity;
         require(pose.isFinite()&&velocity.isFinite(),"vehicle state is not finite");
@@ -348,8 +352,8 @@ void ram(const Options& options) {
         if(!contactFrame)require(status.brokenBonds==0,"wall broke before the car reached it");
         if(options.fracture && contactFrame && brokenBonds==0)require(i<contactFrame+120,"car reached the wall but nothing broke");
     }
-    std::fprintf(stderr,"vehicle wall fracture=%u: contact frame=%u peak speed=%.2f m/s max z=%.2f broken bonds=%u corrections=%u fragment frames=%u\n",
-        options.fracture,contactFrame,peakSpeed,maxZ,brokenBonds,corrections,fragmentFrames);
+    std::fprintf(stderr,"vehicle wall fracture=%u limit=%u: contact frame=%u peak speed=%.2f m/s max z=%.2f broken bonds=%u corrections=%u (deepest tick %u) fragment frames=%u\n",
+        options.fracture,gCorrectionLimit,contactFrame,peakSpeed,maxZ,brokenBonds,corrections,deepestTick,fragmentFrames);
     require(contactFrame>0,"car never reached the wall");
     if(options.fracture) {
         require(brokenBonds>0,"car hit the wall and broke no bonds");
@@ -612,6 +616,7 @@ void demo(const Options& options) {
         const auto status=f.step(vehicle,"demo");
         require(status.correctionBlockers==0,"demo reported correction blockers");
         brokenBonds+=status.brokenBonds;corrections+=status.correctionPasses;
+        require(status.correctionPasses<=gCorrectionLimit && status.stressPasses==status.correctionPasses+1,"a tick exceeded its correction budget");
         recording.frame(i);
         const NativeVehicleState vs=vehicle->state();
         require(vs.pose.isFinite(),"vehicle state is not finite");
@@ -683,7 +688,8 @@ int main(int argc,char** argv) {
         else if(!std::strcmp(argv[i],"--frames")&&i+1<argc)options.frames=unsigned(std::atoi(argv[++i]));
         else if(!std::strcmp(argv[i],"--state")&&i+1<argc)options.statePath=argv[++i];
         else if(!std::strcmp(argv[i],"--wall-strength")&&i+1<argc)options.wallStrength=float(std::atof(argv[++i]));
-        else{std::fprintf(stderr,"usage: native_vehicle_wall_test [--no-fracture] [--drop-constraints] [--constrain-wall] [--sweep] [--park|--rubble|--remote-fracture|--scale|--resting-course] [--frames N] [--state RECORDING.twstate] [--verbose]\n");return 2;}
+        else if(!std::strcmp(argv[i],"--correction-limit")&&i+1<argc)gCorrectionLimit=PxU32(std::atoi(argv[++i]));
+        else{std::fprintf(stderr,"usage: native_vehicle_wall_test [--no-fracture] [--drop-constraints] [--constrain-wall] [--sweep] [--park|--rubble|--remote-fracture|--scale|--resting-course] [--frames N] [--state RECORDING.twstate] [--correction-limit N] [--verbose]\n");return 2;}
     }
     try {
         switch(options.mode) {

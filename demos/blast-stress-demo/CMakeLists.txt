@@ -842,6 +842,8 @@ if(BLAST_ENABLE_CUDA_STRESS)
     add_test(NAME physx_native_standard_reported_reuse COMMAND native_standard_scene_test --reported-reuse)
     add_test(NAME physx_native_standard_reuse COMMAND native_standard_scene_test --reuse)
     add_test(NAME physx_native_post_correction COMMAND native_standard_scene_test --post-correction)
+    add_test(NAME physx_native_post_correction_multi COMMAND native_standard_scene_test --post-correction-multi)
+    add_test(NAME physx_native_chained_fracture COMMAND native_standard_scene_test --chained-fracture)
     add_test(NAME physx_native_standard_awake COMMAND native_standard_scene_test --awake)
     add_test(NAME physx_native_standard_sleep COMMAND native_standard_scene_test)
     add_test(NAME physx_native_compound_sleep COMMAND native_standard_scene_test --compound-sleep)
@@ -850,7 +852,7 @@ if(BLAST_ENABLE_CUDA_STRESS)
     add_test(NAME physx_native_standard_gpu_islands COMMAND native_standard_scene_test --device-graph)
     add_test(NAME physx_native_standard_wake_boundary COMMAND native_standard_scene_test --wake-boundary)
     add_test(NAME physx_native_standard_late_impact COMMAND native_standard_scene_test --late-impact)
-    set_tests_properties(physx_native_post_correction physx_native_standard_reported_reuse physx_native_standard_reuse physx_native_standard_late_impact physx_native_standard_wake_boundary physx_native_standard_awake physx_native_standard_sleep physx_native_standard_sleep_boundary physx_native_standard_gpu_islands PROPERTIES RUN_SERIAL TRUE TIMEOUT 120 LABELS "gpu;integration")
+    set_tests_properties(physx_native_post_correction physx_native_post_correction_multi physx_native_chained_fracture physx_native_standard_reported_reuse physx_native_standard_reuse physx_native_standard_late_impact physx_native_standard_wake_boundary physx_native_standard_awake physx_native_standard_sleep physx_native_standard_sleep_boundary physx_native_standard_gpu_islands PROPERTIES RUN_SERIAL TRUE TIMEOUT 120 LABELS "gpu;integration")
 
     # A vehicle SDK car ramming a native-destruction wall, through the packaged
     # PxNativeVehicle helper (destruction/vehicle).
@@ -862,6 +864,9 @@ if(BLAST_ENABLE_CUDA_STRESS)
     add_test(NAME physx_native_vehicle_wall COMMAND native_vehicle_wall_test)
     add_test(NAME physx_native_vehicle_wall_control COMMAND native_vehicle_wall_test --no-fracture)
     add_test(NAME physx_native_vehicle_wall_no_constraints COMMAND native_vehicle_wall_test --drop-constraints)
+    # The same ram with a two-pass budget: momentum still reaches the bricks,
+    # and no tick runs more corrected solves than it was allowed.
+    add_test(NAME physx_native_vehicle_wall_limit2 COMMAND native_vehicle_wall_test --correction-limit 2)
     # Pins the remaining limitation: a constraint on a body the stage owns
     # refuses the fracture step, and the status says so before it happens.
     add_test(NAME physx_native_vehicle_wall_constraint_gate COMMAND native_vehicle_wall_test --constrain-wall)
@@ -872,7 +877,7 @@ if(BLAST_ENABLE_CUDA_STRESS)
     add_test(NAME physx_native_vehicle_force_replay COMMAND native_vehicle_wall_test --remote-fracture)
     add_test(NAME physx_native_vehicle_scale COMMAND native_vehicle_wall_test --scale)
     add_test(NAME physx_native_vehicle_demo COMMAND native_vehicle_wall_test --demo)
-    set_tests_properties(physx_native_vehicle_wall physx_native_vehicle_wall_control physx_native_vehicle_wall_no_constraints
+    set_tests_properties(physx_native_vehicle_wall physx_native_vehicle_wall_control physx_native_vehicle_wall_no_constraints physx_native_vehicle_wall_limit2
         physx_native_vehicle_wall_constraint_gate physx_native_vehicle_wall_sweep physx_native_vehicle_parked_sleeps
         physx_native_vehicle_rubble_crossing physx_native_vehicle_force_replay physx_native_vehicle_scale physx_native_vehicle_demo
         PROPERTIES RUN_SERIAL TRUE TIMEOUT 120 LABELS "gpu;integration")

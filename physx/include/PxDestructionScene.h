@@ -1,16 +1,17 @@
 // Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
 #ifndef PX_DESTRUCTION_SCENE_H
 #define PX_DESTRUCTION_SCENE_H
-#define PX_DESTRUCTION_SCENE_VERSION 16
+#define PX_DESTRUCTION_SCENE_VERSION 17
 #include "foundation/PxTransform.h"
 #include "PxDirectGPUAPI.h"
 #include "PxDestructionTopologyTypes.h"
 
 namespace physx {
 
-// Experimental native destruction API. internalCorrectionLimit=1 enables the
+// Experimental native destruction API. internalCorrectionLimit>0 enables the
 // rigid MVP: GPU stress/material/connectivity, persistent collision ownership,
-// and one internal full rigid resimulation. Zero retains diagnostic preparation.
+// and up to that many internal full rigid resimulations per tick. Zero applies
+// fracture verdicts without any resimulation, the cheapest setting.
 // Configure only outside simulation. Geometry stays persistent through splits;
 // private fragment bodies are scene-owned and destroyed by clear/reconfiguration.
 // Resolved at configuration; negative tension/shear limits inherit compression.
@@ -69,8 +70,17 @@ struct PxDestructionStressDesc {
     // Optional full mass properties enable native candidate cluster creation.
     // Initial cluster bindings must match the bond graph's connected components.
     const PxDestructionChunkMassProperties* chunkMassProperties = NULL;
-    // Experimental internal rigid correction. 0 retains diagnostic preparation;
-    // 1 permits one intact trial plus one full supported-scene corrected solve.
+    // Internal rigid correction budget per tick, a cost/realism dial.
+    // 0: no corrections. One solve, one stress evaluation; verdicts split
+    //    bodies without re-solving. Cheapest; impulses cross no fresh cut.
+    // 1: one intact trial plus one full corrected solve after rewinding to the
+    //    start of the tick. An impact breaks one bond layer per tick.
+    // N: up to N corrected solves; each evaluation that still changes membership
+    //    rewinds and re-solves, so an impact can break N layers deep within one
+    //    tick. Exits at the first evaluation that changes nothing and is bounded
+    //    by the bond count (accepted topology only shrinks). Every extra pass is
+    //    a full collide+solve of the scene on fracturing frames only; frames
+    //    without fracture cost the same at any limit. At least 1 for realism.
     // Current support: rigid scenes with CPU-authored kinematic targets and
     // constraints on bodies the stage does not own (a vehicle's suspension, a
     // door hinge), no constraints on cluster parents or fragments, no
@@ -113,9 +123,9 @@ struct PxDestructionStageStatus {
     PxU32 normalContacts, frictionAnchors;
     PxU32 iterations, converged;
     PxU32 bondCommands, brokenBonds, crushedChunks;
-    PxU32 correctionPasses;
-    PxU32 stressPasses; // one trial evaluation plus one after corrected physics
-    PxU32 postCorrectionBrokenBonds; // subset of brokenBonds from the second evaluation
+    PxU32 correctionPasses; // corrected physics solves this tick, <= internalCorrectionLimit
+    PxU32 stressPasses; // 1 + correctionPasses: the trial evaluation plus one per corrected solve
+    PxU32 postCorrectionBrokenBonds; // subset of brokenBonds from evaluations after the first
     // Why the scene could not run a correction this step, as
     // PxDestructionCorrectionBlocker bits; zero when correction was permitted.
     // Set whenever error bit 8 is, and also on steps that needed no correction,

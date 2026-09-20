@@ -82,7 +82,7 @@ not have. The video uses a backend label rather than inventing those timings.
 
 ## Scope and remaining work
 
-Enable this experimental path with `PxDestructionStressDesc::internalCorrectionLimit=1`.
+Enable this experimental path with `PxDestructionStressDesc::internalCorrectionLimit>=1`; the value is the number of corrected solves one tick may run (see [POST_CORRECTION_FRACTURE.md](POST_CORRECTION_FRACTURE.md)).
 Zero preserves the previous diagnostic preparation path. Native correction currently
 requires awake rigid scenes (`eDISABLE_SLEEPING`) with stationary kinematic supports;
 joints, articulations, CCD/speculative CCD, moving kinematic targets, custom filter

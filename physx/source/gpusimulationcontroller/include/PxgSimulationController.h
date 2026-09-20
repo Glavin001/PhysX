@@ -508,7 +508,11 @@ class PxProfilerCallback;
         bool usesGpuDestructionIslandRepair() const override;
         bool isDestructionBody(PxU32 gpuIndex) const override;
         PxgDestructionRuntime* getNativeDestructionRuntime() const { return mDestruction; }
-        bool isDestructionCorrecting() const { return mDestructionCorrecting; }
+        // Nonzero while the task graph runs a corrected traversal; the value
+        // is which one (1..limit). Every "corrected traversal" gate keys on this.
+        bool isDestructionCorrecting() const { return mDestructionCorrectionPass!=0; }
+        virtual PxU32 getDestructionCorrectionPass() const PX_OVERRIDE PX_FINAL { return mDestructionCorrectionPass; }
+        virtual PxU32 getDestructionCorrectionLimit() const PX_OVERRIDE PX_FINAL;
         void discardDestructionTrialBodyUpload(PxU32 id) override {
             if(id<mBodySimManager.mBodies.size() && mBodySimManager.mBodies[id]) {
                 mBodySimManager.mUpdatedMap.reset(id);
@@ -767,7 +771,7 @@ class PxProfilerCallback;
         PxgDestructionRuntime* mDestruction = NULL;
         bool mNativeShapeAccessInitialized = false;
         PxU32 mDestructionError = 0;
-        bool mDestructionCorrecting = false;
+        PxU32 mDestructionCorrectionPass = 0;
         PxProfilerCallback* mDestructionCorrectionProfiler = NULL;
         void* mDestructionCorrectionProfileData = NULL;
 		PxCudaContextManager*									mCudaContextManager;

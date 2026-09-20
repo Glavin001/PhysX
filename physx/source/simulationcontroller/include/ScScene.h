@@ -922,7 +922,9 @@ namespace Sc
 					Cm::DelegateTask<Scene, &Scene::secondPassNarrowPhase>		mSecondPassNarrowPhase;
 					Cm::DelegateTask<Scene, &Scene::postNarrowPhase>			mPostNarrowPhase;
 					Cm::DelegateTask<Scene, &Scene::finalizationPhase>			mFinalizationPhase;
-                    Cm::DelegateTask<Scene, &Scene::finalizationPhase> mDestructionFinalizationPhase;
+                    // Corrected traversals alternate between these so the task that
+                    // schedules pass p+1 is never the one whose run() is executing.
+                    Cm::DelegateTask<Scene, &Scene::finalizationPhase> mDestructionFinalizationPhase[2];
                     bool mDestructionCorrectionInProgress = false;
                     struct DestructionActivity {
                         BodySim* body;

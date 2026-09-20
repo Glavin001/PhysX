@@ -21,12 +21,49 @@ crushing results. Neither evaluation is submitted twice by a numerical retry.
 Scene commands are submitted only once; ordinary bodies advance by one timestep.
 
 `PxDestructionStageStatus` reports one frame receipt: aggregate contact, damage
-command and broken-bond counts, maximum numerical iteration count across the
-two evaluations, `stressPasses`, and `postCorrectionBrokenBonds` (a subset of
-`brokenBonds`). `correctionPasses` remains at most one. Device verdict buffers
-represent the most recent evaluation, while accepted topology includes both.
-Public observation remains forbidden until scene completion. The experimental
-API version is 14; rebuild all native consumers.
+command and broken-bond counts, maximum numerical iteration count across all
+evaluations, `stressPasses`, and `postCorrectionBrokenBonds` (a subset of
+`brokenBonds`). `correctionPasses` is at most `internalCorrectionLimit`. Device
+verdict buffers represent the most recent evaluation, while accepted topology
+includes every pass. Public observation remains forbidden until scene
+completion. The experimental API version is 17; rebuild all native consumers.
+
+## Any number of corrections per tick
+
+`internalCorrectionLimit` is a per-tick budget, not a flag. The tick is a loop
+over task-graph traversals:
+
+```
+checkpoint = capture(start of tick)                 // copyToGpuBodySim, trial only
+solve rigid                                         // trial
+for pass in 0 .. limit:
+    evaluate stress on the solved contacts          // prepareFrame(pass), advance
+    if no membership change: break
+    restore(checkpoint); install fragments + collision owners
+    if pass == limit: apply the split at the final motion; break   // no re-solve
+    checkpoint = capture(start of tick + fragments) // only if pass+1 < limit
+    solve rigid again                               // corrected pass+1
+merge every pass into one receipt                   // finishPostCorrection
+```
+
+Limit 0 never rewinds: one solve, one evaluation, verdicts split bodies at the
+trial motion. This is the cheapest setting; a fresh cut exchanges no impulse
+until the next tick. Limit 1 is the behaviour described above and is unchanged
+byte for byte. Limit N lets an impact break N bond layers deep within one tick:
+each corrected solve is re-evaluated, and while the evaluation still changes
+membership the scene rewinds to the start of the tick (fragments from earlier
+passes included, sourced from the snapshot taken right after their install) and
+solves again. The loop ends at the first evaluation that changes nothing and is
+bounded by the bond count, since accepted topology only shrinks.
+
+Cost: every extra pass is a full collide+solve of the scene, so a fracturing
+frame at limit N can cost up to N+1 rigid solves. Frames without fracture cost
+the same at any limit. `PxgSimulationController` keeps the pass index; the Sc
+pipeline alternates two finalization tasks so the task scheduling pass p+1 is
+never the one currently running, and re-captures CPU activity (wake counters,
+kinematic start poses, sleep notifications) before every solve that another
+rewind may follow. Contact manifold and friction caches are reset before every
+corrected solve when pair reuse is requested.
 
 The standard-scene compatibility fix preserves world-space shape caches during
 native ownership changes regardless of public Direct GPU mode. Rebuilding those
@@ -40,6 +77,15 @@ Tests:
   verifies final ownership, CPU/GPU pose agreement, immediate raycast, exactly
   one timestep of ordinary motion, and no duplicate cuts on the next tick.
   Runs both with and without CPU contact report requests.
+- `physx_native_post_correction_multi`: the same fixture at limits 2 and 3.
+  The second verdict now triggers a corrected solve (`correctionPasses==2`,
+  `stressPasses==3`), the late fragment falls for one timestep from its start
+  pose, and limit 3 exits early with the same counts.
+- `physx_native_chained_fracture`: one column of three chunks and two bonds,
+  the lower bond too strong for the trial load but not for the load the freed
+  upper chunk applies once it is its own body. Limit 1 breaks one layer and
+  reports the second in `postCorrectionBrokenBonds`; limit 2 breaks both with
+  two corrected solves.
 - Existing standard-scene sleep/wake/query tests and native replay tests also
   assert the stress evaluation count.
 - Frozen penetration regression retains its existing golden and tolerances.

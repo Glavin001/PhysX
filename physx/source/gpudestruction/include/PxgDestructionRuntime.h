@@ -45,6 +45,9 @@ public:
     virtual bool prepareRigidIterationLimits(const PxgBodySim*,PxU32,const PxNodeIndex*,PxU32,PxU32,CUstream) = 0;
     virtual bool readRigidIterationLimits(PxU32& position,PxU32& velocity) = 0;
     virtual bool correctionEnabled() const = 0;
+    // Configured internalCorrectionLimit: the most corrected rigid passes one
+    // tick may run. Zero means verdicts are never re-solved this tick.
+    virtual PxU32 correctionLimit() const = 0;
     // True for a body the stage owns: an authored cluster parent from
     // configureStress or a fragment it allocated. A PxConstraint attached to
     // such a body is outside the rigid checkpoint; one attached to any other
@@ -73,8 +76,10 @@ public:
     // that reused pre-existing holes. The future correction task owns that order.
     virtual bool restoreRigidState(PxgBodySim* bodies, PxgBodySimVelocities* previous,
         PxgRigidBodyAcceleration* accelerations, PxU32 capacity, PxU64 generation, CUstream stream) = 0;
-    virtual bool prepareFrame(bool postCorrection = false) = 0;
-    // Merge the two evaluations into one tick receipt, after final ownership commit.
+    // pass 0 evaluates the trial solve; pass p>0 evaluates the p-th corrected
+    // solve and must follow acceptCorrection of pass p-1. Bounded by correctionLimit().
+    virtual bool prepareFrame(PxU32 pass = 0) = 0;
+    // Merge every evaluation of this tick into one receipt, after final ownership commit.
     virtual bool finishPostCorrection() = 0;
     virtual CUevent inputEvent() const = 0;
     // The producer stream owns the native body pool. Runtime orders its reads

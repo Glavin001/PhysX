@@ -33,7 +33,7 @@ native mode. GPU compaction retains complete device descriptors. The optional
 legacy debug validator checks geometry against the CPU registration map rather
 than those placeholders.
 
-`internalCorrectionLimit=1` enables the integrated path. Ordinary PhysX and the
+`internalCorrectionLimit>=1` enables the integrated path. Ordinary PhysX and the
 reference/diagnostic destruction mode retain CPU descriptor construction.
 Clearing destruction returns new pairs to the original path, while existing GPU
 descriptors continue to be valid. Private runtime interfaces and all consumers
