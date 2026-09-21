@@ -1,0 +1,1282 @@
+{
+  "baseRevision": "cc31f0e1ea2dc42981f3ca21fc955d9df01414d3",
+  "qualification": "Collision ownership regression verified; full frozen wall gate passes; default 4/1 Bayline cannonball settling remains unqualified; 8/2 and 16/4 contact-accuracy cases pass; not deployed",
+  "sha256": {
+    "physx/source/gpusimulationcontroller/src/PxgSimulationController.cpp": "a07c9dbdd67c9d311a5487f8f7ceda23327fa367ea9ada1db4df94bd4afc5e67",
+    "physx/source/gpudestruction/src/PxgDestructionRuntime.cu": "f097ceadfd3d9dc7986ad56edc9d51ad93ed1cbca33857889f3377fcc295a912",
+    "demos/blast-stress-demo/tests/native_post_correction_check.h": "70382af897e434560ccf74d644c795982826474674c980725f1f500db5e894e8",
+    "tools/scripts/analyze-native-motion.py": "93d64918f2fdc4f33a47c641f9a4e1ebe4c88b3c6e1192a31496a04c9ba274ce",
+    "tools/scripts/test-native-prefix.py": "4899cfd6f0ca150b2e1db8d15fe66d3018628cad9ed6bffc61fe7a9fbf173455",
+    "physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so": "10b9fa6ee1fe701cd75c7b96efae3a013a9c37bb88cacbde3854714b6786c79d",
+    "physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so": "f7839f0318e3b6f4e0c7273106562e7fcb96af57906a8da875c28ec3610cfd60",
+    "demos/blast-stress-demo/CMakeLists.txt": "88c31e86b7acf4ec7a354bcf30d12494e5881d77ed023f0cd9c53964f795581d",
+    "demos/blast-stress-demo/tests/native_standard_scene_test.cpp": "72a06191be9d475b0cc81e0e4e3467a9f8c224f1778fd15ebb54bb40a09b3735"
+  },
+  "nativeTests": {
+    "passed": 11,
+    "log": "out/tail-ownership-20260921/ctest-final-expanded.log",
+    "additionalNaturalSleepAssertions": "out/tail-ownership-20260921/support-sleep-check.log"
+  },
+  "parserTests": {
+    "passed": 11,
+    "log": "out/tail-ownership-20260921/parser-tests.log"
+  },
+  "wall": {
+    "topology_identity_sha256": "e589eb8317c456147287443232209bb950514a75b5e4fb6783e2de5fe7486d4c",
+    "projectile_clearance_step": 39,
+    "projectile_clearance_seconds": 0.6666666666666666,
+    "projectile_position_at_clearance": [
+      0.012902067974209785,
+      6.492729187011719,
+      4.746237754821777
+    ],
+    "corrected_steps": [
+      17,
+      32,
+      33
+    ],
+    "fracture_steps": [
+      17,
+      30,
+      32,
+      33
+    ],
+    "corrections_per_step_max": 1,
+    "largest_connected_cluster": 398,
+    "supported_chunks": 398,
+    "detached_chunks": 46,
+    "final_cluster_count": 43,
+    "displaced_wall_chunks": {
+      "entry": [
+        243,
+        244,
+        271,
+        272
+      ],
+      "exit": [
+        263,
+        264,
+        291,
+        292
+      ]
+    },
+    "broken_bonds": 199,
+    "all_stress_steps_converged": true,
+    "max_render_collision_position_error": 0,
+    "max_cluster_com_error": 3.93221307604108e-06,
+    "physics_ms": {
+      "min": 0.514731,
+      "mean": 6.5384162649999995,
+      "p50": 6.408371,
+      "p95": 8.514332,
+      "p99": 8.798924,
+      "max": 18.576033
+    },
+    "frozen_identity_gate_passed": true,
+    "golden_sha256": "25887814484a49c7db82f3a3e36f7adb408764c928a4f64236baf466871947da",
+    "validation_seconds": 1.3130394570034696,
+    "capture": "/root/workspace/physx-2/out/tail-ownership-20260921/penetration-final",
+    "artifacts": {
+      "/root/workspace/vibe-land-4/structures/town-kit/out/sdk-render-review/native_destruction_demo": "d302579fdc6b642825343fa0bf18e47160316428344ff6064eb01eb6556a3288",
+      "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so": "f7839f0318e3b6f4e0c7273106562e7fcb96af57906a8da875c28ec3610cfd60",
+      "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so": "10b9fa6ee1fe701cd75c7b96efae3a013a9c37bb88cacbde3854714b6786c79d"
+    }
+  },
+  "bungalows": {
+    "half": {
+      "assetSha256": "314df7d21d78155422aaf90bd288bf29ebbb7b55a105bacee16d983abed2860c",
+      "bonds": 2964,
+      "chunks": 1411,
+      "completed": true,
+      "diagnosticRefilterMigrated": false,
+      "exclusiveGpu": false,
+      "groundDepthM": 20.0,
+      "groundHalfExtentM": 2000.0,
+      "groundSource": "server/src/demo_world.rs",
+      "groundTopM": 0.0,
+      "impact": {
+        "broken": 826,
+        "convergedRestTicks": 0,
+        "escapedBodies": 0,
+        "last": {
+          "awake": 39,
+          "bodies": 167,
+          "broken": 826,
+          "contacts": 642,
+          "converged": false,
+          "correctionPasses": 0,
+          "crushed": 0,
+          "dynamicNodes": 336,
+          "iterations": 16,
+          "ms": 3.2241169999999997,
+          "postCorrectionBrokenBonds": 0,
+          "projectile": null,
+          "speed": 0.194645494222641,
+          "stressPasses": 1,
+          "tick": 1800
+        },
+        "maxAwake": 158,
+        "peakSpeedMs": 42.22871017456055,
+        "settledCasePassed": false,
+        "unconvergedTicks": 1796
+      },
+      "intact": {
+        "idleTicks": 1800,
+        "passed": true,
+        "ticks": 1830
+      },
+      "intactTimingMs": {
+        "exclusiveGpu": false,
+        "first": 5.156465,
+        "maximum": 5.156465,
+        "mean": 0.30668707486338803,
+        "scope": "World::step including native completion; excludes observation reads",
+        "steps": 1830
+      },
+      "projectile": {
+        "api": "launch_dynamic_ball",
+        "massKg": 10650.0,
+        "position": [
+          9.5,
+          1.5,
+          0.0
+        ],
+        "radiusM": 0.6867475509643555,
+        "ttlTicks": 360,
+        "velocity": [
+          -60.0,
+          0.0,
+          0.0
+        ]
+      },
+      "runtime": {
+        "path": "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so",
+        "sha256": "f7839f0318e3b6f4e0c7273106562e7fcb96af57906a8da875c28ec3610cfd60"
+      }
+    },
+    "meteor": {
+      "assetSha256": "314df7d21d78155422aaf90bd288bf29ebbb7b55a105bacee16d983abed2860c",
+      "bonds": 2964,
+      "chunks": 1411,
+      "completed": true,
+      "diagnosticRefilterMigrated": false,
+      "exclusiveGpu": false,
+      "groundDepthM": 20.0,
+      "groundHalfExtentM": 2000.0,
+      "groundSource": "server/src/demo_world.rs",
+      "groundTopM": 0.0,
+      "impact": {
+        "broken": 1839,
+        "convergedRestTicks": 9,
+        "escapedBodies": 1,
+        "last": {
+          "awake": 0,
+          "bodies": 603,
+          "broken": 1839,
+          "contacts": 0,
+          "converged": true,
+          "correctionPasses": 0,
+          "crushed": 0,
+          "dynamicNodes": 1019,
+          "iterations": 0,
+          "ms": 0.564032,
+          "postCorrectionBrokenBonds": 0,
+          "projectile": null,
+          "speed": 0.0,
+          "stressPasses": 1,
+          "tick": 3600
+        },
+        "maxAwake": 598,
+        "peakSpeedMs": 149.9619598388672,
+        "settledCasePassed": false,
+        "unconvergedTicks": 3442
+      },
+      "intact": {
+        "idleTicks": 1800,
+        "passed": true,
+        "ticks": 1830
+      },
+      "intactTimingMs": {
+        "exclusiveGpu": false,
+        "first": 5.040948,
+        "maximum": 5.040948,
+        "mean": 0.3013449584699457,
+        "scope": "World::step including native completion; excludes observation reads",
+        "steps": 1830
+      },
+      "meteorPlan": {
+        "flightTimeS": 2.5097148418426514,
+        "seed": 20260921,
+        "source": "server/src/meteor.rs",
+        "target": [
+          0.0,
+          2.0,
+          0.0
+        ]
+      },
+      "projectile": {
+        "api": "launch_dynamic_ball",
+        "massKg": 110584.0625,
+        "position": [
+          -159.48065185546875,
+          257.6060791015625,
+          180.79090881347656
+        ],
+        "radiusM": 2.0,
+        "ttlTicks": 900,
+        "velocity": [
+          63.545326232910156,
+          -89.53651428222656,
+          -72.03643798828125
+        ]
+      },
+      "runtime": {
+        "path": "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so",
+        "sha256": "f7839f0318e3b6f4e0c7273106562e7fcb96af57906a8da875c28ec3610cfd60"
+      }
+    }
+  },
+  "performanceQualified": false,
+  "groundGateTests": {
+    "passed": 2,
+    "log": "out/tail-ownership-20260921/ground-gate-tests.log"
+  },
+  "followup": {
+    "bungalow-meteor-ground-verified": {
+      "report": {
+        "assetSha256": "314df7d21d78155422aaf90bd288bf29ebbb7b55a105bacee16d983abed2860c",
+        "bonds": 2964,
+        "chunks": 1411,
+        "completed": true,
+        "diagnosticRefilterMigrated": false,
+        "exclusiveGpu": false,
+        "groundDepthM": 20.0,
+        "groundHalfExtentM": 2000.0,
+        "groundSource": "server/src/demo_world.rs",
+        "groundTopM": 0.0,
+        "impact": {
+          "broken": 1839,
+          "convergedRestTicks": 133,
+          "escapedBodies": 0,
+          "last": {
+            "awake": 0,
+            "bodies": 603,
+            "broken": 1839,
+            "contacts": 0,
+            "converged": true,
+            "correctionPasses": 0,
+            "crushed": 0,
+            "dynamicNodes": 1019,
+            "iterations": 0,
+            "ms": 0.536772,
+            "postCorrectionBrokenBonds": 0,
+            "projectile": null,
+            "speed": 0.0,
+            "stressPasses": 1,
+            "tick": 3720
+          },
+          "maxAwake": 598,
+          "peakSpeedMs": 149.9619598388672,
+          "settledCasePassed": true,
+          "unconvergedTicks": 3438
+        },
+        "intact": {
+          "idleTicks": 1800,
+          "passed": true,
+          "ticks": 1830
+        },
+        "intactTimingMs": {
+          "exclusiveGpu": false,
+          "first": 5.095471,
+          "maximum": 5.095471,
+          "mean": 0.3039776797814213,
+          "scope": "World::step including native completion; excludes observation reads",
+          "steps": 1830
+        },
+        "meteorPlan": {
+          "flightTimeS": 2.5097148418426514,
+          "seed": 20260921,
+          "source": "server/src/meteor.rs",
+          "target": [
+            0.0,
+            2.0,
+            0.0
+          ]
+        },
+        "projectile": {
+          "api": "launch_dynamic_ball",
+          "massKg": 110584.0625,
+          "position": [
+            -159.48065185546875,
+            257.6060791015625,
+            180.79090881347656
+          ],
+          "radiusM": 2.0,
+          "ttlTicks": 900,
+          "velocity": [
+            63.545326232910156,
+            -89.53651428222656,
+            -72.03643798828125
+          ]
+        },
+        "runtime": {
+          "path": "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so",
+          "sha256": "f7839f0318e3b6f4e0c7273106562e7fcb96af57906a8da875c28ec3610cfd60"
+        }
+      },
+      "provenance": {
+        "binarySha256": "f55fc7d2a55e9917c0853cfbb8cbea49db415972d7db710306e2d6af7f3cd380",
+        "mappedLibraries": {
+          "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so": "f7839f0318e3b6f4e0c7273106562e7fcb96af57906a8da875c28ec3610cfd60",
+          "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so": "10b9fa6ee1fe701cd75c7b96efae3a013a9c37bb88cacbde3854714b6786c79d"
+        },
+        "settings": {
+          "VIBE_CITY_NATIVE_CORRECTION_LIMIT": "1",
+          "VIBE_CITY_NATIVE_VERDICT_SAMPLE_TICKS": "1",
+          "VIBE_CITY_NATIVE_STRESS_TOLERANCE": "0.001",
+          "VIBE_CITY_NATIVE_STRESS_ITERATIONS": "16",
+          "VIBE_CITY_NATIVE_DEPEN_VELOCITY": "0",
+          "VIBE_CITY_NATIVE_SLEEP_THRESHOLD": "0",
+          "VIBE_CITY_NATIVE_STABILIZATION_THRESHOLD": "0",
+          "VIBE_CITY_DEBRIS_LINEAR_DAMPING": "0",
+          "VIBE_CITY_DEBRIS_ANGULAR_DAMPING": "0",
+          "VIBE_CITY_NATIVE_SETTLE_TICKS": "0"
+        },
+        "exclusiveGpu": false,
+        "exitCode": 0
+      },
+      "shot": {
+        "kind": "meteor",
+        "position": [
+          0,
+          2,
+          0
+        ],
+        "direction": [
+          1,
+          0,
+          0
+        ],
+        "seed": 20260921,
+        "sampleTicks": 30,
+        "durationTicks": 3720,
+        "collisionAudit": false
+      }
+    },
+    "bungalow-half-observed": {
+      "report": {
+        "assetSha256": "314df7d21d78155422aaf90bd288bf29ebbb7b55a105bacee16d983abed2860c",
+        "bonds": 2964,
+        "chunks": 1411,
+        "completed": true,
+        "diagnosticRefilterMigrated": false,
+        "exclusiveGpu": false,
+        "groundDepthM": 20.0,
+        "groundHalfExtentM": 2000.0,
+        "groundSource": "server/src/demo_world.rs",
+        "groundTopM": 0.0,
+        "impact": {
+          "broken": 826,
+          "convergedRestTicks": 0,
+          "escapedBodies": 0,
+          "last": {
+            "awake": 39,
+            "bodies": 167,
+            "broken": 826,
+            "contacts": 644,
+            "converged": false,
+            "correctionPasses": 0,
+            "crushed": 0,
+            "dynamicNodes": 336,
+            "iterations": 16,
+            "ms": 3.15548,
+            "postCorrectionBrokenBonds": 0,
+            "projectile": null,
+            "speed": 0.19464533030986786,
+            "stressPasses": 1,
+            "tick": 7200
+          },
+          "maxAwake": 158,
+          "peakSpeedMs": 42.22871017456055,
+          "settledCasePassed": false,
+          "unconvergedTicks": 7196
+        },
+        "intact": {
+          "idleTicks": 1800,
+          "passed": true,
+          "ticks": 1830
+        },
+        "intactTimingMs": {
+          "exclusiveGpu": false,
+          "first": 5.11133,
+          "maximum": 5.11133,
+          "mean": 0.3035934655737708,
+          "scope": "World::step including native completion; excludes observation reads",
+          "steps": 1830
+        },
+        "projectile": {
+          "api": "launch_dynamic_ball",
+          "massKg": 10650.0,
+          "position": [
+            9.5,
+            1.5,
+            0.0
+          ],
+          "radiusM": 0.6867475509643555,
+          "ttlTicks": 360,
+          "velocity": [
+            -60.0,
+            0.0,
+            0.0
+          ]
+        },
+        "runtime": {
+          "path": "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so",
+          "sha256": "f7839f0318e3b6f4e0c7273106562e7fcb96af57906a8da875c28ec3610cfd60"
+        }
+      },
+      "provenance": {
+        "binarySha256": "f55fc7d2a55e9917c0853cfbb8cbea49db415972d7db710306e2d6af7f3cd380",
+        "mappedLibraries": {
+          "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so": "f7839f0318e3b6f4e0c7273106562e7fcb96af57906a8da875c28ec3610cfd60",
+          "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so": "10b9fa6ee1fe701cd75c7b96efae3a013a9c37bb88cacbde3854714b6786c79d"
+        },
+        "settings": {
+          "VIBE_CITY_NATIVE_CORRECTION_LIMIT": "1",
+          "VIBE_CITY_NATIVE_VERDICT_SAMPLE_TICKS": "1",
+          "VIBE_CITY_NATIVE_STRESS_TOLERANCE": "0.001",
+          "VIBE_CITY_NATIVE_STRESS_ITERATIONS": "16",
+          "VIBE_CITY_NATIVE_DEPEN_VELOCITY": "0",
+          "VIBE_CITY_NATIVE_SLEEP_THRESHOLD": "0",
+          "VIBE_CITY_NATIVE_STABILIZATION_THRESHOLD": "0",
+          "VIBE_CITY_DEBRIS_LINEAR_DAMPING": "0",
+          "VIBE_CITY_DEBRIS_ANGULAR_DAMPING": "0",
+          "VIBE_CITY_NATIVE_SETTLE_TICKS": "0"
+        },
+        "exclusiveGpu": false,
+        "exitCode": 2
+      },
+      "shot": {
+        "position": [
+          9.5,
+          1.5,
+          0
+        ],
+        "direction": [
+          -1,
+          0,
+          0
+        ],
+        "durationTicks": 7200,
+        "sampleTicks": 12,
+        "loadAudit": true,
+        "collisionAudit": false
+      }
+    },
+    "half-contact-8-2": {
+      "report": {
+        "assetSha256": "314df7d21d78155422aaf90bd288bf29ebbb7b55a105bacee16d983abed2860c",
+        "bonds": 2964,
+        "chunks": 1411,
+        "completed": true,
+        "diagnosticContactIterations": [
+          8,
+          2
+        ],
+        "diagnosticRefilterMigrated": false,
+        "exclusiveGpu": false,
+        "groundDepthM": 20.0,
+        "groundHalfExtentM": 2000.0,
+        "groundSource": "server/src/demo_world.rs",
+        "groundTopM": 0.0,
+        "impact": {
+          "broken": 844,
+          "convergedRestTicks": 700,
+          "escapedBodies": 0,
+          "last": {
+            "awake": 0,
+            "bodies": 172,
+            "broken": 844,
+            "contacts": 0,
+            "converged": true,
+            "correctionPasses": 0,
+            "crushed": 0,
+            "dynamicNodes": 322,
+            "iterations": 0,
+            "ms": 0.49383200000000005,
+            "postCorrectionBrokenBonds": 0,
+            "projectile": null,
+            "speed": 0.0,
+            "stressPasses": 1,
+            "tick": 1800
+          },
+          "maxAwake": 161,
+          "peakSpeedMs": 63.383670806884766,
+          "settledCasePassed": true,
+          "unconvergedTicks": 1096
+        },
+        "intact": {
+          "idleTicks": 1800,
+          "passed": true,
+          "ticks": 1829
+        },
+        "intactTimingMs": {
+          "exclusiveGpu": false,
+          "first": 5.21856,
+          "maximum": 5.21856,
+          "mean": 0.2981860071077097,
+          "scope": "World::step including native completion; excludes observation reads",
+          "steps": 1829
+        },
+        "projectile": {
+          "api": "launch_dynamic_ball",
+          "massKg": 10650.0,
+          "position": [
+            9.5,
+            1.5,
+            0.0
+          ],
+          "radiusM": 0.6867475509643555,
+          "ttlTicks": 360,
+          "velocity": [
+            -60.0,
+            0.0,
+            0.0
+          ]
+        },
+        "runtime": {
+          "path": "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so",
+          "sha256": "f7839f0318e3b6f4e0c7273106562e7fcb96af57906a8da875c28ec3610cfd60"
+        }
+      },
+      "provenance": {
+        "binarySha256": "f55fc7d2a55e9917c0853cfbb8cbea49db415972d7db710306e2d6af7f3cd380",
+        "mappedLibraries": {
+          "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so": "f7839f0318e3b6f4e0c7273106562e7fcb96af57906a8da875c28ec3610cfd60",
+          "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so": "10b9fa6ee1fe701cd75c7b96efae3a013a9c37bb88cacbde3854714b6786c79d"
+        },
+        "settings": {
+          "VIBE_CITY_NATIVE_CORRECTION_LIMIT": "1",
+          "VIBE_CITY_NATIVE_VERDICT_SAMPLE_TICKS": "1",
+          "VIBE_CITY_NATIVE_STRESS_TOLERANCE": "0.001",
+          "VIBE_CITY_NATIVE_STRESS_ITERATIONS": "16",
+          "VIBE_CITY_NATIVE_DEPEN_VELOCITY": "0",
+          "VIBE_CITY_NATIVE_SLEEP_THRESHOLD": "0",
+          "VIBE_CITY_NATIVE_STABILIZATION_THRESHOLD": "0",
+          "VIBE_CITY_DEBRIS_LINEAR_DAMPING": "0",
+          "VIBE_CITY_DEBRIS_ANGULAR_DAMPING": "0",
+          "VIBE_CITY_NATIVE_SETTLE_TICKS": "0"
+        },
+        "exclusiveGpu": false,
+        "exitCode": 0
+      },
+      "shot": {
+        "position": [
+          9.5,
+          1.5,
+          0
+        ],
+        "direction": [
+          -1,
+          0,
+          0
+        ],
+        "durationTicks": 1800,
+        "sampleTicks": 12,
+        "loadAudit": true,
+        "collisionAudit": false,
+        "contactPositionIterations": 8,
+        "contactVelocityIterations": 2
+      }
+    },
+    "half-contact-16-4": {
+      "report": {
+        "assetSha256": "314df7d21d78155422aaf90bd288bf29ebbb7b55a105bacee16d983abed2860c",
+        "bonds": 2964,
+        "chunks": 1411,
+        "completed": true,
+        "diagnosticContactIterations": [
+          16,
+          4
+        ],
+        "diagnosticRefilterMigrated": false,
+        "exclusiveGpu": false,
+        "groundDepthM": 20.0,
+        "groundHalfExtentM": 2000.0,
+        "groundSource": "server/src/demo_world.rs",
+        "groundTopM": 0.0,
+        "impact": {
+          "broken": 411,
+          "convergedRestTicks": 988,
+          "escapedBodies": 0,
+          "last": {
+            "awake": 0,
+            "bodies": 97,
+            "broken": 411,
+            "contacts": 0,
+            "converged": true,
+            "correctionPasses": 0,
+            "crushed": 0,
+            "dynamicNodes": 218,
+            "iterations": 0,
+            "ms": 0.45065099999999997,
+            "postCorrectionBrokenBonds": 0,
+            "projectile": null,
+            "speed": 0.0,
+            "stressPasses": 1,
+            "tick": 1800
+          },
+          "maxAwake": 90,
+          "peakSpeedMs": 70.1731948852539,
+          "settledCasePassed": true,
+          "unconvergedTicks": 215
+        },
+        "intact": {
+          "idleTicks": 1800,
+          "passed": true,
+          "ticks": 1829
+        },
+        "intactTimingMs": {
+          "exclusiveGpu": false,
+          "first": 5.44886,
+          "maximum": 5.44886,
+          "mean": 0.30453657681793317,
+          "scope": "World::step including native completion; excludes observation reads",
+          "steps": 1829
+        },
+        "projectile": {
+          "api": "launch_dynamic_ball",
+          "massKg": 10650.0,
+          "position": [
+            9.5,
+            1.5,
+            0.0
+          ],
+          "radiusM": 0.6867475509643555,
+          "ttlTicks": 360,
+          "velocity": [
+            -60.0,
+            0.0,
+            0.0
+          ]
+        },
+        "runtime": {
+          "path": "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so",
+          "sha256": "f7839f0318e3b6f4e0c7273106562e7fcb96af57906a8da875c28ec3610cfd60"
+        }
+      },
+      "provenance": {
+        "binarySha256": "f55fc7d2a55e9917c0853cfbb8cbea49db415972d7db710306e2d6af7f3cd380",
+        "mappedLibraries": {
+          "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so": "f7839f0318e3b6f4e0c7273106562e7fcb96af57906a8da875c28ec3610cfd60",
+          "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so": "10b9fa6ee1fe701cd75c7b96efae3a013a9c37bb88cacbde3854714b6786c79d"
+        },
+        "settings": {
+          "VIBE_CITY_NATIVE_CORRECTION_LIMIT": "1",
+          "VIBE_CITY_NATIVE_VERDICT_SAMPLE_TICKS": "1",
+          "VIBE_CITY_NATIVE_STRESS_TOLERANCE": "0.001",
+          "VIBE_CITY_NATIVE_STRESS_ITERATIONS": "16",
+          "VIBE_CITY_NATIVE_DEPEN_VELOCITY": "0",
+          "VIBE_CITY_NATIVE_SLEEP_THRESHOLD": "0",
+          "VIBE_CITY_NATIVE_STABILIZATION_THRESHOLD": "0",
+          "VIBE_CITY_DEBRIS_LINEAR_DAMPING": "0",
+          "VIBE_CITY_DEBRIS_ANGULAR_DAMPING": "0",
+          "VIBE_CITY_NATIVE_SETTLE_TICKS": "0"
+        },
+        "exclusiveGpu": false,
+        "exitCode": 0
+      },
+      "shot": {
+        "position": [
+          9.5,
+          1.5,
+          0
+        ],
+        "direction": [
+          -1,
+          0,
+          0
+        ],
+        "durationTicks": 1800,
+        "sampleTicks": 12,
+        "loadAudit": true,
+        "collisionAudit": false,
+        "contactPositionIterations": 16,
+        "contactVelocityIterations": 4
+      }
+    },
+    "half-refilter-only": {
+      "report": {
+        "assetSha256": "314df7d21d78155422aaf90bd288bf29ebbb7b55a105bacee16d983abed2860c",
+        "bonds": 2964,
+        "chunks": 1411,
+        "completed": true,
+        "diagnosticRefilterMigrated": false,
+        "exclusiveGpu": false,
+        "groundDepthM": 20.0,
+        "groundHalfExtentM": 2000.0,
+        "groundSource": "server/src/demo_world.rs",
+        "groundTopM": 0.0,
+        "impact": {
+          "broken": 325,
+          "convergedRestTicks": 1028,
+          "escapedBodies": 0,
+          "last": {
+            "awake": 0,
+            "bodies": 71,
+            "broken": 325,
+            "contacts": 0,
+            "converged": true,
+            "correctionPasses": 0,
+            "crushed": 0,
+            "dynamicNodes": 196,
+            "iterations": 0,
+            "ms": 0.450511,
+            "postCorrectionBrokenBonds": 0,
+            "projectile": null,
+            "speed": 0.0,
+            "stressPasses": 1,
+            "tick": 1800
+          },
+          "maxAwake": 62,
+          "peakSpeedMs": 61.30033493041992,
+          "settledCasePassed": true,
+          "unconvergedTicks": 207
+        },
+        "intact": {
+          "idleTicks": 1800,
+          "passed": true,
+          "ticks": 1830
+        },
+        "intactTimingMs": {
+          "exclusiveGpu": false,
+          "first": 5.172587,
+          "maximum": 5.172587,
+          "mean": 0.3034447655737702,
+          "scope": "World::step including native completion; excludes observation reads",
+          "steps": 1830
+        },
+        "projectile": {
+          "api": "launch_dynamic_ball",
+          "massKg": 10650.0,
+          "position": [
+            9.5,
+            1.5,
+            0.0
+          ],
+          "radiusM": 0.6867475509643555,
+          "ttlTicks": 360,
+          "velocity": [
+            -60.0,
+            0.0,
+            0.0
+          ]
+        },
+        "runtime": {
+          "path": "/root/workspace/physx-2/out/tail-ownership-20260921/isolation/runtime/libPhysXDestructionGpuRuntime_64.so",
+          "sha256": "6d22dff06f80ce0562c925215beed81c6dc4766529ee5ca9cd0b646d5b6be74d"
+        }
+      },
+      "provenance": {
+        "binarySha256": "763e3bf216ca33602c4c935f20ae91cc3cac9d2777e824ec4a727022694aaf16",
+        "mappedLibraries": {
+          "/root/workspace/physx-2/out/tail-ownership-20260921/isolation/runtime/libPhysXDestructionGpuRuntime_64.so": "6d22dff06f80ce0562c925215beed81c6dc4766529ee5ca9cd0b646d5b6be74d",
+          "/root/workspace/physx-2/out/tail-ownership-20260921/isolation/refilter-only/libPhysXGpuActivity_64.so": "b360eba93c77c941c6ef7e7e0c432748e3d88d36fadfcd0745598ea2573037be"
+        },
+        "settings": {
+          "VIBE_CITY_NATIVE_CORRECTION_LIMIT": "1",
+          "VIBE_CITY_NATIVE_VERDICT_SAMPLE_TICKS": "1",
+          "VIBE_CITY_NATIVE_STRESS_TOLERANCE": "0.001",
+          "VIBE_CITY_NATIVE_STRESS_ITERATIONS": "16",
+          "VIBE_CITY_NATIVE_DEPEN_VELOCITY": "0",
+          "VIBE_CITY_NATIVE_SLEEP_THRESHOLD": "0",
+          "VIBE_CITY_NATIVE_STABILIZATION_THRESHOLD": "0",
+          "VIBE_CITY_DEBRIS_LINEAR_DAMPING": "0",
+          "VIBE_CITY_DEBRIS_ANGULAR_DAMPING": "0",
+          "VIBE_CITY_NATIVE_SETTLE_TICKS": "0"
+        },
+        "exclusiveGpu": false,
+        "exitCode": 0
+      },
+      "shot": {
+        "position": [
+          9.5,
+          1.5,
+          0
+        ],
+        "direction": [
+          -1,
+          0,
+          0
+        ],
+        "durationTicks": 1800,
+        "sampleTicks": 12,
+        "loadAudit": true,
+        "collisionAudit": false
+      }
+    },
+    "half-bounds-only": {
+      "report": {
+        "assetSha256": "314df7d21d78155422aaf90bd288bf29ebbb7b55a105bacee16d983abed2860c",
+        "bonds": 2964,
+        "chunks": 1411,
+        "completed": true,
+        "diagnosticRefilterMigrated": false,
+        "exclusiveGpu": false,
+        "groundDepthM": 20.0,
+        "groundHalfExtentM": 2000.0,
+        "groundSource": "server/src/demo_world.rs",
+        "groundTopM": 0.0,
+        "impact": {
+          "broken": 867,
+          "convergedRestTicks": 0,
+          "escapedBodies": 6,
+          "last": {
+            "awake": 105,
+            "bodies": 169,
+            "broken": 867,
+            "contacts": 1519,
+            "converged": false,
+            "correctionPasses": 0,
+            "crushed": 0,
+            "dynamicNodes": 347,
+            "iterations": 16,
+            "ms": 2.588623,
+            "postCorrectionBrokenBonds": 0,
+            "projectile": null,
+            "speed": 291.8482666015625,
+            "stressPasses": 1,
+            "tick": 1800
+          },
+          "maxAwake": 162,
+          "peakSpeedMs": 291.8482666015625,
+          "settledCasePassed": false,
+          "unconvergedTicks": 1796
+        },
+        "intact": {
+          "idleTicks": 1800,
+          "passed": true,
+          "ticks": 1830
+        },
+        "intactTimingMs": {
+          "exclusiveGpu": false,
+          "first": 5.067861,
+          "maximum": 5.067861,
+          "mean": 0.2974988814207644,
+          "scope": "World::step including native completion; excludes observation reads",
+          "steps": 1830
+        },
+        "projectile": {
+          "api": "launch_dynamic_ball",
+          "massKg": 10650.0,
+          "position": [
+            9.5,
+            1.5,
+            0.0
+          ],
+          "radiusM": 0.6867475509643555,
+          "ttlTicks": 360,
+          "velocity": [
+            -60.0,
+            0.0,
+            0.0
+          ]
+        },
+        "runtime": {
+          "path": "/root/workspace/physx-2/out/tail-ownership-20260921/isolation/runtime/libPhysXDestructionGpuRuntime_64.so",
+          "sha256": "6d22dff06f80ce0562c925215beed81c6dc4766529ee5ca9cd0b646d5b6be74d"
+        }
+      },
+      "provenance": {
+        "binarySha256": "763e3bf216ca33602c4c935f20ae91cc3cac9d2777e824ec4a727022694aaf16",
+        "mappedLibraries": {
+          "/root/workspace/physx-2/out/tail-ownership-20260921/isolation/runtime/libPhysXDestructionGpuRuntime_64.so": "6d22dff06f80ce0562c925215beed81c6dc4766529ee5ca9cd0b646d5b6be74d",
+          "/root/workspace/physx-2/out/tail-ownership-20260921/isolation/bounds-only/libPhysXGpuActivity_64.so": "dd7b13675e6e041c70173f37e5ea0bb5291849cdec39ef79ac224c91c1b29d6f"
+        },
+        "settings": {
+          "VIBE_CITY_NATIVE_CORRECTION_LIMIT": "1",
+          "VIBE_CITY_NATIVE_VERDICT_SAMPLE_TICKS": "1",
+          "VIBE_CITY_NATIVE_STRESS_TOLERANCE": "0.001",
+          "VIBE_CITY_NATIVE_STRESS_ITERATIONS": "16",
+          "VIBE_CITY_NATIVE_DEPEN_VELOCITY": "0",
+          "VIBE_CITY_NATIVE_SLEEP_THRESHOLD": "0",
+          "VIBE_CITY_NATIVE_STABILIZATION_THRESHOLD": "0",
+          "VIBE_CITY_DEBRIS_LINEAR_DAMPING": "0",
+          "VIBE_CITY_DEBRIS_ANGULAR_DAMPING": "0",
+          "VIBE_CITY_NATIVE_SETTLE_TICKS": "0"
+        },
+        "exclusiveGpu": false,
+        "exitCode": 2
+      },
+      "shot": {
+        "position": [
+          9.5,
+          1.5,
+          0
+        ],
+        "direction": [
+          -1,
+          0,
+          0
+        ],
+        "durationTicks": 1800,
+        "sampleTicks": 12,
+        "loadAudit": true,
+        "collisionAudit": false
+      }
+    },
+    "bungalow-half-32": {
+      "report": {
+        "assetSha256": "314df7d21d78155422aaf90bd288bf29ebbb7b55a105bacee16d983abed2860c",
+        "bonds": 2964,
+        "chunks": 1411,
+        "completed": false,
+        "diagnosticRefilterMigrated": false,
+        "error": "spontaneous destruction at 1: NativeStatus { frame: 1, error: 0, iterations: 32, converged: false, normal_contacts: 507, friction_anchors: 200, bond_commands: 70, broken_bonds: 60, crushed_chunks: 0, correction_passes: 1, stress_passes: 2, post_correction_broken_bonds: 0, committed_chunks: 1411, committed_bonds: 60, cluster_count: 42, stress_island_count: 20, observed: true, degraded: false, missed_frames: 0 }",
+        "exclusiveGpu": false,
+        "groundDepthM": 20.0,
+        "groundHalfExtentM": 2000.0,
+        "groundSource": "server/src/demo_world.rs",
+        "groundTopM": 0.0,
+        "intact": {
+          "brokenBondIds": [
+            2202,
+            2204,
+            2210,
+            2217,
+            2219,
+            2221,
+            2222,
+            2223,
+            2224,
+            2226,
+            2227,
+            2229,
+            2230,
+            2244,
+            2246,
+            2248,
+            2250,
+            2252,
+            2253,
+            2254,
+            2256,
+            2258,
+            2260,
+            2262,
+            2264,
+            2266,
+            2267,
+            2268,
+            2270,
+            2462,
+            2463,
+            2464,
+            2465,
+            2466,
+            2467,
+            2469,
+            2470,
+            2471,
+            2473,
+            2474,
+            2475,
+            2476,
+            2477,
+            2478,
+            2479,
+            2480,
+            2481,
+            2482,
+            2483,
+            2484,
+            2485,
+            2486,
+            2487,
+            2488,
+            2489,
+            2490,
+            2491,
+            2492,
+            2493,
+            2494
+          ],
+          "idleTicks": 0,
+          "passed": false,
+          "ticks": 1
+        },
+        "intactTimingMs": {
+          "exclusiveGpu": false,
+          "first": 16.647309,
+          "maximum": 16.647309,
+          "mean": 16.647309,
+          "scope": "World::step including native completion; excludes observation reads",
+          "steps": 1
+        },
+        "runtime": {
+          "path": "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so",
+          "sha256": "f7839f0318e3b6f4e0c7273106562e7fcb96af57906a8da875c28ec3610cfd60"
+        }
+      },
+      "provenance": {
+        "binarySha256": "763e3bf216ca33602c4c935f20ae91cc3cac9d2777e824ec4a727022694aaf16",
+        "mappedLibraries": {
+          "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so": "f7839f0318e3b6f4e0c7273106562e7fcb96af57906a8da875c28ec3610cfd60",
+          "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so": "10b9fa6ee1fe701cd75c7b96efae3a013a9c37bb88cacbde3854714b6786c79d"
+        },
+        "settings": {
+          "VIBE_CITY_NATIVE_CORRECTION_LIMIT": "1",
+          "VIBE_CITY_NATIVE_VERDICT_SAMPLE_TICKS": "1",
+          "VIBE_CITY_NATIVE_STRESS_TOLERANCE": "0.001",
+          "VIBE_CITY_NATIVE_STRESS_ITERATIONS": "32",
+          "VIBE_CITY_NATIVE_DEPEN_VELOCITY": "0",
+          "VIBE_CITY_NATIVE_SLEEP_THRESHOLD": "0",
+          "VIBE_CITY_NATIVE_STABILIZATION_THRESHOLD": "0",
+          "VIBE_CITY_DEBRIS_LINEAR_DAMPING": "0",
+          "VIBE_CITY_DEBRIS_ANGULAR_DAMPING": "0",
+          "VIBE_CITY_NATIVE_SETTLE_TICKS": "0"
+        },
+        "exclusiveGpu": false,
+        "exitCode": 1
+      },
+      "shot": {
+        "position": [
+          9.5,
+          1.5,
+          0
+        ],
+        "direction": [
+          -1,
+          0,
+          0
+        ],
+        "durationTicks": 1800,
+        "sampleTicks": 12,
+        "loadAudit": true,
+        "collisionAudit": false
+      }
+    },
+    "bungalow-half-64": {
+      "report": {
+        "assetSha256": "314df7d21d78155422aaf90bd288bf29ebbb7b55a105bacee16d983abed2860c",
+        "bonds": 2964,
+        "chunks": 1411,
+        "completed": false,
+        "diagnosticRefilterMigrated": false,
+        "error": "spontaneous destruction at 1: NativeStatus { frame: 1, error: 0, iterations: 64, converged: false, normal_contacts: 995, friction_anchors: 364, bond_commands: 157, broken_bonds: 151, crushed_chunks: 0, correction_passes: 1, stress_passes: 2, post_correction_broken_bonds: 0, committed_chunks: 1411, committed_bonds: 151, cluster_count: 94, stress_island_count: 13, observed: true, degraded: false, missed_frames: 0 }",
+        "exclusiveGpu": false,
+        "groundDepthM": 20.0,
+        "groundHalfExtentM": 2000.0,
+        "groundSource": "server/src/demo_world.rs",
+        "groundTopM": 0.0,
+        "intact": {
+          "brokenBondIds": [
+            2196,
+            2197,
+            2198,
+            2199,
+            2200,
+            2201,
+            2202,
+            2203,
+            2204,
+            2205,
+            2206,
+            2207,
+            2208,
+            2209,
+            2210,
+            2211,
+            2212,
+            2213,
+            2214,
+            2215,
+            2216,
+            2217,
+            2218,
+            2219,
+            2220,
+            2221,
+            2222,
+            2223,
+            2224,
+            2225,
+            2226,
+            2227,
+            2228,
+            2229,
+            2230,
+            2243,
+            2244,
+            2245,
+            2246,
+            2247,
+            2248,
+            2249,
+            2250,
+            2251,
+            2252,
+            2253,
+            2254,
+            2255,
+            2256,
+            2257,
+            2258,
+            2259,
+            2260,
+            2261,
+            2262,
+            2263,
+            2264,
+            2265,
+            2266,
+            2267,
+            2268,
+            2269,
+            2270,
+            2271,
+            2272,
+            2273,
+            2274,
+            2275,
+            2276,
+            2277,
+            2279,
+            2280,
+            2281,
+            2282,
+            2283,
+            2284,
+            2286,
+            2287,
+            2288,
+            2289,
+            2291,
+            2292,
+            2293,
+            2295,
+            2296,
+            2298,
+            2299,
+            2301,
+            2302,
+            2303,
+            2304,
+            2305,
+            2306,
+            2307,
+            2308,
+            2310,
+            2311,
+            2312,
+            2313,
+            2314,
+            2315,
+            2316,
+            2317,
+            2318,
+            2319,
+            2321,
+            2322,
+            2323,
+            2324,
+            2325,
+            2326,
+            2327,
+            2328,
+            2329,
+            2331,
+            2333,
+            2334,
+            2335,
+            2462,
+            2463,
+            2464,
+            2465,
+            2466,
+            2467,
+            2468,
+            2469,
+            2470,
+            2471,
+            2472,
+            2473,
+            2474,
+            2475,
+            2476,
+            2477,
+            2478,
+            2479,
+            2480,
+            2481,
+            2482,
+            2483,
+            2484,
+            2485,
+            2486,
+            2487,
+            2488,
+            2489,
+            2490,
+            2491,
+            2492,
+            2493,
+            2494
+          ],
+          "idleTicks": 0,
+          "passed": false,
+          "ticks": 1
+        },
+        "intactTimingMs": {
+          "exclusiveGpu": false,
+          "first": 26.783839,
+          "maximum": 26.783839,
+          "mean": 26.783839,
+          "scope": "World::step including native completion; excludes observation reads",
+          "steps": 1
+        },
+        "runtime": {
+          "path": "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so",
+          "sha256": "f7839f0318e3b6f4e0c7273106562e7fcb96af57906a8da875c28ec3610cfd60"
+        }
+      },
+      "provenance": {
+        "binarySha256": "763e3bf216ca33602c4c935f20ae91cc3cac9d2777e824ec4a727022694aaf16",
+        "mappedLibraries": {
+          "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXDestructionGpuRuntime_64.so": "f7839f0318e3b6f4e0c7273106562e7fcb96af57906a8da875c28ec3610cfd60",
+          "/root/workspace/physx-2/physx/bin/linux.x86_64/release/libPhysXGpuActivity_64.so": "10b9fa6ee1fe701cd75c7b96efae3a013a9c37bb88cacbde3854714b6786c79d"
+        },
+        "settings": {
+          "VIBE_CITY_NATIVE_CORRECTION_LIMIT": "1",
+          "VIBE_CITY_NATIVE_VERDICT_SAMPLE_TICKS": "1",
+          "VIBE_CITY_NATIVE_STRESS_TOLERANCE": "0.001",
+          "VIBE_CITY_NATIVE_STRESS_ITERATIONS": "64",
+          "VIBE_CITY_NATIVE_DEPEN_VELOCITY": "0",
+          "VIBE_CITY_NATIVE_SLEEP_THRESHOLD": "0",
+          "VIBE_CITY_NATIVE_STABILIZATION_THRESHOLD": "0",
+          "VIBE_CITY_DEBRIS_LINEAR_DAMPING": "0",
+          "VIBE_CITY_DEBRIS_ANGULAR_DAMPING": "0",
+          "VIBE_CITY_NATIVE_SETTLE_TICKS": "0"
+        },
+        "exclusiveGpu": false,
+        "exitCode": 1
+      },
+      "shot": {
+        "position": [
+          9.5,
+          1.5,
+          0
+        ],
+        "direction": [
+          -1,
+          0,
+          0
+        ],
+        "durationTicks": 1800,
+        "sampleTicks": 12,
+        "loadAudit": true,
+        "collisionAudit": false
+      }
+    }
+  }
+}

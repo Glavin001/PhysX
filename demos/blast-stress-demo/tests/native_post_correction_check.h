@@ -7,7 +7,7 @@
 // physics pass. At limit>=2 that verdict rewinds and solves once more, so the
 // late fragment falls for exactly one timestep; limit 3 exits early at the
 // third evaluation with the same counts.
-void postCorrectionFracture(bool reports,PxU32 limit=1) {
+void postCorrectionFracture(bool reports,PxU32 limit=1,PxSolverType::Enum solver=PxSolverType::eTGS) {
     PxRigidDynamic* owners[2]{};PxShape* shapes[4]{};
     struct Observe final:PxProfilerCallback {
         PxRigidDynamic** owners;PxShape** shapes;unsigned bindings=0,publications=0;bool failed=false,watching=false;
@@ -27,7 +27,7 @@ void postCorrectionFracture(bool reports,PxU32 limit=1) {
         }
     } publication(owners,shapes);
     Events events;blast_demo::SceneCapacity capacity;
-    blast_demo::PhysXScene context(blast_demo::PhysicsMode::Gpu,true,capacity,&events,false,false,false,false,PxSolverType::eTGS,false,reports);
+    blast_demo::PhysXScene context(blast_demo::PhysicsMode::Gpu,true,capacity,&events,false,false,false,false,solver,false,reports);
     auto& scene=context.scene();auto& physics=context.physics();scene.setGravity(PxVec3(0));
     PxDestructionStressChunk chunks[4]{};PxDestructionChunkMassProperties mass[4]{};
     PxDestructionStressCluster clusters[2]{};PxDestructionStressBond bonds[2]{};
@@ -143,6 +143,26 @@ void postCorrectionFracture(bool reports,PxU32 limit=1) {
     require(stage->getLastStatus().stressPasses==1 && !stage->getLastStatus().brokenBonds
         && !stage->getLastStatus().correctionPasses,"second-pass cuts leaked into next tick");
     observer.verify(*stage,*late);
+    // The late shape and its base already touched while they shared an owner.
+    // Splitting on the final evaluation must make that pair eligible on the
+    // NEXT ordinary collision pass, even without a new overlap beginning.
+    // A query/CPU-owner check alone misses this: follow real solved motion.
+    float minimumLateY=5.0f;
+    for(unsigned frame=0;frame<180;++frame) {
+        scene.simulate(1.f/60);error=0;
+        require(scene.fetchResults(true,&error) && !error,"post-fracture support step failed");
+        const auto rest=stage->getLastStatus();
+        require(!rest.error && !rest.brokenBonds && !rest.correctionPasses,
+            "support regression must exercise ordinary passes without more fracture");
+        const PxVec3 position=late->getGlobalPose().transform(shapes[3]->getLocalPose().p);
+        minimumLateY=PxMin(minimumLateY,position.y);
+        require(position.isFinite() && PxAbs(position.x-10)<.02f && PxAbs(position.z)<.02f
+            && position.y>4.98f && position.y<5.02f,
+            "final-pass fragment lost collision support from its former same-body base");
+    }
+    require(late->isSleeping(),"supported final-pass fragment never entered natural sleep");
+    std::printf("post-correction support: limit=%u reports=%u minimum_y=%g / 180 ordinary steps passed\n",
+        limit,unsigned(reports),double(minimumLateY));
     require(stage->clearStress(),"post-stress cleanup failed");
     for(auto* owner:owners)owner->release();sentinel->release();for(auto* shape:shapes)shape->release();
     require(context.healthy(),"post-stress GPU health failed");

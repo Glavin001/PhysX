@@ -56,6 +56,15 @@ class PrefixTests(unittest.TestCase):
     def tearDown(self):self.temp.cleanup()
     def verify(self):return prefix.verify(self.actual,self.reference,32)
     def test_unchanged(self):self.assertEqual(self.verify()['status'],'passed')
+    def test_version_three_render_groups(self):
+        # The current writer adds a group after every pose. Compare against
+        # the v2 reference to catch stream misalignment across many frames.
+        with (self.actual/'native.twstate').open('wb') as f:
+            f.write(b'TWSTATE1'+struct.pack('<7I2f',3,60,32,960,540,1,0,32/60,0))
+            for step in range(32):
+                f.write(struct.pack('<B3I7fBI',2,step,1,444,0,0,0,0,0,0,1,0,step))
+            f.write(b'\xff')
+        self.assertEqual(self.verify()['status'],'passed')
     def test_exact_identity(self):
         mutate_row(self.actual/'native.motion.csv',29*444+12,'root',12)
         self.assertEqual(self.verify()['first_difference'],dict(step=29,chunk=12,kind='topology_identity'))

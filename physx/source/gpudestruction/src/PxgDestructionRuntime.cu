@@ -1288,7 +1288,12 @@ public:
                     prior.crushedChunks+=previous.crushedChunks;prior.error|=previous.error;
                 }
             }
-            if(!pass){mInstalledOwnerGeneration=0;mPendingPropertyCapacity=0;mPendingShapeCapacity=0;}
+            // This evaluation follows an ordinary or corrected collision solve,
+            // which has consumed the previous installed ownership generation.
+            // Only a new split below may publish work for the next traversal;
+            // keeping an already consumed generation would refilter it twice.
+            mInstalledOwnerGeneration=0;
+            if(!pass){mPendingPropertyCapacity=0;mPendingShapeCapacity=0;}
             if(mConsumer)check(cudaStreamWaitEvent(mStream,reinterpret_cast<cudaEvent_t>(mConsumer),0));
             startFrame<<<1,1,0,mStream>>>(mStatus,mContactSequence,pass>0);
             if(mTopology && !pass)mChanges.start(mTopology->accepted(),mStatus,mStream);

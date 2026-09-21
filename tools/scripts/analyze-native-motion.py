@@ -37,7 +37,7 @@ def projectile(path, actor):
             return struct.unpack('<' + fmt, f.read(struct.calcsize('<' + fmt)))
         assert f.read(8) == b'TWSTATE1'
         version, fps, frames, width, height, buildings, cameras = read('7I')
-        assert version == 2 and fps == 60
+        assert version in (2, 3) and fps == 60
         read('2f')
         f.read(cameras * 28)
         positions, result = {}, np.full((frames, 3), np.nan)
@@ -55,6 +55,8 @@ def projectile(path, actor):
                     identity, = read('I')
                     pose = read('7f')
                     read('B')
+                    if version == 3:
+                        read('I')  # Rendering group; does not change the physical pose.
                     positions[identity] = pose[:3]
                 if actor in positions:
                     result[frame] = positions[actor]
