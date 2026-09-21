@@ -577,6 +577,7 @@ class Runtime final : public PxgDestructionRuntime {
     cudaEvent_t mGraphReady{};
     NativeRigidIterationLimits mRigidIterationLimits;
     bool mPending=false; bool mFailed=false;
+    bool mWarmImported=false, mEverDamaged=false;
     bool mCorrectionEnabled=false, mGpuIslandRepair=false;
     PxU32 *mGraphHostAccurate{}, *mGraphHostSpeculative{};
     PxU64 *mGraphKeys{}, *mGraphSortedKeys{}, *mGraphHostAccurateMembers{}, *mGraphHostSpeculativeMembers{};
@@ -1104,7 +1105,7 @@ public:
             // work before releasing buffers even if the last stage failed.
             check(cudaEventSynchronize(mInput));check(cudaStreamSynchronize(mStream));
             if(mConsumer)check(cudaEventSynchronize(reinterpret_cast<cudaEvent_t>(mConsumer)));
-            clear();mPending=false;mFailed=false;mCorrectionEnabled=d.internalCorrectionLimit>0;mCorrectionLimit=d.internalCorrectionLimit;mPreserveContactPairs=d.preserveUnchangedContactPairs;mGpuIslandRepair=d.gpuIslandRepair;
+            clear();mPending=false;mFailed=false;mWarmImported=false;mEverDamaged=false;mCorrectionEnabled=d.internalCorrectionLimit>0;mCorrectionLimit=d.internalCorrectionLimit;mPreserveContactPairs=d.preserveUnchangedContactPairs;mGpuIslandRepair=d.gpuIslandRepair;
             if(d.bondCount) {
                 mSolver=ExtStressGpuSolver::create(nodes.data(),d.chunkCount,bonds.data(),d.bondCount,NULL,0,mContext);
                 if(!mSolver || !mSolver->prepareDeviceSolve()){clear();return false;}
@@ -1881,11 +1882,46 @@ public:
             mBodyAllocator->acceptReservations();return true;
         }catch(...){mFailed=true;return false;}
     }
+    bool exportWarmStart(float* values, PxU32 count) {
+        if (!values || !mSolver || size_t(count)!=size_t(mM)*6 || mPending || mFailed
+            || !mWriteAllowed(mScene) || !mHostStatus->frame || !mHostStatus->converged
+            || mHostStatus->error || mEverDamaged || mHostStatus->brokenBonds || mHostStatus->crushedChunks) return false;
+        try {
+            Context current(mContext);
+            check(cudaEventSynchronize(mReady));
+            std::vector<ExtStressGpuImpulse> impulses(mM);
+            if (!mSolver->readbackImpulses(impulses.data(), mM)) return false;
+            for (PxU32 i=0;i<mM;++i) {
+                const auto& v=impulses[i];
+                const float f[]={v.angular.x,v.angular.y,v.angular.z,v.linear.x,v.linear.y,v.linear.z};
+                for (PxU32 j=0;j<6;++j) {if(!std::isfinite(f[j]))return false;values[6*size_t(i)+j]=f[j];}
+            }
+            return true;
+        } catch (...) {return false;}
+    }
+    bool importWarmStart(const float* values, PxU32 count) {
+        if (!values || !mSolver || size_t(count)!=size_t(mM)*6 || mPending || mFailed
+            || !mWriteAllowed(mScene) || mHostStatus->frame || mWarmImported || !mParams.warmStart) return false;
+        try {
+            Context current(mContext);
+            check(cudaEventSynchronize(mReady));
+            std::vector<ExtStressGpuImpulse> impulses(mM);
+            for (PxU32 i=0;i<mM;++i) {
+                const float* f=values+6*size_t(i);
+                for(PxU32 j=0;j<6;++j)if(!std::isfinite(f[j]))return false;
+                impulses[i].angular={f[0],f[1],f[2]};impulses[i].linear={f[3],f[4],f[5]};
+            }
+            if(!ExtStressGpuImportWarmStart(mSolver,impulses.data(),mM))return false;
+            mWarmImported=true;
+            return true;
+        } catch (...) {return false;}
+    }
     bool finish() override {
         try {Context current(mContext);if(mPending){
                 {PxProfileScoped waitProfile(mProfiler,"GpuDestruction.finishDetail.waitForGpu",false,mProfileContext);
                     check(cudaEventSynchronize(mReady));}
                 collectStageTimings();collectMotionAllocationTiming();mPending=false;reserveBodySlots();mPreparationObserved=true;}
+            if(mHostStatus->brokenBonds || mHostStatus->crushedChunks)mEverDamaged=true;
             if(mFailed)mHostStatus->error|=4u;
             return !mFailed && mHostStatus->error==0;
         }catch(...){mFailed=true;mHostStatus->error|=4u;
@@ -1905,4 +1941,15 @@ PxApplyDestructionSolverIslandMetadata(const physx::PxvIslandMetadataPage* pages
     if(!stream || !pages || (nodes && !islandIds) || (islands && !staticTouches))return false;
     physx::destructionSolverMetadata::applyPages<<<count,128,0,reinterpret_cast<cudaStream_t>(stream)>>>(pages,count,islandIds,nodes,staticTouches,islands);
     return cudaGetLastError()==cudaSuccess;
+}
+
+// Additive entry points: no virtual table or existing factory ABI change.
+// The scene pointer must come from this runtime's PxCreateDestructionRuntimeV11.
+extern "C" PX_DESTRUCTION_RUNTIME_EXPORT bool
+PxDestructionExportWarmStartV1(physx::PxDestructionScene* scene, float* values, physx::PxU32 count) {
+    return scene && static_cast<physx::Runtime*>(scene)->exportWarmStart(values,count);
+}
+extern "C" PX_DESTRUCTION_RUNTIME_EXPORT bool
+PxDestructionImportWarmStartV1(physx::PxDestructionScene* scene, const float* values, physx::PxU32 count) {
+    return scene && static_cast<physx::Runtime*>(scene)->importWarmStart(values,count);
 }

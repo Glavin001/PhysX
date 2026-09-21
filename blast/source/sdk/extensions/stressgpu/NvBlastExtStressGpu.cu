@@ -2004,6 +2004,37 @@ public:
         return true;
     }
 
+    // Input is a numerical guess only. Every resident component must still
+    // verify its residual and run ordinary material/topology evaluation.
+    bool importPhysicalWarmStart(const ExtStressGpuImpulse* values, std::uint32_t count)
+    {
+        if (!values || count != m_bondCount || m_hasWarmStart) return false;
+        ContextGuard context(m_cudaContext);
+        std::vector<AngLin> scaled(count);
+        const float linearScale = m_lengthScale * m_massScale;
+        const float angularScale = m_lengthScale * m_lengthScale * m_massScale;
+        for (std::uint32_t i = 0; i < count; ++i) {
+            const float a = angularScale * m_hostColScale[i];
+            const float l = linearScale * m_hostColScale[i];
+            if (!std::isfinite(a) || !std::isfinite(l) || a <= 0 || l <= 0) return false;
+            const auto& v = values[i];
+            scaled[i].angular = {v.angular.x/a, v.angular.y/a, v.angular.z/a, 0};
+            scaled[i].linear = {v.linear.x/l, v.linear.y/l, v.linear.z/l, 0};
+            const auto& w = scaled[i];
+            if (!std::isfinite(w.angular.x) || !std::isfinite(w.angular.y) || !std::isfinite(w.angular.z)
+                || !std::isfinite(w.linear.x) || !std::isfinite(w.linear.y) || !std::isfinite(w.linear.z)) return false;
+        }
+        checkCuda(cudaMemcpyAsync(m_impulses, scaled.data(), sizeof(AngLin)*count,
+            cudaMemcpyHostToDevice, m_stream), "import physical warm start");
+        checkCuda(cudaEventRecord(m_statusReady, m_stream), "record warm import");
+        // Host storage must outlive the copy. This is a one-time authoring/load
+        // operation, never a per-step readback or synchronization.
+        checkCuda(cudaEventSynchronize(m_statusReady), "complete warm import");
+        invalidateSettledBaseline();
+        m_hasWarmStart = true;
+        return true;
+    }
+
     void resetWarmStart() override
     {
         ContextGuard context(m_cudaContext);
@@ -4622,6 +4653,14 @@ ExtStressGpuSolver* ExtStressGpuSolver::create(
     {
         return nullptr;
     }
+}
+
+bool ExtStressGpuImportWarmStart(ExtStressGpuSolver* solver,
+    const ExtStressGpuImpulse* impulses, std::uint32_t count)
+{
+    if (!solver) return false;
+    try { return static_cast<ExtStressGpuSolverImpl*>(solver)->importPhysicalWarmStart(impulses, count); }
+    catch (...) { return false; }
 }
 
 } // namespace Blast

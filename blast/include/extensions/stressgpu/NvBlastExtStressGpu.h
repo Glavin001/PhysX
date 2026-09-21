@@ -509,5 +509,12 @@ protected:
     virtual ~ExtStressGpuSolver() = default;
 };
 
+/** Import physical bond forces/torques as an initial iterate, in original bond
+ * order. Does not import convergence or settled certificates. Only call before
+ * the first solve; the native scene extension enforces that lifecycle. This is
+ * a non-virtual extension so existing solver/runtime vtables are unchanged. */
+bool ExtStressGpuImportWarmStart(ExtStressGpuSolver* solver,
+    const ExtStressGpuImpulse* impulses, std::uint32_t count);
+
 } // namespace Blast
 } // namespace Nv
