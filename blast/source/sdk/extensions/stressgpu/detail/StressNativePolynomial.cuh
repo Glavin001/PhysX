@@ -19,7 +19,7 @@ __device__ __forceinline__ StressHierarchy::Vector nativeOffDiagonal(
         // Fixed boundaries contribute to D, but have no off-diagonal motion.
         if(other==node || input.component[other]==Invalid)continue;
         const auto remote=couple(physical[other],sourceOffset(input,edge,!back));
-        const double scale=input.scale[edge];
+        const StressReal scale=input.scale[edge];
         value=add(value,transposeCouple(mul(remote,-scale*scale),sourceOffset(input,edge,back)));
     }
     return scaledValue(value,input.inertia[node]);
@@ -28,9 +28,9 @@ __device__ __forceinline__ StressHierarchy::Vector* preconditionNativePolynomial
     const PersistentStressArgs& a,const unsigned* nodes,unsigned count)
 {
     using namespace StressHierarchy;
-    constexpr double lowWeight=0.5779388123770052,highWeight=2.6335678180143502;
-    constexpr double coupling=lowWeight*highWeight;
-    constexpr double diagonal=lowWeight+highWeight-coupling;
+    constexpr StressReal lowWeight=0.5779388123770052,highWeight=2.6335678180143502;
+    constexpr StressReal coupling=lowWeight*highWeight;
+    constexpr StressReal diagonal=lowWeight+highWeight-coupling;
     const auto input=a.hierarchy.cycle.levels[0].input;
     auto* local=a.hierarchy.result;
     auto* result=a.hierarchy.cycle.intermediate;

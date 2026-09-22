@@ -8,9 +8,9 @@ struct NativeStressCycleView {
     StressHierarchy::Vector *rhs=nullptr,*result=nullptr,*solution=nullptr;
     AngLin *g=nullptr;
     float *gamma=nullptr,*previous=nullptr;
-    double* normalizer=nullptr;
+    StressReal* normalizer=nullptr;
     // Fine rigid block: six Schur-inverse coefficients, three coupling entries, reciprocal linear diagonal.
-    double* fineInverse=nullptr;unsigned inverseStride=0;
+    StressReal* fineInverse=nullptr;unsigned inverseStride=0;
     unsigned* inverseValid=nullptr;std::uint64_t* inverseGeneration=nullptr;
     unsigned* failed=nullptr;
     unsigned *verification=nullptr,*verificationCount=nullptr,*warmRangeKnown=nullptr;

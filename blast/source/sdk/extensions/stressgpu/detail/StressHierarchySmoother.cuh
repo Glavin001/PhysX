@@ -2,19 +2,19 @@
 #pragma once
 #include "StressHierarchyTerminalLevel.cuh"
 namespace Nv { namespace Blast { namespace StressHierarchy {
-__device__ __forceinline__ void buildSmootherRow(Input input,Buffers buffers,TerminalBuffers terminals,unsigned level,Status* status,unsigned node,const double* coefficients=nullptr){
+__device__ __forceinline__ void buildSmootherRow(Input input,Buffers buffers,TerminalBuffers terminals,unsigned level,Status* status,unsigned node,const StressReal* coefficients=nullptr){
     const unsigned lane=threadIdx.x&31u,row=lane<1?0:lane<3?1:lane<6?2:lane<10?3:lane<15?4:5;
     const unsigned col=lane<DiagonalEntries?lane-row*(row+1)/2:0;
     if(input.component[node]==Invalid || terminals.owner[input.component[node]]==level)return;
-    double coefficient=0;
+    StressReal coefficient=0;
     if(lane<DiagonalEntries)coefficient=coefficients?coefficients[lane]:terminalCoefficient(input,node,row,node,col);
     const bool coupled=__any_sync(0xffffffffu,coefficient!=0);
     if(coupled)for(unsigned k=0;k<6;++k){
-        const double diagonal=__shfl_sync(0xffffffffu,coefficient,triangle(k,k));
+        const StressReal diagonal=__shfl_sync(0xffffffffu,coefficient,triangle(k,k));
         if(!(diagonal>0) || !isfinite(diagonal)){if(!lane)atomicOr(&status->error,16u);coefficient=0;break;}
-        const double pivot=sqrt(diagonal);if(col==k && row>=k)coefficient/=pivot;
-        const double left=__shfl_sync(0xffffffffu,coefficient,triangle(row,k<=row?k:row));
-        const double right=__shfl_sync(0xffffffffu,coefficient,triangle(col,k<=col?k:col));
+        const StressReal pivot=sqrt(diagonal);if(col==k && row>=k)coefficient/=pivot;
+        const StressReal left=__shfl_sync(0xffffffffu,coefficient,triangle(row,k<=row?k:row));
+        const StressReal right=__shfl_sync(0xffffffffu,coefficient,triangle(col,k<=col?k:col));
         if(lane<DiagonalEntries && col>k)coefficient-=left*right;
     }
     if(lane<DiagonalEntries)buffers.diagonal[size_t(node)*DiagonalEntries+lane]=coefficient;
@@ -32,13 +32,13 @@ __global__ void constructSmoother(Input input,const Status* source,Status* statu
     grid.sync();if(!work->active)return;input=resolvedInput(input);
     // Coarse diagonal assembly owns one node per CTA and one coefficient per
     // warp. Avoid 21 independent serial traversals of a long coarse CSR row.
-    __shared__ double coefficients[DiagonalEntries];
+    __shared__ StressReal coefficients[DiagonalEntries];
     for(unsigned node=blockIdx.x;node<input.nodes;node+=gridDim.x){
         if(input.component[node]==Invalid || terminals.owner[input.component[node]]==level)continue;
         for(unsigned entry=threadIdx.x/32;entry<DiagonalEntries;entry+=blockDim.x/32){
             unsigned row=0;while(triangle(row+1,0)<=entry)++row;
             const unsigned col=entry-triangle(row,0);
-            const double value=warpSum(terminalCoefficient(input,node,row,node,col,threadIdx.x&31u,32));
+            const StressReal value=warpSum(terminalCoefficient(input,node,row,node,col,threadIdx.x&31u,32));
             if(!(threadIdx.x&31u))coefficients[entry]=value;
         }
         __syncthreads();
@@ -61,7 +61,7 @@ public:
             check(cudaDeviceGetAttribute(&cooperative,cudaDevAttrCooperativeLaunch,device));check(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&blocks,constructSmoother,Threads,0));
             if(!cooperative || sms<=0 || blocks<=0)throw std::runtime_error("Resident smoother requires legal cooperative CUDA residency");
             mBlocks=std::min(std::max(1u,(input.nodes+7)/8),unsigned(sms*blocks));
-            check(cudaMalloc(&mBuffers.diagonal,std::max(size_t(1),size_t(input.nodes)*DiagonalEntries)*sizeof(double)));
+            check(cudaMalloc(&mBuffers.diagonal,std::max(size_t(1),size_t(input.nodes)*DiagonalEntries)*sizeof(StressReal)));
             check(cudaMalloc(&mStatus,sizeof(Status)));check(cudaMalloc(&mWork,sizeof(Work)));check(cudaMemsetAsync(mStatus,0,sizeof(Status),stream));
         }catch(...){release();throw;}
     }

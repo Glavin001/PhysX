@@ -34,17 +34,17 @@ __device__ __forceinline__ void prepareNativeResidualGrid(const PersistentStress
     grid.sync();projectNativeNullspacesGrid(a,a.hierarchy.rhs,selected);
     for(unsigned i=first;i<a.m_activeCounts[1];i+=stride){const auto node=a.m_activeNodes[i];if(a.m_islandActive[a.m_nodeIsland[node]] && (!selected || selected[a.m_nodeIsland[node]]))storeNativeProjectedResidual(a,node);}grid.sync();
 }
-__device__ __forceinline__ double nativeCycleMagnitude(StressHierarchy::Vector v){
+__device__ __forceinline__ StressReal nativeCycleMagnitude(StressHierarchy::Vector v){
     return fmax(fmax(fabs(v.angular.x),fabs(v.angular.y)),fmax(fabs(v.angular.z),fmax(fabs(v.linear.x),fmax(fabs(v.linear.y),fabs(v.linear.z)))));
 }
-__device__ __forceinline__ double nativeComponentMaximum(double value,double& inverse){
-    __shared__ double partial[kBlockSize/32+1];for(unsigned step=16;step;step>>=1)value=fmax(value,__shfl_down_sync(0xffffffffu,value,step));
+__device__ __forceinline__ StressReal nativeComponentMaximum(StressReal value,StressReal& inverse){
+    __shared__ StressReal partial[kBlockSize/32+1];for(unsigned step=16;step;step>>=1)value=fmax(value,__shfl_down_sync(0xffffffffu,value,step));
     if(!(threadIdx.x&31u))partial[threadIdx.x/32]=value;__syncthreads();
-    if(!threadIdx.x){double maximum=0;for(unsigned i=0;i<kBlockSize/32;++i)maximum=fmax(maximum,partial[i]);partial[0]=maximum;partial[kBlockSize/32]=1/maximum;}
+    if(!threadIdx.x){StressReal maximum=0;for(unsigned i=0;i<kBlockSize/32;++i)maximum=fmax(maximum,partial[i]);partial[0]=maximum;partial[kBlockSize/32]=1/maximum;}
     __syncthreads();value=partial[0];inverse=partial[kBlockSize/32];__syncthreads();return value;
 }
 template<bool SharedInverse=false>
-__device__ __forceinline__ float nativeCycleResult(const PersistentStressArgs& a,unsigned node,unsigned id,double magnitude,const StressHierarchy::Vector* result,double inverse=0){
+__device__ __forceinline__ float nativeCycleResult(const PersistentStressArgs& a,unsigned node,unsigned id,StressReal magnitude,const StressHierarchy::Vector* result,StressReal inverse=0){
     if(!(magnitude>0) || !isfinite(magnitude)){atomicExch(a.hierarchy.failed+id,1u);return 0;}
     const auto v=StressHierarchy::mul(result[node],SharedInverse?inverse:1/magnitude);
     const AngLin g{{float(v.angular.x),float(v.angular.y),float(v.angular.z),0},{float(v.linear.x),float(v.linear.y),float(v.linear.z),0}};
@@ -76,10 +76,10 @@ __device__ __forceinline__ float preconditionNativeComponent(const PersistentStr
     SUBPROBE_END(0)
     projectNativeNullspace(a,id,nodes,count,result);
     SUBPROBE_END(1)
-    double magnitude=0;for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)magnitude=fmax(magnitude,nativeCycleMagnitude(result[nodes[i]]));
+    StressReal magnitude=0;for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)magnitude=fmax(magnitude,nativeCycleMagnitude(result[nodes[i]]));
     // Normalize once per component, not once for every node. The same
     // rounded FP64 reciprocal is broadcast with the existing reduction.
-    double inverse;magnitude=nativeComponentMaximum(magnitude,inverse);
+    StressReal inverse;magnitude=nativeComponentMaximum(magnitude,inverse);
     SUBPROBE_END(2)
     // A positive per-component scaling of g cancels in PCG's beta/alpha.
     // Normalize before conversion to float so a tiny residual does not flush
@@ -109,9 +109,9 @@ __device__ __forceinline__ void preconditionNativeGrid(const PersistentStressArg
     for(unsigned i=first;i<islands;i+=stride)a.hierarchy.normalizer[a.islandIds[i]]=0;
     grid.sync();
     for(unsigned i=first;i<a.m_activeCounts[1];i+=stride){const auto node=a.m_activeNodes[i],id=a.m_nodeIsland[node];if(a.m_islandActive[id]){
-        const double magnitude=nativeCycleMagnitude(a.hierarchy.result[node]);
+        const StressReal magnitude=nativeCycleMagnitude(a.hierarchy.result[node]);
         if(!isfinite(magnitude))atomicExch(a.hierarchy.failed+id,1u);
-        else atomicMax(reinterpret_cast<unsigned long long*>(a.hierarchy.normalizer)+id,__double_as_longlong(magnitude));}}
+        else stressAtomicMaxNonNegative(a.hierarchy.normalizer+id,magnitude);}}
     grid.sync();
     for(unsigned i=first;i<islands*a.slots;i+=stride)a.m_reduceSlots[a.islandIds[i/a.slots]*a.slots+i%a.slots]=0;
     grid.sync();

@@ -7,30 +7,30 @@ constexpr unsigned TerminalNodes=6,TerminalDofs=6*TerminalNodes;
 constexpr unsigned TerminalTriangle=TerminalDofs*(TerminalDofs+1)/2;
 constexpr unsigned TerminalFactorSlots=TerminalTriangle/TerminalNodes;
 constexpr unsigned TerminalNodeSlots=TerminalFactorSlots+6;
-struct TerminalBuffers {double* storage;double* lift;unsigned* kind;unsigned* owner;};
+struct TerminalBuffers {StressReal* storage;StressReal* lift;unsigned* kind;unsigned* owner;};
 struct TerminalShared {
-    double lower[TerminalTriangle],scaling[TerminalDofs],rhs[TerminalDofs],lift[6];
+    StressReal lower[TerminalTriangle],scaling[TerminalDofs],rhs[TerminalDofs],lift[6];
     unsigned nodes[TerminalNodes],coupled,anchored,failed;
 };
 __device__ __forceinline__ unsigned terminalNode(const Input& a,unsigned slot){return a.partition.nodes?a.partition.nodes[slot]:slot;}
 __device__ __forceinline__ unsigned terminalOrigin(const Input& a,unsigned node){return a.identity?a.identity[node]:node;}
-__device__ __forceinline__ double& terminalFactor(const Input& a,TerminalBuffers b,const unsigned* nodes,unsigned entry){
+__device__ __forceinline__ StressReal& terminalFactor(const Input& a,TerminalBuffers b,const unsigned* nodes,unsigned entry){
     return b.storage[size_t(terminalOrigin(a,nodes[entry/TerminalFactorSlots]))*TerminalNodeSlots+entry%TerminalFactorSlots];
 }
-__device__ __forceinline__ double& terminalScaling(const Input& a,TerminalBuffers b,unsigned node,unsigned dof){
+__device__ __forceinline__ StressReal& terminalScaling(const Input& a,TerminalBuffers b,unsigned node,unsigned dof){
     return b.storage[size_t(terminalOrigin(a,node))*TerminalNodeSlots+TerminalFactorSlots+dof];
 }
 __device__ __forceinline__ Vector basisVector(unsigned k){
-    return {{double(k==0),double(k==1),double(k==2)},{double(k==3),double(k==4),double(k==5)}};
+    return {{StressReal(k==0),StressReal(k==1),StressReal(k==2)},{StressReal(k==3),StressReal(k==4),StressReal(k==5)}};
 }
-__device__ __forceinline__ double vectorCoordinate(Vector a,unsigned k){
+__device__ __forceinline__ StressReal vectorCoordinate(Vector a,unsigned k){
     return k==0?a.angular.x:k==1?a.angular.y:k==2?a.angular.z:k==3?a.linear.x:k==4?a.linear.y:a.linear.z;
 }
 // Evaluate one matrix coefficient with the shared sparse coupling equations.
 // Serial or strided immutable CSR order uses a fixed FP64 reduction tree;
 // no floating-point atomics occur.
-__device__ __forceinline__ double terminalCoefficient(const Input& a,unsigned node,unsigned row,unsigned columnNode,unsigned column,unsigned lane=0,unsigned width=1){
-    const Vector x=scaledValue(basisVector(column),sourceInertia(a,columnNode));double value=0;
+__device__ __forceinline__ StressReal terminalCoefficient(const Input& a,unsigned node,unsigned row,unsigned columnNode,unsigned column,unsigned lane=0,unsigned width=1){
+    const Vector x=scaledValue(basisVector(column),sourceInertia(a,columnNode));StressReal value=0;
     const bool cached=cachedSelfRows(a);
     if(cached && !lane && node==columnNode && row<3 && column<3)value=a.selfMatrices[size_t(node)*SelfCacheEntries+row*3+column];
     const unsigned end=cached?a.nonSelfEnd[node]:a.begin[node+1];
@@ -40,8 +40,8 @@ __device__ __forceinline__ double terminalCoefficient(const Input& a,unsigned no
         Vector first{},second{};
         if(sourceFirst(a,e)==columnNode)first=couple(x,sourceOffset(a,e,false));
         if(sourceSecond(a,e)==columnNode)second=couple(x,sourceOffset(a,e,true));
-        const bool back=ref>>31;const double scale=sourceScale(a,e);
-        const auto flux=mul(sub(first,second),scale*scale*(back?-1.:1.));
+        const bool back=ref>>31;const StressReal scale=sourceScale(a,e);
+        const auto flux=mul(sub(first,second),scale*scale*(back?StressReal(-1):StressReal(1)));
         const auto response=scaledValue(transposeCouple(flux,sourceOffset(a,e,back)),sourceInertia(a,node));
         value+=vectorCoordinate(response,row);
     }
@@ -64,7 +64,7 @@ __device__ __forceinline__ void constructTerminalComponent(const Input& a,Termin
         const unsigned lane=threadIdx.x&31u;
         for(unsigned entry=threadIdx.x/32;entry<entries;entry+=blockDim.x/32){
             unsigned row=0;while(triangle(row+1,0)<=entry)++row;const unsigned col=entry-triangle(row,0);
-            const double value=warpSum(terminalCoefficient(a,s.nodes[row/6],row%6,s.nodes[col/6],col%6,lane,32));
+            const StressReal value=warpSum(terminalCoefficient(a,s.nodes[row/6],row%6,s.nodes[col/6],col%6,lane,32));
             if(!lane)s.lower[entry]=value;
         }
     }else {
@@ -87,19 +87,19 @@ __device__ __forceinline__ void constructTerminalComponent(const Input& a,Termin
     }
     __syncthreads();
     if(!threadIdx.x){
-        double maximum=0;
-        for(unsigned i=0;i<size;++i){const double d=s.lower[triangle(i,i)];if(!isfinite(d) || d<0)s.failed=1;maximum=fmax(maximum,d);}
+        StressReal maximum=0;
+        for(unsigned i=0;i<size;++i){const StressReal d=s.lower[triangle(i,i)];if(!isfinite(d) || d<0)s.failed=1;maximum=fmax(maximum,d);}
         s.coupled=maximum>0;
         // A full six-coordinate lift at one node removes every free null
         // direction of a connected full-coupling graph. It is NOT a physical
         // support, nor a projection that assumes six exact authored modes.
         for(unsigned k=0;k<6;++k){
-            const double d=s.lower[triangle(k,k)];s.lift[k]=!s.anchored && s.coupled?(d>0?d:maximum):0;
+            const StressReal d=s.lower[triangle(k,k)];s.lift[k]=!s.anchored && s.coupled?(d>0?d:maximum):0;
             s.lower[triangle(k,k)]+=s.lift[k];b.lift[size_t(component)*6+k]=s.lift[k];
         }
-        for(unsigned i=0;i<size;++i){const double d=s.lower[triangle(i,i)];
+        for(unsigned i=0;i<size;++i){const StressReal d=s.lower[triangle(i,i)];
             if(s.coupled && (!(d>0) || !isfinite(d)))s.failed=1;
-            s.scaling[i]=s.coupled && d>0?1./sqrt(d):0;
+            s.scaling[i]=s.coupled && d>0?StressReal(1)/sqrt(d):StressReal(0);
         }
     }
     __syncthreads();
@@ -110,7 +110,7 @@ __device__ __forceinline__ void constructTerminalComponent(const Input& a,Termin
         }
         __syncthreads();
         for(unsigned k=0;k<size;++k){
-            if(!threadIdx.x){const double d=s.lower[triangle(k,k)];if(!(d>0) || !isfinite(d))s.failed=1;else s.lower[triangle(k,k)]=sqrt(d);}
+            if(!threadIdx.x){const StressReal d=s.lower[triangle(k,k)];if(!(d>0) || !isfinite(d))s.failed=1;else s.lower[triangle(k,k)]=sqrt(d);}
             __syncthreads();if(s.failed)break;
             for(unsigned row=k+1+threadIdx.x;row<size;row+=blockDim.x)s.lower[triangle(row,k)]/=s.lower[triangle(k,k)];
             __syncthreads();
@@ -177,7 +177,7 @@ __device__ __forceinline__ void solveTerminalComponent(const Input& a,TerminalBu
         }
     }
     if(threadIdx.x<count){const unsigned node=s.nodes[threadIdx.x],base=6*threadIdx.x;
-        double x[6];for(unsigned k=0;k<6;++k)x[k]=s.rhs[base+k]*terminalScaling(a,b,node,k);
+        StressReal x[6];for(unsigned k=0;k<6;++k)x[k]=s.rhs[base+k]*terminalScaling(a,b,node,k);
         result[node]={{x[0],x[1],x[2]},{x[3],x[4],x[5]}};
     }
 }

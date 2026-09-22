@@ -6,10 +6,10 @@ __device__ __noinline__ void buildNativeFineInverse(NativeStressCycleView h,unsi
     using namespace StressHierarchy;
     if(h.inverseValid[node] && h.inverseGeneration[node]==h.topology->generation)return;
     for(unsigned column=0;column<6;++column){
-        const Vector basis{{double(column==0),double(column==1),double(column==2)},
-                           {double(column==3),double(column==4),double(column==5)}};
+        const Vector basis{{StressReal(column==0),StressReal(column==1),StressReal(column==2)},
+                           {StressReal(column==3),StressReal(column==4),StressReal(column==5)}};
         const auto solved=solveFineDiagonalThread(h.cycle.levels[0].diagonal,node,basis);
-        const double value[6]={solved.angular.x,solved.angular.y,solved.angular.z,solved.linear.x,solved.linear.y,solved.linear.z};
+        const StressReal value[6]={solved.angular.x,solved.angular.y,solved.angular.z,solved.linear.x,solved.linear.y,solved.linear.z};
         // Use one triangle for both halves, preserving an explicitly symmetric
         // preconditioner rather than independently rounded transposed entries.
         for(unsigned row=column;row<6;++row)h.fineInverse[size_t(triangle(row,column))*h.inverseStride+node]=value[row];
@@ -17,8 +17,8 @@ __device__ __noinline__ void buildNativeFineInverse(NativeStressCycleView h,unsi
     h.inverseGeneration[node]=h.topology->generation;h.inverseValid[node]=1;
 }
 __device__ __forceinline__ StressHierarchy::Vector applyNativeFineInverse(NativeStressCycleView h,unsigned node,StressHierarchy::Vector value){
-    const double rhs[6]={value.angular.x,value.angular.y,value.angular.z,value.linear.x,value.linear.y,value.linear.z};
-    double out[6]{};
+    const StressReal rhs[6]={value.angular.x,value.angular.y,value.angular.z,value.linear.x,value.linear.y,value.linear.z};
+    StressReal out[6]{};
 #pragma unroll
     for(unsigned row=0;row<6;++row){
 #pragma unroll

@@ -3,19 +3,19 @@
 // Only 21 lower-triangle coefficients are retained; no inverse is assembled.
 constexpr unsigned DiagonalEntries=21;
 __device__ __forceinline__ unsigned triangle(unsigned row,unsigned col){return row*(row+1)/2+col;}
-__device__ __forceinline__ double skewEntry(float4 r,unsigned row,unsigned col){
+__device__ __forceinline__ StressReal skewEntry(float4 r,unsigned row,unsigned col){
     if(row==col)return 0;
-    if(row==0)return col==1?-double(r.z):double(r.y);
-    if(row==1)return col==0?double(r.z):-double(r.x);
-    return col==0?-double(r.y):double(r.x);
+    if(row==0)return col==1?-StressReal(r.z):StressReal(r.y);
+    if(row==1)return col==0?StressReal(r.z):-StressReal(r.x);
+    return col==0?-StressReal(r.y):StressReal(r.x);
 }
-__device__ __forceinline__ double diagonalCoefficient(float4 r,float2 d,double scale,unsigned row,unsigned col){
-    const double p[3]={r.x,r.y,r.z};double value=0;
+__device__ __forceinline__ StressReal diagonalCoefficient(float4 r,float2 d,StressReal scale,unsigned row,unsigned col){
+    const StressReal p[3]={r.x,r.y,r.z};StressReal value=0;
     if(row<3){
-        const double squared=p[0]*p[0]+p[1]*p[1]+p[2]*p[2];
+        const StressReal squared=p[0]*p[0]+p[1]*p[1]+p[2]*p[2];
         value=(row==col?1+squared:0)-p[row]*p[col];
     } else if(col<3)value=skewEntry(r,row-3,col);
-    else value=double(row==col);
+    else value=StressReal(row==col);
     return value*scale*scale*(row<3?d.x:d.y)*(col<3?d.x:d.y);
 }
 __device__ __forceinline__ void buildFineDiagonal(const Input& input,Buffers buffers,Status* status,unsigned logicalBlock){
@@ -23,7 +23,7 @@ __device__ __forceinline__ void buildFineDiagonal(const Input& input,Buffers buf
     if(node>=input.nodes)return;
     const unsigned row=lane<1?0:lane<3?1:lane<6?2:lane<10?3:lane<15?4:5;
     const unsigned col=lane<DiagonalEntries?lane-row*(row+1)/2:0;
-    double coefficient=0;unsigned coupled=0;
+    StressReal coefficient=0;unsigned coupled=0;
     if(lane<DiagonalEntries && input.component[node]!=Invalid){
         for(unsigned slot=input.begin[node];slot<input.begin[node+1];++slot){
             const unsigned ref=input.refs[slot];if(ref==Invalid)continue;
@@ -37,15 +37,15 @@ __device__ __forceinline__ void buildFineDiagonal(const Input& input,Buffers buf
     // row has zero operator and zero pseudoinverse, not an identity fallback.
     coupled=__shfl_sync(0xffffffffu,coupled,0);
     if(coupled)for(unsigned k=0;k<6;++k){
-        const double diagonal=__shfl_sync(0xffffffffu,coefficient,triangle(k,k));
+        const StressReal diagonal=__shfl_sync(0xffffffffu,coefficient,triangle(k,k));
         if(!(diagonal>0) || !isfinite(diagonal)){
             if(!lane)atomicOr(&status->error,16u);
             coefficient=0;break;
         }
-        const double pivot=sqrt(diagonal);
+        const StressReal pivot=sqrt(diagonal);
         if(col==k && row>=k)coefficient/=pivot;
-        const double left=__shfl_sync(0xffffffffu,coefficient,triangle(row,k<=row?k:row));
-        const double right=__shfl_sync(0xffffffffu,coefficient,triangle(col,k<=col?k:col));
+        const StressReal left=__shfl_sync(0xffffffffu,coefficient,triangle(row,k<=row?k:row));
+        const StressReal right=__shfl_sync(0xffffffffu,coefficient,triangle(col,k<=col?k:col));
         if(lane<DiagonalEntries && col>k)coefficient-=left*right;
     }
     if(lane<DiagonalEntries)buffers.diagonal[size_t(node)*DiagonalEntries+lane]=coefficient;

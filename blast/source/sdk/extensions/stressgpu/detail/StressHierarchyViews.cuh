@@ -2,15 +2,15 @@
 // These are two mathematical levels of one solver, not alternate backends.
 __device__ __forceinline__ unsigned sourceFirst(const Input& a,unsigned bond){return a.levelBonds?a.levelBonds[bond].a:a.node0[bond];}
 __device__ __forceinline__ unsigned sourceSecond(const Input& a,unsigned bond){return a.levelBonds?a.levelBonds[bond].b:a.node1[bond];}
-__device__ __forceinline__ double sourceHealth(const Input& a,unsigned bond){
+__device__ __forceinline__ StressReal sourceHealth(const Input& a,unsigned bond){
     if(!a.levelBonds)return a.health[bond];
     const auto e=a.levelBonds[bond];if(!isfinite(e.scale))return e.scale;
-    return e.scale!=0 && (e.a!=Invalid || e.b!=Invalid)?1.:0.;
+    return e.scale!=0 && (e.a!=Invalid || e.b!=Invalid)?StressReal(1):StressReal(0);
 }
-__device__ __forceinline__ double sourceScale(const Input& a,unsigned bond){return a.levelBonds?a.levelBonds[bond].scale:a.scale[bond];}
-__device__ __forceinline__ double3 sourceOffset(const Input& a,unsigned bond,bool second){
+__device__ __forceinline__ StressReal sourceScale(const Input& a,unsigned bond){return a.levelBonds?a.levelBonds[bond].scale:a.scale[bond];}
+__device__ __forceinline__ StressReal3 sourceOffset(const Input& a,unsigned bond,bool second){
     if(a.levelBonds)return second?a.levelBonds[bond].offset1:a.levelBonds[bond].offset0;
-    const auto r=second?a.offset1[bond]:a.offset0[bond];return make_double3(r.x,r.y,r.z);
+    const auto r=second?a.offset1[bond]:a.offset0[bond];return makeStressReal3(r.x,r.y,r.z);
 }
 __device__ __forceinline__ float4 sourcePosition(const Input& a,unsigned node){return a.position[a.identity?a.identity[node]:node];}
 __device__ __forceinline__ float2 sourceInertia(const Input& a,unsigned node){return a.levelBonds?make_float2(1,1):a.inertia[node];}

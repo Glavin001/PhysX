@@ -4,7 +4,30 @@
 #include <cooperative_groups.h>
 #include <cstdint>
 #include <cmath>
-namespace Nv { namespace Blast { namespace StressHierarchy {
+namespace Nv { namespace Blast {
+// The GPU stress solver's working precision. Blast's CPU stress solver runs in
+// float at a 1e-3 tolerance; so does this one unless BLAST_STRESS_GPU_FP64=1
+// restores binary64 (hardware on CUDA, software-emulated on Apple GPUs). The
+// exact motion-forest construction keeps its own double arithmetic regardless.
+#if defined(BLAST_STRESS_GPU_FP64) && BLAST_STRESS_GPU_FP64
+using StressReal=double;
+using StressReal3=double3;
+__host__ __device__ __forceinline__ StressReal3 makeStressReal3(StressReal x,StressReal y,StressReal z){return make_double3(x,y,z);}
+#else
+using StressReal=float;
+using StressReal3=float3;
+__host__ __device__ __forceinline__ StressReal3 makeStressReal3(StressReal x,StressReal y,StressReal z){return make_float3(x,y,z);}
+#endif
+// Monotonic maximum of a non-negative value: its IEEE bit pattern orders the
+// same way as the value, in either width.
+__device__ __forceinline__ void stressAtomicMaxNonNegative(StressReal* target,StressReal value){
+#if defined(BLAST_STRESS_GPU_FP64) && BLAST_STRESS_GPU_FP64
+    atomicMax(reinterpret_cast<unsigned long long*>(target),static_cast<unsigned long long>(__double_as_longlong(value)));
+#else
+    atomicMax(reinterpret_cast<unsigned*>(target),__float_as_uint(value));
+#endif
+}
+namespace StressHierarchy {
 constexpr unsigned Invalid=0xffffffffu, Threads=256;
 constexpr unsigned SelfCacheNodes=4096,SelfCacheEntries=18;
 struct CoarseBond;
@@ -22,7 +45,7 @@ struct Input {
     const float2* inertia;
     const std::uint64_t* generation;
     const unsigned* accept;
-    // Recursive levels retain exact double factors and original chunk origins.
+    // Recursive levels retain exact StressReal factors and original chunk origins.
     // Device counts describe the used portion of persistent capacity.
     const CoarseBond* levelBonds=nullptr;
     const unsigned *identity=nullptr,*counts=nullptr;
@@ -34,7 +57,7 @@ struct Input {
     // exact fine factors, but never consume aggregates or coarse terminals.
     unsigned componentSolverMaxNodes=0;
     const unsigned *nonSelfRefs=nullptr,*nonSelfEnd=nullptr;
-    const double* selfMatrices=nullptr;
+    const StressReal* selfMatrices=nullptr;
 };
 struct Status {
     std::uint64_t generation;
@@ -43,15 +66,15 @@ struct Status {
 struct Work {unsigned active,pending;};
 struct CoarseBond {
     unsigned a,b;
-    double3 offset0,offset1;
-    double scale;
+    StressReal3 offset0,offset1;
+    StressReal scale;
 };
 struct Buffers {
     unsigned *owner,*seed,*minimum,*leader,*pending,*memberBond,*coarseActive;
     CoarseBond* coarse;
-    double* diagonal;
+    StressReal* diagonal;
     unsigned *nonSelfRefs=nullptr,*nonSelfEnd=nullptr;
-    double* selfMatrices=nullptr;
+    StressReal* selfMatrices=nullptr;
 };
 __device__ __forceinline__ bool retainedColumn(const CoarseBond& e){
     return e.scale>0 && (e.a!=Invalid || e.b!=Invalid) &&
@@ -185,13 +208,13 @@ __device__ __forceinline__ void publishLeaders(const Input* input,Buffers b,Stat
     const unsigned count=__syncthreads_count(i<input->nodes && root==i);
     if(!threadIdx.x)atomicAdd(&status->aggregates,count);
 }
-__device__ __forceinline__ double3 relativeOffset(float4 position,double3 offset,float4 origin)
+__device__ __forceinline__ StressReal3 relativeOffset(float4 position,StressReal3 offset,float4 origin)
 {
-    return make_double3((double(position.x)-origin.x)+offset.x,
-                        (double(position.y)-origin.y)+offset.y,
-                        (double(position.z)-origin.z)+offset.z);
+    return makeStressReal3((StressReal(position.x)-origin.x)+offset.x,
+                        (StressReal(position.y)-origin.y)+offset.y,
+                        (StressReal(position.z)-origin.z)+offset.z);
 }
-__device__ __forceinline__ bool finite(double3 v){return isfinite(v.x)&&isfinite(v.y)&&isfinite(v.z);}
+__device__ __forceinline__ bool finite(StressReal3 v){return isfinite(v.x)&&isfinite(v.y)&&isfinite(v.z);}
 // Store a sparse factor, not a dense inverse or a CPU-assembled matrix.
 // Prolongation is the mass-scaled rigid basis at each aggregate's minimum-ID
 // origin. Thus B^T P has the original coupling form with shifted offsets and

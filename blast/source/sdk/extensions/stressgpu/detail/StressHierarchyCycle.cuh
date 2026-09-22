@@ -55,9 +55,9 @@ __device__ __forceinline__ Vector cycleCoarseEffect(CycleLevel parent,unsigned n
         Vector a{},b{},difference{};
         if(e.a!=Invalid && parent.child.nodeMap[e.a]!=Invalid)a=childX[parent.child.nodeMap[e.a]];
         if(e.b!=Invalid && parent.child.nodeMap[e.b]!=Invalid)b=childX[parent.child.nodeMap[e.b]];
-        if(e.a==e.b)difference={make_double3(0,0,0),cross(sub(e.offset0,e.offset1),a.angular)};
+        if(e.a==e.b)difference={makeStressReal3(0,0,0),cross(sub(e.offset0,e.offset1),a.angular)};
         else difference=sub(couple(a,e.offset0),couple(b,e.offset1));
-        const bool back=ref>>31;const auto flux=mul(difference,e.scale*sourceScale(parent.input,edge)*(back?-1.:1.));
+        const bool back=ref>>31;const auto flux=mul(difference,e.scale*sourceScale(parent.input,edge)*(back?StressReal(-1):StressReal(1)));
         sum=add(sum,scaledValue(transposeCouple(flux,sourceOffset(parent.input,edge,back)),sourceInertia(parent.input,node)));
     }
     return sum;

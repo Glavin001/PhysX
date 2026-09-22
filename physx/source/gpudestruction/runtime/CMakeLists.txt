@@ -27,6 +27,12 @@ target_include_directories(PhysXDestructionGpuRuntime PRIVATE
     ${DESTRUCTION_REPO_ROOT}/blast/include/extensions/stressgpu
     ${DESTRUCTION_REPO_ROOT}/blast/include/extensions/stress)
 target_compile_definitions(PhysXDestructionGpuRuntime PRIVATE PX_PHYSX_STATIC_LIB NDEBUG PHYSX_RESIDENT_DESTRUCTION)
+# The GPU stress solver works in float, as Blast's CPU solver does at its 1e-3
+# tolerance. ON restores binary64 (software-emulated on Apple GPUs).
+option(BLAST_STRESS_GPU_FP64 "Run the GPU stress solver in double instead of float" OFF)
+if(BLAST_STRESS_GPU_FP64)
+    target_compile_definitions(PhysXDestructionGpuRuntime PRIVATE BLAST_STRESS_GPU_FP64=1)
+endif()
 set_target_properties(PhysXDestructionGpuRuntime PROPERTIES
     CUDA_STANDARD 17 CUDA_STANDARD_REQUIRED YES CUDA_RUNTIME_LIBRARY Static
     CUDA_ARCHITECTURES "${PX_DESTRUCTION_CUDA_ARCHITECTURES}"

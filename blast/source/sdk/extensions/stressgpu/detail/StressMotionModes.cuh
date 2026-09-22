@@ -13,8 +13,8 @@ __device__ __forceinline__ double3 motionAxis(const MotionComponent& c,unsigned 
 }
 __device__ __forceinline__ double motionDot(double3 a,double3 b){return a.x*b.x+a.y*b.y+a.z*b.z;}
 __device__ __forceinline__ double motionEntry(double3 a,unsigned i){return i==0?a.x:(i==1?a.y:a.z);}
-template<unsigned Count>
-__device__ void reduceMotionValues(double (&values)[Count],double (&partial)[Count][Threads/32]){
+template<class T,unsigned Count>
+__device__ void reduceMotionValues(T (&values)[Count],T (&partial)[Count][Threads/32]){
     for(unsigned k=0;k<Count;++k)values[k]=warpSum(values[k]);
     if(!(threadIdx.x&31u))for(unsigned k=0;k<Count;++k)partial[k][threadIdx.x/32]=values[k];
     __syncthreads();
@@ -80,26 +80,30 @@ __global__ void constructMotionModes(Input a,const unsigned* forest,MotionBuffer
     for(unsigned slot=blockIdx.x;slot<*a.partition.count;slot+=gridDim.x){buildMotionFactor(a,b,status,a.partition.ids[slot]);__syncthreads();}
     grid.sync();if(!thread)commitBuild(&a,status);
 }
+// Runs every solver iteration, so it works in the solver's precision; only the
+// component frame it reads (built exactly, in double) is converted once per node.
+__device__ __forceinline__ StressReal3 motionReal(double3 v){return makeStressReal3(StressReal(v.x),StressReal(v.y),StressReal(v.z));}
+__device__ __forceinline__ StressReal motionDotReal(StressReal3 a,StressReal3 b){return a.x*b.x+a.y*b.y+a.z*b.z;}
 __device__ void projectMotionComponent(Input a,MotionModeView modes,unsigned id,const unsigned* nodes,unsigned count,Vector* values){
     const auto& c=modes.components[id];const unsigned dimension=motionDimension(c);if(!dimension)return;
-    __shared__ double partial[6][Threads/32],coefficients[6];double sum[6]{};
+    __shared__ StressReal partial[6][Threads/32],coefficients[6];StressReal sum[6]{};
     for(unsigned i=threadIdx.x;i<count;i+=blockDim.x){const unsigned node=nodes?nodes[i]:a.partition.begin[id]+i;
-        const auto d=a.inertia[node];const auto q=sub(modes.position[node],c.center);const auto value=values[node];
-        const auto linear=mul(value.linear,1.0/d.y),rotation=sub(mul(value.angular,1.0/d.x),cross(q,linear));
-        for(unsigned k=0;k<c.rotations;++k)sum[k]+=motionDot(motionAxis(c,k),rotation);
+        const auto d=a.inertia[node];const auto q=motionReal(sub(modes.position[node],c.center));const auto value=values[node];
+        const auto linear=mul(value.linear,StressReal(1)/d.y),rotation=sub(mul(value.angular,StressReal(1)/d.x),cross(q,linear));
+        for(unsigned k=0;k<c.rotations;++k)sum[k]+=motionDotReal(motionReal(motionAxis(c,k)),rotation);
         sum[c.rotations]+=linear.x;sum[c.rotations+1]+=linear.y;sum[c.rotations+2]+=linear.z;
     }
     reduceMotionValues(sum,partial);
     if(!threadIdx.x){
-        for(unsigned row=0;row<dimension;++row){double value=sum[row]*c.scale[row];for(unsigned j=0;j<row;++j)value-=c.factor[triangle(row,j)]*coefficients[j];coefficients[row]=value/c.factor[triangle(row,row)];}
-        for(int row=int(dimension)-1;row>=0;--row){for(unsigned j=row+1;j<dimension;++j)coefficients[row]-=c.factor[triangle(j,row)]*coefficients[j];coefficients[row]/=c.factor[triangle(row,row)];}
-        for(unsigned k=0;k<dimension;++k)coefficients[k]*=c.scale[k];
+        for(unsigned row=0;row<dimension;++row){StressReal value=sum[row]*StressReal(c.scale[row]);for(unsigned j=0;j<row;++j)value-=StressReal(c.factor[triangle(row,j)])*coefficients[j];coefficients[row]=value/StressReal(c.factor[triangle(row,row)]);}
+        for(int row=int(dimension)-1;row>=0;--row){for(unsigned j=row+1;j<dimension;++j)coefficients[row]-=StressReal(c.factor[triangle(j,row)])*coefficients[j];coefficients[row]/=StressReal(c.factor[triangle(row,row)]);}
+        for(unsigned k=0;k<dimension;++k)coefficients[k]*=StressReal(c.scale[k]);
     }
-    __syncthreads();double3 omega{};for(unsigned k=0;k<c.rotations;++k)omega=add(omega,mul(motionAxis(c,k),coefficients[k]));
-    const double3 translation={coefficients[c.rotations],coefficients[c.rotations+1],coefficients[c.rotations+2]};
+    __syncthreads();StressReal3 omega{};for(unsigned k=0;k<c.rotations;++k)omega=add(omega,mul(motionReal(motionAxis(c,k)),coefficients[k]));
+    const StressReal3 translation={coefficients[c.rotations],coefficients[c.rotations+1],coefficients[c.rotations+2]};
     for(unsigned i=threadIdx.x;i<count;i+=blockDim.x){const unsigned node=nodes?nodes[i]:a.partition.begin[id]+i;
-        const auto d=a.inertia[node];const auto q=sub(modes.position[node],c.center);auto& v=values[node];
-        v.angular=sub(v.angular,mul(omega,1.0/d.x));v.linear=sub(v.linear,mul(add(translation,cross(q,omega)),1.0/d.y));}
+        const auto d=a.inertia[node];const auto q=motionReal(sub(modes.position[node],c.center));auto& v=values[node];
+        v.angular=sub(v.angular,mul(omega,StressReal(1)/d.x));v.linear=sub(v.linear,mul(add(translation,cross(q,omega)),StressReal(1)/d.y));}
     __syncthreads();
 }
 class ResidentMotionModes {

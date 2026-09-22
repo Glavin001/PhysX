@@ -12,7 +12,7 @@ __device__ __forceinline__ StressHierarchy::Vector nativeBondSolution(const Pers
     const auto x=scaledValue(a.hierarchy.solution[first],make_float2(a.m_inertia[first].angular,a.m_inertia[first].linear));
     const auto y=scaledValue(a.hierarchy.solution[second],make_float2(a.m_inertia[second].angular,a.m_inertia[second].linear));
     const auto u=a.m_offset0[edge],v=a.m_offset1[edge];
-    const auto delta=mul(sub(couple(x,make_double3(u.x,u.y,u.z)),couple(y,make_double3(v.x,v.y,v.z))),double(a.m_colScales[edge]));
+    const auto delta=mul(sub(couple(x,makeStressReal3(u.x,u.y,u.z)),couple(y,makeStressReal3(v.x,v.y,v.z))),StressReal(a.m_colScales[edge]));
     return add(nativeWarmBondSolution(a,edge),delta);
 }
 template<bool Accumulated=true>
@@ -26,13 +26,13 @@ __device__ __forceinline__ void rebuildNativeResidualNode(const PersistentStress
         Vector impulse;
         if constexpr(Accumulated)impulse=nativeBondSolution(a,edge);
         else impulse=nativeWarmBondSolution(a,edge);
-        const auto force=mul(impulse,double(a.m_colScales[edge])*(second?-1.:1.));
-        response=add(response,transposeCouple(force,make_double3(offset.x,offset.y,offset.z)));
+        const auto force=mul(impulse,StressReal(a.m_colScales[edge])*(second?StressReal(-1):StressReal(1)));
+        response=add(response,transposeCouple(force,makeStressReal3(offset.x,offset.y,offset.z)));
     }
     const auto d=a.m_inertia[node];response=scaledValue(response,make_float2(d.angular,d.linear));
     const auto b=a.originalRhs[node];
-    a.m_residual[node]={{float(double(b.angular.x)-response.angular.x),float(double(b.angular.y)-response.angular.y),float(double(b.angular.z)-response.angular.z),0},
-                       {float(double(b.linear.x)-response.linear.x),float(double(b.linear.y)-response.linear.y),float(double(b.linear.z)-response.linear.z),0}};
+    a.m_residual[node]={{float(StressReal(b.angular.x)-response.angular.x),float(StressReal(b.angular.y)-response.angular.y),float(StressReal(b.angular.z)-response.angular.z),0},
+                       {float(StressReal(b.linear.x)-response.linear.x),float(StressReal(b.linear.y)-response.linear.y),float(StressReal(b.linear.z)-response.linear.z),0}};
 }
 // Initialize from the same physical residual used for final verification.
 // No accumulated node correction exists yet, so its zero products and loads
