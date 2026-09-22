@@ -383,8 +383,6 @@ namespace physx
 
 			CUstream stream = *mSolverStream;
 
-			CUfunction kernelFunction = mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::ARTI_COMPUTE_DEPENDENCIES);
-
 			CUdeviceptr descptr = mArticulationCoreDescd.getDevicePtr();
 
 			KERNEL_PARAM_TYPE kernelParams[] =
@@ -395,6 +393,9 @@ namespace physx
 
 			if (num1TBlocks)
 			{
+				// Looked up only when there is an articulation to process: a
+				// build without articulation kernels reports every lookup.
+				CUfunction kernelFunction = mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::ARTI_COMPUTE_DEPENDENCIES);
 				//In this set up, each blocks has two warps, each warps has 32 threads. Each warp will work on one articulation.  
 				const CUresult result = mCudaContext->launchKernel(kernelFunction, num1TBlocks, 1, 1, numThreadsPerWarp, numWarpsPerBlock, 1, 0, stream, EPILOG);
 				PX_ASSERT(result == CUDA_SUCCESS);
