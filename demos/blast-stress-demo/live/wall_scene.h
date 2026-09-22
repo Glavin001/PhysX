@@ -54,6 +54,8 @@ struct BodyView
     float half[3]{0.48f, 0.48f, 0.48f};
     bool sphere{false};
     bool live{false};
+    // A convex-hull chunk's render geometry in its local frame; null for boxes.
+    const blast_demo::StructureMesh* mesh{nullptr};
     // Stable per-owner id so chunks of one fragment share a colour and keep it
     // as the fragment moves. Derived from the owning actor, which is exactly
     // what fracture changes.
@@ -118,6 +120,7 @@ public:
         // Kept even on failure so teardown knows what exists.
         m_wall = authored.actor;
         m_shapes = authored.shapes;
+        m_meshes = authored.meshes;
         m_destruction = authored.destruction;
         if (!configured)
         {
@@ -298,6 +301,7 @@ private:
             body.rotation[2] = world.q.z;
             body.rotation[3] = world.q.w;
             for (int k = 0; k < 3; ++k) body.half[k] = m_structure.bricks[i].half[k];
+            body.mesh = i < m_meshes.size() ? m_meshes[i].get() : nullptr;
             body.sphere = false;
             body.live = true;
             // The owning actor is the fragment identity; hash the pointer so
@@ -334,6 +338,7 @@ private:
     physx::PxRigidDynamic* m_wall{nullptr};
     physx::PxDestructionScene* m_destruction{nullptr};
     std::vector<physx::PxShape*> m_shapes;
+    std::vector<std::shared_ptr<const blast_demo::StructureMesh>> m_meshes;
     std::vector<physx::PxRigidDynamic*> m_projectiles;
     std::vector<BodyView> m_bodies;
     unsigned m_bondCount{0};

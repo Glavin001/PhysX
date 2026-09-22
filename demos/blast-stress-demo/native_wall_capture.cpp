@@ -456,6 +456,10 @@ int run(int argc,char** argv) {
         for(unsigned i=0;i<count;++i) {
             blast_demo::VisualActor actor; actor.shape=blast_demo::VisualActor::Shape::Box;
             actor.part=0; actor.parameters=structure.bricks[i].half; actor.localPose=PxTransform(PxIdentity);
+            if(const auto& mesh=authored.meshes[i]) {
+                actor.shape=blast_demo::VisualActor::Shape::Mesh;
+                actor.meshPositions=mesh->positions; actor.meshNormals=mesh->normals; actor.meshIndices=mesh->indices;
+            }
             require(state.defineActor(i,actor),("trajectory actor failed: "+state.error()).c_str());
         }
         blast_demo::VisualActor projectile; projectile.shape=blast_demo::VisualActor::Shape::Sphere;
@@ -493,7 +497,7 @@ int run(int argc,char** argv) {
     out<<"},\"bodies\":[";
     for(unsigned i=0;i<count;++i) {
         if(i) out<<',';
-        out<<"{\"id\":"<<i<<",\"chunk_id\":"<<i<<",\"shape\":\"box\",\"half_extents\":";vec(out,structure.bricks[i].half);
+        out<<"{\"id\":"<<i<<",\"chunk_id\":"<<i<<",\"shape\":"<<(structure.bricks[i].hull?"\"hull\"":"\"box\"")<<",\"half_extents\":";vec(out,structure.bricks[i].half);
         out<<",\"supported\":"<<(structure.bricks[i].foundation?"true":"false")<<",\"color\":[0.64,0.39,0.22]}";
     }
     out<<",{\"id\":"<<count<<",\"shape\":\"sphere\",\"radius\":"<<radius<<",\"color\":[0.12,0.24,0.55]}],\"frames\":[\n";

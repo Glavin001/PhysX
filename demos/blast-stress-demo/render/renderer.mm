@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <map>
 #include <limits>
 
 namespace wall_render
@@ -345,6 +346,11 @@ struct Renderer::State
 
     MeshRange box;
     MeshRange sphere;
+    // Convex-hull actors: one vertex range per distinct mesh, drawn instanced.
+    // Instances are laid out boxes, spheres, then each mesh's block in turn.
+    std::vector<MeshRange> meshes;
+    std::vector<std::uint32_t> actorMesh; // mesh id per actor, ~0u for none
+    std::vector<std::uint32_t> meshBase, meshFill;
     RendererOptions options;
     SceneBounds bounds;
     Camera camera;
@@ -505,7 +511,7 @@ bool Renderer::open(id<MTLDevice> device, const std::vector<Actor>& actors, cons
     for (const Actor& actor : s.actors)
     {
         if (actor.shape == Actor::Sphere) ++s.sphereCount;
-        else ++s.boxCount; // meshes fall back to their bounding box for now
+        else if (actor.shape != Actor::Mesh || actor.meshIndices.empty()) ++s.boxCount;
     }
 
     @autoreleasepool
@@ -568,6 +574,81 @@ bool Renderer::open(id<MTLDevice> device, const std::vector<Actor>& actors, cons
         std::vector<float> vertices;
         appendBox(vertices, s.box);
         appendSphere(vertices, s.sphere, 24, 12);
+        // Each distinct mesh once, as unindexed triangles wound
+        // counter-clockwise from outside so back-face culling holds whichever
+        // way the source wound them. Actors cut from one shape share it.
+        {
+            std::map<std::string, std::uint32_t> ids;
+            std::vector<std::uint32_t> counts;
+            s.actorMesh.assign(s.actors.size(), ~0u);
+            for (std::size_t i = 0; i < s.actors.size(); ++i)
+            {
+                const Actor& actor = s.actors[i];
+                if (actor.shape != Actor::Mesh || actor.meshIndices.empty()) continue;
+                std::string key(reinterpret_cast<const char*>(actor.meshPositions.data()),
+                                actor.meshPositions.size() * sizeof(float));
+                key.append(reinterpret_cast<const char*>(actor.meshIndices.data()),
+                           actor.meshIndices.size() * sizeof(std::uint32_t));
+                auto found = ids.find(key);
+                if (found == ids.end())
+                {
+                    MeshRange range;
+                    range.first = std::uint32_t(vertices.size() / 6);
+                    const auto& p = actor.meshPositions;
+                    const auto& n = actor.meshNormals;
+                    const std::size_t vertexCount = p.size() / 3;
+                    for (std::size_t t = 0; t + 2 < actor.meshIndices.size(); t += 3)
+                    {
+                        std::uint32_t tri[3]{actor.meshIndices[t], actor.meshIndices[t + 1], actor.meshIndices[t + 2]};
+                        if (tri[0] >= vertexCount || tri[1] >= vertexCount || tri[2] >= vertexCount) continue;
+                        float e1[3], e2[3], face[3], outward[3]{0, 0, 0};
+                        for (int k = 0; k < 3; ++k)
+                        {
+                            e1[k] = p[tri[1] * 3 + k] - p[tri[0] * 3 + k];
+                            e2[k] = p[tri[2] * 3 + k] - p[tri[0] * 3 + k];
+                            if (n.size() == p.size())
+                            {
+                                for (int v = 0; v < 3; ++v) outward[k] += n[tri[v] * 3 + k];
+                            }
+                            else
+                            {
+                                // No normals: the centroid-relative position
+                                // points outward on a convex piece.
+                                for (int v = 0; v < 3; ++v) outward[k] += p[tri[v] * 3 + k];
+                            }
+                        }
+                        cross(e1, e2, face);
+                        if (face[0] * outward[0] + face[1] * outward[1] + face[2] * outward[2] < 0)
+                        {
+                            std::swap(tri[1], tri[2]);
+                            for (float& f : face) f = -f;
+                        }
+                        normalise(face);
+                        for (std::uint32_t index : tri)
+                        {
+                            for (int k = 0; k < 3; ++k) vertices.push_back(p[index * 3 + k]);
+                            for (int k = 0; k < 3; ++k)
+                            {
+                                vertices.push_back(n.size() == p.size() ? n[index * 3 + k] : face[k]);
+                            }
+                        }
+                    }
+                    range.count = std::uint32_t(vertices.size() / 6) - range.first;
+                    found = ids.emplace(std::move(key), std::uint32_t(s.meshes.size())).first;
+                    s.meshes.push_back(range);
+                    counts.push_back(0);
+                }
+                s.actorMesh[i] = found->second;
+                ++counts[found->second];
+            }
+            std::uint32_t next = s.boxCount + s.sphereCount;
+            for (std::uint32_t count : counts)
+            {
+                s.meshBase.push_back(next);
+                next += count;
+            }
+            s.meshFill.assign(s.meshes.size(), 0);
+        }
         s.vertexBuffer = [device newBufferWithBytes:vertices.data()
                                              length:vertices.size() * sizeof(float)
                                             options:MTLResourceStorageModeShared];
@@ -649,6 +730,7 @@ id<MTLCommandBuffer> Renderer::draw(const std::vector<Pose>& poses, id<MTLTextur
     // instance array by shape rather than branching per body in the shader.
     std::uint32_t boxes = 0;
     std::uint32_t spheres = 0;
+    std::fill(s.meshFill.begin(), s.meshFill.end(), 0u);
     const std::size_t count = std::min(poses.size(), s.actors.size());
     for (std::size_t i = 0; i < count; ++i)
     {
@@ -660,14 +742,18 @@ id<MTLCommandBuffer> Renderer::draw(const std::vector<Pose>& poses, id<MTLTextur
             continue;
         }
         const bool sphere = actor.shape == Actor::Sphere;
-        const std::size_t index = sphere ? (s.boxCount + spheres++) : boxes++;
+        const std::uint32_t mesh = i < s.actorMesh.size() ? s.actorMesh[i] : ~0u;
+        const std::size_t index = mesh != ~0u ? s.meshBase[mesh] + s.meshFill[mesh]++
+                                  : sphere     ? (s.boxCount + spheres++)
+                                               : boxes++;
         Instance& instance = s.scratch[index];
         for (int k = 0; k < 3; ++k) instance.position[k] = pose.position[k];
         instance.position[3] = 1;
         for (int k = 0; k < 4; ++k) instance.rotation[k] = pose.rotation[k];
         for (int k = 0; k < 3; ++k)
         {
-            instance.scale[k] = sphere ? actor.parameters[0] : actor.parameters[k];
+            // A mesh is already in its actor's local frame.
+            instance.scale[k] = mesh != ~0u ? 1.0f : sphere ? actor.parameters[0] : actor.parameters[k];
         }
         instance.scale[3] = 1;
 
@@ -762,6 +848,15 @@ id<MTLCommandBuffer> Renderer::draw(const std::vector<Pose>& poses, id<MTLTextur
                    vertexCount:s.sphere.count
                  instanceCount:spheres];
     }
+    for (std::size_t m = 0; m < s.meshes.size(); ++m)
+    {
+        if (s.meshFill[m] == 0) continue;
+        [shadow setVertexBufferOffset:s.meshBase[m] * sizeof(Instance) atIndex:1];
+        [shadow drawPrimitives:MTLPrimitiveTypeTriangle
+                   vertexStart:s.meshes[m].first
+                   vertexCount:s.meshes[m].count
+                 instanceCount:s.meshFill[m]];
+    }
     [shadow endEncoding];
 
     MTLRenderPassDescriptor* pass = [MTLRenderPassDescriptor renderPassDescriptor];
@@ -813,6 +908,15 @@ id<MTLCommandBuffer> Renderer::draw(const std::vector<Pose>& poses, id<MTLTextur
                   vertexStart:s.sphere.first
                   vertexCount:s.sphere.count
                 instanceCount:spheres];
+    }
+    for (std::size_t m = 0; m < s.meshes.size(); ++m)
+    {
+        if (s.meshFill[m] == 0) continue;
+        [scene setVertexBufferOffset:s.meshBase[m] * sizeof(Instance) atIndex:1];
+        [scene drawPrimitives:MTLPrimitiveTypeTriangle
+                  vertexStart:s.meshes[m].first
+                  vertexCount:s.meshes[m].count
+                instanceCount:s.meshFill[m]];
     }
     [scene endEncoding];
 

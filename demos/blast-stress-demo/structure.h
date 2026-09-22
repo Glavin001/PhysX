@@ -1,12 +1,14 @@
 // Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
 //
 // One bonded structure, authored once for both the capture CLI and the live
-// app: a list of box bricks and the bonds between them, turned into a single
-// kinematic PhysX actor and one destruction stress cluster.
+// app: a list of box or convex-hull bricks and the bonds between them, turned
+// into kinematic PhysX actors and destruction stress clusters.
 //
-// The wall is the grid the capture always built. Any box-only ScenePack
+// The wall is the grid the capture always built. A ScenePack
 // (blast/blast-stress-demo-rs/assets/scenes) is the same shape of data, so the
-// brick building and anything like it go through the identical path. Fracture,
+// brick building, the Voronoi-fractured tower and the rest go through the
+// identical path; hulls are cooked for the GPU contact pipeline, which
+// native_convex_contact_test qualifies against the CPU one. Fracture,
 // correction and motion stay PhysX's; nothing here scripts damage.
 #pragma once
 
@@ -20,12 +22,22 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <map>
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <vector>
 
 namespace blast_demo
 {
+
+// Render geometry for a non-box brick, in the brick's local frame: parallel
+// positions/normals and whole triangles.
+struct StructureMesh
+{
+    std::vector<physx::PxVec3> positions, normals;
+    std::vector<std::uint32_t> indices;
+};
 
 struct StructureBrick
 {
@@ -34,6 +46,11 @@ struct StructureBrick
     float mass{0.0f};         // mass of the free brick, also for supports
     bool foundation{false};   // an authored support node (stress mass zero)
     unsigned cluster{0};      // one kinematic actor and stress cluster each
+    // A convex-hull brick's collider points, relative to `centre`; empty for a
+    // box of `half`. Shared between bricks cut from the same shape.
+    std::shared_ptr<const std::vector<physx::PxVec3>> hull;
+    // The pack's own render mesh for the brick, when it has one.
+    std::shared_ptr<const StructureMesh> mesh;
 };
 
 struct StructureBond
@@ -137,21 +154,48 @@ inline Structure structureFromScenePack(const ScenePack& pack, float colliderSca
     float density = 0;
     for (const SceneNode& n : pack.nodes)
     {
-        if (n.collider.kind != SceneColliderKind::Cuboid)
-        {
-            throw std::runtime_error("structure: only box colliders are qualified on this backend");
-        }
         if (n.mass > 0 && n.volume > 0) density = std::max(density, n.mass / n.volume);
     }
     if (!(density > 0)) throw std::runtime_error("structure: pack has no massive brick");
-    for (const SceneNode& n : pack.nodes)
+    // Hulls cut from one shared shape keep one point set, so they cook once.
+    std::map<std::string, std::shared_ptr<const std::vector<PxVec3>>> hulls;
+    for (std::size_t i = 0; i < pack.nodes.size(); ++i)
     {
-        const PxVec3 half = n.collider.halfExtents * colliderScale;
-        const float volume = n.volume > 0 ? n.volume
-                                          : 8 * n.collider.halfExtents.x * n.collider.halfExtents.y
-                                                * n.collider.halfExtents.z;
-        const bool support = !(n.mass > 0);
-        s.bricks.push_back({n.centroid, half, support ? density * volume : n.mass, support});
+        const SceneNode& n = pack.nodes[i];
+        StructureBrick brick;
+        brick.centre = n.centroid;
+        if (n.collider.kind == SceneColliderKind::ConvexHull)
+        {
+            std::vector<PxVec3> points;
+            PxVec3 extent(0);
+            for (const PxVec3& p : n.collider.points)
+            {
+                points.push_back(p * colliderScale);
+                extent = extent.maximum(points.back().abs());
+            }
+            const std::string key(reinterpret_cast<const char*>(points.data()), points.size() * sizeof(PxVec3));
+            auto& shared = hulls[key];
+            if (!shared) shared = std::make_shared<const std::vector<PxVec3>>(std::move(points));
+            brick.hull = shared;
+            brick.half = extent;
+        }
+        else
+        {
+            brick.half = n.collider.halfExtents * colliderScale;
+        }
+        if (i < pack.nodeMeshes.size() && pack.nodeMeshes[i].present)
+        {
+            // Drawn at the collider's scale, so what is seen is what collides.
+            auto mesh = std::make_shared<StructureMesh>();
+            for (const PxVec3& p : pack.nodeMeshes[i].positions) mesh->positions.push_back(p * colliderScale);
+            mesh->normals = pack.nodeMeshes[i].normals;
+            mesh->indices = pack.nodeMeshes[i].indices;
+            if (mesh->normals.size() == mesh->positions.size() && !mesh->indices.empty()) brick.mesh = mesh;
+        }
+        const float volume = n.volume > 0 ? n.volume : 8 * brick.half.x * brick.half.y * brick.half.z;
+        brick.foundation = !(n.mass > 0);
+        brick.mass = brick.foundation ? density * volume : n.mass;
+        s.bricks.push_back(std::move(brick));
     }
     for (const SceneBond& b : pack.bonds)
     {
@@ -328,8 +372,40 @@ struct AuthoredStructure
     physx::PxRigidDynamic* actor{nullptr};          // cluster 0
     std::vector<physx::PxRigidDynamic*> actors;     // one per cluster
     std::vector<physx::PxShape*> shapes;            // parallel to Structure::bricks
+    // Render geometry for each hull brick (the pack's mesh, else the cooked
+    // hull's faces); null for boxes. Parallel to Structure::bricks.
+    std::vector<std::shared_ptr<const StructureMesh>> meshes;
     physx::PxDestructionScene* destruction{nullptr};
 };
+
+// The cooked hull's polygons as triangles with flat outward normals, wound
+// counter-clockwise seen from outside.
+inline std::shared_ptr<const StructureMesh> hullMesh(const physx::PxConvexMesh& hull)
+{
+    using namespace physx;
+    auto mesh = std::make_shared<StructureMesh>();
+    const PxVec3* vertices = hull.getVertices();
+    const PxU8* indices = hull.getIndexBuffer();
+    for (PxU32 p = 0; p < hull.getNbPolygons(); ++p)
+    {
+        PxHullPolygon polygon;
+        if (!hull.getPolygonData(p, polygon) || polygon.mNbVerts < 3) continue;
+        const PxVec3 normal(polygon.mPlane[0], polygon.mPlane[1], polygon.mPlane[2]);
+        const PxU8* ring = indices + polygon.mIndexBase;
+        for (PxU32 k = 1; k + 1 < polygon.mNbVerts; ++k)
+        {
+            PxVec3 a = vertices[ring[0]], b = vertices[ring[k]], c = vertices[ring[k + 1]];
+            if ((b - a).cross(c - a).dot(normal) < 0) std::swap(b, c);
+            for (const PxVec3& v : {a, b, c})
+            {
+                mesh->indices.push_back(std::uint32_t(mesh->positions.size()));
+                mesh->positions.push_back(v);
+                mesh->normals.push_back(normal);
+            }
+        }
+    }
+    return mesh;
+}
 
 // Builds one kinematic actor per cluster, steps once (the asset must be
 // configured against a stepped scene), and configures the stress clusters. On
@@ -358,23 +434,72 @@ inline bool authorStructure(const Structure& s, PhysXScene& context, const Struc
     std::vector<PxVec3> totalInertia(clusters, PxVec3(0));
     std::vector<float> totalMass(clusters, 0.0f);
     std::vector<unsigned> members(clusters, 0);
+    // Each distinct hull cooks once; the GPU contact path needs GPU data.
+    std::map<const std::vector<PxVec3>*, PxConvexMesh*> cooked;
+    struct Release
+    {
+        std::map<const std::vector<PxVec3>*, PxConvexMesh*>& meshes;
+        ~Release() { for (auto& entry : meshes) entry.second->release(); }
+    } release{cooked};
     for (const StructureBrick& b : s.bricks)
     {
         if (b.cluster >= clusters) return error = "structure brick names a missing cluster", false;
-        PxShape* shape = physics.createShape(PxBoxGeometry(b.half), context.material(), true);
+        float stressInertia = 0, volume = 0;
+        PxVec3 principal(0);
+        PxShape* shape = nullptr;
+        std::shared_ptr<const StructureMesh> mesh;
+        if (b.hull)
+        {
+            PxConvexMesh*& hull = cooked[b.hull.get()];
+            if (hull == nullptr)
+            {
+                PxConvexMeshDesc desc;
+                desc.points.count = PxU32(b.hull->size());
+                desc.points.stride = sizeof(PxVec3);
+                desc.points.data = b.hull->data();
+                desc.flags = PxConvexFlag::eCOMPUTE_CONVEX;
+                // The GPU contact path takes hulls of at most 64 vertices and
+                // 64 faces.
+                desc.vertexLimit = 64;
+                desc.polygonLimit = 64;
+                PxCookingParams params = context.cookingParams();
+                params.buildGPUData = true;
+                hull = PxCreateConvexMesh(params, desc, physics.getPhysicsInsertionCallback());
+                if (hull == nullptr) return error = "structure hull cooking failed", false;
+                if (!hull->isGpuCompatible()) return error = "structure hull is not GPU compatible", false;
+            }
+            shape = physics.createShape(PxConvexMeshGeometry(hull), context.material(), true);
+            // Unit-density mass properties, scaled to the brick's mass. Pack
+            // points are centroid-relative, so the offset centre of mass is
+            // small and the diagonal is taken as the principal moments.
+            PxReal unitMass = 0;
+            PxMat33 unitInertia;
+            PxVec3 unitCentre;
+            hull->getMassInformation(unitMass, unitInertia, unitCentre);
+            const float scale = unitMass > 0 ? b.mass / unitMass : 0;
+            principal = PxVec3(unitInertia(0, 0), unitInertia(1, 1), unitInertia(2, 2)) * scale;
+            stressInertia = (principal.x + principal.y + principal.z) / 3;
+            volume = unitMass;
+            mesh = b.mesh ? b.mesh : hullMesh(*hull);
+        }
+        else
+        {
+            shape = physics.createShape(PxBoxGeometry(b.half), context.material(), true);
+            stressInertia = brickStressInertia(b);
+            volume = 8 * b.half.x * b.half.y * b.half.z;
+            const bool cube = b.half.x == b.half.y && b.half.y == b.half.z;
+            principal = cube ? PxVec3(stressInertia) : brickInertia(b);
+        }
         if (shape == nullptr) return error = "structure shape allocation failed", false;
         shape->setLocalPose(PxTransform(b.centre));
         out.shapes.push_back(shape);
+        out.meshes.push_back(mesh);
         if (!out.actors[b.cluster]->attachShape(*shape)) return error = "structure shape attachment failed", false;
-        const float stressInertia = brickStressInertia(b);
-        const float volume = 8 * b.half.x * b.half.y * b.half.z;
         chunks.push_back({b.centre, b.foundation ? 0.0f : b.mass, b.foundation ? 0.0f : stressInertia, b.cluster,
                           PX_INVALID_U32, volume, 0});
         PxDestructionChunkMassProperties prop{};
         prop.mass = b.mass;
         prop.supported = b.foundation;
-        const bool cube = b.half.x == b.half.y && b.half.y == b.half.z;
-        const PxVec3 principal = cube ? PxVec3(stressInertia) : brickInertia(b);
         for (unsigned k = 0; k < 3; ++k)
         {
             prop.center[k] = b.centre[k];

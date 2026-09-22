@@ -542,6 +542,13 @@ int main(int argc, char** argv)
             actor.shape = body.sphere ? wall_render::Actor::Sphere : wall_render::Actor::Box;
             actor.part = body.sphere ? 1 : 0;
             for (int k = 0; k < 3; ++k) actor.parameters[k] = body.half[k];
+            if (body.mesh != nullptr)
+            {
+                actor.shape = wall_render::Actor::Mesh;
+                for (const physx::PxVec3& p : body.mesh->positions) actor.meshPositions.insert(actor.meshPositions.end(), {p.x, p.y, p.z});
+                for (const physx::PxVec3& n : body.mesh->normals) actor.meshNormals.insert(actor.meshNormals.end(), {n.x, n.y, n.z});
+                actor.meshIndices = body.mesh->indices;
+            }
             actors.push_back(actor);
         }
         wall_render::SceneBounds bounds;
