@@ -911,6 +911,14 @@ if(BLAST_ENABLE_CUDA_STRESS)
             VERBATIM)
     endif()
 
+    # Convex-hull contacts on the GPU, qualified against the CPU pipeline.
+    add_executable(native_convex_contact_test tests/native_convex_contact_test.cpp physx_scene.cpp)
+    target_compile_definitions(native_convex_contact_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG PX_SUPPORT_PVD=0 PX_SUPPORT_OMNI_PVD=0)
+    target_include_directories(native_convex_contact_test PRIVATE ${NATIVE_CHECKPOINT_TEST_INCLUDES})
+    target_link_options(native_convex_contact_test PRIVATE "-Wl,-rpath,${PHYSX_LIB_DIR}")
+    target_link_libraries(native_convex_contact_test PRIVATE ${NATIVE_DESTRUCTION_TEST_LIBS} ${PX_DESTRUCTION_GPU_DRIVER})
+    add_test(NAME physx_native_convex_contacts COMMAND native_convex_contact_test)
+
     add_executable(native_standard_scene_test tests/native_standard_scene_test.cpp physx_scene.cpp)
     target_compile_definitions(native_standard_scene_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG PX_SUPPORT_PVD=0 PX_SUPPORT_OMNI_PVD=0)
     target_include_directories(native_standard_scene_test PRIVATE ${NATIVE_CHECKPOINT_TEST_INCLUDES})
