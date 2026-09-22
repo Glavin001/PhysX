@@ -79,6 +79,9 @@ struct Structure
     float aimX{0.0f};
     // Nonzero only for the grid wall, whose reports are laid out by row.
     unsigned gridWidth{0}, gridHeight{0};
+    // A pack's authored stress limits, indexed by StructureBond::material.
+    // Empty means the demo's own pair: material 0, and a foundation mortar 1.
+    std::vector<StressLimits> materials;
 
     unsigned clusterCount() const { return 1 + unsigned(extraCentres.size()); }
     physx::PxVec3 clusterCentre(unsigned c) const { return c ? extraCentres[c - 1] : centre; }
@@ -204,8 +207,15 @@ inline Structure structureFromScenePack(const ScenePack& pack, float colliderSca
         PxVec3 normal = b.normal.getNormalized();
         // The runtime's convention: the normal points from chunk0 to chunk1.
         if (normal.dot(s.bricks[c].centre - s.bricks[a].centre) < 0) normal = -normal;
+        // An authored material table is the pack's own statement of strength;
+        // without one, the demo's mortar rule gives the supports' ties.
         const bool mortar = s.bricks[a].foundation != s.bricks[c].foundation;
-        s.bonds.push_back({a, c, b.centroid, normal, b.area, mortar ? 1u : 0u});
+        const std::uint32_t material = pack.stressLimitsAuthored ? b.material : (mortar ? 1u : 0u);
+        if (pack.stressLimitsAuthored && material >= pack.materials.size())
+        {
+            throw std::runtime_error("structure: bond material outside the pack's table");
+        }
+        s.bonds.push_back({a, c, b.centroid, normal, b.area, material});
     }
     std::sort(s.bonds.begin(), s.bonds.end(), [](const StructureBond& x, const StructureBond& y) {
         return x.chunk0 != y.chunk0 ? x.chunk0 < y.chunk0 : x.chunk1 < y.chunk1;
@@ -236,6 +246,10 @@ inline Structure structureFromScenePack(const ScenePack& pack, float colliderSca
         total += b.mass;
     }
     s.centre *= 1.0f / total;
+    if (pack.stressLimitsAuthored)
+    {
+        for (const SceneMaterial& m : pack.materials) s.materials.push_back(m.limits);
+    }
     finishBounds(s);
     s.aimHeight = s.lower.y + (s.upper.y - s.lower.y) * 0.55f;
     return s;
@@ -280,6 +294,7 @@ inline Structure tileStructure(const Structure& one, unsigned across, unsigned d
         }
     }
     finishBounds(s);
+    s.materials = one.materials;
     s.aimHeight = one.aimHeight;
     s.aimX = (float(across / 2) - float(across - 1) * 0.5f) * pitchX + one.aimX;
     return s;
@@ -336,7 +351,7 @@ inline float brickStressInertia(const StructureBrick& b)
 
 struct StructureStressSettings
 {
-    physx::PxDestructionMaterial materials[2];
+    std::vector<physx::PxDestructionMaterial> materials;
     unsigned iterations{8192};
     float tolerance{1e-3f};
 };
@@ -347,6 +362,7 @@ inline StructureStressSettings structureStressSettings(float strength, float fou
                                                        unsigned iterations, float tolerance)
 {
     StructureStressSettings s;
+    s.materials.resize(2);
     physx::PxDestructionMaterial& m = s.materials[0];
     m.compressionElasticLimit = 250000 * strength;
     m.compressionFatalLimit = 500000 * strength;
@@ -364,6 +380,29 @@ inline StructureStressSettings structureStressSettings(float strength, float fou
     f.shearFatalLimit *= foundationStrength;
     s.iterations = iterations;
     s.tolerance = tolerance;
+    return s;
+}
+
+// The structure's own materials when its pack authored them, each scaled by
+// `strength` (the pack states its foundations itself); otherwise the demo pair.
+inline StructureStressSettings structureStressSettings(const Structure& structure, float strength,
+                                                       float foundationStrength, unsigned iterations,
+                                                       float tolerance)
+{
+    StructureStressSettings s = structureStressSettings(strength, foundationStrength, iterations, tolerance);
+    if (structure.materials.empty()) return s;
+    s.materials.clear();
+    for (const StressLimits& limits : structure.materials)
+    {
+        physx::PxDestructionMaterial m = s.materials.empty() ? physx::PxDestructionMaterial() : s.materials[0];
+        m.compressionElasticLimit = limits.compressionElastic * strength;
+        m.compressionFatalLimit = limits.compressionFatal * strength;
+        m.tensionElasticLimit = limits.tensionElastic * strength;
+        m.tensionFatalLimit = limits.tensionFatal * strength;
+        m.shearElasticLimit = limits.shearElastic * strength;
+        m.shearFatalLimit = limits.shearFatal * strength;
+        s.materials.push_back(m);
+    }
     return s;
 }
 
@@ -565,8 +604,8 @@ inline bool authorStructure(const Structure& s, PhysXScene& context, const Struc
     desc.clusterCount = clusters;
     desc.bonds = bonds.data();
     desc.bondCount = PxU32(bonds.size());
-    desc.materials = settings.materials;
-    desc.materialCount = 2;
+    desc.materials = settings.materials.data();
+    desc.materialCount = PxU32(settings.materials.size());
     desc.maxIterations = settings.iterations;
     desc.tolerance = settings.tolerance;
     desc.internalCorrectionLimit = 1;

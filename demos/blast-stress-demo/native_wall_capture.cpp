@@ -422,8 +422,10 @@ int run(int argc,char** argv) {
         false,true,false,false,PxSolverType::eTGS,false,false);
     require(context.gpuActive() && !context.directGpuApiActive(),"native ordinary GPU scene required");
     auto& physics=context.physics(); auto& scene=context.scene(); auto& cuda=*context.cudaContextManager();
-    const auto settings=blast_demo::structureStressSettings(o.strength,o.foundationStrength,o.iterations,o.tolerance);
-    const auto& material=settings.materials[0]; const auto& foundationMaterial=settings.materials[1];
+    const auto settings=blast_demo::structureStressSettings(structure,o.strength,o.foundationStrength,o.iterations,o.tolerance);
+    // A pack with its own table reports its first two materials here.
+    const auto& material=settings.materials[0];
+    const auto& foundationMaterial=settings.materials[settings.materials.size()>1?1:0];
     blast_demo::AuthoredStructure authored; std::string authorError;
     const bool configured=blast_demo::authorStructure(structure,context,settings,authored,authorError);
     require(configured,("native "+structure.name+": "+authorError).c_str());

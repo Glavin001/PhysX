@@ -112,7 +112,7 @@ public:
             return fail(m_loadError.empty() ? "structure is empty" : m_loadError);
         }
         const blast_demo::StructureStressSettings settings = blast_demo::structureStressSettings(
-            m_options.materialStrength, m_options.foundationStrength, m_options.stressIterations,
+            m_structure, m_options.materialStrength, m_options.foundationStrength, m_options.stressIterations,
             m_options.stressTolerance);
         blast_demo::AuthoredStructure authored;
         std::string error;

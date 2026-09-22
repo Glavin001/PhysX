@@ -6,6 +6,7 @@
 #include <cctype>
 #include <cerrno>
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
 #include <fstream>
 #include <limits>
@@ -743,14 +744,23 @@ ScenePack loadScenePack(const std::string& path)
         node.volume = number(source.at("volume"), "volume");
         // Node material index; absent means 0. Same no-clamp rule as bonds:
         // a silent clamp turns a typo into a mysteriously indestructible chunk.
-        if (const Json* material = source.find("m"))
+        if (const Json* material = source.find("m"); material != nullptr && !allowCrush)
         {
-            if (!allowCrush)
+            // A node material only selects crush properties, and a version-2
+            // pack cannot author a crush block, so the index changes nothing.
+            // Packs written before the version bump carry it anyway; keep
+            // loading them and say once that it was ignored.
+            static bool warned = false;
+            if (!warned)
             {
-                throw std::runtime_error(
-                    "node " + std::to_string(i)
-                    + " has a material index, which requires ScenePack version 3");
+                warned = true;
+                std::fprintf(stderr, "[scene_pack] node material indices ignored: they need ScenePack version 3, "
+                                     "and a version-%u pack has no crush properties for them to select\n",
+                             unsigned(version));
             }
+        }
+        else if (material != nullptr)
+        {
             node.material = index(*material, "m");
             if (node.material >= pack.materials.size())
             {
