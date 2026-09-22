@@ -336,7 +336,7 @@ Options options(int argc,char** argv) {
     for(int i=1;i<argc;++i) {
         const std::string flag=argv[i];
         if(flag=="--help") {
-            std::puts("native_wall_capture --output NEW_FILE.json [--state NEW_FILE.twstate] [--scene wall|brick-building|PACK.json] [--width 9 --height 7 --frames 360 --stress-iterations 8192 --stress-tolerance 0.001 --projectile-mass 600 --projectile-speed 12 --material-strength 1 --foundation-strength 1 --impact-offset 0 --impact-height 0 --record-bond-stress 0 --audit-gpu-state 0 --profile-phases FILE.csv]");
+            std::puts("native_wall_capture --output NEW_FILE.json [--state NEW_FILE.twstate] [--scene wall|brick-building|PACK.json[@AxD]] [--width 9 --height 7 --frames 360 --stress-iterations 8192 --stress-tolerance 0.001 --projectile-mass 600 --projectile-speed 12 --material-strength 1 --foundation-strength 1 --impact-offset 0 --impact-height 0 --record-bond-stress 0 --audit-gpu-state 0 --profile-phases FILE.csv]");
             std::exit(0);
         }
         require(i+1<argc,"missing option value"); const char* value=argv[++i];
@@ -427,13 +427,13 @@ int run(int argc,char** argv) {
     blast_demo::AuthoredStructure authored; std::string authorError;
     const bool configured=blast_demo::authorStructure(structure,context,settings,authored,authorError);
     require(configured,("native "+structure.name+": "+authorError).c_str());
-    auto* wall=authored.actor; auto* destruction=authored.destruction; const auto& shapes=authored.shapes;
+    auto* destruction=authored.destruction; const auto& shapes=authored.shapes;
     std::vector<PxU32> foundationBondIds;
     for(unsigned i=0;i<structure.bonds.size();++i) if(structure.bonds[i].material==1) foundationBondIds.push_back(i);
     const auto& bonds=structure.bonds;
     constexpr float radius=.6f;
     const float aimHeight=o.impactHeight>0 ? o.impactHeight : structure.aimHeight;
-    auto* ball=PxCreateDynamic(physics,PxTransform(PxVec3(o.impactOffset,aimHeight,structure.front-4)),PxSphereGeometry(radius),context.material(),1);
+    auto* ball=PxCreateDynamic(physics,PxTransform(PxVec3(structure.aimX+o.impactOffset,aimHeight,structure.front-4)),PxSphereGeometry(radius),context.material(),1);
     require(ball,"projectile allocation failed");ball->setMass(o.mass);ball->setMassSpaceInertiaTensor(PxVec3(.4f*o.mass*radius*radius));
     ball->setLinearDamping(0);ball->setAngularDamping(0);ball->setLinearVelocity(PxVec3(0,0,o.speed));scene.addActor(*ball);
 
@@ -585,7 +585,7 @@ int run(int argc,char** argv) {
         }
         WallTimingScope teardownTiming("teardown");
         require(destruction->clearStress(),"native destruction teardown failed");
-        ball->release();wall->release();for(auto* shape:shapes) shape->release();
+        ball->release();for(auto* actor:authored.actors) actor->release();for(auto* shape:shapes) shape->release();
         require(context.healthy(),"native scene reported a GPU failure");
     } catch(const std::exception& e) {failure=e.what();}
     const bool localized=broken>0 && detached>0 && peakDetached<=dynamicCount/2;

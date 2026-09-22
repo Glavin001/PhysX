@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -32,6 +33,7 @@ struct StructureBrick
     physx::PxVec3 half{0.5f};
     float mass{0.0f};         // mass of the free brick, also for supports
     bool foundation{false};   // an authored support node (stress mass zero)
+    unsigned cluster{0};      // one kinematic actor and stress cluster each
 };
 
 struct StructureBond
@@ -48,14 +50,21 @@ struct Structure
     std::string name;
     std::vector<StructureBrick> bricks;
     std::vector<StructureBond> bonds;
-    physx::PxVec3 centre{0.0f}; // cluster-local centre of mass for centrifugal loading
+    physx::PxVec3 centre{0.0f}; // centre of mass of cluster 0, for centrifugal loading
+    // Further clusters' centres; cluster 0 uses `centre`. Each cluster must be
+    // one connected piece of the bond graph.
+    std::vector<physx::PxVec3> extraCentres;
     physx::PxVec3 lower{0.0f}, upper{0.0f}; // collider bounds
     // The plane the projectile is launched towards: the lowest brick centre z.
     float front{0.0f};
     // Default impact point on that face.
     float aimHeight{0.0f};
+    float aimX{0.0f};
     // Nonzero only for the grid wall, whose reports are laid out by row.
     unsigned gridWidth{0}, gridHeight{0};
+
+    unsigned clusterCount() const { return 1 + unsigned(extraCentres.size()); }
+    physx::PxVec3 clusterCentre(unsigned c) const { return c ? extraCentres[c - 1] : centre; }
 
     unsigned foundationCount() const
     {
@@ -188,14 +197,80 @@ inline Structure structureFromScenePack(const ScenePack& pack, float colliderSca
     return s;
 }
 
-// The scene names the front ends accept; anything else is a ScenePack path.
+// Copies of one single-cluster structure on a grid: `across` along x, `deep`
+// along z, `gap` metres apart, each copy its own actor and stress cluster. The
+// aim defaults to the front row's copy nearest the middle.
+inline Structure tileStructure(const Structure& one, unsigned across, unsigned deep, float gap)
+{
+    using namespace physx;
+    if (one.clusterCount() != 1 || across == 0 || deep == 0)
+    {
+        throw std::runtime_error("structure: tiling needs one single-cluster structure and a positive grid");
+    }
+    const PxVec3 size = one.upper - one.lower;
+    const float pitchX = size.x + gap, pitchZ = size.z + gap;
+    Structure s;
+    s.name = one.name + " x" + std::to_string(across * deep);
+    const unsigned stride = unsigned(one.bricks.size());
+    for (unsigned z = 0; z < deep; ++z)
+    {
+        for (unsigned x = 0; x < across; ++x)
+        {
+            const unsigned copy = z * across + x;
+            const PxVec3 offset((float(x) - float(across - 1) * 0.5f) * pitchX, 0, float(z) * pitchZ);
+            for (StructureBrick b : one.bricks)
+            {
+                b.centre += offset;
+                b.cluster = copy;
+                s.bricks.push_back(b);
+            }
+            for (StructureBond b : one.bonds)
+            {
+                b.chunk0 += copy * stride;
+                b.chunk1 += copy * stride;
+                b.centroid += offset;
+                s.bonds.push_back(b);
+            }
+            if (copy == 0) s.centre = one.centre + offset;
+            else s.extraCentres.push_back(one.centre + offset);
+        }
+    }
+    finishBounds(s);
+    s.aimHeight = one.aimHeight;
+    s.aimX = (float(across / 2) - float(across - 1) * 0.5f) * pitchX + one.aimX;
+    return s;
+}
+
+// The scene names the front ends accept: "wall", a ScenePack name under the
+// scenes directory or a path to one, optionally tiled as NAME@AxD (A across,
+// D deep), e.g. brick-building@2x2.
 inline Structure loadStructure(const std::string& scene, unsigned wallWidth, unsigned wallHeight,
                                const std::string& scenesDirectory)
 {
-    if (scene.empty() || scene == "wall") return makeWall(wallWidth, wallHeight);
-    const bool path = scene.find('/') != std::string::npos || scene.size() > 5
-                      && scene.compare(scene.size() - 5, 5, ".json") == 0;
-    return structureFromScenePack(loadScenePack(path ? scene : scenesDirectory + "/" + scene + ".json"));
+    std::string name = scene;
+    unsigned across = 1, deep = 1;
+    const std::size_t at = scene.rfind('@');
+    if (at != std::string::npos)
+    {
+        name = scene.substr(0, at);
+        if (std::sscanf(scene.c_str() + at + 1, "%ux%u", &across, &deep) != 2 || across < 1 || deep < 1
+            || across * deep > 64)
+        {
+            throw std::runtime_error("structure: tiling must be NAME@AxD with 1..64 copies");
+        }
+    }
+    Structure one;
+    if (name.empty() || name == "wall")
+    {
+        one = makeWall(wallWidth, wallHeight);
+    }
+    else
+    {
+        const bool path = name.find('/') != std::string::npos
+                          || (name.size() > 5 && name.compare(name.size() - 5, 5, ".json") == 0);
+        one = structureFromScenePack(loadScenePack(path ? name : scenesDirectory + "/" + name + ".json"));
+    }
+    return across * deep == 1 ? one : tileStructure(one, across, deep, 2.0f);
 }
 
 // Principal box inertia of one brick, and the scalar the stress solver takes:
@@ -250,14 +325,16 @@ inline StructureStressSettings structureStressSettings(float strength, float fou
 
 struct AuthoredStructure
 {
-    physx::PxRigidDynamic* actor{nullptr};
-    std::vector<physx::PxShape*> shapes; // parallel to Structure::bricks
+    physx::PxRigidDynamic* actor{nullptr};          // cluster 0
+    std::vector<physx::PxRigidDynamic*> actors;     // one per cluster
+    std::vector<physx::PxShape*> shapes;            // parallel to Structure::bricks
     physx::PxDestructionScene* destruction{nullptr};
 };
 
-// Builds the kinematic actor, steps once (the asset must be configured against
-// a stepped scene), and configures the stress cluster. On failure `error` names
-// the step; whatever was created is left in `out` for the caller to release.
+// Builds one kinematic actor per cluster, steps once (the asset must be
+// configured against a stepped scene), and configures the stress clusters. On
+// failure `error` names the step; whatever was created is left in `out` for
+// the caller to release.
 inline bool authorStructure(const Structure& s, PhysXScene& context, const StructureStressSettings& settings,
                             AuthoredStructure& out, std::string& error)
 {
@@ -265,25 +342,33 @@ inline bool authorStructure(const Structure& s, PhysXScene& context, const Struc
     PxPhysics& physics = context.physics();
     PxScene& scene = context.scene();
     const unsigned count = unsigned(s.bricks.size());
-    out.actor = physics.createRigidDynamic(PxTransform(PxIdentity));
-    if (out.actor == nullptr) return error = "structure allocation failed", false;
-    out.actor->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC, true);
-    out.actor->setLinearDamping(0);
-    out.actor->setAngularDamping(0);
+    const unsigned clusters = s.clusterCount();
+    for (unsigned c = 0; c < clusters; ++c)
+    {
+        PxRigidDynamic* actor = physics.createRigidDynamic(PxTransform(PxIdentity));
+        if (actor == nullptr) return error = "structure allocation failed", false;
+        actor->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC, true);
+        actor->setLinearDamping(0);
+        actor->setAngularDamping(0);
+        out.actors.push_back(actor);
+    }
+    out.actor = out.actors[0];
     std::vector<PxDestructionStressChunk> chunks;
     std::vector<PxDestructionChunkMassProperties> properties;
-    PxVec3 totalInertia(0);
-    float totalMass = 0;
+    std::vector<PxVec3> totalInertia(clusters, PxVec3(0));
+    std::vector<float> totalMass(clusters, 0.0f);
+    std::vector<unsigned> members(clusters, 0);
     for (const StructureBrick& b : s.bricks)
     {
+        if (b.cluster >= clusters) return error = "structure brick names a missing cluster", false;
         PxShape* shape = physics.createShape(PxBoxGeometry(b.half), context.material(), true);
         if (shape == nullptr) return error = "structure shape allocation failed", false;
         shape->setLocalPose(PxTransform(b.centre));
         out.shapes.push_back(shape);
-        if (!out.actor->attachShape(*shape)) return error = "structure shape attachment failed", false;
+        if (!out.actors[b.cluster]->attachShape(*shape)) return error = "structure shape attachment failed", false;
         const float stressInertia = brickStressInertia(b);
         const float volume = 8 * b.half.x * b.half.y * b.half.z;
-        chunks.push_back({b.centre, b.foundation ? 0.0f : b.mass, b.foundation ? 0.0f : stressInertia, 0,
+        chunks.push_back({b.centre, b.foundation ? 0.0f : b.mass, b.foundation ? 0.0f : stressInertia, b.cluster,
                           PX_INVALID_U32, volume, 0});
         PxDestructionChunkMassProperties prop{};
         prop.mass = b.mass;
@@ -296,26 +381,41 @@ inline bool authorStructure(const Structure& s, PhysXScene& context, const Struc
             prop.inertia[k] = principal[k];
         }
         properties.push_back(prop);
-        const PxVec3 d = b.centre - s.centre;
-        totalInertia += PxVec3(principal.x + b.mass * (d.y * d.y + d.z * d.z),
-                               principal.y + b.mass * (d.x * d.x + d.z * d.z),
-                               principal.z + b.mass * (d.x * d.x + d.y * d.y));
-        totalMass += b.mass;
+        const PxVec3 d = b.centre - s.clusterCentre(b.cluster);
+        totalInertia[b.cluster] += PxVec3(principal.x + b.mass * (d.y * d.y + d.z * d.z),
+                                          principal.y + b.mass * (d.x * d.x + d.z * d.z),
+                                          principal.z + b.mass * (d.x * d.x + d.y * d.y));
+        totalMass[b.cluster] += b.mass;
+        ++members[b.cluster];
     }
     std::vector<PxDestructionStressBond> bonds;
     bonds.reserve(s.bonds.size());
     for (const StructureBond& b : s.bonds)
     {
+        if (s.bricks[b.chunk0].cluster != s.bricks[b.chunk1].cluster)
+        {
+            return error = "structure bond crosses clusters", false;
+        }
         bonds.push_back({b.chunk0, b.chunk1, b.centroid, b.normal, b.area, 1, 1, b.material});
     }
-    // A uniform structure keeps the product the wall has always used, so its
-    // actor mass is bit-identical to the pre-refactor capture.
-    const bool uniform = std::all_of(s.bricks.begin(), s.bricks.end(),
-                                     [&](const StructureBrick& b) { return b.mass == s.bricks[0].mass; });
-    out.actor->setMass(uniform ? s.bricks[0].mass * float(count) : totalMass);
-    out.actor->setCMassLocalPose(PxTransform(s.centre));
-    out.actor->setMassSpaceInertiaTensor(totalInertia);
-    scene.addActor(*out.actor);
+    for (unsigned c = 0; c < clusters; ++c)
+    {
+        // A uniform structure keeps the product the wall has always used, so its
+        // actor mass is bit-identical to the pre-refactor capture.
+        float first = -1;
+        bool uniform = true;
+        for (const StructureBrick& b : s.bricks)
+        {
+            if (b.cluster != c) continue;
+            if (first < 0) first = b.mass;
+            uniform &= b.mass == first;
+        }
+        PxRigidDynamic* actor = out.actors[c];
+        actor->setMass(uniform ? first * float(members[c]) : totalMass[c]);
+        actor->setCMassLocalPose(PxTransform(s.clusterCentre(c)));
+        actor->setMassSpaceInertiaTensor(totalInertia[c]);
+        scene.addActor(*actor);
+    }
 
     scene.simulate(1.0f / 60.0f);
     PxU32 setupError = 0;
@@ -330,13 +430,14 @@ inline bool authorStructure(const Structure& s, PhysXScene& context, const Struc
         chunks[i].contactIndex = out.destruction->getShapeContactIndex(*out.shapes[i]);
         if (chunks[i].contactIndex == PX_INVALID_U32) return error = "structure collision identity missing", false;
     }
-    PxDestructionStressCluster cluster{out.actor->getGPUIndex(), s.centre};
+    std::vector<PxDestructionStressCluster> clusterDescs;
+    for (unsigned c = 0; c < clusters; ++c) clusterDescs.push_back({out.actors[c]->getGPUIndex(), s.clusterCentre(c)});
     PxDestructionStressDesc desc;
     desc.chunks = chunks.data();
     desc.chunkCount = count;
     desc.chunkMassProperties = properties.data();
-    desc.clusters = &cluster;
-    desc.clusterCount = 1;
+    desc.clusters = clusterDescs.data();
+    desc.clusterCount = clusters;
     desc.bonds = bonds.data();
     desc.bondCount = PxU32(bonds.size());
     desc.materials = settings.materials;

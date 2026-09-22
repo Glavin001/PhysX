@@ -358,9 +358,12 @@ void syncPoses()
     const unsigned fireAt = 10;
     if (g.ticks == fireAt)
     {
-        // Aim slightly above centre: the framed bounds include headroom, so the
-        // view centre sits above the wall's own mid-height.
-        if (!fireThrough(0.0f, 0.15f))
+        // Straight at the structure's authored impact point, as the capture
+        // fires: the view centre of a tiled scene can be a gap between copies.
+        const blast_demo::Structure& structure = g.wall->structure();
+        const float origin[3] = {structure.aimX, structure.aimHeight, structure.front - 6.0f};
+        const float direction[3] = {0, 0, 1};
+        if (!g.wall->shoot(origin, direction))
         {
             g.failed = true;
             g.failure = g.wall->error();
