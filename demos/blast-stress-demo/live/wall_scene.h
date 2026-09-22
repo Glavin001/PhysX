@@ -79,6 +79,10 @@ public:
     {
         using namespace physx;
         teardown();
+        // A fresh asset starts from a clean slate; a previous failure must not
+        // make this scene unteardownable.
+        m_failed = false;
+        m_error.clear();
         m_context = &context;
         PxPhysics& physics = context.physics();
         PxScene& scene = context.scene();
@@ -293,6 +297,21 @@ public:
         {
             return;
         }
+        // Once the GPU context has faulted, PhysX teardown is not a cleanup
+        // path any more: clearStress() reaches cudaFree, which synchronises a
+        // stream that can no longer be flushed, and the process aborts inside
+        // malloc instead of exiting. Drop the scene instead of unwinding it -
+        // the process is on its way out and a leak beats corrupting the heap.
+        if (m_failed || !m_context->healthy())
+        {
+            m_destruction = nullptr;
+            m_wall = nullptr;
+            m_shapes.clear();
+            m_projectiles.clear();
+            m_bodies.clear();
+            m_context = nullptr;
+            return;
+        }
         PxScene& scene = m_context->scene();
         // Stress must be cleared before its actors go away.
         if (m_destruction != nullptr)
@@ -344,6 +363,9 @@ private:
         {
             m_error = message;
         }
+        // Remembered so teardown knows the scene is not in a state it can
+        // safely unwind.
+        m_failed = true;
         return false;
     }
 
@@ -408,6 +430,7 @@ private:
     unsigned m_brokenBonds{0};
     unsigned m_fired{0};
     double m_lastStepMs{0};
+    bool m_failed{false};
     std::string m_error;
 };
 

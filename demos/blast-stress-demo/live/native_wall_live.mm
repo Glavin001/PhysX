@@ -469,6 +469,13 @@ int main(int argc, char** argv)
         return 1;
     }
 
+    // PhysX chases pointers it loaded from device memory, which on this backend
+    // requires raw Metal device addresses; without it the scene dies with an
+    // internal CUDA error partway through the first fracture. The app cannot
+    // work without it, so it sets it rather than relying on the launcher - but
+    // an explicit value from the environment still wins.
+    setenv("CUMETAL_USE_METAL_DEVICE_ADDRESSES", "1", 0);
+
     @autoreleasepool
     {
         // Warn before the long silence: the first run after a build compiles

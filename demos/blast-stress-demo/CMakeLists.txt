@@ -890,6 +890,21 @@ if(BLAST_ENABLE_CUDA_STRESS)
         target_link_libraries(native_wall_live PRIVATE
             ${NATIVE_DESTRUCTION_TEST_LIBS} ${PX_DESTRUCTION_GPU_DRIVER}
             ${WALL_RENDER_FRAMEWORKS} ${WALL_LIVE_APPKIT} ${WALL_LIVE_QUARTZCORE})
+
+        # A double-clickable wrapper assembled beside the plain executable
+        # rather than making the target itself a bundle, so scripts and the
+        # command line keep finding the binary where it has always been. The
+        # bundle also gives the app a stable identity, which is what macOS
+        # attaches permissions to.
+        add_custom_command(TARGET native_wall_live POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E make_directory
+                    "$<TARGET_FILE_DIR:native_wall_live>/NativeWallLive.app/Contents/MacOS"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:native_wall_live>"
+                    "$<TARGET_FILE_DIR:native_wall_live>/NativeWallLive.app/Contents/MacOS/NativeWallLive"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/live/Info.plist"
+                    "$<TARGET_FILE_DIR:native_wall_live>/NativeWallLive.app/Contents/Info.plist"
+            COMMENT "Assembling NativeWallLive.app"
+            VERBATIM)
     endif()
 
     add_executable(native_standard_scene_test tests/native_standard_scene_test.cpp physx_scene.cpp)
