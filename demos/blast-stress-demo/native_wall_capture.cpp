@@ -14,6 +14,7 @@
 #include <cuda.h>
 #include <algorithm>
 #include <cmath>
+#include <atomic>
 #include <chrono>
 #include <cstdint>
 #include <cstring>
@@ -22,6 +23,8 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <mutex>
+#include <new>
 #include <iomanip>
 #include <limits>
 #include <sstream>
@@ -227,11 +230,64 @@ void auditGpuState(std::ostream& out,PxScene& scene,PxCudaContextManager& cuda,
     }
     out<<"]}";
 }
+// Optional per-phase host timing. PhysX already instruments its whole GPU
+// pipeline with PX_PROFILE_ZONE, so recording those zones attributes a step
+// across broad phase, narrow phase, solver and destruction without touching
+// any of them.
+//
+// Host wall time only. A zone that enqueues GPU work and returns measures the
+// enqueue, not the kernel; a zone that waits measures the wait. That is exactly
+// the distinction wanted when the question is where a step's wall time goes.
+// Depth records nesting so inclusive parents are not confused with leaves.
+class PhaseProfiler final : public PxProfilerCallback {
+    struct Token {std::chrono::steady_clock::time_point start;unsigned depth;};
+    struct Row {unsigned step,depth;const char* name;double ms;};
+    std::ofstream mFile;
+    std::mutex mMutex;
+    std::vector<Row> mRows;
+    std::atomic<unsigned> mStep{0};
+    bool mEnabled=false;
+    static thread_local unsigned tDepth;
+public:
+    // Declared before the scene so the callback outlives every task.
+    explicit PhaseProfiler(const std::string& path) {
+        if(path.empty())return;
+        require(!PxGetProfilerCallback(),"phase profiling requires an unused profiler callback");
+        mFile.open(path);
+        require(bool(mFile),"cannot open phase profile");
+        mFile<<"step,depth,phase,host_wall_ms\n"<<std::setprecision(9);
+        mRows.reserve(4096);mEnabled=true;PxSetProfilerCallback(this);
+    }
+    ~PhaseProfiler() override {if(mEnabled){PxSetProfilerCallback(nullptr);flush();}}
+    void step(unsigned index) {if(mEnabled)mStep=index;}
+    void flush() {
+        if(!mEnabled)return;
+        std::lock_guard<std::mutex> lock(mMutex);
+        for(const auto& row:mRows)mFile<<row.step<<','<<row.depth<<','<<std::quoted(row.name)<<','<<row.ms<<'\n';
+        mRows.clear();mFile.flush();
+    }
+    void* zoneStart(const char* name,bool,uint64_t) override {
+        if(!mEnabled)return nullptr;
+        (void)name;
+        return new(std::nothrow) Token{std::chrono::steady_clock::now(),tDepth++};
+    }
+    void zoneEnd(void* data,const char* name,bool,uint64_t) override {
+        if(!data)return;
+        auto* token=static_cast<Token*>(data);
+        const double ms=std::chrono::duration<double,std::milli>(
+            std::chrono::steady_clock::now()-token->start).count();
+        if(tDepth)--tDepth;
+        try {std::lock_guard<std::mutex> lock(mMutex);mRows.push_back({mStep.load(),token->depth,name,ms});}
+        catch(...){}
+        delete token;
+    }
+};
+thread_local unsigned PhaseProfiler::tDepth=0;
 struct Options {
     unsigned width=9, height=7, frames=360, iterations=8192;
     float mass=600, speed=12, strength=1, foundationStrength=1;
     bool recordBondStress=false, auditGpuState=false;
-    std::string output, state;
+    std::string output, state, profilePhases;
 };
 unsigned number(const char* text) {
     size_t used=0; const auto n=std::stoul(text,&used);
@@ -247,7 +303,7 @@ Options options(int argc,char** argv) {
     for(int i=1;i<argc;++i) {
         const std::string flag=argv[i];
         if(flag=="--help") {
-            std::puts("native_wall_capture --output NEW_FILE.json [--state NEW_FILE.twstate] [--width 9 --height 7 --frames 360 --stress-iterations 8192 --projectile-mass 600 --projectile-speed 12 --material-strength 1 --foundation-strength 1 --record-bond-stress 0 --audit-gpu-state 0]");
+            std::puts("native_wall_capture --output NEW_FILE.json [--state NEW_FILE.twstate] [--width 9 --height 7 --frames 360 --stress-iterations 8192 --projectile-mass 600 --projectile-speed 12 --material-strength 1 --foundation-strength 1 --record-bond-stress 0 --audit-gpu-state 0 --profile-phases FILE.csv]");
             std::exit(0);
         }
         require(i+1<argc,"missing option value"); const char* value=argv[++i];
@@ -265,6 +321,7 @@ Options options(int argc,char** argv) {
             const unsigned enabled=number(value); require(enabled<=1,"record-bond-stress must be 0 or 1");
             o.recordBondStress=enabled!=0;
         }
+        else if(flag=="--profile-phases") o.profilePhases=value;
         else if(flag=="--audit-gpu-state") {
             const unsigned enabled=number(value); require(enabled<=1,"audit-gpu-state must be 0 or 1");
             o.auditGpuState=enabled!=0;
@@ -308,6 +365,8 @@ int run(int argc,char** argv) {
     // the audit artifact; this carries the same committed poses at ~32 bytes per
     // body-frame instead of ~1.5 kB, delta-encoded, so long runs stay tractable.
     const auto statePath=o.state.empty()?std::filesystem::path():outputPath(o.state);
+    // Before the scene: the callback must outlive tasks and teardown.
+    PhaseProfiler phases(o.profilePhases.empty()?std::string():outputPath(o.profilePhases).string());
     WallTimingScope setupTiming("setup");
     constexpr float dt=1.0f/60.0f;
     const PxVec3 half(.48f); const float volume=8*half.x*half.y*half.z;
@@ -445,12 +504,14 @@ int run(int argc,char** argv) {
     try {
         for(unsigned frame=0;frame<o.frames;++frame) {
             WallTimingScope stepTiming("physics_step",int(frame));
+            phases.step(frame);
             scene.simulate(dt);PxU32 error=0;const bool accepted=scene.fetchResults(true,&error);
             const auto status=destruction->getLastStatus();
             require(accepted && !error && !status.error && context.healthy(),"native simulation did not publish an accepted step");
             require(status.correctionPasses<=1 && status.frame==frame+1 && status.stressPasses==1+status.correctionPasses,
                 "native correction/time publication invariant failed");
             stepTiming.finish();
+            phases.flush();
             WallTimingScope observationTiming("observation",int(frame));
             const auto view=destruction->getDeviceView();
             { PxScopedCudaLock lock(cuda);
