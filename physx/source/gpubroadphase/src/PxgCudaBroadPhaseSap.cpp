@@ -479,7 +479,6 @@ void PxgCudaBroadPhaseSap::gpuDMABack(const PxgBroadPhaseDesc& desc)
 
 		if (!spinWait(*eventPtr, 0.1f))
 			mCudaContext->streamSynchronize(mStream);
-
 	}
 
 	mOverlapChecksTotalRegion = desc.overlapChecksTotalRegion;
