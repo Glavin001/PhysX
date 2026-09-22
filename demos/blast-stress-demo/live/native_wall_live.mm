@@ -436,7 +436,7 @@ int main(int argc, char** argv)
         if (flag == "--help")
         {
             std::puts("native_wall_live [--width 21 --height 5 --material-strength 1.5 "
-                      "--foundation-strength 8 --projectile-mass 600 --projectile-speed 30 "
+                      "--foundation-strength 8 --stress-tolerance 0.001 --projectile-mass 600 --projectile-speed 30 "
                       "--window-width 1280 --window-height 720]\n"
                       "  drag: orbit   scroll: zoom   click: fire   R: reset   space: pause   esc: quit");
             return 0;
@@ -451,6 +451,7 @@ int main(int argc, char** argv)
         else if (flag == "--height") wallOptions.height = unsigned(std::stoul(value));
         else if (flag == "--material-strength") wallOptions.materialStrength = std::stof(value);
         else if (flag == "--foundation-strength") wallOptions.foundationStrength = std::stof(value);
+        else if (flag == "--stress-tolerance") wallOptions.stressTolerance = std::stof(value);
         else if (flag == "--projectile-mass") wallOptions.projectileMass = std::stof(value);
         else if (flag == "--projectile-speed") wallOptions.projectileSpeed = std::stof(value);
         else if (flag == "--window-width") windowWidth = unsigned(std::stoul(value));

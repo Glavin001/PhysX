@@ -308,6 +308,8 @@ thread_local unsigned PhaseProfiler::tDepth=0;
 struct Options {
     unsigned width=9, height=7, frames=360, iterations=8192;
     float mass=600, speed=12, strength=1, foundationStrength=1;
+    // Blast's CPU stress solver converges to 1e-3; the GPU solve asks the same.
+    float tolerance=1e-3f;
     // Lateral and vertical aim. Chunk centres are 1 m apart, so an offset of
     // 0.5 lands the projectile on a vertical seam between two columns, and an
     // integer height lands it on a horizontal course line; both together aim at
@@ -330,7 +332,7 @@ Options options(int argc,char** argv) {
     for(int i=1;i<argc;++i) {
         const std::string flag=argv[i];
         if(flag=="--help") {
-            std::puts("native_wall_capture --output NEW_FILE.json [--state NEW_FILE.twstate] [--width 9 --height 7 --frames 360 --stress-iterations 8192 --projectile-mass 600 --projectile-speed 12 --material-strength 1 --foundation-strength 1 --impact-offset 0 --impact-height 0 --record-bond-stress 0 --audit-gpu-state 0 --profile-phases FILE.csv]");
+            std::puts("native_wall_capture --output NEW_FILE.json [--state NEW_FILE.twstate] [--width 9 --height 7 --frames 360 --stress-iterations 8192 --stress-tolerance 0.001 --projectile-mass 600 --projectile-speed 12 --material-strength 1 --foundation-strength 1 --impact-offset 0 --impact-height 0 --record-bond-stress 0 --audit-gpu-state 0 --profile-phases FILE.csv]");
             std::exit(0);
         }
         require(i+1<argc,"missing option value"); const char* value=argv[++i];
@@ -340,6 +342,7 @@ Options options(int argc,char** argv) {
         else if(flag=="--height") o.height=number(value);
         else if(flag=="--frames") o.frames=number(value);
         else if(flag=="--stress-iterations") o.iterations=number(value);
+        else if(flag=="--stress-tolerance") o.tolerance=real(value);
         else if(flag=="--projectile-mass") o.mass=real(value);
         else if(flag=="--projectile-speed") o.speed=real(value);
         else if(flag=="--material-strength") o.strength=real(value);
@@ -361,6 +364,7 @@ Options options(int argc,char** argv) {
         "supply --output and wall dimensions in 3..32");
     require(o.frames>=1 && o.frames<=3600 && o.iterations>=128 && o.iterations<=32768,
         "frames must be 1..3600; stress iterations 128..32768");
+    require(o.tolerance>0 && o.tolerance<1, "stress tolerance must be in (0, 1)");
     require(o.mass>0 && o.mass<=100000 && o.speed>0 && o.speed<=30 && o.strength>0 && o.strength<=1000000,
         "invalid authored projectile/material values");
     require(o.foundationStrength>0, "foundation strength must be finite and positive");
@@ -463,7 +467,7 @@ int run(int argc,char** argv) {
     foundationMaterial.shearFatalLimit*=o.foundationStrength;
     PxDestructionStressDesc desc; desc.chunks=chunks.data();desc.chunkCount=count;desc.chunkMassProperties=properties.data();
     desc.clusters=&cluster;desc.clusterCount=1;desc.bonds=bonds.data();desc.bondCount=PxU32(bonds.size());
-    desc.materials=materials;desc.materialCount=2;desc.maxIterations=o.iterations;desc.tolerance=1e-5f;
+    desc.materials=materials;desc.materialCount=2;desc.maxIterations=o.iterations;desc.tolerance=o.tolerance;
     desc.internalCorrectionLimit=1;desc.gpuIslandRepair=false;desc.preserveUnchangedContactPairs=false;
     require(destruction->configureStress(desc),"native wall stress configuration failed");
     constexpr float radius=.6f;
@@ -505,7 +509,7 @@ int run(int argc,char** argv) {
     out<<"{\"schema\":\"physx.native-wall-capture\",\"version\":1,\"backend\":"<<quoted(backend)
        <<",\"timestep\":"<<dt<<",\"metadata\":{\"device\":"<<quoted(cuda.getDeviceName()?cuda.getDeviceName():"unknown")
        <<",\"width\":"<<o.width<<",\"height\":"<<o.height<<",\"impact_offset\":"<<o.impactOffset<<",\"impact_height\":"<<aimHeight<<",\"ground_y\":0,\"fps\":60,\"requested_frames\":"<<o.frames
-       <<",\"solver\":\"TGS\",\"stress_tolerance\":1e-5,\"stress_iterations\":"<<o.iterations
+       <<",\"solver\":\"TGS\",\"stress_tolerance\":"<<o.tolerance<<",\"stress_iterations\":"<<o.iterations
        <<",\"correction_limit\":1,\"warm_start\":true,\"gpu_island_repair\":false,\"cpu_pose_observation\":true"
        <<",\"realtime_claim\":false,\"projectile_mass\":"<<o.mass<<",\"projectile_speed\":"<<o.speed
        <<",\"material_strength\":"<<o.strength<<",\"material\":{\"compression_elastic\":"<<material.compressionElasticLimit

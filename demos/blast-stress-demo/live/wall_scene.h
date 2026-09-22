@@ -32,6 +32,8 @@ struct WallOptions
     float materialStrength{1.5f};
     float foundationStrength{8.0f};
     unsigned stressIterations{8192};
+    // Blast's CPU stress solver converges to 1e-3; the GPU solve asks the same.
+    float stressTolerance{1e-3f};
     // Projectile defaults; a click can override the aim but not the physics.
     float projectileMass{600.0f};
     float projectileSpeed{30.0f};
@@ -207,7 +209,7 @@ public:
         desc.materials = materials;
         desc.materialCount = 2;
         desc.maxIterations = m_options.stressIterations;
-        desc.tolerance = 1e-5f;
+        desc.tolerance = m_options.stressTolerance;
         desc.internalCorrectionLimit = 1;
         desc.gpuIslandRepair = false;
         desc.preserveUnchangedContactPairs = false;
