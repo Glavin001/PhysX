@@ -453,6 +453,7 @@ int run(int argc,char** argv) {
             }
             row<<"],\"status\":{\"converged\":"<<status.converged<<",\"iterations\":"<<status.iterations
                <<",\"correction_passes\":"<<status.correctionPasses<<",\"broken_bonds\":"<<status.brokenBonds
+               <<",\"post_correction_broken_bonds\":"<<status.postCorrectionBrokenBonds
                <<",\"detached_chunks\":"<<detached<<"}";
             if(o.recordBondStress) {
                 row<<",\"diagnostics\":{\"last_trial_bond_verdicts\":[";
