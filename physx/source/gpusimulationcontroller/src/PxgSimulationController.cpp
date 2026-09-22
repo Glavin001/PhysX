@@ -1131,11 +1131,14 @@ namespace physx
 
 		PxgGpuNarrowphaseCore* npCore = mDynamicContext->getNarrowphaseCore();
 		CUstream npStream = npCore->getStream();
-        // Broad phase borrows GPU-written ownership generations only for the
-        // corrected pass. NP's producer event below and its ordinary BP stream
-        // dependency order these reads; no host bitmap or additional upload.
-        static_cast<PxgAABBManager&>(aabbManager).setNativeOwnershipView(
-            isDestructionCorrecting() ? mDestruction->collisionOwnershipView() : PxgDestructionOwnershipView{});
+        // A final-pass split has no corrected collision traversal. Its installed
+        // ownership generation must reach the next ordinary broad phase before
+        // prepareFrame(0) clears it. Refilter persistent shapes even when their
+        // bounds still overlap: former same-body pairs may now need contacts.
+        const PxgDestructionOwnershipView ownership = mDestruction
+            ? mDestruction->collisionOwnershipView() : PxgDestructionOwnershipView{};
+        const bool nativeOwnershipPending = ownership.generation != 0;
+        static_cast<PxgAABBManager&>(aabbManager).setNativeOwnershipView(ownership);
 		const bool hasShapeInstanceChanged = npCore->mGpuShapesManager.mHasShapeInstanceChanged; // we reset it in updateNarrowPhaseShape, but cache for computeRigidsToShapes.
 
 		// we are in Pxg-land, so GPU NP and dynamics is implied. Upload to GPU if dirty.
@@ -1146,7 +1149,7 @@ namespace physx
 			
         // Native ownership writes the narrowphase remap on the simulation stream.
         // Join its producer before remap growth/copies and rigid-to-shape sorting.
-        if(isDestructionCorrecting() && mCudaContextManager->getCudaContext()->streamWaitEvent(
+        if(nativeOwnershipPending && mCudaContextManager->getCudaContext()->streamWaitEvent(
             npStream,mDestruction->getDeviceView().readyEvent,0)!=CUDA_SUCCESS) {
             PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR,PX_FL,"Native owner remap dependency failed");
             mCudaContextManager->getCudaContext()->setAbortMode(true);return;
@@ -1178,8 +1181,10 @@ namespace physx
 
         // New actors still obtain initial geometry from their ordinary insertion.
         // Their motion slots are uploaded later; never refresh them from the GPU
-        // merely to initialize the ownership index. Correction slots are ready.
-        if ((isDirectApiInitialized || nativeGroups) && !mSimulationCore->refreshReboundShapeBounds(npStream,isDestructionCorrecting()))
+        // merely to initialize the ownership index. Installed native ownership
+        // has ready motion slots, including splits from the previous tick's tail.
+        if ((isDirectApiInitialized || nativeGroups) && !mSimulationCore->refreshReboundShapeBounds(
+            npStream, isDestructionCorrecting() || nativeOwnershipPending))
         {
             PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR, PX_FL,
                 "Failed to refresh persistent shape bounds from GPU motion");
