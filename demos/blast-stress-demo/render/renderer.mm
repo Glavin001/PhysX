@@ -404,8 +404,80 @@ SceneBounds measure(Trajectory& trajectory)
     return bounds;
 }
 
+void Renderer::setOrbit(float azimuthDegrees, float elevationDegrees, float framing)
+{
+    // Place the eye on a sphere around the scene centre and pull back far
+    // enough that the bounding sphere fits the narrower of the two field axes,
+    // so nothing leaves frame regardless of aspect ratio.
+    State& s = *m_state;
+    float centre[3];
+    float diagonal = 0;
+    for (int k = 0; k < 3; ++k)
+    {
+        centre[k] = (s.bounds.minimum[k] + s.bounds.maximum[k]) * 0.5f;
+        const float span = s.bounds.maximum[k] - s.bounds.minimum[k];
+        diagonal += span * span;
+    }
+    const float radius = std::max(std::sqrt(diagonal) * 0.5f, 1.0f);
+    const float fovY = s.camera.fovDegrees * 3.14159265f / 180.0f;
+    const float aspect = float(s.options.width) / float(std::max<std::uint32_t>(s.options.height, 1));
+    const float fovX = 2.0f * std::atan(std::tan(fovY * 0.5f) * aspect);
+    const float fit = std::tan(std::min(fovY, fovX) * 0.5f);
+    const float distance = radius / std::max(fit, 1e-3f) * std::max(framing, 0.05f);
+
+    const float azimuth = azimuthDegrees * 3.14159265f / 180.0f;
+    const float elevation = elevationDegrees * 3.14159265f / 180.0f;
+    float offset[3]{std::sin(azimuth) * std::cos(elevation), std::sin(elevation),
+                    -std::cos(azimuth) * std::cos(elevation)};
+    normalise(offset);
+    for (int k = 0; k < 3; ++k)
+    {
+        s.camera.eye[k] = centre[k] + offset[k] * distance;
+        s.camera.direction[k] = centre[k] - s.camera.eye[k];
+    }
+    normalise(s.camera.direction);
+}
+
+void Renderer::cameraRay(float ndcX, float ndcY, float origin[3], float direction[3]) const
+{
+    const State& s = *m_state;
+    float forward[3]{s.camera.direction[0], s.camera.direction[1], s.camera.direction[2]};
+    normalise(forward);
+    const float worldUp[3]{0, 1, 0};
+    float right[3];
+    cross(forward, worldUp, right);
+    normalise(right);
+    float up[3];
+    cross(right, forward, up);
+
+    const float fovY = s.camera.fovDegrees * 3.14159265f / 180.0f;
+    const float tanY = std::tan(fovY * 0.5f);
+    const float aspect = float(s.options.width) / float(std::max<std::uint32_t>(s.options.height, 1));
+    const float tanX = tanY * aspect;
+    for (int k = 0; k < 3; ++k)
+    {
+        origin[k] = s.camera.eye[k];
+        direction[k] = forward[k] + right[k] * ndcX * tanX + up[k] * ndcY * tanY;
+    }
+    normalise(direction);
+}
+
 bool Renderer::open(id<MTLDevice> device, const Trajectory& trajectory, const RendererOptions& options,
                     const SceneBounds& bounds)
+{
+    if (trajectory.actors().empty())
+    {
+        return fail("trajectory declares no actors");
+    }
+    if (trajectory.cameras().empty())
+    {
+        return fail("trajectory declares no cameras");
+    }
+    return open(device, trajectory.actors(), trajectory.cameras(), options, bounds);
+}
+
+bool Renderer::open(id<MTLDevice> device, const std::vector<Actor>& actors, const std::vector<Camera>& cameras,
+                    const RendererOptions& options, const SceneBounds& bounds)
 {
     if (device == nil)
     {
@@ -415,47 +487,19 @@ bool Renderer::open(id<MTLDevice> device, const Trajectory& trajectory, const Re
     s.device = device;
     s.options = options;
     s.bounds = bounds;
-    s.actors = trajectory.actors();
+    s.actors = actors;
     if (s.actors.empty())
     {
-        return fail("trajectory declares no actors");
+        return fail("scene declares no actors");
     }
-    if (trajectory.cameras().empty())
+    if (cameras.empty())
     {
-        return fail("trajectory declares no cameras");
+        return fail("scene declares no cameras");
     }
-    s.camera = trajectory.cameras()[std::min<std::size_t>(options.camera, trajectory.cameras().size() - 1)];
+    s.camera = cameras[std::min<std::size_t>(options.camera, cameras.size() - 1)];
     if (options.orbit)
     {
-        // Place the eye on a sphere around the scene centre and pull back far
-        // enough that the bounding sphere fits the narrower of the two field
-        // axes, so nothing leaves frame regardless of aspect ratio.
-        float centre[3];
-        float diagonal = 0;
-        for (int k = 0; k < 3; ++k)
-        {
-            centre[k] = (bounds.minimum[k] + bounds.maximum[k]) * 0.5f;
-            const float span = bounds.maximum[k] - bounds.minimum[k];
-            diagonal += span * span;
-        }
-        const float radius = std::max(std::sqrt(diagonal) * 0.5f, 1.0f);
-        const float fovY = s.camera.fovDegrees * 3.14159265f / 180.0f;
-        const float aspect = float(options.width) / float(std::max<std::uint32_t>(options.height, 1));
-        const float fovX = 2.0f * std::atan(std::tan(fovY * 0.5f) * aspect);
-        const float fit = std::tan(std::min(fovY, fovX) * 0.5f);
-        const float distance = radius / std::max(fit, 1e-3f) * options.framing;
-
-        const float azimuth = options.orbitDegrees * 3.14159265f / 180.0f;
-        const float elevation = options.elevationDegrees * 3.14159265f / 180.0f;
-        float offset[3]{std::sin(azimuth) * std::cos(elevation), std::sin(elevation),
-                        -std::cos(azimuth) * std::cos(elevation)};
-        normalise(offset);
-        for (int k = 0; k < 3; ++k)
-        {
-            s.camera.eye[k] = centre[k] + offset[k] * distance;
-            s.camera.direction[k] = centre[k] - s.camera.eye[k];
-        }
-        normalise(s.camera.direction);
+        setOrbit(options.orbitDegrees, options.elevationDegrees, options.framing);
     }
 
     for (const Actor& actor : s.actors)
@@ -587,7 +631,8 @@ bool Renderer::open(id<MTLDevice> device, const Trajectory& trajectory, const Re
     return true;
 }
 
-id<MTLCommandBuffer> Renderer::draw(const std::vector<Pose>& poses, id<MTLTexture> target)
+id<MTLCommandBuffer> Renderer::draw(const std::vector<Pose>& poses, id<MTLTexture> target,
+                                    id<MTLDrawable> present)
 {
     State& s = *m_state;
     if (s.queue == nil || target == nil)
@@ -609,6 +654,11 @@ id<MTLCommandBuffer> Renderer::draw(const std::vector<Pose>& poses, id<MTLTextur
     {
         const Actor& actor = s.actors[i];
         const Pose& pose = poses[i];
+        // An unfired projectile slot occupies the roster but draws nothing.
+        if (pose.hidden)
+        {
+            continue;
+        }
         const bool sphere = actor.shape == Actor::Sphere;
         const std::size_t index = sphere ? (s.boxCount + spheres++) : boxes++;
         Instance& instance = s.scratch[index];
@@ -770,6 +820,12 @@ id<MTLCommandBuffer> Renderer::draw(const std::vector<Pose>& poses, id<MTLTextur
     [commands addCompletedHandler:^(id<MTLCommandBuffer>) {
         dispatch_semaphore_signal(signal);
     }];
+    if (present != nil)
+    {
+        // Presenting inside the same buffer keeps the window in step with the
+        // frame that was just drawn, with no extra synchronisation.
+        [commands presentDrawable:present];
+    }
     [commands commit];
     return commands;
 }

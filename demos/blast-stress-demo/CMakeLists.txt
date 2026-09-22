@@ -871,6 +871,24 @@ if(BLAST_ENABLE_CUDA_STRESS)
         target_compile_options(native_wall_render PRIVATE -fobjc-arc)
         target_include_directories(native_wall_render PRIVATE render)
         target_link_libraries(native_wall_render PRIVATE ${WALL_RENDER_FRAMEWORKS})
+
+        # Interactive window over a live scene. Unlike the offline renderer this
+        # one does link PhysX and the GPU driver, because it simulates as it
+        # draws. It is an inspection tool: nothing it shows is recorded, so no
+        # result from it is verifiable evidence.
+        find_library(WALL_LIVE_APPKIT AppKit REQUIRED)
+        find_library(WALL_LIVE_QUARTZCORE QuartzCore REQUIRED)
+        add_executable(native_wall_live
+            live/native_wall_live.mm render/renderer.mm render/twstate_reader.cpp physx_scene.cpp)
+        target_compile_features(native_wall_live PRIVATE cxx_std_17)
+        target_compile_options(native_wall_live PRIVATE -fobjc-arc)
+        target_compile_definitions(native_wall_live PRIVATE PX_PHYSX_STATIC_LIB NDEBUG PX_SUPPORT_PVD=0 PX_SUPPORT_OMNI_PVD=0)
+        target_include_directories(native_wall_live PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR} render live ${NATIVE_CHECKPOINT_TEST_INCLUDES})
+        target_link_options(native_wall_live PRIVATE "-Wl,-rpath,${PHYSX_LIB_DIR}")
+        target_link_libraries(native_wall_live PRIVATE
+            ${NATIVE_DESTRUCTION_TEST_LIBS} ${PX_DESTRUCTION_GPU_DRIVER}
+            ${WALL_RENDER_FRAMEWORKS} ${WALL_LIVE_APPKIT} ${WALL_LIVE_QUARTZCORE})
     endif()
 
     add_executable(native_standard_scene_test tests/native_standard_scene_test.cpp physx_scene.cpp)

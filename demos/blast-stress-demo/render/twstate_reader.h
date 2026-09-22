@@ -48,6 +48,10 @@ struct Pose
     float position[3]{0, 0, 0};
     float rotation[4]{0, 0, 0, 1};
     std::uint8_t sleeping{0};
+    // Skipped by the renderer entirely. A trajectory never sets this; the live
+    // app uses it for projectile slots that have not been fired yet, so the
+    // instance roster can stay a fixed size.
+    std::uint8_t hidden{0};
     std::uint32_t group{0xFFFFFFFFu};
 };
 

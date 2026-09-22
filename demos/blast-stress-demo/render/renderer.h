@@ -62,11 +62,25 @@ public:
     bool open(id<MTLDevice> device, const Trajectory& trajectory, const RendererOptions& options,
               const SceneBounds& bounds);
 
-    // Draws one frame into `target`, which aliases the encoder's surface. The
-    // returned command buffer has already been committed; the caller waits on it
-    // before handing the surface to the encoder.
-    id<MTLCommandBuffer> draw(const std::vector<Pose>& poses, id<MTLTexture> target);
+    // Same renderer driven by a live scene rather than a recorded trajectory.
+    bool open(id<MTLDevice> device, const std::vector<Actor>& actors, const std::vector<Camera>& cameras,
+              const RendererOptions& options, const SceneBounds& bounds);
+
+    // Draws one frame into `target`. The returned command buffer has already
+    // been committed; an offline caller waits on it before handing the surface
+    // to the encoder. Pass a drawable to present it as part of the same buffer.
+    id<MTLCommandBuffer> draw(const std::vector<Pose>& poses, id<MTLTexture> target,
+                              id<MTLDrawable> present = nil);
 #endif
+
+    // Re-aims the camera between frames, for interactive orbiting. Uses the
+    // same fit as the --orbit option, so a live view and a rendered video of
+    // the same angle agree.
+    void setOrbit(float azimuthDegrees, float elevationDegrees, float framing);
+
+    // Ray through a normalized device coordinate, for picking and for aiming a
+    // projectile at whatever the viewer clicked.
+    void cameraRay(float ndcX, float ndcY, float origin[3], float direction[3]) const;
 
     const std::string& error() const { return m_error; }
 
