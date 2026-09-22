@@ -299,7 +299,12 @@ extern "C" __global__ void updateShapesLaunch(const PxgNewShapeSim* PX_RESTRICT 
 }
 
 //one warp to deal with one articulation
-extern "C" __global__ void newArticulationsLaunch(const PxgUpdateArticulationDesc* scDesc, const PxReal* dofData)
+extern "C" __global__ void newArticulationsLaunch(const PxgUpdateArticulationDesc* scDesc, const PxReal* dofData
+#if defined(PX_CUMETAL_EXPLICIT_MOTION_ROOT) && PX_CUMETAL_EXPLICIT_MOTION_ROOT
+    , const PxgArticulationTendon* PX_RESTRICT newSpatialTendonDescriptors
+    , const PxgArticulationTendon* PX_RESTRICT newFixedTendonDescriptors
+#endif
+)
 {
 
 	PxgArticulation* gNewArticulations = scDesc->mNewArticulations;
@@ -444,7 +449,13 @@ extern "C" __global__ void newArticulationsLaunch(const PxgUpdateArticulationDes
 			const PxU32 nbSpatialTendons = msArtiData.numSpatialTendons;
 
 			PxGpuSpatialTendonData* spatialTendonParams = scDesc->mNewSpatialTendonParamsPool;
+#if defined(PX_CUMETAL_EXPLICIT_MOTION_ROOT) && PX_CUMETAL_EXPLICIT_MOTION_ROOT
+            // The host-owned staging descriptor allocation is read-only here.
+            // Loaded element pointers keep their existing aliasing semantics.
+            const PxgArticulationTendon* PX_RESTRICT spatialTendons = newSpatialTendonDescriptors;
+#else
 			PxgArticulationTendon* spatialTendons = scDesc->mNewSpatialTendonPool;
+#endif
 
 			PxgArticulationTendonElementFixedData* fixedData = scDesc->mNewAttachmentFixedPool;
 			PxGpuTendonAttachmentData* modData = scDesc->mNewAttachmentModPool;
@@ -455,7 +466,11 @@ extern "C" __global__ void newArticulationsLaunch(const PxgUpdateArticulationDes
 			//copy attachment
 			for (PxU32 i = spatialTendonStartIndex; i < endIndex; ++i)
 			{
+#if defined(PX_CUMETAL_EXPLICIT_MOTION_ROOT) && PX_CUMETAL_EXPLICIT_MOTION_ROOT
+                const PxgArticulationTendon& tendon = spatialTendons[i];
+#else
 				PxgArticulationTendon& tendon = spatialTendons[i];
+#endif
 				const PxU32 attachmentStartIndex = tendonAttachmentRemap[i];
 
 				//each PxgArticulationTendonElementFixedData has 16 bytes, each thread should read 16 bytes
@@ -473,7 +488,11 @@ extern "C" __global__ void newArticulationsLaunch(const PxgUpdateArticulationDes
 			//__syncwarp();
 
 			//copy tendons
+#if defined(PX_CUMETAL_EXPLICIT_MOTION_ROOT) && PX_CUMETAL_EXPLICIT_MOTION_ROOT
+            const uint* sTendons = reinterpret_cast<const uint*>(&spatialTendons[spatialTendonStartIndex]);
+#else
 			uint* sTendons = reinterpret_cast<uint*>(&spatialTendons[spatialTendonStartIndex]);
+#endif
 			uint* dTendons = reinterpret_cast<uint*>(msArticulation.spatialTendons);
 
 			uint4* sTendonParams = reinterpret_cast<uint4*>(&spatialTendonParams[spatialTendonStartIndex]);
@@ -488,7 +507,13 @@ extern "C" __global__ void newArticulationsLaunch(const PxgUpdateArticulationDes
 			const PxU32 nbFixedTendons = msArtiData.numFixedTendons;
 
 			PxGpuFixedTendonData* fixedTendonParams = scDesc->mNewFixedTendonParamsPool;
+#if defined(PX_CUMETAL_EXPLICIT_MOTION_ROOT) && PX_CUMETAL_EXPLICIT_MOTION_ROOT
+            // The host-owned staging descriptor allocation is read-only here.
+            // Loaded element pointers keep their existing aliasing semantics.
+            const PxgArticulationTendon* PX_RESTRICT fixedTendons = newFixedTendonDescriptors;
+#else
 			PxgArticulationTendon* fixedTendons = scDesc->mNewFixedTendonPool;
+#endif
 
 			PxgArticulationTendonElementFixedData* tendonFixed = scDesc->mNewTendonJointFixedPool;
 			PxU32* tendonToTendonJointRemap = scDesc->mNewTendonTendonJointRemapPool;
@@ -500,7 +525,11 @@ extern "C" __global__ void newArticulationsLaunch(const PxgUpdateArticulationDes
 			//copy tendon joint
 			for (PxU32 i = fixedTendonStartIndex; i < endIndex; ++i)
 			{
+#if defined(PX_CUMETAL_EXPLICIT_MOTION_ROOT) && PX_CUMETAL_EXPLICIT_MOTION_ROOT
+                const PxgArticulationTendon& tendon = fixedTendons[i];
+#else
 				PxgArticulationTendon& tendon = fixedTendons[i];
+#endif
 				const PxU32 tendonJointStartIndex = tendonToTendonJointRemap[i];
 
 				//each PxgArticulationTendonElementFixedData has 16 bytes, each thread should read 16 bytes
@@ -518,7 +547,11 @@ extern "C" __global__ void newArticulationsLaunch(const PxgUpdateArticulationDes
 			//__syncwarp();
 
 			//copy tendons
+#if defined(PX_CUMETAL_EXPLICIT_MOTION_ROOT) && PX_CUMETAL_EXPLICIT_MOTION_ROOT
+            const uint* sTendons = reinterpret_cast<const uint*>(&fixedTendons[fixedTendonStartIndex]);
+#else
 			uint* sTendons = reinterpret_cast<uint*>(&fixedTendons[fixedTendonStartIndex]);
+#endif
 			uint* dTendons = reinterpret_cast<uint*>(msArticulation.fixedTendons);
 
 			uint4* sTendonParams = reinterpret_cast<uint4*>(&fixedTendonParams[fixedTendonStartIndex]);
@@ -631,7 +664,12 @@ extern "C" __global__ void newArticulationsLaunch(const PxgUpdateArticulationDes
 
 //we need to think through which case we will need to update body2Actor
 extern "C" __global__ void updateArticulationsLaunch(const PxgUpdateArticulationDesc* scDesc, const PxgArticulationSimUpdate* simUpdates, PxU32 nbSimUpdates,
-	const PxReal* dofData, const bool directAPI)
+	const PxReal* dofData, const bool directAPI
+#if defined(PX_CUMETAL_EXPLICIT_MOTION_ROOT) && PX_CUMETAL_EXPLICIT_MOTION_ROOT
+    , const PxgArticulationTendon* PX_RESTRICT spatialTendonDescriptors
+    , const PxgArticulationTendon* PX_RESTRICT fixedTendonDescriptors
+#endif
+)
 {
 	//simUpdates and nbSimUpdates are in mapped host memory, so we have to really efficiently read them in...
 	Dy::ArticulationJointCore* gNewJointCore = scDesc->mNewJointCores;
@@ -688,6 +726,14 @@ extern "C" __global__ void updateArticulationsLaunch(const PxgUpdateArticulation
 		PxU32 articIndex = msUpdate.articulationIndex;
 
 		PxgArticulation& msArticulation = shArticulation[threadIdx.y];
+
+#if defined(PX_CUMETAL_EXPLICIT_MOTION_ROOT) && PX_CUMETAL_EXPLICIT_MOTION_ROOT
+        // The hinted host dispatch supplies this one update record's separately
+        // owned, immutable tendon descriptor allocations. Nested destinations
+        // and the articulation allocation itself remain writable/unrestricted.
+        const PxgArticulationTendon* spatialTendonSnapshot = spatialTendonDescriptors;
+        const PxgArticulationTendon* fixedTendonSnapshot = fixedTendonDescriptors;
+#endif
 
 		warpCopy<PxU32>(reinterpret_cast<PxU32*>(&msArticulation),
 			reinterpret_cast<PxU32*>(&scDesc->mArticulationPool[articIndex]), sizeof(PxgArticulation));
@@ -765,7 +811,11 @@ extern "C" __global__ void updateArticulationsLaunch(const PxgUpdateArticulation
 				for (PxU32 i = 0; i < nbSpatialTendons; ++i)
 				{
 					//copy tendon joint
+#if defined(PX_CUMETAL_EXPLICIT_MOTION_ROOT) && PX_CUMETAL_EXPLICIT_MOTION_ROOT
+                    const PxgArticulationTendon& tendon = spatialTendonSnapshot[i];
+#else
 					PxgArticulationTendon& tendon = msArticulation.spatialTendons[i];
+#endif
 					const PxU32 nbElements = tendon.mNbElements;
 					//each PxGpuTendonAttachmentData is 32 bytes, each thread read 16 bytes
 					uint4* sTendonAttachment = reinterpret_cast<uint4*>(&modData[index]);
@@ -804,7 +854,11 @@ extern "C" __global__ void updateArticulationsLaunch(const PxgUpdateArticulation
 				for (PxU32 i = 0; i < nbFixedTendons; ++i)
 				{
 					//copy tendon joint
+#if defined(PX_CUMETAL_EXPLICIT_MOTION_ROOT) && PX_CUMETAL_EXPLICIT_MOTION_ROOT
+                    const PxgArticulationTendon& tendon = fixedTendonSnapshot[i];
+#else
 					PxgArticulationTendon& tendon = msArticulation.fixedTendons[i];
+#endif
 					const PxU32 nbElements = tendon.mNbElements;
 					//each PxGpuTendonJointCoefficientData is 8 bytes, each thread read 8 bytes
 					uint2* sTendonJointCoefficient = reinterpret_cast<uint2*>(&coefficientData[index]);
@@ -1214,7 +1268,12 @@ extern "C" __global__ void getRigidDynamicAngularAcceleration(
 
 // Persistent shape IDs and cooked geometry survive ownership changes. Motion
 // stays authoritative in the GPU body pool, including private native clusters.
-extern "C" __global__ void refreshReboundShapeBounds(
+extern "C" __global__
+#if defined(PX_CUMETAL_BLOCK_VOTED_TRAPS) && PX_CUMETAL_BLOCK_VOTED_TRAPS
+// Each block has bounded independent work; bitmap writes never wait for peers.
+__attribute__((annotate("cumetal.block_local_terminal_traps")))
+#endif
+void refreshReboundShapeBounds(
     const PxU32* PX_RESTRICT indices, PxU32 count,
     const PxgShapeSim* PX_RESTRICT shapes, const PxgBodySim* PX_RESTRICT bodies,
     PxsCachedTransform* PX_RESTRICT transforms, PxBounds3* PX_RESTRICT bounds,
@@ -1237,12 +1296,32 @@ extern "C" __global__ void refreshReboundShapeBounds(
         liveRigidEnd=lo;
     }
     __syncthreads();
+#if defined(PX_CUMETAL_BLOCK_VOTED_TRAPS) && PX_CUMETAL_BLOCK_VOTED_TRAPS
+    // Keep tail lanes at the common vote. Check ownership before any body
+    // dereference; a rejected transaction never publishes accepted bounds.
+    const PxU64 stride=PxU64(blockDim.x)*gridDim.x;
+    for(PxU64 first=PxU64(blockIdx.x)*blockDim.x;first<liveRigidEnd;first+=stride) {
+        const PxU64 laneIndex=first+threadIdx.x;
+        const bool active=laneIndex<liveRigidEnd;
+        const PxU32 i=PxU32(laneIndex);
+        const PxU32 index=active?indices[i]:0;
+        bool invalid=active && (index==PX_INVALID_U32 || index>=updatedCapacity || !updated);
+        if(active && !invalid) {
+            const PxgShapeSim& candidate=shapes[index];
+            invalid=candidate.mBodySimIndex.isStaticBody() || candidate.mBodySimIndex.isArticulation()
+                || (sortedNodes && !(candidate.mBodySimIndex==sortedNodes[i]));
+        }
+        if(__syncthreads_or(invalid)) {__trap();return;}
+        if(active) {
+        const PxgShapeSim& shape=shapes[index];
+#else
     for(PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;i<liveRigidEnd;i+=blockDim.x*gridDim.x) {
         const PxU32 index=indices[i];
         if(index==PX_INVALID_U32 || index>=updatedCapacity || !updated){asm volatile("trap;");return;}
         const PxgShapeSim& shape=shapes[index];
         if(shape.mBodySimIndex.isStaticBody() || shape.mBodySimIndex.isArticulation()
             || (sortedNodes && !(shape.mBodySimIndex==sortedNodes[i]))) {asm volatile("trap;");return;}
+#endif
         const PxgBodySim& body=bodies[shape.mBodySimIndex.index()];
         const PxTransform pose=getAbsPose(body.body2World.getTransform(),shape.mTransform,
             body.body2Actor_maxImpulseW.getTransform());
@@ -1251,6 +1330,9 @@ extern "C" __global__ void refreshReboundShapeBounds(
         // ordinary GPU bounds-update bitmap without treating retained shapes
         // as new volumes or destroying their persistent contact managers.
         updated[index]=1;
+#if defined(PX_CUMETAL_BLOCK_VOTED_TRAPS) && PX_CUMETAL_BLOCK_VOTED_TRAPS
+        }
+#endif
     }
 }
 

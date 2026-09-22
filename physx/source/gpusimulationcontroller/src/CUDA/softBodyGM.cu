@@ -1841,6 +1841,9 @@ extern "C" __global__ void sb_rigidAttachmentPrepareLaunch(
 	PxgConstraintPrepareDesc*					prepareDesc,
 	PxgSolverSharedDescBase*					sharedDesc,
 	float4*										rigidDeltaVel
+#if defined(PX_CUMETAL_EXPLICIT_MOTION_ROOT) && PX_CUMETAL_EXPLICIT_MOTION_ROOT
+    ,const PxgArticulation* PX_RESTRICT articulationDescriptors
+#endif
 )
 {
 	const PxU32 nbBlocksRequired = (numRigidAttachments + blockDim.x - 1) / blockDim.x;
@@ -1899,10 +1902,19 @@ extern "C" __global__ void sb_rigidAttachmentPrepareLaunch(
 		PxNodeIndex rigidId = reinterpret_cast<const PxNodeIndex&>(attachment.index0);
 		rigidAttachmentIds[workIndex] = rigidId;
 
+#if defined(PX_CUMETAL_EXPLICIT_MOTION_ROOT) && PX_CUMETAL_EXPLICIT_MOTION_ROOT
+        // Only the owned articulation descriptor array is restricted; nested
+        // motion/response buffers and the shared attachment equations are unchanged.
+		prepareDbRigidAttachment<true>(block, point, invMass1, attachment.localPose0, rigidId,
+		                         elemId, attachment.baryOrType1, attachment.rigidBodyRefCount,
+		                         prepareDesc, preDesc->solverBodyIndices, sharedDesc,
+		                         rigidDeltaVel, workIndex, numRigidAttachments, articulationDescriptors);
+#else
 		prepareDbRigidAttachment(block, point, invMass1, attachment.localPose0, rigidId,
 		                         elemId, attachment.baryOrType1, attachment.rigidBodyRefCount,
 		                         prepareDesc, preDesc->solverBodyIndices, sharedDesc,
 		                         rigidDeltaVel, workIndex, numRigidAttachments);
+#endif
 	}
 }
 

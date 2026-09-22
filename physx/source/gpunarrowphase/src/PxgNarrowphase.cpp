@@ -85,7 +85,9 @@ namespace physx
 		initNarrowphaseKernels21();
 		initNarrowphaseKernels22();
 		initNarrowphaseKernels23();
+#if !defined(PX_CUMETAL_DISABLE_CONVEX_CORE)
 		initNarrowphaseKernels24();
+#endif
 #endif
 	}
 

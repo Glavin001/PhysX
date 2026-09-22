@@ -27,7 +27,11 @@
 cmake_minimum_required(VERSION 3.21)
 
 # PROJECT(CUDA) will enable building CUDA files ( .cu )
-PROJECT(PhysX C CXX CUDA)
+IF(PX_GPU_BACKEND STREQUAL "CUMETAL")
+	PROJECT(PhysX C CXX)
+ELSE()
+	PROJECT(PhysX C CXX CUDA)
+ENDIF()
 
 IF(DEFINED ENV{PM_winsdk_PATH} AND NOT "$ENV{PM_winsdk_PATH}" STREQUAL "" AND DEFINED ENV{PM_msvc_PATH} AND NOT "$ENV{PM_msvc_PATH}" STREQUAL "")
 	SET(CMAKE_VS_SDK_INCLUDE_DIRECTORIES "$ENV{PM_winsdk_PATH}/include/ucrt;$ENV{PM_winsdk_PATH}/include/um;$ENV{PM_winsdk_PATH}/include/shared")
@@ -58,7 +62,9 @@ IF(NOT EXISTS ${PHYSX_ROOT_DIR})
 ENDIF()
 
 INCLUDE(NvidiaBuildOptions)
-INCLUDE(SetCudaArch)
+IF(NOT PX_GPU_BACKEND STREQUAL "CUMETAL")
+	INCLUDE(SetCudaArch)
+ENDIF()
 
 SET(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
@@ -88,6 +94,7 @@ SET(SOURCE_DISTRO_FILE_LIST "")
 # Compile only its supported architecture, including in reused CMake caches.
 # Leaving the upstream multi-architecture list here multiplies every rebuild
 # and embeds unrelated device programs in the native module.
+IF(NOT PX_GPU_BACKEND STREQUAL "CUMETAL")
 SET(PX_DESTRUCTION_CUDA_ARCHITECTURES "89" CACHE STRING "Native destruction CUDA architectures")
 IF(NOT PX_DESTRUCTION_CUDA_ARCHITECTURES STREQUAL "89")
     MESSAGE(FATAL_ERROR "Integrated destruction requires RTX 4090 architecture 89")
@@ -102,6 +109,7 @@ set(CMAKE_CUDA_USE_RESPONSE_FILE_FOR_OBJECTS 0)
 
 # Cuda setup that is the same for all platforms and sub-projects
 SET(PHYSX_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Werror=all-warnings -use_fast_math -ftz=true -prec-div=false -prec-sqrt=false -t0 -D_CONSOLE" CACHE INTERNAL "PhysX CUDA")
+ENDIF()
 # Include the platform specific CMakeLists (The other CUDA flags that are specific to each platform are defined there)
 INCLUDE(${PHYSX_ROOT_DIR}/${PROJECT_CMAKE_FILES_DIR}/${TARGET_BUILD_PLATFORM}/CMakeLists.txt)
 

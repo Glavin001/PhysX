@@ -59,8 +59,10 @@ python3 tools/scripts/build-destruction-sdk.py --jobs 4 --cuda-architectures 89 
 ```
 
 The renderer is needed for the frozen collision/render audit, not untraced
-performance. This helper also builds/imports reference targets and installs the
-SDK. See [BUILD.md](BUILD.md) for package consumers; those compatibility targets
+performance. This helper also builds/imports reference targets. Installation
+now requires explicit `--install`, and outputs use the backend/configuration
+trees described in [BUILD.md](BUILD.md). Paths below describe historical runs;
+use the current build manifest for new artifact locations. Those compatibility targets
 are not alternative native production backends.
 
 Important artifacts:

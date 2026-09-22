@@ -1687,7 +1687,7 @@ void solveWholeIslandTGS(
 	const PxU32 threadIndexInWarp = threadIdx.x & 31;
 	const PxU32 numWarps = blockDim.x / 32;
 
-	const PxU32 maxBodies = 944;
+	const PxU32 maxBodies = PXG_TGS_WHOLE_ISLAND_MAX_BODIES;
 
 	__shared__ PxVec3 shLinVel[maxBodies];
 	__shared__ PxVec3 shAngVel[maxBodies];

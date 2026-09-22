@@ -2390,10 +2390,21 @@ void PxgSimulationCore::updateArticulations(const PxU32 nbNewArticulations, PxgA
 	{
 		void* mappedDofs = getMappedDevicePtr(mCudaContext, dofData);
 		CUdeviceptr descptr = mArticulationDescBuffer.getDevicePtr();
+#if defined(PX_CUMETAL_EXPLICIT_MOTION_ROOT) && PX_CUMETAL_EXPLICIT_MOTION_ROOT
+        // Same staging allocations already installed in the update descriptor.
+        // Uploads and this launch are ordered on mStream; nested destinations
+        // remain unrestricted and the persistent articulation pool is writable.
+        const PxgArticulationTendon* newSpatialTendonDescriptors = mNewSpatialTendonsBuffer.getTypedPtr();
+        const PxgArticulationTendon* newFixedTendonDescriptors = mNewFixedTendonsBuffer.getTypedPtr();
+#endif
 		PxCudaKernelParam kernelParams[] =
 		{
 			PX_CUDA_KERNEL_PARAM(descptr),
 			PX_CUDA_KERNEL_PARAM(mappedDofs)
+#if defined(PX_CUMETAL_EXPLICIT_MOTION_ROOT) && PX_CUMETAL_EXPLICIT_MOTION_ROOT
+            , PX_CUDA_KERNEL_PARAM(newSpatialTendonDescriptors)
+            , PX_CUDA_KERNEL_PARAM(newFixedTendonDescriptors)
+#endif
 		};
 
 		CUfunction kernelFunction = mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::NEW_ARTICULATIONS);
@@ -2446,6 +2457,81 @@ void PxgSimulationCore::updateArticulations(const PxU32 nbNewArticulations, PxgA
 
 	if (nbUpdatedArticulations > 0)
 	{
+#if defined(PX_CUMETAL_EXPLICIT_MOTION_ROOT) && PX_CUMETAL_EXPLICIT_MOTION_ROOT
+        // Dirty-list insertion sets eIN_DIRTY_LIST before appending, so each
+        // update has one unique articulation target. Preserve that list order.
+        // One launch per record exposes its two independently owned descriptor
+        // buffers without claiming disjointness for loaded element pointers.
+        if (!updates)
+        {
+            PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR, PX_FL,
+                "CuMetal articulation update: missing mapped update records.");
+            mCudaContext->setAbortMode(true);
+            return;
+        }
+        for (PxU32 i = 0; i < nbUpdatedArticulations; ++i)
+        {
+            const PxU32 index = updates[i].articulationIndex;
+            if (index >= mArticulationDataBuffer.size() || !mArticulationDataBuffer[index])
+            {
+                PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR, PX_FL,
+                    "CuMetal articulation update: record %u references missing articulation storage %u.", i, index);
+                mCudaContext->setAbortMode(true);
+                return;
+            }
+        }
+        CUdeviceptr descptr = mArticulationDescBuffer.getDevicePtr();
+        const PxgArticulationSimUpdate* mappedUpdates =
+            static_cast<const PxgArticulationSimUpdate*>(getMappedDevicePtr(mCudaContext, updates));
+        void* mappedDofs = getMappedDevicePtr(mCudaContext, dofData);
+        if (!mappedUpdates || (dofData && !mappedDofs))
+        {
+            PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR, PX_FL,
+                "CuMetal articulation update: failed to map update or DOF records.");
+            mCudaContext->setAbortMode(true);
+            return;
+        }
+        const bool directAPI = mGpuContext->getEnableDirectGPUAPI();
+        const PxU32 oneUpdate = 1;
+        const PxU32 numWarpsPerBlock = PxgSimulationCoreKernelBlockDim::NEW_ARTICULATION / WARP_SIZE;
+        CUfunction kernelFunction = mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::UPDATE_ARTICULATIONS);
+        for (PxU32 i = 0; i < nbUpdatedArticulations; ++i)
+        {
+            const PxgArticulationBuffer* buffer = mArticulationDataBuffer[updates[i].articulationIndex];
+            const PxgArticulationSimUpdate* mappedUpdate = mappedUpdates + i;
+            const PxgArticulationTendon* spatialTendonDescriptors = buffer->spatialTendons.getTypedPtr();
+            const PxgArticulationTendon* fixedTendonDescriptors = buffer->fixedTendons.getTypedPtr();
+            PxCudaKernelParam kernelParams[] =
+            {
+                PX_CUDA_KERNEL_PARAM(descptr), PX_CUDA_KERNEL_PARAM(mappedUpdate),
+                PX_CUDA_KERNEL_PARAM(oneUpdate), PX_CUDA_KERNEL_PARAM(mappedDofs),
+                PX_CUDA_KERNEL_PARAM(directAPI), PX_CUDA_KERNEL_PARAM(spatialTendonDescriptors),
+                PX_CUDA_KERNEL_PARAM(fixedTendonDescriptors)
+            };
+            // Keep the original full block: every lane reaches the shared-copy
+            // barrier, while nbSimUpdates=1 admits only warp zero afterward.
+            CUresult result = mCudaContext->launchKernel(kernelFunction, 1, 1, 1,
+                WARP_SIZE, numWarpsPerBlock, 1, 0, mStream, kernelParams, sizeof(kernelParams), 0, PX_FL);
+            if (result != CUDA_SUCCESS)
+            {
+                PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR, PX_FL,
+                    "CuMetal articulation update: launch for record %u (articulation %u) failed with CUDA error %u.",
+                    i, updates[i].articulationIndex, PxU32(result));
+                mCudaContext->setAbortMode(true);
+                return;
+            }
+        }
+#if SC_GPU_DEBUG
+        const CUresult result = mCudaContext->streamSynchronize(mStream);
+        if (result != CUDA_SUCCESS)
+        {
+            PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR, PX_FL,
+                "CuMetal articulation update: completion failed with CUDA error %u.", PxU32(result));
+            mCudaContext->setAbortMode(true);
+            return;
+        }
+#endif
+#else
 		CUdeviceptr descptr = mArticulationDescBuffer.getDevicePtr();
 
 		void* mappedUpdates = getMappedDevicePtr(mCudaContext, updates);
@@ -2475,6 +2561,7 @@ void PxgSimulationCore::updateArticulations(const PxU32 nbNewArticulations, PxgA
 		result = mCudaContext->streamSynchronize(mStream);
 		if (result != CUDA_SUCCESS)
 			PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR, PX_FL, "GPU update articulation links and joints kernel fail!\n");
+#endif
 #endif
 	}
 }
@@ -2686,8 +2773,18 @@ void PxgSimulationCore::update(bool enableDirectGPUAPI)
 		
 	CUfunction kernelFunction = mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::UPDATE_TRANSFORMCACHE_AND_BOUNDARRAY);
 
+#if defined(PX_CUMETAL_EXPLICIT_MOTION_ROOT) && PX_CUMETAL_EXPLICIT_MOTION_ROOT
+    // Only the transform kernel has the extra descriptor argument. The later
+    // launches keep the original one-argument kernelParams array.
+    CUdeviceptr articulationDescriptors = mArticulationBuffer.getDevicePtr();
+    PxCudaKernelParam transformParams[] = {
+        PX_CUDA_KERNEL_PARAM(descptr), PX_CUDA_KERNEL_PARAM(articulationDescriptors)
+    };
+#else
+    auto& transformParams = kernelParams;
+#endif
 	//update transform cache and bounds
-	CUresult result = mCudaContext->launchKernel(kernelFunction, PxgSimulationCoreKernelGridDim::UPDATE_TRANSFORMCACHE_AND_BOUNDARRAY, 1, 1, PxgSimulationCoreKernelBlockDim::UPDATE_TRANSFORMCACHE_AND_BOUNDARRAY, 1, 1, 0, mStream, kernelParams, sizeof(kernelParams), 0, PX_FL);
+	CUresult result = mCudaContext->launchKernel(kernelFunction, PxgSimulationCoreKernelGridDim::UPDATE_TRANSFORMCACHE_AND_BOUNDARRAY, 1, 1, PxgSimulationCoreKernelBlockDim::UPDATE_TRANSFORMCACHE_AND_BOUNDARRAY, 1, 1, 0, mStream, transformParams, sizeof(transformParams), 0, PX_FL);
 
 	PX_UNUSED(result);
 	PX_ASSERT(result == CUDA_SUCCESS);

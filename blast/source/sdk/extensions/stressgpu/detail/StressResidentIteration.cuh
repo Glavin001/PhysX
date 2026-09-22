@@ -55,7 +55,22 @@ struct PersistentStressArgs {
 #include "StressHomogeneousComponents.cuh"
 #include "StressCooperativeRetirement.cuh"
 template<bool Preconditioned>
-__global__ __launch_bounds__(kBlockSize, 2) void persistentStressSolve(PersistentStressArgs a) {
+__global__ __launch_bounds__(kBlockSize, 2) void persistentStressSolve(
+#if defined(PX_CUMETAL_EXPLICIT_HIERARCHY_ROOT) && PX_CUMETAL_EXPLICIT_HIERARCHY_ROOT
+    PersistentStressArgs original,const StressHierarchy::CycleLevel* __restrict__ cycleLevels
+#else
+    PersistentStressArgs a
+#endif
+) {
+#if defined(PX_CUMETAL_EXPLICIT_HIERARCHY_ROOT) && PX_CUMETAL_EXPLICIT_HIERARCHY_ROOT
+    // Experimental descriptor-only compiler hint. ResidentCycle owns a separate
+    // allocation, uploaded once before solves and kept alive across graph replay.
+    // Its bytes never alias writable solver buffers; its nested pointees CAN
+    // alias other operator/workspace views and gain no disjointness promise.
+    // A local copy lets SROA retain the explicit root instead of a byval reload.
+    PersistentStressArgs a=original;
+    if constexpr(Preconditioned)a.hierarchy.cycle.levels=cycleLevels;
+#endif
     __shared__ StressHierarchy::TerminalShared cycleShared;
     const auto grid=cooperative_groups::this_grid();
     const unsigned lane=blockIdx.x*blockDim.x+threadIdx.x;
@@ -74,7 +89,13 @@ __global__ __launch_bounds__(kBlockSize, 2) void persistentStressSolve(Persisten
     if constexpr(Preconditioned){
         for(unsigned i=lane;i<islandCount;i+=stride){const unsigned id=a.islandIds[i];a.hierarchy.previous[id]=0;a.hierarchy.failed[id]=0;}
         grid.sync();
+#if defined(PX_CUMETAL_EXPLICIT_HIERARCHY_ROOT) && PX_CUMETAL_EXPLICIT_HIERARCHY_ROOT
+        // This helper uses no cycle descriptor fields. Its other arguments
+        // are unchanged; avoid making the rebound descriptor root escape.
+        retireHomogeneousTreesGrid(original);
+#else
         retireHomogeneousTreesGrid(a);
+#endif
     }
     const float* numerator=Preconditioned?a.hierarchy.gamma:a.m_gradientSquared;
     float* previous=Preconditioned?a.hierarchy.previous:a.m_previousGradientSquared;
@@ -117,7 +138,16 @@ __global__ __launch_bounds__(kBlockSize, 2) void persistentStressSolve(Persisten
         }
         // Convergence has already been checked against the true residual.
         // Do not enter a multilevel cycle with no remaining active component.
-        if constexpr(Preconditioned)if(retireConvergedStressGrid(a,islandBlocks,islandCount))break;
+        if constexpr(Preconditioned) {
+#if defined(PX_CUMETAL_BLOCK_VOTED_TRAPS) && PX_CUMETAL_BLOCK_VOTED_TRAPS
+            // This execution hint already limits the persistent grid to one
+            // block. Make its uniform retirement decision explicit across all
+            // warps before entering the collective preconditioner.
+            if(__syncthreads_and(retireConvergedStressGrid(a,islandBlocks,islandCount)))break;
+#else
+            if(retireConvergedStressGrid(a,islandBlocks,islandCount))break;
+#endif
+        }
         if constexpr(Preconditioned)preconditionNativeGrid(a,cycleShared);
         for(unsigned i=lane;i<islandCount*a.slots;i+=stride) {
             const unsigned id=a.islandIds ? a.islandIds[i/a.slots] : i/a.slots;

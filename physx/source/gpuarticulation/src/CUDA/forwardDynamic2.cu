@@ -55,6 +55,15 @@ using namespace Dy;
 
 extern "C" __host__ void initArticulationKernels1() {}
 
+// Preserve the explicit descriptor root through this one kernel's bounded
+// helper closure. Descriptor flags remain mutable; payload pointer aliases and
+// all articulation equations retain their existing contracts.
+#if PX_CUMETAL_EXPLICIT_MOTION_ROOT
+#define PX_ARTI_DESCRIPTOR_INLINE PX_FORCE_INLINE
+#else
+#define PX_ARTI_DESCRIPTOR_INLINE
+#endif
+
 template<class T>
 __device__ static PX_FORCE_INLINE void translateSpatialVectorInPlace(const PxVec3& offset, T& vec)
 {
@@ -105,7 +114,7 @@ static __device__ void initialize(
 }
 
 
-static __device__ void initializeSpatialTendonsBlock(
+static __device__ PX_ARTI_DESCRIPTOR_INLINE void initializeSpatialTendonsBlock(
 	const PxgArticulation& articulation,
 	PxgArticulationData& artiData,
 	PxgArticulationBlockData& artiBlock,
@@ -157,7 +166,7 @@ static __device__ void initializeSpatialTendonsBlock(
 	artiBlock.mNumSpatialTendons[threadIndexInWarp] = numSpatialTendons;
 }
 
-static __device__ void updateSpatialTendonsBlock(
+static __device__ PX_ARTI_DESCRIPTOR_INLINE void updateSpatialTendonsBlock(
 	const PxgArticulation& articulation,
 	PxgArticulationData& artiData,
 	PxgArticulationBlockSpatialTendonData* PX_RESTRICT  spatialTendonBlocks,
@@ -198,7 +207,7 @@ static __device__ void updateSpatialTendonsBlock(
 	}
 }
 
-static __device__ void initializeFixedTendonsBlock(
+static __device__ PX_ARTI_DESCRIPTOR_INLINE void initializeFixedTendonsBlock(
 	const PxgArticulation& articulation, 
 	PxgArticulationData& artiData,
 	PxgArticulationBlockData& artiBlock,
@@ -250,7 +259,7 @@ static __device__ void initializeFixedTendonsBlock(
 
 }
 
-static __device__ void updateFixedTendonsBlock(
+static __device__ PX_ARTI_DESCRIPTOR_INLINE void updateFixedTendonsBlock(
 	const PxgArticulation& articulation,
 	PxgArticulationData& artiData,
 	PxgArticulationBlockFixedTendonData* PX_RESTRICT  fixedTendonBlocks,
@@ -315,7 +324,7 @@ static __device__ void copyMimicJointsBlock(
 	}
 }
 
-static __device__ void initializeMimicJointsBlock(
+static __device__ PX_ARTI_DESCRIPTOR_INLINE void initializeMimicJointsBlock(
 	const PxgArticulation& articulation,
 	PxgArticulationData& artiData, 
 	PxgArticulationBlockData& artiBlock,
@@ -350,7 +359,7 @@ static __device__ PX_FORCE_INLINE void computeJointAxis(PxU32 dof, const Articul
 	}
 }
 
-static __device__ void jcalc(const PxgArticulation& articulation, PxgArticulationData& artiData,
+static __device__ PX_ARTI_DESCRIPTOR_INLINE void jcalc(const PxgArticulation& articulation, PxgArticulationData& artiData,
 	const PxgArticulationCoreDesc* const PX_RESTRICT scDesc,
 	const bool refillBlockData,
 	PxgArticulationBlockData& artiBlock,
@@ -925,8 +934,11 @@ static __device__ PX_FORCE_INLINE PxVec3 computeLinkRwGpu(
 	return Dy::computeLinkRw(parentQW, childQW, parentOffset, childOffset, slide);
 }
 
-static __device__ void computeUnconstrainedVelocitiesInternal1T(const PxgBodySim& bodySim,
+static __device__ PX_ARTI_DESCRIPTOR_INLINE void computeUnconstrainedVelocitiesInternal1T(const PxgBodySim& bodySim,
 	const PxgArticulationCoreDesc* const PX_RESTRICT scDesc,
+#if PX_CUMETAL_EXPLICIT_MOTION_ROOT
+	PxgArticulation* PX_RESTRICT articulationRoot,
+#endif
 	PxgArticulationBlockData& articulationBlock,
 	PxgArticulationBlockLinkData* PX_RESTRICT articulationLinkBlocks,
 	PxgArticulationBlockDofData* PX_RESTRICT articulationDofBlocks,
@@ -943,7 +955,12 @@ static __device__ void computeUnconstrainedVelocitiesInternal1T(const PxgBodySim
 {
 	const PxU32 articulationIndex = bodySim.articulationRemapId;
 
+#if PX_CUMETAL_EXPLICIT_MOTION_ROOT
+	// Separate descriptor allocation, matching gpuMemDmaUpArticulationDesc.
+	PxgArticulation& msArticulation = articulationRoot[articulationIndex];
+#else
 	PxgArticulation& msArticulation = scDesc->articulations[articulationIndex];
+#endif
 
 	PxgArticulationData& msArtiData = msArticulation.data;
 	
@@ -1088,6 +1105,9 @@ static __device__ void computeUnconstrainedVelocitiesInternal1T(const PxgBodySim
 
 extern "C" __global__ void computeUnconstrainedVelocities1TLaunch(
 	const PxgArticulationCoreDesc* const PX_RESTRICT scDesc,
+#if PX_CUMETAL_EXPLICIT_MOTION_ROOT
+	PxgArticulation* PX_RESTRICT articulationRoot,
+#endif
 	const bool directAPI,
 	const bool recomputeBlockFormat)
 {
@@ -1133,7 +1153,11 @@ extern "C" __global__ void computeUnconstrainedVelocities1TLaunch(
 		const PxReal invLengthScale = scDesc->invLengthScale;
 		// pass in the articulation's body-sim, and the blocks offset to the start of the warp
 		// so the unconstrained velocity update is running single threaded, hence the name 1T
-		computeUnconstrainedVelocitiesInternal1T(bodySim, scDesc, articulationBlocks[globalWarpIndex],
+		computeUnconstrainedVelocitiesInternal1T(bodySim, scDesc,
+#if PX_CUMETAL_EXPLICIT_MOTION_ROOT
+			articulationRoot,
+#endif
+			articulationBlocks[globalWarpIndex],
 			&articulationLinkBlocks[globalWarpIndex * maxLinks], &articulationDofBlocks[globalWarpIndex * maxDofs],
 			&articulationSpatialTendonBlocks[globalWarpIndex * maxSpatialTendons], &articulationAttachmentBlocks[globalWarpIndex * maxSpatialTendons * maxAttachments],
 			&articulationFixedTendonBlocks[globalWarpIndex * maxFixedTendons], &articulationTendonJointBlocks[globalWarpIndex * maxFixedTendons * maxTendonJoints],

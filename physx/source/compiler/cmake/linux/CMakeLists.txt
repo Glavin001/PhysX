@@ -104,12 +104,12 @@ SET(GCC_WARNINGS "-Wall -Werror \
 	-Wno-use-after-free \
 ")
 
-IF(CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
+IF(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64)$")
 	# gw: these optimizations are disabled for now. fp-contract causes floating point inaccuracy and deviation in behavior,
 	# tree-vrp and delete-null-pointer-checks cause known bugs on some versions of gcc
 	IF ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
 		SET(AARCH64_FLAGS "-ffp-contract=off -fno-delete-null-pointer-checks -faligned-new")
-	ELSEIF ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+	ELSEIF ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
 		SET(AARCH64_FLAGS "-ffp-contract=off -Wno-unsupported-floating-point-opt")
 	ENDIF()
 ELSE()
@@ -118,7 +118,14 @@ ENDIF()
 
 SET(COMMON_CXX_FLAGS "-std=c++14 -D_GLIBCXX_USE_CXX11_ABI=1 -fno-rtti -fno-exceptions -ffunction-sections -fdata-sections -fvisibility=hidden ${AARCH64_FLAGS}")
 
-IF ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+IF(APPLE)
+	# Apple uses libc++; do not inject the Linux libstdc++ ABI selection.
+	STRING(REPLACE "-D_GLIBCXX_USE_CXX11_ABI=1" "" COMMON_CXX_FLAGS "${COMMON_CXX_FLAGS}")
+	# PhysX deliberately uses eager bitwise boolean evaluation in SIMD helpers.
+	STRING(APPEND CLANG_WARNINGS " -Wno-bitwise-instead-of-logical")
+ENDIF()
+
+IF ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
 	IF ("${CMAKE_CXX_COMPILER_VERSION}" VERSION_LESS "10.0.0")
 		SET(PHYSX_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${COMMON_CXX_FLAGS} -fstrict-aliasing -Wstrict-aliasing=2 -Wno-shadow ${CLANG_WARNINGS}" CACHE INTERNAL "PhysX CXX")
 	ELSE()

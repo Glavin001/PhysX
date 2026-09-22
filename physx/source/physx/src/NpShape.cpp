@@ -26,6 +26,7 @@
 // Copyright (c) 2004-2008 AGEIA Technologies, Inc. All rights reserved.
 // Copyright (c) 2001-2004 NovodeX AG. All rights reserved.  
 
+#include "NpCuMetalFeatures.h"
 #include "NpShape.h"
 #include "NpRigidStatic.h"
 #include "NpRigidDynamic.h"
@@ -276,6 +277,8 @@ bool checkShape(const PxGeometry& g, const char* errorMsg);
 
 void NpShape::setGeometry(const PxGeometry& g)
 {
+	if(!checkCuMetalGeometry(g.getType()))
+		return;
 	NpScene* ownerScene = getNpScene();
 	NP_WRITE_CHECK(ownerScene);
 	if(ownerScene && (ownerScene->getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_API) && ownerScene->isDirectGPUAPIInitialized())

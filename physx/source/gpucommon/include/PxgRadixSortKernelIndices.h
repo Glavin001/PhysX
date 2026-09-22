@@ -36,7 +36,18 @@ namespace physx
 	{
 		enum
 		{
+			// The rank pass stages four keys and ranks per thread. With 16 warps
+			// its existing shared arrays use 19,648 bytes instead of 39,104,
+			// fitting Metal devices with 32 KiB of threadgroup memory. Keep
+			// this choice common to host launches and device template sizes.
+			// The 32-block grid and 32-lane warps remain unchanged. Do not
+			// reduce below 512: the inter-block scan needs 16 * 32 entries
+			// in the shared scratch array (only 416 entries at 256 threads).
+#if defined(PX_CUMETAL)
+			RADIX_SORT = 512,
+#else
 			RADIX_SORT = 1024,
+#endif
 		};
 	};
 

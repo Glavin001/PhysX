@@ -727,7 +727,15 @@ void PxgAABBManager::updateBPSecondPass(PxcScratchAllocator* scratchAllocator, P
 		
 		//sort aggregate bounds
 		{
+#if defined(PX_CUMETAL_EXPLICIT_AGGREGATE_ROOT) && PX_CUMETAL_EXPLICIT_AGGREGATE_ROOT
+			// Match the optional kernel ABI; updateDescriptor uses this exact
+			// allocation for aggDesc->aggregates. Its nested buffers are separate.
+			CUdeviceptr aggregateRoot = mAggregateBuf.getDevicePtr();
+			KERNEL_PARAM_TYPE kernelParams[] = { CUDA_KERNEL_PARAM(bpDescd), CUDA_KERNEL_PARAM(aggDescd),
+				CUDA_KERNEL_PARAM(aggregateRoot) };
+#else
 			KERNEL_PARAM_TYPE kernelParams[] = { CUDA_KERNEL_PARAM(bpDescd), CUDA_KERNEL_PARAM(aggDescd) };
+#endif
 
 			const PxU32 numThreadsPerWarp = 32;
 			const PxU32 numWarpsPerBlocks = PxgBPKernelBlockDim::BP_AGGREGATE_SORT / numThreadsPerWarp;
@@ -770,7 +778,13 @@ void PxgAABBManager::updateBPSecondPass(PxcScratchAllocator* scratchAllocator, P
 
 		//process aggregates vs actors and aggregates vs aggregates
 		{
+#if defined(PX_CUMETAL_EXPLICIT_AGGREGATE_ROOT) && PX_CUMETAL_EXPLICIT_AGGREGATE_ROOT
+			CUdeviceptr aggregateRoot = mAggregateBuf.getDevicePtr();
+			KERNEL_PARAM_TYPE kernelParams[] = { CUDA_KERNEL_PARAM(bpDescd), CUDA_KERNEL_PARAM(aggDescd),
+				CUDA_KERNEL_PARAM(aggregateRoot) };
+#else
 			KERNEL_PARAM_TYPE kernelParams[] = { CUDA_KERNEL_PARAM(bpDescd), CUDA_KERNEL_PARAM(aggDescd) };
+#endif
 
 			const PxU32 numThreadsPerWarp = 32;
 			const PxU32 numWarpsPerBlocks = PxgBPKernelBlockDim::BP_AGGREGATE_SORT / numThreadsPerWarp;

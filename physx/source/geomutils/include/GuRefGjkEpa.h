@@ -34,6 +34,17 @@
 #include "foundation/PxVec4.h"
 #include "GuBounds.h"
 
+// Metal has distinct pointer address spaces. Expose these short-lived reference
+// records to the compiler's scalar replacement without changing their layout,
+// equations, precision or iteration policy. CUDA retains its existing hints.
+#if defined(PX_CUMETAL_INLINE_REF_GJK_EPA) && PX_CUMETAL_INLINE_REF_GJK_EPA
+#define GU_REF_GJK_EPA_INLINE PX_FORCE_INLINE
+#define GU_REF_GJK_EPA_HELPER PX_FORCE_INLINE
+#else
+#define GU_REF_GJK_EPA_INLINE PX_INLINE
+#define GU_REF_GJK_EPA_HELPER
+#endif
+
 namespace physx
 {
 	namespace Gu
@@ -46,7 +57,7 @@ namespace physx
 			{
 				static const PxU32 MAX_VERTS = 32;
 
-				PX_CUDA_CALLABLE
+				PX_CUDA_CALLABLE GU_REF_GJK_EPA_HELPER
 				Convex(const Support& s, const PxTransform& p)
 					:
 					mS(s), mPose(p), mNumVerts(0)
@@ -58,11 +69,11 @@ namespace physx
 					mAccuracy = PxMax(maxExtent * 0.01f, FLT_EPSILON);
 				}
 
-				PX_CUDA_CALLABLE PX_INLINE
+				PX_CUDA_CALLABLE GU_REF_GJK_EPA_INLINE
 				PxReal getAccuracy() const
 					{ return mAccuracy; }
 
-				PX_CUDA_CALLABLE PX_INLINE
+				PX_CUDA_CALLABLE GU_REF_GJK_EPA_INLINE
 				PxBounds3 getBounds() const
 				{
 					const PxVec3 X(mPose.q.getInvBasisVector0()),
@@ -77,7 +88,7 @@ namespace physx
 											mPose.transform(mS.supportLocal(Z)).z));
 				}
 
-				PX_CUDA_CALLABLE
+				PX_CUDA_CALLABLE GU_REF_GJK_EPA_HELPER
 				PxU8 supportIndex(const PxVec3& dir)
 				{
 					PxVec3 d = dir;
@@ -109,11 +120,11 @@ namespace physx
 					return PxU8(mNumVerts - 1);
 				}
 
-				PX_CUDA_CALLABLE PX_INLINE
+				PX_CUDA_CALLABLE GU_REF_GJK_EPA_INLINE
 				const PxVec3& supportVertex(PxU8 index) const
 					{ PX_ASSERT(index < mNumVerts); return mVerts[index]; }
 
-				PX_CUDA_CALLABLE PX_INLINE
+				PX_CUDA_CALLABLE GU_REF_GJK_EPA_INLINE
 				const PxTransform& getPose() const
 					{ return mPose; }
 
@@ -129,7 +140,7 @@ namespace physx
 			template <typename Support>
 			struct GjkDistance
 			{
-				PX_CUDA_CALLABLE
+				PX_CUDA_CALLABLE GU_REF_GJK_EPA_HELPER
 				GjkDistance(Convex<Support>& convexA, Convex<Support>& convexB)
 					:
 					mConvexA(convexA), mConvexB(convexB),
@@ -141,11 +152,11 @@ namespace physx
 					addPoint(dir);
 				}
 
-				PX_CUDA_CALLABLE PX_INLINE
+				PX_CUDA_CALLABLE GU_REF_GJK_EPA_INLINE
 				PxReal getAccuracy() const
 					{ return PxMin(mConvexA.getAccuracy(), mConvexB.getAccuracy()); }
 
-				PX_CUDA_CALLABLE
+				PX_CUDA_CALLABLE GU_REF_GJK_EPA_HELPER
 				// adds a new point (the difference of the shapes support points in a given direction)
 				// to the simplex. returns the projection of the difference of the support points on
 				// the direction. positive values mean a gap, negative - an overlap. FLT_MAX signals
@@ -172,7 +183,7 @@ namespace physx
 					return p.dot(-dir);
 				}
 
-				PX_CUDA_CALLABLE
+				PX_CUDA_CALLABLE GU_REF_GJK_EPA_HELPER
 				void computeClosest()
 				{
 					Vert verts[4]; verts[0] = mVerts[0]; verts[1] = mVerts[1]; verts[2] = mVerts[2]; verts[3] = mVerts[3];
@@ -341,15 +352,15 @@ namespace physx
 						--mNumVerts;
 				}
 
-				PX_CUDA_CALLABLE PX_INLINE
+				PX_CUDA_CALLABLE GU_REF_GJK_EPA_INLINE
 				PxReal getDist() const
 					{ return mClosest.magnitude(); }
 
-				PX_CUDA_CALLABLE PX_INLINE
+				PX_CUDA_CALLABLE GU_REF_GJK_EPA_INLINE
 				PxVec3 getDir() const
 					{ return -mClosest.getNormalized(); }
 
-				PX_CUDA_CALLABLE
+				PX_CUDA_CALLABLE GU_REF_GJK_EPA_HELPER
 				void computePoints(PxVec3& pointA, PxVec3& pointB)
 				{
 					PxVec3 pA(0), pB(0);
@@ -371,7 +382,7 @@ namespace physx
 					PxReal s;
 					PxU8 aI, bI;
 
-					PX_CUDA_CALLABLE PX_INLINE
+					PX_CUDA_CALLABLE GU_REF_GJK_EPA_INLINE
 					static Vert make(const PxVec3& p, PxReal s, PxU8 aI, PxU8 bI)
 						{ Vert v; v.p = p; v.s = s; v.aI = aI; v.bI = bI; return v; }
 				};
@@ -384,7 +395,7 @@ namespace physx
 			};
 
 			template <typename Support>
-			PX_CUDA_CALLABLE
+			PX_CUDA_CALLABLE GU_REF_GJK_EPA_HELPER
 			static PxReal computeGjkDistance(const Support& a, const Support& b, const PxTransform& poseA, const PxTransform& poseB,
 				PxReal maxDist, PxVec3& pointA, PxVec3& pointB, PxVec3& axis)
 			{
@@ -421,7 +432,7 @@ namespace physx
 			template <typename Support>
 			struct EpaDepth
 			{
-				PX_CUDA_CALLABLE
+				PX_CUDA_CALLABLE GU_REF_GJK_EPA_HELPER
 				EpaDepth(Convex<Support>& convexA, Convex<Support>& convexB)
 					:
 					mConvexA(convexA), mConvexB(convexB),
@@ -439,19 +450,19 @@ namespace physx
 					mProj = -FLT_MAX;
 				}
 
-				PX_CUDA_CALLABLE PX_INLINE
+				PX_CUDA_CALLABLE GU_REF_GJK_EPA_INLINE
 				bool isValid() const
 					{ return mNumFaces > 0; }
 
-				PX_CUDA_CALLABLE PX_INLINE
+				PX_CUDA_CALLABLE GU_REF_GJK_EPA_INLINE
 				PxReal getAccuracy() const
 					{ return PxMin(mConvexA.getAccuracy(), mConvexB.getAccuracy()); }
 
-				PX_CUDA_CALLABLE PX_INLINE
+				PX_CUDA_CALLABLE GU_REF_GJK_EPA_INLINE
 				PxVec3 supportVertex(PxU8 aI, PxU8 bI)
 					{ return mConvexA.supportVertex(aI) - mConvexB.supportVertex(bI); }
 
-				PX_CUDA_CALLABLE
+				PX_CUDA_CALLABLE GU_REF_GJK_EPA_HELPER
 				bool makePlane(PxU8 i0, PxU8 i1, PxU8 i2, PxVec4& plane)
 				{
 					const Vert v0 = mVerts[i0], v1 = mVerts[i1], v2 = mVerts[i2];
@@ -471,7 +482,7 @@ namespace physx
 					return true;
 				}
 
-				PX_CUDA_CALLABLE
+				PX_CUDA_CALLABLE GU_REF_GJK_EPA_HELPER
 				// adds a new point (the difference of the shapes support points in a given direction)
 				// to the polytope. removes all faces below the new point, keeps the track of open edges
 				// created by the face removal, and then creates a fan of new faces each containing the
@@ -564,7 +575,7 @@ namespace physx
 					return proj;
 				}
 
-				PX_CUDA_CALLABLE
+				PX_CUDA_CALLABLE GU_REF_GJK_EPA_HELPER
 				void computeClosest()
 				{
 					PX_ASSERT(mNumFaces > 0);
@@ -589,23 +600,23 @@ namespace physx
 						mBest = mClosest;
 				}
 
-				PX_CUDA_CALLABLE PX_INLINE
+				PX_CUDA_CALLABLE GU_REF_GJK_EPA_INLINE
 				PxReal getDist() const
 					{ return mClosest.plane.w; }
 
-				PX_CUDA_CALLABLE PX_INLINE
+				PX_CUDA_CALLABLE GU_REF_GJK_EPA_INLINE
 				PxVec3 getDir() const
 					{ return mClosest.plane.getXYZ(); }
 
-				PX_CUDA_CALLABLE PX_INLINE
+				PX_CUDA_CALLABLE GU_REF_GJK_EPA_INLINE
 				PxReal getBestDist() const
 					{ return mBest.plane.w; }
 
-				PX_CUDA_CALLABLE PX_INLINE
+				PX_CUDA_CALLABLE GU_REF_GJK_EPA_INLINE
 				PxVec3 getBestDir() const
 					{ return mBest.plane.getXYZ(); }
 
-				PX_CUDA_CALLABLE
+				PX_CUDA_CALLABLE GU_REF_GJK_EPA_HELPER
 				void computePoints(PxVec3& pointA, PxVec3& pointB)
 				{
 					const Vert v0 = mVerts[mBest.v[0]], v1 = mVerts[mBest.v[1]], v2 = mVerts[mBest.v[2]];
@@ -633,7 +644,7 @@ namespace physx
 				{
 					PxU8 aI, bI;
 
-					PX_CUDA_CALLABLE PX_INLINE
+					PX_CUDA_CALLABLE GU_REF_GJK_EPA_INLINE
 					static Vert make(PxU8 aI, PxU8 bI)
 						{ Vert v; v.aI = aI; v.bI = bI; return v; }
 				};
@@ -643,7 +654,7 @@ namespace physx
 					PxVec4 plane;
 					PxU8 v[3];
 
-					PX_CUDA_CALLABLE PX_INLINE
+					PX_CUDA_CALLABLE GU_REF_GJK_EPA_INLINE
 					static Face make(const PxVec4& plane, PxU8 v0, PxU8 v1, PxU8 v2)
 						{ Face f; f.plane = plane; f.v[0] = v0; f.v[1] = v1; f.v[2] = v2; return f; }
 				};
@@ -652,7 +663,7 @@ namespace physx
 				{
 					PxU8 v[2];
 
-					PX_CUDA_CALLABLE PX_INLINE
+					PX_CUDA_CALLABLE GU_REF_GJK_EPA_INLINE
 					static Edge make(PxU8 v0, PxU8 v1)
 						{ Edge e; e.v[0] = v0; e.v[1] = v1; return e; }
 				};
@@ -667,7 +678,7 @@ namespace physx
 			};
 
 			template <typename Support>
-			PX_CUDA_CALLABLE
+			PX_CUDA_CALLABLE GU_REF_GJK_EPA_HELPER
 			static PxReal computeEpaDepth(const Support& a, const Support& b, const PxTransform& poseA, const PxTransform& poseB,
 				PxVec3& pointA, PxVec3& pointB, PxVec3& axis)
 			{
@@ -700,5 +711,8 @@ namespace physx
 		}
 	}
 }
+
+#undef GU_REF_GJK_EPA_INLINE
+#undef GU_REF_GJK_EPA_HELPER
 
 #endif

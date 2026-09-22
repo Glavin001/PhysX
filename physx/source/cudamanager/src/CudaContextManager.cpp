@@ -50,6 +50,9 @@
 #pragma clang diagnostic ignored "-Wdisabled-macro-expansion"
 #endif
 #include <cuda.h>
+#if defined(PX_CUMETAL)
+#include <cumetal_driver.h>
+#endif
 #if PX_LINUX && PX_CLANG
 #pragma clang diagnostic pop
 #endif
@@ -651,6 +654,35 @@ CudaCtxMgr::CudaCtxMgr(const PxCudaContextManagerDesc& desc, PxErrorCallback& er
 	// Formally load the CUDA modules, get CUmodule handles
 	{
 		PxScopedCudaLock lock(*this);
+#if defined(PX_CUMETAL)
+		// Native objects register at shared-library load. Keep a context-owned
+		// snapshot of driver views, terminated for the internal kernel wrangler.
+		size_t count = 0;
+		if (cumetalGetNativeModules(NULL, 0, &count) != CUDA_SUCCESS || count >= PX_MAX_U32)
+		{
+			mIsValid = false;
+			errorCallback.reportError(PxErrorCode::eINTERNAL_ERROR, "Could not enumerate native CuMetal modules.", PX_FL);
+			return;
+		}
+		PxArray<CuMetalModuleHandle> modules;
+		modules.resize(PxU32(count));
+		if (cumetalGetNativeModules(modules.begin(), count, &count) != CUDA_SUCCESS)
+		{
+			mIsValid = false;
+			errorCallback.reportError(PxErrorCode::eINTERNAL_ERROR, "Native CuMetal modules changed during context initialization.", PX_FL);
+			return;
+		}
+		mCuModules.resize(PxU32(count) + 1, NULL);
+		for (PxU32 i = 0; i < PxU32(count); ++i)
+		{
+			if (cumetalImportNativeModule(&mCuModules[i], modules[i]) != CUDA_SUCCESS)
+			{
+				mIsValid = false;
+				errorCallback.reportError(PxErrorCode::eINTERNAL_ERROR, "Could not import native CuMetal module.", PX_FL);
+				return;
+			}
+		}
+#else
 		const PxU32 moduleTableSize = PxGpuGetCudaModuleTableSize();
 		void** moduleTable = PxGpuGetCudaModuleTable();
 		mCuModules.resize(moduleTableSize, NULL);
@@ -674,6 +706,7 @@ CudaCtxMgr::CudaCtxMgr(const PxCudaContextManagerDesc& desc, PxErrorCallback& er
 				mCuModules[i] = NULL;
 			}
 		}
+#endif
 	}
 }
 
@@ -683,6 +716,15 @@ CudaCtxMgr::CudaCtxMgr(const PxCudaContextManagerDesc& desc, PxErrorCallback& er
  */
 bool CudaCtxMgr::safeDelayImport(PxErrorCallback& errorCallback)
 {
+#if defined(PX_CUMETAL)
+	// Linked directly to CuMetal. Do not load NVIDIA driver aliases on macOS.
+	if (cuDriverGetVersion(&mDriverVersion) != CUDA_SUCCESS)
+	{
+		errorCallback.reportError(PxErrorCode::eINTERNAL_ERROR, "Could not query the linked CuMetal runtime.", PX_FL);
+		return false;
+	}
+	return true;
+#else
 #if PX_WIN32 || PX_WIN64
 	HMODULE hCudaDriver = LoadLibrary("nvcuda.dll");
 #elif PX_LINUX
@@ -744,6 +786,7 @@ bool CudaCtxMgr::safeDelayImport(PxErrorCallback& errorCallback)
 #endif
 
 	return true;
+#endif
 }
 
 void addRef(PxCudaContextManager* cudaContextManager)
@@ -768,6 +811,7 @@ CudaCtxMgr::~CudaCtxMgr()
 			PxScopedCudaLock lock(*this);
 			for(PxU32 i = 0; i < mCuModules.size(); i++)
 			{
+				if (!mCuModules[i]) continue;
 				CUresult ret = mCudaCtx->moduleUnload(mCuModules[i]);
 				if(ret != CUDA_SUCCESS)
 				{
@@ -1522,5 +1566,4 @@ PxCudaContextManager* createCudaContextManager(const PxCudaContextManagerDesc& d
 #endif
 
 } // end physx namespace
-
 

@@ -47,8 +47,10 @@
 #pragma clang diagnostic pop
 #endif
 
+#if !defined(PX_CUMETAL)
 #include <texture_types.h>
 #include <vector_types.h>
+#endif
 
 #include "cudamanager/PxCudaContextManager.h"
 #include "cudamanager/PxCudaContext.h"
@@ -56,6 +58,31 @@
 #include "CudaKernelWrangler.h"
 
 using namespace physx;
+
+#if defined(PX_CUMETAL_RIGID_DEMO) && PX_CUMETAL_RIGID_DEMO
+static bool omittedRigidDemoKernel(const char* name)
+{
+#define PX_CUMETAL_OMITTED_KERNEL(kernel) if (!Pxstrcmp(name, kernel)) return true;
+#include "CuMetalRigidDemoKernels.def"
+#undef PX_CUMETAL_OMITTED_KERNEL
+    return false;
+}
+
+#endif
+
+bool KernelWrangler::reportUnavailableRigidDemoKernel(uint16_t funcIndex) const
+{
+#if defined(PX_CUMETAL_RIGID_DEMO) && PX_CUMETAL_RIGID_DEMO
+    if (!omittedRigidDemoKernel(mKernelNames[funcIndex])) return false;
+    char message[256];
+    Pxsnprintf(message, sizeof(message), "Kernel '%s' is unavailable: this CuMetal rigid destruction demo build excludes articulation and diffuse-particle GPU support.", mKernelNames[funcIndex]);
+    mErrorCallback.reportError(PxErrorCode::eINVALID_OPERATION, message, PX_FL);
+    return true;
+#else
+    PX_UNUSED(funcIndex);
+    return false;
+#endif
+}
 
 const char* KernelWrangler::getCuFunctionName(uint16_t funcIndex) const
 {
@@ -81,8 +108,10 @@ KernelWrangler::KernelWrangler(PxCudaContextManager& cudaContextManager, PxError
 
 	// matchup funcNames to CUDA modules, get CUfunction handles
 	CUmodule* cuModules = cudaContextManager.getCuModules();
+#if !defined(PX_CUMETAL)
 	PxKernelIndex* cuFunctionTable = PxGpuGetCudaFunctionTable();
 	const PxU32 cuFunctionTableSize = PxGpuGetCudaFunctionTableSize();
+#endif
 
 	mCuFunctions.resize(numFuncs, NULL);
 
@@ -90,6 +119,37 @@ KernelWrangler::KernelWrangler(PxCudaContextManager& cudaContextManager, PxError
 	{
 		for (uint32_t i = 0; i < numFuncs; ++i)
 		{
+#if defined(PX_CUMETAL)
+#if defined(PX_CUMETAL_RIGID_DEMO) && PX_CUMETAL_RIGID_DEMO
+            // Stable IDs remain null for deliberately unsupported features.
+            // All other missing/ambiguous registrations remain fatal.
+            if (omittedRigidDemoKernel(funcNames[i])) continue;
+#endif
+			bool ambiguous = false;
+			for (PxU32 j = 0; cuModules && cuModules[j]; ++j)
+			{
+				CUfunction function = NULL;
+				const PxCUresult result = mCudaContext->moduleGetFunction(&function, cuModules[j], funcNames[i]);
+				if (result == CUDA_SUCCESS)
+				{
+					if (mCuFunctions[i]) ambiguous = true;
+					mCuFunctions[i] = function;
+				}
+				else if (result != CUDA_ERROR_NOT_FOUND)
+				{
+					mError = true;
+					mErrorCallback.reportError(PxErrorCode::eINTERNAL_ERROR, "Native CuMetal module lookup failed.", PX_FL);
+				}
+			}
+			if (!mCuFunctions[i] || ambiguous)
+			{
+				char buffer[256];
+				Pxsnprintf(buffer, sizeof(buffer), "Native CuMetal kernel '%s' is %s.", funcNames[i], ambiguous ? "ambiguous" : "missing");
+				mErrorCallback.reportError(PxErrorCode::eINTERNAL_ERROR, buffer, PX_FL);
+				mCuFunctions[i] = NULL;
+				mError = true;
+			}
+#else
 			// search through all known functions
 			for (uint32_t j = 0; ; ++j)
 			{
@@ -119,6 +179,7 @@ KernelWrangler::KernelWrangler(PxCudaContextManager& cudaContextManager, PxError
 					break;
 				}
 			}
+#endif
 		}
 		mCudaContextManager.releaseContext();
 	}
@@ -131,6 +192,7 @@ KernelWrangler::KernelWrangler(PxCudaContextManager& cudaContextManager, PxError
 	}
 }
 
+#if !defined(PX_CUMETAL)
 /*
  * Workaround hacks for using nvcc --compiler output object files
  * without linking with CUDART.  We must implement our own versions
@@ -230,3 +292,4 @@ cudaError_t CUDARTAPI __cudaPopCallConfiguration(
 {
 	return cudaSuccess;
 }
+#endif // !PX_CUMETAL: native launches must reach the actual runtime

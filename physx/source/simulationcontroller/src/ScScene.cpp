@@ -2096,6 +2096,7 @@ Threading: called in the context of the user thread, but only after the physics 
 */
 bool Sc::Scene::finalizeGpuSleep(BodyCore* body)
 {
+    PX_UNUSED(body); // The host-only build omits the GPU branch below.
     const bool nativeSleep=!(mPublicFlags & PxSceneFlag::eENABLE_DIRECT_GPU_API)
         && mSimulationController->usesDeviceDestructionContactInputs();
     if((!(mPublicFlags & PxSceneFlag::eENABLE_DIRECT_GPU_SLEEPING) && !nativeSleep) || mGpuSleepPendingBodies.size() == 0)
@@ -3976,4 +3977,3 @@ void Sc::Scene::setActiveDeformableVolumeActors(PxActor** actors, PxU32 nbActors
 //}
 
 #endif //PX_SUPPORT_GPU_PHYSX
-

@@ -52,7 +52,14 @@ public:
         mAppended=true;return node;
     }
     void apply(const Vector* rhs,Vector* result)const{
-        applyTerminals<<<mBlocks,Threads,0,mStream>>>(mInput,mStatus,mBuffers,mLevel,rhs,result);check(cudaGetLastError());
+        // Only application can take the block-voted terminal error. The
+        // component grid-stride loop still visits every terminal component.
+#if defined(PX_CUMETAL_BLOCK_VOTED_TRAPS) && PX_CUMETAL_BLOCK_VOTED_TRAPS
+        const unsigned blocks=1;
+#else
+        const unsigned blocks=mBlocks;
+#endif
+        applyTerminals<<<blocks,Threads,0,mStream>>>(mInput,mStatus,mBuffers,mLevel,rhs,result);check(cudaGetLastError());
     }
     TerminalBuffers buffers()const{return mBuffers;}
     TerminalRetirement retirement()const{return {mBuffers.owner,mLevel,mStatus};}

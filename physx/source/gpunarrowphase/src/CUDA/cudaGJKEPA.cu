@@ -26,6 +26,7 @@
 // Copyright (c) 2004-2008 AGEIA Technologies, Inc. All rights reserved.
 // Copyright (c) 2001-2004 NovodeX AG. All rights reserved.  
 
+#include "PxgHostAddressToken.h"
 #include "foundation/PxMat34.h"
 #include <stdio.h>
 
@@ -2022,13 +2023,17 @@ __global__ void finishContactsKernel(PxU32 numTests,
 								PxgPatchAndContactCounters* PX_RESTRICT patchAndContactCounters,
 								PxU32* PX_RESTRICT touchChangeFlags,
 								PxU32* PX_RESTRICT patchChangeFlags,
-								PxU8* PX_RESTRICT startContactPatches,
-								PxU8* PX_RESTRICT startContactPoints,
-								PxU8* PX_RESTRICT startContactForces,
+								PXG_HOST_ADDRESS_PARAMETER(PxU8, PX_RESTRICT, startContactPatches),
+								PXG_HOST_ADDRESS_PARAMETER(PxU8, PX_RESTRICT, startContactPoints),
+								PXG_HOST_ADDRESS_PARAMETER(PxU8, PX_RESTRICT, startContactForces),
 								PxU32 patchBytesLimit,
 								PxU32 contactBytesLimit,
 								PxU32 forceBytesLimit)
 {
+	PXG_HOST_ADDRESS_DECODE(PxU8, PX_RESTRICT, startContactPatches)
+	PXG_HOST_ADDRESS_DECODE(PxU8, PX_RESTRICT, startContactPoints)
+	PXG_HOST_ADDRESS_DECODE(PxU8, PX_RESTRICT, startContactForces)
+
 
 	__shared__ FinishContactsWarpScratch scratch[PxgNarrowPhaseBlockDims::FINISH_CONTACTS / WARP_SIZE];
 	FinishContactsWarpScratch& sscratch = scratch[threadIdx.y];
@@ -3195,14 +3200,18 @@ extern "C" __global__ void convexPlaneNphase_Kernel(
 	PxgPatchAndContactCounters* PX_RESTRICT patchAndContactCounters,
 	PxU32* PX_RESTRICT touchChangeFlags,
 	PxU32* PX_RESTRICT patchChangeFlags,
-	PxU8* PX_RESTRICT startContactPatches,
-	PxU8* PX_RESTRICT startContactPoints,
-	PxU8* PX_RESTRICT startContactForces,
+	PXG_HOST_ADDRESS_PARAMETER(PxU8, PX_RESTRICT, startContactPatches),
+	PXG_HOST_ADDRESS_PARAMETER(PxU8, PX_RESTRICT, startContactPoints),
+	PXG_HOST_ADDRESS_PARAMETER(PxU8, PX_RESTRICT, startContactForces),
 	PxU32 patchBytesLimit,
 	PxU32 contactBytesLimit,
 	PxU32 forceBytesLimit,
 	const PxReal toleranceLength)
 {
+	PXG_HOST_ADDRESS_DECODE(PxU8, PX_RESTRICT, startContactPatches)
+	PXG_HOST_ADDRESS_DECODE(PxU8, PX_RESTRICT, startContactPoints)
+	PXG_HOST_ADDRESS_DECODE(PxU8, PX_RESTRICT, startContactForces)
+
 	const PxU32 globalWarpIndex = blockIdx.x * blockDim.y + threadIdx.y;
 
 	if (globalWarpIndex >= numTests)

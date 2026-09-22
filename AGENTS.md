@@ -10,6 +10,11 @@ Its [playbook](docs/destruction/PERFORMANCE_PLAYBOOK.md) contains runnable comma
 rejected experiments and unfinished architecture. Verify dated status against
 current source and artifacts.
 
+For recording the current native GPU destruction demo video, read
+[the video skill](.agents/skills/physx-destruction-video/SKILL.md). A 60 fps clip
+is not a performance qualification; do not use the old
+`record-destruction-demo.py` path unless explicitly asked.
+
 Current focus is RTX 4090/sm_89, fixed 1/60 timestep, max one correction, and
 maximum actual destruction within every-step 8 ms (16.67 ms reported separately).
 Preserve physical work and the GPU-resident destination. Source sibling checkouts

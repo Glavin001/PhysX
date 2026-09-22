@@ -54,6 +54,23 @@ extern "C" __host__ void initBroadphaseKernels0() {}
 
 #define USE_ENV_IDS	1
 
+// Audited independent-block contract: these two kernels have bounded work
+// loops, no grid rendezvous or cross-block progress waits. Ownership failures
+// are voted at the existing loop reconvergence before any pair publication.
+#if defined(PX_CUMETAL) && PX_CUMETAL && defined(PX_CUMETAL_BLOCK_VOTED_TRAPS) && PX_CUMETAL_BLOCK_VOTED_TRAPS
+#define PX_BP_BLOCK_LOCAL_TRAPS 1
+#define PX_BP_TRAP_KERNEL __attribute__((annotate("cumetal.block_local_terminal_traps")))
+#define PX_BP_OWNERSHIP_PARAMETER , bool& invalidOwnership
+#define PX_BP_OWNERSHIP_ARGUMENT , invalidOwnership
+#define PX_BP_DIFFERENT_GROUPS(desc, a, b) differentBroadPhaseGroupsChecked(desc, a, b, invalidOwnership)
+#else
+#define PX_BP_BLOCK_LOCAL_TRAPS 0
+#define PX_BP_TRAP_KERNEL
+#define PX_BP_OWNERSHIP_PARAMETER
+#define PX_BP_OWNERSHIP_ARGUMENT
+#define PX_BP_DIFFERENT_GROUPS(desc, a, b) differentBroadPhaseGroups(desc, a, b)
+#endif
+
 // PT: kernels marked with "###ONESHOT" are the ones that run for "one shot" queries (a single call to the broadphase).
 // Others are needed for incremental updates.
 
@@ -61,7 +78,7 @@ extern "C" __host__ void initBroadphaseKernels0() {}
 #define CHECK64(x)	if(x>0x00000000ffffffff)	{ printf("FOUND OVERFLOW! %s = %lld\n", #x, x);	}
 
 #if USE_ENV_IDS
-static __device__ PX_FORCE_INLINE bool filtering(const PxgBroadPhaseDesc* desc, PxU32 handle, PxU32 otherHandle, PxU32 envId, PxU32 otherEnvId)
+static __device__ PX_FORCE_INLINE bool filtering(const PxgBroadPhaseDesc* desc, PxU32 handle, PxU32 otherHandle, PxU32 envId, PxU32 otherEnvId PX_BP_OWNERSHIP_PARAMETER)
 {
 	// PT: filtering uses two distinct IDs: group IDs and environment IDs.
 	//
@@ -75,7 +92,7 @@ static __device__ PX_FORCE_INLINE bool filtering(const PxgBroadPhaseDesc* desc, 
 	// everything else. This is for e.g. ground plane shapes, which should support all other shapes regardless of their
 	// environment. The alternative would be to duplicate the ground plane in each environment, which would be a waste.
 	//
-	return	(differentBroadPhaseGroups(desc, handle, otherHandle)									// PT: true if shapes are not part of the same actor
+	return	(PX_BP_DIFFERENT_GROUPS(desc, handle, otherHandle)									// PT: true if shapes are not part of the same actor
 		&&	((envId == otherEnvId)										// PT: true is shapes belong to the same environment
 		||	(envId==PX_INVALID_U32) || (otherEnvId==PX_INVALID_U32)));	// PT: true for shapes shared by all environments
 }
@@ -1508,7 +1525,7 @@ static __device__ PX_FORCE_INLINE void updatePair(PxU32 handle, PxU32 otherHandl
 	report[index] = PxgBroadPhasePair(handle, otherHandle);
 }
 
-extern "C" __global__ void performIncrementalSAP(PxgBroadPhaseDesc* bpDesc)	// BP_INCREMENTAL_SAP
+extern "C" __global__ PX_BP_TRAP_KERNEL void performIncrementalSAP(PxgBroadPhaseDesc* bpDesc)	// BP_INCREMENTAL_SAP
 {
 	__shared__ PxU32 sTotalComparisons;
 	__shared__ const PxU32* sComparisonHistograms;
@@ -1590,6 +1607,9 @@ extern "C" __global__ void performIncrementalSAP(PxgBroadPhaseDesc* bpDesc)	// B
 
 			PxU32 handle = 0xFFFFFFFF;
 			PxU32 otherHandle = 0xFFFFFFFF;
+#if PX_BP_BLOCK_LOCAL_TRAPS
+            bool invalidOwnership = false;
+#endif
 			PxU32 foundOrLostID = 0;
 			PxU32 foundOrLostPair = 0;
 			PxU32 downPass = 0;
@@ -1643,9 +1663,9 @@ extern "C" __global__ void performIncrementalSAP(PxgBroadPhaseDesc* bpDesc)	// B
 
 #if USE_ENV_IDS
 				const PxU32 otherEnvId = envIds ? envIds[otherHandle] : PX_INVALID_U32;
-				if(filtering(bpDesc, handle, otherHandle, envId, otherEnvId))
+				if(filtering(bpDesc, handle, otherHandle, envId, otherEnvId PX_BP_OWNERSHIP_ARGUMENT))
 #else
-				if(differentBroadPhaseGroups(bpDesc, handle, otherHandle))// && (isStartHandle ^ isStartProjection(otherSortedHandle)))
+				if(PX_BP_DIFFERENT_GROUPS(bpDesc, handle, otherHandle))// && (isStartHandle ^ isStartProjection(otherSortedHandle)))
 #endif
 				{
 					//Then we need to do actual work...
@@ -1675,6 +1695,10 @@ extern "C" __global__ void performIncrementalSAP(PxgBroadPhaseDesc* bpDesc)	// B
 				}
 			}
 
+#if PX_BP_BLOCK_LOCAL_TRAPS
+            if (__syncthreads_or(invalidOwnership)) __trap();
+#endif
+
             for (PxU32 reportType = 0; reportType < 2; ++reportType)
             {
                 const bool emit = foundOrLostPair && foundOrLostID == reportType;
@@ -1699,7 +1723,7 @@ extern "C" __global__ void performIncrementalSAP(PxgBroadPhaseDesc* bpDesc)	// B
 
 #define ltype	PxU64
 #define ltype2	PxU32
-extern "C" __global__ void generateFoundPairsForNewBoundsRegion(PxgBroadPhaseDesc* bpDesc)	// BP_GENERATE_FOUNDPAIR_NEWBOUNDS //###ONESHOT
+extern "C" __global__ PX_BP_TRAP_KERNEL void generateFoundPairsForNewBoundsRegion(PxgBroadPhaseDesc* bpDesc)	// BP_GENERATE_FOUNDPAIR_NEWBOUNDS //###ONESHOT
 {
 	const PxU32 numHandles = bpDesc->numPreviousHandles + bpDesc->numCreatedHandles - bpDesc->numRemovedHandles;
 	const PxU32 nbProjections = numHandles * 2 ;
@@ -1766,6 +1790,9 @@ extern "C" __global__ void generateFoundPairsForNewBoundsRegion(PxgBroadPhaseDes
 		//initialize found pair count buffer
 
 		ltype2 foundCount = 0;
+#if PX_BP_BLOCK_LOCAL_TRAPS
+        bool invalidOwnership = false;
+#endif
 
 		PxU32 handle  =  0xFFFFFFFF;
 		PxU32 otherHandle = 0xFFFFFFFF;
@@ -1822,9 +1849,9 @@ extern "C" __global__ void generateFoundPairsForNewBoundsRegion(PxgBroadPhaseDes
 					{
 #if USE_ENV_IDS
 						const PxU32 otherEnvID = boxEnvIDs ? boxEnvIDs[otherHandle] : PX_INVALID_U32;
-						if(filtering(bpDesc, handle, otherHandle, envID, otherEnvID))
+						if(filtering(bpDesc, handle, otherHandle, envID, otherEnvID PX_BP_OWNERSHIP_ARGUMENT))
 #else
-						if(differentBroadPhaseGroups(bpDesc, handle, otherHandle))
+						if(PX_BP_DIFFERENT_GROUPS(bpDesc, handle, otherHandle))
 #endif
 						{
 							const PxgIntegerAABB& iaabb = newBounds[handle];
@@ -1838,6 +1865,9 @@ extern "C" __global__ void generateFoundPairsForNewBoundsRegion(PxgBroadPhaseDes
 			}  
 		}
 	
+#if PX_BP_BLOCK_LOCAL_TRAPS
+        if (__syncthreads_or(invalidOwnership)) __trap();
+#endif
 		ltype2 res = warpScanAdd<WARP_SIZE>(FULL_MASK, threadIdx.x, threadIndexInWarp, sFoundPairsCount, foundCount, foundCount);
 		//CHECK64(res)	// PT: this one does not fire
 		if(threadIndexInWarp == (WARP_SIZE-1))

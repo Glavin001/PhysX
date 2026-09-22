@@ -194,9 +194,28 @@ __device__ __forceinline__ Vector solveFineDiagonalThread(Buffers b,unsigned nod
 }
 __global__ void applyFineDiagonal(Input input,Buffers b,const Status* status,const Vector* residual,Vector* result){
     input=resolvedInput(input);
+#if defined(PX_CUMETAL_BLOCK_VOTED_TRAPS) && PX_CUMETAL_BLOCK_VOTED_TRAPS
+    // Vote before any node-tail exit, including lanes whose warp has no work.
+    // The hint's caller and native registration enforce a single block. Empty
+    // inputs keep the original no-work/no-error behavior even with levelBonds.
+    const unsigned first=(blockIdx.x*blockDim.x+threadIdx.x)/32;
+    if(__syncthreads_or(first<input.nodes && input.levelBonds)){__trap();return;}
+    // Like the original full-mask warp solve, callers must use a 1D block
+    // containing complete warps (the supported qualifier uses 256 threads).
+    const unsigned stride=gridDim.x*(blockDim.x/32);
+    for(unsigned node=first;node<input.nodes;){
+        Vector out{};if(usable(status))out=solveFineDiagonal(b,node,residual[node]);
+        if(!(threadIdx.x&31u))result[node]=out;
+        // All lanes in this warp share node/count. Stop before the unsigned
+        // increment could wrap, without skipping the final complete solve.
+        if(input.nodes-node<=stride)break;
+        node+=stride;
+    }
+#else
     const unsigned node=(blockIdx.x*blockDim.x+threadIdx.x)/32;if(node>=input.nodes)return;
     if(input.levelBonds){__trap();return;} // Fine-only factor misuse is an explicit device error.
     Vector out{};if(usable(status))out=solveFineDiagonal(b,node,residual[node]);
     if(!(threadIdx.x&31u))result[node]=out;
+#endif
 }
 }}}

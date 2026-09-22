@@ -135,6 +135,7 @@ void PxgCMGpuDiscreteUpdateBase::processContactManagers(PxgContactManagers& mana
 		maxPatches = PXG_MULTIMANIFOLD_MAX_SUBMANIFOLDS;
 		break;
 	}
+#if !defined(PX_CUMETAL_DISABLE_CONVEX_CORE)
 	case GPU_BUCKET_ID::eConvexCorePlane:
 		mContext->mGpuNarrowphaseCore->testSDKConvexCorePlaneGjkEpaGpu(managersGPU,
 			mContext->mContext.getCreateAveragePoint(), managers.mCpuContactManagerMapping.size(),
@@ -171,6 +172,17 @@ void PxgCMGpuDiscreteUpdateBase::processContactManagers(PxgContactManagers& mana
 		mContext->mGpuNarrowphaseCore->testSDKConvexCoreClothmeshGjkEpaGpu(managersGPU,
 			managers.mCpuContactManagerMapping.size(), &renderOutput);
 		break;
+#else
+	case GPU_BUCKET_ID::eConvexCorePlane:
+	case GPU_BUCKET_ID::eConvexCoreConvex:
+	case GPU_BUCKET_ID::eConvexCoreTrimesh:
+	case GPU_BUCKET_ID::eConvexCoreTetmesh:
+	case GPU_BUCKET_ID::eConvexCoreClothmesh:
+		// Public shape/scene entry points reject this geometry before simulation.
+		PxGetFoundation().error(PxErrorCode::eINVALID_OPERATION, PX_FL,
+			"ConvexCore is disabled in this CuMetal build; contact dispatch rejected.");
+		return;
+#endif
 	case GPU_BUCKET_ID::eSphere:
 	{
 		mContext->mGpuNarrowphaseCore->testSDKSphereGpu(managersGPU, managers.mCpuContactManagerMapping.size(),

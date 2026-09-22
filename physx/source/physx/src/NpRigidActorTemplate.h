@@ -29,6 +29,7 @@
 #ifndef NP_RIGID_ACTOR_TEMPLATE_H
 #define NP_RIGID_ACTOR_TEMPLATE_H
 
+#include "NpCuMetalFeatures.h"
 #include "NpActorTemplate.h"
 #include "NpShapeManager.h"
 #include "NpConstraint.h"
@@ -215,6 +216,8 @@ void NpRigidActorTemplate<APIClass>::removeShapes(PxSceneQuerySystem* sqManager)
 template<class APIClass>
 bool NpRigidActorTemplate<APIClass>::attachShape(PxShape& shape)
 {
+	if(!checkCuMetalGeometry(shape.getGeometry().getType()))
+		return false;
 	NpScene* npScene = ActorTemplateClass::getNpScene();
 	NP_WRITE_CHECK(npScene);
 	NpShape& npShape = static_cast<NpShape&>(shape);

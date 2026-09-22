@@ -147,9 +147,20 @@ __global__ void constructTerminals(Input input,const Status* source,Status* stat
     grid.sync();if(!lane && !status->error){status->generation=source->generation;status->initialized=1;++status->builds;}
 }
 __device__ __forceinline__ void solveTerminalComponent(const Input& a,TerminalBuffers b,TerminalShared& s,unsigned component,unsigned level,const Vector* rhs,Vector* result){
+#if defined(PX_CUMETAL_BLOCK_VOTED_TRAPS) && PX_CUMETAL_BLOCK_VOTED_TRAPS
+    // All current callers traverse one component with the full block. Vote
+    // before either early return; unowned components must not read kind.
+    // The matching host hint and native compiler ABI enforce one block, so
+    // this remains an error for the whole dispatch, never nonconvergence.
+    const bool owned=b.owner[component]==level;
+    const unsigned kind=owned?b.kind[component]:0u;
+    if(__syncthreads_or(kind==3)){__trap();return;}
+    if(!owned || !kind)return;
+#else
     if(b.owner[component]!=level)return;
     const unsigned kind=b.kind[component];if(!kind)return;
     if(kind==3){__trap();return;}
+#endif
     const unsigned first=a.partition.begin[component],count=a.partition.end[component]-first,size=6*count;
     if(threadIdx.x<count)s.nodes[threadIdx.x]=terminalNode(a,first+threadIdx.x);__syncthreads();
     if(threadIdx.x<size){const unsigned i=threadIdx.x,node=s.nodes[i/6];

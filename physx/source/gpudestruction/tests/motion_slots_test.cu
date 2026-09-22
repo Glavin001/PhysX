@@ -159,8 +159,60 @@ void addressIsolation() {
     CHECK(!get(f.nodes+7).live && !get(f.nodes+f.addresses[475]).lifetime);
     std::puts("GPU grant uniqueness, source/target isolation, immutable lookup and committed-parent split: PASS");
 }
+// A captured launch keeps the descriptor allocation, not a frozen copy of its
+// nested pointers. Rebind node storage between replays and require exact owners,
+// body values and node births while the descriptor bytes remain read-only during
+// each launch. This also runs with the original CUDA/default signature.
+void descriptorStability() {
+    Fixture f(129);
+    const auto* descriptor=f.graph.addressView();
+    PxvPreSolveNode* originalNodes=f.nodes;
+    for(unsigned pass=0;pass<2;++pass) {
+        if(pass) {
+            f.nodes=make<PxvPreSolveNode>(f.storageCapacity);
+            CHECK(f.nodes!=originalNodes);
+            CUDA(f.graph.setNodes(f.nodes,f.storageCapacity,0));
+        }
+        unsigned needed=0;
+        for(unsigned i=0;i<f.size;++i) {
+            const unsigned selected=pass?(i%2==0):1u;needed+=selected;
+            f.requests[i]={i,7,i%2,selected,i};
+        }
+        f.reset(f.size,needed);
+        CUDA(f.graph.setCapacity(f.granted,f.size+32,0));
+        CHECK(f.graph.addressView()==descriptor);
+        std::vector<unsigned char> before(sizeof(NativeMotionAddresses)),after(before.size());
+        CUDA(cudaMemcpy(before.data(),descriptor,before.size(),cudaMemcpyDeviceToHost));
+        CUDA(f.graph.launch(0));CUDA(cudaDeviceSynchronize());
+        CUDA(cudaMemcpy(after.data(),descriptor,after.size(),cudaMemcpyDeviceToHost));
+        CHECK(before==after);
+        f.check(f.size,0);
+        if(pass) {
+            // The prior allocation is still alive: stale descriptor reads must
+            // fail numerically rather than relying on freed-memory behavior.
+            std::vector<PxvPreSolveNode> old(f.storageCapacity);
+            CUDA(cudaMemcpy(old.data(),originalNodes,old.size()*sizeof(old[0]),cudaMemcpyDeviceToHost));
+            for(unsigned i=0;i<f.size;++i)CHECK(old[f.addresses[i]].lifetime==1);
+        }
+    }
+    CUDA(cudaFree(originalNodes));
+    std::puts("captured motion descriptor read-only bytes and ordered node-storage rebind: PASS");
+}
 int main(int argc,char** argv) {
+#if defined(PX_CUMETAL) && PX_CUMETAL
+    cudaDeviceProp capabilities{};
+    CHECK(!nativeMotionCuMetalDeviceSupported(capabilities));
+    std::strcpy(capabilities.name,"Apple test device");
+    capabilities.warpSize=32;capabilities.maxThreadsPerBlock=128;capabilities.cooperativeLaunch=1;
+    CHECK(nativeMotionCuMetalDeviceSupported(capabilities));
+    capabilities.warpSize=64;CHECK(!nativeMotionCuMetalDeviceSupported(capabilities));capabilities.warpSize=32;
+    capabilities.maxThreadsPerBlock=127;CHECK(!nativeMotionCuMetalDeviceSupported(capabilities));capabilities.maxThreadsPerBlock=128;
+    capabilities.cooperativeLaunch=0;CHECK(!nativeMotionCuMetalDeviceSupported(capabilities));capabilities.cooperativeLaunch=1;
+    std::strcpy(capabilities.name,"NVIDIA test device");CHECK(!nativeMotionCuMetalDeviceSupported(capabilities));
+#endif
+    if(argc==2 && std::strcmp(argv[1],"--descriptor-stability")==0){descriptorStability();return 0;}
     if(argc==2 && std::strcmp(argv[1],"--address-isolation")==0){addressIsolation();return 0;}
+    descriptorStability();
     addressIsolation();
     std::mt19937 random(1709);
     for(unsigned size:{1u,127u,128u,129u,444u,4099u,113664u}) {

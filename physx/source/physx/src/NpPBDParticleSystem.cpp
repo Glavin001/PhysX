@@ -289,6 +289,10 @@ namespace physx
 			}
 			case (PxConcreteType::ePARTICLE_DIFFUSE_BUFFER):
 			{
+#if defined(PX_CUMETAL_RIGID_DEMO) && PX_CUMETAL_RIGID_DEMO
+                PxGetFoundation().error(PxErrorCode::eINVALID_OPERATION, PX_FL, "CuMetal rigid destruction demo build excludes diffuse particles; buffer insertion rejected.");
+                return;
+#endif
 				added = addParticleBufferT<NpParticleAndDiffuseBuffer>(this, mParticleDiffuseBuffers,
 					llCore.mParticleDiffuseBuffers, llCore.mParticleDiffuseBufferUpdate, particleBuffer);
 				break;

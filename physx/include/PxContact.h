@@ -371,7 +371,16 @@ struct PxContactStreamIterator
 	/**
 	\brief Advances iterator to next contact patch.
 	*/
+#if defined(PX_CUMETAL_EXPLICIT_MOTION_ROOT) && PX_CUMETAL_EXPLICIT_MOTION_ROOT
+#if !defined(PX_CUMETAL)
+#error "PX_CUMETAL_EXPLICIT_MOTION_ROOT requires the CuMetal backend"
+#endif
+    // Keep private iterator pointer updates visible to the source-first pointer
+    // proof. This opt-in hint changes inlining only; the shared body is below.
+    PX_CUDA_CALLABLE PX_FORCE_INLINE void nextPatch()
+#else
 	PX_CUDA_CALLABLE PX_INLINE void nextPatch()
+#endif
 	{
 		PX_ASSERT(nextPatchIndex < totalPatches);
 		if(nextPatchIndex)

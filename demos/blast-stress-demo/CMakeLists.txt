@@ -5,27 +5,13 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-include(CheckLanguage)
-option(BLAST_ENABLE_CUDA_STRESS "Build the CUDA stress solver" ON)
-if(BLAST_ENABLE_CUDA_STRESS)
-    check_language(CUDA)
-    if(CMAKE_CUDA_COMPILER)
-        if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
-            set(CMAKE_CUDA_ARCHITECTURES 89 CACHE STRING "CUDA architectures for destruction kernels")
-        endif()
-        enable_language(CUDA)
-        set(CMAKE_CUDA_STANDARD 17)
-        set(CMAKE_CUDA_STANDARD_REQUIRED ON)
-    else()
-        message(FATAL_ERROR "CUDA stress requested but compiler unavailable; explicitly set BLAST_ENABLE_CUDA_STRESS=OFF for CPU-only builds")
-    endif()
-endif()
-
 get_filename_component(REPO_ROOT "${CMAKE_CURRENT_LIST_DIR}/../.." ABSOLUTE)
 set(BLAST_ROOT "${REPO_ROOT}/blast" CACHE PATH "Blast source root")
 set(PHYSX_ROOT "${REPO_ROOT}/physx" CACHE PATH "Built PhysX SDK root")
 set(PHYSX_CONFIGURATION "release" CACHE STRING "PhysX binary configuration")
-set(PHYSX_LIB_DIR "${PHYSX_ROOT}/bin/linux.x86_64/${PHYSX_CONFIGURATION}" CACHE PATH
+option(BLAST_ENABLE_CUDA_STRESS "Build the shared GPU stress solver" ON)
+include("${REPO_ROOT}/destruction/GpuBackend.cmake")
+set(PHYSX_LIB_DIR "${PHYSX_ROOT}/bin/${PX_DESTRUCTION_PLATFORM}/${PHYSX_CONFIGURATION}" CACHE PATH
     "PhysX library directory")
 
 if(NOT EXISTS "${PHYSX_ROOT}/include/PxPhysicsAPI.h")
@@ -112,12 +98,11 @@ target_compile_definitions(NvBlastExtStressPhysX PUBLIC PX_PHYSX_STATIC_LIB NDEB
 target_link_libraries(NvBlastExtStressPhysX PUBLIC blast_stress_core)
 
 if(BLAST_ENABLE_CUDA_STRESS)
-    find_package(CUDAToolkit REQUIRED)
     target_sources(NvBlastExtStressPhysX PRIVATE
         "${BLAST_ROOT}/source/sdk/extensions/stressphysx/NvBlastExtStressPhysXContactGpu.cu")
     target_compile_definitions(NvBlastExtStressPhysX PRIVATE NVBLAST_ENABLE_DIRECT_GPU_CONTACT_DRAIN)
-    set_target_properties(NvBlastExtStressPhysX PROPERTIES CUDA_ARCHITECTURES "${CMAKE_CUDA_ARCHITECTURES}" CUDA_RUNTIME_LIBRARY Shared)
-    target_link_libraries(NvBlastExtStressPhysX PRIVATE CUDA::cudart)
+    px_destruction_cuda_properties(NvBlastExtStressPhysX PROPERTIES CUDA_ARCHITECTURES "${CMAKE_CUDA_ARCHITECTURES}" CUDA_RUNTIME_LIBRARY Shared)
+    target_link_libraries(NvBlastExtStressPhysX PRIVATE ${PX_DESTRUCTION_GPU_RUNTIME})
 
     add_library(NvBlastExtStressGpu STATIC
         "${BLAST_ROOT}/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu")
@@ -128,38 +113,40 @@ if(BLAST_ENABLE_CUDA_STRESS)
         # headers. Without this the demo's test targets cannot build the CUDA
         # solver at all.
         "${BLAST_ROOT}/include/extensions/stress")
-    set_target_properties(NvBlastExtStressGpu PROPERTIES
-        CUDA_ARCHITECTURES "${CMAKE_CUDA_ARCHITECTURES}"
-        POSITION_INDEPENDENT_CODE ON)
+    set_target_properties(NvBlastExtStressGpu PROPERTIES POSITION_INDEPENDENT_CODE ON)
+    px_destruction_cuda_properties(NvBlastExtStressGpu PROPERTIES
+        CUDA_ARCHITECTURES "${CMAKE_CUDA_ARCHITECTURES}")
     target_compile_definitions(blast_stress_core PRIVATE
         NVBLAST_ENABLE_CUDA_STRESS)
     target_link_libraries(NvBlastExtStressGpu PUBLIC
-        CUDA::cudart
-        CUDA::cuda_driver)
+        ${PX_DESTRUCTION_GPU_RUNTIME}
+        ${PX_DESTRUCTION_GPU_DRIVER})
     target_link_libraries(blast_stress_core PUBLIC NvBlastExtStressGpu)
 endif()
 
-set(PHYSX_LINK_LIBS
-    "-Wl,--start-group"
-    ${PHYSX_EXTENSIONS}
-    ${PHYSX_CUDA_MANAGER}
-    ${PHYSX_CORE}
-    ${PHYSX_PVD}
-    ${PHYSX_COOKING}
-    ${PHYSX_COMMON}
-    ${PHYSX_FOUNDATION}
-    "-Wl,--end-group"
-    ${PVD_RUNTIME}
-    cuda
-    dl
-    pthread
-    rt)
+set(PHYSX_LINK_LIBS)
+if(NOT APPLE)
+    list(APPEND PHYSX_LINK_LIBS "-Wl,--start-group")
+endif()
+list(APPEND PHYSX_LINK_LIBS
+    ${PHYSX_EXTENSIONS} ${PHYSX_CUDA_MANAGER} ${PHYSX_CORE} ${PHYSX_PVD}
+    ${PHYSX_COOKING} ${PHYSX_COMMON} ${PHYSX_FOUNDATION})
+if(NOT APPLE)
+    list(APPEND PHYSX_LINK_LIBS "-Wl,--end-group")
+endif()
+if(PVD_RUNTIME)
+    list(APPEND PHYSX_LINK_LIBS ${PVD_RUNTIME})
+endif()
+list(APPEND PHYSX_LINK_LIBS ${PX_DESTRUCTION_GPU_DRIVER} ${CMAKE_DL_LIBS} Threads::Threads)
+if(UNIX AND NOT APPLE)
+    list(APPEND PHYSX_LINK_LIBS rt)
+endif()
 
 # Application CUDA registration must resolve before the PhysX static group.
 # Otherwise its private CudaKernelWrangler intercepts __cudaRegisterFatBinary
 # and looks for engine-only PxGpuCudaRegister* symbols in our kernels.
 if(BLAST_ENABLE_CUDA_STRESS)
-    list(PREPEND PHYSX_LINK_LIBS CUDA::cudart)
+    list(PREPEND PHYSX_LINK_LIBS ${PX_DESTRUCTION_GPU_RUNTIME})
 endif()
 
 add_executable(blast_stress_demo
@@ -177,7 +164,7 @@ target_compile_definitions(blast_stress_demo PRIVATE PX_PHYSX_STATIC_LIB NDEBUG
     BLAST_DEFAULT_SCENE_PATH="${BLAST_ROOT}/blast-stress-demo-rs/assets/scenes/fractured-tower.json")
 target_link_options(blast_stress_demo PRIVATE
     "-Wl,-rpath,${PHYSX_LIB_DIR}"
-    "-Wl,--gc-sections")
+    "${PX_DESTRUCTION_GC_SECTIONS}")
 target_link_libraries(blast_stress_demo PRIVATE
     NvBlastExtStressPhysX
     ${PHYSX_LINK_LIBS})
@@ -190,7 +177,7 @@ target_include_directories(blast_direct_gpu_p0 PRIVATE
 target_compile_definitions(blast_direct_gpu_p0 PRIVATE PX_PHYSX_STATIC_LIB NDEBUG)
 target_link_options(blast_direct_gpu_p0 PRIVATE
     "-Wl,-rpath,${PHYSX_LIB_DIR}"
-    "-Wl,--gc-sections")
+    "${PX_DESTRUCTION_GC_SECTIONS}")
 target_link_libraries(blast_direct_gpu_p0 PRIVATE
     ${PHYSX_LINK_LIBS})
 
@@ -216,7 +203,7 @@ target_include_directories(resim_snapshot_test PRIVATE
 target_compile_definitions(resim_snapshot_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG)
 target_link_options(resim_snapshot_test PRIVATE
     "-Wl,-rpath,${PHYSX_LIB_DIR}"
-    "-Wl,--gc-sections")
+    "${PX_DESTRUCTION_GC_SECTIONS}")
 target_link_libraries(resim_snapshot_test PRIVATE
     NvBlastExtStressPhysX
     ${PHYSX_LINK_LIBS})
@@ -225,7 +212,7 @@ add_test(NAME blast_stress_physx_resim_policy_gpu COMMAND resim_snapshot_test --
 
 add_executable(velocity_fidelity_test tests/velocity_fidelity_test.cpp physx_scene.cpp)
 target_link_libraries(velocity_fidelity_test PRIVATE NvBlastExtStressPhysX ${PHYSX_LINK_LIBS})
-target_link_options(velocity_fidelity_test PRIVATE "-Wl,-rpath,${PHYSX_LIB_DIR}" "-Wl,--gc-sections")
+target_link_options(velocity_fidelity_test PRIVATE "-Wl,-rpath,${PHYSX_LIB_DIR}" "${PX_DESTRUCTION_GC_SECTIONS}")
 add_test(NAME blast_stress_velocity_fidelity_cpu COMMAND velocity_fidelity_test cpu)
 if(BLAST_ENABLE_CUDA_STRESS)
     add_test(NAME blast_stress_velocity_fidelity_gpu COMMAND velocity_fidelity_test gpu)
@@ -248,7 +235,7 @@ target_include_directories(load_path_test PRIVATE
 target_compile_definitions(load_path_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG)
 target_link_options(load_path_test PRIVATE
     "-Wl,-rpath,${PHYSX_LIB_DIR}"
-    "-Wl,--gc-sections")
+    "${PX_DESTRUCTION_GC_SECTIONS}")
 target_link_libraries(load_path_test PRIVATE
     NvBlastExtStressPhysX
     ${PHYSX_LINK_LIBS})
@@ -268,7 +255,7 @@ target_include_directories(solver_divergence_test PRIVATE
 target_compile_definitions(solver_divergence_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG)
 target_link_options(solver_divergence_test PRIVATE
     "-Wl,-rpath,${PHYSX_LIB_DIR}"
-    "-Wl,--gc-sections")
+    "${PX_DESTRUCTION_GC_SECTIONS}")
 target_link_libraries(solver_divergence_test PRIVATE
     NvBlastExtStressPhysX
     ${PHYSX_LINK_LIBS})
@@ -285,7 +272,7 @@ target_include_directories(resim_punchthrough_test PRIVATE
 target_compile_definitions(resim_punchthrough_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG)
 target_link_options(resim_punchthrough_test PRIVATE
     "-Wl,-rpath,${PHYSX_LIB_DIR}"
-    "-Wl,--gc-sections")
+    "${PX_DESTRUCTION_GC_SECTIONS}")
 target_link_libraries(resim_punchthrough_test PRIVATE
     NvBlastExtStressPhysX
     ${PHYSX_LINK_LIBS})
@@ -304,7 +291,7 @@ target_include_directories(resim_scoped_cascade_test PRIVATE
 target_compile_definitions(resim_scoped_cascade_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG)
 target_link_options(resim_scoped_cascade_test PRIVATE
     "-Wl,-rpath,${PHYSX_LIB_DIR}"
-    "-Wl,--gc-sections")
+    "${PX_DESTRUCTION_GC_SECTIONS}")
 target_link_libraries(resim_scoped_cascade_test PRIVATE
     NvBlastExtStressPhysX
     ${PHYSX_LINK_LIBS})
@@ -322,7 +309,7 @@ target_include_directories(direct_gpu_resim_test PRIVATE
 target_compile_definitions(direct_gpu_resim_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG)
 target_link_options(direct_gpu_resim_test PRIVATE
     "-Wl,-rpath,${PHYSX_LIB_DIR}"
-    "-Wl,--gc-sections")
+    "${PX_DESTRUCTION_GC_SECTIONS}")
 target_link_libraries(direct_gpu_resim_test PRIVATE
     NvBlastExtStressPhysX
     ${PHYSX_LINK_LIBS})
@@ -374,7 +361,7 @@ target_include_directories(material_behavior_test PRIVATE
 target_compile_definitions(material_behavior_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG)
 target_link_options(material_behavior_test PRIVATE
     "-Wl,-rpath,${PHYSX_LIB_DIR}"
-    "-Wl,--gc-sections")
+    "${PX_DESTRUCTION_GC_SECTIONS}")
 target_link_libraries(material_behavior_test PRIVATE
     NvBlastExtStressPhysX
     ${PHYSX_LINK_LIBS})
@@ -392,7 +379,7 @@ target_include_directories(chunk_crush_test PRIVATE
 target_compile_definitions(chunk_crush_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG)
 target_link_options(chunk_crush_test PRIVATE
     "-Wl,-rpath,${PHYSX_LIB_DIR}"
-    "-Wl,--gc-sections")
+    "${PX_DESTRUCTION_GC_SECTIONS}")
 target_link_libraries(chunk_crush_test PRIVATE
     NvBlastExtStressPhysX
     ${PHYSX_LINK_LIBS})
@@ -409,7 +396,7 @@ target_include_directories(scene_pack_v3_test PRIVATE
 target_compile_definitions(scene_pack_v3_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG)
 target_link_options(scene_pack_v3_test PRIVATE
     "-Wl,-rpath,${PHYSX_LIB_DIR}"
-    "-Wl,--gc-sections")
+    "${PX_DESTRUCTION_GC_SECTIONS}")
 target_link_libraries(scene_pack_v3_test PRIVATE ${PHYSX_LINK_LIBS})
 add_test(NAME blast_stress_scene_pack_v3
     COMMAND scene_pack_v3_test
@@ -497,7 +484,7 @@ target_include_directories(destruction_quality_test PRIVATE
 target_compile_definitions(destruction_quality_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG)
 target_link_options(destruction_quality_test PRIVATE
     "-Wl,-rpath,${PHYSX_LIB_DIR}"
-    "-Wl,--gc-sections")
+    "${PX_DESTRUCTION_GC_SECTIONS}")
 target_link_libraries(destruction_quality_test PRIVATE
     NvBlastExtStressPhysX
     ${PHYSX_LINK_LIBS})
@@ -539,7 +526,7 @@ add_test(NAME blast_stress_node_mesh
 if(BLAST_ENABLE_CUDA_STRESS)
     add_test(NAME blast_stress_gpu_crush_correction COMMAND chunk_crush_test --gpu)
     add_executable(direct_gpu_contact_test tests/direct_gpu_contact_test.cu physx_scene.cpp)
-    set_target_properties(direct_gpu_contact_test PROPERTIES CUDA_ARCHITECTURES "${CMAKE_CUDA_ARCHITECTURES}" CUDA_RUNTIME_LIBRARY Shared)
+    px_destruction_cuda_properties(direct_gpu_contact_test PROPERTIES CUDA_ARCHITECTURES "${CMAKE_CUDA_ARCHITECTURES}" CUDA_RUNTIME_LIBRARY Shared)
     target_link_options(direct_gpu_contact_test PRIVATE "-Wl,-rpath,${PHYSX_LIB_DIR}")
     target_link_libraries(direct_gpu_contact_test PRIVATE NvBlastExtStressPhysX ${PHYSX_LINK_LIBS})
     add_test(NAME blast_stress_physx_direct_gpu_contacts COMMAND direct_gpu_contact_test)
@@ -565,22 +552,24 @@ if(BLAST_ENABLE_CUDA_STRESS)
     set_tests_properties(blast_stress_gpu_quiet_load_unrolled PROPERTIES ENVIRONMENT "BLAST_GPU_COND_LOOP=0")
 
     add_executable(native_gpu_material_test tests/native_gpu_material_test.cpp physx_scene.cpp)
-    target_include_directories(native_gpu_material_test PRIVATE ${CUDAToolkit_INCLUDE_DIRS})
+    target_include_directories(native_gpu_material_test PRIVATE ${PX_DESTRUCTION_GPU_INCLUDE_DIRS})
     target_link_options(native_gpu_material_test PRIVATE "-Wl,-rpath,${PHYSX_LIB_DIR}")
     target_link_libraries(native_gpu_material_test PRIVATE NvBlastExtStressPhysX ${PHYSX_LINK_LIBS})
     add_test(NAME physx_native_gpu_material COMMAND native_gpu_material_test)
 
     add_executable(native_gpu_destruction_test tests/native_gpu_destruction_test.cpp physx_scene.cpp)
-    target_include_directories(native_gpu_destruction_test PRIVATE ${CUDAToolkit_INCLUDE_DIRS} ${PHYSX_ROOT}/include)
+    target_include_directories(native_gpu_destruction_test PRIVATE ${PX_DESTRUCTION_GPU_INCLUDE_DIRS} ${PHYSX_ROOT}/include)
     target_compile_definitions(native_gpu_destruction_test PRIVATE PX_PHYSX_STATIC_LIB)
     target_link_options(native_gpu_destruction_test PRIVATE "-Wl,-rpath,${PHYSX_LIB_DIR}")
     set(NATIVE_DESTRUCTION_TEST_LIBS ${PHYSX_LINK_LIBS})
-    list(REMOVE_ITEM NATIVE_DESTRUCTION_TEST_LIBS CUDA::cudart)
+    if(PX_GPU_BACKEND STREQUAL "CUDA")
+        list(REMOVE_ITEM NATIVE_DESTRUCTION_TEST_LIBS ${PX_DESTRUCTION_GPU_RUNTIME})
+    endif()
     target_link_libraries(native_gpu_destruction_test PRIVATE ${NATIVE_DESTRUCTION_TEST_LIBS})
     add_test(NAME physx_native_gpu_destruction COMMAND native_gpu_destruction_test)
 
     add_executable(persistent_shape_owner_test tests/persistent_shape_owner_test.cpp physx_scene.cpp)
-    target_include_directories(persistent_shape_owner_test PRIVATE ${CUDAToolkit_INCLUDE_DIRS}
+    target_include_directories(persistent_shape_owner_test PRIVATE ${PX_DESTRUCTION_GPU_INCLUDE_DIRS}
         "${PHYSX_ROOT}/include"
         "${PHYSX_ROOT}/source/common/include"
         "${PHYSX_ROOT}/source/common/src"
@@ -654,8 +643,8 @@ if(BLAST_ENABLE_CUDA_STRESS)
         "${PHYSX_ROOT}/source/gpubroadphase/include" "${PHYSX_ROOT}/source/gpucommon/include"
         "${PHYSX_ROOT}/source/gpucommon/src/CUDA" "${PHYSX_ROOT}/source/lowlevelaabb/include")
     target_compile_definitions(native_gpu_incremental_pairs_test PRIVATE NDEBUG)
-    set_target_properties(native_gpu_incremental_pairs_test PROPERTIES CUDA_ARCHITECTURES 89 CUDA_STANDARD 17)
-    target_link_libraries(native_gpu_incremental_pairs_test PRIVATE CUDA::cudart)
+    px_destruction_cuda_properties(native_gpu_incremental_pairs_test PROPERTIES CUDA_ARCHITECTURES 89 CUDA_STANDARD 17)
+    target_link_libraries(native_gpu_incremental_pairs_test PRIVATE ${PX_DESTRUCTION_GPU_RUNTIME})
     add_test(NAME physx_native_gpu_incremental_pairs COMMAND native_gpu_incremental_pairs_test)
 
     add_executable(native_gpu_pairs_test tests/native_gpu_pairs_test.cu)
@@ -663,8 +652,8 @@ if(BLAST_ENABLE_CUDA_STRESS)
         "${PHYSX_ROOT}/source/gpucommon/include" "${PHYSX_ROOT}/source/gpubroadphase/include"
         "${PHYSX_ROOT}/source/gpubroadphase/src/CUDA")
     target_compile_definitions(native_gpu_pairs_test PRIVATE NDEBUG)
-    set_target_properties(native_gpu_pairs_test PROPERTIES CUDA_ARCHITECTURES 89 CUDA_STANDARD 17)
-    target_link_libraries(native_gpu_pairs_test PRIVATE CUDA::cudart)
+    px_destruction_cuda_properties(native_gpu_pairs_test PROPERTIES CUDA_ARCHITECTURES 89 CUDA_STANDARD 17)
+    target_link_libraries(native_gpu_pairs_test PRIVATE ${PX_DESTRUCTION_GPU_RUNTIME})
     add_test(NAME physx_native_gpu_pairs COMMAND native_gpu_pairs_test)
 
     # One production-kernel oracle is shared by the SDK and demo test entry points.
@@ -674,9 +663,11 @@ if(BLAST_ENABLE_CUDA_STRESS)
         "${PHYSX_ROOT}/source/gpusimulationcontroller/include" "${PHYSX_ROOT}/source/gpucommon/include"
         "${PHYSX_ROOT}/source/common/src" "${PHYSX_ROOT}/source/lowlevel/api/include")
     target_compile_definitions(native_gpu_motion_slots_test PRIVATE NDEBUG)
-    set_target_properties(native_gpu_motion_slots_test PROPERTIES CUDA_ARCHITECTURES 89 CUDA_STANDARD 17)
-    target_link_libraries(native_gpu_motion_slots_test PRIVATE CUDA::cudart)
+    px_destruction_cuda_properties(native_gpu_motion_slots_test PROPERTIES CUDA_ARCHITECTURES 89 CUDA_STANDARD 17)
+    target_link_libraries(native_gpu_motion_slots_test PRIVATE ${PX_DESTRUCTION_GPU_RUNTIME})
     add_test(NAME physx_native_gpu_motion_slots COMMAND native_gpu_motion_slots_test)
+    add_test(NAME physx_native_gpu_motion_descriptor COMMAND native_gpu_motion_slots_test --descriptor-stability)
+    set_tests_properties(physx_native_gpu_motion_descriptor PROPERTIES RUN_SERIAL TRUE TIMEOUT 600 LABELS "gpu;integration")
 
 
     add_executable(native_gpu_collision_test tests/native_gpu_collision_test.cpp physx_scene.cpp)
@@ -699,13 +690,15 @@ if(BLAST_ENABLE_CUDA_STRESS)
     add_test(NAME physx_native_gpu_accepted_properties_pgs COMMAND native_gpu_collision_test --accepted-properties-pgs)
     # Unfiltered audit: quiet initialization, fracture/correction, accepted
     # properties and the next ordinary tick must read only initialized storage.
-    foreach(native_init_mode accepted-properties accepted-properties-pgs)
-        add_test(NAME physx_native_gpu_state_initcheck_${native_init_mode}
-            COMMAND "${CUDAToolkit_BIN_DIR}/compute-sanitizer" --tool initcheck --error-exitcode 99
-                $<TARGET_FILE:native_gpu_collision_test> --${native_init_mode})
-        set_tests_properties(physx_native_gpu_state_initcheck_${native_init_mode}
-            PROPERTIES TIMEOUT 120 LABELS "gpu;sanitizer;integration" RUN_SERIAL TRUE)
-    endforeach()
+    if(PX_GPU_BACKEND STREQUAL "CUDA")
+        foreach(native_init_mode accepted-properties accepted-properties-pgs)
+            add_test(NAME physx_native_gpu_state_initcheck_${native_init_mode}
+                COMMAND "${CUDAToolkit_BIN_DIR}/compute-sanitizer" --tool initcheck --error-exitcode 99
+                    $<TARGET_FILE:native_gpu_collision_test> --${native_init_mode})
+            set_tests_properties(physx_native_gpu_state_initcheck_${native_init_mode}
+                PROPERTIES TIMEOUT 120 LABELS "gpu;sanitizer;integration" RUN_SERIAL TRUE)
+        endforeach()
+    endif()
     add_test(NAME physx_native_gpu_solver_metadata COMMAND native_gpu_collision_test --solver-metadata)
     add_test(NAME physx_native_gpu_pre_solve_islands COMMAND native_gpu_collision_test --pre-solve-islands)
     add_test(NAME physx_native_gpu_pre_solve_contacts COMMAND native_gpu_collision_test --pre-solve-contacts)
@@ -743,16 +736,19 @@ if(BLAST_ENABLE_CUDA_STRESS)
     # A separate CUDA DSO keeps application kernels out of PhysX's private
     # kernel-wrangler registration. This is a device consumer, not a solver.
     add_library(native_gpu_visuals SHARED native_gpu_visuals.cu)
-    target_include_directories(native_gpu_visuals PUBLIC ${PHYSX_ROOT}/include ${CUDAToolkit_INCLUDE_DIRS})
+    target_include_directories(native_gpu_visuals PUBLIC ${PHYSX_ROOT}/include ${PX_DESTRUCTION_GPU_INCLUDE_DIRS})
     target_compile_definitions(native_gpu_visuals PUBLIC NDEBUG)
-    target_link_libraries(native_gpu_visuals PRIVATE CUDA::cudart)
-    set_target_properties(native_gpu_visuals PROPERTIES CUDA_RUNTIME_LIBRARY Shared CUDA_ARCHITECTURES "${CMAKE_CUDA_ARCHITECTURES}")
+    target_link_libraries(native_gpu_visuals PRIVATE ${PX_DESTRUCTION_GPU_RUNTIME})
+    px_destruction_cuda_properties(native_gpu_visuals PROPERTIES CUDA_RUNTIME_LIBRARY Shared CUDA_ARCHITECTURES "${CMAKE_CUDA_ARCHITECTURES}")
     target_compile_options(native_gpu_visuals PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
     add_executable(native_gpu_visuals_test tests/native_gpu_visuals_test.cpp)
-    target_link_libraries(native_gpu_visuals_test PRIVATE native_gpu_visuals CUDA::cuda_driver)
+    target_link_libraries(native_gpu_visuals_test PRIVATE native_gpu_visuals ${PX_DESTRUCTION_GPU_DRIVER})
     add_test(NAME physx_native_gpu_visual_consumer COMMAND native_gpu_visuals_test)
     option(NATIVE_GPU_EGL_RENDERER "Enable the optional CUDA/OpenGL native demo renderer" OFF)
     if(NATIVE_GPU_EGL_RENDERER)
+        if(PX_GPU_BACKEND STREQUAL "CUMETAL")
+            message(FATAL_ERROR "The existing renderer requires NVIDIA CUDA/OpenGL interop. A native Metal rendering consumer is not implemented yet; no EGL installation can supply this backend.")
+        endif()
         find_package(OpenGL REQUIRED COMPONENTS OpenGL EGL)
     endif()
     add_executable(native_destruction_demo native_destruction_main.cpp native_gpu_consumer.cpp native_gpu_activity.cpp physx_scene.cpp state_writer.cpp)
@@ -760,6 +756,9 @@ if(BLAST_ENABLE_CUDA_STRESS)
     target_link_libraries(native_destruction_demo PRIVATE ZLIB::ZLIB)
     option(NATIVE_GPU_CUPTI "Enable optional non-serializing GPU activity diagnostics" OFF)
     if(NATIVE_GPU_CUPTI)
+        if(PX_GPU_BACKEND STREQUAL "CUMETAL")
+            message(FATAL_ERROR "CUPTI profiling is NVIDIA-only; the CuMetal backend has no qualified replacement profiler yet")
+        endif()
         set(NATIVE_GPU_CUPTI_ROOT "" CACHE PATH "Qualified CUPTI 13.2 Update 2 SDK root (include/ and lib/); independent of physics CUDA toolkit")
         find_path(NATIVE_CUPTI_INCLUDE cupti_activity.h HINTS "${NATIVE_GPU_CUPTI_ROOT}/include" NO_DEFAULT_PATH REQUIRED)
         find_library(NATIVE_CUPTI_LIBRARY NAMES cupti libcupti.so.13 HINTS "${NATIVE_GPU_CUPTI_ROOT}/lib" "${NATIVE_GPU_CUPTI_ROOT}/lib64" NO_DEFAULT_PATH REQUIRED)
@@ -774,7 +773,7 @@ if(BLAST_ENABLE_CUDA_STRESS)
         add_executable(native_cupti_capture_test ../../tools/diagnostics/cupti-conditional-loop/repro.cu native_gpu_activity.cpp)
         target_compile_definitions(native_cupti_capture_test PRIVATE NATIVE_GPU_CUPTI)
         target_include_directories(native_cupti_capture_test BEFORE PRIVATE "${NATIVE_CUPTI_INCLUDE}")
-        target_link_libraries(native_cupti_capture_test PRIVATE "${NATIVE_CUPTI_LIBRARY}" ZLIB::ZLIB CUDA::cudart CUDA::cuda_driver)
+        target_link_libraries(native_cupti_capture_test PRIVATE "${NATIVE_CUPTI_LIBRARY}" ZLIB::ZLIB ${PX_DESTRUCTION_GPU_RUNTIME} ${PX_DESTRUCTION_GPU_DRIVER})
         find_package(Python3 COMPONENTS Interpreter REQUIRED)
         add_test(NAME physx_native_cupti_long_capture COMMAND ${Python3_EXECUTABLE}
             ${CMAKE_CURRENT_SOURCE_DIR}/tests/native_cupti_capture_test.py $<TARGET_FILE:native_cupti_capture_test>)
@@ -792,7 +791,7 @@ if(BLAST_ENABLE_CUDA_STRESS)
     target_include_directories(native_destruction_demo PRIVATE ${NATIVE_COLLISION_TEST_INCLUDES}
         "${PHYSX_ROOT}/source/gpudestruction/include")
     target_link_options(native_destruction_demo PRIVATE "-Wl,-rpath,${PHYSX_LIB_DIR}")
-    target_link_libraries(native_destruction_demo PRIVATE ${NATIVE_DESTRUCTION_TEST_LIBS} CUDA::cuda_driver)
+    target_link_libraries(native_destruction_demo PRIVATE ${NATIVE_DESTRUCTION_TEST_LIBS} ${PX_DESTRUCTION_GPU_DRIVER})
     find_package(Python3 COMPONENTS Interpreter REQUIRED)
     # Counterfactual output-poisoning diagnostic; never linked into production.
     get_target_property(NATIVE_DEMO_SOURCES native_destruction_demo SOURCES)
@@ -831,14 +830,23 @@ if(BLAST_ENABLE_CUDA_STRESS)
     target_include_directories(native_gpu_resimulation_test PRIVATE ${NATIVE_CHECKPOINT_TEST_INCLUDES}
         "${PHYSX_ROOT}/source/gpudestruction/include")
     target_link_options(native_gpu_resimulation_test PRIVATE "-Wl,-rpath,${PHYSX_LIB_DIR}")
-    target_link_libraries(native_gpu_resimulation_test PRIVATE ${NATIVE_DESTRUCTION_TEST_LIBS} CUDA::cuda_driver)
+    target_link_libraries(native_gpu_resimulation_test PRIVATE ${NATIVE_DESTRUCTION_TEST_LIBS} ${PX_DESTRUCTION_GPU_DRIVER})
     add_test(NAME physx_native_gpu_resimulation COMMAND native_gpu_resimulation_test)
+
+    # Minimal native GPU simulation capture. Rendering consumes committed JSON
+    # separately; this target has no graphics interop or visual-kernel dependency.
+    add_executable(native_wall_capture native_wall_capture.cpp physx_scene.cpp)
+    target_compile_features(native_wall_capture PRIVATE cxx_std_17)
+    target_compile_definitions(native_wall_capture PRIVATE PX_PHYSX_STATIC_LIB NDEBUG PX_SUPPORT_PVD=0 PX_SUPPORT_OMNI_PVD=0)
+    target_include_directories(native_wall_capture PRIVATE ${NATIVE_CHECKPOINT_TEST_INCLUDES})
+    target_link_options(native_wall_capture PRIVATE "-Wl,-rpath,${PHYSX_LIB_DIR}")
+    target_link_libraries(native_wall_capture PRIVATE ${NATIVE_DESTRUCTION_TEST_LIBS} ${PX_DESTRUCTION_GPU_DRIVER})
 
     add_executable(native_standard_scene_test tests/native_standard_scene_test.cpp physx_scene.cpp)
     target_compile_definitions(native_standard_scene_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG PX_SUPPORT_PVD=0 PX_SUPPORT_OMNI_PVD=0)
     target_include_directories(native_standard_scene_test PRIVATE ${NATIVE_CHECKPOINT_TEST_INCLUDES})
     target_link_options(native_standard_scene_test PRIVATE "-Wl,-rpath,${PHYSX_LIB_DIR}")
-    target_link_libraries(native_standard_scene_test PRIVATE ${NATIVE_DESTRUCTION_TEST_LIBS} CUDA::cuda_driver)
+    target_link_libraries(native_standard_scene_test PRIVATE ${NATIVE_DESTRUCTION_TEST_LIBS} ${PX_DESTRUCTION_GPU_DRIVER})
     add_test(NAME physx_native_standard_reported_reuse COMMAND native_standard_scene_test --reported-reuse)
     add_test(NAME physx_native_standard_reuse COMMAND native_standard_scene_test --reuse)
     add_test(NAME physx_native_post_correction COMMAND native_standard_scene_test --post-correction)
@@ -853,6 +861,12 @@ if(BLAST_ENABLE_CUDA_STRESS)
     add_test(NAME physx_native_standard_wake_boundary COMMAND native_standard_scene_test --wake-boundary)
     add_test(NAME physx_native_standard_late_impact COMMAND native_standard_scene_test --late-impact)
     set_tests_properties(physx_native_post_correction physx_native_post_correction_multi physx_native_chained_fracture physx_native_standard_reported_reuse physx_native_standard_reuse physx_native_standard_late_impact physx_native_standard_wake_boundary physx_native_standard_awake physx_native_standard_sleep physx_native_standard_sleep_boundary physx_native_standard_gpu_islands PROPERTIES RUN_SERIAL TRUE TIMEOUT 120 LABELS "gpu;integration")
+
+    if(PX_GPU_BACKEND STREQUAL "CUMETAL")
+        # A cold native Metal pipeline set can take several minutes to compile.
+        # Keep the actual awake scene/assertions unchanged and bound that warmup.
+        set_tests_properties(physx_native_standard_awake PROPERTIES TIMEOUT 600)
+    endif()
 
     # A vehicle SDK car ramming a native-destruction wall, through the packaged
     # PxNativeVehicle helper (destruction/vehicle).
@@ -891,7 +905,7 @@ if(BLAST_ENABLE_CUDA_STRESS)
     target_compile_definitions(native_group_filter_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG PX_SUPPORT_PVD=0 PX_SUPPORT_OMNI_PVD=0)
     target_include_directories(native_group_filter_test PRIVATE ${PHYSX_ROOT}/include)
     target_link_options(native_group_filter_test PRIVATE "-Wl,-rpath,${PHYSX_LIB_DIR}")
-    target_link_libraries(native_group_filter_test PRIVATE ${NATIVE_DESTRUCTION_TEST_LIBS} CUDA::cuda_driver)
+    target_link_libraries(native_group_filter_test PRIVATE ${NATIVE_DESTRUCTION_TEST_LIBS} ${PX_DESTRUCTION_GPU_DRIVER})
     add_test(NAME physx_native_gpu_group_filtering COMMAND native_group_filter_test)
 
     add_executable(native_gpu_publication_test tests/native_gpu_publication_test.cpp physx_scene.cpp)
@@ -906,17 +920,17 @@ if(BLAST_ENABLE_CUDA_STRESS)
     target_include_directories(native_shape_publication_test PRIVATE "${PHYSX_ROOT}/include"
         "${REPO_ROOT}/physx/source/gpudestruction/src")
     target_compile_definitions(native_shape_publication_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG)
-    set_target_properties(native_shape_publication_test PROPERTIES CUDA_ARCHITECTURES 89)
-    target_link_libraries(native_shape_publication_test PRIVATE CUDA::cudart)
+    px_destruction_cuda_properties(native_shape_publication_test PROPERTIES CUDA_ARCHITECTURES 89)
+    target_link_libraries(native_shape_publication_test PRIVATE ${PX_DESTRUCTION_GPU_RUNTIME})
     add_test(NAME physx_native_gpu_shape_publication COMMAND native_shape_publication_test)
 
     add_executable(gpu_device_input_test tests/gpu_device_input_test.cu)
-    set_target_properties(gpu_device_input_test PROPERTIES CUDA_ARCHITECTURES "${CMAKE_CUDA_ARCHITECTURES}")
+    px_destruction_cuda_properties(gpu_device_input_test PROPERTIES CUDA_ARCHITECTURES "${CMAKE_CUDA_ARCHITECTURES}")
     target_link_libraries(gpu_device_input_test PRIVATE NvBlastExtStressGpu)
     add_test(NAME blast_stress_gpu_device_input COMMAND gpu_device_input_test)
 
     add_executable(gpu_stress_topology_test tests/gpu_stress_topology_test.cu)
-    set_target_properties(gpu_stress_topology_test PROPERTIES CUDA_ARCHITECTURES "${CMAKE_CUDA_ARCHITECTURES}")
+    px_destruction_cuda_properties(gpu_stress_topology_test PROPERTIES CUDA_ARCHITECTURES "${CMAKE_CUDA_ARCHITECTURES}")
     target_link_libraries(gpu_stress_topology_test PRIVATE NvBlastExtStressGpu)
     add_test(NAME blast_stress_gpu_topology COMMAND gpu_stress_topology_test)
     add_test(NAME blast_stress_gpu_topology_deterministic COMMAND gpu_stress_topology_test)
@@ -971,47 +985,53 @@ endif()
 
 # Standalone analytic qualification of the production CUDA specialization.
 # No reference-backend library is linked into this executable.
-if(CMAKE_CUDA_COMPILER AND CUDAToolkit_VERSION VERSION_GREATER_EQUAL "12.8")
+if(BLAST_ENABLE_CUDA_STRESS AND (PX_GPU_BACKEND STREQUAL "CUMETAL" OR (CMAKE_CUDA_COMPILER AND CUDAToolkit_VERSION VERSION_GREATER_EQUAL "12.8")))
     add_executable(gpu_resident_hierarchy_test EXCLUDE_FROM_ALL tests/gpu_resident_hierarchy_test.cu)
     target_include_directories(gpu_resident_hierarchy_test PRIVATE "${BLAST_ROOT}/source/sdk/extensions/stressgpu/detail")
-    set_target_properties(gpu_resident_hierarchy_test PROPERTIES CUDA_ARCHITECTURES 89 CUDA_STANDARD 17)
+    px_destruction_cuda_properties(gpu_resident_hierarchy_test PROPERTIES CUDA_ARCHITECTURES 89 CUDA_STANDARD 17)
     target_compile_options(gpu_resident_hierarchy_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
-    target_link_libraries(gpu_resident_hierarchy_test PRIVATE CUDA::cudart)
+    target_link_libraries(gpu_resident_hierarchy_test PRIVATE ${PX_DESTRUCTION_GPU_RUNTIME})
     add_test(NAME blast_stress_gpu_fine_only_preparation COMMAND gpu_resident_hierarchy_test --fine-only)
     set_tests_properties(blast_stress_gpu_fine_only_preparation PROPERTIES TIMEOUT 120 LABELS "gpu" RUN_SERIAL TRUE)
-    foreach(preparation_tool memcheck synccheck)
-        add_test(NAME blast_stress_gpu_fine_only_preparation_${preparation_tool}
-            COMMAND "${CUDAToolkit_BIN_DIR}/compute-sanitizer" --tool ${preparation_tool}
-                    --error-exitcode 99 $<TARGET_FILE:gpu_resident_hierarchy_test> --fine-only)
-        set_tests_properties(blast_stress_gpu_fine_only_preparation_${preparation_tool}
-            PROPERTIES TIMEOUT 120 LABELS "gpu;sanitizer" RUN_SERIAL TRUE)
-    endforeach()
+    if(PX_GPU_BACKEND STREQUAL "CUDA")
+        foreach(preparation_tool memcheck synccheck)
+            add_test(NAME blast_stress_gpu_fine_only_preparation_${preparation_tool}
+                COMMAND "${CUDAToolkit_BIN_DIR}/compute-sanitizer" --tool ${preparation_tool}
+                        --error-exitcode 99 $<TARGET_FILE:gpu_resident_hierarchy_test> --fine-only)
+            set_tests_properties(blast_stress_gpu_fine_only_preparation_${preparation_tool}
+                PROPERTIES TIMEOUT 120 LABELS "gpu;sanitizer" RUN_SERIAL TRUE)
+        endforeach()
+    endif()
     add_test(NAME blast_stress_gpu_resident_hierarchy COMMAND gpu_resident_hierarchy_test)
     set_tests_properties(blast_stress_gpu_resident_hierarchy PROPERTIES TIMEOUT 120 LABELS "gpu" RUN_SERIAL TRUE)
-    foreach(hierarchy_tool memcheck synccheck racecheck)
-        set(hierarchy_options)
-        if(hierarchy_tool STREQUAL "memcheck")
-            list(APPEND hierarchy_options --leak-check full)
-        endif()
-        add_test(NAME blast_stress_gpu_resident_hierarchy_${hierarchy_tool}
-            COMMAND "${CUDAToolkit_BIN_DIR}/compute-sanitizer" --tool ${hierarchy_tool}
-                    ${hierarchy_options} --error-exitcode 99 $<TARGET_FILE:gpu_resident_hierarchy_test>)
-        set_tests_properties(blast_stress_gpu_resident_hierarchy_${hierarchy_tool}
-            PROPERTIES TIMEOUT 120 LABELS "gpu;sanitizer" RUN_SERIAL TRUE)
-    endforeach()
+    if(PX_GPU_BACKEND STREQUAL "CUDA")
+        foreach(hierarchy_tool memcheck synccheck racecheck)
+            set(hierarchy_options)
+            if(hierarchy_tool STREQUAL "memcheck")
+                list(APPEND hierarchy_options --leak-check full)
+            endif()
+            add_test(NAME blast_stress_gpu_resident_hierarchy_${hierarchy_tool}
+                COMMAND "${CUDAToolkit_BIN_DIR}/compute-sanitizer" --tool ${hierarchy_tool}
+                        ${hierarchy_options} --error-exitcode 99 $<TARGET_FILE:gpu_resident_hierarchy_test>)
+            set_tests_properties(blast_stress_gpu_resident_hierarchy_${hierarchy_tool}
+                PROPERTIES TIMEOUT 120 LABELS "gpu;sanitizer" RUN_SERIAL TRUE)
+        endforeach()
+    endif()
     add_test(NAME blast_stress_gpu_assembled_hierarchy COMMAND gpu_resident_hierarchy_test --assembled)
     set_tests_properties(blast_stress_gpu_assembled_hierarchy PROPERTIES TIMEOUT 120 LABELS "gpu" RUN_SERIAL TRUE)
-    foreach(hierarchy_tool memcheck synccheck racecheck)
-        set(hierarchy_options)
-        if(hierarchy_tool STREQUAL "memcheck")
-            list(APPEND hierarchy_options --leak-check full)
-        endif()
-        add_test(NAME blast_stress_gpu_assembled_hierarchy_${hierarchy_tool}
-            COMMAND "${CUDAToolkit_BIN_DIR}/compute-sanitizer" --tool ${hierarchy_tool}
-                    ${hierarchy_options} --error-exitcode 99 $<TARGET_FILE:gpu_resident_hierarchy_test> --assembled)
-        set_tests_properties(blast_stress_gpu_assembled_hierarchy_${hierarchy_tool}
-            PROPERTIES TIMEOUT 120 LABELS "gpu;sanitizer" RUN_SERIAL TRUE)
-    endforeach()
+    if(PX_GPU_BACKEND STREQUAL "CUDA")
+        foreach(hierarchy_tool memcheck synccheck racecheck)
+            set(hierarchy_options)
+            if(hierarchy_tool STREQUAL "memcheck")
+                list(APPEND hierarchy_options --leak-check full)
+            endif()
+            add_test(NAME blast_stress_gpu_assembled_hierarchy_${hierarchy_tool}
+                COMMAND "${CUDAToolkit_BIN_DIR}/compute-sanitizer" --tool ${hierarchy_tool}
+                        ${hierarchy_options} --error-exitcode 99 $<TARGET_FILE:gpu_resident_hierarchy_test> --assembled)
+            set_tests_properties(blast_stress_gpu_assembled_hierarchy_${hierarchy_tool}
+                PROPERTIES TIMEOUT 120 LABELS "gpu;sanitizer" RUN_SERIAL TRUE)
+        endforeach()
+    endif()
     add_test(NAME blast_stress_gpu_coarse_long_rows COMMAND gpu_resident_hierarchy_test --cycle coarse-long-rows)
     set_tests_properties(blast_stress_gpu_coarse_long_rows PROPERTIES TIMEOUT 120 LABELS "gpu" RUN_SERIAL TRUE)
     foreach(coarse_case coarse-long-rows coarse-self-columns)
@@ -1020,48 +1040,52 @@ if(CMAKE_CUDA_COMPILER AND CUDAToolkit_VERSION VERSION_GREATER_EQUAL "12.8")
     endforeach()
     add_test(NAME blast_stress_gpu_resident_cycle COMMAND gpu_resident_hierarchy_test --cycle)
     set_tests_properties(blast_stress_gpu_resident_cycle PROPERTIES TIMEOUT 120 LABELS "gpu" RUN_SERIAL TRUE)
-    foreach(hierarchy_tool memcheck synccheck)
-        set(hierarchy_options)
-        if(hierarchy_tool STREQUAL "memcheck")
-            list(APPEND hierarchy_options --leak-check full)
-        endif()
-        add_test(NAME blast_stress_gpu_resident_cycle_${hierarchy_tool}
-            COMMAND "${CUDAToolkit_BIN_DIR}/compute-sanitizer" --tool ${hierarchy_tool}
-                    ${hierarchy_options} --error-exitcode 99 $<TARGET_FILE:gpu_resident_hierarchy_test> --cycle)
-        set_tests_properties(blast_stress_gpu_resident_cycle_${hierarchy_tool}
-            PROPERTIES TIMEOUT 120 LABELS "gpu;sanitizer" RUN_SERIAL TRUE)
-    endforeach()
+    if(PX_GPU_BACKEND STREQUAL "CUDA")
+        foreach(hierarchy_tool memcheck synccheck)
+            set(hierarchy_options)
+            if(hierarchy_tool STREQUAL "memcheck")
+                list(APPEND hierarchy_options --leak-check full)
+            endif()
+            add_test(NAME blast_stress_gpu_resident_cycle_${hierarchy_tool}
+                COMMAND "${CUDAToolkit_BIN_DIR}/compute-sanitizer" --tool ${hierarchy_tool}
+                        ${hierarchy_options} --error-exitcode 99 $<TARGET_FILE:gpu_resident_hierarchy_test> --cycle)
+            set_tests_properties(blast_stress_gpu_resident_cycle_${hierarchy_tool}
+                PROPERTIES TIMEOUT 120 LABELS "gpu;sanitizer" RUN_SERIAL TRUE)
+        endforeach()
+    endif()
     # Retain every basis assertion and topology transition. Expensive fixtures
     # qualify one transition per process, replaying the same full build sequence
     # so graph reuse and stale/incomplete publication checks are still exercised.
-    foreach(hierarchy_case empty singleton isolated supported path self parallel omitted star fixed mixed large)
-        if(hierarchy_case MATCHES "^(supported|omitted|large)$")
-            set(hierarchy_steps 0 1 2 3 4 5)
-        elseif(hierarchy_case STREQUAL "path")
-            set(hierarchy_steps 0 1)
-        else()
-            set(hierarchy_steps all)
-        endif()
-        foreach(hierarchy_step IN LISTS hierarchy_steps)
-            set(hierarchy_step_argument)
-            if(NOT hierarchy_step STREQUAL "all")
-                set(hierarchy_step_argument ${hierarchy_step})
+    if(PX_GPU_BACKEND STREQUAL "CUDA")
+        foreach(hierarchy_case empty singleton isolated supported path self parallel omitted star fixed mixed large)
+            if(hierarchy_case MATCHES "^(supported|omitted|large)$")
+                set(hierarchy_steps 0 1 2 3 4 5)
+            elseif(hierarchy_case STREQUAL "path")
+                set(hierarchy_steps 0 1)
+            else()
+                set(hierarchy_steps all)
             endif()
-            add_test(NAME blast_stress_gpu_resident_cycle_racecheck_${hierarchy_case}_${hierarchy_step}
-                COMMAND "${CUDAToolkit_BIN_DIR}/compute-sanitizer" --tool racecheck --error-exitcode 99
-                        $<TARGET_FILE:gpu_resident_hierarchy_test> --cycle ${hierarchy_case} ${hierarchy_step_argument})
-            set_tests_properties(blast_stress_gpu_resident_cycle_racecheck_${hierarchy_case}_${hierarchy_step}
-                PROPERTIES TIMEOUT 120 LABELS "gpu;sanitizer" RUN_SERIAL TRUE)
+            foreach(hierarchy_step IN LISTS hierarchy_steps)
+                set(hierarchy_step_argument)
+                if(NOT hierarchy_step STREQUAL "all")
+                    set(hierarchy_step_argument ${hierarchy_step})
+                endif()
+                add_test(NAME blast_stress_gpu_resident_cycle_racecheck_${hierarchy_case}_${hierarchy_step}
+                    COMMAND "${CUDAToolkit_BIN_DIR}/compute-sanitizer" --tool racecheck --error-exitcode 99
+                            $<TARGET_FILE:gpu_resident_hierarchy_test> --cycle ${hierarchy_case} ${hierarchy_step_argument})
+                set_tests_properties(blast_stress_gpu_resident_cycle_racecheck_${hierarchy_case}_${hierarchy_step}
+                    PROPERTIES TIMEOUT 120 LABELS "gpu;sanitizer" RUN_SERIAL TRUE)
+            endforeach()
         endforeach()
-    endforeach()
+    endif()
     add_executable(gpu_resident_stress_phase_probe EXCLUDE_FROM_ALL tests/gpu_resident_stress_phase_probe.cu)
     target_include_directories(gpu_resident_stress_phase_probe PRIVATE
         "${BLAST_ROOT}/source/sdk/extensions/stressgpu"
         "${BLAST_ROOT}/include/extensions/stressgpu" "${BLAST_ROOT}/include/extensions/stress")
     target_compile_definitions(gpu_resident_stress_phase_probe PRIVATE PHYSX_RESIDENT_DESTRUCTION BLAST_GPU_COMPONENT_PHASE_PROBE)
-    set_target_properties(gpu_resident_stress_phase_probe PROPERTIES CUDA_ARCHITECTURES 89 CUDA_STANDARD 17)
+    px_destruction_cuda_properties(gpu_resident_stress_phase_probe PROPERTIES CUDA_ARCHITECTURES 89 CUDA_STANDARD 17)
     target_compile_options(gpu_resident_stress_phase_probe PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
-    target_link_libraries(gpu_resident_stress_phase_probe PRIVATE CUDA::cudart CUDA::cuda_driver)
+    target_link_libraries(gpu_resident_stress_phase_probe PRIVATE ${PX_DESTRUCTION_GPU_RUNTIME} ${PX_DESTRUCTION_GPU_DRIVER})
     foreach(work_buildings 1 256)
         add_test(NAME blast_stress_component_work_${work_buildings}
             COMMAND gpu_resident_stress_phase_probe ${work_buildings})
@@ -1072,20 +1096,26 @@ if(CMAKE_CUDA_COMPILER AND CUDAToolkit_VERSION VERSION_GREATER_EQUAL "12.8")
     target_include_directories(gpu_resident_motion_modes_test PRIVATE
         "${BLAST_ROOT}/source/sdk/extensions/stressgpu" "${BLAST_ROOT}/include/extensions/stressgpu" "${BLAST_ROOT}/include/extensions/stress")
     target_compile_definitions(gpu_resident_motion_modes_test PRIVATE PHYSX_RESIDENT_DESTRUCTION)
-    set_target_properties(gpu_resident_motion_modes_test PROPERTIES CUDA_ARCHITECTURES 89 CUDA_STANDARD 17)
+    px_destruction_cuda_properties(gpu_resident_motion_modes_test PROPERTIES CUDA_ARCHITECTURES 89 CUDA_STANDARD 17)
     target_compile_options(gpu_resident_motion_modes_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
-    target_link_libraries(gpu_resident_motion_modes_test PRIVATE CUDA::cudart CUDA::cuda_driver)
+    target_link_libraries(gpu_resident_motion_modes_test PRIVATE ${PX_DESTRUCTION_GPU_RUNTIME} ${PX_DESTRUCTION_GPU_DRIVER})
     add_test(NAME blast_stress_gpu_resident_motion_modes COMMAND gpu_resident_motion_modes_test)
     set_tests_properties(blast_stress_gpu_resident_motion_modes PROPERTIES TIMEOUT 120 LABELS "gpu" RUN_SERIAL TRUE)
-    add_library(gpu_resident_stress_test_core OBJECT EXCLUDE_FROM_ALL
+    # Native AOT outputs are external objects. A static archive includes them
+    # explicitly; CMake OBJECT libraries do not reliably propagate such files.
+    set(resident_stress_core_type OBJECT)
+    if(PX_GPU_BACKEND STREQUAL "CUMETAL")
+        set(resident_stress_core_type STATIC)
+    endif()
+    add_library(gpu_resident_stress_test_core ${resident_stress_core_type} EXCLUDE_FROM_ALL
         "${BLAST_ROOT}/source/sdk/extensions/stressgpu/NvBlastExtStressGpu.cu")
     target_include_directories(gpu_resident_stress_test_core PUBLIC
         "${BLAST_ROOT}/include/extensions/stressgpu" "${BLAST_ROOT}/include/extensions/stress")
     target_compile_definitions(gpu_resident_stress_test_core PRIVATE PHYSX_RESIDENT_DESTRUCTION BLAST_GPU_NATIVE_CYCLE_DIAGNOSTIC)
-    set_target_properties(gpu_resident_stress_test_core PROPERTIES CUDA_ARCHITECTURES 89 CUDA_STANDARD 17)
-    target_link_libraries(gpu_resident_stress_test_core PUBLIC CUDA::cudart CUDA::cuda_driver)
+    px_destruction_cuda_properties(gpu_resident_stress_test_core PROPERTIES CUDA_ARCHITECTURES 89 CUDA_STANDARD 17)
+    target_link_libraries(gpu_resident_stress_test_core PUBLIC ${PX_DESTRUCTION_GPU_RUNTIME} ${PX_DESTRUCTION_GPU_DRIVER})
     add_executable(gpu_resident_stress_test EXCLUDE_FROM_ALL tests/gpu_resident_stress_test.cu)
-    set_target_properties(gpu_resident_stress_test PROPERTIES CUDA_ARCHITECTURES 89 CUDA_STANDARD 17)
+    px_destruction_cuda_properties(gpu_resident_stress_test PROPERTIES CUDA_ARCHITECTURES 89 CUDA_STANDARD 17)
     target_link_libraries(gpu_resident_stress_test PRIVATE gpu_resident_stress_test_core)
     add_executable(gpu_resident_stress_parity_test EXCLUDE_FROM_ALL tests/gpu_stress_test.cpp)
     target_include_directories(gpu_resident_stress_parity_test PRIVATE
@@ -1108,10 +1138,12 @@ if(CMAKE_CUDA_COMPILER AND CUDAToolkit_VERSION VERSION_GREATER_EQUAL "12.8")
     set_tests_properties(blast_stress_gpu_resident_analytic PROPERTIES TIMEOUT 120)
     # Native lifecycle gate: allocation removal must not hide stale accesses,
     # and repeated solver creation/release must return pinned and device memory.
-    add_test(NAME blast_stress_gpu_resident_memory
-        COMMAND "${CUDAToolkit_BIN_DIR}/compute-sanitizer" --tool memcheck
-                --leak-check full --error-exitcode 99 $<TARGET_FILE:gpu_resident_stress_test>)
-    set_tests_properties(blast_stress_gpu_resident_memory PROPERTIES TIMEOUT 120 LABELS "gpu;sanitizer")
+    if(PX_GPU_BACKEND STREQUAL "CUDA")
+        add_test(NAME blast_stress_gpu_resident_memory
+            COMMAND "${CUDAToolkit_BIN_DIR}/compute-sanitizer" --tool memcheck
+                    --leak-check full --error-exitcode 99 $<TARGET_FILE:gpu_resident_stress_test>)
+        set_tests_properties(blast_stress_gpu_resident_memory PROPERTIES TIMEOUT 120 LABELS "gpu;sanitizer")
+    endif()
 endif()
 
 # Rebuild every private-ABI consumer together after engine interface/layout edits.
@@ -1125,4 +1157,10 @@ if(BLAST_ENABLE_CUDA_STRESS)
             add_dependencies(native_destruction_consumers ${DESTRUCTION_TARGET})
         endif()
     endforeach()
+endif()
+
+# Translate every .cu target after its final includes/definitions are known.
+px_destruction_finalize_gpu_targets()
+if(PX_GPU_BACKEND STREQUAL "CUMETAL")
+    message(STATUS "NVIDIA compute-sanitizer tests are not registered for CuMetal; native memory/synchronization qualification remains separate")
 endif()

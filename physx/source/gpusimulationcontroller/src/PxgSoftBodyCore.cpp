@@ -2280,6 +2280,10 @@ namespace physx
 			{
 				const CUfunction prepAttachmentKernelFunction = mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::SB_RIGID_ATTACHMENT_CONSTRAINT_PREP);
 
+#if defined(PX_CUMETAL_EXPLICIT_MOTION_ROOT) && PX_CUMETAL_EXPLICIT_MOTION_ROOT
+                // The same separately allocated pool used by sharedDesc.
+                CUdeviceptr articulationDescriptors=simCore->getArticulationBuffer().getDevicePtr();
+#endif
 				PxCudaKernelParam kernelParams[] =
 				{
 					PX_CUDA_KERNEL_PARAM(softbodiesd),
@@ -2292,6 +2296,9 @@ namespace physx
 					PX_CUDA_KERNEL_PARAM(prepDescd),
 					PX_CUDA_KERNEL_PARAM(sharedDescd),
 					PX_CUDA_KERNEL_PARAM(deltaVd)
+#if defined(PX_CUMETAL_EXPLICIT_MOTION_ROOT) && PX_CUMETAL_EXPLICIT_MOTION_ROOT
+                    ,PX_CUDA_KERNEL_PARAM(articulationDescriptors)
+#endif
 				};
 
 				const PxU32 numThreadsPerBlock = PxgSoftBodyKernelBlockDim::SB_UPDATEROTATION;
@@ -2428,6 +2435,11 @@ namespace physx
 
 			const CUfunction rigidContactPrepKernelFunction = mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::SB_RS_CONTACTPREPARE);
 
+#if defined(PX_CUMETAL_EXPLICIT_MOTION_ROOT) && PX_CUMETAL_EXPLICIT_MOTION_ROOT
+            // constructSolverSharedDescCommon binds this exact separately
+            // allocated descriptor pool. The explicit root changes no pointee.
+            CUdeviceptr articulationDescriptors=simCore->getArticulationBuffer().getDevicePtr();
+#endif
 			PxCudaKernelParam kernelParams[] =
 			{
 				PX_CUDA_KERNEL_PARAM(softbodiesd),
@@ -2443,6 +2455,9 @@ namespace physx
 				PX_CUDA_KERNEL_PARAM(invDt),
 				PX_CUDA_KERNEL_PARAM(sharedDescd),
 				PX_CUDA_KERNEL_PARAM(isTGS)
+#if defined(PX_CUMETAL_EXPLICIT_MOTION_ROOT) && PX_CUMETAL_EXPLICIT_MOTION_ROOT
+                ,PX_CUDA_KERNEL_PARAM(articulationDescriptors)
+#endif
 			};
 
 			CUresult result = mCudaContext->launchKernel(rigidContactPrepKernelFunction, PxgSoftBodyKernelGridDim::SB_UPDATEROTATION, 1, 1, PxgSoftBodyKernelBlockDim::SB_UPDATEROTATION, 1, 1, 0, solverStream, kernelParams, sizeof(kernelParams), 0, PX_FL);

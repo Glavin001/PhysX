@@ -196,6 +196,13 @@ public:
 
 }
 
+// The macOS GPU module is dynamically loaded by these stable C names.
+// Keep this local to the GPU module ABI; ordinary macOS SDK exports retain
+// their existing linkage and Linux/CUDA continues to use PX_C_EXPORT.
+#if PX_OSX && defined(PX_CUMETAL)
+extern "C" {
+#endif
+
 /**
 Create PxPhysXGpu interface class.
 */
@@ -231,6 +238,10 @@ PX_C_EXPORT PX_PHYSX_GPU_API void** PX_CALL_CONV PxGpuGetCudaModuleTable();
 PX_C_EXPORT PX_PHYSX_GPU_API physx::PxU32 PX_CALL_CONV PxGpuGetCudaModuleTableSize();
 PX_C_EXPORT PX_PHYSX_GPU_API physx::PxPhysicsGpu* PX_CALL_CONV PxGpuCreatePhysicsGpu();
 
+#endif
+
+#if PX_OSX && defined(PX_CUMETAL)
+} // extern "C"
 #endif
 
 #endif // PX_PHYSX_GPU_H

@@ -26,6 +26,7 @@
 // Copyright (c) 2004-2008 AGEIA Technologies, Inc. All rights reserved.
 // Copyright (c) 2001-2004 NovodeX AG. All rights reserved.  
 
+#include "NpCuMetalFeatures.h"
 #include "NpScene.h"
 #include "NpDestructionBodyAllocator.h"
 #include "NpRigidStatic.h"
@@ -491,6 +492,8 @@ const char*	NpScene::getName() const
 template<class actorT>
 static PX_NOINLINE bool doRigidActorChecks(const actorT& actor, const PruningStructure* ps, const NpScene* scene)
 {
+	if(!checkCuMetalActor(actor))
+		return false;
 	if(!ps && actor.getShapeManager().getPruningStructure())
 		return outputError<PxErrorCode::eINVALID_OPERATION>(__LINE__, "PxScene::addActors(): actor is in a pruning structure and cannot be added to a scene directly, use addActors(const PxPruningStructure& )");
 
@@ -919,6 +922,8 @@ void NpScene::removeActorInternal(PxActor& actor, bool wakeOnLostTouch, bool rem
 template<class T>
 static PX_FORCE_INLINE bool addRigidActorT(T& rigidActor, PxArray<T*>& rigidActorList, NpScene* scene, const BVH* bvh, const PruningStructure* ps)
 {
+	if(!checkCuMetalActor(rigidActor))
+		return false;
 	PX_CHECK_SCENE_API_WRITE_FORBIDDEN_AND_RETURN_VAL(scene, "PxScene::addActor() not allowed while simulation is running. Call will be ignored.", false)
 
 	const bool isNoSimActor = rigidActor.getActorFlags().isSet(PxActorFlag::eDISABLE_SIMULATION);
@@ -1030,6 +1035,10 @@ void NpScene::removeRigidDynamic(NpRigidDynamic& body, bool wakeOnLostTouch, boo
 
 bool NpScene::addArticulation(PxArticulationReducedCoordinate& articulation)
 {
+#if defined(PX_CUMETAL_RIGID_DEMO) && PX_CUMETAL_RIGID_DEMO
+    if(getFlags() & PxSceneFlag::eENABLE_GPU_DYNAMICS)
+        return outputError<PxErrorCode::eINVALID_OPERATION>(__LINE__, "CuMetal rigid destruction demo build excludes GPU articulations; scene insertion rejected.");
+#endif
     if(getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_SLEEPING)
     {
         outputError<PxErrorCode::eINVALID_OPERATION>(__LINE__, "Direct GPU sleeping currently supports rigid bodies only; articulation insertion rejected.");
@@ -1284,6 +1293,18 @@ bool NpScene::addArticulationMimicJointInternal(NpArticulationReducedCoordinate*
 
 bool NpScene::addArticulationInternal(PxArticulationReducedCoordinate& npa)
 {
+#if defined(PX_CUMETAL_RIGID_DEMO) && PX_CUMETAL_RIGID_DEMO
+    if(getFlags() & PxSceneFlag::eENABLE_GPU_DYNAMICS)
+        return outputError<PxErrorCode::eINVALID_OPERATION>(__LINE__, "CuMetal rigid destruction demo build excludes GPU articulations; scene insertion rejected.");
+#endif
+#if defined(PX_CUMETAL_DISABLE_CONVEX_CORE)
+    for(PxU32 i = 0; i < npa.getNbLinks(); ++i)
+    {
+        PxArticulationLink* link = NULL;
+        if(npa.getLinks(&link, 1, i) != 1 || !link || !checkCuMetalActor(*link))
+            return false;
+    }
+#endif
     if(getFlags() & PxSceneFlag::eENABLE_DIRECT_GPU_SLEEPING)
     {
         outputError<PxErrorCode::eINVALID_OPERATION>(__LINE__, "Direct GPU sleeping currently supports rigid bodies only; articulation insertion rejected.");
@@ -2006,6 +2027,20 @@ bool NpScene::addAggregate(PxAggregate& aggregate)
 	NP_CHECK_CORRUPTION_AND_RETURN_VAL(false)
 
 	NpAggregate& np = static_cast<NpAggregate&>(aggregate);
+#if defined(PX_CUMETAL_RIGID_DEMO) && PX_CUMETAL_RIGID_DEMO
+    if(getFlags() & PxSceneFlag::eENABLE_GPU_DYNAMICS)
+        for(PxU32 i = 0; i < np.getCurrentSizeFast(); ++i)
+            if(np.getActorFast(i)->getType() == PxActorType::eARTICULATION_LINK)
+                return outputError<PxErrorCode::eINVALID_OPERATION>(__LINE__, "CuMetal rigid destruction demo build excludes GPU articulations; aggregate insertion rejected before mutation.");
+#endif
+#if defined(PX_CUMETAL_DISABLE_CONVEX_CORE)
+	for(PxU32 i = 0; i < np.getCurrentSizeFast(); ++i)
+	{
+		const PxRigidActor* actor = np.getActorFast(i)->is<PxRigidActor>();
+		if(actor && !checkCuMetalActor(*actor))
+			return false;
+	}
+#endif
 
 #if PX_CHECKED
 	{
@@ -2175,6 +2210,17 @@ bool NpScene::addCollection(const PxCollection& collection)
 	const Cm::Collection& col = static_cast<const Cm::Collection&>(collection);
 
 	PxU32 nb = col.internalGetNbObjects();
+#if defined(PX_CUMETAL_DISABLE_CONVEX_CORE)
+	// Reject the collection before inserting any object, including its aggregates.
+	for(PxU32 i = 0; i < nb; ++i)
+	{
+		const PxShape* shape = col.internalGetObject(i)->is<PxShape>();
+		const PxRigidActor* actor = col.internalGetObject(i)->is<PxRigidActor>();
+		if((shape && !checkCuMetalGeometry(shape->getGeometry().getType())) ||
+		   (actor && !checkCuMetalActor(*actor)))
+			return false;
+	}
+#endif
 #if PX_CHECKED
 	for(PxU32 i=0;i<nb;i++)
 	{

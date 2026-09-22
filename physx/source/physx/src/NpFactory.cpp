@@ -26,6 +26,7 @@
 // Copyright (c) 2004-2008 AGEIA Technologies, Inc. All rights reserved.
 // Copyright (c) 2001-2004 NovodeX AG. All rights reserved.  
 
+#include "NpCuMetalFeatures.h"
 #include "geometry/PxGeometryQuery.h"
 #include "NpFactory.h"
 #include "NpPhysics.h"
@@ -916,6 +917,8 @@ NpShape* NpFactory::createShapeInternal(const PxGeometry& geometry,
 	bool isExclusive,
 	PxShapeCoreFlag::Enum flag)
 {
+	if(!checkCuMetalGeometry(geometry.getType()))
+		return NULL;
 #if PX_CHECKED
 	if(!checkShape(geometry, "Supplied PxGeometry is not valid. Shape creation method returns NULL."))
 		return NULL;

@@ -220,6 +220,11 @@ namespace physx
 			{
 				const CUfunction prepAttachmentKernelFunction = mGpuKernelWranglerManager->getCuFunction(
 					PxgKernelIds::CLOTH_RIGID_ATTACHMENT_CONSTRAINT_PREP);
+#if defined(PX_CUMETAL_EXPLICIT_MOTION_ROOT) && PX_CUMETAL_EXPLICIT_MOTION_ROOT
+                // Match sharedDesc.articulations without extending restriction
+                // to any nested articulation motion/response buffer.
+                CUdeviceptr articulationDescriptors=simCore->getArticulationBuffer().getDevicePtr();
+#endif
 				PxCudaKernelParam kernelParams[] = { PX_CUDA_KERNEL_PARAM(clothesd),
 													 PX_CUDA_KERNEL_PARAM(rigidAttachments),
 													 PX_CUDA_KERNEL_PARAM(activeRigidAttachments),
@@ -229,7 +234,11 @@ namespace physx
 													 PX_CUDA_KERNEL_PARAM(prePrepDescd),
 													 PX_CUDA_KERNEL_PARAM(prepDescd),
 													 PX_CUDA_KERNEL_PARAM(sharedDescd),
-													 PX_CUDA_KERNEL_PARAM(deltaVd) };
+													 PX_CUDA_KERNEL_PARAM(deltaVd)
+#if defined(PX_CUMETAL_EXPLICIT_MOTION_ROOT) && PX_CUMETAL_EXPLICIT_MOTION_ROOT
+                    ,PX_CUDA_KERNEL_PARAM(articulationDescriptors)
+#endif
+                };
 
 				const PxU32 numThreadsPerBlock = PxgSoftBodyKernelBlockDim::SB_UPDATEROTATION;
 				const PxU32 numBlocks = PxgSoftBodyKernelGridDim::SB_UPDATEROTATION;
@@ -322,13 +331,22 @@ namespace physx
 			const CUfunction rigidContactPrepKernelFunction =
 				mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::CLOTH_RIGID_CONTACTPREPARE);
 
+#if defined(PX_CUMETAL_EXPLICIT_MOTION_ROOT) && PX_CUMETAL_EXPLICIT_MOTION_ROOT
+            // constructSolverSharedDescCommon uses this same owned allocation.
+            // Only descriptor bytes are restricted, never their nested buffers.
+            CUdeviceptr articulationDescriptors=simCore->getArticulationBuffer().getDevicePtr();
+#endif
 			PxCudaKernelParam kernelParams[] = { PX_CUDA_KERNEL_PARAM(femClothesd),	  PX_CUDA_KERNEL_PARAM(contactsd),
 												 PX_CUDA_KERNEL_PARAM(normalpensd),	  PX_CUDA_KERNEL_PARAM(barycentricsd),
 												 PX_CUDA_KERNEL_PARAM(contactInfosd), PX_CUDA_KERNEL_PARAM(totalContactCountsd),
 												 PX_CUDA_KERNEL_PARAM(contactBlocksd),  PX_CUDA_KERNEL_PARAM(prePrepDescd),
 												 PX_CUDA_KERNEL_PARAM(prepDescd),	  PX_CUDA_KERNEL_PARAM(rigidLambdaNs),
 												 PX_CUDA_KERNEL_PARAM(invDt),		  PX_CUDA_KERNEL_PARAM(sharedDescd),
-												 PX_CUDA_KERNEL_PARAM(mIsTGS) };
+												 PX_CUDA_KERNEL_PARAM(mIsTGS)
+#if defined(PX_CUMETAL_EXPLICIT_MOTION_ROOT) && PX_CUMETAL_EXPLICIT_MOTION_ROOT
+                ,PX_CUDA_KERNEL_PARAM(articulationDescriptors)
+#endif
+            };
 
 			CUresult result = mCudaContext->launchKernel(
 				rigidContactPrepKernelFunction, PxgSoftBodyKernelGridDim::SB_UPDATEROTATION, 1, 1,

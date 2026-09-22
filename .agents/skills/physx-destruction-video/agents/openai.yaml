@@ -1,0 +1,4 @@
+interface:
+  display_name: "PhysX Destruction Video"
+  short_description: "Record the current native GPU destruction demo as 1080p/60 H.264"
+  default_prompt: "Use $physx-destruction-video to capture the latest native PhysX GPU destruction demo video. Do not treat playback as a performance result."

@@ -128,9 +128,44 @@ __device__ __forceinline__ void bondStressFibre(
     compression = c > 0.0f ? c : 0.0f;
 }
 
+// Private launch ABI only: keep the shared bond equations below unchanged.
+// Explicit padding agrees between CUDA host/device and CuMetal byte arguments.
+#if defined(PX_CUMETAL_PACK_BOND_STRESS_SCALARS) && PX_CUMETAL_PACK_BOND_STRESS_SCALARS
+struct alignas(8) BondStressWalkConfig
+{
+    float bendGainMax;
+    int fibreBending;
+    float bsLinearScale;
+    float bsAngularScale;
+    std::uint32_t materialCount;
+    float unbreakableLimit;
+    std::uint32_t groupCount;
+    std::uint32_t reserved;
+};
+static_assert(sizeof(float) == 4 && sizeof(int) == 4 && sizeof(std::uint32_t) == 4,
+              "Bond stress scalar ABI requires 32-bit fields");
+static_assert(std::is_standard_layout<BondStressWalkConfig>::value &&
+              std::is_trivially_copyable<BondStressWalkConfig>::value,
+              "Bond stress scalar ABI must be a plain byte-copyable record");
+static_assert(sizeof(BondStressWalkConfig) == 32 && alignof(BondStressWalkConfig) == 8,
+              "Bond stress scalar ABI must be 32 bytes aligned to 8");
+static_assert(offsetof(BondStressWalkConfig, bendGainMax) == 0, "Bond stress bendGainMax ABI offset");
+static_assert(offsetof(BondStressWalkConfig, fibreBending) == 4, "Bond stress fibreBending ABI offset");
+static_assert(offsetof(BondStressWalkConfig, bsLinearScale) == 8, "Bond stress bsLinearScale ABI offset");
+static_assert(offsetof(BondStressWalkConfig, bsAngularScale) == 12, "Bond stress bsAngularScale ABI offset");
+static_assert(offsetof(BondStressWalkConfig, materialCount) == 16, "Bond stress materialCount ABI offset");
+static_assert(offsetof(BondStressWalkConfig, unbreakableLimit) == 20, "Bond stress unbreakableLimit ABI offset");
+static_assert(offsetof(BondStressWalkConfig, groupCount) == 24, "Bond stress groupCount ABI offset");
+static_assert(offsetof(BondStressWalkConfig, reserved) == 28, "Bond stress reserved ABI offset");
+#endif
+
 __global__ void bondStressWalk(
+#if defined(PX_CUMETAL_PACK_BOND_STRESS_SCALARS) && PX_CUMETAL_PACK_BOND_STRESS_SCALARS
+    BondStressWalkConfig config,
+#else
     float bendGainMax,
     int fibreBending,
+#endif
     const std::uint32_t* groupBegin,
     const std::uint32_t* groupSize,
     const std::uint32_t* memberBlastBond,
@@ -143,12 +178,16 @@ __global__ void bondStressWalk(
     const float* health,
     const AngLin* impulses,
     const float* colScale,
+#if !defined(PX_CUMETAL_PACK_BOND_STRESS_SCALARS) || !PX_CUMETAL_PACK_BOND_STRESS_SCALARS
     float bsLinearScale,
     float bsAngularScale,
+#endif
     const float* materialElasticLimits,
+#if !defined(PX_CUMETAL_PACK_BOND_STRESS_SCALARS) || !PX_CUMETAL_PACK_BOND_STRESS_SCALARS
     std::uint32_t materialCount,
     float unbreakableLimit,
     std::uint32_t groupCount,
+#endif
     float* groupStressNormal,
     float* groupStressShear,
     float* groupStressBend,
@@ -164,6 +203,15 @@ __global__ void bondStressWalk(
     std::uint32_t* utilMaxBits,
     std::uint32_t* aboveHalfCount)
 {
+#if defined(PX_CUMETAL_PACK_BOND_STRESS_SCALARS) && PX_CUMETAL_PACK_BOND_STRESS_SCALARS
+    const float bendGainMax = config.bendGainMax;
+    const int fibreBending = config.fibreBending;
+    const float bsLinearScale = config.bsLinearScale;
+    const float bsAngularScale = config.bsAngularScale;
+    const std::uint32_t materialCount = config.materialCount;
+    const float unbreakableLimit = config.unbreakableLimit;
+    const std::uint32_t groupCount = config.groupCount;
+#endif
     const std::uint32_t g = blockIdx.x * blockDim.x + threadIdx.x;
     if (g >= groupCount)
     {

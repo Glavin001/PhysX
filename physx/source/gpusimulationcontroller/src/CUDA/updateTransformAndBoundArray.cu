@@ -79,7 +79,11 @@ extern "C" __global__ void mergeTransformCacheAndBoundArrayChanges(
     }
 }
 
-extern "C" __global__ void updateTransformCacheAndBoundArrayLaunch(const PxgSimulationCoreDesc* scDesc)
+extern "C" __global__ void updateTransformCacheAndBoundArrayLaunch(const PxgSimulationCoreDesc* scDesc
+#if defined(PX_CUMETAL_EXPLICIT_MOTION_ROOT) && PX_CUMETAL_EXPLICIT_MOTION_ROOT
+    , const PxgArticulation* PX_RESTRICT articulationDescriptors
+#endif
+)
 {
 	const PxgSolverBodySleepData* PX_RESTRICT gSleepData = scDesc->mSleepData;
 
@@ -91,7 +95,13 @@ extern "C" __global__ void updateTransformCacheAndBoundArrayLaunch(const PxgSimu
 	const PxU32 gNumShapes = scDesc->mNbTotalShapes;
 	const PxgShapeSim* PX_RESTRICT gShapeSimPool = scDesc->mShapeSimsBufferDeviceData;
 
+#if defined(PX_CUMETAL_EXPLICIT_MOTION_ROOT) && PX_CUMETAL_EXPLICIT_MOTION_ROOT
+    // Preserve the existing restricted descriptor-array root at the kernel ABI.
+    // Pointers loaded from each articulation retain their original alias rules.
+    const PxgArticulation* PX_RESTRICT gArticulations = articulationDescriptors;
+#else
 	const PxgArticulation* PX_RESTRICT gArticulations = scDesc->mArticulationPool;
+#endif
 	const PxgSolverBodySleepData* PX_RESTRICT gArticulationSleepData = scDesc->mArticulationSleepDataPool;
 	
 	PxsCachedTransform* PX_RESTRICT gTransformCache = scDesc->mTransformCache;

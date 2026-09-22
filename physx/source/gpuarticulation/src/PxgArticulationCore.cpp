@@ -91,10 +91,12 @@ namespace physx
 	{
 #if !PX_PHYSX_GPU_EXPORTS
 		//this call is needed to force PhysXArticulationGpu linkage as Static Library!
+#if !defined(PX_CUMETAL_RIGID_DEMO) || !PX_CUMETAL_RIGID_DEMO
 		initArticulationKernels1();
 		initArticulationKernels2();
 		initArticulationKernels3();
 		initArticulationKernels4();
+#endif
 #endif
 	}
 
@@ -429,9 +431,15 @@ namespace physx
 
 			{
 				const bool directAPI = mGpuContext->getEnableDirectGPUAPI();
+#if PX_CUMETAL_EXPLICIT_MOTION_ROOT
+				CUdeviceptr articulationRoot = mGpuContext->getSimulationCore()->getArticulationBuffer().getDevicePtr();
+#endif
 				KERNEL_PARAM_TYPE kernelParams[] =
 				{
 					CUDA_KERNEL_PARAM(descptr),
+#if PX_CUMETAL_EXPLICIT_MOTION_ROOT
+					CUDA_KERNEL_PARAM(articulationRoot),
+#endif
 					CUDA_KERNEL_PARAM(directAPI),
 					CUDA_KERNEL_PARAM(recomputeBlockFormat)
 				};
@@ -1045,6 +1053,10 @@ namespace physx
 
 	bool PxgArticulationCore::getArticulationData(void* PX_RESTRICT data, const PxArticulationGPUIndex* PX_RESTRICT gpuIndices, PxArticulationGPUAPIReadType::Enum dataType, PxU32 nbElements, CUevent startEvent, CUevent finishEvent, PxU32 maxLinks, PxU32 maxDofs, PxU32 maxFixedTendons, PxU32 maxTendonJoints, PxU32 maxSpatialTendons, PxU32 maxSpatialTendonAttachments) const
 	{
+#if defined(PX_CUMETAL_RIGID_DEMO) && PX_CUMETAL_RIGID_DEMO
+        PxGetFoundation().error(PxErrorCode::eINVALID_OPERATION, PX_FL, "CuMetal rigid destruction demo build excludes articulation GPU data operations.");
+        return false;
+#endif
 		PxScopedCudaLock _lock(*mCudaContextManager);
 		bool success = true;
 
@@ -1365,6 +1377,10 @@ namespace physx
 
 	bool PxgArticulationCore::setArticulationData(const void* PX_RESTRICT data, const PxArticulationGPUIndex* PX_RESTRICT gpuIndices, PxArticulationGPUAPIWriteType::Enum dataType, PxU32 nbElements, CUevent startEvent, CUevent finishEvent, PxU32 maxLinks, PxU32 maxDofs, PxU32 maxFixedTendons, PxU32 maxTendonJoints, PxU32 maxSpatialTendons, PxU32 maxSpatialTendonAttachments)
 	{
+#if defined(PX_CUMETAL_RIGID_DEMO) && PX_CUMETAL_RIGID_DEMO
+        PxGetFoundation().error(PxErrorCode::eINVALID_OPERATION, PX_FL, "CuMetal rigid destruction demo build excludes articulation GPU data operations.");
+        return false;
+#endif
 		PxScopedCudaLock _lock(*mCudaContextManager);
 		bool success = true;
 
@@ -1487,12 +1503,18 @@ namespace physx
 		CUfunction kernelFunction = mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::ARTI_SET_ROOT_GLOBAL_POSE_STATE);
 
 		CUdeviceptr coreDescptr = mArticulationCoreDescd.getDevicePtr();
+#if PX_CUMETAL_EXPLICIT_MOTION_ROOT
+		CUdeviceptr articulationRoot = mGpuContext->getSimulationCore()->getArticulationBuffer().getDevicePtr();
+#endif
 
 		const PxU32 numBlocks = (nbElements + PxgArticulationCoreKernelBlockDim::ARTI_SET_ROOT_GLOBAL_POSE_STATE - 1) / PxgArticulationCoreKernelBlockDim::ARTI_SET_ROOT_GLOBAL_POSE_STATE;
 
 		KERNEL_PARAM_TYPE kernelParams[] =
 		{
 			CUDA_KERNEL_PARAM(coreDescptr),
+#if PX_CUMETAL_EXPLICIT_MOTION_ROOT
+			CUDA_KERNEL_PARAM(articulationRoot),
+#endif
 			CUDA_KERNEL_PARAM(data),
 			CUDA_KERNEL_PARAM(gpuIndices),
 			CUDA_KERNEL_PARAM(nbElements)
@@ -1510,6 +1532,9 @@ namespace physx
 		CUfunction kernelFunction = mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::ARTI_SET_ROOT_VELOCITY_STATE);
 
 		CUdeviceptr coreDescptr = mArticulationCoreDescd.getDevicePtr();
+#if PX_CUMETAL_EXPLICIT_MOTION_ROOT
+		CUdeviceptr articulationRoot = mGpuContext->getSimulationCore()->getArticulationBuffer().getDevicePtr();
+#endif
 
 		const PxU32 nbThreadsPerElement = 3u;
 		const PxU32 numBlocks = (nbThreadsPerElement * nbElements + PxgArticulationCoreKernelBlockDim::ARTI_SET_ROOT_VELOCITY_STATE - 1) / PxgArticulationCoreKernelBlockDim::ARTI_SET_ROOT_VELOCITY_STATE;
@@ -1517,6 +1542,9 @@ namespace physx
 		KERNEL_PARAM_TYPE kernelParams[] =
 		{
 			CUDA_KERNEL_PARAM(coreDescptr),
+#if PX_CUMETAL_EXPLICIT_MOTION_ROOT
+			CUDA_KERNEL_PARAM(articulationRoot),
+#endif
 			CUDA_KERNEL_PARAM(data),
 			CUDA_KERNEL_PARAM(gpuIndices),
 			CUDA_KERNEL_PARAM(nbElements),
@@ -1739,6 +1767,10 @@ namespace physx
 
 			PxgGpuNarrowphaseCore* npCore = mGpuContext->getNarrowphaseCore();
 			PxgSimulationCore* simCore = mGpuContext->getSimulationCore();
+#if PX_CUMETAL_EXPLICIT_MOTION_ROOT
+			// Same allocation used by gpuMemDmaUpArticulationDesc for desc->articulations.
+			CUdeviceptr articulationRoot = simCore->getArticulationBuffer().getDevicePtr();
+#endif
 			const PxU32 numTotalShapes = simCore->getNumTotalShapes();
 			CUdeviceptr bounds = mGpuContext->mGpuBp->getBoundsBuffer().getDevicePtr();
 
@@ -1753,6 +1785,9 @@ namespace physx
 			KERNEL_PARAM_TYPE kernelParams[] =
 			{
 				CUDA_KERNEL_PARAM(coreDescptr),
+#if PX_CUMETAL_EXPLICIT_MOTION_ROOT
+				CUDA_KERNEL_PARAM(articulationRoot),
+#endif
 				CUDA_KERNEL_PARAM(shapeSims),
 				CUDA_KERNEL_PARAM(shapes),
 				CUDA_KERNEL_PARAM(transformCache),
@@ -1793,6 +1828,10 @@ namespace physx
 		void* data, const PxArticulationGPUIndex* gpuIndices, PxArticulationGPUAPIComputeType::Enum operation, PxU32 nbElements,
 		PxU32 maxLinks, PxU32 maxDofs, CUevent startEvent, CUevent finishEvent)
 	{
+#if defined(PX_CUMETAL_RIGID_DEMO) && PX_CUMETAL_RIGID_DEMO
+        PxGetFoundation().error(PxErrorCode::eINVALID_OPERATION, PX_FL, "CuMetal rigid destruction demo build excludes articulation GPU data operations.");
+        return false;
+#endif
 		PxScopedCudaLock _lock(*mCudaContextManager);
 		bool success = true;
 

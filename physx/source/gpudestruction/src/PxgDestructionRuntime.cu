@@ -184,7 +184,10 @@ __global__ void routeContacts(PxgDestructionSolvedContacts contacts, const Looku
         output.nativeResponseEpoch!=contacts.responseEpoch)return;
     const auto& input=contacts.inputs[i];
     // Resolve a descriptor in registers; never export/store an adapter payload.
-    PxGpuContactPair p{};
+    // PxNodeIndex has an explicit default constructor; initialize its members
+    // directly while preserving the zero/null values of the contact descriptor.
+    PxGpuContactPair p{nullptr, nullptr, nullptr, nullptr, 0, 0,
+        PxNodeIndex(), PxNodeIndex(), nullptr, nullptr, 0, 0};
     p.transformCacheRef0=input.transformCacheRef0;p.transformCacheRef1=input.transformCacheRef1;
     p.nodeIndex0=contacts.shapeToRigid[p.transformCacheRef0];
     p.nodeIndex1=contacts.shapeToRigid[p.transformCacheRef1];

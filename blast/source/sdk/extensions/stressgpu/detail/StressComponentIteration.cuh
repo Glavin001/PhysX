@@ -22,8 +22,20 @@ __device__ __forceinline__ float componentSquaredNorm(float value)
 // boundary rows are read-only. No grid rendezvous or global loop counter is
 // involved. The operator, recurrence, norm and convergence functions are the
 // same ones used by the cooperative large-component implementation.
-__global__ void componentStressSolve(PersistentStressArgs a, ResidentStressComponentView c)
-{
+__global__ void componentStressSolve(
+#if defined(PX_CUMETAL_EXPLICIT_HIERARCHY_ROOT) && PX_CUMETAL_EXPLICIT_HIERARCHY_ROOT
+    PersistentStressArgs original,ResidentStressComponentView c,
+    const StressHierarchy::CycleLevel* __restrict__ cycleLevels
+#else
+    PersistentStressArgs a,ResidentStressComponentView c
+#endif
+) {
+#if defined(PX_CUMETAL_EXPLICIT_HIERARCHY_ROOT) && PX_CUMETAL_EXPLICIT_HIERARCHY_ROOT
+    // Same separately allocated, immutable descriptor storage contract as the
+    // cooperative entry point; no restrict promise applies to nested pointees.
+    PersistentStressArgs a=original;
+    a.hierarchy.cycle.levels=cycleLevels;
+#endif
     __shared__ unsigned counts[2], iteration, activeCount, slot;
     __shared__ SolveStatus status;
     __shared__ float reduceValue;
@@ -63,7 +75,13 @@ __global__ void componentStressSolve(PersistentStressArgs a, ResidentStressCompo
         // solve's success. Each node has one writer in this owning component.
         for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)buildNativeRigidInverse(a.hierarchy,c.nodes[begin+i]);
         __syncthreads();
+#if defined(PX_CUMETAL_EXPLICIT_HIERARCHY_ROOT) && PX_CUMETAL_EXPLICIT_HIERARCHY_ROOT
+        // Retirement never reads cycle descriptors. All fields it consumes
+        // still match original; keep the rebound root out of this retained call.
+        retireHomogeneousTreeComponent(original,c.nodes+begin,count,id);
+#else
         retireHomogeneousTreeComponent(a,c.nodes+begin,count,id);
+#endif
         const unsigned nodeBlocks=(count+blockDim.x-1)/blockDim.x;
         do {
             if(a.m_islandActive[id])prepareNativeResidualComponent(a,c.nodes+begin,count,id);

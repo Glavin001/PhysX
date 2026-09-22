@@ -1,7 +1,8 @@
 # Native CUDA stress module. Keep runtime registration local: PhysX's kernel
 # wrangler implements its own __cudaRegister* entry points for upstream kernels.
-find_package(CUDAToolkit 12.3 REQUIRED)
 get_filename_component(DESTRUCTION_REPO_ROOT "${PHYSX_ROOT_DIR}/.." ABSOLUTE)
+if(NOT PX_GPU_BACKEND STREQUAL "CUMETAL")
+find_package(CUDAToolkit 12.8 REQUIRED)
 set(PX_DESTRUCTION_CUDA_ARCHITECTURES "89" CACHE STRING "Native destruction CUDA architectures")
 if(NOT PX_DESTRUCTION_CUDA_ARCHITECTURES STREQUAL "89" OR CMAKE_CUDA_COMPILER_VERSION VERSION_LESS "12.8")
     message(FATAL_ERROR "Integrated destruction requires CUDA >= 12.8 and RTX 4090 architecture 89")
@@ -9,6 +10,7 @@ endif()
 # Match the reference stress compiler's arithmetic, independently of upstream
 # PhysX's fast-math switches. Explicit user CUDA flags still apply.
 get_property(CMAKE_CUDA_FLAGS CACHE CMAKE_CUDA_FLAGS PROPERTY VALUE)
+endif()
 add_library(PhysXDestructionGpuRuntime SHARED
     ../src/PxgDestructionRuntime.cu
     ../src/PxgDestructionTopology.cu
@@ -33,7 +35,9 @@ set_target_properties(PhysXDestructionGpuRuntime PROPERTIES
 if(NOT CMAKE_DEBUG_POSTFIX)
     set_target_properties(PhysXDestructionGpuRuntime PROPERTIES OUTPUT_NAME PhysXDestructionGpuRuntime_64)
 endif()
-target_link_libraries(PhysXDestructionGpuRuntime PRIVATE CUDA::cudart_static CUDA::cuda_driver)
+if(NOT PX_GPU_BACKEND STREQUAL "CUMETAL")
+    target_link_libraries(PhysXDestructionGpuRuntime PRIVATE CUDA::cudart_static CUDA::cuda_driver)
+endif()
 if(UNIX AND NOT APPLE)
     target_link_options(PhysXDestructionGpuRuntime PRIVATE "-Wl,-Bsymbolic" "-Wl,--exclude-libs,ALL")
 endif()
@@ -77,3 +81,9 @@ set_target_properties(PhysXDestructionGpuProblemDiagnostic PROPERTIES
     OUTPUT_NAME "${diagnostic_name}"
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/diagnostics/stress-problem"
     LIBRARY_OUTPUT_DIRECTORY_RELEASE "${CMAKE_BINARY_DIR}/diagnostics/stress-problem")
+
+if(PX_GPU_BACKEND STREQUAL "CUMETAL")
+    foreach(target PhysXDestructionGpuRuntime PhysXDestructionGpuWorkDiagnostic PhysXDestructionGpuProblemDiagnostic)
+        px_cumetal_objects(${target})
+    endforeach()
+endif()

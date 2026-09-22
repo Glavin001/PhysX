@@ -76,7 +76,11 @@ void verifyOperators(const Fixture& f,const std::vector<unsigned>& roots,Graph& 
     applyCoarse<<<(n+7)/8,256,0,stream>>>(input,buffers,graph.status(),coarse.data,applied.data);
     applyLevel<<<(n+7)/8,256,0,stream>>>(input,graph.status(),fine.data,current.data);
     applyEightLaneLevel<<<(n+31)/32,256,0,stream>>>(input,graph.status(),fine.data,eightLane.data);
+#if defined(PX_CUMETAL_BLOCK_VOTED_TRAPS) && PX_CUMETAL_BLOCK_VOTED_TRAPS
+    applyFineDiagonal<<<1,256,0,stream>>>(input,buffers,graph.status(),fine.data,diagonal.data);
+#else
     applyFineDiagonal<<<(n+7)/8,256,0,stream>>>(input,buffers,graph.status(),fine.data,diagonal.data);
+#endif
     applyReferenceDiagonal<<<(n+7)/8,256,0,stream>>>(input,buffers,graph.status(),fine.data,referenceDiagonal.data);
     applyThreadDiagonal<<<(n+255)/256,256,0,stream>>>(input,buffers,graph.status(),fine.data,threadDiagonal.data);
     check(cudaGetLastError());check(cudaStreamEndCapture(stream,&captured));check(cudaGraphInstantiate(&executable,captured,0));

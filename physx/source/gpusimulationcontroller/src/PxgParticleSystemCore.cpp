@@ -168,12 +168,16 @@ namespace physx
 #if !PX_PHYSX_GPU_EXPORTS
 		//this call is needed to force PhysXSimulationControllerGpu linkage as Static Library!
 		initParticleSystemKernels0();
+#if !defined(PX_CUMETAL_RIGID_DEMO) || !PX_CUMETAL_RIGID_DEMO
 		initDiffuseParticlesKernels0();
+#endif
 		initIsosurfaceExtractionKernels0();
 		initSparseGridStandaloneKernels0();
 		initAnisotropyKernels0();
 		initAlgorithmsKernels0();
+#if !defined(PX_CUMETAL_DISABLE_GPU_SDF_BUILDER)
 		initSdfConstructionKernels0();
+#endif
 #endif
 	}
 
@@ -1303,6 +1307,10 @@ namespace physx
 
 			CUdeviceptr deltaVBuff = mDeltaVelRigidBuf.getDevicePtr();
 
+#if defined(PX_CUMETAL_EXPLICIT_MOTION_ROOT) && PX_CUMETAL_EXPLICIT_MOTION_ROOT
+			// Same independently allocated descriptor pool as sharedDesc.articulations.
+			CUdeviceptr articulationDescriptors = mSimController->getSimulationCore()->getArticulationBuffer().getDevicePtr();
+#endif
 			const CUfunction prepPrimitiveCollisionKernelFunction = mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::PS_CONTACT_PREPARE);
 
 			PxCudaKernelParam kernelParams[] =
@@ -1318,6 +1326,9 @@ namespace physx
 				PX_CUDA_KERNEL_PARAM(isTGS),
 				PX_CUDA_KERNEL_PARAM(deltaVBuff),
 				PX_CUDA_KERNEL_PARAM(sharedDescd)
+#if defined(PX_CUMETAL_EXPLICIT_MOTION_ROOT) && PX_CUMETAL_EXPLICIT_MOTION_ROOT
+				, PX_CUDA_KERNEL_PARAM(articulationDescriptors)
+#endif
 			};
 
 			const PxU32 numThreadsPerBlock = PxgParticleSystemKernelBlockDim::PS_COLLISION;
@@ -1909,6 +1920,10 @@ namespace physx
 
 		//prepare primitive constraints sorted by particle id
 		{
+#if defined(PX_CUMETAL_EXPLICIT_MOTION_ROOT) && PX_CUMETAL_EXPLICIT_MOTION_ROOT
+			// Same independently allocated descriptor pool as sharedDesc.articulations.
+			CUdeviceptr articulationDescriptors = mSimController->getSimulationCore()->getArticulationBuffer().getDevicePtr();
+#endif
 			const CUfunction prepPrimitiveCollisionKernelFunction = mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::PS_CONTACT_PREPARE);
 
 			PxCudaKernelParam kernelParams[] =
@@ -1924,6 +1939,9 @@ namespace physx
 				PX_CUDA_KERNEL_PARAM(isTGS),
 				PX_CUDA_KERNEL_PARAM(nullContactDeltaV),
 				PX_CUDA_KERNEL_PARAM(sharedDescd)
+#if defined(PX_CUMETAL_EXPLICIT_MOTION_ROOT) && PX_CUMETAL_EXPLICIT_MOTION_ROOT
+				, PX_CUDA_KERNEL_PARAM(articulationDescriptors)
+#endif
 			};
 
 			const PxU32 numThreadsPerBlock = PxgParticleSystemKernelBlockDim::PS_COLLISION;

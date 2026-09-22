@@ -3,6 +3,13 @@
 // grant; request counts, stable selection and assignment belong to the GPU.
 // Reverse address ownership is produced only when the resource grant/storage
 // grows. Ordinary allocation reads it; spare addresses are not simulated bodies.
+#if defined(PX_CUMETAL) && PX_CUMETAL
+inline bool nativeMotionCuMetalDeviceSupported(const cudaDeviceProp& properties) {
+    return std::equal(properties.name, properties.name+6, "Apple ")
+        && properties.warpSize==32 && properties.maxThreadsPerBlock>=128
+        && properties.cooperativeLaunch;
+}
+#endif
 struct NativeMotionAddresses {
     const PxU32* indices;PxU32 capacity;PxgDestructionMotionStorage storage;
     PxU32* ordinals;PxU32* error;
@@ -102,7 +109,11 @@ __device__ void prefixNativeMotionRequests(NativeMotionAllocationView v) {
     v.births->initialize=v.births->generation!=v.preparation->generation
         || v.births->first!=v.pool->committed || v.births->count!=count;
 }
+#if defined(PX_CUMETAL_EXPLICIT_MOTION_ROOT) && PX_CUMETAL_EXPLICIT_MOTION_ROOT
+__device__ __forceinline__ void compactNativeMotionRequests(NativeMotionAllocationView v) {
+#else
 __device__ void compactNativeMotionRequests(NativeMotionAllocationView v) {
+#endif
     if(v.pool->error)return;
     PxU32 first,last;nativeMotionTileRange(v,first,last);
     PxU32 offset=v.blockOffsets[blockIdx.x];
@@ -142,7 +153,14 @@ __device__ void compactNativeMotionRequests(NativeMotionAllocationView v) {
         offset+=total;__syncthreads();
     }
 }
+#if defined(PX_CUMETAL_EXPLICIT_MOTION_ROOT) && PX_CUMETAL_EXPLICIT_MOTION_ROOT
+#if !defined(PX_CUMETAL)
+#error "PX_CUMETAL_EXPLICIT_MOTION_ROOT requires the CuMetal backend"
+#endif
+__device__ __forceinline__ void assignNativeMotionOwners(NativeMotionAllocationView v) {
+#else
 __device__ void assignNativeMotionOwners(NativeMotionAllocationView v) {
+#endif
     // Previous graph nodes validated the complete batch. Errors leave every
     // canonical owner untouched, although disposable selection scratch changed.
     if(!v.allocation->error) {
@@ -181,13 +199,30 @@ __device__ void assignNativeMotionOwners(NativeMotionAllocationView v) {
     }
 }
 
-__global__ void allocateNativeMotionRequests(NativeMotionAllocationView v) {
+__global__ void allocateNativeMotionRequests(NativeMotionAllocationView v
+#if defined(PX_CUMETAL_EXPLICIT_MOTION_ROOT) && PX_CUMETAL_EXPLICIT_MOTION_ROOT
+    ,const NativeMotionAddresses* __restrict__ addresses
+#endif
+) {
     const auto grid=cooperative_groups::this_grid();
     countNativeMotionRequests(v);grid.sync();
     if(!grid.thread_rank())prefixNativeMotionRequests(v);
     grid.sync();
+#if defined(PX_CUMETAL_EXPLICIT_MOTION_ROOT) && PX_CUMETAL_EXPLICIT_MOTION_ROOT
+    // Descriptor-only restriction: initialize() allocates mAddresses separately
+    // from every writable view buffer. Ordered host copies may update it BETWEEN
+    // graph launches; no device path writes its bytes. Nested body/node/scratch
+    // pointees remain unrestricted and can alias other existing views.
+    // Rebind the two inlined descriptor consumers. Count/prefix helpers use no
+    // descriptor fields and retain the original view without capturing this root.
+    NativeMotionAllocationView addressed=v;
+    addressed.addresses=addresses;
+    compactNativeMotionRequests(addressed);grid.sync();
+    assignNativeMotionOwners(addressed);
+#else
     compactNativeMotionRequests(v);grid.sync();
     assignNativeMotionOwners(v);
+#endif
 }
 
 // One graph instantiated at scene setup. Growth updates one address descriptor;
@@ -265,17 +300,30 @@ public:
         return cudaMemcpyAsync(mAddresses,&mHostAddresses,sizeof(mHostAddresses),cudaMemcpyHostToDevice,stream);
     }
     cudaError_t initialize(NativeMotionAllocationView v,cudaStream_t stream,cudaGraph_t* continuation=nullptr) {
-        int device=0,major=0,minor=0;
+        int device=0;
         cudaError_t e=cudaGetDevice(&device);if(e!=cudaSuccess)return e;
+#if defined(PX_CUMETAL) && PX_CUMETAL
+        cudaDeviceProp properties{};
+        e=cudaGetDeviceProperties(&properties,device);if(e!=cudaSuccess)return e;
+        if(!nativeMotionCuMetalDeviceSupported(properties))return cudaErrorNotSupported;
+#else
+        int major=0,minor=0;
         e=cudaDeviceGetAttribute(&major,cudaDevAttrComputeCapabilityMajor,device);if(e!=cudaSuccess)return e;
         e=cudaDeviceGetAttribute(&minor,cudaDevAttrComputeCapabilityMinor,device);if(e!=cudaSuccess)return e;
         if(major!=8 || minor!=9)return cudaErrorNotSupported;
+#endif
         int cooperative=0,sms=0,resident=0;
         e=cudaDeviceGetAttribute(&cooperative,cudaDevAttrCooperativeLaunch,device);if(e!=cudaSuccess)return e;
         e=cudaDeviceGetAttribute(&sms,cudaDevAttrMultiProcessorCount,device);if(e!=cudaSuccess)return e;
         e=cudaOccupancyMaxActiveBlocksPerMultiprocessor(&resident,allocateNativeMotionRequests,128,0);if(e!=cudaSuccess)return e;
         if(!cooperative || !resident)return cudaErrorNotSupported;
+#if defined(PX_CUMETAL) && PX_CUMETAL
+        // The source-first cooperative ABI supports one physical block. The
+        // existing grid-stride loops still process every allocation request.
+        v.blocks=1;
+#else
         v.blocks=std::min(PxU32(sms*resident),std::min(128u,std::max(1u,v.requestCapacity/128+(v.requestCapacity%128!=0))));
+#endif
         e=cudaMalloc(&mAddresses,sizeof(*mAddresses));if(e!=cudaSuccess)return e;
         e=cudaMalloc(&mHostAddresses.error,sizeof(PxU32));if(e!=cudaSuccess)return e;
         e=cudaMalloc(&mOffsets,v.blocks*sizeof(*mOffsets));if(e!=cudaSuccess)return e;
@@ -293,7 +341,11 @@ public:
         condition.conditional.handle=work;condition.conditional.type=cudaGraphCondTypeIf;condition.conditional.size=1;
         cudaGraphNode_t branch{};e=cudaGraphAddNode(&branch,mGraph,&prior,1,&condition);if(e!=cudaSuccess)return e;
         const auto body=condition.conditional.phGraph_out[0];prior=nullptr;
+#if defined(PX_CUMETAL_EXPLICIT_MOTION_ROOT) && PX_CUMETAL_EXPLICIT_MOTION_ROOT
+        e=add(body,prior,allocateNativeMotionRequests,v.blocks,128,v,mAddresses);if(e!=cudaSuccess)return e;
+#else
         e=add(body,prior,allocateNativeMotionRequests,v.blocks,128,v);if(e!=cudaSuccess)return e;
+#endif
         cudaKernelNodeAttrValue attribute{};attribute.cooperative=1;
         e=cudaGraphKernelNodeSetAttribute(prior,cudaKernelNodeAttributeCooperative,&attribute);if(e!=cudaSuccess)return e;
         if(continuation) {

@@ -60,11 +60,13 @@ public:
 	PX_FORCE_INLINE	CUfunction getCuFunction(uint16_t funcIndex) const
 	{
 		CUfunction func = mCuFunctions[ funcIndex ];
+        if (!func && reportUnavailableRigidDemoKernel(funcIndex)) return NULL;
 		PX_ASSERT(func);
 		return func;
 	}
 
 	const char* getCuFunctionName(uint16_t funcIndex) const;
+    bool reportUnavailableRigidDemoKernel(uint16_t funcIndex) const;
 
 	PX_FORCE_INLINE	bool hadError() const { return mError; }
 

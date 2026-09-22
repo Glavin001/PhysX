@@ -17,6 +17,8 @@ missing regimes as incomplete qualification.
 
 This is a repository-local skill. Run its commands from the repository root;
 resolve the documentation below relative to this skill, not the shell cwd.
+Demo MP4 capture is a separate task:
+[physx-destruction-video](../physx-destruction-video/SKILL.md).
 
 ## Read only what the task needs
 

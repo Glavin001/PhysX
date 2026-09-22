@@ -1,0 +1,42 @@
+cmake_minimum_required(VERSION 3.24)
+project(PhysXDestructionBackendConfigProbe LANGUAGES CXX)
+# Configure-only contract probe. Use the real installed local CuMetal compiler
+# and runtime paths; this neither compiles a kernel nor claims numerical proof.
+get_filename_component(PHYSX_ROOT "${CMAKE_CURRENT_LIST_DIR}/../../../physx" ABSOLUTE)
+set(BLAST_ENABLE_CUDA_STRESS ON)
+include("${CMAKE_CURRENT_LIST_DIR}/../../GpuBackend.cmake")
+if(NOT PX_GPU_BACKEND STREQUAL "CUMETAL")
+    message(FATAL_ERROR "This configuration probe targets CuMetal; CUDA qualification requires its Linux toolchain")
+endif()
+if(CMAKE_CUDA_COMPILER_LOADED OR CMAKE_CUDA_COMPILER)
+    message(FATAL_ERROR "CuMetal configuration unexpectedly enabled/discovered an NVIDIA CUDA compiler")
+endif()
+add_library(DestructionBackendConfigProbe STATIC
+    "${PHYSX_ROOT}/source/gpudestruction/src/PxgDestructionTopology.cu")
+target_include_directories(DestructionBackendConfigProbe PUBLIC
+    "$<BUILD_INTERFACE:${PHYSX_ROOT}/source/gpudestruction/include>"
+    "$<INSTALL_INTERFACE:include/physx/destruction>")
+target_link_libraries(DestructionBackendConfigProbe PUBLIC ${PX_DESTRUCTION_GPU_RUNTIME})
+px_destruction_finalize_gpu_targets()
+get_target_property(objects DestructionBackendConfigProbe CUMETAL_NATIVE_OBJECTS)
+list(LENGTH objects object_count)
+if(NOT object_count EQUAL 1)
+    message(FATAL_ERROR "Expected one native AOT object for the actual topology translation unit")
+endif()
+get_target_property(language DestructionBackendConfigProbe LINKER_LANGUAGE)
+if(NOT language STREQUAL "CXX")
+    message(FATAL_ERROR "The CuMetal target must link through the native C++ linker")
+endif()
+get_target_property(export_links DestructionBackendConfigProbe INTERFACE_LINK_LIBRARIES)
+string(FIND "${export_links}" "${CUMETAL_LIBRARY}" escaped_build_runtime)
+if(NOT escaped_build_runtime EQUAL -1)
+    message(FATAL_ERROR "Export retains the absolute build-tree runtime path")
+endif()
+if(NOT "CuMetal::Runtime" IN_LIST export_links)
+    message(FATAL_ERROR "Export must preserve its imported CuMetal package dependency")
+endif()
+# Real export generation catches source/build paths leaking into SDK usage
+# requirements. No installation is run by this configure-only probe.
+install(TARGETS DestructionBackendConfigProbe EXPORT DestructionBackendConfigProbeTargets ARCHIVE DESTINATION lib)
+install(EXPORT DestructionBackendConfigProbeTargets NAMESPACE Probe:: DESTINATION lib/cmake/Probe)
+message(STATUS "CuMetal backend configuration/export contract prepared; no kernel build or numerical execution")

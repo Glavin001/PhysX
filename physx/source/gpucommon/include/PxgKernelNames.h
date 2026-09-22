@@ -102,11 +102,13 @@ KERNEL_DEF(COMPACT_LOST_FOUND_PAIRS_2, "prepareLostFoundPairs_Stage2")
 KERNEL_DEF(SPHERE_KERNEL_MAIN, "sphereNphase_Kernel")
 KERNEL_DEF(BOX_BOX_KERNEL_MAIN, "boxBoxNphase_Kernel")
 KERNEL_DEF(CONVEX_PLANE_KERNEL_MAIN, "convexPlaneNphase_Kernel")
+#if !defined(PX_CUMETAL_DISABLE_CONVEX_CORE)
 KERNEL_DEF(CONVEXCORE_PLANE_KERNEL_MAIN, "convexCorePlaneNphase_Kernel")
 KERNEL_DEF(CONVEXCORE_CONVEX_KERNEL_MAIN, "convexCoreConvexNphase_Kernel")
 KERNEL_DEF(CONVEXCORE_TRIMESH_KERNEL32_MAIN, "convexCoreTrimeshNphase_Kernel32")
 KERNEL_DEF(CONVEXCORE_TETMESH_KERNEL32_MAIN, "convexCoreTetmeshNphase_Kernel32")
 KERNEL_DEF(CONVEXCORE_CLOTHMESH_KERNEL32_MAIN, "convexCoreClothmeshNphase_Kernel32")
+#endif
 KERNEL_DEF(CONVEX_CONVEX_KERNEL_EARLY_OUT, "convexConvexNphase_stage1Kernel")
 KERNEL_DEF(CONVEX_CONVEX_KERNEL_MAIN, "convexConvexNphase_stage2Kernel")
 KERNEL_DEF(REMOVE_CONTACT_MANAGERS_5_CVXTRI, "removeContactManagers_Stage5_CvxTri")
@@ -587,6 +589,8 @@ KERNEL_DEF(util_ComputeNormals, "normalVectorsAreaWeighted")
 KERNEL_DEF(util_NormalizeNormals, "normalizeNormals")
 KERNEL_DEF(util_ZeroNormals, "zeroNormals")
 
+#if !defined(PX_CUMETAL_DISABLE_GPU_SDF_BUILDER)
+// Private BVH and SDF construction service kernels; no collision kernels.
 //BVH construction kernels
 KERNEL_DEF(bvh_ComputeTriangleBounds, "bvhComputeTriangleBounds")
 KERNEL_DEF(bvh_ComputeTotalBounds, "bvhComputeTotalBounds")
@@ -608,6 +612,7 @@ KERNEL_DEF(sdf_CountHoles, "sdfCountHoles")
 KERNEL_DEF(sdf_FindHoles, "sdfFindHoles")
 KERNEL_DEF(sdf_ApplyHoleCorrections, "sdfApplyHoleCorrections")
 KERNEL_DEF(sdf_CalculateDenseGridPointCloud, "sdfCalculateDenseGridPointCloud")
+#endif // PX_CUMETAL_DISABLE_GPU_SDF_BUILDER
 
 #endif
 

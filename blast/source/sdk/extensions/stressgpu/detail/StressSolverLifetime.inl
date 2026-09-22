@@ -28,8 +28,17 @@
         int device=0;cudaDeviceProp properties{};
         checkCuda(cudaGetDevice(&device), "query destruction device");
         checkCuda(cudaGetDeviceProperties(&properties, device), "query destruction capabilities");
+#if defined(PX_CUMETAL) && PX_CUMETAL
+        // CuMetal keeps the Apple device identity. Cooperative residency and
+        // whole-block error handling are enforced by the native launch ABI;
+        // the virtual-work loops still process the complete physical problem.
+        if(std::string(properties.name).rfind("Apple ",0)!=0 || properties.warpSize!=32
+            || properties.maxThreadsPerBlock<static_cast<int>(kBlockSize) || !properties.cooperativeLaunch)
+            throw std::runtime_error("Integrated CuMetal destruction requires an Apple GPU, 32-lane warps and cooperative block support");
+#else
         if(properties.major!=8 || properties.minor!=9 || std::string(properties.name)!="NVIDIA GeForce RTX 4090" || !properties.cooperativeLaunch)
             throw std::runtime_error("Integrated destruction is compatible only with RTX 4090 sm_89 and cooperative CUDA execution");
+#endif
 #endif
         prepare(nodes, bonds);
 computeIslands();

@@ -47,6 +47,7 @@ PX_INLINE physx::PxSIMDGuard::PxSIMDGuard(bool enable)
 	: mEnabled(enable)
 #endif
 {
+    PX_UNUSED(enable);
 #if !PX_EMSCRIPTEN && (PX_X86 || PX_X64)
 	if(enable)
 	{

@@ -36,7 +36,7 @@
 #include "common/windows/PxWindowsDelayLoadHook.h"
 #include "foundation/windows/PxWindowsInclude.h"
 #include "windows/CmWindowsModuleUpdateLoader.h"
-#elif PX_LINUX
+#elif PX_LINUX || (PX_OSX && defined(PX_CUMETAL))
 #include <dlfcn.h>
 #endif // ~PX_LINUX
 
@@ -183,7 +183,7 @@ namespace physx
 		}
 	}
 
-#elif PX_LINUX
+#elif PX_LINUX || (PX_OSX && defined(PX_CUMETAL))
 
 	void PxLoadPhysxGPUModule(const char*)
 	{
@@ -191,6 +191,10 @@ namespace physx
 
 		if (s_library == NULL)
 		{
+#if defined(PX_CUMETAL)
+			// The native GPU library links libcumetal directly; no libcuda alias.
+			s_library = dlopen(gPhysXGpuLibraryName, RTLD_NOW | RTLD_LOCAL);
+#else
 			// load libcuda.so.1 here since gcc configured with --as-needed won't link to it
 			// if there is no call from the binary to it.
 			void* hLibCuda = dlopen("libcuda.so.1", RTLD_NOW | RTLD_GLOBAL);
@@ -204,6 +208,7 @@ namespace physx
 				reportError(PX_FL, "Could not load libcuda.so.1: %s\n", error);
 				return;
 			}
+#endif
 		}
 
 		// no UpdateLoader

@@ -517,7 +517,9 @@ protected:                  \
 	Class& operator=(const Class&);
 
 //#define DISABLE_CUDA_PHYSX
-#ifndef DISABLE_CUDA_PHYSX
+#if defined(PX_CUMETAL) && !defined(DISABLE_CUDA_PHYSX)
+	#define PX_SUPPORT_GPU_PHYSX (PX_A64 && PX_OSX)
+#elif !defined(DISABLE_CUDA_PHYSX)
 	//CUDA is currently supported on x86_64 windows and linux, and ARM_64 linux
 	#define PX_SUPPORT_GPU_PHYSX ((PX_X64 && (PX_WINDOWS_FAMILY || PX_LINUX)) || (PX_A64 && PX_LINUX))
 #else
@@ -533,4 +535,3 @@ protected:                  \
 #define PX_FL	__FILE__, __LINE__
 
 #endif
-

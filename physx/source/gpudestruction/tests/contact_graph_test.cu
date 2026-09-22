@@ -15,64 +15,7 @@
 #include <stdexcept>
 #include <vector>
 using namespace physx;
-void require(bool ok,const char* why){if(!ok)throw std::runtime_error(why);}
-void check(cudaError_t r){if(r!=cudaSuccess)throw std::runtime_error(cudaGetErrorString(r));}
-template<class T> struct Device {
-    T* p{};explicit Device(size_t n){check(cudaMalloc(&p,std::max<size_t>(n,1)*sizeof(T)));}
-    ~Device(){cudaFree(p);}
-    void put(const std::vector<T>& v){if(!v.empty())check(cudaMemcpy(p,v.data(),v.size()*sizeof(T),cudaMemcpyHostToDevice));}
-    std::vector<T> get(size_t n){std::vector<T> v(n);if(n)check(cudaMemcpy(v.data(),p,n*sizeof(T),cudaMemcpyDeviceToHost));return v;}
-};
-__global__ void initializeContactIdentities(PxgContactGraphIdentity* ids,const PxU32* edges,
-    PxU32 count,PxgContactGraphSequence* sequence) {
-    contactIdentity::initialize(ids,edges,count,sequence);
-}
-void contactLifetimeAllocation() {
-    // Non-multiple tails and a deliberately small grid exercise block-stride
-    // allocation. Concurrent streams share one scene allocator, not counters.
-    constexpr PxU32 n=131073,second=1027;
-    const PxgContactGraphIdentity guard={0xfedcba98,17,0x123456789ull};
-    std::vector<PxU32> edges(n);std::iota(edges.begin(),edges.end(),31u);
-    Device<PxU32> dEdges(n);dEdges.put(edges);
-    Device<PxgContactGraphIdentity> a(n+2),b(second+2);
-    a.put(std::vector<PxgContactGraphIdentity>(n+2,guard));b.put(std::vector<PxgContactGraphIdentity>(second+2,guard));
-    Device<PxgContactGraphSequence> sequence(1);sequence.put({{1,0,0}});
-    cudaStream_t left,right;check(cudaStreamCreateWithFlags(&left,cudaStreamNonBlocking));check(cudaStreamCreateWithFlags(&right,cudaStreamNonBlocking));
-    cudaEvent_t ready;check(cudaEventCreateWithFlags(&ready,cudaEventDisableTiming));
-    check(cudaEventRecord(ready));check(cudaStreamWaitEvent(left,ready));check(cudaStreamWaitEvent(right,ready));
-    initializeContactIdentities<<<7,128,0,left>>>(a.p+1,dEdges.p,n,sequence.p);
-    initializeContactIdentities<<<5,128,0,right>>>(b.p+1,dEdges.p,second,sequence.p);
-    check(cudaGetLastError());check(cudaDeviceSynchronize());
-    auto first=a.get(n+2),other=b.get(second+2);std::set<PxU64> live;
-    auto inspect=[&](const std::vector<PxgContactGraphIdentity>& values,PxU32 count) {
-        require(!std::memcmp(&values.front(),&guard,sizeof(guard)) && !std::memcmp(&values.back(),&guard,sizeof(guard)),"contact lifetime initialization overwrote guards");
-        for(PxU32 i=0;i<count;++i) {
-            const auto id=values[i+1];require(id.edgeIndex==edges[i] && !id.reserved,"contact identity lost its edge mapping");
-            require(id.generation && live.insert(id.generation).second,"contact lifetime reused across streams/blocks");
-        }
-    };
-    inspect(first,n);inspect(other,second);
-    auto status=sequence.get(1)[0];require(!status.error && status.next==1ull+n+second,"contact range allocation leaked or duplicated identities");
-    initializeContactIdentities<<<5,128>>>(b.p+1,dEdges.p,second,sequence.p);check(cudaGetLastError());check(cudaDeviceSynchronize());
-    inspect(b.get(second+2),second); // recycled storage must obtain fresh lifetimes
-    require(!std::memcmp(first.data(),a.get(n+2).data(),first.size()*sizeof(first[0])),"unrelated pair initialization changed retained identities");
-    // Exhaustion must latch, leave the counter unwrapped and publish invalid
-    // identities. Existing graph validation rejects generation zero explicitly.
-    const PxU64 maximum=~PxU64(0);sequence.put({{maximum-3,0,0}});
-    initializeContactIdentities<<<1,128>>>(b.p+1,dEdges.p,3,sequence.p);check(cudaDeviceSynchronize());
-    auto last=b.get(5);require(last[1].generation==maximum-3 && last[3].generation==maximum-1,"last legal lifetime range was not allocated exactly");
-    initializeContactIdentities<<<1,128>>>(b.p+1,dEdges.p,1,sequence.p);check(cudaDeviceSynchronize());
-    status=sequence.get(1)[0];require(status.next==maximum && status.error==1 && b.get(2)[1].generation==0,"contact lifetime exhaustion silently wrapped");
-    initializeContactIdentities<<<2,128>>>(b.p+1,dEdges.p,129,sequence.p);check(cudaDeviceSynchronize());
-    auto failed=b.get(130);for(PxU32 i=1;i<failed.size();++i)require(!failed[i].generation,"exhausted contact allocator resumed");
-    Device<PxU32> emptyAccurate(0),emptySpeculative(0);Device<PxgDestructionContactGraphStatus> graphStatus(1);
-    destructionContactGraph::initialize<<<1,128>>>(emptyAccurate.p,emptySpeculative.p,0,graphStatus.p,0,sequence.p);
-    check(cudaDeviceSynchronize());
-    require(graphStatus.get(1)[0].error==PxgDestructionContactGraphStatus::eLIFETIME_EXHAUSTED,
-        "empty/retired contact set hid allocator exhaustion at completion");
-    check(cudaStreamDestroy(left));check(cudaStreamDestroy(right));check(cudaEventDestroy(ready));
-    std::puts("GPU contact lifetimes: concurrent block allocation, tails, retained storage, reuse and exhaustion passed");
-}
+#include "contact_identity_test.cuh"
 
 void solverMetadataPages() {
     // Non-multiple domains, untouched pages, and guards catch short tail and
@@ -281,6 +224,9 @@ void run(PxU32 n,const std::vector<Pair>& pairs,unsigned invalid=0,PxU32 omitted
     const bool invalidRetirement=std::any_of(retired.begin(),retired.end(),[&](PxU32 i){return i>=count;});
     const PxU32 expected=(invalidRetirement?PxgDestructionContactGraphStatus::eINVALID_IDENTITY:0u)|(omitted?PxgDestructionContactGraphStatus::eMISSING_PAIRS:0u)|
         (invalid?(invalid==3?PxgDestructionContactGraphStatus::eUNSUPPORTED_ENDPOINT:PxgDestructionContactGraphStatus::eINVALID_IDENTITY):0u);
+    if(result.error!=expected || result.omittedPairs!=omitted)
+        std::fprintf(stderr,"graph availability: nodes=%u pairs=%u invalid=%u retired=%zu retained=%zu error=%u expected=%u omitted=%u expectedOmitted=%u\n",
+            n,count,invalid,retired.size(),retained.size(),result.error,expected,result.omittedPairs,omitted);
     require(result.error==expected && result.omittedPairs==omitted,"graph availability status mismatch");
     if(invalid || invalidRetirement)return;
     std::vector<Pair> live;
@@ -353,7 +299,16 @@ void retainedTransactions() {
 }
 
 int main(){try{
-    contactLifetimeAllocation();
+    const auto exhaustedSequence=contactLifetimeAllocation();
+    {
+        Device<PxgContactGraphSequence> sequence(1);sequence.put({exhaustedSequence});
+    Device<PxU32> emptyAccurate(0),emptySpeculative(0);Device<PxgDestructionContactGraphStatus> graphStatus(1);
+    destructionContactGraph::initialize<<<1,128>>>(emptyAccurate.p,emptySpeculative.p,0,graphStatus.p,0,sequence.p);
+    check(cudaDeviceSynchronize());
+    require(graphStatus.get(1)[0].error==PxgDestructionContactGraphStatus::eLIFETIME_EXHAUSTED,
+        "empty/retired contact set hid allocator exhaustion at completion");
+    }
+
     preSolveNodeTransactions();
     preSolveDeviceContacts();
     preSolveComponents();

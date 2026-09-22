@@ -244,6 +244,11 @@
         // virtual node/island blocks are processed by the resident grid.
         const auto kernel=m_deviceTopology?persistentStressSolve<true>:persistentStressSolve<false>;
         if(m_deviceTopology){args.hierarchy=m_deviceTopology->cycleView();args.input=m_input;args.impulses=m_impulses;args.originalRhs=m_rhs;args.warmStart=params.warmStart && m_hasWarmStart;args.settledIslands=m_islandSkip;}
+#if defined(PX_CUMETAL_EXPLICIT_HIERARCHY_ROOT) && PX_CUMETAL_EXPLICIT_HIERARCHY_ROOT
+        // Capture copies this pointer value, not the address of this host local.
+        // The descriptor allocation survives every captured/eager solve.
+        const StressHierarchy::CycleLevel* cycleLevels=args.hierarchy.cycle.levels;
+#endif
         int blocksPerSm=0,device=0,sms=0;
         checkCuda(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&blocksPerSm,kernel,kBlockSize,0),"persistent stress occupancy");
         checkCuda(cudaGetDevice(&device),"persistent stress device");
@@ -253,7 +258,13 @@
         // grid for that dominant work rather than only the scalar vector sweeps.
         // Small complete problems remain within one block: shared-block
         // barriers avoid cross-SM rendezvous for a few hundred nodes.
-        const unsigned blocks=m_nodeCount<=1024 ? 1u : std::min(std::max(nodeBlocks*8u,islandBlocks),unsigned(blocksPerSm*sms));
+        const unsigned blocks=
+#if defined(PX_CUMETAL_BLOCK_VOTED_TRAPS) && PX_CUMETAL_BLOCK_VOTED_TRAPS
+            // Only the hierarchy preconditioner reaches terminal traps. The
+            // persistent virtual-work loops and iteration limits are unchanged.
+            m_deviceTopology ? 1u :
+#endif
+            m_nodeCount<=1024 ? 1u : std::min(std::max(nodeBlocks*8u,islandBlocks),unsigned(blocksPerSm*sms));
         ResidentStressComponentView components{};
         if(m_deviceTopology) {
             initializeNativeWarmResidual<<<nodeBlocks,kBlockSize,0,m_stream>>>(args);
@@ -272,12 +283,20 @@
             // (33.40/33.25/33.28/33.25 ms). The independent-component path is
             // not where a fragmented city spends its time; the large-component
             // cooperative solve below is.
-            componentStressSolve<<<std::min(m_nodeCount,unsigned(sms*2)),kBlockSize,0,m_stream>>>(args,components);
+            componentStressSolve<<<std::min(m_nodeCount,unsigned(sms*2)),kBlockSize,0,m_stream>>>(args,components
+#if defined(PX_CUMETAL_EXPLICIT_HIERARCHY_ROOT) && PX_CUMETAL_EXPLICIT_HIERARCHY_ROOT
+                ,cycleLevels
+#endif
+            );
             args.islandIds=components.largeIds;
             args.liveIslandCount=components.largeCount;
             args.largeComponentsOnly=true;
         }
-        void* arguments[]={&args};
+        void* arguments[]={&args
+#if defined(PX_CUMETAL_EXPLICIT_HIERARCHY_ROOT) && PX_CUMETAL_EXPLICIT_HIERARCHY_ROOT
+            ,&cycleLevels
+#endif
+        };
         checkCuda(cudaLaunchCooperativeKernel((void*)kernel,dim3(blocks),dim3(kBlockSize),arguments,0,m_stream),"capture persistent stress solve");
         if(m_deviceTopology)
             finishComponentStress<<<1,kBlockSize,0,m_stream>>>(args,components);

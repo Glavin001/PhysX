@@ -84,6 +84,11 @@ SET(PHYXGPU_NARROWPHASE_CUDA_KERNELS
 	${NARROW_PHASE_SOURCE_DIR}/CUDA/femClothClothMidPhase.cu
 	${NARROW_PHASE_SOURCE_DIR}/CUDA/trimeshCollision.cu
 )
+# ConvexCore is an optional geometry type, distinct from ordinary convex meshes.
+# Keep every standard rigid-body collision source in the native milestone.
+IF(PX_GPU_BACKEND STREQUAL "CUMETAL" AND NOT PX_CUMETAL_ENABLE_CONVEX_CORE)
+    LIST(REMOVE_ITEM PHYXGPU_NARROWPHASE_CUDA_KERNELS "${NARROW_PHASE_SOURCE_DIR}/CUDA/convexCoreCollision.cu")
+ENDIF()
 SOURCE_GROUP("narrowphase kernels/CUDA" FILES ${PHYXGPU_NARROWPHASE_CUDA_KERNELS})
 
 SET(PHYXGPU_NARROWPHASE_CUDA_INCLUDE

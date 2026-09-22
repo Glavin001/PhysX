@@ -50,6 +50,25 @@ using namespace physx;
 
 extern "C" __host__ void initBroadphaseKernels1() {}
 
+// These kernels schedule independent warp-local loops, so ownership failures
+// cannot rendezvous at a block vote inside the pair-generation helpers. Carry
+// a sticky error to the unconditional kernel tail instead. No grid rendezvous
+// or cross-block progress wait depends on these kernels; report buffers from
+// a failed launch are partial and must not be consumed after its CUDA error.
+#if defined(PX_CUMETAL) && PX_CUMETAL && defined(PX_CUMETAL_BLOCK_VOTED_TRAPS) && PX_CUMETAL_BLOCK_VOTED_TRAPS
+#define PX_AGG_BLOCK_LOCAL_TRAPS 1
+#define PX_AGG_TRAP_KERNEL __attribute__((annotate("cumetal.block_local_terminal_traps")))
+#define PX_AGG_OWNERSHIP_PARAMETER , bool& invalidOwnership
+#define PX_AGG_OWNERSHIP_ARGUMENT , invalidOwnership
+#define PX_AGG_DIFFERENT_GROUPS(desc, a, b) differentBroadPhaseGroupsChecked(desc, a, b, invalidOwnership)
+#else
+#define PX_AGG_BLOCK_LOCAL_TRAPS 0
+#define PX_AGG_TRAP_KERNEL
+#define PX_AGG_OWNERSHIP_PARAMETER
+#define PX_AGG_OWNERSHIP_ARGUMENT
+#define PX_AGG_DIFFERENT_GROUPS(desc, a, b) differentBroadPhaseGroups(desc, a, b)
+#endif
+
 
 //each warp copy one aggregate
 extern "C" __global__ void updateDirtyAggregate(
@@ -153,18 +172,34 @@ extern "C" __global__ void markAggregateBoundsUpdatedBitmap(
 
 	if (warpIdx < nbAggregates)
 	{
+#if defined(PX_CUMETAL_EXPLICIT_AGGREGATE_ROOT) && PX_CUMETAL_EXPLICIT_AGGREGATE_ROOT
+		// This kernel only changes the separately allocated bitmap. Snapshot
+		// the used descriptor fields before its atomics; avoid copying unused
+		// pointer arrays into a temporary record solely for two scalar reads.
+		const PxgAggregate& agg = aggregates[warpIdx];
+		PxU32* boundInds = agg.updateBoundIndices;
+		const PxU32 nbBounds = agg.size;
+		const PxU32 aggregateIndex = agg.mIndex;
+		// Exact PxgAggregate::isValid predicate, evaluated on the snapshots.
+		const bool valid = (nbBounds > 0) && (aggregateIndex != 0xFFFFFFFF);
+#else
 		PxgAggregate agg = aggregates[warpIdx];
+		const PxU32 aggregateIndex = agg.mIndex;
+		const bool valid = agg.isValid();
+#endif
 
-		if (agg.isValid())
+		if (valid)
 		{
 			if(threadIdx.x == 0)
 			{
-				PxU32 bit = 1 << (agg.mIndex % BITMAP_WORD_SIZE);
-				atomicOr(&changedAABBMgrHandles[agg.mIndex / BITMAP_WORD_SIZE], bit);
+				PxU32 bit = 1 << (aggregateIndex % BITMAP_WORD_SIZE);
+				atomicOr(&changedAABBMgrHandles[aggregateIndex / BITMAP_WORD_SIZE], bit);
 			}
 
+#if !defined(PX_CUMETAL_EXPLICIT_AGGREGATE_ROOT) || !PX_CUMETAL_EXPLICIT_AGGREGATE_ROOT
 			PxU32* boundInds = agg.updateBoundIndices;
 			const PxU32 nbBounds = agg.size;
+#endif
 			for (PxU32 id = threadIdx.x; id < nbBounds; id += WARP_SIZE)
 			{
 				PxU32 idx = boundInds[id];
@@ -232,11 +267,20 @@ extern "C" __global__ void updateAggregateBounds(
 extern "C" __global__ void sortAndUpdateAggregateProjections(
 	PxgBroadPhaseDesc* desc, 
 	PxgAggregateDesc* aggDesc
+#if defined(PX_CUMETAL_EXPLICIT_AGGREGATE_ROOT) && PX_CUMETAL_EXPLICIT_AGGREGATE_ROOT
+	// The descriptor array is mAggregateBuf, a distinct device allocation.
+	// Nested buffers are separate allocations and do not inherit this restrict.
+	, PxgAggregate* PX_RESTRICT aggregateRoot
+#endif
 )
 {
 	const PxU32 globalWarpIndex = threadIdx.y + blockDim.y * blockIdx.x;
 	const PxU32 nbAggregates = aggDesc->numAgregates;
+#if defined(PX_CUMETAL_EXPLICIT_AGGREGATE_ROOT) && PX_CUMETAL_EXPLICIT_AGGREGATE_ROOT
+	PxgAggregate* PX_RESTRICT aggregates = aggregateRoot;
+#else
 	PxgAggregate* PX_RESTRICT aggregates = aggDesc->aggregates;
+#endif
 
 	const PxgIntegerAABB* PX_RESTRICT iAABB = desc->newIntegerBounds;
 
@@ -468,7 +512,7 @@ __device__ PxU32 getIndex(const PxU32* PX_RESTRICT startMasks, const PxU32 start
 bool __device__ generatePairs(PxU32 i, PxU32 nbBounds, const PxU32* PX_RESTRICT comparisons,
 	const PxgSapBox1D* PX_RESTRICT sapBox1D, const PxU32* PX_RESTRICT startMasks, 
 	const PxU32* PX_RESTRICT sortedHandles, const PxgIntegerAABB* PX_RESTRICT currBounds, 
-	const PxgIntegerAABB* PX_RESTRICT prevBounds, const PxU32* boundsId, const PxgBroadPhaseDesc* groupDesc, PxgBroadPhasePair& pair)
+	const PxgIntegerAABB* PX_RESTRICT prevBounds, const PxU32* boundsId, const PxgBroadPhaseDesc* groupDesc, PxgBroadPhasePair& pair PX_AGG_OWNERSHIP_PARAMETER)
 {
 	//First stage, let's do the prev comparisons to find out if we have lost self-collisions!
 	{
@@ -492,7 +536,7 @@ bool __device__ generatePairs(PxU32 i, PxU32 nbBounds, const PxU32* PX_RESTRICT 
 		PxU32 otherBoundsIdx = boundsId[handle];
 
 		//Skip based on BP groups
-		if (differentBroadPhaseGroups(groupDesc, otherBoundsIdx, boundsIdx))
+		if (PX_AGG_DIFFERENT_GROUPS(groupDesc, otherBoundsIdx, boundsIdx))
 		{
 			//Test whether bounds overlap on all axes
 			if (currBounds[otherBoundsIdx].intersects(currBounds[boundsIdx]))
@@ -516,7 +560,7 @@ bool __device__ generatePairs(PxU32 i, PxU32 nbBounds, const PxU32* PX_RESTRICT 
 
 void  __device__ generateAllPairs(PxgAggregate& agg, const PxU32 totalComparisons, const PxU32 nbBounds, PxgBroadPhasePair* pairs, PxU32* sharedIndex,
 	const PxgIntegerAABB* PX_RESTRICT bounds, const PxgIntegerAABB* PX_RESTRICT prevBounds, const PxgBroadPhaseDesc* groupDesc, const PxU32 isLostPair,
-	const PxU32 maxPairs)
+	const PxU32 maxPairs PX_AGG_OWNERSHIP_PARAMETER)
 {
 	PxU32* comparisons = agg.comparisons[isLostPair];
 
@@ -529,7 +573,7 @@ void  __device__ generateAllPairs(PxgAggregate& agg, const PxU32 totalComparison
 		if (idx < totalComparisons)
 		{
 			generatedPair = generatePairs(idx, nbBounds, comparisons, agg.sapBox1D[isLostPair], agg.startMasks[isLostPair],
-				agg.sortedHandles[isLostPair], bounds, prevBounds, agg.boundIndices[isLostPair], groupDesc, pair);
+				agg.sortedHandles[isLostPair], bounds, prevBounds, agg.boundIndices[isLostPair], groupDesc, pair PX_AGG_OWNERSHIP_ARGUMENT);
 		}
 
 		PxU32 mask = __ballot_sync(FULL_MASK, generatedPair);
@@ -555,11 +599,14 @@ void  __device__ generateAllPairs(PxgAggregate& agg, const PxU32 totalComparison
 }
 
 //sharedPairIndex[0] = sharedFoundPairIndex, sharedPairIndex[1] = sharedLostPairIndex
-extern "C" __global__ void doSelfCollision(
+extern "C" __global__ PX_AGG_TRAP_KERNEL void doSelfCollision(
 	PxgBroadPhaseDesc* desc, 
 	PxgAggregateDesc* aggDesc
 )
 {
+#if PX_AGG_BLOCK_LOCAL_TRAPS
+	bool invalidOwnership = false;
+#endif
 	const PxU32 nbAggregates = aggDesc->numAgregates;
 	PxgAggregate* aggregates = aggDesc->aggregates;
 
@@ -643,13 +690,13 @@ extern "C" __global__ void doSelfCollision(
 			if (!agg.isNew)
 			{
 				generateAllPairs(agg, agg.prevComparisons, agg.prevSize, aggDesc->lostPairReport, &aggDesc->sharedLostPairIndex,
-					iOldAABB, iAABB, desc, 1, maxPairs);
+					iOldAABB, iAABB, desc, 1, maxPairs PX_AGG_OWNERSHIP_ARGUMENT);
 			}
 
 			//Find found pairs by finding all current pairs and comparing them to see if they
 			//were not present last frame
 			generateAllPairs(agg, totalCount, agg.size, aggDesc->foundPairReport, &aggDesc->sharedFoundPairIndex,
-				iAABB, iOldAABB, desc, 0, maxPairs);
+				iAABB, iOldAABB, desc, 0, maxPairs PX_AGG_OWNERSHIP_ARGUMENT);
 
 		}
 
@@ -659,6 +706,10 @@ extern "C" __global__ void doSelfCollision(
 			agg.prevComparisons = totalCount;
 		}
 	}
+#if PX_AGG_BLOCK_LOCAL_TRAPS
+	// All launched threads reach this tail, including inactive whole warps.
+	if (__syncthreads_or(invalidOwnership)) { __trap(); return; }
+#endif
 }
 
 static __device__ PxU32 bSearchFirstProjection(const PxU32* PX_RESTRICT projections, const PxU32 numElements, const PxU32 proj)
@@ -769,7 +820,7 @@ static __device__ void boxPruningProjection(const PxgIntegerAABB* PX_RESTRICT bo
 	const PxU32* objBoundIndices, const PxU32 nbObj, const PxU32* PX_RESTRICT sortedProjections, const PxU32 nbProjections, 
 	const PxU32* PX_RESTRICT sortedHandles, const PxU32* PX_RESTRICT startMasks, const PxU32* boundIndices, const PxgBroadPhaseDesc* groupDesc,
 	PxgBroadPhasePair* PX_RESTRICT pairs, PxU32* PX_RESTRICT sharedIndex, bool findLostPairs, const PxU32 isFirst, bool isNew,
-	const PxU32 maxPairs)
+	const PxU32 maxPairs PX_AGG_OWNERSHIP_PARAMETER)
 {
 	//Find the index in which the startPojectionVal and endProjectionVal should exist...
 
@@ -828,7 +879,7 @@ static __device__ void boxPruningProjection(const PxgIntegerAABB* PX_RESTRICT bo
 				assert(handle != otherHandle);
 
 				//Now we know which index we need to read, and we know which original bounds we are comparing, let's do collision...
-				if (differentBroadPhaseGroups(groupDesc, handle, otherHandle))
+				if (PX_AGG_DIFFERENT_GROUPS(groupDesc, handle, otherHandle))
 				{
 					// we check if the bounds intersect.
 					// if foundPairs: these are the current bounds. 
@@ -909,14 +960,14 @@ static __device__ void bipartiteBoxPruning(const PxU32* PX_RESTRICT sortedProjec
 	const PxU32* PX_RESTRICT startMask1, const PxU32* PX_RESTRICT boundIndices0, const PxU32* PX_RESTRICT boundIndices1,
 	const PxgIntegerAABB* PX_RESTRICT bounds, const PxgIntegerAABB* PX_RESTRICT oldBounds, const PxgBroadPhaseDesc* groupDesc,
 	const PxU32 nbObj0, const PxU32 nbObj1, PxgBroadPhasePair* PX_RESTRICT pairs, PxU32* PX_RESTRICT sharedIndex, bool isLost, bool isNew,
-	const PxU32 maxPairs)
+	const PxU32 maxPairs PX_AGG_OWNERSHIP_PARAMETER)
 {
 	//A bipartite projection box pruning algorithm projects list 0 onto list 1 and then list 1 onto list 0
 	boxPruningProjection(bounds, oldBounds, boundIndices0, nbObj0, sortedProjections1, nbObj1 * 2, sortedHandles1, startMask1, 
-		boundIndices1, groupDesc, pairs, sharedIndex, isLost, 1, isNew, maxPairs);
+		boundIndices1, groupDesc, pairs, sharedIndex, isLost, 1, isNew, maxPairs PX_AGG_OWNERSHIP_ARGUMENT);
 
 	boxPruningProjection(bounds, oldBounds, boundIndices1, nbObj1, sortedProjections0, nbObj0 * 2, sortedHandles0, startMask0,
-		boundIndices0, groupDesc, pairs, sharedIndex, isLost, 0, isNew, maxPairs);
+		boundIndices0, groupDesc, pairs, sharedIndex, isLost, 0, isNew, maxPairs PX_AGG_OWNERSHIP_ARGUMENT);
 }
 
 static __device__ PxU32 PX_FORCE_INLINE testBitmap(PxU32 actorHandle, const PxU32* bitmap)
@@ -926,10 +977,19 @@ static __device__ PxU32 PX_FORCE_INLINE testBitmap(PxU32 actorHandle, const PxU3
 	return (mask & (1 << (actorHandle & 31)))!=0;
 }
 
-extern "C" __global__ void doAggPairCollisions(
+extern "C" __global__ PX_AGG_TRAP_KERNEL void doAggPairCollisions(
 	PxgBroadPhaseDesc* desc, 
-	PxgAggregateDesc* aggDesc)
+	PxgAggregateDesc* aggDesc
+#if defined(PX_CUMETAL_EXPLICIT_AGGREGATE_ROOT) && PX_CUMETAL_EXPLICIT_AGGREGATE_ROOT
+	// Only descriptor bytes are restricted; payload and report arrays are
+	// independent allocations and retain their original access contracts.
+	, const PxgAggregate* PX_RESTRICT aggregateRoot
+#endif
+)
 {
+#if PX_AGG_BLOCK_LOCAL_TRAPS
+	bool invalidOwnership = false;
+#endif
 	const PxU32 globalWarpIndex = threadIdx.y + blockDim.y * blockIdx.x;
 
 	const PxU32 nbWarps = PxgBPKernelBlockDim::BP_AGGREGATE_SORT / WARP_SIZE;
@@ -951,7 +1011,11 @@ extern "C" __global__ void doAggPairCollisions(
 		{
 			const PxgIntegerAABB* bounds = desc->newIntegerBounds;
 			Bp::VolumeData* volumeData = desc->aabbMngr_volumeData;
-			PxgAggregate* aggregates = aggDesc->aggregates;
+#if defined(PX_CUMETAL_EXPLICIT_AGGREGATE_ROOT) && PX_CUMETAL_EXPLICIT_AGGREGATE_ROOT
+			const PxgAggregate* aggregates = aggregateRoot;
+#else
+			const PxgAggregate* aggregates = aggDesc->aggregates;
+#endif
 
 			// This whole kernel also processes lost pairs, because if we lose an aggregate pair, we still
 			// need to process all of the aggregate contents and generate lost pairs.
@@ -1029,7 +1093,7 @@ extern "C" __global__ void doAggPairCollisions(
 			if (isAggregate0)
 			{
 				const Bp::AggregateHandle aggHandle0 = volumeData[pair.actorHandle0].getAggregate();
-				PxgAggregate& agg = aggregates[aggHandle0];
+				const PxgAggregate& agg = aggregates[aggHandle0];
 				sortedProjections0[0] = agg.sortedProjections[0];
 				sortedProjections0[1] = agg.sortedProjections[1];
 				sortedHandles0[0] = agg.sortedHandles[0];
@@ -1065,7 +1129,7 @@ extern "C" __global__ void doAggPairCollisions(
 			if (isAggregate1)
 			{
 				const Bp::AggregateHandle aggHandle1 = volumeData[pair.actorHandle1].getAggregate();
-				PxgAggregate& agg = aggregates[aggHandle1];
+				const PxgAggregate& agg = aggregates[aggHandle1];
 				sortedProjections1[0] = agg.sortedProjections[0];
 				sortedProjections1[1] = agg.sortedProjections[1];
 				sortedHandles1[0] = agg.sortedHandles[0];
@@ -1107,13 +1171,13 @@ extern "C" __global__ void doAggPairCollisions(
 			
 			bipartiteBoxPruning(sortedProjections0[0], sortedProjections1[0], sortedHandles0[0], sortedHandles1[0], startMask0[0],
 				startMask1[0], boundIndices0[0], boundIndices1[0], bounds, oldBounds, groupDesc, nbObj0[0], nbObj1[0], aggDesc->foundPairReport,
-				&aggDesc->sharedFoundPairIndex, false, pair.isNew, maxFoundLostPairs);
+				&aggDesc->sharedFoundPairIndex, false, pair.isNew, maxFoundLostPairs PX_AGG_OWNERSHIP_ARGUMENT);
 
 			if (!pair.isNew)
 			{
 				bipartiteBoxPruning(sortedProjections0[1], sortedProjections1[1], sortedHandles0[1], sortedHandles1[1], startMask0[1],
 					startMask1[1], boundIndices0[1], boundIndices1[1], oldBounds, bounds, groupDesc, nbObj0[1], nbObj1[1], aggDesc->lostPairReport,
-					&aggDesc->sharedLostPairIndex, true, false, maxFoundLostPairs);
+					&aggDesc->sharedLostPairIndex, true, false, maxFoundLostPairs PX_AGG_OWNERSHIP_ARGUMENT);
 			}
 
 			__syncwarp();
@@ -1129,6 +1193,10 @@ extern "C" __global__ void doAggPairCollisions(
 			aggBitmap[i] = shouldRemove;
 		}
 	}
+#if PX_AGG_BLOCK_LOCAL_TRAPS
+	// All launched threads reach this tail, including inactive whole warps.
+	if (__syncthreads_or(invalidOwnership)) { __trap(); return; }
+#endif
 }
 
 extern "C" __global__ void aggCopyReports(PxgAggregateDesc* aggDesc)

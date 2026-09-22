@@ -39,6 +39,7 @@
 #include "CudaKernelWrangler.h"
 #include "cudamanager/PxCudaContextManager.h"
 #include "PxgSolverKernelIndices.h"
+#include "PxgDynamicsConfiguration.h"
 #include "PxgSolverCoreDesc.h"
 #include "PxgRadixSortDesc.h"
 #include "PxgPartitionNode.h"
@@ -1148,9 +1149,13 @@ void PxgTGSCudaSolverCore::solvePartitions(PxgIslandContext* islandContexts, Cm:
 	const CUfunction computeBodiesAverageVelocitiesFunction =
 	    mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::COMPUTE_AVERAGE_VELOCITY_TGS);
 
-	PxU32 bodyCount = (context.mBodyCount + context.mBodyStartIndex) * mSolverCoreDesc->numSlabs;
-
-	const PxU32 maxBodies = 944; 
+	// Match the device shared-array capacity, including every body/slab entry.
+	// Widen the sum and compare by division so neither addition nor a large
+	// slab product can overflow into the small-island path.
+	const PxU64 bodyCount = PxU64(context.mBodyCount) + context.mBodyStartIndex;
+	const PxU32 numSlabs = mSolverCoreDesc->numSlabs;
+	const PxU32 maxBodies = PXG_TGS_WHOLE_ISLAND_MAX_BODIES;
+	const bool fitsWholeIsland = numSlabs != 0 && bodyCount <= maxBodies / numSlabs;
 
 	PxU32 startIndex = 0;
 	PxU32 startArtic = 0;
@@ -1158,7 +1163,7 @@ void PxgTGSCudaSolverCore::solvePartitions(PxgIslandContext* islandContexts, Cm:
 	PxCudaKernelParam defaultKernelParams[] = { PX_CUDA_KERNEL_PARAM(mSolverCoreDescd), PX_CUDA_KERNEL_PARAM(mSharedDescd) };
 
 	{
-		if(!isVelocityIteration && context.mArticulationCount == 0 && bodyCount <= maxBodies)
+		if(!isVelocityIteration && context.mArticulationCount == 0 && fitsWholeIsland)
 		{
 			PX_PROFILE_ZONE("GpuDynamics.Solve.solveWholeIsland", 0);
 

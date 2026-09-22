@@ -49,6 +49,7 @@
 #include "PxgParticleSystemBuffer.h"
 #include "PxgArrayConverter.h"
 #include "PxgSDFBuilder.h"
+#include "PxgOptionalFeatures.h"
 #include "PxgDeformableSkinning.h"
 #include "PxgKernelLauncher.h"
 #include "PxgIsosurfaceExtraction.h"
@@ -489,10 +490,17 @@ PxArrayConverter* PxgPhysicsGpu::createArrayConverter(PxCudaContextManager* cuda
 
 PxSDFBuilder* PxgPhysicsGpu::createSDFBuilder(PxCudaContextManager* cudaContextManager)
 {
+    if(!checkCuMetalGpuSdfBuilder())
+        return NULL;
+#if defined(PX_CUMETAL_DISABLE_GPU_SDF_BUILDER)
+    PX_UNUSED(cudaContextManager);
+    return NULL;
+#else
 	PX_CHECK_AND_RETURN_NULL(cudaContextManager, "PxPhysicsGpu::createSDFBuilder, PxCudaContextManager is NULL!");
 	PxgCudaKernelWranglerManager* wrangler = static_cast<PxgCudaKernelWranglerManager*>(PxCreatePhysXGpu()->getGpuKernelWranglerManager(cudaContextManager));
 	PxgKernelLauncher kernelLauncher(cudaContextManager, wrangler);
 	return PX_NEW(PxgSDFBuilder)(kernelLauncher);
+#endif
 }
 
 PxgDeformableSkinning* PxgPhysicsGpu::createDeformableSkinning(PxCudaContextManager* cudaContextManager)

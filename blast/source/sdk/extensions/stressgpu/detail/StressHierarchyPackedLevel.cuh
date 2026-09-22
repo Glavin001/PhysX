@@ -29,10 +29,11 @@ public:
             check(cudaDeviceGetAttribute(&sms,cudaDevAttrMultiProcessorCount,device));check(cudaDeviceGetAttribute(&cooperative,cudaDevAttrCooperativeLaunch,device));
             check(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&blocks,packLevel<RetireTerminal>,Threads,0));
             if(!cooperative || sms<=0 || blocks<=0)throw std::runtime_error("Resident packing requires legal cooperative CUDA residency");
-            // At least two blocks provide all 16 radix-prefix warps.
+            // Prefer 16 simultaneous radix-prefix warps when residency allows.
+            // prefixRadixBins also covers all bins with one block by assigning
+            // two bins to each of its eight warps; virtual topology is unchanged.
             const unsigned required=std::max(2u,(std::max(input.nodes,input.bonds)+Threads-1)/Threads);
             mBlocks=std::min(required,unsigned(sms*blocks));
-            if(mBlocks<2)throw std::runtime_error("Resident packing requires at least two resident blocks");
             allocate(mBuffers.nodeMap,input.nodes);allocate(mBuffers.nodeSource,input.nodes);allocate(mBuffers.bondMap,std::max(input.nodes,input.bonds));
             allocate(mBuffers.identity,input.nodes);allocate(mBuffers.component,input.nodes);allocate(mBuffers.bondIdentity,input.bonds);
             allocate(mBuffers.begin,size_t(input.nodes)+1);allocate(mBuffers.refs,2*size_t(input.bonds));allocate(mBuffers.counts,3);

@@ -380,6 +380,10 @@ bool NpAggregate::removeActor(PxActor& actor)
 bool NpAggregate::addArticulation(PxArticulationReducedCoordinate& art)
 {
 	NpScene* npScene = getNpScene();
+#if defined(PX_CUMETAL_RIGID_DEMO) && PX_CUMETAL_RIGID_DEMO
+    if(npScene && (npScene->getFlags() & PxSceneFlag::eENABLE_GPU_DYNAMICS))
+        return outputError<PxErrorCode::eINVALID_OPERATION>(__LINE__, "CuMetal rigid destruction demo build excludes GPU articulations; live aggregate insertion rejected.");
+#endif
 	NP_WRITE_CHECK(npScene);
 
 	PX_CHECK_SCENE_API_WRITE_FORBIDDEN_AND_RETURN_VAL(npScene, "PxAggregate::addArticulation() not allowed while simulation is running. Call will be ignored.", false);

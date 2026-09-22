@@ -14,3 +14,8 @@ reports/
 
 # Stable live-server runtime copies; see bin/README.md
 bin/linux.x86_64/
+
+# Local macOS metadata and Python bytecode (not source).
+.DS_Store
+*.pyc
+*.pyo

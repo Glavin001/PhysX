@@ -19,6 +19,8 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <cstddef>
+#include <type_traits>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -1449,17 +1451,32 @@ public:
 
             const std::uint32_t block = 128;
             const std::uint32_t grid = (groups + block - 1) / block;
+#if defined(PX_CUMETAL_PACK_BOND_STRESS_SCALARS) && PX_CUMETAL_PACK_BOND_STRESS_SCALARS
+            const BondStressWalkConfig config{
+                m_bendGainMax, bondStressFibreBending() ? 1 : 0,
+                m_lengthScale * m_massScale,
+                m_lengthScale * m_lengthScale * m_massScale,
+                csr.materialCount, unbreakableLimit, groups, 0u};
+#endif
             bondStressWalk<<<grid, block, 0, m_bsStream>>>(
+#if defined(PX_CUMETAL_PACK_BOND_STRESS_SCALARS) && PX_CUMETAL_PACK_BOND_STRESS_SCALARS
+                config,
+#else
                 m_bendGainMax,
                 bondStressFibreBending() ? 1 : 0,
+#endif
                 m_bsGroupBegin, m_bsGroupSize, m_bsMemberBlastBond,
                 m_bsBondNode0, m_bsBondNode1, m_bsBondMaterial,
                 m_bsBondNormal, m_bsBondCentroid, m_bsBondNodeDisp,
                 m_bsHealth, m_impulses, m_colScales,
+#if !defined(PX_CUMETAL_PACK_BOND_STRESS_SCALARS) || !PX_CUMETAL_PACK_BOND_STRESS_SCALARS
                 m_lengthScale * m_massScale,
                 m_lengthScale * m_lengthScale * m_massScale,
-                m_bsMaterialLimits, csr.materialCount,
-                unbreakableLimit, groups,
+#endif
+                m_bsMaterialLimits,
+#if !defined(PX_CUMETAL_PACK_BOND_STRESS_SCALARS) || !PX_CUMETAL_PACK_BOND_STRESS_SCALARS
+                csr.materialCount, unbreakableLimit, groups,
+#endif
                 m_bsGroupStressNormal, m_bsGroupStressShear, m_bsGroupStressBend,
                 m_bsGroupNormal, m_bsGroupCentroid,
                 m_bsNodeOverstressed, m_bsGroupRemoveCount,

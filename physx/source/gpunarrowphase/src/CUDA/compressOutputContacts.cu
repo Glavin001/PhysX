@@ -26,6 +26,7 @@
 // Copyright (c) 2004-2008 AGEIA Technologies, Inc. All rights reserved.
 // Copyright (c) 2001-2004 NovodeX AG. All rights reserved.  
 
+#include "PxgHostAddressToken.h"
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <assert.h>
@@ -132,9 +133,9 @@ extern "C" __global__ void compressContactStage2(
 	PxNodeIndex*					shapeToRigidRemapTable,			//input
 	PxActor**						transformCacheIdToActorTable,	//input
 	PxU32*							gBlockNumPairs,					//input
-	PxU8*							cpuCompressedPatchesBase,		//input
-	PxU8*							cpuCompressedContactsBase,		//input
-	PxReal*							cpuForceBufferBase,				//input
+	PXG_HOST_ADDRESS_PARAMETER(PxU8, , cpuCompressedPatchesBase),		//input
+	PXG_HOST_ADDRESS_PARAMETER(PxU8, , cpuCompressedContactsBase),		//input
+	PXG_HOST_ADDRESS_PARAMETER(PxReal, , cpuForceBufferBase),				//input
 	PxU8*							gpuCompressedPatchesBase,		//input
 	PxU8*							gpuCompressedContactsBase,		//input
 	PxReal*							gpuForceBufferBase,				//input
@@ -145,6 +146,10 @@ extern "C" __global__ void compressContactStage2(
 	
 )
 {
+	PXG_HOST_ADDRESS_DECODE(PxU8, , cpuCompressedPatchesBase)
+	PXG_HOST_ADDRESS_DECODE(PxU8, , cpuCompressedContactsBase)
+	PXG_HOST_ADDRESS_DECODE(PxReal, , cpuForceBufferBase)
+
 	const PxU32 warpPerBlock = PxgNarrowPhaseBlockDims::COMPRESS_CONTACT / WARP_SIZE;
 	const PxU32 block_size = PxgNarrowPhaseGridDims::COMPRESS_CONTACT;
 
@@ -277,11 +282,14 @@ extern "C" __global__ void compressContactStage2(
 // update frictionPatches CPU pointers from contactPatches CPU pointers
 extern "C" __global__ void updateFrictionPatches(
 	const PxU32								pairCount,				//input
-	const PxU8* PX_RESTRICT					startContactPatches,	//input
-	PxU8* PX_RESTRICT						startFrictionPatches,	//input (but we need it non-const)
+	PXG_HOST_ADDRESS_PARAMETER(const PxU8, PX_RESTRICT, startContactPatches),	//input
+	PXG_HOST_ADDRESS_PARAMETER(PxU8, PX_RESTRICT, startFrictionPatches),	//input (but we need it non-const)
 	PxsContactManagerOutput* PX_RESTRICT	outputs					//input/output
 )
 {
+	PXG_HOST_ADDRESS_DECODE(const PxU8, PX_RESTRICT, startContactPatches)
+	PXG_HOST_ADDRESS_DECODE(PxU8, PX_RESTRICT, startFrictionPatches)
+
 	const PxU32 threadIndex = blockIdx.x * blockDim.x + threadIdx.x;
 
 	if (threadIndex < pairCount)

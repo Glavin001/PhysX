@@ -327,6 +327,11 @@ PX_FORCE_INLINE __device__ static float4 barycentricProjectTri(const uint4 vertI
 	return a * barycentric.x + b * barycentric.y + c * barycentric.z;
 }
 
+#if defined(PX_CUMETAL_EXPLICIT_MOTION_ROOT) && PX_CUMETAL_EXPLICIT_MOTION_ROOT
+// Cloth exposes the existing separately allocated articulation descriptor root;
+// other callers keep the original shared-descriptor lookup by default.
+template<bool ExplicitArticulationRoot = false>
+#endif
 PX_FORCE_INLINE __device__ void prepareDbRigidAttachment(
 	PxgDbRigidAttachmentBlock& block,
 	const PxVec3& point, PxReal deformableInvMass,
@@ -334,7 +339,11 @@ PX_FORCE_INLINE __device__ void prepareDbRigidAttachment(
 	const float4& baryOrType, PxU32 rigidBodyRefCount,
 	const PxgConstraintPrepareDesc* prepareDesc, const PxU32* solverBodyIndices,
 	const PxgSolverSharedDescBase* sharedDesc,
-	float4* rigidDeltaVel, PxU32 workIndex, PxU32 numRigidAttachments)
+	float4* rigidDeltaVel, PxU32 workIndex, PxU32 numRigidAttachments
+#if defined(PX_CUMETAL_EXPLICIT_MOTION_ROOT) && PX_CUMETAL_EXPLICIT_MOTION_ROOT
+    ,const PxgArticulation* articulationDescriptors = nullptr
+#endif
+)
 {
 	const PxU32 offset = threadIdx.x & 31;
 	const PxgBodySim* bodySims = sharedDesc->mBodySimBufferDeviceData;
@@ -354,7 +363,16 @@ PX_FORCE_INLINE __device__ void prepareDbRigidAttachment(
 	{
 		PxU32 nodeIndexA = rigidId.index();
 		PxU32 artiId = bodySims[nodeIndexA].articulationRemapId;
+#if defined(PX_CUMETAL_EXPLICIT_MOTION_ROOT) && PX_CUMETAL_EXPLICIT_MOTION_ROOT
+        const PxgArticulation* articulationPool;
+        if constexpr(ExplicitArticulationRoot)
+            articulationPool=articulationDescriptors;
+        else
+            articulationPool=sharedDesc->articulations;
+        const PxgArticulation& articulation=articulationPool[artiId];
+#else
 		PxgArticulation& articulation = sharedDesc->articulations[artiId];
+#endif
 		const PxU32 linkID = rigidId.articulationLinkId();
 		const PxTransform body2World = articulation.linkBody2Worlds[linkID];
 		const PxVec3 bodyFrame0p(body2World.p.x, body2World.p.y, body2World.p.z);
@@ -454,11 +472,20 @@ PX_FORCE_INLINE __device__ void prepareDbRigidAttachment(
 	}
 }
 
+#if defined(PX_CUMETAL_EXPLICIT_MOTION_ROOT) && PX_CUMETAL_EXPLICIT_MOTION_ROOT
+// Only callers with an explicit descriptor kernel root select this path. The
+// default soft-body caller keeps its original shared-descriptor lookup.
+template<bool ExplicitArticulationRoot = false>
+#endif
 PX_FORCE_INLINE __device__ void prepareDbRigidContact(PxgDbRigidContactBlock& block, const PxVec3& normal,
 												   PxgSolverSharedDescBase* sharedDesc, const PxVec3& p, PxReal pen, const PxVec3& delta,
 												   const PxNodeIndex& rigidId, const float4& barycentric,
 												   PxgConstraintPrepareDesc* prepareDesc, PxU32* solverBodyIndices, PxReal penBiasClampFEM,
-												   PxReal invDt, bool isTGS)
+												   PxReal invDt, bool isTGS
+#if defined(PX_CUMETAL_EXPLICIT_MOTION_ROOT) && PX_CUMETAL_EXPLICIT_MOTION_ROOT
+    ,const PxgArticulation* articulationDescriptors = nullptr
+#endif
+)
 {
 	const PxU32 threadIndexInWarp = threadIdx.x & 31;
 
@@ -486,7 +513,16 @@ PX_FORCE_INLINE __device__ void prepareDbRigidContact(PxgDbRigidContactBlock& bl
 		PxU32 nodeIndexA = rigidId.index();
 		PxU32 artiId = bodySims[nodeIndexA].articulationRemapId;
 
+#if defined(PX_CUMETAL_EXPLICIT_MOTION_ROOT) && PX_CUMETAL_EXPLICIT_MOTION_ROOT
+        const PxgArticulation* articulationPool;
+        if constexpr(ExplicitArticulationRoot)
+            articulationPool=articulationDescriptors;
+        else
+            articulationPool=sharedDesc->articulations;
+        const PxgArticulation& articulation=articulationPool[artiId];
+#else
 		PxgArticulation& articulation = sharedDesc->articulations[artiId];
+#endif
 
 		const PxU32 linkID = rigidId.articulationLinkId();
 		const PxTransform body2World = articulation.linkBody2Worlds[linkID];

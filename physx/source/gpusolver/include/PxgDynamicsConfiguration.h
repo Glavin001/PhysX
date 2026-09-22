@@ -31,5 +31,16 @@
 
 #define PXG_BATCH_SIZE	32u
 
+// Shared by host path selection and solveWholeIslandTGS's four PxVec3 arrays.
+// This counts body/slab entries, including static/kinematic prefixes. Smaller
+// capacities use the existing partitioned solver for larger islands; equations
+// and iteration counts are unchanged. CUDA keeps its original 944-entry limit.
+#ifndef PXG_TGS_WHOLE_ISLAND_MAX_BODIES
+#define PXG_TGS_WHOLE_ISLAND_MAX_BODIES 944
+#endif
+#if PXG_TGS_WHOLE_ISLAND_MAX_BODIES < 1 || PXG_TGS_WHOLE_ISLAND_MAX_BODIES > 944
+#error "PXG_TGS_WHOLE_ISLAND_MAX_BODIES must be an integer in [1, 944]"
+#endif
+
 
 #endif

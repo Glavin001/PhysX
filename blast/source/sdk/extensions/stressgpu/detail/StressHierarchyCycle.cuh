@@ -227,7 +227,13 @@ class ResidentCycle {
         int device=0,sms=0,resident=0,cooperative=0;check(cudaGetDevice(&device));check(cudaDeviceGetAttribute(&sms,cudaDevAttrMultiProcessorCount,device));
         check(cudaDeviceGetAttribute(&cooperative,cudaDevAttrCooperativeLaunch,device));check(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&resident,applyCycle<Passes>,Threads,0));
         if(!cooperative || sms<=0 || resident<=0)throw std::runtime_error("Resident cycle requires legal cooperative CUDA residency");
+#if defined(PX_CUMETAL_BLOCK_VOTED_TRAPS) && PX_CUMETAL_BLOCK_VOTED_TRAPS
+        // Both global and component-cycle entry points can report terminal
+        // errors. Their existing strided loops retain every node/component.
+        return 1u;
+#else
         return std::min(std::max(1u,(mHierarchy.input(0).nodes+7)/8),unsigned(sms*resident));
+#endif
     }
     template<unsigned Passes>void launch(const Vector* rhs,Vector* result)const{
         if(!rhs || !result || rhs==result)throw std::runtime_error("Resident cycle requires distinct device input and output vectors");

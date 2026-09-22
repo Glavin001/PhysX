@@ -26,6 +26,7 @@
 // Copyright (c) 2004-2008 AGEIA Technologies, Inc. All rights reserved.
 // Copyright (c) 2001-2004 NovodeX AG. All rights reserved.
 
+#include "PxgHostAddressToken.h"
 #include "PxNodeIndex.h"
 #include "PxsContactManagerState.h"
 #include "common/PxProfileZone.h"
@@ -717,6 +718,10 @@ void PxgGpuNarrowphaseCore::testSDKSphereGpu(
 	PxU32 patchBytesLimit, PxU32 contactBytesLimit, PxU32 forceBytesLimit,
 	PxRenderOutput* renderOutput)
 {
+	PXG_HOST_ADDRESS_CAPTURE(PxU8, baseContactPatches)
+	PXG_HOST_ADDRESS_CAPTURE(PxU8, baseContactPoints)
+	PXG_HOST_ADDRESS_CAPTURE(PxU8, baseContactForces)
+
 	PX_PROFILE_ZONE("PxgGpuNarrowphaseCore.testSDKSphereGpu", 0);
 
 	PX_UNUSED(renderOutput);
@@ -757,9 +762,9 @@ void PxgGpuNarrowphaseCore::testSDKSphereGpu(
 			PX_CUDA_KERNEL_PARAM(patchAndContactCountersD),
 			PX_CUDA_KERNEL_PARAM(touchChangeFlags),
 			PX_CUDA_KERNEL_PARAM(patchChangeFlags),
-			PX_CUDA_KERNEL_PARAM(baseContactPatches),
-			PX_CUDA_KERNEL_PARAM(baseContactPoints),
-			PX_CUDA_KERNEL_PARAM(baseContactForces),
+			PXG_HOST_ADDRESS_KERNEL_PARAM(baseContactPatches),
+			PXG_HOST_ADDRESS_KERNEL_PARAM(baseContactPoints),
+			PXG_HOST_ADDRESS_KERNEL_PARAM(baseContactForces),
 			PX_CUDA_KERNEL_PARAM(patchBytesLimit),
 			PX_CUDA_KERNEL_PARAM(contactBytesLimit),
 			PX_CUDA_KERNEL_PARAM(forceBytesLimit)
@@ -790,6 +795,10 @@ void PxgGpuNarrowphaseCore::testSDKBoxBoxGpu(
 	PxU32 patchBytesLimit, PxU32 contactBytesLimit, PxU32 forceBytesLimit,
 	PxRenderOutput* renderOutput)
 {
+	PXG_HOST_ADDRESS_CAPTURE(PxU8, baseContactPatches)
+	PXG_HOST_ADDRESS_CAPTURE(PxU8, baseContactPoints)
+	PXG_HOST_ADDRESS_CAPTURE(PxU8, baseContactForces)
+
 	PX_PROFILE_ZONE("PxgGpuNarrowphaseCore.testSDKBoxBoxGpu", 0);
 
 	PX_UNUSED(renderOutput);
@@ -829,9 +838,9 @@ void PxgGpuNarrowphaseCore::testSDKBoxBoxGpu(
 			PX_CUDA_KERNEL_PARAM(patchAndContactCountersD),
 			PX_CUDA_KERNEL_PARAM((touchLostFlags)),
 			PX_CUDA_KERNEL_PARAM((touchFoundFlags)),
-			PX_CUDA_KERNEL_PARAM((baseContactPatches)),
-			PX_CUDA_KERNEL_PARAM((baseContactPoints)),
-			PX_CUDA_KERNEL_PARAM((baseContactForces)),
+			PXG_HOST_ADDRESS_KERNEL_PARAM(baseContactPatches),
+			PXG_HOST_ADDRESS_KERNEL_PARAM(baseContactPoints),
+			PXG_HOST_ADDRESS_KERNEL_PARAM(baseContactForces),
 			PX_CUDA_KERNEL_PARAM((patchBytesLimit)),
 			PX_CUDA_KERNEL_PARAM((contactBytesLimit)),
 			PX_CUDA_KERNEL_PARAM((forceBytesLimit)),
@@ -864,6 +873,10 @@ void PxgGpuNarrowphaseCore::testSDKConvexConvexGjkEpaGpu(
 							PxU32 patchBytesLimit, PxU32 contactBytesLimit,	PxU32 forceBytesLimit,
 							PxRenderOutput* renderOutput	)
 {
+	PXG_HOST_ADDRESS_CAPTURE(PxU8, baseContactPatches)
+	PXG_HOST_ADDRESS_CAPTURE(PxU8, baseContactPoints)
+	PXG_HOST_ADDRESS_CAPTURE(PxU8, baseContactForces)
+
 	PX_PROFILE_ZONE("PxgGpuNarrowphaseCore.testSDKConvexConvexGjkEpaGpu", 0);
 
 	PX_UNUSED(renderOutput);
@@ -960,9 +973,9 @@ void PxgGpuNarrowphaseCore::testSDKConvexConvexGjkEpaGpu(
 			PX_CUDA_KERNEL_PARAM(patchAndContactCountersD),
 			PX_CUDA_KERNEL_PARAM((touchLostFlags)),
 			PX_CUDA_KERNEL_PARAM((touchFoundFlags)),
-			PX_CUDA_KERNEL_PARAM((baseContactPatches)),
-			PX_CUDA_KERNEL_PARAM((baseContactPoints)),
-			PX_CUDA_KERNEL_PARAM((baseContactForces)),
+			PXG_HOST_ADDRESS_KERNEL_PARAM(baseContactPatches),
+			PXG_HOST_ADDRESS_KERNEL_PARAM(baseContactPoints),
+			PXG_HOST_ADDRESS_KERNEL_PARAM(baseContactForces),
 			PX_CUDA_KERNEL_PARAM((patchBytesLimit)),
 			PX_CUDA_KERNEL_PARAM((contactBytesLimit)),
 			PX_CUDA_KERNEL_PARAM((forceBytesLimit))
@@ -995,6 +1008,10 @@ void PxgGpuNarrowphaseCore::testSDKConvexPlaneGjkEpaGpu(
 	PxU32 patchBytesLimit, PxU32 contactBytesLimit, PxU32 forceBytesLimit,
 	PxRenderOutput* renderOutput)
 {
+	PXG_HOST_ADDRESS_CAPTURE(PxU8, baseContactPatches)
+	PXG_HOST_ADDRESS_CAPTURE(PxU8, baseContactPoints)
+	PXG_HOST_ADDRESS_CAPTURE(PxU8, baseContactForces)
+
 	PX_PROFILE_ZONE("PxgGpuNarrowphaseCore.testSDKConvexPlaneGjkEpaGpu", 0);
 
 	PX_UNUSED(renderOutput);
@@ -1036,9 +1053,9 @@ void PxgGpuNarrowphaseCore::testSDKConvexPlaneGjkEpaGpu(
 			PX_CUDA_KERNEL_PARAM(patchAndContactCountersD),
 			PX_CUDA_KERNEL_PARAM(touchLostFlags),
 			PX_CUDA_KERNEL_PARAM(touchFoundFlags),
-			PX_CUDA_KERNEL_PARAM(baseContactPatches),
-			PX_CUDA_KERNEL_PARAM(baseContactPoints),
-			PX_CUDA_KERNEL_PARAM(baseContactForces),
+			PXG_HOST_ADDRESS_KERNEL_PARAM(baseContactPatches),
+			PXG_HOST_ADDRESS_KERNEL_PARAM(baseContactPoints),
+			PXG_HOST_ADDRESS_KERNEL_PARAM(baseContactForces),
 			PX_CUDA_KERNEL_PARAM(patchBytesLimit),
 			PX_CUDA_KERNEL_PARAM(contactBytesLimit),
 			PX_CUDA_KERNEL_PARAM(forceBytesLimit),
@@ -1065,6 +1082,7 @@ void PxgGpuNarrowphaseCore::testSDKConvexPlaneGjkEpaGpu(
 
 ////////////////
 
+#if !defined(PX_CUMETAL_DISABLE_CONVEX_CORE)
 void PxgGpuNarrowphaseCore::testSDKConvexCorePlaneGjkEpaGpu(
 	PxgGpuContactManagers& gpuManagers, bool insertAveragePoint,
 	const PxU32 numTests,
@@ -1474,6 +1492,8 @@ void PxgGpuNarrowphaseCore::testSDKConvexCoreClothmeshGjkEpaGpu(
 	stackAlloc.reset();
 	stackAlloc.mMutex.unlock();
 }
+
+#endif
 
 void PxgGpuNarrowphaseCore::testSDKTriMeshPlaneGpu(PxgGpuContactManagers& gpuManagers, const PxU32 numTests,
 	PxU8* baseContactPatches, PxU8* baseContactPoints, PxU8* baseContactForces,
@@ -7577,6 +7597,9 @@ void PxgGpuNarrowphaseCore::testSDKFemClothHeightfield(PxgGpuContactManagers& gp
 
 void PxgGpuNarrowphaseCore::updateFrictionPatches(PxgGpuContactManagers& gpuManagers, PxU32 count, PxU8* baseContactPatches, PxU8* baseFrictionPatches)
 {
+	PXG_HOST_ADDRESS_CAPTURE(PxU8, baseContactPatches)
+	PXG_HOST_ADDRESS_CAPTURE(PxU8, baseFrictionPatches)
+
 	PX_PROFILE_ZONE("PxgGpuNarrowphaseCore.updateFrictionPatches", 0);
 
 	PxScopedCudaLock lock(*mCudaContextManager);
@@ -7590,8 +7613,8 @@ void PxgGpuNarrowphaseCore::updateFrictionPatches(PxgGpuContactManagers& gpuMana
 		PxCudaKernelParam kernelParams_stage[] =
 		{
 			PX_CUDA_KERNEL_PARAM(count),
-			PX_CUDA_KERNEL_PARAM((baseContactPatches)),
-			PX_CUDA_KERNEL_PARAM((baseFrictionPatches)),
+			PXG_HOST_ADDRESS_KERNEL_PARAM(baseContactPatches),
+			PXG_HOST_ADDRESS_KERNEL_PARAM(baseFrictionPatches),
 			PX_CUDA_KERNEL_PARAM(cmOutputs),
 		};
 
@@ -8660,7 +8683,7 @@ void PxgGpuNarrowphaseCore::initializeContactManagerIdentities(PxgGpuContactMana
         PX_CUDA_KERNEL_PARAM(manifoldBytes),PX_CUDA_KERNEL_PARAM(count),PX_CUDA_KERNEL_PARAM(identities),
         PX_CUDA_KERNEL_PARAM(edges),PX_CUDA_KERNEL_PARAM(sequence)};
     if(mCudaContext->launchKernel(mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::INITIALIZE_MANIFOLDS),
-        PxgNarrowPhaseGridDims::INITIALIZE_MANIFOLDS,1,1,PxgNarrowPhaseBlockDims::INITIALIZE_MANIFOLDS,1,1,
+        PxgNarrowPhaseGridDims::INITIALIZE_CONTACT_IDENTITIES,1,1,PxgNarrowPhaseBlockDims::INITIALIZE_MANIFOLDS,1,1,
         0,mStream,params,sizeof(params),0,PX_FL)!=CUDA_SUCCESS) {
         mCudaContext->setAbortMode(true);
         PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR,PX_FL,"GPU contact lifetime initialization failed; step incomplete.");
@@ -9489,6 +9512,10 @@ bool PxgGpuNarrowphaseCore::borrowDestructionSolvedContacts(PxgDestructionSolved
 
 bool PxgGpuNarrowphaseCore::copyContactData(void* PX_RESTRICT data, PxU32* PX_RESTRICT numContactPairs, const PxU32 maxContactPairs, CUevent startEvent, CUevent finishEvent, PxU8* PX_RESTRICT baseContactPatches, PxU8* PX_RESTRICT baseContactPoints, PxU8* PX_RESTRICT baseContactForces)
 {
+	PXG_HOST_ADDRESS_CAPTURE(PxU8, baseContactPatches)
+	PXG_HOST_ADDRESS_CAPTURE(PxU8, baseContactPoints)
+	PXG_HOST_ADDRESS_CAPTURE(PxU8, baseContactForces)
+
 	PxScopedCudaLock lock(*mCudaContextManager);
 	
 	bool success = true;
@@ -9561,9 +9588,9 @@ bool PxgGpuNarrowphaseCore::copyContactData(void* PX_RESTRICT data, PxU32* PX_RE
 				PX_CUDA_KERNEL_PARAM(shapeToRigidRemapTabled),
 				PX_CUDA_KERNEL_PARAM(transformCacheIdToActorTabled),
 				PX_CUDA_KERNEL_PARAM(gpuIntermNumPairs),
-				PX_CUDA_KERNEL_PARAM(baseContactPatches),
-				PX_CUDA_KERNEL_PARAM(baseContactPoints),
-				PX_CUDA_KERNEL_PARAM(baseContactForces),
+				PXG_HOST_ADDRESS_KERNEL_PARAM(baseContactPatches),
+				PXG_HOST_ADDRESS_KERNEL_PARAM(baseContactPoints),
+				PXG_HOST_ADDRESS_KERNEL_PARAM(baseContactForces),
 				PX_CUDA_KERNEL_PARAM(mPatchStream),
 				PX_CUDA_KERNEL_PARAM(mContactStream),
 				PX_CUDA_KERNEL_PARAM(mForceAndIndiceStream),

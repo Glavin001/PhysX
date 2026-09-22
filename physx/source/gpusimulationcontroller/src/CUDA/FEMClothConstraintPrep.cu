@@ -67,6 +67,9 @@ extern "C" __global__ void cloth_rigidContactPrepareLaunch(
 	const PxReal					invDt,
 	PxgSolverSharedDescBase*		sharedDesc,
 	bool							isTGS
+#if defined(PX_CUMETAL_EXPLICIT_MOTION_ROOT) && PX_CUMETAL_EXPLICIT_MOTION_ROOT
+    ,const PxgArticulation* PX_RESTRICT articulationDescriptors
+#endif
 )
 {
 	const PxU32 tNumContacts = *numContacts;
@@ -128,7 +131,13 @@ extern "C" __global__ void cloth_rigidContactPrepareLaunch(
 
 		const PxVec3 delta(deltaP.x, deltaP.y, deltaP.z);
 
+#if defined(PX_CUMETAL_EXPLICIT_MOTION_ROOT) && PX_CUMETAL_EXPLICIT_MOTION_ROOT
+        // Expose the same separately allocated descriptor array as transform
+        // update; nested articulation buffers retain their existing aliases.
+        prepareDbRigidContact<true>(block, normal, sharedDesc, p, pen, delta, rigidId, barycentric, prepareDesc, solverBodyIndices, cloth.mPenBiasClamp, invDt, isTGS, articulationDescriptors);
+#else
 		prepareDbRigidContact(block, normal, sharedDesc, p, pen, delta, rigidId, barycentric, prepareDesc, solverBodyIndices, cloth.mPenBiasClamp, invDt, isTGS);
+#endif
 	}
 }
 
@@ -346,6 +355,9 @@ extern "C" __global__ void cloth_rigidAttachmentPrepareLaunch(
 	const PxgConstraintPrepareDesc*				prepareDesc,
 	const PxgSolverSharedDescBase*				sharedDesc,
 	float4*										rigidDeltaVel
+#if defined(PX_CUMETAL_EXPLICIT_MOTION_ROOT) && PX_CUMETAL_EXPLICIT_MOTION_ROOT
+    ,const PxgArticulation* PX_RESTRICT articulationDescriptors
+#endif
 )
 {
 
@@ -405,10 +417,17 @@ extern "C" __global__ void cloth_rigidAttachmentPrepareLaunch(
 		PxNodeIndex rigidId = reinterpret_cast<const PxNodeIndex&>(attachment.index0);
 		rigidAttachmentIds[workIndex] = rigidId;
 
+#if defined(PX_CUMETAL_EXPLICIT_MOTION_ROOT) && PX_CUMETAL_EXPLICIT_MOTION_ROOT
+		prepareDbRigidAttachment<true>(block, point, invMass1, attachment.localPose0, rigidId,
+		                         elemId, attachment.baryOrType1, attachment.rigidBodyRefCount,
+		                         prepareDesc, preDesc->solverBodyIndices, sharedDesc,
+		                         rigidDeltaVel, workIndex, numRigidAttachments, articulationDescriptors);
+#else
 		prepareDbRigidAttachment(block, point, invMass1, attachment.localPose0, rigidId,
 		                         elemId, attachment.baryOrType1, attachment.rigidBodyRefCount,
 		                         prepareDesc, preDesc->solverBodyIndices, sharedDesc,
 		                         rigidDeltaVel, workIndex, numRigidAttachments);
+#endif
 	}
 }
 

@@ -59,15 +59,22 @@ __device__ __forceinline__ void localRadix(PackingBuffers b,PackingShared& share
     __syncthreads();
 }
 __device__ __forceinline__ void prefixRadixBins(PackingBuffers b,PackingWork* work,unsigned tiles,unsigned tilesCapacity){
-    const unsigned lane=threadIdx.x&31u,bin=(blockIdx.x*Threads+threadIdx.x)/32;
-    if(bin>=RadixBins)return;unsigned carry=0;
-    for(unsigned base=0;base<tiles;base+=32){
-        const unsigned i=base+lane,value=i<tiles?b.partial[bin*tilesCapacity+i]:0;unsigned prefix=value;
-        for(unsigned offset=1;offset<32;offset*=2){const unsigned other=__shfl_up_sync(0xffffffffu,prefix,offset);if(lane>=offset)prefix+=other;}
-        if(i<tiles)b.partial[bin*tilesCapacity+i]=carry+prefix-value;
-        carry+=__shfl_sync(0xffffffffu,prefix,31);
+    static_assert(Threads%32==0,"Radix prefixes require complete CUDA warps");
+    const unsigned lane=threadIdx.x&31u,warp=(blockIdx.x*Threads+threadIdx.x)/32;
+    const unsigned warps=gridDim.x*(Threads/32);
+    // Every bin owns an independent tile prefix. With one resident block its
+    // eight warps each visit two bins; two or more blocks retain the original
+    // one-bin-per-warp assignment. All 32 lanes take the same bin iterations.
+    for(unsigned bin=warp;bin<RadixBins;bin+=warps){
+        unsigned carry=0;
+        for(unsigned base=0;base<tiles;base+=32){
+            const unsigned i=base+lane,value=i<tiles?b.partial[bin*tilesCapacity+i]:0;unsigned prefix=value;
+            for(unsigned offset=1;offset<32;offset*=2){const unsigned other=__shfl_up_sync(0xffffffffu,prefix,offset);if(lane>=offset)prefix+=other;}
+            if(i<tiles)b.partial[bin*tilesCapacity+i]=carry+prefix-value;
+            carry+=__shfl_sync(0xffffffffu,prefix,31);
+        }
+        if(!lane)work->bins[bin]=carry;
     }
-    if(!lane)work->bins[bin]=carry;
 }
 __device__ __forceinline__ void prefixRadixTotals(PackingWork* work){
     const unsigned lane=threadIdx.x&31u,value=lane<RadixBins?work->bins[lane]:0;unsigned prefix=value;

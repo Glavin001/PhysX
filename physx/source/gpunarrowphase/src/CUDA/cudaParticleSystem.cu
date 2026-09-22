@@ -353,6 +353,8 @@ __device__ bool particlePrimitiveCollision(
 		}
 		break;
 	}
+// The host feature boundary rejects ConvexCore geometry in this configuration.
+#if !defined(PX_CUMETAL_DISABLE_CONVEX_CORE)
 	case PxGeometryType::eCONVEXCORE:
 	{
 		Gu::ConvexShape convex;
@@ -371,6 +373,7 @@ __device__ bool particlePrimitiveCollision(
 		}
 		break;
 	}
+#endif
 	default:
 		break;
 	};
@@ -1293,7 +1296,11 @@ extern "C" __global__ void ps_primitivesCollisionLaunch(
 	if (workCount)
 	{
 		PxU32 workIndex = 0xFFFFFFFF;
-		PxgCellData data;
+        // Inactive lanes still participate in the helper's warp collectives.
+        // Give its by-value inputs defined values and its unused reference a
+        // valid base. The work-index guard prevents accessing that fallback.
+        PxgCellData data = {};
+        data.particleSystem = particleSystems;
 
 		if (threadIdx.x < workCount)
 		{
@@ -1436,7 +1443,11 @@ extern "C" __global__ void ps_primitivesDiffuseCollisionLaunch(
 	if (workCount)
 	{
 		PxU32 workIndex = 0xFFFFFFFF;
-		PxgCellData data;
+        // Inactive lanes still participate in the helper's warp collectives.
+        // Give its by-value inputs defined values and its unused reference a
+        // valid base. The work-index guard prevents accessing that fallback.
+        PxgCellData data = {};
+        data.particleSystem = particleSystems;
 
 		if (threadIdx.x < workCount)
 		{

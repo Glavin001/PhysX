@@ -285,6 +285,21 @@ extern "C" __global__ void ps_diffuseParticleCompact(
 
 	const PxgParticleSystem& particleSystem = particleSystems[id];
 
+#if defined(PX_CUMETAL_EXPLICIT_MOTION_ROOT) && PX_CUMETAL_EXPLICIT_MOTION_ROOT
+	// Snapshot immutable descriptor pointers before the opaque shared blockCopy.
+	// Keep inactive buffers out of the nested descriptor array, but let every
+	// thread participate in the unchanged copy and block barrier below.
+	PxgParticleDiffuseSimBuffer* const diffuseBuffers = particleSystem.mDiffuseSimBuffers;
+	const bool validDiffuseBuffer = blockIdx.y < particleSystem.mNumDiffuseBuffers;
+	int* const diffuseCountSnapshot = validDiffuseBuffer ? diffuseBuffers[blockIdx.y].mNumDiffuseParticles : nullptr;
+	float4* const diffusePositionsNewSnapshot = validDiffuseBuffer ? diffuseBuffers[blockIdx.y].mDiffusePositions_LifeTime : nullptr;
+	float4* const diffuseVelocitiesNewSnapshot = validDiffuseBuffer ? diffuseBuffers[blockIdx.y].mDiffuseVelocities : nullptr;
+	float4* const velAvgsSnapshot = reinterpret_cast<float4*>(particleSystem.mDiffuseSortedOriginPos_LifeTime);
+	float4* const diffusePositionsSnapshot = reinterpret_cast<float4*>(particleSystem.mDiffuseSortedPos_LifeTime);
+	float4* const diffusePositionsOldSnapshot = reinterpret_cast<float4*>(particleSystem.mDiffuseOriginPos_LifeTime);
+	const PxU32* const reverseLookupSnapshot = particleSystem.mDiffuseUnsortedToSortedMapping;
+#endif
+
 	const uint2* sParticleSystem = reinterpret_cast<const uint2*>(&particleSystem);
 	uint2* dParticleSystem = reinterpret_cast<uint2*>(&shParticleSystem);
 
@@ -295,9 +310,16 @@ extern "C" __global__ void ps_diffuseParticleCompact(
 	if (bufferIndex < shParticleSystem.mNumDiffuseBuffers)
 	{
 
-		PxgParticleDiffuseSimBuffer& buffer = shParticleSystem.mDiffuseSimBuffers[bufferIndex];
+#if !defined(PX_CUMETAL_EXPLICIT_MOTION_ROOT) || !PX_CUMETAL_EXPLICIT_MOTION_ROOT
+		PxgParticleDiffuseSimBuffer* const diffuseBuffers = shParticleSystem.mDiffuseSimBuffers;
+#endif
+		PxgParticleDiffuseSimBuffer& buffer = diffuseBuffers[bufferIndex];
 
+#if defined(PX_CUMETAL_EXPLICIT_MOTION_ROOT) && PX_CUMETAL_EXPLICIT_MOTION_ROOT
+		int* numDiffuseParticles = diffuseCountSnapshot;
+#else
 		int* numDiffuseParticles = buffer.mNumDiffuseParticles;
+#endif
 		int numDiffuse = numDiffuseParticles[0];
 
 		const PxU32 pi = threadIdx.x + blockIdx.x * blockDim.x;
@@ -306,6 +328,14 @@ extern "C" __global__ void ps_diffuseParticleCompact(
 		if (pi >= numDiffuse)
 			return;
 
+#if defined(PX_CUMETAL_EXPLICIT_MOTION_ROOT) && PX_CUMETAL_EXPLICIT_MOTION_ROOT
+		float4* PX_RESTRICT diffusePositionsNew = diffusePositionsNewSnapshot;
+		float4* PX_RESTRICT diffuseVelocitiesNew = diffuseVelocitiesNewSnapshot;
+		float4* PX_RESTRICT velAvgs = velAvgsSnapshot;
+		float4* PX_RESTRICT diffusePositions = diffusePositionsSnapshot;
+		float4* PX_RESTRICT diffusePositionsOld = diffusePositionsOldSnapshot;
+		const PxU32* reverseLookup = reverseLookupSnapshot;
+#else
 		float4* PX_RESTRICT diffusePositionsNew = buffer.mDiffusePositions_LifeTime;
 		float4* PX_RESTRICT diffuseVelocitiesNew = buffer.mDiffuseVelocities;
 
@@ -316,6 +346,8 @@ extern "C" __global__ void ps_diffuseParticleCompact(
 		
 		const PxU32* reverseLookup = shParticleSystem.mDiffuseUnsortedToSortedMapping;
 		
+#endif
+
 		const PxU32 index = pi + buffer.mStartIndex;
 		const PxU32 sortedInd = reverseLookup[index];
 

@@ -27,6 +27,7 @@
 // Copyright (c) 2001-2004 NovodeX AG. All rights reserved.  
 
 
+#include "PxgHostAddressToken.h"
 #include "foundation/PxVec3.h"
 #include "foundation/PxMat34.h"
 #include "foundation/PxTransform.h"
@@ -1113,14 +1114,18 @@ extern "C" __global__ void boxBoxNphase_Kernel(
 	PxgPatchAndContactCounters* PX_RESTRICT patchAndContactCounters,
 	PxU32* PX_RESTRICT touchChangeFlags,
 	PxU32* PX_RESTRICT patchChangeFlags,
-	PxU8* PX_RESTRICT startContactPatches,
-	PxU8* PX_RESTRICT startContactPoints,
-	PxU8* PX_RESTRICT startContactForces,
+	PXG_HOST_ADDRESS_PARAMETER(PxU8, PX_RESTRICT, startContactPatches),
+	PXG_HOST_ADDRESS_PARAMETER(PxU8, PX_RESTRICT, startContactPoints),
+	PXG_HOST_ADDRESS_PARAMETER(PxU8, PX_RESTRICT, startContactForces),
 	PxU32 patchBytesLimit,
 	PxU32 contactBytesLimit,
 	PxU32 forceBytesLimit,
 	const PxReal toleranceLength)
 {
+	PXG_HOST_ADDRESS_DECODE(PxU8, PX_RESTRICT, startContactPatches)
+	PXG_HOST_ADDRESS_DECODE(PxU8, PX_RESTRICT, startContactPoints)
+	PXG_HOST_ADDRESS_DECODE(PxU8, PX_RESTRICT, startContactForces)
+
 	const PxU32 globalThreadIndex = blockIdx.x * blockDim.x + threadIdx.x;
 	const PxU32 workIndex = globalThreadIndex / 4; //4 threads per pair
 

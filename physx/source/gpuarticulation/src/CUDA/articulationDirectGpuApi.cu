@@ -294,6 +294,9 @@ static PX_FORCE_INLINE __device__ void updateKinematicInternal(
 //This function is called after user update gpu buffer(Dy::ArticulationDirtyFlag::eDIRTY_ROOT || Dy::ArticulationDirtyFlag::eDIRTY_POSITIONS)
 extern "C" __global__ void artiUpdateKinematic(
 	const PxgArticulationCoreDesc* const PX_RESTRICT scDesc,
+#if PX_CUMETAL_EXPLICIT_MOTION_ROOT
+	PxgArticulation* PX_RESTRICT articulationRoot,
+#endif
 	const PxgShapeSim* PX_RESTRICT gShapeSimPool,
 	const PxgShape* PX_RESTRICT gConvexShapes,
 	PxsCachedTransform* PX_RESTRICT gTransformCache,
@@ -319,7 +322,14 @@ extern "C" __global__ void artiUpdateKinematic(
 	{
 		const PxU32 articulationIndex = gpuIndices ? gpuIndices[i] : i;
 
+#if PX_CUMETAL_EXPLICIT_MOTION_ROOT
+		// The host passes the separately allocated articulation descriptor array.
+		// This mutable restrict contract covers descriptor storage only; nested
+		// payload pointers remain unrestricted, and gpuDirtyFlag remains writable.
+		PxgArticulation& articulation = articulationRoot[articulationIndex];
+#else
 		PxgArticulation& articulation = scDesc->articulations[articulationIndex];
+#endif
 		if (articulation.data.gpuDirtyFlag & ArticulationDirtyFlag::eNEEDS_KINEMATIC_UPDATE)
 		{
 			// reset while in cache.
@@ -718,6 +728,9 @@ extern "C" __global__ void setArtiDofStates(
 
 extern "C" __global__ void setArtiRootGlobalPoseState(
 	const PxgArticulationCoreDesc* PX_RESTRICT scDesc,
+#if PX_CUMETAL_EXPLICIT_MOTION_ROOT
+	PxgArticulation* PX_RESTRICT articulationRoot,
+#endif
 	const PxTransform* PX_RESTRICT data,
 	const PxArticulationGPUIndex* PX_RESTRICT index,
 	const PxU32 nbElements
@@ -732,7 +745,12 @@ extern "C" __global__ void setArtiRootGlobalPoseState(
 	if (globalThreadIndex < nbElements)
 	{
 		const PxArticulationGPUIndex articulationIndex = index[globalThreadIndex];
+#if PX_CUMETAL_EXPLICIT_MOTION_ROOT
+		// Mutable descriptor-only restriction, as in artiUpdateKinematic.
+		PxgArticulation& articulation = articulationRoot[articulationIndex];
+#else
 		PxgArticulation& articulation = scDesc->articulations[articulationIndex];
+#endif
 
 		articulation.data.gpuDirtyFlag |= (Dy::ArticulationDirtyFlag::eDIRTY_ROOT_TRANSFORM | Dy::ArticulationDirtyFlag::eNEEDS_KINEMATIC_UPDATE);
 		
@@ -747,6 +765,9 @@ extern "C" __global__ void setArtiRootGlobalPoseState(
 
 extern "C" __global__ void setArtiRootVelocityState(
 	const PxgArticulationCoreDesc* PX_RESTRICT scDesc,
+#if PX_CUMETAL_EXPLICIT_MOTION_ROOT
+	PxgArticulation* PX_RESTRICT articulationRoot,
+#endif
 	const PxVec3* PX_RESTRICT data,
 	const PxArticulationGPUIndex* PX_RESTRICT index,
 	const PxU32 nbElements,
@@ -764,7 +785,12 @@ extern "C" __global__ void setArtiRootVelocityState(
 	if (artiIndex < nbElements)
 	{
 		const PxArticulationGPUIndex articulationIndex = index[artiIndex];
+#if PX_CUMETAL_EXPLICIT_MOTION_ROOT
+		// Restrict only the separately allocated descriptor array, not its pointees.
+		PxgArticulation& articulation = articulationRoot[articulationIndex];
+#else
 		PxgArticulation& articulation = scDesc->articulations[articulationIndex];
+#endif
 
 		if(localIndex == 0)
 			articulation.data.gpuDirtyFlag |= (Dy::ArticulationDirtyFlag::eDIRTY_ROOT_VELOCITIES | Dy::ArticulationDirtyFlag::eNEEDS_KINEMATIC_UPDATE);

@@ -598,6 +598,9 @@ extern "C" __global__ void sb_rigidContactPrepareLaunch(
 	const PxReal					invDt,
 	PxgSolverSharedDescBase*		sharedDesc,
 	const bool						isTGS
+#if defined(PX_CUMETAL_EXPLICIT_MOTION_ROOT) && PX_CUMETAL_EXPLICIT_MOTION_ROOT
+    ,const PxgArticulation* PX_RESTRICT articulationDescriptors
+#endif
 )
 {
 	const PxU32 tNumContacts = *numContacts;
@@ -649,7 +652,13 @@ extern "C" __global__ void sb_rigidContactPrepareLaunch(
 		const PxVec3 normal(-normal_pen.x, -normal_pen.y, -normal_pen.z);
 		const PxReal pen = normal_pen.w - rest;
 
+#if defined(PX_CUMETAL_EXPLICIT_MOTION_ROOT) && PX_CUMETAL_EXPLICIT_MOTION_ROOT
+        // The descriptor array has its own allocation; nested response/motion
+        // buffers retain the original aliases and contact equations.
+		prepareDbRigidContact<true>(block, normal, sharedDesc, p, pen, delta, rigidId, barycentric, prepareDesc, solverBodyIndices, softbody.mPenBiasClamp, invDt, isTGS, articulationDescriptors);
+#else
 		prepareDbRigidContact(block, normal, sharedDesc, p, pen, delta, rigidId, barycentric, prepareDesc, solverBodyIndices, softbody.mPenBiasClamp, invDt, isTGS);
+#endif
 	}
 }
 

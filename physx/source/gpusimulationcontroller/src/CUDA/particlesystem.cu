@@ -1125,6 +1125,9 @@ extern "C" __global__ void ps_contactPrepareLaunch(
 	const bool						isTGS,
 	float4*							deltaVel,
 	PxgSolverSharedDescBase*		sharedDesc
+#if defined(PX_CUMETAL_EXPLICIT_MOTION_ROOT) && PX_CUMETAL_EXPLICIT_MOTION_ROOT
+	, const PxgArticulation* PX_RESTRICT articulationDescriptors
+#endif
 	)
 {
 	const PxU32 tNumContacts = *numContacts;
@@ -1188,7 +1191,11 @@ extern "C" __global__ void ps_contactPrepareLaunch(
 
 			PxU32 artiId = bodySims[nodeIndexA].articulationRemapId;
 
+#if defined(PX_CUMETAL_EXPLICIT_MOTION_ROOT) && PX_CUMETAL_EXPLICIT_MOTION_ROOT
+			const PxgArticulation& articulation = articulationDescriptors[artiId];
+#else
 			PxgArticulation& articulation = sharedDesc->articulations[artiId];
+#endif
 
 			const PxU32 linkID = rigidId.articulationLinkId();
 			const PxTransform body2World = articulation.linkBody2Worlds[linkID];
