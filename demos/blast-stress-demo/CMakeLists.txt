@@ -835,12 +835,43 @@ if(BLAST_ENABLE_CUDA_STRESS)
 
     # Minimal native GPU simulation capture. Rendering consumes committed JSON
     # separately; this target has no graphics interop or visual-kernel dependency.
-    add_executable(native_wall_capture native_wall_capture.cpp physx_scene.cpp)
+    add_executable(native_wall_capture native_wall_capture.cpp physx_scene.cpp state_writer.cpp)
     target_compile_features(native_wall_capture PRIVATE cxx_std_17)
     target_compile_definitions(native_wall_capture PRIVATE PX_PHYSX_STATIC_LIB NDEBUG PX_SUPPORT_PVD=0 PX_SUPPORT_OMNI_PVD=0)
     target_include_directories(native_wall_capture PRIVATE ${NATIVE_CHECKPOINT_TEST_INCLUDES})
     target_link_options(native_wall_capture PRIVATE "-Wl,-rpath,${PHYSX_LIB_DIR}")
     target_link_libraries(native_wall_capture PRIVATE ${NATIVE_DESTRUCTION_TEST_LIBS} ${PX_DESTRUCTION_GPU_DRIVER})
+
+    # Native Apple-GPU playback of a committed trajectory. Physics-free by
+    # construction: these targets link no PhysX and no GPU driver, so a renderer
+    # change can never alter a simulation result. Apple-only; the portable path
+    # remains the Blender script and the Rust recorder.
+    if(APPLE)
+        find_library(WALL_RENDER_METAL Metal REQUIRED)
+        find_library(WALL_RENDER_FOUNDATION Foundation REQUIRED)
+        find_library(WALL_RENDER_AVFOUNDATION AVFoundation REQUIRED)
+        find_library(WALL_RENDER_COREVIDEO CoreVideo REQUIRED)
+        find_library(WALL_RENDER_COREMEDIA CoreMedia REQUIRED)
+        find_library(WALL_RENDER_COREGRAPHICS CoreGraphics REQUIRED)
+        set(WALL_RENDER_FRAMEWORKS
+            ${WALL_RENDER_METAL} ${WALL_RENDER_FOUNDATION} ${WALL_RENDER_AVFOUNDATION}
+            ${WALL_RENDER_COREVIDEO} ${WALL_RENDER_COREMEDIA} ${WALL_RENDER_COREGRAPHICS})
+
+        add_executable(encoder_probe render/encoder_probe.mm render/encoder.mm)
+        target_compile_features(encoder_probe PRIVATE cxx_std_17)
+        target_compile_options(encoder_probe PRIVATE -fobjc-arc)
+        target_include_directories(encoder_probe PRIVATE render)
+        target_link_libraries(encoder_probe PRIVATE ${WALL_RENDER_FRAMEWORKS})
+        add_test(NAME physx_native_encoder_probe
+                 COMMAND ${CMAKE_COMMAND} -E echo "encoder_probe is driven by tools/scripts/test-native-render.py")
+
+        add_executable(native_wall_render
+            render/native_wall_render.mm render/renderer.mm render/encoder.mm render/twstate_reader.cpp)
+        target_compile_features(native_wall_render PRIVATE cxx_std_17)
+        target_compile_options(native_wall_render PRIVATE -fobjc-arc)
+        target_include_directories(native_wall_render PRIVATE render)
+        target_link_libraries(native_wall_render PRIVATE ${WALL_RENDER_FRAMEWORKS})
+    endif()
 
     add_executable(native_standard_scene_test tests/native_standard_scene_test.cpp physx_scene.cpp)
     target_compile_definitions(native_standard_scene_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG PX_SUPPORT_PVD=0 PX_SUPPORT_OMNI_PVD=0)

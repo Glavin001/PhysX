@@ -8,6 +8,7 @@
 #include "PxgSimulationCore.h"
 #include "PxgBodySim.h"
 #include "PxsRigidBody.h"
+#include "state_writer.h"
 #include "tests/native_wall_shape_audit.h"
 #include "tests/native_wall_pair_audit.h"
 #include <cuda.h>
@@ -230,7 +231,7 @@ struct Options {
     unsigned width=9, height=7, frames=360, iterations=8192;
     float mass=600, speed=12, strength=1, foundationStrength=1;
     bool recordBondStress=false, auditGpuState=false;
-    std::string output;
+    std::string output, state;
 };
 unsigned number(const char* text) {
     size_t used=0; const auto n=std::stoul(text,&used);
@@ -246,11 +247,12 @@ Options options(int argc,char** argv) {
     for(int i=1;i<argc;++i) {
         const std::string flag=argv[i];
         if(flag=="--help") {
-            std::puts("native_wall_capture --output NEW_FILE.json [--width 9 --height 7 --frames 360 --stress-iterations 8192 --projectile-mass 600 --projectile-speed 12 --material-strength 1 --foundation-strength 1 --record-bond-stress 0 --audit-gpu-state 0]");
+            std::puts("native_wall_capture --output NEW_FILE.json [--state NEW_FILE.twstate] [--width 9 --height 7 --frames 360 --stress-iterations 8192 --projectile-mass 600 --projectile-speed 12 --material-strength 1 --foundation-strength 1 --record-bond-stress 0 --audit-gpu-state 0]");
             std::exit(0);
         }
         require(i+1<argc,"missing option value"); const char* value=argv[++i];
         if(flag=="--output") o.output=value;
+        else if(flag=="--state") o.state=value;
         else if(flag=="--width") o.width=number(value);
         else if(flag=="--height") o.height=number(value);
         else if(flag=="--frames") o.frames=number(value);
@@ -302,6 +304,10 @@ std::filesystem::path outputPath(const std::string& requested) {
 
 int run(int argc,char** argv) {
     const auto o=options(argc,argv); const auto output=outputPath(o.output);
+    // Optional compact binary trajectory for the native renderer. The JSON stays
+    // the audit artifact; this carries the same committed poses at ~32 bytes per
+    // body-frame instead of ~1.5 kB, delta-encoded, so long runs stay tractable.
+    const auto statePath=o.state.empty()?std::filesystem::path():outputPath(o.state);
     WallTimingScope setupTiming("setup");
     constexpr float dt=1.0f/60.0f;
     const PxVec3 half(.48f); const float volume=8*half.x*half.y*half.z;
@@ -371,6 +377,30 @@ int run(int argc,char** argv) {
     require(ball,"projectile allocation failed");ball->setMass(o.mass);ball->setMassSpaceInertiaTensor(PxVec3(.4f*o.mass*radius*radius));
     ball->setLinearDamping(0);ball->setAngularDamping(0);ball->setLinearVelocity(PxVec3(0,0,o.speed));scene.addActor(*ball);
 
+    // The trajectory declares geometry once and then records only changed poses.
+    // Cameras are fixed at four by the format; author useful angles on the wall.
+    blast_demo::StateWriter state;
+    if(!o.state.empty()) {
+        const float span=float(o.width), tall=float(o.height);
+        const PxVec3 focus(0,tall*.5f,0);
+        std::array<blast_demo::Camera,4> cameras{};
+        const PxVec3 eyes[4]={PxVec3(0,tall*.65f,-(span*1.15f+4)),PxVec3(span*1.1f+3,tall*.7f,-(span*.6f+3)),
+            PxVec3(0,tall*1.9f+3,-(span*.5f+3)),PxVec3(span*.35f+2,tall*.35f,-(span*.35f+2))};
+        for(unsigned c=0;c<4;++c) {
+            cameras[c].eye=eyes[c];cameras[c].direction=(focus-eyes[c]).getNormalized();cameras[c].fovDegrees=55;
+        }
+        require(state.open(statePath.string(),60,o.frames,1920,1080,1,float(o.frames)/60.0f,0.0f,cameras),
+            ("trajectory open failed: "+state.error()).c_str());
+        for(unsigned i=0;i<count;++i) {
+            blast_demo::VisualActor actor; actor.shape=blast_demo::VisualActor::Shape::Box;
+            actor.part=0; actor.parameters=half; actor.localPose=PxTransform(PxIdentity);
+            require(state.defineActor(i,actor),("trajectory actor failed: "+state.error()).c_str());
+        }
+        blast_demo::VisualActor projectile; projectile.shape=blast_demo::VisualActor::Shape::Sphere;
+        projectile.part=1; projectile.parameters=PxVec3(radius,radius,radius);
+        require(state.defineActor(count,projectile),("trajectory actor failed: "+state.error()).c_str());
+    }
+
     std::ofstream out(output); require(bool(out),"capture output could not be opened"); out<<std::setprecision(9);
 #if defined(PX_CUMETAL) && PX_CUMETAL
     const char* backend="cumetal";
@@ -407,6 +437,7 @@ int run(int argc,char** argv) {
     out<<",{\"id\":"<<count<<",\"shape\":\"sphere\",\"radius\":"<<radius<<",\"color\":[0.12,0.24,0.55]}],\"frames\":[\n";
     unsigned completed=0,broken=0,corrections=0,detached=0,peakDetached=0;
     std::vector<PxU32> active,roots,live,previous(bonds.size(),1);
+    std::vector<blast_demo::VisualPose> trajectory;
     std::vector<PxDestructionBondVerdict> lastTrialVerdicts;
     std::vector<PxReal> acceptedBondHealth;
     std::string failure;
@@ -435,14 +466,24 @@ int run(int argc,char** argv) {
             for(unsigned i=0;i<o.width;++i) {require(live[i] && roots[i]<count,"support chunk removed or invalid");supported[roots[i]]=true;}
             detached=0;
             std::ostringstream row;row<<std::setprecision(9)<<"{\"frame\":"<<frame<<",\"time\":"<<double(frame+1)/60.0<<",\"bodies\":[";
+            trajectory.clear();
             for(unsigned i=0;i<count;++i) {
                 if(i) row<<',';
                 require(live[i] && roots[i]<count,"unexpected chunk removal in non-crushing wall");
                 auto* owner=shapes[i]->getActor();require(owner,"committed wall chunk has no actor");
-                pose(row,i,owner->getGlobalPose()*shapes[i]->getLocalPose(),true,roots[i]);
+                const auto world=owner->getGlobalPose()*shapes[i]->getLocalPose();
+                pose(row,i,world,true,roots[i]);
+                // Identical committed pose; the trajectory must never diverge from
+                // the audit JSON, so both are written from this one value.
+                if(!o.state.empty()) trajectory.push_back({i,world,false,roots[i]});
                 if(i>=o.width && !supported[roots[i]]) ++detached;
             }
-            row<<',';pose(row,count,ball->getGlobalPose(),true);row<<"],\"fractures\":[";
+            row<<',';pose(row,count,ball->getGlobalPose(),true);
+            if(!o.state.empty()) {
+                trajectory.push_back({count,ball->getGlobalPose(),false,blast_demo::VisualPose::kNoGroup});
+                require(state.writeFrame(frame,trajectory),("trajectory frame failed: "+state.error()).c_str());
+            }
+            row<<"],\"fractures\":[";
             bool first=true;
             for(unsigned i=0;i<bonds.size();++i) {
                 require(active[i]<=1 && !(active[i] && !previous[i]),"accepted bond state reactivated or invalid");
@@ -490,6 +531,10 @@ int run(int argc,char** argv) {
        <<",\"retained_non_support_chunks\":"<<dynamicCount-detached<<",\"peak_detached_chunks\":"<<peakDetached
        <<",\"localized_damage\":"<<(localized?"true":"false")<<",\"localized_damage_rule\":\"some detached; at most half of non-support chunks detached at any captured step\"},\"failure\":"<<quoted(failure)<<"}\n";
     out.close();require(bool(out),"capture finalization failed");
+    // Close the trajectory before reporting success. A partial run still leaves a
+    // readable prefix, but an unfinished file must not be presented as complete.
+    if(!o.state.empty() && failure.empty())
+        require(state.finish(),("trajectory finalization failed: "+state.error()).c_str());
     if(!failure.empty()) throw std::runtime_error(failure);
     std::printf("capture completed: %u committed frames; %u broken bonds; %u/%u non-support chunks detached; localized=%s\n",
         completed,broken,detached,dynamicCount,localized?"true":"false");
