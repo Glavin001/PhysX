@@ -1,0 +1,56 @@
+Internal ctest changing into directory: /root/workspace/physx-2-vehicle/out/destruction-sdk
+Test project /root/workspace/physx-2-vehicle/out/destruction-sdk
+      Start  46: physx_native_gpu_body_state
+ 1/19 Test  #46: physx_native_gpu_body_state ................   Passed    0.51 sec
+      Start  47: physx_native_gpu_body_allocation
+ 2/19 Test  #47: physx_native_gpu_body_allocation ...........   Passed    3.33 sec
+      Start  50: physx_native_gpu_motion_slots
+ 3/19 Test  #50: physx_native_gpu_motion_slots ..............   Passed    0.33 sec
+      Start  51: physx_native_gpu_collision_preparation
+ 4/19 Test  #51: physx_native_gpu_collision_preparation .....   Passed    4.54 sec
+      Start  52: physx_native_gpu_contact_response
+ 5/19 Test  #52: physx_native_gpu_contact_response ..........   Passed    0.94 sec
+      Start  57: physx_native_gpu_node_births
+ 6/19 Test  #57: physx_native_gpu_node_births ...............   Passed    0.45 sec
+      Start  59: physx_native_gpu_accepted_properties
+ 7/19 Test  #59: physx_native_gpu_accepted_properties .......   Passed    0.46 sec
+      Start  60: physx_native_gpu_accepted_properties_pgs
+ 8/19 Test  #60: physx_native_gpu_accepted_properties_pgs ...   Passed    0.47 sec
+      Start  70: physx_native_gpu_correction_bodies
+ 9/19 Test  #70: physx_native_gpu_correction_bodies .........   Passed    4.49 sec
+      Start  80: physx_native_standard_reported_reuse
+10/19 Test  #80: physx_native_standard_reported_reuse .......   Passed    1.99 sec
+      Start  81: physx_native_standard_reuse
+11/19 Test  #81: physx_native_standard_reuse ................   Passed    0.89 sec
+      Start  82: physx_native_post_correction
+12/19 Test  #82: physx_native_post_correction ...............   Passed    1.03 sec
+      Start  83: physx_native_post_correction_pgs
+13/19 Test  #83: physx_native_post_correction_pgs ...........   Passed    1.03 sec
+      Start  84: physx_native_post_correction_multi
+14/19 Test  #84: physx_native_post_correction_multi .........   Passed    1.51 sec
+      Start  85: physx_native_chained_fracture
+15/19 Test  #85: physx_native_chained_fracture ..............   Passed    1.15 sec
+      Start  86: physx_native_standard_awake
+16/19 Test  #86: physx_native_standard_awake ................   Passed    0.52 sec
+      Start  87: physx_native_standard_sleep
+17/19 Test  #87: physx_native_standard_sleep ................   Passed    0.89 sec
+      Start  89: physx_native_standard_sleep_boundary
+18/19 Test  #89: physx_native_standard_sleep_boundary .......   Passed    1.60 sec
+      Start 104: physx_native_fragment_resting_on_static
+19/19 Test #104: physx_native_fragment_resting_on_static ....***Failed    0.80 sec
+resting course: 120 bonds broken, 50 fragments, 0 below the world
+resting course passed: every released brick rests on the ground
+
+
+95% tests passed, 1 tests failed out of 19
+
+Label Time Summary:
+gpu            =  11.41 sec*proc (10 tests)
+integration    =  11.41 sec*proc (10 tests)
+known-fault    =   0.80 sec*proc (1 test)
+
+Total Test time (real) =  26.94 sec
+
+The following tests FAILED:
+	104 - physx_native_fragment_resting_on_static (Failed)
+Errors while running CTest

@@ -886,7 +886,7 @@ if(BLAST_ENABLE_CUDA_STRESS)
     # expected failure: a fragment released while already resting on a static
     # shape never forms a contact with it. Flip WILL_FAIL off when it is fixed.
     add_test(NAME physx_native_fragment_resting_on_static COMMAND native_vehicle_wall_test --resting-course --frames 240)
-    set_tests_properties(physx_native_fragment_resting_on_static PROPERTIES WILL_FAIL TRUE RUN_SERIAL TRUE TIMEOUT 120 LABELS "gpu;integration;known-fault")
+    set_tests_properties(physx_native_fragment_resting_on_static PROPERTIES RUN_SERIAL TRUE TIMEOUT 120 LABELS "gpu;integration")
 
     add_executable(native_group_filter_test tests/native_group_filter_test.cpp physx_scene.cpp)
     target_compile_definitions(native_group_filter_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG PX_SUPPORT_PVD=0 PX_SUPPORT_OMNI_PVD=0)

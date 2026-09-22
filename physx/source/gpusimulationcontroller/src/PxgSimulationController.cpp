@@ -26,6 +26,11 @@
 // Copyright (c) 2008-2026 NVIDIA Corporation. All rights reserved.
 
 #include "PxgSimulationController.h"
+#include "PxgContext.h"
+#include "PxgSolverCore.h"
+#include "PxgSolverBody.h"
+#include <stdio.h>
+#include <string.h>
 #include "PxgNarrowphaseCore.h"
 #include "PxDirectGPUAPI.h"
 #include "PxsRigidBody.h"
@@ -599,6 +604,76 @@ namespace physx
 	{
 		createDeformableSurfaceCore();
 		mDynamicContext->mGpuFEMClothCore->mPostSolveCallback = postSolveCallback;		
+	}
+
+	void PxgSimulationController::debugDumpBodySim(PxU32 node) const
+	{
+		PxgBodySim sim;
+		PxCudaContextManager* manager = mCudaContextManager;
+		PxScopedCudaLock lock(*manager);
+		PxCUresult err = manager->getCudaContext()->memcpyDtoH(&sim, CUdeviceptr(mSimulationCore->getBodySimBufferDeviceData()) + CUdeviceptr(node) * sizeof(PxgBodySim), sizeof(PxgBodySim));
+		const bool registered = node < mBodySimManager.mBodies.size() && mBodySimManager.mBodies[node] != NULL;
+		fprintf(stderr, "[bodysim] node %u cuda=%u registered=%u total=%u | v=(%g %g %g) invMass=%g w=(%g %g %g) maxPenBias=%g | invI=(%g %g %g) | p=(%g %g %g) q=(%g %g %g %g) | flags=%x lock=%u noGravity=%u simIndex=%u wc=%g freezeT=%g sleepT=%g artiRemap=%u solverConfig=%x b2a=(%g %g %g) maxLinSq=%g\n",
+			node, unsigned(err), unsigned(registered), unsigned(mBodySimManager.mBodies.size()),
+			double(sim.linearVelocityXYZ_inverseMassW.x), double(sim.linearVelocityXYZ_inverseMassW.y), double(sim.linearVelocityXYZ_inverseMassW.z), double(sim.linearVelocityXYZ_inverseMassW.w),
+			double(sim.angularVelocityXYZ_maxPenBiasW.x), double(sim.angularVelocityXYZ_maxPenBiasW.y), double(sim.angularVelocityXYZ_maxPenBiasW.z), double(sim.angularVelocityXYZ_maxPenBiasW.w),
+			double(sim.inverseInertiaXYZ_contactReportThresholdW.x), double(sim.inverseInertiaXYZ_contactReportThresholdW.y), double(sim.inverseInertiaXYZ_contactReportThresholdW.z),
+			double(sim.body2World.p.x), double(sim.body2World.p.y), double(sim.body2World.p.z),
+			double(sim.body2World.q.q.x), double(sim.body2World.q.q.y), double(sim.body2World.q.q.z), double(sim.body2World.q.q.w),
+			unsigned(sim.internalFlags), unsigned(sim.lockFlags), unsigned(sim.disableGravity), unsigned(reinterpret_cast<const PxU32&>(sim.freezeThresholdX_wakeCounterY_sleepThresholdZ_bodySimIndex.w)),
+			double(sim.freezeThresholdX_wakeCounterY_sleepThresholdZ_bodySimIndex.y), double(sim.freezeThresholdX_wakeCounterY_sleepThresholdZ_bodySimIndex.x), double(sim.freezeThresholdX_wakeCounterY_sleepThresholdZ_bodySimIndex.z),
+			unsigned(sim.articulationRemapId), unsigned(sim.solverConfig.x),
+			double(sim.body2Actor_maxImpulseW.p.x), double(sim.body2Actor_maxImpulseW.p.y), double(sim.body2Actor_maxImpulseW.p.z),
+			double(sim.maxLinearVelocitySqX_maxAngularVelocitySqY_linearDampingZ_angularDampingW.x));
+		// Where the CPU thinks this node sits in the solver body list, and what
+		// the device solver body record at that slot says its node is.
+		PxgGpuContext* context = mDynamicContext;
+		const PxU32 total = context->mSolverBodyPool.size();
+		PxU32 cpuSlot = PX_INVALID_U32;
+		for(PxU32 i = 0; i < context->mActiveNodeIndex.size(); ++i) if(context->mActiveNodeIndex[i].index() == node) cpuSlot = i;
+		PxArray<PxgSolverBodyData> pool(total);
+		const CUdeviceptr poolPtr = context->getGpuSolverCore()->getSolverBodyData()->getDevicePtr();
+		unsigned err2 = poolPtr ? unsigned(manager->getCudaContext()->memcpyDtoH(pool.begin(), poolPtr, sizeof(PxgSolverBodyData) * total)) : 1u;
+		PxU32 deviceSlot = PX_INVALID_U32, matches = 0;
+		for(PxU32 i = 0; i < total && !err2; ++i) if(pool[i].islandNodeIndex.index() == node) { deviceSlot = i; ++matches; }
+		fprintf(stderr, "[bodysim] node %u cpuSlot=%u (kinematics=%u bodies=%u activeList=%u total=%u) deviceSlotsWithNode=%u firstDeviceSlot=%u cuda=%u",
+			node, cpuSlot, context->mKinematicCount, context->mBodyCount, unsigned(context->mActiveNodeIndex.size()), total, matches, deviceSlot, unsigned(err2));
+		if(!err2 && cpuSlot < total)
+		{
+			const PxgSolverBodyData& d = pool[cpuSlot];
+			fprintf(stderr, " | at cpuSlot: node=%u invMass=%g initialLinVel=(%g %g %g) p=(%g %g %g) flags=%x",
+				d.islandNodeIndex.index(), double(d.invMass), double(d.initialLinVel.x), double(d.initialLinVel.y), double(d.initialLinVel.z),
+				double(d.body2World.p.x), double(d.body2World.p.y), double(d.body2World.p.z), unsigned(d.flags));
+		}
+		fprintf(stderr, "\n");
+	}
+
+	void PxgSimulationController::debugTraceNode(const char* tag) const
+	{
+		static const PxArray<long>* nodes = [] {
+			PxArray<long>* list = new PxArray<long>();
+			if(const char* raw = getenv("PX_DESTRUCTION_TRACE_NODE")) for(const char* c = raw; *c; ) { list->pushBack(atol(c)); while(*c && *c != ',') ++c; if(*c) ++c; }
+			return list; }();
+		if(nodes->empty()) return;
+		static PxU32 count = 0;
+		if(strcmp(tag, "end-of-step") == 0) ++count;
+		if(count % 30 != 0 && nodes->size() > 1) return; // multi-node traces sample every 30th step
+		for(PxU32 n = 0; n < nodes->size(); ++n) debugTraceOne((*nodes)[n], tag, count);
+	}
+
+	void PxgSimulationController::debugTraceOne(long node, const char* tag, PxU32 count) const
+	{
+		PxgBodySim sim;
+		if(PxU32(node) >= mSimulationCore->getBodySimStorageCapacity() || PxU32(node) >= mBodySimManager.mBodies.size() || !mBodySimManager.mBodies[PxU32(node)]) return;
+		PxScopedCudaLock lock(*mCudaContextManager);
+		// The solver stream owns every write to the record; drain it first.
+		mCudaContextManager->getCudaContext()->streamSynchronize(mDynamicContext->getGpuSolverCore()->getStream());
+		mCudaContextManager->getCudaContext()->memcpyDtoH(&sim, CUdeviceptr(mSimulationCore->getBodySimBufferDeviceData()) + CUdeviceptr(node) * sizeof(PxgBodySim), sizeof(PxgBodySim));
+		fprintf(stderr, "[trace %ld] #%u %-16s p=(%.6f %.6f %.6f) v=(%.5f %.5f %.5f) w=(%.4f %.4f %.4f) wc=%g flags=%x maxPenBias=%g\n", node, count, tag,
+			double(sim.body2World.p.x), double(sim.body2World.p.y), double(sim.body2World.p.z),
+			double(sim.linearVelocityXYZ_inverseMassW.x), double(sim.linearVelocityXYZ_inverseMassW.y), double(sim.linearVelocityXYZ_inverseMassW.z),
+			double(sim.angularVelocityXYZ_maxPenBiasW.x), double(sim.angularVelocityXYZ_maxPenBiasW.y), double(sim.angularVelocityXYZ_maxPenBiasW.z),
+			double(sim.freezeThresholdX_wakeCounterY_sleepThresholdZ_bodySimIndex.y), unsigned(sim.internalFlags), double(sim.angularVelocityXYZ_maxPenBiasW.w));
 	}
 
 	bool PxgSimulationController::getRigidDynamicData(void* PX_RESTRICT data, const PxRigidDynamicGPUIndex* PX_RESTRICT gpuIndices, PxRigidDynamicGPUAPIReadType::Enum dataType, PxU32 nbElements, CUevent startEvent, CUevent finishEvent) const

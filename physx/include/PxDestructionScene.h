@@ -1,7 +1,7 @@
 // Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
 #ifndef PX_DESTRUCTION_SCENE_H
 #define PX_DESTRUCTION_SCENE_H
-#define PX_DESTRUCTION_SCENE_VERSION 17
+#define PX_DESTRUCTION_SCENE_VERSION 18
 #include "foundation/PxTransform.h"
 #include "PxDirectGPUAPI.h"
 #include "PxDestructionTopologyTypes.h"
@@ -97,6 +97,16 @@ struct PxDestructionStressDesc {
     // sleeping scenes. Native sleep scheduling still needs its membership mirror.
     // Unsupported graph state retains the original traversal; false is the reference.
     bool gpuIslandRepair = true;
+    // Depenetration velocity cap installed on every free fragment the stage
+    // creates (metres per second; zero inherits the parent's clamp, which is
+    // PhysX's unbounded default). Supported remnants keep the parent's value,
+    // so projectile-versus-structure trial impulses -- the loads that decide
+    // fracture -- are unchanged; only detached debris is capped. Bounded
+    // push-out is what lets a deeply interpenetrating debris stack (fast
+    // debris tunnels thin decks and lands inside other pieces) resolve
+    // monotonically instead of settling into a PGS fixed point or a two-step
+    // cycle that never sleeps.
+    PxReal fragmentMaxDepenetrationVelocity = 0.0f;
 };
 struct PxDestructionVectorPair {
     PxVec3 angular, linear;
