@@ -9,6 +9,7 @@
 #include "PxgBodySim.h"
 #include "PxsRigidBody.h"
 #include "state_writer.h"
+#include "structure.h"
 #include "tests/native_wall_shape_audit.h"
 #include "tests/native_wall_pair_audit.h"
 #include <cuda.h>
@@ -95,7 +96,7 @@ void diagnosticPose(std::ostream& out,const PxTransform& value) {
 }
 void auditGpuState(std::ostream& out,PxScene& scene,PxCudaContextManager& cuda,
     const std::vector<PxShape*>& shapes,PxRigidDynamic& ball,unsigned frame,
-    const std::vector<PxDestructionStressBond>& bonds) {
+    const std::vector<blast_demo::StructureBond>& bonds) {
     struct Record {PxRigidDynamic* actor;PxU32 index;PxgBodySim body;PxTransform gpuPose;bool poseValid;};
     std::vector<Record> records;
     std::vector<unsigned> shapeOwners;
@@ -316,6 +317,9 @@ struct Options {
     // the four-way corner where four chunks meet. Zero height means mid-wall.
     float impactOffset=0, impactHeight=0;
     bool recordBondStress=false, auditGpuState=false;
+    // "wall" (the default grid), a ScenePack name under the scenes directory,
+    // or a path to a box-only ScenePack JSON.
+    std::string scene="wall";
     std::string output, state, profilePhases;
 };
 unsigned number(const char* text) {
@@ -332,12 +336,13 @@ Options options(int argc,char** argv) {
     for(int i=1;i<argc;++i) {
         const std::string flag=argv[i];
         if(flag=="--help") {
-            std::puts("native_wall_capture --output NEW_FILE.json [--state NEW_FILE.twstate] [--width 9 --height 7 --frames 360 --stress-iterations 8192 --stress-tolerance 0.001 --projectile-mass 600 --projectile-speed 12 --material-strength 1 --foundation-strength 1 --impact-offset 0 --impact-height 0 --record-bond-stress 0 --audit-gpu-state 0 --profile-phases FILE.csv]");
+            std::puts("native_wall_capture --output NEW_FILE.json [--state NEW_FILE.twstate] [--scene wall|brick-building|PACK.json] [--width 9 --height 7 --frames 360 --stress-iterations 8192 --stress-tolerance 0.001 --projectile-mass 600 --projectile-speed 12 --material-strength 1 --foundation-strength 1 --impact-offset 0 --impact-height 0 --record-bond-stress 0 --audit-gpu-state 0 --profile-phases FILE.csv]");
             std::exit(0);
         }
         require(i+1<argc,"missing option value"); const char* value=argv[++i];
         if(flag=="--output") o.output=value;
         else if(flag=="--state") o.state=value;
+        else if(flag=="--scene") o.scene=value;
         else if(flag=="--width") o.width=number(value);
         else if(flag=="--height") o.height=number(value);
         else if(flag=="--frames") o.frames=number(value);
@@ -369,10 +374,11 @@ Options options(int argc,char** argv) {
         "invalid authored projectile/material values");
     require(o.foundationStrength>0, "foundation strength must be finite and positive");
     // Keep the aim on the wall; beyond it the projectile misses and the capture
-    // records a non-event.
-    require(std::isfinite(o.impactOffset) && std::fabs(o.impactOffset)<=float(o.width)*.5f,
+    // records a non-event. A built structure's extent is only known once loaded.
+    const bool wall=o.scene=="wall";
+    require(std::isfinite(o.impactOffset) && (!wall || std::fabs(o.impactOffset)<=float(o.width)*.5f),
         "impact offset must stay within the wall's half width");
-    require(std::isfinite(o.impactHeight) && o.impactHeight>=0 && o.impactHeight<=float(o.height),
+    require(std::isfinite(o.impactHeight) && o.impactHeight>=0 && (!wall || o.impactHeight<=float(o.height)),
         "impact height must be zero or within the wall's height");
     // Reject overflow/underflow before creating output or starting the scene.
     const double foundationScale=double(o.strength)*o.foundationStrength;
@@ -408,71 +414,26 @@ int run(int argc,char** argv) {
     PhaseProfiler phases(o.profilePhases.empty()?std::string():outputPath(o.profilePhases).string());
     WallTimingScope setupTiming("setup");
     constexpr float dt=1.0f/60.0f;
-    const PxVec3 half(.48f); const float volume=8*half.x*half.y*half.z;
-    const float blockMass=1000*volume, inertia=blockMass*(half.x*half.x+half.y*half.y)/3;
-    const unsigned count=o.width*o.height, dynamicCount=count-o.width;
+    const auto structure=blast_demo::loadStructure(o.scene,o.width,o.height,BLAST_DEMO_SCENES_DIR);
+    const unsigned count=unsigned(structure.bricks.size()), dynamicCount=count-structure.foundationCount();
     blast_demo::SceneCapacity capacity; capacity.maxBodies=count+16; capacity.maxShapes=count+16;
     // Ordinary actor API mode, awake rigid scene, GPU TGS, no CPU contact reports.
     blast_demo::PhysXScene context(blast_demo::PhysicsMode::Gpu,true,capacity,nullptr,
         false,true,false,false,PxSolverType::eTGS,false,false);
     require(context.gpuActive() && !context.directGpuApiActive(),"native ordinary GPU scene required");
     auto& physics=context.physics(); auto& scene=context.scene(); auto& cuda=*context.cudaContextManager();
-    auto* wall=physics.createRigidDynamic(PxTransform(PxIdentity)); require(wall,"wall allocation failed");
-    wall->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC,true);
-    wall->setLinearDamping(0); wall->setAngularDamping(0);
-    std::vector<PxShape*> shapes; std::vector<PxDestructionStressChunk> chunks;
-    std::vector<PxDestructionChunkMassProperties> properties; std::vector<PxDestructionStressBond> bonds;
+    const auto settings=blast_demo::structureStressSettings(o.strength,o.foundationStrength,o.iterations,o.tolerance);
+    const auto& material=settings.materials[0]; const auto& foundationMaterial=settings.materials[1];
+    blast_demo::AuthoredStructure authored; std::string authorError;
+    const bool configured=blast_demo::authorStructure(structure,context,settings,authored,authorError);
+    require(configured,("native "+structure.name+": "+authorError).c_str());
+    auto* wall=authored.actor; auto* destruction=authored.destruction; const auto& shapes=authored.shapes;
     std::vector<PxU32> foundationBondIds;
-    const PxVec3 center(0,float(o.height)*.5f,0); PxVec3 totalInertia(0);
-    for(unsigned y=0;y<o.height;++y) for(unsigned x=0;x<o.width;++x) {
-        const unsigned id=y*o.width+x; const PxVec3 p(float(x)-float(o.width-1)*.5f,float(y)+.5f,0);
-        auto* shape=physics.createShape(PxBoxGeometry(half),context.material(),true); require(shape,"wall shape allocation failed");
-        shape->setLocalPose(PxTransform(p)); require(wall->attachShape(*shape),"wall shape attachment failed"); shapes.push_back(shape);
-        chunks.push_back({p,y?blockMass:0.0f,y?inertia:0.0f,0,PX_INVALID_U32,volume,0});
-        PxDestructionChunkMassProperties prop{}; prop.mass=blockMass; prop.supported=y==0;
-        for(unsigned k=0;k<3;++k) {prop.center[k]=p[k];prop.inertia[k]=inertia;} properties.push_back(prop);
-        const auto delta=p-center; totalInertia+=PxVec3(inertia+blockMass*(delta.y*delta.y+delta.z*delta.z),
-            inertia+blockMass*(delta.x*delta.x+delta.z*delta.z),inertia+blockMass*(delta.x*delta.x+delta.y*delta.y));
-        auto bond=[&](unsigned other) {
-            const auto d=p-chunks[other].position;
-            // A separate authored foundation mortar, only on vertical row-0/1 ties.
-            const bool foundation=y==1 && other==id-o.width;
-            if(foundation) foundationBondIds.push_back(PxU32(bonds.size()));
-            bonds.push_back({other,id,(p+chunks[other].position)*.5f,d.getNormalized(),4*half.x*half.y,1,1,foundation?1u:0u});
-        };
-        if(x) bond(id-1); if(y) bond(id-o.width);
-    }
-    wall->setMass(blockMass*float(count)); wall->setCMassLocalPose(PxTransform(center));
-    wall->setMassSpaceInertiaTensor(totalInertia); scene.addActor(*wall);
-    // Configure the asset before launching the single real dynamic projectile.
-    scene.simulate(dt); PxU32 setupError=0;
-    require(scene.fetchResults(true,&setupError) && !setupError && context.healthy(),"native setup failed");
-    auto* destruction=scene.getDestructionScene(); require(destruction,"integrated destruction is unavailable");
-    for(unsigned i=0;i<count;++i) {
-        chunks[i].contactIndex=destruction->getShapeContactIndex(*shapes[i]);
-        require(chunks[i].contactIndex!=PX_INVALID_U32,"wall collision identity missing");
-    }
-    PxDestructionStressCluster cluster{wall->getGPUIndex(),center};
-    PxDestructionMaterial materials[2];
-    auto& material=materials[0];
-    material.compressionElasticLimit=250000*o.strength;material.compressionFatalLimit=500000*o.strength;
-    material.tensionElasticLimit=30000*o.strength;material.tensionFatalLimit=60000*o.strength;
-    material.shearElasticLimit=80000*o.strength;material.shearFatalLimit=160000*o.strength;
-    auto& foundationMaterial=materials[1]; foundationMaterial=material;
-    foundationMaterial.compressionElasticLimit*=o.foundationStrength;
-    foundationMaterial.compressionFatalLimit*=o.foundationStrength;
-    foundationMaterial.tensionElasticLimit*=o.foundationStrength;
-    foundationMaterial.tensionFatalLimit*=o.foundationStrength;
-    foundationMaterial.shearElasticLimit*=o.foundationStrength;
-    foundationMaterial.shearFatalLimit*=o.foundationStrength;
-    PxDestructionStressDesc desc; desc.chunks=chunks.data();desc.chunkCount=count;desc.chunkMassProperties=properties.data();
-    desc.clusters=&cluster;desc.clusterCount=1;desc.bonds=bonds.data();desc.bondCount=PxU32(bonds.size());
-    desc.materials=materials;desc.materialCount=2;desc.maxIterations=o.iterations;desc.tolerance=o.tolerance;
-    desc.internalCorrectionLimit=1;desc.gpuIslandRepair=false;desc.preserveUnchangedContactPairs=false;
-    require(destruction->configureStress(desc),"native wall stress configuration failed");
+    for(unsigned i=0;i<structure.bonds.size();++i) if(structure.bonds[i].material==1) foundationBondIds.push_back(i);
+    const auto& bonds=structure.bonds;
     constexpr float radius=.6f;
-    const float aimHeight=o.impactHeight>0 ? o.impactHeight : float(o.height)*.55f;
-    auto* ball=PxCreateDynamic(physics,PxTransform(PxVec3(o.impactOffset,aimHeight,-4)),PxSphereGeometry(radius),context.material(),1);
+    const float aimHeight=o.impactHeight>0 ? o.impactHeight : structure.aimHeight;
+    auto* ball=PxCreateDynamic(physics,PxTransform(PxVec3(o.impactOffset,aimHeight,structure.front-4)),PxSphereGeometry(radius),context.material(),1);
     require(ball,"projectile allocation failed");ball->setMass(o.mass);ball->setMassSpaceInertiaTensor(PxVec3(.4f*o.mass*radius*radius));
     ball->setLinearDamping(0);ball->setAngularDamping(0);ball->setLinearVelocity(PxVec3(0,0,o.speed));scene.addActor(*ball);
 
@@ -480,11 +441,13 @@ int run(int argc,char** argv) {
     // Cameras are fixed at four by the format; author useful angles on the wall.
     blast_demo::StateWriter state;
     if(!o.state.empty()) {
-        const float span=float(o.width), tall=float(o.height);
-        const PxVec3 focus(0,tall*.5f,0);
+        // The wall's grid size, or a built structure's collider extent.
+        const float span=structure.gridWidth?float(structure.gridWidth):structure.upper.x-structure.lower.x;
+        const float tall=structure.gridWidth?float(structure.gridHeight):structure.upper.y;
+        const PxVec3 focus(0,tall*.5f,structure.front), at(0,0,structure.front);
         std::array<blast_demo::Camera,4> cameras{};
-        const PxVec3 eyes[4]={PxVec3(0,tall*.65f,-(span*1.15f+4)),PxVec3(span*1.1f+3,tall*.7f,-(span*.6f+3)),
-            PxVec3(0,tall*1.9f+3,-(span*.5f+3)),PxVec3(span*.35f+2,tall*.35f,-(span*.35f+2))};
+        const PxVec3 eyes[4]={at+PxVec3(0,tall*.65f,-(span*1.15f+4)),at+PxVec3(span*1.1f+3,tall*.7f,-(span*.6f+3)),
+            at+PxVec3(0,tall*1.9f+3,-(span*.5f+3)),at+PxVec3(span*.35f+2,tall*.35f,-(span*.35f+2))};
         for(unsigned c=0;c<4;++c) {
             cameras[c].eye=eyes[c];cameras[c].direction=(focus-eyes[c]).getNormalized();cameras[c].fovDegrees=55;
         }
@@ -492,7 +455,7 @@ int run(int argc,char** argv) {
             ("trajectory open failed: "+state.error()).c_str());
         for(unsigned i=0;i<count;++i) {
             blast_demo::VisualActor actor; actor.shape=blast_demo::VisualActor::Shape::Box;
-            actor.part=0; actor.parameters=half; actor.localPose=PxTransform(PxIdentity);
+            actor.part=0; actor.parameters=structure.bricks[i].half; actor.localPose=PxTransform(PxIdentity);
             require(state.defineActor(i,actor),("trajectory actor failed: "+state.error()).c_str());
         }
         blast_demo::VisualActor projectile; projectile.shape=blast_demo::VisualActor::Shape::Sphere;
@@ -508,7 +471,7 @@ int run(int argc,char** argv) {
 #endif
     out<<"{\"schema\":\"physx.native-wall-capture\",\"version\":1,\"backend\":"<<quoted(backend)
        <<",\"timestep\":"<<dt<<",\"metadata\":{\"device\":"<<quoted(cuda.getDeviceName()?cuda.getDeviceName():"unknown")
-       <<",\"width\":"<<o.width<<",\"height\":"<<o.height<<",\"impact_offset\":"<<o.impactOffset<<",\"impact_height\":"<<aimHeight<<",\"ground_y\":0,\"fps\":60,\"requested_frames\":"<<o.frames
+       <<",\"scene\":"<<quoted(structure.name)<<",\"width\":"<<structure.gridWidth<<",\"height\":"<<structure.gridHeight<<",\"impact_offset\":"<<o.impactOffset<<",\"impact_height\":"<<aimHeight<<",\"ground_y\":0,\"fps\":60,\"requested_frames\":"<<o.frames
        <<",\"solver\":\"TGS\",\"stress_tolerance\":"<<o.tolerance<<",\"stress_iterations\":"<<o.iterations
        <<",\"correction_limit\":1,\"warm_start\":true,\"gpu_island_repair\":false,\"cpu_pose_observation\":true"
        <<",\"realtime_claim\":false,\"projectile_mass\":"<<o.mass<<",\"projectile_speed\":"<<o.speed
@@ -530,8 +493,8 @@ int run(int argc,char** argv) {
     out<<"},\"bodies\":[";
     for(unsigned i=0;i<count;++i) {
         if(i) out<<',';
-        out<<"{\"id\":"<<i<<",\"chunk_id\":"<<i<<",\"shape\":\"box\",\"half_extents\":";vec(out,half);
-        out<<",\"supported\":"<<(i<o.width?"true":"false")<<",\"color\":[0.64,0.39,0.22]}";
+        out<<"{\"id\":"<<i<<",\"chunk_id\":"<<i<<",\"shape\":\"box\",\"half_extents\":";vec(out,structure.bricks[i].half);
+        out<<",\"supported\":"<<(structure.bricks[i].foundation?"true":"false")<<",\"color\":[0.64,0.39,0.22]}";
     }
     out<<",{\"id\":"<<count<<",\"shape\":\"sphere\",\"radius\":"<<radius<<",\"color\":[0.12,0.24,0.55]}],\"frames\":[\n";
     unsigned completed=0,broken=0,corrections=0,detached=0,peakDetached=0;
@@ -564,7 +527,7 @@ int run(int argc,char** argv) {
                 }
             }
             std::vector<bool> supported(count,false);
-            for(unsigned i=0;i<o.width;++i) {require(live[i] && roots[i]<count,"support chunk removed or invalid");supported[roots[i]]=true;}
+            for(unsigned i=0;i<count;++i) if(structure.bricks[i].foundation) {require(live[i] && roots[i]<count,"support chunk removed or invalid");supported[roots[i]]=true;}
             detached=0;
             std::ostringstream row;row<<std::setprecision(9)<<"{\"frame\":"<<frame<<",\"time\":"<<double(frame+1)/60.0<<",\"bodies\":[";
             trajectory.clear();
@@ -577,7 +540,7 @@ int run(int argc,char** argv) {
                 // Identical committed pose; the trajectory must never diverge from
                 // the audit JSON, so both are written from this one value.
                 if(!o.state.empty()) trajectory.push_back({i,world,false,roots[i]});
-                if(i>=o.width && !supported[roots[i]]) ++detached;
+                if(!structure.bricks[i].foundation && !supported[roots[i]]) ++detached;
             }
             row<<',';pose(row,count,ball->getGlobalPose(),true);
             if(!o.state.empty()) {

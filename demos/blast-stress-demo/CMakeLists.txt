@@ -835,9 +835,12 @@ if(BLAST_ENABLE_CUDA_STRESS)
 
     # Minimal native GPU simulation capture. Rendering consumes committed JSON
     # separately; this target has no graphics interop or visual-kernel dependency.
-    add_executable(native_wall_capture native_wall_capture.cpp physx_scene.cpp state_writer.cpp)
+    # Box-only ScenePacks the wall front ends can build by name (--scene).
+    set(BLAST_DEMO_SCENES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../blast/blast-stress-demo-rs/assets/scenes")
+    add_executable(native_wall_capture native_wall_capture.cpp physx_scene.cpp state_writer.cpp scene_pack.cpp)
     target_compile_features(native_wall_capture PRIVATE cxx_std_17)
-    target_compile_definitions(native_wall_capture PRIVATE PX_PHYSX_STATIC_LIB NDEBUG PX_SUPPORT_PVD=0 PX_SUPPORT_OMNI_PVD=0)
+    target_compile_definitions(native_wall_capture PRIVATE PX_PHYSX_STATIC_LIB NDEBUG PX_SUPPORT_PVD=0 PX_SUPPORT_OMNI_PVD=0
+        BLAST_DEMO_SCENES_DIR="${BLAST_DEMO_SCENES_DIR}")
     target_include_directories(native_wall_capture PRIVATE ${NATIVE_CHECKPOINT_TEST_INCLUDES})
     target_link_options(native_wall_capture PRIVATE "-Wl,-rpath,${PHYSX_LIB_DIR}")
     target_link_libraries(native_wall_capture PRIVATE ${NATIVE_DESTRUCTION_TEST_LIBS} ${PX_DESTRUCTION_GPU_DRIVER})
@@ -880,10 +883,11 @@ if(BLAST_ENABLE_CUDA_STRESS)
         find_library(WALL_LIVE_QUARTZCORE QuartzCore REQUIRED)
         add_executable(native_wall_live
             live/native_wall_live.mm render/renderer.mm render/encoder.mm render/twstate_reader.cpp
-            physx_scene.cpp)
+            physx_scene.cpp scene_pack.cpp)
         target_compile_features(native_wall_live PRIVATE cxx_std_17)
         target_compile_options(native_wall_live PRIVATE -fobjc-arc)
-        target_compile_definitions(native_wall_live PRIVATE PX_PHYSX_STATIC_LIB NDEBUG PX_SUPPORT_PVD=0 PX_SUPPORT_OMNI_PVD=0)
+        target_compile_definitions(native_wall_live PRIVATE PX_PHYSX_STATIC_LIB NDEBUG PX_SUPPORT_PVD=0 PX_SUPPORT_OMNI_PVD=0
+            BLAST_DEMO_SCENES_DIR="${BLAST_DEMO_SCENES_DIR}")
         target_include_directories(native_wall_live PRIVATE
             ${CMAKE_CURRENT_SOURCE_DIR} render live ${NATIVE_CHECKPOINT_TEST_INCLUDES})
         target_link_options(native_wall_live PRIVATE "-Wl,-rpath,${PHYSX_LIB_DIR}")

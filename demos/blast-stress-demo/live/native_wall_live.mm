@@ -87,7 +87,7 @@ bool fireThrough(float ndcX, float ndcY)
     constexpr float standoff = 6.0f;
     if (std::abs(direction[2]) > 1e-4f)
     {
-        const float toPlane = -origin[2] / direction[2]; // the wall stands on z = 0
+        const float toPlane = (g.wall->wallFront() - origin[2]) / direction[2]; // the structure's front face
         if (toPlane > standoff)
         {
             for (int k = 0; k < 3; ++k)
@@ -238,6 +238,12 @@ void syncPoses()
             g.reported = true;
             std::fprintf(stderr, "native_wall_live: %s\n", g.failure.c_str());
             std::fflush(stderr);
+            // A self-test is driven by a script; a failed one must not sit on
+            // screen waiting for someone to read the title bar.
+            if (g.selftestFrames != 0)
+            {
+                std::exit(1);
+            }
         }
         self.window.title = [NSString stringWithFormat:@"PhysX destruction - FAILED: %s", g.failure.c_str()];
         return;
@@ -332,9 +338,9 @@ void syncPoses()
     if ((g.ticks % 15) == 0)
     {
         self.window.title = [NSString
-            stringWithFormat:@"PhysX destruction - %ux%u wall - physics %.1f ms - frame %.1f ms (%.0f fps) - "
+            stringWithFormat:@"PhysX destruction - %s (%u chunks) - physics %.1f ms - frame %.1f ms (%.0f fps) - "
                              @"%u bonds broken - %u fired%s",
-                             g.wall->options().width, g.wall->options().height, g.stepAverage, g.frameAverage,
+                             g.wall->structure().name.c_str(), g.wall->chunkCount(), g.stepAverage, g.frameAverage,
                              g.frameAverage > 0 ? 1000.0 / g.frameAverage : 0.0, g.wall->brokenBonds(),
                              g.wall->firedProjectiles(), g.paused ? " - PAUSED" : ""];
     }
@@ -395,11 +401,18 @@ void syncPoses()
     }
     if (g.resetDone && g.ticks >= g.resetTick + 30)
     {
-        std::printf("selftest: survived %u frames after reset; PASS\n", g.ticks - g.resetTick);
+        // A shot that breaks nothing proves only that the loop ran.
+        const bool damaged = g.bondsBeforeReset > 0;
+        std::printf("selftest: survived %u frames after reset; %s\n", g.ticks - g.resetTick,
+                    damaged ? "PASS" : "FAIL (the shot broke no bonds)");
         std::fflush(stdout);
         if (g.encoder != nullptr && !g.encoder->finish())
         {
             std::fprintf(stderr, "selftest: recording failed: %s\n", g.encoder->error().c_str());
+        }
+        if (!damaged)
+        {
+            std::exit(1);
         }
         [NSApp terminate:nil];
     }
@@ -435,7 +448,7 @@ int main(int argc, char** argv)
         const std::string flag = argv[i];
         if (flag == "--help")
         {
-            std::puts("native_wall_live [--width 21 --height 5 --material-strength 1.5 "
+            std::puts("native_wall_live [--scene wall|brick-building|PACK.json] [--width 21 --height 5 --material-strength 1.5 "
                       "--foundation-strength 8 --stress-tolerance 0.001 --projectile-mass 600 --projectile-speed 30 "
                       "--window-width 1280 --window-height 720]\n"
                       "  drag: orbit   scroll: zoom   click: fire   R: reset   space: pause   esc: quit");
@@ -447,7 +460,8 @@ int main(int argc, char** argv)
             return 1;
         }
         const std::string value = argv[++i];
-        if (flag == "--width") wallOptions.width = unsigned(std::stoul(value));
+        if (flag == "--scene") wallOptions.scene = value;
+        else if (flag == "--width") wallOptions.width = unsigned(std::stoul(value));
         else if (flag == "--height") wallOptions.height = unsigned(std::stoul(value));
         else if (flag == "--material-strength") wallOptions.materialStrength = std::stof(value);
         else if (flag == "--foundation-strength") wallOptions.foundationStrength = std::stof(value);
@@ -464,7 +478,8 @@ int main(int argc, char** argv)
             return 1;
         }
     }
-    if (wallOptions.width < 3 || wallOptions.width > 32 || wallOptions.height < 3 || wallOptions.height > 32)
+    if (wallOptions.scene == "wall"
+        && (wallOptions.width < 3 || wallOptions.width > 32 || wallOptions.height < 3 || wallOptions.height > 32))
     {
         std::fprintf(stderr, "native_wall_live: wall dimensions must be 3..32\n");
         return 1;
@@ -484,8 +499,14 @@ int main(int argc, char** argv)
         std::printf("native_wall_live: preparing GPU pipelines; first launch after a build takes minutes\n");
         std::fflush(stdout);
 
+        static wall_live::WallScene wall(wallOptions);
+        if (!wall.loadError().empty())
+        {
+            std::fprintf(stderr, "native_wall_live: %s\n", wall.loadError().c_str());
+            return 1;
+        }
         blast_demo::SceneCapacity capacity;
-        capacity.maxBodies = wallOptions.width * wallOptions.height + wallOptions.maxProjectiles + 16;
+        capacity.maxBodies = wall.chunkCount() + wallOptions.maxProjectiles + 16;
         capacity.maxShapes = capacity.maxBodies;
         static blast_demo::PhysXScene context(blast_demo::PhysicsMode::Gpu, true, capacity, nullptr, false, true,
                                               false, false, physx::PxSolverType::eTGS, false, false);
@@ -494,7 +515,6 @@ int main(int argc, char** argv)
             std::fprintf(stderr, "native_wall_live: a GPU scene is required\n");
             return 1;
         }
-        static wall_live::WallScene wall(wallOptions);
         if (!wall.build(context))
         {
             std::fprintf(stderr, "native_wall_live: %s\n", wall.error().c_str());
@@ -522,14 +542,13 @@ int main(int argc, char** argv)
             actors.push_back(actor);
         }
         wall_render::SceneBounds bounds;
-        const float span = wall.wallSpan();
-        const float tall = wall.wallHeight();
-        // Room for thrown fragments, but sized to the wall rather than to its
-        // width squared: over-padding pushes the camera far enough back that a
-        // shot spends most of a second falling on its way in.
-        bounds.minimum[0] = -(span * 0.5f + 2); bounds.maximum[0] = span * 0.5f + 2;
-        bounds.minimum[1] = 0;                  bounds.maximum[1] = tall + 2;
-        bounds.minimum[2] = -3;                 bounds.maximum[2] = 3;
+        const blast_demo::Structure& structure = wall.structure();
+        // Room for thrown fragments, but sized to the structure rather than to
+        // its width squared: over-padding pushes the camera far enough back that
+        // a shot spends most of a second falling on its way in.
+        bounds.minimum[0] = structure.lower.x - 2; bounds.maximum[0] = structure.upper.x + 2;
+        bounds.minimum[1] = 0;                     bounds.maximum[1] = structure.upper.y + 2;
+        bounds.minimum[2] = structure.lower.z - 3; bounds.maximum[2] = structure.upper.z + 3;
 
         wall_render::Camera camera;
         camera.fovDegrees = 55;

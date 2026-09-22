@@ -1,24 +1,25 @@
 // Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
 //
-// The authored bonded wall, driven live instead of captured to a file.
+// An authored bonded structure, driven live instead of captured to a file.
 //
-// This mirrors the asset native_wall_capture.cpp authors: a kinematic wall of
-// bonded cubes whose bottom course is the support, a separate stronger mortar
-// on the row-0/1 ties, and one PhysX destruction stress cluster over all of it.
-// Fracture, correction and motion are PhysX's; nothing here scripts damage.
+// The structure - the wall grid or a box-only ScenePack such as the brick
+// building - is authored by structure.h, the same code native_wall_capture.cpp
+// uses, so a live scene and a capture of it are the same asset. Fracture,
+// correction and motion are PhysX's; nothing here scripts damage.
 //
 // Header-only so an interactive front end can own a scene without the capture
-// CLI's file plumbing. The capture CLI should eventually be migrated onto this
-// rather than keeping two copies of the authoring.
+// CLI's file plumbing.
 #pragma once
 
 #include "physx_scene.h"
+#include "structure.h"
 
 #include <PxDestructionScene.h>
 #include <PxPhysicsAPI.h>
 
 #include <cmath>
 #include <cstdint>
+#include <exception>
 #include <string>
 #include <vector>
 
@@ -27,6 +28,9 @@ namespace wall_live
 
 struct WallOptions
 {
+    // "wall" (the width x height grid), a ScenePack name such as
+    // "brick-building", or a path to a box-only ScenePack JSON.
+    std::string scene{"wall"};
     unsigned width{21};
     unsigned height{5};
     float materialStrength{1.5f};
@@ -59,7 +63,18 @@ struct BodyView
 class WallScene
 {
 public:
-    explicit WallScene(const WallOptions& options) : m_options(options) {}
+    explicit WallScene(const WallOptions& options) : m_options(options)
+    {
+        try
+        {
+            m_structure = blast_demo::loadStructure(options.scene, options.width, options.height,
+                                                    BLAST_DEMO_SCENES_DIR);
+        }
+        catch (const std::exception& e)
+        {
+            m_loadError = e.what();
+        }
+    }
 
     ~WallScene() { teardown(); }
 
@@ -68,14 +83,18 @@ public:
 
     const WallOptions& options() const { return m_options; }
     const std::vector<BodyView>& bodies() const { return m_bodies; }
-    unsigned chunkCount() const { return m_options.width * m_options.height; }
+    const blast_demo::Structure& structure() const { return m_structure; }
+    unsigned chunkCount() const { return unsigned(m_structure.bricks.size()); }
+    // Empty when the structure loaded; otherwise why it did not.
+    const std::string& loadError() const { return m_loadError; }
     unsigned brokenBonds() const { return m_brokenBonds; }
     unsigned firedProjectiles() const { return m_fired; }
     double lastStepMilliseconds() const { return m_lastStepMs; }
     const std::string& error() const { return m_error; }
 
-    float wallSpan() const { return float(m_options.width); }
-    float wallHeight() const { return float(m_options.height); }
+    float wallSpan() const { return m_structure.upper.x - m_structure.lower.x; }
+    float wallHeight() const { return m_structure.upper.y; }
+    float wallFront() const { return m_structure.front; }
 
     bool build(blast_demo::PhysXScene& context)
     {
@@ -86,138 +105,25 @@ public:
         m_failed = false;
         m_error.clear();
         m_context = &context;
-        PxPhysics& physics = context.physics();
-        PxScene& scene = context.scene();
-
-        const unsigned count = chunkCount();
-        const PxVec3 half(0.48f);
-        const float volume = 8 * half.x * half.y * half.z;
-        const float blockMass = 1000 * volume;
-        const float inertia = blockMass * (half.x * half.x + half.y * half.y) / 3;
-
-        m_wall = physics.createRigidDynamic(PxTransform(PxIdentity));
-        if (m_wall == nullptr)
+        if (m_structure.bricks.empty())
         {
-            return fail("wall allocation failed");
+            return fail(m_loadError.empty() ? "structure is empty" : m_loadError);
         }
-        m_wall->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC, true);
-        m_wall->setLinearDamping(0);
-        m_wall->setAngularDamping(0);
-
-        std::vector<PxDestructionStressChunk> chunks;
-        std::vector<PxDestructionChunkMassProperties> properties;
-        std::vector<PxDestructionStressBond> bonds;
-        const PxVec3 centre(0, float(m_options.height) * 0.5f, 0);
-        PxVec3 totalInertia(0);
-
-        for (unsigned y = 0; y < m_options.height; ++y)
+        const blast_demo::StructureStressSettings settings = blast_demo::structureStressSettings(
+            m_options.materialStrength, m_options.foundationStrength, m_options.stressIterations,
+            m_options.stressTolerance);
+        blast_demo::AuthoredStructure authored;
+        std::string error;
+        const bool configured = blast_demo::authorStructure(m_structure, context, settings, authored, error);
+        // Kept even on failure so teardown knows what exists.
+        m_wall = authored.actor;
+        m_shapes = authored.shapes;
+        m_destruction = authored.destruction;
+        if (!configured)
         {
-            for (unsigned x = 0; x < m_options.width; ++x)
-            {
-                const unsigned id = y * m_options.width + x;
-                const PxVec3 p(float(x) - float(m_options.width - 1) * 0.5f, float(y) + 0.5f, 0);
-                PxShape* shape = physics.createShape(PxBoxGeometry(half), context.material(), true);
-                if (shape == nullptr)
-                {
-                    return fail("wall shape allocation failed");
-                }
-                shape->setLocalPose(PxTransform(p));
-                if (!m_wall->attachShape(*shape))
-                {
-                    return fail("wall shape attachment failed");
-                }
-                m_shapes.push_back(shape);
-                chunks.push_back({p, y ? blockMass : 0.0f, y ? inertia : 0.0f, 0, PX_INVALID_U32, volume, 0});
-                PxDestructionChunkMassProperties prop{};
-                prop.mass = blockMass;
-                prop.supported = y == 0;
-                for (unsigned k = 0; k < 3; ++k)
-                {
-                    prop.center[k] = p[k];
-                    prop.inertia[k] = inertia;
-                }
-                properties.push_back(prop);
-                const PxVec3 delta = p - centre;
-                totalInertia += PxVec3(inertia + blockMass * (delta.y * delta.y + delta.z * delta.z),
-                                       inertia + blockMass * (delta.x * delta.x + delta.z * delta.z),
-                                       inertia + blockMass * (delta.x * delta.x + delta.y * delta.y));
-                auto bond = [&](unsigned other) {
-                    const PxVec3 d = p - chunks[other].position;
-                    // A separate stronger mortar, only on the vertical row-0/1 ties.
-                    const bool foundation = y == 1 && other == id - m_options.width;
-                    bonds.push_back({other, id, (p + chunks[other].position) * 0.5f, d.getNormalized(),
-                                     4 * half.x * half.y, 1, 1, foundation ? 1u : 0u});
-                };
-                if (x) bond(id - 1);
-                if (y) bond(id - m_options.width);
-            }
+            return fail(error);
         }
-        m_wall->setMass(blockMass * float(count));
-        m_wall->setCMassLocalPose(PxTransform(centre));
-        m_wall->setMassSpaceInertiaTensor(totalInertia);
-        scene.addActor(*m_wall);
-
-        // The asset must be configured against a stepped scene before it can be
-        // hit, exactly as the capture CLI does.
-        scene.simulate(1.0f / 60.0f);
-        PxU32 setupError = 0;
-        if (!scene.fetchResults(true, &setupError) || setupError != 0 || !context.healthy())
-        {
-            return fail("wall setup step failed");
-        }
-
-        m_destruction = scene.getDestructionScene();
-        if (m_destruction == nullptr)
-        {
-            return fail("integrated destruction is unavailable");
-        }
-        for (unsigned i = 0; i < count; ++i)
-        {
-            chunks[i].contactIndex = m_destruction->getShapeContactIndex(*m_shapes[i]);
-            if (chunks[i].contactIndex == PX_INVALID_U32)
-            {
-                return fail("wall collision identity missing");
-            }
-        }
-
-        PxDestructionStressCluster cluster{m_wall->getGPUIndex(), centre};
-        PxDestructionMaterial materials[2];
-        PxDestructionMaterial& material = materials[0];
-        material.compressionElasticLimit = 250000 * m_options.materialStrength;
-        material.compressionFatalLimit = 500000 * m_options.materialStrength;
-        material.tensionElasticLimit = 30000 * m_options.materialStrength;
-        material.tensionFatalLimit = 60000 * m_options.materialStrength;
-        material.shearElasticLimit = 80000 * m_options.materialStrength;
-        material.shearFatalLimit = 160000 * m_options.materialStrength;
-        PxDestructionMaterial& foundation = materials[1];
-        foundation = material;
-        foundation.compressionElasticLimit *= m_options.foundationStrength;
-        foundation.compressionFatalLimit *= m_options.foundationStrength;
-        foundation.tensionElasticLimit *= m_options.foundationStrength;
-        foundation.tensionFatalLimit *= m_options.foundationStrength;
-        foundation.shearElasticLimit *= m_options.foundationStrength;
-        foundation.shearFatalLimit *= m_options.foundationStrength;
-
-        PxDestructionStressDesc desc;
-        desc.chunks = chunks.data();
-        desc.chunkCount = count;
-        desc.chunkMassProperties = properties.data();
-        desc.clusters = &cluster;
-        desc.clusterCount = 1;
-        desc.bonds = bonds.data();
-        desc.bondCount = PxU32(bonds.size());
-        desc.materials = materials;
-        desc.materialCount = 2;
-        desc.maxIterations = m_options.stressIterations;
-        desc.tolerance = m_options.stressTolerance;
-        desc.internalCorrectionLimit = 1;
-        desc.gpuIslandRepair = false;
-        desc.preserveUnchangedContactPairs = false;
-        if (!m_destruction->configureStress(desc))
-        {
-            return fail("wall stress configuration failed");
-        }
-        m_bondCount = unsigned(bonds.size());
+        m_bondCount = unsigned(m_structure.bonds.size());
         m_brokenBonds = 0;
         m_fired = 0;
         m_projectiles.assign(m_options.maxProjectiles, nullptr);
@@ -391,7 +297,7 @@ private:
             body.rotation[1] = world.q.y;
             body.rotation[2] = world.q.z;
             body.rotation[3] = world.q.w;
-            for (int k = 0; k < 3; ++k) body.half[k] = 0.48f;
+            for (int k = 0; k < 3; ++k) body.half[k] = m_structure.bricks[i].half[k];
             body.sphere = false;
             body.live = true;
             // The owning actor is the fragment identity; hash the pointer so
@@ -422,6 +328,8 @@ private:
     }
 
     WallOptions m_options;
+    blast_demo::Structure m_structure;
+    std::string m_loadError;
     blast_demo::PhysXScene* m_context{nullptr};
     physx::PxRigidDynamic* m_wall{nullptr};
     physx::PxDestructionScene* m_destruction{nullptr};
