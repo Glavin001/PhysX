@@ -10,6 +10,7 @@
 // no result from it should be quoted. Use native_wall_capture for anything that
 // needs to be verified, and note that a live session's projectile aim is
 // whatever the viewer clicked rather than an authored value.
+#include "encoder.h"
 #include "renderer.h"
 #include "twstate_reader.h"
 #include "wall_scene.h"
@@ -34,6 +35,7 @@ struct LiveState
     wall_render::Renderer* renderer{nullptr};
     std::vector<wall_render::Pose> poses;
 
+    id<MTLCommandQueue> queue{nil};
     float azimuth{35.0f};
     float elevation{16.0f};
     float framing{0.85f};
@@ -46,6 +48,19 @@ struct LiveState
     double stepAverage{0};
     double frameAverage{0};
     unsigned ticks{0};
+
+    // Unattended self-check. Drives the same shoot() and reset paths the mouse
+    // and keyboard drive, so the interactive code is what gets exercised rather
+    // than a parallel test-only path, and reports what the scene actually did.
+    unsigned selftestFrames{0};
+    unsigned resetTick{0};
+    bool resetDone{false};
+    unsigned bondsBeforeReset{0};
+    std::vector<float> startHeights;
+
+    // Optional recording of exactly what the window shows.
+    wall_render::Encoder* encoder{nullptr};
+    std::uint64_t recorded{0};
 };
 
 LiveState g;
@@ -222,14 +237,52 @@ void syncPoses()
         {
             return;
         }
-        id<MTLCommandBuffer> commands = g.renderer->draw(g.poses, drawable.texture, drawable);
-        if (commands == nil)
+        if (g.encoder != nullptr)
         {
-            g.failed = true;
-            g.failure = g.renderer->error();
-            return;
+            // Draw once into the encoder's surface and blit that to the window,
+            // so the recording is the very image presented rather than a second
+            // render that could differ.
+            wall_render::EncoderFrame frame{};
+            if (!g.encoder->acquire(frame))
+            {
+                g.failed = true;
+                g.failure = g.encoder->error();
+                return;
+            }
+            id<MTLCommandBuffer> commands = g.renderer->draw(g.poses, frame.texture);
+            if (commands == nil)
+            {
+                g.failed = true;
+                g.failure = g.renderer->error();
+                return;
+            }
+            [commands waitUntilCompleted];
+            id<MTLCommandBuffer> copy = [g.queue commandBuffer];
+            id<MTLBlitCommandEncoder> blit = [copy blitCommandEncoder];
+            [blit copyFromTexture:frame.texture toTexture:drawable.texture];
+            [blit endEncoding];
+            [copy presentDrawable:drawable];
+            [copy commit];
+            if (!g.encoder->submit(frame, g.recorded++))
+            {
+                g.failed = true;
+                g.failure = g.encoder->error();
+                return;
+            }
+        }
+        else
+        {
+            id<MTLCommandBuffer> commands = g.renderer->draw(g.poses, drawable.texture, drawable);
+            if (commands == nil)
+            {
+                g.failed = true;
+                g.failure = g.renderer->error();
+                return;
+            }
         }
     }
+
+    [self advanceSelftest];
 
     const double frameMs =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - frameStart).count();
@@ -263,6 +316,71 @@ void syncPoses()
     }
 }
 
+// Reports what the scene did rather than that the code ran: a projectile fired
+// through the same path a click uses must actually break bonds and move chunks,
+// and the reset path must rebuild an intact wall after that damage.
+- (void)advanceSelftest
+{
+    if (g.selftestFrames == 0)
+    {
+        return;
+    }
+    const unsigned fireAt = 10;
+    if (g.ticks == fireAt)
+    {
+        float origin[3], direction[3];
+        g.renderer->cameraRay(0.0f, 0.0f, origin, direction);
+        if (!g.wall->shoot(origin, direction))
+        {
+            g.failed = true;
+            g.failure = g.wall->error();
+            return;
+        }
+        std::printf("selftest: fired along the view centre\n");
+        std::fflush(stdout);
+    }
+    if (g.ticks == g.selftestFrames && !g.resetDone)
+    {
+        float lowest = 0, moved = 0;
+        const std::vector<wall_live::BodyView>& bodies = g.wall->bodies();
+        for (std::size_t i = 0; i < g.startHeights.size() && i < bodies.size(); ++i)
+        {
+            const float drop = g.startHeights[i] - bodies[i].position[1];
+            moved = std::max(moved, std::abs(drop));
+            lowest = std::min(lowest, -drop);
+        }
+        g.bondsBeforeReset = g.wall->brokenBonds();
+        std::printf("selftest: after %u frames, %u bonds broken, largest chunk movement %.2f m\n",
+                    g.ticks, g.bondsBeforeReset, moved);
+        std::fflush(stdout);
+
+        // Exercise the reset path that R drives, which has to release actors
+        // the fracture reparented rather than just the original wall body.
+        g.wall->teardown();
+        if (!g.wall->build(*g.context))
+        {
+            g.failed = true;
+            g.failure = g.wall->error();
+            return;
+        }
+        syncPoses();
+        g.resetDone = true;
+        g.resetTick = g.ticks;
+        std::printf("selftest: reset rebuilt the wall; %u bonds broken after reset\n", g.wall->brokenBonds());
+        std::fflush(stdout);
+    }
+    if (g.resetDone && g.ticks >= g.resetTick + 30)
+    {
+        std::printf("selftest: survived %u frames after reset; PASS\n", g.ticks - g.resetTick);
+        std::fflush(stdout);
+        if (g.encoder != nullptr && !g.encoder->finish())
+        {
+            std::fprintf(stderr, "selftest: recording failed: %s\n", g.encoder->error().c_str());
+        }
+        [NSApp terminate:nil];
+    }
+}
+
 - (void)start
 {
     // 120 Hz timer: physics decides the real rate, this only avoids sleeping
@@ -287,6 +405,7 @@ int main(int argc, char** argv)
 {
     wall_live::WallOptions wallOptions;
     unsigned windowWidth = 1280, windowHeight = 720;
+    std::string recordPath;
     for (int i = 1; i < argc; ++i)
     {
         const std::string flag = argv[i];
@@ -312,6 +431,8 @@ int main(int argc, char** argv)
         else if (flag == "--projectile-speed") wallOptions.projectileSpeed = std::stof(value);
         else if (flag == "--window-width") windowWidth = unsigned(std::stoul(value));
         else if (flag == "--window-height") windowHeight = unsigned(std::stoul(value));
+        else if (flag == "--selftest") g.selftestFrames = unsigned(std::stoul(value));
+        else if (flag == "--record") recordPath = value;
         else
         {
             std::fprintf(stderr, "native_wall_live: unknown option %s\n", flag.c_str());
@@ -396,7 +517,28 @@ int main(int argc, char** argv)
             return 1;
         }
         g.renderer = &renderer;
+        g.queue = [device newCommandQueue];
         syncPoses();
+        for (const wall_live::BodyView& body : wall.bodies())
+        {
+            g.startHeights.push_back(body.position[1]);
+        }
+
+        static wall_render::Encoder encoder;
+        if (!recordPath.empty())
+        {
+            wall_render::EncoderOptions encodeOptions;
+            encodeOptions.path = recordPath;
+            encodeOptions.width = windowWidth;
+            encodeOptions.height = windowHeight;
+            encodeOptions.fps = 60;
+            if (!encoder.open(device, encodeOptions))
+            {
+                std::fprintf(stderr, "native_wall_live: %s\n", encoder.error().c_str());
+                return 1;
+            }
+            g.encoder = &encoder;
+        }
 
         [NSApplication sharedApplication];
         [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];

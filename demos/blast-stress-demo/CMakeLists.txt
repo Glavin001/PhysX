@@ -879,7 +879,8 @@ if(BLAST_ENABLE_CUDA_STRESS)
         find_library(WALL_LIVE_APPKIT AppKit REQUIRED)
         find_library(WALL_LIVE_QUARTZCORE QuartzCore REQUIRED)
         add_executable(native_wall_live
-            live/native_wall_live.mm render/renderer.mm render/twstate_reader.cpp physx_scene.cpp)
+            live/native_wall_live.mm render/renderer.mm render/encoder.mm render/twstate_reader.cpp
+            physx_scene.cpp)
         target_compile_features(native_wall_live PRIVATE cxx_std_17)
         target_compile_options(native_wall_live PRIVATE -fobjc-arc)
         target_compile_definitions(native_wall_live PRIVATE PX_PHYSX_STATIC_LIB NDEBUG PX_SUPPORT_PVD=0 PX_SUPPORT_OMNI_PVD=0)
