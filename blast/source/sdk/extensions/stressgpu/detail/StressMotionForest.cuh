@@ -108,13 +108,30 @@ __device__ void publishMotionPositions(Input a,const unsigned* forest,MotionBuff
         if(b.first[node]!=Invalid && id!=node)b.position[node]=b.sum[source][b.first[node]^1u];
     }
 }
+// Whether a cycle's closure is a real moment or the rounding of its offsets.
+// Bond offsets arrive as float differences of authored positions, so a cycle
+// that closes exactly in real arithmetic leaves a residue of a few float ulps
+// of the positions involved. Counting that residue as a moment constrains a
+// free fragment's rotation to a near-zero eigenvalue the projection never
+// removes, and CG runs away along it. A closure within 64 float epsilons of
+// the cycle's own coordinate scale is treated as closed; anything that large
+// relative to single-precision input cannot come from the authored geometry.
+__device__ __forceinline__ bool motionClosureSignificant(const Input& a,MotionBuffers b,unsigned edge,double3 closure){
+    const auto x=a.offset0[edge],y=a.offset1[edge];
+    const auto p=b.position[a.node0[edge]],q=b.position[a.node1[edge]];
+    const double scale=fmax(fmax(fmax(fabs(p.x),fabs(p.y)),fmax(fabs(p.z),fabs(q.x))),fmax(fmax(fabs(q.y),fabs(q.z)),
+        fmax(fmax(fabs(double(x.x)),fabs(double(x.y))),fmax(fabs(double(x.z)),fmax(fabs(double(y.x)),fmax(fabs(double(y.y)),fabs(double(y.z))))))));
+    const double magnitude=fmax(fabs(closure.x),fmax(fabs(closure.y),fabs(closure.z)));
+    return magnitude>64.0*1.1920928955078125e-7*fmax(scale,1e-30);
+}
 __device__ void discoverMotionClosures(Input a,MotionBuffers b,Status* status,unsigned thread,unsigned stride){
     for(unsigned e=thread;e<a.bonds;e+=stride){if(a.health[e]<=0)continue;
         const unsigned u=a.component[a.node0[e]],v=a.component[a.node1[e]];
         if(u==Invalid && v==Invalid)continue;
         if(u==Invalid || v==Invalid){atomicExch(&b.components[u==Invalid?v:u].anchored,1u);continue;}
         if(u!=v){atomicOr(&status->error,1u);continue;}
-        if(motionNonzero(motionClosure(a,b,e,status)))atomicMin(&b.components[u].closure,e);
+        const auto closure=motionClosure(a,b,e,status);
+        if(motionNonzero(closure) && motionClosureSignificant(a,b,e,closure))atomicMin(&b.components[u].closure,e);
     }
 }
 __device__ void initializeMotionAxes(Input a,MotionBuffers b,Status* status,unsigned thread,unsigned stride){
@@ -132,6 +149,8 @@ __device__ void constrainMotionAxes(Input a,MotionBuffers b,Status* status,unsig
         const unsigned id=a.component[a.node0[e]];if(id==Invalid || a.component[a.node1[e]]!=id)continue;
         const auto& c=b.components[id];if(c.anchored || c.closure==Invalid)continue;
         const auto seed=motionClosure(a,b,c.closure,status),value=motionClosure(a,b,e,status);
+        // A rounding-sized closure is no constraint, collinear or not.
+        if(!motionNonzero(value) || !motionClosureSignificant(a,b,e,value))continue;
         if(!motionCollinear(seed,value))atomicExch(&b.components[id].rotations,0u);
     }
 }
