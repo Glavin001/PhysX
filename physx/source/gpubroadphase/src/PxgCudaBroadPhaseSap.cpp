@@ -480,20 +480,6 @@ void PxgCudaBroadPhaseSap::gpuDMABack(const PxgBroadPhaseDesc& desc)
 		if (!spinWait(*eventPtr, 0.1f))
 			mCudaContext->streamSynchronize(mStream);
 
-#if defined(PX_CUMETAL_BACKEND) && PX_CUMETAL_BACKEND
-        // The spin-wait observes a flag a kernel wrote to mapped memory, then
-        // the code below reads a descriptor delivered by an EARLIER asynchronous
-        // copy on the same stream. CUDA makes that copy visible once later
-        // stream work is observed; Metal does not -- host coherence comes from
-        // command-buffer completion, not from stream order. Without this
-        // synchronize the host intermittently reads a torn descriptor: measured
-        // tears begin at offsetof(nativePairCounts) and report 0 found pairs
-        // where the GPU produced 24, which silently drops every pair discovered
-        // that step. A projectile's brand-new contact with the wall is exactly
-        // such a pair, and losing it lets it pass through while the stress
-        // solver still reports the impact.
-        mCudaContext->streamSynchronize(mStream);
-#endif
 	}
 
 	mOverlapChecksTotalRegion = desc.overlapChecksTotalRegion;
