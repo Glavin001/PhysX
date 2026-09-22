@@ -96,7 +96,11 @@ def render(args):
     destination = Path(args.frames).resolve()
     if not destination.is_dir():
         raise ValueError('launcher must prepare the confined frame directory')
-    selected = range(len(data['frames'])) if args.sample_frame is None else [args.sample_frame]
+    # A stride renders a subset, for preview only. The launcher refuses to
+    # encode a strided run and names its receipts differently, so the gap can
+    # never be mistaken for a complete capture.
+    selected = (range(0, len(data['frames']), args.stride) if args.sample_frame is None
+                else [args.sample_frame])
     for index in selected:
         if not 0 <= index < len(data['frames']):
             raise ValueError('sample frame is outside the capture')
@@ -225,6 +229,9 @@ def render(args):
     runtime['first_frame_seconds'] = frame_seconds[0]
     runtime['subsequent_frames_seconds'] = sum(frame_seconds[1:])
     runtime['timing_scope'] = 'pose update, frame render and PNG write; first frame includes lazy shader initialization'
+    runtime['stride'] = args.stride
+    runtime['rendered_frame_indices'] = list(selected)
+    runtime['capture_frame_count'] = len(data['frames'])
     (destination.parent / 'renderer-runtime.json').write_text(json.dumps(runtime, indent=2) + '\n')
 
 
@@ -234,13 +241,20 @@ def main():
     parser.add_argument('--frames', required=True)
     parser.add_argument('--temporary', required=True)
     parser.add_argument('--sample-frame', type=int)
+    parser.add_argument('--stride', type=int, default=1,
+                        help='render every Nth frame (preview only; 1 renders every frame)')
     parser.add_argument('--width', type=int, default=1920)
     parser.add_argument('--height', type=int, default=1080)
     parser.add_argument('--samples', type=int, default=8)
     parser.add_argument('--engine', choices=('eevee', 'cycles-metal', 'cycles-cpu'), default='eevee')
     parser.add_argument('--threads', type=int, default=4)
     parser.add_argument('--diagnostic', action='store_true')
-    render(parser.parse_args(sys.argv[sys.argv.index('--') + 1:]))
+    args = parser.parse_args(sys.argv[sys.argv.index('--') + 1:])
+    if args.stride < 1:
+        raise ValueError('stride must be at least 1')
+    if args.stride > 1 and args.sample_frame is not None:
+        raise ValueError('a stride and a single sample frame are mutually exclusive')
+    render(args)
 
 
 if __name__ == '__main__':

@@ -43,17 +43,37 @@ def main(argv=None):
     parser.add_argument('--dry-run', action='store_true')
     parser.add_argument('--diagnostic', action='store_true')
     parser.add_argument('--sample-frame', type=int)
-    parser.add_argument('--width', type=int, default=1920)
-    parser.add_argument('--height', type=int, default=1080)
-    parser.add_argument('--samples', type=int, default=8)
+    parser.add_argument('--preview', action='store_true',
+                        help='fast look at a capture: lower resolution/samples and a frame stride. '
+                             'Cannot be encoded and never writes delivery receipts.')
+    parser.add_argument('--stride', type=int,
+                        help='render every Nth frame; requires --preview (preview default 6)')
+    parser.add_argument('--width', type=int)
+    parser.add_argument('--height', type=int)
+    parser.add_argument('--samples', type=int)
     parser.add_argument('--engine', choices=('eevee', 'cycles-metal', 'cycles-cpu'), default='eevee',
                         help='GPU Eevee raster rendering (default), GPU Metal path tracing, or explicit CPU path tracing')
-    parser.add_argument('--threads', type=int, default=4)
+    parser.add_argument('--threads', type=int)
     parser.add_argument('--timeout', type=int, default=21600)
     parser.add_argument('--blender', default='/Applications/Blender.app/Contents/MacOS/Blender')
     parser.add_argument('--ffmpeg')
     parser.add_argument('--ffprobe')
     args = parser.parse_args(argv)
+    # Delivery settings are unchanged; preview only supplies cheaper defaults
+    # for options the caller left alone, so an explicit flag always wins.
+    delivery = {'width': 1920, 'height': 1080, 'samples': 8, 'threads': 4, 'stride': 1}
+    fast = {'width': 960, 'height': 540, 'samples': 2, 'threads': 8, 'stride': 6}
+    for name, value in (fast if args.preview else delivery).items():
+        if getattr(args, name) is None:
+            setattr(args, name, value)
+    # A strided or reduced-quality run must be structurally incapable of being
+    # mistaken for an accepted delivery: no encode, and distinct receipt names.
+    if args.stride != 1 and not args.preview:
+        raise ValueError('a frame stride is a preview-only option; pass --preview')
+    if args.preview and args.encode:
+        raise ValueError('a preview renders a subset at reduced quality and cannot be encoded')
+    if args.preview and args.sample_frame is not None:
+        raise ValueError('choose either a single --sample-frame or a strided --preview')
     repo = Path(__file__).resolve().parents[2]
     roots = (repo, repo.parent / 'cuda-metal')
     output_roots = tuple(root / 'out' for root in roots)
@@ -67,6 +87,8 @@ def main(argv=None):
         raise ValueError('render dimensions must be positive even sizes within 7680x4320')
     if not (1 <= args.samples <= 4096 and 1 <= args.threads <= 128 and 1 <= args.timeout <= 86400):
         raise ValueError('invalid samples, threads or timeout bound')
+    if not 1 <= args.stride <= len(data['frames']):
+        raise ValueError('stride must be at least 1 and no larger than the captured frame count')
     if args.sample_frame is not None and not 0 <= args.sample_frame < len(data['frames']):
         raise ValueError('sample frame is outside the accepted capture')
     if args.encode and args.sample_frame is not None:
@@ -104,6 +126,8 @@ def main(argv=None):
             commands['render'][1:1] = ['--gpu-backend', 'metal', '--debug-gpu']
         if args.sample_frame is not None:
             commands['render'] += ['--sample-frame', str(args.sample_frame)]
+        if args.stride != 1:
+            commands['render'] += ['--stride', str(args.stride)]
         if args.diagnostic:
             commands['render'] += ['--diagnostic']
     if args.encode:
@@ -122,6 +146,7 @@ def main(argv=None):
     plan = {'capture': str(capture), 'capture_sha256': digest(capture), 'output': str(work),
             'diagnostic': args.diagnostic, 'backend': data['backend'], 'device': data['metadata']['device'],
             'simulation_summary': data['summary'], 'frames': len(data['frames']), 'sample_frame': args.sample_frame,
+            'preview': args.preview, 'stride': args.stride,
             'fps': 60, 'resolution': [args.width, args.height], 'render_device': 'CPU' if args.engine == 'cycles-cpu' else 'GPU', 'engine': args.engine,
             'samples': args.samples, 'threads': args.threads, 'realtime_claim': False,
             'renderer_sha256': digest(renderer), 'commands': commands,
@@ -155,7 +180,8 @@ def main(argv=None):
             if not evidence:
                 raise ValueError('Blender did not identify its selected Metal GPU; inspect render.log')
             plan['renderer_runtime']['observed_gpu_log'] = evidence
-        selected = range(len(data['frames'])) if args.sample_frame is None else [args.sample_frame]
+        selected = (range(0, len(data['frames']), args.stride) if args.sample_frame is None
+                    else [args.sample_frame])
         rendered = {}
         for index in selected:
             path = contained(frames / f'frame_{index:06d}.png', output_roots)
@@ -165,7 +191,9 @@ def main(argv=None):
         receipt = {'capture_sha256': plan['capture_sha256'], 'renderer_sha256': plan['renderer_sha256'],
                    'resolution': plan['resolution'], 'engine': plan['engine'], 'samples': plan['samples'],
                    'renderer_runtime': plan['renderer_runtime'], 'frames': rendered}
-        (work / ('sample-frames.json' if args.sample_frame is not None else 'rendered-frames.json')).write_text(json.dumps(receipt, indent=2) + '\n')
+        receipt_name = ('sample-frames.json' if args.sample_frame is not None
+                        else 'preview-frames.json' if args.preview else 'rendered-frames.json')
+        (work / receipt_name).write_text(json.dumps(receipt, indent=2) + '\n')
     if args.encode:
         receipt = json.loads((work / 'rendered-frames.json').read_text())
         if any(receipt.get(key) != plan[key] for key in ('capture_sha256', 'renderer_sha256', 'resolution', 'engine', 'samples')):
@@ -191,7 +219,9 @@ def main(argv=None):
         plan['video'] = {'path': str(video), 'sha256': digest(video), 'stream': observed[0], 'full_decode': 'passed'}
     plan['rendered_frames'] = {path.name: digest(path) for path in sorted(frames.glob('frame_*.png'))}
     plan['status'] = 'completed'
-    (work / ('sample-manifest.json' if args.sample_frame is not None else 'render-manifest.json')).write_text(json.dumps(plan, indent=2) + '\n')
+    manifest = ('sample-manifest.json' if args.sample_frame is not None
+                else 'preview-manifest.json' if args.preview else 'render-manifest.json')
+    (work / manifest).write_text(json.dumps(plan, indent=2) + '\n')
     return 0
 
 
