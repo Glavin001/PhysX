@@ -33,6 +33,12 @@ option(BLAST_STRESS_GPU_FP64 "Run the GPU stress solver in double instead of flo
 if(BLAST_STRESS_GPU_FP64)
     target_compile_definitions(PhysXDestructionGpuRuntime PRIVATE BLAST_STRESS_GPU_FP64=1)
 endif()
+# Prints each small component's residual history and every unconverged
+# verdict from the GPU stress solve. Diagnostic only.
+option(BLAST_STRESS_GPU_CYCLE_DIAGNOSTIC "Print GPU stress-solve residual histories" OFF)
+if(BLAST_STRESS_GPU_CYCLE_DIAGNOSTIC)
+    target_compile_definitions(PhysXDestructionGpuRuntime PRIVATE BLAST_GPU_NATIVE_CYCLE_DIAGNOSTIC)
+endif()
 set_target_properties(PhysXDestructionGpuRuntime PROPERTIES
     CUDA_STANDARD 17 CUDA_STANDARD_REQUIRED YES CUDA_RUNTIME_LIBRARY Static
     CUDA_ARCHITECTURES "${PX_DESTRUCTION_CUDA_ARCHITECTURES}"

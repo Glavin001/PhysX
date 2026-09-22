@@ -22,6 +22,10 @@ __device__ __forceinline__ float componentSquaredNorm(float value)
 // boundary rows are read-only. No grid rendezvous or global loop counter is
 // involved. The operator, recurrence, norm and convergence functions are the
 // same ones used by the cooperative large-component implementation.
+// Iterations without a 1% improvement of the best convergence norm after
+// which a component is reported unconverged.
+constexpr unsigned kStressStagnationWindow=512;
+
 __global__ void componentStressSolve(
 #if defined(PX_CUMETAL_EXPLICIT_HIERARCHY_ROOT) && PX_CUMETAL_EXPLICIT_HIERARCHY_ROOT
     PersistentStressArgs original,ResidentStressComponentView c,
@@ -39,6 +43,9 @@ __global__ void componentStressSolve(
     __shared__ unsigned counts[2], iteration, activeCount, slot;
     __shared__ SolveStatus status;
     __shared__ float reduceValue;
+    // Stagnation: the best convergence norm so far and when it was reached.
+    __shared__ float bestResidual;
+    __shared__ unsigned bestIteration;
     COMPONENT_PROBE_BEGIN
     // Components have very different convergence costs after fracture. A CTA
     // claims its next independent component only when its previous one finishes;
@@ -64,6 +71,7 @@ __global__ void componentStressSolve(
             a.hierarchy.previous[id]=0;a.hierarchy.failed[id]=0;
             counts[0]=0;counts[1]=count;iteration=0;activeCount=0;
             status={1u,a.maxIterations,0u};
+            bestResidual=INFINITY;bestIteration=0;
         }
         __syncthreads();
         COMPONENT_WORK_BEGIN(a,c,id,begin,count)
@@ -113,6 +121,17 @@ __global__ void componentStressSolve(
                 const float norm=componentSquaredNorm(verified);if(!threadIdx.x)reduceValue=norm;__syncthreads();
             }
             COMPONENT_PROBE_END(1)
+            // A component that has stopped converging is reported unconverged
+            // now rather than at the iteration cap. Anchored components that
+            // settle a few times above tolerance otherwise spend the whole
+            // cap on a plateau: 8192 iterations for the verdict the state
+            // already gives. The best norm must improve by 1% in the window.
+            if(!threadIdx.x && a.m_islandActive[id]){
+                if(reduceValue<bestResidual*0.99f){bestResidual=reduceValue;bestIteration=iteration;}
+                else if(iteration-bestIteration>=kStressStagnationWindow){status.active=0;status.iterations=iteration;}
+            }
+            __syncthreads();
+            if(!status.active)break;
             finalizeAndCheckConvergenceBody(&reduceValue,a.m_gradientSquared,1u,
                 a.m_islandActive,a.m_islandConverged,a.m_deltaSquared,&activeCount,1u,nullptr,0u,c.ids+slot,id);
             __syncthreads();
@@ -159,13 +178,15 @@ __global__ void componentStressSolve(
             __syncthreads();
             COMPONENT_PROBE_END(6)
 #ifdef BLAST_GPU_NATIVE_CYCLE_DIAGNOSTIC
-            if(!threadIdx.x && count==1024 && (iteration&(iteration-1))==0)printf("native history id=%u iteration=%u residual2=%g gamma=%g direction_energy=%g g0=%g mu0=%g\n",id,iteration,a.m_gradientSquared[id],a.hierarchy.gamma[id],a.m_projectedDirectionSquared[id],a.hierarchy.g[c.nodes[begin]].linear.y,a.hierarchy.solution[c.nodes[begin]].linear.y);
+            if(!threadIdx.x && (iteration&(iteration-1))==0)printf("native history id=%g nodes=%g iteration=%g residual2=%g tolerance2=%g gamma=%g direction_energy=%g failed=%g\n",double(id),double(count),double(iteration),double(a.m_gradientSquared[id]),double(a.m_deltaSquared[id]),double(a.hierarchy.gamma[id]),double(a.m_projectedDirectionSquared[id]),double(a.hierarchy.failed[id]));
 #endif
         } while(status.active && iteration<a.maxIterations);
         if(threadIdx.x==0) {
             if(a.hierarchy.failed[id] || !a.m_islandConverged[id])status.converged=0;
 #ifdef BLAST_GPU_NATIVE_CYCLE_DIAGNOSTIC
-            if(!status.converged)printf("native component id=%u nodes=%u iterations=%u active=%u failed=%u residual2=%g tolerance2=%g gamma=%g direction_energy=%g\n",id,count,status.iterations,status.active,a.hierarchy.failed[id],a.m_gradientSquared[id],a.m_deltaSquared[id],a.hierarchy.gamma[id],a.m_projectedDirectionSquared[id]);
+            // Every argument as a double: a packed argument list, which typed
+            // printf on the Metal backend requires.
+            if(!status.converged)printf("native component id=%g nodes=%g iterations=%g active=%g failed=%g residual2=%g tolerance2=%g gamma=%g direction_energy=%g anchored=%g rotations=%g\n",double(id),double(count),double(status.iterations),double(status.active),double(a.hierarchy.failed[id]),double(a.m_gradientSquared[id]),double(a.m_deltaSquared[id]),double(a.hierarchy.gamma[id]),double(a.m_projectedDirectionSquared[id]),double(a.hierarchy.modes.components[id].anchored),double(a.hierarchy.modes.components[id].rotations));
 #endif
             COMPONENT_WORK_END(id,status)
             c.results[id]=status;

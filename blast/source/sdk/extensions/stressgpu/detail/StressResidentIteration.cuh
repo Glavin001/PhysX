@@ -174,7 +174,8 @@ __global__ __launch_bounds__(kBlockSize, 2) void persistentStressSolve(
         // evidence of convergence. Reconcile against the authoritative flags.
         if(!lane)for(unsigned i=0;i<islandCount;++i){const unsigned id=a.islandIds[i];if(a.hierarchy.failed[id] || !a.m_islandConverged[id]){
             a.m_status->converged=0;
-#ifdef BLAST_GPU_NATIVE_CYCLE_DIAGNOSTIC
+// printf cannot appear in a collective trap kernel on the Metal backend.
+#if defined(BLAST_GPU_NATIVE_CYCLE_DIAGNOSTIC) && !(defined(PX_CUMETAL) && PX_CUMETAL)
             printf("native cooperative id=%u iterations=%u active=%u failed=%u residual2=%g tolerance2=%g gamma=%g direction_energy=%g\n",id,*a.m_iteration,a.m_status->active,a.hierarchy.failed[id],a.m_gradientSquared[id],a.m_deltaSquared[id],a.hierarchy.gamma[id],a.m_projectedDirectionSquared[id]);
 #endif
         }}
