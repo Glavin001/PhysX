@@ -31,6 +31,14 @@ struct RendererOptions
     std::uint32_t shadowResolution{2048};
     std::uint32_t camera{0};
     float groundY{0.0f};
+    // When set, ignore the trajectory's authored camera and frame the whole
+    // scene from an orbit around it. Azimuth 0 looks straight down the wall's
+    // normal; positive degrees swing to the right. This keeps framing correct
+    // for any scene size without re-capturing to change the view.
+    bool orbit{false};
+    float orbitDegrees{0.0f};
+    float elevationDegrees{14.0f};
+    float framing{1.15f};
 };
 
 // World extent used to fit the shadow frustum and the ground plane. Computed

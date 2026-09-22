@@ -76,7 +76,9 @@ int main(int argc, char** argv)
         {
             std::puts("native_wall_render --state IN.twstate --output NEW.mp4 "
                       "[--width 1920 --height 1080 --samples 4 --camera 0 --shadow 2048 "
-                      "--frames 0 --codec h264|hevc --quality 0.75]");
+                      "--frames 0 --codec h264|hevc --quality 0.75]\n"
+                      "  --orbit DEG --elevation DEG --framing MULT: ignore the authored camera and "
+                      "auto-frame the whole scene from that angle (0 is straight on).");
             return 0;
         }
         if (i + 1 >= argc) return fail("missing value for " + flag);
@@ -90,6 +92,9 @@ int main(int argc, char** argv)
         else if (flag == "--shadow") render.shadowResolution = std::uint32_t(std::stoul(value));
         else if (flag == "--frames") limit = unsigned(std::stoul(value));
         else if (flag == "--quality") encode.quality = std::stof(value);
+        else if (flag == "--orbit") { render.orbit = true; render.orbitDegrees = std::stof(value); }
+        else if (flag == "--elevation") { render.orbit = true; render.elevationDegrees = std::stof(value); }
+        else if (flag == "--framing") { render.orbit = true; render.framing = std::stof(value); }
         else if (flag == "--codec")
         {
             if (value == "hevc") hevc = true;

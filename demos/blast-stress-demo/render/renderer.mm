@@ -425,6 +425,38 @@ bool Renderer::open(id<MTLDevice> device, const Trajectory& trajectory, const Re
         return fail("trajectory declares no cameras");
     }
     s.camera = trajectory.cameras()[std::min<std::size_t>(options.camera, trajectory.cameras().size() - 1)];
+    if (options.orbit)
+    {
+        // Place the eye on a sphere around the scene centre and pull back far
+        // enough that the bounding sphere fits the narrower of the two field
+        // axes, so nothing leaves frame regardless of aspect ratio.
+        float centre[3];
+        float diagonal = 0;
+        for (int k = 0; k < 3; ++k)
+        {
+            centre[k] = (bounds.minimum[k] + bounds.maximum[k]) * 0.5f;
+            const float span = bounds.maximum[k] - bounds.minimum[k];
+            diagonal += span * span;
+        }
+        const float radius = std::max(std::sqrt(diagonal) * 0.5f, 1.0f);
+        const float fovY = s.camera.fovDegrees * 3.14159265f / 180.0f;
+        const float aspect = float(options.width) / float(std::max<std::uint32_t>(options.height, 1));
+        const float fovX = 2.0f * std::atan(std::tan(fovY * 0.5f) * aspect);
+        const float fit = std::tan(std::min(fovY, fovX) * 0.5f);
+        const float distance = radius / std::max(fit, 1e-3f) * options.framing;
+
+        const float azimuth = options.orbitDegrees * 3.14159265f / 180.0f;
+        const float elevation = options.elevationDegrees * 3.14159265f / 180.0f;
+        float offset[3]{std::sin(azimuth) * std::cos(elevation), std::sin(elevation),
+                        -std::cos(azimuth) * std::cos(elevation)};
+        normalise(offset);
+        for (int k = 0; k < 3; ++k)
+        {
+            s.camera.eye[k] = centre[k] + offset[k] * distance;
+            s.camera.direction[k] = centre[k] - s.camera.eye[k];
+        }
+        normalise(s.camera.direction);
+    }
 
     for (const Actor& actor : s.actors)
     {
