@@ -145,7 +145,16 @@ __global__ void deviceStressTiles(const unsigned* keys, unsigned count, const un
 
 // Workload specialization, not a device/backend fallback. Larger components
 // retain cooperative iteration; small components synchronize within one CTA.
+#if defined(PX_CUMETAL) && PX_CUMETAL
+// Every cooperative grid is one threadgroup on CuMetal, so the cooperative
+// multilevel path gains nothing from its grid-wide schedule there and runs a
+// thousand-chunk building at several milliseconds per iteration. The block
+// solver takes any component on this backend; its per-node loops stride over
+// the block, and the hierarchy then builds only fine factors for it.
+constexpr unsigned kResidentComponentMaxNodes = 8192u;
+#else
 constexpr unsigned kResidentComponentMaxNodes = 1024u;
+#endif
 __global__ void flagLargeStressComponents(const unsigned* begin, const unsigned* end,
     unsigned* flags, unsigned count)
 {
