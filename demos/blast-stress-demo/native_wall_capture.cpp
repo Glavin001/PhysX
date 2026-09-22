@@ -228,6 +228,28 @@ void auditGpuState(std::ostream& out,PxScene& scene,PxCudaContextManager& cuda,
         }
         out<<"]}";
     }
+    // The projectile's own contacts. A correction pass retires every active
+    // shape's interactions and relies on the broad phase to rediscover them;
+    // if the projectile loses its pair with the wall it receives no impulse and
+    // flies straight through while the stress solver still reports the impact.
+    // Interaction records are CPU-side, so they are valid whatever narrowphase
+    // bucket a sphere/box pair lands in.
+    out<<"],\"projectile_pairs\":[";
+    {
+        PxShape* ballShape=nullptr;
+        require(ball.getNbShapes()==1 && ball.getShapes(&ballShape,1)==1,"projectile audit shape missing");
+        bool first=true;
+        for(unsigned i=0;i<shapes.size();++i) {
+            const auto p=wall_pair_audit::read(*ballShape,*shapes[i],cuda,*np);
+            if(p.interactions.empty())continue;
+            unsigned withManager=0,withTouch=0;
+            for(const auto& v:p.interactions){if(v.hasManager)++withManager;if(v.hasTouch)++withTouch;}
+            if(!first)out<<',';first=false;
+            out<<"{\"chunk\":"<<i<<",\"shape_ids\":["<<p.shape0<<','<<p.shape1
+               <<"],\"interactions\":"<<p.interactions.size()<<",\"with_manager\":"<<withManager
+               <<",\"with_touch\":"<<withTouch<<'}';
+        }
+    }
     out<<"]}";
 }
 // Optional per-phase host timing. PhysX already instruments its whole GPU

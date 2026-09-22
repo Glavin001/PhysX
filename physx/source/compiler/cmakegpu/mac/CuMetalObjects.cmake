@@ -101,6 +101,10 @@ FILE(GLOB_RECURSE PX_CUMETAL_HEADERS CONFIGURE_DEPENDS
     "${PHYSX_ROOT_DIR}/../blast/source/sdk/extensions/stressgpu/*.inl")
 
 FUNCTION(px_cumetal_objects target)
+    # Identifies the CuMetal backend to shared sources. Used where a CUDA
+    # guarantee does not hold on Metal and the difference must be handled in
+    # portable code rather than by changing the CUDA path.
+    TARGET_COMPILE_DEFINITIONS(${target} PRIVATE PX_CUMETAL_BACKEND=1)
     IF(PX_CUMETAL_PACK_BOND_STRESS_SCALARS)
         # The native device signature and its host launch stub share this ABI.
         TARGET_COMPILE_DEFINITIONS(${target} PRIVATE PX_CUMETAL_PACK_BOND_STRESS_SCALARS=1)
