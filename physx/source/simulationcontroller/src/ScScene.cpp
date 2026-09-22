@@ -27,6 +27,8 @@
 // Copyright (c) 2001-2004 NovodeX AG. All rights reserved.  
 
 #include "ScScene.h"
+#include <stdio.h>
+#include <stdlib.h>
 #include "BpBroadPhase.h"
 #include "ScConstraintCore.h"
 #include "ScArticulationJointCore.h"
@@ -1883,8 +1885,131 @@ bool Sc::Scene::isSimulationResultAccepted() const
     return mSimulationController->getDestructionError() == 0;
 }
 
+// Diagnostic: PX_DESTRUCTION_ACTIVITY_AUDIT=1 reports, once per accepted step,
+// every rigid body whose CPU activity disagrees with its accurate island node.
+// The GPU solver integrates exactly the island sim's active node list, so a
+// body that is active here but absent there keeps its last velocity forever,
+// and a node active there whose body sleeps here is integrated unseen.
+static void auditDestructionActivity(Sc::Scene& scene, PxU32 step)
+{
+	scene.getSimulationController()->debugTraceNode("end-of-step");
+	static const int enabled = [] { const char* raw = getenv("PX_DESTRUCTION_ACTIVITY_AUDIT"); return raw && raw[0] == '1'; }();
+	if(!enabled) return;
+	const IG::IslandSim& accurate = scene.getSimpleIslandManager()->getAccurateIslandSim();
+	const IG::IslandSim& speculative = scene.getSimpleIslandManager()->getSpeculativeIslandSim();
+	static PxHashSet<PxU32>& reported = *new PxHashSet<PxU32>();
+	PxU32 strandedActive = 0, strandedInactive = 0;
+	// CPU-active bodies whose node the solver will not see.
+	Sc::BodyCore*const* bodies = scene.getActiveBodiesArray();
+	for(PxU32 i = 0; i < scene.getNumActiveBodies(); ++i)
+	{
+		Sc::BodySim* sim = bodies[i]->getSim();
+		if(!sim || sim->isKinematic()) continue;
+		const PxNodeIndex nodeIndex = sim->getNodeIndex();
+		if(nodeIndex.index() >= accurate.getNbNodes()) continue;
+		const IG::Node& node = accurate.getNode(nodeIndex);
+		const bool listed = accurate.getActiveNodeIndex(nodeIndex) != PX_INVALID_NODE;
+		if(node.isActive() && listed) { reported.erase(nodeIndex.index()); continue; }
+		++strandedActive;
+		if(reported.contains(nodeIndex.index())) continue;
+		reported.insert(nodeIndex.index());
+		const IG::IslandId island = accurate.getIslandIds()[nodeIndex.index()];
+		const IG::Node& spec = speculative.getNode(nodeIndex);
+		const PxsBodyCore& core = bodies[i]->getCore();
+		fprintf(stderr, "[activity-audit] step %u node %u STRANDED: BodySim active, island node active=%u activating=%u ready=%u deleted=%u listed=%u island=%u islandActive=%u | speculative active=%u ready=%u | wc=%g v=(%g %g %g) flags=%x actor=%p\n",
+			step, nodeIndex.index(), unsigned(node.isActive()), unsigned(node.isActivating()), unsigned(node.isReadyForSleeping()), unsigned(node.isDeleted()), unsigned(listed),
+			island, island == IG_INVALID_ISLAND ? 0u : unsigned(accurate.getIsland(island).mActiveIndex != IG_INVALID_ISLAND),
+			unsigned(spec.isActive()), unsigned(spec.isReadyForSleeping()),
+			double(core.wakeCounter), double(core.linearVelocity.x), double(core.linearVelocity.y), double(core.linearVelocity.z),
+			unsigned(sim->getLowLevelBody().mInternalFlags), static_cast<void*>(sim->getPxActor()));
+	}
+	// Bodies the solver lists but does not move: active, non-kinematic, moving
+	// by their own account, yet pose and velocity bit-identical for ten steps.
+	{
+		struct Last { PxTransform pose; PxVec3 v, w; PxU32 same; };
+		static PxHashMap<PxU32, Last>* last = new PxHashMap<PxU32, Last>();
+		for(PxU32 i = 0; i < scene.getNumActiveBodies(); ++i)
+		{
+			Sc::BodySim* sim = bodies[i]->getSim();
+			if(!sim || sim->isKinematic()) continue;
+			const PxU32 node = sim->getNodeIndex().index();
+			const PxsBodyCore& core = bodies[i]->getCore();
+			Last* entry = last->find(node) ? &(*last)[node] : NULL;
+			// "Same" = moved under a tenth of what its own velocity implies over one 60 Hz step.
+			const PxReal speed = core.linearVelocity.magnitude();
+			const bool same = entry && speed > 0.05f && (core.body2World.p - entry->pose.p).magnitude() < 0.1f * speed * (1.0f / 60.0f)
+				&& (core.linearVelocity - entry->v).magnitude() < 0.01f * speed + 1e-4f;
+			Last next = { core.body2World, core.linearVelocity, core.angularVelocity, same ? entry->same + 1 : 0 };
+			(*last)[node] = next;
+			if(next.same == 10)
+			{
+				const IG::Node& node2 = accurate.getNode(sim->getNodeIndex());
+				PxU32 inKinematicList = 0;
+				for(PxU32 k = 0; k < accurate.getNbActiveKinematics(); ++k) if(accurate.getActiveKinematics()[k].index() == node) inKinematicList = k + 1;
+				PxU32 inBodyList = 0;
+				for(PxU32 k = 0; k < accurate.getNbActiveNodes(IG::Node::eRIGID_BODY_TYPE); ++k) if(accurate.getActiveNodes(IG::Node::eRIGID_BODY_TYPE)[k].index() == node) inBodyList = k + 1;
+				fprintf(stderr, "[activity-audit] step %u node %u ZOMBIE: 10 identical steps, v=(%g %g %g) w=(%g %g %g) p=(%g %g %g) island active=%u listed=%u nodeKinematic=%u inKinematicList=%u inBodyList=%u coreKinematic=%u simKinematic=%u wc=%g llflags=%x actor=%p\n",
+					step, node, double(core.linearVelocity.x), double(core.linearVelocity.y), double(core.linearVelocity.z),
+					double(core.angularVelocity.x), double(core.angularVelocity.y), double(core.angularVelocity.z),
+					double(core.body2World.p.x), double(core.body2World.p.y), double(core.body2World.p.z),
+					unsigned(node2.isActive() != 0), unsigned(accurate.getActiveNodeIndex(sim->getNodeIndex()) != PX_INVALID_NODE),
+					unsigned(node2.isKinematic() != 0), inKinematicList, inBodyList, unsigned(bodies[i]->getFlags().isSet(PxRigidBodyFlag::eKINEMATIC)), unsigned(sim->isKinematic()),
+					double(core.wakeCounter), unsigned(sim->getLowLevelBody().mInternalFlags), static_cast<void*>(sim->getPxActor()));
+				scene.getSimulationController()->debugDumpBodySim(node);
+				// Every pair this body takes part in, with its narrowphase output.
+				PxsContactManagerOutputIterator outputs = scene.getLowLevelContext()->getNphaseImplementationContext()->getContactManagerOutputs();
+				Sc::Interaction** interactions = sim->getActorInteractions();
+				for(PxU32 k = 0; k < sim->getActorInteractionCount(); ++k)
+				{
+					if(interactions[k]->getType() != Sc::InteractionType::eOVERLAP) continue;
+					Sc::ShapeInteraction* si = static_cast<Sc::ShapeInteraction*>(interactions[k]);
+					Sc::ActorSim& other = &si->getActor0() == sim ? si->getActor1() : si->getActor0();
+					const char* kind = other.isStaticRigid() ? "static" : (other.getActorType() == PxActorType::eRIGID_DYNAMIC && static_cast<Sc::BodySim&>(other).isKinematic() ? "kinematic" : "dynamic");
+					const PxU32 otherNode = other.isStaticRigid() ? PX_INVALID_NODE : static_cast<Sc::BodySim&>(other).getNodeIndex().index();
+					const void* patches = NULL; const void* points = NULL; const PxReal* impulses = NULL; const void* friction = NULL;
+					PxU32 dataSize = 0, nbPoints = 0, nbPatches = 0;
+					if(si->hasTouch() && si->getContactManager())
+						si->getContactPointData(patches, points, dataSize, nbPoints, nbPatches, impulses, 0, outputs, friction);
+					fprintf(stderr, "[zombie-pair] node %u <-> %s node %u touch=%u points=%u patches=%u", node, kind, otherNode, unsigned(si->hasTouch() != 0), nbPoints, nbPatches);
+					const PxContactPatch* patch = reinterpret_cast<const PxContactPatch*>(patches);
+					const PxContact* contact = reinterpret_cast<const PxContact*>(points);
+					for(PxU32 q = 0; q < nbPatches && patch; ++q)
+						fprintf(stderr, " | patch%u n=(%.3f %.3f %.3f) mat=%u", q, double(patch[q].normal.x), double(patch[q].normal.y), double(patch[q].normal.z), unsigned(patch[q].materialIndex0));
+					for(PxU32 q = 0; q < nbPoints && contact && q < 4; ++q)
+						fprintf(stderr, " | pt%u (%.3f %.3f %.3f) sep=%.4f imp=%.3f", q, double(contact[q].contact.x), double(contact[q].contact.y), double(contact[q].contact.z), double(contact[q].separation), impulses ? double(impulses[q]) : -1.0);
+					fprintf(stderr, "\n");
+				}
+			}
+		}
+	}
+	// Solver-visible nodes whose body sleeps on the CPU.
+	const PxNodeIndex* active = accurate.getActiveNodes(IG::Node::eRIGID_BODY_TYPE);
+	for(PxU32 i = 0; i < accurate.getNbActiveNodes(IG::Node::eRIGID_BODY_TYPE); ++i)
+	{
+		const IG::Node& node = accurate.getNode(active[i]);
+		if(node.isDeleted() || node.getNodeType() != IG::Node::eRIGID_BODY_TYPE || !node.mObject) continue;
+		PxsRigidBody* rigid = static_cast<PxsRigidBody*>(node.mObject);
+		if(!scene.getSimulationController()->isRigidBodyRegistered(active[i].index(), rigid)) continue;
+		Sc::BodySim* sim = reinterpret_cast<Sc::BodySim*>(reinterpret_cast<PxU8*>(rigid) - Sc::BodySim::getRigidBodyOffset());
+		if(sim->isActive() || sim->isKinematic()) continue;
+		++strandedInactive;
+		const PxU32 key = 0x80000000u | active[i].index();
+		if(reported.contains(key)) continue;
+		reported.insert(key);
+		fprintf(stderr, "[activity-audit] step %u node %u SOLVED-ASLEEP: island node active, BodySim inactive, wc=%g actor=%p\n",
+			step, active[i].index(), double(rigid->getCore().wakeCounter), static_cast<void*>(sim->getPxActor()));
+	}
+	if(strandedActive || strandedInactive)
+		fprintf(stderr, "[activity-audit] step %u stranded active=%u solved-asleep=%u of %u active bodies / %u active nodes\n",
+			step, strandedActive, strandedInactive, scene.getNumActiveBodies(), accurate.getNbActiveNodes(IG::Node::eRIGID_BODY_TYPE));
+}
+
 void Sc::Scene::postReportsCleanup()
 {
+	{
+		static PxU32 auditStep = 0;
+		auditDestructionActivity(*this, auditStep++);
+	}
 	mElementIDPool->processPendingReleases();
 	mElementIDPool->clearDeletedIDMap();
 

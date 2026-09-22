@@ -12,11 +12,18 @@ __global__ void validateReservedBodies(const PxvDestructionBodyRequest* requests
     if(b.cluster!=r.cluster || b.sourceBody!=r.sourceBody || b.supported!=r.supported)
         atomicOr(&status->initializationError,1u);
 }
+// Configured free-fragment depenetration clamp (negative, PhysX convention);
+// -1e32 leaves the inherited value alone. Written once at configureStress.
+__device__ float gNativeFragmentMaxPenBias=-1e32f;
 __device__ PxgBodySim nativeCandidateState(const PxDestructionClusterBodyState& candidate,const PxgBodySim& source,PxU32 id) {
     auto b=source;
     // Inherit physical settings from the authoritative GPU source, not the CPU
-    // allocation placeholder. No velocity/mass/inertia clamps or extra locks.
+    // allocation placeholder. No velocity/mass/inertia clamps or extra locks,
+    // except the configured free-fragment depenetration clamp: the tighter of
+    // the two bodies' clamps wins in a pair, so it bounds debris push-out
+    // without touching the supported remnant's contacts.
     if(!candidate.supported)b.maxLinearVelocitySqX_maxAngularVelocitySqY_linearDampingZ_angularDampingW=b.dynamicLimitsDamping;
+    if(!candidate.supported)b.angularVelocityXYZ_maxPenBiasW.w=fmaxf(b.angularVelocityXYZ_maxPenBiasW.w,gNativeFragmentMaxPenBias);
     b.linearVelocityXYZ_inverseMassW=make_float4(candidate.linearVelocity[0],candidate.linearVelocity[1],candidate.linearVelocity[2],candidate.inverseMass);
     b.angularVelocityXYZ_maxPenBiasW.x=candidate.angularVelocity[0];
     b.angularVelocityXYZ_maxPenBiasW.y=candidate.angularVelocity[1];

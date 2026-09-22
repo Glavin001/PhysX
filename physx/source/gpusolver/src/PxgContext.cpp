@@ -587,6 +587,7 @@ namespace physx
 
 		mGpuArticulationCore->syncStream();
 
+		getSimulationController()->debugTraceNode("pre-solve");
 		mGpuSolverCore->solveContactMultiBlockParallel(mIslandContextPool, mNumIslandContextPool,
 			mIncrementalPartition.getCombinedSlabMaxNbPartitions(), mConstraintsPerPartition, mArtiConstraintsPerPartition,
 			mGravity, mSolveArticulationContactLast);
@@ -606,6 +607,7 @@ namespace physx
 
 
 		mGpuSolverCore->integrateCoreParallel(offset, mSolverBodyPool.size());
+		getSimulationController()->debugTraceNode("post-integrate");
 
 		mGpuArticulationCore->updateBodies(mDt, !mIsTGS, mEnableDirectGPUAPI);
 

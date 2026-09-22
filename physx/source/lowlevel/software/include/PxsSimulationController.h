@@ -305,6 +305,11 @@ namespace physx
 
 		virtual bool 	evaluateSDFDistances(PxVec4* /*localGradientAndSDFConcatenated*/, const PxShapeGPUIndex* /*shapeIndices*/, const PxVec4* /*localSamplePointsConcatenated*/, const PxU32* /*samplePointCountPerShape*/, PxU32 /*nbElements*/, PxU32 /*maxPointCount*/, CUevent /*startEvent = NULL*/, CUevent /*finishEvent = NULL*/) { return false; }
         virtual bool isRigidBodyRegistered(PxU32, const PxsRigidBody*) const { return false; }
+        // Diagnostic only: print the GPU body record of one node to stderr.
+        virtual void debugDumpBodySim(PxU32 /*node*/) const {}
+        // Diagnostic only: PX_DESTRUCTION_TRACE_NODE=<node> prints that body's
+        // GPU record at each tagged pipeline point, after a device sync.
+        virtual void debugTraceNode(const char* /*tag*/) const {}
         virtual PxDestructionScene* getDestructionScene(void*, bool (*)(void*), PxvDestructionBodyAllocator*) { return NULL; }
         // correctionBlockers: PxDestructionCorrectionBlocker bits; zero permits correction.
         virtual bool advanceDestruction(PxReal, const PxVec3&, PxU32 /*correctionBlockers*/, bool) { return false; }

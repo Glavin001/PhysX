@@ -500,6 +500,9 @@ class PxProfilerCallback;
         virtual bool isRigidBodyRegistered(PxU32 index, const PxsRigidBody* body) const PX_OVERRIDE PX_FINAL {
             return index < mBodySimManager.mBodies.size() && mBodySimManager.mBodies[index] == body;
         }
+        virtual void debugDumpBodySim(PxU32 node) const PX_OVERRIDE PX_FINAL;
+        virtual void debugTraceNode(const char* tag) const PX_OVERRIDE PX_FINAL;
+        void debugTraceOne(long node, const char* tag, PxU32 count) const;
         virtual PxDestructionScene* getDestructionScene(void* scene, bool (*writeAllowed)(void*), PxvDestructionBodyAllocator* allocator) PX_OVERRIDE PX_FINAL;
         virtual bool advanceDestruction(PxReal dt, const PxVec3& gravity, PxU32 correctionBlockers, bool canReuseContactPairs) PX_OVERRIDE PX_FINAL;
         virtual PxU32 getDestructionError() const PX_OVERRIDE PX_FINAL { return mDestructionError; }

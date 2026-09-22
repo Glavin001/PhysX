@@ -550,6 +550,7 @@ class Runtime final : public PxgDestructionRuntime {
     PxVec3* mBondCentroids{};PxDestructionBondVerdict* mVerdicts{};
     PxDestructionCrushState *mCrush{},*mTrialCrush{};
     float mDamageRate=2,mBendGain=3;bool mFibres=true;
+    float mFragmentMaxPenBias=-1e32f; // negative PhysX clamp; -1e32 leaves inheritance alone
     PxgDestructionTopologyTransaction* mTopology{};
     committedChanges::Publication mChanges;
     PxDestructionClusterMotion* mProvisionalMotion{};
@@ -1099,6 +1100,7 @@ public:
         std::vector<PxDestructionMaterial> materials;
         if(d.materialCount) {
             if(!d.materials || !std::isfinite(d.damageRate) || d.damageRate<=0 || !std::isfinite(d.bendGainMax))return false;
+            if(!std::isfinite(d.fragmentMaxDepenetrationVelocity) || d.fragmentMaxDepenetrationVelocity<0)return false;
             materials.assign(d.materials,d.materials+d.materialCount);
             for(auto& m:materials) {
                 if(m.tensionElasticLimit<0)m.tensionElasticLimit=m.compressionElasticLimit;
@@ -1210,6 +1212,8 @@ public:
                 if(!refs.empty())check(cudaMemcpy(mNodeRefs,refs.data(),sizeof(PxU32)*refs.size(),cudaMemcpyHostToDevice));
                 check(cudaMemset(mCrush,0,sizeof(*mCrush)*d.chunkCount));
                 mDamageRate=d.damageRate;mBendGain=d.bendGainMax;mFibres=d.fibreBending;
+                mFragmentMaxPenBias=d.fragmentMaxDepenetrationVelocity>0?-d.fragmentMaxDepenetrationVelocity:-1e32f;
+                check(cudaMemcpyToSymbol(gNativeFragmentMaxPenBias,&mFragmentMaxPenBias,sizeof(float)));
             }
             if(d.chunkMassProperties) {
                 mTopology=PxgDestructionTopologyTransaction::create(d.chunkMassProperties,d.chunkCount,topologyBonds.data(),d.bondCount);
