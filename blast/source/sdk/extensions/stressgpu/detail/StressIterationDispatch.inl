@@ -283,7 +283,17 @@
             // (33.40/33.25/33.28/33.25 ms). The independent-component path is
             // not where a fragmented city spends its time; the large-component
             // cooperative solve below is.
-            componentStressSolve<<<std::min(m_nodeCount,unsigned(sms*2)),kBlockSize,0,m_stream>>>(args,components
+#if defined(PX_CUMETAL) && PX_CUMETAL
+            // CuMetal reports one multiprocessor so cooperative grids stay in
+            // one threadgroup; sized from that, this non-cooperative queue ran
+            // on two threadgroups, and a fractured structure's components were
+            // solved two at a time. Size it for the GPU instead: 64 is two per
+            // core on a 32-core part; idle threadgroups find the queue empty.
+            const unsigned componentBlocks=std::min(m_nodeCount,64u);
+#else
+            const unsigned componentBlocks=std::min(m_nodeCount,unsigned(sms*2));
+#endif
+            componentStressSolve<<<componentBlocks,kBlockSize,0,m_stream>>>(args,components
 #if defined(PX_CUMETAL_EXPLICIT_HIERARCHY_ROOT) && PX_CUMETAL_EXPLICIT_HIERARCHY_ROOT
                 ,cycleLevels
 #endif
