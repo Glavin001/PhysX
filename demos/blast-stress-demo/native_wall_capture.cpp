@@ -308,6 +308,11 @@ thread_local unsigned PhaseProfiler::tDepth=0;
 struct Options {
     unsigned width=9, height=7, frames=360, iterations=8192;
     float mass=600, speed=12, strength=1, foundationStrength=1;
+    // Lateral and vertical aim. Chunk centres are 1 m apart, so an offset of
+    // 0.5 lands the projectile on a vertical seam between two columns, and an
+    // integer height lands it on a horizontal course line; both together aim at
+    // the four-way corner where four chunks meet. Zero height means mid-wall.
+    float impactOffset=0, impactHeight=0;
     bool recordBondStress=false, auditGpuState=false;
     std::string output, state, profilePhases;
 };
@@ -325,7 +330,7 @@ Options options(int argc,char** argv) {
     for(int i=1;i<argc;++i) {
         const std::string flag=argv[i];
         if(flag=="--help") {
-            std::puts("native_wall_capture --output NEW_FILE.json [--state NEW_FILE.twstate] [--width 9 --height 7 --frames 360 --stress-iterations 8192 --projectile-mass 600 --projectile-speed 12 --material-strength 1 --foundation-strength 1 --record-bond-stress 0 --audit-gpu-state 0 --profile-phases FILE.csv]");
+            std::puts("native_wall_capture --output NEW_FILE.json [--state NEW_FILE.twstate] [--width 9 --height 7 --frames 360 --stress-iterations 8192 --projectile-mass 600 --projectile-speed 12 --material-strength 1 --foundation-strength 1 --impact-offset 0 --impact-height 0 --record-bond-stress 0 --audit-gpu-state 0 --profile-phases FILE.csv]");
             std::exit(0);
         }
         require(i+1<argc,"missing option value"); const char* value=argv[++i];
@@ -339,6 +344,8 @@ Options options(int argc,char** argv) {
         else if(flag=="--projectile-speed") o.speed=real(value);
         else if(flag=="--material-strength") o.strength=real(value);
         else if(flag=="--foundation-strength") o.foundationStrength=real(value);
+        else if(flag=="--impact-offset") o.impactOffset=real(value);
+        else if(flag=="--impact-height") o.impactHeight=real(value);
         else if(flag=="--record-bond-stress") {
             const unsigned enabled=number(value); require(enabled<=1,"record-bond-stress must be 0 or 1");
             o.recordBondStress=enabled!=0;
@@ -357,6 +364,12 @@ Options options(int argc,char** argv) {
     require(o.mass>0 && o.mass<=100000 && o.speed>0 && o.speed<=30 && o.strength>0 && o.strength<=1000000,
         "invalid authored projectile/material values");
     require(o.foundationStrength>0, "foundation strength must be finite and positive");
+    // Keep the aim on the wall; beyond it the projectile misses and the capture
+    // records a non-event.
+    require(std::isfinite(o.impactOffset) && std::fabs(o.impactOffset)<=float(o.width)*.5f,
+        "impact offset must stay within the wall's half width");
+    require(std::isfinite(o.impactHeight) && o.impactHeight>=0 && o.impactHeight<=float(o.height),
+        "impact height must be zero or within the wall's height");
     // Reject overflow/underflow before creating output or starting the scene.
     const double foundationScale=double(o.strength)*o.foundationStrength;
     require(500000.0*foundationScale<=std::numeric_limits<float>::max()
@@ -454,7 +467,8 @@ int run(int argc,char** argv) {
     desc.internalCorrectionLimit=1;desc.gpuIslandRepair=false;desc.preserveUnchangedContactPairs=false;
     require(destruction->configureStress(desc),"native wall stress configuration failed");
     constexpr float radius=.6f;
-    auto* ball=PxCreateDynamic(physics,PxTransform(PxVec3(0,float(o.height)*.55f,-4)),PxSphereGeometry(radius),context.material(),1);
+    const float aimHeight=o.impactHeight>0 ? o.impactHeight : float(o.height)*.55f;
+    auto* ball=PxCreateDynamic(physics,PxTransform(PxVec3(o.impactOffset,aimHeight,-4)),PxSphereGeometry(radius),context.material(),1);
     require(ball,"projectile allocation failed");ball->setMass(o.mass);ball->setMassSpaceInertiaTensor(PxVec3(.4f*o.mass*radius*radius));
     ball->setLinearDamping(0);ball->setAngularDamping(0);ball->setLinearVelocity(PxVec3(0,0,o.speed));scene.addActor(*ball);
 
@@ -490,7 +504,7 @@ int run(int argc,char** argv) {
 #endif
     out<<"{\"schema\":\"physx.native-wall-capture\",\"version\":1,\"backend\":"<<quoted(backend)
        <<",\"timestep\":"<<dt<<",\"metadata\":{\"device\":"<<quoted(cuda.getDeviceName()?cuda.getDeviceName():"unknown")
-       <<",\"width\":"<<o.width<<",\"height\":"<<o.height<<",\"ground_y\":0,\"fps\":60,\"requested_frames\":"<<o.frames
+       <<",\"width\":"<<o.width<<",\"height\":"<<o.height<<",\"impact_offset\":"<<o.impactOffset<<",\"impact_height\":"<<aimHeight<<",\"ground_y\":0,\"fps\":60,\"requested_frames\":"<<o.frames
        <<",\"solver\":\"TGS\",\"stress_tolerance\":1e-5,\"stress_iterations\":"<<o.iterations
        <<",\"correction_limit\":1,\"warm_start\":true,\"gpu_island_repair\":false,\"cpu_pose_observation\":true"
        <<",\"realtime_claim\":false,\"projectile_mass\":"<<o.mass<<",\"projectile_speed\":"<<o.speed
