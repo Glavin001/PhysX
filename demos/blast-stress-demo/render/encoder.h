@@ -36,6 +36,10 @@ struct EncoderOptions
 struct EncoderFrame
 {
     void* pixelBuffer{nullptr};
+    // The CVMetalTexture that owns `texture`. Metal's texture is only valid
+    // while this lives, so it is held until the frame is submitted rather than
+    // released as soon as the texture is extracted.
+    void* textureReference{nullptr};
 #ifdef __OBJC__
     id<MTLTexture> texture{nil};
 #else

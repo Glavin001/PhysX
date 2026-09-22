@@ -73,6 +73,32 @@ void applyCamera()
     }
 }
 
+// Fires at whatever is under a normalized device coordinate.
+//
+// Spawning at the eye looks right and behaves wrong: from a framing distance of
+// tens of metres a 30 m/s shot spends most of a second in flight and gravity
+// bends it metres below the aim point, so a click on the middle of the wall
+// lands in the dirt. Release it a short way in front of the wall plane instead,
+// which cuts the drop to centimetres and makes a click hit what it points at.
+bool fireThrough(float ndcX, float ndcY)
+{
+    float origin[3], direction[3];
+    g.renderer->cameraRay(ndcX, ndcY, origin, direction);
+    constexpr float standoff = 6.0f;
+    if (std::abs(direction[2]) > 1e-4f)
+    {
+        const float toPlane = -origin[2] / direction[2]; // the wall stands on z = 0
+        if (toPlane > standoff)
+        {
+            for (int k = 0; k < 3; ++k)
+            {
+                origin[k] += direction[k] * (toPlane - standoff);
+            }
+        }
+    }
+    return g.wall->shoot(origin, direction);
+}
+
 // The renderer roster is fixed at open, so poses mirror it one for one and an
 // unfired projectile slot is simply hidden.
 void syncPoses()
@@ -141,9 +167,7 @@ void syncPoses()
     const float ndcX = float(local.x / size.width) * 2.0f - 1.0f;
     // The view is flipped, so y already runs downward like a texture.
     const float ndcY = 1.0f - float(local.y / size.height) * 2.0f;
-    float origin[3], direction[3];
-    g.renderer->cameraRay(ndcX, ndcY, origin, direction);
-    if (!g.wall->shoot(origin, direction))
+    if (!fireThrough(ndcX, ndcY))
     {
         g.failed = true;
         g.failure = g.wall->error();
@@ -328,15 +352,15 @@ void syncPoses()
     const unsigned fireAt = 10;
     if (g.ticks == fireAt)
     {
-        float origin[3], direction[3];
-        g.renderer->cameraRay(0.0f, 0.0f, origin, direction);
-        if (!g.wall->shoot(origin, direction))
+        // Aim slightly above centre: the framed bounds include headroom, so the
+        // view centre sits above the wall's own mid-height.
+        if (!fireThrough(0.0f, 0.15f))
         {
             g.failed = true;
             g.failure = g.wall->error();
             return;
         }
-        std::printf("selftest: fired along the view centre\n");
+        std::printf("selftest: fired at the wall\n");
         std::fflush(stdout);
     }
     if (g.ticks == g.selftestFrames && !g.resetDone)
@@ -492,10 +516,12 @@ int main(int argc, char** argv)
         wall_render::SceneBounds bounds;
         const float span = wall.wallSpan();
         const float tall = wall.wallHeight();
-        // Leave room around the wall so thrown fragments stay in frame.
-        bounds.minimum[0] = -span;          bounds.maximum[0] = span;
-        bounds.minimum[1] = 0;              bounds.maximum[1] = tall + span * 0.35f;
-        bounds.minimum[2] = -span * 0.6f;   bounds.maximum[2] = span * 0.6f;
+        // Room for thrown fragments, but sized to the wall rather than to its
+        // width squared: over-padding pushes the camera far enough back that a
+        // shot spends most of a second falling on its way in.
+        bounds.minimum[0] = -(span * 0.5f + 2); bounds.maximum[0] = span * 0.5f + 2;
+        bounds.minimum[1] = 0;                  bounds.maximum[1] = tall + 2;
+        bounds.minimum[2] = -3;                 bounds.maximum[2] = 3;
 
         wall_render::Camera camera;
         camera.fovDegrees = 55;

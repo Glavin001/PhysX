@@ -190,12 +190,11 @@ bool Encoder::acquire(EncoderFrame& frame)
         }
 
         frame.pixelBuffer = buffer;
+        frame.textureReference = (void*)reference;
         frame.texture = CVMetalTextureGetTexture(reference);
-        // The texture retains the surface; the intermediate reference does not
-        // need to outlive this call.
-        CFRelease(reference);
         if (frame.texture == nil)
         {
+            CFRelease(reference);
             CVPixelBufferRelease(buffer);
             return fail("texture cache returned no texture");
         }
@@ -241,6 +240,11 @@ bool Encoder::submit(const EncoderFrame& frame, std::uint64_t index)
                 ++m_submitted;
             }
         }
+    }
+    // The texture's owner outlives the encode, not just the extraction.
+    if (frame.textureReference != nullptr)
+    {
+        CFRelease((CVMetalTextureRef)frame.textureReference);
     }
     CVPixelBufferRelease(buffer);
     return ok;
