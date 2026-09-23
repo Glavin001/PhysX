@@ -460,10 +460,12 @@ void PxgCudaBroadPhaseSap::gpuDMABack(const PxgBroadPhaseDesc& desc)
 		mCudaContext->memcpyDtoHAsync((void*)&desc, bpBuff, sizeof(PxgBroadPhaseDesc), mStream);
 		//resultR = mCudaContext->streamSynchronize(mStream);
 
+#if !PX_CUMETAL
 		void* devicePtr = getMappedDevicePtr(mCudaContext, mEventMapped);
 		KERNEL_PARAM_TYPE kernelParams[] = { CUDA_KERNEL_PARAM(devicePtr) };
 
 		_launch<GPU_BP_DEBUG>(PROLOG, PxgKernelIds::BP_SIGNAL_COMPLETE, 1, 1, 1, 1, 1, 1, 0, EPILOG);
+#endif
 
 		mCudaContext->streamFlush(mStream);
 	}
@@ -474,11 +476,18 @@ void PxgCudaBroadPhaseSap::gpuDMABack(const PxgBroadPhaseDesc& desc)
             correction ? "GpuDestruction.detail.broadPhaseWait" : "GpuDestruction.trialDetail.broadPhaseWait",
             false, mContextID);
 
-		//mCudaContext->streamSynchronize(mStream);
+#if PX_CUMETAL
+		// CuMetal: Metal makes GPU writes host-visible only when a command buffer
+		// completes, so the runtime drains the stream before any kernel that writes
+		// mapped memory, and the flag then costs a second GPU round trip. The stream
+		// synchronization at the wait (PhysX's own fallback) is the same wait in one.
+		mCudaContext->streamSynchronize(mStream);
+#else
 		volatile PxU32* eventPtr = mEventMapped;
 
 		if (!spinWait(*eventPtr, 0.1f))
 			mCudaContext->streamSynchronize(mStream);
+#endif
 	}
 
 	mOverlapChecksTotalRegion = desc.overlapChecksTotalRegion;

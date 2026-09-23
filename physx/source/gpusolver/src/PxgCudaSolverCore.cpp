@@ -811,9 +811,17 @@ void PxgCudaSolverCore::syncDmaBack(PxU32& nbChangedThresholdElements)
 	PX_UNUSED(result);
 	PX_ASSERT(result == CUDA_SUCCESS);*/
 		
+#if PX_CUMETAL
+	// CuMetal: Metal makes GPU writes host-visible only when a command buffer
+	// completes, so the runtime drains the stream before any kernel that writes
+	// mapped memory, and the flag then costs a second GPU round trip. The stream
+	// synchronization at the wait (PhysX's own fallback) is the same wait in one.
+	mCudaContext->streamSynchronize(mStream);
+#else
 	volatile PxU32* pEvent = mEventMapped;
 	if (!spinWait(*pEvent, 0.1f))
 		mCudaContext->streamSynchronize(mStream);
+#endif
 
 	PX_ASSERT(PxU32(mSolverCoreDesc->sharedThresholdStreamIndex) >= mSolverCoreDesc->nbExceededThresholdElements);
 

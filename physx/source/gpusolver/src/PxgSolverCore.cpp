@@ -257,6 +257,10 @@ void PxgSolverCore::gpuMemDMAbackSolverBodies(float4* solverBodyPool, PxU32 nbSo
 
 	synchronizeStreams(mCudaContext, mStream2, mStream, mIntegrateEvent);
 
+#if PX_CUMETAL
+	// No completion flag: syncDmaBack synchronizes the stream (see there).
+	mCudaContext->streamFlush(mStream);
+#else
 	CUfunction signalFunction = mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::BP_SIGNAL_COMPLETE);
 
 	*mEventMapped = 0;
@@ -268,6 +272,7 @@ void PxgSolverCore::gpuMemDMAbackSolverBodies(float4* solverBodyPool, PxU32 nbSo
 	};
 
 	mCudaContext->launchKernel(signalFunction, 1, 1, 1, 1, 1, 1, 0, mStream, signalParams, sizeof(signalParams), 0, PX_FL);
+#endif
 }
 
 void PxgSolverCore::allocateSolverBodyBuffersCommon(PxU32 numSolverBodies, Cm::PinnableArray<PxNodeIndex>& islandNodeIndices)
