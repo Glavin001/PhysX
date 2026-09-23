@@ -22,6 +22,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -64,6 +65,21 @@ struct LiveState
 };
 
 LiveState g;
+
+// The scene and its PhysX context are released explicitly, before exit.
+// Static destructors run after CuMetal has torn down its own static context
+// state, so a scene released from one pushed a freed CUDA context: a
+// use-after-free that surfaced as intermittent heap-corruption aborts at exit.
+std::unique_ptr<wall_live::WallScene> gWallOwner;
+std::unique_ptr<blast_demo::PhysXScene> gContextOwner;
+
+void releasePhysics()
+{
+    g.wall = nullptr;
+    g.context = nullptr;
+    gWallOwner.reset();
+    gContextOwner.reset();
+}
 
 void applyCamera()
 {
@@ -242,6 +258,7 @@ void syncPoses()
             // screen waiting for someone to read the title bar.
             if (g.selftestFrames != 0)
             {
+                releasePhysics();
                 std::exit(1);
             }
         }
@@ -415,6 +432,7 @@ void syncPoses()
         }
         if (!damaged)
         {
+            releasePhysics();
             std::exit(1);
         }
         [NSApp terminate:nil];
@@ -432,6 +450,12 @@ void syncPoses()
                                                 selector:@selector(tick)
                                                 userInfo:nil
                                                  repeats:YES];
+}
+
+- (void)applicationWillTerminate:(NSNotification*)notification
+{
+    [self.timer invalidate];
+    releasePhysics();
 }
 
 - (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication*)sender
@@ -519,14 +543,18 @@ int main(int argc, char** argv)
         blast_demo::SceneCapacity capacity;
         capacity.maxBodies = unsigned(loaded.bricks.size()) + wallOptions.maxProjectiles + 16;
         capacity.maxShapes = capacity.maxBodies;
-        static blast_demo::PhysXScene context(blast_demo::PhysicsMode::Gpu, true, capacity, nullptr, false, true,
-                                              false, false, physx::PxSolverType::eTGS, false, false);
+        gContextOwner = std::make_unique<blast_demo::PhysXScene>(blast_demo::PhysicsMode::Gpu, true, capacity, nullptr,
+            false, true, false, false, physx::PxSolverType::eTGS, false, false);
+        blast_demo::PhysXScene& context = *gContextOwner;
+        // Early returns from here on release the scene before exit too.
+        struct ReleaseOnReturn { ~ReleaseOnReturn() { releasePhysics(); } } releaseOnReturn;
         if (!context.gpuActive())
         {
             std::fprintf(stderr, "native_wall_live: a GPU scene is required\n");
             return 1;
         }
-        static wall_live::WallScene wall(wallOptions, std::move(loaded));
+        gWallOwner = std::make_unique<wall_live::WallScene>(wallOptions, std::move(loaded));
+        wall_live::WallScene& wall = *gWallOwner;
         if (!wall.build(context))
         {
             std::fprintf(stderr, "native_wall_live: %s\n", wall.error().c_str());

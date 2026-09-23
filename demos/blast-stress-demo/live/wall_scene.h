@@ -35,7 +35,7 @@ struct WallOptions
     unsigned height{5};
     float materialStrength{1.5f};
     float foundationStrength{8.0f};
-    unsigned stressIterations{8192};
+    unsigned stressIterations{64}; // per-frame cap; see native_wall_capture's Options
     // Blast's CPU stress solver converges to 1e-3; the GPU solve asks the same.
     float stressTolerance{1e-3f};
     // Projectile defaults; a click can override the aim but not the physics.

@@ -307,7 +307,10 @@ public:
 };
 thread_local unsigned PhaseProfiler::tDepth=0;
 struct Options {
-    unsigned width=9, height=7, frames=360, iterations=8192;
+    // Per-frame stress iteration cap. A solve that hits it keeps its iterate
+    // for the next frame's warm start; 64 leaves the measured wall, brick
+    // building and villa fracture outcomes unchanged and bounds impact frames.
+    unsigned width=9, height=7, frames=360, iterations=64;
     float mass=600, speed=12, strength=1, foundationStrength=1;
     // Blast's CPU stress solver converges to 1e-3; the GPU solve asks the same.
     float tolerance=1e-3f;
@@ -321,6 +324,7 @@ struct Options {
     // or a path to a box-only ScenePack JSON.
     std::string scene="wall";
     std::string output, state, profilePhases;
+    bool idle=false;
 };
 unsigned number(const char* text) {
     size_t used=0; const auto n=std::stoul(text,&used);
@@ -336,7 +340,7 @@ Options options(int argc,char** argv) {
     for(int i=1;i<argc;++i) {
         const std::string flag=argv[i];
         if(flag=="--help") {
-            std::puts("native_wall_capture --output NEW_FILE.json [--state NEW_FILE.twstate] [--scene wall|brick-building|PACK.json[@AxD]] [--width 9 --height 7 --frames 360 --stress-iterations 8192 --stress-tolerance 0.001 --projectile-mass 600 --projectile-speed 12 --material-strength 1 --foundation-strength 1 --impact-offset 0 --impact-height 0 --record-bond-stress 0 --audit-gpu-state 0 --profile-phases FILE.csv]");
+            std::puts("native_wall_capture --output NEW_FILE.json [--state NEW_FILE.twstate] [--scene wall|brick-building|PACK.json[@AxD]] [--width 9 --height 7 --frames 360 --stress-iterations 64 --stress-tolerance 0.001 --projectile-mass 600 --projectile-speed 12 --material-strength 1 --foundation-strength 1 --impact-offset 0 --impact-height 0 --record-bond-stress 0 --audit-gpu-state 0 --profile-phases FILE.csv --idle 0]");
             std::exit(0);
         }
         require(i+1<argc,"missing option value"); const char* value=argv[++i];
@@ -359,6 +363,7 @@ Options options(int argc,char** argv) {
             o.recordBondStress=enabled!=0;
         }
         else if(flag=="--profile-phases") o.profilePhases=value;
+        else if(flag=="--idle") o.idle=number(value)!=0;
         else if(flag=="--audit-gpu-state") {
             const unsigned enabled=number(value); require(enabled<=1,"audit-gpu-state must be 0 or 1");
             o.auditGpuState=enabled!=0;
@@ -367,8 +372,8 @@ Options options(int argc,char** argv) {
     }
     require(!o.output.empty() && o.width>=3 && o.width<=32 && o.height>=3 && o.height<=32,
         "supply --output and wall dimensions in 3..32");
-    require(o.frames>=1 && o.frames<=3600 && o.iterations>=128 && o.iterations<=32768,
-        "frames must be 1..3600; stress iterations 128..32768");
+    require(o.frames>=1 && o.frames<=3600 && o.iterations>=1 && o.iterations<=32768,
+        "frames must be 1..3600; stress iterations 1..32768");
     require(o.tolerance>0 && o.tolerance<1, "stress tolerance must be in (0, 1)");
     require(o.mass>0 && o.mass<=100000 && o.speed>0 && o.speed<=30 && o.strength>0 && o.strength<=1000000,
         "invalid authored projectile/material values");
@@ -437,7 +442,12 @@ int run(int argc,char** argv) {
     const float aimHeight=o.impactHeight>0 ? o.impactHeight : structure.aimHeight;
     auto* ball=PxCreateDynamic(physics,PxTransform(PxVec3(structure.aimX+o.impactOffset,aimHeight,structure.front-4)),PxSphereGeometry(radius),context.material(),1);
     require(ball,"projectile allocation failed");ball->setMass(o.mass);ball->setMassSpaceInertiaTensor(PxVec3(.4f*o.mass*radius*radius));
-    ball->setLinearDamping(0);ball->setAngularDamping(0);ball->setLinearVelocity(PxVec3(0,0,o.speed));scene.addActor(*ball);
+    ball->setLinearDamping(0);ball->setAngularDamping(0);
+    // --idle measures a scene at rest: the projectile is parked, kinematic and
+    // untouched, well in front of the structure, so nothing moves or collides.
+    if(o.idle){ball->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC,true);ball->setGlobalPose(PxTransform(PxVec3(structure.aimX,aimHeight,structure.front-30)));}
+    else ball->setLinearVelocity(PxVec3(0,0,o.speed));
+    scene.addActor(*ball);
 
     // The trajectory declares geometry once and then records only changed poses.
     // Cameras are fixed at four by the format; author useful angles on the wall.
