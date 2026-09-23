@@ -95,8 +95,10 @@ __device__ void add(PxVec3& target,const PxVec3& value) {
 }
 // Every pass starts from an empty per-pass status; only the trial advances
 // the frame. Prior passes are merged back in by mergePostCorrectionStatus.
-__global__ void startFrame(PxDestructionStageStatus* status,const PxgContactGraphSequence* sequence,bool correctedPass) {
+__global__ void startFrame(PxDestructionStageStatus* status,const PxgContactGraphSequence* sequence,bool correctedPass,
+    PxU32* idleObservation=nullptr) {
     const PxU64 frame=status->frame+(correctedPass?0:1); *status={}; status->frame=frame;
+    if(idleObservation)*idleObservation=0;
     if(sequence && sequence->error)status->error|=8192u;
 }
 // prior: host-accumulated sum of every earlier evaluation this frame.
@@ -232,6 +234,43 @@ __global__ void finishStatus(const ExtStressGpuDeviceStatus* solve,PxDestruction
     if(i<count && (!forces[i].linear.isFinite() || !forces[i].angular.isFinite())) atomicOr(&status->error,2u);
 }
 
+// Idle gate. An evaluation that changed no state (no solver iterations, no
+// verdict, no damage or crush evolution, no destructible contact) is a fixed
+// point: the same inputs reproduce it exactly. A later frame may then skip the
+// pipeline, provided its inputs are bitwise the same. These kernels observe
+// that on device; the host reads the bits with the mandatory completion copy.
+enum IdleObservation : PxU32 { eIDLE_INPUTS_CHANGED=1u, eIDLE_STATE_CHANGED=2u };
+struct IdleBody { float4 linear,angular,rotation,position,actorRotation,actorPosition; };
+__device__ inline bool sameBits(const float4& a,const float4& b) {
+    return __float_as_uint(a.x)==__float_as_uint(b.x) && __float_as_uint(a.y)==__float_as_uint(b.y)
+        && __float_as_uint(a.z)==__float_as_uint(b.z) && __float_as_uint(a.w)==__float_as_uint(b.w);
+}
+// Every input the pipeline derives from a cluster body: pose (body and actor
+// frame) and both velocities. Records the frame's values for the next compare.
+__global__ void watchClusterBodies(const PxDestructionStressCluster* clusters,PxU32 count,
+    const PxgBodySim* bodies,IdleBody* seen,PxU32* observation) {
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
+    const auto& b=bodies[clusters[i].body];
+    const auto& t=b.body2World;const auto& a=b.body2Actor_maxImpulseW;
+    const IdleBody now{b.linearVelocityXYZ_inverseMassW,b.angularVelocityXYZ_maxPenBiasW,
+        t.q.q,t.p,a.q.q,a.p};
+    const IdleBody before=seen[i];
+    if(sameBits(now.linear,before.linear) && sameBits(now.angular,before.angular) && sameBits(now.rotation,before.rotation)
+        && sameBits(now.position,before.position) && sameBits(now.actorRotation,before.actorRotation)
+        && sameBits(now.actorPosition,before.actorPosition))return;
+    seen[i]=now;atomicOr(observation,eIDLE_INPUTS_CHANGED);
+}
+// Any solved pair touching a destructible chunk is a load routeContacts would
+// apply. Conservative: a pair with contacts counts even if its forces are zero.
+__global__ void watchDestructibleContacts(PxgDestructionSolvedContacts contacts,const Lookup* map,PxU32 maps,
+    PxU32* observation,PxU32 flag) {
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=contacts.pairCount)return;
+    const auto& output=contacts.outputs[i];
+    if(!output.nbContacts || !contacts.responseEpoch || output.nativeResponseEpoch!=contacts.responseEpoch)return;
+    const auto& input=contacts.inputs[i];
+    if(findChunk(map,maps,input.transformCacheRef0)!=PX_INVALID_U32 || findChunk(map,maps,input.transformCacheRef1)!=PX_INVALID_U32)
+        atomicOr(observation,flag);
+}
 __global__ void provisionalTopologyMotion(PxDestructionTopologyDeviceView topology,
     const PxDestructionStressChunk* chunks,const PxDestructionStressCluster* clusters,
     const PxTransform* poses,const PxgBodySim* bodies,PxDestructionClusterMotion* motion) {
@@ -472,6 +511,20 @@ class Runtime final : public PxgDestructionRuntime {
     ExtStressGpuSolver* mSolver{}; ExtStressGpuSolveParams mParams;
     PxDestructionStressChunk* mChunks{}; PxDestructionStressCluster* mClusters{};
     PxTransform* mPoses{}; PxVec3* mAngular{};
+    // Idle gate (see watchClusterBodies). mIdleCertified: the last full
+    // evaluation was a fixed point and its inputs equalled the frame before
+    // (so moving bodies never certify), so a frame with bitwise-equal inputs
+    // may skip it. A skipped frame keeps its arguments: if the device finds its
+    // inputs differ after all, finish() evaluates the same frame in full.
+    struct IdleFrame {
+        PxReal dt; PxVec3 gravity; PxgDestructionMotionStorage storage; CUstream producer;
+        PxgDestructionGrowMotionStorage grow; void* owner; PxgDestructionSolvedContacts contacts;
+        PxgDestructionCollisionStorage collision;
+    };
+    IdleBody* mIdleBodies{};
+    IdleFrame mIdleFrame{};
+    PxReal mIdleDt=0; PxVec3 mIdleGravity{0.0f};
+    bool mIdleGate=true, mIdleCertified=false, mIdleSkipped=false, mIdleFull=false;
     Lookup* mMap{}; PxU32 mMapCount{},mN{},mM{},mC{};
     bool mOwnInputs=false;
     PxDestructionVectorPair* mInputs{}; PxDestructionSurfaceLoad* mSurface{};
@@ -485,6 +538,7 @@ class Runtime final : public PxgDestructionRuntime {
         PxDestructionBodyAllocationStatus allocation;
         PxDestructionCollisionPreparationStatus collision;
         PxDestructionCorrectionPreparationStatus correction;
+        PxU32 idle; // IdleObservation bits for this frame
     };
     static_assert(offsetof(Completion,propertyCount)==sizeof(PxDestructionStageStatus),"final status readback layout");
     Completion *mCompletion{},*mHostCompletion{};
@@ -598,6 +652,7 @@ public:
     Runtime(CUcontext c,void* scene,bool(*gate)(void*),PxvDestructionBodyAllocator* allocator) : mContext(c),mScene(scene),mWriteAllowed(gate),mBodyAllocator(allocator) {
         Context current(c);
         mRigidIterationLimits.initialize();
+        {const char* raw=::getenv("PX_DESTRUCTION_IDLE_GATE");mIdleGate=!(raw && raw[0]=='0');}
         check(cudaStreamCreateWithFlags(&mStream,cudaStreamNonBlocking));
         check(cudaEventCreateWithFlags(&mInput,cudaEventDisableTiming));
         check(cudaEventCreateWithFlags(&mReady,cudaEventDisableTiming));
@@ -1013,6 +1068,7 @@ public:
         if(mSolver)mSolver->release();mSolver=nullptr;
         cudaFree(mChunks);mChunks=nullptr;cudaFree(mClusters);mClusters=nullptr;
         cudaFree(mPoses);mPoses=nullptr;cudaFree(mAngular);mAngular=nullptr;
+        cudaFree(mIdleBodies);mIdleBodies=nullptr;mIdleCertified=mIdleSkipped=mIdleFull=false;
         cudaFree(mMap);mMap=nullptr;if(mOwnInputs)cudaFree(mInputs);mInputs=nullptr;mOwnInputs=false;cudaFree(mSurface);mSurface=nullptr;
         cudaFree(mMaterials);mMaterials=nullptr;cudaFree(mBonds);mBonds=nullptr;
         cudaFree(mHealth);mHealth=nullptr;cudaFree(mRates);mRates=nullptr;
@@ -1115,6 +1171,9 @@ public:
             }
             allocate(mChunks,d.chunkCount);allocate(mClusters,std::max(d.chunkCount,d.clusterCount));
             allocate(mPoses,std::max(d.chunkCount,d.clusterCount));allocate(mAngular,std::max(d.chunkCount,d.clusterCount));allocate(mMap,map.size());
+            // All-ones bits match no body state: the first observation always differs.
+            allocate(mIdleBodies,std::max(d.chunkCount,d.clusterCount));
+            check(cudaMemset(mIdleBodies,0xff,sizeof(*mIdleBodies)*std::max(d.chunkCount,d.clusterCount)));
             if(mSolver) mInputs=reinterpret_cast<PxDestructionVectorPair*>(mSolver->deviceView().nodeInputs);
             else {allocate(mInputs,d.chunkCount);mOwnInputs=true;}
             if(!mInputs)throw std::runtime_error("missing resident destruction inputs");
@@ -1298,7 +1357,7 @@ public:
             mInstalledOwnerGeneration=0;
             if(!pass){mPendingPropertyCapacity=0;mPendingShapeCapacity=0;}
             if(mConsumer)check(cudaStreamWaitEvent(mStream,reinterpret_cast<cudaEvent_t>(mConsumer),0));
-            startFrame<<<1,1,0,mStream>>>(mStatus,mContactSequence,pass>0);
+            startFrame<<<1,1,0,mStream>>>(mStatus,mContactSequence,pass>0,pass?nullptr:&mCompletion->idle);
             if(mTopology && !pass)mChanges.start(mTopology->accepted(),mStatus,mStream);
             if(mBodyAllocation)check(cudaMemsetAsync(mBodyAllocation,0,sizeof(*mBodyAllocation),mStream));
             mHostCompletion->correction={};mCorrectionBodyCapacity=0;
@@ -1357,6 +1416,36 @@ public:
     CUevent inputEvent() const override {return reinterpret_cast<CUevent>(mInput);}
     bool advance(PxReal dt,const PxVec3& gravity,const PxgDestructionMotionStorage& storage,CUstream producerStream,
         PxgDestructionGrowMotionStorage growStorage,void* storageOwner,const PxgDestructionSolvedContacts& contacts,const PxgDestructionCollisionStorage& collision) override {
+        mIdleSkipped=mIdleFull=false;
+        if(mIdleGate && mIdleCertified && !mPass && !mFailed && configured() && dt>0 && storage.bodies && producerStream
+            && dt==mIdleDt && gravity==mIdleGravity)
+            return advanceIdle(dt,gravity,storage,producerStream,growStorage,storageOwner,contacts,collision);
+        mIdleCertified=false;mIdleFull=!mPass;mIdleDt=dt;mIdleGravity=gravity;
+        return advanceFull(dt,gravity,storage,producerStream,growStorage,storageOwner,contacts,collision);
+    }
+    // The certified fixed point stands: observe this frame's inputs and publish
+    // the same zero-change result a full evaluation would. No solve, material,
+    // topology or motion work is enqueued.
+    bool advanceIdle(PxReal dt,const PxVec3& gravity,const PxgDestructionMotionStorage& storage,CUstream producerStream,
+        PxgDestructionGrowMotionStorage growStorage,void* storageOwner,const PxgDestructionSolvedContacts& contacts,const PxgDestructionCollisionStorage& collision) {
+        try {Context current(mContext);
+            mCollisionStorage=collision;mMotionStorage=storage;mGrowMotionStorage=growStorage;mMotionStorageOwner=storageOwner;mMotionProducerStream=producerStream;
+            mIdleFrame={dt,gravity,storage,producerStream,growStorage,storageOwner,contacts,collision};
+            check(cudaStreamWaitEvent(producerStream,mInput,0));
+            check(cudaEventRecord(mInput,producerStream));
+            check(cudaStreamWaitEvent(mStream,mInput,0));
+            watchClusterBodies<<<(mC+127)/128,128,0,mStream>>>(mClusters,mC,storage.bodies,mIdleBodies,&mCompletion->idle);
+            if(contacts.pairCount)watchDestructibleContacts<<<(contacts.pairCount+127)/128,128,0,mStream>>>(
+                contacts,mMap,mMapCount,&mCompletion->idle,eIDLE_INPUTS_CHANGED);
+            finishStatus<<<1,1,0,mStream>>>(nullptr,mStatus,nullptr,0);
+            if(mTopology)mChanges.publish(mStream);
+            check(cudaGetLastError());
+            observeCompletion();
+            check(cudaEventRecord(mReady,mStream));mPending=true;mIdleSkipped=true;return true;
+        }catch(...){mFailed=true;return false;}
+    }
+    bool advanceFull(PxReal dt,const PxVec3& gravity,const PxgDestructionMotionStorage& storage,CUstream producerStream,
+        PxgDestructionGrowMotionStorage growStorage,void* storageOwner,const PxgDestructionSolvedContacts& contacts,const PxgDestructionCollisionStorage& collision) {
         const auto* bodyStates=storage.bodies;
         try {Context current(mContext);
             mCollisionStorage=collision;mMotionStorage=storage;mGrowMotionStorage=growStorage;mMotionStorageOwner=storageOwner;mMotionProducerStream=producerStream;if(!configured() || dt<=0 || !bodyStates || !producerStream)return false;
@@ -1373,6 +1462,12 @@ public:
                 prepareDeviceInputs();
             }
             stageMarker(0);
+            if(!mPass) {
+                // Keep the idle observation current; a destructible contact rules out certification.
+                watchClusterBodies<<<(mC+127)/128,128,0,mStream>>>(mClusters,mC,bodyStates,mIdleBodies,&mCompletion->idle);
+                if(contacts.pairCount)watchDestructibleContacts<<<(contacts.pairCount+127)/128,128,0,mStream>>>(
+                    contacts,mMap,mMapCount,&mCompletion->idle,eIDLE_STATE_CHANGED);
+            }
             observeNativeClusters<<<(mC+127)/128,128,0,mStream>>>(mClusters,mC,bodyStates,mPoses,mAngular);
             prepareLoads<<<(mN+127)/128,128,0,mStream>>>(mChunks,mN,mClusters,mPoses,mAngular,gravity,mInputs,mSurface,mRates);
             if(contacts.pairCount)routeContacts<<<(contacts.pairCount+127)/128,128,0,mStream>>>(contacts,mMap,mMapCount,mChunks,mPoses,1.0f/dt,mInputs,mSurface,mStatus,bodyStates,mMaterials,mRates);
@@ -1433,7 +1528,8 @@ public:
                 commitObservedTopologyMotion<<<(mC+127)/128,128,0,mStream>>>(mTopology->accepted(),mProvisionalMotion,mStatus);
             }
             if(!mTopology)stageMarker(4);
-            if(mMaterials)commitMaterialState<<<(std::max(mM,mN)+127)/128,128,0,mStream>>>(mVerdicts,mHealth,mM,mTrialCrush,mCrush,mN,mStatus);
+            if(mMaterials)commitMaterialState<<<(std::max(mM,mN)+127)/128,128,0,mStream>>>(mVerdicts,mHealth,mM,mTrialCrush,mCrush,mN,mStatus,
+                mPass?nullptr:&mCompletion->idle,eIDLE_STATE_CHANGED);
             stageMarker(5);
             if(mTopology && !mPass)mChanges.publish(mStream);
             check(cudaGetLastError());
@@ -1928,7 +2024,30 @@ public:
         try {Context current(mContext);if(mPending){
                 {PxProfileScoped waitProfile(mProfiler,"GpuDestruction.finishDetail.waitForGpu",false,mProfileContext);
                     check(cudaEventSynchronize(mReady));}
-                collectStageTimings();collectMotionAllocationTiming();mPending=false;reserveBodySlots();mPreparationObserved=true;}
+                collectStageTimings();collectMotionAllocationTiming();mPending=false;
+                if(mIdleSkipped) {
+                    mIdleSkipped=false;
+                    if(mHostCompletion->idle & eIDLE_INPUTS_CHANGED) {
+                        // The inputs moved after all: evaluate this same frame in full,
+                        // from a fresh status, before anything observes it.
+                        PxProfileScoped reevaluation(mProfiler,"GpuDestruction.finishDetail.idleReevaluation",false,mProfileContext);
+                        mIdleCertified=false;mIdleFull=true;
+                        startFrame<<<1,1,0,mStream>>>(mStatus,mContactSequence,true,&mCompletion->idle);
+                        if(mTopology)mChanges.start(mTopology->accepted(),mStatus,mStream);
+                        const IdleFrame f=mIdleFrame;
+                        if(advanceFull(f.dt,f.gravity,f.storage,f.producer,f.grow,f.owner,f.contacts,f.collision)) {
+                            check(cudaEventSynchronize(mReady));
+                            collectStageTimings();collectMotionAllocationTiming();mPending=false;
+                        }
+                    }
+                }
+                reserveBodySlots();mPreparationObserved=true;
+                if(mIdleFull) {
+                    mIdleFull=false;const auto& s=*mHostStatus;
+                    mIdleCertified=mIdleGate && !mFailed && !s.error && !s.iterations && s.converged && !s.normalContacts
+                        && !s.frictionAnchors && !s.bondCommands && !s.brokenBonds && !s.crushedChunks
+                        && !(mHostCompletion->idle & (eIDLE_STATE_CHANGED|eIDLE_INPUTS_CHANGED));
+                }}
             if(mHostStatus->brokenBonds || mHostStatus->crushedChunks)mEverDamaged=true;
             if(mFailed)mHostStatus->error|=4u;
             return !mFailed && mHostStatus->error==0;

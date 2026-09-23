@@ -84,12 +84,22 @@ __global__ void requireFractureCorrection(PxDestructionStageStatus* status)
 {
     if(status->brokenBonds || status->crushedChunks)status->error|=8u;
 }
+__device__ inline bool sameCrushState(const PxDestructionCrushState& a,const PxDestructionCrushState& b)
+{
+    return __float_as_uint(a.damage)==__float_as_uint(b.damage) && __float_as_uint(a.pressure)==__float_as_uint(b.pressure)
+        && __float_as_uint(a.deviator)==__float_as_uint(b.deviator) && __float_as_uint(a.utilisation)==__float_as_uint(b.utilisation)
+        && a.crushed==b.crushed;
+}
+// changed/flag: set when any committed value differs bitwise from the one it
+// replaces, so an unchanged material state is recognizable as a fixed point.
 __global__ void commitMaterialState(const PxDestructionBondVerdict* bonds,float* health,PxU32 nb,
     const PxDestructionCrushState* trial,PxDestructionCrushState* accepted,PxU32 nc,
-    const PxDestructionStageStatus* status)
+    const PxDestructionStageStatus* status,PxU32* changed=nullptr,PxU32 flag=0)
 {
     if(status->error)return; // whole material transaction remains uncommitted
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;
-    if(i<nb)health[i]=bonds[i].health;
-    if(i<nc)accepted[i]=trial[i];
+    bool differs=false;
+    if(i<nb){const float next=bonds[i].health;differs=__float_as_uint(health[i])!=__float_as_uint(next);health[i]=next;}
+    if(i<nc){const auto next=trial[i];differs=differs || !sameCrushState(accepted[i],next);accepted[i]=next;}
+    if(differs && changed)atomicOr(changed,flag);
 }
