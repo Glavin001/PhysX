@@ -502,14 +502,22 @@ int main(int argc, char** argv)
         std::printf("native_wall_live: preparing GPU pipelines; first launch after a build takes minutes\n");
         std::fflush(stdout);
 
-        static wall_live::WallScene wall(wallOptions);
-        if (!wall.loadError().empty())
+        // Load first: the chunk count sizes the PhysX scene. The scene object
+        // itself is built after the context so that, as statics, it is torn
+        // down before the context rather than after it.
+        blast_demo::Structure loaded;
+        try
         {
-            std::fprintf(stderr, "native_wall_live: %s\n", wall.loadError().c_str());
+            loaded = blast_demo::loadStructure(wallOptions.scene, wallOptions.width, wallOptions.height,
+                                                  BLAST_DEMO_SCENES_DIR);
+        }
+        catch (const std::exception& e)
+        {
+            std::fprintf(stderr, "native_wall_live: %s\n", e.what());
             return 1;
         }
         blast_demo::SceneCapacity capacity;
-        capacity.maxBodies = wall.chunkCount() + wallOptions.maxProjectiles + 16;
+        capacity.maxBodies = unsigned(loaded.bricks.size()) + wallOptions.maxProjectiles + 16;
         capacity.maxShapes = capacity.maxBodies;
         static blast_demo::PhysXScene context(blast_demo::PhysicsMode::Gpu, true, capacity, nullptr, false, true,
                                               false, false, physx::PxSolverType::eTGS, false, false);
@@ -518,6 +526,7 @@ int main(int argc, char** argv)
             std::fprintf(stderr, "native_wall_live: a GPU scene is required\n");
             return 1;
         }
+        static wall_live::WallScene wall(wallOptions, std::move(loaded));
         if (!wall.build(context))
         {
             std::fprintf(stderr, "native_wall_live: %s\n", wall.error().c_str());

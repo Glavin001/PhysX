@@ -65,6 +65,13 @@ struct BodyView
 class WallScene
 {
 public:
+    // For a structure the caller already loaded: it must know the chunk count
+    // to size the PhysX scene, which has to exist before this scene does.
+    WallScene(const WallOptions& options, blast_demo::Structure structure)
+        : m_options(options), m_structure(std::move(structure))
+    {
+    }
+
     explicit WallScene(const WallOptions& options) : m_options(options)
     {
         try
