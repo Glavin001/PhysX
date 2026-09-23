@@ -27,6 +27,7 @@
 // Copyright (c) 2001-2004 NovodeX AG. All rights reserved.  
 
 #include "foundation/PxMath.h"
+#include "PxgHostAddressToken.h"
 #include "foundation/PxSimpleTypes.h"
 #include "foundation/PxTransform.h"
 
@@ -74,14 +75,18 @@ void trimeshPlaneNarrowphase(
 	PxgPatchAndContactCounters* PX_RESTRICT patchAndContactCounters,
 	PxU32* PX_RESTRICT touchChangeFlags,
 	PxU32* PX_RESTRICT patchChangeFlags,
-	PxU8* PX_RESTRICT startContactPatches,
-	PxU8* PX_RESTRICT startContactPoints,
-	PxU8* PX_RESTRICT startContactForces,
+	PXG_HOST_ADDRESS_PARAMETER(PxU8, PX_RESTRICT, startContactPatches),
+	PXG_HOST_ADDRESS_PARAMETER(PxU8, PX_RESTRICT, startContactPoints),
+	PXG_HOST_ADDRESS_PARAMETER(PxU8, PX_RESTRICT, startContactForces),
 	PxU32 patchBytesLimit,
 	PxU32 contactBytesLimit,
 	PxU32 forceBytesLimit,
 	const PxReal clusterTolerance)
 {
+	PXG_HOST_ADDRESS_DECODE(PxU8, PX_RESTRICT, startContactPatches)
+	PXG_HOST_ADDRESS_DECODE(PxU8, PX_RESTRICT, startContactPoints)
+	PXG_HOST_ADDRESS_DECODE(PxU8, PX_RESTRICT, startContactForces)
+
 	__shared__ PxU32 sContacts[(sizeof(PxVec3)/sizeof(PxU32)) * (WARP_SIZE + 1) * PLANE_TRI_MAX_CONTACTS];
 	PxVec3* contacts = reinterpret_cast<PxVec3*>(sContacts);
 	__shared__ PxReal separations[(WARP_SIZE+1)*PLANE_TRI_MAX_CONTACTS];
@@ -447,14 +452,18 @@ void trimeshHeightfieldNarrowphase(
 	PxgPatchAndContactCounters* PX_RESTRICT patchAndContactCounters,
 	PxU32* PX_RESTRICT touchChangeFlags,
 	PxU32* PX_RESTRICT patchChangeFlags,
-	PxU8* PX_RESTRICT startContactPatches,
-	PxU8* PX_RESTRICT startContactPoints,
-	PxU8* PX_RESTRICT startContactForces,
+	PXG_HOST_ADDRESS_PARAMETER(PxU8, PX_RESTRICT, startContactPatches),
+	PXG_HOST_ADDRESS_PARAMETER(PxU8, PX_RESTRICT, startContactPoints),
+	PXG_HOST_ADDRESS_PARAMETER(PxU8, PX_RESTRICT, startContactForces),
 	PxU32 patchBytesLimit,
 	PxU32 contactBytesLimit,
 	PxU32 forceBytesLimit,
 	const PxReal clusterBias)
 {
+	PXG_HOST_ADDRESS_DECODE(PxU8, PX_RESTRICT, startContactPatches)
+	PXG_HOST_ADDRESS_DECODE(PxU8, PX_RESTRICT, startContactPoints)
+	PXG_HOST_ADDRESS_DECODE(PxU8, PX_RESTRICT, startContactForces)
+
 	__shared__ char sContacts[sizeof(PxVec3) * (WARP_SIZE + 1) * PLANE_TRI_MAX_CONTACTS];
 	PxVec3* contacts = reinterpret_cast<PxVec3*>(sContacts);
 

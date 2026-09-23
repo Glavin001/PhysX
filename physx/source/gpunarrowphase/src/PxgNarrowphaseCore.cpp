@@ -1525,6 +1525,9 @@ void PxgGpuNarrowphaseCore::testSDKTriMeshPlaneGpu(PxgGpuContactManagers& gpuMan
 	{
 		CUfunction triMeshPlaneKernelFunction = mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::TRIMESH_PLANE_CORE);
 
+		PXG_HOST_ADDRESS_CAPTURE(PxU8, baseContactPatches)
+		PXG_HOST_ADDRESS_CAPTURE(PxU8, baseContactPoints)
+		PXG_HOST_ADDRESS_CAPTURE(PxU8, baseContactForces)
 		PxCudaKernelParam kernelParams_stage[] =
 		{
 			PX_CUDA_KERNEL_PARAM(toleranceLength),
@@ -1540,9 +1543,9 @@ void PxgGpuNarrowphaseCore::testSDKTriMeshPlaneGpu(PxgGpuContactManagers& gpuMan
 			PX_CUDA_KERNEL_PARAM(patchAndContactCountersD),
 			PX_CUDA_KERNEL_PARAM(touchLostFlags),
 			PX_CUDA_KERNEL_PARAM(touchFoundFlags),
-			PX_CUDA_KERNEL_PARAM(baseContactPatches),
-			PX_CUDA_KERNEL_PARAM(baseContactPoints),
-			PX_CUDA_KERNEL_PARAM(baseContactForces),
+			PXG_HOST_ADDRESS_KERNEL_PARAM(baseContactPatches),
+			PXG_HOST_ADDRESS_KERNEL_PARAM(baseContactPoints),
+			PXG_HOST_ADDRESS_KERNEL_PARAM(baseContactForces),
 			PX_CUDA_KERNEL_PARAM(patchBytesLimit),
 			PX_CUDA_KERNEL_PARAM(contactBytesLimit),
 			PX_CUDA_KERNEL_PARAM(forceBytesLimit),
@@ -1613,6 +1616,9 @@ void PxgGpuNarrowphaseCore::testSDKTriMeshHeightfieldGpu(
 	{
 		CUfunction trimeshKernelFunction = mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::TRIMESH_HEIGHTFIELD_CORE);
 
+		PXG_HOST_ADDRESS_CAPTURE(PxU8, baseContactPatches)
+		PXG_HOST_ADDRESS_CAPTURE(PxU8, baseContactPoints)
+		PXG_HOST_ADDRESS_CAPTURE(PxU8, baseContactForces)
 		PxCudaKernelParam kernelParams_stage[] =
 		{
 			PX_CUDA_KERNEL_PARAM(numTests),
@@ -1627,9 +1633,9 @@ void PxgGpuNarrowphaseCore::testSDKTriMeshHeightfieldGpu(
 			PX_CUDA_KERNEL_PARAM(patchAndContactCountersD),
 			PX_CUDA_KERNEL_PARAM(touchLostFlags),
 			PX_CUDA_KERNEL_PARAM(touchFoundFlags),
-			PX_CUDA_KERNEL_PARAM(baseContactPatches),
-			PX_CUDA_KERNEL_PARAM(baseContactPoints),
-			PX_CUDA_KERNEL_PARAM(baseContactForces),
+			PXG_HOST_ADDRESS_KERNEL_PARAM(baseContactPatches),
+			PXG_HOST_ADDRESS_KERNEL_PARAM(baseContactPoints),
+			PXG_HOST_ADDRESS_KERNEL_PARAM(baseContactForces),
 			PX_CUDA_KERNEL_PARAM(patchBytesLimit),
 			PX_CUDA_KERNEL_PARAM(contactBytesLimit),
 			PX_CUDA_KERNEL_PARAM(forceBytesLimit),
@@ -1713,6 +1719,9 @@ void PxgGpuNarrowphaseCore::testSDKTriMeshTriMeshGpu(PxgGpuContactManagers& gpuM
 		PxgDevicePointer<PxgPatchAndContactCounters> patchAndContactCountersD = mPatchAndContactCountersOnDevice.getTypedDevicePtr();
 		CUfunction tritriKernelFunction = mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::TRIMESH_TRIMESH_CORE);
 
+		PXG_HOST_ADDRESS_CAPTURE(PxU8, baseContactPatches)
+		PXG_HOST_ADDRESS_CAPTURE(PxU8, baseContactPoints)
+		PXG_HOST_ADDRESS_CAPTURE(PxU8, baseContactForces)
 		PxCudaKernelParam kernelParams_stage[] =
 		{
 			PX_CUDA_KERNEL_PARAM(numTests),
@@ -1728,9 +1737,9 @@ void PxgGpuNarrowphaseCore::testSDKTriMeshTriMeshGpu(PxgGpuContactManagers& gpuM
 			PX_CUDA_KERNEL_PARAM(patchAndContactCountersD),
 			PX_CUDA_KERNEL_PARAM(touchLostFlags),
 			PX_CUDA_KERNEL_PARAM(touchFoundFlags),
-			PX_CUDA_KERNEL_PARAM(baseContactPatches),
-			PX_CUDA_KERNEL_PARAM(baseContactPoints),
-			PX_CUDA_KERNEL_PARAM(baseContactForces),
+			PXG_HOST_ADDRESS_KERNEL_PARAM(baseContactPatches),
+			PXG_HOST_ADDRESS_KERNEL_PARAM(baseContactPoints),
+			PXG_HOST_ADDRESS_KERNEL_PARAM(baseContactForces),
 			PX_CUDA_KERNEL_PARAM(patchBytesLimit),
 			PX_CUDA_KERNEL_PARAM(contactBytesLimit),
 			PX_CUDA_KERNEL_PARAM(forceBytesLimit),
@@ -2529,6 +2538,9 @@ void PxgGpuNarrowphaseCore::testSDKSphereTriMeshSATGpu(PxgGpuContactManagers& gp
 
 		CUfunction kernelFunction = mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::CONVEX_TRIMESH_FINISHCONTACTS);
 
+		PXG_HOST_ADDRESS_CAPTURE(PxU8, baseContactPatches)
+		PXG_HOST_ADDRESS_CAPTURE(PxU8, baseContactPoints)
+		PXG_HOST_ADDRESS_CAPTURE(PxU8, baseContactForces)
 		PxCudaKernelParam kernelParams[] =
 		{
 			PX_CUDA_KERNEL_PARAM(gpuIntermSphereMeshPair),
@@ -2546,9 +2558,9 @@ void PxgGpuNarrowphaseCore::testSDKSphereTriMeshSATGpu(PxgGpuContactManagers& gp
 			PX_CUDA_KERNEL_PARAM(patchAndContactCountersD),
 			PX_CUDA_KERNEL_PARAM(touchChangeFlags),
 			PX_CUDA_KERNEL_PARAM(patchChangeFlags),
-			PX_CUDA_KERNEL_PARAM(baseContactPatches),
-			PX_CUDA_KERNEL_PARAM(baseContactPoints),
-			PX_CUDA_KERNEL_PARAM(baseContactForces),
+			PXG_HOST_ADDRESS_KERNEL_PARAM(baseContactPatches),
+			PXG_HOST_ADDRESS_KERNEL_PARAM(baseContactPoints),
+			PXG_HOST_ADDRESS_KERNEL_PARAM(baseContactForces),
 			PX_CUDA_KERNEL_PARAM(patchBytesLimit),
 			PX_CUDA_KERNEL_PARAM(contactBytesLimit),
 			PX_CUDA_KERNEL_PARAM(forceBytesLimit)
@@ -2831,6 +2843,9 @@ void PxgGpuNarrowphaseCore::testSDKSphereHeightfieldGpu(PxgGpuContactManagers& g
 
 		CUfunction kernelFunction = mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::CONVEX_TRIMESH_FINISHCONTACTS);
 
+		PXG_HOST_ADDRESS_CAPTURE(PxU8, baseContactPatches)
+		PXG_HOST_ADDRESS_CAPTURE(PxU8, baseContactPoints)
+		PXG_HOST_ADDRESS_CAPTURE(PxU8, baseContactForces)
 		PxCudaKernelParam kernelParams[] =
 		{
 			/*PX_CUDA_KERNEL_PARAM(gpuConvexShapes),
@@ -2850,9 +2865,9 @@ void PxgGpuNarrowphaseCore::testSDKSphereHeightfieldGpu(PxgGpuContactManagers& g
 			PX_CUDA_KERNEL_PARAM(patchAndContactCountersD),
 			PX_CUDA_KERNEL_PARAM(touchChangeFlags),
 			PX_CUDA_KERNEL_PARAM(patchChangeFlags),
-			PX_CUDA_KERNEL_PARAM(baseContactPatches),
-			PX_CUDA_KERNEL_PARAM(baseContactPoints),
-			PX_CUDA_KERNEL_PARAM(baseContactForces),
+			PXG_HOST_ADDRESS_KERNEL_PARAM(baseContactPatches),
+			PXG_HOST_ADDRESS_KERNEL_PARAM(baseContactPoints),
+			PXG_HOST_ADDRESS_KERNEL_PARAM(baseContactForces),
 			PX_CUDA_KERNEL_PARAM(patchBytesLimit),
 			PX_CUDA_KERNEL_PARAM(contactBytesLimit),
 			PX_CUDA_KERNEL_PARAM(forceBytesLimit)
@@ -3140,6 +3155,9 @@ void PxgGpuNarrowphaseCore::testSDKConvexTriMeshSATGpu(PxgGpuContactManagers& gp
 
 		CUfunction kernelFunction = mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::CONVEX_TRIMESH_FINISHCONTACTS);
 
+		PXG_HOST_ADDRESS_CAPTURE(PxU8, baseContactPatches)
+		PXG_HOST_ADDRESS_CAPTURE(PxU8, baseContactPoints)
+		PXG_HOST_ADDRESS_CAPTURE(PxU8, baseContactForces)
 		PxCudaKernelParam kernelParams[] =
 		{
 			PX_CUDA_KERNEL_PARAM(gpuIntermCvxMeshPair),
@@ -3157,9 +3175,9 @@ void PxgGpuNarrowphaseCore::testSDKConvexTriMeshSATGpu(PxgGpuContactManagers& gp
 			PX_CUDA_KERNEL_PARAM(patchAndContactCountersD),
 			PX_CUDA_KERNEL_PARAM(touchChangeFlags),
 			PX_CUDA_KERNEL_PARAM(patchChangeFlags),
-			PX_CUDA_KERNEL_PARAM(baseContactPatches),
-			PX_CUDA_KERNEL_PARAM(baseContactPoints),
-			PX_CUDA_KERNEL_PARAM(baseContactForces),
+			PXG_HOST_ADDRESS_KERNEL_PARAM(baseContactPatches),
+			PXG_HOST_ADDRESS_KERNEL_PARAM(baseContactPoints),
+			PXG_HOST_ADDRESS_KERNEL_PARAM(baseContactForces),
 			PX_CUDA_KERNEL_PARAM(patchBytesLimit),
 			PX_CUDA_KERNEL_PARAM(contactBytesLimit),
 			PX_CUDA_KERNEL_PARAM(forceBytesLimit)
@@ -3443,6 +3461,9 @@ void PxgGpuNarrowphaseCore::testSDKConvexHeightfieldGpu(PxgGpuContactManagers& g
 
 		CUfunction kernelFunction = mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::CONVEX_TRIMESH_FINISHCONTACTS);
 
+		PXG_HOST_ADDRESS_CAPTURE(PxU8, baseContactPatches)
+		PXG_HOST_ADDRESS_CAPTURE(PxU8, baseContactPoints)
+		PXG_HOST_ADDRESS_CAPTURE(PxU8, baseContactForces)
 		PxCudaKernelParam kernelParams[] =
 		{
 			/*PX_CUDA_KERNEL_PARAM(gpuConvexShapes),
@@ -3462,9 +3483,9 @@ void PxgGpuNarrowphaseCore::testSDKConvexHeightfieldGpu(PxgGpuContactManagers& g
 			PX_CUDA_KERNEL_PARAM(patchAndContactCountersD),
 			PX_CUDA_KERNEL_PARAM(touchChangeFlags),
 			PX_CUDA_KERNEL_PARAM(patchChangeFlags),
-			PX_CUDA_KERNEL_PARAM(baseContactPatches),
-			PX_CUDA_KERNEL_PARAM(baseContactPoints),
-			PX_CUDA_KERNEL_PARAM(baseContactForces),
+			PXG_HOST_ADDRESS_KERNEL_PARAM(baseContactPatches),
+			PXG_HOST_ADDRESS_KERNEL_PARAM(baseContactPoints),
+			PXG_HOST_ADDRESS_KERNEL_PARAM(baseContactForces),
 			PX_CUDA_KERNEL_PARAM(patchBytesLimit),
 			PX_CUDA_KERNEL_PARAM(contactBytesLimit),
 			PX_CUDA_KERNEL_PARAM(forceBytesLimit)

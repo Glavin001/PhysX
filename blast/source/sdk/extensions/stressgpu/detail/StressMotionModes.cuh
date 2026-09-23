@@ -55,6 +55,19 @@ __device__ void buildMotionFactor(Input a,MotionBuffers b,Status* status,unsigne
         }
     }
 }
+// CuMetal runs a cooperative grid as a single threadgroup, so every phase of
+// constructMotionModes ran on 256 threads: the Euler-tour pointer jumping
+// (logarithmic rounds over every tree arc, in exact double arithmetic Metal
+// emulates in software) and then each component's factor, one after another.
+// That was 28-59 ms on the tick a building fractures. There the phases run as
+// a chain of ordinary launches over the whole GPU, the kernel boundaries doing
+// what grid.sync did; every phase is a grid-stride loop with order-independent
+// atomics, so the results are unchanged.
+#if defined(PX_CUMETAL) && PX_CUMETAL
+#define NV_BLAST_SEPARATE_MOTION_FACTORS 1
+#else
+#define NV_BLAST_SEPARATE_MOTION_FACTORS 0
+#endif
 // One cooperative construction launch. It runs only for a changed, accepted
 // topology generation. Euler-tour pointer jumping takes logarithmic rounds;
 // large tree depth never becomes one host submission per graph edge.
@@ -77,9 +90,58 @@ __global__ void constructMotionModes(Input a,const unsigned* forest,MotionBuffer
     initializeMotionAxes(a,b,status,thread,stride);grid.sync();
     constrainMotionAxes(a,b,status,thread,stride);grid.sync();
     if(!thread)work->pending=!status->error;grid.sync();if(!work->pending)return;
+#if !NV_BLAST_SEPARATE_MOTION_FACTORS
     for(unsigned slot=blockIdx.x;slot<*a.partition.count;slot+=gridDim.x){buildMotionFactor(a,b,status,a.partition.ids[slot]);__syncthreads();}
     grid.sync();if(!thread)commitBuild(&a,status);
+#endif
 }
+#if NV_BLAST_SEPARATE_MOTION_FACTORS
+// constructMotionModes as a chain of ordinary launches, phase for phase. Each
+// phase runs only while the construction is live, exactly where the fused
+// kernel would still have been running.
+__device__ __forceinline__ unsigned motionThread(){return blockIdx.x*blockDim.x+threadIdx.x;}
+__device__ __forceinline__ unsigned motionStride(){return gridDim.x*blockDim.x;}
+__device__ __forceinline__ bool motionLive(const Work* work){return work->active && work->pending;}
+__global__ void beginMotionModes(Input a,Status* status,Work* work){beginBuild(a,status,work);}
+__global__ void checkpointMotionModes(Status* status,Work* work){if(work->active)work->pending=!status->error;}
+__global__ void initializeMotionModes(Input a,const unsigned* forest,MotionBuffers b,Status* status,Work* work){
+    if(work->active)initializeMotionForest(a,forest,b,status,motionThread(),motionStride());
+}
+__global__ void tourMotionModes(Input a,const unsigned* forest,MotionBuffers b,Status* status,Work* work){
+    if(!motionLive(work))return;
+    for(unsigned node=motionThread()/32;node<a.nodes;node+=motionStride()/32)buildMotionTour(a,forest,b,status,node);
+}
+__global__ void cutMotionModes(Input a,const unsigned* forest,MotionBuffers b,Work* work){
+    if(!motionLive(work))return;
+    // Every tree component must have exactly one broken Euler-tour link.
+    for(unsigned arc=motionThread();arc<2*a.bonds;arc+=motionStride())if(forest[arc/2]){
+        auto& c=b.components[a.component[a.node0[arc/2]]];
+        if(b.previous[0][arc]==Invalid)atomicAdd(&c.cuts,1u);if(!(arc&1u))atomicAdd(&c.edges,1u);
+    }
+}
+__global__ void jumpMotionModes(Input a,const unsigned* forest,MotionBuffers b,Status* status,Work* work,unsigned source){
+    if(motionLive(work))jumpMotionTour(a,forest,b,status,source,motionThread(),motionStride());
+}
+__global__ void publishMotionModes(Input a,const unsigned* forest,MotionBuffers b,Status* status,Work* work,unsigned source){
+    if(motionLive(work))publishMotionPositions(a,forest,b,status,source,motionThread(),motionStride());
+}
+__global__ void closeMotionModes(Input a,MotionBuffers b,Status* status,Work* work){
+    if(motionLive(work))discoverMotionClosures(a,b,status,motionThread(),motionStride());
+}
+__global__ void axisMotionModes(Input a,MotionBuffers b,Status* status,Work* work){
+    if(motionLive(work))initializeMotionAxes(a,b,status,motionThread(),motionStride());
+}
+__global__ void constrainMotionModes(Input a,MotionBuffers b,Status* status,Work* work){
+    if(motionLive(work))constrainMotionAxes(a,b,status,motionThread(),motionStride());
+}
+__global__ void buildMotionFactors(Input a,MotionBuffers b,Status* status,Work* work){
+    if(!motionLive(work))return;
+    for(unsigned slot=blockIdx.x;slot<*a.partition.count;slot+=gridDim.x){buildMotionFactor(a,b,status,a.partition.ids[slot]);__syncthreads();}
+}
+__global__ void commitMotionModes(Input a,Status* status,Work* work){
+    if(motionLive(work))commitBuild(&a,status);
+}
+#endif
 // Runs every solver iteration, so it works in the solver's precision; only the
 // component frame it reads (built exactly, in double) is converted once per node.
 __device__ __forceinline__ StressReal3 motionReal(double3 v){return makeStressReal3(StressReal(v.x),StressReal(v.y),StressReal(v.z));}
@@ -131,9 +193,45 @@ public:
     ~ResidentMotionModes(){cudaStreamSynchronize(mStream);release();}
     ResidentMotionModes(const ResidentMotionModes&)=delete;ResidentMotionModes& operator=(const ResidentMotionModes&)=delete;
     cudaGraphNode_t append(cudaGraph_t graph,cudaGraphNode_t prior){
+#if NV_BLAST_SEPARATE_MOTION_FACTORS
+        // Arguments are copied into each node, so one args array per shape serves every node.
+        Input input=mInput;const unsigned* forest=mForest;MotionBuffers buffers=mBuffers;Status* status=mStatus;Work* work=mWork;unsigned source=0;
+        const unsigned blocks=std::max(1u,std::min(4096u,unsigned((std::max<std::uint64_t>(input.nodes,2ull*input.bonds)+Threads-1)/Threads)));
+        auto add=[&](void* func,unsigned grid,unsigned threads,void** args){
+            cudaKernelNodeParams p{};p.func=func;p.gridDim=dim3(grid);p.blockDim=dim3(threads);p.kernelParams=args;
+            cudaGraphNode_t node;check(cudaGraphAddKernelNode(&node,graph,prior?&prior:nullptr,prior?1:0,&p));prior=node;
+        };
+        void* beginArgs[]={&input,&status,&work};
+        void* checkpointArgs[]={&status,&work};
+        void* forestArgs[]={&input,&forest,&buffers,&status,&work};
+        void* cutArgs[]={&input,&forest,&buffers,&work};
+        void* bufferArgs[]={&input,&buffers,&status,&work};
+        void* commitArgs[]={&input,&status,&work};
+        add((void*)beginMotionModes,1,1,beginArgs);
+        add((void*)initializeMotionModes,blocks,Threads,forestArgs);
+        add((void*)checkpointMotionModes,1,1,checkpointArgs);
+        add((void*)tourMotionModes,blocks,Threads,forestArgs);
+        add((void*)cutMotionModes,blocks,Threads,cutArgs);
+        add((void*)checkpointMotionModes,1,1,checkpointArgs);
+        for(std::uint64_t covered=1;covered<2ull*input.bonds;covered*=2){
+            void* jumpArgs[]={&input,&forest,&buffers,&status,&work,&source};
+            add((void*)jumpMotionModes,blocks,Threads,jumpArgs);source^=1u;
+        }
+        void* publishArgs[]={&input,&forest,&buffers,&status,&work,&source};
+        add((void*)publishMotionModes,blocks,Threads,publishArgs);
+        add((void*)closeMotionModes,blocks,Threads,bufferArgs);
+        add((void*)axisMotionModes,blocks,Threads,bufferArgs);
+        add((void*)constrainMotionModes,blocks,Threads,bufferArgs);
+        add((void*)checkpointMotionModes,1,1,checkpointArgs);
+        // Components never outnumber nodes; blocks past the live count return.
+        add((void*)buildMotionFactors,std::min(std::max(1u,input.nodes),4096u),Threads,bufferArgs);
+        add((void*)commitMotionModes,1,1,commitArgs);
+        return prior;
+#else
         void* args[]={&mInput,&mForest,&mBuffers,&mStatus,&mWork};cudaKernelNodeParams p{};p.func=(void*)constructMotionModes;p.gridDim=dim3(mBlocks);p.blockDim=dim3(Threads);p.kernelParams=args;
         cudaGraphNode_t node;check(cudaGraphAddKernelNode(&node,graph,prior?&prior:nullptr,prior?1:0,&p));cudaKernelNodeAttrValue attr{};attr.cooperative=1;
         check(cudaGraphKernelNodeSetAttribute(node,cudaKernelNodeAttributeCooperative,&attr));return node;
+#endif
     }
     MotionModeView view()const{return {mBuffers.position,mBuffers.components,mStatus,mForest};}
     const Status* status()const{return mStatus;}

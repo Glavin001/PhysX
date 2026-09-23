@@ -38,6 +38,9 @@
 #include "windows/CmWindowsModuleUpdateLoader.h"
 #elif PX_LINUX || (PX_OSX && defined(PX_CUMETAL))
 #include <dlfcn.h>
+#if PX_OSX
+#include <stdlib.h>
+#endif
 #endif // ~PX_LINUX
 
 #include "stdio.h"
@@ -192,6 +195,11 @@ namespace physx
 		if (s_library == NULL)
 		{
 #if defined(PX_CUMETAL)
+			// PhysX descriptors hold nested device pointers, which CuMetal
+			// resolves only with raw Metal device addresses. The runtime reads
+			// this once, on first use, so set it before the module creates a
+			// context. An explicit value from the environment wins.
+			setenv("CUMETAL_USE_METAL_DEVICE_ADDRESSES", "1", 0);
 			// The native GPU library links libcumetal directly; no libcuda alias.
 			s_library = dlopen(gPhysXGpuLibraryName, RTLD_NOW | RTLD_LOCAL);
 #else

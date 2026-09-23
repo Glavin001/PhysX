@@ -13,6 +13,75 @@ and one correction (1042). Wider scene coverage, localized wall capture and the
 requested offline-rendered video remain pending. Linux CUDA is unexecuted.
 
 
+## vibe-land's rigid feature set on Metal (2026-09-23)
+
+vibe-land's GPU scene (PGS, PCM, stabilization) uses static boxes and a
+heightfield; dynamic boxes, spheres and convex hulls; kinematic capsules; and
+Vehicle2 cars whose one custom constraint carries suspension-limit and
+sticky-tyre rows. That set now matches the CPU pipeline on Metal
+(`native_feature_reference_test`, ctest `physx_native_feature_reference`):
+sphere, box, capsule and hull at rest on a heightfield, a 6.7 m landing held at
+the suspension limit, and a parked car on 1 degree. vibe-land's own tests pass
+against the relocated package, including `stack_settling` and the 5,000-body
+`gpu_load` gate. Fork changes, each `PX_CUMETAL` only:
+
+- Joint prep row indices are bytes, bringing both joint-prepare kernels from
+  35,840 to 32,000 bytes of threadgroup memory.
+- Convex/trimesh finish, trimesh-plane, trimesh-heightfield and
+  triangle-triangle kernels receive the host contact-stream bases as host
+  address tokens, not device pointers.
+- `setPersistentThresholdElementsMask` runs before
+  `computeThresholdElementMaskIndices` (PGS and TGS). The fused version let
+  one threadgroup rewrite another's finished write indices; force-change events
+  were lost and larger piles crashed the host on unwritten elements.
+
+Two CuMetal compiler fixes were needed as well: INT32_MIN literals (which
+hid `EDGE_FEATURE_IDX` and sank boxes and hulls into heightfields) and warp
+reconvergence in the per-lane CFG dispatcher (the edge-edge SAT reduction).
+Articulations, particles, SDF, triangle meshes and CCD are outside this set and
+remain unqualified. Linux/NVIDIA has not been rerun for these changes.
+
+## Destruction cost in vibe-land's city on Metal (2026-09-23)
+
+Measured with vibe-land's `perf_bench` (server/src/perf_bench.rs), which steps
+the production city arena the way the server does. A fracturing tick runs
+the destruction stage twice (trial solve, then the correction pass). Its cost
+is roughly half GPU work and half host submission and synchronization.
+
+- **Pre-solve island storage (all platforms).** `buildPreSolveIslands` grew
+  the native node registry only when the phase storage grew. The two double
+  independently, so the phase storage could outgrow the registry, and a node
+  count between the two indexed and copied past the registry's end. CuMetal
+  refused the copy (`cudaErrorInvalidValue`, then "pre-solve island production
+  failed" and an aborted scene about 850 ticks into a pile of rolling bodies);
+  CUDA would read and write out of bounds silently. The registry now grows for
+  every count. The same 3000-tick run completes with 370 awake bodies.
+- **Motion modes (`PX_CUMETAL`).** `constructMotionModes` runs as a chain of
+  ordinary launches (`NV_BLAST_SEPARATE_MOTION_FACTORS`). As one cooperative
+  threadgroup it was 28-59 ms on the tick a building fractured.
+- **Principal frames (`PX_CUMETAL`).** `prepareCandidateBodies` caches each
+  root's principal-axis frame against its bitwise inertia, skipping the
+  software-FP64 eigen solve when nothing changed. The effect is small.
+- **Fine-level hierarchy construction (opt-in).** The stress hierarchy's
+  fine-level `construct` is 1.8-2.2 ms as one cooperative threadgroup on a
+  fracture pass. `BLAST_STRESS_SEPARATE_CONSTRUCT=1` runs it as phase
+  launches over the whole GPU, bit-for-bit the same algorithm, with six seed
+  rounds unrolled and the cooperative loop kept for any further rounds. It is
+  off by default: the chain replays on every full destruction frame, and when
+  the topology has not changed its roughly thirty launches return at once but
+  still cost host submission. Measured: fracture and demolition p99 1-3 ms
+  lower, every awake-debris tick 0.7 ms higher.
+
+Where a fracture tick's time goes (engine zones, `VIBE_PHYSX_PROFILE=1`):
+`GpuDestruction.submit` about 2 ms per pass of host launch cost;
+`finishAndReserve` 3-5 ms per pass waiting on stress and topology work;
+`task.prepareIslandRepair` 1.5-3 ms per pass of synchronous component
+readback (host connectivity is not device-owned while sleeping is enabled);
+`correctedCollisionSolve` 3-10 ms and `acceptCorrection` 3-4 ms once. The
+first hit on a certified-idle structure pays an extra full evaluation
+(`finishDetail.idleReevaluation`, about 5 ms) because the idle gate checks
+its assumption only after the frame. Linux/NVIDIA has not been rerun.
+
 ## Current checkpoint: restricted rigid-demo GPU and host build/link pass (2026-09-22)
 
 **The first bounded native rigid-body/destruction scene passes on Apple GPU

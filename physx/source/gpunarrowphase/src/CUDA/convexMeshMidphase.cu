@@ -27,6 +27,7 @@
 // Copyright (c) 2001-2004 NovodeX AG. All rights reserved. 
 
 #include <stdio.h>
+#include "PxgHostAddressToken.h"
 #include <stdint.h>
 #include <cuda.h>
 #include <cuda_runtime.h>
@@ -1302,15 +1303,19 @@ void triangleTriangleCollision(PxU32 numWorkItems,
 	PxgPatchAndContactCounters* PX_RESTRICT patchAndContactCounters,
 	PxU32* touchChangeFlags,
 	PxU32* patchChangeFlags,
-	PxU8* startContactPatches,
-	PxU8* startContactPoints,
-	PxU8* startContactForces,
+	PXG_HOST_ADDRESS_PARAMETER(PxU8, PX_RESTRICT, startContactPatches),
+	PXG_HOST_ADDRESS_PARAMETER(PxU8, PX_RESTRICT, startContactPoints),
+	PXG_HOST_ADDRESS_PARAMETER(PxU8, PX_RESTRICT, startContactForces),
 	PxU32 patchBytesLimit,
 	PxU32 contactBytesLimit,
 	PxU32 forceBytesLimit,
 	const PxReal clusterBias
 	)
 {
+	PXG_HOST_ADDRESS_DECODE(PxU8, PX_RESTRICT, startContactPatches)
+	PXG_HOST_ADDRESS_DECODE(PxU8, PX_RESTRICT, startContactPoints)
+	PXG_HOST_ADDRESS_DECODE(PxU8, PX_RESTRICT, startContactForces)
+
 	const PxU32 pairIdx = blockIdx.x;
 
 	if (pairIdx >= numWorkItems)

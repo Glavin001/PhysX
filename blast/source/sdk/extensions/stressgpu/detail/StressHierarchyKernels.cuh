@@ -63,7 +63,24 @@ struct Status {
     std::uint64_t generation;
     unsigned initialized,builds,rounds,aggregates,error;
 };
-struct Work {unsigned active,pending;};
+// CuMetal runs a cooperative grid as one threadgroup, and the fine level's
+// construct() -- every chunk of every changed component, through the seed
+// rounds and the diagonal -- was 1.8-2.2 ms of 256 threads on the tick a
+// building fractures, twice per tick with the correction pass. There the fine
+// level can run as a chain of ordinary launches over the whole GPU instead
+// (opt-in; see Graph::separate). Recursive levels are small and stay cooperative.
+#if defined(PX_CUMETAL) && PX_CUMETAL
+#define NV_BLAST_SEPARATE_HIERARCHY_CONSTRUCT 1
+#else
+#define NV_BLAST_SEPARATE_HIERARCHY_CONSTRUCT 0
+#endif
+// rounds: the separated construction's seed-loop condition, which the fused
+// kernel keeps in pending (see constructLive).
+struct Work {unsigned active,pending;
+#if NV_BLAST_SEPARATE_HIERARCHY_CONSTRUCT
+    unsigned rounds;
+#endif
+};
 struct CoarseBond {
     unsigned a,b;
     StressReal3 offset0,offset1;
@@ -302,5 +319,104 @@ __global__ void construct(Input input,Buffers buffers,Status* status,Work* work)
     grid.sync();
     if(!blockIdx.x && !threadIdx.x)commitBuild(&input,status);
 }
+#if NV_BLAST_SEPARATE_HIERARCHY_CONSTRUCT
+// construct() for a fine level (no levelBonds, so no compacted self rows), as
+// separate launches. Each kernel is the fused kernel's loop between two
+// grid.sync()s over the same logical blocks, so every phase computes what it
+// did before. pending keeps meaning "the construction is live": the fused
+// kernel's early returns clear it, and every later phase checks it. The seed
+// loop's condition lives in rounds instead, because the fused kernel leaves
+// that loop with pending clear and still runs the phases after it.
+__device__ __forceinline__ bool constructLive(const Work* work){return work->active && work->pending;}
+__device__ __forceinline__ bool seedRoundLive(const Work* work){return constructLive(work) && work->rounds;}
+__device__ __forceinline__ unsigned logicalNodeBlocks(const Input& input){return max(1u,(input.nodes+Threads-1)/Threads);}
+__global__ void beginConstruct(Input input,Status* status,Work* work)
+{
+    work->rounds=0;
+    if(input.accept && !*input.accept){work->active=work->pending=0;return;}
+    if(!sourceCountsValid(input) || (input.sourceStatus && (!input.sourceStatus->initialized || input.sourceStatus->error || input.sourceStatus->generation!=*input.generation))){
+        status->error=32;work->active=work->pending=0;return;
+    }
+    beginBuild(resolvedInput(input),status,work);
+}
+// The fused kernel's "freeze the decision" points. The first also opens the
+// seed loop, which the fused kernel enters with pending set.
+__global__ void checkpointConstruct(Status* status,Work* work)
+{
+    if(constructLive(work)){work->pending=unsigned(!status->error);work->rounds=work->pending;}
+}
+__global__ void initializeConstruct(Input input,Buffers buffers,Status* status,Work* work)
+{
+    if(!constructLive(work))return;input=resolvedInput(input);
+    for(unsigned block=blockIdx.x;block<logicalNodeBlocks(input);block+=gridDim.x)initialize(&input,buffers,status,block);
+}
+__global__ void chooseSeedsRound(Input input,Buffers buffers,Status* status,Work* work)
+{
+    if(!seedRoundLive(work))return;input=resolvedInput(input);
+    for(unsigned block=blockIdx.x;block<logicalNodeBlocks(input);block+=gridDim.x)chooseSeeds(&input,buffers,status,block);
+}
+__global__ void assignSeedsRound(Input input,Buffers buffers,Status* status,Work* work)
+{
+    if(!seedRoundLive(work))return;input=resolvedInput(input);
+    for(unsigned block=blockIdx.x;block<logicalNodeBlocks(input);block+=gridDim.x)assignSeeds(&input,buffers,status,block);
+}
+// finishRound, writing the loop condition to rounds. One block.
+__device__ __forceinline__ void finishSeedRoundState(const Input* input,Buffers b,Status* status,Work* work)
+{
+    bool pending=false;const unsigned blocks=(input->nodes+Threads-1)/Threads;
+    for(unsigned i=threadIdx.x;i<blocks;i+=blockDim.x)pending|=b.pending[i]!=0;
+    const unsigned remaining=__syncthreads_or(pending);
+    if(!threadIdx.x){++status->rounds;work->rounds=unsigned(remaining && !status->error);}
+}
+__global__ void finishSeedRound(Input input,Buffers buffers,Status* status,Work* work)
+{
+    if(!seedRoundLive(work))return;input=resolvedInput(input);
+    finishSeedRoundState(&input,buffers,status,work);
+}
+// Whatever seed rounds the unrolled launches did not reach, cooperatively, as
+// the fused kernel ran them.
+__global__ void finishSeedRounds(Input input,Buffers buffers,Status* status,Work* work)
+{
+    const auto grid=cooperative_groups::this_grid();
+    if(!seedRoundLive(work))return;input=resolvedInput(input);
+    const unsigned nodes=logicalNodeBlocks(input);
+    while(work->rounds){
+        for(unsigned block=blockIdx.x;block<nodes;block+=gridDim.x)chooseSeeds(&input,buffers,status,block);
+        grid.sync();
+        for(unsigned block=blockIdx.x;block<nodes;block+=gridDim.x)assignSeeds(&input,buffers,status,block);
+        grid.sync();
+        if(!blockIdx.x)finishSeedRoundState(&input,buffers,status,work);
+        grid.sync();
+    }
+}
+__global__ void minimumConstruct(Input input,Buffers buffers,Work* work)
+{
+    if(!constructLive(work))return;input=resolvedInput(input);
+    for(unsigned block=blockIdx.x;block<logicalNodeBlocks(input);block+=gridDim.x)minimumMembers(&input,buffers,block);
+}
+__global__ void publishConstruct(Input input,Buffers buffers,Status* status,Work* work)
+{
+    if(!constructLive(work))return;input=resolvedInput(input);
+    for(unsigned block=blockIdx.x;block<logicalNodeBlocks(input);block+=gridDim.x)publishLeaders(&input,buffers,status,block);
+}
+__global__ void coarseConstruct(Input input,Buffers buffers,Status* status,Work* work)
+{
+    if(!constructLive(work))return;input=resolvedInput(input);
+    const unsigned bonds=(input.bonds+Threads-1)/Threads;
+    for(unsigned block=blockIdx.x;block<bonds;block+=gridDim.x)buildCoarseBonds(&input,buffers,status,block);
+}
+__global__ void diagonalConstruct(Input input,Buffers buffers,Status* status,Work* work)
+{
+    if(!constructLive(work))return;input=resolvedInput(input);if(input.levelBonds)return;
+    const unsigned diagonalBlocks=(input.nodes+Threads/32-1)/(Threads/32);
+    for(unsigned block=blockIdx.x;block<diagonalBlocks;block+=gridDim.x)buildFineDiagonal(input,buffers,status,block);
+}
+// The fused kernel commits whenever it gets this far; commitBuild itself
+// refuses an errored build, which is the only way pending is clear here.
+__global__ void commitConstruct(Input input,Status* status,Work* work)
+{
+    if(constructLive(work)){input=resolvedInput(input);commitBuild(&input,status);}
+}
+#endif
 
 }}}

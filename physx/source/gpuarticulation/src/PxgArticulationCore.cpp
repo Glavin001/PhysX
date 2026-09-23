@@ -582,9 +582,6 @@ namespace physx
 	{
 		PX_PROFILE_ZONE("GpuArticulationCore.saveVelocities", 0);
 	
-		// PGS only
-		CUfunction artiSaveVelocitiesFunction = mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::ARTI_SAVE_VELOCITY_PGS);
-
 		const PxU32 numThreadsPerWarp = 32;
 		PxU32 numWarpsPerBlock = PxgArticulationCoreKernelBlockDim::COMPUTE_UNCONSTRAINED_VELOCITES / numThreadsPerWarp;
 		//PxU32 numBlocks = (mNbActiveArticulation + numWarpsPerBlock - 1) / numWarpsPerBlock;
@@ -592,6 +589,11 @@ namespace physx
 
 		if (num1TBlocks)
 		{
+			// PGS only. Looked up only when there is an articulation to save:
+			// a build without articulation kernels (the CuMetal rigid demo)
+			// otherwise reports the missing kernel on every PGS step.
+			CUfunction artiSaveVelocitiesFunction = mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::ARTI_SAVE_VELOCITY_PGS);
+
 			//validateData();
 
 			CUdeviceptr descptr = mArticulationCoreDescd.getDevicePtr();

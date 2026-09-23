@@ -630,6 +630,20 @@ __device__ void setPersistentForceElementMask(PxgSolverCoreDesc* solverDesc)
 	}
 }
 
+#if PX_CUMETAL
+// computeThresholdElementMaskIndices overwrites the masks with write indices
+// block by block while every block also derives the persistent masks from the
+// previous ones. CUDA starts all 32 blocks together, so those derivations land
+// first in practice; Metal does not order threadgroups, and a late one turned
+// finished indices back into 0/1, leaving holes in the force-change elements
+// (and host shape-interaction pointers read from unwritten slots). Derive the
+// persistent masks in a launch of their own first.
+extern "C" __global__ void setPersistentThresholdElementsMask(PxgSolverCoreDesc* solverDesc)
+{
+	setPersistentForceElementMask(solverDesc);
+}
+#endif
+
 extern "C" __global__ void computeThresholdElementMaskIndices(PxgSolverCoreDesc* solverDesc)
 {
 	//this function should be called in setThresholdElementsMask. However, if there are no preExceededThresholdElements(which we will know in the CPU code), we don't
@@ -645,7 +659,9 @@ extern "C" __global__ void computeThresholdElementMaskIndices(PxgSolverCoreDesc*
 
 	assert((1 << LOG2_WARP_PERBLOCK_SIZE) == WARP_PERBLOCK_SIZE);
 
+#if !PX_CUMETAL
 	setPersistentForceElementMask(solverDesc);
+#endif
 
 	__shared__ PxU32 sWarpPairsAccumulator[WARP_PERBLOCK_SIZE];
 	__shared__ PxU32 sBlockPairsAccumulator;

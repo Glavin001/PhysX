@@ -335,10 +335,12 @@ __global__ void beginBodyPreparation(const PxDestructionTopologyTransactionStatu
 __global__ void prepareCandidateBodies(PxDestructionTopologyDeviceView topology,
     const PxDestructionStressChunk* chunks,const PxDestructionStressCluster* clusters,
     PxDestructionClusterBodyState* bodies,PxDestructionBodyPreparationStatus* status,
-    PxDestructionTopologyDeviceView accepted,PxvDestructionBodyRequest* requests,PxU32* bodyIndices) {
+    PxDestructionTopologyDeviceView accepted,PxvDestructionBodyRequest* requests,PxU32* bodyIndices,
+    destructionBody::PrincipalFrameCache* frames) {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=status->count)return;
     const PxU32 root=topology.activeClusters[i];PxDestructionClusterBodyState body;
-    const PxU32 error=destructionBody::prepare(topology.clusters[root],topology.motions[topology.clusterSlots[root]],body);
+    const PxU32 error=destructionBody::prepare(topology.clusters[root],topology.motions[topology.clusterSlots[root]],body,
+        frames?frames+root:nullptr);
     body.cluster=root;body.sourceBody=clusters[chunks[root].cluster].body;bodies[i]=body;
     const PxU32 needsBody=accepted.activeChunks[root] && accepted.chunkCluster[root]==root?0u:1u;
     requests[i]={root,body.sourceBody,body.supported,needsBody,i};
@@ -569,6 +571,10 @@ class Runtime final : public PxgDestructionRuntime {
     PxgDestructionGrowMotionStorage mGrowMotionStorage{};void* mMotionStorageOwner{};
     CUstream mMotionProducerStream{};
     PxU32* mTrialBodyIndices{};
+    // Principal frames by cluster root, reused while a tensor is unchanged
+    // (destructionBody::cachedPrincipalFrame). CuMetal only: native double
+    // makes the recomputation cheap on CUDA.
+    destructionBody::PrincipalFrameCache* mPrincipalFrames{};
     PxvDestructionBodyRequest* mCorrectionOwnerRequests{};
     PxU32* mCorrectionOwnerTargets{};
     PxDestructionBodyAllocationStatus* mBodyAllocation{};
@@ -727,6 +733,12 @@ public:
                 && mPreSourceGraphGeneration!=~PxU64(0) && mGraphView.generation==mPreSourceGraphGeneration+1;
             // Growth preserves both rosters and the previous graph certificate.
             // New handle holes are initialized below before applying deltas.
+            // The registry and the phase storage double independently, so the
+            // phase storage can outgrow the registry, and a count between the
+            // two then indexed and copied past the registry's end (CuMetal
+            // refused the copy; CUDA read and wrote out of bounds). Grow the
+            // registry for every count, not only when the phase storage grows.
+            growNativeNodeStorage(count,cudaStream);
             if(count>mPreCapacity)growPreSolveStorage(count,cudaStream);
             if(updateCount>mPreUpdateCapacity) {
                 check(cudaEventSynchronize(mPreReady));cudaFree(mPreUpdates);mPreUpdates=nullptr;
@@ -1063,6 +1075,7 @@ public:
         if(mTopology)mTopology->release();mTopology=nullptr;
         cudaFree(mProvisionalMotion);mProvisionalMotion=nullptr;
         cudaFree(mTrialBodies);mTrialBodies=nullptr;mBodyPreparation=nullptr;
+        cudaFree(mPrincipalFrames);mPrincipalFrames=nullptr;
         cudaFree(mTopologyEdits);mTopologyEdits=nullptr;cudaFree(mTopologyCount);mTopologyCount=nullptr;mEditCapacity=0;
         cudaFree(mTopologyAccept);mTopologyAccept=nullptr;
         if(mSolver)mSolver->release();mSolver=nullptr;
@@ -1240,6 +1253,10 @@ public:
                 }
                 check(cudaMalloc(&mCorrectionScratch,mCorrectionScratchBytes));
                 allocate(mTrialBodies,d.chunkCount);mBodyPreparation=&mCompletion->body;
+#if PX_CUMETAL
+                allocate(mPrincipalFrames,d.chunkCount);
+                check(cudaMemset(mPrincipalFrames,0,sizeof(*mPrincipalFrames)*std::max<size_t>(d.chunkCount,1)));
+#endif
                 check(cudaMemset(mBodyPreparation,0,sizeof(*mBodyPreparation)));
                 mHostBodyPreparation=&mHostCompletion->body;*mHostBodyPreparation={};
                 mBodyAllocationObservation=&mHostCompletion->allocation;*mBodyAllocationObservation={};
@@ -1505,7 +1522,7 @@ public:
                 check(cudaStreamWaitEvent(mStream,static_cast<cudaEvent_t>(mTopology->trial().readyEvent),0));
                 inspectTopologyTransaction<<<1,1,0,mStream>>>(mTopology->status(),mStatus);
                 beginBodyPreparation<<<1,1,0,mStream>>>(mTopology->status(),mTopology->trial(),mBodyPreparation);
-                prepareCandidateBodies<<<(mN+127)/128,128,0,mStream>>>(mTopology->trial(),mChunks,mClusters,mTrialBodies,mBodyPreparation,mTopology->accepted(),mBodyRequests,mTrialBodyIndices);
+                prepareCandidateBodies<<<(mN+127)/128,128,0,mStream>>>(mTopology->trial(),mChunks,mClusters,mTrialBodies,mBodyPreparation,mTopology->accepted(),mBodyRequests,mTrialBodyIndices,mPrincipalFrames);
                 finishBodyPreparation<<<1,1,0,mStream>>>(mTopology->status(),mBodyPreparation,mStatus);
                 stageMarker(4);
                 beginUnchangedMotionCommit<<<1,1,0,mStream>>>(mTopology->status(),mStatus,mTopologyAccept);

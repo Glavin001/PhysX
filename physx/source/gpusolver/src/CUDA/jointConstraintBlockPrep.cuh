@@ -42,6 +42,17 @@
 #include "MemoryAllocator.cuh"
 #include "PxgSolverKernelIndices.h"
 
+// A joint row's position in its sorted order; below Dy::MAX_CONSTRAINT_ROWS.
+// Metal caps threadgroup memory at 32 KB, and with 32-bit indices the joint
+// prepare kernels' shared arrays need 35,840 bytes at 64 threads (20 rows of
+// 4 + 12 + 12 bytes each); the pipeline then fails to build and every joint
+// goes unprepared. A byte holds the index and brings them to 32,000.
+#if defined(PX_CUMETAL) && PX_CUMETAL
+typedef physx::PxU8 PxgJointRowIndex;
+#else
+typedef physx::PxU32 PxgJointRowIndex;
+#endif
+
 namespace physx
 {
 
@@ -66,7 +77,7 @@ struct PxgMassProps
 //
 // See orthogonalize() in DyConstraintSetup.cpp for a general explanation
 //
-static __device__ void orthogonalize( PxU32* sortedRowIndices, PxgBlockConstraint1DVelocities* rvs, PxgBlockConstraint1DParameters* rps,
+static __device__ void orthogonalize( PxgJointRowIndex* sortedRowIndices, PxgBlockConstraint1DVelocities* rvs, PxgBlockConstraint1DParameters* rps,
 										PxVec3* angSqrtInvInertia0,
 										PxVec3* angSqrtInvInertia1,
 										PxU32 rowCount, 
@@ -161,7 +172,7 @@ static __device__ void orthogonalize( PxU32* sortedRowIndices, PxgBlockConstrain
 
 
 
-static __device__ void preprocessRows(PxU32* sortedRowIndices, PxgBlockConstraint1DData* constraintData, 
+static __device__ void preprocessRows(PxgJointRowIndex* sortedRowIndices, PxgBlockConstraint1DData* constraintData, 
 									  PxgBlockConstraint1DVelocities* rowVelocities, PxgBlockConstraint1DParameters* rowParameters,
 									  PxVec3* angSqrtInvInertia0, PxVec3* angSqrtInvInertia1,
 									  const PxgSolverBodyPrepData* bd0, const PxgSolverBodyPrepData* bd1,
@@ -179,7 +190,7 @@ static __device__ void preprocessRows(PxU32* sortedRowIndices, PxgBlockConstrain
 		for(;j>0 && r.solveHint[threadIndex] < rowParameters[sortedRowIndices[j-1]].solveHint[threadIndex]; j--)
 			sortedRowIndices[j] = sortedRowIndices[j-1];
 
-		sortedRowIndices[j] = i;
+		sortedRowIndices[j] = PxgJointRowIndex(i);
 	}
 
 	/*for(PxU32 i=1;i<constraintData->mNumRows[threadIndex];i++)
@@ -286,7 +297,7 @@ static __device__ void intializeBlock1D(const PxgBlockConstraint1DVelocities& rv
 	}
 }
 
-static __device__ void setUp1DConstraintBlock(PxU32* sortedRowIndices, PxgBlockConstraint1DData* constraintData, PxgBlockConstraint1DVelocities* rowVelocities, PxgBlockConstraint1DParameters* rowParameters, 
+static __device__ void setUp1DConstraintBlock(PxgJointRowIndex* sortedRowIndices, PxgBlockConstraint1DData* constraintData, PxgBlockConstraint1DVelocities* rowVelocities, PxgBlockConstraint1DParameters* rowParameters, 
 								  PxVec3* angSqrtInvInertia0, PxVec3* angSqrtInvInertia1, PxgBlockSolverConstraint1DCon* constraintsCon, PxgBlockSolverConstraint1DMod* constraintsMod,
 									float dt, float recipdt, float biasCoefficient, const PxgSolverBodyPrepData* sBodyData0, const PxgSolverBodyPrepData* sBodyData1,
 									const PxU32 threadIndex)
@@ -382,7 +393,7 @@ static __device__ void setupSolverConstraintBlockGPU(PxgBlockConstraint1DData* c
 	
 	header->breakable[threadIndex] = PxU8((raWorld_linBreakForce.w != PX_MAX_F32) || (angBreakForce != PX_MAX_F32));
 
-	__shared__ PxU32 sortedRowIndices[NbThreads][Dy::MAX_CONSTRAINT_ROWS];
+	__shared__ PxgJointRowIndex sortedRowIndices[NbThreads][Dy::MAX_CONSTRAINT_ROWS];
 	__shared__ PxVec3 angSqrtInvInertia0[NbThreads][Dy::MAX_CONSTRAINT_ROWS];
 	__shared__ PxVec3 angSqrtInvInertia1[NbThreads][Dy::MAX_CONSTRAINT_ROWS];
 	

@@ -59,6 +59,35 @@ __device__ inline bool principalFrame(const double* inertia, double* moments, do
     for(unsigned i=0;i<4;++i)q[i]/=divisor;
     return true;
 }
+// A cluster's principal frame depends only on its inertia tensor, and every
+// cluster a fracture did not touch keeps its tensor bit for bit. The Jacobi
+// rotations above are a dependent chain of emulated double operations on
+// Metal, about a millisecond per thread, paid for every live cluster on each
+// fracturing pass. The cache hands back exactly what principalFrame returned
+// for a bitwise-equal tensor, failure included; one thread owns each root.
+struct PrincipalFrameCache { unsigned long long inertia[6],moments[3],q[4]; PxU32 state; };
+__device__ inline bool cachedPrincipalFrame(const double* inertia,double* moments,double* q,PrincipalFrameCache* cache) {
+    const auto* bits=reinterpret_cast<const unsigned long long*>(inertia);
+    if(cache && cache->state) {
+        bool same=true;for(unsigned i=0;i<6;++i)same=same && bits[i]==cache->inertia[i];
+        if(same) {
+            if(cache->state==2)return false;
+            for(unsigned i=0;i<3;++i)reinterpret_cast<unsigned long long*>(moments)[i]=cache->moments[i];
+            for(unsigned i=0;i<4;++i)reinterpret_cast<unsigned long long*>(q)[i]=cache->q[i];
+            return true;
+        }
+    }
+    const bool ok=principalFrame(inertia,moments,q);
+    if(cache) {
+        for(unsigned i=0;i<6;++i)cache->inertia[i]=bits[i];
+        if(ok) {
+            for(unsigned i=0;i<3;++i)cache->moments[i]=reinterpret_cast<const unsigned long long*>(moments)[i];
+            for(unsigned i=0;i<4;++i)cache->q[i]=reinterpret_cast<const unsigned long long*>(q)[i];
+        }
+        cache->state=ok?1u:2u;
+    }
+    return ok;
+}
 __device__ inline void rotate(const double* q,const double* p,double* out) {
     const double t[3]={2*(q[1]*p[2]-q[2]*p[1]),2*(q[2]*p[0]-q[0]*p[2]),2*(q[0]*p[1]-q[1]*p[0])};
     out[0]=p[0]+q[3]*t[0]+q[1]*t[2]-q[2]*t[1];
@@ -77,11 +106,11 @@ __device__ inline bool motionValue(double value,float& out) {
     out=float(value);return true;
 }
 __device__ inline unsigned prepare(const PxDestructionClusterMassProperties& mass,
-    const PxDestructionClusterMotion& motion,PxDestructionClusterBodyState& out) {
+    const PxDestructionClusterMotion& motion,PxDestructionClusterBodyState& out,PrincipalFrameCache* cache=nullptr) {
     out={};out.supported=mass.supported!=0;
     if(!isfinite(mass.mass) || mass.mass<0 || (!mass.supported && mass.mass==0))return 1;
     double moments[3],principal[4];
-    if(!principalFrame(mass.inertia,moments,principal))return 2;
+    if(!cachedPrincipalFrame(mass.inertia,moments,principal,cache))return 2;
     for(unsigned i=0;i<3;++i)if(!isfinite(moments[i]) || moments[i]<0 || (!mass.supported && moments[i]==0))return 2;
     for(unsigned i=0;i<3;++i)
         if(!isfinite(mass.center[i]) || !isfinite(motion.origin[i]) || !isfinite(motion.linearVelocity[i]) || !isfinite(motion.angularVelocity[i]))return 4;

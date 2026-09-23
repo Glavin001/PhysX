@@ -93,7 +93,8 @@ class BuildSafetyTests(unittest.TestCase):
         self.assertEqual(p['commands'][-2][0], 'ctest')
 
     def test_macos_has_no_nvidia_toolkit(self):
-        p = plan(self.args('--preset', 'macos-cumetal'), self.root)
+        # The GPU stage builds CuMetal; the SDK stage packages that build.
+        p = plan(self.args('--preset', 'macos-cumetal', '--stage', 'gpu'), self.root)
         commands = json.dumps(p['commands'])
         self.assertNotIn('/usr/local/cuda', commands)
         self.assertNotIn('CMAKE_CUDA_COMPILER', commands)
@@ -876,6 +877,29 @@ int PxOrdinarySdkLinkageSentinel() { return 0; }
         self.assertFalse(p['work'].exists())
         self.assertFalse(describe(args, p)['sdk_acceptance'])
         self.assertTrue(all(path.is_relative_to(p['work']) for path in p['caches'].values()))
+
+    def test_cumetal_sdk_packages_the_gpu_engine_without_relinking_it(self):
+        args = self.args('--backend', 'cumetal', '--stage', 'sdk', '--install', '--cumetal-rigid-demo')
+        p = plan(args, self.root)
+        engine = self.root / 'out/build/macos-cumetal/release/gpu'
+        self.assertEqual(p['engine'], engine)
+        # Host archives only: the GPU module and libcumetal are never rebuilt.
+        self.assertIn('PhysXCharacterKinematic', p['commands'][0])
+        self.assertNotIn('PhysXGpu', p['commands'][0])
+        self.assertFalse(any(str(self.cumetal) in c[2] for c in p['commands'] if c[:2] == ['cmake', '--build']))
+        self.assertIn('-DPHYSX_LIB_DIR=' + str(engine / 'artifacts/bin/mac.arm64/release'), p['commands'][1])
+        self.assertEqual(p['commands'][-2][:2], ['cmake', '--install'])
+        self.assertTrue(p['commands'][-1][2].endswith('relocate-macos-sdk.py'))
+        relocate = p['commands'][-1]
+        self.assertIn(str(self.root / 'out/sdk-artifacts.json'), relocate)
+        self.assertEqual(relocate[relocate.index('--warm') + 1],
+                         str(self.cumetal / 'out/build/macos-cumetal/release/cumetal-warm'))
+        self.assertIn(self.cumetal / 'out/build/macos-cumetal/release/cumetal-warm', p['required_scene_inputs'])
+        self.assertTrue(any('Missing scene prerequisite' in x for x in scene_prerequisites(p)))
+        self.assertEqual(describe(args, p)['feature_profile'], 'rigid-demo-experimental')
+        self.assertFalse(p['work'].exists())
+        with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+            self.args('--backend', 'cumetal', '--stage', 'sdk', '--test', '--cumetal-rigid-demo')
 
     def test_scene_test_selection_is_explicit_and_exact(self):
         args = self.args('--backend', 'cumetal', '--stage', 'scene', '--target', 'native_standard_scene_test', '--test')

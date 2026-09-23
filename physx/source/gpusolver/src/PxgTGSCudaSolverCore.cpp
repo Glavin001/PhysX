@@ -1920,6 +1920,14 @@ void PxgTGSCudaSolverCore::accumulatedForceThresholdStream(PxU32 maxNodes)
 		PX_ASSERT(result == CUDA_SUCCESS);
 	}
 
+#if PX_CUMETAL
+	// See setPersistentThresholdElementsMask: the persistent masks must be
+	// complete before any block turns masks into write indices.
+	kernelFunction = mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::SET_PERSISTENT_THRESHOLDELEMENT_MASK);
+	result = mCudaContext->launchKernel(kernelFunction, PxgKernelGridDim::SET_THRESHOLDELEMENT_MASK, 1, 1, PxgKernelBlockDim::SET_THRESHOLDELEMENT_MASK, 1, 1, 0, mStream, kernelParams, sizeof(kernelParams), 0, PX_FL);
+	PX_ASSERT(result == CUDA_SUCCESS);
+#endif
+
 	//computeThresholdPairsMaskIndices
 	kernelFunction = mGpuKernelWranglerManager->getCuFunction(PxgKernelIds::COMPUTE_THRESHOLDELEMENT_MASK_INDICES);
 	result = mCudaContext->launchKernel(kernelFunction, PxgKernelGridDim::COMPUTE_THRESHOLDELEMENT_MASK_INDICES, 1, 1, PxgKernelBlockDim::COMPUTE_THRESHOLDELEMENT_MASK_INDICES, 1, 1, 0, mStream, kernelParams, sizeof(kernelParams), 0, PX_FL);

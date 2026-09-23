@@ -75,8 +75,45 @@ child processes because PhysX stores nested pointers in device descriptors.
 The current runtime marks every live allocation read-write resident in this
 mode, limiting cross-stream concurrency. This is a recorded correctness choice,
 not a performance result or forced per-kernel synchronization. The host-only
-and compiler gates do not enable it. External native consumers will also need
-this runtime setting until integration exposes a safer initialization API.
+and compiler gates do not enable it. The GPU module loader sets it too, before
+the module is opened, unless the environment already sets it, so an external
+consumer needs no setting of its own.
+
+### macOS package for external consumers
+
+`--stage sdk --install` on CuMetal packages an existing `--stage gpu` engine for
+the rigid-demo profile (articulation and diffuse-particle kernels excluded); the
+full profile stays blocked. Pass the same CuMetal options the GPU engine was
+configured with: the stage compares them with that engine's CMake cache and
+refuses a mismatch. It builds only the host archives (including
+`PhysXCharacterKinematic`) and the package's own libraries, never relinking the
+GPU module, then installs to `out/install/macos-cumetal/release`:
+
+```sh
+python3 -B tools/scripts/build-destruction-sdk.py --preset macos-cumetal --stage sdk --install \
+  --generator 'Unix Makefiles' --cumetal-rigid-demo <the --stage gpu CuMetal options>
+```
+
+`tools/scripts/relocate-macos-sdk.py` runs last. It copies `libcumetal.dylib` into
+`lib/` and CuMetal's clean-room CUDA headers into `include/cumetal/`, replaces
+absolute rpaths with `@loader_path` (re-signing ad hoc), and writes
+`out/sdk-artifacts.json` (`source_revision`, `source_dirty`, and a sha256 per
+library). That is the same manifest shape the Linux SDK build records.
+It then runs `cumetal-warm --strict` over every metallib embedded in the
+packaged GPU module and fails the install if any kernel cannot build a Metal
+pipeline (for example over the 32 KB threadgroup limit). The manifest's
+`metal_pipeline_gate` records the metallib and kernel counts, and the warmed
+cache removes the long first-run pipeline compile.
+
+`native_feature_reference_test` (`ctest -R physx_native_feature_reference` in
+the reference build) runs the features vibe-land relies on under the CPU and
+GPU pipelines and requires the GPU to match: a sphere, box, capsule and convex
+hull at rest on a heightfield, and the Vehicle2 suspension-limit and sticky-tyre
+constraint rows (a hard landing and a parked car). It passes on Metal. It is
+a CPU-vs-GPU comparison, not qualification of the rest of the GPU feature set.
+Consumers compile with `PX_CUMETAL=1`, which exposes the GPU API in
+`PxPreprocessor.h`. `PhysXDestruction::NativeScene` and `::Sdk` export it.
+vibe-land's `physx-bridge` finds this prefix in a sibling checkout by itself.
 
 Resolved output paths, symlinks and existing CMake output/install cache entries
 must stay inside the repositories. Temporary directories, CuMetal/NVIDIA/module
@@ -99,8 +136,8 @@ CUDA runtime. The complete SDK/reference target above remains compatible.
 Configure with `-DCMAKE_PREFIX_PATH=/path/to/sdk/install`. CPU and GPU consumer
 execution is covered by `tests/destruction/package-consumer`; historical CUDA
 relocation results must be requalified on this checkout. They have not been
-executed on Linux during the current CuMetal work, and macOS PhysX package
-relocation is not yet available. The GPU topology target is separately
+executed on Linux during the current CuMetal work. The macOS package is
+relocatable as described above. The GPU topology target is separately
 available as `PhysX::PhysXDestructionTopologyGpu` from the same package.
 
 Run the native reference and new GPU tests:

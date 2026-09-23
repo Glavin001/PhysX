@@ -155,7 +155,7 @@ static __device__ PxU32 intializeBlock1DTGS
 
 
 static __device__ PxU32 setUp1DConstraintBlockTGS
-(PxU32* sortedRowIndices, PxgBlockConstraint1DData* constraintData, PxgBlockConstraint1DVelocities* rowVelocities, PxgBlockConstraint1DParameters* rowParameters, 
+(PxgJointRowIndex* sortedRowIndices, PxgBlockConstraint1DData* constraintData, PxgBlockConstraint1DVelocities* rowVelocities, PxgBlockConstraint1DParameters* rowParameters, 
  PxVec3* angSqrtInvInertias0, PxVec3* angSqrtInvInertias1, PxgTGSBlockSolverConstraint1DHeader& header, PxgTGSBlockSolverConstraint1DCon* constraintsCon,
  float stepDt, float recipStepDt, float simDt, float recipSimDt, float biasCoefficient, const PxgSolverBodyData* sBodyData0, const PxgSolverBodyData* sBodyData1,
  const PxU32 threadIndex, const PxReal lengthScale, bool disablePreprocessing)
@@ -295,7 +295,7 @@ static __device__ void setupSolverConstraintBlockGPUTGS(PxgBlockConstraint1DData
 	}
 
 
-	__shared__ PxU32 sortedRowIndices[NbThreads][Dy::MAX_CONSTRAINT_ROWS];
+	__shared__ PxgJointRowIndex sortedRowIndices[NbThreads][Dy::MAX_CONSTRAINT_ROWS];
 	__shared__ PxVec3 angSqrtInvInertia0[NbThreads][Dy::MAX_CONSTRAINT_ROWS];
 	__shared__ PxVec3 angSqrtInvInertia1[NbThreads][Dy::MAX_CONSTRAINT_ROWS];
 

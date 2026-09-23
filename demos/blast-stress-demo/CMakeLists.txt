@@ -919,6 +919,15 @@ if(BLAST_ENABLE_CUDA_STRESS)
     target_link_libraries(native_convex_contact_test PRIVATE ${NATIVE_DESTRUCTION_TEST_LIBS} ${PX_DESTRUCTION_GPU_DRIVER})
     add_test(NAME physx_native_convex_contacts COMMAND native_convex_contact_test)
 
+    # Heightfield contacts and the vehicle's constraint rows on the GPU, against
+    # the CPU pipeline: the rigid-body features vibe-land's city relies on.
+    add_executable(native_feature_reference_test tests/native_feature_reference_test.cpp physx_scene.cpp)
+    target_compile_definitions(native_feature_reference_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG PX_SUPPORT_PVD=0 PX_SUPPORT_OMNI_PVD=0)
+    target_include_directories(native_feature_reference_test PRIVATE ${NATIVE_CHECKPOINT_TEST_INCLUDES} ${DESTRUCTION_REPO}/destruction/vehicle)
+    target_link_options(native_feature_reference_test PRIVATE "-Wl,-rpath,${PHYSX_LIB_DIR}")
+    target_link_libraries(native_feature_reference_test PRIVATE PhysXNativeVehicle ${PHYSX_VEHICLE} ${NATIVE_DESTRUCTION_TEST_LIBS} ${PX_DESTRUCTION_GPU_DRIVER})
+    add_test(NAME physx_native_feature_reference COMMAND native_feature_reference_test)
+
     add_executable(native_standard_scene_test tests/native_standard_scene_test.cpp physx_scene.cpp)
     target_compile_definitions(native_standard_scene_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG PX_SUPPORT_PVD=0 PX_SUPPORT_OMNI_PVD=0)
     target_include_directories(native_standard_scene_test PRIVATE ${NATIVE_CHECKPOINT_TEST_INCLUDES})

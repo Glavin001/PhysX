@@ -18,7 +18,7 @@ HOST_TARGETS = ['PhysX', 'PhysXCommon', 'PhysXFoundation', 'PhysXExtensions',
                 'PhysXPvdSDK', 'PhysXCooking', 'PhysXCharacterKinematic', 'PhysXVehicle']
 CUMETAL_TARGETS = ['cumetal_runtime', 'air_inspect', 'air_validate', 'cumetal-air-emitter',
                    'cumetal', 'cumetalc', 'cumetal-ptx2llvm', 'ptx_diff', 'cumetal_bench',
-                   'cumetal_ptxas_shim', 'cumetal_fatbinary_shim']
+                   'cumetal_ptxas_shim', 'cumetal_fatbinary_shim', 'cumetal-warm']
 GPU_TARGETS = ['PhysXGpu', 'PhysXCudaContextManager', 'PhysXBroadphaseGpu', 'PhysXCommonGpu',
                'PhysXNarrowphaseGpu', 'PhysXSimulationControllerGpu', 'PhysXSolverGpu',
                'PhysXArticulationGpu', 'PhysXGpuDependencies', 'PhysXDestructionGpuRuntime',
@@ -130,6 +130,8 @@ def arguments(argv=None):
         parser.error('CUDA/OpenGL rendering and CUPTI are outside the CuMetal SDK target')
     if args.gpu_profiler and not args.cupti_root:
         parser.error('--gpu-profiler requires an existing --cupti-root')
+    if args.backend == 'cumetal' and args.stage == 'sdk' and args.test:
+        parser.error('--stage sdk on CuMetal packages the --stage gpu engine; test it with --stage gpu/scene')
     if args.stage in ('host', 'gpu', 'scene') and args.install:
         parser.error('--stage host/gpu/scene does not provide an installable destruction package; use --stage sdk')
     component_test = bool(args.target) and all(t in GPU_COMPONENT_TESTS for t in args.target)
@@ -178,7 +180,10 @@ def plan(args, root=ROOT):
     build_tool = shutil.which('ninja' if args.generator == 'Ninja' else 'make', path=environment.get('PATH'))
     generator_flags = [f'-DCMAKE_MAKE_PROGRAM={build_tool}'] if build_tool else []
     sdk, artifacts, build, package = root / 'physx', work / 'artifacts', work / 'physx', work / 'destruction'
-    if args.stage == 'scene':
+    # CuMetal packages the --stage gpu engine instead of recompiling every
+    # kernel: the SDK stage adds only host archives and the install step.
+    reuse_engine = args.stage == 'scene' or (args.stage == 'sdk' and args.backend == 'cumetal')
+    if reuse_engine:
         engine = contained(root / 'out/build' / args.preset / args.configuration / 'gpu', (root,))
         audit_tree(engine, roots)
         audit_cmake_caches(engine, roots)
@@ -210,7 +215,7 @@ def plan(args, root=ROOT):
         for alias in (cm_build / 'libcuda.dylib', cm_prefix / 'lib/libcuda.dylib'):
             if alias.exists() or alias.is_symlink():
                 raise ValueError(f'Binary-shim alias exists in a source-first output tree: {alias}. Inspect it manually or choose a fresh configuration.')
-        if args.stage in ('gpu', 'sdk', 'compiler'):
+        if args.stage in ('gpu', 'compiler'):
             commands += [
                 ['cmake', '-S', str(cumetal), '-B', str(cm_build), '-G', args.generator,
                  f'-DCMAKE_BUILD_TYPE={"Debug" if args.configuration == "debug" else "Release"}',
@@ -271,15 +276,13 @@ def plan(args, root=ROOT):
                                   else 'libPhysXGpuActivity_64.so'), build / 'include/PxConfig.h']
         if args.backend == 'cumetal':
             required += [cm_build / 'cumetalc', cm_build / 'libcumetal.dylib']
-        # Compare all supplied backend/compiler hints with the reused engine.
-        expected_cache = dict(flag[2:].split('=', 1) for flag in common
-                              if flag.startswith(('-DPX_', '-DCUMETAL', '-DCMAKE_BUILD_TYPE=',
-                                                  '-DCMAKE_CUDA_')))
         return dict(root=root, roots=roots, work=work, prefix=prefix, artifacts=artifacts,
                     cumetal=cumetal, environment=environment, caches=caches, commands=commands,
                     extra_outputs=extra_outputs, engine=engine, engine_cache=build / 'CMakeCache.txt',
-                    expected_engine_cache=expected_cache, required_scene_inputs=required,
+                    expected_engine_cache=engine_cache(common), required_scene_inputs=required,
                     scene_executable=package / 'reference' / args.target[0])
+    if args.stage == 'sdk' and args.backend == 'cumetal':
+        return cumetal_sdk_plan(args, locals())
     targets = HOST_TARGETS + (['PhysXCudaContextManager', 'PhysXGpu'] if args.stage in ('gpu', 'sdk') else [])
     if args.stage == 'host' and args.test:
         if args.backend != 'cumetal':
@@ -317,6 +320,53 @@ def plan(args, root=ROOT):
     return dict(root=root, roots=roots, work=work, prefix=prefix, artifacts=artifacts,
                 cumetal=cumetal, environment=environment, caches=caches, commands=commands, extra_outputs=extra_outputs)
 
+
+
+def engine_cache(common):
+    """Backend/compiler hints a reused engine's CMake cache must match."""
+    return dict(flag[2:].split('=', 1) for flag in common
+                if flag.startswith(('-DPX_', '-DCUMETAL', '-DCMAKE_BUILD_TYPE=', '-DCMAKE_CUDA_')))
+
+
+# Targets the destruction package installs; building them is enough for
+# `cmake --install`, without the reference demos.
+PACKAGE_INSTALL_TARGETS = ['blast_stress_core', 'NvBlastExtStressPhysX', 'NvBlastExtStressGpu',
+                           'PhysXDestructionTopologyGpu', 'PhysXNativeVehicle']
+
+
+def cumetal_sdk_plan(args, v):
+    """Install the CuMetal --stage gpu engine as a relocatable SDK package.
+
+    Only host archives (for example PhysXCharacterKinematic) and the package's
+    own static libraries are built. The GPU module and libcumetal are copied as
+    built by --stage gpu, never relinked here, so a process using the engine
+    tree keeps running.
+    """
+    root, engine, build, libraries = v['root'], v['engine'], v['build'], v['libraries']
+    package, prefix, common, cm_build = v['package'], v['prefix'], v['common'], v['cm_build']
+    commands = [
+        ['cmake', '--build', str(build), '--target', *HOST_TARGETS, 'PhysXCudaContextManager',
+         '--parallel', str(args.jobs)],
+        ['cmake', '-S', str(root / 'destruction'), '-B', str(package), *common,
+         f'-DPHYSX_ROOT={v["sdk"]}', f'-DPHYSX_LIB_DIR={libraries}', f'-DPHYSX_CONFIGURATION={args.configuration}',
+         f'-DPX_GENERATED_INCLUDE_DIR={build / "include"}', '-DBLAST_ENABLE_CUDA_STRESS=ON',
+         '-DNATIVE_GPU_EGL_RENDERER=OFF', '-DNATIVE_GPU_CUPTI=OFF'],
+        ['cmake', '--build', str(package), '--target', *PACKAGE_INSTALL_TARGETS, '--parallel', str(args.jobs)],
+    ]
+    if args.install:
+        commands += [['cmake', '--install', str(package), '--prefix', str(prefix)],
+                     ['python3', '-B', str(root / 'tools/scripts/relocate-macos-sdk.py'), str(prefix),
+                      str(cm_build / 'libcumetal.dylib'), str(v['cumetal'] / 'runtime/api'),
+                      str(root / 'out/sdk-artifacts.json'),
+                      # Every shipped kernel must build a Metal pipeline.
+                      '--warm', str(cm_build / 'cumetal-warm'), '--gate-dir', str(v['work'] / 'pipeline-gate')]]
+    required = [libraries / 'libPhysXGpuActivity_64.dylib', libraries / 'libPhysXDestructionGpuRuntime_64.dylib',
+                build / 'include/PxConfig.h', cm_build / 'libcumetal.dylib', cm_build / 'cumetalc',
+                cm_build / 'cumetal-warm']
+    return dict(root=root, roots=v['roots'], work=v['work'], prefix=prefix, artifacts=v['artifacts'],
+                cumetal=v['cumetal'], environment=v['environment'], caches=v['caches'], commands=commands,
+                extra_outputs=v['extra_outputs'], engine=engine, engine_cache=build / 'CMakeCache.txt',
+                expected_engine_cache=engine_cache(common), required_scene_inputs=required)
 
 
 def scene_prerequisites(build_plan):
@@ -371,7 +421,7 @@ def preflight(args, build_plan):
         issues.append('CuMetal requires Apple Silicon')
     if args.test and args.stage == 'sdk':
         issues += audit_test_sources(build_plan['root'])
-    if args.stage == 'scene':
+    if args.stage == 'scene' or 'engine' in build_plan:
         issues += scene_prerequisites(build_plan)
         if args.test:
             issues += audit_test_sources(build_plan['root'], scene_source_paths(build_plan['root']))
@@ -408,7 +458,7 @@ def preflight(args, build_plan):
                     issues.append(f'Apple {name} tool unavailable: {detail}. Xcode/Metal Toolchain installation is a manual external prerequisite.')
             else:
                 versions[name] = dict(path=result.stdout.strip())
-    if args.backend == 'cumetal' and args.stage == 'sdk':
+    if args.backend == 'cumetal' and args.stage == 'sdk' and not args.cumetal_rigid_demo:
         issues.append('CuMetal destruction SDK is not implemented yet: full PhysX GPU module integration and numerical qualification remain required. See docs/CUMETAL_COMPATIBILITY.md; --stage host validates only the CPU host SDK.')
     return issues, versions
 
@@ -418,7 +468,7 @@ def describe(args, build_plan):
                 selected_targets=args.target, partial_build=bool(args.target),
                 scene_test=SCENE_TEST if args.stage == 'scene' and args.test else None,
                 scene_timeout_seconds=(600 if args.backend == 'cumetal' else 120) if args.stage == 'scene' else None,
-                reused_engine_root=str(build_plan['engine']) if args.stage == 'scene' else None,
+                reused_engine_root=str(build_plan['engine']) if 'engine' in build_plan else None,
                 required_scene_inputs=list(map(str, build_plan.get('required_scene_inputs', []))),
                 sdk_acceptance=False if args.stage == 'scene' else None,
                 feature_profile='rigid-demo-experimental' if args.cumetal_rigid_demo else 'full',
@@ -529,7 +579,7 @@ def main(argv=None):
         try:
             for index, command in enumerate(build_plan['commands']):
                 for directory in [build_plan['work'], build_plan['prefix'], *build_plan['extra_outputs'],
-                                  *([build_plan['engine']] if args.stage == 'scene' else [])]:
+                                  *([build_plan['engine']] if 'engine' in build_plan else [])]:
                     audit_tree(directory, build_plan['roots'])
                     audit_cmake_caches(directory, build_plan['roots'])
                 print('+ ' + shlex.join(command), flush=True)

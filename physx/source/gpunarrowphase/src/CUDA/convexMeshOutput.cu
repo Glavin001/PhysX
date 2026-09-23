@@ -27,6 +27,7 @@
 // Copyright (c) 2001-2004 NovodeX AG. All rights reserved.  
 
 #include "foundation/PxAssert.h"
+#include "PxgHostAddressToken.h"
 #include "foundation/PxVec3.h"
 #include "PxContact.h"
 
@@ -130,14 +131,18 @@ void convexTrimeshFinishContacts(
 								PxgPatchAndContactCounters* PX_RESTRICT patchAndContactCounters,
 								PxU32* touchChangeFlags,
 								PxU32* patchChangeFlags,
-								PxU8* startContactPatches,
-								PxU8* startContactPoints,
-								PxU8* startContactForces,
+								PXG_HOST_ADDRESS_PARAMETER(PxU8, PX_RESTRICT, startContactPatches),
+								PXG_HOST_ADDRESS_PARAMETER(PxU8, PX_RESTRICT, startContactPoints),
+								PXG_HOST_ADDRESS_PARAMETER(PxU8, PX_RESTRICT, startContactForces),
 								PxU32 patchBytesLimit,
 								PxU32 contactBytesLimit,
 								PxU32 forceBytesLimit
 	)
 {
+	PXG_HOST_ADDRESS_DECODE(PxU8, PX_RESTRICT, startContactPatches)
+	PXG_HOST_ADDRESS_DECODE(PxU8, PX_RESTRICT, startContactPoints)
+	PXG_HOST_ADDRESS_DECODE(PxU8, PX_RESTRICT, startContactForces)
+
 	const PxU32 globalThreadIndex = threadIdx.x + blockIdx.x * blockDim.x;
 
 	const PxU32 globalWarpIndex = globalThreadIndex / WARP_SIZE;
