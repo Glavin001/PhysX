@@ -14,7 +14,14 @@ tree's absolute rpaths, and without the libcumetal they load. This step:
   installed GPU libraries and fails if any cannot be built. Metal enforces
   limits CUDA does not (32 KB of threadgroup memory, for one); a kernel over
   one fails at every launch, silently to the scene, and only this catches it
-  before a consumer runs.
+  before a consumer runs. The archive that step builds ships in
+  <prefix>/lib/cumetal-pipeline-archive, where libcumetal looks beside itself,
+  so a consumer's first run after an engine rebuild loads compiled pipelines
+  instead of compiling them (17 s on the first city tick, measured) into
+  whatever cache directory it happens to use. cumetal-warm also archives each
+  kernel's indirect-command-buffer variant, which CuMetal builds for kernels
+  in conditional graph bodies (10.7 s at destruction graph instantiation on a
+  cache without them, measured), so those ship too.
 
 Usage: relocate-macos-sdk.py PREFIX LIBCUMETAL CUMETAL_API_DIR MANIFEST
                              [--warm CUMETAL_WARM --gate-dir DIRECTORY]
@@ -93,7 +100,31 @@ def pipeline_gate(lib, warm, gate):
     if result.returncode:
         raise SystemExit(f'Metal pipeline gate failed for {count} metallibs; see skipped kernels above')
     print(f'Metal pipeline gate: {summary}')
-    return {'metallibs': count, 'result': summary}
+    shipped = ship_pipeline_archive(lib, gate, metallibs)
+    return {'metallibs': count, 'result': summary, 'shipped_archive': shipped}
+
+
+def ship_pipeline_archive(lib, gate, metallibs):
+    """Copy the gate's compiled pipelines for the shipped metallibs next to
+    libcumetal. The gate's archive directory also holds earlier builds'
+    kernels; only files named for a current metallib are copied. An archive
+    is valid for the GPU and macOS build that compiled it (its name says
+    which); elsewhere libcumetal ignores it and compiles as usual."""
+    target = lib / 'cumetal-pipeline-archive'
+    if target.exists():
+        shutil.rmtree(target)
+    target.mkdir()
+    stems = {path.stem for path in metallibs.iterdir()}
+    files = size = 0
+    for path in sorted((gate / 'pipeline-archive').iterdir()):
+        stem = path.name.split('-', 2)
+        if '.pending.' in path.name or len(stem) < 3 or f'{stem[0]}-{stem[1]}' not in stems:
+            continue
+        shutil.copy2(path, target / path.name)
+        files += 1
+        size += path.stat().st_size
+    print(f'Shipped {files} pipeline archive files ({size / 1e6:.1f} MB) in {target}')
+    return {'files': files, 'bytes': size}
 
 
 def main(argv):
