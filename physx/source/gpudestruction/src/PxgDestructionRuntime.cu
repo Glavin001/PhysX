@@ -292,11 +292,25 @@ __global__ void watchDestructibleContacts(PxgDestructionSolvedContacts contacts,
     if(findChunk(map,maps,input.transformCacheRef0)!=PX_INVALID_U32 || findChunk(map,maps,input.transformCacheRef1)!=PX_INVALID_U32)
         atomicOr(observation,flag);
 }
+#if defined(PX_CUMETAL) && PX_CUMETAL
+#include "PxgDestructionMotionPair.cuh"
+#endif
 __global__ void provisionalTopologyMotion(PxDestructionTopologyDeviceView topology,
     const PxDestructionStressChunk* chunks,const PxDestructionStressCluster* clusters,
     const PxTransform* poses,const PxgBodySim* bodies,PxDestructionClusterMotion* motion) {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=topology.status->clusterCount)return;
     const PxU32 root=topology.activeClusters[i],cluster=chunks[root].cluster;
+#if defined(PX_CUMETAL) && PX_CUMETAL
+    // This runs on every full evaluation; its only binary64 arithmetic is the
+    // velocity at the topology COM. Emulated double costs microseconds per
+    // dependent operation on Apple GPUs (0.15-0.35 ms for this chain). Float
+    // pairs (about 48 bits) carry it instead; see PxgDestructionMotionPair.cuh.
+    const PxTransform pose=poses[cluster];const PxgBodySim& body=bodies[clusters[cluster].body];
+    PxDestructionClusterMotion out;
+    destructionMotionPair::provisionalMotion(pose,body.body2World.p,body.linearVelocityXYZ_inverseMassW,
+        body.angularVelocityXYZ_maxPenBiasW,topology.clusters[root].center,out);
+    motion[i]=out;
+#else
     const auto pose=poses[cluster];const auto body=bodies[clusters[cluster].body];
     PxDestructionClusterMotion out{};
     for(PxU32 k=0;k<3;++k)out.origin[k]=pose.p[k];
@@ -312,6 +326,7 @@ __global__ void provisionalTopologyMotion(PxDestructionTopologyDeviceView topolo
     out.linearVelocity[1]=v.y+w.z*r[0]-w.x*r[2];
     out.linearVelocity[2]=v.z+w.x*r[1]-w.y*r[0];
     motion[i]=out;
+#endif
 }
 __global__ void emitTopologyEdits(const PxDestructionBondVerdict* bonds,PxU32 nb,
     const PxDestructionCrushState* trial,const PxDestructionCrushState* accepted,PxU32 nc,
