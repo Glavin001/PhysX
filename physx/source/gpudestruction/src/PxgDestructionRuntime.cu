@@ -645,6 +645,7 @@ class Runtime final : public PxgDestructionRuntime {
     bool mCorrectionEnabled=false, mGpuIslandRepair=false;
     PxU32 *mGraphHostAccurate{}, *mGraphHostSpeculative{};
     PxU64 *mGraphKeys{}, *mGraphSortedKeys{}, *mGraphHostAccurateMembers{}, *mGraphHostSpeculativeMembers{};
+    PxgDestructionContactGraphStatus* mGraphHostStatus{}; // pinned: observation status readback
     PxgDestructionRetainedEdge *mGraphRetainedEdges{},*mGraphHostRetainedEdges{};
     PxU32 mGraphRetainedEdgeCapacity{};
     PxgDestructionRetainedEdge* mGraphRetainedSlots{};
@@ -911,8 +912,8 @@ public:
                 destructionContactGraph::finishRetainedUpdates<<<1,1,0,cudaStream>>>(mGraphRetainedCounts);
             }
             if(retainedSlotCount) {
-                const PxU32 words=PxU32((size_t(retainedSlotCount)+31)/32);
-                destructionContactGraph::connectRetainedSlots<<<(words+127)/128,128,0,cudaStream>>>(mGraphRetainedSlots,mGraphRetainedActive,retainedSlotCount,
+                const PxU32 slots=PxU32(((size_t(retainedSlotCount)+31)/32)*32);
+                destructionContactGraph::connectRetainedSlots<<<(slots+127)/128,128,0,cudaStream>>>(mGraphRetainedSlots,mGraphRetainedActive,retainedSlotCount,
                     nodeCapacity,mGraphAccurate,mGraphSpeculative,mGraphStatus);
             }
             if(nodeCapacity)destructionContactGraph::compress<<<(nodeCapacity+127)/128,128,0,cudaStream>>>(mGraphAccurate,mGraphSpeculative,nodeCapacity);
@@ -946,12 +947,19 @@ public:
         if(mFailed || !mGraphView.generation)return false;
         if(!needAccurate && !needSpeculative)return true;
         try {
-            Context current(mContext);check(cudaEventSynchronize(mGraphReady));
-            PxgDestructionContactGraphStatus status{};
-            check(cudaMemcpy(&status,mGraphStatus,sizeof(status),cudaMemcpyDeviceToHost));
-            ++mGraphObservationStats.observations;mGraphObservationStats.deviceToHostBytes+=sizeof(status);
-            if(status.error || status.omittedPairs)return false;
-            const PxU32 n=mGraphView.nodeCapacity;if(!n)return false;
+            Context current(mContext);
+            // mStream already waits for mGraphReady (buildContactGraph). The
+            // status travels with the labels and members, so one stream
+            // synchronization observes all of it: a synchronous status copy
+            // first would wait for every stream, then again for the sort.
+            if(!mGraphHostStatus)check(cudaMallocHost(&mGraphHostStatus,sizeof(*mGraphHostStatus)));
+            check(cudaMemcpyAsync(mGraphHostStatus,mGraphStatus,sizeof(*mGraphHostStatus),cudaMemcpyDeviceToHost,mStream));
+            ++mGraphObservationStats.observations;mGraphObservationStats.deviceToHostBytes+=sizeof(*mGraphHostStatus);
+            const PxU32 n=mGraphView.nodeCapacity;
+            if(!n) {
+                check(cudaStreamSynchronize(mStream));
+                return false;
+            }
             if(n>mGraphObservationCapacity) {
                 const PxU32 capacity=mGraphNodeCapacity;
                 check(cudaFree(mGraphKeys));mGraphKeys=nullptr;allocate(mGraphKeys,capacity);
@@ -966,7 +974,9 @@ public:
                 check(cudaMallocHost(&mGraphHostSpeculativeMembers,size_t(capacity)*sizeof(PxU64)));
                 mGraphObservationCapacity=capacity;
             }
-            size_t bytes=0;check(cub::DeviceRadixSort::SortKeys(nullptr,bytes,mGraphKeys,mGraphSortedKeys,n,0,64,mStream));
+            // Keys use 2*bits significant bits; sorting only those is exact.
+            const PxU32 bits=destructionContactGraph::componentKeyBits(n),endBit=2*bits;
+            size_t bytes=0;check(cub::DeviceRadixSort::SortKeys(nullptr,bytes,mGraphKeys,mGraphSortedKeys,n,0,int(endBit),mStream));
             if(bytes>mGraphSortScratchBytes) {
                 check(cudaFree(mGraphSortScratch));mGraphSortScratch=nullptr;
                 check(cudaMalloc(&mGraphSortScratch,bytes));mGraphSortScratchBytes=bytes;
@@ -976,18 +986,20 @@ public:
                 const auto* labels=graph?mGraphSpeculative:mGraphAccurate;
                 auto* hostLabels=graph?mGraphHostSpeculative:mGraphHostAccurate;
                 auto* hostMembers=graph?mGraphHostSpeculativeMembers:mGraphHostAccurateMembers;
-                destructionContactGraph::componentKeys<<<(n+127)/128,128,0,mStream>>>(labels,mGraphKeys,n);
-                check(cub::DeviceRadixSort::SortKeys(mGraphSortScratch,mGraphSortScratchBytes,mGraphKeys,mGraphSortedKeys,n,0,64,mStream));
+                destructionContactGraph::componentKeys<<<(n+127)/128,128,0,mStream>>>(labels,mGraphKeys,n,bits);
+                check(cub::DeviceRadixSort::SortKeys(mGraphSortScratch,mGraphSortScratchBytes,mGraphKeys,mGraphSortedKeys,n,0,int(endBit),mStream));
                 // Sorting has consumed the input keys. Reuse their 8*n-byte
                 // allocation for heads/successors instead of another buffer.
                 auto* members=reinterpret_cast<PxU32*>(mGraphKeys);
                 check(cudaMemsetAsync(members,0xff,size_t(n)*sizeof(PxU32),mStream));
-                destructionContactGraph::componentMembers<<<(n+127)/128,128,0,mStream>>>(mGraphSortedKeys,members,n);
+                destructionContactGraph::componentMembers<<<(n+127)/128,128,0,mStream>>>(mGraphSortedKeys,members,n,bits);
                 check(cudaGetLastError());
                 check(cudaMemcpyAsync(hostLabels,labels,size_t(n)*sizeof(PxU32),cudaMemcpyDeviceToHost,mStream));
                 check(cudaMemcpyAsync(hostMembers,members,size_t(n)*2*sizeof(PxU32),cudaMemcpyDeviceToHost,mStream));
             }
             check(cudaStreamSynchronize(mStream));
+            const PxgDestructionContactGraphStatus status=*mGraphHostStatus;
+            if(status.error || status.omittedPairs)return false;
             const PxU32 graphs=PxU32(needAccurate)+PxU32(needSpeculative);
             mGraphObservationStats.sortedGraphs+=graphs;
             mGraphObservationStats.deviceToHostBytes+=PxU64(graphs)*n*(sizeof(PxU32)+sizeof(PxU64));
@@ -1041,6 +1053,7 @@ public:
         cudaFreeHost(mGraphHostSpeculative);mGraphHostSpeculative=nullptr;
         cudaFreeHost(mGraphHostAccurateMembers);mGraphHostAccurateMembers=nullptr;
         cudaFreeHost(mGraphHostSpeculativeMembers);mGraphHostSpeculativeMembers=nullptr;
+        cudaFreeHost(mGraphHostStatus);mGraphHostStatus=nullptr;
         mGraphObservationCapacity=0;mGpuIslandRepair=false;
         mHostCorrectionTargets.clear();mCorrectionEnabled=false;mCorrectionLimit=0;
         mPass=0;mFirstPassBrokenBonds=0;mPriorPasses={};

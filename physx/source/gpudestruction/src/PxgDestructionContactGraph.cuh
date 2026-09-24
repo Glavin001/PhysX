@@ -109,27 +109,37 @@ __global__ void applyRetainedUpdates(const PxgDestructionRetainedEdge* updates,P
     }
 }
 __global__ void finishRetainedUpdates(PxU32* counts) { counts[1]=max(counts[0],counts[1]); }
+// One thread per slot (grid-stride), not per 32-slot word: a word's edges
+// were united one after another, a dependent chain of atomic root walks. The
+// result is order-independent -- every root is its component's minimum node --
+// so the labels are identical whichever thread unites first.
 __global__ void connectRetainedSlots(const PxgDestructionRetainedEdge* slots,const PxU32* active,PxU32 capacity,PxU32 n,
     PxU32* accurate,PxU32* speculative,PxgDestructionContactGraphStatus* status) {
-    const PxU32 word=blockIdx.x*blockDim.x+threadIdx.x;if(size_t(word)*32>=capacity)return;
-    PxU32 bits=active[word];
-    while(bits) {
-        const PxU32 index=word*32+(__ffs(bits)-1);bits&=bits-1;
+    const PxU32 words=PxU32((size_t(capacity)+31)/32);
+    for(PxU32 index=blockIdx.x*blockDim.x+threadIdx.x;index<words*32u;index+=gridDim.x*blockDim.x) {
+        if(!(active[index>>5]&(1u<<(index&31))))continue;
         if(index>=capacity){atomicOr(&status->error,PxgDestructionContactGraphStatus::eINVALID_IDENTITY);continue;}
         connectRetainedEdge(slots[index],n,accurate,speculative,status);
     }
 }
-__global__ void componentKeys(const PxU32* labels,PxU64* keys,PxU32 n) {
+// Component keys pack (label, node) as label<<bits | node. Both are below n,
+// so bits=componentKeyBits(n) keeps every key unique and ordered exactly as the
+// 32-bit split, and the radix sort only needs the low 2*bits bits.
+__host__ __device__ inline PxU32 componentKeyBits(PxU32 n) {
+    PxU32 bits=1;while(bits<32 && (PxU64(1)<<bits)<n)++bits;return bits;
+}
+__global__ void componentKeys(const PxU32* labels,PxU64* keys,PxU32 n,PxU32 bits=32) {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;
-    if(i<n)keys[i]=(PxU64(labels[i])<<32)|i;
+    if(i<n)keys[i]=(PxU64(labels[i])<<bits)|i;
 }
 // Sorted component keys become a deterministic member list. The first n words
 // store heads by minimum-node label; the next n store successors by node ID.
-__global__ void componentMembers(const PxU64* sorted,PxU32* members,PxU32 n) {
+__global__ void componentMembers(const PxU64* sorted,PxU32* members,PxU32 n,PxU32 bits=32) {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=n)return;
-    const PxU32 label=PxU32(sorted[i]>>32),node=PxU32(sorted[i]);
-    if(i==0 || PxU32(sorted[i-1]>>32)!=label)members[label]=node;
-    members[size_t(n)+node]=(i+1<n && PxU32(sorted[i+1]>>32)==label)?PxU32(sorted[i+1]):PX_INVALID_NODE;
+    const PxU64 mask=(PxU64(1)<<bits)-1;
+    const PxU32 label=PxU32(sorted[i]>>bits),node=PxU32(sorted[i]&mask);
+    if(i==0 || PxU32(sorted[i-1]>>bits)!=label)members[label]=node;
+    members[size_t(n)+node]=(i+1<n && PxU32(sorted[i+1]>>bits)==label)?PxU32(sorted[i+1]&mask):PX_INVALID_NODE;
 }
 __global__ void compress(PxU32* accurate,PxU32* speculative,PxU32 n) {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=n)return;

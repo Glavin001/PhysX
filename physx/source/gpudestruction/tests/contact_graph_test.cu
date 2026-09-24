@@ -162,14 +162,17 @@ void preSolveDeviceContacts() {
     check(cudaDeviceSynchronize());require(status.get(1)[0].error==PxgDestructionContactGraphStatus::eINVALID_IDENTITY,"invalid current contact identity was not reported");
     std::puts("CUDA pre-solve contacts: prior lost connection, current touch, managerless edge, retired invalid geometry, static/kinematic/disabled/deleted exclusions passed");
 }
-void verifyMemberLinks(const PxU32* labels,const std::vector<PxU32>& expected) {
+void verifyMemberLinks(const PxU32* labels,const std::vector<PxU32>& expected,bool narrow=false) {
     const PxU32 n=PxU32(expected.size());if(!n)return;
+    // Production packs keys into 2*componentKeyBits(n) bits and sorts only
+    // those; the full 64-bit split must give the same heads and successors.
+    const PxU32 bits=narrow?destructionContactGraph::componentKeyBits(n):32u;const int endBit=narrow?int(2*bits):64;
     Device<PxU64> input(n),sorted(n);size_t bytes=0;
-    check(cub::DeviceRadixSort::SortKeys(nullptr,bytes,input.p,sorted.p,n));Device<unsigned char> scratch(bytes);
-    destructionContactGraph::componentKeys<<<(n+127)/128,128>>>(labels,input.p,n);
-    check(cub::DeviceRadixSort::SortKeys(scratch.p,bytes,input.p,sorted.p,n));
+    check(cub::DeviceRadixSort::SortKeys(nullptr,bytes,input.p,sorted.p,n,0,endBit));Device<unsigned char> scratch(bytes);
+    destructionContactGraph::componentKeys<<<(n+127)/128,128>>>(labels,input.p,n,bits);
+    check(cub::DeviceRadixSort::SortKeys(scratch.p,bytes,input.p,sorted.p,n,0,endBit));
     auto* members=reinterpret_cast<PxU32*>(input.p);check(cudaMemset(members,0xff,size_t(n)*sizeof(PxU32)));
-    destructionContactGraph::componentMembers<<<(n+127)/128,128>>>(sorted.p,members,n);
+    destructionContactGraph::componentMembers<<<(n+127)/128,128>>>(sorted.p,members,n,bits);
     check(cudaGetLastError());std::vector<PxU32> actual(size_t(n)*2),wanted(size_t(n)*2,PX_INVALID_NODE),last(n,PX_INVALID_NODE);
     check(cudaMemcpy(actual.data(),members,actual.size()*sizeof(PxU32),cudaMemcpyDeviceToHost));
     for(PxU32 node=0;node<n;++node) {
@@ -235,6 +238,7 @@ void run(PxU32 n,const std::vector<Pair>& pairs,unsigned invalid=0,PxU32 omitted
     require(accurate.get(n)==reference(n,live,true),"accurate graph differs from flood fill");
     require(speculative.get(n)==reference(n,live,false),"speculative graph differs from flood fill");
     verifyMemberLinks(accurate.p,reference(n,live,true));verifyMemberLinks(speculative.p,reference(n,live,false));
+    verifyMemberLinks(accurate.p,reference(n,live,true),true);verifyMemberLinks(speculative.p,reference(n,live,false),true);
     const auto decoded=edges.get(count);for(PxU32 i=0;i<count;++i){
         require(decoded[i].identity.generation==ids[i].generation && decoded[i].identity.edgeIndex==i,"GPU graph lost pair lifetime identity");
         if(std::find(retired.begin(),retired.end(),i)!=retired.end()) {
