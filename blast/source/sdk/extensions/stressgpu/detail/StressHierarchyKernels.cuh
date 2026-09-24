@@ -8,7 +8,8 @@ namespace Nv { namespace Blast {
 // The GPU stress solver's working precision. Blast's CPU stress solver runs in
 // float at a 1e-3 tolerance; so does this one unless BLAST_STRESS_GPU_FP64=1
 // restores binary64 (hardware on CUDA, software-emulated on Apple GPUs). The
-// exact motion-forest construction keeps its own double arithmetic regardless.
+// exact motion-forest construction keeps its own arithmetic regardless: double
+// on CUDA, 128-bit fixed point and float pairs on Apple GPUs.
 #if defined(BLAST_STRESS_GPU_FP64) && BLAST_STRESS_GPU_FP64
 using StressReal=double;
 using StressReal3=double3;

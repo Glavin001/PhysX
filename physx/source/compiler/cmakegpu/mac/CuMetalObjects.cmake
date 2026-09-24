@@ -9,6 +9,16 @@ IF(NOT PX_CUMETAL_FP64 STREQUAL "ieee64")
 ENDIF()
 OPTION(PX_CUMETAL_COOPERATIVE_SINGLE_BLOCK
     "Use enforced one-block cooperative grid synchronization; ordinary kernels remain multi-block" ON)
+# CuMetal's --cooperative-resident-grid: a cooperative kernel whose only
+# collective is grid.sync() spans as many threadgroups as the GPU keeps
+# resident (CUDA's occupancy-bounded cooperative grid) instead of one.
+# Kernels with block-voted traps keep the one-block contract. Requires the
+# one-block option, which it refines; no equations or launch code change.
+OPTION(PX_CUMETAL_COOPERATIVE_RESIDENT_GRID
+    "Cooperative grids span resident threadgroups (cumetalc --cooperative-resident-grid)" ON)
+IF(PX_CUMETAL_COOPERATIVE_RESIDENT_GRID AND NOT PX_CUMETAL_COOPERATIVE_SINGLE_BLOCK)
+    MESSAGE(FATAL_ERROR "PX_CUMETAL_COOPERATIVE_RESIDENT_GRID requires PX_CUMETAL_COOPERATIVE_SINGLE_BLOCK=ON")
+ENDIF()
 
 OPTION(PX_CUMETAL_INLINE_REF_GJK_EPA
     "Inline reference GJK/EPA helpers to expose local pointer provenance; equations remain shared" ON)
@@ -133,7 +143,9 @@ FUNCTION(px_cumetal_objects target)
     ENDIF()
     SET(objects)
     SET(cooperative_flag)
-    IF(PX_CUMETAL_COOPERATIVE_SINGLE_BLOCK)
+    IF(PX_CUMETAL_COOPERATIVE_RESIDENT_GRID)
+        SET(cooperative_flag --cooperative-resident-grid)
+    ELSEIF(PX_CUMETAL_COOPERATIVE_SINGLE_BLOCK)
         SET(cooperative_flag --cooperative-single-block)
     ENDIF()
     SET(reference_inline_flag)

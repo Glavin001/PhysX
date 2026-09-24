@@ -57,8 +57,20 @@ is roughly half GPU work and half host submission and synchronization.
   CUDA would read and write out of bounds silently. The registry now grows for
   every count. The same 3000-tick run completes with 370 awake bodies.
 - **Motion modes (`PX_CUMETAL`).** `constructMotionModes` runs as a chain of
-  ordinary launches (`NV_BLAST_SEPARATE_MOTION_FACTORS`). As one cooperative
-  threadgroup it was 28-59 ms on the tick a building fractured.
+  ordinary launches (`StressMotionPairModes.cuh`). As one cooperative
+  threadgroup it was 28-59 ms on the tick a building fractured. The forest no
+  longer uses binary64, which CuMetal emulates in integer code
+  (`StressMotionPair.cuh`): positions and closures are exact sums held as up to
+  three non-overlapping floats (TwoSum), under double's own rejection rule (a
+  sum whose bits span more than 53 is error 16), so positions and the closure,
+  significance and collinearity decisions are the same as in double. Center,
+  axis and Gram factor use float pairs (~48 bits) and are stored in solver
+  precision along with each node's offset from the center, so the
+  per-iteration projection does no double arithmetic. On 40 captured
+  demolition constructions (and 48 with injected closures) positions and
+  decisions match double exactly, factor entries within 2.4e-15, and the
+  projection is bitwise identical (within one float ulp with injected
+  closures). Chain GPU time per construction: median 0.69-1.09 ms to 0.40 ms.
 - **Principal frames (`PX_CUMETAL`).** `prepareCandidateBodies` caches each
   root's principal-axis frame against its bitwise inertia, skipping the
   software-FP64 eigen solve when nothing changed. The effect is small.

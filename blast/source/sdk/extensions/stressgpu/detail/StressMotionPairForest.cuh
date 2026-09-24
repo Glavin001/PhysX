@@ -1,44 +1,44 @@
-// Derive component coordinates from the actual live bond equations. Authored
-// positions are deliberately not used: rounded offsets can retain real moments.
+// The motion forest for Apple GPUs (PX_CUMETAL), phase for phase the double
+// implementation in StressMotionForest.cuh. Positions, closures and every
+// exactness, significance and collinearity decision are computed exactly from
+// float expansions (StressMotionPair.cuh), so they are the same numbers and
+// verdicts; only the closure axis is rounded, in a float pair. A sum binary64
+// would not have held exactly is still reported as error 16.
 #pragma once
-#include "StressHierarchyOperator.cuh"
-// Apple GPUs have no binary64; CuMetal builds the same forest, with the same
-// exact sums and decisions, from float expansions (StressMotionPairForest.cuh).
-#if defined(PX_CUMETAL) && PX_CUMETAL
-#include "StressMotionPairForest.cuh"
-#else
+#include "StressMotionPair.cuh"
 namespace Nv { namespace Blast { namespace StressHierarchy {
 struct MotionComponent {
     unsigned anchored,rotations,closure,cuts,edges;
-    double3 center,axis;
-    double factor[21],scale[6];
+    MotionPair3 axis;
+    // The projection's frame, in the solver's precision.
+    StressReal3 frameAxis;
+    StressReal factor[21],scale[6];
 };
 struct MotionBuffers {
     unsigned *previous[2],*first;
-    double3 *sum[2],*position;
+    MotionExact3 *sum[2],*position;
     MotionComponent* components;
+    // Each node's position relative to its component center, solver precision.
+    StressReal3* relative;
 };
-// The topology predicates require exact sums of their finite float inputs.
-// Detect loss of representable information; never erase a small cycle moment.
-// A failed numerical construction remains an explicit incomplete transaction.
-__device__ __forceinline__ double exactMotionAdd(double a,double b,Status* status){
-    const double sum=__dadd_rn(a,b),virtualB=__dsub_rn(sum,a);
-    const double error=__dadd_rn(__dsub_rn(a,__dsub_rn(sum,virtualB)),__dsub_rn(b,virtualB));
-    if(error!=0 || !isfinite(sum))atomicOr(&status->error,16u);return sum;
+__device__ __forceinline__ MotionExact3 exactMotionAdd(MotionExact3 a,MotionExact3 b,Status* status){
+    bool representable=true;const auto sum=motionExactAdd(a,b,representable);
+    if(!representable)atomicOr(&status->error,16u);return sum;
 }
-__device__ __forceinline__ double3 exactMotionAdd(double3 a,double3 b,Status* status){
-    return {exactMotionAdd(a.x,b.x,status),exactMotionAdd(a.y,b.y,status),exactMotionAdd(a.z,b.z,status)};
+__device__ __forceinline__ MotionExact motionDifference(float x,float y,Status* status){
+    bool representable=true;const auto d=motionExactDifference(x,y,representable);
+    if(!representable)atomicOr(&status->error,16u);return d;
 }
-__device__ __forceinline__ double3 motionOffset(const Input& a,unsigned edge,Status* status){
+__device__ __forceinline__ MotionExact3 motionOffset(const Input& a,unsigned edge,Status* status){
     const auto x=a.offset0[edge],y=a.offset1[edge];
-    return {exactMotionAdd(double(x.x),-double(y.x),status),exactMotionAdd(double(x.y),-double(y.y),status),exactMotionAdd(double(x.z),-double(y.z),status)};
+    return {motionDifference(x.x,y.x,status),motionDifference(x.y,y.y,status),motionDifference(x.z,y.z,status)};
 }
-__device__ __forceinline__ double3 motionClosure(const Input& a,MotionBuffers b,unsigned edge,Status* status){
-    return exactMotionAdd(exactMotionAdd(b.position[a.node0[edge]],motionOffset(a,edge,status),status),mul(b.position[a.node1[edge]],-1),status);
+__device__ __forceinline__ MotionExact3 motionClosure(const Input& a,MotionBuffers b,unsigned edge,Status* status){
+    return exactMotionAdd(exactMotionAdd(b.position[a.node0[edge]],motionOffset(a,edge,status),status),neg(b.position[a.node1[edge]]),status);
 }
-__device__ __forceinline__ bool motionNonzero(double3 v){return v.x!=0 || v.y!=0 || v.z!=0;}
-// Compare exact double products, including their FMA residuals. Comparing only
-// rounded cross products could classify a small, real closure as collinear.
+// Exact product comparison. Accepted closures are binary64 values, so the
+// double implementation's own predicate decides it; closures are rare, and
+// only bonds that carry one reach this emulated arithmetic.
 __device__ __forceinline__ bool motionProductEqual(double a,double b,double c,double d){
     const double x=__dmul_rn(a,b),y=__dmul_rn(c,d);
     return x==y && __fma_rn(a,b,-x)==__fma_rn(c,d,-y);
@@ -68,10 +68,10 @@ __device__ void initializeMotionForest(Input a,const unsigned* forest,MotionBuff
         }
         if(!forest[edge])continue;
         if(a.health[edge]<=0 || a.component[u]==Invalid || a.component[u]!=a.component[v]){atomicOr(&status->error,1u);continue;}
-        const auto delta=motionOffset(a,edge,status);b.sum[0][2*edge]=delta;b.sum[0][2*edge+1]=mul(delta,-1);
+        const auto delta=motionOffset(a,edge,status);b.sum[0][2*edge]=delta;b.sum[0][2*edge+1]=neg(delta);
     }
 }
-// One warp per vertex constructs its cyclic outgoing tree-edge order. Ballots
+// As in StressMotionForest.cuh (integer work only). One warp per vertex constructs its cyclic outgoing tree-edge order. Ballots
 // find predecessors within a tile; a carry joins tiles. Even a hub scans its
 // adjacency once, avoiding a quadratic search for every incident tree edge.
 __device__ void buildMotionTour(Input a,const unsigned* forest,MotionBuffers b,Status* status,unsigned node){
@@ -97,7 +97,7 @@ __device__ void jumpMotionTour(Input a,const unsigned* forest,MotionBuffers b,St
     const unsigned target=source^1u;
     for(unsigned arc=thread;arc<2*a.bonds;arc+=stride){
         if(!forest[arc/2])continue;const unsigned previous=b.previous[source][arc];
-        double3 value=b.sum[source][arc];unsigned next=Invalid;
+        MotionExact3 value=b.sum[source][arc];unsigned next=Invalid;
         if(previous!=Invalid){if(previous>=2*a.bonds || !forest[previous/2])atomicOr(&status->error,2u);
             else {value=exactMotionAdd(value,b.sum[source][previous],status);next=b.previous[source][previous];}}
         b.previous[target][arc]=next;b.sum[target][arc]=value;
@@ -113,21 +113,26 @@ __device__ void publishMotionPositions(Input a,const unsigned* forest,MotionBuff
         if(b.first[node]!=Invalid && id!=node)b.position[node]=b.sum[source][b.first[node]^1u];
     }
 }
-// Whether a cycle's closure is a real moment or the rounding of its offsets.
-// Bond offsets arrive as float differences of authored positions, so a cycle
-// that closes exactly in real arithmetic leaves a residue of a few float ulps
-// of the positions involved. Counting that residue as a moment constrains a
-// free fragment's rotation to a near-zero eigenvalue the projection never
-// removes, and CG runs away along it. A closure within 64 float epsilons of
-// the cycle's own coordinate scale is treated as closed; anything that large
-// relative to single-precision input cannot come from the authored geometry.
-__device__ __forceinline__ bool motionClosureSignificant(const Input& a,MotionBuffers b,unsigned edge,double3 closure){
+// See StressMotionForest.cuh: a closure within 64 float epsilons (2^-17) of
+// the cycle's own coordinate scale is rounding of the authored offsets. The
+// double test scales by a power of two and compares exact values; so does
+// this one. Leading terms carry each value to well within 2^-20, which decides
+// every case outside that band; inside it the exact values are compared.
+__device__ __forceinline__ bool motionClosureSignificant(const Input& a,MotionBuffers b,unsigned edge,MotionExact3 closure){
     const auto x=a.offset0[edge],y=a.offset1[edge];
     const auto p=b.position[a.node0[edge]],q=b.position[a.node1[edge]];
-    const double scale=fmax(fmax(fmax(fabs(p.x),fabs(p.y)),fmax(fabs(p.z),fabs(q.x))),fmax(fmax(fabs(q.y),fabs(q.z)),
-        fmax(fmax(fabs(double(x.x)),fabs(double(x.y))),fmax(fabs(double(x.z)),fmax(fabs(double(y.x)),fmax(fabs(double(y.y)),fabs(double(y.z))))))));
-    const double magnitude=fmax(fabs(closure.x),fmax(fabs(closure.y),fabs(closure.z)));
-    return magnitude>64.0*1.1920928955078125e-7*fmax(scale,1e-30);
+    const float offsets=fmaxf(fmaxf(fmaxf(fabsf(x.x),fabsf(x.y)),fmaxf(fabsf(x.z),fabsf(y.x))),fmaxf(fabsf(y.y),fabsf(y.z)));
+    const float leadScale=fmaxf(offsets,fmaxf(fmaxf(fmaxf(fabsf(p.x.x[0]),fabsf(p.y.x[0])),fmaxf(fabsf(p.z.x[0]),fabsf(q.x.x[0]))),fmaxf(fabsf(q.y.x[0]),fabsf(q.z.x[0]))));
+    const float leadMagnitude=fmaxf(fmaxf(fabsf(closure.x.x[0]),fabsf(closure.y.x[0])),fabsf(closure.z.x[0]));
+    const float threshold=leadScale*0x1p-17f;
+    if(leadMagnitude>threshold*(1+0x1p-20f))return true;
+    if(leadMagnitude<threshold*(1-0x1p-20f))return false;
+    MotionExact scale=motionMax(motionMax(motionMagnitude(p.x),motionMagnitude(p.y)),motionMagnitude(p.z));
+    scale=motionMax(scale,motionMax(motionMax(motionMagnitude(q.x),motionMagnitude(q.y)),motionMagnitude(q.z)));
+    scale=motionMax(scale,motionExact(offsets));
+    const MotionExact magnitude=motionMax(motionMax(motionMagnitude(closure.x),motionMagnitude(closure.y)),motionMagnitude(closure.z));
+    // Double's floor of 1e-30 is below every accepted nonzero value.
+    return motionGreater(magnitude,motionScaled(scale,0x1p-17f));
 }
 __device__ void discoverMotionClosures(Input a,MotionBuffers b,Status* status,unsigned thread,unsigned stride){
     for(unsigned e=thread;e<a.bonds;e+=stride){if(a.health[e]<=0)continue;
@@ -144,9 +149,13 @@ __device__ void initializeMotionAxes(Input a,MotionBuffers b,Status* status,unsi
         const unsigned count=a.partition.end[node]-a.partition.begin[node];
         if(c.edges+1!=count || (b.first[node]!=Invalid && c.cuts!=1) || (b.first[node]==Invalid && c.cuts))atomicOr(&status->error,2u);
         c.rotations=c.closure==Invalid?3u:1u;
-        if(c.closure!=Invalid){auto axis=motionClosure(a,b,c.closure,status);const double maximum=fmax(fabs(axis.x),fmax(fabs(axis.y),fabs(axis.z)));
-            if(!(maximum>0) || !isfinite(maximum)){atomicOr(&status->error,4u);continue;}
-            axis=mul(axis,1/maximum);const double norm=sqrt(axis.x*axis.x+axis.y*axis.y+axis.z*axis.z);c.axis=mul(axis,1/norm);}
+        if(c.closure!=Invalid){auto axis=motionPair(motionClosure(a,b,c.closure,status));
+            MotionPair maximum=motionAbs(axis.x);
+            if(fabsf(axis.y.hi)>maximum.hi)maximum=motionAbs(axis.y);if(fabsf(axis.z.hi)>maximum.hi)maximum=motionAbs(axis.z);
+            if(!(maximum.hi>0) || !motionFinite(maximum)){atomicOr(&status->error,4u);continue;}
+            axis=mul(axis,motionDiv(motionPair(1.f),maximum));const MotionPair norm=motionSqrt(dot(axis,axis));
+            c.axis=mul(axis,motionDiv(motionPair(1.f),norm));
+            c.frameAxis=makeStressReal3(motionStressReal(c.axis.x),motionStressReal(c.axis.y),motionStressReal(c.axis.z));}
     }
 }
 __device__ void constrainMotionAxes(Input a,MotionBuffers b,Status* status,unsigned thread,unsigned stride){
@@ -156,8 +165,7 @@ __device__ void constrainMotionAxes(Input a,MotionBuffers b,Status* status,unsig
         const auto seed=motionClosure(a,b,c.closure,status),value=motionClosure(a,b,e,status);
         // A rounding-sized closure is no constraint, collinear or not.
         if(!motionNonzero(value) || !motionClosureSignificant(a,b,e,value))continue;
-        if(!motionCollinear(seed,value))atomicExch(&b.components[id].rotations,0u);
+        if(!motionCollinear(motionDouble(seed),motionDouble(value)))atomicExch(&b.components[id].rotations,0u);
     }
 }
 }}}
-#endif

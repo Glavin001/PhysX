@@ -17,7 +17,7 @@ __device__ __forceinline__ StressReal3 sub(StressReal3 a,StressReal3 b){return m
 __device__ __forceinline__ StressReal3 mul(StressReal3 a,StressReal b){return makeStressReal3(a.x*b,a.y*b,a.z*b);}
 __device__ __forceinline__ StressReal3 cross(StressReal3 a,StressReal3 b){return makeStressReal3(a.y*b.z-a.z*b.y,a.z*b.x-a.x*b.z,a.x*b.y-a.y*b.x);}
 #if !(defined(BLAST_STRESS_GPU_FP64) && BLAST_STRESS_GPU_FP64)
-// The motion forest keeps exact double arithmetic in either precision.
+// The motion forest keeps exact double arithmetic in either precision (CUDA).
 __device__ __forceinline__ double3 add(double3 a,double3 b){return make_double3(a.x+b.x,a.y+b.y,a.z+b.z);}
 __device__ __forceinline__ double3 sub(double3 a,double3 b){return make_double3(a.x-b.x,a.y-b.y,a.z-b.z);}
 __device__ __forceinline__ double3 mul(double3 a,double b){return make_double3(a.x*b,a.y*b,a.z*b);}
