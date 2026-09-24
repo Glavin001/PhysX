@@ -1,6 +1,7 @@
 // Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
 #pragma once
 #include "PxDestructionTopologyTypes.h"
+#include "foundation/PxSimpleTypes.h"
 #include <cfloat>
 #include <cmath>
 
