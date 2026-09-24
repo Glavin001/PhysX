@@ -90,9 +90,6 @@ __device__ PxU32 findChunk(const Lookup* map, PxU32 count, PxU32 contact) {
     while(a<b) { PxU32 m=a+(b-a)/2; if(map[m].contact<contact)a=m+1;else b=m; }
     return a<count && map[a].contact==contact ? map[a].chunk : PX_INVALID_U32;
 }
-__device__ void add(PxVec3& target,const PxVec3& value) {
-    atomicAdd(&target.x,value.x); atomicAdd(&target.y,value.y); atomicAdd(&target.z,value.z);
-}
 // Every pass starts from an empty per-pass status; only the trial advances
 // the frame. Prior passes are merged back in by mergePostCorrectionStatus.
 __global__ void startFrame(PxDestructionStageStatus* status,const PxgContactGraphSequence* sequence,bool correctedPass,
@@ -134,22 +131,34 @@ __global__ void prepareLoads(const PxDestructionStressChunk* chunks, PxU32 n,
     const PxVec3 r=c.position-clusters[c.cluster].centerOfMass;
     inputs[i].linear=pose.q.rotateInv(gravity)-w.cross(w.cross(r));
 }
-__device__ void contactLoad(PxU32 i,const PxDestructionStressChunk* chunks,
-    const PxTransform* poses, const PxVec3& point, const PxVec3& impulse, float invDt,
-    PxDestructionVectorPair* inputs, PxDestructionSurfaceLoad* surface) {
-    if(i==PX_INVALID_U32)return;
-    const auto c=chunks[i];
-    const auto pose=poses[c.cluster];
-    const PxVec3 f=pose.q.rotateInv(impulse)*invDt;
-    const PxVec3 r=pose.transformInv(point)-c.position;
-    add(surface[i].force,f); add(surface[i].torque,r.cross(f));
-    float* v=surface[i].virial;
-    atomicAdd(v+0,r.x*f.x);atomicAdd(v+1,r.y*f.y);atomicAdd(v+2,r.z*f.z);
-    atomicAdd(v+3,0.5f*(r.x*f.y+r.y*f.x));
-    atomicAdd(v+4,0.5f*(r.x*f.z+r.z*f.x));
-    atomicAdd(v+5,0.5f*(r.y*f.z+r.z*f.y));
-    if(c.mass>0)add(inputs[i].linear,f/c.mass);
-}
+// One pair's contact loads on one of its chunks, summed in registers and
+// published with a single set of atomics per pair instead of per contact
+// point: routed contacts share chunks (a pile bears on the chunk below it),
+// and fifteen float atomics per point per side serialized on those rows.
+// Float addition order was already nondeterministic across pairs; only the
+// grouping within a pair changes.
+struct ContactLoadSum {
+    PxVec3 force{0.0f},torque{0.0f};float virial[6]={};
+    __device__ void add(const PxDestructionStressChunk& c,const PxTransform& pose,
+        const PxVec3& point,const PxVec3& impulse,float invDt) {
+        const PxVec3 f=pose.q.rotateInv(impulse)*invDt;
+        const PxVec3 r=pose.transformInv(point)-c.position;
+        force+=f;torque+=r.cross(f);
+        virial[0]+=r.x*f.x;virial[1]+=r.y*f.y;virial[2]+=r.z*f.z;
+        virial[3]+=0.5f*(r.x*f.y+r.y*f.x);
+        virial[4]+=0.5f*(r.x*f.z+r.z*f.x);
+        virial[5]+=0.5f*(r.y*f.z+r.z*f.y);
+    }
+    __device__ void publish(PxU32 i,const PxDestructionStressChunk& c,
+        PxDestructionVectorPair* inputs,PxDestructionSurfaceLoad* surface) const {
+        add3(surface[i].force,force);add3(surface[i].torque,torque);
+        float* v=surface[i].virial;for(PxU32 k=0;k<6;++k)atomicAdd(v+k,virial[k]);
+        if(c.mass>0)add3(inputs[i].linear,force/c.mass);
+    }
+    __device__ static void add3(PxVec3& target,const PxVec3& value) {
+        atomicAdd(&target.x,value.x); atomicAdd(&target.y,value.y); atomicAdd(&target.z,value.z);
+    }
+};
 __device__ PxVec3 bodyPointVelocity(PxNodeIndex index,const PxgBodySim* bodies,const PxVec3& point)
 {
     if(index.isStaticBody())return PxVec3(0);
@@ -205,27 +214,39 @@ __global__ void routeContacts(PxgDestructionSolvedContacts contacts, const Looku
     p.nbPatches=output.nbPatches;p.nbContacts=output.nbContacts;
     const PxU32 a=findChunk(map,maps,p.transformCacheRef0), b=findChunk(map,maps,p.transformCacheRef1);
     if(a==PX_INVALID_U32 && b==PX_INVALID_U32)return;
+    // Loads, contact and anchor counts are summed per pair and published once.
+    PxU32 normals=0,anchors=0;
+    PxDestructionStressChunk chunkA{},chunkB{};PxTransform poseA(PxIdentity),poseB(PxIdentity);
+    if(a!=PX_INVALID_U32){chunkA=chunks[a];poseA=poses[chunkA.cluster];}
+    if(b!=PX_INVALID_U32){chunkB=chunks[b];poseB=poses[chunkB.cluster];}
+    ContactLoadSum loadA,loadB;
     if(p.nbContacts && p.contactPatches && p.contactPoints && p.contactForces) {
         PxContactStreamIterator it(p.contactPatches,p.contactPoints,NULL,p.nbPatches,p.nbContacts);
         PxU32 point=0;
         while(it.hasNextPatch()) { it.nextPatch(); while(it.hasNextContact()) { it.nextContact();
             const PxVec3 impulse=it.getContactNormal()*p.contactForces[point++];
-            contactLoad(a,chunks,poses,it.getContactPoint(),impulse,invDt,inputs,surface);
-            contactLoad(b,chunks,poses,it.getContactPoint(),-impulse,invDt,inputs,surface);
+            if(a!=PX_INVALID_U32)loadA.add(chunkA,poseA,it.getContactPoint(),impulse,invDt);
+            if(b!=PX_INVALID_U32)loadB.add(chunkB,poseB,it.getContactPoint(),-impulse,invDt);
             contactRate(a,b,p,it.getContactPoint(),impulse,bodies,chunks,materials,rates,status);
-            atomicAdd(&status->normalContacts,1u);
+            ++normals;
         }}
     }
     if(p.frictionPatches && p.contactPatches) {
         PxFrictionAnchorStreamIterator it(p.contactPatches,p.frictionPatches,p.nbPatches);
         while(it.hasNextPatch()) { it.nextPatch(); while(it.hasNextFrictionAnchor()) {it.nextFrictionAnchor();
             const auto impulse=it.getImpulse(); if(impulse.isZero())continue;
-            contactLoad(a,chunks,poses,it.getPosition(),impulse,invDt,inputs,surface);
-            contactLoad(b,chunks,poses,it.getPosition(),-impulse,invDt,inputs,surface);
+            if(a!=PX_INVALID_U32)loadA.add(chunkA,poseA,it.getPosition(),impulse,invDt);
+            if(b!=PX_INVALID_U32)loadB.add(chunkB,poseB,it.getPosition(),-impulse,invDt);
             contactRate(a,b,p,it.getPosition(),impulse,bodies,chunks,materials,rates,status);
-            atomicAdd(&status->frictionAnchors,1u);
+            ++anchors;
         }}
     }
+    if(normals || anchors) {
+        if(a!=PX_INVALID_U32)loadA.publish(a,chunkA,inputs,surface);
+        if(b!=PX_INVALID_U32)loadB.publish(b,chunkB,inputs,surface);
+    }
+    if(normals)atomicAdd(&status->normalContacts,normals);
+    if(anchors)atomicAdd(&status->frictionAnchors,anchors);
 }
 __global__ void finishStatus(const ExtStressGpuDeviceStatus* solve,PxDestructionStageStatus* status,
     const PxDestructionVectorPair* forces, PxU32 count) {
