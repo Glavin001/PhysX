@@ -43,7 +43,10 @@ double ms(Clock::time_point start){return std::chrono::duration<double,std::mill
 int run(int argc,char** argv){
     const auto initializationBegin=Clock::now();
     bool standardScene=false,standardSleeping=true,traceStress=false;
-    unsigned grid=3,waves=4,stressIterations=2048,recordFps=60,gpuTraceBufferMiB=512,stepLimit=0;bool profilePhases=false,recordState=false,preservePairs=false,auditMotion=false,gpuIslandRepair=false,auditIslands=false,preSolveIslands=false,preSolveContacts=false,preSolveSupport=false;float seconds=30;std::string output,statePath,motionPath,videoPath,gpuCamera="overview";bool gpuRender=false,profileGpu=false;std::string workload="bombardment";float launchSeconds=-1;unsigned freeBodies=0;bool deviceConnectivity=false,traceMotion=false,colorByCluster=false;float projectileMass=20000,materialStrength=1,frameStrength=1;std::string shotPath="aerial",layout="grid";
+    unsigned grid=3,waves=4,stressIterations=2048,recordFps=60,gpuTraceBufferMiB=512,stepLimit=0;bool profilePhases=false,recordState=false,preservePairs=false,auditMotion=false,gpuIslandRepair=false,auditIslands=false,preSolveIslands=false,preSolveContacts=false,preSolveSupport=false;float seconds=30;std::string output,statePath,motionPath,videoPath,gpuCamera="overview";bool gpuRender=false,profileGpu=false;std::string workload="bombardment";float launchSeconds=-1;unsigned freeBodies=0;bool deviceConnectivity=false,traceMotion=false,colorByCluster=false;float projectileMass=20000,materialStrength=1,frameStrength=1;
+    // Blast's CPU stress solver converges to 1e-3, and the GPU solve now runs in
+    // float, which cannot reach the 1e-5 this demo used to hard-code.
+    float stressTolerance=1e-3f;std::string shotPath="aerial",layout="grid";
     for(int i=1;i<argc;++i){std::string flag=argv[i];require(i+1<argc,"missing option value");const char* value=argv[++i];
         if(flag=="--profile-gpu"){require(std::string(value)=="0" || std::string(value)=="1","--profile-gpu requires 0 or 1");profileGpu=std::string(value)=="1";}
         else if(flag=="--sleeping"){require(std::string(value)=="0" || std::string(value)=="1","--sleeping requires 0 or 1");standardSleeping=std::string(value)=="1";}
@@ -78,10 +81,11 @@ int run(int argc,char** argv){
         else if(flag=="--record-state"){require(std::string(value)=="0" || std::string(value)=="1","--record-state requires 0 or 1");recordState=std::string(value)=="1";}
         else if(flag=="--grid")grid=std::stoul(value);else if(flag=="--waves")waves=std::stoul(value);
         else if(flag=="--steps"){stepLimit=std::stoul(value);require(stepLimit && stepLimit<=36000,"--steps requires 1..36000");}
-        else if(flag=="--stress-iterations")stressIterations=std::stoul(value);else if(flag=="--seconds")seconds=std::stof(value);else if(flag=="--output")output=value;
+        else if(flag=="--stress-iterations")stressIterations=std::stoul(value);else if(flag=="--stress-tolerance")stressTolerance=std::stof(value);else if(flag=="--seconds")seconds=std::stof(value);else if(flag=="--output")output=value;
         else throw std::runtime_error("unknown option: "+flag);
     }
     require(grid && grid<=32 && waves && waves<=16 && stressIterations && stressIterations<=32768 && seconds>2 && seconds<=600 && !output.empty(),"use --output NEW_DIRECTORY [--grid 3 --waves 4 --seconds 30]");
+    require(std::isfinite(stressTolerance) && stressTolerance>0 && stressTolerance<1,"stress tolerance must be in (0, 1)");
     require(layout=="grid" || layout=="impact-corridor","unknown scene layout");
     require(shotPath=="aerial" || (shotPath=="through-wall" && (grid==1 || layout=="impact-corridor") && workload=="single-impact"),"through-wall launch requires a single impact and an unobstructed corridor");
     require(std::isfinite(frameStrength) && frameStrength>=1 && frameStrength<=1e6f,"invalid authored frame strength");
@@ -171,7 +175,7 @@ int run(int argc,char** argv){
     materials[1].shearElasticLimit*=frameStrength;materials[1].shearFatalLimit*=frameStrength;
     PxDestructionStressDesc desc;desc.chunks=nodes.data();desc.chunkCount=unsigned(nodes.size());desc.chunkMassProperties=properties.data();
     desc.clusters=clusters.data();desc.clusterCount=unsigned(clusters.size());desc.bonds=bonds.data();desc.bondCount=unsigned(bonds.size());
-    desc.materials=materials;desc.materialCount=frameStrength>1?2:1;desc.maxIterations=stressIterations;desc.tolerance=1e-5f;desc.internalCorrectionLimit=1;desc.preserveUnchangedContactPairs=preservePairs;desc.gpuIslandRepair=gpuIslandRepair;
+    desc.materials=materials;desc.materialCount=frameStrength>1?2:1;desc.maxIterations=stressIterations;desc.tolerance=stressTolerance;desc.internalCorrectionLimit=1;desc.preserveUnchangedContactPairs=preservePairs;desc.gpuIslandRepair=gpuIslandRepair;
     require(destruction->configureStress(desc),"native destruction configuration failed");
     const PxVec3 center(float(grid-1)*8,4,float(grid-1)*8);std::array<Camera,4> cameras;
     for(unsigned i=0;i<4;++i){const float angle=float(i)*1.5707963f+.6f;cameras[i].eye=center+PxVec3(std::cos(angle)*float(grid)*24,float(grid)*13,std::sin(angle)*float(grid)*24);cameras[i].direction=(center-cameras[i].eye).getNormalized();}
