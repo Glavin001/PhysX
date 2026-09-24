@@ -6,6 +6,7 @@
 #include <cub/device/device_scan.cuh>
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 #include <limits>
 #include <new>
 

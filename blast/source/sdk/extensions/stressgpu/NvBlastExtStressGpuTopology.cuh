@@ -383,9 +383,17 @@ public:
         }
         build(stream); submit({nullptr,nullptr,nullptr},stream);
     }
+    // Host mirror of the device batch; only setDeviceStressTopologyBatch writes
+    // it, on the solver's one stream. An unchanged batch is not rewritten.
+    DeviceStressTopologyBatch batchMirror{};bool batchMirrored=false;
     void submit(DeviceStressTopologyBatch input,cudaStream_t stream)
     {
-        setDeviceStressTopologyBatch<<<1,1,0,stream>>>(batch,input);
+        if(!batchMirrored || std::memcmp(&input,&batchMirror,sizeof(input))) {
+            batchMirrored=false;
+            setDeviceStressTopologyBatch<<<1,1,0,stream>>>(batch,input);
+            checkCuda(cudaGetLastError(), "write device stress topology batch");
+            batchMirror=input;batchMirrored=true;
+        }
         checkCuda(cudaGraphLaunch(exec,stream), "launch device stress topology transaction");
     }
     ExtStressGpuDeviceTopologyStatus* status() const { return state; }

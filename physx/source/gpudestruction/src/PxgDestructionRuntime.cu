@@ -321,16 +321,9 @@ __global__ void emitTopologyEdits(const PxDestructionBondVerdict* bonds,PxU32 nb
     if(i<nc && trial[i].crushed && !accepted[i].crushed)
         edits[atomicAdd(count,1u)]={PxgDestructionEditKind::DestroyChunk,i};
 }
-__global__ void inspectTopologyTransaction(const PxDestructionTopologyTransactionStatus* topology,PxDestructionStageStatus* status) {
-    if(topology->error)status->error|=32u;
-}
 // A bond cut on a cycle can change internal stress without changing any
 // chunk's collision ownership, cluster mass or motion degrees of freedom.
 // Only that exact case can commit before native body rebinding/correction lands.
-__global__ void beginUnchangedMotionCommit(const PxDestructionTopologyTransactionStatus* transaction,
-    const PxDestructionStageStatus* status,PxU32* accept) {
-    *accept=transaction->prepared && !transaction->error && !(status->error & ~8u);
-}
 __global__ void checkUnchangedMotionCommit(PxDestructionTopologyDeviceView accepted,
     PxDestructionTopologyDeviceView trial,const PxDestructionTopologyTransactionStatus* transaction,PxU32* accept,
     const PxDestructionStressChunk* chunks,PxU32* affectedClusters,PxDestructionCollisionPreparationStatus* collision) {
@@ -341,18 +334,10 @@ __global__ void checkUnchangedMotionCommit(PxDestructionTopologyDeviceView accep
         if(!atomicExch(affectedClusters+chunks[i].cluster,1u))atomicAdd(&collision->affectedClusters,1u);
     }
 }
-__global__ void acceptUnchangedMotionCommit(const PxU32* accept,PxDestructionStageStatus* status) {
-    if(*accept)status->error &= ~8u;
-}
 __global__ void inspectStressTopology(const ExtStressGpuDeviceTopologyStatus* topology,PxDestructionStageStatus* status) {
     if(topology->error)status->error|=64u;
 }
 
-__global__ void beginBodyPreparation(const PxDestructionTopologyTransactionStatus* transaction,
-    PxDestructionTopologyDeviceView topology,PxDestructionBodyPreparationStatus* status) {
-    *status={};
-    if(transaction->prepared && !transaction->error) {status->generation=topology.status->generation;status->count=topology.status->clusterCount;}
-}
 __global__ void prepareCandidateBodies(PxDestructionTopologyDeviceView topology,
     const PxDestructionStressChunk* chunks,const PxDestructionStressCluster* clusters,
     PxDestructionClusterBodyState* bodies,PxDestructionBodyPreparationStatus* status,
@@ -369,12 +354,38 @@ __global__ void prepareCandidateBodies(PxDestructionTopologyDeviceView topology,
     if(needsBody)atomicAdd(&status->allocationRequests,1u);
     if(error)atomicOr(&status->error,error);
 }
-__global__ void finishBodyPreparation(const PxDestructionTopologyTransactionStatus* transaction,
-    PxDestructionBodyPreparationStatus* status,PxDestructionStageStatus* stage) {
-    status->valid=transaction->prepared && !transaction->error && !status->error;
-    if(status->error)stage->error|=128u;
-}
 
+// Fused single-thread steps of one full evaluation, in their original order.
+// Each replaces consecutive one-thread launches; no other kernel runs between
+// the steps they combine, so every read sees the same values as before.
+// requireFractureCorrection's bit 8 is excluded by the topology transaction's
+// abort mask (~8u) and read by no kernel before this one, so it may be set here.
+__global__ void inspectTopologyAndBeginBodyPreparation(const PxDestructionTopologyTransactionStatus* transaction,
+    PxDestructionTopologyDeviceView topology,PxDestructionBodyPreparationStatus* body,
+    PxDestructionStageStatus* stage,bool requireCorrection) {
+    if(requireCorrection && (stage->brokenBonds || stage->crushedChunks))stage->error|=8u;
+    if(transaction->error)stage->error|=32u;
+    *body={};
+    if(transaction->prepared && !transaction->error) {body->generation=topology.status->generation;body->count=topology.status->clusterCount;}
+}
+__global__ void finishBodyPreparationAndBeginCommit(const PxDestructionTopologyTransactionStatus* transaction,
+    PxDestructionBodyPreparationStatus* body,PxDestructionStageStatus* stage,PxU32* accept) {
+    body->valid=transaction->prepared && !transaction->error && !body->error;
+    if(body->error)stage->error|=128u;
+    *accept=transaction->prepared && !transaction->error && !(stage->error & ~8u);
+}
+// inspectStressTopology fused into the motion commit. Every thread applies the
+// stress-topology error to its own predicate, so the order of thread 0's
+// status write and the other threads' reads cannot change a result.
+__global__ void inspectStressAndCommitObservedMotion(PxDestructionTopologyDeviceView topology,
+    const PxDestructionClusterMotion* motion,PxDestructionStageStatus* status,
+    const ExtStressGpuDeviceTopologyStatus* stress) {
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;
+    const PxU32 stressError=stress && stress->error?64u:0u;
+    if(!i && stressError)atomicOr(&status->error,stressError);
+    if(!(status->error|stressError) && i<topology.status->clusterCount)
+        topology.motions[topology.clusterSlots[topology.activeClusters[i]]]=motion[i];
+}
 __global__ void commitObservedTopologyMotion(PxDestructionTopologyDeviceView topology,
     const PxDestructionClusterMotion* motion,const PxDestructionStageStatus* status) {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;
@@ -1547,7 +1558,8 @@ public:
                 evaluateChunkMaterials<<<(mN+127)/128,128,0,mStream>>>(mChunks,mBonds,mMaterials,mNodeBegin,mNodeRefs,
                     mHealth,forces,mBondCentroids,mSurface,mRates,mCrush,mTrialCrush,mN,dt,mStatus);
                 if(mM)finalizeMaterialVerdict<<<(mM+127)/128,128,0,mStream>>>(mBonds,mVerdicts,mTrialCrush,mHealth,mM,mStatus);
-                requireFractureCorrection<<<1,1,0,mStream>>>(mStatus);
+                // With a topology the fused body-preparation kernel sets the bit.
+                if(!mTopology)requireFractureCorrection<<<1,1,0,mStream>>>(mStatus);
             }
             stageMarker(3);
             if(mTopology) {
@@ -1558,15 +1570,13 @@ public:
                 if(!mTopology->prepare(mTopologyEdits,mTopologyCount,mEditCapacity,&mStatus->error,~8u,mReady,nullptr,mProvisionalMotion))
                     throw std::runtime_error("native topology transaction submission failed");
                 check(cudaStreamWaitEvent(mStream,static_cast<cudaEvent_t>(mTopology->trial().readyEvent),0));
-                inspectTopologyTransaction<<<1,1,0,mStream>>>(mTopology->status(),mStatus);
-                beginBodyPreparation<<<1,1,0,mStream>>>(mTopology->status(),mTopology->trial(),mBodyPreparation);
+                inspectTopologyAndBeginBodyPreparation<<<1,1,0,mStream>>>(mTopology->status(),mTopology->trial(),mBodyPreparation,mStatus,mMaterials!=nullptr);
                 prepareCandidateBodies<<<(mN+127)/128,128,0,mStream>>>(mTopology->trial(),mChunks,mClusters,mTrialBodies,mBodyPreparation,mTopology->accepted(),mBodyRequests,mTrialBodyIndices,mPrincipalFrames);
-                finishBodyPreparation<<<1,1,0,mStream>>>(mTopology->status(),mBodyPreparation,mStatus);
+                finishBodyPreparationAndBeginCommit<<<1,1,0,mStream>>>(mTopology->status(),mBodyPreparation,mStatus,mTopologyAccept);
                 stageMarker(4);
-                beginUnchangedMotionCommit<<<1,1,0,mStream>>>(mTopology->status(),mStatus,mTopologyAccept);
                 checkUnchangedMotionCommit<<<(mN+127)/128,128,0,mStream>>>(mTopology->accepted(),mTopology->trial(),mTopology->status(),mTopologyAccept,mChunks,mAffectedClusters,mCollisionPreparation);
-                acceptUnchangedMotionCommit<<<1,1,0,mStream>>>(mTopologyAccept,mStatus);
-                mChanges.commit(mTopology->accepted(),mTopology->trial(),mTopology->status(),mTopologyAccept,mChunks,mAffectedClusters,mStream);
+                // The change record's first thread clears the correction bit when accepted.
+                mChanges.commit(mTopology->accepted(),mTopology->trial(),mTopology->status(),mTopologyAccept,mChunks,mAffectedClusters,mStream,mStatus);
                 check(cudaEventRecord(mReady,mStream));
                 if(!mTopology->commit(mTopologyAccept,mReady))throw std::runtime_error("native topology commit submission failed");
                 check(cudaStreamWaitEvent(mStream,static_cast<cudaEvent_t>(mTopology->accepted().readyEvent),0));
@@ -1576,11 +1586,11 @@ public:
                         throw std::runtime_error("native stress topology update submission failed");
                     const auto stress=mSolver->deviceView();
                     check(cudaStreamWaitEvent(mStream,static_cast<cudaEvent_t>(stress.readyEvent),0));
-                    inspectStressTopology<<<1,1,0,mStream>>>(stress.topologyStatus,mStatus);
                 }
                 // Membership-changing verdicts remain incomplete until collision
                 // rebinding and one internal motion correction are available.
-                commitObservedTopologyMotion<<<(mC+127)/128,128,0,mStream>>>(mTopology->accepted(),mProvisionalMotion,mStatus);
+                inspectStressAndCommitObservedMotion<<<std::max(1u,(mC+127)/128),128,0,mStream>>>(mTopology->accepted(),mProvisionalMotion,mStatus,
+                    mSolver?mSolver->deviceView().topologyStatus:nullptr);
             }
             if(!mTopology)stageMarker(4);
             if(mMaterials)commitMaterialState<<<(std::max(mM,mN)+127)/128,128,0,mStream>>>(mVerdicts,mHealth,mM,mTrialCrush,mCrush,mN,mStatus,

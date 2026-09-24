@@ -10,9 +10,12 @@ __global__ void reset(unsigned char* chunks,unsigned char* bonds,PxU32 n,PxU32 m
 __global__ void record(unsigned char* chunks,unsigned char* bonds,
     PxDestructionTopologyDeviceView before,PxDestructionTopologyDeviceView after,
     const PxDestructionTopologyTransactionStatus* transaction,const PxU32* accept,
-    const PxDestructionStressChunk* inputs,const PxU32* affected) {
-    if(!*accept || !transaction->prepared || transaction->error)return;
+    const PxDestructionStressChunk* inputs,const PxU32* affected,PxDestructionStageStatus* acceptStage) {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;
+    // acceptUnchangedMotionCommit, fused: no reader of the stage status runs
+    // alongside this kernel, and this kernel's other threads never read it.
+    if(!i && acceptStage && *accept)acceptStage->error&=~8u;
+    if(!*accept || !transaction->prepared || transaction->error)return;
     // This is the existing collision producer's source-cluster set. Mark ALL
     // source members before accepted ownership changes, not just migrants.
     // Unique row writers union both passes without atomic lists or duplicates.
@@ -84,8 +87,8 @@ public:
     }
     void commit(PxDestructionTopologyDeviceView before,PxDestructionTopologyDeviceView after,
         const PxDestructionTopologyTransactionStatus* transaction,const PxU32* accept,
-        const PxDestructionStressChunk* chunks,const PxU32* affected,cudaStream_t stream) {
-        record<<<(std::max(mN,mM)+127)/128,128,0,stream>>>(mChunks,mBonds,before,after,transaction,accept,chunks,affected);
+        const PxDestructionStressChunk* chunks,const PxU32* affected,cudaStream_t stream,PxDestructionStageStatus* acceptStage=nullptr) {
+        record<<<(std::max(mN,mM)+127)/128,128,0,stream>>>(mChunks,mBonds,before,after,transaction,accept,chunks,affected,acceptStage);
     }
     void publish(cudaStream_t stream){check(cudaGraphLaunch(mExec,stream));}
     PxDestructionCommittedChangesView view()const{return {mRows,mBroken,mStatus,mN,mM};}

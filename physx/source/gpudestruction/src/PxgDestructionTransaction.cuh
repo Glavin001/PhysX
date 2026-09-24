@@ -78,6 +78,16 @@ class Transaction final : public PxgDestructionTopologyTransaction {
     PxDestructionTopologyTransactionStatus* mStatus=nullptr;
     cudaStream_t mStream=nullptr;
     cudaEvent_t mReady=nullptr;
+    // Host mirror of the device batch, written by kernels on mStream only.
+    // A frame's batch is usually the previous frame's: skip rewriting it.
+    // prepare keeps the last accept pointer, which the prepare graph never reads.
+    TransactionBatch mBatchMirror{};bool mBatchMirrored=false;
+    bool writeBatch(const TransactionBatch& batch) {
+        if(mBatchMirrored && !std::memcmp(&batch,&mBatchMirror,sizeof(batch)))return true;
+        setTransactionBatch<<<1,1,0,mStream>>>(mBatch,batch);
+        if(cudaGetLastError()!=cudaSuccess){mBatchMirrored=false;return false;}
+        mBatchMirror=batch;mBatchMirrored=true;return true;
+    }
     cudaGraph_t mPrepareGraph=nullptr,mCommitGraph=nullptr;
     cudaGraphExec_t mPrepareExec=nullptr,mCommitExec=nullptr;
 
@@ -184,13 +194,15 @@ public:
     bool prepare(const PxgDestructionEdit* edits,const unsigned* count,unsigned capacity,
         const unsigned* abort,unsigned abortMask,void* ready,void* done,const PxgDestructionClusterMotion* sourceMotion) override {
         if(!count || (capacity && !edits) || capacity>unsigned(std::numeric_limits<int>::max()) || !order(ready,done))return false;
-        const TransactionBatch batch={edits,count,abort,nullptr,sourceMotion,capacity,abortMask};
-        setTransactionBatch<<<1,1,0,mStream>>>(mBatch,batch);
-        return cudaGraphLaunch(mPrepareExec,mStream)==cudaSuccess && signal();
+        const TransactionBatch batch={edits,count,abort,mBatchMirrored?mBatchMirror.accept:nullptr,sourceMotion,capacity,abortMask};
+        return writeBatch(batch) && cudaGraphLaunch(mPrepareExec,mStream)==cudaSuccess && signal();
     }
     bool commit(const unsigned* accept,void* ready,void* done) override {
         if(!accept || !order(ready,done))return false;
-        setTransactionAccept<<<1,1,0,mStream>>>(mBatch,accept);
+        if(mBatchMirrored) {
+            TransactionBatch batch=mBatchMirror;batch.accept=accept;
+            if(!writeBatch(batch))return false;
+        } else setTransactionAccept<<<1,1,0,mStream>>>(mBatch,accept);
         return cudaGraphLaunch(mCommitExec,mStream)==cudaSuccess && signal();
     }
     bool discard(void* ready,void* done) override {
