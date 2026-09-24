@@ -1325,11 +1325,22 @@ void refreshReboundShapeBounds(
         const PxgBodySim& body=bodies[shape.mBodySimIndex.index()];
         const PxTransform pose=getAbsPose(body.body2World.getTransform(),shape.mTransform,
             body.body2Actor_maxImpulseW.getTransform());
-        updateCacheAndBound(pose,shape,index,transforms,bounds,geometry,true);
+        // Only shapes the broad phase holds have SAP endpoints. A rigid body
+        // can also own shapes that never enter it -- a Vehicle SDK car's wheel
+        // shapes carry no simulation, trigger or query flag -- and flagging one
+        // here made the SAP rewrite projection slots through that handle's
+        // never-initialized box, corrupting another volume's endpoints (the
+        // ground's), so refiltered pairs against it were never rediscovered.
+        // Same gating as updateTransformCacheAndBoundArrayLaunch.
+        const PxU32 shapeFlags=shape.mShapeFlags;
+        const bool inBroadPhase=(shapeFlags & PxU32(PxShapeFlag::eSIMULATION_SHAPE | PxShapeFlag::eTRIGGER_SHAPE))!=0;
+        const bool hasBounds=(shapeFlags & PxU32(PxShapeFlag::eSIMULATION_SHAPE | PxShapeFlag::eTRIGGER_SHAPE
+            | PxShapeFlag::eSCENE_QUERY_SHAPE))!=0;
+        updateCacheAndBound(pose,shape,index,transforms,bounds,geometry,hasBounds);
         // Refreshing coordinates alone leaves SAP endpoints stale. Join the
         // ordinary GPU bounds-update bitmap without treating retained shapes
         // as new volumes or destroying their persistent contact managers.
-        updated[index]=1;
+        if(inBroadPhase)updated[index]=1;
 #if defined(PX_CUMETAL_BLOCK_VOTED_TRAPS) && PX_CUMETAL_BLOCK_VOTED_TRAPS
         }
 #endif
@@ -1397,10 +1408,20 @@ extern "C" __global__ void setRigidDynamicGlobalPose(
 
 				const PxTransform absPos = getAbsPose(body2World, shapeSim.mTransform, body2Actor);
 
-				//update broad phase bound, transform cache
-				updateCacheAndBound(absPos, shapeSim, shapeIndex, gTransformCache, bounds, gConvexShapes, true);
+				// Only shapes the broad phase holds may be flagged: the flag becomes
+				// a changed-bounds bit and the SAP rewrites that handle's endpoint
+				// slots, which for a shape never inserted (no simulation or trigger
+				// flag, e.g. Vehicle SDK wheel shapes) are another volume's. Same
+				// gating as updateTransformCacheAndBoundArrayLaunch.
+				const PxU32 shapeFlags = shapeSim.mShapeFlags;
+				const bool inBroadPhase = (shapeFlags & PxU32(PxShapeFlag::eSIMULATION_SHAPE | PxShapeFlag::eTRIGGER_SHAPE)) != 0;
+				const bool hasBounds = (shapeFlags & PxU32(PxShapeFlag::eSIMULATION_SHAPE | PxShapeFlag::eTRIGGER_SHAPE | PxShapeFlag::eSCENE_QUERY_SHAPE)) != 0;
 
-				updated[shapeIndex] = 1;
+				//update broad phase bound, transform cache
+				updateCacheAndBound(absPos, shapeSim, shapeIndex, gTransformCache, bounds, gConvexShapes, hasBounds);
+
+				if (inBroadPhase)
+					updated[shapeIndex] = 1;
 			}
 			pos--;
 		}
