@@ -98,12 +98,15 @@ __device__ __forceinline__ bool velocity(const float* center,const PxgBodySim& s
     const Pair r[3]={sub(pair(center[0]),pair(source.body2World.p.x)),sub(pair(center[1]),pair(source.body2World.p.y)),
         sub(pair(center[2]),pair(source.body2World.p.z))};
     const float vv[3]={v.x,v.y,v.z},ww[3]={w.x,w.y,w.z};
+    // No return inside the loop: CuMetal lowers a loop with a second exit
+    // through its per-lane CFG dispatcher, several times slower here.
+    bool ok=true;
     for(unsigned k=0;k<3;++k) {
         const unsigned i=k==2?0:k+1,j=k==0?2:k-1;
-        if(!destructionBody::motionValue(sub(add(pair(vv[k]),mul(r[j],ww[i])),mul(r[i],ww[j])),linear[k])
-            || !destructionBody::motionValue(pair(ww[k]),angular[k]))return false;
+        ok=ok && destructionBody::motionValue(sub(add(pair(vv[k]),mul(r[j],ww[i])),mul(r[i],ww[j])),linear[k])
+            && destructionBody::motionValue(pair(ww[k]),angular[k]);
     }
-    return true;
+    return ok;
 }
 __device__ __forceinline__ bool motionInRange(const PxDestructionClusterBodyState& candidate,
     const PxDestructionClusterMassProperties& mass,const PxgBodySim& source) {
@@ -142,7 +145,9 @@ __device__ __forceinline__ unsigned motion(const PxDestructionClusterBodyState& 
     const Pair offset[3]={sub(pair(mass.center[0]),pair(local.p.x)),sub(pair(mass.center[1]),pair(local.p.y)),
         sub(pair(mass.center[2]),pair(local.p.z))};
     Pair delta[3];destructionBody::rotate(actor,offset,delta);output=candidate;
-    for(unsigned k=0;k<3;++k)if(!destructionBody::motionValue(add(pair(world.p[k]),delta[k]),output.bodyToWorldPosition[k]))return eFAILED;
+    bool positioned=true;
+    for(unsigned k=0;k<3;++k)positioned=positioned && destructionBody::motionValue(add(pair(world.p[k]),delta[k]),output.bodyToWorldPosition[k]);
+    if(!positioned)return eFAILED;
     Pair principal[4],norm=pair(0.0f);
     for(unsigned k=0;k<4;++k){principal[k]=pair(candidate.bodyToActorOrientation[k]);norm=add(norm,mul(principal[k],principal[k]));}
     // !isfinite(norm) || fabs(norm-1)>1e-5, with 1e-5 as the double constant.
