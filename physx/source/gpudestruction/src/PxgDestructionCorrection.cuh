@@ -1,5 +1,57 @@
 // Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
 // Included in the runtime implementation namespace.
+// Keep the exact ordinary-host velocity delta beside the checkpoint, without
+// changing native integration order or downloading rigid motion to the host.
+__global__ void captureHostCommandDeltas(const PxgBodySimVelocityUpdate* updates,PxU32 count,
+    PxgBodySimVelocities* commands,PxU32 capacity) {
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
+    const auto update=updates[i];
+    const PxU32 body=__float_as_uint(update.linearVelocityXYZ_bodySimIndexW.w);
+    if(body>=capacity || !(__float_as_uint(update.externalLinearAccelerationXYZ.w)&PxsRigidBody::eHOST_VELOCITY_DELTA_GPU))return;
+    commands[body]={update.externalLinearAccelerationXYZ,update.externalAngularAccelerationXYZ};
+}
+__device__ PxVec3 commandAngularAcceleration(const PxgBodySim& body,const PxVec3& torque) {
+    const auto q=body.body2World.getTransform().q;
+    const auto d=body.inverseInertiaXYZ_contactReportThresholdW;
+    return q.rotate(q.rotateInv(torque).multiply(PxVec3(d.x,d.y,d.z)));
+}
+// Original source membership is still live during preparation. World-space
+// commands carry an explicit torque about each chunk COM, so changing the
+// recipient COM requires exactly this parallel-axis wrench translation.
+__device__ void sumChunkCommands(const PxDestructionStressChunk* chunks,PxU32 n,
+    const PxDestructionChunkLoad* loads,PxU32 sourceCluster,const PxgBodySim& source,
+    const PxVec3& center,PxVec3& force,PxVec3& torque,
+    const PxU32* targetMembership=nullptr,PxU32 target=PX_INVALID_U32,bool impulse=false) {
+    const auto actor=source.body2World.getTransform()*source.body2Actor_maxImpulseW.getTransform().getInverse();
+    for(PxU32 j=0;j<n;++j)if(chunks[j].cluster==sourceCluster && (!targetMembership || targetMembership[j]==target)) {
+        const auto load=loads[j];const auto f=impulse?load.impulse:load.force;force+=f;
+        torque+=(impulse?load.angularImpulse:load.torque)+(actor.transform(chunks[j].position)-center).cross(f);
+    }
+}
+__device__ bool commandValuesMatch(const PxVec3& a,const PxVec3& b) {
+    return a.isFinite() && b.isFinite() && (a-b).magnitude()<=1e-4f*(1+b.magnitude());
+}
+__device__ bool chunkCommandsMatch(const PxDestructionStressChunk* chunks,PxU32 n,
+    const PxDestructionChunkLoad* loads,PxU32 cluster,const PxgBodySim& body,
+    const PxgBodySimVelocities& delta) {
+    PxVec3 force(0),torque(0),impulse(0),angularImpulse(0);
+    const auto center=body.body2World.getTransform().p;
+    sumChunkCommands(chunks,n,loads,cluster,body,center,force,torque);
+    sumChunkCommands(chunks,n,loads,cluster,body,center,impulse,angularImpulse,nullptr,PX_INVALID_U32,true);
+    const auto linear=body.externalLinearAcceleration,angular=body.externalAngularAcceleration;
+    const auto dv=delta.linearVelocity,dw=delta.angularVelocity;
+    return commandValuesMatch(force*body.linearVelocityXYZ_inverseMassW.w,PxVec3(linear.x,linear.y,linear.z))
+        && commandValuesMatch(commandAngularAcceleration(body,torque),PxVec3(angular.x,angular.y,angular.z))
+        && commandValuesMatch(impulse*body.linearVelocityXYZ_inverseMassW.w,PxVec3(dv.x,dv.y,dv.z))
+        && commandValuesMatch(commandAngularAcceleration(body,angularImpulse),PxVec3(dw.x,dw.y,dw.z));
+}
+__global__ void validateChunkCommands(const PxDestructionStressChunk* chunks,PxU32 n,
+    const PxDestructionStressCluster* clusters,PxU32 count,const PxDestructionChunkLoad* loads,
+    const PxgBodySim* checkpoint,PxU32 checkpointCount,const PxgBodySimVelocities* commands,PxDestructionStageStatus* status) {
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
+    const PxU32 id=clusters[i].body;
+    if(!checkpoint || id>=checkpointCount || !chunkCommandsMatch(chunks,n,loads,i,checkpoint[id],commands[id]))atomicOr(&status->error,16384u);
+}
 __device__ bool correctionVelocity(const float* center,const PxgBodySim& source,
     const float4& v,const float4& w,float* linear,float* angular) {
     const double r[3]={double(center[0])-source.body2World.p.x,double(center[1])-source.body2World.p.y,double(center[2])-source.body2World.p.z};
@@ -39,8 +91,8 @@ __global__ void prepareCorrectionBodyInputs(const PxDestructionClusterBodyState*
     const PxU32* affected,const PxgBodySim* checkpoint,const PxgBodySimVelocities* previous,PxU32 checkpointCount,PxU32 bodyCapacity,
     const PxDestructionCollisionPreparationStatus* collision,
     PxDestructionCorrectionBody* output,PxDestructionCorrectionPreparationStatus* status,
-    const NativePreparationInputs* inputs=nullptr) {
-    if(inputs){checkpoint=inputs->checkpoint;previous=inputs->previous;
+    const PxDestructionChunkLoad* loads,const PxgBodySimVelocities* commands,const NativePreparationInputs* inputs=nullptr) {
+    if(inputs){checkpoint=inputs->checkpoint;previous=inputs->previous;loads=inputs->chunkLoads;commands=inputs->commands;
         checkpointCount=inputs->checkpointCount;bodyCapacity=inputs->bodyCapacity;}
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=chunkCount)return;
     output[i]={};output[i].targetBody=PX_INVALID_U32;
@@ -50,10 +102,21 @@ __global__ void prepareCorrectionBodyInputs(const PxDestructionClusterBodyState*
     if(candidate.cluster>=chunkCount || topology.activeClusters[i]!=candidate.cluster){atomicOr(&status->error,2u);return;}
     if(!affected[chunks[candidate.cluster].cluster])return;
     if(!checkpoint || candidate.sourceBody>=checkpointCount){atomicOr(&status->error,1u);return;}
-    const auto source=checkpoint[candidate.sourceBody];
+    auto source=checkpoint[candidate.sourceBody];
     if(__float_as_uint(source.freezeThresholdX_wakeCounterY_sleepThresholdZ_bodySimIndex.w)!=candidate.sourceBody)
         {atomicOr(&status->error,1u);return;}
     if(targets[i]>=bodyCapacity){atomicOr(&status->error,2u);return;}
+    // The checkpoint is after ordinary host commands. Undo their velocity
+    // increment on this source before distributing the original local impulses.
+    if(loads) {
+        const auto delta=commands[candidate.sourceBody];
+        source.linearVelocityXYZ_inverseMassW.x-=delta.linearVelocity.x;
+        source.linearVelocityXYZ_inverseMassW.y-=delta.linearVelocity.y;
+        source.linearVelocityXYZ_inverseMassW.z-=delta.linearVelocity.z;
+        source.angularVelocityXYZ_maxPenBiasW.x-=delta.angularVelocity.x;
+        source.angularVelocityXYZ_maxPenBiasW.y-=delta.angularVelocity.y;
+        source.angularVelocityXYZ_maxPenBiasW.z-=delta.angularVelocity.z;
+    }
     if(!correctionMotion(candidate,topology.clusters[candidate.cluster],source,output[i].body))
         {atomicOr(&status->error,4u);return;}
     if(previous) {
@@ -62,17 +125,36 @@ __global__ void prepareCorrectionBodyInputs(const PxDestructionClusterBodyState*
             {atomicOr(&status->error,4u);return;}
     }
     output[i].targetBody=targets[i];
+    if(loads) {
+        PxVec3 force(0),torque(0);
+        const PxVec3 center(output[i].body.bodyToWorldPosition[0],output[i].body.bodyToWorldPosition[1],output[i].body.bodyToWorldPosition[2]);
+        sumChunkCommands(chunks,chunkCount,loads,chunks[candidate.cluster].cluster,source,center,force,torque,
+            topology.chunkCluster,candidate.cluster);
+        const auto recipient=nativeCandidateState(output[i].body,source,targets[i]);
+        const auto linear=force*recipient.linearVelocityXYZ_inverseMassW.w,angular=commandAngularAcceleration(recipient,torque);
+        if(!linear.isFinite() || !angular.isFinite()){atomicOr(&status->error,8u);return;}
+        for(PxU32 k=0;k<3;++k){output[i].linearAcceleration[k]=linear[k];output[i].angularAcceleration[k]=angular[k];}
+        force=PxVec3(0);torque=PxVec3(0);
+        sumChunkCommands(chunks,chunkCount,loads,chunks[candidate.cluster].cluster,source,center,force,torque,
+            topology.chunkCluster,candidate.cluster,true);
+        const auto dv=force*recipient.linearVelocityXYZ_inverseMassW.w,dw=commandAngularAcceleration(recipient,torque);
+        if(!dv.isFinite() || !dw.isFinite()){atomicOr(&status->error,8u);return;}
+        for(PxU32 k=0;k<3;++k){output[i].body.linearVelocity[k]+=dv[k];output[i].body.angularVelocity[k]+=dw[k];}
+    }
 }
 __global__ void inspectCorrectionSourceLoads(const PxDestructionStressCluster* clusters,const PxU32* affected,PxU32 count,
     const PxgBodySim* checkpoint,PxU32 checkpointCount,const PxDestructionCollisionPreparationStatus* collision,
-    PxDestructionCorrectionPreparationStatus* status,const NativePreparationInputs* inputs=nullptr) {
-    if(inputs){checkpoint=inputs->checkpoint;checkpointCount=inputs->checkpointCount;count=inputs->clusterCount;}
+    PxDestructionCorrectionPreparationStatus* status,const PxDestructionStressChunk* chunks,PxU32 n,
+    const PxDestructionChunkLoad* loads,const PxgBodySimVelocities* commands,const NativePreparationInputs* inputs=nullptr) {
+    if(inputs){checkpoint=inputs->checkpoint;checkpointCount=inputs->checkpointCount;count=inputs->clusterCount;loads=inputs->chunkLoads;commands=inputs->commands;}
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(!collision->valid || i>=count || !affected[i])return;
     const PxU32 id=clusters[i].body;if(!checkpoint || id>=checkpointCount){atomicOr(&status->error,1u);return;}
     const auto body=checkpoint[id];const auto a=body.externalLinearAcceleration,b=body.externalAngularAcceleration;
     if(!isfinite(a.x) || !isfinite(a.y) || !isfinite(a.z) || !isfinite(b.x) || !isfinite(b.y) || !isfinite(b.z))
         {atomicOr(&status->error,8u);return;}
-    if(a.x!=0 || a.y!=0 || a.z!=0 || b.x!=0 || b.y!=0 || b.z!=0)atomicAdd(&status->loadedSources,1u);
+    if(loads) {
+        if(!chunkCommandsMatch(chunks,n,loads,i,body,commands[id]))atomicAdd(&status->loadedSources,1u);
+    } else if(a.x!=0 || a.y!=0 || a.z!=0 || b.x!=0 || b.y!=0 || b.z!=0)atomicAdd(&status->loadedSources,1u);
 }
 struct HasCorrectionBody {
     __host__ __device__ bool operator()(const PxDestructionCorrectionBody& b) const {return b.targetBody!=PX_INVALID_U32;}
@@ -104,7 +186,10 @@ __global__ void installCorrectionBodyInputs(const PxDestructionCorrectionBody* i
     const PxgBodySimVelocities* oldPrevious,PxgBodySim* bodies,PxgBodySimVelocities* previous,PxgRigidBodyAcceleration* accelerations) {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
     const auto input=inputs[i];const auto source=checkpoint[input.body.sourceBody];
-    const auto b=nativeCandidateState(input.body,source,input.targetBody);bodies[input.targetBody]=b;
+    auto b=nativeCandidateState(input.body,source,input.targetBody);
+    b.externalLinearAcceleration=make_float4(input.linearAcceleration[0],input.linearAcceleration[1],input.linearAcceleration[2],0);
+    b.externalAngularAcceleration=make_float4(input.angularAcceleration[0],input.angularAcceleration[1],input.angularAcceleration[2],0);
+    bodies[input.targetBody]=b;
     if(previous) {
         const auto old=oldPrevious[input.body.sourceBody];float linear[3],angular[3];
         correctionVelocity(input.body.bodyToWorldPosition,source,old.linearVelocity,old.angularVelocity,linear,angular);

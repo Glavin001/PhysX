@@ -1,7 +1,7 @@
 // Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
 #ifndef PX_DESTRUCTION_SCENE_H
 #define PX_DESTRUCTION_SCENE_H
-#define PX_DESTRUCTION_SCENE_VERSION 18
+#define PX_DESTRUCTION_SCENE_VERSION 20
 #include "foundation/PxTransform.h"
 #include "PxDirectGPUAPI.h"
 #include "PxDestructionTopologyTypes.h"
@@ -45,6 +45,11 @@ struct PxDestructionStressChunk {
     PxReal volume=0;
     PxU32 material=0;
 };
+// Extra convex/primitive hulls belong to one authored stress chunk. They do not
+// add mass, stress nodes or bonds. Contacts on every hull load that same chunk.
+struct PxDestructionStressShape {
+    PxU32 chunk, contactIndex;
+};
 struct PxDestructionStressBond {
     PxU32 chunk0, chunk1;
     PxVec3 centroid, normal;
@@ -54,6 +59,17 @@ struct PxDestructionStressBond {
 struct PxDestructionStressCluster {
     PxRigidDynamicGPUIndex body;
     PxVec3 centerOfMass; // cluster-local COM for centrifugal loading
+};
+// World-space external force (N) and torque (N m) about this chunk's COM.
+// These describe commands already submitted to the cluster's rigid body, not
+// an additional application. Gravity belongs here only when actor gravity is
+// disabled (as in Vehicle2). Contact/constraint impulses are separate inputs.
+struct PxDestructionChunkLoad {
+    PxVec3 force{0.0f}, torque{0.0f};
+    // Ordinary actor force/impulse commands become velocity deltas before the
+    // GPU solve. Describe those as world-space impulses (N s and N m s),
+    // separately from the Direct GPU force accumulators above.
+    PxVec3 impulse{0.0f}, angularImpulse{0.0f};
 };
 struct PxDestructionStressDesc {
     const PxDestructionStressChunk* chunks = NULL;
@@ -107,6 +123,15 @@ struct PxDestructionStressDesc {
     // monotonically instead of settling into a PGS fixed point or a two-step
     // cycle that never sleeps.
     PxReal fragmentMaxDepenetrationVelocity = 0.0f;
+    // Primary hulls remain in chunks[].contactIndex. Additional identities must
+    // be unique across both lists and use the same cluster-local actor frame.
+    const PxDestructionStressShape* additionalShapes = NULL;
+    PxU32 additionalShapeCount = 0;
+    // Enables per-step apportioned command inputs. Their aggregate must match
+    // the native pre-solve acceleration accumulators; mismatches reject the
+    // step. A corrected split reapplies each command only to its owning piece.
+    // Requires material state and internalCorrectionLimit == 1.
+    bool enableChunkLoads = false;
 };
 struct PxDestructionVectorPair {
     PxVec3 angular, linear;
@@ -129,6 +154,7 @@ struct PxDestructionStageStatus {
                  //       its warm-started iterate, withholds every fracture and crush
                  //       verdict, and refines the same solve on the next tick.
                  // 8192: GPU contact lifetime space exhausted (scene cannot continue)
+                 // 16384: chunk commands do not match rigid-body commands
 
     PxU32 normalContacts, frictionAnchors;
     PxU32 iterations, converged;
@@ -247,6 +273,11 @@ public:
     virtual PxDestructionDeviceView getDeviceView() const = 0;
     virtual void setConsumerEvent(CUevent event) = 0;
     virtual PxDestructionStageStatus getLastStatus() const = 0;
+    // Outside simulation, after configureStress with enableChunkLoads. Exactly
+    // chunkCount entries, including zero entries. Consumed for one complete
+    // timestep including its correction; omission next step means zero loads.
+    // Does not call addForce/addTorque. Forces remain ordinary PhysX commands.
+    virtual bool setChunkLoads(const PxDestructionChunkLoad* loads, PxU32 count) = 0;
 protected:
     virtual ~PxDestructionScene() {}
 };

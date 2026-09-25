@@ -939,6 +939,9 @@ if(BLAST_ENABLE_CUDA_STRESS)
     add_test(NAME physx_native_post_correction_pgs COMMAND native_standard_scene_test --post-correction-pgs)
     add_test(NAME physx_native_post_correction_multi COMMAND native_standard_scene_test --post-correction-multi)
     add_test(NAME physx_native_chained_fracture COMMAND native_standard_scene_test --chained-fracture)
+    add_test(NAME physx_native_multihull COMMAND native_standard_scene_test --multihull)
+    add_test(NAME physx_native_chunk_loads COMMAND native_standard_scene_test --chunk-loads)
+    add_test(NAME physx_native_parallel_bonds COMMAND native_standard_scene_test --parallel-bonds)
     add_test(NAME physx_native_standard_awake COMMAND native_standard_scene_test --awake)
     add_test(NAME physx_native_standard_sleep COMMAND native_standard_scene_test)
     add_test(NAME physx_native_compound_sleep COMMAND native_standard_scene_test --compound-sleep)
@@ -957,6 +960,12 @@ if(BLAST_ENABLE_CUDA_STRESS)
 
     # A vehicle SDK car ramming a native-destruction wall, through the packaged
     # PxNativeVehicle helper (destruction/vehicle).
+    add_executable(native_vehicle_loads_test tests/native_vehicle_loads_test.cpp)
+    target_compile_definitions(native_vehicle_loads_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG PX_SUPPORT_PVD=0 PX_SUPPORT_OMNI_PVD=0)
+    target_include_directories(native_vehicle_loads_test PRIVATE ${NATIVE_CHECKPOINT_TEST_INCLUDES})
+    target_link_libraries(native_vehicle_loads_test PRIVATE PhysXNativeVehicle ${PHYSX_VEHICLE} ${NATIVE_DESTRUCTION_TEST_LIBS})
+    add_test(NAME physx_native_vehicle_loads COMMAND native_vehicle_loads_test)
+
     add_executable(native_vehicle_wall_test tests/native_vehicle_wall_test.cpp physx_scene.cpp state_writer.cpp)
     target_compile_definitions(native_vehicle_wall_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG PX_SUPPORT_PVD=0 PX_SUPPORT_OMNI_PVD=0)
     target_include_directories(native_vehicle_wall_test PRIVATE ${PHYSX_ROOT}/include)

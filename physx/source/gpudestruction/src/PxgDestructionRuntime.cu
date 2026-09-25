@@ -118,7 +118,8 @@ __global__ void prepareNativeCorrectionAcceptance(PxDestructionStageStatus* stat
 __global__ void prepareLoads(const PxDestructionStressChunk* chunks, PxU32 n,
     const PxDestructionStressCluster* clusters, const PxTransform* poses,
     const PxVec3* angular, PxVec3 gravity, PxDestructionVectorPair* inputs,
-    PxDestructionSurfaceLoad* surfaces, float* rates) {
+    PxDestructionSurfaceLoad* surfaces, float* rates,
+    const PxDestructionChunkLoad* loads,const PxgBodySim* bodies,PxReal inverseDt) {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;
     if(i>=n)return;
     surfaces[i]={}; inputs[i]={};if(rates)rates[i]=0;
@@ -129,7 +130,14 @@ __global__ void prepareLoads(const PxDestructionStressChunk* chunks, PxU32 n,
     // so its output is interpreted as force. Angular solver input remains zero;
     // actual contact torque and external virial are retained separately below.
     const PxVec3 r=c.position-clusters[c.cluster].centerOfMass;
-    inputs[i].linear=pose.q.rotateInv(gravity)-w.cross(w.cross(r));
+    const PxVec3 acceleration=(loads && bodies[clusters[c.cluster].body].disableGravity)?PxVec3(0):gravity;
+    inputs[i].linear=pose.q.rotateInv(acceleration)-w.cross(w.cross(r));
+    if(loads) {
+        const auto load=loads[i];
+        surfaces[i].force=pose.q.rotateInv(load.force+load.impulse*inverseDt);surfaces[i].torque=pose.q.rotateInv(load.torque+load.angularImpulse*inverseDt);
+        inputs[i].linear+=surfaces[i].force/c.mass;
+        inputs[i].angular=surfaces[i].torque/c.inertia;
+    }
 }
 // One pair's contact loads on one of its chunks, summed in registers and
 // published with a single set of atomics per pair instead of per contact
@@ -415,6 +423,8 @@ __device__ bool initializedBodyAllocation(const PxDestructionBodyAllocationStatu
 struct NativePreparationInputs {
     PxgDestructionCollisionStorage collision;
     const PxgBodySim* checkpoint=nullptr;
+    const PxgBodySimVelocities* commands=nullptr;
+    const PxDestructionChunkLoad* chunkLoads=nullptr;
     const PxgBodySimVelocities* previous=nullptr;
     PxU32 checkpointCount=0,bodyCapacity=0,clusterCount=0;
     PxU64 checkpointGeneration=0;
@@ -426,6 +436,7 @@ __global__ void indexCandidateRoots(PxDestructionTopologyDeviceView topology,PxU
     if(i<topology.status->clusterCount)slots[topology.activeClusters[i]]=i;
 }
 __global__ void preparePersistentCollisionBindings(const PxDestructionStressChunk* chunks,PxU32 chunkCount,
+    const PxDestructionStressShape* hulls,PxU32 hullCount,
     const PxDestructionStressCluster* clusters,const PxU32* affectedClusters,
     PxDestructionTopologyDeviceView topology,const PxU32* candidateSlots,const PxU32* candidateBodies,
     const PxgShapeSim* shapes,PxU32 shapeCapacity,const PxNodeIndex* shapeToBody,PxU32 remapCapacity,
@@ -434,13 +445,14 @@ __global__ void preparePersistentCollisionBindings(const PxDestructionStressChun
     const NativePreparationInputs* inputs=nullptr) {
     if(inputs){shapes=inputs->collision.shapes;shapeCapacity=inputs->collision.shapeCapacity;
         shapeToBody=inputs->collision.shapeToBody;remapCapacity=inputs->collision.remapCapacity;}
-    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=chunkCount)return;
-    bindings[i]={i,PX_INVALID_U32,PX_INVALID_U32,PX_INVALID_U32};
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=hullCount)return;
+    const auto hull=hulls[i];
+    bindings[i]={hull.chunk,PX_INVALID_U32,PX_INVALID_U32,PX_INVALID_U32,i};
     // Overwrite every compaction sentinel even when initialization was rejected.
     // Candidate state cannot be consumed before the ordered device prerequisite.
     if(!initializedBodyAllocation(allocation))return;
-    const auto chunk=chunks[i];if(!affectedClusters[chunk.cluster] || chunk.contactIndex==PX_INVALID_U32)return;
-    const PxU32 shapeId=chunk.contactIndex,source=clusters[chunk.cluster].body;
+    const auto chunk=chunks[hull.chunk];if(!affectedClusters[chunk.cluster] || hull.contactIndex==PX_INVALID_U32)return;
+    const PxU32 shapeId=hull.contactIndex,source=clusters[chunk.cluster].body;
     if(shapeId>=shapeCapacity || !shapes) {atomicOr(&status->error,1u);return;}
     const auto shape=shapes[shapeId];
     if(shape.mBodySimIndex.isStaticBody() || shape.mBodySimIndex.isArticulation() || shape.mBodySimIndex.index()!=source)
@@ -455,8 +467,8 @@ __global__ void preparePersistentCollisionBindings(const PxDestructionStressChun
         || !shape.mTransform.isValid() || shape.mHullDataIndex==PX_INVALID_U32)
         {atomicOr(&status->error,8u);return;}
     PxU32 target=PX_INVALID_U32;
-    if(topology.activeChunks[i]) {
-        const PxU32 root=topology.chunkCluster[i];
+    if(topology.activeChunks[hull.chunk]) {
+        const PxU32 root=topology.chunkCluster[hull.chunk];
         if(root>=chunkCount) {atomicOr(&status->error,4u);return;}
         const PxU32 slot=candidateSlots[root];
         if(slot>=topology.status->clusterCount || topology.activeClusters[slot]!=root)
@@ -464,7 +476,7 @@ __global__ void preparePersistentCollisionBindings(const PxDestructionStressChun
         target=candidateBodies[slot];
         if(target==PX_INVALID_U32) {atomicOr(&status->error,4u);return;}
     } else atomicAdd(&status->removed,1u);
-    bindings[i]={i,shapeId,source,target};
+    bindings[i]={hull.chunk,shapeId,source,target,i};
 }
 // The native transaction preserves authored shape-to-actor coordinates. Only
 // the motion owner changes; geometry, local bounds and registration stay resident.
@@ -488,7 +500,7 @@ __global__ void installNativeCollisionOwners(const PxDestructionCollisionBinding
     // existing pairs while the correction resets their solver/contact caches.
     if(b.sourceBody!=b.targetBody) {
         ownerGenerations[b.shape]=generation;
-        if(publicationEpochs) {publicationEpochs[b.chunk]=stage->frame;publicationTargets[b.chunk]=b.targetBody;}
+        if(publicationEpochs) {publicationEpochs[b.shapeSlot]=stage->frame;publicationTargets[b.shapeSlot]=b.targetBody;}
     }
 }
 struct HasMigratingCollisionBinding {
@@ -560,6 +572,9 @@ class Runtime final : public PxgDestructionRuntime {
     ExtStressGpuSolver* mSolver{}; ExtStressGpuSolveParams mParams;
     PxDestructionStressChunk* mChunks{}; PxDestructionStressCluster* mClusters{};
     PxTransform* mPoses{}; PxVec3* mAngular{};
+    PxDestructionChunkLoad* mChunkLoads{};
+    std::vector<PxDestructionChunkLoad> mHostChunkLoads;
+    bool mChunkLoadsFresh=false;
     // Idle gate (see watchClusterBodies). mIdleCertified: the last full
     // evaluation was a fixed point and its inputs equalled the frame before
     // (so moving bodies never certify), so a frame with bitwise-equal inputs
@@ -654,6 +669,7 @@ class Runtime final : public PxgDestructionRuntime {
     PxU32 mCorrectionBlockers=0;
     bool mCompatibilityPrepared=false;
     PxU32* mAffectedClusters{};PxU32* mCandidateSlots{};
+    PxDestructionStressShape* mHullBindings{};PxU32 mHullCount=0;
     PxDestructionCollisionBinding *mCollisionBindings{},*mCompactCollisionBindings{};
     // Compact observation for the remaining CPU ownership mirror. Retained
     // shapes stay exclusively in the complete GPU collision transaction.
@@ -673,6 +689,7 @@ class Runtime final : public PxgDestructionRuntime {
     bool mCollisionPreparationSubmitted=false,mCorrectionPreparationSubmitted=false;
     PxU64 mRestoredCheckpointGeneration{};
     PxgBodySim* mCheckpointBodies{};
+    PxgBodySimVelocities* mCheckpointCommands{};
     PxgBodySimVelocities* mCheckpointPrevious{};
     PxgRigidBodyAcceleration* mCheckpointAccelerations{};
     PxU32 mCheckpointCapacity{},mCheckpointCount{};
@@ -1132,10 +1149,12 @@ public:
         mCheckpointValid=false;mCheckpointCount=0;mCheckpointCapacity=0;
         mCheckpointHasPrevious=mCheckpointHasAccelerations=false;
         cudaFree(mCheckpointBodies);mCheckpointBodies=nullptr;
+        cudaFree(mCheckpointCommands);mCheckpointCommands=nullptr;
         cudaFree(mCheckpointPrevious);mCheckpointPrevious=nullptr;
         cudaFree(mCheckpointAccelerations);mCheckpointAccelerations=nullptr;
         mHostReservedIndices.clear();mCompatibilityPrepared=false;mHostCompletion->collision={};
         cudaFree(mAffectedClusters);mAffectedClusters=nullptr;cudaFree(mCandidateSlots);mCandidateSlots=nullptr;
+        cudaFree(mHullBindings);mHullBindings=nullptr;mHullCount=0;
         cudaFree(mCollisionBindings);mCollisionBindings=nullptr;cudaFree(mCompactCollisionBindings);mCompactCollisionBindings=nullptr;
         cudaFree(mMigratingCollisionBindings);mMigratingCollisionBindings=nullptr;
         cudaFree(mShapeOwnerGenerations);mShapeOwnerGenerations=nullptr;
@@ -1160,6 +1179,7 @@ public:
         cudaFree(mTopologyEdits);mTopologyEdits=nullptr;cudaFree(mTopologyCount);mTopologyCount=nullptr;mEditCapacity=0;
         cudaFree(mTopologyAccept);mTopologyAccept=nullptr;
         if(mSolver)mSolver->release();mSolver=nullptr;
+        cudaFree(mChunkLoads);mChunkLoads=nullptr;mHostChunkLoads.clear();mChunkLoadsFresh=false;
         cudaFree(mChunks);mChunks=nullptr;cudaFree(mClusters);mClusters=nullptr;
         cudaFree(mPoses);mPoses=nullptr;cudaFree(mAngular);mAngular=nullptr;
         cudaFree(mIdleBodies);mIdleBodies=nullptr;mIdleCertified=mIdleSkipped=mIdleFull=false;
@@ -1175,6 +1195,7 @@ public:
         if(!mWriteAllowed(mScene) || !d.chunks || (d.bondCount && !d.bonds) || !d.clusters
             || !d.chunkCount || !d.clusterCount || !d.maxIterations
             || (d.internalCorrectionLimit && !d.chunkMassProperties)
+            || (d.enableChunkLoads && (d.internalCorrectionLimit!=1 || !d.materialCount))
             || !std::isfinite(d.tolerance) || d.tolerance<=0)return false;
         try {
         std::vector<PxDestructionMaterial> materials;
@@ -1195,7 +1216,10 @@ public:
                     || m.residualAreaFraction<0 || m.residualAreaFraction>1 || m.crush.debrisMassFraction<0 || m.crush.debrisMassFraction>1)return false;
             }
         }
-        std::set<std::pair<PxU32,PxU32>> pairs;
+        if(d.additionalShapeCount && !d.additionalShapes)return false;
+        if(size_t(d.chunkCount)+d.additionalShapeCount>size_t(std::numeric_limits<int>::max()))return false;
+        std::vector<PxDestructionStressShape> hulls;
+        hulls.reserve(size_t(d.chunkCount)+d.additionalShapeCount);
         std::vector<PxU32> begin(d.chunkCount+1,0),refs(2*size_t(d.bondCount));
         std::vector<float> health(d.bondCount);
         std::vector<ExtStressGpuNode> nodes(d.chunkCount);
@@ -1210,8 +1234,14 @@ public:
                 || c.mass<0 || !std::isfinite(c.inertia) || c.inertia<0 || (c.mass>0 && c.inertia<=0))return false;
             if(d.materialCount && (c.material>=d.materialCount || !std::isfinite(c.volume) || c.volume<0
                 || (materials[c.material].crush.capPressure>0 && c.mass>0 && c.volume<=0)))return false;
+            hulls.push_back({i,c.contactIndex});
             nodes[i]={{c.position.x,c.position.y,c.position.z},c.mass,c.inertia};
             if(c.contactIndex!=PX_INVALID_U32)map.push_back({c.contactIndex,i});
+        }
+        for(PxU32 i=0;i<d.additionalShapeCount;++i) {
+            const auto hull=d.additionalShapes[i];
+            if(hull.chunk>=d.chunkCount || hull.contactIndex==PX_INVALID_U32)return false;
+            hulls.push_back(hull);map.push_back({hull.contactIndex,hull.chunk});
         }
         std::sort(map.begin(),map.end(),[](const Lookup&a,const Lookup&b){return a.contact<b.contact;});
         for(size_t i=1;i<map.size();++i)if(map[i-1].contact==map[i].contact)return false;
@@ -1221,8 +1251,10 @@ public:
                 || d.chunks[b.chunk0].cluster!=d.chunks[b.chunk1].cluster
                 || !b.centroid.isFinite() || !b.normal.isFinite() || !std::isfinite(b.area) || b.area<=0
                 || !std::isfinite(b.health) || b.health<=0 || !std::isfinite(b.complianceScale) || b.complianceScale<=0)return false;
-            if(d.materialCount && (b.material>=d.materialCount || b.chunk0>=b.chunk1
-                || !pairs.insert({b.chunk0,b.chunk1}).second))return false;
+            // Distinct authored interfaces may join the same two simplified
+            // collision groups. Each keeps its own centroid, material and bond
+            // identity; connectivity ends only after the last path fails.
+            if(d.materialCount && (b.material>=d.materialCount || b.chunk0>=b.chunk1))return false;
             ++begin[b.chunk0+1];++begin[b.chunk1+1];health[i]=b.health;
             bonds[i]={};bonds[i].node0=b.chunk0;bonds[i].node1=b.chunk1;
             for(PxU32 k=0;k<3;++k){bonds[i].centroid[k]=b.centroid[k];bonds[i].normal[k]=b.normal[k];}
@@ -1273,9 +1305,15 @@ public:
             else {allocate(mInputs,d.chunkCount);mOwnInputs=true;}
             if(!mInputs)throw std::runtime_error("missing resident destruction inputs");
             allocate(mSurface,d.chunkCount);
+            if(d.enableChunkLoads) {
+                allocate(mChunkLoads,d.chunkCount);mHostChunkLoads.resize(d.chunkCount);
+                check(cudaMemset(mChunkLoads,0,sizeof(*mChunkLoads)*d.chunkCount));
+            }
             check(cudaMemcpy(mChunks,d.chunks,sizeof(*mChunks)*d.chunkCount,cudaMemcpyHostToDevice));
             check(cudaMemcpy(mClusters,d.clusters,sizeof(*mClusters)*d.clusterCount,cudaMemcpyHostToDevice));
             if(!map.empty())check(cudaMemcpy(mMap,map.data(),sizeof(*mMap)*map.size(),cudaMemcpyHostToDevice));
+            mHullCount=PxU32(hulls.size());allocate(mHullBindings,mHullCount);
+            check(cudaMemcpy(mHullBindings,hulls.data(),sizeof(*mHullBindings)*mHullCount,cudaMemcpyHostToDevice));
             mN=d.chunkCount;mM=d.bondCount;mC=d.clusterCount;mMapCount=PxU32(map.size());
             for(PxU32 i=0;i<d.clusterCount;++i)mHostOwnedBodies.insert(d.clusters[i].body);
             if(d.materialCount) {
@@ -1300,17 +1338,17 @@ public:
                 if(!mTopology || (mSolver && !mSolver->enableDeviceTopology())){clear();return false;}
                 allocate(mTopologyAccept,1);
                 allocate(mAffectedClusters,d.chunkCount);allocate(mCandidateSlots,d.chunkCount);
-                allocate(mCollisionBindings,d.chunkCount);allocate(mCompactCollisionBindings,d.chunkCount);mCollisionPreparation=&mCompletion->collision;
-                allocate(mMigratingCollisionBindings,d.chunkCount);
+                allocate(mCollisionBindings,mHullCount);allocate(mCompactCollisionBindings,mHullCount);mCollisionPreparation=&mCompletion->collision;
+                allocate(mMigratingCollisionBindings,mHullCount);
                 check(cudaMemset(mCollisionPreparation,0,sizeof(*mCollisionPreparation)));
                 check(cub::DeviceSelect::If(nullptr,mCollisionScratchBytes,mCollisionBindings,mCompactCollisionBindings,
-                    &mCollisionPreparation->count,d.chunkCount,HasCollisionBinding{},mStream));
+                    &mCollisionPreparation->count,mHullCount,HasCollisionBinding{},mStream));
                 size_t migratingScratchBytes=0;
                 check(cub::DeviceSelect::If(nullptr,migratingScratchBytes,mCollisionBindings,mMigratingCollisionBindings,
-                    &mCollisionPreparation->migrating,d.chunkCount,HasMigratingCollisionBinding{},mStream));
+                    &mCollisionPreparation->migrating,mHullCount,HasMigratingCollisionBinding{},mStream));
                 mCollisionScratchBytes=std::max(mCollisionScratchBytes,migratingScratchBytes);
                 check(cudaMalloc(&mCollisionScratch,mCollisionScratchBytes));
-                allocate(mCorrectionOwnerRequests,d.chunkCount);allocate(mCorrectionOwnerTargets,d.chunkCount);
+                allocate(mCorrectionOwnerRequests,d.chunkCount);allocate(mCorrectionOwnerTargets,mHullCount);
                 // Private raw preparation scratch becomes the larger accepted observation
                 // only after all correction consumers finish. Compact public views
                 // retain their separate storage and original record layout.
@@ -1321,8 +1359,8 @@ public:
                     &mCorrectionPreparation->count,d.chunkCount,HasCorrectionBody{},mStream));
                 if(mBodyAllocator->needsHostProperties()) {
                     allocate(mPropertyEpochs,d.chunkCount);mPropertyCount=&mCompletion->propertyCount;
-                    allocate(mShapePublicationEpochs,d.chunkCount);allocate(mShapePublicationTargets,d.chunkCount);
-                    check(cudaMemsetAsync(mShapePublicationEpochs,0,d.chunkCount*sizeof(PxU64),mStream));
+                    allocate(mShapePublicationEpochs,mHullCount);allocate(mShapePublicationTargets,mHullCount);
+                    check(cudaMemsetAsync(mShapePublicationEpochs,0,mHullCount*sizeof(PxU64),mStream));
                     check(cudaMemsetAsync(mPropertyEpochs,0,d.chunkCount*sizeof(PxU64),mStream));
                     size_t propertyBytes=0;
                     check(cub::DeviceSelect::If(nullptr,propertyBytes,cub::CountingInputIterator<PxU32>(0),
@@ -1331,7 +1369,7 @@ public:
                     mCorrectionScratchBytes=std::max(mCorrectionScratchBytes,propertyBytes);
                     size_t shapeBytes=0;
                     check(cub::DeviceSelect::If(nullptr,shapeBytes,cub::CountingInputIterator<PxU32>(0),
-                        mCorrectionOwnerTargets,&mCompletion->shapeCount,d.chunkCount,
+                        mCorrectionOwnerTargets,&mCompletion->shapeCount,mHullCount,
                         HasPendingShapeOwner{mShapePublicationEpochs,mStatus},mStream));
                     mCorrectionScratchBytes=std::max(mCorrectionScratchBytes,shapeBytes);
                 }
@@ -1339,7 +1377,7 @@ public:
                 allocate(mTrialBodies,d.chunkCount);mBodyPreparation=&mCompletion->body;
                 mPinnedBodyRequests.allocate(d.chunkCount);mPinnedOwnerRequests.allocate(d.chunkCount);
                 mPinnedReservedIndices.allocate(d.chunkCount);mPinnedOwnerTargets.allocate(d.chunkCount);
-                mPinnedMigrating.allocate(d.chunkCount);mPinnedShapeOwners.allocate(d.chunkCount);
+                mPinnedMigrating.allocate(mHullCount);mPinnedShapeOwners.allocate(mHullCount);
                 mPinnedProperties.allocate(d.chunkCount);
 #if PX_CUMETAL
                 allocate(mPrincipalFrames,d.chunkCount);
@@ -1359,18 +1397,18 @@ public:
                     const auto trial=mTopology->trial();
                     check(cudaMemsetAsync(mCandidateSlots,0xff,mN*sizeof(PxU32),mStream));
                     indexCandidateRoots<<<(mN+127)/128,128,0,mStream>>>(trial,mCandidateSlots);
-                    preparePersistentCollisionBindings<<<(mN+127)/128,128,0,mStream>>>(mChunks,mN,mClusters,mAffectedClusters,
+                    preparePersistentCollisionBindings<<<(mHullCount+127)/128,128,0,mStream>>>(mChunks,mN,mHullBindings,mHullCount,mClusters,mAffectedClusters,
                         trial,mCandidateSlots,mTrialBodyIndices,nullptr,0,nullptr,0,mCollisionBindings,mCollisionPreparation,mBodyAllocation,inputs);
                     check(cub::DeviceSelect::If(mCollisionScratch,mCollisionScratchBytes,mCollisionBindings,mCompactCollisionBindings,
-                        &mCollisionPreparation->count,mN,HasCollisionBinding{},mStream));
+                        &mCollisionPreparation->count,mHullCount,HasCollisionBinding{},mStream));
                     check(cub::DeviceSelect::If(mCollisionScratch,mCollisionScratchBytes,mCollisionBindings,mMigratingCollisionBindings,
-                        &mCollisionPreparation->migrating,mN,HasMigratingCollisionBinding{},mStream));
+                        &mCollisionPreparation->migrating,mHullCount,HasMigratingCollisionBinding{},mStream));
                     finishCollisionPreparation<<<1,1,0,mStream>>>(mCollisionPreparation,mBodyAllocation,mStatus);
                     check(cudaMemsetAsync(mCorrectionPreparation,0,sizeof(*mCorrectionPreparation),mStream));
                     prepareCorrectionBodyInputs<<<(mN+127)/128,128,0,mStream>>>(mTrialBodies,mTrialBodyIndices,mN,trial,mChunks,
-                        mAffectedClusters,nullptr,nullptr,0,0,mCollisionPreparation,mCorrectionBodies,mCorrectionPreparation,inputs);
+                        mAffectedClusters,nullptr,nullptr,0,0,mCollisionPreparation,mCorrectionBodies,mCorrectionPreparation,mChunkLoads,mCheckpointCommands,inputs);
                     inspectCorrectionSourceLoads<<<(mN+127)/128,128,0,mStream>>>(mClusters,mAffectedClusters,0,nullptr,0,
-                        mCollisionPreparation,mCorrectionPreparation,inputs);
+                        mCollisionPreparation,mCorrectionPreparation,mChunks,mN,mChunkLoads,mCheckpointCommands,inputs);
                     check(cub::DeviceSelect::If(mCorrectionScratch,mCorrectionScratchBytes,mCorrectionBodies,mCompactCorrectionBodies,
                         &mCorrectionPreparation->count,mN,HasCorrectionBody{},mStream));
                     finishCorrectionPreparation<<<1,1,0,mStream>>>(mCorrectionPreparation,mCollisionPreparation,0,mStatus,inputs);
@@ -1431,6 +1469,16 @@ public:
         }
         v.chunkCount=mN;v.bondCount=mM;v.readyEvent=reinterpret_cast<CUevent>(mReady);return v;
     }
+    bool setChunkLoads(const PxDestructionChunkLoad* loads,PxU32 count) override {
+        if(!mWriteAllowed(mScene) || !configured() || !mChunkLoads || !loads || count!=mN || mPending || mFailed)return false;
+        for(PxU32 i=0;i<count;++i)if(!loads[i].force.isFinite() || !loads[i].torque.isFinite() || !loads[i].impulse.isFinite() || !loads[i].angularImpulse.isFinite())return false;
+        try {Context current(mContext);
+            if(mChunkLoadsFresh)check(cudaEventSynchronize(mInput)); // repeated setter: staging memory is still borrowed
+            std::copy(loads,loads+count,mHostChunkLoads.begin());
+            check(cudaMemcpyAsync(mChunkLoads,mHostChunkLoads.data(),count*sizeof(*loads),cudaMemcpyHostToDevice,mStream));
+            check(cudaEventRecord(mInput,mStream));mChunkLoadsFresh=true;mIdleCertified=false;return true;
+        }catch(...){mFailed=true;return false;}
+    }
     void setConsumerEvent(CUevent e) override {if(mWriteAllowed(mScene))mConsumer=e;}
     PxDestructionStageStatus getLastStatus() const override {
         PxDestructionStageStatus status=*mHostStatus;status.correctionBlockers=mCorrectionBlockers;return status;
@@ -1439,6 +1487,10 @@ public:
     bool prepareFrame(PxU32 pass=0) override {
         try {Context current(mContext);if(!configured() || mPending || pass>mCorrectionLimit || (pass && pass!=mPass+1))return false;
             mPass=pass;
+            if(!pass && mChunkLoads) {
+                if(!mChunkLoadsFresh)check(cudaMemsetAsync(mChunkLoads,0,mN*sizeof(*mChunkLoads),mStream));
+                mChunkLoadsFresh=false;mIdleCertified=false;
+            }
             if(pass) {
                 // The previous pass was accepted: its per-pass status carries
                 // exactly one corrected solve and one evaluation. Fold it into
@@ -1494,16 +1546,16 @@ public:
                     reinterpret_cast<PxvDestructionBodyProperties*>(mCorrectionBodies),mStatus);
                 check(cudaMemcpyAsync(observations,mCorrectionBodies,capacity*sizeof(observations[0]),cudaMemcpyDeviceToHost,mStream));
             }
-            const PxU32 shapeCapacity=std::min(mN,mPendingShapeCapacity);
+            const PxU32 shapeCapacity=std::min(mHullCount,mPendingShapeCapacity);
             PxDestructionCollisionBinding* shapeObservations=mPinnedShapeOwners.p;
             if(shapeCapacity) {
                 // Reuse private preparation scratch. The compact trial batch
                 // remains exposed by getDeviceView with its original count.
                 check(cub::DeviceSelect::If(mCorrectionScratch,mCorrectionScratchBytes,
-                    cub::CountingInputIterator<PxU32>(0),mCorrectionOwnerTargets,&mCompletion->shapeCount,mN,
+                    cub::CountingInputIterator<PxU32>(0),mCorrectionOwnerTargets,&mCompletion->shapeCount,mHullCount,
                     HasPendingShapeOwner{mShapePublicationEpochs,mStatus},mStream));
                 gatherFinalShapeOwners<<<(shapeCapacity+127)/128,128,0,mStream>>>(mCorrectionOwnerTargets,
-                    &mCompletion->shapeCount,shapeCapacity,mChunks,mShapePublicationTargets,mCollisionBindings,mStatus);
+                    &mCompletion->shapeCount,shapeCapacity,mHullBindings,mShapePublicationTargets,mCollisionBindings,mStatus);
                 check(cudaMemcpyAsync(shapeObservations,mCollisionBindings,
                     shapeCapacity*sizeof(shapeObservations[0]),cudaMemcpyDeviceToHost,mStream));
             }
@@ -1582,7 +1634,9 @@ public:
                     contacts,mMap,mMapCount,&mCompletion->idle,eIDLE_STATE_CHANGED);
             }
             observeNativeClusters<<<(mC+127)/128,128,0,mStream>>>(mClusters,mC,bodyStates,mPoses,mAngular);
-            prepareLoads<<<(mN+127)/128,128,0,mStream>>>(mChunks,mN,mClusters,mPoses,mAngular,gravity,mInputs,mSurface,mRates);
+            prepareLoads<<<(mN+127)/128,128,0,mStream>>>(mChunks,mN,mClusters,mPoses,mAngular,gravity,mInputs,mSurface,mRates,mChunkLoads,bodyStates,1.0f/dt);
+            if(mChunkLoads && !mPass)validateChunkCommands<<<(mC+127)/128,128,0,mStream>>>(
+                mChunks,mN,mClusters,mC,mChunkLoads,mCheckpointBodies,mCheckpointCount,mCheckpointCommands,mStatus);
             if(contacts.pairCount)routeContacts<<<(contacts.pairCount+127)/128,128,0,mStream>>>(contacts,mMap,mMapCount,mChunks,mPoses,1.0f/dt,mInputs,mSurface,mStatus,bodyStates,mMaterials,mRates);
             check(cudaEventRecord(mReady,mStream));
             stageMarker(1);
@@ -1668,6 +1722,7 @@ public:
         check(cudaStreamWaitEvent(mStream,mCheckpointReady,0));
         NativePreparationInputs inputs{};inputs.collision=mCollisionStorage;
         inputs.checkpoint=mCheckpointValid?mCheckpointBodies:nullptr;inputs.previous=mCheckpointPrevious;
+        inputs.commands=mCheckpointCommands;inputs.chunkLoads=mPass?nullptr:mChunkLoads;
         inputs.checkpointCount=mCheckpointValid?mCheckpointCount:0;inputs.checkpointGeneration=mCheckpointGeneration;
         inputs.bodyCapacity=mMotionStorage.capacity;inputs.clusterCount=mC;
         mDevicePreparation.setInputs(inputs,mStream);mCorrectionBodyCapacity=mMotionStorage.capacity;
@@ -1790,7 +1845,8 @@ public:
         mCompatibilityPrepared=allocated;return allocated;
     }
     bool captureRigidState(const PxgBodySim* bodies,const PxgBodySimVelocities* previous,
-        const PxgRigidBodyAcceleration* accelerations,PxU32 count,CUstream coreStream) override {
+        const PxgRigidBodyAcceleration* accelerations,PxU32 count,CUstream coreStream,
+        const PxgBodySimVelocityUpdate* commands,PxU32 commandCount) override {
         if(!mTopology)return true;
         try {
             Context current(mContext);const auto stream=reinterpret_cast<cudaStream_t>(coreStream);
@@ -1804,22 +1860,26 @@ public:
                 // stream. Drain those readers before their source is released.
                 // Allocation failure cannot truncate the checkpoint or mutate
                 // accepted body state.
-                PxgBodySim* freshBodies=nullptr;PxgBodySimVelocities* freshPrevious=nullptr;
+                PxgBodySim* freshBodies=nullptr;PxgBodySimVelocities* freshPrevious=nullptr;PxgBodySimVelocities* freshCommands=nullptr;
                 PxgRigidBodyAcceleration* freshAccelerations=nullptr;
                 const PxU64 grown=std::max<PxU64>(256,PxU64(mCheckpointCapacity)+mCheckpointCapacity/2);
                 const PxU32 capacity=PxU32(std::max<PxU64>(count,std::min<PxU64>(grown,std::numeric_limits<PxU32>::max())));
                 try {
-                    allocate(freshBodies,capacity);
+                    allocate(freshBodies,capacity);if(mChunkLoads)allocate(freshCommands,capacity);
                     if(previous)allocate(freshPrevious,capacity);
                     if(accelerations)allocate(freshAccelerations,capacity);
-                }catch(...) {cudaFree(freshBodies);cudaFree(freshPrevious);cudaFree(freshAccelerations);throw;}
+                }catch(...) {cudaFree(freshBodies);cudaFree(freshCommands);cudaFree(freshPrevious);cudaFree(freshAccelerations);throw;}
                 check(cudaEventRecord(mCheckpointReady,stream));check(cudaEventSynchronize(mCheckpointReady));
-                cudaFree(mCheckpointBodies);cudaFree(mCheckpointPrevious);cudaFree(mCheckpointAccelerations);
-                mCheckpointBodies=freshBodies;mCheckpointPrevious=freshPrevious;mCheckpointAccelerations=freshAccelerations;
+                cudaFree(mCheckpointBodies);cudaFree(mCheckpointCommands);cudaFree(mCheckpointPrevious);cudaFree(mCheckpointAccelerations);
+                mCheckpointBodies=freshBodies;mCheckpointCommands=freshCommands;mCheckpointPrevious=freshPrevious;mCheckpointAccelerations=freshAccelerations;
                 mCheckpointCapacity=capacity;
                 mCheckpointHasPrevious=previous!=nullptr;mCheckpointHasAccelerations=accelerations!=nullptr;
             }
             check(cudaMemcpyAsync(mCheckpointBodies,bodies,size_t(count)*sizeof(*bodies),cudaMemcpyDeviceToDevice,stream));
+            if(mCheckpointCommands) {
+                check(cudaMemsetAsync(mCheckpointCommands,0,size_t(count)*sizeof(*mCheckpointCommands),stream));
+                if(commandCount)captureHostCommandDeltas<<<(commandCount+127)/128,128,0,stream>>>(commands,commandCount,mCheckpointCommands,count);
+            }
             if(previous)check(cudaMemcpyAsync(mCheckpointPrevious,previous,size_t(count)*sizeof(*previous),cudaMemcpyDeviceToDevice,stream));
             if(accelerations)check(cudaMemcpyAsync(mCheckpointAccelerations,accelerations,size_t(count)*sizeof(*accelerations),cudaMemcpyDeviceToDevice,stream));
             check(cudaEventRecord(mCheckpointReady,stream));
@@ -1909,16 +1969,16 @@ public:
             }
             check(cudaMemsetAsync(mCandidateSlots,0xff,mN*sizeof(PxU32),stream));
             indexCandidateRoots<<<std::max(1u,(mHostBodyAllocation.count+127)/128),128,0,stream>>>(mTopology->trial(),mCandidateSlots);
-            preparePersistentCollisionBindings<<<(mN+127)/128,128,0,stream>>>(mChunks,mN,mClusters,mAffectedClusters,
+            preparePersistentCollisionBindings<<<(mHullCount+127)/128,128,0,stream>>>(mChunks,mN,mHullBindings,mHullCount,mClusters,mAffectedClusters,
                 mTopology->trial(),mCandidateSlots,mTrialBodyIndices,shapes,shapeCapacity,shapeToBody,remapCapacity,mCollisionBindings,mCollisionPreparation,mBodyAllocation);
             check(cudaGetLastError());
             check(cub::DeviceSelect::If(mCollisionScratch,mCollisionScratchBytes,mCollisionBindings,mCompactCollisionBindings,
-                &mCollisionPreparation->count,mN,HasCollisionBinding{},stream));
+                &mCollisionPreparation->count,mHullCount,HasCollisionBinding{},stream));
             // Stable compaction keeps authored order at the CPU observation boundary.
             // The full GPU binding list still updates retained shapes, including
             // bounds, COM and contact-cache validity; only migrations rebuild pairs.
             check(cub::DeviceSelect::If(mCollisionScratch,mCollisionScratchBytes,mCollisionBindings,mMigratingCollisionBindings,
-                &mCollisionPreparation->migrating,mN,HasMigratingCollisionBinding{},stream));
+                &mCollisionPreparation->migrating,mHullCount,HasMigratingCollisionBinding{},stream));
             finishCollisionPreparation<<<1,1,0,stream>>>(mCollisionPreparation,mBodyAllocation,mStatus);
             check(cudaGetLastError());
             check(cudaEventRecord(mReady,stream));mCollisionPreparationSubmitted=true;
@@ -1945,8 +2005,8 @@ public:
             check(cudaStreamWaitEvent(stream,mReady,0));check(cudaStreamWaitEvent(stream,mCheckpointReady,0));
             check(cudaMemsetAsync(mCorrectionPreparation,0,sizeof(*mCorrectionPreparation),stream));
             prepareCorrectionBodyInputs<<<(mN+127)/128,128,0,stream>>>(mTrialBodies,mTrialBodyIndices,mN,mTopology->trial(),mChunks,
-                mAffectedClusters,mCheckpointBodies,mCheckpointPrevious,mCheckpointCount,bodyCapacity,mCollisionPreparation,mCorrectionBodies,mCorrectionPreparation);
-            inspectCorrectionSourceLoads<<<(mC+127)/128,128,0,stream>>>(mClusters,mAffectedClusters,mC,mCheckpointBodies,mCheckpointCount,mCollisionPreparation,mCorrectionPreparation);
+                mAffectedClusters,mCheckpointBodies,mCheckpointPrevious,mCheckpointCount,bodyCapacity,mCollisionPreparation,mCorrectionBodies,mCorrectionPreparation,mPass?nullptr:mChunkLoads,mCheckpointCommands);
+            inspectCorrectionSourceLoads<<<(mC+127)/128,128,0,stream>>>(mClusters,mAffectedClusters,mC,mCheckpointBodies,mCheckpointCount,mCollisionPreparation,mCorrectionPreparation,mChunks,mN,mPass?nullptr:mChunkLoads,mCheckpointCommands);
             check(cudaGetLastError());
             check(cub::DeviceSelect::If(mCorrectionScratch,mCorrectionScratchBytes,mCorrectionBodies,mCompactCorrectionBodies,
                 &mCorrectionPreparation->count,mN,HasCorrectionBody{},stream));
@@ -2105,7 +2165,7 @@ public:
             // budget. CUDA selects the union of changed surviving owners once.
             if(mPropertyEpochs)mPendingPropertyCapacity=PxU32(std::min<PxU64>(mN,
                 PxU64(mPendingPropertyCapacity)+mHostCompletion->correction.count));
-            if(mShapePublicationEpochs)mPendingShapeCapacity=PxU32(std::min<PxU64>(mN,
+            if(mShapePublicationEpochs)mPendingShapeCapacity=PxU32(std::min<PxU64>(mHullCount,
                 PxU64(mPendingShapeCapacity)+mHostCompletion->collision.migrating));
             check(cudaGetLastError());
             if(mPass && mPass==mCorrectionLimit) {
@@ -2199,7 +2259,7 @@ public:
 };
 }}
 extern "C" PX_DESTRUCTION_RUNTIME_EXPORT physx::PxgDestructionRuntime*
-PxCreateDestructionRuntimeV11(CUcontext c,void* scene,bool(*gate)(void*),physx::PxvDestructionBodyAllocator* allocator) {
+PxCreateDestructionRuntimeV13(CUcontext c,void* scene,bool(*gate)(void*),physx::PxvDestructionBodyAllocator* allocator) {
     try {return new physx::Runtime(c,scene,gate,allocator);}catch(...){return nullptr;}
 }
 
@@ -2213,7 +2273,7 @@ PxApplyDestructionSolverIslandMetadata(const physx::PxvIslandMetadataPage* pages
 }
 
 // Additive entry points: no virtual table or existing factory ABI change.
-// The scene pointer must come from this runtime's PxCreateDestructionRuntimeV11.
+// The scene pointer must come from this runtime's PxCreateDestructionRuntimeV13.
 extern "C" PX_DESTRUCTION_RUNTIME_EXPORT bool
 PxDestructionExportWarmStartV1(physx::PxDestructionScene* scene, float* values, physx::PxU32 count) {
     return scene && static_cast<physx::Runtime*>(scene)->exportWarmStart(values,count);

@@ -83,6 +83,25 @@ struct NativeVehicleWheelState {
     const PxRigidActor* roadActor;   // what it found, NULL when nothing
 };
 
+// Measured over every Vehicle2 substep. Impulses are world-space; angular
+// impulses are about the start-of-step COM. Constraint impulses are produced
+// later by the scene solver and are deliberately not estimated here.
+struct NativeVehicleWheelLoad {
+    PxVec3 suspensionImpulse{0.0f}, tireImpulse{0.0f};
+    PxVec3 suspensionAngularImpulse{0.0f}, tireAngularImpulse{0.0f};
+    PxVec3 angularVelocityChange{0.0f};
+};
+struct NativeVehicleStepLoads {
+    // Older SDKs can still drive, but cannot provide destruction load inputs.
+    bool available = false;
+    NativeVehicleWheelLoad wheels[4];
+    PxTransform centerOfMassPose{PxIdentity};
+    PxVec3 gravityImpulse{0.0f}, externalImpulse{0.0f}, externalAngularImpulse{0.0f};
+    PxVec3 actorLinearAcceleration{0.0f}, actorAngularAcceleration{0.0f};
+    PxReal duration = 0.0f;
+    PxU32 substeps = 0;
+};
+
 struct NativeVehicleState {
     PxTransform pose;           // actor pose
     PxVec3 linearVelocity;
@@ -114,6 +133,9 @@ public:
 
     // Removes the actor from its scene and frees everything.
     virtual void release() = 0;
+
+    // Appended to retain existing virtual slot order; rebuild users for this API.
+    virtual NativeVehicleStepLoads stepLoads() const = 0;
 
 protected:
     virtual ~NativeVehicle() {}

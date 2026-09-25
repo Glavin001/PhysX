@@ -196,6 +196,7 @@ namespace physx
 		void syncDmaback(PxU32& nbFrozenShapesThisFrame, PxU32& nbUnfrozenShapesThisFrame, bool didSimulate);
 
 		void updateBodies(const PxU32 nbUpdatedBodies, const PxU32 nbNewBodies);
+        PxgDevicePointer<PxgBodySimVelocityUpdate> getUpdatedBodyCommands() const { return mUpdatedBodySimBuffer.getTypedDevicePtr(); }
 
 		void updateArticulations(const PxU32 nbNewArticulations, PxgArticulationSimUpdate* updates,
 			const PxU32 nbUpdatedArticulations, PxReal* dofData);

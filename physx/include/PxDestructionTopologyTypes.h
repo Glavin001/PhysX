@@ -60,6 +60,7 @@ struct PxDestructionMotionSlotStatus {
 // needs its changed cluster mass/COM and solver rows handled by correction.
 struct PxDestructionCollisionBinding {
     std::uint32_t chunk, shape, sourceBody, targetBody;
+    std::uint32_t shapeSlot; // stable collision record, distinct from authored chunk
 };
 struct PxDestructionCollisionPreparationStatus {
     std::uint64_t generation;
@@ -74,6 +75,7 @@ struct PxDestructionCollisionPreparationStatus {
 struct PxDestructionCorrectionBody {
     PxDestructionClusterBodyState body;
     std::uint32_t targetBody;
+    float linearAcceleration[3], angularAcceleration[3];
 };
 struct PxDestructionCorrectionPreparationStatus {
     std::uint64_t generation, checkpointGeneration;

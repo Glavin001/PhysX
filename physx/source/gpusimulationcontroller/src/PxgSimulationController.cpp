@@ -711,7 +711,7 @@ namespace physx
     PxDestructionScene* PxgSimulationController::getDestructionScene(void* scene, bool (*gate)(void*), PxvDestructionBodyAllocator* allocator)
     {
         if(!mDestruction) {
-            mDestruction = PxCreateDestructionRuntimeV11(mCudaContextManager->getContext(), scene, gate, allocator);
+            mDestruction = PxCreateDestructionRuntimeV13(mCudaContextManager->getContext(), scene, gate, allocator);
             if(mDestruction)mDynamicContext->activateDestructionNodeTracking();
         }
         return mDestruction;
@@ -2967,7 +2967,8 @@ namespace physx
             if(!mDestruction->captureRigidState(
                 mSimulationCore->getBodySimBufferDevicePtr().getPointer(),
                 mSimulationCore->getBodySimPrevVelocitiesBufferDevicePtr().getPointer(),
-                mSimulationCore->getRigidBodyAccelerationsDevice(),nbTotalBodies,mSimulationCore->getStream()))
+                mSimulationCore->getRigidBodyAccelerationsDevice(),nbTotalBodies,mSimulationCore->getStream(),
+                mSimulationCore->getUpdatedBodyCommands().getPointer(),updatedBodySimPool.size()))
                 mDestructionError=1;
         }
 

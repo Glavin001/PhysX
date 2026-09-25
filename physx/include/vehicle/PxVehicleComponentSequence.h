@@ -27,6 +27,7 @@
 // Copyright (c) 2001-2004 NovodeX AG. All rights reserved.  
 
 #pragma once
+#define PX_VEHICLE_COMPONENT_REPLACEMENT_VERSION 1
 #include "foundation/PxAssert.h"
 #include "foundation/PxErrors.h"
 #include "foundation/PxFoundation.h"
@@ -67,6 +68,17 @@ struct PxVehicleComponentSequence
 	\return True on success, else false (for example due to component count limit being reached).
 	*/
 	PX_FORCE_INLINE bool add(PxVehicleComponent* component);
+
+	/** Replace a component without rebuilding its sequence or substep groups.
+	Used by observers/decorators that delegate to the original component. */
+	bool replace(PxVehicleComponent* original, PxVehicleComponent* replacement)
+	{
+		if (!original || !replacement) return false;
+		bool found = false;
+		for (PxU32 i = 0; i < mNbComponents; ++i)
+			if (mComponents[i] == original) { mComponents[i] = replacement; found = true; }
+		return found;
+	}
 
 	/**
 	\brief Start a substepping group.
@@ -316,4 +328,3 @@ PxU8 PxVehicleComponentSequence::beginSubstepGroup(const PxU8 nbSubSteps)
 #if !PX_DOXYGEN
 } // namespace physx
 #endif
-

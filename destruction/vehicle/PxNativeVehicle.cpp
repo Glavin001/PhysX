@@ -128,6 +128,49 @@ void setDriveParams(const NativeVehicleDesc& d, DirectDrivetrainParams& p)
 // consumer can see what each wheel is standing on.
 class Car : public DirectDriveVehicle {
 public:
+    NativeVehicleStepLoads loads;
+    // Decorate the existing SDK component. Its force law, call order and
+    // substep count remain unchanged; no copy of the drivetrain is maintained.
+    class LoadObserver : public PxVehicleComponent {
+        Car& car;
+    public:
+        explicit LoadObserver(Car& vehicle) : car(vehicle) {}
+        bool update(PxReal dt, const PxVehicleSimulationContext& context) override {
+            const auto& state = car.mBaseState;
+            const auto& params = car.mBaseParams.rigidBodyParams;
+            const PxVec3 offset = state.rigidBodyState.pose.p - car.loads.centerOfMassPose.p;
+            const PxMat33 rotation(state.rigidBodyState.pose.q);
+            const PxMat33 inverseInertia = rotation * PxMat33::createDiagonal(
+                PxVec3(1/params.moi.x, 1/params.moi.y, 1/params.moi.z)) * rotation.getTranspose();
+            for (PxU32 w=0; w<4; ++w) {
+                const auto& suspension = state.suspensionForces[w];
+                const auto& tire = state.tireForces[w];
+                const PxVec3 force = tire.forces[0] + tire.forces[1];
+                const PxVec3 torque = tire.torques[0] + tire.torques[1];
+                auto& output = car.loads.wheels[w];
+                output.suspensionImpulse += suspension.force * dt;
+                output.tireImpulse += force * dt;
+                output.suspensionAngularImpulse += (suspension.torque + offset.cross(suspension.force)) * dt;
+                output.tireAngularImpulse += (torque + offset.cross(force)) * dt;
+                output.angularVelocityChange += inverseInertia * ((suspension.torque + torque) * dt);
+            }
+            car.loads.gravityImpulse += context.gravity * (params.mass * dt);
+            car.loads.externalImpulse += state.rigidBodyState.externalForce * dt;
+            car.loads.externalAngularImpulse += (state.rigidBodyState.externalTorque
+                + offset.cross(state.rigidBodyState.externalForce)) * dt;
+            car.loads.duration += dt;
+            ++car.loads.substeps;
+            return car.PxVehicleRigidBodyComponent::update(dt, context);
+        }
+    } loadObserver{*this};
+    void initComponentSequence(bool beginEnd) override {
+        DirectDriveVehicle::initComponentSequence(beginEnd);
+#if defined(PX_VEHICLE_COMPONENT_REPLACEMENT_VERSION)
+        const bool replaced = mComponentSequence.replace(static_cast<PxVehicleRigidBodyComponent*>(this), &loadObserver);
+        PX_ASSERT(replaced);PX_UNUSED(replaced);
+#endif
+    }
+
     PxVehiclePhysXRoadGeometryQueryState roadQueryStates[PxVehicleLimits::eMAX_NB_WHEELS];
     void getDataForPhysXRoadGeometrySceneQueryComponent(
         const PxVehicleAxleDescription*& axleDescription,
@@ -221,8 +264,20 @@ public:
     void step(PxReal dt) override
     {
         mContext.gravity = mScene.getGravity();
+        mVehicle.loads = NativeVehicleStepLoads{};
+#if defined(PX_VEHICLE_COMPONENT_REPLACEMENT_VERSION)
+        mVehicle.loads.available = true;
+#endif
+        mVehicle.loads.centerOfMassPose = actor()->getGlobalPose() * actor()->getCMassLocalPose();
         mVehicle.step(dt, mContext);
+        if (dt > 0 && !actor()->isSleeping()) {
+            const auto& state = mVehicle.mBaseState.rigidBodyState;
+            mVehicle.loads.actorLinearAcceleration = (state.linearVelocity - state.previousLinearVelocity) / dt;
+            mVehicle.loads.actorAngularAcceleration = (state.angularVelocity - state.previousAngularVelocity) / dt;
+        }
     }
+
+    NativeVehicleStepLoads stepLoads() const override { return mVehicle.loads; }
 
     NativeVehicleState state() const override
     {

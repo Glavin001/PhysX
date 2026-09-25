@@ -10,6 +10,7 @@
 #include "PxvDestructionBodyAllocator.h"
 namespace physx {
 struct PxgBodySim;
+struct PxgBodySimVelocityUpdate;
 class PxNodeIndex;
 struct PxgShapeSim;
 struct PxgContactManagerInput;
@@ -69,7 +70,8 @@ public:
     virtual const PxU32* correctionBodyIndices() const = 0;
     virtual bool acceptCorrection(const PxgBodySim* bodies, CUstream stream) = 0;
     virtual bool captureRigidState(const PxgBodySim* bodies, const PxgBodySimVelocities* previous,
-        const PxgRigidBodyAcceleration* accelerations, PxU32 count, CUstream stream) = 0;
+        const PxgRigidBodyAcceleration* accelerations, PxU32 count, CUstream stream,
+        const PxgBodySimVelocityUpdate* commands = nullptr, PxU32 commandCount = 0) = 0;
     virtual PxgDestructionRigidCheckpointView rigidCheckpoint() const = 0;
     // Copies only the captured rigid arrays, never CPU/island/contact state.
     // Candidate bodies must be applied after this restore, including new slots
@@ -154,10 +156,11 @@ public:
 #endif
 // Private producer ABI v4 supplies borrowed collision storage for device-controlled preparation.
 // v11 adds ownsBody() so the scene can admit constraints on ordinary bodies.
+// v12 supports multiple collision hulls per authored chunk (public scene ABI 19).
 // Version the symbol so mixed GPU/runtime binaries fail resolution rather than
-// violating lifecycle ordering. Public scene ABI is intact.
+// violating lifecycle ordering or collision-record layout.
 extern "C" PX_DESTRUCTION_RUNTIME_EXPORT physx::PxgDestructionRuntime*
-PxCreateDestructionRuntimeV11(CUcontext context, void* scene, bool (*writeAllowed)(void*), physx::PxvDestructionBodyAllocator* allocator);
+PxCreateDestructionRuntimeV13(CUcontext context, void* scene, bool (*writeAllowed)(void*), physx::PxvDestructionBodyAllocator* allocator);
 
 extern "C" PX_DESTRUCTION_RUNTIME_EXPORT bool
 PxApplyDestructionSolverIslandMetadata(const physx::PxvIslandMetadataPage* pages,physx::PxU32 count,
