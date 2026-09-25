@@ -237,7 +237,7 @@ class Topology final : public PxgDestructionTopology {
     unsigned *mPreviousLabels = nullptr, *mPreviousSlots = nullptr;
     double* mPreviousCenters = nullptr;
     PxgDestructionTopologyStatus* mStatus = nullptr;
-    unsigned mN = 0, mM = 0;
+    unsigned mN = 0, mM = 0, mLabelBits = 32;
     void* mTemp = nullptr;
     size_t mTempBytes = 0;
     cudaStream_t mStream = nullptr;
@@ -252,7 +252,7 @@ class Topology final : public PxgDestructionTopology {
         if (mM) connect<<<(mM+BLOCK-1)/BLOCK, BLOCK, 0, mStream>>>(mBonds, mM, mActiveBonds, mActiveChunks, mLabels);
         flatten<<<grid, BLOCK, 0, mStream>>>(mLabels, mN);
         if (cub::DeviceRadixSort::SortPairs(mTemp, mTempBytes, mLabels, mKeys,
-            mIndices, mOrder, mN, 0, 32, mStream) != cudaSuccess) return false;
+            mIndices, mOrder, mN, 0, int(mLabelBits), mStream) != cudaSuccess) return false;
         ranges<<<grid, BLOCK, 0, mStream>>>(mKeys, mLabels, mActiveChunks, mN, mBegins, mEnds, mRootFlags);
         if (cub::DeviceSelect::Flagged(mTemp, mTempBytes, mIndices, mRootFlags,
             mRoots, &mStatus->clusterCount, mN, mStream) != cudaSuccess) return false;
@@ -291,7 +291,13 @@ public:
         if (mOwnAssets && (cudaMemcpyAsync(mChunks,chunks,sizeof(*chunks)*n,cudaMemcpyHostToDevice,mStream) != cudaSuccess
             || (m && cudaMemcpyAsync(mBonds,bonds,sizeof(*bonds)*m,cudaMemcpyHostToDevice,mStream) != cudaSuccess))) return false;
         size_t sortBytes = 0, selectBytes = 0, scanBytes=0;
-        if (cub::DeviceRadixSort::SortPairs(nullptr,sortBytes,mLabels,mKeys,mIndices,mOrder,n,0,32,mStream) != cudaSuccess
+        // A label is a chunk index below n, or INVALID. With 2^bits-1 >= n the
+        // low bits order every label and put INVALID (all ones) last, so a
+        // stable sort on them alone gives the full 32-bit order: 12 bits
+        // (two digit passes instead of four) for vibe-land's 3258-chunk city.
+        mLabelBits=1;
+        while (mLabelBits<32 && ((1ull<<mLabelBits)-1)<n) ++mLabelBits;
+        if (cub::DeviceRadixSort::SortPairs(nullptr,sortBytes,mLabels,mKeys,mIndices,mOrder,n,0,int(mLabelBits),mStream) != cudaSuccess
             || cub::DeviceSelect::Flagged(nullptr,selectBytes,mIndices,mRootFlags,mRoots,
                 &mStatus->clusterCount,n,mStream) != cudaSuccess
             || cub::DeviceScan::ExclusiveSum(nullptr,scanBytes,mFreeFlags,mFreeRanks,n,mStream)!=cudaSuccess) return false;
