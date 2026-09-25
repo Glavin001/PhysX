@@ -1369,6 +1369,10 @@ public:
                     check(cudaMemsetAsync(mCorrectionPreparation,0,sizeof(*mCorrectionPreparation),mStream));
                     prepareCorrectionBodyInputs<<<(mN+127)/128,128,0,mStream>>>(mTrialBodies,mTrialBodyIndices,mN,trial,mChunks,
                         mAffectedClusters,nullptr,nullptr,0,0,mCollisionPreparation,mCorrectionBodies,mCorrectionPreparation,inputs);
+#if PX_CUMETAL
+                    prepareDeferredCorrectionBodyInputs<<<(mN+127)/128,128,0,mStream>>>(mTrialBodies,mTrialBodyIndices,mN,trial,mChunks,
+                        mAffectedClusters,nullptr,nullptr,0,0,mCollisionPreparation,mCorrectionBodies,mCorrectionPreparation,inputs);
+#endif
                     inspectCorrectionSourceLoads<<<(mN+127)/128,128,0,mStream>>>(mClusters,mAffectedClusters,0,nullptr,0,
                         mCollisionPreparation,mCorrectionPreparation,inputs);
                     check(cub::DeviceSelect::If(mCorrectionScratch,mCorrectionScratchBytes,mCorrectionBodies,mCompactCorrectionBodies,
@@ -1946,6 +1950,10 @@ public:
             check(cudaMemsetAsync(mCorrectionPreparation,0,sizeof(*mCorrectionPreparation),stream));
             prepareCorrectionBodyInputs<<<(mN+127)/128,128,0,stream>>>(mTrialBodies,mTrialBodyIndices,mN,mTopology->trial(),mChunks,
                 mAffectedClusters,mCheckpointBodies,mCheckpointPrevious,mCheckpointCount,bodyCapacity,mCollisionPreparation,mCorrectionBodies,mCorrectionPreparation);
+#if PX_CUMETAL
+            prepareDeferredCorrectionBodyInputs<<<(mN+127)/128,128,0,stream>>>(mTrialBodies,mTrialBodyIndices,mN,mTopology->trial(),mChunks,
+                mAffectedClusters,mCheckpointBodies,mCheckpointPrevious,mCheckpointCount,bodyCapacity,mCollisionPreparation,mCorrectionBodies,mCorrectionPreparation);
+#endif
             inspectCorrectionSourceLoads<<<(mC+127)/128,128,0,stream>>>(mClusters,mAffectedClusters,mC,mCheckpointBodies,mCheckpointCount,mCollisionPreparation,mCorrectionPreparation);
             check(cudaGetLastError());
             check(cub::DeviceSelect::If(mCorrectionScratch,mCorrectionScratchBytes,mCorrectionBodies,mCompactCorrectionBodies,
