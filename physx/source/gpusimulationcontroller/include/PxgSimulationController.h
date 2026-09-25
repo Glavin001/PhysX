@@ -703,6 +703,8 @@ class PxProfilerCallback;
         CUdeviceptr mNativeSleepPoses = 0;
         PxU32 mNativeSleepCapacity = 0;
         CUevent mNativeSleepReady = NULL;
+        // Recorded by the queued (non-final) setters of a sleep commit.
+        CUevent mNativeSleepQueued = NULL;
 		Cm::PinnableArray<PxU32>									mPathToRootPool;
 
 		Cm::PinnableArray<Dy::ArticulationMimicJointCore>			mMimicJointPool;

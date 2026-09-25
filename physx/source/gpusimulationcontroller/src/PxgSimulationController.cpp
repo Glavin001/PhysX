@@ -249,6 +249,7 @@ namespace physx
             if(mNativeSleepZeros) cuda->memFree(mNativeSleepZeros);
             if(mNativeSleepPoses) cuda->memFree(mNativeSleepPoses);
             if(mNativeSleepReady) cuda->eventDestroy(mNativeSleepReady);
+            if(mNativeSleepQueued) cuda->eventDestroy(mNativeSleepQueued);
         }
 
 		PX_DELETE(mSimulationCore);
@@ -3390,6 +3391,7 @@ namespace physx
         PxScopedCudaLock lock(*mCudaContextManager);
         PxCudaContext* cuda = mCudaContextManager->getCudaContext();
         if(!mNativeSleepReady && cuda->eventCreate(&mNativeSleepReady,2u)!=0) return false;
+        if(!mNativeSleepQueued && cuda->eventCreate(&mNativeSleepQueued,2u)!=0) return false;
             if(count > mNativeSleepCapacity)
             {
                 CUdeviceptr newIndices = 0, newZeros = 0, newPoses = 0;
@@ -3436,13 +3438,18 @@ namespace physx
     {
         if(!count) return true;
         if(!reserveNativeTransitionBuffers(count)) return false;
+        // Every step below is queued in stream order and the host waits once,
+        // in the last setter. Synchronous copies/fills and a synchronization
+        // per setter cost a host round trip each (six to eight per sleep
+        // commit), which is most of this call's time on an idle GPU.
+        const CUstream stream = mSimulationCore->getStream();
         {
             PxScopedCudaLock lock(*mCudaContextManager);
             mSimulationCore->gpuDmaUpdateData();
             PxCudaContext* cuda = mCudaContextManager->getCudaContext();
-            if(cuda->memcpyHtoD(mNativeSleepIndices, indices, PxU64(count)*sizeof(PxU32)) != 0
-                || cuda->memsetD32(mNativeSleepZeros, 0, PxU64(count)*3) != 0
-                || cuda->eventRecord(mNativeSleepReady,NULL) != 0) return false;
+            if(cuda->memcpyHtoDAsync(mNativeSleepIndices, indices, PxU64(count)*sizeof(PxU32), stream) != 0
+                || cuda->memsetD32Async(mNativeSleepZeros, 0, PxU64(count)*3, stream) != 0
+                || cuda->eventRecord(mNativeSleepReady, stream) != 0) return false;
         }
         if(rollbackPose)
         {
@@ -3457,30 +3464,32 @@ namespace physx
                 };
                 const CUfunction kernel = mGpuWranglerManager->getCuFunction(PxgKernelIds::NATIVE_SLEEP_GATHER_POSES);
                 PxCudaContext* cuda = mCudaContextManager->getCudaContext();
+                // The pose setter below waits for the gather on the device.
                 if(cuda->streamWaitEvent(solver->getStream(),mNativeSleepReady,0) != 0
                     || cuda->launchKernel(kernel, (count+255)/256, 1, 1, 256, 1, 1, 0, solver->getStream(),
-                    params, sizeof(params), 0, PX_FL) != 0 || cuda->streamSynchronize(solver->getStream()) != 0)
+                    params, sizeof(params), 0, PX_FL) != 0 || cuda->eventRecord(mNativeSleepReady, solver->getStream()) != 0)
                     return false;
             }
             // The setter also refreshes GPU shape bounds and transform caches.
             if(!setRigidDynamicData(reinterpret_cast<void*>(mNativeSleepPoses),
                 reinterpret_cast<PxRigidDynamicGPUIndex*>(mNativeSleepIndices),
-                PxRigidDynamicGPUAPIWriteType::eGLOBAL_POSE, count, mNativeSleepReady, NULL)) return false;
+                PxRigidDynamicGPUAPIWriteType::eGLOBAL_POSE, count, mNativeSleepReady, mNativeSleepQueued)) return false;
         }
         // Sparse transition work completes before fetch returns or commands
-        // wake a body. No stale CPU pose/velocity can overwrite a later write.
+        // wake a body. No stale CPU pose/velocity can overwrite a later write:
+        // the setters run in order on one stream and the last one synchronizes.
         return setRigidDynamicData(reinterpret_cast<void*>(mNativeSleepZeros),
                    reinterpret_cast<PxRigidDynamicGPUIndex*>(mNativeSleepIndices),
-                   PxRigidDynamicGPUAPIWriteType::eLINEAR_VELOCITY, count, mNativeSleepReady, NULL)
+                   PxRigidDynamicGPUAPIWriteType::eLINEAR_VELOCITY, count, mNativeSleepReady, mNativeSleepQueued)
             && setRigidDynamicData(reinterpret_cast<void*>(mNativeSleepZeros),
                    reinterpret_cast<PxRigidDynamicGPUIndex*>(mNativeSleepIndices),
-                   PxRigidDynamicGPUAPIWriteType::eANGULAR_VELOCITY, count, mNativeSleepReady, NULL)
+                   PxRigidDynamicGPUAPIWriteType::eANGULAR_VELOCITY, count, NULL, mNativeSleepQueued)
             && setRigidDynamicData(reinterpret_cast<void*>(mNativeSleepZeros),
                    reinterpret_cast<PxRigidDynamicGPUIndex*>(mNativeSleepIndices),
-                   PxRigidDynamicGPUAPIWriteType::eFORCE, count, mNativeSleepReady, NULL)
+                   PxRigidDynamicGPUAPIWriteType::eFORCE, count, NULL, mNativeSleepQueued)
             && setRigidDynamicData(reinterpret_cast<void*>(mNativeSleepZeros),
                    reinterpret_cast<PxRigidDynamicGPUIndex*>(mNativeSleepIndices),
-                   PxRigidDynamicGPUAPIWriteType::eTORQUE, count, mNativeSleepReady, NULL);
+                   PxRigidDynamicGPUAPIWriteType::eTORQUE, count, NULL, NULL);
     }
 
 	void PxgSimulationController::updateScBodyAndShapeSim(PxsTransformCache& cache, Bp::BoundsArray& boundArray, PxBaseTask* continuation)
