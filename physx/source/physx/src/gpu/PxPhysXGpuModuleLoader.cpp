@@ -200,6 +200,16 @@ namespace physx
 			// this once, on first use, so set it before the module creates a
 			// context. An explicit value from the environment wins.
 			setenv("CUMETAL_USE_METAL_DEVICE_ADDRESSES", "1", 0);
+			// Under PX_CUMETAL no host code polls mapped memory without first
+			// synchronizing its stream (the broad phase, simulation core and
+			// solver flags synchronize instead of spinning), so the runtime's
+			// drain before kernels that bind pinned memory, a guard for such
+			// polls, only costs a GPU round trip per launch: ~4 a step.
+			setenv("CUMETAL_DRAIN_BEFORE_PINNED_KERNELS", "0", 0);
+			// Every stream already shares one Metal queue and runs serially;
+			// aliasing them to one submission stream drops the per-stream
+			// command buffers and the GPU-side event waits between them.
+			setenv("CUMETAL_SERIALIZE_STREAMS", "1", 0);
 			// The native GPU library links libcumetal directly; no libcuda alias.
 			s_library = dlopen(gPhysXGpuLibraryName, RTLD_NOW | RTLD_LOCAL);
 #else
