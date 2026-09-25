@@ -91,6 +91,54 @@ is roughly half GPU work and half host submission and synchronization.
   acceptance is observed by `finishPostCorrection`'s. `routeContacts` sums a
   pair's loads before its atomics, and eight single-thread launches per full
   evaluation are fused or skipped when their batch descriptor is unchanged.
+- **Split ticks (2026-09-25).** A tick that promotes fragment bodies runs the
+  destruction stage twice around a corrected PhysX solve. Its fixed cost in
+  vibe-land's meteor bench (`perf_bench` scenario `meteor`, 48 split ticks
+  per run) was ~14 ms over a quiet tick. Changes, by kind:
+  - *Float pairs (`PX_CUMETAL`).* `prepareCorrectionBodyInputs` (with a
+    separate `prepareDeferredCorrectionBodyInputs` for inputs outside the
+    pair range; one kernel holding both paths makes Apple's compiler fail
+    with an internal error), `massPropertiesPairs` (a warp per cluster over
+    chunk properties split into pairs at creation) and
+    `transferClusterMotionPairs`.
+  - *CuMetal's CFG dispatcher (`PX_CUMETAL`).* cumetalc lowers a function
+    with a loop that has more than one exit (a `return` inside a loop)
+    through a per-lane state machine with function-scope storage; long
+    float-pair chains run several times slower there. The pair kernels
+    above, `prepare` and the principal frame now take their validity tests
+    after each loop (same tests, order and codes), the frame gathers its
+    rotation plane with selects instead of run-time array indices, and the
+    double fallback of `prepare` is called out of line. `cumetalc --emit msl`
+    shows a dispatcher as `cm_block_state`; every-tick kernels still lowered
+    that way include `destructionPreSolve::{seed,connect,
+    connectSupportBridges,finish,updateNodes}`, `buildNativeContactInputs`
+    and `destructionSolverMetadata::applyPages`.
+  - *Conversions by bits (`PX_CUMETAL`).* Each emulated double conversion
+    is a library call of about a microsecond. `doubleBits`, `pairBits` and
+    `valueBits` (`PxgDestructionFloatPair.cuh`) give the same bits with
+    integer operations; `provisionalTopologyMotion` (every full evaluation)
+    went from ~55 to ~27 us per launch.
+  - *Fewer passes (all platforms).* The topology rebuild and the stress
+    topology rebuild sort labels on their significant bits only (12 of 32
+    for 3258 chunks): the same permutation in half the digit passes.
+  - *Fewer host waits (all platforms).* A corrected pass's acceptance is
+    folded on the device (`carryAcceptedPass`) and observed by the next
+    evaluation's finish, so the host encodes that evaluation while the GPU
+    rebuilds the stress topology; the final pass's publication is enqueued
+    with its evaluation and observed by the same finish unless that pass
+    splits again. Host waits per split tick 26.6 -> 25.2.
+  Kernel time per split tick (per-kernel trace with `CUMETAL_COND_ICB=0`,
+  other GPU clients present): body candidates 497 -> 174 us, correction
+  inputs 622 -> 67, mass properties 505 -> 71, motion transfer 138 -> 86,
+  provisional motion 211 -> 97, label sort ~640 -> ~315. Remaining per split
+  tick, roughly: the corrected PhysX solve and its pipeline waits (~5 ms),
+  the stress topology rebuild at acceptance (~0.9 ms, a whole-city rebuild of
+  the hierarchy and motion modes for any fracture), the corrected pass's
+  stress solve (~0.65 ms), island repair's readback (~1 ms per pass),
+  `prepareBodyCompatibility`'s readback wait (~0.35 ms; prefetching it inside
+  the allocation graph's conditional body would need pinned memory there,
+  which CuMetal encodes on every replay), and the native iteration-limit
+  readback on the corrected pass (~0.3 ms).
 - **Fine-level hierarchy construction (opt-in).** The stress hierarchy's
   fine-level `construct` is 1.8-2.2 ms as one cooperative threadgroup on a
   fracture pass. `BLAST_STRESS_SEPARATE_CONSTRUCT=1` runs it as phase
