@@ -30,15 +30,17 @@ __device__ __forceinline__ void provisionalMotion(const PxTransform& pose,const 
     const float p[3]={pose.p.x,pose.p.y,pose.p.z},b[3]={bodyPosition.x,bodyPosition.y,bodyPosition.z};
     const float v[3]={linear.x,linear.y,linear.z},w[3]={angular.x,angular.y,angular.z};
     const float q[4]={pose.q.x,pose.q.y,pose.q.z,pose.q.w};
-    for(PxU32 k=0;k<3;++k){out.origin[k]=p[k];out.angularVelocity[k]=w[k];}
-    for(PxU32 k=0;k<4;++k)out.orientation[k]=q[k];
-    const Pair d[3]={pair(center[0]),pair(center[1]),pair(center[2])};
+    // Conversions by bits (PxgDestructionFloatPair.cuh): the same values as
+    // the emulated conversions, without a library call each.
+    for(PxU32 k=0;k<3;++k){out.origin[k]=doubleBits(p[k]);out.angularVelocity[k]=doubleBits(w[k]);}
+    for(PxU32 k=0;k<4;++k)out.orientation[k]=doubleBits(q[k]);
+    const Pair d[3]={pairBits(center[0]),pairBits(center[1]),pairBits(center[2])};
     Pair t[3],r[3];
     for(PxU32 k=0;k<3;++k){const PxU32 i=k==2?0:k+1,j=k==0?2:k-1;
         const Pair x=sub(mul(d[j],q[i]),mul(d[i],q[j]));t[k]={2*x.hi,2*x.lo};}
     for(PxU32 k=0;k<3;++k){const PxU32 i=k==2?0:k+1,j=k==0?2:k-1;
         r[k]=sub(sub(add(add(add(pair(p[k]),d[k]),mul(t[k],q[3])),mul(t[j],q[i])),mul(t[i],q[j])),pair(b[k]));}
     for(PxU32 k=0;k<3;++k){const PxU32 i=k==2?0:k+1,j=k==0?2:k-1;
-        out.linearVelocity[k]=value(sub(add(pair(v[k]),mul(r[j],w[i])),mul(r[i],w[j])));}
+        out.linearVelocity[k]=valueBits(sub(add(pair(v[k]),mul(r[j],w[i])),mul(r[i],w[j])));}
 }
 }

@@ -158,10 +158,10 @@ __device__ inline bool frame(const double* inertia,Pair* moments,Pair* q) {
     }
     if(!finiteInputs)return false;
     if(norm==0) {for(unsigned i=0;i<3;++i){moments[i]=pair(0.0f);q[i]=pair(0.0f);}q[3]=pair(1.0f);return true;}
-    const Pair s0=pair(norm);
+    const Pair s0=pairBits(norm);
     // a: symmetric, a00 a11 a22 a01 a02 a12 (inertia order).
-    Pair a00=div(pair(inertia[0]),s0),a11=div(pair(inertia[1]),s0),a22=div(pair(inertia[2]),s0),
-        a01=div(pair(inertia[3]),s0),a02=div(pair(inertia[4]),s0),a12=div(pair(inertia[5]),s0);
+    Pair a00=div(pairBits(inertia[0]),s0),a11=div(pairBits(inertia[1]),s0),a22=div(pairBits(inertia[2]),s0),
+        a01=div(pairBits(inertia[3]),s0),a02=div(pairBits(inertia[4]),s0),a12=div(pairBits(inertia[5]),s0);
     const Pair zero=pair(0.0f),one=pair(1.0f);
     Pair v00=one,v01=zero,v02=zero,v10=zero,v11=one,v12=zero,v20=zero,v21=zero,v22=one;
     const Pair epsilon=pair(0x1p-49f); // 8*DBL_EPSILON
@@ -433,21 +433,21 @@ __device__ inline unsigned prepare(const PxDestructionClusterMassProperties& mas
     Pair orientation[4],length=zero;
     for(unsigned i=0;i<4;++i)invalidMotion=invalidMotion || !isfinite(motion.orientation[i]);
     if(invalidMotion)return 4;
-    for(unsigned i=0;i<4;++i){orientation[i]=pair(motion.orientation[i]);length=add(length,mul(orientation[i],orientation[i]));}
+    for(unsigned i=0;i<4;++i){orientation[i]=pairBits(motion.orientation[i]);length=add(length,mul(orientation[i],orientation[i]));}
     // fabs(length-1)>1e-5 with 1e-5 as the double constant (float pair).
     constexpr float toleranceHi=1e-5f;constexpr float toleranceLo=float(1e-5-double(toleranceHi));
     if(less(Pair{toleranceHi,toleranceLo},abs(sub(length,one))))return 4;
     // Normalize the float solver observation before composing frames.
     const Pair root=sqrt(length);Pair q[4];for(unsigned i=0;i<4;++i)q[i]=div(orientation[i],root);
-    const Pair center[3]={pair(mass.center[0]),pair(mass.center[1]),pair(mass.center[2])};
+    const Pair center[3]={pairBits(mass.center[0]),pairBits(mass.center[1]),pairBits(mass.center[2])};
     Pair position[3],sourcePosition[3];rotate(q,center,position);rotate(orientation,center,sourcePosition);
-    for(unsigned i=0;i<3;++i){const Pair origin=pair(motion.origin[i]);position[i]=add(position[i],origin);sourcePosition[i]=add(sourcePosition[i],origin);}
+    for(unsigned i=0;i<3;++i){const Pair origin=pairBits(motion.origin[i]);position[i]=add(position[i],origin);sourcePosition[i]=add(sourcePosition[i],origin);}
     const Pair* r=principal;
     const Pair world[4]={sub(add(add(mul(q[3],r[0]),mul(q[0],r[3])),mul(q[1],r[2])),mul(q[2],r[1])),
         add(add(sub(mul(q[3],r[1]),mul(q[0],r[2])),mul(q[1],r[3])),mul(q[2],r[0])),
         add(sub(add(mul(q[3],r[2]),mul(q[0],r[1])),mul(q[1],r[0])),mul(q[2],r[3])),
         sub(sub(sub(mul(q[3],r[3]),mul(q[0],r[0])),mul(q[1],r[1])),mul(q[2],r[2]))};
-    if(!floatValue(mass.mass,out.mass) || !floatValue(mass.supported?zero:div(one,pair(mass.mass)),out.inverseMass))return 8;
+    if(!floatValue(mass.mass,out.mass) || !floatValue(mass.supported?zero:div(one,pairBits(mass.mass)),out.inverseMass))return 8;
     for(unsigned i=0;i<4;++i) {
         // Tiny quaternion components may round to zero without locking a DOF.
         out.bodyToWorldOrientation[i]=world[i].hi;out.bodyToActorOrientation[i]=principal[i].hi;
@@ -467,10 +467,10 @@ __device__ inline unsigned prepare(const PxDestructionClusterMassProperties& mas
     // Reconcile velocity with the COM actually stored by the float solver.
     // Include the change from normalizing an approximately unit source rotation.
     Pair w[3],offset[3];
-    for(unsigned i=0;i<3;++i){w[i]=pair(motion.angularVelocity[i]);offset[i]=sub(pair(out.bodyToWorldPosition[i]),sourcePosition[i]);}
+    for(unsigned i=0;i<3;++i){w[i]=pairBits(motion.angularVelocity[i]);offset[i]=sub(pair(out.bodyToWorldPosition[i]),sourcePosition[i]);}
     for(unsigned i=0;i<3;++i) {
         const unsigned j=i==2?0:i+1,k=i==0?2:i-1;
-        unrepresentable=unrepresentable || !motionValue(sub(add(pair(motion.linearVelocity[i]),mul(w[j],offset[k])),mul(w[k],offset[j])),out.linearVelocity[i]);
+        unrepresentable=unrepresentable || !motionValue(sub(add(pairBits(motion.linearVelocity[i]),mul(w[j],offset[k])),mul(w[k],offset[j])),out.linearVelocity[i]);
     }
     return unrepresentable?8:0;
 }

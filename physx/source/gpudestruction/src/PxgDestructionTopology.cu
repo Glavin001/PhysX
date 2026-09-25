@@ -219,19 +219,19 @@ __global__ void massPropertiesPairs(const PxgDestructionChunk* chunks, const Chu
         if (!lane) {
             PxgDestructionCluster out{};
             const Pair m=v[0];
-            out.mass=value(m);
+            out.mass=valueBits(m);
             Pair offset[3];
             for (unsigned k=0;k<3;++k) {
                 offset[k]=m.hi>0?div(v[k+1],m):pair(0.0f);
-                out.center[k]=value(add(reference.center[k],offset[k]));
+                out.center[k]=valueBits(add(reference.center[k],offset[k]));
             }
             const Pair x=offset[0],y=offset[1],z=offset[2];
-            out.inertia[0]=value(sub(v[4],mul(m,add(mul(y,y),mul(z,z)))));
-            out.inertia[1]=value(sub(v[5],mul(m,add(mul(x,x),mul(z,z)))));
-            out.inertia[2]=value(sub(v[6],mul(m,add(mul(x,x),mul(y,y)))));
-            out.inertia[3]=value(add(v[7],mul(mul(m,x),y)));
-            out.inertia[4]=value(add(v[8],mul(mul(m,x),z)));
-            out.inertia[5]=value(add(v[9],mul(mul(m,y),z)));
+            out.inertia[0]=valueBits(sub(v[4],mul(m,add(mul(y,y),mul(z,z)))));
+            out.inertia[1]=valueBits(sub(v[5],mul(m,add(mul(x,x),mul(z,z)))));
+            out.inertia[2]=valueBits(sub(v[6],mul(m,add(mul(x,x),mul(y,y)))));
+            out.inertia[3]=valueBits(add(v[7],mul(mul(m,x),y)));
+            out.inertia[4]=valueBits(add(v[8],mul(mul(m,x),z)));
+            out.inertia[5]=valueBits(add(v[9],mul(mul(m,y),z)));
             out.chunkCount=ends[r]-begins[r];
             out.supported=support;
             clusters[r]=out;
@@ -330,19 +330,19 @@ __global__ void transferClusterMotionPairs(const unsigned* roots,const unsigned*
     for(unsigned k=0;k<3;++k)bad|=pairOutOfRange(c[k])|pairOutOfRange(p[k])|pairOutOfRange(w[k])|pairOutOfRange(out.linearVelocity[k]);
     for(unsigned k=0;k<4;++k)bad|=pairOutOfRange(q[k]);
     if(bad){transferClusterMotionDouble(r,parent,slots,clusters,previousCenters,previousMotion,motion);return;}
-    const Pair d[3]={sub(pair(c[0]),pair(p[0])),sub(pair(c[1]),pair(p[1])),sub(pair(c[2]),pair(p[2]))};
-    const Pair qq[4]={pair(q[0]),pair(q[1]),pair(q[2]),pair(q[3])};
+    const Pair d[3]={sub(pairBits(c[0]),pairBits(p[0])),sub(pairBits(c[1]),pairBits(p[1])),sub(pairBits(c[2]),pairBits(p[2]))};
+    const Pair qq[4]={pairBits(q[0]),pairBits(q[1]),pairBits(q[2]),pairBits(q[3])};
     // Rotate the COM displacement from asset space into world space.
     const Pair t[3]={scale(sub(mul(qq[1],d[2]),mul(qq[2],d[1])),2.0f),scale(sub(mul(qq[2],d[0]),mul(qq[0],d[2])),2.0f),
         scale(sub(mul(qq[0],d[1]),mul(qq[1],d[0])),2.0f)};
     const Pair world[3]={sub(add(add(d[0],mul(qq[3],t[0])),mul(qq[1],t[2])),mul(qq[2],t[1])),
         sub(add(add(d[1],mul(qq[3],t[1])),mul(qq[2],t[0])),mul(qq[0],t[2])),
         sub(add(add(d[2],mul(qq[3],t[2])),mul(qq[0],t[1])),mul(qq[1],t[0]))};
-    const Pair ww[3]={pair(w[0]),pair(w[1]),pair(w[2])};
+    const Pair ww[3]={pairBits(w[0]),pairBits(w[1]),pairBits(w[2])};
     // linear += w x world, as (w_i world_j - w_j world_i) added to the old value.
-    out.linearVelocity[0]=value(add(pair(out.linearVelocity[0]),sub(mul(ww[1],world[2]),mul(ww[2],world[1]))));
-    out.linearVelocity[1]=value(add(pair(out.linearVelocity[1]),sub(mul(ww[2],world[0]),mul(ww[0],world[2]))));
-    out.linearVelocity[2]=value(add(pair(out.linearVelocity[2]),sub(mul(ww[0],world[1]),mul(ww[1],world[0]))));
+    out.linearVelocity[0]=valueBits(add(pairBits(out.linearVelocity[0]),sub(mul(ww[1],world[2]),mul(ww[2],world[1]))));
+    out.linearVelocity[1]=valueBits(add(pairBits(out.linearVelocity[1]),sub(mul(ww[2],world[0]),mul(ww[0],world[2]))));
+    out.linearVelocity[2]=valueBits(add(pairBits(out.linearVelocity[2]),sub(mul(ww[0],world[1]),mul(ww[1],world[0]))));
     motion[slots[r]]=out;
 }
 #endif

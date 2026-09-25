@@ -142,8 +142,8 @@ __device__ __forceinline__ unsigned motion(const PxDestructionClusterBodyState& 
         add(add(sub(neg(mul(wq[3],lq[2])),mul(wq[0],lq[1])),mul(wq[1],lq[0])),mul(wq[2],lq[3])),
         add(add(add(mul(wq[3],lq[3]),mul(wq[0],lq[0])),mul(wq[1],lq[1])),mul(wq[2],lq[2]))};
     // Use a local COM difference instead of subtracting large world origins.
-    const Pair offset[3]={sub(pair(mass.center[0]),pair(local.p.x)),sub(pair(mass.center[1]),pair(local.p.y)),
-        sub(pair(mass.center[2]),pair(local.p.z))};
+    const Pair offset[3]={sub(pairBits(mass.center[0]),pair(local.p.x)),sub(pairBits(mass.center[1]),pair(local.p.y)),
+        sub(pairBits(mass.center[2]),pair(local.p.z))};
     Pair delta[3];destructionBody::rotate(actor,offset,delta);output=candidate;
     bool positioned=true;
     for(unsigned k=0;k<3;++k)positioned=positioned && destructionBody::motionValue(add(pair(world.p[k]),delta[k]),output.bodyToWorldPosition[k]);
