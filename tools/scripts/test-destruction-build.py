@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Safety regression tests; all fixtures live under the repository's out/ tree."""
 import contextlib
+import hashlib
 import io
 import json
 import os
@@ -368,8 +369,9 @@ class BuildSafetyTests(unittest.TestCase):
         # Each invalid combination must fail before header discovery/targets,
         # so this script-mode check creates no build or compiler cache.
         for backend, single_block in [('CUDA', 'ON'), ('CUDA', 'OFF'), ('CUMETAL', 'OFF')]:
+            # Resident grids (ON by default) have their own single-block check.
             command = [cmake, '-DPX_CUMETAL_BLOCK_VOTED_TRAPS=ON',
-                       f'-DPX_GPU_BACKEND={backend}',
+                       '-DPX_CUMETAL_COOPERATIVE_RESIDENT_GRID=OFF', f'-DPX_GPU_BACKEND={backend}',
                        f'-DPX_CUMETAL_COOPERATIVE_SINGLE_BLOCK={single_block}', '-P', str(module)]
             result = subprocess.run(confined_command(command, self.roots, readonly=True),
                                     cwd=self.root, env=env, capture_output=True, text=True)
@@ -377,6 +379,13 @@ class BuildSafetyTests(unittest.TestCase):
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn('PX_CUMETAL_BLOCK_VOTED_TRAPS requires', result.stderr)
                 self.assertIn('PX_CUMETAL_COOPERATIVE_SINGLE_BLOCK=ON', result.stderr)
+        # A resident grid is built on the one-block cooperative lowering.
+        command = [cmake, '-DPX_GPU_BACKEND=CUMETAL', '-DPX_CUMETAL_COOPERATIVE_SINGLE_BLOCK=OFF',
+                   '-P', str(module)]
+        result = subprocess.run(confined_command(command, self.roots, readonly=True),
+                                cwd=self.root, env=env, capture_output=True, text=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('PX_CUMETAL_COOPERATIVE_RESIDENT_GRID requires', result.stderr)
 
     def test_bond_stress_scalar_pack_is_opt_in_backend_scoped_and_recorded(self):
         for enabled in (False, True):
@@ -1131,6 +1140,39 @@ int PxOrdinarySdkLinkageSentinel() { return 0; }
         self.assertEqual(sorted(p.name for p in target.iterdir()), sorted(shipped))
         self.assertEqual(result['files'], len(shipped))
         self.assertEqual((target / 'abi4-00aa-dev.w3.bindings').read_text(), 'abi4-00aa-dev.w3.bindings')
+
+    def test_relocate_ships_vehicle_sources_from_the_built_tree(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            'relocate_macos_sdk', Path(__file__).resolve().parent / 'relocate-macos-sdk.py')
+        relocate = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(relocate)
+        vehicle, snippets = self.root / 'destruction/vehicle', self.root / 'physx/snippets/snippetvehiclecommon'
+        for directory in [vehicle] + [snippets / part for part in
+                                      ('base', 'directdrivetrain', 'enginedrivetrain', 'physxintegration')]:
+            directory.mkdir(parents=True)
+            (directory / f'{directory.name}.cpp').write_text(directory.name)
+            (directory / f'{directory.name}.h').write_text(directory.name)
+        for name in ('PxNativeVehicle.h', 'PxNativeVehicle.cpp'):
+            (vehicle / name).write_text(name)
+        (snippets / 'SnippetVehicleHelpers.h').write_text('helpers')
+        (snippets / 'SnippetVehicleRender.cpp').write_text('needs snippetrender')
+        (snippets / 'base/notes.txt').write_text('not a source')
+        prefix = self.root / 'install'
+        shipped = relocate.ship_vehicle_sources(self.root, prefix)
+        self.assertIn('destruction/vehicle/PxNativeVehicle.cpp', shipped)
+        self.assertNotIn('destruction/vehicle/vehicle.cpp', shipped)  # only the wrapper
+        self.assertIn('snippets/snippetvehiclecommon/base/base.cpp', shipped)
+        self.assertIn('snippets/snippetvehiclecommon/SnippetVehicleHelpers.h', shipped)
+        self.assertNotIn('snippets/snippetvehiclecommon/SnippetVehicleRender.cpp', shipped)
+        self.assertNotIn('snippets/snippetvehiclecommon/base/notes.txt', shipped)
+        self.assertEqual((prefix / 'snippets/snippetvehiclecommon/physxintegration/physxintegration.h')
+                         .read_text(), 'physxintegration')
+        self.assertEqual(shipped['destruction/vehicle/PxNativeVehicle.h'],
+                         hashlib.sha256(b'PxNativeVehicle.h').hexdigest())
+        (vehicle / 'PxNativeVehicle.cpp').unlink()
+        with self.assertRaises(SystemExit):
+            relocate.ship_vehicle_sources(self.root, prefix)
 
 
 if __name__ == '__main__':

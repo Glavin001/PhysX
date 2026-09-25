@@ -99,6 +99,13 @@ python3 -B tools/scripts/build-destruction-sdk.py --preset macos-cumetal --stage
 absolute rpaths with `@loader_path` (re-signing ad hoc), and writes
 `out/sdk-artifacts.json` (`source_revision`, `source_dirty`, and a sha256 per
 library). That is the same manifest shape the Linux SDK build records.
+It also copies the vehicle sources consumers compile against the package,
+`destruction/vehicle/PxNativeVehicle.{h,cpp}` and PhysX's
+`snippetvehiclecommon` (base, directdrivetrain, enginedrivetrain,
+physxintegration), into `<prefix>/destruction/vehicle` and `<prefix>/snippets`,
+with a sha256 per file under the manifest's `sources`. A consumer that compiled
+them from the checkout instead would pick up any later edit there against
+libraries built without it.
 It then runs `cumetal-warm --strict` over every metallib embedded in the
 packaged GPU module and fails the install if any kernel cannot build a Metal
 pipeline (for example over the 32 KB threadgroup limit). The manifest's

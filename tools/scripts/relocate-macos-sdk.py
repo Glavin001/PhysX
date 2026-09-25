@@ -21,7 +21,11 @@ tree's absolute rpaths, and without the libcumetal they load. This step:
   whatever cache directory it happens to use. cumetal-warm also archives each
   kernel's indirect-command-buffer variant, which CuMetal builds for kernels
   in conditional graph bodies (10.7 s at destruction graph instantiation on a
-  cache without them, measured), so those ship too.
+  cache without them, measured), so those ship too;
+* copies the vehicle sources a consumer compiles against the package
+  (destruction/vehicle and the PhysX snippetvehiclecommon it builds on) into
+  <prefix>/destruction/vehicle and <prefix>/snippets, recorded in the manifest,
+  so a consumer never compiles a checkout that changed after packaging.
 
 Usage: relocate-macos-sdk.py PREFIX LIBCUMETAL CUMETAL_API_DIR MANIFEST
                              [--warm CUMETAL_WARM --gate-dir DIRECTORY]
@@ -127,6 +131,33 @@ def ship_pipeline_archive(lib, gate, metallibs):
     return {'files': files, 'bytes': size}
 
 
+VEHICLE_SOURCES = (
+    ('destruction/vehicle', 'destruction/vehicle', ('PxNativeVehicle.h', 'PxNativeVehicle.cpp')),
+    ('physx/snippets/snippetvehiclecommon', 'snippets/snippetvehiclecommon', ('SnippetVehicleHelpers.h',)),
+) + tuple((f'physx/snippets/snippetvehiclecommon/{part}', f'snippets/snippetvehiclecommon/{part}', None)
+          for part in ('base', 'directdrivetrain', 'enginedrivetrain', 'physxintegration'))
+
+
+def ship_vehicle_sources(root, prefix):
+    """Copy the vehicle wrapper and the snippet vehicle classes it uses into the
+    package, from the same tree the libraries were just built from. Consumers
+    (vibe-land's physx-bridge) compile them with the package's headers; taken
+    from a live checkout instead, they pick up whatever that checkout holds
+    later, against libraries built without it. Returns {package path: sha256}."""
+    shipped = {}
+    for source, target, names in VEHICLE_SOURCES:
+        source, destination = root / source, prefix / target
+        files = [source / name for name in names] if names else sorted(
+            p for p in source.iterdir() if p.suffix in ('.h', '.cpp'))
+        destination.mkdir(parents=True, exist_ok=True)
+        for path in files:
+            if not path.is_file():
+                raise SystemExit(f'Missing vehicle source {path}')
+            shutil.copy2(path, destination / path.name)
+            shipped[f'{target}/{path.name}'] = hashlib.sha256(path.read_bytes()).hexdigest()
+    return shipped
+
+
 def main(argv):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('prefix', type=Path)
@@ -151,6 +182,7 @@ def main(argv):
         relocate(library)
     gate = pipeline_gate(lib, args.warm, args.gate_dir) if args.warm else None
     root = Path(__file__).resolve().parents[2]
+    sources = ship_vehicle_sources(root, prefix)
     revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=root, text=True).strip()
     dirty = bool(subprocess.check_output(['git', 'status', '--porcelain', '--untracked-files=no'],
                                          cwd=root, text=True).strip())
@@ -158,6 +190,7 @@ def main(argv):
     record = {'source_revision': revision, 'source_dirty': dirty, 'backend': 'cumetal',
               'feature_profile': 'rigid-demo-experimental', 'install_prefix': str(prefix),
               'libraries': {name: hashlib.sha256((lib / name).read_bytes()).hexdigest() for name in names}}
+    record['sources'] = sources
     if gate:
         record['metal_pipeline_gate'] = gate
     manifest.write_text(json.dumps(record, indent=2) + '\n')
