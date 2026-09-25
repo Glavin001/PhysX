@@ -74,6 +74,23 @@ is roughly half GPU work and half host submission and synchronization.
 - **Principal frames (`PX_CUMETAL`).** `prepareCandidateBodies` caches each
   root's principal-axis frame against its bitwise inertia, skipping the
   software-FP64 eigen solve when nothing changed. The effect is small.
+- **Body candidates and provisional motion in float pairs (`PX_CUMETAL`,
+  2026-09-24).** Emulated binary64 costs about a microsecond of latency per
+  dependent operation inside a physics step, so `prepareCandidateBodies`
+  (Jacobi frame plus frame/COM/velocity composition, 0.6-1.7 ms per fracturing
+  pass) and `provisionalTopologyMotion` (every full evaluation, 0.15-0.35 ms)
+  now run the same operations in float pairs (`PxgDestructionFloatPair.cuh`,
+  ~48 bits). Inputs a pair cannot hold keep the double path and its error
+  codes. The pair frame matches host double to 1.6e-12; CuMetal's emulated
+  double does not, because its `hypot` is float-accurate (1.35e-7), which
+  fails `body_test`'s 2e-6 moment check on the double path. CUDA keeps double.
+- **Correction-path readbacks (all platforms, 2026-09-24).** Host
+  observations use pinned staging (pageable `cudaMemcpyAsync` is a host wait
+  in CUDA and CuMetal alike), `applyCorrectionBindings` rides
+  `prepareBodyCompatibility`'s synchronization, and the final pass's
+  acceptance is observed by `finishPostCorrection`'s. `routeContacts` sums a
+  pair's loads before its atomics, and eight single-thread launches per full
+  evaluation are fused or skipped when their batch descriptor is unchanged.
 - **Fine-level hierarchy construction (opt-in).** The stress hierarchy's
   fine-level `construct` is 1.8-2.2 ms as one cooperative threadgroup on a
   fracture pass. `BLAST_STRESS_SEPARATE_CONSTRUCT=1` runs it as phase
