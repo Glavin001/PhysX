@@ -9,35 +9,20 @@
 // city (M3 Max), for 164 clusters. The only arithmetic that needs more than
 // float is the velocity at the topology COM, v + w x r, where r is the offset
 // from the body's COM to the cluster's double-precision centre. It is carried
-// here in float pairs (hi+lo, about 48 significand bits; Joldes, Muller and
-// Popescu 2017, AccurateDWPlusDW and DWTimesFP3, relative errors of at most
-// 3u^2 and 2u^2 with u=2^-24), with the same operations in the same order as
-// the double version. Two emulated double operations per component remain:
-// splitting the centre into a pair, and rounding the pair result back to the
-// double the public view stores. Everything else in the motion record is a
+// here in float pairs (PxgDestructionFloatPair.cuh, about 48 significand
+// bits), with the same operations in the same order as the double version.
+// Two emulated double operations per component remain: splitting the centre
+// into a pair, and rounding the pair result back to the double the public
+// view stores. Everything else in the motion record is a
 // float input copied exactly.
 //
 // Measured against the double kernel on random city-scale inputs: relative
 // difference at most 6e-12 (on near-cancelling offsets), no difference after
 // rounding to float, which is the precision every consumer (fragment bodies,
 // rendering) finally uses. The CUDA build keeps native double.
-// Pair arithmetic requires round-to-nearest float operations that are not
-// reassociated, which cumetalc's default (safe) math mode provides.
+// PxgDestructionFloatPair.cuh is included by PxgDestructionBody.cuh.
 namespace destructionMotionPair {
-struct Pair {float hi,lo;};
-__device__ __forceinline__ void twoSum(float a,float b,float& s,float& e){s=a+b;const float v=s-a;e=(a-(s-v))+(b-v);}
-__device__ __forceinline__ void fastTwoSum(float a,float b,float& s,float& e){s=a+b;e=b-(s-a);}
-__device__ __forceinline__ Pair add(Pair a,Pair b){
-    float sh,sl,th,tl,vh,vl,zh,zl;twoSum(a.hi,b.hi,sh,sl);twoSum(a.lo,b.lo,th,tl);
-    fastTwoSum(sh,sl+th,vh,vl);fastTwoSum(vh,tl+vl,zh,zl);return {zh,zl};
-}
-__device__ __forceinline__ Pair sub(Pair a,Pair b){return add(a,{-b.hi,-b.lo});}
-__device__ __forceinline__ Pair mul(Pair a,float b){
-    const float ch=a.hi*b,cl=fmaf(a.hi,b,-ch);float zh,zl;fastTwoSum(ch,fmaf(a.lo,b,cl),zh,zl);return {zh,zl};
-}
-__device__ __forceinline__ Pair pair(float f){return {f,0.0f};}
-__device__ __forceinline__ Pair pair(double d){const float hi=float(d);return {hi,float(d-double(hi))};}
-__device__ __forceinline__ double value(Pair a){return double(a.hi)+double(a.lo);}
+using namespace destructionPair;
 // The double kernel, term for term: t=2(q.xyz x d), r=p+d+w_q t+q.xyz x t-b,
 // linear=v+w x r, with component k using (a,b)=(k+1,k+2) mod 3.
 __device__ __forceinline__ void provisionalMotion(const PxTransform& pose,const float4& bodyPosition,
