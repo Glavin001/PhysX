@@ -615,6 +615,24 @@ class Runtime final : public PxgDestructionRuntime {
     NativeCorrectionPreparation mDevicePreparation;
     PxgDestructionCollisionStorage mCollisionStorage{};
     bool mPreparationObserved=false;
+    // Pinned staging for the correction path's host observations (chunkCount
+    // records each). Copies into pageable vectors are synchronous in CUDA and
+    // CuMetal alike, one host wait each; into these they stay on the stream,
+    // and one synchronization observes them together.
+    template<class T> struct Pinned {
+        T* p=nullptr;
+        void allocate(size_t n){check(cudaMallocHost(&p,sizeof(T)*std::max<size_t>(n,1)));}
+        void release(){if(p)cudaFreeHost(p);p=nullptr;}
+    };
+    Pinned<PxvDestructionBodyRequest> mPinnedBodyRequests,mPinnedOwnerRequests;
+    Pinned<PxU32> mPinnedReservedIndices,mPinnedOwnerTargets;
+    Pinned<PxDestructionCollisionBinding> mPinnedMigrating,mPinnedShapeOwners;
+    Pinned<PxvDestructionBodyProperties> mPinnedProperties;
+    // applyCorrectionBindings' readback, taken with prepareBodyCompatibility's.
+    bool mOwnerMetadataPrefetched=false;
+    // The final pass's acceptance is observed by finishPostCorrection, which
+    // the controller always calls next, in its one synchronization.
+    bool mTailAcceptancePending=false;
     PxgDestructionMotionStorage mMotionStorage{};
     PxgDestructionGrowMotionStorage mGrowMotionStorage{};void* mMotionStorageOwner{};
     CUstream mMotionProducerStream{};
@@ -1136,6 +1154,8 @@ public:
         if(mTopology)mTopology->release();mTopology=nullptr;
         cudaFree(mProvisionalMotion);mProvisionalMotion=nullptr;
         cudaFree(mTrialBodies);mTrialBodies=nullptr;mBodyPreparation=nullptr;
+        mPinnedBodyRequests.release();mPinnedOwnerRequests.release();mPinnedReservedIndices.release();mPinnedOwnerTargets.release();
+        mPinnedMigrating.release();mPinnedShapeOwners.release();mPinnedProperties.release();mOwnerMetadataPrefetched=false;mTailAcceptancePending=false;
         cudaFree(mPrincipalFrames);mPrincipalFrames=nullptr;
         cudaFree(mTopologyEdits);mTopologyEdits=nullptr;cudaFree(mTopologyCount);mTopologyCount=nullptr;mEditCapacity=0;
         cudaFree(mTopologyAccept);mTopologyAccept=nullptr;
@@ -1317,6 +1337,10 @@ public:
                 }
                 check(cudaMalloc(&mCorrectionScratch,mCorrectionScratchBytes));
                 allocate(mTrialBodies,d.chunkCount);mBodyPreparation=&mCompletion->body;
+                mPinnedBodyRequests.allocate(d.chunkCount);mPinnedOwnerRequests.allocate(d.chunkCount);
+                mPinnedReservedIndices.allocate(d.chunkCount);mPinnedOwnerTargets.allocate(d.chunkCount);
+                mPinnedMigrating.allocate(d.chunkCount);mPinnedShapeOwners.allocate(d.chunkCount);
+                mPinnedProperties.allocate(d.chunkCount);
 #if PX_CUMETAL
                 allocate(mPrincipalFrames,d.chunkCount);
                 check(cudaMemset(mPrincipalFrames,0,sizeof(*mPrincipalFrames)*std::max<size_t>(d.chunkCount,1)));
@@ -1442,7 +1466,7 @@ public:
             if(mTopology && !pass)mChanges.start(mTopology->accepted(),mStatus,mStream);
             if(mBodyAllocation)check(cudaMemsetAsync(mBodyAllocation,0,sizeof(*mBodyAllocation),mStream));
             mHostCompletion->correction={};mCorrectionBodyCapacity=0;
-            mCollisionPreparationSubmitted=mCorrectionPreparationSubmitted=false;mPreparationObserved=false;
+            mCollisionPreparationSubmitted=mCorrectionPreparationSubmitted=false;mPreparationObserved=false;mOwnerMetadataPrefetched=false;mTailAcceptancePending=false;
             if(mCorrectionPreparation)check(cudaMemsetAsync(mCorrectionPreparation,0,sizeof(*mCorrectionPreparation),mStream));
             if(mCollisionPreparation) {
                 check(cudaMemsetAsync(mCollisionPreparation,0,sizeof(*mCollisionPreparation),mStream));
@@ -1452,12 +1476,14 @@ public:
         }catch(...){mFailed=true;return false;}
     }
     bool finishPostCorrection() override {
-        if(!mPass || mFailed || mPending || mHostStatus->error)return false;
+        // A pending final acceptance has not been observed yet: the host
+        // status still holds the final pass's correction request (8).
+        if(!mPass || mFailed || mPending || (!mTailAcceptancePending && mHostStatus->error)){mTailAcceptancePending=false;return false;}
         try {Context current(mContext);
             mergePostCorrectionStatus<<<1,1,0,mStream>>>(mStatus,mPriorPasses,mPass,mFirstPassBrokenBonds);
             if(mTopology)mChanges.publish(mStream);
             const PxU32 capacity=std::min(mC,mPendingPropertyCapacity);
-            std::vector<PxvDestructionBodyProperties> observations(capacity);PxU32 count=0;
+            PxvDestructionBodyProperties* observations=mPinnedProperties.p;PxU32 count=0;
             if(capacity) {
                 const auto topology=mTopology->accepted();
                 check(cub::DeviceSelect::If(mCorrectionScratch,mCorrectionScratchBytes,
@@ -1466,10 +1492,10 @@ public:
                 gatherFinalProperties<<<(capacity+127)/128,128,0,mStream>>>(mCorrectionOwnerTargets,mPropertyCount,
                     capacity,mTrialBodies,mClusters,mMotionStorage.bodies,
                     reinterpret_cast<PxvDestructionBodyProperties*>(mCorrectionBodies),mStatus);
-                check(cudaMemcpyAsync(observations.data(),mCorrectionBodies,capacity*sizeof(observations[0]),cudaMemcpyDeviceToHost,mStream));
+                check(cudaMemcpyAsync(observations,mCorrectionBodies,capacity*sizeof(observations[0]),cudaMemcpyDeviceToHost,mStream));
             }
             const PxU32 shapeCapacity=std::min(mN,mPendingShapeCapacity);
-            std::vector<PxDestructionCollisionBinding> shapeObservations(shapeCapacity);
+            PxDestructionCollisionBinding* shapeObservations=mPinnedShapeOwners.p;
             if(shapeCapacity) {
                 // Reuse private preparation scratch. The compact trial batch
                 // remains exposed by getDeviceView with its original count.
@@ -1478,7 +1504,7 @@ public:
                     HasPendingShapeOwner{mShapePublicationEpochs,mStatus},mStream));
                 gatherFinalShapeOwners<<<(shapeCapacity+127)/128,128,0,mStream>>>(mCorrectionOwnerTargets,
                     &mCompletion->shapeCount,shapeCapacity,mChunks,mShapePublicationTargets,mCollisionBindings,mStatus);
-                check(cudaMemcpyAsync(shapeObservations.data(),mCollisionBindings,
+                check(cudaMemcpyAsync(shapeObservations,mCollisionBindings,
                     shapeCapacity*sizeof(shapeObservations[0]),cudaMemcpyDeviceToHost,mStream));
             }
             check(cudaGetLastError());
@@ -1486,11 +1512,17 @@ public:
             // count-read/wait/resubmit boundary is needed to size the payload.
             check(cudaMemcpyAsync(mHostCompletion,mCompletion,sizeof(*mStatus)+((capacity||shapeCapacity)?2*sizeof(PxU32):0),cudaMemcpyDeviceToHost,mStream));
             check(cudaEventRecord(mReady,mStream));check(cudaEventSynchronize(mReady));
+            if(mTailAcceptancePending) {
+                // The merged status carries every acceptance error bit.
+                mTailAcceptancePending=false;
+                if(mHostStatus->error){collectCorrectionTimings();return false;}
+                acceptedCorrection();
+            }
             count=capacity?mHostCompletion->propertyCount:0;
             if(mHostStatus->error || count>capacity)return false;
-            if(count && !mBodyAllocator->publishCorrectionProperties(observations.data(),count))return false;
+            if(count && !mBodyAllocator->publishCorrectionProperties(observations,count))return false;
             const PxU32 shapeCount=shapeCapacity?mHostCompletion->shapeCount:0;
-            if(shapeCount>shapeCapacity || (shapeCount && !mBodyAllocator->publishShapeOwners(shapeObservations.data(),shapeCount)))return false;
+            if(shapeCount>shapeCapacity || (shapeCount && !mBodyAllocator->publishShapeOwners(shapeObservations,shapeCount)))return false;
             mPendingPropertyCapacity=0;mPendingShapeCapacity=0;mPass=0;return true;
         }catch(...){mFailed=true;return false;}
     }
@@ -1720,22 +1752,31 @@ public:
         if(mHostStatus->error!=8u || !mHostCompletion->collision.valid || !mHostCompletion->correction.valid)return false;
         auto& allocation=mHostBodyAllocation;
         const PxU32 requested=allocation.reserved;
-        std::vector<PxvDestructionBodyRequest> requests(requested);mHostReservedIndices.resize(requested);
-        auto& indices=mHostReservedIndices;
+        PxvDestructionBodyRequest* requests=mPinnedBodyRequests.p;
+        mOwnerMetadataPrefetched=false;
+        // applyCorrectionBindings, which the controller calls next, reads only
+        // device results complete here (selected owners and migrating shape
+        // bindings). Take its readback in this synchronization, not another.
+        const bool prefetch=mCorrectionEnabled && !mHostCompletion->correction.loadedSources
+            && !mHostCompletion->collision.removed && mBodyAllocator;
         {
             PxProfileScoped requestProfile(mProfiler,"GpuDestruction.compatibility.requestReadback",false,mProfileContext);
             if(requested) {
                 // CPU compatibility construction consumes the allocation decision.
                 // The resulting indices already exist in the native GPU mapping.
-                check(cudaMemcpyAsync(requests.data(),mCompactBodyRequests,requested*sizeof(*mBodyRequests),cudaMemcpyDeviceToHost,mStream));
-                check(cudaMemcpyAsync(indices.data(),mReturnedBodyIndices,requested*sizeof(PxU32),cudaMemcpyDeviceToHost,mStream));
-                check(cudaStreamSynchronize(mStream));
+                check(cudaMemcpyAsync(requests,mCompactBodyRequests,requested*sizeof(*mBodyRequests),cudaMemcpyDeviceToHost,mStream));
+                check(cudaMemcpyAsync(mPinnedReservedIndices.p,mReturnedBodyIndices,requested*sizeof(PxU32),cudaMemcpyDeviceToHost,mStream));
             }
+            if(prefetch)readCorrectionOwnerMetadata();
+            if(requested || prefetch)check(cudaStreamSynchronize(mStream));
+            mOwnerMetadataPrefetched=prefetch;
+            mHostReservedIndices.assign(mPinnedReservedIndices.p,mPinnedReservedIndices.p+requested);
         }
+        auto& indices=mHostReservedIndices;
         bool allocated=false;
         {
             PxProfileScoped records(mProfiler,"GpuDestruction.compatibility.allocateNativeBodies",false,mProfileContext);
-            allocated=mBodyAllocator && mBodyAllocator->prepare(requests.data(),requested,indices.data());
+            allocated=mBodyAllocator && mBodyAllocator->prepare(requests,requested,indices.data());
         }
         if(!allocated) {allocation.error|=8u;allocation.valid=0;mHostStatus->error|=256u;
             mHostReservedIndices.clear();if(mBodyAllocator)mBodyAllocator->discardReservations();}
@@ -2002,26 +2043,35 @@ public:
             || !mHostCompletion->correction.valid || mHostCompletion->correction.loadedSources
             || mHostCompletion->collision.removed || !mBodyAllocator)return false;
         try {
-            Context current(mContext);check(cudaEventSynchronize(mReady));
-            std::vector<PxDestructionCollisionBinding> bindings(mHostCompletion->collision.migrating);
+            Context current(mContext);
+            if(!mOwnerMetadataPrefetched) {
+                check(cudaEventSynchronize(mReady));
+                readCorrectionOwnerMetadata();
+                check(cudaEventRecord(mReady,mStream));check(cudaEventSynchronize(mReady));
+            }
+            mOwnerMetadataPrefetched=false;
             // CUDA has already selected every retained/new owner whose source
             // changed. Unchanged clusters need neither CPU ownership updates nor
             // a physical-state readback. Full rigid checkpoint replay remains
             // unchanged and still corrects ordinary interaction participants.
             const PxU32 count=mHostCompletion->correction.count;
-            std::vector<PxvDestructionBodyRequest> requests(count);
-            mHostCorrectionTargets.resize(count);
-            if(count) gatherCorrectionOwnerMetadata<<<(count+127)/128,128,0,mStream>>>(
-                mCompactCorrectionBodies,count,mCandidateSlots,mBodyRequests,mCorrectionOwnerRequests,mCorrectionOwnerTargets);
-            check(cudaGetLastError());
-            if(!bindings.empty())check(cudaMemcpyAsync(bindings.data(),mMigratingCollisionBindings,bindings.size()*sizeof(bindings[0]),cudaMemcpyDeviceToHost,mStream));
-            if(count) {
-                check(cudaMemcpyAsync(requests.data(),mCorrectionOwnerRequests,count*sizeof(requests[0]),cudaMemcpyDeviceToHost,mStream));
-                check(cudaMemcpyAsync(mHostCorrectionTargets.data(),mCorrectionOwnerTargets,count*sizeof(PxU32),cudaMemcpyDeviceToHost,mStream));
-            }
-            check(cudaEventRecord(mReady,mStream));check(cudaEventSynchronize(mReady));
-            return mBodyAllocator->applyBindings(bindings.data(),PxU32(bindings.size()),requests.data(),mHostCorrectionTargets.data(),PxU32(requests.size()));
+            mHostCorrectionTargets.assign(mPinnedOwnerTargets.p,mPinnedOwnerTargets.p+count);
+            return mBodyAllocator->applyBindings(mPinnedMigrating.p,mHostCompletion->collision.migrating,
+                mPinnedOwnerRequests.p,mHostCorrectionTargets.data(),count);
         }catch(...){mFailed=true;return false;}
+    }
+    // Enqueue applyCorrectionBindings' observation on mStream: the selected
+    // owners' metadata and the migrating shape bindings, into pinned staging.
+    void readCorrectionOwnerMetadata() {
+        const PxU32 count=mHostCompletion->correction.count,migrating=mHostCompletion->collision.migrating;
+        if(count)gatherCorrectionOwnerMetadata<<<(count+127)/128,128,0,mStream>>>(
+            mCompactCorrectionBodies,count,mCandidateSlots,mBodyRequests,mCorrectionOwnerRequests,mCorrectionOwnerTargets);
+        check(cudaGetLastError());
+        if(migrating)check(cudaMemcpyAsync(mPinnedMigrating.p,mMigratingCollisionBindings,migrating*sizeof(*mPinnedMigrating.p),cudaMemcpyDeviceToHost,mStream));
+        if(count) {
+            check(cudaMemcpyAsync(mPinnedOwnerRequests.p,mCorrectionOwnerRequests,count*sizeof(*mPinnedOwnerRequests.p),cudaMemcpyDeviceToHost,mStream));
+            check(cudaMemcpyAsync(mPinnedOwnerTargets.p,mCorrectionOwnerTargets,count*sizeof(PxU32),cudaMemcpyDeviceToHost,mStream));
+        }
     }
     bool acceptCorrection(const PxgBodySim* bodies,CUstream coreStream) override {
         if(mFailed || !mCorrectionEnabled || !bodies || !coreStream || mHostStatus->error!=8u)return false;
@@ -2057,14 +2107,26 @@ public:
                 PxU64(mPendingPropertyCapacity)+mHostCompletion->correction.count));
             if(mShapePublicationEpochs)mPendingShapeCapacity=PxU32(std::min<PxU64>(mN,
                 PxU64(mPendingShapeCapacity)+mHostCompletion->collision.migrating));
-            check(cudaGetLastError());check(cudaMemcpyAsync(mHostStatus,mStatus,sizeof(*mStatus),cudaMemcpyDeviceToHost,mStream));
+            check(cudaGetLastError());
+            if(mPass && mPass==mCorrectionLimit) {
+                // The final pass: finishPostCorrection follows at once and
+                // synchronizes anyway; it checks this acceptance's status and
+                // completes it (acceptedCorrection) after that one wait.
+                check(cudaEventRecord(mReady,mStream));
+                mTailAcceptancePending=true;return true;
+            }
+            check(cudaMemcpyAsync(mHostStatus,mStatus,sizeof(*mStatus),cudaMemcpyDeviceToHost,mStream));
             check(cudaEventRecord(mReady,mStream));check(cudaEventSynchronize(mReady));
-            collectCorrectionTimings();
-            if(mHostStatus->error)return false;
-            mCommittedMotionSlots+=mHostBodyAllocation.reserved;
-            mHostOwnedBodies.insert(mHostReservedIndices.begin(),mHostReservedIndices.end());
-            mBodyAllocator->acceptReservations();return true;
+            if(mHostStatus->error){collectCorrectionTimings();return false;}
+            acceptedCorrection();return true;
         }catch(...){mFailed=true;return false;}
+    }
+    // Host bookkeeping of an accepted correction, once its status is observed.
+    void acceptedCorrection() {
+        collectCorrectionTimings();
+        mCommittedMotionSlots+=mHostBodyAllocation.reserved;
+        mHostOwnedBodies.insert(mHostReservedIndices.begin(),mHostReservedIndices.end());
+        mBodyAllocator->acceptReservations();
     }
     bool exportWarmStart(float* values, PxU32 count) {
         if (!values || !mSolver || size_t(count)!=size_t(mM)*6 || mPending || mFailed
