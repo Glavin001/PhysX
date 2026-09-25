@@ -2,6 +2,7 @@
 #pragma once
 #include "PxvDestructionBodyAllocator.h"
 #include "NpFactory.h"
+#include "NpPhysics.h"
 #include "NpRigidDynamic.h"
 #include "NpScene.h"
 #include "ScBodySim.h"
@@ -45,6 +46,14 @@ class NpDestructionBodyAllocator final : public PxvDestructionBodyAllocator, pub
         return entry && (entry->second || allowReservation) ? body : NULL;
     }
     void discard(NpRigidDynamic& body) {
+        // An accepted fragment was visible through contacts and queries, so
+        // application-side holders (a character controller standing on it, an
+        // obstacle context, user deletion listeners) may keep its address.
+        // Tell them, as PxActor::release() does, before the pool can hand the
+        // same address out again; reservations were never visible.
+        const auto* membership=mPrivateBodies.find(&body);
+        if(membership && membership->second)
+            NpPhysics::getInstance().notifyDeletionListenersUserRelease(&body,body.userData);
         // Remove membership before the pool can reuse this object's address.
         mPrivateBodies.erase(&body);
         PxInlineArray<const Sc::ShapeCore*,64> shapes;
