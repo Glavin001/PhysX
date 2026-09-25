@@ -103,8 +103,12 @@ __global__ void startFrame(PxDestructionStageStatus* status,const PxgContactGrap
 }
 // prior: device-accumulated sum of every earlier evaluation this frame.
 // passes: corrected physics passes that ran; one more stress evaluation than that.
+// onlyIfComplete: enqueued with the final pass's own evaluation, before the
+// host knows whether that evaluation asked for another split; a status with
+// any error bit (8: another split, whose acceptance merges later) is left alone.
 __global__ void mergePostCorrectionStatus(PxDestructionStageStatus* status,const PxDestructionStageStatus* priorPasses,
-    PxU32 passes,const PxU32* firstPassBrokenBondCount) {
+    PxU32 passes,const PxU32* firstPassBrokenBondCount,bool onlyIfComplete) {
+    if(onlyIfComplete && status->error)return;
     const PxDestructionStageStatus prior=*priorPasses;const PxU32 firstPassBrokenBonds=*firstPassBrokenBondCount;
     status->postCorrectionBrokenBonds=status->brokenBonds+prior.brokenBonds-firstPassBrokenBonds;
     status->normalContacts+=prior.normalContacts;status->frictionAnchors+=prior.frictionAnchors;
@@ -666,6 +670,9 @@ class Runtime final : public PxgDestructionRuntime {
     // A corrected pass's acceptance is observed by the next evaluation's
     // finish, in the synchronization it performs anyway.
     bool mAcceptancePending=false;
+    // The final pass's publication was enqueued with its evaluation and is
+    // observed by that evaluation's finish (see enqueueFinalPublication).
+    bool mSpeculativePublication=false;
     PxgDestructionMotionStorage mMotionStorage{};
     PxgDestructionGrowMotionStorage mGrowMotionStorage{};void* mMotionStorageOwner{};
     CUstream mMotionProducerStream{};
@@ -1492,6 +1499,7 @@ public:
             if(mBodyAllocation)check(cudaMemsetAsync(mBodyAllocation,0,sizeof(*mBodyAllocation),mStream));
             mHostCompletion->correction={};mCorrectionBodyCapacity=0;
             mCollisionPreparationSubmitted=mCorrectionPreparationSubmitted=false;mPreparationObserved=false;mOwnerMetadataPrefetched=false;mTailAcceptancePending=false;
+            mSpeculativePublication=false;
             if(mCorrectionPreparation)check(cudaMemsetAsync(mCorrectionPreparation,0,sizeof(*mCorrectionPreparation),mStream));
             if(mCollisionPreparation) {
                 check(cudaMemsetAsync(mCollisionPreparation,0,sizeof(*mCollisionPreparation),mStream));
@@ -1500,54 +1508,73 @@ public:
             check(cudaEventRecord(mInput,mStream));return true;
         }catch(...){mFailed=true;return false;}
     }
+    // The device work of the final publication: fold the frame's passes into
+    // the status, publish committed changes, select and gather the changed
+    // owners' properties and shape bindings into pinned staging. Capacities
+    // are host bounds known since the last acceptance. Speculative (enqueued
+    // with the final pass's evaluation): the merge and gathers skip a status
+    // with an error bit, and the selects only write scratch that the next
+    // split's preparation rebuilds, so a final pass that splits again
+    // publishes after its acceptance exactly as before.
+    void enqueueFinalPublication(bool speculative,PxU32& capacity,PxU32& shapeCapacity) {
+        mergePostCorrectionStatus<<<1,1,0,mStream>>>(mStatus,&mCompletion->prior,mPass,&mCompletion->firstPassBrokenBonds,speculative);
+        if(mTopology)mChanges.publish(mStream);
+        capacity=std::min(mC,mPendingPropertyCapacity);
+        if(capacity) {
+            const auto topology=mTopology->accepted();
+            check(cub::DeviceSelect::If(mCorrectionScratch,mCorrectionScratchBytes,
+                cub::CountingInputIterator<PxU32>(0),mCorrectionOwnerTargets,mPropertyCount,mC,
+                HasChangedProperties{topology.activeClusters,mPropertyEpochs,mStatus},mStream));
+            gatherFinalProperties<<<(capacity+127)/128,128,0,mStream>>>(mCorrectionOwnerTargets,mPropertyCount,
+                capacity,mTrialBodies,mClusters,mMotionStorage.bodies,
+                reinterpret_cast<PxvDestructionBodyProperties*>(mCorrectionBodies),mStatus);
+            check(cudaMemcpyAsync(mPinnedProperties.p,mCorrectionBodies,capacity*sizeof(mPinnedProperties.p[0]),cudaMemcpyDeviceToHost,mStream));
+        }
+        shapeCapacity=std::min(mN,mPendingShapeCapacity);
+        if(shapeCapacity) {
+            // Reuse private preparation scratch. The compact trial batch
+            // remains exposed by getDeviceView with its original count.
+            check(cub::DeviceSelect::If(mCorrectionScratch,mCorrectionScratchBytes,
+                cub::CountingInputIterator<PxU32>(0),mCorrectionOwnerTargets,&mCompletion->shapeCount,mN,
+                HasPendingShapeOwner{mShapePublicationEpochs,mStatus},mStream));
+            gatherFinalShapeOwners<<<(shapeCapacity+127)/128,128,0,mStream>>>(mCorrectionOwnerTargets,
+                &mCompletion->shapeCount,shapeCapacity,mChunks,mShapePublicationTargets,mCollisionBindings,mStatus);
+            check(cudaMemcpyAsync(mPinnedShapeOwners.p,mCollisionBindings,
+                shapeCapacity*sizeof(mPinnedShapeOwners.p[0]),cudaMemcpyDeviceToHost,mStream));
+        }
+        check(cudaGetLastError());
+    }
     bool finishPostCorrection() override {
         // A pending final acceptance has not been observed yet: the host
         // status still holds the final pass's correction request (8).
-        if(!mPass || mFailed || mPending || (!mTailAcceptancePending && mHostStatus->error)){mTailAcceptancePending=false;return false;}
+        if(!mPass || mFailed || mPending || (!mTailAcceptancePending && mHostStatus->error)){mTailAcceptancePending=false;mSpeculativePublication=false;return false;}
         try {Context current(mContext);
-            mergePostCorrectionStatus<<<1,1,0,mStream>>>(mStatus,&mCompletion->prior,mPass,&mCompletion->firstPassBrokenBonds);
-            if(mTopology)mChanges.publish(mStream);
-            const PxU32 capacity=std::min(mC,mPendingPropertyCapacity);
-            PxvDestructionBodyProperties* observations=mPinnedProperties.p;PxU32 count=0;
-            if(capacity) {
-                const auto topology=mTopology->accepted();
-                check(cub::DeviceSelect::If(mCorrectionScratch,mCorrectionScratchBytes,
-                    cub::CountingInputIterator<PxU32>(0),mCorrectionOwnerTargets,mPropertyCount,mC,
-                    HasChangedProperties{topology.activeClusters,mPropertyEpochs,mStatus},mStream));
-                gatherFinalProperties<<<(capacity+127)/128,128,0,mStream>>>(mCorrectionOwnerTargets,mPropertyCount,
-                    capacity,mTrialBodies,mClusters,mMotionStorage.bodies,
-                    reinterpret_cast<PxvDestructionBodyProperties*>(mCorrectionBodies),mStatus);
-                check(cudaMemcpyAsync(observations,mCorrectionBodies,capacity*sizeof(observations[0]),cudaMemcpyDeviceToHost,mStream));
+            PxU32 capacity=0,shapeCapacity=0;
+            if(mSpeculativePublication && !mTailAcceptancePending) {
+                // The final pass did not split again: its evaluation carried the
+                // publication, and finish's wait (whose completion copy follows
+                // it) has already observed the merged status and both counts.
+                mSpeculativePublication=false;
+                capacity=std::min(mC,mPendingPropertyCapacity);shapeCapacity=std::min(mN,mPendingShapeCapacity);
+            } else {
+                mSpeculativePublication=false;
+                enqueueFinalPublication(false,capacity,shapeCapacity);
+                // Selected count shares the mandatory completion transfer. No
+                // count-read/wait/resubmit boundary is needed to size the payload.
+                check(cudaMemcpyAsync(mHostCompletion,mCompletion,sizeof(*mStatus)+((capacity||shapeCapacity)?2*sizeof(PxU32):0),cudaMemcpyDeviceToHost,mStream));
+                check(cudaEventRecord(mReady,mStream));check(cudaEventSynchronize(mReady));
             }
-            const PxU32 shapeCapacity=std::min(mN,mPendingShapeCapacity);
-            PxDestructionCollisionBinding* shapeObservations=mPinnedShapeOwners.p;
-            if(shapeCapacity) {
-                // Reuse private preparation scratch. The compact trial batch
-                // remains exposed by getDeviceView with its original count.
-                check(cub::DeviceSelect::If(mCorrectionScratch,mCorrectionScratchBytes,
-                    cub::CountingInputIterator<PxU32>(0),mCorrectionOwnerTargets,&mCompletion->shapeCount,mN,
-                    HasPendingShapeOwner{mShapePublicationEpochs,mStatus},mStream));
-                gatherFinalShapeOwners<<<(shapeCapacity+127)/128,128,0,mStream>>>(mCorrectionOwnerTargets,
-                    &mCompletion->shapeCount,shapeCapacity,mChunks,mShapePublicationTargets,mCollisionBindings,mStatus);
-                check(cudaMemcpyAsync(shapeObservations,mCollisionBindings,
-                    shapeCapacity*sizeof(shapeObservations[0]),cudaMemcpyDeviceToHost,mStream));
-            }
-            check(cudaGetLastError());
-            // Selected count shares the mandatory completion transfer. No
-            // count-read/wait/resubmit boundary is needed to size the payload.
-            check(cudaMemcpyAsync(mHostCompletion,mCompletion,sizeof(*mStatus)+((capacity||shapeCapacity)?2*sizeof(PxU32):0),cudaMemcpyDeviceToHost,mStream));
-            check(cudaEventRecord(mReady,mStream));check(cudaEventSynchronize(mReady));
             if(mTailAcceptancePending) {
                 // The merged status carries every acceptance error bit.
                 mTailAcceptancePending=false;
                 if(mHostStatus->error){collectCorrectionTimings();return false;}
                 acceptedCorrection();
             }
-            count=capacity?mHostCompletion->propertyCount:0;
+            const PxU32 count=capacity?mHostCompletion->propertyCount:0;
             if(mHostStatus->error || count>capacity)return false;
-            if(count && !mBodyAllocator->publishCorrectionProperties(observations,count))return false;
+            if(count && !mBodyAllocator->publishCorrectionProperties(mPinnedProperties.p,count))return false;
             const PxU32 shapeCount=shapeCapacity?mHostCompletion->shapeCount:0;
-            if(shapeCount>shapeCapacity || (shapeCount && !mBodyAllocator->publishShapeOwners(shapeObservations,shapeCount)))return false;
+            if(shapeCount>shapeCapacity || (shapeCount && !mBodyAllocator->publishShapeOwners(mPinnedShapeOwners.p,shapeCount)))return false;
             mPendingPropertyCapacity=0;mPendingShapeCapacity=0;mPass=0;return true;
         }catch(...){mFailed=true;return false;}
     }
@@ -1674,6 +1701,13 @@ public:
                 // The GPU producer consumes its own count. CPU compatibility
                 // observes a completed assignment, never selects its work size.
                 submitMotionAllocation();
+            }
+            if(mPass && mPass==mCorrectionLimit && mBodyAllocator) {
+                // The final pass usually splits no further: publish with its
+                // evaluation so finish's one wait covers both (no wait of its
+                // own in finishPostCorrection). A further split publishes later.
+                PxU32 capacity=0,shapeCapacity=0;enqueueFinalPublication(true,capacity,shapeCapacity);
+                mSpeculativePublication=true;
             }
             observeCompletion();
             check(cudaEventRecord(mReady,mStream));mPending=true;return true;
