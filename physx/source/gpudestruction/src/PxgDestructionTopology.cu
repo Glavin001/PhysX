@@ -9,6 +9,10 @@
 #include <cstring>
 #include <limits>
 #include <new>
+#include <vector>
+#if defined(PX_CUMETAL) && PX_CUMETAL
+#include "PxgDestructionFloatPair.cuh"
+#endif
 
 namespace physx {
 namespace {
@@ -168,6 +172,73 @@ __global__ void massProperties(const PxgDestructionChunk* chunks, const unsigned
     }
 }
 
+#if defined(PX_CUMETAL) && PX_CUMETAL
+// massProperties above for Apple GPUs (PX_CUMETAL), where binary64 is
+// emulated: its accumulation and 256-wide shared-memory tree of ten doubles
+// per cluster is a chain of emulated operations, ~250 us per rebuild in
+// vibe-land's meteor bench (every fracture rebuilds all clusters, twice per
+// split tick). Here each cluster is one warp: the same sums, term for term,
+// in float pairs (PxgDestructionFloatPair.cuh, ~48 significand bits), read
+// from the asset's chunk properties split into pairs once at creation, then
+// a shuffle tree and the same final composition. Only the thirteen outputs
+// are rounded to double. Chunk offsets are taken from a nearby chunk, as in
+// the double kernel, so no pair holds a world-scale moment. Summation order
+// differs from the double tree, which is itself not the host's; results are
+// deterministic. CUDA keeps massProperties.
+struct ChunkPairs { destructionPair::Pair center[3],mass,inertia[6]; unsigned supported; };
+__device__ __forceinline__ destructionPair::Pair shuffleDown(destructionPair::Pair a,unsigned offset) {
+    return {__shfl_down_sync(0xffffffffu,a.hi,offset),__shfl_down_sync(0xffffffffu,a.lo,offset)};
+}
+__global__ void massPropertiesPairs(const PxgDestructionChunk* chunks, const ChunkPairs* pairs,
+    const unsigned* order, const unsigned* begins, const unsigned* ends, PxgDestructionCluster* clusters,
+    const unsigned* roots, const PxgDestructionTopologyStatus* status) {
+    using namespace destructionPair;
+    const unsigned lane=threadIdx.x&31u,warp=(blockIdx.x*blockDim.x+threadIdx.x)>>5,warps=(gridDim.x*blockDim.x)>>5;
+    for (unsigned cidx=warp; cidx<status->clusterCount; cidx+=warps) {
+        const unsigned r=roots[cidx];
+        const ChunkPairs reference=pairs[r];
+        Pair v[10];for(unsigned k=0;k<10;++k)v[k]=pair(0.0f);
+        unsigned support=0;
+        for (unsigned j=begins[r]+lane; j<ends[r]; j+=32) {
+            const unsigned id=order[j];const ChunkPairs c=pairs[id];
+            const Pair x=sub(c.center[0],reference.center[0]),y=sub(c.center[1],reference.center[1]),
+                z=sub(c.center[2],reference.center[2]),m=c.mass;
+            v[0]=add(v[0],m);v[1]=add(v[1],mul(m,x));v[2]=add(v[2],mul(m,y));v[3]=add(v[3],mul(m,z));
+            v[4]=add(v[4],add(c.inertia[0],mul(m,add(mul(y,y),mul(z,z)))));
+            v[5]=add(v[5],add(c.inertia[1],mul(m,add(mul(x,x),mul(z,z)))));
+            v[6]=add(v[6],add(c.inertia[2],mul(m,add(mul(x,x),mul(y,y)))));
+            v[7]=add(v[7],sub(c.inertia[3],mul(mul(m,x),y)));
+            v[8]=add(v[8],sub(c.inertia[4],mul(mul(m,x),z)));
+            v[9]=add(v[9],sub(c.inertia[5],mul(mul(m,y),z)));
+            support|=c.supported;
+        }
+        for (unsigned offset=16; offset; offset>>=1) {
+            for (unsigned k=0;k<10;++k) v[k]=add(v[k],shuffleDown(v[k],offset));
+            support|=__shfl_down_sync(0xffffffffu,support,offset);
+        }
+        if (!lane) {
+            PxgDestructionCluster out{};
+            const Pair m=v[0];
+            out.mass=value(m);
+            Pair offset[3];
+            for (unsigned k=0;k<3;++k) {
+                offset[k]=m.hi>0?div(v[k+1],m):pair(0.0f);
+                out.center[k]=value(add(reference.center[k],offset[k]));
+            }
+            const Pair x=offset[0],y=offset[1],z=offset[2];
+            out.inertia[0]=value(sub(v[4],mul(m,add(mul(y,y),mul(z,z)))));
+            out.inertia[1]=value(sub(v[5],mul(m,add(mul(x,x),mul(z,z)))));
+            out.inertia[2]=value(sub(v[6],mul(m,add(mul(x,x),mul(y,y)))));
+            out.inertia[3]=value(add(v[7],mul(mul(m,x),y)));
+            out.inertia[4]=value(add(v[8],mul(mul(m,x),z)));
+            out.inertia[5]=value(add(v[9],mul(mul(m,y),z)));
+            out.chunkCount=ends[r]-begins[r];
+            out.supported=support;
+            clusters[r]=out;
+        }
+    }
+}
+#endif
 __global__ void initializeMotion(PxgDestructionClusterMotion* motions,
     const unsigned* roots,const unsigned* slots,const PxgDestructionTopologyStatus* status) {
     const unsigned i=blockIdx.x*blockDim.x+threadIdx.x;
@@ -215,6 +286,66 @@ __global__ void transferClusterMotion(const unsigned* roots,const unsigned* slot
     motion[slots[r]]=out;
 }
 
+#if defined(PX_CUMETAL) && PX_CUMETAL
+// transferClusterMotion above in float pairs (PX_CUMETAL): the rotated COM
+// displacement and v + w x r, term for term, with the double inputs split
+// into pairs and the three velocities rounded back. Its ~40 dependent
+// emulated double operations per cluster took ~60-110 us per rebuild on
+// Metal. Values outside the pair range (nonzero below 2^-60 or above 2^60)
+// keep the double arithmetic, out of line.
+__device__ __noinline__ void transferClusterMotionDouble(unsigned r,unsigned parent,const unsigned* slots,
+    const PxgDestructionCluster* clusters,const double* previousCenters,
+    const PxgDestructionClusterMotion* previousMotion,PxgDestructionClusterMotion* motion) {
+    auto out=previousMotion[parent];
+    double d[3];
+    for(unsigned k=0;k<3;++k)d[k]=clusters[r].center[k]-previousCenters[3*parent+k];
+    const auto* q=out.orientation;
+    const double t[3]={2*(q[1]*d[2]-q[2]*d[1]),2*(q[2]*d[0]-q[0]*d[2]),2*(q[0]*d[1]-q[1]*d[0])};
+    const double world[3]={d[0]+q[3]*t[0]+q[1]*t[2]-q[2]*t[1],
+        d[1]+q[3]*t[1]+q[2]*t[0]-q[0]*t[2],d[2]+q[3]*t[2]+q[0]*t[1]-q[1]*t[0]};
+    const auto* w=out.angularVelocity;
+    out.linearVelocity[0]+=w[1]*world[2]-w[2]*world[1];
+    out.linearVelocity[1]+=w[2]*world[0]-w[0]*world[2];
+    out.linearVelocity[2]+=w[0]*world[1]-w[1]*world[0];
+    motion[slots[r]]=out;
+}
+__device__ __forceinline__ unsigned pairOutOfRange(double x) {
+    const unsigned long long bits=*reinterpret_cast<const unsigned long long*>(&x);
+    const unsigned exponent=unsigned(bits>>52)&0x7ffu;
+    return unsigned((bits<<1)!=0ull)&(unsigned(exponent<963u)|unsigned(exponent>1083u));
+}
+__global__ void transferClusterMotionPairs(const unsigned* roots,const unsigned* slots,
+    const PxgDestructionCluster* clusters, const unsigned* previousLabels,
+    const unsigned* previousSlots, const double* previousCenters,
+    const PxgDestructionClusterMotion* previousMotion,
+    PxgDestructionClusterMotion* motion, const PxgDestructionTopologyStatus* status) {
+    using namespace destructionPair;
+    const unsigned i=blockIdx.x*blockDim.x+threadIdx.x;
+    if(i>=status->clusterCount || status->slotError)return;
+    const unsigned r=roots[i], parent=previousSlots[previousLabels[r]];
+    auto out=previousMotion[parent];
+    const double* c=clusters[r].center;const double* p=previousCenters+3*parent;
+    const double* q=out.orientation;const double* w=out.angularVelocity;
+    unsigned bad=0;
+    for(unsigned k=0;k<3;++k)bad|=pairOutOfRange(c[k])|pairOutOfRange(p[k])|pairOutOfRange(w[k])|pairOutOfRange(out.linearVelocity[k]);
+    for(unsigned k=0;k<4;++k)bad|=pairOutOfRange(q[k]);
+    if(bad){transferClusterMotionDouble(r,parent,slots,clusters,previousCenters,previousMotion,motion);return;}
+    const Pair d[3]={sub(pair(c[0]),pair(p[0])),sub(pair(c[1]),pair(p[1])),sub(pair(c[2]),pair(p[2]))};
+    const Pair qq[4]={pair(q[0]),pair(q[1]),pair(q[2]),pair(q[3])};
+    // Rotate the COM displacement from asset space into world space.
+    const Pair t[3]={scale(sub(mul(qq[1],d[2]),mul(qq[2],d[1])),2.0f),scale(sub(mul(qq[2],d[0]),mul(qq[0],d[2])),2.0f),
+        scale(sub(mul(qq[0],d[1]),mul(qq[1],d[0])),2.0f)};
+    const Pair world[3]={sub(add(add(d[0],mul(qq[3],t[0])),mul(qq[1],t[2])),mul(qq[2],t[1])),
+        sub(add(add(d[1],mul(qq[3],t[1])),mul(qq[2],t[0])),mul(qq[0],t[2])),
+        sub(add(add(d[2],mul(qq[3],t[2])),mul(qq[0],t[1])),mul(qq[1],t[0]))};
+    const Pair ww[3]={pair(w[0]),pair(w[1]),pair(w[2])};
+    // linear += w x world, as (w_i world_j - w_j world_i) added to the old value.
+    out.linearVelocity[0]=value(add(pair(out.linearVelocity[0]),sub(mul(ww[1],world[2]),mul(ww[2],world[1]))));
+    out.linearVelocity[1]=value(add(pair(out.linearVelocity[1]),sub(mul(ww[2],world[0]),mul(ww[0],world[2]))));
+    out.linearVelocity[2]=value(add(pair(out.linearVelocity[2]),sub(mul(ww[0],world[1]),mul(ww[1],world[0]))));
+    motion[slots[r]]=out;
+}
+#endif
 __global__ void emptyBatch(PxgDestructionTopologyStatus* status) {
     status->invalidEdit=0;
     status->changed=0;
@@ -226,6 +357,10 @@ class Topology final : public PxgDestructionTopology {
     bool mOwnAssets = true;
     PxgDestructionChunk* mChunks = nullptr;
     PxgDestructionBond* mBonds = nullptr;
+#if defined(PX_CUMETAL) && PX_CUMETAL
+    ChunkPairs* mChunkPairs = nullptr; // immutable asset data, shared like mChunks
+    bool mPairMassProperties = false;  // every chunk value is zero or within 2^+-60
+#endif
     unsigned *mActiveChunks = nullptr, *mActiveBonds = nullptr, *mLabels = nullptr;
     unsigned *mIndices = nullptr, *mKeys = nullptr, *mOrder = nullptr;
     unsigned *mBegins = nullptr, *mEnds = nullptr, *mRoots = nullptr, *mRootFlags = nullptr;
@@ -257,6 +392,12 @@ class Topology final : public PxgDestructionTopology {
         if (cub::DeviceSelect::Flagged(mTemp, mTempBytes, mIndices, mRootFlags,
             mRoots, &mStatus->clusterCount, mN, mStream) != cudaSuccess) return false;
         finishGeneration<<<1,1,0,mStream>>>(mStatus);
+#if defined(PX_CUMETAL) && PX_CUMETAL
+        if (mPairMassProperties)
+            massPropertiesPairs<<<std::min((mN+BLOCK/32-1)/(BLOCK/32),2560u), BLOCK, 0, mStream>>>(mChunks, mChunkPairs,
+                mOrder, mBegins, mEnds, mClusters, mRoots, mStatus);
+        else
+#endif
         massProperties<<<std::min(mN,2560u), BLOCK, 0, mStream>>>(mChunks, mLabels, mActiveChunks,
             mOrder, mBegins, mEnds, mClusters, mRoots, mStatus);
         retainMotionSlots<<<grid,BLOCK,0,mStream>>>(mSlotRoots,mActiveChunks,mLabels,mFreeFlags,mN);
@@ -267,8 +408,13 @@ class Topology final : public PxgDestructionTopology {
         allocateMotionSlots<<<grid,BLOCK,0,mStream>>>(mRootFlags,mRequestRanks,mFreeSlots,mFreeRanks,mFreeFlags,
             mClusterSlots,mSlotRoots,mSlotGenerations,mStatus,mN);
         if(transfer)
+#if defined(PX_CUMETAL) && PX_CUMETAL
+            transferClusterMotionPairs<<<grid,BLOCK,0,mStream>>>(mRoots,mClusterSlots,mClusters,mPreviousLabels,
+                mPreviousSlots,mPreviousCenters,mPreviousMotions,mMotions,mStatus);
+#else
             transferClusterMotion<<<grid,BLOCK,0,mStream>>>(mRoots,mClusterSlots,mClusters,mPreviousLabels,
                 mPreviousSlots,mPreviousCenters,mPreviousMotions,mMotions,mStatus);
+#endif
         else
             initializeMotion<<<grid,BLOCK,0,mStream>>>(mMotions,mRoots,mClusterSlots,mStatus);
         return cudaGetLastError() == cudaSuccess && (!signal || cudaEventRecord(mReady, mStream) == cudaSuccess);
@@ -277,7 +423,11 @@ public:
     bool init(const PxgDestructionChunk* chunks, unsigned n,
         const PxgDestructionBond* bonds, unsigned m, const Topology* shared = nullptr) {
         mN = n; mM = m;
-        if(shared){mChunks=shared->mChunks;mBonds=shared->mBonds;mOwnAssets=false;}
+        if(shared){mChunks=shared->mChunks;mBonds=shared->mBonds;mOwnAssets=false;
+#if defined(PX_CUMETAL) && PX_CUMETAL
+            mChunkPairs=shared->mChunkPairs;mPairMassProperties=shared->mPairMassProperties;
+#endif
+        }
         if (cudaStreamCreateWithFlags(&mStream, cudaStreamNonBlocking) != cudaSuccess
             || cudaEventCreateWithFlags(&mReady, cudaEventDisableTiming) != cudaSuccess) return false;
         if ((mOwnAssets && (!alloc(mChunks,n) || !alloc(mBonds,m))) || !alloc(mActiveChunks,n)
@@ -290,6 +440,28 @@ public:
             || !alloc(mFreeFlags,n) || !alloc(mFreeRanks,n) || !alloc(mFreeSlots,n) || !alloc(mRequestRanks,n)) return false;
         if (mOwnAssets && (cudaMemcpyAsync(mChunks,chunks,sizeof(*chunks)*n,cudaMemcpyHostToDevice,mStream) != cudaSuccess
             || (m && cudaMemcpyAsync(mBonds,bonds,sizeof(*bonds)*m,cudaMemcpyHostToDevice,mStream) != cudaSuccess))) return false;
+#if defined(PX_CUMETAL) && PX_CUMETAL
+        if (mOwnAssets) {
+            // Split each double into its leading float and the rounded
+            // remainder (destructionPair::pair(double), exact on the host).
+            const auto split=[](double d){const float hi=float(d);return destructionPair::Pair{hi,float(d-double(hi))};};
+            // Pairs are floats: an asset value outside [2^-60, 2^60] keeps the
+            // double kernel for the whole topology (none in practice).
+            const auto inRange=[](double d){return d==0 || (std::fabs(d)>=0x1p-60 && std::fabs(d)<=0x1p60);};
+            mPairMassProperties=true;
+            std::vector<ChunkPairs> pairs(n);
+            for (unsigned i=0;i<n;++i) {
+                mPairMassProperties=mPairMassProperties && inRange(chunks[i].mass);
+                for (unsigned k=0;k<3;++k) mPairMassProperties=mPairMassProperties && inRange(chunks[i].center[k]);
+                for (unsigned k=0;k<6;++k) mPairMassProperties=mPairMassProperties && inRange(chunks[i].inertia[k]);
+                for (unsigned k=0;k<3;++k) pairs[i].center[k]=split(chunks[i].center[k]);
+                pairs[i].mass=split(chunks[i].mass);
+                for (unsigned k=0;k<6;++k) pairs[i].inertia[k]=split(chunks[i].inertia[k]);
+                pairs[i].supported=chunks[i].supported;
+            }
+            if (!alloc(mChunkPairs,n) || cudaMemcpy(mChunkPairs,pairs.data(),sizeof(ChunkPairs)*n,cudaMemcpyHostToDevice) != cudaSuccess) return false;
+        }
+#endif
         size_t sortBytes = 0, selectBytes = 0, scanBytes=0;
         // A label is a chunk index below n, or INVALID. With 2^bits-1 >= n the
         // low bits order every label and put INVALID (all ones) last, so a
@@ -335,7 +507,11 @@ public:
     void release() override { delete this; }
     ~Topology() override {
         if (mStream) cudaStreamSynchronize(mStream);
-        if(mOwnAssets){cudaFree(mChunks);cudaFree(mBonds);} cudaFree(mActiveChunks); cudaFree(mActiveBonds);
+        if(mOwnAssets){cudaFree(mChunks);cudaFree(mBonds);
+#if defined(PX_CUMETAL) && PX_CUMETAL
+            cudaFree(mChunkPairs);
+#endif
+        } cudaFree(mActiveChunks); cudaFree(mActiveBonds);
         cudaFree(mLabels); cudaFree(mIndices); cudaFree(mKeys); cudaFree(mOrder);
         cudaFree(mMotions); cudaFree(mPreviousMotions); cudaFree(mPreviousLabels);
         cudaFree(mClusterSlots);cudaFree(mSlotRoots);cudaFree(mSlotGenerations);
