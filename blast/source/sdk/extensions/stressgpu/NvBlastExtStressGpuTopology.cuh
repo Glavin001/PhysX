@@ -245,7 +245,7 @@ class DeviceStressTopology
         checkCuda(cudaMemsetAsync(rangeBegin,0,sizeof(unsigned)*b.n,captureStream), "clear component range starts");
         checkCuda(cudaMemsetAsync(rangeEnd,0,sizeof(unsigned)*b.n,captureStream), "clear component range ends");
         checkCuda(cub::DeviceRadixSort::SortPairs(sortScratch,sortBytes,b.nodeIsland,
-            sortedKeys,identity,componentNodes,b.n,0,32,captureStream), "order resident component nodes");
+            sortedKeys,identity,componentNodes,b.n,0,int(islandKeyBits()),captureStream), "order resident component nodes");
         deviceStressReductionRanges<<<(b.n+kBlockSize-1)/kBlockSize,kBlockSize,0,captureStream>>>(
             sortedKeys,b.n,rangeBegin,rangeEnd);
         flagLargeStressComponents<<<(b.n+kBlockSize-1)/kBlockSize,kBlockSize,0,captureStream>>>(
@@ -365,7 +365,7 @@ public:
         allocate(componentWorkCursor,1);
         allocate(sortedKeys,b.n); allocate(rangeBegin,b.n); allocate(rangeEnd,b.n);
         checkCuda(cub::DeviceRadixSort::SortPairs(nullptr,sortBytes,b.nodeIsland,sortedKeys,
-            identity,componentNodes,b.n), "size resident component sorting");
+            identity,componentNodes,b.n,0,int(islandKeyBits())), "size resident component sorting");
         checkCuda(cudaMalloc(&sortScratch,sortBytes), "allocate resident component sort scratch");
 #endif
         checkCuda(cudaMemsetAsync(state,0,sizeof(*state),stream), "initialize stress topology status");
@@ -395,6 +395,17 @@ public:
             batchMirror=input;batchMirrored=true;
         }
         checkCuda(cudaGraphLaunch(exec,stream), "launch device stress topology transaction");
+    }
+    // An island ID is a node index below n, or kNoIsland (all ones). With
+    // 2^bits-1 >= n the low bits order every ID and put kNoIsland last, so a
+    // stable radix sort on them alone gives the full 32-bit permutation (and
+    // moves the whole keys): 12 bits, two digit passes instead of four, for
+    // vibe-land's 3258-node city.
+    unsigned islandKeyBits() const
+    {
+        unsigned bits=1;
+        while(bits<32 && ((1ull<<bits)-1)<b.n)++bits;
+        return bits;
     }
     ExtStressGpuDeviceTopologyStatus* status() const { return state; }
     const unsigned* islandIds() const { return liveIslands; }
