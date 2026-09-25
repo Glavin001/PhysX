@@ -93,15 +93,19 @@ __device__ PxU32 findChunk(const Lookup* map, PxU32 count, PxU32 contact) {
 // Every pass starts from an empty per-pass status; only the trial advances
 // the frame. Prior passes are merged back in by mergePostCorrectionStatus.
 __global__ void startFrame(PxDestructionStageStatus* status,const PxgContactGraphSequence* sequence,bool correctedPass,
-    PxU32* idleObservation=nullptr) {
+    PxU32* idleObservation=nullptr,const PxU32* acceptError=nullptr) {
     const PxU64 frame=status->frame+(correctedPass?0:1); *status={}; status->frame=frame;
     if(idleObservation)*idleObservation=0;
     if(sequence && sequence->error)status->error|=8192u;
+    // A corrected pass whose acceptance failed evaluates nothing valid: its
+    // status carries the acceptance's error, so the step fails at finish.
+    if(acceptError)status->error|=*acceptError;
 }
-// prior: host-accumulated sum of every earlier evaluation this frame.
+// prior: device-accumulated sum of every earlier evaluation this frame.
 // passes: corrected physics passes that ran; one more stress evaluation than that.
-__global__ void mergePostCorrectionStatus(PxDestructionStageStatus* status,PxDestructionStageStatus prior,
-    PxU32 passes,PxU32 firstPassBrokenBonds) {
+__global__ void mergePostCorrectionStatus(PxDestructionStageStatus* status,const PxDestructionStageStatus* priorPasses,
+    PxU32 passes,const PxU32* firstPassBrokenBondCount) {
+    const PxDestructionStageStatus prior=*priorPasses;const PxU32 firstPassBrokenBonds=*firstPassBrokenBondCount;
     status->postCorrectionBrokenBonds=status->brokenBonds+prior.brokenBonds-firstPassBrokenBonds;
     status->normalContacts+=prior.normalContacts;status->frictionAnchors+=prior.frictionAnchors;
     status->iterations=max(status->iterations,prior.iterations);
@@ -109,6 +113,25 @@ __global__ void mergePostCorrectionStatus(PxDestructionStageStatus* status,PxDes
     status->bondCommands+=prior.bondCommands;status->brokenBonds+=prior.brokenBonds;
     status->crushedChunks+=prior.crushedChunks;status->error|=prior.error;
     status->correctionPasses=passes;status->stressPasses=passes+1;
+}
+// An accepted corrected pass: its status carries exactly one corrected solve
+// and one evaluation. Fold it into the frame's earlier passes before the next
+// evaluation overwrites the row (the host did this after waiting for the
+// acceptance; the next evaluation now follows it on the stream instead).
+__global__ void carryAcceptedPass(const PxDestructionStageStatus* status,PxDestructionStageStatus* prior,
+    PxU32* firstPassBrokenBonds,PxU32* acceptError,PxU32 pass) {
+    const PxDestructionStageStatus previous=*status;
+    PxU32 error=previous.error;
+    if(previous.correctionPasses!=1 || previous.stressPasses!=1)error|=4u;
+    if(pass==1){*prior=previous;*firstPassBrokenBonds=previous.brokenBonds;}
+    else {
+        prior->normalContacts+=previous.normalContacts;prior->frictionAnchors+=previous.frictionAnchors;
+        prior->iterations=max(prior->iterations,previous.iterations);
+        prior->converged=prior->converged && previous.converged;
+        prior->bondCommands+=previous.bondCommands;prior->brokenBonds+=previous.brokenBonds;
+        prior->crushedChunks+=previous.crushedChunks;prior->error|=previous.error;
+    }
+    *acceptError=error;
 }
 __global__ void prepareNativeCorrectionAcceptance(PxDestructionStageStatus* status,
     const PxgContactGraphSequence* sequence,PxU32* accept) {
@@ -513,8 +536,8 @@ __global__ void finishCollisionPreparation(PxDestructionCollisionPreparationStat
 class Runtime final : public PxgDestructionRuntime {
     bool mPreserveContactPairs=false;
     // Pass 0 is the trial evaluation; pass p>0 evaluates the p-th corrected
-    // solve. mPriorPasses sums every earlier pass of the current frame.
-    PxU32 mPass=0,mCorrectionLimit=0,mFirstPassBrokenBonds=0;PxDestructionStageStatus mPriorPasses{};
+    // solve. Completion::prior sums every earlier pass of the current frame.
+    PxU32 mPass=0,mCorrectionLimit=0;
     PxProfilerCallback* mProfiler=nullptr;PxU64 mProfileContext=0;
     cudaEvent_t mStageEvents[6]{};bool mStageTimingPending=false;
     void stageMarker(PxU32 stage) {
@@ -536,22 +559,23 @@ class Runtime final : public PxgDestructionRuntime {
         }
         mStageTimingPending=false;
     }
-    cudaEvent_t mCorrectionEvents[6]{};PxU32 mCorrectionTimingMask=0;
+    cudaEvent_t mCorrectionEvents[6]{};PxU32 mCorrectionTimingMask=0;bool mCorrectionTimingFinal=false;
     void correctionMarker(PxU32 marker,cudaStream_t stream) {
         if(!mProfiler)return;
         for(auto& event:mCorrectionEvents)if(!event)check(cudaEventCreate(&event));
         check(cudaEventRecord(mCorrectionEvents[marker],stream));
         if(marker&1)mCorrectionTimingMask|=1u<<(marker/2);
+        mCorrectionTimingFinal=mPass==mCorrectionLimit;
     }
     void collectCorrectionTimings() {
-        // Acceptance already joins the scene stream and waits for mReady.
-        // No additional synchronization or event wait is introduced here.
+        // Called after a synchronization that follows the acceptance (finish
+        // or finishPostCorrection); no additional wait is introduced here.
         static const char* names[2][3]={
             {"GpuDestruction.cuda.rewindState","GpuDestruction.cuda.installFragments","GpuDestruction.cuda.installOwners"},
             {"GpuDestruction.cuda.finalSplitState","GpuDestruction.cuda.finalSplitFragments","GpuDestruction.cuda.finalSplitOwners"}};
         for(PxU32 i=0;i<3;++i)if(mCorrectionTimingMask&(1u<<i)) {
             float elapsed=0;check(cudaEventElapsedTime(&elapsed,mCorrectionEvents[2*i],mCorrectionEvents[2*i+1]));
-            if(mProfiler)mProfiler->recordData(elapsed,names[mPass==mCorrectionLimit?1:0][i],mProfileContext);
+            if(mProfiler)mProfiler->recordData(elapsed,names[mCorrectionTimingFinal?1:0][i],mProfileContext);
         }
         mCorrectionTimingMask=0;
     }
@@ -588,6 +612,12 @@ class Runtime final : public PxgDestructionRuntime {
         PxDestructionCollisionPreparationStatus collision;
         PxDestructionCorrectionPreparationStatus correction;
         PxU32 idle; // IdleObservation bits for this frame
+        // Earlier passes of this frame, folded on the device when a corrected
+        // pass is accepted (carryAcceptedPass), and that acceptance's error
+        // bits, which the next evaluation's status inherits. The host observes
+        // them with the evaluation's completion instead of waiting for them.
+        PxU32 acceptError, firstPassBrokenBonds;
+        PxDestructionStageStatus prior;
     };
     static_assert(offsetof(Completion,propertyCount)==sizeof(PxDestructionStageStatus),"final status readback layout");
     Completion *mCompletion{},*mHostCompletion{};
@@ -633,6 +663,9 @@ class Runtime final : public PxgDestructionRuntime {
     // The final pass's acceptance is observed by finishPostCorrection, which
     // the controller always calls next, in its one synchronization.
     bool mTailAcceptancePending=false;
+    // A corrected pass's acceptance is observed by the next evaluation's
+    // finish, in the synchronization it performs anyway.
+    bool mAcceptancePending=false;
     PxgDestructionMotionStorage mMotionStorage{};
     PxgDestructionGrowMotionStorage mGrowMotionStorage{};void* mMotionStorageOwner{};
     CUstream mMotionProducerStream{};
@@ -1121,7 +1154,7 @@ public:
         cudaFreeHost(mGraphHostStatus);mGraphHostStatus=nullptr;
         mGraphObservationCapacity=0;mGpuIslandRepair=false;
         mHostCorrectionTargets.clear();mCorrectionEnabled=false;mCorrectionLimit=0;
-        mPass=0;mFirstPassBrokenBonds=0;mPriorPasses={};
+        mPass=0;mAcceptancePending=false;
         cudaFree(mCorrectionOwnerRequests);mCorrectionOwnerRequests=nullptr;
         cudaFree(mCorrectionOwnerTargets);mCorrectionOwnerTargets=nullptr;
         cudaFree(mPropertyEpochs);mPropertyEpochs=nullptr;mPropertyCount=nullptr;mPendingPropertyCapacity=0;
@@ -1443,30 +1476,18 @@ public:
     bool prepareFrame(PxU32 pass=0) override {
         try {Context current(mContext);if(!configured() || mPending || pass>mCorrectionLimit || (pass && pass!=mPass+1))return false;
             mPass=pass;
-            if(pass) {
-                // The previous pass was accepted: its per-pass status carries
-                // exactly one corrected solve and one evaluation. Fold it into
-                // the frame total before this evaluation overwrites the device row.
-                if(mHostStatus->error || mHostStatus->correctionPasses!=1 || mHostStatus->stressPasses!=1)return false;
-                const auto& previous=*mHostStatus;
-                if(pass==1){mPriorPasses=previous;mFirstPassBrokenBonds=previous.brokenBonds;}
-                else {
-                    auto& prior=mPriorPasses;
-                    prior.normalContacts+=previous.normalContacts;prior.frictionAnchors+=previous.frictionAnchors;
-                    prior.iterations=std::max(prior.iterations,previous.iterations);
-                    prior.converged=prior.converged && previous.converged;
-                    prior.bondCommands+=previous.bondCommands;prior.brokenBonds+=previous.brokenBonds;
-                    prior.crushedChunks+=previous.crushedChunks;prior.error|=previous.error;
-                }
-            }
+            // A corrected pass follows its acceptance, which folded the earlier
+            // passes on the device (carryAcceptedPass); the host observes it at finish.
+            if(pass && !mAcceptancePending)return false;
             // This evaluation follows an ordinary or corrected collision solve,
             // which has consumed the previous installed ownership generation.
             // Only a new split below may publish work for the next traversal;
             // keeping an already consumed generation would refilter it twice.
             mInstalledOwnerGeneration=0;
-            if(!pass){mPendingPropertyCapacity=0;mPendingShapeCapacity=0;}
+            if(!pass){mPendingPropertyCapacity=0;mPendingShapeCapacity=0;mAcceptancePending=false;}
             if(mConsumer)check(cudaStreamWaitEvent(mStream,reinterpret_cast<cudaEvent_t>(mConsumer),0));
-            startFrame<<<1,1,0,mStream>>>(mStatus,mContactSequence,pass>0,pass?nullptr:&mCompletion->idle);
+            startFrame<<<1,1,0,mStream>>>(mStatus,mContactSequence,pass>0,pass?nullptr:&mCompletion->idle,
+                pass?&mCompletion->acceptError:nullptr);
             if(mTopology && !pass)mChanges.start(mTopology->accepted(),mStatus,mStream);
             if(mBodyAllocation)check(cudaMemsetAsync(mBodyAllocation,0,sizeof(*mBodyAllocation),mStream));
             mHostCompletion->correction={};mCorrectionBodyCapacity=0;
@@ -1484,7 +1505,7 @@ public:
         // status still holds the final pass's correction request (8).
         if(!mPass || mFailed || mPending || (!mTailAcceptancePending && mHostStatus->error)){mTailAcceptancePending=false;return false;}
         try {Context current(mContext);
-            mergePostCorrectionStatus<<<1,1,0,mStream>>>(mStatus,mPriorPasses,mPass,mFirstPassBrokenBonds);
+            mergePostCorrectionStatus<<<1,1,0,mStream>>>(mStatus,&mCompletion->prior,mPass,&mCompletion->firstPassBrokenBonds);
             if(mTopology)mChanges.publish(mStream);
             const PxU32 capacity=std::min(mC,mPendingPropertyCapacity);
             PxvDestructionBodyProperties* observations=mPinnedProperties.p;PxU32 count=0;
@@ -2123,10 +2144,15 @@ public:
                 check(cudaEventRecord(mReady,mStream));
                 mTailAcceptancePending=true;return true;
             }
-            check(cudaMemcpyAsync(mHostStatus,mStatus,sizeof(*mStatus),cudaMemcpyDeviceToHost,mStream));
-            check(cudaEventRecord(mReady,mStream));check(cudaEventSynchronize(mReady));
-            if(mHostStatus->error){collectCorrectionTimings();return false;}
-            acceptedCorrection();return true;
+            // Every other pass: fold this one into the frame's earlier passes on
+            // the device and let the next evaluation follow on the stream. Its
+            // finish, which waits anyway, observes the acceptance's error bits
+            // and completes the host bookkeeping before reserving any body.
+            carryAcceptedPass<<<1,1,0,mStream>>>(mStatus,&mCompletion->prior,&mCompletion->firstPassBrokenBonds,
+                &mCompletion->acceptError,mPass+1);
+            check(cudaGetLastError());
+            check(cudaEventRecord(mReady,mStream));
+            mAcceptancePending=true;return true;
         }catch(...){mFailed=true;return false;}
     }
     // Host bookkeeping of an accepted correction, once its status is observed.
@@ -2175,6 +2201,14 @@ public:
                 {PxProfileScoped waitProfile(mProfiler,"GpuDestruction.finishDetail.waitForGpu",false,mProfileContext);
                     check(cudaEventSynchronize(mReady));}
                 collectStageTimings();collectMotionAllocationTiming();mPending=false;
+                if(mAcceptancePending) {
+                    // This corrected pass's acceptance, observed with its
+                    // evaluation (whose status carries any acceptance error),
+                    // before any body is reserved against the committed slots.
+                    mAcceptancePending=false;
+                    if(mHostCompletion->acceptError)collectCorrectionTimings();
+                    else acceptedCorrection();
+                }
                 if(mIdleSkipped) {
                     mIdleSkipped=false;
                     if(mHostCompletion->idle & eIDLE_INPUTS_CHANGED) {
