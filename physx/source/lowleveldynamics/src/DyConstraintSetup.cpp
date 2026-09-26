@@ -649,6 +649,13 @@ PxReal simDt, PxReal recipSimDt, PxReal biasCoefficient)
 {
 	if (prepDesc.numRows == 0)
 	{
+        // A dynamically disabled joint has no load this solve. Do not expose
+        // its previous nonzero wrench after its last row was removed.
+        if (prepDesc.writeback) {
+            auto* output = reinterpret_cast<ConstraintWriteback*>(prepDesc.writeback);
+            output->linearImpulse = PxVec3(0);
+            output->angularImpulse = PxVec3(0);
+        }
 		prepDesc.desc->constraint = NULL;
 		prepDesc.desc->writeBack = NULL;
 		prepDesc.desc->constraintLengthOver16 = 0;

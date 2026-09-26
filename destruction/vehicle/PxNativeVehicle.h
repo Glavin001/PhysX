@@ -15,6 +15,22 @@
 namespace physx {
 namespace native {
 
+// Geometry-free live parameters. Apply between steps; never resets dynamic state.
+struct NativeVehicleTuning {
+    PxReal frontStiffness = 1.0f;
+    PxReal rearStiffness = 1.0f;
+    PxReal frontDamping = 1.0f;
+    PxReal rearDamping = 1.0f;
+    PxReal tyreFriction = 1.0f;
+    PxReal maxSteerRadians = 1.0f;
+    PxReal maxDriveTorque = 1.0f;
+    PxReal maxBrakeTorque = 1.0f;
+    PxReal maxHandbrakeTorque = 1.0f;
+    PxReal driveTopSpeed = 1.0f;
+    bool frontWheelDriveOnly = false;
+    bool rearWheelDriveOnly = false;
+};
+
 struct NativeVehicleDesc {
     // Rigid body. The centre of mass sits above and ahead of the actor origin,
     // which is at the rear axle, road level.
@@ -58,6 +74,7 @@ struct NativeVehicleDesc {
     PxReal maxHandbrakeTorque = 3000.0f;
     PxReal maxDriveTorque = 750.0f;
     PxReal driveTopSpeed = 60.0f;
+    bool frontWheelDriveOnly = false;
     bool rearWheelDriveOnly = false;
 
     // Road geometry. Sweeps ride a cylinder over rubble and kerbs; raycasts are
@@ -136,6 +153,21 @@ public:
 
     // Appended to retain existing virtual slot order; rebuild users for this API.
     virtual NativeVehicleStepLoads stepLoads() const = 0;
+
+    // Transitions over 0.2 s. Invalid input leaves the previous target intact.
+    virtual bool setTuning(const NativeVehicleTuning& tuning) = 0;
+
+    // Connectivity result, applied between scene steps. Bit i enables corner i;
+    // a missing corner performs no road query, spring/tire force, constraint or
+    // wheel integration. Driveline loss cuts drive torque while brakes remain.
+    // This does not fracture shapes or restore missing geometry.
+    virtual bool setFunctionalState(PxU32 wheelMask, bool drivelineConnected) = 0;
+
+    // Stable, independently solved suspension/sticky constraint for corner i.
+    // Borrowed until release(); null for invalid indices or keepConstraints=false.
+    // Read solved force only after fetchResults. Native destruction consumes the
+    // corresponding GPU writeback in the same step, not a delayed force estimate.
+    virtual PxConstraint* wheelConstraint(PxU32 wheel) const = 0;
 
 protected:
     virtual ~NativeVehicle() {}

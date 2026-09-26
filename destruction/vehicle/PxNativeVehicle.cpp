@@ -106,11 +106,12 @@ void setBaseParams(const NativeVehicleDesc& d, BaseVehicleParams& p)
     }
 }
 
-void setDriveParams(const NativeVehicleDesc& d, DirectDrivetrainParams& p)
+template<typename T>
+void setDriveParams(const T& d, DirectDrivetrainParams& p)
 {
     auto& t = p.directDriveThrottleResponseParams;
     t.maxResponse = d.maxDriveTorque;
-    for (PxU32 i = 0; i < 4; ++i) t.wheelResponseMultipliers[i] = (d.rearWheelDriveOnly && i < 2) ? 0.0f : 1.0f;
+    for (PxU32 i = 0; i < 4; ++i) t.wheelResponseMultipliers[i] = ((d.rearWheelDriveOnly && i < 2) || (d.frontWheelDriveOnly && i >= 2)) ? 0.0f : 1.0f;
     t.nonlinearResponse.clear();
     // Full torque up to a third of the top speed, then linearly to zero.
     const PxReal throttles[5] = {0.0f, 0.25f, 0.5f, 0.75f, 1.0f};
@@ -122,6 +123,48 @@ void setDriveParams(const NativeVehicleDesc& d, DirectDrivetrainParams& p)
         table.speedResponses.addPair(d.driveTopSpeed, 0.0f);
         t.nonlinearResponse.addResponse(table);
     }
+}
+
+// One native constraint identity per wheel lets destruction attribute solved
+// suspension-limit/sticky loads without dividing an aggregate by guesswork.
+// Keep the SDK shader and its padded constant layout: only slot zero is active.
+// eOUTPUT_FORCE requests writeback; it does not change the constraint law.
+PxU32 wheelConstraintSolverPrep(Px1DConstraint* rows, PxVec3p& offset, PxU32 capacity,
+    PxConstraintInvMassScale& scale, const void* block, const PxTransform& a,
+    const PxTransform& b, bool extended, PxVec3p& ca, PxVec3p& cb)
+{
+    const PxU32 count = vehicleConstraintSolverPrep(rows, offset, capacity, scale, block, a, b, extended, ca, cb);
+    for (PxU32 i=0; i<count; ++i) rows[i].flags |= Px1DConstraintFlag::eOUTPUT_FORCE;
+    return count;
+}
+class WheelConstraintConnector final : public PxVehicleConstraintConnector {
+    PxVehiclePhysXConstraintState* mSource;
+    PxVehiclePhysXConstraintState mBlock[PxVehiclePhysXConstraintLimits::eNB_WHEELS_PER_PXCONSTRAINT];
+public:
+    explicit WheelConstraintConnector(PxVehiclePhysXConstraintState* source) : mSource(source) {
+        for (auto& state : mBlock) state.setToDefault();
+    }
+    void* prepareData() override { mBlock[0] = *mSource; return mBlock; }
+    const void* getConstantBlock() const override { return mBlock; }
+    PxConstraintSolverPrep getPrep() const override { return wheelConstraintSolverPrep; }
+};
+
+bool createWheelConstraints(PxPhysics& physics, PxRigidBody& actor, PxVehiclePhysXConstraints& constraints)
+{
+    static_assert(PxVehiclePhysXConstraintLimits::eNB_CONSTRAINTS_PER_VEHICLE >= 4,
+        "Native four-wheel wrapper needs four constraint slots");
+    PxVehicleConstraintsDestroy(constraints);
+    const PxConstraintShaderTable shaders = {wheelConstraintSolverPrep, visualiseVehicleConstraint, PxConstraintFlag::Enum(0)};
+    for (PxU32 w=0; w<4; ++w) {
+        void* memory = PX_ALLOC(sizeof(WheelConstraintConnector), "NativeVehicleWheelConstraint");
+        if (!memory) return false;
+        auto* connector = PX_PLACEMENT_NEW(memory, WheelConstraintConnector)(&constraints.constraintStates[w]);
+        constraints.constraintConnectors[w] = connector;
+        constraints.constraints[w] = physics.createConstraint(&actor, nullptr, *connector, shaders,
+            sizeof(PxVehiclePhysXConstraintState)*PxVehiclePhysXConstraintLimits::eNB_WHEELS_PER_PXCONSTRAINT);
+        if (!constraints.constraints[w]) return false;
+    }
+    return true;
 }
 
 // The snippet vehicle discards the per-wheel query result; keep it so a
@@ -200,6 +243,22 @@ public:
 
     bool initialize(const PxCookingParams& cooking, const NativeVehicleDesc& desc, const PxTransform& pose, const char* name)
     {
+        mTuning.frontStiffness = desc.frontStiffness;
+        mTuning.rearStiffness = desc.rearStiffness;
+        mTuning.frontDamping = desc.frontDamping;
+        mTuning.rearDamping = desc.rearDamping;
+        mTuning.tyreFriction = desc.tyreFriction;
+        mTuning.maxSteerRadians = desc.maxSteerRadians;
+        mTuning.maxDriveTorque = desc.maxDriveTorque;
+        mTuning.maxBrakeTorque = desc.maxBrakeTorque;
+        mTuning.maxHandbrakeTorque = desc.maxHandbrakeTorque;
+        mTuning.driveTopSpeed = desc.driveTopSpeed;
+        if (desc.frontWheelDriveOnly && desc.rearWheelDriveOnly) return false;
+        mTuning.frontWheelDriveOnly = desc.frontWheelDriveOnly;
+        mTuning.rearWheelDriveOnly = desc.rearWheelDriveOnly;
+        mTargetTuning = mTuning;
+        mFrontDrive = desc.rearWheelDriveOnly ? 0.0f : 1.0f;
+        mRearDrive = desc.frontWheelDriveOnly ? 0.0f : 1.0f;
         setBaseParams(desc, mVehicle.mBaseParams);
         setDriveParams(desc, mVehicle.mDirectDriveParams);
         mFrictions[0].material = &mMaterial;
@@ -218,6 +277,7 @@ public:
 
         PxRigidDynamic* body = mVehicle.mPhysXState.physxActor.rigidBody->is<PxRigidDynamic>();
         if (!body) return false;
+        if (desc.keepConstraints && !createWheelConstraints(mPhysics, *body, mVehicle.mPhysXState.physxConstraints)) return false;
         PxShape* shapes[PxVehicleLimits::eMAX_NB_WHEELS + 1];
         const PxU32 count = body->getShapes(shapes, PxVehicleLimits::eMAX_NB_WHEELS + 1);
         for (PxU32 i = 0; i < count; ++i) {
@@ -261,8 +321,94 @@ public:
             : PxVehicleDirectDriveTransmissionCommandState::eFORWARD;
     }
 
+    bool setTuning(const NativeVehicleTuning& tuning) override
+    {
+        if (!PxIsFinite(tuning.frontStiffness) || tuning.frontStiffness <= 0.0f) return false;
+        if (!PxIsFinite(tuning.rearStiffness) || tuning.rearStiffness <= 0.0f) return false;
+        if (!PxIsFinite(tuning.frontDamping) || tuning.frontDamping <= 0.0f) return false;
+        if (!PxIsFinite(tuning.rearDamping) || tuning.rearDamping <= 0.0f) return false;
+        if (!PxIsFinite(tuning.tyreFriction) || tuning.tyreFriction <= 0.0f) return false;
+        if (!PxIsFinite(tuning.maxSteerRadians) || tuning.maxSteerRadians <= 0.0f) return false;
+        if (!PxIsFinite(tuning.maxDriveTorque) || tuning.maxDriveTorque <= 0.0f) return false;
+        if (!PxIsFinite(tuning.maxBrakeTorque) || tuning.maxBrakeTorque <= 0.0f) return false;
+        if (!PxIsFinite(tuning.maxHandbrakeTorque) || tuning.maxHandbrakeTorque <= 0.0f) return false;
+        if (!PxIsFinite(tuning.driveTopSpeed) || tuning.driveTopSpeed <= 0.0f) return false;
+        if (tuning.maxSteerRadians > PxHalfPi) return false;
+        if (tuning.frontWheelDriveOnly && tuning.rearWheelDriveOnly) return false;
+        mTargetTuning = tuning;
+        mTuningRemaining = 0.2f;
+        actor()->wakeUp();
+        return true;
+    }
+
+    bool setFunctionalState(PxU32 wheelMask, bool drivelineConnected) override
+    {
+        if (wheelMask & ~15u) return false;
+        mWheelMask = wheelMask;
+        mDrivelineConnected = drivelineConnected;
+        auto& axles = mVehicle.mBaseParams.axleDescription;
+        axles.setToDefault();
+        for (PxU32 axle=0; axle<2; ++axle) {
+            PxU32 ids[2], count=0;
+            for (PxU32 w=2*axle; w<2*axle+2; ++w)
+                if (wheelMask & (1u<<w)) ids[count++]=w;
+            if (count) axles.addAxle(count, ids);
+        }
+        for (PxU32 w=0; w<4; ++w) if (!(wheelMask & (1u<<w))) {
+            auto& state=mVehicle.mBaseState;
+            state.wheelRigidBody1dStates[w].setToDefault();
+            state.roadGeomStates[w].setToDefault();
+            state.suspensionStates[w].setToDefault();
+            state.suspensionForces[w].setToDefault();
+            state.tireForces[w].setToDefault();
+            state.tireStickyStates[w].setToDefault();
+            mVehicle.mPhysXState.physxConstraints.constraintStates[w].setToDefault();
+        }
+        PxVehicleConstraintsDirtyStateUpdate(mVehicle.mPhysXState.physxConstraints);
+        actor()->wakeUp();
+        return true;
+    }
+
+    void advanceTuning(PxReal dt)
+    {
+        if (mTuningRemaining <= 0.0f || dt <= 0.0f) return;
+        const PxReal alpha = PxMin(1.0f, dt / mTuningRemaining);
+        mTuning.frontStiffness += (mTargetTuning.frontStiffness - mTuning.frontStiffness) * alpha;
+        mTuning.rearStiffness += (mTargetTuning.rearStiffness - mTuning.rearStiffness) * alpha;
+        mTuning.frontDamping += (mTargetTuning.frontDamping - mTuning.frontDamping) * alpha;
+        mTuning.rearDamping += (mTargetTuning.rearDamping - mTuning.rearDamping) * alpha;
+        mTuning.tyreFriction += (mTargetTuning.tyreFriction - mTuning.tyreFriction) * alpha;
+        mTuning.maxSteerRadians += (mTargetTuning.maxSteerRadians - mTuning.maxSteerRadians) * alpha;
+        mTuning.maxDriveTorque += (mTargetTuning.maxDriveTorque - mTuning.maxDriveTorque) * alpha;
+        mTuning.maxBrakeTorque += (mTargetTuning.maxBrakeTorque - mTuning.maxBrakeTorque) * alpha;
+        mTuning.maxHandbrakeTorque += (mTargetTuning.maxHandbrakeTorque - mTuning.maxHandbrakeTorque) * alpha;
+        mTuning.driveTopSpeed += (mTargetTuning.driveTopSpeed - mTuning.driveTopSpeed) * alpha;
+        mFrontDrive += ((mTargetTuning.rearWheelDriveOnly ? 0.0f : 1.0f) - mFrontDrive) * alpha;
+        mRearDrive += ((mTargetTuning.frontWheelDriveOnly ? 0.0f : 1.0f) - mRearDrive) * alpha;
+        mTuningRemaining = PxMax(0.0f, mTuningRemaining - dt);
+        auto& base = mVehicle.mBaseParams;
+        base.brakeResponseParams[0].maxResponse = mTuning.maxBrakeTorque;
+        base.brakeResponseParams[1].maxResponse = mTuning.maxHandbrakeTorque;
+        base.steerResponseParams.maxResponse = mTuning.maxSteerRadians;
+        mFrictions[0].friction = mTuning.tyreFriction;
+        for (PxU32 i = 0; i < 4; ++i) {
+            base.suspensionForceParams[i].stiffness = i < 2 ? mTuning.frontStiffness : mTuning.rearStiffness;
+            base.suspensionForceParams[i].damping = i < 2 ? mTuning.frontDamping : mTuning.rearDamping;
+            mVehicle.mPhysXParams.physxMaterialFrictionParams[i].defaultFriction = mTuning.tyreFriction;
+        }
+        setDriveParams(mTuning, mVehicle.mDirectDriveParams);
+        auto& throttle = mVehicle.mDirectDriveParams.directDriveThrottleResponseParams;
+        throttle.wheelResponseMultipliers[0] = throttle.wheelResponseMultipliers[1] = mFrontDrive;
+        throttle.wheelResponseMultipliers[2] = throttle.wheelResponseMultipliers[3] = mRearDrive;
+    }
+
     void step(PxReal dt) override
     {
+        advanceTuning(dt);
+        auto& throttle = mVehicle.mDirectDriveParams.directDriveThrottleResponseParams;
+        for (PxU32 w=0; w<4; ++w)
+            throttle.wheelResponseMultipliers[w] = mDrivelineConnected && (mWheelMask & (1u<<w))
+                ? (w<2 ? mFrontDrive : mRearDrive) : 0.0f;
         mContext.gravity = mScene.getGravity();
         mVehicle.loads = NativeVehicleStepLoads{};
 #if defined(PX_VEHICLE_COMPONENT_REPLACEMENT_VERSION)
@@ -309,6 +455,10 @@ public:
         return count;
     }
 
+    PxConstraint* wheelConstraint(PxU32 wheel) const override {
+        return wheel < 4 ? mVehicle.mPhysXState.physxConstraints.constraints[wheel] : nullptr;
+    }
+
     void release() override { delete this; }
 
 private:
@@ -328,6 +478,12 @@ private:
     PxVehiclePhysXMaterialFriction mFrictions[1];
     PxConvexMesh* mSweepMesh = NULL;
     PxShape* mChassis = NULL;
+    NativeVehicleTuning mTuning, mTargetTuning;
+    PxReal mTuningRemaining = 0.0f;
+    PxReal mFrontDrive = 1.0f;
+    PxReal mRearDrive = 1.0f;
+    PxU32 mWheelMask = 15;
+    bool mDrivelineConnected = true;
     bool mInitialized = false;
     bool mInScene = false;
 };
