@@ -429,6 +429,14 @@ public:
         return true;
     }
 
+    bool setDriveConnectionMask(PxU32 wheelMask) override
+    {
+        if (wheelMask & ~15u) return false;
+        mDriveConnectionMask = wheelMask;
+        actor()->wakeUp();
+        return true;
+    }
+
     void advanceTuning(PxReal dt)
     {
         if (mTuningRemaining <= 0.0f || dt <= 0.0f) return;
@@ -468,7 +476,7 @@ public:
         advanceTuning(dt);
         auto& throttle = mVehicle.mDirectDriveParams.directDriveThrottleResponseParams;
         for (PxU32 w=0; w<4; ++w)
-            throttle.wheelResponseMultipliers[w] = mDrivelineConnected && (mWheelMask & (1u<<w))
+            throttle.wheelResponseMultipliers[w] = mDrivelineConnected && (mWheelMask & mDriveConnectionMask & (1u<<w))
                 ? (w<2 ? mFrontDrive : mRearDrive) : 0.0f;
         mContext.gravity = mScene.getGravity();
         mVehicle.loads = NativeVehicleStepLoads{};
@@ -491,6 +499,7 @@ public:
         NativeVehicleState s;
         const PxRigidDynamic* body = actor();
         s.pose = body->getGlobalPose();
+        s.driveConnectionMask = mDrivelineConnected ? mDriveConnectionMask & mWheelMask : 0;
         s.linearVelocity = body->getLinearVelocity();
         s.forwardSpeed = s.linearVelocity.dot(s.pose.q.rotate(PxVec3(0.0f, 0.0f, 1.0f)));
         s.sleeping = body->isSleeping();
@@ -544,6 +553,7 @@ private:
     PxReal mFrontDrive = 1.0f;
     PxReal mRearDrive = 1.0f;
     PxU32 mWheelMask = 15;
+    PxU32 mDriveConnectionMask = 15;
     bool mDrivelineConnected = true;
     bool mInitialized = false;
     bool mInScene = false;

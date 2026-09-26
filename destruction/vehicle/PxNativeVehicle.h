@@ -1,6 +1,7 @@
 // Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
 #ifndef PX_NATIVE_VEHICLE_H
 #define PX_NATIVE_VEHICLE_H
+#define PX_NATIVE_VEHICLE_DRIVE_MASK_VERSION 1
 // A PhysX Vehicle SDK car packaged for scenes that run the native destruction
 // stage. Everything the vehicle needs -- a rigid body, suspension raycasts or
 // sweeps against the scene, and the constraints that hold a stationary car --
@@ -125,6 +126,7 @@ struct NativeVehicleState {
     PxTransform pose;           // actor pose
     PxVec3 linearVelocity;
     PxReal forwardSpeed;        // along the chassis +z
+    PxU32 driveConnectionMask;  // surviving power paths; independent of configured FWD/RWD
     bool sleeping;
     NativeVehicleWheelState wheels[4];
 };
@@ -170,6 +172,11 @@ public:
     // Read solved force only after fetchResults. Native destruction consumes the
     // corresponding GPU writeback in the same step, not a delayed force estimate.
     virtual PxConstraint* wheelConstraint(PxU32 wheel) const = 0;
+
+    // Loss of a shaft cuts torque to that corner without removing its road
+    // query, rolling wheel, spring, brake or steering. Applied between steps;
+    // engine connectivity and physical wheel presence remain separate gates.
+    virtual bool setDriveConnectionMask(PxU32 wheelMask) = 0;
 
 protected:
     virtual ~NativeVehicle() {}
