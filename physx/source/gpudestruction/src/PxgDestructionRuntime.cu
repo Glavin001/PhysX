@@ -1,3 +1,4 @@
+#include <cstdlib>
 // Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
 #include "PxgDestructionRuntime.h"
 #include "PxgDestructionTopology.h"
@@ -779,6 +780,10 @@ class Runtime final : public PxgDestructionRuntime {
     bool mPending=false; bool mFailed=false;
     bool mWarmImported=false, mEverDamaged=false;
     bool mCorrectionEnabled=false, mGpuIslandRepair=false;
+    // Opt-in (PX_DESTRUCTION_ALLOW_UNCONVERGED=1): publish a step whose stress
+    // solve did not converge instead of rejecting it (pre-6938aa7d behaviour).
+    // Material verdicts then use the unconverged forces. Development only.
+    const bool mAllowUnconverged=[]{const char* v=std::getenv("PX_DESTRUCTION_ALLOW_UNCONVERGED");return v && v[0]=='1';}();
     PxU32 *mGraphHostAccurate{}, *mGraphHostSpeculative{};
     PxU64 *mGraphKeys{}, *mGraphSortedKeys{}, *mGraphHostAccurateMembers{}, *mGraphHostSpeculativeMembers{};
     PxgDestructionContactGraphStatus* mGraphHostStatus{}; // pinned: observation status readback
@@ -1745,7 +1750,7 @@ public:
             stageMarker(2);
             // Detached chunks still receive contact loads and may crush; a
             // graph without bonds has no stiffness solve to allocate or run.
-            finishStatus<<<std::max(1u,(mM+127)/128),128,0,mStream>>>(solveStatus,mStatus,forces,mM,mCorrectionEnabled);
+            finishStatus<<<std::max(1u,(mM+127)/128),128,0,mStream>>>(solveStatus,mStatus,forces,mM,mCorrectionEnabled && !mAllowUnconverged);
             if(mMaterials) {
                 if(mM)evaluateBondMaterials<<<(mM+127)/128,128,0,mStream>>>(mChunks,mBonds,mMaterials,mHealth,forces,mM,
                     dt,mDamageRate,mBendGain,mFibres,mVerdicts,mBondCentroids,mStatus);
