@@ -5,7 +5,30 @@ namespace MotionModeTest {
 __global__ void observeWarmRange(PersistentStressArgs a,unsigned* result){*result=nativeWarmRangeKnown(a);}
 __global__ void retireWarmComponent(PersistentStressArgs a){retireHomogeneousTreeComponent(a,a.m_activeNodes,2,1);}
 __global__ void retireWarmGrid(PersistentStressArgs a){retireHomogeneousTreesGrid(a);}
+__global__ void observeExactNonzeroInput(PersistentStressArgs a,unsigned* result,unsigned count){
+    const unsigned node=blockIdx.x*blockDim.x+threadIdx.x;
+    if(node<count)result[node]=nonzeroNativeInput(a,node);
+}
+void exactNonzeroInputs(){
+    // +/- zero, smallest/largest subnormals, smallest normal, ordinary signs,
+    // infinities and NaN. Every one of the six wrench components is exercised.
+    constexpr unsigned patterns[]={0,0x80000000u,1,0x80000001u,0x007fffffu,0x807fffffu,
+        0x00800000u,0x3f800000u,0xbf800000u,0x7f800000u,0xff800000u,0x7fc00001u};
+    constexpr unsigned count=sizeof(patterns)/sizeof(patterns[0])*6;
+    Device<ExtStressGpuImpulse> inputs(count);Device<unsigned> output(count);
+    std::vector<ExtStressGpuImpulse> values(count);
+    for(unsigned node=0;node<count;++node){auto& v=values[node];
+        float* fields[]={&v.angular.x,&v.angular.y,&v.angular.z,&v.linear.x,&v.linear.y,&v.linear.z};
+        std::memcpy(fields[node%6],&patterns[node/6],sizeof(float));}
+    inputs.put(values);PersistentStressArgs args{};args.input=inputs.data;
+    observeExactNonzeroInput<<<1,128>>>(args,output.data,count);
+    check(cudaGetLastError());check(cudaDeviceSynchronize());const auto actual=output.get();
+    for(unsigned node=0;node<count;++node)require(actual[node]==unsigned(node/6>=2),
+        "exact-zero certificate dropped a nonzero component or rejected signed zero");
+    std::printf("GPU exact-zero inputs: 72 cases across all wrench components, subnormals and nonfinite values passed\n");
+}
 void warmRangeLifecycle(){
+    exactNonzeroInputs();
     Device<unsigned> known(1),observed(1);Device<std::uint64_t> generation(1);
     Device<ExtStressGpuDeviceTopologyStatus> topology(1);
     Device<Vector> solution(3);Device<AngLin> pi(3),q(3);

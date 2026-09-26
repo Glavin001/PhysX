@@ -9,7 +9,13 @@
 // arbitrary warm-start values. Cycles and fixed boundaries do NOT have this
 // certificate. Never use a residual tolerance to infer absent external loads.
 __device__ __forceinline__ bool nonzeroNativeInput(const PersistentStressArgs& a,unsigned node){
-    const auto v=a.input[node];return v.angular.x!=0 || v.angular.y!=0 || v.angular.z!=0 || v.linear.x!=0 || v.linear.y!=0 || v.linear.z!=0;
+    // This is an exact-zero certificate, not a floating arithmetic test.
+    // FTZ backends can compare a stored subnormal equal to zero. Inspect the
+    // bits so every nonzero load (and invalid nonfinite input) prevents reuse;
+    // both signs of IEEE zero remain zero. No force magnitude is rounded away.
+    const auto v=a.input[node];
+    return ((__float_as_uint(v.angular.x)|__float_as_uint(v.angular.y)|__float_as_uint(v.angular.z)
+        |__float_as_uint(v.linear.x)|__float_as_uint(v.linear.y)|__float_as_uint(v.linear.z))&0x7fffffffu)!=0;
 }
 __device__ __forceinline__ bool nativeWarmRangeKnown(const PersistentStressArgs& a){
     return a.hierarchy.topology->initialized && !a.hierarchy.topology->error && *a.hierarchy.warmRangeKnown && *a.hierarchy.warmRangeGeneration==a.hierarchy.topology->rebuilds;
