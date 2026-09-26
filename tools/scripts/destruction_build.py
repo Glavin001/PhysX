@@ -184,7 +184,10 @@ def plan(args, root=ROOT):
     # kernel: the SDK stage adds only host archives and the install step.
     reuse_engine = args.stage == 'scene' or (args.stage == 'sdk' and args.backend == 'cumetal')
     if reuse_engine:
-        engine = contained(root / 'out/build' / args.preset / args.configuration / 'gpu', (root,))
+        # An explicit --build-root names the tree its --stage gpu engine was
+        # built in; packaging the default tree instead mixes another checkout's
+        # GPU module with these host archives (a vtable-level ABI mismatch).
+        engine = work if args.build_root else contained(root / 'out/build' / args.preset / args.configuration / 'gpu', (root,))
         audit_tree(engine, roots)
         audit_cmake_caches(engine, roots)
         artifacts, build = engine / 'artifacts', engine / 'physx'
