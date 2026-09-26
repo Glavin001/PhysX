@@ -1216,6 +1216,12 @@ if(BLAST_ENABLE_CUDA_STRESS AND (PX_GPU_BACKEND STREQUAL "CUMETAL" OR (CMAKE_CUD
         set_tests_properties(blast_stress_component_work_${work_buildings}
             PROPERTIES TIMEOUT 60 LABELS "gpu;diagnostic" RUN_SERIAL TRUE)
     endforeach()
+    add_executable(gpu_motion_expansion_test EXCLUDE_FROM_ALL tests/gpu_motion_expansion_test.cu)
+    target_include_directories(gpu_motion_expansion_test PRIVATE "${BLAST_ROOT}/source/sdk/extensions/stressgpu")
+    px_destruction_cuda_properties(gpu_motion_expansion_test PROPERTIES CUDA_ARCHITECTURES 89 CUDA_STANDARD 17)
+    target_link_libraries(gpu_motion_expansion_test PRIVATE ${PX_DESTRUCTION_GPU_RUNTIME} ${PX_DESTRUCTION_GPU_DRIVER})
+    add_test(NAME blast_stress_gpu_motion_expansion COMMAND gpu_motion_expansion_test)
+    set_tests_properties(blast_stress_gpu_motion_expansion PROPERTIES TIMEOUT 60 LABELS "gpu" RUN_SERIAL TRUE)
     add_executable(gpu_resident_motion_modes_test EXCLUDE_FROM_ALL tests/gpu_resident_motion_modes_test.cu)
     target_include_directories(gpu_resident_motion_modes_test PRIVATE
         "${BLAST_ROOT}/source/sdk/extensions/stressgpu" "${BLAST_ROOT}/include/extensions/stressgpu" "${BLAST_ROOT}/include/extensions/stress")

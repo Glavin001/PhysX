@@ -107,9 +107,9 @@ __global__ void projectObserved(Input a,MotionModeView modes,const Vector* input
 }
 __global__ void checkPredicates(unsigned* result){
     const double epsilon=0x1p-27;
-    result[0]=!motionCollinear({1+epsilon,1,0},{1,1-epsilon,0});
-    result[1]=motionCollinear({1+epsilon,1,0},{2+2*epsilon,2,0});
-    result[2]=motionCollinear({0,0,0},{1,2,3});
+    result[0]=!motionCollinear(double3{1+epsilon,1,0},double3{1,1-epsilon,0});
+    result[1]=motionCollinear(double3{1+epsilon,1,0},double3{2+2*epsilon,2,0});
+    result[2]=motionCollinear(double3{0,0,0},double3{1,2,3});
 }
 void run(Fixture f,bool transitions){
     f.csr();const unsigned n=f.n,m=f.a.size();cudaStream_t stream;check(cudaStreamCreateWithFlags(&stream,cudaStreamNonBlocking));

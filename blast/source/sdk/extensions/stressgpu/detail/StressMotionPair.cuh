@@ -2,13 +2,10 @@
 // Metal has no binary64 hardware and CuMetal emulates each double operation
 // in integer code, 30-60 times the cost of the float work below. The forest
 // needs two different things from double, and gets each without it:
-// - Exact sums of float offsets, with the same rejection rule. MotionExact
-//   holds a value as up to three non-overlapping floats (72 significand bits,
-//   more than double's 53). Error-free TwoSum transformations add exactly, and
-//   whether binary64 would have held the sum is decided from its bit span.
-//   Positions, closures and their tests are the same real numbers and
-//   decisions as in double. Only float operations are used: exponent and
-//   trailing-zero reads aside, no integer arithmetic carries values.
+// - Exact sums of float offsets. MotionExact holds eight non-overlapping
+//   floats, including separated low terms beyond binary64's bit span. No
+//   residual is discarded: sums outside the expansion capacity still fail.
+//   Exact predicates operate on every term, never a rounded double conversion.
 // - Accurate, not exact, frame arithmetic (centers, axes, the Gram factor).
 //   A float pair (hi+lo, about 48 bits) replaces double's 53; its results are
 //   consumed in the solver's float precision.
@@ -68,27 +65,20 @@ __device__ __forceinline__ StressReal motionStressReal(MotionPair a){
 }
 
 
-struct MotionExact {float x[3];};          // x[0] leads; non-overlapping
+constexpr unsigned MotionExactTerms=8;
+struct MotionExact {float x[MotionExactTerms];};          // x[0] leads; non-overlapping
 struct MotionExact3 {MotionExact x,y,z;};
 // Terms stay normal and far from overflow, where TwoSum and TwoProd are exact
 // whether or not the GPU flushes subnormals. Offsets outside this range (no
 // physical scene has them) are rejected like an inexact sum.
 constexpr float MotionExactLargest=0x1p60f,MotionExactSmallest=0x1p-100f;
-__device__ __forceinline__ int motionExponent(float f){return int((__float_as_uint(f)>>23)&255u)-127;}
-// Lowest set bit of a normal float's value, as a power of two.
-__device__ __forceinline__ int motionLowestBit(float f){return motionExponent(f)-24+__ffs(int((__float_as_uint(f)&0x7fffffu)|0x800000u));}
-// binary64 holds a non-overlapping expansion's value iff its significant bits
-// span at most 53. Terms outside the guarded range reject the value.
+// Non-overlapping terms need not fit one contiguous 53-bit significand.
+// Reject only unsupported magnitudes here; distillation independently rejects
+// an unrepresentable residual. This preserves tiny authored COM offsets exactly.
 __device__ __forceinline__ bool motionRepresentable(const MotionExact& out){
-    if(out.x[0]==0)return true;
-    int high=motionExponent(out.x[0]),low=high;bool exact=true;
-    for(unsigned i=0;i<3;++i)if(out.x[i]!=0){const float m=fabsf(out.x[i]);
-        if(!(m<=MotionExactLargest) || m<MotionExactSmallest)exact=false;else low=min(low,motionLowestBit(out.x[i]));}
-    // A power-of-two lead reduced by an opposite remainder loses its top bit.
-    const bool power=(__float_as_uint(out.x[0])&0x7fffffu)==0;
-    const float next=out.x[1]!=0?out.x[1]:out.x[2];
-    if(power && next!=0 && (next<0)!=(out.x[0]<0))--high;
-    return exact && high-low+1<=53;
+    for(unsigned i=0;i<MotionExactTerms;++i)if(out.x[i]!=0){const float m=fabsf(out.x[i]);
+        if(!(m<=MotionExactLargest) || m<MotionExactSmallest)return false;}
+    return true;
 }
 // Canonical error-free distillation: VecSum passes (Ogita, Rump and Oishi)
 // move the sum into the leading slot without changing the exact total;
@@ -99,9 +89,9 @@ __device__ __forceinline__ bool motionDistill(float (&v)[Count],MotionExact& out
     for(unsigned term=0;term<Count;++term){
         for(unsigned pass=term;pass+1<Count;++pass)
             for(unsigned i=Count-1;i>term;--i){float s,e;motionTwoSum(v[i-1],v[i],s,e);v[i-1]=s;v[i]=e;}
-        if(term<3)out.x[term]=v[term];else if(v[term]!=0)exact=false;
+        if(term<MotionExactTerms)out.x[term]=v[term];else if(v[term]!=0)exact=false;
     }
-    for(unsigned pass=0;pass<2;++pass)for(unsigned i=0;i<2;++i)if(out.x[i]==0){out.x[i]=out.x[i+1];out.x[i+1]=0;}
+    for(unsigned pass=0;pass+1<MotionExactTerms;++pass)for(unsigned i=0;i+1<MotionExactTerms;++i)if(out.x[i]==0){out.x[i]=out.x[i+1];out.x[i+1]=0;}
     return exact && motionRepresentable(out);
 }
 __device__ __forceinline__ MotionExact motionExactDifference(float a,float b,bool& exact){
@@ -112,13 +102,18 @@ __device__ __forceinline__ MotionExact motionExactDifference(float a,float b,boo
 // makes kernels large enough that Metal's compiler spills them (measured 8x
 // slower for the closure kernel).
 __device__ __noinline__ MotionExact motionExactAddWide(MotionExact a,MotionExact b,bool& exact){
-    MotionExact out;float v[6]={a.x[0],b.x[0],a.x[1],b.x[1],a.x[2],b.x[2]};exact=motionDistill(v,out)&&exact;return out;
+    MotionExact out;float v[2*MotionExactTerms];
+    for(unsigned i=0;i<MotionExactTerms;++i){v[2*i]=a.x[i];v[2*i+1]=b.x[i];}
+    exact=motionDistill(v,out)&&exact;return out;
 }
 __device__ __noinline__ MotionExact motionExactAdd(MotionExact a,MotionExact b,bool& exact){
-    if(a.x[2]!=0 || b.x[2]!=0)return motionExactAddWide(a,b,exact);
-    MotionExact out;float v[4]={a.x[0],b.x[0],a.x[1],b.x[1]};exact=motionDistill(v,out)&&exact;return out;
+    for(unsigned i=3;i<MotionExactTerms;++i)if(a.x[i]!=0 || b.x[i]!=0)return motionExactAddWide(a,b,exact);
+    MotionExact out;
+    if(a.x[2]!=0 || b.x[2]!=0){float v[6]={a.x[0],b.x[0],a.x[1],b.x[1],a.x[2],b.x[2]};exact=motionDistill(v,out)&&exact;}
+    else {float v[4]={a.x[0],b.x[0],a.x[1],b.x[1]};exact=motionDistill(v,out)&&exact;}
+    return out;
 }
-__device__ __forceinline__ MotionExact neg(MotionExact a){return {{-a.x[0],-a.x[1],-a.x[2]}};}
+__device__ __forceinline__ MotionExact neg(MotionExact a){for(unsigned i=0;i<MotionExactTerms;++i)a.x[i]=-a.x[i];return a;}
 __device__ __forceinline__ MotionExact3 neg(MotionExact3 v){return {neg(v.x),neg(v.y),neg(v.z)};}
 __device__ __forceinline__ MotionExact3 motionExactAdd(MotionExact3 a,MotionExact3 b,bool& exact){
     return {motionExactAdd(a.x,b.x,exact),motionExactAdd(a.y,b.y,exact),motionExactAdd(a.z,b.z,exact)};
@@ -128,17 +123,40 @@ __device__ __forceinline__ bool motionNonzero(MotionExact3 v){return motionNonze
 __device__ __forceinline__ MotionExact motionMagnitude(MotionExact a){return a.x[0]<0?neg(a):a;}
 // Exact magnitude comparison |a| > |b| (both given as magnitudes).
 __device__ __forceinline__ bool motionGreater(MotionExact a,MotionExact b){
-    float v[6]={a.x[0],-b.x[0],a.x[1],-b.x[1],a.x[2],-b.x[2]};
-    for(unsigned pass=0;pass<5;++pass)for(unsigned i=5;i>0;--i){float s,e;motionTwoSum(v[i-1],v[i],s,e);v[i-1]=s;v[i]=e;}
-    for(unsigned i=0;i<6;++i)if(v[i]!=0)return v[i]>0;
+    float v[2*MotionExactTerms];for(unsigned i=0;i<MotionExactTerms;++i){v[2*i]=a.x[i];v[2*i+1]=-b.x[i];}
+    for(unsigned pass=0;pass+1<2*MotionExactTerms;++pass)for(unsigned i=2*MotionExactTerms-1;i>0;--i){float s,e;motionTwoSum(v[i-1],v[i],s,e);v[i-1]=s;v[i]=e;}
+    for(unsigned i=0;i<2*MotionExactTerms;++i)if(v[i]!=0)return v[i]>0;
     return false;
 }
 __device__ __forceinline__ MotionExact motionMax(MotionExact a,MotionExact b){return motionGreater(b,a)?b:a;}
 __device__ __forceinline__ MotionExact motionExact(float f){return {{f,0.f,0.f}};}
-__device__ __forceinline__ MotionExact motionScaled(MotionExact a,float power){return {{a.x[0]*power,a.x[1]*power,a.x[2]*power}};}
-__device__ __forceinline__ MotionPair motionPair(MotionExact a){float s,e;motionTwoSum(a.x[0],a.x[1]+a.x[2],s,e);return {s,e};}
+__device__ __forceinline__ MotionExact motionScaled(MotionExact a,float power){for(unsigned i=0;i<MotionExactTerms;++i)a.x[i]*=power;return a;}
+__device__ __forceinline__ MotionPair motionPair(MotionExact a){float tail=0,s,e;for(unsigned i=MotionExactTerms-1;i>0;--i)tail+=a.x[i];motionTwoSum(a.x[0],tail,s,e);return {s,e};}
 __device__ __forceinline__ MotionPair3 motionPair(MotionExact3 v){return {motionPair(v.x),motionPair(v.y),motionPair(v.z)};}
-// The exact binary64 value, for a sum the rejection rule accepted.
-__device__ __forceinline__ double motionDouble(MotionExact a){return double(a.x[0])+(double(a.x[1])+double(a.x[2]));}
+// Rounded binary64 conversion for frame arithmetic only, never predicates.
+__device__ __forceinline__ double motionDouble(MotionExact a){double sum=0;for(unsigned i=MotionExactTerms;i>0;--i)sum=__dadd_rn(sum,double(a.x[i-1]));return sum;}
 __device__ __forceinline__ double3 motionDouble(MotionExact3 v){return {motionDouble(v.x),motionDouble(v.y),motionDouble(v.z)};}
+// Compare a*b and c*d without collapsing the input expansions. Each binary32
+// product is exact in binary64 (at most 48 significant bits), and guarded term
+// magnitudes keep every product normal. Grow-expansion with zero elimination
+// retains every TwoSum residual; capacity is two complete expansion products.
+// See Shewchuk, Adaptive Precision Floating-Point Arithmetic (1997), section 2.
+__device__ __noinline__ bool motionProductEqual(MotionExact a,MotionExact b,MotionExact c,MotionExact d){
+    double expansion[2*MotionExactTerms*MotionExactTerms];unsigned count=0;
+    for(unsigned side=0;side<2;++side)for(unsigned i=0;i<MotionExactTerms;++i)for(unsigned j=0;j<MotionExactTerms;++j){
+        double carry=side?-__dmul_rn(double(c.x[i]),double(d.x[j])):__dmul_rn(double(a.x[i]),double(b.x[j]));
+        if(carry==0)continue;
+        unsigned next=0;
+        for(unsigned k=0;k<count;++k){
+            const double term=expansion[k],sum=__dadd_rn(carry,term),virtualTerm=__dsub_rn(sum,carry);
+            const double error=__dadd_rn(__dsub_rn(carry,__dsub_rn(sum,virtualTerm)),__dsub_rn(term,virtualTerm));
+            if(error!=0)expansion[next++]=error;carry=sum;
+        }
+        if(carry!=0)expansion[next++]=carry;count=next;
+    }
+    return count==0;
+}
+__device__ __forceinline__ bool motionCollinear(MotionExact3 a,MotionExact3 b){
+    return motionProductEqual(a.y,b.z,a.z,b.y) && motionProductEqual(a.z,b.x,a.x,b.z) && motionProductEqual(a.x,b.y,a.y,b.x);
+}
 }}}

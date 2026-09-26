@@ -2,8 +2,8 @@
 // implementation in StressMotionForest.cuh. Positions, closures and every
 // exactness, significance and collinearity decision are computed exactly from
 // float expansions (StressMotionPair.cuh), so they are the same numbers and
-// verdicts; only the closure axis is rounded, in a float pair. A sum binary64
-// would not have held exactly is still reported as error 16.
+// verdicts; only the closure axis is rounded, in a float pair. Error 16 means
+// the float expansion itself cannot retain the exact sum.
 #pragma once
 #include "StressMotionPair.cuh"
 namespace Nv { namespace Blast { namespace StressHierarchy {
@@ -36,9 +36,8 @@ __device__ __forceinline__ MotionExact3 motionOffset(const Input& a,unsigned edg
 __device__ __forceinline__ MotionExact3 motionClosure(const Input& a,MotionBuffers b,unsigned edge,Status* status){
     return exactMotionAdd(exactMotionAdd(b.position[a.node0[edge]],motionOffset(a,edge,status),status),neg(b.position[a.node1[edge]]),status);
 }
-// Exact product comparison. Accepted closures are binary64 values, so the
-// double implementation's own predicate decides it; closures are rare, and
-// only bonds that carry one reach this emulated arithmetic.
+// Binary64 overload retained for predicate tests and binary64 callers. The
+// forest uses the expansion overload so small authored terms are not rounded.
 __device__ __forceinline__ bool motionProductEqual(double a,double b,double c,double d){
     const double x=__dmul_rn(a,b),y=__dmul_rn(c,d);
     return x==y && __fma_rn(a,b,-x)==__fma_rn(c,d,-y);
@@ -165,7 +164,7 @@ __device__ void constrainMotionAxes(Input a,MotionBuffers b,Status* status,unsig
         const auto seed=motionClosure(a,b,c.closure,status),value=motionClosure(a,b,e,status);
         // A rounding-sized closure is no constraint, collinear or not.
         if(!motionNonzero(value) || !motionClosureSignificant(a,b,e,value))continue;
-        if(!motionCollinear(motionDouble(seed),motionDouble(value)))atomicExch(&b.components[id].rotations,0u);
+        if(!motionCollinear(seed,value))atomicExch(&b.components[id].rotations,0u);
     }
 }
 }}}
