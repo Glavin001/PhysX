@@ -743,6 +743,7 @@ struct IslandReductionOrder
 };
 
 #include "NvBlastExtStressGpuTopology.cuh"
+#include "detail/StressGeometryUpdate.cuh"
 
 
 #include "detail/StressResidentIteration.cuh"
@@ -849,6 +850,7 @@ public:
     }
 
 #include "detail/StressResidentAPI.inl"
+#include "detail/StressGeometryAPI.inl"
     bool solveInputs(
         const ExtStressGpuImpulse* nodeVelocities,
         const ExtStressGpuSolveParams& params,
@@ -4307,6 +4309,10 @@ private:
     std::unique_ptr<ComponentWorkCapture> m_workCapture;
 #endif
     DeviceStressTopology* m_deviceTopology{nullptr};
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+    DeviceStressGeometryState* m_geometryState=nullptr;
+    bool m_geometryActive=false;
+#endif
     bool m_deviceTopologyFailed{false};
     float m_massScale{1.0f};
     float m_lengthScale{1.0f};
@@ -4695,6 +4701,18 @@ bool ExtStressGpuImportWarmStart(ExtStressGpuSolver* solver,
     if (!solver) return false;
     try { return static_cast<ExtStressGpuSolverImpl*>(solver)->importPhysicalWarmStart(impulses, count); }
     catch (...) { return false; }
+}
+
+bool ExtStressGpuUpdateDeviceGeometry(ExtStressGpuSolver* solver,
+    const ExtStressGpuGeometryNode* nodes,std::uint32_t nodeCount,
+    const ExtStressGpuGeometryBond* bonds,std::uint32_t bondCount,
+    const std::uint64_t* generation,const std::uint32_t* accept,void* producerReady,void* consumerDone){
+    if(!solver)return false;
+    try{return static_cast<ExtStressGpuSolverImpl*>(solver)->updateGeometry(nodes,nodeCount,bonds,bondCount,generation,accept,producerReady,consumerDone);}
+    catch(...){return false;}
+}
+const ExtStressGpuDeviceGeometryStatus* ExtStressGpuGetDeviceGeometryStatus(const ExtStressGpuSolver* solver){
+    return solver?static_cast<const ExtStressGpuSolverImpl*>(solver)->geometryStatus():nullptr;
 }
 
 } // namespace Blast

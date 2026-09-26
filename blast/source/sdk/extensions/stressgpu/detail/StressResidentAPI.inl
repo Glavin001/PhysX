@@ -45,7 +45,13 @@
         if(!m_workCapture)throw std::runtime_error("component diagnostic requires native topology");
         m_workCapture->begin(m_stream);
 #endif
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+        if(m_geometryActive)guardStressGeometry<<<1,1,0,m_stream>>>(m_geometryState,m_deviceTopology->status());
+#endif
         executeSolve(params);
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+        if(m_geometryActive)rejectInvalidGeometrySolve<<<1,1,0,m_stream>>>(m_geometryState,m_status);
+#endif
         exportPhysicalImpulses<<<(m_bondCount+kBlockSize-1)/kBlockSize, kBlockSize, 0, m_stream>>>(
             m_impulses, m_colScales, m_devicePhysicalImpulses, m_bondCount,
             m_lengthScale*m_lengthScale*m_massScale, m_lengthScale*m_massScale);
@@ -89,6 +95,10 @@
 #endif
             m_deviceTopology = new DeviceStressTopology(buffers);
             m_deviceTopology->init(m_stream);
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+            checkCuda(cudaMalloc(&m_geometryState,sizeof(*m_geometryState)),"allocate native geometry status");
+            checkCuda(cudaMemsetAsync(m_geometryState,0,sizeof(*m_geometryState),m_stream),"initialize native geometry status");
+#endif
             checkCuda(cudaStreamSynchronize(m_stream), "prepare device-owned stress topology");
             // Sparse minimum-node island IDs need capacity-sized scalar launches.
             // Active lists and deterministic tile counts remain device-sized.

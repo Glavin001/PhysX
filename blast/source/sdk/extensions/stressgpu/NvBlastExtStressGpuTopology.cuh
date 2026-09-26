@@ -7,6 +7,7 @@ struct DeviceStressTopologyBatch
     const std::uint32_t* mask;
     const std::uint64_t* generation;
     const std::uint32_t* accept;
+    const std::uint32_t* refresh=nullptr; // accepted geometry requires a new operator
 };
 __global__ void setDeviceStressTopologyBatch(DeviceStressTopologyBatch* dst, DeviceStressTopologyBatch src)
 { *dst = src; }
@@ -17,7 +18,7 @@ __global__ void beginDeviceStressTopology(const DeviceStressTopologyBatch* batch
     const auto generation = batch->generation ? *batch->generation : 0ull;
     if (batch->accept && !*batch->accept) { cudaGraphSetConditional(work, 0); return; }
     if (status->initialized && generation < status->generation) status->error = 4;
-    cudaGraphSetConditional(work, !status->error && (!status->initialized || generation != status->generation));
+    cudaGraphSetConditional(work, !status->error && (!status->initialized || generation != status->generation || (batch->refresh && *batch->refresh)));
 }
 __global__ void validateDeviceStressMask(const DeviceStressTopologyBatch* batch,
     const float* health, unsigned count, ExtStressGpuDeviceTopologyStatus* status)
@@ -276,9 +277,11 @@ class DeviceStressTopology
 #endif
         checkCuda(cudaStreamBeginCaptureToGraph(captureStream,body,nullptr,nullptr,0,cudaStreamCaptureModeThreadLocal), "capture stress topology rebuild");
 #ifdef PHYSX_RESIDENT_DESTRUCTION
-        // The input operator is immutable except for the validated removal mask.
+        // A validated geometry refresh invalidates all geometry-dependent caches.
+        // Ordinary removal-only updates preserve unaffected operators.
         // Preserve each unchanged local inverse even if its component splits.
         const auto inverse=nativeHierarchy->view();
+        invalidateGeometryStressCaches<<<std::max(nodeBlocks,bondBlocks),kBlockSize,0,captureStream>>>(batch,inverse,b.impulses,b.n,b.m);
         refreshNativeInverseValidity<<<nodeBlocks,kBlockSize,0,captureStream>>>(batch,state,
             b.nodeBondBegin,b.nodeBondRef,b.health,inverse.inverseValid,inverse.inverseGeneration,b.n);
         // Validation already accepted this transaction. Reuse existing flag

@@ -273,7 +273,8 @@ struct ExtStressGpuDeviceStatus
 // Device topology updates preserve authored bond slots. These are GPU-only
 // observations, ordered by deviceView().readyEvent; no per-update readback is
 // required. A rejected batch preserves the accepted generation and constraints.
-// error bit 3 denotes a native hierarchy failure. Bits 8..15 contain the
+// error bit 3 denotes a native hierarchy failure; bit 6 rejects invalid geometry.
+// Bits 8..15 contain the
 // hierarchy error and 16..23 the motion-mode error; bits 24/25 mean not
 // initialized, 26/27 mean generation mismatch (hierarchy/motion respectively).
 struct ExtStressGpuDeviceTopologyStatus
@@ -490,7 +491,8 @@ public:
      * boundary: may allocate/synchronize. Thereafter use solveDeviceAsync and
      * updateDeviceTopologyAsync; host solving/removal/material-walk APIs reject
      * this mode. Material damage belongs to the caller's transaction.
-     * Nodes, support masses, geometry and compliance remain fixed. Bond removal
+     * Nodes, support masses and compliance remain fixed. Geometry may change only
+     * through ExtStressGpuUpdateDeviceGeometry; ordinary host mutation is rejected. Bond removal
      * rebuilds stress islands entirely on the GPU, cutting at static nodes.
      */
     virtual bool enableDeviceTopology() = 0;
@@ -520,6 +522,37 @@ protected:
  * a non-virtual extension so existing solver/runtime vtables are unchanged. */
 bool ExtStressGpuImportWarmStart(ExtStressGpuSolver* solver,
     const ExtStressGpuImpulse* impulses, std::uint32_t count);
+
+/** Complete device geometry in the same coordinate frame and physical units as
+ * the authored nodes/bonds. Mass, support classification, endpoint IDs, areas,
+ * compliance, material and damage are immutable through this API. Scalar
+ * inertia may change, but a rotationally fixed node must remain fixed. */
+struct ExtStressGpuGeometryNode { float position[3]; float inertia; };
+struct ExtStressGpuGeometryBond { float centroid[3]; float normal[3]; };
+struct ExtStressGpuDeviceGeometryStatus {
+    std::uint64_t generation;
+    std::uint32_t initialized, error, applied;
+};
+
+/** Native resident extension; no vtable/layout change to existing solver views.
+ * Inputs must remain immutable/alive until deviceView().readyEvent. The entire
+ * batch is validated on the GPU before any geometry write. A newer revision
+ * updates geometry and invalidates operator caches without resetting health or
+ * changing connectivity generation. Equal revisions are no-ops (same data is
+ * required). A zero accept flag skips the batch without reading its arrays.
+ * Error bits: 1 stale revision, 2 nonfinite input, 4 invalid inertia/classification,
+ * 8 unrepresentable derived geometry. A rejected batch preserves accepted data;
+ * its error blocks native solves until a valid geometry submission clears it.
+ * Check geometry AND topology status after readyEvent: accepted geometry is not
+ * a certificate that hierarchy construction or the subsequent solve succeeded.
+ * This stress-only API does not move scene colliders or update body mass frames.
+ */
+bool ExtStressGpuUpdateDeviceGeometry(ExtStressGpuSolver* solver,
+    const ExtStressGpuGeometryNode* nodes, std::uint32_t nodeCount,
+    const ExtStressGpuGeometryBond* bonds, std::uint32_t bondCount,
+    const std::uint64_t* generation, const std::uint32_t* accept = nullptr,
+    void* producerReady = nullptr, void* consumerDone = nullptr);
+const ExtStressGpuDeviceGeometryStatus* ExtStressGpuGetDeviceGeometryStatus(const ExtStressGpuSolver* solver);
 
 } // namespace Blast
 } // namespace Nv
