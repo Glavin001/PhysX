@@ -13,6 +13,7 @@
 #include "PxgSolverIslandMetadata.cuh"
 #include "PxgPreSolveIslands.cuh"
 #include "PxShape.h"
+#include "PxgConstraintWriteBack.h"
 #include "PxsRigidBody.h"
 #include "PxgDestructionBody.cuh"
 #include "NvBlastExtStressMaterialFormula.h"
@@ -85,6 +86,21 @@ __global__ void buildNativeContactInputs(PxgContactManagerInput* inputs,PxU32 co
     inputs[i]=input;
 }
 struct Lookup { PxU32 contact, chunk; };
+struct ConstraintLookup { PxU32 constraint, chunk, torqueAboutBodyCOM; PxVec3 torqueOrigin;
+    PxU32 carrier,body,enabled; };
+__global__ void prepareConstraintBindings(ConstraintLookup* map,PxU32 count,
+    PxDestructionTopologyDeviceView trial,const PxU32* slots,const PxU32* bodies,
+    PxvDestructionConstraintBinding* output) {
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
+    auto& c=map[i];
+    const bool carrierAlive=trial.activeChunks[c.carrier]!=0;
+    const PxU32 carrierRoot=carrierAlive?trial.chunkCluster[c.carrier]:PX_INVALID_U32;
+    if(carrierAlive)c.body=bodies[slots[carrierRoot]];
+    c.enabled=c.enabled && carrierAlive && trial.activeChunks[c.chunk]
+        && trial.chunkCluster[c.chunk]==carrierRoot;
+    output[i]={c.body,c.enabled};
+}
+
 __device__ PxU32 findChunk(const Lookup* map, PxU32 count, PxU32 contact) {
     PxU32 a=0,b=count;
     while(a<b) { PxU32 m=a+(b-a)/2; if(map[m].contact<contact)a=m+1;else b=m; }
@@ -136,7 +152,9 @@ __global__ void prepareLoads(const PxDestructionStressChunk* chunks, PxU32 n,
         const auto load=loads[i];
         surfaces[i].force=pose.q.rotateInv(load.force+load.impulse*inverseDt);surfaces[i].torque=pose.q.rotateInv(load.torque+load.angularImpulse*inverseDt);
         inputs[i].linear+=surfaces[i].force/c.mass;
-        inputs[i].angular=surfaces[i].torque/c.inertia;
+        // Blast stores angular coordinates with the opposite handed sign:
+        // its rigid null mode is linear = r cross angular.
+        inputs[i].angular=-surfaces[i].torque/c.inertia;
     }
 }
 // One pair's contact loads on one of its chunks, summed in registers and
@@ -167,6 +185,32 @@ struct ContactLoadSum {
         atomicAdd(&target.x,value.x); atomicAdd(&target.y,value.y); atomicAdd(&target.z,value.z);
     }
 };
+// Consume native device writeback in this pass, with no CPU force readback.
+__global__ void routeConstraintLoads(const ConstraintLookup* map,PxU32 count,
+    const PxgConstraintWriteback* solved,PxU32 capacity,
+    const PxDestructionStressChunk* chunks,const PxDestructionStressCluster* clusters,
+    const PxTransform* poses,const PxgBodySim* bodies,PxReal inverseDt,
+    PxDestructionVectorPair* inputs,PxDestructionSurfaceLoad* surfaces,PxDestructionStageStatus* status) {
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
+    const auto binding=map[i];if(!binding.enabled)return;
+    if(!solved || binding.constraint>=capacity) {atomicOr(&status->error,32768u);return;}
+    const auto writeback=solved[binding.constraint];
+    const PxVec3 impulse(writeback.linearImpulse_broken.x,writeback.linearImpulse_broken.y,writeback.linearImpulse_broken.z);
+    const PxVec3 angular(writeback.angularImpulse.x,writeback.angularImpulse.y,writeback.angularImpulse.z);
+    if(!impulse.isFinite() || !angular.isFinite()) {atomicOr(&status->error,32768u);return;}
+    const auto chunk=chunks[binding.chunk];const auto pose=poses[chunk.cluster];
+    const auto body=bodies[clusters[chunk.cluster].body];
+    const PxVec3 center(body.body2World.p.x,body.body2World.p.y,body.body2World.p.z);
+    const PxVec3 force=pose.q.rotateInv(impulse)*inverseDt;
+    const PxVec3 origin=binding.torqueAboutBodyCOM?center:pose.transform(binding.torqueOrigin);
+    const PxVec3 torque=pose.q.rotateInv(angular+(origin-pose.transform(chunk.position)).cross(impulse))*inverseDt;
+    ContactLoadSum::add3(surfaces[binding.chunk].force,force);
+    ContactLoadSum::add3(surfaces[binding.chunk].torque,torque);
+    if(chunk.mass>0) {
+        ContactLoadSum::add3(inputs[binding.chunk].linear,force/chunk.mass);
+        ContactLoadSum::add3(inputs[binding.chunk].angular,-torque/chunk.inertia);
+    }
+}
 __device__ PxVec3 bodyPointVelocity(PxNodeIndex index,const PxgBodySim* bodies,const PxVec3& point)
 {
     if(index.isStaticBody())return PxVec3(0);
@@ -572,6 +616,10 @@ class Runtime final : public PxgDestructionRuntime {
     ExtStressGpuSolver* mSolver{}; ExtStressGpuSolveParams mParams;
     PxDestructionStressChunk* mChunks{}; PxDestructionStressCluster* mClusters{};
     PxTransform* mPoses{}; PxVec3* mAngular{};
+    ConstraintLookup* mConstraintMap{};
+    PxvDestructionConstraintBinding* mConstraintBindings{};
+    std::set<PxU32> mManagedConstraintIds;
+    PxU32 mConstraintCount=0;
     PxDestructionChunkLoad* mChunkLoads{};
     std::vector<PxDestructionChunkLoad> mHostChunkLoads;
     bool mChunkLoadsFresh=false;
@@ -641,6 +689,7 @@ class Runtime final : public PxgDestructionRuntime {
     };
     Pinned<PxvDestructionBodyRequest> mPinnedBodyRequests,mPinnedOwnerRequests;
     Pinned<PxU32> mPinnedReservedIndices,mPinnedOwnerTargets;
+    Pinned<PxvDestructionConstraintBinding> mPinnedConstraintBindings;
     Pinned<PxDestructionCollisionBinding> mPinnedMigrating,mPinnedShapeOwners;
     Pinned<PxvDestructionBodyProperties> mPinnedProperties;
     // applyCorrectionBindings' readback, taken with prepareBodyCompatibility's.
@@ -1179,6 +1228,8 @@ public:
         cudaFree(mTopologyEdits);mTopologyEdits=nullptr;cudaFree(mTopologyCount);mTopologyCount=nullptr;mEditCapacity=0;
         cudaFree(mTopologyAccept);mTopologyAccept=nullptr;
         if(mSolver)mSolver->release();mSolver=nullptr;
+        cudaFree(mConstraintMap);mConstraintMap=nullptr;mConstraintCount=0;
+        cudaFree(mConstraintBindings);mConstraintBindings=nullptr;mPinnedConstraintBindings.release();mManagedConstraintIds.clear();
         cudaFree(mChunkLoads);mChunkLoads=nullptr;mHostChunkLoads.clear();mChunkLoadsFresh=false;
         cudaFree(mChunks);mChunks=nullptr;cudaFree(mClusters);mClusters=nullptr;
         cudaFree(mPoses);mPoses=nullptr;cudaFree(mAngular);mAngular=nullptr;
@@ -1215,6 +1266,28 @@ public:
                 if(m.compressionElasticLimit<0 || m.tensionElasticLimit<0 || m.shearElasticLimit<0
                     || m.residualAreaFraction<0 || m.residualAreaFraction>1 || m.crush.debrisMassFraction<0 || m.crush.debrisMassFraction>1)return false;
             }
+        }
+        // Physical splits require the explicit world-row ownership contract.
+        if(d.constraintCount && !d.constraints)return false;
+        if(d.constraintCount && d.materialCount && (d.internalCorrectionLimit!=1 || !d.chunkMassProperties))return false;
+        std::vector<PxConstraint*> managedConstraints;
+        std::vector<PxU32> constraintSources;
+        std::vector<ConstraintLookup> constraintMap;
+        std::set<PxU32> constraintIds;
+        for(PxU32 i=0;i<d.constraintCount;++i) {
+            const auto binding=d.constraints[i];
+            if(!binding.constraint || binding.chunk>=d.chunkCount || !binding.torqueOrigin.isFinite() || !mBodyAllocator)return false;
+            const auto chunk=d.chunks[binding.chunk];
+            if(chunk.cluster>=d.clusterCount)return false;
+            const PxU32 id=mBodyAllocator->getConstraintIndex(*binding.constraint,d.clusters[chunk.cluster].body);
+            if(id==PX_INVALID_U32 || !constraintIds.insert(id).second)return false;
+            if(d.materialCount) {
+                if(!binding.replayWorldRows || !binding.torqueAboutBodyCOM || binding.carrierChunk>=d.chunkCount
+                    || d.chunks[binding.carrierChunk].cluster!=chunk.cluster)return false;
+                managedConstraints.push_back(binding.constraint);constraintSources.push_back(d.clusters[chunk.cluster].body);
+            } else if(binding.replayWorldRows || d.internalCorrectionLimit)return false;
+            constraintMap.push_back({id,binding.chunk,PxU32(binding.torqueAboutBodyCOM),binding.torqueOrigin,
+                binding.carrierChunk,d.clusters[chunk.cluster].body,1});
         }
         if(d.additionalShapeCount && !d.additionalShapes)return false;
         if(size_t(d.chunkCount)+d.additionalShapeCount>size_t(std::numeric_limits<int>::max()))return false;
@@ -1315,6 +1388,18 @@ public:
             mHullCount=PxU32(hulls.size());allocate(mHullBindings,mHullCount);
             check(cudaMemcpy(mHullBindings,hulls.data(),sizeof(*mHullBindings)*mHullCount,cudaMemcpyHostToDevice));
             mN=d.chunkCount;mM=d.bondCount;mC=d.clusterCount;mMapCount=PxU32(map.size());
+            mConstraintCount=PxU32(constraintMap.size());
+            if(mConstraintCount) {
+                allocate(mConstraintMap,mConstraintCount);
+                check(cudaMemcpy(mConstraintMap,constraintMap.data(),mConstraintCount*sizeof(*mConstraintMap),cudaMemcpyHostToDevice));
+                if(!managedConstraints.empty()) {
+                    allocate(mConstraintBindings,mConstraintCount);mPinnedConstraintBindings.allocate(mConstraintCount);
+                    if(!mBodyAllocator->registerWorldConstraints(managedConstraints.data(),constraintSources.data(),mConstraintCount))
+                        throw std::runtime_error("world constraint registration failed");
+                    mManagedConstraintIds=constraintIds;
+                }
+            }
+
             for(PxU32 i=0;i<d.clusterCount;++i)mHostOwnedBodies.insert(d.clusters[i].body);
             if(d.materialCount) {
                 allocate(mMaterials,d.materialCount);allocate(mBonds,d.bondCount);allocate(mHealth,d.bondCount);
@@ -1582,7 +1667,7 @@ public:
     bool advance(PxReal dt,const PxVec3& gravity,const PxgDestructionMotionStorage& storage,CUstream producerStream,
         PxgDestructionGrowMotionStorage growStorage,void* storageOwner,const PxgDestructionSolvedContacts& contacts,const PxgDestructionCollisionStorage& collision) override {
         mIdleSkipped=mIdleFull=false;
-        if(mIdleGate && mIdleCertified && !mPass && !mFailed && configured() && dt>0 && storage.bodies && producerStream
+        if(!mConstraintCount && mIdleGate && mIdleCertified && !mPass && !mFailed && configured() && dt>0 && storage.bodies && producerStream
             && dt==mIdleDt && gravity==mIdleGravity)
             return advanceIdle(dt,gravity,storage,producerStream,growStorage,storageOwner,contacts,collision);
         mIdleCertified=false;mIdleFull=!mPass;mIdleDt=dt;mIdleGravity=gravity;
@@ -1635,6 +1720,9 @@ public:
             }
             observeNativeClusters<<<(mC+127)/128,128,0,mStream>>>(mClusters,mC,bodyStates,mPoses,mAngular);
             prepareLoads<<<(mN+127)/128,128,0,mStream>>>(mChunks,mN,mClusters,mPoses,mAngular,gravity,mInputs,mSurface,mRates,mChunkLoads,bodyStates,1.0f/dt);
+            if(mConstraintCount)routeConstraintLoads<<<(mConstraintCount+127)/128,128,0,mStream>>>(
+                mConstraintMap,mConstraintCount,collision.constraintWritebacks,collision.constraintCapacity,
+                mChunks,mClusters,mPoses,bodyStates,1.0f/dt,mInputs,mSurface,mStatus);
             if(mChunkLoads && !mPass)validateChunkCommands<<<(mC+127)/128,128,0,mStream>>>(
                 mChunks,mN,mClusters,mC,mChunkLoads,mCheckpointBodies,mCheckpointCount,mCheckpointCommands,mStatus);
             if(contacts.pairCount)routeContacts<<<(contacts.pairCount+127)/128,128,0,mStream>>>(contacts,mMap,mMapCount,mChunks,mPoses,1.0f/dt,mInputs,mSurface,mStatus,bodyStates,mMaterials,mRates);
@@ -1913,6 +2001,7 @@ public:
         }catch(...) {mCheckpointValid=false;mFailed=true;return false;}
     }
     bool ownsBody(PxU32 gpuIndex) const override {return mHostOwnedBodies.count(gpuIndex)!=0;}
+    bool ownsWorldConstraint(PxU32 index) const override {return mManagedConstraintIds.count(index)!=0;}
     PxU32 reservedBodyCount() const override {return PxU32(mHostReservedIndices.size());}
     const PxU32* reservedBodyIndices() const override {return mHostReservedIndices.data();}
     bool initializeReservedBodies(PxgBodySim* bodies,PxgBodySimVelocities* previous,
@@ -2116,14 +2205,20 @@ public:
             // unchanged and still corrects ordinary interaction participants.
             const PxU32 count=mHostCompletion->correction.count;
             mHostCorrectionTargets.assign(mPinnedOwnerTargets.p,mPinnedOwnerTargets.p+count);
-            return mBodyAllocator->applyBindings(mPinnedMigrating.p,mHostCompletion->collision.migrating,
-                mPinnedOwnerRequests.p,mHostCorrectionTargets.data(),count);
+            if(!mBodyAllocator->applyBindings(mPinnedMigrating.p,mHostCompletion->collision.migrating,
+                mPinnedOwnerRequests.p,mHostCorrectionTargets.data(),count))return false;
+            return !mConstraintBindings || mBodyAllocator->applyConstraintBindings(mPinnedConstraintBindings.p,mConstraintCount);
         }catch(...){mFailed=true;return false;}
     }
     // Enqueue applyCorrectionBindings' observation on mStream: the selected
     // owners' metadata and the migrating shape bindings, into pinned staging.
     void readCorrectionOwnerMetadata() {
         const PxU32 count=mHostCompletion->correction.count,migrating=mHostCompletion->collision.migrating;
+        if(mConstraintBindings) {
+            prepareConstraintBindings<<<(mConstraintCount+127)/128,128,0,mStream>>>(mConstraintMap,mConstraintCount,
+                mTopology->trial(),mCandidateSlots,mTrialBodyIndices,mConstraintBindings);
+            check(cudaMemcpyAsync(mPinnedConstraintBindings.p,mConstraintBindings,mConstraintCount*sizeof(*mConstraintBindings),cudaMemcpyDeviceToHost,mStream));
+        }
         if(count)gatherCorrectionOwnerMetadata<<<(count+127)/128,128,0,mStream>>>(
             mCompactCorrectionBodies,count,mCandidateSlots,mBodyRequests,mCorrectionOwnerRequests,mCorrectionOwnerTargets);
         check(cudaGetLastError());
@@ -2259,7 +2354,7 @@ public:
 };
 }}
 extern "C" PX_DESTRUCTION_RUNTIME_EXPORT physx::PxgDestructionRuntime*
-PxCreateDestructionRuntimeV13(CUcontext c,void* scene,bool(*gate)(void*),physx::PxvDestructionBodyAllocator* allocator) {
+PxCreateDestructionRuntimeV15(CUcontext c,void* scene,bool(*gate)(void*),physx::PxvDestructionBodyAllocator* allocator) {
     try {return new physx::Runtime(c,scene,gate,allocator);}catch(...){return nullptr;}
 }
 
@@ -2273,7 +2368,7 @@ PxApplyDestructionSolverIslandMetadata(const physx::PxvIslandMetadataPage* pages
 }
 
 // Additive entry points: no virtual table or existing factory ABI change.
-// The scene pointer must come from this runtime's PxCreateDestructionRuntimeV13.
+// The scene pointer must come from this runtime's PxCreateDestructionRuntimeV15.
 extern "C" PX_DESTRUCTION_RUNTIME_EXPORT bool
 PxDestructionExportWarmStartV1(physx::PxDestructionScene* scene, float* values, physx::PxU32 count) {
     return scene && static_cast<physx::Runtime*>(scene)->exportWarmStart(values,count);

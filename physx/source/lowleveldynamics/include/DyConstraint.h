@@ -68,6 +68,11 @@ public:
 	PxsBodyCore*			bodyCore1;
 	PxU32					index;
 	PxReal					minResponseThreshold;
+    // Native destruction owns these only for explicitly registered, fixed
+    // world-space CPU shaders. The first pass records the Jacobian origin;
+    // replay rebases against the GPU-selected fragment COM, never a CPU pose.
+    bool destructionWorldRows = false, destructionReplay = false;
+    mutable PxVec3 destructionRowOrigin{0.0f};
 }
 PX_ALIGN_SUFFIX(16);
 #if PX_VC 
@@ -75,7 +80,7 @@ PX_ALIGN_SUFFIX(16);
 #endif
 
 #if !PX_P64_FAMILY
-PX_COMPILE_TIME_ASSERT(48==sizeof(Constraint));
+PX_COMPILE_TIME_ASSERT(64==sizeof(Constraint));
 #endif
 
 }

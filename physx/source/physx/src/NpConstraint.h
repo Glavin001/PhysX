@@ -75,6 +75,7 @@ public:
 	//~PxConstraint
 
 					void						updateConstants(PxsSimulationController& simController);
+                    bool rebindDestructionWorldActor(PxRigidActor* actor);
 					void						comShift(PxRigidActor*);
 					void						actorDeleted(PxRigidActor*);
 

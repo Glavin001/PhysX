@@ -1170,6 +1170,7 @@ static PX_FORCE_INLINE __device__  void constraint1DPrePrep(PxU32 jointDataIndex
 		constraintDataEntries[jointDataIndex].mRaWorld_linBreakForceW = make_float4(ra.x, ra.y, ra.z, constraintPrePre.mLinBreakForce);
 		constraintDataEntries[jointDataIndex].mRbWorld_angBreakForceW = make_float4(rb.x, rb.y, rb.z, constraintPrePre.mAngBreakForce);
 		constraintDataEntries[jointDataIndex].mNumRows_Flags_StartIndex = make_uint4(numRows, constraintPrePre.mFlags, constraintsStartIndex, 0);
+        constraintDataEntries[jointDataIndex].mDestructionRowOrigin = make_float4(0,0,0,0);
 	}
 }
 
@@ -1432,7 +1433,12 @@ extern "C" __global__ void constraint1DBlockPrePrepLaunch(
 				//write to PxgBlockConstraint1DVelocities
 				for (PxU32 i = 0; i<numRows; ++i)
 				{
-					const Px1DConstraint& constraint1D = startRows[i];
+                    Px1DConstraint constraint1D = startRows[i];
+                    if (constraintData.mDestructionRowOrigin.w != 0.0f) {
+                        const auto origin = constraintData.mDestructionRowOrigin;
+                        const auto center = bodySims[nodeIndexA].body2World.p;
+                        constraint1D.angular0 += PxVec3(origin.x-center.x, origin.y-center.y, origin.z-center.z).cross(constraint1D.linear0);
+                    }
 
 					gBlockPrepVelocityData[i].linear0XYZ_geometricErrorW[threadIndexInWarp] = reinterpret_cast<const float4&>(constraint1D.linear0);
 					gBlockPrepVelocityData[i].angular0XYZ_velocityTargetW[threadIndexInWarp] = reinterpret_cast<const float4&>(constraint1D.angular0);

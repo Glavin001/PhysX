@@ -325,6 +325,7 @@ namespace physx
         virtual bool usesGpuDestructionIslandRepair() const { return false; }
         // A body the destruction stage owns (cluster parent or fragment).
         virtual bool isDestructionBody(PxU32 /*gpuIndex*/) const { return false; }
+        virtual bool isDestructionWorldConstraint(PxU32 /*index*/) const { return false; }
         virtual void prepareGpuDestructionIslandRepair(IG::SimpleIslandManager&) {}
 
 		virtual	bool	copyContactData(void* /*data*/, PxU32* /*numContactPairs*/, const PxU32 /*maxContactPairs*/, CUevent /*startEvent*/, CUevent /*copyEvent*/) { return false; }

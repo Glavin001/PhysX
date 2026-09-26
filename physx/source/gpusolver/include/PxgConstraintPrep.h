@@ -53,6 +53,8 @@ namespace physx
 		float4 mRaWorld_linBreakForceW;				//16
 		float4 mRbWorld_angBreakForceW;				//16
 		uint4 mNumRows_Flags_StartIndex;			//16
+        // w=1 only for registered CPU world rows; xyz is their original COM.
+        float4 mDestructionRowOrigin;
 	};
 
 	struct PxgBlockConstraint1DData

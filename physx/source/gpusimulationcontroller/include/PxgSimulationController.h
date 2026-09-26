@@ -510,6 +510,7 @@ class PxProfilerCallback;
         bool usesDeviceDestructionContactInputs() const override;
         bool usesGpuDestructionIslandRepair() const override;
         bool isDestructionBody(PxU32 gpuIndex) const override;
+        bool isDestructionWorldConstraint(PxU32 index) const override;
         PxgDestructionRuntime* getNativeDestructionRuntime() const { return mDestruction; }
         // Nonzero while the task graph runs a corrected traversal; the value
         // is which one (1..limit). Every "corrected traversal" gate keys on this.

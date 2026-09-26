@@ -24,6 +24,7 @@ target_include_directories(PhysXDestructionGpuRuntime PRIVATE
     ${PHYSX_SOURCE_DIR}/gpunarrowphase/include
     ${PHYSX_SOURCE_DIR}/gpusimulationcontroller/include
     ${PHYSX_SOURCE_DIR}/gpucommon/include
+    ${PHYSX_SOURCE_DIR}/gpusolver/include
     ${DESTRUCTION_REPO_ROOT}/blast/include/extensions/stressgpu
     ${DESTRUCTION_REPO_ROOT}/blast/include/extensions/stress)
 target_compile_definitions(PhysXDestructionGpuRuntime PRIVATE PX_PHYSX_STATIC_LIB NDEBUG PHYSX_RESIDENT_DESTRUCTION)

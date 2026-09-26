@@ -1,6 +1,6 @@
 // A localized command breaks a free assembly. The corrected solve must apply
 // the command to its own piece, not duplicate the parent's acceleration on both.
-void chunkCommandFracture(bool rotated,bool mismatch=false,bool parallel=false,bool moving=false) {
+void chunkCommandFracture(bool rotated,bool mismatch=false,bool parallel=false,bool moving=false,bool torqueOnly=false) {
     blast_demo::SceneCapacity capacity;
     blast_demo::PhysXScene context(blast_demo::PhysicsMode::Gpu,true,capacity,nullptr,false,true);
     auto& scene=context.scene();auto& physics=context.physics();scene.setGravity(PxVec3(0));
@@ -39,11 +39,16 @@ void chunkCommandFracture(bool rotated,bool mismatch=false,bool parallel=false,b
     auto invalid=desc;invalid.internalCorrectionLimit=0;require(!stage->configureStress(invalid),"command inputs accepted without correction");
     invalid=desc;invalid.materialCount=0;require(!stage->configureStress(invalid),"command inputs accepted without material topology");
     require(stage->configureStress(desc),"chunk command configuration rejected");
-    PxDestructionChunkLoad loads[2];loads[0].impulse=PxVec3(0,100.0f/60,0);
+    PxDestructionChunkLoad loads[2];
+    if(torqueOnly)loads[0].angularImpulse=commandOrientation.rotate(PxVec3(100.0f/60,0,0));
+    else loads[0].impulse=PxVec3(0,100.0f/60,0);
     require(!stage->setChunkLoads(loads,1),"wrong command count accepted");
     require(stage->setChunkLoads(loads,2),"valid chunk command rejected");
-    parent->addForce(PxVec3(0,mismatch?50:100,0));
-    parent->addTorque(commandOrientation.rotate(PxVec3(-.5f,0,0)).cross(PxVec3(0,100,0)));
+    if(torqueOnly)parent->addTorque(loads[0].angularImpulse,PxForceMode::eIMPULSE);
+    else {
+        parent->addForce(PxVec3(0,mismatch?50:100,0));
+        parent->addTorque(commandOrientation.rotate(PxVec3(-.5f,0,0)).cross(PxVec3(0,100,0)));
+    }
     scene.simulate(1.0f/60);PxU32 error=0;const bool fetched=scene.fetchResults(true,&error);
     const auto status=stage->getLastStatus();
     std::printf("chunk command status: fetched=%u error=%u stage=%u broken=%u correction=%u\n",unsigned(fetched),error,status.error,status.brokenBonds,status.correctionPasses);
@@ -69,9 +74,9 @@ void chunkCommandFracture(bool rotated,bool mismatch=false,bool parallel=false,b
         require(status.brokenBonds==1 && status.correctionPasses==1,"localized command did not cause one corrected fracture");
         auto* left=shapes[0]->getActor()->is<PxRigidDynamic>();auto* right=shapes[1]->getActor()->is<PxRigidDynamic>();
         require(left&&right&&left!=right,"command fracture did not split physical owners");
-        require((left->getLinearVelocity()-baseLinear-baseAngular.cross(commandOrientation.rotate(PxVec3(-.5f,0,0)))-PxVec3(0,100.0f/60,0)).magnitude()<.002f,"loaded piece lost its force");
+        require((left->getLinearVelocity()-baseLinear-baseAngular.cross(commandOrientation.rotate(PxVec3(-.5f,0,0)))-loads[0].impulse).magnitude()<.002f,"loaded piece lost its force");
         require((right->getLinearVelocity()-baseLinear-baseAngular.cross(commandOrientation.rotate(PxVec3(.5f,0,0)))).magnitude()<.002f,"parent force was cloned onto the unloaded piece");
-        require((left->getAngularVelocity()-baseAngular).magnitude()<.002f && (right->getAngularVelocity()-baseAngular).magnitude()<.002f,"force lever arm was not recentered");
+        require((left->getAngularVelocity()-baseAngular-loads[0].angularImpulse*6).magnitude()<.002f && (right->getAngularVelocity()-baseAngular).magnitude()<.002f,"force lever arm was not recentered");
         BodyObserver observer(*context.cudaContextManager());observer.verify(*stage,*left);observer.verify(*stage,*right);
         // No setter and no new actor command on the next tick: the load must
         // expire, while the velocity produced by the previous impulse remains.
@@ -80,5 +85,5 @@ void chunkCommandFracture(bool rotated,bool mismatch=false,bool parallel=false,b
         require((left->getLinearVelocity()-before).magnitude()<.002f,"chunk command leaked into the next frame");
     }
     require(stage->clearStress(),"command fixture cleanup failed");parent->release();for(auto* shape:shapes)shape->release();
-    std::printf("chunk command: rotated=%u mismatch=%u parallel=%u moving=%u passed\n",unsigned(rotated),unsigned(mismatch),unsigned(parallel),unsigned(moving));
+    std::printf("chunk command: rotated=%u mismatch=%u parallel=%u moving=%u torque=%u passed\n",unsigned(rotated),unsigned(mismatch),unsigned(parallel),unsigned(moving),unsigned(torqueOnly));
 }

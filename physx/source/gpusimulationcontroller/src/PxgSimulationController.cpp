@@ -28,6 +28,7 @@
 #include "PxgSimulationController.h"
 #include "PxgContext.h"
 #include "PxgSolverCore.h"
+#include "PxgConstraintWriteBack.h"
 #include "PxgSolverBody.h"
 #include <stdio.h>
 #include <string.h>
@@ -711,7 +712,7 @@ namespace physx
     PxDestructionScene* PxgSimulationController::getDestructionScene(void* scene, bool (*gate)(void*), PxvDestructionBodyAllocator* allocator)
     {
         if(!mDestruction) {
-            mDestruction = PxCreateDestructionRuntimeV13(mCudaContextManager->getContext(), scene, gate, allocator);
+            mDestruction = PxCreateDestructionRuntimeV15(mCudaContextManager->getContext(), scene, gate, allocator);
             if(mDestruction)mDynamicContext->activateDestructionNodeTracking();
         }
         return mDestruction;
@@ -752,6 +753,11 @@ namespace physx
     bool PxgSimulationController::isDestructionBody(PxU32 gpuIndex) const
     {
         return mDestruction && mDestruction->ownsBody(gpuIndex);
+    }
+
+    bool PxgSimulationController::isDestructionWorldConstraint(PxU32 index) const
+    {
+        return mDestruction && mDestruction->ownsWorldConstraint(index);
     }
 
     bool PxgSimulationController::usesDeviceDestructionContactInputs() const
@@ -913,7 +919,9 @@ namespace physx
             const auto& remap=mNpContext->getGpuNarrowphaseCore()->mGpuShapesManager.mGpuShapesRemapTableBuffer;
             const PxgDestructionCollisionStorage collision={shapes.getShapeSimsDeviceTypedPtr(),
                 reinterpret_cast<const PxNodeIndex*>(remap.getDevicePtr()),shapes.getNbTotalShapeSims(),
-                PxU32(remap.getSize()/sizeof(PxNodeIndex))};
+                PxU32(remap.getSize()/sizeof(PxNodeIndex)),
+                mDynamicContext->getGpuSolverCore()->getConstraintWriteBackBufferDevicePtr().getPointer(),
+                PxU32(mDynamicContext->getGpuSolverCore()->getConstraintWriteBackBufferSize()/sizeof(PxgConstraintWriteback))};
             ok=mDestruction->advance(dt,gravity,storage,mSimulationCore->getStream(),growStorage,this,contacts,collision);
         }
         }

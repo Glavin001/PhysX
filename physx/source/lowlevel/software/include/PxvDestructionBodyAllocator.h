@@ -5,6 +5,7 @@
 #include "PxDirectGPUAPI.h"
 namespace physx {
 class PxShape;
+class PxConstraint;
 // GPU-produced allocation metadata only. Mass, motion and graph arrays remain
 // resident. A reservation is private/inactive until the correction transaction
 // initializes its solver state and transfers persistent collision ownership.
@@ -22,8 +23,13 @@ struct PxvDestructionBodyProperties {
     PxU16 lockFlags,disableGravity;
     PxU32 solverIterationCounts;
 };
+struct PxvDestructionConstraintBinding { PxU32 targetBody, enabled; };
 class PxvDestructionBodyAllocator {
 public:
+    // Validates scene, world attachment, GPU solver identity and body ownership.
+    virtual PxU32 getConstraintIndex(const PxConstraint&,PxU32) const { return ~PxU32(0); }
+    virtual bool registerWorldConstraints(PxConstraint* const*,const PxU32*,PxU32) { return false; }
+    virtual bool applyConstraintBindings(const PxvDestructionConstraintBinding*,PxU32) { return false; }
     virtual PxU32 getShapeContactIndex(const PxShape&) const { return ~PxU32(0); }
     virtual bool readRigidBodyData(void*,const PxRigidDynamicGPUIndex*,PxRigidDynamicGPUAPIReadType::Enum,
         PxU32,CUevent,CUevent) const { return false; }

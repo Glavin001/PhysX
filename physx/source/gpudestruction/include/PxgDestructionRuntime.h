@@ -10,6 +10,7 @@
 #include "PxvDestructionBodyAllocator.h"
 namespace physx {
 struct PxgBodySim;
+struct PxgConstraintWriteback;
 struct PxgBodySimVelocityUpdate;
 class PxNodeIndex;
 struct PxgShapeSim;
@@ -34,6 +35,9 @@ struct PxgDestructionCollisionStorage {
     const PxgShapeSim* shapes = nullptr;
     const PxNodeIndex* shapeToBody = nullptr;
     PxU32 shapeCapacity = 0, remapCapacity = 0;
+    const PxgConstraintWriteback* constraintWritebacks = nullptr;
+    PxU32 constraintCapacity = 0;
+
 };
 // Private bridge between PhysX's kernel-wrangler module and the runtime CUDA
 // stress module. Both share the scene's CUDA context; no physics API replay.
@@ -54,6 +58,7 @@ public:
     // such a body is outside the rigid checkpoint; one attached to any other
     // body is replayable and does not block correction.
     virtual bool ownsBody(PxU32 gpuIndex) const = 0;
+    virtual bool ownsWorldConstraint(PxU32 index) const = 0;
     // Recorded by the scene each step and reported in PxDestructionStageStatus.
     virtual void setCorrectionBlockers(PxU32 blockers) = 0;
     virtual bool gpuIslandRepairEnabled() const = 0;
@@ -157,10 +162,11 @@ public:
 // Private producer ABI v4 supplies borrowed collision storage for device-controlled preparation.
 // v11 adds ownsBody() so the scene can admit constraints on ordinary bodies.
 // v12 supports multiple collision hulls per authored chunk (public scene ABI 19).
+// v15 owns declared world constraints and their GPU-rebased corrected rows (public 22).
 // Version the symbol so mixed GPU/runtime binaries fail resolution rather than
 // violating lifecycle ordering or collision-record layout.
 extern "C" PX_DESTRUCTION_RUNTIME_EXPORT physx::PxgDestructionRuntime*
-PxCreateDestructionRuntimeV13(CUcontext context, void* scene, bool (*writeAllowed)(void*), physx::PxvDestructionBodyAllocator* allocator);
+PxCreateDestructionRuntimeV15(CUcontext context, void* scene, bool (*writeAllowed)(void*), physx::PxvDestructionBodyAllocator* allocator);
 
 extern "C" PX_DESTRUCTION_RUNTIME_EXPORT bool
 PxApplyDestructionSolverIslandMetadata(const physx::PxvIslandMetadataPage* pages,physx::PxU32 count,

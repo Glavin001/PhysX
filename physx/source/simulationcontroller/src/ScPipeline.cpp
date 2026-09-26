@@ -2562,6 +2562,7 @@ PxU32 Sc::Scene::classifyDestructionConstraints() const
         const ConstraintSim* sim=cores[i]->getSim();
         if(!sim)continue;
         const BodySim* body0=sim->getBody(0);const BodySim* body1=sim->getBody(1);
+        if(body0 && !body1 && mSimulationController->isDestructionWorldConstraint(sim->getLowLevelConstraint().index))continue;
         if(body0 && body1)bits|=2;
         if(body0 && mSimulationController->isDestructionBody(body0->getNodeIndex().index()))bits|=1;
         if(body1 && mSimulationController->isDestructionBody(body1->getNodeIndex().index()))bits|=1;

@@ -971,6 +971,22 @@ if(BLAST_ENABLE_CUDA_STRESS)
     target_link_options(native_vehicle_constraints_test PRIVATE "-Wl,-rpath,${PHYSX_LIB_DIR}")
     target_link_libraries(native_vehicle_constraints_test PRIVATE PhysXNativeVehicle ${PHYSX_VEHICLE} ${NATIVE_DESTRUCTION_TEST_LIBS} ${PX_DESTRUCTION_GPU_DRIVER})
     add_test(NAME physx_native_vehicle_constraints COMMAND native_vehicle_constraints_test)
+    add_executable(native_constraint_loads_test tests/native_constraint_loads_test.cpp physx_scene.cpp)
+    target_compile_definitions(native_constraint_loads_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG PX_SUPPORT_PVD=0 PX_SUPPORT_OMNI_PVD=0)
+    target_include_directories(native_constraint_loads_test PRIVATE ${NATIVE_CHECKPOINT_TEST_INCLUDES})
+    target_link_options(native_constraint_loads_test PRIVATE "-Wl,-rpath,${PHYSX_LIB_DIR}")
+    target_link_libraries(native_constraint_loads_test PRIVATE ${NATIVE_DESTRUCTION_TEST_LIBS} ${PX_DESTRUCTION_GPU_DRIVER})
+    add_test(NAME physx_native_constraint_loads COMMAND native_constraint_loads_test)
+    add_executable(native_constraint_fracture_test tests/native_constraint_fracture_test.cpp physx_scene.cpp)
+    target_compile_definitions(native_constraint_fracture_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG PX_SUPPORT_PVD=0 PX_SUPPORT_OMNI_PVD=0)
+    target_include_directories(native_constraint_fracture_test PRIVATE ${NATIVE_CHECKPOINT_TEST_INCLUDES})
+    target_link_options(native_constraint_fracture_test PRIVATE "-Wl,-rpath,${PHYSX_LIB_DIR}")
+    target_link_libraries(native_constraint_fracture_test PRIVATE ${NATIVE_DESTRUCTION_TEST_LIBS} ${PX_DESTRUCTION_GPU_DRIVER})
+    add_test(NAME physx_native_constraint_fracture COMMAND native_constraint_fracture_test)
+    add_test(NAME physx_native_chunk_torque COMMAND native_standard_scene_test --chunk-torque)
+    set_tests_properties(physx_native_chunk_torque physx_native_constraint_fracture physx_native_constraint_loads physx_native_vehicle_constraints PROPERTIES RUN_SERIAL TRUE TIMEOUT 600 LABELS "gpu;integration;vehicle")
+
+
 
 
     add_executable(native_vehicle_wall_test tests/native_vehicle_wall_test.cpp physx_scene.cpp state_writer.cpp)

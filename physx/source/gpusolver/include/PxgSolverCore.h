@@ -318,6 +318,7 @@ namespace physx
 
 		PX_FORCE_INLINE PxNodeIndex* getCpuIslandNodeIndices() { return mCpuIslandNodeIndices; }
 
+		PX_FORCE_INLINE PxU64 getConstraintWriteBackBufferSize() const { return mConstraintWriteBackBuffer.getSize(); }
 		PX_FORCE_INLINE PxgDevicePointer<PxgConstraintWriteback> getConstraintWriteBackBufferDevicePtr() const { return mConstraintWriteBackBuffer.getTypedDevicePtr(); }
 
 		void allocateFrictionPatchStream(PxI32 numContactBatches, PxI32 numArtiContactBatches);

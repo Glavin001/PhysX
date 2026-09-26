@@ -4,6 +4,7 @@
 #include "NpFactory.h"
 #include "NpPhysics.h"
 #include "NpRigidDynamic.h"
+#include "NpConstraint.h"
 #include "NpScene.h"
 #include "ScBodySim.h"
 #include "ScShapeSim.h"
@@ -19,6 +20,8 @@ namespace physx {
 // one independent body allocated in advance for every intact chunk.
 class NpDestructionBodyAllocator final : public PxvDestructionBodyAllocator, public PxUserAllocated {
     struct Entry {PxU32 cluster,source;NpRigidDynamic* body;};
+    struct ManagedConstraint { NpConstraint* joint; PxU32 originalBody; PxConstraintFlags originalFlags; };
+    PxArray<ManagedConstraint> mConstraints;
     NpScene& mScene;
     PxArray<Entry> mBodies;
     PxArray<Entry> mAcceptedBodies;
@@ -150,6 +153,46 @@ public:
 
     explicit NpDestructionBodyAllocator(NpScene& scene):mScene(scene) {}
     ~NpDestructionBodyAllocator() override {clear();}
+    PxU32 getConstraintIndex(const PxConstraint& constraint,PxU32 body) const override {
+        if(constraint.getScene()!=&mScene)return PX_INVALID_U32;
+        PxRigidActor *a=nullptr,*b=nullptr;constraint.getActors(a,b);
+        if(a!=source(body) || b || !a)return PX_INVALID_U32;
+        PxReal linear,angular;constraint.getBreakForce(linear,angular);
+        if(linear!=PX_MAX_F32 || angular!=PX_MAX_F32)return PX_INVALID_U32;
+        const auto* sim=static_cast<const NpConstraint&>(constraint).getCore().getSim();
+        return sim?sim->getLowLevelConstraint().index:PX_INVALID_U32;
+    }
+    bool registerWorldConstraints(PxConstraint* const* joints,const PxU32* sources,PxU32 count) override {
+        if(mConstraints.size() || (count && (!joints || !sources)))return false;
+        for(PxU32 i=0;i<count;++i) {
+            if(!joints[i] || getConstraintIndex(*joints[i],sources[i])==PX_INVALID_U32)return false;
+            // Built-in GPU joint shaders use actor-local anchors, not the fixed
+            // CPU world-row contract. They keep the unsupported-constraint guard.
+            if(static_cast<NpConstraint*>(joints[i])->getCore().getFlags() & PxConstraintFlag::eGPU_COMPATIBLE)return false;
+        }
+        mConstraints.reserve(count);if(mConstraints.capacity()<count)return false;
+        for(PxU32 i=0;i<count;++i) {
+            auto* joint=static_cast<NpConstraint*>(joints[i]);
+            mConstraints.pushBack({joint,sources[i],joint->getFlags()});
+            joint->getCore().getSim()->getLowLevelConstraint().destructionWorldRows=true;
+        }
+        return true;
+    }
+    bool applyConstraintBindings(const PxvDestructionConstraintBinding* bindings,PxU32 count) override {
+        if(count!=mConstraints.size() || (count && !bindings))return false;
+        for(PxU32 i=0;i<count;++i)if(!source(bindings[i].targetBody,true) || bindings[i].enabled>1
+            || !mConstraints[i].joint->getCore().getSim())return false;
+        for(PxU32 i=0;i<count;++i) {
+            auto& c=mConstraints[i];auto& core=c.joint->getCore();
+            core.getSim()->getLowLevelConstraint().destructionReplay=true;
+            if(!c.joint->rebindDestructionWorldActor(source(bindings[i].targetBody,true)))return false;
+            auto flags=core.getFlags();
+            if(bindings[i].enabled && !c.originalFlags.isSet(PxConstraintFlag::eDISABLE_CONSTRAINT)) flags.clear(PxConstraintFlag::eDISABLE_CONSTRAINT);
+            else flags|=PxConstraintFlag::eDISABLE_CONSTRAINT;
+            core.setFlags(flags);
+        }
+        return true;
+    }
     bool isValidSource(PxU32 body) const override {return source(body)!=NULL;}
     bool reserveNodeCapacity(PxU32 capacity,const PxU32*& indices) override {
         const PxU32 old=mGrantedNodes.size();
@@ -304,6 +347,8 @@ public:
         return true;
     }
     void acceptReservations() override {
+        for(auto& c:mConstraints)if(c.joint->getCore().getSim())
+            c.joint->getCore().getSim()->getLowLevelConstraint().destructionReplay=false;
         for(const auto& entry:mBodies) {
             PX_ASSERT(mPrivateBodies.find(entry.body));
             // Already inserted at reservation time; acceptance does not grow
@@ -315,6 +360,15 @@ public:
     }
     void discardReservations() override {for(auto& entry:mBodies)discard(*entry.body);mBodies.clear();}
     void clear() override {
+        // Return compatibility links before releasing private fragment actors.
+        // The owner must keep registered constraints alive until clearStress().
+        for(auto& c:mConstraints)if(auto* sim=c.joint->getCore().getSim()) {
+            if(auto* original=source(c.originalBody))c.joint->rebindDestructionWorldActor(original);
+            sim->getLowLevelConstraint().destructionWorldRows=false;
+            sim->getLowLevelConstraint().destructionReplay=false;
+            c.joint->getCore().setFlags(c.originalFlags);
+        }
+        mConstraints.clear();
         discardReservations();
         for(auto& entry:mAcceptedBodies)discard(*entry.body);
         mAcceptedBodies.clear();

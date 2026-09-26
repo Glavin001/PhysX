@@ -1,7 +1,7 @@
 // Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
 #ifndef PX_DESTRUCTION_SCENE_H
 #define PX_DESTRUCTION_SCENE_H
-#define PX_DESTRUCTION_SCENE_VERSION 20
+#define PX_DESTRUCTION_SCENE_VERSION 22
 #include "foundation/PxTransform.h"
 #include "PxDirectGPUAPI.h"
 #include "PxDestructionTopologyTypes.h"
@@ -71,6 +71,25 @@ struct PxDestructionChunkLoad {
     // separately from the Direct GPU force accumulators above.
     PxVec3 impulse{0.0f}, angularImpulse{0.0f};
 };
+class PxConstraint;
+// A world-attached constraint applies its actual solved wrench to one chunk.
+// The constraint must outlive this registration. Fracture is supported only
+// for explicitly declared fixed world rows and a required carrier chunk.
+struct PxDestructionStressConstraint {
+    PxConstraint* constraint;
+    PxU32 chunk;
+    // Vehicle2's shader reports about the actor COM (zero body0WorldOffset).
+    // Standard joints instead report about their actor-0 constraint frame.
+    // That origin must be declared explicitly in the immutable actor frame.
+    bool torqueAboutBodyCOM = true;
+    PxVec3 torqueOrigin{0.0f};
+    // Opt-in for Vehicle2-style CPU shaders whose world Jacobians and errors
+    // are immutable for the entire simulate(), including its corrected solve.
+    // They report torque about COM, use zero anchor offsets and no body1.
+    // Both chunks must remain connected for this constraint to remain active.
+    bool replayWorldRows = false;
+    PxU32 carrierChunk = ~PxU32(0);
+};
 struct PxDestructionStressDesc {
     const PxDestructionStressChunk* chunks = NULL;
     const PxDestructionStressBond* bonds = NULL;
@@ -132,6 +151,9 @@ struct PxDestructionStressDesc {
     // step. A corrected split reapplies each command only to its owning piece.
     // Requires material state and internalCorrectionLimit == 1.
     bool enableChunkLoads = false;
+    const PxDestructionStressConstraint* constraints = NULL;
+    PxU32 constraintCount = 0;
+
 };
 struct PxDestructionVectorPair {
     PxVec3 angular, linear;

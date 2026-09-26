@@ -1795,6 +1795,11 @@ namespace physx
 				constantBlock,
 				pose0, pose1, !!(constraint->flags & PxConstraintFlag::eENABLE_EXTENDED_LIMITS), ra, rb);
 
+            if (constraint->destructionWorldRows && !constraint->destructionReplay)
+                constraint->destructionRowOrigin = pose0.p;
+            const auto origin = constraint->destructionRowOrigin;
+            data.mDestructionRowOrigin = make_float4(origin.x, origin.y, origin.z,
+                constraint->destructionWorldRows ? 1.0f : 0.0f);
 			data.mNumRows_Flags_StartIndex.x = numRows;
 
 			if (numRows == 0)

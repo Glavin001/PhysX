@@ -280,6 +280,18 @@ void NpConstraint::setActors(PxRigidActor* actor0, PxRigidActor* actor1)
 	UPDATE_PVD_PROPERTY
 }
 
+bool NpConstraint::rebindDestructionWorldActor(PxRigidActor* actor)
+{
+    if (!actor || mActor1 || actor->getType()!=PxActorType::eRIGID_DYNAMIC
+        || actor->getScene()!=getNpScene() || !mCore.getSim()
+        || !mCore.getSim()->getLowLevelConstraint().destructionWorldRows) return false;
+    if (mActor0==actor) return true;
+    removeConnectors("Native constraint old actor 0", "Native constraint old actor 1");
+    addConnectors(actor,nullptr);mActor0=actor;
+    scSetBodies(mCore,NpActor::getNpActor(actor),nullptr);
+    return true;
+}
+
 PxConstraintFlags NpConstraint::getFlags() const
 {
 	NP_READ_CHECK(getNpScene());
