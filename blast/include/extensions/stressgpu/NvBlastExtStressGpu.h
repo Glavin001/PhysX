@@ -278,6 +278,8 @@ struct ExtStressGpuDeviceStatus
 // initialized, 26/27 mean generation mismatch (hierarchy/motion respectively).
 struct ExtStressGpuDeviceTopologyStatus
 {
+    // generation tracks connectivity; rebuilds is the operator/cache revision.
+    // Geometry refreshes can rebuild the operator without changing connectivity.
     std::uint64_t generation, solvedGeneration, rebuilds;
     std::uint32_t initialized, error, islandCount, activeBondCount, activeNodeCount;
 };

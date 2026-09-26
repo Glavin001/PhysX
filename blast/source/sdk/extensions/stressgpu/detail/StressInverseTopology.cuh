@@ -13,7 +13,7 @@ __global__ void refreshNativeInverseValidity(const DeviceStressTopologyBatch* ba
     if(node>=nodes)return;
     // Unknown and stale caches must never be certified by a topology update.
     // Short circuit before reading an uninitialized generation on first use.
-    if(!state->initialized || !valid[node] || generation[node]!=state->generation){
+    if(!state->initialized || !valid[node] || generation[node]!=state->rebuilds){
         valid[node]=0;return;
     }
     if(batch->mask)for(unsigned slot=begin[node];slot<begin[node+1];++slot){
@@ -23,5 +23,5 @@ __global__ void refreshNativeInverseValidity(const DeviceStressTopologyBatch* ba
     }
     // Retain the existing packed inverse byte-for-byte. Only advance its
     // validity certificate; the normal solver still evaluates current loads.
-    generation[node]=batch->generation?*batch->generation:0ull;
+    generation[node]=state->rebuilds+1;
 }

@@ -270,7 +270,7 @@ class DeviceStressTopology
 #ifdef PHYSX_RESIDENT_DESTRUCTION
         static_assert(sizeof(Inertia)==sizeof(float2) && sizeof(Vec4)==sizeof(float4),"native operator view layout");
         StressHierarchy::Input input{b.n,b.m,b.nodeBondBegin,b.nodeBondRef,b.node0,b.node1,b.nodeIsland,b.health,b.colScales,
-            b.positions,reinterpret_cast<const float4*>(b.offset0),reinterpret_cast<const float4*>(b.offset1),reinterpret_cast<const float2*>(b.inertia),&state->generation,nullptr};
+            b.positions,reinterpret_cast<const float4*>(b.offset0),reinterpret_cast<const float4*>(b.offset1),reinterpret_cast<const float2*>(b.inertia),&state->rebuilds,nullptr};
         input.partition={componentNodes,liveIslands,rangeBegin,rangeEnd,b.activeCounts+1,&state->islandCount};
         nativeHierarchy.reset(new NativeStressHierarchy(input,forest,state,ownerStream));
 #endif

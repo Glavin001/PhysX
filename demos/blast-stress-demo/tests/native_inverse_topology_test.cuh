@@ -7,9 +7,9 @@ void inverseTopologyLifetime(){
     Device<unsigned> begin(f.begin.size()),refs(f.refs.size()),mask(f.a.size()),valid(f.n);
     Device<float> health(f.health.size());Device<std::uint64_t> cached(f.n),next(1);
     Device<DeviceStressTopologyBatch> batch(1);Device<ExtStressGpuDeviceTopologyStatus> state(1);
-    begin.put(f.begin);refs.put(f.refs);next.put({8});batch.put({{mask.data,next.data,nullptr}});
+    begin.put(f.begin);refs.put(f.refs);next.put({78});batch.put({{mask.data,next.data,nullptr}});
     for(unsigned scenario=0;scenario<6;++scenario){
-        ExtStressGpuDeviceTopologyStatus status{};status.initialized=scenario!=0;status.generation=7;state.put({status});
+        ExtStressGpuDeviceTopologyStatus status{};status.initialized=scenario!=0;status.generation=77;status.rebuilds=7;state.put({status});
         auto alive=f.health;std::vector<unsigned> desired(f.a.size(),1),flags(f.n,1);std::vector<std::uint64_t> generations(f.n,7);
         if(scenario==1){flags[1]=0;generations[4]=6;} // Unknown and stale cannot gain validity.
         if(scenario==2)desired[2]=0; // Only 2 and 3, despite 1 sharing their old component.

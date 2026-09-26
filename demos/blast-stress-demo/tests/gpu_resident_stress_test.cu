@@ -76,7 +76,7 @@ void columns(unsigned n, bool deviceTopology){
         std::vector<unsigned> alive(bonds.size(),0u);
         std::fill(alive.end()-3,alive.end(),1u);
         check(cudaMemcpyAsync(mask,alive.data(),alive.size()*sizeof(*mask),cudaMemcpyHostToDevice,producer));
-        const std::uint64_t partialGen=1;
+        const std::uint64_t partialGen=17;
         check(cudaMemcpyAsync(generation,&partialGen,sizeof(partialGen),cudaMemcpyHostToDevice,producer));
         check(cudaEventRecord(ready,producer));
         require(solver->updateDeviceTopologyAsync(mask,bonds.size(),generation,nullptr,ready),"partial GPU split failed");
@@ -91,6 +91,7 @@ void columns(unsigned n, bool deviceTopology){
         check(cudaMemcpy(&partialTopology,partialView.topologyStatus,sizeof(partialTopology),cudaMemcpyDeviceToHost));
         check(cudaMemcpy(&partialStatus,partialView.status,sizeof(partialStatus),cudaMemcpyDeviceToHost));
         require(!partialTopology.error && partialTopology.islandCount==1 && partialTopology.activeBondCount==3,"sparse component count incorrect");
+        require(partialTopology.generation==partialGen && partialTopology.solvedGeneration==partialGen && partialTopology.rebuilds==2,"sparse topology and cache revisions conflated");
         require(partialStatus.converged && partialStatus.iterations<=params.maxIterations,"sparse component failed convergence");
         check(cudaMemcpy(actual.data(),partialView.bondImpulses,actual.size()*sizeof(actual[0]),cudaMemcpyDeviceToHost));
         for(unsigned i=0;i<actual.size();++i){
@@ -106,7 +107,7 @@ void columns(unsigned n, bool deviceTopology){
         // high, sparse IDs, and the compact list must grow from one to two.
         alive[alive.size()-2]=0;
         check(cudaMemcpyAsync(mask,alive.data(),alive.size()*sizeof(*mask),cudaMemcpyHostToDevice,producer));
-        const std::uint64_t splitGen=2;
+        const std::uint64_t splitGen=41;
         check(cudaMemcpyAsync(generation,&splitGen,sizeof(splitGen),cudaMemcpyHostToDevice,producer));
         check(cudaEventRecord(ready,producer));
         require(solver->updateDeviceTopologyAsync(mask,bonds.size(),generation,nullptr,ready),"component split rejected");
@@ -118,6 +119,7 @@ void columns(unsigned n, bool deviceTopology){
         check(cudaMemcpy(&splitTopology,splitView.topologyStatus,sizeof(splitTopology),cudaMemcpyDeviceToHost));
         check(cudaMemcpy(&splitStatus,splitView.status,sizeof(splitStatus),cudaMemcpyDeviceToHost));
         require(!splitTopology.error && splitTopology.islandCount==2 && splitTopology.activeBondCount==2,"component list failed to grow after split");
+        require(splitTopology.generation==splitGen && splitTopology.solvedGeneration==splitGen && splitTopology.rebuilds==3,"split topology and cache revisions conflated");
         require(splitStatus.converged,"split component solve did not converge");
         check(cudaMemcpy(actual.data(),splitView.bondImpulses,actual.size()*sizeof(actual[0]),cudaMemcpyDeviceToHost));
         for(unsigned i=0;i<actual.size();++i){
@@ -134,7 +136,7 @@ void columns(unsigned n, bool deviceTopology){
         // Then remove every bond. The empty list must publish convergence;
         // repeating the generation must not rebuild the layout.
         check(cudaMemsetAsync(mask,0,bonds.size()*sizeof(*mask),producer));
-        const std::uint64_t gen=3;
+        const std::uint64_t gen=90;
         check(cudaMemcpyAsync(generation,&gen,sizeof(gen),cudaMemcpyHostToDevice,producer));
         check(cudaEventRecord(ready,producer));
         unsigned rebuilds=0;
@@ -150,6 +152,7 @@ void columns(unsigned n, bool deviceTopology){
             check(cudaMemcpy(&topology,view.topologyStatus,sizeof(topology),cudaMemcpyDeviceToHost));
             require(!topology.error && topology.generation==gen && topology.solvedGeneration==gen,"stale GPU topology");
             require(!topology.islandCount && !topology.activeNodeCount && !topology.activeBondCount,"removed component still scheduled");
+            require(topology.rebuilds==4,"empty topology and cache revisions conflated");
             if(repeat)require(topology.rebuilds==rebuilds,"unchanged topology rebuilt");
             rebuilds=topology.rebuilds;
             check(cudaMemcpy(actual.data(),view.bondImpulses,actual.size()*sizeof(actual[0]),cudaMemcpyDeviceToHost));
@@ -392,5 +395,5 @@ void largeToSmallComponents()
 #include "resident_settled_reuse_test.cuh"
 }
 int main(int argc,char** argv){std::setvbuf(stdout,nullptr,_IOLBF,0);try{
-    if(argc==2){const std::string fixture=argv[1];if(fixture=="settled"){nativeSettledReuse();return 0;}require(fixture=="mixed","unknown resident fixture");mixedComponentSizes(false);mixedComponentSizes(true);return 0;}
+    if(argc==2){const std::string fixture=argv[1];if(fixture=="epochs"){columns(12,true);unaffectedWarmColumn();nativeSettledReuse();return 0;}if(fixture=="settled"){nativeSettledReuse();return 0;}require(fixture=="mixed","unknown resident fixture");mixedComponentSizes(false);mixedComponentSizes(true);return 0;}
     require(argc==1,"invalid resident fixture arguments");for(bool gpu:{false,true})for(unsigned n:{12u,1536u,131072u})columns(n,gpu);mixedComponentSizes(false);mixedComponentSizes(true);unevenComponents(false);unevenComponents(true);largeToSmallComponents();unaffectedWarmColumn();nativeSettledReuse();return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}

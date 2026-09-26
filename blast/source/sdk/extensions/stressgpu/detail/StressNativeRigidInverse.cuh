@@ -29,7 +29,7 @@ __device__ __noinline__ void buildNativeRigidInverseCoefficients(const StressRea
     inverse[size_t(9)*stride+node]=1/c;
 }
 __device__ __forceinline__ void buildNativeRigidInverse(const NativeStressCycleView& h,unsigned node){
-    const auto generation=h.topology->generation;
+    const auto generation=h.topology->rebuilds;
     if(h.inverseValid[node] && h.inverseGeneration[node]==generation)return;
     buildNativeRigidInverseCoefficients(h.cycle.levels[0].diagonal.diagonal,h.fineInverse,h.inverseStride,node);
     h.inverseGeneration[node]=generation;h.inverseValid[node]=1;

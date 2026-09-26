@@ -23,8 +23,8 @@ __global__ void publishNativeHierarchyStatus(const StressHierarchy::Status* hier
     unsigned detail=(hierarchy->error&255u)<<8 | (modes->error&255u)<<16;
     if(!hierarchy->initialized)detail|=1u<<24;
     if(!modes->initialized)detail|=1u<<25;
-    if(hierarchy->generation!=topology->generation)detail|=1u<<26;
-    if(modes->generation!=topology->generation)detail|=1u<<27;
+    if(hierarchy->generation!=topology->rebuilds)detail|=1u<<26;
+    if(modes->generation!=topology->rebuilds)detail|=1u<<27;
     if(detail)topology->error|=8u|detail;
 }
 class NativeStressHierarchy {

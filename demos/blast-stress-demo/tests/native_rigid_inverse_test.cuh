@@ -1,11 +1,19 @@
 // Qualify the structured production inverse on independently assembled physical
 // blocks. Preserve the general dense reference test and its tolerances.
 namespace MotionModeTest {
-__global__ void checkRigidInverse(NativeStressCycleView h,const Vector* rhs,Vector* actual,Vector* reference,unsigned n){
+__global__ void checkRigidInverse(NativeStressCycleView original,const Vector* rhs,Vector* actual,unsigned n,const CycleLevel* __restrict__ levels){
+    // The descriptor allocation is immutable and distinct from all outputs.
+    auto h=original;h.cycle.levels=levels;
     const unsigned node=blockIdx.x*blockDim.x+threadIdx.x;if(node>=n)return;
     buildNativeRigidInverse(h,node);
     actual[node]=applyNativeRigidInverse(h,node,rhs[node]);
-    reference[node]=solveFineDiagonalThread(h.cycle.levels[0].diagonal,node,rhs[node]);
+}
+// Independent read-only oracle launch avoids aliasing mutable cache state with
+// descriptor reads. It uses the same unmodified triangular reference equations.
+__global__ void rigidInverseReference(const StressReal* factors,const Vector* rhs,Vector* reference,unsigned n){
+    const unsigned node=blockIdx.x*blockDim.x+threadIdx.x;if(node>=n)return;
+    Buffers diagonal{};diagonal.diagonal=const_cast<StressReal*>(factors);
+    reference[node]=solveFineDiagonalThread(diagonal,node,rhs[node]);
 }
 void rigidInverseCache(){
     constexpr unsigned originalCount=257,n=3*originalCount;
@@ -47,9 +55,10 @@ void rigidInverseCache(){
     rhs.put(loads);std::vector<Vector> previous;double worst=0;
     for(unsigned test=0;test<4;++test){
         if(test==1)for(auto& entry:matrix)entry*=2; // A changed factor alone cannot silently refresh cached state.
-        factors.put(matrix);ExtStressGpuDeviceTopologyStatus state{};state.initialized=1;state.generation=test<3?0:1;status.put({state});
+        factors.put(matrix);ExtStressGpuDeviceTopologyStatus state{};state.initialized=1;state.generation=77;state.rebuilds=test<3?4:5;status.put({state});
         if(test==2){auto flags=valid.get();flags[0]=0;valid.put(flags);} // Unknown entry, even in a solved generation.
-        checkRigidInverse<<<(n+127)/128,128>>>(h,rhs.data,actual.data,reference.data,n);check(cudaGetLastError());check(cudaDeviceSynchronize());
+        checkRigidInverse<<<(n+127)/128,128>>>(h,rhs.data,actual.data,n,levels.data);
+        rigidInverseReference<<<(n+127)/128,128>>>(factors.data,rhs.data,reference.data,n);check(cudaGetLastError());check(cudaDeviceSynchronize());
         const auto result=actual.get(),direct=reference.get();
         for(unsigned node=0;node<n;++node){const auto expected=(test==1 || (test==2 && node))?previous[node]:direct[node];
             const auto a=unpack(result[node]),b=unpack(expected);for(unsigned k=0;k<6;++k){
@@ -61,7 +70,8 @@ void rigidInverseCache(){
     // exercise cache lifetime above. The triangular oracle remains unchanged.
     for(unsigned column=0;column<6;++column){
         Six v{};v[column]=1;rhs.put(std::vector<Vector>(n,pack(v)));
-        checkRigidInverse<<<(n+127)/128,128>>>(h,rhs.data,actual.data,reference.data,n);check(cudaGetLastError());check(cudaDeviceSynchronize());
+        checkRigidInverse<<<(n+127)/128,128>>>(h,rhs.data,actual.data,n,levels.data);
+        rigidInverseReference<<<(n+127)/128,128>>>(factors.data,rhs.data,reference.data,n);check(cudaGetLastError());check(cudaDeviceSynchronize());
         const auto result=actual.get(),direct=reference.get();
         for(unsigned node=0;node<n;++node){const auto a=unpack(result[node]),b=unpack(direct[node]);
             for(unsigned k=0;k<6;++k){const double error=double(std::abs(a[k]-b[k])/std::max(1.L,std::abs(b[k])));worst=std::max(worst,error);

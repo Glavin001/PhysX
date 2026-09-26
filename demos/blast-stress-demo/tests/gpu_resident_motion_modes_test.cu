@@ -3,9 +3,11 @@
 #include "NvBlastExtStressGpu.cu"
 // Retain the general dense cached-inverse reference and its original tests.
 // It is not included or selected by the production runtime.
+#ifndef BLAST_GPU_OPERATOR_EPOCH_TEST
 namespace Nv { namespace Blast { namespace {
 #include "detail/StressNativeFineInverse.cuh"
 }}}
+#endif
 #include <array>
 #include <queue>
 #include <cstdio>
@@ -189,6 +191,17 @@ void run(Fixture f,bool transitions){
     check(cudaStreamDestroy(stream));
 }
 }
+#ifdef BLAST_GPU_OPERATOR_EPOCH_TEST
+#include "native_warm_range_test.cuh"
+#include "native_rigid_inverse_test.cuh"
+#include "native_inverse_topology_test.cuh"
+#include "native_operator_epoch_test.cuh"
+int main(){std::setvbuf(stdout,nullptr,_IOLBF,0);try{
+    using namespace MotionModeTest;
+    operatorEpochReadiness();inverseTopologyLifetime();rigidInverseCache();warmRangeLifecycle();
+    return 0;
+}catch(const std::exception& e){std::fprintf(stderr,"operator epochs: %s\n",e.what());return 1;}}
+#else
 #include "native_warm_range_test.cuh"
 #include "native_warm_residual_test.cuh"
 #include "native_fine_inverse_test.cuh"
@@ -199,6 +212,7 @@ void run(Fixture f,bool transitions){
 #include "native_cooperative_retirement_test.cuh"
 #include "native_topology_warm_test.cuh"
 #include "native_inverse_topology_test.cuh"
+#include "native_operator_epoch_test.cuh"
 using namespace MotionModeTest;
 int main(int argc,char** argv){try{
     if(argc==2 && std::string(argv[1])=="retirement"){cooperativeRetirement();return 0;}
@@ -214,6 +228,7 @@ int main(int argc,char** argv){try{
     accurateWarmResidual();
     topologyWarmInvalidation();
     inverseTopologyLifetime();
+    operatorEpochReadiness();
     run(Fixture(0),false);run(Fixture(1),false);
     for(unsigned kind=0;kind<5;++kind){Fixture f(24);for(unsigned i=1;i<f.n;++i)f.edge(i-1,i);
         if(kind==1)f.offset1[5].x+=.03125f; // Tree geometry differs from authoring, still six modes.
@@ -224,3 +239,5 @@ int main(int argc,char** argv){try{
     if(!small){Fixture large(100000);for(unsigned i=1;i<large.n;++i){large.edge(i-1,i);if(i>1)large.edge(i-2,i);}run(large,true);}
     return 0;
 }catch(const std::exception& e){std::fprintf(stderr,"resident motion modes: %s\n",e.what());return 1;}}
+
+#endif

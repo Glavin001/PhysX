@@ -25,7 +25,7 @@ void fineInverseCache(){
     rhs.put(loads);std::vector<Vector> previous;double worst=0;
     for(unsigned test=0;test<4;++test){
         if(test==1)for(auto& entry:matrix)entry*=2; // A changed factor alone cannot silently refresh cached state.
-        factors.put(matrix);ExtStressGpuDeviceTopologyStatus state{};state.initialized=1;state.generation=test<3?0:1;status.put({state});
+        factors.put(matrix);ExtStressGpuDeviceTopologyStatus state{};state.initialized=1;state.generation=77;state.rebuilds=test<3?4:5;status.put({state});
         if(test==2){auto flags=valid.get();flags[0]=0;valid.put(flags);} // Unknown entry, even in a solved generation.
         checkFineInverse<<<(n+127)/128,128>>>(h,rhs.data,actual.data,reference.data,n);check(cudaGetLastError());check(cudaDeviceSynchronize());
         const auto result=actual.get(),direct=reference.get();

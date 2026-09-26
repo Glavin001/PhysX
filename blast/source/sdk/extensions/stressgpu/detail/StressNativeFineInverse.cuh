@@ -4,7 +4,7 @@
 // hot matrix-vector products read coalesced columns across independent lanes.
 __device__ __noinline__ void buildNativeFineInverse(NativeStressCycleView h,unsigned node){
     using namespace StressHierarchy;
-    if(h.inverseValid[node] && h.inverseGeneration[node]==h.topology->generation)return;
+    if(h.inverseValid[node] && h.inverseGeneration[node]==h.topology->rebuilds)return;
     for(unsigned column=0;column<6;++column){
         const Vector basis{{StressReal(column==0),StressReal(column==1),StressReal(column==2)},
                            {StressReal(column==3),StressReal(column==4),StressReal(column==5)}};
@@ -14,7 +14,7 @@ __device__ __noinline__ void buildNativeFineInverse(NativeStressCycleView h,unsi
         // preconditioner rather than independently rounded transposed entries.
         for(unsigned row=column;row<6;++row)h.fineInverse[size_t(triangle(row,column))*h.inverseStride+node]=value[row];
     }
-    h.inverseGeneration[node]=h.topology->generation;h.inverseValid[node]=1;
+    h.inverseGeneration[node]=h.topology->rebuilds;h.inverseValid[node]=1;
 }
 __device__ __forceinline__ StressHierarchy::Vector applyNativeFineInverse(NativeStressCycleView h,unsigned node,StressHierarchy::Vector value){
     const StressReal rhs[6]={value.angular.x,value.angular.y,value.angular.z,value.linear.x,value.linear.y,value.linear.z};

@@ -12,7 +12,7 @@ __device__ __forceinline__ bool nonzeroNativeInput(const PersistentStressArgs& a
     const auto v=a.input[node];return v.angular.x!=0 || v.angular.y!=0 || v.angular.z!=0 || v.linear.x!=0 || v.linear.y!=0 || v.linear.z!=0;
 }
 __device__ __forceinline__ bool nativeWarmRangeKnown(const PersistentStressArgs& a){
-    return a.hierarchy.topology->initialized && !a.hierarchy.topology->error && *a.hierarchy.warmRangeKnown && *a.hierarchy.warmRangeGeneration==a.hierarchy.topology->generation;
+    return a.hierarchy.topology->initialized && !a.hierarchy.topology->error && *a.hierarchy.warmRangeKnown && *a.hierarchy.warmRangeGeneration==a.hierarchy.topology->rebuilds;
 }
 __device__ __forceinline__ bool nonHomogeneousTreeNode(const PersistentStressArgs& a,unsigned node){
     if(nonzeroNativeInput(a,node))return true;

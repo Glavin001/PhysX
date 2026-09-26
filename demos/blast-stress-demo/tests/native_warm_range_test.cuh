@@ -13,7 +13,7 @@ void warmRangeLifecycle(){
     a.hierarchy.topology=topology.data;a.hierarchy.solution=solution.data;
     ExtStressGpuDeviceTopologyStatus status{};
     auto reset=[&](bool warm,unsigned ready,unsigned error,std::uint64_t gen,unsigned expected){
-        status.initialized=ready;status.error=error;status.generation=gen;topology.put({status});
+        status.initialized=ready;status.error=error;status.generation=77;status.rebuilds=gen;topology.put({status});
         resetNativeStressSolution<<<1,32>>>(a.hierarchy,pi.data,q.data,3,warm);
         observeWarmRange<<<1,1>>>(a,observed.data);check(cudaGetLastError());check(cudaDeviceSynchronize());
         require(known.get()[0]==expected && observed.get()[0]==expected,"invalid native warm-range lifecycle proof");
@@ -41,7 +41,7 @@ void warmRangeLifecycle(){
     AngLin sentinel{};sentinel.angular={1,2,3,0};sentinel.linear={4,5,6,0};
     unsigned cases=0;
     for(bool cooperative:{false,true})for(unsigned scenario=0;scenario<9;++scenario){
-        status.initialized=scenario!=3;status.error=scenario==4?8:0;status.generation=7;topology.put({status});
+        status.initialized=scenario!=3;status.error=scenario==4?8:0;status.generation=77;status.rebuilds=7;topology.put({status});
         known.put({scenario==1?0u:1u});generation.put({scenario==2?6u:7u});failed.put({0,0,0});
         std::vector<ExtStressGpuImpulse> input(3);
         if(scenario>=5){const float value=scenario==5?.5f:(scenario==6?1e-30f:(scenario==7?1e-40f:0));
@@ -49,12 +49,17 @@ void warmRangeLifecycle(){
         loads.put(input);impulses.put({sentinel,sentinel,sentinel});residual.put({sentinel,sentinel,sentinel});
         // Positive threshold must not select the exactly-homogeneous path.
         delta.put({0,scenario==8?1.f:0.f,0});
-        if(cooperative){void* args[]={&a};check(cudaLaunchCooperativeKernel(reinterpret_cast<const void*>(retireWarmGrid),2,1,args));}
+        if(cooperative){void* args[]={&a};check(cudaLaunchCooperativeKernel(reinterpret_cast<const void*>(retireWarmGrid),2,1,args,0,nullptr));}
         else retireWarmComponent<<<1,32>>>(a);
         check(cudaGetLastError());check(cudaDeviceSynchronize());
         const auto bonds=impulses.get(),nodes=residual.get();const bool cleared=scenario==0;
         const AngLin zero{};const auto& expected=cleared?zero:sentinel;
-        for(const auto& force:bonds)require(!std::memcmp(&force,&expected,sizeof(force)),"homogeneous warm retirement changed an uncertified bond or missed a fixed-first bond");
+        for(unsigned edge=0;edge<bonds.size();++edge){const auto& force=bonds[edge];
+            if(std::memcmp(&force,&expected,sizeof(force)))std::fprintf(stderr,
+                "warm retirement mismatch cooperative=%u scenario=%u edge=%u expected_clear=%u load=%.9g actual_angular=(%.9g,%.9g,%.9g) expected_angular=(%.9g,%.9g,%.9g)\n",
+                unsigned(cooperative),scenario,edge,unsigned(cleared),input[1].angular.x,
+                force.angular.x,force.angular.y,force.angular.z,expected.angular.x,expected.angular.y,expected.angular.z);
+            require(!std::memcmp(&force,&expected,sizeof(force)),"homogeneous warm retirement changed an uncertified bond or missed a fixed-first bond");}
         for(unsigned node:{1u,2u})require(!std::memcmp(&nodes[node],&expected,sizeof(expected)),"homogeneous warm retirement residual mismatch");
         require(!std::memcmp(&nodes[0],&sentinel,sizeof(sentinel)),"homogeneous retirement wrote inactive boundary state");++cases;
     }

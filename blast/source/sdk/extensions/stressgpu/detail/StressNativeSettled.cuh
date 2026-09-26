@@ -30,8 +30,8 @@ __global__ void refreshNativeSettledCertificates(NativeSettledCache cache,
     for(unsigned slot=blockIdx.x*blockDim.x+threadIdx.x;slot<*components.count;slot+=blockDim.x*gridDim.x){
         const unsigned id=components.ids[slot];auto& proof=cache.certificates[id];
         if(!topology->initialized || !proof.valid)continue;
-        if(changed[id] || proof.generation!=topology->generation)proof.valid=0;
-        else proof.generation=batch->generation?*batch->generation:0ull;
+        if(changed[id] || proof.generation!=topology->rebuilds)proof.valid=0;
+        else proof.generation=topology->rebuilds+1;
     }
 }
 __global__ void beginNativeSettledReuse(NativeSettledCache cache,ResidentStressComponentView components,
@@ -43,7 +43,7 @@ __global__ void beginNativeSettledReuse(NativeSettledCache cache,ResidentStressC
         // input storage are never read before their first successful write.
         bool dirty=!warm || !topology->initialized || topology->error || !cache.certificates[id].valid;
         if(!dirty){const auto proof=cache.certificates[id];
-            dirty=proof.generation!=topology->generation || proof.toleranceBits!=__float_as_uint(tolerance)
+            dirty=proof.generation!=topology->rebuilds || proof.toleranceBits!=__float_as_uint(tolerance)
                 || proof.maxIterations!=maxIterations;}
         if(!dirty)for(unsigned i=components.begin[id]+threadIdx.x;i<components.end[id];i+=blockDim.x){
             const unsigned node=components.nodes[i];dirty|=!identicalNativeInput(inputs[node],cache.inputs[node]);}
@@ -66,7 +66,7 @@ __global__ void commitNativeSettledReuse(NativeSettledCache cache,ResidentStress
         if(valid && !skip[id])for(unsigned i=components.begin[id]+threadIdx.x;i<components.end[id];i+=blockDim.x){
             const unsigned node=components.nodes[i];cache.inputs[node]=inputs[node];}
         __syncthreads();
-        if(!threadIdx.x)cache.certificates[id]={topology->generation,__float_as_uint(tolerance),maxIterations,unsigned(valid)};
+        if(!threadIdx.x)cache.certificates[id]={topology->rebuilds,__float_as_uint(tolerance),maxIterations,unsigned(valid)};
         __syncthreads();
     }
 }

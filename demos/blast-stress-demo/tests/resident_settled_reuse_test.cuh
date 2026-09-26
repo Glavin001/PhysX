@@ -36,13 +36,13 @@ void nativeSettledReuse(){
     // Unchanged inputs with a changed graph may never reuse the previous graph.
     unsigned* mask=nullptr;std::uint64_t* generation=nullptr;
     check(cudaMalloc(&mask,m*sizeof(unsigned)));check(cudaMalloc(&generation,sizeof(std::uint64_t)));
-    std::vector<unsigned> live(m,1u);live[height/2-1]=0u;std::uint64_t gen=1;
+    std::vector<unsigned> live(m,1u);live[height/2-1]=0u;std::uint64_t gen=17;
     check(cudaMemcpy(mask,live.data(),m*sizeof(unsigned),cudaMemcpyHostToDevice));check(cudaMemcpy(generation,&gen,sizeof(gen),cudaMemcpyHostToDevice));
     require(solver->updateDeviceTopologyAsync(mask,m,generation),"settled partial split rejected");
     auto partial=solve();require(partial.first.converged && !partial.second[1] && !partial.second[height/2]
         && partial.second[height+1],"split certificates did not distinguish changed and unchanged components");
     require(std::abs(std::abs(actual[0].linear.y)-float(height/2-1))<2e-4f,"split retained stale force at unchanged minimum root");
-    std::fill(live.begin(),live.begin()+height-1,0u);gen=2;
+    std::fill(live.begin(),live.begin()+height-1,0u);gen=41;
     check(cudaMemcpy(mask,live.data(),m*sizeof(unsigned),cudaMemcpyHostToDevice));check(cudaMemcpy(generation,&gen,sizeof(gen),cudaMemcpyHostToDevice));
     require(solver->updateDeviceTopologyAsync(mask,m,generation),"settled topology update rejected");
     auto split=solve();require(split.first.converged && split.second[height+1],"unrelated cut discarded exact component certificate");

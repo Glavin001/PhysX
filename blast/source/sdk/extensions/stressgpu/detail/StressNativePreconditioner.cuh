@@ -5,8 +5,8 @@
 // Shared projected-CG/preconditioner boundary. Conversion is fused into the
 // resident producer/consumer, not a separate export/copy/reimport operation.
 __device__ __forceinline__ bool nativeHierarchyReady(const NativeStressCycleView& h){
-    return h.cycle.status && h.modes.status && h.topology && StressHierarchy::usable(h.modes.status) && h.modes.status->generation==h.topology->generation && h.topology->initialized && !h.topology->error
-        && StressHierarchy::usable(h.cycle.status) && h.cycle.status->generation==h.topology->generation;
+    return h.cycle.status && h.modes.status && h.topology && StressHierarchy::usable(h.modes.status) && h.modes.status->generation==h.topology->rebuilds && h.topology->initialized && !h.topology->error
+        && StressHierarchy::usable(h.cycle.status) && h.cycle.status->generation==h.topology->rebuilds;
 }
 __device__ __forceinline__ void nativeCycleRhs(const PersistentStressArgs& a,unsigned node){
     const auto w=a.m_residual[node];a.hierarchy.rhs[node]={{w.angular.x,w.angular.y,w.angular.z},{w.linear.x,w.linear.y,w.linear.z}};

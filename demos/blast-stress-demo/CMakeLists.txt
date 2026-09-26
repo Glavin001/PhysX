@@ -1233,11 +1233,24 @@ if(BLAST_ENABLE_CUDA_STRESS AND (PX_GPU_BACKEND STREQUAL "CUMETAL" OR (CMAKE_CUD
     add_executable(gpu_resident_motion_modes_test EXCLUDE_FROM_ALL tests/gpu_resident_motion_modes_test.cu)
     target_include_directories(gpu_resident_motion_modes_test PRIVATE
         "${BLAST_ROOT}/source/sdk/extensions/stressgpu" "${BLAST_ROOT}/include/extensions/stressgpu" "${BLAST_ROOT}/include/extensions/stress")
-    target_compile_definitions(gpu_resident_motion_modes_test PRIVATE PHYSX_RESIDENT_DESTRUCTION)
+    target_compile_definitions(gpu_resident_motion_modes_test PRIVATE PHYSX_RESIDENT_DESTRUCTION BLAST_STRESS_GPU_FP64=1)
     px_destruction_cuda_properties(gpu_resident_motion_modes_test PROPERTIES CUDA_ARCHITECTURES 89 CUDA_STANDARD 17)
     target_compile_options(gpu_resident_motion_modes_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
     target_link_libraries(gpu_resident_motion_modes_test PRIVATE ${PX_DESTRUCTION_GPU_RUNTIME} ${PX_DESTRUCTION_GPU_DRIVER})
     add_test(NAME blast_stress_gpu_resident_motion_modes COMMAND gpu_resident_motion_modes_test)
+
+    # Focused production-cache regression; the full motion suite also includes
+    # a legacy dense reference helper not yet supported by CuMetal lowering.
+    add_executable(gpu_resident_operator_epoch_test EXCLUDE_FROM_ALL tests/gpu_resident_motion_modes_test.cu)
+    target_include_directories(gpu_resident_operator_epoch_test PRIVATE
+        "${BLAST_ROOT}/source/sdk/extensions/stressgpu" "${BLAST_ROOT}/include/extensions/stressgpu" "${BLAST_ROOT}/include/extensions/stress")
+    target_compile_definitions(gpu_resident_operator_epoch_test PRIVATE
+        PHYSX_RESIDENT_DESTRUCTION BLAST_STRESS_GPU_FP64=1 BLAST_GPU_OPERATOR_EPOCH_TEST)
+    px_destruction_cuda_properties(gpu_resident_operator_epoch_test PROPERTIES CUDA_ARCHITECTURES 89 CUDA_STANDARD 17)
+    target_link_libraries(gpu_resident_operator_epoch_test PRIVATE ${PX_DESTRUCTION_GPU_RUNTIME} ${PX_DESTRUCTION_GPU_DRIVER})
+    add_test(NAME blast_stress_gpu_operator_epochs COMMAND gpu_resident_operator_epoch_test)
+    set_tests_properties(blast_stress_gpu_operator_epochs PROPERTIES TIMEOUT 120 LABELS "gpu" RUN_SERIAL TRUE)
+
     set_tests_properties(blast_stress_gpu_resident_motion_modes PROPERTIES TIMEOUT 120 LABELS "gpu" RUN_SERIAL TRUE)
     # Native AOT outputs are external objects. A static archive includes them
     # explicitly; CMake OBJECT libraries do not reliably propagate such files.
@@ -1250,11 +1263,18 @@ if(BLAST_ENABLE_CUDA_STRESS AND (PX_GPU_BACKEND STREQUAL "CUMETAL" OR (CMAKE_CUD
     target_include_directories(gpu_resident_stress_test_core PUBLIC
         "${BLAST_ROOT}/include/extensions/stressgpu" "${BLAST_ROOT}/include/extensions/stress")
     target_compile_definitions(gpu_resident_stress_test_core PRIVATE PHYSX_RESIDENT_DESTRUCTION BLAST_GPU_NATIVE_CYCLE_DIAGNOSTIC)
+    # Match an explicitly selected native runtime precision in isolated tests.
+    option(BLAST_STRESS_GPU_FP64 "Run the GPU stress solver in double instead of float" OFF)
+    if(BLAST_STRESS_GPU_FP64)
+        target_compile_definitions(gpu_resident_stress_test_core PRIVATE BLAST_STRESS_GPU_FP64=1)
+    endif()
     px_destruction_cuda_properties(gpu_resident_stress_test_core PROPERTIES CUDA_ARCHITECTURES 89 CUDA_STANDARD 17)
     target_link_libraries(gpu_resident_stress_test_core PUBLIC ${PX_DESTRUCTION_GPU_RUNTIME} ${PX_DESTRUCTION_GPU_DRIVER})
     add_executable(gpu_resident_stress_test EXCLUDE_FROM_ALL tests/gpu_resident_stress_test.cu)
     px_destruction_cuda_properties(gpu_resident_stress_test PROPERTIES CUDA_ARCHITECTURES 89 CUDA_STANDARD 17)
     target_link_libraries(gpu_resident_stress_test PRIVATE gpu_resident_stress_test_core)
+    add_test(NAME blast_stress_gpu_operator_epoch_integration COMMAND gpu_resident_stress_test epochs)
+    set_tests_properties(blast_stress_gpu_operator_epoch_integration PROPERTIES TIMEOUT 600 LABELS "gpu" RUN_SERIAL TRUE)
     add_executable(gpu_resident_stress_parity_test EXCLUDE_FROM_ALL tests/gpu_stress_test.cpp)
     target_include_directories(gpu_resident_stress_parity_test PRIVATE
         "${BLAST_ROOT}/source/shared" "${BLAST_ROOT}/source/shared/stress_solver"

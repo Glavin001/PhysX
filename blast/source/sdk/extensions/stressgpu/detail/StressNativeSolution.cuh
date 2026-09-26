@@ -7,8 +7,8 @@ __global__ void resetNativeStressSolution(NativeStressCycleView h,AngLin* pi,Ang
         // Native bond outputs are read-only to consumers. A cold start has no
         // bond-space null stress, and every update is B^T times a node vector.
         // Preserve that provenance only while the operator generation matches.
-        const bool same=*h.warmRangeKnown && *h.warmRangeGeneration==h.topology->generation;
-        *h.warmRangeKnown=h.topology->initialized && !h.topology->error && (!warm || same);*h.warmRangeGeneration=h.topology->generation;
+        const bool same=*h.warmRangeKnown && *h.warmRangeGeneration==h.topology->rebuilds;
+        *h.warmRangeKnown=h.topology->initialized && !h.topology->error && (!warm || same);*h.warmRangeGeneration=h.topology->rebuilds;
     }
     if(node<nodes){h.solution[node]={};pi[node]={};q[node]={};}
 }
