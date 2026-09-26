@@ -77,3 +77,32 @@ material damage and unaffected city structures must survive these updates.
 The small geometry derivation currently mirrors the established prepare() math.
 Consolidate it in a separate behavior-preserving change after the new API is
 numerically qualified, retaining the independent equilibrium oracle.
+
+## Integration design for moving vehicle chunks (mapped 2026-09-26, not implemented)
+
+The CPU reference exists in vibe-land (`server/src/vehicle_assets/{rig,posed}.rs`). It gives each chunk:
+- a hull map, which may be non-rigid (the coil and CV shaft need `PxMeshScale`)
+- full mass properties
+- node inertia (trace/3)
+
+and each bond its posed centroid and normal. It also provides `rebase_momentum`.
+
+Four device geometry copies are uploaded once in `configureStress` and must advance together:
+1. the Blast operator (`ExtStressGpuUpdateDeviceGeometry`)
+2. `mChunks` position/inertia (used by `prepareLoads`, `routeContacts`, `routeConstraintLoads` and `sumChunkCommands`)
+3. material bond geometry (`mBonds`, `mBondCentroids`)
+4. topology chunk mass properties, plus the cluster frames `massProperties` derives from them (otherwise the next fracture restores the rest frame)
+
+Proposed contract:
+- **API:** add `PxDestructionScene::setChunkGeometry(revision, chunks, bonds)` (version 23), staged like `setChunkLoads`.
+- **Runtime:** consume it in `advanceFull` on pass 0 only, after the `mInput` wait and before `observeNativeClusters`. Apply it to carrier-owned chunks only, and fail the whole step if any copy rejects.
+- **Bridge:** in `prepare_vehicles`, before `vehicle->step`:
+  - set the carrier hull shapes' local poses and mesh scale
+  - set the actor's `cMassLocalPose` and inertia, and rebase its velocity
+  - refresh the host `nodes/properties/clusters` mirrors used by `submit_vehicle_loads`
+- **Timing:** this has to happen before `vehicle->step`, because Vehicle2's replayed world rows and `chunkCommandsMatch` fix geometry for the whole `simulate`. So the pose uses the previous step's wheel state, one step of lag.
+
+Known limits:
+- Bond compliance stays at rest-pose distances.
+- Load sharing in redundant graphs keeps the rest-pose metric.
+- The isolated double-precision runtime overlay that the vehicle qualification uses (`/tmp/vehicle-convergence-gate-libs`, sha `adf645bb…`) has no recorded build recipe. Rebuild and hash it reproducibly before changing the runtime.
