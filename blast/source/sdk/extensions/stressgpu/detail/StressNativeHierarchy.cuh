@@ -18,7 +18,14 @@ struct NativeStressCycleView {
     const ExtStressGpuDeviceTopologyStatus* topology=nullptr;
 };
 __global__ void publishNativeHierarchyStatus(const StressHierarchy::Status* hierarchy,const StressHierarchy::Status* modes,ExtStressGpuDeviceTopologyStatus* topology){
-    if(!hierarchy->initialized || hierarchy->error || hierarchy->generation!=topology->generation || !modes->initialized || modes->error || modes->generation!=topology->generation)topology->error|=8u;
+    // Preserve the failure source for consumers; do not turn a rejected
+    // hierarchy into an unexplained generic topology failure.
+    unsigned detail=(hierarchy->error&255u)<<8 | (modes->error&255u)<<16;
+    if(!hierarchy->initialized)detail|=1u<<24;
+    if(!modes->initialized)detail|=1u<<25;
+    if(hierarchy->generation!=topology->generation)detail|=1u<<26;
+    if(modes->generation!=topology->generation)detail|=1u<<27;
+    if(detail)topology->error|=8u|detail;
 }
 class NativeStressHierarchy {
     StressHierarchy::ResidentHierarchy mHierarchy;

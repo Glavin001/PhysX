@@ -273,6 +273,9 @@ struct ExtStressGpuDeviceStatus
 // Device topology updates preserve authored bond slots. These are GPU-only
 // observations, ordered by deviceView().readyEvent; no per-update readback is
 // required. A rejected batch preserves the accepted generation and constraints.
+// error bit 3 denotes a native hierarchy failure. Bits 8..15 contain the
+// hierarchy error and 16..23 the motion-mode error; bits 24/25 mean not
+// initialized, 26/27 mean generation mismatch (hierarchy/motion respectively).
 struct ExtStressGpuDeviceTopologyStatus
 {
     std::uint64_t generation, solvedGeneration, rebuilds;
