@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <utility>
 #include <limits>
 #include <memory>
 #include <stdexcept>
@@ -59,6 +60,13 @@ struct Harness {
     }
     void cut(unsigned edge,std::uint64_t gen){wait();std::vector<unsigned> live(asset.bonds.size(),edge==~0u?0:1);if(edge!=~0u)live[edge]=0;
         mask.put(live);revision.put({gen});require(solver->updateDeviceTopologyAsync(mask.p,mask.count,revision.p),"cut submission rejected");wait();}
+    std::pair<bool,std::vector<ExtStressGpuImpulse>> solveInputs(const std::vector<ExtStressGpuImpulse>& input){
+        wait();auto view=solver->deviceView();check(cudaMemcpyAsync(view.nodeInputs,input.data(),input.size()*sizeof(input[0]),cudaMemcpyHostToDevice,producer));check(cudaEventRecord(ready,producer));
+        ExtStressGpuSolveParams params;params.maxIterations=512;params.tolerance=1e-6f;params.warmStart=false;
+        require(solver->solveDeviceAsync(view.nodeInputs,input.size(),params,ready),"diagnostic solve rejected");wait();
+        const bool converged=read(solver->deviceView().status).converged;
+        std::vector<ExtStressGpuImpulse> result(asset.bonds.size());check(cudaMemcpy(result.data(),solver->deviceView().bondImpulses,result.size()*sizeof(result[0]),cudaMemcpyDeviceToHost));return {converged,result};
+    }
     std::vector<ExtStressGpuImpulse> solve(bool expectedConvergence=true){
         wait();std::vector<ExtStressGpuImpulse> input(asset.nodes.size());
         for(unsigned i=0;i<input.size();++i)if(asset.nodes[i].mass>0){input[i].linear.x=.5f+float(i)*.25f;input[i].linear.z=-.2f*float(i);input[i].angular.y=.17f*float(i+1);}
@@ -84,9 +92,25 @@ Asset freeAsset(){Asset a;a.nodes={{{0,0,0},2,.7f},{{1,0,0},3,.8f},{{0,1,0},4,1.
 Asset deform(Asset a){for(auto& n:a.nodes){const float x=n.position[0],y=n.position[1],z=n.position[2];
         n.position[0]=2*x+.3f*y+.4f;n.position[1]=.7f*y+.2f*z-.6f;n.position[2]=1.3f*z+.1f*x;n.inertia*=1.4f;}
     for(auto& b:a.bonds){for(unsigned k=0;k<3;++k)b.centroid[k]=.5f*(a.nodes[b.node0].position[k]+a.nodes[b.node1].position[k]);b.normal[0]=.4f;b.normal[1]=-.6f;b.normal[2]=.2f;}return a;}
+// A rigid motion keeps the solver's frozen length/mass normalization equal to
+// a fresh solver's, so even this statically indeterminate graph (whose
+// minimum-norm impulses depend on that metric) must match a fresh solve.
+Asset rigid(Asset a){const float c=std::cos(.7f),s=std::sin(.7f),axis[3]={1.f/3,2.f/3,2.f/3};
+    auto turn=[&](const float* v,float* out){const float d=axis[0]*v[0]+axis[1]*v[1]+axis[2]*v[2];
+        const float x[3]={axis[1]*v[2]-axis[2]*v[1],axis[2]*v[0]-axis[0]*v[2],axis[0]*v[1]-axis[1]*v[0]};
+        for(unsigned k=0;k<3;++k)out[k]=v[k]*c+x[k]*s+axis[k]*d*(1-c);};
+    for(auto& n:a.nodes){float p[3];turn(n.position,p);n.position[0]=p[0]+.4f;n.position[1]=p[1]-.6f;n.position[2]=p[2]+.25f;n.inertia*=1.4f;}
+    for(auto& b:a.bonds){float nrm[3];turn(b.normal,nrm);for(unsigned k=0;k<3;++k){b.normal[k]=nrm[k];b.centroid[k]=.5f*(a.nodes[b.node0].position[k]+a.nodes[b.node1].position[k]);}}return a;}
 void movingFreeGraph(){
     const Asset initial=freeAsset();Harness h(initial);h.solve();
-    Asset moved=deform(initial);Harness oracle(moved);const auto expected=oracle.solve();
+    {   // Diagnostic only: stretching changes the fresh solver's metric.
+        const Asset stretched=deform(initial);Harness diagnostic(initial),fresh(stretched);diagnostic.geometry(stretched,1);
+        const auto a=diagnostic.solve(),b=fresh.solve();float worst=0;
+        for(unsigned i=0;i<a.size();++i){const float av[]={a[i].linear.x,a[i].linear.y,a[i].linear.z},bv[]={b[i].linear.x,b[i].linear.y,b[i].linear.z};
+            for(unsigned k=0;k<3;++k)worst=std::max(worst,std::abs(av[k]-bv[k])/std::max(1.f,std::abs(bv[k])));}
+        std::printf("indeterminate graph, stretched (metric differs, not asserted): frozen-vs-fresh linear gap %g\n",worst);
+    }
+    Asset moved=rigid(initial);Harness oracle(moved);const auto expected=oracle.solve();
     h.geometry(moved,5);auto status=h.geometryStatus();auto topology=h.topology();
     require(status.initialized && status.generation==5 && status.applied && !status.error,"geometry not accepted");
     require(topology.generation==0 && topology.rebuilds==2 && topology.activeBondCount==6 && !topology.error,"geometry changed fracture generation or failed operator rebuild");
@@ -109,7 +133,7 @@ void movingFreeGraph(){
         h.geometry(moved,5);require(!h.geometryStatus().error && !h.geometryStatus().applied && h.topology().rebuilds==2,"accepted revision did not recover without mutating geometry");
         compare(h.solve(),expected); // Detects any partial write from the invalid batch.
     }
-    h.cut(2,17);moved.bonds[2].health=0;Asset movedAgain=deform(moved);Harness cutOracle(movedAgain);
+    h.cut(2,17);moved.bonds[2].health=0;Asset movedAgain=rigid(moved);Harness cutOracle(movedAgain);
     const auto cutExpected=cutOracle.solve();h.geometry(movedAgain,7);status=h.geometryStatus();topology=h.topology();
     require(!status.error && status.applied && status.generation==7 && topology.generation==17 && topology.rebuilds==4 && topology.activeBondCount==5,"geometry restored a removed bond or changed connectivity");
     const auto actual=h.solve();compare(actual,cutExpected);
@@ -126,16 +150,48 @@ void movingFreeGraph(){
     h.geometry(rejected,9);require(h.geometryStatus().error,"empty graph accepted invalid geometry");
     h.solve(false);
     h.geometry(movedAgain,8);require(!h.geometryStatus().error,"empty graph could not recover");compare(h.solve(),zero);
-    std::printf("GPU moving geometry: 4 dynamic nodes / 6 bonds, deformation+inertia, six atomic rejections, stale/rejected/repeated revisions and cut preservation passed; fresh-solver error %g\n",worst);
+    std::printf("GPU moving geometry: 4 dynamic nodes / 6 bonds, rigid motion+inertia, six atomic rejections, stale/rejected/repeated revisions and cut preservation passed; fresh-solver error %g\n",worst);
 }
 // Independent static equilibrium: applied force is mass times acceleration;
 // joint moment balances COM torque plus the force lever arm about the centroid.
+// The physical angular acceleration is the negated Blast angular input.
 // The SDK is free to report either endpoint's action/reaction convention.
+// A supported tree is statically determinate: each bond carries its subtree's
+// load, so any normalization gives the same impulses and a non-rigid stretch
+// must match a fresh solver exactly.
+void movingDeterminateTree(){
+    Asset a;a.nodes={{{0,0,0},0,0},{{1,0,0},3,.8f},{{1,1,0},4,1.1f},{{1,1,1},5,1.2f}};a.edge(0,1);a.edge(1,2);a.edge(2,3);
+    Harness h(a);h.solve();const Asset stretched=deform(a);Harness oracle(stretched);const auto expected=oracle.solve();
+    h.geometry(stretched,1);require(h.geometryStatus().applied,"tree geometry not accepted");
+    const float worst=compare(h.solve(),expected);
+    std::printf("GPU moving determinate tree: stretched support chain matches a fresh solver; error %g\n",worst);
+}
+// Blast stores angular coordinates with the opposite handed sign (see
+// PxgDestructionRuntime: inputs.angular = -torque / inertia). A free two-node
+// bond carrying a known shear F at its midpoint c must be recovered exactly
+// from inputs in that convention, and not from un-negated Newton-Euler ones.
+void leverConvention(){
+    Asset a;a.nodes={{{0,0,0},2,.5f},{{1,0,0},3,.8f}};a.edge(0,1);
+    const float F[3]={0,1,0},c[3]={.5f,0,0};
+    for(int sign:{-1,1}){
+        Harness h(a);std::vector<ExtStressGpuImpulse> input(2);
+        for(unsigned n=0;n<2;++n){const float s=n==0?1.f:-1.f,*x=a.nodes[n].position;const float r[3]={c[0]-x[0],c[1]-x[1],c[2]-x[2]},f[3]={s*F[0],s*F[1],s*F[2]};
+            const float t[3]={r[1]*f[2]-r[2]*f[1],r[2]*f[0]-r[0]*f[2],r[0]*f[1]-r[1]*f[0]};
+            input[n].linear={f[0]/a.nodes[n].mass,f[1]/a.nodes[n].mass,f[2]/a.nodes[n].mass};
+            input[n].angular={sign*t[0]/a.nodes[n].inertia,sign*t[1]/a.nodes[n].inertia,sign*t[2]/a.nodes[n].inertia};}
+        const auto [converged,out]=h.solveInputs(input);const auto& b=out[0];
+        const float error=std::abs(std::abs(b.linear.y)-1)+std::abs(b.linear.x)+std::abs(b.linear.z)+std::abs(b.angular.x)+std::abs(b.angular.y)+std::abs(b.angular.z);
+        std::printf("angular input %s: converged=%d bond linear=(%g,%g,%g) angular=(%g,%g,%g)\n",sign<0?"in Blast convention":"un-negated (not Blast)",
+            int(converged),b.linear.x,b.linear.y,b.linear.z,b.angular.x,b.angular.y,b.angular.z);
+        if(sign<0)require(converged && error<1e-4f,"Blast-convention shear bond not recovered exactly");
+        else require(error>.1f,"un-negated angular input unexpectedly recovered the shear bond");
+    }
+}
 void checkSupportedEquilibrium(const Asset& a,const ExtStressGpuImpulse& force){
     const auto& n=a.nodes[1];const auto& b=a.bonds[0];
     const float applied[]={n.mass*.75f,0.f,n.mass*-.2f};
     const float r[]={n.position[0]-b.centroid[0],n.position[1]-b.centroid[1],n.position[2]-b.centroid[2]};
-    const float moment[]={r[1]*applied[2]-r[2]*applied[1],n.inertia*.34f+r[2]*applied[0]-r[0]*applied[2],r[0]*applied[1]-r[1]*applied[0]};
+    const float moment[]={r[1]*applied[2]-r[2]*applied[1],-n.inertia*.34f+r[2]*applied[0]-r[0]*applied[2],r[0]*applied[1]-r[1]*applied[0]};
     const float actual[]={force.linear.x,force.linear.y,force.linear.z,force.angular.x,force.angular.y,force.angular.z};
     for(unsigned k=0;k<6;++k){const float expected=k<3?applied[k]:moment[k-3];
         const float error=std::abs(std::abs(actual[k])-std::abs(expected))/std::max(1.f,std::abs(expected));
@@ -154,5 +210,5 @@ void movingSupport(){
     std::printf("GPU moving support: both endpoint orders preserve centroid moments and fixed classification\n");
 }
 }
-int main(){std::setvbuf(stdout,nullptr,_IOLBF,0);try{movingFreeGraph();movingSupport();return 0;}
+int main(){std::setvbuf(stdout,nullptr,_IOLBF,0);try{leverConvention();movingFreeGraph();movingDeterminateTree();movingSupport();return 0;}
 catch(const std::exception& e){std::fprintf(stderr,"resident geometry: %s\n",e.what());return 1;}}

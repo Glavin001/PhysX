@@ -1,4 +1,4 @@
-# Vehicle moving stress geometry — unqualified WIP
+# Vehicle moving stress geometry — GPU-tested WIP
 
 2026-09-26. Extends the separately qualified operator-revision work. This is a
 stress-operator prerequisite, not live vehicle destruction or a scene API.
@@ -34,13 +34,30 @@ endpoint orders; host argument rejection; six whole-batch invalid input cases;
 repeated/stale/rejected revisions; accepted-state recovery without partial
 writes; broken-bond preservation; and an all-bonds-removed negative control.
 
-**No GPU execution of this change has occurred.** The user requested a local
-city play session, which holds the shared GPU lock. Do not stop that session or
-claim the newly compiled assertions pass. No running SDK/library was replaced.
-Frozen penetration, full native vehicle dynamics, endurance, CUDA and performance
-qualification remain pending. Vast execution remains deferred by the user.
+**First GPU execution (2026-09-26, local CuMetal FP64).** The original
+fresh-solver oracle failed at 5.27%. That was an oracle defect, not a defect in the API. The
+free 4-node/6-bond graph is statically indeterminate, so the solver returns
+the minimum-norm impulses in its own scaled metric, where angular/linear scale by L²M/LM. The update keeps the
+rest-pose length/mass normalization by design, while a fresh solver on stretched geometry picks a different L.
+The test now separates the cases:
+- a rigid motion (same metric) must match a fresh solver exactly: error 0
+- a stretched *supported tree* (determinate, metric-independent) must match: 1.8e-6
+- the stretched indeterminate gap is printed, not asserted
 
-When the GPU is available, run the geometry executable and the existing `epochs`
+Consequence for vehicles: in a redundant graph, how load is shared between parallel bonds is set by the
+rest-pose metric and does not follow a re-derived one.
+
+The independent support-equilibrium oracle also failed at first. It had not applied Blast's
+opposite-handed angular coordinates, which production uses
+(`PxgDestructionRuntime`: `inputs.angular = -torque / inertia`). A new regression pins that convention.
+A free shear bond is recovered exactly (moment 9e-10) from Blast-convention inputs, and not
+from un-negated Newton-Euler inputs (0.04 N instead of 1 N). Both endpoint orders then pass.
+The operator-epoch suites (`blast_stress_gpu_operator_epochs`, `..._integration`) also pass.
+Logs are in vibe-land `docs/reports/vehicle-suspension-geometry-2026-09-26/`.
+Frozen penetration, full native vehicle dynamics, endurance, CUDA and performance
+qualification remain pending.
+
+Run the geometry executable and the existing `epochs`
 integration suite serially under vibe-land/scripts/perf/gpu-run.sh, with
 CUMETAL_USE_METAL_DEVICE_ADDRESSES=1 and CUMETAL_SYNC_EACH_LAUNCH=0. The package
 is out/build/garage-multihull/package; its explicit hierarchy/motion/aggregate
