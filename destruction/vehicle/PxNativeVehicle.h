@@ -92,7 +92,9 @@ struct NativeVehicleDesc {
 };
 
 struct NativeVehicleWheelState {
-    PxTransform localPose;      // in the actor frame, as the vehicle SDK places the wheel
+    // COM-relative translation, chassis-oriented axes (not principal inertia
+    // axes). Add actor()->getCMassLocalPose().p for an actor-local wheel pose.
+    PxTransform localPose;
     PxReal steerAngle;          // radians
     PxReal rotationSpeed;       // radians per second
     PxReal jounce;              // metres of compression from full droop

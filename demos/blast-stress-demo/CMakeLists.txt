@@ -960,6 +960,11 @@ if(BLAST_ENABLE_CUDA_STRESS)
 
     # A vehicle SDK car ramming a native-destruction wall, through the packaged
     # PxNativeVehicle helper (destruction/vehicle).
+    add_executable(native_vehicle_mass_test tests/native_vehicle_mass_test.cpp)
+    target_compile_definitions(native_vehicle_mass_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG PX_SUPPORT_PVD=0 PX_SUPPORT_OMNI_PVD=0)
+    target_include_directories(native_vehicle_mass_test PRIVATE ${NATIVE_CHECKPOINT_TEST_INCLUDES})
+    target_link_libraries(native_vehicle_mass_test PRIVATE PhysXNativeVehicle ${PHYSX_VEHICLE} ${NATIVE_DESTRUCTION_TEST_LIBS})
+    add_test(NAME physx_native_vehicle_mass COMMAND native_vehicle_mass_test)
     add_executable(native_vehicle_loads_test tests/native_vehicle_loads_test.cpp)
     target_compile_definitions(native_vehicle_loads_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG PX_SUPPORT_PVD=0 PX_SUPPORT_OMNI_PVD=0)
     target_include_directories(native_vehicle_loads_test PRIVATE ${NATIVE_CHECKPOINT_TEST_INCLUDES})

@@ -172,6 +172,56 @@ bool createWheelConstraints(PxPhysics& physics, PxRigidBody& actor, PxVehiclePhy
 class Car : public DirectDriveVehicle {
 public:
     NativeVehicleStepLoads loads;
+    // Vehicle geometry uses the chassis axes at the current COM. The principal
+    // inertia axes may rotate after fracture and must not rotate the drivetrain.
+    PxQuat massFrameRotation{PxIdentity};
+    PxTransform suspensionActorAttachments[4];
+    void captureAttachments(const PxTransform& massPose) {
+        for (PxU32 w=0; w<4; ++w) {
+            auto& suspension = mBaseParams.suspensionParams[w];
+            suspensionActorAttachments[w] = massPose * suspension.suspensionAttachment;
+            suspension.suspensionTravelDir = massPose.q.rotate(suspension.suspensionTravelDir);
+        }
+    }
+    void refreshMassProperties() {
+        const auto& actor = *mPhysXState.physxActor.rigidBody;
+        const PxTransform massPose = actor.getCMassLocalPose();
+        massFrameRotation = massPose.q;
+        mBaseParams.rigidBodyParams.mass = actor.getMass();
+        mBaseParams.rigidBodyParams.moi = actor.getMassSpaceInertiaTensor();
+        for (PxU32 w=0; w<4; ++w) {
+            auto& attachment = mBaseParams.suspensionParams[w].suspensionAttachment;
+            attachment = suspensionActorAttachments[w];
+            attachment.p -= massPose.p;
+        }
+    }
+    class ActorBegin : public PxVehicleComponent {
+        Car& car;
+    public:
+        explicit ActorBegin(Car& vehicle) : car(vehicle) {}
+        bool update(PxReal dt, const PxVehicleSimulationContext& context) override {
+            if (!car.PxVehiclePhysXActorBeginComponent::update(dt, context)) return false;
+            car.mBaseState.rigidBodyState.pose.q = car.mPhysXState.physxActor.rigidBody->getGlobalPose().q;
+            return true;
+        }
+    } actorBegin{*this};
+    class ActorEnd : public PxVehicleComponent {
+        Car& car;
+    public:
+        explicit ActorEnd(Car& vehicle) : car(vehicle) {}
+        bool update(PxReal dt, const PxVehicleSimulationContext& context) override {
+            PxTransform saved[4];
+            const PxTransform toPrincipal(PxVec3(0), car.massFrameRotation.getConjugate());
+            for (PxU32 w=0; w<4; ++w) {
+                auto& pose = car.mBaseState.wheelLocalPoses[w].localPose;
+                saved[w] = pose;
+                pose = toPrincipal * pose;
+            }
+            const bool result = car.PxVehiclePhysXActorEndComponent::update(dt, context);
+            for (PxU32 w=0; w<4; ++w) car.mBaseState.wheelLocalPoses[w].localPose = saved[w];
+            return result;
+        }
+    } actorEnd{*this};
     // Decorate the existing SDK component. Its force law, call order and
     // substep count remain unchanged; no copy of the drivetrain is maintained.
     class LoadObserver : public PxVehicleComponent {
@@ -182,7 +232,7 @@ public:
             const auto& state = car.mBaseState;
             const auto& params = car.mBaseParams.rigidBodyParams;
             const PxVec3 offset = state.rigidBodyState.pose.p - car.loads.centerOfMassPose.p;
-            const PxMat33 rotation(state.rigidBodyState.pose.q);
+            const PxMat33 rotation(state.rigidBodyState.pose.q * car.massFrameRotation);
             const PxMat33 inverseInertia = rotation * PxMat33::createDiagonal(
                 PxVec3(1/params.moi.x, 1/params.moi.y, 1/params.moi.z)) * rotation.getTranspose();
             for (PxU32 w=0; w<4; ++w) {
@@ -203,7 +253,11 @@ public:
                 + offset.cross(state.rigidBodyState.externalForce)) * dt;
             car.loads.duration += dt;
             ++car.loads.substeps;
-            return car.PxVehicleRigidBodyComponent::update(dt, context);
+            auto& pose = car.mBaseState.rigidBodyState.pose;
+            pose.q = pose.q * car.massFrameRotation;
+            const bool result = car.PxVehicleRigidBodyComponent::update(dt, context);
+            pose.q = pose.q * car.massFrameRotation.getConjugate();
+            return result;
         }
     } loadObserver{*this};
     void initComponentSequence(bool beginEnd) override {
@@ -211,6 +265,11 @@ public:
 #if defined(PX_VEHICLE_COMPONENT_REPLACEMENT_VERSION)
         const bool replaced = mComponentSequence.replace(static_cast<PxVehicleRigidBodyComponent*>(this), &loadObserver);
         PX_ASSERT(replaced);PX_UNUSED(replaced);
+        if (beginEnd) {
+            const bool beginReplaced = mComponentSequence.replace(static_cast<PxVehiclePhysXActorBeginComponent*>(this), &actorBegin);
+            const bool endReplaced = mComponentSequence.replace(static_cast<PxVehiclePhysXActorEndComponent*>(this), &actorEnd);
+            PX_ASSERT(beginReplaced && endReplaced);PX_UNUSED(beginReplaced);PX_UNUSED(endReplaced);
+        }
 #endif
     }
 
@@ -260,6 +319,7 @@ public:
         mFrontDrive = desc.rearWheelDriveOnly ? 0.0f : 1.0f;
         mRearDrive = desc.frontWheelDriveOnly ? 0.0f : 1.0f;
         setBaseParams(desc, mVehicle.mBaseParams);
+        mVehicle.captureAttachments(desc.cMassLocalPose);
         setDriveParams(desc, mVehicle.mDirectDriveParams);
         mFrictions[0].material = &mMaterial;
         mFrictions[0].friction = desc.tyreFriction;
@@ -404,6 +464,7 @@ public:
 
     void step(PxReal dt) override
     {
+        mVehicle.refreshMassProperties();
         advanceTuning(dt);
         auto& throttle = mVehicle.mDirectDriveParams.directDriveThrottleResponseParams;
         for (PxU32 w=0; w<4; ++w)
