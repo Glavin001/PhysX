@@ -105,4 +105,4 @@ Proposed contract:
 Known limits:
 - Bond compliance stays at rest-pose distances.
 - Load sharing in redundant graphs keeps the rest-pose metric.
-- The isolated double-precision runtime overlay that the vehicle qualification uses (`/tmp/vehicle-convergence-gate-libs`, sha `adf645bb…`) has no recorded build recipe. Rebuild and hash it reproducibly before changing the runtime.
+- The vehicle qualification overlay `/tmp/vehicle-convergence-gate-libs` (sha `adf645bb…`) is `PhysXDestructionGpuRuntime` built in `out/build/garage-multihull/physx` with `BLAST_STRESS_GPU_FP64=ON`, from the working tree just before `6938aa7d` was committed. The recipe is recorded in vibe-land `docs/reports/vehicle-authored-impact-2026-09-26/fp64/`. That tree is now configured `OFF` (single precision), so its current dylib differs. Before changing the runtime, rebuild `6938aa7d` with FP64 on and confirm the vehicle tests match.
