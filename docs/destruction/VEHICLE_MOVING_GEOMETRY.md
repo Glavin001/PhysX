@@ -1,4 +1,16 @@
-# Vehicle moving stress geometry — GPU-tested WIP
+# Vehicle moving stress geometry — reverted (archived)
+
+**2026-09-26: the chosen design keeps stress geometry fixed.** Chunks are rigid and
+the stress operator keeps rest-pose chunk frames. Only the wheel/hub colliders
+follow the suspension, and a detached part starts from its visible pose.
+`ExtStressGpuUpdateDeviceGeometry` had no caller under that design, so it was removed
+from the solver. The complete API, its GPU-qualified tests, and the history below are
+preserved on branch `vehicle/moving-stress-geometry-archive` (`534a1e3b`).
+The finding worth keeping is now the standalone `gpu_angular_convention_test`
+(`blast_stress_gpu_angular_convention`): Blast's opposite-handed angular input convention.
+
+The original notes follow for reference.
+
 
 2026-09-26. Extends the separately qualified operator-revision work. This is a
 stress-operator prerequisite, not live vehicle destruction or a scene API.

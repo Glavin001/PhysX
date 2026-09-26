@@ -1275,10 +1275,10 @@ if(BLAST_ENABLE_CUDA_STRESS AND (PX_GPU_BACKEND STREQUAL "CUMETAL" OR (CMAKE_CUD
     target_link_libraries(gpu_resident_stress_test PRIVATE gpu_resident_stress_test_core)
     add_test(NAME blast_stress_gpu_operator_epoch_integration COMMAND gpu_resident_stress_test epochs)
     set_tests_properties(blast_stress_gpu_operator_epoch_integration PROPERTIES TIMEOUT 600 LABELS "gpu" RUN_SERIAL TRUE)
-    add_executable(gpu_resident_geometry_test EXCLUDE_FROM_ALL tests/gpu_resident_geometry_test.cpp)
-    target_link_libraries(gpu_resident_geometry_test PRIVATE gpu_resident_stress_test_core)
-    add_test(NAME blast_stress_gpu_resident_geometry COMMAND gpu_resident_geometry_test)
-    set_tests_properties(blast_stress_gpu_resident_geometry PROPERTIES TIMEOUT 600 LABELS "gpu" RUN_SERIAL TRUE)
+    add_executable(gpu_angular_convention_test EXCLUDE_FROM_ALL tests/gpu_angular_convention_test.cpp)
+    target_link_libraries(gpu_angular_convention_test PRIVATE gpu_resident_stress_test_core)
+    add_test(NAME blast_stress_gpu_angular_convention COMMAND gpu_angular_convention_test)
+    set_tests_properties(blast_stress_gpu_angular_convention PROPERTIES TIMEOUT 600 LABELS "gpu" RUN_SERIAL TRUE)
     add_executable(gpu_resident_stress_parity_test EXCLUDE_FROM_ALL tests/gpu_stress_test.cpp)
     target_include_directories(gpu_resident_stress_parity_test PRIVATE
         "${BLAST_ROOT}/source/shared" "${BLAST_ROOT}/source/shared/stress_solver"

@@ -26,14 +26,3 @@ __global__ void clearChangedStressWarmStart(const ExtStressGpuDeviceTopologyStat
     // Unaffected lambda remains available. The independent exact-input
     // certificate may authorize reuse; otherwise the solve verifies it again.
 }
-
-// Runs only inside the validated rebuild branch. Geometry changes cannot keep
-// old local factors, range provenance, exact-input certificates or bond guesses.
-__global__ void invalidateGeometryStressCaches(const DeviceStressTopologyBatch* batch,
-    NativeStressCycleView view,AngLin* impulses,unsigned nodes,unsigned bonds){
-    if(!batch->refresh || !*batch->refresh)return;
-    const unsigned i=blockIdx.x*blockDim.x+threadIdx.x;
-    if(!i)*view.warmRangeKnown=0;
-    if(i<nodes){view.inverseValid[i]=0;view.settled.certificates[i].valid=0;}
-    if(i<bonds)impulses[i]={};
-}

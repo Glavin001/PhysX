@@ -68,9 +68,6 @@ uploadIslands();
         m_workCapture.reset();
 #endif
         delete m_deviceTopology;
-#ifdef PHYSX_RESIDENT_DESTRUCTION
-        cudaFree(m_geometryState);
-#endif
         if (m_graphExec)
         {
             cudaGraphExecDestroy(m_graphExec);
