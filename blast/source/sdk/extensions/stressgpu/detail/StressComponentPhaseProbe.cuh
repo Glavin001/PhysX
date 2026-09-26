@@ -1,3 +1,4 @@
+#include "StressDiagnosticClock.cuh"
 #pragma once
 // Test-only resident stage probe. Normal SDK builds compile out all storage,
 // clock reads and publication. SM-cycle deltas are local to one CTA; summed
@@ -10,9 +11,9 @@ __device__ unsigned long long componentPreconditionClocks[4];
 #define COMPONENT_SUBPROBE_ARGUMENT , probeSubCycles
 #define COMPONENT_PROBE_BEGIN \
     __shared__ unsigned long long probeCycles[8],probeLast,probeStart,probeSubCycles[4]; \
-    if(!threadIdx.x){for(unsigned subI=0;subI<4;++subI)probeSubCycles[subI]=0;for(unsigned probeI=0;probeI<8;++probeI)probeCycles[probeI]=0;probeStart=probeLast=clock64();}
+    if(!threadIdx.x){for(unsigned subI=0;subI<4;++subI)probeSubCycles[subI]=0;for(unsigned probeI=0;probeI<8;++probeI)probeCycles[probeI]=0;probeStart=probeLast=componentDiagnosticClock();}
 #define COMPONENT_PROBE_END(phase) \
-    if(!threadIdx.x){const auto probeNow=clock64();probeCycles[phase]+=probeNow-probeLast;probeLast=probeNow;}
+    if(!threadIdx.x){const auto probeNow=componentDiagnosticClock();probeCycles[phase]+=probeNow-probeLast;probeLast=probeNow;}
 #define COMPONENT_PROBE_PUBLISH \
     COMPONENT_PROBE_END(7) \
     if(!threadIdx.x){ \

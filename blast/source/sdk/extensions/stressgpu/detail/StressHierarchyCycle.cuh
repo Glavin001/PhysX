@@ -1,3 +1,4 @@
+#include "StressDiagnosticClock.cuh"
 // One cooperative launch for a symmetric V-cycle, or its CGLS-required square.
 #pragma once
 #include "StressHierarchyResident.cuh"
@@ -158,8 +159,8 @@ template<bool Local=false>
 __device__ __forceinline__ void cyclePass(const CycleLevel* levels,unsigned depth,TerminalBuffers pool,TerminalShared& shared,const Vector* rhs,Vector* output,unsigned component=Invalid,const unsigned* active=nullptr){
     CycleWork<Local> work{component,active};unsigned last=0;
 #ifdef BLAST_GPU_COMPONENT_PHASE_PROBE
-    unsigned long long phaseStart=0;if(!threadIdx.x)phaseStart=clock64();
-#define CYCLE_PROBE_END(index) work.sync();if(!threadIdx.x){atomicAdd(cycleStageClocks+index,clock64()-phaseStart);phaseStart=clock64();}work.sync();
+    unsigned long long phaseStart=0;if(!threadIdx.x)phaseStart=componentDiagnosticClock();
+#define CYCLE_PROBE_END(index) work.sync();if(!threadIdx.x){atomicAdd(cycleStageClocks+index,componentDiagnosticClock()-phaseStart);phaseStart=componentDiagnosticClock();}work.sync();
 #else
 #define CYCLE_PROBE_END(index)
 #endif

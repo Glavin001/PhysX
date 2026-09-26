@@ -60,8 +60,20 @@ public:
         try{
             checkCuda(cudaMalloc(&nodes,sizeof(*nodes)*n),"allocate problem node snapshot");
             checkCuda(cudaMalloc(&bonds,sizeof(*bonds)*m),"allocate problem bond snapshot");
+#if defined(PX_CUMETAL) && PX_CUMETAL
+            // CuMetal's C symbol API takes the host registration address; its
+            // reference overload deliberately excludes pointer-valued symbols.
+            checkCuda(cudaMemcpyToSymbol(static_cast<const void*>(&capturedStressNodes),&nodes,sizeof(nodes),0,cudaMemcpyHostToDevice),"bind problem nodes");
+#else
             checkCuda(cudaMemcpyToSymbol(capturedStressNodes,&nodes,sizeof(nodes)),"bind problem nodes");
+#endif
+#if defined(PX_CUMETAL) && PX_CUMETAL
+            // CuMetal's C symbol API takes the host registration address; its
+            // reference overload deliberately excludes pointer-valued symbols.
+            checkCuda(cudaMemcpyToSymbol(static_cast<const void*>(&capturedStressBonds),&bonds,sizeof(bonds),0,cudaMemcpyHostToDevice),"bind problem bonds");
+#else
             checkCuda(cudaMemcpyToSymbol(capturedStressBonds,&bonds,sizeof(bonds)),"bind problem bonds");
+#endif
         }catch(...){cleanup();throw;}
     }
     ~NativeProblemCapture(){cleanup();}

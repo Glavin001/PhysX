@@ -1,3 +1,4 @@
+#include "StressDiagnosticClock.cuh"
 #pragma once
 // Diagnostic-only sparse work accounting. No storage or instructions exist in
 // the production build. Topology is immutable during a solve, so graph visits
@@ -14,7 +15,7 @@ __device__ unsigned componentWorkCapacity, componentWorkOverflow;
     __shared__ ComponentWorkRecord workRecord; \
     __shared__ unsigned long long workStart; \
     if(!threadIdx.x){ \
-        workRecord={};workRecord.path=1;workRecord.nodes=count;workRecord.block=blockIdx.x;workStart=clock64(); \
+        workRecord={};workRecord.path=1;workRecord.nodes=count;workRecord.block=blockIdx.x;workStart=componentDiagnosticClock(); \
         workRecord.anchored=a.hierarchy.modes.components[id].anchored; \
         for(unsigned wi=0;wi<count;++wi){const unsigned wn=c.nodes[begin+wi];const auto inv=a.m_inertia[wn]; \
             if(inv.angular==0 && inv.linear==0)continue; \
@@ -36,7 +37,7 @@ __device__ unsigned componentWorkCapacity, componentWorkOverflow;
     if(iteration){COMPONENT_WORK_SWEEP(a,id,preconditionSweeps)}
 #define COMPONENT_WORK_END(id,status) \
     if(!threadIdx.x){ \
-        workRecord.iterations=status.iterations;workRecord.converged=status.converged;workRecord.cycles=clock64()-workStart; \
+        workRecord.iterations=status.iterations;workRecord.converged=status.converged;workRecord.cycles=componentDiagnosticClock()-workStart; \
         if(componentWorkRecords && id<componentWorkCapacity)componentWorkRecords[id]=workRecord; \
         else atomicExch(&componentWorkOverflow,1u); \
     }
