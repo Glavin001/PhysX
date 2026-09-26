@@ -833,6 +833,14 @@ if(BLAST_ENABLE_CUDA_STRESS)
     target_link_libraries(native_gpu_resimulation_test PRIVATE ${NATIVE_DESTRUCTION_TEST_LIBS} ${PX_DESTRUCTION_GPU_DRIVER})
     add_test(NAME physx_native_gpu_resimulation COMMAND native_gpu_resimulation_test)
 
+    add_executable(native_gpu_convergence_test tests/native_gpu_convergence_test.cpp physx_scene.cpp)
+    target_compile_definitions(native_gpu_convergence_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG PX_SUPPORT_PVD=0 PX_SUPPORT_OMNI_PVD=0)
+    target_include_directories(native_gpu_convergence_test PRIVATE ${NATIVE_CHECKPOINT_TEST_INCLUDES}
+        "${PHYSX_ROOT}/source/gpudestruction/include")
+    target_link_options(native_gpu_convergence_test PRIVATE "-Wl,-rpath,${PHYSX_LIB_DIR}")
+    target_link_libraries(native_gpu_convergence_test PRIVATE ${NATIVE_DESTRUCTION_TEST_LIBS} ${PX_DESTRUCTION_GPU_DRIVER})
+    add_test(NAME physx_native_gpu_convergence COMMAND native_gpu_convergence_test)
+
     # Minimal native GPU simulation capture. Rendering consumes committed JSON
     # separately; this target has no graphics interop or visual-kernel dependency.
     # Box-only ScenePacks the wall front ends can build by name (--scene).

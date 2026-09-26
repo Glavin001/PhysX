@@ -14,6 +14,7 @@ __global__ void evaluateBondMaterials(const PxDestructionStressChunk* chunks,
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
     const auto b=bonds[i];const float area=health[i];auto& v=verdict[i];v={};v.health=area;
     centroids[i]=b.centroid;
+    if(status->error & 4096u)return;
     if(!(area>0 && area<0.5f*FLT_MAX))return;
     const PxVec3 displacement=chunks[b.chunk1].position-chunks[b.chunk0].position;
     const PxVec3 aligned=b.normal*copysignf(1.0f,b.normal.dot(displacement));
@@ -53,6 +54,7 @@ __global__ void evaluateChunkMaterials(const PxDestructionStressChunk* chunks,
     PxU32 count,float dt,PxDestructionStageStatus* status)
 {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
+    if(status->error & 4096u){trial[i]=accepted[i];return;}
     const auto c=chunks[i];const auto material=materials[c.material].crush;
     float virial[6];for(PxU32 k=0;k<6;++k)virial[k]=surface[i].virial[k];
     if(material.capPressure>0 && c.mass>0 && !accepted[i].crushed) {
@@ -75,6 +77,7 @@ __global__ void finalizeMaterialVerdict(const PxDestructionStressBond* bonds,
     PxDestructionStageStatus* status)
 {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
+    if(status->error & 4096u)return;
     auto& v=verdict[i];const auto b=bonds[i];
     if(chunks[b.chunk0].crushed || chunks[b.chunk1].crushed)v.health=0;
     v.broken=acceptedHealth[i]>0 && v.health<=0?1u:0u;

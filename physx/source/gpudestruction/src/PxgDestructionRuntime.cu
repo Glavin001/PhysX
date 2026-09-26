@@ -301,9 +301,14 @@ __global__ void routeContacts(PxgDestructionSolvedContacts contacts, const Looku
     if(anchors)atomicAdd(&status->frictionAnchors,anchors);
 }
 __global__ void finishStatus(const ExtStressGpuDeviceStatus* solve,PxDestructionStageStatus* status,
-    const PxDestructionVectorPair* forces, PxU32 count) {
+    const PxDestructionVectorPair* forces, PxU32 count,bool requireConvergence=false) {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;
-    if(!i) { status->stressPasses=1;status->iterations=solve?solve->iterations:0;status->converged=solve?solve->converged:1; }
+    if(!i) {
+        status->stressPasses=1;status->iterations=solve?solve->iterations:0;status->converged=solve?solve->converged:1;
+        // A native material transaction requires a converged solve in this
+        // timestep. Do not commit speculative damage or refine across ticks.
+        if(requireConvergence && !status->converged)atomicOr(&status->error,4096u);
+    }
     if(i<count && (!forces[i].linear.isFinite() || !forces[i].angular.isFinite())) atomicOr(&status->error,2u);
 }
 
@@ -1740,7 +1745,7 @@ public:
             stageMarker(2);
             // Detached chunks still receive contact loads and may crush; a
             // graph without bonds has no stiffness solve to allocate or run.
-            finishStatus<<<std::max(1u,(mM+127)/128),128,0,mStream>>>(solveStatus,mStatus,forces,mM);
+            finishStatus<<<std::max(1u,(mM+127)/128),128,0,mStream>>>(solveStatus,mStatus,forces,mM,mCorrectionEnabled);
             if(mMaterials) {
                 if(mM)evaluateBondMaterials<<<(mM+127)/128,128,0,mStream>>>(mChunks,mBonds,mMaterials,mHealth,forces,mM,
                     dt,mDamageRate,mBendGain,mFibres,mVerdicts,mBondCentroids,mStatus);

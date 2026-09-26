@@ -9,6 +9,7 @@
 #include "native_pre_solve_check.h"
 #include "native_owner_observation_check.h"
 #include "native_refilter_check.h"
+#include "native_convergence_check.h"
 #include "PxgNphaseImplementationContext.h"
 #include "PxgNarrowphaseCore.h"
 #include "PxsContactManager.h"
@@ -460,43 +461,10 @@ RepeatedResult repeatedImpacts(bool reuse,bool gpuRepair=false,bool preSolve=fal
     require(context.healthy(),"repeat GPU health failed");return result;
 }
 
-void unconvergedStress() {
-    for(bool native:{false,true}) {
-        blast_demo::SceneCapacity capacity;
-        blast_demo::PhysXScene context(blast_demo::PhysicsMode::Gpu,true,capacity,nullptr,true,true,false,false);
-        auto& scene=context.scene();auto* parent=context.physics().createRigidDynamic(PxTransform(PxVec3(0,10,0)));
-        parent->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC,true);
-        PxDestructionStressChunk nodes[4];PxDestructionChunkMassProperties mass[4]{};
-        PxDestructionStressBond bonds[3];
-        for(unsigned i=0;i<4;++i) {
-            nodes[i]={PxVec3(float(i),0,0),i?float(i):0.0f,i?float(i):0.0f,0,PX_INVALID_U32};
-            mass[i].center[0]=i;mass[i].mass=i;mass[i].supported=i==0;
-            mass[i].inertia[0]=mass[i].inertia[1]=mass[i].inertia[2]=i;
-            if(i) {
-                bonds[i-1]={i-1,i,PxVec3(float(i)-.5f,0,0),PxVec3(1,0,0),1,1,1};
-                auto* shape=context.physics().createShape(PxBoxGeometry(.5f,.5f,.5f),context.material(),true);
-                shape->setLocalPose(PxTransform(nodes[i].position));require(parent->attachShape(*shape),"cantilever shape setup failed");shape->release();
-            }
-        }
-        scene.addActor(*parent);scene.simulate(1.0f/60);require(scene.fetchResults(true),"cantilever warmup failed");
-        PxDestructionStressCluster cluster{parent->getGPUIndex(),PxVec3(2.3333333f,0,0)};
-        PxDestructionMaterial material;material.compressionElasticLimit=1e12f;material.compressionFatalLimit=2e12f;
-        PxDestructionStressDesc desc;desc.chunks=nodes;desc.chunkCount=4;desc.chunkMassProperties=mass;desc.bonds=bonds;desc.bondCount=3;
-        desc.clusters=&cluster;desc.clusterCount=1;desc.materials=&material;desc.materialCount=1;desc.maxIterations=1;desc.tolerance=1e-5f;desc.internalCorrectionLimit=native?1:0;
-        auto* stage=scene.getDestructionScene();require(stage->configureStress(desc),"cantilever stress configuration failed");
-        scene.simulate(1.0f/60);PxU32 error=0;const bool accepted=scene.fetchResults(true,&error);const auto status=stage->getLastStatus();
-        require(!status.converged && status.iterations==1,"fixture did not exhaust its stress budget");
-        // An unconverged solve no longer fails the step (status error 4096 is
-        // retired): the tick keeps its warm-started iterate, withholds every
-        // fracture verdict and refines the same solve next tick.
-        if(native)require(accepted && !error && !status.error && !status.correctionPasses && !status.brokenBonds,"native mode failed or fractured on an unconverged stress result");
-        else require(accepted && !error && !status.error,"diagnostic compatibility changed");
-        require(stage->clearStress(),"cantilever cleanup failed");parent->release();require(context.healthy(),"cantilever GPU health failed");
-    }
-    std::puts("native convergence gate withholds verdicts on an exhausted stress budget; diagnostic reference remains selectable");
-}
+
 }
 int main(int argc,char** argv){try {
+    if(argc==2 && std::string(argv[1])=="--unconverged") {nativeConvergenceTest::run();return 0;}
     if(argc==2 && std::string(argv[1])=="--retained-owner") {
         impact(true,false,false,0,true,0,false,false,true);
         std::puts("Retained owner: unique persistent contact pairs, one GPU-only retained shape and one CPU migration passed");return 0;
@@ -558,4 +526,4 @@ int main(int argc,char** argv){try {
     }
     std::printf("Device connectivity ownership: reference fracture decisions and %zu trajectory samples match\n",repeatOwner.trajectory.size());
     std::printf("CUDA pre-solve producer: reference fracture decisions and %zu trajectory samples match\n",repeatProducer.trajectory.size());
-    unconvergedStress();const auto intact=impact(false),broken=impact(true);impact(true,true);impact(true,false,true);const auto sparse=impact(true,false,false,128);require(std::abs(sparse.projectileVelocity-broken.projectileVelocity)<.02f && sparse.corrections==broken.corrections,"unrelated clusters changed the impact response");require(broken.projectileVelocity>intact.projectileVelocity+1,"correction did not change projectile response relative to intact wall");std::printf("NATIVE RESIM PASS: intact projectile=%g fractured projectile=%g corrections=%u\n",intact.projectileVelocity,broken.projectileVelocity,broken.corrections);return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}
+    nativeConvergenceTest::run();const auto intact=impact(false),broken=impact(true);impact(true,true);impact(true,false,true);const auto sparse=impact(true,false,false,128);require(std::abs(sparse.projectileVelocity-broken.projectileVelocity)<.02f && sparse.corrections==broken.corrections,"unrelated clusters changed the impact response");require(broken.projectileVelocity>intact.projectileVelocity+1,"correction did not change projectile response relative to intact wall");std::printf("NATIVE RESIM PASS: intact projectile=%g fractured projectile=%g corrections=%u\n",intact.projectileVelocity,broken.projectileVelocity,broken.corrections);return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}
