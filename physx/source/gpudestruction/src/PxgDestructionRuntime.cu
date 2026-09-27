@@ -1005,6 +1005,8 @@ public:
             }
             if(retainedSlotCount>mGraphRetainedSlotCapacity) {
                 PxProfileScoped zone_growRetainedSlots(mProfiler,"GpuDestruction.graph.growRetainedSlots",false,mProfileContext);
+                if(std::getenv("PX_DESTRUCTION_LOG_GRAPH_GROWTH"))
+                    std::fprintf(stderr,"[destruction] retained contact slots grow: %u > %u\n",retainedSlotCount,mGraphRetainedSlotCapacity);
                 if(mGraphView.generation)check(cudaEventSynchronize(mGraphReady));
                 const PxU32 capacity=PxU32(std::min<PxU64>(~PxU32(0),std::max<PxU64>(retainedSlotCount,2ull*mGraphRetainedSlotCapacity)));
                 PxgDestructionRetainedEdge* nextSlots=nullptr;PxU32* nextActive=nullptr;
@@ -1887,6 +1889,8 @@ public:
         const PxU32 needed=mCommittedMotionSlots+requested;
         if(allocation.error==1u && needed>mMotionSlotCapacity) {
             PxProfileScoped growth(mProfiler,"GpuDestruction.finishDetail.growMotionSlots",false,mProfileContext);
+            if(std::getenv("PX_DESTRUCTION_LOG_GRAPH_GROWTH"))
+                std::fprintf(stderr,"[destruction] motion slots grow: %u needed > %u\n",needed,mMotionSlotCapacity);
             const PxU32 capacity=PxU32(std::min<PxU64>(PX_INVALID_U32,
                 std::max<PxU64>(needed,std::max<PxU64>(256,PxU64(mMotionSlotCapacity)+mMotionSlotCapacity/2))));
             const PxU32* granted=nullptr;
