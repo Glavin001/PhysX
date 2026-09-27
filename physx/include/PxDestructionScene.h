@@ -148,6 +148,11 @@ struct PxDestructionStressDesc {
     // carrier -- then sheds weightless debris. When set, free fragments get
     // ordinary scene gravity; supported remnants keep the inherited flag.
     bool fragmentGravity = false;
+    // Contact-graph storage (pairs, island nodes, retained slots) allocated at
+    // configure time. Grown on demand instead, the first large split waits for
+    // all in-flight GPU work and reallocates at its busiest moment (78 ms
+    // measured on a meteor strike); zero keeps growing on demand.
+    PxU32 reservedContactPairs = 0;
     // Primary hulls remain in chunks[].contactIndex. Additional identities must
     // be unique across both lists and use the same cluster-local actor frame.
     const PxDestructionStressShape* additionalShapes = NULL;

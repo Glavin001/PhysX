@@ -968,17 +968,22 @@ public:
             // Storage grows explicitly, never truncates. Prior producer work
             // must finish before reallocating a published snapshot's buffers.
             if(count>mGraphPairCapacity || nodeCapacity>mGraphNodeCapacity) {
+                PxProfileScoped zone_growPairsNodes(mProfiler,"GpuDestruction.graph.growPairsNodes",false,mProfileContext);
+                if(std::getenv("PX_DESTRUCTION_LOG_GRAPH_GROWTH"))
+                    std::fprintf(stderr,"[destruction] contact graph grows: pairs %u > %u or nodes %u > %u\n",count,mGraphPairCapacity,nodeCapacity,mGraphNodeCapacity);
                 check(cudaEventSynchronize(mPreReady));
                 if(mGraphView.generation)check(cudaEventSynchronize(mGraphReady));
                 if(count>mGraphPairCapacity) {
-                    const PxU32 capacity=PxU32(std::min<PxU64>(~PxU32(0),std::max<PxU64>(count,2ull*mGraphPairCapacity)));
+                    // Headroom: growing to exactly the count regrew the next tick
+                    // (21974 then 23790 pairs after a split), waiting on a busy GPU.
+                    const PxU32 capacity=PxU32(std::min<PxU64>(~PxU32(0),std::max<PxU64>(PxU64(count)+count/2,2ull*mGraphPairCapacity)));
                     check(cudaFree(mGraphRetiredMask));mGraphRetiredMask=nullptr;
                     allocate(mGraphRetiredMask,(size_t(capacity)+31)/32);
                     mGraphPairCapacity=capacity;
                 }
                 if(nodeCapacity>mGraphNodeCapacity) {
                     // Keep ownership of successful allocations on later failure.
-                    const PxU32 capacity=PxU32(std::min<PxU64>(~PxU32(0),std::max<PxU64>(nodeCapacity,2ull*mGraphNodeCapacity)));
+                    const PxU32 capacity=PxU32(std::min<PxU64>(~PxU32(0),std::max<PxU64>(PxU64(nodeCapacity)+nodeCapacity/2,2ull*mGraphNodeCapacity)));
                     check(cudaFree(mGraphAccurate));mGraphAccurate=nullptr;allocate(mGraphAccurate,capacity);
                     check(cudaFree(mGraphSpeculative));mGraphSpeculative=nullptr;allocate(mGraphSpeculative,capacity);
                     mGraphNodeCapacity=capacity;
@@ -988,6 +993,7 @@ public:
                 // Upload only existing lifecycle deltas, never body motion or
                 // a CPU-computed component graph. Retain pinned staging until
                 // the ordered producer has consumed it.
+                PxProfileScoped zone_retiredWait(mProfiler,"GpuDestruction.graph.retiredWait",false,mProfileContext);
                 if(mGraphView.generation)check(cudaEventSynchronize(mGraphReady));
                 if(retiredCount>mGraphRetiredCapacity) {
                     const PxU32 capacity=PxU32(std::min<PxU64>(~PxU32(0),std::max<PxU64>(retiredCount,2ull*mGraphRetiredCapacity)));
@@ -998,6 +1004,7 @@ public:
                 std::copy(retired,retired+retiredCount,mGraphHostRetired);
             }
             if(retainedSlotCount>mGraphRetainedSlotCapacity) {
+                PxProfileScoped zone_growRetainedSlots(mProfiler,"GpuDestruction.graph.growRetainedSlots",false,mProfileContext);
                 if(mGraphView.generation)check(cudaEventSynchronize(mGraphReady));
                 const PxU32 capacity=PxU32(std::min<PxU64>(~PxU32(0),std::max<PxU64>(retainedSlotCount,2ull*mGraphRetainedSlotCapacity)));
                 PxgDestructionRetainedEdge* nextSlots=nullptr;PxU32* nextActive=nullptr;
@@ -1018,6 +1025,7 @@ public:
                 allocate(mGraphRetainedCounts,3);check(cudaMemset(mGraphRetainedCounts,0,3*sizeof(PxU32)));
             }
             if(retainedEdgeCount) {
+                PxProfileScoped zone_retainedEdgesWait(mProfiler,"GpuDestruction.graph.retainedEdgesWait",false,mProfileContext);
                 if(mGraphView.generation)check(cudaEventSynchronize(mGraphReady));
                 if(retainedEdgeCount>mGraphRetainedEdgeCapacity) {
                     const PxU32 capacity=PxU32(std::min<PxU64>(~PxU32(0),std::max<PxU64>(retainedEdgeCount,2ull*mGraphRetainedEdgeCapacity)));
@@ -1429,6 +1437,22 @@ public:
                 check(cudaMemcpyToSymbol(gNativeFragmentMaxPenBias,&mFragmentMaxPenBias,sizeof(float)));
                 const bool fragmentGravity=d.fragmentGravity;
                 check(cudaMemcpyToSymbol(gNativeFragmentGravity,&fragmentGravity,sizeof(bool)));
+            }
+            if(d.reservedContactPairs>mGraphPairCapacity) {
+                // Before any graph snapshot exists: nothing in flight to wait for.
+                const PxU32 capacity=d.reservedContactPairs;
+                check(cudaFree(mGraphRetiredMask));mGraphRetiredMask=nullptr;allocate(mGraphRetiredMask,(size_t(capacity)+31)/32);
+                mGraphPairCapacity=capacity;
+                if(capacity>mGraphNodeCapacity) {
+                    check(cudaFree(mGraphAccurate));mGraphAccurate=nullptr;allocate(mGraphAccurate,capacity);
+                    check(cudaFree(mGraphSpeculative));mGraphSpeculative=nullptr;allocate(mGraphSpeculative,capacity);
+                    mGraphNodeCapacity=capacity;
+                }
+                if(capacity>mGraphRetainedSlotCapacity && !mGraphRetainedSlotCapacity) {
+                    allocate(mGraphRetainedSlots,capacity);allocate(mGraphRetainedActive,(size_t(capacity)+31)/32);
+                    check(cudaMemset(mGraphRetainedActive,0,((size_t(capacity)+31)/32)*sizeof(PxU32)));
+                    mGraphRetainedSlotCapacity=capacity;mGraphObservationStats.retainedSlotCapacity=capacity;
+                }
             }
             if(d.chunkMassProperties) {
                 mTopology=PxgDestructionTopologyTransaction::create(d.chunkMassProperties,d.chunkCount,topologyBonds.data(),d.bondCount);
