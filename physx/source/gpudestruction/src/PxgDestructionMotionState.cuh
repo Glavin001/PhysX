@@ -15,6 +15,8 @@ __global__ void validateReservedBodies(const PxvDestructionBodyRequest* requests
 // Configured free-fragment depenetration clamp (negative, PhysX convention);
 // -1e32 leaves the inherited value alone. Written once at configureStress.
 __device__ float gNativeFragmentMaxPenBias=-1e32f;
+// PxDestructionStressDesc::fragmentGravity: free fragments are not weightless.
+__device__ bool gNativeFragmentGravity=false;
 __device__ PxgBodySim nativeCandidateState(const PxDestructionClusterBodyState& candidate,const PxgBodySim& source,PxU32 id) {
     auto b=source;
     // Inherit physical settings from the authoritative GPU source, not the CPU
@@ -24,6 +26,7 @@ __device__ PxgBodySim nativeCandidateState(const PxDestructionClusterBodyState& 
     // without touching the supported remnant's contacts.
     if(!candidate.supported)b.maxLinearVelocitySqX_maxAngularVelocitySqY_linearDampingZ_angularDampingW=b.dynamicLimitsDamping;
     if(!candidate.supported)b.angularVelocityXYZ_maxPenBiasW.w=fmaxf(b.angularVelocityXYZ_maxPenBiasW.w,gNativeFragmentMaxPenBias);
+    if(!candidate.supported && gNativeFragmentGravity)b.disableGravity=0;
     b.linearVelocityXYZ_inverseMassW=make_float4(candidate.linearVelocity[0],candidate.linearVelocity[1],candidate.linearVelocity[2],candidate.inverseMass);
     b.angularVelocityXYZ_maxPenBiasW.x=candidate.angularVelocity[0];
     b.angularVelocityXYZ_maxPenBiasW.y=candidate.angularVelocity[1];

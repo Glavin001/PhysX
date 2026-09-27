@@ -1427,6 +1427,8 @@ public:
                 mDamageRate=d.damageRate;mBendGain=d.bendGainMax;mFibres=d.fibreBending;
                 mFragmentMaxPenBias=d.fragmentMaxDepenetrationVelocity>0?-d.fragmentMaxDepenetrationVelocity:-1e32f;
                 check(cudaMemcpyToSymbol(gNativeFragmentMaxPenBias,&mFragmentMaxPenBias,sizeof(float)));
+                const bool fragmentGravity=d.fragmentGravity;
+                check(cudaMemcpyToSymbol(gNativeFragmentGravity,&fragmentGravity,sizeof(bool)));
             }
             if(d.chunkMassProperties) {
                 mTopology=PxgDestructionTopologyTransaction::create(d.chunkMassProperties,d.chunkCount,topologyBonds.data(),d.bondCount);

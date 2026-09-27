@@ -142,6 +142,12 @@ struct PxDestructionStressDesc {
     // monotonically instead of settling into a PGS fixed point or a two-step
     // cycle that never sleeps.
     PxReal fragmentMaxDepenetrationVelocity = 0.0f;
+    // Free fragments normally inherit every physical setting of the body they
+    // split from, including PxActorFlag::eDISABLE_GRAVITY. A source that is
+    // weightless because something else integrates its gravity -- a Vehicle2
+    // carrier -- then sheds weightless debris. When set, free fragments get
+    // ordinary scene gravity; supported remnants keep the inherited flag.
+    bool fragmentGravity = false;
     // Primary hulls remain in chunks[].contactIndex. Additional identities must
     // be unique across both lists and use the same cluster-local actor frame.
     const PxDestructionStressShape* additionalShapes = NULL;
