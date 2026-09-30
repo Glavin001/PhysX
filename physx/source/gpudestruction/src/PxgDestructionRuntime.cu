@@ -24,6 +24,8 @@
 #include <limits>
 #include <stdexcept>
 #include <vector>
+#include <cstdio>
+#include <type_traits>
 
 namespace physx { namespace {
 using namespace Nv::Blast;
@@ -2386,6 +2388,22 @@ public:
                         && !(mHostCompletion->idle & (eIDLE_STATE_CHANGED|eIDLE_INPUTS_CHANGED));
                 }}
             if(mHostStatus->brokenBonds || mHostStatus->crushedChunks)mEverDamaged=true;
+            // PX_DESTRUCTION_LOG_TOPOLOGY_ERROR=1: say which stress topology check
+            // raised error bit 64. The stage status carries only the bit.
+            if((mHostStatus->error&64u) && mSolver && std::getenv("PX_DESTRUCTION_LOG_TOPOLOGY_ERROR")) {
+                static unsigned logged=0;
+                const auto stress=mSolver->deviceView();
+                if(stress.topologyStatus && logged<8) {
+                    ++logged;
+                    std::remove_const_t<std::remove_pointer_t<decltype(stress.topologyStatus)>> t{};
+                    check(cudaMemcpy(&t,stress.topologyStatus,sizeof(t),cudaMemcpyDeviceToHost));
+                    std::fprintf(stderr,"[PxDestruction] frame %llu stress topology error 0x%08x (low 0x%02x, hierarchy %u, motion %u, bits24+ 0x%x) "
+                        "initialized=%u generation=%llu solved=%llu rebuilds=%llu islands=%u bonds=%u nodes=%u\n",
+                        static_cast<unsigned long long>(mHostStatus->frame),t.error,t.error&0xffu,(t.error>>8)&0xffu,(t.error>>16)&0xffu,t.error>>24,
+                        t.initialized,static_cast<unsigned long long>(t.generation),static_cast<unsigned long long>(t.solvedGeneration),
+                        static_cast<unsigned long long>(t.rebuilds),t.islandCount,t.activeBondCount,t.activeNodeCount);
+                }
+            }
             if(mFailed)mHostStatus->error|=4u;
             return !mFailed && mHostStatus->error==0;
         }catch(...){mFailed=true;mHostStatus->error|=4u;

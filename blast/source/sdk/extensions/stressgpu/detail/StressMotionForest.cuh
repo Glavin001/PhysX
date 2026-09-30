@@ -2,9 +2,17 @@
 // positions are deliberately not used: rounded offsets can retain real moments.
 #pragma once
 #include "StressHierarchyOperator.cuh"
-// Apple GPUs have no binary64; CuMetal builds the same forest, with the same
-// exact sums and decisions, from float expansions (StressMotionPairForest.cuh).
-#if defined(PX_CUMETAL) && PX_CUMETAL
+// The forest is built from float expansions (StressMotionPairForest.cuh) on
+// every backend. Apple GPUs have no binary64, and one binary64 sum cannot hold
+// a tiny authored COM offset next to a world position tens of metres away: the
+// binary64 forest below rejected every vehicle chunk's sum as inexact (error
+// 16), so a CUDA stage holding a destructible car failed every step while the
+// same scene ran on CuMetal. BLAST_STRESS_MOTION_EXPANSION=0 restores the
+// binary64 forest on CUDA for comparison.
+#ifndef BLAST_STRESS_MOTION_EXPANSION
+#define BLAST_STRESS_MOTION_EXPANSION 1
+#endif
+#if (defined(PX_CUMETAL) && PX_CUMETAL) || BLAST_STRESS_MOTION_EXPANSION
 #include "StressMotionPairForest.cuh"
 #else
 namespace Nv { namespace Blast { namespace StressHierarchy {

@@ -4,7 +4,8 @@
 #include <algorithm>
 #include <stdexcept>
 #include <string>
-#if defined(PX_CUMETAL) && PX_CUMETAL
+// Follows the forest's representation (StressMotionForest.cuh).
+#if (defined(PX_CUMETAL) && PX_CUMETAL) || BLAST_STRESS_MOTION_EXPANSION
 #include "StressMotionPairModes.cuh"
 #else
 namespace Nv { namespace Blast { namespace StressHierarchy {
