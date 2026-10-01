@@ -129,27 +129,48 @@ void setDriveParams(const T& d, DirectDrivetrainParams& p)
 // suspension-limit/sticky loads without dividing an aggregate by guesswork.
 // Keep the SDK shader and its padded constant layout: only slot zero is active.
 // eOUTPUT_FORCE requests writeback; it does not change the constraint law.
+// The constant block: Vehicle2's states first (its prep reads them from the
+// block's start), then the bump stop that softens the suspension limit.
+struct WheelConstraintBlock {
+    PxVehiclePhysXConstraintState states[PxVehiclePhysXConstraintLimits::eNB_WHEELS_PER_PXCONSTRAINT];
+    PxReal bumpStopStiffness;
+    PxReal bumpStopDamping;
+};
 PxU32 wheelConstraintSolverPrep(Px1DConstraint* rows, PxVec3p& offset, PxU32 capacity,
     PxConstraintInvMassScale& scale, const void* block, const PxTransform& a,
     const PxTransform& b, bool extended, PxVec3p& ca, PxVec3p& cb)
 {
     const PxU32 count = vehicleConstraintSolverPrep(rows, offset, capacity, scale, block, a, b, extended, ca, cb);
-    for (PxU32 i=0; i<count; ++i) rows[i].flags |= Px1DConstraintFlag::eOUTPUT_FORCE;
+    const auto* data = static_cast<const WheelConstraintBlock*>(block);
+    // Suspension-limit rows come first, one per active status.
+    PxU32 limits = 0;
+    for (const auto& state : data->states) limits += state.suspActiveStatus ? 1u : 0u;
+    for (PxU32 i=0; i<count; ++i) {
+        rows[i].flags |= Px1DConstraintFlag::eOUTPUT_FORCE;
+        if (i < limits && data->bumpStopStiffness > 0.0f) {
+            rows[i].flags = PxU16(rows[i].flags & ~PxU16(Px1DConstraintFlag::eRESTITUTION));
+            rows[i].flags |= Px1DConstraintFlag::eSPRING;
+            rows[i].mods.spring.stiffness = data->bumpStopStiffness;
+            rows[i].mods.spring.damping = data->bumpStopDamping;
+        }
+    }
     return count;
 }
 class WheelConstraintConnector final : public PxVehicleConstraintConnector {
     PxVehiclePhysXConstraintState* mSource;
-    PxVehiclePhysXConstraintState mBlock[PxVehiclePhysXConstraintLimits::eNB_WHEELS_PER_PXCONSTRAINT];
+    WheelConstraintBlock mBlock;
 public:
-    explicit WheelConstraintConnector(PxVehiclePhysXConstraintState* source) : mSource(source) {
-        for (auto& state : mBlock) state.setToDefault();
+    WheelConstraintConnector(PxVehiclePhysXConstraintState* source, PxReal stiffness, PxReal damping) : mSource(source) {
+        for (auto& state : mBlock.states) state.setToDefault();
+        mBlock.bumpStopStiffness = stiffness; mBlock.bumpStopDamping = damping;
     }
-    void* prepareData() override { mBlock[0] = *mSource; return mBlock; }
-    const void* getConstantBlock() const override { return mBlock; }
+    void* prepareData() override { mBlock.states[0] = *mSource; return &mBlock; }
+    const void* getConstantBlock() const override { return &mBlock; }
     PxConstraintSolverPrep getPrep() const override { return wheelConstraintSolverPrep; }
 };
 
-bool createWheelConstraints(PxPhysics& physics, PxRigidBody& actor, PxVehiclePhysXConstraints& constraints)
+bool createWheelConstraints(PxPhysics& physics, PxRigidBody& actor, PxVehiclePhysXConstraints& constraints,
+    PxReal bumpStopStiffness, PxReal bumpStopDamping)
 {
     static_assert(PxVehiclePhysXConstraintLimits::eNB_CONSTRAINTS_PER_VEHICLE >= 4,
         "Native four-wheel wrapper needs four constraint slots");
@@ -158,10 +179,9 @@ bool createWheelConstraints(PxPhysics& physics, PxRigidBody& actor, PxVehiclePhy
     for (PxU32 w=0; w<4; ++w) {
         void* memory = PX_ALLOC(sizeof(WheelConstraintConnector), "NativeVehicleWheelConstraint");
         if (!memory) return false;
-        auto* connector = PX_PLACEMENT_NEW(memory, WheelConstraintConnector)(&constraints.constraintStates[w]);
+        auto* connector = PX_PLACEMENT_NEW(memory, WheelConstraintConnector)(&constraints.constraintStates[w], bumpStopStiffness, bumpStopDamping);
         constraints.constraintConnectors[w] = connector;
-        constraints.constraints[w] = physics.createConstraint(&actor, nullptr, *connector, shaders,
-            sizeof(PxVehiclePhysXConstraintState)*PxVehiclePhysXConstraintLimits::eNB_WHEELS_PER_PXCONSTRAINT);
+        constraints.constraints[w] = physics.createConstraint(&actor, nullptr, *connector, shaders, sizeof(WheelConstraintBlock));
         if (!constraints.constraints[w]) return false;
     }
     return true;
@@ -337,7 +357,8 @@ public:
 
         PxRigidDynamic* body = mVehicle.mPhysXState.physxActor.rigidBody->is<PxRigidDynamic>();
         if (!body) return false;
-        if (desc.keepConstraints && !createWheelConstraints(mPhysics, *body, mVehicle.mPhysXState.physxConstraints)) return false;
+        if (desc.keepConstraints && !createWheelConstraints(mPhysics, *body, mVehicle.mPhysXState.physxConstraints,
+                desc.bumpStopStiffness, desc.bumpStopDamping)) return false;
         PxShape* shapes[PxVehicleLimits::eMAX_NB_WHEELS + 1];
         const PxU32 count = body->getShapes(shapes, PxVehicleLimits::eMAX_NB_WHEELS + 1);
         for (PxU32 i = 0; i < count; ++i) {

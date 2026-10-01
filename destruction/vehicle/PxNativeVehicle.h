@@ -90,7 +90,18 @@ struct NativeVehicleDesc {
     // admits them on a body it does not own; drop them only to reproduce the
     // pre-narrowed-gate configuration.
     bool keepConstraints = true;
+
+    // Bump stop (PX_NATIVE_VEHICLE_BUMP_STOP_VERSION). Vehicle2 treats travel
+    // beyond max compression as a rigid contact: the whole excess is removed in
+    // one step, so a wheel whose road jumps within a step (a kerb face, a bank)
+    // takes the corner's momentum change in 1/60 s -- megaNewtons a real tyre
+    // carcass and bump stop spread over tens of milliseconds. Nonzero stiffness
+    // (N/m) and damping (N s/m) make that limit a compliant, push-only spring.
+    // 0 keeps the rigid limit.
+    PxReal bumpStopStiffness = 0.0f;
+    PxReal bumpStopDamping = 0.0f;
 };
+#define PX_NATIVE_VEHICLE_BUMP_STOP_VERSION 1
 
 struct NativeVehicleWheelState {
     // COM-relative translation, chassis-oriented axes (not principal inertia
