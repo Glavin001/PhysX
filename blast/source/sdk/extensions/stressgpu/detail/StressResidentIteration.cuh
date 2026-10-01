@@ -51,6 +51,9 @@ struct PersistentStressArgs {
     // by component id, and each node's share of its component's residual.
     ExtStressGpuComponentReport* report=nullptr;
     float* nodeResidual2=nullptr;
+    // Apply the block polynomial from iteration 0 instead of a projected
+    // steepest-descent step (firstPreconditionerMode).
+    bool firstPolynomial=false;
 };
 #include "StressComponentPhaseProbe.cuh"
 #include "StressNativePreconditioner.cuh"

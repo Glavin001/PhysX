@@ -343,6 +343,25 @@ bool skipConvergedEnabled()
     return e;
 }
 
+/// Preconditioner of the first native small-component iteration (A/B switch,
+/// BLAST_STRESS_FIRST_PRECONDITIONER). The default is the original projected
+/// steepest-descent step (identity): exact for a single mode, but on a car
+/// whose bond stiffness spans 1e6 it amplifies every stiff mode by |1-alpha*l|,
+/// and the vehicle lab saw the residual rise 1e2-1e4x at iteration 1 in every
+/// capped solve. "polynomial" applies the fixed block polynomial from
+/// iteration 0, "warm" only when the solve is warm-started. 0/1/2.
+unsigned firstPreconditionerMode()
+{
+    static const unsigned mode = [] {
+        const char* raw = std::getenv("BLAST_STRESS_FIRST_PRECONDITIONER");
+        if(raw == nullptr || !*raw || std::string(raw) == "identity") return 0u;
+        if(std::string(raw) == "polynomial") return 1u;
+        if(std::string(raw) == "warm") return 2u;
+        throw std::runtime_error("BLAST_STRESS_FIRST_PRECONDITIONER must be identity, polynomial or warm");
+    }();
+    return mode;
+}
+
 // Fixed-order reductions for reproducible GPU audits. This remains opt-in
 // until whole-city timings qualify the additional pass and topology uploads.
 bool deterministicReductionsEnabled()

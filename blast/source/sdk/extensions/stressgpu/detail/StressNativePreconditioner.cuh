@@ -66,9 +66,10 @@ __device__ __forceinline__ float preconditionNativeComponent(const PersistentStr
     // Begin with a projected steepest-descent step. It is exact for a single
     // mode and costs no hierarchy traversal. If further work is needed, restart
     // PCG with the fixed block preconditioner on iteration one; never mix preconditioners
-    // in the conjugacy recurrence.
+    // in the conjugacy recurrence. With firstPolynomial the polynomial applies
+    // from iteration 0 and PCG runs unrestarted.
     auto* result=a.hierarchy.result;
-    if(!iteration){for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)a.hierarchy.result[nodes[i]]=a.hierarchy.rhs[nodes[i]];__syncthreads();}
+    if(!iteration && !a.firstPolynomial){for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)a.hierarchy.result[nodes[i]]=a.hierarchy.rhs[nodes[i]];__syncthreads();}
     else {
         // Apply the fixed polynomial using cached local inverses.
         // Large components retain their cooperative multilevel schedule.
@@ -95,14 +96,14 @@ __device__ __forceinline__ float preconditionNativeComponent(const PersistentStr
 // and a second operator product of the preconditioned vector.
 __device__ __forceinline__ void updateNativeDirection(const PersistentStressArgs& a,unsigned node,unsigned id,unsigned iteration){
     if(!a.m_islandActive[id])return;
-    const float previous=a.hierarchy.previous[id],beta=iteration>1 && previous>0?a.hierarchy.gamma[id]/previous:0;
+    const float previous=a.hierarchy.previous[id],beta=(iteration>1 || (a.firstPolynomial && iteration>0)) && previous>0?a.hierarchy.gamma[id]/previous:0;
     a.m_nsPi[node].angular=add(a.hierarchy.g[node].angular,mul(a.m_nsPi[node].angular,beta));
     a.m_nsPi[node].linear=add(a.hierarchy.g[node].linear,mul(a.m_nsPi[node].linear,beta));
 }
 __device__ __forceinline__ void preconditionNativeGrid(const PersistentStressArgs& a,StressHierarchy::TerminalShared& shared){
     const auto grid=cooperative_groups::this_grid();const unsigned first=blockIdx.x*blockDim.x+threadIdx.x,stride=gridDim.x*blockDim.x;
     const auto v=a.hierarchy.cycle;
-    if(!*a.m_iteration){
+    if(!*a.m_iteration && !a.firstPolynomial){
         for(unsigned i=first;i<a.m_activeCounts[1];i+=stride){const unsigned node=a.m_activeNodes[i];if(a.m_islandActive[a.m_nodeIsland[node]])a.hierarchy.result[node]=a.hierarchy.rhs[node];}grid.sync();
     }else StressHierarchy::cyclePass(v.levels,v.depth,v.pool,shared,a.hierarchy.rhs,a.hierarchy.result,StressHierarchy::Invalid,a.m_islandActive);
     projectNativeNullspacesGrid(a,a.hierarchy.result);
