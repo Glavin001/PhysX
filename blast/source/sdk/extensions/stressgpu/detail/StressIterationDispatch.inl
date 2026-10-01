@@ -245,7 +245,7 @@
         const auto kernel=m_deviceTopology?persistentStressSolve<true>:persistentStressSolve<false>;
         if(m_deviceTopology){args.hierarchy=m_deviceTopology->cycleView();args.input=m_input;args.impulses=m_impulses;args.originalRhs=m_rhs;args.warmStart=params.warmStart && m_hasWarmStart;args.settledIslands=m_islandSkip;
             if(m_reportEnabled){args.report=m_report;args.nodeResidual2=m_nodeResidual2;}
-            const unsigned first=firstPreconditionerMode();args.firstPolynomial=first==1u || (first==2u && args.warmStart);}
+            const unsigned first=firstPreconditionerMode();args.firstPolynomial=first==1u || (first==2u && args.warmStart);args.forceTolerance=forceTolerance();}
 #if defined(PX_CUMETAL_EXPLICIT_HIERARCHY_ROOT) && PX_CUMETAL_EXPLICIT_HIERARCHY_ROOT
         // Capture copies this pointer value, not the address of this host local.
         // The descriptor allocation survives every captured/eager solve.
@@ -310,8 +310,12 @@
 #endif
         };
         checkCuda(cudaLaunchCooperativeKernel((void*)kernel,dim3(blocks),dim3(kBlockSize),arguments,0,m_stream),"capture persistent stress solve");
-        if(m_deviceTopology)
+        if(m_deviceTopology){
             finishComponentStress<<<1,kBlockSize,0,m_stream>>>(args,components);
+#ifdef BLAST_GPU_NATIVE_PROBLEM_CAPTURE
+            captureStressSolution<<<(m_nodeCount+kBlockSize-1)/kBlockSize,kBlockSize,0,m_stream>>>(args,components,m_nodeCount);
+#endif
+        }
 #else
         (void)params;
 #endif

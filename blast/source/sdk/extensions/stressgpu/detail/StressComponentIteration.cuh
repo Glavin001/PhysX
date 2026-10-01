@@ -1,5 +1,6 @@
 #include "StressComponentPhaseProbe.cuh"
 #include "StressComponentWorkProbe.cuh"
+#include "StressProblemCaptureSymbols.cuh"
 // Private native specialization, included after the shared resident arguments.
 #ifdef PHYSX_RESIDENT_DESTRUCTION
 // Every warp produces one fully overwritten partial. No floating atomics
@@ -42,6 +43,39 @@ __device__ __forceinline__ void reportResidual(ExtStressGpuComponentReport* r,un
     else if((iteration&(iteration-1u))==0u){unsigned k=0;while((1u<<k)<iteration)++k;if(k+1u<16u)r->history[k+1u]=value;}
 }
 
+// ||lambda0 + B^T mu||^2 over a component's live bonds, each counted once
+// (the operator's ownership rule), in solver units: the bond forces this solve
+// would publish if it stopped now (withSolution), or started with. Per thread;
+// reduce with componentSquaredNorm.
+__device__ __forceinline__ float componentForceNorm2(const PersistentStressArgs& a,const unsigned* nodes,unsigned count,bool withSolution)
+{
+    float sum=0;
+    for(unsigned i=threadIdx.x;i<count;i+=blockDim.x){
+        const unsigned node=nodes[i];
+        for(unsigned k=a.m_nodeBondBegin[node];k<a.m_nodeBondBegin[node+1];++k){
+            const unsigned ref=a.m_nodeBondRef[k];if(ref==kDeadBondRef)continue;
+            const unsigned bond=ref&0x7FFFFFFFu;const bool second=(ref&0x80000000u)!=0u;
+            if(a.m_health[bond]<=0.0f)continue;
+            const Inertia other=a.m_inertia[second?a.m_node0[bond]:a.m_node1[bond]];
+            if(second && !(other.angular==0.0f && other.linear==0.0f))continue;
+            AngLin f=a.impulses[bond];
+            if(withSolution){
+                const unsigned n0=a.m_node0[bond],n1=a.m_node1[bond];
+                const auto x=StressHierarchy::scaledValue(a.hierarchy.solution[n0],make_float2(a.m_inertia[n0].angular,a.m_inertia[n0].linear));
+                const auto y=StressHierarchy::scaledValue(a.hierarchy.solution[n1],make_float2(a.m_inertia[n1].angular,a.m_inertia[n1].linear));
+                const auto r0=a.m_offset0[bond],r1=a.m_offset1[bond];
+                const auto d=StressHierarchy::mul(StressHierarchy::sub(StressHierarchy::couple(x,makeStressReal3(r0.x,r0.y,r0.z)),
+                    StressHierarchy::couple(y,makeStressReal3(r1.x,r1.y,r1.z))),StressReal(a.m_colScales[bond]));
+                f.angular.x+=float(d.angular.x);f.angular.y+=float(d.angular.y);f.angular.z+=float(d.angular.z);
+                f.linear.x+=float(d.linear.x);f.linear.y+=float(d.linear.y);f.linear.z+=float(d.linear.z);
+            }
+            sum+=f.angular.x*f.angular.x+f.angular.y*f.angular.y+f.angular.z*f.angular.z
+                +f.linear.x*f.linear.x+f.linear.y*f.linear.y+f.linear.z*f.linear.z;
+        }
+    }
+    return sum;
+}
+
 __global__ void componentStressSolve(
 #if defined(PX_CUMETAL_EXPLICIT_HIERARCHY_ROOT) && PX_CUMETAL_EXPLICIT_HIERARCHY_ROOT
     PersistentStressArgs original,ResidentStressComponentView c,
@@ -62,6 +96,10 @@ __global__ void componentStressSolve(
     // Stagnation: the best convergence norm so far and when it was reached.
     __shared__ float bestResidual;
     __shared__ unsigned bestIteration;
+    // Force convergence: the last step's change of the bond forces, the sum of
+    // those changes, and the force norm at the start (forceTolerance > 0).
+    __shared__ float forceStep,forceTravel,forceStart;
+    __shared__ bool forcePass;
     COMPONENT_PROBE_BEGIN
     // Components have very different convergence costs after fracture. A CTA
     // claims its next independent component only when its previous one finishes;
@@ -112,6 +150,11 @@ __global__ void componentStressSolve(
         retireHomogeneousTreeComponent(a,c.nodes+begin,count,id);
 #endif
         const unsigned nodeBlocks=(count+blockDim.x-1)/blockDim.x;
+        if(a.forceTolerance>0){
+            const float start=componentSquaredNorm(componentForceNorm2(a,c.nodes+begin,count,false));
+            if(!threadIdx.x){forceStart=sqrtf(start);forceTravel=0;forceStep=INFINITY;}
+            __syncthreads();
+        }
         do {
             if(a.m_islandActive[id])prepareNativeResidualComponent(a,c.nodes+begin,count,id);
             COMPONENT_PROBE_END(0)
@@ -151,6 +194,7 @@ __global__ void componentStressSolve(
             // already gives. The best norm must improve by 1% in the window.
             if(!threadIdx.x && a.m_islandActive[id]){
                 if(a.report)reportResidual(a.report+id,iteration,reduceValue);
+                STRESS_CAPTURE_HISTORY(id,iteration,0u,reduceValue)
                 if(reduceValue<bestResidual*0.99f){bestResidual=reduceValue;bestIteration=iteration;}
                 else if(iteration-bestIteration>=kStressStagnationWindow){status.active=0;status.iterations=iteration;
                     if(a.report)a.report[id].reason=ExtStressGpuStopStagnated;}
@@ -160,6 +204,19 @@ __global__ void componentStressSolve(
             finalizeAndCheckConvergenceBody(&reduceValue,a.m_gradientSquared,1u,
                 a.m_islandActive,a.m_islandConverged,a.m_deltaSquared,&activeCount,1u,nullptr,0u,c.ids+slot,id);
             __syncthreads();
+            if(a.forceTolerance>0 && iteration>0 && a.m_islandActive[id]){
+                // The bond forces stopped moving: the last step changed them by
+                // at most forceTolerance of their size. The running bound
+                // ||lambda|| <= ||lambda0|| + sum of steps screens; the exact
+                // norm decides.
+                if(!threadIdx.x)forcePass=forceStep<=a.forceTolerance*(forceStart+forceTravel);
+                __syncthreads();
+                if(forcePass){
+                    const float exact=componentSquaredNorm(componentForceNorm2(a,c.nodes+begin,count,true));
+                    if(!threadIdx.x && forceStep<=a.forceTolerance*sqrtf(exact)){a.m_islandActive[id]=0;a.m_islandConverged[id]=1;}
+                    __syncthreads();
+                }
+            }
             COMPONENT_PROBE_END(2)
             // The complete convergence verdict is already known for this
             // component. Retire directly instead of executing inactive gamma,
@@ -176,7 +233,7 @@ __global__ void componentStressSolve(
             float localGamma=0;
             if(a.m_islandActive[id])localGamma=preconditionNativeComponent(a,c.nodes+begin,count,id,iteration COMPONENT_SUBPROBE_ARGUMENT);
             const float gamma=componentSquaredNorm(localGamma);
-            if(!threadIdx.x){a.hierarchy.gamma[id]=gamma;if(a.m_islandActive[id] && (!(gamma>0) || !isfinite(gamma)))a.hierarchy.failed[id]=1;}
+            if(!threadIdx.x){a.hierarchy.gamma[id]=gamma;STRESS_CAPTURE_HISTORY(id,iteration,1u,gamma)if(a.m_islandActive[id] && (!(gamma>0) || !isfinite(gamma)))a.hierarchy.failed[id]=1;}
             __syncthreads();
             COMPONENT_PROBE_END(3)
             for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)updateNativeDirection(a,c.nodes[begin+i],id,iteration);
@@ -192,7 +249,18 @@ __global__ void componentStressSolve(
                 squared+=contribution;
             }
             const float denominator=componentSquaredNorm(squared);
-            if(threadIdx.x==0)reduceValue=denominator;
+            if(threadIdx.x==0){reduceValue=denominator;STRESS_CAPTURE_HISTORY(id,iteration,2u,denominator)
+                // ||dlambda|| = alpha ||B^T p|| = gamma / sqrt(p'Lp); invariant
+                // under the per-component normalization of g. Only a
+                // preconditioned step is judged: the projected steepest-descent
+                // step of iteration 0 is small exactly when the error sits in
+                // soft modes (oracle, 881 captured car solves: judged from
+                // iteration 0, stops after one step carried up to 42% force
+                // error; from iteration 1, at most 0.4% at tolerance 1e-3).
+                if(a.forceTolerance>0){const float g=a.hierarchy.gamma[id];
+                    const float step=denominator>0 && g>0?g/sqrtf(denominator):INFINITY;
+                    if(isfinite(step))forceTravel+=step;
+                    forceStep=(iteration>0 || a.firstPolynomial)?step:INFINITY;}}
             __syncthreads();
             COMPONENT_PROBE_END(5)
             finalizeAndRetireBody(&reduceValue,a.m_projectedDirectionSquared,1u,

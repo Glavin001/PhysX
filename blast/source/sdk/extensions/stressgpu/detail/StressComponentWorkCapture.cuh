@@ -53,6 +53,9 @@ public:
         }catch(...){cleanup();throw;}
     }
     ~ComponentWorkCapture(){cleanup();bound=false;}
+#ifdef BLAST_GPU_NATIVE_PROBLEM_CAPTURE
+    void problemSources(const NativeProblemSources& sources){problem->setSources(sources);}
+#endif
     void begin(cudaStream_t stream){
 #ifdef BLAST_GPU_NATIVE_PROBLEM_CAPTURE
         problem->begin(solve,stream);

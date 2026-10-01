@@ -54,6 +54,9 @@ struct PersistentStressArgs {
     // Apply the block polynomial from iteration 0 instead of a projected
     // steepest-descent step (firstPreconditionerMode).
     bool firstPolynomial=false;
+    // Converge also when the last step moved the bond forces by at most this
+    // fraction of their size (forceTolerance(); 0 = residual test only).
+    float forceTolerance=0;
 };
 #include "StressComponentPhaseProbe.cuh"
 #include "StressNativePreconditioner.cuh"

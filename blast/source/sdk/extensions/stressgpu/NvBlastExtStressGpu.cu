@@ -362,6 +362,27 @@ unsigned firstPreconditionerMode()
     return mode;
 }
 
+/// Force convergence (A/B switch, BLAST_STRESS_FORCE_TOLERANCE, default 0 =
+/// off). The native test compares ||B^T r||, which weights every force error
+/// by B^T B: on a car (stiffness spread ~1e6) a solve whose bond forces are
+/// within 1e-3 of the converged answer still reads 1e3x over tolerance
+/// (vibe-land scripts/stress/oracle.py on captured solves). With a positive
+/// value a component also converges when its last step changed the bond
+/// forces by no more than this fraction of their size, ||dlambda|| <=
+/// tol ||lambda||; the oracle measured the remaining force error at 1.5-3x
+/// that fraction on every captured car solve.
+float forceTolerance()
+{
+    static const float value = [] {
+        const char* raw = std::getenv("BLAST_STRESS_FORCE_TOLERANCE");
+        if(raw == nullptr || !*raw) return 0.0f;
+        const float v = std::strtof(raw, nullptr);
+        if(!(v >= 0.0f) || !std::isfinite(v)) throw std::runtime_error("BLAST_STRESS_FORCE_TOLERANCE must be a non-negative number");
+        return v;
+    }();
+    return value;
+}
+
 // Fixed-order reductions for reproducible GPU audits. This remains opt-in
 // until whole-city timings qualify the additional pass and topology uploads.
 bool deterministicReductionsEnabled()
