@@ -649,6 +649,12 @@ class Runtime final : public PxgDestructionRuntime {
     Lookup* mMap{}; PxU32 mMapCount{},mN{},mM{},mC{};
     bool mOwnInputs=false;
     PxDestructionVectorPair* mInputs{}; PxDestructionSurfaceLoad* mSurface{};
+    // Solve report: the stress inputs after each source (3*mN: prepared loads,
+    // + constraint loads, + contact loads), copied only while the report is on.
+    PxDestructionVectorPair* mReportInputs{}; bool mReport=false;
+    // Which passes record (bit p: pass p; bit 31 also covers passes >= 31);
+    // the solver's own report follows the pass about to be solved.
+    PxU32 mReportPasses=0; bool mSolverReporting=false;
     // Producers write canonical completion records in one allocation. Their
     // public device addresses stay distinct; mandatory CPU observation is one
     // pinned transfer, not a status-copy chain between device stages.
@@ -1257,7 +1263,7 @@ public:
         cudaFree(mChunks);mChunks=nullptr;cudaFree(mClusters);mClusters=nullptr;
         cudaFree(mPoses);mPoses=nullptr;cudaFree(mAngular);mAngular=nullptr;
         cudaFree(mIdleBodies);mIdleBodies=nullptr;mIdleCertified=mIdleSkipped=mIdleFull=false;
-        cudaFree(mMap);mMap=nullptr;if(mOwnInputs)cudaFree(mInputs);mInputs=nullptr;mOwnInputs=false;cudaFree(mSurface);mSurface=nullptr;
+        cudaFree(mMap);mMap=nullptr;if(mOwnInputs)cudaFree(mInputs);mInputs=nullptr;mOwnInputs=false;cudaFree(mSurface);mSurface=nullptr;cudaFree(mReportInputs);mReportInputs=nullptr;mReport=false;mReportPasses=0;mSolverReporting=false;
         cudaFree(mMaterials);mMaterials=nullptr;cudaFree(mBonds);mBonds=nullptr;
         cudaFree(mHealth);mHealth=nullptr;cudaFree(mRates);mRates=nullptr;
         cudaFree(mNodeBegin);mNodeBegin=nullptr;cudaFree(mNodeRefs);mNodeRefs=nullptr;
@@ -1610,11 +1616,15 @@ public:
         PxDestructionStageStatus status=*mHostStatus;status.correctionBlockers=mCorrectionBlockers;return status;
     }
     void setCorrectionBlockers(PxU32 blockers) override {mCorrectionBlockers=blockers;}
-    bool setStressSolveReport(bool enabled) override {
-        try {Context current(mContext);return mSolver && mSolver->enableSolveReport(enabled);}catch(...){return false;}
+    bool setStressSolveReport(PxU32 passes) override {
+        try {Context current(mContext);
+            if(!mSolver || !mSolver->enableSolveReport(passes!=0))return false;
+            if(passes && !mReportInputs)allocate(mReportInputs,3*mN);
+            mReportPasses=passes;mReport=passes!=0;mSolverReporting=passes!=0;return true;
+        }catch(...){return false;}
     }
     bool getStressSolveReport(PxDestructionStressComponentReport* components, PxU32 capacity, PxU32& count,
-        PxReal* chunkResidual2, PxU32* chunkComponent, PxU32 chunkCapacity) override {
+        PxReal* chunkResidual2, PxU32* chunkComponent, PxU32 chunkCapacity, PxDestructionVectorPair* chunkInputs) override {
         static_assert(sizeof(PxDestructionStressComponentReport)==sizeof(ExtStressGpuComponentReport),"solve report layout");
         count=0;
         if(!mSolver || mPending)return false;
@@ -1622,6 +1632,8 @@ public:
             std::vector<ExtStressGpuComponentReport> records(capacity);
             std::uint32_t n=0;
             if(!mSolver->readSolveReport(records.data(),capacity,n,chunkResidual2,chunkComponent,chunkCapacity))return false;
+            if(chunkInputs && mReportInputs && chunkCapacity>=mN)
+                check(cudaMemcpy(chunkInputs,mReportInputs,sizeof(*chunkInputs)*3*mN,cudaMemcpyDeviceToHost));
             count=n;
             if(n)std::memcpy(components,records.data(),sizeof(*components)*std::min<PxU32>(n,capacity));
             return true;
@@ -1777,13 +1789,20 @@ public:
                     contacts,mMap,mMapCount,&mCompletion->idle,eIDLE_STATE_CHANGED);
             }
             observeNativeClusters<<<(mC+127)/128,128,0,mStream>>>(mClusters,mC,bodyStates,mPoses,mAngular);
+            // Record only the selected passes: on a fracturing step the trial
+            // pass decides what breaks and the corrected pass re-solves after.
+            mReport=mReportPasses && (mReportPasses & (1u<<std::min<PxU32>(mPass,31)));
+            if(mSolver && mReportPasses && mReport!=mSolverReporting){mSolver->enableSolveReport(mReport);mSolverReporting=mReport;}
             prepareLoads<<<(mN+127)/128,128,0,mStream>>>(mChunks,mN,mClusters,mPoses,mAngular,gravity,mInputs,mSurface,mRates,mChunkLoads,bodyStates,1.0f/dt);
+            if(mReport)check(cudaMemcpyAsync(mReportInputs,mInputs,sizeof(*mInputs)*mN,cudaMemcpyDeviceToDevice,mStream));
             if(mConstraintCount)routeConstraintLoads<<<(mConstraintCount+127)/128,128,0,mStream>>>(
                 mConstraintMap,mConstraintCount,collision.constraintWritebacks,collision.constraintCapacity,
                 mChunks,mClusters,mPoses,bodyStates,1.0f/dt,mInputs,mSurface,mStatus);
+            if(mReport)check(cudaMemcpyAsync(mReportInputs+mN,mInputs,sizeof(*mInputs)*mN,cudaMemcpyDeviceToDevice,mStream));
             if(mChunkLoads && !mPass)validateChunkCommands<<<(mC+127)/128,128,0,mStream>>>(
                 mChunks,mN,mClusters,mC,mChunkLoads,mCheckpointBodies,mCheckpointCount,mCheckpointCommands,mStatus);
             if(contacts.pairCount)routeContacts<<<(contacts.pairCount+127)/128,128,0,mStream>>>(contacts,mMap,mMapCount,mChunks,mPoses,1.0f/dt,mInputs,mSurface,mStatus,bodyStates,mMaterials,mRates);
+            if(mReport)check(cudaMemcpyAsync(mReportInputs+2*mN,mInputs,sizeof(*mInputs)*mN,cudaMemcpyDeviceToDevice,mStream));
             check(cudaEventRecord(mReady,mStream));
             stageMarker(1);
             const PxDestructionVectorPair* forces=nullptr;

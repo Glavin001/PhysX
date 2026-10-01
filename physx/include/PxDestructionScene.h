@@ -338,15 +338,23 @@ public:
     // solve records for each stress component why it stopped and its residual
     // history, and for each chunk its share of its component's remaining
     // residual. Off by default (one store per chunk per iteration while on).
-    virtual bool setStressSolveReport(bool enabled) = 0;
+    // `passes` selects which solves of a step record (bit p: correction pass
+    // p, bit 0 the trial solve that decides what breaks; bit 31 also covers
+    // later passes); the last selected pass of a step is what is read. 0: off.
+    virtual bool setStressSolveReport(PxU32 passes) = 0;
     // Outside simulation. Up to `capacity` component records; `count` is how
     // many exist. `chunkResidual2` / `chunkComponent` (optional, chunkCapacity
     // >= chunkCount): each chunk's share of its component's final residual
     // and its component id (minimum dynamic chunk index; PX_INVALID_U32 for
     // static or isolated chunks). Residuals are the solver's squared
     // convergence norm; a component converged when final2 <= tolerance2.
+    // `chunkInputs` (optional, 3*chunkCapacity): each chunk's stress input
+    // (the nodeAccelerations the solve consumed) after each source in turn --
+    // [0,n) prepared loads (gravity, rotation, chunk loads), [n,2n) plus
+    // constraint loads, [2n,3n) plus contact loads -- so differences attribute
+    // the load to its source.
     virtual bool getStressSolveReport(PxDestructionStressComponentReport* components, PxU32 capacity, PxU32& count,
-        PxReal* chunkResidual2, PxU32* chunkComponent, PxU32 chunkCapacity) = 0;
+        PxReal* chunkResidual2, PxU32* chunkComponent, PxU32 chunkCapacity, PxDestructionVectorPair* chunkInputs) = 0;
 protected:
     virtual ~PxDestructionScene() {}
 };
