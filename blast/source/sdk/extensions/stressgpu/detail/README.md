@@ -7,6 +7,34 @@ solver class, preserving member order, access and implicit inlining. These are
 helpers precede the kernel includes. This preserves device inlining and avoids new imports,
 exports, linking boundaries or relocatable device code.
 
+## Current state (2026-10-01)
+
+The sections further down record how the hierarchy was built and are partly
+historical; where they say the V-cycle is unwired or coefficients are double,
+this is what the code does now:
+
+- **Precision.** `StressReal` is float unless `BLAST_STRESS_GPU_FP64=1`
+  (`StressHierarchyKernels.cuh`). Double is a diagnostic build.
+- **Small components** (every component up to 8,192 nodes on CuMetal, 1,024 on
+  CUDA): `componentStressSolve`, one block per component. Iteration 0 is a
+  projected steepest-descent step (`BLAST_STRESS_FIRST_PRECONDITIONER=polynomial|warm`
+  changes that, A/B); later iterations use the fixed two-step
+  Chebyshev-block-Jacobi polynomial (`StressNativePolynomial.cuh`). Free
+  components project their rigid modes every iteration.
+- **Large components** use the cooperative kernel, whose preconditioner is the
+  resident V-cycle (`StressHierarchy::cyclePass`, wired in
+  `preconditionNativeGrid`).
+- **Convergence.** The residual test compares ||W r||^2 with tol^2 ||b||^2,
+  then verifies on a rebuilt true residual. `ExtStressGpuSolveParams::forceTolerance`
+  (PxDestructionStressDesc v24) adds force convergence: ||dlambda|| of a
+  preconditioned step <= tol ||lambda||. The residual test weights force errors
+  by W^T W; on stiff structures it can read 1e3x over tolerance with forces
+  within 1e-3 (vibe-land `scripts/stress/oracle.py`).
+- **Diagnostics.** The solve report (`readSolveReport`) and, in the
+  `PhysXDestructionGpuProblemDiagnostic` build only, the equation capture v2
+  (`StressProblemCapture.cuh`): the system, its final iterate and the
+  per-iteration (residual2, gamma, p'Lp).
+
 | File | Responsibility |
 |---|---|
 | `StressCouplingKernels.cuh` | Coupling operator, residual initialization, solve setup |
