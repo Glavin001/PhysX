@@ -1276,7 +1276,7 @@ public:
             || !d.chunkCount || !d.clusterCount || !d.maxIterations
             || (d.internalCorrectionLimit && !d.chunkMassProperties)
             || (d.enableChunkLoads && (d.internalCorrectionLimit!=1 || !d.materialCount))
-            || !std::isfinite(d.tolerance) || d.tolerance<=0)return false;
+            || !std::isfinite(d.tolerance) || d.tolerance<=0 || !std::isfinite(d.forceTolerance) || d.forceTolerance<0)return false;
         try {
         std::vector<PxDestructionMaterial> materials;
         if(d.materialCount) {
@@ -1552,7 +1552,7 @@ public:
             }
             if(mTopology)mChanges.initialize(mTopology->accepted(),mStatus,
                 mSolver?mSolver->deviceView().topologyStatus:nullptr,mStream);
-            mParams={};mParams.maxIterations=d.maxIterations;mParams.tolerance=d.tolerance;mParams.warmStart=d.warmStart;
+            mParams={};mParams.maxIterations=d.maxIterations;mParams.tolerance=d.tolerance;mParams.forceTolerance=d.forceTolerance;mParams.warmStart=d.warmStart;
             // Solving only the islands whose inputs moved is the obvious win
             // here -- a city of 336 islands with 86 active solves all 336 --
             // but the resident device path this stage uses does not support

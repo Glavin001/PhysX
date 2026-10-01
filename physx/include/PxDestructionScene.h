@@ -1,7 +1,7 @@
 // Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
 #ifndef PX_DESTRUCTION_SCENE_H
 #define PX_DESTRUCTION_SCENE_H
-#define PX_DESTRUCTION_SCENE_VERSION 23
+#define PX_DESTRUCTION_SCENE_VERSION 24
 #include "foundation/PxTransform.h"
 #include "PxDirectGPUAPI.h"
 #include "PxDestructionTopologyTypes.h"
@@ -97,6 +97,14 @@ struct PxDestructionStressDesc {
     PxU32 chunkCount = 0, bondCount = 0, clusterCount = 0;
     PxU32 maxIterations = 25; // stress iterations, independent of physics resimulation count
     PxReal tolerance = 0.001f;
+    // Force convergence (v24). Zero (the default) keeps the residual test
+    // alone. Positive: a component also converges when its last
+    // preconditioned step changed the bond forces by at most this fraction of
+    // their size. The residual test weights force errors by the stiffest
+    // bonds, so on stiff, mass-contrasted structures it reports solves whose
+    // forces are within this fraction as far from tolerance; 1e-3 leaves at
+    // most ~0.4% force error (measured on captured vehicle solves).
+    PxReal forceTolerance = 0.0f;
     bool warmStart = true;
     const PxDestructionMaterial* materials = NULL;
     PxU32 materialCount = 0; // zero preserves stress-only operation

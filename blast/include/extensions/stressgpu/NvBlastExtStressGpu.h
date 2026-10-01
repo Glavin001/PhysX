@@ -63,6 +63,10 @@ struct ExtStressGpuSolveParams
 {
     std::uint32_t maxIterations{25};
     float tolerance{0.001f};
+    /// Force convergence: also converge when the last preconditioned step
+    /// changed the bond forces by at most this fraction of their size
+    /// (resident native small components). 0 = residual test only.
+    float forceTolerance{0.0f};
     bool warmStart{true};
     /// Skip an input-stable island even when its last solve did NOT converge.
     ///

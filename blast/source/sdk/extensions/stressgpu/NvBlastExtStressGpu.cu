@@ -362,8 +362,8 @@ unsigned firstPreconditionerMode()
     return mode;
 }
 
-/// Force convergence (A/B switch, BLAST_STRESS_FORCE_TOLERANCE, default 0 =
-/// off). The native test compares ||B^T r||, which weights every force error
+/// Force convergence: ExtStressGpuSolveParams::forceTolerance, or this A/B
+/// switch when that is 0 (BLAST_STRESS_FORCE_TOLERANCE, default 0 = off). The native test compares ||B^T r||, which weights every force error
 /// by B^T B: on a car (stiffness spread ~1e6) a solve whose bond forces are
 /// within 1e-3 of the converged answer still reads 1e3x over tolerance
 /// (vibe-land scripts/stress/oracle.py on captured solves). With a positive

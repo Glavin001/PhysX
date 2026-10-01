@@ -39,6 +39,7 @@
             && m_graphWarmStart == warmStart
             && m_graphParams.maxIterations == params.maxIterations
             && m_graphParams.tolerance == params.tolerance
+            && m_graphParams.forceTolerance == params.forceTolerance
             && m_graphParams.applyDamage == params.applyDamage
             // Capture-time: it selects whether the kernels are handed the skip
             // mask at all. The mask's CONTENTS change every frame and are read
