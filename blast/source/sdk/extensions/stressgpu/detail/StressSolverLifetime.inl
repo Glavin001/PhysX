@@ -148,6 +148,8 @@ uploadIslands();
             cudaFree(order.deviceTiles);
         }
         cudaFree(m_projectedDirection);
+        cudaFree(m_report);
+        cudaFree(m_nodeResidual2);
         cudaFree(m_residual);
         cudaFree(m_direction);
         cudaFree(m_gradient);

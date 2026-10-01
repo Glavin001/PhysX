@@ -20,6 +20,7 @@
 #include "NvBlastExtStressMaterialFormula.h"
 #include <set>
 #include <algorithm>
+#include <cstring>
 #include <cmath>
 #include <limits>
 #include <stdexcept>
@@ -1609,6 +1610,23 @@ public:
         PxDestructionStageStatus status=*mHostStatus;status.correctionBlockers=mCorrectionBlockers;return status;
     }
     void setCorrectionBlockers(PxU32 blockers) override {mCorrectionBlockers=blockers;}
+    bool setStressSolveReport(bool enabled) override {
+        try {Context current(mContext);return mSolver && mSolver->enableSolveReport(enabled);}catch(...){return false;}
+    }
+    bool getStressSolveReport(PxDestructionStressComponentReport* components, PxU32 capacity, PxU32& count,
+        PxReal* chunkResidual2, PxU32* chunkComponent, PxU32 chunkCapacity) override {
+        static_assert(sizeof(PxDestructionStressComponentReport)==sizeof(ExtStressGpuComponentReport),"solve report layout");
+        count=0;
+        if(!mSolver || mPending)return false;
+        try {Context current(mContext);
+            std::vector<ExtStressGpuComponentReport> records(capacity);
+            std::uint32_t n=0;
+            if(!mSolver->readSolveReport(records.data(),capacity,n,chunkResidual2,chunkComponent,chunkCapacity))return false;
+            count=n;
+            if(n)std::memcpy(components,records.data(),sizeof(*components)*std::min<PxU32>(n,capacity));
+            return true;
+        }catch(...){return false;}
+    }
     bool prepareFrame(PxU32 pass=0) override {
         try {Context current(mContext);if(!configured() || mPending || pass>mCorrectionLimit || (pass && pass!=mPass+1))return false;
             mPass=pass;

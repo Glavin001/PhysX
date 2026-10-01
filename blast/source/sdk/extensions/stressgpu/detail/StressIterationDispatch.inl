@@ -243,7 +243,8 @@
         // Residency is a launch constraint, not a physical-work limit. All
         // virtual node/island blocks are processed by the resident grid.
         const auto kernel=m_deviceTopology?persistentStressSolve<true>:persistentStressSolve<false>;
-        if(m_deviceTopology){args.hierarchy=m_deviceTopology->cycleView();args.input=m_input;args.impulses=m_impulses;args.originalRhs=m_rhs;args.warmStart=params.warmStart && m_hasWarmStart;args.settledIslands=m_islandSkip;}
+        if(m_deviceTopology){args.hierarchy=m_deviceTopology->cycleView();args.input=m_input;args.impulses=m_impulses;args.originalRhs=m_rhs;args.warmStart=params.warmStart && m_hasWarmStart;args.settledIslands=m_islandSkip;
+            if(m_reportEnabled){args.report=m_report;args.nodeResidual2=m_nodeResidual2;}}
 #if defined(PX_CUMETAL_EXPLICIT_HIERARCHY_ROOT) && PX_CUMETAL_EXPLICIT_HIERARCHY_ROOT
         // Capture copies this pointer value, not the address of this host local.
         // The descriptor allocation survives every captured/eager solve.

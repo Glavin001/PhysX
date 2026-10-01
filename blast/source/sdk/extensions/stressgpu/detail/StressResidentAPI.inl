@@ -59,6 +59,45 @@
         return true;
     }
 
+    bool enableSolveReport(bool enabled) override
+    {
+        if (!m_deviceTopology) return false;
+        ContextGuard context(m_cudaContext);
+        if (enabled && !m_report) {
+            allocateDevice(m_report, m_nodeCount, "allocate stress solve report");
+            allocateDevice(m_nodeResidual2, m_nodeCount, "allocate stress node residuals");
+            checkCuda(cudaMemsetAsync(m_nodeResidual2, 0, sizeof(float) * m_nodeCount, m_stream), "clear stress node residuals");
+        }
+        // A captured solve graph holds the kernel arguments it was recorded
+        // with (report pointers included); recapture so the switch takes effect.
+        if (m_reportEnabled != enabled) m_graphParamsDirty = true;
+        m_reportEnabled = enabled;
+        return true;
+    }
+
+    bool readSolveReport(ExtStressGpuComponentReport* components, std::uint32_t capacity, std::uint32_t& count,
+        float* nodeResidual2, std::uint32_t* nodeComponent, std::uint32_t nodeCapacity) override
+    {
+        count = 0;
+        if (!m_deviceTopology || !m_report) return false;
+        ContextGuard context(m_cudaContext);
+        checkCuda(cudaStreamSynchronize(m_stream), "synchronize stress solve report");
+        const ResidentStressComponentView view = m_deviceTopology->components();
+        unsigned live = 0;
+        checkCuda(cudaMemcpy(&live, view.count, sizeof(live), cudaMemcpyDeviceToHost), "read live stress components");
+        std::vector<unsigned> ids(live);
+        if (live) checkCuda(cudaMemcpy(ids.data(), view.ids, sizeof(unsigned) * live, cudaMemcpyDeviceToHost), "read stress component ids");
+        std::vector<ExtStressGpuComponentReport> records(m_nodeCount);
+        checkCuda(cudaMemcpy(records.data(), m_report, sizeof(ExtStressGpuComponentReport) * m_nodeCount, cudaMemcpyDeviceToHost), "read stress solve report");
+        count = live;
+        for (std::uint32_t i = 0; i < live && i < capacity; ++i) components[i] = records[ids[i]];
+        if (nodeResidual2 && nodeCapacity >= m_nodeCount)
+            checkCuda(cudaMemcpy(nodeResidual2, m_nodeResidual2, sizeof(float) * m_nodeCount, cudaMemcpyDeviceToHost), "read stress node residuals");
+        if (nodeComponent && nodeCapacity >= m_nodeCount)
+            checkCuda(cudaMemcpy(nodeComponent, m_nodeIsland, sizeof(std::uint32_t) * m_nodeCount, cudaMemcpyDeviceToHost), "read stress node components");
+        return true;
+    }
+
     ExtStressGpuDeviceView deviceView() const override
     {
         return {m_devicePhysicalImpulses, m_status, m_bondCount, m_statusReady,

@@ -270,6 +270,37 @@ struct ExtStressGpuDeviceStatus
     std::uint32_t converged;
 };
 
+/// Why one stress component's solve stopped (solve report, diagnostics).
+enum ExtStressGpuStopReason : std::uint32_t
+{
+    ExtStressGpuStopUnreported = 0,  // not visited by the component solve
+    ExtStressGpuStopConverged = 1,   // residual within tolerance
+    ExtStressGpuStopIterationCap = 2, // still improving when the cap was reached
+    ExtStressGpuStopStagnated = 3,   // best residual did not improve 1% in 512 iterations
+    ExtStressGpuStopDegenerate = 4,  // search direction lost energy (non-positive or non-finite)
+    ExtStressGpuStopFailed = 5,      // preconditioned gamma non-positive or non-finite
+    ExtStressGpuStopSettled = 6,     // skipped: settled and unchanged since a verified solve
+    ExtStressGpuStopNotReady = 7,    // the native hierarchy was not ready
+    ExtStressGpuStopCooperative = 8  // too large for the component solve; no per-component record
+};
+
+/// One stress component's last solve. Residuals are the solver's convergence
+/// norm squared (||W r||^2, solver units); converged when final2 <= tolerance2.
+struct ExtStressGpuComponentReport
+{
+    std::uint32_t component;     // minimum dynamic node index
+    std::uint32_t nodeCount;
+    std::uint32_t anchored;      // nonzero: the component touches a static node
+    std::uint32_t reason;        // ExtStressGpuStopReason
+    std::uint32_t iterations;
+    std::uint32_t bestIteration;
+    float tolerance2;
+    float best2;
+    float final2;
+    /// Residual^2 at iteration 0 and 2^k (k = 0..14); NaN where not reached.
+    float history[16];
+};
+
 // Device topology updates preserve authored bond slots. These are GPU-only
 // observations, ordered by deviceView().readyEvent; no per-update readback is
 // required. A rejected batch preserves the accepted generation and constraints.
@@ -358,6 +389,25 @@ public:
         const ExtStressGpuSolveParams& params, void* producerReady = nullptr,
         void* consumerDone = nullptr) = 0;
     virtual ExtStressGpuDeviceView deviceView() const = 0;
+
+    /**
+     * Diagnostics: from the next solve on, record for every component why its
+     * solve stopped, its residual history and each node's share of the
+     * remaining residual. Off by default; costs one store per node per
+     * iteration while on. Native device-topology solves only.
+     */
+    virtual bool enableSolveReport(bool enabled) { (void)enabled; return false; }
+
+    /**
+     * Read the last solve's report (synchronizes the solver's stream).
+     * `components`: up to `capacity` records, `count` set to how many exist.
+     * `nodeResidual2` / `nodeComponent` (optional, `nodeCapacity` >= node
+     * count): each node's share of its component's final residual, and its
+     * component (UINT32_MAX for static or isolated nodes).
+     */
+    virtual bool readSolveReport(ExtStressGpuComponentReport* components, std::uint32_t capacity, std::uint32_t& count,
+        float* nodeResidual2, std::uint32_t* nodeComponent, std::uint32_t nodeCapacity)
+    { (void)components; (void)capacity; (void)nodeResidual2; (void)nodeComponent; (void)nodeCapacity; count = 0; return false; }
 
     virtual bool readbackImpulses(
         ExtStressGpuImpulse* bondImpulses,

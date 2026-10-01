@@ -1,7 +1,7 @@
 // Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
 #ifndef PX_DESTRUCTION_SCENE_H
 #define PX_DESTRUCTION_SCENE_H
-#define PX_DESTRUCTION_SCENE_VERSION 22
+#define PX_DESTRUCTION_SCENE_VERSION 23
 #include "foundation/PxTransform.h"
 #include "PxDirectGPUAPI.h"
 #include "PxDestructionTopologyTypes.h"
@@ -200,6 +200,30 @@ struct PxDestructionStageStatus {
     // so a consumer can check its scene before the first fracture.
     PxU32 correctionBlockers;
 };
+// Why a stress component's last solve stopped (getStressSolveReport).
+struct PxDestructionStressStopReason {
+    enum Enum {
+        eUNREPORTED = 0,    // not visited by the component solve
+        eCONVERGED = 1,     // residual within tolerance
+        eITERATION_CAP = 2, // still improving when the iteration cap was reached
+        eSTAGNATED = 3,     // best residual did not improve 1% in 512 iterations
+        eDEGENERATE = 4,    // search direction lost energy
+        eFAILED = 5,        // preconditioner breakdown (non-positive or non-finite)
+        eSETTLED = 6,       // skipped: settled and unchanged since a verified solve
+        eNOT_READY = 7,     // the native hierarchy was not ready
+        eCOOPERATIVE = 8    // solved by the large-component path; no per-component record
+    };
+};
+struct PxDestructionStressComponentReport {
+    PxU32 component;     // minimum dynamic chunk index
+    PxU32 chunkCount;
+    PxU32 anchored;      // nonzero: touches a static chunk
+    PxU32 reason;        // PxDestructionStressStopReason
+    PxU32 iterations;
+    PxU32 bestIteration;
+    PxReal tolerance2, best2, final2;
+    PxReal history[16];  // residual^2 at iteration 0 and 2^k (k = 0..14); NaN where not reached
+};
 // Scene state that the native rigid correction cannot yet roll back. Any bit
 // set makes the stage refuse a fracture step with status error 8.
 struct PxDestructionCorrectionBlocker {
@@ -310,6 +334,19 @@ public:
     // timestep including its correction; omission next step means zero loads.
     // Does not call addForce/addTorque. Forces remain ordinary PhysX commands.
     virtual bool setChunkLoads(const PxDestructionChunkLoad* loads, PxU32 count) = 0;
+    // Version 23, diagnostics: the stress solve report. Enabled, every later
+    // solve records for each stress component why it stopped and its residual
+    // history, and for each chunk its share of its component's remaining
+    // residual. Off by default (one store per chunk per iteration while on).
+    virtual bool setStressSolveReport(bool enabled) = 0;
+    // Outside simulation. Up to `capacity` component records; `count` is how
+    // many exist. `chunkResidual2` / `chunkComponent` (optional, chunkCapacity
+    // >= chunkCount): each chunk's share of its component's final residual
+    // and its component id (minimum dynamic chunk index; PX_INVALID_U32 for
+    // static or isolated chunks). Residuals are the solver's squared
+    // convergence norm; a component converged when final2 <= tolerance2.
+    virtual bool getStressSolveReport(PxDestructionStressComponentReport* components, PxU32 capacity, PxU32& count,
+        PxReal* chunkResidual2, PxU32* chunkComponent, PxU32 chunkCapacity) = 0;
 protected:
     virtual ~PxDestructionScene() {}
 };

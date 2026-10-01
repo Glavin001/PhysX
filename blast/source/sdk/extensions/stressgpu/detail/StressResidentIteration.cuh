@@ -47,6 +47,10 @@ struct PersistentStressArgs {
     const AngLin* originalRhs=nullptr;
     bool warmStart=false;
     const unsigned* settledIslands=nullptr;
+    // Solve report (diagnostics; null when off): per-component records indexed
+    // by component id, and each node's share of its component's residual.
+    ExtStressGpuComponentReport* report=nullptr;
+    float* nodeResidual2=nullptr;
 };
 #include "StressComponentPhaseProbe.cuh"
 #include "StressNativePreconditioner.cuh"

@@ -4308,6 +4308,10 @@ private:
 #endif
     DeviceStressTopology* m_deviceTopology{nullptr};
     bool m_deviceTopologyFailed{false};
+    // Solve report (enableSolveReport): component records and node shares.
+    ExtStressGpuComponentReport* m_report{nullptr};
+    float* m_nodeResidual2{nullptr};
+    bool m_reportEnabled{false};
     float m_massScale{1.0f};
     float m_lengthScale{1.0f};
     bool m_hasWarmStart{false};
