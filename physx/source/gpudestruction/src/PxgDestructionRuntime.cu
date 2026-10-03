@@ -632,6 +632,8 @@ class Runtime final : public PxgDestructionRuntime {
     PxDestructionChunkLoad* mChunkLoads{};
     // Per-cluster sums of the chunk commands, four vectors a cluster (validateChunkCommands).
     PxVec3* mChunkCommandSums{};
+    // The same, per correction candidate (sumCorrectionCommands), keyed by root chunk.
+    PxVec3* mCorrectionCommandSums{};
     std::vector<PxDestructionChunkLoad> mHostChunkLoads;
     bool mChunkLoadsFresh=false;
     // Idle gate (see watchClusterBodies). mIdleCertified: the last full
@@ -1263,6 +1265,7 @@ public:
         cudaFree(mConstraintBindings);mConstraintBindings=nullptr;mPinnedConstraintBindings.release();mManagedConstraintIds.clear();
         cudaFree(mChunkLoads);mChunkLoads=nullptr;mHostChunkLoads.clear();mChunkLoadsFresh=false;
         cudaFree(mChunkCommandSums);mChunkCommandSums=nullptr;
+        cudaFree(mCorrectionCommandSums);mCorrectionCommandSums=nullptr;
         cudaFree(mChunks);mChunks=nullptr;cudaFree(mClusters);mClusters=nullptr;
         cudaFree(mPoses);mPoses=nullptr;cudaFree(mAngular);mAngular=nullptr;
         cudaFree(mIdleBodies);mIdleBodies=nullptr;mIdleCertified=mIdleSkipped=mIdleFull=false;
@@ -1413,6 +1416,7 @@ public:
             if(d.enableChunkLoads) {
                 allocate(mChunkLoads,d.chunkCount);mHostChunkLoads.resize(d.chunkCount);
                 allocate(mChunkCommandSums,4*size_t(d.chunkCount));
+                allocate(mCorrectionCommandSums,4*size_t(d.chunkCount));
                 check(cudaMemset(mChunkLoads,0,sizeof(*mChunkLoads)*d.chunkCount));
             }
             check(cudaMemcpy(mChunks,d.chunks,sizeof(*mChunks)*d.chunkCount,cudaMemcpyHostToDevice));
@@ -1541,10 +1545,16 @@ public:
                         &mCollisionPreparation->migrating,mHullCount,HasMigratingCollisionBinding{},mStream));
                     finishCollisionPreparation<<<1,1,0,mStream>>>(mCollisionPreparation,mBodyAllocation,mStatus);
                     check(cudaMemsetAsync(mCorrectionPreparation,0,sizeof(*mCorrectionPreparation),mStream));
+                    if(mCorrectionCommandSums) {
+                        check(cudaMemsetAsync(mCorrectionCommandSums,0,4*sizeof(PxVec3)*mN,mStream));
+                        sumCorrectionCommands<<<(mN+127)/128,128,0,mStream>>>(mChunks,mN,mClusters,trial.chunkCluster,mAffectedClusters,
+                            nullptr,0,mChunkLoads,mCorrectionCommandSums,inputs);
+                    }
                     prepareCorrectionBodyInputs<<<(mN+127)/128,128,0,mStream>>>(mTrialBodies,mTrialBodyIndices,mN,trial,mChunks,
-                        mAffectedClusters,nullptr,nullptr,0,0,mCollisionPreparation,mCorrectionBodies,mCorrectionPreparation,mChunkLoads,mCheckpointCommands,inputs);
+                        mAffectedClusters,nullptr,nullptr,0,0,mCollisionPreparation,mCorrectionBodies,mCorrectionPreparation,mChunkLoads,mCheckpointCommands,
+                        mCorrectionCommandSums,inputs);
                     inspectCorrectionSourceLoads<<<(mN+127)/128,128,0,mStream>>>(mClusters,mAffectedClusters,0,nullptr,0,
-                        mCollisionPreparation,mCorrectionPreparation,mChunks,mN,mChunkLoads,mCheckpointCommands,inputs);
+                        mCollisionPreparation,mCorrectionPreparation,mChunkCommandSums,mChunkLoads,mCheckpointCommands,inputs);
                     check(cub::DeviceSelect::If(mCorrectionScratch,mCorrectionScratchBytes,mCorrectionBodies,mCompactCorrectionBodies,
                         &mCorrectionPreparation->count,mN,HasCorrectionBody{},mStream));
                     finishCorrectionPreparation<<<1,1,0,mStream>>>(mCorrectionPreparation,mCollisionPreparation,0,mStatus,inputs);
@@ -2181,9 +2191,16 @@ public:
             if(!mCheckpointValid || !stream)throw std::runtime_error("missing correction input checkpoint");
             check(cudaStreamWaitEvent(stream,mReady,0));check(cudaStreamWaitEvent(stream,mCheckpointReady,0));
             check(cudaMemsetAsync(mCorrectionPreparation,0,sizeof(*mCorrectionPreparation),stream));
+            const auto loads=mPass?nullptr:mChunkLoads;
+            if(loads) {
+                check(cudaMemsetAsync(mCorrectionCommandSums,0,4*sizeof(PxVec3)*mN,stream));
+                sumCorrectionCommands<<<(mN+127)/128,128,0,stream>>>(mChunks,mN,mClusters,mTopology->trial().chunkCluster,mAffectedClusters,
+                    mCheckpointBodies,mCheckpointCount,loads,mCorrectionCommandSums);
+            }
             prepareCorrectionBodyInputs<<<(mN+127)/128,128,0,stream>>>(mTrialBodies,mTrialBodyIndices,mN,mTopology->trial(),mChunks,
-                mAffectedClusters,mCheckpointBodies,mCheckpointPrevious,mCheckpointCount,bodyCapacity,mCollisionPreparation,mCorrectionBodies,mCorrectionPreparation,mPass?nullptr:mChunkLoads,mCheckpointCommands);
-            inspectCorrectionSourceLoads<<<(mC+127)/128,128,0,stream>>>(mClusters,mAffectedClusters,mC,mCheckpointBodies,mCheckpointCount,mCollisionPreparation,mCorrectionPreparation,mChunks,mN,mPass?nullptr:mChunkLoads,mCheckpointCommands);
+                mAffectedClusters,mCheckpointBodies,mCheckpointPrevious,mCheckpointCount,bodyCapacity,mCollisionPreparation,mCorrectionBodies,mCorrectionPreparation,loads,mCheckpointCommands,
+                mCorrectionCommandSums);
+            inspectCorrectionSourceLoads<<<(mC+127)/128,128,0,stream>>>(mClusters,mAffectedClusters,mC,mCheckpointBodies,mCheckpointCount,mCollisionPreparation,mCorrectionPreparation,mChunkCommandSums,loads,mCheckpointCommands);
             check(cudaGetLastError());
             check(cub::DeviceSelect::If(mCorrectionScratch,mCorrectionScratchBytes,mCorrectionBodies,mCompactCorrectionBodies,
                 &mCorrectionPreparation->count,mN,HasCorrectionBody{},stream));

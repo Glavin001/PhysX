@@ -15,19 +15,6 @@ __device__ PxVec3 commandAngularAcceleration(const PxgBodySim& body,const PxVec3
     const auto d=body.inverseInertiaXYZ_contactReportThresholdW;
     return q.rotate(q.rotateInv(torque).multiply(PxVec3(d.x,d.y,d.z)));
 }
-// Original source membership is still live during preparation. World-space
-// commands carry an explicit torque about each chunk COM, so changing the
-// recipient COM requires exactly this parallel-axis wrench translation.
-__device__ void sumChunkCommands(const PxDestructionStressChunk* chunks,PxU32 n,
-    const PxDestructionChunkLoad* loads,PxU32 sourceCluster,const PxgBodySim& source,
-    const PxVec3& center,PxVec3& force,PxVec3& torque,
-    const PxU32* targetMembership=nullptr,PxU32 target=PX_INVALID_U32,bool impulse=false) {
-    const auto actor=source.body2World.getTransform()*source.body2Actor_maxImpulseW.getTransform().getInverse();
-    for(PxU32 j=0;j<n;++j)if(chunks[j].cluster==sourceCluster && (!targetMembership || targetMembership[j]==target)) {
-        const auto load=loads[j];const auto f=impulse?load.impulse:load.force;force+=f;
-        torque+=(impulse?load.angularImpulse:load.torque)+(actor.transform(chunks[j].position)-center).cross(f);
-    }
-}
 __device__ bool commandValuesMatch(const PxVec3& a,const PxVec3& b) {
     return a.isFinite() && b.isFinite() && (a-b).magnitude()<=1e-4f*(1+b.magnitude());
 }
@@ -39,17 +26,6 @@ __device__ bool chunkCommandSumsMatch(const PxVec3& force,const PxVec3& torque,c
         && commandValuesMatch(commandAngularAcceleration(body,torque),PxVec3(angular.x,angular.y,angular.z))
         && commandValuesMatch(impulse*body.linearVelocityXYZ_inverseMassW.w,PxVec3(dv.x,dv.y,dv.z))
         && commandValuesMatch(commandAngularAcceleration(body,angularImpulse),PxVec3(dw.x,dw.y,dw.z));
-}
-// One cluster's commands summed in place (the correction path's affected
-// clusters only); validateChunkCommands uses the per-chunk sums below.
-__device__ bool chunkCommandsMatch(const PxDestructionStressChunk* chunks,PxU32 n,
-    const PxDestructionChunkLoad* loads,PxU32 cluster,const PxgBodySim& body,
-    const PxgBodySimVelocities& delta) {
-    PxVec3 force(0),torque(0),impulse(0),angularImpulse(0);
-    const auto center=body.body2World.getTransform().p;
-    sumChunkCommands(chunks,n,loads,cluster,body,center,force,torque);
-    sumChunkCommands(chunks,n,loads,cluster,body,center,impulse,angularImpulse,nullptr,PX_INVALID_U32,true);
-    return chunkCommandSumsMatch(force,torque,impulse,angularImpulse,body,delta);
 }
 // The host's chunk commands, summed per cluster: force, torque about the
 // body COM, impulse and angular impulse (sums[4c..4c+3]). One thread per
@@ -70,6 +46,28 @@ __global__ void sumChunkCommandsByCluster(const PxDestructionStressChunk* chunks
     const PxVec3 arm=actor.transform(chunks[j].position)-source.body2World.getTransform().p;
     const PxVec3 values[4]={load.force,load.torque+arm.cross(load.force),load.impulse,load.angularImpulse+arm.cross(load.impulse)};
     for(PxU32 k=0;k<4;++k){PxVec3& s=sums[4*c+k];atomicAdd(&s.x,values[k].x);atomicAdd(&s.y,values[k].y);atomicAdd(&s.z,values[k].z);}
+}
+// The same commands summed per correction candidate: by the chunk's cluster
+// in the trial topology (sums[4k..4k+3], k that cluster's root chunk), about
+// the SOURCE body's COM; prepareCorrectionBodyInputs moves the torques to the
+// candidate's COM. Original source membership is still live during
+// preparation, and a candidate's chunks all come from its root's source
+// cluster (clusters only split). This replaced a loop over every chunk per
+// candidate, up to 4.9 ms on a meteor's correction tick (Metal, 2026-10-03).
+__global__ void sumCorrectionCommands(const PxDestructionStressChunk* chunks,PxU32 n,const PxDestructionStressCluster* clusters,
+    const PxU32* chunkCluster,const PxU32* affected,const PxgBodySim* checkpoint,PxU32 checkpointCount,
+    const PxDestructionChunkLoad* loads,PxVec3* sums,const NativePreparationInputs* inputs=nullptr) {
+    if(inputs){checkpoint=inputs->checkpoint;checkpointCount=inputs->checkpointCount;loads=inputs->chunkLoads;}
+    const PxU32 j=blockIdx.x*blockDim.x+threadIdx.x;if(j>=n || !loads || !checkpoint)return;
+    const PxU32 c=chunks[j].cluster,k=chunkCluster[j];if(k>=n || chunks[k].cluster!=c || !affected[c])return;
+    const auto load=loads[j];
+    if(load.force.isZero() && load.torque.isZero() && load.impulse.isZero() && load.angularImpulse.isZero())return;
+    const PxU32 id=clusters[c].body;if(id>=checkpointCount)return;
+    const auto& source=checkpoint[id];
+    const auto actor=source.body2World.getTransform()*source.body2Actor_maxImpulseW.getTransform().getInverse();
+    const PxVec3 arm=actor.transform(chunks[j].position)-source.body2World.getTransform().p;
+    const PxVec3 values[4]={load.force,load.torque+arm.cross(load.force),load.impulse,load.angularImpulse+arm.cross(load.impulse)};
+    for(PxU32 m=0;m<4;++m){PxVec3& s=sums[4*k+m];atomicAdd(&s.x,values[m].x);atomicAdd(&s.y,values[m].y);atomicAdd(&s.z,values[m].z);}
 }
 __global__ void validateChunkCommands(const PxDestructionStressCluster* clusters,PxU32 count,const PxVec3* sums,
     const PxgBodySim* checkpoint,PxU32 checkpointCount,const PxgBodySimVelocities* commands,PxDestructionStageStatus* status) {
@@ -117,7 +115,8 @@ __global__ void prepareCorrectionBodyInputs(const PxDestructionClusterBodyState*
     const PxU32* affected,const PxgBodySim* checkpoint,const PxgBodySimVelocities* previous,PxU32 checkpointCount,PxU32 bodyCapacity,
     const PxDestructionCollisionPreparationStatus* collision,
     PxDestructionCorrectionBody* output,PxDestructionCorrectionPreparationStatus* status,
-    const PxDestructionChunkLoad* loads,const PxgBodySimVelocities* commands,const NativePreparationInputs* inputs=nullptr) {
+    const PxDestructionChunkLoad* loads,const PxgBodySimVelocities* commands,const PxVec3* sums,
+    const NativePreparationInputs* inputs=nullptr) {
     if(inputs){checkpoint=inputs->checkpoint;previous=inputs->previous;loads=inputs->chunkLoads;commands=inputs->commands;
         checkpointCount=inputs->checkpointCount;bodyCapacity=inputs->bodyCapacity;}
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=chunkCount)return;
@@ -152,25 +151,23 @@ __global__ void prepareCorrectionBodyInputs(const PxDestructionClusterBodyState*
     }
     output[i].targetBody=targets[i];
     if(loads) {
-        PxVec3 force(0),torque(0);
+        // sumCorrectionCommands' torques are about the source COM; move them
+        // to the candidate's COM (parallel axis: (source - center) x force).
         const PxVec3 center(output[i].body.bodyToWorldPosition[0],output[i].body.bodyToWorldPosition[1],output[i].body.bodyToWorldPosition[2]);
-        sumChunkCommands(chunks,chunkCount,loads,chunks[candidate.cluster].cluster,source,center,force,torque,
-            topology.chunkCluster,candidate.cluster);
+        const PxVec3 shift=source.body2World.getTransform().p-center;
+        const PxVec3* sum=sums+4*size_t(candidate.cluster);
         const auto recipient=nativeCandidateState(output[i].body,source,targets[i]);
-        const auto linear=force*recipient.linearVelocityXYZ_inverseMassW.w,angular=commandAngularAcceleration(recipient,torque);
+        const auto linear=sum[0]*recipient.linearVelocityXYZ_inverseMassW.w,angular=commandAngularAcceleration(recipient,sum[1]+shift.cross(sum[0]));
         if(!linear.isFinite() || !angular.isFinite()){atomicOr(&status->error,8u);return;}
         for(PxU32 k=0;k<3;++k){output[i].linearAcceleration[k]=linear[k];output[i].angularAcceleration[k]=angular[k];}
-        force=PxVec3(0);torque=PxVec3(0);
-        sumChunkCommands(chunks,chunkCount,loads,chunks[candidate.cluster].cluster,source,center,force,torque,
-            topology.chunkCluster,candidate.cluster,true);
-        const auto dv=force*recipient.linearVelocityXYZ_inverseMassW.w,dw=commandAngularAcceleration(recipient,torque);
+        const auto dv=sum[2]*recipient.linearVelocityXYZ_inverseMassW.w,dw=commandAngularAcceleration(recipient,sum[3]+shift.cross(sum[2]));
         if(!dv.isFinite() || !dw.isFinite()){atomicOr(&status->error,8u);return;}
         for(PxU32 k=0;k<3;++k){output[i].body.linearVelocity[k]+=dv[k];output[i].body.angularVelocity[k]+=dw[k];}
     }
 }
 __global__ void inspectCorrectionSourceLoads(const PxDestructionStressCluster* clusters,const PxU32* affected,PxU32 count,
     const PxgBodySim* checkpoint,PxU32 checkpointCount,const PxDestructionCollisionPreparationStatus* collision,
-    PxDestructionCorrectionPreparationStatus* status,const PxDestructionStressChunk* chunks,PxU32 n,
+    PxDestructionCorrectionPreparationStatus* status,const PxVec3* sums,
     const PxDestructionChunkLoad* loads,const PxgBodySimVelocities* commands,const NativePreparationInputs* inputs=nullptr) {
     if(inputs){checkpoint=inputs->checkpoint;checkpointCount=inputs->checkpointCount;count=inputs->clusterCount;loads=inputs->chunkLoads;commands=inputs->commands;}
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(!collision->valid || i>=count || !affected[i])return;
@@ -179,7 +176,9 @@ __global__ void inspectCorrectionSourceLoads(const PxDestructionStressCluster* c
     if(!isfinite(a.x) || !isfinite(a.y) || !isfinite(a.z) || !isfinite(b.x) || !isfinite(b.y) || !isfinite(b.z))
         {atomicOr(&status->error,8u);return;}
     if(loads) {
-        if(!chunkCommandsMatch(chunks,n,loads,i,body,commands[id]))atomicAdd(&status->loadedSources,1u);
+        // This pass's per-cluster sums (sumChunkCommandsByCluster, same
+        // checkpoint, loads and original membership).
+        if(!chunkCommandSumsMatch(sums[4*i],sums[4*i+1],sums[4*i+2],sums[4*i+3],body,commands[id]))atomicAdd(&status->loadedSources,1u);
     } else if(a.x!=0 || a.y!=0 || a.z!=0 || b.x!=0 || b.y!=0 || b.z!=0)atomicAdd(&status->loadedSources,1u);
 }
 struct HasCorrectionBody {
