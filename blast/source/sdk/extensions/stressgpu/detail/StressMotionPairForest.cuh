@@ -20,7 +20,23 @@ struct MotionBuffers {
     MotionComponent* components;
     // Each node's position relative to its component center, solver precision.
     StressReal3* relative;
+    // Incremental motion forest (markStableStressRows): stable node flags from
+    // the topology, and whether this build may keep them (set by begin).
+    const unsigned* stable;unsigned* reuse;
+    // This build's work, filled by initialize: the tree edges and the live
+    // bonds of components that are not kept (counts[0], counts[1]). The arc and
+    // bond phases walk these instead of every bond of the scene, so a rebuild
+    // costs what changed (each jump round over the whole city's ~300k bonds
+    // was ~0.1 ms of Apple GPU even with every component kept).
+    unsigned *treeEdges,*liveEdges,*counts;
 };
+// A kept component's tree, positions, closure, axis and factors are those of
+// the previous build, which ran on the same nodes and live bonds; every phase
+// leaves its rows alone. id is a component label (Invalid is never kept).
+__device__ __forceinline__ bool motionKept(MotionBuffers b,unsigned id){return b.stable && id!=Invalid && *b.reuse && b.stable[id];}
+__device__ __forceinline__ bool motionKeptEdge(const Input& a,MotionBuffers b,unsigned edge){
+    const unsigned u=a.component[a.node0[edge]];return motionKept(b,u!=Invalid?u:a.component[a.node1[edge]]);
+}
 __device__ __forceinline__ MotionExact3 exactMotionAdd(MotionExact3 a,MotionExact3 b,Status* status){
     bool representable=true;const auto sum=motionExactAdd(a,b,representable);
     if(!representable)atomicOr(&status->error,16u);return sum;
@@ -47,19 +63,21 @@ __device__ __forceinline__ bool motionCollinear(double3 a,double3 b){
 }
 __device__ void initializeMotionForest(Input a,const unsigned* forest,MotionBuffers b,Status* status,unsigned thread,unsigned stride){
     for(unsigned node=thread;node<a.nodes;node+=stride){
-        b.first[node]=Invalid;b.position[node]={};b.components[node]={};b.components[node].closure=Invalid;
         const auto d=a.inertia[node];const unsigned id=a.component[node];
+        if(!motionKept(b,id)){b.first[node]=Invalid;b.position[node]={};b.components[node]={};b.components[node].closure=Invalid;}
         const bool dynamic=d.x>0 && d.y>0,fixed=d.x==0 && d.y==0;
         if((!dynamic && !fixed) || !isfinite(d.x) || !isfinite(d.y))atomicOr(&status->error,1u);
         if(id!=Invalid && (id>=a.nodes || id>node || !dynamic || a.component[id]!=id))atomicOr(&status->error,1u);
         if(a.begin[node]>a.begin[node+1] || a.begin[node+1]>2ull*a.bonds)atomicOr(&status->error,1u);
     }
     for(unsigned edge=thread;edge<a.bonds;edge+=stride){
-        b.previous[0][2*edge]=b.previous[0][2*edge+1]=Invalid;
-        b.sum[0][2*edge]=b.sum[0][2*edge+1]={};
         const unsigned u=a.node0[edge],v=a.node1[edge];
-        if(u>=a.nodes || v>=a.nodes || u==v || forest[edge]>1 || !isfinite(a.health[edge])){atomicOr(&status->error,1u);continue;}
+        if(u>=a.nodes || v>=a.nodes){atomicOr(&status->error,1u);continue;}
+        const bool kept=motionKeptEdge(a,b,edge);
+        if(!kept){b.previous[0][2*edge]=b.previous[0][2*edge+1]=Invalid;b.sum[0][2*edge]=b.sum[0][2*edge+1]={};}
+        if(u==v || forest[edge]>1 || !isfinite(a.health[edge])){atomicOr(&status->error,1u);continue;}
         if(a.health[edge]>0){
+            if(!kept && (a.component[u]!=Invalid || a.component[v]!=Invalid))b.liveEdges[atomicAdd(&b.counts[1],1u)]=edge;
             if(!(a.scale[edge]>0) || !isfinite(a.scale[edge]))atomicOr(&status->error,1u);
             const auto x=a.offset0[edge],y=a.offset1[edge];
             if(!isfinite(x.x)||!isfinite(x.y)||!isfinite(x.z)||!isfinite(y.x)||!isfinite(y.y)||!isfinite(y.z))atomicOr(&status->error,1u);
@@ -67,6 +85,8 @@ __device__ void initializeMotionForest(Input a,const unsigned* forest,MotionBuff
         }
         if(!forest[edge])continue;
         if(a.health[edge]<=0 || a.component[u]==Invalid || a.component[u]!=a.component[v]){atomicOr(&status->error,1u);continue;}
+        if(kept)continue;
+        b.treeEdges[atomicAdd(&b.counts[0],1u)]=edge;
         const auto delta=motionOffset(a,edge,status);b.sum[0][2*edge]=delta;b.sum[0][2*edge+1]=neg(delta);
     }
 }
@@ -94,8 +114,8 @@ __device__ void buildMotionTour(Input a,const unsigned* forest,MotionBuffers b,S
 }
 __device__ void jumpMotionTour(Input a,const unsigned* forest,MotionBuffers b,Status* status,unsigned source,unsigned thread,unsigned stride){
     const unsigned target=source^1u;
-    for(unsigned arc=thread;arc<2*a.bonds;arc+=stride){
-        if(!forest[arc/2])continue;const unsigned previous=b.previous[source][arc];
+    for(unsigned i=thread;i<2*b.counts[0];i+=stride){
+        const unsigned arc=2*b.treeEdges[i>>1]+(i&1u),previous=b.previous[source][arc];
         MotionExact3 value=b.sum[source][arc];unsigned next=Invalid;
         if(previous!=Invalid){if(previous>=2*a.bonds || !forest[previous/2])atomicOr(&status->error,2u);
             else {value=exactMotionAdd(value,b.sum[source][previous],status);next=b.previous[source][previous];}}
@@ -103,11 +123,10 @@ __device__ void jumpMotionTour(Input a,const unsigned* forest,MotionBuffers b,St
     }
 }
 __device__ void publishMotionPositions(Input a,const unsigned* forest,MotionBuffers b,Status* status,unsigned source,unsigned thread,unsigned stride){
-    for(unsigned arc=thread;arc<2*a.bonds;arc+=stride)if(forest[arc/2]){
-        if(b.previous[source][arc]!=Invalid)atomicOr(&status->error,2u);
-    }
+    for(unsigned i=thread;i<2*b.counts[0];i+=stride)
+        if(b.previous[source][2*b.treeEdges[i>>1]+(i&1u)]!=Invalid)atomicOr(&status->error,2u);
     for(unsigned node=thread;node<a.nodes;node+=stride){
-        const unsigned id=a.component[node];if(id==Invalid)continue;
+        const unsigned id=a.component[node];if(id==Invalid || motionKept(b,id))continue;
         if(id!=node && b.first[node]==Invalid)atomicOr(&status->error,2u);
         if(b.first[node]!=Invalid && id!=node)b.position[node]=b.sum[source][b.first[node]^1u];
     }
@@ -134,9 +153,8 @@ __device__ __forceinline__ bool motionClosureSignificant(const Input& a,MotionBu
     return motionGreater(magnitude,motionScaled(scale,0x1p-17f));
 }
 __device__ void discoverMotionClosures(Input a,MotionBuffers b,Status* status,unsigned thread,unsigned stride){
-    for(unsigned e=thread;e<a.bonds;e+=stride){if(a.health[e]<=0)continue;
+    for(unsigned i=thread;i<b.counts[1];i+=stride){const unsigned e=b.liveEdges[i];
         const unsigned u=a.component[a.node0[e]],v=a.component[a.node1[e]];
-        if(u==Invalid && v==Invalid)continue;
         if(u==Invalid || v==Invalid){atomicExch(&b.components[u==Invalid?v:u].anchored,1u);continue;}
         if(u!=v){atomicOr(&status->error,1u);continue;}
         const auto closure=motionClosure(a,b,e,status);
@@ -144,7 +162,7 @@ __device__ void discoverMotionClosures(Input a,MotionBuffers b,Status* status,un
     }
 }
 __device__ void initializeMotionAxes(Input a,MotionBuffers b,Status* status,unsigned thread,unsigned stride){
-    for(unsigned node=thread;node<a.nodes;node+=stride)if(a.component[node]==node){auto& c=b.components[node];
+    for(unsigned node=thread;node<a.nodes;node+=stride)if(a.component[node]==node && !motionKept(b,node)){auto& c=b.components[node];
         const unsigned count=a.partition.end[node]-a.partition.begin[node];
         if(c.edges+1!=count || (b.first[node]!=Invalid && c.cuts!=1) || (b.first[node]==Invalid && c.cuts))atomicOr(&status->error,2u);
         c.rotations=c.closure==Invalid?3u:1u;
@@ -158,7 +176,7 @@ __device__ void initializeMotionAxes(Input a,MotionBuffers b,Status* status,unsi
     }
 }
 __device__ void constrainMotionAxes(Input a,MotionBuffers b,Status* status,unsigned thread,unsigned stride){
-    for(unsigned e=thread;e<a.bonds;e+=stride){if(a.health[e]<=0)continue;
+    for(unsigned i=thread;i<b.counts[1];i+=stride){const unsigned e=b.liveEdges[i];
         const unsigned id=a.component[a.node0[e]];if(id==Invalid || a.component[a.node1[e]]!=id)continue;
         const auto& c=b.components[id];if(c.anchored || c.closure==Invalid)continue;
         const auto seed=motionClosure(a,b,c.closure,status),value=motionClosure(a,b,e,status);

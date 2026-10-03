@@ -343,6 +343,18 @@ bool skipConvergedEnabled()
     return e;
 }
 
+/// Incremental motion forest: a topology rebuild keeps the spanning tree and
+/// motion modes of every component that lost no bond, and rebuilds only the
+/// components a removal touched (StressTopologyWarmStart.cuh,
+/// markStableStressRows). The full rebuild runs exact expansion arithmetic over
+/// every tree arc of the scene, ~10 ms of GPU per rebuild on the city.
+/// Default OFF: `BLAST_STRESS_INCREMENTAL_MOTION=1` enables it.
+bool incrementalMotionEnabled()
+{
+    static const bool e = []() { const char* r = std::getenv("BLAST_STRESS_INCREMENTAL_MOTION"); return r != nullptr && std::string(r) != "0"; }();
+    return e;
+}
+
 /// Preconditioner of the first native small-component iteration (A/B switch,
 /// BLAST_STRESS_FIRST_PRECONDITIONER). The default is the original projected
 /// steepest-descent step (identity): exact for a single mode, but on a car

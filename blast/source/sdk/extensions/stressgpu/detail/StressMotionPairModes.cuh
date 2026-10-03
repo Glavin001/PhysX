@@ -82,19 +82,27 @@ __device__ void buildMotionFactor(Input a,MotionBuffers b,Status* status,unsigne
 __device__ __forceinline__ unsigned motionThread(){return blockIdx.x*blockDim.x+threadIdx.x;}
 __device__ __forceinline__ unsigned motionStride(){return gridDim.x*blockDim.x;}
 __device__ __forceinline__ bool motionLive(const Work* work){return work->active && work->pending;}
-__global__ void beginMotionModes(Input a,Status* status,Work* work){beginBuild(a,status,work);}
+// Reuse needs the previous build to have completed on the previous topology:
+// the topology counts rebuilds into a.generation and runs this once per rebuild.
+__global__ void beginMotionModes(Input a,MotionBuffers b,Status* status,Work* work){
+    const bool prior=status->initialized && !status->error && status->generation+1==*a.generation;
+    beginBuild(a,status,work);
+    if(b.reuse)*b.reuse=unsigned(prior && work->active && b.stable);
+    if(work->active)b.counts[0]=b.counts[1]=0;
+}
 __global__ void checkpointMotionModes(Status* status,Work* work){if(work->active)work->pending=!status->error;}
 __global__ void initializeMotionModes(Input a,const unsigned* forest,MotionBuffers b,Status* status,Work* work){
     if(work->active)initializeMotionForest(a,forest,b,status,motionThread(),motionStride());
 }
 __global__ void tourMotionModes(Input a,const unsigned* forest,MotionBuffers b,Status* status,Work* work){
     if(!motionLive(work))return;
-    for(unsigned node=motionThread()/32;node<a.nodes;node+=motionStride()/32)buildMotionTour(a,forest,b,status,node);
+    for(unsigned node=motionThread()/32;node<a.nodes;node+=motionStride()/32)
+        if(!motionKept(b,a.component[node]))buildMotionTour(a,forest,b,status,node);
 }
 __global__ void cutMotionModes(Input a,const unsigned* forest,MotionBuffers b,Work* work){
     if(!motionLive(work))return;
     // Every tree component must have exactly one broken Euler-tour link.
-    for(unsigned arc=motionThread();arc<2*a.bonds;arc+=motionStride())if(forest[arc/2]){
+    for(unsigned i=motionThread();i<2*b.counts[0];i+=motionStride()){const unsigned arc=2*b.treeEdges[i>>1]+(i&1u);
         auto& c=b.components[a.component[a.node0[arc/2]]];
         if(b.previous[0][arc]==Invalid)atomicAdd(&c.cuts,1u);if(!(arc&1u))atomicAdd(&c.edges,1u);
     }
@@ -116,7 +124,8 @@ __global__ void constrainMotionModes(Input a,MotionBuffers b,Status* status,Work
 }
 __global__ void buildMotionFactors(Input a,MotionBuffers b,Status* status,Work* work){
     if(!motionLive(work))return;
-    for(unsigned slot=blockIdx.x;slot<*a.partition.count;slot+=gridDim.x){buildMotionFactor(a,b,status,a.partition.ids[slot]);__syncthreads();}
+    for(unsigned slot=blockIdx.x;slot<*a.partition.count;slot+=gridDim.x){const unsigned id=a.partition.ids[slot];
+        if(motionKept(b,id))continue;buildMotionFactor(a,b,status,id);__syncthreads();}
 }
 __global__ void commitMotionModes(Input a,Status* status,Work* work){
     if(motionLive(work))commitBuild(&a,status);
@@ -155,9 +164,11 @@ class ResidentMotionModes {
     MotionBuffers mBuffers{};Status* mStatus=nullptr;Work* mWork=nullptr;
     static void check(cudaError_t e){if(e!=cudaSuccess)throw std::runtime_error(std::string("Resident motion modes: ")+cudaGetErrorString(e));}
     template<class T>static void allocate(T*& p,size_t count){check(cudaMalloc(&p,std::max(size_t(1),count)*sizeof(T)));}
-    void release()noexcept{for(unsigned k=0;k<2;++k){cudaFree(mBuffers.previous[k]);cudaFree(mBuffers.sum[k]);}cudaFree(mBuffers.first);cudaFree(mBuffers.position);cudaFree(mBuffers.components);cudaFree(mBuffers.relative);cudaFree(mStatus);cudaFree(mWork);}
+    void release()noexcept{for(unsigned k=0;k<2;++k){cudaFree(mBuffers.previous[k]);cudaFree(mBuffers.sum[k]);}cudaFree(mBuffers.first);cudaFree(mBuffers.position);cudaFree(mBuffers.components);cudaFree(mBuffers.relative);cudaFree(mBuffers.reuse);cudaFree(mBuffers.treeEdges);cudaFree(mBuffers.liveEdges);cudaFree(mBuffers.counts);cudaFree(mStatus);cudaFree(mWork);}
 public:
-    ResidentMotionModes(Input input,const unsigned* forest,cudaStream_t stream):mInput(input),mForest(forest),mStream(stream){
+    // stable: the topology's kept-component flags (markStableStressRows), or
+    // null for full rebuilds.
+    ResidentMotionModes(Input input,const unsigned* forest,const unsigned* stable,cudaStream_t stream):mInput(input),mForest(forest),mStream(stream){
         if(input.levelBonds || input.nodes>0x7fffffffu || input.bonds>0x7fffffffu || !input.generation || !input.partition.count
             || (input.nodes && (!input.begin||!input.component||!input.inertia||!input.partition.begin||!input.partition.end||!input.partition.ids))
             || (input.bonds && (!forest||!input.node0||!input.node1||!input.refs||!input.health||!input.scale||!input.offset0||!input.offset1)))
@@ -166,6 +177,8 @@ public:
             for(unsigned k=0;k<2;++k){allocate(mBuffers.previous[k],size_t(input.bonds)*2);allocate(mBuffers.sum[k],size_t(input.bonds)*2);}
             allocate(mBuffers.first,input.nodes);allocate(mBuffers.position,input.nodes);allocate(mBuffers.components,input.nodes);allocate(mBuffers.relative,input.nodes);
             allocate(mStatus,1);allocate(mWork,1);check(cudaMemsetAsync(mStatus,0,sizeof(Status),stream));
+            mBuffers.stable=stable;allocate(mBuffers.reuse,1);check(cudaMemsetAsync(mBuffers.reuse,0,sizeof(unsigned),stream));
+            allocate(mBuffers.treeEdges,input.bonds);allocate(mBuffers.liveEdges,input.bonds);allocate(mBuffers.counts,2);
         }catch(...){release();throw;}
     }
     ~ResidentMotionModes(){cudaStreamSynchronize(mStream);release();}
@@ -178,7 +191,7 @@ public:
             cudaKernelNodeParams p{};p.func=func;p.gridDim=dim3(grid);p.blockDim=dim3(threads);p.kernelParams=args;
             cudaGraphNode_t node;check(cudaGraphAddKernelNode(&node,graph,prior?&prior:nullptr,prior?1:0,&p));prior=node;
         };
-        void* beginArgs[]={&input,&status,&work};
+        void* beginArgs[]={&input,&buffers,&status,&work};
         void* checkpointArgs[]={&status,&work};
         void* forestArgs[]={&input,&forest,&buffers,&status,&work};
         void* cutArgs[]={&input,&forest,&buffers,&work};
@@ -207,6 +220,8 @@ public:
     }
     MotionModeView view()const{return {mBuffers.relative,mBuffers.components,mStatus,mForest};}
     const Status* status()const{return mStatus;}
+    // Whether the last build kept components (incremental motion forest).
+    const unsigned* reused()const{return mBuffers.reuse;}
     // Exact node positions, for validation against the double implementation.
     const MotionExact3* positions()const{return mBuffers.position;}
 };

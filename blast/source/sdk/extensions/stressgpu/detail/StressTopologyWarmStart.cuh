@@ -26,3 +26,20 @@ __global__ void clearChangedStressWarmStart(const ExtStressGpuDeviceTopologyStat
     // Unaffected lambda remains available. The independent exact-input
     // certificate may authorize reuse; otherwise the solve verifies it again.
 }
+// Incremental motion forest (BLAST_STRESS_INCREMENTAL_MOTION=1). A removal mask
+// is the only way the resident topology changes, so an old component that lost
+// no bond is, after relabeling, the same component: the same nodes, live bonds
+// and minimum-node ID. Its spanning-tree bits and its motion modes are kept
+// instead of rebuilt. stable[0,n) flags nodes, stable[n,n+m) live bonds, of
+// such components. Like markChangedStressComponents, this reads the OLD labels
+// and health; with no mask or no prior topology nothing is stable.
+__global__ void markStableStressRows(const DeviceStressTopologyBatch* batch,
+    const ExtStressGpuDeviceTopologyStatus* state,const float* health,
+    const unsigned* nodeIsland,const unsigned* bondIsland,const unsigned* changed,
+    unsigned* stable,unsigned n,unsigned m)
+{
+    const unsigned i=blockIdx.x*blockDim.x+threadIdx.x;
+    const bool prior=state->initialized && batch->mask;
+    if(i<n){const unsigned id=prior?nodeIsland[i]:kNoIsland;stable[i]=id!=kNoIsland && !changed[id];}
+    if(i<m){const unsigned id=prior && health[i]>0?bondIsland[i]:kNoIsland;stable[n+i]=id!=kNoIsland && !changed[id];}
+}

@@ -117,7 +117,9 @@ class ResidentMotionModes {
     template<class T>static void allocate(T*& p,size_t count){check(cudaMalloc(&p,std::max(size_t(1),count)*sizeof(T)));}
     void release()noexcept{for(unsigned k=0;k<2;++k){cudaFree(mBuffers.previous[k]);cudaFree(mBuffers.sum[k]);}cudaFree(mBuffers.first);cudaFree(mBuffers.position);cudaFree(mBuffers.components);cudaFree(mStatus);cudaFree(mWork);}
 public:
-    ResidentMotionModes(Input input,const unsigned* forest,cudaStream_t stream):mInput(input),mForest(forest),mStream(stream){
+    // stable (incremental motion forest) is not used here: every build is full,
+    // over a forest whose kept components keep their previous trees.
+    ResidentMotionModes(Input input,const unsigned* forest,const unsigned* /*stable*/,cudaStream_t stream):mInput(input),mForest(forest),mStream(stream){
         if(input.levelBonds || input.nodes>0x7fffffffu || input.bonds>0x7fffffffu || !input.generation || !input.partition.count
             || (input.nodes && (!input.begin||!input.component||!input.inertia||!input.partition.begin||!input.partition.end||!input.partition.ids))
             || (input.bonds && (!forest||!input.node0||!input.node1||!input.refs||!input.health||!input.scale||!input.offset0||!input.offset1)))

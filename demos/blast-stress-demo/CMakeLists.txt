@@ -1251,6 +1251,18 @@ if(BLAST_ENABLE_CUDA_STRESS AND (PX_GPU_BACKEND STREQUAL "CUMETAL" OR (CMAKE_CUD
     add_test(NAME blast_stress_gpu_operator_epochs COMMAND gpu_resident_operator_epoch_test)
     set_tests_properties(blast_stress_gpu_operator_epochs PROPERTIES TIMEOUT 120 LABELS "gpu" RUN_SERIAL TRUE)
 
+    # Incremental motion forest (BLAST_STRESS_INCREMENTAL_MOTION): kept and
+    # rebuilt components against a full build on the same forest.
+    add_executable(gpu_incremental_motion_test EXCLUDE_FROM_ALL tests/gpu_resident_motion_modes_test.cu)
+    target_include_directories(gpu_incremental_motion_test PRIVATE
+        "${BLAST_ROOT}/source/sdk/extensions/stressgpu" "${BLAST_ROOT}/include/extensions/stressgpu" "${BLAST_ROOT}/include/extensions/stress")
+    target_compile_definitions(gpu_incremental_motion_test PRIVATE
+        PHYSX_RESIDENT_DESTRUCTION BLAST_STRESS_GPU_FP64=1 BLAST_INCREMENTAL_MOTION_TEST_ONLY)
+    px_destruction_cuda_properties(gpu_incremental_motion_test PROPERTIES CUDA_ARCHITECTURES 89 CUDA_STANDARD 17)
+    target_link_libraries(gpu_incremental_motion_test PRIVATE ${PX_DESTRUCTION_GPU_RUNTIME} ${PX_DESTRUCTION_GPU_DRIVER})
+    add_test(NAME blast_stress_gpu_incremental_motion COMMAND gpu_incremental_motion_test)
+    set_tests_properties(blast_stress_gpu_incremental_motion PROPERTIES TIMEOUT 120 LABELS "gpu" RUN_SERIAL TRUE)
+
     set_tests_properties(blast_stress_gpu_resident_motion_modes PROPERTIES TIMEOUT 120 LABELS "gpu" RUN_SERIAL TRUE)
     # Native AOT outputs are external objects. A static archive includes them
     # explicitly; CMake OBJECT libraries do not reliably propagate such files.

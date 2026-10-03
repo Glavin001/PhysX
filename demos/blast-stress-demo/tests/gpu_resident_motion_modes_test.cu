@@ -3,7 +3,7 @@
 #include "NvBlastExtStressGpu.cu"
 // Retain the general dense cached-inverse reference and its original tests.
 // It is not included or selected by the production runtime.
-#ifndef BLAST_GPU_OPERATOR_EPOCH_TEST
+#if !defined(BLAST_GPU_OPERATOR_EPOCH_TEST) && !defined(BLAST_INCREMENTAL_MOTION_TEST_ONLY)
 namespace Nv { namespace Blast { namespace {
 #include "detail/StressNativeFineInverse.cuh"
 }}}
@@ -123,7 +123,7 @@ void run(Fixture f,bool transitions){
         a.put(f.a);b.put(f.b);begin.put(f.begin);refs.put(f.refs);position.put(f.position);offset0.put(f.offset0);offset1.put(f.offset1);inertia.put(f.inertia);scale.put(f.scale);batch.put({{nullptr,nullptr,nullptr}});accept.put({1});
         Input input{n,m,begin.data,refs.data,a.data,b.data,nodeIsland.data,health.data,scale.data,position.data,offset0.data,offset1.data,reinterpret_cast<const float2*>(inertia.data),generation.data,accept.data};
         input.partition={order.data,ids.data,first.data,last.data,counts.data,counts.data+1};
-        ResidentMotionModes modes(input,forest.data,stream);cudaGraph_t graph;cudaGraphExec_t executable;check(cudaGraphCreate(&graph,0));modes.append(graph,nullptr);check(cudaGraphInstantiate(&executable,graph,0));
+        ResidentMotionModes modes(input,forest.data,nullptr,stream);cudaGraph_t graph;cudaGraphExec_t executable;check(cudaGraphCreate(&graph,0));modes.append(graph,nullptr);check(cudaGraphInstantiate(&executable,graph,0));
         Device<Vector> values(n),result(n);std::vector<Vector> loads(n);for(unsigned i=0;i<n;++i){Six v{};for(unsigned k=0;k<6;++k)v[k]=(int((i*17+k*7)%23)-11)/16.L;loads[i]=pack(v);}values.put(loads);
         Status prior{};const auto original=f.health;
         for(unsigned step=0;step<(transitions?4u:2u);++step){
@@ -131,8 +131,8 @@ void run(Fixture f,bool transitions){
             if(step!=1){f.health=original;if(step==2)for(unsigned e=0;e<m;++e)if(e%7==0 || !f.inertia[f.a[e]].linear || !f.inertia[f.b[e]].linear)f.health[e]=0;health.put(f.health);
                 const unsigned nb=std::max(1u,(n+Threads-1)/Threads),eb=std::max(1u,(m+Threads-1)/Threads);
                 beginDeviceStressRebuild<<<1,1,0,stream>>>(nativeStatus.data);
-                initializeDeviceStressTopology<<<std::max(nb,eb),Threads,0,stream>>>(batch.data,inertia.data,parent.data,identity.data,flags.data,health.data,n,m,forest.data);
-                connectDeviceStressTopology<<<eb,Threads,0,stream>>>(a.data,b.data,health.data,inertia.data,m,parent.data,forest.data);flattenDeviceStressTopology<<<nb,Threads,0,stream>>>(parent.data,n);
+                initializeDeviceStressTopology<<<std::max(nb,eb),Threads,0,stream>>>(batch.data,inertia.data,parent.data,identity.data,flags.data,health.data,n,m,forest.data,nullptr);
+                connectDeviceStressTopology<<<eb,Threads,0,stream>>>(a.data,b.data,health.data,inertia.data,m,parent.data,forest.data,nullptr);flattenDeviceStressTopology<<<nb,Threads,0,stream>>>(parent.data,n);
                 labelDeviceStressBonds<<<eb,Threads,0,stream>>>(a.data,b.data,health.data,inertia.data,parent.data,flags.data,bondIsland.data,m);
                 labelDeviceStressNodes<<<nb,Threads,0,stream>>>(parent.data,flags.data,nodeIsland.data,n,nativeStatus.data);check(cudaGetLastError());check(cudaStreamSynchronize(stream));
             }
@@ -191,7 +191,13 @@ void run(Fixture f,bool transitions){
     check(cudaStreamDestroy(stream));
 }
 }
-#ifdef BLAST_GPU_OPERATOR_EPOCH_TEST
+#if defined(BLAST_INCREMENTAL_MOTION_TEST_ONLY)
+// Focused: the incremental motion forest against a full build and the oracle
+// (the full suite's dense reference helper does not lower on CuMetal).
+#include "native_incremental_motion_test.cuh"
+int main(){std::setvbuf(stdout,nullptr,_IOLBF,0);try{MotionModeTest::incrementalMotion();return 0;}
+catch(const std::exception& e){std::fprintf(stderr,"incremental motion: %s\n",e.what());return 1;}}
+#elif defined(BLAST_GPU_OPERATOR_EPOCH_TEST)
 #include "native_warm_range_test.cuh"
 #include "native_rigid_inverse_test.cuh"
 #include "native_inverse_topology_test.cuh"
@@ -213,6 +219,10 @@ int main(){std::setvbuf(stdout,nullptr,_IOLBF,0);try{
 #include "native_topology_warm_test.cuh"
 #include "native_inverse_topology_test.cuh"
 #include "native_operator_epoch_test.cuh"
+#if (defined(PX_CUMETAL) && PX_CUMETAL) || BLAST_STRESS_MOTION_EXPANSION
+#include "native_incremental_motion_test.cuh"
+#define BLAST_INCREMENTAL_MOTION_TEST 1
+#endif
 using namespace MotionModeTest;
 int main(int argc,char** argv){try{
     if(argc==2 && std::string(argv[1])=="retirement"){cooperativeRetirement();return 0;}
@@ -229,6 +239,9 @@ int main(int argc,char** argv){try{
     topologyWarmInvalidation();
     inverseTopologyLifetime();
     operatorEpochReadiness();
+#ifdef BLAST_INCREMENTAL_MOTION_TEST
+    incrementalMotion();
+#endif
     run(Fixture(0),false);run(Fixture(1),false);
     for(unsigned kind=0;kind<5;++kind){Fixture f(24);for(unsigned i=1;i<f.n;++i)f.edge(i-1,i);
         if(kind==1)f.offset1[5].x+=.03125f; // Tree geometry differs from authoring, still six modes.
