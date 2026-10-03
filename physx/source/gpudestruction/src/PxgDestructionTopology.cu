@@ -6,6 +6,7 @@
 #include <cub/device/device_scan.cuh>
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 #include <cstring>
 #include <limits>
 #include <new>
@@ -107,14 +108,26 @@ __global__ void finishGeneration(PxgDestructionTopologyStatus* status) {
     if (status->changed) ++status->generation;
 }
 
+// kept (incremental topology, PX_DESTRUCTION_INCREMENTAL_TOPOLOGY=1): the
+// accepted clusters a transaction starts from. A cluster whose root was an
+// accepted root that no edit touched (dirty, by accepted root) has the same
+// chunks, so the same record; it is copied instead of summed again. Clusters
+// only split, and the sum below is in a fixed order, so this is bit-exact.
+// The full pass is ~10k clusters of emulated binary64 on Metal: 1.9 ms GPU on
+// a meteor's correction tick, for the two or three clusters a meteor changes.
 __global__ void massProperties(const PxgDestructionChunk* chunks, const unsigned* labels,
     const unsigned* alive, const unsigned* order, const unsigned* begins,
     const unsigned* ends, PxgDestructionCluster* clusters, const unsigned* roots,
-    const PxgDestructionTopologyStatus* status) {
+    const PxgDestructionTopologyStatus* status, const PxgDestructionCluster* kept = nullptr,
+    const unsigned* previousLabels = nullptr, const unsigned* dirty = nullptr) {
     __shared__ double sums[10][BLOCK];
     __shared__ unsigned supports[BLOCK];
     for (unsigned cidx = blockIdx.x; cidx < status->clusterCount; cidx += gridDim.x) {
     const unsigned r = roots[cidx];
+    if (kept && previousLabels[r] == r && !dirty[r]) {
+        if (!threadIdx.x) clusters[r] = kept[r];
+        continue;
+    }
     double v[10] = {};
     unsigned support = 0;
     for (unsigned j = begins[r] + threadIdx.x; j < ends[r]; j += BLOCK) {
@@ -246,7 +259,8 @@ class Topology final : public PxgDestructionTopology {
     template<class T> bool alloc(T*& ptr, size_t count) {
         return !count || cudaMalloc(reinterpret_cast<void**>(&ptr), sizeof(T)*count) == cudaSuccess;
     }
-    bool rebuild(bool transfer = false, bool signal = true) {
+    bool rebuild(bool transfer = false, bool signal = true,
+        const PxgDestructionCluster* kept = nullptr, const unsigned* dirty = nullptr) {
         const unsigned grid = (mN + BLOCK - 1)/BLOCK;
         resetLabels<<<grid, BLOCK, 0, mStream>>>(mActiveChunks, mLabels, mIndices, mClusters, mN);
         if (mM) connect<<<(mM+BLOCK-1)/BLOCK, BLOCK, 0, mStream>>>(mBonds, mM, mActiveBonds, mActiveChunks, mLabels);
@@ -258,7 +272,7 @@ class Topology final : public PxgDestructionTopology {
             mRoots, &mStatus->clusterCount, mN, mStream) != cudaSuccess) return false;
         finishGeneration<<<1,1,0,mStream>>>(mStatus);
         massProperties<<<std::min(mN,2560u), BLOCK, 0, mStream>>>(mChunks, mLabels, mActiveChunks,
-            mOrder, mBegins, mEnds, mClusters, mRoots, mStatus);
+            mOrder, mBegins, mEnds, mClusters, mRoots, mStatus, kept, kept ? mPreviousLabels : nullptr, dirty);
         retainMotionSlots<<<grid,BLOCK,0,mStream>>>(mSlotRoots,mActiveChunks,mLabels,mFreeFlags,mN);
         requestMotionSlots<<<grid,BLOCK,0,mStream>>>(mActiveChunks,mLabels,mClusterSlots,mSlotRoots,mRootFlags,mN);
         if(cub::DeviceScan::ExclusiveSum(mTemp,mTempBytes,mFreeFlags,mFreeRanks,mN,mStream)!=cudaSuccess

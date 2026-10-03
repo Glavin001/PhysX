@@ -361,7 +361,70 @@ void largeTransactions() {
     std::puts("GPU topology transaction: 100k chunks / 200k bonds, all fracture decisions retained, candidate replacement without commit passed");
 }
 
+// PX_DESTRUCTION_INCREMENTAL_TOPOLOGY: a transaction copies the accepted mass
+// properties of every cluster its edits do not touch. The same edit stream
+// through an incremental and a full transaction must give bit-identical
+// clusters, trial and accepted, including after discarded trials (the next
+// trial must start from the accepted clusters, not the discarded ones).
+bool sameCluster(const PxgDestructionCluster& a,const PxgDestructionCluster& b) {
+    return a.mass==b.mass && a.chunkCount==b.chunkCount && a.supported==b.supported
+        && !std::memcmp(a.center,b.center,sizeof(a.center)) && !std::memcmp(a.inertia,b.inertia,sizeof(a.inertia));
+}
+void incrementalMassProperties() {
+    constexpr unsigned groups=20,span=200,n=groups*span;
+    Fixture f(n);std::mt19937 rng(77);
+    for(unsigned g=0;g<groups;++g) {
+        for(unsigned i=0;i<span;++i)for(unsigned k=0;k<3;++k)f.chunks[g*span+i].center[k]+=1e3*g*(k+1);
+        for(unsigned i=1;i<span;++i)f.bonds.push_back({g*span+i-1,g*span+i});
+        for(unsigned i=0;i<span/10;++i)f.bonds.push_back({g*span+unsigned(rng()%span),g*span+unsigned(rng()%span)});
+    }
+    for(auto& b:f.bonds)if(b.chunk0==b.chunk1)b.chunk1=b.chunk0/span*span+(b.chunk0%span+1)%span;
+    const unsigned m=unsigned(f.bonds.size());f.create();
+    unsetenv("PX_DESTRUCTION_INCREMENTAL_TOPOLOGY");
+    auto* full=PxgDestructionTopologyTransaction::create(f.chunks.data(),n,f.bonds.data(),m);CHECK(full);
+    setenv("PX_DESTRUCTION_INCREMENTAL_TOPOLOGY","1",1);
+    auto* incremental=PxgDestructionTopologyTransaction::create(f.chunks.data(),n,f.bonds.data(),m);CHECK(incremental);
+    unsetenv("PX_DESTRUCTION_INCREMENTAL_TOPOLOGY");
+    PxgDestructionEdit* edits;unsigned *count,*accept;
+    CUDA(cudaMalloc(&edits,64*sizeof(*edits)));CUDA(cudaMalloc(&count,sizeof(unsigned)));CUDA(cudaMalloc(&accept,sizeof(unsigned)));
+    auto clusters=[&](const PxgDestructionTopologyView& v) {
+        const auto status=read(v.status,1)[0];const auto roots=read(v.activeClusters,status.clusterCount);
+        const auto all=read(v.clusters,n);std::vector<std::pair<unsigned,PxgDestructionCluster>> out;
+        for(auto r:roots)out.push_back({r,all[r]});return out;
+    };
+    auto same=[&](const PxgDestructionTopologyView& a,const PxgDestructionTopologyView& b) {
+        const auto x=clusters(a),y=clusters(b);CHECK(x.size()==y.size());
+        for(size_t i=0;i<x.size();++i)CHECK(x[i].first==y[i].first && sameCluster(x[i].second,y[i].second));
+        return x.size();
+    };
+    size_t last=0;
+    for(unsigned round=0;round<16;++round) {
+        // Edits in one or two groups; some rounds destroy a chunk; every
+        // fourth trial is discarded instead of accepted.
+        std::vector<PxgDestructionEdit> batch;
+        const unsigned touched=1+rng()%2;
+        for(unsigned t=0;t<touched;++t){const unsigned g=rng()%groups;
+            for(unsigned k=0;k<6;++k){const unsigned b=g*(span-1+span/10)+unsigned(rng()%(span-1+span/10));batch.push_back({PxgDestructionEditKind::BreakBond,b});}}
+        if(round%3==2)batch.push_back({PxgDestructionEditKind::DestroyChunk,unsigned(rng()%n)});
+        const unsigned c=unsigned(batch.size()),allow=round%4!=3;
+        CUDA(cudaMemcpy(edits,batch.data(),c*sizeof(*edits),cudaMemcpyHostToDevice));
+        CUDA(cudaMemcpy(count,&c,sizeof(c),cudaMemcpyHostToDevice));CUDA(cudaMemcpy(accept,&allow,sizeof(allow),cudaMemcpyHostToDevice));
+        for(auto* tx:{full,incremental}) {
+            CHECK(tx->prepare(edits,count,64,nullptr,0xffffffffu,nullptr));
+            CUDA(cudaEventSynchronize(static_cast<cudaEvent_t>(tx->trial().readyEvent)));
+            CHECK(!read(tx->status(),1)[0].error);
+        }
+        last=same(full->trial(),incremental->trial());
+        if(allow){f.apply(batch);auto trial=incremental->trial();f.compare(false,&trial);}
+        for(auto* tx:{full,incremental}){CHECK(tx->commit(accept));CUDA(cudaEventSynchronize(static_cast<cudaEvent_t>(tx->accepted().readyEvent)));}
+        same(full->accepted(),incremental->accepted());
+    }
+    full->release();incremental->release();CUDA(cudaFree(edits));CUDA(cudaFree(count));CUDA(cudaFree(accept));
+    std::printf("GPU incremental topology: %u chunks, %u bonds, 16 transactions (4 discarded), %zu clusters; kept and rebuilt mass properties bit-identical to full\n",n,m,last);
+}
+
 int main() {
+    incrementalMassProperties();
     deviceTransactions();
     largeTransactions();
     motionContinuity();

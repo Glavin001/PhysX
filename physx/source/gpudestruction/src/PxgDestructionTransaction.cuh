@@ -41,6 +41,19 @@ __global__ void editTransaction(const TransactionBatch* batch,
         atomicExch((e.kind==PxgDestructionEditKind::BreakBond?bonds:chunks)+e.index,0u);
     }
 }
+// Incremental topology: the accepted clusters an edit touches, by accepted
+// root. A bond edit counts only if the bond is live (its chunks share a root);
+// a chunk edit marks the chunk's root. Anything else leaves clusters as they were.
+__global__ void markEditedClusters(const TransactionBatch* batch,const PxDestructionTopologyTransactionStatus* status,
+    const PxgDestructionBond* bonds,const unsigned* labels,const unsigned* activeBonds,unsigned n,unsigned m,unsigned* dirty) {
+    for(unsigned i=blockIdx.x*blockDim.x+threadIdx.x;i<status->editCount;i+=blockDim.x*gridDim.x) {
+        const auto e=batch->edits[i];unsigned chunk=INVALID;
+        if(e.kind==PxgDestructionEditKind::BreakBond && e.index<m){if(activeBonds[e.index])chunk=bonds[e.index].chunk0;}
+        else if(e.kind==PxgDestructionEditKind::DestroyChunk && e.index<n)chunk=e.index;
+        const unsigned root=chunk==INVALID?INVALID:labels[chunk];
+        if(root!=INVALID)dirty[root]=1;
+    }
+}
 __global__ void startCandidate(const PxgDestructionTopologyStatus* accepted, PxgDestructionTopologyStatus* trial) {
     *trial={accepted->generation,0,0,1};
 }
@@ -82,6 +95,9 @@ class Transaction final : public PxgDestructionTopologyTransaction {
     // A frame's batch is usually the previous frame's: skip rewriting it.
     // prepare keeps the last accept pointer, which the prepare graph never reads.
     TransactionBatch mBatchMirror{};bool mBatchMirrored=false;
+    // PX_DESTRUCTION_INCREMENTAL_TOPOLOGY=1: per accepted root, whether this
+    // transaction's edits touch it (markEditedClusters).
+    unsigned* mDirty=nullptr;
     bool writeBatch(const TransactionBatch& batch) {
         if(mBatchMirrored && !std::memcmp(&batch,&mBatchMirror,sizeof(batch)))return true;
         setTransactionBatch<<<1,1,0,mStream>>>(mBatch,batch);
@@ -142,8 +158,13 @@ class Transaction final : public PxgDestructionTopologyTransaction {
             captureClusterMotion<<<(n+BLOCK-1)/BLOCK,BLOCK,0,mTrial->mStream>>>(mAccepted->mRoots,mAccepted->mClusterSlots,mAccepted->mClusters,
                 mAccepted->mMotions,mTrial->mPreviousMotions,mTrial->mPreviousCenters,mTrial->mPreviousSlots,mAccepted->mStatus,&mBatch->sourceMotion);
             startCandidate<<<1,1,0,mTrial->mStream>>>(mAccepted->mStatus,mTrial->mStatus);
+            if(mDirty) {
+                if(cudaMemsetAsync(mDirty,0,sizeof(unsigned)*n,mTrial->mStream)!=cudaSuccess)return false;
+                markEditedClusters<<<blocks,BLOCK,0,mTrial->mStream>>>(mBatch,mStatus,mAccepted->mBonds,mAccepted->mLabels,
+                    mAccepted->mActiveBonds,n,m,mDirty);
+            }
             editTransaction<<<blocks,BLOCK,0,mTrial->mStream>>>(mBatch,mStatus,mTrial->mActiveChunks,mTrial->mActiveBonds);
-            if(!mTrial->rebuild(true,false))return false;
+            if(!mTrial->rebuild(true,false,mDirty?mAccepted->mClusters:nullptr,mDirty))return false;
             finishCandidate<<<1,1,0,mTrial->mStream>>>(mStatus,mTrial->mStatus);
             return cudaGetLastError()==cudaSuccess;
         }))return false;
@@ -184,6 +205,8 @@ public:
     bool init(const PxgDestructionChunk* chunks,unsigned n,const PxgDestructionBond* bonds,unsigned m) {
         mTrial=new(std::nothrow) Topology;
         if(!mTrial || !mTrial->init(chunks,n,bonds,m,mAccepted))return false;
+        const char* incremental=std::getenv("PX_DESTRUCTION_INCREMENTAL_TOPOLOGY");
+        if(incremental && std::strcmp(incremental,"0") && cudaMalloc(&mDirty,sizeof(unsigned)*std::max(1u,n))!=cudaSuccess)return false;
         if(cudaStreamCreateWithFlags(&mStream,cudaStreamNonBlocking)!=cudaSuccess
             || cudaEventCreateWithFlags(&mReady,cudaEventDisableTiming)!=cudaSuccess
             || cudaMalloc(&mBatch,sizeof(*mBatch))!=cudaSuccess
@@ -218,7 +241,7 @@ public:
         if(mPrepareExec)cudaGraphExecDestroy(mPrepareExec);if(mCommitExec)cudaGraphExecDestroy(mCommitExec);
         if(mPrepareGraph)cudaGraphDestroy(mPrepareGraph);if(mCommitGraph)cudaGraphDestroy(mCommitGraph);
         if(mTrial)mTrial->release();if(mAccepted)mAccepted->release();
-        cudaFree(mBatch);cudaFree(mStatus);
+        cudaFree(mBatch);cudaFree(mStatus);cudaFree(mDirty);
         if(mReady)cudaEventDestroy(mReady);if(mStream)cudaStreamDestroy(mStream);
     }
 };
