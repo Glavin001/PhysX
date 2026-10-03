@@ -31,13 +31,8 @@ __device__ void sumChunkCommands(const PxDestructionStressChunk* chunks,PxU32 n,
 __device__ bool commandValuesMatch(const PxVec3& a,const PxVec3& b) {
     return a.isFinite() && b.isFinite() && (a-b).magnitude()<=1e-4f*(1+b.magnitude());
 }
-__device__ bool chunkCommandsMatch(const PxDestructionStressChunk* chunks,PxU32 n,
-    const PxDestructionChunkLoad* loads,PxU32 cluster,const PxgBodySim& body,
-    const PxgBodySimVelocities& delta) {
-    PxVec3 force(0),torque(0),impulse(0),angularImpulse(0);
-    const auto center=body.body2World.getTransform().p;
-    sumChunkCommands(chunks,n,loads,cluster,body,center,force,torque);
-    sumChunkCommands(chunks,n,loads,cluster,body,center,impulse,angularImpulse,nullptr,PX_INVALID_U32,true);
+__device__ bool chunkCommandSumsMatch(const PxVec3& force,const PxVec3& torque,const PxVec3& impulse,
+    const PxVec3& angularImpulse,const PxgBodySim& body,const PxgBodySimVelocities& delta) {
     const auto linear=body.externalLinearAcceleration,angular=body.externalAngularAcceleration;
     const auto dv=delta.linearVelocity,dw=delta.angularVelocity;
     return commandValuesMatch(force*body.linearVelocityXYZ_inverseMassW.w,PxVec3(linear.x,linear.y,linear.z))
@@ -45,12 +40,43 @@ __device__ bool chunkCommandsMatch(const PxDestructionStressChunk* chunks,PxU32 
         && commandValuesMatch(impulse*body.linearVelocityXYZ_inverseMassW.w,PxVec3(dv.x,dv.y,dv.z))
         && commandValuesMatch(commandAngularAcceleration(body,angularImpulse),PxVec3(dw.x,dw.y,dw.z));
 }
-__global__ void validateChunkCommands(const PxDestructionStressChunk* chunks,PxU32 n,
+// One cluster's commands summed in place (the correction path's affected
+// clusters only); validateChunkCommands uses the per-chunk sums below.
+__device__ bool chunkCommandsMatch(const PxDestructionStressChunk* chunks,PxU32 n,
+    const PxDestructionChunkLoad* loads,PxU32 cluster,const PxgBodySim& body,
+    const PxgBodySimVelocities& delta) {
+    PxVec3 force(0),torque(0),impulse(0),angularImpulse(0);
+    const auto center=body.body2World.getTransform().p;
+    sumChunkCommands(chunks,n,loads,cluster,body,center,force,torque);
+    sumChunkCommands(chunks,n,loads,cluster,body,center,impulse,angularImpulse,nullptr,PX_INVALID_U32,true);
+    return chunkCommandSumsMatch(force,torque,impulse,angularImpulse,body,delta);
+}
+// The host's chunk commands, summed per cluster: force, torque about the
+// body COM, impulse and angular impulse (sums[4c..4c+3]). One thread per
+// chunk, so the cost is the chunk count, not clusters x chunks: the per-cluster
+// loop over every chunk it replaced cost 5.9 ms a tick on a city with five
+// destructible cars (Metal, CUMETAL_TRACE_GPU, 2026-10-03). Zero loads add
+// nothing; atomic order changes only the last bits, inside the 1e-4 tolerance.
+__global__ void sumChunkCommandsByCluster(const PxDestructionStressChunk* chunks,PxU32 n,
     const PxDestructionStressCluster* clusters,PxU32 count,const PxDestructionChunkLoad* loads,
+    const PxgBodySim* checkpoint,PxU32 checkpointCount,PxVec3* sums) {
+    const PxU32 j=blockIdx.x*blockDim.x+threadIdx.x;if(j>=n || !checkpoint)return;
+    const PxU32 c=chunks[j].cluster;if(c>=count)return;
+    const auto load=loads[j];
+    if(load.force.isZero() && load.torque.isZero() && load.impulse.isZero() && load.angularImpulse.isZero())return;
+    const PxU32 id=clusters[c].body;if(id>=checkpointCount)return;
+    const auto& source=checkpoint[id];
+    const auto actor=source.body2World.getTransform()*source.body2Actor_maxImpulseW.getTransform().getInverse();
+    const PxVec3 arm=actor.transform(chunks[j].position)-source.body2World.getTransform().p;
+    const PxVec3 values[4]={load.force,load.torque+arm.cross(load.force),load.impulse,load.angularImpulse+arm.cross(load.impulse)};
+    for(PxU32 k=0;k<4;++k){PxVec3& s=sums[4*c+k];atomicAdd(&s.x,values[k].x);atomicAdd(&s.y,values[k].y);atomicAdd(&s.z,values[k].z);}
+}
+__global__ void validateChunkCommands(const PxDestructionStressCluster* clusters,PxU32 count,const PxVec3* sums,
     const PxgBodySim* checkpoint,PxU32 checkpointCount,const PxgBodySimVelocities* commands,PxDestructionStageStatus* status) {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
     const PxU32 id=clusters[i].body;
-    if(!checkpoint || id>=checkpointCount || !chunkCommandsMatch(chunks,n,loads,i,checkpoint[id],commands[id]))atomicOr(&status->error,16384u);
+    if(!checkpoint || id>=checkpointCount
+        || !chunkCommandSumsMatch(sums[4*i],sums[4*i+1],sums[4*i+2],sums[4*i+3],checkpoint[id],commands[id]))atomicOr(&status->error,16384u);
 }
 __device__ bool correctionVelocity(const float* center,const PxgBodySim& source,
     const float4& v,const float4& w,float* linear,float* angular) {

@@ -630,6 +630,8 @@ class Runtime final : public PxgDestructionRuntime {
     std::set<PxU32> mManagedConstraintIds;
     PxU32 mConstraintCount=0;
     PxDestructionChunkLoad* mChunkLoads{};
+    // Per-cluster sums of the chunk commands, four vectors a cluster (validateChunkCommands).
+    PxVec3* mChunkCommandSums{};
     std::vector<PxDestructionChunkLoad> mHostChunkLoads;
     bool mChunkLoadsFresh=false;
     // Idle gate (see watchClusterBodies). mIdleCertified: the last full
@@ -1260,6 +1262,7 @@ public:
         cudaFree(mConstraintMap);mConstraintMap=nullptr;mConstraintCount=0;
         cudaFree(mConstraintBindings);mConstraintBindings=nullptr;mPinnedConstraintBindings.release();mManagedConstraintIds.clear();
         cudaFree(mChunkLoads);mChunkLoads=nullptr;mHostChunkLoads.clear();mChunkLoadsFresh=false;
+        cudaFree(mChunkCommandSums);mChunkCommandSums=nullptr;
         cudaFree(mChunks);mChunks=nullptr;cudaFree(mClusters);mClusters=nullptr;
         cudaFree(mPoses);mPoses=nullptr;cudaFree(mAngular);mAngular=nullptr;
         cudaFree(mIdleBodies);mIdleBodies=nullptr;mIdleCertified=mIdleSkipped=mIdleFull=false;
@@ -1409,6 +1412,7 @@ public:
             allocate(mSurface,d.chunkCount);
             if(d.enableChunkLoads) {
                 allocate(mChunkLoads,d.chunkCount);mHostChunkLoads.resize(d.chunkCount);
+                allocate(mChunkCommandSums,4*size_t(d.chunkCount));
                 check(cudaMemset(mChunkLoads,0,sizeof(*mChunkLoads)*d.chunkCount));
             }
             check(cudaMemcpy(mChunks,d.chunks,sizeof(*mChunks)*d.chunkCount,cudaMemcpyHostToDevice));
@@ -1799,8 +1803,13 @@ public:
                 mConstraintMap,mConstraintCount,collision.constraintWritebacks,collision.constraintCapacity,
                 mChunks,mClusters,mPoses,bodyStates,1.0f/dt,mInputs,mSurface,mStatus);
             if(mReport)check(cudaMemcpyAsync(mReportInputs+mN,mInputs,sizeof(*mInputs)*mN,cudaMemcpyDeviceToDevice,mStream));
-            if(mChunkLoads && !mPass)validateChunkCommands<<<(mC+127)/128,128,0,mStream>>>(
-                mChunks,mN,mClusters,mC,mChunkLoads,mCheckpointBodies,mCheckpointCount,mCheckpointCommands,mStatus);
+            if(mChunkLoads && !mPass) {
+                check(cudaMemsetAsync(mChunkCommandSums,0,4*sizeof(PxVec3)*mC,mStream));
+                sumChunkCommandsByCluster<<<(mN+127)/128,128,0,mStream>>>(
+                    mChunks,mN,mClusters,mC,mChunkLoads,mCheckpointBodies,mCheckpointCount,mChunkCommandSums);
+                validateChunkCommands<<<(mC+127)/128,128,0,mStream>>>(
+                    mClusters,mC,mChunkCommandSums,mCheckpointBodies,mCheckpointCount,mCheckpointCommands,mStatus);
+            }
             if(contacts.pairCount)routeContacts<<<(contacts.pairCount+127)/128,128,0,mStream>>>(contacts,mMap,mMapCount,mChunks,mPoses,1.0f/dt,mInputs,mSurface,mStatus,bodyStates,mMaterials,mRates);
             if(mReport)check(cudaMemcpyAsync(mReportInputs+2*mN,mInputs,sizeof(*mInputs)*mN,cudaMemcpyDeviceToDevice,mStream));
             check(cudaEventRecord(mReady,mStream));
