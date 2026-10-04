@@ -57,6 +57,13 @@ struct PersistentStressArgs {
     // Converge also when the last step moved the bond forces by at most this
     // fraction of their size (forceTolerance(); 0 = residual test only).
     float forceTolerance=0;
+    // Bond-balanced component operator (BLAST_STRESS_BALANCED_OPERATOR=1;
+    // StressComponentIteration.cuh): per component-solve threadgroup, a chunk
+    // index of componentChunkCapacity+1 starts and as many chunk codes, and 8
+    // partial values per chunk. Null: the node-per-thread operator.
+    std::uint32_t* componentChunkIndex=nullptr;
+    StressReal* componentChunkPartials=nullptr;
+    unsigned componentChunkCapacity=0;
 };
 #include "StressComponentPhaseProbe.cuh"
 #include "StressNativePreconditioner.cuh"

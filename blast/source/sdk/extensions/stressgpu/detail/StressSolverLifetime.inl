@@ -130,6 +130,10 @@ uploadIslands();
         cudaFree(m_nsQ);
         cudaFree(m_nsW);
         cudaFree(m_nsMu);
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+        cudaFree(m_componentChunkIndex);
+        cudaFree(m_componentChunkPartials);
+#endif
         cudaFree(m_nsG);
         cudaFree(m_nsW2);
         cudaFree(m_nsJacobi);

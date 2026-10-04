@@ -73,6 +73,14 @@
         allocateDevice(m_nsQ, m_nodeCount, "allocate node-space projected direction");
         allocateDevice(m_nsW, m_nodeCount, "allocate node-space matvec output");
         allocateDevice(m_nsMu, m_nodeCount, "allocate node-space correction");
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+        if (balancedOperatorEnabled())
+        {
+            const std::size_t blocks = std::min(std::max(m_nodeCount, 1u), componentSolveGrid());
+            allocateDevice(m_componentChunkIndex, blocks * (2 * std::size_t(kComponentChunkCapacity) + 1), "allocate component chunk index");
+            allocateDevice(m_componentChunkPartials, blocks * 8 * std::size_t(kComponentChunkCapacity), "allocate component chunk partials");
+        }
+#endif
         // The native resident operator does not use reference Jacobi vectors
         // or inverses. Keep their storage out of the native memory footprint.
         if (jacobiEnabled())

@@ -291,12 +291,12 @@
             // on two threadgroups, and a fractured structure's components were
             // solved two at a time. Size it for the GPU instead: 64 is two per
             // core on a 32-core part; idle threadgroups find the queue empty.
-            static const unsigned componentGrid=[]{const char* raw=std::getenv("BLAST_STRESS_COMPONENT_BLOCKS");
-                const long parsed=raw?std::atol(raw):0;return parsed>0?unsigned(parsed):64u;}();
-            const unsigned componentBlocks=std::min(m_nodeCount,componentGrid);
+            const unsigned componentBlocks=std::min(m_nodeCount,componentSolveGrid());
 #else
-            const unsigned componentBlocks=std::min(m_nodeCount,unsigned(sms*2));
+            const unsigned componentBlocks=std::min(m_nodeCount,componentSolveGrid());
 #endif
+            if(m_componentChunkIndex){args.componentChunkIndex=m_componentChunkIndex;args.componentChunkPartials=m_componentChunkPartials;
+                args.componentChunkCapacity=kComponentChunkCapacity;}
             componentStressSolve<<<componentBlocks,kBlockSize,0,m_stream>>>(args,components
 #if defined(PX_CUMETAL_EXPLICIT_HIERARCHY_ROOT) && PX_CUMETAL_EXPLICIT_HIERARCHY_ROOT
                 ,cycleLevels

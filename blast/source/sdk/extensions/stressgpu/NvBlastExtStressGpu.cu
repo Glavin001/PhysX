@@ -42,7 +42,10 @@ namespace Blast
 namespace
 {
 
-constexpr std::uint32_t kBlockSize = 256;
+#ifndef BLAST_STRESS_BLOCK_SIZE
+#define BLAST_STRESS_BLOCK_SIZE 256
+#endif
+constexpr std::uint32_t kBlockSize = BLAST_STRESS_BLOCK_SIZE;
 
 // Compare on the device against the actual last submitted loads. Match the
 // host's float equality, including signed zero and NaN behavior. Static nodes
@@ -349,6 +352,38 @@ bool skipConvergedEnabled()
 /// markStableStressRows). The full rebuild runs exact expansion arithmetic over
 /// every tree arc of the scene, ~10 ms of GPU per rebuild on the city.
 /// Default OFF: `BLAST_STRESS_INCREMENTAL_MOTION=1` enables it.
+/// Bond-balanced component operator (StressComponentIteration.cuh): every
+/// operator pass of the component solve split by bonds instead of by nodes, so
+/// a car's 40-bond hub no longer sets the pace of a 256-thread pass. Rows of
+/// at most eight slots evaluate exactly as before; longer rows are summed in
+/// chunks of eight. Default OFF: `BLAST_STRESS_BALANCED_OPERATOR=1` enables it.
+bool balancedOperatorEnabled()
+{
+    static const bool e = []() { const char* r = std::getenv("BLAST_STRESS_BALANCED_OPERATOR"); return r != nullptr && std::string(r) != "0"; }();
+    return e;
+}
+/// Chunks a component-solve threadgroup can index (scratch per threadgroup);
+/// a component with more falls back to the node-per-thread operator.
+constexpr std::uint32_t kComponentChunkCapacity = 4096u;
+/// Threadgroups of the component solve (StressIterationDispatch.inl).
+std::uint32_t componentSolveGrid()
+{
+    static const std::uint32_t grid = []() -> std::uint32_t {
+        const char* raw = std::getenv("BLAST_STRESS_COMPONENT_BLOCKS");
+        const long parsed = raw ? std::atol(raw) : 0;
+        if (parsed > 0) return std::uint32_t(parsed);
+#if defined(PX_CUMETAL) && PX_CUMETAL
+        return 64u;
+#else
+        int device = 0, sms = 0;
+        cudaGetDevice(&device);
+        cudaDeviceGetAttribute(&sms, cudaDevAttrMultiProcessorCount, device);
+        return std::uint32_t(std::max(1, sms * 2));
+#endif
+    }();
+    return grid;
+}
+
 bool incrementalMotionEnabled()
 {
     static const bool e = []() { const char* r = std::getenv("BLAST_STRESS_INCREMENTAL_MOTION"); return r != nullptr && std::string(r) != "0"; }();
@@ -4453,6 +4488,11 @@ private:
     AngLin* m_nsQ{nullptr};
     AngLin* m_nsW{nullptr};
     AngLin* m_nsMu{nullptr};
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+    // Bond-balanced component operator scratch (balancedOperatorEnabled).
+    std::uint32_t* m_componentChunkIndex{nullptr};
+    StressReal* m_componentChunkPartials{nullptr};
+#endif
     AngLin* m_nsG{nullptr};
     AngLin* m_nsW2{nullptr};
     float* m_nsJacobi{nullptr};

@@ -23,6 +23,7 @@
 // tolerance 1e-3, force tolerance 1e-3, cap 64, and inputs that change by a
 // part in 1e4 between solves (a parked car's wheel loads). Reports the median
 // solve and the iterations it took.
+#define BLAST_COMPONENT_ABLATION 1
 #include "NvBlastExtStressGpu.cu"
 #include <algorithm>
 #include <chrono>
@@ -91,7 +92,13 @@ void captured(std::vector<ExtStressGpuNode>& nodes,std::vector<ExtStressGpuBond>
         for(size_t h=0;h<q.size();++h){const unsigned u=q[h];for(auto [e,side]:adj[u]){const unsigned v=side?b[e].first:b[e].second;if(seen[v])continue;seen[v]=1;
             for(unsigned k=0;k<3;++k)pos[3*v+k]=side?pos[3*u+k]+b[e].o1[k]-b[e].o0[k]:pos[3*u+k]+b[e].o0[k]-b[e].o1[k];q.push_back(v);}}}
     for(unsigned i=0;i<n;++i)nodes.push_back({{shift+pos[3*i],pos[3*i+1],pos[3*i+2]},40.f,40.f*.05f});
-    for(unsigned e=0;e<m;++e){if(!(b[e].health>0))continue;ExtStressGpuBond x{};x.node0=base+b[e].first;x.node1=base+b[e].second;x.area=b[e].health;
+    // BENCH_MAX_DEGREE=<d>: drop bonds at nodes above degree d (a test of how
+    // much the high-degree hubs cost; spanning bonds are kept by the BFS above
+    // only for positions, so the graph may split).
+    std::vector<unsigned> degree(n,0);for(unsigned e=0;e<m;++e){++degree[b[e].first];++degree[b[e].second];}
+    const unsigned maxDegree=std::getenv("BENCH_MAX_DEGREE")?std::stoul(std::getenv("BENCH_MAX_DEGREE")):~0u;
+    for(unsigned e=0;e<m;++e){if(!(b[e].health>0))continue;
+        if(degree[b[e].first]>maxDegree || degree[b[e].second]>maxDegree)continue;ExtStressGpuBond x{};x.node0=base+b[e].first;x.node1=base+b[e].second;x.area=b[e].health;
         for(unsigned k=0;k<3;++k){x.centroid[k]=nodes[x.node0].position[k]+b[e].o0[k];x.normal[k]=nodes[x.node1].position[k]-nodes[x.node0].position[k];}
         bonds.push_back(x);}
 }
@@ -142,8 +149,25 @@ void run(const std::string& shape,unsigned count,unsigned repeats,bool cityMode,
     for(unsigned k=0;k<capCount;++k){auto& t=times[k];std::sort(t.begin(),t.end());const double median=t[t.size()/2];
         points.push_back({double(caps[k]),median});
         std::printf("{\"cap\":%u,\"iterations\":%u,\"median_ms\":%.4f,\"min_ms\":%.4f,\"max_ms\":%.4f}\n",caps[k],iterations[k],median,t.front(),t.back());}
+    // Checksum of the bond impulses after one more 64-iteration solve: equal
+    // checksums before and after an operator change show identical results.
+    {for(unsigned i=0;i<nodes.size();++i)if(nodes[i].mass>0)inputs[i].linear.z=0;
+        check(cudaMemcpy(view.nodeInputs,inputs.data(),inputs.size()*sizeof(inputs[0]),cudaMemcpyHostToDevice));check(cudaDeviceSynchronize());
+        ExtStressGpuSolveParams params;params.maxIterations=64;params.tolerance=1e-12f;params.warmStart=false;
+        if(!solver->solveDeviceAsync(view.nodeInputs,nodes.size(),params))throw std::runtime_error("bench solve rejected");
+        view=solver->deviceView();check(cudaEventSynchronize(reinterpret_cast<cudaEvent_t>(view.readyEvent)));
+        std::vector<ExtStressGpuImpulse> impulses(bonds.size());
+        if(!solver->readbackImpulses(impulses.data(),impulses.size()))throw std::runtime_error("impulse readback failed");
+        unsigned long long hash=1469598103934665603ull;const auto* bytes=reinterpret_cast<const unsigned char*>(impulses.data());
+        for(size_t i=0;i<impulses.size()*sizeof(impulses[0]);++i)hash=(hash^bytes[i])*1099511628211ull;
+        double norm=0;for(const auto& x:impulses)for(float v:{x.angular.x,x.angular.y,x.angular.z,x.linear.x,x.linear.y,x.linear.z})norm+=double(v)*v;
+        std::printf("{\"impulse_checksum\":\"%016llx\",\"impulse_norm\":%.9e}\n",hash,std::sqrt(norm));
+        // BENCH_DUMP=<path>: the impulses, for comparing two builds.
+        if(const char* dump=std::getenv("BENCH_DUMP")){FILE* f=std::fopen(dump,"wb");if(f){std::fwrite(impulses.data(),sizeof(impulses[0]),impulses.size(),f);std::fclose(f);}}}
     double sx=0,sy=0,sxx=0,sxy=0;for(auto [x,y]:points){sx+=x;sy+=y;sxx+=x*x;sxy+=x*y;}
     const double n=points.size(),slope=(n*sxy-sx*sy)/(n*sxx-sx*sx),intercept=(sy-slope*sx)/n;
+    {unsigned trace[4]{};check(cudaMemcpyFromSymbol(trace,componentBalanceTrace,sizeof(trace)));
+        std::printf("{\"balanced_solves\":%u,\"unbalanced_solves\":%u,\"chunks\":%u,\"without_scratch\":%u}\n",trace[0],trace[1],trace[2],trace[3]);}
     std::printf("{\"per_iteration_ms\":%.4f,\"fixed_ms\":%.4f,\"at_64_ms\":%.3f}\n",slope,intercept,intercept+64*slope);
 }
 }
@@ -160,7 +184,21 @@ int spin(unsigned blocks,double seconds){
     std::printf("{\"spin_launches\":%u}\n",launches);return 0;
 }
 int main(int argc,char** argv){try{
+    // BENCH_ABLATE=<bitmask>: skip component-solve phases (StressComponentIteration.cuh,
+    // COMPONENT_ABLATE): 1 residual operator, 2 residual projection, 4 preconditioner,
+    // 8 direction update, 16 direction operator, 32 solution update.
+    if(const char* ablate=std::getenv("BENCH_ABLATE")){const unsigned mask=std::strtoul(ablate,nullptr,0);
+        ComponentSolveBench::check(cudaMemcpyToSymbol(componentAblation,&mask,sizeof(mask)));}
     if(argc==4 && !std::strcmp(argv[1],"spin"))return spin(std::stoul(argv[2]),std::atof(argv[3]));
+    if(argc==2 && !std::strcmp(argv[1],"attributes")){
+        // What the compiled pipelines report: a low thread limit means heavy
+        // register use (and spills) on Apple GPUs.
+        auto show=[](const char* name,const void* f){cudaFuncAttributes at{};const auto e=cudaFuncGetAttributes(&at,f);
+            std::printf("{\"kernel\":\"%s\",\"ok\":%d,\"maxThreadsPerBlock\":%d,\"numRegs\":%d,\"localSizeBytes\":%zu,\"sharedSizeBytes\":%zu}\n",name,e==cudaSuccess,at.maxThreadsPerBlock,at.numRegs,at.localSizeBytes,at.sharedSizeBytes);};
+        show("componentStressSolve",(const void*)componentStressSolve);
+        show("persistentStressSolve<true>",(const void*)persistentStressSolve<true>);
+        show("benchSpin",(const void*)benchSpin);
+        return 0;}
     const std::string shape=argc<2?"car":argv[1];const unsigned count=argc>2?std::stoul(argv[2]):1,repeats=argc>3?std::stoul(argv[3]):15;
     ComponentSolveBench::run(shape,count,repeats,argc>4 && !std::strcmp(argv[4],"city"),argc>5?std::stoul(argv[5]):0);return 0;
 }catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}

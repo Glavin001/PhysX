@@ -56,7 +56,8 @@ __device__ __forceinline__ float nativeCycleResult(const PersistentStressArgs& a
     return stressSquaredContribution(gamma);
 }
 __device__ __forceinline__ float preconditionNativeComponent(const PersistentStressArgs& a,
-    const unsigned* nodes,unsigned count,unsigned id,unsigned iteration COMPONENT_SUBPROBE_PARAMETER){
+    const unsigned* nodes,unsigned count,unsigned id,unsigned iteration COMPONENT_SUBPROBE_PARAMETER,
+    bool balanced=false,const ComponentChunks chunks=ComponentChunks{}){
 #ifdef BLAST_GPU_COMPONENT_PHASE_PROBE
     unsigned long long subStart=0;if(!threadIdx.x)subStart=componentDiagnosticClock();
 #define SUBPROBE_END(index) __syncthreads();if(!threadIdx.x){subProbe[index]+=componentDiagnosticClock()-subStart;subStart=componentDiagnosticClock();}__syncthreads();
@@ -73,7 +74,7 @@ __device__ __forceinline__ float preconditionNativeComponent(const PersistentStr
     else {
         // Apply the fixed polynomial using cached local inverses.
         // Large components retain their cooperative multilevel schedule.
-        result=preconditionNativePolynomial(a,nodes,count);
+        result=balanced?preconditionNativePolynomialBalanced(a,nodes,count,chunks):preconditionNativePolynomial(a,nodes,count);
     }
     SUBPROBE_END(0)
     projectNativeNullspace(a,id,nodes,count,result);

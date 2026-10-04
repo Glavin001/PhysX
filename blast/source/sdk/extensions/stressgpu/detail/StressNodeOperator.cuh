@@ -50,6 +50,86 @@ __device__ __forceinline__ float stressSquaredContribution(float value)
 /// endpoint rather than stored. The workload is ~2 flops/byte on a machine that
 /// does 80, so recomputing is free and it removes a whole bond-length vector
 /// from the loop.
+// The bond terms of one node's operator row over CSR slots [begin, end):
+// accumulates (D C S^2 t) into accAng/accLin when withW, and the canonical
+// endpoint's ||s t||^2 into zSq. nodeSpaceMatvecBody walks a node's whole row;
+// the component solve's balanced operator walks it in chunks.
+__device__ __forceinline__ void nodeSpaceBondRange(
+    const AngLin* rho, const Inertia* inertia, const std::uint32_t* nodeBondRef,
+    const std::uint32_t* node0, const std::uint32_t* node1, const Vec4* offset0, const Vec4* offset1,
+    const float* health, const float* colScale, const std::uint32_t* bondIsland, const std::uint32_t* islandSkip,
+    bool withW, const Vec4 selfAng, const Vec4 selfLin, std::uint32_t begin, std::uint32_t end,
+    Vec4& accAng, Vec4& accLin, float& zSq)
+{
+    for (std::uint32_t i = begin; i < end; ++i)
+    {
+        const std::uint32_t ref = nodeBondRef[i];
+        if (ref == kDeadBondRef)
+        {
+            continue;   // tombstone from an in-place removal
+        }
+        const std::uint32_t bond = ref & 0x7FFFFFFFu;
+        const bool isSecond = (ref & 0x80000000u) != 0u;
+        if (health[bond] <= 0.0f || bondSettled(islandSkip, bondIsland[bond]))
+        {
+            continue;
+        }
+        const std::uint32_t other = isSecond ? node0[bond] : node1[bond];
+        const Inertia otherInv = inertia[other];
+        // Norm-only passes need the canonical endpoint's contribution once.
+        // Reject the duplicate before loading motion/offsets or forming the
+        // bond response. Matrix-vector passes still require both endpoints.
+        const bool owns = !isSecond || (otherInv.angular == 0.0f && otherInv.linear == 0.0f);
+        if (!withW && !owns) continue;
+        const AngLin otherRho = rho[other];
+        const Vec4 otherAng = mul(otherRho.angular, otherInv.angular);
+        const Vec4 otherLin = mul(otherRho.linear, otherInv.linear);
+
+        // t_j = (C^T D rho)_j, with node 0 first regardless of which side we
+        // are on -- the sign convention is a property of the bond, not of the
+        // walker.
+        const Vec4 a0 = isSecond ? otherAng : selfAng;
+        const Vec4 l0 = isSecond ? otherLin : selfLin;
+        const Vec4 a1 = isSecond ? selfAng : otherAng;
+        const Vec4 l1 = isSecond ? selfLin : otherLin;
+        const Vec4 o0 = offset0[bond];
+        const Vec4 o1 = offset1[bond];
+
+        // Column scaling: the operator is L_S = D C S^2 C^T D, where S is the
+        // per-bond compliance weight (Young's modulus) the CPU processor
+        // solves with. The bond-space intermediate is y_j = s_j t_j, the
+        // numerator is ||y||^2, and the node accumulation applies S once more
+        // on the way back -- so the whole bond term carries s_j^2.
+        const float s_j = colScale[bond];
+        const float s2 = s_j * s_j;
+        const Vec4 tAng = mul(sub(a0, a1), s2);
+        const Vec4 tLin =
+            mul(add(sub(l0, l1), sub(cross(o0, a0), cross(o1, a1))), s2);
+
+        // Own the bond from the node-0 side, or from the dynamic side when
+        // node 0 is static (that side never runs). Exactly once, either way.
+        if (owns)
+        {
+            // ||s_j t_j||^2 == |s_j^2 t_j|^2 / s_j^2
+            zSq += (tAng.x * tAng.x + tAng.y * tAng.y + tAng.z * tAng.z
+                 + tLin.x * tLin.x + tLin.y * tLin.y + tLin.z * tLin.z) / s2;
+        }
+
+        // (D C S^2 t)_node, the same accumulation gatherRightMultiply performs.
+        if (withW && !isSecond)
+        {
+            accAng = add(accAng, sub(tAng, cross(o0, tLin)));
+            accLin = add(accLin, tLin);
+        }
+        else if(withW)
+        {
+            accAng = add(accAng, sub(cross(o1, tLin), tAng));
+            accLin = sub(accLin, tLin);
+        }
+    }
+
+}
+
 __device__ __forceinline__ void nodeSpaceMatvecBody(
     AngLin* w,
     const AngLin* rho,
@@ -123,74 +203,9 @@ __device__ __forceinline__ void nodeSpaceMatvecBody(
     Vec4 accLin{0.0f, 0.0f, 0.0f, 0.0f};
     float zSq = 0.0f;
 
-    const std::uint32_t begin = nodeBondBegin[node];
-    const std::uint32_t end = nodeBondBegin[node + 1];
-    for (std::uint32_t i = begin; i < end; ++i)
-    {
-        const std::uint32_t ref = nodeBondRef[i];
-        if (ref == kDeadBondRef)
-        {
-            continue;   // tombstone from an in-place removal
-        }
-        const std::uint32_t bond = ref & 0x7FFFFFFFu;
-        const bool isSecond = (ref & 0x80000000u) != 0u;
-        if (health[bond] <= 0.0f || bondSettled(islandSkip, bondIsland[bond]))
-        {
-            continue;
-        }
-        const std::uint32_t other = isSecond ? node0[bond] : node1[bond];
-        const Inertia otherInv = inertia[other];
-        // Norm-only passes need the canonical endpoint's contribution once.
-        // Reject the duplicate before loading motion/offsets or forming the
-        // bond response. Matrix-vector passes still require both endpoints.
-        const bool owns = !isSecond || (otherInv.angular == 0.0f && otherInv.linear == 0.0f);
-        if (!w && !owns) continue;
-        const AngLin otherRho = rho[other];
-        const Vec4 otherAng = mul(otherRho.angular, otherInv.angular);
-        const Vec4 otherLin = mul(otherRho.linear, otherInv.linear);
-
-        // t_j = (C^T D rho)_j, with node 0 first regardless of which side we
-        // are on -- the sign convention is a property of the bond, not of the
-        // walker.
-        const Vec4 a0 = isSecond ? otherAng : selfAng;
-        const Vec4 l0 = isSecond ? otherLin : selfLin;
-        const Vec4 a1 = isSecond ? selfAng : otherAng;
-        const Vec4 l1 = isSecond ? selfLin : otherLin;
-        const Vec4 o0 = offset0[bond];
-        const Vec4 o1 = offset1[bond];
-
-        // Column scaling: the operator is L_S = D C S^2 C^T D, where S is the
-        // per-bond compliance weight (Young's modulus) the CPU processor
-        // solves with. The bond-space intermediate is y_j = s_j t_j, the
-        // numerator is ||y||^2, and the node accumulation applies S once more
-        // on the way back -- so the whole bond term carries s_j^2.
-        const float s_j = colScale[bond];
-        const float s2 = s_j * s_j;
-        const Vec4 tAng = mul(sub(a0, a1), s2);
-        const Vec4 tLin =
-            mul(add(sub(l0, l1), sub(cross(o0, a0), cross(o1, a1))), s2);
-
-        // Own the bond from the node-0 side, or from the dynamic side when
-        // node 0 is static (that side never runs). Exactly once, either way.
-        if (owns)
-        {
-            // ||s_j t_j||^2 == |s_j^2 t_j|^2 / s_j^2
-            zSq += (tAng.x * tAng.x + tAng.y * tAng.y + tAng.z * tAng.z
-                 + tLin.x * tLin.x + tLin.y * tLin.y + tLin.z * tLin.z) / s2;
-        }
-
-        // (D C S^2 t)_node, the same accumulation gatherRightMultiply performs.
-        if (w && !isSecond)
-        {
-            accAng = add(accAng, sub(tAng, cross(o0, tLin)));
-            accLin = add(accLin, tLin);
-        }
-        else if(w)
-        {
-            accAng = add(accAng, sub(cross(o1, tLin), tAng));
-            accLin = sub(accLin, tLin);
-        }
-    }
+    nodeSpaceBondRange(rho, inertia, nodeBondRef, node0, node1, offset0, offset1, health, colScale,
+        bondIsland, islandSkip, w != nullptr, selfAng, selfLin, nodeBondBegin[node], nodeBondBegin[node + 1],
+        accAng, accLin, zSq);
 
     // Native projected CG needs the original convergence norm, but not L*r.
     // A null destination removes the unused accumulation and output writes.
