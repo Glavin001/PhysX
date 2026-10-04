@@ -291,7 +291,9 @@
             // on two threadgroups, and a fractured structure's components were
             // solved two at a time. Size it for the GPU instead: 64 is two per
             // core on a 32-core part; idle threadgroups find the queue empty.
-            const unsigned componentBlocks=std::min(m_nodeCount,64u);
+            static const unsigned componentGrid=[]{const char* raw=std::getenv("BLAST_STRESS_COMPONENT_BLOCKS");
+                const long parsed=raw?std::atol(raw):0;return parsed>0?unsigned(parsed):64u;}();
+            const unsigned componentBlocks=std::min(m_nodeCount,componentGrid);
 #else
             const unsigned componentBlocks=std::min(m_nodeCount,unsigned(sms*2));
 #endif

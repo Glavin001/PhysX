@@ -1210,6 +1210,15 @@ if(BLAST_ENABLE_CUDA_STRESS AND (PX_GPU_BACKEND STREQUAL "CUMETAL" OR (CMAKE_CUD
             endforeach()
         endforeach()
     endif()
+    # Latency of the component stress solve: per-iteration and fixed cost of one
+    # threadgroup per component, at production precision (see the source).
+    add_executable(gpu_component_solve_bench EXCLUDE_FROM_ALL tests/gpu_component_solve_bench.cu)
+    target_include_directories(gpu_component_solve_bench PRIVATE
+        "${BLAST_ROOT}/source/sdk/extensions/stressgpu"
+        "${BLAST_ROOT}/include/extensions/stressgpu" "${BLAST_ROOT}/include/extensions/stress")
+    target_compile_definitions(gpu_component_solve_bench PRIVATE PHYSX_RESIDENT_DESTRUCTION)
+    px_destruction_cuda_properties(gpu_component_solve_bench PROPERTIES CUDA_ARCHITECTURES 89 CUDA_STANDARD 17)
+    target_link_libraries(gpu_component_solve_bench PRIVATE ${PX_DESTRUCTION_GPU_RUNTIME} ${PX_DESTRUCTION_GPU_DRIVER})
     add_executable(gpu_resident_stress_phase_probe EXCLUDE_FROM_ALL tests/gpu_resident_stress_phase_probe.cu)
     target_include_directories(gpu_resident_stress_phase_probe PRIVATE
         "${BLAST_ROOT}/source/sdk/extensions/stressgpu"
