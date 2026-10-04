@@ -7,8 +7,11 @@
 // rebuilt), the kept trees must not move, and the projection must still match
 // the independent long-double oracle.
 namespace MotionModeTest {
+// An anchored component's modes are dimension 0 and nothing else of it is
+// read; the incremental build does no forest work for it (skipAnchored).
 bool sameComponent(const MotionComponent& x,const MotionComponent& y){
-    return x.anchored==y.anchored && x.rotations==y.rotations && x.closure==y.closure && x.cuts==y.cuts && x.edges==y.edges
+    if(x.anchored || y.anchored)return x.anchored==y.anchored;
+    return x.rotations==y.rotations && x.closure==y.closure && x.cuts==y.cuts && x.edges==y.edges
         && !std::memcmp(&x.axis,&y.axis,sizeof(x.axis)) && !std::memcmp(&x.frameAxis,&y.frameAxis,sizeof(x.frameAxis))
         && !std::memcmp(x.factor,y.factor,sizeof(x.factor)) && !std::memcmp(x.scale,y.scale,sizeof(x.scale));
 }

@@ -29,11 +29,21 @@ struct MotionBuffers {
     // costs what changed (each jump round over the whole city's ~300k bonds
     // was ~0.1 ms of Apple GPU even with every component kept).
     unsigned *treeEdges,*liveEdges,*counts;
+    // With the incremental forest: leave anchored components out of the
+    // forest work. Their modes are dimension 0 -- never projected, never
+    // factored -- yet their exact prefix sums and closures were most of a
+    // meteor rebuild, since buildings stand on the ground.
+    unsigned skipAnchored;
 };
 // A kept component's tree, positions, closure, axis and factors are those of
 // the previous build, which ran on the same nodes and live bonds; every phase
 // leaves its rows alone. id is a component label (Invalid is never kept).
 __device__ __forceinline__ bool motionKept(MotionBuffers b,unsigned id){return b.stable && id!=Invalid && *b.reuse && b.stable[id];}
+// Components this build does no forest work for: kept ones, and (skipAnchored)
+// anchored ones, marked by anchorMotionModes before any phase reads the flag.
+__device__ __forceinline__ bool motionSkipped(MotionBuffers b,unsigned id){
+    return id!=Invalid && (motionKept(b,id) || (b.skipAnchored && b.components[id].anchored));
+}
 __device__ __forceinline__ bool motionKeptEdge(const Input& a,MotionBuffers b,unsigned edge){
     const unsigned u=a.component[a.node0[edge]];return motionKept(b,u!=Invalid?u:a.component[a.node1[edge]]);
 }
@@ -77,7 +87,6 @@ __device__ void initializeMotionForest(Input a,const unsigned* forest,MotionBuff
         if(!kept){b.previous[0][2*edge]=b.previous[0][2*edge+1]=Invalid;b.sum[0][2*edge]=b.sum[0][2*edge+1]={};}
         if(u==v || forest[edge]>1 || !isfinite(a.health[edge])){atomicOr(&status->error,1u);continue;}
         if(a.health[edge]>0){
-            if(!kept && (a.component[u]!=Invalid || a.component[v]!=Invalid))b.liveEdges[atomicAdd(&b.counts[1],1u)]=edge;
             if(!(a.scale[edge]>0) || !isfinite(a.scale[edge]))atomicOr(&status->error,1u);
             const auto x=a.offset0[edge],y=a.offset1[edge];
             if(!isfinite(x.x)||!isfinite(x.y)||!isfinite(x.z)||!isfinite(y.x)||!isfinite(y.y)||!isfinite(y.z))atomicOr(&status->error,1u);
@@ -86,7 +95,6 @@ __device__ void initializeMotionForest(Input a,const unsigned* forest,MotionBuff
         if(!forest[edge])continue;
         if(a.health[edge]<=0 || a.component[u]==Invalid || a.component[u]!=a.component[v]){atomicOr(&status->error,1u);continue;}
         if(kept)continue;
-        b.treeEdges[atomicAdd(&b.counts[0],1u)]=edge;
         const auto delta=motionOffset(a,edge,status);b.sum[0][2*edge]=delta;b.sum[0][2*edge+1]=neg(delta);
     }
 }
@@ -112,6 +120,23 @@ __device__ void buildMotionTour(Input a,const unsigned* forest,MotionBuffers b,S
         if(first!=Invalid)b.previous[0][first]=a.component[node]==node?Invalid:(last^1u);
     }
 }
+// A live bond from a component to a fixed node anchors it (as in
+// discoverMotionClosures, which still marks the same flag).
+__device__ void anchorMotionComponents(Input a,MotionBuffers b,unsigned thread,unsigned stride){
+    for(unsigned e=thread;e<a.bonds;e+=stride){if(!(a.health[e]>0))continue;
+        const unsigned u=a.component[a.node0[e]],v=a.component[a.node1[e]];
+        if((u==Invalid)==(v==Invalid))continue;const unsigned id=u==Invalid?v:u;
+        if(!motionKept(b,id))atomicExch(&b.components[id].anchored,1u);}
+}
+// This build's work lists: the tree edges and live bonds of components it
+// does forest work for (see MotionBuffers::treeEdges).
+__device__ void listMotionWork(Input a,const unsigned* forest,MotionBuffers b,unsigned thread,unsigned stride){
+    for(unsigned e=thread;e<a.bonds;e+=stride){if(!(a.health[e]>0))continue;
+        const unsigned u=a.component[a.node0[e]],v=a.component[a.node1[e]];
+        const unsigned id=u!=Invalid?u:v;if(id==Invalid || motionSkipped(b,id))continue;
+        b.liveEdges[atomicAdd(&b.counts[1],1u)]=e;
+        if(forest[e] && u!=Invalid && u==v)b.treeEdges[atomicAdd(&b.counts[0],1u)]=e;}
+}
 __device__ void jumpMotionTour(Input a,const unsigned* forest,MotionBuffers b,Status* status,unsigned source,unsigned thread,unsigned stride){
     const unsigned target=source^1u;
     for(unsigned i=thread;i<2*b.counts[0];i+=stride){
@@ -126,7 +151,7 @@ __device__ void publishMotionPositions(Input a,const unsigned* forest,MotionBuff
     for(unsigned i=thread;i<2*b.counts[0];i+=stride)
         if(b.previous[source][2*b.treeEdges[i>>1]+(i&1u)]!=Invalid)atomicOr(&status->error,2u);
     for(unsigned node=thread;node<a.nodes;node+=stride){
-        const unsigned id=a.component[node];if(id==Invalid || motionKept(b,id))continue;
+        const unsigned id=a.component[node];if(id==Invalid || motionSkipped(b,id))continue;
         if(id!=node && b.first[node]==Invalid)atomicOr(&status->error,2u);
         if(b.first[node]!=Invalid && id!=node)b.position[node]=b.sum[source][b.first[node]^1u];
     }
@@ -162,7 +187,7 @@ __device__ void discoverMotionClosures(Input a,MotionBuffers b,Status* status,un
     }
 }
 __device__ void initializeMotionAxes(Input a,MotionBuffers b,Status* status,unsigned thread,unsigned stride){
-    for(unsigned node=thread;node<a.nodes;node+=stride)if(a.component[node]==node && !motionKept(b,node)){auto& c=b.components[node];
+    for(unsigned node=thread;node<a.nodes;node+=stride)if(a.component[node]==node && !motionSkipped(b,node)){auto& c=b.components[node];
         const unsigned count=a.partition.end[node]-a.partition.begin[node];
         if(c.edges+1!=count || (b.first[node]!=Invalid && c.cuts!=1) || (b.first[node]==Invalid && c.cuts))atomicOr(&status->error,2u);
         c.rotations=c.closure==Invalid?3u:1u;

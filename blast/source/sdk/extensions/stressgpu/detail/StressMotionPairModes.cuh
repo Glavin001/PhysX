@@ -94,10 +94,16 @@ __global__ void checkpointMotionModes(Status* status,Work* work){if(work->active
 __global__ void initializeMotionModes(Input a,const unsigned* forest,MotionBuffers b,Status* status,Work* work){
     if(work->active)initializeMotionForest(a,forest,b,status,motionThread(),motionStride());
 }
+__global__ void anchorMotionModes(Input a,MotionBuffers b,Work* work){
+    if(work->active)anchorMotionComponents(a,b,motionThread(),motionStride());
+}
+__global__ void listMotionModes(Input a,const unsigned* forest,MotionBuffers b,Work* work){
+    if(work->active)listMotionWork(a,forest,b,motionThread(),motionStride());
+}
 __global__ void tourMotionModes(Input a,const unsigned* forest,MotionBuffers b,Status* status,Work* work){
     if(!motionLive(work))return;
     for(unsigned node=motionThread()/32;node<a.nodes;node+=motionStride()/32)
-        if(!motionKept(b,a.component[node]))buildMotionTour(a,forest,b,status,node);
+        if(!motionSkipped(b,a.component[node]))buildMotionTour(a,forest,b,status,node);
 }
 __global__ void cutMotionModes(Input a,const unsigned* forest,MotionBuffers b,Work* work){
     if(!motionLive(work))return;
@@ -177,7 +183,7 @@ public:
             for(unsigned k=0;k<2;++k){allocate(mBuffers.previous[k],size_t(input.bonds)*2);allocate(mBuffers.sum[k],size_t(input.bonds)*2);}
             allocate(mBuffers.first,input.nodes);allocate(mBuffers.position,input.nodes);allocate(mBuffers.components,input.nodes);allocate(mBuffers.relative,input.nodes);
             allocate(mStatus,1);allocate(mWork,1);check(cudaMemsetAsync(mStatus,0,sizeof(Status),stream));
-            mBuffers.stable=stable;allocate(mBuffers.reuse,1);check(cudaMemsetAsync(mBuffers.reuse,0,sizeof(unsigned),stream));
+            mBuffers.stable=stable;mBuffers.skipAnchored=stable!=nullptr;allocate(mBuffers.reuse,1);check(cudaMemsetAsync(mBuffers.reuse,0,sizeof(unsigned),stream));
             allocate(mBuffers.treeEdges,input.bonds);allocate(mBuffers.liveEdges,input.bonds);allocate(mBuffers.counts,2);
         }catch(...){release();throw;}
     }
@@ -199,6 +205,9 @@ public:
         void* commitArgs[]={&input,&status,&work};
         add((void*)beginMotionModes,1,1,beginArgs);
         add((void*)initializeMotionModes,blocks,Threads,forestArgs);
+        void* anchorArgs[]={&input,&buffers,&work};
+        add((void*)anchorMotionModes,blocks,Threads,anchorArgs);
+        add((void*)listMotionModes,blocks,Threads,cutArgs);
         add((void*)checkpointMotionModes,1,1,checkpointArgs);
         add((void*)tourMotionModes,blocks,Threads,forestArgs);
         add((void*)cutMotionModes,blocks,Threads,cutArgs);
