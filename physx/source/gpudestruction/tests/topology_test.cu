@@ -423,7 +423,54 @@ void incrementalMassProperties() {
     std::printf("GPU incremental topology: %u chunks, %u bonds, 16 transactions (4 discarded), %zu clusters; kept and rebuilt mass properties bit-identical to full\n",n,m,last);
 }
 
+// Every upload above is integer data: bond endpoints, edit kinds and indices.
+// CuMetal's legacy host-address mode rewrites any 8-byte word of a pageable
+// upload that falls inside a live allocation's CPU mapping into that
+// allocation's GPU address. Bond (2,3) is the word 0x0000000300000002, so
+// whenever Metal mapped a buffer across 12 GiB -- more often under concurrent
+// GPU load -- largeTransactions' accepted graph started with bonds 2 and
+// 100000 dead, through endpoints that were really a GPU address. Here the
+// words are chosen to be live allocation addresses, so that mode fails every
+// time instead of when the allocator happens to collide. Each word is read on
+// the device and written back in halves: reading the word itself back could
+// translate a rewritten value into the original address again.
+__global__ void wordHalves(const std::uint64_t* words,unsigned n,unsigned* halves) {
+    for(unsigned i=0;i<n;++i){halves[4*i]=unsigned(words[i]);halves[4*i+1]=0;halves[4*i+2]=unsigned(words[i]>>32);halves[4*i+3]=0;}
+}
+void uploadsArePreservedBitExact() {
+    unsigned char* live;unsigned* halves;std::uint64_t *synchronous,*asynchronous;
+    CUDA(cudaMalloc(&live,4096));CUDA(cudaMalloc(&halves,4*3*sizeof(unsigned)));
+    CUDA(cudaMalloc(&synchronous,3*sizeof(std::uint64_t)));CUDA(cudaMalloc(&asynchronous,3*sizeof(std::uint64_t)));
+    const std::uint64_t base=reinterpret_cast<std::uintptr_t>(live);
+    const std::vector<std::uint64_t> words={base,base+12,base+4095};
+    cudaStream_t stream;CUDA(cudaStreamCreateWithFlags(&stream,cudaStreamNonBlocking));
+    // Fixture::apply uploads edits with cudaMemcpy; Topology::init uploads
+    // chunks and bonds with cudaMemcpyAsync on its own non-blocking stream.
+    CUDA(cudaMemcpy(synchronous,words.data(),3*sizeof(std::uint64_t),cudaMemcpyHostToDevice));
+    CUDA(cudaMemcpyAsync(asynchronous,words.data(),3*sizeof(std::uint64_t),cudaMemcpyHostToDevice,stream));
+    CUDA(cudaStreamSynchronize(stream));
+    for(const std::uint64_t* uploaded:{synchronous,asynchronous}) {
+        wordHalves<<<1,1>>>(uploaded,3,halves);CUDA(cudaDeviceSynchronize());
+        const auto out=read(halves,12);
+        for(unsigned i=0;i<3;++i) {
+            const std::uint64_t seen=out[4*i]|std::uint64_t(out[4*i+2])<<32;
+            if(seen!=words[i])std::fprintf(stderr,"upload of %#llx arrived as %#llx: the runtime rewrote integer data "
+                "(CuMetal needs CUMETAL_USE_METAL_DEVICE_ADDRESSES=1)\n",(unsigned long long)words[i],(unsigned long long)seen);
+            CHECK(seen==words[i]);
+        }
+    }
+    CUDA(cudaStreamDestroy(stream));CUDA(cudaFree(live));CUDA(cudaFree(halves));CUDA(cudaFree(synchronous));CUDA(cudaFree(asynchronous));
+    std::puts("GPU uploads: words equal to live allocation addresses arrive bit-exact");
+}
+
 int main() {
+#if defined(PX_CUMETAL) && PX_CUMETAL
+    // Run in the mode ctest (GpuBackend.cmake) and the GPU module loader use,
+    // also when the binary is started directly. Set before the first CUDA call;
+    // an explicit value from the environment still wins.
+    setenv("CUMETAL_USE_METAL_DEVICE_ADDRESSES","1",0);
+#endif
+    uploadsArePreservedBitExact();
     incrementalMassProperties();
     deviceTransactions();
     largeTransactions();
