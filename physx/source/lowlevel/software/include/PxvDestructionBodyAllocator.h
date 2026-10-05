@@ -5,6 +5,7 @@
 #include "PxDirectGPUAPI.h"
 namespace physx {
 class PxShape;
+class PxRigidDynamic;
 class PxConstraint;
 // GPU-produced allocation metadata only. Mass, motion and graph arrays remain
 // resident. A reservation is private/inactive until the correction transaction
@@ -37,6 +38,9 @@ public:
     // Accepted physical observation only; never a prerequisite of GPU correction.
     virtual bool publishCorrectionProperties(const PxvDestructionBodyProperties*,PxU32) { return false; }
     virtual bool supportsGpuIslandRepair() const { return false; }
+    // PxDestructionScene::setFragmentsHibernated / isFragmentHibernated.
+    virtual bool setHibernated(PxRigidDynamic* const*, PxU32, bool) { return false; }
+    virtual bool isHibernated(const PxRigidDynamic&) const { return false; }
 
     virtual bool isValidSource(PxU32 body) const = 0;
     // Exceptional capacity grant, containing indices only. No solver bodies are

@@ -857,6 +857,13 @@ public:
         return !mFailed && mWriteAllowed(mScene) && mBodyAllocator
             && mBodyAllocator->readRigidBodyData(data,indices,type,count,start,finish);
     }
+    bool setFragmentsHibernated(PxRigidDynamic* const* bodies,PxU32 count,bool hibernated) override {
+        return !mFailed && !mPending && mWriteAllowed(mScene) && mBodyAllocator
+            && mBodyAllocator->setHibernated(bodies,count,hibernated);
+    }
+    bool isFragmentHibernated(const PxRigidDynamic& body) const override {
+        return mBodyAllocator && mBodyAllocator->isHibernated(body);
+    }
     bool canBuildPreSolveIslands() const override { return mBodyAllocator && mBodyAllocator->supportsGpuIslandRepair(); }
     const PxvPreSolveNode* preSolveNodeView() const override { return mPrePrevious; }
     const PxvPreSolveNode* nativeNodeView() const override { return mPreNodes; }

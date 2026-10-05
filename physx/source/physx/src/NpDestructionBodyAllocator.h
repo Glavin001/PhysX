@@ -12,6 +12,7 @@
 #include "PxsSimpleIslandManager.h"
 #include "PxsSimulationController.h"
 #include "foundation/PxHashMap.h"
+#include "foundation/PxHashSet.h"
 #include "foundation/PxProfiler.h"
 namespace physx {
 // Only scene finalization and between-step teardown call this allocator. It
@@ -31,6 +32,10 @@ class NpDestructionBodyAllocator final : public PxvDestructionBodyAllocator, pub
     // chunk binding. False denotes an uncommitted reservation; true denotes an
     // accepted owner. The arrays retain deterministic allocation/teardown order.
     PxHashMap<NpRigidDynamic*,bool> mPrivateBodies;
+    // Cluster bodies frozen by setHibernated: kinematic in place, their
+    // physical mass held in the kinematic backup. Never a reservation and
+    // never a supported remnant.
+    PxHashSet<NpRigidDynamic*> mHibernated;
     NpRigidDynamic* source(PxU32 id, bool allowReservation=false) const {
         const auto& islands=mScene.getScScene().getSimpleIslandManager()->getAccurateIslandSim();
         if(id>=islands.getNbNodes())return NULL;
@@ -58,7 +63,7 @@ class NpDestructionBodyAllocator final : public PxvDestructionBodyAllocator, pub
         if(membership && membership->second)
             NpPhysics::getInstance().notifyDeletionListenersUserRelease(&body,body.userData);
         // Remove membership before the pool can reuse this object's address.
-        mPrivateBodies.erase(&body);
+        mPrivateBodies.erase(&body);mHibernated.erase(&body);
         PxInlineArray<const Sc::ShapeCore*,64> shapes;
         mScene.getScScene().removeBody(body.getCore(),shapes,false);
         body.getShapeManager().detachAll(&mScene.getSQAPI(), body);
@@ -87,6 +92,28 @@ class NpDestructionBodyAllocator final : public PxvDestructionBodyAllocator, pub
             state.maxLinearVelocitySq=state.maxAngularVelocitySq=PX_MAX_REAL;
         }
         core.getSim()->getLowLevelBody().mInternalFlags|=PxsRigidBody::eDESTRUCTION_MASS_GPU;
+    }
+    // A cluster body this stage owns -- a fragment it created and accepted, or
+    // an authored structure actor -- outside any aggregate. Supported remnants
+    // are kinematic and so never candidates for hibernation.
+    bool hibernationCandidate(PxRigidDynamic* actor,bool hibernate) const {
+        if(!actor || actor->getConcreteType()!=PxConcreteType::eRIGID_DYNAMIC)return false;
+        auto* body=static_cast<NpRigidDynamic*>(actor);
+        if(body->getNpScene()!=&mScene || !body->getCore().getSim() || body->getAggregate())return false;
+        if(source(body->getCore().getInternalIslandNodeIndex().index())!=body)return false;
+        const bool kinematic=body->getCore().getFlags()&PxRigidBodyFlag::eKINEMATIC;
+        const bool frozen=mHibernated.contains(body);
+        return hibernate ? !kinematic && !frozen : kinematic && frozen;
+    }
+    // Thaw a hibernated body that a topology transaction names. The stage
+    // installs the new cluster's mass on the GPU for every changed cluster, so
+    // the resident GPU mass is authoritative and no host mass is uploaded.
+    void thawForTransaction(NpRigidDynamic& body) {
+        if(!mHibernated.erase(&body))return;
+        auto& core=body.getCore();
+        core.setFlags(core.getFlags()&~PxRigidBodyFlag::eKINEMATIC,true);
+        core.getSim()->setActive(true);
+        core.getSim()->notifyNotReadyForSleeping();
     }
     NpRigidDynamic* reserve(bool supported,PxU32 node) {
         auto* body=static_cast<NpRigidDynamic*>(NpFactory::getInstance().createDestructionRigidDynamic());
@@ -150,6 +177,46 @@ public:
         return true;
     }
     bool supportsGpuIslandRepair() const override { return mScene.getScScene().canUseGpuDestructionIslandRepair(); }
+    bool isHibernated(const PxRigidDynamic& body) const override {
+        return mHibernated.contains(const_cast<NpRigidDynamic*>(static_cast<const NpRigidDynamic*>(&body)));
+    }
+    bool setHibernated(PxRigidDynamic* const* bodies,PxU32 count,bool hibernate) override {
+        if(count && !bodies)return false;
+        PxHashSet<NpRigidDynamic*> seen;
+        auto& scene=mScene.getScScene();
+        for(PxU32 i=0;i<count;++i)
+            if(!hibernationCandidate(bodies[i],hibernate) || !seen.insert(static_cast<NpRigidDynamic*>(bodies[i])))return false;
+        // A sleep the GPU decided last step is committed lazily. Commit it now,
+        // before any state changes, so its velocity clear and pose rollback
+        // cannot land on top of this transition.
+        for(PxU32 i=0;i<count;++i)
+            if(!scene.finalizeGpuSleep(&static_cast<NpRigidDynamic*>(bodies[i])->getCore()))return false;
+        // Stage fragments keep their mass resident on the GPU, and host uploads
+        // normally preserve it. Here the host value is the truth for one
+        // upload: zero while frozen; on waking, the kinematic backup, which is
+        // the mass the stage last published for this unchanged cluster.
+        const PxU16 hostMass=PxU16((PxsRigidBody::eHOST_MASS_COPY_GPU|PxsRigidBody::eHOST_INERTIA_COPY_GPU)>>16);
+        for(PxU32 i=0;i<count;++i) {
+            auto* body=static_cast<NpRigidDynamic*>(bodies[i]);auto& core=body->getCore();
+            if(hibernate) {
+                // Device-owner switch: no broadphase reinsertion, so element IDs
+                // and the stage's contact map survive. It backs up and zeroes the
+                // host mass, leaves the contact island (which keeps its own sleep
+                // state), zeroes velocity and marks it for the GPU copy, and sleeps.
+                core.setFlags(core.getFlags()|PxRigidBodyFlag::eKINEMATIC,true);
+                mHibernated.insert(body);
+            } else {
+                core.setFlags(core.getFlags()&~PxRigidBodyFlag::eKINEMATIC,true);
+                mHibernated.erase(body);
+                core.getSim()->getLowLevelBody().mInternalFlags|=PxsRigidBody::eVELOCITY_COPY_GPU;
+                core.setWakeCounter(mScene.getWakeCounterResetValueInternal(),true);
+                core.getSim()->notifyNotReadyForSleeping();
+            }
+            core.getSim()->getLowLevelBody().mGpuHostDirty|=hostMass;
+            scene.gpu_updateBodySim(*core.getSim());
+        }
+        return true;
+    }
 
     explicit NpDestructionBodyAllocator(NpScene& scene):mScene(scene) {}
     ~NpDestructionBodyAllocator() override {clear();}
@@ -296,6 +363,16 @@ public:
                 || to->getShapeManager().getPruningStructure())return false;
         }
         }
+        // A hibernated fragment named by this transaction, as the source of a
+        // migration or as a target, wakes with it: its cluster is changing.
+        if(mHibernated.size()) {
+            for(PxU32 i=0;i<bodies;++i) {
+                if(auto* parent=source(requests[i].sourceBody))thawForTransaction(*parent);
+                if(auto* target=source(targets[i],true))thawForTransaction(*target);
+            }
+            for(PxU32 i=0;i<count;++i)
+                if(auto* from=source(bindings[i].sourceBody))thawForTransaction(*from);
+        }
         // These are scheduler/type metadata changes. Authoritative mass, COM,
         // velocities and applied forces are installed separately on the GPU.
         {
@@ -371,7 +448,7 @@ public:
         mConstraints.clear();
         discardReservations();
         for(auto& entry:mAcceptedBodies)discard(*entry.body);
-        mAcceptedBodies.clear();
+        mAcceptedBodies.clear();mHibernated.clear();
         PX_ASSERT(mPrivateBodies.size()==0);
         if(mGrantedNodes.size()) {
             mScene.getScScene().getSimpleIslandManager()->releaseNativeNodeHandles(mGrantedNodes.size(),mGrantedNodes.begin());

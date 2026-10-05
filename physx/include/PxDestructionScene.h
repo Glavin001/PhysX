@@ -1,12 +1,13 @@
 // Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
 #ifndef PX_DESTRUCTION_SCENE_H
 #define PX_DESTRUCTION_SCENE_H
-#define PX_DESTRUCTION_SCENE_VERSION 24
+#define PX_DESTRUCTION_SCENE_VERSION 25
 #include "foundation/PxTransform.h"
 #include "PxDirectGPUAPI.h"
 #include "PxDestructionTopologyTypes.h"
 
 namespace physx {
+class PxRigidDynamic;
 
 // Experimental native destruction API. internalCorrectionLimit>0 enables the
 // rigid MVP: GPU stress/material/connectivity, persistent collision ownership,
@@ -363,6 +364,22 @@ public:
     // the load to its source.
     virtual bool getStressSolveReport(PxDestructionStressComponentReport* components, PxU32 capacity, PxU32& count,
         PxReal* chunkResidual2, PxU32* chunkComponent, PxU32 chunkCapacity, PxDestructionVectorPair* chunkInputs) = 0;
+    // Version 25: debris hibernation. Outside simulation. Every body must be a
+    // free (unsupported) cluster body this stage owns -- a fragment it created,
+    // or an authored structure actor -- and not in an aggregate. A supported
+    // remnant is already kinematic and is refused. Hibernating freezes each
+    // in place: it becomes
+    // kinematic with zero solver inverse mass and zero velocity, keeps its pose,
+    // shapes and contact identities (no broadphase reinsertion), and leaves its
+    // contact island without waking it. Dynamic bodies still collide with it as
+    // with an immovable body; contact never wakes it. Waking (`hibernated`
+    // false) restores the mass it had, zero velocity, and activates it. A
+    // topology change that involves a hibernated fragment wakes it as part of
+    // that change. All-or-nothing: false, and nothing changes, if any body is
+    // ineligible or already in the requested state.
+    virtual bool setFragmentsHibernated(PxRigidDynamic* const* bodies, PxU32 count, bool hibernated) = 0;
+    // Version 25. Whether `body` is a fragment this stage holds hibernated.
+    virtual bool isFragmentHibernated(const PxRigidDynamic& body) const = 0;
 protected:
     virtual ~PxDestructionScene() {}
 };
