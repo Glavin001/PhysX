@@ -376,7 +376,10 @@ public:
     // false) restores the mass it had, zero velocity, and activates it. A
     // topology change that involves a hibernated fragment wakes it as part of
     // that change. All-or-nothing: false, and nothing changes, if any body is
-    // ineligible or already in the requested state.
+    // ineligible or already in the requested state. Not available with
+    // gpuIslandRepair (always false): kinematic switches need host-maintained
+    // island membership. A fragment this step's fracture created freezes only
+    // after island generation has placed it.
     virtual bool setFragmentsHibernated(PxRigidDynamic* const* bodies, PxU32 count, bool hibernated) = 0;
     // Version 25. Whether `body` is a fragment this stage holds hibernated.
     virtual bool isFragmentHibernated(const PxRigidDynamic& body) const = 0;

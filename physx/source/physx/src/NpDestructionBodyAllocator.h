@@ -100,7 +100,20 @@ class NpDestructionBodyAllocator final : public PxvDestructionBodyAllocator, pub
         if(!actor || actor->getConcreteType()!=PxConcreteType::eRIGID_DYNAMIC)return false;
         auto* body=static_cast<NpRigidDynamic*>(actor);
         if(body->getNpScene()!=&mScene || !body->getCore().getSim() || body->getAggregate())return false;
-        if(source(body->getCore().getInternalIslandNodeIndex().index())!=body)return false;
+        const PxU32 node=body->getCore().getInternalIslandNodeIndex().index();
+        if(source(node)!=body)return false;
+        // A fragment created by this step's fracture is not in an island until
+        // island generation places it, and the accurate and speculative island
+        // models can place it at different times. IslandSim::setKinematic
+        // indexes the node's island unchecked in both, so a node must be in an
+        // island in both before it may freeze. (A frozen node has no island by
+        // design; thawing needs none.)
+        if(hibernate) {
+            const auto* manager=mScene.getScScene().getSimpleIslandManager();
+            const auto placed=[node](const IG::IslandSim& sim){
+                return node<sim.getNbNodes() && sim.getIslandIds()[node]!=IG_INVALID_ISLAND;};
+            if(!placed(manager->getAccurateIslandSim()) || !placed(manager->getSpeculativeIslandSim()))return false;
+        }
         const bool kinematic=body->getCore().getFlags()&PxRigidBodyFlag::eKINEMATIC;
         const bool frozen=mHibernated.contains(body);
         return hibernate ? !kinematic && !frozen : kinematic && frozen;
@@ -184,6 +197,13 @@ public:
         if(count && !bodies)return false;
         PxHashSet<NpRigidDynamic*> seen;
         auto& scene=mScene.getScScene();
+        // Not with GPU island repair: while the device owns island connectivity
+        // the host's island membership is not kept consistent with its island
+        // ids, and a kinematic switch edits that membership directly (an island
+        // can be freed while another node still names it; a later edit then
+        // corrupts the registry). Restoring host connectivity does not repair
+        // the membership, so the stage must run without island repair.
+        if(count && scene.getSimulationController()->usesGpuDestructionIslandRepair())return false;
         for(PxU32 i=0;i<count;++i)
             if(!hibernationCandidate(bodies[i],hibernate) || !seen.insert(static_cast<NpRigidDynamic*>(bodies[i])))return false;
         // A sleep the GPU decided last step is committed lazily. Commit it now,
