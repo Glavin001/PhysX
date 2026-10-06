@@ -179,3 +179,61 @@ void fragmentGravityCommandFracture(PxU32 limit) {
     parent->release();for(auto* shape:shapes)shape->release();require(context.healthy(),"fragment gravity GPU health failed");
     std::printf("fragment gravity with chunk commands: limit=%u passed\n",limit);
 }
+// The trial audit (status 16384) on a light, thin remnant far from the origin:
+// a 3.5 kg rod whose inverse inertia about its axis is ~500, every chunk
+// carrying its weight on a weightless actor, the host applying the total at
+// the COM (as Vehicle2 does). The chunk sums' torque about the COM is zero up
+// to the rounding of world-position arms, which that inverse inertia turned
+// into more than the audit's absolute 1e-4 rad/s: correct ticks were
+// rejected (vibe-land fleet: 8-24 incomplete steps at limit 1).
+void thinRemnantCommandAudit() {
+    blast_demo::SceneCapacity capacity;
+    blast_demo::PhysXScene context(blast_demo::PhysicsMode::Gpu,true,capacity,nullptr,false,true);
+    auto& scene=context.scene();auto& physics=context.physics();scene.setGravity(PxVec3(0));
+    const float x[3]={-.213f,.071f,.287f},m[3]={1.2f,1.3f,1.0f};
+    float total=0,com=0;for(PxU32 i=0;i<3;++i){total+=m[i];com+=m[i]*x[i];}com/=total;
+    const float axial=.00071f; // per chunk, about the rod axis
+    float transverse=0;for(PxU32 i=0;i<3;++i)transverse+=m[i]*((x[i]-com)*(x[i]-com))+axial;
+    auto* body=physics.createRigidDynamic(PxTransform(PxVec3(1234.567f,89.123f,-987.654f),PxQuat(.83f,PxVec3(.3f,.8f,-.52f).getNormalized())));
+    body->setMass(total);body->setCMassLocalPose(PxTransform(PxVec3(com,0,0)));
+    body->setMassSpaceInertiaTensor(PxVec3(3*axial,transverse,transverse));
+    body->setLinearDamping(0);body->setAngularDamping(0);body->setSleepThreshold(0);body->setStabilizationThreshold(0);
+    body->setActorFlag(PxActorFlag::eDISABLE_GRAVITY,true);
+    PxShape* shapes[3];
+    for(PxU32 i=0;i<3;++i) {
+        shapes[i]=physics.createShape(PxBoxGeometry(.07f,.02f,.02f),context.material(),true);
+        shapes[i]->setLocalPose(PxTransform(PxVec3(x[i],0,0)));require(body->attachShape(*shapes[i]),"thin remnant attachment failed");
+    }
+    scene.addActor(*body);scene.simulate(1.0f/60);require(scene.fetchResults(true),"thin remnant initialization failed");
+    body->setLinearVelocity(PxVec3(0));body->setAngularVelocity(PxVec3(0,.3f,-.2f));
+    auto* stage=scene.getDestructionScene();require(stage,"thin remnant stage missing");
+    PxDestructionStressChunk chunks[3];PxDestructionChunkMassProperties mass[3]{};
+    for(PxU32 i=0;i<3;++i) {
+        chunks[i]={PxVec3(x[i],0,0),m[i],axial,0,stage->getShapeContactIndex(*shapes[i]),1,0};
+        mass[i].center[0]=x[i];mass[i].mass=m[i];for(PxU32 k=0;k<3;++k)mass[i].inertia[k]=axial;
+    }
+    PxDestructionStressCluster cluster{body->getGPUIndex(),PxVec3(com,0,0)};
+    PxDestructionStressBond bonds[2]={{0,1,PxVec3((x[0]+x[1])/2,0,0),PxVec3(1,0,0),.0016f,1,1},{1,2,PxVec3((x[1]+x[2])/2,0,0),PxVec3(1,0,0),.0016f,1,1}};
+    PxDestructionMaterial material;material.compressionElasticLimit=1e9f;material.compressionFatalLimit=2e9f;
+    PxDestructionStressDesc desc;desc.chunks=chunks;desc.chunkCount=3;desc.chunkMassProperties=mass;
+    desc.clusters=&cluster;desc.clusterCount=1;desc.bonds=bonds;desc.bondCount=2;
+    desc.materials=&material;desc.materialCount=1;desc.maxIterations=64;desc.tolerance=1e-5f;
+    desc.internalCorrectionLimit=1;desc.enableChunkLoads=true;
+    require(stage->configureStress(desc),"thin remnant configuration rejected");
+    const float dt=1.0f/60,g=9.81f;scene.setGravity(PxVec3(0,-g,0));
+    PxDestructionChunkLoad loads[3];for(PxU32 i=0;i<3;++i)loads[i].impulse=PxVec3(0,-g*m[i]*dt,0);
+    PxU32 rejected=0,first=0;
+    for(PxU32 tick=0;tick<120;++tick) {
+        require(stage->setChunkLoads(loads,3),"thin remnant commands rejected");
+        body->addForce(PxVec3(0,-g*total*dt,0),PxForceMode::eIMPULSE);
+        scene.simulate(dt);PxU32 error=0;const bool fetched=scene.fetchResults(true,&error);
+        const auto status=stage->getLastStatus();
+        if(!fetched || error || status.error){if(!rejected++)first=tick;}
+    }
+    std::fprintf(stderr,"thin remnant: %u of 120 ticks rejected (first %u), velocity y %g\n",rejected,first,body->getLinearVelocity().y);
+    require(!rejected,"the command audit rejected a correctly described thin remnant");
+    require(PxAbs(body->getLinearVelocity().y+g*120*dt)<1e-2f,"thin remnant did not carry its weight exactly once a tick");
+    require(stage->clearStress(),"thin remnant cleanup failed");
+    body->release();for(auto* shape:shapes)shape->release();require(context.healthy(),"thin remnant GPU health failed");
+    std::printf("thin remnant command audit: 120 ticks passed\n");
+}
