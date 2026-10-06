@@ -14,7 +14,9 @@ static PxU32 prepare(Px1DConstraint* rows,PxVec3p& offset,PxU32 capacity,PxConst
     auto n=vehicleConstraintSolverPrep(rows,offset,capacity,scale,block,a,b,ext,ca,cb);
     for(PxU32 i=0;i<n;++i)rows[i].flags|=Px1DConstraintFlag::eOUTPUT_FORCE;return n;
 }
-static void run(PxSolverType::Enum solver,PxU32 carrier,bool disconnect,bool rotated,bool registered=true) {
+// Limit 2 must give the same result: the corrected evaluation changes nothing,
+// but it audits the corrected checkpoint's apportioned commands itself.
+static void run(PxSolverType::Enum solver,PxU32 carrier,bool disconnect,bool rotated,bool registered=true,PxU32 limit=1) {
     blast_demo::SceneCapacity capacity;
     blast_demo::PhysXScene context(blast_demo::PhysicsMode::Gpu,true,capacity,nullptr,false,true,false,false,solver);
     auto& scene=context.scene();auto& physics=context.physics();
@@ -49,7 +51,7 @@ static void run(PxSolverType::Enum solver,PxU32 carrier,bool disconnect,bool rot
     PxDestructionStressConstraint binding{constraint,attached,true,PxVec3(0),true,carrier};
     PxDestructionStressDesc desc;desc.chunks=chunks;desc.chunkCount=2;desc.chunkMassProperties=mass;
     desc.clusters=&cluster;desc.clusterCount=1;desc.bonds=&bond;desc.bondCount=1;
-    desc.materials=&material;desc.materialCount=1;desc.internalCorrectionLimit=1;desc.enableChunkLoads=true;
+    desc.materials=&material;desc.materialCount=1;desc.internalCorrectionLimit=limit;desc.enableChunkLoads=true;
     desc.maxIterations=128;desc.tolerance=1e-6f;
     if(registered){desc.constraints=&binding;desc.constraintCount=1;}
     if(registered) {
@@ -60,8 +62,8 @@ static void run(PxSolverType::Enum solver,PxU32 carrier,bool disconnect,bool rot
     const float dt=1.0f/60;PxDestructionChunkLoad loads[2];loads[1].impulse=rotation.rotate(PxVec3(100*dt,0,0));
     require(stage->setChunkLoads(loads,2),"load submission");parent->addForce(loads[1].impulse,PxForceMode::eIMPULSE);
     scene.simulate(dt);PxU32 error=0;const bool fetched=scene.fetchResults(true,&error);const auto status=stage->getLastStatus();
-    std::printf("%s carrier=%u disconnect=%u rotated=%u registered=%u fetched=%u error=%u stage=%u blockers=%u broken=%u passes=%u\n",
-        solver==PxSolverType::eTGS?"TGS":"PGS",carrier,disconnect,rotated,registered,fetched,error,status.error,status.correctionBlockers,status.brokenBonds,status.correctionPasses);
+    std::printf("%s limit=%u carrier=%u disconnect=%u rotated=%u registered=%u fetched=%u error=%u stage=%u blockers=%u broken=%u passes=%u\n",
+        solver==PxSolverType::eTGS?"TGS":"PGS",limit,carrier,disconnect,rotated,registered,fetched,error,status.error,status.correctionBlockers,status.brokenBonds,status.correctionPasses);
     if(!registered) {
         require(status.correctionBlockers & PxDestructionCorrectionBlocker::eCONSTRAINT_ON_DESTRUCTION_BODY,"unregistered constraint bypassed guard");
         require(shapes[0]->getActor()==parent && shapes[1]->getActor()==parent,"blocked transaction mutated physical owners");
@@ -95,7 +97,7 @@ static void run(PxSolverType::Enum solver,PxU32 carrier,bool disconnect,bool rot
 }
 // A physical sphere shoots one corner off a three-chunk assembly. The other
 // corner has a stronger material and must stay attached throughout the run.
-static void cannon(PxSolverType::Enum solver) {
+static void cannon(PxSolverType::Enum solver,PxU32 limit=1) {
     blast_demo::SceneCapacity capacity;
     blast_demo::PhysXScene context(blast_demo::PhysicsMode::Gpu,true,capacity,nullptr,false,true,false,false,solver);
     auto& scene=context.scene();auto& physics=context.physics();
@@ -123,7 +125,7 @@ static void cannon(PxSolverType::Enum solver) {
     PxDestructionStressConstraint bindings[2]={{constraints[0],1,true,PxVec3(0),true,0},{constraints[1],2,true,PxVec3(0),true,0}};
     PxDestructionStressCluster cluster{parent->getGPUIndex(),PxVec3(0)};
     PxDestructionStressDesc desc;desc.chunks=chunks;desc.chunkCount=3;desc.chunkMassProperties=mass;desc.bonds=bonds;desc.bondCount=2;
-    desc.materials=materials;desc.materialCount=2;desc.clusters=&cluster;desc.clusterCount=1;desc.internalCorrectionLimit=1;
+    desc.materials=materials;desc.materialCount=2;desc.clusters=&cluster;desc.clusterCount=1;desc.internalCorrectionLimit=limit;
     desc.constraints=bindings;desc.constraintCount=2;desc.maxIterations=128;desc.tolerance=1e-6f;
     require(stage->configureStress(desc),"cannon configuration");
     PxRigidDynamic* shot=nullptr;bool detached=false;unsigned broken=0,corrections=0;float supportPeak=0;
@@ -150,11 +152,14 @@ static void cannon(PxSolverType::Enum solver) {
     require(supportPeak>1,"remaining connected suspension provided no support");
     require(stage->clearStress(),"cannon cleanup");for(auto* c:constraints)c->release();parent->release();shot->release();for(auto* shape:shapes)shape->release();
     require(context.healthy(),"cannon physics diagnostic");
-    std::printf("PASS physical cannon %s: 60 intact idle + 90 impact ticks, 3 chunks, 2 bonds, 1 projectile, one corner detached, neighbor retained; support peak %g N\n",
-        solver==PxSolverType::eTGS?"TGS":"PGS",supportPeak);
+    std::printf("PASS physical cannon %s limit=%u: 60 intact idle + 90 impact ticks, 3 chunks, 2 bonds, 1 projectile, one corner detached, neighbor retained; support peak %g N\n",
+        solver==PxSolverType::eTGS?"TGS":"PGS",limit,supportPeak);
 }
 int main(){try{
     for(auto solver:{PxSolverType::ePGS,PxSolverType::eTGS})for(PxU32 carrier=0;carrier<2;++carrier)
         for(bool disconnect:{false,true})for(bool rotated:{false,true})run(solver,carrier,disconnect,rotated);
-    run(PxSolverType::eTGS,0,false,false,false);cannon(PxSolverType::ePGS);cannon(PxSolverType::eTGS);return 0;
+    run(PxSolverType::eTGS,0,false,false,false);cannon(PxSolverType::ePGS);cannon(PxSolverType::eTGS);
+    for(PxU32 carrier=0;carrier<2;++carrier)for(bool disconnect:{false,true})for(bool rotated:{false,true})
+        run(PxSolverType::eTGS,carrier,disconnect,rotated,true,2);
+    cannon(PxSolverType::eTGS,2);return 0;
 }catch(const std::exception& e){std::fprintf(stderr,"FAIL: %s\n",e.what());return 1;}}

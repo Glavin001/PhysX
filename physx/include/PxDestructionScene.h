@@ -168,8 +168,12 @@ struct PxDestructionStressDesc {
     PxU32 additionalShapeCount = 0;
     // Enables per-step apportioned command inputs. Their aggregate must match
     // the native pre-solve acceleration accumulators; mismatches reject the
-    // step. A corrected split reapplies each command only to its owning piece.
-    // Requires material state and internalCorrectionLimit == 1.
+    // step. A corrected split reapplies each command only to its owning piece,
+    // on every corrected pass that re-solves: with internalCorrectionLimit N,
+    // pass p < N reapplies each chunk's command exactly once to the body that
+    // owns the chunk after that pass's split, and audits it (status 16384).
+    // The split at the limit is applied at end-of-tick motion, without another
+    // solve, and reapplies nothing. Requires material state and a limit >= 1.
     bool enableChunkLoads = false;
     const PxDestructionStressConstraint* constraints = NULL;
     PxU32 constraintCount = 0;

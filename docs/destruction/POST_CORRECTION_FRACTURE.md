@@ -86,9 +86,54 @@ Tests:
   upper chunk applies once it is its own body. Limit 1 breaks one layer and
   reports the second in `postCorrectionBrokenBonds`; limit 2 breaks both with
   two corrected solves.
+- `physx_native_chunk_loads_chained`: chunk commands (`enableChunkLoads`)
+  through a chained fracture, below.
 - Existing standard-scene sleep/wake/query tests and native replay tests also
   assert the stress evaluation count.
 - Frozen penetration regression retains its existing golden and tolerances.
+
+## Chunk commands on every corrected pass
+
+`enableChunkLoads` (destructible Vehicle2 cars: weightless carrier, gravity,
+suspension/tyre loads and command shares supplied per chunk) used to require
+`internalCorrectionLimit == 1`. It now takes any limit >= 1. The invariant of
+the single correction holds on every pass that re-solves: each chunk's command
+is applied exactly once, to the body that owns the chunk after that pass's
+split.
+
+- Every pass p < limit apportions: `sumCorrectionCommands` sums the commands
+  per candidate about the source COM, `prepareCorrectionBodyInputs` undoes the
+  source's applied delta and gives each candidate its share,
+  `installCorrectionBodyInputs` installs it. The pass at the limit applies its
+  split at end-of-tick motion without another solve and reapplies nothing, as
+  limit 1's second evaluation always did.
+- The start-of-tick checkpoint taken after pass p's install (p+1 < limit)
+  carries the command deltas: rows of untouched bodies keep the delta of the
+  checkpoint they were restored from, and each installed owner gets the share
+  it was just given (`carryCorrectionCommands`, from per-candidate deltas
+  recorded by `prepareCorrectionBodyInputs`). The next split undoes exactly
+  that share.
+- Every pass p < limit audits its own checkpoint against the current
+  membership (`sumChunkCommandsByCluster` + `validateChunkCommands`, status
+  16384), so a duplicated or dropped command rejects the step instead of
+  going unnoticed.
+- Managed world constraints (`replayWorldRows`, Vehicle2 suspension rows)
+  follow their carrier on each pass the same way and are accepted at any
+  limit >= 1.
+
+Limit 1 is unchanged: only the trial apportions, no corrected checkpoint is
+taken, and the additional per-candidate delta store is never read.
+
+`physx_native_chunk_loads_chained`: a free three-chunk bar, every chunk
+carrying its weight (weightless actor), a pull on each end chunk and a twist
+on one. Bond 0-1 breaks on the trial; bond 1-2 only on the corrected
+evaluation (damage accumulation). Limit 1 re-solves the first split and
+applies the second at end-of-tick motion, so chunks 1 and 2 share the pair's
+motion. Limits 2 and 3 re-solve both and every piece ends the tick with
+exactly its own command: v = J/m, w = L/I. Before this change limit 2 was
+refused by `configureStress`; simply lifting that check re-solved the second
+split with the pair's command on both pieces. `physx_native_constraint_fracture`
+also runs its Vehicle2 suspension-row cases at limit 2.
 
 This does not complete selective correction, GPU contact lifecycle ownership,
 crush-fragment removal, or supported-joint rollback. Existing admission guards

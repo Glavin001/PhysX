@@ -116,7 +116,7 @@ __global__ void prepareCorrectionBodyInputs(const PxDestructionClusterBodyState*
     const PxDestructionCollisionPreparationStatus* collision,
     PxDestructionCorrectionBody* output,PxDestructionCorrectionPreparationStatus* status,
     const PxDestructionChunkLoad* loads,const PxgBodySimVelocities* commands,const PxVec3* sums,
-    const NativePreparationInputs* inputs=nullptr) {
+    PxgBodySimVelocities* deltas,const NativePreparationInputs* inputs=nullptr) {
     if(inputs){checkpoint=inputs->checkpoint;previous=inputs->previous;loads=inputs->chunkLoads;commands=inputs->commands;
         checkpointCount=inputs->checkpointCount;bodyCapacity=inputs->bodyCapacity;}
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=chunkCount)return;
@@ -163,7 +163,22 @@ __global__ void prepareCorrectionBodyInputs(const PxDestructionClusterBodyState*
         const auto dv=sum[2]*recipient.linearVelocityXYZ_inverseMassW.w,dw=commandAngularAcceleration(recipient,sum[3]+shift.cross(sum[2]));
         if(!dv.isFinite() || !dw.isFinite()){atomicOr(&status->error,8u);return;}
         for(PxU32 k=0;k<3;++k){output[i].body.linearVelocity[k]+=dv[k];output[i].body.angularVelocity[k]+=dw[k];}
+        // The share just applied is this candidate's command delta. Another
+        // corrected pass of the same tick splits from a checkpoint holding it
+        // (carryCorrectionCommands), and must undo exactly this, not the
+        // source's pre-split delta.
+        if(deltas)deltas[candidate.cluster]={make_float4(dv.x,dv.y,dv.z,0),make_float4(dw.x,dw.y,dw.z,0)};
     }
+}
+// A corrected checkpoint of the same tick (start of tick plus the fragments
+// just installed) keeps every other body's command delta and gives each
+// installed owner the share prepareCorrectionBodyInputs applied to it. Its
+// chunk commands then match its rigid inputs exactly as the trial's did.
+__global__ void carryCorrectionCommands(const PxDestructionCorrectionBody* inputs,PxU32 count,
+    const PxgBodySimVelocities* deltas,PxgBodySimVelocities* commands,PxU32 capacity) {
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
+    const auto input=inputs[i];
+    if(input.targetBody<capacity)commands[input.targetBody]=deltas[input.body.cluster];
 }
 __global__ void inspectCorrectionSourceLoads(const PxDestructionStressCluster* clusters,const PxU32* affected,PxU32 count,
     const PxgBodySim* checkpoint,PxU32 checkpointCount,const PxDestructionCollisionPreparationStatus* collision,

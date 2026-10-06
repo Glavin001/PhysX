@@ -62,7 +62,8 @@ impulse/angularImpulse describe ordinary actor commands, which this engine
 integrates into velocity before the scene solve. Torques are about each chunk
 COM. The GPU checks both aggregate channels against the actual rigid inputs.
 A mismatch produces status bit 16384 and refuses the step. Inputs expire after
-one complete timestep; the single corrected solve sees the same inputs.
+one complete timestep; every corrected solve of that step sees the same inputs
+(see POST_CORRECTION_FRACTURE.md, "Chunk commands on every corrected pass").
 
 The scene producer exposes its existing device command upload to the checkpoint.
 Only load-enabled scenes allocate and clear a command-delta checkpoint. On a
