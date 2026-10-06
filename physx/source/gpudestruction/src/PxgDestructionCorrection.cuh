@@ -15,17 +15,35 @@ __device__ PxVec3 commandAngularAcceleration(const PxgBodySim& body,const PxVec3
     const auto d=body.inverseInertiaXYZ_contactReportThresholdW;
     return q.rotate(q.rotateInv(torque).multiply(PxVec3(d.x,d.y,d.z)));
 }
-__device__ bool commandValuesMatch(const PxVec3& a,const PxVec3& b) {
-    return a.isFinite() && b.isFinite() && (a-b).magnitude()<=1e-4f*(1+b.magnitude());
+__device__ bool commandValuesMatch(const PxVec3& a,const PxVec3& b,float slack=0) {
+    return a.isFinite() && b.isFinite() && (a-b).magnitude()<=1e-4f*(1+b.magnitude())+slack;
 }
+// scale (corrected passes only; null on the trial): per cluster, the sum over
+// its chunks of |force| and |impulse| times (|chunk world position| + |body
+// COM| + 1 m), a bound on every lever arm. A corrected pass audits shares the
+// previous pass apportioned: torques about the source COM moved to the
+// fragment's COM (prepareCorrectionBodyInputs) cancel terms of size
+// |arm| |J|, and the audit recomputes them from different rounded arms. On a
+// thin vehicle part (inverse inertia ~100 per kg m^2) a few float ulps of
+// that became ~1e-4 rad/s, the whole absolute tolerance, and a correct
+// limit-8 step was rejected (lab house trial, a 7 kg truck part). The angular
+// channels allow that rounding bound; a misplaced or duplicated command errs
+// by a full lever arm times the command, orders of magnitude more, and the
+// linear channels stay exact as before.
 __device__ bool chunkCommandSumsMatch(const PxVec3& force,const PxVec3& torque,const PxVec3& impulse,
-    const PxVec3& angularImpulse,const PxgBodySim& body,const PxgBodySimVelocities& delta) {
+    const PxVec3& angularImpulse,const PxgBodySim& body,const PxgBodySimVelocities& delta,const float* scale=nullptr) {
     const auto linear=body.externalLinearAcceleration,angular=body.externalAngularAcceleration;
     const auto dv=delta.linearVelocity,dw=delta.angularVelocity;
+    float forceSlack=0,impulseSlack=0;
+    if(scale) {
+        const auto d=body.inverseInertiaXYZ_contactReportThresholdW;
+        const float inverseInertia=fmaxf(fabsf(d.x),fmaxf(fabsf(d.y),fabsf(d.z)));
+        forceSlack=16*1.1920929e-7f*inverseInertia*scale[0];impulseSlack=16*1.1920929e-7f*inverseInertia*scale[1];
+    }
     return commandValuesMatch(force*body.linearVelocityXYZ_inverseMassW.w,PxVec3(linear.x,linear.y,linear.z))
-        && commandValuesMatch(commandAngularAcceleration(body,torque),PxVec3(angular.x,angular.y,angular.z))
+        && commandValuesMatch(commandAngularAcceleration(body,torque),PxVec3(angular.x,angular.y,angular.z),forceSlack)
         && commandValuesMatch(impulse*body.linearVelocityXYZ_inverseMassW.w,PxVec3(dv.x,dv.y,dv.z))
-        && commandValuesMatch(commandAngularAcceleration(body,angularImpulse),PxVec3(dw.x,dw.y,dw.z));
+        && commandValuesMatch(commandAngularAcceleration(body,angularImpulse),PxVec3(dw.x,dw.y,dw.z),impulseSlack);
 }
 // The host's chunk commands, summed per cluster: force, torque about the
 // body COM, impulse and angular impulse (sums[4c..4c+3]). One thread per
@@ -35,7 +53,7 @@ __device__ bool chunkCommandSumsMatch(const PxVec3& force,const PxVec3& torque,c
 // nothing; atomic order changes only the last bits, inside the 1e-4 tolerance.
 __global__ void sumChunkCommandsByCluster(const PxDestructionStressChunk* chunks,PxU32 n,
     const PxDestructionStressCluster* clusters,PxU32 count,const PxDestructionChunkLoad* loads,
-    const PxgBodySim* checkpoint,PxU32 checkpointCount,PxVec3* sums) {
+    const PxgBodySim* checkpoint,PxU32 checkpointCount,PxVec3* sums,float* scales=nullptr) {
     const PxU32 j=blockIdx.x*blockDim.x+threadIdx.x;if(j>=n || !checkpoint)return;
     const PxU32 c=chunks[j].cluster;if(c>=count)return;
     const auto load=loads[j];
@@ -43,9 +61,14 @@ __global__ void sumChunkCommandsByCluster(const PxDestructionStressChunk* chunks
     const PxU32 id=clusters[c].body;if(id>=checkpointCount)return;
     const auto& source=checkpoint[id];
     const auto actor=source.body2World.getTransform()*source.body2Actor_maxImpulseW.getTransform().getInverse();
-    const PxVec3 arm=actor.transform(chunks[j].position)-source.body2World.getTransform().p;
+    const PxVec3 world=actor.transform(chunks[j].position);
+    const PxVec3 arm=world-source.body2World.getTransform().p;
     const PxVec3 values[4]={load.force,load.torque+arm.cross(load.force),load.impulse,load.angularImpulse+arm.cross(load.impulse)};
     for(PxU32 k=0;k<4;++k){PxVec3& s=sums[4*c+k];atomicAdd(&s.x,values[k].x);atomicAdd(&s.y,values[k].y);atomicAdd(&s.z,values[k].z);}
+    if(scales) {
+        const float reach=world.magnitude()+source.body2World.getTransform().p.magnitude()+1;
+        atomicAdd(scales+2*c,load.force.magnitude()*reach);atomicAdd(scales+2*c+1,load.impulse.magnitude()*reach);
+    }
 }
 // The same commands summed per correction candidate: by the chunk's cluster
 // in the trial topology (sums[4k..4k+3], k that cluster's root chunk), about
@@ -70,11 +93,13 @@ __global__ void sumCorrectionCommands(const PxDestructionStressChunk* chunks,PxU
     for(PxU32 m=0;m<4;++m){PxVec3& s=sums[4*k+m];atomicAdd(&s.x,values[m].x);atomicAdd(&s.y,values[m].y);atomicAdd(&s.z,values[m].z);}
 }
 __global__ void validateChunkCommands(const PxDestructionStressCluster* clusters,PxU32 count,const PxVec3* sums,
-    const PxgBodySim* checkpoint,PxU32 checkpointCount,const PxgBodySimVelocities* commands,PxDestructionStageStatus* status) {
+    const PxgBodySim* checkpoint,PxU32 checkpointCount,const PxgBodySimVelocities* commands,PxDestructionStageStatus* status,
+    const float* scales=nullptr) {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
     const PxU32 id=clusters[i].body;
     if(!checkpoint || id>=checkpointCount
-        || !chunkCommandSumsMatch(sums[4*i],sums[4*i+1],sums[4*i+2],sums[4*i+3],checkpoint[id],commands[id]))atomicOr(&status->error,16384u);
+        || !chunkCommandSumsMatch(sums[4*i],sums[4*i+1],sums[4*i+2],sums[4*i+3],checkpoint[id],commands[id],scales?scales+2*i:nullptr))
+        atomicOr(&status->error,16384u);
 }
 __device__ bool correctionVelocity(const float* center,const PxgBodySim& source,
     const float4& v,const float4& w,float* linear,float* angular) {
@@ -183,8 +208,9 @@ __global__ void carryCorrectionCommands(const PxDestructionCorrectionBody* input
 __global__ void inspectCorrectionSourceLoads(const PxDestructionStressCluster* clusters,const PxU32* affected,PxU32 count,
     const PxgBodySim* checkpoint,PxU32 checkpointCount,const PxDestructionCollisionPreparationStatus* collision,
     PxDestructionCorrectionPreparationStatus* status,const PxVec3* sums,
-    const PxDestructionChunkLoad* loads,const PxgBodySimVelocities* commands,const NativePreparationInputs* inputs=nullptr) {
-    if(inputs){checkpoint=inputs->checkpoint;checkpointCount=inputs->checkpointCount;count=inputs->clusterCount;loads=inputs->chunkLoads;commands=inputs->commands;}
+    const PxDestructionChunkLoad* loads,const PxgBodySimVelocities* commands,const float* scales,const NativePreparationInputs* inputs=nullptr) {
+    if(inputs){checkpoint=inputs->checkpoint;checkpointCount=inputs->checkpointCount;count=inputs->clusterCount;loads=inputs->chunkLoads;commands=inputs->commands;
+        scales=inputs->commandScales;}
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(!collision->valid || i>=count || !affected[i])return;
     const PxU32 id=clusters[i].body;if(!checkpoint || id>=checkpointCount){atomicOr(&status->error,1u);return;}
     const auto body=checkpoint[id];const auto a=body.externalLinearAcceleration,b=body.externalAngularAcceleration;
@@ -193,7 +219,8 @@ __global__ void inspectCorrectionSourceLoads(const PxDestructionStressCluster* c
     if(loads) {
         // This pass's per-cluster sums (sumChunkCommandsByCluster, same
         // checkpoint, loads and original membership).
-        if(!chunkCommandSumsMatch(sums[4*i],sums[4*i+1],sums[4*i+2],sums[4*i+3],body,commands[id]))atomicAdd(&status->loadedSources,1u);
+        if(!chunkCommandSumsMatch(sums[4*i],sums[4*i+1],sums[4*i+2],sums[4*i+3],body,commands[id],scales?scales+2*i:nullptr))
+            atomicAdd(&status->loadedSources,1u);
     } else if(a.x!=0 || a.y!=0 || a.z!=0 || b.x!=0 || b.y!=0 || b.z!=0)atomicAdd(&status->loadedSources,1u);
 }
 struct HasCorrectionBody {

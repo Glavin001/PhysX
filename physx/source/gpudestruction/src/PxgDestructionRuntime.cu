@@ -478,6 +478,7 @@ struct NativePreparationInputs {
     const PxgBodySim* checkpoint=nullptr;
     const PxgBodySimVelocities* commands=nullptr;
     const PxDestructionChunkLoad* chunkLoads=nullptr;
+    const float* commandScales=nullptr; // corrected passes: chunkCommandSumsMatch rounding bound
     const PxgBodySimVelocities* previous=nullptr;
     PxU32 checkpointCount=0,bodyCapacity=0,clusterCount=0;
     PxU64 checkpointGeneration=0;
@@ -638,6 +639,8 @@ class Runtime final : public PxgDestructionRuntime {
     // chunk (prepareCorrectionBodyInputs), and whether the next checkpoint is
     // a corrected start-of-tick one that must carry them (carryCorrectionCommands).
     PxgBodySimVelocities* mCorrectionCommandDeltas{};
+    // Per-cluster command magnitudes for the corrected passes' audit (chunkCommandSumsMatch).
+    float* mChunkCommandScales{};
     bool mCarryCorrectionCommands=false;
     // fragmentGravity with chunk commands: fragments installed weightless by a
     // pass that re-solves (their command share carries their weight), given
@@ -1281,6 +1284,7 @@ public:
         cudaFree(mConstraintBindings);mConstraintBindings=nullptr;mPinnedConstraintBindings.release();mManagedConstraintIds.clear();
         cudaFree(mChunkLoads);mChunkLoads=nullptr;mHostChunkLoads.clear();mChunkLoadsFresh=false;
         cudaFree(mCorrectionCommandDeltas);mCorrectionCommandDeltas=nullptr;mCarryCorrectionCommands=false;
+        cudaFree(mChunkCommandScales);mChunkCommandScales=nullptr;
         cudaFree(mDeferredGravity);mDeferredGravity=nullptr;
         cudaFree(mChunkCommandSums);mChunkCommandSums=nullptr;
         cudaFree(mCorrectionCommandSums);mCorrectionCommandSums=nullptr;
@@ -1435,7 +1439,7 @@ public:
                 allocate(mChunkLoads,d.chunkCount);mHostChunkLoads.resize(d.chunkCount);
                 allocate(mChunkCommandSums,4*size_t(d.chunkCount));
                 allocate(mCorrectionCommandSums,4*size_t(d.chunkCount));
-                allocate(mCorrectionCommandDeltas,d.chunkCount);
+                allocate(mCorrectionCommandDeltas,d.chunkCount);allocate(mChunkCommandScales,2*size_t(d.chunkCount));
                 if(d.fragmentGravity) {
                     allocate(mDeferredGravity,size_t(d.chunkCount)+1);
                     check(cudaMemset(mDeferredGravity+d.chunkCount,0,sizeof(PxU32)));
@@ -1577,7 +1581,7 @@ public:
                         mAffectedClusters,nullptr,nullptr,0,0,mCollisionPreparation,mCorrectionBodies,mCorrectionPreparation,mChunkLoads,mCheckpointCommands,
                         mCorrectionCommandSums,mCorrectionCommandDeltas,inputs);
                     inspectCorrectionSourceLoads<<<(mN+127)/128,128,0,mStream>>>(mClusters,mAffectedClusters,0,nullptr,0,
-                        mCollisionPreparation,mCorrectionPreparation,mChunkCommandSums,mChunkLoads,mCheckpointCommands,inputs);
+                        mCollisionPreparation,mCorrectionPreparation,mChunkCommandSums,mChunkLoads,mCheckpointCommands,nullptr,inputs);
                     check(cub::DeviceSelect::If(mCorrectionScratch,mCorrectionScratchBytes,mCorrectionBodies,mCompactCorrectionBodies,
                         &mCorrectionPreparation->count,mN,HasCorrectionBody{},mStream));
                     finishCorrectionPreparation<<<1,1,0,mStream>>>(mCorrectionPreparation,mCollisionPreparation,0,mStatus,inputs);
@@ -1846,10 +1850,12 @@ public:
                 // corrected pass, the start of the tick plus the fragments
                 // installed so far, against the current membership.
                 check(cudaMemsetAsync(mChunkCommandSums,0,4*sizeof(PxVec3)*mC,mStream));
+                float* scales=mPass?mChunkCommandScales:nullptr;
+                if(scales)check(cudaMemsetAsync(scales,0,2*sizeof(float)*mC,mStream));
                 sumChunkCommandsByCluster<<<(mN+127)/128,128,0,mStream>>>(
-                    mChunks,mN,mClusters,mC,mChunkLoads,mCheckpointBodies,mCheckpointCount,mChunkCommandSums);
+                    mChunks,mN,mClusters,mC,mChunkLoads,mCheckpointBodies,mCheckpointCount,mChunkCommandSums,scales);
                 validateChunkCommands<<<(mC+127)/128,128,0,mStream>>>(
-                    mClusters,mC,mChunkCommandSums,mCheckpointBodies,mCheckpointCount,mCheckpointCommands,mStatus);
+                    mClusters,mC,mChunkCommandSums,mCheckpointBodies,mCheckpointCount,mCheckpointCommands,mStatus,scales);
             }
             if(contacts.pairCount)routeContacts<<<(contacts.pairCount+127)/128,128,0,mStream>>>(contacts,mMap,mMapCount,mChunks,mPoses,1.0f/dt,mInputs,mSurface,mStatus,bodyStates,mMaterials,mRates);
             if(mReport)check(cudaMemcpyAsync(mReportInputs+2*mN,mInputs,sizeof(*mInputs)*mN,cudaMemcpyDeviceToDevice,mStream));
@@ -1938,6 +1944,7 @@ public:
         NativePreparationInputs inputs{};inputs.collision=mCollisionStorage;
         inputs.checkpoint=mCheckpointValid?mCheckpointBodies:nullptr;inputs.previous=mCheckpointPrevious;
         inputs.commands=mCheckpointCommands;inputs.chunkLoads=passChunkLoads();
+        inputs.commandScales=mPass && inputs.chunkLoads?mChunkCommandScales:nullptr;
         inputs.checkpointCount=mCheckpointValid?mCheckpointCount:0;inputs.checkpointGeneration=mCheckpointGeneration;
         inputs.bodyCapacity=mMotionStorage.capacity;inputs.clusterCount=mC;
         mDevicePreparation.setInputs(inputs,mStream);mCorrectionBodyCapacity=mMotionStorage.capacity;
@@ -2246,7 +2253,8 @@ public:
             prepareCorrectionBodyInputs<<<(mN+127)/128,128,0,stream>>>(mTrialBodies,mTrialBodyIndices,mN,mTopology->trial(),mChunks,
                 mAffectedClusters,mCheckpointBodies,mCheckpointPrevious,mCheckpointCount,bodyCapacity,mCollisionPreparation,mCorrectionBodies,mCorrectionPreparation,loads,mCheckpointCommands,
                 mCorrectionCommandSums,mCorrectionCommandDeltas);
-            inspectCorrectionSourceLoads<<<(mC+127)/128,128,0,stream>>>(mClusters,mAffectedClusters,mC,mCheckpointBodies,mCheckpointCount,mCollisionPreparation,mCorrectionPreparation,mChunkCommandSums,loads,mCheckpointCommands);
+            inspectCorrectionSourceLoads<<<(mC+127)/128,128,0,stream>>>(mClusters,mAffectedClusters,mC,mCheckpointBodies,mCheckpointCount,mCollisionPreparation,mCorrectionPreparation,mChunkCommandSums,loads,mCheckpointCommands,
+                mPass && loads?mChunkCommandScales:nullptr);
             check(cudaGetLastError());
             check(cub::DeviceSelect::If(mCorrectionScratch,mCorrectionScratchBytes,mCorrectionBodies,mCompactCorrectionBodies,
                 &mCorrectionPreparation->count,mN,HasCorrectionBody{},stream));
@@ -2472,6 +2480,38 @@ public:
             return true;
         } catch (...) {return false;}
     }
+    void logCommandMismatch() {
+        static unsigned logged=0;if(logged>=16)return;++logged;
+        std::vector<PxDestructionStressCluster> clusters(mC);std::vector<PxVec3> sums(4*size_t(mC));
+        check(cudaMemcpy(clusters.data(),mClusters,mC*sizeof(clusters[0]),cudaMemcpyDeviceToHost));
+        check(cudaMemcpy(sums.data(),mChunkCommandSums,sums.size()*sizeof(sums[0]),cudaMemcpyDeviceToHost));
+        std::fprintf(stderr,"[PxDestruction] frame %llu pass %u/%u: chunk commands do not match rigid inputs (%u clusters)\n",
+            static_cast<unsigned long long>(mHostStatus->frame),mPass,mCorrectionLimit,mC);
+        const auto near=[](const PxVec3& a,const PxVec3& b){return a.isFinite() && b.isFinite() && (a-b).magnitude()<=1e-4f*(1+b.magnitude());};
+        unsigned shown=0;
+        for(PxU32 c=0;c<mC && shown<6;++c) {
+            const PxU32 id=clusters[c].body;if(id>=mCheckpointCount)continue;
+            PxgBodySim b{};PxgBodySimVelocities v{};
+            check(cudaMemcpy(&b,mCheckpointBodies+id,sizeof(b),cudaMemcpyDeviceToHost));
+            check(cudaMemcpy(&v,mCheckpointCommands+id,sizeof(v),cudaMemcpyDeviceToHost));
+            const float im=b.linearVelocityXYZ_inverseMassW.w;
+            const PxQuat q=b.body2World.getTransform().q;
+            const PxVec3 inertia(b.inverseInertiaXYZ_contactReportThresholdW.x,b.inverseInertiaXYZ_contactReportThresholdW.y,b.inverseInertiaXYZ_contactReportThresholdW.z);
+            const auto angular=[&](const PxVec3& t){return q.rotate(q.rotateInv(t).multiply(inertia));};
+            const PxVec3 values[4][2]={
+                {PxVec3(b.externalLinearAcceleration.x,b.externalLinearAcceleration.y,b.externalLinearAcceleration.z),sums[4*c]*im},
+                {PxVec3(b.externalAngularAcceleration.x,b.externalAngularAcceleration.y,b.externalAngularAcceleration.z),angular(sums[4*c+1])},
+                {PxVec3(v.linearVelocity.x,v.linearVelocity.y,v.linearVelocity.z),sums[4*c+2]*im},
+                {PxVec3(v.angularVelocity.x,v.angularVelocity.y,v.angularVelocity.z),angular(sums[4*c+3])}};
+            static const char* names[4]={"accel","angular accel","dv","dw"};
+            bool bad=false;for(const auto& pair:values)bad|=!near(pair[0],pair[1]);
+            if(!bad)continue;
+            ++shown;
+            std::fprintf(stderr,"  cluster %u body %u gravity %s invMass %g invInertia (%g %g %g):\n",c,id,b.disableGravity?"off":"on",im,inertia.x,inertia.y,inertia.z);
+            for(PxU32 k=0;k<4;++k)if(!near(values[k][0],values[k][1]))std::fprintf(stderr,"    %s body (%g %g %g) vs commands (%g %g %g)\n",
+                names[k],values[k][0].x,values[k][0].y,values[k][0].z,values[k][1].x,values[k][1].y,values[k][1].z);
+        }
+    }
     bool finish() override {
         try {Context current(mContext);if(mPending){
                 {PxProfileScoped waitProfile(mProfiler,"GpuDestruction.finishDetail.waitForGpu",false,mProfileContext);
@@ -2517,6 +2557,11 @@ public:
                         static_cast<unsigned long long>(t.rebuilds),t.islandCount,t.activeBondCount,t.activeNodeCount);
                 }
             }
+            // PX_DESTRUCTION_LOG_COMMAND_MISMATCH=1: say which pass and which
+            // clusters raised error bit 16384 (chunk commands do not match the
+            // bodies' rigid inputs), with both sides of the comparison.
+            if((mHostStatus->error&16384u) && mChunkLoads && mCheckpointValid && std::getenv("PX_DESTRUCTION_LOG_COMMAND_MISMATCH"))
+                logCommandMismatch();
             if(mFailed)mHostStatus->error|=4u;
             return !mFailed && mHostStatus->error==0;
         }catch(...){mFailed=true;mHostStatus->error|=4u;

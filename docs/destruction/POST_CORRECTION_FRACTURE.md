@@ -117,6 +117,15 @@ split.
   membership (`sumChunkCommandsByCluster` + `validateChunkCommands`, status
   16384), so a duplicated or dropped command rejects the step instead of
   going unnoticed.
+- The corrected passes' audit allows float rounding in the angular channels
+  (`chunkCommandSumsMatch` with per-cluster command scales): a share moved
+  from the source COM to a fragment COM and re-audited from other rounded
+  arms differs by a few ulps of |arm| |J|, which a thin part's inverse
+  inertia turned into a false 16384 at limit 8 in the lab house trial. Then
+  the failed tick left half-installed owners and every later tick failed the
+  trial audit too. The trial audit is unchanged.
+  `PX_DESTRUCTION_LOG_COMMAND_MISMATCH=1` prints the pass and both sides of
+  each mismatching cluster.
 - Managed world constraints (`replayWorldRows`, Vehicle2 suspension rows)
   follow their carrier on each pass the same way and are accepted at any
   limit >= 1.

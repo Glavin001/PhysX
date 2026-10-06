@@ -20,12 +20,19 @@
 // the same result. Any duplicated, dropped or misplaced command changes these
 // velocities, and the stage's own per-pass command audit (status 16384)
 // checks every evaluation against the bodies' actual rigid inputs.
-void chunkLoadsChainedFracture(PxU32 limit) {
+//
+// far: the same bar 2.5 km from the origin, turned about its own axis, with
+// thin chunks (inertia 0.01, an inverse inertia of 100): shares apportioned
+// and audited from rounded world-position arms, where rounding counts most.
+void chunkLoadsChainedFracture(PxU32 limit,bool far=false) {
+    const PxVec3 origin=far?PxVec3(2017.37f,5.13f,-1493.71f):PxVec3(0,5,0);const float I=far?.01f:1.0f/6;
     blast_demo::SceneCapacity capacity;
     blast_demo::PhysXScene context(blast_demo::PhysicsMode::Gpu,true,capacity,nullptr,false,true);
     auto& scene=context.scene();auto& physics=context.physics();scene.setGravity(PxVec3(0));
-    auto* parent=physics.createRigidDynamic(PxTransform(PxVec3(0,5,0)));
-    parent->setMass(3);parent->setMassSpaceInertiaTensor(PxVec3(.5f,2.5f,2.5f));
+    // Far: also turned about the bar's own axis, so world arms carry rotation
+    // rounding (the expected motion is unchanged: y and z inertias are equal).
+    auto* parent=physics.createRigidDynamic(PxTransform(origin,far?PxQuat(.7f,PxVec3(1,0,0)):PxQuat(PxIdentity)));
+    parent->setMass(3);parent->setMassSpaceInertiaTensor(PxVec3(3*I,3*I+2,3*I+2));
     parent->setLinearDamping(0);parent->setAngularDamping(0);parent->setSleepThreshold(0);parent->setStabilizationThreshold(0);
     parent->setActorFlag(PxActorFlag::eDISABLE_GRAVITY,true);
     PxShape* shapes[3];const float x[3]={-1,0,1};
@@ -39,8 +46,8 @@ void chunkLoadsChainedFracture(PxU32 limit) {
     auto* stage=scene.getDestructionScene();require(stage,"chained command stage missing");
     PxDestructionStressChunk chunks[3];PxDestructionChunkMassProperties mass[3]{};
     for(PxU32 i=0;i<3;++i) {
-        chunks[i]={PxVec3(x[i],0,0),1,1.0f/6,0,stage->getShapeContactIndex(*shapes[i]),1,i?1u:0u};
-        mass[i].center[0]=x[i];mass[i].mass=1;for(PxU32 k=0;k<3;++k)mass[i].inertia[k]=1.0/6;
+        chunks[i]={PxVec3(x[i],0,0),1,I,0,stage->getShapeContactIndex(*shapes[i]),1,i?1u:0u};
+        mass[i].center[0]=x[i];mass[i].mass=1;for(PxU32 k=0;k<3;++k)mass[i].inertia[k]=I;
     }
     PxDestructionStressCluster cluster{parent->getGPUIndex(),PxVec3(0)};
     PxDestructionStressBond bonds[2]={{0,1,PxVec3(-.5f,0,0),PxVec3(1,0,0),1,1,1,0},{1,2,PxVec3(.5f,0,0),PxVec3(1,0,0),1,1,1,1}};
@@ -54,7 +61,7 @@ void chunkLoadsChainedFracture(PxU32 limit) {
     desc.internalCorrectionLimit=limit;desc.enableChunkLoads=true;
     require(stage->configureStress(desc),"chunk commands rejected at this correction limit");
     scene.setGravity(PxVec3(0,-9.81f,0));
-    const float dt=1.0f/60,g=9.81f,twist=1;
+    const float dt=1.0f/60,g=9.81f,twist=6*I; // 0.1 rad/s on its own: a slow spin, not a collision with its neighbour
     PxDestructionChunkLoad loads[3];
     for(PxU32 i=0;i<3;++i)loads[i].impulse=PxVec3(0,-g*dt,0);
     loads[0].impulse.x=-F*dt;loads[2].impulse.x=F*dt;loads[2].angularImpulse=PxVec3(0,0,twist*dt);
@@ -64,8 +71,8 @@ void chunkLoadsChainedFracture(PxU32 limit) {
     parent->addForce(impulse,PxForceMode::eIMPULSE);parent->addTorque(angular,PxForceMode::eIMPULSE);
     scene.simulate(dt);PxU32 error=0;const bool fetched=scene.fetchResults(true,&error);
     const auto status=stage->getLastStatus();
-    std::fprintf(stderr,"chained commands limit=%u fetched=%u error=%u stage=%u broken=%u later=%u correction=%u stress=%u\n",
-        limit,unsigned(fetched),error,status.error,status.brokenBonds,status.postCorrectionBrokenBonds,status.correctionPasses,status.stressPasses);
+    std::fprintf(stderr,"chained commands far=%u limit=%u fetched=%u error=%u stage=%u broken=%u later=%u correction=%u stress=%u\n",
+        unsigned(far),limit,unsigned(fetched),error,status.error,status.brokenBonds,status.postCorrectionBrokenBonds,status.correctionPasses,status.stressPasses);
     require(fetched && !error && !status.error,"chained command fracture failed");
     const PxU32 corrections=PxMin(limit,2u);
     require(status.brokenBonds==2 && status.postCorrectionBrokenBonds==1,"chained command verdicts missing or duplicated");
@@ -74,11 +81,11 @@ void chunkLoadsChainedFracture(PxU32 limit) {
     for(PxU32 i=0;i<3;++i){pieces[i]=shapes[i]->getActor()->is<PxRigidDynamic>();require(pieces[i],"chunk lost its actor");}
     require(pieces[0]!=pieces[1] && pieces[1]!=pieces[2] && pieces[0]!=pieces[2],"chained fracture did not split three owners");
     PxVec3 linear[3],spin[3];
-    for(PxU32 i=0;i<3;++i){linear[i]=loads[i].impulse;spin[i]=loads[i].angularImpulse*6;}
+    for(PxU32 i=0;i<3;++i){linear[i]=loads[i].impulse;spin[i]=loads[i].angularImpulse/I;}
     if(limit==1) {
         // The pair 1-2 was re-solved as one body carrying both commands, then
         // split at its corrected end-of-tick motion without another solve.
-        const PxVec3 v=(loads[1].impulse+loads[2].impulse)/2,w=loads[2].angularImpulse/(5.0f/6);
+        const PxVec3 v=(loads[1].impulse+loads[2].impulse)/2,w=loads[2].angularImpulse/(2*I+.5f);
         linear[1]=v+w.cross(PxVec3(-.5f,0,0));linear[2]=v+w.cross(PxVec3(.5f,0,0));spin[1]=spin[2]=w;
     }
     bool exact=true;
@@ -97,7 +104,7 @@ void chunkLoadsChainedFracture(PxU32 limit) {
     for(PxU32 i=0;i<3;++i)require((pieces[i]->getLinearVelocity()-before[i]).magnitude()<2e-3f,"chunk command leaked into the next tick");
     require(stage->clearStress(),"chained command cleanup failed");
     parent->release();for(auto* shape:shapes)shape->release();require(context.healthy(),"chained command GPU health failed");
-    std::printf("chunk commands through a chained fracture: limit=%u, 2 bonds, %u corrected solves passed\n",limit,corrections);
+    std::printf("chunk commands through a chained fracture: far=%u limit=%u, 2 bonds, %u corrected solves passed\n",unsigned(far),limit,corrections);
 }
 // A weightless carrier (Vehicle2: its weight arrives as chunk commands) with
 // fragmentGravity sheds a free fragment. On the split tick the fragment's
