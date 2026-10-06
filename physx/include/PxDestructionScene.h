@@ -154,7 +154,8 @@ struct PxDestructionStressDesc {
     // split from, including PxActorFlag::eDISABLE_GRAVITY. A source that is
     // weightless because something else integrates its gravity -- a Vehicle2
     // carrier -- then sheds weightless debris. When set, free fragments get
-    // ordinary scene gravity; supported remnants keep the inherited flag.
+    // ordinary scene gravity; supported remnants, and the source's own body
+    // (re-installed by a corrected split), keep the inherited flag.
     bool fragmentGravity = false;
     // Contact-graph storage (pairs, island nodes, retained slots) allocated at
     // configure time. Grown on demand instead, the first large split waits for

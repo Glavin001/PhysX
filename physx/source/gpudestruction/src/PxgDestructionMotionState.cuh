@@ -26,7 +26,10 @@ __device__ PxgBodySim nativeCandidateState(const PxDestructionClusterBodyState& 
     // without touching the supported remnant's contacts.
     if(!candidate.supported)b.maxLinearVelocitySqX_maxAngularVelocitySqY_linearDampingZ_angularDampingW=b.dynamicLimitsDamping;
     if(!candidate.supported)b.angularVelocityXYZ_maxPenBiasW.w=fmaxf(b.angularVelocityXYZ_maxPenBiasW.w,gNativeFragmentMaxPenBias);
-    if(!candidate.supported && gNativeFragmentGravity)b.disableGravity=0;
+    // Free fragments only: the source re-installed as itself (the correction
+    // pass rewrites a split's source through here too) keeps its own flag --
+    // a Vehicle2 carrier given scene gravity carried its weight twice.
+    if(!candidate.supported && gNativeFragmentGravity && id!=candidate.sourceBody)b.disableGravity=0;
     b.linearVelocityXYZ_inverseMassW=make_float4(candidate.linearVelocity[0],candidate.linearVelocity[1],candidate.linearVelocity[2],candidate.inverseMass);
     b.angularVelocityXYZ_maxPenBiasW.x=candidate.angularVelocity[0];
     b.angularVelocityXYZ_maxPenBiasW.y=candidate.angularVelocity[1];

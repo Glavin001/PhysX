@@ -198,6 +198,42 @@ void descriptorStability() {
     CUDA(cudaFree(originalNodes));
     std::puts("captured motion descriptor read-only bytes and ordered node-storage rebind: PASS");
 }
+// fragmentGravity gives scene gravity to the free fragments of a weightless
+// source (a Vehicle2 carrier, whose gravity Vehicle2 integrates itself). The
+// source re-installed as its own remnant -- the correction pass rewrites the
+// carrier through nativeCandidateState -- is not a fragment: given gravity, the
+// car carried its weight twice (once from PhysX, once from Vehicle2) and rode
+// on compressed springs for the rest of its life.
+__global__ void candidateGravityKernel(const PxDestructionClusterBodyState* candidates,const PxgBodySim* source,
+    const PxU32* ids,PxU32 count,PxU32* gravityDisabled) {
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
+    gravityDisabled[i]=nativeCandidateState(candidates[i],*source,ids[i]).disableGravity;
+}
+void carrierGravity() {
+    PxgBodySim weightless{};weightless.disableGravity=1;
+    std::vector<PxDestructionClusterBodyState> states(4);
+    for(auto& v:states){v.sourceBody=7;v.inverseMass=1;v.bodyToWorldOrientation[3]=v.bodyToActorOrientation[3]=1;}
+    states[2].supported=1;
+    // 0: a new free fragment; 1: the source itself, unsupported (the carrier);
+    // 2: a supported new body; 3: another new free fragment.
+    const std::vector<PxU32> ids={12,7,13,14};
+    auto* candidates=make<PxDestructionClusterBodyState>(4);auto* source=make<PxgBodySim>();
+    auto* targets=make<PxU32>(4);auto* disabled=make<PxU32>(4);
+    CUDA(cudaMemcpy(candidates,states.data(),4*sizeof(states[0]),cudaMemcpyHostToDevice));
+    CUDA(cudaMemcpy(targets,ids.data(),4*sizeof(PxU32),cudaMemcpyHostToDevice));
+    put(source,weightless);
+    std::vector<PxU32> result(4);
+    for(bool on:{false,true}) {
+        CUDA(cudaMemcpyToSymbol(gNativeFragmentGravity,&on,sizeof(bool)));
+        candidateGravityKernel<<<1,32>>>(candidates,source,targets,4,disabled);
+        CUDA(cudaDeviceSynchronize());
+        CUDA(cudaMemcpy(result.data(),disabled,4*sizeof(PxU32),cudaMemcpyDeviceToHost));
+        if(!on) CHECK(result[0]==1 && result[1]==1 && result[2]==1 && result[3]==1);
+        else CHECK(result[0]==0 && result[1]==1 && result[2]==1 && result[3]==0);
+    }
+    const bool off=false;CUDA(cudaMemcpyToSymbol(gNativeFragmentGravity,&off,sizeof(bool)));
+    CUDA(cudaFree(candidates));CUDA(cudaFree(source));CUDA(cudaFree(targets));CUDA(cudaFree(disabled));
+}
 int main(int argc,char** argv) {
 #if defined(PX_CUMETAL) && PX_CUMETAL
     cudaDeviceProp capabilities{};
@@ -212,6 +248,8 @@ int main(int argc,char** argv) {
 #endif
     if(argc==2 && std::strcmp(argv[1],"--descriptor-stability")==0){descriptorStability();return 0;}
     if(argc==2 && std::strcmp(argv[1],"--address-isolation")==0){addressIsolation();return 0;}
+    if(argc==2 && std::strcmp(argv[1],"--carrier-gravity")==0){carrierGravity();return 0;}
+    carrierGravity();
     descriptorStability();
     addressIsolation();
     std::mt19937 random(1709);
