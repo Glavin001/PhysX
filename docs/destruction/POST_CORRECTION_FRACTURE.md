@@ -121,7 +121,23 @@ split.
   follow their carrier on each pass the same way and are accepted at any
   limit >= 1.
 
-Limit 1 is unchanged: only the trial apportions, no corrected checkpoint is
+- A fragment born earlier in the tick keeps its CPU allocation placeholders
+  (gravity flag, damping, velocity limits, sleep thresholds) until the tick
+  publishes the GPU settings in `finishPostCorrection`. A second or later
+  corrected traversal could queue it for a host upload, which overwrote those
+  GPU settings with the placeholders (seen as a Vehicle2 fragment regaining
+  scene gravity mid-tick). Such bodies (`bornThisTick`) are now kept off the
+  host upload during corrected traversals; `PX_DESTRUCTION_LOG_TICK_BODY_UPLOADS=1`
+  logs each one. This affected any limit > 1, with or without chunk loads.
+- With `fragmentGravity`, a free fragment of a weightless source that is
+  re-solved on its split tick receives its command share, which already
+  carries its weight (Vehicle2 describes the carrier's gravity per chunk).
+  It now stays weightless until the tick completes and gets scene gravity
+  then (`clearDeferredGravity`); before, it fell 2 g dt on the split tick, at
+  limit 1 too. `physx_native_chunk_loads_fragment_gravity` covers limits 1
+  and 2.
+
+Limit 1 is unchanged apart from that fragmentGravity fix: only the trial apportions, no corrected checkpoint is
 taken, and the additional per-candidate delta store is never read.
 
 `physx_native_chunk_loads_chained`: a free three-chunk bar, every chunk

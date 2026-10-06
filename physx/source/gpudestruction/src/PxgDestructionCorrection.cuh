@@ -222,11 +222,22 @@ __global__ void gatherCorrectionOwnerMetadata(const PxDestructionCorrectionBody*
     requests[i]=candidates[candidateSlots[correction.body.cluster]];
     targets[i]=correction.targetBody;
 }
+// deferred (fragmentGravity with chunk commands, on a pass that re-solves): a
+// free fragment of a weightless source receives its share of the source's
+// commands, which already carry its weight for this tick (Vehicle2 describes
+// a weightless carrier's gravity per chunk). It stays weightless until the
+// tick is complete (clearDeferredGravity); scene gravity on top of the share
+// applied its weight twice on the split tick.
 __global__ void installCorrectionBodyInputs(const PxDestructionCorrectionBody* inputs,PxU32 count,const PxgBodySim* checkpoint,
-    const PxgBodySimVelocities* oldPrevious,PxgBodySim* bodies,PxgBodySimVelocities* previous,PxgRigidBodyAcceleration* accelerations) {
+    const PxgBodySimVelocities* oldPrevious,PxgBodySim* bodies,PxgBodySimVelocities* previous,PxgRigidBodyAcceleration* accelerations,
+    PxU32* deferred=nullptr,PxU32* deferredCount=nullptr,PxU32 deferredCapacity=0) {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
     const auto input=inputs[i];const auto source=checkpoint[input.body.sourceBody];
     auto b=nativeCandidateState(input.body,source,input.targetBody);
+    if(deferred && !b.disableGravity && source.disableGravity) {
+        const PxU32 slot=atomicAdd(deferredCount,1u);
+        if(slot<deferredCapacity){deferred[slot]=input.targetBody;b.disableGravity=source.disableGravity;}
+    }
     b.externalLinearAcceleration=make_float4(input.linearAcceleration[0],input.linearAcceleration[1],input.linearAcceleration[2],0);
     b.externalAngularAcceleration=make_float4(input.angularAcceleration[0],input.angularAcceleration[1],input.angularAcceleration[2],0);
     bodies[input.targetBody]=b;
@@ -237,4 +248,10 @@ __global__ void installCorrectionBodyInputs(const PxDestructionCorrectionBody* i
         previous[input.targetBody].angularVelocity=make_float4(angular[0],angular[1],angular[2],b.angularVelocityXYZ_maxPenBiasW.w);
     }
     if(accelerations)accelerations[input.targetBody]={};
+}
+// End of the tick: fragments kept weightless by installCorrectionBodyInputs
+// get the scene gravity fragmentGravity gives them.
+__global__ void clearDeferredGravity(const PxU32* deferred,const PxU32* count,PxU32 capacity,PxgBodySim* bodies,PxU32 bodyCapacity) {
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=min(*count,capacity))return;
+    const PxU32 id=deferred[i];if(id<bodyCapacity)bodies[id].disableGravity=0;
 }

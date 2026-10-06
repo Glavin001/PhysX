@@ -1330,10 +1330,26 @@ namespace physx
         // Compact once per upload, rather than scanning the queue per removal.
         PxArray<PxU32>& pendingBodies = mBodySimManager.mNewOrUpdatedBodySims;
         PxU32 liveCount = 0;
+        // A fragment born earlier this tick still has CPU allocation
+        // placeholders for its settings (gravity, damping, limits, sleep);
+        // the GPU body is authoritative until the tick publishes them. Only a
+        // second or later corrected traversal can meet one (limit > 1).
+        const bool keepTickBodies = !isDestructionCorrecting() || mDynamicContext->mEnableDirectGPUAPI;
         for(PxU32 i = 0; i < pendingBodies.size(); ++i)
         {
-            if(mBodySimManager.mBodies[pendingBodies[i]] && (!isDestructionCorrecting() || mDynamicContext->mEnableDirectGPUAPI
-                || mBodySimManager.mUpdatedMap.boundedTest(pendingBodies[i]))) pendingBodies[liveCount++] = pendingBodies[i];
+            const PxU32 id = pendingBodies[i];
+            if(mBodySimManager.mBodies[id] && (!isDestructionCorrecting() || mDynamicContext->mEnableDirectGPUAPI
+                || mBodySimManager.mUpdatedMap.boundedTest(id)))
+            {
+                if(!keepTickBodies && mDestruction && mDestruction->bornThisTick(id))
+                {
+                    if(getenv("PX_DESTRUCTION_LOG_TICK_BODY_UPLOADS"))
+                        fprintf(stderr,"[destruction] corrected pass %u: kept body %u born this tick off the host upload\n",mDestructionCorrectionPass,id);
+                    mBodySimManager.mUpdatedMap.reset(id);
+                    continue;
+                }
+                pendingBodies[liveCount++] = id;
+            }
         }
         pendingBodies.forceSize_Unsafe(liveCount);
 		const PxU32 nbNewBodies = mBodySimManager.mNewOrUpdatedBodySims.size();

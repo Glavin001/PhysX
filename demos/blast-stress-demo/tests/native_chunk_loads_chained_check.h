@@ -81,13 +81,14 @@ void chunkLoadsChainedFracture(PxU32 limit) {
         const PxVec3 v=(loads[1].impulse+loads[2].impulse)/2,w=loads[2].angularImpulse/(5.0f/6);
         linear[1]=v+w.cross(PxVec3(-.5f,0,0));linear[2]=v+w.cross(PxVec3(.5f,0,0));spin[1]=spin[2]=w;
     }
+    bool exact=true;
     for(PxU32 i=0;i<3;++i) {
         const auto v=pieces[i]->getLinearVelocity(),w=pieces[i]->getAngularVelocity();
-        std::fprintf(stderr,"  chunk %u: velocity %g %g %g (expected %g %g %g) spin %g %g %g (expected %g %g %g)\n",i,
-            v.x,v.y,v.z,linear[i].x,linear[i].y,linear[i].z,w.x,w.y,w.z,spin[i].x,spin[i].y,spin[i].z);
-        require((v-linear[i]).magnitude()<2e-3f,"a chunk's command was not applied exactly once to its owner (linear)");
-        require((w-spin[i]).magnitude()<2e-3f,"a chunk's command was not applied exactly once to its owner (angular)");
+        std::fprintf(stderr,"  chunk %u (%s): velocity %g %g %g (expected %g %g %g) spin %g %g %g (expected %g %g %g)\n",i,
+            pieces[i]==parent?"source body":"fragment",v.x,v.y,v.z,linear[i].x,linear[i].y,linear[i].z,w.x,w.y,w.z,spin[i].x,spin[i].y,spin[i].z);
+        exact=exact && (v-linear[i]).magnitude()<2e-3f && (w-spin[i]).magnitude()<2e-3f;
     }
+    require(exact,"a chunk's command was not applied exactly once to its owner");
     BodyObserver observer(*context.cudaContextManager());for(auto* piece:pieces)observer.verify(*stage,*piece);
     // No new commands next tick: nothing may leak into it.
     PxVec3 before[3];for(PxU32 i=0;i<3;++i)before[i]=pieces[i]->getLinearVelocity();

@@ -125,10 +125,15 @@ struct PxDestructionStressDesc {
     //    a full collide+solve of the scene on fracturing frames only; frames
     //    without fracture cost the same at any limit. At least 1 for realism.
     // Current support: rigid scenes with CPU-authored kinematic targets and
-    // constraints on bodies the stage does not own (a vehicle's suspension, a
-    // door hinge), no constraints on cluster parents or fragments, no
-    // articulations, CCD, custom filter callbacks or deformables. Crushing/removal
-    // and unapportioned force commands on fractured sources reject explicitly.
+    // constraints on bodies the stage does not own (a door hinge). A constraint
+    // on a cluster parent or fragment is supported only when registered in
+    // `constraints` as a managed world constraint (replayWorldRows with a
+    // carrierChunk, e.g. Vehicle2 suspension rows); it follows its carrier
+    // chunk on every corrected pass and is disabled once its chunk leaves the
+    // carrier. Any other such constraint blocks correction
+    // (eCONSTRAINT_ON_DESTRUCTION_BODY). No articulations, CCD, custom filter
+    // callbacks or deformables. Crushing/removal and unapportioned force
+    // commands on fractured sources reject explicitly.
     // Native sleeping is supported with ordinary CPU actor access (Direct GPU
     // mode disabled); Direct GPU sleeping plus correction remains unsupported.
     PxU32 internalCorrectionLimit = 0;
@@ -155,7 +160,10 @@ struct PxDestructionStressDesc {
     // weightless because something else integrates its gravity -- a Vehicle2
     // carrier -- then sheds weightless debris. When set, free fragments get
     // ordinary scene gravity; supported remnants, and the source's own body
-    // (re-installed by a corrected split), keep the inherited flag.
+    // (re-installed by a corrected split), keep the inherited flag. With
+    // enableChunkLoads, a fragment re-solved on its split tick receives its
+    // share of the commands, which already carry its weight for that tick:
+    // its scene gravity starts when that tick completes.
     bool fragmentGravity = false;
     // Contact-graph storage (pairs, island nodes, retained slots) allocated at
     // configure time. Grown on demand instead, the first large split waits for

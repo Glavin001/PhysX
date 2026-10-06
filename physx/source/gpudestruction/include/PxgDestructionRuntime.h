@@ -58,6 +58,11 @@ public:
     // such a body is outside the rigid checkpoint; one attached to any other
     // body is replayable and does not block correction.
     virtual bool ownsBody(PxU32 gpuIndex) const = 0;
+    // A body this stage created during the current tick. Its CPU record holds
+    // allocation placeholders until finishPostCorrection publishes the GPU
+    // settings, so a later corrected traversal of the same tick must not
+    // upload it over the authoritative GPU body.
+    virtual bool bornThisTick(PxU32 gpuIndex) const = 0;
     virtual bool ownsWorldConstraint(PxU32 index) const = 0;
     // Recorded by the scene each step and reported in PxDestructionStageStatus.
     virtual void setCorrectionBlockers(PxU32 blockers) = 0;

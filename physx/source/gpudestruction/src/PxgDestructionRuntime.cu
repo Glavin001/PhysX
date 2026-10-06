@@ -639,6 +639,10 @@ class Runtime final : public PxgDestructionRuntime {
     // a corrected start-of-tick one that must carry them (carryCorrectionCommands).
     PxgBodySimVelocities* mCorrectionCommandDeltas{};
     bool mCarryCorrectionCommands=false;
+    // fragmentGravity with chunk commands: fragments installed weightless by a
+    // pass that re-solves (their command share carries their weight), given
+    // scene gravity when the tick completes. Count at mDeferredGravity[mN].
+    PxU32* mDeferredGravity{};
     std::vector<PxDestructionChunkLoad> mHostChunkLoads;
     bool mChunkLoadsFresh=false;
     // Chunk commands are this pass's inputs on every pass that may still
@@ -744,6 +748,8 @@ class Runtime final : public PxgDestructionRuntime {
     // Host mirror of stage-owned body indices: cluster parents at configure,
     // accepted fragments as they are committed. Read by ownsBody() only.
     std::set<PxU32> mHostOwnedBodies;
+    // Bodies reserved during the current tick (bornThisTick).
+    std::set<PxU32> mTickBodies;
     PxU32 mCorrectionBlockers=0;
     bool mCompatibilityPrepared=false;
     PxU32* mAffectedClusters{};PxU32* mCandidateSlots{};
@@ -1275,6 +1281,7 @@ public:
         cudaFree(mConstraintBindings);mConstraintBindings=nullptr;mPinnedConstraintBindings.release();mManagedConstraintIds.clear();
         cudaFree(mChunkLoads);mChunkLoads=nullptr;mHostChunkLoads.clear();mChunkLoadsFresh=false;
         cudaFree(mCorrectionCommandDeltas);mCorrectionCommandDeltas=nullptr;mCarryCorrectionCommands=false;
+        cudaFree(mDeferredGravity);mDeferredGravity=nullptr;
         cudaFree(mChunkCommandSums);mChunkCommandSums=nullptr;
         cudaFree(mCorrectionCommandSums);mCorrectionCommandSums=nullptr;
         cudaFree(mChunks);mChunks=nullptr;cudaFree(mClusters);mClusters=nullptr;
@@ -1429,6 +1436,10 @@ public:
                 allocate(mChunkCommandSums,4*size_t(d.chunkCount));
                 allocate(mCorrectionCommandSums,4*size_t(d.chunkCount));
                 allocate(mCorrectionCommandDeltas,d.chunkCount);
+                if(d.fragmentGravity) {
+                    allocate(mDeferredGravity,size_t(d.chunkCount)+1);
+                    check(cudaMemset(mDeferredGravity+d.chunkCount,0,sizeof(PxU32)));
+                }
                 check(cudaMemset(mChunkLoads,0,sizeof(*mChunkLoads)*d.chunkCount));
             }
             check(cudaMemcpy(mChunks,d.chunks,sizeof(*mChunks)*d.chunkCount,cudaMemcpyHostToDevice));
@@ -1667,7 +1678,8 @@ public:
     }
     bool prepareFrame(PxU32 pass=0) override {
         try {Context current(mContext);if(!configured() || mPending || pass>mCorrectionLimit || (pass && pass!=mPass+1))return false;
-            mPass=pass;if(!pass)mCarryCorrectionCommands=false;
+            mPass=pass;if(!pass){mCarryCorrectionCommands=false;mTickBodies.clear();}
+            if(!pass && mDeferredGravity)check(cudaMemsetAsync(mDeferredGravity+mN,0,sizeof(PxU32),mStream));
             if(!pass && mChunkLoads) {
                 if(!mChunkLoadsFresh)check(cudaMemsetAsync(mChunkLoads,0,mN*sizeof(*mChunkLoads),mStream));
                 mChunkLoadsFresh=false;mIdleCertified=false;
@@ -1714,6 +1726,10 @@ public:
         if(!mPass || mFailed || mPending || (!mTailAcceptancePending && mHostStatus->error)){mTailAcceptancePending=false;return false;}
         try {Context current(mContext);
             mergePostCorrectionStatus<<<1,1,0,mStream>>>(mStatus,mPriorPasses,mPass,mFirstPassBrokenBonds);
+            // Ordered after the final solve (advance joined the core stream)
+            // and any final split (acceptCorrection joined it again).
+            if(mDeferredGravity && mMotionStorage.bodies)clearDeferredGravity<<<(mN+127)/128,128,0,mStream>>>(
+                mDeferredGravity,mDeferredGravity+mN,mN,mMotionStorage.bodies,mMotionStorage.capacity);
             if(mTopology)mChanges.publish(mStream);
             const PxU32 capacity=std::min(mC,mPendingPropertyCapacity);
             PxvDestructionBodyProperties* observations=mPinnedProperties.p;PxU32 count=0;
@@ -2043,6 +2059,7 @@ public:
             finishNativeBodyShadowRegistration<<<1,1,0,mStream>>>(false,mBodyAllocation,mStatus);
             check(cudaGetLastError());check(cudaEventRecord(mReady,mStream));
         }
+        if(allocated)mTickBodies.insert(indices.begin(),indices.end());
         mCompatibilityPrepared=allocated;return allocated;
     }
     bool captureRigidState(const PxgBodySim* bodies,const PxgBodySimVelocities* previous,
@@ -2127,6 +2144,7 @@ public:
         }catch(...) {mCheckpointValid=false;mFailed=true;return false;}
     }
     bool ownsBody(PxU32 gpuIndex) const override {return mHostOwnedBodies.count(gpuIndex)!=0;}
+    bool bornThisTick(PxU32 gpuIndex) const override {return mTickBodies.count(gpuIndex)!=0;}
     bool ownsWorldConstraint(PxU32 index) const override {return mManagedConstraintIds.count(index)!=0;}
     PxU32 reservedBodyCount() const override {return PxU32(mHostReservedIndices.size());}
     const PxU32* reservedBodyIndices() const override {return mHostReservedIndices.data();}
@@ -2290,7 +2308,8 @@ public:
             const PxU32 count=mHostCompletion->correction.count;
             correctionMarker(2,stream);
             if(count)installCorrectionBodyInputs<<<(count+127)/128,128,0,stream>>>(mCompactCorrectionBodies,count,mCheckpointBodies,
-                mCheckpointPrevious,bodies,previous,accelerations);
+                mCheckpointPrevious,bodies,previous,accelerations,
+                passChunkLoads()?mDeferredGravity:nullptr,mDeferredGravity?mDeferredGravity+mN:nullptr,mN);
             correctionMarker(3,stream);
             // Another corrected pass below the limit follows: the controller
             // checkpoints this start-of-tick state, which must carry the shares.
