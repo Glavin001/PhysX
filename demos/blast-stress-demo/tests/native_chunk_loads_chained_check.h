@@ -98,3 +98,76 @@ void chunkLoadsChainedFracture(PxU32 limit) {
     parent->release();for(auto* shape:shapes)shape->release();require(context.healthy(),"chained command GPU health failed");
     std::printf("chunk commands through a chained fracture: limit=%u, 2 bonds, %u corrected solves passed\n",limit,corrections);
 }
+// A weightless carrier (Vehicle2: its weight arrives as chunk commands) with
+// fragmentGravity sheds a free fragment. On the split tick the fragment's
+// command share already carries its weight, so the corrected solve must not
+// add scene gravity as well; from the next tick the fragment falls under scene
+// gravity and nobody describes its weight any more. The carrier remnant stays
+// weightless. Before the fix the fragment fell 2 g dt on the split tick.
+void fragmentGravityCommandFracture(PxU32 limit) {
+    blast_demo::SceneCapacity capacity;
+    blast_demo::PhysXScene context(blast_demo::PhysicsMode::Gpu,true,capacity,nullptr,false,true);
+    auto& scene=context.scene();auto& physics=context.physics();scene.setGravity(PxVec3(0));
+    auto* parent=physics.createRigidDynamic(PxTransform(PxVec3(4,5,-2)));
+    parent->setMass(2);parent->setMassSpaceInertiaTensor(PxVec3(1.0f/3,5.0f/6,5.0f/6));
+    parent->setLinearDamping(0);parent->setAngularDamping(0);parent->setSleepThreshold(0);parent->setStabilizationThreshold(0);
+    parent->setActorFlag(PxActorFlag::eDISABLE_GRAVITY,true);
+    PxShape* shapes[2];
+    for(PxU32 i=0;i<2;++i) {
+        shapes[i]=physics.createShape(PxBoxGeometry(.5f,.5f,.5f),context.material(),true);
+        shapes[i]->setLocalPose(PxTransform(PxVec3(i?.5f:-.5f,0,0)));
+        require(parent->attachShape(*shapes[i]),"fragment gravity attachment failed");
+    }
+    scene.addActor(*parent);scene.simulate(1.0f/60);require(scene.fetchResults(true),"fragment gravity initialization failed");
+    parent->setLinearVelocity(PxVec3(0));parent->setAngularVelocity(PxVec3(0));
+    auto* stage=scene.getDestructionScene();require(stage,"fragment gravity stage missing");
+    PxDestructionStressChunk chunks[2];PxDestructionChunkMassProperties mass[2]{};
+    for(PxU32 i=0;i<2;++i) {
+        const float x=i?.5f:-.5f;
+        chunks[i]={PxVec3(x,0,0),1,1.0f/6,0,stage->getShapeContactIndex(*shapes[i]),1,0};
+        mass[i].center[0]=x;mass[i].mass=1;for(PxU32 k=0;k<3;++k)mass[i].inertia[k]=1.0/6;
+    }
+    PxDestructionStressCluster cluster{parent->getGPUIndex(),PxVec3(0)};
+    PxDestructionStressBond bond{0,1,PxVec3(0),PxVec3(1,0,0),1,1,1};
+    PxDestructionMaterial material;material.compressionElasticLimit=1;material.compressionFatalLimit=2;
+    PxDestructionStressDesc desc;desc.chunks=chunks;desc.chunkCount=2;desc.chunkMassProperties=mass;
+    desc.clusters=&cluster;desc.clusterCount=1;desc.bonds=&bond;desc.bondCount=1;
+    desc.materials=&material;desc.materialCount=1;desc.maxIterations=128;desc.tolerance=1e-6f;
+    desc.internalCorrectionLimit=limit;desc.enableChunkLoads=true;desc.fragmentGravity=true;
+    require(stage->configureStress(desc),"fragment gravity configuration rejected");
+    const float dt=1.0f/60,g=9.81f;scene.setGravity(PxVec3(0,-g,0));
+    PxDestructionChunkLoad loads[2];
+    for(PxU32 i=0;i<2;++i)loads[i].impulse=PxVec3(0,-g*dt,0);
+    loads[0].impulse.y+=100*dt;
+    require(stage->setChunkLoads(loads,2),"fragment gravity commands rejected");
+    parent->addForce(loads[0].impulse+loads[1].impulse,PxForceMode::eIMPULSE);
+    parent->addTorque(PxVec3(-.5f,0,0).cross(loads[0].impulse)+PxVec3(.5f,0,0).cross(loads[1].impulse),PxForceMode::eIMPULSE);
+    scene.simulate(dt);PxU32 error=0;const bool fetched=scene.fetchResults(true,&error);
+    const auto status=stage->getLastStatus();
+    std::fprintf(stderr,"fragment gravity limit=%u fetched=%u error=%u stage=%u broken=%u correction=%u\n",
+        limit,unsigned(fetched),error,status.error,status.brokenBonds,status.correctionPasses);
+    require(fetched && !error && !status.error && status.brokenBonds==1 && status.correctionPasses==1,"fragment gravity split failed");
+    PxRigidDynamic* pieces[2];
+    for(PxU32 i=0;i<2;++i){pieces[i]=shapes[i]->getActor()->is<PxRigidDynamic>();require(pieces[i],"chunk lost its actor");}
+    require(pieces[0]!=pieces[1],"fragment gravity fixture did not split");
+    require(pieces[0]==parent || pieces[1]==parent,"the carrier remnant was not its source body");
+    for(PxU32 i=0;i<2;++i) {
+        const auto v=pieces[i]->getLinearVelocity();
+        std::fprintf(stderr,"  split tick %s %u: velocity %g %g %g (expected %g %g %g)\n",pieces[i]==parent?"carrier":"fragment",i,
+            v.x,v.y,v.z,loads[i].impulse.x,loads[i].impulse.y,loads[i].impulse.z);
+        require((v-loads[i].impulse).magnitude()<2e-3f,"split tick applied a fragment's weight twice (or not at all)");
+    }
+    // Next tick: only the carrier's weight is a command; the fragment has scene gravity.
+    const PxU32 carrier=pieces[0]==parent?0:1;PxDestructionChunkLoad next[2];next[carrier].impulse=PxVec3(0,-g*dt,0);
+    require(stage->setChunkLoads(next,2),"next-tick commands rejected");parent->addForce(next[carrier].impulse,PxForceMode::eIMPULSE);
+    PxVec3 before[2];for(PxU32 i=0;i<2;++i)before[i]=pieces[i]->getLinearVelocity();
+    scene.simulate(dt);require(scene.fetchResults(true,&error) && !error && !stage->getLastStatus().error,"tick after fragment gravity split failed");
+    for(PxU32 i=0;i<2;++i) {
+        const auto dv=pieces[i]->getLinearVelocity()-before[i];
+        std::fprintf(stderr,"  next tick %s: dv %g %g %g\n",i==carrier?"carrier":"fragment",dv.x,dv.y,dv.z);
+        require((dv-PxVec3(0,-g*dt,0)).magnitude()<2e-3f,i==carrier?"carrier did not stay weightless":"free fragment did not fall under scene gravity");
+    }
+    require(stage->clearStress(),"fragment gravity cleanup failed");
+    parent->release();for(auto* shape:shapes)shape->release();require(context.healthy(),"fragment gravity GPU health failed");
+    std::printf("fragment gravity with chunk commands: limit=%u passed\n",limit);
+}
