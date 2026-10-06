@@ -2,6 +2,10 @@
 #ifndef PX_DESTRUCTION_SCENE_H
 #define PX_DESTRUCTION_SCENE_H
 #define PX_DESTRUCTION_SCENE_VERSION 24
+// Feature (no layout change): enableChunkLoads with internalCorrectionLimit > 1.
+// Every corrected pass that re-solves re-apportions each chunk's command to its
+// owner, so destructible Vehicle2 cars work with the correction loop.
+#define PX_DESTRUCTION_CHUNK_LOADS_CORRECTION_LOOP 1
 #include "foundation/PxTransform.h"
 #include "PxDirectGPUAPI.h"
 #include "PxDestructionTopologyTypes.h"

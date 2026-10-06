@@ -18,18 +18,18 @@ __device__ PxVec3 commandAngularAcceleration(const PxgBodySim& body,const PxVec3
 __device__ bool commandValuesMatch(const PxVec3& a,const PxVec3& b,float slack=0) {
     return a.isFinite() && b.isFinite() && (a-b).magnitude()<=1e-4f*(1+b.magnitude())+slack;
 }
-// scale (corrected passes only; null on the trial): per cluster, the sum over
-// its chunks of |force| and |impulse| times (|chunk world position| + |body
-// COM| + 1 m), a bound on every lever arm. A corrected pass audits shares the
-// previous pass apportioned: torques about the source COM moved to the
-// fragment's COM (prepareCorrectionBodyInputs) cancel terms of size
-// |arm| |J|, and the audit recomputes them from different rounded arms. On a
-// thin vehicle part (inverse inertia ~100 per kg m^2) a few float ulps of
-// that became ~1e-4 rad/s, the whole absolute tolerance, and a correct
-// limit-8 step was rejected (lab house trial, a 7 kg truck part). The angular
-// channels allow that rounding bound; a misplaced or duplicated command errs
-// by a full lever arm times the command, orders of magnitude more, and the
-// linear channels stay exact as before.
+// scale: per cluster, the sum over its chunks of |force| and |impulse| times
+// (|chunk world position| + |body COM| + 1 m), a bound on every lever arm.
+// Torques from chunk commands are summed from arms taken as differences of
+// world positions, and compared with what the host or the previous pass
+// applied about the COM: they agree to a few float ulps of |arm| |J|. A light,
+// thin body's inverse inertia turns that into more than the absolute 1e-4
+// tolerance -- a 3.5 kg Vehicle2 carrier remnant (inverse inertia 471) was
+// rejected on the trial at limit 1 (physx_native_chunk_loads_thin_remnant),
+// a 7 kg part on a corrected pass at limit 8. The angular channels allow
+// that rounding bound; a misplaced or duplicated command errs by a full lever
+// arm times the command, orders of magnitude more, and the linear channels
+// stay exact. Null keeps the plain tolerance.
 __device__ bool chunkCommandSumsMatch(const PxVec3& force,const PxVec3& torque,const PxVec3& impulse,
     const PxVec3& angularImpulse,const PxgBodySim& body,const PxgBodySimVelocities& delta,const float* scale=nullptr) {
     const auto linear=body.externalLinearAcceleration,angular=body.externalAngularAcceleration;

@@ -94,7 +94,8 @@ Tests:
 
 ## Chunk commands on every corrected pass
 
-`enableChunkLoads` (destructible Vehicle2 cars: weightless carrier, gravity,
+`PX_DESTRUCTION_CHUNK_LOADS_CORRECTION_LOOP` (PxDestructionScene.h) marks SDKs
+with this. `enableChunkLoads` (destructible Vehicle2 cars: weightless carrier, gravity,
 suspension/tyre loads and command shares supplied per chunk) used to require
 `internalCorrectionLimit == 1`. It now takes any limit >= 1. The invariant of
 the single correction holds on every pass that re-solves: each chunk's command
@@ -117,13 +118,16 @@ split.
   membership (`sumChunkCommandsByCluster` + `validateChunkCommands`, status
   16384), so a duplicated or dropped command rejects the step instead of
   going unnoticed.
-- The corrected passes' audit allows float rounding in the angular channels
-  (`chunkCommandSumsMatch` with per-cluster command scales): a share moved
-  from the source COM to a fragment COM and re-audited from other rounded
-  arms differs by a few ulps of |arm| |J|, which a thin part's inverse
-  inertia turned into a false 16384 at limit 8 in the lab house trial. Then
-  the failed tick left half-installed owners and every later tick failed the
-  trial audit too. The trial audit is unchanged.
+- The command audit allows float rounding in the angular channels
+  (`chunkCommandSumsMatch` with per-cluster command scales, on the trial and
+  every corrected pass): torques summed from world-position arms agree with
+  what the host or the previous pass applied about the COM only to a few ulps
+  of |arm| |J|, which a light, thin body's inverse inertia turned into false
+  16384 rejections -- a 3.5 kg carrier remnant (inverse inertia 471) dropped
+  8-24 ticks per vibe-land fleet run at limit 1, and a 7 kg part on a
+  corrected pass at limit 8, after which the half-installed owners failed every
+  later tick. Linear channels are unchanged. `physx_native_chunk_loads_thin_remnant`
+  reproduces the trial case (120 of 120 ticks rejected before).
   `PX_DESTRUCTION_LOG_COMMAND_MISMATCH=1` prints the pass and both sides of
   each mismatching cluster.
 - Managed world constraints (`replayWorldRows`, Vehicle2 suspension rows)
@@ -146,7 +150,8 @@ split.
   limit 1 too. `physx_native_chunk_loads_fragment_gravity` covers limits 1
   and 2.
 
-Limit 1 is unchanged apart from that fragmentGravity fix: only the trial apportions, no corrected checkpoint is
+Limit 1 is unchanged apart from the fragmentGravity fix and the audit's
+rounding allowance: only the trial apportions, no corrected checkpoint is
 taken, and the additional per-candidate delta store is never read.
 
 `physx_native_chunk_loads_chained`: a free three-chunk bar, every chunk

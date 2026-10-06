@@ -478,7 +478,7 @@ struct NativePreparationInputs {
     const PxgBodySim* checkpoint=nullptr;
     const PxgBodySimVelocities* commands=nullptr;
     const PxDestructionChunkLoad* chunkLoads=nullptr;
-    const float* commandScales=nullptr; // corrected passes: chunkCommandSumsMatch rounding bound
+    const float* commandScales=nullptr; // chunkCommandSumsMatch rounding bound
     const PxgBodySimVelocities* previous=nullptr;
     PxU32 checkpointCount=0,bodyCapacity=0,clusterCount=0;
     PxU64 checkpointGeneration=0;
@@ -639,7 +639,7 @@ class Runtime final : public PxgDestructionRuntime {
     // chunk (prepareCorrectionBodyInputs), and whether the next checkpoint is
     // a corrected start-of-tick one that must carry them (carryCorrectionCommands).
     PxgBodySimVelocities* mCorrectionCommandDeltas{};
-    // Per-cluster command magnitudes for the corrected passes' audit (chunkCommandSumsMatch).
+    // Per-cluster command magnitudes for the command audit's rounding bound (chunkCommandSumsMatch).
     float* mChunkCommandScales{};
     bool mCarryCorrectionCommands=false;
     // fragmentGravity with chunk commands: fragments installed weightless by a
@@ -1850,8 +1850,8 @@ public:
                 // corrected pass, the start of the tick plus the fragments
                 // installed so far, against the current membership.
                 check(cudaMemsetAsync(mChunkCommandSums,0,4*sizeof(PxVec3)*mC,mStream));
-                float* scales=mPass?mChunkCommandScales:nullptr;
-                if(scales)check(cudaMemsetAsync(scales,0,2*sizeof(float)*mC,mStream));
+                float* scales=mChunkCommandScales;
+                check(cudaMemsetAsync(scales,0,2*sizeof(float)*mC,mStream));
                 sumChunkCommandsByCluster<<<(mN+127)/128,128,0,mStream>>>(
                     mChunks,mN,mClusters,mC,mChunkLoads,mCheckpointBodies,mCheckpointCount,mChunkCommandSums,scales);
                 validateChunkCommands<<<(mC+127)/128,128,0,mStream>>>(
@@ -1944,7 +1944,7 @@ public:
         NativePreparationInputs inputs{};inputs.collision=mCollisionStorage;
         inputs.checkpoint=mCheckpointValid?mCheckpointBodies:nullptr;inputs.previous=mCheckpointPrevious;
         inputs.commands=mCheckpointCommands;inputs.chunkLoads=passChunkLoads();
-        inputs.commandScales=mPass && inputs.chunkLoads?mChunkCommandScales:nullptr;
+        inputs.commandScales=inputs.chunkLoads?mChunkCommandScales:nullptr;
         inputs.checkpointCount=mCheckpointValid?mCheckpointCount:0;inputs.checkpointGeneration=mCheckpointGeneration;
         inputs.bodyCapacity=mMotionStorage.capacity;inputs.clusterCount=mC;
         mDevicePreparation.setInputs(inputs,mStream);mCorrectionBodyCapacity=mMotionStorage.capacity;
@@ -2254,7 +2254,7 @@ public:
                 mAffectedClusters,mCheckpointBodies,mCheckpointPrevious,mCheckpointCount,bodyCapacity,mCollisionPreparation,mCorrectionBodies,mCorrectionPreparation,loads,mCheckpointCommands,
                 mCorrectionCommandSums,mCorrectionCommandDeltas);
             inspectCorrectionSourceLoads<<<(mC+127)/128,128,0,stream>>>(mClusters,mAffectedClusters,mC,mCheckpointBodies,mCheckpointCount,mCollisionPreparation,mCorrectionPreparation,mChunkCommandSums,loads,mCheckpointCommands,
-                mPass && loads?mChunkCommandScales:nullptr);
+                loads?mChunkCommandScales:nullptr);
             check(cudaGetLastError());
             check(cub::DeviceSelect::If(mCorrectionScratch,mCorrectionScratchBytes,mCorrectionBodies,mCompactCorrectionBodies,
                 &mCorrectionPreparation->count,mN,HasCorrectionBody{},stream));
