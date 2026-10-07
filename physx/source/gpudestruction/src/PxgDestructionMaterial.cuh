@@ -32,6 +32,7 @@ __global__ void evaluateBondMaterials(const PxDestructionStressChunk* chunks,
     // fracture verdict replace the elastic ones (PxgDestructionImpact.cuh).
     const bool capacity=impactView.active(i);
     const auto force=capacity?impactView.forces[i]:forces[i];
+    float bearingTension=-1.0f;
     if(sectionBending) {
         // The solver's bond wrench acts at the chunks' midpoint when both are
         // dynamic (at the bond centroid when one is a support). The section is
@@ -49,6 +50,14 @@ __global__ void evaluateBondMaterials(const PxDestructionStressChunk* chunks,
             {angular.x,angular.y,angular.z},{normal.x,normal.y,normal.z},area,b.area,
             {s.axis.x,s.axis.y,s.axis.z},s.bendModulus0,s.bendModulus1,s.twistModulus,
             v.stressNormal,v.stressShear,v.stressBend);
+        // A bearing joint: the contact bears at its edge and the fasteners at
+        // its centre take what the compression does not hold, T = M0/d0 + M1/d1 - C.
+        if(s.bearingDepth0>0 && s.bearingDepth1>0) {
+            const PxVec3 axis1=normal.cross(s.axis);
+            const float m0=fabsf(angular.dot(s.axis)),m1=fabsf(angular.dot(axis1));
+            const float c=fmaxf(0.0f,-v.stressNormal*area);
+            bearingTension=fmaxf(0.0f,m0/s.bearingDepth0+m1/s.bearingDepth1-c)/area;
+        }
     } else
     extStressCalcBondStress({force.linear.x,force.linear.y,force.linear.z},
         {force.angular.x,force.angular.y,force.angular.z},{normal.x,normal.y,normal.z},
@@ -57,6 +66,7 @@ __global__ void evaluateBondMaterials(const PxDestructionStressChunk* chunks,
         atomicOr(&status->error,2u);return;
     }
     float compression,tension;extStressFibre(fibres,v.stressNormal,v.stressBend,compression,tension);
+    if(bearingTension>=0.0f)tension=bearingTension;
     auto damage=extStressBondDamage(compression,tension,v.stressShear,area,b.area,materials[b.material],dt,rate);
     if(capacity) {
         // E decides fracture: a joint it broke is gone; one it holds (below
