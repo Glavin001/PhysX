@@ -7,6 +7,7 @@
 // (6 f32, the stress solver's convention), n accelerations (6 f32), then the
 // solve's status. Compare with the oracle: impact-e-replay.py compare.
 #include "PxDestructionScene.h"
+#include "NvBlastExtStressMaterialFormula.h"
 #include <cuda_runtime.h>
 #include <algorithm>
 #include <cfloat>
@@ -18,6 +19,7 @@
 #include <stdexcept>
 #include <vector>
 namespace physx { namespace {
+using namespace Nv::Blast;
 void check(cudaError_t e){if(e!=cudaSuccess)throw std::runtime_error(cudaGetErrorString(e));}
 template<class T>void allocate(T*& p,size_t n){check(cudaMalloc(&p,std::max(size_t(1),n)*sizeof(T)));}
 #include "../src/PxgDestructionImpact.cuh"
@@ -38,6 +40,7 @@ int run(int argc,char** argv){
     if(argc>5)s.rampLevels=PxU32(std::atoi(argv[5]));
     // The exported weights are the oracle's, w = sqrt(E/30 GPa A/L), not normalised.
     s.stiffness=30e9f;if(argc>6)s.stiffnessScale=float(std::atof(argv[6]));
+    s.momentAtCentroid=!std::getenv("IMPACT_MOMENT_AT_SOLVER_POINT");   // the oracle's convention
     if(argc>7)s.rampFactor=float(std::atof(argv[7]));
     if(argc>8)s.elasticIncrementAfterYield=std::atoi(argv[8])!=0;
     std::vector<PxDestructionStressChunk> chunks(n);std::vector<PxDestructionVectorPair> accel(n);

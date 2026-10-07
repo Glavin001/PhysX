@@ -306,11 +306,37 @@ void rest(){
     expect(d.status.triggered==0 && commands>0 && !std::memcmp(c.verdicts.data(),d.verdicts.data(),sizeof(c.verdicts[0])*c.verdicts.size()),text);
 }
 
+// 4. Ci: crush by the impact's contact pressure Z1 Z2 / (Z1 + Z2) v through the
+// masonry crush law (town-kit materials.mjs CRUSH, EN 1996-1-1 f_k 6.8 MPa).
+// A steel ball at 60 m/s crushes a brick chunk (~200 MPa against a one-tick
+// threshold of ~25 MPa); the same ball at 1 m/s does not; a truck's front,
+// whose own crush caps it at 0.16 MPa (EN 1991-1-7 Annex C), does not.
+__global__ void impactCrushProbe(PxDestructionCrushProperties m,const float* cases,PxU32 count,float* out)
+{
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
+    const float sigma=impact::impactStress(cases[2*i],1900.0f*sqrtf(6.8e9f/1900.0f),cases[2*i+1]);
+    const auto next=impact::crushByImpact(sigma,0.11f*0.5f,105.0f,0.0f,1.0f/60.0f,m,ExtStressCrushState{0,0,0,0,false});
+    out[3*i]=sigma;out[3*i+1]=next.damage;out[3*i+2]=next.crushed?1.0f:0.0f;
+}
+void impactCrush(){
+    std::printf("Ci: crush by impact pressure\n");
+    PxDestructionCrushProperties m{};const float fc=6.8e6f,k=1.2f;
+    m.capPressure=2.5f*fc;m.cohesion=fc*(1-k/3);m.frictionSlope=k;m.crushEnergy=3.5e6f;m.crushViscosity=5.9e5f;
+    const float steel=7850.0f*std::sqrt(210e9f/7850.0f),truck=21.7f*std::sqrt(300e3f*5000.0f)/(3.3f*1.6f)/21.7f;
+    const std::vector<float> cases={steel,60.0f, steel,1.0f, truck,21.7f};
+    Device<float> c(cases),out(9);
+    impactCrushProbe<<<1,32>>>(m,c.p,3,out.p);check(cudaDeviceSynchronize());
+    const auto r=out.get();char text[160];
+    std::snprintf(text,sizeof text,"steel ball at 60 m/s: %.0f MPa, crushed",r[0]/1e6f);expect(r[2]>0.5f,text);
+    std::snprintf(text,sizeof text,"steel ball at 1 m/s: %.1f MPa, not crushed",r[3]/1e6f);expect(r[5]<0.5f,text);
+    std::snprintf(text,sizeof text,"truck front at 21.7 m/s: %.2f MPa, not crushed",r[6]/1e6f);expect(r[8]<0.5f && std::fabs(r[6]-0.159e6f)<0.01e6f,text);
+}
+
 }} // physx
 
 int main(int argc,char** argv){
     (void)argc;(void)argv;
-    try{physx::column();physx::wall();physx::rest();}
+    try{physx::column();physx::wall();physx::rest();physx::impactCrush();}
     catch(const std::exception& e){std::printf("error: %s\n",e.what());return 2;}
     std::printf("%s (%d failed)\n",physx::failures?"FAILED":"passed",physx::failures);
     return physx::failures?1:0;

@@ -74,6 +74,7 @@ struct Settings {
     // compliance term no longer settles self-stress within the iteration
     // budget and spurious far breaks appear.
     float stiffnessScale=10.0f;
+    bool momentAtCentroid=false;   // see prepareBond
     PxU32 rampLevels=9;      // 1/rampFactor^(levels-1) .. 1
     float rampFactor=2.0f;
     PxU32 iterations=4096;   // projected iterations per solve
@@ -104,8 +105,8 @@ constexpr PxU32 kLogCapacity=256;
 struct Bond {
     PxU32 bond,c0,c1,flags;
     float n[3],t1[3],t2[3];  // bond frame (n from chunk0 to chunk1)
-    float o0[3],o1[3];       // the centroid from each chunk: E's wrench acts there (the section)
-    float pc[3];             // the stress solver's application point less the centroid
+    float o0[3],o1[3];       // E's wrench's point from each chunk (the solver's, or the centroid)
+    float pc[3];             // the stress solver's application point less E's
     float capC,capT,capS;    // cF a, tF a, sF a (N)
     float gb,gt;             // bending and torsion section gains (1/m)
     float kl,ka;             // stiffness on forces (N/m) and moments (N m/rad)
@@ -145,6 +146,7 @@ struct Inputs {
     const PxDestructionVectorPair* elastic{};       // this evaluation's elastic solve
     const PxDestructionVectorPair* base{};          // previous evaluation's forces (the ramp's start)
     const PxDestructionStageStatus* stage{};        // skip when the stage already failed
+    const PxDestructionCrushState* crushed{};       // chunks crushed before the solve (Ci), or null
 };
 
 // ---------------------------------------------------------------------------
@@ -263,6 +265,34 @@ __device__ __forceinline__ void relative(const Bond& b,const float* v,float* e)
     e[3]=dot3(ang,b.n);e[4]=dot3(ang,b.t1);e[5]=dot3(ang,b.t2);
 }
 
+__device__ __forceinline__ bool chunkGone(const Inputs& in,PxU32 c){return in.crushed && in.crushed[c].crushed;}
+__device__ __forceinline__ bool bondMember(const Inputs& in,PxU32 i)
+{
+    if(!(in.health[i]>0.0f))return false;
+    const auto& b=in.bonds[i];return !chunkGone(in,b.chunk0) && !chunkGone(in,b.chunk1);
+}
+
+// ---------------------------------------------------------------------------
+// Ci: crush by the impact's own contact pressure. The 1-D elastic impact
+// stress Z1 Z2 / (Z1 + Z2) v_n (Z = rho c, the acoustic impedance; an impactor
+// whose own structure gives way -- a vehicle's front -- has the effective
+// impedance of that crush) as a uniaxial compression through the material's
+// crush law (extStressCrushStep): p = sigma/3, q = sigma.
+// ---------------------------------------------------------------------------
+__device__ __forceinline__ float impactStress(float impactor,float target,float closing)
+{
+    if(!(impactor>0.0f) || !(target>0.0f) || !(closing>0.0f))return 0.0f;
+    return impactor*target/(impactor+target)*closing;
+}
+template<class Crush>
+__device__ __forceinline__ ExtStressCrushState crushByImpact(float sigma,float volume,float mass,float rate,float dt,
+    const Crush& material,ExtStressCrushState state)
+{
+    // A uniaxial compression sigma along any axis: virial / volume = -sigma e e^T.
+    float virial[6]={-sigma*volume,0.0f,0.0f,0.0f,0.0f,0.0f};
+    return extStressCrushStep(virial,volume,mass,rate,dt,material,state);
+}
+
 // ---------------------------------------------------------------------------
 // Trigger: an island is solved when its elastic solution has a bond past capacity.
 // ---------------------------------------------------------------------------
@@ -278,11 +308,15 @@ __device__ __forceinline__ bool prepareBond(const Inputs& in,const Settings& s,P
     b.flags=eALIVE|(c0.mass>0.0f?eDYNAMIC0:0u)|(c1.mass>0.0f?eDYNAMIC1:0u);
     if(in.ductileSlip && in.ductileSlip[bond.material]>0.0f){b.flags|=eDUCTILE;b.slip=in.ductileSlip[bond.material];}else b.slip=0.0f;
     frame(normal,b.n,b.t1,b.t2);
-    // E's wrench acts at the centroid, where the section is. The stress
-    // solver's acts at the chunks' midpoint when both are dynamic (at the
-    // centroid when one is a support); pc converts between the two.
-    const PxVec3 o0=bond.centroid-c0.position,o1=bond.centroid-c1.position;
-    const PxVec3 pc=(c0.mass>0.0f && c1.mass>0.0f)?c0.position+displacement*0.5f-bond.centroid:PxVec3(0.0f);
+    // The stress solver's wrench acts at the chunks' midpoint P when both are
+    // dynamic (at the centroid when one is a support), and the stage's
+    // capped-gain formula reads its moment there: so do E's cones, so a joint's
+    // capacity is the one today's verdict uses (and the trigger matches it at
+    // rest). momentAtCentroid moves E's wrench to the centroid (the impact
+    // study's convention, for comparison with it); pc converts between the two.
+    const PxVec3 P=(c0.mass>0.0f && c1.mass>0.0f)?c0.position+displacement*0.5f:bond.centroid;
+    const PxVec3 point=s.momentAtCentroid?bond.centroid:P;
+    const PxVec3 o0=point-c0.position,o1=point-c1.position,pc=P-point;
     b.o0[0]=o0.x;b.o0[1]=o0.y;b.o0[2]=o0.z;b.o1[0]=o1.x;b.o1[1]=o1.y;b.o1[2]=o1.z;
     b.pc[0]=pc.x;b.pc[1]=pc.y;b.pc[2]=pc.z;
     const auto m=in.materials[bond.material];
@@ -301,6 +335,7 @@ __global__ void trigger(Inputs in,Settings s,Scratch w)
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=in.bondCount)return;
     if(in.stage && (in.stage->error & 4096u))return;
     const PxU32 island=in.bondIslands[i];if(island>=in.chunkCount)return;
+    if(!bondMember(in,i))return;
     Bond b;if(!prepareBond(in,s,i,b))return;
     float x[6];toLocal(b,in.elastic[i],x);
     if(utilisation(b,x)>=1.0f && !w.islandFlag[island])atomicOr(w.islandFlag+island,1u);
@@ -361,7 +396,7 @@ __device__ void chunkPass(const Inputs& in,const Scratch& w,const Island& is,flo
         float r[6];for(int q=0;q<6;++q)r[q]=(1.0f-lambda)*c.pb[q]+lambda*c.pf[q]-(total?0.0f:c.r[q]);
         for(PxU32 slot=c.begin;slot<c.end;++slot) {
             const PxU32 bond=in.nodeRefs[slot];
-            if(!(in.health[bond]>0.0f))continue;
+            if(!bondMember(in,bond))continue;
             const PxU32 l=w.bondLocal[bond];const Bond& b=w.bonds[l];if(!(b.flags&eALIVE))continue;
             addWrench(b,J+6*l,b.c0==c.chunk,r);
         }
@@ -378,7 +413,7 @@ __device__ void precondition(const Inputs& in,const Settings& s,const Scratch& w
     for(PxU32 k=threadIdx.x;k<is.nc;k+=kThreads) {
         const Chunk& c=w.chunks[is.c0+k];PxU32 degree=0;
         for(PxU32 slot=c.begin;slot<c.end;++slot) {
-            const PxU32 bond=in.nodeRefs[slot];if(!(in.health[bond]>0.0f))continue;
+            const PxU32 bond=in.nodeRefs[slot];if(!bondMember(in,bond))continue;
             degree+=(w.bonds[w.bondLocal[bond]].flags&eALIVE)?1u:0u;
         }
         w.degree[c.chunk]=degree;
@@ -460,8 +495,13 @@ __global__ __launch_bounds__(kThreads) void solveIslands(Inputs in,Settings s,Sc
         Island is{};
         // Members, in index order (deterministic): count, allocate, compact.
         PxU32 nb=0,nc=0;
-        for(PxU32 i=threadIdx.x;i<in.bondCount;i+=kThreads)nb+=(in.bondIslands[i]==island && in.health[i]>0.0f)?1u:0u;
-        for(PxU32 i=threadIdx.x;i<in.chunkCount;i+=kThreads)nc+=(in.nodeIslands[i]==island && in.chunks[i].mass>0.0f)?1u:0u;
+        for(PxU32 i=threadIdx.x;i<in.bondCount;i+=kThreads) {
+            if(in.bondIslands[i]!=island)continue;
+            if(bondMember(in,i))++nb;
+            // A joint of a chunk crushed before the solve goes with it.
+            else if(in.health[i]>0.0f){w.forces[i]=PxDestructionVectorPair();w.verdict[i]=eBROKEN;}
+        }
+        for(PxU32 i=threadIdx.x;i<in.chunkCount;i+=kThreads)nc+=(in.nodeIslands[i]==island && in.chunks[i].mass>0.0f && !chunkGone(in,i))?1u:0u;
         nb=blockCount(sh,nb);nc=blockCount(sh,nc);
         if(!threadIdx.x){sh.base=atomicAdd(w.counters+1,nb);sh.count=atomicAdd(w.counters+2,nc);}
         __syncthreads();
@@ -472,7 +512,7 @@ __global__ __launch_bounds__(kThreads) void solveIslands(Inputs in,Settings s,Sc
         __syncthreads();
         for(PxU32 tile=0;tile<in.bondCount;tile+=kThreads) {
             const PxU32 i=tile+threadIdx.x;
-            const PxU32 member=(i<in.bondCount && in.bondIslands[i]==island && in.health[i]>0.0f)?1u:0u;
+            const PxU32 member=(i<in.bondCount && in.bondIslands[i]==island && bondMember(in,i))?1u:0u;
             PxU32 prefix;const PxU32 total=blockScan(sh,member,prefix);
             if(member){const PxU32 l=is.b0+sh.flag+prefix;Bond b;prepareBond(in,s,i,b);w.bonds[l]=b;w.bondLocal[i]=l;}
             __syncthreads();if(!threadIdx.x)sh.flag+=total;__syncthreads();
@@ -481,7 +521,7 @@ __global__ __launch_bounds__(kThreads) void solveIslands(Inputs in,Settings s,Sc
         __syncthreads();
         for(PxU32 tile=0;tile<in.chunkCount;tile+=kThreads) {
             const PxU32 i=tile+threadIdx.x;
-            const PxU32 member=(i<in.chunkCount && in.nodeIslands[i]==island && in.chunks[i].mass>0.0f)?1u:0u;
+            const PxU32 member=(i<in.chunkCount && in.nodeIslands[i]==island && in.chunks[i].mass>0.0f && !chunkGone(in,i))?1u:0u;
             PxU32 prefix;const PxU32 total=blockScan(sh,member,prefix);
             if(member) {
                 const auto c=in.chunks[i];Chunk ch{};ch.chunk=i;ch.begin=in.nodeBegin[i];ch.end=in.nodeBegin[i+1];
@@ -509,7 +549,7 @@ __global__ __launch_bounds__(kThreads) void solveIslands(Inputs in,Settings s,Sc
             float r[6]={0,0,0,0,0,0};
             for(PxU32 slot=c.begin;slot<c.end;++slot) {
                 const PxU32 bond=in.nodeRefs[slot];
-                if(!(in.health[bond]>0.0f))continue;
+                if(!bondMember(in,bond))continue;
                 const PxU32 l=w.bondLocal[bond];const Bond& b=w.bonds[l];
                 addWrench(b,w.J+6*l,b.c0==c.chunk,r);
             }
