@@ -16,6 +16,16 @@
 // and corrected solve. Its accepted PxDestructionCrushState::crushed is set;
 // debris vs dust (debrisMassFraction) is the consumer's to present.
 #define PX_DESTRUCTION_CRUSH_CORRECTION 1
+// Feature (layout change, consumers rebuild with the SDK): impact capacity
+// (docs/destruction/IMPACT_CAPACITY_DESIGN.md "E"), opt-in with
+// PxDestructionStressDesc::impactCapacity. Where the elastic solve has a bond
+// past its fatal limit, the stage solves that island's tick as an impact of
+// chunks joined by joints of finite capacity: whatever the joints cannot carry
+// accelerates the chunks instead of reaching the anchors, brittle joints
+// fracture as the tick's load builds, ductile ones
+// (PxDestructionMaterial::ductileSlip) yield and break past their ultimate
+// slip. PxDestructionMaterial::impactStiffness gives the joints' stiffness.
+#define PX_DESTRUCTION_IMPACT_CAPACITY 1
 #include "foundation/PxTransform.h"
 #include "PxDirectGPUAPI.h"
 #include "PxDestructionTopologyTypes.h"
@@ -41,6 +51,15 @@ struct PxDestructionMaterial {
     PxReal shearElasticLimit=-1, shearFatalLimit=-1;
     PxReal residualAreaFraction=0;
     PxDestructionCrushProperties crush;
+    // Impact capacity (PX_DESTRUCTION_IMPACT_CAPACITY). ductileSlip: a joint
+    // of this material at capacity yields and keeps carrying its capacity, and
+    // breaks when its slip over a tick passes this (m); 0, brittle: it fractures
+    // at capacity. impactStiffness: the stiffness (N/m) of a bond of this
+    // material whose complianceScale is 1 -- the modulus that makes the stress
+    // solve's weights stiffnesses (k = impactStiffness complianceScale^2 on
+    // forces, times the solve's length scale squared on moments). Required
+    // (positive) for every material when impactCapacity is on.
+    PxReal ductileSlip=0, impactStiffness=0;
 };
 struct PxDestructionBondVerdict {
     PxReal health, damage, stressNormal, stressShear, stressBend;
@@ -227,7 +246,11 @@ struct PxDestructionStressDesc {
     bool enableChunkLoads = false;
     const PxDestructionStressConstraint* constraints = NULL;
     PxU32 constraintCount = 0;
-
+    // Impact capacity (PX_DESTRUCTION_IMPACT_CAPACITY), opt-in. Requires
+    // materials with impactStiffness, fibreBending, bendGainMax > 0 and the
+    // capped-gain bending (sectionBending false). Off: the stage is unchanged.
+    // On: islands with no bond past capacity are unchanged bit for bit.
+    bool impactCapacity = false;
 };
 struct PxDestructionVectorPair {
     PxVec3 angular, linear;
