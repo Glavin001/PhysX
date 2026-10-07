@@ -184,6 +184,8 @@
         checkCuda(
             cudaStreamCreateWithFlags(&m_bodyStream, cudaStreamNonBlocking),
             "create conditional body capture stream");
+        // Probe while-node support now, outside any stream capture.
+        if (conditionalLoopEnabled()) whileConditionalSupported();
 #endif
         checkCuda(cudaEventCreate(&m_uploadStart), "create upload start event");
         checkCuda(cudaEventCreate(&m_uploadStop), "create upload stop event");

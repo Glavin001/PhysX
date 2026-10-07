@@ -1,5 +1,6 @@
 #include "../native_bombardment.h"
 #include <cstdio>
+#include <initializer_list>
 #include <stdexcept>
 using namespace physx;
 void require(bool value,const char* message){if(!value)throw std::runtime_error(message);}
