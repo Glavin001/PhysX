@@ -1,7 +1,10 @@
 # Impacts on anchored structures: joint capacity, inertia and impact-pressure crush
 
-Status: design for review. Nothing here is implemented yet. E and Ci are to be
-implemented in the native GPU destruction stage only; there is no CPU runtime
+Status: implemented, opt-in (PX_DESTRUCTION_IMPACT_CAPACITY; desc
+`impactCapacity`, `impactCrush`; vibe-land VIBE_IMPACT_CAPACITY=1), on branch
+feat/impact-capacity. See "As implemented" at the end. E is now called the
+**impact solve** and Ci the **contact crush**; code names keep E and Ci. Both
+live in the native GPU destruction stage only; there is no CPU runtime
 path, now or planned. Every number below comes from the Python study / oracle,
 vibe-land `structures/town-kit/scripts/impact-study.py` (commits 3176e80c,
 009f5bec). Like `scripts/stress/oracle.py`, it is a research tool and a test
@@ -381,3 +384,93 @@ only per-bond strengths.
   - The fleet's other trials are unchanged.
 - **At rest:** `qualify-veneer-houses.mjs` and qualify_structures.py on the
   town still pass.
+
+## As implemented
+
+### The impact solve (E)
+
+`physx/source/gpudestruction/src/PxgDestructionImpact.cuh`, run by the stage
+after its elastic solve on every pass.
+
+- **Trigger.** An island is solved when its elastic forces put a bond past
+  capacity, read with the verdict's own formula: the capped-gain cones, or
+  the section model (bending `|M0|/S0 + |M1|/S1`, twist `|T|/Zt`, moduli
+  shrinking with the live area) when the section flags are on. At rest
+  nothing triggers and the verdicts are bit-identical (test).
+- **Problem.** The dual above, with the authored joint stiffness as the
+  elastic tie-break: `k = E_ref w^2` on forces, `k L^2` on moments (or
+  `k r^2` per principal axis of the section, `k r_p^2` in twist, with
+  section rotation). A material may give its own axial stiffness
+  (`impactStiffness`): the wall tie, 1 kN/mm (NHBC 6.2, BS EN 845-1), where
+  its stress-solve weight is a concession for gravity load sharing.
+- **Ramp.** From the forces the structure carried at the end of the last
+  tick, event to event: the first level is the load fraction at which the
+  first joint reaches capacity along the elastic increment (bisection), then
+  factors of 2 to the full load. Brittle joints break at capacity and the
+  level is solved again; ductile joints (fasteners in timber: 15 mm ultimate
+  slip, EN 12512) yield and break when `1/2 |v_rel| dt` passes their slip.
+- **Solver.** ADMM. The J step is a linear solve in chunk space (Woodbury),
+  conjugate gradients with each chunk's exact 6x6 block as preconditioner,
+  solved until its residual leaves at most 0.1 mm of motion unexplained over
+  the tick. The Z step is the exact projection onto the capacity sets. U
+  and rho warm-start across an island's solves. Converged when the split
+  closes (1e-4 of the joint's capacity) and the motion is settled (0.1 mm).
+  FP32.
+- **Budgets and dispatches.** 4096 ADMM steps per solve and per island per
+  evaluation. An island's evaluation is a state machine that stops between
+  steps when a dispatch's work (~80 ms) is spent and resumes in the next; the
+  host waits for each dispatch. Measured: the veneer-house meteor tick in 76
+  dispatches, the longest 44 ms.
+- **Never a verdict from an unconverged solve.** A capped solve returns its
+  island to the last converged state (its forces, and the breaks of
+  converged solves), and the evaluation reports itself unconverged
+  (`converged = 0`; error 4096 where the stage requires convergence).
+
+### The coupled contact (design step 2)
+
+A body that struck a chunk of an anchored (kinematic) cluster in the trial
+is a node of the struck island's solve: its momentum at the start of the
+tick (the rigid checkpoint), the change the trial gave it, its inverse mass
+and inertia tensor; a unilateral contact (compression, Coulomb friction, no
+couple) joins it to the struck chunk, and the trial's impulse of that pair
+leaves the loads. On the tick's last pass the solve's change to the body's
+velocity is applied to it, so the still-anchored cluster does not stop it
+again in the corrected pass. Test: a 1000 kg body at 10 m/s on a 10 kg chunk
+held by a 60 kN joint keeps `(p - cap dt)/(M + m)` = 8.91 m/s (ductile) or
+`p/(M + m)` = 9.90 m/s (brittle); uncoupled it keeps nothing.
+
+Not yet coupled: a struck body that is itself destructible (the truck) keeps
+the trial's contact load on its own chunks.
+
+### The contact crush (Ci)
+
+As designed: `sigma = Z1 Z2 / (Z1 + Z2) v_n` at the start-of-tick closing
+speed, through the crush law as a uniaxial state; crushed chunks leave the
+impact solve; the impactor pays `crushEnergy` times the chunk's volume from
+its start-of-tick kinetic energy. Impedances: crushable materials
+(`impactImpedance`), a vehicle's front (EN 1991-1-7 Annex C), launched balls
+and rocks (`setImpactorImpedance`, `sqrt(rho E)`).
+
+### Against the oracle: the meteor
+
+The oracle is not ground truth. On the meteor's first tick the stage broke
+516 bonds against the oracle's 447. The oracle's number carried two errors of
+its own: its elastic tie-break used the wall ties' authored (soft) weights
+(with the cited 1 kN/mm: 574), and its ramp from 1/256 is not converged
+(from 2^-23: 450). With the same tie stiffness and the same ramp factor
+(1.25) the two agree: oracle 487, stage 491 (Jaccard 0.76; frame held 0.92 /
+0.91, roof 0.88 / 0.88 after settling). Both move with the ramp's
+discretisation (oracle 450 -> 487, stage 516 -> 491 from factor 2 to 1.25).
+Joint stiffness governs the far field: x0.01 gives 290 broken, x100 766.
+
+### Tools
+
+- `tests/impact_capacity_test.cu`: the failing-first checks.
+- `tests/impact_replay.cu`: the oracle's exported first tick
+  (vibe-land `structures/town-kit/scripts/impact-e-replay.py`).
+- `tests/impact_capture_replay.cu`: an evaluation the stage captured
+  (PX_DESTRUCTION_IMPACT_CAPTURE=DIR, slower than
+  PX_DESTRUCTION_IMPACT_CAPTURE_MS), with every solve's record;
+  IMPACT_TRIGGER_REPORT=1 lists the bonds past capacity.
+- PX_DESTRUCTION_IMPACT_LOG=1: counters, time, dispatches and every solve's
+  record per evaluation (synchronises the stream).
