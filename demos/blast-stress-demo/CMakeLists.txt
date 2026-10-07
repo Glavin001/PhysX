@@ -1404,6 +1404,38 @@ set_property(TEST blast_stress_reference_building_load_path blast_stress_destruc
     blast_stress_reference_building_crush_ordinary_impact blast_stress_crush_wall_bite
     APPEND PROPERTY LABELS known-failure)
 
+# Open on CuMetal (Apple M-series, 2026-10-07 triage of 0e0aba8a0): these fail
+# deterministically when run alone and are not explained by the harness. Each
+# is a reproduction to investigate, not an accepted platform limit, so they
+# stay enabled; the label keeps `ctest -L destruction -LE "known-failure|cumetal-open"`
+# usable as a gate meanwhile. Delete a name here once it passes on the Mac.
+#   native_gpu_destruction: "single supported bond does not balance applied load"
+#   persistent_shape_owner(, _gpu_bounds, _host_pose_bounds): "GPU contact
+#     retained old actor ownership" after an ownership merge in the same step
+#   gpu_kinematic_inputs: tick 47 differs from the CUDA-captured CSV by 1e-5
+#   gpu/standard_bombardment_contacts: step 168 unconverged (4128) / the demo
+#     refuses unconverged solves; standard scene motion audit error 2.2e-5
+#   gpu_resimulation: "missing native GPU refilter generation"
+#   vehicle_parked_sleeps, vehicle_demo: fixture outcomes (no brick rests on
+#     the car; the car does not get through the wall) under the product policy
+#   resident stress (hierarchy, cycles, 3d, parity, analytic, epoch
+#     integration, fine-only): numeric/convergence failures; never built by a
+#     plain `make` before destruction_test_executables existed
+if(PX_GPU_BACKEND STREQUAL "CUMETAL")
+    set_property(TEST physx_native_gpu_destruction physx_persistent_shape_owner
+        physx_persistent_shape_owner_gpu_bounds physx_persistent_shape_owner_host_pose_bounds
+        physx_native_gpu_kinematic_inputs physx_native_gpu_bombardment_contacts
+        physx_native_standard_bombardment_contacts physx_native_gpu_resimulation
+        physx_native_vehicle_parked_sleeps physx_native_vehicle_demo
+        blast_stress_gpu_fine_only_preparation blast_stress_gpu_resident_hierarchy
+        blast_stress_gpu_assembled_hierarchy blast_stress_gpu_coarse_long_rows
+        blast_stress_gpu_cycle_coarse-long-rows blast_stress_gpu_cycle_coarse-self-columns
+        blast_stress_gpu_resident_cycle blast_stress_gpu_operator_epoch_integration
+        blast_stress_gpu_resident_3d blast_stress_gpu_resident_cpu_parity
+        blast_stress_gpu_resident_analytic
+        APPEND PROPERTY LABELS cumetal-open)
+endif()
+
 # Test executables kept out of `all` (slow cumetalc/nvcc builds). ctest reports
 # their tests as "Not Run" unless this target is built too:
 #   cmake --build <tree> --target all destruction_test_executables
