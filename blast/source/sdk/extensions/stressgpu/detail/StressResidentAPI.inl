@@ -55,7 +55,7 @@
         checkCuda(cudaEventRecord(m_statusReady, m_stream), "record resident stress completion");
 #ifdef BLAST_GPU_COMPONENT_WORK_CAPTURE
 #ifdef BLAST_GPU_NATIVE_PROBLEM_CAPTURE
-        m_workCapture->problemSources({m_impulses,m_normals,m_areas,m_nodeDistances,m_bondMaterials,m_materials,m_materialCount,m_lengthScale,m_massScale});
+        m_workCapture->problemSources({m_impulses,m_normals,m_areas,m_nodeDistances,m_bondMaterials,m_materials,m_materialCount,m_lengthScale,m_massScale,m_angularScale});
 #endif
         m_workCapture->finish(m_stream);
 #endif
