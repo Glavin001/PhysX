@@ -88,16 +88,7 @@ struct ContactRow {
     float dv[3],dw[3];  // the change the trial gave its velocity and angular velocity over the tick
     float im;           // inverse mass
     float ii[6];        // inverse inertia (xx, yy, zz, xy, xz, yz)
-    // A chain row (bodyA valid): a contact between two impactors, body A (one
-    // with its own row on this island's anchored chunk `chunk`, which gives
-    // the island and the frame) and `body` (B). load/normal: the trial's force
-    // on A; torqueA: its torque on A about A's centre of mass (comA). The
-    // impactor fields above are B's. The impactor pushing a freed piece into
-    // the still-anchored structure is in the solve through it.
-    PxU32 bodyA=0xffffffffu; // 0xffffffff: a row on a chunk
-    float torqueA[3],comA[3];
 };
-__device__ __forceinline__ bool chainRow(const ContactRow& r){return r.bodyA!=0xffffffffu;}
 
 struct Settings {
     float dt=1.0f/60.0f;
@@ -174,8 +165,6 @@ struct Settings {
     // The coupled contact (Inputs::rows): false takes the trial's contact
     // impulses as given (step 1, the uncoupled oracle) -- A/B.
     bool coupledContact=true;
-    // A struck chunk held elastically keeps the trial's stop (see stepIslands' publish); false: A/B only.
-    bool heldStops=true;
     // Diagnostics only (tests): 1 corrupts the first link's projection
     // (scales it 10x out of its set), so the detectors can be shown to fire.
     PxU32 faultInjection=0;
@@ -202,7 +191,6 @@ struct Status {
     PxU32 diverged;    // solves stopped as diverging (a bug signal; no verdict from them)
     PxU32 infeasible;  // projections that left their capacity set (a bug signal)
     PxU32 worstBond;   // the bond with the worst split in the last diverged solve, plus 1 (0: none)
-    PxU32 heldStops;   // impactors whose solved velocity was withheld (a struck chunk held elastically)
     PxU32 rolledBack;  // islands with impactors whose evaluation was capped or diverged (the trial's stop stands)
     PxU32 energyGain;  // impactors the solve would have sped up past their start (a bug signal; withheld)
     PxU32 nonfinite;   // solves stopped on a non-finite residual (a bug signal, counted apart from diverged)
@@ -289,6 +277,7 @@ struct Inputs {
     // others 0): the change the coupled solve makes to the trial's end
     // velocity and angular velocity (struck cluster's frame). Zeroed by the caller.
     float* rowDelta{};
+    float* rowBound{};   // [rowCount] out: the corrected pass's bound per contact point of each row's pair (N s); 0 none
 };
 
 // ---------------------------------------------------------------------------
@@ -1098,10 +1087,9 @@ __device__ __forceinline__ void prepareRow(const Inputs& in,const Settings& s,Px
     const ContactRow& row=in.rows[r];const auto c=in.chunks[row.chunk];
     PxVec3 n(-row.normal[0],-row.normal[1],-row.normal[2]);
     const float l=n.magnitude();n=l>0.0f?n*(1.0f/l):PxVec3(0.0f,1.0f,0.0f);
-    b=Bond{};b.bond=r;b.c0=chainRow(row)?0u:row.chunk;b.c1=0;b.flags=eALIVE|eDYNAMIC0|eDYNAMIC1|eCONTACT;
+    b=Bond{};b.bond=r;b.c0=row.chunk;b.c1=0;b.flags=eALIVE|eDYNAMIC0|eDYNAMIC1|eCONTACT;
     frame(n,b.n,b.t1,b.t2);
-    const float* origin0=chainRow(row)?row.comA:nullptr;
-    for(int q=0;q<3;++q){b.o0[q]=row.point[q]-(origin0?origin0[q]:c.position[q]);b.o1[q]=row.point[q]-row.com[q];b.pc[q]=0.0f;}
+    for(int q=0;q<3;++q){b.o0[q]=row.point[q]-c.position[q];b.o1[q]=row.point[q]-row.com[q];b.pc[q]=0.0f;}
     // The residual's scale: the force that stops the impactor in the tick.
     const float v=sqrtf(dot3(row.velocity,row.velocity))+sqrtf(dot3(row.dv,row.dv));
     b.capC=fmaxf(sqrtf(dot3(row.load,row.load))+v/(row.im*s.dt),1.0f);b.capT=b.capS=0.0f;
@@ -1236,15 +1224,6 @@ __global__ __launch_bounds__(kThreads) void setupIslands(Inputs in,Settings s,Sc
                 for(PxU32 e=0;e<k;++e){const Bond& f=w.bonds[is.b0+nb+e];if(in.rows[f.bond].body==body && f.c1){b.c1=f.c1;break;}}
             }
             __syncthreads();
-            // A chain row's A side: A's node (from its own row). Without one
-            // (A's rows lie on another island) the chain row is dropped.
-            for(PxU32 k=threadIdx.x;k<nr;k+=kThreads) {
-                Bond& b=w.bonds[is.b0+nb+k];const ContactRow& row=in.rows[b.bond];if(!chainRow(row))continue;
-                PxU32 node=0;
-                for(PxU32 e=0;e<nr && !node;++e){const Bond& f=w.bonds[is.b0+nb+e];if(in.rows[f.bond].body==row.bodyA)node=f.c1;}
-                if(node)b.c0=node;else{b.c0=b.c1;b.flags&=~eALIVE;}
-            }
-            __syncthreads();
             // The trial's force of each coupled pair leaves its chunk's load
             // and its impactor's (the impactor's other loads stay: what the
             // trial gave it, less these pairs).
@@ -1252,11 +1231,7 @@ __global__ __launch_bounds__(kThreads) void setupIslands(Inputs in,Settings s,Sc
                 Chunk& c=w.chunks[is.c0+k];
                 for(PxU32 e=0;e<nr;++e) {
                     const Bond& b=w.bonds[is.b0+nb+e];const ContactRow& row=in.rows[b.bond];
-                    if(!(b.flags&eALIVE))continue;
-                    if(b.c0==c.chunk) {
-                        for(int q=0;q<3;++q)c.pf[q]-=row.load[q];
-                        if(chainRow(row))for(int q=0;q<3;++q)c.pf[3+q]-=row.torqueA[q];
-                    }
+                    if(k<nc && b.c0==c.chunk)for(int q=0;q<3;++q)c.pf[q]-=row.load[q];
                     if(k>=nc && b.c1==c.chunk)for(int q=0;q<3;++q){c.pf[q]+=row.load[q];c.pf[3+q]-=row.torque[q];}
                 }
             }
@@ -1461,51 +1436,48 @@ __global__ __launch_bounds__(kThreads) void stepIslands(Inputs in,Settings s,Scr
                     }
                     w.verdict[b.bond]=v;if(w.slip)w.slip[b.bond]=slip;
                 }
-                // Each impactor's end velocity against the trial's (none from an
-                // unconverged evaluation: the trial's stands). A struck chunk
-                // still joined to the structure stays where it is in the rigid
-                // simulation (its cluster is kinematic); its motion in the solve
-                // is its joints' deformation, which the rigid simulation does
-                // not have. So the solve's velocity stands only if it does not
-                // carry the impactor into such a chunk held elastically:
-                // otherwise the trial's (the chunk holds it, with the contact's
-                // own restitution).
+                // Each impactor's end velocity against the trial's, for
+                // diagnostics (the rigid simulation's corrected pass decides
+                // the impactor's motion, its contacts bounded by this solve:
+                // in.rowBound). Passivity is checked, never imposed: joints
+                // and unilateral contacts only take momentum from an impactor,
+                // so its end speed past its start plus its other loads' change
+                // is a bug (Status::energyGain).
                 for(PxU32 k2=is.nc+threadIdx.x;k2<nodes(is) && !st.capped;k2+=kThreads) {
                     const Chunk& c=w.chunks[is.c0+k2];const ContactRow& row=in.rows[c.owner];const float* u=w.u+6*c.chunk;
-                    bool into=false;
-                    for(PxU32 slot=c.begin;slot<c.end && !into;++slot) {
-                        const Bond& r=w.bonds[w.adj[slot]];if(!(r.flags&eCONTACT) || r.c1!=c.chunk || r.c0>=in.chunkCount)continue;
-                        // Is the struck chunk still held elastically (a live joint
-                        // below capacity)? One whose joints have all broken or
-                        // yielded moves with the impactor (plastic slip, until it
-                        // breaks); one held below capacity does not.
-                        const Chunk* struck=nullptr;
-                        for(PxU32 m2=0;m2<is.nc;++m2)if(w.chunks[is.c0+m2].chunk==r.c0){struck=&w.chunks[is.c0+m2];break;}
-                        bool held=false;
-                        if(struck)for(PxU32 s2=struck->begin;s2<struck->end && !held;++s2){const PxU32 l=w.adj[s2];const Bond& j=w.bonds[l];
-                            held=!(j.flags&eCONTACT) && (j.flags&eALIVE) && utilisation(j,w.J+6*l)<1.0f-s.capacityBand;}
-                        if(!held || !s.heldStops)continue;
-                        // The impactor's velocity at the contact point along the push (n points from the chunk to the impactor).
-                        float wv[3];cross3(u+3,r.o1,wv);
-                        const float approach=-((u[0]+wv[0])*r.n[0]+(u[1]+wv[1])*r.n[1]+(u[2]+wv[2])*r.n[2])*s.dt;
-                        into=approach>s.tolerance/s.dt;
-                    }
                     float d[6];
                     for(int q=0;q<3;++q){d[q]=u[q]*s.dt-(row.velocity[q]+row.dv[q]);d[3+q]=u[3+q]*s.dt-(row.spin[q]+row.dw[q]);}
-                    if(into){for(int q=0;q<6;++q)d[q]=0.0f;atomicAdd(&w.status->heldStops,1u);}
-                    // Passivity: joints and unilateral contacts only take
-                    // momentum from an impactor; its end speed cannot exceed
-                    // what it started with plus its other loads' change (the
-                    // trial's, less the coupled pairs'). Beyond it: a bug.
-                    else {
-                        // pf: its momentum and every other load over the tick, the coupled pairs' trial forces taken out.
-                        float e2=0.0f,b2=0.0f;
-                        for(int q=0;q<3;++q){const float o=c.pf[q]*c.im*s.dt;e2+=u[q]*s.dt*u[q]*s.dt;b2+=o*o;}
-                        const float start=sqrtf(row.velocity[0]*row.velocity[0]+row.velocity[1]*row.velocity[1]+row.velocity[2]*row.velocity[2]);
-                        if(sqrtf(e2)>fmaxf(start,sqrtf(b2))*1.01f+s.tolerance/s.dt){for(int q=0;q<6;++q)d[q]=0.0f;atomicAdd(&w.status->energyGain,1u);}
-                    }
+                    float e2=0.0f,b2=0.0f;
+                    for(int q=0;q<3;++q){const float o=c.pf[q]*c.im*s.dt;e2+=u[q]*s.dt*u[q]*s.dt;b2+=o*o;}
+                    const float start=sqrtf(row.velocity[0]*row.velocity[0]+row.velocity[1]*row.velocity[1]+row.velocity[2]*row.velocity[2]);
+                    if(sqrtf(e2)>fmaxf(start,sqrtf(b2))*1.01f+s.tolerance/s.dt)atomicAdd(&w.status->energyGain,1u);
                     for(int q=0;q<6;++q)finite=finite && isfinite(d[q]);
                     if(in.rowDelta)for(int q=0;q<6;++q)in.rowDelta[6*c.owner+q]=d[q];
+                }
+                // Each row's bound on its contact in the corrected pass, per
+                // contact point (N s): what the solve delivered, where the
+                // struck chunk stays on the structure at capacity (a joint
+                // yielded: it gives way plastically, the rigid simulation's
+                // kinematic cluster must not stop the impactor harder); none
+                // (0) where it is held elastically (its deformation is
+                // negligible on the rigid simulation's scale) or freed (it is a
+                // body of its own in the corrected pass).
+                for(PxU32 k2=threadIdx.x;k2<is.nr;k2+=kThreads) {
+                    const PxU32 l=is.b0+nb+k2;const Bond& r=w.bonds[l];const ContactRow& row=in.rows[r.bond];
+                    float bound=0.0f;
+                    if(!st.capped && r.c0<in.chunkCount) {
+                        const Chunk* struck=nullptr;
+                        for(PxU32 m2=0;m2<is.nc;++m2)if(w.chunks[is.c0+m2].chunk==r.c0){struck=&w.chunks[is.c0+m2];break;}
+                        bool live=false,yielded=false;
+                        if(struck)for(PxU32 s2=struck->begin;s2<struck->end;++s2){const PxU32 j=w.adj[s2];const Bond& b2=w.bonds[j];
+                            if((b2.flags&eCONTACT) || !(b2.flags&eALIVE))continue;live=true;
+                            if(utilisation(b2,w.J+6*j)>=1.0f-s.capacityBand)yielded=true;}
+                        if(live && yielded) {
+                            float lin[3],ang[3];toWorld(r,w.J+6*l,lin,ang);
+                            bound=sqrtf(lin[0]*lin[0]+lin[1]*lin[1]+lin[2]*lin[2])*s.dt/float(max(row.points,1u));
+                        }
+                    }
+                    if(in.rowBound)in.rowBound[r.bond]=bound;
                 }
                 if(st.capped && is.ni && !threadIdx.x)atomicAdd(&w.status->rolledBack,1u);
                 // Each coupled row's force on its chunk (cluster frame).

@@ -130,7 +130,7 @@ void islands(const Structure& s,std::vector<PxU32>& node,std::vector<PxU32>& bon
 struct Result {
     std::vector<PxDestructionVectorPair> elastic,forces;
     std::vector<PxDestructionBondVerdict> verdicts;
-    std::vector<PxU32> impact;std::vector<float> accel,rowDelta,slip; impact::Status status{};
+    std::vector<PxU32> impact;std::vector<float> accel,rowDelta,rowBound,slip; impact::Status status{};
     std::vector<PxU32> carried;  // per bond: its island was solved or carried (the next tick's plastic state)
 };
 // The plastic state carried from the last evaluation (Result::forces, carried, slip).
@@ -178,8 +178,8 @@ Result evaluate(const Structure& s,const std::vector<PxVec3>& F,const std::vecto
     in.accelerations=dInputs.p;in.elastic=dElastic.p;in.base=dBase.p;in.stage=stage.p;
     if(settings.sectionBending)in.sections=dSections.p;
     Device<impact::ContactRow> dRows(s.rows.empty()?std::vector<impact::ContactRow>(1):s.rows);
-    Device<float> dDelta(6*std::max<size_t>(s.rows.size(),1));
-    if(!s.rows.empty()){in.rows=dRows.p;in.rowCount=PxU32(s.rows.size());in.rowDelta=dDelta.p;}
+    Device<float> dDelta(6*std::max<size_t>(s.rows.size(),1)),dBound(std::max<size_t>(s.rows.size(),1));
+    if(!s.rows.empty()){in.rows=dRows.p;in.rowCount=PxU32(s.rows.size());in.rowDelta=dDelta.p;in.rowBound=dBound.p;}
     Device<PxDestructionVectorPair> dElasticBase(carry?carry->elasticBase:std::vector<PxDestructionVectorPair>(1));
     Device<PxU32> dCarried(carry?carry->carried:std::vector<PxU32>(1));Device<float> dSlip(carry?carry->slip:std::vector<float>(1));
     if(carry){in.elasticBase=dElasticBase.p;in.carried=dCarried.p;in.slipBefore=dSlip.p;}
@@ -207,7 +207,7 @@ Result evaluate(const Structure& s,const std::vector<PxVec3>& F,const std::vecto
             out.slip[k]=(carry?carry->slip[k]:0.0f)+((flags[bondIsland[k]]&1u)?slip[k]:0.0f);}
     }
 #endif
-    out.rowDelta=dDelta.get();
+    out.rowDelta=dDelta.get();out.rowBound=dBound.get();
     e.release();cudaStreamDestroy(stream);
     return out;
 }
@@ -494,6 +494,12 @@ void coupled(){
         expect(std::fabs(r.accel[6*wall]*dt-expected)<0.01f*expected,text);
         expect(ductile?(r.impact[0]==impact::eYIELDED && r.verdicts[0].health>0):(r.impact[0]==impact::eBROKEN),
             ductile?"  the joint yields and holds":"  the joint breaks");
+        // The corrected pass's bound on the pair: the force the solve gave it
+        // over the tick, per contact point, where the chunk stays on at
+        // capacity (ductile); none where it is freed (brittle).
+        std::snprintf(text,sizeof text,"  corrected-pass bound %.2f N s per point (expected %s)",r.rowBound[0],ductile?"M (v - v') / 4 points":"0, freed");
+        const float delivered=M*(v-expected)/4.0f;   // the impulse that slowed the body
+        expect(ductile?std::fabs(r.rowBound[0]-delivered)<0.02f*delivered:r.rowBound[0]==0.0f,text);
     }
 }
 
@@ -580,16 +586,13 @@ void carried(){
     expect(solved==0 && broken==0,text);
 }
 
-// 10. An elastically held chunk stops the body (the infinite_wall
-// `unbreakable` control): the same 1000 kg body at 10 m/s, the chunk's joint
-// far beyond any load but soft (k dt^2 ~ 8 against the masses), so in the
-// solve body and chunk ride its spring through most of the tick. The rigid
-// simulation keeps the held chunk where it is (its cluster is kinematic):
-// the solve's velocity would carry the body into it, a tick later the
-// trial stops it again -- momentum from nowhere. The trial's answer stands
-// (no velocity change); a yielded joint (test 6) lets it through.
+// 10. An elastically held chunk (the infinite_wall `unbreakable` control): its
+// joint far beyond any load but soft, so in the solve the body rides it
+// through the tick on its elastic deformation. The rigid simulation keeps it
+// rigid (its deformation is negligible there): no bound on the corrected
+// pass's contact (0), the trial's stop stands.
 void heldStops(){
-    std::printf("coupled contact: a chunk held elastically stops the body\n");
+    std::printf("coupled contact: a chunk held elastically keeps the rigid stop\n");
     Structure s;const PxU32 anchor=s.chunk(PxVec3(0,0,0),0,0),wall=s.chunk(PxVec3(0,0.5f,0),10.0f,0.5f);
     const PxU32 mat=s.material(1e13f,1e13f,1e13f,0.0f);
     s.bond(anchor,wall,PxVec3(0,0.25f,0),PxVec3(0,1,0),0.01f,mat,1e-3f);   // k = 30 GPa w^2 = 3e4 N/m
@@ -599,19 +602,15 @@ void heldStops(){
     for(int q=0;q<3;++q){row.point[q]=point[q];row.com[q]=com[q];}
     row.normal[0]=1;row.load[0]=M*v/dt;row.velocity[0]=v;row.dv[0]=-v;row.im=1.0f/M;row.ii[0]=row.ii[1]=row.ii[2]=1.0f/400.0f;
     s.rows.push_back(row);
-    // The trial's elastic forces: the stop load is far past... nothing: give
-    // the trigger a reason (a weak trim on the chunk, pulled off).
     const PxU32 trim=s.chunk(PxVec3(0,0.5f,0.1f),1.0f,0.01f),glue=s.material(1e3f,1e3f,1e3f,0.0f);
     s.bond(wall,trim,PxVec3(0,0.5f,0.05f),PxVec3(0,0,1),1e-3f,glue);
     const auto rest=elastic(s,s.force,s.torque);
     auto F=s.force;F[wall]+=PxVec3(row.load[0],0,0);F[trim]+=PxVec3(0,0,100.0f);
-    impact::Settings hs;hs.heldStops=!std::getenv("IMPACT_TEST_NO_HOLD");
-    const auto r=evaluate(s,F,s.torque,rest,true,hs);
-    char text[200];std::snprintf(text,sizeof text,"held joint: the body's velocity change %.3f m/s (expected 0: the trial's stop stands; %u islands, %u contacts)",
-        r.rowDelta[0],r.status.triggered,r.status.contacts);
-    expect(r.status.triggered==1 && r.status.contacts==1 && std::fabs(r.rowDelta[0])<1e-6f && r.impact[0]!=impact::eBROKEN,text);
+    const auto r=evaluate(s,F,s.torque,rest,true);
+    char text[200];std::snprintf(text,sizeof text,"held joint: corrected-pass bound %.3f (expected 0: rigid; %u islands, %u contacts, %u energy gains)",
+        r.rowBound[0],r.status.triggered,r.status.contacts,r.status.energyGain);
+    expect(r.status.triggered==1 && r.status.contacts==1 && r.rowBound[0]==0.0f && r.impact[0]!=impact::eBROKEN && r.status.energyGain==0,text);
 }
-
 // 11. The section model's projection on a thin section (a drywall screw
 // joint in the house: 1 cm^2, g ~ 2.4e3 /m, capacities 600-900 N, metrics
 // ~1): the projected point is feasible and no feasible point is nearer (in
