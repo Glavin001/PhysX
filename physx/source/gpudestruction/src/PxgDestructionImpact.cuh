@@ -88,7 +88,16 @@ struct ContactRow {
     float dv[3],dw[3];  // the change the trial gave its velocity and angular velocity over the tick
     float im;           // inverse mass
     float ii[6];        // inverse inertia (xx, yy, zz, xy, xz, yz)
+    // A chain row (bodyA valid): a contact between two impactors, body A (one
+    // with its own row on this island's anchored chunk `chunk`, which gives
+    // the island and the frame) and `body` (B). load/normal: the trial's force
+    // on A; torqueA: its torque on A about A's centre of mass (comA). The
+    // impactor fields above are B's. The impactor pushing a freed piece into
+    // the still-anchored structure is in the solve through it.
+    PxU32 bodyA=0xffffffffu; // 0xffffffff: a row on a chunk
+    float torqueA[3],comA[3];
 };
+__device__ __forceinline__ bool chainRow(const ContactRow& r){return r.bodyA!=0xffffffffu;}
 
 struct Settings {
     float dt=1.0f/60.0f;
@@ -1039,9 +1048,10 @@ __device__ __forceinline__ void prepareRow(const Inputs& in,const Settings& s,Px
     const ContactRow& row=in.rows[r];const auto c=in.chunks[row.chunk];
     PxVec3 n(-row.normal[0],-row.normal[1],-row.normal[2]);
     const float l=n.magnitude();n=l>0.0f?n*(1.0f/l):PxVec3(0.0f,1.0f,0.0f);
-    b=Bond{};b.bond=r;b.c0=row.chunk;b.c1=0;b.flags=eALIVE|eDYNAMIC0|eDYNAMIC1|eCONTACT;
+    b=Bond{};b.bond=r;b.c0=chainRow(row)?0u:row.chunk;b.c1=0;b.flags=eALIVE|eDYNAMIC0|eDYNAMIC1|eCONTACT;
     frame(n,b.n,b.t1,b.t2);
-    for(int q=0;q<3;++q){b.o0[q]=row.point[q]-c.position[q];b.o1[q]=row.point[q]-row.com[q];b.pc[q]=0.0f;}
+    const float* origin0=chainRow(row)?row.comA:nullptr;
+    for(int q=0;q<3;++q){b.o0[q]=row.point[q]-(origin0?origin0[q]:c.position[q]);b.o1[q]=row.point[q]-row.com[q];b.pc[q]=0.0f;}
     // The residual's scale: the force that stops the impactor in the tick.
     const float v=sqrtf(dot3(row.velocity,row.velocity))+sqrtf(dot3(row.dv,row.dv));
     b.capC=fmaxf(sqrtf(dot3(row.load,row.load))+v/(row.im*s.dt),1.0f);b.capT=b.capS=0.0f;
@@ -1176,6 +1186,15 @@ __global__ __launch_bounds__(kThreads) void setupIslands(Inputs in,Settings s,Sc
                 for(PxU32 e=0;e<k;++e){const Bond& f=w.bonds[is.b0+nb+e];if(in.rows[f.bond].body==body && f.c1){b.c1=f.c1;break;}}
             }
             __syncthreads();
+            // A chain row's A side: A's node (from its own row). Without one
+            // (A's rows lie on another island) the chain row is dropped.
+            for(PxU32 k=threadIdx.x;k<nr;k+=kThreads) {
+                Bond& b=w.bonds[is.b0+nb+k];const ContactRow& row=in.rows[b.bond];if(!chainRow(row))continue;
+                PxU32 node=0;
+                for(PxU32 e=0;e<nr && !node;++e){const Bond& f=w.bonds[is.b0+nb+e];if(in.rows[f.bond].body==row.bodyA)node=f.c1;}
+                if(node)b.c0=node;else{b.c0=b.c1;b.flags&=~eALIVE;}
+            }
+            __syncthreads();
             // The trial's force of each coupled pair leaves its chunk's load
             // and its impactor's (the impactor's other loads stay: what the
             // trial gave it, less these pairs).
@@ -1183,7 +1202,11 @@ __global__ __launch_bounds__(kThreads) void setupIslands(Inputs in,Settings s,Sc
                 Chunk& c=w.chunks[is.c0+k];
                 for(PxU32 e=0;e<nr;++e) {
                     const Bond& b=w.bonds[is.b0+nb+e];const ContactRow& row=in.rows[b.bond];
-                    if(k<nc && b.c0==c.chunk)for(int q=0;q<3;++q)c.pf[q]-=row.load[q];
+                    if(!(b.flags&eALIVE))continue;
+                    if(b.c0==c.chunk) {
+                        for(int q=0;q<3;++q)c.pf[q]-=row.load[q];
+                        if(chainRow(row))for(int q=0;q<3;++q)c.pf[3+q]-=row.torqueA[q];
+                    }
                     if(k>=nc && b.c1==c.chunk)for(int q=0;q<3;++q){c.pf[q]+=row.load[q];c.pf[3+q]-=row.torque[q];}
                 }
             }
@@ -1399,7 +1422,7 @@ __global__ __launch_bounds__(kThreads) void stepIslands(Inputs in,Settings s,Scr
                     const Chunk& c=w.chunks[is.c0+k2];const ContactRow& row=in.rows[c.owner];const float* u=w.u+6*c.chunk;
                     bool into=false;
                     for(PxU32 slot=c.begin;slot<c.end && !into;++slot) {
-                        const Bond& r=w.bonds[w.adj[slot]];if(!(r.flags&eCONTACT))continue;
+                        const Bond& r=w.bonds[w.adj[slot]];if(!(r.flags&eCONTACT) || r.c1!=c.chunk || r.c0>=in.chunkCount)continue;
                         // Is the struck chunk still held elastically (a live joint
                         // below capacity)? One whose joints have all broken or
                         // yielded moves with the impactor (plastic slip, until it
