@@ -93,7 +93,8 @@ struct Settings {
     // of the load, not a physical threshold.
     PxU32 rampLevels=32;
     float rampFactor=2.0f;
-    PxU32 iterations=4096;   // projected iterations per solve
+    PxU32 iterations=4096;   // ADMM iterations per solve
+    PxU32 innerIterations=4; // node-space conjugate gradient iterations per ADMM step (warm-started)
     // Converged when every joint's projected gradient -- the relative
     // acceleration of its two chunks that the solve has not yet balanced or
     // let through -- moves them apart by at most this over the tick
@@ -149,6 +150,9 @@ struct Scratch {
     Chunk* chunks{};       // [N]
     float *J{},*Y{},*Jn{},*T{}; // [6M] each, bond frame: force, extrapolation, next iterate, elastic trial
     float* u{};            // [6N] by chunk: M^-1 (p + B J), the tick's acceleration (linear, angular)
+    float *a{};            // [6M] bond frame: the ADMM step's A^-1 c
+    float *cy{},*cr{},*cz{},*cp{},*cq{}; // [6N] by chunk: the node-space conjugate gradient's vectors
+    float* cinv{};         // [36N] by chunk: the inverse of its 6x6 diagonal block of N
     PxDestructionVectorPair* forces{}; // [M] E's bond forces, the stress solver's convention
     PxU32* verdict{};      // [M]
     Status* status{};
@@ -538,67 +542,208 @@ __device__ void precondition(const Inputs& in,const Settings& s,const Scratch& w
     const float inverseDt2=1.0f/(s.dt*s.dt);
     for(PxU32 k=threadIdx.x;k<is.nb;k+=kThreads) {
         Bond& b=w.bonds[is.b0+k];
-        float dl=inverseDt2/b.kl,dt=inverseDt2/b.kt,d0=inverseDt2/b.k0,d1=inverseDt2/b.k1,da=0.0f;
+        float dl=0.0f,da=0.0f;(void)inverseDt2;
         for(int e=0;e<2;++e) {
             if(!(b.flags&(e?eDYNAMIC1:eDYNAMIC0)))continue;
             const auto c=in.chunks[e?b.c1:b.c0];const float d=float(w.degree[e?b.c1:b.c0]);
             const float* o=e?b.o1:b.o0;const float ii=c.inertia>0.0f?1.0f/c.inertia:0.0f;
             dl+=d*(1.0f/c.mass+2.0f*dot3(o,o)*ii);da+=d*2.0f*ii;
         }
-        b.dl=dl;b.dt=dt+da;b.d0=d0+da;b.d1=d1+da;
+        // The kinetic part alone: the ADMM penalty's scale (rho D).
+        b.dl=dl>0.0f?dl:1.0f;b.dt=b.d0=b.d1=da>0.0f?da:1.0f;
     }
     __syncthreads();
 }
 
-// One solve at load level lambda, from the current J: FISTA on the dual,
-// minimise 1/2 |p - r_prev + B J|^2_M^-1 + 1/2 sum |J - T|^2_(K dt^2)^-1 over C.
-// Converged when no joint's force moves by more than `tolerance` of its
-// capacity in an iteration. Returns iterations.
+// One solve at load level lambda, from the current J: ADMM on the dual
+//   minimise 1/2 |p - r_prev + B J|^2_M^-1 + 1/2 |J - T|^2_C   over J in C_b
+// (C = (K dt^2)^-1), split J = Z with Z in the capacity sets: the J step is a
+// linear solve, done in chunk space (Woodbury: (A + B^T M^-1 B)^-1 through
+// N = M + B A^-1 B^T, A = C + R) by conjugate gradients preconditioned with
+// each chunk's exact 6x6 block -- so a long member's lever, which couples its
+// joints' forces and moments, costs nothing -- and the Z step is the exact
+// projection in the penalty's diagonal metric R = rho D (D the kinetic
+// majoriser). Converged when the split closes (|J - Z| within 1e-4 of the
+// joint's capacity) and the motion is settled (the dual residual moves the
+// joint's chunks by at most `tolerance` over the tick). Returns ADMM steps.
+__device__ __forceinline__ void penalty(const Bond& b,float rho,float inverseDt2,float* Ainv,float* R)
+{
+    const float k[6]={b.kl,b.kl,b.kl,b.kt,b.k0,b.k1},d[6]={b.dl,b.dl,b.dl,b.dt,b.d0,b.d1};
+    for(int q=0;q<6;++q){R[q]=rho*d[q];Ainv[q]=1.0f/(inverseDt2/k[q]+R[q]);}
+}
+// N v = M v + B A^-1 B^T v into out, for every island chunk.
+__device__ void nodeApply(const Inputs& in,const Scratch& w,const Island& is,float rho,float inverseDt2,const float* v,float* out)
+{
+    for(PxU32 k=threadIdx.x;k<is.nb;k+=kThreads) {
+        const PxU32 l=is.b0+k;const Bond& b=w.bonds[l];float* f=w.a+6*l;
+        if(!(b.flags&eALIVE)){for(int q=0;q<6;++q)f[q]=0.0f;continue;}
+        float e[6],Ainv[6],R[6];relative(b,v,e);penalty(b,rho,inverseDt2,Ainv,R);
+        for(int q=0;q<6;++q)f[q]=Ainv[q]*e[q];
+    }
+    __syncthreads();
+    for(PxU32 k=threadIdx.x;k<is.nc;k+=kThreads) {
+        const Chunk& c=w.chunks[is.c0+k];float r[6]={0,0,0,0,0,0};
+        for(PxU32 slot=c.begin;slot<c.end;++slot) {
+            const PxU32 bond=in.nodeRefs[slot];if(!bondMember(in,bond))continue;
+            const PxU32 l=w.bondLocal[bond];const Bond& b=w.bonds[l];if(!(b.flags&eALIVE))continue;
+            // addWrench gives B f; N's sign: M v + B A^-1 B^T v (B^T = relative, its adjoint).
+            addWrench(b,w.a+6*l,b.c0==c.chunk,r);
+        }
+        const float* vc=v+6*c.chunk;float* o=out+6*c.chunk;
+        for(int q=0;q<3;++q){o[q]=vc[q]/c.im+r[q];o[3+q]=(c.ii>0.0f?vc[3+q]/c.ii:0.0f)+r[3+q];}
+    }
+    __syncthreads();
+}
+// Each chunk's 6x6 block of N, inverted (Gauss-Jordan; symmetric positive definite).
+__device__ void blockJacobi(const Inputs& in,const Scratch& w,const Island& is,float rho,float inverseDt2)
+{
+    for(PxU32 k=threadIdx.x;k<is.nc;k+=kThreads) {
+        const Chunk& c=w.chunks[is.c0+k];float N[6][12];
+        for(int a=0;a<6;++a)for(int e=0;e<12;++e)N[a][e]=0.0f;
+        for(int q=0;q<3;++q){N[q][q]=1.0f/c.im;N[3+q][3+q]=c.ii>0.0f?1.0f/c.ii:0.0f;}
+        for(PxU32 slot=c.begin;slot<c.end;++slot) {
+            const PxU32 bond=in.nodeRefs[slot];if(!bondMember(in,bond))continue;
+            const Bond& b=w.bonds[w.bondLocal[bond]];if(!(b.flags&eALIVE))continue;
+            float Ainv[6],R[6];penalty(b,rho,inverseDt2,Ainv,R);
+            const bool first=b.c0==c.chunk;
+            for(int q=0;q<6;++q) {
+                // Column q: B_ib A^-1 B_ib^T e_q.
+                float unit[6]={0,0,0,0,0,0};unit[q]=1.0f;
+                float lin[3]={0,0,0},ang[3]={0,0,0};
+                const float* o=first?b.o0:b.o1;const float sg=first?1.0f:-1.0f;
+                if(q<3)lin[q]=sg;else{float m[3];cross3(unit+3,o,m);for(int t=0;t<3;++t){lin[t]=sg*m[t];ang[t]=-sg*unit[3+t];}}
+                float e[6]={dot3(lin,b.n),dot3(lin,b.t1),dot3(lin,b.t2),dot3(ang,b.n),dot3(ang,b.t1),dot3(ang,b.t2)};
+                for(int t=0;t<6;++t)e[t]*=Ainv[t];
+                float r[6]={0,0,0,0,0,0};addWrench(b,e,first,r);
+                for(int t=0;t<6;++t)N[t][q]+=r[t];
+            }
+        }
+        for(int a=0;a<6;++a)N[a][6+a]=1.0f;
+        bool ok=true;
+        for(int col=0;col<6;++col) {
+            const float piv=N[col][col];if(!(piv>0.0f)){ok=false;break;}
+            const float inv=1.0f/piv;for(int e=0;e<12;++e)N[col][e]*=inv;
+            for(int a=0;a<6;++a)if(a!=col){const float f=N[a][col];if(f!=0.0f)for(int e=0;e<12;++e)N[a][e]-=f*N[col][e];}
+        }
+        float* out=w.cinv+36*size_t(c.chunk);
+        for(int a=0;a<6;++a)for(int e=0;e<6;++e)out[6*a+e]=ok?N[a][6+e]:(a==e?1.0f:0.0f);
+    }
+    __syncthreads();
+}
+__device__ __forceinline__ void blockApply(const float* M,const float* v,float* o)
+{
+    for(int a=0;a<6;++a){float t=0.0f;for(int e=0;e<6;++e)t+=M[6*a+e]*v[e];o[a]=t;}
+}
 __device__ PxU32 solve(Shared& sh,const Inputs& in,const Settings& s,const Scratch& w,const Island& is,float lambda,bool& capped,float& last)
 {
     const float inverseDt2=1.0f/(s.dt*s.dt);
     precondition(in,s,w,is);
-    float t=1.0f;
-    for(PxU32 k=threadIdx.x;k<is.nb;k+=kThreads)for(int q=0;q<6;++q)w.Y[6*(is.b0+k)+q]=w.J[6*(is.b0+k)+q];
+    float rho=1.0f;
+    blockJacobi(in,w,is,rho,inverseDt2);
+    // Z = J (feasible), U = 0; the load's own acceleration M^-1 (p - r_prev).
+    for(PxU32 k=threadIdx.x;k<is.nb;k+=kThreads)for(int q=0;q<6;++q){w.Y[6*(is.b0+k)+q]=w.J[6*(is.b0+k)+q];w.Jn[6*(is.b0+k)+q]=0.0f;}
+    for(PxU32 k=threadIdx.x;k<is.nc;k+=kThreads) {
+        const Chunk& c=w.chunks[is.c0+k];float* u=w.u+6*c.chunk;
+        for(int q=0;q<6;++q){const float p=(1.0f-lambda)*c.pb[q]+lambda*c.pf[q]-c.r[q];u[q]=p*(q<3?c.im:c.ii);w.cy[6*c.chunk+q]=0.0f;}
+    }
     __syncthreads();
     PxU32 it=0;capped=true;last=0.0f;
+    float* Z=w.Y;float* U=w.Jn;
     for(;it<s.iterations;++it) {
-        chunkPass(in,w,is,lambda,w.Y,false);
-        __syncthreads();
-        float change=0.0f,restart=0.0f;
+        // J step: c = -B^T M^-1 p + C T + R (Z - U); J = A^-1 c - A^-1 B^T y, N y = B A^-1 c.
         for(PxU32 k=threadIdx.x;k<is.nb;k+=kThreads) {
-            const PxU32 l=is.b0+k;const Bond& b=w.bonds[l];
-            float* jn=w.Jn+6*l;const float* y=w.Y+6*l;const float* j=w.J+6*l;const float* T=w.T+6*l;
-            if(!(b.flags&eALIVE)){for(int q=0;q<6;++q)jn[q]=0.0f;continue;}
-            float g[6];relative(b,w.u,g);
-            float x[6];
-            for(int q=0;q<3;++q) {
-                x[q]=y[q]-(g[q]+(y[q]-T[q])*inverseDt2/b.kl)/b.dl;
+            const PxU32 l=is.b0+k;const Bond& b=w.bonds[l];float* a=w.a+6*l;
+            if(!(b.flags&eALIVE)){for(int q=0;q<6;++q)a[q]=0.0f;continue;}
+            float g[6],Ainv[6],R[6];relative(b,w.u,g);penalty(b,rho,inverseDt2,Ainv,R);
+            const float k6[6]={b.kl,b.kl,b.kl,b.kt,b.k0,b.k1};
+            const float* T=w.T+6*l;const float* z=Z+6*l;const float* uu=U+6*l;
+            for(int q=0;q<6;++q)a[q]=Ainv[q]*(-g[q]+inverseDt2/k6[q]*T[q]+R[q]*(z[q]-uu[q]));
+        }
+        __syncthreads();
+        // r = B a - N y (y warm), z = P r, p = z.
+        nodeApply(in,w,is,rho,inverseDt2,w.cy,w.cq);   // uses w.a as scratch: recompute B a after
+        // nodeApply overwrote w.a; rebuild a (cheap) and form the residual.
+        for(PxU32 k=threadIdx.x;k<is.nb;k+=kThreads) {
+            const PxU32 l=is.b0+k;const Bond& b=w.bonds[l];float* a=w.a+6*l;
+            if(!(b.flags&eALIVE)){for(int q=0;q<6;++q)a[q]=0.0f;continue;}
+            float g[6],Ainv[6],R[6];relative(b,w.u,g);penalty(b,rho,inverseDt2,Ainv,R);
+            const float k6[6]={b.kl,b.kl,b.kl,b.kt,b.k0,b.k1};
+            const float* T=w.T+6*l;const float* z=Z+6*l;const float* uu=U+6*l;
+            for(int q=0;q<6;++q)a[q]=Ainv[q]*(-g[q]+inverseDt2/k6[q]*T[q]+R[q]*(z[q]-uu[q]));
+        }
+        __syncthreads();
+        float rz=0.0f;
+        for(PxU32 k=threadIdx.x;k<is.nc;k+=kThreads) {
+            const Chunk& c=w.chunks[is.c0+k];float ba[6]={0,0,0,0,0,0};
+            for(PxU32 slot=c.begin;slot<c.end;++slot) {
+                const PxU32 bond=in.nodeRefs[slot];if(!bondMember(in,bond))continue;
+                const PxU32 l=w.bondLocal[bond];const Bond& b=w.bonds[l];if(!(b.flags&eALIVE))continue;
+                addWrench(b,w.a+6*l,b.c0==c.chunk,ba);
             }
-            {const float ka[3]={b.kt,b.k0,b.k1},dd[3]={b.dt,b.d0,b.d1};
-                for(int q=0;q<3;++q)x[3+q]=y[3+q]-(g[3+q]+(y[3+q]-T[3+q])*inverseDt2/ka[q])/dd[q];}
-            project(b,x,b.dl,b.dt,b.d0,b.d1);
-            // The projected gradient D (Y - Jn): a relative acceleration.
-            const float dq[6]={b.dl,b.dl,b.dl,b.dt,b.d0,b.d1};
-            float gl=0.0f,ga=0.0f;
-            for(int q=0;q<3;++q){const float a=dq[q]*(y[q]-x[q]),r=dq[3+q]*(y[3+q]-x[3+q]);gl+=a*a;ga+=r*r;}
-            change=fmaxf(change,0.5f*s.dt*s.dt*fmaxf(sqrtf(gl),sqrtf(ga)*s.lengthScale));
-            for(int q=0;q<6;++q){jn[q]=x[q];restart+=dq[q]*(y[q]-x[q])*(x[q]-j[q]);}
+            float* r=w.cr+6*c.chunk;float* zz=w.cz+6*c.chunk;const float* q=w.cq+6*c.chunk;
+            for(int t=0;t<6;++t)r[t]=ba[t]-q[t];
+            blockApply(w.cinv+36*size_t(c.chunk),r,zz);
+            for(int t=0;t<6;++t){w.cp[6*c.chunk+t]=zz[t];rz+=r[t]*zz[t];}
         }
-        change=blockMax(sh,change);
-        restart=blockSum(sh,restart);
-        const bool done=!(change>s.tolerance);last=change;
-        float beta=0.0f;
-        // Gradient restart (O'Donoghue & Candes): momentum against descent.
-        if(restart>0.0f)t=1.0f;
-        else{const float tn=0.5f*(1.0f+sqrtf(1.0f+4.0f*t*t));beta=(t-1.0f)/tn;t=tn;}
+        rz=blockSum(sh,rz);
+        // The a we need afterwards is A^-1 c: keep it in w.F-free storage -- recompute
+        // after the inner solve (it does not depend on y).
+        for(PxU32 inner=0;inner<s.innerIterations && rz>0.0f;++inner) {
+            nodeApply(in,w,is,rho,inverseDt2,w.cp,w.cq);
+            float pq=0.0f;
+            for(PxU32 k=threadIdx.x;k<is.nc;k+=kThreads){const PxU32 c=w.chunks[is.c0+k].chunk;for(int t=0;t<6;++t)pq+=w.cp[6*c+t]*w.cq[6*c+t];}
+            pq=blockSum(sh,pq);if(!(pq>0.0f))break;
+            const float alpha=rz/pq;float rz2=0.0f;
+            for(PxU32 k=threadIdx.x;k<is.nc;k+=kThreads) {
+                const PxU32 c=w.chunks[is.c0+k].chunk;float* r=w.cr+6*c;float* zz=w.cz+6*c;
+                for(int t=0;t<6;++t){w.cy[6*c+t]+=alpha*w.cp[6*c+t];r[t]-=alpha*w.cq[6*c+t];}
+                blockApply(w.cinv+36*size_t(c),r,zz);
+                for(int t=0;t<6;++t)rz2+=r[t]*zz[t];
+            }
+            rz2=blockSum(sh,rz2);
+            const float beta=rz2/rz;rz=rz2;
+            for(PxU32 k=threadIdx.x;k<is.nc;k+=kThreads){const PxU32 c=w.chunks[is.c0+k].chunk;for(int t=0;t<6;++t)w.cp[6*c+t]=w.cz[6*c+t]+beta*w.cp[6*c+t];}
+            __syncthreads();
+            if(!(rz>1e-12f*rz2+0.0f) && rz==0.0f)break;
+        }
+        // J = A^-1 (c - B^T y); Z = Pi_R(J + U); U += J - Z.
+        float primal=0.0f,dual=0.0f,pn=0.0f,dn=0.0f;
         for(PxU32 k=threadIdx.x;k<is.nb;k+=kThreads) {
-            const PxU32 l=is.b0+k;float* j=w.J+6*l;float* y=w.Y+6*l;const float* jn=w.Jn+6*l;
-            for(int q=0;q<6;++q){const float v=jn[q];y[q]=done?v:v+beta*(v-j[q]);j[q]=v;}
+            const PxU32 l=is.b0+k;const Bond& b=w.bonds[l];float* j=w.J+6*l;float* z=Z+6*l;float* uu=U+6*l;
+            if(!(b.flags&eALIVE)){for(int q=0;q<6;++q)j[q]=z[q]=uu[q]=0.0f;continue;}
+            float g[6],Ainv[6],R[6],ey[6];relative(b,w.u,g);relative(b,w.cy,ey);penalty(b,rho,inverseDt2,Ainv,R);
+            const float k6[6]={b.kl,b.kl,b.kl,b.kt,b.k0,b.k1};const float* T=w.T+6*l;
+            float x[6],zold[6];
+            for(int q=0;q<6;++q){j[q]=Ainv[q]*(-g[q]+inverseDt2/k6[q]*T[q]+R[q]*(z[q]-uu[q])-ey[q]);x[q]=j[q]+uu[q];zold[q]=z[q];}
+            project(b,x,R[0],R[3],R[4],R[5]);
+            const float cap=fmaxf(fmaxf(b.capC,b.capT),b.capS);
+            float lp=0.0f,ap=0.0f,ld=0.0f,ad=0.0f;
+            for(int q=0;q<6;++q) {
+                z[q]=x[q];uu[q]+=j[q]-z[q];
+                const float rp=j[q]-z[q],rd=R[q]*(z[q]-zold[q]);
+                if(q<3){lp+=rp*rp;ld+=rd*rd;}else{ap+=rp*rp;ad+=rd*rd;}
+            }
+            const float gain=fmaxf(fmaxf(b.gb,b.gt),fmaxf(b.g0,b.g1));
+            primal=fmaxf(primal,(sqrtf(lp)+gain*sqrtf(ap))/cap);
+            dual=fmaxf(dual,0.5f*s.dt*s.dt*fmaxf(sqrtf(ld),sqrtf(ad)*s.lengthScale));
+            pn+=lp+ap;dn+=ld+ad;
         }
-        __syncthreads();
-        if(done){capped=false;++it;break;}
+        primal=blockMax(sh,primal);dual=blockMax(sh,dual);last=fmaxf(primal,dual/s.tolerance*1e-4f);
+        if(!(primal>1e-4f) && !(dual>s.tolerance)){capped=false;++it;break;}
+        // Balance the residuals (OSQP): rescale rho by sqrt(primal/dual) every 25 steps.
+        pn=blockSum(sh,pn);dn=blockSum(sh,dn);
+        if(it%25==24 && pn>0.0f && dn>0.0f) {
+            const float ratio=sqrtf(sqrtf(pn/dn));
+            if(ratio>5.0f || ratio<0.2f) {
+                const float next=rho*fminf(fmaxf(ratio,1e-3f),1e3f);
+                for(PxU32 k=threadIdx.x;k<is.nb;k+=kThreads)for(int q=0;q<6;++q)U[6*(is.b0+k)+q]*=rho/next;
+                rho=next;__syncthreads();blockJacobi(in,w,is,rho,inverseDt2);
+            }
+        }
     }
+    // The feasible iterate is the answer.
+    for(PxU32 k=threadIdx.x;k<is.nb;k+=kThreads)for(int q=0;q<6;++q)w.J[6*(is.b0+k)+q]=Z[6*(is.b0+k)+q];
+    __syncthreads();
     return it;
 }
 
@@ -783,13 +928,25 @@ __global__ void recordState(const PxU32* islandFlag,const PxU32* bondIslands,con
     state[i]=(island!=0xffffffffu && islandFlag[island])?impact[i]:elastic[i];
 }
 
+// A solve that ended at its budget did not converge: the stage reports the
+// evaluation unconverged (and, where it requires convergence, rejects it, as
+// it does an unconverged elastic solve: error 4096).
+__global__ void reportConvergence(const Status* impactStatus,PxDestructionStageStatus* stage,bool require)
+{
+    if(impactStatus->capped || (impactStatus->error & 4u)) {
+        stage->converged=0;
+        if(require)atomicOr(&stage->error,4096u);
+    }
+}
+
 // Host side: persistent scratch and the launches of one evaluation.
 struct Stage {
     Scratch w{};PxU32 n=0,m=0;
     void release() {
         cudaFree(w.islandFlag);cudaFree(w.islands);cudaFree(w.counters);cudaFree(w.bondLocal);cudaFree(w.degree);
         cudaFree(w.bonds);cudaFree(w.chunks);cudaFree(w.J);cudaFree(w.Y);cudaFree(w.Jn);cudaFree(w.T);cudaFree(w.u);
-        cudaFree(w.forces);cudaFree(w.verdict);cudaFree(w.status);w={};n=m=0;
+        cudaFree(w.forces);cudaFree(w.verdict);cudaFree(w.status);
+        for(float* a:{w.a,w.cy,w.cr,w.cz,w.cp,w.cq,w.cinv})cudaFree(a);w={};n=m=0;
     }
     void allocate(PxU32 chunks,PxU32 bonds) {
         release();n=chunks;m=bonds;
@@ -797,7 +954,8 @@ struct Stage {
         ::physx::allocate(w.bondLocal,m);::physx::allocate(w.degree,n);
         ::physx::allocate(w.bonds,m);::physx::allocate(w.chunks,n);
         for(float** a:{&w.J,&w.Y,&w.Jn,&w.T})::physx::allocate(*a,6*size_t(m));
-        ::physx::allocate(w.u,6*size_t(n));::physx::allocate(w.forces,m);::physx::allocate(w.verdict,m);::physx::allocate(w.status,1);
+        ::physx::allocate(w.u,6*size_t(n));::physx::allocate(w.a,6*size_t(m));::physx::allocate(w.cinv,36*size_t(n));
+        for(float** a:{&w.cy,&w.cr,&w.cz,&w.cp,&w.cq}){::physx::allocate(*a,6*size_t(n));check(cudaMemset(*a,0,sizeof(float)*6*size_t(n)));}::physx::allocate(w.forces,m);::physx::allocate(w.verdict,m);::physx::allocate(w.status,1);
         check(cudaMemset(w.islandFlag,0,sizeof(PxU32)*n));check(cudaMemset(w.u,0,sizeof(float)*6*size_t(n)));
         check(cudaMemset(w.status,0,sizeof(Status)));check(cudaMemset(w.verdict,0,sizeof(PxU32)*m));
     }

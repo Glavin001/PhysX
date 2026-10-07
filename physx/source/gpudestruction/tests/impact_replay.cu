@@ -43,6 +43,7 @@ int run(int argc,char** argv){
     s.momentAtCentroid=!std::getenv("IMPACT_MOMENT_AT_SOLVER_POINT");   // the oracle's convention
     if(argc>7)s.rampFactor=float(std::atof(argv[7]));
     if(argc>8)s.elasticIncrementAfterYield=std::atoi(argv[8])!=0;
+    if(const char* v=std::getenv("IMPACT_INNER"))s.innerIterations=PxU32(std::atoi(v));
     std::vector<PxDestructionStressChunk> chunks(n);std::vector<PxDestructionVectorPair> accel(n);
     for(PxU32 i=0;i<n;++i){
         float v[11];for(float& x:v)x=r.get<float>();
