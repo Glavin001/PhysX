@@ -147,12 +147,12 @@ struct Settings {
     // The work of one dispatch, per block, in visits of the island's links
     // and nodes (an ADMM step: five passes, three more per conjugate
     // gradient iteration). Measured 5.4e7 visits a second for one block on
-    // an M-series GPU (CuMetal), so 2^21 keeps a dispatch near 40-80 ms,
+    // an M-series GPU (CuMetal), so 2^20 keeps a dispatch near 20-40 ms alone (under 100 ms shared),
     // whatever the convergence: Apple GPUs do not preempt compute well, and a
     // longer command buffer starves the display. The host waits for each
     // dispatch (Stage::submit). Not a physical quantity: only how an
     // evaluation is split into dispatches.
-    PxU32 dispatchWork=1u<<21;   // measured: 2^22 reached 166 ms with long conjugate-gradient steps
+    PxU32 dispatchWork=1u<<20;   // measured: 2^22 reached 166 ms, 2^21 178 ms sharing the GPU with other jobs
     PxU32 innerIterations=64;// node-space conjugate gradient iterations per ADMM step, at most (warm-started; to the tolerance)
     // Converged when every joint's projected gradient -- the relative
     // acceleration of its two chunks that the solve has not yet balanced or
@@ -1446,8 +1446,9 @@ __global__ __launch_bounds__(kThreads) void stepIslands(Inputs in,Settings s,Scr
                     // what it started with plus its other loads' change (the
                     // trial's, less the coupled pairs'). Beyond it: a bug.
                     else {
+                        // pf: its momentum and every other load over the tick, the coupled pairs' trial forces taken out.
                         float e2=0.0f,b2=0.0f;
-                        for(int q=0;q<3;++q){const float o=row.velocity[q]+row.dv[q]+row.load[q]*row.im*s.dt;e2+=u[q]*s.dt*u[q]*s.dt;b2+=o*o;}
+                        for(int q=0;q<3;++q){const float o=c.pf[q]*c.im*s.dt;e2+=u[q]*s.dt*u[q]*s.dt;b2+=o*o;}
                         const float start=sqrtf(row.velocity[0]*row.velocity[0]+row.velocity[1]*row.velocity[1]+row.velocity[2]*row.velocity[2]);
                         if(sqrtf(e2)>fmaxf(start,sqrtf(b2))*1.01f+s.tolerance/s.dt){for(int q=0;q<6;++q)d[q]=0.0f;atomicAdd(&w.status->energyGain,1u);}
                     }
