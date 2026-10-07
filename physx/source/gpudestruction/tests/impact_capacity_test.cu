@@ -522,11 +522,43 @@ void carried(){
     expect(solved==0 && broken==0,text);
 }
 
+// 10. An elastically held chunk stops the body (the infinite_wall
+// `unbreakable` control): the same 1000 kg body at 10 m/s, the chunk's joint
+// far beyond any load but soft (k dt^2 ~ 8 against the masses), so in the
+// solve body and chunk ride its spring through most of the tick. The rigid
+// simulation keeps the held chunk where it is (its cluster is kinematic):
+// the solve's velocity would carry the body into it, a tick later the
+// trial stops it again -- momentum from nowhere. The trial's answer stands
+// (no velocity change); a yielded joint (test 6) lets it through.
+void heldStops(){
+    std::printf("coupled contact: a chunk held elastically stops the body\n");
+    Structure s;const PxU32 anchor=s.chunk(PxVec3(0,0,0),0,0),wall=s.chunk(PxVec3(0,0.5f,0),10.0f,0.5f);
+    const PxU32 mat=s.material(1e13f,1e13f,1e13f,0.0f);
+    s.bond(anchor,wall,PxVec3(0,0.25f,0),PxVec3(0,1,0),0.01f,mat,1e-3f);   // k = 30 GPa w^2 = 3e4 N/m
+    const float M=1000.0f,v=10.0f,dt=1.0f/60.0f;
+    impact::ContactRow row{};row.chunk=wall;row.body=0;row.points=4;row.friction=0.0f;
+    const float point[3]={-0.25f,0.5f,0},com[3]={-1.0f,0.5f,0};
+    for(int q=0;q<3;++q){row.point[q]=point[q];row.com[q]=com[q];}
+    row.normal[0]=1;row.load[0]=M*v/dt;row.velocity[0]=v;row.dv[0]=-v;row.im=1.0f/M;row.ii[0]=row.ii[1]=row.ii[2]=1.0f/400.0f;
+    s.rows.push_back(row);
+    // The trial's elastic forces: the stop load is far past... nothing: give
+    // the trigger a reason (a weak trim on the chunk, pulled off).
+    const PxU32 trim=s.chunk(PxVec3(0,0.5f,0.1f),1.0f,0.01f),glue=s.material(1e3f,1e3f,1e3f,0.0f);
+    s.bond(wall,trim,PxVec3(0,0.5f,0.05f),PxVec3(0,0,1),1e-3f,glue);
+    const auto rest=elastic(s,s.force,s.torque);
+    auto F=s.force;F[wall]+=PxVec3(row.load[0],0,0);F[trim]+=PxVec3(0,0,100.0f);
+    impact::Settings hs;hs.heldStops=!std::getenv("IMPACT_TEST_NO_HOLD");
+    const auto r=evaluate(s,F,s.torque,rest,true,hs);
+    char text[200];std::snprintf(text,sizeof text,"held joint: the body's velocity change %.3f m/s (expected 0: the trial's stop stands; %u islands, %u contacts)",
+        r.rowDelta[0],r.status.triggered,r.status.contacts);
+    expect(r.status.triggered==1 && r.status.contacts==1 && std::fabs(r.rowDelta[0])<1e-6f && r.impact[0]!=impact::eBROKEN,text);
+}
+
 }} // physx
 
 int main(int argc,char** argv){
     (void)argc;(void)argv;
-    try{if(const char* only=std::getenv("IMPACT_TEST_ONLY")){if(!std::strcmp(only,"unconverged"))physx::unconverged();if(!std::strcmp(only,"dispatches"))physx::dispatches();if(!std::strcmp(only,"carried"))physx::carried();}else{physx::column();physx::wall();physx::rest();physx::impactCrush();physx::section();physx::coupled();physx::unconverged();physx::dispatches();physx::carried();}}
+    try{if(const char* only=std::getenv("IMPACT_TEST_ONLY")){if(!std::strcmp(only,"unconverged"))physx::unconverged();if(!std::strcmp(only,"dispatches"))physx::dispatches();if(!std::strcmp(only,"carried"))physx::carried();if(!std::strcmp(only,"held"))physx::heldStops();}else{physx::column();physx::wall();physx::rest();physx::impactCrush();physx::section();physx::coupled();physx::unconverged();physx::dispatches();physx::carried();physx::heldStops();}}
     catch(const std::exception& e){std::printf("error: %s\n",e.what());return 2;}
     std::printf("%s (%d failed)\n",physx::failures?"FAILED":"passed",physx::failures);
     return physx::failures?1:0;

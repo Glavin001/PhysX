@@ -162,6 +162,8 @@ struct Settings {
     // The coupled contact (Inputs::rows): false takes the trial's contact
     // impulses as given (step 1, the uncoupled oracle) -- A/B.
     bool coupledContact=true;
+    // A struck chunk held elastically keeps the trial's stop (see stepIslands' publish); false: A/B only.
+    bool heldStops=true;
 };
 
 // Device-side counters for one evaluation.
@@ -1312,11 +1314,37 @@ __global__ __launch_bounds__(kThreads) void stepIslands(Inputs in,Settings s,Scr
                     w.verdict[b.bond]=v;if(w.slip)w.slip[b.bond]=slip;
                 }
                 // Each impactor's end velocity against the trial's (none from an
-                // unconverged evaluation: the trial's stands).
+                // unconverged evaluation: the trial's stands). A struck chunk
+                // still joined to the structure stays where it is in the rigid
+                // simulation (its cluster is kinematic); its motion in the solve
+                // is its joints' deformation, which the rigid simulation does
+                // not have. So the solve's velocity stands only if it does not
+                // carry the impactor into such a chunk held elastically:
+                // otherwise the trial's (the chunk holds it, with the contact's
+                // own restitution).
                 for(PxU32 k2=is.nc+threadIdx.x;k2<nodes(is) && !st.capped;k2+=kThreads) {
                     const Chunk& c=w.chunks[is.c0+k2];const ContactRow& row=in.rows[c.owner];const float* u=w.u+6*c.chunk;
+                    bool into=false;
+                    for(PxU32 slot=c.begin;slot<c.end && !into;++slot) {
+                        const Bond& r=w.bonds[w.adj[slot]];if(!(r.flags&eCONTACT))continue;
+                        // Is the struck chunk still held elastically (a live joint
+                        // below capacity)? One whose joints have all broken or
+                        // yielded moves with the impactor (plastic slip, until it
+                        // breaks); one held below capacity does not.
+                        const Chunk* struck=nullptr;
+                        for(PxU32 m2=0;m2<is.nc;++m2)if(w.chunks[is.c0+m2].chunk==r.c0){struck=&w.chunks[is.c0+m2];break;}
+                        bool held=false;
+                        if(struck)for(PxU32 s2=struck->begin;s2<struck->end && !held;++s2){const PxU32 l=w.adj[s2];const Bond& j=w.bonds[l];
+                            held=!(j.flags&eCONTACT) && (j.flags&eALIVE) && utilisation(j,w.J+6*l)<1.0f-s.capacityBand;}
+                        if(!held || !s.heldStops)continue;
+                        // The impactor's velocity at the contact point along the push (n points from the chunk to the impactor).
+                        float wv[3];cross3(u+3,r.o1,wv);
+                        const float approach=-((u[0]+wv[0])*r.n[0]+(u[1]+wv[1])*r.n[1]+(u[2]+wv[2])*r.n[2])*s.dt;
+                        into=approach>s.tolerance/s.dt;
+                    }
                     float d[6];
                     for(int q=0;q<3;++q){d[q]=u[q]*s.dt-(row.velocity[q]+row.dv[q]);d[3+q]=u[3+q]*s.dt-(row.spin[q]+row.dw[q]);}
+                    if(into)for(int q=0;q<6;++q)d[q]=0.0f;
                     for(int q=0;q<6;++q)finite=finite && isfinite(d[q]);
                     if(in.rowDelta)for(int q=0;q<6;++q)in.rowDelta[6*c.owner+q]=d[q];
                 }

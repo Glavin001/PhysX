@@ -2284,6 +2284,19 @@ public:
                                 std::fprintf(stderr,"[impact]   solve %u: island %u (%u links, %u nodes) level %u lambda %.3g clipped %u broken %u: %u iterations%s, residual %.2e\n",
                                     i,rec[i].island,rec[i].links,rec[i].nodes,rec[i].level,rec[i].lambda,rec[i].clipped,rec[i].broken,rec[i].iterations,rec[i].capped?" (capped)":"",rec[i].change);
                         }
+                        if(e.triggered && mImpactLog && mImpactRows && e.contacts) {
+                            PxU32 rows=0;check(cudaMemcpy(&rows,mImpactRowCount,sizeof rows,cudaMemcpyDeviceToHost));rows=std::min(rows,impact::kContactCapacity);
+                            std::vector<impact::ContactRow> r(rows);std::vector<float> d(6*size_t(rows)),f(3*size_t(rows));
+                            if(rows){check(cudaMemcpy(r.data(),mImpactRows,sizeof(r[0])*rows,cudaMemcpyDeviceToHost));
+                                check(cudaMemcpy(d.data(),mImpactRowDelta,sizeof(float)*d.size(),cudaMemcpyDeviceToHost));
+                                check(cudaMemcpy(f.data(),mImpactRowForce,sizeof(float)*f.size(),cudaMemcpyDeviceToHost));}
+                            for(PxU32 i=0;i<rows && i<16;++i) {
+                                float cu[6]={0,0,0,0,0,0};check(cudaMemcpy(cu,mImpact.w.u+6*size_t(r[i].chunk),sizeof cu,cudaMemcpyDeviceToHost));
+                                std::fprintf(stderr,"[impact]   row %u: chunk %u body %u (1/m %.3g) v (%.2f %.2f %.2f) dv (%.2f %.2f %.2f) trial load (%.3g %.3g %.3g) N; solved force (%.3g %.3g %.3g) N; delta v (%.2f %.2f %.2f); chunk's end velocity (%.2f %.2f %.2f)\n",
+                                i,r[i].chunk,r[i].body,r[i].im,r[i].velocity[0],r[i].velocity[1],r[i].velocity[2],r[i].dv[0],r[i].dv[1],r[i].dv[2],
+                                r[i].load[0],r[i].load[1],r[i].load[2],f[3*i],f[3*i+1],f[3*i+2],d[6*i],d[6*i+1],d[6*i+2],cu[0]*dt,cu[1]*dt,cu[2]*dt);
+                            }
+                        }
                         if(mImpactCaptureDir && e.triggered && mImpactCaptures<PxU32(std::max(0,std::atoi(std::getenv("PX_DESTRUCTION_IMPACT_CAPTURE_COUNT")?std::getenv("PX_DESTRUCTION_IMPACT_CAPTURE_COUNT"):"4")))
                             && ms>std::atof(std::getenv("PX_DESTRUCTION_IMPACT_CAPTURE_MS")?std::getenv("PX_DESTRUCTION_IMPACT_CAPTURE_MS"):"1000")) {
                             char path[1024];std::snprintf(path,sizeof path,"%s/impact-%llu-%u.impc",mImpactCaptureDir,(unsigned long long)mImpactEvaluations,mPass);
@@ -2359,6 +2372,11 @@ public:
         const bool last=!mCorrectionEnabled || mPass>=mCorrectionLimit;
         applyImpactorDeltas<<<(impact::kContactCapacity+127)/128,128,0,mStream>>>(mImpactRows,mImpactRowCount,impact::kContactCapacity,
             mImpactRowDelta,mChunks,mPoses,const_cast<PxgBodySim*>(bodies),mStatus,last);
+        if(mImpactLog) {
+            PxDestructionStageStatus st{};check(cudaMemcpyAsync(&st,mStatus,sizeof st,cudaMemcpyDeviceToHost,mStream));check(cudaStreamSynchronize(mStream));
+            std::fprintf(stderr,"[impact] pass %u: impactor velocities %s (last pass %d, stage error %u)\n",mPass,
+                (st.error&~8u) || (!last && (st.error&8u))?"not applied":"applied",int(last),st.error);
+        }
     }
     void prepareDeviceInputs() {
         // Pointer/capacity refresh is ordinary submission metadata. No fracture
