@@ -1278,6 +1278,9 @@ if(BLAST_ENABLE_CUDA_STRESS AND (PX_GPU_BACKEND STREQUAL "CUMETAL" OR (CMAKE_CUD
         set_tests_properties(blast_stress_component_work_${work_buildings}
             PROPERTIES TIMEOUT 60 LABELS "gpu;diagnostic" RUN_SERIAL TRUE)
     endforeach()
+    px_destruction_cumetal_unsupported_tests(
+        "BLAST_GPU_COMPONENT_PHASE_PROBE reads the device clock inside the solver; cumetalc cannot prove the solver's pointers across that call"
+        blast_stress_component_work_1 blast_stress_component_work_256)
     add_executable(gpu_motion_expansion_test EXCLUDE_FROM_ALL tests/gpu_motion_expansion_test.cu)
     target_include_directories(gpu_motion_expansion_test PRIVATE "${BLAST_ROOT}/source/sdk/extensions/stressgpu")
     px_destruction_cuda_properties(gpu_motion_expansion_test PROPERTIES CUDA_ARCHITECTURES 89 CUDA_STANDARD 17)
@@ -1292,6 +1295,9 @@ if(BLAST_ENABLE_CUDA_STRESS AND (PX_GPU_BACKEND STREQUAL "CUMETAL" OR (CMAKE_CUD
     target_compile_options(gpu_resident_motion_modes_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
     target_link_libraries(gpu_resident_motion_modes_test PRIVATE ${PX_DESTRUCTION_GPU_RUNTIME} ${PX_DESTRUCTION_GPU_DRIVER})
     add_test(NAME blast_stress_gpu_resident_motion_modes COMMAND gpu_resident_motion_modes_test)
+    px_destruction_cumetal_unsupported_tests(
+        "the full motion-mode suite includes native_fine_inverse_test.cuh, whose pointer use cumetalc cannot legalize; the focused operator_epochs and incremental_motion targets cover it"
+        blast_stress_gpu_resident_motion_modes)
 
     # Focused production-cache regression; the full motion suite also includes
     # a legacy dense reference helper not yet supported by CuMetal lowering.
@@ -1386,6 +1392,20 @@ if(BLAST_ENABLE_CUDA_STRESS)
         endif()
     endforeach()
 endif()
+
+# Test executables kept out of `all` (slow cumetalc/nvcc builds). ctest reports
+# their tests as "Not Run" unless this target is built too:
+#   cmake --build <tree> --target all destruction_test_executables
+if(BLAST_ENABLE_CUDA_STRESS AND TARGET gpu_resident_hierarchy_test)
+    add_custom_target(destruction_test_executables)
+    add_dependencies(destruction_test_executables gpu_resident_hierarchy_test gpu_motion_expansion_test
+        gpu_resident_operator_epoch_test gpu_incremental_motion_test gpu_resident_stress_test
+        gpu_angular_convention_test gpu_resident_stress_parity_test gpu_resident_stress_3d_test)
+    if(NOT PX_GPU_BACKEND STREQUAL "CUMETAL")
+        add_dependencies(destruction_test_executables gpu_resident_stress_phase_probe gpu_resident_motion_modes_test)
+    endif()
+endif()
+px_destruction_label_tests()
 
 # Translate every .cu target after its final includes/definitions are known.
 px_destruction_finalize_gpu_targets()

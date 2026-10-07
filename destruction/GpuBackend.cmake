@@ -193,3 +193,17 @@ function(px_destruction_cumetal_unsupported_tests reason)
     list(JOIN ARGN ", " names)
     message(STATUS "CuMetal: disabled ${names}: ${reason}")
 endfunction()
+
+# The destruction ctest subset: GPU stress (blast_stress_gpu_*, *_gpu), native
+# stage (physx_native_*, physx_persistent_shape_owner*) and gpudestruction
+# (destruction_gpu_*). Adds the "destruction" label to every test registered in
+# the calling directory whose name matches. Run with `ctest -L destruction`.
+function(px_destruction_label_tests)
+    get_property(tests DIRECTORY PROPERTY TESTS)
+    foreach(test IN LISTS tests)
+        if(test MATCHES "^(blast_stress_gpu_|blast_stress_component_work_|destruction_gpu_|physx_native_|physx_persistent_shape_owner)"
+           OR test MATCHES "^blast_stress_.*_gpu$")
+            set_property(TEST ${test} APPEND PROPERTY LABELS destruction)
+        endif()
+    endforeach()
+endfunction()
