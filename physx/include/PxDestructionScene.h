@@ -455,12 +455,12 @@ public:
     // the load to its source.
     virtual bool getStressSolveReport(PxDestructionStressComponentReport* components, PxU32 capacity, PxU32& count,
         PxReal* chunkResidual2, PxU32* chunkComponent, PxU32 chunkCapacity, PxDestructionVectorPair* chunkInputs) = 0;
-protected:
     // Impact-pressure crush: the acoustic impedance (Pa s/m) of bodies that are
     // not destructible chunks (a cannonball, a meteor), by GPU index; replaces
     // the whole table. 0 or absent: unknown.
     virtual bool setImpactorImpedance(const PxRigidDynamicGPUIndex* bodies, const PxReal* impedances, PxU32 count)
     { (void)bodies; (void)impedances; (void)count; return false; }
+protected:
     virtual ~PxDestructionScene() {}
 };
 }
