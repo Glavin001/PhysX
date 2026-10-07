@@ -149,6 +149,10 @@ struct Settings {
     // millimetre, far under the 15 mm ultimate slip and a joint's elastic
     // deformation at capacity.
     float tolerance=1e-4f;
+    // How far past capacity a converged solve's forces may be (the split's
+    // primal residual, as a fraction of the joint's capacity). A joint whose
+    // carried plastic state is within it has not reached a new event.
+    float capacityTolerance=1e-4f;
     float capacityBand=2e-3f;// at capacity: utilisation >= 1 - capacityBand (the oracle's)
     PxU32 maxRounds=256;     // solves per island per evaluation (levels plus brittle cascades)
     // The elastic solve's increment is the intact structure's. Once a joint
@@ -215,6 +219,7 @@ struct Scratch {
     PxU32* adj{};          // [2 (M + R)] each island node's links (joints and contacts), local indices
     float* impactorMass{}; // [2 R] by impactor slot: inverse mass, largest inverse inertia (the majoriser)
     float* Js{};           // [6 (M + R)] the island's last converged forces
+    float* slip{};         // [M] each solved bond's plastic slip this evaluation (m)
     struct IslandState* state{}; // [N] by triggered-island slot
 };
 // Contact rows one evaluation may couple (all islands), beyond the bonds.
@@ -232,6 +237,12 @@ struct Inputs {
     const PxDestructionVectorPair* accelerations{}; // stress inputs: linear = load/m, angular = -torque/I
     const PxDestructionVectorPair* elastic{};       // this evaluation's elastic solve
     const PxDestructionVectorPair* base{};          // the forces the structure carried before this tick (the ramp's start: E's where it solved)
+    // Per bond, nonzero where `base` is the impact solve's (its island was
+    // solved or carried at the last evaluation): a plastic state -- yielded
+    // joints at capacity, the self-equilibrated forces they left -- that the
+    // elastic solve does not know. Null: none (every island elastic).
+    const PxU32* carried{};
+    const float* slipBefore{};                      // per bond: the plastic slip it has accumulated (m), or null (none)
     const PxDestructionVectorPair* elasticBase{};   // the elastic solve's forces before this tick (null: base)
     const PxDestructionStageStatus* stage{};        // skip when the stage already failed
     const PxDestructionCrushState* crushed{};       // chunks crushed before the solve (Ci), or null
@@ -535,20 +546,61 @@ __device__ __forceinline__ bool prepareBond(const Inputs& in,const Settings& s,P
     return true;
 }
 
+// The forces a bond carries this tick if no joint reaches a new event: its
+// carried state plus the elastic solve's increment since the last
+// evaluation (exact while every joint stays within capacity: the state
+// balanced the last loads, the increment balances their change).
+__device__ __forceinline__ PxDestructionVectorPair carriedForces(const Inputs& in,PxU32 i)
+{
+    const auto a=in.base[i],e=in.elastic[i],o=(in.elasticBase?in.elasticBase:in.base)[i];
+    PxDestructionVectorPair f;f.linear=a.linear+(e.linear-o.linear);f.angular=a.angular+(e.angular-o.angular);return f;
+}
+__device__ __forceinline__ bool isCarried(const Inputs& in,PxU32 i){return in.carried && in.carried[i] && in.elasticBase;}
+// islandFlag bits: 1 the island is solved (a joint reaches a new event, or
+// its carried state lost a joint); 2 it carries a plastic state.
 __global__ void trigger(Inputs in,Settings s,Scratch w)
 {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=in.bondCount)return;
     if(in.stage && (in.stage->error & 4096u))return;
-    const PxU32 island=in.bondIslands[i];if(island>=in.chunkCount)return;
+    const bool carried=isCarried(in,i);
+    PxU32 island=in.bondIslands[i];
+    if(!bondMember(in,i)) {
+        // A carried joint gone since (broken, crushed): the forces it carried
+        // no longer balance its neighbours' -- its island is solved again.
+        if(!carried)return;
+        const auto& bond=in.bonds[i];
+        for(PxU32 c:{bond.chunk0,bond.chunk1})if(c<in.chunkCount && in.chunks[c].mass>0.0f && !chunkGone(in,c)){const PxU32 k=in.nodeIslands[c];if(k<in.chunkCount)atomicOr(w.islandFlag+k,1u);}
+        return;
+    }
+    if(island>=in.chunkCount)return;
+    Bond b;if(!prepareBond(in,s,i,b))return;
+    float x[6];
+    if(carried) {
+        toLocal(b,carriedForces(in,i),x);
+        if(!(w.islandFlag[island]&2u))atomicOr(w.islandFlag+island,2u);
+        if(utilisation(b,x)>1.0f+s.capacityTolerance && !(w.islandFlag[island]&1u))atomicOr(w.islandFlag+island,1u);
+    } else {
+        toLocal(b,in.elastic[i],x);
+        if(utilisation(b,x)>=1.0f && !(w.islandFlag[island]&1u))atomicOr(w.islandFlag+island,1u);
+    }
+}
+// Islands that carry a plastic state and reach no new event: their bonds
+// take the carried forces (held, or yielded at capacity), no solve.
+__global__ void carryIslands(Inputs in,Settings s,Scratch w)
+{
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=in.bondCount)return;
+    if(in.stage && (in.stage->error & 4096u))return;
+    const PxU32 island=in.bondIslands[i];if(island>=in.chunkCount || w.islandFlag[island]!=2u)return;
     if(!bondMember(in,i))return;
     Bond b;if(!prepareBond(in,s,i,b))return;
-    float x[6];toLocal(b,in.elastic[i],x);
-    if(utilisation(b,x)>=1.0f && !w.islandFlag[island])atomicOr(w.islandFlag+island,1u);
+    const auto f=isCarried(in,i)?carriedForces(in,i):in.elastic[i];
+    float x[6];toLocal(b,f,x);
+    w.forces[i]=f;w.verdict[i]=utilisation(b,x)>=1.0f-s.capacityBand?eYIELDED:eHELD;
 }
 __global__ void listIslands(Inputs in,Scratch w)
 {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=in.chunkCount)return;
-    if(w.islandFlag[i] && in.nodeIslands[i]==i){const PxU32 k=atomicAdd(w.counters,1u);w.islands[k]=i;}
+    if((w.islandFlag[i]&1u) && in.nodeIslands[i]==i){const PxU32 k=atomicAdd(w.counters,1u);w.islands[k]=i;}
 }
 
 // ---------------------------------------------------------------------------
@@ -865,7 +917,7 @@ __device__ PxU32 solve(Shared& sh,const Inputs& in,const Settings& s,const Scrat
                 // solve's tolerance (as a fraction of 1e-4, the joints' scale).
                 float im0,ii0,im1,ii1;nodeInverse(in,w,b.c0,im0,ii0);nodeInverse(in,w,b.c1,im1,ii1);
                 const float motion=0.5f*s.dt*s.dt*(sqrtf(lp)*(im0+im1)+sqrtf(ap)*(ii0+ii1)*s.lengthScale);
-                primal=fmaxf(primal,motion/s.tolerance*1e-4f);
+                primal=fmaxf(primal,motion/s.tolerance*s.capacityTolerance);
             } else {
                 const float gain=fmaxf(fmaxf(b.gb,b.gt),fmaxf(b.g0,b.g1));
                 primal=fmaxf(primal,(sqrtf(lp)+gain*sqrtf(ap))/cap);
@@ -873,8 +925,8 @@ __device__ PxU32 solve(Shared& sh,const Inputs& in,const Settings& s,const Scrat
             dual=fmaxf(dual,0.5f*s.dt*s.dt*fmaxf(sqrtf(ld),sqrtf(ad)*s.lengthScale));
             pn+=lp+ap;dn+=ld+ad;
         }
-        primal=blockMax(sh,primal);dual=blockMax(sh,dual);last=fmaxf(primal,dual/s.tolerance*1e-4f);
-        if(!(primal>1e-4f) && !(dual>s.tolerance) && !(motion>s.tolerance)){done=true;++it;++run;break;}
+        primal=blockMax(sh,primal);dual=blockMax(sh,dual);last=fmaxf(primal,dual/s.tolerance*s.capacityTolerance);
+        if(!(primal>s.capacityTolerance) && !(dual>s.tolerance) && !(motion>s.tolerance)){done=true;++it;++run;break;}
         // Balance the residuals (OSQP): rescale rho by sqrt(primal/dual) every 25 steps.
         pn=blockSum(sh,pn);dn=blockSum(sh,dn);
         if(it%25==24 && pn>0.0f && dn>0.0f) {
@@ -1215,9 +1267,11 @@ __global__ __launch_bounds__(kThreads) void stepIslands(Inputs in,Settings s,Scr
                     if(!(utilisation(b,j)>=1.0f-s.capacityBand))continue;
                     bool fails=!(b.flags&eDUCTILE);
                     if(!fails && final) {
-                        // Slip at the centroid over the tick: 1/2 |v_rel| dt = 1/2 |a_rel| dt^2.
+                        // Slip at the centroid over the tick, 1/2 |v_rel| dt = 1/2 |a_rel| dt^2,
+                        // on top of what the joint has slipped before.
                         float e[6];relative(b,w.u,e);
-                        fails=0.5f*sqrtf(e[0]*e[0]+e[1]*e[1]+e[2]*e[2])*s.dt*s.dt>b.slip;
+                        const float before=in.slipBefore?in.slipBefore[b.bond]:0.0f;
+                        fails=before+0.5f*sqrtf(e[0]*e[0]+e[1]*e[1]+e[2]*e[2])*s.dt*s.dt>b.slip;
                     }
                     if(fails){b.flags&=~eALIVE;for(int q=0;q<6;++q)j[q]=0.0f;++newly;
                         if(w.breaks){float e[6];relative(b,w.u,e);w.breaks[2*b.bond]=float(st.rounds)+0.01f*float(st.level);
@@ -1248,10 +1302,14 @@ __global__ __launch_bounds__(kThreads) void stepIslands(Inputs in,Settings s,Scr
                     PxDestructionVectorPair f;f.linear=PxVec3(lin[0],lin[1],lin[2]);f.angular=PxVec3(ang[0],ang[1],ang[2]);
                     finite=finite && f.linear.isFinite() && f.angular.isFinite();
                     w.forces[b.bond]=f;
-                    PxU32 v=eHELD;
+                    PxU32 v=eHELD;float slip=0.0f;
                     if(!(b.flags&eALIVE))v=eBROKEN;
-                    else if(utilisation(b,j)>=1.0f-s.capacityBand){v=eYIELDED;++yielded;}
-                    w.verdict[b.bond]=v;
+                    else if(utilisation(b,j)>=1.0f-s.capacityBand) {
+                        v=eYIELDED;++yielded;
+                        // A yielded joint slips with its chunks' relative motion (a held one does not).
+                        if(!st.capped){float e[6];relative(b,w.u,e);slip=0.5f*sqrtf(e[0]*e[0]+e[1]*e[1]+e[2]*e[2])*s.dt*s.dt;}
+                    }
+                    w.verdict[b.bond]=v;if(w.slip)w.slip[b.bond]=slip;
                 }
                 // Each impactor's end velocity against the trial's (none from an
                 // unconverged evaluation: the trial's stands).
@@ -1285,11 +1343,17 @@ __global__ __launch_bounds__(kThreads) void stepIslands(Inputs in,Settings s,Scr
 // The forces each bond carries after an evaluation: E's where it solved, the
 // elastic solve's elsewhere (the next tick's ramp starts here).
 __global__ void recordState(const PxU32* islandFlag,const PxU32* bondIslands,const PxDestructionVectorPair* impact,
-    const PxDestructionVectorPair* elastic,PxDestructionVectorPair* state,PxU32 count)
+    const PxDestructionVectorPair* elastic,PxDestructionVectorPair* state,PxU32 count,PxU32* carried=nullptr,
+    const float* slip=nullptr,const float* slipBefore=nullptr,float* slipState=nullptr)
 {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
     const PxU32 island=bondIslands[i];
-    state[i]=(island!=0xffffffffu && islandFlag[island])?impact[i]:elastic[i];
+    const bool mine=island!=0xffffffffu && islandFlag[island];
+    state[i]=mine?impact[i]:elastic[i];
+    if(carried)carried[i]=mine?1u:0u;
+    // The plastic slip accumulates where the island was solved (from the
+    // start of the tick: a corrected pass replaces the trial's).
+    if(slipState)slipState[i]=(slipBefore?slipBefore[i]:0.0f)+((slip && mine && (islandFlag[island]&1u))?slip[i]:0.0f);
 }
 
 // A solve that ended at its budget did not converge: the stage reports the
@@ -1314,7 +1378,7 @@ struct Stage {
         if(pending)cudaFreeHost(pending);pending=nullptr;
         cudaFree(w.islandFlag);cudaFree(w.islands);cudaFree(w.counters);cudaFree(w.bondLocal);cudaFree(w.degree);
         cudaFree(w.bonds);cudaFree(w.chunks);cudaFree(w.J);cudaFree(w.Y);cudaFree(w.Jn);cudaFree(w.T);cudaFree(w.u);
-        cudaFree(w.forces);cudaFree(w.verdict);cudaFree(w.status);cudaFree(w.adj);cudaFree(w.impactorMass);cudaFree(w.Js);cudaFree(w.state);
+        cudaFree(w.forces);cudaFree(w.verdict);cudaFree(w.status);cudaFree(w.adj);cudaFree(w.impactorMass);cudaFree(w.Js);cudaFree(w.state);cudaFree(w.slip);
         for(float* a:{w.a,w.cy,w.cr,w.cz,w.cp,w.cq,w.cinv})cudaFree(a);w={};n=m=0;
     }
     void allocate(PxU32 chunks,PxU32 bonds) {
@@ -1327,7 +1391,7 @@ struct Stage {
         ::physx::allocate(w.bonds,links);::physx::allocate(w.chunks,slots);
         ::physx::allocate(w.adj,2*links);::physx::allocate(w.impactorMass,2*slots);
         for(float** a:{&w.J,&w.Y,&w.Jn,&w.T,&w.Js})::physx::allocate(*a,6*links);
-        ::physx::allocate(w.state,n);
+        ::physx::allocate(w.state,n);::physx::allocate(w.slip,m);check(cudaMemset(w.slip,0,sizeof(float)*m));
         ::physx::allocate(w.u,6*ids);::physx::allocate(w.a,6*links);::physx::allocate(w.cinv,36*ids);
         for(float** a:{&w.cy,&w.cr,&w.cz,&w.cp,&w.cq}){::physx::allocate(*a,6*ids);check(cudaMemset(*a,0,sizeof(float)*6*ids));}::physx::allocate(w.forces,m);::physx::allocate(w.verdict,m);::physx::allocate(w.status,1);
         check(cudaMemset(w.islandFlag,0,sizeof(PxU32)*n));check(cudaMemset(w.u,0,sizeof(float)*6*ids));
@@ -1339,7 +1403,9 @@ struct Stage {
         check(cudaMemsetAsync(w.islandFlag,0,sizeof(PxU32)*n,stream));
         check(cudaMemsetAsync(w.counters,0,sizeof(PxU32)*8,stream));
         check(cudaMemsetAsync(w.status,0,sizeof(Status),stream));
+        check(cudaMemsetAsync(w.slip,0,sizeof(float)*m,stream));
         if(m)trigger<<<(m+127)/128,128,0,stream>>>(in,s,w);
+        if(m && in.carried)carryIslands<<<(m+127)/128,128,0,stream>>>(in,s,w);
         if(n)listIslands<<<(n+127)/128,128,0,stream>>>(in,w);
         dispatches=0;longestDispatch=0.0;
         if(!m)return;

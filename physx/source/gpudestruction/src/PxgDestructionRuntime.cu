@@ -879,6 +879,10 @@ class Runtime final : public PxgDestructionRuntime {
     // the last evaluation settled on (E's where it solved), mImpactStart: those
     // at the start of this tick (kept for its corrected pass).
     PxDestructionVectorPair *mImpactBase{},*mImpactState{},*mImpactStart{};float *mImpactSlip{},*mImpactStiffness{};
+    // The plastic state the impact solve leaves: which bonds' forces are its
+    // (mImpactCarried) and each bond's accumulated plastic slip; *Start: at
+    // the start of this tick (the corrected pass starts there too).
+    PxU32 *mImpactCarried{},*mImpactCarriedStart{};float *mImpactSlipState{},*mImpactSlipStart{};
     impact::Status* mImpactHostStatus{};
     // Impact-pressure crush (Ci): per-chunk impact stress and strain rate of
     // this pass's contacts, and the non-destructible impactors' impedance.
@@ -1500,6 +1504,8 @@ public:
         cudaFree(mSections);mSections=nullptr;mSectionBending=false;mSectionRotation=false;
         mImpact.release();mImpactEnabled=false;cudaFree(mImpactRecords);mImpactRecords=nullptr;cudaFree(mImpactBase);mImpactBase=nullptr;
         cudaFree(mImpactState);mImpactState=nullptr;cudaFree(mImpactStart);mImpactStart=nullptr;
+        cudaFree(mImpactCarried);mImpactCarried=nullptr;cudaFree(mImpactCarriedStart);mImpactCarriedStart=nullptr;
+        cudaFree(mImpactSlipState);mImpactSlipState=nullptr;cudaFree(mImpactSlipStart);mImpactSlipStart=nullptr;
         cudaFree(mImpactSlip);mImpactSlip=nullptr;cudaFree(mImpactStiffness);mImpactStiffness=nullptr;
         cudaFreeHost(mImpactHostStatus);mImpactHostStatus=nullptr;
         mImpactCrush=false;cudaFree(mImpactStress);mImpactStress=nullptr;cudaFree(mImpactRate);mImpactRate=nullptr;
@@ -1777,6 +1783,8 @@ public:
                     allocate(mImpactBase,d.bondCount);check(cudaMemset(mImpactBase,0,sizeof(*mImpactBase)*d.bondCount));
                     allocate(mImpactState,d.bondCount);check(cudaMemset(mImpactState,0,sizeof(*mImpactState)*d.bondCount));
                     allocate(mImpactStart,d.bondCount);
+                    allocate(mImpactCarried,d.bondCount);check(cudaMemset(mImpactCarried,0,sizeof(PxU32)*d.bondCount));allocate(mImpactCarriedStart,d.bondCount);
+                    allocate(mImpactSlipState,d.bondCount);check(cudaMemset(mImpactSlipState,0,sizeof(float)*d.bondCount));allocate(mImpactSlipStart,d.bondCount);
                     check(cudaMallocHost(&mImpactHostStatus,sizeof(*mImpactHostStatus)));
                     mImpact.allocate(d.chunkCount,d.bondCount);mImpactEnabled=true;mImpactMaterialCount=d.materialCount;
                     if(mImpactLog || mImpactCaptureDir){allocate(mImpactRecords,impact::kLogCapacity);mImpact.w.log=mImpactRecords;}
@@ -2208,6 +2216,8 @@ public:
             if(mImpactEnabled && !mPass) {
                 check(cudaMemcpyAsync(mImpactBase,mSolver->deviceView().bondImpulses,sizeof(*mImpactBase)*mM,cudaMemcpyDeviceToDevice,mStream));
                 check(cudaMemcpyAsync(mImpactStart,mImpactState,sizeof(*mImpactStart)*mM,cudaMemcpyDeviceToDevice,mStream));
+                check(cudaMemcpyAsync(mImpactCarriedStart,mImpactCarried,sizeof(PxU32)*mM,cudaMemcpyDeviceToDevice,mStream));
+                check(cudaMemcpyAsync(mImpactSlipStart,mImpactSlipState,sizeof(float)*mM,cudaMemcpyDeviceToDevice,mStream));
                 check(cudaEventRecord(mReady,mStream));
             }
             if(mSolver) {
@@ -2245,6 +2255,7 @@ public:
                     in.ductileSlip=mImpactSlip;in.stiffness=mImpactStiffness;in.health=mHealth;
                     in.nodeBegin=mNodeBegin;in.nodeRefs=mNodeRefs;in.nodeIslands=stress.nodeIslands;in.bondIslands=stress.bondIslands;
                     in.accelerations=mInputs;in.elastic=forces;in.base=mImpactStart;in.elasticBase=mImpactBase;in.stage=mStatus;
+                    in.carried=mImpactCarriedStart;in.slipBefore=mImpactSlipStart;
                     in.crushed=mImpactCrush?mTrialCrush:nullptr;in.sections=mSectionBending?mSections:nullptr;
                     if(mImpactRows) {
                         in.rows=mImpactRows;in.rowCount=impact::kContactCapacity;in.rowCounter=mImpactRowCount;
@@ -2258,7 +2269,8 @@ public:
                     mImpact.submit(in,settings,mStream);
                     impact::reportConvergence<<<1,1,0,mStream>>>(mImpact.w.status,mStatus,mCorrectionEnabled && !mAllowUnconverged);
                     impactView={mImpact.w.islandFlag,stress.bondIslands,mImpact.w.forces,mImpact.w.verdict};
-                    impact::recordState<<<(mM+127)/128,128,0,mStream>>>(mImpact.w.islandFlag,stress.bondIslands,mImpact.w.forces,forces,mImpactState,mM);
+                    impact::recordState<<<(mM+127)/128,128,0,mStream>>>(mImpact.w.islandFlag,stress.bondIslands,mImpact.w.forces,forces,mImpactState,mM,
+                        mImpactCarried,mImpact.w.slip,mImpactSlipStart,mImpactSlipState);
                     if(timed) {
                         check(cudaMemcpyAsync(mImpactHostStatus,mImpact.w.status,sizeof(*mImpactHostStatus),cudaMemcpyDeviceToHost,mStream));
                         check(cudaStreamSynchronize(mStream));

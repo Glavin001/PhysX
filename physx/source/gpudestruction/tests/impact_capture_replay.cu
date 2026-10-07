@@ -77,6 +77,8 @@ int run(int argc,char** argv){
     if(h.flags&impact::eCAPTURE_SECTIONS)in.sections=upload(f.read<PxDestructionBondSection>(m));
     std::vector<float> zero(6*size_t(std::max(h.rows,1u)),0.0f);
     if(h.flags&impact::eCAPTURE_ROWS){in.rows=upload(f.read<impact::ContactRow>(h.rows));in.rowCount=h.rows;in.rowDelta=upload(zero);in.rowForce=upload(zero);}
+    if(h.flags&impact::eCAPTURE_CARRIED)in.carried=upload(f.read<PxU32>(m));
+    if(h.flags&impact::eCAPTURE_SLIP_BEFORE)in.slipBefore=upload(f.read<float>(m));
     in.stage=upload(std::vector<PxDestructionStageStatus>(1));
     cudaStream_t stream;check(cudaStreamCreateWithFlags(&stream,cudaStreamNonBlocking));
     impact::Stage e;e.allocate(n,m);

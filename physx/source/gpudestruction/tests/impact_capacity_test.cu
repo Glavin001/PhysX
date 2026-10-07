@@ -130,10 +130,13 @@ void islands(const Structure& s,std::vector<PxU32>& node,std::vector<PxU32>& bon
 struct Result {
     std::vector<PxDestructionVectorPair> elastic,forces;
     std::vector<PxDestructionBondVerdict> verdicts;
-    std::vector<PxU32> impact;std::vector<float> accel,rowDelta; impact::Status status{};
+    std::vector<PxU32> impact;std::vector<float> accel,rowDelta,slip; impact::Status status{};
+    std::vector<PxU32> carried;  // per bond: its island was solved or carried (the next tick's plastic state)
 };
+// The plastic state carried from the last evaluation (Result::forces, carried, slip).
+struct Carry { std::vector<PxDestructionVectorPair> elasticBase; std::vector<PxU32> carried; std::vector<float> slip; };
 Result evaluate(const Structure& s,const std::vector<PxVec3>& F,const std::vector<PxVec3>& T,
-    const std::vector<PxDestructionVectorPair>& base,bool withImpact,impact::Settings settings=impact::Settings{}){
+    const std::vector<PxDestructionVectorPair>& base,bool withImpact,impact::Settings settings=impact::Settings{},const Carry* carry=nullptr){
     const PxU32 n=PxU32(s.chunks.size()),m=PxU32(s.bonds.size());
     Result out;out.elastic=elastic(s,F,T);
     std::vector<PxU32> begin(n+1,0),refs(2*m);
@@ -160,6 +163,9 @@ Result evaluate(const Structure& s,const std::vector<PxVec3>& F,const std::vecto
     Device<impact::ContactRow> dRows(s.rows.empty()?std::vector<impact::ContactRow>(1):s.rows);
     Device<float> dDelta(6*std::max<size_t>(s.rows.size(),1));
     if(!s.rows.empty()){in.rows=dRows.p;in.rowCount=PxU32(s.rows.size());in.rowDelta=dDelta.p;}
+    Device<PxDestructionVectorPair> dElasticBase(carry?carry->elasticBase:std::vector<PxDestructionVectorPair>(1));
+    Device<PxU32> dCarried(carry?carry->carried:std::vector<PxU32>(1));Device<float> dSlip(carry?carry->slip:std::vector<float>(1));
+    if(carry){in.elasticBase=dElasticBase.p;in.carried=dCarried.p;in.slipBefore=dSlip.p;}
     impact::View view{};
 #ifndef PX_IMPACT_TODAY
     if(withImpact){e.submit(in,settings,stream);view={e.w.islandFlag,dBond.p,e.w.forces,e.w.verdict};}
@@ -178,7 +184,10 @@ Result evaluate(const Structure& s,const std::vector<PxVec3>& F,const std::vecto
         std::vector<PxU32> v(m);check(cudaMemcpy(v.data(),e.w.verdict,m*sizeof(PxU32),cudaMemcpyDeviceToHost));
         check(cudaMemcpy(out.accel.data(),e.w.u,6*n*sizeof(float),cudaMemcpyDeviceToHost));
         check(cudaMemcpy(&out.status,e.w.status,sizeof(out.status),cudaMemcpyDeviceToHost));
-        for(PxU32 k=0;k<m;++k)if(bondIsland[k]!=0xffffffffu && flags[bondIsland[k]]){out.forces[k]=f[k];out.impact[k]=v[k];}
+        out.carried.assign(m,0u);out.slip.assign(m,0.0f);
+        std::vector<float> slip(m);check(cudaMemcpy(slip.data(),e.w.slip,m*sizeof(float),cudaMemcpyDeviceToHost));
+        for(PxU32 k=0;k<m;++k)if(bondIsland[k]!=0xffffffffu && flags[bondIsland[k]]){out.forces[k]=f[k];out.impact[k]=v[k];out.carried[k]=1u;
+            out.slip[k]=(carry?carry->slip[k]:0.0f)+((flags[bondIsland[k]]&1u)?slip[k]:0.0f);}
     }
 #endif
     out.rowDelta=dDelta.get();
@@ -469,11 +478,55 @@ void dispatches(){
     expect(same,text);
 }
 
+// 9. A yielded joint carries its plastic state: a 100 kg chunk on two joints
+// under a constant 15 kN pull, a stiff ductile one of 10 kN capacity and a
+// soft strong one. The elastic solve sends most of the pull to the stiff
+// joint, past its capacity, every tick: the impact solve yields it at 10 kN
+// and the soft joint takes the rest. The next tick, same load: nothing new
+// reaches capacity, so no island is solved, the joints keep the carried
+// forces (yielded at 10 kN, 5 kN) and nothing breaks. Today (no carried
+// state): solved again every tick.
+void carried(){
+    std::printf("a yielded joint at constant load: solved once, then carried\n");
+    Structure s;const PxU32 anchor=s.chunk(PxVec3(0,0,0),0,0),top=s.chunk(PxVec3(0,1,0),100,10);
+    // Tension capacities 10 kN (ductile, 15 mm) and 100 kN over 0.01 m^2.
+    const PxU32 weak=s.material(1e9f,1e6f,1e9f,0.015f),strong=s.material(1e9f,10e6f,1e9f,0.0f);
+    s.bond(anchor,top,PxVec3(0,0.5f,0),PxVec3(0,1,0),0.01f,weak,1.0f);
+    s.bond(anchor,top,PxVec3(0,0.5f,0),PxVec3(0,1,0),0.01f,strong,0.3f);
+    const auto rest=elastic(s,s.force,s.torque);
+    auto F=s.force;F[top]+=PxVec3(0,15e3f,0);
+    impact::Settings fs;if(const char* t=std::getenv("IMPACT_TEST_TOLERANCE"))fs.tolerance=float(std::atof(t));
+    if(const char* t=std::getenv("IMPACT_TEST_RAMP"))fs.rampFactor=float(std::atof(t));
+    const auto first=evaluate(s,F,s.torque,rest,true,fs);
+    char text[240];
+    std::snprintf(text,sizeof text,"first tick: solved (%u islands), the stiff joint yields at %.0f N (elastic %.0f), the soft one %.0f N",
+        first.status.triggered,first.forces[0].linear.y,first.elastic[0].linear.y,first.forces[1].linear.y);
+    // The split between the two (10 kN and 5 kN statically) is the solve's
+    // elastic tie-break: at the motion tolerance (0.1 mm over the tick) it is
+    // not resolved -- the joints' elastic deformations are micrometres -- and
+    // lands within ~10% (1e-6 m resolves it exactly). Checked here: the
+    // joints balance the pull and none breaks.
+    expect(first.status.triggered==1 && std::fabs(first.forces[0].linear.y+first.forces[1].linear.y-15e3f)<0.01f*15e3f
+        && first.verdicts[0].health>0 && first.verdicts[1].health>0,text);
+    // The next ticks, same load, from the carried state.
+    Carry carry{first.elastic,first.carried,first.slip};
+    auto state=first.forces;PxU32 solved=0,broken=0;
+    for(int tick=0;tick<5;++tick) {
+        const auto next=evaluate(s,F,s.torque,state,true,impact::Settings{},std::getenv("IMPACT_TEST_NO_CARRY")?nullptr:&carry);
+        solved+=next.status.solves;broken+=(next.verdicts[0].health<=0)+(next.verdicts[1].health<=0);
+        if(!tick){std::snprintf(text,sizeof text,"next tick: forces %.0f and %.0f N, verdicts %u %u",next.forces[0].linear.y,next.forces[1].linear.y,next.impact[0],next.impact[1]);
+            expect(std::fabs(next.forces[0].linear.y-first.forces[0].linear.y)<50.0f && std::fabs(next.forces[1].linear.y-first.forces[1].linear.y)<50.0f,text);}
+        carry={next.elastic,next.carried,next.slip};state=next.forces;
+    }
+    std::snprintf(text,sizeof text,"five more ticks at the same load: %u solves, %u joints broken (expected 0, 0)",solved,broken);
+    expect(solved==0 && broken==0,text);
+}
+
 }} // physx
 
 int main(int argc,char** argv){
     (void)argc;(void)argv;
-    try{if(const char* only=std::getenv("IMPACT_TEST_ONLY")){if(!std::strcmp(only,"unconverged"))physx::unconverged();if(!std::strcmp(only,"dispatches"))physx::dispatches();}else{physx::column();physx::wall();physx::rest();physx::impactCrush();physx::section();physx::coupled();physx::unconverged();physx::dispatches();}}
+    try{if(const char* only=std::getenv("IMPACT_TEST_ONLY")){if(!std::strcmp(only,"unconverged"))physx::unconverged();if(!std::strcmp(only,"dispatches"))physx::dispatches();if(!std::strcmp(only,"carried"))physx::carried();}else{physx::column();physx::wall();physx::rest();physx::impactCrush();physx::section();physx::coupled();physx::unconverged();physx::dispatches();physx::carried();}}
     catch(const std::exception& e){std::printf("error: %s\n",e.what());return 2;}
     std::printf("%s (%d failed)\n",physx::failures?"FAILED":"passed",physx::failures);
     return physx::failures?1:0;
