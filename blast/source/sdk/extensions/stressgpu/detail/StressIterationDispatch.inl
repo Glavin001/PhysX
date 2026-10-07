@@ -332,7 +332,7 @@
         launchPersistentStress(params);return;
 #else
 
-        if (conditionalLoopEnabled())
+        if (conditionalLoopEnabled() && whileConditionalSupported())
         {
             cudaStreamCaptureStatus captureStatus = cudaStreamCaptureStatusNone;
             unsigned long long captureId = 0;

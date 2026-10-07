@@ -550,6 +550,17 @@ if(BLAST_ENABLE_CUDA_STRESS)
     set_tests_properties(blast_stress_gpu_quiet_load_deterministic PROPERTIES ENVIRONMENT "BLAST_GPU_DETERMINISTIC_REDUCTIONS=1")
     add_test(NAME blast_stress_gpu_quiet_load_unrolled COMMAND gpu_quiet_load_test)
     set_tests_properties(blast_stress_gpu_quiet_load_unrolled PROPERTIES ENVIRONMENT "BLAST_GPU_COND_LOOP=0")
+    # The conditional while-node loop (default where the runtime supports it)
+    # and the unrolled loop must give bit-identical forces. Deterministic
+    # reductions make the two runs comparable bit for bit. On CuMetal, which has
+    # no while-node, both runs take the unrolled loop through the support probe.
+    add_test(NAME blast_stress_gpu_solve_shape_identity COMMAND "${CMAKE_COMMAND}"
+        -DEXE=$<TARGET_FILE:gpu_quiet_load_test> "-DARGS=--dump %OUT%"
+        "-DENV_A=BLAST_GPU_DETERMINISTIC_REDUCTIONS=1,BLAST_GPU_COND_LOOP=0"
+        "-DENV_B=BLAST_GPU_DETERMINISTIC_REDUCTIONS=1,BLAST_GPU_COND_LOOP=1"
+        -DOUT=${CMAKE_CURRENT_BINARY_DIR}/solve_shape_identity
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/compare_runs.cmake)
+    file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/solve_shape_identity)
 
     add_executable(native_gpu_material_test tests/native_gpu_material_test.cpp physx_scene.cpp)
     target_include_directories(native_gpu_material_test PRIVATE ${PX_DESTRUCTION_GPU_INCLUDE_DIRS})
