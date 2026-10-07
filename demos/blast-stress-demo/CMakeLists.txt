@@ -1416,7 +1416,6 @@ set_property(TEST blast_stress_reference_building_load_path blast_stress_destruc
 # is a reproduction to investigate, not an accepted platform limit, so they
 # stay enabled; the label keeps `ctest -L destruction -LE "known-failure|cumetal-open"`
 # usable as a gate meanwhile. Delete a name here once it passes on the Mac.
-#   native_gpu_destruction: "single supported bond does not balance applied load"
 #   persistent_shape_owner(, _gpu_bounds, _host_pose_bounds): "GPU contact
 #     retained old actor ownership" after an ownership merge in the same step
 #   gpu_kinematic_inputs: tick 47 differs from the CUDA-captured CSV by 1e-5
@@ -1429,7 +1428,7 @@ set_property(TEST blast_stress_reference_building_load_path blast_stress_destruc
 #     integration, fine-only): numeric/convergence failures; never built by a
 #     plain `make` before destruction_test_executables existed
 if(PX_GPU_BACKEND STREQUAL "CUMETAL")
-    set_property(TEST physx_native_gpu_destruction physx_persistent_shape_owner
+    set_property(TEST physx_persistent_shape_owner
         physx_persistent_shape_owner_gpu_bounds physx_persistent_shape_owner_host_pose_bounds
         physx_native_gpu_kinematic_inputs physx_native_gpu_bombardment_contacts
         physx_native_standard_bombardment_contacts physx_native_gpu_resimulation

@@ -4,6 +4,7 @@
 #include <PxDestructionScene.h>
 #include <PxContact.h>
 #include <cuda.h>
+#include <cfloat>
 #include <cmath>
 #include <cstdio>
 #include <stdexcept>
@@ -27,7 +28,7 @@ void accumulate(PxDestructionSurfaceLoad& out,PxVec3 force,PxVec3 r) {
     out.virial[4]+=0.5f*(r.x*force.z+r.z*force.x);
     out.virial[5]+=0.5f*(r.y*force.z+r.z*force.y);
 }
-void exercise(bool materials=false,bool bonded=true) {
+void exercise(bool materials=false,bool bonded=true,bool warmStart=true) {
     blast_demo::SceneCapacity capacity;capacity.maxBodies=64;capacity.maxShapes=64;capacity.maxContactPairs=4096;
     blast_demo::PhysXScene context(blast_demo::PhysicsMode::Gpu,true,capacity,nullptr,true,false,true,true);
     auto& scene=context.scene();auto& cuda=*context.cudaContextManager();
@@ -52,7 +53,7 @@ void exercise(bool materials=false,bool bonded=true) {
     PxDestructionStressBond bond{0,1,PxVec3(0,-0.5f,0),PxVec3(0,1,0),1,1,1};
     PxDestructionStressCluster motion{cluster->getGPUIndex(),PxVec3(0)};
     PxDestructionStressDesc desc;desc.chunks=chunks;desc.chunkCount=2;desc.bonds=&bond;desc.bondCount=1;
-    desc.clusters=&motion;desc.clusterCount=1;desc.maxIterations=64;desc.tolerance=1e-5f;
+    desc.clusters=&motion;desc.clusterCount=1;desc.maxIterations=64;desc.tolerance=1e-5f;desc.warmStart=warmStart;
     PxDestructionMaterial material;
     if(materials) {
         material.compressionElasticLimit=1e15f;material.compressionFatalLimit=2e15f;
@@ -81,6 +82,7 @@ void exercise(bool materials=false,bool bonded=true) {
         PxScopedCudaLock lock(cuda);check(cuMemcpyDtoH(out,velocityDevice,bytes));
     };
     bool normal=false,friction=false;float worstMomentum=0,worstWrench=0,peakRate=0;unsigned stressFrames=0;
+    float previousBond=0; // magnitude of the solution the next solve warm-starts from
     for(unsigned tick=0;tick<32;++tick) {
         const PxVec3 before=velocity();step(scene);const PxVec3 after=velocity();
         PxVec3 spin;PxTransform shotPose;
@@ -103,8 +105,24 @@ void exercise(bool materials=false,bool bonded=true) {
         require(stage->getLastStatus().frame==status.frame,"CPU completion observation stale");
         require(inputs[1].angular.isZero(),"native stage changed reference angular load semantics");
         require(relative(inputs[1].linear,surface[1].force/2)<2e-4f,"native force conversion changed");
-        if(bonded)require(relative(forces.linear,surface[1].force)<2e-4f || relative(-forces.linear,surface[1].force)<2e-4f,
-            "single supported bond does not balance applied load");
+        // A warm-started FP32 solve starts from the previous tick's solution;
+        // its residual b-Ax0 is formed at that magnitude, so the attainable
+        // accuracy is a few ulps of it, not of the current load. The tick after
+        // a 1440 N impact, with a 7e-5 N residual contact, lands 3 ulps of each
+        // component of the 1440 N solution away on CuMetal (2.5 FLT_EPSILON of
+        // its magnitude), then is bitwise exact again the next tick. 8 epsilon
+        // bounds that; a cold start (warmStart=false, run below) has no
+        // previous solution and keeps the plain 2e-4 bound.
+        if(bonded) {
+            const float warmBound=warmStart?8*FLT_EPSILON*previousBond:0.0f;
+            const float error=PxMin((forces.linear-surface[1].force).magnitude(),(forces.linear+surface[1].force).magnitude());
+            if(error>=2e-4f*PxMax(1.0f,surface[1].force.magnitude())+warmBound)
+                std::fprintf(stderr,"tick %u bond force (%g,%g,%g) surface force (%g,%g,%g) previous %g iterations %u converged %u\n",tick,
+                    forces.linear.x,forces.linear.y,forces.linear.z,surface[1].force.x,surface[1].force.y,surface[1].force.z,
+                    previousBond,status.iterations,status.converged);
+            require(error<2e-4f*PxMax(1.0f,surface[1].force.magnitude())+warmBound,"single supported bond does not balance applied load");
+            previousBond=forces.linear.magnitude();
+        }
         const PxVec3 expectedImpulse=-(after-before)*2;
         const PxVec3 actualImpulse=pose.q.rotate(surface[1].force)/60;
         worstMomentum=PxMax(worstMomentum,(actualImpulse-expectedImpulse).magnitude());
@@ -202,6 +220,6 @@ int main() {
     try {
         {blast_demo::PhysXScene cpu(blast_demo::PhysicsMode::Cpu,false,{},nullptr);
          require(!cpu.scene().getDestructionScene(),"CPU scene exposed GPU stage");step(cpu.scene());}
-        exercise();exercise(true);exercise(true,false);return 0;
+        exercise();exercise(true);exercise(true,false);exercise(false,true,false);return 0;
     }catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}
 }
