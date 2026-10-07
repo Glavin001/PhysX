@@ -1456,23 +1456,22 @@ __global__ __launch_bounds__(kThreads) void stepIslands(Inputs in,Settings s,Scr
                 }
                 // Each row's bound on its contact in the corrected pass, per
                 // contact point (N s): what the solve delivered, where the
-                // struck chunk stays on the structure at capacity (a joint
-                // yielded: it gives way plastically, the rigid simulation's
-                // kinematic cluster must not stop the impactor harder); none
-                // (0) where it is held elastically (its deformation is
-                // negligible on the rigid simulation's scale) or freed (it is a
-                // body of its own in the corrected pass).
+                // struck chunk stays on the structure (held elastically or at
+                // capacity: it gives way -- deflects, slips -- and the rigid
+                // simulation's kinematic cluster must not stop the impactor
+                // harder than its joints and inertia do; a stiff joint's
+                // delivered impulse is the full stop); none (0) where it is
+                // freed (a body of its own in the corrected pass).
                 for(PxU32 k2=threadIdx.x;k2<is.nr;k2+=kThreads) {
                     const PxU32 l=is.b0+nb+k2;const Bond& r=w.bonds[l];const ContactRow& row=in.rows[r.bond];
                     float bound=0.0f;
                     if(!st.capped && r.c0<in.chunkCount) {
                         const Chunk* struck=nullptr;
                         for(PxU32 m2=0;m2<is.nc;++m2)if(w.chunks[is.c0+m2].chunk==r.c0){struck=&w.chunks[is.c0+m2];break;}
-                        bool live=false,yielded=false;
-                        if(struck)for(PxU32 s2=struck->begin;s2<struck->end;++s2){const PxU32 j=w.adj[s2];const Bond& b2=w.bonds[j];
-                            if((b2.flags&eCONTACT) || !(b2.flags&eALIVE))continue;live=true;
-                            if(utilisation(b2,w.J+6*j)>=1.0f-s.capacityBand)yielded=true;}
-                        if(live && yielded) {
+                        bool live=false;
+                        if(struck)for(PxU32 s2=struck->begin;s2<struck->end && !live;++s2){const Bond& b2=w.bonds[w.adj[s2]];
+                            live=!(b2.flags&eCONTACT) && (b2.flags&eALIVE);}
+                        if(live) {
                             float lin[3],ang[3];toWorld(r,w.J+6*l,lin,ang);
                             bound=sqrtf(lin[0]*lin[0]+lin[1]*lin[1]+lin[2]*lin[2])*s.dt/float(max(row.points,1u));
                         }

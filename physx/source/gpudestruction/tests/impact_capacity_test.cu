@@ -586,13 +586,15 @@ void carried(){
     expect(solved==0 && broken==0,text);
 }
 
-// 10. An elastically held chunk (the infinite_wall `unbreakable` control): its
-// joint far beyond any load but soft, so in the solve the body rides it
-// through the tick on its elastic deformation. The rigid simulation keeps it
-// rigid (its deformation is negligible there): no bound on the corrected
-// pass's contact (0), the trial's stop stands.
+// 10. An elastically held chunk (the infinite_wall `unbreakable` control,
+// soft): in the solve the body rides it through the tick on its joint's
+// elastic deflection, which the rigid simulation does not have; the corrected
+// pass's contact is bounded by what the solve delivered (the joint's spring
+// force over the tick, M (v - v')), so the body keeps the rest -- deflection
+// shown as penetration, the spring's force carried into the next tick. A stiff
+// one delivers the full stop.
 void heldStops(){
-    std::printf("coupled contact: a chunk held elastically keeps the rigid stop\n");
+    std::printf("coupled contact: a chunk held elastically bounds the corrected pass by its spring\n");
     Structure s;const PxU32 anchor=s.chunk(PxVec3(0,0,0),0,0),wall=s.chunk(PxVec3(0,0.5f,0),10.0f,0.5f);
     const PxU32 mat=s.material(1e13f,1e13f,1e13f,0.0f);
     s.bond(anchor,wall,PxVec3(0,0.25f,0),PxVec3(0,1,0),0.01f,mat,1e-3f);   // k = 30 GPa w^2 = 3e4 N/m
@@ -607,9 +609,12 @@ void heldStops(){
     const auto rest=elastic(s,s.force,s.torque);
     auto F=s.force;F[wall]+=PxVec3(row.load[0],0,0);F[trim]+=PxVec3(0,0,100.0f);
     const auto r=evaluate(s,F,s.torque,rest,true);
-    char text[200];std::snprintf(text,sizeof text,"held joint: corrected-pass bound %.3f (expected 0: rigid; %u islands, %u contacts, %u energy gains)",
-        r.rowBound[0],r.status.triggered,r.status.contacts,r.status.energyGain);
-    expect(r.status.triggered==1 && r.status.contacts==1 && r.rowBound[0]==0.0f && r.impact[0]!=impact::eBROKEN && r.status.energyGain==0,text);
+    const float delivered=-M*r.rowDelta[0]/4.0f;   // the trial left the body at rest: the change is its end velocity
+    const float kept=r.rowDelta[0];
+    char text[240];std::snprintf(text,sizeof text,"held joint: the body keeps %.2f m/s, the corrected pass's bound %.2f N s per point = M (v - v')/4 = %.2f (%u energy gains)",
+        kept,r.rowBound[0],M*(v-kept)/4.0f,r.status.energyGain);
+    (void)delivered;
+    expect(r.status.triggered==1 && r.impact[0]!=impact::eBROKEN && std::fabs(r.rowBound[0]-M*(v-kept)/4.0f)<0.02f*M*v/4.0f && r.status.energyGain==0,text);
 }
 // 11. The section model's projection on a thin section (a drywall screw
 // joint in the house: 1 cm^2, g ~ 2.4e3 /m, capacities 600-900 N, metrics
