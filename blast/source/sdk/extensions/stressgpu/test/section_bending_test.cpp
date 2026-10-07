@@ -107,6 +107,15 @@ int main()
         expectNear("no section, 0.01 m^2: 6 M / a^3 (a square)", square.bend, 6 * M / (0.1 * 0.1 * 0.1));
         const Stress squareTwist = root(0.0f, 0.0f, 0.1f, 0.1f, 100.0f, 1.0f, false);
         expectNear("no section: twist of a square, 3 sqrt(2) T / a^3", squareTwist.shear, 3 * std::sqrt(2.0) * 100 / 1e-3);
+        // One torsion model in the section path (FIDELITY_AUDIT B3): the
+        // fallback grades a bond exactly as the same square patch WITH its
+        // section, Z_t = I_p / r_max = sqrt(2) a^3 / 6 (the interface, weld-
+        // group torsion every real section uses). The capped path's 4.81 is
+        // Saint-Venant's warping torsion of a solid square bar, another model.
+        const Stress withSection = root(P, L, 0.1f, 0.1f, 100.0f, 1.0f, true);
+        const Stress without = root(P, L, 0.1f, 0.1f, 100.0f, 1.0f, false);
+        expectNear("fallback twist = the square patch's section twist", without.shear, withSection.shear);
+        expectNear("fallback bending = the square patch's section bending", without.bend, withSection.bend);
     }
 
     std::printf("%s: %d failure(s)%s\n", failures ? "FAILED" : "passed", failures,
