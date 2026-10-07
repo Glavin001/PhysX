@@ -14,6 +14,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <cstdlib>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -43,6 +44,7 @@ struct Structure {
     std::vector<PxDestructionMaterial> materials;
     std::vector<float> ductile; // per material
     std::vector<PxVec3> force,torque; // per chunk, N and N m about the chunk
+    std::vector<PxDestructionBondSection> sections; // per bond when the section model is on
     PxU32 chunk(PxVec3 p,float mass,float inertia){PxDestructionStressChunk c{};c.position=p;c.mass=mass;c.inertia=inertia;c.cluster=0;
         c.contactIndex=0xffffffffu;c.volume=0;c.material=0;chunks.push_back(c);force.push_back(PxVec3(0));torque.push_back(PxVec3(0));
         return PxU32(chunks.size()-1);}
@@ -145,11 +147,14 @@ Result evaluate(const Structure& s,const std::vector<PxVec3>& F,const std::vecto
     Device<PxU32> dBegin(begin),dRefs(refs),dNode(nodeIsland),dBond(bondIsland);
     Device<PxDestructionVectorPair> dInputs(inputs),dElastic(out.elastic),dBase(base);
     Device<PxDestructionStageStatus> stage(1);Device<PxDestructionBondVerdict> verdicts(m);Device<PxVec3> centroids(m);
+    const bool sectionVerdict=!s.sections.empty();
+    Device<PxDestructionBondSection> dSections(sectionVerdict?s.sections:std::vector<PxDestructionBondSection>(1));
     cudaStream_t stream;check(cudaStreamCreateWithFlags(&stream,cudaStreamNonBlocking));
     impact::Stage e;e.allocate(n,m);settings.lengthScale=lengthScale(s);
     impact::Inputs in{};in.chunks=chunks.p;in.chunkCount=n;in.bonds=bonds.p;in.bondCount=m;in.materials=materials.p;in.ductileSlip=slip.p;
     in.health=dHealth.p;in.nodeBegin=dBegin.p;in.nodeRefs=dRefs.p;in.nodeIslands=dNode.p;in.bondIslands=dBond.p;
     in.accelerations=dInputs.p;in.elastic=dElastic.p;in.base=dBase.p;in.stage=stage.p;
+    if(settings.sectionBending)in.sections=dSections.p;
     impact::View view{};
 #ifndef PX_IMPACT_TODAY
     if(withImpact){e.submit(in,settings,stream);view={e.w.islandFlag,dBond.p,e.w.forces,e.w.verdict};}
@@ -157,7 +162,7 @@ Result evaluate(const Structure& s,const std::vector<PxVec3>& F,const std::vecto
     (void)withImpact;(void)settings;
 #endif
     evaluateBondMaterials<<<(m+127)/128,128,0,stream>>>(chunks.p,bonds.p,materials.p,dHealth.p,dElastic.p,m,settings.dt,2.0f,
-        settings.bendGainMax,true,verdicts.p,centroids.p,stage.p,false,nullptr,view);
+        settings.bendGainMax,true,verdicts.p,centroids.p,stage.p,sectionVerdict,sectionVerdict?dSections.p:nullptr,false,view);
     check(cudaStreamSynchronize(stream));check(cudaGetLastError());
     out.verdicts=verdicts.get();
     out.forces=out.elastic;out.impact.assign(m,impact::eNONE);out.accel.assign(6*size_t(n),0.0f);
@@ -332,11 +337,54 @@ void impactCrush(){
     std::snprintf(text,sizeof text,"truck front at 21.7 m/s: %.2f MPa, not crushed",r[6]/1e6f);expect(r[8]<0.5f && std::fabs(r[6]-0.159e6f)<0.01e6f,text);
 }
 
+// 5. The section model (PX_DESTRUCTION_SECTION_BENDING): a 45 x 90 mm post
+// standing on its plate, pushed sideways 1.2 m up, past its section's
+// bending capacity (|M|/S) though far under the capped-gain formula's
+// (3 |M|/A, ~20-40x weaker); a light trim piece on it, pulled off, puts the
+// island past capacity whichever formula reads it, so the impact solve runs.
+// The elastic verdict breaks the stud's joints; the impact solve, reading the
+// same sections, must break them too.
+void section(){
+    std::printf("section model: a stud past its section's bending capacity\n");
+    Structure s;
+    const PxU32 plate=s.chunk(PxVec3(0,-0.05f,0),0,0),head=s.chunk(PxVec3(0,2.45f,0),0,0);
+    const PxU32 stud=s.chunk(PxVec3(0,1.2f,0),4.0f,1.9f),trim=s.chunk(PxVec3(0,1.2f,0.07f),1.0f,0.01f);
+    const PxU32 timber=s.material(21e6f,24e6f,10e6f,0.0f),glue=s.material(1e6f,1e5f,1e5f,0.0f);
+    const float b=0.045f,h=0.09f,A=b*h;
+    PxDestructionBondSection sec;sec.axis=PxVec3(1,0,0);sec.bendModulus0=b*h*h/6;sec.bendModulus1=h*b*b/6;
+    sec.twistModulus=b*h*(b*b+h*h)/(6*std::sqrt(b*b+h*h));sec.gyration0=h/std::sqrt(12.0f);sec.gyration1=b/std::sqrt(12.0f);
+    sec.polarGyration=std::sqrt((b*b+h*h)/12);
+    s.bond(plate,stud,PxVec3(0,0,0),PxVec3(0,1,0),A,timber);s.sections.push_back(sec);
+    (void)head;
+    s.bond(stud,trim,PxVec3(0,1.2f,0.045f),PxVec3(0,0,1),1e-4f,glue);s.sections.push_back(PxDestructionBondSection{});
+    s.gravity();
+    const auto rest=elastic(s,s.force,s.torque);
+    auto F=s.force;F[stud]+=PxVec3(0,0,5e3f);F[trim]+=PxVec3(0,0,1e3f);
+    impact::Settings on;on.sectionBending=true;if(const char* it=std::getenv("IMPACT_TEST_ITERATIONS"))on.iterations=PxU32(std::atoi(it));
+    const auto today=evaluate(s,F,s.torque,rest,false,on);
+    const auto r=evaluate(s,F,s.torque,rest,true,on);
+    impact::Settings capped;capped.sectionBending=false;
+    const auto old=evaluate(s,F,s.torque,rest,true,capped);
+    char text[200];
+    for(int k=0;k<2;++k)std::printf("    bond %d: normal %.2f MPa shear %.2f MPa bend %.2f MPa; elastic lin %.0f %.0f %.0f ang %.0f %.0f %.0f\n",k,
+        today.verdicts[k].stressNormal/1e6f,today.verdicts[k].stressShear/1e6f,today.verdicts[k].stressBend/1e6f,
+        today.elastic[k].linear.x,today.elastic[k].linear.y,today.elastic[k].linear.z,today.elastic[k].angular.x,today.elastic[k].angular.y,today.elastic[k].angular.z);
+    std::snprintf(text,sizeof text,"the elastic (section) verdict breaks the post's joint (%s)",today.verdicts[0].health<=0?"broken":"held");
+    expect(today.verdicts[0].health<=0,text);
+    std::snprintf(text,sizeof text,"the impact solve with the section model agrees (%s; %u islands solved)",
+        r.verdicts[0].health<=0?"broken":"held",r.status.triggered);
+    expect(r.status.triggered==1 && r.verdicts[0].health<=0,text);
+    std::printf("    E verdict %u, %u; E forces lin %.0f %.0f %.0f ang %.0f %.0f %.0f; solves %u its %u capped %u rounds %u\n",r.impact[0],r.impact[1],
+        r.forces[0].linear.x,r.forces[0].linear.y,r.forces[0].linear.z,r.forces[0].angular.x,r.forces[0].angular.y,r.forces[0].angular.z,
+        r.status.solves,r.status.iterations,r.status.capped,r.status.rounds);
+    std::printf("    (with the capped-gain cones instead, the impact solve %s it)\n",old.verdicts[0].health>0?"holds":"breaks");
+}
+
 }} // physx
 
 int main(int argc,char** argv){
     (void)argc;(void)argv;
-    try{physx::column();physx::wall();physx::rest();physx::impactCrush();}
+    try{physx::column();physx::wall();physx::rest();physx::impactCrush();physx::section();}
     catch(const std::exception& e){std::printf("error: %s\n",e.what());return 2;}
     std::printf("%s (%d failed)\n",physx::failures?"FAILED":"passed",physx::failures);
     return physx::failures?1:0;
