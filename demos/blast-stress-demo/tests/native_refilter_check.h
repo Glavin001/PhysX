@@ -37,24 +37,32 @@ public:
 
     void verify(physx::PxgDestructionRuntime& runtime,physx::PxCudaContextManager& cuda,
         physx::PxU32 affected,physx::PxU32 ordinary,bool reuse) {
+        // Observed after the step. The corrected pass's broad phase consumed the
+        // split's installed generation, and the corrected evaluation clears it
+        // (PxgDestructionRuntime, since "Fix collision ownership handoff after
+        // final-pass native fracture"): only a further split in that final pass
+        // would publish a new one. The generation the corrected traversal used
+        // is the one the broad phase borrowed and still holds.
         const auto view=runtime.collisionOwnershipView();
         const auto published=mBounds.getNativeOwnershipView();
         require(mBounds.getRigidOwners() && mBounds.getRigidOwnerCapacity()>affected,"broad phase lost GPU motion ownership");
-        require(view.generation && view.shapeGenerations && affected<view.shapeCapacity && ordinary<view.shapeCapacity,
+        require(published.generation && view.shapeGenerations && affected<view.shapeCapacity && ordinary<view.shapeCapacity,
             "missing native GPU refilter generation");
-        require(published.generation==view.generation && published.shapeGenerations==view.shapeGenerations
+        require((!view.generation || view.generation==published.generation) && published.shapeGenerations==view.shapeGenerations
             && published.shapeCapacity==view.shapeCapacity,"broad phase did not borrow the installed GPU ownership view");
         physx::PxU64 stamps[2]{};
         {physx::PxScopedCudaLock lock(cuda);
             require(cuMemcpyDtoH(&stamps[0],reinterpret_cast<CUdeviceptr>(view.shapeGenerations+affected),sizeof(stamps[0]))==CUDA_SUCCESS
                 && cuMemcpyDtoH(&stamps[1],reinterpret_cast<CUdeviceptr>(view.shapeGenerations+ordinary),sizeof(stamps[1]))==CUDA_SUCCESS,
                 "native GPU refilter observation failed");}
-        require(stamps[0]==view.generation,"affected persistent shape was not stamped by ownership installation");
-        require(stamps[1]!=view.generation,"native refilter incorrectly selected an ordinary projectile");
+        require(stamps[0]==published.generation,"affected persistent shape was not stamped by ownership installation");
+        require(stamps[1]!=published.generation,"native refilter incorrectly selected an ordinary projectile");
         if(reuse)require(mBounds.getHostRefilterRequests()==mRequests && mBounds.getHostRefilterUploadWords()==mWords
             && static_cast<physx::PxgCudaBroadPhaseSap*>(mBounds.getBroadPhase())->getHostGroupUploadBytes()==mGroupBytes,
             "native fracture reconstructed/uploaded CPU filtering metadata");
     }
+    // The ownership generation the last (corrected) broad phase pass used.
+    physx::PxU64 traversedGeneration() const { return mBounds.getNativeOwnershipView().generation; }
     void verifyOrdinaryPass() const {
         require(!mBounds.getNativeOwnershipView().generation,"a previous ownership generation leaked into an ordinary pass");
     }

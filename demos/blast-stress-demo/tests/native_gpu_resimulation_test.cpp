@@ -242,7 +242,11 @@ Result impact(bool fracture,bool gravity=false,bool speculative=false,unsigned q
                 {PxScopedCudaLock lock(cuda);
                     check(cuMemcpyDtoH(&generation,CUdeviceptr(ownership.shapeGenerations+retainedId),sizeof(generation)));
                     check(cuMemcpyDtoH(&kept,shapeManager.getShapeSimsDevicePtr()+retainedId*sizeof(kept),sizeof(kept)));}
-                require(generation!=ownership.generation && kept.mBodySimIndex.index()==wall->getGPUIndex(),
+                // The corrected evaluation clears the installed generation once
+                // its broad phase has consumed it; compare with that traversal's.
+                const auto traversed=refilterAudit.traversedGeneration();
+                require(traversed && (!ownership.generation || ownership.generation==traversed),"missing native GPU refilter generation");
+                require(generation!=traversed && kept.mBodySimIndex.index()==wall->getGPUIndex(),
                     "retained shape must preserve its GPU owner without recreating existing pairs");
             }
             require(controller.getSimulationCore()->getReboundShapeIndexUploadCount()==initialBoundsUploads,

@@ -1419,7 +1419,6 @@ set_property(TEST blast_stress_reference_building_load_path blast_stress_destruc
 #   gpu_kinematic_inputs: tick 47 differs from the CUDA-captured CSV by 1e-5
 #   gpu/standard_bombardment_contacts: step 168 unconverged (4128) / the demo
 #     refuses unconverged solves; standard scene motion audit error 2.2e-5
-#   gpu_resimulation: "missing native GPU refilter generation"
 #   vehicle_parked_sleeps, vehicle_demo: fixture outcomes (no brick rests on
 #     the car; the car does not get through the wall) under the product policy
 #   resident stress (hierarchy, cycles, 3d, parity, analytic, epoch
@@ -1427,7 +1426,7 @@ set_property(TEST blast_stress_reference_building_load_path blast_stress_destruc
 #     plain `make` before destruction_test_executables existed
 if(PX_GPU_BACKEND STREQUAL "CUMETAL")
     set_property(TEST physx_native_gpu_kinematic_inputs physx_native_gpu_bombardment_contacts
-        physx_native_standard_bombardment_contacts physx_native_gpu_resimulation
+        physx_native_standard_bombardment_contacts
         physx_native_vehicle_parked_sleeps physx_native_vehicle_demo
         blast_stress_gpu_fine_only_preparation blast_stress_gpu_resident_hierarchy
         blast_stress_gpu_assembled_hierarchy blast_stress_gpu_coarse_long_rows
