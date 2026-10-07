@@ -48,12 +48,12 @@ __global__ void evaluateBondMaterials(const PxDestructionStressChunk* chunks,
             {s.axis.x,s.axis.y,s.axis.z},s.bendModulus0,s.bendModulus1,s.twistModulus,
             v.stressNormal,v.stressShear,v.stressBend);
         // A bearing joint: the contact bears at its edge and the fasteners at
-        // its centre take what the compression does not hold, T = M0/d0 + M1/d1 - C.
+        // its centre take T = M0/d0 + M1/d1 + N, N the signed normal force
+        // (-C compressed, the pull in tension): convex in the wrench.
         if(s.bearingDepth0>0 && s.bearingDepth1>0) {
             const PxVec3 axis1=normal.cross(s.axis);
             const float m0=fabsf(angular.dot(s.axis)),m1=fabsf(angular.dot(axis1));
-            const float c=fmaxf(0.0f,-v.stressNormal*area);
-            bearingTension=fmaxf(0.0f,m0/s.bearingDepth0+m1/s.bearingDepth1-c)/area;
+            bearingTension=fmaxf(0.0f,m0/s.bearingDepth0+m1/s.bearingDepth1+v.stressNormal*area)/area;
         }
     } else
     extStressCalcBondStress({force.linear.x,force.linear.y,force.linear.z},
