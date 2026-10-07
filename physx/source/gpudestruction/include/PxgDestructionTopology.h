@@ -58,7 +58,9 @@ protected:
  *
  * Device views remain borrowed until the next prepare/commit/discard/release.
  * Only a trial with status()->prepared != 0 has readable candidate arrays.
- * Empty, redundant, rejected and invalid batches do not rebuild connectivity.
+ * Empty, redundant, rejected and invalid batches do not rebuild connectivity,
+ * except an empty batch with *deviceEmptyRequest != 0: the trial is then the
+ * accepted topology again, prepared and unchanged (a correction with no split).
  * Optional sourceMotion supplies provisional parent motion in accepted cluster
  * order, leaving accepted motion unchanged while preparing a candidate.
  * All input pointers remain alive through readyEvent. Callers order readers and
@@ -71,7 +73,8 @@ public:
     virtual bool prepare(const PxgDestructionEdit* deviceEdits, const std::uint32_t* deviceCount,
         std::uint32_t capacity, const std::uint32_t* deviceAbortFlags = nullptr,
         std::uint32_t abortMask = 0xffffffffu, void* producerReady = nullptr,
-        void* consumerDone = nullptr, const PxgDestructionClusterMotion* sourceMotion = nullptr) = 0;
+        void* consumerDone = nullptr, const PxgDestructionClusterMotion* sourceMotion = nullptr,
+        const std::uint32_t* deviceEmptyRequest = nullptr) = 0;
     virtual bool commit(const std::uint32_t* deviceAccept, void* producerReady = nullptr,
         void* consumerDone = nullptr) = 0;
     virtual bool discard(void* producerReady = nullptr, void* consumerDone = nullptr) = 0;

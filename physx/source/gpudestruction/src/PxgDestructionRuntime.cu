@@ -492,8 +492,9 @@ __global__ void collectImpactBounds(const impact::ContactRow* rows,const PxU32* 
     atomicMax(reinterpret_cast<unsigned*>(bound+body),__float_as_uint(b));
 }
 // Into the rigid checkpoint the corrected pass restores; the correction is
-// requested (bit 8), with or without a fracture: the topology transaction
-// takes an empty edit set when the producer requests a correction.
+// requested (*requested): the topology transaction prepares an empty edit set
+// for it, and keepBoundCorrection sets the stage's correction bit after the
+// (unchanged) commit.
 __global__ void applyImpactBounds(float* bound,float* saved,PxU32* bounded,PxgBodySim* checkpoint,PxU32 checkpointCount,PxU32 bodies,
     PxDestructionStageStatus* status,PxU32* requested)
 {
@@ -503,7 +504,7 @@ __global__ void applyImpactBounds(float* bound,float* saved,PxU32* bounded,PxgBo
     float& m=checkpoint[i].body2Actor_maxImpulseW.p.w;
     if(!bounded[i]){saved[i]=m;bounded[i]=1u;}
     m=fminf(saved[i],b);
-    atomicOr(&status->error,8u);*requested=1u;
+    *requested=1u;
 }
 // An unchanged topology commits at once (and clears the correction bit);
 // the contact bounds still need their corrected pass.
@@ -2395,7 +2396,8 @@ public:
                 if(mMaterials)emitTopologyEdits<<<(std::max(mM,mN)+127)/128,128,0,mStream>>>(mVerdicts,mM,mTrialCrush,mCrush,mN,mTopologyEdits,mTopologyCount);
                 provisionalTopologyMotion<<<(mC+127)/128,128,0,mStream>>>(mTopology->accepted(),mChunks,mClusters,mPoses,bodyStates,mProvisionalMotion);
                 check(cudaEventRecord(mReady,mStream));
-                if(!mTopology->prepare(mTopologyEdits,mTopologyCount,mEditCapacity,&mStatus->error,~8u,mReady,nullptr,mProvisionalMotion))
+                if(!mTopology->prepare(mTopologyEdits,mTopologyCount,mEditCapacity,&mStatus->error,~8u,mReady,nullptr,mProvisionalMotion,
+                    mImpactBoundRequested && !mPass?mImpactBoundRequested:nullptr))
                     throw std::runtime_error("native topology transaction submission failed");
                 check(cudaStreamWaitEvent(mStream,static_cast<cudaEvent_t>(mTopology->trial().readyEvent),0));
                 inspectTopologyAndBeginBodyPreparation<<<1,1,0,mStream>>>(mTopology->status(),mTopology->trial(),mBodyPreparation,mStatus,mMaterials!=nullptr);
@@ -2444,6 +2446,8 @@ public:
     // impactor's motion is the rigid simulation's own: momentum is exchanged
     // only through contacts, never set.
     void boundImpactContacts() {
+        // A request is this pass's only: cleared whether or not bounds follow.
+        if(mImpactBoundRequested && !mPass)check(cudaMemsetAsync(mImpactBoundRequested,0,sizeof(PxU32),mStream));
         if(!mImpactRows || !mImpactEnabled || mPass || !mCorrectionEnabled || !mCheckpointValid) {
             if(mImpactLog && mImpactRows && !mPass)std::fprintf(stderr,"[impact] contact bounds off: correction %d checkpoint %d\n",int(mCorrectionEnabled),int(mCheckpointValid));
             return;
