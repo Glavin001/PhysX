@@ -77,6 +77,14 @@ struct Settings {
     // instead of at the chunks' midpoint: its application point P is the
     // centroid for every bond.
     bool solverAtCentroid=false;
+    // The stage's section model (PX_DESTRUCTION_SECTION_BENDING /
+    // _ROTATIONAL_STIFFNESS, Inputs::sections): capacity from each bond's own
+    // section -- bending |M0|/S0 + |M1|/S1 and twist |T|/Zt about the centroid,
+    // the moduli shrinking with the remaining area, as the verdict reads them
+    // (extStressCalcBondStressSection) -- and, with rotational stiffness, each
+    // joint's rotational stiffness k r^2 per principal axis of its section and
+    // k r_p^2 in twist, as the elastic solve has it.
+    bool sectionBending=false,sectionRotation=false;
     // The ramp starts at the first event -- the load fraction at which the
     // first joint reaches capacity in the elastic solution -- and grows by
     // rampFactor to the full load (event to event: before the first event
@@ -86,7 +94,13 @@ struct Settings {
     PxU32 rampLevels=32;
     float rampFactor=2.0f;
     PxU32 iterations=4096;   // projected iterations per solve
-    float tolerance=1e-5f;   // converged: no joint's force moved by more than this fraction of its capacity in an iteration
+    // Converged when every joint's projected gradient -- the relative
+    // acceleration of its two chunks that the solve has not yet balanced or
+    // let through -- moves them apart by at most this over the tick
+    // (1/2 a dt^2, m; rotations at the solve's length scale): a tenth of a
+    // millimetre, far under the 15 mm ultimate slip and a joint's elastic
+    // deformation at capacity.
+    float tolerance=1e-4f;
     float capacityBand=2e-3f;// at capacity: utilisation >= 1 - capacityBand (the oracle's)
     PxU32 maxRounds=256;     // solves per island per evaluation (levels plus brittle cascades)
     // The elastic solve's increment is the intact structure's. Once a joint
@@ -116,9 +130,10 @@ struct Bond {
     float o0[3],o1[3];       // E's wrench's point from each chunk (the solver's, or the centroid)
     float pc[3];             // the stress solver's application point less E's
     float capC,capT,capS;    // cF a, tF a, sF a (N)
-    float gb,gt;             // bending and torsion section gains (1/m)
-    float kl,ka;             // stiffness on forces (N/m) and moments (N m/rad)
-    float dl,da;             // majoriser of the dual's Hessian, force and moment rows
+    float gb,gt;             // bending (round set) and torsion gains (1/m): fibre stress x area per unit moment
+    float g0,g1;             // bending gains about t1 and t2 (section moduli: the L1 set); 0: the round set (gb |M_t|)
+    float kl,kt,k0,k1;       // stiffness on forces (N/m), in twist, and in bending about t1, t2 (N m/rad)
+    float dl,dt,d0,d1;       // majoriser of the dual's Hessian, by the same rows
     float slip;              // ultimate slip (m); 0 brittle
     float area;
 };
@@ -156,6 +171,7 @@ struct Inputs {
     const PxDestructionVectorPair* elasticBase{};   // the elastic solve's forces before this tick (null: base)
     const PxDestructionStageStatus* stage{};        // skip when the stage already failed
     const PxDestructionCrushState* crushed{};       // chunks crushed before the solve (Ci), or null
+    const PxDestructionBondSection* sections{};     // the section model's sections (Settings::sectionBending), or null
 };
 
 // ---------------------------------------------------------------------------
@@ -198,7 +214,8 @@ __device__ __forceinline__ void toSolver(const Bond& b,const float* x,float* lin
 __device__ __forceinline__ float utilisation(const Bond& b,const float* x)
 {
     const float N=x[0],V=sqrtf(x[1]*x[1]+x[2]*x[2]),T=fabsf(x[3]),M=sqrtf(x[4]*x[4]+x[5]*x[5]);
-    const float bend=b.gb*M,tension=fmaxf(N+bend,0.0f),compression=fmaxf(bend-N,0.0f),shear=V+b.gt*T;
+    const float bend=b.g0>0.0f?b.g0*fabsf(x[4])+b.g1*fabsf(x[5]):b.gb*M;
+    const float tension=fmaxf(N+bend,0.0f),compression=fmaxf(bend-N,0.0f),shear=V+b.gt*T;
     auto ratio=[](float d,float c){return d<=0.0f?0.0f:(c>0.0f?d/c:FLT_MAX);};
     return fmaxf(fmaxf(ratio(compression,b.capC),ratio(tension,b.capT)),ratio(shear,b.capS));
 }
@@ -226,11 +243,74 @@ __device__ __forceinline__ bool triangle(float& px,float& py,float ax,float ay,f
 // independent; each is rotationally symmetric about its scalar axis, so its
 // projection keeps the vector part's direction and projects (scalar, |vector|)
 // onto the meridian triangle. Returns whether anything moved.
-__device__ __forceinline__ bool project(const Bond& b,float* x,float ml,float ma)
+// The section's axial set with an L1 bending term, in its positive quadrant
+// (M0, M1 >= 0; the set and a diagonal metric are symmetric under their sign
+// flips, so the projection keeps their signs):
+//   M0 >= 0, M1 >= 0, g0 M0 + g1 M1 <= capT - N, g0 M0 + g1 M1 <= capC + N.
+// In coordinates scaled by the metric's square root it is a polyhedron of
+// four half-spaces; the projection is the nearest feasible projection onto
+// the affine hull of a subset of their planes (15 subsets).
+__device__ __forceinline__ bool halfSpaces(const float (*A)[3],const float* B,const float* q)
 {
-    const float sl=sqrtf(ml),sa=sqrtf(ma);
+    for(int k=0;k<4;++k) {
+        const float v=A[k][0]*q[0]+A[k][1]*q[1]+A[k][2]*q[2]-B[k];
+        const float scale=fabsf(B[k])+fabsf(A[k][0]*q[0])+fabsf(A[k][1]*q[1])+fabsf(A[k][2]*q[2])+1e-30f;
+        if(v>1e-5f*scale)return false;
+    }
+    return true;
+}
+__device__ __forceinline__ void polytope(float* p,const float* sc,float g0,float g1,float capT,float capC)
+{
+    // Half-space k: a_k . y <= b_k in scaled coordinates y = sc * x.
+    const float A[4][3]={{0.0f,-1.0f/sc[1],0.0f},{0.0f,0.0f,-1.0f/sc[2]},{1.0f/sc[0],g0/sc[1],g1/sc[2]},{-1.0f/sc[0],g0/sc[1],g1/sc[2]}};
+    const float B[4]={0.0f,0.0f,capT,capC};
+    const float y[3]={sc[0]*p[0],sc[1]*p[1],sc[2]*p[2]};
+    if(halfSpaces(A,B,y))return;
+    float best[3]={0,0,0},bestD=FLT_MAX;
+    for(int mask=1;mask<16;++mask) {
+        int idx[3],n=0;for(int k=0;k<4;++k)if(mask&(1<<k)){if(n==3){n=4;break;}idx[n++]=k;}
+        if(n>3)continue;
+        // q = y - A_S^T (A_S A_S^T)^-1 (A_S y - b_S)
+        float G[3][3],r[3];
+        for(int a=0;a<n;++a){r[a]=A[idx[a]][0]*y[0]+A[idx[a]][1]*y[1]+A[idx[a]][2]*y[2]-B[idx[a]];
+            for(int c=0;c<n;++c)G[a][c]=A[idx[a]][0]*A[idx[c]][0]+A[idx[a]][1]*A[idx[c]][1]+A[idx[a]][2]*A[idx[c]][2];}
+        float mu[3]={0,0,0};
+        if(n==1){if(!(G[0][0]>0.0f))continue;mu[0]=r[0]/G[0][0];}
+        else if(n==2){const float det=G[0][0]*G[1][1]-G[0][1]*G[1][0];if(!(fabsf(det)>1e-20f*(G[0][0]*G[1][1])))continue;
+            mu[0]=(r[0]*G[1][1]-r[1]*G[0][1])/det;mu[1]=(G[0][0]*r[1]-G[1][0]*r[0])/det;}
+        else {
+            const float det=G[0][0]*(G[1][1]*G[2][2]-G[1][2]*G[2][1])-G[0][1]*(G[1][0]*G[2][2]-G[1][2]*G[2][0])+G[0][2]*(G[1][0]*G[2][1]-G[1][1]*G[2][0]);
+            if(!(fabsf(det)>1e-20f*G[0][0]*G[1][1]*G[2][2]))continue;
+            for(int c=0;c<3;++c){float M[3][3];for(int a=0;a<3;++a)for(int e=0;e<3;++e)M[a][e]=e==c?r[a]:G[a][e];
+                mu[c]=(M[0][0]*(M[1][1]*M[2][2]-M[1][2]*M[2][1])-M[0][1]*(M[1][0]*M[2][2]-M[1][2]*M[2][0])+M[0][2]*(M[1][0]*M[2][1]-M[1][1]*M[2][0]))/det;}
+        }
+        float q[3]={y[0],y[1],y[2]};
+        for(int a=0;a<n;++a)for(int e=0;e<3;++e)q[e]-=mu[a]*A[idx[a]][e];
+        if(!halfSpaces(A,B,q))continue;
+        const float d=(q[0]-y[0])*(q[0]-y[0])+(q[1]-y[1])*(q[1]-y[1])+(q[2]-y[2])*(q[2]-y[2]);
+        if(d<bestD){bestD=d;best[0]=q[0];best[1]=q[1];best[2]=q[2];}
+    }
+    if(bestD<FLT_MAX){p[0]=best[0]/sc[0];p[1]=best[1]/sc[1];p[2]=best[2]/sc[2];}
+}
+// Projection of a bond-frame wrench onto C_b in the metric
+// diag(ml,ml,ml,mt,m0,m1). The axial set (N, M_t) and the shear set (T, V) are
+// independent. The shear set, and the axial set with the round bending term,
+// are rotationally symmetric about their scalar axis: the projection keeps
+// the vector part's direction and projects (scalar, |vector|) onto the
+// meridian triangle. The section's L1 bending term is a polyhedron (above).
+// Returns whether anything moved.
+__device__ __forceinline__ bool project(const Bond& b,float* x,float ml,float mt,float m0,float m1)
+{
+    const float sl=sqrtf(ml);
     bool moved=false;
-    {   // (N, M_t): base -cF a .. tF a, apex where both fibres reach capacity.
+    if(b.g0>0.0f) {   // (N, M0, M1), the section's L1 bending
+        const float before[3]={x[0],x[4],x[5]};
+        float p[3]={x[0],fabsf(x[4]),fabsf(x[5])};const float sc[3]={sl,sqrtf(m0),sqrtf(m1)};
+        polytope(p,sc,b.g0,b.g1,b.capT,b.capC);
+        x[0]=p[0];x[4]=copysignf(p[1],before[1]);x[5]=copysignf(p[2],before[2]);
+        moved=x[0]!=before[0] || x[4]!=before[1] || x[5]!=before[2];
+    } else {   // (N, M_t): base -cF a .. tF a, apex where both fibres reach capacity.
+        const float sa=sqrtf(m0);   // the round set has m0 == m1
         const float m=sqrtf(x[4]*x[4]+x[5]*x[5]);
         float s=sl*x[0],r=sa*m;
         if(triangle(s,r,-sl*b.capC,0.0f,sl*b.capT,0.0f,0.5f*sl*(b.capT-b.capC),0.5f*sa*(b.capT+b.capC)/b.gb)) {
@@ -239,6 +319,7 @@ __device__ __forceinline__ bool project(const Bond& b,float* x,float ml,float ma
         }
     }
     {   // (T, V): |V| + gt |T| <= sF a.
+        const float sa=sqrtf(mt);
         const float v=sqrtf(x[1]*x[1]+x[2]*x[2]);
         float s=sa*x[3],r=sl*v;
         if(triangle(s,r,-sa*b.capS/b.gt,0.0f,sa*b.capS/b.gt,0.0f,0.0f,sl*b.capS)) {
@@ -249,7 +330,7 @@ __device__ __forceinline__ bool project(const Bond& b,float* x,float ml,float ma
     return moved;
 }
 // The return map: the projection in the joint's compliance metric K^-1.
-__device__ __forceinline__ bool returnMap(const Bond& b,float* x){return project(b,x,1.0f/b.kl,1.0f/b.ka);}
+__device__ __forceinline__ bool returnMap(const Bond& b,float* x){return project(b,x,1.0f/b.kl,1.0f/b.kt,1.0f/b.k0,1.0f/b.k1);}
 
 // Bond b's wrench (bond frame) on one of its chunks: chunk0 gets force +lin at
 // the centroid and couple -M_c; chunk1 force -lin there and couple +M_c.
@@ -316,7 +397,14 @@ __device__ __forceinline__ bool prepareBond(const Inputs& in,const Settings& s,P
     b.bond=i;b.c0=bond.chunk0;b.c1=bond.chunk1;
     b.flags=eALIVE|(c0.mass>0.0f?eDYNAMIC0:0u)|(c1.mass>0.0f?eDYNAMIC1:0u);
     if(in.ductileSlip && in.ductileSlip[bond.material]>0.0f){b.flags|=eDUCTILE;b.slip=in.ductileSlip[bond.material];}else b.slip=0.0f;
-    frame(normal,b.n,b.t1,b.t2);
+    const PxDestructionBondSection section=(s.sectionBending && in.sections)?in.sections[i]:PxDestructionBondSection{};
+    if(s.sectionBending && section.bendModulus0>0.0f) {
+        // The section's principal axes: t1 its axis, t2 = n x axis.
+        PxVec3 axis=section.axis-normal*section.axis.dot(normal);axis.normalize();
+        const PxVec3 axis1=normal.cross(axis);
+        b.n[0]=normal.x;b.n[1]=normal.y;b.n[2]=normal.z;b.t1[0]=axis.x;b.t1[1]=axis.y;b.t1[2]=axis.z;
+        b.t2[0]=axis1.x;b.t2[1]=axis1.y;b.t2[2]=axis1.z;
+    } else frame(normal,b.n,b.t1,b.t2);
     // The stress solver's wrench acts at the chunks' midpoint P when both are
     // dynamic (at the centroid when one is a support), and the stage's
     // capped-gain formula reads its moment there: so do E's cones, so a joint's
@@ -324,7 +412,8 @@ __device__ __forceinline__ bool prepareBond(const Inputs& in,const Settings& s,P
     // rest). momentAtCentroid moves E's wrench to the centroid (the impact
     // study's convention, for comparison with it); pc converts between the two.
     const PxVec3 P=(!s.solverAtCentroid && c0.mass>0.0f && c1.mass>0.0f)?c0.position+displacement*0.5f:bond.centroid;
-    const PxVec3 point=s.momentAtCentroid?bond.centroid:P;
+    // The section verdict reads the moment at the centroid.
+    const PxVec3 point=(s.momentAtCentroid || s.sectionBending)?bond.centroid:P;
     const PxVec3 o0=point-c0.position,o1=point-c1.position,pc=P-point;
     b.o0[0]=o0.x;b.o0[1]=o0.y;b.o0[2]=o0.z;b.o1[0]=o1.x;b.o1[1]=o1.y;b.o1[2]=o1.z;
     b.pc[0]=pc.x;b.pc[1]=pc.y;b.pc[2]=pc.z;
@@ -332,10 +421,27 @@ __device__ __forceinline__ bool prepareBond(const Inputs& in,const Settings& s,P
     b.area=area;b.capC=m.compressionFatalLimit*area;b.capT=m.tensionFatalLimit*area;b.capS=m.shearFatalLimit*area;
     const float root=sqrtf(area>1e-6f?area:1e-6f);
     // Stress = force / area with these gains on moments (extStressCalcBondStress).
-    b.gb=fminf(6.0f/root,s.bendGainMax);b.gt=fminf(4.81f/root,s.bendGainMax);
+    b.g0=b.g1=0.0f;
+    if(!s.sectionBending){b.gb=fminf(6.0f/root,s.bendGainMax);b.gt=fminf(4.81f/root,s.bendGainMax);}
+    else if(section.bendModulus0>0.0f && section.bendModulus1>0.0f && section.twistModulus>0.0f && bond.area>0.0f) {
+        // extStressCalcBondStressSection: the moduli shrink with the live area.
+        const float live=area/bond.area;
+        b.g0=area/(section.bendModulus0*live);b.g1=area/(section.bendModulus1*live);b.gt=area/(section.twistModulus*live);b.gb=b.g0;
+    } else {
+        // No section data: the square patch of the remaining area, uncapped.
+        b.gb=6.0f/root;b.gt=4.2426407f/root;
+    }
     // The stress solve's weights: w^2 on forces, (w L)^2 on moments.
     const float w=bond.complianceScale,k=s.stiffnessScale*(in.stiffness?in.stiffness[bond.material]:s.stiffness)*w*w;
-    b.kl=k;b.ka=k*s.lengthScale*s.lengthScale;b.dl=b.da=1.0f;
+    b.kl=k;b.kt=b.k0=b.k1=k*s.lengthScale*s.lengthScale;b.dl=b.dt=b.d0=b.d1=1.0f;
+    if(s.sectionRotation) {
+        // ExtStressGpuSetBondRotationalStiffness: k r^2 about each principal
+        // axis of the section (its radii of gyration, or the square patch of
+        // the authored area), k r_p^2 in twist.
+        float r0=section.gyration0,r1=section.gyration1,rp=section.polarGyration;
+        if(!(r0>0.0f)){r0=r1=sqrtf(bond.area/12.0f);rp=r0*1.41421356f;}
+        b.k0=k*r0*r0;b.k1=k*r1*r1;b.kt=k*rp*rp;
+    }
     return true;
 }
 
@@ -432,14 +538,14 @@ __device__ void precondition(const Inputs& in,const Settings& s,const Scratch& w
     const float inverseDt2=1.0f/(s.dt*s.dt);
     for(PxU32 k=threadIdx.x;k<is.nb;k+=kThreads) {
         Bond& b=w.bonds[is.b0+k];
-        float dl=inverseDt2/b.kl,da=inverseDt2/b.ka;
+        float dl=inverseDt2/b.kl,dt=inverseDt2/b.kt,d0=inverseDt2/b.k0,d1=inverseDt2/b.k1,da=0.0f;
         for(int e=0;e<2;++e) {
             if(!(b.flags&(e?eDYNAMIC1:eDYNAMIC0)))continue;
             const auto c=in.chunks[e?b.c1:b.c0];const float d=float(w.degree[e?b.c1:b.c0]);
             const float* o=e?b.o1:b.o0;const float ii=c.inertia>0.0f?1.0f/c.inertia:0.0f;
             dl+=d*(1.0f/c.mass+2.0f*dot3(o,o)*ii);da+=d*2.0f*ii;
         }
-        b.dl=dl;b.da=da;
+        b.dl=dl;b.dt=dt+da;b.d0=d0+da;b.d1=d1+da;
     }
     __syncthreads();
 }
@@ -468,14 +574,16 @@ __device__ PxU32 solve(Shared& sh,const Inputs& in,const Settings& s,const Scrat
             float x[6];
             for(int q=0;q<3;++q) {
                 x[q]=y[q]-(g[q]+(y[q]-T[q])*inverseDt2/b.kl)/b.dl;
-                x[3+q]=y[3+q]-(g[3+q]+(y[3+q]-T[3+q])*inverseDt2/b.ka)/b.da;
             }
-            project(b,x,b.dl,b.da);
-            const float cap=fmaxf(fmaxf(b.capC,b.capT),b.capS);
-            float dn=0.0f,dm=0.0f;
-            for(int q=0;q<3;++q){dn+=(x[q]-y[q])*(x[q]-y[q]);dm+=(x[3+q]-y[3+q])*(x[3+q]-y[3+q]);}
-            change=fmaxf(change,(sqrtf(dn)+fmaxf(b.gb,b.gt)*sqrtf(dm))/cap);
-            for(int q=0;q<6;++q){jn[q]=x[q];restart+=(q<3?b.dl:b.da)*(y[q]-x[q])*(x[q]-j[q]);}
+            {const float ka[3]={b.kt,b.k0,b.k1},dd[3]={b.dt,b.d0,b.d1};
+                for(int q=0;q<3;++q)x[3+q]=y[3+q]-(g[3+q]+(y[3+q]-T[3+q])*inverseDt2/ka[q])/dd[q];}
+            project(b,x,b.dl,b.dt,b.d0,b.d1);
+            // The projected gradient D (Y - Jn): a relative acceleration.
+            const float dq[6]={b.dl,b.dl,b.dl,b.dt,b.d0,b.d1};
+            float gl=0.0f,ga=0.0f;
+            for(int q=0;q<3;++q){const float a=dq[q]*(y[q]-x[q]),r=dq[3+q]*(y[3+q]-x[3+q]);gl+=a*a;ga+=r*r;}
+            change=fmaxf(change,0.5f*s.dt*s.dt*fmaxf(sqrtf(gl),sqrtf(ga)*s.lengthScale));
+            for(int q=0;q<6;++q){jn[q]=x[q];restart+=dq[q]*(y[q]-x[q])*(x[q]-j[q]);}
         }
         change=blockMax(sh,change);
         restart=blockSum(sh,restart);
