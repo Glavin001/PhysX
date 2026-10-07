@@ -12,7 +12,8 @@ __global__ void applyEightLaneLevel(Input input,const Status* status,const Vecto
 }
 // Test only: all production transfers and matrix applications stay on device.
 Six pack(Vector a){return {a.angular.x,a.angular.y,a.angular.z,a.linear.x,a.linear.y,a.linear.z};}
-Vector unpack(Six a){return {{a[0],a[1],a[2]},{a[3],a[4],a[5]}};}
+// Explicit conversion: clang (CuMetal) rejects the double narrowing nvcc warns on.
+Vector unpack(Six a){const auto r=[&](int k){return Nv::Blast::StressReal(a[k]);};return {{r(0),r(1),r(2)},{r(3),r(4),r(5)}};}
 std::vector<Six> hostProlong(const Fixture& f,const std::vector<unsigned>& roots,const std::vector<Vector>& x){
     std::vector<Six> result(roots.size());
     for(unsigned i=0;i<roots.size();++i)if(roots[i]!=Invalid){

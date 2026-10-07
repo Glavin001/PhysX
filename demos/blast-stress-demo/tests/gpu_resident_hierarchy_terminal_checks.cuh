@@ -51,7 +51,7 @@ void verifyTerminals(const Fixture& f,Input input,const Status* source,cudaStrea
     const unsigned bondCount=input.counts?download(input.counts,2,stream)[1]:input.bonds;
     std::vector<CoarseBond> bonds(bondCount);
     if(input.levelBonds)bonds=download(input.levelBonds,bondCount,stream);
-    else for(unsigned i=0;i<bondCount;++i){const auto a=f.offset0[i],c=f.offset1[i];bonds[i]={f.a[i],f.b[i],{a.x,a.y,a.z},{c.x,c.y,c.z},f.health[i]>0?double(f.scale[i]):0};}
+    else for(unsigned i=0;i<bondCount;++i){const auto a=f.offset0[i],c=f.offset1[i];bonds[i]={f.a[i],f.b[i],{a.x,a.y,a.z},{c.x,c.y,c.z},Nv::Blast::StressReal(f.health[i]>0?double(f.scale[i]):0)};}
     std::vector<Vector> rhs(n),other(n);for(unsigned i=0;i<n;++i){Six x{},y{};for(unsigned k=0;k<6;++k){x[k]=(int((i*7+k*3)%19)-9)/8.;y[k]=(int((i*3+k*11)%29)-14)/16.;}rhs[i]=unpack(x);other[i]=unpack(y);}
     Device<Vector> deviceRhs(n),result(n);deviceRhs.put(rhs,stream);
     std::vector<Vector> sentinel(n,unpack({123,123,123,123,123,123}));result.put(sentinel,stream);

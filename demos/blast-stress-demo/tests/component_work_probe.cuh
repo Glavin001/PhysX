@@ -4,7 +4,7 @@ struct WorkProbe {
     ComponentWorkRecord* device=nullptr;unsigned capacity;
     explicit WorkProbe(unsigned n):capacity(n){
         check(cudaMalloc(&device,sizeof(ComponentWorkRecord)*n));
-        check(cudaMemcpyToSymbol(&componentWorkRecords,&device,sizeof(device)));
+        check(cudaMemcpyToSymbol(&componentWorkRecords,&device,sizeof(device),0,cudaMemcpyHostToDevice));
         check(cudaMemcpyToSymbol(componentWorkCapacity,&capacity,sizeof(capacity)));
     }
     ~WorkProbe(){cudaFree(device);}
