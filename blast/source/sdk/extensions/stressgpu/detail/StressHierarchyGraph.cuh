@@ -29,7 +29,12 @@ public:
             int device=0,sms=0,blocks=0,cooperative=0;
             check(cudaGetDevice(&device));check(cudaDeviceGetAttribute(&sms,cudaDevAttrMultiProcessorCount,device));
             check(cudaDeviceGetAttribute(&cooperative,cudaDevAttrCooperativeLaunch,device));
-            check(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&blocks,construct,Threads,0));
+            // Both specializations (per-bond rotational stiffness or not): the
+            // smaller residency, so either launches cooperatively.
+            int rotationBlocks=0;
+            check(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&blocks,construct<false>,Threads,0));
+            check(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&rotationBlocks,construct<true>,Threads,0));
+            blocks=std::min(blocks,rotationBlocks);
             if(!cooperative || sms<=0 || blocks<=0)throw std::runtime_error("Resident hierarchy requires legal cooperative CUDA residency");
             mBlocks=std::min(std::max(1u,(nodes+Threads-1)/Threads),unsigned(sms*blocks));
             allocate(mStatus,1);allocate(mWork,1);allocate(mBuffers.owner,nodes);allocate(mBuffers.seed,nodes);allocate(mBuffers.coarseActive,nodes);
@@ -64,7 +69,7 @@ public:
             return;
         }
 #endif
-        check(cudaLaunchCooperativeKernel((void*)construct,dim3(mBlocks),dim3(Threads),args,0,mStream));
+        check(cudaLaunchCooperativeKernel(input.angularWeight?(void*)construct<true>:(void*)construct<false>,dim3(mBlocks),dim3(Threads),args,0,mStream));
         if(mRecursive){buildSelfCache<<<mBlocks,Threads,0,mStream>>>(input,mBuffers,mStatus,mWork);check(cudaGetLastError());}
     }
 #if NV_BLAST_SEPARATE_HIERARCHY_CONSTRUCT
@@ -104,7 +109,7 @@ public:
         add((void*)publishConstruct,nodes,Threads,args,false);
         add((void*)coarseConstruct,bonds,Threads,args,false);
         add((void*)checkpointConstruct,1,1,checkpointArgs,false);
-        add((void*)diagonalConstruct,diagonal,Threads,args,false);
+        add(input.angularWeight?(void*)diagonalConstruct<true>:(void*)diagonalConstruct<false>,diagonal,Threads,args,false);
         add((void*)commitConstruct,1,1,statusArgs,false);
     }
 #endif
@@ -123,7 +128,7 @@ public:
         }
 #endif
         void* args[]={&input,&mBuffers,&mStatus,&mWork};
-        cudaKernelNodeParams params{};params.func=(void*)construct;params.gridDim=dim3(mBlocks);
+        cudaKernelNodeParams params{};params.func=input.angularWeight?(void*)construct<true>:(void*)construct<false>;params.gridDim=dim3(mBlocks);
         params.blockDim=dim3(Threads);params.kernelParams=args;cudaGraphNode_t node;
         check(cudaGraphAddKernelNode(&node,graph,prior?&prior:nullptr,prior?1:0,&params));
         cudaKernelNodeAttrValue attribute{};attribute.cooperative=1;

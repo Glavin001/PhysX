@@ -35,7 +35,7 @@ public:
         try {
             int device=0,sms=0,blocks=0,cooperative=0;check(cudaGetDevice(&device));
             check(cudaDeviceGetAttribute(&sms,cudaDevAttrMultiProcessorCount,device));check(cudaDeviceGetAttribute(&cooperative,cudaDevAttrCooperativeLaunch,device));
-            check(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&blocks,constructTerminals,Threads,0));
+            check(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&blocks,input.angularWeight?constructTerminals<true>:constructTerminals<false>,Threads,0));
             if(!cooperative || sms<=0 || blocks<=0)throw std::runtime_error("Resident terminal construction requires legal cooperative CUDA residency");
             mBlocks=std::min(std::max(1u,input.nodes),unsigned(sms*blocks));
             allocate(mStatus,1);allocate(mWork,1);check(cudaMemsetAsync(mStatus,0,sizeof(Status),stream));
@@ -46,7 +46,7 @@ public:
     cudaGraphNode_t append(cudaGraph_t graph,cudaGraphNode_t prior){
         if(mAppended)throw std::runtime_error("Resident terminal construction already appended");
         void* args[]={&mInput,&mSource,&mStatus,&mWork,&mBuffers,&mLevel};
-        cudaKernelNodeParams params{};params.func=(void*)constructTerminals;params.gridDim=dim3(mBlocks);params.blockDim=dim3(Threads);params.kernelParams=args;
+        cudaKernelNodeParams params{};params.func=mInput.angularWeight?(void*)constructTerminals<true>:(void*)constructTerminals<false>;params.gridDim=dim3(mBlocks);params.blockDim=dim3(Threads);params.kernelParams=args;
         cudaGraphNode_t node;check(cudaGraphAddKernelNode(&node,graph,prior?&prior:nullptr,prior?1:0,&params));
         cudaKernelNodeAttrValue attribute{};attribute.cooperative=1;check(cudaGraphKernelNodeSetAttribute(node,cudaKernelNodeAttributeCooperative,&attribute));
         mAppended=true;return node;

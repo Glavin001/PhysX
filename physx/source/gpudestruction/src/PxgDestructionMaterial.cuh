@@ -9,7 +9,8 @@ __global__ void evaluateBondMaterials(const PxDestructionStressChunk* chunks,
     const PxDestructionStressBond* bonds,const PxDestructionMaterial* materials,
     const float* health,const PxDestructionVectorPair* forces,PxU32 count,
     float dt,float rate,float bendGain,bool fibres,PxDestructionBondVerdict* verdict,
-    PxVec3* centroids,PxDestructionStageStatus* status,bool sectionBending,const PxDestructionBondSection* sections)
+    PxVec3* centroids,PxDestructionStageStatus* status,bool sectionBending,const PxDestructionBondSection* sections,
+    bool momentAtCentroid=false)
 {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
     const auto b=bonds[i];const float area=health[i];auto& v=verdict[i];v={};v.health=area;
@@ -34,7 +35,9 @@ __global__ void evaluateBondMaterials(const PxDestructionStressChunk* chunks,
         // at the centroid: M_c = M_P + (c - P) x F in the solver's convention
         // (its angular rows carry -torque; NvBlastExtStressGpu couplingRightMultiply).
         PxVec3 angular=force.angular;
-        if(chunks[b.chunk0].mass>0 && chunks[b.chunk1].mass>0) {
+        // With rotational stiffness the solver's spring, and so its moment,
+        // is already at the centroid (ExtStressGpuSetBondRotationalStiffness).
+        if(!momentAtCentroid && chunks[b.chunk0].mass>0 && chunks[b.chunk1].mass>0) {
             const PxVec3 midpoint=chunks[b.chunk0].position+displacement*0.5f;
             angular+=(b.centroid-midpoint).cross(force.linear);
         }

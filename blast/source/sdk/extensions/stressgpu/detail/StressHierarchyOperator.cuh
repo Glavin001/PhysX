@@ -26,6 +26,26 @@ __device__ __forceinline__ double3 cross(double3 a,double3 b){return make_double
 __device__ __forceinline__ Vector add(Vector a,Vector b){return {add(a.angular,b.angular),add(a.linear,b.linear)};}
 __device__ __forceinline__ Vector sub(Vector a,Vector b){return {sub(a.angular,b.angular),sub(a.linear,b.linear)};}
 __device__ __forceinline__ Vector mul(Vector a,StressReal b){return {mul(a.angular,b),mul(a.linear,b)};}
+// A bond's rotational weight W (Input::angularWeight), or null: the uniform
+// length scale, whose arithmetic every caller then reproduces exactly.
+__device__ __forceinline__ const float* sourceRotation(const Input& a,unsigned bond){
+    if(!a.angularWeight)return nullptr;
+    return a.angularWeight+6*size_t(a.levelBonds?a.bondIdentity[bond]:bond);
+}
+// Packed symmetric 3x3 (xx yy zz xy xz yz) times a vector.
+__device__ __forceinline__ StressReal3 symmetricApply(const float* m,StressReal3 v){
+    return makeStressReal3(StressReal(m[0])*v.x+StressReal(m[3])*v.y+StressReal(m[4])*v.z,
+                           StressReal(m[3])*v.x+StressReal(m[1])*v.y+StressReal(m[5])*v.z,
+                           StressReal(m[4])*v.x+StressReal(m[5])*v.y+StressReal(m[2])*v.z);
+}
+// A bond's stiffness times its relative motion d: factor * diag(W, I) d, or
+// exactly mul(d, factor) for a bond with the uniform length scale. factor
+// carries s^2 and the endpoint's sign.
+__device__ __forceinline__ Vector bondFlux(const Input& a,unsigned bond,Vector d,StressReal factor){
+    const float* w=sourceRotation(a,bond);
+    if(!w)return mul(d,factor);
+    return {mul(symmetricApply(w,d.angular),factor),mul(d.linear,factor)};
+}
 __device__ __forceinline__ StressReal3 shift(const Input& input,unsigned node,unsigned root){
     const auto a=sourcePosition(input,node),b=sourcePosition(input,root);
     return makeStressReal3(StressReal(a.x)-b.x,StressReal(a.y)-b.y,StressReal(a.z)-b.z);
@@ -123,7 +143,7 @@ __device__ __forceinline__ Vector coarseNodeValue(const Input& input,Buffers b,
         Vector a{},c{};
         if(edge.a!=Invalid)a=couple(coarse[edge.a],edge.offset0);
         if(edge.b!=Invalid)c=couple(coarse[edge.b],edge.offset1);
-        const auto difference=mul(sub(a,c),edge.scale*edge.scale);
+        const auto difference=bondFlux(input,ref&0x7fffffffu,sub(a,c),edge.scale*edge.scale);
         const bool second=ref>>31;
         const auto response=transposeCouple(difference,second?edge.offset1:edge.offset0);
         out=add(out,mul(response,second?StressReal(-1):StressReal(1)));

@@ -575,5 +575,33 @@ protected:
 bool ExtStressGpuImportWarmStart(ExtStressGpuSolver* solver,
     const ExtStressGpuImpulse* impulses, std::uint32_t count);
 
+/** A bond's rotational stiffness from its own cross-section.
+ *
+ * By default the solve weights every bond's rotation with one length scale
+ * for the whole solver (the mean bond offset Ls): each bond is k Ls^2 stiff in
+ * rotation about every axis, k = colScale^2 its translational stiffness. With
+ * these rows each bond is instead k r^2 stiff about each principal axis of its
+ * contact patch and k rp^2 in twist, r the patch's radii of gyration
+ * (sqrt(I / A), sqrt(I_p / A), metres): the elastic answer of a frame whose
+ * joints have the sections they are authored with.
+ *
+ * axis is a unit principal axis of the patch, perpendicular to the bond's
+ * normal; radius0 is about axis, radius1 about normal x axis, polarRadius
+ * about the normal. All radii must be positive and finite. */
+struct ExtStressGpuBondRotation
+{
+    float axis[3];
+    float radius0, radius1, polarRadius;
+};
+
+/** Give every bond its rotational stiffness (one row per bond, in bond order).
+ * The rotational spring sits at the bond's centroid: a bond between two
+ * dynamic nodes then reports its moment about the centroid, not their
+ * midpoint. Native device-topology solves only: call after create() and
+ * before enableDeviceTopology(); the solver then refuses any other solve
+ * path. A non-virtual extension, so the solver's vtable is unchanged. */
+bool ExtStressGpuSetBondRotationalStiffness(ExtStressGpuSolver* solver,
+    const ExtStressGpuBondRotation* rows, std::uint32_t count);
+
 } // namespace Blast
 } // namespace Nv

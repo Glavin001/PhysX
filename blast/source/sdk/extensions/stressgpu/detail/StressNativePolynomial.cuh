@@ -21,7 +21,7 @@ __device__ __forceinline__ StressHierarchy::Vector nativeOffDiagonalRange(
         if(other==node || input.component[other]==Invalid)continue;
         const auto remote=couple(physical[other],sourceOffset(input,edge,!back));
         const StressReal scale=input.scale[edge];
-        value=add(value,transposeCouple(mul(remote,-scale*scale),sourceOffset(input,edge,back)));
+        value=add(value,transposeCouple(bondFlux(input,edge,remote,-scale*scale),sourceOffset(input,edge,back)));
     }
     return value;
 }
@@ -37,7 +37,7 @@ __device__ __forceinline__ StressHierarchy::Vector* preconditionNativePolynomial
     constexpr StressReal lowWeight=0.5779388123770052,highWeight=2.6335678180143502;
     constexpr StressReal coupling=lowWeight*highWeight;
     constexpr StressReal diagonal=lowWeight+highWeight-coupling;
-    const auto input=a.hierarchy.cycle.levels[0].input;
+    auto input=a.hierarchy.cycle.levels[0].input;input.angularWeight=a.m_angularWeight;
     auto* local=a.hierarchy.result;
     auto* result=a.hierarchy.cycle.intermediate;
     // The small-component solve owns these fine-level rows; the cooperative
@@ -75,7 +75,7 @@ __device__ __forceinline__ StressHierarchy::Vector* preconditionNativePolynomial
     constexpr StressReal lowWeight=0.5779388123770052,highWeight=2.6335678180143502;
     constexpr StressReal coupling=lowWeight*highWeight;
     constexpr StressReal diagonal=lowWeight+highWeight-coupling;
-    const auto input=a.hierarchy.cycle.levels[0].input;
+    auto input=a.hierarchy.cycle.levels[0].input;input.angularWeight=a.m_angularWeight;
     auto* local=a.hierarchy.result;
     auto* result=a.hierarchy.cycle.intermediate;
     auto* physical=a.hierarchy.cycle.levels[0].residual;

@@ -21,15 +21,17 @@ __device__ __forceinline__ void updateNativeStressSolution(const PersistentStres
     a.m_residual[node].angular=sub(a.m_residual[node].angular,mul(q.angular,alpha));
     a.m_residual[node].linear=sub(a.m_residual[node].linear,mul(q.linear,alpha));
 }
+template<bool Rotation=false>
 __global__ void applyNativeStressSolution(AngLin* impulses,const StressHierarchy::Vector* solution,const Inertia* inertia,
     const unsigned* node0,const unsigned* node1,const Vec4* offset0,const Vec4* offset1,const float* health,const float* scale,
-    const unsigned* bondIsland,const unsigned* islandSkip,const unsigned* activeBonds,const unsigned* activeCounts){
+    const unsigned* bondIsland,const unsigned* islandSkip,const unsigned* activeBonds,const unsigned* activeCounts,const float* angularScale=nullptr){
+    if constexpr(!Rotation)angularScale=nullptr;
     const unsigned slot=blockIdx.x*blockDim.x+threadIdx.x;if(slot>=activeCounts[0])return;const unsigned edge=activeBonds[slot];
     if(bondSettled(islandSkip,bondIsland[edge]))return;if(health[edge]<=0){impulses[edge]={};return;}
     const unsigned a=node0[edge],b=node1[edge];const auto r0=offset0[edge],r1=offset1[edge];
     const auto x=StressHierarchy::scaledValue(solution[a],make_float2(inertia[a].angular,inertia[a].linear));
     const auto y=StressHierarchy::scaledValue(solution[b],make_float2(inertia[b].angular,inertia[b].linear));
-    const auto delta=StressHierarchy::mul(StressHierarchy::sub(
+    const auto delta=bondScaled(angularScale,edge,StressHierarchy::sub(
         StressHierarchy::couple(x,makeStressReal3(r0.x,r0.y,r0.z)),StressHierarchy::couple(y,makeStressReal3(r1.x,r1.y,r1.z))),StressReal(scale[edge]));
     auto& f=impulses[edge];
     f.angular={float(StressReal(f.angular.x)+delta.angular.x),float(StressReal(f.angular.y)+delta.angular.y),float(StressReal(f.angular.z)+delta.angular.z),0};

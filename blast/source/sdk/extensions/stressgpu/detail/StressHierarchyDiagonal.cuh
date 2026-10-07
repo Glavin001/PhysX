@@ -9,11 +9,18 @@ __device__ __forceinline__ StressReal skewEntry(float4 r,unsigned row,unsigned c
     if(row==1)return col==0?StressReal(r.z):-StressReal(r.x);
     return col==0?-StressReal(r.y):StressReal(r.x);
 }
-__device__ __forceinline__ StressReal diagonalCoefficient(float4 r,float2 d,StressReal scale,unsigned row,unsigned col){
+// Packed symmetric (xx yy zz xy xz yz) entry.
+__device__ __forceinline__ unsigned symmetricEntry(unsigned row,unsigned col){
+    return row==col?row:(row+col==1?3u:row+col==2?4u:5u);
+}
+// w: the bond's rotational weight W (Input::angularWeight), or null for the
+// uniform length scale (W = I). The angular block is s^2 (W + |r|^2 I - r r^T).
+__device__ __forceinline__ StressReal diagonalCoefficient(float4 r,float2 d,StressReal scale,unsigned row,unsigned col,const float* w=nullptr){
     const StressReal p[3]={r.x,r.y,r.z};StressReal value=0;
     if(row<3){
         const StressReal squared=p[0]*p[0]+p[1]*p[1]+p[2]*p[2];
-        value=(row==col?1+squared:0)-p[row]*p[col];
+        if(w)value=StressReal(w[symmetricEntry(row,col)])+(row==col?squared:0)-p[row]*p[col];
+        else value=(row==col?1+squared:0)-p[row]*p[col];
     } else if(col<3)value=skewEntry(r,row-3,col);
     else value=StressReal(row==col);
     return value*scale*scale*(row<3?d.x:d.y)*(col<3?d.x:d.y);
@@ -29,7 +36,8 @@ __device__ __forceinline__ void buildFineDiagonal(const Input& input,Buffers buf
             const unsigned ref=input.refs[slot];if(ref==Invalid)continue;
             const unsigned bond=ref&0x7fffffffu;if(input.health[bond]<=0)continue;
             const auto offset=(ref>>31)?input.offset1[bond]:input.offset0[bond];
-            coefficient+=diagonalCoefficient(offset,input.inertia[node],input.scale[bond],row,col);
+            coefficient+=diagonalCoefficient(offset,input.inertia[node],input.scale[bond],row,col,
+                input.angularWeight?input.angularWeight+6*size_t(bond):nullptr);
             coupled=1;
         }
     }

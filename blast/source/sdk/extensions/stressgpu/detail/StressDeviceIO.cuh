@@ -3,12 +3,18 @@
 /// Pack the impulses of the islands that were actually solved into a dense
 /// block, so the device-to-host copy and the host's conversion loop cost what
 /// changed rather than what exists.
+template<bool Rotation=false>
 __global__ void exportPhysicalImpulses(const AngLin* impulses, const float* colScales,
-    ExtStressGpuImpulse* output, unsigned count, float angularScale, float linearScale)
+    ExtStressGpuImpulse* output, unsigned count, float angularScale, float linearScale,
+    const float* bondAngularScale = nullptr)
 {
+    if constexpr (!Rotation) bondAngularScale = nullptr;
     const unsigned i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i >= count) return;
-    const auto v = impulses[i];
+    auto v = impulses[i];
+    // Rotational stiffness: the physical moment is s A times the stored
+    // angular variable (StressBondRotation.cuh).
+    if (bondAngularScale) v.angular = bondRotationApply(bondAngularScale + 6 * size_t(i), v.angular);
     const float a = angularScale * colScales[i], l = linearScale * colScales[i];
     output[i] = {{v.angular.x*a, v.angular.y*a, v.angular.z*a},
                  {v.linear.x*l, v.linear.y*l, v.linear.z*l}};

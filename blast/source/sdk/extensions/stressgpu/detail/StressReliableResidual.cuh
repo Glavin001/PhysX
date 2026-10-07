@@ -12,7 +12,7 @@ __device__ __forceinline__ StressHierarchy::Vector nativeBondSolution(const Pers
     const auto x=scaledValue(a.hierarchy.solution[first],make_float2(a.m_inertia[first].angular,a.m_inertia[first].linear));
     const auto y=scaledValue(a.hierarchy.solution[second],make_float2(a.m_inertia[second].angular,a.m_inertia[second].linear));
     const auto u=a.m_offset0[edge],v=a.m_offset1[edge];
-    const auto delta=mul(sub(couple(x,makeStressReal3(u.x,u.y,u.z)),couple(y,makeStressReal3(v.x,v.y,v.z))),StressReal(a.m_colScales[edge]));
+    const auto delta=bondScaled(a.m_angularScale,edge,sub(couple(x,makeStressReal3(u.x,u.y,u.z)),couple(y,makeStressReal3(v.x,v.y,v.z))),StressReal(a.m_colScales[edge]));
     return add(nativeWarmBondSolution(a,edge),delta);
 }
 template<bool Accumulated=true>
@@ -26,7 +26,7 @@ __device__ __forceinline__ void rebuildNativeResidualNode(const PersistentStress
         Vector impulse;
         if constexpr(Accumulated)impulse=nativeBondSolution(a,edge);
         else impulse=nativeWarmBondSolution(a,edge);
-        const auto force=mul(impulse,StressReal(a.m_colScales[edge])*(second?StressReal(-1):StressReal(1)));
+        const auto force=bondScaled(a.m_angularScale,edge,impulse,StressReal(a.m_colScales[edge])*(second?StressReal(-1):StressReal(1)));
         response=add(response,transposeCouple(force,makeStressReal3(offset.x,offset.y,offset.z)));
     }
     const auto d=a.m_inertia[node];response=scaledValue(response,make_float2(d.angular,d.linear));
@@ -37,7 +37,9 @@ __device__ __forceinline__ void rebuildNativeResidualNode(const PersistentStress
 // Initialize from the same physical residual used for final verification.
 // No accumulated node correction exists yet, so its zero products and loads
 // are absent. Cold starts already have their exact RHS from initializeSolve.
+template<bool Rotation=false>
 __global__ void initializeNativeWarmResidual(PersistentStressArgs a){
+    if constexpr(!Rotation){a.m_angularScale=nullptr;a.m_angularWeight=nullptr;}
     if(!a.warmStart)return;
     const unsigned slot=blockIdx.x*blockDim.x+threadIdx.x;
     if(slot<a.m_activeCounts[1]){const unsigned node=a.m_activeNodes[slot];

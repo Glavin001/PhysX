@@ -188,6 +188,7 @@ struct DeviceStressTopologyBuffers
     size_t selectBytes;
     IslandReductionOrder* orders;
     const float4* positions=nullptr;
+    const float* angularWeight=nullptr; // StressBondRotation.cuh; null = uniform
 };
 #ifdef PHYSX_RESIDENT_DESTRUCTION
 #include "detail/StressTopologyWarmStart.cuh"
@@ -277,6 +278,7 @@ class DeviceStressTopology
         StressHierarchy::Input input{b.n,b.m,b.nodeBondBegin,b.nodeBondRef,b.node0,b.node1,b.nodeIsland,b.health,b.colScales,
             b.positions,reinterpret_cast<const float4*>(b.offset0),reinterpret_cast<const float4*>(b.offset1),reinterpret_cast<const float2*>(b.inertia),&state->rebuilds,nullptr};
         input.partition={componentNodes,liveIslands,rangeBegin,rangeEnd,b.activeCounts+1,&state->islandCount};
+        input.angularWeight=b.angularWeight;
         nativeHierarchy.reset(new NativeStressHierarchy(input,forest,stable,state,ownerStream));
 #endif
         checkCuda(cudaStreamBeginCaptureToGraph(captureStream,body,nullptr,nullptr,0,cudaStreamCaptureModeThreadLocal), "capture stress topology rebuild");

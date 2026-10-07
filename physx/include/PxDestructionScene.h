@@ -10,6 +10,10 @@
 // sectionBending and ::bondSections (PxDestructionBondSection), opt-in bending
 // and torsion from each bond's real cross-section; defaults keep the capped gain.
 #define PX_DESTRUCTION_SECTION_BENDING 1
+// Feature (layout change, consumers rebuild with the SDK): PxDestructionStressDesc::
+// sectionRotationalStiffness and PxDestructionBondSection's radii of gyration:
+// each bond's rotational stiffness in the stress solve from its own section.
+#define PX_DESTRUCTION_SECTION_ROTATIONAL_STIFFNESS 1
 #include "foundation/PxTransform.h"
 #include "PxDirectGPUAPI.h"
 #include "PxDestructionTopologyTypes.h"
@@ -75,9 +79,15 @@ struct PxDestructionStressBond {
 // A rectangle b (along axis) x h: S0 = b h^2/6, S1 = h b^2/6,
 // Zt = b h (b^2 + h^2) / (6 sqrt(b^2 + h^2)). Zero moduli mean no shape data:
 // the bond is treated as a square patch of its area.
+// PX_DESTRUCTION_SECTION_ROTATIONAL_STIFFNESS adds the patch's radii of
+// gyration at the authored area (m): sqrt(I/A) about `axis` (gyration0), about
+// normal x axis (gyration1) and sqrt(I_p/A) about the normal (polarGyration).
+// A rectangle b (along axis) x h: gyration0 = h/sqrt(12), gyration1 = b/sqrt(12),
+// polarGyration = sqrt((b^2 + h^2)/12). Zero: the square patch of the bond's area.
 struct PxDestructionBondSection {
     PxVec3 axis{1.0f,0.0f,0.0f};
     PxReal bendModulus0=0, bendModulus1=0, twistModulus=0;
+    PxReal gyration0=0, gyration1=0, polarGyration=0;
 };
 struct PxDestructionStressCluster {
     PxRigidDynamicGPUIndex body;
@@ -145,6 +155,18 @@ struct PxDestructionStressDesc {
     // of their remaining area: 6/sqrt(A) for bending, 3 sqrt(2)/sqrt(A) twist.
     bool sectionBending = false;
     const PxDestructionBondSection* bondSections = NULL; // bondCount entries, or NULL
+    // Each bond's rotational stiffness in the stress solve from its own section
+    // (PX_DESTRUCTION_SECTION_ROTATIONAL_STIFFNESS; implies sectionBending).
+    // false (default): every bond is k Ls^2 stiff in rotation about every axis,
+    // Ls one length scale for the whole stage (the mean bond offset), k the
+    // bond's translational stiffness complianceScale^2. true: k r^2 about each
+    // principal axis of the bond's patch and k r_p^2 in twist, r the section's
+    // radii of gyration (bondSections; the square patch of the bond's area
+    // where a section has none), with the rotational spring at the bond's
+    // centroid -- the elastic answer of a frame whose joints have the sections
+    // they are authored with. Load then goes where the stiffness is instead of
+    // through bond moments a joint's real section cannot carry.
+    bool sectionRotationalStiffness = false;
     // Optional full mass properties enable native candidate cluster creation.
     // Initial cluster bindings must match the bond graph's connected components.
     const PxDestructionChunkMassProperties* chunkMassProperties = NULL;

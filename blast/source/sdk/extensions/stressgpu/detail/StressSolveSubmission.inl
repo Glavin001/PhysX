@@ -170,8 +170,8 @@
             // solve, instead of a bond-length update every iteration.
             m_kernelProfile.begin("nodeSpaceApplySolution", m_stream);
 #ifdef PHYSX_RESIDENT_DESTRUCTION
-            if(m_deviceTopology)applyNativeStressSolution<<<(m_graphBondCap+kBlockSize-1)/kBlockSize,kBlockSize,0,m_stream>>>(
-                m_impulses,m_deviceTopology->cycleView().solution,m_inertia,m_node0,m_node1,m_offset0,m_offset1,m_health,m_colScales,m_bondIsland,islandSkip,m_activeBonds,m_activeCounts);
+            if(m_deviceTopology)(m_angularScale?applyNativeStressSolution<true>:applyNativeStressSolution<false>)<<<(m_graphBondCap+kBlockSize-1)/kBlockSize,kBlockSize,0,m_stream>>>(
+                m_impulses,m_deviceTopology->cycleView().solution,m_inertia,m_node0,m_node1,m_offset0,m_offset1,m_health,m_colScales,m_bondIsland,islandSkip,m_activeBonds,m_activeCounts,m_angularScale);
             else
 #endif
             nodeSpaceApplySolution<<<

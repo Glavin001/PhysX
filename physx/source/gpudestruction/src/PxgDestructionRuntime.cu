@@ -696,7 +696,7 @@ class Runtime final : public PxgDestructionRuntime {
     PxVec3* mBondCentroids{};PxDestructionBondVerdict* mVerdicts{};
     PxDestructionCrushState *mCrush{},*mTrialCrush{};
     float mDamageRate=2,mBendGain=3;bool mFibres=true;
-    PxDestructionBondSection* mSections{};bool mSectionBending=false; // opt-in real sections (PX_DESTRUCTION_SECTION_BENDING)
+    PxDestructionBondSection* mSections{};bool mSectionBending=false,mSectionRotation=false; // opt-in real sections (PX_DESTRUCTION_SECTION_BENDING)
     float mFragmentMaxPenBias=-1e32f; // negative PhysX clamp; -1e32 leaves inheritance alone
     PxgDestructionTopologyTransaction* mTopology{};
     committedChanges::Publication mChanges;
@@ -1297,7 +1297,7 @@ public:
         cudaFree(mHealth);mHealth=nullptr;cudaFree(mRates);mRates=nullptr;
         cudaFree(mNodeBegin);mNodeBegin=nullptr;cudaFree(mNodeRefs);mNodeRefs=nullptr;
         cudaFree(mBondCentroids);mBondCentroids=nullptr;cudaFree(mVerdicts);mVerdicts=nullptr;
-        cudaFree(mSections);mSections=nullptr;mSectionBending=false;
+        cudaFree(mSections);mSections=nullptr;mSectionBending=false;mSectionRotation=false;
         cudaFree(mCrush);mCrush=nullptr;cudaFree(mTrialCrush);mTrialCrush=nullptr;
         mN=mM=mC=mMapCount=0;
     }
@@ -1307,6 +1307,15 @@ public:
             || (d.internalCorrectionLimit && !d.chunkMassProperties)
             || (d.enableChunkLoads && (!d.internalCorrectionLimit || !d.materialCount))
             || !std::isfinite(d.tolerance) || d.tolerance<=0 || !std::isfinite(d.forceTolerance) || d.forceTolerance<0)return false;
+        // Section radii of gyration: finite and non-negative, all three or none.
+        if(d.bondSections)for(PxU32 i=0;i<d.bondCount;++i) {
+            const auto& s=d.bondSections[i];
+            if(!std::isfinite(s.gyration0) || !std::isfinite(s.gyration1) || !std::isfinite(s.polarGyration)
+                || s.gyration0<0 || s.gyration1<0 || s.polarGyration<0)return false;
+            const bool any=s.gyration0>0 || s.gyration1>0 || s.polarGyration>0;
+            if(any && !(s.gyration0>0 && s.gyration1>0 && s.polarGyration>0))return false;
+            if(any && (!s.axis.isFinite() || std::abs(s.axis.magnitude()-1.0f)>1e-3f))return false;
+        }
         try {
         std::vector<PxDestructionMaterial> materials;
         if(d.materialCount) {
@@ -1438,7 +1447,25 @@ public:
             clear();mPending=false;mFailed=false;mWarmImported=false;mEverDamaged=false;mCorrectionEnabled=d.internalCorrectionLimit>0;mCorrectionLimit=d.internalCorrectionLimit;mPreserveContactPairs=d.preserveUnchangedContactPairs;mGpuIslandRepair=d.gpuIslandRepair;
             if(d.bondCount) {
                 mSolver=ExtStressGpuSolver::create(nodes.data(),d.chunkCount,bonds.data(),d.bondCount,NULL,0,mContext);
-                if(!mSolver || !mSolver->prepareDeviceSolve()){clear();return false;}
+                if(!mSolver){clear();return false;}
+                if(d.sectionRotationalStiffness) {
+                    // Each bond's radii of gyration (its section's, or the
+                    // square patch of its authored area), on its principal axes.
+                    std::vector<ExtStressGpuBondRotation> rows(d.bondCount);
+                    for(PxU32 i=0;i<d.bondCount;++i) {
+                        const PxVec3 n=d.bonds[i].normal.getNormalized();
+                        const PxDestructionBondSection s=d.bondSections?d.bondSections[i]:PxDestructionBondSection{};
+                        PxVec3 axis=s.axis;float r0=s.gyration0,r1=s.gyration1,rp=s.polarGyration;
+                        if(!(r0>0)) {
+                            const float side=std::sqrt(d.bonds[i].area/12.0f);r0=r1=side;rp=side*std::sqrt(2.0f);
+                            axis=n.cross(std::abs(n.x)<0.9f?PxVec3(1,0,0):PxVec3(0,1,0)).getNormalized();
+                        }
+                        axis=(axis-n*axis.dot(n)).getNormalized();
+                        rows[i]={{axis.x,axis.y,axis.z},r0,r1,rp};
+                    }
+                    if(!ExtStressGpuSetBondRotationalStiffness(mSolver,rows.data(),d.bondCount)){clear();return false;}
+                }
+                if(!mSolver->prepareDeviceSolve()){clear();return false;}
             }
             allocate(mChunks,d.chunkCount);allocate(mClusters,std::max(d.chunkCount,d.clusterCount));
             allocate(mPoses,std::max(d.chunkCount,d.clusterCount));allocate(mAngular,std::max(d.chunkCount,d.clusterCount));allocate(mMap,map.size());
@@ -1493,8 +1520,8 @@ public:
                 if(!refs.empty())check(cudaMemcpy(mNodeRefs,refs.data(),sizeof(PxU32)*refs.size(),cudaMemcpyHostToDevice));
                 check(cudaMemset(mCrush,0,sizeof(*mCrush)*d.chunkCount));
                 mDamageRate=d.damageRate;mBendGain=d.bendGainMax;mFibres=d.fibreBending;
-                mSectionBending=d.sectionBending;
-                if(d.sectionBending && d.bondSections && d.bondCount) {
+                mSectionBending=d.sectionBending || d.sectionRotationalStiffness;mSectionRotation=d.sectionRotationalStiffness;
+                if(mSectionBending && d.bondSections && d.bondCount) {
                     allocate(mSections,d.bondCount);
                     check(cudaMemcpy(mSections,d.bondSections,sizeof(*mSections)*d.bondCount,cudaMemcpyHostToDevice));
                 }
@@ -1895,7 +1922,7 @@ public:
             finishStatus<<<std::max(1u,(mM+127)/128),128,0,mStream>>>(solveStatus,mStatus,forces,mM,mCorrectionEnabled && !mAllowUnconverged);
             if(mMaterials) {
                 if(mM)evaluateBondMaterials<<<(mM+127)/128,128,0,mStream>>>(mChunks,mBonds,mMaterials,mHealth,forces,mM,
-                    dt,mDamageRate,mBendGain,mFibres,mVerdicts,mBondCentroids,mStatus,mSectionBending,mSections);
+                    dt,mDamageRate,mBendGain,mFibres,mVerdicts,mBondCentroids,mStatus,mSectionBending,mSections,mSectionRotation);
                 evaluateChunkMaterials<<<(mN+127)/128,128,0,mStream>>>(mChunks,mBonds,mMaterials,mNodeBegin,mNodeRefs,
                     mHealth,forces,mBondCentroids,mSurface,mRates,mCrush,mTrialCrush,mN,dt,mStatus);
                 if(mM)finalizeMaterialVerdict<<<(mM+127)/128,128,0,mStream>>>(mBonds,mVerdicts,mTrialCrush,mHealth,mM,mStatus);
