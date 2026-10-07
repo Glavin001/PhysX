@@ -258,6 +258,7 @@ struct ImpactContact {
     // The impact solve's coupled contact: a row per (pair, struck chunk of an
     // anchored -- kinematic -- cluster) whose other body is movable.
     impact::ContactRow* rows; PxU32* rowCount; PxU32 rowCapacity;
+    float separating; // m/s: a pair separating faster than this along its push is not coupled
     const PxDestructionStressCluster* clusters;
 };
 // One side of a pair as a coupled-contact row (impact::ContactRow): the struck
@@ -289,6 +290,23 @@ __device__ void coupleRow(PxU32 chunk,PxNodeIndex own,PxNodeIndex other,float si
         }}
     }
     if(!(weight>0.0f))return;
+    // A contact pushes the struck chunk away from the impactor: the
+    // impactor's velocity relative to the chunk's cluster, at the start of the
+    // tick, along that push is not a separation. One that is -- an impactor
+    // deep in a thin chunk whose depenetration pushes the chunk back onto it
+    // (a 0.11 m brick against 0.36 m of travel a tick) -- is no contact the
+    // impact solve can carry (unilateral along the wrong side); its impulse
+    // stays the trial's load.
+    {
+        const PxVec3 cw(clusterBefore.angularVelocityXYZ_maxPenBiasW.x,clusterBefore.angularVelocityXYZ_maxPenBiasW.y,clusterBefore.angularVelocityXYZ_maxPenBiasW.z);
+        const PxVec3 cv(clusterBefore.linearVelocityXYZ_inverseMassW.x,clusterBefore.linearVelocityXYZ_inverseMassW.y,clusterBefore.linearVelocityXYZ_inverseMassW.z);
+        const PxVec3 cp(clusterBefore.body2World.p.x,clusterBefore.body2World.p.y,clusterBefore.body2World.p.z);
+        const PxVec3 x=point*(1.0f/weight);
+        const PxVec3 vi(before.linearVelocityXYZ_inverseMassW.x,before.linearVelocityXYZ_inverseMassW.y,before.linearVelocityXYZ_inverseMassW.z);
+        const PxVec3 wi(before.angularVelocityXYZ_maxPenBiasW.x,before.angularVelocityXYZ_maxPenBiasW.y,before.angularVelocityXYZ_maxPenBiasW.z);
+        const PxVec3 rel=vi+wi.cross(x-com)-cv-cw.cross(x-cp);
+        if(rel.dot(normal.getNormalized())<-ci.separating)return;
+    }
     if(p.frictionPatches && p.contactPatches) {
         PxFrictionAnchorStreamIterator it(p.contactPatches,p.frictionPatches,p.nbPatches);
         while(it.hasNextPatch()){it.nextPatch();while(it.hasNextFrictionAnchor()){it.nextFrictionAnchor();
@@ -2206,6 +2224,8 @@ public:
                 check(cudaMemsetAsync(mImpactRowCount,0,sizeof(PxU32),mStream));
                 impactContacts.rows=mImpactRows;impactContacts.rowCount=mImpactRowCount;impactContacts.rowCapacity=impact::kContactCapacity;
                 impactContacts.clusters=mClusters;
+                // The impact solve's motion tolerance over the tick, as a speed.
+                impactContacts.separating=mImpactSettings.tolerance/dt;
             }
             if(mImpactCrush || mImpactRows) {
                 if(mCheckpointValid)check(cudaStreamWaitEvent(mStream,mCheckpointReady,0));
@@ -2303,8 +2323,9 @@ public:
                                 check(cudaMemcpy(f.data(),mImpactRowForce,sizeof(float)*f.size(),cudaMemcpyDeviceToHost));}
                             for(PxU32 i=0;i<rows && i<16;++i) {
                                 float cu[6]={0,0,0,0,0,0};check(cudaMemcpy(cu,mImpact.w.u+6*size_t(r[i].chunk),sizeof cu,cudaMemcpyDeviceToHost));
-                                std::fprintf(stderr,"[impact]   row %u: chunk %u body %u (1/m %.3g) v (%.2f %.2f %.2f) dv (%.2f %.2f %.2f) trial load (%.3g %.3g %.3g) N; solved force (%.3g %.3g %.3g) N; delta v (%.2f %.2f %.2f); chunk's end velocity (%.2f %.2f %.2f)\n",
-                                i,r[i].chunk,r[i].body,r[i].im,r[i].velocity[0],r[i].velocity[1],r[i].velocity[2],r[i].dv[0],r[i].dv[1],r[i].dv[2],
+                                const float closing=r[i].velocity[0]*r[i].normal[0]+r[i].velocity[1]*r[i].normal[1]+r[i].velocity[2]*r[i].normal[2];
+                                std::fprintf(stderr,"[impact]   row %u: closing %.2f m/s along the force; chunk %u body %u (1/m %.3g) v (%.2f %.2f %.2f) dv (%.2f %.2f %.2f) trial load (%.3g %.3g %.3g) N; solved force (%.3g %.3g %.3g) N; delta v (%.2f %.2f %.2f); chunk's end velocity (%.2f %.2f %.2f)\n",
+                                i,closing,r[i].chunk,r[i].body,r[i].im,r[i].velocity[0],r[i].velocity[1],r[i].velocity[2],r[i].dv[0],r[i].dv[1],r[i].dv[2],
                                 r[i].load[0],r[i].load[1],r[i].load[2],f[3*i],f[3*i+1],f[3*i+2],d[6*i],d[6*i+1],d[6*i+2],cu[0]*dt,cu[1]*dt,cu[2]*dt);
                             }
                         }
@@ -2313,8 +2334,8 @@ public:
                             char path[1024];std::snprintf(path,sizeof path,"%s/impact-%llu-%u.impc",mImpactCaptureDir,(unsigned long long)mImpactEvaluations,mPass);
                             if(impact::writeCapture(path,in,settings,mImpactMaterialCount)){++mImpactCaptures;std::fprintf(stderr,"[impact] captured %s (%.1f ms)\n",path,ms);}
                         }
-                        if(e.triggered)std::fprintf(stderr,"[impact] pass %u: %u islands, %u solves, %u iterations (%u capped, %u diverged), %u rounds, broke %u, yielded %u, %u contacts from %u impactors, %u infeasible projections, error %u\n",
-                            mPass,e.triggered,e.solves,e.iterations,e.capped,e.diverged,e.rounds,e.broken,e.yielded,e.contacts,e.impactors,e.infeasible,e.error);
+                        if(e.triggered)std::fprintf(stderr,"[impact] pass %u: %u islands, %u solves, %u iterations (%u capped, %u diverged), %u rounds, broke %u, yielded %u, %u contacts from %u impactors (%u held stops, %u rolled back, %u energy gains), %u infeasible projections, error %u\n",
+                            mPass,e.triggered,e.solves,e.iterations,e.capped,e.diverged,e.rounds,e.broken,e.yielded,e.contacts,e.impactors,e.heldStops,e.rolledBack,e.energyGain,e.infeasible,e.error);
                         if(e.diverged)std::fprintf(stderr,"[impact] DIVERGED: %u solves (a bug signal); worst split at bond %u\n",e.diverged,e.worstBond-1u);
                         if(e.infeasible)std::fprintf(stderr,"[impact] INFEASIBLE PROJECTIONS: %u (a bug signal)\n",e.infeasible);
                     }

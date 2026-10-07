@@ -193,6 +193,9 @@ struct Status {
     PxU32 diverged;    // solves stopped as diverging (a bug signal; no verdict from them)
     PxU32 infeasible;  // projections that left their capacity set (a bug signal)
     PxU32 worstBond;   // the bond with the worst split in the last diverged solve, plus 1 (0: none)
+    PxU32 heldStops;   // impactors whose solved velocity was withheld (a struck chunk held elastically)
+    PxU32 rolledBack;  // islands with impactors whose evaluation was capped or diverged (the trial's stop stands)
+    PxU32 energyGain;  // impactors the solve would have sped up past their start (a bug signal; withheld)
 };
 // Optional per-solve record (diagnostics): the first kLogCapacity solves.
 struct SolveRecord { PxU32 island,level,iterations,broken,clipped,capped,links,nodes; float lambda,change,rho,pad; };
@@ -1414,10 +1417,21 @@ __global__ __launch_bounds__(kThreads) void stepIslands(Inputs in,Settings s,Scr
                     }
                     float d[6];
                     for(int q=0;q<3;++q){d[q]=u[q]*s.dt-(row.velocity[q]+row.dv[q]);d[3+q]=u[3+q]*s.dt-(row.spin[q]+row.dw[q]);}
-                    if(into)for(int q=0;q<6;++q)d[q]=0.0f;
+                    if(into){for(int q=0;q<6;++q)d[q]=0.0f;atomicAdd(&w.status->heldStops,1u);}
+                    // Passivity: joints and unilateral contacts only take
+                    // momentum from an impactor; its end speed cannot exceed
+                    // what it started with plus its other loads' change (the
+                    // trial's, less the coupled pairs'). Beyond it: a bug.
+                    else {
+                        float e2=0.0f,b2=0.0f;
+                        for(int q=0;q<3;++q){const float o=row.velocity[q]+row.dv[q]+row.load[q]*row.im*s.dt;e2+=u[q]*s.dt*u[q]*s.dt;b2+=o*o;}
+                        const float start=sqrtf(row.velocity[0]*row.velocity[0]+row.velocity[1]*row.velocity[1]+row.velocity[2]*row.velocity[2]);
+                        if(sqrtf(e2)>fmaxf(start,sqrtf(b2))*1.01f+s.tolerance/s.dt){for(int q=0;q<6;++q)d[q]=0.0f;atomicAdd(&w.status->energyGain,1u);}
+                    }
                     for(int q=0;q<6;++q)finite=finite && isfinite(d[q]);
                     if(in.rowDelta)for(int q=0;q<6;++q)in.rowDelta[6*c.owner+q]=d[q];
                 }
+                if(st.capped && is.ni && !threadIdx.x)atomicAdd(&w.status->rolledBack,1u);
                 // Each coupled row's force on its chunk (cluster frame).
                 for(PxU32 k2=threadIdx.x;k2<is.nr;k2+=kThreads) {
                     const PxU32 l=is.b0+nb+k2;const Bond& b=w.bonds[l];float lin[3],ang[3];toWorld(b,w.J+6*l,lin,ang);
