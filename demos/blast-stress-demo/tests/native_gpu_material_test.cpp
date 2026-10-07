@@ -103,10 +103,13 @@ void scenario(blast_demo::PhysXScene& context,PxRigidDynamic& body,const char* n
                 check(cuMemcpyDtoH(labels,reinterpret_cast<CUdeviceptr>(view.trialTopology.chunkCluster),sizeof(labels)));
                 check(cuMemcpyDtoH(active,reinterpret_cast<CUdeviceptr>(view.trialTopology.activeChunks),sizeof(active)));}
             require(candidate.generation==1 && !candidate.invalidEdit,"candidate topology generation invalid");
-            require(candidate.clusterCount==(status.crushedChunks?1u:2u),"native candidate cluster membership invalid");
+            // PX_DESTRUCTION_CRUSH_CORRECTION: a crushed chunk is not removed
+            // from the topology; every bond it had breaks and it becomes a
+            // body of its own, exactly as a chunk detached by a broken bond.
+            require(candidate.clusterCount==2u,"native candidate cluster membership invalid");
             require(active[0] && labels[0]==0 && clusters[0].mass==0 && clusters[0].supported,"candidate lost authored support");
-            if(status.crushedChunks)require(!active[1] && labels[1]==PX_INVALID_U32,"crushed chunk survived candidate graph");
-            else require(active[1] && labels[1]==1 && clusters[1].mass==2 && clusters[1].inertia[0]==1,"detached chunk mass/inertia invalid");
+            require(active[1] && labels[1]==1 && clusters[1].mass==2 && clusters[1].inertia[0]==1,
+                status.crushedChunks?"crushed chunk is not a body of its own (mass/inertia)":"detached chunk mass/inertia invalid");
             require(!complete && error && status.error==8,"fracture requiring correction was falsely accepted");
             near(health,previousHealth,"failed frame committed bond damage");near(accepted[1].damage,previousCrush,"failed frame committed crush damage");
             // A failed correction retry must start from exactly the accepted
