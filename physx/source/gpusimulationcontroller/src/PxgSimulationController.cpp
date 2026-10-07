@@ -3506,19 +3506,23 @@ namespace physx
             // The setter also refreshes GPU shape bounds and transform caches.
             if(!setRigidDynamicData(reinterpret_cast<void*>(mNativeSleepPoses),
                 reinterpret_cast<PxRigidDynamicGPUIndex*>(mNativeSleepIndices),
-                PxRigidDynamicGPUAPIWriteType::eGLOBAL_POSE, count, mNativeSleepReady, NULL)) return false;
+                PxRigidDynamicGPUAPIWriteType::eGLOBAL_POSE, count, mNativeSleepReady, mNativeSleepReady)) return false;
         }
         // Sparse transition work completes before fetch returns or commands
         // wake a body. No stale CPU pose/velocity can overwrite a later write.
+        // Every setter runs in order on the simulation core's one stream, so
+        // only the last waits for the host: the others record the ready event
+        // (each next setter's wait on it is then on its own stream). A host
+        // wait per setter cost the stream's round trip five times a commit.
         return setRigidDynamicData(reinterpret_cast<void*>(mNativeSleepZeros),
                    reinterpret_cast<PxRigidDynamicGPUIndex*>(mNativeSleepIndices),
-                   PxRigidDynamicGPUAPIWriteType::eLINEAR_VELOCITY, count, mNativeSleepReady, NULL)
+                   PxRigidDynamicGPUAPIWriteType::eLINEAR_VELOCITY, count, mNativeSleepReady, mNativeSleepReady)
             && setRigidDynamicData(reinterpret_cast<void*>(mNativeSleepZeros),
                    reinterpret_cast<PxRigidDynamicGPUIndex*>(mNativeSleepIndices),
-                   PxRigidDynamicGPUAPIWriteType::eANGULAR_VELOCITY, count, mNativeSleepReady, NULL)
+                   PxRigidDynamicGPUAPIWriteType::eANGULAR_VELOCITY, count, mNativeSleepReady, mNativeSleepReady)
             && setRigidDynamicData(reinterpret_cast<void*>(mNativeSleepZeros),
                    reinterpret_cast<PxRigidDynamicGPUIndex*>(mNativeSleepIndices),
-                   PxRigidDynamicGPUAPIWriteType::eFORCE, count, mNativeSleepReady, NULL)
+                   PxRigidDynamicGPUAPIWriteType::eFORCE, count, mNativeSleepReady, mNativeSleepReady)
             && setRigidDynamicData(reinterpret_cast<void*>(mNativeSleepZeros),
                    reinterpret_cast<PxRigidDynamicGPUIndex*>(mNativeSleepIndices),
                    PxRigidDynamicGPUAPIWriteType::eTORQUE, count, mNativeSleepReady, NULL);
