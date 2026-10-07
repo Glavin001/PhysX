@@ -135,10 +135,27 @@ struct Result {
 };
 // The plastic state carried from the last evaluation (Result::forces, carried, slip).
 struct Carry { std::vector<PxDestructionVectorPair> elasticBase; std::vector<PxU32> carried; std::vector<float> slip; };
+// The solver's application point of bond b (the chunks' midpoint, or the centroid at a support).
+PxVec3 solverPoint(const Structure& s,const PxDestructionStressBond& b){
+    PxVec3 o0,o1;offsets(s,b,o0,o1);
+    return s.chunks[b.chunk0].mass>0?s.chunks[b.chunk0].position+o0:s.chunks[b.chunk1].position+o1;
+}
+// Wrenches reported at each bond's centroid (section rotational stiffness):
+// M_c = M_P + (c - P) x F; `back` undoes it.
+std::vector<PxDestructionVectorPair> atCentroid(const Structure& s,std::vector<PxDestructionVectorPair> J,bool back=false){
+    for(size_t k=0;k<J.size();++k){const auto& b=s.bonds[k];const PxVec3 t=(b.centroid-solverPoint(s,b)).cross(J[k].linear);
+        J[k].angular+=back?-t:t;}
+    return J;
+}
+// centroid: the elastic forces and the base reported at the bonds' centroids,
+// as the stress solve reports them with section rotational stiffness (E's
+// settings.solverAtCentroid and the material kernel's momentAtCentroid say so);
+// Result's forces are then in that convention too.
 Result evaluate(const Structure& s,const std::vector<PxVec3>& F,const std::vector<PxVec3>& T,
-    const std::vector<PxDestructionVectorPair>& base,bool withImpact,impact::Settings settings=impact::Settings{},const Carry* carry=nullptr){
+    std::vector<PxDestructionVectorPair> base,bool withImpact,impact::Settings settings=impact::Settings{},bool centroid=false,const Carry* carry=nullptr){
     const PxU32 n=PxU32(s.chunks.size()),m=PxU32(s.bonds.size());
     Result out;out.elastic=elastic(s,F,T);
+    if(centroid){out.elastic=atCentroid(s,out.elastic);base=atCentroid(s,base);}
     std::vector<PxU32> begin(n+1,0),refs(2*m);
     for(const auto& b:s.bonds){++begin[b.chunk0+1];++begin[b.chunk1+1];}
     for(PxU32 i=0;i<n;++i)begin[i+1]+=begin[i];
@@ -173,7 +190,7 @@ Result evaluate(const Structure& s,const std::vector<PxVec3>& F,const std::vecto
     (void)withImpact;(void)settings;
 #endif
     evaluateBondMaterials<<<(m+127)/128,128,0,stream>>>(chunks.p,bonds.p,materials.p,dHealth.p,dElastic.p,m,settings.dt,2.0f,
-        settings.bendGainMax,true,verdicts.p,centroids.p,stage.p,sectionVerdict,sectionVerdict?dSections.p:nullptr,false,view);
+        settings.bendGainMax,true,verdicts.p,centroids.p,stage.p,sectionVerdict,sectionVerdict?dSections.p:nullptr,centroid,view);
     check(cudaStreamSynchronize(stream));check(cudaGetLastError());
     out.verdicts=verdicts.get();
     out.forces=out.elastic;out.impact.assign(m,impact::eNONE);out.accel.assign(6*size_t(n),0.0f);
@@ -332,7 +349,48 @@ void rest(){
     expect(d.status.triggered==0 && commands>0 && !std::memcmp(c.verdicts.data(),d.verdicts.data(),sizeof(c.verdicts[0])*c.verdicts.size()),text);
 }
 
-// 4. Ci: crush by the impact's contact pressure Z1 Z2 / (Z1 + Z2) v through the
+// 4. With section rotational stiffness the stress solve reports every bond's
+// wrench at its centroid. E fed that convention (solverAtCentroid) is the same
+// solve as E fed the midpoint convention with its wrench point moved to the
+// centroid (momentAtCentroid): the same breaks, and the same forces once
+// converted -- the wall's hit, where E breaks the mortar and the tie.
+void centroidConvention(){
+    std::printf("E fed wrenches at the bonds' centroids (section rotational stiffness)\n");
+    Structure s;
+    const PxU32 footing=s.chunk(PxVec3(0,-0.1f,0),0,0),plate=s.chunk(PxVec3(0,-0.1f,0.15f),0,0),head=s.chunk(PxVec3(0,1.1f,0.15f),0,0);
+    const PxU32 brick=s.chunk(PxVec3(0,0.5f,0),110,9.4f),stud=s.chunk(PxVec3(0,0.5f,0.15f),1.7f,0.14f);
+    const PxU32 mortar=s.material(6.8e6f,0.3e6f,0.3e6f,0.0f),tieMat=s.material(2e3f/1e-5f,1.5e3f/1e-5f,1e3f/1e-5f,0.0f);
+    const PxU32 nailed=s.material(2.5e6f,1.5e3f/4e-3f,1.5e3f/4e-3f,0.015f);
+    auto weight=[](float E,float A,float L){return std::sqrt(E/30e9f*A/L);};
+    s.bond(footing,brick,PxVec3(0,0,0),PxVec3(0,1,0),0.11f,mortar,weight(6.8e9f,0.11f,0.6f));
+    // Off the chunks' midpoint, so the two conventions differ for this bond.
+    s.bond(brick,stud,PxVec3(0,0.8f,0.075f),PxVec3(0,0,1),1e-5f,tieMat,weight(200e9f,1e-5f,0.04f));
+    s.bond(plate,stud,PxVec3(0,0,0.15f),PxVec3(0,1,0),4e-3f,nailed,weight(0.37e9f,4e-3f,0.5f));
+    s.bond(stud,head,PxVec3(0,1.0f,0.15f),PxVec3(0,1,0),4e-3f,nailed,weight(0.37e9f,4e-3f,0.5f));
+    s.gravity();
+    const auto rest=elastic(s,s.force,s.torque);
+    char text[256];
+    for(float hit:{0.0f,360e3f}) {
+        auto F=s.force;F[brick]+=PxVec3(0,0,hit);
+        impact::Settings midpoint;midpoint.momentAtCentroid=true;
+        impact::Settings centroid;centroid.solverAtCentroid=true;
+        const auto a=evaluate(s,F,s.torque,rest,true,midpoint),b=evaluate(s,F,s.torque,rest,true,centroid,true);
+        const auto bf=atCentroid(s,b.forces,true);
+        float worst=0,scale=0;
+        for(size_t k=0;k<s.bonds.size();++k){
+            worst=std::max({worst,(a.forces[k].linear-bf[k].linear).magnitude(),(a.forces[k].angular-bf[k].angular).magnitude()});
+            scale=std::max({scale,a.forces[k].linear.magnitude(),a.forces[k].angular.magnitude()});
+        }
+        bool same=a.status.triggered==b.status.triggered && a.status.broken==b.status.broken;
+        for(size_t k=0;k<s.bonds.size();++k)same=same && a.impact[k]==b.impact[k] && (a.verdicts[k].health>0)==(b.verdicts[k].health>0);
+        std::snprintf(text,sizeof text,"%.0f kN hit: %u islands solved, %u broken in both; forces agree to %.1e of the largest (%.0f N)",
+            hit/1e3f,b.status.triggered,b.status.broken,scale>0?worst/scale:0.0f,scale);
+        expect(same && worst<=2e-4f*scale,text);
+        if(hit>0)expect(b.status.triggered>0 && b.impact[0]==impact::eBROKEN && b.impact[1]==impact::eBROKEN,"  the hit is E's: mortar and tie broken");
+    }
+}
+
+// 5. Ci: crush by the impact's contact pressure Z1 Z2 / (Z1 + Z2) v through the
 // masonry crush law (town-kit materials.mjs CRUSH, EN 1996-1-1 f_k 6.8 MPa).
 // A steel ball at 60 m/s crushes a brick chunk (~200 MPa against a one-tick
 // threshold of ~25 MPa); the same ball at 1 m/s does not; a truck's front,
@@ -512,7 +570,7 @@ void carried(){
     Carry carry{first.elastic,first.carried,first.slip};
     auto state=first.forces;PxU32 solved=0,broken=0;
     for(int tick=0;tick<5;++tick) {
-        const auto next=evaluate(s,F,s.torque,state,true,impact::Settings{},std::getenv("IMPACT_TEST_NO_CARRY")?nullptr:&carry);
+        const auto next=evaluate(s,F,s.torque,state,true,impact::Settings{},false,std::getenv("IMPACT_TEST_NO_CARRY")?nullptr:&carry);
         solved+=next.status.solves;broken+=(next.verdicts[0].health<=0)+(next.verdicts[1].health<=0);
         if(!tick){std::snprintf(text,sizeof text,"next tick: forces %.0f and %.0f N, verdicts %u %u",next.forces[0].linear.y,next.forces[1].linear.y,next.impact[0],next.impact[1]);
             expect(std::fabs(next.forces[0].linear.y-first.forces[0].linear.y)<50.0f && std::fabs(next.forces[1].linear.y-first.forces[1].linear.y)<50.0f,text);}
@@ -593,11 +651,65 @@ void projection(){
     expect(infeasible==0 && beaten==0,text);
 }
 
+// 12. The detectors. A projection corrupted on purpose (faultInjection: the
+// first link's point scaled 10x out of its set) is counted infeasible and
+// its solve stops as diverged, with no verdict from it; the healthy wall
+// reports neither.
+void detectors(){
+    std::printf("the impact solve's bug detectors\n");
+    const Structure s=wallStructure();
+    const auto rest=elastic(s,s.force,s.torque);
+    auto F=s.force;F[kWallBrick]+=PxVec3(0,0,360e3f);
+    impact::Settings healthy,broken;broken.faultInjection=1;
+    const auto a=evaluate(s,F,s.torque,rest,true,healthy),b=evaluate(s,F,s.torque,rest,true,broken);
+    char text[240];
+    std::snprintf(text,sizeof text,"healthy: %u diverged, %u infeasible projections (expected 0, 0)",a.status.diverged,a.status.infeasible);
+    expect(a.status.diverged==0 && a.status.infeasible==0,text);
+    PxU32 extra=0;for(PxU32 k=0;k<s.bonds.size();++k)extra+=(b.impact[k]==impact::eBROKEN) && a.impact[k]!=impact::eBROKEN;
+    std::snprintf(text,sizeof text,"corrupted projection: %u diverged (worst bond %d), %u infeasible, %u breaks beyond the healthy solve's (expected >0, >0, 0)",
+        b.status.diverged,int(b.status.worstBond)-1,b.status.infeasible,extra);
+    expect(b.status.diverged>0 && b.status.infeasible>0 && extra==0,text);
+}
+// 13. Every projection lands in its set: thin, thick and odd sections (L1
+// sets with gains 1-3e3 /m and either axis dominant, capacities from equal to
+// 100:1 either way), round cones and the shear triangle, metrics 1e-6-1e6.
+__global__ void fuzzProbe(const impact::Bond* bonds,const float* points,PxU32 count,PxU32* infeasible)
+{
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
+    impact::Bond b=bonds[i];float x[6];for(int q=0;q<6;++q)x[q]=points[6*i+q];
+    const float* m=points+6*count+4*i;
+    impact::project(b,x,m[0],m[1],m[2],m[3]);
+    if(!impact::feasible(b,x,1e-4f))atomicAdd(infeasible,1u);
+}
+void fuzz(){
+    std::printf("projections land in their sets (fuzz)\n");
+    std::srand(11);auto r=[](float a,float b){return a+(b-a)*float(std::rand())/float(RAND_MAX);};
+    auto lg=[&](float a,float b){return std::exp(r(std::log(a),std::log(b)));};
+    const PxU32 n=4096;std::vector<impact::Bond> bonds(n);std::vector<float> pts(6*n),metric(4*n);
+    for(PxU32 i=0;i<n;++i){
+        impact::Bond b{};b.flags=impact::eALIVE;const float a=lg(1e-5f,1.0f);b.area=a;
+        b.capT=lg(1e2f,1e7f);b.capC=b.capT*lg(0.01f,100.0f);b.capS=b.capT*lg(0.1f,10.0f);
+        const int kind=i%3;
+        if(kind==0){b.g0=lg(1.0f,3e3f);b.g1=lg(1.0f,3e3f);b.gb=b.g0;b.gt=lg(1.0f,3e3f);}   // L1 section
+        else {b.gb=lg(0.3f,3e3f);b.gt=lg(0.3f,3e3f);}                                    // round cones
+        bonds[i]=b;
+        const float F=b.capT+b.capC,M=F/std::min(b.gb,b.g0>0?std::min(b.g0,b.g1):b.gb);
+        for(int q=0;q<3;++q)pts[6*i+q]=r(-10*F,10*F);for(int q=3;q<6;++q)pts[6*i+q]=r(-10*M,10*M);
+        const float ml=lg(1e-6f,1e6f),ma=lg(1e-6f,1e6f);
+        metric[4*i]=ml;metric[4*i+1]=lg(1e-6f,1e6f);metric[4*i+2]=kind==0?lg(1e-6f,1e6f):ma;metric[4*i+3]=kind==0?lg(1e-6f,1e6f):ma;
+    }
+    pts.insert(pts.end(),metric.begin(),metric.end());
+    Device<impact::Bond> db(bonds);Device<float> dp(pts);Device<PxU32> bad(1);
+    fuzzProbe<<<(n+127)/128,128>>>(db.p,dp.p,n,bad.p);check(cudaDeviceSynchronize());
+    char text[160];std::snprintf(text,sizeof text,"%u projections (L1, round, shear; metrics 1e-6-1e6): %u infeasible (expected 0)",n,bad.get()[0]);
+    expect(bad.get()[0]==0,text);
+}
+
 }} // physx
 
 int main(int argc,char** argv){
     (void)argc;(void)argv;
-    try{if(const char* only=std::getenv("IMPACT_TEST_ONLY")){if(!std::strcmp(only,"unconverged"))physx::unconverged();if(!std::strcmp(only,"dispatches"))physx::dispatches();if(!std::strcmp(only,"carried"))physx::carried();if(!std::strcmp(only,"held"))physx::heldStops();if(!std::strcmp(only,"projection"))physx::projection();}else{physx::column();physx::wall();physx::rest();physx::impactCrush();physx::section();physx::coupled();physx::unconverged();physx::dispatches();physx::carried();physx::heldStops();physx::projection();}}
+    try{if(const char* only=std::getenv("IMPACT_TEST_ONLY")){if(!std::strcmp(only,"unconverged"))physx::unconverged();if(!std::strcmp(only,"dispatches"))physx::dispatches();if(!std::strcmp(only,"carried"))physx::carried();if(!std::strcmp(only,"held"))physx::heldStops();if(!std::strcmp(only,"projection"))physx::projection();if(!std::strcmp(only,"detectors"))physx::detectors();if(!std::strcmp(only,"fuzz"))physx::fuzz();}else{physx::column();physx::wall();physx::rest();physx::centroidConvention();physx::impactCrush();physx::section();physx::coupled();physx::unconverged();physx::dispatches();physx::carried();physx::heldStops();physx::projection();physx::detectors();physx::fuzz();}}
     catch(const std::exception& e){std::printf("error: %s\n",e.what());return 2;}
     std::printf("%s (%d failed)\n",physx::failures?"FAILED":"passed",physx::failures);
     return physx::failures?1:0;

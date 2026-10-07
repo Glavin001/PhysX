@@ -321,6 +321,15 @@ struct PxDestructionStageStatus {
     // Set whenever error bit 8 is, and also on steps that needed no correction,
     // so a consumer can check its scene before the first fracture.
     PxU32 correctionBlockers;
+    // The impact solve (PX_DESTRUCTION_IMPACT_CAPACITY) this tick, every pass:
+    // islands solved, solves, ADMM steps; solves stopped at their budget
+    // (capped: no verdict from them); solves stopped as diverging (their
+    // residual far above its own minimum and past capacity) and projections
+    // that left their capacity set -- both always bug signals; the bond with
+    // the worst split in the last diverged solve, plus 1 (0: none); and the
+    // longest impact-solve GPU dispatch, host clock (ms).
+    PxU32 impactIslands, impactSolves, impactSteps, impactCapped, impactDiverged, impactInfeasible, impactWorstBond;
+    float impactLongestDispatchMs;
 };
 // Why a stress component's last solve stopped (getStressSolveReport).
 struct PxDestructionStressStopReason {
