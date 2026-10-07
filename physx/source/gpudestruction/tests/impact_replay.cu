@@ -44,6 +44,7 @@ int run(int argc,char** argv){
     if(argc>7)s.rampFactor=float(std::atof(argv[7]));
     if(argc>8)s.elasticIncrementAfterYield=std::atoi(argv[8])!=0;
     if(const char* v=std::getenv("IMPACT_INNER"))s.innerIterations=PxU32(std::atoi(v));
+    if(const char* v=std::getenv("IMPACT_EVAL_ITERATIONS"))s.evaluationIterations=PxU32(std::atoi(v));
     std::vector<PxDestructionStressChunk> chunks(n);std::vector<PxDestructionVectorPair> accel(n);
     for(PxU32 i=0;i<n;++i){
         float v[11];for(float& x:v)x=r.get<float>();
@@ -110,8 +111,8 @@ int run(int argc,char** argv){
                 i,rec[i].level,rec[i].lambda,rec[i].clipped,rec[i].broken,rec[i].iterations,rec[i].capped?" (capped)":"",rec[i].change);
     }
     PxU32 broken=0,yielded=0;for(PxU32 v:verdict){broken+=v==impact::eBROKEN;yielded+=v==impact::eYIELDED;}
-    std::printf("%u chunks, %u bonds: %u islands solved, %u solves, %u iterations (%u capped), largest %u rounds; broken %u, yielded %u; error %u; %.1f ms\n",
-        n,m,status.triggered,status.solves,status.iterations,status.capped,status.rounds,broken,yielded,status.error,ms);
+    std::printf("%u chunks, %u bonds: %u islands solved, %u solves, %u iterations (%u capped), largest %u rounds; broken %u, yielded %u; error %u; %.1f ms in %u dispatches (longest %.1f ms)\n",
+        n,m,status.triggered,status.solves,status.iterations,status.capped,status.rounds,broken,yielded,status.error,ms,e.dispatches,e.longestDispatch);
     e.release();return 0;
 }
 }} // physx

@@ -1,0 +1,92 @@
+// A captured impact-solve evaluation (the stage's PX_DESTRUCTION_IMPACT_CAPTURE)
+// through the impact solve again, timed, with every solve's record: what an
+// impact tick costs and why (island sizes, levels, rounds, iterations).
+//
+//   destruction_impact_capture_replay CAPTURE.impc [runs]
+//
+// Settings overrides (A/B, diagnostics): IMPACT_ITERATIONS, IMPACT_INNER,
+// IMPACT_TOLERANCE, IMPACT_RAMP_FACTOR, IMPACT_RAMP_LEVELS, IMPACT_MAX_ROUNDS,
+// IMPACT_COUPLED (0/1). IMPACT_QUIET=1 prints the summary only.
+#include "PxDestructionScene.h"
+#include "NvBlastExtStressMaterialFormula.h"
+#include <cuda_runtime.h>
+#include <algorithm>
+#include <cfloat>
+#include <chrono>
+#include <cmath>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <stdexcept>
+#include <vector>
+namespace physx { namespace {
+using namespace Nv::Blast;
+void check(cudaError_t e){if(e!=cudaSuccess)throw std::runtime_error(cudaGetErrorString(e));}
+template<class T>void allocate(T*& p,size_t n){check(cudaMalloc(&p,std::max(size_t(1),n)*sizeof(T)));}
+#include "../src/PxgDestructionImpact.cuh"
+#include "../src/PxgDestructionImpactCapture.cuh"
+struct File {
+    FILE* f;explicit File(const char* path):f(std::fopen(path,"rb")){if(!f)throw std::runtime_error("cannot open capture");}
+    ~File(){std::fclose(f);}
+    template<class T>std::vector<T> read(size_t n){std::vector<T> v(n);if(n && std::fread(v.data(),sizeof(T),n,f)!=n)throw std::runtime_error("short capture");return v;}
+    template<class T>T one(){return read<T>(1)[0];}
+};
+template<class T>T* upload(const std::vector<T>& v){T* p;allocate(p,v.size());if(!v.empty())check(cudaMemcpy(p,v.data(),v.size()*sizeof(T),cudaMemcpyHostToDevice));return p;}
+float env(const char* name,float fallback){const char* v=std::getenv(name);return v && *v?float(std::atof(v)):fallback;}
+int run(int argc,char** argv){
+    if(argc<2){std::fprintf(stderr,"usage: %s CAPTURE.impc [runs]\n",argv[0]);return 2;}
+    File f(argv[1]);
+    const auto h=f.one<impact::CaptureHeader>();
+    if(std::memcmp(h.magic,"IMPC",4) || h.version!=1 || h.settingsBytes!=sizeof(impact::Settings))throw std::runtime_error("not a capture of this build");
+    impact::Settings s=f.one<impact::Settings>();
+    s.iterations=PxU32(env("IMPACT_ITERATIONS",float(s.iterations)));s.innerIterations=PxU32(env("IMPACT_INNER",float(s.innerIterations)));
+    s.tolerance=env("IMPACT_TOLERANCE",s.tolerance);s.rampFactor=env("IMPACT_RAMP_FACTOR",s.rampFactor);
+    s.rampLevels=PxU32(env("IMPACT_RAMP_LEVELS",float(s.rampLevels)));s.maxRounds=PxU32(env("IMPACT_MAX_ROUNDS",float(s.maxRounds)));
+    s.coupledContact=env("IMPACT_COUPLED",s.coupledContact?1.0f:0.0f)!=0.0f;
+    s.evaluationIterations=PxU32(env("IMPACT_EVAL_ITERATIONS",float(s.evaluationIterations)));
+    const PxU32 n=h.n,m=h.m;
+    impact::Inputs in{};in.chunkCount=n;in.bondCount=m;
+    in.chunks=upload(f.read<PxDestructionStressChunk>(n));in.bonds=upload(f.read<PxDestructionStressBond>(m));
+    in.materials=upload(f.read<PxDestructionMaterial>(h.materials));
+    if(h.flags&impact::eCAPTURE_SLIP)in.ductileSlip=upload(f.read<float>(h.materials));
+    if(h.flags&impact::eCAPTURE_STIFFNESS)in.stiffness=upload(f.read<float>(h.materials));
+    in.health=upload(f.read<float>(m));
+    in.nodeBegin=upload(f.read<PxU32>(size_t(n)+1));
+    const PxU32 refs=f.one<PxU32>();in.nodeRefs=upload(f.read<PxU32>(refs));
+    const auto nodeIslands=f.read<PxU32>(n),bondIslands=f.read<PxU32>(m);
+    in.nodeIslands=upload(nodeIslands);in.bondIslands=upload(bondIslands);
+    in.accelerations=upload(f.read<PxDestructionVectorPair>(n));in.elastic=upload(f.read<PxDestructionVectorPair>(m));
+    in.base=upload(f.read<PxDestructionVectorPair>(m));
+    if(h.flags&impact::eCAPTURE_ELASTIC_BASE)in.elasticBase=upload(f.read<PxDestructionVectorPair>(m));
+    if(h.flags&impact::eCAPTURE_CRUSHED)in.crushed=upload(f.read<PxDestructionCrushState>(n));
+    if(h.flags&impact::eCAPTURE_SECTIONS)in.sections=upload(f.read<PxDestructionBondSection>(m));
+    std::vector<float> zero(6*size_t(std::max(h.rows,1u)),0.0f);
+    if(h.flags&impact::eCAPTURE_ROWS){in.rows=upload(f.read<impact::ContactRow>(h.rows));in.rowCount=h.rows;in.rowDelta=upload(zero);in.rowForce=upload(zero);}
+    in.stage=upload(std::vector<PxDestructionStageStatus>(1));
+    cudaStream_t stream;check(cudaStreamCreateWithFlags(&stream,cudaStreamNonBlocking));
+    impact::Stage e;e.allocate(n,m);
+    impact::SolveRecord* log;allocate(log,impact::kLogCapacity);e.w.log=log;
+    // Island sizes as the stage has them.
+    std::vector<PxU32> islandBonds(n,0),islandChunks(n,0);
+    for(PxU32 k=0;k<m;++k)if(bondIslands[k]<n)++islandBonds[bondIslands[k]];
+    for(PxU32 i=0;i<n;++i)if(nodeIslands[i]<n)++islandChunks[nodeIslands[i]];
+    const int runs=argc>2?std::atoi(argv[2]):1;
+    for(int r=0;r<runs;++r) {
+        const auto t0=std::chrono::steady_clock::now();
+        e.submit(in,s,stream);check(cudaStreamSynchronize(stream));check(cudaGetLastError());
+        const double ms=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-t0).count();
+        impact::Status st{};check(cudaMemcpy(&st,e.w.status,sizeof st,cudaMemcpyDeviceToHost));
+        if(!r && !std::getenv("IMPACT_QUIET")) {
+            std::vector<impact::SolveRecord> rec(impact::kLogCapacity);check(cudaMemcpy(rec.data(),log,sizeof(rec[0])*rec.size(),cudaMemcpyDeviceToHost));
+            for(PxU32 i=0;i<std::min(st.solves,impact::kLogCapacity);++i)
+                std::printf("  solve %3u: island %u (%u bonds, %u chunks; %u links, %u nodes) level %2u lambda %.3g clipped %4u broken %4u: %5u iterations%s, residual %.2e\n",
+                    i,rec[i].island,islandBonds[rec[i].island],islandChunks[rec[i].island],rec[i].links,rec[i].nodes,rec[i].level,rec[i].lambda,rec[i].clipped,rec[i].broken,
+                    rec[i].iterations,rec[i].capped?" (capped)":"",rec[i].change);
+        }
+        std::printf("%s: %u chunks, %u bonds, %u rows; %u islands, %u solves, %u iterations (%u capped), %u rounds; broke %u, yielded %u; %u contacts, %u impactors; error %u; %.1f ms in %u dispatches (longest %.1f ms)\n",
+            argv[1],n,m,h.rows,st.triggered,st.solves,st.iterations,st.capped,st.rounds,st.broken,st.yielded,st.contacts,st.impactors,st.error,ms,e.dispatches,e.longestDispatch);
+    }
+    e.release();return 0;
+}
+}} // physx
+int main(int argc,char** argv){try{return physx::run(argc,argv);}catch(const std::exception& e){std::fprintf(stderr,"error: %s\n",e.what());return 2;}}

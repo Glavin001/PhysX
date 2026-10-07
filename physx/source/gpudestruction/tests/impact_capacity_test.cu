@@ -11,6 +11,7 @@
 #include <cuda_runtime.h>
 #include <algorithm>
 #include <cfloat>
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -45,6 +46,7 @@ struct Structure {
     std::vector<float> ductile; // per material
     std::vector<PxVec3> force,torque; // per chunk, N and N m about the chunk
     std::vector<PxDestructionBondSection> sections; // per bond when the section model is on
+    std::vector<impact::ContactRow> rows;           // coupled contacts (their trial loads already in force/torque)
     PxU32 chunk(PxVec3 p,float mass,float inertia){PxDestructionStressChunk c{};c.position=p;c.mass=mass;c.inertia=inertia;c.cluster=0;
         c.contactIndex=0xffffffffu;c.volume=0;c.material=0;chunks.push_back(c);force.push_back(PxVec3(0));torque.push_back(PxVec3(0));
         return PxU32(chunks.size()-1);}
@@ -128,7 +130,7 @@ void islands(const Structure& s,std::vector<PxU32>& node,std::vector<PxU32>& bon
 struct Result {
     std::vector<PxDestructionVectorPair> elastic,forces;
     std::vector<PxDestructionBondVerdict> verdicts;
-    std::vector<PxU32> impact;std::vector<float> accel; impact::Status status{};
+    std::vector<PxU32> impact;std::vector<float> accel,rowDelta; impact::Status status{};
 };
 // The solver's application point of bond b (the chunks' midpoint, or the centroid at a support).
 PxVec3 solverPoint(const Structure& s,const PxDestructionStressBond& b){
@@ -172,6 +174,9 @@ Result evaluate(const Structure& s,const std::vector<PxVec3>& F,const std::vecto
     in.health=dHealth.p;in.nodeBegin=dBegin.p;in.nodeRefs=dRefs.p;in.nodeIslands=dNode.p;in.bondIslands=dBond.p;
     in.accelerations=dInputs.p;in.elastic=dElastic.p;in.base=dBase.p;in.stage=stage.p;
     if(settings.sectionBending)in.sections=dSections.p;
+    Device<impact::ContactRow> dRows(s.rows.empty()?std::vector<impact::ContactRow>(1):s.rows);
+    Device<float> dDelta(6*std::max<size_t>(s.rows.size(),1));
+    if(!s.rows.empty()){in.rows=dRows.p;in.rowCount=PxU32(s.rows.size());in.rowDelta=dDelta.p;}
     impact::View view{};
 #ifndef PX_IMPACT_TODAY
     if(withImpact){e.submit(in,settings,stream);view={e.w.islandFlag,dBond.p,e.w.forces,e.w.verdict};}
@@ -193,6 +198,7 @@ Result evaluate(const Structure& s,const std::vector<PxVec3>& F,const std::vecto
         for(PxU32 k=0;k<m;++k)if(bondIsland[k]!=0xffffffffu && flags[bondIsland[k]]){out.forces[k]=f[k];out.impact[k]=v[k];}
     }
 #endif
+    out.rowDelta=dDelta.get();
     e.release();cudaStreamDestroy(stream);
     return out;
 }
@@ -255,8 +261,7 @@ void column(){
 // fails the skin's joints (brittle mortar and tie) leaves the stud's joint
 // below capacity. Today: the static solve sends the hit to every anchor, and
 // the stud's joint is past fatal.
-void wall(){
-    std::printf("skin, tie and frame: a hit on the skin\n");
+Structure wallStructure(){
     Structure s;
     const PxU32 footing=s.chunk(PxVec3(0,-0.1f,0),0,0),plate=s.chunk(PxVec3(0,-0.1f,0.15f),0,0),head=s.chunk(PxVec3(0,1.1f,0.15f),0,0);
     const PxU32 brick=s.chunk(PxVec3(0,0.5f,0),110,9.4f);            // a 1 x 1 x 0.11 m panel of brick veneer, 1900 kg/m^3
@@ -275,6 +280,13 @@ void wall(){
     s.bond(plate,stud,PxVec3(0,0,0.15f),PxVec3(0,1,0),4e-3f,nailed,weight(0.37e9f,4e-3f,0.5f));
     s.bond(stud,head,PxVec3(0,1.0f,0.15f),PxVec3(0,1,0),4e-3f,nailed,weight(0.37e9f,4e-3f,0.5f));
     s.gravity();
+    (void)footing;(void)plate;(void)head;(void)stud;
+    return s;
+}
+constexpr PxU32 kWallBrick=3;
+void wall(){
+    std::printf("skin, tie and frame: a hit on the skin\n");
+    const Structure s=wallStructure();const PxU32 brick=kWallBrick;
     const auto rest=elastic(s,s.force,s.torque);
     float restUse=0;for(PxU32 k=0;k<s.bonds.size();++k)restUse=std::max(restUse,utilisation(s,k,rest[k]));
     char text[256];std::snprintf(text,sizeof text,"at rest the wall stands (largest utilisation %.2f)",restUse);expect(restUse<1.0f,text);
@@ -438,11 +450,88 @@ void section(){
     std::printf("    (with the capped-gain cones instead, the impact solve %s it)\n",old.verdicts[0].health>0?"holds":"breaks");
 }
 
+// 6. The coupled contact (design step 2): a 1000 kg body at 10 m/s strikes a
+// 10 kg chunk standing on an anchor through one joint of 60 kN shear capacity.
+// The trial (the anchored cluster kinematic) stops the body in the tick: 600
+// kN on the chunk. With the body in the solve, the joint passes on at most its
+// capacity over the tick: body and chunk keep p - cap dt = 9000 N s between
+// them (8.91 m/s), the joint yielding (ductile) -- or p, the joint broken at
+// capacity (brittle: 9.90 m/s). Today (and uncoupled): the body keeps nothing.
+void coupled(){
+    std::printf("coupled contact: a body pushing a capacity-limited joint\n");
+    for(int ductile=0;ductile<2;++ductile) {
+        Structure s;const PxU32 anchor=s.chunk(PxVec3(0,0,0),0,0),wall=s.chunk(PxVec3(0,0.5f,0),10.0f,0.5f);
+        // 60 kN in shear over 0.01 m^2; compression and tension out of reach.
+        const PxU32 mat=s.material(1e12f,1e12f,6e6f,ductile?1.0f:0.0f);
+        s.bond(anchor,wall,PxVec3(0,0.25f,0),PxVec3(0,1,0),0.01f,mat);
+        const float M=1000.0f,v=10.0f,dt=1.0f/60.0f,cap=60e3f;
+        impact::ContactRow row{};row.chunk=wall;row.body=0;row.points=4;row.friction=0.0f;
+        const float point[3]={-0.25f,0.5f,0},com[3]={-1.0f,0.5f,0};
+        for(int q=0;q<3;++q){row.point[q]=point[q];row.com[q]=com[q];}
+        row.normal[0]=1;row.load[0]=M*v/dt;row.velocity[0]=v;row.dv[0]=-v;row.im=1.0f/M;
+        row.ii[0]=row.ii[1]=row.ii[2]=1.0f/400.0f;
+        s.rows.push_back(row);
+        const auto rest=elastic(s,s.force,s.torque);
+        auto F=s.force;F[wall]+=PxVec3(row.load[0],0,0);
+        impact::Settings settings;if(std::getenv("IMPACT_TEST_UNCOUPLED"))settings.coupledContact=false;
+        const auto r=evaluate(s,F,s.torque,rest,true,settings);
+        const float expected=ductile?(M*v-cap*dt)/(M+10.0f):M*v/(M+10.0f);
+        const float kept=r.rowDelta[0];   // the trial left it at rest: the change is its end velocity
+        char text[240];
+        std::snprintf(text,sizeof text,"%s joint: the body keeps %.3f m/s, expected %s = %.3f (%u contacts, %u solves, %u capped)",
+            ductile?"ductile":"brittle",kept,ductile?"(p - cap dt)/(M + m)":"p/(M + m)",expected,r.status.contacts,r.status.solves,r.status.capped);
+        expect(std::fabs(kept-expected)<0.01f*expected,text);
+        std::snprintf(text,sizeof text,"  the chunk moves with it: %.3f m/s",r.accel[6*wall]*dt);
+        expect(std::fabs(r.accel[6*wall]*dt-expected)<0.01f*expected,text);
+        expect(ductile?(r.impact[0]==impact::eYIELDED && r.verdicts[0].health>0):(r.impact[0]==impact::eBROKEN),
+            ductile?"  the joint yields and holds":"  the joint breaks");
+    }
+}
+
+// 7. An unconverged solve gives no verdict: the wall's hit with a budget of
+// one ADMM step per solve. What breaks is what broke in converged solves --
+// a subset of the converged evaluation's breaks -- and the evaluation reports
+// itself capped. (Before: the capped iterate was judged, and joints broke on it.)
+void unconverged(){
+    std::printf("an unconverged solve commits nothing\n");
+    const Structure s=wallStructure();
+    const auto rest=elastic(s,s.force,s.torque);
+    auto F=s.force;F[kWallBrick]+=PxVec3(0,0,360e3f);
+    impact::Settings budget;budget.iterations=1;
+    const auto full=evaluate(s,F,s.torque,rest,true),r=evaluate(s,F,s.torque,rest,true,budget);
+    PxU32 broken=0,extra=0;
+    for(PxU32 k=0;k<s.bonds.size();++k) {
+        const bool b=r.impact[k]==impact::eBROKEN || r.verdicts[k].health<=0,f=full.impact[k]==impact::eBROKEN;
+        broken+=b;extra+=b && !f;
+    }
+    char text[200];std::snprintf(text,sizeof text,"one step per solve: %u capped; %u broken, %u of them not broken by the converged evaluation (expected capped, 0)",
+        r.status.capped,broken,extra);
+    expect(r.status.capped>0 && extra==0,text);
+}
+// 8. The evaluation split into dispatches resumes exactly: the wall with
+// about one ADMM step per dispatch gives the same forces and verdicts, bit
+// for bit, as in one dispatch.
+void dispatches(){
+    std::printf("an evaluation split into many dispatches is the same evaluation\n");
+    const Structure s=wallStructure();
+    const auto rest=elastic(s,s.force,s.torque);
+    auto F=s.force;F[kWallBrick]+=PxVec3(0,0,360e3f);
+    // A dispatch of about one ADMM step (the wall: 6 links and nodes, 5 + 3 per
+    // conjugate gradient iteration); a budget for 512 steps, so the dispatch
+    // count stays a few thousand.
+    impact::Settings one,many;one.evaluationIterations=many.evaluationIterations=512;many.dispatchWork=60;
+    const auto a=evaluate(s,F,s.torque,rest,true,one),b=evaluate(s,F,s.torque,rest,true,many);
+    const bool same=!std::memcmp(a.forces.data(),b.forces.data(),sizeof(a.forces[0])*a.forces.size())
+        && a.impact==b.impact && a.status.iterations==b.status.iterations;
+    char text[200];std::snprintf(text,sizeof text,"wall: %u and %u iterations, forces and verdicts %s",a.status.iterations,b.status.iterations,same?"identical":"differ");
+    expect(same,text);
+}
+
 }} // physx
 
 int main(int argc,char** argv){
     (void)argc;(void)argv;
-    try{physx::column();physx::wall();physx::rest();physx::centroidConvention();physx::impactCrush();physx::section();}
+    try{if(const char* only=std::getenv("IMPACT_TEST_ONLY")){if(!std::strcmp(only,"unconverged"))physx::unconverged();if(!std::strcmp(only,"dispatches"))physx::dispatches();}else{physx::column();physx::wall();physx::rest();physx::centroidConvention();physx::impactCrush();physx::section();physx::coupled();physx::unconverged();physx::dispatches();}}
     catch(const std::exception& e){std::printf("error: %s\n",e.what());return 2;}
     std::printf("%s (%d failed)\n",physx::failures?"FAILED":"passed",physx::failures);
     return physx::failures?1:0;
