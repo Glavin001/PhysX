@@ -1126,6 +1126,14 @@ if(BLAST_ENABLE_CUDA_STRESS)
     target_link_libraries(gpu_stress_suite PRIVATE
         NvBlastExtStressGpu
         blast_stress_core)
+    # The shared stress headers select x86 SIMD unless told otherwise; match
+    # blast_stress_core's scalar build on other processors (Apple arm64).
+    if(NOT CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
+        target_compile_definitions(gpu_stress_benchmark PRIVATE
+            STRESS_SOLVER_FORCE_SCALAR STRESS_SOLVER_NO_SIMD STRESS_SOLVER_NO_DEVICE_QUERY)
+        target_compile_definitions(gpu_stress_suite PRIVATE
+            STRESS_SOLVER_FORCE_SCALAR STRESS_SOLVER_NO_SIMD STRESS_SOLVER_NO_DEVICE_QUERY)
+    endif()
 endif()
 
 # Standalone analytic qualification of the production CUDA specialization.
