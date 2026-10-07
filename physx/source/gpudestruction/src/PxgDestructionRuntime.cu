@@ -696,6 +696,7 @@ class Runtime final : public PxgDestructionRuntime {
     PxVec3* mBondCentroids{};PxDestructionBondVerdict* mVerdicts{};
     PxDestructionCrushState *mCrush{},*mTrialCrush{};
     float mDamageRate=2,mBendGain=3;bool mFibres=true;
+    PxDestructionBondSection* mSections{};bool mSectionBending=false; // v25, opt-in real sections
     float mFragmentMaxPenBias=-1e32f; // negative PhysX clamp; -1e32 leaves inheritance alone
     PxgDestructionTopologyTransaction* mTopology{};
     committedChanges::Publication mChanges;
@@ -1296,6 +1297,7 @@ public:
         cudaFree(mHealth);mHealth=nullptr;cudaFree(mRates);mRates=nullptr;
         cudaFree(mNodeBegin);mNodeBegin=nullptr;cudaFree(mNodeRefs);mNodeRefs=nullptr;
         cudaFree(mBondCentroids);mBondCentroids=nullptr;cudaFree(mVerdicts);mVerdicts=nullptr;
+        cudaFree(mSections);mSections=nullptr;mSectionBending=false;
         cudaFree(mCrush);mCrush=nullptr;cudaFree(mTrialCrush);mTrialCrush=nullptr;
         mN=mM=mC=mMapCount=0;
     }
@@ -1309,6 +1311,18 @@ public:
         std::vector<PxDestructionMaterial> materials;
         if(d.materialCount) {
             if(!d.materials || !std::isfinite(d.damageRate) || d.damageRate<=0 || !std::isfinite(d.bendGainMax))return false;
+            // Sections: finite non-negative moduli; where any is positive all
+            // must be, with a unit axis in the bond plane. Zero moduli = none.
+            if(d.bondSections)for(PxU32 i=0;i<d.bondCount;++i) {
+                const auto& s=d.bondSections[i];
+                if(!std::isfinite(s.bendModulus0) || !std::isfinite(s.bendModulus1) || !std::isfinite(s.twistModulus)
+                    || s.bendModulus0<0 || s.bendModulus1<0 || s.twistModulus<0)return false;
+                if(s.bendModulus0==0 && s.bendModulus1==0 && s.twistModulus==0)continue;
+                if(!(s.bendModulus0>0 && s.bendModulus1>0 && s.twistModulus>0) || !s.axis.isFinite()
+                    || std::abs(s.axis.magnitude()-1.0f)>1e-3f)return false;
+                const PxVec3 n=d.bonds[i].normal;const float m=n.magnitude();
+                if(m>0 && std::abs(s.axis.dot(n))>1e-3f*m)return false;
+            }
             if(!std::isfinite(d.fragmentMaxDepenetrationVelocity) || d.fragmentMaxDepenetrationVelocity<0)return false;
             materials.assign(d.materials,d.materials+d.materialCount);
             for(auto& m:materials) {
@@ -1479,6 +1493,11 @@ public:
                 if(!refs.empty())check(cudaMemcpy(mNodeRefs,refs.data(),sizeof(PxU32)*refs.size(),cudaMemcpyHostToDevice));
                 check(cudaMemset(mCrush,0,sizeof(*mCrush)*d.chunkCount));
                 mDamageRate=d.damageRate;mBendGain=d.bendGainMax;mFibres=d.fibreBending;
+                mSectionBending=d.sectionBending;
+                if(d.sectionBending && d.bondSections && d.bondCount) {
+                    allocate(mSections,d.bondCount);
+                    check(cudaMemcpy(mSections,d.bondSections,sizeof(*mSections)*d.bondCount,cudaMemcpyHostToDevice));
+                }
                 mFragmentMaxPenBias=d.fragmentMaxDepenetrationVelocity>0?-d.fragmentMaxDepenetrationVelocity:-1e32f;
                 check(cudaMemcpyToSymbol(gNativeFragmentMaxPenBias,&mFragmentMaxPenBias,sizeof(float)));
                 const bool fragmentGravity=d.fragmentGravity;
@@ -1876,7 +1895,7 @@ public:
             finishStatus<<<std::max(1u,(mM+127)/128),128,0,mStream>>>(solveStatus,mStatus,forces,mM,mCorrectionEnabled && !mAllowUnconverged);
             if(mMaterials) {
                 if(mM)evaluateBondMaterials<<<(mM+127)/128,128,0,mStream>>>(mChunks,mBonds,mMaterials,mHealth,forces,mM,
-                    dt,mDamageRate,mBendGain,mFibres,mVerdicts,mBondCentroids,mStatus);
+                    dt,mDamageRate,mBendGain,mFibres,mVerdicts,mBondCentroids,mStatus,mSectionBending,mSections);
                 evaluateChunkMaterials<<<(mN+127)/128,128,0,mStream>>>(mChunks,mBonds,mMaterials,mNodeBegin,mNodeRefs,
                     mHealth,forces,mBondCentroids,mSurface,mRates,mCrush,mTrialCrush,mN,dt,mStatus);
                 if(mM)finalizeMaterialVerdict<<<(mM+127)/128,128,0,mStream>>>(mBonds,mVerdicts,mTrialCrush,mHealth,mM,mStatus);

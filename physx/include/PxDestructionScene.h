@@ -1,7 +1,9 @@
 // Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
 #ifndef PX_DESTRUCTION_SCENE_H
 #define PX_DESTRUCTION_SCENE_H
-#define PX_DESTRUCTION_SCENE_VERSION 24
+#define PX_DESTRUCTION_SCENE_VERSION 25
+// v25 adds PxDestructionStressDesc::sectionBending and ::bondSections
+// (opt-in real cross-section bending; defaults keep v24 behaviour).
 // Feature (no layout change): enableChunkLoads with internalCorrectionLimit > 1.
 // Every corrected pass that re-solves re-apportions each chunk's command to its
 // owner, so destructible Vehicle2 cars work with the correction loop.
@@ -60,6 +62,21 @@ struct PxDestructionStressBond {
     PxReal area, health, complianceScale;
     PxU32 material=0;
 };
+// A bond's real cross-section (v25, PxDestructionStressDesc::bondSections):
+// the contact patch's elastic section moduli at the bond's authored area, in
+// the same frame as the bond's normal. `axis` is a unit principal axis of the
+// patch in the bond plane; the other is normal x axis.
+//   bendModulus0  I/c for bending about `axis` (m^3): sigma = M_axis / S0
+//   bendModulus1  I/c for bending about normal x axis (m^3)
+//   twistModulus  I_p/r_max for twist about the normal (m^3): tau = T / Zt,
+//                 the elastic interface (weld/fastener group) torsion stress
+// A rectangle b (along axis) x h: S0 = b h^2/6, S1 = h b^2/6,
+// Zt = b h (b^2 + h^2) / (6 sqrt(b^2 + h^2)). Zero moduli mean no shape data:
+// the bond is treated as a square patch of its area.
+struct PxDestructionBondSection {
+    PxVec3 axis{1.0f,0.0f,0.0f};
+    PxReal bendModulus0=0, bendModulus1=0, twistModulus=0;
+};
 struct PxDestructionStressCluster {
     PxRigidDynamicGPUIndex body;
     PxVec3 centerOfMass; // cluster-local COM for centrifugal loading
@@ -114,6 +131,17 @@ struct PxDestructionStressDesc {
     PxU32 materialCount = 0; // zero preserves stress-only operation
     PxReal damageRate = 2.0f, bendGainMax = 3.0f;
     bool fibreBending = true;
+    // Bending and torsion stress from each bond's real cross-section (v25).
+    // false (default): bend = M/A * min(6/sqrt(A), bendGainMax), twist likewise
+    // with 4.81/sqrt(A) -- below A = 4 m^2 that is a 2 m deep section for every
+    // bond. true: sigma = |M0|/S0 + |M1|/S1 (the corner fibre under biaxial
+    // bending) and tau = |T|/Zt from bondSections, with no gain cap; the moment
+    // is taken about the bond's centroid (the solver reports it about the
+    // chunks' midpoint), and the moduli shrink with the bond's remaining area.
+    // Bonds without a section (NULL array or zero moduli) use the square patch
+    // of their remaining area: 6/sqrt(A) for bending, 3 sqrt(2)/sqrt(A) twist.
+    bool sectionBending = false;
+    const PxDestructionBondSection* bondSections = NULL; // bondCount entries, or NULL
     // Optional full mass properties enable native candidate cluster creation.
     // Initial cluster bindings must match the bond graph's connected components.
     const PxDestructionChunkMassProperties* chunkMassProperties = NULL;

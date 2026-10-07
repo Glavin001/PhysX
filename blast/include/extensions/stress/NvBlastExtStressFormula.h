@@ -224,5 +224,76 @@ NVBLAST_STRESS_FORMULA_FN void extStressCalcBondStress(
     stressBend = bend * (sectionGain < bendGainMax ? sectionGain : bendGainMax);
 }
 
+/**
+Bond stress with bending and torsion taken from the bond's real cross-section.
+
+extStressCalcBondStress above turns a moment into a peak fibre stress with a
+section modulus inferred from area alone, 6/sqrt(area) -- a square patch -- and
+caps the gain at bendGainMax (3 in every caller), which below 4 m^2 is the
+modulus of a 2 m deep section whatever the joint really is. A 45 x 90 mm stud
+and a 2 m wall seam of the same area then read the same bending stress, and
+the stud's is understated twenty-fold. Here the section is the bond's own:
+
+    sigma_bend = |M0| / S0 + |M1| / S1     (the corner fibre of a rectangle
+                                            under biaxial bending; exact for
+                                            one, an upper bound otherwise)
+    tau_twist  = |T| / Zt                  (Zt = I_p / r_max: the patch as an
+                                            interface between rigid chunks, a
+                                            weld or fastener group in torsion)
+
+with M0, M1 the moment's components on the patch's principal axes (axis and
+normal x axis) and T its component on the normal. The moduli describe the
+authored patch; as damage removes area the patch is taken to lose width at its
+full depth, so they scale with health / originalArea, as the area does.
+
+No shape data (any modulus <= 0): the square patch of the remaining area,
+S = a^3/6 and Zt = sqrt(2) a^3/6 with a = sqrt(area), uncapped -- what
+6/sqrt(area) always stood for.
+
+\param[in] impulseAngular  The moment about the bond's centroid. The solver
+                            reports it about the chunks' midpoint; the caller
+                            transfers it (the section is at the centroid).
+\param[in] area            Remaining area (health), m^2, > 0.
+\param[in] originalArea    Authored area, m^2.
+\param[in] axis            Unit principal axis of the patch, in the bond plane.
+*/
+NVBLAST_STRESS_FORMULA_FN void extStressCalcBondStressSection(
+    const ExtStressVec3& impulseLinear,
+    const ExtStressVec3& impulseAngular,
+    const ExtStressVec3& normal,
+    float area,
+    float originalArea,
+    const ExtStressVec3& axis,
+    float bendModulus0,
+    float bendModulus1,
+    float twistModulus,
+    float& stressNormal,
+    float& stressShear,
+    float& stressBend)
+{
+    const float linearNormal = extStressDot(impulseLinear, normal);
+    stressNormal = linearNormal / area;
+    stressShear = extStressPerpendicularMagnitude(impulseLinear, normal, linearNormal) / area;
+    const float angularAlongNormal = extStressDot(impulseAngular, normal);
+    const float twist = fabsf(angularAlongNormal);
+    if (bendModulus0 > 0.0f && bendModulus1 > 0.0f && twistModulus > 0.0f && originalArea > 0.0f)
+    {
+        const float live = area / originalArea;
+        const ExtStressVec3 axis1 = {
+            fmaf(normal.y, axis.z, -normal.z * axis.y),
+            fmaf(normal.z, axis.x, -normal.x * axis.z),
+            fmaf(normal.x, axis.y, -normal.y * axis.x)};
+        const float m0 = fabsf(extStressDot(impulseAngular, axis));
+        const float m1 = fabsf(extStressDot(impulseAngular, axis1));
+        stressBend = (m0 / bendModulus0 + m1 / bendModulus1) / live;
+        stressShear = fmaf(twist, 1.0f / (twistModulus * live), stressShear);
+        return;
+    }
+    const float cube = area * sqrtf(area);   // a^3
+    const float bend = extStressPerpendicularMagnitude(impulseAngular, normal, angularAlongNormal);
+    stressBend = 6.0f * bend / cube;
+    stressShear = fmaf(twist, 4.2426407f / cube, stressShear);   // 6/sqrt(2)
+}
+
 }  // namespace Blast
 }  // namespace Nv
