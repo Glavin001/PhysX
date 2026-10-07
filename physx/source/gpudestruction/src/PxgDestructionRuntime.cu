@@ -1326,6 +1326,10 @@ public:
                 const auto& s=d.bondSections[i];
                 if(!std::isfinite(s.bendModulus0) || !std::isfinite(s.bendModulus1) || !std::isfinite(s.twistModulus)
                     || s.bendModulus0<0 || s.bendModulus1<0 || s.twistModulus<0)return false;
+                // A bearing joint's half-depths: finite, non-negative, both or neither, on a section.
+                if(!std::isfinite(s.bearingDepth0) || !std::isfinite(s.bearingDepth1) || s.bearingDepth0<0 || s.bearingDepth1<0
+                    || ((s.bearingDepth0>0)!=(s.bearingDepth1>0)))return false;
+                if(s.bearingDepth0>0 && !(s.bendModulus0>0))return false;
                 if(s.bendModulus0==0 && s.bendModulus1==0 && s.twistModulus==0)continue;
                 if(!(s.bendModulus0>0 && s.bendModulus1>0 && s.twistModulus>0) || !s.axis.isFinite()
                     || std::abs(s.axis.magnitude()-1.0f)>1e-3f)return false;
