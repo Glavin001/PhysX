@@ -281,7 +281,8 @@ void ram(const Options& options) {
     const PxVec3 start(0,0.1f,-18);
     NativeVehicleDesc carDesc;carDesc.keepConstraints=!options.dropConstraints;carDesc.sweepRoadQueries=options.sweep;
     NativeVehicle* vehicle=f.car(carDesc,start,PxQuat(PxIdentity),"wallRammer");
-    require(vehicle->constraintCount()==(options.dropConstraints?0u:1u),"unexpected vehicle constraint count");
+    // One Vehicle2 suspension constraint per corner (ab88dd854), not one per vehicle.
+    require(vehicle->constraintCount()==(options.dropConstraints?0u:4u),"unexpected vehicle constraint count");
     PxRigidDynamic* car=vehicle->actor();
     PxD6Joint* wallJoint=nullptr;
     if(options.constrainWall) {
@@ -290,7 +291,7 @@ void ram(const Options& options) {
         wallJoint=PxD6JointCreate(f.physics,wall.actor,PxTransform(PxIdentity),NULL,wall.actor->getGlobalPose());
         require(wallJoint,"wall joint creation failed");
     }
-    require(f.scene.getNbConstraints()==(options.dropConstraints?0u:1u)+(options.constrainWall?1u:0u),"unexpected constraint count");
+    require(f.scene.getNbConstraints()==(options.dropConstraints?0u:4u)+(options.constrainWall?1u:0u),"unexpected constraint count");
     f.warmUp();wall.configure(*f.destruction);
     Recording recording;recording.open(options.statePath,options.frames,wall,{vehicle},{},carDesc,PxVec3(0,1,-4));
 
