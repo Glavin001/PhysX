@@ -1336,7 +1336,9 @@ __global__ __launch_bounds__(kThreads) void stepIslands(Inputs in,Settings s,Scr
         // This block's dispatch budget is spent: the island waits for the next.
         if(budget<=0.0f){if(!threadIdx.x)atomicAdd(w.counters+4,1u);continue;}
         const Island is=st.is;const PxU32 nb=is.nb,island=st.island;
-        const float units=float(links(is)+nodes(is));
+        // A step costs at least a block's pass however small the island (its
+        // synchronisations): a 15-link island ran 4096 steps in one 112 ms dispatch.
+        const float units=float(max(links(is)+nodes(is),kThreads));
         while(st.phase!=eDONE && budget>0.0f) {
             if(st.phase==eTRIAL) {
                 const float lambda=fminf(1.0f,st.first*powf(s.rampFactor,float(st.level)));
@@ -1539,6 +1541,7 @@ __global__ void reportConvergence(const Status* impactStatus,PxDestructionStageS
     }
 }
 
+__global__ void markError(Status* status,PxU32 bit){atomicOr(&status->error,bit);}
 // Host side: persistent scratch and the launches of one evaluation.
 struct Stage {
     Scratch w{};PxU32 n=0,m=0;
@@ -1546,6 +1549,7 @@ struct Stage {
     // The last evaluation's dispatches and the longest of them (host clock,
     // from submission to completion), ms.
     PxU32 dispatches=0;double longestDispatch=0.0,lastSubmit=0.0;
+    bool errorUnfinished=false;
     void release() {
         if(pending)cudaFreeHost(pending);pending=nullptr;
         cudaFree(w.islandFlag);cudaFree(w.islands);cudaFree(w.counters);cudaFree(w.bondLocal);cudaFree(w.degree);
@@ -1586,7 +1590,7 @@ struct Stage {
         // host waits for each and stops when no island has work left. Enough
         // of them for the largest island the scene can have to spend its
         // evaluation budget (ADMM steps, and the ramp's other passes).
-        const double units=double(m)+double(n)+double(in.rows?in.rowCount:0u)*2.0;
+        const double units=std::max(double(m)+double(n)+double(in.rows?in.rowCount:0u)*2.0,double(kThreads));
         const double work=(double(s.evaluationIterations)*(5.0+3.0*double(s.innerIterations))+3.0*double(s.maxRounds)+2.0)*units;
         const PxU32 limit=PxU32(std::min(1e6,std::ceil(work/double(s.dispatchWork))+1.0));
         check(cudaStreamSynchronize(stream));
@@ -1600,6 +1604,10 @@ struct Stage {
             ++dispatches;
             if(!*pending)break;
         }
+        // Work left after the last dispatch the budget allows: an island
+        // never published (its forces are the elastic solve's). A bug.
+        if(*pending){std::fprintf(stderr,"[impact] error: %u islands unfinished after %u dispatches\n",*pending,dispatches);
+            markError<<<1,1,0,stream>>>(w.status,1u);errorUnfinished=true;}
     }
 };
 
