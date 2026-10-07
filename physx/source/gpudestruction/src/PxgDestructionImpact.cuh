@@ -130,8 +130,11 @@ struct Settings {
     // ADMM iterations per island per evaluation, all its solves together. A
     // solve that would exceed it is capped: the island returns to its last
     // converged state and the evaluation is unconverged (never a verdict
-    // from an unconverged iterate).
-    PxU32 evaluationIterations=4096;
+    // from an unconverged iterate). The veneer house's hardest first tick
+    // (the meteor: 98 solves, 24.5k steps converged, ~20 s in 60 ms
+    // dispatches) fits; the budget bounds a tick, it does not end converging
+    // solves early.
+    PxU32 evaluationIterations=32768;
     // The work of one dispatch, per block, in visits of the island's links
     // and nodes (an ADMM step: five passes, three more per conjugate
     // gradient iteration). Measured 5.4e7 visits a second for one block on
