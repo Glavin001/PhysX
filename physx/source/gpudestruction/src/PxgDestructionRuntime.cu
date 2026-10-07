@@ -389,13 +389,21 @@ __global__ void provisionalTopologyMotion(PxDestructionTopologyDeviceView topolo
     motion[i]=out;
 #endif
 }
+// A crushed chunk is not removed from the topology. finalizeMaterialVerdict has
+// already broken every live bond it has, so it becomes a cluster of its own: a
+// free body with its own hull, through the same split, rewind and corrected
+// solve as any detached chunk, so the corrected pass meets it as a moving body
+// of its own mass and not as part of an anchored structure. Its accepted crush
+// state marks it; what it becomes after its tick (debris that keeps colliding,
+// or dust the application retires) is the consumer's, by debrisMassFraction.
+// Removing its shape inside the correction (DestroyChunk) has no supported
+// owner transaction: the stage refused every such step and the scene froze.
 __global__ void emitTopologyEdits(const PxDestructionBondVerdict* bonds,PxU32 nb,
     const PxDestructionCrushState* trial,const PxDestructionCrushState* accepted,PxU32 nc,
     PxgDestructionEdit* edits,PxU32* count) {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;
     if(i<nb && bonds[i].broken)edits[atomicAdd(count,1u)]={PxgDestructionEditKind::BreakBond,i};
-    if(i<nc && trial[i].crushed && !accepted[i].crushed)
-        edits[atomicAdd(count,1u)]={PxgDestructionEditKind::DestroyChunk,i};
+    (void)trial;(void)accepted;(void)nc;
 }
 // A bond cut on a cycle can change internal stress without changing any
 // chunk's collision ownership, cluster mass or motion degrees of freedom.

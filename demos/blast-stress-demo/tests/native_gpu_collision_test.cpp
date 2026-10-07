@@ -684,6 +684,9 @@ void rejection() {
     require(f.context.healthy(),"rejected binding corrupted GPU scene");std::puts("native collision binding invalid shape and wrong source reject the whole batch; valid retry passed");
 }
 void crushRemoval() {
+    // PX_DESTRUCTION_CRUSH_CORRECTION: a crushed chunk is not removed. Its
+    // bonds break and it is prepared as a cluster of its own, so collision
+    // preparation retains its hull with a motion owner and removes nothing.
     Fixture f(2,0,true);f.material.compressionElasticLimit=1e12f;f.material.compressionFatalLimit=2e12f;
     f.material.crush.capPressure=2;f.material.crush.cohesion=1000;f.configure();
     bool crushed=false;
@@ -691,12 +694,13 @@ void crushRemoval() {
         f.scene.simulate(1.0f/60);PxU32 error=0;const bool complete=f.scene.fetchResults(true,&error);
         if(complete){require(!error,"ordinary crush accumulation failed");continue;}
         require(error && f.stage->getLastStatus().error==8 && f.stage->getLastStatus().crushedChunks,"crush verdict failed for an unexpected reason");
-        const auto status=f.readStatus();require(status.valid && !status.error && status.removed>0,"destroyed chunk collision removal missing");
+        const auto status=f.readStatus();require(status.valid && !status.error && status.removed==0,"a crushed chunk's geometry was removed");
         const auto bindings=f.bindings(status.count);PxU32 active[2];{PxScopedCudaLock lock(f.cuda);check(cuMemcpyDtoH(active,CUdeviceptr(f.stage->getDeviceView().trialTopology.activeChunks),sizeof(active)));}
-        unsigned removed=0;for(const auto& binding:bindings)if(!active[binding.chunk]){require(binding.targetBody==PX_INVALID_U32,"destroyed geometry retained a motion owner");++removed;}
-        require(removed==status.removed,"partial collision removal verdict");crushed=true;
+        require(active[0] && active[1],"a crushed chunk left the topology");
+        for(const auto& binding:bindings)require(binding.targetBody!=PX_INVALID_U32,"crushed geometry has no motion owner");
+        crushed=true;
     }
-    require(crushed,"crush fixture did not exercise collision removal");require(f.context.healthy(),"crush collision preparation GPU failure");std::puts("native crush verdict includes every destroyed collision shape passed");
+    require(crushed,"crush fixture did not exercise a crush");require(f.context.healthy(),"crush collision preparation GPU failure");std::puts("native crush verdict keeps every crushed hull on a motion owner passed");
 }
 }
 int main(int argc,char** argv){try{
@@ -709,6 +713,7 @@ int main(int argc,char** argv){try{
         if(mode=="--solver-metadata"){for(bool sleeping:{false,true}){solverMetadata(PxSolverType::ePGS,sleeping);solverMetadata(PxSolverType::eTGS,sleeping);}return 0;}
         if(mode=="--kinematic-inputs"){for(unsigned a=0;a<3;++a){nativeKinematicInputs(PxSolverType::ePGS,nullptr,a);nativeKinematicInputs(PxSolverType::eTGS,nullptr,a);}nativeKinematicInputReuse(PxSolverType::ePGS);nativeKinematicInputReuse(PxSolverType::eTGS);return 0;}
         if(mode=="--accepted-properties"){acceptedPropertiesOnly();return 0;}
+        if(mode=="--crush"){crushRemoval();return 0;}
         if(mode=="--accepted-properties-pgs"){acceptedPropertiesOnly(PxSolverType::ePGS);return 0;}
         if(mode=="--native-node-births"){preparationBeforeCompatibility(true);return 0;}
         if(mode=="--preparation-before-compatibility"){preparationBeforeCompatibility();return 0;}

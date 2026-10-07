@@ -14,6 +14,12 @@
 // sectionRotationalStiffness and PxDestructionBondSection's radii of gyration:
 // each bond's rotational stiffness in the stress solve from its own section.
 #define PX_DESTRUCTION_SECTION_ROTATIONAL_STIFFNESS 1
+// Feature (no layout change): a chunk crushed under internalCorrectionLimit >= 1
+// becomes a free body of its own (every bond it had breaks) instead of being
+// removed from the topology, and the step completes through the ordinary split
+// and corrected solve. Its accepted PxDestructionCrushState::crushed is set;
+// debris vs dust (debrisMassFraction) is the consumer's to present.
+#define PX_DESTRUCTION_CRUSH_CORRECTION 1
 #include "foundation/PxTransform.h"
 #include "PxDirectGPUAPI.h"
 #include "PxDestructionTopologyTypes.h"
@@ -189,8 +195,9 @@ struct PxDestructionStressDesc {
     // chunk on every corrected pass and is disabled once its chunk leaves the
     // carrier. Any other such constraint blocks correction
     // (eCONSTRAINT_ON_DESTRUCTION_BODY). No articulations, CCD, custom filter
-    // callbacks or deformables. Crushing/removal and unapportioned force
-    // commands on fractured sources reject explicitly.
+    // callbacks or deformables. A crushed chunk splits off as its own body
+    // (PX_DESTRUCTION_CRUSH_CORRECTION); unapportioned force commands on
+    // fractured sources reject explicitly.
     // Native sleeping is supported with ordinary CPU actor access (Direct GPU
     // mode disabled); Direct GPU sleeping plus correction remains unsupported.
     PxU32 internalCorrectionLimit = 0;
