@@ -205,6 +205,7 @@ struct Status {
     PxU32 heldStops;   // impactors whose solved velocity was withheld (a struck chunk held elastically)
     PxU32 rolledBack;  // islands with impactors whose evaluation was capped or diverged (the trial's stop stands)
     PxU32 energyGain;  // impactors the solve would have sped up past their start (a bug signal; withheld)
+    PxU32 nonfinite;   // solves stopped on a non-finite residual (a bug signal, counted apart from diverged)
 };
 // Optional per-solve record (diagnostics): the first kLogCapacity solves.
 struct SolveRecord { PxU32 island,level,iterations,broken,clipped,capped,links,nodes; float lambda,change,rho,pad; };
@@ -1044,7 +1045,7 @@ __device__ PxU32 solve(Shared& sh,const Inputs& in,const Settings& s,const Scrat
         if(infeasible || !isfinite(last) || (it>=25 && split>kDivergence)) {
             // Diverging: stop; the caller rolls the island back, as for a capped solve.
             const PxU32 bond=blockArgMax(sh,worst,worstBond);
-            if(!threadIdx.x){atomicAdd(&w.status->diverged,1u);atomicExch(&w.status->worstBond,bond+1u);}
+            if(!threadIdx.x){atomicAdd(isfinite(last)?&w.status->diverged:&w.status->nonfinite,1u);atomicExch(&w.status->worstBond,bond+1u);}
             ss.diverged=1;done=true;capped=true;++it;++run;break;
         }
         // Balance the residuals (OSQP): rescale rho by sqrt(primal/dual) every

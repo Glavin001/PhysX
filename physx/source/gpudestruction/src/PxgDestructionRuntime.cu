@@ -2436,6 +2436,7 @@ public:
                         if(e.triggered)std::fprintf(stderr,"[impact] pass %u: %u islands, %u solves, %u iterations (%u capped, %u diverged), %u rounds, broke %u, yielded %u, %u contacts from %u impactors (%u held stops, %u rolled back, %u energy gains), %u infeasible projections, error %u\n",
                             mPass,e.triggered,e.solves,e.iterations,e.capped,e.diverged,e.rounds,e.broken,e.yielded,e.contacts,e.impactors,e.heldStops,e.rolledBack,e.energyGain,e.infeasible,e.error);
                         if(e.diverged)std::fprintf(stderr,"[impact] DIVERGED: %u solves (a bug signal); worst split at bond %u\n",e.diverged,e.worstBond-1u);
+                        if(e.nonfinite)std::fprintf(stderr,"[impact] NON-FINITE: %u solves stopped on a non-finite residual (a bug signal); at bond %u\n",e.nonfinite,e.worstBond-1u);
                         if(e.infeasible)std::fprintf(stderr,"[impact] INFEASIBLE PROJECTIONS: %u (a bug signal)\n",e.infeasible);
                     }
                 }
