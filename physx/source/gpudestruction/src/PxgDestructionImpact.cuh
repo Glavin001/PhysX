@@ -182,6 +182,7 @@ struct Status {
 // Optional per-solve record (diagnostics): the first kLogCapacity solves.
 struct SolveRecord { PxU32 island,level,iterations,broken,clipped,capped,links,nodes; float lambda,change,rho,pad; };
 constexpr PxU32 kLogCapacity=256;
+constexpr PxU32 kTraceCapacity=8192;
 
 struct Bond {
     PxU32 bond,c0,c1,flags;
@@ -222,6 +223,8 @@ struct Scratch {
     float* impactorMass{}; // [2 R] by impactor slot: inverse mass, largest inverse inertia (the majoriser)
     float* Js{};           // [6 (M + R)] the island's last converged forces
     float* slip{};         // [M] each solved bond's plastic slip this evaluation (m)
+    float* linkResidual{}; // [2 (M + R)] or null: each link's last (primal, dual) (diagnostics, with trace)
+    float* trace{};        // [4 kTraceCapacity] or null: the first solve's (primal, dual, motion, rho) per ADMM step (diagnostics)
     struct IslandState* state{}; // [N] by triggered-island slot
 };
 // Contact rows one evaluation may couple (all islands), beyond the bonds.
@@ -322,59 +325,56 @@ __device__ __forceinline__ bool triangle(float& px,float& py,float ax,float ay,f
     segment(px,py,ax,ay,bx,by,qx,qy,d2);segment(px,py,bx,by,cx,cy,qx,qy,d2);segment(px,py,cx,cy,ax,ay,qx,qy,d2);
     px=qx;py=qy;return true;
 }
-// Projection of a bond-frame wrench onto C_b in the metric
-// diag(ml,ml,ml,ma,ma,ma). The axial set (N, M_t) and the shear set (T, V) are
-// independent; each is rotationally symmetric about its scalar axis, so its
-// projection keeps the vector part's direction and projects (scalar, |vector|)
-// onto the meridian triangle. Returns whether anything moved.
+// The projection's KKT point for multipliers on the tension (lt) and
+// compression (lc) lines: N moves by (lt - lc)/a, each moment by -(lt + lc)
+// g / b, clipped at zero (the quadrant's own bound).
+__device__ __forceinline__ void polytopePoint(const float* p,const float* w,float g0,float g1,float lt,float lc,float* q)
+{
+    q[0]=p[0]-(lt-lc)/w[0];q[1]=fmaxf(0.0f,p[1]-(lt+lc)*g0/w[1]);q[2]=fmaxf(0.0f,p[2]-(lt+lc)*g1/w[2]);
+}
 // The section's axial set with an L1 bending term, in its positive quadrant
 // (M0, M1 >= 0; the set and a diagonal metric are symmetric under their sign
 // flips, so the projection keeps their signs):
-//   M0 >= 0, M1 >= 0, g0 M0 + g1 M1 <= capT - N, g0 M0 + g1 M1 <= capC + N.
-// In coordinates scaled by the metric's square root it is a polyhedron of
-// four half-spaces; the projection is the nearest feasible projection onto
-// the affine hull of a subset of their planes (15 subsets).
-__device__ __forceinline__ bool halfSpaces(const float (*A)[3],const float* B,const float* q)
-{
-    for(int k=0;k<4;++k) {
-        const float v=A[k][0]*q[0]+A[k][1]*q[1]+A[k][2]*q[2]-B[k];
-        const float scale=fabsf(B[k])+fabsf(A[k][0]*q[0])+fabsf(A[k][1]*q[1])+fabsf(A[k][2]*q[2])+1e-30f;
-        if(v>1e-5f*scale)return false;
-    }
-    return true;
-}
+//   M0 >= 0, M1 >= 0, g0 M0 + g1 M1 + N <= capT, g0 M0 + g1 M1 - N <= capC.
+// The projection in the metric diag(w) (w = sc^2) by its KKT conditions:
+// the point is p moved by the active lines' multipliers (polytopePoint);
+// each case -- tension line, compression line, both (the apex) -- is a
+// monotone equation in one multiplier, solved by bisection. Exact to float
+// resolution whatever the scaling (an enumeration of active sets through 3x3
+// determinants lost every candidate on thin sections, g ~ 2e3 /m against
+// metrics ~1: an infeasible "projection" that drove the solve apart).
 __device__ __forceinline__ void polytope(float* p,const float* sc,float g0,float g1,float capT,float capC)
 {
-    // Half-space k: a_k . y <= b_k in scaled coordinates y = sc * x.
-    const float A[4][3]={{0.0f,-1.0f/sc[1],0.0f},{0.0f,0.0f,-1.0f/sc[2]},{1.0f/sc[0],g0/sc[1],g1/sc[2]},{-1.0f/sc[0],g0/sc[1],g1/sc[2]}};
-    const float B[4]={0.0f,0.0f,capT,capC};
-    const float y[3]={sc[0]*p[0],sc[1]*p[1],sc[2]*p[2]};
-    if(halfSpaces(A,B,y))return;
-    float best[3]={0,0,0},bestD=FLT_MAX;
-    for(int mask=1;mask<16;++mask) {
-        int idx[3],n=0;for(int k=0;k<4;++k)if(mask&(1<<k)){if(n==3){n=4;break;}idx[n++]=k;}
-        if(n>3)continue;
-        // q = y - A_S^T (A_S A_S^T)^-1 (A_S y - b_S)
-        float G[3][3],r[3];
-        for(int a=0;a<n;++a){r[a]=A[idx[a]][0]*y[0]+A[idx[a]][1]*y[1]+A[idx[a]][2]*y[2]-B[idx[a]];
-            for(int c=0;c<n;++c)G[a][c]=A[idx[a]][0]*A[idx[c]][0]+A[idx[a]][1]*A[idx[c]][1]+A[idx[a]][2]*A[idx[c]][2];}
-        float mu[3]={0,0,0};
-        if(n==1){if(!(G[0][0]>0.0f))continue;mu[0]=r[0]/G[0][0];}
-        else if(n==2){const float det=G[0][0]*G[1][1]-G[0][1]*G[1][0];if(!(fabsf(det)>1e-20f*(G[0][0]*G[1][1])))continue;
-            mu[0]=(r[0]*G[1][1]-r[1]*G[0][1])/det;mu[1]=(G[0][0]*r[1]-G[1][0]*r[0])/det;}
-        else {
-            const float det=G[0][0]*(G[1][1]*G[2][2]-G[1][2]*G[2][1])-G[0][1]*(G[1][0]*G[2][2]-G[1][2]*G[2][0])+G[0][2]*(G[1][0]*G[2][1]-G[1][1]*G[2][0]);
-            if(!(fabsf(det)>1e-20f*G[0][0]*G[1][1]*G[2][2]))continue;
-            for(int c=0;c<3;++c){float M[3][3];for(int a=0;a<3;++a)for(int e=0;e<3;++e)M[a][e]=e==c?r[a]:G[a][e];
-                mu[c]=(M[0][0]*(M[1][1]*M[2][2]-M[1][2]*M[2][1])-M[0][1]*(M[1][0]*M[2][2]-M[1][2]*M[2][0])+M[0][2]*(M[1][0]*M[2][1]-M[1][1]*M[2][0]))/det;}
+    const float w[3]={sc[0]*sc[0],sc[1]*sc[1],sc[2]*sc[2]};
+    auto bend=[](const float* q,float a,float b){return a*q[1]+b*q[2];};
+    const float tol=1e-6f*(capT+capC);
+    if(bend(p,g0,g1)+p[0]<=capT+tol && bend(p,g0,g1)-p[0]<=capC+tol)return;
+    float q[3];
+    // A multiplier large enough to satisfy any one line from p.
+    const float big=(fabsf(p[0])+capT+capC+bend(p,g0,g1))*(w[0]+w[1]/fmaxf(g0*g0,1e-30f)+w[2]/fmaxf(g1*g1,1e-30f))+1.0f;
+    // Tension line alone (lc = 0): f(l) = bend + N - capT, decreasing in l.
+    for(int side=0;side<2;++side) {
+        float lo=0.0f,hi=big;
+        for(int it=0;it<64;++it) {
+            const float mid=0.5f*(lo+hi);
+            polytopePoint(p,w,g0,g1,side?0.0f:mid,side?mid:0.0f,q);
+            const float f=side?bend(q,g0,g1)-q[0]-capC:bend(q,g0,g1)+q[0]-capT;
+            if(f>0.0f)lo=mid;else hi=mid;
         }
-        float q[3]={y[0],y[1],y[2]};
-        for(int a=0;a<n;++a)for(int e=0;e<3;++e)q[e]-=mu[a]*A[idx[a]][e];
-        if(!halfSpaces(A,B,q))continue;
-        const float d=(q[0]-y[0])*(q[0]-y[0])+(q[1]-y[1])*(q[1]-y[1])+(q[2]-y[2])*(q[2]-y[2]);
-        if(d<bestD){bestD=d;best[0]=q[0];best[1]=q[1];best[2]=q[2];}
+        polytopePoint(p,w,g0,g1,side?0.0f:hi,side?hi:0.0f,q);
+        const float other=side?bend(q,g0,g1)+q[0]-capT:bend(q,g0,g1)-q[0]-capC;
+        if(other<=tol){p[0]=q[0];p[1]=q[1];p[2]=q[2];return;}
     }
-    if(bestD<FLT_MAX){p[0]=best[0]/sc[0];p[1]=best[1]/sc[1];p[2]=best[2]/sc[2];}
+    // Both lines (the apex): N = (capT - capC)/2, g . m = (capT + capC)/2,
+    // m the projection of p's moments onto that line in the quadrant.
+    const float N=0.5f*(capT-capC),tau=0.5f*(capT+capC);
+    float lo=-big,hi=big;
+    for(int it=0;it<64;++it) {
+        const float mid=0.5f*(lo+hi);
+        const float m0=fmaxf(0.0f,p[1]-mid*g0/w[1]),m1=fmaxf(0.0f,p[2]-mid*g1/w[2]);
+        if(g0*m0+g1*m1>tau)lo=mid;else hi=mid;
+    }
+    p[0]=N;p[1]=fmaxf(0.0f,p[1]-hi*g0/w[1]);p[2]=fmaxf(0.0f,p[2]-hi*g1/w[2]);
 }
 // Projection of a bond-frame wrench onto C_b in the metric
 // diag(ml,ml,ml,mt,m0,m1). The axial set (N, M_t) and the shear set (T, V) are
@@ -924,15 +924,24 @@ __device__ PxU32 solve(Shared& sh,const Inputs& in,const Settings& s,const Scrat
                 const float gain=fmaxf(fmaxf(b.gb,b.gt),fmaxf(b.g0,b.g1));
                 primal=fmaxf(primal,(sqrtf(lp)+gain*sqrtf(ap))/cap);
             }
+            if(w.linkResidual){w.linkResidual[2*l]=(b.flags&eCONTACT)?0.0f:(sqrtf(lp)+fmaxf(fmaxf(b.gb,b.gt),fmaxf(b.g0,b.g1))*sqrtf(ap))/cap;
+                w.linkResidual[2*l+1]=0.5f*s.dt*s.dt*fmaxf(sqrtf(ld),sqrtf(ad)*s.lengthScale);}
             dual=fmaxf(dual,0.5f*s.dt*s.dt*fmaxf(sqrtf(ld),sqrtf(ad)*s.lengthScale));
             pn+=lp+ap;dn+=ld+ad;
         }
         primal=blockMax(sh,primal);dual=blockMax(sh,dual);last=fmaxf(primal,dual/s.tolerance*s.capacityTolerance);
+        if(w.trace && !threadIdx.x && blockIdx.x==0 && w.status->solves==0 && it<kTraceCapacity){float* t=w.trace+4*it;t[0]=primal;t[1]=dual;t[2]=motion;t[3]=rho;}
         if(!(primal>s.capacityTolerance) && !(dual>s.tolerance) && !(motion>s.tolerance)){done=true;++it;++run;break;}
-        // Balance the residuals (OSQP): rescale rho by sqrt(primal/dual) every 25 steps.
-        pn=blockSum(sh,pn);dn=blockSum(sh,dn);
-        if(it%25==24 && pn>0.0f && dn>0.0f) {
-            const float ratio=sqrtf(sqrtf(pn/dn));
+        // Balance the residuals (OSQP): rescale rho by sqrt(primal/dual) every
+        // 25 steps, each residual against its own tolerance (the split against
+        // capacityTolerance, the motion against tolerance) -- the raw sums are
+        // in different units (forces, accelerations), and their ratio drove
+        // rho down 16x on a house at rest, where the J step's self-stressed
+        // part then diverged (the split 4e3 x capacity, never recovering).
+        (void)pn;(void)dn;
+        const float rp=primal/s.capacityTolerance,rd=dual/s.tolerance;
+        if(it%25==24 && rp>0.0f && rd>0.0f) {
+            const float ratio=sqrtf(rp/rd);
             if(ratio>5.0f || ratio<0.2f) {
                 const float next=rho*fminf(fmaxf(ratio,1e-3f),1e3f);
                 for(PxU32 k=threadIdx.x;k<links(is);k+=kThreads)for(int q=0;q<6;++q)U[6*(is.b0+k)+q]*=rho/next;
