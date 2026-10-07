@@ -62,11 +62,16 @@ unsigned contactCount(PxDirectGPUAPI& gpu,PxCudaContextManager& cuda,PxU32 first
     CUdeviceptr pairBuffer=0,countBuffer=0;
     { PxScopedCudaLock lock(cuda);
       require(cuMemAlloc(&pairBuffer,1024*sizeof(PxGpuContactPair))==CUDA_SUCCESS,"allocate observer");
-      require(cuMemAlloc(&countBuffer,sizeof(PxU32))==CUDA_SUCCESS,"allocate observer count"); }
+      require(cuMemAlloc(&countBuffer,sizeof(PxU32))==CUDA_SUCCESS,"allocate observer count");
+      // A recycled allocation can still hold an earlier observation's count and
+      // pairs. Poison the count so an unwritten one cannot pass for a result.
+      require(cuMemsetD32(countBuffer,0xFFFFFFFFu,1)==CUDA_SUCCESS,"poison observer count"); }
     require(gpu.copyContactData(reinterpret_cast<PxGpuContactPair*>(pairBuffer),reinterpret_cast<PxU32*>(countBuffer),1024),"contact observation failed");
     unsigned observed=0,matchingPairs=0;
     { PxScopedCudaLock lock(cuda);PxU32 count=0;
-      require(cuMemcpyDtoH(&count,countBuffer,sizeof(count))==CUDA_SUCCESS && count<=1024,"contact observation overflow");
+      require(cuMemcpyDtoH(&count,countBuffer,sizeof(count))==CUDA_SUCCESS,"contact count read failed");
+      require(count!=0xFFFFFFFFu,"copyContactData left the pair count unwritten");
+      require(count<=1024,"contact observation overflow");
       std::vector<PxGpuContactPair> pairs(count);if(count)require(cuMemcpyDtoH(pairs.data(),pairBuffer,count*sizeof(PxGpuContactPair))==CUDA_SUCCESS,"contact read failed");
       for(const auto& p:pairs) {
         if((p.transformCacheRef0==firstID && p.transformCacheRef1==secondID) || (p.transformCacheRef1==firstID && p.transformCacheRef0==secondID)) {

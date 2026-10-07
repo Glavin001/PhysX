@@ -9684,6 +9684,28 @@ bool PxgGpuNarrowphaseCore::copyContactData(void* PX_RESTRICT data, PxU32* PX_RE
 
 		mIntermStackAlloc.reset();
 	}
+	else
+	{
+		// No pairs: still honour the contract. The count is the number of pairs
+		// written (zero), and finishEvent (or the synchronous return) still
+		// orders the caller after it. Leaving the count unwritten hands the
+		// caller whatever its buffer held, e.g. a recycled allocation's earlier
+		// observation with its stale owners.
+		if (startEvent)
+			mCudaContext->streamWaitEvent(mStream, startEvent);
+		mCudaContext->memsetD32Async(reinterpret_cast<CUdeviceptr>(numContactPairs), 0, 1, mStream);
+		if (finishEvent)
+		{
+			mCudaContext->eventRecord(finishEvent, mStream);
+		}
+		else
+		{
+			const CUresult result = mCudaContext->streamSynchronize(mStream);
+			if (result != CUDA_SUCCESS)
+				PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR, PX_FL, "copyContactData: CUDA error, code %u\n", result);
+			success = (result == CUDA_SUCCESS);
+		}
+	}
 
 	return success;
 }
