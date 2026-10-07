@@ -696,7 +696,7 @@ class Runtime final : public PxgDestructionRuntime {
     PxVec3* mBondCentroids{};PxDestructionBondVerdict* mVerdicts{};
     PxDestructionCrushState *mCrush{},*mTrialCrush{};
     float mDamageRate=2,mBendGain=3;bool mFibres=true;
-    PxDestructionBondSection* mSections{};bool mSectionBending=false; // v25, opt-in real sections
+    PxDestructionBondSection* mSections{};bool mSectionBending=false; // opt-in real sections (PX_DESTRUCTION_SECTION_BENDING)
     float mFragmentMaxPenBias=-1e32f; // negative PhysX clamp; -1e32 leaves inheritance alone
     PxgDestructionTopologyTransaction* mTopology{};
     committedChanges::Publication mChanges;

@@ -1,13 +1,15 @@
 // Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
 #ifndef PX_DESTRUCTION_SCENE_H
 #define PX_DESTRUCTION_SCENE_H
-#define PX_DESTRUCTION_SCENE_VERSION 25
-// v25 adds PxDestructionStressDesc::sectionBending and ::bondSections
-// (opt-in real cross-section bending; defaults keep v24 behaviour).
+#define PX_DESTRUCTION_SCENE_VERSION 24
 // Feature (no layout change): enableChunkLoads with internalCorrectionLimit > 1.
 // Every corrected pass that re-solves re-apportions each chunk's command to its
 // owner, so destructible Vehicle2 cars work with the correction loop.
 #define PX_DESTRUCTION_CHUNK_LOADS_CORRECTION_LOOP 1
+// Feature (layout change, consumers rebuild with the SDK): PxDestructionStressDesc::
+// sectionBending and ::bondSections (PxDestructionBondSection), opt-in bending
+// and torsion from each bond's real cross-section; defaults keep the capped gain.
+#define PX_DESTRUCTION_SECTION_BENDING 1
 #include "foundation/PxTransform.h"
 #include "PxDirectGPUAPI.h"
 #include "PxDestructionTopologyTypes.h"
@@ -62,7 +64,7 @@ struct PxDestructionStressBond {
     PxReal area, health, complianceScale;
     PxU32 material=0;
 };
-// A bond's real cross-section (v25, PxDestructionStressDesc::bondSections):
+// A bond's real cross-section (PX_DESTRUCTION_SECTION_BENDING, PxDestructionStressDesc::bondSections):
 // the contact patch's elastic section moduli at the bond's authored area, in
 // the same frame as the bond's normal. `axis` is a unit principal axis of the
 // patch in the bond plane; the other is normal x axis.
@@ -131,7 +133,8 @@ struct PxDestructionStressDesc {
     PxU32 materialCount = 0; // zero preserves stress-only operation
     PxReal damageRate = 2.0f, bendGainMax = 3.0f;
     bool fibreBending = true;
-    // Bending and torsion stress from each bond's real cross-section (v25).
+    // Bending and torsion stress from each bond's real cross-section
+    // (PX_DESTRUCTION_SECTION_BENDING).
     // false (default): bend = M/A * min(6/sqrt(A), bendGainMax), twist likewise
     // with 4.81/sqrt(A) -- below A = 4 m^2 that is a 2 m deep section for every
     // bond. true: sigma = |M0|/S0 + |M1|/S1 (the corner fibre under biaxial
