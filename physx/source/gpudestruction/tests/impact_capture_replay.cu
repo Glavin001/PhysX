@@ -25,6 +25,21 @@ void check(cudaError_t e){if(e!=cudaSuccess)throw std::runtime_error(cudaGetErro
 template<class T>void allocate(T*& p,size_t n){check(cudaMalloc(&p,std::max(size_t(1),n)*sizeof(T)));}
 #include "../src/PxgDestructionImpact.cuh"
 #include "../src/PxgDestructionImpactCapture.cuh"
+// Every bond whose elastic forces are past the impact solve's capacity (the
+// trigger), with what it is: IMPACT_TRIGGER_REPORT=1.
+struct TriggerRow { PxU32 bond,material,chunk0,chunk1; float utilisation,area,live,s0,s1,zt,g0,g1,gb,gt,N,V,T,M0,M1; };
+__global__ void triggerReport(impact::Inputs in,impact::Settings s,TriggerRow* out,PxU32* count,PxU32 capacity)
+{
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=in.bondCount)return;
+    if(in.bondIslands[i]>=in.chunkCount || !impact::bondMember(in,i))return;
+    impact::Bond b;if(!impact::prepareBond(in,s,i,b))return;
+    float x[6];impact::toLocal(b,in.elastic[i],x);
+    const float u=impact::utilisation(b,x);if(u<1.0f)return;
+    const PxU32 k=atomicAdd(count,1u);if(k>=capacity)return;
+    const auto bond=in.bonds[i];const auto sec=in.sections?in.sections[i]:PxDestructionBondSection{};
+    out[k]={i,bond.material,bond.chunk0,bond.chunk1,u,bond.area,in.health[i],sec.bendModulus0,sec.bendModulus1,sec.twistModulus,b.g0,b.g1,b.gb,b.gt,
+        x[0],sqrtf(x[1]*x[1]+x[2]*x[2]),x[3],x[4],x[5]};
+}
 struct File {
     FILE* f;explicit File(const char* path):f(std::fopen(path,"rb")){if(!f)throw std::runtime_error("cannot open capture");}
     ~File(){std::fclose(f);}
@@ -70,6 +85,18 @@ int run(int argc,char** argv){
     std::vector<PxU32> islandBonds(n,0),islandChunks(n,0);
     for(PxU32 k=0;k<m;++k)if(bondIslands[k]<n)++islandBonds[bondIslands[k]];
     for(PxU32 i=0;i<n;++i)if(nodeIslands[i]<n)++islandChunks[nodeIslands[i]];
+    if(std::getenv("IMPACT_TRIGGER_REPORT")) {
+        const PxU32 capacity=4096;TriggerRow* rows;allocate(rows,capacity);PxU32* count;allocate(count,1);check(cudaMemset(count,0,4));
+        triggerReport<<<(m+127)/128,128>>>(in,s,rows,count,capacity);check(cudaDeviceSynchronize());
+        PxU32 c=0;check(cudaMemcpy(&c,count,4,cudaMemcpyDeviceToHost));std::vector<TriggerRow> r(std::min(c,capacity));
+        if(!r.empty())check(cudaMemcpy(r.data(),rows,sizeof(r[0])*r.size(),cudaMemcpyDeviceToHost));
+        std::sort(r.begin(),r.end(),[](const TriggerRow& a,const TriggerRow& b){return a.utilisation>b.utilisation;});
+        const auto chunks=std::vector<PxDestructionStressChunk>();(void)chunks;
+        std::printf("bonds past capacity in the elastic solve: %u (sections %s, section rotation %s)\n",c,s.sectionBending?"on":"off",s.sectionRotation?"on":"off");
+        std::printf("bond,material,chunk0,chunk1,utilisation,area,live,S0,S1,Zt,g0,g1,gb,gt,N,V,T,M0,M1\n");
+        for(const auto& x:r)std::printf("%u,%u,%u,%u,%.3f,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g\n",x.bond,x.material,x.chunk0,x.chunk1,x.utilisation,x.area,x.live,
+            x.s0,x.s1,x.zt,x.g0,x.g1,x.gb,x.gt,x.N,x.V,x.T,x.M0,x.M1);
+    }
     const int runs=argc>2?std::atoi(argv[2]):1;
     for(int r=0;r<runs;++r) {
         const auto t0=std::chrono::steady_clock::now();
