@@ -258,7 +258,7 @@ struct ImpactContact {
     // The impact solve's coupled contact: a row per (pair, struck chunk of an
     // anchored -- kinematic -- cluster) whose other body is movable.
     impact::ContactRow* rows; PxU32* rowCount; PxU32 rowCapacity;
-    float separating; // m/s: a pair separating faster than this along its push is not coupled
+    float separating; // m/s: only a pair closing faster than this along its push is coupled (an impact)
     const PxDestructionStressCluster* clusters;
 };
 // One side of a pair as a coupled-contact row (impact::ContactRow): the struck
@@ -305,7 +305,11 @@ __device__ void coupleRow(PxU32 chunk,PxNodeIndex own,PxNodeIndex other,float si
         const PxVec3 vi(before.linearVelocityXYZ_inverseMassW.x,before.linearVelocityXYZ_inverseMassW.y,before.linearVelocityXYZ_inverseMassW.z);
         const PxVec3 wi(before.angularVelocityXYZ_maxPenBiasW.x,before.angularVelocityXYZ_maxPenBiasW.y,before.angularVelocityXYZ_maxPenBiasW.z);
         const PxVec3 rel=vi+wi.cross(x-com)-cv-cw.cross(x-cp);
-        if(rel.dot(normal.getNormalized())<-ci.separating)return;
+        // Only an impact: a pair closing faster than the solve's motion
+        // tolerance a tick. A resting contact (debris on a floor) closes at
+        // nothing; the trial's kinematic support is exact for it and needs no
+        // coupling (coupling every piece of rubble cost a capped solve a tick).
+        if(!(rel.dot(normal.getNormalized())>ci.separating))return;
     }
     if(p.frictionPatches && p.contactPatches) {
         PxFrictionAnchorStreamIterator it(p.contactPatches,p.frictionPatches,p.nbPatches);
