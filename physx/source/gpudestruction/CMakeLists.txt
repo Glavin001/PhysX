@@ -75,6 +75,10 @@ if(BUILD_TESTING)
     set_tests_properties(destruction_gpu_impact_capacity_today PROPERTIES WILL_FAIL TRUE)
     # The impact study's first tick through E, for comparison with the oracle
     # (vibe-land structures/town-kit/scripts/impact-e-replay.py). A tool, not a test.
+    add_executable(destruction_impact_capture_replay tests/impact_capture_replay.cu)
+    target_link_libraries(destruction_impact_capture_replay PRIVATE PhysXDestructionTopologyGpu)
+    target_include_directories(destruction_impact_capture_replay PRIVATE ../../../blast/include/extensions/stress)
+    px_destruction_cuda_properties(destruction_impact_capture_replay PROPERTIES CUDA_STANDARD 17 CUDA_ARCHITECTURES "${CMAKE_CUDA_ARCHITECTURES}")
     add_executable(destruction_impact_replay tests/impact_replay.cu)
     target_link_libraries(destruction_impact_replay PRIVATE PhysXDestructionTopologyGpu)
     target_include_directories(destruction_impact_replay PRIVATE ../../../blast/include/extensions/stress)

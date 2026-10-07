@@ -127,7 +127,21 @@ struct Settings {
     PxU32 rampLevels=32;
     float rampFactor=2.0f;
     PxU32 iterations=4096;   // ADMM iterations per solve
-    PxU32 innerIterations=4; // node-space conjugate gradient iterations per ADMM step (warm-started)
+    // ADMM iterations per island per evaluation, all its solves together. A
+    // solve that would exceed it is capped: the island returns to its last
+    // converged state and the evaluation is unconverged (never a verdict
+    // from an unconverged iterate).
+    PxU32 evaluationIterations=4096;
+    // The work of one dispatch, per block, in visits of the island's links
+    // and nodes (an ADMM step: five passes, three more per conjugate
+    // gradient iteration). Measured 5.4e7 visits a second for one block on
+    // an M-series GPU (CuMetal), so 2^22 keeps a dispatch near 80 ms,
+    // whatever the convergence: Apple GPUs do not preempt compute well, and a
+    // longer command buffer starves the display. The host waits for each
+    // dispatch (Stage::submit). Not a physical quantity: only how an
+    // evaluation is split into dispatches.
+    PxU32 dispatchWork=1u<<22;
+    PxU32 innerIterations=64;// node-space conjugate gradient iterations per ADMM step, at most (warm-started; to the tolerance)
     // Converged when every joint's projected gradient -- the relative
     // acceleration of its two chunks that the solve has not yet balanced or
     // let through -- moves them apart by at most this over the tick
@@ -160,7 +174,7 @@ struct Status {
     PxU32 impactors;   // impactor bodies coupled
 };
 // Optional per-solve record (diagnostics): the first kLogCapacity solves.
-struct SolveRecord { PxU32 island,level,iterations,broken,clipped,capped; float lambda,change; };
+struct SolveRecord { PxU32 island,level,iterations,broken,clipped,capped,links,nodes; float lambda,change,rho,pad; };
 constexpr PxU32 kLogCapacity=256;
 
 struct Bond {
@@ -200,9 +214,11 @@ struct Scratch {
     float* breaks{};       // [2M] or null: per bond, the round it broke in and its slip then (diagnostics)
     PxU32* adj{};          // [2 (M + R)] each island node's links (joints and contacts), local indices
     float* impactorMass{}; // [2 R] by impactor slot: inverse mass, largest inverse inertia (the majoriser)
+    float* Js{};           // [6 (M + R)] the island's last converged forces
+    struct IslandState* state{}; // [N] by triggered-island slot
 };
 // Contact rows one evaluation may couple (all islands), beyond the bonds.
-constexpr PxU32 kContactCapacity=16384;
+constexpr PxU32 kContactCapacity=4096;
 
 struct Inputs {
     const PxDestructionStressChunk* chunks{}; PxU32 chunkCount{};
@@ -722,27 +738,48 @@ __device__ void blockJacobi(const Inputs& in,const Scratch& w,const Island& is,f
     }
     __syncthreads();
 }
+// The largest motion over the tick, 1/2 dt^2 |M^-1 r| (rotations at the length
+// scale), of the node-space conjugate gradient's residual r (w.cr).
+__device__ float residualMotion(Shared& sh,const Settings& s,const Scratch& w,const Island& is)
+{
+    float m=0.0f;
+    for(PxU32 k=threadIdx.x;k<nodes(is);k+=kThreads) {
+        const Chunk& c=w.chunks[is.c0+k];float a[6];accelerate(c,w.cr+6*c.chunk,a);
+        m=fmaxf(m,fmaxf(sqrtf(a[0]*a[0]+a[1]*a[1]+a[2]*a[2]),sqrtf(a[3]*a[3]+a[4]*a[4]+a[5]*a[5])*s.lengthScale));
+    }
+    return 0.5f*s.dt*s.dt*blockMax(sh,m);
+}
 __device__ __forceinline__ void blockApply(const float* M,const float* v,float* o)
 {
     for(int a=0;a<6;++a){float t=0.0f;for(int e=0;e<6;++e)t+=M[6*a+e]*v[e];o[a]=t;}
 }
-__device__ PxU32 solve(Shared& sh,const Inputs& in,const Settings& s,const Scratch& w,const Island& is,float lambda,bool& capped,float& last)
+// The ADMM state that persists between dispatches (and, rho and U, between
+// the solves of one island's evaluation: a warm start).
+struct SolveState { PxU32 it,started; float rho,last; };
+// Runs at most `steps` ADMM steps of the solve at load level lambda, resuming
+// where the last call stopped; done when converged or at the solve's budget
+// (capped). Returns the steps run.
+__device__ PxU32 solve(Shared& sh,const Inputs& in,const Settings& s,const Scratch& w,const Island& is,float lambda,
+    SolveState& ss,float& budget,float units,bool& done,bool& capped)
 {
     const float inverseDt2=1.0f/(s.dt*s.dt);
     precondition(in,s,w,is);
-    float rho=1.0f;
+    float rho=ss.rho;
     blockJacobi(in,w,is,rho,inverseDt2);
-    // Z = J (feasible), U = 0; the load's own acceleration M^-1 (p - r_prev).
-    for(PxU32 k=threadIdx.x;k<links(is);k+=kThreads)for(int q=0;q<6;++q){w.Y[6*(is.b0+k)+q]=w.J[6*(is.b0+k)+q];w.Jn[6*(is.b0+k)+q]=0.0f;}
+    // A fresh solve: Z = J (feasible); U, the scaled dual, kept from the
+    // island's last solve (zero at its first). The load's own acceleration
+    // M^-1 (p - r_prev), every call (it is fixed for the solve).
+    if(!ss.started)for(PxU32 k=threadIdx.x;k<links(is);k+=kThreads)for(int q=0;q<6;++q)w.Y[6*(is.b0+k)+q]=w.J[6*(is.b0+k)+q];
     for(PxU32 k=threadIdx.x;k<nodes(is);k+=kThreads) {
         const Chunk& c=w.chunks[is.c0+k];
-        float p[6];for(int q=0;q<6;++q){p[q]=(1.0f-lambda)*c.pb[q]+lambda*c.pf[q]-c.r[q];w.cy[6*c.chunk+q]=0.0f;}
+        float p[6];for(int q=0;q<6;++q){p[q]=(1.0f-lambda)*c.pb[q]+lambda*c.pf[q]-c.r[q];if(!ss.started)w.cy[6*c.chunk+q]=0.0f;}
         accelerate(c,p,w.u+6*c.chunk);
     }
+    ss.started=1;
     __syncthreads();
-    PxU32 it=0;capped=true;last=0.0f;
+    PxU32 it=ss.it,run=0;done=false;capped=false;float last=ss.last;
     float* Z=w.Y;float* U=w.Jn;
-    for(;it<s.iterations;++it) {
+    for(;(!run || budget>0.0f) && it<s.iterations;++it,++run) {
         // J step: c = -B^T M^-1 p + C T + R (Z - U); J = A^-1 c - A^-1 B^T y, N y = B A^-1 c.
         for(PxU32 k=threadIdx.x;k<links(is);k+=kThreads) {
             const PxU32 l=is.b0+k;const Bond& b=w.bonds[l];float* a=w.a+6*l;
@@ -778,9 +815,16 @@ __device__ PxU32 solve(Shared& sh,const Inputs& in,const Settings& s,const Scrat
             for(int t=0;t<6;++t){w.cp[6*c.chunk+t]=zz[t];rz+=r[t]*zz[t];}
         }
         rz=blockSum(sh,rz);
-        // The a we need afterwards is A^-1 c: keep it in w.F-free storage -- recompute
-        // after the inner solve (it does not depend on y).
-        for(PxU32 inner=0;inner<s.innerIterations && rz>0.0f;++inner) {
+        // The J step is solved to the solve's tolerance: its residual, as the
+        // chunks' motion over the tick it leaves unexplained (1/2 dt^2 M^-1 r),
+        // within `tolerance` -- else ADMM's residuals would certify an inexact
+        // fixed point. innerIterations bounds the conjugate gradients per step.
+        float motion=residualMotion(sh,s,w,is);
+        // The step's work in link-and-node visits: five passes, three more per
+        // conjugate gradient iteration (Settings::dispatchWork).
+        budget-=5.0f*units;
+        for(PxU32 inner=0;inner<s.innerIterations && rz>0.0f && motion>s.tolerance;++inner) {
+            budget-=3.0f*units;
             nodeApply(in,w,is,rho,inverseDt2,w.cp,w.cq);
             float pq=0.0f;
             for(PxU32 k=threadIdx.x;k<nodes(is);k+=kThreads){const PxU32 c=w.chunks[is.c0+k].chunk;for(int t=0;t<6;++t)pq+=w.cp[6*c+t]*w.cq[6*c+t];}
@@ -796,7 +840,7 @@ __device__ PxU32 solve(Shared& sh,const Inputs& in,const Settings& s,const Scrat
             const float beta=rz2/rz;rz=rz2;
             for(PxU32 k=threadIdx.x;k<nodes(is);k+=kThreads){const PxU32 c=w.chunks[is.c0+k].chunk;for(int t=0;t<6;++t)w.cp[6*c+t]=w.cz[6*c+t]+beta*w.cp[6*c+t];}
             __syncthreads();
-            if(!(rz>1e-12f*rz2+0.0f) && rz==0.0f)break;
+            motion=residualMotion(sh,s,w,is);
         }
         // J = A^-1 (c - B^T y); Z = Pi_R(J + U); U += J - Z.
         float primal=0.0f,dual=0.0f,pn=0.0f,dn=0.0f;
@@ -815,14 +859,22 @@ __device__ PxU32 solve(Shared& sh,const Inputs& in,const Settings& s,const Scrat
                 const float rp=j[q]-z[q],rd=R[q]*(z[q]-zold[q]);
                 if(q<3){lp+=rp*rp;ld+=rd*rd;}else{ap+=rp*rp;ad+=rd*rd;}
             }
-            // A contact row: its couple must vanish too (at the solve's length scale).
-            const float gain=(b.flags&eCONTACT)?1.0f/s.lengthScale:fmaxf(fmaxf(b.gb,b.gt),fmaxf(b.g0,b.g1));
-            primal=fmaxf(primal,(sqrtf(lp)+gain*sqrtf(ap))/cap);
+            if(b.flags&eCONTACT) {
+                // A contact has no capacity to measure its split against: the
+                // motion it would leave unexplained over the tick, to the
+                // solve's tolerance (as a fraction of 1e-4, the joints' scale).
+                float im0,ii0,im1,ii1;nodeInverse(in,w,b.c0,im0,ii0);nodeInverse(in,w,b.c1,im1,ii1);
+                const float motion=0.5f*s.dt*s.dt*(sqrtf(lp)*(im0+im1)+sqrtf(ap)*(ii0+ii1)*s.lengthScale);
+                primal=fmaxf(primal,motion/s.tolerance*1e-4f);
+            } else {
+                const float gain=fmaxf(fmaxf(b.gb,b.gt),fmaxf(b.g0,b.g1));
+                primal=fmaxf(primal,(sqrtf(lp)+gain*sqrtf(ap))/cap);
+            }
             dual=fmaxf(dual,0.5f*s.dt*s.dt*fmaxf(sqrtf(ld),sqrtf(ad)*s.lengthScale));
             pn+=lp+ap;dn+=ld+ad;
         }
         primal=blockMax(sh,primal);dual=blockMax(sh,dual);last=fmaxf(primal,dual/s.tolerance*1e-4f);
-        if(!(primal>1e-4f) && !(dual>s.tolerance)){capped=false;++it;break;}
+        if(!(primal>1e-4f) && !(dual>s.tolerance) && !(motion>s.tolerance)){done=true;++it;++run;break;}
         // Balance the residuals (OSQP): rescale rho by sqrt(primal/dual) every 25 steps.
         pn=blockSum(sh,pn);dn=blockSum(sh,dn);
         if(it%25==24 && pn>0.0f && dn>0.0f) {
@@ -834,10 +886,12 @@ __device__ PxU32 solve(Shared& sh,const Inputs& in,const Settings& s,const Scrat
             }
         }
     }
+    if(!done && it>=s.iterations){done=true;capped=true;}
+    ss.it=it;ss.rho=rho;ss.last=last;
     // The feasible iterate is the answer.
-    for(PxU32 k=threadIdx.x;k<links(is);k+=kThreads)for(int q=0;q<6;++q)w.J[6*(is.b0+k)+q]=Z[6*(is.b0+k)+q];
+    if(done && !capped)for(PxU32 k=threadIdx.x;k<links(is);k+=kThreads)for(int q=0;q<6;++q)w.J[6*(is.b0+k)+q]=Z[6*(is.b0+k)+q];
     __syncthreads();
-    return it;
+    return run;
 }
 
 __device__ void finishFailed(const Scratch& w,PxU32 bit){atomicOr(&w.status->error,bit);}
@@ -885,12 +939,24 @@ __device__ __forceinline__ Chunk impactorNode(const Inputs& in,const Settings& s
     return c;
 }
 
-__global__ __launch_bounds__(kThreads) void solveIslands(Inputs in,Settings s,Scratch w)
+// One island's evaluation, as a state machine that can stop between any two
+// ADMM steps and resume in the next dispatch (a dispatch is bounded by
+// Settings::dispatchWork, whatever the convergence).
+enum Phase : PxU32 { eTRIAL=0, eSOLVE=1, ePOST=2, ePUBLISH=3, eDONE=4 };
+struct IslandState {
+    Island is;PxU32 island,phase,level,rounds,broken,plastic,failed,capped,clipped,total;
+    float first,previous,lambda,snapLambda;SolveState solve;
+};
+
+// Setup: members, links, nodes, the ramp's start and first event.
+__global__ __launch_bounds__(kThreads) void setupIslands(Inputs in,Settings s,Scratch w)
 {
     __shared__ Shared sh;
     const PxU32 islands=w.counters[0];
     for(PxU32 k=blockIdx.x;k<islands;k+=gridDim.x) {
         const PxU32 island=w.islands[k];
+        if(!threadIdx.x){w.state[k]=IslandState{};w.state[k].island=island;w.state[k].phase=eDONE;}
+        __syncthreads();
         Island is{};
         // Members, in index order (deterministic): count, allocate, compact.
         PxU32 nb=0,nc=0,nr=0;
@@ -913,7 +979,7 @@ __global__ __launch_bounds__(kThreads) void solveIslands(Inputs in,Settings s,Sc
         __syncthreads();
         is.b0=sh.base;is.nb=nb;is.nr=nr;is.c0=sh.count;is.nc=nc;is.ni=0;
         __syncthreads();
-        if(is.b0+nb+nr>in.bondCount+kContactCapacity || is.c0+nc+nr>in.chunkCount+kContactCapacity){if(!threadIdx.x)finishFailed(w,1u);continue;}
+        if(is.b0+nb+nr>in.bondCount+kContactCapacity || is.c0+nc+nr>in.chunkCount+kContactCapacity){if(!threadIdx.x)finishFailed(w,1u);__syncthreads();continue;}
         if(!threadIdx.x)sh.flag=0;
         __syncthreads();
         for(PxU32 tile=0;tile<in.bondCount;tile+=kThreads) {
@@ -1010,7 +1076,7 @@ __global__ __launch_bounds__(kThreads) void solveIslands(Inputs in,Settings s,Sc
             total=blockCount(sh,total);
             if(!threadIdx.x){sh.base=atomicAdd(w.counters+3,total);sh.flag=0;}
             __syncthreads();
-            if(sh.base+total>2*(in.bondCount+kContactCapacity)){if(!threadIdx.x)finishFailed(w,1u);continue;}
+            if(sh.base+total>2*(in.bondCount+kContactCapacity)){if(!threadIdx.x)finishFailed(w,1u);__syncthreads();continue;}
         }
         for(PxU32 tile=0;tile<nodes(is);tile+=kThreads) {
             const PxU32 k=tile+threadIdx.x;
@@ -1060,101 +1126,158 @@ __global__ __launch_bounds__(kThreads) void solveIslands(Inputs in,Settings s,Sc
             first=fminf(first,hi);
         }
         first=fmaxf(blockMin(sh,first),powf(s.rampFactor,-float(s.rampLevels-1)));
-        // An impactor's contact is solved from the first level (no elastic
-        // solution knows it).
-        PxU32 rounds=0,level=0,broken=0;bool plastic=is.nr>0,failed=false;
-        float previous=0.0f;
-        for(;;) {
-            const float lambda=fminf(1.0f,first*powf(s.rampFactor,float(level)));
-            const bool final=lambda>=1.0f;
-            // The trial: the last forces plus this level's increment of the
-            // elastic solution, returned onto capacity.
-            PxU32 clipped=0;
-            for(PxU32 k=threadIdx.x;k<nb;k+=kThreads) {
-                const PxU32 l=is.b0+k;const Bond& b=w.bonds[l];
-                if(!(b.flags&eALIVE))continue;
-                float* T=w.T+6*l;float* J=w.J+6*l;
-                float inc[6]={0,0,0,0,0,0};
-                if(lambda!=previous && (!plastic || s.elasticIncrementAfterYield)){float a[6],o[6];toLocal(b,in.elastic[b.bond],a);toLocal(b,(in.elasticBase?in.elasticBase:in.base)[b.bond],o);
-                    for(int q=0;q<6;++q)inc[q]=(lambda-previous)*(a[q]-o[q]);}
-                for(int q=0;q<6;++q){T[q]=J[q]+inc[q];J[q]=T[q];}
-                clipped+=returnMap(b,J)?1u:0u;
-            }
-            clipped=blockCount(sh,clipped);
-            previous=lambda;
-            if(clipped)plastic=true;
-            if(plastic) {
-                bool capped;float last;const PxU32 it=solve(sh,in,s,w,is,lambda,capped,last);
-                ++rounds;
-                if(!threadIdx.x){const PxU32 slot=atomicAdd(&w.status->solves,1u);atomicAdd(&w.status->iterations,it);
-                    if(capped)atomicAdd(&w.status->capped,1u);
-                    if(w.log && slot<kLogCapacity)w.log[slot]={island,level,it,broken,clipped,capped?1u:0u,lambda,last};}
-            }
-            // The chunks' acceleration so far; it carries into the next solve.
-            chunkPass(in,w,is,lambda,w.J,true);
-            __syncthreads();
-            for(PxU32 k=threadIdx.x;k<nodes(is);k+=kThreads) {
-                Chunk& c=w.chunks[is.c0+k];const float* u=w.u+6*c.chunk;
-                if(plastic)momentum(c,u,c.r);
-            }
-            __syncthreads();
-            // Which joints reached capacity, and which of them fail.
-            PxU32 newly=0;
-            for(PxU32 k=threadIdx.x;k<nb;k+=kThreads) {
-                const PxU32 l=is.b0+k;Bond& b=w.bonds[l];float* j=w.J+6*l;
-                if(!(b.flags&eALIVE))continue;
-                if(!(utilisation(b,j)>=1.0f-s.capacityBand))continue;
-                bool fails=!(b.flags&eDUCTILE);
-                if(!fails && final) {
-                    // Slip at the centroid over the tick: 1/2 |v_rel| dt = 1/2 |a_rel| dt^2.
-                    float e[6];relative(b,w.u,e);
-                    fails=0.5f*sqrtf(e[0]*e[0]+e[1]*e[1]+e[2]*e[2])*s.dt*s.dt>b.slip;
-                }
-                if(fails){b.flags&=~eALIVE;for(int q=0;q<6;++q)j[q]=0.0f;++newly;
-                    if(w.breaks){float e[6];relative(b,w.u,e);w.breaks[2*b.bond]=float(rounds)+0.01f*float(level);
-                        w.breaks[2*b.bond+1]=0.5f*sqrtf(e[0]*e[0]+e[1]*e[1]+e[2]*e[2])*s.dt*s.dt;}}
-            }
-            newly=blockCount(sh,newly);
-            broken+=newly;
-            if(newly)plastic=true;
-            if(!newly){if(final)break;++level;}
-            if(rounds>=s.maxRounds){failed=true;break;}
-        }
-        if(failed && !threadIdx.x)finishFailed(w,4u);
-        // Publish: forces in the solver's convention, verdicts, accelerations.
-        chunkPass(in,w,is,1.0f,w.J,true);
-        PxU32 yielded=0;bool finite=true;
-        for(PxU32 k=threadIdx.x;k<nb;k+=kThreads) {
-            const PxU32 l=is.b0+k;const Bond& b=w.bonds[l];const float* j=w.J+6*l;
-            float lin[3],ang[3];toSolver(b,j,lin,ang);
-            PxDestructionVectorPair f;f.linear=PxVec3(lin[0],lin[1],lin[2]);f.angular=PxVec3(ang[0],ang[1],ang[2]);
-            finite=finite && f.linear.isFinite() && f.angular.isFinite();
-            w.forces[b.bond]=f;
-            PxU32 v=eHELD;
-            if(!(b.flags&eALIVE))v=eBROKEN;
-            else if(utilisation(b,j)>=1.0f-s.capacityBand){v=eYIELDED;++yielded;}
-            w.verdict[b.bond]=v;
-        }
-        // Each impactor's end velocity against the trial's.
-        for(PxU32 k=is.nc+threadIdx.x;k<nodes(is);k+=kThreads) {
-            const Chunk& c=w.chunks[is.c0+k];const ContactRow& row=in.rows[c.owner];const float* u=w.u+6*c.chunk;
-            float d[6];
-            for(int q=0;q<3;++q){d[q]=u[q]*s.dt-(row.velocity[q]+row.dv[q]);d[3+q]=u[3+q]*s.dt-(row.spin[q]+row.dw[q]);}
-            for(int q=0;q<6;++q)finite=finite && isfinite(d[q]);
-            if(in.rowDelta)for(int q=0;q<6;++q)in.rowDelta[6*c.owner+q]=d[q];
-        }
-        // Each coupled row's force on its chunk (cluster frame).
-        for(PxU32 k=threadIdx.x;k<is.nr;k+=kThreads) {
-            const PxU32 l=is.b0+nb+k;const Bond& b=w.bonds[l];float lin[3],ang[3];toWorld(b,w.J+6*l,lin,ang);
-            finite=finite && isfinite(lin[0]) && isfinite(lin[1]) && isfinite(lin[2]);
-            if(in.rowForce)for(int q=0;q<3;++q)in.rowForce[3*b.bond+q]=lin[q];
-        }
-        yielded=blockCount(sh,yielded);
-        const PxU32 bad=blockCount(sh,finite?0u:1u);
+        // The last converged state (the ramp's start until a solve converges):
+        // what a capped solve returns to.
+        for(PxU32 k2=threadIdx.x;k2<links(is);k2+=kThreads)for(int q=0;q<6;++q){w.Js[6*(is.b0+k2)+q]=w.J[6*(is.b0+k2)+q];w.Jn[6*(is.b0+k2)+q]=0.0f;}
+        __syncthreads();
         if(!threadIdx.x) {
-            atomicAdd(&w.status->triggered,1u);atomicAdd(&w.status->broken,broken);atomicAdd(&w.status->yielded,yielded);
-            atomicMax(&w.status->rounds,rounds);if(bad)atomicOr(&w.status->error,2u);
+            IslandState st{};st.is=is;st.island=island;st.phase=eTRIAL;
+            // An impactor's contact is solved from the first level (no elastic
+            // solution knows it).
+            st.plastic=is.nr>0;st.first=first;st.solve.rho=1.0f;
+            w.state[k]=st;
         }
+        __syncthreads();
+    }
+}
+
+// One dispatch of every island's evaluation: at most Settings::dispatchWork
+// link-and-node visits of ADMM steps per block, then it stops where it is.
+__global__ __launch_bounds__(kThreads) void stepIslands(Inputs in,Settings s,Scratch w)
+{
+    __shared__ Shared sh;
+    const PxU32 islands=w.counters[0];
+    float budget=float(s.dispatchWork);
+    for(PxU32 k=blockIdx.x;k<islands;k+=gridDim.x) {
+        IslandState st=w.state[k];
+        if(st.phase==eDONE)continue;
+        // This block's dispatch budget is spent: the island waits for the next.
+        if(budget<=0.0f){if(!threadIdx.x)atomicAdd(w.counters+4,1u);continue;}
+        const Island is=st.is;const PxU32 nb=is.nb,island=st.island;
+        const float units=float(links(is)+nodes(is));
+        while(st.phase!=eDONE && budget>0.0f) {
+            if(st.phase==eTRIAL) {
+                const float lambda=fminf(1.0f,st.first*powf(s.rampFactor,float(st.level)));
+                // The trial: the last forces plus this level's increment of the
+                // elastic solution, returned onto capacity.
+                PxU32 clipped=0;
+                for(PxU32 k2=threadIdx.x;k2<nb;k2+=kThreads) {
+                    const PxU32 l=is.b0+k2;const Bond& b=w.bonds[l];
+                    if(!(b.flags&eALIVE))continue;
+                    float* T=w.T+6*l;float* J=w.J+6*l;
+                    float inc[6]={0,0,0,0,0,0};
+                    if(lambda!=st.previous && (!st.plastic || s.elasticIncrementAfterYield)){float a[6],o[6];toLocal(b,in.elastic[b.bond],a);toLocal(b,(in.elasticBase?in.elasticBase:in.base)[b.bond],o);
+                        for(int q=0;q<6;++q)inc[q]=(lambda-st.previous)*(a[q]-o[q]);}
+                    for(int q=0;q<6;++q){T[q]=J[q]+inc[q];J[q]=T[q];}
+                    clipped+=returnMap(b,J)?1u:0u;
+                }
+                clipped=blockCount(sh,clipped);
+                st.previous=st.lambda=lambda;st.clipped=clipped;
+                if(clipped)st.plastic=1;
+                budget-=units;
+                if(st.plastic){st.phase=eSOLVE;st.solve.it=0;st.solve.started=0;}else st.phase=ePOST;
+            }
+            if(st.phase==eSOLVE && budget>0.0f) {
+                // The evaluation's own budget (Settings::evaluationIterations)
+                // caps the solve as its per-solve budget does.
+                Settings local=s;local.iterations=min(s.iterations,st.solve.it+(s.evaluationIterations>st.total?s.evaluationIterations-st.total:0u));
+                bool done,capped;const PxU32 run=solve(sh,in,local,w,is,st.lambda,st.solve,budget,units,done,capped);
+                st.total+=run;
+                if(!done)break;   // the dispatch's budget: resume here next dispatch
+                ++st.rounds;
+                if(!threadIdx.x){const PxU32 slot=atomicAdd(&w.status->solves,1u);atomicAdd(&w.status->iterations,st.solve.it);
+                    if(capped)atomicAdd(&w.status->capped,1u);
+                    if(w.log && slot<kLogCapacity)w.log[slot]={island,st.level,st.solve.it,st.broken,st.clipped,capped?1u:0u,links(is),nodes(is),st.lambda,st.solve.last,st.solve.rho,0.0f};}
+                if(capped) {
+                    // Not converged: no verdict from it. The island goes back to
+                    // its last converged state (forces, breaks), and the
+                    // evaluation reports itself unconverged (Status::capped).
+                    for(PxU32 k2=threadIdx.x;k2<links(is);k2+=kThreads)for(int q=0;q<6;++q)w.J[6*(is.b0+k2)+q]=w.Js[6*(is.b0+k2)+q];
+                    __syncthreads();
+                    st.capped=1;st.lambda=st.snapLambda;st.phase=ePUBLISH;
+                } else st.phase=ePOST;
+            }
+            if(st.phase==ePOST) {
+                const float lambda=st.lambda;const bool final=lambda>=1.0f;
+                // The chunks' acceleration so far; it carries into the next solve.
+                chunkPass(in,w,is,lambda,w.J,true);
+                __syncthreads();
+                for(PxU32 k2=threadIdx.x;k2<nodes(is);k2+=kThreads) {
+                    Chunk& c=w.chunks[is.c0+k2];const float* u=w.u+6*c.chunk;
+                    if(st.plastic)momentum(c,u,c.r);
+                }
+                __syncthreads();
+                // Which joints reached capacity, and which of them fail.
+                PxU32 newly=0;
+                for(PxU32 k2=threadIdx.x;k2<nb;k2+=kThreads) {
+                    const PxU32 l=is.b0+k2;Bond& b=w.bonds[l];float* j=w.J+6*l;
+                    if(!(b.flags&eALIVE))continue;
+                    if(!(utilisation(b,j)>=1.0f-s.capacityBand))continue;
+                    bool fails=!(b.flags&eDUCTILE);
+                    if(!fails && final) {
+                        // Slip at the centroid over the tick: 1/2 |v_rel| dt = 1/2 |a_rel| dt^2.
+                        float e[6];relative(b,w.u,e);
+                        fails=0.5f*sqrtf(e[0]*e[0]+e[1]*e[1]+e[2]*e[2])*s.dt*s.dt>b.slip;
+                    }
+                    if(fails){b.flags&=~eALIVE;for(int q=0;q<6;++q)j[q]=0.0f;++newly;
+                        if(w.breaks){float e[6];relative(b,w.u,e);w.breaks[2*b.bond]=float(st.rounds)+0.01f*float(st.level);
+                            w.breaks[2*b.bond+1]=0.5f*sqrtf(e[0]*e[0]+e[1]*e[1]+e[2]*e[2])*s.dt*s.dt;}}
+                }
+                newly=blockCount(sh,newly);
+                // The converged state (a brittle joint at capacity in a converged
+                // field has broken).
+                for(PxU32 k2=threadIdx.x;k2<links(is);k2+=kThreads)for(int q=0;q<6;++q)w.Js[6*(is.b0+k2)+q]=w.J[6*(is.b0+k2)+q];
+                st.snapLambda=lambda;
+                st.broken+=newly;
+                if(newly)st.plastic=1;
+                budget-=units;
+                st.phase=eTRIAL;
+                if(!newly){if(final)st.phase=ePUBLISH;else ++st.level;}
+                if(st.phase!=ePUBLISH && st.rounds>=s.maxRounds){st.failed=1;st.phase=ePUBLISH;}
+                __syncthreads();
+            }
+            if(st.phase==ePUBLISH) {
+                if(st.failed && !threadIdx.x)finishFailed(w,4u);
+                // Publish: forces in the solver's convention, verdicts, accelerations.
+                chunkPass(in,w,is,st.capped?st.lambda:1.0f,w.J,true);
+                __syncthreads();
+                PxU32 yielded=0;bool finite=true;
+                for(PxU32 k2=threadIdx.x;k2<nb;k2+=kThreads) {
+                    const PxU32 l=is.b0+k2;const Bond& b=w.bonds[l];const float* j=w.J+6*l;
+                    float lin[3],ang[3];toSolver(b,j,lin,ang);
+                    PxDestructionVectorPair f;f.linear=PxVec3(lin[0],lin[1],lin[2]);f.angular=PxVec3(ang[0],ang[1],ang[2]);
+                    finite=finite && f.linear.isFinite() && f.angular.isFinite();
+                    w.forces[b.bond]=f;
+                    PxU32 v=eHELD;
+                    if(!(b.flags&eALIVE))v=eBROKEN;
+                    else if(utilisation(b,j)>=1.0f-s.capacityBand){v=eYIELDED;++yielded;}
+                    w.verdict[b.bond]=v;
+                }
+                // Each impactor's end velocity against the trial's (none from an
+                // unconverged evaluation: the trial's stands).
+                for(PxU32 k2=is.nc+threadIdx.x;k2<nodes(is) && !st.capped;k2+=kThreads) {
+                    const Chunk& c=w.chunks[is.c0+k2];const ContactRow& row=in.rows[c.owner];const float* u=w.u+6*c.chunk;
+                    float d[6];
+                    for(int q=0;q<3;++q){d[q]=u[q]*s.dt-(row.velocity[q]+row.dv[q]);d[3+q]=u[3+q]*s.dt-(row.spin[q]+row.dw[q]);}
+                    for(int q=0;q<6;++q)finite=finite && isfinite(d[q]);
+                    if(in.rowDelta)for(int q=0;q<6;++q)in.rowDelta[6*c.owner+q]=d[q];
+                }
+                // Each coupled row's force on its chunk (cluster frame).
+                for(PxU32 k2=threadIdx.x;k2<is.nr;k2+=kThreads) {
+                    const PxU32 l=is.b0+nb+k2;const Bond& b=w.bonds[l];float lin[3],ang[3];toWorld(b,w.J+6*l,lin,ang);
+                    finite=finite && isfinite(lin[0]) && isfinite(lin[1]) && isfinite(lin[2]);
+                    if(in.rowForce)for(int q=0;q<3;++q)in.rowForce[3*b.bond+q]=lin[q];
+                }
+                yielded=blockCount(sh,yielded);
+                const PxU32 bad=blockCount(sh,finite?0u:1u);
+                if(!threadIdx.x) {
+                    atomicAdd(&w.status->triggered,1u);atomicAdd(&w.status->broken,st.broken);atomicAdd(&w.status->yielded,yielded);
+                    atomicMax(&w.status->rounds,st.rounds);if(bad)atomicOr(&w.status->error,2u);
+                }
+                st.phase=eDONE;budget-=units;
+            }
+        }
+        if(!threadIdx.x){w.state[k]=st;if(st.phase!=eDONE)atomicAdd(w.counters+4,1u);}
         __syncthreads();
     }
 }
@@ -1183,10 +1306,15 @@ __global__ void reportConvergence(const Status* impactStatus,PxDestructionStageS
 // Host side: persistent scratch and the launches of one evaluation.
 struct Stage {
     Scratch w{};PxU32 n=0,m=0;
+    PxU32* pending{};        // pinned: islands not done after the last dispatch
+    // The last evaluation's dispatches and the longest of them (host clock,
+    // from submission to completion), ms.
+    PxU32 dispatches=0;double longestDispatch=0.0,lastSubmit=0.0;
     void release() {
+        if(pending)cudaFreeHost(pending);pending=nullptr;
         cudaFree(w.islandFlag);cudaFree(w.islands);cudaFree(w.counters);cudaFree(w.bondLocal);cudaFree(w.degree);
         cudaFree(w.bonds);cudaFree(w.chunks);cudaFree(w.J);cudaFree(w.Y);cudaFree(w.Jn);cudaFree(w.T);cudaFree(w.u);
-        cudaFree(w.forces);cudaFree(w.verdict);cudaFree(w.status);cudaFree(w.adj);cudaFree(w.impactorMass);
+        cudaFree(w.forces);cudaFree(w.verdict);cudaFree(w.status);cudaFree(w.adj);cudaFree(w.impactorMass);cudaFree(w.Js);cudaFree(w.state);
         for(float* a:{w.a,w.cy,w.cr,w.cz,w.cp,w.cq,w.cinv})cudaFree(a);w={};n=m=0;
     }
     void allocate(PxU32 chunks,PxU32 bonds) {
@@ -1194,11 +1322,12 @@ struct Stage {
         // Links: the bonds, then contact rows; nodes: the chunks, then the
         // impactors (ids from n, slots after the chunk slots: up to 2n + K).
         const size_t links=size_t(m)+kContactCapacity,slots=size_t(n)+kContactCapacity,ids=size_t(n)+slots;
-        ::physx::allocate(w.islandFlag,n);::physx::allocate(w.islands,n);::physx::allocate(w.counters,4);
+        ::physx::allocate(w.islandFlag,n);::physx::allocate(w.islands,n);::physx::allocate(w.counters,8);check(cudaMallocHost(&pending,sizeof(PxU32)));
         ::physx::allocate(w.bondLocal,m);::physx::allocate(w.degree,ids);
         ::physx::allocate(w.bonds,links);::physx::allocate(w.chunks,slots);
         ::physx::allocate(w.adj,2*links);::physx::allocate(w.impactorMass,2*slots);
-        for(float** a:{&w.J,&w.Y,&w.Jn,&w.T})::physx::allocate(*a,6*links);
+        for(float** a:{&w.J,&w.Y,&w.Jn,&w.T,&w.Js})::physx::allocate(*a,6*links);
+        ::physx::allocate(w.state,n);
         ::physx::allocate(w.u,6*ids);::physx::allocate(w.a,6*links);::physx::allocate(w.cinv,36*ids);
         for(float** a:{&w.cy,&w.cr,&w.cz,&w.cp,&w.cq}){::physx::allocate(*a,6*ids);check(cudaMemset(*a,0,sizeof(float)*6*ids));}::physx::allocate(w.forces,m);::physx::allocate(w.verdict,m);::physx::allocate(w.status,1);
         check(cudaMemset(w.islandFlag,0,sizeof(PxU32)*n));check(cudaMemset(w.u,0,sizeof(float)*6*ids));
@@ -1208,11 +1337,31 @@ struct Stage {
     // material kernels, which take E's forces and verdicts on flagged islands.
     void submit(const Inputs& in,const Settings& s,cudaStream_t stream,PxU32 grid=32) {
         check(cudaMemsetAsync(w.islandFlag,0,sizeof(PxU32)*n,stream));
-        check(cudaMemsetAsync(w.counters,0,sizeof(PxU32)*4,stream));
+        check(cudaMemsetAsync(w.counters,0,sizeof(PxU32)*8,stream));
         check(cudaMemsetAsync(w.status,0,sizeof(Status),stream));
         if(m)trigger<<<(m+127)/128,128,0,stream>>>(in,s,w);
         if(n)listIslands<<<(n+127)/128,128,0,stream>>>(in,w);
-        if(m)solveIslands<<<grid,kThreads,0,stream>>>(in,s,w);
+        dispatches=0;longestDispatch=0.0;
+        if(!m)return;
+        setupIslands<<<grid,kThreads,0,stream>>>(in,s,w);
+        // Bounded dispatches (Settings::dispatchWork each), one at a time: the
+        // host waits for each and stops when no island has work left. Enough
+        // of them for the largest island the scene can have to spend its
+        // evaluation budget (ADMM steps, and the ramp's other passes).
+        const double units=double(m)+double(n)+double(in.rows?in.rowCount:0u)*2.0;
+        const double work=(double(s.evaluationIterations)*(5.0+3.0*double(s.innerIterations))+3.0*double(s.maxRounds)+2.0)*units;
+        const PxU32 limit=PxU32(std::min(1e6,std::ceil(work/double(s.dispatchWork))+1.0));
+        check(cudaStreamSynchronize(stream));
+        for(PxU32 d=0;d<limit;++d) {
+            const auto t0=std::chrono::steady_clock::now();
+            check(cudaMemsetAsync(w.counters+4,0,sizeof(PxU32),stream));
+            stepIslands<<<grid,kThreads,0,stream>>>(in,s,w);
+            check(cudaMemcpyAsync(pending,w.counters+4,sizeof(PxU32),cudaMemcpyDeviceToHost,stream));
+            check(cudaStreamSynchronize(stream));
+            longestDispatch=std::max(longestDispatch,std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-t0).count());
+            ++dispatches;
+            if(!*pending)break;
+        }
     }
 };
 

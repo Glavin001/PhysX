@@ -1,5 +1,6 @@
 #include <cstdlib>
 // Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
+#include <chrono>
 #include "PxgDestructionRuntime.h"
 #include "PxgDestructionTopology.h"
 #include "NvBlastExtStressGpu.h"
@@ -745,6 +746,7 @@ __global__ void finishCollisionPreparation(PxDestructionCollisionPreparationStat
     if(collision->error)stage->error|=1024u;
 }
 #include "PxgDestructionCorrection.cuh"
+#include "PxgDestructionImpactCapture.cuh"
 #include "PxgDestructionAcceptedProperties.cuh"
 #include "PxgDestructionMotionSlots.cuh"
 #include "PxgDestructionPreparationGraph.cuh"
@@ -888,6 +890,12 @@ class Runtime final : public PxgDestructionRuntime {
     // PX_DESTRUCTION_IMPACT_LOG=1: print E's counters after every evaluation
     // that solved an island (synchronises the stream: diagnostics only).
     const bool mImpactLog=[]{const char* v=std::getenv("PX_DESTRUCTION_IMPACT_LOG");return v && v[0]=='1';}();
+    // PX_DESTRUCTION_IMPACT_CAPTURE=DIR: write the inputs of evaluations that
+    // take longer than PX_DESTRUCTION_IMPACT_CAPTURE_MS (default 1000) to
+    // DIR/impact-<frame>-<pass>.impc, at most PX_DESTRUCTION_IMPACT_CAPTURE_COUNT
+    // (default 4) -- for tests/impact_capture_replay (implies the log's sync).
+    const char* mImpactCaptureDir=std::getenv("PX_DESTRUCTION_IMPACT_CAPTURE");
+    PxU32 mImpactCaptures=0,mImpactMaterialCount=0;PxU64 mImpactEvaluations=0;impact::SolveRecord* mImpactRecords{};
     float mFragmentMaxPenBias=-1e32f; // negative PhysX clamp; -1e32 leaves inheritance alone
     PxgDestructionTopologyTransaction* mTopology{};
     committedChanges::Publication mChanges;
@@ -1490,7 +1498,7 @@ public:
         cudaFree(mNodeBegin);mNodeBegin=nullptr;cudaFree(mNodeRefs);mNodeRefs=nullptr;
         cudaFree(mBondCentroids);mBondCentroids=nullptr;cudaFree(mVerdicts);mVerdicts=nullptr;
         cudaFree(mSections);mSections=nullptr;mSectionBending=false;mSectionRotation=false;
-        mImpact.release();mImpactEnabled=false;cudaFree(mImpactBase);mImpactBase=nullptr;
+        mImpact.release();mImpactEnabled=false;cudaFree(mImpactRecords);mImpactRecords=nullptr;cudaFree(mImpactBase);mImpactBase=nullptr;
         cudaFree(mImpactState);mImpactState=nullptr;cudaFree(mImpactStart);mImpactStart=nullptr;
         cudaFree(mImpactSlip);mImpactSlip=nullptr;cudaFree(mImpactStiffness);mImpactStiffness=nullptr;
         cudaFreeHost(mImpactHostStatus);mImpactHostStatus=nullptr;
@@ -1770,7 +1778,8 @@ public:
                     allocate(mImpactState,d.bondCount);check(cudaMemset(mImpactState,0,sizeof(*mImpactState)*d.bondCount));
                     allocate(mImpactStart,d.bondCount);
                     check(cudaMallocHost(&mImpactHostStatus,sizeof(*mImpactHostStatus)));
-                    mImpact.allocate(d.chunkCount,d.bondCount);mImpactEnabled=true;
+                    mImpact.allocate(d.chunkCount,d.bondCount);mImpactEnabled=true;mImpactMaterialCount=d.materialCount;
+                    if(mImpactLog || mImpactCaptureDir){allocate(mImpactRecords,impact::kLogCapacity);mImpact.w.log=mImpactRecords;}
                     mImpactSettings.coupledContact=env("PX_DESTRUCTION_IMPACT_COUPLED",1.0f)!=0.0f;
                     if(mImpactSettings.coupledContact) {
                         allocate(mImpactRows,impact::kContactCapacity);allocate(mImpactRowCount,1);
@@ -2243,14 +2252,31 @@ public:
                         check(cudaMemsetAsync(mImpactRowDelta,0,sizeof(float)*6*size_t(impact::kContactCapacity),mStream));
                     }
                     impact::Settings settings=mImpactSettings;settings.dt=dt;
+                    const bool timed=mImpactLog || mImpactCaptureDir;++mImpactEvaluations;
+                    std::chrono::steady_clock::time_point t0;
+                    if(timed){check(cudaStreamSynchronize(mStream));t0=std::chrono::steady_clock::now();}
                     mImpact.submit(in,settings,mStream);
                     impact::reportConvergence<<<1,1,0,mStream>>>(mImpact.w.status,mStatus,mCorrectionEnabled && !mAllowUnconverged);
                     impactView={mImpact.w.islandFlag,stress.bondIslands,mImpact.w.forces,mImpact.w.verdict};
                     impact::recordState<<<(mM+127)/128,128,0,mStream>>>(mImpact.w.islandFlag,stress.bondIslands,mImpact.w.forces,forces,mImpactState,mM);
-                    if(mImpactLog) {
+                    if(timed) {
                         check(cudaMemcpyAsync(mImpactHostStatus,mImpact.w.status,sizeof(*mImpactHostStatus),cudaMemcpyDeviceToHost,mStream));
                         check(cudaStreamSynchronize(mStream));
+                        const double ms=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-t0).count();
                         const auto& e=*mImpactHostStatus;
+                        if(e.triggered && mImpactLog) {
+                            std::fprintf(stderr,"[impact] evaluation %llu pass %u: %.1f ms in %u dispatches (longest %.1f ms)\n",(unsigned long long)mImpactEvaluations,mPass,ms,mImpact.dispatches,mImpact.longestDispatch);
+                            std::vector<impact::SolveRecord> rec(impact::kLogCapacity);
+                            check(cudaMemcpy(rec.data(),mImpactRecords,sizeof(rec[0])*rec.size(),cudaMemcpyDeviceToHost));
+                            for(PxU32 i=0;i<std::min(e.solves,impact::kLogCapacity);++i)
+                                std::fprintf(stderr,"[impact]   solve %u: island %u (%u links, %u nodes) level %u lambda %.3g clipped %u broken %u: %u iterations%s, residual %.2e\n",
+                                    i,rec[i].island,rec[i].links,rec[i].nodes,rec[i].level,rec[i].lambda,rec[i].clipped,rec[i].broken,rec[i].iterations,rec[i].capped?" (capped)":"",rec[i].change);
+                        }
+                        if(mImpactCaptureDir && e.triggered && mImpactCaptures<PxU32(std::max(0,std::atoi(std::getenv("PX_DESTRUCTION_IMPACT_CAPTURE_COUNT")?std::getenv("PX_DESTRUCTION_IMPACT_CAPTURE_COUNT"):"4")))
+                            && ms>std::atof(std::getenv("PX_DESTRUCTION_IMPACT_CAPTURE_MS")?std::getenv("PX_DESTRUCTION_IMPACT_CAPTURE_MS"):"1000")) {
+                            char path[1024];std::snprintf(path,sizeof path,"%s/impact-%llu-%u.impc",mImpactCaptureDir,(unsigned long long)mImpactEvaluations,mPass);
+                            if(impact::writeCapture(path,in,settings,mImpactMaterialCount)){++mImpactCaptures;std::fprintf(stderr,"[impact] captured %s (%.1f ms)\n",path,ms);}
+                        }
                         if(e.triggered)std::fprintf(stderr,"[impact] pass %u: %u islands, %u solves, %u iterations (%u capped), %u rounds, broke %u, yielded %u, %u contacts from %u impactors, error %u\n",
                             mPass,e.triggered,e.solves,e.iterations,e.capped,e.rounds,e.broken,e.yielded,e.contacts,e.impactors,e.error);
                     }

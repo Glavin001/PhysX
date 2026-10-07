@@ -11,6 +11,7 @@
 #include <cuda_runtime.h>
 #include <algorithm>
 #include <cfloat>
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -243,8 +244,7 @@ void column(){
 // fails the skin's joints (brittle mortar and tie) leaves the stud's joint
 // below capacity. Today: the static solve sends the hit to every anchor, and
 // the stud's joint is past fatal.
-void wall(){
-    std::printf("skin, tie and frame: a hit on the skin\n");
+Structure wallStructure(){
     Structure s;
     const PxU32 footing=s.chunk(PxVec3(0,-0.1f,0),0,0),plate=s.chunk(PxVec3(0,-0.1f,0.15f),0,0),head=s.chunk(PxVec3(0,1.1f,0.15f),0,0);
     const PxU32 brick=s.chunk(PxVec3(0,0.5f,0),110,9.4f);            // a 1 x 1 x 0.11 m panel of brick veneer, 1900 kg/m^3
@@ -263,6 +263,13 @@ void wall(){
     s.bond(plate,stud,PxVec3(0,0,0.15f),PxVec3(0,1,0),4e-3f,nailed,weight(0.37e9f,4e-3f,0.5f));
     s.bond(stud,head,PxVec3(0,1.0f,0.15f),PxVec3(0,1,0),4e-3f,nailed,weight(0.37e9f,4e-3f,0.5f));
     s.gravity();
+    (void)footing;(void)plate;(void)head;(void)stud;
+    return s;
+}
+constexpr PxU32 kWallBrick=3;
+void wall(){
+    std::printf("skin, tie and frame: a hit on the skin\n");
+    const Structure s=wallStructure();const PxU32 brick=kWallBrick;
     const auto rest=elastic(s,s.force,s.torque);
     float restUse=0;for(PxU32 k=0;k<s.bonds.size();++k)restUse=std::max(restUse,utilisation(s,k,rest[k]));
     char text[256];std::snprintf(text,sizeof text,"at rest the wall stands (largest utilisation %.2f)",restUse);expect(restUse<1.0f,text);
@@ -423,11 +430,50 @@ void coupled(){
     }
 }
 
+// 7. An unconverged solve gives no verdict: the wall's hit with a budget of
+// one ADMM step per solve. What breaks is what broke in converged solves --
+// a subset of the converged evaluation's breaks -- and the evaluation reports
+// itself capped. (Before: the capped iterate was judged, and joints broke on it.)
+void unconverged(){
+    std::printf("an unconverged solve commits nothing\n");
+    const Structure s=wallStructure();
+    const auto rest=elastic(s,s.force,s.torque);
+    auto F=s.force;F[kWallBrick]+=PxVec3(0,0,360e3f);
+    impact::Settings budget;budget.iterations=1;
+    const auto full=evaluate(s,F,s.torque,rest,true),r=evaluate(s,F,s.torque,rest,true,budget);
+    PxU32 broken=0,extra=0;
+    for(PxU32 k=0;k<s.bonds.size();++k) {
+        const bool b=r.impact[k]==impact::eBROKEN || r.verdicts[k].health<=0,f=full.impact[k]==impact::eBROKEN;
+        broken+=b;extra+=b && !f;
+    }
+    char text[200];std::snprintf(text,sizeof text,"one step per solve: %u capped; %u broken, %u of them not broken by the converged evaluation (expected capped, 0)",
+        r.status.capped,broken,extra);
+    expect(r.status.capped>0 && extra==0,text);
+}
+// 8. The evaluation split into dispatches resumes exactly: the wall with
+// about one ADMM step per dispatch gives the same forces and verdicts, bit
+// for bit, as in one dispatch.
+void dispatches(){
+    std::printf("an evaluation split into many dispatches is the same evaluation\n");
+    const Structure s=wallStructure();
+    const auto rest=elastic(s,s.force,s.torque);
+    auto F=s.force;F[kWallBrick]+=PxVec3(0,0,360e3f);
+    // A dispatch of about one ADMM step (the wall: 6 links and nodes, 5 + 3 per
+    // conjugate gradient iteration); a budget for 512 steps, so the dispatch
+    // count stays a few thousand.
+    impact::Settings one,many;one.evaluationIterations=many.evaluationIterations=512;many.dispatchWork=60;
+    const auto a=evaluate(s,F,s.torque,rest,true,one),b=evaluate(s,F,s.torque,rest,true,many);
+    const bool same=!std::memcmp(a.forces.data(),b.forces.data(),sizeof(a.forces[0])*a.forces.size())
+        && a.impact==b.impact && a.status.iterations==b.status.iterations;
+    char text[200];std::snprintf(text,sizeof text,"wall: %u and %u iterations, forces and verdicts %s",a.status.iterations,b.status.iterations,same?"identical":"differ");
+    expect(same,text);
+}
+
 }} // physx
 
 int main(int argc,char** argv){
     (void)argc;(void)argv;
-    try{physx::column();physx::wall();physx::rest();physx::impactCrush();physx::section();physx::coupled();}
+    try{if(const char* only=std::getenv("IMPACT_TEST_ONLY")){if(!std::strcmp(only,"unconverged"))physx::unconverged();if(!std::strcmp(only,"dispatches"))physx::dispatches();}else{physx::column();physx::wall();physx::rest();physx::impactCrush();physx::section();physx::coupled();physx::unconverged();physx::dispatches();}}
     catch(const std::exception& e){std::printf("error: %s\n",e.what());return 2;}
     std::printf("%s (%d failed)\n",physx::failures?"FAILED":"passed",physx::failures);
     return physx::failures?1:0;
