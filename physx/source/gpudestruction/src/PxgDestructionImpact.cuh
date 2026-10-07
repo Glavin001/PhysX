@@ -380,10 +380,12 @@ __device__ __forceinline__ void polytope(float* p,const float* sc,float g0,float
     // Tension line h . m + N <= capT (h = g, or a bearing joint's 1/d),
     // compression line g . m - N <= capC.
     const float w[3]={sc[0]*sc[0],sc[1]*sc[1],sc[2]*sc[2]};
-    const float tol=1e-6f*(capT+capC);
+    // Each line's own tolerance: a hanger's tension capacity (1.4 kN) beside
+    // an unbounded compression (4e10 N) let 4e4 N of tension pass as feasible.
+    const float tolT=1e-6f*capT,tolC=1e-6f*capC;
     auto tension=[](const float* q,float a,float b){return a*q[1]+b*q[2]+q[0];};
     auto compression=[](const float* q,float a,float b){return a*q[1]+b*q[2]-q[0];};
-    if(tension(p,h0,h1)<=capT+tol && compression(p,g0,g1)<=capC+tol)return;
+    if(tension(p,h0,h1)<=capT+tolT && compression(p,g0,g1)<=capC+tolC)return;
     float q[3];
     const float gm=fmaxf(fminf(g0,g1),1e-30f),hm=fmaxf(fminf(h0,h1),1e-30f);
     const float big=(fabsf(p[0])+capT+capC+(g0+h0)*p[1]+(g1+h1)*p[2])*(w[0]+w[1]/(gm*hm)+w[2]/(gm*hm)+w[1]/(gm*gm)+w[2]/(hm*hm))+1.0f;
@@ -398,7 +400,7 @@ __device__ __forceinline__ void polytope(float* p,const float* sc,float g0,float
         }
         polytopePoint(p,w,g0,g1,h0,h1,side?0.0f:hi,side?hi:0.0f,q);
         const float other=side?tension(q,h0,h1)-capT:compression(q,g0,g1)-capC;
-        if(other<=tol){p[0]=q[0];p[1]=q[1];p[2]=q[2];return;}
+        if(other<=(side?tolT:tolC)){p[0]=q[0];p[1]=q[1];p[2]=q[2];return;}
     }
     // Both lines (the apex): (g + h) . m = capT + capC and N = capT - h . m.
     // On that segment of the quadrant, m0 = s, m1 = (tau - c0 s)/c1: the
@@ -440,19 +442,34 @@ __device__ __forceinline__ bool projectContact(const Bond& b,float* x)
 __device__ __forceinline__ bool project(const Bond& b,float* x,float ml,float mt,float m0,float m1)
 {
     if(b.flags&eCONTACT)return projectContact(b,x);
+    // A compression capacity far past the tension one (over 1e3x, where real
+    // materials stop at ~20x; float resolves no more than ~1e4x in one set:
+    // a hanger's 1.4 kN beside "no compression limit", 4e10 N) cannot be
+    // represented in one set; it is never the binding line for forces a
+    // converging solve meets, and is taken at that reach (stricter, never
+    // looser).
+    const float capC=fminf(b.capC,1e3f*fmaxf(b.capT,b.capS));
     const float sl=sqrtf(ml);
     bool moved=false;
     if(b.g0>0.0f) {   // (N, M0, M1), the section's L1 bending
         const float before[3]={x[0],x[4],x[5]};
         float p[3]={x[0],fabsf(x[4]),fabsf(x[5])};const float sc[3]={sl,sqrtf(m0),sqrtf(m1)};
-        polytope(p,sc,b.g0,b.g1,b.h0,b.h1,b.capT,b.capC);
+        polytope(p,sc,b.g0,b.g1,b.h0,b.h1,b.capT,capC);
         x[0]=p[0];x[4]=copysignf(p[1],before[1]);x[5]=copysignf(p[2],before[2]);
         moved=x[0]!=before[0] || x[4]!=before[1] || x[5]!=before[2];
     } else {   // (N, M_t): base -cF a .. tF a, apex where both fibres reach capacity.
         const float sa=sqrtf(m0);   // the round set has m0 == m1
         const float m=sqrtf(x[4]*x[4]+x[5]*x[5]);
         float s=sl*x[0],r=sa*m;
-        if(triangle(s,r,-sl*b.capC,0.0f,sl*b.capT,0.0f,0.5f*sl*(b.capT-b.capC),0.5f*sa*(b.capT+b.capC)/b.gb)) {
+        // In coordinates from the nearer base vertex: a tension capacity of
+        // 1 kN beside a compression of 1e10 N (no compression limit) is lost to
+        // cancellation if the triangle is written about N = 0.
+        const bool fromTension=s>0.5f*sl*(b.capT-capC);
+        const float o=fromTension?sl*b.capT:-sl*capC;
+        s-=o;
+        const bool moved2=triangle(s,r,-sl*capC-o,0.0f,sl*b.capT-o,0.0f,0.5f*sl*(b.capT-capC)-o,0.5f*sa*(b.capT+capC)/b.gb);
+        s+=o;
+        if(moved2) {
             moved=true;const float mn=r/sa;x[0]=s/sl;
             if(m>0.0f){x[4]*=mn/m;x[5]*=mn/m;}else{x[4]=x[5]=0.0f;}
         }

@@ -679,7 +679,7 @@ __global__ void fuzzProbe(const impact::Bond* bonds,const float* points,PxU32 co
     impact::Bond b=bonds[i];float x[6];for(int q=0;q<6;++q)x[q]=points[6*i+q];
     const float* m=points+6*count+4*i;
     impact::project(b,x,m[0],m[1],m[2],m[3]);
-    if(!impact::feasible(b,x,1e-4f))atomicAdd(infeasible,1u);
+    if(!impact::feasible(b,x,1e-4f)){atomicAdd(infeasible,1u);infeasible[1+i]=1u;float* o=const_cast<float*>(points)+6*count+4*count+6*i;for(int q=0;q<6;++q)o[q]=x[q];}
 }
 void fuzz(){
     std::printf("projections land in their sets (fuzz)\n");
@@ -688,20 +688,34 @@ void fuzz(){
     const PxU32 n=4096;std::vector<impact::Bond> bonds(n);std::vector<float> pts(6*n),metric(4*n);
     for(PxU32 i=0;i<n;++i){
         impact::Bond b{};b.flags=impact::eALIVE;const float a=lg(1e-5f,1.0f);b.area=a;
-        b.capT=lg(1e2f,1e7f);b.capC=b.capT*lg(0.01f,100.0f);b.capS=b.capT*lg(0.1f,10.0f);
+        b.capT=lg(1e2f,1e7f);b.capS=b.capT*lg(0.1f,10.0f);
+        // Real materials: compression 0.01-100x the tension capacity; one in
+        // sixteen a "no compression limit" sentinel (a hanger's 1.4 kN beside
+        // 4e10 N), whose forces stay near the tension capacity.
+        const bool sentinel=i%16==1;
+        b.capC=b.capT*(sentinel?lg(1e6f,1e8f):lg(0.01f,100.0f));
         const int kind=i%3;
         if(kind==0){b.g0=lg(1.0f,3e3f);b.g1=lg(1.0f,3e3f);b.gb=b.g0;b.gt=lg(1.0f,3e3f);   // L1 section, half of them bearing joints
             if(i%2){b.h0=lg(5.0f,200.0f);b.h1=lg(5.0f,200.0f);}else{b.h0=b.g0;b.h1=b.g1;}}
         else {b.gb=lg(0.3f,3e3f);b.gt=lg(0.3f,3e3f);}                                    // round cones
         bonds[i]=b;
-        const float F=b.capT+b.capC,M=F/std::min(b.gb,b.g0>0?std::min(b.g0,b.g1):b.gb);
+        // Points out to 10x the capacities the forces reach: a compression
+        // "beyond any load" (4e10 N) is never met by forces of that size (the
+        // projection takes it at 1e3x the tension's; near that apex, forces
+        // 1e3x a joint's tension capacity are past float's resolution of it).
+        const float F=sentinel?2.0f*b.capT:b.capT+b.capC,M=F/std::min(b.gb,b.g0>0?std::min(b.g0,b.g1):b.gb);
         for(int q=0;q<3;++q)pts[6*i+q]=r(-10*F,10*F);for(int q=3;q<6;++q)pts[6*i+q]=r(-10*M,10*M);
         const float ml=lg(1e-6f,1e6f),ma=lg(1e-6f,1e6f);
         metric[4*i]=ml;metric[4*i+1]=lg(1e-6f,1e6f);metric[4*i+2]=kind==0?lg(1e-6f,1e6f):ma;metric[4*i+3]=kind==0?lg(1e-6f,1e6f):ma;
     }
-    pts.insert(pts.end(),metric.begin(),metric.end());
-    Device<impact::Bond> db(bonds);Device<float> dp(pts);Device<PxU32> bad(1);
+    pts.insert(pts.end(),metric.begin(),metric.end());pts.resize(pts.size()+6*n,0.0f);
+    Device<impact::Bond> db(bonds);Device<float> dp(pts);Device<PxU32> bad(1+n);
     fuzzProbe<<<(n+127)/128,128>>>(db.p,dp.p,n,bad.p);check(cudaDeviceSynchronize());
+    {const auto f=bad.get();PxU32 shown=0;for(PxU32 i=0;i<n && shown<6;++i)if(f[1+i]){++shown;const auto& b=bonds[i];
+        const auto P=dp.get();const float* x=&P[10*n+6*i];const float N=x[0],V=std::sqrt(x[1]*x[1]+x[2]*x[2]),T=std::fabs(x[3]),M=std::sqrt(x[4]*x[4]+x[5]*x[5]);
+        std::printf("    x N %.4g V %.4g T %.4g M %.4g |M0| %.4g |M1| %.4g\n",N,V,T,M,std::fabs(x[4]),std::fabs(x[5]));
+        std::printf("    infeasible: kind %u capT %.3g capC %.3g capS %.3g g %.3g %.3g h %.3g %.3g gb %.3g gt %.3g metric %.2g %.2g %.2g %.2g\n",i%3,b.capT,b.capC,b.capS,b.g0,b.g1,b.h0,b.h1,b.gb,b.gt,
+            pts[6*n+4*i],pts[6*n+4*i+1],pts[6*n+4*i+2],pts[6*n+4*i+3]);}}
     char text[160];std::snprintf(text,sizeof text,"%u projections (L1, round, shear; metrics 1e-6-1e6): %u infeasible (expected 0)",n,bad.get()[0]);
     expect(bad.get()[0]==0,text);
 }
