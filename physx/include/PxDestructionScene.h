@@ -125,8 +125,9 @@ struct PxDestructionBondSection {
     PxReal gyration0=0, gyration1=0, polarGyration=0;
     // A bearing joint (both > 0): members in contact, fasteners at the patch
     // centre. Under a moment the contact bears at its edge, so the fasteners
-    // carry T = |M0| / bearingDepth0 + |M1| / bearingDepth1 - C (C the
-    // compression, T >= 0), graded as their tension over the area. The depths
+    // carry T = |M0| / bearingDepth0 + |M1| / bearingDepth1 + N (N the signed
+    // normal force: -C compressed, the pull in tension; T >= 0), graded as
+    // their tension over the area. The depths
     // are the patch's half-depths across each bending axis (M0 about axis,
     // M1 about normal x axis). Zero: the extreme-fibre grading.
     PxReal bearingDepth0=0, bearingDepth1=0;
