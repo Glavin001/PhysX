@@ -550,6 +550,17 @@ if(BLAST_ENABLE_CUDA_STRESS)
     set_tests_properties(blast_stress_gpu_quiet_load_deterministic PROPERTIES ENVIRONMENT "BLAST_GPU_DETERMINISTIC_REDUCTIONS=1")
     add_test(NAME blast_stress_gpu_quiet_load_unrolled COMMAND gpu_quiet_load_test)
     set_tests_properties(blast_stress_gpu_quiet_load_unrolled PROPERTIES ENVIRONMENT "BLAST_GPU_COND_LOOP=0")
+    # The conditional while-node loop (default where the runtime supports it)
+    # and the unrolled loop must give bit-identical forces. Deterministic
+    # reductions make the two runs comparable bit for bit. On CuMetal, which has
+    # no while-node, both runs take the unrolled loop through the support probe.
+    add_test(NAME blast_stress_gpu_solve_shape_identity COMMAND "${CMAKE_COMMAND}"
+        -DEXE=$<TARGET_FILE:gpu_quiet_load_test> "-DARGS=--dump %OUT%"
+        "-DENV_A=BLAST_GPU_DETERMINISTIC_REDUCTIONS=1,BLAST_GPU_COND_LOOP=0"
+        "-DENV_B=BLAST_GPU_DETERMINISTIC_REDUCTIONS=1,BLAST_GPU_COND_LOOP=1"
+        -DOUT=${CMAKE_CURRENT_BINARY_DIR}/solve_shape_identity
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/compare_runs.cmake)
+    file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/solve_shape_identity)
 
     add_executable(native_gpu_material_test tests/native_gpu_material_test.cpp physx_scene.cpp)
     target_include_directories(native_gpu_material_test PRIVATE ${PX_DESTRUCTION_GPU_INCLUDE_DIRS})
@@ -646,6 +657,12 @@ if(BLAST_ENABLE_CUDA_STRESS)
     px_destruction_cuda_properties(native_gpu_incremental_pairs_test PROPERTIES CUDA_ARCHITECTURES 89 CUDA_STANDARD 17)
     target_link_libraries(native_gpu_incremental_pairs_test PRIVATE ${PX_DESTRUCTION_GPU_RUNTIME})
     add_test(NAME physx_native_gpu_incremental_pairs COMMAND native_gpu_incremental_pairs_test)
+    if(PX_GPU_BACKEND STREQUAL "CUMETAL")
+        set_target_properties(native_gpu_incremental_pairs_test PROPERTIES EXCLUDE_FROM_ALL TRUE)
+    endif()
+    px_destruction_cumetal_unsupported_tests(
+        "launches broadphase.cu kernels from another translation unit; cumetalc has no separate device compilation (no kernel launch stubs)"
+        physx_native_gpu_incremental_pairs)
 
     add_executable(native_gpu_pairs_test tests/native_gpu_pairs_test.cu)
     target_include_directories(native_gpu_pairs_test PRIVATE "${PHYSX_ROOT}/include"
@@ -840,6 +857,13 @@ if(BLAST_ENABLE_CUDA_STRESS)
     target_link_options(native_gpu_convergence_test PRIVATE "-Wl,-rpath,${PHYSX_LIB_DIR}")
     target_link_libraries(native_gpu_convergence_test PRIVATE ${NATIVE_DESTRUCTION_TEST_LIBS} ${PX_DESTRUCTION_GPU_DRIVER})
     add_test(NAME physx_native_gpu_convergence COMMAND native_gpu_convergence_test)
+    # Strict-policy tests: they assert that an unconverged solve rejects the
+    # step (physx_native_gpu_convergence) or that every accepted step converged
+    # (the resimulation tests). Pin the policy so a caller that exports the
+    # product's PX_DESTRUCTION_ALLOW_UNCONVERGED=1 cannot flip them; that is how
+    # physx_native_gpu_convergence "flaked" in a combined ctest run.
+    set_tests_properties(physx_native_gpu_convergence physx_native_gpu_resimulation
+        physx_native_gpu_retained_contact_graph PROPERTIES ENVIRONMENT "PX_DESTRUCTION_ALLOW_UNCONVERGED=0")
 
     # Minimal native GPU simulation capture. Rendering consumes committed JSON
     # separately; this target has no graphics interop or visual-kernel dependency.
@@ -1030,11 +1054,21 @@ if(BLAST_ENABLE_CUDA_STRESS)
         physx_native_vehicle_wall_constraint_gate physx_native_vehicle_wall_sweep physx_native_vehicle_parked_sleeps
         physx_native_vehicle_rubble_crossing physx_native_vehicle_force_replay physx_native_vehicle_scale physx_native_vehicle_demo
         PROPERTIES RUN_SERIAL TRUE TIMEOUT 120 LABELS "gpu;integration")
-    # A stage fault found while writing the parked-car case, pinned as an
-    # expected failure: a fragment released while already resting on a static
-    # shape never forms a contact with it. Flip WILL_FAIL off when it is fixed.
+    # A fragment released while already resting on a static shape must form a
+    # contact with it and stay on the ground (a stage fault found while writing
+    # the parked-car case).
     add_test(NAME physx_native_fragment_resting_on_static COMMAND native_vehicle_wall_test --resting-course --frames 240)
     set_tests_properties(physx_native_fragment_resting_on_static PROPERTIES RUN_SERIAL TRUE TIMEOUT 120 LABELS "gpu;integration")
+    # These scenes model the product, which runs with unconverged stress solves
+    # carried to the next tick (vibe-land sets PX_DESTRUCTION_ALLOW_UNCONVERGED=1;
+    # the stress iteration cap is accepted). Without it the stage rejects the
+    # whole step (status 4096|32) on the first unconverged solve. Strict mode
+    # stays covered by physx_native_gpu_convergence and the resimulation tests.
+    set_tests_properties(physx_native_vehicle_wall physx_native_vehicle_wall_control physx_native_vehicle_wall_no_constraints
+        physx_native_vehicle_wall_limit2 physx_native_vehicle_wall_constraint_gate physx_native_vehicle_wall_sweep
+        physx_native_vehicle_parked_sleeps physx_native_vehicle_rubble_crossing physx_native_vehicle_force_replay
+        physx_native_vehicle_scale physx_native_vehicle_demo physx_native_fragment_resting_on_static
+        PROPERTIES ENVIRONMENT "PX_DESTRUCTION_ALLOW_UNCONVERGED=1")
 
     add_executable(native_group_filter_test tests/native_group_filter_test.cpp physx_scene.cpp)
     target_compile_definitions(native_group_filter_test PRIVATE PX_PHYSX_STATIC_LIB NDEBUG PX_SUPPORT_PVD=0 PX_SUPPORT_OMNI_PVD=0)
@@ -1116,6 +1150,14 @@ if(BLAST_ENABLE_CUDA_STRESS)
     target_link_libraries(gpu_stress_suite PRIVATE
         NvBlastExtStressGpu
         blast_stress_core)
+    # The shared stress headers select x86 SIMD unless told otherwise; match
+    # blast_stress_core's scalar build on other processors (Apple arm64).
+    if(NOT CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
+        target_compile_definitions(gpu_stress_benchmark PRIVATE
+            STRESS_SOLVER_FORCE_SCALAR STRESS_SOLVER_NO_SIMD STRESS_SOLVER_NO_DEVICE_QUERY)
+        target_compile_definitions(gpu_stress_suite PRIVATE
+            STRESS_SOLVER_FORCE_SCALAR STRESS_SOLVER_NO_SIMD STRESS_SOLVER_NO_DEVICE_QUERY)
+    endif()
 endif()
 
 # Standalone analytic qualification of the production CUDA specialization.
@@ -1236,6 +1278,9 @@ if(BLAST_ENABLE_CUDA_STRESS AND (PX_GPU_BACKEND STREQUAL "CUMETAL" OR (CMAKE_CUD
         set_tests_properties(blast_stress_component_work_${work_buildings}
             PROPERTIES TIMEOUT 60 LABELS "gpu;diagnostic" RUN_SERIAL TRUE)
     endforeach()
+    px_destruction_cumetal_unsupported_tests(
+        "BLAST_GPU_COMPONENT_PHASE_PROBE reads the device clock inside the solver; cumetalc cannot prove the solver's pointers across that call"
+        blast_stress_component_work_1 blast_stress_component_work_256)
     add_executable(gpu_motion_expansion_test EXCLUDE_FROM_ALL tests/gpu_motion_expansion_test.cu)
     target_include_directories(gpu_motion_expansion_test PRIVATE "${BLAST_ROOT}/source/sdk/extensions/stressgpu")
     px_destruction_cuda_properties(gpu_motion_expansion_test PROPERTIES CUDA_ARCHITECTURES 89 CUDA_STANDARD 17)
@@ -1250,6 +1295,9 @@ if(BLAST_ENABLE_CUDA_STRESS AND (PX_GPU_BACKEND STREQUAL "CUMETAL" OR (CMAKE_CUD
     target_compile_options(gpu_resident_motion_modes_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
     target_link_libraries(gpu_resident_motion_modes_test PRIVATE ${PX_DESTRUCTION_GPU_RUNTIME} ${PX_DESTRUCTION_GPU_DRIVER})
     add_test(NAME blast_stress_gpu_resident_motion_modes COMMAND gpu_resident_motion_modes_test)
+    px_destruction_cumetal_unsupported_tests(
+        "the full motion-mode suite includes native_fine_inverse_test.cuh, whose pointer use cumetalc cannot legalize; the focused operator_epochs and incremental_motion targets cover it"
+        blast_stress_gpu_resident_motion_modes)
 
     # Focused production-cache regression; the full motion suite also includes
     # a legacy dense reference helper not yet supported by CuMetal lowering.
@@ -1344,6 +1392,63 @@ if(BLAST_ENABLE_CUDA_STRESS)
         endif()
     endforeach()
 endif()
+
+# Recorded reference-fidelity failures on every backend (CUDA sm_89 too), kept
+# failing on purpose: docs/destruction/IMPLEMENTATION.md (initial baseline:
+# reference_building_load_path, destruction_quality), CONTACT_STRESS_FIXES.md
+# (crush_ordinary_impact since contact stress is preserved) and
+# SINGLE_RESIM_REFERENCE.md (crush_wall_bite under the single-verdict policy).
+# Labelled so `ctest -LE known-failure` is a clean gate; not WILL_FAIL, so a fix
+# shows up as a pass and a new failure mode is still visible in a full run.
+set_property(TEST blast_stress_reference_building_load_path blast_stress_destruction_quality
+    blast_stress_reference_building_crush_ordinary_impact blast_stress_crush_wall_bite
+    APPEND PROPERTY LABELS known-failure)
+
+# Open on CuMetal (Apple M-series, 2026-10-07 triage of 0e0aba8a0): these fail
+# deterministically when run alone and are not explained by the harness. Each
+# is a reproduction to investigate, not an accepted platform limit, so they
+# stay enabled; the label keeps `ctest -L destruction -LE "known-failure|cumetal-open"`
+# usable as a gate meanwhile. Delete a name here once it passes on the Mac.
+#   native_gpu_destruction: "single supported bond does not balance applied load"
+#   persistent_shape_owner(, _gpu_bounds, _host_pose_bounds): "GPU contact
+#     retained old actor ownership" after an ownership merge in the same step
+#   gpu_kinematic_inputs: tick 47 differs from the CUDA-captured CSV by 1e-5
+#   gpu/standard_bombardment_contacts: step 168 unconverged (4128) / the demo
+#     refuses unconverged solves; standard scene motion audit error 2.2e-5
+#   gpu_resimulation: "missing native GPU refilter generation"
+#   vehicle_parked_sleeps, vehicle_demo: fixture outcomes (no brick rests on
+#     the car; the car does not get through the wall) under the product policy
+#   resident stress (hierarchy, cycles, 3d, parity, analytic, epoch
+#     integration, fine-only): numeric/convergence failures; never built by a
+#     plain `make` before destruction_test_executables existed
+if(PX_GPU_BACKEND STREQUAL "CUMETAL")
+    set_property(TEST physx_native_gpu_destruction physx_persistent_shape_owner
+        physx_persistent_shape_owner_gpu_bounds physx_persistent_shape_owner_host_pose_bounds
+        physx_native_gpu_kinematic_inputs physx_native_gpu_bombardment_contacts
+        physx_native_standard_bombardment_contacts physx_native_gpu_resimulation
+        physx_native_vehicle_parked_sleeps physx_native_vehicle_demo
+        blast_stress_gpu_fine_only_preparation blast_stress_gpu_resident_hierarchy
+        blast_stress_gpu_assembled_hierarchy blast_stress_gpu_coarse_long_rows
+        blast_stress_gpu_cycle_coarse-long-rows blast_stress_gpu_cycle_coarse-self-columns
+        blast_stress_gpu_resident_cycle blast_stress_gpu_operator_epoch_integration
+        blast_stress_gpu_resident_3d blast_stress_gpu_resident_cpu_parity
+        blast_stress_gpu_resident_analytic
+        APPEND PROPERTY LABELS cumetal-open)
+endif()
+
+# Test executables kept out of `all` (slow cumetalc/nvcc builds). ctest reports
+# their tests as "Not Run" unless this target is built too:
+#   cmake --build <tree> --target all destruction_test_executables
+if(BLAST_ENABLE_CUDA_STRESS AND TARGET gpu_resident_hierarchy_test)
+    add_custom_target(destruction_test_executables)
+    add_dependencies(destruction_test_executables gpu_resident_hierarchy_test gpu_motion_expansion_test
+        gpu_resident_operator_epoch_test gpu_incremental_motion_test gpu_resident_stress_test
+        gpu_angular_convention_test gpu_resident_stress_parity_test gpu_resident_stress_3d_test)
+    if(NOT PX_GPU_BACKEND STREQUAL "CUMETAL")
+        add_dependencies(destruction_test_executables gpu_resident_stress_phase_probe gpu_resident_motion_modes_test)
+    endif()
+endif()
+px_destruction_label_tests()
 
 # Translate every .cu target after its final includes/definitions are known.
 px_destruction_finalize_gpu_targets()
