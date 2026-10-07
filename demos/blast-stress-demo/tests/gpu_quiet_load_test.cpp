@@ -3,15 +3,22 @@
 #include "NvBlastExtStressGpu.h"
 #include <cmath>
 #include <cstdio>
+#include <fstream>
 #include <memory>
+#include <string>
 #include <stdexcept>
 using namespace Nv::Blast;
 namespace {
 void require(bool condition,const char* message) {if(!condition)throw std::runtime_error(message);}
 struct Release {void operator()(ExtStressGpuSolver* s) const {if(s)s->release();}};
 }
-int main() {
+// --dump PATH writes every tick's bond force bits, so two runs under different
+// solver launch shapes can be compared byte for byte (gpu_solve_shape_identity).
+int main(int argc,char** argv) {
     try {
+        require(argc==1 || (argc==3 && std::string(argv[1])=="--dump"),"usage: gpu_quiet_load_test [--dump PATH]");
+        std::ofstream dump;
+        if(argc==3){dump.open(argv[2],std::ios::binary);require(bool(dump),"cannot open dump file");}
         ExtStressGpuNode nodes[2]={{{0,-1,0},0,0},{{0,0,0},2,1}};
         ExtStressGpuBond bond{};bond.node0=0;bond.node1=1;bond.centroid[1]=-0.5f;
         std::unique_ptr<ExtStressGpuSolver,Release> solver(ExtStressGpuSolver::create(nodes,2,&bond,1));
@@ -24,6 +31,7 @@ int main() {
             if(tick==33)loads[1].linear={-3.36383f,-9.21525f,0};
             require(solver->solve(loads,params),"quiet-load solve failed");
             require(solver->readbackImpulses(&force,1),"quiet-load force readback failed");
+            if(dump)dump.write(reinterpret_cast<const char*>(&force),sizeof(force));
             const float applied[]={loads[1].linear.x*2,loads[1].linear.y*2,loads[1].linear.z*2};
             const float actual[]={force.linear.x,force.linear.y,force.linear.z};
             float plus=0,minus=0,scale=0;

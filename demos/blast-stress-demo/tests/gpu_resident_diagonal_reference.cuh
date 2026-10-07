@@ -25,8 +25,11 @@ __device__ __forceinline__ Vector referenceDiagonalAllLanes(Buffers b,unsigned n
             else if(lane<unsigned(k))rhs-=upper*solved;
         }
     }
-    return {{__shfl_sync(0xffffffffu,rhs,0),__shfl_sync(0xffffffffu,rhs,1),__shfl_sync(0xffffffffu,rhs,2)},
-            {__shfl_sync(0xffffffffu,rhs,3),__shfl_sync(0xffffffffu,rhs,4),__shfl_sync(0xffffffffu,rhs,5)}};
+    // Explicit conversion to the solver's scalar: clang (CuMetal) rejects the
+    // implicit double narrowing in a braced initializer that nvcc only warns on.
+    using Scalar=decltype(value.linear.x);
+    const auto at=[&](int i){return static_cast<Scalar>(__shfl_sync(0xffffffffu,rhs,i));};
+    return {{at(0),at(1),at(2)},{at(3),at(4),at(5)}};
 }
 __global__ void applyReferenceDiagonal(Input input,Buffers buffers,const Status* status,const Vector* rhs,Vector* result){
     const unsigned node=(blockIdx.x*blockDim.x+threadIdx.x)/32;

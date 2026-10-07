@@ -82,15 +82,19 @@ __global__ void contactLoads(ExtStressPhysXDirectGpuContactView view,
 {
     // A tiny validation fixture uses one thread to make summation reproducible.
     // Production mapping needs shape/node ownership and an island load kernel.
-    loads[0] = {}; loads[1] = {};
-    if (view.status->overflow || view.status->count > view.capacity) { return; }
+    // Read every contact before writing any load: CuMetal cannot prove that a
+    // store through `loads` leaves the copied `view.contacts` pointer intact.
     PxVec3 impulse(0.0f);
-    for (unsigned i = 0; i < view.status->count; ++i)
+    if (!view.status->overflow && view.status->count <= view.capacity)
     {
-        const auto& c = view.contacts[i];
-        if (c.actor0 == body) impulse += c.impulseOnActor0;
-        else if (c.actor1 == body) impulse -= c.impulseOnActor0;
+        for (unsigned i = 0; i < view.status->count; ++i)
+        {
+            const auto& c = view.contacts[i];
+            if (c.actor0 == body) impulse += c.impulseOnActor0;
+            else if (c.actor1 == body) impulse -= c.impulseOnActor0;
+        }
     }
+    loads[0] = {}; loads[1] = {};
     loads[1].linear = {impulse.x, impulse.y, impulse.z};
 }
 }

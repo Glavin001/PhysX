@@ -296,6 +296,45 @@ bool conditionalLoopEnabled()
     return enabled;
 }
 
+#ifndef PHYSX_RESIDENT_DESTRUCTION
+/// Whether the runtime builds while-nodes at all, probed once on a scratch
+/// graph that is destroyed with its handle. A conditional handle cannot be
+/// destroyed on its own: one created on the capturing graph before the node is
+/// refused stays unassociated, and cudaGraphInstantiate then rejects the whole
+/// solver graph, so the unrolled fallback could never recover. CuMetal, which
+/// implements only cudaGraphCondTypeIf, failed every solve this way. The
+/// solver constructor makes the first call, outside any stream capture.
+static bool whileConditionalSupported()
+{
+    static const bool supported = []() {
+        cudaGraph_t probe = nullptr;
+        if (cudaGraphCreate(&probe, 0) != cudaSuccess)
+        {
+            cudaGetLastError();
+            return false;
+        }
+        bool ok = false;
+        cudaGraphConditionalHandle handle = 0;
+        if (cudaGraphConditionalHandleCreate(&handle, probe, 1, cudaGraphCondAssignDefault)
+                == cudaSuccess)
+        {
+            cudaGraphNodeParams nodeParams{};
+            nodeParams.type = cudaGraphNodeTypeConditional;
+            nodeParams.conditional.handle = handle;
+            nodeParams.conditional.type = cudaGraphCondTypeWhile;
+            nodeParams.conditional.size = 1;
+            cudaGraphNode_t node = nullptr;
+            ok = cudaGraphAddNode(&node, probe, nullptr, 0, &nodeParams) == cudaSuccess
+                && nodeParams.conditional.phGraph_out != nullptr;
+        }
+        cudaGraphDestroy(probe);
+        cudaGetLastError();
+        return ok;
+    }();
+    return supported;
+}
+#endif
+
 /// Iterations per condition check in the conditional CG loop. See
 /// launchConditionalLoopCaptured for why this is not 1.
 std::uint32_t conditionalLoopChunk()
