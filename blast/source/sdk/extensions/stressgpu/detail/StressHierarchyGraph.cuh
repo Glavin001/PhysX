@@ -21,6 +21,7 @@ class Graph {
         cudaFree(mStatus);cudaFree(mWork);cudaFree(mBuffers.owner);cudaFree(mBuffers.seed);cudaFree(mBuffers.coarseActive);
         cudaFree(mBuffers.minimum);cudaFree(mBuffers.leader);cudaFree(mBuffers.pending);cudaFree(mBuffers.memberBond);cudaFree(mBuffers.coarse);cudaFree(mBuffers.diagonal);
         cudaFree(mBuffers.nonSelfRefs);cudaFree(mBuffers.nonSelfEnd);cudaFree(mBuffers.selfMatrices);
+        cudaFree(mBuffers.norm);cudaFree(mBuffers.proposal);
     }
 public:
     Graph(unsigned nodes,unsigned bonds,cudaStream_t stream,bool recursive=false):mNodes(nodes),mBonds(bonds),mRecursive(recursive),mStream(stream){
@@ -42,6 +43,7 @@ public:
             if(!mRecursive)allocate(mBuffers.diagonal,size_t(nodes)*DiagonalEntries);
             else {allocate(mBuffers.nonSelfRefs,size_t(bonds)*2);allocate(mBuffers.nonSelfEnd,nodes);allocate(mBuffers.selfMatrices,size_t(SelfCacheNodes)*SelfCacheEntries);}
             allocate(mBuffers.pending,(nodes+Threads-1)/Threads);allocate(mBuffers.coarse,bonds);
+            allocate(mBuffers.norm,nodes);allocate(mBuffers.proposal,nodes);
             check(cudaMemsetAsync(mStatus,0,sizeof(Status),stream));
         } catch(...){release();throw;}
     }
@@ -61,7 +63,7 @@ public:
     void enqueue(Input input){
         validate(input);void* args[]={&input,&mBuffers,&mStatus,&mWork};
 #if NV_BLAST_SEPARATE_HIERARCHY_CONSTRUCT
-        if(separate()){
+        if(separate() && !input.matched){   // matched aggregation runs fused
             phases(input,[&](void* func,unsigned blocks,unsigned threads,void** a,bool cooperative){
                 check(cooperative?cudaLaunchCooperativeKernel(func,dim3(blocks),dim3(threads),a,0,mStream)
                                  :cudaLaunchKernel(func,dim3(blocks),dim3(threads),a,0,mStream));
@@ -116,7 +118,7 @@ public:
     cudaGraphNode_t append(cudaGraph_t graph,cudaGraphNode_t prior,Input input){
         validate(input);
 #if NV_BLAST_SEPARATE_HIERARCHY_CONSTRUCT
-        if(separate()){
+        if(separate() && !input.matched){   // matched aggregation runs fused
             // Arguments are copied into each node, so one args array per shape serves every node.
             phases(input,[&](void* func,unsigned blocks,unsigned threads,void** args,bool cooperative){
                 cudaKernelNodeParams p{};p.func=func;p.gridDim=dim3(blocks);p.blockDim=dim3(threads);p.kernelParams=args;

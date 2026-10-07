@@ -55,9 +55,10 @@ __device__ __forceinline__ float nativeCycleResult(const PersistentStressArgs& a
     if(!isfinite(gamma))atomicExch(a.hierarchy.failed+id,1u);
     return stressSquaredContribution(gamma);
 }
+template<bool Rotation=false>
 __device__ __forceinline__ float preconditionNativeComponent(const PersistentStressArgs& a,
     const unsigned* nodes,unsigned count,unsigned id,unsigned iteration COMPONENT_SUBPROBE_PARAMETER,
-    bool balanced=false,const ComponentChunks chunks=ComponentChunks{}){
+    bool balanced=false,const ComponentChunks chunks=ComponentChunks{},StressHierarchy::TerminalShared* cycleShared=nullptr){
 #ifdef BLAST_GPU_COMPONENT_PHASE_PROBE
     unsigned long long subStart=0;if(!threadIdx.x)subStart=componentDiagnosticClock();
 #define SUBPROBE_END(index) __syncthreads();if(!threadIdx.x){subProbe[index]+=componentDiagnosticClock()-subStart;subStart=componentDiagnosticClock();}__syncthreads();
@@ -71,6 +72,12 @@ __device__ __forceinline__ float preconditionNativeComponent(const PersistentStr
     // from iteration 0 and PCG runs unrestarted.
     auto* result=a.hierarchy.result;
     if(!iteration && !a.firstPolynomial){for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)a.hierarchy.result[nodes[i]]=a.hierarchy.rhs[nodes[i]];__syncthreads();}
+    else if(cycleShared && a.hierarchy.cycle.levels[0].input.matched){
+        // Matched hierarchy: this component's own V-cycle, block-local.
+        const auto v=a.hierarchy.cycle;
+        StressHierarchy::cyclePass<true,Rotation>(v.levels,v.depth,v.pool,*cycleShared,a.hierarchy.rhs,a.hierarchy.result,id);
+        __syncthreads();
+    }
     else {
         // Apply the fixed polynomial using cached local inverses.
         // Large components retain their cooperative multilevel schedule.

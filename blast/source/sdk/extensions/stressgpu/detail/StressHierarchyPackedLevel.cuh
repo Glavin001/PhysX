@@ -61,7 +61,7 @@ public:
         next.component=mBuffers.component;next.position=mInput.position;next.generation=mInput.generation;next.accept=mInput.accept;
         next.levelBonds=mBuffers.bonds;next.identity=mBuffers.identity;next.counts=mBuffers.counts;next.sourceStatus=mStatus;
         next.authoredNodes=mInput.authoredNodes?mInput.authoredNodes:mInput.nodes;next.bondIdentity=mBuffers.bondIdentity;
-        next.angularWeight=mInput.angularWeight;
+        next.angularWeight=mInput.angularWeight;next.matched=mInput.matched;
         next.partition={nullptr,mBuffers.componentIds,mBuffers.componentBegin,mBuffers.componentEnd,mBuffers.counts,mBuffers.counts+2};return next;
     }
     Input parentInput()const{return mInput;}

@@ -170,6 +170,7 @@ __global__ void componentStressSolve(
 #endif
     if constexpr(!Rotation){a.m_angularScale=nullptr;a.m_angularWeight=nullptr;}
     __shared__ unsigned counts[2], iteration, activeCount, slot;
+    __shared__ StressHierarchy::TerminalShared cycleShared;   // matched hierarchy's block-local cycle
     __shared__ SolveStatus status;
     __shared__ float reduceValue;
     // Stagnation: the best convergence norm so far and when it was reached.
@@ -320,7 +321,7 @@ __global__ void componentStressSolve(
             }
             COMPONENT_WORK_PRECONDITION(a,id,iteration)
             float localGamma=0;
-            if(a.m_islandActive[id] && !COMPONENT_ABLATE(2))localGamma=preconditionNativeComponent(a,c.nodes+begin,count,id,iteration COMPONENT_SUBPROBE_ARGUMENT,balanced,chunks);
+            if(a.m_islandActive[id] && !COMPONENT_ABLATE(2))localGamma=preconditionNativeComponent<Rotation>(a,c.nodes+begin,count,id,iteration COMPONENT_SUBPROBE_ARGUMENT,balanced,chunks,&cycleShared);
             if(COMPONENT_ABLATE(2))localGamma=threadIdx.x?0.f:1.f;
             const float gamma=componentSquaredNorm(localGamma);
             if(!threadIdx.x){a.hierarchy.gamma[id]=gamma;STRESS_CAPTURE_HISTORY(id,iteration,1u,gamma)if(a.m_islandActive[id] && (!(gamma>0) || !isfinite(gamma)))a.hierarchy.failed[id]=1;}

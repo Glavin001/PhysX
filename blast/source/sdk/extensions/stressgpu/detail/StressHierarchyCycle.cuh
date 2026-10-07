@@ -42,8 +42,40 @@ __device__ __forceinline__ CycleLevel cycleView(const CycleLevel* levels,unsigne
 __device__ __forceinline__ bool smoothedNode(const CycleLevel& d,TerminalBuffers pool,unsigned level,unsigned node){
     return d.input.component[node]!=Invalid && pool.owner[d.input.component[node]]!=level;
 }
+// Matched hierarchies (Input::matched) smooth with the native two-step
+// Chebyshev block-Jacobi polynomial, P r = (a+b) M r - ab M A M r on [0.1,2.01]
+// (StressNativePolynomial.cuh), instead of 0.5 M r: in the CPU prototype it
+// took the matched V-cycle from 126-210 to 91 iterations on the veneer house.
+// Precondition: d.residual holds z = M r on smoothed nodes, synchronized. Adds
+// (a+b) z - ab M (A z) to x (or sets it). The operator pass reads only z.
+constexpr StressReal CyclePolyLow=0.5779388123770052,CyclePolyHigh=2.6335678180143502;
+template<bool Local>
+__device__ __forceinline__ void cyclePolynomial(CycleLevel d,TerminalBuffers pool,unsigned level,CycleWork<Local> work,bool accumulate){
+    const unsigned lane=threadIdx.x&7u;
+    for(unsigned index=work.first();index<work.count(d.input);index+=work.stride()){
+        const unsigned node=work.node(d.input,index);
+        const bool enabled=work.enabled(d.input,node) && smoothedNode(d,pool,level,node);
+        Vector a{},b{},c{},e{};if(enabled){
+            a=levelRowContribution(d.input,node,d.residual,lane);b=levelRowContribution(d.input,node,d.residual,lane+8);
+            c=levelRowContribution(d.input,node,d.residual,lane+16);e=levelRowContribution(d.input,node,d.residual,lane+24);}
+        const auto y=sumVirtualWarp(a,b,c,e);
+        if(!lane && enabled){
+            const auto p=sub(mul(d.residual[node],CyclePolyLow+CyclePolyHigh),mul(solveFineDiagonalThread(d.diagonal,node,y),CyclePolyLow*CyclePolyHigh));
+            d.x[node]=accumulate?add(d.x[node],p):p;
+        }
+    }
+}
 template<bool Local>
 __device__ __forceinline__ void cyclePresmooth(CycleLevel d,TerminalBuffers pool,unsigned level,CycleWork<Local> work){
+    if(d.input.matched){
+        for(unsigned index=work.threadFirst();index<work.count(d.input);index+=work.threadStride()){
+            const unsigned node=work.node(d.input,index);
+            if(!work.enabled(d.input,node)){d.x[node]={};continue;}
+            if(!smoothedNode(d,pool,level,node))continue;
+            d.residual[node]=solveFineDiagonalThread(d.diagonal,node,d.rhs[node]);
+        }
+        work.sync();cyclePolynomial(d,pool,level,work,false);return;
+    }
     for(unsigned index=work.threadFirst();index<work.count(d.input);index+=work.threadStride()){
         const unsigned node=work.node(d.input,index);
         if(!work.enabled(d.input,node)){d.x[node]={};continue;}
@@ -145,6 +177,17 @@ __device__ __forceinline__ void cycleCorrectAndSmooth(CycleLevel d,TerminalBuffe
         }
     }
     work.sync();
+    if(d.input.matched){
+        for(unsigned index=work.threadFirst();index<work.count(d.input);index+=work.threadStride()){
+            const unsigned node=work.node(d.input,index);
+            if(!work.enabled(d.input,node) || !smoothedNode(d,pool,level,node))continue;
+            Vector correction{};const unsigned root=d.topology.leader[node];
+            if(root!=Invalid && d.child.nodeMap[root]!=Invalid)correction=prolongValue(childX[d.child.nodeMap[root]],shift(d.input,node,root),sourceInertia(d.input,node));
+            d.x[node]=add(d.x[node],correction);
+            d.residual[node]=solveFineDiagonalThread(d.diagonal,node,d.residual[node]);
+        }
+        work.sync();cyclePolynomial(d,pool,level,work,true);return;
+    }
     for(unsigned index=work.threadFirst();index<work.count(d.input);index+=work.threadStride()){
         const unsigned node=work.node(d.input,index);
         if(!work.enabled(d.input,node) || !smoothedNode(d,pool,level,node))continue;
@@ -156,6 +199,14 @@ __device__ __forceinline__ void cycleCorrectAndSmooth(CycleLevel d,TerminalBuffe
 }
 template<bool Local>
 __device__ __forceinline__ void cyclePostsmooth(CycleLevel d,TerminalBuffers pool,unsigned level,CycleWork<Local> work){
+    if(d.input.matched){
+        for(unsigned index=work.threadFirst();index<work.count(d.input);index+=work.threadStride()){
+            const unsigned node=work.node(d.input,index);
+            if(!work.enabled(d.input,node) || !smoothedNode(d,pool,level,node))continue;
+            d.residual[node]=solveFineDiagonalThread(d.diagonal,node,d.residual[node]);
+        }
+        work.sync();cyclePolynomial(d,pool,level,work,true);return;
+    }
     for(unsigned index=work.threadFirst();index<work.count(d.input);index+=work.threadStride()){
         const unsigned node=work.node(d.input,index);
         if(!work.enabled(d.input,node) || !smoothedNode(d,pool,level,node))continue;

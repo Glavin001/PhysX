@@ -64,6 +64,9 @@ struct Input {
     // for the uniform length scale. A bond's angular stiffness is s^2 W instead
     // of s^2 I. Recursive levels reach it through bondIdentity.
     const float* angularWeight=nullptr;
+    // Strength-matched aggregation and polynomial smoothing
+    // (BLAST_STRESS_MATCHED_HIERARCHY=1; StressHierarchyMatching.cuh).
+    bool matched=false;
 };
 struct Status {
     std::uint64_t generation;
@@ -94,6 +97,8 @@ struct CoarseBond {
 };
 struct Buffers {
     unsigned *owner,*seed,*minimum,*leader,*pending,*memberBond,*coarseActive;
+    // Matched aggregation: each node's summed self-block norm and proposed bond.
+    StressReal* norm=nullptr;unsigned* proposal=nullptr;
     CoarseBond* coarse;
     StressReal* diagonal;
     unsigned *nonSelfRefs=nullptr,*nonSelfEnd=nullptr;
@@ -269,6 +274,7 @@ __device__ __forceinline__ void commitBuild(const Input* input,Status* status)
     if(!status->error){status->generation=*input->generation;status->initialized=1;++status->builds;}
 }
 #include "StressHierarchyDiagonal.cuh"
+#include "StressHierarchyMatching.cuh"
 // All mutable construction state stays on the device. Residency limits the
 // physical grid, never the amount of topology processed by its virtual blocks.
 template<bool Rotation=false>
@@ -301,6 +307,22 @@ __global__ void construct(Input input,Buffers buffers,Status* status,Work* work)
         grid.sync();
         if(!blockIdx.x && !threadIdx.x)work->pending=unsigned(!status->error);
         grid.sync();if(!work->pending)return;
+    }
+    if(input.matched){
+        // Pairs along the strongest couplings first; what they leave joins an
+        // adjacent seed; the star rounds below take anything still unowned.
+        for(unsigned block=blockIdx.x;block<nodes;block+=gridDim.x)matchNorms(input,buffers,status,block);
+        grid.sync();
+        for(unsigned round=0;round<MatchRounds;++round){
+            for(unsigned block=blockIdx.x;block<nodes;block+=gridDim.x)matchPropose(input,buffers,status,block);
+            grid.sync();
+            for(unsigned block=blockIdx.x;block<nodes;block+=gridDim.x)matchAccept(input,buffers,block);
+            grid.sync();
+        }
+        for(unsigned block=blockIdx.x;block<nodes;block+=gridDim.x)matchChooseSeed(input,buffers,status,block);
+        grid.sync();
+        for(unsigned block=blockIdx.x;block<nodes;block+=gridDim.x)matchJoinSeed(input,buffers,block);
+        grid.sync();
     }
     while(work->pending){
         for(unsigned block=blockIdx.x;block<nodes;block+=gridDim.x)chooseSeeds(&input,buffers,status,block);

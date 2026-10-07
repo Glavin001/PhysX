@@ -279,6 +279,11 @@ class DeviceStressTopology
             b.positions,reinterpret_cast<const float4*>(b.offset0),reinterpret_cast<const float4*>(b.offset1),reinterpret_cast<const float2*>(b.inertia),&state->rebuilds,nullptr};
         input.partition={componentNodes,liveIslands,rangeBegin,rangeEnd,b.activeCounts+1,&state->islandCount};
         input.angularWeight=b.angularWeight;
+        // BLAST_STRESS_MATCHED_HIERARCHY=1 (A/B): strength-matched aggregation,
+        // polynomial smoothing, every component preconditioned by its V-cycle
+        // (StressHierarchyMatching.cuh).
+        static const bool matched=[]{const char* v=std::getenv("BLAST_STRESS_MATCHED_HIERARCHY");return v && v[0]=='1';}();
+        input.matched=matched;
         nativeHierarchy.reset(new NativeStressHierarchy(input,forest,stable,state,ownerStream));
 #endif
         checkCuda(cudaStreamBeginCaptureToGraph(captureStream,body,nullptr,nullptr,0,cudaStreamCaptureModeThreadLocal), "capture stress topology rebuild");

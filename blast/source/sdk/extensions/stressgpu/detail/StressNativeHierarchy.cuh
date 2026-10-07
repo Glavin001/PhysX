@@ -32,7 +32,9 @@ class NativeStressHierarchy {
     StressHierarchy::ResidentMotionModes mModes;
     std::unique_ptr<StressHierarchy::ResidentCycle> mCycle;
     NativeStressCycleView mView;cudaStream_t mStream;
-    static StressHierarchy::Input coarseWorkInput(StressHierarchy::Input input){input.componentSolverMaxNodes=kResidentComponentMaxNodes;return input;}
+    // A matched hierarchy keeps every component: its block-local cycle is
+    // the small components' preconditioner too.
+    static StressHierarchy::Input coarseWorkInput(StressHierarchy::Input input){input.componentSolverMaxNodes=input.matched?0:kResidentComponentMaxNodes;return input;}
     template<class T>static void allocate(T*& p,size_t count){checkCuda(cudaMalloc(&p,std::max(size_t(1),size_t(count))*sizeof(T)),"allocate native hierarchy workspace");}
     void release()noexcept{cudaFree(mView.settled.inputs);cudaFree(mView.settled.certificates);cudaFree(mView.settled.verifiedStoredOutput);cudaFree(mView.fineInverse);cudaFree(mView.inverseValid);cudaFree(mView.inverseGeneration);cudaFree(mView.rhs);cudaFree(mView.solution);cudaFree(mView.result);cudaFree(mView.g);cudaFree(mView.gamma);cudaFree(mView.previous);cudaFree(mView.failed);cudaFree(mView.normalizer);cudaFree(mView.verification);cudaFree(mView.verificationCount);cudaFree(mView.warmRangeKnown);cudaFree(mView.warmRangeGeneration);}
 public:
