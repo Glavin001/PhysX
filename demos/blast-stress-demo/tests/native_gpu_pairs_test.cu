@@ -74,8 +74,12 @@ std::vector<PxgBroadPhasePair> make(PxU32 n,PxU32 seed,PxU32 mode) {
 }
 int main() {
     try {
+#if !(defined(PX_CUMETAL) && PX_CUMETAL)
+        // CUDA builds these kernels for sm_89 only. CuMetal compiles them ahead
+        // of time for the Metal device and reports no CUDA compute capability.
         cudaDeviceProp p;check(cudaGetDeviceProperties(&p,0));
         require(p.major==8&&p.minor==9,"requires sm_89");
+#endif
         Fixture f;unsigned cases=0;
         for(PxU32 n:{0u,1u,2u,1023u,1024u,1025u,2049u,4096u,16385u,131073u,1048577u,3u,0u})
             for(PxU32 mode=0;mode<4;++mode){f.run(make(n,71+n,mode),make(n/3,91+n,(mode+1)%4));++cases;}

@@ -22,13 +22,26 @@ inline unsigned observe(PxScene& scene,PxCudaContextManager& cuda,PxU32 identity
     // Warm explicit-observer storage before delaying a subsequent request.
     require(scene.getDirectGPUAPI().copyContactData(reinterpret_cast<PxGpuContactPair*>(pairs),
         reinterpret_cast<PxU32*>(countDevice),4096),"native contact observer warmup failed");
+    // CuMetal has no stream memory operations (cuStreamWaitValue32 and
+    // cuStreamWriteValue32), so it cannot hold the copy behind a device gate
+    // while the host actor table is cleared. There the copy is not deferred:
+    // the table is still cleared until it completes and ownership is still
+    // checked, but a copy that finishes before the clear is not proven to
+    // ignore the host table. CUDA keeps the deferred form.
     {PxScopedCudaLock lock(cuda);
-        check(cuStreamWaitValue32(deferred,gate,1,CU_STREAM_WAIT_VALUE_EQ));check(cuEventRecord(start,deferred));}
+#if !(defined(PX_CUMETAL) && PX_CUMETAL)
+        check(cuStreamWaitValue32(deferred,gate,1,CU_STREAM_WAIT_VALUE_EQ));
+#endif
+        check(cuEventRecord(start,deferred));}
     const bool submitted=scene.getDirectGPUAPI().copyContactData(reinterpret_cast<PxGpuContactPair*>(pairs),
         reinterpret_cast<PxU32*>(countDevice),4096,start,ready);
     auto& source=shapes.mHostTransformCacheIdToActorTableMapped[identity];
     PxActor* saved=source;source=nullptr;
-    {PxScopedCudaLock lock(cuda);check(cuStreamWriteValue32(control,gate,1,0));check(cuStreamSynchronize(control));
+    {PxScopedCudaLock lock(cuda);
+#if !(defined(PX_CUMETAL) && PX_CUMETAL)
+        check(cuStreamWriteValue32(control,gate,1,0));
+#endif
+        check(cuStreamSynchronize(control));
         check(cuEventSynchronize(ready));}
     source=saved;
     require(submitted,"native contact observation submission failed");
