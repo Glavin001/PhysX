@@ -45,17 +45,50 @@
 // its ultimate slip. When the elastic solve has no joint past capacity nothing
 // here runs: the stage's verdict is today's, bit for bit.
 //
-// Solver: accelerated projected gradient (FISTA, gradient restart) on J, one
-// block per island that has a joint past capacity; per-joint diagonal
-// majoriser (Gershgorin over each chunk's live joints) and the exact projection
-// in its metric (each capacity set is a solid of revolution whose meridian is a
-// triangle). FP32; its iteration budget is its own (Settings::iterations).
+// The coupled contact (ContactRow): a body that struck the island in the trial
+// is a rigid node of the same problem, with its momentum and inverse mass and
+// inertia, joined to the struck chunk by a unilateral contact (c >= 0, Coulomb
+// friction); the trial's impulse of that pair is not a load. What the joints
+// cannot pass on then slows the impactor only as much as the struck region's
+// mass and capacity can (the impact solve's own answer for the impactor).
+//
+// Solver: ADMM on J, one block per island that has a joint past capacity: the
+// linear step in chunk space by block-preconditioned conjugate gradients, the
+// projection step exact in a diagonal metric (each capacity set is a solid of
+// revolution whose meridian is a triangle, or the section model's polyhedron).
+// FP32; its iteration budget is its own (Settings::iterations).
 //
 // Included inside the runtime's namespace (or a test's), after PxDestructionScene.h.
 namespace impact {
 
 enum Verdict : PxU32 { eNONE=0, eHELD=1, eYIELDED=2, eBROKEN=3 };
-enum BondFlag : PxU32 { eDYNAMIC0=1, eDYNAMIC1=2, eDUCTILE=4, eALIVE=8 };
+enum BondFlag : PxU32 { eDYNAMIC0=1, eDYNAMIC1=2, eDUCTILE=4, eALIVE=8, eCONTACT=16 };
+
+// The coupled contact (design step 2): a body that struck an island in the
+// trial -- a vehicle, a ball, a loose piece -- enters the island's solve as a
+// rigid body with its own momentum and inverse mass and inertia, joined to the
+// struck chunk by a unilateral contact (compression only, Coulomb friction,
+// no moment). The trial's force on the chunk from that pair is taken out of
+// the chunk's load; the contact force is solved with the joints. One row per
+// (contact pair, struck chunk), in the struck chunk's cluster frame. The trial
+// stopped the impactor against the anchored (kinematic) cluster: its velocity
+// before the tick, and the change the trial gave it, are what the row carries.
+struct ContactRow {
+    PxU32 chunk;        // the struck chunk (0xffffffff: no row)
+    PxU32 body;         // the impactor's identity (its rigid body index)
+    PxU32 points;       // the pair's normal contact points
+    float friction;     // Coulomb coefficient of the pair
+    float point[3];     // the trial's contact point (force-weighted)
+    float normal[3];    // unit: the direction of the contact force on the chunk
+    float load[3];      // the trial's force on the chunk from this pair (normals and friction), N
+    float torque[3];    // the trial's torque on the impactor from this pair, about its centre of mass, N m
+    float com[3];       // the impactor's centre of mass before the tick
+    float velocity[3];  // its velocity before the tick, relative to the struck cluster (at the com)
+    float spin[3];      // its angular velocity before the tick, relative to the cluster
+    float dv[3],dw[3];  // the change the trial gave its velocity and angular velocity over the tick
+    float im;           // inverse mass
+    float ii[6];        // inverse inertia (xx, yy, zz, xy, xz, yz)
+};
 
 struct Settings {
     float dt=1.0f/60.0f;
@@ -108,6 +141,9 @@ struct Settings {
     // has reached capacity, false leaves the load increment to the solve
     // (through p(lambda)); true keeps adding it -- A/B.
     bool elasticIncrementAfterYield=false;
+    // The coupled contact (Inputs::rows): false takes the trial's contact
+    // impulses as given (step 1, the uncoupled oracle) -- A/B.
+    bool coupledContact=true;
 };
 
 // Device-side counters for one evaluation.
@@ -119,7 +155,9 @@ struct Status {
     PxU32 broken;      // joints E broke (brittle at capacity, or ductile past ultimate slip)
     PxU32 yielded;     // ductile joints at capacity that held
     PxU32 rounds;      // largest solve count of any island
-    PxU32 error;       // 1: scratch overflow, 2: nonfinite, 4: round budget exhausted
+    PxU32 error;       // 1: scratch overflow, 2: nonfinite, 4: round budget exhausted, 8: contact rows past capacity
+    PxU32 contacts;    // contact rows coupled
+    PxU32 impactors;   // impactor bodies coupled
 };
 // Optional per-solve record (diagnostics): the first kLogCapacity solves.
 struct SolveRecord { PxU32 island,level,iterations,broken,clipped,capped; float lambda,change; };
@@ -138,7 +176,9 @@ struct Bond {
     float slip;              // ultimate slip (m); 0 brittle
     float area;
 };
-struct Chunk { PxU32 chunk,begin,end,pad; float im,ii; float pb[6],pf[6],r[6]; };
+// A node of the island: a chunk (scalar inertia, as the stress solve has it),
+// or an impactor (tensor: its full inertia). begin/end index Scratch::adj.
+struct Chunk { PxU32 chunk,begin,end,tensor,owner,pad[3]; float im,ii; float pb[6],pf[6],r[6]; float I[6],Iinv[6]; };
 
 struct Scratch {
     PxU32* islandFlag{};   // [N] by island id (minimum dynamic node)
@@ -158,7 +198,11 @@ struct Scratch {
     Status* status{};
     SolveRecord* log{};    // [kLogCapacity] or null; status->solves counts them
     float* breaks{};       // [2M] or null: per bond, the round it broke in and its slip then (diagnostics)
+    PxU32* adj{};          // [2 (M + R)] each island node's links (joints and contacts), local indices
+    float* impactorMass{}; // [2 R] by impactor slot: inverse mass, largest inverse inertia (the majoriser)
 };
+// Contact rows one evaluation may couple (all islands), beyond the bonds.
+constexpr PxU32 kContactCapacity=16384;
 
 struct Inputs {
     const PxDestructionStressChunk* chunks{}; PxU32 chunkCount{};
@@ -176,6 +220,13 @@ struct Inputs {
     const PxDestructionStageStatus* stage{};        // skip when the stage already failed
     const PxDestructionCrushState* crushed{};       // chunks crushed before the solve (Ci), or null
     const PxDestructionBondSection* sections{};     // the section model's sections (Settings::sectionBending), or null
+    const ContactRow* rows{}; PxU32 rowCount{};       // the coupled contact's rows, or none (Settings::coupledContact)
+    const PxU32* rowCounter{};                       // on device: rows written (rowCount is then their capacity)
+    float* rowForce{};                               // [3 rowCount] out: each coupled row's solved force on its chunk (N; 0 uncoupled)
+    // [6 rowCount] out: per impactor and island, on one of its rows (the
+    // others 0): the change the coupled solve makes to the trial's end
+    // velocity and angular velocity (struck cluster's frame). Zeroed by the caller.
+    float* rowDelta{};
 };
 
 // ---------------------------------------------------------------------------
@@ -303,8 +354,27 @@ __device__ __forceinline__ void polytope(float* p,const float* sc,float g0,float
 // the vector part's direction and projects (scalar, |vector|) onto the
 // meridian triangle. The section's L1 bending term is a polyhedron (above).
 // Returns whether anything moved.
+// A contact row's set: compression only (N <= 0), Coulomb friction
+// |V| <= mu (-N) (the row keeps mu in `area`), no couple. The metric is
+// isotropic over the force (ml), so the projection onto the cone is the
+// Euclidean one; a couple's projection is 0 in any diagonal metric.
+__device__ __forceinline__ bool projectContact(const Bond& b,float* x)
+{
+    const float before[6]={x[0],x[1],x[2],x[3],x[4],x[5]};
+    const float mu=b.area,s=-x[0],v=sqrtf(x[1]*x[1]+x[2]*x[2]);
+    x[3]=x[4]=x[5]=0.0f;
+    if(v<=mu*s) {}
+    else if(mu*v<=-s){x[0]=x[1]=x[2]=0.0f;}
+    else {
+        const float t=(s+mu*v)/(1.0f+mu*mu);
+        x[0]=-t;const float k=v>0.0f?mu*t/v:0.0f;x[1]*=k;x[2]*=k;
+    }
+    for(int q=0;q<6;++q)if(x[q]!=before[q])return true;
+    return false;
+}
 __device__ __forceinline__ bool project(const Bond& b,float* x,float ml,float mt,float m0,float m1)
 {
+    if(b.flags&eCONTACT)return projectContact(b,x);
     const float sl=sqrtf(ml);
     bool moved=false;
     if(b.g0>0.0f) {   // (N, M0, M1), the section's L1 bending
@@ -505,23 +575,47 @@ __device__ PxU32 blockScan(Shared& sh,PxU32 v,PxU32& prefix)
     prefix=sh.scan[threadIdx.x]-v;const PxU32 total=sh.scan[kThreads-1];__syncthreads();return total;
 }
 
-struct Island { PxU32 b0,nb,c0,nc; };
+// nb joints then nr contact rows from b0 (links b0 .. b0+nb+nr); nc chunks
+// then ni impactors from c0.
+struct Island { PxU32 b0,nb,nr,c0,nc,ni; };
+__device__ __forceinline__ PxU32 links(const Island& is){return is.nb+is.nr;}
+__device__ __forceinline__ PxU32 nodes(const Island& is){return is.nc+is.ni;}
+// Symmetric 3x3 (xx, yy, zz, xy, xz, yz) times a vector.
+__device__ __forceinline__ void symMul(const float* S,const float* v,float* o)
+{
+    o[0]=S[0]*v[0]+S[3]*v[1]+S[4]*v[2];o[1]=S[3]*v[0]+S[1]*v[1]+S[5]*v[2];o[2]=S[4]*v[0]+S[5]*v[1]+S[2]*v[2];
+}
+// u = M^-1 r and o = M v for one node (force, torque / acceleration, angular).
+__device__ __forceinline__ void accelerate(const Chunk& c,const float* r,float* u)
+{
+    for(int q=0;q<3;++q)u[q]=r[q]*c.im;
+    if(c.tensor)symMul(c.Iinv,r+3,u+3);else for(int q=0;q<3;++q)u[3+q]=r[3+q]*c.ii;
+}
+__device__ __forceinline__ void momentum(const Chunk& c,const float* v,float* o)
+{
+    for(int q=0;q<3;++q)o[q]=v[q]/c.im;
+    if(c.tensor)symMul(c.I,v+3,o+3);else for(int q=0;q<3;++q)o[3+q]=c.ii>0.0f?v[3+q]/c.ii:0.0f;
+}
+// A node's inverse mass and a bound on its inverse inertia (the majoriser).
+__device__ __forceinline__ void nodeInverse(const Inputs& in,const Scratch& w,PxU32 node,float& im,float& ii)
+{
+    if(node<in.chunkCount){const auto c=in.chunks[node];im=1.0f/c.mass;ii=c.inertia>0.0f?1.0f/c.inertia:0.0f;}
+    else{im=w.impactorMass[2*(node-in.chunkCount)];ii=w.impactorMass[2*(node-in.chunkCount)+1];}
+}
 
 // u = M^-1 (p(lambda) - r_prev + B J) per chunk (J the bond-frame forces given);
 // with total, r_prev is left out and the chunk's whole acceleration results.
 __device__ void chunkPass(const Inputs& in,const Scratch& w,const Island& is,float lambda,const float* J,bool total)
 {
-    for(PxU32 k=threadIdx.x;k<is.nc;k+=kThreads) {
+    (void)in;
+    for(PxU32 k=threadIdx.x;k<nodes(is);k+=kThreads) {
         const Chunk& c=w.chunks[is.c0+k];
         float r[6];for(int q=0;q<6;++q)r[q]=(1.0f-lambda)*c.pb[q]+lambda*c.pf[q]-(total?0.0f:c.r[q]);
         for(PxU32 slot=c.begin;slot<c.end;++slot) {
-            const PxU32 bond=in.nodeRefs[slot];
-            if(!bondMember(in,bond))continue;
-            const PxU32 l=w.bondLocal[bond];const Bond& b=w.bonds[l];if(!(b.flags&eALIVE))continue;
+            const PxU32 l=w.adj[slot];const Bond& b=w.bonds[l];if(!(b.flags&eALIVE))continue;
             addWrench(b,J+6*l,b.c0==c.chunk,r);
         }
-        float* u=w.u+6*c.chunk;
-        for(int q=0;q<3;++q){u[q]=r[q]*c.im;u[3+q]=r[3+q]*c.ii;}
+        accelerate(c,r,w.u+6*c.chunk);
     }
 }
 
@@ -530,24 +624,21 @@ __device__ void chunkPass(const Inputs& in,const Scratch& w,const Island& is,flo
 // (|o x f - m|^2 <= 2|o|^2|f|^2 + 2|m|^2).
 __device__ void precondition(const Inputs& in,const Settings& s,const Scratch& w,const Island& is)
 {
-    for(PxU32 k=threadIdx.x;k<is.nc;k+=kThreads) {
+    for(PxU32 k=threadIdx.x;k<nodes(is);k+=kThreads) {
         const Chunk& c=w.chunks[is.c0+k];PxU32 degree=0;
-        for(PxU32 slot=c.begin;slot<c.end;++slot) {
-            const PxU32 bond=in.nodeRefs[slot];if(!bondMember(in,bond))continue;
-            degree+=(w.bonds[w.bondLocal[bond]].flags&eALIVE)?1u:0u;
-        }
+        for(PxU32 slot=c.begin;slot<c.end;++slot)degree+=(w.bonds[w.adj[slot]].flags&eALIVE)?1u:0u;
         w.degree[c.chunk]=degree;
     }
     __syncthreads();
-    const float inverseDt2=1.0f/(s.dt*s.dt);
-    for(PxU32 k=threadIdx.x;k<is.nb;k+=kThreads) {
+    (void)s;
+    for(PxU32 k=threadIdx.x;k<links(is);k+=kThreads) {
         Bond& b=w.bonds[is.b0+k];
-        float dl=0.0f,da=0.0f;(void)inverseDt2;
+        float dl=0.0f,da=0.0f;
         for(int e=0;e<2;++e) {
             if(!(b.flags&(e?eDYNAMIC1:eDYNAMIC0)))continue;
-            const auto c=in.chunks[e?b.c1:b.c0];const float d=float(w.degree[e?b.c1:b.c0]);
-            const float* o=e?b.o1:b.o0;const float ii=c.inertia>0.0f?1.0f/c.inertia:0.0f;
-            dl+=d*(1.0f/c.mass+2.0f*dot3(o,o)*ii);da+=d*2.0f*ii;
+            const PxU32 node=e?b.c1:b.c0;float im,ii;nodeInverse(in,w,node,im,ii);const float d=float(w.degree[node]);
+            const float* o=e?b.o1:b.o0;
+            dl+=d*(im+2.0f*dot3(o,o)*ii);da+=d*2.0f*ii;
         }
         // The kinetic part alone: the ADMM penalty's scale (rho D).
         b.dl=dl>0.0f?dl:1.0f;b.dt=b.d0=b.d1=da>0.0f?da:1.0f;
@@ -574,36 +665,37 @@ __device__ __forceinline__ void penalty(const Bond& b,float rho,float inverseDt2
 // N v = M v + B A^-1 B^T v into out, for every island chunk.
 __device__ void nodeApply(const Inputs& in,const Scratch& w,const Island& is,float rho,float inverseDt2,const float* v,float* out)
 {
-    for(PxU32 k=threadIdx.x;k<is.nb;k+=kThreads) {
+    (void)in;
+    for(PxU32 k=threadIdx.x;k<links(is);k+=kThreads) {
         const PxU32 l=is.b0+k;const Bond& b=w.bonds[l];float* f=w.a+6*l;
         if(!(b.flags&eALIVE)){for(int q=0;q<6;++q)f[q]=0.0f;continue;}
         float e[6],Ainv[6],R[6];relative(b,v,e);penalty(b,rho,inverseDt2,Ainv,R);
         for(int q=0;q<6;++q)f[q]=Ainv[q]*e[q];
     }
     __syncthreads();
-    for(PxU32 k=threadIdx.x;k<is.nc;k+=kThreads) {
+    for(PxU32 k=threadIdx.x;k<nodes(is);k+=kThreads) {
         const Chunk& c=w.chunks[is.c0+k];float r[6]={0,0,0,0,0,0};
         for(PxU32 slot=c.begin;slot<c.end;++slot) {
-            const PxU32 bond=in.nodeRefs[slot];if(!bondMember(in,bond))continue;
-            const PxU32 l=w.bondLocal[bond];const Bond& b=w.bonds[l];if(!(b.flags&eALIVE))continue;
+            const PxU32 l=w.adj[slot];const Bond& b=w.bonds[l];if(!(b.flags&eALIVE))continue;
             // addWrench gives B f; N's sign: M v + B A^-1 B^T v (B^T = relative, its adjoint).
             addWrench(b,w.a+6*l,b.c0==c.chunk,r);
         }
         const float* vc=v+6*c.chunk;float* o=out+6*c.chunk;
-        for(int q=0;q<3;++q){o[q]=vc[q]/c.im+r[q];o[3+q]=(c.ii>0.0f?vc[3+q]/c.ii:0.0f)+r[3+q];}
+        momentum(c,vc,o);for(int q=0;q<6;++q)o[q]+=r[q];
     }
     __syncthreads();
 }
 // Each chunk's 6x6 block of N, inverted (Gauss-Jordan; symmetric positive definite).
 __device__ void blockJacobi(const Inputs& in,const Scratch& w,const Island& is,float rho,float inverseDt2)
 {
-    for(PxU32 k=threadIdx.x;k<is.nc;k+=kThreads) {
+    (void)in;
+    for(PxU32 k=threadIdx.x;k<nodes(is);k+=kThreads) {
         const Chunk& c=w.chunks[is.c0+k];float N[6][12];
         for(int a=0;a<6;++a)for(int e=0;e<12;++e)N[a][e]=0.0f;
         for(int q=0;q<3;++q){N[q][q]=1.0f/c.im;N[3+q][3+q]=c.ii>0.0f?1.0f/c.ii:0.0f;}
+        if(c.tensor){const int map[3][3]={{0,3,4},{3,1,5},{4,5,2}};for(int a=0;a<3;++a)for(int e=0;e<3;++e)N[3+a][3+e]=c.I[map[a][e]];}
         for(PxU32 slot=c.begin;slot<c.end;++slot) {
-            const PxU32 bond=in.nodeRefs[slot];if(!bondMember(in,bond))continue;
-            const Bond& b=w.bonds[w.bondLocal[bond]];if(!(b.flags&eALIVE))continue;
+            const Bond& b=w.bonds[w.adj[slot]];if(!(b.flags&eALIVE))continue;
             float Ainv[6],R[6];penalty(b,rho,inverseDt2,Ainv,R);
             const bool first=b.c0==c.chunk;
             for(int q=0;q<6;++q) {
@@ -641,17 +733,18 @@ __device__ PxU32 solve(Shared& sh,const Inputs& in,const Settings& s,const Scrat
     float rho=1.0f;
     blockJacobi(in,w,is,rho,inverseDt2);
     // Z = J (feasible), U = 0; the load's own acceleration M^-1 (p - r_prev).
-    for(PxU32 k=threadIdx.x;k<is.nb;k+=kThreads)for(int q=0;q<6;++q){w.Y[6*(is.b0+k)+q]=w.J[6*(is.b0+k)+q];w.Jn[6*(is.b0+k)+q]=0.0f;}
-    for(PxU32 k=threadIdx.x;k<is.nc;k+=kThreads) {
-        const Chunk& c=w.chunks[is.c0+k];float* u=w.u+6*c.chunk;
-        for(int q=0;q<6;++q){const float p=(1.0f-lambda)*c.pb[q]+lambda*c.pf[q]-c.r[q];u[q]=p*(q<3?c.im:c.ii);w.cy[6*c.chunk+q]=0.0f;}
+    for(PxU32 k=threadIdx.x;k<links(is);k+=kThreads)for(int q=0;q<6;++q){w.Y[6*(is.b0+k)+q]=w.J[6*(is.b0+k)+q];w.Jn[6*(is.b0+k)+q]=0.0f;}
+    for(PxU32 k=threadIdx.x;k<nodes(is);k+=kThreads) {
+        const Chunk& c=w.chunks[is.c0+k];
+        float p[6];for(int q=0;q<6;++q){p[q]=(1.0f-lambda)*c.pb[q]+lambda*c.pf[q]-c.r[q];w.cy[6*c.chunk+q]=0.0f;}
+        accelerate(c,p,w.u+6*c.chunk);
     }
     __syncthreads();
     PxU32 it=0;capped=true;last=0.0f;
     float* Z=w.Y;float* U=w.Jn;
     for(;it<s.iterations;++it) {
         // J step: c = -B^T M^-1 p + C T + R (Z - U); J = A^-1 c - A^-1 B^T y, N y = B A^-1 c.
-        for(PxU32 k=threadIdx.x;k<is.nb;k+=kThreads) {
+        for(PxU32 k=threadIdx.x;k<links(is);k+=kThreads) {
             const PxU32 l=is.b0+k;const Bond& b=w.bonds[l];float* a=w.a+6*l;
             if(!(b.flags&eALIVE)){for(int q=0;q<6;++q)a[q]=0.0f;continue;}
             float g[6],Ainv[6],R[6];relative(b,w.u,g);penalty(b,rho,inverseDt2,Ainv,R);
@@ -663,7 +756,7 @@ __device__ PxU32 solve(Shared& sh,const Inputs& in,const Settings& s,const Scrat
         // r = B a - N y (y warm), z = P r, p = z.
         nodeApply(in,w,is,rho,inverseDt2,w.cy,w.cq);   // uses w.a as scratch: recompute B a after
         // nodeApply overwrote w.a; rebuild a (cheap) and form the residual.
-        for(PxU32 k=threadIdx.x;k<is.nb;k+=kThreads) {
+        for(PxU32 k=threadIdx.x;k<links(is);k+=kThreads) {
             const PxU32 l=is.b0+k;const Bond& b=w.bonds[l];float* a=w.a+6*l;
             if(!(b.flags&eALIVE)){for(int q=0;q<6;++q)a[q]=0.0f;continue;}
             float g[6],Ainv[6],R[6];relative(b,w.u,g);penalty(b,rho,inverseDt2,Ainv,R);
@@ -673,11 +766,10 @@ __device__ PxU32 solve(Shared& sh,const Inputs& in,const Settings& s,const Scrat
         }
         __syncthreads();
         float rz=0.0f;
-        for(PxU32 k=threadIdx.x;k<is.nc;k+=kThreads) {
+        for(PxU32 k=threadIdx.x;k<nodes(is);k+=kThreads) {
             const Chunk& c=w.chunks[is.c0+k];float ba[6]={0,0,0,0,0,0};
             for(PxU32 slot=c.begin;slot<c.end;++slot) {
-                const PxU32 bond=in.nodeRefs[slot];if(!bondMember(in,bond))continue;
-                const PxU32 l=w.bondLocal[bond];const Bond& b=w.bonds[l];if(!(b.flags&eALIVE))continue;
+                const PxU32 l=w.adj[slot];const Bond& b=w.bonds[l];if(!(b.flags&eALIVE))continue;
                 addWrench(b,w.a+6*l,b.c0==c.chunk,ba);
             }
             float* r=w.cr+6*c.chunk;float* zz=w.cz+6*c.chunk;const float* q=w.cq+6*c.chunk;
@@ -691,10 +783,10 @@ __device__ PxU32 solve(Shared& sh,const Inputs& in,const Settings& s,const Scrat
         for(PxU32 inner=0;inner<s.innerIterations && rz>0.0f;++inner) {
             nodeApply(in,w,is,rho,inverseDt2,w.cp,w.cq);
             float pq=0.0f;
-            for(PxU32 k=threadIdx.x;k<is.nc;k+=kThreads){const PxU32 c=w.chunks[is.c0+k].chunk;for(int t=0;t<6;++t)pq+=w.cp[6*c+t]*w.cq[6*c+t];}
+            for(PxU32 k=threadIdx.x;k<nodes(is);k+=kThreads){const PxU32 c=w.chunks[is.c0+k].chunk;for(int t=0;t<6;++t)pq+=w.cp[6*c+t]*w.cq[6*c+t];}
             pq=blockSum(sh,pq);if(!(pq>0.0f))break;
             const float alpha=rz/pq;float rz2=0.0f;
-            for(PxU32 k=threadIdx.x;k<is.nc;k+=kThreads) {
+            for(PxU32 k=threadIdx.x;k<nodes(is);k+=kThreads) {
                 const PxU32 c=w.chunks[is.c0+k].chunk;float* r=w.cr+6*c;float* zz=w.cz+6*c;
                 for(int t=0;t<6;++t){w.cy[6*c+t]+=alpha*w.cp[6*c+t];r[t]-=alpha*w.cq[6*c+t];}
                 blockApply(w.cinv+36*size_t(c),r,zz);
@@ -702,13 +794,13 @@ __device__ PxU32 solve(Shared& sh,const Inputs& in,const Settings& s,const Scrat
             }
             rz2=blockSum(sh,rz2);
             const float beta=rz2/rz;rz=rz2;
-            for(PxU32 k=threadIdx.x;k<is.nc;k+=kThreads){const PxU32 c=w.chunks[is.c0+k].chunk;for(int t=0;t<6;++t)w.cp[6*c+t]=w.cz[6*c+t]+beta*w.cp[6*c+t];}
+            for(PxU32 k=threadIdx.x;k<nodes(is);k+=kThreads){const PxU32 c=w.chunks[is.c0+k].chunk;for(int t=0;t<6;++t)w.cp[6*c+t]=w.cz[6*c+t]+beta*w.cp[6*c+t];}
             __syncthreads();
             if(!(rz>1e-12f*rz2+0.0f) && rz==0.0f)break;
         }
         // J = A^-1 (c - B^T y); Z = Pi_R(J + U); U += J - Z.
         float primal=0.0f,dual=0.0f,pn=0.0f,dn=0.0f;
-        for(PxU32 k=threadIdx.x;k<is.nb;k+=kThreads) {
+        for(PxU32 k=threadIdx.x;k<links(is);k+=kThreads) {
             const PxU32 l=is.b0+k;const Bond& b=w.bonds[l];float* j=w.J+6*l;float* z=Z+6*l;float* uu=U+6*l;
             if(!(b.flags&eALIVE)){for(int q=0;q<6;++q)j[q]=z[q]=uu[q]=0.0f;continue;}
             float g[6],Ainv[6],R[6],ey[6];relative(b,w.u,g);relative(b,w.cy,ey);penalty(b,rho,inverseDt2,Ainv,R);
@@ -723,7 +815,8 @@ __device__ PxU32 solve(Shared& sh,const Inputs& in,const Settings& s,const Scrat
                 const float rp=j[q]-z[q],rd=R[q]*(z[q]-zold[q]);
                 if(q<3){lp+=rp*rp;ld+=rd*rd;}else{ap+=rp*rp;ad+=rd*rd;}
             }
-            const float gain=fmaxf(fmaxf(b.gb,b.gt),fmaxf(b.g0,b.g1));
+            // A contact row: its couple must vanish too (at the solve's length scale).
+            const float gain=(b.flags&eCONTACT)?1.0f/s.lengthScale:fmaxf(fmaxf(b.gb,b.gt),fmaxf(b.g0,b.g1));
             primal=fmaxf(primal,(sqrtf(lp)+gain*sqrtf(ap))/cap);
             dual=fmaxf(dual,0.5f*s.dt*s.dt*fmaxf(sqrtf(ld),sqrtf(ad)*s.lengthScale));
             pn+=lp+ap;dn+=ld+ad;
@@ -736,18 +829,61 @@ __device__ PxU32 solve(Shared& sh,const Inputs& in,const Settings& s,const Scrat
             const float ratio=sqrtf(sqrtf(pn/dn));
             if(ratio>5.0f || ratio<0.2f) {
                 const float next=rho*fminf(fmaxf(ratio,1e-3f),1e3f);
-                for(PxU32 k=threadIdx.x;k<is.nb;k+=kThreads)for(int q=0;q<6;++q)U[6*(is.b0+k)+q]*=rho/next;
+                for(PxU32 k=threadIdx.x;k<links(is);k+=kThreads)for(int q=0;q<6;++q)U[6*(is.b0+k)+q]*=rho/next;
                 rho=next;__syncthreads();blockJacobi(in,w,is,rho,inverseDt2);
             }
         }
     }
     // The feasible iterate is the answer.
-    for(PxU32 k=threadIdx.x;k<is.nb;k+=kThreads)for(int q=0;q<6;++q)w.J[6*(is.b0+k)+q]=Z[6*(is.b0+k)+q];
+    for(PxU32 k=threadIdx.x;k<links(is);k+=kThreads)for(int q=0;q<6;++q)w.J[6*(is.b0+k)+q]=Z[6*(is.b0+k)+q];
     __syncthreads();
     return it;
 }
 
 __device__ void finishFailed(const Scratch& w,PxU32 bit){atomicOr(&w.status->error,bit);}
+
+// The coupled contact's rows of an island: a live struck chunk of it, and a
+// movable impactor.
+__device__ __forceinline__ bool rowMember(const Inputs& in,PxU32 r,PxU32 island)
+{
+    const ContactRow& row=in.rows[r];
+    if(row.chunk>=in.chunkCount || in.nodeIslands[row.chunk]!=island || !(in.chunks[row.chunk].mass>0.0f) || chunkGone(in,row.chunk))return false;
+    return row.im>0.0f && isfinite(row.im) && row.points>0;
+}
+// A contact row as a link: chunk0 the struck chunk, chunk1 the impactor's
+// node (set by the caller); n from the chunk to the impactor, so a contact
+// force is a compression (N <= 0). Rigid: no compliance.
+__device__ __forceinline__ void prepareRow(const Inputs& in,const Settings& s,PxU32 r,Bond& b)
+{
+    const ContactRow& row=in.rows[r];const auto c=in.chunks[row.chunk];
+    PxVec3 n(-row.normal[0],-row.normal[1],-row.normal[2]);
+    const float l=n.magnitude();n=l>0.0f?n*(1.0f/l):PxVec3(0.0f,1.0f,0.0f);
+    b=Bond{};b.bond=r;b.c0=row.chunk;b.c1=0;b.flags=eALIVE|eDYNAMIC0|eDYNAMIC1|eCONTACT;
+    frame(n,b.n,b.t1,b.t2);
+    for(int q=0;q<3;++q){b.o0[q]=row.point[q]-c.position[q];b.o1[q]=row.point[q]-row.com[q];b.pc[q]=0.0f;}
+    // The residual's scale: the force that stops the impactor in the tick.
+    const float v=sqrtf(dot3(row.velocity,row.velocity))+sqrtf(dot3(row.dv,row.dv));
+    b.capC=fmaxf(sqrtf(dot3(row.load,row.load))+v/(row.im*s.dt),1.0f);b.capT=b.capS=0.0f;
+    b.gb=b.gt=b.g0=b.g1=0.0f;b.kl=b.kt=b.k0=b.k1=FLT_MAX;b.dl=b.dt=b.d0=b.d1=1.0f;b.slip=0.0f;
+    b.area=fmaxf(row.friction,0.0f);
+}
+// An impactor's node from its first row: its momentum at the start of the
+// tick (relative to the struck cluster) and the change the trial gave it as
+// loads over the tick, d'Alembert: p = m (v + dv) / dt, L = I (w + dw) / dt.
+__device__ __forceinline__ Chunk impactorNode(const Inputs& in,const Settings& s,PxU32 r,PxU32 id)
+{
+    (void)in;const ContactRow& row=in.rows[r];Chunk c{};
+    c.chunk=id;c.tensor=1;c.im=row.im;c.ii=0.0f;
+    const float* S=row.ii;
+    const float A=S[1]*S[2]-S[5]*S[5],B=S[0]*S[2]-S[4]*S[4],C=S[0]*S[1]-S[3]*S[3];
+    const float D=S[4]*S[5]-S[3]*S[2],E=S[3]*S[5]-S[1]*S[4],F=S[3]*S[4]-S[0]*S[5];
+    const float det=S[0]*A+S[3]*D+S[4]*E;
+    if(det>0.0f && isfinite(det)){const float k=1.0f/det;const float I[6]={A*k,B*k,C*k,D*k,E*k,F*k};
+        for(int q=0;q<6;++q){c.Iinv[q]=S[q];c.I[q]=I[q];}}
+    float w[3];for(int q=0;q<3;++q){c.pf[q]=(row.velocity[q]+row.dv[q])/(row.im*s.dt);w[q]=(row.spin[q]+row.dw[q])/s.dt;}
+    symMul(c.I,w,c.pf+3);
+    return c;
+}
 
 __global__ __launch_bounds__(kThreads) void solveIslands(Inputs in,Settings s,Scratch w)
 {
@@ -757,7 +893,7 @@ __global__ __launch_bounds__(kThreads) void solveIslands(Inputs in,Settings s,Sc
         const PxU32 island=w.islands[k];
         Island is{};
         // Members, in index order (deterministic): count, allocate, compact.
-        PxU32 nb=0,nc=0;
+        PxU32 nb=0,nc=0,nr=0;
         for(PxU32 i=threadIdx.x;i<in.bondCount;i+=kThreads) {
             if(in.bondIslands[i]!=island)continue;
             if(bondMember(in,i))++nb;
@@ -765,12 +901,19 @@ __global__ __launch_bounds__(kThreads) void solveIslands(Inputs in,Settings s,Sc
             else if(in.health[i]>0.0f){w.forces[i]=PxDestructionVectorPair();w.verdict[i]=eBROKEN;}
         }
         for(PxU32 i=threadIdx.x;i<in.chunkCount;i+=kThreads)nc+=(in.nodeIslands[i]==island && in.chunks[i].mass>0.0f && !chunkGone(in,i))?1u:0u;
-        nb=blockCount(sh,nb);nc=blockCount(sh,nc);
-        if(!threadIdx.x){sh.base=atomicAdd(w.counters+1,nb);sh.count=atomicAdd(w.counters+2,nc);}
+        PxU32 rowCount=s.coupledContact && in.rows?in.rowCount:0u;
+        if(rowCount && in.rowCounter){
+            // Rows past the capacity were dropped (their pairs stay uncoupled): error 8.
+            if(*in.rowCounter>rowCount && !threadIdx.x && !k)finishFailed(w,8u);
+            rowCount=min(*in.rowCounter,rowCount);
+        }
+        for(PxU32 i=threadIdx.x;i<rowCount;i+=kThreads)nr+=rowMember(in,i,island)?1u:0u;
+        nb=blockCount(sh,nb);nc=blockCount(sh,nc);nr=blockCount(sh,nr);
+        if(!threadIdx.x){sh.base=atomicAdd(w.counters+1,nb+nr);sh.count=atomicAdd(w.counters+2,nc+nr);}
         __syncthreads();
-        is.b0=sh.base;is.nb=nb;is.c0=sh.count;is.nc=nc;
+        is.b0=sh.base;is.nb=nb;is.nr=nr;is.c0=sh.count;is.nc=nc;is.ni=0;
         __syncthreads();
-        if(is.b0+nb>in.bondCount || is.c0+nc>in.chunkCount){if(!threadIdx.x)finishFailed(w,1u);continue;}
+        if(is.b0+nb+nr>in.bondCount+kContactCapacity || is.c0+nc+nr>in.chunkCount+kContactCapacity){if(!threadIdx.x)finishFailed(w,1u);continue;}
         if(!threadIdx.x)sh.flag=0;
         __syncthreads();
         for(PxU32 tile=0;tile<in.bondCount;tile+=kThreads) {
@@ -787,7 +930,7 @@ __global__ __launch_bounds__(kThreads) void solveIslands(Inputs in,Settings s,Sc
             const PxU32 member=(i<in.chunkCount && in.nodeIslands[i]==island && in.chunks[i].mass>0.0f && !chunkGone(in,i))?1u:0u;
             PxU32 prefix;const PxU32 total=blockScan(sh,member,prefix);
             if(member) {
-                const auto c=in.chunks[i];Chunk ch{};ch.chunk=i;ch.begin=in.nodeBegin[i];ch.end=in.nodeBegin[i+1];
+                const auto c=in.chunks[i];Chunk ch{};ch.chunk=i;
                 ch.im=1.0f/c.mass;ch.ii=c.inertia>0.0f?1.0f/c.inertia:0.0f;
                 // Full load over the tick (force, torque about the chunk).
                 const auto a=in.accelerations[i];
@@ -798,24 +941,106 @@ __global__ __launch_bounds__(kThreads) void solveIslands(Inputs in,Settings s,Sc
             }
             __syncthreads();if(!threadIdx.x)sh.flag+=total;__syncthreads();
         }
-        __syncthreads();
-        // The ramp's start: the previous forces, projected; they balance
-        // p_base = -B J_base exactly, at rest (r_prev = 0).
-        for(PxU32 k=threadIdx.x;k<nb;k+=kThreads) {
-            const PxU32 l=is.b0+k;const Bond& b=w.bonds[l];
-            float j[6];toLocal(b,in.base[b.bond],j);returnMap(b,j);
-            for(int q=0;q<6;++q)w.J[6*l+q]=j[q];
+        // The coupled contact: the rows (in row order), then one node per
+        // impactor body (in the order of its first row).
+        if(nr) {
+            if(!threadIdx.x)sh.flag=0;
+            __syncthreads();
+            for(PxU32 tile=0;tile<rowCount;tile+=kThreads) {
+                const PxU32 i=tile+threadIdx.x;
+                const PxU32 member=(i<rowCount && rowMember(in,i,island))?1u:0u;
+                PxU32 prefix;const PxU32 total=blockScan(sh,member,prefix);
+                if(member){Bond b;prepareRow(in,s,i,b);w.bonds[is.b0+nb+sh.flag+prefix]=b;}
+                __syncthreads();if(!threadIdx.x)sh.flag+=total;__syncthreads();
+            }
+            if(!threadIdx.x)sh.flag=0;
+            __syncthreads();
+            for(PxU32 tile=0;tile<nr;tile+=kThreads) {
+                const PxU32 k=tile+threadIdx.x;PxU32 first=0;
+                if(k<nr) {
+                    const PxU32 body=in.rows[w.bonds[is.b0+nb+k].bond].body;first=1;
+                    for(PxU32 e=0;e<k;++e)if(in.rows[w.bonds[is.b0+nb+e].bond].body==body){first=0;break;}
+                }
+                PxU32 prefix;const PxU32 total=blockScan(sh,first,prefix);
+                if(first) {
+                    const PxU32 slot=is.c0+nc+sh.flag+prefix,id=in.chunkCount+slot;
+                    w.bonds[is.b0+nb+k].c1=id;
+                    w.chunks[slot]=impactorNode(in,s,w.bonds[is.b0+nb+k].bond,id);w.chunks[slot].owner=w.bonds[is.b0+nb+k].bond;
+                    const Chunk& c=w.chunks[slot];
+                    float largest=0.0f;for(int a=0;a<3;++a){const int m3[3][3]={{0,3,4},{3,1,5},{4,5,2}};
+                        largest=fmaxf(largest,fabsf(c.Iinv[m3[a][0]])+fabsf(c.Iinv[m3[a][1]])+fabsf(c.Iinv[m3[a][2]]));}
+                    w.impactorMass[2*slot]=c.im;w.impactorMass[2*slot+1]=largest;
+                    for(int q=0;q<6;++q)w.u[6*id+q]=0.0f;
+                }
+                __syncthreads();if(!threadIdx.x)sh.flag+=total;__syncthreads();
+            }
+            is.ni=sh.flag;
+            __syncthreads();
+            // Every other row of an impactor joins its node.
+            for(PxU32 k=threadIdx.x;k<nr;k+=kThreads) {
+                Bond& b=w.bonds[is.b0+nb+k];if(b.c1)continue;
+                const PxU32 body=in.rows[b.bond].body;
+                for(PxU32 e=0;e<k;++e){const Bond& f=w.bonds[is.b0+nb+e];if(in.rows[f.bond].body==body && f.c1){b.c1=f.c1;break;}}
+            }
+            __syncthreads();
+            // The trial's force of each coupled pair leaves its chunk's load
+            // and its impactor's (the impactor's other loads stay: what the
+            // trial gave it, less these pairs).
+            for(PxU32 k=threadIdx.x;k<nodes(is);k+=kThreads) {
+                Chunk& c=w.chunks[is.c0+k];
+                for(PxU32 e=0;e<nr;++e) {
+                    const Bond& b=w.bonds[is.b0+nb+e];const ContactRow& row=in.rows[b.bond];
+                    if(k<nc && b.c0==c.chunk)for(int q=0;q<3;++q)c.pf[q]-=row.load[q];
+                    if(k>=nc && b.c1==c.chunk)for(int q=0;q<3;++q){c.pf[q]+=row.load[q];c.pf[3+q]-=row.torque[q];}
+                }
+            }
+            if(!threadIdx.x){atomicAdd(&w.status->contacts,nr);atomicAdd(&w.status->impactors,is.ni);}
+            __syncthreads();
+        }
+        // Each node's links: its joints (the bond graph's), then its contacts.
+        for(PxU32 k=threadIdx.x;k<nodes(is);k+=kThreads) {
+            const Chunk& c=w.chunks[is.c0+k];PxU32 degree=0;
+            if(k<nc)for(PxU32 slot=in.nodeBegin[c.chunk];slot<in.nodeBegin[c.chunk+1];++slot)degree+=bondMember(in,in.nodeRefs[slot])?1u:0u;
+            for(PxU32 e=0;e<nr;++e){const Bond& b=w.bonds[is.b0+nb+e];degree+=(b.c0==c.chunk || b.c1==c.chunk)?1u:0u;}
+            w.degree[c.chunk]=degree;
         }
         __syncthreads();
-        for(PxU32 k=threadIdx.x;k<nc;k+=kThreads) {
+        {
+            PxU32 total=0;for(PxU32 k=threadIdx.x;k<nodes(is);k+=kThreads)total+=w.degree[w.chunks[is.c0+k].chunk];
+            total=blockCount(sh,total);
+            if(!threadIdx.x){sh.base=atomicAdd(w.counters+3,total);sh.flag=0;}
+            __syncthreads();
+            if(sh.base+total>2*(in.bondCount+kContactCapacity)){if(!threadIdx.x)finishFailed(w,1u);continue;}
+        }
+        for(PxU32 tile=0;tile<nodes(is);tile+=kThreads) {
+            const PxU32 k=tile+threadIdx.x;
+            const PxU32 degree=k<nodes(is)?w.degree[w.chunks[is.c0+k].chunk]:0u;
+            PxU32 prefix;const PxU32 total=blockScan(sh,degree,prefix);
+            if(k<nodes(is)) {
+                Chunk& c=w.chunks[is.c0+k];c.begin=sh.base+sh.flag+prefix;PxU32 at=c.begin;
+                if(k<nc)for(PxU32 slot=in.nodeBegin[c.chunk];slot<in.nodeBegin[c.chunk+1];++slot) {
+                    const PxU32 bond=in.nodeRefs[slot];if(bondMember(in,bond))w.adj[at++]=w.bondLocal[bond];
+                }
+                for(PxU32 e=0;e<nr;++e){const Bond& b=w.bonds[is.b0+nb+e];if(b.c0==c.chunk || b.c1==c.chunk)w.adj[at++]=is.b0+nb+e;}
+                c.end=at;
+            }
+            __syncthreads();if(!threadIdx.x)sh.flag+=total;__syncthreads();
+        }
+        __syncthreads();
+        // The ramp's start: the previous forces, projected; they balance
+        // p_base = -B J_base exactly, at rest (r_prev = 0). No contact force
+        // carries over (the impactor arrives this tick).
+        for(PxU32 k=threadIdx.x;k<links(is);k+=kThreads) {
+            const PxU32 l=is.b0+k;const Bond& b=w.bonds[l];
+            float j[6]={0,0,0,0,0,0};
+            if(k<nb){toLocal(b,in.base[b.bond],j);returnMap(b,j);}
+            for(int q=0;q<6;++q){w.J[6*l+q]=j[q];w.T[6*l+q]=j[q];}
+        }
+        __syncthreads();
+        for(PxU32 k=threadIdx.x;k<nodes(is);k+=kThreads) {
             Chunk& c=w.chunks[is.c0+k];
             float r[6]={0,0,0,0,0,0};
-            for(PxU32 slot=c.begin;slot<c.end;++slot) {
-                const PxU32 bond=in.nodeRefs[slot];
-                if(!bondMember(in,bond))continue;
-                const PxU32 l=w.bondLocal[bond];const Bond& b=w.bonds[l];
-                addWrench(b,w.J+6*l,b.c0==c.chunk,r);
-            }
+            for(PxU32 slot=c.begin;slot<c.end;++slot){const PxU32 l=w.adj[slot];const Bond& b=w.bonds[l];addWrench(b,w.J+6*l,b.c0==c.chunk,r);}
             for(int q=0;q<6;++q){c.pb[q]=-r[q];c.r[q]=0.0f;}
         }
         __syncthreads();
@@ -835,7 +1060,9 @@ __global__ __launch_bounds__(kThreads) void solveIslands(Inputs in,Settings s,Sc
             first=fminf(first,hi);
         }
         first=fmaxf(blockMin(sh,first),powf(s.rampFactor,-float(s.rampLevels-1)));
-        PxU32 rounds=0,level=0,broken=0;bool plastic=false,failed=false;
+        // An impactor's contact is solved from the first level (no elastic
+        // solution knows it).
+        PxU32 rounds=0,level=0,broken=0;bool plastic=is.nr>0,failed=false;
         float previous=0.0f;
         for(;;) {
             const float lambda=fminf(1.0f,first*powf(s.rampFactor,float(level)));
@@ -866,9 +1093,9 @@ __global__ __launch_bounds__(kThreads) void solveIslands(Inputs in,Settings s,Sc
             // The chunks' acceleration so far; it carries into the next solve.
             chunkPass(in,w,is,lambda,w.J,true);
             __syncthreads();
-            for(PxU32 k=threadIdx.x;k<nc;k+=kThreads) {
+            for(PxU32 k=threadIdx.x;k<nodes(is);k+=kThreads) {
                 Chunk& c=w.chunks[is.c0+k];const float* u=w.u+6*c.chunk;
-                if(plastic)for(int q=0;q<3;++q){c.r[q]=u[q]/c.im;c.r[3+q]=c.ii>0.0f?u[3+q]/c.ii:0.0f;}
+                if(plastic)momentum(c,u,c.r);
             }
             __syncthreads();
             // Which joints reached capacity, and which of them fail.
@@ -908,6 +1135,20 @@ __global__ __launch_bounds__(kThreads) void solveIslands(Inputs in,Settings s,Sc
             else if(utilisation(b,j)>=1.0f-s.capacityBand){v=eYIELDED;++yielded;}
             w.verdict[b.bond]=v;
         }
+        // Each impactor's end velocity against the trial's.
+        for(PxU32 k=is.nc+threadIdx.x;k<nodes(is);k+=kThreads) {
+            const Chunk& c=w.chunks[is.c0+k];const ContactRow& row=in.rows[c.owner];const float* u=w.u+6*c.chunk;
+            float d[6];
+            for(int q=0;q<3;++q){d[q]=u[q]*s.dt-(row.velocity[q]+row.dv[q]);d[3+q]=u[3+q]*s.dt-(row.spin[q]+row.dw[q]);}
+            for(int q=0;q<6;++q)finite=finite && isfinite(d[q]);
+            if(in.rowDelta)for(int q=0;q<6;++q)in.rowDelta[6*c.owner+q]=d[q];
+        }
+        // Each coupled row's force on its chunk (cluster frame).
+        for(PxU32 k=threadIdx.x;k<is.nr;k+=kThreads) {
+            const PxU32 l=is.b0+nb+k;const Bond& b=w.bonds[l];float lin[3],ang[3];toWorld(b,w.J+6*l,lin,ang);
+            finite=finite && isfinite(lin[0]) && isfinite(lin[1]) && isfinite(lin[2]);
+            if(in.rowForce)for(int q=0;q<3;++q)in.rowForce[3*b.bond+q]=lin[q];
+        }
         yielded=blockCount(sh,yielded);
         const PxU32 bad=blockCount(sh,finite?0u:1u);
         if(!threadIdx.x) {
@@ -945,18 +1186,22 @@ struct Stage {
     void release() {
         cudaFree(w.islandFlag);cudaFree(w.islands);cudaFree(w.counters);cudaFree(w.bondLocal);cudaFree(w.degree);
         cudaFree(w.bonds);cudaFree(w.chunks);cudaFree(w.J);cudaFree(w.Y);cudaFree(w.Jn);cudaFree(w.T);cudaFree(w.u);
-        cudaFree(w.forces);cudaFree(w.verdict);cudaFree(w.status);
+        cudaFree(w.forces);cudaFree(w.verdict);cudaFree(w.status);cudaFree(w.adj);cudaFree(w.impactorMass);
         for(float* a:{w.a,w.cy,w.cr,w.cz,w.cp,w.cq,w.cinv})cudaFree(a);w={};n=m=0;
     }
     void allocate(PxU32 chunks,PxU32 bonds) {
         release();n=chunks;m=bonds;
+        // Links: the bonds, then contact rows; nodes: the chunks, then the
+        // impactors (ids from n, slots after the chunk slots: up to 2n + K).
+        const size_t links=size_t(m)+kContactCapacity,slots=size_t(n)+kContactCapacity,ids=size_t(n)+slots;
         ::physx::allocate(w.islandFlag,n);::physx::allocate(w.islands,n);::physx::allocate(w.counters,4);
-        ::physx::allocate(w.bondLocal,m);::physx::allocate(w.degree,n);
-        ::physx::allocate(w.bonds,m);::physx::allocate(w.chunks,n);
-        for(float** a:{&w.J,&w.Y,&w.Jn,&w.T})::physx::allocate(*a,6*size_t(m));
-        ::physx::allocate(w.u,6*size_t(n));::physx::allocate(w.a,6*size_t(m));::physx::allocate(w.cinv,36*size_t(n));
-        for(float** a:{&w.cy,&w.cr,&w.cz,&w.cp,&w.cq}){::physx::allocate(*a,6*size_t(n));check(cudaMemset(*a,0,sizeof(float)*6*size_t(n)));}::physx::allocate(w.forces,m);::physx::allocate(w.verdict,m);::physx::allocate(w.status,1);
-        check(cudaMemset(w.islandFlag,0,sizeof(PxU32)*n));check(cudaMemset(w.u,0,sizeof(float)*6*size_t(n)));
+        ::physx::allocate(w.bondLocal,m);::physx::allocate(w.degree,ids);
+        ::physx::allocate(w.bonds,links);::physx::allocate(w.chunks,slots);
+        ::physx::allocate(w.adj,2*links);::physx::allocate(w.impactorMass,2*slots);
+        for(float** a:{&w.J,&w.Y,&w.Jn,&w.T})::physx::allocate(*a,6*links);
+        ::physx::allocate(w.u,6*ids);::physx::allocate(w.a,6*links);::physx::allocate(w.cinv,36*ids);
+        for(float** a:{&w.cy,&w.cr,&w.cz,&w.cp,&w.cq}){::physx::allocate(*a,6*ids);check(cudaMemset(*a,0,sizeof(float)*6*ids));}::physx::allocate(w.forces,m);::physx::allocate(w.verdict,m);::physx::allocate(w.status,1);
+        check(cudaMemset(w.islandFlag,0,sizeof(PxU32)*n));check(cudaMemset(w.u,0,sizeof(float)*6*ids));
         check(cudaMemset(w.status,0,sizeof(Status)));check(cudaMemset(w.verdict,0,sizeof(PxU32)*m));
     }
     // One evaluation: trigger, list, solve. Leaves islandFlag set for the

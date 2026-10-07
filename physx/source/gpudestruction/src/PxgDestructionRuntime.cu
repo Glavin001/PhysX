@@ -250,7 +250,71 @@ struct ImpactContact {
     const PxgBodySim* before; PxU32 beforeCount;
     float *stress,*rate;
     PxU32* impactor; // per chunk: the impactor-table row of the body that struck it hardest (or invalid)
+    // The impact solve's coupled contact: a row per (pair, struck chunk of an
+    // anchored -- kinematic -- cluster) whose other body is movable.
+    impact::ContactRow* rows; PxU32* rowCount; PxU32 rowCapacity;
+    const PxDestructionStressCluster* clusters;
 };
+// One side of a pair as a coupled-contact row (impact::ContactRow): the struck
+// chunk `chunk` (its cluster kinematic), the other body `other` dynamic. Sums
+// the pair's normal and friction impulses on the chunk; frames: the struck
+// cluster's (the chunk's own coordinates).
+__device__ void coupleRow(PxU32 chunk,PxNodeIndex own,PxNodeIndex other,float side,const PxGpuContactPair& p,
+    const PxDestructionStressChunk* chunks,const PxTransform* poses,const PxgBodySim* bodies,float invDt,const ImpactContact& ci)
+{
+    if(!ci.rows || chunk==PX_INVALID_U32 || other.isStaticBody() || other.isArticulation() || own.isArticulation())return;
+    const auto c=chunks[chunk];if(!(c.mass>0.0f))return;
+    const PxU32 clusterBody=ci.clusters[c.cluster].body;
+    if(!(bodies[clusterBody].linearVelocityXYZ_inverseMassW.w==0.0f))return; // the struck cluster moves: the rigid solve has the exchange
+    const auto& b=bodies[other.index()];const float im=b.linearVelocityXYZ_inverseMassW.w;
+    if(!(im>0.0f) || other.index()==clusterBody)return;
+    const bool early=ci.before && other.index()<ci.beforeCount && clusterBody<ci.beforeCount;
+    const PxgBodySim& before=early?ci.before[other.index()]:b;
+    const PxgBodySim& clusterBefore=early?ci.before[clusterBody]:bodies[clusterBody];
+    const PxTransform pose=poses[c.cluster];
+    PxVec3 force(0.0f),point(0.0f),normal(0.0f),torque(0.0f);float weight=0.0f,friction=0.0f;PxU32 points=0;
+    const PxVec3 com(before.body2World.p.x,before.body2World.p.y,before.body2World.p.z);
+    if(p.nbContacts && p.contactPatches && p.contactPoints && p.contactForces) {
+        PxContactStreamIterator it(p.contactPatches,p.contactPoints,NULL,p.nbPatches,p.nbContacts);PxU32 k=0;
+        while(it.hasNextPatch()){it.nextPatch();friction=fmaxf(friction,it.getDynamicFriction());while(it.hasNextContact()){it.nextContact();
+            const float f=p.contactForces[k++];if(!(f>0.0f))continue;
+            const PxVec3 impulse=it.getContactNormal()*(f*side);
+            force+=impulse;point+=it.getContactPoint()*f;normal+=impulse;weight+=f;++points;
+            torque+=(it.getContactPoint()-com).cross(-impulse);
+        }}
+    }
+    if(!(weight>0.0f))return;
+    if(p.frictionPatches && p.contactPatches) {
+        PxFrictionAnchorStreamIterator it(p.contactPatches,p.frictionPatches,p.nbPatches);
+        while(it.hasNextPatch()){it.nextPatch();while(it.hasNextFrictionAnchor()){it.nextFrictionAnchor();
+            const PxVec3 impulse=it.getImpulse()*side;if(impulse.isZero())continue;
+            force+=impulse;torque+=(it.getPosition()-com).cross(-impulse);
+        }}
+    }
+    const PxU32 slot=atomicAdd(ci.rowCount,1u);if(slot>=ci.rowCapacity)return;
+    impact::ContactRow row{};row.chunk=chunk;row.body=other.index();row.points=points;row.friction=friction;
+    auto put=[](float* d,const PxVec3& v){d[0]=v.x;d[1]=v.y;d[2]=v.z;};
+    put(row.point,pose.transformInv(point*(1.0f/weight)));put(row.normal,pose.q.rotateInv(normal.getNormalized()));
+    put(row.load,pose.q.rotateInv(force*invDt));put(row.torque,pose.q.rotateInv(torque*invDt));put(row.com,pose.transformInv(com));
+    // Velocities relative to the struck cluster (its motion at the start of the tick).
+    const PxVec3 cw(clusterBefore.angularVelocityXYZ_maxPenBiasW.x,clusterBefore.angularVelocityXYZ_maxPenBiasW.y,clusterBefore.angularVelocityXYZ_maxPenBiasW.z);
+    const PxVec3 cv(clusterBefore.linearVelocityXYZ_inverseMassW.x,clusterBefore.linearVelocityXYZ_inverseMassW.y,clusterBefore.linearVelocityXYZ_inverseMassW.z);
+    const PxVec3 cp(clusterBefore.body2World.p.x,clusterBefore.body2World.p.y,clusterBefore.body2World.p.z);
+    const PxVec3 v0(before.linearVelocityXYZ_inverseMassW.x,before.linearVelocityXYZ_inverseMassW.y,before.linearVelocityXYZ_inverseMassW.z);
+    const PxVec3 w0(before.angularVelocityXYZ_maxPenBiasW.x,before.angularVelocityXYZ_maxPenBiasW.y,before.angularVelocityXYZ_maxPenBiasW.z);
+    const PxVec3 v1(b.linearVelocityXYZ_inverseMassW.x,b.linearVelocityXYZ_inverseMassW.y,b.linearVelocityXYZ_inverseMassW.z);
+    const PxVec3 w1(b.angularVelocityXYZ_maxPenBiasW.x,b.angularVelocityXYZ_maxPenBiasW.y,b.angularVelocityXYZ_maxPenBiasW.z);
+    put(row.velocity,pose.q.rotateInv(v0-cv-cw.cross(com-cp)));put(row.spin,pose.q.rotateInv(w0-cw));
+    put(row.dv,pose.q.rotateInv(v1-v0));put(row.dw,pose.q.rotateInv(w1-w0));
+    row.im=im;
+    // Inverse inertia in the struck cluster's frame: R diag(1/I) R^T, R the
+    // body's principal frame (body2World) seen from the cluster.
+    const PxQuat q=pose.q.getConjugate()*PxQuat(before.body2World.q.q.x,before.body2World.q.q.y,before.body2World.q.q.z,before.body2World.q.q.w);
+    const PxMat33 R(q);const PxVec3 d(before.inverseInertiaXYZ_contactReportThresholdW.x,before.inverseInertiaXYZ_contactReportThresholdW.y,before.inverseInertiaXYZ_contactReportThresholdW.z);
+    const PxMat33 S=R*PxMat33::createDiagonal(d)*R.getTranspose();
+    row.ii[0]=S(0,0);row.ii[1]=S(1,1);row.ii[2]=S(2,2);row.ii[3]=S(0,1);row.ii[4]=S(0,2);row.ii[5]=S(1,2);
+    ci.rows[slot]=row;
+}
 __device__ float impedanceOf(PxU32 chunk,PxNodeIndex node,const PxDestructionStressChunk* chunks,
     const PxDestructionMaterial* materials,const ImpactContact& ci,PxU32& row)
 {
@@ -340,6 +404,10 @@ __global__ void routeContacts(PxgDestructionSolvedContacts contacts, const Looku
             ++anchors;
         }}
     }
+    if(normals && ci.rows) {
+        coupleRow(a,p.nodeIndex0,p.nodeIndex1,1.0f,p,chunks,poses,bodies,invDt,ci);
+        coupleRow(b,p.nodeIndex1,p.nodeIndex0,-1.0f,p,chunks,poses,bodies,invDt,ci);
+    }
     if(normals || anchors) {
         if(a!=PX_INVALID_U32)loadA.publish(a,chunkA,inputs,surface);
         if(b!=PX_INVALID_U32)loadB.publish(b,chunkB,inputs,surface);
@@ -384,6 +452,21 @@ __global__ void payCrushEnergy(const ImpactorImpedance* impactors,PxU32 count,co
     // 1/2 m v'^2 = 1/2 m v^2 - E: v' = v sqrt(1 - 2 E (1/m) / v^2).
     const float k=sqrtf(fmaxf(1.0f-2.0f*energy[i]*v.w/speed2,0.0f));
     v.x*=k;v.y*=k;v.z*=k;
+}
+// The coupled contact's velocity changes, into the impactors' rigid state
+// (world frame), unless the pass failed or a corrected pass follows.
+__global__ void applyImpactorDeltas(const impact::ContactRow* rows,const PxU32* count,PxU32 capacity,const float* delta,
+    const PxDestructionStressChunk* chunks,const PxTransform* poses,PxgBodySim* bodies,const PxDestructionStageStatus* status,bool last)
+{
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=min(*count,capacity))return;
+    if((status->error & ~8u) || (!last && (status->error & 8u)))return;
+    const float* d=delta+6*size_t(i);
+    if(d[0]==0.0f && d[1]==0.0f && d[2]==0.0f && d[3]==0.0f && d[4]==0.0f && d[5]==0.0f)return;
+    const PxQuat q=poses[chunks[rows[i].chunk].cluster].q;
+    const PxVec3 v=q.rotate(PxVec3(d[0],d[1],d[2])),w=q.rotate(PxVec3(d[3],d[4],d[5]));
+    auto& b=bodies[rows[i].body];
+    atomicAdd(&b.linearVelocityXYZ_inverseMassW.x,v.x);atomicAdd(&b.linearVelocityXYZ_inverseMassW.y,v.y);atomicAdd(&b.linearVelocityXYZ_inverseMassW.z,v.z);
+    atomicAdd(&b.angularVelocityXYZ_maxPenBiasW.x,w.x);atomicAdd(&b.angularVelocityXYZ_maxPenBiasW.y,w.y);atomicAdd(&b.angularVelocityXYZ_maxPenBiasW.z,w.z);
 }
 __global__ void finishStatus(const ExtStressGpuDeviceStatus* solve,PxDestructionStageStatus* status,
     const PxDestructionVectorPair* forces, PxU32 count,bool requireConvergence=false) {
@@ -799,6 +882,9 @@ class Runtime final : public PxgDestructionRuntime {
     // this pass's contacts, and the non-destructible impactors' impedance.
     bool mImpactCrush=false;float *mImpactStress{},*mImpactRate{},*mImpactEnergy{};PxU32* mImpactImpactor{};
     ImpactorImpedance* mImpactors{};PxU32 mImpactorCount=0,mImpactorCapacity=0;
+    // The impact solve's coupled contact: this pass's rows, their count, and
+    // each impactor's velocity change (applied when the pass is the tick's last).
+    impact::ContactRow* mImpactRows{};PxU32* mImpactRowCount{};float *mImpactRowDelta{},*mImpactRowForce{};
     // PX_DESTRUCTION_IMPACT_LOG=1: print E's counters after every evaluation
     // that solved an island (synchronises the stream: diagnostics only).
     const bool mImpactLog=[]{const char* v=std::getenv("PX_DESTRUCTION_IMPACT_LOG");return v && v[0]=='1';}();
@@ -1410,6 +1496,8 @@ public:
         cudaFreeHost(mImpactHostStatus);mImpactHostStatus=nullptr;
         mImpactCrush=false;cudaFree(mImpactStress);mImpactStress=nullptr;cudaFree(mImpactRate);mImpactRate=nullptr;
         cudaFree(mImpactImpactor);mImpactImpactor=nullptr;
+        cudaFree(mImpactRows);mImpactRows=nullptr;cudaFree(mImpactRowCount);mImpactRowCount=nullptr;
+        cudaFree(mImpactRowDelta);mImpactRowDelta=nullptr;cudaFree(mImpactRowForce);mImpactRowForce=nullptr;
         cudaFree(mCrush);mCrush=nullptr;cudaFree(mTrialCrush);mTrialCrush=nullptr;
         mN=mM=mC=mMapCount=0;
     }
@@ -1683,6 +1771,11 @@ public:
                     allocate(mImpactStart,d.bondCount);
                     check(cudaMallocHost(&mImpactHostStatus,sizeof(*mImpactHostStatus)));
                     mImpact.allocate(d.chunkCount,d.bondCount);mImpactEnabled=true;
+                    mImpactSettings.coupledContact=env("PX_DESTRUCTION_IMPACT_COUPLED",1.0f)!=0.0f;
+                    if(mImpactSettings.coupledContact) {
+                        allocate(mImpactRows,impact::kContactCapacity);allocate(mImpactRowCount,1);
+                        allocate(mImpactRowDelta,6*size_t(impact::kContactCapacity));allocate(mImpactRowForce,3*size_t(impact::kContactCapacity));
+                    }
                 }
                 if(d.impactCrush) {
                     allocate(mImpactStress,d.chunkCount);allocate(mImpactRate,d.chunkCount);allocate(mImpactImpactor,d.chunkCount);mImpactCrush=true;
@@ -2081,7 +2174,17 @@ public:
             if(mImpactCrush) {
                 check(cudaMemsetAsync(mImpactStress,0,sizeof(float)*mN,mStream));check(cudaMemsetAsync(mImpactRate,0,sizeof(float)*mN,mStream));
                 check(cudaMemsetAsync(mImpactImpactor,0xff,sizeof(PxU32)*mN,mStream));
-                impactContacts={mImpactors,mImpactorCount,mCheckpointValid?mCheckpointBodies:nullptr,mCheckpointValid?mCheckpointCount:0u,mImpactStress,mImpactRate,mImpactImpactor};
+                impactContacts.impactors=mImpactors;impactContacts.impactorCount=mImpactorCount;
+                impactContacts.stress=mImpactStress;impactContacts.rate=mImpactRate;impactContacts.impactor=mImpactImpactor;
+            }
+            if(mImpactRows) {
+                check(cudaMemsetAsync(mImpactRowCount,0,sizeof(PxU32),mStream));
+                impactContacts.rows=mImpactRows;impactContacts.rowCount=mImpactRowCount;impactContacts.rowCapacity=impact::kContactCapacity;
+                impactContacts.clusters=mClusters;
+            }
+            if(mImpactCrush || mImpactRows) {
+                if(mCheckpointValid)check(cudaStreamWaitEvent(mStream,mCheckpointReady,0));
+                impactContacts.before=mCheckpointValid?mCheckpointBodies:nullptr;impactContacts.beforeCount=mCheckpointValid?mCheckpointCount:0u;
             }
             if(contacts.pairCount)routeContacts<<<(contacts.pairCount+127)/128,128,0,mStream>>>(contacts,mMap,mMapCount,mChunks,mPoses,1.0f/dt,mInputs,mSurface,mStatus,bodyStates,mMaterials,mRates,impactContacts);
             if(mReport)check(cudaMemcpyAsync(mReportInputs+2*mN,mInputs,sizeof(*mInputs)*mN,cudaMemcpyDeviceToDevice,mStream));
@@ -2134,6 +2237,11 @@ public:
                     in.nodeBegin=mNodeBegin;in.nodeRefs=mNodeRefs;in.nodeIslands=stress.nodeIslands;in.bondIslands=stress.bondIslands;
                     in.accelerations=mInputs;in.elastic=forces;in.base=mImpactStart;in.elasticBase=mImpactBase;in.stage=mStatus;
                     in.crushed=mImpactCrush?mTrialCrush:nullptr;in.sections=mSectionBending?mSections:nullptr;
+                    if(mImpactRows) {
+                        in.rows=mImpactRows;in.rowCount=impact::kContactCapacity;in.rowCounter=mImpactRowCount;
+                        in.rowDelta=mImpactRowDelta;in.rowForce=mImpactRowForce;
+                        check(cudaMemsetAsync(mImpactRowDelta,0,sizeof(float)*6*size_t(impact::kContactCapacity),mStream));
+                    }
                     impact::Settings settings=mImpactSettings;settings.dt=dt;
                     mImpact.submit(in,settings,mStream);
                     impact::reportConvergence<<<1,1,0,mStream>>>(mImpact.w.status,mStatus,mCorrectionEnabled && !mAllowUnconverged);
@@ -2143,8 +2251,8 @@ public:
                         check(cudaMemcpyAsync(mImpactHostStatus,mImpact.w.status,sizeof(*mImpactHostStatus),cudaMemcpyDeviceToHost,mStream));
                         check(cudaStreamSynchronize(mStream));
                         const auto& e=*mImpactHostStatus;
-                        if(e.triggered)std::fprintf(stderr,"[impact] pass %u: %u islands, %u solves, %u iterations (%u capped), %u rounds, broke %u, yielded %u, error %u\n",
-                            mPass,e.triggered,e.solves,e.iterations,e.capped,e.rounds,e.broken,e.yielded,e.error);
+                        if(e.triggered)std::fprintf(stderr,"[impact] pass %u: %u islands, %u solves, %u iterations (%u capped), %u rounds, broke %u, yielded %u, %u contacts from %u impactors, error %u\n",
+                            mPass,e.triggered,e.solves,e.iterations,e.capped,e.rounds,e.broken,e.yielded,e.contacts,e.impactors,e.error);
                     }
                 }
             }
@@ -2155,7 +2263,7 @@ public:
                     mHealth,forces,mBondCentroids,mSurface,mRates,mCrush,mTrialCrush,mN,dt,mStatus,impactView);
                 if(mM)finalizeMaterialVerdict<<<(mM+127)/128,128,0,mStream>>>(mBonds,mVerdicts,mTrialCrush,mHealth,mM,mStatus);
                 // With a topology the fused body-preparation kernel sets the bit.
-                if(!mTopology)requireFractureCorrection<<<1,1,0,mStream>>>(mStatus);
+                if(!mTopology){requireFractureCorrection<<<1,1,0,mStream>>>(mStatus);applyImpactorMomentum(bodyStates);}
             }
             stageMarker(3);
             if(mTopology) {
@@ -2167,6 +2275,7 @@ public:
                     throw std::runtime_error("native topology transaction submission failed");
                 check(cudaStreamWaitEvent(mStream,static_cast<cudaEvent_t>(mTopology->trial().readyEvent),0));
                 inspectTopologyAndBeginBodyPreparation<<<1,1,0,mStream>>>(mTopology->status(),mTopology->trial(),mBodyPreparation,mStatus,mMaterials!=nullptr);
+                applyImpactorMomentum(bodyStates);
                 prepareCandidateBodies<<<(mN+127)/128,128,0,mStream>>>(mTopology->trial(),mChunks,mClusters,mTrialBodies,mBodyPreparation,mTopology->accepted(),mBodyRequests,mTrialBodyIndices,mPrincipalFrames);
                 finishBodyPreparationAndBeginCommit<<<1,1,0,mStream>>>(mTopology->status(),mBodyPreparation,mStatus,mTopologyAccept);
                 stageMarker(4);
@@ -2202,6 +2311,16 @@ public:
             observeCompletion();
             check(cudaEventRecord(mReady,mStream));mPending=true;return true;
         }catch(...){mFailed=true;return false;}
+    }
+    // The coupled contact's answer for each impactor, on the tick's last pass
+    // (no correction follows, or this is the correction): the rigid solve
+    // stopped it against the anchored (kinematic) cluster; it keeps what the
+    // impact solve says the struck region did not take.
+    void applyImpactorMomentum(const PxgBodySim* bodies) {
+        if(!mImpactRows || !mImpactEnabled)return;
+        const bool last=!mCorrectionEnabled || mPass>=mCorrectionLimit;
+        applyImpactorDeltas<<<(impact::kContactCapacity+127)/128,128,0,mStream>>>(mImpactRows,mImpactRowCount,impact::kContactCapacity,
+            mImpactRowDelta,mChunks,mPoses,const_cast<PxgBodySim*>(bodies),mStatus,last);
     }
     void prepareDeviceInputs() {
         // Pointer/capacity refresh is ordinary submission metadata. No fracture
