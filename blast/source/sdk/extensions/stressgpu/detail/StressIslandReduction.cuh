@@ -1,5 +1,4 @@
 // Private implementation fragment; included once inside the owning .cu namespace.
-// BEGIN UNCHANGED SOURCE
 /// Per-island sum of squared magnitudes, accumulated into PADDED slots.
 ///
 /// Islands are disconnected components, so their conjugate-gradient scalars
@@ -37,27 +36,51 @@ __global__ void accumulateSquaredByIsland(
     std::uint32_t slotCount)
 {
     const std::uint32_t slot = blockIdx.x * blockDim.x + threadIdx.x;
-    if (slot >= activeCounts[whichCount])
+    // Every lane of a warp stays to the end: the slotted path below reduces
+    // runs of equal targets across the warp before its atomics.
+    constexpr std::uint32_t kNone = 0xffffffffu;
+    std::uint32_t target = kNone;
+    std::uint32_t index = 0u;
+    float squared = 0.0f;
+    if (slot < activeCounts[whichCount])
     {
+        index = activeList[slot];
+        const std::uint32_t id = island[index];
+        // A settled island's scalars are never consulted this solve.
+        if (id != kNoIsland && (islandSkip == nullptr || islandSkip[id] == 0u))
+        {
+            const AngLin& value = values[index];
+            squared =
+                value.angular.x * value.angular.x + value.angular.y * value.angular.y +
+                value.angular.z * value.angular.z + value.linear.x * value.linear.x +
+                value.linear.y * value.linear.y + value.linear.z * value.linear.z;
+            target = slotCount ? id * slotCount + (slot & (slotCount - 1u)) : index;
+        }
+    }
+    if (slotCount == 0u)
+    {
+        if (target != kNone) perIslandSlots[index] = squared;
         return;
     }
-    const std::uint32_t index = activeList[slot];
-    const std::uint32_t id = island[index];
-    if (id == kNoIsland)
+    // Resident topology names islands by their minimum node, so the island
+    // count is the node capacity and reductionSlots gives each island one
+    // slot: a building's thousands of rows then serialize on one float atomic
+    // (0.84 ms per solve on Vibe Town, Apple M3 Max). The active list is
+    // ascending, so equal targets arrive in runs: each run is summed in the
+    // warp and its first lane adds it once. Segmented suffix scan: after the
+    // step at `offset`, lane i holds rows i..min(i+2*offset-1, its run's end).
+    const std::uint32_t lane = threadIdx.x & 31u;
+    const std::uint32_t previous = __shfl_up_sync(0xffffffffu, target, 1);
+    const bool head = lane == 0u || previous != target;
+    const std::uint32_t heads = __ballot_sync(0xffffffffu, head);
+    const std::uint32_t later = lane == 31u ? 0u : heads & (0xffffffffu << (lane + 1u));
+    const std::uint32_t runEnd = later ? std::uint32_t(__ffs(later)) - 2u : 31u;
+    for (std::uint32_t offset = 1u; offset < 32u; offset <<= 1u)
     {
-        return;
+        const float other = __shfl_down_sync(0xffffffffu, squared, offset);
+        if (lane + offset <= runEnd) squared += other;
     }
-    if (islandSkip != nullptr && islandSkip[id] != 0u)
-    {
-        return;     // settled: its scalars are never consulted this solve
-    }
-    const AngLin& value = values[index];
-    const float squared =
-        value.angular.x * value.angular.x + value.angular.y * value.angular.y +
-        value.angular.z * value.angular.z + value.linear.x * value.linear.x +
-        value.linear.y * value.linear.y + value.linear.z * value.linear.z;
-    if (slotCount == 0u) perIslandSlots[index] = squared;
-    else atomicAdd(&perIslandSlots[id * slotCount + (slot & (slotCount - 1u))], squared);
+    if (head && target != kNone) atomicAdd(&perIslandSlots[target], squared);
 }
 
 // Each tile belongs to one island and covers up to 1,024 ascending element
