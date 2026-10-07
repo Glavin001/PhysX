@@ -167,7 +167,19 @@ struct Settings {
     bool coupledContact=true;
     // A struck chunk held elastically keeps the trial's stop (see stepIslands' publish); false: A/B only.
     bool heldStops=true;
+    // Diagnostics only (tests): 1 corrupts the first link's projection
+    // (scales it 10x out of its set), so the detectors can be shown to fire.
+    PxU32 faultInjection=0;
 };
+// A solve is diverging when its residual (the larger of the split, against
+// capacity, and the motion, against its tolerance, on the split's scale)
+// rises past kDivergence times the least it has reached, and past the
+// joint's capacity itself (a split larger than the joint can carry is no
+// iterate of a converging solve). ADMM is not monotone: the healthy solves
+// measured (house at rest and its four first ticks; impact_capture_replay
+// IMPACT_TRACE) rise at most 30x over their running minimum, with rho
+// rescales; the broken projection rose 1e6x within four steps.
+constexpr float kDivergence=100.0f;
 
 // Device-side counters for one evaluation.
 struct Status {
@@ -181,6 +193,9 @@ struct Status {
     PxU32 error;       // 1: scratch overflow, 2: nonfinite, 4: round budget exhausted, 8: contact rows past capacity
     PxU32 contacts;    // contact rows coupled
     PxU32 impactors;   // impactor bodies coupled
+    PxU32 diverged;    // solves stopped as diverging (a bug signal; no verdict from them)
+    PxU32 infeasible;  // projections that left their capacity set (a bug signal)
+    PxU32 worstBond;   // the bond with the worst split in the last diverged solve, plus 1 (0: none)
 };
 // Optional per-solve record (diagnostics): the first kLogCapacity solves.
 struct SolveRecord { PxU32 island,level,iterations,broken,clipped,capped,links,nodes; float lambda,change,rho,pad; };
@@ -435,6 +450,16 @@ __device__ __forceinline__ bool project(const Bond& b,float* x,float ml,float mt
     }
     return moved;
 }
+// Whether a bond-frame wrench lies in its link's set, to `tol` of its
+// capacity (the projection's own check: a point outside is a bug).
+__device__ __forceinline__ bool feasible(const Bond& b,const float* x,float tol)
+{
+    if(b.flags&eCONTACT) {
+        const float scale=fmaxf(b.capC,1.0f),V=sqrtf(x[1]*x[1]+x[2]*x[2]);
+        return x[0]<=tol*scale && V<=b.area*fmaxf(-x[0],0.0f)+tol*scale && fabsf(x[3])+fabsf(x[4])+fabsf(x[5])==0.0f;
+    }
+    return utilisation(b,x)<=1.0f+tol;
+}
 // The return map: the projection in the joint's compliance metric K^-1.
 __device__ __forceinline__ bool returnMap(const Bond& b,float* x){return project(b,x,1.0f/b.kl,1.0f/b.kt,1.0f/b.k0,1.0f/b.k1);}
 
@@ -631,6 +656,13 @@ __device__ float blockMax(Shared& sh,float v)
     const float r=sh.big[0];__syncthreads();return r;
 }
 __device__ float blockMin(Shared& sh,float v){return -blockMax(sh,-v);}
+// The index carried with the block's largest value.
+__device__ PxU32 blockArgMax(Shared& sh,float v,PxU32 index)
+{
+    sh.big[threadIdx.x]=v;sh.scan[threadIdx.x]=index;__syncthreads();
+    for(PxU32 o=kThreads/2;o;o>>=1){if(threadIdx.x<o && sh.big[threadIdx.x+o]>sh.big[threadIdx.x]){sh.big[threadIdx.x]=sh.big[threadIdx.x+o];sh.scan[threadIdx.x]=sh.scan[threadIdx.x+o];}__syncthreads();}
+    const PxU32 r=sh.scan[0];__syncthreads();return r;
+}
 __device__ PxU32 blockCount(Shared& sh,PxU32 v)
 {
     sh.scan[threadIdx.x]=v;__syncthreads();
@@ -812,7 +844,7 @@ __device__ __forceinline__ void blockApply(const float* M,const float* v,float* 
 }
 // The ADMM state that persists between dispatches (and, rho and U, between
 // the solves of one island's evaluation: a warm start).
-struct SolveState { PxU32 it,started; float rho,last; };
+struct SolveState { PxU32 it,started,diverged,pad; float rho,last,least,pad2; };
 // Runs at most `steps` ADMM steps of the solve at load level lambda, resuming
 // where the last call stopped; done when converged or at the solve's budget
 // (capped). Returns the steps run.
@@ -835,6 +867,7 @@ __device__ PxU32 solve(Shared& sh,const Inputs& in,const Settings& s,const Scrat
     ss.started=1;
     __syncthreads();
     PxU32 it=ss.it,run=0;done=false;capped=false;float last=ss.last;
+    if(!ss.it)ss.least=FLT_MAX;
     float* Z=w.Y;float* U=w.Jn;
     for(;(!run || budget>0.0f) && it<s.iterations;++it,++run) {
         // J step: c = -B^T M^-1 p + C T + R (Z - U); J = A^-1 c - A^-1 B^T y, N y = B A^-1 c.
@@ -900,7 +933,7 @@ __device__ PxU32 solve(Shared& sh,const Inputs& in,const Settings& s,const Scrat
             motion=residualMotion(sh,s,w,is);
         }
         // J = A^-1 (c - B^T y); Z = Pi_R(J + U); U += J - Z.
-        float primal=0.0f,dual=0.0f,pn=0.0f,dn=0.0f;
+        float primal=0.0f,dual=0.0f,pn=0.0f,dn=0.0f,worst=-1.0f;PxU32 worstBond=0xffffffffu;
         for(PxU32 k=threadIdx.x;k<links(is);k+=kThreads) {
             const PxU32 l=is.b0+k;const Bond& b=w.bonds[l];float* j=w.J+6*l;float* z=Z+6*l;float* uu=U+6*l;
             if(!(b.flags&eALIVE)){for(int q=0;q<6;++q)j[q]=z[q]=uu[q]=0.0f;continue;}
@@ -909,6 +942,8 @@ __device__ PxU32 solve(Shared& sh,const Inputs& in,const Settings& s,const Scrat
             float x[6],zold[6];
             for(int q=0;q<6;++q){j[q]=Ainv[q]*(-g[q]+inverseDt2/k6[q]*T[q]+R[q]*(z[q]-uu[q])-ey[q]);x[q]=j[q]+uu[q];zold[q]=z[q];}
             project(b,x,R[0],R[3],R[4],R[5]);
+            if(s.faultInjection==1 && k==0)for(int q=0;q<6;++q)x[q]*=10.0f;
+            if(!feasible(b,x,s.capacityTolerance))atomicAdd(&w.status->infeasible,1u);
             const float cap=fmaxf(fmaxf(b.capC,b.capT),b.capS);
             float lp=0.0f,ap=0.0f,ld=0.0f,ad=0.0f;
             for(int q=0;q<6;++q) {
@@ -925,7 +960,9 @@ __device__ PxU32 solve(Shared& sh,const Inputs& in,const Settings& s,const Scrat
                 primal=fmaxf(primal,motion/s.tolerance*s.capacityTolerance);
             } else {
                 const float gain=fmaxf(fmaxf(b.gb,b.gt),fmaxf(b.g0,b.g1));
-                primal=fmaxf(primal,(sqrtf(lp)+gain*sqrtf(ap))/cap);
+                const float mine=(sqrtf(lp)+gain*sqrtf(ap))/cap;
+                primal=fmaxf(primal,mine);
+                if(mine>worst){worst=mine;worstBond=b.bond;}
             }
             if(w.linkResidual){w.linkResidual[2*l]=(b.flags&eCONTACT)?0.0f:(sqrtf(lp)+fmaxf(fmaxf(b.gb,b.gt),fmaxf(b.g0,b.g1))*sqrtf(ap))/cap;
                 w.linkResidual[2*l+1]=0.5f*s.dt*s.dt*fmaxf(sqrtf(ld),sqrtf(ad)*s.lengthScale);}
@@ -935,6 +972,13 @@ __device__ PxU32 solve(Shared& sh,const Inputs& in,const Settings& s,const Scrat
         primal=blockMax(sh,primal);dual=blockMax(sh,dual);last=fmaxf(primal,dual/s.tolerance*s.capacityTolerance);
         if(w.trace && !threadIdx.x && blockIdx.x==0 && w.status->solves==0 && it<kTraceCapacity){float* t=w.trace+4*it;t[0]=primal;t[1]=dual;t[2]=motion;t[3]=rho;}
         if(!(primal>s.capacityTolerance) && !(dual>s.tolerance) && !(motion>s.tolerance)){done=true;++it;++run;break;}
+        ss.least=fminf(ss.least,last);
+        if(last>kDivergence*ss.least && last>1.0f) {
+            // Diverging: stop; the caller rolls the island back, as for a capped solve.
+            const PxU32 bond=blockArgMax(sh,worst,worstBond);
+            if(!threadIdx.x){atomicAdd(&w.status->diverged,1u);atomicExch(&w.status->worstBond,bond+1u);}
+            ss.diverged=1;done=true;capped=true;++it;++run;break;
+        }
         // Balance the residuals (OSQP): rescale rho by sqrt(primal/dual) every
         // 25 steps, each residual against its own tolerance (the split against
         // capacityTolerance, the motion against tolerance) -- the raw sums are
@@ -1241,7 +1285,7 @@ __global__ __launch_bounds__(kThreads) void stepIslands(Inputs in,Settings s,Scr
                 st.previous=st.lambda=lambda;st.clipped=clipped;
                 if(clipped)st.plastic=1;
                 budget-=units;
-                if(st.plastic){st.phase=eSOLVE;st.solve.it=0;st.solve.started=0;}else st.phase=ePOST;
+                if(st.plastic){st.phase=eSOLVE;st.solve.it=0;st.solve.started=0;st.solve.diverged=0;}else st.phase=ePOST;
             }
             if(st.phase==eSOLVE && budget>0.0f) {
                 // The evaluation's own budget (Settings::evaluationIterations)
@@ -1252,7 +1296,7 @@ __global__ __launch_bounds__(kThreads) void stepIslands(Inputs in,Settings s,Scr
                 if(!done)break;   // the dispatch's budget: resume here next dispatch
                 ++st.rounds;
                 if(!threadIdx.x){const PxU32 slot=atomicAdd(&w.status->solves,1u);atomicAdd(&w.status->iterations,st.solve.it);
-                    if(capped)atomicAdd(&w.status->capped,1u);
+                    if(capped && !st.solve.diverged)atomicAdd(&w.status->capped,1u);
                     if(w.log && slot<kLogCapacity)w.log[slot]={island,st.level,st.solve.it,st.broken,st.clipped,capped?1u:0u,links(is),nodes(is),st.lambda,st.solve.last,st.solve.rho,0.0f};}
                 if(capped) {
                     // Not converged: no verdict from it. The island goes back to
@@ -1399,9 +1443,13 @@ __global__ void recordState(const PxU32* islandFlag,const PxU32* bondIslands,con
 // A solve that ended at its budget did not converge: the stage reports the
 // evaluation unconverged (and, where it requires convergence, rejects it, as
 // it does an unconverged elastic solve: error 4096).
-__global__ void reportConvergence(const Status* impactStatus,PxDestructionStageStatus* stage,bool require)
+__global__ void reportConvergence(const Status* impactStatus,PxDestructionStageStatus* stage,bool require,float longestDispatchMs)
 {
-    if(impactStatus->capped || (impactStatus->error & 4u)) {
+    const Status& e=*impactStatus;
+    stage->impactIslands+=e.triggered;stage->impactSolves+=e.solves;stage->impactSteps+=e.iterations;stage->impactCapped+=e.capped;
+    stage->impactDiverged+=e.diverged;stage->impactInfeasible+=e.infeasible;if(e.worstBond)stage->impactWorstBond=e.worstBond;
+    stage->impactLongestDispatchMs=fmaxf(stage->impactLongestDispatchMs,longestDispatchMs);
+    if(impactStatus->capped || impactStatus->diverged || (impactStatus->error & 4u)) {
         stage->converged=0;
         if(require)atomicOr(&stage->error,4096u);
     }

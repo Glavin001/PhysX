@@ -133,6 +133,8 @@ struct Result {
     std::vector<PxU32> impact;std::vector<float> accel,rowDelta,slip; impact::Status status{};
     std::vector<PxU32> carried;  // per bond: its island was solved or carried (the next tick's plastic state)
 };
+// The plastic state carried from the last evaluation (Result::forces, carried, slip).
+struct Carry { std::vector<PxDestructionVectorPair> elasticBase; std::vector<PxU32> carried; std::vector<float> slip; };
 // The solver's application point of bond b (the chunks' midpoint, or the centroid at a support).
 PxVec3 solverPoint(const Structure& s,const PxDestructionStressBond& b){
     PxVec3 o0,o1;offsets(s,b,o0,o1);
@@ -149,11 +151,8 @@ std::vector<PxDestructionVectorPair> atCentroid(const Structure& s,std::vector<P
 // as the stress solve reports them with section rotational stiffness (E's
 // settings.solverAtCentroid and the material kernel's momentAtCentroid say so);
 // Result's forces are then in that convention too.
-// The plastic state carried from the last evaluation (Result::forces, carried, slip).
-struct Carry { std::vector<PxDestructionVectorPair> elasticBase; std::vector<PxU32> carried; std::vector<float> slip; };
 Result evaluate(const Structure& s,const std::vector<PxVec3>& F,const std::vector<PxVec3>& T,
-    std::vector<PxDestructionVectorPair> base,bool withImpact,impact::Settings settings=impact::Settings{},const Carry* carry=nullptr,
-    bool centroid=false){
+    std::vector<PxDestructionVectorPair> base,bool withImpact,impact::Settings settings=impact::Settings{},bool centroid=false,const Carry* carry=nullptr){
     const PxU32 n=PxU32(s.chunks.size()),m=PxU32(s.bonds.size());
     Result out;out.elastic=elastic(s,F,T);
     if(centroid){out.elastic=atCentroid(s,out.elastic);base=atCentroid(s,base);}
@@ -375,7 +374,7 @@ void centroidConvention(){
         auto F=s.force;F[brick]+=PxVec3(0,0,hit);
         impact::Settings midpoint;midpoint.momentAtCentroid=true;
         impact::Settings centroid;centroid.solverAtCentroid=true;
-        const auto a=evaluate(s,F,s.torque,rest,true,midpoint),b=evaluate(s,F,s.torque,rest,true,centroid,nullptr,true);
+        const auto a=evaluate(s,F,s.torque,rest,true,midpoint),b=evaluate(s,F,s.torque,rest,true,centroid,true);
         const auto bf=atCentroid(s,b.forces,true);
         float worst=0,scale=0;
         for(size_t k=0;k<s.bonds.size();++k){
@@ -571,7 +570,7 @@ void carried(){
     Carry carry{first.elastic,first.carried,first.slip};
     auto state=first.forces;PxU32 solved=0,broken=0;
     for(int tick=0;tick<5;++tick) {
-        const auto next=evaluate(s,F,s.torque,state,true,impact::Settings{},std::getenv("IMPACT_TEST_NO_CARRY")?nullptr:&carry);
+        const auto next=evaluate(s,F,s.torque,state,true,impact::Settings{},false,std::getenv("IMPACT_TEST_NO_CARRY")?nullptr:&carry);
         solved+=next.status.solves;broken+=(next.verdicts[0].health<=0)+(next.verdicts[1].health<=0);
         if(!tick){std::snprintf(text,sizeof text,"next tick: forces %.0f and %.0f N, verdicts %u %u",next.forces[0].linear.y,next.forces[1].linear.y,next.impact[0],next.impact[1]);
             expect(std::fabs(next.forces[0].linear.y-first.forces[0].linear.y)<50.0f && std::fabs(next.forces[1].linear.y-first.forces[1].linear.y)<50.0f,text);}
@@ -652,11 +651,65 @@ void projection(){
     expect(infeasible==0 && beaten==0,text);
 }
 
+// 12. The detectors. A projection corrupted on purpose (faultInjection: the
+// first link's point scaled 10x out of its set) is counted infeasible and
+// its solve stops as diverged, with no verdict from it; the healthy wall
+// reports neither.
+void detectors(){
+    std::printf("the impact solve's bug detectors\n");
+    const Structure s=wallStructure();
+    const auto rest=elastic(s,s.force,s.torque);
+    auto F=s.force;F[kWallBrick]+=PxVec3(0,0,360e3f);
+    impact::Settings healthy,broken;broken.faultInjection=1;
+    const auto a=evaluate(s,F,s.torque,rest,true,healthy),b=evaluate(s,F,s.torque,rest,true,broken);
+    char text[240];
+    std::snprintf(text,sizeof text,"healthy: %u diverged, %u infeasible projections (expected 0, 0)",a.status.diverged,a.status.infeasible);
+    expect(a.status.diverged==0 && a.status.infeasible==0,text);
+    PxU32 extra=0;for(PxU32 k=0;k<s.bonds.size();++k)extra+=(b.impact[k]==impact::eBROKEN) && a.impact[k]!=impact::eBROKEN;
+    std::snprintf(text,sizeof text,"corrupted projection: %u diverged (worst bond %d), %u infeasible, %u breaks beyond the healthy solve's (expected >0, >0, 0)",
+        b.status.diverged,int(b.status.worstBond)-1,b.status.infeasible,extra);
+    expect(b.status.diverged>0 && b.status.infeasible>0 && extra==0,text);
+}
+// 13. Every projection lands in its set: thin, thick and odd sections (L1
+// sets with gains 1-3e3 /m and either axis dominant, capacities from equal to
+// 100:1 either way), round cones and the shear triangle, metrics 1e-6-1e6.
+__global__ void fuzzProbe(const impact::Bond* bonds,const float* points,PxU32 count,PxU32* infeasible)
+{
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
+    impact::Bond b=bonds[i];float x[6];for(int q=0;q<6;++q)x[q]=points[6*i+q];
+    const float* m=points+6*count+4*i;
+    impact::project(b,x,m[0],m[1],m[2],m[3]);
+    if(!impact::feasible(b,x,1e-4f))atomicAdd(infeasible,1u);
+}
+void fuzz(){
+    std::printf("projections land in their sets (fuzz)\n");
+    std::srand(11);auto r=[](float a,float b){return a+(b-a)*float(std::rand())/float(RAND_MAX);};
+    auto lg=[&](float a,float b){return std::exp(r(std::log(a),std::log(b)));};
+    const PxU32 n=4096;std::vector<impact::Bond> bonds(n);std::vector<float> pts(6*n),metric(4*n);
+    for(PxU32 i=0;i<n;++i){
+        impact::Bond b{};b.flags=impact::eALIVE;const float a=lg(1e-5f,1.0f);b.area=a;
+        b.capT=lg(1e2f,1e7f);b.capC=b.capT*lg(0.01f,100.0f);b.capS=b.capT*lg(0.1f,10.0f);
+        const int kind=i%3;
+        if(kind==0){b.g0=lg(1.0f,3e3f);b.g1=lg(1.0f,3e3f);b.gb=b.g0;b.gt=lg(1.0f,3e3f);}   // L1 section
+        else {b.gb=lg(0.3f,3e3f);b.gt=lg(0.3f,3e3f);}                                    // round cones
+        bonds[i]=b;
+        const float F=b.capT+b.capC,M=F/std::min(b.gb,b.g0>0?std::min(b.g0,b.g1):b.gb);
+        for(int q=0;q<3;++q)pts[6*i+q]=r(-10*F,10*F);for(int q=3;q<6;++q)pts[6*i+q]=r(-10*M,10*M);
+        const float ml=lg(1e-6f,1e6f),ma=lg(1e-6f,1e6f);
+        metric[4*i]=ml;metric[4*i+1]=lg(1e-6f,1e6f);metric[4*i+2]=kind==0?lg(1e-6f,1e6f):ma;metric[4*i+3]=kind==0?lg(1e-6f,1e6f):ma;
+    }
+    pts.insert(pts.end(),metric.begin(),metric.end());
+    Device<impact::Bond> db(bonds);Device<float> dp(pts);Device<PxU32> bad(1);
+    fuzzProbe<<<(n+127)/128,128>>>(db.p,dp.p,n,bad.p);check(cudaDeviceSynchronize());
+    char text[160];std::snprintf(text,sizeof text,"%u projections (L1, round, shear; metrics 1e-6-1e6): %u infeasible (expected 0)",n,bad.get()[0]);
+    expect(bad.get()[0]==0,text);
+}
+
 }} // physx
 
 int main(int argc,char** argv){
     (void)argc;(void)argv;
-    try{if(const char* only=std::getenv("IMPACT_TEST_ONLY")){if(!std::strcmp(only,"unconverged"))physx::unconverged();if(!std::strcmp(only,"dispatches"))physx::dispatches();if(!std::strcmp(only,"carried"))physx::carried();if(!std::strcmp(only,"held"))physx::heldStops();if(!std::strcmp(only,"projection"))physx::projection();}else{physx::column();physx::wall();physx::rest();physx::centroidConvention();physx::impactCrush();physx::section();physx::coupled();physx::unconverged();physx::dispatches();physx::carried();physx::heldStops();physx::projection();}}
+    try{if(const char* only=std::getenv("IMPACT_TEST_ONLY")){if(!std::strcmp(only,"unconverged"))physx::unconverged();if(!std::strcmp(only,"dispatches"))physx::dispatches();if(!std::strcmp(only,"carried"))physx::carried();if(!std::strcmp(only,"held"))physx::heldStops();if(!std::strcmp(only,"projection"))physx::projection();if(!std::strcmp(only,"detectors"))physx::detectors();if(!std::strcmp(only,"fuzz"))physx::fuzz();}else{physx::column();physx::wall();physx::rest();physx::centroidConvention();physx::impactCrush();physx::section();physx::coupled();physx::unconverged();physx::dispatches();physx::carried();physx::heldStops();physx::projection();physx::detectors();physx::fuzz();}}
     catch(const std::exception& e){std::printf("error: %s\n",e.what());return 2;}
     std::printf("%s (%d failed)\n",physx::failures?"FAILED":"passed",physx::failures);
     return physx::failures?1:0;

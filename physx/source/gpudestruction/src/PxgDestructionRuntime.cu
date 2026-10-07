@@ -130,6 +130,10 @@ __global__ void mergePostCorrectionStatus(PxDestructionStageStatus* status,PxDes
     status->converged= status->converged && prior.converged;
     status->bondCommands+=prior.bondCommands;status->brokenBonds+=prior.brokenBonds;
     status->crushedChunks+=prior.crushedChunks;status->error|=prior.error;
+    status->impactIslands+=prior.impactIslands;status->impactSolves+=prior.impactSolves;status->impactSteps+=prior.impactSteps;
+    status->impactCapped+=prior.impactCapped;status->impactDiverged+=prior.impactDiverged;status->impactInfeasible+=prior.impactInfeasible;
+    if(!status->impactWorstBond)status->impactWorstBond=prior.impactWorstBond;
+    status->impactLongestDispatchMs=fmaxf(status->impactLongestDispatchMs,prior.impactLongestDispatchMs);
     status->correctionPasses=passes;status->stressPasses=passes+1;
 }
 __global__ void prepareNativeCorrectionAcceptance(PxDestructionStageStatus* status,
@@ -2271,7 +2275,10 @@ public:
                     std::chrono::steady_clock::time_point t0;
                     if(timed){check(cudaStreamSynchronize(mStream));t0=std::chrono::steady_clock::now();}
                     mImpact.submit(in,settings,mStream);
-                    impact::reportConvergence<<<1,1,0,mStream>>>(mImpact.w.status,mStatus,mCorrectionEnabled && !mAllowUnconverged);
+                    impact::reportConvergence<<<1,1,0,mStream>>>(mImpact.w.status,mStatus,mCorrectionEnabled && !mAllowUnconverged,float(mImpact.longestDispatch));
+                    // Machine safety: Apple GPUs do not preempt compute well; a dispatch
+                    // past 100 ms starves the display (Settings::dispatchWork bounds it).
+                    if(mImpact.longestDispatch>100.0)std::fprintf(stderr,"[impact] warning: a dispatch took %.0f ms (over 100 ms)\n",mImpact.longestDispatch);
                     impactView={mImpact.w.islandFlag,stress.bondIslands,mImpact.w.forces,mImpact.w.verdict};
                     impact::recordState<<<(mM+127)/128,128,0,mStream>>>(mImpact.w.islandFlag,stress.bondIslands,mImpact.w.forces,forces,mImpactState,mM,
                         mImpactCarried,mImpact.w.slip,mImpactSlipStart,mImpactSlipState);
@@ -2306,8 +2313,10 @@ public:
                             char path[1024];std::snprintf(path,sizeof path,"%s/impact-%llu-%u.impc",mImpactCaptureDir,(unsigned long long)mImpactEvaluations,mPass);
                             if(impact::writeCapture(path,in,settings,mImpactMaterialCount)){++mImpactCaptures;std::fprintf(stderr,"[impact] captured %s (%.1f ms)\n",path,ms);}
                         }
-                        if(e.triggered)std::fprintf(stderr,"[impact] pass %u: %u islands, %u solves, %u iterations (%u capped), %u rounds, broke %u, yielded %u, %u contacts from %u impactors, error %u\n",
-                            mPass,e.triggered,e.solves,e.iterations,e.capped,e.rounds,e.broken,e.yielded,e.contacts,e.impactors,e.error);
+                        if(e.triggered)std::fprintf(stderr,"[impact] pass %u: %u islands, %u solves, %u iterations (%u capped, %u diverged), %u rounds, broke %u, yielded %u, %u contacts from %u impactors, %u infeasible projections, error %u\n",
+                            mPass,e.triggered,e.solves,e.iterations,e.capped,e.diverged,e.rounds,e.broken,e.yielded,e.contacts,e.impactors,e.infeasible,e.error);
+                        if(e.diverged)std::fprintf(stderr,"[impact] DIVERGED: %u solves (a bug signal); worst split at bond %u\n",e.diverged,e.worstBond-1u);
+                        if(e.infeasible)std::fprintf(stderr,"[impact] INFEASIBLE PROJECTIONS: %u (a bug signal)\n",e.infeasible);
                     }
                 }
             }
