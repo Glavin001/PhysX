@@ -60,6 +60,12 @@ struct PxDestructionMaterial {
     // forces, times the solve's length scale squared on moments). Required
     // (positive) for every material when impactCapacity is on.
     PxReal ductileSlip=0, impactStiffness=0;
+    // Impact-pressure crush (PxDestructionStressDesc::impactCrush): the
+    // material's acoustic impedance rho c (Pa s/m). For an impactor whose own
+    // structure gives way first (a vehicle's front), the effective impedance of
+    // that crush (EN 1991-1-7 Annex C: v sqrt(k m) over the front's area, per
+    // m/s). 0: unknown; a contact with an unknown side crushes nothing.
+    PxReal impactImpedance=0;
 };
 struct PxDestructionBondVerdict {
     PxReal health, damage, stressNormal, stressShear, stressBend;
@@ -251,6 +257,14 @@ struct PxDestructionStressDesc {
     // capped-gain bending (sectionBending false). Off: the stage is unchanged.
     // On: islands with no bond past capacity are unchanged bit for bit.
     bool impactCapacity = false;
+    // Impact-pressure crush ("Ci", PX_DESTRUCTION_IMPACT_CAPACITY), opt-in.
+    // A crushable chunk's crush law is evaluated at the 1-D elastic impact
+    // stress of each destructible contact, Z1 Z2 / (Z1 + Z2) v_n (v_n the
+    // closing speed at the start of the tick; Z the materials'
+    // impactImpedance, or a body's setImpactorImpedance), as a uniaxial
+    // compression, instead of at the virial of the solve's forces. A chunk
+    // crushed so leaves the impact-capacity solve. Requires internalCorrectionLimit >= 1.
+    bool impactCrush = false;
 };
 struct PxDestructionVectorPair {
     PxVec3 angular, linear;
@@ -442,6 +456,11 @@ public:
     virtual bool getStressSolveReport(PxDestructionStressComponentReport* components, PxU32 capacity, PxU32& count,
         PxReal* chunkResidual2, PxU32* chunkComponent, PxU32 chunkCapacity, PxDestructionVectorPair* chunkInputs) = 0;
 protected:
+    // Impact-pressure crush: the acoustic impedance (Pa s/m) of bodies that are
+    // not destructible chunks (a cannonball, a meteor), by GPU index; replaces
+    // the whole table. 0 or absent: unknown.
+    virtual bool setImpactorImpedance(const PxRigidDynamicGPUIndex* bodies, const PxReal* impedances, PxU32 count)
+    { (void)bodies; (void)impedances; (void)count; return false; }
     virtual ~PxDestructionScene() {}
 };
 }
