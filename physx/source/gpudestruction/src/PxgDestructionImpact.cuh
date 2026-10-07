@@ -251,7 +251,8 @@ struct Scratch {
     float* impactorMass{}; // [2 R] by impactor slot: inverse mass, largest inverse inertia (the majoriser)
     float* Js{};           // [6 (M + R)] the island's last converged forces
     float* slip{};         // [M] each solved bond's plastic slip this evaluation (m)
-    float* linkResidual{}; // [2 (M + R)] or null: each link's last (primal, dual) (diagnostics, with trace)
+    float* linkResidual{}; // [6 (M + R)] or null: each link's last primal, dual, dual linear/angular and their float floors (diagnostics)
+    PxU32 traceSolve=0;    // which solve the trace records (by Status::solves at its start)
     float* trace{};        // [4 kTraceCapacity] or null: the first solve's (primal, dual, motion, rho) per ADMM step (diagnostics)
     struct IslandState* state{}; // [N] by triggered-island slot
 };
@@ -962,6 +963,10 @@ __device__ PxU32 solve(Shared& sh,const Inputs& in,const Settings& s,const Scrat
             const float k6[6]={b.kl,b.kl,b.kl,b.kt,b.k0,b.k1};const float* T=w.T+6*l;
             float x[6],zold[6];
             for(int q=0;q<6;++q){j[q]=Ainv[q]*(-g[q]+inverseDt2/k6[q]*T[q]+R[q]*(z[q]-uu[q])-ey[q]);x[q]=j[q]+uu[q];zold[q]=z[q];}
+            // The projected point's size: the projection's rounding is eps of
+            // it (a point far outside its set comes back as a difference of
+            // large numbers).
+            float xl=0.0f,xa=0.0f;for(int q=0;q<6;++q){if(q<3)xl+=x[q]*x[q];else xa+=x[q]*x[q];}
             project(b,x,R[0],R[3],R[4],R[5]);
             if(s.faultInjection==1 && k==0)for(int q=0;q<6;++q)x[q]*=10.0f;
             if(!feasible(b,x,s.capacityTolerance)){atomicAdd(&w.status->infeasible,1u);bad=1u;}
@@ -985,13 +990,33 @@ __device__ PxU32 solve(Shared& sh,const Inputs& in,const Settings& s,const Scrat
                 primal=fmaxf(primal,mine);
                 if(mine>worst){worst=mine;worstBond=b.bond;}
             }
-            if(w.linkResidual){w.linkResidual[2*l]=(b.flags&eCONTACT)?0.0f:(sqrtf(lp)+fmaxf(fmaxf(b.gb,b.gt),fmaxf(b.g0,b.g1))*sqrtf(ap))/cap;
-                w.linkResidual[2*l+1]=0.5f*s.dt*s.dt*fmaxf(sqrtf(ld),sqrtf(ad)*s.lengthScale);}
-            dual=fmaxf(dual,0.5f*s.dt*s.dt*fmaxf(sqrtf(ld),sqrtf(ad)*s.lengthScale));
+            if(w.linkResidual){w.linkResidual[6*l]=(b.flags&eCONTACT)?0.0f:(sqrtf(lp)+fmaxf(fmaxf(b.gb,b.gt),fmaxf(b.g0,b.g1))*sqrtf(ap))/cap;
+                w.linkResidual[6*l+1]=0.5f*s.dt*s.dt*fmaxf(sqrtf(ld),sqrtf(ad)*s.lengthScale);}
+            // The dual residual R |dZ| as motion over the tick, against the
+            // tolerance -- or, where float cannot resolve that, against the
+            // motion a few ulps of the joint's own force stand for
+            // (1/2 dt^2 R 8 eps |Z|): a soft hinge (k r^2 ~ 2e4 N m/rad on a
+            // 2 cm strip) carries 57 N m with R ~ 2e5, and its iterates
+            // dither at 1.5e-4 m for ever (65k steps).
+            {
+                float zl=0.0f,za=0.0f;for(int q=0;q<6;++q){if(q<3)zl+=z[q]*z[q];else za+=z[q]*z[q];}
+                const float half=0.5f*s.dt*s.dt,eps8=8.0f*FLT_EPSILON;
+                // The J step forms the joint's relative motion from its chunks'
+                // accelerations: its rounding is eps of theirs, not of the
+                // difference (two chunks falling together under gravity).
+                float ua=0.0f,uw=0.0f;
+                for(int e=0;e<2;++e){if(!(b.flags&(e?eDYNAMIC1:eDYNAMIC0)))continue;const float* q6=w.u+6*(e?b.c1:b.c0);const float* y6=w.cy+6*(e?b.c1:b.c0);
+                    ua+=sqrtf(q6[0]*q6[0]+q6[1]*q6[1]+q6[2]*q6[2])+sqrtf(y6[0]*y6[0]+y6[1]*y6[1]+y6[2]*y6[2]);
+                    uw+=sqrtf(q6[3]*q6[3]+q6[4]*q6[4]+q6[5]*q6[5])+sqrtf(y6[3]*y6[3]+y6[4]*y6[4]+y6[5]*y6[5]);}
+                const float fl=half*eps8*fmaxf(R[0]*sqrtf(fmaxf(zl,xl)),ua),fa=half*eps8*fmaxf(fmaxf(fmaxf(R[3],R[4]),R[5])*sqrtf(fmaxf(za,xa)),uw)*s.lengthScale;
+                const float rl=half*sqrtf(ld),ra=half*sqrtf(ad)*s.lengthScale;
+                dual=fmaxf(dual,fmaxf(rl/fmaxf(1.0f,fl/s.tolerance),ra/fmaxf(1.0f,fa/s.tolerance)));
+                if(w.linkResidual){float* d=w.linkResidual+6*l;d[2]=rl;d[3]=ra;d[4]=fl;d[5]=fa;}
+            }
             pn+=lp+ap;dn+=ld+ad;
         }
         primal=blockMax(sh,primal);dual=blockMax(sh,dual);last=fmaxf(primal,dual/s.tolerance*s.capacityTolerance);
-        if(w.trace && !threadIdx.x && blockIdx.x==0 && w.status->solves==0 && it<kTraceCapacity){float* t=w.trace+4*it;t[0]=primal;t[1]=dual;t[2]=motion;t[3]=rho;}
+        if(w.trace && !threadIdx.x && blockIdx.x==0 && w.status->solves==w.traceSolve && it<kTraceCapacity){float* t=w.trace+4*it;t[0]=primal;t[1]=dual;t[2]=motion;t[3]=rho;}
         // A projection that left its set is a bug: no verdict from this solve.
         const bool infeasible=blockCount(sh,bad)>0;
         if(!infeasible && !(primal>s.capacityTolerance) && !(dual>s.tolerance) && !(motion>s.tolerance)){done=true;++it;++run;break;}
@@ -1013,10 +1038,17 @@ __device__ PxU32 solve(Shared& sh,const Inputs& in,const Settings& s,const Scrat
         // part then diverged (the split 4e3 x capacity, never recovering).
         (void)pn;(void)dn;
         const float rp=primal/s.capacityTolerance,rd=dual/s.tolerance;
-        if(it%25==24 && rp>0.0f && rd>0.0f) {
-            const float ratio=sqrtf(rp/rd);
-            if(ratio>5.0f || ratio<0.2f) {
-                const float next=rho*fminf(fmaxf(ratio,1e-3f),1e3f);
+        // A split closed exactly (rp = 0) with the motion unsettled is the
+        // most unbalanced case, not one to skip: rho was never rescaled there
+        // (OSQP rebalances on it too).
+        if(it%25==24 && (rp>0.0f || rd>0.0f)) {
+            const float ratio=rd>0.0f?sqrtf(rp/rd):10.0f;
+            if((ratio>5.0f && rho<1e3f) || (ratio<0.2f && rho>1e-3f)) {
+                // At most 10x a rebalance, and rho within 1e-3..1e3 of the
+                // kinetic majoriser's scale: beyond, the projection's metric
+                // spans more than float resolves (rho 1e-6 gave infeasible
+                // projections).
+                const float next=fminf(fmaxf(rho*fminf(fmaxf(ratio,0.1f),10.0f),1e-3f),1e3f);
                 for(PxU32 k=threadIdx.x;k<links(is);k+=kThreads)for(int q=0;q<6;++q)U[6*(is.b0+k)+q]*=rho/next;
                 rho=next;__syncthreads();blockJacobi(in,w,is,rho,inverseDt2);
             }
