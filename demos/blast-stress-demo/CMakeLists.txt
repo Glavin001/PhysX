@@ -1409,7 +1409,6 @@ set_property(TEST blast_stress_reference_building_load_path blast_stress_destruc
 # is a reproduction to investigate, not an accepted platform limit, so they
 # stay enabled; the label keeps `ctest -L destruction -LE "known-failure|cumetal-open"`
 # usable as a gate meanwhile. Delete a name here once it passes on the Mac.
-#   gpu_kinematic_inputs: tick 47 differs from the CUDA-captured CSV by 1e-5
 #   gpu/standard_bombardment_contacts: step 168 unconverged (4128) / the demo
 #     refuses unconverged solves; standard scene motion audit error 2.2e-5
 #   vehicle_parked_sleeps, vehicle_demo: fixture outcomes (no brick rests on
@@ -1418,7 +1417,7 @@ set_property(TEST blast_stress_reference_building_load_path blast_stress_destruc
 #     integration, fine-only): numeric/convergence failures; never built by a
 #     plain `make` before destruction_test_executables existed
 if(PX_GPU_BACKEND STREQUAL "CUMETAL")
-    set_property(TEST physx_native_gpu_kinematic_inputs physx_native_gpu_bombardment_contacts
+    set_property(TEST physx_native_gpu_bombardment_contacts
         physx_native_standard_bombardment_contacts
         physx_native_vehicle_parked_sleeps physx_native_vehicle_demo
         blast_stress_gpu_fine_only_preparation blast_stress_gpu_resident_hierarchy

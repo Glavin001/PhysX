@@ -19,6 +19,7 @@
 #include "PxsContactManager.h"
 #include <PxDestructionScene.h>
 #include <cuda.h>
+#include <cfloat>
 #include <cstdio>
 #include <algorithm>
 #include <atomic>
