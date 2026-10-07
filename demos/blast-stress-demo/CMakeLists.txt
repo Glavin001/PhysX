@@ -857,6 +857,13 @@ if(BLAST_ENABLE_CUDA_STRESS)
     target_link_options(native_gpu_convergence_test PRIVATE "-Wl,-rpath,${PHYSX_LIB_DIR}")
     target_link_libraries(native_gpu_convergence_test PRIVATE ${NATIVE_DESTRUCTION_TEST_LIBS} ${PX_DESTRUCTION_GPU_DRIVER})
     add_test(NAME physx_native_gpu_convergence COMMAND native_gpu_convergence_test)
+    # Strict-policy tests: they assert that an unconverged solve rejects the
+    # step (physx_native_gpu_convergence) or that every accepted step converged
+    # (the resimulation tests). Pin the policy so a caller that exports the
+    # product's PX_DESTRUCTION_ALLOW_UNCONVERGED=1 cannot flip them; that is how
+    # physx_native_gpu_convergence "flaked" in a combined ctest run.
+    set_tests_properties(physx_native_gpu_convergence physx_native_gpu_resimulation
+        physx_native_gpu_retained_contact_graph PROPERTIES ENVIRONMENT "PX_DESTRUCTION_ALLOW_UNCONVERGED=0")
 
     # Minimal native GPU simulation capture. Rendering consumes committed JSON
     # separately; this target has no graphics interop or visual-kernel dependency.
