@@ -138,12 +138,12 @@ struct Settings {
     // The work of one dispatch, per block, in visits of the island's links
     // and nodes (an ADMM step: five passes, three more per conjugate
     // gradient iteration). Measured 5.4e7 visits a second for one block on
-    // an M-series GPU (CuMetal), so 2^22 keeps a dispatch near 80 ms,
+    // an M-series GPU (CuMetal), so 2^21 keeps a dispatch near 40-80 ms,
     // whatever the convergence: Apple GPUs do not preempt compute well, and a
     // longer command buffer starves the display. The host waits for each
     // dispatch (Stage::submit). Not a physical quantity: only how an
     // evaluation is split into dispatches.
-    PxU32 dispatchWork=1u<<22;
+    PxU32 dispatchWork=1u<<21;   // measured: 2^22 reached 166 ms with long conjugate-gradient steps
     PxU32 innerIterations=64;// node-space conjugate gradient iterations per ADMM step, at most (warm-started; to the tolerance)
     // Converged when every joint's projected gradient -- the relative
     // acceleration of its two chunks that the solve has not yet balanced or
@@ -171,14 +171,11 @@ struct Settings {
     // (scales it 10x out of its set), so the detectors can be shown to fire.
     PxU32 faultInjection=0;
 };
-// A solve is diverging when its residual (the larger of the split, against
-// capacity, and the motion, against its tolerance, on the split's scale)
-// rises past kDivergence times the least it has reached, and past the
-// joint's capacity itself (a split larger than the joint can carry is no
-// iterate of a converging solve). ADMM is not monotone: the healthy solves
-// measured (house at rest and its four first ticks; impact_capture_replay
-// IMPACT_TRACE) rise at most 30x over their running minimum, with rho
-// rescales; the broken projection rose 1e6x within four steps.
+// A solve is diverging when, past its first rho rebalance (25 steps), a
+// joint's split |J - Z| exceeds kDivergence times the joint's capacity: the
+// projection's broken solve on the house went to 4e3x within four steps; a
+// relative test against the running minimum misfired on healthy coupled
+// contacts, whose residual rightly rises from the feasible start.
 constexpr float kDivergence=100.0f;
 
 // Device-side counters for one evaluation.
@@ -210,6 +207,7 @@ struct Bond {
     float capC,capT,capS;    // cF a, tF a, sF a (N)
     float gb,gt;             // bending (round set) and torsion gains (1/m): fibre stress x area per unit moment
     float g0,g1;             // bending gains about t1 and t2 (section moduli: the L1 set); 0: the round set (gb |M_t|)
+    float h0,h1;             // the tension line's gains (the L1 set): g0, g1, or a bearing joint's 1/d0, 1/d1
     float kl,kt,k0,k1;       // stiffness on forces (N/m), in twist, and in bending about t1, t2 (N m/rad)
     float dl,dt,d0,d1;       // majoriser of the dual's Hessian, by the same rows
     float slip;              // ultimate slip (m); 0 brittle
@@ -320,7 +318,10 @@ __device__ __forceinline__ float utilisation(const Bond& b,const float* x)
 {
     const float N=x[0],V=sqrtf(x[1]*x[1]+x[2]*x[2]),T=fabsf(x[3]),M=sqrtf(x[4]*x[4]+x[5]*x[5]);
     const float bend=b.g0>0.0f?b.g0*fabsf(x[4])+b.g1*fabsf(x[5]):b.gb*M;
-    const float tension=fmaxf(N+bend,0.0f),compression=fmaxf(bend-N,0.0f),shear=V+b.gt*T;
+    // A bearing joint's fasteners: T = |M0|/d0 + |M1|/d1 + N (N signed: the
+    // compression holds the contact shut), in place of the fibre's.
+    const float pull=b.g0>0.0f?b.h0*fabsf(x[4])+b.h1*fabsf(x[5]):bend;
+    const float tension=fmaxf(N+pull,0.0f),compression=fmaxf(bend-N,0.0f),shear=V+b.gt*T;
     auto ratio=[](float d,float c){return d<=0.0f?0.0f:(c>0.0f?d/c:FLT_MAX);};
     return fmaxf(fmaxf(ratio(compression,b.capC),ratio(tension,b.capT)),ratio(shear,b.capS));
 }
@@ -346,9 +347,9 @@ __device__ __forceinline__ bool triangle(float& px,float& py,float ax,float ay,f
 // The projection's KKT point for multipliers on the tension (lt) and
 // compression (lc) lines: N moves by (lt - lc)/a, each moment by -(lt + lc)
 // g / b, clipped at zero (the quadrant's own bound).
-__device__ __forceinline__ void polytopePoint(const float* p,const float* w,float g0,float g1,float lt,float lc,float* q)
+__device__ __forceinline__ void polytopePoint(const float* p,const float* w,float g0,float g1,float h0,float h1,float lt,float lc,float* q)
 {
-    q[0]=p[0]-(lt-lc)/w[0];q[1]=fmaxf(0.0f,p[1]-(lt+lc)*g0/w[1]);q[2]=fmaxf(0.0f,p[2]-(lt+lc)*g1/w[2]);
+    q[0]=p[0]-(lt-lc)/w[0];q[1]=fmaxf(0.0f,p[1]-(lt*h0+lc*g0)/w[1]);q[2]=fmaxf(0.0f,p[2]-(lt*h1+lc*g1)/w[2]);
 }
 // The section's axial set with an L1 bending term, in its positive quadrant
 // (M0, M1 >= 0; the set and a diagonal metric are symmetric under their sign
@@ -361,38 +362,42 @@ __device__ __forceinline__ void polytopePoint(const float* p,const float* w,floa
 // resolution whatever the scaling (an enumeration of active sets through 3x3
 // determinants lost every candidate on thin sections, g ~ 2e3 /m against
 // metrics ~1: an infeasible "projection" that drove the solve apart).
-__device__ __forceinline__ void polytope(float* p,const float* sc,float g0,float g1,float capT,float capC)
+__device__ __forceinline__ void polytope(float* p,const float* sc,float g0,float g1,float h0,float h1,float capT,float capC)
 {
+    // Tension line h . m + N <= capT (h = g, or a bearing joint's 1/d),
+    // compression line g . m - N <= capC.
     const float w[3]={sc[0]*sc[0],sc[1]*sc[1],sc[2]*sc[2]};
-    auto bend=[](const float* q,float a,float b){return a*q[1]+b*q[2];};
     const float tol=1e-6f*(capT+capC);
-    if(bend(p,g0,g1)+p[0]<=capT+tol && bend(p,g0,g1)-p[0]<=capC+tol)return;
+    auto tension=[](const float* q,float a,float b){return a*q[1]+b*q[2]+q[0];};
+    auto compression=[](const float* q,float a,float b){return a*q[1]+b*q[2]-q[0];};
+    if(tension(p,h0,h1)<=capT+tol && compression(p,g0,g1)<=capC+tol)return;
     float q[3];
-    // A multiplier large enough to satisfy any one line from p.
-    const float big=(fabsf(p[0])+capT+capC+bend(p,g0,g1))*(w[0]+w[1]/fmaxf(g0*g0,1e-30f)+w[2]/fmaxf(g1*g1,1e-30f))+1.0f;
-    // Tension line alone (lc = 0): f(l) = bend + N - capT, decreasing in l.
+    const float gm=fmaxf(fminf(g0,g1),1e-30f),hm=fmaxf(fminf(h0,h1),1e-30f);
+    const float big=(fabsf(p[0])+capT+capC+(g0+h0)*p[1]+(g1+h1)*p[2])*(w[0]+w[1]/(gm*hm)+w[2]/(gm*hm)+w[1]/(gm*gm)+w[2]/(hm*hm))+1.0f;
+    // One line alone: its multiplier makes it hold with equality (monotone).
     for(int side=0;side<2;++side) {
         float lo=0.0f,hi=big;
         for(int it=0;it<64;++it) {
             const float mid=0.5f*(lo+hi);
-            polytopePoint(p,w,g0,g1,side?0.0f:mid,side?mid:0.0f,q);
-            const float f=side?bend(q,g0,g1)-q[0]-capC:bend(q,g0,g1)+q[0]-capT;
+            polytopePoint(p,w,g0,g1,h0,h1,side?0.0f:mid,side?mid:0.0f,q);
+            const float f=side?compression(q,g0,g1)-capC:tension(q,h0,h1)-capT;
             if(f>0.0f)lo=mid;else hi=mid;
         }
-        polytopePoint(p,w,g0,g1,side?0.0f:hi,side?hi:0.0f,q);
-        const float other=side?bend(q,g0,g1)+q[0]-capT:bend(q,g0,g1)-q[0]-capC;
+        polytopePoint(p,w,g0,g1,h0,h1,side?0.0f:hi,side?hi:0.0f,q);
+        const float other=side?tension(q,h0,h1)-capT:compression(q,g0,g1)-capC;
         if(other<=tol){p[0]=q[0];p[1]=q[1];p[2]=q[2];return;}
     }
-    // Both lines (the apex): N = (capT - capC)/2, g . m = (capT + capC)/2,
-    // m the projection of p's moments onto that line in the quadrant.
-    const float N=0.5f*(capT-capC),tau=0.5f*(capT+capC);
-    float lo=-big,hi=big;
-    for(int it=0;it<64;++it) {
-        const float mid=0.5f*(lo+hi);
-        const float m0=fmaxf(0.0f,p[1]-mid*g0/w[1]),m1=fmaxf(0.0f,p[2]-mid*g1/w[2]);
-        if(g0*m0+g1*m1>tau)lo=mid;else hi=mid;
-    }
-    p[0]=N;p[1]=fmaxf(0.0f,p[1]-hi*g0/w[1]);p[2]=fmaxf(0.0f,p[2]-hi*g1/w[2]);
+    // Both lines (the apex): (g + h) . m = capT + capC and N = capT - h . m.
+    // On that segment of the quadrant, m0 = s, m1 = (tau - c0 s)/c1: the
+    // distance is a quadratic in s, minimised in closed form and clamped.
+    const float tau=capT+capC,c0=g0+h0,c1=g1+h1;
+    if(!(c1>0.0f) || !(c0>0.0f)){p[0]=capT;p[1]=p[2]=0.0f;return;}
+    // m1 = A + B s, N = capT - h0 s - h1 m1 = C + D s.
+    const float A=tau/c1,B=-c0/c1,C=capT-h1*A,D=-h0-h1*B;
+    // d/ds [ w0 (C + D s - N^)^2 + w1 (s - m0^)^2 + w2 (A + B s - m1^)^2 ] = 0
+    const float num=w[0]*D*(p[0]-C)+w[1]*p[1]+w[2]*B*(p[2]-A),den=w[0]*D*D+w[1]+w[2]*B*B;
+    const float smax=tau/c0,sv=fminf(fmaxf(den>0.0f?num/den:0.0f,0.0f),smax);
+    p[0]=C+D*sv;p[1]=sv;p[2]=fmaxf(0.0f,A+B*sv);
 }
 // Projection of a bond-frame wrench onto C_b in the metric
 // diag(ml,ml,ml,mt,m0,m1). The axial set (N, M_t) and the shear set (T, V) are
@@ -427,7 +432,7 @@ __device__ __forceinline__ bool project(const Bond& b,float* x,float ml,float mt
     if(b.g0>0.0f) {   // (N, M0, M1), the section's L1 bending
         const float before[3]={x[0],x[4],x[5]};
         float p[3]={x[0],fabsf(x[4]),fabsf(x[5])};const float sc[3]={sl,sqrtf(m0),sqrtf(m1)};
-        polytope(p,sc,b.g0,b.g1,b.capT,b.capC);
+        polytope(p,sc,b.g0,b.g1,b.h0,b.h1,b.capT,b.capC);
         x[0]=p[0];x[4]=copysignf(p[1],before[1]);x[5]=copysignf(p[2],before[2]);
         moved=x[0]!=before[0] || x[4]!=before[1] || x[5]!=before[2];
     } else {   // (N, M_t): base -cF a .. tF a, apex where both fibres reach capacity.
@@ -558,6 +563,10 @@ __device__ __forceinline__ bool prepareBond(const Inputs& in,const Settings& s,P
         // extStressCalcBondStressSection: the moduli shrink with the live area.
         const float live=area/bond.area;
         b.g0=area/(section.bendModulus0*live);b.g1=area/(section.bendModulus1*live);b.gt=area/(section.twistModulus*live);b.gb=b.g0;
+        b.h0=b.g0;b.h1=b.g1;
+        // A bearing joint (PX_DESTRUCTION_BEARING_JOINTS): its fasteners' tension
+        // T = |M0|/d0 + |M1|/d1 + N, as the verdict grades it.
+        if(section.bearingDepth0>0.0f && section.bearingDepth1>0.0f){b.h0=1.0f/section.bearingDepth0;b.h1=1.0f/section.bearingDepth1;}
     } else {
         // No section data: the square patch of the remaining area, uncapped.
         b.gb=6.0f/root;b.gt=4.2426407f/root;
@@ -933,7 +942,7 @@ __device__ PxU32 solve(Shared& sh,const Inputs& in,const Settings& s,const Scrat
             motion=residualMotion(sh,s,w,is);
         }
         // J = A^-1 (c - B^T y); Z = Pi_R(J + U); U += J - Z.
-        float primal=0.0f,dual=0.0f,pn=0.0f,dn=0.0f,worst=-1.0f;PxU32 worstBond=0xffffffffu;
+        float primal=0.0f,dual=0.0f,pn=0.0f,dn=0.0f,worst=-1.0f;PxU32 worstBond=0xffffffffu,bad=0u;
         for(PxU32 k=threadIdx.x;k<links(is);k+=kThreads) {
             const PxU32 l=is.b0+k;const Bond& b=w.bonds[l];float* j=w.J+6*l;float* z=Z+6*l;float* uu=U+6*l;
             if(!(b.flags&eALIVE)){for(int q=0;q<6;++q)j[q]=z[q]=uu[q]=0.0f;continue;}
@@ -943,7 +952,7 @@ __device__ PxU32 solve(Shared& sh,const Inputs& in,const Settings& s,const Scrat
             for(int q=0;q<6;++q){j[q]=Ainv[q]*(-g[q]+inverseDt2/k6[q]*T[q]+R[q]*(z[q]-uu[q])-ey[q]);x[q]=j[q]+uu[q];zold[q]=z[q];}
             project(b,x,R[0],R[3],R[4],R[5]);
             if(s.faultInjection==1 && k==0)for(int q=0;q<6;++q)x[q]*=10.0f;
-            if(!feasible(b,x,s.capacityTolerance))atomicAdd(&w.status->infeasible,1u);
+            if(!feasible(b,x,s.capacityTolerance)){atomicAdd(&w.status->infeasible,1u);bad=1u;}
             const float cap=fmaxf(fmaxf(b.capC,b.capT),b.capS);
             float lp=0.0f,ap=0.0f,ld=0.0f,ad=0.0f;
             for(int q=0;q<6;++q) {
@@ -971,9 +980,14 @@ __device__ PxU32 solve(Shared& sh,const Inputs& in,const Settings& s,const Scrat
         }
         primal=blockMax(sh,primal);dual=blockMax(sh,dual);last=fmaxf(primal,dual/s.tolerance*s.capacityTolerance);
         if(w.trace && !threadIdx.x && blockIdx.x==0 && w.status->solves==0 && it<kTraceCapacity){float* t=w.trace+4*it;t[0]=primal;t[1]=dual;t[2]=motion;t[3]=rho;}
-        if(!(primal>s.capacityTolerance) && !(dual>s.tolerance) && !(motion>s.tolerance)){done=true;++it;++run;break;}
-        ss.least=fminf(ss.least,last);
-        if(last>kDivergence*ss.least && last>1.0f) {
+        // A projection that left its set is a bug: no verdict from this solve.
+        const bool infeasible=blockCount(sh,bad)>0;
+        if(!infeasible && !(primal>s.capacityTolerance) && !(dual>s.tolerance) && !(motion>s.tolerance)){done=true;++it;++run;break;}
+        // Diverging: a joint's split past kDivergence times its capacity (an
+        // iterate no converging solve passes through), or a residual that is
+        // not finite, or a projection outside its set.
+        const float split=blockMax(sh,worst);
+        if(infeasible || !isfinite(last) || (it>=25 && split>kDivergence)) {
             // Diverging: stop; the caller rolls the island back, as for a capped solve.
             const PxU32 bond=blockArgMax(sh,worst,worstBond);
             if(!threadIdx.x){atomicAdd(&w.status->diverged,1u);atomicExch(&w.status->worstBond,bond+1u);}

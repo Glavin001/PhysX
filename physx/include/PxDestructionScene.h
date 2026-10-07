@@ -30,6 +30,10 @@
 // (PxDestructionMaterial::ductileSlip) yield and break past their ultimate
 // slip. PxDestructionMaterial::impactStiffness gives the joints' stiffness.
 #define PX_DESTRUCTION_IMPACT_CAPACITY 1
+// PxDestructionBondSection::bearingDepth0/1: a fastened joint whose members
+// bear on each other (timber connections) is graded by its fasteners in
+// tension once the contact opens, not by a glued patch's extreme fibre.
+#define PX_DESTRUCTION_BEARING_JOINTS 1
 #include "foundation/PxTransform.h"
 #include "PxDirectGPUAPI.h"
 #include "PxDestructionTopologyTypes.h"
@@ -119,6 +123,13 @@ struct PxDestructionBondSection {
     PxVec3 axis{1.0f,0.0f,0.0f};
     PxReal bendModulus0=0, bendModulus1=0, twistModulus=0;
     PxReal gyration0=0, gyration1=0, polarGyration=0;
+    // A bearing joint (both > 0): members in contact, fasteners at the patch
+    // centre. Under a moment the contact bears at its edge, so the fasteners
+    // carry T = |M0| / bearingDepth0 + |M1| / bearingDepth1 - C (C the
+    // compression, T >= 0), graded as their tension over the area. The depths
+    // are the patch's half-depths across each bending axis (M0 about axis,
+    // M1 about normal x axis). Zero: the extreme-fibre grading.
+    PxReal bearingDepth0=0, bearingDepth1=0;
 };
 struct PxDestructionStressCluster {
     PxRigidDynamicGPUIndex body;

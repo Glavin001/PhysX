@@ -487,8 +487,8 @@ void coupled(){
         const float expected=ductile?(M*v-cap*dt)/(M+10.0f):M*v/(M+10.0f);
         const float kept=r.rowDelta[0];   // the trial left it at rest: the change is its end velocity
         char text[240];
-        std::snprintf(text,sizeof text,"%s joint: the body keeps %.3f m/s, expected %s = %.3f (%u contacts, %u solves, %u capped)",
-            ductile?"ductile":"brittle",kept,ductile?"(p - cap dt)/(M + m)":"p/(M + m)",expected,r.status.contacts,r.status.solves,r.status.capped);
+        std::snprintf(text,sizeof text,"%s joint: the body keeps %.3f m/s, expected %s = %.3f (%u contacts, %u solves, %u capped, %u diverged, %u infeasible)",
+            ductile?"ductile":"brittle",kept,ductile?"(p - cap dt)/(M + m)":"p/(M + m)",expected,r.status.contacts,r.status.solves,r.status.capped,r.status.diverged,r.status.infeasible);
         expect(std::fabs(kept-expected)<0.01f*expected,text);
         std::snprintf(text,sizeof text,"  the chunk moves with it: %.3f m/s",r.accel[6*wall]*dt);
         expect(std::fabs(r.accel[6*wall]*dt-expected)<0.01f*expected,text);
@@ -622,7 +622,7 @@ __global__ void projectProbe(const float* in,PxU32 count,float* out)
 {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
     const float* c=in+9*i;float p[3]={c[0],c[1],c[2]};const float sc[3]={c[3],c[4],c[5]};
-    impact::polytope(p,sc,c[6],c[7],c[8],c[8]*2.0f/3.0f);
+    impact::polytope(p,sc,c[6],c[7],c[6],c[7],c[8],c[8]*2.0f/3.0f);
     out[3*i]=p[0];out[3*i+1]=p[1];out[3*i+2]=p[2];
 }
 void projection(){
@@ -690,7 +690,8 @@ void fuzz(){
         impact::Bond b{};b.flags=impact::eALIVE;const float a=lg(1e-5f,1.0f);b.area=a;
         b.capT=lg(1e2f,1e7f);b.capC=b.capT*lg(0.01f,100.0f);b.capS=b.capT*lg(0.1f,10.0f);
         const int kind=i%3;
-        if(kind==0){b.g0=lg(1.0f,3e3f);b.g1=lg(1.0f,3e3f);b.gb=b.g0;b.gt=lg(1.0f,3e3f);}   // L1 section
+        if(kind==0){b.g0=lg(1.0f,3e3f);b.g1=lg(1.0f,3e3f);b.gb=b.g0;b.gt=lg(1.0f,3e3f);   // L1 section, half of them bearing joints
+            if(i%2){b.h0=lg(5.0f,200.0f);b.h1=lg(5.0f,200.0f);}else{b.h0=b.g0;b.h1=b.g1;}}
         else {b.gb=lg(0.3f,3e3f);b.gt=lg(0.3f,3e3f);}                                    // round cones
         bonds[i]=b;
         const float F=b.capT+b.capC,M=F/std::min(b.gb,b.g0>0?std::min(b.g0,b.g1):b.gb);
@@ -705,11 +706,56 @@ void fuzz(){
     expect(bad.get()[0]==0,text);
 }
 
+// 14. A bearing joint (PX_DESTRUCTION_BEARING_JOINTS; vibe-land
+// physx-bridge/tests/bearing_joint.rs): a 45 x 90 mm stud end-nailed to its
+// plate, 285 N down on it and a moment about the plate's long axis. Its
+// fasteners carry T = M/(d/2) - C. At 11.7 N m (e 41 mm < 45 mm) the contact
+// bears and the nails carry nothing: the joint holds though the glued
+// patch's fibre stress is past the nails' capacity. At 20 N m the nails
+// carry 159 N, past a 0.9 x 159 N capacity: it breaks. The impact solve
+// (its island taken by a trim pulled off the stud) agrees with the verdict.
+void bearing(){
+    std::printf("bearing joint: a stud on its plate, graded by its nails\n");
+    for(int heavy=0;heavy<2;++heavy) {
+        Structure s;
+        const PxU32 plate=s.chunk(PxVec3(0,-0.025f,0),0,0),stud=s.chunk(PxVec3(0,0.25f,0),0.85f,0.02f),trim=s.chunk(PxVec3(0,0.25f,0.06f),0.1f,0.001f);
+        const float b=0.045f,h=0.09f,A=b*h,M=heavy?20.0f:11.7f,C=285.0f;
+        const float nails=std::max(M/(h/2)-C,0.0f),fibre=std::max(M/(b*h*h/6)-C/A,0.0f);
+        // Tension capacity: the nails' (0.9 of their load when they carry one),
+        // below the glued fibre stress either way.
+        const float tF=heavy?0.9f*nails/A:0.5f*fibre;
+        const PxU32 nailed=s.material(10e6f,tF,1e6f,0.0f),glue=s.material(1e3f,1e3f,1e3f,0.0f);
+        PxDestructionBondSection sec;sec.axis=PxVec3(1,0,0);sec.bendModulus0=b*h*h/6;sec.bendModulus1=h*b*b/6;
+        sec.twistModulus=b*h*(b*b+h*h)/(6*std::sqrt(b*b+h*h));sec.gyration0=h/std::sqrt(12.0f);sec.gyration1=b/std::sqrt(12.0f);
+        sec.polarGyration=std::sqrt((b*b+h*h)/12);sec.bearingDepth0=h/2;sec.bearingDepth1=b/2;
+        s.bond(plate,stud,PxVec3(0,0,0),PxVec3(0,1,0),A,nailed);s.sections.push_back(sec);
+        s.bond(stud,trim,PxVec3(0,0.25f,0.0225f),PxVec3(0,0,1),1e-4f,glue);s.sections.push_back(PxDestructionBondSection{});
+        auto F=s.force,T=s.torque;F[stud]+=PxVec3(0,-C,0);T[stud]+=PxVec3(M,0,0);
+        const auto rest=elastic(s,s.force,s.torque);
+        F[trim]+=PxVec3(0,0,10.0f);
+        // The stud is light (0.85 kg): at the default motion tolerance (0.1 mm
+        // over the tick) the solve may leave ~0.9 N m of its moment unbalanced,
+        // 14% of the nails' capacity through d/2, and stop at 0.996 of it
+        // (recorded in the design doc). 1e-6 m resolves it.
+        impact::Settings on;on.sectionBending=true;on.tolerance=1e-6f;
+        if(const char* t=std::getenv("IMPACT_TEST_TOLERANCE"))on.tolerance=float(std::atof(t));
+        const auto today=evaluate(s,F,T,rest,false,on),r=evaluate(s,F,T,rest,true,on);
+        char text[260];
+        std::snprintf(text,sizeof text,"%.1f N m: nails carry %.0f N (fibre %.0f kPa, capacity %.0f kPa): the verdict %s it, the impact solve %s it (%u islands)",
+            M,nails,fibre/1e3f,tF/1e3f,today.verdicts[0].health<=0?"breaks":"holds",r.verdicts[0].health<=0?"breaks":"holds",r.status.triggered);
+        std::printf("    E verdict %u; forces lin %.1f %.1f %.1f ang %.2f %.2f %.2f; elastic lin %.1f %.1f %.1f ang %.2f %.2f %.2f; %u solves %u steps %u capped %u diverged\n",r.impact[0],
+            r.forces[0].linear.x,r.forces[0].linear.y,r.forces[0].linear.z,r.forces[0].angular.x,r.forces[0].angular.y,r.forces[0].angular.z,
+            r.elastic[0].linear.x,r.elastic[0].linear.y,r.elastic[0].linear.z,r.elastic[0].angular.x,r.elastic[0].angular.y,r.elastic[0].angular.z,
+            r.status.solves,r.status.iterations,r.status.capped,r.status.diverged);
+        expect(r.status.triggered==1 && (today.verdicts[0].health<=0)==bool(heavy) && (r.verdicts[0].health<=0)==bool(heavy),text);
+    }
+}
+
 }} // physx
 
 int main(int argc,char** argv){
     (void)argc;(void)argv;
-    try{if(const char* only=std::getenv("IMPACT_TEST_ONLY")){if(!std::strcmp(only,"unconverged"))physx::unconverged();if(!std::strcmp(only,"dispatches"))physx::dispatches();if(!std::strcmp(only,"carried"))physx::carried();if(!std::strcmp(only,"held"))physx::heldStops();if(!std::strcmp(only,"projection"))physx::projection();if(!std::strcmp(only,"detectors"))physx::detectors();if(!std::strcmp(only,"fuzz"))physx::fuzz();}else{physx::column();physx::wall();physx::rest();physx::centroidConvention();physx::impactCrush();physx::section();physx::coupled();physx::unconverged();physx::dispatches();physx::carried();physx::heldStops();physx::projection();physx::detectors();physx::fuzz();}}
+    try{if(const char* only=std::getenv("IMPACT_TEST_ONLY")){if(!std::strcmp(only,"unconverged"))physx::unconverged();if(!std::strcmp(only,"dispatches"))physx::dispatches();if(!std::strcmp(only,"carried"))physx::carried();if(!std::strcmp(only,"held"))physx::heldStops();if(!std::strcmp(only,"projection"))physx::projection();if(!std::strcmp(only,"detectors"))physx::detectors();if(!std::strcmp(only,"fuzz"))physx::fuzz();if(!std::strcmp(only,"bearing"))physx::bearing();if(!std::strcmp(only,"coupled"))physx::coupled();}else{physx::column();physx::wall();physx::rest();physx::centroidConvention();physx::impactCrush();physx::section();physx::coupled();physx::unconverged();physx::dispatches();physx::carried();physx::heldStops();physx::projection();physx::detectors();physx::fuzz();physx::bearing();}}
     catch(const std::exception& e){std::printf("error: %s\n",e.what());return 2;}
     std::printf("%s (%d failed)\n",physx::failures?"FAILED":"passed",physx::failures);
     return physx::failures?1:0;
