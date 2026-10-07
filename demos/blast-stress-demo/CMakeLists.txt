@@ -568,6 +568,13 @@ if(BLAST_ENABLE_CUDA_STRESS)
     target_link_libraries(native_gpu_destruction_test PRIVATE ${NATIVE_DESTRUCTION_TEST_LIBS})
     add_test(NAME physx_native_gpu_destruction COMMAND native_gpu_destruction_test)
 
+    add_executable(native_gpu_crush_correction_test tests/native_gpu_crush_correction_test.cpp physx_scene.cpp)
+    target_include_directories(native_gpu_crush_correction_test PRIVATE ${PX_DESTRUCTION_GPU_INCLUDE_DIRS} ${PHYSX_ROOT}/include)
+    target_compile_definitions(native_gpu_crush_correction_test PRIVATE PX_PHYSX_STATIC_LIB)
+    target_link_options(native_gpu_crush_correction_test PRIVATE "-Wl,-rpath,${PHYSX_LIB_DIR}")
+    target_link_libraries(native_gpu_crush_correction_test PRIVATE ${NATIVE_DESTRUCTION_TEST_LIBS})
+    add_test(NAME physx_native_gpu_crush_correction COMMAND native_gpu_crush_correction_test)
+
     add_executable(persistent_shape_owner_test tests/persistent_shape_owner_test.cpp physx_scene.cpp)
     target_include_directories(persistent_shape_owner_test PRIVATE ${PX_DESTRUCTION_GPU_INCLUDE_DIRS}
         "${PHYSX_ROOT}/include"
