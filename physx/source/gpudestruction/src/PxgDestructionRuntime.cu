@@ -491,19 +491,25 @@ __global__ void collectImpactBounds(const impact::ContactRow* rows,const PxU32* 
     const PxU32 body=clusters[chunks[rows[i].chunk].cluster].body;if(body>=bodies)return;
     atomicMax(reinterpret_cast<unsigned*>(bound+body),__float_as_uint(b));
 }
-// Into the rigid checkpoint the corrected pass restores, when the tick has
-// one (a fracture requested it). A correction with no topology change is not
-// supported by the stage's transaction yet (fetchResults fails): a tick in
-// which nothing breaks keeps the trial's stop (a gap, recorded).
+// Into the rigid checkpoint the corrected pass restores; the correction is
+// requested (bit 8), with or without a fracture: the topology transaction
+// takes an empty edit set when the producer requests a correction.
 __global__ void applyImpactBounds(float* bound,float* saved,PxU32* bounded,PxgBodySim* checkpoint,PxU32 checkpointCount,PxU32 bodies,
-    PxDestructionStageStatus* status)
+    PxDestructionStageStatus* status,PxU32* requested)
 {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=bodies)return;
     const float b=bound[i];bound[i]=0.0f;
-    if(!(b>0.0f) || i>=checkpointCount || status->error!=8u)return;
+    if(!(b>0.0f) || i>=checkpointCount || (status->error & ~8u))return;
     float& m=checkpoint[i].body2Actor_maxImpulseW.p.w;
     if(!bounded[i]){saved[i]=m;bounded[i]=1u;}
     m=fminf(saved[i],b);
+    atomicOr(&status->error,8u);*requested=1u;
+}
+// An unchanged topology commits at once (and clears the correction bit);
+// the contact bounds still need their corrected pass.
+__global__ void keepBoundCorrection(const PxU32* requested,PxDestructionStageStatus* status)
+{
+    if(*requested && !(status->error & ~8u))status->error|=8u;
 }
 __global__ void restoreImpactBoundsKernel(const float* saved,PxU32* bounded,PxgBodySim* bodies,PxU32 count)
 {
@@ -935,7 +941,7 @@ class Runtime final : public PxgDestructionRuntime {
     // Per rigid body (motion storage capacity): the corrected pass's bound on
     // its contacts (max impulse per point; bits of a float), its own max
     // impulse before (to restore), and whether it is bounded.
-    float *mImpactBound{},*mImpactSaved{};PxU32* mImpactBounded{};PxU32 mImpactBoundCapacity=0;
+    float *mImpactBound{},*mImpactSaved{};PxU32 *mImpactBounded{},*mImpactBoundRequested{};PxU32 mImpactBoundCapacity=0;
     // PX_DESTRUCTION_IMPACT_LOG=1: print E's counters after every evaluation
     // that solved an island (synchronises the stream: diagnostics only).
     const bool mImpactLog=[]{const char* v=std::getenv("PX_DESTRUCTION_IMPACT_LOG");return v && v[0]=='1';}();
@@ -1557,7 +1563,7 @@ public:
         cudaFree(mImpactImpactor);mImpactImpactor=nullptr;
         cudaFree(mImpactRows);mImpactRows=nullptr;cudaFree(mImpactRowCount);mImpactRowCount=nullptr;
         cudaFree(mImpactRowDelta);mImpactRowDelta=nullptr;cudaFree(mImpactRowForce);mImpactRowForce=nullptr;cudaFree(mImpactRowBound);mImpactRowBound=nullptr;
-        cudaFree(mImpactBound);mImpactBound=nullptr;cudaFree(mImpactSaved);mImpactSaved=nullptr;cudaFree(mImpactBounded);mImpactBounded=nullptr;mImpactBoundCapacity=0;
+        cudaFree(mImpactBound);mImpactBound=nullptr;cudaFree(mImpactSaved);mImpactSaved=nullptr;cudaFree(mImpactBounded);mImpactBounded=nullptr;cudaFree(mImpactBoundRequested);mImpactBoundRequested=nullptr;mImpactBoundCapacity=0;
         cudaFree(mCrush);mCrush=nullptr;cudaFree(mTrialCrush);mTrialCrush=nullptr;
         mN=mM=mC=mMapCount=0;
     }
@@ -2381,6 +2387,9 @@ public:
                 if(!mTopology){requireFractureCorrection<<<1,1,0,mStream>>>(mStatus);boundImpactContacts();}
             }
             stageMarker(3);
+            // The impact solve's contact bounds request the corrected pass
+            // before the topology transaction reads the request.
+            if(mTopology)boundImpactContacts();
             if(mTopology) {
                 check(cudaMemsetAsync(mTopologyCount,0,sizeof(*mTopologyCount),mStream));
                 if(mMaterials)emitTopologyEdits<<<(std::max(mM,mN)+127)/128,128,0,mStream>>>(mVerdicts,mM,mTrialCrush,mCrush,mN,mTopologyEdits,mTopologyCount);
@@ -2390,13 +2399,13 @@ public:
                     throw std::runtime_error("native topology transaction submission failed");
                 check(cudaStreamWaitEvent(mStream,static_cast<cudaEvent_t>(mTopology->trial().readyEvent),0));
                 inspectTopologyAndBeginBodyPreparation<<<1,1,0,mStream>>>(mTopology->status(),mTopology->trial(),mBodyPreparation,mStatus,mMaterials!=nullptr);
-                boundImpactContacts();
                 prepareCandidateBodies<<<(mN+127)/128,128,0,mStream>>>(mTopology->trial(),mChunks,mClusters,mTrialBodies,mBodyPreparation,mTopology->accepted(),mBodyRequests,mTrialBodyIndices,mPrincipalFrames);
                 finishBodyPreparationAndBeginCommit<<<1,1,0,mStream>>>(mTopology->status(),mBodyPreparation,mStatus,mTopologyAccept);
                 stageMarker(4);
                 checkUnchangedMotionCommit<<<(mN+127)/128,128,0,mStream>>>(mTopology->accepted(),mTopology->trial(),mTopology->status(),mTopologyAccept,mChunks,mAffectedClusters,mCollisionPreparation);
                 // The change record's first thread clears the correction bit when accepted.
                 mChanges.commit(mTopology->accepted(),mTopology->trial(),mTopology->status(),mTopologyAccept,mChunks,mAffectedClusters,mStream,mStatus);
+                if(mImpactBoundRequested && !mPass)keepBoundCorrection<<<1,1,0,mStream>>>(mImpactBoundRequested,mStatus);
                 check(cudaEventRecord(mReady,mStream));
                 if(!mTopology->commit(mTopologyAccept,mReady))throw std::runtime_error("native topology commit submission failed");
                 check(cudaStreamWaitEvent(mStream,static_cast<cudaEvent_t>(mTopology->accepted().readyEvent),0));
@@ -2435,11 +2444,15 @@ public:
     // impactor's motion is the rigid simulation's own: momentum is exchanged
     // only through contacts, never set.
     void boundImpactContacts() {
-        if(!mImpactRows || !mImpactEnabled || mPass || !mCorrectionEnabled || !mCheckpointValid)return;
+        if(!mImpactRows || !mImpactEnabled || mPass || !mCorrectionEnabled || !mCheckpointValid) {
+            if(mImpactLog && mImpactRows && !mPass)std::fprintf(stderr,"[impact] contact bounds off: correction %d checkpoint %d\n",int(mCorrectionEnabled),int(mCheckpointValid));
+            return;
+        }
         if(mMotionStorage.capacity>mImpactBoundCapacity) {
             check(cudaStreamSynchronize(mStream));
             for(float** a:{&mImpactBound,&mImpactSaved}){cudaFree(*a);*a=nullptr;allocate(*a,mMotionStorage.capacity);}
             cudaFree(mImpactBounded);mImpactBounded=nullptr;allocate(mImpactBounded,mMotionStorage.capacity);
+            if(!mImpactBoundRequested){allocate(mImpactBoundRequested,1);check(cudaMemsetAsync(mImpactBoundRequested,0,sizeof(PxU32),mStream));}
             check(cudaMemsetAsync(mImpactBound,0,sizeof(float)*mMotionStorage.capacity,mStream));
             check(cudaMemsetAsync(mImpactBounded,0,sizeof(PxU32)*mMotionStorage.capacity,mStream));
             mImpactBoundCapacity=mMotionStorage.capacity;
@@ -2447,9 +2460,17 @@ public:
         check(cudaStreamWaitEvent(mStream,mCheckpointReady,0));
         collectImpactBounds<<<(impact::kContactCapacity+127)/128,128,0,mStream>>>(mImpactRows,mImpactRowCount,impact::kContactCapacity,
             mImpactRowBound,mChunks,mClusters,mImpactBound,mImpactBoundCapacity);
+        check(cudaMemsetAsync(mImpactBoundRequested,0,sizeof(PxU32),mStream));
         applyImpactBounds<<<(mImpactBoundCapacity+127)/128,128,0,mStream>>>(mImpactBound,mImpactSaved,mImpactBounded,mCheckpointBodies,
-            mCheckpointCount,mImpactBoundCapacity,mStatus);
+            mCheckpointCount,mImpactBoundCapacity,mStatus,mImpactBoundRequested);
         check(cudaEventRecord(mCheckpointReady,mStream));
+        if(mImpactLog) {
+            PxDestructionStageStatus st{};PxU32 rows=0;check(cudaMemcpyAsync(&st,mStatus,sizeof st,cudaMemcpyDeviceToHost,mStream));
+            check(cudaMemcpyAsync(&rows,mImpactRowCount,sizeof rows,cudaMemcpyDeviceToHost,mStream));check(cudaStreamSynchronize(mStream));
+            std::vector<float> b(std::min(rows,impact::kContactCapacity));if(!b.empty())check(cudaMemcpy(b.data(),mImpactRowBound,sizeof(float)*b.size(),cudaMemcpyDeviceToHost));
+            PxU32 bounded=0;for(float x:b)bounded+=x>0.0f;
+            std::fprintf(stderr,"[impact] contact bounds: %u of %u rows bounded; stage error %u (8: correction requested)\n",bounded,rows,st.error);
+        }
     }
     // Bodies bounded for the last corrected pass take their own max impulse back.
     void restoreImpactBounds(const PxgBodySim* bodies) {

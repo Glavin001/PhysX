@@ -16,7 +16,14 @@ __global__ void beginTransaction(const TransactionBatch* batch,
     status->editCount=*batch->count;
     if(status->editCount>batch->capacity)status->error|=2u;
     if(batch->abort && (*batch->abort & batch->abortMask))status->error|=4u;
-    cudaGraphSetConditional(handle,!status->error && status->editCount?1:0);
+    // An empty transaction: no edit, but the producer requested a corrected
+    // pass (bit 8 of its abort word outside the abort mask: the impact solve's
+    // contact bounds). The trial is the accepted topology again (prepared,
+    // unchanged), so the correction restores the checkpoint and re-solves
+    // with no split work. Without the request, an empty batch does nothing.
+    const bool empty=!status->editCount && batch->abort && (*batch->abort & 8u) && !(batch->abortMask & 8u);
+    if(empty)status->changed=1u;
+    cudaGraphSetConditional(handle,!status->error && (status->editCount || empty)?1:0);
 }
 __global__ void validateTransaction(const TransactionBatch* batch,
     const unsigned* activeChunks, const unsigned* activeBonds, unsigned n, unsigned m,
