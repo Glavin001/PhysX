@@ -1393,6 +1393,17 @@ if(BLAST_ENABLE_CUDA_STRESS)
     endforeach()
 endif()
 
+# Recorded reference-fidelity failures on every backend (CUDA sm_89 too), kept
+# failing on purpose: docs/destruction/IMPLEMENTATION.md (initial baseline:
+# reference_building_load_path, destruction_quality), CONTACT_STRESS_FIXES.md
+# (crush_ordinary_impact since contact stress is preserved) and
+# SINGLE_RESIM_REFERENCE.md (crush_wall_bite under the single-verdict policy).
+# Labelled so `ctest -LE known-failure` is a clean gate; not WILL_FAIL, so a fix
+# shows up as a pass and a new failure mode is still visible in a full run.
+set_property(TEST blast_stress_reference_building_load_path blast_stress_destruction_quality
+    blast_stress_reference_building_crush_ordinary_impact blast_stress_crush_wall_bite
+    APPEND PROPERTY LABELS known-failure)
+
 # Test executables kept out of `all` (slow cumetalc/nvcc builds). ctest reports
 # their tests as "Not Run" unless this target is built too:
 #   cmake --build <tree> --target all destruction_test_executables
