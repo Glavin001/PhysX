@@ -491,19 +491,19 @@ __global__ void collectImpactBounds(const impact::ContactRow* rows,const PxU32* 
     const PxU32 body=clusters[chunks[rows[i].chunk].cluster].body;if(body>=bodies)return;
     atomicMax(reinterpret_cast<unsigned*>(bound+body),__float_as_uint(b));
 }
-// Into the rigid checkpoint the corrected pass restores; the correction is
-// requested (it runs even with nothing broken: the impactor is not stopped
-// by a structure that gives way).
+// Into the rigid checkpoint the corrected pass restores, when the tick has
+// one (a fracture requested it). A correction with no topology change is not
+// supported by the stage's transaction yet (fetchResults fails): a tick in
+// which nothing breaks keeps the trial's stop (a gap, recorded).
 __global__ void applyImpactBounds(float* bound,float* saved,PxU32* bounded,PxgBodySim* checkpoint,PxU32 checkpointCount,PxU32 bodies,
     PxDestructionStageStatus* status)
 {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=bodies)return;
     const float b=bound[i];bound[i]=0.0f;
-    if(!(b>0.0f) || i>=checkpointCount || (status->error & ~8u))return;
+    if(!(b>0.0f) || i>=checkpointCount || status->error!=8u)return;
     float& m=checkpoint[i].body2Actor_maxImpulseW.p.w;
     if(!bounded[i]){saved[i]=m;bounded[i]=1u;}
     m=fminf(saved[i],b);
-    atomicOr(&status->error,8u);
 }
 __global__ void restoreImpactBoundsKernel(const float* saved,PxU32* bounded,PxgBodySim* bodies,PxU32 count)
 {
