@@ -258,6 +258,8 @@ struct ImpactContact {
     // The impact solve's coupled contact: a row per (pair, struck chunk of an
     // anchored -- kinematic -- cluster) whose other body is movable.
     impact::ContactRow* rows; PxU32* rowCount; PxU32 rowCapacity;
+    float separating; // m/s: only a pair closing faster than this along its push is coupled (an impact)
+    PxU32* anchor; PxU32 anchorCapacity; // per rigid body: a chunk it struck (0xffffffff: none), for chain rows
     const PxDestructionStressCluster* clusters;
 };
 // One side of a pair as a coupled-contact row (impact::ContactRow): the struck
@@ -289,6 +291,27 @@ __device__ void coupleRow(PxU32 chunk,PxNodeIndex own,PxNodeIndex other,float si
         }}
     }
     if(!(weight>0.0f))return;
+    // A contact pushes the struck chunk away from the impactor: the
+    // impactor's velocity relative to the chunk's cluster, at the start of the
+    // tick, along that push is not a separation. One that is -- an impactor
+    // deep in a thin chunk whose depenetration pushes the chunk back onto it
+    // (a 0.11 m brick against 0.36 m of travel a tick) -- is no contact the
+    // impact solve can carry (unilateral along the wrong side); its impulse
+    // stays the trial's load.
+    {
+        const PxVec3 cw(clusterBefore.angularVelocityXYZ_maxPenBiasW.x,clusterBefore.angularVelocityXYZ_maxPenBiasW.y,clusterBefore.angularVelocityXYZ_maxPenBiasW.z);
+        const PxVec3 cv(clusterBefore.linearVelocityXYZ_inverseMassW.x,clusterBefore.linearVelocityXYZ_inverseMassW.y,clusterBefore.linearVelocityXYZ_inverseMassW.z);
+        const PxVec3 cp(clusterBefore.body2World.p.x,clusterBefore.body2World.p.y,clusterBefore.body2World.p.z);
+        const PxVec3 x=point*(1.0f/weight);
+        const PxVec3 vi(before.linearVelocityXYZ_inverseMassW.x,before.linearVelocityXYZ_inverseMassW.y,before.linearVelocityXYZ_inverseMassW.z);
+        const PxVec3 wi(before.angularVelocityXYZ_maxPenBiasW.x,before.angularVelocityXYZ_maxPenBiasW.y,before.angularVelocityXYZ_maxPenBiasW.z);
+        const PxVec3 rel=vi+wi.cross(x-com)-cv-cw.cross(x-cp);
+        // Only an impact: a pair closing faster than the solve's motion
+        // tolerance a tick. A resting contact (debris on a floor) closes at
+        // nothing; the trial's kinematic support is exact for it and needs no
+        // coupling (coupling every piece of rubble cost a capped solve a tick).
+        if(!(rel.dot(normal.getNormalized())>ci.separating))return;
+    }
     if(p.frictionPatches && p.contactPatches) {
         PxFrictionAnchorStreamIterator it(p.contactPatches,p.frictionPatches,p.nbPatches);
         while(it.hasNextPatch()){it.nextPatch();while(it.hasNextFrictionAnchor()){it.nextFrictionAnchor();
@@ -297,7 +320,8 @@ __device__ void coupleRow(PxU32 chunk,PxNodeIndex own,PxNodeIndex other,float si
         }}
     }
     const PxU32 slot=atomicAdd(ci.rowCount,1u);if(slot>=ci.rowCapacity)return;
-    impact::ContactRow row{};row.chunk=chunk;row.body=other.index();row.points=points;row.friction=friction;
+    if(ci.anchor && other.index()<ci.anchorCapacity)atomicExch(ci.anchor+other.index(),chunk);
+    impact::ContactRow row{};row.chunk=chunk;row.body=other.index();row.points=points;row.friction=friction;row.bodyA=0xffffffffu;
     auto put=[](float* d,const PxVec3& v){d[0]=v.x;d[1]=v.y;d[2]=v.z;};
     put(row.point,pose.transformInv(point*(1.0f/weight)));put(row.normal,pose.q.rotateInv(normal.getNormalized()));
     put(row.load,pose.q.rotateInv(force*invDt));put(row.torque,pose.q.rotateInv(torque*invDt));put(row.com,pose.transformInv(com));
@@ -419,6 +443,89 @@ __global__ void routeContacts(PxgDestructionSolvedContacts contacts, const Looku
     }
     if(normals)atomicAdd(&status->normalContacts,normals);
     if(anchors)atomicAdd(&status->frictionAnchors,anchors);
+}
+// Chain rows: a contact between two movable bodies, one of which struck an
+// anchored chunk this pass (ImpactContact::anchor) -- the impactor pushing a
+// freed piece into the still-anchored structure, or a piece pushed into it
+// by the impactor. A is the body with an anchor (the lower index when both
+// have one), B the other; the row is in A's anchor chunk's cluster frame.
+__global__ void coupleChains(PxgDestructionSolvedContacts contacts,const Lookup* map,PxU32 maps,const PxDestructionStressChunk* chunks,
+    const PxTransform* poses,float invDt,const PxgBodySim* bodies,ImpactContact ci)
+{
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;
+    if(i>=contacts.pairCount || !ci.rows || !ci.anchor)return;
+    const auto& output=contacts.outputs[i];
+    if(!output.nbContacts || !contacts.responseEpoch || output.nativeResponseEpoch!=contacts.responseEpoch)return;
+    const auto& input=contacts.inputs[i];
+    const PxNodeIndex n0=contacts.shapeToRigid[input.transformCacheRef0],n1=contacts.shapeToRigid[input.transformCacheRef1];
+    if(n0.isStaticBody() || n1.isStaticBody() || n0.isArticulation() || n1.isArticulation())return;
+    const PxU32 b0=n0.index(),b1=n1.index();if(b0==b1 || b0>=ci.anchorCapacity || b1>=ci.anchorCapacity)return;
+    const auto& g0=bodies[b0];const auto& g1=bodies[b1];
+    if(!(g0.linearVelocityXYZ_inverseMassW.w>0.0f) || !(g1.linearVelocityXYZ_inverseMassW.w>0.0f))return;
+    const PxU32 a0=ci.anchor[b0],a1=ci.anchor[b1];
+    if(a0==PX_INVALID_U32 && a1==PX_INVALID_U32)return;
+    const bool zero=a0!=PX_INVALID_U32 && (a1==PX_INVALID_U32 || b0<b1);   // A is shape 0's body
+    const PxU32 A=zero?b0:b1,B=zero?b1:b0,anchorChunk=zero?a0:a1;const float side=zero?1.0f:-1.0f;
+    PxGpuContactPair p{nullptr, nullptr, nullptr, nullptr, 0, 0, PxNodeIndex(), PxNodeIndex(), nullptr, nullptr, 0, 0};
+    const size_t patchOffset=reinterpret_cast<size_t>(output.contactPatches)-reinterpret_cast<size_t>(contacts.cpuPatches);
+    const size_t pointOffset=reinterpret_cast<size_t>(output.contactPoints)-reinterpret_cast<size_t>(contacts.cpuPoints);
+    p.contactPatches=const_cast<PxU8*>(contacts.patches+patchOffset);p.contactPoints=const_cast<PxU8*>(contacts.points+pointOffset);
+    if(!output.contactForces)return;
+    const size_t forceOffset=reinterpret_cast<size_t>(output.contactForces)-reinterpret_cast<size_t>(contacts.cpuForces);
+    p.contactForces=reinterpret_cast<PxReal*>(const_cast<PxU8*>(reinterpret_cast<const PxU8*>(contacts.forces)+forceOffset));
+    p.frictionPatches=const_cast<PxU8*>(contacts.friction+patchOffset/sizeof(PxContactPatch)*sizeof(PxFrictionPatch));
+    p.nbPatches=output.nbPatches;p.nbContacts=output.nbContacts;
+    const bool early=ci.before && A<ci.beforeCount && B<ci.beforeCount;
+    const PxgBodySim& bA=early?ci.before[A]:bodies[A];const PxgBodySim& bB=early?ci.before[B]:bodies[B];const PxgBodySim& nB=bodies[B];
+    const PxVec3 comA(bA.body2World.p.x,bA.body2World.p.y,bA.body2World.p.z),comB(bB.body2World.p.x,bB.body2World.p.y,bB.body2World.p.z);
+    PxVec3 force(0.0f),point(0.0f),normal(0.0f),torqueA(0.0f),torqueB(0.0f);float weight=0.0f,friction=0.0f;PxU32 points=0;
+    {
+        PxContactStreamIterator it(p.contactPatches,p.contactPoints,NULL,p.nbPatches,p.nbContacts);PxU32 k=0;
+        while(it.hasNextPatch()){it.nextPatch();friction=fmaxf(friction,it.getDynamicFriction());while(it.hasNextContact()){it.nextContact();
+            const float f=p.contactForces[k++];if(!(f>0.0f))continue;
+            const PxVec3 impulse=it.getContactNormal()*(f*side);   // on A
+            force+=impulse;point+=it.getContactPoint()*f;normal+=impulse;weight+=f;++points;
+            torqueA+=(it.getContactPoint()-comA).cross(impulse);torqueB+=(it.getContactPoint()-comB).cross(-impulse);
+        }}
+    }
+    if(!(weight>0.0f))return;
+    const PxVec3 x=point*(1.0f/weight);
+    auto vel=[](const PxgBodySim& b,const PxVec3& at){const PxVec3 v(b.linearVelocityXYZ_inverseMassW.x,b.linearVelocityXYZ_inverseMassW.y,b.linearVelocityXYZ_inverseMassW.z),
+        w(b.angularVelocityXYZ_maxPenBiasW.x,b.angularVelocityXYZ_maxPenBiasW.y,b.angularVelocityXYZ_maxPenBiasW.z),c(b.body2World.p.x,b.body2World.p.y,b.body2World.p.z);
+        return v+w.cross(at-c);};
+    // An impact: B closing on A along A's push.
+    if(!((vel(bB,x)-vel(bA,x)).dot(normal.getNormalized())>ci.separating))return;
+    if(p.frictionPatches && p.contactPatches) {
+        PxFrictionAnchorStreamIterator it(p.contactPatches,p.frictionPatches,p.nbPatches);
+        while(it.hasNextPatch()){it.nextPatch();while(it.hasNextFrictionAnchor()){it.nextFrictionAnchor();
+            const PxVec3 impulse=it.getImpulse()*side;if(impulse.isZero())continue;
+            force+=impulse;torqueA+=(it.getPosition()-comA).cross(impulse);torqueB+=(it.getPosition()-comB).cross(-impulse);
+        }}
+    }
+    const PxU32 slot=atomicAdd(ci.rowCount,1u);if(slot>=ci.rowCapacity)return;
+    const auto c=chunks[anchorChunk];const PxTransform pose=poses[c.cluster];
+    const PxU32 clusterBody=ci.clusters[c.cluster].body;
+    const PxgBodySim& cl=(early && clusterBody<ci.beforeCount)?ci.before[clusterBody]:bodies[clusterBody];
+    const PxVec3 cw(cl.angularVelocityXYZ_maxPenBiasW.x,cl.angularVelocityXYZ_maxPenBiasW.y,cl.angularVelocityXYZ_maxPenBiasW.z);
+    const PxVec3 cv(cl.linearVelocityXYZ_inverseMassW.x,cl.linearVelocityXYZ_inverseMassW.y,cl.linearVelocityXYZ_inverseMassW.z);
+    const PxVec3 cp(cl.body2World.p.x,cl.body2World.p.y,cl.body2World.p.z);
+    impact::ContactRow row{};row.chunk=anchorChunk;row.body=B;row.bodyA=A;row.points=points;row.friction=friction;
+    auto put=[](float* d,const PxVec3& v){d[0]=v.x;d[1]=v.y;d[2]=v.z;};
+    put(row.point,pose.transformInv(x));put(row.normal,pose.q.rotateInv(normal.getNormalized()));
+    put(row.load,pose.q.rotateInv(force*invDt));put(row.torque,pose.q.rotateInv(torqueB*invDt));put(row.torqueA,pose.q.rotateInv(torqueA*invDt));
+    put(row.com,pose.transformInv(comB));put(row.comA,pose.transformInv(comA));
+    const PxVec3 v0(bB.linearVelocityXYZ_inverseMassW.x,bB.linearVelocityXYZ_inverseMassW.y,bB.linearVelocityXYZ_inverseMassW.z);
+    const PxVec3 w0(bB.angularVelocityXYZ_maxPenBiasW.x,bB.angularVelocityXYZ_maxPenBiasW.y,bB.angularVelocityXYZ_maxPenBiasW.z);
+    const PxVec3 v1(nB.linearVelocityXYZ_inverseMassW.x,nB.linearVelocityXYZ_inverseMassW.y,nB.linearVelocityXYZ_inverseMassW.z);
+    const PxVec3 w1(nB.angularVelocityXYZ_maxPenBiasW.x,nB.angularVelocityXYZ_maxPenBiasW.y,nB.angularVelocityXYZ_maxPenBiasW.z);
+    put(row.velocity,pose.q.rotateInv(v0-cv-cw.cross(comB-cp)));put(row.spin,pose.q.rotateInv(w0-cw));
+    put(row.dv,pose.q.rotateInv(v1-v0));put(row.dw,pose.q.rotateInv(w1-w0));
+    row.im=bB.linearVelocityXYZ_inverseMassW.w;
+    const PxQuat q=pose.q.getConjugate()*PxQuat(bB.body2World.q.q.x,bB.body2World.q.q.y,bB.body2World.q.q.z,bB.body2World.q.q.w);
+    const PxMat33 R(q);const PxVec3 d(bB.inverseInertiaXYZ_contactReportThresholdW.x,bB.inverseInertiaXYZ_contactReportThresholdW.y,bB.inverseInertiaXYZ_contactReportThresholdW.z);
+    const PxMat33 S=R*PxMat33::createDiagonal(d)*R.getTranspose();
+    row.ii[0]=S(0,0);row.ii[1]=S(1,1);row.ii[2]=S(2,2);row.ii[3]=S(0,1);row.ii[4]=S(0,2);row.ii[5]=S(1,2);
+    ci.rows[slot]=row;
 }
 // Ci: each crushable chunk's crush law at its impact stress (uniaxial), in
 // place of evaluateChunkMaterials' virial.
@@ -895,6 +1002,7 @@ class Runtime final : public PxgDestructionRuntime {
     // The impact solve's coupled contact: this pass's rows, their count, and
     // each impactor's velocity change (applied when the pass is the tick's last).
     impact::ContactRow* mImpactRows{};PxU32* mImpactRowCount{};float *mImpactRowDelta{},*mImpactRowForce{};
+    PxU32* mImpactAnchor{};PxU32 mImpactAnchorCapacity=0; // per rigid body (motion storage capacity): a chunk it struck this pass
     // PX_DESTRUCTION_IMPACT_LOG=1: print E's counters after every evaluation
     // that solved an island (synchronises the stream: diagnostics only).
     const bool mImpactLog=[]{const char* v=std::getenv("PX_DESTRUCTION_IMPACT_LOG");return v && v[0]=='1';}();
@@ -1516,6 +1624,7 @@ public:
         cudaFree(mImpactImpactor);mImpactImpactor=nullptr;
         cudaFree(mImpactRows);mImpactRows=nullptr;cudaFree(mImpactRowCount);mImpactRowCount=nullptr;
         cudaFree(mImpactRowDelta);mImpactRowDelta=nullptr;cudaFree(mImpactRowForce);mImpactRowForce=nullptr;
+        cudaFree(mImpactAnchor);mImpactAnchor=nullptr;mImpactAnchorCapacity=0;
         cudaFree(mCrush);mCrush=nullptr;cudaFree(mTrialCrush);mTrialCrush=nullptr;
         mN=mM=mC=mMapCount=0;
     }
@@ -2206,12 +2315,21 @@ public:
                 check(cudaMemsetAsync(mImpactRowCount,0,sizeof(PxU32),mStream));
                 impactContacts.rows=mImpactRows;impactContacts.rowCount=mImpactRowCount;impactContacts.rowCapacity=impact::kContactCapacity;
                 impactContacts.clusters=mClusters;
+                // The impact solve's motion tolerance over the tick, as a speed.
+                impactContacts.separating=mImpactSettings.tolerance/dt;
+                if(mMotionStorage.capacity>mImpactAnchorCapacity) {
+                    check(cudaStreamSynchronize(mStream));cudaFree(mImpactAnchor);mImpactAnchor=nullptr;
+                    allocate(mImpactAnchor,mMotionStorage.capacity);mImpactAnchorCapacity=mMotionStorage.capacity;
+                }
+                check(cudaMemsetAsync(mImpactAnchor,0xff,sizeof(PxU32)*mImpactAnchorCapacity,mStream));
+                impactContacts.anchor=mImpactAnchor;impactContacts.anchorCapacity=mImpactAnchorCapacity;
             }
             if(mImpactCrush || mImpactRows) {
                 if(mCheckpointValid)check(cudaStreamWaitEvent(mStream,mCheckpointReady,0));
                 impactContacts.before=mCheckpointValid?mCheckpointBodies:nullptr;impactContacts.beforeCount=mCheckpointValid?mCheckpointCount:0u;
             }
             if(contacts.pairCount)routeContacts<<<(contacts.pairCount+127)/128,128,0,mStream>>>(contacts,mMap,mMapCount,mChunks,mPoses,1.0f/dt,mInputs,mSurface,mStatus,bodyStates,mMaterials,mRates,impactContacts);
+            if(contacts.pairCount && mImpactRows)coupleChains<<<(contacts.pairCount+127)/128,128,0,mStream>>>(contacts,mMap,mMapCount,mChunks,mPoses,1.0f/dt,bodyStates,impactContacts);
             if(mReport)check(cudaMemcpyAsync(mReportInputs+2*mN,mInputs,sizeof(*mInputs)*mN,cudaMemcpyDeviceToDevice,mStream));
             check(cudaEventRecord(mReady,mStream));
             stageMarker(1);
@@ -2303,8 +2421,9 @@ public:
                                 check(cudaMemcpy(f.data(),mImpactRowForce,sizeof(float)*f.size(),cudaMemcpyDeviceToHost));}
                             for(PxU32 i=0;i<rows && i<16;++i) {
                                 float cu[6]={0,0,0,0,0,0};check(cudaMemcpy(cu,mImpact.w.u+6*size_t(r[i].chunk),sizeof cu,cudaMemcpyDeviceToHost));
-                                std::fprintf(stderr,"[impact]   row %u: chunk %u body %u (1/m %.3g) v (%.2f %.2f %.2f) dv (%.2f %.2f %.2f) trial load (%.3g %.3g %.3g) N; solved force (%.3g %.3g %.3g) N; delta v (%.2f %.2f %.2f); chunk's end velocity (%.2f %.2f %.2f)\n",
-                                i,r[i].chunk,r[i].body,r[i].im,r[i].velocity[0],r[i].velocity[1],r[i].velocity[2],r[i].dv[0],r[i].dv[1],r[i].dv[2],
+                                const float closing=r[i].velocity[0]*r[i].normal[0]+r[i].velocity[1]*r[i].normal[1]+r[i].velocity[2]*r[i].normal[2];
+                                std::fprintf(stderr,"[impact]   row %u: closing %.2f m/s along the force; chunk %u body %u (1/m %.3g) v (%.2f %.2f %.2f) dv (%.2f %.2f %.2f) trial load (%.3g %.3g %.3g) N; solved force (%.3g %.3g %.3g) N; delta v (%.2f %.2f %.2f); chunk's end velocity (%.2f %.2f %.2f)\n",
+                                i,closing,r[i].chunk,r[i].body,r[i].im,r[i].velocity[0],r[i].velocity[1],r[i].velocity[2],r[i].dv[0],r[i].dv[1],r[i].dv[2],
                                 r[i].load[0],r[i].load[1],r[i].load[2],f[3*i],f[3*i+1],f[3*i+2],d[6*i],d[6*i+1],d[6*i+2],cu[0]*dt,cu[1]*dt,cu[2]*dt);
                             }
                         }
@@ -2313,8 +2432,8 @@ public:
                             char path[1024];std::snprintf(path,sizeof path,"%s/impact-%llu-%u.impc",mImpactCaptureDir,(unsigned long long)mImpactEvaluations,mPass);
                             if(impact::writeCapture(path,in,settings,mImpactMaterialCount)){++mImpactCaptures;std::fprintf(stderr,"[impact] captured %s (%.1f ms)\n",path,ms);}
                         }
-                        if(e.triggered)std::fprintf(stderr,"[impact] pass %u: %u islands, %u solves, %u iterations (%u capped, %u diverged), %u rounds, broke %u, yielded %u, %u contacts from %u impactors, %u infeasible projections, error %u\n",
-                            mPass,e.triggered,e.solves,e.iterations,e.capped,e.diverged,e.rounds,e.broken,e.yielded,e.contacts,e.impactors,e.infeasible,e.error);
+                        if(e.triggered)std::fprintf(stderr,"[impact] pass %u: %u islands, %u solves, %u iterations (%u capped, %u diverged), %u rounds, broke %u, yielded %u, %u contacts from %u impactors (%u held stops, %u rolled back, %u energy gains), %u infeasible projections, error %u\n",
+                            mPass,e.triggered,e.solves,e.iterations,e.capped,e.diverged,e.rounds,e.broken,e.yielded,e.contacts,e.impactors,e.heldStops,e.rolledBack,e.energyGain,e.infeasible,e.error);
                         if(e.diverged)std::fprintf(stderr,"[impact] DIVERGED: %u solves (a bug signal); worst split at bond %u\n",e.diverged,e.worstBond-1u);
                         if(e.infeasible)std::fprintf(stderr,"[impact] INFEASIBLE PROJECTIONS: %u (a bug signal)\n",e.infeasible);
                     }
