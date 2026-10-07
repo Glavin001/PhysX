@@ -613,11 +613,50 @@ void heldStops(){
     expect(r.status.triggered==1 && r.status.contacts==1 && std::fabs(r.rowDelta[0])<1e-6f && r.impact[0]!=impact::eBROKEN,text);
 }
 
+// 11. The section model's projection on a thin section (a drywall screw
+// joint in the house: 1 cm^2, g ~ 2.4e3 /m, capacities 600-900 N, metrics
+// ~1): the projected point is feasible and no feasible point is nearer (in
+// the metric). Before: the active-set enumeration lost every candidate and
+// returned the point unchanged, infeasible (N = -4.4 kN against 600 N), and
+// the house's solve at rest diverged (4096 steps, split 4e3 x capacity).
+__global__ void projectProbe(const float* in,PxU32 count,float* out)
+{
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
+    const float* c=in+9*i;float p[3]={c[0],c[1],c[2]};const float sc[3]={c[3],c[4],c[5]};
+    impact::polytope(p,sc,c[6],c[7],c[8],c[8]*2.0f/3.0f);
+    out[3*i]=p[0];out[3*i+1]=p[1];out[3*i+2]=p[2];
+}
+void projection(){
+    std::printf("the section projection on a thin section\n");
+    std::vector<float> cases;std::srand(7);
+    auto r=[](float a,float b){return a+(b-a)*float(std::rand())/float(RAND_MAX);};
+    const PxU32 n=256;
+    for(PxU32 i=0;i<n;++i){const float g0=r(100,2500),g1=r(50,300);
+        cases.insert(cases.end(),{r(-6e3f,3e3f),r(0,600),r(0,8),r(0.2f,3),r(0.5f,40),r(0.5f,40),g0,g1,900.0f});}
+    Device<float> c(cases),o(3*n);projectProbe<<<(n+63)/64,64>>>(c.p,n,o.p);check(cudaDeviceSynchronize());
+    const auto q=o.get();PxU32 infeasible=0,beaten=0;
+    for(PxU32 i=0;i<n;++i){
+        const float* k=&cases[9*i];const float capT=k[8],capC=k[8]*2.0f/3.0f,g0=k[6],g1=k[7];
+        const float w0=k[3]*k[3],w1=k[4]*k[4],w2=k[5]*k[5];
+        const float N=q[3*i],m0=q[3*i+1],m1=q[3*i+2],b=g0*m0+g1*m1,tol=1e-4f*(capT+capC);
+        if(m0<0 || m1<0 || b+N>capT+tol || b-N>capC+tol){++infeasible;continue;}
+        const double d=w0*double(N-k[0])*(N-k[0])+w1*double(m0-k[1])*(m0-k[1])+w2*double(m1-k[2])*(m1-k[2]);
+        for(int t=0;t<20000;++t){
+            const float n2=r(-capC,capT),a=r(0,1);const float budget=std::min(capT-n2,capC+n2);if(budget<0)continue;
+            const float x0=a*budget/g0,x1=r(0,1)*(1-a)*budget/g1;
+            const double e=w0*double(n2-k[0])*(n2-k[0])+w1*double(x0-k[1])*(x0-k[1])+w2*double(x1-k[2])*(x1-k[2]);
+            if(e<d*(1.0-1e-3)-1e-6){++beaten;break;}
+        }
+    }
+    char text[200];std::snprintf(text,sizeof text,"%u thin-section points: %u projected infeasible, %u with a nearer feasible point (expected 0, 0)",n,infeasible,beaten);
+    expect(infeasible==0 && beaten==0,text);
+}
+
 }} // physx
 
 int main(int argc,char** argv){
     (void)argc;(void)argv;
-    try{if(const char* only=std::getenv("IMPACT_TEST_ONLY")){if(!std::strcmp(only,"unconverged"))physx::unconverged();if(!std::strcmp(only,"dispatches"))physx::dispatches();if(!std::strcmp(only,"carried"))physx::carried();if(!std::strcmp(only,"held"))physx::heldStops();}else{physx::column();physx::wall();physx::rest();physx::centroidConvention();physx::impactCrush();physx::section();physx::coupled();physx::unconverged();physx::dispatches();physx::carried();physx::heldStops();}}
+    try{if(const char* only=std::getenv("IMPACT_TEST_ONLY")){if(!std::strcmp(only,"unconverged"))physx::unconverged();if(!std::strcmp(only,"dispatches"))physx::dispatches();if(!std::strcmp(only,"carried"))physx::carried();if(!std::strcmp(only,"held"))physx::heldStops();if(!std::strcmp(only,"projection"))physx::projection();}else{physx::column();physx::wall();physx::rest();physx::centroidConvention();physx::impactCrush();physx::section();physx::coupled();physx::unconverged();physx::dispatches();physx::carried();physx::heldStops();physx::projection();}}
     catch(const std::exception& e){std::printf("error: %s\n",e.what());return 2;}
     std::printf("%s (%d failed)\n",physx::failures?"FAILED":"passed",physx::failures);
     return physx::failures?1:0;

@@ -83,6 +83,9 @@ int run(int argc,char** argv){
     cudaStream_t stream;check(cudaStreamCreateWithFlags(&stream,cudaStreamNonBlocking));
     impact::Stage e;e.allocate(n,m);
     impact::SolveRecord* log;allocate(log,impact::kLogCapacity);e.w.log=log;
+    float* trace=nullptr;if(std::getenv("IMPACT_TRACE")){allocate(trace,4*size_t(impact::kTraceCapacity));check(cudaMemset(trace,0,sizeof(float)*4*impact::kTraceCapacity));e.w.trace=trace;}
+    float* linkRes=nullptr;const size_t links=size_t(m)+impact::kContactCapacity;
+    if(trace){allocate(linkRes,2*links);check(cudaMemset(linkRes,0,sizeof(float)*2*links));e.w.linkResidual=linkRes;}
     // Island sizes as the stage has them.
     std::vector<PxU32> islandBonds(n,0),islandChunks(n,0);
     for(PxU32 k=0;k<m;++k)if(bondIslands[k]<n)++islandBonds[bondIslands[k]];
@@ -111,6 +114,22 @@ int run(int argc,char** argv){
                 std::printf("  solve %3u: island %u (%u bonds, %u chunks; %u links, %u nodes) level %2u lambda %.3g clipped %4u broken %4u: %5u iterations%s, residual %.2e\n",
                     i,rec[i].island,islandBonds[rec[i].island],islandChunks[rec[i].island],rec[i].links,rec[i].nodes,rec[i].level,rec[i].lambda,rec[i].clipped,rec[i].broken,
                     rec[i].iterations,rec[i].capped?" (capped)":"",rec[i].change);
+        }
+        if(trace && !r) {
+            std::vector<float> t(4*size_t(impact::kTraceCapacity));check(cudaMemcpy(t.data(),trace,sizeof(float)*t.size(),cudaMemcpyDeviceToHost));
+            // The links with the largest residuals at the end, with what they are.
+            std::vector<float> lr(2*links);check(cudaMemcpy(lr.data(),linkRes,sizeof(float)*lr.size(),cudaMemcpyDeviceToHost));
+            std::vector<impact::Bond> bl(links);check(cudaMemcpy(bl.data(),e.w.bonds,sizeof(impact::Bond)*links,cudaMemcpyDeviceToHost));
+            std::vector<float> J(6*links),Z(6*links);check(cudaMemcpy(Z.data(),e.w.Y,sizeof(float)*Z.size(),cudaMemcpyDeviceToHost));
+            std::vector<PxU32> order;for(PxU32 l=0;l<links;++l)if(lr[2*l]>0.0f || lr[2*l+1]>0.0f)order.push_back(l);
+            std::sort(order.begin(),order.end(),[&](PxU32 a,PxU32 b){return lr[2*a]>lr[2*b];});
+            for(PxU32 i=0;i<std::min<size_t>(order.size(),12);++i){const PxU32 l=order[i];const auto& b=bl[l];
+                std::printf("  link %u (bond %u, chunks %u %u, flags %u): primal %.3e dual %.3e; caps C %.3g T %.3g S %.3g, area %.3g, gains gb %.3g gt %.3g g0 %.3g g1 %.3g, k %.3g %.3g %.3g %.3g; Z %.3g %.3g %.3g | %.3g %.3g %.3g\n",
+                    l,b.bond,b.c0,b.c1,b.flags,lr[2*l],lr[2*l+1],b.capC,b.capT,b.capS,b.area,b.gb,b.gt,b.g0,b.g1,b.kl,b.kt,b.k0,b.k1,
+                    Z[6*l],Z[6*l+1],Z[6*l+2],Z[6*l+3],Z[6*l+4],Z[6*l+5]);}
+            const PxU32 every=PxU32(std::max(1,std::atoi(std::getenv("IMPACT_TRACE"))));
+            for(PxU32 i=0;i<impact::kTraceCapacity;i+=every){if(t[4*i]==0.0f && t[4*i+1]==0.0f && t[4*i+3]==0.0f)break;
+                std::printf("  step %5u: primal %.3e dual %.3e motion %.3e rho %.3e\n",i,t[4*i],t[4*i+1],t[4*i+2],t[4*i+3]);}
         }
         std::printf("%s: %u chunks, %u bonds, %u rows; %u islands, %u solves, %u iterations (%u capped), %u rounds; broke %u, yielded %u; %u contacts, %u impactors; error %u; %.1f ms in %u dispatches (longest %.1f ms)\n",
             argv[1],n,m,h.rows,st.triggered,st.solves,st.iterations,st.capped,st.rounds,st.broken,st.yielded,st.contacts,st.impactors,st.error,ms,e.dispatches,e.longestDispatch);
