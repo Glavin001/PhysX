@@ -59,6 +59,11 @@ struct Input {
     unsigned componentSolverMaxNodes=0;
     const unsigned *nonSelfRefs=nullptr,*nonSelfEnd=nullptr;
     const StressReal* selfMatrices=nullptr;
+    // Per-bond rotational stiffness (ExtStressGpuSetBondRotationalStiffness):
+    // W = A^2 for each FINE bond, packed symmetric (xx yy zz xy xz yz), or null
+    // for the uniform length scale. A bond's angular stiffness is s^2 W instead
+    // of s^2 I. Recursive levels reach it through bondIdentity.
+    const float* angularWeight=nullptr;
 };
 struct Status {
     std::uint64_t generation;
@@ -266,8 +271,10 @@ __device__ __forceinline__ void commitBuild(const Input* input,Status* status)
 #include "StressHierarchyDiagonal.cuh"
 // All mutable construction state stays on the device. Residency limits the
 // physical grid, never the amount of topology processed by its virtual blocks.
+template<bool Rotation=false>
 __global__ void construct(Input input,Buffers buffers,Status* status,Work* work)
 {
+    if constexpr(!Rotation)input.angularWeight=nullptr; // a constant null: the uniform arithmetic exactly
     const auto grid=cooperative_groups::this_grid();
     if(input.accept && !*input.accept){
         if(!blockIdx.x && !threadIdx.x)work->active=work->pending=0;
@@ -406,8 +413,10 @@ __global__ void coarseConstruct(Input input,Buffers buffers,Status* status,Work*
     const unsigned bonds=(input.bonds+Threads-1)/Threads;
     for(unsigned block=blockIdx.x;block<bonds;block+=gridDim.x)buildCoarseBonds(&input,buffers,status,block);
 }
+template<bool Rotation=false>
 __global__ void diagonalConstruct(Input input,Buffers buffers,Status* status,Work* work)
 {
+    if constexpr(!Rotation)input.angularWeight=nullptr; // a constant null: the uniform arithmetic exactly
     if(!constructLive(work))return;input=resolvedInput(input);if(input.levelBonds)return;
     const unsigned diagonalBlocks=(input.nodes+Threads/32-1)/(Threads/32);
     for(unsigned block=blockIdx.x;block<diagonalBlocks;block+=gridDim.x)buildFineDiagonal(input,buffers,status,block);

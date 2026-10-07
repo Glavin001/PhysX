@@ -756,6 +756,7 @@ __host__ __device__ Vec4 cross(const Vec4& a, const Vec4& b)
         a.x * b.y - a.y * b.x);
 }
 
+#include "detail/StressBondRotation.cuh"
 #include "detail/StressCouplingKernels.cuh"
 #include "detail/StressNodeOperator.cuh"
 #include "detail/StressNodePreconditioner.cuh"
@@ -1136,7 +1137,7 @@ public:
 
     bool removeBond(std::uint32_t bondIndex) override
     {
-        if (m_deviceTopology || m_deviceTopologyFailed || bondIndex >= m_bondCount)
+        if (m_deviceTopology || m_deviceTopologyFailed || bondIndex >= m_bondCount || m_angularScale)
         {
             return false;
         }
@@ -2110,6 +2111,72 @@ public:
 
     // Input is a numerical guess only. Every resident component must still
     // verify its residual and run ordinary material/topology evaluation.
+    /// ExtStressGpuSetBondRotationalStiffness: see the header. A = R / Ls per
+    /// bond, R the section's radii of gyration on its principal axes; the
+    /// rotational spring moves to the bond's centroid, so a bond between two
+    /// dynamic nodes gets centroid offsets instead of their midpoint (a bond
+    /// to a static node already has them). Ls itself is unchanged: it only
+    /// conditions the solve and cancels in A.
+    bool setBondRotationalStiffness(const ExtStressGpuBondRotation* rows, std::uint32_t count)
+    {
+#ifndef PHYSX_RESIDENT_DESTRUCTION
+        (void)rows; (void)count; return false;
+#else
+        if (!rows || count != m_bondCount || m_deviceTopology || m_deviceTopologyFailed || m_hasWarmStart
+            || m_angularScale || m_topologyDirty) return false;
+        std::vector<float> scale(6 * size_t(count)), weight(6 * size_t(count)), inverse(6 * size_t(count));
+        const double length = m_lengthScale;
+        for (std::uint32_t i = 0; i < count; ++i) {
+            const auto& r = rows[i];
+            const Vec4 n = m_hostNormals[i];
+            const double e0[3] = {r.axis[0], r.axis[1], r.axis[2]};
+            const double nn[3] = {n.x, n.y, n.z};
+            const double axisLength = std::sqrt(e0[0]*e0[0] + e0[1]*e0[1] + e0[2]*e0[2]);
+            if (!std::isfinite(axisLength) || std::abs(axisLength - 1.0) > 1e-3
+                || std::abs(e0[0]*nn[0] + e0[1]*nn[1] + e0[2]*nn[2]) > 1e-3) return false;
+            const double radius[3] = {r.radius0, r.radius1, r.polarRadius};
+            for (double v : radius) if (!std::isfinite(v) || !(v > 0)) return false;
+            // e1 = n x e0 completes the patch's principal frame.
+            const double e1[3] = {nn[1]*e0[2] - nn[2]*e0[1], nn[2]*e0[0] - nn[0]*e0[2], nn[0]*e0[1] - nn[1]*e0[0]};
+            const double* axes[3] = {e0, e1, nn};
+            static const unsigned row[6] = {0, 1, 2, 0, 0, 1}, col[6] = {0, 1, 2, 1, 2, 2};
+            for (unsigned k = 0; k < 6; ++k) {
+                double a = 0, w = 0, v = 0;
+                for (unsigned j = 0; j < 3; ++j) {
+                    const double p = axes[j][row[k]] * axes[j][col[k]], q = radius[j] / length;
+                    a += q * p; w += q * q * p; v += p / q;
+                }
+                scale[6 * size_t(i) + k] = float(a); weight[6 * size_t(i) + k] = float(w); inverse[6 * size_t(i) + k] = float(v);
+            }
+            // The spring at the centroid: offsets of a bond between two dynamic nodes.
+            const std::uint32_t a0 = m_hostNode0[i], a1 = m_hostNode1[i];
+            if (m_hostInertia[a0].linear > 0.0f && m_hostInertia[a1].linear > 0.0f) {
+                const float reciprocalLength = 1.0f / m_lengthScale;
+                const float* c = m_hostBondCentroids.data() + 3 * size_t(i);
+                const float* p0 = m_hostNodePositions.data() + 3 * size_t(a0);
+                const float* p1 = m_hostNodePositions.data() + 3 * size_t(a1);
+                m_hostOffset0[i] = mul(makeVec(c[0] - p0[0], c[1] - p0[1], c[2] - p0[2]), reciprocalLength);
+                m_hostOffset1[i] = mul(makeVec(c[0] - p1[0], c[1] - p1[1], c[2] - p1[2]), reciprocalLength);
+            }
+        }
+        ContextGuard context(m_cudaContext);
+        // Construction stages its uploads on the solver stream; finish them
+        // before the offsets are replaced.
+        checkCuda(cudaStreamSynchronize(m_stream), "order bond rotational stiffness after construction");
+        allocateDevice(m_angularScale, 6 * size_t(count), "allocate bond rotational scales");
+        allocateDevice(m_angularWeight, 6 * size_t(count), "allocate bond rotational weights");
+        checkCuda(cudaMemcpy(m_angularScale, scale.data(), sizeof(float) * scale.size(), cudaMemcpyHostToDevice), "upload bond rotational scales");
+        checkCuda(cudaMemcpy(m_angularWeight, weight.data(), sizeof(float) * weight.size(), cudaMemcpyHostToDevice), "upload bond rotational weights");
+        checkCuda(cudaMemcpy(m_offset0, m_hostOffset0.data(), sizeof(Vec4) * m_bondCount, cudaMemcpyHostToDevice), "upload centroid offsets");
+        checkCuda(cudaMemcpy(m_offset1, m_hostOffset1.data(), sizeof(Vec4) * m_bondCount, cudaMemcpyHostToDevice), "upload centroid offsets");
+        m_hostAngularScale = std::move(scale);
+        m_hostAngularInverse = std::move(inverse);
+        m_jacobiBuilt = false;
+        m_graphParamsDirty = true;
+        return true;
+#endif
+    }
+
     bool importPhysicalWarmStart(const ExtStressGpuImpulse* values, std::uint32_t count)
     {
         if (!values || count != m_bondCount || m_hasWarmStart) return false;
@@ -2121,7 +2188,11 @@ public:
             const float a = angularScale * m_hostColScale[i];
             const float l = linearScale * m_hostColScale[i];
             if (!std::isfinite(a) || !std::isfinite(l) || a <= 0 || l <= 0) return false;
-            const auto& v = values[i];
+            auto v = values[i];
+            if (!m_hostAngularInverse.empty()) {
+                const float* m = m_hostAngularInverse.data() + 6 * size_t(i);const auto t = v.angular;
+                v.angular = {m[0]*t.x + m[3]*t.y + m[4]*t.z, m[3]*t.x + m[1]*t.y + m[5]*t.z, m[4]*t.x + m[5]*t.y + m[2]*t.z};
+            }
             scaled[i].angular = {v.angular.x/a, v.angular.y/a, v.angular.z/a, 0};
             scaled[i].linear = {v.linear.x/l, v.linear.y/l, v.linear.z/l, 0};
             const auto& w = scaled[i];
@@ -2230,6 +2301,9 @@ private:
         bool deviceInput = false, void* producerReady = nullptr)
     {
         if (m_deviceTopology || m_deviceTopologyFailed) return false;
+        // Rotational stiffness is implemented by the native device-topology
+        // solve only (StressBondRotation.cuh); refuse the reference paths.
+        if (m_angularScale) return false;
         // Latch the bending policy the host resolved, so every kernel this
         // solve launches uses the same one the CPU walk does.
         m_bendGainMax = params.bendGainMax;
@@ -3631,10 +3705,18 @@ private:
             // Sharing each combined factor also saves four multiplies/bond.
             const float physicalAngularScale = angularScale * s_j;
             const float physicalLinearScale = linearScale * s_j;
+            Vec4 angular = value.angular;
+            if (!m_hostAngularScale.empty())
+            {
+                const float* m = m_hostAngularScale.data() + 6 * size_t(bond);
+                angular = makeVec(m[0] * angular.x + m[3] * angular.y + m[4] * angular.z,
+                                  m[3] * angular.x + m[1] * angular.y + m[5] * angular.z,
+                                  m[4] * angular.x + m[5] * angular.y + m[2] * angular.z);
+            }
             bondImpulses[bond].angular =
-                {value.angular.x * physicalAngularScale,
-                 value.angular.y * physicalAngularScale,
-                 value.angular.z * physicalAngularScale};
+                {angular.x * physicalAngularScale,
+                 angular.y * physicalAngularScale,
+                 angular.z * physicalAngularScale};
             bondImpulses[bond].linear =
                 {value.linear.x * physicalLinearScale,
                  value.linear.y * physicalLinearScale,
@@ -3657,6 +3739,12 @@ private:
         m_hostNormals.resize(m_bondCount);
         m_hostAreas.resize(m_bondCount);
         m_hostColScale.resize(m_bondCount);
+        // Raw geometry, for ExtStressGpuSetBondRotationalStiffness (springs at
+        // the bond's centroid). Authoring data, kept on the host only.
+        m_hostBondCentroids.resize(3 * size_t(m_bondCount));
+        m_hostNodePositions.resize(3 * size_t(m_nodeCount));
+        for (std::uint32_t i = 0; i < m_nodeCount; ++i)
+            for (unsigned k = 0; k < 3; ++k) m_hostNodePositions[3 * size_t(i) + k] = nodes[i].position[k];
         m_hostNodeDistances.resize(m_bondCount);
         m_hostHealth.resize(m_bondCount);
         m_hostBondMaterials.resize(m_bondCount);
@@ -3687,6 +3775,7 @@ private:
             }
             m_hostNode0[i] = bonds[i].node0;
             m_hostNode1[i] = bonds[i].node1;
+            for (unsigned k = 0; k < 3; ++k) m_hostBondCentroids[3 * size_t(i) + k] = bonds[i].centroid[k];
             const ExtStressGpuNode& first = nodes[bonds[i].node0];
             const ExtStressGpuNode& second = nodes[bonds[i].node1];
             const Vec4 displacement = makeVec(
@@ -4422,6 +4511,12 @@ private:
     PinnedVector<float> m_hostAreas;
     /// Per-bond compliance weight, the CPU processor's column scale.
     PinnedVector<float> m_hostColScale;
+    std::vector<float> m_hostBondCentroids, m_hostNodePositions;
+    // Per-bond rotational stiffness (StressBondRotation.cuh): host A and A^-1,
+    // device A and W = A^2, packed symmetric per bond; empty/null when off.
+    std::vector<float> m_hostAngularScale, m_hostAngularInverse;
+    float* m_angularScale{nullptr};
+    float* m_angularWeight{nullptr};
     PinnedVector<float> m_hostNodeDistances;
     PinnedVector<float> m_hostHealth;
     PinnedVector<std::uint32_t> m_hostBondMaterials;
@@ -4790,6 +4885,14 @@ bool ExtStressGpuImportWarmStart(ExtStressGpuSolver* solver,
 {
     if (!solver) return false;
     try { return static_cast<ExtStressGpuSolverImpl*>(solver)->importPhysicalWarmStart(impulses, count); }
+    catch (...) { return false; }
+}
+
+bool ExtStressGpuSetBondRotationalStiffness(ExtStressGpuSolver* solver,
+    const ExtStressGpuBondRotation* rows, std::uint32_t count)
+{
+    if (!solver) return false;
+    try { return static_cast<ExtStressGpuSolverImpl*>(solver)->setBondRotationalStiffness(rows, count); }
     catch (...) { return false; }
 }
 

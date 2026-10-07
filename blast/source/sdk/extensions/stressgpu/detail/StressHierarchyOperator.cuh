@@ -26,6 +26,26 @@ __device__ __forceinline__ double3 cross(double3 a,double3 b){return make_double
 __device__ __forceinline__ Vector add(Vector a,Vector b){return {add(a.angular,b.angular),add(a.linear,b.linear)};}
 __device__ __forceinline__ Vector sub(Vector a,Vector b){return {sub(a.angular,b.angular),sub(a.linear,b.linear)};}
 __device__ __forceinline__ Vector mul(Vector a,StressReal b){return {mul(a.angular,b),mul(a.linear,b)};}
+// A bond's rotational weight W (Input::angularWeight), or null: the uniform
+// length scale, whose arithmetic every caller then reproduces exactly.
+__device__ __forceinline__ const float* sourceRotation(const Input& a,unsigned bond){
+    if(!a.angularWeight)return nullptr;
+    return a.angularWeight+6*size_t(a.levelBonds?a.bondIdentity[bond]:bond);
+}
+// Packed symmetric 3x3 (xx yy zz xy xz yz) times a vector.
+__device__ __forceinline__ StressReal3 symmetricApply(const float* m,StressReal3 v){
+    return makeStressReal3(StressReal(m[0])*v.x+StressReal(m[3])*v.y+StressReal(m[4])*v.z,
+                           StressReal(m[3])*v.x+StressReal(m[1])*v.y+StressReal(m[5])*v.z,
+                           StressReal(m[4])*v.x+StressReal(m[5])*v.y+StressReal(m[2])*v.z);
+}
+// A bond's stiffness times its relative motion d: factor * diag(W, I) d, or
+// exactly mul(d, factor) for a bond with the uniform length scale. factor
+// carries s^2 and the endpoint's sign.
+__device__ __forceinline__ Vector bondFlux(const Input& a,unsigned bond,Vector d,StressReal factor){
+    const float* w=sourceRotation(a,bond);
+    if(!w)return mul(d,factor);
+    return {mul(symmetricApply(w,d.angular),factor),mul(d.linear,factor)};
+}
 __device__ __forceinline__ StressReal3 shift(const Input& input,unsigned node,unsigned root){
     const auto a=sourcePosition(input,node),b=sourcePosition(input,root);
     return makeStressReal3(StressReal(a.x)-b.x,StressReal(a.y)-b.y,StressReal(a.z)-b.z);
@@ -123,7 +143,7 @@ __device__ __forceinline__ Vector coarseNodeValue(const Input& input,Buffers b,
         Vector a{},c{};
         if(edge.a!=Invalid)a=couple(coarse[edge.a],edge.offset0);
         if(edge.b!=Invalid)c=couple(coarse[edge.b],edge.offset1);
-        const auto difference=mul(sub(a,c),edge.scale*edge.scale);
+        const auto difference=bondFlux(input,ref&0x7fffffffu,sub(a,c),edge.scale*edge.scale);
         const bool second=ref>>31;
         const auto response=transposeCouple(difference,second?edge.offset1:edge.offset0);
         out=add(out,mul(response,second?StressReal(-1):StressReal(1)));
@@ -147,10 +167,18 @@ __global__ void applyCoarse(Input input,Buffers b,const Status* status,const Vec
 // be fused into a resident V-cycle; this launch is its standalone qualifier.
 __device__ __forceinline__ Vector solveFineDiagonal(Buffers b,unsigned node,Vector value){
     const unsigned lane=threadIdx.x&31u;
-    const StressReal coefficient=lane<DiagonalEntries?b.diagonal[size_t(node)*DiagonalEntries+lane]:0;
+    StressReal coefficient=lane<DiagonalEntries?b.diagonal[size_t(node)*DiagonalEntries+lane]:0;
     StressReal rhs=lane==0?value.angular.x:lane==1?value.angular.y:lane==2?value.angular.z:
                lane==3?value.linear.x:lane==4?value.linear.y:lane==5?value.linear.z:0;
-    const StressReal first=__shfl_sync(0xffffffffu,coefficient,0);
+    StressReal first=__shfl_sync(0xffffffffu,coefficient,0);
+    // A negative first entry: the factor is in linear-first order
+    // (buildFineDiagonalParallelAxis). Solve the permuted system.
+    const bool linearFirst=first<0;
+    if(linearFirst){
+        const StressReal swapped=__shfl_sync(0xffffffffu,rhs,lane<3?lane+3:lane<6?lane-3:lane);
+        rhs=lane<6?swapped:rhs;
+        coefficient=lane==0?-coefficient:coefficient;first=-first;
+    }
     if(first==0)rhs=0;
     else {
         for(unsigned k=0;k<6;++k){
@@ -176,8 +204,9 @@ __device__ __forceinline__ Vector solveFineDiagonal(Buffers b,unsigned node,Vect
             else if(lane<unsigned(k))rhs-=upper*solved;
         }
     }
-    return {{__shfl_sync(0xffffffffu,rhs,0),__shfl_sync(0xffffffffu,rhs,1),__shfl_sync(0xffffffffu,rhs,2)},
-            {__shfl_sync(0xffffffffu,rhs,3),__shfl_sync(0xffffffffu,rhs,4),__shfl_sync(0xffffffffu,rhs,5)}};
+    const unsigned a=linearFirst?3:0,l=linearFirst?0:3;
+    return {{__shfl_sync(0xffffffffu,rhs,a),__shfl_sync(0xffffffffu,rhs,a+1),__shfl_sync(0xffffffffu,rhs,a+2)},
+            {__shfl_sync(0xffffffffu,rhs,l),__shfl_sync(0xffffffffu,rhs,l+1),__shfl_sync(0xffffffffu,rhs,l+2)}};
 }
 // A six-variable factor fits in a thread's registers. Independent nodes then
 // occupy independent lanes instead of serializing a component through eight
@@ -187,7 +216,14 @@ __device__ __forceinline__ Vector solveFineDiagonalThread(Buffers b,unsigned nod
 #pragma unroll
     for(unsigned k=0;k<DiagonalEntries;++k)factor[k]=b.diagonal[size_t(node)*DiagonalEntries+k];
     if(factor[0]==0)return {};
+    // A negative first entry: linear-first order (buildFineDiagonalParallelAxis).
+    const bool linearFirst=factor[0]<0;
+    if(linearFirst)factor[0]=-factor[0];
     StressReal rhs[6]={value.angular.x,value.angular.y,value.angular.z,value.linear.x,value.linear.y,value.linear.z};
+    if(linearFirst){
+#pragma unroll
+        for(unsigned k=0;k<3;++k){const StressReal t=rhs[k];rhs[k]=rhs[k+3];rhs[k+3]=t;}
+    }
 #pragma unroll
     for(unsigned k=0;k<6;++k){
         const StressReal solved=rhs[k]/factor[triangle(k,k)];rhs[k]=solved;
@@ -200,6 +236,7 @@ __device__ __forceinline__ Vector solveFineDiagonalThread(Buffers b,unsigned nod
 #pragma unroll
         for(unsigned row=0;row<unsigned(k);++row)rhs[row]-=factor[triangle(k,row)]*solved;
     }
+    if(linearFirst)return {{rhs[3],rhs[4],rhs[5]},{rhs[0],rhs[1],rhs[2]}};
     return {{rhs[0],rhs[1],rhs[2]},{rhs[3],rhs[4],rhs[5]}};
 }
 __global__ void applyFineDiagonal(Input input,Buffers b,const Status* status,const Vector* residual,Vector* result){

@@ -16,7 +16,7 @@ __device__ __forceinline__ Vector levelRowContribution(const Input& input,unsign
         if(first!=Invalid && input.component[first]!=Invalid)a=couple(scaledValue(x[first],sourceInertia(input,first)),sourceOffset(input,edge,false));
         if(second!=Invalid && input.component[second]!=Invalid)b=couple(scaledValue(x[second],sourceInertia(input,second)),sourceOffset(input,edge,true));
         const StressReal scale=sourceScale(input,edge);const bool back=ref>>31;
-        const auto flux=mul(sub(a,b),scale*scale*(back?StressReal(-1):StressReal(1)));
+        const auto flux=bondFlux(input,edge,sub(a,b),scale*scale*(back?StressReal(-1):StressReal(1)));
         out=add(out,scaledValue(transposeCouple(flux,sourceOffset(input,edge,back)),sourceInertia(input,node)));
     }
     return out;

@@ -101,12 +101,13 @@ __device__ __forceinline__ void updateNativeDirection(const PersistentStressArgs
     a.m_nsPi[node].angular=add(a.hierarchy.g[node].angular,mul(a.m_nsPi[node].angular,beta));
     a.m_nsPi[node].linear=add(a.hierarchy.g[node].linear,mul(a.m_nsPi[node].linear,beta));
 }
+template<bool Rotation=false>
 __device__ __forceinline__ void preconditionNativeGrid(const PersistentStressArgs& a,StressHierarchy::TerminalShared& shared){
     const auto grid=cooperative_groups::this_grid();const unsigned first=blockIdx.x*blockDim.x+threadIdx.x,stride=gridDim.x*blockDim.x;
     const auto v=a.hierarchy.cycle;
     if(!*a.m_iteration && !a.firstPolynomial){
         for(unsigned i=first;i<a.m_activeCounts[1];i+=stride){const unsigned node=a.m_activeNodes[i];if(a.m_islandActive[a.m_nodeIsland[node]])a.hierarchy.result[node]=a.hierarchy.rhs[node];}grid.sync();
-    }else StressHierarchy::cyclePass(v.levels,v.depth,v.pool,shared,a.hierarchy.rhs,a.hierarchy.result,StressHierarchy::Invalid,a.m_islandActive);
+    }else StressHierarchy::cyclePass<false,Rotation>(v.levels,v.depth,v.pool,shared,a.hierarchy.rhs,a.hierarchy.result,StressHierarchy::Invalid,a.m_islandActive);
     projectNativeNullspacesGrid(a,a.hierarchy.result);
     const unsigned islands=*a.liveIslandCount;
     for(unsigned i=first;i<islands;i+=stride)a.hierarchy.normalizer[a.islandIds[i]]=0;

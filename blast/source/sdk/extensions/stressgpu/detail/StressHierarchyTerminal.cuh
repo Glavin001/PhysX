@@ -41,7 +41,7 @@ __device__ __forceinline__ StressReal terminalCoefficient(const Input& a,unsigne
         if(sourceFirst(a,e)==columnNode)first=couple(x,sourceOffset(a,e,false));
         if(sourceSecond(a,e)==columnNode)second=couple(x,sourceOffset(a,e,true));
         const bool back=ref>>31;const StressReal scale=sourceScale(a,e);
-        const auto flux=mul(sub(first,second),scale*scale*(back?StressReal(-1):StressReal(1)));
+        const auto flux=bondFlux(a,e,sub(first,second),scale*scale*(back?StressReal(-1):StressReal(1)));
         const auto response=scaledValue(transposeCouple(flux,sourceOffset(a,e,back)),sourceInertia(a,node));
         value+=vectorCoordinate(response,row);
     }
@@ -126,7 +126,9 @@ __device__ __forceinline__ void constructTerminalComponent(const Input& a,Termin
     for(unsigned i=threadIdx.x;i<size;i+=blockDim.x)terminalScaling(a,b,s.nodes[i/6],i%6)=s.scaling[i];
     if(!threadIdx.x){b.kind[component]=s.coupled?2:1;b.owner[component]=level;}
 }
+template<bool Rotation=false>
 __global__ void constructTerminals(Input input,const Status* source,Status* status,Work* work,TerminalBuffers b,unsigned level){
+    if constexpr(!Rotation)input.angularWeight=nullptr; // a constant null: the uniform arithmetic exactly
     __shared__ TerminalShared shared;const auto grid=cooperative_groups::this_grid();
     const unsigned lane=blockIdx.x*blockDim.x+threadIdx.x;
     if(!lane){

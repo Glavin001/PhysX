@@ -19,10 +19,18 @@ __device__ __noinline__ void buildNativeRigidInverseCoefficients(const StressRea
     // Reconstruct the needed entries of D=L*L^T. Fine factors are already
     // resident and validated. No additional bond traversal or matrix upload.
     const StressReal* l=diagonal.diagonal+size_t(node)*DiagonalEntries;
-    StressReal c=0;for(unsigned j=0;j<=3;++j)c=fma(l[triangle(3,j)],l[triangle(3,j)],c);
-    const StressReal kx=fma(l[triangle(5,0)],l[triangle(1,0)],l[triangle(5,1)]*l[triangle(1,1)]);
-    StressReal ky=0;for(unsigned j=0;j<=2;++j)ky=fma(l[triangle(3,j)],l[triangle(2,j)],ky);
-    const StressReal kz=l[triangle(4,0)]*l[triangle(0,0)];
+    StressReal c,kx,ky,kz;
+    if(l[0]<0){
+        // Linear-first factor (buildFineDiagonalParallelAxis): L11 = sqrt(c) I,
+        // so D(lin a, ang b) = sqrt(c) L(3+b, a) and D(lin, lin) = c.
+        const StressReal root=-l[0];c=root*root;
+        kx=root*l[triangle(4,2)];ky=root*l[triangle(5,0)];kz=root*l[triangle(3,1)];
+    } else {
+    c=0;for(unsigned j=0;j<=3;++j)c=fma(l[triangle(3,j)],l[triangle(3,j)],c);
+    kx=fma(l[triangle(5,0)],l[triangle(1,0)],l[triangle(5,1)]*l[triangle(1,1)]);
+    ky=0;for(unsigned j=0;j<=2;++j)ky=fma(l[triangle(3,j)],l[triangle(2,j)],ky);
+    kz=l[triangle(4,0)]*l[triangle(0,0)];
+    }
     inverse[size_t(6)*stride+node]=kx/c;
     inverse[size_t(7)*stride+node]=ky/c;
     inverse[size_t(8)*stride+node]=kz/c;

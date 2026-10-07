@@ -19,7 +19,9 @@ __device__ __forceinline__ void buildSmootherRow(Input input,Buffers buffers,Ter
     }
     if(lane<DiagonalEntries)buffers.diagonal[size_t(node)*DiagonalEntries+lane]=coefficient;
 }
+template<bool Rotation=false>
 __global__ void constructSmoother(Input input,const Status* source,Status* status,Work* work,Buffers buffers,TerminalBuffers terminals,unsigned level){
+    if constexpr(!Rotation)input.angularWeight=nullptr; // a constant null: the uniform arithmetic exactly
     const auto grid=cooperative_groups::this_grid();const unsigned lane=blockIdx.x*blockDim.x+threadIdx.x;
     if(!lane){
         work->active=0;
@@ -58,7 +60,7 @@ public:
         mOwned=true;
         try{
             int device=0,sms=0,blocks=0,cooperative=0;check(cudaGetDevice(&device));check(cudaDeviceGetAttribute(&sms,cudaDevAttrMultiProcessorCount,device));
-            check(cudaDeviceGetAttribute(&cooperative,cudaDevAttrCooperativeLaunch,device));check(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&blocks,constructSmoother,Threads,0));
+            check(cudaDeviceGetAttribute(&cooperative,cudaDevAttrCooperativeLaunch,device));check(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&blocks,input.angularWeight?constructSmoother<true>:constructSmoother<false>,Threads,0));
             if(!cooperative || sms<=0 || blocks<=0)throw std::runtime_error("Resident smoother requires legal cooperative CUDA residency");
             mBlocks=std::min(std::max(1u,(input.nodes+7)/8),unsigned(sms*blocks));
             check(cudaMalloc(&mBuffers.diagonal,std::max(size_t(1),size_t(input.nodes)*DiagonalEntries)*sizeof(StressReal)));
@@ -70,7 +72,7 @@ public:
     cudaGraphNode_t append(cudaGraph_t graph,cudaGraphNode_t prior){
         if(mAppended)throw std::runtime_error("Resident smoother already appended");mAppended=true;if(!mOwned)return prior;
         void* args[]={&mInput,&mSource,&mStatus,&mWork,&mBuffers,&mTerminals,&mLevel};cudaKernelNodeParams params{};
-        params.func=(void*)constructSmoother;params.gridDim=dim3(mBlocks);params.blockDim=dim3(Threads);params.kernelParams=args;
+        params.func=mInput.angularWeight?(void*)constructSmoother<true>:(void*)constructSmoother<false>;params.gridDim=dim3(mBlocks);params.blockDim=dim3(Threads);params.kernelParams=args;
         cudaGraphNode_t node;check(cudaGraphAddKernelNode(&node,graph,&prior,1,&params));cudaKernelNodeAttrValue attribute{};attribute.cooperative=1;
         check(cudaGraphKernelNodeSetAttribute(node,cudaKernelNodeAttributeCooperative,&attribute));return node;
     }

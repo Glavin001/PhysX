@@ -72,6 +72,11 @@ struct Settings {
     // along its axis).
     float stiffnessScale=1.0f;
     bool momentAtCentroid=false;   // see prepareBond
+    // The elastic solve reports every bond's wrench at its centroid (section
+    // rotational stiffness, PX_DESTRUCTION_SECTION_ROTATIONAL_STIFFNESS)
+    // instead of at the chunks' midpoint: its application point P is the
+    // centroid for every bond.
+    bool solverAtCentroid=false;
     // The ramp starts at the first event -- the load fraction at which the
     // first joint reaches capacity in the elastic solution -- and grows by
     // rampFactor to the full load (event to event: before the first event
@@ -318,7 +323,7 @@ __device__ __forceinline__ bool prepareBond(const Inputs& in,const Settings& s,P
     // capacity is the one today's verdict uses (and the trigger matches it at
     // rest). momentAtCentroid moves E's wrench to the centroid (the impact
     // study's convention, for comparison with it); pc converts between the two.
-    const PxVec3 P=(c0.mass>0.0f && c1.mass>0.0f)?c0.position+displacement*0.5f:bond.centroid;
+    const PxVec3 P=(!s.solverAtCentroid && c0.mass>0.0f && c1.mass>0.0f)?c0.position+displacement*0.5f:bond.centroid;
     const PxVec3 point=s.momentAtCentroid?bond.centroid:P;
     const PxVec3 o0=point-c0.position,o1=point-c1.position,pc=P-point;
     b.o0[0]=o0.x;b.o0[1]=o0.y;b.o0[2]=o0.z;b.o1[0]=o1.x;b.o1[1]=o1.y;b.o1[2]=o1.z;

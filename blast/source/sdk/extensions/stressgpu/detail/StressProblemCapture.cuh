@@ -86,6 +86,9 @@ struct NativeProblemSources {
     const AngLin* impulses;const Vec4* normals;const float* areas;const float* nodeDistances;
     const std::uint32_t* bondMaterials;const ExtStressGpuMaterial* materials;unsigned materialCount;
     float lengthScale,massScale;
+    // Per-bond rotational scale A (StressBondRotation.cuh), packed symmetric,
+    // or null: written as <solve>.rotation.bin (6 floats per bond).
+    const float* angularScale=nullptr;
 };
 class NativeProblemCapture {
     CapturedStressNode* nodes=nullptr;CapturedStressBond* bonds=nullptr;
@@ -179,13 +182,16 @@ public:
         write(path+".lambda.bin",hostLambda.data(),m*sizeof(AngLin));
         write(path+".geometry.bin",hostGeometry.data(),m*sizeof(CapturedStressBondGeometry));
         write(path+".history.bin",hostHistory.data(),hostHistory.size()*sizeof(float));
+        if(sources.angularScale){std::vector<float> rotation(6*m);
+            checkCuda(cudaMemcpy(rotation.data(),sources.angularScale,rotation.size()*sizeof(float),cudaMemcpyDeviceToHost),"observe bond rotational scales");
+            write(path+".rotation.bin",rotation.data(),rotation.size()*sizeof(float));}
         char scales[160];std::snprintf(scales,sizeof(scales),"\"length_scale\":%.9g,\"mass_scale\":%.9g",double(sources.lengthScale),double(sources.massScale));
         std::string mats="[";
         for(std::size_t k=0;k<materials.size();++k){const auto& x=materials[k];char b[256];
             std::snprintf(b,sizeof(b),"%s[%.9g,%.9g,%.9g,%.9g,%.9g,%.9g]",k?",":"",double(x.compressionElasticLimit),double(x.compressionFatalLimit),
                 double(x.tensionElasticLimit),double(x.tensionFatalLimit),double(x.shearElasticLimit),double(x.shearFatalLimit));mats+=b;}
         mats+="]";
-        const auto meta=std::string("{\"version\":2,\"solve\":")+std::to_string(solve)+",\"node_count\":"+std::to_string(n)
+        const auto meta=std::string("{\"version\":2,")+(sources.angularScale?"\"rotation\":\"A per bond: xx yy zz xy xz yz (float)\",":"")+"\"solve\":"+std::to_string(solve)+",\"node_count\":"+std::to_string(n)
             +",\"bond_count\":"+std::to_string(m)+",\"record_bytes\":64,\"endian\":\"little\",\"stage\":\"after warm residual, before component solve\""
             +",\"component_count\":"+std::to_string(componentCount)+",\"history_limit\":"+std::to_string(historyLimit)
             +",\"history_fields\":[\"residual2\",\"gamma\",\"direction\"],\"solution_record_bytes\":80,\"component_record_bytes\":64"

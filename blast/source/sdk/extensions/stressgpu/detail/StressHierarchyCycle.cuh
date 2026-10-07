@@ -17,7 +17,9 @@ struct CycleLevel {
 template<bool Local> struct CycleWork {
     unsigned component;
     const unsigned* active=nullptr;
-    __device__ bool enabled(const Input& a,unsigned node)const {return a.component[node]!=Invalid && (!active || active[a.component[node]]);}
+    // Inline: out of line, CuMetal cannot prove the address space of `active`
+    // across its call sites once the cycle's operator bodies grow.
+    __device__ __forceinline__ bool enabled(const Input& a,unsigned node)const {return a.component[node]!=Invalid && (!active || active[a.component[node]]);}
     __device__ unsigned first()const {if constexpr(Local)return threadIdx.x/8;else return (blockIdx.x*blockDim.x+threadIdx.x)/8;}
     __device__ unsigned stride()const {if constexpr(Local)return blockDim.x/8;else return gridDim.x*(blockDim.x/8);}
     __device__ unsigned threadFirst()const {if constexpr(Local)return threadIdx.x;else return blockIdx.x*blockDim.x+threadIdx.x;}
@@ -28,8 +30,14 @@ template<bool Local> struct CycleWork {
     __device__ unsigned childNode(const PackingBuffers& b,unsigned i)const {if constexpr(Local)return b.componentBegin[component]+i;else return i;}
     __device__ void sync()const {if constexpr(Local)__syncthreads();else cooperative_groups::this_grid().sync();}
 };
+// Rotation (ExtStressGpuSetBondRotationalStiffness) is a compile-time choice:
+// without it every level's angularWeight is a constant null, so the uniform
+// arithmetic compiles exactly as it did before per-bond weights existed.
+template<bool Rotation=false>
 __device__ __forceinline__ CycleLevel cycleView(const CycleLevel* levels,unsigned index,const Vector* rhs,Vector* output){
-    CycleLevel level=levels[index];if(!index){level.rhs=rhs;level.x=output;}level.input=resolvedInput(level.input);return level;
+    CycleLevel level=levels[index];if(!index){level.rhs=rhs;level.x=output;}level.input=resolvedInput(level.input);
+    if constexpr(!Rotation)level.input.angularWeight=nullptr;
+    return level;
 }
 __device__ __forceinline__ bool smoothedNode(const CycleLevel& d,TerminalBuffers pool,unsigned level,unsigned node){
     return d.input.component[node]!=Invalid && pool.owner[d.input.component[node]]!=level;
@@ -58,7 +66,7 @@ __device__ __forceinline__ Vector cycleCoarseEffect(CycleLevel parent,unsigned n
         if(e.b!=Invalid && parent.child.nodeMap[e.b]!=Invalid)b=childX[parent.child.nodeMap[e.b]];
         if(e.a==e.b)difference={makeStressReal3(0,0,0),cross(sub(e.offset0,e.offset1),a.angular)};
         else difference=sub(couple(a,e.offset0),couple(b,e.offset1));
-        const bool back=ref>>31;const auto flux=mul(difference,e.scale*sourceScale(parent.input,edge)*(back?StressReal(-1):StressReal(1)));
+        const bool back=ref>>31;const auto flux=bondFlux(parent.input,edge,difference,e.scale*sourceScale(parent.input,edge)*(back?StressReal(-1):StressReal(1)));
         sum=add(sum,scaledValue(transposeCouple(flux,sourceOffset(parent.input,edge,back)),sourceInertia(parent.input,node)));
     }
     return sum;
@@ -155,7 +163,7 @@ __device__ __forceinline__ void cyclePostsmooth(CycleLevel d,TerminalBuffers poo
         d.x[node]=add(d.x[node],correction);
     }
 }
-template<bool Local=false>
+template<bool Local=false,bool Rotation=false>
 __device__ __forceinline__ void cyclePass(const CycleLevel* levels,unsigned depth,TerminalBuffers pool,TerminalShared& shared,const Vector* rhs,Vector* output,unsigned component=Invalid,const unsigned* active=nullptr){
     CycleWork<Local> work{component,active};unsigned last=0;
 #ifdef BLAST_GPU_COMPONENT_PHASE_PROBE
@@ -165,7 +173,7 @@ __device__ __forceinline__ void cyclePass(const CycleLevel* levels,unsigned dept
 #define CYCLE_PROBE_END(index)
 #endif
     for(unsigned level=0;level<depth;++level){
-        auto d=cycleView(levels,level,rhs,output);last=level;
+        auto d=cycleView<Rotation>(levels,level,rhs,output);last=level;
         cyclePresmooth(d,pool,level,work);
         CYCLE_PROBE_END(0)
         // Presmoothing skips terminal rows; these writes are disjoint and need
@@ -184,7 +192,7 @@ __device__ __forceinline__ void cyclePass(const CycleLevel* levels,unsigned dept
         CYCLE_PROBE_END(3)
     }
     for(int level=int(last);level>=0;--level){
-        auto d=cycleView(levels,unsigned(level),rhs,output);
+        auto d=cycleView<Rotation>(levels,unsigned(level),rhs,output);
         if(unsigned(level)<last){cycleCorrectAndSmooth(d,pool,unsigned(level),levels[level+1].x,work);work.sync();}
         else {cycleResidual(d,pool,unsigned(level),work);work.sync();cyclePostsmooth(d,pool,unsigned(level),work);work.sync();}
         CYCLE_PROBE_END(4)

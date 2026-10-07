@@ -17,6 +17,7 @@
     bool solveDeviceAsync(const ExtStressGpuImpulse* inputs, std::uint32_t count,
         const ExtStressGpuSolveParams& params, void* producerReady, void* consumerDone) override
     {
+        if (m_angularScale && !m_deviceTopology) return false;
         if (!inputs || count != m_nodeCount || !m_bondCount || !params.maxIterations
             || !std::isfinite(params.tolerance) || params.tolerance <= 0
             || params.skipSettledIslands || params.skipStableUnconverged || params.applyDamage
@@ -46,15 +47,15 @@
         m_workCapture->begin(m_stream);
 #endif
         executeSolve(params);
-        exportPhysicalImpulses<<<(m_bondCount+kBlockSize-1)/kBlockSize, kBlockSize, 0, m_stream>>>(
+        (m_angularScale ? exportPhysicalImpulses<true> : exportPhysicalImpulses<false>)<<<(m_bondCount+kBlockSize-1)/kBlockSize, kBlockSize, 0, m_stream>>>(
             m_impulses, m_colScales, m_devicePhysicalImpulses, m_bondCount,
-            m_lengthScale*m_lengthScale*m_massScale, m_lengthScale*m_massScale);
+            m_lengthScale*m_lengthScale*m_massScale, m_lengthScale*m_massScale, m_angularScale);
         if (m_deviceTopology) markDeviceStressSolved<<<1,1,0,m_stream>>>(m_deviceTopology->status());
         checkCuda(cudaGetLastError(), "export resident bond forces");
         checkCuda(cudaEventRecord(m_statusReady, m_stream), "record resident stress completion");
 #ifdef BLAST_GPU_COMPONENT_WORK_CAPTURE
 #ifdef BLAST_GPU_NATIVE_PROBLEM_CAPTURE
-        m_workCapture->problemSources({m_impulses,m_normals,m_areas,m_nodeDistances,m_bondMaterials,m_materials,m_materialCount,m_lengthScale,m_massScale});
+        m_workCapture->problemSources({m_impulses,m_normals,m_areas,m_nodeDistances,m_bondMaterials,m_materials,m_materialCount,m_lengthScale,m_massScale,m_angularScale});
 #endif
         m_workCapture->finish(m_stream);
 #endif
@@ -128,6 +129,7 @@
                 m_selectScratch,m_selectScratchBytes,m_reductionOrder};
 #ifdef PHYSX_RESIDENT_DESTRUCTION
             buffers.positions=m_positions;
+            buffers.angularWeight=m_angularWeight;
 #endif
             m_deviceTopology = new DeviceStressTopology(buffers);
             m_deviceTopology->init(m_stream);

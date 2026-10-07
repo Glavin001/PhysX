@@ -59,7 +59,7 @@ __device__ __forceinline__ void nodeSpaceBondRange(
     const std::uint32_t* node0, const std::uint32_t* node1, const Vec4* offset0, const Vec4* offset1,
     const float* health, const float* colScale, const std::uint32_t* bondIsland, const std::uint32_t* islandSkip,
     bool withW, const Vec4 selfAng, const Vec4 selfLin, std::uint32_t begin, std::uint32_t end,
-    Vec4& accAng, Vec4& accLin, float& zSq)
+    Vec4& accAng, Vec4& accLin, float& zSq, const float* angularWeight = nullptr)
 {
     for (std::uint32_t i = begin; i < end; ++i)
     {
@@ -102,13 +102,22 @@ __device__ __forceinline__ void nodeSpaceBondRange(
         // on the way back -- so the whole bond term carries s_j^2.
         const float s_j = colScale[bond];
         const float s2 = s_j * s_j;
-        const Vec4 tAng = mul(sub(a0, a1), s2);
+        // Rotational stiffness (StressBondRotation.cuh): the angular rows carry
+        // s^2 W, and the bond's share of the norm is d'(s^2 W)d + |t_lin|^2/s^2.
+        const float* weight = angularWeight ? angularWeight + 6 * size_t(bond) : nullptr;
+        const Vec4 tAng = weight ? mul(bondRotationApply(weight, sub(a0, a1)), s2) : mul(sub(a0, a1), s2);
         const Vec4 tLin =
             mul(add(sub(l0, l1), sub(cross(o0, a0), cross(o1, a1))), s2);
 
         // Own the bond from the node-0 side, or from the dynamic side when
         // node 0 is static (that side never runs). Exactly once, either way.
-        if (owns)
+        if (owns && weight)
+        {
+            const Vec4 d = sub(a0, a1);
+            zSq += d.x * tAng.x + d.y * tAng.y + d.z * tAng.z
+                 + (tLin.x * tLin.x + tLin.y * tLin.y + tLin.z * tLin.z) / s2;
+        }
+        else if (owns)
         {
             // ||s_j t_j||^2 == |s_j^2 t_j|^2 / s_j^2
             zSq += (tAng.x * tAng.x + tAng.y * tAng.y + tAng.z * tAng.z
@@ -157,7 +166,7 @@ __device__ __forceinline__ void nodeSpaceMatvecBody(
     // q = w + beta q from drifting (the pipelined-CG trade).
     const std::uint32_t* iterationPtr,
     std::uint32_t refreshEvery, unsigned logicalBlock,
-    float* nodeContribution = nullptr)
+    float* nodeContribution = nullptr, const float* angularWeight = nullptr)
 {
     if (refreshEvery != 0u && (*iterationPtr % refreshEvery) != 0u)
     {
@@ -205,7 +214,7 @@ __device__ __forceinline__ void nodeSpaceMatvecBody(
 
     nodeSpaceBondRange(rho, inertia, nodeBondRef, node0, node1, offset0, offset1, health, colScale,
         bondIsland, islandSkip, w != nullptr, selfAng, selfLin, nodeBondBegin[node], nodeBondBegin[node + 1],
-        accAng, accLin, zSq);
+        accAng, accLin, zSq, angularWeight);
 
     // Native projected CG needs the original convergence norm, but not L*r.
     // A null destination removes the unused accumulation and output writes.

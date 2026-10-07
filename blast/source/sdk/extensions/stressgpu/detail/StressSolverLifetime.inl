@@ -164,6 +164,8 @@ uploadIslands();
         cudaFree(m_brokenBonds);
         cudaFree(m_health);
         cudaFree(m_colScales);
+        cudaFree(m_angularScale);
+        cudaFree(m_angularWeight);
         cudaFree(m_nodeDistances);
         cudaFree(m_materials);
         cudaFree(m_bondMaterials);

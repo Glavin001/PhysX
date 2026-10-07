@@ -64,7 +64,7 @@ __device__ __forceinline__ float componentForceNorm2(const PersistentStressArgs&
                 const auto x=StressHierarchy::scaledValue(a.hierarchy.solution[n0],make_float2(a.m_inertia[n0].angular,a.m_inertia[n0].linear));
                 const auto y=StressHierarchy::scaledValue(a.hierarchy.solution[n1],make_float2(a.m_inertia[n1].angular,a.m_inertia[n1].linear));
                 const auto r0=a.m_offset0[bond],r1=a.m_offset1[bond];
-                const auto d=StressHierarchy::mul(StressHierarchy::sub(StressHierarchy::couple(x,makeStressReal3(r0.x,r0.y,r0.z)),
+                const auto d=bondScaled(a.m_angularScale,bond,StressHierarchy::sub(StressHierarchy::couple(x,makeStressReal3(r0.x,r0.y,r0.z)),
                     StressHierarchy::couple(y,makeStressReal3(r1.x,r1.y,r1.z))),StressReal(a.m_colScales[bond]));
                 f.angular.x+=float(d.angular.x);f.angular.y+=float(d.angular.y);f.angular.z+=float(d.angular.z);
                 f.linear.x+=float(d.linear.x);f.linear.y+=float(d.linear.y);f.linear.z+=float(d.linear.z);
@@ -121,7 +121,7 @@ __device__ __forceinline__ float componentOperatorBalanced(const PersistentStres
             const unsigned firstSlot=a.m_nodeBondBegin[node]+(code>>20)*ComponentChunks::kSlots;
             const unsigned lastSlot=min(firstSlot+ComponentChunks::kSlots,a.m_nodeBondBegin[node+1]);
             nodeSpaceBondRange(rho,a.m_inertia,a.m_nodeBondRef,a.m_node0,a.m_node1,a.m_offset0,a.m_offset1,a.m_health,a.m_colScales,
-                a.m_bondIsland,nullptr,w!=nullptr,mul(selfRho.angular,inv.angular),mul(selfRho.linear,inv.linear),firstSlot,lastSlot,accAng,accLin,zSq);
+                a.m_bondIsland,nullptr,w!=nullptr,mul(selfRho.angular,inv.angular),mul(selfRho.linear,inv.linear),firstSlot,lastSlot,accAng,accLin,zSq,a.m_angularWeight);
         }
         out[0]=accAng.x;out[1]=accAng.y;out[2]=accAng.z;out[3]=accLin.x;out[4]=accLin.y;out[5]=accLin.z;out[6]=zSq;
     }
@@ -153,6 +153,7 @@ __device__ unsigned componentBalanceTrace[4];
 #else
 #define COMPONENT_ABLATE(bit) false
 #endif
+template<bool Rotation=false>
 __global__ void componentStressSolve(
 #if defined(PX_CUMETAL_EXPLICIT_HIERARCHY_ROOT) && PX_CUMETAL_EXPLICIT_HIERARCHY_ROOT
     PersistentStressArgs original,ResidentStressComponentView c,
@@ -167,6 +168,7 @@ __global__ void componentStressSolve(
     PersistentStressArgs a=original;
     a.hierarchy.cycle.levels=cycleLevels;
 #endif
+    if constexpr(!Rotation){a.m_angularScale=nullptr;a.m_angularWeight=nullptr;}
     __shared__ unsigned counts[2], iteration, activeCount, slot;
     __shared__ SolveStatus status;
     __shared__ float reduceValue;
@@ -252,7 +254,7 @@ __global__ void componentStressSolve(
                 nodeSpaceMatvecBody(nullptr,a.m_residual,a.m_inertia,a.m_nodeBondBegin,a.m_nodeBondRef,
                     a.m_node0,a.m_node1,a.m_offset0,a.m_offset1,a.m_health,a.m_colScales,a.m_bondIsland,
                     nullptr,a.m_nodeIsland,a.m_islandActive,true,nullptr,1u,c.nodes+begin,
-                    counts,&iteration,0u,block,&contribution);
+                    counts,&iteration,0u,block,&contribution,a.m_angularWeight);
                 if(a.nodeResidual2){const unsigned local=block*blockDim.x+threadIdx.x;if(local<count)a.nodeResidual2[c.nodes[begin+local]]=contribution;}
                 squared+=contribution;
             }
@@ -267,7 +269,7 @@ __global__ void componentStressSolve(
                 float verified=balanced?componentOperatorBalanced(a,c.nodes+begin,count,chunks,nullptr,a.m_residual,a.nodeResidual2):0.f;
                 for(unsigned block=0;block<nodeBlocks && !balanced;++block){float contribution=0;
                     nodeSpaceMatvecBody(nullptr,a.m_residual,a.m_inertia,a.m_nodeBondBegin,a.m_nodeBondRef,a.m_node0,a.m_node1,a.m_offset0,a.m_offset1,a.m_health,a.m_colScales,a.m_bondIsland,
-                        nullptr,a.m_nodeIsland,a.m_islandActive,true,nullptr,1u,c.nodes+begin,counts,&iteration,0u,block,&contribution);
+                        nullptr,a.m_nodeIsland,a.m_islandActive,true,nullptr,1u,c.nodes+begin,counts,&iteration,0u,block,&contribution,a.m_angularWeight);
                     if(a.nodeResidual2){const unsigned local=block*blockDim.x+threadIdx.x;if(local<count)a.nodeResidual2[c.nodes[begin+local]]=contribution;}
                     verified+=contribution;
                 }
@@ -334,7 +336,7 @@ __global__ void componentStressSolve(
                 float contribution=0;
                 nodeSpaceMatvecBody(a.m_nsQ,a.m_nsPi,a.m_inertia,a.m_nodeBondBegin,a.m_nodeBondRef,a.m_node0,a.m_node1,
                     a.m_offset0,a.m_offset1,a.m_health,a.m_colScales,a.m_bondIsland,nullptr,a.m_nodeIsland,a.m_islandActive,true,
-                    nullptr,1u,c.nodes+begin,counts,&iteration,0u,block,&contribution);
+                    nullptr,1u,c.nodes+begin,counts,&iteration,0u,block,&contribution,a.m_angularWeight);
                 squared+=contribution;
             }
             const float denominator=componentSquaredNorm(squared);

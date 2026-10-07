@@ -143,7 +143,9 @@ __device__ __forceinline__ StressReal3 motionAxisReal(const MotionComponent& c,u
     return makeStressReal3(StressReal(coordinate==0),StressReal(coordinate==1),StressReal(coordinate==2));
 }
 __device__ __forceinline__ StressReal motionDotReal(StressReal3 a,StressReal3 b){return a.x*b.x+a.y*b.y+a.z*b.z;}
-__device__ void projectMotionComponent(Input a,MotionModeView modes,unsigned id,const unsigned* nodes,unsigned count,Vector* values){
+// Inline: out of line, CuMetal's pointer-field proof spans every caller and
+// ran out of budget once the solve kernels had a rotational specialization.
+__device__ __forceinline__ void projectMotionComponent(Input a,MotionModeView modes,unsigned id,const unsigned* nodes,unsigned count,Vector* values){
     const auto& c=modes.components[id];const unsigned dimension=motionDimension(c);if(!dimension)return;
     __shared__ StressReal partial[6][Threads/32],coefficients[6];StressReal sum[6]{};
     for(unsigned i=threadIdx.x;i<count;i+=blockDim.x){const unsigned node=nodes?nodes[i]:a.partition.begin[id]+i;
