@@ -128,10 +128,27 @@ struct Result {
     std::vector<PxDestructionBondVerdict> verdicts;
     std::vector<PxU32> impact;std::vector<float> accel; impact::Status status{};
 };
+// The solver's application point of bond b (the chunks' midpoint, or the centroid at a support).
+PxVec3 solverPoint(const Structure& s,const PxDestructionStressBond& b){
+    PxVec3 o0,o1;offsets(s,b,o0,o1);
+    return s.chunks[b.chunk0].mass>0?s.chunks[b.chunk0].position+o0:s.chunks[b.chunk1].position+o1;
+}
+// Wrenches reported at each bond's centroid (section rotational stiffness):
+// M_c = M_P + (c - P) x F; `back` undoes it.
+std::vector<PxDestructionVectorPair> atCentroid(const Structure& s,std::vector<PxDestructionVectorPair> J,bool back=false){
+    for(size_t k=0;k<J.size();++k){const auto& b=s.bonds[k];const PxVec3 t=(b.centroid-solverPoint(s,b)).cross(J[k].linear);
+        J[k].angular+=back?-t:t;}
+    return J;
+}
+// centroid: the elastic forces and the base reported at the bonds' centroids,
+// as the stress solve reports them with section rotational stiffness (E's
+// settings.solverAtCentroid and the material kernel's momentAtCentroid say so);
+// Result's forces are then in that convention too.
 Result evaluate(const Structure& s,const std::vector<PxVec3>& F,const std::vector<PxVec3>& T,
-    const std::vector<PxDestructionVectorPair>& base,bool withImpact,impact::Settings settings=impact::Settings{}){
+    std::vector<PxDestructionVectorPair> base,bool withImpact,impact::Settings settings=impact::Settings{},bool centroid=false){
     const PxU32 n=PxU32(s.chunks.size()),m=PxU32(s.bonds.size());
     Result out;out.elastic=elastic(s,F,T);
+    if(centroid){out.elastic=atCentroid(s,out.elastic);base=atCentroid(s,base);}
     std::vector<PxU32> begin(n+1,0),refs(2*m);
     for(const auto& b:s.bonds){++begin[b.chunk0+1];++begin[b.chunk1+1];}
     for(PxU32 i=0;i<n;++i)begin[i+1]+=begin[i];
@@ -157,7 +174,7 @@ Result evaluate(const Structure& s,const std::vector<PxVec3>& F,const std::vecto
     (void)withImpact;(void)settings;
 #endif
     evaluateBondMaterials<<<(m+127)/128,128,0,stream>>>(chunks.p,bonds.p,materials.p,dHealth.p,dElastic.p,m,settings.dt,2.0f,
-        settings.bendGainMax,true,verdicts.p,centroids.p,stage.p,false,nullptr,view);
+        settings.bendGainMax,true,verdicts.p,centroids.p,stage.p,false,nullptr,centroid,view);
     check(cudaStreamSynchronize(stream));check(cudaGetLastError());
     out.verdicts=verdicts.get();
     out.forces=out.elastic;out.impact.assign(m,impact::eNONE);out.accel.assign(6*size_t(n),0.0f);
@@ -306,7 +323,48 @@ void rest(){
     expect(d.status.triggered==0 && commands>0 && !std::memcmp(c.verdicts.data(),d.verdicts.data(),sizeof(c.verdicts[0])*c.verdicts.size()),text);
 }
 
-// 4. Ci: crush by the impact's contact pressure Z1 Z2 / (Z1 + Z2) v through the
+// 4. With section rotational stiffness the stress solve reports every bond's
+// wrench at its centroid. E fed that convention (solverAtCentroid) is the same
+// solve as E fed the midpoint convention with its wrench point moved to the
+// centroid (momentAtCentroid): the same breaks, and the same forces once
+// converted -- the wall's hit, where E breaks the mortar and the tie.
+void centroidConvention(){
+    std::printf("E fed wrenches at the bonds' centroids (section rotational stiffness)\n");
+    Structure s;
+    const PxU32 footing=s.chunk(PxVec3(0,-0.1f,0),0,0),plate=s.chunk(PxVec3(0,-0.1f,0.15f),0,0),head=s.chunk(PxVec3(0,1.1f,0.15f),0,0);
+    const PxU32 brick=s.chunk(PxVec3(0,0.5f,0),110,9.4f),stud=s.chunk(PxVec3(0,0.5f,0.15f),1.7f,0.14f);
+    const PxU32 mortar=s.material(6.8e6f,0.3e6f,0.3e6f,0.0f),tieMat=s.material(2e3f/1e-5f,1.5e3f/1e-5f,1e3f/1e-5f,0.0f);
+    const PxU32 nailed=s.material(2.5e6f,1.5e3f/4e-3f,1.5e3f/4e-3f,0.015f);
+    auto weight=[](float E,float A,float L){return std::sqrt(E/30e9f*A/L);};
+    s.bond(footing,brick,PxVec3(0,0,0),PxVec3(0,1,0),0.11f,mortar,weight(6.8e9f,0.11f,0.6f));
+    // Off the chunks' midpoint, so the two conventions differ for this bond.
+    s.bond(brick,stud,PxVec3(0,0.8f,0.075f),PxVec3(0,0,1),1e-5f,tieMat,weight(200e9f,1e-5f,0.04f));
+    s.bond(plate,stud,PxVec3(0,0,0.15f),PxVec3(0,1,0),4e-3f,nailed,weight(0.37e9f,4e-3f,0.5f));
+    s.bond(stud,head,PxVec3(0,1.0f,0.15f),PxVec3(0,1,0),4e-3f,nailed,weight(0.37e9f,4e-3f,0.5f));
+    s.gravity();
+    const auto rest=elastic(s,s.force,s.torque);
+    char text[256];
+    for(float hit:{0.0f,360e3f}) {
+        auto F=s.force;F[brick]+=PxVec3(0,0,hit);
+        impact::Settings midpoint;midpoint.momentAtCentroid=true;
+        impact::Settings centroid;centroid.solverAtCentroid=true;
+        const auto a=evaluate(s,F,s.torque,rest,true,midpoint),b=evaluate(s,F,s.torque,rest,true,centroid,true);
+        const auto bf=atCentroid(s,b.forces,true);
+        float worst=0,scale=0;
+        for(size_t k=0;k<s.bonds.size();++k){
+            worst=std::max({worst,(a.forces[k].linear-bf[k].linear).magnitude(),(a.forces[k].angular-bf[k].angular).magnitude()});
+            scale=std::max({scale,a.forces[k].linear.magnitude(),a.forces[k].angular.magnitude()});
+        }
+        bool same=a.status.triggered==b.status.triggered && a.status.broken==b.status.broken;
+        for(size_t k=0;k<s.bonds.size();++k)same=same && a.impact[k]==b.impact[k] && (a.verdicts[k].health>0)==(b.verdicts[k].health>0);
+        std::snprintf(text,sizeof text,"%.0f kN hit: %u islands solved, %u broken in both; forces agree to %.1e of the largest (%.0f N)",
+            hit/1e3f,b.status.triggered,b.status.broken,scale>0?worst/scale:0.0f,scale);
+        expect(same && worst<=2e-4f*scale,text);
+        if(hit>0)expect(b.status.triggered>0 && b.impact[0]==impact::eBROKEN && b.impact[1]==impact::eBROKEN,"  the hit is E's: mortar and tie broken");
+    }
+}
+
+// 5. Ci: crush by the impact's contact pressure Z1 Z2 / (Z1 + Z2) v through the
 // masonry crush law (town-kit materials.mjs CRUSH, EN 1996-1-1 f_k 6.8 MPa).
 // A steel ball at 60 m/s crushes a brick chunk (~200 MPa against a one-tick
 // threshold of ~25 MPa); the same ball at 1 m/s does not; a truck's front,
@@ -336,7 +394,7 @@ void impactCrush(){
 
 int main(int argc,char** argv){
     (void)argc;(void)argv;
-    try{physx::column();physx::wall();physx::rest();physx::impactCrush();}
+    try{physx::column();physx::wall();physx::rest();physx::centroidConvention();physx::impactCrush();}
     catch(const std::exception& e){std::printf("error: %s\n",e.what());return 2;}
     std::printf("%s (%d failed)\n",physx::failures?"FAILED":"passed",physx::failures);
     return physx::failures?1:0;
