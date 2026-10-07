@@ -763,7 +763,10 @@ class Runtime final : public PxgDestructionRuntime {
     // the island solve, the ramp's start (the forces before this tick's trial
     // solve), per-material ductile slip and stiffness.
     impact::Stage mImpact;impact::Settings mImpactSettings;bool mImpactEnabled=false;
-    PxDestructionVectorPair* mImpactBase{};float *mImpactSlip{},*mImpactStiffness{};
+    // mImpactBase: the elastic forces before this tick; mImpactState: the forces
+    // the last evaluation settled on (E's where it solved), mImpactStart: those
+    // at the start of this tick (kept for its corrected pass).
+    PxDestructionVectorPair *mImpactBase{},*mImpactState{},*mImpactStart{};float *mImpactSlip{},*mImpactStiffness{};
     impact::Status* mImpactHostStatus{};
     // Impact-pressure crush (Ci): per-chunk impact stress and strain rate of
     // this pass's contacts, and the non-destructible impactors' impedance.
@@ -1375,6 +1378,7 @@ public:
         cudaFree(mBondCentroids);mBondCentroids=nullptr;cudaFree(mVerdicts);mVerdicts=nullptr;
         cudaFree(mSections);mSections=nullptr;mSectionBending=false;
         mImpact.release();mImpactEnabled=false;cudaFree(mImpactBase);mImpactBase=nullptr;
+        cudaFree(mImpactState);mImpactState=nullptr;cudaFree(mImpactStart);mImpactStart=nullptr;
         cudaFree(mImpactSlip);mImpactSlip=nullptr;cudaFree(mImpactStiffness);mImpactStiffness=nullptr;
         cudaFreeHost(mImpactHostStatus);mImpactHostStatus=nullptr;
         mImpactCrush=false;cudaFree(mImpactStress);mImpactStress=nullptr;cudaFree(mImpactRate);mImpactRate=nullptr;
@@ -1613,6 +1617,8 @@ public:
                     check(cudaMemcpy(mImpactSlip,slip.data(),sizeof(float)*slip.size(),cudaMemcpyHostToDevice));
                     check(cudaMemcpy(mImpactStiffness,stiffness.data(),sizeof(float)*stiffness.size(),cudaMemcpyHostToDevice));
                     allocate(mImpactBase,d.bondCount);check(cudaMemset(mImpactBase,0,sizeof(*mImpactBase)*d.bondCount));
+                    allocate(mImpactState,d.bondCount);check(cudaMemset(mImpactState,0,sizeof(*mImpactState)*d.bondCount));
+                    allocate(mImpactStart,d.bondCount);
                     check(cudaMallocHost(&mImpactHostStatus,sizeof(*mImpactHostStatus)));
                     mImpact.allocate(d.chunkCount,d.bondCount);mImpactEnabled=true;
                 }
@@ -2025,6 +2031,7 @@ public:
             // The solve waits on mReady: record it after the copy.
             if(mImpactEnabled && !mPass) {
                 check(cudaMemcpyAsync(mImpactBase,mSolver->deviceView().bondImpulses,sizeof(*mImpactBase)*mM,cudaMemcpyDeviceToDevice,mStream));
+                check(cudaMemcpyAsync(mImpactStart,mImpactState,sizeof(*mImpactStart)*mM,cudaMemcpyDeviceToDevice,mStream));
                 check(cudaEventRecord(mReady,mStream));
             }
             if(mSolver) {
@@ -2050,11 +2057,12 @@ public:
                     in.chunks=mChunks;in.chunkCount=mN;in.bonds=mBonds;in.bondCount=mM;in.materials=mMaterials;
                     in.ductileSlip=mImpactSlip;in.stiffness=mImpactStiffness;in.health=mHealth;
                     in.nodeBegin=mNodeBegin;in.nodeRefs=mNodeRefs;in.nodeIslands=stress.nodeIslands;in.bondIslands=stress.bondIslands;
-                    in.accelerations=mInputs;in.elastic=forces;in.base=mImpactBase;in.stage=mStatus;
+                    in.accelerations=mInputs;in.elastic=forces;in.base=mImpactStart;in.elasticBase=mImpactBase;in.stage=mStatus;
                     in.crushed=mImpactCrush?mTrialCrush:nullptr;
                     impact::Settings settings=mImpactSettings;settings.dt=dt;
                     mImpact.submit(in,settings,mStream);
                     impactView={mImpact.w.islandFlag,stress.bondIslands,mImpact.w.forces,mImpact.w.verdict};
+                    impact::recordState<<<(mM+127)/128,128,0,mStream>>>(mImpact.w.islandFlag,stress.bondIslands,mImpact.w.forces,forces,mImpactState,mM);
                     if(mImpactLog) {
                         check(cudaMemcpyAsync(mImpactHostStatus,mImpact.w.status,sizeof(*mImpactHostStatus),cudaMemcpyDeviceToHost,mStream));
                         check(cudaStreamSynchronize(mStream));

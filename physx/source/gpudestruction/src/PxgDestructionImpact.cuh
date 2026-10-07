@@ -30,11 +30,13 @@
 // in the elastic solve. With joints as stiff as these (k dt^2 / m >> 1) this is
 // the design's rigid-chunk impact.
 //
-// The tick's load grows from the state the structure was in (the forces of the
-// previous evaluation, which balance its loads on the current graph) to the full
-// load, in factors of `rampFactor`, each level an increment from the last
+// The tick's load grows from the state the structure was in (the forces it
+// carried at the end of the previous tick -- E's where E solved -- which
+// balance their loads exactly on the current graph) to the full load, in
+// factors of `rampFactor`, each level an increment from the last
 // (incremental return mapping: T = the last level's forces plus the increment
-// of the stage's elastic solve, which is exact while nothing is clipped; what
+// of the stage's elastic solve between the last tick's loads and this tick's,
+// which is exact while nothing is clipped; what
 // clipped and broken joints no longer carry is redistributed by the solve). A
 // brittle joint (material ductileSlip 0) fractures at the level where its
 // capacity is first reached in the solved field, and the level is solved again
@@ -144,7 +146,8 @@ struct Inputs {
     const PxU32* nodeIslands{}; const PxU32* bondIslands{};
     const PxDestructionVectorPair* accelerations{}; // stress inputs: linear = load/m, angular = -torque/I
     const PxDestructionVectorPair* elastic{};       // this evaluation's elastic solve
-    const PxDestructionVectorPair* base{};          // previous evaluation's forces (the ramp's start)
+    const PxDestructionVectorPair* base{};          // the forces the structure carried before this tick (the ramp's start: E's where it solved)
+    const PxDestructionVectorPair* elasticBase{};   // the elastic solve's forces before this tick (null: base)
     const PxDestructionStageStatus* stage{};        // skip when the stage already failed
     const PxDestructionCrushState* crushed{};       // chunks crushed before the solve (Ci), or null
 };
@@ -570,7 +573,7 @@ __global__ __launch_bounds__(kThreads) void solveIslands(Inputs in,Settings s,Sc
                 if(!(b.flags&eALIVE))continue;
                 float* T=w.T+6*l;float* J=w.J+6*l;
                 float inc[6]={0,0,0,0,0,0};
-                if(lambda!=previous && (!plastic || s.elasticIncrementAfterYield)){float a[6],o[6];toLocal(b,in.elastic[b.bond],a);toLocal(b,in.base[b.bond],o);
+                if(lambda!=previous && (!plastic || s.elasticIncrementAfterYield)){float a[6],o[6];toLocal(b,in.elastic[b.bond],a);toLocal(b,(in.elasticBase?in.elasticBase:in.base)[b.bond],o);
                     for(int q=0;q<6;++q)inc[q]=(lambda-previous)*(a[q]-o[q]);}
                 for(int q=0;q<6;++q){T[q]=J[q]+inc[q];J[q]=T[q];}
                 clipped+=returnMap(b,J)?1u:0u;
@@ -638,6 +641,16 @@ __global__ __launch_bounds__(kThreads) void solveIslands(Inputs in,Settings s,Sc
         }
         __syncthreads();
     }
+}
+
+// The forces each bond carries after an evaluation: E's where it solved, the
+// elastic solve's elsewhere (the next tick's ramp starts here).
+__global__ void recordState(const PxU32* islandFlag,const PxU32* bondIslands,const PxDestructionVectorPair* impact,
+    const PxDestructionVectorPair* elastic,PxDestructionVectorPair* state,PxU32 count)
+{
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
+    const PxU32 island=bondIslands[i];
+    state[i]=(island!=0xffffffffu && islandFlag[island])?impact[i]:elastic[i];
 }
 
 // Host side: persistent scratch and the launches of one evaluation.
