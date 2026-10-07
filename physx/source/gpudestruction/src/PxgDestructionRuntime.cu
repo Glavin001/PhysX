@@ -1445,8 +1445,10 @@ public:
                 if(m>0 && std::abs(s.axis.dot(n))>1e-3f*m)return false;
             }
             if(!std::isfinite(d.fragmentMaxDepenetrationVelocity) || d.fragmentMaxDepenetrationVelocity<0)return false;
-            // Impact capacity's cones are the capped-gain fibre formula.
-            if(d.impactCapacity && (!d.fibreBending || !(d.bendGainMax>0) || d.sectionBending))return false;
+            // Impact capacity's cones are the stage's own formula: the
+            // capped-gain fibre formula, or with sectionBending the section
+            // model (PxgDestructionImpact.cuh Settings::sectionBending).
+            if(d.impactCapacity && (!d.fibreBending || !(d.bendGainMax>0)))return false;
             if(d.impactCrush && !d.internalCorrectionLimit)return false;
             for(PxU32 i=0;d.impactCrush && i<d.materialCount;++i)
                 if(!std::isfinite(d.materials[i].impactImpedance) || d.materials[i].impactImpedance<0)return false;
@@ -1664,6 +1666,10 @@ public:
                     // so the forces E reads and publishes) acts at every bond's
                     // centroid (ExtStressGpuSetBondRotationalStiffness).
                     mImpactSettings.solverAtCentroid=mSectionRotation;
+                    // The section model: capacity and (with rotational
+                    // stiffness) joint stiffness from each bond's section, as
+                    // the elastic solve and the verdict have them.
+                    mImpactSettings.sectionBending=mSectionBending;mImpactSettings.sectionRotation=mSectionRotation;
                     // Diagnostics and A/B (not the opt-in): PX_DESTRUCTION_IMPACT_*.
                     auto env=[](const char* name,float fallback){const char* v=std::getenv(name);return v && *v?float(std::atof(v)):fallback;};
                     mImpactSettings.stiffnessScale=env("PX_DESTRUCTION_IMPACT_STIFFNESS_SCALE",mImpactSettings.stiffnessScale);
@@ -2131,6 +2137,7 @@ public:
                     in.nodeBegin=mNodeBegin;in.nodeRefs=mNodeRefs;in.nodeIslands=stress.nodeIslands;in.bondIslands=stress.bondIslands;
                     in.accelerations=mInputs;in.elastic=forces;in.base=mImpactStart;in.elasticBase=mImpactBase;in.stage=mStatus;
                     in.crushed=mImpactCrush?mTrialCrush:nullptr;
+                    in.sections=mSectionBending?mSections:nullptr;
                     impact::Settings settings=mImpactSettings;settings.dt=dt;
                     mImpact.submit(in,settings,mStream);
                     impactView={mImpact.w.islandFlag,stress.bondIslands,mImpact.w.forces,mImpact.w.verdict};
