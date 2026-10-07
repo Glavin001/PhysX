@@ -76,7 +76,8 @@ int run(int argc,char** argv){
     if(h.flags&impact::eCAPTURE_CRUSHED)in.crushed=upload(f.read<PxDestructionCrushState>(n));
     if(h.flags&impact::eCAPTURE_SECTIONS)in.sections=upload(f.read<PxDestructionBondSection>(m));
     std::vector<float> zero(6*size_t(std::max(h.rows,1u)),0.0f);
-    if(h.flags&impact::eCAPTURE_ROWS){in.rows=upload(f.read<impact::ContactRow>(h.rows));in.rowCount=h.rows;in.rowDelta=upload(zero);in.rowForce=upload(zero);}
+    std::vector<impact::ContactRow> hostRows;
+    if(h.flags&impact::eCAPTURE_ROWS){hostRows=f.read<impact::ContactRow>(h.rows);in.rows=upload(hostRows);in.rowCount=h.rows;in.rowDelta=upload(zero);in.rowForce=upload(zero);}
     if(h.flags&impact::eCAPTURE_CARRIED)in.carried=upload(f.read<PxU32>(m));
     if(h.flags&impact::eCAPTURE_SLIP_BEFORE)in.slipBefore=upload(f.read<float>(m));
     in.stage=upload(std::vector<PxDestructionStageStatus>(1));
@@ -131,8 +132,8 @@ int run(int argc,char** argv){
             for(PxU32 i=0;i<impact::kTraceCapacity;i+=every){if(t[4*i]==0.0f && t[4*i+1]==0.0f && t[4*i+3]==0.0f)break;
                 std::printf("  step %5u: primal %.3e dual %.3e motion %.3e rho %.3e\n",i,t[4*i],t[4*i+1],t[4*i+2],t[4*i+3]);}
         }
-        std::printf("%s: %u chunks, %u bonds, %u rows; %u islands, %u solves, %u iterations (%u capped), %u rounds; broke %u, yielded %u; %u contacts, %u impactors; %u diverged (worst bond %d), %u infeasible; error %u; %.1f ms in %u dispatches (longest %.1f ms)\n",
-            argv[1],n,m,h.rows,st.triggered,st.solves,st.iterations,st.capped,st.rounds,st.broken,st.yielded,st.contacts,st.impactors,st.diverged,int(st.worstBond)-1,st.infeasible,st.error,ms,e.dispatches,e.longestDispatch);
+        std::printf("%s: %u chunks, %u bonds, %u rows; %u islands, %u solves, %u iterations (%u capped), %u rounds; broke %u, yielded %u; %u contacts, %u impactors; %u diverged (worst bond %d), %u infeasible, %u non-finite, %u energy gains; error %u; %.1f ms in %u dispatches (longest %.1f ms)\n",
+            argv[1],n,m,h.rows,st.triggered,st.solves,st.iterations,st.capped,st.rounds,st.broken,st.yielded,st.contacts,st.impactors,st.diverged,int(st.worstBond)-1,st.infeasible,st.nonfinite,st.energyGain,st.error,ms,e.dispatches,e.longestDispatch);
     }
     e.release();return 0;
 }

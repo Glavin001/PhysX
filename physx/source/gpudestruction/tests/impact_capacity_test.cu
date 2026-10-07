@@ -769,11 +769,51 @@ void bearing(){
     }
 }
 
+// 15. Passivity with rotation: a light spinning body (2 kg, 18 rad/s) strikes
+// a held chunk off its centre, obliquely. Its end kinetic energy (linear and
+// rotational) must not exceed its start's (the contact is unilateral and
+// inelastic). Every combination of spin axis and offset.
+void passivity(){
+    std::printf("coupled contact: a spinning light body loses energy, never gains it\n");
+    PxU32 gains=0,cases=0;float worst=0.0f;
+    for(int axis=0;axis<3;++axis)for(int off=0;off<3;++off)for(int sgn=-1;sgn<=1;sgn+=2) {
+        Structure s;const PxU32 anchor=s.chunk(PxVec3(0,0,0),0,0),wall=s.chunk(PxVec3(0,0.5f,0),10.0f,0.5f);
+        const PxU32 mat=s.material(1e7f,1e7f,1e7f,0.0f);
+        s.bond(anchor,wall,PxVec3(0,0.25f,0),PxVec3(0,1,0),0.01f,mat);
+        const PxU32 trim=s.chunk(PxVec3(0,0.5f,0.1f),1.0f,0.01f),glue=s.material(1e3f,1e3f,1e3f,0.0f);
+        s.bond(wall,trim,PxVec3(0,0.5f,0.05f),PxVec3(0,0,1),1e-3f,glue);
+        const float m=2.0f,dt=1.0f/60.0f;const PxVec3 v(10.0f,0.5f,2.0f);
+        PxVec3 w(0);w[axis]=18.0f*float(sgn);
+        const PxVec3 com(-0.4f,0.5f+0.1f*float(off-1),0.05f*float(off));
+        const PxVec3 point(-0.25f,0.5f+0.1f*float(off-1),0.0f);
+        impact::ContactRow row{};row.chunk=wall;row.body=0;row.points=2;row.friction=0.6f;
+        for(int q=0;q<3;++q){row.point[q]=point[q];row.com[q]=com[q];row.velocity[q]=v[q];row.spin[q]=w[q];row.dv[q]=-v[q];row.dw[q]=-w[q];}
+        row.normal[0]=1;row.load[0]=m*v.x/dt;row.im=1.0f/m;
+        const float I[3]={0.004f,0.01f,0.02f};row.ii[0]=1/I[0];row.ii[1]=1/I[1];row.ii[2]=1/I[2];
+        // The trial stopped it: its torque about the com from the load at the point.
+        const PxVec3 tq=(point-com).cross(PxVec3(-row.load[0],0,0));row.torque[0]=tq.x;row.torque[1]=tq.y;row.torque[2]=tq.z;
+        // The trial's spin change came from that torque: dw = I^-1 tq dt (not the full stop).
+        for(int q=0;q<3;++q)row.dw[q]=tq[q]*row.ii[q]*dt;
+        s.rows.push_back(row);
+        const auto rest=elastic(s,s.force,s.torque);
+        auto F=s.force;F[wall]+=PxVec3(row.load[0],0,0);F[trim]+=PxVec3(0,0,100.0f);
+        const auto r=evaluate(s,F,s.torque,rest,true);
+        const float* d=r.rowDelta.data();
+        PxVec3 ve(row.velocity[0]+row.dv[0]+d[0],row.velocity[1]+row.dv[1]+d[1],row.velocity[2]+row.dv[2]+d[2]);
+        PxVec3 we(row.spin[0]+row.dw[0]+d[3],row.spin[1]+row.dw[1]+d[4],row.spin[2]+row.dw[2]+d[5]);
+        const float k0=0.5f*m*v.magnitudeSquared()+0.5f*(I[0]*w.x*w.x+I[1]*w.y*w.y+I[2]*w.z*w.z);
+        const float k1=0.5f*m*ve.magnitudeSquared()+0.5f*(I[0]*we.x*we.x+I[1]*we.y*we.y+I[2]*we.z*we.z);
+        ++cases;if(k1>1.01f*k0){++gains;worst=std::max(worst,k1/k0);}
+    }
+    char text[160];std::snprintf(text,sizeof text,"%u cases: %u gained energy (worst x%.2f)",cases,gains,worst);
+    expect(gains==0,text);
+}
+
 }} // physx
 
 int main(int argc,char** argv){
     (void)argc;(void)argv;
-    try{if(const char* only=std::getenv("IMPACT_TEST_ONLY")){if(!std::strcmp(only,"unconverged"))physx::unconverged();if(!std::strcmp(only,"dispatches"))physx::dispatches();if(!std::strcmp(only,"carried"))physx::carried();if(!std::strcmp(only,"held"))physx::heldStops();if(!std::strcmp(only,"projection"))physx::projection();if(!std::strcmp(only,"detectors"))physx::detectors();if(!std::strcmp(only,"fuzz"))physx::fuzz();if(!std::strcmp(only,"bearing"))physx::bearing();if(!std::strcmp(only,"coupled"))physx::coupled();}else{physx::column();physx::wall();physx::rest();physx::centroidConvention();physx::impactCrush();physx::section();physx::coupled();physx::unconverged();physx::dispatches();physx::carried();physx::heldStops();physx::projection();physx::detectors();physx::fuzz();physx::bearing();}}
+    try{if(const char* only=std::getenv("IMPACT_TEST_ONLY")){if(!std::strcmp(only,"unconverged"))physx::unconverged();if(!std::strcmp(only,"dispatches"))physx::dispatches();if(!std::strcmp(only,"carried"))physx::carried();if(!std::strcmp(only,"held"))physx::heldStops();if(!std::strcmp(only,"projection"))physx::projection();if(!std::strcmp(only,"detectors"))physx::detectors();if(!std::strcmp(only,"fuzz"))physx::fuzz();if(!std::strcmp(only,"bearing"))physx::bearing();if(!std::strcmp(only,"coupled"))physx::coupled();if(!std::strcmp(only,"passivity"))physx::passivity();}else{physx::column();physx::wall();physx::rest();physx::centroidConvention();physx::impactCrush();physx::section();physx::coupled();physx::unconverged();physx::dispatches();physx::carried();physx::heldStops();physx::projection();physx::detectors();physx::fuzz();physx::bearing();physx::passivity();}}
     catch(const std::exception& e){std::printf("error: %s\n",e.what());return 2;}
     std::printf("%s (%d failed)\n",physx::failures?"FAILED":"passed",physx::failures);
     return physx::failures?1:0;

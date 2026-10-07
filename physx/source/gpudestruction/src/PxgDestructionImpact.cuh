@@ -192,7 +192,8 @@ struct Status {
     PxU32 infeasible;  // projections that left their capacity set (a bug signal)
     PxU32 worstBond;   // the bond with the worst split in the last diverged solve, plus 1 (0: none)
     PxU32 rolledBack;  // islands with impactors whose evaluation was capped or diverged (the trial's stop stands)
-    PxU32 energyGain;  // impactors the solve would have sped up past their start (a bug signal; withheld)
+    PxU32 energyGain;  // converged solves whose objective (the tick's kinetic energy plus the joints' complementary
+                       // energy) exceeds that of no joint and contact force at all: not a minimum (a bug signal)
     PxU32 nonfinite;   // solves stopped on a non-finite residual (a bug signal, counted apart from diverged)
 };
 // Optional per-solve record (diagnostics): the first kLogCapacity solves.
@@ -514,7 +515,11 @@ __device__ __forceinline__ void relative(const Bond& b,const float* v,float* e)
 __device__ __forceinline__ bool chunkGone(const Inputs& in,PxU32 c){return in.crushed && in.crushed[c].crushed;}
 __device__ __forceinline__ bool bondMember(const Inputs& in,PxU32 i)
 {
-    if(!(in.health[i]>0.0f))return false;
+    // A joint worn to below float's resolution of its authored area (live
+    // area 1.6e-10 of 4e-3 m^2 seen in the lab: capacity 1e-4 N) carries
+    // nothing the solve can resolve: it is not a member (its forces would be
+    // split noise against a zero capacity -- a 'diverged' solve that is not).
+    if(!(in.health[i]>8.0f*FLT_EPSILON*in.bonds[i].area))return false;
     const auto& b=in.bonds[i];return !chunkGone(in,b.chunk0) && !chunkGone(in,b.chunk1);
 }
 
@@ -1063,6 +1068,27 @@ __device__ PxU32 solve(Shared& sh,const Inputs& in,const Settings& s,const Scrat
     }
     if(!done && it>=s.iterations){done=true;capped=true;}
     ss.it=it;ss.rho=rho;ss.last=last;
+    // A converged solve is the minimum of the dual: its objective at most that
+    // of J = 0 (feasible: no joint or contact force). Above it, the solve did
+    // not minimise -- energy from nowhere (Status::energyGain).
+    if(done && !capped) {
+        const float idt2=1.0f/(s.dt*s.dt);
+        float oz=0.0f,o0=0.0f;
+        for(PxU32 k=threadIdx.x;k<nodes(is);k+=kThreads) {
+            const Chunk& c=w.chunks[is.c0+k];float r[6],r0[6];
+            for(int q=0;q<6;++q){r[q]=(1.0f-lambda)*c.pb[q]+lambda*c.pf[q]-c.r[q];r0[q]=r[q];}
+            for(PxU32 slot=c.begin;slot<c.end;++slot){const PxU32 l=w.adj[slot];const Bond& b=w.bonds[l];if(b.flags&eALIVE)addWrench(b,Z+6*l,b.c0==c.chunk,r);}
+            float a[6],a0[6];accelerate(c,r,a);accelerate(c,r0,a0);
+            for(int q=0;q<6;++q){oz+=0.5f*r[q]*a[q];o0+=0.5f*r0[q]*a0[q];}
+        }
+        for(PxU32 k=threadIdx.x;k<links(is);k+=kThreads) {
+            const PxU32 l=is.b0+k;const Bond& b=w.bonds[l];if(!(b.flags&eALIVE))continue;
+            const float k6[6]={b.kl,b.kl,b.kl,b.kt,b.k0,b.k1};const float* T=w.T+6*l;const float* z=Z+6*l;
+            for(int q=0;q<6;++q){const float c=idt2/k6[q];oz+=0.5f*c*(z[q]-T[q])*(z[q]-T[q]);o0+=0.5f*c*T[q]*T[q];}
+        }
+        oz=blockSum(sh,oz);o0=blockSum(sh,o0);
+        if(!threadIdx.x && oz>o0*(1.0f+1e-3f)+1e-6f*o0+1e-9f)atomicAdd(&w.status->energyGain,1u);
+    }
     // The feasible iterate is the answer.
     if(done && !capped)for(PxU32 k=threadIdx.x;k<links(is);k+=kThreads)for(int q=0;q<6;++q)w.J[6*(is.b0+k)+q]=Z[6*(is.b0+k)+q];
     __syncthreads();
@@ -1447,10 +1473,6 @@ __global__ __launch_bounds__(kThreads) void stepIslands(Inputs in,Settings s,Scr
                     const Chunk& c=w.chunks[is.c0+k2];const ContactRow& row=in.rows[c.owner];const float* u=w.u+6*c.chunk;
                     float d[6];
                     for(int q=0;q<3;++q){d[q]=u[q]*s.dt-(row.velocity[q]+row.dv[q]);d[3+q]=u[3+q]*s.dt-(row.spin[q]+row.dw[q]);}
-                    float e2=0.0f,b2=0.0f;
-                    for(int q=0;q<3;++q){const float o=c.pf[q]*c.im*s.dt;e2+=u[q]*s.dt*u[q]*s.dt;b2+=o*o;}
-                    const float start=sqrtf(row.velocity[0]*row.velocity[0]+row.velocity[1]*row.velocity[1]+row.velocity[2]*row.velocity[2]);
-                    if(sqrtf(e2)>fmaxf(start,sqrtf(b2))*1.01f+s.tolerance/s.dt)atomicAdd(&w.status->energyGain,1u);
                     for(int q=0;q<6;++q)finite=finite && isfinite(d[q]);
                     if(in.rowDelta)for(int q=0;q<6;++q)in.rowDelta[6*c.owner+q]=d[q];
                 }
