@@ -37,6 +37,9 @@ if(BUILD_TESTING)
     target_link_libraries(destruction_registration_test PRIVATE PhysXDestructionTopologyGpu)
     px_destruction_cuda_properties(destruction_registration_test PROPERTIES CUDA_STANDARD 17 CUDA_ARCHITECTURES "89")
     add_test(NAME destruction_gpu_registration COMMAND destruction_registration_test)
+    px_destruction_cumetal_unsupported_tests(
+        "the registration arena needs a multi-block cooperative launch (grid.sync) on sm_89; CuMetal cooperative launch is single-block (residentBlocksFor returns cudaErrorNotSupported). Not used by the production stage"
+        destruction_gpu_registration)
     add_executable(destruction_contact_ownership_test tests/contact_ownership_test.cu)
     target_link_libraries(destruction_contact_ownership_test PRIVATE PhysXDestructionTopologyGpu)
     target_include_directories(destruction_contact_ownership_test PRIVATE ../gpunarrowphase/include ../lowlevel/software/include)

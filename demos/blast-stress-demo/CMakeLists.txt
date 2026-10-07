@@ -646,6 +646,12 @@ if(BLAST_ENABLE_CUDA_STRESS)
     px_destruction_cuda_properties(native_gpu_incremental_pairs_test PROPERTIES CUDA_ARCHITECTURES 89 CUDA_STANDARD 17)
     target_link_libraries(native_gpu_incremental_pairs_test PRIVATE ${PX_DESTRUCTION_GPU_RUNTIME})
     add_test(NAME physx_native_gpu_incremental_pairs COMMAND native_gpu_incremental_pairs_test)
+    if(PX_GPU_BACKEND STREQUAL "CUMETAL")
+        set_target_properties(native_gpu_incremental_pairs_test PROPERTIES EXCLUDE_FROM_ALL TRUE)
+    endif()
+    px_destruction_cumetal_unsupported_tests(
+        "launches broadphase.cu kernels from another translation unit; cumetalc has no separate device compilation (no kernel launch stubs)"
+        physx_native_gpu_incremental_pairs)
 
     add_executable(native_gpu_pairs_test tests/native_gpu_pairs_test.cu)
     target_include_directories(native_gpu_pairs_test PRIVATE "${PHYSX_ROOT}/include"
