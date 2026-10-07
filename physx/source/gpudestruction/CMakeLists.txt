@@ -61,6 +61,23 @@ if(BUILD_TESTING)
         ../gpunarrowphase/include ../gpusimulationcontroller/include ../lowlevel/software/include ../lowlevel/api/include)
     px_destruction_cuda_properties(destruction_contact_graph_test PROPERTIES CUDA_STANDARD 17 CUDA_ARCHITECTURES "${CMAKE_CUDA_ARCHITECTURES}")
     add_test(NAME destruction_gpu_contact_graph COMMAND destruction_contact_graph_test)
+    # Impact capacity (docs/destruction/IMPACT_CAPACITY_DESIGN.md): the design's
+    # failing-first checks, and the same checks on today's path (expected to fail).
+    foreach(variant impact_capacity impact_capacity_today)
+        add_executable(destruction_${variant}_test tests/impact_capacity_test.cu)
+        target_link_libraries(destruction_${variant}_test PRIVATE PhysXDestructionTopologyGpu)
+        target_include_directories(destruction_${variant}_test PRIVATE ../../../blast/include/extensions/stress)
+        px_destruction_cuda_properties(destruction_${variant}_test PROPERTIES CUDA_STANDARD 17 CUDA_ARCHITECTURES "${CMAKE_CUDA_ARCHITECTURES}")
+    endforeach()
+    target_compile_definitions(destruction_impact_capacity_today_test PRIVATE PX_IMPACT_TODAY=1)
+    add_test(NAME destruction_gpu_impact_capacity COMMAND destruction_impact_capacity_test)
+    add_test(NAME destruction_gpu_impact_capacity_today COMMAND destruction_impact_capacity_today_test)
+    set_tests_properties(destruction_gpu_impact_capacity_today PROPERTIES WILL_FAIL TRUE)
+    # The impact study's first tick through E, for comparison with the oracle
+    # (vibe-land structures/town-kit/scripts/impact-e-replay.py). A tool, not a test.
+    add_executable(destruction_impact_replay tests/impact_replay.cu)
+    target_link_libraries(destruction_impact_replay PRIVATE PhysXDestructionTopologyGpu)
+    px_destruction_cuda_properties(destruction_impact_replay PROPERTIES CUDA_STANDARD 17 CUDA_ARCHITECTURES "${CMAKE_CUDA_ARCHITECTURES}")
 endif()
 
 install(TARGETS PhysXDestructionTopologyGpu EXPORT PhysXDestructionTopologyTargets ARCHIVE DESTINATION lib)

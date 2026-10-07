@@ -9,7 +9,8 @@ __global__ void evaluateBondMaterials(const PxDestructionStressChunk* chunks,
     const PxDestructionStressBond* bonds,const PxDestructionMaterial* materials,
     const float* health,const PxDestructionVectorPair* forces,PxU32 count,
     float dt,float rate,float bendGain,bool fibres,PxDestructionBondVerdict* verdict,
-    PxVec3* centroids,PxDestructionStageStatus* status,bool sectionBending,const PxDestructionBondSection* sections)
+    PxVec3* centroids,PxDestructionStageStatus* status,bool sectionBending,const PxDestructionBondSection* sections,
+    impact::View impactView=impact::View{})
 {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
     const auto b=bonds[i];const float area=health[i];auto& v=verdict[i];v={};v.health=area;
@@ -27,7 +28,10 @@ __global__ void evaluateBondMaterials(const PxDestructionStressChunk* chunks,
     if(!(norm<1e-20f))normal*=1.0f/norm;
     const float inv=1.0f/area;delta*=inv;centroid*=inv;centroids[i]=centroid;
     const float distance=sqrtf(extStressDot({delta.x,delta.y,delta.z},{delta.x,delta.y,delta.z}));
-    const auto force=forces[i];
+    // Impact capacity: where E solved this bond's island, its forces and its
+    // fracture verdict replace the elastic ones (PxgDestructionImpact.cuh).
+    const bool capacity=impactView.active(i);
+    const auto force=capacity?impactView.forces[i]:forces[i];
     if(sectionBending) {
         // The solver's bond wrench acts at the chunks' midpoint when both are
         // dynamic (at the bond centroid when one is a support). The section is
@@ -51,7 +55,19 @@ __global__ void evaluateBondMaterials(const PxDestructionStressChunk* chunks,
         atomicOr(&status->error,2u);return;
     }
     float compression,tension;extStressFibre(fibres,v.stressNormal,v.stressBend,compression,tension);
-    const auto damage=extStressBondDamage(compression,tension,v.stressShear,area,b.area,materials[b.material],dt,rate);
+    auto damage=extStressBondDamage(compression,tension,v.stressShear,area,b.area,materials[b.material],dt,rate);
+    if(capacity) {
+        // E decides fracture: a joint it broke is gone; one it holds (below
+        // capacity, or a ductile joint yielding at it) keeps losing section at
+        // the sub-fatal rate past its elastic limit, as any bond does.
+        const auto& m=materials[b.material];
+        if(impactView.verdict[i]==impact::eBROKEN){damage.damage=area;damage.command=true;}
+        else if(damage.multiplier>=1.0f) {
+            float d=area*fminf(dt>0.0f?dt*rate:1.0f,1.0f);
+            if(m.residualAreaFraction>0.0f){const float floor=b.area*m.residualAreaFraction;if(area-d<floor)d=area>floor?area-floor:0.0f;}
+            damage.damage=d;damage.command=true;
+        }
+    }
     v.damage=damage.damage;v.command=damage.command;v.health=area-damage.damage;
     if(!extStressFinite(v.health) || !extStressFinite(v.damage))atomicOr(&status->error,2u);
     if(v.command)atomicAdd(&status->bondCommands,1u);
@@ -67,7 +83,7 @@ __global__ void evaluateChunkMaterials(const PxDestructionStressChunk* chunks,
     const PxDestructionVectorPair* forces,const PxVec3* centroids,
     const PxDestructionSurfaceLoad* surface,const float* rates,
     const PxDestructionCrushState* accepted,PxDestructionCrushState* trial,
-    PxU32 count,float dt,PxDestructionStageStatus* status)
+    PxU32 count,float dt,PxDestructionStageStatus* status,impact::View impactView=impact::View{})
 {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
     if(status->error & 4096u){trial[i]=accepted[i];return;}
@@ -78,7 +94,8 @@ __global__ void evaluateChunkMaterials(const PxDestructionStressChunk* chunks,
             const PxU32 bond=refs[slot];const float area=health[bond];
             if(!(area>0 && area<0.5f*FLT_MAX))continue;
             const float share=area*(1.0f/area); // reference member/group area share
-            const PxVec3 force=forces[bond].linear*share*(bonds[bond].chunk0==i?1.0f:-1.0f);
+            const PxVec3 linear=impactView.active(bond)?impactView.forces[bond].linear:forces[bond].linear;
+            const PxVec3 force=linear*share*(bonds[bond].chunk0==i?1.0f:-1.0f);
             addVirial(virial,centroids[bond]-c.position,force);
         }
     }
