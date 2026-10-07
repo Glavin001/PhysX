@@ -65,24 +65,25 @@ struct Settings {
     // or this default; L the stress solve's length scale (m).
     float stiffness=30e9f;
     float lengthScale=1.0f;
-    // The design's joints are rigid until capacity; this approaches that limit.
-    // The solve's weights are authored for gravity load sharing, and some are
-    // far softer than the joint in the direction a hit loads it (a timber-frame
-    // wall tie: 0.02 kN/mm in the wall's plane against ~1 kN/mm along it,
-    // town-kit materials.mjs WALL_TIE): at 1x such a tie stretches 45 mm before
-    // reaching capacity and the brick it holds moves with it. 10x keeps every
-    // joint of the bungalow at k dt^2 / m >~ 1. An approximation (measured
-    // against the oracle, impact-e-replay.py): stiffer still, the joints'
-    // compliance term no longer settles self-stress within the iteration
-    // budget and spurious far breaks appear.
-    float stiffnessScale=10.0f;
+    // A multiplier on every joint's stiffness, for A/B only (1: the joints as
+    // authored -- the stress solve's weights, or a material's own impact
+    // stiffness where its weight is a concession for gravity load sharing,
+    // e.g. a timber-frame wall tie, soft in the wall's plane and ~1 kN/mm
+    // along its axis).
+    float stiffnessScale=1.0f;
     bool momentAtCentroid=false;   // see prepareBond
-    PxU32 rampLevels=9;      // 1/rampFactor^(levels-1) .. 1
+    // The ramp starts at the first event -- the load fraction at which the
+    // first joint reaches capacity in the elastic solution -- and grows by
+    // rampFactor to the full load (event to event: before the first event
+    // the elastic solution is exact). rampLevels caps the levels (the first
+    // event no earlier than rampFactor^-(rampLevels-1)): the float resolution
+    // of the load, not a physical threshold.
+    PxU32 rampLevels=32;
     float rampFactor=2.0f;
     PxU32 iterations=4096;   // projected iterations per solve
     float tolerance=1e-5f;   // converged: no joint's force moved by more than this fraction of its capacity in an iteration
     float capacityBand=2e-3f;// at capacity: utilisation >= 1 - capacityBand (the oracle's)
-    PxU32 maxRounds=96;      // solves per island per evaluation (levels plus brittle cascades)
+    PxU32 maxRounds=256;     // solves per island per evaluation (levels plus brittle cascades)
     // The elastic solve's increment is the intact structure's. Once a joint
     // has reached capacity, false leaves the load increment to the solve
     // (through p(lambda)); true keeps adding it -- A/B.
@@ -371,6 +372,7 @@ __device__ float blockMax(Shared& sh,float v)
     for(PxU32 o=kThreads/2;o;o>>=1){if(threadIdx.x<o)sh.big[threadIdx.x]=fmaxf(sh.big[threadIdx.x],sh.big[threadIdx.x+o]);__syncthreads();}
     const float r=sh.big[0];__syncthreads();return r;
 }
+__device__ float blockMin(Shared& sh,float v){return -blockMax(sh,-v);}
 __device__ PxU32 blockCount(Shared& sh,PxU32 v)
 {
     sh.scan[threadIdx.x]=v;__syncthreads();
@@ -560,11 +562,26 @@ __global__ __launch_bounds__(kThreads) void solveIslands(Inputs in,Settings s,Sc
         }
         __syncthreads();
         // The ramp.
+        // The first event: the smallest load fraction at which a joint below
+        // capacity at the start reaches it along the elastic increment
+        // (utilisation is convex along the line, so bisection finds it).
+        float first=1.0f;
+        for(PxU32 k=threadIdx.x;k<nb;k+=kThreads) {
+            const PxU32 l=is.b0+k;const Bond& b=w.bonds[l];const float* J=w.J+6*l;
+            if(utilisation(b,J)>=1.0f-s.capacityBand)continue;
+            float a[6],o[6];toLocal(b,in.elastic[b.bond],a);toLocal(b,(in.elasticBase?in.elasticBase:in.base)[b.bond],o);
+            float x[6];for(int q=0;q<6;++q)x[q]=J[q]+(a[q]-o[q]);
+            if(utilisation(b,x)<1.0f)continue;
+            float lo=0.0f,hi=1.0f;
+            for(int it=0;it<24;++it){const float mid=0.5f*(lo+hi);for(int q=0;q<6;++q)x[q]=J[q]+mid*(a[q]-o[q]);if(utilisation(b,x)<1.0f)lo=mid;else hi=mid;}
+            first=fminf(first,hi);
+        }
+        first=fmaxf(blockMin(sh,first),powf(s.rampFactor,-float(s.rampLevels-1)));
         PxU32 rounds=0,level=0,broken=0;bool plastic=false,failed=false;
         float previous=0.0f;
-        while(level<s.rampLevels) {
-            const bool final=level+1==s.rampLevels;
-            const float lambda=powf(s.rampFactor,-float(s.rampLevels-1-level));
+        for(;;) {
+            const float lambda=fminf(1.0f,first*powf(s.rampFactor,float(level)));
+            const bool final=lambda>=1.0f;
             // The trial: the last forces plus this level's increment of the
             // elastic solution, returned onto capacity.
             PxU32 clipped=0;
@@ -615,7 +632,7 @@ __global__ __launch_bounds__(kThreads) void solveIslands(Inputs in,Settings s,Sc
             newly=blockCount(sh,newly);
             broken+=newly;
             if(newly)plastic=true;
-            if(!newly)++level;
+            if(!newly){if(final)break;++level;}
             if(rounds>=s.maxRounds){failed=true;break;}
         }
         if(failed && !threadIdx.x)finishFailed(w,4u);
