@@ -1107,6 +1107,31 @@ int PxOrdinarySdkLinkageSentinel() { return 0; }
         (tests / 'safe.sh').write_text('out="${TMPDIR:-/tmp}/test"\n')
         self.assertEqual(audit_test_sources(self.root), [])
 
+    def test_relocate_ships_only_current_pipeline_archives(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            'relocate_macos_sdk', Path(__file__).resolve().parent / 'relocate-macos-sdk.py')
+        relocate = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(relocate)
+        lib, gate = self.root / 'lib', self.root / 'gate'
+        metallibs, archives = gate / 'native-aot', gate / 'pipeline-archive'
+        for directory in (lib / 'cumetal-pipeline-archive', metallibs, archives):
+            directory.mkdir(parents=True)
+        (lib / 'cumetal-pipeline-archive/abi4-stale-dev.metallib').write_text('previous package')
+        (metallibs / 'abi4-00aa.metallib').write_text('current kernels')
+        shipped = ['abi4-00aa-dev.metallib', 'abi4-00aa-dev.bindings',
+                   'abi4-00aa-dev.w3.metallib', 'abi4-00aa-dev.w3.bindings']
+        for name in shipped + ['abi4-00bb-dev.metallib',            # an earlier build's metallib
+                               'abi4-00aa-dev.w1.pending.1.metallib',  # a writer's temporary
+                               'launched-kernels']:                    # not an archive
+            (archives / name).write_text(name)
+        with contextlib.redirect_stdout(io.StringIO()):
+            result = relocate.ship_pipeline_archive(lib, gate, metallibs)
+        target = lib / 'cumetal-pipeline-archive'
+        self.assertEqual(sorted(p.name for p in target.iterdir()), sorted(shipped))
+        self.assertEqual(result['files'], len(shipped))
+        self.assertEqual((target / 'abi4-00aa-dev.w3.bindings').read_text(), 'abi4-00aa-dev.w3.bindings')
+
 
 if __name__ == '__main__':
     unittest.main()
