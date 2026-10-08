@@ -142,6 +142,16 @@ if(BUILD_TESTING)
     set_target_properties(destruction_impact_projection_fuzz PROPERTIES CXX_STANDARD 17)
     add_test(NAME destruction_gpu_impact_projection_fuzz COMMAND destruction_impact_projection_fuzz)
     set_tests_properties(destruction_gpu_impact_projection_fuzz PROPERTIES ENVIRONMENT "CUMETAL_USE_METAL_DEVICE_ADDRESSES=1")
+    # Mohr-Coulomb joint shear (PX_DESTRUCTION_MOHR_COULOMB_SHEAR): one law in
+    # every grader -- the static verdict, the impact models' utilisation,
+    # projection and ray capacity -- and mu 0 the old law bit for bit.
+    add_executable(destruction_mohr_coulomb_graders tests/mohr_coulomb_graders.cu)
+    target_link_libraries(destruction_mohr_coulomb_graders PRIVATE PhysXDestructionTopologyGpu)
+    target_include_directories(destruction_mohr_coulomb_graders PRIVATE ../../../blast/include/extensions/stress)
+    px_destruction_cuda_properties(destruction_mohr_coulomb_graders PROPERTIES CUDA_STANDARD 17 CUDA_ARCHITECTURES "${CMAKE_CUDA_ARCHITECTURES}")
+    set_target_properties(destruction_mohr_coulomb_graders PROPERTIES CXX_STANDARD 17)
+    add_test(NAME destruction_gpu_mohr_coulomb_graders COMMAND destruction_mohr_coulomb_graders)
+    set_tests_properties(destruction_gpu_mohr_coulomb_graders PROPERTIES ENVIRONMENT "CUMETAL_USE_METAL_DEVICE_ADDRESSES=1")
     set(_level "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/impact-level/cannon-level5")
     set(_levelEnv "CUMETAL_USE_METAL_DEVICE_ADDRESSES=1;IMPACT_LENGTH_SCALE=0.5616397;IMPACT_DISPATCH_WORK=131072")
     add_test(NAME destruction_gpu_impact_level_cycle COMMAND destruction_impact_level_replay "${_level}.bin")

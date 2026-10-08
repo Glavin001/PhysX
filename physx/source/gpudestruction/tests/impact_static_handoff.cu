@@ -53,7 +53,7 @@ Capture load(const char* path)
     {const auto raw=f.read<unsigned char>(h.settingsBytes);std::memcpy(&c.s,raw.data(),h.settingsBytes);}
     const PxU32 n=h.n,m=h.m;impact::Inputs& in=c.in;in.chunkCount=n;in.bondCount=m;
     in.chunks=upload(f.read<PxDestructionStressChunk>(n));in.bonds=upload(f.read<PxDestructionStressBond>(m));
-    in.materials=upload(f.read<PxDestructionMaterial>(h.materials));
+    {const auto mats=impact::readCaptureMaterials(f.f,h.flags,h.materials);if(mats.size()!=h.materials)throw std::runtime_error("short capture");in.materials=upload(mats);}
     if(h.flags&impact::eCAPTURE_SLIP)in.ductileSlip=upload(f.read<float>(h.materials));
     if(h.flags&impact::eCAPTURE_STIFFNESS)in.stiffness=upload(f.read<float>(h.materials));
     in.health=upload(f.read<float>(m));

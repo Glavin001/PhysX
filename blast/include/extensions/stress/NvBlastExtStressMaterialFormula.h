@@ -15,6 +15,28 @@ NVBLAST_STRESS_FORMULA_FN void extStressFibre(bool fibres,float normal,float ben
     const float t=normal+bend,c=bend-normal;
     tension=t>0.0f?t:0.0f;compression=c>0.0f?c:0.0f;
 }
+// Mohr-Coulomb joint shear (PhysX PX_DESTRUCTION_MOHR_COULOMB_SHEAR; vibe-land
+// FIDELITY_AUDIT C11): the shear strength a joint's friction adds to its
+// authored f_v0, f_v = f_v0 + mu sigma_c, sigma_c = max(0, -normal) with normal
+// the joint's signed mean normal stress (tension positive): tension adds no
+// friction. Capped so f_v0 + the term stays <= cap (EN 1996-1-1 3.6.2: f_vk =
+// f_vk0 + 0.4 sigma_d <= f_vlt); cap 0: uncapped. The friction acts the same at
+// the elastic and the fatal limit (friction has no duration of load), so both
+// shift by it: grading shear - term against the authored limits is the same
+// verdict, (tau - (e + f)) / ((F + f) - (e + f)) = ((tau - f) - e) / (F - e).
+// Why the mean stress N/A: the friction a joint can mobilise is the integral of
+// mu sigma over its contact, mu N, however a moment redistributes sigma (the
+// bending fibres are graded by the axial term, as before).
+NVBLAST_STRESS_FORMULA_FN float extStressFrictionStrength(float normal,float mu,float cap,float shearFatal)
+{
+    if(!(mu>0.0f) || !(normal<0.0f))return 0.0f;
+    float term=-mu*normal;
+    if(cap>0.0f) {
+        const float room=cap-shearFatal;
+        term=room>0.0f?(term<room?term:room):0.0f;
+    }
+    return term;
+}
 struct ExtStressDamageVerdict { float damage; float multiplier; bool command; };
 template<class Material>
 NVBLAST_STRESS_FORMULA_FN ExtStressDamageVerdict extStressBondDamage(

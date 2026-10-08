@@ -368,6 +368,10 @@ struct Bond {
     float dl,dt,d0,d1;       // majoriser of the dual's Hessian, by the same rows
     float slip;              // ultimate slip (m); 0 brittle
     float area;
+    // Mohr-Coulomb shear (PX_DESTRUCTION_MOHR_COULOMB_SHEAR): the joint's
+    // friction coefficient, and the cap on its shear capacity (N; 0 uncapped).
+    // 0 mu: capS alone (contact rows: 0; their friction is in `area`).
+    float mu,capSx;
 };
 // A node of the island: a chunk (scalar inertia, as the stress solve has it),
 // or an impactor (tensor: its full inertia). begin/end index Scratch::adj.
@@ -482,6 +486,31 @@ __device__ __forceinline__ void toSolver(const Bond& b,const float* x,float* lin
     toWorld(b,x,lin,ang);float t[3];cross3(b.pc,lin,t);for(int k=0;k<3;++k)ang[k]+=t[k];
 }
 
+// A joint's shear capacity (N) under the normal force N (bond frame, tension
+// positive): capS + mu max(0, -N), capped at capSx (Mohr-Coulomb shear: f_v0 +
+// mu sigma_c over the joint, EN 1996-1-1 3.6.2; the static verdict's
+// extStressFrictionStrength in force). mu 0: capS exactly. Tension adds nothing
+// (and takes nothing: the axial set grades it).
+__device__ __forceinline__ float shearCapacity(const Bond& b,float N)
+{
+    if(!(b.mu>0.0f) || !(N<0.0f))return b.capS;
+    float term=-b.mu*N;
+    if(b.capSx>0.0f){const float room=b.capSx-b.capS;term=room>0.0f?fminf(term,room):0.0f;}
+    return b.capS+term;
+}
+// The load s along a unit push whose components on the joint are a (along its
+// normal, > 0 compressing it) and t (across it) at which its shear reaches
+// capacity: s t <= capS + mu s max(a, 0), and <= capSx. FLT_MAX: never in
+// shear. mu 0: capS / t exactly.
+__device__ __forceinline__ float shearCapacityAlong(const Bond& b,float a,float t)
+{
+    if(!(t>0.0f))return FLT_MAX;
+    if(!(b.mu>0.0f) || !(a>0.0f))return b.capS/t;
+    const float slope=t-b.mu*a;
+    float f=slope>0.0f?b.capS/slope:FLT_MAX;
+    if(b.capSx>0.0f)f=fminf(f,fmaxf(b.capSx,b.capS)/t);
+    return f;
+}
 // Fatal utilisation of a bond-frame wrench (the stage's formula with fibre
 // bending and capped gains; see NvBlastExtStressFormula.h).
 __device__ __forceinline__ float utilisation(const Bond& b,const float* x)
@@ -493,7 +522,7 @@ __device__ __forceinline__ float utilisation(const Bond& b,const float* x)
     const float pull=b.g0>0.0f?b.h0*fabsf(x[4])+b.h1*fabsf(x[5]):bend;
     const float tension=fmaxf(N+pull,0.0f),compression=fmaxf(bend-N,0.0f),shear=V+b.gt*T;
     auto ratio=[](float d,float c){return d<=0.0f?0.0f:(c>0.0f?d/c:FLT_MAX);};
-    return fmaxf(fmaxf(ratio(compression,b.capC),ratio(tension,b.capT)),ratio(shear,b.capS));
+    return fmaxf(fmaxf(ratio(compression,b.capC),ratio(tension,b.capT)),ratio(shear,shearCapacity(b,N)));
 }
 
 // Nearest point of triangle (a,b,c) to p in 2D.
@@ -634,11 +663,16 @@ __device__ __forceinline__ bool project(const Bond& b,float* x,float ml,float mt
             if(m>0.0f){x[4]*=mn/m;x[5]*=mn/m;}else{x[4]=x[5]=0.0f;}
         }
     }
-    {   // (T, V): |V| + gt |T| <= sF a.
+    {   // (T, V): |V| + gt |T| <= sF a, plus mu C under Mohr-Coulomb shear
+        // (shearCapacity at the N just projected: friction with no dilatancy,
+        // the joint slides without opening, so sliding leaves N as it is: a
+        // non-associated return, as an interface's Coulomb surface with zero
+        // dilatancy angle; Lourenco & Rots 1997).
         const float sa=sqrtf(mt);
         const float v=sqrtf(x[1]*x[1]+x[2]*x[2]);
+        const float capS=shearCapacity(b,x[0]);
         float s=sa*x[3],r=sl*v;
-        if(triangle(s,r,-sa*b.capS/b.gt,0.0f,sa*b.capS/b.gt,0.0f,0.0f,sl*b.capS)) {
+        if(triangle(s,r,-sa*capS/b.gt,0.0f,sa*capS/b.gt,0.0f,0.0f,sl*capS)) {
             moved=true;const float vn=r/sl;x[3]=s/sa;
             if(v>0.0f){x[1]*=vn/v;x[2]*=vn/v;}else{x[1]=x[2]=0.0f;}
         }
@@ -755,6 +789,7 @@ __device__ __forceinline__ bool prepareBond(const Inputs& in,const Settings& s,P
     b.pc[0]=pc.x;b.pc[1]=pc.y;b.pc[2]=pc.z;
     const auto m=in.materials[bond.material];
     b.area=area;b.capC=m.compressionFatalLimit*area;b.capT=m.tensionFatalLimit*area;b.capS=m.shearFatalLimit*area;
+    b.mu=m.shearFriction;b.capSx=m.shearFriction>0.0f && m.shearCapacityLimit>0.0f?m.shearCapacityLimit*area:0.0f;
     const float root=sqrtf(area>1e-6f?area:1e-6f);
     // Stress = force / area with these gains on moments (extStressCalcBondStress).
     b.g0=b.g1=0.0f;
@@ -1418,7 +1453,7 @@ __global__ void routeRows(Inputs in,Settings s,PxU32* routed,PxDestructionVector
         Bond b;if(!prepareBond(in,s,i,b))continue;
         k+=b.kl;
         const float a=(b.c0==c?1.0f:-1.0f)*dot3(b.n,n),t=sqrtf(fmaxf(0.0f,1.0f-a*a));
-        float f=FLT_MAX;if(fabsf(a)>0.0f)f=(a>0.0f?b.capC:b.capT)/fabsf(a);if(t>0.0f)f=fminf(f,b.capS/t);
+        float f=FLT_MAX;if(fabsf(a)>0.0f)f=(a>0.0f?b.capC:b.capT)/fabsf(a);f=fminf(f,shearCapacityAlong(b,a,t));
         cap=fminf(cap,f);
     }
     if(!(k>0.0f))return;   // no joint: a free chunk, the rigid simulation's own
@@ -1729,7 +1764,7 @@ __device__ PxU32 capacityFallback(Shared& sh,const Inputs& in,const Settings& s,
             const float t=sqrtf(fmaxf(0.0f,1.0f-a*a));
             float f=FLT_MAX;
             if(fabsf(a)>0.0f)f=(a>0.0f?b.capC:b.capT)/fabsf(a);
-            if(t>0.0f)f=fminf(f,b.capS/t);
+            f=fminf(f,shearCapacityAlong(b,a,t));
             if(b.flags&eDUCTILE)ductile+=f;else brittle+=f;
         }
         const float m=1.0f/struck->im,M=row.im>0.0f?1.0f/row.im:FLT_MAX,share=M/(M+m),mu=m*share;
@@ -2149,8 +2184,9 @@ struct Stage {
         if(stepLog)for(PxU32 p=0;p<count;++p){const ExPatch& q=explicitPatches[p];
             std::fprintf(stderr,"[impact]   explicit patch %u: island %u, %u nodes (%u chunks, %.2f m%s), %u joints, %u contact rows, %u impactors; %u substeps of %.1f us (omega %.3g rad/s; at its end %u contacts pushing, %u joints at an event); broke %u, yielded %u%s; impactors' KE %.6g -> %.6g J, held %.4g J, dead load %.4g J; fracture %.4g J, plastic %.4g J\n",
                 p,q.island,q.nodes,q.chunks,q.radius,q.truncated?", shrunk":"",q.links,q.rows,q.impactors,q.substeps,q.h*1e6f,q.omega,q.pushing,q.near,q.broken,q.yielded,q.failed?" (FAILED)":"",q.keIn,q.keOut,q.u0,q.dead,q.fracture,q.plastic);
-            if(q.dynamic)std::fprintf(stderr,"[impact]   dynamic patch %u: quiet %.3f s, slowest motion's period %.3f s%s; zeta %.3g; %u events (%u broke, %u fastenings to contact, %u contacts crushed, %u slid off their seats, %u fell free; the last at %.2f ms), %u contacts%s, %u bearing joints, %u loose nodes; KE %.4g -> %.4g J, elastic %.4g -> %.4g J, the loads' work %.4g J; dissipated: fracture %.4g J, plastic %.4g J, slip %.4g J, dashpots %.4g J\n",
-                p,q.quiet,q.period,q.freeze?", FROZEN":"",q.zeta,q.events,q.broken,q.converted,q.crushedContacts,q.seatLost,q.fellFree,q.lastEvent*1e3f,q.contacts,q.anchored?"":", free (its rigid motion PhysX's)",q.bearingJoints,q.looseNodes,q.keStart,q.keEnd,q.u0,q.strainEnd,q.extWork,q.fracture,q.plastic,q.slipWork,q.dashWork);}
+            if(q.sequence)std::fprintf(stderr,"[impact]   dynamic patch %u: quiet %.3f s, slowest motion's period %.3f s%s; zeta %.3g; %u events (%u broke, %u fastenings to contact, %u contacts crushed, %u slid off their seats, %u fell free; the last at %.2f ms), %u contacts%s, %u bearing joints, %u loose nodes; KE %.4g -> %.4g J, elastic %.4g -> %.4g J, the loads' work %.4g J; dissipated: fracture %.4g J, plastic %.4g J, slip %.4g J, dashpots %.4g J; balance %+.4g J\n",
+                p,q.quiet,q.period,q.freeze?", FROZEN":"",q.zeta,q.events,q.broken,q.converted,q.crushedContacts,q.seatLost,q.fellFree,q.lastEvent*1e3f,q.contacts,q.anchored?"":", free (its rigid motion PhysX's)",q.bearingJoints,q.looseNodes,q.keStart,q.keEnd,q.u0,q.strainEnd,q.extWork,q.fracture,q.plastic,q.slipWork,q.dashWork,
+                (q.keEnd+q.strainEnd+q.fracture+q.plastic+q.slipWork+q.dashWork)-(q.keStart+q.u0+q.extWork));}
     }
     void releaseStep() {
         if(!stepAllocated)return;
