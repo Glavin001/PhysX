@@ -1,7 +1,22 @@
 // Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
 #pragma once
 #ifndef EX_THREADS
-#define EX_THREADS 256
+#define EX_THREADS 512
+#endif
+// Timing diagnostics only (never in a product build): a bit mask of the
+// window's phases to skip -- 1 the joint gather, 2 the contact rows, 4 the row
+// gather, 8 the joints.
+#ifndef EX_GATHER
+#define EX_GATHER 4
+#endif
+#ifndef EX_PROF_SKIP
+#define EX_PROF_SKIP 0
+#endif
+// Timing diagnostics only: phases computed a second time into a dummy (2 the
+// contact rows, 8 the joints), the physics unchanged; the time added is the
+// phase's own.
+#ifndef EX_PROF_DUP
+#define EX_PROF_DUP 0
 #endif
 // The explicit impact step (Settings::method 2; vibe-land
 // docs/destruction/IMPACT_STEP_PLAN.md, harness scripts/impact/explicit-step.py):
@@ -33,6 +48,17 @@ constexpr PxU32 kExNodes=1024;     // chunks and impactors per patch
 constexpr PxU32 kExLinks=4096;     // joints per patch
 constexpr PxU32 kExRows=256;       // contact rows per patch (a meteor's debris: 216 seen)
 constexpr PxU32 kExThreads=EX_THREADS;  // the window's threads per patch (one block)
+static_assert(kExRows<=kExThreads,"a row a thread (exRunT)");
+// A patch of at most kExSmall nodes runs exRunSmall: its nodes' inverse masses
+// and joint and row ranges in threadgroup memory beside their velocities.
+constexpr PxU32 kExSmall=512;
+// Power-iteration products of the substep's bound (exFinish): each one's bound
+// is rigorous, so this sets only how tight it is (and the build's cost).
+#ifndef EX_BOUND_PRODUCTS
+#define EX_BOUND_PRODUCTS 8
+#endif
+constexpr PxU32 kExBoundProducts=EX_BOUND_PRODUCTS;
+static_assert(8*kExLinks+8*kExNodes<=12*kExLinks,"the bound's blocks and iterate fit t.wr");
 
 struct ExPatch {
     PxU32 island,nodes,chunks,links,rows,impactors,substeps,done,broken,yielded,truncated,failed,seed,listed,bodies,pushing,near;
@@ -45,7 +71,9 @@ struct ExPatch {
     float dead; // the dead load's work over the window (sum h f0 . v: a sagging patch's)
 };
 // A joint of the patch: local node ends (0xffffffff: held), state bits.
-enum ExState : PxU32 { eEX_LIVE=1, eEX_DUCTILE=2, eEX_YIELDED=4, eEX_BROKEN=8 };
+// eEX_ROWS: an end of the joint has contact rows (exRunT sets it; the window's
+// other joints run beside the rows).
+enum ExState : PxU32 { eEX_LIVE=1, eEX_DUCTILE=2, eEX_YIELDED=4, eEX_BROKEN=8, eEX_ROWS=16 };
 struct ExLink { PxU32 a,b,state,pad; float J0[6],J[6]; float slip,limit,brokeAt,pad2; };
 // A contact row: the struck chunk (a, local), the impactor (b), the stage's row.
 struct ExRow { PxU32 a,b,row,pad; float P[3],total[3],Winv[9],W[9]; };
@@ -53,6 +81,14 @@ struct ExRow { PxU32 a,b,row,pad; float P[3],total[3],Winv[9],W[9]; };
 // velocity, the rest forces' load; tensor 1 for an impactor.
 struct ExNode { PxU32 chunk,tensor,jointBegin,jointEnd,rowBegin,rowEnd,pad[2]; float im,Iinv[6],v[6],f0[6],v0[6]; };
 
+// A joint packed for the window: kExJoint float4s, 16-byte aligned, so a
+// substep reads it in vector loads (a simdgroup's scalar loads of a 164-byte
+// Bond cost about three times as much: tests/tools/ex_floor_bench.cu). 0..8 the
+// constants -- frame n, t1, t2, arms o0, o1, stiffnesses kl, kt, k0, k1,
+// capacities and gains, J0, the local ends -- 9..10 the state: J, state bits,
+// slip. exRunT packs them at each launch's start from bonds and links and
+// writes the state back to links at its end.
+constexpr PxU32 kExJoint=11;
 struct ExScratch {
     PxU32* nodeOf{};      // [chunkCount] patch << 16 | local, or ~0
     PxU32* linkOf{};      // [bondCount] local joint index, or ~0 (each bond is in one patch at most)
@@ -67,6 +103,9 @@ struct ExScratch {
     PxU32* rowAdj{};      // [P][2 kExRows]: per node its rows, row << 1 | end (1: the impactor)
     float* wr{};          // [P][kExLinks][2][6]: each joint's B (J - J0) on its two ends (adj indexes it)
     PxU32* rowList{};     // [P][kExRows]: each patch's stage rows (exList), in row order
+    float* rwr{};         // [P][kExRows][2][6]: each row's impulse wrench on its two ends
+    float4* jp{};         // [P][kExLinks][kExJoint]: each joint packed for the window (exRunT; exPack)
+    PxU32* jl{};          // [P][kExLinks]: the live joints away from rows from the front, those at rows from the back (exRunT)
 };
 
 // A joint's wrench on one end's six dof from a bond-frame force x (end 0: its
@@ -86,24 +125,66 @@ __device__ __forceinline__ void exStiffness(const Bond& b,float* k)
     const float kk[6]={b.kl,b.kl,b.kl,b.kt,b.k0,b.k1};
     for(int q=0;q<6;++q)k[q]=(kk[q]>0.0f && kk[q]<1e30f)?kk[q]:0.0f;
 }
-// The Gershgorin row sums of one end's stiffness block rows against both ends:
-// rows[r] += sum_c |(B_end K B_e^T)_rc|, and the same of M^-1/2 K M^-1/2 less
-// the row's own scale, sym[r] += sum_c |..._rc| sqrt(m^-1 of e's dof c) (both
-// ends on the patch; minv: each end's six inverse masses).
-__device__ void exGershgorin(const Bond& b,const ExLink& l,PxU32 end,const float (*minv)[6],float* rows,float* sym)
+// One end's rows of its joint's stiffness block against both ends, C_e = B_end
+// K B_e^T: the block on its own node is added (signed) into D, its node's
+// diagonal block, summed over the node's joints before its absolute values are
+// taken (a node's joints' couplings between its own dofs cancel in part); the
+// block against the other end (on the patch) by its absolute values, with w
+// the other end's sqrt(m^-1): rows[r] += sum_c |C_rc| (Gershgorin of M^-1 K,
+// times the row's m^-1), sym[r] += sum_c |C_rc| w[c] (of S = M^-1/2 K M^-1/2,
+// less the row's sqrt(m^-1)), and lump[3 g + b] (g: r's group, translation 0
+// or rotation 1) the same sum over c in group b, its largest row's.
+// C_ef = B_e K B_f^T in closed form: B_e = s_e [[R, 0], [O_e R, -R]] (R the
+// frame's columns n, t1, t2; O_e the cross product with end e's arm; s_e +1 for
+// end 0, -1 for end 1; exWrench), K = diag(kl, kl, kl, kt, k0, k1). The force
+// stiffness is isotropic, R kl R^T = kl I, so C_ef = s_e s_f [[kl I, -kl O_f],
+// [kl O_e, -kl O_e O_f + R Km R^T]] (O^T = -O), Km = diag(kt, k0, k1): about 100
+// operations where the product of the two 6 x 6 blocks took about 1,500.
+__device__ __forceinline__ void exBlock(float kl,const float* M,float ex,float ey,float ez,float fx,float fy,float fz,float sign,float* C)
+{
+    const float eo=ex*fx+ey*fy+ez*fz;   // O_e O_f = of oe^T - (oe . of) I
+    // (-O_f written out: CuMetal e1a12f7 emits `--1.0` for -sign * x with sign
+    // the constant -1, which Metal rejects.)
+    const float Oe[9]={0.0f,-ez,ey,ez,0.0f,-ex,-ey,ex,0.0f},Ofn[9]={0.0f,fz,-fy,-fz,0.0f,fx,fy,-fx,0.0f};
+    const float e[3]={ex,ey,ez},f[3]={fx,fy,fz};
+    #pragma unroll
+    for(int i=0;i<3;++i) {
+        #pragma unroll
+        for(int j=0;j<3;++j) {
+            const float oo=f[i]*e[j]-(i==j?eo:0.0f);
+            C[6*i+j]=sign*(i==j?kl:0.0f);C[6*i+3+j]=sign*kl*Ofn[3*i+j];
+            C[6*(3+i)+j]=sign*kl*Oe[3*i+j];C[6*(3+i)+3+j]=sign*(M[3*i+j]-kl*oo);
+        }
+    }
+}
+__device__ void exGershgorin(const Bond& b,PxU32 end,bool both,const float* w,float* D,float* rows,float* sym,float* lump)
 {
     float k[6];exStiffness(b,k);
-    float Be[2][36];
-    for(PxU32 e=0;e<2;++e)for(int q=0;q<6;++q){float x[6]={0,0,0,0,0,0};x[q]=1.0f;float r[6]={0,0,0,0,0,0};exWrench(b,x,e,r);for(int i=0;i<6;++i)Be[e][6*i+q]=r[i];}
-    const PxU32 ends[2]={l.a,l.b};
+    float M[9];for(int i=0;i<3;++i)for(int j=0;j<3;++j)M[3*i+j]=k[3]*b.n[i]*b.n[j]+k[4]*b.t1[i]*b.t1[j]+k[5]*b.t2[i]*b.t2[j];
+    const float ex=end?b.o1[0]:b.o0[0],ey=end?b.o1[1]:b.o0[1],ez=end?b.o1[2]:b.o0[2],fx=end?b.o0[0]:b.o1[0],fy=end?b.o0[1]:b.o1[1],fz=end?b.o0[2]:b.o1[2];
+    float C[36];exBlock(k[0],M,ex,ey,ez,ex,ey,ez,1.0f,C);
+    for(int i=0;i<36;++i)D[i]+=C[i];
+    if(!both)return;
+    exBlock(k[0],M,ex,ey,ez,fx,fy,fz,-1.0f,C);
     for(int r=0;r<6;++r) {
-        float s=0.0f,t=0.0f;
-        for(PxU32 e=0;e<2;++e) {
-            if(ends[e]==0xffffffffu)continue;
-            for(int c=0;c<6;++c){float v=0.0f;for(int q=0;q<6;++q)v+=Be[end][6*r+q]*k[q]*Be[e][6*c+q];s+=fabsf(v);t+=fabsf(v)*sqrtf(minv[e][c]);}
-        }
-        rows[r]+=s;sym[r]+=t;
+        float s=0.0f,t[2]={0.0f,0.0f};
+        for(int c=0;c<6;++c){const float v=fabsf(C[6*r+c]);s+=v;t[c/3]+=v*w[c];}
+        rows[r]+=s;sym[r]+=t[0]+t[1];
+        for(int g=0;g<2;++g)lump[3*(r/3)+g]=fmaxf(lump[3*(r/3)+g],t[g]);
     }
+}
+// f += the six-float records rec[6 idx[j]], j in [b0, b1), in order. The
+// gathers are latency-bound (each record waits on its index): four indices
+// are loaded, then their records, before the sums (the same sums, in order).
+__device__ __forceinline__ void exGather(const float* rec,const PxU32* idx,PxU32 b0,PxU32 b1,float* f)
+{
+    PxU32 j=b0;
+    for(;j+EX_GATHER<=b1;j+=EX_GATHER) {
+        const float* q[EX_GATHER];for(int u=0;u<EX_GATHER;++u)q[u]=rec+6*size_t(idx[j+u]);
+        float r[EX_GATHER][6];for(int u=0;u<EX_GATHER;++u)for(int c=0;c<6;++c)r[u][c]=q[u][c];
+        for(int u=0;u<EX_GATHER;++u)for(int c=0;c<6;++c)f[c]+=r[u][c];
+    }
+    for(;j<b1;++j){const float* q=rec+6*size_t(idx[j]);for(int c=0;c<6;++c)f[c]+=q[c];}
 }
 __device__ __forceinline__ void exApplyInverse(const ExNode& n,const float* f,float* dv)
 {
@@ -127,23 +208,94 @@ __device__ __forceinline__ void exApplyInverse(const ExNode& n,const float* f,fl
 //   energy (0 is in K) but lets the contact separate along the cone (dilation).
 // Scaling the tangential part alone, the normal kept, could add energy: a
 // 7.8 kg fragment spinning at 180 rad/s went to 280 rad/s.
+// The same search, cheaply: P = 0 at once where Ps lies in the cone's polar in
+// the metric W (d^T W Ps <= 0 for every generator d: mu |(W Ps)_T| <= (W Ps)_N,
+// where the scan finds nothing below 0); the scan's directions by rotating
+// Ps's tangential direction through a table (no trigonometry); the golden
+// section about the scan's best direction tb by the offset u (cos(tb + u) =
+// cos tb cos u - sin tb sin u), each step reusing one of the last step's two
+// points (24 evaluations, not 48).
+// The value of the cone's boundary direction d = (-1, mu c, mu s): its length l
+// = max(0, d^T W Ps / d^T W d) and (P-Ps)^T W (P-Ps)/2 less a constant there.
+// (Scalars and the device W, no lambdas: CuMetal cannot prove the pointees of
+// a lambda's captured locals.)
+struct ExValue { float v,l; };
+__device__ __forceinline__ ExValue exValue(const float* W,float wp0,float wp1,float wp2,float mu,float c,float s)
+{
+    const float d1=mu*c,d2=mu*s;
+    const float Wd0=-W[0]+W[1]*d1+W[2]*d2,Wd1=-W[3]+W[4]*d1+W[5]*d2,Wd2=-W[6]+W[7]*d1+W[8]*d2;
+    const float dWd=-Wd0+d1*Wd1+d2*Wd2,dWP=-wp0+d1*wp1+d2*wp2;
+    const float l=dWd>0.0f?fmaxf(0.0f,dWP/dWd):0.0f;
+    return ExValue{0.5f*l*l*dWd-l*dWP,l};
+}
+// sin u and cos u for |u| <= pi/8 (the golden section's offsets): Taylor to
+// u^11 and u^12, the remainder below 2e-12, far under float's resolution.
+__device__ __forceinline__ void exSinCosSmall(float u,float& su,float& cu)
+{
+    const float x=u*u;
+    su=u*(1.0f+x*(-1.0f/6.0f+x*(1.0f/120.0f+x*(-1.0f/5040.0f+x*(1.0f/362880.0f+x*(-1.0f/39916800.0f))))));
+    cu=1.0f+x*(-0.5f+x*(1.0f/24.0f+x*(-1.0f/720.0f+x*(1.0f/40320.0f+x*(-1.0f/3628800.0f+x*(1.0f/479001600.0f))))));
+}
+// The projection's search: P = 0 at once where Ps lies in the cone's polar in
+// the metric W (d^T W Ps <= 0 for every generator d: mu |(W Ps)_T| <= (W
+// Ps)_N); else a 16-direction scan (Ps's tangential direction rotated through
+// a table), then the best direction refined by safeguarded Newton on the
+// offset u from it. On the boundary P = l d, l = N / D with N = d^T W Ps and D
+// = d^T W d, the value is -N^2 / (2 D): the best direction maximises R = N^2
+// / D where N > 0, a root of F = 2 N' D - N D' (R' = N F / D^2), F' = 2 N'' D +
+// N' D' - N D'' (d' = (0, -mu s, mu c), d'' = (0, -mu c, -mu s)). The root is
+// bracketed in the scan's interval about the best (as the golden section it
+// replaces assumed), Newton steps that leave the bracket or meet F' >= 0
+// bisect it, and it stops when the step is below float's resolution of u:
+// the same minimiser, to float precision (the golden section's 24 steps left
+// it within 1e-5 rad), in about 4 evaluations instead of 26.
 __device__ __forceinline__ void exConeMetric(const float* W,const float* Ps,float mu,float* P)
 {
-    float WP[3];for(int i=0;i<3;++i)WP[i]=W[3*i]*Ps[0]+W[3*i+1]*Ps[1]+W[3*i+2]*Ps[2];
-    auto value=[&](float t,float& l){const float d[3]={-1.0f,mu*cosf(t),mu*sinf(t)};
-        float Wd[3];for(int i=0;i<3;++i)Wd[i]=W[3*i]*d[0]+W[3*i+1]*d[1]+W[3*i+2]*d[2];
-        const float dWd=d[0]*Wd[0]+d[1]*Wd[1]+d[2]*Wd[2],dWP=d[0]*WP[0]+d[1]*WP[1]+d[2]*WP[2];
-        l=dWd>0.0f?fmaxf(0.0f,dWP/dWd):0.0f;return 0.5f*l*l*dWd-l*dWP;};   // (P-Ps)^T W (P-Ps)/2 less a constant
-    P[0]=P[1]=P[2]=0.0f;if(!(mu>0.0f)){const float l=W[0]>0.0f?fmaxf(0.0f,-WP[0]/W[0]):0.0f;P[0]=-l;return;}
-    constexpr int kScan=16;float best=0.0f,tb=0.0f;   // P = 0: value 0
-    const float t0=atan2f(Ps[2],Ps[1]);
-    for(int k=0;k<kScan;++k){const float t=t0+6.2831853f*float(k)/float(kScan);float l;const float v=value(t,l);if(v<best){best=v;tb=t;}}
-    if(best<0.0f) {
-        float a=tb-6.2831853f/float(kScan),b=tb+6.2831853f/float(kScan);
-        for(int it=0;it<24;++it){const float c=b-0.618034f*(b-a),e=a+0.618034f*(b-a);float l;if(value(c,l)<value(e,l))b=e;else a=c;}
-        const float t=0.5f*(a+b);float l;if(value(t,l)<best){tb=t;}
-        value(tb,l);P[0]=-l;P[1]=l*mu*cosf(tb);P[2]=l*mu*sinf(tb);
+    const float wp0=W[0]*Ps[0]+W[1]*Ps[1]+W[2]*Ps[2],wp1=W[3]*Ps[0]+W[4]*Ps[1]+W[5]*Ps[2],wp2=W[6]*Ps[0]+W[7]*Ps[1]+W[8]*Ps[2];
+    P[0]=P[1]=P[2]=0.0f;if(!(mu>0.0f)){const float l=W[0]>0.0f?fmaxf(0.0f,-wp0/W[0]):0.0f;P[0]=-l;return;}
+    if(mu*sqrtf(wp1*wp1+wp2*wp2)<=wp0)return;   // in the polar: the projection is 0
+    constexpr int kScan=16;
+    constexpr float kC[kScan]={1.0f,0.92387953f,0.70710678f,0.38268343f,0.0f,-0.38268343f,-0.70710678f,-0.92387953f,-1.0f,-0.92387953f,-0.70710678f,-0.38268343f,0.0f,0.38268343f,0.70710678f,0.92387953f};
+    constexpr float kS[kScan]={0.0f,0.38268343f,0.70710678f,0.92387953f,1.0f,0.92387953f,0.70710678f,0.38268343f,0.0f,-0.38268343f,-0.70710678f,-0.92387953f,-1.0f,-0.92387953f,-0.70710678f,-0.38268343f};
+    const float tn=sqrtf(Ps[1]*Ps[1]+Ps[2]*Ps[2]);
+    const float c0=tn>0.0f?Ps[1]/tn:1.0f,s0=tn>0.0f?Ps[2]/tn:0.0f;   // t0 = atan2(Ps_2, Ps_1)
+    // The scan without divisions: where N > 0 and D > 0 the value is -N^2/(2 D),
+    // so the best direction has the largest N^2 / D (compared crosswise).
+    float bN=0.0f,bD=1.0f,cb=0.0f,sb=0.0f;   // P = 0: value 0
+    #pragma unroll
+    for(int k=0;k<kScan;++k) {
+        const float c=c0*kC[k]-s0*kS[k],s=s0*kC[k]+c0*kS[k],d1=mu*c,d2=mu*s;
+        const float Wd0=-W[0]+W[1]*d1+W[2]*d2,Wd1=-W[3]+W[4]*d1+W[5]*d2,Wd2=-W[6]+W[7]*d1+W[8]*d2;
+        const float D=-Wd0+d1*Wd1+d2*Wd2,N=-wp0+d1*wp1+d2*wp2;
+        if(N>0.0f && D>0.0f && N*N*bD>bN*bN*D){bN=N;bD=D;cb=c;sb=s;}
     }
+    if(!(bN>0.0f))return;
+    const float best=-0.5f*bN*bN/bD;
+    constexpr float kStep=6.2831853f/float(kScan);
+    float a=-kStep,b=kStep,u=0.0f,cx=cb,sx=sb;
+    for(int it=0;it<24;++it) {
+        float su,cu;exSinCosSmall(u,su,cu);cx=cb*cu-sb*su;sx=sb*cu+cb*su;
+        const float d1=mu*cx,d2=mu*sx,e1=-d2,e2=d1;   // d = (-1, d1, d2), d' = (0, e1, e2), d'' = (0, -d1, -d2)
+        const float Wd0=-W[0]+W[1]*d1+W[2]*d2,Wd1=-W[3]+W[4]*d1+W[5]*d2,Wd2=-W[6]+W[7]*d1+W[8]*d2;
+        const float We0=W[1]*e1+W[2]*e2,We1=W[4]*e1+W[5]*e2,We2=W[7]*e1+W[8]*e2;
+        const float N=-wp0+d1*wp1+d2*wp2,N1=e1*wp1+e2*wp2,N2=-d1*wp1-d2*wp2;
+        const float D=-Wd0+d1*Wd1+d2*Wd2,D1=e1*Wd1+e2*Wd2+(-We0+d1*We1+d2*We2);
+        const float Wf0=W[1]*d1+W[2]*d2,Wf1=W[4]*d1+W[5]*d2,Wf2=W[7]*d1+W[8]*d2;   // W d'' = -W (0, d1, d2)
+        const float D2=-d1*Wd1-d2*Wd2+2.0f*(e1*We1+e2*We2)-(-Wf0+d1*Wf1+d2*Wf2);
+        float un;
+        if(!(N>0.0f) || !(D>0.0f)){if(u>0.0f)b=u;else a=u;un=0.5f*(a+b);}
+        else {
+            const float F=2.0f*N1*D-N*D1,F1=2.0f*N2*D+N1*D1-N*D2;
+            if(F>0.0f)a=u;else b=u;
+            un=F1<0.0f?u-F/F1:0.5f*(a+b);
+            if(!(un>a && un<b))un=0.5f*(a+b);
+        }
+        const bool done=fabsf(un-u)<=4.0f*FLT_EPSILON*kStep;
+        u=un;if(done)break;
+    }
+    {float su,cu;exSinCosSmall(u,su,cu);cx=cb*cu-sb*su;sx=sb*cu+cb*su;}
+    if(exValue(W,wp0,wp1,wp2,mu,cx,sx).v<best){cb=cx;sb=sx;}
+    const float l=exValue(W,wp0,wp1,wp2,mu,cb,sb).l;P[0]=-l;P[1]=l*mu*cb;P[2]=l*mu*sb;
 }
 __device__ __forceinline__ void exCone(const float* W,const float* g,const float* Ps,float mu,float* P)
 {
@@ -338,34 +490,79 @@ __device__ void exFinish(Shared& sh,const Settings& s,const ExScratch& t,PxU32 p
     ExNode* nodes=t.nodes+size_t(p)*kExNodes;const Bond* bonds=t.bonds+size_t(p)*kExLinks;const ExLink* links=t.links+size_t(p)*kExLinks;
     const PxU32* adj=t.adj+size_t(p)*2*kExLinks;
     float* wr=t.wr+size_t(p)*kExLinks*12;
-    for(PxU32 i=threadIdx.x;i<12*sp.links;i+=kThreads)wr[i]=0.0f;
     float u0=0.0f;
     for(PxU32 l=threadIdx.x;l<sp.links;l+=kThreads){const ExLink& e=links[l];if(!(e.state&eEX_LIVE))continue;
         float k[6];exStiffness(bonds[l],k);for(int q=0;q<6;++q)if(k[q]>0.0f)u0+=0.5f*e.J0[q]*e.J0[q]/k[q];}
     u0=blockSum(sh,u0);
     if(!threadIdx.x){sp.u0=u0;sp.keIn=sp.keOut=sp.fracture=sp.plastic=sp.dead=0.0f;}
-    // The largest frequency's square, bounded by Gershgorin's theorem on M^-1 K
-    // and on its similar M^-1/2 K M^-1/2 (both upper bounds: the smaller holds).
-    // Joints act on chunk nodes only (scalar inertia): M^-1 is diagonal there.
-    float lambda=0.0f,lambdaSym=0.0f;
-    for(PxU32 k=threadIdx.x;k<nn;k+=kThreads) {
-        ExNode& n=nodes[k];float f[6]={0,0,0,0,0,0},g[6]={0,0,0,0,0,0},y[6]={0,0,0,0,0,0};
-        for(PxU32 j=n.jointBegin;j<n.jointEnd;++j) {
-            const PxU32 l=adj[j]>>1,end=adj[j]&1u;const ExLink& e=links[l];
-            if(!(e.state&eEX_LIVE))continue;
-            float minv[2][6]={};
-            const PxU32 ends[2]={e.a,e.b};
-            for(PxU32 m=0;m<2;++m)if(ends[m]!=0xffffffffu){const ExNode& o=nodes[ends[m]];for(int q=0;q<3;++q){minv[m][q]=o.im;minv[m][3+q]=o.Iinv[q];}}
-            exWrench(bonds[l],e.J0,end,f);exGershgorin(bonds[l],e,end,minv,g,y);
+    // The largest frequency's square: lambda_max(M^-1 K) = lambda_max(S), S =
+    // M^-1/2 K M^-1/2 symmetric. Gershgorin on M^-1 K and on S bounds it; so,
+    // tighter, does Collatz-Wielandt: lambda_max(S) <= rho(S) <= rho(|S|) <=
+    // max_i (A x)_i / x_i for every positive x and every nonnegative A >= |S|
+    // entrywise (Wielandt). A here: each node's diagonal block assembled before
+    // its absolute values, the joints' blocks between nodes by theirs, and
+    // each node's six dofs lumped into two groups, translation and rotation
+    // (L, 2 x 2 per block: a group's largest row sum over each group; for x
+    // constant on groups (|S| x)_r <= (L x)_g(r), so rho(|S|) <= the bound on
+    // L). x = 1 is Gershgorin; power iteration on L from there tightens it
+    // towards rho(L) (the cannonball's full island: Gershgorin on S 3.45e4
+    // rad/s, after 8 products 2.92e4, rho(|S|) 2.89e4, the true 2.80e4). Every
+    // iterate's bound holds; the least is kept. Joints act on chunk nodes
+    // only (diagonal M^-1). L's blocks and the iterate live in t.wr, zeroed
+    // after: per joint end (adj slot) its block against the other end, per
+    // node its own block, x and y (2 per node; dofs with no stiffness x = 1).
+    float* Lo=wr;float* Ld=wr+8*kExLinks;float* X=Ld+4*kExNodes;float* Y=X+2*kExNodes;
+    float lambda=0.0f;
+    {
+        float gersh=0.0f,cw=0.0f;
+        for(PxU32 k=threadIdx.x;k<nn;k+=kThreads) {
+            ExNode& n=nodes[k];float f[6]={0,0,0,0,0,0},g[6]={0,0,0,0,0,0},y[6]={0,0,0,0,0,0};
+            float D[36];for(int i=0;i<36;++i)D[i]=0.0f;
+            for(PxU32 j=n.jointBegin;j<n.jointEnd;++j) {
+                const PxU32 l=adj[j]>>1,end=adj[j]&1u;const ExLink& e=links[l];
+                float lump[6]={0,0,0,0,0,0};
+                if(e.state&eEX_LIVE) {
+                    const PxU32 other=end?e.a:e.b;float w[6]={0,0,0,0,0,0};
+                    if(other!=0xffffffffu){const ExNode& o=nodes[other];for(int q=0;q<3;++q){w[q]=sqrtf(o.im);w[3+q]=sqrtf(o.Iinv[q]);}}
+                    exWrench(bonds[l],e.J0,end,f);
+                    exGershgorin(bonds[l],end,other!=0xffffffffu,w,D,g,y,lump);
+                }
+                for(int a=0;a<2;++a)for(int c=0;c<2;++c)Lo[4*j+2*a+c]=lump[3*a+c]*sqrtf(a?n.Iinv[0]>0.0f?fmaxf(n.Iinv[0],fmaxf(n.Iinv[1],n.Iinv[2])):0.0f:n.im);
+            }
+            for(int q=0;q<6;++q)n.f0[q]=-f[q];
+            float ld[4]={0,0,0,0};
+            if(!n.tensor) {
+                for(int r=0;r<6;++r){float t[2]={0.0f,0.0f};
+                    for(int c=0;c<6;++c){const float a=fabsf(D[6*r+c]);g[r]+=a;t[c/3]+=a*sqrtf(c<3?n.im:n.Iinv[c-3]);}
+                    y[r]+=t[0]+t[1];const float sr=sqrtf(r<3?n.im:n.Iinv[r-3]);
+                    for(int c=0;c<2;++c)ld[2*(r/3)+c]=fmaxf(ld[2*(r/3)+c],sr*t[c]);}
+                for(int q=0;q<6;++q){const float m=q<3?n.im:n.Iinv[q-3];gersh=fmaxf(gersh,m*g[q]);cw=fmaxf(cw,sqrtf(m)*y[q]);}
+            }
+            for(int q=0;q<4;++q)Ld[4*k+q]=ld[q];
+            X[2*k]=X[2*k+1]=1.0f;
         }
-        for(int q=0;q<6;++q)n.f0[q]=-f[q];
-        if(n.tensor)continue;
-        for(int q=0;q<3;++q){
-            lambda=fmaxf(lambda,fmaxf(n.im*g[q],n.Iinv[q]*g[3+q]));
-            lambdaSym=fmaxf(lambdaSym,fmaxf(sqrtf(n.im)*y[q],sqrtf(n.Iinv[q])*y[3+q]));
-        }
+        lambda=fminf(blockMax(sh,gersh),blockMax(sh,cw));
     }
-    lambda=fminf(blockMax(sh,lambda),blockMax(sh,lambdaSym));
+    for(PxU32 pass=0;pass<kExBoundProducts;++pass) {
+        float cw=0.0f,ymax=0.0f;
+        for(PxU32 k=threadIdx.x;k<nn;k+=kThreads) {
+            const ExNode& n=nodes[k];if(n.tensor)continue;
+            float y[2];for(int a=0;a<2;++a)y[a]=Ld[4*k+2*a]*X[2*k]+Ld[4*k+2*a+1]*X[2*k+1];
+            for(PxU32 j=n.jointBegin;j<n.jointEnd;++j) {
+                const PxU32 l=adj[j]>>1,end=adj[j]&1u;const ExLink& e=links[l];const PxU32 other=end?e.a:e.b;
+                if(other==0xffffffffu)continue;
+                for(int a=0;a<2;++a)y[a]+=Lo[4*j+2*a]*X[2*other]+Lo[4*j+2*a+1]*X[2*other+1];
+            }
+            for(int a=0;a<2;++a){cw=fmaxf(cw,y[a]/X[2*k+a]);Y[2*k+a]=y[a];ymax=fmaxf(ymax,y[a]);}
+        }
+        lambda=fminf(lambda,blockMax(sh,cw));
+        ymax=blockMax(sh,ymax);
+        if(!(ymax>0.0f))break;
+        for(PxU32 i=threadIdx.x;i<2*nn;i+=kThreads)if(!nodes[i/2].tensor)X[i]=Y[i]>0.0f?Y[i]/ymax:1.0f;
+        __syncthreads();
+    }
+    for(PxU32 i=threadIdx.x;i<12*kExLinks;i+=kThreads)wr[i]=0.0f;
+    __syncthreads();
     if(!threadIdx.x) {
         sp.omega=sqrtf(lambda);
         sp.h=s.explicitDt>0.0f?s.explicitDt:(sp.omega>0.0f?s.explicitSafety*2.0f/sp.omega:s.dt);
@@ -379,117 +576,195 @@ __global__ __launch_bounds__(kThreads) void exFinishKernel(Settings s,ExScratch 
 }
 
 // 3. The window, resumable: at most `budget` substeps per patch per launch.
-// The nodes' velocities live in threadgroup memory; each joint keeps the
-// wrench of its force change on its two ends, B (J - J0) (t.wr), so a node
-// gathers six floats a joint and never reads a joint's geometry.
-__global__ __launch_bounds__(kExThreads) void exRun(Settings s,Scratch w,ExScratch t,PxU32 budget)
+// The window is latency-bound (a phase costs about the same at 256, 512 and
+// 1024 threads; on the cannonball's patch each of the node, contact and joint
+// phases took about 4 us a substep with its node and row data in device
+// memory): so what a phase reads from device memory is what it costs.
+// - The nodes' velocities live in threadgroup memory; for a patch of at most
+//   kExSmall nodes (Small) so do their inverse masses and their joint and row
+//   ranges.
+// - Each joint keeps the wrench of its force change on its two ends, B (J -
+//   J0) (t.wr), so a node gathers six floats a joint and never reads a joint's
+//   geometry; each row likewise (t.rwr).
+// - Each row is its thread's: its ends in registers, W, W^-1 and its running
+//   impulse read from device memory (in registers they cost more: fewer live
+//   registers across the loop measured 8% faster on the whole window).
+// - The dead load's work is the joints' (f0 . v = -sum J0 . B^T v), counted
+//   where the joint phase already has B^T v.
+__device__ __forceinline__ void exPack(const Bond& b,const ExLink& e,float4* q)
 {
-    __shared__ PxU32 shBroken,shYielded,shActive,shPushing,shNear;
+    q[0]=make_float4(b.n[0],b.n[1],b.n[2],b.t1[0]);q[1]=make_float4(b.t1[1],b.t1[2],b.t2[0],b.t2[1]);
+    q[2]=make_float4(b.t2[2],b.o0[0],b.o0[1],b.o0[2]);q[3]=make_float4(b.o1[0],b.o1[1],b.o1[2],b.kl);
+    q[4]=make_float4(b.kt,b.k0,b.k1,b.capC);q[5]=make_float4(b.capT,b.capS,b.gb,b.gt);q[6]=make_float4(b.g0,b.g1,b.h0,b.h1);
+    q[7]=make_float4(e.J0[0],e.J0[1],e.J0[2],e.J0[3]);q[8]=make_float4(e.J0[4],e.J0[5],__uint_as_float(e.a),__uint_as_float(e.b));
+    q[9]=make_float4(e.J[0],e.J[1],e.J[2],e.J[3]);q[10]=make_float4(e.J[4],e.J[5],__uint_as_float(e.state),e.slip);
+}
+// The packed constants back into a Bond's fields the window reads (the rest unset).
+__device__ __forceinline__ void exUnpack(const float4* q,Bond& b,float* J0,PxU32& a,PxU32& e1)
+{
+    const float4 q0=q[0],q1=q[1],q2=q[2],q3=q[3],q4=q[4],q5=q[5],q6=q[6],q7=q[7],q8=q[8];
+    b.n[0]=q0.x;b.n[1]=q0.y;b.n[2]=q0.z;b.t1[0]=q0.w;b.t1[1]=q1.x;b.t1[2]=q1.y;b.t2[0]=q1.z;b.t2[1]=q1.w;
+    b.t2[2]=q2.x;b.o0[0]=q2.y;b.o0[1]=q2.z;b.o0[2]=q2.w;b.o1[0]=q3.x;b.o1[1]=q3.y;b.o1[2]=q3.z;b.kl=q3.w;
+    b.kt=q4.x;b.k0=q4.y;b.k1=q4.z;b.capC=q4.w;b.capT=q5.x;b.capS=q5.y;b.gb=q5.z;b.gt=q5.w;b.g0=q6.x;b.g1=q6.y;b.h0=q6.z;b.h1=q6.w;
+    J0[0]=q7.x;J0[1]=q7.y;J0[2]=q7.z;J0[3]=q7.w;J0[4]=q8.x;J0[5]=q8.y;a=__float_as_uint(q8.z);e1=__float_as_uint(q8.w);
+}
+template<bool Small> __device__ __forceinline__
+void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
+{
+    constexpr PxU32 kV=Small?kExSmall:kExNodes,kN=Small?kExSmall:1u;
+    __shared__ PxU32 shBroken,shYielded,shActive,shPushing,shNear,shFree,shAtRows;
     __shared__ float shFracture,shPlastic,shDead;
-    __shared__ float vS[6*kExNodes];
+    __shared__ float vS[6*kV],imS[kN],iiS[3*kN];
+    __shared__ PxU32 jS[kN],rS[kN];
     const PxU32 p=blockIdx.x;if(p>=*t.patchCount)return;
     ExPatch& sp=t.patches[p];if(sp.done)return;
     ExNode* nodes=t.nodes+size_t(p)*kExNodes;const Bond* bonds=t.bonds+size_t(p)*kExLinks;ExLink* links=t.links+size_t(p)*kExLinks;
     const Bond* rowBonds=t.rowBonds+size_t(p)*kExRows;ExRow* rows=t.rows+size_t(p)*kExRows;
     const PxU32* adj=t.adj+size_t(p)*2*kExLinks;const PxU32* rowAdj=t.rowAdj+size_t(p)*2*kExRows;
-    float* wr=t.wr+size_t(p)*kExLinks*12;
+    float* wr=t.wr+size_t(p)*kExLinks*12;float* rwr=t.rwr+size_t(p)*kExRows*12;float4* jp=t.jp+size_t(p)*kExLinks*kExJoint;PxU32* jl=t.jl+size_t(p)*kExLinks;
     const PxU32 nn=sp.nodes,nl=sp.links,nr=sp.rows;const float h=sp.h,T=s.dt;
     const PxU32 total=PxU32(ceilf(T/h-1e-4f));
-    if(!threadIdx.x){shBroken=0;shYielded=0;shFracture=0.0f;shPlastic=0.0f;shDead=0.0f;}
-    for(PxU32 i=threadIdx.x;i<6*nn;i+=kExThreads)vS[i]=nodes[i/6].v[i%6];
-    // Each row's W^-1 (W = B_c^T M^-1 B_c over its three force components: fixed over the window).
-    // Every row of the substep is solved at once (Jacobi), so each sees its nodes'
-    // inverse masses times their row counts (mass splitting, Tonge et al. 2012):
-    // rows sharing a node then cannot together overshoot it (unsplit, two debris
-    // rows on one chunk gave its impactors energy: 10.7 -> 11.2 kJ in a window).
-    for(PxU32 r=threadIdx.x;r<nr;r+=kExThreads) {
-        const Bond& b=rowBonds[r];ExRow& x=rows[r];float W[9]={0,0,0,0,0,0,0,0,0};
+    if(!threadIdx.x){shBroken=0;shYielded=0;shFracture=0.0f;shPlastic=0.0f;shDead=0.0f;shFree=0;shAtRows=0;}
+    for(PxU32 k=threadIdx.x;k<nn;k+=kExThreads) {
+        const ExNode& n=nodes[k];for(int q=0;q<6;++q)vS[6*k+q]=n.v[q];
+        if(Small){imS[k]=n.im;for(int q=0;q<3;++q)iiS[3*k+q]=n.tensor?-1.0f:n.Iinv[q];jS[k]=n.jointBegin|(n.jointEnd<<16);rS[k]=n.rowBegin|(n.rowEnd<<16);}
+    }
+    auto jointRange=[&](PxU32 k,PxU32& b0,PxU32& b1){if(Small){b0=jS[k]&0xffffu;b1=jS[k]>>16;}else{b0=nodes[k].jointBegin;b1=nodes[k].jointEnd;}};
+    auto rowRange=[&](PxU32 k,PxU32& b0,PxU32& b1){if(Small){b0=rS[k]&0xffffu;b1=rS[k]>>16;}else{b0=nodes[k].rowBegin;b1=nodes[k].rowEnd;}};
+    // A node's velocity change from a wrench f, times scale.
+    auto apply=[&](PxU32 k,const float* f,float scale){
+        // A chunk's inverse inertia is diagonal in the joint frame (Iinv[0..2]); an impactor's a tensor.
+        float im,ii[3];if(Small){im=imS[k];for(int q=0;q<3;++q)ii[q]=iiS[3*k+q];}else{const ExNode& n=nodes[k];im=n.im;for(int q=0;q<3;++q)ii[q]=n.tensor?-1.0f:n.Iinv[q];}
+        for(int q=0;q<3;++q)vS[6*k+q]+=scale*im*f[q];
+        if(ii[0]>=0.0f){for(int q=0;q<3;++q)vS[6*k+3+q]+=scale*ii[q]*f[3+q];}
+        else{float a3[3];symMul(nodes[k].Iinv,f+3,a3);for(int q=0;q<3;++q)vS[6*k+3+q]+=scale*a3[q];}
+    };
+    // This thread's row: W = B_c^T M^-1 B_c over its three force components
+    // (fixed over the window), each node's inverse mass times its row count
+    // (Jacobi: mass splitting, Tonge et al. 2012; rows sharing a node then
+    // cannot together overshoot it), W^-1, its ends, its impulse.
+    const bool hasRow=threadIdx.x<nr;
+    float W[9]={0,0,0,0,0,0,0,0,0};PxU32 ra=0,rn=0;
+    if(hasRow) {
+        const Bond rb=rowBonds[threadIdx.x];const ExRow x=rows[threadIdx.x];ra=x.a;rn=x.b;
         for(PxU32 end=0;end<2;++end) {
             const ExNode& n=nodes[end?x.b:x.a];float col[3][6];
             const float split=float(max(n.rowEnd-n.rowBegin,1u));
-            for(int q=0;q<3;++q){float xq[6]={0,0,0,0,0,0};xq[q]=1.0f;float f[6]={0,0,0,0,0,0};exWrench(b,xq,end,f);exApplyInverse(n,f,col[q]);for(int c=0;c<6;++c)col[q][c]*=split;}
-            for(int i=0;i<3;++i)for(int q=0;q<3;++q){float e6[6]={0,0,0,0,0,0};exRelative(b,end,col[q],e6);W[3*i+q]+=e6[i];}
+            for(int q=0;q<3;++q){float xq[6]={0,0,0,0,0,0};xq[q]=1.0f;float f[6]={0,0,0,0,0,0};exWrench(rb,xq,end,f);exApplyInverse(n,f,col[q]);for(int c=0;c<6;++c)col[q][c]*=split;}
+            for(int i=0;i<3;++i)for(int q=0;q<3;++q){float e6[6]={0,0,0,0,0,0};exRelative(rb,end,col[q],e6);W[3*i+q]+=e6[i];}
         }
         const float det=W[0]*(W[4]*W[8]-W[5]*W[7])-W[1]*(W[3]*W[8]-W[5]*W[6])+W[2]*(W[3]*W[7]-W[4]*W[6]);
-        const bool ok=det>0.0f && isfinite(det);const float id=ok?1.0f/det:0.0f;
+        const float id=(det>0.0f && isfinite(det))?1.0f/det:0.0f;
         const float inv[9]={(W[4]*W[8]-W[5]*W[7])*id,(W[2]*W[7]-W[1]*W[8])*id,(W[1]*W[5]-W[2]*W[4])*id,
             (W[5]*W[6]-W[3]*W[8])*id,(W[0]*W[8]-W[2]*W[6])*id,(W[2]*W[3]-W[0]*W[5])*id,
             (W[3]*W[7]-W[4]*W[6])*id,(W[1]*W[6]-W[0]*W[7])*id,(W[0]*W[4]-W[1]*W[3])*id};
-        for(int i=0;i<9;++i){x.Winv[i]=inv[i];x.W[i]=W[i];}
+        for(int i=0;i<9;++i){rows[threadIdx.x].Winv[i]=inv[i];rows[threadIdx.x].W[i]=W[i];}
     }
     __syncthreads();
     PxU32 step=sp.substeps;float dead=0.0f;
+    // A joint's substep: the trial, then fracture or the radial return; the force change's wrench on both ends.
+    auto joint=[&](PxU32 l,float time,bool last) {
+        float4* q=jp+size_t(kExJoint)*l;
+        Bond b;float J0[6];PxU32 ea,eb;exUnpack(q,b,J0,ea,eb);
+        const float4 s0=q[9],s1=q[10];PxU32 state=__float_as_uint(s1.z);float slip=s1.w;
+        if(!(state&eEX_LIVE))return;   // broke earlier in this launch
+        float d[6]={0,0,0,0,0,0};if(ea!=0xffffffffu)exRelative(b,0,vS+6*ea,d);if(eb!=0xffffffffu)exRelative(b,1,vS+6*eb,d);
+        for(int q6=0;q6<6;++q6)dead-=h*J0[q6]*d[q6];
+        float k[6];exStiffness(b,k);
+        const float Jp[6]={s0.x,s0.y,s0.z,s0.w,s1.x,s1.y};
+        float J[6];for(int q6=0;q6<6;++q6)J[q6]=Jp[q6]-h*k[q6]*d[q6];
+        const float u=utilisation(b,J);
+        // An event is near: a brittle joint within the band, a ductile one slipping.
+        if((state&eEX_DUCTILE)?u>1.0f:u>=1.0f-s.capacityBand){shActive=1u;if(last)atomicAdd(&shNear,1u);}
+        bool breaks=false;
+        if(!(state&eEX_DUCTILE))breaks=u>=1.0f-s.capacityBand;
+        else if(u>1.0f) {
+            float sl=0.0f,work=0.0f;
+            for(int q6=0;q6<6;++q6){const float y=J[q6]/u;if(k[q6]>0.0f){const float dp=(J[q6]-y)/k[q6];if(q6<3)sl+=dp*dp;work+=fabsf(y*dp);}J[q6]=y;}
+            slip+=sqrtf(sl);atomicAdd(&shPlastic,work);
+            if(!(state&eEX_YIELDED)){state|=eEX_YIELDED;atomicAdd(&shYielded,1u);}
+            breaks=slip>links[l].limit;
+        }
+        if(breaks){float u2=0.0f;for(int q6=0;q6<6;++q6)if(k[q6]>0.0f)u2+=0.5f*J[q6]*J[q6]/k[q6];atomicAdd(&shFracture,u2);
+            state=(state&~eEX_LIVE)|eEX_BROKEN;for(int q6=0;q6<6;++q6)J[q6]=0.0f;links[l].brokeAt=time;atomicAdd(&shBroken,1u);}
+        q[9]=make_float4(J[0],J[1],J[2],J[3]);q[10]=make_float4(J[4],J[5],__uint_as_float(state),slip);
+        float dJ[6];for(int q6=0;q6<6;++q6)dJ[q6]=J[q6]-J0[q6];
+        float* o=wr+12*size_t(l);float f0[6]={0,0,0,0,0,0},f1[6]={0,0,0,0,0,0};
+        exWrench(b,dJ,0,f0);exWrench(b,dJ,1,f1);
+        reinterpret_cast<float4*>(o)[0]=make_float4(f0[0],f0[1],f0[2],f0[3]);reinterpret_cast<float4*>(o)[1]=make_float4(f0[4],f0[5],f1[0],f1[1]);reinterpret_cast<float4*>(o)[2]=make_float4(f1[2],f1[3],f1[4],f1[5]);
+    };
+    // Rows run on the first ceil(nr / 32) simdgroups; the joints away from them on the rest at the same time.
+    const PxU32 rowThreads=min((nr+31u)&~31u,kExThreads),freeStride=kExThreads-rowThreads;
+    __syncthreads();
+    for(PxU32 l=threadIdx.x;l<nl;l+=kExThreads) {
+        ExLink& e=links[l];PxU32 b0,b1,c0=0,c1=0;
+        if(e.a!=0xffffffffu){rowRange(e.a,b0,b1);c0=b1-b0;}
+        if(e.b!=0xffffffffu){rowRange(e.b,b0,b1);c1=b1-b0;}
+        e.state=(c0||c1)?(e.state|eEX_ROWS):(e.state&~eEX_ROWS);
+        exPack(bonds[l],e,jp+size_t(kExJoint)*l);
+        // The lists the substeps walk (any order: each joint's substep is its own).
+        if(e.state&eEX_LIVE){if((c0||c1) || !freeStride)jl[nl-1u-atomicAdd(&shAtRows,1u)]=l;else jl[atomicAdd(&shFree,1u)]=l;}
+    }
+    __syncthreads();
+    const PxU32 nFree=shFree,nAtRows=shAtRows;
     for(PxU32 it=0;it<budget && step<total;++it,++step) {
-        const float time=float(step+1)*h;
+        const float time=float(step+1)*h;const bool last=step+1==total;
         // The window's end (Settings::explicitWindow 1): once no contact pushes, no
         // brittle joint is within the capacity band and no ductile one slips, no
         // event is under way; what remains (the dead load settling around the
         // damage) is the next tick's static verdict.
         if(!threadIdx.x){shActive=0u;shPushing=0u;shNear=0u;}
         // Joint forces on the nodes: each node gathers its joints' wrenches (no atomics).
-        for(PxU32 k=threadIdx.x;k<nn;k+=kExThreads) {
-            const ExNode& n=nodes[k];if(n.jointBegin==n.jointEnd)continue;
+        if(!(EX_PROF_SKIP&1))for(PxU32 k=threadIdx.x;k<nn;k+=kExThreads) {
+            PxU32 b0,b1;jointRange(k,b0,b1);if(b0==b1)continue;
             float f[6]={0,0,0,0,0,0};
-            for(PxU32 j=n.jointBegin;j<n.jointEnd;++j){const float* q=wr+6*size_t(adj[j]);for(int c=0;c<6;++c)f[c]+=q[c];}
-            float dv[6];exApplyInverse(n,f,dv);for(int q=0;q<6;++q){vS[6*k+q]+=h*dv[q];dead+=h*n.f0[q]*vS[6*k+q];}
+            exGather(wr,adj,b0,b1,f);
+            apply(k,f,h);
         }
         __syncthreads();
-        // Contacts: each row's inelastic impulse from the same velocities (Jacobi).
-        for(PxU32 r=threadIdx.x;r<nr;r+=kExThreads) {
-            const Bond b=rowBonds[r];ExRow& x=rows[r];
-            float g[6]={0,0,0,0,0,0};exRelative(b,0,vS+6*x.a,g);exRelative(b,1,vS+6*x.b,g);
-            // P = -W^-1 g, then the cone: compression only (P_N <= 0), |P_T| <= mu |P_N|.
-            float Ps[3];for(int i=0;i<3;++i)Ps[i]=-(x.Winv[3*i]*g[0]+x.Winv[3*i+1]*g[1]+x.Winv[3*i+2]*g[2]);
-            float P[3];exCone(x.W,g,Ps,b.area,P);
-            for(int q=0;q<3;++q){x.P[q]=P[q];x.total[q]+=P[q];}
+        // The joints with no row at either end (their ends' velocities are final),
+        // beside the rows: on the threads past the rows' simdgroups.
+        if(!(EX_PROF_SKIP&8) && threadIdx.x>=rowThreads)for(PxU32 i=threadIdx.x-rowThreads;i<nFree;i+=freeStride)joint(jl[i],time,last);
+        // Contacts: each row's impulse from the same velocities (Jacobi), in the
+        // Coulomb cone (exCone: sliding, never adding energy).
+        if(hasRow && !(EX_PROF_SKIP&2)) {
+            const Bond rb=rowBonds[threadIdx.x];
+            float g[6]={0,0,0,0,0,0};exRelative(rb,0,vS+6*ra,g);exRelative(rb,1,vS+6*rn,g);
+            const float* Wi=rows[threadIdx.x].Winv;float Ps[3];for(int i=0;i<3;++i)Ps[i]=-(Wi[3*i]*g[0]+Wi[3*i+1]*g[1]+Wi[3*i+2]*g[2]);
+            float P[3];exCone(rows[threadIdx.x].W,g,Ps,rb.area,P);
+            if(EX_PROF_DUP&2){float g2[6],P2[3],Ps2[3];for(int q=0;q<6;++q)g2[q]=g[q]*(1.0f+FLT_EPSILON*float(step&1));for(int q=0;q<3;++q)Ps2[q]=Ps[q]*(1.0f+FLT_EPSILON*float(step&1));
+                exCone(rows[threadIdx.x].W,g2,Ps2,rb.area,P2);dead+=1e-30f*(P2[0]+P2[1]+P2[2]);}
+            for(int q=0;q<3;++q)rows[threadIdx.x].total[q]+=P[q];
             // Pushing: an impulse the impactor's momentum resolves in float (below
             // its float resolution it exchanges nothing representable).
-            {const ExNode& m=nodes[x.b];const float pm=sqrtf(vS[6*x.b]*vS[6*x.b]+vS[6*x.b+1]*vS[6*x.b+1]+vS[6*x.b+2]*vS[6*x.b+2])/fmaxf(m.im,FLT_MIN);
-             if(-P[0]>FLT_EPSILON*pm){shActive=1u;atomicAdd(&shPushing,1u);}}
+            const float im=Small?imS[rn]:nodes[rn].im;
+            const float pm=sqrtf(vS[6*rn]*vS[6*rn]+vS[6*rn+1]*vS[6*rn+1]+vS[6*rn+2]*vS[6*rn+2])/fmaxf(im,FLT_MIN);
+            if(-P[0]>FLT_EPSILON*pm){shActive=1u;if(last)atomicAdd(&shPushing,1u);}
+            const float x[6]={P[0],P[1],P[2],0,0,0};float f0[6]={0,0,0,0,0,0},f1[6]={0,0,0,0,0,0};
+            exWrench(rb,x,0,f0);exWrench(rb,x,1,f1);float* o=rwr+12*size_t(threadIdx.x);for(int q=0;q<6;++q){o[q]=f0[q];o[6+q]=f1[q];}
         }
         __syncthreads();
-        if(nr)for(PxU32 k=threadIdx.x;k<nn;k+=kExThreads) {
-            const ExNode& n=nodes[k];if(n.rowBegin==n.rowEnd)continue;
+        if(nr && !(EX_PROF_SKIP&4))for(PxU32 k=threadIdx.x;k<nn;k+=kExThreads) {
+            PxU32 b0,b1;rowRange(k,b0,b1);if(b0==b1)continue;
             float f[6]={0,0,0,0,0,0};
-            for(PxU32 j=n.rowBegin;j<n.rowEnd;++j){const PxU32 r=rowAdj[j]>>1;const float x[6]={rows[r].P[0],rows[r].P[1],rows[r].P[2],0,0,0};exWrench(rowBonds[r],x,rowAdj[j]&1u,f);}
-            float dv[6];exApplyInverse(n,f,dv);for(int q=0;q<6;++q)vS[6*k+q]+=dv[q];
+            exGather(rwr,rowAdj,b0,b1,f);
+            apply(k,f,1.0f);
         }
         __syncthreads();
-        // Joints: the trial, then fracture or the radial return; the force change's wrench on both ends.
-        for(PxU32 l=threadIdx.x;l<nl;l+=kExThreads) {
-            ExLink& e=links[l];if(!(e.state&eEX_LIVE))continue;
-            const Bond b=bonds[l];   // in registers: every field is read more than once
-            float d[6]={0,0,0,0,0,0};if(e.a!=0xffffffffu)exRelative(b,0,vS+6*e.a,d);if(e.b!=0xffffffffu)exRelative(b,1,vS+6*e.b,d);
-            float k[6];exStiffness(b,k);
-            float J[6];for(int q=0;q<6;++q)J[q]=e.J[q]-h*k[q]*d[q];
-            const float u=utilisation(b,J);
-            // An event is near: a brittle joint within the band, a ductile one slipping.
-            if((e.state&eEX_DUCTILE)?u>1.0f:u>=1.0f-s.capacityBand){shActive=1u;atomicAdd(&shNear,1u);}
-            bool breaks=false;
-            if(!(e.state&eEX_DUCTILE))breaks=u>=1.0f-s.capacityBand;
-            else if(u>1.0f) {
-                float slip=0.0f;
-                float work=0.0f;
-                for(int q=0;q<6;++q){const float y=J[q]/u;if(k[q]>0.0f){const float dp=(J[q]-y)/k[q];if(q<3)slip+=dp*dp;work+=fabsf(y*dp);}J[q]=y;}
-                e.slip+=sqrtf(slip);atomicAdd(&shPlastic,work);
-                if(!(e.state&eEX_YIELDED)){e.state|=eEX_YIELDED;atomicAdd(&shYielded,1u);}
-                breaks=e.slip>e.limit;
-            }
-            if(breaks){float u2=0.0f;for(int q=0;q<6;++q)if(k[q]>0.0f)u2+=0.5f*J[q]*J[q]/k[q];atomicAdd(&shFracture,u2);
-                e.state=(e.state&~eEX_LIVE)|eEX_BROKEN;for(int q=0;q<6;++q)J[q]=0.0f;e.brokeAt=time;atomicAdd(&shBroken,1u);}
-            for(int q=0;q<6;++q)e.J[q]=J[q];
-            float dJ[6];for(int q=0;q<6;++q)dJ[q]=J[q]-e.J0[q];
-            float* o=wr+12*size_t(l);float f0[6]={0,0,0,0,0,0},f1[6]={0,0,0,0,0,0};
-            exWrench(b,dJ,0,f0);exWrench(b,dJ,1,f1);for(int q=0;q<6;++q){o[q]=f0[q];o[6+q]=f1[q];}
-        }
+        // The joints at the rows' nodes (and all of them when no thread is free beside the rows).
+        if(!(EX_PROF_SKIP&8))for(PxU32 i=threadIdx.x;i<nAtRows;i+=kExThreads)joint(jl[nl-1u-i],time,last);
         __syncthreads();
         if(s.explicitWindow==1u && !shActive){++step;sp.done=1;break;}
     }
     for(PxU32 i=threadIdx.x;i<6*nn;i+=kExThreads)nodes[i/6].v[i%6]=vS[i];
+    for(PxU32 l=threadIdx.x;l<nl;l+=kExThreads){ExLink& e=links[l];const float4 s0=jp[size_t(kExJoint)*l+9],s1=jp[size_t(kExJoint)*l+10];
+        e.J[0]=s0.x;e.J[1]=s0.y;e.J[2]=s0.z;e.J[3]=s0.w;e.J[4]=s1.x;e.J[5]=s1.y;e.state=__float_as_uint(s1.z);e.slip=s1.w;}
     atomicAdd(&shDead,dead);
     __syncthreads();
     if(!threadIdx.x){sp.dead+=shDead;sp.fracture+=shFracture;sp.plastic+=shPlastic;sp.substeps=step;sp.t=float(step)*h;sp.broken+=shBroken;sp.yielded+=shYielded;sp.pushing=shPushing;sp.near=shNear;if(step>=total)sp.done=1;}
 }
+__global__ __launch_bounds__(kExThreads) void exRun(Settings s,Scratch w,ExScratch t,PxU32 budget){exRunT<false>(s,w,t,budget);}
+__global__ __launch_bounds__(kExThreads) void exRunSmall(Settings s,Scratch w,ExScratch t,PxU32 budget){exRunT<true>(s,w,t,budget);}
 
 // 4. Publish: the patch's joints (forces, verdicts, slip), the rows' force
 // and bound (the impulse delivered over the window, per point), the

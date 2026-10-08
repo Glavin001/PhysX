@@ -114,7 +114,7 @@ int run(int argc,char** argv)
     patch.impactors=imp!=0xffffffffu?1:0;
     impact::ExScratch t{};
     t.patchCount=upload(std::vector<PxU32>{1u});t.patches=upload(std::vector<impact::ExPatch>{patch});
-    t.nodes=upload(nodes);t.bonds=upload(bonds);t.links=upload(links);t.rowBonds=upload(rowBonds);t.rows=upload(rows);t.adj=upload(adj);t.rowAdj=upload(rowAdj);allocate(t.wr,12*size_t(impact::kExLinks));
+    t.nodes=upload(nodes);t.bonds=upload(bonds);t.links=upload(links);t.rowBonds=upload(rowBonds);t.rows=upload(rows);t.adj=upload(adj);t.rowAdj=upload(rowAdj);allocate(t.wr,12*size_t(impact::kExLinks));allocate(t.rwr,12*size_t(impact::kExRows));allocate(t.jp,impact::kExJoint*size_t(impact::kExLinks));allocate(t.jl,size_t(impact::kExLinks));
     impact::Settings s{};s.dt=dt;s.capacityBand=band;
     s.explicitDt=env("IMPACT_EXPLICIT_DT_US",0.0f)*1e-6f;s.explicitSafety=env("IMPACT_EXPLICIT_SAFETY",s.explicitSafety);
     impact::Scratch w{};
@@ -129,6 +129,9 @@ int run(int argc,char** argv)
     impact::ExPatch p{};check(cudaMemcpy(&p,t.patches,sizeof p,cudaMemcpyDeviceToHost));
     std::vector<impact::ExLink> out(links.size());check(cudaMemcpy(out.data(),t.links,sizeof(out[0])*out.size(),cudaMemcpyDeviceToHost));
     std::vector<impact::ExNode> nout(nn);check(cudaMemcpy(nout.data(),t.nodes,sizeof(nout[0])*nn,cudaMemcpyDeviceToHost));
+    if(std::getenv("IMPACT_DEBUG")){std::vector<impact::ExRow> R(patch.rows);check(cudaMemcpy(R.data(),t.rows,sizeof(R[0])*R.size(),cudaMemcpyDeviceToHost));
+        for(const auto& x:R)std::printf("row a %u b %u total %.3g %.3g %.3g\n",x.a,x.b,x.total[0],x.total[1],x.total[2]);
+        std::printf("patch: substeps %u done %u h %g\n",p.substeps,p.done,p.h);}
     std::set<PxU32> broken;
     for(PxU32 l=0;l<patch.links;++l)if(out[l].state&impact::eEX_BROKEN)broken.insert(linkOfDump[l]);
     float dp=0.0f;if(imp!=0xffffffffu){float s2=0;for(int q=0;q<3;++q){const float d=nout[imp].v[q]-v0[q];s2+=d*d;}dp=std::sqrt(s2)/dn[imp].f[0];}
