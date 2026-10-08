@@ -100,8 +100,21 @@ struct NativeVehicleDesc {
     // 0 keeps the rigid limit.
     PxReal bumpStopStiffness = 0.0f;
     PxReal bumpStopDamping = 0.0f;
+
+    // The most force a tyre carries between the road and its wheel (N;
+    // PX_NATIVE_VEHICLE_TYRE_MAX_FORCE_VERSION). Suspension and tyre are in
+    // series: whatever the spring, damper or travel limit asks, the road can
+    // push the wheel no harder than the tyre does, and a pneumatic tyre's
+    // force is its inflation pressure over its contact patch, largest at full
+    // deflection (the rim bears past it: a contact of the wheel's own, not the
+    // suspension's). Vehicle2 has neither bound: a wheel whose road jumps
+    // within a step sees its whole jounce change as damper speed and its
+    // limit as a rigid stop. Nonzero bounds each wheel's suspension force (and
+    // so its tyre load) and its suspension-limit rows by it. 0: unbounded.
+    PxReal tyreMaxForce = 0.0f;
 };
 #define PX_NATIVE_VEHICLE_BUMP_STOP_VERSION 1
+#define PX_NATIVE_VEHICLE_TYRE_MAX_FORCE_VERSION 1
 
 struct NativeVehicleWheelState {
     // COM-relative translation, chassis-oriented axes (not principal inertia
