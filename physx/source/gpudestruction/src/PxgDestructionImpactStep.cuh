@@ -27,15 +27,15 @@
 // event changes it by a joint's rank-6 term (Sherman-Morrison-Woodbury), so
 // a solve is a matrix-vector product.
 
-constexpr PxU32 kStepPatches=8;      // patches (struck islands) per evaluation
-constexpr PxU32 kStepNodes=192;      // chunks and impactors per patch
+constexpr PxU32 kStepPatches=4;      // patches (struck islands) per evaluation
+constexpr PxU32 kStepNodes=384;      // chunks and impactors per patch (a 3 m patch of the veneer house: ~300)
 constexpr PxU32 kStepDof=6*kStepNodes;
 constexpr PxU32 kStepLinks=3072;     // joints and contact rows per patch
 constexpr PxU32 kStepCols=192;       // contact constraint columns per patch (3 a sticking row, 1 a sliding one)
 
 enum StepPhase : PxU32 { eSTEP_RAMP=0, eSTEP_DONE=1 };
 struct StepPatch {
-    PxU32 island,nodes,links,joints,contacts,cols,phase,events,solves,broken,yielded,truncated,failed,impactors;
+    PxU32 island,nodes,links,joints,contacts,cols,phase,events,solves,broken,yielded,truncated,failed,impactors,restOver;
     float lam,h,radius;
 };
 struct StepLink { PxU32 a,b,state,pad; };   // local node ends (0xffffffff: held), state bits below
@@ -62,6 +62,7 @@ struct StepScratch {
     float* panelP{};      // [P][32*32]   blocked Gauss-Jordan: the panel's pivot block inverse
     float* panelV{};      // [P][kStepDof*32] the panel's columns
     float* panelW{};      // [P][32*kStepDof] the panel's rows times P
+    float* scale{};       // [P][kStepDof] Jacobi scaling, 1 / sqrt(A_ii)
 };
 constexpr PxU32 kPanel=32;
 
@@ -226,10 +227,11 @@ __global__ void stepAssemble2(Inputs in,Settings s,Scratch w,StepScratch t)
     const PxU32 tid=blockIdx.x*blockDim.x+threadIdx.x,stride=gridDim.x*blockDim.x;
     for(PxU32 k=tid;k<sp.nodes;k+=stride) {
         const float* m=t.nodeMass+size_t(p*kStepNodes+k)*7;const PxU32 o=6*k;
-        for(int a=0;a<3;++a)A[size_t(o+a)*n+o+a]+=1.0f/m[0];
+        // atomically: the links below add to the same diagonal blocks concurrently
+        for(int a=0;a<3;++a)atomicAdd(A+size_t(o+a)*n+o+a,1.0f/m[0]);
         const bool tensor=t.nodeChunk[p*kStepNodes+k]>=in.chunkCount;
-        if(tensor){const int idx[3][3]={{1,4,5},{4,2,6},{5,6,3}};for(int a=0;a<3;++a)for(int b=0;b<3;++b)A[size_t(o+3+a)*n+o+3+b]+=m[idx[a][b]];}
-        else for(int a=0;a<3;++a)A[size_t(o+3+a)*n+o+3+a]+=m[1+a];
+        if(tensor){const int idx[3][3]={{1,4,5},{4,2,6},{5,6,3}};for(int a=0;a<3;++a)for(int b=0;b<3;++b)atomicAdd(A+size_t(o+3+a)*n+o+3+b,m[idx[a][b]]);}
+        else for(int a=0;a<3;++a)atomicAdd(A+size_t(o+3+a)*n+o+3+a,m[1+a]);
     }
     for(PxU32 l=tid;l<sp.links;l+=stride) {
         const Bond& b=t.links[p*kStepLinks+l];const StepLink& e=t.linkEnds[p*kStepLinks+l];float* Bl=t.B+(size_t(p)*kStepLinks+l)*72;
@@ -294,20 +296,43 @@ __global__ __launch_bounds__(kThreads) void stepPanelA(StepScratch t,PxU32 k0)
     for(PxU32 idx=threadIdx.x;idx<kPanel*n;idx+=kThreads){const PxU32 r=idx/n,j=idx%n;float v=0.0f;
         if(r<b)for(PxU32 s2=0;s2<b;++s2)v+=R[r*kPanel+s2]*A[size_t(k0+s2)*n+j];W[idx]=v;}
 }
-__global__ void stepPanelB(StepScratch t,PxU32 k0)
+// Jacobi scaling around the inversion: A's diagonal spans the rotational
+// inertia of a light chunk (0.03 kg m^2) to a stiff joint's k h^2 |o|^2
+// (1e5): unscaled, float Gauss-Jordan loses the inverse's sign.
+__global__ void stepScale(StepScratch t,PxU32 back)
+{
+    const PxU32 p=blockIdx.y;if(p>=*t.patchCount)return;
+    const PxU32 n=6*t.patches[p].nodes;float* A=stepA(t,p);float* d=t.scale+size_t(p)*kStepDof;
+    if(!back){for(PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;i<n;i+=gridDim.x*blockDim.x)d[i]=rsqrtf(A[size_t(i)*n+i]);return;}
+    for(PxU32 idx=blockIdx.x*blockDim.x+threadIdx.x;idx<n*n;idx+=gridDim.x*blockDim.x){const PxU32 i=idx/n,j=idx%n;A[idx]*=d[i]*d[j];}
+}
+// One 32 x 32 tile of A per block (its panel rows of V and columns of W in
+// shared memory: two reads an element, not 64).
+__global__ __launch_bounds__(kThreads) void stepPanelB(StepScratch t,PxU32 k0)
 {
     const PxU32 p=blockIdx.y;if(p>=*t.patchCount)return;
     const PxU32 n=6*t.patches[p].nodes;if(k0>=n)return;
+    const PxU32 tiles=(n+kPanel-1)/kPanel;
     const PxU32 b=min(kPanel,n-k0);float* A=stepA(t,p);
     const float* P=t.panelP+size_t(p)*kPanel*kPanel;const float* V=t.panelV+size_t(p)*kStepDof*kPanel;const float* W=t.panelW+size_t(p)*kPanel*kStepDof;
-    for(PxU32 idx=blockIdx.x*blockDim.x+threadIdx.x;idx<n*n;idx+=gridDim.x*blockDim.x) {
-        const PxU32 i=idx/n,j=idx%n;const bool ik=i>=k0 && i<k0+b,jk=j>=k0 && j<k0+b;
-        float v;
-        if(ik && jk)v=P[(i-k0)*kPanel+(j-k0)];
-        else if(ik)v=W[size_t(i-k0)*n+j];
-        else if(jk){v=0.0f;for(PxU32 s2=0;s2<b;++s2)v-=V[size_t(i)*kPanel+s2]*P[s2*kPanel+(j-k0)];}
-        else{v=A[idx];for(PxU32 s2=0;s2<b;++s2)v-=V[size_t(i)*kPanel+s2]*W[size_t(s2)*n+j];}
-        A[idx]=v;
+    __shared__ float sV[kPanel*kPanel],sW[kPanel*kPanel],sP[kPanel*kPanel];
+    for(PxU32 i=threadIdx.x;i<kPanel*kPanel;i+=kThreads)sP[i]=P[i];
+    for(PxU32 tile=blockIdx.x;tile<tiles*tiles;tile+=gridDim.x) {
+        const PxU32 ti=tile/tiles,tj=tile%tiles,i0=ti*kPanel,j0=tj*kPanel;
+        __syncthreads();
+        for(PxU32 e=threadIdx.x;e<kPanel*kPanel;e+=kThreads){const PxU32 r=e/kPanel,c=e%kPanel;
+            sV[e]=(i0+r<n)?V[size_t(i0+r)*kPanel+c]:0.0f;sW[e]=(j0+c<n)?W[size_t(r)*n+j0+c]:0.0f;}
+        __syncthreads();
+        for(PxU32 e=threadIdx.x;e<kPanel*kPanel;e+=kThreads) {
+            const PxU32 r=e/kPanel,c=e%kPanel,i=i0+r,j=j0+c;if(i>=n || j>=n)continue;
+            const bool ik=i>=k0 && i<k0+b,jk=j>=k0 && j<k0+b;
+            float v;
+            if(ik && jk)v=sP[(i-k0)*kPanel+(j-k0)];
+            else if(ik)v=sW[(i-k0)*kPanel+c];
+            else if(jk){v=0.0f;for(PxU32 s2=0;s2<b;++s2)v-=sV[r*kPanel+s2]*sP[s2*kPanel+(j-k0)];}
+            else{v=A[size_t(i)*n+j];for(PxU32 s2=0;s2<b;++s2)v-=sV[r*kPanel+s2]*sW[s2*kPanel+c];}
+            A[size_t(i)*n+j]=v;
+        }
     }
 }
 // After an odd number of pivots the result is in Atmp: copy back.
@@ -361,6 +386,13 @@ __device__ void stepContacts(Shared& sh,const StepScratch& t,PxU32 p)
         if(e.b!=0xffffffffu)for(int r=0;r<6;++r)s+=Bl[36+6*r+q]*G[size_t(6*e.b+r)*kStepCols+c];
         S[size_t(a)*kStepCols+c]=s;
     }
+    __syncthreads();
+    // Rigid contacts can be redundant (two rows of one pair, or a pair's
+    // rows over-constraining it): S is then singular. The inverse is taken
+    // of S + e I, e the float resolution of its largest diagonal entry (no
+    // physical compliance: the smallest that keeps it finite).
+    if(!threadIdx.x){float big=0.0f;for(PxU32 k=0;k<nc;++k)big=fmaxf(big,fabsf(S[size_t(k)*kStepCols+k]));
+        for(PxU32 k=0;k<nc;++k)S[size_t(k)*kStepCols+k]+=16.0f*FLT_EPSILON*big;}
     __syncthreads();
     for(PxU32 k=0;k<nc;++k) {
         const float inv=1.0f/S[size_t(k)*kStepCols+k];
@@ -490,7 +522,8 @@ __global__ __launch_bounds__(kThreads) void stepRamp(Inputs in,Settings s,Scratc
         if(!sp.events && sp.lam==0.0f && !sp.solves) {
             // J0: the forces before the tick (bond frame); contacts 0.
             for(PxU32 l=threadIdx.x;l<sp.links;l+=kThreads){const Bond& b=t.links[p*kStepLinks+l];const StepLink& e=t.linkEnds[p*kStepLinks+l];
-                float x[6]={0,0,0,0,0,0};if(!(e.state&eSL_CONTACT))toLocal(b,in.base[b.bond],x);for(int q=0;q<6;++q)J[6*l+q]=x[q];}
+                float x[6]={0,0,0,0,0,0};if(!(e.state&eSL_CONTACT))toLocal(b,in.base[b.bond],x);for(int q=0;q<6;++q)J[6*l+q]=x[q];
+                if(!(e.state&eSL_CONTACT) && utilisation(b,x)>=1.0f-s.capacityBand)atomicAdd(&sp.restOver,1u);}
             for(PxU32 i=threadIdx.x;i<n;i+=kThreads)u[i]=0.0f;
             __syncthreads();
             stepContacts(sh,t,p);
