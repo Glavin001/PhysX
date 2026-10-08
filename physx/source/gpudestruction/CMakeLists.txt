@@ -86,6 +86,12 @@ if(BUILD_TESTING)
     target_link_libraries(destruction_impact_replay PRIVATE PhysXDestructionTopologyGpu)
     target_include_directories(destruction_impact_replay PRIVATE ../../../blast/include/extensions/stress)
     px_destruction_cuda_properties(destruction_impact_replay PROPERTIES CUDA_STANDARD 17 CUDA_ARCHITECTURES "${CMAKE_CUDA_ARCHITECTURES}")
+    # One dumped level of the impact solve through its ADMM alone (IMPACT_DUMP):
+    # the convergence reproducer and its test (tests/fixtures/impact-level/).
+    add_executable(destruction_impact_level_replay tests/impact_level_replay.cu)
+    target_link_libraries(destruction_impact_level_replay PRIVATE PhysXDestructionTopologyGpu)
+    target_include_directories(destruction_impact_level_replay PRIVATE ../../../blast/include/extensions/stress)
+    px_destruction_cuda_properties(destruction_impact_level_replay PROPERTIES CUDA_STANDARD 17 CUDA_ARCHITECTURES "${CMAKE_CUDA_ARCHITECTURES}")
     px_destruction_label_tests()
 endif()
 
