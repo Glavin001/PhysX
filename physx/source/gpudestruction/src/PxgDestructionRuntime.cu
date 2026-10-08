@@ -3027,7 +3027,7 @@ public:
         seqMarkFrozen<<<(mN+127)/128,128,0,mStream>>>(stress.nodeIslands,mSeq.startChunks(),mImpact.w.islandFlag,mN,mSeq.frozen);
         seqThaw<<<(mM+127)/128,128,0,mStream>>>(impactIn,impactSettings,mSeq.bond[c],mSeq.frozenForce,mSeq.freezeElastic,mSeq.frozen,mSeq.thaw);
         seqResolveFrozen<<<(mN+127)/128,128,0,mStream>>>(mSeq.frozen,mSeq.thaw,mN,mSeq.run,mSeq.counters);
-        seqHoldFrozenBonds<<<(mM+127)/128,128,0,mStream>>>(stress.bondIslands,mSeq.frozen,mSeq.thaw,mSeq.bond[c],forces,mSeq.frozenForce,mSeq.freezeElastic,
+        seqHoldFrozenBonds<<<(mM+127)/128,128,0,mStream>>>(impactIn,impactSettings,stress.bondIslands,mSeq.frozen,mSeq.thaw,mSeq.bond[c],forces,mSeq.frozenForce,mSeq.freezeElastic,
             mSeq.J[c],mSeq.slip[c],mSeq.bond[x],mSeq.J[x],mSeq.slip[x],mImpact.w.forces,mImpact.w.verdict,mSeq.hold,mM,mN);
         seqHoldFrozenChunks<<<(mN+127)/128,128,0,mStream>>>(stress.nodeIslands,mSeq.frozen,mSeq.thaw,mSeq.chunk[c],mSeq.v[c],mSeq.quiet[c],mSeq.periodBuf[c],
             mSeq.chunk[x],mSeq.v[x],mSeq.quiet[x],mSeq.periodBuf[x],mImpact.w.islandFlag,mN,float(dt));
@@ -3057,9 +3057,14 @@ public:
         evaluateBondMaterials<<<(mM+127)/128,128,0,mStream>>>(mChunks,mBonds,mMaterials,mHealth,forces,mM,
             dt,mDamageRate,mBendGain,mFibres,mVerdicts,mBondCentroids,mStatus,mSectionBending,mSections,mSectionRotation,impactView,mStaticDuctile);
         if(mRebearing) {
+            if(mRebearingLog)check(cudaMemsetAsync(mBearCounters,0,sizeof(PxU32)*8,mStream));
             rebearVerdicts<<<(mM+127)/128,128,0,mStream>>>(mChunks,mBonds,mMaterials,mSections,mHealth,mBearState,mBearTrial,
                 mBearProbe,stress.nodeIslands,mBearSupported,mVerdicts,mM,dt,mDamageRate,mFibres,mRebearingFriction,impactView,mStatus,mBearCounters,mBearEvents,256u);
             seqApplyBear<<<(mM+127)/128,128,0,mStream>>>(mSeq.bear,mBearTrial,mM);
+            if(mRebearingLog) {
+                PxU32 c[8];check(cudaMemcpyAsync(c,mBearCounters,sizeof c,cudaMemcpyDeviceToHost,mStream));check(cudaStreamSynchronize(mStream));
+                if(c[0]||c[1]||c[2]||c[3]||c[4])std::fprintf(stderr,"[rebearing] after the sequence, pass %u: %u fastenings failed to contact, %u lifted, %u closed, %u slid, %u fell free (the static law, off the dynamic patches)\n",mPass,c[0],c[4],c[1],c[2],c[3]);
+            }
         }
         if(mImpactLog && mImpactHostStatus) {
             check(cudaMemcpyAsync(mImpactHostStatus,mImpact.w.status,sizeof(*mImpactHostStatus),cudaMemcpyDeviceToHost,mStream));check(cudaStreamSynchronize(mStream));

@@ -1813,14 +1813,19 @@ __global__ void exPublishDynamic(Inputs in,Settings s,Scratch w,ExScratch t)
         if(t.pJn){for(int q=0;q<6;++q)t.pJn[6*size_t(i)+q]=live?e.J[q]:0.0f;
             t.pSlipn[2*size_t(i)]=cslip[2*l];t.pSlipn[2*size_t(i)+1]=cslip[2*l+1];
             t.pBondn[i]=live?(1u|(contact?2u:0u)|(sp.freeze?4u:0u)):0u;}
-        // A freeze: the forces it holds, and the static solve's at the freeze (the carried force's origin).
+        // A freeze: the state it holds (a contact's J: its gap when open, the force it transmits
+        // when closed is exContactForce's of it), and the static solve's at the freeze (the
+        // carried state's origin).
         if(sp.freeze && live && t.frozenForce) {
-            float lin[3],ang[3];toSolver(b,F,lin,ang);
+            float lin[3],ang[3];toSolver(b,e.J,lin,ang);
             PxDestructionVectorPair fo;fo.linear=PxVec3(lin[0],lin[1],lin[2]);fo.angular=PxVec3(ang[0],ang[1],ang[2]);
             t.frozenForce[i]=fo;t.freezeElastic[i]=in.elastic?in.elastic[i]:fo;
         }
-        // eBEAR_FASTENED 0, eBEAR_CONTACT 1 (bearing), eBEAR_LIFTED 2 (open); ~0 broken (the verdict's).
-        if(t.seqBear && (e.state&eEX_BEARING))t.seqBear[i]=!live?0xffffffffu:(!contact?0u:(F[0]<0.0f?1u:2u));
+        // eBEAR_FASTENED 0, eBEAR_CONTACT 1 (bearing); ~0 broken (the verdict's). An open contact
+        // stays eBEAR_CONTACT: its gap is the window's state (persisted J), and eBEAR_LIFTED would
+        // take it out of the solver's topology -- splitting the island, so that the next window
+        // could not close it (a contact that has nothing to bear on was broken by exSequenceSplit).
+        if(t.seqBear && (e.state&eEX_BEARING))t.seqBear[i]=!live?0xffffffffu:(!contact?0u:1u);
         if(t.seqHold)t.seqHold[i]=(live && contact)?1u:0u;
     }
     for(PxU32 k=tid;k<sp.chunks;k+=stride) {
