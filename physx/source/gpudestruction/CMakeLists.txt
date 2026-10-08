@@ -86,6 +86,24 @@ if(BUILD_TESTING)
     target_link_libraries(destruction_impact_replay PRIVATE PhysXDestructionTopologyGpu)
     target_include_directories(destruction_impact_replay PRIVATE ../../../blast/include/extensions/stress)
     px_destruction_cuda_properties(destruction_impact_replay PROPERTIES CUDA_STANDARD 17 CUDA_ARCHITECTURES "${CMAKE_CUDA_ARCHITECTURES}")
+    # The explicit impact step (PxgDestructionImpactExplicit.cuh) on the
+    # cannonball's dumped island against vibe-land scripts/impact/explicit-step.py
+    # --fp32 --sweeps 1 at the same substep: the broken sets' Jaccard index at
+    # least 0.9, the impactor's momentum change within 1%.
+    add_executable(destruction_impact_explicit_replay tests/impact_explicit_replay.cu)
+    target_link_libraries(destruction_impact_explicit_replay PRIVATE PhysXDestructionTopologyGpu)
+    target_include_directories(destruction_impact_explicit_replay PRIVATE ../../../blast/include/extensions/stress)
+    px_destruction_cuda_properties(destruction_impact_explicit_replay PROPERTIES CUDA_STANDARD 17 CUDA_ARCHITECTURES "${CMAKE_CUDA_ARCHITECTURES}")
+    # The static verdict after an impact (the high-profile cannonball's collapse,
+    # step arm, garage-impact 3426f54f7: the corrected pass's static verdict broke
+    # 2,466 joints): the trial pass's contact load (the cannonball's rigid stop,
+    # 4.6e7 N on a 2 kg chunk) in the elastic solve, whose 64-iteration corrected
+    # pass starts from it. Routed (Settings::route), the corrected pass breaks what
+    # its own loads break; unrouted it collapses (WILL_FAIL: the reproducer).
+    add_executable(destruction_impact_static_handoff tests/impact_static_handoff.cu)
+    target_link_libraries(destruction_impact_static_handoff PRIVATE PhysXDestructionTopologyGpu)
+    target_include_directories(destruction_impact_static_handoff PRIVATE ../../../blast/include/extensions/stress)
+    px_destruction_cuda_properties(destruction_impact_static_handoff PROPERTIES CUDA_STANDARD 17 CUDA_ARCHITECTURES "${CMAKE_CUDA_ARCHITECTURES}")
     # One dumped level of the impact solve through its ADMM alone (IMPACT_DUMP):
     # the convergence reproducer and its test (tests/fixtures/impact-level/).
     add_executable(destruction_impact_level_replay tests/impact_level_replay.cu)
@@ -117,6 +135,28 @@ if(BUILD_TESTING)
     set_tests_properties(destruction_gpu_impact_level_cold PROPERTIES ENVIRONMENT "${_levelEnv};IMPACT_ITERATIONS=8192")
     add_test(NAME destruction_gpu_impact_level_optimum COMMAND destruction_impact_level_replay "${_level}.bin" "${_level}.opt.f64")
     set_tests_properties(destruction_gpu_impact_level_optimum PROPERTIES ENVIRONMENT "${_levelEnv};IMPACT_ITERATIONS=8192" WILL_FAIL TRUE)
+    add_test(NAME destruction_gpu_impact_explicit_cannon COMMAND destruction_impact_explicit_replay "${_level}.bin" "${_level}.explicit.txt")
+    set_tests_properties(destruction_gpu_impact_explicit_cannon PROPERTIES ENVIRONMENT "CUMETAL_USE_METAL_DEVICE_ADDRESSES=1;IMPACT_EXPLICIT_DT_US=32")
+    # The cannonball's pair, and the truck's (framed-house: its chassis's released
+    # rows, 3.5e6 N of depenetration on a 2 kg brick): routed 0 and 12 breaks
+    # (their own loads converged: 0 and 21); unrouted 2,610 and 3,053.
+    foreach(_shot cannon truck)
+        set(_handoff "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/impact-handoff/${_shot}")
+        add_test(NAME destruction_gpu_impact_static_handoff_${_shot} COMMAND destruction_impact_static_handoff "${_handoff}-trial.impc" "${_handoff}-corrected.impc")
+        set_tests_properties(destruction_gpu_impact_static_handoff_${_shot} PROPERTIES ENVIRONMENT "CUMETAL_USE_METAL_DEVICE_ADDRESSES=1;IMPACT_ROUTE=1;IMPACT_STATIC_ISLAND=1443")
+        add_test(NAME destruction_gpu_impact_static_handoff_${_shot}_unrouted COMMAND destruction_impact_static_handoff "${_handoff}-trial.impc" "${_handoff}-corrected.impc")
+        set_tests_properties(destruction_gpu_impact_static_handoff_${_shot}_unrouted PROPERTIES ENVIRONMENT "CUMETAL_USE_METAL_DEVICE_ADDRESSES=1;IMPACT_ROUTE=0;IMPACT_STATIC_ISLAND=1443" WILL_FAIL TRUE)
+        # Unrouted, the corrected pass warm-started from the tick's start
+        # (PX_DESTRUCTION_CORRECTED_WARM_START): its verdict is its own loads'.
+        add_test(NAME destruction_gpu_impact_static_handoff_${_shot}_pretick COMMAND destruction_impact_static_handoff "${_handoff}-trial.impc" "${_handoff}-corrected.impc")
+        set_tests_properties(destruction_gpu_impact_static_handoff_${_shot}_pretick PROPERTIES ENVIRONMENT "CUMETAL_USE_METAL_DEVICE_ADDRESSES=1;IMPACT_ROUTE=0;IMPACT_WARM=pretick;IMPACT_STATIC_ISLAND=1443")
+    endforeach()
+    # The invariant (impact::heldOverCapacity, Status::heldOverCapacity): no
+    # impactor stopped rigidly by a struck chunk past capacity with nothing of it
+    # broken, on the cannonball's first contact through the explicit step with
+    # the routing and the bounds per impactor (exit 1 on any).
+    add_test(NAME destruction_gpu_impact_held_over_capacity COMMAND destruction_impact_capture_replay "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/impact-handoff/cannon-first.impc")
+    set_tests_properties(destruction_gpu_impact_held_over_capacity PROPERTIES ENVIRONMENT "CUMETAL_USE_METAL_DEVICE_ADDRESSES=1;IMPACT_QUIET=1;IMPACT_METHOD=2;IMPACT_ROUTE=1;IMPACT_BOUND_IMPACTOR=1;IMPACT_HELD_CHECK=1")
     px_destruction_label_tests()
 endif()
 

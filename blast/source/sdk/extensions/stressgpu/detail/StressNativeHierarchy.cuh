@@ -36,13 +36,13 @@ class NativeStressHierarchy {
     StressHierarchy::ResidentHierarchy mHierarchy;
     StressHierarchy::ResidentMotionModes mModes;
     std::unique_ptr<StressHierarchy::ResidentCycle> mCycle;
-    NativeStressCycleView mView;cudaStream_t mStream;
+    NativeStressCycleView mView;cudaStream_t mStream;unsigned mNodes=0;
     static StressHierarchy::Input coarseWorkInput(StressHierarchy::Input input){input.componentSolverMaxNodes=kResidentComponentMaxNodes;return input;}
     template<class T>static void allocate(T*& p,size_t count){checkCuda(cudaMalloc(&p,std::max(size_t(1),size_t(count))*sizeof(T)),"allocate native hierarchy workspace");}
     void release()noexcept{cudaFree(mView.settled.inputs);cudaFree(mView.settled.certificates);cudaFree(mView.settled.verifiedStoredOutput);cudaFree(mView.fineInverse);cudaFree(mView.inverseValid);cudaFree(mView.inverseGeneration);cudaFree(mView.rhs);cudaFree(mView.solution);cudaFree(mView.result);cudaFree(mView.g);cudaFree(mView.gamma);cudaFree(mView.previous);cudaFree(mView.failed);cudaFree(mView.normalizer);cudaFree(mView.verification);cudaFree(mView.verificationCount);cudaFree(mView.warmRangeKnown);cudaFree(mView.warmRangeGeneration);cudaFree(mView.carryGeneration);cudaFree(mView.carryCount);cudaFree(mView.carryLoad);cudaFree(mView.carryIterations);}
 public:
     NativeStressHierarchy(StressHierarchy::Input input,const unsigned* forest,const unsigned* stable,const ExtStressGpuDeviceTopologyStatus* status,cudaStream_t stream)
-        :mHierarchy(coarseWorkInput(input),input.nodes>257?16:7,stream),mModes(input,forest,stable,stream),mStream(stream){
+        :mHierarchy(coarseWorkInput(input),input.nodes>257?16:7,stream),mModes(input,forest,stable,stream),mStream(stream),mNodes(input.nodes){
         mView.topology=status;mView.modes=mModes.view();mView.inverseStride=input.nodes;
         try{
             allocate(mView.settled.inputs,input.nodes);allocate(mView.settled.certificates,input.nodes);
@@ -68,6 +68,8 @@ public:
         prior=mModes.append(graph,prior);prior=mHierarchy.append(graph,prior);mCycle.reset(new StressHierarchy::ResidentCycle(mHierarchy));mView.cycle=mCycle->deviceView();return prior;
     }
     NativeStressCycleView view()const{return mView;}
+    // No component continues a carried recurrence (its iterate was replaced).
+    void resetCarry(cudaStream_t stream){checkCuda(cudaMemsetAsync(mView.carryCount,0,sizeof(unsigned)*mNodes,stream),"reset native Krylov carry");}
     const StressHierarchy::Status* status()const{return mHierarchy.status();}
     const StressHierarchy::Status* modeStatus()const{return mModes.status();}
 };

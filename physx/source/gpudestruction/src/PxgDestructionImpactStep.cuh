@@ -28,7 +28,12 @@
 // a solve is a matrix-vector product.
 
 constexpr PxU32 kStepPatches=4;      // patches (struck islands) per evaluation
-constexpr PxU32 kStepNodes=384;      // chunks and impactors per patch (a 3 m patch of the veneer house: ~300)
+// Chunks and impactors per patch (a 3 m patch of the veneer house: ~300; larger
+// ones shrink their radius). The dispatch bound: a launch does at most one
+// ramp action, up to 8 passes over the dense A^-1 by one block; at 384 nodes
+// (n = 2304) that reached 140-207 ms on a shared GPU (the meteor and truck
+// trials), over the 100 ms rule; 256 (n = 1536) is 2.25x less per pass.
+constexpr PxU32 kStepNodes=256;
 constexpr PxU32 kStepDof=6*kStepNodes;
 constexpr PxU32 kStepLinks=3072;     // joints and contact rows per patch
 constexpr PxU32 kStepCols=192;       // contact constraint columns per patch (3 a sticking row, 1 a sliding one)
@@ -101,6 +106,8 @@ __device__ __forceinline__ bool stepRow(const Inputs& in,PxU32 r,PxU32 island)
 {
     const ContactRow& row=in.rows[r];
     if(row.chunk>=in.chunkCount || in.nodeIslands[row.chunk]!=island || !(in.chunks[row.chunk].mass>0.0f) || chunkGone(in,row.chunk))return false;
+    if(in.rowRouted && !in.rowRouted[r])return false;   // a static load (Settings::route)
+    if(row.resting)return false;
     return row.im>0.0f && isfinite(row.im);
 }
 // 1. The patches: one per island with a coupled row, seeded by its struck
@@ -653,7 +660,7 @@ __global__ void stepPublishPatch(Inputs in,Settings s,Scratch w,StepScratch t)
             bool live=false;
             for(PxU32 m=0;m<sp.links && !live;++m){const StepLink& e2=t.linkEnds[p*kStepLinks+m];
                 live=!(e2.state&eSL_CONTACT) && (e2.state&eSL_LIVE) && (e2.a==e.a || e2.b==e.a);}
-            if(in.rowBound)in.rowBound[r]=live?fmaxf(sqrtf(lin[0]*lin[0]+lin[1]*lin[1]+lin[2]*lin[2])*sp.h/float(max(row.points,1u)),FLT_MIN):0.0f;
+            if(in.rowBound)in.rowBound[r]=(live || s.boundImpactor)?fmaxf(sqrtf(lin[0]*lin[0]+lin[1]*lin[1]+lin[2]*lin[2])*sp.h/float(max(row.points,1u)),FLT_MIN):0.0f;
             if(in.rowDelta){const float* ui=u+6*e.b;for(int q=0;q<3;++q)in.rowDelta[6*r+q]=ui[q]*sp.h-(row.velocity[q]+row.dv[q]);}
             continue;
         }

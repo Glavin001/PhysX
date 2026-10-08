@@ -89,6 +89,7 @@ struct ContactRow {
     float dv[3],dw[3];  // the change the trial gave its velocity and angular velocity over the tick
     float im;           // inverse mass
     float ii[6];        // inverse inertia (xx, yy, zz, xy, xz, yz)
+    PxU32 resting;      // 1: not closing, its load past what its body can exert (routing only; never coupled)
 };
 
 struct Settings {
@@ -216,6 +217,32 @@ struct Settings {
     float stepDuration=1e-3f;   // h (s): the contact duration (IMPACT_CHEAP_FORMULATION.md: 0.5-2 ms for hard projectiles)
     float stepRadius=3.0f;      // the patch (m): the struck chunks' neighbours within it (a 3 m patch matched the island)
     PxU32 stepMaxEvents=1024;   // events per patch per evaluation (a bug guard: the cannonball takes ~50)
+    // The corrected pass's contact bounds (PX_DESTRUCTION_IMPACT_BOUND_IMPACTOR).
+    // false: per struck cluster body, the largest of its rows' (the cluster's
+    // every contact -- debris resting on it, other impactors -- takes it; a
+    // freed chunk's row none, 0, which reads as the rigid stop). true: per
+    // impactor body, the largest of its own rows' per-point impulse, freed
+    // struck chunks included (what the impact model delivered to them): the
+    // pair the impact model solved is bounded and nothing else is.
+    bool boundImpactor=false;
+    // Contact routing (PX_DESTRUCTION_IMPACT_ROUTE; routeRows): a contact row
+    // is the impact model's -- its trial load leaves the static solve's inputs
+    // -- when its peak elastic force exceeds what its struck chunk's weakest
+    // joint carries along it, on every tick of contact; the others stay static
+    // loads, their rigid stop bounded by that peak.
+    bool route=false;
+    // The explicit step (method 2, PxgDestructionImpactExplicit.cuh): the
+    // substep h = explicitSafety x 2 / omega (omega: the patch's Gershgorin
+    // bound), or explicitDt where set (tests, A/B: the harness's own h); at
+    // most explicitBudget substeps per patch in one launch (the host relaunches
+    // until the window is done, so a dispatch stays short).
+    float explicitSafety=0.9f;
+    float explicitDt=0.0f;
+    PxU32 explicitBudget=512;
+    // The explicit step's window: 0 the whole tick; 1 until no contact pushes
+    // and no live joint is within the capacity band (IMPACT_STEP_PLAN.md §7,
+    // mitigation 1; PX_DESTRUCTION_IMPACT_EXPLICIT_WINDOW).
+    PxU32 explicitWindow=0;
 };
 // A solve is diverging when, past its first rho rebalance (25 steps), a
 // joint's split |J - Z| exceeds kDivergence times the joint's capacity: the
@@ -347,6 +374,9 @@ struct Inputs {
     // velocity and angular velocity (struck cluster's frame). Zeroed by the caller.
     float* rowDelta{};
     float* rowBound{};   // [rowCount] out: the corrected pass's bound per contact point of each row's pair (N s); 0 none
+    // [rowCount] per row, nonzero where it is routed to the impact model
+    // (Settings::route: routeRows); null: every row is (as before routing).
+    const PxU32* rowRouted{};
 };
 
 // ---------------------------------------------------------------------------
@@ -1271,7 +1301,74 @@ __device__ __forceinline__ bool rowMember(const Inputs& in,PxU32 r,PxU32 island)
 {
     const ContactRow& row=in.rows[r];
     if(row.chunk>=in.chunkCount || in.nodeIslands[row.chunk]!=island || !(in.chunks[row.chunk].mass>0.0f) || chunkGone(in,row.chunk))return false;
+    if(in.rowRouted && !in.rowRouted[r])return false;
+    if(row.resting)return false;
     return row.im>0.0f && isfinite(row.im) && row.points>0;
+}
+// The contact routing (Settings::route), before the static solve: per row,
+// the peak elastic force of its impactor closing at v_n on the struck chunk's
+// joints (stiffness k, the sum of their axial stiffnesses; the struck chunk m
+// takes the impactor's velocity at once, M v_n / (M + m), and the two then
+// load the joints: F = v_n M sqrt(k / (M + m)); EN 1991-1-7 Annex C, hard
+// impact) against the weakest of those joints' capacities along the contact
+// force (axial share compression or tension, transverse share shear, as the
+// capacity fallback reads them). Past it the row is the impact model's: its
+// trial load (the rigid stop against the kinematic cluster, M v_n / dt and
+// more) leaves the static solve's inputs. Below it the row stays a static
+// load with its rigid stop bounded by the peak. A released row (points 0:
+// the rigid solver's position correction, not an exchange of momentum)
+// leaves the static solve too.
+__global__ void routeRows(Inputs in,Settings s,PxU32* routed,PxDestructionVectorPair* inputs)
+{
+    const PxU32 r=blockIdx.x*blockDim.x+threadIdx.x;
+    const PxU32 rows=in.rowCounter?min(*in.rowCounter,in.rowCount):in.rowCount;if(r>=rows)return;
+    const ContactRow& row=in.rows[r];const PxU32 c=row.chunk;routed[r]=0u;
+    if(c>=in.chunkCount || !(in.chunks[c].mass>0.0f) || chunkGone(in,c) || !(row.im>0.0f) || !isfinite(row.im))return;
+    const float m=in.chunks[c].mass,L[3]={row.load[0],row.load[1],row.load[2]},Ln=sqrtf(dot3(L,L));
+    auto remove=[&](float f){PxVec3& a=inputs[c].linear;atomicAdd(&a.x,-f*L[0]/m);atomicAdd(&a.y,-f*L[1]/m);atomicAdd(&a.z,-f*L[2]/m);};
+    if(row.resting) {
+        // A resting row (coupleRow): of its body's resting loads on the
+        // structure, only their resultant is exchanged with the body (a pile's
+        // weight: all of it); the rest cancels on the rigid body (a wedge's
+        // opposing pairs) and is the rigid solver's position correction. Each
+        // keeps its share |sum| / sum|.| of the static solve.
+        float sum[3]={0,0,0},mag=0.0f;
+        for(PxU32 j=0;j<rows;++j){const ContactRow& q=in.rows[j];if(!q.resting || q.body!=row.body)continue;
+            for(int k=0;k<3;++k)sum[k]+=q.load[k];mag+=sqrtf(dot3(q.load,q.load));}
+        if(mag>0.0f)remove(1.0f-fminf(1.0f,sqrtf(dot3(sum,sum))/mag));
+        return;
+    }
+    if(!row.points){routed[r]=1u;remove(1.0f);return;}
+    float n[3]={row.normal[0],row.normal[1],row.normal[2]};const float nl=sqrtf(dot3(n,n));if(!(nl>0.0f))return;
+    for(int q=0;q<3;++q)n[q]/=nl;
+    float arm[3],spin[3];for(int q=0;q<3;++q)arm[q]=row.point[q]-row.com[q];cross3(row.spin,arm,spin);
+    float vp[3];for(int q=0;q<3;++q)vp[q]=row.velocity[q]+spin[q];
+    const float vn=fmaxf(0.0f,dot3(vp,n));
+    float k=0.0f,cap=FLT_MAX;
+    for(PxU32 slot=in.nodeBegin[c];slot<in.nodeBegin[c+1];++slot) {
+        const PxU32 i=in.nodeRefs[slot];if(!bondMember(in,i))continue;
+        Bond b;if(!prepareBond(in,s,i,b))continue;
+        k+=b.kl;
+        const float a=(b.c0==c?1.0f:-1.0f)*dot3(b.n,n),t=sqrtf(fmaxf(0.0f,1.0f-a*a));
+        float f=FLT_MAX;if(fabsf(a)>0.0f)f=(a>0.0f?b.capC:b.capT)/fabsf(a);if(t>0.0f)f=fminf(f,b.capS/t);
+        cap=fminf(cap,f);
+    }
+    if(!(k>0.0f))return;   // no joint: a free chunk, the rigid simulation's own
+    const float M=1.0f/row.im,peak=vn*M*sqrtf(k/(M+m));
+    if(peak>cap){routed[r]=1u;remove(1.0f);return;}
+    // Static: the rigid stop's momentum part, M v_n / dt, at most the peak.
+    const float excess=fmaxf(0.0f,M*vn/s.dt-peak);
+    if(excess>0.0f && Ln>0.0f)remove(fminf(1.0f,excess/Ln));
+}
+// Islands with a routed row are the impact solve's (its load is no longer in
+// the elastic solve, so the trigger cannot see it).
+__global__ void triggerRows(Inputs in,Scratch w)
+{
+    const PxU32 r=blockIdx.x*blockDim.x+threadIdx.x;
+    if(!in.rows || !in.rowRouted || r>=(in.rowCounter?min(*in.rowCounter,in.rowCount):in.rowCount) || !in.rowRouted[r])return;
+    if(in.stage && (in.stage->error & 4096u))return;
+    const PxU32 c=in.rows[r].chunk;if(c>=in.chunkCount || !(in.chunks[c].mass>0.0f) || chunkGone(in,c))return;
+    const PxU32 island=in.nodeIslands[c];if(island<in.chunkCount)atomicOr(w.islandFlag+island,1u);
 }
 // A contact row as a link: chunk0 the struck chunk, chunk1 the impactor's
 // node (set by the caller); n from the chunk to the impactor, so a contact
@@ -1435,7 +1532,7 @@ __global__ __launch_bounds__(kThreads) void setupIslands(Inputs in,Settings s,Sc
                 Chunk& c=w.chunks[is.c0+k];
                 for(PxU32 e=0;e<nr;++e) {
                     const Bond& b=w.bonds[is.b0+nb+e];const ContactRow& row=in.rows[b.bond];
-                    if(b.c0==c.chunk)for(int q=0;q<3;++q)c.pf[q]-=row.load[q];
+                    if(b.c0==c.chunk && !in.rowRouted)for(int q=0;q<3;++q)c.pf[q]-=row.load[q];   // routed: already out of the inputs
                 }
             }
             if(!threadIdx.x){atomicAdd(&w.status->contacts,nr);atomicAdd(&w.status->impactors,is.ni);}
@@ -1449,7 +1546,7 @@ __global__ __launch_bounds__(kThreads) void setupIslands(Inputs in,Settings s,Sc
         PxU32 released=0;
         for(PxU32 i=threadIdx.x;i<rowCount;i+=kThreads) {
             const ContactRow& row=in.rows[i];const PxU32 c=row.chunk;
-            if(row.points || c>=in.chunkCount || in.nodeIslands[c]!=island || !(in.chunks[c].mass>0.0f) || chunkGone(in,c))continue;
+            if(row.points || in.rowRouted || c>=in.chunkCount || in.nodeIslands[c]!=island || !(in.chunks[c].mass>0.0f) || chunkGone(in,c))continue;
             PxU32 lo=0,hi=nc;while(lo<hi){const PxU32 mid=(lo+hi)/2;if(w.chunks[is.c0+mid].chunk<c)lo=mid+1;else hi=mid;}
             if(lo<nc && w.chunks[is.c0+lo].chunk==c){for(int q=0;q<3;++q)atomicAdd(&w.chunks[is.c0+lo].pf[q],-row.load[q]);++released;}
         }
@@ -1742,7 +1839,12 @@ __global__ __launch_bounds__(kThreads) void stepIslands(Inputs in,Settings s,Scr
                 for(PxU32 k2=threadIdx.x;k2<is.nr;k2+=kThreads) {
                     const PxU32 l=is.b0+nb+k2;const Bond& r=w.bonds[l];const ContactRow& row=in.rows[r.bond];
                     float bound=0.0f;
-                    if((!st.capped || !s.cappedElastic) && r.c0<in.chunkCount) {
+                    if(s.boundImpactor && (!st.capped || !s.cappedElastic)) {
+                        // Every row, its struck chunk freed or not: what the solve delivered to it.
+                        float lin[3],ang[3];toWorld(r,w.J+6*l,lin,ang);
+                        bound=fmaxf(sqrtf(lin[0]*lin[0]+lin[1]*lin[1]+lin[2]*lin[2])*s.dt/float(max(row.points,1u)),FLT_MIN);
+                        if(st.capped)bound=fmaxf(w.T[6*l]/float(max(row.points,1u)),FLT_MIN);
+                    } else if((!st.capped || !s.cappedElastic) && r.c0<in.chunkCount) {
                         const Chunk* struck=nullptr;
                         for(PxU32 m2=0;m2<is.nc;++m2)if(w.chunks[is.c0+m2].chunk==r.c0){struck=&w.chunks[is.c0+m2];break;}
                         bool live=false;
@@ -1850,14 +1952,19 @@ __global__ void heldOverCapacity(Inputs in,Settings s,const PxDestructionBondVer
     if(!in.rows || i>=(in.rowCounter?min(*in.rowCounter,in.rowCount):in.rowCount))return;
     if(stage && (stage->error & 4096u))return;
     const ContactRow& row=in.rows[i];const PxU32 c=row.chunk;
-    if(!row.points || c>=in.chunkCount || !(in.chunks[c].mass>0.0f) || chunkGone(in,c))return;   // released: no stop
+    if(!row.points || row.resting || c>=in.chunkCount || !(in.chunks[c].mass>0.0f) || chunkGone(in,c))return;   // released or resting: no stop
     // The bound the corrected pass applies: per body, the largest of its
     // rows' (collectImpactBounds; a cluster is one body). It stops this pair
     // rigidly when it is none (0) or no less than the trial's stop.
+    // With Settings::boundImpactor: per impactor body, the largest of its rows'.
     float applied=0.0f;
     if(in.rowBound) {
         const PxU32 n=in.rowCounter?min(*in.rowCounter,in.rowCount):in.rowCount,cluster=in.chunks[c].cluster;
-        for(PxU32 j=0;j<n;++j){const PxU32 cj=in.rows[j].chunk;if(cj<in.chunkCount && in.chunks[cj].cluster==cluster)applied=fmaxf(applied,in.rowBound[j]);}
+        for(PxU32 j=0;j<n;++j) {
+            const PxU32 cj=in.rows[j].chunk;
+            const bool same=s.boundImpactor?in.rows[j].body==row.body:(cj<in.chunkCount && in.chunks[cj].cluster==cluster);
+            if(same)applied=fmaxf(applied,in.rowBound[j]);
+        }
     }
     const float stop=sqrtf(row.load[0]*row.load[0]+row.load[1]*row.load[1]+row.load[2]*row.load[2])*s.dt;
     if(applied>0.0f && applied*float(row.points)<stop)return;
@@ -1874,6 +1981,7 @@ __global__ void heldOverCapacity(Inputs in,Settings s,const PxDestructionBondVer
     if(over){atomicAdd(&status->heldOverCapacity,1u);if(stage)atomicAdd(&stage->impactHeldOverCapacity,1u);}
 }
 #include "PxgDestructionImpactStep.cuh"
+#include "PxgDestructionImpactExplicit.cuh"
 // Host side: persistent scratch and the launches of one evaluation.
 struct Stage {
     Scratch w{};PxU32 n=0,m=0;
@@ -1887,6 +1995,55 @@ struct Stage {
     bool recordDispatches=false;std::vector<std::pair<double,IslandState>> dispatchRecord;
     // The impact step's scratch (Settings::method 1), allocated on its first use.
     StepScratch t{};bool stepAllocated=false;bool stepLog=false;
+    // The explicit step's scratch (Settings::method 2), allocated on its first use.
+    ExScratch x{};bool explicitAllocated=false;
+    void releaseExplicit() {
+        if(!explicitAllocated)return;
+        cudaFree(x.nodeOf);cudaFree(x.linkOf);cudaFree(x.patchCount);cudaFree(x.patches);cudaFree(x.nodes);cudaFree(x.bonds);cudaFree(x.links);
+        cudaFree(x.rowBonds);cudaFree(x.rows);cudaFree(x.adj);cudaFree(x.rowAdj);cudaFree(x.wr);cudaFree(x.rowList);x={};explicitAllocated=false;
+    }
+    void allocateExplicit() {
+        if(explicitAllocated)return;
+        const size_t P=kExPatches;
+        ::physx::allocate(x.nodeOf,std::max<size_t>(n,1));::physx::allocate(x.linkOf,std::max<size_t>(m,1));::physx::allocate(x.patchCount,1);::physx::allocate(x.patches,P);
+        ::physx::allocate(x.nodes,P*kExNodes);::physx::allocate(x.bonds,P*kExLinks);::physx::allocate(x.links,P*kExLinks);
+        ::physx::allocate(x.rowBonds,P*kExRows);::physx::allocate(x.rows,P*kExRows);::physx::allocate(x.adj,P*2*kExLinks);::physx::allocate(x.rowAdj,P*2*kExRows);::physx::allocate(x.wr,P*kExLinks*12);::physx::allocate(x.rowList,P*kExRows);
+        explicitAllocated=true;
+    }
+    // The explicit step's evaluation: the patches, their build (a block
+    // each), the window in launches of at most explicitBudget substeps (the
+    // host waits for each), the verdicts. Per patch (host): its substeps.
+    std::vector<ExPatch> explicitPatches;double explicitBuildMs=0.0,explicitRunMs=0.0;
+    void submitExplicit(const Inputs& in,const Settings& s,cudaStream_t stream) {
+        allocateExplicit();
+        const auto start=std::chrono::steady_clock::now();
+        exClear<<<64,kThreads,0,stream>>>(in,x);
+        exList<<<1,1,0,stream>>>(in,s,w,x);
+        // Every patch slot builds (an empty one returns at once): no readback
+        // before the build; one after it, for the patches and their substeps.
+        exBuild<<<kExPatches,kThreads,0,stream>>>(in,s,w,x);
+        check(cudaMemcpyAsync(pending,x.patchCount,sizeof(PxU32),cudaMemcpyDeviceToHost,stream));check(cudaStreamSynchronize(stream));
+        const PxU32 count=*pending;dispatches=0;longestDispatch=0.0;explicitPatches.clear();
+        const auto built=std::chrono::steady_clock::now();
+        if(!count)return;
+        explicitPatches.resize(count);
+        explicitBuildMs=std::chrono::duration<double,std::milli>(built-start).count();
+        for(PxU32 d=0;d<65536;++d) {
+            const auto t0=std::chrono::steady_clock::now();
+            exRun<<<count,kExThreads,0,stream>>>(s,w,x,s.explicitBudget);
+            check(cudaMemcpyAsync(explicitPatches.data(),x.patches,sizeof(ExPatch)*count,cudaMemcpyDeviceToHost,stream));check(cudaStreamSynchronize(stream));
+            longestDispatch=std::max(longestDispatch,std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-t0).count());++dispatches;
+            bool done=true;for(const auto& q:explicitPatches)done=done && q.done;
+            if(done)break;
+        }
+        explicitRunMs=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-built).count();
+        exPublishIsland<<<64,kThreads,0,stream>>>(in,w,x);
+        exPublish<<<dim3(16,count),kThreads,0,stream>>>(in,s,w,x);
+        if(stepLog)std::fprintf(stderr,"[impact]   explicit: %u patches; build %.2f ms, window %.2f ms in %u launches\n",count,explicitBuildMs,explicitRunMs,dispatches);
+        if(stepLog)for(PxU32 p=0;p<count;++p){const ExPatch& q=explicitPatches[p];
+            std::fprintf(stderr,"[impact]   explicit patch %u: island %u, %u nodes (%u chunks, %.2f m%s), %u joints, %u contact rows, %u impactors; %u substeps of %.1f us (omega %.3g rad/s; at its end %u contacts pushing, %u joints at an event); broke %u, yielded %u%s\n",
+                p,q.island,q.nodes,q.chunks,q.radius,q.truncated?", shrunk":"",q.links,q.rows,q.impactors,q.substeps,q.h*1e6f,q.omega,q.pushing,q.near,q.broken,q.yielded,q.failed?" (FAILED)":"");}
+    }
     void releaseStep() {
         if(!stepAllocated)return;
         cudaFree(t.nodeOf);cudaFree(t.patchCount);cudaFree(t.patches);cudaFree(t.nodeChunk);cudaFree(t.nodeMass);cudaFree(t.links);cudaFree(t.linkEnds);
@@ -1935,7 +2092,7 @@ struct Stage {
         for(PxU32 d=0;d<65536;++d) {
             const auto t0=std::chrono::steady_clock::now();
             // ~32 passes over the largest A a launch (a few ms of one block); fewer passes on a large patch.
-            const PxU32 budget=std::max(2u,PxU32(32.0*double(kStepDof)*double(kStepDof)/std::max(1.0,double(6*nmax)*double(6*nmax))/16.0));
+            const PxU32 budget=std::max(1u,PxU32(32.0*double(kStepDof)*double(kStepDof)/std::max(1.0,double(6*nmax)*double(6*nmax))/16.0));
             stepRamp<<<count,kThreads,0,stream>>>(in,s,w,t,budget);
             check(cudaMemcpyAsync(host,t.patches,sizeof(StepPatch)*count,cudaMemcpyDeviceToHost,stream));check(cudaStreamSynchronize(stream));
             longestDispatch=std::max(longestDispatch,std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-t0).count());++dispatches;
@@ -1952,7 +2109,7 @@ struct Stage {
         }
     }
     void release() {
-        releaseStep();
+        releaseStep();releaseExplicit();
         if(pending)cudaFreeHost(pending);pending=nullptr;
         cudaFree(w.islandFlag);cudaFree(w.islands);cudaFree(w.counters);cudaFree(w.bondLocal);cudaFree(w.degree);
         cudaFree(w.bonds);cudaFree(w.chunks);cudaFree(w.J);cudaFree(w.Y);cudaFree(w.Jn);cudaFree(w.T);cudaFree(w.u);
@@ -1985,7 +2142,9 @@ struct Stage {
         check(cudaMemsetAsync(w.status,0,sizeof(Status),stream));
         check(cudaMemsetAsync(w.slip,0,sizeof(float)*m,stream));
         if(s.method==1u){if(m)submitStep(in,s,stream);return;}
+        if(s.method==2u){if(m)submitExplicit(in,s,stream);return;}
         if(m)trigger<<<(m+127)/128,128,0,stream>>>(in,s,w);
+        if(in.rows && in.rowRouted)triggerRows<<<(kContactCapacity+127)/128,128,0,stream>>>(in,w);
         if(m && in.carried)carryIslands<<<(m+127)/128,128,0,stream>>>(in,s,w);
         if(n)listIslands<<<(n+127)/128,128,0,stream>>>(in,w);
         dispatches=0;longestDispatch=0.0;dispatchRecord.clear();

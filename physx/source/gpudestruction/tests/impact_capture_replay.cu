@@ -18,6 +18,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <stdexcept>
+#include <string>
 #include <vector>
 namespace physx { namespace {
 using namespace Nv::Blast;
@@ -39,6 +40,51 @@ __global__ void triggerReport(impact::Inputs in,impact::Settings s,TriggerRow* o
     const auto bond=in.bonds[i];const auto sec=in.sections?in.sections[i]:PxDestructionBondSection{};
     out[k]={i,bond.material,bond.chunk0,bond.chunk1,u,bond.area,in.health[i],sec.bendModulus0,sec.bendModulus1,sec.twistModulus,b.g0,b.g1,b.gb,b.gt,
         x[0],sqrtf(x[1]*x[1]+x[2]*x[2]),x[3],x[4],x[5]};
+}
+// IMPACT_STATIC_REPORT=PREFIX: the captured pass's static picture, for a
+// collapse's reproducer: PREFIX.bonds.csv (each live bond: its island, its
+// utilisation under the elastic solve -- the static verdict's fatal measure --
+// and its force, centroid) and PREFIX.chunks.csv (each chunk: its load and the
+// elastic solve's equilibrium residual, load + sum of its bonds' wrenches).
+struct StaticBond { PxU32 bond,island; float util,force,cx,cy,cz; };
+struct StaticChunk { PxU32 chunk,island; float mass,load,residual,x,y,z; };
+__global__ void staticBonds(impact::Inputs in,impact::Settings s,StaticBond* out)
+{
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=in.bondCount)return;
+    StaticBond r{i,in.bondIslands[i],-1.0f,0.0f,in.bonds[i].centroid.x,in.bonds[i].centroid.y,in.bonds[i].centroid.z};
+    impact::Bond b;
+    if(impact::bondMember(in,i) && impact::prepareBond(in,s,i,b)){float x[6];impact::toLocal(b,in.elastic[i],x);r.util=impact::utilisation(b,x);r.force=sqrtf(x[0]*x[0]+x[1]*x[1]+x[2]*x[2]);}
+    out[i]=r;
+}
+__global__ void staticChunks(impact::Inputs in,impact::Settings s,StaticChunk* out)
+{
+    const PxU32 c=blockIdx.x*blockDim.x+threadIdx.x;if(c>=in.chunkCount)return;
+    const auto ch=in.chunks[c];StaticChunk r{c,in.nodeIslands[c],ch.mass,0.0f,0.0f,ch.position.x,ch.position.y,ch.position.z};
+    if(ch.mass>0.0f) {
+        const auto a=in.accelerations[c];float f[6]={a.linear.x*ch.mass,a.linear.y*ch.mass,a.linear.z*ch.mass,0,0,0};
+        r.load=sqrtf(f[0]*f[0]+f[1]*f[1]+f[2]*f[2]);
+        for(PxU32 slot=in.nodeBegin[c];slot<in.nodeBegin[c+1];++slot) {
+            const PxU32 i=in.nodeRefs[slot];impact::Bond b;if(!impact::bondMember(in,i) || !impact::prepareBond(in,s,i,b))continue;
+            float x[6];impact::toLocal(b,in.elastic[i],x);impact::addWrench(b,x,b.c0==c,f);
+        }
+        r.residual=sqrtf(f[0]*f[0]+f[1]*f[1]+f[2]*f[2]);
+    }
+    out[c]=r;
+}
+// IMPACT_HELD_CHECK=1: the invariant after the evaluation (impact::
+// heldOverCapacity): verdicts as the stage would have them -- the impact
+// model's on the islands it decided, the static verdict (utilisation >= 1
+// under the elastic solve) elsewhere -- and no impactor stopped rigidly by a
+// struck chunk past capacity with nothing of it broken. Exit 1 if any.
+__global__ void stageVerdicts(impact::Inputs in,impact::Settings s,impact::Scratch w,PxDestructionBondVerdict* out)
+{
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=in.bondCount)return;
+    PxDestructionBondVerdict v{};v.health=in.health[i];
+    const PxU32 island=in.bondIslands[i];
+    if(island<in.chunkCount && w.islandFlag[island])v.broken=w.verdict[i]==impact::eBROKEN?1u:0u;
+    else{impact::Bond b;if(impact::bondMember(in,i) && impact::prepareBond(in,s,i,b)){float x[6];impact::toLocal(b,in.elastic[i],x);v.broken=impact::utilisation(b,x)>=1.0f?1u:0u;}}
+    if(v.broken)v.health=0.0f;
+    out[i]=v;
 }
 struct File {
     FILE* f;explicit File(const char* path):f(std::fopen(path,"rb")){if(!f)throw std::runtime_error("cannot open capture");}
@@ -63,7 +109,7 @@ int run(int argc,char** argv){
     if(argc<2){std::fprintf(stderr,"usage: %s CAPTURE.impc [runs]\n",argv[0]);return 2;}
     File f(argv[1]);
     const auto h=f.one<impact::CaptureHeader>();
-    if(std::memcmp(h.magic,"IMPC",4) || h.version!=1 || h.settingsBytes>sizeof(impact::Settings))throw std::runtime_error("not a capture of this build");
+    if(std::memcmp(h.magic,"IMPC",4) || (h.version!=1 && h.version!=2) || h.settingsBytes>sizeof(impact::Settings))throw std::runtime_error("not a capture of this build");
     // Settings appended since the capture keep their defaults.
     impact::Settings s{};{const auto raw=f.read<unsigned char>(h.settingsBytes);std::memcpy(&s,raw.data(),h.settingsBytes);}
     s.iterations=PxU32(env("IMPACT_ITERATIONS",float(s.iterations)));s.innerIterations=PxU32(env("IMPACT_INNER",float(s.innerIterations)));
@@ -95,10 +141,23 @@ int run(int argc,char** argv){
     if(h.flags&impact::eCAPTURE_SECTIONS)in.sections=upload(f.read<PxDestructionBondSection>(m));
     std::vector<float> zero(6*size_t(std::max(h.rows,1u)),0.0f);
     std::vector<impact::ContactRow> hostRows;
-    if(h.flags&impact::eCAPTURE_ROWS){hostRows=f.read<impact::ContactRow>(h.rows);in.rows=upload(hostRows);in.rowCount=h.rows;in.rowDelta=upload(zero);in.rowForce=upload(zero);}
+    if(h.flags&impact::eCAPTURE_ROWS){hostRows=impact::readCaptureRows(f.f,h.version,h.rows);if(hostRows.size()!=h.rows)throw std::runtime_error("short capture");in.rows=upload(hostRows);in.rowCount=h.rows;in.rowDelta=upload(zero);in.rowForce=upload(zero);in.rowBound=upload(zero);}
     if(h.flags&impact::eCAPTURE_CARRIED)in.carried=upload(f.read<PxU32>(m));
     if(h.flags&impact::eCAPTURE_SLIP_BEFORE)in.slipBefore=upload(f.read<float>(m));
+    if(h.flags&impact::eCAPTURE_ROUTED)in.rowRouted=upload(f.read<PxU32>(h.rows));
     in.stage=upload(std::vector<PxDestructionStageStatus>(1));
+    // The handoff (A/B): IMPACT_BOUND_IMPACTOR, IMPACT_ROUTE (the capture's
+    // loads routed again here, on a copy).
+    s.boundImpactor=env("IMPACT_BOUND_IMPACTOR",s.boundImpactor?1.0f:0.0f)!=0.0f;
+    s.route=env("IMPACT_ROUTE",s.route?1.0f:0.0f)!=0.0f;
+    s.explicitDt=env("IMPACT_EXPLICIT_DT_US",0.0f)*1e-6f;s.explicitWindow=PxU32(env("IMPACT_EXPLICIT_WINDOW",float(s.explicitWindow)));
+    if(s.route && in.rows) {
+        PxDestructionVectorPair* loads;allocate(loads,n);check(cudaMemcpy(loads,in.accelerations,sizeof(*loads)*n,cudaMemcpyDeviceToDevice));
+        PxU32* routed;allocate(routed,h.rows);impact::routeRows<<<(h.rows+127)/128,128>>>(in,s,routed,loads);check(cudaDeviceSynchronize());
+        in.accelerations=loads;in.rowRouted=routed;
+        std::vector<PxU32> r(h.rows);check(cudaMemcpy(r.data(),routed,sizeof(PxU32)*h.rows,cudaMemcpyDeviceToHost));
+        PxU32 c=0;for(PxU32 x:r)c+=x;std::printf("routing: %u of %u rows to the impact model\n",c,h.rows);
+    }
     cudaStream_t stream;check(cudaStreamCreateWithFlags(&stream,cudaStreamNonBlocking));
     impact::Stage e;e.allocate(n,m);
     impact::SolveRecord* log;allocate(log,impact::kLogCapacity);e.w.log=log;
@@ -122,7 +181,20 @@ int run(int argc,char** argv){
         for(const auto& x:r)std::printf("%u,%u,%u,%u,%.3f,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g\n",x.bond,x.material,x.chunk0,x.chunk1,x.utilisation,x.area,x.live,
             x.s0,x.s1,x.zt,x.g0,x.g1,x.gb,x.gt,x.N,x.V,x.T,x.M0,x.M1);
     }
-    e.recordDispatches=std::getenv("IMPACT_DISPATCH_LOG")!=nullptr;
+    if(const char* prefix=std::getenv("IMPACT_STATIC_REPORT")) {
+        StaticBond* db;allocate(db,m);StaticChunk* dc;allocate(dc,n);
+        staticBonds<<<(m+127)/128,128>>>(in,s,db);staticChunks<<<(n+127)/128,128>>>(in,s,dc);check(cudaDeviceSynchronize());
+        std::vector<StaticBond> hb(m);std::vector<StaticChunk> hc(n);
+        check(cudaMemcpy(hb.data(),db,sizeof(hb[0])*m,cudaMemcpyDeviceToHost));check(cudaMemcpy(hc.data(),dc,sizeof(hc[0])*n,cudaMemcpyDeviceToHost));
+        std::string path=std::string(prefix)+".bonds.csv";FILE* o=std::fopen(path.c_str(),"w");
+        std::fprintf(o,"bond,island,util,force,cx,cy,cz\n");for(const auto& r:hb)std::fprintf(o,"%u,%d,%.6g,%.6g,%.4f,%.4f,%.4f\n",r.bond,int(r.island),r.util,r.force,r.cx,r.cy,r.cz);std::fclose(o);
+        path=std::string(prefix)+".chunks.csv";o=std::fopen(path.c_str(),"w");
+        std::fprintf(o,"chunk,island,mass,load,residual,x,y,z\n");for(const auto& r:hc)std::fprintf(o,"%u,%d,%.6g,%.6g,%.6g,%.4f,%.4f,%.4f\n",r.chunk,int(r.island),r.mass,r.load,r.residual,r.x,r.y,r.z);std::fclose(o);
+        PxU32 over=0;for(const auto& r:hb)over+=r.util>=1.0f?1u:0u;
+        std::printf("static report: %u bonds at or past capacity under the elastic solve; %s.{bonds,chunks}.csv\n",over,prefix);
+        if(std::getenv("IMPACT_STATIC_ONLY"))return 0;
+    }
+    e.recordDispatches=std::getenv("IMPACT_DISPATCH_LOG")!=nullptr;e.stepLog=std::getenv("IMPACT_STEP_LOG")!=nullptr;
     // Warm the island kernel's pipeline (built on its first launch: 1.3 s on
     // Metal, which a timed first dispatch would count): no islands, no work.
     check(cudaMemset(e.w.counters,0,sizeof(PxU32)*8));
@@ -133,6 +205,32 @@ int run(int argc,char** argv){
         e.submit(in,s,stream);check(cudaStreamSynchronize(stream));check(cudaGetLastError());
         const double ms=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-t0).count();
         impact::Status st{};check(cudaMemcpy(&st,e.w.status,sizeof st,cudaMemcpyDeviceToHost));
+        // IMPACT_EXPLICIT_TIMES=1: when the explicit step's joints broke (ms), per patch.
+        if(!r && std::getenv("IMPACT_EXPLICIT_TIMES") && s.method==2u) {
+            for(PxU32 p=0;p<e.explicitPatches.size();++p) {
+                const auto& q=e.explicitPatches[p];std::vector<impact::ExLink> L(q.links);
+                if(q.links)check(cudaMemcpy(L.data(),e.x.links+size_t(p)*impact::kExLinks,sizeof(L[0])*L.size(),cudaMemcpyDeviceToHost));
+                std::vector<float> t;for(const auto& l:L)if(l.state&impact::eEX_BROKEN)t.push_back(l.brokeAt*1e3f);std::sort(t.begin(),t.end());
+                std::vector<impact::ExRow> R(q.rows);if(q.rows)check(cudaMemcpy(R.data(),e.x.rows+size_t(p)*impact::kExRows,sizeof(R[0])*R.size(),cudaMemcpyDeviceToHost));
+                std::vector<impact::ExNode> N(q.nodes);if(q.nodes)check(cudaMemcpy(N.data(),e.x.nodes+size_t(p)*impact::kExNodes,sizeof(N[0])*N.size(),cudaMemcpyDeviceToHost));
+                for(const auto& x:R){PxU32 live=0;for(const auto& l:L)if((l.state&impact::eEX_LIVE) && (l.a==x.a || l.b==x.a))++live;
+                    const auto& na=N[x.a];const auto& nb=N[x.b];
+                    std::printf("  row %u: chunk node %u (%u live joints, v %.2f %.2f %.2f) last P (%.3g %.3g %.3g) total (%.3g %.3g %.3g) N s; impactor v %.2f %.2f %.2f\n",x.row,x.a,live,
+                        na.v[0],na.v[1],na.v[2],x.P[0],x.P[1],x.P[2],x.total[0],x.total[1],x.total[2],nb.v[0],nb.v[1],nb.v[2]);}
+                std::printf("explicit patch %u: %zu breaks; by",p,t.size());
+                for(float c:{0.1f,0.25f,0.5f,1.0f,2.0f,4.0f,8.0f,16.7f}){size_t k=0;while(k<t.size() && t[k]<=c)++k;std::printf(" %.2g ms %zu,",c,k);}std::printf("\n");
+            }
+        }
+        if(!r && std::getenv("IMPACT_HELD_CHECK") && in.rows) {
+            PxDestructionBondVerdict* v;allocate(v,m);
+            stageVerdicts<<<(m+127)/128,128>>>(in,s,e.w,v);
+            impact::heldOverCapacity<<<(h.rows+127)/128,128>>>(in,s,v,e.w.status,nullptr);check(cudaDeviceSynchronize());
+            check(cudaMemcpy(&st,e.w.status,sizeof st,cudaMemcpyDeviceToHost));
+            std::vector<float> bound(h.rows);check(cudaMemcpy(bound.data(),in.rowBound,sizeof(float)*h.rows,cudaMemcpyDeviceToHost));
+            PxU32 bounded=0;for(float b:bound)bounded+=b>0.0f?1u:0u;
+            std::printf("held over capacity: %u contacts (rows bounded %u of %u, bounds per %s)\n",st.heldOverCapacity,bounded,h.rows,s.boundImpactor?"impactor":"struck cluster");
+            if(st.heldOverCapacity)return 1;
+        }
         if(!r && !std::getenv("IMPACT_QUIET")) {
             std::vector<impact::SolveRecord> rec(impact::kLogCapacity);check(cudaMemcpy(rec.data(),log,sizeof(rec[0])*rec.size(),cudaMemcpyDeviceToHost));
             for(PxU32 i=0;i<std::min(st.solves,impact::kLogCapacity);++i)
