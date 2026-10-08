@@ -21,6 +21,8 @@
 #include "NvBlastExtStressMaterialFormula.h"
 #include <set>
 #include <algorithm>
+#include <fstream>
+#include <sstream>
 #include <cstring>
 #include <cmath>
 #include <limits>
@@ -75,6 +77,13 @@ __global__ void observeNativeClusters(const PxDestructionStressCluster* clusters
     angular[i]=PxVec3(b.angularVelocityXYZ_maxPenBiasW.x,b.angularVelocityXYZ_maxPenBiasW.y,b.angularVelocityXYZ_maxPenBiasW.z);
 }
 __global__ void finishNativeCorrection(PxDestructionStageStatus* status) {status->error&=~8u;status->correctionPasses=1;}
+// PX_DESTRUCTION_REMOVE_BONDS: the listed bonds' verdict is broken (a cut).
+__global__ void removeBonds(const PxU32* bonds,PxU32 count,const float* health,PxDestructionBondVerdict* verdict)
+{
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
+    const PxU32 b=bonds[i];const float area=health[b];if(!(area>0.0f))return;
+    verdict[b].health=0.0f;verdict[b].damage=area;verdict[b].command=1u;
+}
 // The descriptor's pair identities are persistent transform-cache/shape IDs.
 // Geometry registration is resolved on device, independently of cluster motion.
 __global__ void buildNativeContactInputs(PxgContactManagerInput* inputs,PxU32 count,
@@ -1162,6 +1171,11 @@ class Runtime final : public PxgDestructionRuntime {
     // (PxgDestructionSequence.cuh). PX_DESTRUCTION_DYNAMIC_DAMPING: the joints' damping
     // ratio (default 0.015, EN 1995-2:2004 6.4(2)).
     DynamicSequence mSeq;
+    // PX_DESTRUCTION_REMOVE_BONDS=FILE (diagnostics, calibration): lines "frame bond bond ...":
+    // at the first full trial pass of that frame (or after it), those bonds break as a cut
+    // takes a member out (the removal set-up of vibe-land structures/calibration
+    // house-headers-removal: the structure at equilibrium, then its members gone in one tick).
+    std::vector<std::pair<PxU32,std::vector<PxU32>>> mRemovals;size_t mRemovalNext=0;PxU32 mFrame=0;PxU32* mRemovalBonds{};
     // Impact capacity (PX_DESTRUCTION_IMPACT_CAPACITY, PxgDestructionImpact.cuh):
     // the island solve, the ramp's start (the forces before this tick's trial
     // solve), per-material ductile slip and stiffness.
@@ -1821,7 +1835,7 @@ public:
         cudaFree(mBearState);cudaFree(mBearTrial);cudaFree(mBearMask);cudaFree(mBearSupported);cudaFree(mBearChanged);cudaFree(mBearCounters);
         cudaFree(mBearGeneration);cudaFree(mBearLastAccepted);cudaFree(mBearProbe);cudaFree(mBearEvents);mBearEvents=nullptr;
         mBearState=mBearTrial=mBearMask=mBearSupported=mBearChanged=mBearCounters=nullptr;mBearGeneration=mBearLastAccepted=nullptr;mBearProbe=nullptr;mRebearing=false;
-        mSeq.release();
+        mSeq.release();cudaFree(mRemovalBonds);mRemovalBonds=nullptr;
         mImpact.release();mImpactEnabled=false;cudaFree(mImpactRecords);mImpactRecords=nullptr;cudaFree(mImpactBase);mImpactBase=nullptr;cudaFree(mImpactRest);mImpactRest=nullptr;
         cudaFree(mImpactState);mImpactState=nullptr;cudaFree(mImpactStart);mImpactStart=nullptr;
         cudaFree(mImpactCarried);mImpactCarried=nullptr;cudaFree(mImpactCarriedStart);mImpactCarriedStart=nullptr;
@@ -2291,6 +2305,15 @@ public:
                 }
             }
             {
+                mRemovals.clear();mRemovalNext=0;mFrame=0;
+                if(const char* f=std::getenv("PX_DESTRUCTION_REMOVE_BONDS")) {
+                    std::ifstream in(f);std::string line;
+                    while(std::getline(in,line)){std::istringstream q(line);PxU32 frame;if(!(q>>frame))continue;std::vector<PxU32> b;PxU32 x;while(q>>x)if(x<d.bondCount)b.push_back(x);mRemovals.push_back({frame,b});}
+                    std::sort(mRemovals.begin(),mRemovals.end(),[](const auto& a,const auto& b){return a.first<b.first;});
+                    std::fprintf(stderr,"[remove] %zu removals from %s\n",mRemovals.size(),f);
+                }
+            }
+            {
                 const char* seq=std::getenv("PX_DESTRUCTION_DYNAMIC_SEQUENCE");
                 if(seq && seq[0]=='1') {
                     if(!(mImpactEnabled && mImpactSettings.method==2u && mMaterials && d.bondCount))
@@ -2406,7 +2429,7 @@ public:
     }
     bool prepareFrame(PxU32 pass=0) override {
         try {Context current(mContext);if(!configured() || mPending || pass>mCorrectionLimit || (pass && pass!=mPass+1))return false;
-            mPass=pass;if(!pass){mCarryCorrectionCommands=false;mTickBodies.clear();}
+            mPass=pass;if(!pass){mCarryCorrectionCommands=false;mTickBodies.clear();++mFrame;}
             if(!pass && mDeferredGravity)check(cudaMemsetAsync(mDeferredGravity+mN,0,sizeof(PxU32),mStream));
             if(!pass && mChunkLoads) {
                 if(!mChunkLoadsFresh)check(cudaMemsetAsync(mChunkLoads,0,mN*sizeof(*mChunkLoads),mStream));
@@ -2841,6 +2864,13 @@ public:
                     }
                 }
                 if(mSeq.enabled && !mPass && impactRan && mM && forces)runDynamicSequence(impactIn,impactSettings,impactView,forces,dt);
+                if(!mPass && mM)while(mRemovalNext<mRemovals.size() && mRemovals[mRemovalNext].first<=mFrame) {
+                    const auto& r=mRemovals[mRemovalNext++];if(r.second.empty())continue;
+                    cudaFree(mRemovalBonds);mRemovalBonds=nullptr;allocate(mRemovalBonds,r.second.size());
+                    check(cudaMemcpyAsync(mRemovalBonds,r.second.data(),sizeof(PxU32)*r.second.size(),cudaMemcpyHostToDevice,mStream));
+                    removeBonds<<<(PxU32(r.second.size())+127)/128,128,0,mStream>>>(mRemovalBonds,PxU32(r.second.size()),mHealth,mVerdicts);
+                    std::fprintf(stderr,"[remove] frame %u: %zu bonds cut (listed for frame %u)\n",mFrame,r.second.size(),r.first);
+                }
                 if(!mImpactCrush)evaluateChunkMaterials<<<(mN+127)/128,128,0,mStream>>>(mChunks,mBonds,mMaterials,mNodeBegin,mNodeRefs,
                     mHealth,forces,mBondCentroids,mSurface,mRates,mCrush,mTrialCrush,mN,dt,mStatus,impactView);
                 if(mM)finalizeMaterialVerdict<<<(mM+127)/128,128,0,mStream>>>(mBonds,mVerdicts,mTrialCrush,mHealth,mM,mStatus);
