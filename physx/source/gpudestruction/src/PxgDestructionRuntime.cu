@@ -713,7 +713,7 @@ class Runtime final : public PxgDestructionRuntime {
     // solver holds, mBearProbe: the lifted contacts' would-be forces,
     // mBearSupported: per stress island, held by a support this solve.
     // Read at each configuration (the bridge sets them from VIBE_REBEARING).
-    float mRebearingFriction=kRebearingTimberFriction;bool mRebearingLog=false,mRebearing=false;
+    float mRebearingFriction=kRebearingTimberFriction;PxU32 mRebearingLog=0;bool mRebearing=false;float4* mBearEvents{};
     PxU32 *mBearState{},*mBearTrial{},*mBearMask{},*mBearSupported{},*mBearChanged{},*mBearCounters{};
     PxU64 *mBearGeneration{},*mBearLastAccepted{};PxDestructionVectorPair* mBearProbe{};
     // The corrected pass's elastic solve warm-started from the tick's start (opt-in).
@@ -1320,7 +1320,7 @@ public:
         cudaFree(mBondCentroids);mBondCentroids=nullptr;cudaFree(mVerdicts);mVerdicts=nullptr;
         cudaFree(mSections);mSections=nullptr;mSectionBending=false;mSectionRotation=false;
         cudaFree(mBearState);cudaFree(mBearTrial);cudaFree(mBearMask);cudaFree(mBearSupported);cudaFree(mBearChanged);cudaFree(mBearCounters);
-        cudaFree(mBearGeneration);cudaFree(mBearLastAccepted);cudaFree(mBearProbe);
+        cudaFree(mBearGeneration);cudaFree(mBearLastAccepted);cudaFree(mBearProbe);cudaFree(mBearEvents);mBearEvents=nullptr;
         mBearState=mBearTrial=mBearMask=mBearSupported=mBearChanged=mBearCounters=nullptr;mBearGeneration=mBearLastAccepted=nullptr;mBearProbe=nullptr;mRebearing=false;
         cudaFree(mCrush);mCrush=nullptr;cudaFree(mTrialCrush);mTrialCrush=nullptr;
         mN=mM=mC=mMapCount=0;
@@ -1667,7 +1667,7 @@ public:
             }
             const char* rebearing=std::getenv("PX_DESTRUCTION_REBEARING");
             {const char* f=std::getenv("PX_DESTRUCTION_REBEARING_FRICTION");mRebearingFriction=f?float(std::atof(f)):kRebearingTimberFriction;}
-            {const char* l=std::getenv("PX_DESTRUCTION_REBEARING_LOG");mRebearingLog=l && l[0]=='1';}
+            {const char* l=std::getenv("PX_DESTRUCTION_REBEARING_LOG");mRebearingLog=l?PxU32(std::atoi(l)):0u;}
             if(rebearing && rebearing[0]=='1') {
                 if(!(mTopology && mSolver && mMaterials && mSectionBending && mSections && d.bondCount))
                     std::fprintf(stderr,"[rebearing] PX_DESTRUCTION_REBEARING needs the device topology, materials and bond sections (bearing joints); off\n");
@@ -1679,6 +1679,7 @@ public:
                     check(cudaMemset(mBearMask,0,sizeof(PxU32)*d.bondCount));check(cudaMemset(mBearChanged,0,sizeof(PxU32)));
                     check(cudaMemset(mBearCounters,0,sizeof(PxU32)*8));check(cudaMemset(mBearGeneration,0,sizeof(PxU64)));
                     check(cudaMemset(mBearLastAccepted,0xff,sizeof(PxU64)));check(cudaMemset(mBearProbe,0,sizeof(*mBearProbe)*d.bondCount));
+                    if(mRebearingLog>=2)allocate(mBearEvents,256);
                     if(!Nv::Blast::ExtStressGpuEnableBondReadmission(mSolver,mBearState)){clear();return false;}
                     mRebearing=true;
                 }
@@ -1987,10 +1988,16 @@ public:
                     markSupportedIslands<<<(mM+127)/128,128,0,mStream>>>(mChunks,mBonds,mBearMask,stress.nodeIslands,mBearSupported,mM);
                     if(mRebearingLog)check(cudaMemsetAsync(mBearCounters,0,sizeof(PxU32)*8,mStream));
                     rebearVerdicts<<<(mM+127)/128,128,0,mStream>>>(mChunks,mBonds,mMaterials,mSections,mHealth,mBearState,mBearTrial,
-                        mBearProbe,stress.nodeIslands,mBearSupported,mVerdicts,mM,dt,mDamageRate,mFibres,mRebearingFriction,mStatus,mBearCounters);
+                        mBearProbe,stress.nodeIslands,mBearSupported,mVerdicts,mM,dt,mDamageRate,mFibres,mRebearingFriction,mStatus,mBearCounters,mBearEvents,256u);
                     if(mRebearingLog) {
                         PxU32 c[8];check(cudaMemcpyAsync(c,mBearCounters,sizeof c,cudaMemcpyDeviceToHost,mStream));check(cudaStreamSynchronize(mStream));
                         if(c[0]||c[1]||c[2]||c[3]||c[4])std::fprintf(stderr,"[rebearing] pass %u: %u fastenings failed to contact, %u lifted, %u closed, %u slid, %u fell free\n",mPass,c[0],c[4],c[1],c[2],c[3]);
+                        if(mBearEvents && c[5]) {
+                            float4 e[256];const PxU32 n=std::min(c[5],256u);
+                            check(cudaMemcpy(e,mBearEvents,sizeof(float4)*n,cudaMemcpyDeviceToHost));
+                            static const char* kinds[]={"fastenings failed","lifted","closed","slid","fell free","crushed"};
+                            for(PxU32 k=0;k<n;++k){PxU32 id;std::memcpy(&id,&e[k].x,sizeof id);std::fprintf(stderr,"[rebearing]   bond %u %s: N %.4g N, V %.4g N\n",id,kinds[std::min(5,int(e[k].y))],e[k].z,e[k].w);}
+                        }
                     }
                 }
                 evaluateChunkMaterials<<<(mN+127)/128,128,0,mStream>>>(mChunks,mBonds,mMaterials,mNodeBegin,mNodeRefs,
