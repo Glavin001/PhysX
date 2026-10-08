@@ -41,7 +41,7 @@
 #define PX_DESTRUCTION_BEARING_JOINTS 1
 // PxDestructionStressDesc::chunkBoxes (layout change, consumers rebuild with the
 // SDK): each chunk's box, the impact step's contact geometry within a tick.
-#define PX_DESTRUCTION_CHUNK_BOXES 1
+#define PX_DESTRUCTION_CHUNK_BOXES 2   // 2: PxDestructionChunkBox::internalFaces and chunkFaceNeighbours
 // Feature (no layout change; opt-in with the environment, read at configuration:
 // PX_DESTRUCTION_REBEARING=1): a bearing joint whose fasteners fail becomes a
 // unilateral contact -- it bears in compression up to its material's
@@ -201,9 +201,25 @@ struct PxDestructionStressConstraint {
 };
 // A chunk's box in its cluster-local stress frame: its centre, half extents
 // along its axes, and the axes' rotation (a cuboid chunk's own; a hull's bounds).
+// internalFaces (PX_DESTRUCTION_CHUNK_BOXES >= 2): bit f set when face f -- 2 k for
+// the box's -axis k face, 2 k + 1 for its +axis k face (k = 0, 1, 2: x, y, z in its
+// own frame) -- is internal at rest: the neighbour boxes listed for it in
+// PxDestructionStressDesc::chunkFaceNeighbours continue the material across the
+// whole face (their union covers it, starting at or before its plane and reaching
+// past it). A contact whose closest feature is on such a face's boundary meets a
+// seam between flush chunks, not an edge: its normal is the adjoining exposed
+// face's (the internal-edge problem; Bullet btAdjustInternalEdgeContacts, PhysX
+// triangle-mesh active edges). The face is internal only while each listed
+// neighbour is still in the chunk's cluster (unbroken from it, not crushed).
+// Bit 6 (PX_DESTRUCTION_CHUNK_BOX_EXACT): the box is the chunk's collider itself (a
+// cuboid chunk), not a hull's bounds. Rigid contacts are corrected only on exact
+// boxes whose covering neighbours are exact too: a hull need not fill its bounds,
+// so a face its bounds cover may still be exposed. Face bits are 0..5 only.
+#define PX_DESTRUCTION_CHUNK_BOX_EXACT (1u << 6)
 struct PxDestructionChunkBox {
     PxVec3 center{0.0f}, halfExtents{0.0f};
     PxQuat rotation{PxIdentity};
+    PxU32 internalFaces = 0;
 };
 struct PxDestructionStressDesc {
     const PxDestructionStressChunk* chunks = NULL;
@@ -347,6 +363,12 @@ struct PxDestructionStressDesc {
     // body passes many chunk faces in a tick, so the step re-finds its contacts
     // as it moves. NULL: the step keeps the tick's contacts as found.
     const PxDestructionChunkBox* chunkBoxes = NULL;
+    // The neighbours covering each internal face (PX_DESTRUCTION_CHUNK_BOXES >= 2; with
+    // chunkBoxes, or NULL): chunk c's face f lists chunkFaceNeighbours[i] for i in
+    // [chunkFaceNeighbourBegin[6 c + f], chunkFaceNeighbourBegin[6 c + f + 1]);
+    // chunkFaceNeighbourBegin has 6 chunkCount + 1 entries.
+    const PxU32* chunkFaceNeighbourBegin = NULL;
+    const PxU32* chunkFaceNeighbours = NULL;
 };
 struct PxDestructionVectorPair {
     PxVec3 angular, linear;

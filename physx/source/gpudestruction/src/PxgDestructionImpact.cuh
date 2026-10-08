@@ -310,6 +310,13 @@ struct Settings {
     // by a fast body was graded statically on the rigid solve's contact impulse
     // (debris on a wheel: 462 kN graded against 129 kN of momentum change).
     bool dynamicStruck=false;
+    // Settings::compliant, held pending the internal-edge evidence (PX_DESTRUCTION_IMPACT_GROUND=1,
+    // off): the window owns its impactor's ground -- seams (internal chunk faces) in its own
+    // geometry and in the routing, the absorbed depth kept apart from the crushed one, and the
+    // struck cluster's supports in reach as held nodes. Off: none of it (the window's geometry
+    // knows no seams, a late contact's penetration is crushed depth, supports stay the rigid
+    // pass's).
+    bool ground=false;
 };
 // A solve is diverging when, past its first rho rebalance (25 steps), a
 // joint's split |J - Z| exceeds kDivergence times the joint's capacity: the
@@ -479,6 +486,10 @@ struct Inputs {
     // Each chunk's box (PxDestructionStressDesc::chunkBoxes), or null: the window's
     // own contact geometry for a round impactor (exRefresh).
     const PxDestructionChunkBox* chunkBoxes{};
+    // The neighbours covering each chunk's internal faces (PxDestructionStressDesc::
+    // chunkFaceNeighbourBegin, chunkFaceNeighbours; exLiveFaces), or null.
+    const PxU32* faceBegin{};
+    const PxU32* faceList{};
 };
 
 // ---------------------------------------------------------------------------
@@ -1524,7 +1535,7 @@ __device__ bool routeImpact(const Inputs& in,const Settings& s,const ContactRow&
         Bond b;if(!prepareBond(in,s,i,b))continue;
         k+=b.kl;
         const float a=(b.c0==chunk?1.0f:-1.0f)*dot3(b.n,push),t=sqrtf(fmaxf(0.0f,1.0f-a*a));
-        float f=FLT_MAX;if(fabsf(a)>0.0f)f=(a>0.0f?b.capC:b.capT)/fabsf(a);if(t>0.0f)f=fminf(f,b.capS/t);
+        float f=FLT_MAX;if(fabsf(a)>0.0f)f=(a>0.0f?b.capC:b.capT)/fabsf(a);f=fminf(f,shearCapacityAlong(b,a,t));   // (Mohr-Coulomb: C11)
         if(b.kl>0.0f)ratio=fminf(ratio,f/b.kl);
     }
     if(!(k>0.0f))return false;   // no joint: a free chunk, the rigid simulation's own
@@ -1546,7 +1557,54 @@ __device__ bool routeImpact(const Inputs& in,const Settings& s,const ContactRow&
     if(peakOut)*peakOut=peak;if(capOut)*capOut=bound;
     return peak>bound;
 }
-__global__ void routeRows(Inputs in,Settings s,PxU32* routed,PxDestructionVectorPair* inputs)
+// A chunk's internal faces that are still internal: each neighbour listed for the face
+// still in the chunk's cluster and not crushed (PxDestructionChunkBox::internalFaces;
+// bits 0-5, bit 6 is PX_DESTRUCTION_CHUNK_BOX_EXACT).
+__device__ PxU32 liveInternalFaces(const Inputs& in,PxU32 c)
+{
+    if(!in.chunkBoxes || !in.faceBegin || c>=in.chunkCount)return 0u;
+    const PxU32 mask=in.chunkBoxes[c].internalFaces&0x3fu;PxU32 live=0u;
+    for(PxU32 f=0;f<6;++f) {
+        if(!(mask&(1u<<f)))continue;
+        bool ok=true;
+        for(PxU32 i=in.faceBegin[6*c+f];i<in.faceBegin[6*c+f+1] && ok;++i){const PxU32 j=in.faceList[i];
+            ok=j<in.chunkCount && !chunkGone(in,j) && in.chunks[j].cluster==in.chunks[c].cluster;}
+        if(ok)live|=1u<<f;
+    }
+    return live;
+}
+// A round impactor's radius (isotropic inertia: a solid sphere's, I = 2/5 m r^2), or 0;
+// the window's own geometry follows round impactors (exBuild, the same test).
+__device__ __forceinline__ float roundImpactorRadius(const ContactRow& q)
+{
+    if(!(q.im>0.0f))return 0.0f;
+    const float* S=q.ii;const float i0=S[0],tol=1e-3f*i0;
+    return (i0>0.0f && fabsf(S[1]-i0)<=tol && fabsf(S[2]-i0)<=tol && fabsf(S[3])<=tol && fabsf(S[4])<=tol && fabsf(S[5])<=tol)?sqrtf(2.5f*q.im/i0):0.0f;
+}
+// Settings::compliant with chunk boxes: a round impactor's contact on a seam -- the rigid
+// contact's normal leans out of one of its chunk's internal faces, which only an edge the
+// flush neighbour hides can give it (a face contact's normal is the face's axis, to the
+// rounding of the three rotations between the shape and the box: 8 FLT_EPSILON). The rigid
+// pass would grade that ghost edge; the window, whose geometry knows the seam, takes it.
+// *face: the seam's normal (outward from the chunk): its components out of the internal faces
+// dropped, the adjoining exposed face's (exSphereBox's correction).
+__device__ bool seamRow(const Inputs& in,const ContactRow& row,PxU32 c,const float* n,PxVec3* face=nullptr)
+{
+    if(!in.chunkBoxes || !(roundImpactorRadius(row)>0.0f))return false;
+    const PxU32 live=liveInternalFaces(in,c);if(!live)return false;
+    const PxQuat q=in.chunkBoxes[c].rotation;
+    PxVec3 o=q.rotateInv(PxVec3(-n[0],-n[1],-n[2]));   // the chunk's outward normal there, box axes
+    bool seam=false;
+    for(PxU32 f=0;f<6;++f)if(live&(1u<<f)){const float sg=(f&1u)?1.0f:-1.0f;if(sg*o[f/2]>8.0f*FLT_EPSILON){seam=true;o[f/2]=0.0f;}}
+    if(seam && face)*face=o.magnitudeSquared()>0.0f?q.rotate(o.getNormalized()):PxVec3(-n[0],-n[1],-n[2]);
+    return seam;
+}
+// reboundGain (Settings::compliant; or null): trial rows at a seam of an anchored chunk (seamRow:
+// the rigid contact's normal leans out of an internal face) whose impactor leaves faster along the
+// exposed face's normal than it came in along it -- the rigid pass's ghost edge (e <= 1; the
+// 2026-10-08 ground kick). Only seam rows: elsewhere the trial's dv is the body's whole change
+// from all its contacts, which along one row's normal may exceed that row's approach.
+__global__ void routeRows(Inputs in,Settings s,PxU32* routed,PxDestructionVectorPair* inputs,PxU32* reboundGain=nullptr)
 {
     const PxU32 r=blockIdx.x*blockDim.x+threadIdx.x;
     const PxU32 rows=in.rowCounter?min(*in.rowCounter,in.rowCount):in.rowCount;if(r>=rows)return;
@@ -1569,6 +1627,14 @@ __global__ void routeRows(Inputs in,Settings s,PxU32* routed,PxDestructionVector
     if(!row.points){routed[r]=1u;remove(1.0f);return;}
     float n[3]={row.normal[0],row.normal[1],row.normal[2]};const float nl=sqrtf(dot3(n,n));if(!(nl>0.0f))return;
     for(int q=0;q<3;++q)n[q]/=nl;
+    // The rigid pass's energy from this contact (Status::reboundGain): its impactor leaving the
+    // anchored chunk along the normal (a seam's: the exposed face's) faster than it came in.
+    PxVec3 face(-n[0],-n[1],-n[2]);const bool atSeam=s.compliant && seamRow(in,row,c,n,&face),seam=atSeam && s.ground;
+    if(reboundGain && atSeam && !(row.clusterIm>0.0f)) {
+        const PxVec3 v0(row.velocity[0],row.velocity[1],row.velocity[2]),v1=v0+PxVec3(row.dv[0],row.dv[1],row.dv[2]);
+        if(v1.dot(face)>-v0.dot(face) && v1.dot(face)>0.0f)atomicAdd(reboundGain,1u);
+    }
+    if(seam){routed[r]=1u;remove(1.0f);return;}
     float arm[3],spin[3];for(int q=0;q<3;++q)arm[q]=row.point[q]-row.com[q];cross3(row.spin,arm,spin);
     float vp[3];for(int q=0;q<3;++q)vp[q]=row.velocity[q]+spin[q];
     const float vn=fmaxf(0.0f,dot3(vp,n));
@@ -2229,7 +2295,7 @@ struct Stage {
     void releaseExplicit() {
         if(!explicitAllocated)return;
         cudaFree(x.nodeOf);cudaFree(x.linkOf);cudaFree(x.patchCount);cudaFree(x.patches);cudaFree(x.nodes);cudaFree(x.bonds);cudaFree(x.links);
-        cudaFree(x.rowBonds);cudaFree(x.rows);cudaFree(x.adj);cudaFree(x.rowAdj);cudaFree(x.wr);cudaFree(x.rowList);cudaFree(x.rwr);cudaFree(x.jp);cudaFree(x.jl);cudaFree(x.rp);cudaFree(x.eStart);cudaFree(x.ja);cudaFree(x.wd);cudaFree(x.handoff);cudaFree(x.handoffCount);cudaFree(x.rowDecided);x={};explicitAllocated=false;
+        cudaFree(x.rowBonds);cudaFree(x.rows);cudaFree(x.adj);cudaFree(x.rowAdj);cudaFree(x.wr);cudaFree(x.rowList);cudaFree(x.rwr);cudaFree(x.jp);cudaFree(x.jl);cudaFree(x.rp);cudaFree(x.eStart);cudaFree(x.ja);cudaFree(x.wd);cudaFree(x.handoff);cudaFree(x.handoffCount);cudaFree(x.rowDecided);cudaFree(x.owner);x={};explicitAllocated=false;
     }
     void allocateExplicit() {
         if(explicitAllocated)return;
@@ -2241,6 +2307,7 @@ struct Stage {
         if(twoBody){::physx::allocate(x.eStart,P*kExLinks*2);::physx::allocate(x.ja,P*kExLinks*9);::physx::allocate(x.wd,P*kExLinks*12);}
         // The hand-off to the corrected pass (the two-body impact's and Settings::compliant's).
         if(twoBody || handoffs){::physx::allocate(x.handoff,size_t(kExHandoffs));::physx::allocate(x.handoffCount,1);::physx::allocate(x.rowDecided,size_t(kContactCapacity));}
+        if(handoffs)::physx::allocate(x.owner,std::max<size_t>(n,1));   // (Settings::compliant: the windows' islands and supports, exClaim)
         explicitAllocated=true;
     }
     // The explicit step's evaluation: the patches, their build (a block
@@ -2256,8 +2323,10 @@ struct Stage {
         allocateExplicit();
         const auto start=std::chrono::steady_clock::now();
         x.boxes=s.compliant?in.chunkBoxes:nullptr;   // (the window's own geometry; ExScratch is passed by value)
+        x.ground=s.ground?1u:0u;
         exClear<<<64,kThreads,0,stream>>>(in,x);
         exList<<<1,1,0,stream>>>(in,s,w,x);
+        if(x.owner && x.boxes)exClaim<<<(n+kThreads-1)/kThreads,kThreads,0,stream>>>(in,s,x);
         // Every patch slot builds (an empty one returns at once): no readback
         // before the build; one after it, for the patches and their substeps.
         exBuild<<<kExPatches,kThreads,0,stream>>>(in,s,w,x);
