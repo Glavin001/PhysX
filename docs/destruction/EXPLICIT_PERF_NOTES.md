@@ -148,6 +148,97 @@ substep count.
    0.027 m^2 for the rest. Softening them to their material's stiffness would
    raise h with no kernel work.
 
+## Multi-rate design (held until the house's stiff set is re-authored)
+
+**Status.** Main's decision: hold. The stiff set looks like fastened timber
+connections given the wood's E instead of the fastener slip modulus K_ser
+(EN 1995-1-1). The house-authoring agent is checking that. Measure omega with
+`IMPACT_EXPLICIT_LOCAL=1` before and after; revisit this design only if a stiff
+set remains once the authoring is fixed.
+
+**Sizing (be8c29439, 90 lab patches of >= 200 joints).**
+- Element frequency per joint: omega_j^2 = lambda_max(k^1/2 (W_a + W_b) k^1/2),
+  with W_e = B_e^T M_e^-1 B_e for each of the joint's two chunks.
+- Fractions of joints:
+
+  | Element frequency | Fraction of joints |
+  |---|---|
+  | omega_j > omega/2 | 7.1% (p90 8.5%) |
+  | omega_j > omega/4 | 29.5% |
+  | omega_j <= omega/8 | about 50% |
+
+- The fastest element is about 0.82 of the window's bound.
+
+**Levels.**
+- Level L_j is the largest L with omega_j <= omega / 2^L (capped). Joint j steps
+  at h_j = 2^L_j h, where h = 0.9 x 2 / omega_level0.
+- omega_level0 is the bound recomputed on level 0's subsystem. The finest step
+  must be stable for the stiff joints and their nodes.
+- Finest step n (1-based) runs the joints with 2^L_j dividing n, i.e.
+  L_j <= ctz(n). Each level has a list, built once per window as `t.jl` is
+  today.
+- Joint updates per window are Sum_j 2^-L_j against N: 0.27 of uniform (p10-p90
+  0.25-0.30).
+
+**The accumulator form**, which keeps the RBSM J form exact for the elastic part:
+- Each node keeps a displacement accumulator u (6 floats). Every finest step
+  does `u += h v` after its velocity update.
+- When joint j fires at step n, it takes its relative displacement since its
+  last firing:
+
+      d    = B_j^T (u_now - u_at_last_fire)
+      J   -= k d
+      then fracture or radial return, as today
+
+- It stores `u_at_last_fire` per end in its packed record (12 floats more).
+- Its force acts on its nodes over its whole period, as the impulse
+  `2^L_j h B_j (J - J0)`, written to `wr` when it fires.
+- Nodes update every finest step from the impulses that fired at that step.
+  Applying a slow joint's impulse as h B (J - J0) on each of its 2^L finest
+  steps is the subcycling (Belytschko) form; once per period is the AVI form.
+  Choose one with the stability argument.
+- Rows (contacts) run every finest step, on the struck chunks' velocities.
+- The dead load's work is counted per firing, as h_j J0 . d.
+
+**Stability: the condition to settle before writing kernel code.**
+- Asynchronous variational integrators (Lew, Marsden, Ortiz & West 2003) are
+  symplectic per element. They have resonance instabilities when element steps
+  are commensurate (Fong, Darve & Lew, "Stability of asynchronous variational
+  integrators", J. Comput. Phys. 2008). Power-of-two levels are exactly
+  commensurate, so the growth rate must be bounded for this spectrum, or the
+  method changed.
+- Nodal subcycling (Belytschko, Smolinski & Liu 1985, "Stability of
+  multi-time step partitioned integrators for first-order finite element
+  systems"; and Belytschko & Lu for second order) is stable when each
+  partition meets its own CFL and the interface nodes step at the finer rate.
+- With the node partition chosen as "a node steps at its fastest joint's rate",
+  this condition reduces to the per-level bound above. That is the argument the
+  harness should verify on the lab captures first: no energy growth over the
+  window, and the energy books closing.
+
+**Fracture timing.**
+- A slow joint can only detect its capacity at its firing times, so its break is
+  quantised to 2^L_j h: up to about 0.5 ms at L = 3. A level-0 joint still
+  breaks on the substep, as today.
+- The fidelity gate is the one used for mass scaling. Against the uniform-step
+  reference, the result must stay within that reference's own h vs h/2 spread:
+  - Jaccard on broken joints (0.895 on the cannonball dump);
+  - the impactor's dp;
+  - energy closure;
+  - locality.
+- A joint near its capacity could be promoted to level 0. That needs a derived
+  promotion criterion: its utilisation growth bounded over its period by the
+  energy its nodes can carry, as in the early-end analysis. A tuned band is not
+  acceptable.
+
+**Projection.**
+- Cost model: about 2.5 us plus 5.2 us per joint per thread, per finest step
+  (fitted to the 1,273- and 1,919-joint lab patches).
+- Per finest step: the 1,919-joint patch about 25 -> 8.5 us, the 1,273-joint
+  patch about 15 -> 6.5 us.
+- Lab window mean about 4.2 -> 1.7 ms; evaluation about 2.5-3 ms with today's
+  fixed costs.
+
 ## How to test and time
 
 Tools: `physx/source/gpudestruction/tests/tools/` (path-independent; `env.sh` finds the
