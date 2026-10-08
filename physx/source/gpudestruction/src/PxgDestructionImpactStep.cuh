@@ -94,7 +94,7 @@ __device__ __forceinline__ void stepGather(const float* Bl,const StepLink& e,con
 }
 __device__ __forceinline__ void stepStiffness(const Bond& b,float h,float* c)
 {
-    const float k[6]={b.kl,b.kl,b.kl,b.kt,b.k0,b.k1};
+    const float k[6]={b.kl,b.ks,b.ks,b.kt,b.k0,b.k1};
     for(int q=0;q<6;++q)c[q]=(k[q]>0.0f && k[q]<1e30f)?k[q]*h*h:0.0f;
 }
 

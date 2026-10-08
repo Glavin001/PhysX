@@ -59,6 +59,16 @@
 // at its material's mu), and the impact models' joint set (utilisation,
 // projection, ray capacity). Off, the materials' mu is ignored.
 #define PX_DESTRUCTION_MOHR_COULOMB_SHEAR 1
+// Feature (PxDestructionMaterial::shearStiffnessRatio; opt-in with the
+// environment, read at configuration: PX_DESTRUCTION_SHEAR_STIFFNESS=1): a joint
+// is stiffer along its normal than across it, k_s = gamma k_n, gamma per
+// material (masonry G/E = 0.4, EN 1996-1-1 3.8.3; a solid's 1 / (2 (1 + nu)); a
+// fastened joint's slip over its bearing stiffness). Every model applies it: the
+// stress solve (Blast ExtStressGpuSetBondShearStiffness; needs the section's
+// rotational stiffness), and the impact models' joints (their shear rows, the
+// return map's metric, the explicit step's blocks and step bound). Off, every
+// joint is equally stiff in every direction, as before.
+#define PX_DESTRUCTION_SHEAR_STIFFNESS 1
 #include "foundation/PxTransform.h"
 #include "PxDirectGPUAPI.h"
 #include "PxDestructionTopologyTypes.h"
@@ -104,6 +114,10 @@ struct PxDestructionMaterial {
     // its shear strength f_v0 + mu sigma_c (Pa; EN 1996-1-1 f_vlt or 0.065 f_b).
     // 0 mu: no friction term; 0 cap: uncapped.
     PxReal shearFriction=0, shearCapacityLimit=0;
+    // Shear stiffness (PX_DESTRUCTION_SHEAR_STIFFNESS): the joint's stiffness
+    // across its normal over its stiffness along it (G/E for a joint of one
+    // material). 0 or 1: isotropic.
+    PxReal shearStiffnessRatio=0;
 };
 struct PxDestructionBondVerdict {
     PxReal health, damage, stressNormal, stressShear, stressBend;

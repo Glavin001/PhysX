@@ -247,7 +247,7 @@
         // Residency is a launch constraint, not a physical-work limit. All
         // virtual node/island blocks are processed by the resident grid.
         const bool rotation=m_angularScale!=nullptr;
-        const auto kernel=m_deviceTopology?(rotation?persistentStressSolve<true,true>:persistentStressSolve<true,false>):persistentStressSolve<false>;
+        const auto kernel=m_deviceTopology?(m_shear?persistentStressSolve<true,true,true>:rotation?persistentStressSolve<true,true>:persistentStressSolve<true,false>):persistentStressSolve<false>;
         args.m_angularScale=m_angularScale;args.m_angularWeight=m_angularWeight;
         if(m_deviceTopology){args.hierarchy=m_deviceTopology->cycleView();args.input=m_input;args.impulses=m_impulses;args.originalRhs=m_rhs;args.warmStart=params.warmStart && m_hasWarmStart;args.settledIslands=m_islandSkip;
             if(m_reportEnabled){args.report=m_report;args.nodeResidual2=m_nodeResidual2;}
@@ -275,7 +275,7 @@
             m_nodeCount<=1024 ? 1u : std::min(std::max(nodeBlocks*8u,islandBlocks),unsigned(blocksPerSm*sms));
         ResidentStressComponentView components{};
         if(m_deviceTopology) {
-            (rotation?initializeNativeWarmResidual<true>:initializeNativeWarmResidual<false>)<<<nodeBlocks,kBlockSize,0,m_stream>>>(args);
+            (m_shear?initializeNativeWarmResidual<true,true>:rotation?initializeNativeWarmResidual<true>:initializeNativeWarmResidual<false>)<<<nodeBlocks,kBlockSize,0,m_stream>>>(args);
 #ifdef BLAST_GPU_NATIVE_PROBLEM_CAPTURE
             captureStressProblem<<<(std::max(m_nodeCount,m_bondCount)+kBlockSize-1)/kBlockSize,kBlockSize,0,m_stream>>>(args,m_nodeCount,m_bondCount);
 #endif
@@ -303,7 +303,7 @@
 #endif
             if(m_componentChunkIndex){args.componentChunkIndex=m_componentChunkIndex;args.componentChunkPartials=m_componentChunkPartials;
                 args.componentChunkCapacity=kComponentChunkCapacity;}
-            (rotation?componentStressSolve<true>:componentStressSolve<false>)<<<componentBlocks,kBlockSize,0,m_stream>>>(args,components
+            (m_shear?componentStressSolve<true,true>:rotation?componentStressSolve<true>:componentStressSolve<false>)<<<componentBlocks,kBlockSize,0,m_stream>>>(args,components
 #if defined(PX_CUMETAL_EXPLICIT_HIERARCHY_ROOT) && PX_CUMETAL_EXPLICIT_HIERARCHY_ROOT
                 ,cycleLevels
 #endif

@@ -2,12 +2,13 @@
 #pragma once
 #include "StressHierarchyTerminalLevel.cuh"
 namespace Nv { namespace Blast { namespace StressHierarchy {
+template<bool Shear=false>
 __device__ __forceinline__ void buildSmootherRow(Input input,Buffers buffers,TerminalBuffers terminals,unsigned level,Status* status,unsigned node,const StressReal* coefficients=nullptr){
     const unsigned lane=threadIdx.x&31u,row=lane<1?0:lane<3?1:lane<6?2:lane<10?3:lane<15?4:5;
     const unsigned col=lane<DiagonalEntries?lane-row*(row+1)/2:0;
     if(input.component[node]==Invalid || terminals.owner[input.component[node]]==level)return;
     StressReal coefficient=0;
-    if(lane<DiagonalEntries)coefficient=coefficients?coefficients[lane]:terminalCoefficient(input,node,row,node,col);
+    if(lane<DiagonalEntries)coefficient=coefficients?coefficients[lane]:terminalCoefficient<Shear>(input,node,row,node,col);
     const bool coupled=__any_sync(0xffffffffu,coefficient!=0);
     if(coupled)for(unsigned k=0;k<6;++k){
         const StressReal diagonal=__shfl_sync(0xffffffffu,coefficient,triangle(k,k));
@@ -19,8 +20,9 @@ __device__ __forceinline__ void buildSmootherRow(Input input,Buffers buffers,Ter
     }
     if(lane<DiagonalEntries)buffers.diagonal[size_t(node)*DiagonalEntries+lane]=coefficient;
 }
-template<bool Rotation=false>
+template<bool Rotation=false,bool Shear=false>
 __global__ void constructSmoother(Input input,const Status* source,Status* status,Work* work,Buffers buffers,TerminalBuffers terminals,unsigned level){
+    static_assert(Rotation || !Shear,"shear stiffness extends the rotational stiffness rows");
     if constexpr(!Rotation)input.angularWeight=nullptr; // a constant null: the uniform arithmetic exactly
     const auto grid=cooperative_groups::this_grid();const unsigned lane=blockIdx.x*blockDim.x+threadIdx.x;
     if(!lane){
@@ -40,11 +42,11 @@ __global__ void constructSmoother(Input input,const Status* source,Status* statu
         for(unsigned entry=threadIdx.x/32;entry<DiagonalEntries;entry+=blockDim.x/32){
             unsigned row=0;while(triangle(row+1,0)<=entry)++row;
             const unsigned col=entry-triangle(row,0);
-            const StressReal value=warpSum(terminalCoefficient(input,node,row,node,col,threadIdx.x&31u,32));
+            const StressReal value=warpSum(terminalCoefficient<Shear>(input,node,row,node,col,threadIdx.x&31u,32));
             if(!(threadIdx.x&31u))coefficients[entry]=value;
         }
         __syncthreads();
-        if(threadIdx.x<32)buildSmootherRow(input,buffers,terminals,level,status,node,coefficients);
+        if(threadIdx.x<32)buildSmootherRow<Shear>(input,buffers,terminals,level,status,node,coefficients);
         __syncthreads();
     }
     grid.sync();if(!lane && !status->error){status->generation=source->generation;status->initialized=1;++status->builds;}
@@ -52,15 +54,17 @@ __global__ void constructSmoother(Input input,const Status* source,Status* statu
 class LevelSmoother {
     Input mInput;const Status* mSource;cudaStream_t mStream;Buffers mBuffers{};TerminalBuffers mTerminals;
     Status* mStatus=nullptr;Work* mWork=nullptr;unsigned mLevel,mBlocks=0;bool mOwned=false,mAppended=false;
+    bool mShear=false;   // per-bond shear stiffness: twelve-float weight rows
+    void* kernel()const{return mShear && mInput.angularWeight?(void*)constructSmoother<true,true>:mInput.angularWeight?(void*)constructSmoother<true>:(void*)constructSmoother<false>;}
     static void check(cudaError_t e){if(e!=cudaSuccess)throw std::runtime_error(std::string("Resident smoother: ")+cudaGetErrorString(e));}
     void release()noexcept{if(mOwned)cudaFree(mBuffers.diagonal);cudaFree(mStatus);cudaFree(mWork);}
 public:
-    LevelSmoother(Input input,const Graph& graph,const TerminalLevel& terminal,unsigned level,cudaStream_t stream):mInput(input),mSource(terminal.status()),mStream(stream),mTerminals(terminal.buffers()),mLevel(level){
+    LevelSmoother(Input input,const Graph& graph,const TerminalLevel& terminal,unsigned level,cudaStream_t stream,bool shear=false):mInput(input),mSource(terminal.status()),mStream(stream),mTerminals(terminal.buffers()),mLevel(level),mShear(shear){
         if(!input.levelBonds){mBuffers.diagonal=graph.buffers().diagonal;return;} // Already produced by the fine operator construction.
         mOwned=true;
         try{
             int device=0,sms=0,blocks=0,cooperative=0;check(cudaGetDevice(&device));check(cudaDeviceGetAttribute(&sms,cudaDevAttrMultiProcessorCount,device));
-            check(cudaDeviceGetAttribute(&cooperative,cudaDevAttrCooperativeLaunch,device));check(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&blocks,input.angularWeight?constructSmoother<true>:constructSmoother<false>,Threads,0));
+            check(cudaDeviceGetAttribute(&cooperative,cudaDevAttrCooperativeLaunch,device));check(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&blocks,(const void*)kernel(),Threads,0));
             if(!cooperative || sms<=0 || blocks<=0)throw std::runtime_error("Resident smoother requires legal cooperative CUDA residency");
             mBlocks=std::min(std::max(1u,(input.nodes+7)/8),unsigned(sms*blocks));
             check(cudaMalloc(&mBuffers.diagonal,std::max(size_t(1),size_t(input.nodes)*DiagonalEntries)*sizeof(StressReal)));
@@ -72,7 +76,7 @@ public:
     cudaGraphNode_t append(cudaGraph_t graph,cudaGraphNode_t prior){
         if(mAppended)throw std::runtime_error("Resident smoother already appended");mAppended=true;if(!mOwned)return prior;
         void* args[]={&mInput,&mSource,&mStatus,&mWork,&mBuffers,&mTerminals,&mLevel};cudaKernelNodeParams params{};
-        params.func=mInput.angularWeight?(void*)constructSmoother<true>:(void*)constructSmoother<false>;params.gridDim=dim3(mBlocks);params.blockDim=dim3(Threads);params.kernelParams=args;
+        params.func=kernel();params.gridDim=dim3(mBlocks);params.blockDim=dim3(Threads);params.kernelParams=args;
         cudaGraphNode_t node;check(cudaGraphAddKernelNode(&node,graph,&prior,1,&params));cudaKernelNodeAttrValue attribute{};attribute.cooperative=1;
         check(cudaGraphKernelNodeSetAttribute(node,cudaKernelNodeAttributeCooperative,&attribute));return node;
     }

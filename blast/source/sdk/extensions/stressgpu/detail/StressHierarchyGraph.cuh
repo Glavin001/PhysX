@@ -11,6 +11,8 @@ namespace Nv { namespace Blast { namespace StressHierarchy {
 class Graph {
     unsigned mNodes,mBonds,mBlocks=0;
     bool mRecursive;
+    // Per-bond shear stiffness (ExtStressGpuSetBondShearStiffness): the weight rows are twelve floats.
+    bool mShear=false;
     cudaStream_t mStream;
     Status* mStatus=nullptr;
     Work* mWork=nullptr;
@@ -23,7 +25,7 @@ class Graph {
         cudaFree(mBuffers.nonSelfRefs);cudaFree(mBuffers.nonSelfEnd);cudaFree(mBuffers.selfMatrices);
     }
 public:
-    Graph(unsigned nodes,unsigned bonds,cudaStream_t stream,bool recursive=false):mNodes(nodes),mBonds(bonds),mRecursive(recursive),mStream(stream){
+    Graph(unsigned nodes,unsigned bonds,cudaStream_t stream,bool recursive=false,bool shear=false):mNodes(nodes),mBonds(bonds),mRecursive(recursive),mShear(shear),mStream(stream){
         if(nodes>0x7fffffffu || bonds>0x7fffffffu)throw std::runtime_error("Resident hierarchy exceeds 31-bit CSR representation");
         try {
             int device=0,sms=0,blocks=0,cooperative=0;
@@ -35,6 +37,7 @@ public:
             check(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&blocks,construct<false>,Threads,0));
             check(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&rotationBlocks,construct<true>,Threads,0));
             blocks=std::min(blocks,rotationBlocks);
+            if(shear){int shearBlocks=0;check(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&shearBlocks,construct<true,true>,Threads,0));blocks=std::min(blocks,shearBlocks);}
             if(!cooperative || sms<=0 || blocks<=0)throw std::runtime_error("Resident hierarchy requires legal cooperative CUDA residency");
             mBlocks=std::min(std::max(1u,(nodes+Threads-1)/Threads),unsigned(sms*blocks));
             allocate(mStatus,1);allocate(mWork,1);allocate(mBuffers.owner,nodes);allocate(mBuffers.seed,nodes);allocate(mBuffers.coarseActive,nodes);
@@ -69,8 +72,8 @@ public:
             return;
         }
 #endif
-        check(cudaLaunchCooperativeKernel(input.angularWeight?(void*)construct<true>:(void*)construct<false>,dim3(mBlocks),dim3(Threads),args,0,mStream));
-        if(mRecursive){buildSelfCache<<<mBlocks,Threads,0,mStream>>>(input,mBuffers,mStatus,mWork);check(cudaGetLastError());}
+        check(cudaLaunchCooperativeKernel(constructKernel(input),dim3(mBlocks),dim3(Threads),args,0,mStream));
+        if(mRecursive){if(mShear)buildSelfCacheShear<<<mBlocks,Threads,0,mStream>>>(input,mBuffers,mStatus,mWork);else buildSelfCache<<<mBlocks,Threads,0,mStream>>>(input,mBuffers,mStatus,mWork);check(cudaGetLastError());}
     }
 #if NV_BLAST_SEPARATE_HIERARCHY_CONSTRUCT
     // Seed rounds unrolled into ordinary launches; any further rounds run in
@@ -109,7 +112,7 @@ public:
         add((void*)publishConstruct,nodes,Threads,args,false);
         add((void*)coarseConstruct,bonds,Threads,args,false);
         add((void*)checkpointConstruct,1,1,checkpointArgs,false);
-        add(input.angularWeight?(void*)diagonalConstruct<true>:(void*)diagonalConstruct<false>,diagonal,Threads,args,false);
+        add(mShear && input.angularWeight?(void*)diagonalConstruct<true,true>:input.angularWeight?(void*)diagonalConstruct<true>:(void*)diagonalConstruct<false>,diagonal,Threads,args,false);
         add((void*)commitConstruct,1,1,statusArgs,false);
     }
 #endif
@@ -128,17 +131,20 @@ public:
         }
 #endif
         void* args[]={&input,&mBuffers,&mStatus,&mWork};
-        cudaKernelNodeParams params{};params.func=input.angularWeight?(void*)construct<true>:(void*)construct<false>;params.gridDim=dim3(mBlocks);
+        cudaKernelNodeParams params{};params.func=constructKernel(input);params.gridDim=dim3(mBlocks);
         params.blockDim=dim3(Threads);params.kernelParams=args;cudaGraphNode_t node;
         check(cudaGraphAddKernelNode(&node,graph,prior?&prior:nullptr,prior?1:0,&params));
         cudaKernelNodeAttrValue attribute{};attribute.cooperative=1;
         check(cudaGraphKernelNodeSetAttribute(node,cudaKernelNodeAttributeCooperative,&attribute));
         if(mRecursive){
             void* cacheArgs[]={&input,&mBuffers,&mStatus,&mWork};cudaKernelNodeParams cache{};
-            cache.func=(void*)buildSelfCache;cache.gridDim=dim3(mBlocks);cache.blockDim=dim3(Threads);cache.kernelParams=cacheArgs;
+            cache.func=mShear?(void*)buildSelfCacheShear:(void*)buildSelfCache;cache.gridDim=dim3(mBlocks);cache.blockDim=dim3(Threads);cache.kernelParams=cacheArgs;
             cudaGraphNode_t done;check(cudaGraphAddKernelNode(&done,graph,&node,1,&cache));return done;
         }
         return node;
+    }
+    void* constructKernel(const Input& input)const{
+        return mShear && input.angularWeight?(void*)construct<true,true>:input.angularWeight?(void*)construct<true>:(void*)construct<false>;
     }
     Input cachedInput(Input input)const{
         input.nonSelfRefs=mBuffers.nonSelfRefs;input.nonSelfEnd=mBuffers.nonSelfEnd;input.selfMatrices=mBuffers.selfMatrices;return input;

@@ -26,11 +26,21 @@ __device__ __forceinline__ double3 cross(double3 a,double3 b){return make_double
 __device__ __forceinline__ Vector add(Vector a,Vector b){return {add(a.angular,b.angular),add(a.linear,b.linear)};}
 __device__ __forceinline__ Vector sub(Vector a,Vector b){return {sub(a.angular,b.angular),sub(a.linear,b.linear)};}
 __device__ __forceinline__ Vector mul(Vector a,StressReal b){return {mul(a.angular,b),mul(a.linear,b)};}
+// Shear: per-bond shear stiffness (ExtStressGpuSetBondShearStiffness). Then
+// every bond's row of the per-bond arrays (Input::angularWeight, the angular
+// scales) is twelve floats, the angular block's six and the linear block's six
+// (packed symmetric, xx yy zz xy xz yz): a bond's linear stiffness is s^2 Wl,
+// Wl = n n^T + gamma (I - n n^T), instead of s^2 I. A compile-time choice like
+// Rotation: without it (Shear false) every helper is the code it was.
+template<bool Shear>
+__device__ __forceinline__ constexpr unsigned bondRowStride(){return Shear?12u:6u;}
 // A bond's rotational weight W (Input::angularWeight), or null: the uniform
 // length scale, whose arithmetic every caller then reproduces exactly.
+template<bool Shear=false>
 __device__ __forceinline__ const float* sourceRotation(const Input& a,unsigned bond){
     if(!a.angularWeight)return nullptr;
-    return a.angularWeight+6*size_t(a.levelBonds?a.bondIdentity[bond]:bond);
+    if constexpr(Shear)return a.angularWeight+12*size_t(a.levelBonds?a.bondIdentity[bond]:bond);
+    else return a.angularWeight+6*size_t(a.levelBonds?a.bondIdentity[bond]:bond);
 }
 // Packed symmetric 3x3 (xx yy zz xy xz yz) times a vector.
 __device__ __forceinline__ StressReal3 symmetricApply(const float* m,StressReal3 v){
@@ -40,11 +50,13 @@ __device__ __forceinline__ StressReal3 symmetricApply(const float* m,StressReal3
 }
 // A bond's stiffness times its relative motion d: factor * diag(W, I) d, or
 // exactly mul(d, factor) for a bond with the uniform length scale. factor
-// carries s^2 and the endpoint's sign.
+// carries s^2 and the endpoint's sign. Shear: factor * diag(W, Wl) d.
+template<bool Shear=false>
 __device__ __forceinline__ Vector bondFlux(const Input& a,unsigned bond,Vector d,StressReal factor){
-    const float* w=sourceRotation(a,bond);
+    const float* w=sourceRotation<Shear>(a,bond);
     if(!w)return mul(d,factor);
-    return {mul(symmetricApply(w,d.angular),factor),mul(d.linear,factor)};
+    if constexpr(Shear)return {mul(symmetricApply(w,d.angular),factor),mul(symmetricApply(w+6,d.linear),factor)};
+    else return {mul(symmetricApply(w,d.angular),factor),mul(d.linear,factor)};
 }
 __device__ __forceinline__ StressReal3 shift(const Input& input,unsigned node,unsigned root){
     const auto a=sourcePosition(input,node),b=sourcePosition(input,root);

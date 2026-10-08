@@ -29,6 +29,7 @@ __device__ __forceinline__ StressReal vectorCoordinate(Vector a,unsigned k){
 // Evaluate one matrix coefficient with the shared sparse coupling equations.
 // Serial or strided immutable CSR order uses a fixed FP64 reduction tree;
 // no floating-point atomics occur.
+template<bool Shear=false>
 __device__ __forceinline__ StressReal terminalCoefficient(const Input& a,unsigned node,unsigned row,unsigned columnNode,unsigned column,unsigned lane=0,unsigned width=1){
     const Vector x=scaledValue(basisVector(column),sourceInertia(a,columnNode));StressReal value=0;
     const bool cached=cachedSelfRows(a);
@@ -41,12 +42,13 @@ __device__ __forceinline__ StressReal terminalCoefficient(const Input& a,unsigne
         if(sourceFirst(a,e)==columnNode)first=couple(x,sourceOffset(a,e,false));
         if(sourceSecond(a,e)==columnNode)second=couple(x,sourceOffset(a,e,true));
         const bool back=ref>>31;const StressReal scale=sourceScale(a,e);
-        const auto flux=bondFlux(a,e,sub(first,second),scale*scale*(back?StressReal(-1):StressReal(1)));
+        const auto flux=bondFlux<Shear>(a,e,sub(first,second),scale*scale*(back?StressReal(-1):StressReal(1)));
         const auto response=scaledValue(transposeCouple(flux,sourceOffset(a,e,back)),sourceInertia(a,node));
         value+=vectorCoordinate(response,row);
     }
     return value;
 }
+template<bool Shear=false>
 __device__ __forceinline__ void constructTerminalComponent(const Input& a,TerminalBuffers b,Status* status,TerminalShared& s,unsigned component,unsigned level){
     const unsigned first=a.partition.begin[component],count=a.partition.end[component]-first;
     // Kind 3 is owned by the independent native fine solver, not an exact
@@ -64,13 +66,13 @@ __device__ __forceinline__ void constructTerminalComponent(const Input& a,Termin
         const unsigned lane=threadIdx.x&31u;
         for(unsigned entry=threadIdx.x/32;entry<entries;entry+=blockDim.x/32){
             unsigned row=0;while(triangle(row+1,0)<=entry)++row;const unsigned col=entry-triangle(row,0);
-            const StressReal value=warpSum(terminalCoefficient(a,s.nodes[row/6],row%6,s.nodes[col/6],col%6,lane,32));
+            const StressReal value=warpSum(terminalCoefficient<Shear>(a,s.nodes[row/6],row%6,s.nodes[col/6],col%6,lane,32));
             if(!lane)s.lower[entry]=value;
         }
     }else {
     for(unsigned entry=threadIdx.x;entry<entries;entry+=blockDim.x){
         unsigned row=0;while(triangle(row+1,0)<=entry)++row;const unsigned col=entry-triangle(row,0);
-        s.lower[entry]=terminalCoefficient(a,s.nodes[row/6],row%6,s.nodes[col/6],col%6);
+        s.lower[entry]=terminalCoefficient<Shear>(a,s.nodes[row/6],row%6,s.nodes[col/6],col%6);
     }
     }
     // Support is a Boolean property. Cooperate across the row rather than
@@ -126,8 +128,10 @@ __device__ __forceinline__ void constructTerminalComponent(const Input& a,Termin
     for(unsigned i=threadIdx.x;i<size;i+=blockDim.x)terminalScaling(a,b,s.nodes[i/6],i%6)=s.scaling[i];
     if(!threadIdx.x){b.kind[component]=s.coupled?2:1;b.owner[component]=level;}
 }
-template<bool Rotation=false>
+// Shear (ExtStressGpuSetBondShearStiffness) only with Rotation: its rows extend the rotation's.
+template<bool Rotation=false,bool Shear=false>
 __global__ void constructTerminals(Input input,const Status* source,Status* status,Work* work,TerminalBuffers b,unsigned level){
+    static_assert(Rotation || !Shear,"shear stiffness extends the rotational stiffness rows");
     if constexpr(!Rotation)input.angularWeight=nullptr; // a constant null: the uniform arithmetic exactly
     __shared__ TerminalShared shared;const auto grid=cooperative_groups::this_grid();
     const unsigned lane=blockIdx.x*blockDim.x+threadIdx.x;
@@ -144,7 +148,7 @@ __global__ void constructTerminals(Input input,const Status* source,Status* stat
     validatePackingPartition(input,status);
     grid.sync();if(!lane)work->active=!status->error;grid.sync();if(!work->active)return;
     for(unsigned i=blockIdx.x;i<*input.partition.count;i+=gridDim.x){
-        constructTerminalComponent(input,b,status,shared,input.partition.ids[i],level);__syncthreads();
+        constructTerminalComponent<Shear>(input,b,status,shared,input.partition.ids[i],level);__syncthreads();
     }
     grid.sync();if(!lane && !status->error){status->generation=source->generation;status->initialized=1;++status->builds;}
 }

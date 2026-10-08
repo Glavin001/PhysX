@@ -10,14 +10,17 @@
 #include <vector>
 namespace impact {
 struct CaptureHeader { char magic[4]; PxU32 version,n,m,materials,rows,settingsBytes,flags; };
-enum CaptureFlag : PxU32 { eCAPTURE_SLIP=1, eCAPTURE_STIFFNESS=2, eCAPTURE_ELASTIC_BASE=4, eCAPTURE_CRUSHED=8, eCAPTURE_SECTIONS=16, eCAPTURE_ROWS=32, eCAPTURE_CARRIED=64, eCAPTURE_SLIP_BEFORE=128, eCAPTURE_ROUTED=256, eCAPTURE_MATERIAL_FRICTION=512 };
-// Materials: with eCAPTURE_MATERIAL_FRICTION each is the whole PxDestructionMaterial
-// (it ends with shearFriction, shearCapacityLimit: Mohr-Coulomb shear); captures
-// without it hold the struct up to shearFriction (those materials have no friction).
+enum CaptureFlag : PxU32 { eCAPTURE_SLIP=1, eCAPTURE_STIFFNESS=2, eCAPTURE_ELASTIC_BASE=4, eCAPTURE_CRUSHED=8, eCAPTURE_SECTIONS=16, eCAPTURE_ROWS=32, eCAPTURE_CARRIED=64, eCAPTURE_SLIP_BEFORE=128, eCAPTURE_ROUTED=256, eCAPTURE_MATERIAL_FRICTION=512, eCAPTURE_MATERIAL_SHEAR_STIFFNESS=1024 };
+// Materials: with eCAPTURE_MATERIAL_SHEAR_STIFFNESS each is the whole
+// PxDestructionMaterial (it ends with shearStiffnessRatio); with
+// eCAPTURE_MATERIAL_FRICTION alone, up to shearStiffnessRatio (Mohr-Coulomb
+// shear's shearFriction, shearCapacityLimit included); with neither, up to
+// shearFriction. Missing fields keep their defaults.
 inline std::vector<PxDestructionMaterial> readCaptureMaterials(FILE* f,PxU32 flags,PxU32 count)
 {
     std::vector<PxDestructionMaterial> out(count);
-    const size_t size=(flags&eCAPTURE_MATERIAL_FRICTION)?sizeof(PxDestructionMaterial):offsetof(PxDestructionMaterial,shearFriction);
+    const size_t size=(flags&eCAPTURE_MATERIAL_SHEAR_STIFFNESS)?sizeof(PxDestructionMaterial):
+        (flags&eCAPTURE_MATERIAL_FRICTION)?offsetof(PxDestructionMaterial,shearStiffnessRatio):offsetof(PxDestructionMaterial,shearFriction);
     std::vector<unsigned char> raw(size*count);
     if(count && std::fread(raw.data(),size,count,f)!=count)return {};
     for(PxU32 i=0;i<count;++i){out[i]=PxDestructionMaterial{};std::memcpy(&out[i],raw.data()+size*i,size);}
@@ -48,7 +51,7 @@ inline bool writeCapture(const char* path,const Inputs& in,const Settings& s,PxU
     CaptureHeader h{{'I','M','P','C'},2,in.chunkCount,in.bondCount,materials,rows,PxU32(sizeof(Settings)),
         (in.ductileSlip?eCAPTURE_SLIP:0u)|(in.stiffness?eCAPTURE_STIFFNESS:0u)|(in.elasticBase?eCAPTURE_ELASTIC_BASE:0u)
         |(in.crushed?eCAPTURE_CRUSHED:0u)|(in.sections?eCAPTURE_SECTIONS:0u)|(rows?eCAPTURE_ROWS:0u)
-        |(in.carried?eCAPTURE_CARRIED:0u)|(in.slipBefore?eCAPTURE_SLIP_BEFORE:0u)|((rows && in.rowRouted)?eCAPTURE_ROUTED:0u)|eCAPTURE_MATERIAL_FRICTION};
+        |(in.carried?eCAPTURE_CARRIED:0u)|(in.slipBefore?eCAPTURE_SLIP_BEFORE:0u)|((rows && in.rowRouted)?eCAPTURE_ROUTED:0u)|eCAPTURE_MATERIAL_FRICTION|eCAPTURE_MATERIAL_SHEAR_STIFFNESS};
     std::fwrite(&h,sizeof h,1,f);std::fwrite(&s,sizeof s,1,f);
     captureArray(f,in.chunks,in.chunkCount);captureArray(f,in.bonds,in.bondCount);captureArray(f,in.materials,materials);
     if(in.ductileSlip)captureArray(f,in.ductileSlip,materials);

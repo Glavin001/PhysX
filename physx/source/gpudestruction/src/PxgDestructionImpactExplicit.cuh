@@ -81,7 +81,9 @@ struct ExPatch {
 // eEX_FRICTION: a Mohr-Coulomb joint (Bond::mu > 0): its mu and cap are packed in
 // its record's last float4, read only for such joints (512: 32-256 are the
 // two-body and dynamic-sequence branches' bits).
-enum ExState : PxU32 { eEX_LIVE=1, eEX_DUCTILE=2, eEX_YIELDED=4, eEX_BROKEN=8, eEX_ROWS=16, eEX_FRICTION=512 };
+// eEX_SHEARK: a joint with its own shear stiffness (Bond::ks != kl), also in the
+// record's last float4 (2048: 1024 is the dynamic sequence's).
+enum ExState : PxU32 { eEX_LIVE=1, eEX_DUCTILE=2, eEX_YIELDED=4, eEX_BROKEN=8, eEX_ROWS=16, eEX_FRICTION=512, eEX_SHEARK=2048 };
 struct ExLink { PxU32 a,b,state,pad; float J0[6],J[6]; float slip,limit,brokeAt,pad2; };
 // A contact row: the struck chunk (a, local), the impactor (b), the stage's row.
 struct ExRow { PxU32 a,b,row,pad; float P[3],total[3],Winv[9],W[9]; };
@@ -134,7 +136,7 @@ __device__ __forceinline__ void exRelative(const Bond& b,PxU32 end,const float* 
 }
 __device__ __forceinline__ void exStiffness(const Bond& b,float* k)
 {
-    const float kk[6]={b.kl,b.kl,b.kl,b.kt,b.k0,b.k1};
+    const float kk[6]={b.kl,b.ks,b.ks,b.kt,b.k0,b.k1};
     for(int q=0;q<6;++q)k[q]=(kk[q]>0.0f && kk[q]<1e30f)?kk[q]:0.0f;
 }
 // One end's rows of its joint's stiffness block against both ends, C_e = B_end
@@ -169,15 +171,31 @@ __device__ __forceinline__ void exBlock(float kl,const float* M,float ex,float e
         }
     }
 }
+// With its own shear stiffness (ks != kl) a joint's force stiffness is
+// L = R diag(kl, ks, ks) R^T, no longer kl I: C_ef = s_e s_f [[L, L O_f^T],
+// [O_e L, O_e L O_f^T + R Km R^T]], O^T = -O.
+__device__ __forceinline__ void exBlockShear(const float* L,const float* M,float ex,float ey,float ez,float fx,float fy,float fz,float sign,float* C)
+{
+    const float Oe[9]={0.0f,-ez,ey,ez,0.0f,-ex,-ey,ex,0.0f},OfT[9]={0.0f,fz,-fy,-fz,0.0f,fx,fy,-fx,0.0f};
+    float LOf[9],OeL[9];
+    for(int i=0;i<3;++i)for(int j=0;j<3;++j){float a=0.0f,c=0.0f;for(int k=0;k<3;++k){a+=L[3*i+k]*OfT[3*k+j];c+=Oe[3*i+k]*L[3*k+j];}LOf[3*i+j]=a;OeL[3*i+j]=c;}
+    for(int i=0;i<3;++i)for(int j=0;j<3;++j) {
+        float oo=0.0f;for(int k=0;k<3;++k)oo+=OeL[3*i+k]*OfT[3*k+j];
+        C[6*i+j]=sign*L[3*i+j];C[6*i+3+j]=sign*LOf[3*i+j];
+        C[6*(3+i)+j]=sign*OeL[3*i+j];C[6*(3+i)+3+j]=sign*(M[3*i+j]+oo);
+    }
+}
 __device__ void exGershgorin(const Bond& b,PxU32 end,bool both,const float* w,float* D,float* rows,float* sym,float* lump)
 {
     float k[6];exStiffness(b,k);
     float M[9];for(int i=0;i<3;++i)for(int j=0;j<3;++j)M[3*i+j]=k[3]*b.n[i]*b.n[j]+k[4]*b.t1[i]*b.t1[j]+k[5]*b.t2[i]*b.t2[j];
     const float ex=end?b.o1[0]:b.o0[0],ey=end?b.o1[1]:b.o0[1],ez=end?b.o1[2]:b.o0[2],fx=end?b.o0[0]:b.o1[0],fy=end?b.o0[1]:b.o1[1],fz=end?b.o0[2]:b.o1[2];
-    float C[36];exBlock(k[0],M,ex,ey,ez,ex,ey,ez,1.0f,C);
+    const bool shear=k[1]!=k[0];
+    float L[9];if(shear)for(int i=0;i<3;++i)for(int j=0;j<3;++j)L[3*i+j]=k[0]*b.n[i]*b.n[j]+k[1]*(b.t1[i]*b.t1[j]+b.t2[i]*b.t2[j]);
+    float C[36];if(shear)exBlockShear(L,M,ex,ey,ez,ex,ey,ez,1.0f,C);else exBlock(k[0],M,ex,ey,ez,ex,ey,ez,1.0f,C);
     for(int i=0;i<36;++i)D[i]+=C[i];
     if(!both)return;
-    exBlock(k[0],M,ex,ey,ez,fx,fy,fz,-1.0f,C);
+    if(shear)exBlockShear(L,M,ex,ey,ez,fx,fy,fz,-1.0f,C);else exBlock(k[0],M,ex,ey,ez,fx,fy,fz,-1.0f,C);
     for(int r=0;r<6;++r) {
         float s=0.0f,t[2]={0.0f,0.0f};
         for(int c=0;c<6;++c){const float v=fabsf(C[6*r+c]);s+=v;t[c/3]+=v*w[c];}
@@ -455,7 +473,7 @@ __global__ __launch_bounds__(kThreads) void exBuild(Inputs in,Settings s,Scratch
             if(!prepareBond(in,s,i,b)){b=Bond{};b.bond=i;b.c0=bd.chunk0;b.c1=bd.chunk1;b.flags=0;}
             const PxU32 a0=t.nodeOf[b.c0],a1=t.nodeOf[b.c1];
             ExLink e{};e.a=(a0!=0xffffffffu && (a0>>16)==p)?(a0&0xffffu):0xffffffffu;e.b=(a1!=0xffffffffu && (a1>>16)==p)?(a1&0xffffu):0xffffffffu;
-            e.state=(b.flags&eALIVE)?(eEX_LIVE|((b.flags&eDUCTILE)?eEX_DUCTILE:0u)|(b.mu>0.0f?eEX_FRICTION:0u)):0u;
+            e.state=(b.flags&eALIVE)?(eEX_LIVE|((b.flags&eDUCTILE)?eEX_DUCTILE:0u)|(b.mu>0.0f?eEX_FRICTION:0u)|(b.ks!=b.kl?eEX_SHEARK:0u)):0u;
             float x[6]={0,0,0,0,0,0};toLocal(b,in.base[i],x);
             for(int q=0;q<6;++q){e.J0[q]=x[q];e.J[q]=x[q];}
             e.slip=in.slipBefore?in.slipBefore[i]:0.0f;e.limit=b.slip;e.brokeAt=-1.0f;
@@ -617,13 +635,14 @@ __device__ __forceinline__ void exPack(const Bond& b,const ExLink& e,float4* q)
     q[4]=make_float4(b.kt,b.k0,b.k1,b.capC);q[5]=make_float4(b.capT,b.capS,b.gb,b.gt);q[6]=make_float4(b.g0,b.g1,b.h0,b.h1);
     q[7]=make_float4(e.J0[0],e.J0[1],e.J0[2],e.J0[3]);q[8]=make_float4(e.J0[4],e.J0[5],__uint_as_float(e.a),__uint_as_float(e.b));
     q[9]=make_float4(e.J[0],e.J[1],e.J[2],e.J[3]);q[10]=make_float4(e.J[4],e.J[5],__uint_as_float(e.state),e.slip);
-    q[11]=make_float4(b.mu,b.capSx,0.0f,0.0f);
+    q[11]=make_float4(b.mu,b.capSx,b.ks,0.0f);
 }
-// A Mohr-Coulomb joint's friction (eEX_FRICTION) into its unpacked Bond:
-// every grader of a packed joint calls this after reading its state.
+// A Mohr-Coulomb joint's friction (eEX_FRICTION) and a joint's own shear
+// stiffness (eEX_SHEARK) into its unpacked Bond: every grader of a packed
+// joint calls this after reading its state.
 __device__ __forceinline__ void exUnpackFriction(const float4* q,PxU32 state,Bond& b)
 {
-    if(state&eEX_FRICTION){const float4 f=q[11];b.mu=f.x;b.capSx=f.y;}
+    if(state&(eEX_FRICTION|eEX_SHEARK)){const float4 f=q[11];b.mu=f.x;b.capSx=f.y;b.ks=f.z;}
 }
 // The packed constants back into a Bond's fields the window reads (the rest unset).
 __device__ __forceinline__ void exUnpack(const float4* q,Bond& b,float* J0,PxU32& a,PxU32& e1)
@@ -633,7 +652,7 @@ __device__ __forceinline__ void exUnpack(const float4* q,Bond& b,float* J0,PxU32
     b.t2[2]=q2.x;b.o0[0]=q2.y;b.o0[1]=q2.z;b.o0[2]=q2.w;b.o1[0]=q3.x;b.o1[1]=q3.y;b.o1[2]=q3.z;b.kl=q3.w;
     b.kt=q4.x;b.k0=q4.y;b.k1=q4.z;b.capC=q4.w;b.capT=q5.x;b.capS=q5.y;b.gb=q5.z;b.gt=q5.w;b.g0=q6.x;b.g1=q6.y;b.h0=q6.z;b.h1=q6.w;
     J0[0]=q7.x;J0[1]=q7.y;J0[2]=q7.z;J0[3]=q7.w;J0[4]=q8.x;J0[5]=q8.y;a=__float_as_uint(q8.z);e1=__float_as_uint(q8.w);
-    b.mu=0.0f;b.capSx=0.0f;   // exUnpackFriction, with the joint's state
+    b.mu=0.0f;b.capSx=0.0f;b.ks=b.kl;   // exUnpackFriction, with the joint's state
 }
 template<bool Small> __device__ __forceinline__
 void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)

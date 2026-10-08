@@ -323,6 +323,9 @@ struct Bond {
     // friction coefficient, and the cap on its shear capacity (N; 0 uncapped).
     // 0 mu: capS alone (contact rows: 0; their friction is in `area`).
     float mu,capSx;
+    // Shear stiffness (PX_DESTRUCTION_SHEAR_STIFFNESS): the stiffness across the
+    // normal, on its two shear rows (N/m); kl when the joint is isotropic.
+    float ks;
 };
 // A node of the island: a chunk (scalar inertia, as the stress solve has it),
 // or an impactor (tensor: its full inertia). begin/end index Scratch::adj.
@@ -574,7 +577,9 @@ __device__ __forceinline__ bool projectContact(const Bond& b,float* x)
     for(int q=0;q<6;++q)if(x[q]!=before[q])return true;
     return false;
 }
-__device__ __forceinline__ bool project(const Bond& b,float* x,float ml,float mt,float m0,float m1)
+// ms: the metric on the shear components (V); ms < 0, as ml (an isotropic
+// joint, or a metric isotropic over the force: the ADMM's majoriser).
+__device__ __forceinline__ bool project(const Bond& b,float* x,float ml,float mt,float m0,float m1,float ms=-1.0f)
 {
     if(b.flags&eCONTACT)return projectContact(b,x);
     // A compression capacity far past the tension one (over 1e3x, where real
@@ -609,6 +614,7 @@ __device__ __forceinline__ bool project(const Bond& b,float* x,float ml,float mt
             if(m>0.0f){x[4]*=mn/m;x[5]*=mn/m;}else{x[4]=x[5]=0.0f;}
         }
     }
+    const float sv=ms<0.0f?sl:sqrtf(ms);   // the shear components' metric
     {   // (T, V): |V| + gt |T| <= sF a, plus mu C under Mohr-Coulomb shear
         // (shearCapacity at the N just projected: friction with no dilatancy,
         // the joint slides without opening, so sliding leaves N as it is: a
@@ -617,9 +623,9 @@ __device__ __forceinline__ bool project(const Bond& b,float* x,float ml,float mt
         const float sa=sqrtf(mt);
         const float v=sqrtf(x[1]*x[1]+x[2]*x[2]);
         const float capS=shearCapacity(b,x[0]);
-        float s=sa*x[3],r=sl*v;
-        if(triangle(s,r,-sa*capS/b.gt,0.0f,sa*capS/b.gt,0.0f,0.0f,sl*capS)) {
-            moved=true;const float vn=r/sl;x[3]=s/sa;
+        float s=sa*x[3],r=sv*v;
+        if(triangle(s,r,-sa*capS/b.gt,0.0f,sa*capS/b.gt,0.0f,0.0f,sv*capS)) {
+            moved=true;const float vn=r/sv;x[3]=s/sa;
             if(v>0.0f){x[1]*=vn/v;x[2]*=vn/v;}else{x[1]=x[2]=0.0f;}
         }
     }
@@ -642,7 +648,7 @@ __device__ __forceinline__ bool feasible(const Bond& b,const float* x,float tol,
     return utilisation(b,x)<=1.0f+tol+(cap>0.0f?rounding*(lin+gain*ang)/cap:0.0f);
 }
 // The return map: the projection in the joint's compliance metric K^-1.
-__device__ __forceinline__ bool returnMap(const Bond& b,float* x){return project(b,x,1.0f/b.kl,1.0f/b.kt,1.0f/b.k0,1.0f/b.k1);}
+__device__ __forceinline__ bool returnMap(const Bond& b,float* x){return project(b,x,1.0f/b.kl,1.0f/b.kt,1.0f/b.k0,1.0f/b.k1,b.ks!=b.kl?1.0f/b.ks:-1.0f);}
 
 // Bond b's wrench (bond frame) on one of its chunks: chunk0 gets force +lin at
 // the centroid and couple -M_c; chunk1 force -lin there and couple +M_c.
@@ -755,6 +761,8 @@ __device__ __forceinline__ bool prepareBond(const Inputs& in,const Settings& s,P
     // The stress solve's weights: w^2 on forces, (w L)^2 on moments.
     const float w=bond.complianceScale,k=s.stiffnessScale*(in.stiffness?in.stiffness[bond.material]:s.stiffness)*w*w;
     b.kl=k;b.kt=b.k0=b.k1=k*s.lengthScale*s.lengthScale;b.dl=b.dt=b.d0=b.d1=1.0f;
+    // Shear stiffness: the material's ratio (1 when off: the stage set it at configuration).
+    b.ks=m.shearStiffnessRatio>0.0f && m.shearStiffnessRatio!=1.0f?k*m.shearStiffnessRatio:k;
     if(s.sectionRotation) {
         // ExtStressGpuSetBondRotationalStiffness: k r^2 about each principal
         // axis of the section (its radii of gyration, or the square patch of
@@ -954,7 +962,7 @@ __device__ void precondition(const Inputs& in,const Settings& s,const Scratch& w
 // joint's chunks by at most `tolerance` over the tick). Returns ADMM steps.
 __device__ __forceinline__ void penalty(const Bond& b,float rho,float inverseDt2,float* Ainv,float* R)
 {
-    const float k[6]={b.kl,b.kl,b.kl,b.kt,b.k0,b.k1},d[6]={b.dl,b.dl,b.dl,b.dt,b.d0,b.d1};
+    const float k[6]={b.kl,b.ks,b.ks,b.kt,b.k0,b.k1},d[6]={b.dl,b.dl,b.dl,b.dt,b.d0,b.d1};
     for(int q=0;q<6;++q){R[q]=rho*d[q];Ainv[q]=1.0f/(inverseDt2/k[q]+R[q]);}
 }
 // N v = M v + B A^-1 B^T v into out, for every island chunk.
@@ -1077,7 +1085,7 @@ __device__ PxU32 solve(Shared& sh,const Inputs& in,const Settings& s,const Scrat
             const PxU32 l=is.b0+k;const Bond& b=w.bonds[l];float* a=w.a+6*l;
             if(!(b.flags&eALIVE)){for(int q=0;q<6;++q)a[q]=0.0f;continue;}
             float g[6],Ainv[6],R[6];relative(b,w.u,g);penalty(b,rho,inverseDt2,Ainv,R);
-            const float k6[6]={b.kl,b.kl,b.kl,b.kt,b.k0,b.k1};
+            const float k6[6]={b.kl,b.ks,b.ks,b.kt,b.k0,b.k1};
             const float* T=w.T+6*l;const float* z=Z+6*l;const float* uu=U+6*l;
             for(int q=0;q<6;++q)a[q]=Ainv[q]*(-g[q]+inverseDt2/k6[q]*T[q]+R[q]*(z[q]-uu[q]));
         }
@@ -1089,7 +1097,7 @@ __device__ PxU32 solve(Shared& sh,const Inputs& in,const Settings& s,const Scrat
             const PxU32 l=is.b0+k;const Bond& b=w.bonds[l];float* a=w.a+6*l;
             if(!(b.flags&eALIVE)){for(int q=0;q<6;++q)a[q]=0.0f;continue;}
             float g[6],Ainv[6],R[6];relative(b,w.u,g);penalty(b,rho,inverseDt2,Ainv,R);
-            const float k6[6]={b.kl,b.kl,b.kl,b.kt,b.k0,b.k1};
+            const float k6[6]={b.kl,b.ks,b.ks,b.kt,b.k0,b.k1};
             const float* T=w.T+6*l;const float* z=Z+6*l;const float* uu=U+6*l;
             for(int q=0;q<6;++q)a[q]=Ainv[q]*(-g[q]+inverseDt2/k6[q]*T[q]+R[q]*(z[q]-uu[q]));
         }
@@ -1146,7 +1154,7 @@ __device__ PxU32 solve(Shared& sh,const Inputs& in,const Settings& s,const Scrat
             const PxU32 l=is.b0+k;const Bond& b=w.bonds[l];float* j=w.J+6*l;float* z=Z+6*l;float* uu=U+6*l;
             if(!(b.flags&eALIVE)){for(int q=0;q<6;++q)j[q]=z[q]=uu[q]=0.0f;continue;}
             float g[6],Ainv[6],R[6],ey[6];relative(b,w.u,g);relative(b,w.cy,ey);penalty(b,rho,inverseDt2,Ainv,R);
-            const float k6[6]={b.kl,b.kl,b.kl,b.kt,b.k0,b.k1};const float* T=w.T+6*l;
+            const float k6[6]={b.kl,b.ks,b.ks,b.kt,b.k0,b.k1};const float* T=w.T+6*l;
             float x[6],zold[6],uold[6];for(int q=0;q<6;++q)uold[q]=uu[q];
             // Over-relaxation (Boyd et al. 2011, 3.4.3): the Z and U steps take
             // a J-hat = a J + (1 - a) Z_old, a = Settings::relaxation.
@@ -1330,7 +1338,7 @@ __device__ PxU32 solve(Shared& sh,const Inputs& in,const Settings& s,const Scrat
         }
         for(PxU32 k=threadIdx.x;k<links(is);k+=kThreads) {
             const PxU32 l=is.b0+k;const Bond& b=w.bonds[l];if(!(b.flags&eALIVE))continue;
-            const float k6[6]={b.kl,b.kl,b.kl,b.kt,b.k0,b.k1};const float* T=w.T+6*l;const float* z=Z+6*l;
+            const float k6[6]={b.kl,b.ks,b.ks,b.kt,b.k0,b.k1};const float* T=w.T+6*l;const float* z=Z+6*l;
             for(int q=0;q<6;++q){const float c=idt2/k6[q];oz+=0.5f*c*(z[q]-T[q])*(z[q]-T[q]);o0+=0.5f*c*T[q]*T[q];}
         }
         oz=blockSum(sh,oz);o0=blockSum(sh,o0);
@@ -1397,8 +1405,9 @@ __global__ void routeRows(Inputs in,Settings s,PxU32* routed,PxDestructionVector
     for(PxU32 slot=in.nodeBegin[c];slot<in.nodeBegin[c+1];++slot) {
         const PxU32 i=in.nodeRefs[slot];if(!bondMember(in,i))continue;
         Bond b;if(!prepareBond(in,s,i,b))continue;
-        k+=b.kl;
         const float a=(b.c0==c?1.0f:-1.0f)*dot3(b.n,n),t=sqrtf(fmaxf(0.0f,1.0f-a*a));
+        // The joint's stiffness along the push: kl a^2 + ks t^2 (kl when isotropic).
+        k+=b.ks!=b.kl?b.kl*a*a+b.ks*t*t:b.kl;
         float f=FLT_MAX;if(fabsf(a)>0.0f)f=(a>0.0f?b.capC:b.capT)/fabsf(a);f=fminf(f,shearCapacityAlong(b,a,t));
         cap=fminf(cap,f);
     }
@@ -1433,7 +1442,7 @@ __device__ __forceinline__ void prepareRow(const Inputs& in,const Settings& s,Px
     // The residual's scale: the force that stops the impactor in the tick.
     const float v=sqrtf(dot3(row.velocity,row.velocity))+sqrtf(dot3(row.dv,row.dv));
     b.capC=fmaxf(sqrtf(dot3(row.load,row.load))+v/(row.im*s.dt),1.0f);b.capT=b.capS=0.0f;
-    b.gb=b.gt=b.g0=b.g1=0.0f;b.kl=b.kt=b.k0=b.k1=FLT_MAX;b.dl=b.dt=b.d0=b.d1=1.0f;b.slip=0.0f;
+    b.gb=b.gt=b.g0=b.g1=0.0f;b.kl=b.kt=b.k0=b.k1=b.ks=FLT_MAX;b.dl=b.dt=b.d0=b.d1=1.0f;b.slip=0.0f;
     b.area=fmaxf(row.friction,0.0f);
 }
 // An impactor's node from its first row: its momentum at the start of the

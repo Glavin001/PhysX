@@ -198,6 +198,7 @@ struct DeviceStressTopologyBuffers
     IslandReductionOrder* orders;
     const float4* positions=nullptr;
     const float* angularWeight=nullptr; // StressBondRotation.cuh; null = uniform
+    bool shear=false;                   // twelve-float weight rows (ExtStressGpuSetBondShearStiffness)
 };
 #ifdef PHYSX_RESIDENT_DESTRUCTION
 #include "detail/StressTopologyWarmStart.cuh"
@@ -289,7 +290,7 @@ class DeviceStressTopology
             b.positions,reinterpret_cast<const float4*>(b.offset0),reinterpret_cast<const float4*>(b.offset1),reinterpret_cast<const float2*>(b.inertia),&state->rebuilds,nullptr};
         input.partition={componentNodes,liveIslands,rangeBegin,rangeEnd,b.activeCounts+1,&state->islandCount};
         input.angularWeight=b.angularWeight;
-        nativeHierarchy.reset(new NativeStressHierarchy(input,forest,stable,state,ownerStream));
+        nativeHierarchy.reset(new NativeStressHierarchy(input,forest,stable,state,ownerStream,b.shear));
 #endif
         checkCuda(cudaStreamBeginCaptureToGraph(captureStream,body,nullptr,nullptr,0,cudaStreamCaptureModeThreadLocal), "capture stress topology rebuild");
 #ifdef PHYSX_RESIDENT_DESTRUCTION
@@ -310,7 +311,7 @@ class DeviceStressTopology
         if(stable)markStableStressRows<<<std::max(nodeBlocks,bondBlocks),kBlockSize,0,captureStream>>>(
             batch,state,b.health,b.nodeIsland,b.bondIsland,rootFlags,stable,b.n,b.m);
         // After every reader of the old health: readmitted bonds live again.
-        readmitStressBonds<<<bondBlocks,kBlockSize,0,captureStream>>>(batch,b.health,b.impulses,b.inertia,
+        (b.shear?readmitStressBondsShear:readmitStressBonds)<<<bondBlocks,kBlockSize,0,captureStream>>>(batch,b.health,b.impulses,b.inertia,
             b.node0,b.node1,b.offset0,b.offset1,b.colScales,b.m);
 #endif
         beginDeviceStressRebuild<<<1,1,0,captureStream>>>(state);

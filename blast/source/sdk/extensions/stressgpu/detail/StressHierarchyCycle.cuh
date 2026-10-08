@@ -51,6 +51,7 @@ __device__ __forceinline__ void cyclePresmooth(CycleLevel d,TerminalBuffers pool
         d.x[node]=mul(solveFineDiagonalThread(d.diagonal,node,d.rhs[node]),.5);
     }
 }
+template<bool Shear=false>
 __device__ __forceinline__ Vector cycleCoarseEffect(CycleLevel parent,unsigned node,const Vector* childX,unsigned lane=threadIdx.x&31u,unsigned width=32){
     Vector sum{};const bool cached=cachedSelfRows(parent.input);
     if(cached && !lane){
@@ -66,20 +67,20 @@ __device__ __forceinline__ Vector cycleCoarseEffect(CycleLevel parent,unsigned n
         if(e.b!=Invalid && parent.child.nodeMap[e.b]!=Invalid)b=childX[parent.child.nodeMap[e.b]];
         if(e.a==e.b)difference={makeStressReal3(0,0,0),cross(sub(e.offset0,e.offset1),a.angular)};
         else difference=sub(couple(a,e.offset0),couple(b,e.offset1));
-        const bool back=ref>>31;const auto flux=bondFlux(parent.input,edge,difference,e.scale*sourceScale(parent.input,edge)*(back?StressReal(-1):StressReal(1)));
+        const bool back=ref>>31;const auto flux=bondFlux<Shear>(parent.input,edge,difference,e.scale*sourceScale(parent.input,edge)*(back?StressReal(-1):StressReal(1)));
         sum=add(sum,scaledValue(transposeCouple(flux,sourceOffset(parent.input,edge,back)),sourceInertia(parent.input,node)));
     }
     return sum;
 }
 #include "StressHierarchyRowTiles.cuh"
-template<bool Local>
+template<bool Local,bool Shear=false>
 __device__ __forceinline__ void cycleResidual(CycleLevel d,TerminalBuffers pool,unsigned level,CycleWork<Local> work){
-    if(tiledCoarseRows(d.input)){cycleTiledRows<Local,false>(d,pool,level,work,nullptr);return;}
+    if(tiledCoarseRows(d.input)){cycleTiledRows<Local,false,Shear>(d,pool,level,work,nullptr);return;}
     if(coarseBlockRows(d.input)){
         for(unsigned index=Local?0u:blockIdx.x;index<work.count(d.input);index+=Local?1u:gridDim.x){
             const unsigned node=work.node(d.input,index);
             const bool enabled=work.enabled(d.input,node) && smoothedNode(d,pool,level,node);
-            const auto value=coarseBlockSum(enabled?levelRowContribution(d.input,node,d.x,threadIdx.x,blockDim.x):Vector{});
+            const auto value=coarseBlockSum(enabled?levelRowContribution<Shear>(d.input,node,d.x,threadIdx.x,blockDim.x):Vector{});
             if(!threadIdx.x)d.residual[node]=enabled?sub(d.rhs[node],value):Vector{};
         }
         return;
@@ -88,8 +89,8 @@ __device__ __forceinline__ void cycleResidual(CycleLevel d,TerminalBuffers pool,
     for(unsigned index=work.first();index<work.count(d.input);index+=work.stride()){
         const unsigned node=work.node(d.input,index);
         Vector a{},b{},c{},e{};if(work.enabled(d.input,node) && smoothedNode(d,pool,level,node)){
-            a=levelRowContribution(d.input,node,d.x,lane);b=levelRowContribution(d.input,node,d.x,lane+8);
-            c=levelRowContribution(d.input,node,d.x,lane+16);e=levelRowContribution(d.input,node,d.x,lane+24);}
+            a=levelRowContribution<Shear>(d.input,node,d.x,lane);b=levelRowContribution<Shear>(d.input,node,d.x,lane+8);
+            c=levelRowContribution<Shear>(d.input,node,d.x,lane+16);e=levelRowContribution<Shear>(d.input,node,d.x,lane+24);}
         const auto value=sumVirtualWarp(a,b,c,e);if(!lane)d.residual[node]=work.enabled(d.input,node) && smoothedNode(d,pool,level,node)?sub(d.rhs[node],value):Vector{};
     }
 }
@@ -119,15 +120,15 @@ __device__ __forceinline__ void cycleRestrict(CycleLevel parent,Vector* childRhs
 // B H^T e, where H=P^T B was retained during construction. Evaluating
 // this directly avoids expanding Pe and then rediscovering its strain through
 // L(Pe), which loses small differences between large fine coordinates.
-template<bool Local>
+template<bool Local,bool Shear=false>
 __device__ __forceinline__ void cycleCorrectAndSmooth(CycleLevel d,TerminalBuffers pool,unsigned level,const Vector* childX,CycleWork<Local> work){
     if(tiledCoarseRows(d.input)){
-        cycleTiledRows<Local,true>(d,pool,level,work,childX);
+        cycleTiledRows<Local,true,Shear>(d,pool,level,work,childX);
     }else if(coarseBlockRows(d.input)){
         for(unsigned index=Local?0u:blockIdx.x;index<work.count(d.input);index+=Local?1u:gridDim.x){
             const unsigned node=work.node(d.input,index);
             const bool enabled=work.enabled(d.input,node) && smoothedNode(d,pool,level,node);
-            const auto effect=coarseBlockSum(enabled?cycleCoarseEffect(d,node,childX,threadIdx.x,blockDim.x):Vector{});
+            const auto effect=coarseBlockSum(enabled?cycleCoarseEffect<Shear>(d,node,childX,threadIdx.x,blockDim.x):Vector{});
             if(!threadIdx.x && enabled)d.residual[node]=sub(d.residual[node],effect);
         }
     }else {
@@ -135,8 +136,8 @@ __device__ __forceinline__ void cycleCorrectAndSmooth(CycleLevel d,TerminalBuffe
         for(unsigned index=work.first();index<work.count(d.input);index+=work.stride()){
             const unsigned node=work.node(d.input,index);
             if(!work.enabled(d.input,node) || !smoothedNode(d,pool,level,node))continue;
-            const auto a=cycleCoarseEffect(d,node,childX,lane),b=cycleCoarseEffect(d,node,childX,lane+8);
-            const auto c=cycleCoarseEffect(d,node,childX,lane+16),e=cycleCoarseEffect(d,node,childX,lane+24);
+            const auto a=cycleCoarseEffect<Shear>(d,node,childX,lane),b=cycleCoarseEffect<Shear>(d,node,childX,lane+8);
+            const auto c=cycleCoarseEffect<Shear>(d,node,childX,lane+16),e=cycleCoarseEffect<Shear>(d,node,childX,lane+24);
             const auto effect=sumVirtualWarp(a,b,c,e);
             // Finish the original warp reduction before handing independent
             // diagonal systems to individual threads. This residual is dead after
@@ -163,7 +164,7 @@ __device__ __forceinline__ void cyclePostsmooth(CycleLevel d,TerminalBuffers poo
         d.x[node]=add(d.x[node],correction);
     }
 }
-template<bool Local=false,bool Rotation=false>
+template<bool Local=false,bool Rotation=false,bool Shear=false>
 __device__ __forceinline__ void cyclePass(const CycleLevel* levels,unsigned depth,TerminalBuffers pool,TerminalShared& shared,const Vector* rhs,Vector* output,unsigned component=Invalid,const unsigned* active=nullptr){
     CycleWork<Local> work{component,active};unsigned last=0;
 #ifdef BLAST_GPU_COMPONENT_PHASE_PROBE
@@ -186,15 +187,15 @@ __device__ __forceinline__ void cyclePass(const CycleLevel* levels,unsigned dept
         work.sync();
         CYCLE_PROBE_END(1)
         if(level+1==depth || (Local?pool.owner[component]==level:!d.child.counts[0]))break;
-        cycleResidual(d,pool,level,work);work.sync();
+        cycleResidual<Local,Shear>(d,pool,level,work);work.sync();
         CYCLE_PROBE_END(2)
         cycleRestrict(d,const_cast<Vector*>(levels[level+1].rhs),work);work.sync();
         CYCLE_PROBE_END(3)
     }
     for(int level=int(last);level>=0;--level){
         auto d=cycleView<Rotation>(levels,unsigned(level),rhs,output);
-        if(unsigned(level)<last){cycleCorrectAndSmooth(d,pool,unsigned(level),levels[level+1].x,work);work.sync();}
-        else {cycleResidual(d,pool,unsigned(level),work);work.sync();cyclePostsmooth(d,pool,unsigned(level),work);work.sync();}
+        if(unsigned(level)<last){cycleCorrectAndSmooth<Local,Shear>(d,pool,unsigned(level),levels[level+1].x,work);work.sync();}
+        else {cycleResidual<Local,Shear>(d,pool,unsigned(level),work);work.sync();cyclePostsmooth(d,pool,unsigned(level),work);work.sync();}
         CYCLE_PROBE_END(4)
     }
 #undef CYCLE_PROBE_END

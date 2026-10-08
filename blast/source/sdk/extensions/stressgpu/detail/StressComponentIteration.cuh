@@ -47,6 +47,7 @@ __device__ __forceinline__ void reportResidual(ExtStressGpuComponentReport* r,un
 // (the operator's ownership rule), in solver units: the bond forces this solve
 // would publish if it stopped now (withSolution), or started with. Per thread;
 // reduce with componentSquaredNorm.
+template<bool Shear=false>
 __device__ __forceinline__ float componentForceNorm2(const PersistentStressArgs& a,const unsigned* nodes,unsigned count,bool withSolution)
 {
     float sum=0;
@@ -64,7 +65,7 @@ __device__ __forceinline__ float componentForceNorm2(const PersistentStressArgs&
                 const auto x=StressHierarchy::scaledValue(a.hierarchy.solution[n0],make_float2(a.m_inertia[n0].angular,a.m_inertia[n0].linear));
                 const auto y=StressHierarchy::scaledValue(a.hierarchy.solution[n1],make_float2(a.m_inertia[n1].angular,a.m_inertia[n1].linear));
                 const auto r0=a.m_offset0[bond],r1=a.m_offset1[bond];
-                const auto d=bondScaled(a.m_angularScale,bond,StressHierarchy::sub(StressHierarchy::couple(x,makeStressReal3(r0.x,r0.y,r0.z)),
+                const auto d=bondScaled<Shear>(a.m_angularScale,bond,StressHierarchy::sub(StressHierarchy::couple(x,makeStressReal3(r0.x,r0.y,r0.z)),
                     StressHierarchy::couple(y,makeStressReal3(r1.x,r1.y,r1.z))),StressReal(a.m_colScales[bond]));
                 f.angular.x+=float(d.angular.x);f.angular.y+=float(d.angular.y);f.angular.z+=float(d.angular.z);
                 f.linear.x+=float(d.linear.x);f.linear.y+=float(d.linear.y);f.linear.z+=float(d.linear.z);
@@ -110,6 +111,7 @@ __device__ __forceinline__ unsigned buildComponentChunks(const PersistentStressA
 // One balanced operator pass: w = L rho over the component (w null: the
 // convergence norm only). Returns this thread's share of the squared norm;
 // residual2 non-null records each node's share (the solve report).
+template<bool Shear=false>
 __device__ __forceinline__ float componentOperatorBalanced(const PersistentStressArgs& a,const unsigned* nodes,unsigned count,
     const ComponentChunks chunks,AngLin* w,const AngLin* rho,float* residual2){
     for(unsigned k=threadIdx.x;k<chunks.count;k+=blockDim.x){const unsigned code=chunks.codes[k],node=nodes[code&0xFFFFFu];
@@ -120,7 +122,7 @@ __device__ __forceinline__ float componentOperatorBalanced(const PersistentStres
             const AngLin selfRho=rho[node];
             const unsigned firstSlot=a.m_nodeBondBegin[node]+(code>>20)*ComponentChunks::kSlots;
             const unsigned lastSlot=min(firstSlot+ComponentChunks::kSlots,a.m_nodeBondBegin[node+1]);
-            nodeSpaceBondRange(rho,a.m_inertia,a.m_nodeBondRef,a.m_node0,a.m_node1,a.m_offset0,a.m_offset1,a.m_health,a.m_colScales,
+            nodeSpaceBondRange<Shear>(rho,a.m_inertia,a.m_nodeBondRef,a.m_node0,a.m_node1,a.m_offset0,a.m_offset1,a.m_health,a.m_colScales,
                 a.m_bondIsland,nullptr,w!=nullptr,mul(selfRho.angular,inv.angular),mul(selfRho.linear,inv.linear),firstSlot,lastSlot,accAng,accLin,zSq,a.m_angularWeight);
         }
         out[0]=accAng.x;out[1]=accAng.y;out[2]=accAng.z;out[3]=accLin.x;out[4]=accLin.y;out[5]=accLin.z;out[6]=zSq;
@@ -153,7 +155,7 @@ __device__ unsigned componentBalanceTrace[4];
 #else
 #define COMPONENT_ABLATE(bit) false
 #endif
-template<bool Rotation=false>
+template<bool Rotation=false,bool Shear=false>
 __global__ void componentStressSolve(
 #if defined(PX_CUMETAL_EXPLICIT_HIERARCHY_ROOT) && PX_CUMETAL_EXPLICIT_HIERARCHY_ROOT
     PersistentStressArgs original,ResidentStressComponentView c,
@@ -168,6 +170,7 @@ __global__ void componentStressSolve(
     PersistentStressArgs a=original;
     a.hierarchy.cycle.levels=cycleLevels;
 #endif
+    static_assert(Rotation || !Shear,"shear stiffness extends the rotational stiffness rows");
     if constexpr(!Rotation){a.m_angularScale=nullptr;a.m_angularWeight=nullptr;}
     __shared__ unsigned counts[2], iteration, activeCount, slot;
     __shared__ SolveStatus status;
@@ -264,7 +267,8 @@ __global__ void componentStressSolve(
         }
         // Cache validity belongs to each built operator, independently of a
         // solve's success. Each node has one writer in this owning component.
-        for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)buildNativeRigidInverse(a.hierarchy,c.nodes[begin+i]);
+        // With shear stiffness a node's block is a general 6x6: its whole inverse (StressNativeFineInverse.cuh).
+        for(unsigned i=threadIdx.x;i<count;i+=blockDim.x){if constexpr(Shear)buildNativeFineInverse(a.hierarchy,c.nodes[begin+i]);else buildNativeRigidInverse(a.hierarchy,c.nodes[begin+i]);}
         __syncthreads();
 #if defined(PX_CUMETAL_EXPLICIT_HIERARCHY_ROOT) && PX_CUMETAL_EXPLICIT_HIERARCHY_ROOT
         // Retirement never reads cycle descriptors. All fields it consumes
@@ -284,7 +288,7 @@ __global__ void componentStressSolve(
             if(!a.componentChunkIndex)atomicAdd(componentBalanceTrace+3,1u);}
 #endif
         if(a.forceTolerance>0){
-            const float start=componentSquaredNorm(componentForceNorm2(a,c.nodes+begin,count,false));
+            const float start=componentSquaredNorm(componentForceNorm2<Shear>(a,c.nodes+begin,count,false));
             if(!threadIdx.x){forceStart=sqrtf(start);forceTravel=0;forceStep=INFINITY;}
             __syncthreads();
         }
@@ -293,10 +297,10 @@ __global__ void componentStressSolve(
             COMPONENT_PROBE_END(0)
             COMPONENT_WORK_SWEEP(a,id,residualSweeps)
             float squared=COMPONENT_ABLATE(0)?1.f:0.f;
-            if(balanced && !COMPONENT_ABLATE(0))squared=componentOperatorBalanced(a,c.nodes+begin,count,chunks,nullptr,a.m_residual,a.nodeResidual2);
+            if(balanced && !COMPONENT_ABLATE(0))squared=componentOperatorBalanced<Shear>(a,c.nodes+begin,count,chunks,nullptr,a.m_residual,a.nodeResidual2);
             for(unsigned block=0;block<nodeBlocks && !COMPONENT_ABLATE(0) && !balanced;++block) {
                 float contribution=0;
-                nodeSpaceMatvecBody(nullptr,a.m_residual,a.m_inertia,a.m_nodeBondBegin,a.m_nodeBondRef,
+                nodeSpaceMatvecBody<Shear>(nullptr,a.m_residual,a.m_inertia,a.m_nodeBondBegin,a.m_nodeBondRef,
                     a.m_node0,a.m_node1,a.m_offset0,a.m_offset1,a.m_health,a.m_colScales,a.m_bondIsland,
                     nullptr,a.m_nodeIsland,a.m_islandActive,true,nullptr,1u,c.nodes+begin,
                     counts,&iteration,0u,block,&contribution,a.m_angularWeight);
@@ -307,13 +311,13 @@ __global__ void componentStressSolve(
             if(threadIdx.x==0)reduceValue=numerator;
             __syncthreads();
             if((iteration || a.warmStart) && a.m_islandActive[id] && a.m_deltaSquared[id]>0 && reduceValue<=a.m_deltaSquared[id]){
-                for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)rebuildNativeResidualNode(a,c.nodes[begin+i]);
+                for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)rebuildNativeResidualNode<true,Shear>(a,c.nodes[begin+i]);
                 if(!threadIdx.x)a.hierarchy.previous[id]=0;__syncthreads();
                 prepareNativeResidualComponent(a,c.nodes+begin,count,id);
                 COMPONENT_WORK_SWEEP(a,id,verificationSweeps)
-                float verified=balanced?componentOperatorBalanced(a,c.nodes+begin,count,chunks,nullptr,a.m_residual,a.nodeResidual2):0.f;
+                float verified=balanced?componentOperatorBalanced<Shear>(a,c.nodes+begin,count,chunks,nullptr,a.m_residual,a.nodeResidual2):0.f;
                 for(unsigned block=0;block<nodeBlocks && !balanced;++block){float contribution=0;
-                    nodeSpaceMatvecBody(nullptr,a.m_residual,a.m_inertia,a.m_nodeBondBegin,a.m_nodeBondRef,a.m_node0,a.m_node1,a.m_offset0,a.m_offset1,a.m_health,a.m_colScales,a.m_bondIsland,
+                    nodeSpaceMatvecBody<Shear>(nullptr,a.m_residual,a.m_inertia,a.m_nodeBondBegin,a.m_nodeBondRef,a.m_node0,a.m_node1,a.m_offset0,a.m_offset1,a.m_health,a.m_colScales,a.m_bondIsland,
                         nullptr,a.m_nodeIsland,a.m_islandActive,true,nullptr,1u,c.nodes+begin,counts,&iteration,0u,block,&contribution,a.m_angularWeight);
                     if(a.nodeResidual2){const unsigned local=block*blockDim.x+threadIdx.x;if(local<count)a.nodeResidual2[c.nodes[begin+local]]=contribution;}
                     verified+=contribution;
@@ -346,7 +350,7 @@ __global__ void componentStressSolve(
                 if(!threadIdx.x)forcePass=forceStep<=a.forceTolerance*(forceStart+forceTravel);
                 __syncthreads();
                 if(forcePass){
-                    const float exact=componentSquaredNorm(componentForceNorm2(a,c.nodes+begin,count,true));
+                    const float exact=componentSquaredNorm(componentForceNorm2<Shear>(a,c.nodes+begin,count,true));
                     if(!threadIdx.x && forceStep<=a.forceTolerance*sqrtf(exact)){a.m_islandActive[id]=0;a.m_islandConverged[id]=1;}
                     __syncthreads();
                 }
@@ -365,7 +369,7 @@ __global__ void componentStressSolve(
             }
             COMPONENT_WORK_PRECONDITION(a,id,iteration)
             float localGamma=0;
-            if(a.m_islandActive[id] && !COMPONENT_ABLATE(2))localGamma=preconditionNativeComponent(a,c.nodes+begin,count,id,iteration COMPONENT_SUBPROBE_ARGUMENT,balanced,chunks,carried);
+            if(a.m_islandActive[id] && !COMPONENT_ABLATE(2))localGamma=preconditionNativeComponent<Shear>(a,c.nodes+begin,count,id,iteration COMPONENT_SUBPROBE_ARGUMENT,balanced,chunks,carried);
             if(COMPONENT_ABLATE(2))localGamma=threadIdx.x?0.f:1.f;
             const float gamma=componentSquaredNorm(localGamma);
             if(!threadIdx.x){a.hierarchy.gamma[id]=gamma;STRESS_CAPTURE_HISTORY(id,iteration,1u,gamma)if(a.m_islandActive[id] && (!(gamma>0) || !isfinite(gamma)))a.hierarchy.failed[id]=1;}
@@ -376,10 +380,10 @@ __global__ void componentStressSolve(
             COMPONENT_PROBE_END(4)
             COMPONENT_WORK_SWEEP(a,id,directionSweeps)
             squared=COMPONENT_ABLATE(4)?1.f:0.f;
-            if(balanced && !COMPONENT_ABLATE(4))squared=componentOperatorBalanced(a,c.nodes+begin,count,chunks,a.m_nsQ,a.m_nsPi,nullptr);
+            if(balanced && !COMPONENT_ABLATE(4))squared=componentOperatorBalanced<Shear>(a,c.nodes+begin,count,chunks,a.m_nsQ,a.m_nsPi,nullptr);
             for(unsigned block=0;block<nodeBlocks && !COMPONENT_ABLATE(4) && !balanced;++block) {
                 float contribution=0;
-                nodeSpaceMatvecBody(a.m_nsQ,a.m_nsPi,a.m_inertia,a.m_nodeBondBegin,a.m_nodeBondRef,a.m_node0,a.m_node1,
+                nodeSpaceMatvecBody<Shear>(a.m_nsQ,a.m_nsPi,a.m_inertia,a.m_nodeBondBegin,a.m_nodeBondRef,a.m_node0,a.m_node1,
                     a.m_offset0,a.m_offset1,a.m_health,a.m_colScales,a.m_bondIsland,nullptr,a.m_nodeIsland,a.m_islandActive,true,
                     nullptr,1u,c.nodes+begin,counts,&iteration,0u,block,&contribution,a.m_angularWeight);
                 squared+=contribution;

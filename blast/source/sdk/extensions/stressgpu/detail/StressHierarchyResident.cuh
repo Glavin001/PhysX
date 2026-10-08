@@ -25,6 +25,7 @@ __global__ void finalizeHierarchy(Input input,const Status* terminal,TerminalBuf
 }
 class ResidentHierarchy {
     TerminalPool mPool;Input mInput;cudaStream_t mStream;unsigned mDepth;Status* mStatus=nullptr;bool mAppended=false;
+    bool mShear=false;   // per-bond shear stiffness (ExtStressGpuSetBondShearStiffness)
     std::vector<std::unique_ptr<Graph>> mGraphs;
     std::vector<std::unique_ptr<TerminalLevel>> mTerminals;
     std::vector<std::unique_ptr<RetiringPackedLevel>> mPacked;
@@ -32,7 +33,7 @@ class ResidentHierarchy {
     std::vector<std::unique_ptr<LevelSmoother>> mSmoothers;
     static void check(cudaError_t e){if(e!=cudaSuccess)throw std::runtime_error(std::string("Resident hierarchy: ")+cudaGetErrorString(e));}
 public:
-    ResidentHierarchy(Input input,unsigned depth,cudaStream_t stream):mPool(input.authoredNodes?input.authoredNodes:input.nodes,stream),mInput(input),mStream(stream),mDepth(depth){
+    ResidentHierarchy(Input input,unsigned depth,cudaStream_t stream,bool shear=false):mPool(input.authoredNodes?input.authoredNodes:input.nodes,stream),mInput(input),mStream(stream),mDepth(depth),mShear(shear){
         if(!depth || depth>32)throw std::runtime_error("Resident hierarchy requires between one and 32 allocated levels");
         mGraphs.reserve(depth);mTerminals.reserve(depth);mInputs.reserve(depth);mPacked.reserve(depth-1);mSmoothers.reserve(depth);
         check(cudaMalloc(&mStatus,sizeof(Status)));
@@ -45,12 +46,12 @@ public:
         if(mAppended)throw std::runtime_error("Resident hierarchy already appended");
         Input input=mInput;cudaGraphNode_t tailCompletion=nullptr;
         for(unsigned level=0;level<mDepth;++level){
-            mGraphs.emplace_back(new Graph(input.nodes,input.bonds,mStream,level!=0));
+            mGraphs.emplace_back(new Graph(input.nodes,input.bonds,mStream,level!=0,mShear));
             input=mGraphs.back()->cachedInput(input);mInputs.push_back(input);
             prior=mGraphs.back()->append(graph,prior,input);
-            mTerminals.emplace_back(new TerminalLevel(input,mGraphs.back()->status(),mPool,level,mStream));
+            mTerminals.emplace_back(new TerminalLevel(input,mGraphs.back()->status(),mPool,level,mStream,mShear));
             prior=mTerminals.back()->append(graph,prior);
-            mSmoothers.emplace_back(new LevelSmoother(input,*mGraphs.back(),*mTerminals.back(),level,mStream));
+            mSmoothers.emplace_back(new LevelSmoother(input,*mGraphs.back(),*mTerminals.back(),level,mStream,mShear));
             prior=mSmoothers.back()->append(graph,prior);
             if(level+1<mDepth){
                 if(!level && input.componentSolverMaxNodes) {
