@@ -448,6 +448,18 @@ __device__ float exSphereBox(const PxVec3& c,float R,const PxVec3& bc,const PxVe
     PxVec3 nl(0.0f),pl=l;const int k=best/2;const float sg=(best&1)?1.0f:-1.0f;nl[k]=sg;pl[k]=sg*he[k];
     n=q.rotate(nl);p=bc+q.rotate(pl);return R+e[best];
 }
+// Whether a sphere (radius R) moving from c0 along seg over the tick meets a box: the largest
+// penetration exSphereBox gives along the path, R minus the box's signed distance, is concave in
+// the path parameter (a convex set's signed distance is convex along a line), so a golden-section
+// search to float resolution finds it (0.618^48 < 2^-24 of the path).
+__device__ bool exSweptReach(const PxVec3& c0,const PxVec3& seg,float R,const PxDestructionChunkBox& box)
+{
+    const float g=0.6180339887f;float a=0.0f,b=1.0f;PxVec3 n,p;
+    auto pen=[&](float t){return exSphereBox(c0+seg*t,R,box.center,box.halfExtents,box.rotation,n,p);};
+    float x1=b-g*(b-a),x2=a+g*(b-a),f1=pen(x1),f2=pen(x2);
+    for(int k=0;k<48;++k){if(f1<f2){a=x1;x1=x2;f1=f2;x2=a+g*(b-a);f2=pen(x2);}else{b=x2;x2=x1;f2=f1;x1=b-g*(b-a);f1=pen(x1);}}
+    return fmaxf(fmaxf(f1,f2),fmaxf(pen(0.0f),pen(1.0f)))>=0.0f;
+}
 // (the window's: liveInternalFaces)
 __device__ __forceinline__ PxU32 exLiveFaces(const Inputs& in,PxU32 c){return liveInternalFaces(in,c);}
 // A small rotation vector as a quaternion (exp).
@@ -807,7 +819,9 @@ __global__ __launch_bounds__(kThreads) void exBuild(Inputs in,Settings s,Scratch
                 const ExNode& m=nodes[b];if(!m.tensor || !(m.radius>0.0f))continue;
                 const PxVec3 c0(m.x0[0],m.x0[1],m.x0[2]),seg=PxVec3(m.v[0],m.v[1],m.v[2])*s.dt;const float L2=seg.magnitudeSquared();
                 const float tt=L2>0.0f?fminf(fmaxf((box.center-c0).dot(seg)/L2,0.0f),1.0f):0.0f;
-                if((box.center-(c0+seg*tt)).magnitude()<=m.radius+box.halfExtents.magnitude()){atomicOr(&sp.uncovered,1u);break;}
+                // (the bounding test, then the exact one: a support the sphere's path clears -- a
+                // house's foundation under a meteor passing above it -- is not in reach)
+                if((box.center-(c0+seg*tt)).magnitude()<=m.radius+box.halfExtents.magnitude() && exSweptReach(c0,seg,m.radius,box)){atomicOr(&sp.uncovered,1u);break;}
             }
         }
         __syncthreads();
