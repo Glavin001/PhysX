@@ -2863,7 +2863,17 @@ public:
                         }
                     }
                 }
-                if(mSeq.enabled && !mPass && impactRan && mM && forces)runDynamicSequence(impactIn,impactSettings,impactView,forces,dt);
+                // (the first frame has no accepted equilibrium to start a dynamic patch from: its static verdict stands)
+                if(mSeq.enabled && !mPass && impactRan && mM && forces && mFrame>1)runDynamicSequence(impactIn,impactSettings,impactView,forces,dt);
+                else if(mSeq.enabled && !mPass && mM && forces)check(cudaMemcpyAsync(mSeq.trialForces[mSeq.cur^1u],forces,sizeof(*forces)*mM,cudaMemcpyDeviceToDevice,mStream));
+                if(mSeq.enabled && mPass && impactRan && mM && forces && mFrame>1) {
+                    const auto stress=mSolver->deviceView();
+                    check(cudaMemsetAsync(mSeq.heldCount,0,sizeof(PxU32),mStream));
+                    seqHoldCorrectedStatic<<<(mM+127)/128,128,0,mStream>>>(mHealth,stress.bondIslands,mImpact.w.islandFlag,mVerdicts,
+                        mRebearing?mBearState:nullptr,mRebearing?mBearTrial:nullptr,mM,mN,mSeq.heldCount);
+                    if(mImpactLog){PxU32 h=0;check(cudaMemcpyAsync(&h,mSeq.heldCount,sizeof h,cudaMemcpyDeviceToHost,mStream));check(cudaStreamSynchronize(mStream));
+                        if(h)std::fprintf(stderr,"[sequence] pass %u: %u static topology changes held for the next tick's trigger\n",mPass,h);}
+                }
                 if(!mPass && mM)while(mRemovalNext<mRemovals.size() && mRemovals[mRemovalNext].first<=mFrame) {
                     const auto& r=mRemovals[mRemovalNext++];if(r.second.empty())continue;
                     cudaFree(mRemovalBonds);mRemovalBonds=nullptr;allocate(mRemovalBonds,r.second.size());
@@ -3015,6 +3025,8 @@ public:
         mImpact.submitSequence(impactIn,impactSettings,mStream);
         mImpact.x.seqIsland=nullptr;
         check(cudaMemcpyAsync(mSeq.forces,mImpact.w.forces,sizeof(*mSeq.forces)*mM,cudaMemcpyDeviceToDevice,mStream));
+        // This frame's static forces: the next frame's dynamic patches start from them.
+        check(cudaMemcpyAsync(mSeq.trialForces[mSeq.cur^1u],forces,sizeof(*forces)*mM,cudaMemcpyDeviceToDevice,mStream));
         evaluateBondMaterials<<<(mM+127)/128,128,0,mStream>>>(mChunks,mBonds,mMaterials,mHealth,forces,mM,
             dt,mDamageRate,mBendGain,mFibres,mVerdicts,mBondCentroids,mStatus,mSectionBending,mSections,mSectionRotation,impactView,mStaticDuctile);
         if(mRebearing) {

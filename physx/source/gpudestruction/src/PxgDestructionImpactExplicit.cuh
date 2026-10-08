@@ -185,6 +185,10 @@ struct ExScratch {
     const float* pPeriod{};float* pPeriodn{};
     PxDestructionVectorPair* frozenForce{};PxDestructionVectorPair* freezeElastic{};
     PxU32* seqCycles{};   // [chunkCount] freezes per chunk (its island's freeze/thaw cycles)
+    // Per bond: the forces the structure carried before this tick's change -- the last
+    // frame's trial (static) solve: a dynamic patch's start where nothing is persisted (null:
+    // Inputs::base).
+    const PxDestructionVectorPair* seqBase{};
     PxU32* seqCounters{}; // [4] this pass: islands frozen, thawed, held frozen; spare
     // The window's answer for the stage (exPublishDynamic): per bond its re-bearing
     // state (eBEAR_*; ~0 undecided) and 1 where it is a contact the window holds.
@@ -570,7 +574,8 @@ __device__ void exDynamicNode(const Inputs& in,const ExScratch& t,PxU32 p,PxU32 
     f[0]=a.linear.x*c.mass;f[1]=a.linear.y*c.mass;f[2]=a.linear.z*c.mass;
     f[3]=-a.angular.x*c.inertia;f[4]=-a.angular.y*c.inertia;f[5]=-a.angular.z*c.inertia;
 }
-// A dynamic patch's joint: its persisted force and contact state, whether it is a
+// A dynamic patch's joint: its persisted force and contact state (else the last frame's
+// trial forces: the equilibrium before this tick's change, the study's start), whether it is a
 // bearing joint, its damping ratio (in damp[0] until exFinishDynamic). A joint of a
 // frozen island that thaws starts from its carried force: the frozen one plus the
 // static solve's elastic increment since the freeze (exact by superposition while the
@@ -581,6 +586,7 @@ __device__ void exDynamicLink(const Inputs& in,const Settings& s,const ExScratch
     cs[0]=cs[1]=0.0f;
     const PxU32 persisted=t.pBond?t.pBond[i]:0u;
     if(persisted&1u){for(int q=0;q<6;++q){e.J0[q]=t.pJ[6*size_t(i)+q];e.J[q]=e.J0[q];}cs[0]=t.pSlip[2*size_t(i)];cs[1]=t.pSlip[2*size_t(i)+1];}
+    else if(t.seqBase){float x[6];toLocal(b,t.seqBase[i],x);for(int q=0;q<6;++q){e.J0[q]=x[q];e.J[q]=x[q];}}
     if((persisted&4u) && t.frozenForce && in.elastic) {
         const PxDestructionVectorPair f=t.frozenForce[i],a=in.elastic[i],z=t.freezeElastic[i];
         PxDestructionVectorPair c0;c0.linear=f.linear+(a.linear-z.linear);c0.angular=f.angular+(a.angular-z.angular);
