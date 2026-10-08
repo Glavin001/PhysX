@@ -311,7 +311,7 @@ __device__ void coupleRow(PxU32 chunk,PxU32 otherChunk,PxNodeIndex own,PxNodeInd
     // writeBackContactBlock). Its row is released (points 0): the impact
     // solve takes its impulse off the chunk's load and does not couple it.
     // (The high-profile cannonball: 3.2e7 N, 2.4e5 g, on a 14 kg stud.)
-    bool released=false,resting=false;
+    bool released=false,resting=false;float exertable=0.0f;
     {
         const PxVec3 cw(clusterBefore.angularVelocityXYZ_maxPenBiasW.x,clusterBefore.angularVelocityXYZ_maxPenBiasW.y,clusterBefore.angularVelocityXYZ_maxPenBiasW.z);
         const PxVec3 cv(clusterBefore.linearVelocityXYZ_inverseMassW.x,clusterBefore.linearVelocityXYZ_inverseMassW.y,clusterBefore.linearVelocityXYZ_inverseMassW.z);
@@ -338,7 +338,7 @@ __device__ void coupleRow(PxU32 chunk,PxU32 otherChunk,PxNodeIndex own,PxNodeInd
             // body's self-cancelling share out of the static solve.
             if(!ci.route)return;
             const PxVec3 v1e(b.linearVelocityXYZ_inverseMassW.x,b.linearVelocityXYZ_inverseMassW.y,b.linearVelocityXYZ_inverseMassW.z);
-            const PxVec3 dvb=v1e-vi;const float exertable=(dvb.magnitude()*invDt+(1.0f+friction)*ci.gravity)/im;
+            const PxVec3 dvb=v1e-vi;exertable=(dvb.magnitude()*invDt+(1.0f+friction)*ci.gravity)/im;
             if(!(force.magnitude()*invDt>exertable))return;
             resting=true;   // a row for the routing to judge (impact::routeRows), never coupled
         }
@@ -357,7 +357,7 @@ __device__ void coupleRow(PxU32 chunk,PxU32 otherChunk,PxNodeIndex own,PxNodeInd
     put(row.load,pose.q.rotateInv(force*invDt));put(row.torque,pose.q.rotateInv(torque*invDt));put(row.com,pose.transformInv(com));
     // The impactor's side of the pair: -force on its chunk, in its cluster's frame (as routeContacts loaded it).
     if(ci.other) {
-        impact::RowOther o{};o.chunk=otherChunk;
+        impact::RowOther o{};o.chunk=otherChunk;o.exertable=exertable;
         if(otherChunk!=PX_INVALID_U32)put(o.load,poses[chunks[otherChunk].cluster].q.rotateInv(-force*invDt));
         ci.other[slot]=o;
     }

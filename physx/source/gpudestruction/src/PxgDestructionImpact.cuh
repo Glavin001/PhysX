@@ -99,7 +99,10 @@ struct ContactRow {
 // row's struck chunk mass, its joints' capacity along the push (N), its trial
 // load's magnitude (N) and its closing speed (m/s); routed 1 when the struck
 // chunk's joints fail (the row is the impact model's).
-struct RowOther { PxU32 chunk; float load[3]; float mass,capacity,magnitude,closing; PxU32 routed; };
+// exertable: the most the impactor body can exert over the tick (N; its trial
+// momentum change, its weight and its contacts' friction, as coupleRow's
+// resting test reads it).
+struct RowOther { PxU32 chunk; float load[3]; float mass,capacity,magnitude,closing,exertable; PxU32 routed; };
 
 struct Settings {
     float dt=1.0f/60.0f;
@@ -1367,7 +1370,13 @@ __global__ void routeRows(Inputs in,Settings s,PxU32* routed,PxDestructionVector
         float sum[3]={0,0,0},mag=0.0f;
         for(PxU32 j=0;j<rows;++j){const ContactRow& q=in.rows[j];if(!q.resting || q.body!=row.body)continue;
             for(int k=0;k<3;++k)sum[k]+=q.load[k];mag+=sqrtf(dot3(q.load,q.load));}
-        if(mag>0.0f){const float f=1.0f-fminf(1.0f,sqrtf(dot3(sum,sum))/mag);remove(f);removeOther(f);}
+        if(mag>0.0f) {
+            const float f=1.0f-fminf(1.0f,sqrtf(dot3(sum,sum))/mag);remove(f);
+            // The impactor's side: its resting loads' resultant is what its body
+            // exchanged, and no more than it can exert (Newton): past that it is
+            // the rigid solver's position correction on the impactor too.
+            if(o!=0xffffffffu)removeOther(1.0f-fminf(1.0f,fminf(sqrtf(dot3(sum,sum)),in.rowOther[r].exertable)/mag));
+        }
         return;
     }
     if(!row.points){routed[r]=1u;remove(1.0f);removeOther(1.0f);return;}
