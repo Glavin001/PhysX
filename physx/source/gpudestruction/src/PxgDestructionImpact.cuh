@@ -77,7 +77,7 @@ enum BondFlag : PxU32 { eDYNAMIC0=1, eDYNAMIC1=2, eDUCTILE=4, eALIVE=8, eCONTACT
 struct ContactRow {
     PxU32 chunk;        // the struck chunk (0xffffffff: no row)
     PxU32 body;         // the impactor's identity (its rigid body index)
-    PxU32 points;       // the pair's normal contact points
+    PxU32 points;       // the pair's normal contact points; 0: released (not coupled; its load leaves the chunk)
     float friction;     // Coulomb coefficient of the pair
     float point[3];     // the trial's contact point (force-weighted)
     float normal[3];    // unit: the direction of the contact force on the chunk
@@ -1246,7 +1246,17 @@ __device__ __forceinline__ Chunk impactorNode(const Inputs& in,const Settings& s
     const float det=S[0]*A+S[3]*D+S[4]*E;
     if(det>0.0f && isfinite(det)){const float k=1.0f/det;const float I[6]={A*k,B*k,C*k,D*k,E*k,F*k};
         for(int q=0;q<6;++q){c.Iinv[q]=S[q];c.I[q]=I[q];}}
-    float w[3];for(int q=0;q<3;++q){c.pf[q]=(row.velocity[q]+row.dv[q])/(row.im*s.dt);w[q]=(row.spin[q]+row.dw[q])/s.dt;}
+    // Its load over the tick: its momentum before the tick, m v / dt and
+    // I w / dt (gravity over a tick, g dt, is left out: 0.16 m/s against an
+    // impact's tens). Not the trial's end momentum plus its pairs' reported
+    // contact impulses: the rigid solver reports a pair's accumulated impulse,
+    // its penetration bias included (gpusolver contactConstraintBlockPrep.cuh
+    // biasedErr, solver.cuh appliedForce, solverBlock.cuh writeBackContactBlock),
+    // which a wedged impactor's opposing pairs inflate far past the momentum
+    // it exchanged (the high-profile cannonball: 2.5e6 N s along its path
+    // reported, 7.0e5 exchanged); and pairs with chunks the crush law took
+    // this tick are paid by their crush energy (payCrushEnergy), not stopped.
+    float w[3];for(int q=0;q<3;++q){c.pf[q]=row.velocity[q]/(row.im*s.dt);w[q]=row.spin[q]/s.dt;}
     symMul(c.I,w,c.pf+3);
     return c;
 }
@@ -1363,19 +1373,30 @@ __global__ __launch_bounds__(kThreads) void setupIslands(Inputs in,Settings s,Sc
             }
             __syncthreads();
             // The trial's force of each coupled pair leaves its chunk's load
-            // and its impactor's (the impactor's other loads stay: what the
-            // trial gave it, less these pairs).
-            for(PxU32 k=threadIdx.x;k<nodes(is);k+=kThreads) {
+            // (the impactor's load is its own momentum: impactorNode).
+            for(PxU32 k=threadIdx.x;k<nc;k+=kThreads) {
                 Chunk& c=w.chunks[is.c0+k];
                 for(PxU32 e=0;e<nr;++e) {
                     const Bond& b=w.bonds[is.b0+nb+e];const ContactRow& row=in.rows[b.bond];
-                    if(k<nc && b.c0==c.chunk)for(int q=0;q<3;++q)c.pf[q]-=row.load[q];
-                    if(k>=nc && b.c1==c.chunk)for(int q=0;q<3;++q){c.pf[q]+=row.load[q];c.pf[3+q]-=row.torque[q];}
+                    if(b.c0==c.chunk)for(int q=0;q<3;++q)c.pf[q]-=row.load[q];
                 }
             }
             if(!threadIdx.x){atomicAdd(&w.status->contacts,nr);atomicAdd(&w.status->impactors,is.ni);}
             __syncthreads();
         }
+        // Released pairs (ContactRow::points 0: an impactor deep in a thin
+        // chunk, not closing along the contact's push): the trial's impulse,
+        // the rigid solver's position correction, leaves the chunk's load; the
+        // pair is not coupled. The island is then solved from its first level
+        // (its elastic solution carries that load).
+        PxU32 released=0;
+        for(PxU32 i=threadIdx.x;i<rowCount;i+=kThreads) {
+            const ContactRow& row=in.rows[i];const PxU32 c=row.chunk;
+            if(row.points || c>=in.chunkCount || in.nodeIslands[c]!=island || !(in.chunks[c].mass>0.0f) || chunkGone(in,c))continue;
+            PxU32 lo=0,hi=nc;while(lo<hi){const PxU32 mid=(lo+hi)/2;if(w.chunks[is.c0+mid].chunk<c)lo=mid+1;else hi=mid;}
+            if(lo<nc && w.chunks[is.c0+lo].chunk==c){for(int q=0;q<3;++q)atomicAdd(&w.chunks[is.c0+lo].pf[q],-row.load[q]);++released;}
+        }
+        released=blockCount(sh,released);
         // Each node's links: its joints (the bond graph's), then its contacts.
         for(PxU32 k=threadIdx.x;k<nodes(is);k+=kThreads) {
             const Chunk& c=w.chunks[is.c0+k];PxU32 degree=0;
@@ -1447,7 +1468,7 @@ __global__ __launch_bounds__(kThreads) void setupIslands(Inputs in,Settings s,Sc
             IslandState st{};st.is=is;st.island=island;st.phase=eTRIAL;
             // An impactor's contact is solved from the first level (no elastic
             // solution knows it).
-            st.plastic=is.nr>0;st.first=first;st.solve.rho=1.0f;
+            st.plastic=is.nr>0 || released>0;st.first=first;st.solve.rho=1.0f;
             w.state[k]=st;
         }
         __syncthreads();
@@ -1756,7 +1777,7 @@ __global__ void heldOverCapacity(Inputs in,Settings s,const PxDestructionBondVer
     if(!in.rows || i>=(in.rowCounter?min(*in.rowCounter,in.rowCount):in.rowCount))return;
     if(stage && (stage->error & 4096u))return;
     const ContactRow& row=in.rows[i];const PxU32 c=row.chunk;
-    if(c>=in.chunkCount || !(in.chunks[c].mass>0.0f) || chunkGone(in,c))return;
+    if(!row.points || c>=in.chunkCount || !(in.chunks[c].mass>0.0f) || chunkGone(in,c))return;   // released: no stop
     if(in.rowBound && in.rowBound[i]>0.0f)return;
     bool over=false;
     for(PxU32 slot=in.nodeBegin[c];slot<in.nodeBegin[c+1];++slot) {

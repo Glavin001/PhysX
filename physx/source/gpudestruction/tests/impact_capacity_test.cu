@@ -568,6 +568,54 @@ void fallback(){
         && d.verdicts[0].health>0 && d.impact[0]==impact::eYIELDED && std::fabs(d.rowBound[0]-P/4.0f)<1e-3f*P && d.status.heldOverCapacity==0
         && e.verdicts[0].health<=0 && e.status.heldOverCapacity==0,text);
 }
+// 7c. The impactor's load is its momentum before the tick, m v / dt. The
+// rigid solver reports a pair's accumulated impulse, its penetration bias
+// included: a 1 t body at 10 m/s whose trial stop is reported at 3 M v (a
+// wedged impactor's opposing pairs) is stopped by a stiff 1 MN joint with
+// M v (600 kN over the tick: it holds), not 3 M v (1.8 MN: it would break).
+// The elastic solve, which sees the reported stop, takes the joint past
+// capacity, so the impact solve runs. (The bound per point x points: the
+// impulse the joint delivered.)
+void impactorMomentum(){
+    std::printf("the impactor's load is its own momentum, not its pairs' reported impulses\n");
+    Structure s;const PxU32 anchor=s.chunk(PxVec3(0,0,0),0,0),wall=s.chunk(PxVec3(0,0.5f,0),10.0f,0.5f);
+    const PxU32 mat=s.material(1e8f,1e8f,1e8f,0.0f);   // 1 MN over 0.01 m^2
+    s.bond(anchor,wall,PxVec3(0,0.25f,0),PxVec3(0,1,0),0.01f,mat);
+    const float M=1000.0f,v=10.0f,dt=1.0f/60.0f;
+    impact::ContactRow row{};row.chunk=wall;row.body=0;row.points=4;row.friction=0.0f;
+    const float point[3]={-0.25f,0.5f,0},com[3]={-1.0f,0.5f,0};
+    for(int q=0;q<3;++q){row.point[q]=point[q];row.com[q]=com[q];}
+    row.normal[0]=1;row.load[0]=3.0f*M*v/dt;row.velocity[0]=v;row.dv[0]=-v;row.im=1.0f/M;row.ii[0]=row.ii[1]=row.ii[2]=1.0f/400.0f;
+    s.rows.push_back(row);
+    const auto rest=elastic(s,s.force,s.torque);
+    auto F=s.force;F[wall]+=PxVec3(row.load[0],0,0);
+    const auto r=evaluate(s,F,s.torque,rest,true);
+    const float delivered=r.rowBound[0]*4.0f;
+    char text[400];std::snprintf(text,sizeof text,"a stiff joint stops it with %.4g N s (its momentum M v = %.4g; the reported stop 3 M v = %.4g); %u islands, %u solves, %u capped, %u contacts, joint %s, body's end velocity %.3g m/s",
+        delivered,M*v,3.0f*M*v,r.status.triggered,r.status.solves,r.status.capped,r.status.contacts,r.impact[0]==impact::eBROKEN?"broken":"held",r.rowDelta[0]);
+    expect(r.status.triggered==1 && std::fabs(delivered-M*v)<0.05f*M*v,text);
+}
+// 7d. A released pair (an impactor deep in a thin chunk, receding along the
+// contact's push: the rigid solver's position correction) puts no load on
+// its chunk: a 14 kg stud on a 1 kN joint, the trial's 1.4e7 N (1e5 g) on it
+// from such a pair, holds under its weight.
+void releasedPair(){
+    std::printf("a released (depenetration) pair puts no load on its chunk\n");
+    Structure s;const PxU32 anchor=s.chunk(PxVec3(0,0,0),0,0),stud=s.chunk(PxVec3(0,0.5f,0),14.0f,0.5f);
+    const PxU32 mat=s.material(1e5f,1e5f,1e5f,0.0f);   // 1 kN over 0.01 m^2
+    s.bond(anchor,stud,PxVec3(0,0.25f,0),PxVec3(0,1,0),0.01f,mat);
+    s.gravity();
+    const float load=1e5f*9.81f*14.0f;
+    impact::ContactRow row{};row.chunk=stud;row.body=0;row.points=0;row.friction=0.5f;
+    row.normal[1]=1;row.load[1]=load;row.velocity[2]=60.0f;row.velocity[1]=-3.65f;row.im=1.0f/10650.0f;row.ii[0]=row.ii[1]=row.ii[2]=1.0f/2000.0f;
+    s.rows.push_back(row);
+    const auto rest=elastic(s,s.force,s.torque);
+    auto F=s.force;F[stud]+=PxVec3(0,load,0);
+    const auto r=evaluate(s,F,s.torque,rest,true);
+    char text[240];std::snprintf(text,sizeof text,"the stud's joint %s (health %.3g), its force %.4g N (weight %.4g N); %u islands, %u contacts coupled (expected held, about its weight, 0 coupled)",
+        r.verdicts[0].health<=0?"broken":"held",r.verdicts[0].health,r.forces[0].linear.magnitude(),14.0f*9.81f,r.status.triggered,r.status.contacts);
+    expect(r.verdicts[0].health>0 && r.forces[0].linear.magnitude()<2.0f*14.0f*9.81f && r.status.contacts==0,text);
+}
 // 8. The evaluation split into dispatches resumes exactly: the wall with
 // about one ADMM step per dispatch gives the same forces and verdicts, bit
 // for bit, as in one dispatch.
@@ -858,7 +906,7 @@ void passivity(){
 
 int main(int argc,char** argv){
     (void)argc;(void)argv;
-    try{if(const char* only=std::getenv("IMPACT_TEST_ONLY")){if(!std::strcmp(only,"unconverged"))physx::unconverged();if(!std::strcmp(only,"fallback"))physx::fallback();if(!std::strcmp(only,"dispatches"))physx::dispatches();if(!std::strcmp(only,"carried"))physx::carried();if(!std::strcmp(only,"held"))physx::heldStops();if(!std::strcmp(only,"projection"))physx::projection();if(!std::strcmp(only,"detectors"))physx::detectors();if(!std::strcmp(only,"fuzz"))physx::fuzz();if(!std::strcmp(only,"bearing"))physx::bearing();if(!std::strcmp(only,"coupled"))physx::coupled();if(!std::strcmp(only,"passivity"))physx::passivity();}else{physx::column();physx::wall();physx::rest();physx::centroidConvention();physx::impactCrush();physx::section();physx::coupled();physx::unconverged();physx::fallback();physx::dispatches();physx::carried();physx::heldStops();physx::projection();physx::detectors();physx::fuzz();physx::bearing();physx::passivity();}}
+    try{if(const char* only=std::getenv("IMPACT_TEST_ONLY")){if(!std::strcmp(only,"unconverged"))physx::unconverged();if(!std::strcmp(only,"fallback"))physx::fallback();if(!std::strcmp(only,"momentum"))physx::impactorMomentum();if(!std::strcmp(only,"released"))physx::releasedPair();if(!std::strcmp(only,"dispatches"))physx::dispatches();if(!std::strcmp(only,"carried"))physx::carried();if(!std::strcmp(only,"held"))physx::heldStops();if(!std::strcmp(only,"projection"))physx::projection();if(!std::strcmp(only,"detectors"))physx::detectors();if(!std::strcmp(only,"fuzz"))physx::fuzz();if(!std::strcmp(only,"bearing"))physx::bearing();if(!std::strcmp(only,"coupled"))physx::coupled();if(!std::strcmp(only,"passivity"))physx::passivity();}else{physx::column();physx::wall();physx::rest();physx::centroidConvention();physx::impactCrush();physx::section();physx::coupled();physx::unconverged();physx::fallback();physx::impactorMomentum();physx::releasedPair();physx::dispatches();physx::carried();physx::heldStops();physx::projection();physx::detectors();physx::fuzz();physx::bearing();physx::passivity();}}
     catch(const std::exception& e){std::printf("error: %s\n",e.what());return 2;}
     std::printf("%s (%d failed)\n",physx::failures?"FAILED":"passed",physx::failures);
     return physx::failures?1:0;

@@ -295,8 +295,16 @@ __device__ void coupleRow(PxU32 chunk,PxNodeIndex own,PxNodeIndex other,float si
     // tick, along that push is not a separation. One that is -- an impactor
     // deep in a thin chunk whose depenetration pushes the chunk back onto it
     // (a 0.11 m brick against 0.36 m of travel a tick) -- is no contact the
-    // impact solve can carry (unilateral along the wrong side); its impulse
-    // stays the trial's load.
+    // impact solve can carry (unilateral along the wrong side), and its
+    // impulse is the rigid solver's position correction, not an exchange of
+    // momentum (a receding body against a still kinematic surface takes no
+    // velocity impulse; the reported impulse accumulates the penetration bias:
+    // gpusolver contactConstraintBlockPrep.cuh biasedErr = unbiasedErr -
+    // scaledBias, solver.cuh appliedForce += deltaF, solverBlock.cuh
+    // writeBackContactBlock). Its row is released (points 0): the impact
+    // solve takes its impulse off the chunk's load and does not couple it.
+    // (The high-profile cannonball: 3.2e7 N, 2.4e5 g, on a 14 kg stud.)
+    bool released=false;
     {
         const PxVec3 cw(clusterBefore.angularVelocityXYZ_maxPenBiasW.x,clusterBefore.angularVelocityXYZ_maxPenBiasW.y,clusterBefore.angularVelocityXYZ_maxPenBiasW.z);
         const PxVec3 cv(clusterBefore.linearVelocityXYZ_inverseMassW.x,clusterBefore.linearVelocityXYZ_inverseMassW.y,clusterBefore.linearVelocityXYZ_inverseMassW.z);
@@ -309,7 +317,9 @@ __device__ void coupleRow(PxU32 chunk,PxNodeIndex own,PxNodeIndex other,float si
         // tolerance a tick. A resting contact (debris on a floor) closes at
         // nothing; the trial's kinematic support is exact for it and needs no
         // coupling (coupling every piece of rubble cost a capped solve a tick).
-        if(!(rel.dot(normal.getNormalized())>ci.separating))return;
+        const float closing=rel.dot(normal.getNormalized());
+        if(closing<-ci.separating)released=true;
+        else if(!(closing>ci.separating))return;
     }
     if(p.frictionPatches && p.contactPatches) {
         PxFrictionAnchorStreamIterator it(p.contactPatches,p.frictionPatches,p.nbPatches);
@@ -319,7 +329,7 @@ __device__ void coupleRow(PxU32 chunk,PxNodeIndex own,PxNodeIndex other,float si
         }}
     }
     const PxU32 slot=atomicAdd(ci.rowCount,1u);if(slot>=ci.rowCapacity)return;
-    impact::ContactRow row{};row.chunk=chunk;row.body=other.index();row.points=points;row.friction=friction;
+    impact::ContactRow row{};row.chunk=chunk;row.body=other.index();row.points=released?0u:points;row.friction=friction;
     auto put=[](float* d,const PxVec3& v){d[0]=v.x;d[1]=v.y;d[2]=v.z;};
     put(row.point,pose.transformInv(point*(1.0f/weight)));put(row.normal,pose.q.rotateInv(normal.getNormalized()));
     put(row.load,pose.q.rotateInv(force*invDt));put(row.torque,pose.q.rotateInv(torque*invDt));put(row.com,pose.transformInv(com));
