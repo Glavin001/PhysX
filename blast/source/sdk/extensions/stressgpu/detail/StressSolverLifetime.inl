@@ -158,7 +158,7 @@ uploadIslands();
         cudaFree(m_direction);
         cudaFree(m_gradient);
         cudaFree(m_rhs);
-        cudaFree(m_impulses);
+        cudaFree(m_impulses);cudaFree(m_warmSnapshot);m_warmSnapshot=nullptr;
         cudaFree(m_input);
         cudaFree(m_brokenCount);
         cudaFree(m_brokenBonds);

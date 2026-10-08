@@ -11,7 +11,8 @@
 // the stress solve's own stiffness; anchors held):
 //   x0  the corrected pass's loads, converged (the state before the tick);
 //   xt  the trial pass's loads, IMPACT_STATIC_ITERATIONS (64) from x0;
-//   xc  the corrected pass's loads, 64 iterations from xt;
+//   xc  the corrected pass's loads, 64 iterations from xt (IMPACT_WARM=pretick:
+//       from x0, the tick's start, as PX_DESTRUCTION_CORRECTED_WARM_START does);
 // and counts the joints the static verdict breaks (utilisation >= 1) under
 // xc against those of x0 -- the verdict of the corrected pass's own loads.
 // With IMPACT_ROUTE=1 the trial's contact rows go through the routing
@@ -219,8 +220,14 @@ int run(int argc,char** argv)
     impact::Inputs trialInputs=in;trialInputs.accelerations=trialLoads;
     check(cudaMemset(g.x,0,sizeof(float)*6*impact::kExNodes));
     const PxU32 reference=solve(correctedLoads,100000,"corrected loads, converged (x0)");
+    // IMPACT_WARM=pretick: the corrected pass starts from the state the tick
+    // began with (PX_DESTRUCTION_CORRECTED_WARM_START; here x0, the tick at rest
+    // under the corrected pass's dead load), not from the trial's.
+    const bool pretick=std::getenv("IMPACT_WARM") && std::string(std::getenv("IMPACT_WARM"))=="pretick";
+    float* x0;allocate(x0,6*size_t(impact::kExNodes));check(cudaMemcpy(x0,g.x,sizeof(float)*6*impact::kExNodes,cudaMemcpyDeviceToDevice));
     solve(trialInputs,cap,route?"trial loads, routed, from x0":"trial loads, from x0");
-    const PxU32 after=solve(correctedLoads,cap,"corrected loads, from the trial's state");
+    if(pretick)check(cudaMemcpy(g.x,x0,sizeof(float)*6*impact::kExNodes,cudaMemcpyDeviceToDevice));
+    const PxU32 after=solve(correctedLoads,cap,pretick?"corrected loads, from the tick's start (x0)":"corrected loads, from the trial's state");
     std::printf("corrected pass: %u breaks against %u under its own loads%s\n",after,reference,after<=reference?"":" -- the trial's contact loads carried into it");
     // IMPACT_STATIC_CASCADE=1: the corrected loads' cascade, each round
     // converged: brittle-only (today's static verdict: every joint at capacity

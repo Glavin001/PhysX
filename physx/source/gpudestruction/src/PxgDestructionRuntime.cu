@@ -969,6 +969,8 @@ class Runtime final : public PxgDestructionRuntime {
     // DIR/impact-<frame>-<pass>.impc, at most PX_DESTRUCTION_IMPACT_CAPTURE_COUNT
     // (default 4) -- for tests/impact_capture_replay (implies the log's sync).
     const char* mImpactCaptureDir=std::getenv("PX_DESTRUCTION_IMPACT_CAPTURE");
+    // The corrected pass's elastic solve warm-started from the tick's start (opt-in).
+    const bool mCorrectedWarmStart=[]{const char* v=std::getenv("PX_DESTRUCTION_CORRECTED_WARM_START");return v && v[0]=='1';}();
     PxU32 mImpactCaptures=0,mImpactMaterialCount=0;PxU64 mImpactEvaluations=0;impact::SolveRecord* mImpactRecords{};
     // PX_DESTRUCTION_IMPACT_CAPTURE_STATIC=N (with the capture directory and
     // the log): capture a pass whose static verdict breaks N or more bonds,
@@ -2333,6 +2335,12 @@ public:
                 check(cudaEventRecord(mReady,mStream));
             }
             if(mSolver) {
+                // PX_DESTRUCTION_CORRECTED_WARM_START=1: a corrected pass re-simulates the
+                // tick from its start, so its elastic solve starts from the state the
+                // tick began with, not from the trial's solution (computed under loads
+                // the corrected pass no longer has; with the iteration cap its verdict
+                // judged that iterate: tests destruction_gpu_impact_static_handoff_*).
+                if(mCorrectedWarmStart){if(!mPass)Nv::Blast::ExtStressGpuSnapshotWarmStart(mSolver);else Nv::Blast::ExtStressGpuRestoreWarmStart(mSolver);}
                 if(!mSolver->solveDeviceAsync(reinterpret_cast<ExtStressGpuImpulse*>(mInputs),mN,mParams,mReady,mConsumer))
                     throw std::runtime_error("resident stress solve submission failed");
                 const auto view=mSolver->deviceView();

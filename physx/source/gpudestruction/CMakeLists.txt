@@ -146,6 +146,10 @@ if(BUILD_TESTING)
         set_tests_properties(destruction_gpu_impact_static_handoff_${_shot} PROPERTIES ENVIRONMENT "CUMETAL_USE_METAL_DEVICE_ADDRESSES=1;IMPACT_ROUTE=1;IMPACT_STATIC_ISLAND=1443")
         add_test(NAME destruction_gpu_impact_static_handoff_${_shot}_unrouted COMMAND destruction_impact_static_handoff "${_handoff}-trial.impc" "${_handoff}-corrected.impc")
         set_tests_properties(destruction_gpu_impact_static_handoff_${_shot}_unrouted PROPERTIES ENVIRONMENT "CUMETAL_USE_METAL_DEVICE_ADDRESSES=1;IMPACT_ROUTE=0;IMPACT_STATIC_ISLAND=1443" WILL_FAIL TRUE)
+        # Unrouted, the corrected pass warm-started from the tick's start
+        # (PX_DESTRUCTION_CORRECTED_WARM_START): its verdict is its own loads'.
+        add_test(NAME destruction_gpu_impact_static_handoff_${_shot}_pretick COMMAND destruction_impact_static_handoff "${_handoff}-trial.impc" "${_handoff}-corrected.impc")
+        set_tests_properties(destruction_gpu_impact_static_handoff_${_shot}_pretick PROPERTIES ENVIRONMENT "CUMETAL_USE_METAL_DEVICE_ADDRESSES=1;IMPACT_ROUTE=0;IMPACT_WARM=pretick;IMPACT_STATIC_ISLAND=1443")
     endforeach()
     # The invariant (impact::heldOverCapacity, Status::heldOverCapacity): no
     # impactor stopped rigidly by a struck chunk past capacity with nothing of it
