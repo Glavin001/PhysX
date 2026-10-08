@@ -354,6 +354,21 @@ __device__ __forceinline__ void exCone(const float* W,const float* g,const float
 }
 // 1. The patches: one per island with a routed row, in row order; each
 // patch's rows (at most kExRows) and its impactor bodies.
+// A two-body row (Settings::explicitTwoBody) is the window's whatever the routing
+// says: a car's joints are graded on its contacts, and against an anchored chunk
+// that may break in the corrected pass the trial's rigid stop is not what the car
+// meets (vehicle_contact_load: 43 kN graded against 15 kN on a slow wheel the
+// routing left static). stepRow without the routing test, for a row whose other
+// chunk is a live chunk of another island.
+__device__ __forceinline__ bool exTwoBodyRow(const Inputs& in,const Settings& s,PxU32 r,PxU32 island)
+{
+    if(!s.explicitTwoBody)return false;
+    const ContactRow& row=in.rows[r];const PxU32 o=row.other;
+    if(o>=in.chunkCount || !(in.chunks[o].mass>0.0f) || chunkGone(in,o) || in.nodeIslands[o]==island)return false;
+    if(row.chunk>=in.chunkCount || in.nodeIslands[row.chunk]!=island || !(in.chunks[row.chunk].mass>0.0f) || chunkGone(in,row.chunk))return false;
+    if(row.resting)return false;
+    return row.im>0.0f && isfinite(row.im);
+}
 __global__ void exList(Inputs in,Settings s,Scratch w,ExScratch t)
 {
     if(blockIdx.x || threadIdx.x)return;
@@ -361,7 +376,7 @@ __global__ void exList(Inputs in,Settings s,Scratch w,ExScratch t)
     PxU32 count=0;
     for(PxU32 r=0;r<rows;++r) {
         const PxU32 c=in.rows[r].chunk;if(c>=in.chunkCount)continue;
-        const PxU32 island=in.nodeIslands[c];if(island>=in.chunkCount || !stepRow(in,r,island))continue;
+        const PxU32 island=in.nodeIslands[c];if(island>=in.chunkCount || !(stepRow(in,r,island) || exTwoBodyRow(in,s,r,island)))continue;
         PxU32 p=0;while(p<count && t.patches[p].island!=island)++p;
         if(p==count) {
             if(count>=kExPatches){atomicOr(&w.status->error,1u);continue;}
