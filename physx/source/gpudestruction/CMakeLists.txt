@@ -150,9 +150,10 @@ if(BUILD_TESTING)
     set_tests_properties(destruction_gpu_impact_explicit_cannon PROPERTIES ENVIRONMENT "CUMETAL_USE_METAL_DEVICE_ADDRESSES=1;IMPACT_EXPLICIT_DT_US=32")
     # The two-body window (Settings::explicitTwoBody) against vibe-land scripts/impact/two-body.py
     # --export: the monster truck into the lab's masonry wall, real joints at 21.7 m/s and default
-    # joints at 10 m/s (compliant rows, implicit car joints).
-    foreach(_case w21rj w10)
-        add_test(NAME destruction_gpu_two_body_${_case} COMMAND destruction_two_body_replay "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/two-body/truck-wall-${_case}")
+    # joints at 10 m/s (compliant rows, implicit car joints); and the row law alone, a steel sphere
+    # on a steel block (Hertz: contact_law.py hertz_check).
+    foreach(_case truck-wall-w21rj truck-wall-w10 hertz)
+        add_test(NAME destruction_gpu_two_body_${_case} COMMAND destruction_two_body_replay "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/two-body/${_case}")
         set_tests_properties(destruction_gpu_two_body_${_case} PROPERTIES ENVIRONMENT "CUMETAL_USE_METAL_DEVICE_ADDRESSES=1")
     endforeach()
     # The cannonball's pair, and the truck's (framed-house: its chassis's released
