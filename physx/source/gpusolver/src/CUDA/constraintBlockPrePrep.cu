@@ -120,7 +120,7 @@ static __device__ PxU32 createSolverContactConstraintDescsFromPatchWithSharedMem
 	PxgBlockContactData& prepData, PxgBlockContactPoint* blockContactPoints, PxgBlockWorkUnit& workUnit,
 	PxgBlockConstraintBatch& /*batch*/, const PxU32 threadIndex,
 	PxContactPatch* gContactPatch, PxContact* contactPoints, PxU32 endIndex,
-	PxU32 prevFrictionPatchCount, PxU32& contactStartIndex, PxU32 numActiveThreads)
+	PxU32 prevFrictionPatchCount, PxU32& contactStartIndex, PxU32 numActiveThreads, PxReal pointBound = PX_MAX_REAL)
 {  
 	__shared__ void* srcPatch[PxgKernelBlockDim::CONSTRAINT_PREPREP_BLOCK];
 	__shared__ PxU32 shPatchBuff[PxgKernelBlockDim::CONSTRAINT_PREPREP_BLOCK][16+1]; //+1 to avoid bank conflicts!
@@ -319,7 +319,7 @@ static __device__ PxU32 createSolverContactConstraintDescsFromPatchWithSharedMem
 				if(stride != 1)
 					p.targetVel_maxImpulseW[threadIndex] = make_float4(points[readInd+1].x, points[readInd+1].y, points[readInd+1].z, points[readInd+1].w);
 				else
-					p.targetVel_maxImpulseW[threadIndex] = make_float4(0.f, 0.f, 0.f, PX_MAX_REAL);
+					p.targetVel_maxImpulseW[threadIndex] = make_float4(0.f, 0.f, 0.f, pointBound);	// PX_MAX_REAL unless an anchored chunk's
 			}
 
 			__syncwarp(); //Required according to racecheck. From ptr points is read above but the next iteration of the for loop will already write to shPatchBuff (ptr points to shPatchBuff)
@@ -836,6 +836,7 @@ extern "C" __global__ void constraintContactBlockPrePrepLaunch(PxgPrePrepDesc* g
 			PxU32 contactCount = 0;
 			PxU32 forceIndex = 0xFFFFFFFF;
 			n.mFrictionPatchIndex[threadIndexInWarp] = 0xFFFFFFFF;
+			PxReal pointBound = PX_MAX_REAL;	// the destruction stage's anchored-chunk bound (PxgAnchoredContactBound.h)
 
 			if(threadIndexInWarp < batchHeader.mDescStride)
 			{
@@ -1004,6 +1005,23 @@ extern "C" __global__ void constraintContactBlockPrePrepLaunch(PxgPrePrepDesc* g
 
 					contactCount = contactPatch->nbContacts;
 
+					// A contact on an anchored destructible chunk: no more impulse
+					// per point than the chunk can take over the step (its bonds'
+					// capacity and its own inertia), from the bodies' velocities at
+					// the start of the pass.
+					if(shDesc.anchoredContactBound.chunks && contactPatch)
+					{
+						// (An articulation link's velocity is not in the body sims: taken as
+						// still, its pair's bound is the bonds' capacity alone.)
+						const float4 zero = make_float4(0.f, 0.f, 0.f, 0.f);
+						const float4 l0 = (isStaticA || isArticulationA) ? zero : bodySims[nodeIndexA].linearVelocityXYZ_inverseMassW;
+						const float4 l1 = (isStaticB || isArticulationB) ? zero : bodySims[nodeIndexB].linearVelocityXYZ_inverseMassW;
+						// Anchored: a dynamic body's slot with no inverse mass (kinematic).
+						const bool kinematic0 = !isStaticA && !isArticulationA && l0.w == 0.f;
+						const bool kinematic1 = !isStaticB && !isArticulationB && l1.w == 0.f;
+						pointBound = anchoredContactPointBound(shDesc.anchoredContactBound, cmOutputIndex, kinematic0, kinematic1,
+							PxVec3(l0.x, l0.y, l0.z), PxVec3(l1.x, l1.y, l1.z), contactPatch->normal, totalContacts);
+					}
 				}
 			}
 
@@ -1047,7 +1065,7 @@ extern "C" __global__ void constraintContactBlockPrePrepLaunch(PxgPrePrepDesc* g
 
 			createSolverContactConstraintDescsFromPatchWithSharedMem(contactBlockPrepData, blockContactPoints[warpIndexInBlock], n, batch,
 				threadIndexInWarp, contactPatch, contacts,
-				batchHeader.mDescStride, prevFrictionPatchCount, contactStartIndex, WARP_SIZE * numActiveWarpsInBlock);
+				batchHeader.mDescStride, prevFrictionPatchCount, contactStartIndex, WARP_SIZE * numActiveWarpsInBlock, pointBound);
 
 			n.mWriteback[threadIndexInWarp] = forceIndex + contactStartIndex;
 

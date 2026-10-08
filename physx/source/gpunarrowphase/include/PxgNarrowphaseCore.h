@@ -594,6 +594,8 @@ namespace physx
 		void prepareGpuNarrowphase(PxsTransformCache& cache, const PxReal* contactDistances, bool hasContactDistanceChanged);
 
 		PxsContactManagerOutput* getGPUContactManagerOutputBase() { return reinterpret_cast<PxsContactManagerOutput*>(mGpuContactManagers[GPU_BUCKET_ID::eConvex]->mContactManagers.mContactManagerOutputData.getDevicePtr()); }
+		// The inputs beside those outputs (same index): the destruction stage's anchored-contact bound reads their shapes.
+		PxgContactManagerInput* getGPUContactManagerInputBase() { return reinterpret_cast<PxgContactManagerInput*>(mGpuContactManagers[GPU_BUCKET_ID::eConvex]->mContactManagers.mContactManagerInputData.getDevicePtr()); }
 
 		PxReal* getGPURestDistances() { return reinterpret_cast<PxReal*>(mGpuContactManagers[GPU_BUCKET_ID::eConvex]->mContactManagers.mRestDistances.getDevicePtr()); }
 

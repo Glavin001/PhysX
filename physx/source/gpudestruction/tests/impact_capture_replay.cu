@@ -105,6 +105,31 @@ __global__ void wrenchBlocks(impact::Scratch w,impact::Island is,float* B)
         for(int k=0;k<6;++k){B[72*size_t(l)+6*k+q]=r0[k];B[72*size_t(l)+36+6*k+q]=r1[k];}}
 }
 float env(const char* name,float fallback){const char* v=std::getenv(name);return v && *v?float(std::atof(v)):fallback;}
+// IMPACT_ROWS: routeRows' terms per row (impact::routeRows, the same loop):
+// v_n, the chunk's joints' stiffness k and weakest capacity along the normal,
+// the peak force, the joints visited and those prepared.
+__global__ void routeTerms(impact::Inputs in,impact::Settings s,PxU32 rows,float* out)
+{
+    const PxU32 r=blockIdx.x*blockDim.x+threadIdx.x;if(r>=rows)return;
+    const impact::ContactRow& row=in.rows[r];const PxU32 c=row.chunk;float* o=out+8*r;for(int q=0;q<8;++q)o[q]=0.0f;
+    if(c>=in.chunkCount)return;
+    float n[3]={row.normal[0],row.normal[1],row.normal[2]};const float nl=sqrtf(n[0]*n[0]+n[1]*n[1]+n[2]*n[2]);if(!(nl>0.0f))return;
+    for(int q=0;q<3;++q)n[q]/=nl;
+    const float vn=fmaxf(0.0f,row.velocity[0]*n[0]+row.velocity[1]*n[1]+row.velocity[2]*n[2]);
+    float k=0.0f,cap=FLT_MAX;PxU32 visited=0,members=0,prepared=0;
+    for(PxU32 slot=in.nodeBegin[c];slot<in.nodeBegin[c+1];++slot) {
+        const PxU32 i=in.nodeRefs[slot];++visited;if(!impact::bondMember(in,i))continue;++members;
+        impact::Bond b;if(!impact::prepareBond(in,s,i,b))continue;++prepared;
+        k+=b.kl;
+        const float a=(b.c0==c?1.0f:-1.0f)*(b.n[0]*n[0]+b.n[1]*n[1]+b.n[2]*n[2]),t=sqrtf(fmaxf(0.0f,1.0f-a*a));
+        float f=FLT_MAX;if(fabsf(a)>0.0f)f=(a>0.0f?b.capC:b.capT)/fabsf(a);if(t>0.0f)f=fminf(f,b.capS/t);
+        cap=fminf(cap,f);
+    }
+    const float M=1.0f/row.im,m=in.chunks[c].mass;
+    // (o[7]: the chunk crushed (2) or not (0), plus 1 if its first joint's live area is below the member floor.)
+    {float flag=impact::chunkGone(in,c)?2.0f:0.0f;if(in.nodeBegin[c]<in.nodeBegin[c+1]){const PxU32 i=in.nodeRefs[in.nodeBegin[c]];if(!(in.health[i]>8.0f*FLT_EPSILON*in.bonds[i].area))flag+=1.0f;}o[7]=flag;o[0]=vn;}
+    if(false)o[1]=k;o[2]=cap;o[3]=k>0.0f?vn*M*sqrtf(k/(M+m)):0.0f;o[4]=float(visited);o[5]=float(members);o[6]=float(prepared);
+}
 int run(int argc,char** argv){
     if(argc<2){std::fprintf(stderr,"usage: %s CAPTURE.impc [runs]\n",argv[0]);return 2;}
     File f(argv[1]);
@@ -157,6 +182,16 @@ int run(int argc,char** argv){
         in.accelerations=loads;in.rowRouted=routed;
         std::vector<PxU32> r(h.rows);check(cudaMemcpy(r.data(),routed,sizeof(PxU32)*h.rows,cudaMemcpyDeviceToHost));
         PxU32 c=0;for(PxU32 x:r)c+=x;std::printf("routing: %u of %u rows to the impact model\n",c,h.rows);
+        // IMPACT_ROWS: each row as captured, and its routing.
+        std::vector<float> terms(8*size_t(h.rows));
+        if(std::getenv("IMPACT_ROWS")){float* t;allocate(t,8*size_t(h.rows));routeTerms<<<(h.rows+127)/128,128>>>(in,s,h.rows,t);check(cudaDeviceSynchronize());
+            check(cudaMemcpy(terms.data(),t,sizeof(float)*terms.size(),cudaMemcpyDeviceToHost));}
+        if(std::getenv("IMPACT_ROWS"))for(PxU32 i=0;i<h.rows;++i){const auto& q=hostRows[i];const float* t=terms.data()+8*i;
+            std::printf("  route terms: v_n %.3g, k %.3g N/m, weakest capacity %.3g N, peak %.3g N; joints %.0f visited, %.0f members, %.0f prepared; gone/worn %.0f\n",t[0],t[1],t[2],t[3],t[4],t[5],t[6],t[7]);
+            const float nl=std::sqrt(q.normal[0]*q.normal[0]+q.normal[1]*q.normal[1]+q.normal[2]*q.normal[2]);
+            const float vn=nl>0.0f?(q.velocity[0]*q.normal[0]+q.velocity[1]*q.normal[1]+q.velocity[2]*q.normal[2])/nl:0.0f;
+            std::printf("row %u: chunk %u body %u 1/m %.3g points %u resting %u routed %u; v (%.2f %.2f %.2f) closing %.2f; dv (%.2f %.2f %.2f); load (%.3g %.3g %.3g) N\n",
+                i,q.chunk,q.body,q.im,q.points,q.resting,r[i],q.velocity[0],q.velocity[1],q.velocity[2],vn,q.dv[0],q.dv[1],q.dv[2],q.load[0],q.load[1],q.load[2]);}
     }
     cudaStream_t stream;check(cudaStreamCreateWithFlags(&stream,cudaStreamNonBlocking));
     impact::Stage e;e.allocate(n,m);

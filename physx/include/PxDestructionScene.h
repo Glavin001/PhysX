@@ -355,6 +355,11 @@ struct PxDestructionStageStatus {
     // instead (a known gap: must trend to 0); and impactor contacts stopped
     // rigidly by a struck chunk past capacity with nothing broken (a bug).
     PxU32 impactCappedFallback, impactHeldOverCapacity;
+    // Contacts on anchored chunks (PX_DESTRUCTION_ANCHORED_CONTACT_BOUND) cut
+    // at the chunk's bound in a pass whose verdict then broke none of its
+    // bonds: the impactor pushed past a chunk that stayed in place, a ghost
+    // wall (a bug: the bound is the most its bonds and inertia can take).
+    PxU32 anchoredGhosts;
 };
 // Why a stress component's last solve stopped (getStressSolveReport).
 struct PxDestructionStressStopReason {
