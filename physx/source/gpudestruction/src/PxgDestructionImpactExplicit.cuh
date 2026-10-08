@@ -16,7 +16,7 @@
 // (Moreau: an inelastic impulse per substep, Coulomb cone). Each substep h:
 //
 //   v += h M^-1 (B J + f0)            f0 = -B J0: the rest forces balance the dead load
-//   v += M^-1 B_c P,  P = proj_W(-W^-1 B_c^T v)  every contact row at once (Jacobi, mass split)
+//   v += M^-1 B_c P,  P in the Coulomb cone (exCone)  every contact row at once (Jacobi, mass split)
 //   J  = J - h k (B^T v)              the trial
 //   brittle joint, util >= 1 - band:  breaks (J = 0; its rest force J0 is released)
 //   ductile joint, util > 1:          J /= util (radial return), slip += |dJ_pl| / k,
@@ -112,19 +112,23 @@ __device__ __forceinline__ void exApplyInverse(const ExNode& n,const float* f,fl
     else for(int q=0;q<3;++q)dv[3+q]=n.Iinv[q]*f[3+q];
 }
 
-// The Coulomb cone K = {P_N <= 0, |P_T| <= mu |P_N|}: the projection of the
-// unconstrained impulse Ps (= -W^-1 g, which stops the relative motion) onto K
-// in the contact's own metric W, argmin over P in K of (P - Ps)^T W (P - Ps)/2.
-// It never adds energy: the kinetic energy change g.P + P^T W P / 2 equals
-// (P - Ps)^T W (P - Ps)/2 - Ps^T W Ps/2, at most that of P = 0 (0 is in K).
-// (Scaling the tangential part alone, the normal kept, can add energy where W
-// couples them: a spinning fragment's off-centre contact.) On the boundary,
-// P = l d(t), d = (-1, mu cos t, mu sin t): for each t the best l >= 0 is
-// d^T W Ps / d^T W d; t by a scan of the circle refined by golden section.
-__device__ __forceinline__ void exCone(const float* W,const float* Ps,float mu,float* P)
+// A contact's impulse in the Coulomb cone K = {P_N <= 0, |P_T| <= mu |P_N|},
+// from the impulse Ps = -W^-1 g that stops its relative motion (sticking):
+// - Ps in K: it sticks.
+// - Otherwise it slides (Coulomb): the normal approach is stopped, the
+//   tangential impulse is mu |P_N| against the slip, t its direction: P_T =
+//   -mu P_N t, and P_N from the normal row, g_N + W_NN P_N + W_NT . P_T = 0,
+//   so P_N = -g_N / (W_NN - mu W_NT . t). t follows the slip after the
+//   impulse (g + W P)_T, from Ps's tangential direction, to a fixed point.
+// - The sliding solution must not add kinetic energy (g . P + P^T W P / 2 <=
+//   0) nor pull (P_N <= 0); where it would (W coupling normal and tangential
+//   strongly: a spinning fragment's off-centre contact) or does not exist, the
+//   impulse is the projection of Ps onto K in the metric W, which never adds
+//   energy (0 is in K) but lets the contact separate along the cone (dilation).
+// Scaling the tangential part alone, the normal kept, could add energy: a
+// 7.8 kg fragment spinning at 180 rad/s went to 280 rad/s.
+__device__ __forceinline__ void exConeMetric(const float* W,const float* Ps,float mu,float* P)
 {
-    const float tn=sqrtf(Ps[1]*Ps[1]+Ps[2]*Ps[2]);
-    if(Ps[0]<=0.0f && tn<=mu*-Ps[0]){P[0]=Ps[0];P[1]=Ps[1];P[2]=Ps[2];return;}
     float WP[3];for(int i=0;i<3;++i)WP[i]=W[3*i]*Ps[0]+W[3*i+1]*Ps[1]+W[3*i+2]*Ps[2];
     auto value=[&](float t,float& l){const float d[3]={-1.0f,mu*cosf(t),mu*sinf(t)};
         float Wd[3];for(int i=0;i<3;++i)Wd[i]=W[3*i]*d[0]+W[3*i+1]*d[1]+W[3*i+2]*d[2];
@@ -140,6 +144,32 @@ __device__ __forceinline__ void exCone(const float* W,const float* Ps,float mu,f
         const float t=0.5f*(a+b);float l;if(value(t,l)<best){tb=t;}
         value(tb,l);P[0]=-l;P[1]=l*mu*cosf(tb);P[2]=l*mu*sinf(tb);
     }
+}
+__device__ __forceinline__ void exCone(const float* W,const float* g,const float* Ps,float mu,float* P)
+{
+    const float tn=sqrtf(Ps[1]*Ps[1]+Ps[2]*Ps[2]);
+    if(Ps[0]<=0.0f && tn<=mu*-Ps[0]){P[0]=Ps[0];P[1]=Ps[1];P[2]=Ps[2];return;}
+    if(Ps[0]<=0.0f && mu>0.0f && tn>0.0f) {
+        float t[2]={Ps[1]/tn,Ps[2]/tn},PN=0.0f;bool ok=false;
+        for(int it=0;it<8;++it) {
+            const float den=W[0]-mu*(W[1]*t[0]+W[2]*t[1]);
+            if(!(den>0.0f)){ok=false;break;}
+            PN=-g[0]/den;if(!(PN<=0.0f)){ok=false;break;}
+            const float PT[2]={-mu*PN*t[0],-mu*PN*t[1]};
+            // the slip after the impulse; the friction opposes it (P_T along -slip)
+            const float s1=g[1]+W[3]*PN+W[4]*PT[0]+W[5]*PT[1],s2=g[2]+W[6]*PN+W[7]*PT[0]+W[8]*PT[1],sn=sqrtf(s1*s1+s2*s2);
+            ok=true;if(!(sn>0.0f))break;
+            const float u[2]={-s1/sn,-s2/sn};const float change=fabsf(u[0]-t[0])+fabsf(u[1]-t[1]);t[0]=u[0];t[1]=u[1];
+            if(change<1e-4f)break;
+        }
+        if(ok) {
+            P[0]=PN;P[1]=-mu*PN*t[0];P[2]=-mu*PN*t[1];
+            float WPv[3];for(int i=0;i<3;++i)WPv[i]=W[3*i]*P[0]+W[3*i+1]*P[1]+W[3*i+2]*P[2];
+            const float dE=g[0]*P[0]+g[1]*P[1]+g[2]*P[2]+0.5f*(P[0]*WPv[0]+P[1]*WPv[1]+P[2]*WPv[2]);
+            if(dE<=0.0f)return;
+        }
+    }
+    exConeMetric(W,Ps,mu,P);
 }
 // 1. The patches: one per island with a routed row, in row order; each
 // patch's rows (at most kExRows) and its impactor bodies.
@@ -410,7 +440,7 @@ __global__ __launch_bounds__(kExThreads) void exRun(Settings s,Scratch w,ExScrat
             float g[6]={0,0,0,0,0,0};exRelative(b,0,vS+6*x.a,g);exRelative(b,1,vS+6*x.b,g);
             // P = -W^-1 g, then the cone: compression only (P_N <= 0), |P_T| <= mu |P_N|.
             float Ps[3];for(int i=0;i<3;++i)Ps[i]=-(x.Winv[3*i]*g[0]+x.Winv[3*i+1]*g[1]+x.Winv[3*i+2]*g[2]);
-            float P[3];exCone(x.W,Ps,b.area,P);
+            float P[3];exCone(x.W,g,Ps,b.area,P);
             for(int q=0;q<3;++q){x.P[q]=P[q];x.total[q]+=P[q];}
             // Pushing: an impulse the impactor's momentum resolves in float (below
             // its float resolution it exchanges nothing representable).

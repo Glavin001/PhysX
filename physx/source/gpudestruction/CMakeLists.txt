@@ -88,8 +88,11 @@ if(BUILD_TESTING)
     px_destruction_cuda_properties(destruction_impact_replay PROPERTIES CUDA_STANDARD 17 CUDA_ARCHITECTURES "${CMAKE_CUDA_ARCHITECTURES}")
     # The explicit impact step (PxgDestructionImpactExplicit.cuh) on the
     # cannonball's dumped island against vibe-land scripts/impact/explicit-step.py
-    # --fp32 --sweeps 1 at the same substep: the broken sets' Jaccard index at
-    # least 0.9, the impactor's momentum change within 1%.
+    # --fp32 --contacts jacobi (the GPU's own contact iteration: every row from the
+    # same velocities, mass split) at the same substep: the broken sets' Jaccard
+    # index at least 0.9, the impactor's momentum change within 1% (measured: 1.000
+    # and 0.00%; the harness's FP32 and FP64 agree exactly; against its
+    # Gauss-Seidel rows, a different iteration, 0.927).
     add_executable(destruction_impact_explicit_replay tests/impact_explicit_replay.cu)
     target_link_libraries(destruction_impact_explicit_replay PRIVATE PhysXDestructionTopologyGpu)
     target_include_directories(destruction_impact_explicit_replay PRIVATE ../../../blast/include/extensions/stress)
