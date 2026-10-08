@@ -272,6 +272,10 @@ struct ImpactContact {
     // each chunk's {capacity * dt, mass} as the rigid solver's contact prep read
     // it, and per chunk a flag: a contact on it was cut at that bound this pass.
     PxgAnchoredContactBoundView anchored; PxU32* saturated;
+    // Diagnostics (PX_DESTRUCTION_DEBUG_BODY=<gpu body index>, with the impact log): each pair of
+    // that body with a stage chunk this pass -- the other chunk, its body, its inverse mass, the
+    // pair's summed normal impulse (world, on the debug body) and its deepest separation.
+    PxU32 debugBody=0xffffffffu; float4* debug=nullptr; PxU32* debugCount=nullptr;
 };
 // One side of a pair as a coupled-contact row (impact::ContactRow): the struck
 // chunk `chunk` (its cluster kinematic), the other body `other` dynamic. Sums
@@ -523,6 +527,15 @@ __global__ void routeContacts(PxgDestructionSolvedContacts contacts, const Looku
             contactRate(a,b,p,it.getPosition(),impulse,bodies,chunks,materials,rates,status);
             ++anchors;
         }}
+    }
+    if(normals && ci.debug && (p.nodeIndex0.index()==ci.debugBody || p.nodeIndex1.index()==ci.debugBody)) {
+        const bool first=p.nodeIndex0.index()==ci.debugBody;const PxU32 oc=first?b:a;const PxNodeIndex on=first?p.nodeIndex1:p.nodeIndex0;
+        PxVec3 J(0.0f);float sep=FLT_MAX;PxU32 pt=0;
+        PxContactStreamIterator it(p.contactPatches,p.contactPoints,NULL,p.nbPatches,p.nbContacts);
+        while(it.hasNextPatch()){it.nextPatch();while(it.hasNextContact()){it.nextContact();J+=it.getContactNormal()*(p.contactForces[pt++]*(first?1.0f:-1.0f));sep=fminf(sep,it.getSeparation());}}
+        const PxU32 k=atomicAdd(ci.debugCount,1u);
+        if(k<64u){const float im=on.isStaticBody()?0.0f:bodies[on.index()].linearVelocityXYZ_inverseMassW.w;
+            ci.debug[2*k]=make_float4(__uint_as_float(oc),__uint_as_float(on.isStaticBody()?0xffffffffu:on.index()),im,sep);ci.debug[2*k+1]=make_float4(J.x,J.y,J.z,float(normals));}
     }
     if(normals)anchoredSaturation(a,b,p,bodies,ci);
     if(normals && ci.rows) {
@@ -1203,7 +1216,7 @@ class Runtime final : public PxgDestructionRuntime {
     // the per-root sums of the fragments' hand-off (PxgDestructionHandoff.cuh).
     PxU32* mRoutedChunks{};float4* mWindowV{};PxU32* mWindowMask{};PxU32* mWindowDecided{};float4* mHandoffSums{};float4* mClusterStart{};bool mCompliant=false;std::vector<PxU32> mHandoffLog;
     PxDestructionChunkBox* mChunkBoxes{};   // PxDestructionStressDesc::chunkBoxes (the step's contact geometry), or null
-    PxU32* mFaceBegin{};PxU32* mFaceList{};PxU32* mReboundGain{};   // chunkFaceNeighbourBegin, chunkFaceNeighbours (internal faces), or null
+    PxU32* mFaceBegin{};PxU32* mFaceList{};PxU32* mReboundGain{};float4* mDebugPairs{};PxU32* mDebugCount{};   // chunkFaceNeighbourBegin, chunkFaceNeighbours (internal faces), or null
     // Per rigid body (motion storage capacity): the corrected pass's bound on
     // its contacts (max impulse per point; bits of a float), its own max
     // impulse before (to restore), and whether it is bounded.
@@ -1846,7 +1859,7 @@ public:
         cudaFree(mImpactImpactor);mImpactImpactor=nullptr;cudaFree(mImpactStriker);mImpactStriker=nullptr;cudaFree(mCrushDemand);mCrushDemand=nullptr;mCrushDemandCapacity=0;cudaFree(mCrushBoundAudit);mCrushBoundAudit=nullptr;mCrushEnergyBound=false;cudaFree(mAnchoredChunks);mAnchoredChunks=nullptr;cudaFree(mAnchoredBonds);mAnchoredBonds=nullptr;cudaFree(mAnchoredSaturated);mAnchoredSaturated=nullptr;cudaFree(mAnchoredGhosts);mAnchoredGhosts=nullptr;mAnchoredBound=mAnchoredReady=false;
         cudaFree(mImpactRows);mImpactRows=nullptr;cudaFree(mImpactRowCount);mImpactRowCount=nullptr;
         cudaFree(mImpactRowDelta);mImpactRowDelta=nullptr;cudaFree(mImpactRowForce);mImpactRowForce=nullptr;cudaFree(mImpactRowBound);mImpactRowBound=nullptr;cudaFree(mImpactRowRouted);mImpactRowRouted=nullptr;
-        cudaFree(mRoutedChunks);mRoutedChunks=nullptr;cudaFree(mWindowV);mWindowV=nullptr;cudaFree(mWindowMask);mWindowMask=nullptr;cudaFree(mWindowDecided);mWindowDecided=nullptr;cudaFree(mHandoffSums);mHandoffSums=nullptr;cudaFree(mClusterStart);mClusterStart=nullptr;mCompliant=false;cudaFree(mChunkBoxes);mChunkBoxes=nullptr;cudaFree(mFaceBegin);mFaceBegin=nullptr;cudaFree(mReboundGain);mReboundGain=nullptr;cudaFree(mFaceList);mFaceList=nullptr;
+        cudaFree(mRoutedChunks);mRoutedChunks=nullptr;cudaFree(mWindowV);mWindowV=nullptr;cudaFree(mWindowMask);mWindowMask=nullptr;cudaFree(mWindowDecided);mWindowDecided=nullptr;cudaFree(mHandoffSums);mHandoffSums=nullptr;cudaFree(mClusterStart);mClusterStart=nullptr;mCompliant=false;cudaFree(mChunkBoxes);mChunkBoxes=nullptr;cudaFree(mFaceBegin);mFaceBegin=nullptr;cudaFree(mReboundGain);mReboundGain=nullptr;cudaFree(mDebugPairs);mDebugPairs=nullptr;cudaFree(mDebugCount);mDebugCount=nullptr;cudaFree(mFaceList);mFaceList=nullptr;
         cudaFree(mImpactBound);mImpactBound=nullptr;cudaFree(mImpactSaved);mImpactSaved=nullptr;cudaFree(mImpactBounded);mImpactBounded=nullptr;cudaFree(mImpactBoundRequested);mImpactBoundRequested=nullptr;mImpactBoundCapacity=0;
         cudaFree(mCrush);mCrush=nullptr;cudaFree(mTrialCrush);mTrialCrush=nullptr;
         mN=mM=mC=mMapCount=0;
@@ -2657,7 +2670,20 @@ public:
                 if(mCheckpointValid)check(cudaStreamWaitEvent(mStream,mCheckpointReady,0));
                 impactContacts.before=mCheckpointValid?mCheckpointBodies:nullptr;impactContacts.beforeCount=mCheckpointValid?mCheckpointCount:0u;
             }
+            static const PxU32 debugBody=[]{const char* v=std::getenv("PX_DESTRUCTION_DEBUG_BODY");return v?PxU32(std::atoi(v)):0xffffffffu;}();
+            if(mImpactLog && debugBody!=0xffffffffu) {
+                if(!mDebugPairs){allocate(mDebugPairs,128);allocate(mDebugCount,1);}
+                check(cudaMemsetAsync(mDebugCount,0,sizeof(PxU32),mStream));
+                impactContacts.debugBody=debugBody;impactContacts.debug=mDebugPairs;impactContacts.debugCount=mDebugCount;
+            }
             if(contacts.pairCount)routeContacts<<<(contacts.pairCount+127)/128,128,0,mStream>>>(contacts,mMap,mMapCount,mChunks,mPoses,1.0f/dt,mInputs,mSurface,mStatus,bodyStates,mMaterials,mRates,impactContacts);
+            if(impactContacts.debug) {
+                PxU32 n=0;check(cudaMemcpyAsync(&n,mDebugCount,sizeof n,cudaMemcpyDeviceToHost,mStream));check(cudaStreamSynchronize(mStream));
+                n=std::min(n,64u);std::vector<float4> h(2*size_t(n));if(n)check(cudaMemcpy(h.data(),mDebugPairs,sizeof(float4)*2*n,cudaMemcpyDeviceToHost));
+                for(PxU32 k=0;k<n;++k){PxU32 oc,ob;std::memcpy(&oc,&h[2*k].x,4);std::memcpy(&ob,&h[2*k].y,4);
+                    std::fprintf(stderr,"[impact] debug body %u pass %u: chunk %u body %u (1/m %.3g) sep %.3f m, impulse on it (%.3g %.3g %.3g) N s over %d points\n",
+                        impactContacts.debugBody,mPass,oc,ob,h[2*k].z,h[2*k].w,h[2*k+1].x,h[2*k+1].y,h[2*k+1].z,int(h[2*k+1].w));}
+            }
             // The contact routing (Settings::route): rows past their struck chunk's
             // capacity are the impact model's; their trial loads leave the static
             // solve's inputs, every pass they are in contact.
