@@ -135,6 +135,8 @@ struct WheelConstraintBlock {
     PxVehiclePhysXConstraintState states[PxVehiclePhysXConstraintLimits::eNB_WHEELS_PER_PXCONSTRAINT];
     PxReal bumpStopStiffness;
     PxReal bumpStopDamping;
+    PxReal tyreMaxForce;   // N; 0: unbounded (NativeVehicleDesc::tyreMaxForce)
+    PxReal tyreMaxImpulse; // its impulse over the step the scene is about to take (N s)
 };
 PxU32 wheelConstraintSolverPrep(Px1DConstraint* rows, PxVec3p& offset, PxU32 capacity,
     PxConstraintInvMassScale& scale, const void* block, const PxTransform& a,
@@ -153,6 +155,14 @@ PxU32 wheelConstraintSolverPrep(Px1DConstraint* rows, PxVec3p& offset, PxU32 cap
             rows[i].mods.spring.stiffness = data->bumpStopStiffness;
             rows[i].mods.spring.damping = data->bumpStopDamping;
         }
+        // The road reaches the wheel through its tyre: a limit row pushes no
+        // harder than the tyre can, its impulse over the step at most the tyre's
+        // force times it (as an impulse: the GPU solver took a drive limit's
+        // force for an impulse here, 1 kN bounding the row at 60 kN).
+        if (i < limits && data->tyreMaxForce > 0.0f && data->tyreMaxImpulse > 0.0f) {
+            rows[i].maxImpulse = PxMin(rows[i].maxImpulse, data->tyreMaxImpulse);
+            rows[i].minImpulse = PxMax(rows[i].minImpulse, -data->tyreMaxImpulse);
+        }
     }
     return count;
 }
@@ -160,17 +170,19 @@ class WheelConstraintConnector final : public PxVehicleConstraintConnector {
     PxVehiclePhysXConstraintState* mSource;
     WheelConstraintBlock mBlock;
 public:
-    WheelConstraintConnector(PxVehiclePhysXConstraintState* source, PxReal stiffness, PxReal damping) : mSource(source) {
+    WheelConstraintConnector(PxVehiclePhysXConstraintState* source, PxReal stiffness, PxReal damping, PxReal tyreMaxForce) : mSource(source) {
         for (auto& state : mBlock.states) state.setToDefault();
-        mBlock.bumpStopStiffness = stiffness; mBlock.bumpStopDamping = damping;
+        mBlock.bumpStopStiffness = stiffness; mBlock.bumpStopDamping = damping; mBlock.tyreMaxForce = tyreMaxForce; mBlock.tyreMaxImpulse = 0.0f;
     }
+    // The scene's next step (NativeVehicle::step): the tyre bound's impulse over it.
+    void setStep(PxReal dt) { mBlock.tyreMaxImpulse = mBlock.tyreMaxForce * dt; }
     void* prepareData() override { mBlock.states[0] = *mSource; return &mBlock; }
     const void* getConstantBlock() const override { return &mBlock; }
     PxConstraintSolverPrep getPrep() const override { return wheelConstraintSolverPrep; }
 };
 
 bool createWheelConstraints(PxPhysics& physics, PxRigidBody& actor, PxVehiclePhysXConstraints& constraints,
-    PxReal bumpStopStiffness, PxReal bumpStopDamping)
+    PxReal bumpStopStiffness, PxReal bumpStopDamping, PxReal tyreMaxForce)
 {
     static_assert(PxVehiclePhysXConstraintLimits::eNB_CONSTRAINTS_PER_VEHICLE >= 4,
         "Native four-wheel wrapper needs four constraint slots");
@@ -179,7 +191,7 @@ bool createWheelConstraints(PxPhysics& physics, PxRigidBody& actor, PxVehiclePhy
     for (PxU32 w=0; w<4; ++w) {
         void* memory = PX_ALLOC(sizeof(WheelConstraintConnector), "NativeVehicleWheelConstraint");
         if (!memory) return false;
-        auto* connector = PX_PLACEMENT_NEW(memory, WheelConstraintConnector)(&constraints.constraintStates[w], bumpStopStiffness, bumpStopDamping);
+        auto* connector = PX_PLACEMENT_NEW(memory, WheelConstraintConnector)(&constraints.constraintStates[w], bumpStopStiffness, bumpStopDamping, tyreMaxForce);
         constraints.constraintConnectors[w] = connector;
         constraints.constraints[w] = physics.createConstraint(&actor, nullptr, *connector, shaders, sizeof(WheelConstraintBlock));
         if (!constraints.constraints[w]) return false;
@@ -280,9 +292,32 @@ public:
             return result;
         }
     } loadObserver{*this};
+    // NativeVehicleDesc::tyreMaxForce: each wheel's suspension force bounded by
+    // what its tyre carries, after the SDK's suspension law and before the tyre
+    // reads its load from it (its force law and call order unchanged).
+    PxReal tyreMaxForce = 0.0f;
+    class SuspensionBound : public PxVehicleComponent {
+        Car& car;
+    public:
+        explicit SuspensionBound(Car& vehicle) : car(vehicle) {}
+        bool update(PxReal dt, const PxVehicleSimulationContext& context) override {
+            const bool result = car.PxVehicleSuspensionComponent::update(dt, context);
+            if (car.tyreMaxForce > 0.0f) for (PxU32 w=0; w<4; ++w) {
+                auto& f = car.mBaseState.suspensionForces[w];
+                const PxReal m = f.force.magnitude();
+                if (m > car.tyreMaxForce) {
+                    const PxReal scale = car.tyreMaxForce / m;
+                    f.force *= scale; f.torque *= scale; f.normalForce *= scale;
+                }
+            }
+            return result;
+        }
+    } suspensionBound{*this};
     void initComponentSequence(bool beginEnd) override {
         DirectDriveVehicle::initComponentSequence(beginEnd);
 #if defined(PX_VEHICLE_COMPONENT_REPLACEMENT_VERSION)
+        {const bool suspensionReplaced = mComponentSequence.replace(static_cast<PxVehicleSuspensionComponent*>(this), &suspensionBound);
+         PX_ASSERT(suspensionReplaced);PX_UNUSED(suspensionReplaced);}
         const bool replaced = mComponentSequence.replace(static_cast<PxVehicleRigidBodyComponent*>(this), &loadObserver);
         PX_ASSERT(replaced);PX_UNUSED(replaced);
         if (beginEnd) {
@@ -358,7 +393,8 @@ public:
         PxRigidDynamic* body = mVehicle.mPhysXState.physxActor.rigidBody->is<PxRigidDynamic>();
         if (!body) return false;
         if (desc.keepConstraints && !createWheelConstraints(mPhysics, *body, mVehicle.mPhysXState.physxConstraints,
-                desc.bumpStopStiffness, desc.bumpStopDamping)) return false;
+                desc.bumpStopStiffness, desc.bumpStopDamping, desc.tyreMaxForce)) return false;
+        mVehicle.tyreMaxForce = desc.tyreMaxForce;
         PxShape* shapes[PxVehicleLimits::eMAX_NB_WHEELS + 1];
         const PxU32 count = body->getShapes(shapes, PxVehicleLimits::eMAX_NB_WHEELS + 1);
         for (PxU32 i = 0; i < count; ++i) {
@@ -505,6 +541,10 @@ public:
         mVehicle.loads.available = true;
 #endif
         mVehicle.loads.centerOfMassPose = actor()->getGlobalPose() * actor()->getCMassLocalPose();
+        // (the tyre bound's limit rows over this step: the connectors are ours
+        // whenever it is set, createWheelConstraints)
+        if (mVehicle.tyreMaxForce > 0.0f) for (PxU32 w=0; w<4; ++w)
+            if (auto* c = mVehicle.mPhysXState.physxConstraints.constraintConnectors[w]) static_cast<WheelConstraintConnector*>(c)->setStep(dt);
         mVehicle.step(dt, mContext);
         if (dt > 0 && !actor()->isSleeping()) {
             const auto& state = mVehicle.mBaseState.rigidBodyState;
