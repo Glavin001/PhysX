@@ -2,11 +2,13 @@
 # bench.sh TOOL [RUNS] [ENV...]: the explicit step on the cannonball's first contact (or CAPTURE=...),
 # RUNS times in one process; min and median of build, window and the whole evaluation, the first
 # run (pipeline build) discarded. Shared GPU unless EXCL=1 (the exclusive lock: brief runs only).
+# CuMetal's busy keep-alive holds the GPU clock up as the game does (KEEPALIVE=0: off; the clock
+# then drops between short evaluations and a small patch reads up to 3x slower).
 . "$(dirname "$0")/env.sh"
 T=$1; runs=${2:-20}; shift 2
 C=${CAPTURE:-$F/impact-handoff/cannon-first.impc}
 if [ "${EXCL:-0}" = 1 ]; then pre=(env); else pre=(env VIBE_GPU_SHARED=1); fi
-"${pre[@]}" "$G" explicit-bench env CUMETAL_USE_METAL_DEVICE_ADDRESSES=1 IMPACT_QUIET=1 IMPACT_METHOD=2 IMPACT_ROUTE=1 IMPACT_BOUND_IMPACTOR=1 IMPACT_STEP_LOG=1 "$@" "$T" "$C" "$runs" 2>&1 | python3 -c "
+"${pre[@]}" "$G" explicit-bench env CUMETAL_USE_METAL_DEVICE_ADDRESSES=1 CUMETAL_GPU_KEEPALIVE_BUSY=${KEEPALIVE:-1} IMPACT_QUIET=1 IMPACT_METHOD=2 IMPACT_ROUTE=1 IMPACT_BOUND_IMPACTOR=1 IMPACT_STEP_LOG=1 "$@" "$T" "$C" "$runs" 2>&1 | python3 -c "
 import sys,re,statistics as st
 b=[];w=[];e=[];sub=set()
 for l in sys.stdin:
