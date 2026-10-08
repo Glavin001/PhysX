@@ -8,7 +8,7 @@
 #include <vector>
 namespace impact {
 struct CaptureHeader { char magic[4]; PxU32 version,n,m,materials,rows,settingsBytes,flags; };
-enum CaptureFlag : PxU32 { eCAPTURE_SLIP=1, eCAPTURE_STIFFNESS=2, eCAPTURE_ELASTIC_BASE=4, eCAPTURE_CRUSHED=8, eCAPTURE_SECTIONS=16, eCAPTURE_ROWS=32, eCAPTURE_CARRIED=64, eCAPTURE_SLIP_BEFORE=128 };
+enum CaptureFlag : PxU32 { eCAPTURE_SLIP=1, eCAPTURE_STIFFNESS=2, eCAPTURE_ELASTIC_BASE=4, eCAPTURE_CRUSHED=8, eCAPTURE_SECTIONS=16, eCAPTURE_ROWS=32, eCAPTURE_CARRIED=64, eCAPTURE_SLIP_BEFORE=128, eCAPTURE_ROUTED=256 };
 template<class T>inline void captureArray(FILE* f,const T* device,size_t count)
 {
     std::vector<T> host(count);
@@ -24,7 +24,7 @@ inline bool writeCapture(const char* path,const Inputs& in,const Settings& s,PxU
     CaptureHeader h{{'I','M','P','C'},1,in.chunkCount,in.bondCount,materials,rows,PxU32(sizeof(Settings)),
         (in.ductileSlip?eCAPTURE_SLIP:0u)|(in.stiffness?eCAPTURE_STIFFNESS:0u)|(in.elasticBase?eCAPTURE_ELASTIC_BASE:0u)
         |(in.crushed?eCAPTURE_CRUSHED:0u)|(in.sections?eCAPTURE_SECTIONS:0u)|(rows?eCAPTURE_ROWS:0u)
-        |(in.carried?eCAPTURE_CARRIED:0u)|(in.slipBefore?eCAPTURE_SLIP_BEFORE:0u)};
+        |(in.carried?eCAPTURE_CARRIED:0u)|(in.slipBefore?eCAPTURE_SLIP_BEFORE:0u)|((rows && in.rowRouted)?eCAPTURE_ROUTED:0u)};
     std::fwrite(&h,sizeof h,1,f);std::fwrite(&s,sizeof s,1,f);
     captureArray(f,in.chunks,in.chunkCount);captureArray(f,in.bonds,in.bondCount);captureArray(f,in.materials,materials);
     if(in.ductileSlip)captureArray(f,in.ductileSlip,materials);
@@ -41,6 +41,7 @@ inline bool writeCapture(const char* path,const Inputs& in,const Settings& s,PxU
     if(rows)captureArray(f,in.rows,rows);
     if(in.carried)captureArray(f,in.carried,in.bondCount);
     if(in.slipBefore)captureArray(f,in.slipBefore,in.bondCount);
+    if(rows && in.rowRouted)captureArray(f,in.rowRouted,rows);
     std::fclose(f);return true;
 }
 }

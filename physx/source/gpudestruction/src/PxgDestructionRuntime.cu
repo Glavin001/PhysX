@@ -493,12 +493,15 @@ __global__ void payCrushEnergy(const ImpactorImpedance* impactors,PxU32 count,co
 // The corrected pass's contact bounds: per anchored cluster body, the
 // largest per-point bound of the rows on its chunks (a body's max contact
 // impulse applies to all its contacts: the bound of its pair at capacity).
+// With perImpactor (Settings::boundImpactor): per impactor body instead, the
+// largest of its own rows' -- the pair the impact model solved, nothing else
+// the struck cluster touches.
 __global__ void collectImpactBounds(const impact::ContactRow* rows,const PxU32* count,PxU32 capacity,const float* rowBound,
-    const PxDestructionStressChunk* chunks,const PxDestructionStressCluster* clusters,float* bound,PxU32 bodies)
+    const PxDestructionStressChunk* chunks,const PxDestructionStressCluster* clusters,float* bound,PxU32 bodies,bool perImpactor=false)
 {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=min(*count,capacity))return;
     const float b=rowBound[i];if(!(b>0.0f))return;
-    const PxU32 body=clusters[chunks[rows[i].chunk].cluster].body;if(body>=bodies)return;
+    const PxU32 body=perImpactor?rows[i].body:clusters[chunks[rows[i].chunk].cluster].body;if(body>=bodies)return;
     atomicMax(reinterpret_cast<unsigned*>(bound+body),__float_as_uint(b));
 }
 // Into the rigid checkpoint the corrected pass restores; the correction is
@@ -953,6 +956,7 @@ class Runtime final : public PxgDestructionRuntime {
     // The impact solve's coupled contact: this pass's rows, their count, and
     // each impactor's velocity change (applied when the pass is the tick's last).
     impact::ContactRow* mImpactRows{};PxU32* mImpactRowCount{};float *mImpactRowDelta{},*mImpactRowForce{},*mImpactRowBound{};
+    PxU32* mImpactRowRouted{};   // per row: routed to the impact model (Settings::route)
     // Per rigid body (motion storage capacity): the corrected pass's bound on
     // its contacts (max impulse per point; bits of a float), its own max
     // impulse before (to restore), and whether it is bounded.
@@ -1582,7 +1586,7 @@ public:
         mImpactCrush=false;cudaFree(mImpactStress);mImpactStress=nullptr;cudaFree(mImpactRate);mImpactRate=nullptr;
         cudaFree(mImpactImpactor);mImpactImpactor=nullptr;
         cudaFree(mImpactRows);mImpactRows=nullptr;cudaFree(mImpactRowCount);mImpactRowCount=nullptr;
-        cudaFree(mImpactRowDelta);mImpactRowDelta=nullptr;cudaFree(mImpactRowForce);mImpactRowForce=nullptr;cudaFree(mImpactRowBound);mImpactRowBound=nullptr;
+        cudaFree(mImpactRowDelta);mImpactRowDelta=nullptr;cudaFree(mImpactRowForce);mImpactRowForce=nullptr;cudaFree(mImpactRowBound);mImpactRowBound=nullptr;cudaFree(mImpactRowRouted);mImpactRowRouted=nullptr;
         cudaFree(mImpactBound);mImpactBound=nullptr;cudaFree(mImpactSaved);mImpactSaved=nullptr;cudaFree(mImpactBounded);mImpactBounded=nullptr;cudaFree(mImpactBoundRequested);mImpactBoundRequested=nullptr;mImpactBoundCapacity=0;
         cudaFree(mCrush);mCrush=nullptr;cudaFree(mTrialCrush);mTrialCrush=nullptr;
         mN=mM=mC=mMapCount=0;
@@ -1854,9 +1858,16 @@ public:
                     mImpactSettings.evaluationIterations=PxU32(env("PX_DESTRUCTION_IMPACT_EVAL_ITERATIONS",float(mImpactSettings.evaluationIterations)));
                     mImpactSettings.rampLevels=PxU32(env("PX_DESTRUCTION_IMPACT_RAMP_LEVELS",float(mImpactSettings.rampLevels)));
                     mImpactSettings.cappedElastic=env("PX_DESTRUCTION_IMPACT_CAPPED_ELASTIC",0.0f)!=0.0f;
-                    mImpactSettings.method=d.impactStep?1u:0u;
+                    // PX_DESTRUCTION_IMPACT_EXPLICIT=1: the impact step is the explicit one
+                    // (method 2, PxgDestructionImpactExplicit.cuh) instead of the event ramp.
+                    mImpactSettings.method=d.impactStep?(env("PX_DESTRUCTION_IMPACT_EXPLICIT",0.0f)!=0.0f?2u:1u):0u;
                     mImpactSettings.stepDuration=env("PX_DESTRUCTION_IMPACT_STEP_DURATION",mImpactSettings.stepDuration);
                     mImpactSettings.stepRadius=env("PX_DESTRUCTION_IMPACT_STEP_RADIUS",mImpactSettings.stepRadius);
+                    // The handoff to the corrected pass (opt-in; the high profile's):
+                    // contact bounds per impactor body, not per struck cluster.
+                    mImpactSettings.boundImpactor=env("PX_DESTRUCTION_IMPACT_BOUND_IMPACTOR",0.0f)!=0.0f;
+                    // and the contact routing by peak force against capacity.
+                    mImpactSettings.route=env("PX_DESTRUCTION_IMPACT_ROUTE",0.0f)!=0.0f;
                     std::vector<float> slip(d.materialCount),stiffness(d.materialCount);
                     for(PxU32 i=0;i<d.materialCount;++i){slip[i]=d.materials[i].ductileSlip;stiffness[i]=d.materials[i].impactStiffness;}
                     allocate(mImpactSlip,d.materialCount);allocate(mImpactStiffness,d.materialCount);
@@ -1876,6 +1887,7 @@ public:
                         allocate(mImpactRows,impact::kContactCapacity);allocate(mImpactRowCount,1);
                         allocate(mImpactRowDelta,6*size_t(impact::kContactCapacity));allocate(mImpactRowForce,3*size_t(impact::kContactCapacity));
                         allocate(mImpactRowBound,size_t(impact::kContactCapacity));
+                        allocate(mImpactRowRouted,size_t(impact::kContactCapacity));
                     }
                 }
                 if(d.impactCrush) {
@@ -2292,6 +2304,18 @@ public:
                 impactContacts.before=mCheckpointValid?mCheckpointBodies:nullptr;impactContacts.beforeCount=mCheckpointValid?mCheckpointCount:0u;
             }
             if(contacts.pairCount)routeContacts<<<(contacts.pairCount+127)/128,128,0,mStream>>>(contacts,mMap,mMapCount,mChunks,mPoses,1.0f/dt,mInputs,mSurface,mStatus,bodyStates,mMaterials,mRates,impactContacts);
+            // The contact routing (Settings::route): rows past their struck chunk's
+            // capacity are the impact model's; their trial loads leave the static
+            // solve's inputs, every pass they are in contact.
+            if(mImpactEnabled && mImpactRows && mImpactRowRouted && mImpactSettings.route && mMaterials && mM) {
+                impact::Inputs rin{};
+                rin.chunks=mChunks;rin.chunkCount=mN;rin.bonds=mBonds;rin.bondCount=mM;rin.materials=mMaterials;
+                rin.ductileSlip=mImpactSlip;rin.stiffness=mImpactStiffness;rin.health=mHealth;
+                rin.nodeBegin=mNodeBegin;rin.nodeRefs=mNodeRefs;rin.sections=mSectionBending?mSections:nullptr;
+                rin.rows=mImpactRows;rin.rowCount=impact::kContactCapacity;rin.rowCounter=mImpactRowCount;
+                impact::Settings rs=mImpactSettings;rs.dt=dt;
+                impact::routeRows<<<(impact::kContactCapacity+127)/128,128,0,mStream>>>(rin,rs,mImpactRowRouted,mInputs);
+            }
             if(mReport)check(cudaMemcpyAsync(mReportInputs+2*mN,mInputs,sizeof(*mInputs)*mN,cudaMemcpyDeviceToDevice,mStream));
             check(cudaEventRecord(mReady,mStream));
             stageMarker(1);
@@ -2342,12 +2366,13 @@ public:
                     in.chunks=mChunks;in.chunkCount=mN;in.bonds=mBonds;in.bondCount=mM;in.materials=mMaterials;
                     in.ductileSlip=mImpactSlip;in.stiffness=mImpactStiffness;in.health=mHealth;
                     in.nodeBegin=mNodeBegin;in.nodeRefs=mNodeRefs;in.nodeIslands=stress.nodeIslands;in.bondIslands=stress.bondIslands;
-                    in.accelerations=mInputs;in.elastic=forces;in.base=mImpactSettings.method==1u?mImpactRest:mImpactStart;in.elasticBase=mImpactBase;in.stage=mStatus;
+                    in.accelerations=mInputs;in.elastic=forces;in.base=mImpactSettings.method>=1u?mImpactRest:mImpactStart;in.elasticBase=mImpactBase;in.stage=mStatus;
                     in.carried=mImpactCarriedStart;in.slipBefore=mImpactSlipStart;
                     in.crushed=mImpactCrush?mTrialCrush:nullptr;in.sections=mSectionBending?mSections:nullptr;
                     if(mImpactRows) {
                         in.rows=mImpactRows;in.rowCount=impact::kContactCapacity;in.rowCounter=mImpactRowCount;
                         in.rowDelta=mImpactRowDelta;in.rowForce=mImpactRowForce;in.rowBound=mImpactRowBound;
+                        in.rowRouted=mImpactSettings.route?mImpactRowRouted:nullptr;
                         check(cudaMemsetAsync(mImpactRowDelta,0,sizeof(float)*6*size_t(impact::kContactCapacity),mStream));
                         check(cudaMemsetAsync(mImpactRowBound,0,sizeof(float)*size_t(impact::kContactCapacity),mStream));
                     }
@@ -2363,8 +2388,8 @@ public:
                     impactView={mImpact.w.islandFlag,stress.bondIslands,mImpact.w.forces,mImpact.w.verdict};
                     // The impact step carries no plastic state: the next tick starts from the elastic forces;
                     // its rest state follows the islands it did not solve.
-                    if(settings.method==1u)impact::recordRest<<<(mM+127)/128,128,0,mStream>>>(mImpact.w.islandFlag,stress.bondIslands,forces,mImpactRest,mM);
-                    impact::recordState<<<(mM+127)/128,128,0,mStream>>>(settings.method==1u?nullptr:mImpact.w.islandFlag,stress.bondIslands,mImpact.w.forces,forces,mImpactState,mM,
+                    if(settings.method>=1u)impact::recordRest<<<(mM+127)/128,128,0,mStream>>>(mImpact.w.islandFlag,stress.bondIslands,forces,mImpactRest,mM);
+                    impact::recordState<<<(mM+127)/128,128,0,mStream>>>(settings.method>=1u?nullptr:mImpact.w.islandFlag,stress.bondIslands,mImpact.w.forces,forces,mImpactState,mM,
                         mImpactCarried,mImpact.w.slip,mImpactSlipStart,mImpactSlipState);
                     if(timed) {
                         check(cudaMemcpyAsync(mImpactHostStatus,mImpact.w.status,sizeof(*mImpactHostStatus),cudaMemcpyDeviceToHost,mStream));
@@ -2418,7 +2443,7 @@ public:
                     impact::breaksBySource<<<(mM+127)/128,128,0,mStream>>>(mVerdicts,mImpact.w.islandFlag,impactIn.bondIslands,mM,mImpact.w.counters+6);
                     PxU32 by[2]={0,0};check(cudaMemcpyAsync(by,mImpact.w.counters+6,sizeof by,cudaMemcpyDeviceToHost,mStream));check(cudaStreamSynchronize(mStream));
                     if(by[0] || by[1])std::fprintf(stderr,"[impact] evaluation %llu pass %u breaks: %u on islands the impact %s decided, %u by the static verdict\n",
-                        (unsigned long long)mImpactEvaluations,mPass,by[0],impactSettings.method==1u?"step":"solve",by[1]);
+                        (unsigned long long)mImpactEvaluations,mPass,by[0],impactSettings.method>=1u?"step":"solve",by[1]);
                     // Diagnostics: a pass whose static verdict breaks at least
                     // PX_DESTRUCTION_IMPACT_CAPTURE_STATIC bonds is captured (with the
                     // evaluation before it, kept in a two-slot ring) beside the elastic
@@ -2527,7 +2552,7 @@ public:
         }
         check(cudaStreamWaitEvent(mStream,mCheckpointReady,0));
         collectImpactBounds<<<(impact::kContactCapacity+127)/128,128,0,mStream>>>(mImpactRows,mImpactRowCount,impact::kContactCapacity,
-            mImpactRowBound,mChunks,mClusters,mImpactBound,mImpactBoundCapacity);
+            mImpactRowBound,mChunks,mClusters,mImpactBound,mImpactBoundCapacity,mImpactSettings.boundImpactor);
         check(cudaMemsetAsync(mImpactBoundRequested,0,sizeof(PxU32),mStream));
         applyImpactBounds<<<(mImpactBoundCapacity+127)/128,128,0,mStream>>>(mImpactBound,mImpactSaved,mImpactBounded,mCheckpointBodies,
             mCheckpointCount,mImpactBoundCapacity,mStatus,mImpactBoundRequested);
