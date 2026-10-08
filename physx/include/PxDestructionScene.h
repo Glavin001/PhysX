@@ -360,6 +360,11 @@ struct PxDestructionStageStatus {
     // bonds: the impactor pushed past a chunk that stayed in place, a ghost
     // wall (a bug: the bound is the most its bonds and inertia can take).
     PxU32 anchoredGhosts;
+    // Comminution energy (J) of crushes this tick that no body paid out of its
+    // kinetic energy: crushed with no payer, or past what the payer had (the
+    // crush payment's clamp). Energy the scene created; must be 0
+    // (PX_DESTRUCTION_CRUSH_ENERGY_BOUND makes it so by construction).
+    float crushEnergyCreated;
 };
 // Why a stress component's last solve stopped (getStressSolveReport).
 struct PxDestructionStressStopReason {

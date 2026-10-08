@@ -132,7 +132,7 @@ __global__ void mergePostCorrectionStatus(PxDestructionStageStatus* status,PxDes
     status->bondCommands+=prior.bondCommands;status->brokenBonds+=prior.brokenBonds;
     status->crushedChunks+=prior.crushedChunks;status->error|=prior.error;
     status->impactIslands+=prior.impactIslands;status->impactSolves+=prior.impactSolves;status->impactSteps+=prior.impactSteps;
-    status->impactCapped+=prior.impactCapped;status->impactCappedFallback+=prior.impactCappedFallback;status->impactHeldOverCapacity+=prior.impactHeldOverCapacity;status->anchoredGhosts+=prior.anchoredGhosts;status->impactDiverged+=prior.impactDiverged;status->impactInfeasible+=prior.impactInfeasible;
+    status->impactCapped+=prior.impactCapped;status->impactCappedFallback+=prior.impactCappedFallback;status->impactHeldOverCapacity+=prior.impactHeldOverCapacity;status->anchoredGhosts+=prior.anchoredGhosts;status->crushEnergyCreated+=prior.crushEnergyCreated;status->impactDiverged+=prior.impactDiverged;status->impactInfeasible+=prior.impactInfeasible;
     if(!status->impactWorstBond)status->impactWorstBond=prior.impactWorstBond;
     status->impactLongestDispatchMs=fmaxf(status->impactLongestDispatchMs,prior.impactLongestDispatchMs);
     status->correctionPasses=passes;status->stressPasses=passes+1;
@@ -526,11 +526,13 @@ __global__ void impactCrushStep(const PxDestructionStressChunk* chunks,const PxD
 // corrected pass re-simulates from (its rigid checkpoint).
 __global__ void crushEnergy(const PxDestructionStressChunk* chunks,const PxDestructionMaterial* materials,
     const PxDestructionCrushState* accepted,const PxDestructionCrushState* trial,const PxU32* impactor,
-    float* energy,PxU32 count)
+    float* energy,PxU32 count,PxDestructionStageStatus* status=nullptr,bool unpaid=false)
 {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
-    if(accepted[i].crushed || !trial[i].crushed || impactor[i]==PX_INVALID_U32)return;
-    atomicAdd(energy+impactor[i],materials[chunks[i].material].crush.crushEnergy*chunks[i].volume);
+    if(accepted[i].crushed || !trial[i].crushed)return;
+    const float E=materials[chunks[i].material].crush.crushEnergy*chunks[i].volume;
+    if(impactor[i]==PX_INVALID_U32 || unpaid){if(status)atomicAdd(&status->crushEnergyCreated,E);return;}
+    atomicAdd(energy+impactor[i],E);
 }
 // Energy-bounded crushing (PX_DESTRUCTION_CRUSH_ENERGY_BOUND). A crush erases
 // its chunk's comminution energy, crushEnergy * volume, all of it (the stage
@@ -562,21 +564,25 @@ __device__ __forceinline__ float payerEnergy(const PxgBodySim& b)
 }
 __global__ void crushSettle(const PxDestructionStressChunk* chunks,const PxDestructionMaterial* materials,
     const PxDestructionCrushState* accepted,PxDestructionCrushState* trial,const PxU32* striker,PxU32 count,
-    const float* demand,const PxgBodySim* payers,PxU32 bodies,PxDestructionStageStatus* status,float* audit)
+    const float* demand,float* kept,const PxgBodySim* payers,PxU32 bodies,PxDestructionStageStatus* status,float* audit)
 {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
     if(accepted[i].crushed || !trial[i].crushed)return;
-    const PxU32 p=striker[i];if(p>=bodies)return;
+    const PxU32 p=striker[i];
+    if(p>=bodies){atomicAdd(&status->crushEnergyCreated,materials[chunks[i].material].crush.crushEnergy*chunks[i].volume);return;}   // kept with no payer: a bug
     const float E=materials[chunks[i].material].crush.crushEnergy*chunks[i].volume;
     if(!(demand[p]<=payerEnergy(payers[p]))){uncrush(trial[i],status);if(audit){atomicAdd(audit+2,1.0f);atomicAdd(audit+3,E);}}
-    else if(audit){atomicAdd(audit+4,1.0f);atomicAdd(audit+5,E);}
+    else{atomicAdd(kept+p,E);if(audit){atomicAdd(audit+4,1.0f);atomicAdd(audit+5,E);}}
 }
 // 1/2 m v'^2 = 1/2 m v^2 - D: v' = v sqrt(1 - D / KE), only where all of it is payable.
-__global__ void crushPay(float* demand,PxgBodySim* payers,PxU32 bodies)
+__global__ void crushPay(float* demand,float* kept,PxgBodySim* payers,PxU32 bodies,PxDestructionStageStatus* status)
 {
     const PxU32 p=blockIdx.x*blockDim.x+threadIdx.x;if(p>=bodies)return;
-    const float D=demand[p];if(!(D>0.0f))return;demand[p]=0.0f;
-    const float ke=payerEnergy(payers[p]);if(!(D<=ke) || !(ke>0.0f))return;
+    const float D=demand[p],K=kept[p];demand[p]=0.0f;kept[p]=0.0f;
+    const float ke=payerEnergy(payers[p]);
+    // The crushes kept past what their payer has: energy created (by construction none).
+    if(K>ke)atomicAdd(&status->crushEnergyCreated,K-ke);
+    if(!(D>0.0f) || !(D<=ke) || !(ke>0.0f))return;
     float4& v=payers[p].linearVelocityXYZ_inverseMassW;const float k=sqrtf(fmaxf(1.0f-D/ke,0.0f));
     v.x*=k;v.y*=k;v.z*=k;
 }
@@ -589,6 +595,8 @@ __global__ void payCrushEnergy(const ImpactorImpedance* impactors,PxU32 count,co
     float4& v=checkpoint[body].linearVelocityXYZ_inverseMassW;
     const float speed2=v.x*v.x+v.y*v.y+v.z*v.z;if(!(speed2>0.0f) || !(v.w>0.0f))return;
     // 1/2 m v'^2 = 1/2 m v^2 - E: v' = v sqrt(1 - 2 E (1/m) / v^2).
+    const float ke=0.5f*speed2/v.w;
+    if(energy[i]>ke)atomicAdd(&const_cast<PxDestructionStageStatus*>(status)->crushEnergyCreated,energy[i]-ke);
     const float k=sqrtf(fmaxf(1.0f-2.0f*energy[i]*v.w/speed2,0.0f));
     v.x*=k;v.y*=k;v.z*=k;
 }
@@ -2549,15 +2557,16 @@ public:
                     const bool start=!mPass && mCheckpointValid;
                     PxgBodySim* payers=start?mCheckpointBodies:const_cast<PxgBodySim*>(bodyStates);
                     const PxU32 bodies=start?mCheckpointCount:mMotionStorage.capacity;
-                    if(bodies>mCrushDemandCapacity){check(cudaStreamSynchronize(mStream));cudaFree(mCrushDemand);mCrushDemand=nullptr;allocate(mCrushDemand,bodies);
-                        check(cudaMemsetAsync(mCrushDemand,0,sizeof(float)*bodies,mStream));mCrushDemandCapacity=bodies;}
+                    if(bodies>mCrushDemandCapacity){check(cudaStreamSynchronize(mStream));cudaFree(mCrushDemand);mCrushDemand=nullptr;allocate(mCrushDemand,2*size_t(bodies));
+                        check(cudaMemsetAsync(mCrushDemand,0,2*sizeof(float)*bodies,mStream));mCrushDemandCapacity=bodies;}
+                    float* kept=mCrushDemand+mCrushDemandCapacity;
                     if(start)check(cudaStreamWaitEvent(mStream,mCheckpointReady,0));
                     if(mImpactLog)check(cudaMemsetAsync(mCrushBoundAudit,0,sizeof(float)*6,mStream));
                     float* audit=mImpactLog?mCrushBoundAudit:nullptr;
                     crushDemand<<<(mN+127)/128,128,0,mStream>>>(mChunks,mMaterials,mCrush,mTrialCrush,mImpactStriker,mN,mCrushDemand,bodies,mStatus,audit);
                     if(bodies) {
-                        crushSettle<<<(mN+127)/128,128,0,mStream>>>(mChunks,mMaterials,mCrush,mTrialCrush,mImpactStriker,mN,mCrushDemand,payers,bodies,mStatus,audit);
-                        crushPay<<<(bodies+127)/128,128,0,mStream>>>(mCrushDemand,payers,bodies);
+                        crushSettle<<<(mN+127)/128,128,0,mStream>>>(mChunks,mMaterials,mCrush,mTrialCrush,mImpactStriker,mN,mCrushDemand,kept,payers,bodies,mStatus,audit);
+                        crushPay<<<(bodies+127)/128,128,0,mStream>>>(mCrushDemand,kept,payers,bodies,mStatus);
                     }
                     if(start)check(cudaEventRecord(mCheckpointReady,mStream)); // the restore waits on it
                     if(audit) {
@@ -2569,9 +2578,17 @@ public:
                 else if(!mPass && mImpactorCount && mCheckpointValid) {
                     check(cudaStreamWaitEvent(mStream,mCheckpointReady,0)); // after the capture
                     check(cudaMemsetAsync(mImpactEnergy,0,sizeof(float)*mImpactorCount,mStream));
-                    crushEnergy<<<(mN+127)/128,128,0,mStream>>>(mChunks,mMaterials,mCrush,mTrialCrush,mImpactImpactor,mImpactEnergy,mN);
+                    crushEnergy<<<(mN+127)/128,128,0,mStream>>>(mChunks,mMaterials,mCrush,mTrialCrush,mImpactImpactor,mImpactEnergy,mN,mStatus);
                     payCrushEnergy<<<(mImpactorCount+127)/128,128,0,mStream>>>(mImpactors,mImpactorCount,mImpactEnergy,mCheckpointBodies,mCheckpointCount,mStatus);
                     check(cudaEventRecord(mCheckpointReady,mStream)); // the restore waits on it
+                }
+                else if(mImpactorCount)   // a corrected pass's crushes: no later pass pays them
+                    crushEnergy<<<(mN+127)/128,128,0,mStream>>>(mChunks,mMaterials,mCrush,mTrialCrush,mImpactImpactor,mImpactEnergy,mN,mStatus,true);
+                if(mImpactLog) {
+                    float created=0.0f;
+                    check(cudaMemcpyAsync(&created,reinterpret_cast<const char*>(mStatus)+offsetof(PxDestructionStageStatus,crushEnergyCreated),sizeof created,cudaMemcpyDeviceToHost,mStream));
+                    check(cudaStreamSynchronize(mStream));
+                    if(created>0.0f)std::fprintf(stderr,"[impact] CRUSH ENERGY CREATED: %.4g J in pass %u (crushes no body paid; a bug signal)\n",created,mPass);
                 }
             }
             impact::View impactView{};impact::Inputs impactIn{};impact::Settings impactSettings{};bool impactRan=false;
