@@ -1190,6 +1190,7 @@ class Runtime final : public PxgDestructionRuntime {
     // velocities (world) and their mask, the bonds the windows decided this tick, and
     // the per-root sums of the fragments' hand-off (PxgDestructionHandoff.cuh).
     PxU32* mRoutedChunks{};float4* mWindowV{};PxU32* mWindowMask{};PxU32* mWindowDecided{};float4* mHandoffSums{};bool mCompliant=false;
+    PxDestructionChunkBox* mChunkBoxes{};   // PxDestructionStressDesc::chunkBoxes (the step's contact geometry), or null
     // Per rigid body (motion storage capacity): the corrected pass's bound on
     // its contacts (max impulse per point; bits of a float), its own max
     // impulse before (to restore), and whether it is bounded.
@@ -1832,7 +1833,7 @@ public:
         cudaFree(mImpactImpactor);mImpactImpactor=nullptr;cudaFree(mImpactStriker);mImpactStriker=nullptr;cudaFree(mCrushDemand);mCrushDemand=nullptr;mCrushDemandCapacity=0;cudaFree(mCrushBoundAudit);mCrushBoundAudit=nullptr;mCrushEnergyBound=false;cudaFree(mAnchoredChunks);mAnchoredChunks=nullptr;cudaFree(mAnchoredBonds);mAnchoredBonds=nullptr;cudaFree(mAnchoredSaturated);mAnchoredSaturated=nullptr;cudaFree(mAnchoredGhosts);mAnchoredGhosts=nullptr;mAnchoredBound=mAnchoredReady=false;
         cudaFree(mImpactRows);mImpactRows=nullptr;cudaFree(mImpactRowCount);mImpactRowCount=nullptr;
         cudaFree(mImpactRowDelta);mImpactRowDelta=nullptr;cudaFree(mImpactRowForce);mImpactRowForce=nullptr;cudaFree(mImpactRowBound);mImpactRowBound=nullptr;cudaFree(mImpactRowRouted);mImpactRowRouted=nullptr;
-        cudaFree(mRoutedChunks);mRoutedChunks=nullptr;cudaFree(mWindowV);mWindowV=nullptr;cudaFree(mWindowMask);mWindowMask=nullptr;cudaFree(mWindowDecided);mWindowDecided=nullptr;cudaFree(mHandoffSums);mHandoffSums=nullptr;mCompliant=false;
+        cudaFree(mRoutedChunks);mRoutedChunks=nullptr;cudaFree(mWindowV);mWindowV=nullptr;cudaFree(mWindowMask);mWindowMask=nullptr;cudaFree(mWindowDecided);mWindowDecided=nullptr;cudaFree(mHandoffSums);mHandoffSums=nullptr;mCompliant=false;cudaFree(mChunkBoxes);mChunkBoxes=nullptr;
         cudaFree(mImpactBound);mImpactBound=nullptr;cudaFree(mImpactSaved);mImpactSaved=nullptr;cudaFree(mImpactBounded);mImpactBounded=nullptr;cudaFree(mImpactBoundRequested);mImpactBoundRequested=nullptr;mImpactBoundCapacity=0;
         cudaFree(mCrush);mCrush=nullptr;cudaFree(mTrialCrush);mTrialCrush=nullptr;
         mN=mM=mC=mMapCount=0;
@@ -2155,6 +2156,7 @@ public:
                         allocate(mRoutedChunks,n1);allocate(mWindowV,2*n1);allocate(mWindowMask,n1);allocate(mWindowDecided,m1);allocate(mHandoffSums,2*n1);
                         check(cudaMemset(mRoutedChunks,0,sizeof(PxU32)*n1));check(cudaMemset(mWindowMask,0,sizeof(PxU32)*n1));check(cudaMemset(mWindowDecided,0,sizeof(PxU32)*m1));
                         mCompliant=true;
+                        if(d.chunkBoxes && d.chunkCount){allocate(mChunkBoxes,d.chunkCount);check(cudaMemcpy(mChunkBoxes,d.chunkBoxes,sizeof(*mChunkBoxes)*d.chunkCount,cudaMemcpyHostToDevice));}
                     } else mImpactSettings.compliant=false;
                 }
                 if(d.impactCrush) {
@@ -2756,7 +2758,7 @@ public:
                     in.crushed=mImpactCrush?mTrialCrush:nullptr;in.sections=mSectionBending?mSections:nullptr;
                     if(mCompliant) {
                         in.crushOut=mImpactCrush?mTrialCrush:nullptr;in.crushedChunks=&mStatus->crushedChunks;
-                        in.windowV=mWindowV;in.windowMask=mWindowMask;in.decidedBonds=mWindowDecided;in.clusterPoses=mPoses;
+                        in.windowV=mWindowV;in.windowMask=mWindowMask;in.decidedBonds=mWindowDecided;in.clusterPoses=mPoses;in.chunkBoxes=mChunkBoxes;
                     }
                     if(mImpactRows) {
                         in.rows=mImpactRows;in.rowCount=impact::kContactCapacity;in.rowCounter=mImpactRowCount;

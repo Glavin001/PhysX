@@ -451,6 +451,9 @@ struct Inputs {
     PxU32* decidedBonds{};
     // The struck clusters' poses (cluster frame -> world), by the chunks' cluster.
     const PxTransform* clusterPoses{};
+    // Each chunk's box (PxDestructionStressDesc::chunkBoxes), or null: the window's
+    // own contact geometry for a round impactor (exRefresh).
+    const PxDestructionChunkBox* chunkBoxes{};
 };
 
 // ---------------------------------------------------------------------------
@@ -2184,6 +2187,7 @@ struct Stage {
         twoBody=s.explicitTwoBody;handoffs=s.compliant;
         allocateExplicit();
         const auto start=std::chrono::steady_clock::now();
+        x.boxes=s.compliant?in.chunkBoxes:nullptr;   // (the window's own geometry; ExScratch is passed by value)
         exClear<<<64,kThreads,0,stream>>>(in,x);
         exList<<<1,1,0,stream>>>(in,s,w,x);
         // Every patch slot builds (an empty one returns at once): no readback

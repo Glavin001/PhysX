@@ -39,6 +39,9 @@
 // bear on each other (timber connections) is graded by its fasteners in
 // tension once the contact opens, not by a glued patch's extreme fibre.
 #define PX_DESTRUCTION_BEARING_JOINTS 1
+// PxDestructionStressDesc::chunkBoxes (layout change, consumers rebuild with the
+// SDK): each chunk's box, the impact step's contact geometry within a tick.
+#define PX_DESTRUCTION_CHUNK_BOXES 1
 // Feature (no layout change; opt-in with the environment, read at configuration:
 // PX_DESTRUCTION_REBEARING=1): a bearing joint whose fasteners fail becomes a
 // unilateral contact -- it bears in compression up to its material's
@@ -180,6 +183,12 @@ struct PxDestructionStressConstraint {
     bool replayWorldRows = false;
     PxU32 carrierChunk = ~PxU32(0);
 };
+// A chunk's box in its cluster-local stress frame: its centre, half extents
+// along its axes, and the axes' rotation (a cuboid chunk's own; a hull's bounds).
+struct PxDestructionChunkBox {
+    PxVec3 center{0.0f}, halfExtents{0.0f};
+    PxQuat rotation{PxIdentity};
+};
 struct PxDestructionStressDesc {
     const PxDestructionStressChunk* chunks = NULL;
     const PxDestructionStressBond* bonds = NULL;
@@ -317,6 +326,11 @@ struct PxDestructionStressDesc {
     // (its materials, contact rows and bounds): impacts are solved by the step
     // on a patch around each struck chunk instead of by the impact solve.
     bool impactStep = false;
+    // Each chunk's box (chunkCount entries, or NULL), for the impact step's own
+    // contact geometry within the tick (PX_DESTRUCTION_IMPACT_COMPLIANT): a fast
+    // body passes many chunk faces in a tick, so the step re-finds its contacts
+    // as it moves. NULL: the step keeps the tick's contacts as found.
+    const PxDestructionChunkBox* chunkBoxes = NULL;
 };
 struct PxDestructionVectorPair {
     PxVec3 angular, linear;
