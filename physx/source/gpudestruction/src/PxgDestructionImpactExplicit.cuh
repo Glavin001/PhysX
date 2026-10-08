@@ -362,20 +362,37 @@ __device__ __forceinline__ void exCone(const float* W,const float* g,const float
 }
 // 1. The patches: one per island with a routed row, in row order; each
 // patch's rows (at most kExRows) and its impactor bodies.
-// A two-body row (Settings::explicitTwoBody) is the window's whatever the routing
-// says: a car's joints are graded on its contacts, and against an anchored chunk
-// that may break in the corrected pass the trial's rigid stop is not what the car
-// meets (vehicle_contact_load: 43 kN graded against 15 kN on a slow wheel the
-// routing left static). stepRow without the routing test, for a row whose other
-// chunk is a live chunk of another island.
+// A two-body row (Settings::explicitTwoBody) is the window's when either side of
+// it is an impact: the struck side's (the routing: routeRows, v_n M sqrt(k / (M +
+// m)) against its struck chunk's weakest joint), or the car's -- the same
+// criterion mirrored, the car's chunk stopped against its own joints by a
+// struck chunk the trial holds still: peak v_n sqrt(k_c m_c) against its weakest
+// joint along the push (EN 1991-1-7 Annex C's hard-impact force). A contact
+// below both is quasi-static: the trial's rigid support is what the car meets.
 __device__ __forceinline__ bool exTwoBodyRow(const Inputs& in,const Settings& s,PxU32 r,PxU32 island)
 {
     if(!s.explicitTwoBody)return false;
     const ContactRow& row=in.rows[r];const PxU32 o=row.other;
     if(o>=in.chunkCount || !(in.chunks[o].mass>0.0f) || chunkGone(in,o) || in.nodeIslands[o]==island)return false;
     if(row.chunk>=in.chunkCount || in.nodeIslands[row.chunk]!=island || !(in.chunks[row.chunk].mass>0.0f) || chunkGone(in,row.chunk))return false;
-    if(row.resting)return false;
-    return row.im>0.0f && isfinite(row.im);
+    if(row.resting || !(row.im>0.0f) || !isfinite(row.im) || !row.points)return false;
+    if(!in.rowRouted || in.rowRouted[r])return true;   // the struck side's impact (or no routing: every row)
+    // The car's side, in its cluster's frame: the push on its chunk is -normal.
+    const PxQuat back=PxQuat(row.otherPose[0],row.otherPose[1],row.otherPose[2],row.otherPose[3]).getConjugate();
+    PxVec3 n(row.normal[0],row.normal[1],row.normal[2]);if(!(n.magnitudeSquared()>0.0f))return false;n=n.getNormalized();
+    const float arm[3]={row.point[0]-row.com[0],row.point[1]-row.com[1],row.point[2]-row.com[2]};float spin[3];cross3(row.spin,arm,spin);
+    const float vn=fmaxf(0.0f,(row.velocity[0]+spin[0])*n.x+(row.velocity[1]+spin[1])*n.y+(row.velocity[2]+spin[2])*n.z);
+    const PxVec3 push=back.rotate(-n);const float pc[3]={push.x,push.y,push.z};
+    float k=0.0f,cap=FLT_MAX;
+    for(PxU32 slot=in.nodeBegin[o];slot<in.nodeBegin[o+1];++slot) {
+        const PxU32 i=in.nodeRefs[slot];if(!bondMember(in,i))continue;
+        Bond b;if(!prepareBond(in,s,i,b))continue;
+        k+=b.kl;
+        const float a=(b.c0==o?1.0f:-1.0f)*dot3(b.n,pc),t=sqrtf(fmaxf(0.0f,1.0f-a*a));
+        float f=FLT_MAX;if(fabsf(a)>0.0f)f=(a>0.0f?b.capC:b.capT)/fabsf(a);if(t>0.0f)f=fminf(f,b.capS/t);
+        cap=fminf(cap,f);
+    }
+    return k>0.0f && vn*sqrtf(k*in.chunks[o].mass)>cap;
 }
 __global__ void exList(Inputs in,Settings s,Scratch w,ExScratch t)
 {
