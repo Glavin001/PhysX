@@ -21,6 +21,9 @@ struct NativeStressCycleView {
     // Iterations since the carried recurrence last restarted.
     unsigned* carryIterations=nullptr;
     const ExtStressGpuDeviceTopologyStatus* topology=nullptr;
+    // Bond readmission (StressBondReadmission.cuh): the resident displacement,
+    // cleared wherever the impulses are; null unless enabled.
+    StressHierarchy::Vector* displacement=nullptr;
 };
 __global__ void publishNativeHierarchyStatus(const StressHierarchy::Status* hierarchy,const StressHierarchy::Status* modes,ExtStressGpuDeviceTopologyStatus* topology){
     // Preserve the failure source for consumers; do not turn a rejected
@@ -68,6 +71,7 @@ public:
         prior=mModes.append(graph,prior);prior=mHierarchy.append(graph,prior);mCycle.reset(new StressHierarchy::ResidentCycle(mHierarchy));mView.cycle=mCycle->deviceView();return prior;
     }
     NativeStressCycleView view()const{return mView;}
+    void setDisplacement(StressHierarchy::Vector* y){mView.displacement=y;}
     // No component continues a carried recurrence (its iterate was replaced).
     void resetCarry(cudaStream_t stream){checkCuda(cudaMemsetAsync(mView.carryCount,0,sizeof(unsigned)*mNodes,stream),"reset native Krylov carry");}
     const StressHierarchy::Status* status()const{return mHierarchy.status();}

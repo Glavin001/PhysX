@@ -39,6 +39,26 @@
 // bear on each other (timber connections) is graded by its fasteners in
 // tension once the contact opens, not by a glued patch's extreme fibre.
 #define PX_DESTRUCTION_BEARING_JOINTS 1
+// Feature (no layout change; opt-in with the environment, read at configuration:
+// PX_DESTRUCTION_REBEARING=1): a bearing joint whose fasteners fail becomes a
+// unilateral contact -- it bears in compression up to its material's
+// compression capacity, resists shear by friction only (mu = 0.23, timber,
+// EN 1995-2 Table 6.2; PX_DESTRUCTION_REBEARING_FRICTION), carries no tension
+// and lifts off and re-bears as the stress solve says, instead of breaking. A
+// region it held that is left with no compression path splits as before.
+// PX_DESTRUCTION_REBEARING_LOG=1 prints each evaluation's transitions.
+#define PX_DESTRUCTION_REBEARING 1
+// Feature (PxDestructionMaterial::shearFriction, shearCapacityLimit; opt-in with
+// the environment, read at configuration: PX_DESTRUCTION_MOHR_COULOMB_SHEAR=1):
+// an intact joint's shear strength grows with the compression across it, a
+// Mohr-Coulomb joint: f_v = f_v0 + mu sigma_c, sigma_c = max(0, -N/A) the
+// joint's mean normal compression from the solve (tension adds nothing), capped
+// at shearCapacityLimit (EN 1996-1-1 3.6.2: f_vk = f_vk0 + 0.4 sigma_d <= f_vlt).
+// f_v0 is the authored shear limit. Every grader applies it: the static verdict
+// (both shear limits shift by the friction term), re-bearing (a contact slides
+// at its material's mu), and the impact models' joint set (utilisation,
+// projection, ray capacity). Off, the materials' mu is ignored.
+#define PX_DESTRUCTION_MOHR_COULOMB_SHEAR 1
 #include "foundation/PxTransform.h"
 #include "PxDirectGPUAPI.h"
 #include "PxDestructionTopologyTypes.h"
@@ -79,6 +99,11 @@ struct PxDestructionMaterial {
     // that crush (EN 1991-1-7 Annex C: v sqrt(k m) over the front's area, per
     // m/s). 0: unknown; a contact with an unknown side crushes nothing.
     PxReal impactImpedance=0;
+    // Mohr-Coulomb shear (PX_DESTRUCTION_MOHR_COULOMB_SHEAR): the joint's
+    // friction coefficient mu (masonry 0.4, EN 1996-1-1 3.6.2) and the cap on
+    // its shear strength f_v0 + mu sigma_c (Pa; EN 1996-1-1 f_vlt or 0.065 f_b).
+    // 0 mu: no friction term; 0 cap: uncapped.
+    PxReal shearFriction=0, shearCapacityLimit=0;
 };
 struct PxDestructionBondVerdict {
     PxReal health, damage, stressNormal, stressShear, stressBend;
