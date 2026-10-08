@@ -75,9 +75,12 @@ A lab cannonball run is 397 evaluations, mean 14-15 ms, longest dispatch ~20 ms.
 
 ## How to test and time
 
-Scratch tools /private/tmp/claude-501/-Users-glavin-Development-vibe-land/01c57f95-820d-4c9e-bc1a-a10f13215bce/scratchpad/impact-e-harness (copy them if that directory is gone):
-- `W=<this worktree> OUT=<dir> build-tool2.sh impact_explicit_replay` (and
-  `impact_capture_replay`): compiles one test as ctest does (cumetalc).
+Tools: `physx/source/gpudestruction/tests/tools/` (path-independent; `env.sh` finds the
+checkout, a configured garage build -- PHYSX_BUILD -- and cuda-metal from its CMake cache;
+built tools go to `out/tools/`):
+- `build-tool.sh impact_explicit_replay` (and `impact_capture_replay`): compiles one
+  test as ctest does (cumetalc). `run-tests.sh`: the parity and energy gates (ALL=1: the
+  handoff and held-over-capacity regressions too).
 - Parity (must pass): `IMPACT_EXPLICIT_DT_US=32 impact_explicit_replay
   tests/fixtures/impact-level/cannon-level5.bin .../cannon-level5.explicit.txt`
   -> "Jaccard 1.000, dp 0.00%" (ctest destruction_gpu_impact_explicit_cannon).
