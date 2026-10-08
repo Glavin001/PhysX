@@ -784,6 +784,7 @@ __global__ __launch_bounds__(kThreads) void exBuild(Inputs in,Settings s,Scratch
             // crush of earlier ticks left (its accepted damage, the crushed share of it).
             if(s.compliant) {
                 crushLaw(in.materials[in.chunks[ca].material],e.on,e.pl);
+                if(!(e.on<FLT_MAX)){e.on=e.pl=0.0f;}   // no crush law: the row is the two-body law's alone (exCompliantRow)
                 e.depth=cbrtf(fmaxf(in.chunks[ca].volume,0.0f));
                 e.dp=(in.crushed && in.crushed[ca].damage>0.0f)?fminf(in.crushed[ca].damage,1.0f)*e.depth:0.0f;
                 // The row starts at its carried crushed depth, velocity-level (elastic depth 0): a
@@ -1386,7 +1387,7 @@ __global__ void exPublish(Inputs in,Settings s,Scratch w,ExScratch t)
         // A swept row (the window's own, met only within it): its chunk's crush and the
         // window's verdict are published; it has no stage row of its own.
         if(x.geo&2u) {
-            if(in.crushOut && x.compliant && x.depth>0.0f && (x.dp>0.0f || (x.crush&2u))) {
+            if(in.crushOut && x.compliant && x.on>0.0f && x.depth>0.0f && (x.dp>0.0f || (x.crush&2u))) {
                 const PxU32 c=nodes[x.a].chunk;PxDestructionCrushState& cs=in.crushOut[c];
                 atomicMax(reinterpret_cast<unsigned*>(&cs.damage),__float_as_uint(fminf(x.dp/x.depth,1.0f)));
                 if((x.crush&2u) && !atomicExch(&cs.crushed,1u) && in.crushedChunks)atomicAdd(in.crushedChunks,1u);
@@ -1406,7 +1407,7 @@ __global__ void exPublish(Inputs in,Settings s,Scratch w,ExScratch t)
         if(in.rowBound)in.rowBound[x.row]=dropped?FLT_MIN:((live || s.boundImpactor)?fmaxf(bound,FLT_MIN):0.0f);
         // The struck chunk's crush (Settings::compliant): the depth share its rows crushed,
         // or through (crushed: the stage makes it a free fragment).
-        if(in.crushOut && x.compliant && x.depth>0.0f && (x.dp>0.0f || (x.crush&2u))) {
+        if(in.crushOut && x.compliant && x.on>0.0f && x.depth>0.0f && (x.dp>0.0f || (x.crush&2u))) {
             const PxU32 c=nodes[x.a].chunk;PxDestructionCrushState& cs=in.crushOut[c];
             const float share=fminf(x.dp/x.depth,1.0f);
             atomicMax(reinterpret_cast<unsigned*>(&cs.damage),__float_as_uint(share));

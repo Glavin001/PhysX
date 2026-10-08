@@ -1423,15 +1423,17 @@ __device__ __forceinline__ float chunkFace(float V){return V>0.0f?sqrtf(powf(V,2
 // the onset is its uniaxial crush stress, its Drucker-Prager cone and cap read
 // uniaxially (q = sigma, p = sigma / 3: min(c / (1 - s / 3), 3 p_cap)), the
 // plateau its crush energy density (J/m^3 = Pa: the work per crushed volume),
-// at most the onset. Without one: its compressive strength, both (the contact
-// cannot carry more without the material failing under it).
+// at most the onset. Without one it does not crush, as the stage's own crush law
+// has it (extStressCrushStep: capPressure 0 never crushes): its compressive limit
+// is its joints' (a material's fatal limits grade the bonds made of it), not the
+// body's.
 __device__ __forceinline__ void crushLaw(const PxDestructionMaterial& m,float& onset,float& plateau)
 {
     const auto& c=m.crush;
     if(c.capPressure>0.0f) {
         const float cone=(c.frictionSlope<3.0f && c.cohesion>0.0f)?c.cohesion/(1.0f-c.frictionSlope/3.0f):FLT_MAX;
         onset=fminf(cone,3.0f*c.capPressure);plateau=fminf(c.crushEnergy>0.0f?c.crushEnergy:onset,onset);
-    } else {onset=plateau=m.compressionFatalLimit>0.0f?m.compressionFatalLimit:FLT_MAX;}
+    } else {onset=plateau=FLT_MAX;}
 }
 // The routing criterion (Settings::compliant; IMPACT_STEP_PLAN.md section 1 rule 2
 // with the compliant row): the contact's peak force when its impactor (mass M)
