@@ -33,6 +33,7 @@
 #include "foundation/PxSimpleTypes.h"
 #include "foundation/PxMath.h"
 #include "foundation/PxVec3.h"
+#include <string.h>
 
 namespace physx
 {
@@ -50,7 +51,11 @@ struct PxgAnchoredContactBoundView
 	const PxU32*	map;		// transform cache ref -> chunk, 2 words each (ref, chunk), sorted by ref
 	PxU32			mapCount;
 	PxU32			chunkCount;
-	const PxReal*	chunks;		// per chunk, 4 words: its live bonds' capacity times the timestep (N s), its mass (kg), unused, unused
+	const PxReal*	chunks;		// per chunk, 4 words: unused, its mass (kg), the impact step's bound per point for the corrected pass (N s; 0: none), unused
+	const PxU32*	nodeBegin;	// per chunk, its bonds: nodeRefs[nodeBegin[c] .. nodeBegin[c + 1])
+	const PxU32*	nodeRefs;
+	const PxReal*	bonds;		// per bond, 8 words: its axis (unit, chunk0 -> chunk1), chunk0 (bits), and its compression, tension and
+								// shear capacities times the timestep (N s; 0 when it carries nothing: broken, worn out, a crushed end), unused
 };
 
 #if PX_CUDA_COMPILER
@@ -61,23 +66,45 @@ static __host__ __device__ __forceinline__ PxU32 anchoredContactChunk(const PxgA
 	return (a < v.mapCount && v.map[2 * a] == ref) ? v.map[2 * a + 1] : 0xffffffffu;
 }
 
-// The impulse an anchored chunk can take from a contact over one timestep:
-// what its bonds transmit to its anchors, capacity * dt, plus the momentum its
-// own mass takes in following the impactor, m * v_close. (Every term is an
-// upper bound: the bonds' capacities summed in their strongest sense, the full
-// closing speed; so a contact held by intact bonds is never cut short, and
-// one past it breaks bonds -- the stage's verdict sees a load at least their
-// capacity.)
-static __host__ __device__ __forceinline__ PxReal anchoredContactImpulse(const PxReal capacityDt, const PxReal mass, const PxReal closing)
+// What an anchored chunk's bonds can pass to its anchors over one timestep
+// against a force along nf (unit, the force on the chunk): the most that the
+// bonds' forces, each inside its fatal capacity (axial: compression C or
+// tension T; transverse: shear S, any direction in its plane), add up to along
+// nf -- the support function of their capacity sets, per bond (C or T) |a| +
+// S t, a and t the axial and transverse shares of nf, summed. A force past it
+// cannot be held with every bond inside its capacity, so the verdict breaks
+// one: a contact bounded there pushes past no chunk that stays in place.
+// (Bending is not counted: the bound is at least the bonds' true capacity.)
+static __host__ __device__ __forceinline__ PxReal anchoredChunkImpulse(const PxgAnchoredContactBoundView& v, const PxU32 c, const PxVec3& nf)
 {
-	return capacityDt + mass * PxMax(closing, 0.0f);
+	PxReal J = 0.0f;
+	for(PxU32 slot = v.nodeBegin[c]; slot < v.nodeBegin[c + 1]; ++slot)
+	{
+		const PxReal* b = v.bonds + 8 * v.nodeRefs[slot];
+		if(!(b[4] > 0.0f || b[5] > 0.0f || b[6] > 0.0f))
+			continue;
+		PxU32 c0; memcpy(&c0, b + 3, sizeof c0);
+		const PxReal a = (c0 == c ? 1.0f : -1.0f) * (b[0] * nf.x + b[1] * nf.y + b[2] * nf.z);
+		const PxReal t = PxSqrt(PxMax(0.0f, 1.0f - a * a));
+		J += (a > 0.0f ? b[4] : b[5]) * PxAbs(a) + b[6] * t;
+	}
+	return J;
+}
+
+// The impulse an anchored chunk can take from a contact over one timestep:
+// what its bonds pass to its anchors (anchoredChunkImpulse) plus the momentum
+// its own mass takes in following the impactor, m * v_close.
+static __host__ __device__ __forceinline__ PxReal anchoredContactImpulse(const PxReal bondsImpulse, const PxReal mass, const PxReal closing)
+{
+	return bondsImpulse + mass * PxMax(closing, 0.0f);
 }
 
 // Per contact point of a pair: the bound when exactly one of its sides is an
 // anchored chunk -- a chunk shape on a kinematic body (its cluster, held by its
 // supports; kinematic0/1) -- and PX_MAX_REAL otherwise, as PhysX's own
 // contacts: the pair's impulse over its points. v0, v1: the two bodies'
-// velocities at the start of the pass; normal: the patch's.
+// velocities at the start of the pass; normal: the patch's (from shape 1 to
+// shape 0: the force on shape 0 is along it).
 static __host__ __device__ __forceinline__ PxReal anchoredContactPointBound(const PxgAnchoredContactBoundView& v, const PxU32 cmIndex,
 	const bool kinematic0, const bool kinematic1, const PxVec3& v0, const PxVec3& v1, const PxVec3& normal, const PxU32 points)
 {
@@ -86,9 +113,15 @@ static __host__ __device__ __forceinline__ PxReal anchoredContactPointBound(cons
 	const PxU32 c = anchoredContactChunk(v, v.inputs[4 * cmIndex + (kinematic0 ? 2 : 3)]);
 	if(c >= v.chunkCount)
 		return PX_MAX_REAL;	// a kinematic body that is no destructible chunk
+	// A chunk the impact step evaluated (its rows) takes what the step delivered
+	// there, per point: the step's dynamics decided its bonds.
+	const PxReal step = v.chunks[4 * c + 2];
+	if(step > 0.0f)
+		return step;
+	const PxVec3 nf = kinematic0 ? normal : -normal;
 	// The closing speed along the normal, either sense (a separating pair takes no impulse).
 	const PxReal closing = PxAbs((v1 - v0).dot(normal));
-	return anchoredContactImpulse(v.chunks[4 * c], v.chunks[4 * c + 1], closing) / PxReal(points);
+	return anchoredContactImpulse(anchoredChunkImpulse(v, c, nf), v.chunks[4 * c + 1], closing) / PxReal(points);
 }
 
 #endif // PX_CUDA_COMPILER

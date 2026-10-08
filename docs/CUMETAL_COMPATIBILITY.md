@@ -13,6 +13,58 @@ and one correction (1042). Wider scene coverage, localized wall capture and the
 requested offline-rendered video remain pending. Linux CUDA is unexecuted.
 
 
+## Known miscompile: a lambda's by-reference capture of a pointer to private memory (2026-10-08)
+
+**Symptom.** A lambda that captures `[&]` a pointer whose pointee is a local
+(private, register) array reads wrong values. In the reproducer it reads zeros;
+the relative error is 1. CuMetal (`e1a12f7`) compiles it without a diagnostic.
+
+**What is right.**
+- The same pointer captured by value (`[p]`).
+- No lambda: the same code inline, or a `__device__` function that takes the
+  pointer as a parameter.
+- A by-reference capture of a pointer to device or threadgroup memory: the
+  explicit step's `[&]` lambdas over `vS`, `wr` and `links` pass parity.
+
+`__syncthreads`, loops and inlining make no difference.
+
+**Where it bit.** The explicit impact step (`PxgDestructionImpactExplicit.cuh`,
+`8e9006545`). `exConeMetric`'s `value` lambda captured `W` by reference. `W` was
+the contact's 3x3 matrix, computed in registers by `exRunT` and passed down
+through `exCone`. On the cannonball dump the impactor's momentum change came out
+557 N s against the harness's 2204 N s.
+
+**What the code does about it.**
+- The workaround was to read `W` from device memory (`rows[r].W`).
+- Since `perf/explicit-step`, the cone search uses no lambdas: `exValue` takes
+  `W` and scalars.
+- A related, louder case is a compile-time refusal. A lambda that takes
+  `float&` outputs and is called from another lambda, or that captures locals
+  later passed to `sincosf`, fails with "cannot legalize CUDA generic pointers
+  ... cannot default an unproved pointee". The fix is the same: scalar
+  arguments and return values instead of captured references.
+
+**Reproducer.** `physx/source/gpudestruction/tests/tools/cumetal_lambda_capture_repro.cu`.
+Build it with `build-tool.sh tests/tools/cumetal_lambda_capture_repro.cu`.
+- It prints `WRONG` and exits 1 for the two `[&]` variants while the miscompile
+  is present.
+- The direct and `[p]` variants are exact.
+
+**Rule until it is fixed.** In device code, do not capture by reference a
+pointer or array whose pointee is private. Pass it as an argument, or capture
+the pointer by value.
+
+## Known emission bug: `--1.0` from negating a product with the constant -1 (2026-10-08)
+
+`-sign * k * x` inlined with `sign` the constant `-1` is emitted as `v = --1.0;`
+in the generated Metal. `xcrun metal` rejects it ("expression is not
+assignable"), so the build fails; nothing runs wrong. CuMetal `e1a12f7`.
+
+- **Reproducer:** `physx/source/gpudestruction/tests/tools/cumetal_negconst_repro.cu`.
+  Its build fails while the bug is present.
+- **Workaround:** fold the sign into a written-out constant instead of negating
+  it. The explicit step's `exBlock` uses `-O_f` as its own table.
+
 ## vibe-land's rigid feature set on Metal (2026-09-23)
 
 vibe-land's GPU scene (PGS, PCM, stabilization) uses static boxes and a
