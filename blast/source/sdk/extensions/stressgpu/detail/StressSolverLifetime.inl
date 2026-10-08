@@ -159,6 +159,10 @@ uploadIslands();
         cudaFree(m_gradient);
         cudaFree(m_rhs);
         cudaFree(m_impulses);cudaFree(m_warmSnapshot);m_warmSnapshot=nullptr;
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+        cudaFree(m_displacement);cudaFree(m_displacementSnapshot);cudaFree(m_restHealth);
+        m_displacement=m_displacementSnapshot=nullptr;m_restHealth=nullptr;m_readmit=nullptr;
+#endif
         cudaFree(m_input);
         cudaFree(m_brokenCount);
         cudaFree(m_brokenBonds);

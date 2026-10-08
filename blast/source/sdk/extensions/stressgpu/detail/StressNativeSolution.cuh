@@ -12,7 +12,9 @@ __global__ void resetNativeStressSolution(NativeStressCycleView h,AngLin* pi,Ang
         const bool same=*h.warmRangeKnown && *h.warmRangeGeneration==h.topology->rebuilds;
         *h.warmRangeKnown=h.topology->initialized && !h.topology->error && (!warm || same);*h.warmRangeGeneration=h.topology->rebuilds;
     }
-    if(node<nodes){h.solution[node]={};if(!carry)pi[node]={};q[node]={};}
+    if(node<nodes){h.solution[node]={};if(!carry)pi[node]={};q[node]={};
+        // A cold start zeroes the impulses: their displacement too.
+        if(!warm && h.displacement)h.displacement[node]={};}
 }
 __device__ __forceinline__ void updateNativeStressSolution(const PersistentStressArgs& a,unsigned node,unsigned id,unsigned iteration){
     if(iteration>a.maxIterations || !a.m_islandActive[id])return;

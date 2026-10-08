@@ -42,6 +42,7 @@ template<class T> void allocate(T*& p, size_t n) { check(cudaMalloc(&p, sizeof(T
 #include "PxgRigidIterationLimits.cuh"
 #include "PxgDestructionImpact.cuh"
 #include "PxgDestructionMaterial.cuh"
+#include "PxgDestructionRebearing.cuh"
 #include "PxgDestructionCommittedChanges.cuh"
 #include "PxgDestructionShapePublication.cuh"
 // Rebind compact runtime cluster slots entirely on device after acceptance.
@@ -1101,6 +1102,16 @@ class Runtime final : public PxgDestructionRuntime {
     // 2 (A/B): the return mapping's slip only, no inertial slip of the lighter chunk.
     const PxU32 mStaticDuctile=[]{const char* v=std::getenv("PX_DESTRUCTION_STATIC_DUCTILE");return v && (v[0]=='1' || v[0]=='2')?PxU32(v[0]-'0'):0u;}();
     PxDestructionBondSection* mSections{};bool mSectionBending=false,mSectionRotation=false; // opt-in real sections (PX_DESTRUCTION_SECTION_BENDING)
+    // PX_DESTRUCTION_REBEARING=1: a bearing joint whose fasteners fail becomes a
+    // unilateral contact (PxgDestructionRebearing.cuh). mBearState: committed
+    // per-bond state (0 fastened, 1 bearing, 2 lifted; nonzero is the solver's
+    // readmissible flag), mBearTrial: this evaluation's, mBearMask: the mask the
+    // solver holds, mBearProbe: the lifted contacts' would-be forces,
+    // mBearSupported: per stress island, held by a support this solve.
+    // Read at each configuration (the bridge sets them from VIBE_REBEARING).
+    float mRebearingFriction=kRebearingTimberFriction;bool mRebearingLog=false,mRebearing=false;
+    PxU32 *mBearState{},*mBearTrial{},*mBearMask{},*mBearSupported{},*mBearChanged{},*mBearCounters{};
+    PxU64 *mBearGeneration{},*mBearLastAccepted{};PxDestructionVectorPair* mBearProbe{};
     // Impact capacity (PX_DESTRUCTION_IMPACT_CAPACITY, PxgDestructionImpact.cuh):
     // the island solve, the ramp's start (the forces before this tick's trial
     // solve), per-material ductile slip and stiffness.
@@ -1756,6 +1767,9 @@ public:
         cudaFree(mNodeBegin);mNodeBegin=nullptr;cudaFree(mNodeRefs);mNodeRefs=nullptr;
         cudaFree(mBondCentroids);mBondCentroids=nullptr;cudaFree(mVerdicts);mVerdicts=nullptr;
         cudaFree(mSections);mSections=nullptr;mSectionBending=false;mSectionRotation=false;
+        cudaFree(mBearState);cudaFree(mBearTrial);cudaFree(mBearMask);cudaFree(mBearSupported);cudaFree(mBearChanged);cudaFree(mBearCounters);
+        cudaFree(mBearGeneration);cudaFree(mBearLastAccepted);cudaFree(mBearProbe);
+        mBearState=mBearTrial=mBearMask=mBearSupported=mBearChanged=mBearCounters=nullptr;mBearGeneration=mBearLastAccepted=nullptr;mBearProbe=nullptr;mRebearing=false;
         mImpact.release();mImpactEnabled=false;cudaFree(mImpactRecords);mImpactRecords=nullptr;cudaFree(mImpactBase);mImpactBase=nullptr;cudaFree(mImpactRest);mImpactRest=nullptr;
         cudaFree(mImpactState);mImpactState=nullptr;cudaFree(mImpactStart);mImpactStart=nullptr;
         cudaFree(mImpactCarried);mImpactCarried=nullptr;cudaFree(mImpactCarriedStart);mImpactCarriedStart=nullptr;
@@ -2200,6 +2214,24 @@ public:
                 mEditCapacity=d.chunkCount+d.bondCount;
                 allocate(mProvisionalMotion,d.chunkCount);allocate(mTopologyEdits,mEditCapacity);allocate(mTopologyCount,1);
             }
+            const char* rebearing=std::getenv("PX_DESTRUCTION_REBEARING");
+            {const char* f=std::getenv("PX_DESTRUCTION_REBEARING_FRICTION");mRebearingFriction=f?float(std::atof(f)):kRebearingTimberFriction;}
+            {const char* l=std::getenv("PX_DESTRUCTION_REBEARING_LOG");mRebearingLog=l && l[0]=='1';}
+            if(rebearing && rebearing[0]=='1') {
+                if(!(mTopology && mSolver && mMaterials && mSectionBending && mSections && d.bondCount))
+                    std::fprintf(stderr,"[rebearing] PX_DESTRUCTION_REBEARING needs the device topology, materials and bond sections (bearing joints); off\n");
+                else {
+                    allocate(mBearState,d.bondCount);allocate(mBearTrial,d.bondCount);allocate(mBearMask,d.bondCount);
+                    allocate(mBearSupported,d.chunkCount);allocate(mBearChanged,1);allocate(mBearCounters,8);
+                    allocate(mBearGeneration,1);allocate(mBearLastAccepted,1);allocate(mBearProbe,d.bondCount);
+                    check(cudaMemset(mBearState,0,sizeof(PxU32)*d.bondCount));check(cudaMemset(mBearTrial,0,sizeof(PxU32)*d.bondCount));
+                    check(cudaMemset(mBearMask,0,sizeof(PxU32)*d.bondCount));check(cudaMemset(mBearChanged,0,sizeof(PxU32)));
+                    check(cudaMemset(mBearCounters,0,sizeof(PxU32)*8));check(cudaMemset(mBearGeneration,0,sizeof(PxU64)));
+                    check(cudaMemset(mBearLastAccepted,0xff,sizeof(PxU64)));check(cudaMemset(mBearProbe,0,sizeof(*mBearProbe)*d.bondCount));
+                    if(!Nv::Blast::ExtStressGpuEnableBondReadmission(mSolver,mBearState)){clear();return false;}
+                    mRebearing=true;
+                }
+            }
             if(mTopology)mChanges.initialize(mTopology->accepted(),mStatus,
                 mSolver?mSolver->deviceView().topologyStatus:nullptr,mStream);
             mParams={};mParams.maxIterations=d.maxIterations;mParams.tolerance=d.tolerance;mParams.forceTolerance=d.forceTolerance;mParams.warmStart=d.warmStart;
@@ -2542,6 +2574,12 @@ public:
                 const auto view=mSolver->deviceView();
                 check(cudaStreamWaitEvent(mStream,reinterpret_cast<cudaEvent_t>(view.readyEvent),0));
                 forces=reinterpret_cast<const PxDestructionVectorPair*>(view.bondImpulses);solveStatus=view.status;
+                if(mRebearing) {
+                    // The contacts' would-be forces under this solve's displacement (same solver stream).
+                    if(!Nv::Blast::ExtStressGpuProbeBondForcesAsync(mSolver,mBearState,reinterpret_cast<ExtStressGpuImpulse*>(mBearProbe)))
+                        throw std::runtime_error("re-bearing probe submission failed");
+                    check(cudaStreamWaitEvent(mStream,reinterpret_cast<cudaEvent_t>(mSolver->deviceView().readyEvent),0));
+                }
             }
             stageMarker(2);
             // Detached chunks still receive contact loads and may crush; a
@@ -2680,6 +2718,18 @@ public:
             if(mMaterials) {
                 if(mM)evaluateBondMaterials<<<(mM+127)/128,128,0,mStream>>>(mChunks,mBonds,mMaterials,mHealth,forces,mM,
                     dt,mDamageRate,mBendGain,mFibres,mVerdicts,mBondCentroids,mStatus,mSectionBending,mSections,mSectionRotation,impactView,mStaticDuctile);
+                if(mRebearing && mM && forces) {
+                    const auto stress=mSolver->deviceView();
+                    check(cudaMemsetAsync(mBearSupported,0,sizeof(PxU32)*mN,mStream));
+                    markSupportedIslands<<<(mM+127)/128,128,0,mStream>>>(mChunks,mBonds,mBearMask,stress.nodeIslands,mBearSupported,mM);
+                    if(mRebearingLog)check(cudaMemsetAsync(mBearCounters,0,sizeof(PxU32)*8,mStream));
+                    rebearVerdicts<<<(mM+127)/128,128,0,mStream>>>(mChunks,mBonds,mMaterials,mSections,mHealth,mBearState,mBearTrial,
+                        mBearProbe,stress.nodeIslands,mBearSupported,mVerdicts,mM,dt,mDamageRate,mFibres,mRebearingFriction,impactView,mStatus,mBearCounters);
+                    if(mRebearingLog) {
+                        PxU32 c[8];check(cudaMemcpyAsync(c,mBearCounters,sizeof c,cudaMemcpyDeviceToHost,mStream));check(cudaStreamSynchronize(mStream));
+                        if(c[0]||c[1]||c[2]||c[3]||c[4])std::fprintf(stderr,"[rebearing] pass %u: %u fastenings failed to contact, %u lifted, %u closed, %u slid, %u fell free\n",mPass,c[0],c[4],c[1],c[2],c[3]);
+                    }
+                }
                 if(!mImpactCrush)evaluateChunkMaterials<<<(mN+127)/128,128,0,mStream>>>(mChunks,mBonds,mMaterials,mNodeBegin,mNodeRefs,
                     mHealth,forces,mBondCentroids,mSurface,mRates,mCrush,mTrialCrush,mN,dt,mStatus,impactView);
                 if(mM)finalizeMaterialVerdict<<<(mM+127)/128,128,0,mStream>>>(mBonds,mVerdicts,mTrialCrush,mHealth,mM,mStatus);
@@ -2760,7 +2810,9 @@ public:
                 check(cudaStreamWaitEvent(mStream,static_cast<cudaEvent_t>(mTopology->accepted().readyEvent),0));
                 if(mSolver) {
                     const auto accepted=mTopology->accepted();
-                    if(!mSolver->updateDeviceTopologyAsync(accepted.activeBonds,mM,&accepted.status->generation,nullptr,accepted.readyEvent))
+                    const PxU32* mask=accepted.activeBonds;const PxU64* generation=&accepted.status->generation;
+                    if(mRebearing){rebearingMask(accepted,mTopology->accepted().readyEvent);mask=mBearMask;generation=mBearGeneration;}
+                    if(!mSolver->updateDeviceTopologyAsync(mask,mM,generation,nullptr,mRebearing?static_cast<void*>(mReady):accepted.readyEvent))
                         throw std::runtime_error("native stress topology update submission failed");
                     const auto stress=mSolver->deviceView();
                     check(cudaStreamWaitEvent(mStream,static_cast<cudaEvent_t>(stress.readyEvent),0));
@@ -2792,6 +2844,16 @@ public:
     // rigid checkpoint the pass restores), and the pass is requested. The
     // impactor's motion is the rigid simulation's own: momentum is exchanged
     // only through contacts, never set.
+    // Re-bearing: commit the evaluation's contact states (with the material
+    // state, when the pass's transaction stands), then the solver's mask and
+    // generation from them. Records mReady for the solver's topology update.
+    void rebearingMask(const PxDestructionTopologyDeviceView& accepted,void* acceptedReady) {
+        if(acceptedReady)check(cudaStreamWaitEvent(mStream,static_cast<cudaEvent_t>(acceptedReady),0));
+        commitBearingState<<<(mM+127)/128,128,0,mStream>>>(mBearTrial,mBearState,mM,mStatus);
+        composeBearingMask<<<(mM+127)/128,128,0,mStream>>>(accepted.activeBonds,mBearState,mBearMask,mBearChanged,mM);
+        bumpBearingGeneration<<<1,1,0,mStream>>>(&accepted.status->generation,mBearGeneration,mBearLastAccepted,mBearChanged);
+        check(cudaEventRecord(mReady,mStream));
+    }
     void boundImpactContacts() {
         // A request is this pass's only: cleared whether or not bounds follow.
         if(mImpactBoundRequested && !mPass)check(cudaMemsetAsync(mImpactBoundRequested,0,sizeof(PxU32),mStream));
@@ -3313,7 +3375,9 @@ public:
             check(cudaEventRecord(mReady,mStream));
             if(mSolver) {
                 const auto accepted=mTopology->accepted();
-                if(!mSolver->updateDeviceTopologyAsync(accepted.activeBonds,mM,&accepted.status->generation,nullptr,mReady))
+                const PxU32* mask=accepted.activeBonds;const PxU64* generation=&accepted.status->generation;
+                if(mRebearing){rebearingMask(accepted,nullptr);mask=mBearMask;generation=mBearGeneration;}
+                if(!mSolver->updateDeviceTopologyAsync(mask,mM,generation,nullptr,mReady))
                     throw std::runtime_error("corrected stress topology update failed");
                 const auto stress=mSolver->deviceView();check(cudaStreamWaitEvent(mStream,static_cast<cudaEvent_t>(stress.readyEvent),0));
                 inspectStressTopology<<<1,1,0,mStream>>>(stress.topologyStatus,mStatus);
