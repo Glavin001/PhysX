@@ -16,11 +16,13 @@
 // impactor's bound b on the body, PxMin of the pair): it fails the
 // unevaluated pairs, the reproducer.
 #include "PxgContactPairMaxImpulse.h"
+#include "PxgAnchoredContactBound.h"
 #include <cuda_runtime.h>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <vector>
+#include <cmath>
 
 using namespace physx;
 
@@ -67,5 +69,33 @@ int main()
     }
     std::printf("contact pair bounds (%s rule): %d of %u cases wrong\n",old?"per-body":"pairwise",failed,n);
     cudaFree(dc);cudaFree(dout);
+    // The anchored-chunk bound (PxgAnchoredContactBound.h): a 0.073 m^3, 139 kg
+    // brick chunk with 0.12 MN of bonds, dt 1/60 s, struck at 60 m/s along the
+    // normal on 2 points: (0.12e6 / 60 + 139 * 60) / 2 per point.
+    if(!old) {
+        const float dt=1.0f/60.0f,C=0.12e6f,m=139.0f;
+        const PxU32 inputs[12]={0,0,7,9, 0,0,9,7, 0,0,5,9};   // shape 7: the chunk; 9, 5: no chunk
+        const PxU32 map[2]={7,0};const float chunks[4]={C*dt,m,0,0};
+        PxgAnchoredContactBoundView hv{};hv.inputs=inputs;hv.map=map;hv.mapCount=1;hv.chunkCount=1;hv.chunks=chunks;
+        const PxVec3 n(0,0,1),still(0),fast(0,0,-60);
+        const float want=(C*dt+m*60.0f)/2.0f;
+        struct A { const char* name; PxU32 cm; bool k0,k1; PxVec3 v0,v1; float want; };
+        const A a[]={
+            {"ball against the anchored chunk (chunk side 0)",0,true,false,still,fast,want},
+            {"the same pair, chunk side 1",1,false,true,fast,still,want},
+            {"ball against a dynamic chunk (no kinematic side)",0,false,false,still,fast,PX_MAX_F32},
+            {"kinematic body that is no chunk",2,true,false,still,fast,PX_MAX_F32},
+            {"separating at 60 m/s (the closing speed either sense)",0,true,false,still,PxVec3(0,0,60),want},
+            {"at rest: the bonds' capacity alone",0,true,false,still,still,C*dt/2.0f},
+        };
+        int bad=0;
+        for(const A& c:a) {
+            const float got=anchoredContactPointBound(hv,c.cm,c.k0,c.k1,c.v0,c.v1,n,2);
+            const bool ok=std::fabs(got-c.want)<=1e-6f*c.want;bad+=!ok;
+            std::printf("%s %-54s %.6g (want %.6g)\n",ok?"ok  ":"FAIL",c.name,got,c.want);
+        }
+        std::printf("anchored contact bound: %d of %zu cases wrong\n",bad,sizeof a/sizeof a[0]);
+        failed+=bad;
+    }
     return failed?1:0;
 }

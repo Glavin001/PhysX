@@ -47,6 +47,8 @@
 #include "PxgArticulationCoreKernelIndices.h"
 #include "DyConstraintPrep.h"
 #include "PxgIslandContext.h"
+#include "PxgNarrowphaseCore.h"
+#include "PxgDestructionRuntime.h"
 
 #define GPU_CORE_DEBUG 0
 
@@ -368,6 +370,14 @@ void PxgSolverCore::constructConstraintPrePrepDesc(PxgPrePrepDesc& preDesc, PxU3
 	preDesc.cpuForceBufferBase = cpuForceBufferBase;
 
 	preDesc.contactManagerOutputBase = reinterpret_cast<PxsContactManagerOutput*>(mGpuContactManagerOutputBase);
+	// The destruction stage's anchored-chunk contact bound (off: chunks null, the prep unchanged).
+	preDesc.anchoredContactBound = PxgAnchoredContactBoundView();
+	if(PxgDestructionRuntime* destruction = mGpuContext->getSimulationController()->getNativeDestructionRuntime())
+	{
+		preDesc.anchoredContactBound = destruction->anchoredContactBoundView();
+		if(preDesc.anchoredContactBound.chunks)
+			preDesc.anchoredContactBound.inputs = reinterpret_cast<const PxU32*>(mGpuContext->getNarrowphaseCore()->getGPUContactManagerInputBase());
+	}
 	preDesc.sharedFrictionConstraintIndex = 0;
 	preDesc.sharedContactConstraintIndex = 0;	
 	preDesc.sharedArticulationResponseIndex = 0;

@@ -31,6 +31,7 @@
 
 #include "PxgBucket.h"
 #include "DyCpuGpuBiasCoefficient.h"
+#include "PxgAnchoredContactBound.h"
 
 struct float4;
 
@@ -461,6 +462,9 @@ namespace physx
 		PxU32*								mTempConstraintUniqueIndices;
 		PxU32*								mTempContactBlockHeader;
 		PxU32*								mTempConstraintBlockHeader;
+
+		// The destruction stage's anchored-chunk contact bound (disabled: chunks null).
+		PxgAnchoredContactBoundView			anchoredContactBound;
 	};
 }
 

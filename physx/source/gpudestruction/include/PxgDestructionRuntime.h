@@ -8,6 +8,7 @@
 #include "PxgDestructionOwnership.h"
 #include "PxgDestructionMotionStorage.h"
 #include "PxvDestructionBodyAllocator.h"
+#include "PxgAnchoredContactBound.h"
 namespace physx {
 struct PxgBodySim;
 struct PxgConstraintWriteback;
@@ -48,6 +49,11 @@ public:
     virtual void setProfiler(PxProfilerCallback* callback, PxU64 context) = 0;
     virtual bool configured() const = 0;
     virtual bool prepareRigidIterationLimits(const PxgBodySim*,PxU32,const PxNodeIndex*,PxU32,PxU32,CUstream) = 0;
+    // The anchored chunks' contact bound for the rigid solver's contact prep
+    // (PX_DESTRUCTION_ANCHORED_CONTACT_BOUND; PxgAnchoredContactBound.h): the
+    // shape -> chunk map and each chunk's capacity and mass, without the
+    // contact inputs (the caller's). Disabled: chunks null.
+    virtual PxgAnchoredContactBoundView anchoredContactBoundView() const = 0;
     virtual bool readRigidIterationLimits(PxU32& position,PxU32& velocity) = 0;
     virtual bool correctionEnabled() const = 0;
     // Configured internalCorrectionLimit: the most corrected rigid passes one
