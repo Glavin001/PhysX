@@ -29,6 +29,7 @@
 #ifndef	__CONSTRAINT_PREP_SHARED_CUH__
 #define	__CONSTRAINT_PREP_SHARED_CUH__
 
+#include "PxgContactPairMaxImpulse.h"
 #include "foundation/PxSimpleTypes.h"
 #include "mathsExtensions.h"
 #include "PxgBodySim.h"
@@ -52,6 +53,7 @@ namespace physx
 {
 
 #define PXC_SAME_NORMAL 0.999f
+
 
 static __device__ PxU32 computeRemapIndexRigidBody(bool isSecondBody, 
 	const PxU32* const PX_RESTRICT partitionStartIndices, 

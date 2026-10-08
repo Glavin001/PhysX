@@ -513,28 +513,45 @@ __global__ void payCrushEnergy(const ImpactorImpedance* impactors,PxU32 count,co
 // impulse applies to all its contacts: the bound of its pair at capacity).
 // With perImpactor (Settings::boundImpactor): per impactor body instead, the
 // largest of its own rows' -- the pair the impact model solved, nothing else
-// the struck cluster touches.
+// the struck cluster touches. A body's max impulse still applies to all its
+// contacts -- debris it pushes, the ground, contacts new in the corrected
+// pass -- none of which the step evaluated: with pairwise
+// (Settings::boundPairwise) the bound holds only between an impactor and the
+// clusters its rows struck (gpusolver constraintPrepShared.cuh
+// contactPairMaxImpulse), and every other pair is an ordinary rigid contact.
 __global__ void collectImpactBounds(const impact::ContactRow* rows,const PxU32* count,PxU32 capacity,const float* rowBound,
-    const PxDestructionStressChunk* chunks,const PxDestructionStressCluster* clusters,float* bound,PxU32 bodies,bool perImpactor=false)
+    const PxDestructionStressChunk* chunks,const PxDestructionStressCluster* clusters,float* bound,PxU32 bodies,bool perImpactor=false,bool pairwise=false)
 {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=min(*count,capacity))return;
     const float b=rowBound[i];if(!(b>0.0f))return;
     const PxU32 body=perImpactor?rows[i].body:clusters[chunks[rows[i].chunk].cluster].body;if(body>=bodies)return;
     atomicMax(reinterpret_cast<unsigned*>(bound+body),__float_as_uint(b));
+    // Pairwise: the struck cluster is marked (+inf, above every bound): the
+    // impactor's bound holds against it and nothing else (contactPairMaxImpulse).
+    if(pairwise && perImpactor) {
+        const PxU32 struck=clusters[chunks[rows[i].chunk].cluster].body;
+        if(struck<bodies && struck!=body)atomicMax(reinterpret_cast<unsigned*>(bound+struck),__float_as_uint(INFINITY));
+    }
 }
 // Into the rigid checkpoint the corrected pass restores; the correction is
 // requested (*requested): the topology transaction prepares an empty edit set
 // for it, and keepBoundCorrection sets the stage's correction bit after the
 // (unchanged) commit.
 __global__ void applyImpactBounds(float* bound,float* saved,PxU32* bounded,PxgBodySim* checkpoint,PxU32 checkpointCount,PxU32 bodies,
-    PxDestructionStageStatus* status,PxU32* requested)
+    PxDestructionStageStatus* status,PxU32* requested,bool pairwise=false)
 {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=bodies)return;
     const float b=bound[i];bound[i]=0.0f;
     if(!(b>0.0f) || i>=checkpointCount || (status->error & ~8u))return;
     float& m=checkpoint[i].body2Actor_maxImpulseW.p.w;
     if(!bounded[i]){saved[i]=m;bounded[i]=1u;}
-    m=fminf(saved[i],b);
+    // Pairwise (collectImpactBounds): a struck cluster (+inf) is marked
+    // -PX_MAX_F32, an impactor's bound b is -b; an ordinary bound otherwise.
+    // (A body with its own finite max contact impulse keeps it, ordinary.)
+    // (1e32: PxsBodyCore's default, no bound of the body's own.)
+    const bool own=saved[i]<1e32f;
+    if(isinf(b))m=own?saved[i]:-PX_MAX_F32;
+    else m=pairwise && !own?-b:fminf(saved[i],b);
     *requested=1u;
 }
 // An unchanged topology commits at once (and clears the correction bit);
@@ -1886,6 +1903,9 @@ public:
                     // The handoff to the corrected pass (opt-in; the high profile's):
                     // contact bounds per impactor body, not per struck cluster.
                     mImpactSettings.boundImpactor=env("PX_DESTRUCTION_IMPACT_BOUND_IMPACTOR",0.0f)!=0.0f;
+                    // Those bounds pairwise: an impactor's holds only against the
+                    // clusters its rows struck (with BOUND_IMPACTOR).
+                    mImpactSettings.boundPairwise=env("PX_DESTRUCTION_IMPACT_BOUND_PAIRWISE",0.0f)!=0.0f;
                     // and the contact routing by peak force against capacity.
                     mImpactSettings.route=env("PX_DESTRUCTION_IMPACT_ROUTE",0.0f)!=0.0f;
                     mImpactSettings.explicitWindow=PxU32(env("PX_DESTRUCTION_IMPACT_EXPLICIT_WINDOW",0.0f));
@@ -2588,10 +2608,10 @@ public:
         }
         check(cudaStreamWaitEvent(mStream,mCheckpointReady,0));
         collectImpactBounds<<<(impact::kContactCapacity+127)/128,128,0,mStream>>>(mImpactRows,mImpactRowCount,impact::kContactCapacity,
-            mImpactRowBound,mChunks,mClusters,mImpactBound,mImpactBoundCapacity,mImpactSettings.boundImpactor);
+            mImpactRowBound,mChunks,mClusters,mImpactBound,mImpactBoundCapacity,mImpactSettings.boundImpactor,mImpactSettings.boundPairwise);
         check(cudaMemsetAsync(mImpactBoundRequested,0,sizeof(PxU32),mStream));
         applyImpactBounds<<<(mImpactBoundCapacity+127)/128,128,0,mStream>>>(mImpactBound,mImpactSaved,mImpactBounded,mCheckpointBodies,
-            mCheckpointCount,mImpactBoundCapacity,mStatus,mImpactBoundRequested);
+            mCheckpointCount,mImpactBoundCapacity,mStatus,mImpactBoundRequested,mImpactSettings.boundImpactor && mImpactSettings.boundPairwise);
         check(cudaEventRecord(mCheckpointReady,mStream));
         if(mImpactLog) {
             PxDestructionStageStatus st{};PxU32 rows=0;check(cudaMemcpyAsync(&st,mStatus,sizeof st,cudaMemcpyDeviceToHost,mStream));
