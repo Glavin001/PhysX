@@ -2335,6 +2335,8 @@ public:
                         mImpactSettings.dynamicSequence=1u;
                         const char* z=std::getenv("PX_DESTRUCTION_DYNAMIC_DAMPING");if(z && *z)mImpactSettings.dynamicDamping=float(std::atof(z));
                         mImpactSettings.dynamicFriction=mRebearingFriction;
+                        {const char* dd=std::getenv("PX_DESTRUCTION_SEQUENCE_DUMP");const char* dc=std::getenv("PX_DESTRUCTION_SEQUENCE_DUMP_COUNT");
+                         if(dd && *dd){mImpact.seqDumpDir=dd;mImpact.seqDumpsLeft=dc && *dc?PxU32(std::atoi(dc)):2u;}}
                         const char* g=std::getenv("PX_DESTRUCTION_SEQUENCE_DIAG");if(g && *g){mImpactSettings.sequenceDiag=PxU32(std::atoi(g));std::fprintf(stderr,"[sequence] diagnostics %u\n",mImpactSettings.sequenceDiag);}
                     }
                 }
