@@ -1,7 +1,9 @@
 // Accumulate the node correction without losing small increments beside a
 // large warm-start cancellation. The physical operator and output stay the
 // established scaled bond formulation; convert once after lambda0 + B^T*mu.
-__global__ void resetNativeStressSolution(NativeStressCycleView h,AngLin* pi,AngLin* q,unsigned nodes,bool warm){
+// carry: keep pi, the directions a carried component continues from (a
+// component that does not carry overwrites its own with p = g).
+__global__ void resetNativeStressSolution(NativeStressCycleView h,AngLin* pi,AngLin* q,unsigned nodes,bool warm,bool carry=false){
     const unsigned node=blockIdx.x*blockDim.x+threadIdx.x;
     if(!node){
         // Native bond outputs are read-only to consumers. A cold start has no
@@ -10,7 +12,7 @@ __global__ void resetNativeStressSolution(NativeStressCycleView h,AngLin* pi,Ang
         const bool same=*h.warmRangeKnown && *h.warmRangeGeneration==h.topology->rebuilds;
         *h.warmRangeKnown=h.topology->initialized && !h.topology->error && (!warm || same);*h.warmRangeGeneration=h.topology->rebuilds;
     }
-    if(node<nodes){h.solution[node]={};pi[node]={};q[node]={};}
+    if(node<nodes){h.solution[node]={};if(!carry)pi[node]={};q[node]={};}
 }
 __device__ __forceinline__ void updateNativeStressSolution(const PersistentStressArgs& a,unsigned node,unsigned id,unsigned iteration){
     if(iteration>a.maxIterations || !a.m_islandActive[id])return;

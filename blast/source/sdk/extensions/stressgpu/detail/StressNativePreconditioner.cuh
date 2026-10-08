@@ -57,7 +57,7 @@ __device__ __forceinline__ float nativeCycleResult(const PersistentStressArgs& a
 }
 __device__ __forceinline__ float preconditionNativeComponent(const PersistentStressArgs& a,
     const unsigned* nodes,unsigned count,unsigned id,unsigned iteration COMPONENT_SUBPROBE_PARAMETER,
-    bool balanced=false,const ComponentChunks chunks=ComponentChunks{}){
+    bool balanced=false,const ComponentChunks chunks=ComponentChunks{},bool carried=false){
 #ifdef BLAST_GPU_COMPONENT_PHASE_PROBE
     unsigned long long subStart=0;if(!threadIdx.x)subStart=componentDiagnosticClock();
 #define SUBPROBE_END(index) __syncthreads();if(!threadIdx.x){subProbe[index]+=componentDiagnosticClock()-subStart;subStart=componentDiagnosticClock();}__syncthreads();
@@ -68,9 +68,10 @@ __device__ __forceinline__ float preconditionNativeComponent(const PersistentStr
     // mode and costs no hierarchy traversal. If further work is needed, restart
     // PCG with the fixed block preconditioner on iteration one; never mix preconditioners
     // in the conjugacy recurrence. With firstPolynomial the polynomial applies
-    // from iteration 0 and PCG runs unrestarted.
+    // from iteration 0 and PCG runs unrestarted. A carried solve continues the
+    // previous solve's polynomial recurrence, so it never takes that step.
     auto* result=a.hierarchy.result;
-    if(!iteration && !a.firstPolynomial){for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)a.hierarchy.result[nodes[i]]=a.hierarchy.rhs[nodes[i]];__syncthreads();}
+    if(!iteration && !a.firstPolynomial && !carried){for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)a.hierarchy.result[nodes[i]]=a.hierarchy.rhs[nodes[i]];__syncthreads();}
     else {
         // Apply the fixed polynomial using cached local inverses.
         // Large components retain their cooperative multilevel schedule.
@@ -95,9 +96,17 @@ __device__ __forceinline__ float preconditionNativeComponent(const PersistentStr
 // PCG keeps directions in node space. q is then evaluated directly as L*p;
 // its energy comes from the same bond gather, avoiding a drifting q recurrence
 // and a second operator product of the preconditioned vector.
-__device__ __forceinline__ void updateNativeDirection(const PersistentStressArgs& a,unsigned node,unsigned id,unsigned iteration){
+// carried: iteration 0 of a carried solve continues the previous solve's
+// direction. If its gamma grew 16-fold (a new load, not PCG's ordinary
+// non-monotone gamma: a guard at 1 restarted nearly every tick and halved the
+// gain) it restarts instead. A restart writes p = g outright: a direction left
+// from another solve is never read.
+__device__ __forceinline__ void updateNativeDirection(const PersistentStressArgs& a,unsigned node,unsigned id,unsigned iteration,bool carried=false){
     if(!a.m_islandActive[id])return;
-    const float previous=a.hierarchy.previous[id],beta=(iteration>1 || (a.firstPolynomial && iteration>0)) && previous>0?a.hierarchy.gamma[id]/previous:0;
+    const float previous=a.hierarchy.previous[id];
+    float beta=(iteration>1 || (a.firstPolynomial && iteration>0) || carried) && previous>0?a.hierarchy.gamma[id]/previous:0;
+    if(carried && !iteration && !(beta<=16.0f))beta=0;
+    if(beta==0){a.m_nsPi[node].angular=a.hierarchy.g[node].angular;a.m_nsPi[node].linear=a.hierarchy.g[node].linear;return;}
     a.m_nsPi[node].angular=add(a.hierarchy.g[node].angular,mul(a.m_nsPi[node].angular,beta));
     a.m_nsPi[node].linear=add(a.hierarchy.g[node].linear,mul(a.m_nsPi[node].linear,beta));
 }
