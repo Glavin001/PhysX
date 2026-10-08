@@ -143,7 +143,7 @@ struct Settings {
     // longer command buffer starves the display. The host waits for each
     // dispatch (Stage::submit). Not a physical quantity: only how an
     // evaluation is split into dispatches.
-    PxU32 dispatchWork=1u<<20;   // measured: 2^22 reached 166 ms, 2^21 178 ms sharing the GPU with other jobs
+    PxU32 dispatchWork=1u<<19;   // measured: 2^22 reached 166 ms, 2^21 178 ms sharing the GPU with other jobs
     PxU32 innerIterations=64;// node-space conjugate gradient iterations per ADMM step, at most (warm-started; to the tolerance)
     // Converged when every joint's projected gradient -- the relative
     // acceleration of its two chunks that the solve has not yet balanced or
@@ -168,6 +168,10 @@ struct Settings {
     // Diagnostics only (tests): 1 corrupts the first link's projection
     // (scales it 10x out of its set), so the detectors can be shown to fire.
     PxU32 faultInjection=0;
+    // (New settings go last: captures of older builds read as a prefix.)
+    // ADMM over-relaxation, 1 (none) to 2 (Boyd et al. 2011, 3.4.3). Off: 1.6
+    // stalled the meteor capture's first solve (32768 steps vs 3); A/B knob.
+    float relaxation=1.0f;
 };
 // A solve is diverging when, past its first rho rebalance (25 steps), a
 // joint's split |J - Z| exceeds kDivergence times the joint's capacity: the
@@ -974,7 +978,10 @@ __device__ PxU32 solve(Shared& sh,const Inputs& in,const Settings& s,const Scrat
             float g[6],Ainv[6],R[6],ey[6];relative(b,w.u,g);relative(b,w.cy,ey);penalty(b,rho,inverseDt2,Ainv,R);
             const float k6[6]={b.kl,b.kl,b.kl,b.kt,b.k0,b.k1};const float* T=w.T+6*l;
             float x[6],zold[6];
-            for(int q=0;q<6;++q){j[q]=Ainv[q]*(-g[q]+inverseDt2/k6[q]*T[q]+R[q]*(z[q]-uu[q])-ey[q]);x[q]=j[q]+uu[q];zold[q]=z[q];}
+            // Over-relaxation (Boyd et al. 2011, 3.4.3): the Z and U steps take
+            // a J-hat = a J + (1 - a) Z_old, a = Settings::relaxation.
+            float jh[6];
+            for(int q=0;q<6;++q){j[q]=Ainv[q]*(-g[q]+inverseDt2/k6[q]*T[q]+R[q]*(z[q]-uu[q])-ey[q]);jh[q]=s.relaxation*j[q]+(1.0f-s.relaxation)*z[q];x[q]=jh[q]+uu[q];zold[q]=z[q];}
             // The projected point's size: the projection's rounding is eps of
             // it (a point far outside its set comes back as a difference of
             // large numbers).
@@ -985,7 +992,7 @@ __device__ PxU32 solve(Shared& sh,const Inputs& in,const Settings& s,const Scrat
             const float cap=fmaxf(fmaxf(b.capC,b.capT),b.capS);
             float lp=0.0f,ap=0.0f,ld=0.0f,ad=0.0f;
             for(int q=0;q<6;++q) {
-                z[q]=x[q];uu[q]+=j[q]-z[q];
+                z[q]=x[q];uu[q]+=jh[q]-z[q];
                 const float rp=j[q]-z[q],rd=R[q]*(z[q]-zold[q]);
                 if(q<3){lp+=rp*rp;ld+=rd*rd;}else{ap+=rp*rp;ad+=rd*rd;}
             }
