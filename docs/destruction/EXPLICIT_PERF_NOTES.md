@@ -69,13 +69,20 @@ memory, with each slot's other end precomputed. The rows' bodies and ends live i
 threadgroup memory, and `prepareRow` runs on every thread. Same results; the lab
 build is about 1.6 -> 0.9-1.2 ms.
 
-Lab distributions, base `feat/impact-capacity` -> bc0b121a0. Min of 3 runs per
-capture, one process each, keep-alive, shared GPU. Times in ms:
+**9. Smaller fixed costs.**
+- Patches of up to 672 nodes take the threadgroup-memory path (`EX_SMALL`).
+- There is no host readback between the build and the window
+  (`Settings::explicitSync`; `IMPACT_EXPLICIT_SYNC=1` restores it to time the
+  build and the window apart). On CuMetal a sync round trip costs about 0.12 ms.
+- Contact rows are packed as float4 records.
 
-| Run | Evaluation mean | Evaluation p95 | Evaluation max | Window mean | Longest dispatch max |
+Lab distributions, base `feat/impact-capacity` -> be8c29439 (merged, SDK-gated).
+Min of 3 runs per capture, one process each, keep-alive, shared GPU. Times in ms:
+
+| Run | Evaluation mean | Evaluation p95 | Evaluation max | Longest dispatch max | Substeps median |
 |---|---|---|---|---|---|
-| Cannonball (`all/cannonball-framed-house-r1`, 403 captures) | 13.8 -> 5.4 | 19.2 -> 8.2 | 21.5 -> 9.6 | 12.5 -> 4.2 | 20.0 -> 7.1 |
-| Truck (`tc/framed-house-r1`, 400 captures) | 14.0 -> 5.5 | 21.1 -> 8.9 | 25.3 -> 10.3 | 12.7 -> 4.4 | 21.1 -> 8.1 |
+| Cannonball (`all/cannonball-framed-house-r1`, 403 captures) | 13.8 -> 4.9 | 19.2 -> 7.5 | 21.5 -> 8.4 | 20.0 -> 8.1 | 323 -> 243 |
+| Truck (`tc/framed-house-r1`, 400 captures) | 14.0 -> 5.2 | 21.1 -> 8.6 | 25.3 -> 15.1 (one outlier; median 4.8) | 21.1 -> 12.9 | 340 -> 270 |
 
 Measured and not kept:
 - **Several threadgroups per patch** (branch `exp/explicit-grid`). It is
@@ -84,6 +91,16 @@ Measured and not kept:
   slower.
 - **Two joints interleaved per thread:** 1.5x slower, because of registers.
 - **float2/float4 records for the gathers:** no gain.
+- **CuMetal honouring `__launch_bounds__`** (cuda-metal cdeb329: pipelines report
+  512 threads): no gain, so registers were not spilling.
+- **Diagonal rotational-inertia scaling** (`explicit-step.py --rotation-rule`):
+  - Scaling every chunk gives 271 -> 180 substeps, but the impactor's dp moves
+    +35%, the Jaccard falls to 0.776 and the added KE is 21%. It fails the gate.
+  - Exempting the rows' chunks keeps the result inside the reference's h vs h/2
+    spread (Jaccard 0.890 against 0.895, the same dp), but saves only 9%.
+  - True SMS (rigid-exact) needs a solve every substep, which costs more than it
+    saves.
+- **Combined both-ends B^T v and wrench (fewer FLOPs):** no gain.
 - **Independent patches in one launch already run concurrently.**
   `ex_patch_scaling` on 1 / 2 / 4 / 8 copies of the full island gives
   8.5 / 8.8 / 8.8 / 9.6 ms.
@@ -113,28 +130,23 @@ Measured and not kept:
 
 ## Next levers
 
-The substep is latency-bound: each phase's critical path is a chain of dependent
-loads and arithmetic on one thread. On lab patches that costs about 3 us in the
-joint gather, about 6 us in the rows, and about 7 us in the joints, against
-0.05 us per barrier. More threads or cores do not shorten it.
+The substep is latency-bound. More threads, more cores, fewer FLOPs and a larger
+register budget have each been measured and do not help. What remains is the
+substep count.
 
-1. **CuMetal: honour `__launch_bounds__`.** Emit
-   `[[max_total_threads_per_threadgroup(N)]]`. Today every pipeline reports
-   1,024 threads, so Metal's compiler budgets registers for 1,024 threads
-   while the step launches 512. A 512-thread budget may stop spills, and it
-   would make the next lever affordable.
-2. **Joint state in registers across substeps** (about 1 joint per thread). The
-   interleaving test suggests registers are already the limit, so this needs
-   lever 1 first.
-3. **A shorter row path.** Pack the rows like the joints (float4). Classify the
-   rows first, then give each expensive row (scan + Newton, or Coulomb sliding)
-   its own simdgroup, so a simdgroup's rows don't serialise their different
-   paths.
-4. **Build reuse.** The build is now about 0.35 ms of fixed launch/sync cost plus
-   0.5-0.8 ms of work, of which the bound is about 0.2 ms. Reusing the bound is
-   valid when the patch's chunk nodes and live joints are subsets of the last
-   tick's with the same geometry and masses: a principal submatrix, or K less
-   PSD terms, has a smaller lambda_max. The saving is small next to the window.
+1. **Multi-rate (asynchronous) steps.** Sized with `IMPACT_EXPLICIT_LOCAL=1` on 90
+   lab patches:
+   - Only 7% of joints (p90 8.5%) have an element frequency above omega/2.
+   - Power-of-two levels do 0.27 of the joint updates.
+   - Projection: window about 4.2 -> 1.7 ms, evaluation about 2.5-3 ms.
+
+   It needs a stability argument first (AVI resonances, Fong, Darve & Lew 2008;
+   subcycling interface conditions, Belytschko et al. 1985). It also needs the
+   fidelity gate, because slow joints' break times are quantised to their period.
+2. **The stiff set may be authoring.** Long, light members (about 2 kg, arms about
+   1 m) on short stiff joints: k_l 4.5e7 N/m on 0.004 m^2, against 6.3e6 N/m on
+   0.027 m^2 for the rest. Softening them to their material's stiffness would
+   raise h with no kernel work.
 
 ## How to test and time
 
