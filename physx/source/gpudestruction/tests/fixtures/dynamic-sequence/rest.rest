@@ -1,0 +1,1 @@
+at rest: the intact bungalow at its static equilibrium, no topology change (sequence-lab.py --case intact --law stage --export, T 0.5 s)

@@ -120,6 +120,19 @@ int run(int argc,char** argv)
     impact::Settings s{};s.dt=T;s.capacityBand=band;s.explicitDt=h;s.dynamicSequence=1u;s.dynamicFriction=mu;
     impact::Scratch w{};allocate(w.status,1);
     impact::exFinishKernel<<<1,impact::kThreads>>>(s,t);check(cudaDeviceSynchronize());check(cudaGetLastError());
+    // The start's residual r = p + B J0 (exFinishDynamic's), against the loads p: an equilibrium
+    // start's is round-off, rho = |r| / |p|.
+    double rho=0.0,rho32=0.0;
+    {std::vector<float> res(6*size_t(nn));check(cudaMemcpy(res.data(),t.dynLoad,sizeof(float)*res.size(),cudaMemcpyDeviceToHost));
+        double rr=0.0,pp=0.0;for(PxU32 k=0;k<nn;++k)for(int q=0;q<3;++q){rr+=double(res[6*k+q])*res[6*k+q];pp+=double(load[6*k+q])*load[6*k+q];}
+        rho=pp>0.0?std::sqrt(rr/pp):0.0;
+        // FP32's own: each node sums its joints' forces in float, an error of order
+        // FLT_EPSILON times their magnitudes' sum, whatever the start's.
+        std::vector<double> mag(nn,0.0);
+        for(PxU32 l=0;l<nl;++l){const double f=std::sqrt(double(links[l].J0[0])*links[l].J0[0]+double(links[l].J0[1])*links[l].J0[1]+double(links[l].J0[2])*links[l].J0[2]);
+            if(links[l].a!=0xffffffffu)mag[links[l].a]+=f;if(links[l].b!=0xffffffffu)mag[links[l].b]+=f;}
+        double mm=0.0;for(double v:mag)mm+=v*v;
+        rho32=pp>0.0?double(FLT_EPSILON)*std::sqrt(mm/pp):0.0;}
     const bool small=nn<=impact::kExSmall;const PxU32 budget=PxU32(env("DYNAMIC_BUDGET",512.0f));
     const auto t0=std::chrono::steady_clock::now();double longest=0.0;PxU32 launches=0;
     impact::ExPatch p{};
@@ -154,6 +167,18 @@ int run(int argc,char** argv)
             std::vector<float> cs(2*size_t(impact::kExLinks));check(cudaMemcpy(cs.data(),t.cslip,sizeof(float)*cs.size(),cudaMemcpyDeviceToHost));
             for(PxU32 l=0;l<nl;++l){std::fwrite(&out[l].state,sizeof(PxU32),1,f);std::fwrite(out[l].J,sizeof(float),6,f);std::fwrite(&cs[2*l],sizeof(float),2,f);}
             std::fclose(f);}
+    }
+    // An at-rest problem (PREFIX.rest: an equilibrium with no topology change): no event, and the
+    // kinetic energy no more than a suddenly applied residual's, KE <= 4 rho^2 u0 (the residual's
+    // static response holds rho^2 of the elastic energy u0; a step load overshoots it twice in
+    // displacement, four times in energy).
+    if(std::ifstream(prefix+".rest")) {
+        // (an equilibrium start's residual is within FP32's own: rho <= 2 rho32, its float storage
+        // and the kernel's sums)
+        const double r=2.0*rho32,bound=4.0*r*r*double(p.u0);
+        const bool ok=p.events==0 && broken.empty() && ke<=bound && rho<=r;
+        std::printf("at rest: %u events, KE %.4g J (bound 4 rho^2 u0 = %.4g J, rho = 2 FP32's %.3g; the start's residual %.3g, u0 %.4g J)%s\n",p.events,ke,bound,r,rho,p.u0,ok?"":" FAIL");
+        return ok && !deficit?0:1;
     }
     std::ifstream e(prefix+".expected");PxU32 count=0;e>>count;std::map<PxU32,float> want;
     for(PxU32 i=0;i<count;++i){PxU32 l;float tm;std::string kind;e>>l>>tm>>kind;want[l]=tm;}

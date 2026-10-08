@@ -171,8 +171,9 @@ if(BUILD_TESTING)
         set_tests_properties(destruction_gpu_two_body_${_case} PROPERTIES ENVIRONMENT "CUMETAL_USE_METAL_DEVICE_ADDRESSES=1")
     endforeach()
     # The dynamic sequence's window (C10) against the CPU reference's ensemble (sequence-lab.py
-    # --law stage --export --ensemble 8: the bungalow's removals, 0.5 s each).
-    foreach(_case truck-door truck bay2)
+    # --law stage --export --ensemble 8: the bungalow's removals, 0.5 s each; rest: the intact house at its
+    # equilibrium, which a window must hold at rest, tests/dynamic_sequence_replay.cu PREFIX.rest).
+    foreach(_case truck-door truck bay2 rest)
         add_test(NAME destruction_gpu_dynamic_sequence_${_case} COMMAND destruction_dynamic_sequence_replay "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dynamic-sequence/${_case}")
         set_tests_properties(destruction_gpu_dynamic_sequence_${_case} PROPERTIES ENVIRONMENT "CUMETAL_USE_METAL_DEVICE_ADDRESSES=1")
     endforeach()
