@@ -505,7 +505,10 @@ __device__ float stepCritical(const Bond& b,const float* J,const float* dJ,float
 __device__ float stepContactCritical(const Bond& b,const StepLink& e,const float* J,const float* dJ,float cap)
 {
     const float mu=b.area;
-    auto g=[&](float s){const float N=J[0]+s*dJ[0];if(e.state&eSL_SLIDE)return N;
+    // J, dJ captured by value: a pointer parameter captured by reference reads
+    // zeros under CuMetal when it points at a local array (the W miscompile's shape).
+    const PxU32 state=e.state;
+    auto g=[J,dJ,state,mu](float s){const float N=J[0]+s*dJ[0];if(state&eSL_SLIDE)return N;
         return fmaxf(N,sqrtf((J[1]+s*dJ[1])*(J[1]+s*dJ[1])+(J[2]+s*dJ[2])*(J[2]+s*dJ[2]))-mu*-N);};
     // a separating contact: N >= 0 (the row's force is a compression, N <= 0)
     if(g(cap)<=0.0f)return FLT_MAX;
