@@ -49,7 +49,7 @@ Capture load(const char* path)
 {
     File f(path);Capture c;
     const auto h=f.one<impact::CaptureHeader>();
-    if(std::memcmp(h.magic,"IMPC",4) || (h.version!=1 && h.version!=2) || h.settingsBytes>sizeof(impact::Settings))throw std::runtime_error("not a capture of this build");
+    if(std::memcmp(h.magic,"IMPC",4) || (h.version<1 || h.version>3) || h.settingsBytes>sizeof(impact::Settings))throw std::runtime_error("not a capture of this build");
     {const auto raw=f.read<unsigned char>(h.settingsBytes);std::memcpy(&c.s,raw.data(),h.settingsBytes);}
     const PxU32 n=h.n,m=h.m;impact::Inputs& in=c.in;in.chunkCount=n;in.bondCount=m;
     in.chunks=upload(f.read<PxDestructionStressChunk>(n));in.bonds=upload(f.read<PxDestructionStressBond>(m));

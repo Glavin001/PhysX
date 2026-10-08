@@ -90,6 +90,18 @@ struct ContactRow {
     float im;           // inverse mass
     float ii[6];        // inverse inertia (xx, yy, zz, xy, xz, yz)
     PxU32 resting;      // 1: not closing, its load past what its body can exert (routing only; never coupled)
+    // The two-body impact (Settings::explicitTwoBody): the impactor's own chunk of the
+    // pair -- the stage chunk of a destructible body (a car) the struck chunk touched --
+    // or 0xffffffff (a plain rigid body; rows of captures before version 3), and its
+    // cluster's pose in the struck cluster's frame (quaternion x y z w, then the
+    // position), so the impactor's chunks, in their own cluster's frame, can join the
+    // struck patch.
+    PxU32 other=0xffffffffu;
+    float otherPose[7]={0.0f,0.0f,0.0f,1.0f,0.0f,0.0f,0.0f};
+    // The pair's contact patch: its points' RMS distance from their centroid (m) and
+    // the deepest point's penetration (m; negative: the gap still open, a row the
+    // window closes before it pushes), for the compliant row's contact radius.
+    float patch[2]={0.0f,0.0f};
 };
 
 struct Settings {
@@ -253,6 +265,23 @@ struct Settings {
     // 1: read the patches back between the explicit step's build and window
     // (their times apart, for diagnostics); 0: no round trip between them.
     PxU32 explicitSync=0;
+    // The two-body impact (PX_DESTRUCTION_IMPACT_TWO_BODY; vibe-land
+    // docs/destruction/IMPACT_STEP_PLAN.md, harness scripts/impact/two-body.py):
+    // where a row's other body is a destructible (ContactRow::other, a car), its
+    // island joins the struck patch -- its chunks nodes, its joints links -- so
+    // its joints are graded on the window's forces, not on the trial's dead stop.
+    // Its stiff joints are integrated implicitly (trapezoidal, 2 sweeps, split
+    // masses) where explicit integration at h would not be stable.
+    bool explicitTwoBody=false;
+    // Compliant rows (PX_DESTRUCTION_IMPACT_COMPLIANT_ROWS; always for a two-body
+    // row): a row's normal force is a flat contact's, k = 2 a E* (Johnson, Contact
+    // Mechanics, 1985, sec. 3.8), integrated by backward Euler, not a rigid stop.
+    bool compliantRows=false;
+    // With compliant rows h also resolves the shortest contact: h <= sqrt(3
+    // explicitAccuracy) tau / pi (tau = pi sqrt(m/k), backward Euler's period
+    // error (w h)^2 / 3), and at most explicitMaxStep.
+    float explicitAccuracy=0.1f;
+    float explicitMaxStep=50e-6f;
 };
 // A solve is diverging when, past its first rho rebalance (25 steps), a
 // joint's split |J - Z| exceeds kDivergence times the joint's capacity: the
@@ -2010,11 +2039,11 @@ struct Stage {
     // The impact step's scratch (Settings::method 1), allocated on its first use.
     StepScratch t{};bool stepAllocated=false;bool stepLog=false;
     // The explicit step's scratch (Settings::method 2), allocated on its first use.
-    ExScratch x{};bool explicitAllocated=false;
+    ExScratch x{};bool explicitAllocated=false;bool twoBody=false;
     void releaseExplicit() {
         if(!explicitAllocated)return;
         cudaFree(x.nodeOf);cudaFree(x.linkOf);cudaFree(x.patchCount);cudaFree(x.patches);cudaFree(x.nodes);cudaFree(x.bonds);cudaFree(x.links);
-        cudaFree(x.rowBonds);cudaFree(x.rows);cudaFree(x.adj);cudaFree(x.rowAdj);cudaFree(x.wr);cudaFree(x.rowList);cudaFree(x.rwr);cudaFree(x.jp);cudaFree(x.jl);cudaFree(x.rp);x={};explicitAllocated=false;
+        cudaFree(x.rowBonds);cudaFree(x.rows);cudaFree(x.adj);cudaFree(x.rowAdj);cudaFree(x.wr);cudaFree(x.rowList);cudaFree(x.rwr);cudaFree(x.jp);cudaFree(x.jl);cudaFree(x.rp);cudaFree(x.vStart);cudaFree(x.ja);cudaFree(x.wd);cudaFree(x.handoff);cudaFree(x.handoffCount);cudaFree(x.rowDecided);x={};explicitAllocated=false;
     }
     void allocateExplicit() {
         if(explicitAllocated)return;
@@ -2022,13 +2051,21 @@ struct Stage {
         ::physx::allocate(x.nodeOf,std::max<size_t>(n,1));::physx::allocate(x.linkOf,std::max<size_t>(m,1));::physx::allocate(x.patchCount,1);::physx::allocate(x.patches,P);
         ::physx::allocate(x.nodes,P*kExNodes);::physx::allocate(x.bonds,P*kExLinks);::physx::allocate(x.links,P*kExLinks);
         ::physx::allocate(x.rowBonds,P*kExRows);::physx::allocate(x.rows,P*kExRows);::physx::allocate(x.adj,P*2*kExLinks);::physx::allocate(x.rowAdj,P*2*kExRows);::physx::allocate(x.wr,P*kExLinks*12);::physx::allocate(x.rowList,P*kExRows);::physx::allocate(x.rwr,P*kExRows*12);::physx::allocate(x.jp,P*kExLinks*kExJoint);::physx::allocate(x.jl,P*kExLinks);::physx::allocate(x.rp,P*kExRows*kExRow);
+        // The two-body impact's (Settings::explicitTwoBody; null otherwise, so a build without it never reads them).
+        if(twoBody){::physx::allocate(x.vStart,P*kExNodes*6);::physx::allocate(x.ja,P*kExLinks*9);::physx::allocate(x.wd,P*kExLinks*12);
+            ::physx::allocate(x.handoff,size_t(kExHandoffs));::physx::allocate(x.handoffCount,1);::physx::allocate(x.rowDecided,size_t(kContactCapacity));}
         explicitAllocated=true;
     }
     // The explicit step's evaluation: the patches, their build (a block
     // each), the window in launches of at most explicitBudget substeps (the
     // host waits for each), the verdicts. Per patch (host): its substeps.
     std::vector<ExPatch> explicitPatches;double explicitBuildMs=0.0,explicitRunMs=0.0;
+    // After submit: the stress solve report's contact input for two-body cars (exReportLoads).
+    void reportTwoBodyLoads(const Inputs& in,const Settings& s,PxDestructionVectorPair* report,PxU32 n,cudaStream_t stream) {
+        if(s.method==2u && s.explicitTwoBody && explicitAllocated && report)exReportLoads<<<kExPatches,kThreads,0,stream>>>(in,s,x,report,n);
+    }
     void submitExplicit(const Inputs& in,const Settings& s,cudaStream_t stream) {
+        twoBody=s.explicitTwoBody;
         allocateExplicit();
         const auto start=std::chrono::steady_clock::now();
         exClear<<<64,kThreads,0,stream>>>(in,x);

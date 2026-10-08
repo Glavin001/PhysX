@@ -3,8 +3,10 @@
 # on tools built by build-tool.sh (shared GPU). Logs in $OUT/*.log.
 . "$(dirname "$0")/env.sh"
 T=$OUT
-run(){ name=$1; want=$2; shift 2; VIBE_GPU_SHARED=1 "$G" "$name" env CUMETAL_USE_METAL_DEVICE_ADDRESSES=1 "$@" > "$T/$name.log" 2>&1; rc=$?; ok=PASS; if [ "$want" = fail ]; then [ $rc = 1 ] || ok=FAIL; else [ $rc = 0 ] || ok=FAIL; fi; echo "$ok $name (exit $rc): $(grep -E 'against the harness|corrected pass|held over|energy deficit' "$T/$name.log" | tail -1)"; }
+run(){ name=$1; want=$2; shift 2; VIBE_GPU_SHARED=1 "$G" "$name" env CUMETAL_USE_METAL_DEVICE_ADDRESSES=1 "$@" > "$T/$name.log" 2>&1; rc=$?; ok=PASS; if [ "$want" = fail ]; then [ $rc = 1 ] || ok=FAIL; else [ $rc = 0 ] || ok=FAIL; fi; echo "$ok $name (exit $rc): $(grep -E 'against the harness|two-body:|corrected pass|held over|energy deficit' "$T/$name.log" | tail -1)"; }
 run explicit_cannon pass IMPACT_EXPLICIT_DT_US=32 "$T/impact_explicit_replay" "$F/impact-level/cannon-level5.bin" "$F/impact-level/cannon-level5.explicit.txt"
+for c in truck-wall-w21rj hertz; do run two_body_$c pass "$T/two_body_replay" "$F/two-body/$c"; done
+run two_body_truck-wall-w10 pass TWO_BODY_MAX_DV=0.09 "$T/two_body_replay" "$F/two-body/truck-wall-w10"
 run explicit_energy pass IMPACT_QUIET=1 IMPACT_ENERGY_CHECK=1 "$T/impact_capture_replay" "$F/impact-handoff/cannon-fragments.impc"
 [ "${ALL:-0}" = 1 ] || exit 0
 for shot in cannon truck; do
