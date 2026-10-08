@@ -114,7 +114,7 @@ int run(int argc,char** argv)
     patch.impactors=imp!=0xffffffffu?1:0;
     impact::ExScratch t{};
     t.patchCount=upload(std::vector<PxU32>{1u});t.patches=upload(std::vector<impact::ExPatch>{patch});
-    t.nodes=upload(nodes);t.bonds=upload(bonds);t.links=upload(links);t.rowBonds=upload(rowBonds);t.rows=upload(rows);t.adj=upload(adj);t.rowAdj=upload(rowAdj);allocate(t.wr,12*size_t(impact::kExLinks));allocate(t.rwr,12*size_t(impact::kExRows));
+    t.nodes=upload(nodes);t.bonds=upload(bonds);t.links=upload(links);t.rowBonds=upload(rowBonds);t.rows=upload(rows);t.adj=upload(adj);t.rowAdj=upload(rowAdj);allocate(t.wr,12*size_t(impact::kExLinks));allocate(t.rwr,12*size_t(impact::kExRows));allocate(t.jp,impact::kExJoint*size_t(impact::kExLinks));
     impact::Settings s{};s.dt=dt;s.capacityBand=band;
     s.explicitDt=env("IMPACT_EXPLICIT_DT_US",0.0f)*1e-6f;s.explicitSafety=env("IMPACT_EXPLICIT_SAFETY",s.explicitSafety);
     impact::Scratch w{};

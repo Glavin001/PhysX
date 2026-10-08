@@ -42,7 +42,7 @@ def summary(paths):
                 for a, b in by:
                     if b == n and n: t = max(t, a); break
             last.append(t)
-        f = lambda x: 'min %.2f med %.2f mean %.2f p90 %.2f max %.2f' % (min(x), st.median(x), st.mean(x), q(x, 0.9), max(x)) if x else '-'
+        f = lambda x: 'min %.2f med %.2f mean %.2f p90 %.2f p95 %.2f max %.2f' % (min(x), st.median(x), st.mean(x), q(x, 0.9), q(x, 0.95), max(x)) if x else '-'
         print(f'{path}: {len(R)} captures, {len(E)} explicit evaluations')
         print('  evaluation ms', f(ms)); print('  window ms    ', f(win)); print('  longest dispatch ms', f([r['longest'] for r in E if r['longest']]))
         print('  substeps (largest patch)', f(sub))
