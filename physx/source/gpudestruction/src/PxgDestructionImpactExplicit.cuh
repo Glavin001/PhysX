@@ -44,7 +44,7 @@
 // Included inside namespace impact, after PxgDestructionImpactStep.cuh.
 
 constexpr PxU32 kExPatches=8;      // patches (struck islands) per evaluation
-constexpr PxU32 kExNodes=1024;     // chunks and impactors per patch
+constexpr PxU32 kExNodes=1280;     // chunks and impactors per patch (a whole bungalow, 1,096 chunks: the dynamic sequence)
 constexpr PxU32 kExLinks=4096;     // joints per patch
 constexpr PxU32 kExRows=256;       // contact rows per patch (a meteor's debris: 216 seen)
 constexpr PxU32 kExHandoffs=kExPatches*32;   // the window's hand-off records (impactors and cars) per evaluation
@@ -81,12 +81,23 @@ struct ExPatch {
     // implicit, and the compliant rows.
     PxU32 car=0xffffffffu,carRow=0xffffffffu,carChunks=0,implicitJoints=0,compliant=0,twoBody=0;
     float carQ[4]={0.0f,0.0f,0.0f,1.0f};
+    // The dynamic sequence (Settings::dynamicSequence; "The dynamic sequence"
+    // below): 1 an island in dynamic mode; its events this window (breaks,
+    // fastenings failed to contact, seats lost, contacts crushed), its contacts,
+    // the largest joint damping ratio (the substep's bound), and its books (J):
+    // kinetic energy at the window's start and end, elastic energy at its end, the
+    // loads' work, the contacts' slip work and the dashpots' work; the time of its
+    // last event in the window (s; -1 none).
+    PxU32 dynamic=0,events=0,converted=0,seatLost=0,crushedContacts=0,contacts=0;
+    float zeta=0.0f,keStart=0.0f,keEnd=0.0f,strainEnd=0.0f,extWork=0.0f,slipWork=0.0f,dashWork=0.0f,lastEvent=-1.0f;
 };
 // A joint of the patch: local node ends (0xffffffff: held), state bits.
 // eEX_ROWS: an end of the joint has contact rows (exRunT sets it; the window's
 // other joints run beside the rows).
 // eEX_CAR: a joint of the two-body car; eEX_IMPLICIT: integrated implicitly (exFinish).
-enum ExState : PxU32 { eEX_LIVE=1, eEX_DUCTILE=2, eEX_YIELDED=4, eEX_BROKEN=8, eEX_ROWS=16, eEX_CAR=32, eEX_IMPLICIT=64 };
+// eEX_CONTACT: a bearing joint whose fastenings failed, a unilateral contact (the
+// dynamic sequence); eEX_BEARING: a bearing joint (its fastenings may fail to contact).
+enum ExState : PxU32 { eEX_LIVE=1, eEX_DUCTILE=2, eEX_YIELDED=4, eEX_BROKEN=8, eEX_ROWS=16, eEX_CAR=32, eEX_IMPLICIT=64, eEX_CONTACT=128, eEX_BEARING=256 };
 struct ExLink { PxU32 a,b,state,pad; float J0[6],J[6]; float slip,limit,brokeAt,pad2; };
 // A contact row: the struck chunk (a, local), the impactor (b), the stage's row.
 // A compliant row (compliant 1): its depth d (m), the materials' E* (Pa), the
@@ -143,6 +154,34 @@ struct ExScratch {
     PxU32* rowDecided{};  // [kContactCapacity]
     float4* ja{};         // [P][kExLinks][9]
     float* wd{};          // [P][kExLinks][12]
+    // The dynamic sequence (Settings::dynamicSequence; null otherwise). Per island
+    // id: 1 a dynamic island (seqIsland); seqCreate 1: exList adds a patch for
+    // each such island without rows (the second submission), 0: it only marks the
+    // row patches of those islands dynamic. Per chunk: 1 a seed (seqSeed: a chunk
+    // of a joint whose verdict changed, or of the island's persisted state).
+    const PxU32* seqIsland{};
+    PxU32 seqCreate=0;
+    const PxU32* seqSeed{};
+    // The persisted state, start (committed at the tick's start) and next (this
+    // pass's): per chunk bit 0 dynamic, its velocity (its cluster's frame); per bond
+    // bit 0 its force persisted, bit 1 a contact, its force (bond frame) and its
+    // contact slip along t1, t2 (m).
+    const PxU32* pChunk{};PxU32* pChunkn{};
+    const float* pV{};float* pVn{};
+    const PxU32* pBond{};PxU32* pBondn{};
+    const float* pJ{};float* pJn{};
+    const float* pSlip{};float* pSlipn{};
+    // Per chunk: the time its island has run without an event (s), for the hand-back.
+    const float* pQuiet{};float* pQuietn{};
+    // The window's answer for the stage (exPublishDynamic): per bond its re-bearing
+    // state (eBEAR_*; ~0 undecided) and 1 where it is a contact the window holds.
+    PxU32* seqBear{};PxU32* seqHold{};
+    // Per patch: each joint's dashpot (6, by component; before exFinishDynamic its
+    // damping ratio in [0]), its contact slip in the window (2), each node's load
+    // residual p + B J0 (6; before exFinishDynamic its load p).
+    float* damp{};        // [P][kExLinks][6]
+    float* cslip{};       // [P][kExLinks][2]
+    float* dynLoad{};     // [P][kExNodes][6]
 };
 
 // A joint's wrench on one end's six dof from a bond-frame force x (end 0: its
@@ -419,10 +458,23 @@ __global__ void exList(Inputs in,Settings s,Scratch w,ExScratch t)
             if(car<in.chunkCount && car!=island){e.car=car;e.carRow=r;}
         }
     }
+    // The dynamic sequence: a row patch of a dynamic island is dynamic (one patch per
+    // island); the second submission adds a patch for every other dynamic island.
+    if(t.seqIsland) {
+        for(PxU32 p=0;p<count;++p)if(t.seqIsland[t.patches[p].island])t.patches[p].dynamic=1u;
+        if(t.seqCreate)for(PxU32 i=0;i<in.chunkCount;++i) {
+            if(!t.seqIsland[i])continue;
+            PxU32 p=0;while(p<count && t.patches[p].island!=i)++p;
+            if(p<count)continue;
+            if(count>=kExPatches){atomicOr(&w.status->error,1u);break;}
+            ExPatch e{};e.island=i;e.radius=s.stepRadius;e.seed=0xffffffffu;e.dynamic=1u;t.patches[count++]=e;
+        }
+    }
     *t.patchCount=count;
 }
 
 __device__ void exFinish(Shared& sh,const Settings& s,const ExScratch& t,PxU32 p);
+__device__ void exFinishDynamic(Shared& sh,const Settings& s,const ExScratch& t,PxU32 p);
 // v <- q v (a car's bond frame and arms into the struck frame; no lambda: CuMetal captures).
 __device__ __forceinline__ void exRotate(const PxQuat& q,float* v){const PxVec3 r=q.rotate(PxVec3(v[0],v[1],v[2]));v[0]=r.x;v[1]=r.y;v[2]=r.z;}
 // A chunk's modulus for its contacts, from its own joints: each joint's stiffness
@@ -442,6 +494,75 @@ __device__ float exModulus(const Inputs& in,const Settings& s,PxU32 c)
     }
     return n?sum/float(n):0.0f;
 }
+// ---------------------------------------------------------------------------
+// The dynamic sequence (Settings::dynamicSequence, PX_DESTRUCTION_DYNAMIC_SEQUENCE;
+// vibe-land FIDELITY_AUDIT C10, docs/calibration/house-headers.md "Sequencing
+// (C10)"; its CPU reference structures/town-kit/scripts/sequence-lab.py --law stage).
+// An island whose static verdict would change its topology (a joint broken, a
+// re-bearing contact's fastenings failed, lifted or closed) is decided by this
+// window instead of by that one elastic snapshot: a failure then sheds its load
+// in the order the structure's inertia gives (the plate over a removed bay breaks
+// before it can pry up the uprights beyond it), where the snapshot broke every
+// joint the redistribution would have relieved. The patch (its whole island when
+// it fits, else the nodes within the radius of its seed chunks) differs from an
+// impact patch in five ways:
+//   - its start: the persisted state of the last window (per bond its force and
+//     contact slip, per chunk its velocity), else the last accepted forces
+//     (Inputs::base) at rest;
+//   - its loads: the tick's (Inputs::accelerations: m a, -I alpha), not the rest
+//     forces' -B J0, so a node moves by p + B J (the residual p + B J0 in
+//     ExScratch::dynLoad, added to the joints' B (J - J0) in the gather);
+//   - its bearing joints (re-bearing, PxgDestructionRebearing.cuh): one whose
+//     fastenings reach capacity becomes a unilateral contact (exContactJoint), as
+//     one in a contact state already is;
+//   - its joints' damping: a dashpot at each joint's own frequency, c_q = 2 zeta
+//     sqrt(k_q / W_qq) (W the joint's inverse mass over its two chunks), zeta the
+//     material's (EN 1995-2:2004 6.4(2): 0.015 for timber with mechanical joints);
+//     symplectic Euler with damping is stable for omega h <= 2 (sqrt(1 + zeta^2)
+//     - zeta), so h is the bound times that factor;
+//   - it runs the whole tick, and persists its state for the next.
+constexpr float kExWhole=1e18f;   // a dynamic patch's radius before any shrink: the whole island (its square stays finite)
+// A dynamic patch's seeds, after its rows' struck chunks in hit: its island's
+// seed chunks in chunk order, as many as fit (kExRows). Returns the seeds' count.
+__device__ PxU32 exBuildDynamicSeeds(const Inputs& in,const ExScratch& t,Shared& sh,PxU32 island,float* hit,PxU32 nrows)
+{
+    if(!t.seqSeed)return nrows;
+    PxU32 base=nrows;
+    for(PxU32 tile=0;tile<in.chunkCount;tile+=kThreads) {
+        const PxU32 i=tile+threadIdx.x;
+        const PxU32 member=(i<in.chunkCount && t.seqSeed[i] && in.nodeIslands[i]==island && in.chunks[i].mass>0.0f && !chunkGone(in,i))?1u:0u;
+        PxU32 prefix;const PxU32 total=blockScan(sh,member,prefix);
+        if(member && base+prefix<kExRows){const PxVec3 x=in.chunks[i].position;hit[3*(base+prefix)]=x.x;hit[3*(base+prefix)+1]=x.y;hit[3*(base+prefix)+2]=x.z;}
+        base+=total;
+    }
+    __syncthreads();
+    return min(base,kExRows);
+}
+// A dynamic patch's chunk node: its persisted velocity, its load p (exFinishDynamic
+// turns it into the residual p + B J0).
+__device__ void exDynamicNode(const Inputs& in,const ExScratch& t,PxU32 p,PxU32 k,PxU32 i,ExNode& n)
+{
+    if(t.pChunk && (t.pChunk[i]&1u))for(int q=0;q<6;++q)n.v[q]=t.pV[6*size_t(i)+q];
+    const auto c=in.chunks[i];const auto a=in.accelerations[i];float* f=t.dynLoad+(size_t(p)*kExNodes+k)*6;
+    f[0]=a.linear.x*c.mass;f[1]=a.linear.y*c.mass;f[2]=a.linear.z*c.mass;
+    f[3]=-a.angular.x*c.inertia;f[4]=-a.angular.y*c.inertia;f[5]=-a.angular.z*c.inertia;
+}
+// A dynamic patch's joint: its persisted force and contact state, whether it is a
+// bearing joint, its damping ratio (in damp[0] until exFinishDynamic).
+__device__ void exDynamicLink(const Inputs& in,const Settings& s,const ExScratch& t,PxU32 p,PxU32 l,PxU32 i,ExLink& e)
+{
+    float* c=t.damp+(size_t(p)*kExLinks+l)*6;float* cs=t.cslip+(size_t(p)*kExLinks+l)*2;
+    cs[0]=cs[1]=0.0f;
+    const PxU32 persisted=t.pBond?t.pBond[i]:0u;
+    if(persisted&1u){for(int q=0;q<6;++q){e.J0[q]=t.pJ[6*size_t(i)+q];e.J[q]=e.J0[q];}cs[0]=t.pSlip[2*size_t(i)];cs[1]=t.pSlip[2*size_t(i)+1];}
+    const PxDestructionBondSection section=in.sections?in.sections[i]:PxDestructionBondSection{};
+    if(section.bearingDepth0>0.0f && section.bearingDepth1>0.0f && s.sectionBending) {
+        e.state|=eEX_BEARING;
+        const PxU32 bear=in.bearState?in.bearState[i]:0u;   // eBEAR_CONTACT 1, eBEAR_LIFTED 2
+        if(bear==1u || bear==2u || (persisted&2u))e.state|=eEX_CONTACT;
+    }
+    c[0]=in.damping?in.damping[in.bonds[i].material]:s.dynamicDamping;for(int q=1;q<6;++q)c[q]=0.0f;
+}
 // 2. Each patch (a block): its nodes within the radius of a struck chunk
 // (shrunk until they fit), impactors, rows, joints (each from its lower local
 // end, in node order: deterministic), each node's joints and rows, the rest
@@ -459,9 +580,12 @@ __global__ __launch_bounds__(kThreads) void exBuild(Inputs in,Settings s,Scratch
     __shared__ float hit[3*kExRows];
     for(PxU32 k=threadIdx.x;k<nrows;k+=kThreads){const PxVec3 x=in.chunks[in.rows[list[k]].chunk].position;hit[3*k]=x.x;hit[3*k+1]=x.y;hit[3*k+2]=x.z;}
     __syncthreads();
+    // A dynamic patch: its seed chunks after the rows' (none found: the whole island).
+    const PxU32 nhit=sp.dynamic?exBuildDynamicSeeds(in,t,sh,island,hit,nrows):nrows;
     const PxDestructionStressChunk* const chunks=in.chunks;   // a local copy: the build writes through other pointers
-    auto near=[chunks,nrows](PxU32 i,float radius,const float* hit){const PxVec3 x=chunks[i].position;const float r2=radius*radius;
-        for(PxU32 k=0;k<nrows;++k){const float dx=x.x-hit[3*k],dy=x.y-hit[3*k+1],dz=x.z-hit[3*k+2];if(dx*dx+dy*dy+dz*dz<=r2)return true;}return false;};
+    auto near=[chunks,nhit](PxU32 i,float radius,const float* hit){const PxVec3 x=chunks[i].position;const float r2=radius*radius;
+        if(!nhit)return true;
+        for(PxU32 k=0;k<nhit;++k){const float dx=x.x-hit[3*k],dy=x.y-hit[3*k+1],dz=x.z-hit[3*k+2];if(dx*dx+dy*dy+dz*dz<=r2)return true;}return false;};
     // Radius: shrink until the island's chunks within it fit beside the impactors.
     // The two-body car: all of its island's live chunks (a car is small; its
     // remainder cannot be held as a support: it is free), or none if they would
@@ -473,16 +597,26 @@ __global__ __launch_bounds__(kThreads) void exBuild(Inputs in,Settings s,Scratch
         if(carCount+bodies>=kExNodes/2){__syncthreads();if(!threadIdx.x)sp.car=0xffffffffu;__syncthreads();carCount=0;}
     }
     const PxU32 car=sp.car;
-    float radius=s.stepRadius;PxU32 count=0;
+    const float radius0=sp.dynamic?kExWhole:s.stepRadius;
+    float radius=radius0;PxU32 count=0;
     for(int attempt=0;attempt<32;++attempt) {
         PxU32 c=0;
         for(PxU32 i=threadIdx.x;i<in.chunkCount;i+=kThreads)
             c+=(in.nodeIslands[i]==island && in.chunks[i].mass>0.0f && !chunkGone(in,i) && near(i,radius,hit))?1u:0u;
         count=blockCount(sh,c);
         if(count+bodies+carCount<=kExNodes)break;
+        // A dynamic island too large for a patch: from the farthest chunk's distance to its nearest seed.
+        if(radius>=kExWhole && nhit) {
+            float far2=0.0f;
+            for(PxU32 i=threadIdx.x;i<in.chunkCount;i+=kThreads)if(in.nodeIslands[i]==island && in.chunks[i].mass>0.0f && !chunkGone(in,i)) {
+                const PxVec3 x=in.chunks[i].position;float d2=FLT_MAX;
+                for(PxU32 k=0;k<nhit;++k){const float dx=x.x-hit[3*k],dy=x.y-hit[3*k+1],dz=x.z-hit[3*k+2];d2=fminf(d2,dx*dx+dy*dy+dz*dz);}
+                far2=fmaxf(far2,d2);}
+            radius=sqrtf(blockMax(sh,far2));
+        }
         radius*=0.85f;
     }
-    if(!threadIdx.x){sp.radius=radius;if(radius<s.stepRadius)sp.truncated=1;sh.flag=0;}
+    if(!threadIdx.x){sp.radius=radius;if(radius<radius0)sp.truncated=1;sh.flag=0;}
     __syncthreads();
     // Chunk nodes (chunk order).
     for(PxU32 tile=0;tile<in.chunkCount;tile+=kThreads) {
@@ -492,7 +626,9 @@ __global__ __launch_bounds__(kThreads) void exBuild(Inputs in,Settings s,Scratch
         if(member) {
             const PxU32 k=sh.flag+prefix;
             if(k<kExNodes){t.nodeOf[i]=(p<<16)|k;ExNode n{};n.chunk=i;n.tensor=0;const auto c=in.chunks[i];
-                n.im=1.0f/c.mass;n.Iinv[0]=n.Iinv[1]=n.Iinv[2]=c.inertia>0.0f?1.0f/c.inertia:0.0f;nodes[k]=n;}
+                n.im=1.0f/c.mass;n.Iinv[0]=n.Iinv[1]=n.Iinv[2]=c.inertia>0.0f?1.0f/c.inertia:0.0f;
+                if(sp.dynamic)exDynamicNode(in,t,p,k,i,n);
+                nodes[k]=n;}
         }
         __syncthreads();if(!threadIdx.x)sh.flag+=total;__syncthreads();
     }
@@ -591,6 +727,7 @@ __global__ __launch_bounds__(kThreads) void exBuild(Inputs in,Settings s,Scratch
                 e.state|=eEX_CAR;
             }
             e.slip=in.slipBefore?in.slipBefore[i]:0.0f;e.limit=b.slip;e.brokeAt=-1.0f;
+            if(sp.dynamic && !(e.state&eEX_CAR))exDynamicLink(in,s,t,p,l,i,e);
             bonds[l]=b;links[l]=e;t.linkOf[i]=l;++l;
         }
         __syncthreads();if(!threadIdx.x)sh.flag+=total;__syncthreads();
@@ -659,6 +796,7 @@ __global__ __launch_bounds__(kThreads) void exBuild(Inputs in,Settings s,Scratch
     }
     __syncthreads();
     exFinish(sh,s,t,p);
+    if(sp.dynamic)exFinishDynamic(sh,s,t,p);
 }
 // A built patch's rest load f0 = -B J0 per node, its Gershgorin bound and the
 // substep (also for a patch filled by a test).
@@ -821,9 +959,50 @@ __device__ void exFinish(Shared& sh,const Settings& s,const ExScratch& t,PxU32 p
     __syncthreads();
     if(sp.twoBody)exImplicit(sh,s,t,p);
 }
+// A dynamic patch after exFinish: each node's residual p + B J0 (exFinish left f0 =
+// -B J0; f0 becomes the load p, the books' external force), its kinetic energy,
+// each joint's dashpot c_q = 2 zeta sqrt(k_q / W_qq) (W_qq the joint's inverse mass
+// in component q over its two chunks: its own frequency's critical damping times
+// zeta), and the substep: exFinish's bound times sqrt(1 + zeta^2) - zeta, the
+// largest zeta of the patch (symplectic Euler with damping ratio zeta is stable for
+// omega h <= 2 (sqrt(1 + zeta^2) - zeta)). A test fills dynLoad with p and damp[0]
+// with each joint's zeta before exFinishKernel, as exBuild does.
+__device__ void exFinishDynamic(Shared& sh,const Settings& s,const ExScratch& t,PxU32 p)
+{
+    ExPatch& sp=t.patches[p];
+    ExNode* nodes=t.nodes+size_t(p)*kExNodes;const Bond* bonds=t.bonds+size_t(p)*kExLinks;const ExLink* links=t.links+size_t(p)*kExLinks;
+    float ke=0.0f,zmax=0.0f;
+    for(PxU32 k=threadIdx.x;k<sp.nodes;k+=kThreads) {
+        ExNode& n=nodes[k];float* f=t.dynLoad+(size_t(p)*kExNodes+k)*6;
+        if(n.tensor || n.pad[1]){for(int q=0;q<6;++q)f[q]=0.0f;continue;}   // impactors and a car's chunks: no residual
+        for(int q=0;q<6;++q){const float load=f[q];f[q]=load-n.f0[q];n.f0[q]=load;}
+        const float m=n.im>0.0f?1.0f/n.im:0.0f,I=n.Iinv[0]>0.0f?1.0f/n.Iinv[0]:0.0f;
+        ke+=0.5f*(m*(n.v[0]*n.v[0]+n.v[1]*n.v[1]+n.v[2]*n.v[2])+I*(n.v[3]*n.v[3]+n.v[4]*n.v[4]+n.v[5]*n.v[5]));
+    }
+    for(PxU32 l=threadIdx.x;l<sp.links;l+=kThreads) {
+        const ExLink& e=links[l];float* c=t.damp+(size_t(p)*kExLinks+l)*6;
+        if(!(e.state&eEX_LIVE) || (e.state&eEX_CAR)){for(int q=0;q<6;++q)c[q]=0.0f;continue;}
+        const float zeta=fmaxf(c[0],0.0f);const Bond& b=bonds[l];
+        float k[6];exStiffness(b,k);float W[6]={0,0,0,0,0,0};
+        for(PxU32 end=0;end<2;++end) {
+            const PxU32 node=end?e.b:e.a;if(node==0xffffffffu)continue;const ExNode& n=nodes[node];
+            for(int q=0;q<6;++q){float xq[6]={0,0,0,0,0,0};xq[q]=1.0f;float f[6]={0,0,0,0,0,0},dv[6],e6[6]={0,0,0,0,0,0};
+                exWrench(b,xq,end,f);exApplyInverse(n,f,dv);exRelative(b,end,dv,e6);W[q]+=e6[q];}
+        }
+        for(int q=0;q<6;++q)c[q]=(W[q]>0.0f && k[q]>0.0f)?2.0f*zeta*sqrtf(k[q]/W[q]):0.0f;
+        zmax=fmaxf(zmax,zeta);
+    }
+    ke=blockSum(sh,ke);zmax=blockMax(sh,zmax);
+    if(!threadIdx.x) {
+        sp.zeta=zmax;sp.keStart=sp.keEnd=ke;sp.strainEnd=sp.u0;sp.extWork=sp.slipWork=sp.dashWork=0.0f;sp.lastEvent=-1.0f;
+        sp.events=sp.converted=sp.seatLost=sp.crushedContacts=sp.contacts=0;
+        if(!(s.explicitDt>0.0f))sp.h=fminf(sp.h*(sqrtf(1.0f+zmax*zmax)-zmax),s.dt);
+    }
+    __syncthreads();
+}
 __global__ __launch_bounds__(kThreads) void exFinishKernel(Settings s,ExScratch t)
 {
-    __shared__ Shared sh;if(blockIdx.x<*t.patchCount)exFinish(sh,s,t,blockIdx.x);
+    __shared__ Shared sh;if(blockIdx.x<*t.patchCount){exFinish(sh,s,t,blockIdx.x);if(t.patches[blockIdx.x].dynamic)exFinishDynamic(sh,s,t,blockIdx.x);}
 }
 
 // 3. The window, resumable: at most `budget` substeps per patch per launch.
@@ -933,12 +1112,95 @@ __device__ void exImplicitJointA(PxU32 l,const float4* ja,float4* jp,ExLink* lin
     float g0[6]={0,0,0,0,0,0},g1[6]={0,0,0,0,0,0};exWrench(b,inc,0,g0);exWrench(b,inc,1,g1);
     for(int i=0;i<6;++i){od[i]=g0[i];od[6+i]=g1[i];}
 }
+// The dynamic sequence's joint laws (exRunT's joint pass on a dynamic patch).
+// A re-bearing contact (PxgDestructionRebearing.cuh's law, graded as the stage
+// grades it): from its trial force J (bond frame, x[0] the normal force, + in
+// tension) the force F it transmits --
+//   - open (N >= 0): nothing, it has lifted;
+//   - shear V + gt |T| (the stage's shear measure) by friction, at most mu C:
+//     past it the contact slips, permanently (J's shear follows the cap; the
+//     radial return's plastic part is the slip, along t1 and t2 in cs, and its
+//     work at the capped force in slipWork);
+//   - rocking: where its fastenings' tension line h0 |M0| + h1 |M1| - C passes
+//     zero the compression resultant has reached the patch's edge and the contact
+//     turns about it: the moments are capped there (F only; J keeps the rotation,
+//     which is geometry, not slip).
+// It breaks (returns 1) when its compression on F, bend + C, reaches the bearing
+// capacity (crushing), and (2) when it has slid off its seat: the bearing patch is
+// the faces' overlap, of half-widths d1 = 1/h1 along t1 and d0 = 1/h0 along t2
+// (the reaches the rocking line uses: d0 is the reach for a moment about t1), and
+// two such rectangles translated by the slip s overlap iff |s.t1| < 2 d1 and |s.t2|
+// < 2 d0: the overlap the authored interface guarantees is gone at a slip of the
+// patch's full width (a face wider than the interface would hold longer).
+__device__ __forceinline__ PxU32 exContactJoint(const Bond& b,const float* k,float* J,float* F,float* cs,float mu,float band,float& slipWork)
+{
+    if(!(J[0]<0.0f)) {for(int q=0;q<6;++q)F[q]=0.0f;}
+    else {
+        const float C=-J[0],V=sqrtf(J[1]*J[1]+J[2]*J[2]),T=fabsf(J[3]),shear=V+b.gt*T;
+        if(shear>mu*C) {
+            const float sc=mu*C/shear;
+            const float s1=k[0]>0.0f?(1.0f-sc)*J[1]/k[0]:0.0f,s2=k[0]>0.0f?(1.0f-sc)*J[2]/k[0]:0.0f;
+            cs[0]+=s1;cs[1]+=s2;
+            slipWork+=sc*V*sqrtf(s1*s1+s2*s2)+(k[3]>0.0f?sc*T*(1.0f-sc)*T/k[3]:0.0f);
+            J[1]*=sc;J[2]*=sc;J[3]*=sc;
+        }
+        const float rock=b.h0*fabsf(J[4])+b.h1*fabsf(J[5]),bsc=rock>C?C/rock:1.0f;
+        F[0]=J[0];F[1]=J[1];F[2]=J[2];F[3]=J[3];F[4]=bsc*J[4];F[5]=bsc*J[5];
+        const float bend=b.g0>0.0f?b.g0*fabsf(F[4])+b.g1*fabsf(F[5]):b.gb*sqrtf(F[4]*F[4]+F[5]*F[5]);
+        if(bend+C>=(1.0f-band)*b.capC)return 1u;
+    }
+    if((b.h1>0.0f && fabsf(cs[0])*b.h1>=2.0f) || (b.h0>0.0f && fabsf(cs[1])*b.h0>=2.0f))return 2u;
+    return 0u;
+}
+// A dynamic patch's joint after its trial J: a bond carries J and its dashpot, F = J
+// - c d (d its relative velocity), graded on F at capacity within the band; a
+// bearing joint that reaches it with its compression below the bearing capacity has
+// lost its fastenings, not its seat: it becomes a contact (bit 2 of the result) and
+// takes the contact law at once. A contact that crushes or slides off breaks.
+// Returns its events: 1 broke, 2 fastenings failed to contact, 4 the break crushed
+// a contact, 8 a contact slid off its seat. F is what it transmits (0 when broken).
+__device__ __forceinline__ PxU32 exDynamicJoint(const Bond& b,const float* k,const float* c,const float* d,float* J,float* F,
+    PxU32& state,float& slip,float limit,float* cs,float h,float mu,float band,float& fracture,float& plastic,float& slipWork,float& dash)
+{
+    PxU32 ev=0u;
+    if(!(state&eEX_CONTACT)) {
+        float work=0.0f;for(int q=0;q<6;++q){F[q]=J[q]-c[q]*d[q];work+=c[q]*d[q]*d[q];}
+        dash+=h*work;
+        const float u=utilisation(b,F);
+        if(state&eEX_DUCTILE) {
+            if(u>1.0f) {   // the radial return (the impact window's), on the spring
+                float sl=0.0f,w=0.0f;
+                for(int q=0;q<6;++q){const float y=J[q]/u;if(k[q]>0.0f){const float dp=(J[q]-y)/k[q];if(q<3)sl+=dp*dp;w+=fabsf(y*dp);}J[q]=y;F[q]/=u;}
+                slip+=sqrtf(sl);plastic+=w;state|=eEX_YIELDED;
+                if(slip>limit){float u2=0.0f;for(int q=0;q<6;++q)if(k[q]>0.0f)u2+=0.5f*J[q]*J[q]/k[q];fracture+=u2;
+                    state=(state&~eEX_LIVE)|eEX_BROKEN;for(int q=0;q<6;++q)J[q]=F[q]=0.0f;return 1u;}
+            }
+            return 0u;
+        }
+        if(!(u>=1.0f-band))return 0u;
+        const float bend=b.g0>0.0f?b.g0*fabsf(F[4])+b.g1*fabsf(F[5]):b.gb*sqrtf(F[4]*F[4]+F[5]*F[5]);
+        if((state&eEX_BEARING) && bend-F[0]<(1.0f-band)*b.capC){state|=eEX_CONTACT;ev=2u;}
+        else {
+            float u2=0.0f;for(int q=0;q<6;++q)if(k[q]>0.0f)u2+=0.5f*J[q]*J[q]/k[q];fracture+=u2;
+            state=(state&~eEX_LIVE)|eEX_BROKEN;for(int q=0;q<6;++q)J[q]=F[q]=0.0f;return 1u;
+        }
+    }
+    const PxU32 r=exContactJoint(b,k,J,F,cs,mu,band,slipWork);
+    if(r) {
+        float u2=0.0f;for(int q=0;q<6;++q)if(k[q]>0.0f)u2+=0.5f*F[q]*F[q]/k[q];fracture+=u2;
+        state=(state&~eEX_LIVE)|eEX_BROKEN;for(int q=0;q<6;++q)J[q]=F[q]=0.0f;
+        return ev|1u|(r==1u?4u:8u);
+    }
+    return ev;
+}
 template<bool Small> __device__ __forceinline__
 void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
 {
     constexpr PxU32 kV=Small?kExSmall:kExNodes,kN=Small?kExSmall:1u;
     __shared__ PxU32 shBroken,shYielded,shActive,shPushing,shNear,shFree,shAtRows,shImplicit;
     __shared__ float shFracture,shPlastic,shDead;
+    // The dynamic sequence's books and events (a dynamic patch only).
+    __shared__ float shSlipWork,shDash,shExt;__shared__ PxU32 shEvents,shConverted,shSeat,shCrushed,shLast;
     __shared__ float vS[6*kV],imS[kN],iiS[3*kN];
     __shared__ PxU32 jS[kN],rS[kN];
     const PxU32 p=blockIdx.x;if(p>=*t.patchCount)return;
@@ -950,7 +1212,12 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
     float* wr=t.wr+size_t(p)*kExLinks*12;float* rwr=t.rwr+size_t(p)*kExRows*12;float4* jp=t.jp+size_t(p)*kExLinks*kExJoint;PxU32* jl=t.jl+size_t(p)*kExLinks;float4* rp=t.rp+size_t(p)*kExRows*kExRow;
     const PxU32 nn=sp.nodes,nl=sp.links,nr=sp.rows;const float h=sp.h,T=s.dt;
     const PxU32 total=PxU32(ceilf(T/h-1e-4f));
-    if(!threadIdx.x){shBroken=0;shYielded=0;shFracture=0.0f;shPlastic=0.0f;shDead=0.0f;shFree=0;shAtRows=0;shImplicit=0;}
+    if(!threadIdx.x){shBroken=0;shYielded=0;shFracture=0.0f;shPlastic=0.0f;shDead=0.0f;shFree=0;shAtRows=0;shImplicit=0;
+        shSlipWork=0.0f;shDash=0.0f;shExt=0.0f;shEvents=0;shConverted=0;shSeat=0;shCrushed=0;shLast=0;}
+    const bool dynamic=sp.dynamic!=0u;
+    const float* dynLoad=dynamic?t.dynLoad+size_t(p)*kExNodes*6:nullptr;
+    const float* damp=dynamic?t.damp+size_t(p)*kExLinks*6:nullptr;float* cslip=dynamic?t.cslip+size_t(p)*kExLinks*2:nullptr;
+    const float mu=s.dynamicFriction;
     for(PxU32 k=threadIdx.x;k<nn;k+=kExThreads) {
         const ExNode& n=nodes[k];for(int q=0;q<6;++q)vS[6*k+q]=n.v[q];
         if(Small){imS[k]=n.im;for(int q=0;q<3;++q)iiS[3*k+q]=n.tensor?-1.0f:n.Iinv[q];jS[k]=n.jointBegin|(n.jointEnd<<16);rS[k]=n.rowBegin|(n.rowEnd<<16);}
@@ -993,6 +1260,7 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
     }
     __syncthreads();
     PxU32 step=sp.substeps;float dead=0.0f;
+    float dashLocal=0.0f,slipLocal=0.0f,plasticLocal=0.0f,extLocal=0.0f;   // (the dynamic sequence's books: per thread, summed once)
     // A joint's substep: the trial, then fracture or the radial return; the force change's wrench on both ends.
     auto joint=[&](PxU32 l,float time,bool last) {
         float4* q=jp+size_t(kExJoint)*l;
@@ -1004,6 +1272,24 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
         float k[6];exStiffness(b,k);
         const float Jp[6]={s0.x,s0.y,s0.z,s0.w,s1.x,s1.y};
         float J[6];for(int q6=0;q6<6;++q6)J[q6]=Jp[q6]-h*k[q6]*d[q6];
+        if(dynamic && !(state&eEX_CAR)) {
+            // The dynamic sequence: the joint's own law (exDynamicJoint); its wrench B (F - J0).
+            float F[6],fracture=0.0f,plastic=0.0f,slipWork=0.0f,dash=0.0f;
+            const PxU32 ev=exDynamicJoint(b,k,damp+6*size_t(l),d,J,F,state,slip,links[l].limit,cslip+2*size_t(l),h,mu,s.capacityBand,fracture,plastic,slipWork,dash);
+            dashLocal+=dash;slipLocal+=slipWork;plasticLocal+=plastic;
+            if(ev) {
+                atomicAdd(&shEvents,1u);atomicMax(&shLast,__float_as_uint(time));
+                if(ev&2u)atomicAdd(&shConverted,1u);
+                if(ev&1u){atomicAdd(&shBroken,1u);atomicAdd(&shFracture,fracture);links[l].brokeAt=time;}
+                if(ev&4u)atomicAdd(&shCrushed,1u);if(ev&8u)atomicAdd(&shSeat,1u);
+            }
+            q[9]=make_float4(J[0],J[1],J[2],J[3]);q[10]=make_float4(J[4],J[5],__uint_as_float(state),slip);
+            float dJ[6];for(int q6=0;q6<6;++q6)dJ[q6]=F[q6]-J0[q6];
+            float* o=wr+12*size_t(l);float f0[6]={0,0,0,0,0,0},f1[6]={0,0,0,0,0,0};
+            exWrench(b,dJ,0,f0);exWrench(b,dJ,1,f1);
+            reinterpret_cast<float4*>(o)[0]=make_float4(f0[0],f0[1],f0[2],f0[3]);reinterpret_cast<float4*>(o)[1]=make_float4(f0[4],f0[5],f1[0],f1[1]);reinterpret_cast<float4*>(o)[2]=make_float4(f1[2],f1[3],f1[4],f1[5]);
+            return;
+        }
         const float u=utilisation(b,J);
         // An event is near: a brittle joint within the band, a ductile one slipping.
         if((state&eEX_DUCTILE)?u>1.0f:u>=1.0f-s.capacityBand){shActive=1u;if(last)atomicAdd(&shNear,1u);}
@@ -1054,10 +1340,13 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
         // Joint forces on the nodes: each node gathers its joints' wrenches (no atomics).
         if(!(EX_PROF_SKIP&1))for(PxU32 k=threadIdx.x;k<nn;k+=kExThreads) {
             if(vStart)for(int q=0;q<6;++q)vStart[6*k+q]=vS[6*k+q];   // the substep's start (the implicit joints' trapezoid)
-            PxU32 b0,b1;jointRange(k,b0,b1);if(b0==b1)continue;
+            PxU32 b0,b1;jointRange(k,b0,b1);if(b0==b1 && !dynamic)continue;
             float f[6]={0,0,0,0,0,0};
             exGather(wr,adj,b0,b1,f);
+            // A dynamic patch: the tick's loads, as the residual p + B J0 (exFinishDynamic), and their work.
+            if(dynamic){for(int q=0;q<6;++q)f[q]+=dynLoad[6*k+q];}
             apply(k,f,h);
+            if(dynamic){const ExNode& n=nodes[k];float wk=0.0f;for(int q=0;q<6;++q)wk+=n.f0[q]*vS[6*k+q];extLocal+=h*wk;}
         }
         __syncthreads();
         // The joints with no row at either end (their ends' velocities are final),
@@ -1122,13 +1411,16 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
         // The joints at the rows' nodes (and all of them when no thread is free beside the rows).
         if(!(EX_PROF_SKIP&8))for(PxU32 i=threadIdx.x;i<nAtRows;i+=kExThreads)joint(jl[nl-1u-i],time,last);
         __syncthreads();
-        if(s.explicitWindow==1u && !shActive){++step;sp.done=1;break;}
+        if(s.explicitWindow==1u && !dynamic && !shActive){++step;sp.done=1;break;}
     }
     for(PxU32 i=threadIdx.x;i<6*nn;i+=kExThreads)nodes[i/6].v[i%6]=vS[i];
     for(PxU32 l=threadIdx.x;l<nl;l+=kExThreads){ExLink& e=links[l];const float4 s0=jp[size_t(kExJoint)*l+9],s1=jp[size_t(kExJoint)*l+10];
         e.J[0]=s0.x;e.J[1]=s0.y;e.J[2]=s0.z;e.J[3]=s0.w;e.J[4]=s1.x;e.J[5]=s1.y;e.state=__float_as_uint(s1.z);e.slip=s1.w;}
     atomicAdd(&shDead,dead);
+    if(dynamic){atomicAdd(&shDash,dashLocal);atomicAdd(&shSlipWork,slipLocal);atomicAdd(&shPlastic,plasticLocal);atomicAdd(&shExt,extLocal);}
     __syncthreads();
+    if(!threadIdx.x && dynamic){sp.slipWork+=shSlipWork;sp.dashWork+=shDash;sp.extWork+=shExt;sp.events+=shEvents;sp.converted+=shConverted;sp.seatLost+=shSeat;sp.crushedContacts+=shCrushed;
+        if(shEvents)sp.lastEvent=__uint_as_float(shLast);}
     if(!threadIdx.x){sp.dead+=shDead;sp.fracture+=shFracture;sp.plastic+=shPlastic;sp.substeps=step;sp.t=float(step)*h;sp.broken+=shBroken;sp.yielded+=shYielded;sp.pushing=shPushing;sp.near=shNear;if(step>=total)sp.done=1;}
 }
 __global__ __launch_bounds__(kExThreads) void exRun(Settings s,Scratch w,ExScratch t,PxU32 budget){exRunT<false>(s,w,t,budget);}
@@ -1217,7 +1509,7 @@ __global__ void exPublish(Inputs in,Settings s,Scratch w,ExScratch t)
         // The energy invariant: what the window dissipated by fracture and plastic
         // work is paid by the impactors' kinetic energy loss, the elastic energy
         // the patch held and the dead load's work (a sagging patch's).
-        if(sp.fracture+sp.plastic>(in0-out0)+sp.u0+fmaxf(sp.dead,0.0f))atomicAdd(&w.status->energyDeficit,1u);
+        if(!sp.dynamic && sp.fracture+sp.plastic>(in0-out0)+sp.u0+fmaxf(sp.dead,0.0f))atomicAdd(&w.status->energyDeficit,1u);
         w.islandFlag[sp.island]=1u;if(sp.twoBody)w.islandFlag[sp.car]=1u;
         atomicAdd(&w.status->triggered,1u);atomicAdd(&w.status->solves,1u);atomicAdd(&w.status->iterations,sp.substeps);
         atomicAdd(&w.status->broken,sp.broken);atomicAdd(&w.status->yielded,sp.yielded);
@@ -1225,6 +1517,79 @@ __global__ void exPublish(Inputs in,Settings s,Scratch w,ExScratch t)
         atomicAdd(&w.status->stepPatches,1u);if(sp.truncated)atomicAdd(&w.status->stepTruncated,1u);
         if(sp.failed)atomicOr(&w.status->error,4u);
     }
+}
+// A contact's transmitted force from its state J (exContactJoint's projection
+// without its slip: J's shear is already within the cone).
+__device__ __forceinline__ void exContactForce(const Bond& b,const float* J,float mu,float* F)
+{
+    for(int q=0;q<6;++q)F[q]=0.0f;if(!(J[0]<0.0f))return;
+    const float C=-J[0],V=sqrtf(J[1]*J[1]+J[2]*J[2]),T=fabsf(J[3]),shear=V+b.gt*T,sc=shear>mu*C?mu*C/shear:1.0f;
+    const float rock=b.h0*fabsf(J[4])+b.h1*fabsf(J[5]),bsc=rock>C?C/rock:1.0f;
+    F[0]=J[0];F[1]=sc*J[1];F[2]=sc*J[2];F[3]=sc*J[3];F[4]=bsc*J[4];F[5]=bsc*J[5];
+}
+// 4b. A dynamic patch's publication (after exPublish): its contacts' transmitted
+// forces in place of their states, the window's re-bearing states and holds for the
+// stage's verdict, the persisted state for the next window (each joint's force and
+// contact slip, each chunk's velocity, the island's quiet time: since its last
+// event, for the hand-back), and its books. The energy invariant: what the window
+// dissipated (fracture, plastic work, contact slip, the dashpots) cannot exceed the
+// energy it had -- its kinetic and elastic energy at the start and the loads' work
+// on it (positive part); else Status::sequenceEnergy (energy from nowhere).
+__global__ void exPublishDynamic(Inputs in,Settings s,Scratch w,ExScratch t)
+{
+    const PxU32 p=blockIdx.y;if(p>=*t.patchCount)return;
+    ExPatch& sp=t.patches[p];if(!sp.dynamic)return;
+    const ExNode* nodes=t.nodes+size_t(p)*kExNodes;const Bond* bonds=t.bonds+size_t(p)*kExLinks;const ExLink* links=t.links+size_t(p)*kExLinks;
+    const float* cslip=t.cslip+size_t(p)*kExLinks*2;
+    const PxU32 tid=blockIdx.x*blockDim.x+threadIdx.x,stride=gridDim.x*blockDim.x;
+    __shared__ float shStrain,shKe;__shared__ PxU32 shContacts;
+    if(!threadIdx.x){shStrain=0.0f;shKe=0.0f;shContacts=0u;}
+    __syncthreads();
+    float strain=0.0f,ke=0.0f;PxU32 contacts=0u;
+    for(PxU32 l=tid;l<sp.links;l+=stride) {
+        const Bond& b=bonds[l];const ExLink& e=links[l];const PxU32 i=b.bond;
+        if(e.state&eEX_CAR)continue;
+        const bool live=(e.state&eEX_LIVE)!=0u,contact=(e.state&eEX_CONTACT)!=0u;
+        float F[6];for(int q=0;q<6;++q)F[q]=e.J[q];
+        if(live && contact) {
+            exContactForce(b,e.J,s.dynamicFriction,F);++contacts;
+            float lin[3],ang[3];toSolver(b,F,lin,ang);
+            PxDestructionVectorPair fo;fo.linear=PxVec3(lin[0],lin[1],lin[2]);fo.angular=PxVec3(ang[0],ang[1],ang[2]);w.forces[i]=fo;
+        }
+        if(live){float k[6];exStiffness(b,k);for(int q=0;q<6;++q)if(k[q]>0.0f)strain+=0.5f*F[q]*F[q]/k[q];}
+        if(t.pJn){for(int q=0;q<6;++q)t.pJn[6*size_t(i)+q]=live?e.J[q]:0.0f;
+            t.pSlipn[2*size_t(i)]=cslip[2*l];t.pSlipn[2*size_t(i)+1]=cslip[2*l+1];
+            t.pBondn[i]=live?(1u|(contact?2u:0u)):0u;}
+        // eBEAR_FASTENED 0, eBEAR_CONTACT 1 (bearing), eBEAR_LIFTED 2 (open); ~0 broken (the verdict's).
+        if(t.seqBear && (e.state&eEX_BEARING))t.seqBear[i]=!live?0xffffffffu:(!contact?0u:(F[0]<0.0f?1u:2u));
+        if(t.seqHold)t.seqHold[i]=(live && contact)?1u:0u;
+    }
+    const float quiet=sp.events?fmaxf(s.dt-sp.lastEvent,0.0f):-1.0f;
+    for(PxU32 k=tid;k<sp.chunks;k+=stride) {
+        const ExNode& n=nodes[k];if(n.tensor || n.pad[1])continue;
+        const float m=n.im>0.0f?1.0f/n.im:0.0f,I=n.Iinv[0]>0.0f?1.0f/n.Iinv[0]:0.0f;
+        ke+=0.5f*(m*(n.v[0]*n.v[0]+n.v[1]*n.v[1]+n.v[2]*n.v[2])+I*(n.v[3]*n.v[3]+n.v[4]*n.v[4]+n.v[5]*n.v[5]));
+        if(t.pVn) {
+            const PxU32 c=n.chunk;t.pChunkn[c]=1u;for(int q=0;q<6;++q)t.pVn[6*size_t(c)+q]=n.v[q];
+            t.pQuietn[c]=quiet>=0.0f?quiet:((t.pChunk && (t.pChunk[c]&1u))?t.pQuiet[c]+s.dt:s.dt);
+        }
+    }
+    atomicAdd(&shStrain,strain);atomicAdd(&shKe,ke);atomicAdd(&shContacts,contacts);
+    __syncthreads();
+    if(!threadIdx.x) {
+        atomicAdd(&sp.strainEnd,shStrain-(blockIdx.x?0.0f:sp.u0));atomicAdd(&sp.keEnd,shKe-(blockIdx.x?0.0f:sp.keStart));atomicAdd(&sp.contacts,shContacts);
+        // (sp.strainEnd and sp.keEnd start at u0 and keStart: the first block's subtraction resets them)
+    }
+}
+// The dynamic patches' books, once their publication is summed: the invariant and the counters.
+__global__ void exSequenceBooks(Scratch w,ExScratch t)
+{
+    const PxU32 p=threadIdx.x;if(p>=*t.patchCount)return;
+    const ExPatch& sp=t.patches[p];if(!sp.dynamic)return;
+    const float dissipated=sp.fracture+sp.plastic+sp.slipWork+sp.dashWork,had=sp.keStart+sp.u0+fmaxf(sp.extWork,0.0f);
+    if(dissipated>had)atomicAdd(&w.status->sequenceEnergy,1u);
+    atomicAdd(&w.status->sequencePatches,1u);atomicAdd(&w.status->sequenceSubsteps,sp.substeps);
+    atomicAdd(&w.status->sequenceBroken,sp.broken);atomicAdd(&w.status->sequenceConverted,sp.converted);
 }
 // The rest of each patch's island: held at its rest forces.
 __global__ void exPublishIsland(Inputs in,Scratch w,ExScratch t)
@@ -1265,5 +1630,6 @@ __global__ void exClear(Inputs in,ExScratch t)
     for(PxU32 i=tid;i<in.chunkCount;i+=stride)t.nodeOf[i]=0xffffffffu;
     for(PxU32 i=tid;i<in.bondCount;i+=stride)t.linkOf[i]=0xffffffffu;
     if(t.rowDecided)for(PxU32 i=tid;i<in.rowCount;i+=stride)t.rowDecided[i]=0u;
-    if(!tid){*t.patchCount=0;if(t.handoffCount)*t.handoffCount=0;}
+    // (the dynamic sequence's second submission keeps the first's hand-off records)
+    if(!tid){*t.patchCount=0;if(t.handoffCount && !t.seqCreate)*t.handoffCount=0;}
 }

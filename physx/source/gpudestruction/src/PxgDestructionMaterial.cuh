@@ -116,6 +116,7 @@ __global__ void evaluateBondMaterials(const PxDestructionStressChunk* chunks,
         // the sub-fatal rate past its elastic limit, as any bond does.
         const auto& m=materials[b.material];
         if(impactView.verdict[i]==impact::eBROKEN){damage.damage=area;damage.command=true;}
+        else if(impactView.hold && impactView.hold[i]){damage.damage=0.0f;damage.command=false;}
         else if(damage.multiplier>=1.0f) {
             float d=area*fminf(dt>0.0f?dt*rate:1.0f,1.0f);
             if(m.residualAreaFraction>0.0f){const float floor=b.area*m.residualAreaFraction;if(area-d<floor)d=area>floor?area-floor:0.0f;}

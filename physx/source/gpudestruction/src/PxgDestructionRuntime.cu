@@ -43,6 +43,7 @@ template<class T> void allocate(T*& p, size_t n) { check(cudaMalloc(&p, sizeof(T
 #include "PxgDestructionImpact.cuh"
 #include "PxgDestructionMaterial.cuh"
 #include "PxgDestructionRebearing.cuh"
+#include "PxgDestructionSequence.cuh"
 #include "PxgDestructionCommittedChanges.cuh"
 #include "PxgDestructionShapePublication.cuh"
 // Rebind compact runtime cluster slots entirely on device after acceptance.
@@ -1156,6 +1157,11 @@ class Runtime final : public PxgDestructionRuntime {
     float mRebearingFriction=kRebearingTimberFriction;PxU32 mRebearingLog=0;bool mRebearing=false;float4* mBearEvents{};
     PxU32 *mBearState{},*mBearTrial{},*mBearMask{},*mBearSupported{},*mBearChanged{},*mBearCounters{};
     PxU64 *mBearGeneration{},*mBearLastAccepted{};PxDestructionVectorPair* mBearProbe{};
+    // PX_DESTRUCTION_DYNAMIC_SEQUENCE=1 (with the explicit impact step): islands whose
+    // static verdict would change topology are decided by the explicit step over ticks
+    // (PxgDestructionSequence.cuh). PX_DESTRUCTION_DYNAMIC_DAMPING: the joints' damping
+    // ratio (default 0.015, EN 1995-2:2004 6.4(2)).
+    DynamicSequence mSeq;
     // Impact capacity (PX_DESTRUCTION_IMPACT_CAPACITY, PxgDestructionImpact.cuh):
     // the island solve, the ramp's start (the forces before this tick's trial
     // solve), per-material ductile slip and stiffness.
@@ -1815,6 +1821,7 @@ public:
         cudaFree(mBearState);cudaFree(mBearTrial);cudaFree(mBearMask);cudaFree(mBearSupported);cudaFree(mBearChanged);cudaFree(mBearCounters);
         cudaFree(mBearGeneration);cudaFree(mBearLastAccepted);cudaFree(mBearProbe);cudaFree(mBearEvents);mBearEvents=nullptr;
         mBearState=mBearTrial=mBearMask=mBearSupported=mBearChanged=mBearCounters=nullptr;mBearGeneration=mBearLastAccepted=nullptr;mBearProbe=nullptr;mRebearing=false;
+        mSeq.release();
         mImpact.release();mImpactEnabled=false;cudaFree(mImpactRecords);mImpactRecords=nullptr;cudaFree(mImpactBase);mImpactBase=nullptr;cudaFree(mImpactRest);mImpactRest=nullptr;
         cudaFree(mImpactState);mImpactState=nullptr;cudaFree(mImpactStart);mImpactStart=nullptr;
         cudaFree(mImpactCarried);mImpactCarried=nullptr;cudaFree(mImpactCarriedStart);mImpactCarriedStart=nullptr;
@@ -2283,6 +2290,21 @@ public:
                     mRebearing=true;
                 }
             }
+            {
+                const char* seq=std::getenv("PX_DESTRUCTION_DYNAMIC_SEQUENCE");
+                if(seq && seq[0]=='1') {
+                    if(!(mImpactEnabled && mImpactSettings.method==2u && mMaterials && d.bondCount))
+                        std::fprintf(stderr,"[sequence] PX_DESTRUCTION_DYNAMIC_SEQUENCE needs the explicit impact step (PX_DESTRUCTION_IMPACT_EXPLICIT=1); off\n");
+                    else {
+                        mSeq.allocate(d.chunkCount,d.bondCount);
+                        // Until the period estimate: never settled (FLT_MAX's bytes).
+                        check(cudaMemset(mSeq.period,0x7f,sizeof(float)*d.chunkCount));
+                        mImpactSettings.dynamicSequence=1u;
+                        const char* z=std::getenv("PX_DESTRUCTION_DYNAMIC_DAMPING");if(z && *z)mImpactSettings.dynamicDamping=float(std::atof(z));
+                        mImpactSettings.dynamicFriction=mRebearingFriction;
+                    }
+                }
+            }
             if(mTopology)mChanges.initialize(mTopology->accepted(),mStatus,
                 mSolver?mSolver->deviceView().topologyStatus:nullptr,mStream);
             mParams={};mParams.maxIterations=d.maxIterations;mParams.tolerance=d.tolerance;mParams.forceTolerance=d.forceTolerance;mParams.warmStart=d.warmStart;
@@ -2727,6 +2749,16 @@ public:
                     const bool timed=mImpactLog || mImpactCaptureDir;++mImpactEvaluations;
                     std::chrono::steady_clock::time_point t0;
                     if(timed){check(cudaStreamSynchronize(mStream));t0=std::chrono::steady_clock::now();}
+                    if(mSeq.enabled) {
+                        // The dynamic sequence: a new tick's persisted state; the islands already
+                        // dynamic (their row patches are dynamic patches; the trial pass only).
+                        if(!mPass){mSeq.beginTick(mStream);
+                            check(cudaMemsetAsync(mSeq.bear,0xff,sizeof(PxU32)*mM,mStream));check(cudaMemsetAsync(mSeq.hold,0,sizeof(PxU32)*mM,mStream));}
+                        check(cudaMemsetAsync(mSeq.island,0,sizeof(PxU32)*mN,mStream));
+                        if(!mPass)seqMarkPersisted<<<(mN+127)/128,128,0,mStream>>>(stress.nodeIslands,mSeq.startChunks(),mN,mSeq.island,mSeq.seed);
+                        mSeq.bind(mImpact.x);mImpact.x.seqIsland=mPass?nullptr:mSeq.island;mImpact.x.seqCreate=0u;
+                        in.bearState=mRebearing?mBearState:nullptr;
+                    }
                     mImpact.stepLog=mImpactLog;mImpact.submit(in,settings,mStream);impactIn=in;impactSettings=settings;impactRan=true;
                     if(mReport && mReportInputs)mImpact.reportTwoBodyLoads(in,settings,mReportInputs,mN,mStream);
                     impact::reportConvergence<<<1,1,0,mStream>>>(mImpact.w.status,mStatus,mCorrectionEnabled && !mAllowUnconverged,float(mImpact.longestDispatch));
@@ -2734,6 +2766,14 @@ public:
                     // past 100 ms starves the display (Settings::dispatchWork bounds it).
                     if(mImpact.longestDispatch>100.0)std::fprintf(stderr,"[impact] warning: a dispatch took %.0f ms (over 100 ms)\n",mImpact.longestDispatch);
                     impactView={mImpact.w.islandFlag,stress.bondIslands,mImpact.w.forces,mImpact.w.verdict};
+                    if(mSeq.enabled && mPass) {
+                        // The corrected pass: the trial's dynamic islands keep its window's forces and verdicts.
+                        check(cudaMemsetAsync(mSeq.breaks,0,sizeof(PxU32)*mN,mStream));
+                        seqHoldMark<<<(mN+127)/128,128,0,mStream>>>(stress.nodeIslands,mSeq.tickChunks(),mImpact.w.islandFlag,mN,mSeq.breaks);
+                        seqHoldBonds<<<(mM+127)/128,128,0,mStream>>>(stress.bondIslands,mSeq.breaks,mSeq.forces,mImpact.w.forces,mImpact.w.verdict,mM,mN);
+                        seqHoldIslands<<<(mN+127)/128,128,0,mStream>>>(mSeq.breaks,mImpact.w.islandFlag,mN);
+                    }
+                    if(mSeq.enabled)impactView.hold=mSeq.hold;
                     // The impact step carries no plastic state: the next tick starts from the elastic forces;
                     // its rest state follows the islands it did not solve.
                     if(settings.method>=1u)impact::recordRest<<<(mM+127)/128,128,0,mStream>>>(mImpact.w.islandFlag,stress.bondIslands,forces,mImpactRest,mM);
@@ -2802,6 +2842,7 @@ public:
                         }
                     }
                 }
+                if(mSeq.enabled && !mPass && impactRan && mM && forces)runDynamicSequence(impactIn,impactSettings,impactView,forces,dt);
                 if(!mImpactCrush)evaluateChunkMaterials<<<(mN+127)/128,128,0,mStream>>>(mChunks,mBonds,mMaterials,mNodeBegin,mNodeRefs,
                     mHealth,forces,mBondCentroids,mSurface,mRates,mCrush,mTrialCrush,mN,dt,mStatus,impactView);
                 if(mM)finalizeMaterialVerdict<<<(mM+127)/128,128,0,mStream>>>(mBonds,mVerdicts,mTrialCrush,mHealth,mM,mStatus);
@@ -2921,6 +2962,35 @@ public:
     // Re-bearing: commit the evaluation's contact states (with the material
     // state, when the pass's transaction stands), then the solver's mask and
     // generation from them. Records mReady for the solver's topology update.
+    // The dynamic sequence's trial pass, after the static verdict (PxgDestructionSequence.cuh):
+    // the trigger, the dynamic patches (the explicit step's second submission), and the
+    // verdict again with their answer (the impact view now holds them).
+    void runDynamicSequence(const impact::Inputs& impactIn,const impact::Settings& impactSettings,impact::View& impactView,
+        const PxDestructionVectorPair* forces,PxReal dt) {
+        const auto stress=mSolver->deviceView();
+        check(cudaMemsetAsync(mSeq.run,0,sizeof(PxU32)*mN,mStream));check(cudaMemsetAsync(mSeq.breaks,0,sizeof(PxU32)*mN,mStream));
+        seqTrigger<<<(mM+127)/128,128,0,mStream>>>(mBonds,mHealth,mVerdicts,mRebearing?mBearState:nullptr,mRebearing?mBearTrial:nullptr,
+            stress.bondIslands,mImpact.w.islandFlag,mM,mN,mSeq.run,mSeq.breaks,mSeq.seed);
+        seqKeep<<<(mN+127)/128,128,0,mStream>>>(stress.nodeIslands,mSeq.startChunks(),mSeq.quiet[mSeq.cur],mSeq.period,mImpact.w.islandFlag,mSeq.breaks,mN,mSeq.run);
+        mSeq.bind(mImpact.x);mImpact.x.seqIsland=mSeq.run;
+        mImpact.submitSequence(impactIn,impactSettings,mStream);
+        mImpact.x.seqIsland=nullptr;
+        check(cudaMemcpyAsync(mSeq.forces,mImpact.w.forces,sizeof(*mSeq.forces)*mM,cudaMemcpyDeviceToDevice,mStream));
+        evaluateBondMaterials<<<(mM+127)/128,128,0,mStream>>>(mChunks,mBonds,mMaterials,mHealth,forces,mM,
+            dt,mDamageRate,mBendGain,mFibres,mVerdicts,mBondCentroids,mStatus,mSectionBending,mSections,mSectionRotation,impactView,mStaticDuctile);
+        if(mRebearing) {
+            rebearVerdicts<<<(mM+127)/128,128,0,mStream>>>(mChunks,mBonds,mMaterials,mSections,mHealth,mBearState,mBearTrial,
+                mBearProbe,stress.nodeIslands,mBearSupported,mVerdicts,mM,dt,mDamageRate,mFibres,mRebearingFriction,impactView,mStatus,mBearCounters,mBearEvents,256u);
+            seqApplyBear<<<(mM+127)/128,128,0,mStream>>>(mSeq.bear,mBearTrial,mM);
+        }
+        if(mImpactLog && mImpactHostStatus) {
+            check(cudaMemcpyAsync(mImpactHostStatus,mImpact.w.status,sizeof(*mImpactHostStatus),cudaMemcpyDeviceToHost,mStream));check(cudaStreamSynchronize(mStream));
+            const auto& e=*mImpactHostStatus;
+            if(e.sequencePatches)std::fprintf(stderr,"[sequence] evaluation %llu: %u dynamic patches, %u substeps, broke %u, %u fastenings to contact; %.1f ms in %u launches (longest %.1f ms)\n",
+                (unsigned long long)mImpactEvaluations,e.sequencePatches,e.sequenceSubsteps,e.sequenceBroken,e.sequenceConverted,mImpact.explicitRunMs,mImpact.dispatches,mImpact.longestDispatch);
+            if(e.sequenceEnergy)std::fprintf(stderr,"[sequence] SEQUENCE ENERGY: %u dynamic patches dissipated more than they had (a bug signal)\n",e.sequenceEnergy);
+        }
+    }
     void rebearingMask(const PxDestructionTopologyDeviceView& accepted,void* acceptedReady) {
         if(acceptedReady)check(cudaStreamWaitEvent(mStream,static_cast<cudaEvent_t>(acceptedReady),0));
         commitBearingState<<<(mM+127)/128,128,0,mStream>>>(mBearTrial,mBearState,mM,mStatus);

@@ -282,6 +282,20 @@ struct Settings {
     // error (w h)^2 / 3), and at most explicitMaxStep.
     float explicitAccuracy=0.1f;
     float explicitMaxStep=50e-6f;
+    // The dynamic sequence (PX_DESTRUCTION_DYNAMIC_SEQUENCE; vibe-land
+    // docs/calibration/house-headers.md "Sequencing (C10)", reference
+    // structures/town-kit/scripts/sequence-lab.py --law stage): an island whose
+    // static verdict would change its topology is decided by the explicit step
+    // instead, over the whole tick and over ticks (its state persisted, ExScratch
+    // p*), until it settles (PxgDestructionImpactExplicit.cuh, "The dynamic sequence").
+    PxU32 dynamicSequence=0;
+    // A joint's damping ratio where the material gives none (Inputs::damping): a
+    // dashpot at the joint's own frequency, c = 2 zeta sqrt(k m). 0.015: timber
+    // structures with mechanical joints, EN 1995-2:2004 6.4(2).
+    float dynamicDamping=0.015f;
+    // The re-bearing contacts' friction: kRebearingTimberFriction (EN 1995-2:2004
+    // Table 6.2, sawn softwood parallel to the grain), as the static law's.
+    float dynamicFriction=0.23f;
 };
 // A solve is diverging when, past its first rho rebalance (25 steps), a
 // joint's split |J - Z| exceeds kDivergence times the joint's capacity: the
@@ -329,6 +343,12 @@ struct Status {
     // impactors' kinetic energy loss plus the elastic energy the patch held at
     // the start (energy from nowhere: a bug signal).
     PxU32 energyDeficit;
+    // The dynamic sequence's patches (Settings::dynamicSequence): run, their substeps,
+    // the joints they broke, the bearing joints whose fastenings failed to contact,
+    // and the patches whose dissipation (fracture, slip, dashpots, plastic work)
+    // exceeds the energy they had: their kinetic and elastic energy at the window's
+    // start and the work the loads did on them (energy from nowhere: a bug signal).
+    PxU32 sequencePatches,sequenceSubsteps,sequenceBroken,sequenceConverted,sequenceEnergy;
 };
 // Optional per-solve record (diagnostics): the first kLogCapacity solves.
 struct SolveRecord { PxU32 island,level,iterations,broken,clipped,capped,links,nodes; float lambda,change,rho,pad; };
@@ -420,6 +440,11 @@ struct Inputs {
     // [rowCount] per row, nonzero where it is routed to the impact model
     // (Settings::route: routeRows); null: every row is (as before routing).
     const PxU32* rowRouted{};
+    // The dynamic sequence (Settings::dynamicSequence): each bond's committed
+    // re-bearing state (eBEAR_FASTENED 0, eBEAR_CONTACT 1, eBEAR_LIFTED 2;
+    // null: none), and each material's damping ratio (null: Settings::dynamicDamping).
+    const PxU32* bearState{};
+    const float* damping{};
 };
 
 // ---------------------------------------------------------------------------
@@ -2043,7 +2068,8 @@ struct Stage {
     void releaseExplicit() {
         if(!explicitAllocated)return;
         cudaFree(x.nodeOf);cudaFree(x.linkOf);cudaFree(x.patchCount);cudaFree(x.patches);cudaFree(x.nodes);cudaFree(x.bonds);cudaFree(x.links);
-        cudaFree(x.rowBonds);cudaFree(x.rows);cudaFree(x.adj);cudaFree(x.rowAdj);cudaFree(x.wr);cudaFree(x.rowList);cudaFree(x.rwr);cudaFree(x.jp);cudaFree(x.jl);cudaFree(x.rp);cudaFree(x.vStart);cudaFree(x.ja);cudaFree(x.wd);cudaFree(x.handoff);cudaFree(x.handoffCount);cudaFree(x.rowDecided);x={};explicitAllocated=false;
+        cudaFree(x.rowBonds);cudaFree(x.rows);cudaFree(x.adj);cudaFree(x.rowAdj);cudaFree(x.wr);cudaFree(x.rowList);cudaFree(x.rwr);cudaFree(x.jp);cudaFree(x.jl);cudaFree(x.rp);cudaFree(x.vStart);cudaFree(x.ja);cudaFree(x.wd);cudaFree(x.handoff);cudaFree(x.handoffCount);cudaFree(x.rowDecided);
+        cudaFree(x.damp);cudaFree(x.cslip);cudaFree(x.dynLoad);x={};explicitAllocated=false;
     }
     void allocateExplicit() {
         if(explicitAllocated)return;
@@ -2054,7 +2080,18 @@ struct Stage {
         // The two-body impact's (Settings::explicitTwoBody; null otherwise, so a build without it never reads them).
         if(twoBody){::physx::allocate(x.vStart,P*kExNodes*6);::physx::allocate(x.ja,P*kExLinks*9);::physx::allocate(x.wd,P*kExLinks*12);
             ::physx::allocate(x.handoff,size_t(kExHandoffs));::physx::allocate(x.handoffCount,1);::physx::allocate(x.rowDecided,size_t(kContactCapacity));}
+        // The dynamic sequence's (Settings::dynamicSequence; null otherwise).
+        if(sequence){::physx::allocate(x.damp,P*kExLinks*6);::physx::allocate(x.cslip,P*kExLinks*2);::physx::allocate(x.dynLoad,P*kExNodes*6);}
         explicitAllocated=true;
+    }
+    bool sequence=false;
+    // The dynamic sequence's second submission (after the static verdict): a patch
+    // per island ExScratch::seqIsland flags (the runtime sets it and the persisted
+    // state's pointers), without the rows, on the same scratch; the first
+    // submission's islandFlag, status and hand-off records stand.
+    void submitSequence(const Inputs& in,const Settings& s,cudaStream_t stream) {
+        x.seqCreate=1u;Inputs rowless=in;rowless.rows=nullptr;rowless.rowCount=0;rowless.rowCounter=nullptr;
+        submitExplicit(rowless,s,stream);x.seqCreate=0u;
     }
     // The explicit step's evaluation: the patches, their build (a block
     // each), the window in launches of at most explicitBudget substeps (the
@@ -2066,6 +2103,8 @@ struct Stage {
     }
     void submitExplicit(const Inputs& in,const Settings& s,cudaStream_t stream) {
         twoBody=s.explicitTwoBody;
+        if(s.dynamicSequence && !sequence && explicitAllocated){::physx::allocate(x.damp,size_t(kExPatches)*kExLinks*6);::physx::allocate(x.cslip,size_t(kExPatches)*kExLinks*2);::physx::allocate(x.dynLoad,size_t(kExPatches)*kExNodes*6);}
+        sequence=sequence || s.dynamicSequence;
         allocateExplicit();
         const auto start=std::chrono::steady_clock::now();
         exClear<<<64,kThreads,0,stream>>>(in,x);
@@ -2103,11 +2142,14 @@ struct Stage {
         explicitRunMs=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-built).count();
         exPublishIsland<<<64,kThreads,0,stream>>>(in,w,x);
         exPublish<<<dim3(16,count),kThreads,0,stream>>>(in,s,w,x);
+        if(s.dynamicSequence){exPublishDynamic<<<dim3(16,count),kThreads,0,stream>>>(in,s,w,x);exSequenceBooks<<<1,kExPatches,0,stream>>>(w,x);}
         if(stepLog){check(cudaMemcpyAsync(explicitPatches.data(),x.patches,sizeof(ExPatch)*count,cudaMemcpyDeviceToHost,stream));check(cudaStreamSynchronize(stream));}
         if(stepLog)std::fprintf(stderr,"[impact]   explicit: %u patches; build %.2f ms, window %.2f ms in %u launches\n",count,explicitBuildMs,explicitRunMs,dispatches);
         if(stepLog)for(PxU32 p=0;p<count;++p){const ExPatch& q=explicitPatches[p];
             std::fprintf(stderr,"[impact]   explicit patch %u: island %u, %u nodes (%u chunks, %.2f m%s), %u joints, %u contact rows, %u impactors; %u substeps of %.1f us (omega %.3g rad/s; at its end %u contacts pushing, %u joints at an event); broke %u, yielded %u%s; impactors' KE %.6g -> %.6g J, held %.4g J, dead load %.4g J; fracture %.4g J, plastic %.4g J\n",
-                p,q.island,q.nodes,q.chunks,q.radius,q.truncated?", shrunk":"",q.links,q.rows,q.impactors,q.substeps,q.h*1e6f,q.omega,q.pushing,q.near,q.broken,q.yielded,q.failed?" (FAILED)":"",q.keIn,q.keOut,q.u0,q.dead,q.fracture,q.plastic);}
+                p,q.island,q.nodes,q.chunks,q.radius,q.truncated?", shrunk":"",q.links,q.rows,q.impactors,q.substeps,q.h*1e6f,q.omega,q.pushing,q.near,q.broken,q.yielded,q.failed?" (FAILED)":"",q.keIn,q.keOut,q.u0,q.dead,q.fracture,q.plastic);
+            if(q.dynamic)std::fprintf(stderr,"[impact]   dynamic patch %u: zeta %.3g; %u events (%u broke, %u fastenings to contact, %u contacts crushed, %u slid off their seats; the last at %.2f ms), %u contacts; KE %.4g -> %.4g J, elastic %.4g -> %.4g J, the loads' work %.4g J; dissipated: fracture %.4g J, plastic %.4g J, slip %.4g J, dashpots %.4g J\n",
+                p,q.zeta,q.events,q.broken,q.converted,q.crushedContacts,q.seatLost,q.lastEvent*1e3f,q.contacts,q.keStart,q.keEnd,q.u0,q.strainEnd,q.extWork,q.fracture,q.plastic,q.slipWork,q.dashWork);}
     }
     void releaseStep() {
         if(!stepAllocated)return;
@@ -2248,6 +2290,9 @@ struct Stage {
 struct View {
     const PxU32* islandFlag{};const PxU32* bondIslands{};
     const PxDestructionVectorPair* forces{};const PxU32* verdict{};
+    // The dynamic sequence: per bond 1 a re-bearing contact the window holds (it
+    // loses no section: its fastenings have already failed); null none.
+    const PxU32* hold{};
     __device__ bool active(PxU32 bond) const {
         if(!islandFlag)return false;const PxU32 island=bondIslands[bond];
         return island!=0xffffffffu && islandFlag[island];
