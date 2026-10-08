@@ -133,16 +133,41 @@ __device__ __forceinline__ void exStiffness(const Bond& b,float* k)
 // times the row's m^-1), sym[r] += sum_c |C_rc| w[c] (of S = M^-1/2 K M^-1/2,
 // less the row's sqrt(m^-1)), and lump[3 g + b] (g: r's group, translation 0
 // or rotation 1) the same sum over c in group b, its largest row's.
+// C_ef = B_e K B_f^T in closed form: B_e = s_e [[R, 0], [O_e R, -R]] (R the
+// frame's columns n, t1, t2; O_e the cross product with end e's arm; s_e +1 for
+// end 0, -1 for end 1; exWrench), K = diag(kl, kl, kl, kt, k0, k1). The force
+// stiffness is isotropic, R kl R^T = kl I, so C_ef = s_e s_f [[kl I, -kl O_f],
+// [kl O_e, -kl O_e O_f + R Km R^T]] (O^T = -O), Km = diag(kt, k0, k1): about 100
+// operations where the product of the two 6 x 6 blocks took about 1,500.
+__device__ __forceinline__ void exBlock(float kl,const float* M,float ex,float ey,float ez,float fx,float fy,float fz,float sign,float* C)
+{
+    const float eo=ex*fx+ey*fy+ez*fz;   // O_e O_f = of oe^T - (oe . of) I
+    // (-O_f written out: CuMetal e1a12f7 emits `--1.0` for -sign * x with sign
+    // the constant -1, which Metal rejects.)
+    const float Oe[9]={0.0f,-ez,ey,ez,0.0f,-ex,-ey,ex,0.0f},Ofn[9]={0.0f,fz,-fy,-fz,0.0f,fx,fy,-fx,0.0f};
+    const float e[3]={ex,ey,ez},f[3]={fx,fy,fz};
+    #pragma unroll
+    for(int i=0;i<3;++i) {
+        #pragma unroll
+        for(int j=0;j<3;++j) {
+            const float oo=f[i]*e[j]-(i==j?eo:0.0f);
+            C[6*i+j]=sign*(i==j?kl:0.0f);C[6*i+3+j]=sign*kl*Ofn[3*i+j];
+            C[6*(3+i)+j]=sign*kl*Oe[3*i+j];C[6*(3+i)+3+j]=sign*(M[3*i+j]-kl*oo);
+        }
+    }
+}
 __device__ void exGershgorin(const Bond& b,PxU32 end,bool both,const float* w,float* D,float* rows,float* sym,float* lump)
 {
     float k[6];exStiffness(b,k);
-    float Be[2][36];
-    for(PxU32 e=0;e<2;++e)for(int q=0;q<6;++q){float x[6]={0,0,0,0,0,0};x[q]=1.0f;float r[6]={0,0,0,0,0,0};exWrench(b,x,e,r);for(int i=0;i<6;++i)Be[e][6*i+q]=r[i];}
-    for(int r=0;r<6;++r)for(int c=0;c<6;++c){float v=0.0f;for(int q=0;q<6;++q)v+=Be[end][6*r+q]*k[q]*Be[end][6*c+q];D[6*r+c]+=v;}
+    float M[9];for(int i=0;i<3;++i)for(int j=0;j<3;++j)M[3*i+j]=k[3]*b.n[i]*b.n[j]+k[4]*b.t1[i]*b.t1[j]+k[5]*b.t2[i]*b.t2[j];
+    const float ex=end?b.o1[0]:b.o0[0],ey=end?b.o1[1]:b.o0[1],ez=end?b.o1[2]:b.o0[2],fx=end?b.o0[0]:b.o1[0],fy=end?b.o0[1]:b.o1[1],fz=end?b.o0[2]:b.o1[2];
+    float C[36];exBlock(k[0],M,ex,ey,ez,ex,ey,ez,1.0f,C);
+    for(int i=0;i<36;++i)D[i]+=C[i];
     if(!both)return;
+    exBlock(k[0],M,ex,ey,ez,fx,fy,fz,-1.0f,C);
     for(int r=0;r<6;++r) {
         float s=0.0f,t[2]={0.0f,0.0f};
-        for(int c=0;c<6;++c){float v=0.0f;for(int q=0;q<6;++q)v+=Be[end][6*r+q]*k[q]*Be[1u-end][6*c+q];s+=fabsf(v);t[c/3]+=fabsf(v)*w[c];}
+        for(int c=0;c<6;++c){const float v=fabsf(C[6*r+c]);s+=v;t[c/3]+=v*w[c];}
         rows[r]+=s;sym[r]+=t[0]+t[1];
         for(int g=0;g<2;++g)lump[3*(r/3)+g]=fmaxf(lump[3*(r/3)+g],t[g]);
     }
