@@ -2043,7 +2043,7 @@ struct Stage {
     void releaseExplicit() {
         if(!explicitAllocated)return;
         cudaFree(x.nodeOf);cudaFree(x.linkOf);cudaFree(x.patchCount);cudaFree(x.patches);cudaFree(x.nodes);cudaFree(x.bonds);cudaFree(x.links);
-        cudaFree(x.rowBonds);cudaFree(x.rows);cudaFree(x.adj);cudaFree(x.rowAdj);cudaFree(x.wr);cudaFree(x.rowList);cudaFree(x.rwr);cudaFree(x.jp);cudaFree(x.jl);cudaFree(x.rp);cudaFree(x.vStart);cudaFree(x.ja);cudaFree(x.wd);cudaFree(x.handoff);cudaFree(x.handoffCount);cudaFree(x.rowDecided);x={};explicitAllocated=false;
+        cudaFree(x.rowBonds);cudaFree(x.rows);cudaFree(x.adj);cudaFree(x.rowAdj);cudaFree(x.wr);cudaFree(x.rowList);cudaFree(x.rwr);cudaFree(x.jp);cudaFree(x.jl);cudaFree(x.rp);cudaFree(x.eStart);cudaFree(x.ja);cudaFree(x.wd);cudaFree(x.handoff);cudaFree(x.handoffCount);cudaFree(x.rowDecided);x={};explicitAllocated=false;
     }
     void allocateExplicit() {
         if(explicitAllocated)return;
@@ -2052,7 +2052,7 @@ struct Stage {
         ::physx::allocate(x.nodes,P*kExNodes);::physx::allocate(x.bonds,P*kExLinks);::physx::allocate(x.links,P*kExLinks);
         ::physx::allocate(x.rowBonds,P*kExRows);::physx::allocate(x.rows,P*kExRows);::physx::allocate(x.adj,P*2*kExLinks);::physx::allocate(x.rowAdj,P*2*kExRows);::physx::allocate(x.wr,P*kExLinks*12);::physx::allocate(x.rowList,P*kExRows);::physx::allocate(x.rwr,P*kExRows*12);::physx::allocate(x.jp,P*kExLinks*kExJoint);::physx::allocate(x.jl,P*kExLinks);::physx::allocate(x.rp,P*kExRows*kExRow);
         // The two-body impact's (Settings::explicitTwoBody; null otherwise, so a build without it never reads them).
-        if(twoBody){::physx::allocate(x.vStart,P*kExNodes*6);::physx::allocate(x.ja,P*kExLinks*9);::physx::allocate(x.wd,P*kExLinks*12);
+        if(twoBody){::physx::allocate(x.eStart,P*kExLinks*2);::physx::allocate(x.ja,P*kExLinks*9);::physx::allocate(x.wd,P*kExLinks*12);
             ::physx::allocate(x.handoff,size_t(kExHandoffs));::physx::allocate(x.handoffCount,1);::physx::allocate(x.rowDecided,size_t(kContactCapacity));}
         explicitAllocated=true;
     }

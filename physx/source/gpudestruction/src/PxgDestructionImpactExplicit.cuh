@@ -5,7 +5,7 @@
 #endif
 // Timing diagnostics only (never in a product build): a bit mask of the
 // window's phases to skip -- 1 the joint gather, 2 the contact rows, 4 the row
-// gather, 8 the joints.
+// gather, 8 the joints, 16 the two-body implicit sweeps (32 their node gathers, 64 their joint passes).
 #ifndef EX_GATHER
 #define EX_GATHER 4
 #endif
@@ -130,10 +130,10 @@ struct ExScratch {
     float4* jp{};         // [P][kExLinks][kExJoint]: each joint packed for the window (exRunT; exPack)
     float4* rp{};         // [P][kExRows][kExRow]: each contact row packed for the window (exRunT)
     PxU32* jl{};          // [P][kExLinks]: the live joints away from rows from the front, those at rows from the back (exRunT)
-    // The two-body impact only (null otherwise): each node's velocity at the
-    // substep's start, each implicit joint's A = (I + h^2/2 K W~)^-1 h K
+    // The two-body impact only (null otherwise): each implicit joint's relative
+    // motion at the substep's start, its A = (I + h^2/2 K W~)^-1 h K
     // (9 float4s, row-major 6 x 6), and its increment's wrench on its two ends.
-    float* vStart{};      // [P][kExNodes][6]
+    float4* eStart{};     // [P][kExLinks][2]: each implicit joint's B^T v at the substep's start (its six rates, then two pad)
     // The window's hand-off to the corrected pass (exPublish; null: none): per
     // patch and impactor, its body and its end velocity; per stage row, 1 where
     // the window decided it (IMPACT_STEP_PLAN.md section 1, rule 3).
@@ -890,27 +890,39 @@ __device__ __forceinline__ void exCompliantRow(const float* W,const float* g,flo
     P[0]=PN;P[1]=T1;P[2]=T2;
 }
 // An implicit joint's sweep (exImplicit made it so): from its ends' velocities v
-// now and at the substep's start, dJ = -A (B^T v / 2 + B^T vStart / 2) (the
+// now and at the substep's start (eStart), dJ = -A (B^T v / 2 + B^T v0 / 2) (the
 // trapezoidal rule on the joint's own split nodes), then the law (fracture, or the
 // radial return of a ductile joint); its force change's wrench into wr (the next
 // substep's gather) and its increment's into wd (this sweep's, exImplicitNodeB).
 // A broken one writes a zero increment.
-__device__ void exImplicitJointA(PxU32 l,const float4* ja,float4* jp,ExLink* links,float* wr,float* wd,const float* v,const float* vStart,
+// An implicit joint's relative motion B^T v (its six rates) into eStart: at the
+// window's start, and after each substep's sweeps (v is then the next substep's start).
+__device__ __forceinline__ void exImplicitStart(PxU32 l,const float4* jp,const float* v,float4* eStart)
+{
+    const float4* q=jp+size_t(kExJoint)*l;const PxU32 state=__float_as_uint(q[10].z);
+    if(!(state&eEX_IMPLICIT) || !(state&eEX_LIVE))return;
+    Bond b;float J0[6];PxU32 ea,eb;exUnpack(q,b,J0,ea,eb);
+    float d[6]={0,0,0,0,0,0};if(ea!=0xffffffffu)exRelative(b,0,v+6*ea,d);if(eb!=0xffffffffu)exRelative(b,1,v+6*eb,d);
+    eStart[2*size_t(l)]=make_float4(d[0],d[1],d[2],d[3]);eStart[2*size_t(l)+1]=make_float4(d[4],d[5],0.0f,0.0f);
+}
+__device__ void exImplicitJointA(PxU32 l,const float4* ja,float4* jp,ExLink* links,float* wr,float* wd,const float* v,const float4* eStart,
     float h,float time,float band,PxU32* cBroken,PxU32* cYielded,float* cFracture,float* cPlastic,float& dead)
 {
     float4* q=jp+size_t(kExJoint)*l;
     const float4 s1=q[10];PxU32 state=__float_as_uint(s1.z);
     if(!(state&eEX_IMPLICIT))return;
     float* od=wd+12*size_t(l);
-    if(!(state&eEX_LIVE)){for(int i=0;i<12;++i)od[i]=0.0f;return;}
+    if(!(state&eEX_LIVE)){float4* o4=reinterpret_cast<float4*>(od);o4[0]=o4[1]=o4[2]=make_float4(0.0f,0.0f,0.0f,0.0f);return;}
     Bond b;float J0[6];PxU32 ea,eb;exUnpack(q,b,J0,ea,eb);
     const float4 s0=q[9];float slip=s1.w;
-    float d[6]={0,0,0,0,0,0},d0[6]={0,0,0,0,0,0};
-    if(ea!=0xffffffffu){exRelative(b,0,v+6*ea,d);exRelative(b,0,vStart+6*ea,d0);}
-    if(eb!=0xffffffffu){exRelative(b,1,v+6*eb,d);exRelative(b,1,vStart+6*eb,d0);}
+    float d[6]={0,0,0,0,0,0};
+    if(ea!=0xffffffffu)exRelative(b,0,v+6*ea,d);
+    if(eb!=0xffffffffu)exRelative(b,1,v+6*eb,d);
+    const float4 e0=eStart[2*size_t(l)],e1=eStart[2*size_t(l)+1];const float d0[6]={e0.x,e0.y,e0.z,e0.w,e1.x,e1.y};
     for(int i=0;i<6;++i)dead-=0.5f*h*J0[i]*d[i];   // (half of the dead load's work: two sweeps)
     float e[6];for(int i=0;i<6;++i)e[i]=0.5f*d[i]+0.5f*d0[i];
-    const float* A=reinterpret_cast<const float*>(ja+size_t(9)*l);
+    // (A in vector loads: nine float4s, row-major)
+    float A[36];{const float4* q4=ja+size_t(9)*l;for(int i=0;i<9;++i){const float4 a=q4[i];A[4*i]=a.x;A[4*i+1]=a.y;A[4*i+2]=a.z;A[4*i+3]=a.w;}}
     const float Jold[6]={s0.x,s0.y,s0.z,s0.w,s1.x,s1.y};
     float J[6];for(int i=0;i<6;++i){float a=0.0f;for(int j=0;j<6;++j)a+=A[6*i+j]*e[j];J[i]=Jold[i]-a;}
     float k[6];exStiffness(b,k);
@@ -929,9 +941,11 @@ __device__ void exImplicitJointA(PxU32 l,const float4* ja,float4* jp,ExLink* lin
     q[9]=make_float4(J[0],J[1],J[2],J[3]);q[10]=make_float4(J[4],J[5],__uint_as_float(state),slip);
     float dJ[6],inc[6];for(int i=0;i<6;++i){dJ[i]=J[i]-J0[i];inc[i]=J[i]-Jold[i];}
     float f0[6]={0,0,0,0,0,0},f1[6]={0,0,0,0,0,0};exWrench(b,dJ,0,f0);exWrench(b,dJ,1,f1);
-    float* o=wr+12*size_t(l);for(int i=0;i<6;++i){o[i]=f0[i];o[6+i]=f1[i];}
+    float4* o=reinterpret_cast<float4*>(wr+12*size_t(l));
+    o[0]=make_float4(f0[0],f0[1],f0[2],f0[3]);o[1]=make_float4(f0[4],f0[5],f1[0],f1[1]);o[2]=make_float4(f1[2],f1[3],f1[4],f1[5]);
     float g0[6]={0,0,0,0,0,0},g1[6]={0,0,0,0,0,0};exWrench(b,inc,0,g0);exWrench(b,inc,1,g1);
-    for(int i=0;i<6;++i){od[i]=g0[i];od[6+i]=g1[i];}
+    float4* o4=reinterpret_cast<float4*>(od);
+    o4[0]=make_float4(g0[0],g0[1],g0[2],g0[3]);o4[1]=make_float4(g0[4],g0[5],g1[0],g1[1]);o4[2]=make_float4(g1[2],g1[3],g1[4],g1[5]);
 }
 template<bool Small> __device__ __forceinline__
 void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
@@ -1027,7 +1041,7 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
     // Rows run on the first ceil(nr / 32) simdgroups; the joints away from them on the rest at the same time.
     // (a two-body patch: none beside the rows -- the implicit sweeps after them move row nodes)
     const PxU32 rowThreads=min((nr+31u)&~31u,kExThreads),freeStride=sp.twoBody?0u:kExThreads-rowThreads;
-    float* vStart=sp.twoBody?t.vStart+size_t(p)*kExNodes*6:nullptr;const float4* ja=sp.twoBody?t.ja+size_t(p)*kExLinks*9:nullptr;
+    float4* eStart=sp.twoBody?t.eStart+size_t(p)*kExLinks*2:nullptr;const float4* ja=sp.twoBody?t.ja+size_t(p)*kExLinks*9:nullptr;
     float* wd=sp.twoBody?t.wd+size_t(p)*kExLinks*12:nullptr;
     __syncthreads();
     for(PxU32 l=threadIdx.x;l<nl;l+=kExThreads) {
@@ -1044,6 +1058,7 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
     }
     __syncthreads();
     const PxU32 nFree=shFree,nAtRows=shAtRows,nImplicit=shImplicit;
+    if(eStart)for(PxU32 i=threadIdx.x;i<nImplicit;i+=kExThreads)exImplicitStart(jl[i],jp,vS,eStart);
     for(PxU32 it=0;it<budget && step<total;++it,++step) {
         const float time=float(step+1)*h;const bool last=step+1==total;
         // The window's end (Settings::explicitWindow 1): once no contact pushes, no
@@ -1053,7 +1068,6 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
         if(!threadIdx.x){shActive=0u;shPushing=0u;shNear=0u;}
         // Joint forces on the nodes: each node gathers its joints' wrenches (no atomics).
         if(!(EX_PROF_SKIP&1))for(PxU32 k=threadIdx.x;k<nn;k+=kExThreads) {
-            if(vStart)for(int q=0;q<6;++q)vStart[6*k+q]=vS[6*k+q];   // the substep's start (the implicit joints' trapezoid)
             PxU32 b0,b1;jointRange(k,b0,b1);if(b0==b1)continue;
             float f[6]={0,0,0,0,0,0};
             exGather(wr,adj,b0,b1,f);
@@ -1109,11 +1123,11 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
             if(x.gap>0.0f)x.gap=fmaxf(x.gap-g[0]*h,0.0f);else if(x.compliant)x.d=fmaxf(x.d+g[0]*h,0.0f);
         }
         // The two-body car's implicit joints: two sweeps, each a joint pass and a node gather.
-        if(sp.twoBody && sp.implicitJoints)for(int sweep=0;sweep<2;++sweep) {
-            for(PxU32 i=threadIdx.x;i<nImplicit;i+=kExThreads)exImplicitJointA(jl[i],ja,jp,links,wr,wd,vS,vStart,h,time,s.capacityBand,&shBroken,&shYielded,&shFracture,&shPlastic,dead);
+        if(sp.twoBody && sp.implicitJoints && !(EX_PROF_SKIP&16))for(int sweep=0;sweep<2;++sweep) {
+            if(!(EX_PROF_SKIP&64))for(PxU32 i=threadIdx.x;i<nImplicit;i+=kExThreads)exImplicitJointA(jl[i],ja,jp,links,wr,wd,vS,eStart,h,time,s.capacityBand,&shBroken,&shYielded,&shFracture,&shPlastic,dead);
             __syncthreads();
             // (only the car's nodes: implicit joints are the car's)
-            for(PxU32 k=sp.chunks-sp.carChunks+threadIdx.x;k<sp.chunks;k+=kExThreads) {
+            if(!(EX_PROF_SKIP&32))for(PxU32 k=sp.chunks-sp.carChunks+threadIdx.x;k<sp.chunks;k+=kExThreads) {
                 PxU32 b0,b1;jointRange(k,b0,b1);if(b0==b1)continue;
                 float f[6]={0,0,0,0,0,0};exGather(wd,adj,b0,b1,f);apply(k,f,h);
             }
@@ -1121,6 +1135,8 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
         }
         // The joints at the rows' nodes (and all of them when no thread is free beside the rows).
         if(!(EX_PROF_SKIP&8))for(PxU32 i=threadIdx.x;i<nAtRows;i+=kExThreads)joint(jl[nl-1u-i],time,last);
+        // (v is final: the next substep's start for the implicit joints)
+        if(eStart)for(PxU32 i=threadIdx.x;i<nImplicit;i+=kExThreads)exImplicitStart(jl[i],jp,vS,eStart);
         __syncthreads();
         if(s.explicitWindow==1u && !shActive){++step;sp.done=1;break;}
     }
