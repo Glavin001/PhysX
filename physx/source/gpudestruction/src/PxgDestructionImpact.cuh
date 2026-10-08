@@ -282,6 +282,22 @@ struct Settings {
     // error (w h)^2 / 3), and at most explicitMaxStep.
     float explicitAccuracy=0.1f;
     float explicitMaxStep=50e-6f;
+    // Every impact contact compliant (PX_DESTRUCTION_IMPACT_COMPLIANT; vibe-land
+    // docs/destruction/IMPACT_STEP_PLAN.md "compliant impact contacts", harness
+    // scripts/impact/compliant-step.py). It turns on compliantRows, route,
+    // boundImpactor and boundPairwise, and with them:
+    // - routing (routeImpact): a row is the window's when its peak force
+    //   v_n M sqrt(k_eff / (M + m)) (k_eff the compliant row in series with the
+    //   struck chunk's joints) passes the smaller of its weakest joint's capacity
+    //   along the push and the chunk's crush onset over its face;
+    // - a routed row's chunk is not crushed by the trial's impact pressure (Ci):
+    //   the window crushes it in the row (crushLaw), paid by the striker, and a
+    //   chunk crushed through leaves with the striker's normal speed (the plug);
+    // - the corrected pass: the window's verdict stands for its islands (the
+    //   decided bonds keep the trial's forces and verdicts), the pairs it decided
+    //   are dropped from the rigid re-solve, and the impactors and the window's
+    //   freed chunks start it with the window's end velocities.
+    bool compliant=false;
 };
 // A solve is diverging when, past its first rho rebalance (25 steps), a
 // joint's split |J - Z| exceeds kDivergence times the joint's capacity: the
@@ -420,6 +436,21 @@ struct Inputs {
     // [rowCount] per row, nonzero where it is routed to the impact model
     // (Settings::route: routeRows); null: every row is (as before routing).
     const PxU32* rowRouted{};
+    // Settings::compliant (null otherwise): the window's outputs beside the verdict.
+    // crushOut [chunkCount]: the trial's crush state, written for the chunks the
+    // window's rows crushed (partly: damage = crushed depth / depth; through:
+    // crushed 1); crushedChunks counts the chunks crushed through.
+    PxDestructionCrushState* crushOut{};
+    PxU32* crushedChunks{};
+    // windowV [2 chunkCount], windowMask [chunkCount]: each window chunk's end
+    // velocity (linear, angular; world) for the corrected pass's free fragments
+    // (handoffWindowMomentum); decidedBonds [bondCount]: 1 where a window decided
+    // the bond this tick (its verdict stands through the corrected pass).
+    float4* windowV{};
+    PxU32* windowMask{};
+    PxU32* decidedBonds{};
+    // The struck clusters' poses (cluster frame -> world), by the chunks' cluster.
+    const PxTransform* clusterPoses{};
 };
 
 // ---------------------------------------------------------------------------
@@ -1361,6 +1392,89 @@ __device__ __forceinline__ bool rowMember(const Inputs& in,PxU32 r,PxU32 island)
 // load with its rigid stop bounded by the peak. A released row (points 0:
 // the rigid solver's position correction, not an exchange of momentum)
 // leaves the static solve too.
+// A chunk's modulus for its contacts, from its own joints: each joint's stiffness
+// is E A / L (the bridge's true stiffness, VIBE_BOND_TRUE_STIFFNESS: L the
+// separation of its chunks along its normal, at least sqrt A), so E = k L / A,
+// averaged over the chunk's joints. 0 where it has none (a rigid row).
+__device__ float chunkModulus(const Inputs& in,const Settings& s,PxU32 c)
+{
+    float sum=0.0f;PxU32 n=0;
+    for(PxU32 slot=in.nodeBegin[c];slot<in.nodeBegin[c+1];++slot) {
+        const PxU32 i=in.nodeRefs[slot];if(!bondMember(in,i))continue;
+        const auto bd=in.bonds[i];const float A=bd.area;if(!(A>0.0f))continue;
+        const float w=bd.complianceScale,k=s.stiffnessScale*(in.stiffness?in.stiffness[bd.material]:s.stiffness)*w*w;
+        const PxVec3 d=in.chunks[bd.chunk1].position-in.chunks[bd.chunk0].position;
+        const float L=fmaxf(fabsf(d.dot(bd.normal.getNormalized())),sqrtf(A));
+        if(k>0.0f && k<1e30f){sum+=k*L/A;++n;}
+    }
+    return n?sum/float(n):0.0f;
+}
+// The face radius of a chunk of volume V: the equivalent round face of its cube,
+// sqrt(V^(2/3) / pi) (the compliant row's largest contact radius).
+__device__ __forceinline__ float chunkFace(float V){return V>0.0f?sqrtf(powf(V,2.0f/3.0f)/3.14159265f):0.0f;}
+// A struck material's contact crush pressures (Pa; vibe-land
+// scripts/impact/contact_law.py crush_of). With a crush law (capPressure > 0):
+// the onset is its uniaxial crush stress, its Drucker-Prager cone and cap read
+// uniaxially (q = sigma, p = sigma / 3: min(c / (1 - s / 3), 3 p_cap)), the
+// plateau its crush energy density (J/m^3 = Pa: the work per crushed volume),
+// at most the onset. Without one: its compressive strength, both (the contact
+// cannot carry more without the material failing under it).
+__device__ __forceinline__ void crushLaw(const PxDestructionMaterial& m,float& onset,float& plateau)
+{
+    const auto& c=m.crush;
+    if(c.capPressure>0.0f) {
+        const float cone=(c.frictionSlope<3.0f && c.cohesion>0.0f)?c.cohesion/(1.0f-c.frictionSlope/3.0f):FLT_MAX;
+        onset=fminf(cone,3.0f*c.capPressure);plateau=fminf(c.crushEnergy>0.0f?c.crushEnergy:onset,onset);
+    } else {onset=plateau=m.compressionFatalLimit>0.0f?m.compressionFatalLimit:FLT_MAX;}
+}
+// The routing criterion (Settings::compliant; IMPACT_STEP_PLAN.md section 1 rule 2
+// with the compliant row): the contact's peak force when its impactor (mass M)
+// closes at v_n on the struck chunk (mass m, its joints' axial stiffness k_path)
+// through the compliant row (k_row = 2 face E*, 1/E* = 1/E_chunk + 1/E_other, a
+// rigid impactor's side 1/E = 0), the two in series: F = v_n M sqrt(k_eff / (M +
+// m)) (EN 1991-1-7 Annex C), against the smaller of what the chunk's weakest
+// joint carries along the push and the chunk's crush onset over its face. Past
+// it the contact is an impact: the window's. Below both, the rigid stop and the
+// compliant one deliver the same impulse and break nothing: the trial's rigid
+// contact stands (resting and sliding contacts, v_n ~ 0, are such). `chunk` is
+// the row's struck chunk or, mirrored (a two-body car's side), the other body's
+// chunk; the push on it is then -normal in the struck frame, rotated into its
+// cluster's frame by the row's otherPose. Optional outputs: the peak and the
+// capacity it was compared with (logs).
+__device__ bool routeImpact(const Inputs& in,const Settings& s,const ContactRow& row,PxU32 chunk,float* peakOut=nullptr,float* capOut=nullptr)
+{
+    if(chunk>=in.chunkCount || !(in.chunks[chunk].mass>0.0f) || !(row.im>0.0f) || !isfinite(row.im))return false;
+    const bool mirrored=chunk!=row.chunk;
+    float n[3]={row.normal[0],row.normal[1],row.normal[2]};const float nl=sqrtf(dot3(n,n));if(!(nl>0.0f))return false;
+    for(int q=0;q<3;++q)n[q]/=nl;
+    float arm[3],spin[3];for(int q=0;q<3;++q)arm[q]=row.point[q]-row.com[q];cross3(row.spin,arm,spin);
+    float vp[3];for(int q=0;q<3;++q)vp[q]=row.velocity[q]+spin[q];
+    const float vn=fmaxf(0.0f,dot3(vp,n));
+    float push[3]={n[0],n[1],n[2]};
+    if(mirrored){const PxVec3 r=PxQuat(row.otherPose[0],row.otherPose[1],row.otherPose[2],row.otherPose[3]).getConjugate().rotate(PxVec3(-n[0],-n[1],-n[2]));push[0]=r.x;push[1]=r.y;push[2]=r.z;}
+    float k=0.0f,cap=FLT_MAX;
+    for(PxU32 slot=in.nodeBegin[chunk];slot<in.nodeBegin[chunk+1];++slot) {
+        const PxU32 i=in.nodeRefs[slot];if(!bondMember(in,i))continue;
+        Bond b;if(!prepareBond(in,s,i,b))continue;
+        k+=b.kl;
+        const float a=(b.c0==chunk?1.0f:-1.0f)*dot3(b.n,push),t=sqrtf(fmaxf(0.0f,1.0f-a*a));
+        float f=FLT_MAX;if(fabsf(a)>0.0f)f=(a>0.0f?b.capC:b.capT)/fabsf(a);if(t>0.0f)f=fminf(f,b.capS/t);
+        cap=fminf(cap,f);
+    }
+    if(!(k>0.0f))return false;   // no joint: a free chunk, the rigid simulation's own
+    const PxU32 other=mirrored?row.chunk:row.other;
+    const float Ea=chunkModulus(in,s,chunk),Eb=(other<in.chunkCount)?chunkModulus(in,s,other):0.0f;
+    float Va=in.chunks[chunk].volume;if(other<in.chunkCount && in.chunks[other].volume>0.0f)Va=fminf(Va,in.chunks[other].volume);
+    const float face=chunkFace(Va);
+    float keff=k;
+    if(Ea>0.0f && face>0.0f){const float Es=1.0f/(1.0f/Ea+(Eb>0.0f?1.0f/Eb:0.0f)),kr=2.0f*face*Es;keff=1.0f/(1.0f/kr+1.0f/k);}
+    float onset,plateau;crushLaw(in.materials[in.chunks[chunk].material],onset,plateau);
+    const float crush=onset<FLT_MAX?onset*3.14159265f*face*face:FLT_MAX;
+    const float M=mirrored?in.chunks[row.chunk].mass:1.0f/row.im,m=in.chunks[chunk].mass;
+    const float peak=vn*M*sqrtf(keff/(M+m)),bound=fminf(cap,crush);
+    if(peakOut)*peakOut=peak;if(capOut)*capOut=bound;
+    return peak>bound;
+}
 __global__ void routeRows(Inputs in,Settings s,PxU32* routed,PxDestructionVectorPair* inputs)
 {
     const PxU32 r=blockIdx.x*blockDim.x+threadIdx.x;
@@ -1397,8 +1511,9 @@ __global__ void routeRows(Inputs in,Settings s,PxU32* routed,PxDestructionVector
         cap=fminf(cap,f);
     }
     if(!(k>0.0f))return;   // no joint: a free chunk, the rigid simulation's own
-    const float M=1.0f/row.im,peak=vn*M*sqrtf(k/(M+m));
-    if(peak>cap){routed[r]=1u;remove(1.0f);return;}
+    const float M=1.0f/row.im;float peak=vn*M*sqrtf(k/(M+m));
+    if(s.compliant){float bound;if(routeImpact(in,s,row,c,&peak,&bound)){routed[r]=1u;remove(1.0f);return;}cap=bound;}
+    else if(peak>cap){routed[r]=1u;remove(1.0f);return;}
     // Static: the rigid stop's momentum part, M v_n / dt, at most the peak.
     const float excess=fmaxf(0.0f,M*vn/s.dt-peak);
     if(excess>0.0f && Ln>0.0f)remove(fminf(1.0f,excess/Ln));
@@ -2039,7 +2154,7 @@ struct Stage {
     // The impact step's scratch (Settings::method 1), allocated on its first use.
     StepScratch t{};bool stepAllocated=false;bool stepLog=false;
     // The explicit step's scratch (Settings::method 2), allocated on its first use.
-    ExScratch x{};bool explicitAllocated=false;bool twoBody=false;
+    ExScratch x{};bool explicitAllocated=false;bool twoBody=false;bool handoffs=false;
     void releaseExplicit() {
         if(!explicitAllocated)return;
         cudaFree(x.nodeOf);cudaFree(x.linkOf);cudaFree(x.patchCount);cudaFree(x.patches);cudaFree(x.nodes);cudaFree(x.bonds);cudaFree(x.links);
@@ -2052,8 +2167,9 @@ struct Stage {
         ::physx::allocate(x.nodes,P*kExNodes);::physx::allocate(x.bonds,P*kExLinks);::physx::allocate(x.links,P*kExLinks);
         ::physx::allocate(x.rowBonds,P*kExRows);::physx::allocate(x.rows,P*kExRows);::physx::allocate(x.adj,P*2*kExLinks);::physx::allocate(x.rowAdj,P*2*kExRows);::physx::allocate(x.wr,P*kExLinks*12);::physx::allocate(x.rowList,P*kExRows);::physx::allocate(x.rwr,P*kExRows*12);::physx::allocate(x.jp,P*kExLinks*kExJoint);::physx::allocate(x.jl,P*kExLinks);::physx::allocate(x.rp,P*kExRows*kExRow);
         // The two-body impact's (Settings::explicitTwoBody; null otherwise, so a build without it never reads them).
-        if(twoBody){::physx::allocate(x.vStart,P*kExNodes*6);::physx::allocate(x.ja,P*kExLinks*9);::physx::allocate(x.wd,P*kExLinks*12);
-            ::physx::allocate(x.handoff,size_t(kExHandoffs));::physx::allocate(x.handoffCount,1);::physx::allocate(x.rowDecided,size_t(kContactCapacity));}
+        if(twoBody){::physx::allocate(x.vStart,P*kExNodes*6);::physx::allocate(x.ja,P*kExLinks*9);::physx::allocate(x.wd,P*kExLinks*12);}
+        // The hand-off to the corrected pass (the two-body impact's and Settings::compliant's).
+        if(twoBody || handoffs){::physx::allocate(x.handoff,size_t(kExHandoffs));::physx::allocate(x.handoffCount,1);::physx::allocate(x.rowDecided,size_t(kContactCapacity));}
         explicitAllocated=true;
     }
     // The explicit step's evaluation: the patches, their build (a block
@@ -2065,7 +2181,7 @@ struct Stage {
         if(s.method==2u && s.explicitTwoBody && explicitAllocated && report)exReportLoads<<<kExPatches,kThreads,0,stream>>>(in,s,x,report,n);
     }
     void submitExplicit(const Inputs& in,const Settings& s,cudaStream_t stream) {
-        twoBody=s.explicitTwoBody;
+        twoBody=s.explicitTwoBody;handoffs=s.compliant;
         allocateExplicit();
         const auto start=std::chrono::steady_clock::now();
         exClear<<<64,kThreads,0,stream>>>(in,x);
@@ -2106,8 +2222,8 @@ struct Stage {
         if(stepLog){check(cudaMemcpyAsync(explicitPatches.data(),x.patches,sizeof(ExPatch)*count,cudaMemcpyDeviceToHost,stream));check(cudaStreamSynchronize(stream));}
         if(stepLog)std::fprintf(stderr,"[impact]   explicit: %u patches; build %.2f ms, window %.2f ms in %u launches\n",count,explicitBuildMs,explicitRunMs,dispatches);
         if(stepLog)for(PxU32 p=0;p<count;++p){const ExPatch& q=explicitPatches[p];
-            std::fprintf(stderr,"[impact]   explicit patch %u: island %u, %u nodes (%u chunks, %.2f m%s), %u joints, %u contact rows, %u impactors; %u substeps of %.1f us (omega %.3g rad/s; at its end %u contacts pushing, %u joints at an event); broke %u, yielded %u%s; impactors' KE %.6g -> %.6g J, held %.4g J, dead load %.4g J; fracture %.4g J, plastic %.4g J\n",
-                p,q.island,q.nodes,q.chunks,q.radius,q.truncated?", shrunk":"",q.links,q.rows,q.impactors,q.substeps,q.h*1e6f,q.omega,q.pushing,q.near,q.broken,q.yielded,q.failed?" (FAILED)":"",q.keIn,q.keOut,q.u0,q.dead,q.fracture,q.plastic);}
+            std::fprintf(stderr,"[impact]   explicit patch %u: island %u, %u nodes (%u chunks, %.2f m%s), %u joints, %u contact rows, %u impactors; %u substeps of %.1f us (omega %.3g rad/s; at its end %u contacts pushing, %u joints at an event); broke %u, yielded %u%s; impactors' KE %.6g -> %.6g J, held %.4g J, dead load %.4g J; fracture %.4g J, plastic %.4g J, crush %.4g J (%u chunks through)\n",
+                p,q.island,q.nodes,q.chunks,q.radius,q.truncated?", shrunk":"",q.links,q.rows,q.impactors,q.substeps,q.h*1e6f,q.omega,q.pushing,q.near,q.broken,q.yielded,q.failed?" (FAILED)":"",q.keIn,q.keOut,q.u0,q.dead,q.fracture,q.plastic,q.crushWork,q.crushedThrough);}
     }
     void releaseStep() {
         if(!stepAllocated)return;
@@ -2248,7 +2364,11 @@ struct Stage {
 struct View {
     const PxU32* islandFlag{};const PxU32* bondIslands{};
     const PxDestructionVectorPair* forces{};const PxU32* verdict{};
+    // The corrected pass under Settings::compliant: the bonds a window decided in
+    // the trial (Inputs::decidedBonds), whatever their island is after the split.
+    const PxU32* decided{};
     __device__ bool active(PxU32 bond) const {
+        if(decided)return decided[bond]!=0u;
         if(!islandFlag)return false;const PxU32 island=bondIslands[bond];
         return island!=0xffffffffu && islandFlag[island];
     }
