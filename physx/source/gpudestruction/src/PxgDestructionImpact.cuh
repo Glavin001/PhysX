@@ -1344,9 +1344,14 @@ __global__ void routeRows(Inputs in,Settings s,PxU32* routed,PxDestructionVector
     const float m=in.chunks[c].mass,L[3]={row.load[0],row.load[1],row.load[2]},Ln=sqrtf(dot3(L,L));
     auto remove=[&](float f){PxVec3& a=inputs[c].linear;atomicAdd(&a.x,-f*L[0]/m);atomicAdd(&a.y,-f*L[1]/m);atomicAdd(&a.z,-f*L[2]/m);};
     // The same share of the pair off the impactor's own chunk (Settings::routeImpactor).
-    const PxU32 o=s.routeImpactor && in.rowOther?in.rowOther[r].chunk:0xffffffffu;
-    const bool other=o<in.chunkCount && in.chunks[o].mass>0.0f && !chunkGone(in,o);
-    auto removeOther=[&](float f){if(!other || !(f>0.0f))return;const float mo=in.chunks[o].mass,*Lo=in.rowOther[r].load;PxVec3& a=inputs[o].linear;
+    PxU32 o=0xffffffffu;float Lo[3]={0.0f,0.0f,0.0f},mo=0.0f;
+    if(s.routeImpactor && in.rowOther) {
+        const RowOther ro=in.rowOther[r];
+        if(ro.chunk<in.chunkCount && in.chunks[ro.chunk].mass>0.0f && !chunkGone(in,ro.chunk)) {
+            o=ro.chunk;mo=in.chunks[o].mass;Lo[0]=ro.load[0];Lo[1]=ro.load[1];Lo[2]=ro.load[2];
+        }
+    }
+    auto removeOther=[&](float f){if(o==0xffffffffu || !(f>0.0f))return;PxVec3& a=inputs[o].linear;
         atomicAdd(&a.x,-f*Lo[0]/mo);atomicAdd(&a.y,-f*Lo[1]/mo);atomicAdd(&a.z,-f*Lo[2]/mo);};
     if(row.resting) {
         // A resting row (coupleRow): of its body's resting loads on the
