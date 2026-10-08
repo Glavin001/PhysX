@@ -1778,6 +1778,9 @@ struct Stage {
     // from submission to completion), ms.
     PxU32 dispatches=0;double longestDispatch=0.0,lastSubmit=0.0;
     bool errorUnfinished=false;
+    // Diagnostics: each dispatch's host time and the first island's state
+    // before it (recordDispatches).
+    bool recordDispatches=false;std::vector<std::pair<double,IslandState>> dispatchRecord;
     void release() {
         if(pending)cudaFreeHost(pending);pending=nullptr;
         cudaFree(w.islandFlag);cudaFree(w.islands);cudaFree(w.counters);cudaFree(w.bondLocal);cudaFree(w.degree);
@@ -1813,7 +1816,7 @@ struct Stage {
         if(m)trigger<<<(m+127)/128,128,0,stream>>>(in,s,w);
         if(m && in.carried)carryIslands<<<(m+127)/128,128,0,stream>>>(in,s,w);
         if(n)listIslands<<<(n+127)/128,128,0,stream>>>(in,w);
-        dispatches=0;longestDispatch=0.0;
+        dispatches=0;longestDispatch=0.0;dispatchRecord.clear();
         if(!m)return;
         setupIslands<<<grid,kThreads,0,stream>>>(in,s,w);
         // Bounded dispatches (Settings::dispatchWork each), one at a time: the
@@ -1825,12 +1828,16 @@ struct Stage {
         const PxU32 limit=PxU32(std::min(1e6,std::ceil(work/double(s.dispatchWork))+1.0));
         check(cudaStreamSynchronize(stream));
         for(PxU32 d=0;d<limit;++d) {
+            IslandState before{};
+            if(recordDispatches)check(cudaMemcpy(&before,w.state,sizeof before,cudaMemcpyDeviceToHost));
             const auto t0=std::chrono::steady_clock::now();
             check(cudaMemsetAsync(w.counters+4,0,sizeof(PxU32),stream));
             stepIslands<<<grid,kThreads,0,stream>>>(in,s,w);
             check(cudaMemcpyAsync(pending,w.counters+4,sizeof(PxU32),cudaMemcpyDeviceToHost,stream));
             check(cudaStreamSynchronize(stream));
-            longestDispatch=std::max(longestDispatch,std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-t0).count());
+            const double dms=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-t0).count();
+            longestDispatch=std::max(longestDispatch,dms);
+            if(recordDispatches)dispatchRecord.push_back({dms,before});
             ++dispatches;
             if(!*pending)break;
         }

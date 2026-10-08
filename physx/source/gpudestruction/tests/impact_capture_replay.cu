@@ -120,6 +120,7 @@ int run(int argc,char** argv){
         for(const auto& x:r)std::printf("%u,%u,%u,%u,%.3f,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g,%.4g\n",x.bond,x.material,x.chunk0,x.chunk1,x.utilisation,x.area,x.live,
             x.s0,x.s1,x.zt,x.g0,x.g1,x.gb,x.gt,x.N,x.V,x.T,x.M0,x.M1);
     }
+    e.recordDispatches=std::getenv("IMPACT_DISPATCH_LOG")!=nullptr;
     const int runs=argc>2?std::atoi(argv[2]):1;
     for(int r=0;r<runs;++r) {
         const auto t0=std::chrono::steady_clock::now();
@@ -168,6 +169,11 @@ int run(int argc,char** argv){
                 std::vector<float> d(6*size_t(h.rows)),fo(3*size_t(h.rows));
                 check(cudaMemcpy(d.data(),in.rowDelta,sizeof(float)*d.size(),cudaMemcpyDeviceToHost));check(cudaMemcpy(fo.data(),in.rowForce,sizeof(float)*fo.size(),cudaMemcpyDeviceToHost));
                 PxVec3 total(0);
+                std::vector<PxDestructionStressChunk> hc(n);check(cudaMemcpy(hc.data(),in.chunks,sizeof(hc[0])*n,cudaMemcpyDeviceToHost));
+                std::vector<PxDestructionCrushState> cr(in.crushed?n:0);if(in.crushed)check(cudaMemcpy(cr.data(),in.crushed,sizeof(cr[0])*n,cudaMemcpyDeviceToHost));
+                for(PxU32 i=0;i<h.rows;++i){const auto& q=hostRows[i];const PxU32 c=q.chunk;
+                    if(c<n)std::printf("  row %u: struck chunk %u mass %.4g kg at (%.2f %.2f %.2f), island %u%s, %u points, normal (%.2f %.2f %.2f)\n",i,c,hc[c].mass,
+                        hc[c].position.x,hc[c].position.y,hc[c].position.z,nodeIslands[c],(in.crushed && cr[c].crushed)?", crushed":"",q.points,q.normal[0],q.normal[1],q.normal[2]);}
                 for(PxU32 i=0;i<h.rows;++i){const auto& q=hostRows[i];const PxVec3 F(fo[3*i],fo[3*i+1],fo[3*i+2]);total+=F*s.dt;
                     std::printf("  row %u: chunk %u body %u, closing (%.2f %.2f %.2f) m/s, trial stop %.3g N s, solved impulse (%.3g %.3g %.3g) N s, impactor dv vs trial (%.3f %.3f %.3f) m/s\n",
                         i,q.chunk,q.body,q.velocity[0],q.velocity[1],q.velocity[2],PxVec3(q.load[0],q.load[1],q.load[2]).magnitude()*s.dt,F.x*s.dt,F.y*s.dt,F.z*s.dt,d[6*i],d[6*i+1],d[6*i+2]);}
@@ -176,6 +182,12 @@ int run(int argc,char** argv){
                     total.x,total.y,total.z,M,hostRows[0].velocity[0],hostRows[0].velocity[1],hostRows[0].velocity[2],
                     M*PxVec3(hostRows[0].velocity[0],hostRows[0].velocity[1],hostRows[0].velocity[2]).magnitude());
             }
+        }
+        if(!r && e.recordDispatches) {
+            const double over=env("IMPACT_DISPATCH_LOG",50.0f);
+            for(size_t i=0;i<e.dispatchRecord.size();++i){const auto& d=e.dispatchRecord[i];if(d.first<over)continue;
+                std::printf("  dispatch %zu: %.1f ms; the first island before it: phase %u level %u rounds %u solve step %u total %u lambda %.3g\n",
+                    i,d.first,d.second.phase,d.second.level,d.second.rounds,d.second.solve.it,d.second.total,d.second.lambda);}
         }
         if(!r && std::getenv("IMPACT_DUMP")) {
             PxU32 islands=0;check(cudaMemcpy(&islands,e.w.counters,4,cudaMemcpyDeviceToHost));
@@ -201,6 +213,22 @@ int run(int argc,char** argv){
                     const float mu=(b.flags&impact::eCONTACT)?hostRows[b.bond].friction:0.0f;
                     const float f[14]={b.capC,b.capT,b.capS,b.gb,b.gt,b.g0,b.g1,b.h0,b.h1,b.kl,b.kt,b.k0,b.k1,mu};std::fwrite(f,4,14,o);
                     std::fwrite(&J[6*l],4,6,o);std::fwrite(&T[6*l],4,6,o);std::fwrite(&B[72*l],4,72,o);}
+                std::fclose(o);
+                // The contact rows (all of them, coupled or not) beside it.
+                std::snprintf(path,sizeof path,"%s-island%u.rows.bin",std::getenv("IMPACT_DUMP"),is.island);
+                o=std::fopen(path,"wb");if(!o)throw std::runtime_error("cannot write the dump");
+                {std::vector<PxDestructionCrushState> cr(in.crushed?n:0);if(in.crushed)check(cudaMemcpy(cr.data(),in.crushed,sizeof(cr[0])*n,cudaMemcpyDeviceToHost));
+                const PxU32 count=PxU32(hostRows.size());std::fwrite(&count,4,1,o);
+                for(const auto& q:hostRows){const PxU32 u[3]={q.chunk,q.body,(q.chunk<n && in.crushed && cr[q.chunk].crushed)?1u:0u};std::fwrite(u,4,3,o);
+                    std::fwrite(q.load,4,3,o);std::fwrite(q.torque,4,3,o);std::fwrite(q.velocity,4,3,o);std::fwrite(q.dv,4,3,o);std::fwrite(&q.im,4,1,o);}}
+                std::fclose(o);
+                // The ramp's state beside it (vibe-land scripts/impact/oracle-ramp.py).
+                std::snprintf(path,sizeof path,"%s-island%u.ramp.bin",std::getenv("IMPACT_DUMP"),is.island);
+                o=std::fopen(path,"wb");if(!o)throw std::runtime_error("cannot write the dump");
+                const float rh[8]={is.first,s.rampFactor,float(s.maxRounds),float(is.rounds),float(is.level),s.elasticIncrementAfterYield?1.0f:0.0f,float(s.rampLevels),0.0f};std::fwrite(rh,4,8,o);
+                for(const auto& c:ch){std::fwrite(c.pb,4,6,o);std::fwrite(c.pf,4,6,o);std::fwrite(c.r,4,6,o);}
+                std::vector<float> slipBefore(m,0.0f);if(in.slipBefore)check(cudaMemcpy(slipBefore.data(),in.slipBefore,sizeof(float)*m,cudaMemcpyDeviceToHost));
+                for(const auto& b:bl){const float f[2]={b.slip,(b.flags&impact::eCONTACT)?0.0f:slipBefore[b.bond]};std::fwrite(f,4,2,o);}
                 std::fclose(o);
                 std::printf("  dumped island %u (%u nodes, %u links: %u joints, %u contacts) at its capped level lambda %.4g (last converged %.4g) to %s\n",
                     is.island,nn,nl,I.nb,I.nr,lambda,is.snapLambda,path);
