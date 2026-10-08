@@ -73,7 +73,8 @@ int main()
     // (chunk 0) with two bonds -- one along +z to chunk 1 (compression 0.3 MN,
     // tension 0.05 MN, shear 0.1 MN), one along -x seen from it (its chunk0 is
     // chunk 2) -- dt 1/60 s, struck along +z at 60 m/s on 2 points: the +z bond
-    // in compression (0.3 MN), the x bond in shear (0.1 MN), plus m v.
+    // in compression (0.3 MN), the x bond in shear (0.1 MN), plus m v; at 45
+    // degrees each bond adds its axial and shear capacities' shares.
     if(!old) {
         const float dt=1.0f/60.0f,m=139.0f,Cc=0.3e6f,Ct=0.05e6f,Cs=0.1e6f;
         const PxU32 inputs[12]={0,0,7,9, 0,0,9,7, 0,0,5,9};   // shape 7: the chunk; 9, 5: no chunk
@@ -90,6 +91,8 @@ int main()
             {"ball pushes the chunk along +z (chunk side 0)",0,true,false,still,fast,n0,want},
             {"the same pair, chunk side 1 (normal reversed)",1,false,true,fast,still,-n0,want},
             {"pulled along -z: tension and shear",0,true,false,still,fast,-n0,((Ct+Cs)*dt+m*60.0f)/2.0f},
+            {"pushed at 45 deg in the x-z plane: each bond's axial and shear parts",0,true,false,still,still,PxVec3(0.70710678f,0,0.70710678f),
+                ((Cc*0.70710678f+Cs*0.70710678f)+(Ct*0.70710678f+Cs*0.70710678f))*dt/2.0f},
             {"ball against a dynamic chunk (no kinematic side)",0,false,false,still,fast,n0,PX_MAX_F32},
             {"kinematic body that is no chunk",2,true,false,still,fast,n0,PX_MAX_F32},
             {"at rest: the bonds alone",0,true,false,still,still,n0,(Cc+Cs)*dt/2.0f},

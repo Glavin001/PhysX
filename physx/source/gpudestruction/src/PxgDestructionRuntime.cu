@@ -427,6 +427,7 @@ __device__ void anchoredSaturation(PxU32 a,PxU32 b,const PxGpuContactPair& p,con
     }
     if(kin[0]==kin[1])return;
     const PxU32 chunk=kin[0]?c[0]:c[1];if(chunk==PX_INVALID_U32)return;
+    if(ci.anchored.chunks[4*chunk+2]>0.0f)return;   // the step's chunk: its verdict is the step's
     PxContactStreamIterator it(p.contactPatches,p.contactPoints,NULL,p.nbPatches,p.nbContacts);PxU32 point=0;
     while(it.hasNextPatch()){it.nextPatch();while(it.hasNextContact()){it.nextContact();
         const float f=p.contactForces[point++];
@@ -434,7 +435,7 @@ __device__ void anchoredSaturation(PxU32 a,PxU32 b,const PxGpuContactPair& p,con
         const float bound=anchoredContactImpulse(anchoredChunkImpulse(ci.anchored,chunk,kin[0]?normal:-normal),ci.anchored.chunks[4*chunk+1],
             PxAbs((v[1]-v[0]).dot(normal)))/float(p.nbContacts);
         // At the bound, to float's resolution of the solver's accumulation.
-        if(f>=bound*(1.0f-8.0f*FLT_EPSILON)){ci.saturated[chunk]=1u;return;}
+        if(f>=bound*(1.0f-8.0f*FLT_EPSILON)){atomicOr(ci.saturated+chunk,1u);return;}
     }}
 }
 __global__ void routeContacts(PxgDestructionSolvedContacts contacts, const Lookup* map, PxU32 maps, const PxDestructionStressChunk* chunks,
@@ -626,6 +627,12 @@ __global__ void anchoredBondBounds(const PxDestructionStressChunk* chunks,const 
     out[2*i]=make_float4(axis.x,axis.y,axis.z,__uint_as_float(b.chunk0));
     out[2*i+1]=make_float4(mat.compressionFatalLimit*area*dt,mat.tensionFatalLimit*area*dt,mat.shearFatalLimit*area*dt,0.0f);
 }
+// Chunks of rows routed to the impact step this pass (anchoredGhostCheck's bit 2).
+__global__ void anchoredStepChunks(const impact::ContactRow* rows,const PxU32* count,PxU32 capacity,const PxU32* routed,PxU32 n,PxU32* flags)
+{
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=min(*count,capacity) || !routed[i])return;
+    const PxU32 c=rows[i].chunk;if(c<n)atomicOr(flags+c,2u);
+}
 // The ghost check: a chunk whose contact was cut at its bound this pass and
 // whose bonds this pass's verdict left all intact (with any left) -- the
 // impactor went past a chunk that stays put. Must be 0: the bound is at
@@ -635,7 +642,10 @@ __global__ void anchoredGhostCheck(PxU32* saturated,const PxU32* nodeBegin,const
     PxU32 n,PxDestructionStageStatus* status,PxU32* ghosts)
 {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=n || !saturated[i])return;
-    saturated[i]=0u;
+    const PxU32 flags=saturated[i];saturated[i]=0u;
+    // Bit 2: a routed row's chunk this pass, its verdict the impact step's (the
+    // trial's rigid motion there is the step's to correct).
+    if(!(flags&1u) || (flags&2u))return;
     if(ghosts)atomicAdd(ghosts+9,1u);   // (the log: chunks whose contact met its bound this pass)
     // Live: what anchoredChunkBounds counted (a bond to a crushed chunk holds nothing).
     bool live=false,broke=false;
@@ -658,10 +668,18 @@ __global__ void anchoredGhostCheck(PxU32* saturated,const PxU32* nodeBegin,const
 // clusters its rows struck (gpusolver constraintPrepShared.cuh
 // contactPairMaxImpulse), and every other pair is an ordinary rigid contact.
 __global__ void collectImpactBounds(const impact::ContactRow* rows,const PxU32* count,PxU32 capacity,const float* rowBound,
-    const PxDestructionStressChunk* chunks,const PxDestructionStressCluster* clusters,float* bound,PxU32 bodies,bool perImpactor=false,bool pairwise=false)
+    const PxDestructionStressChunk* chunks,const PxDestructionStressCluster* clusters,float* bound,PxU32 bodies,bool perImpactor=false,bool pairwise=false,
+    float4* chunkStep=nullptr,PxU32 chunkCount=0,PxU32* requested=nullptr)
 {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=min(*count,capacity))return;
     const float b=rowBound[i];if(!(b>0.0f))return;
+    // With the anchored-chunk bound: per struck chunk, read by the corrected
+    // pass's contact prep (PxgAnchoredContactBound.h), no body's bound.
+    if(chunkStep) {
+        const PxU32 c=rows[i].chunk;if(c<chunkCount)atomicMax(reinterpret_cast<unsigned*>(&chunkStep[c].z),__float_as_uint(b));
+        if(requested)*requested=1u;
+        return;
+    }
     const PxU32 body=perImpactor?rows[i].body:clusters[chunks[rows[i].chunk].cluster].body;if(body>=bodies)return;
     atomicMax(reinterpret_cast<unsigned*>(bound+body),__float_as_uint(b));
     // Pairwise: the struck cluster is marked (+inf, above every bound): the
@@ -2522,6 +2540,7 @@ public:
                 rin.rows=mImpactRows;rin.rowCount=impact::kContactCapacity;rin.rowCounter=mImpactRowCount;
                 impact::Settings rs=mImpactSettings;rs.dt=dt;
                 impact::routeRows<<<(impact::kContactCapacity+127)/128,128,0,mStream>>>(rin,rs,mImpactRowRouted,mInputs);
+                if(mAnchoredBound && mAnchoredReady && mN)anchoredStepChunks<<<(impact::kContactCapacity+127)/128,128,0,mStream>>>(mImpactRows,mImpactRowCount,impact::kContactCapacity,mImpactRowRouted,mN,mAnchoredSaturated);
             }
             if(mReport)check(cudaMemcpyAsync(mReportInputs+2*mN,mInputs,sizeof(*mInputs)*mN,cudaMemcpyDeviceToDevice,mStream));
             check(cudaEventRecord(mReady,mStream));
@@ -2820,9 +2839,10 @@ public:
             mImpactBoundCapacity=mMotionStorage.capacity;
         }
         check(cudaStreamWaitEvent(mStream,mCheckpointReady,0));
-        collectImpactBounds<<<(impact::kContactCapacity+127)/128,128,0,mStream>>>(mImpactRows,mImpactRowCount,impact::kContactCapacity,
-            mImpactRowBound,mChunks,mClusters,mImpactBound,mImpactBoundCapacity,mImpactSettings.boundImpactor,mImpactSettings.boundPairwise);
         check(cudaMemsetAsync(mImpactBoundRequested,0,sizeof(PxU32),mStream));
+        collectImpactBounds<<<(impact::kContactCapacity+127)/128,128,0,mStream>>>(mImpactRows,mImpactRowCount,impact::kContactCapacity,
+            mImpactRowBound,mChunks,mClusters,mImpactBound,mImpactBoundCapacity,mImpactSettings.boundImpactor,mImpactSettings.boundPairwise,
+            (mAnchoredBound && mAnchoredReady)?mAnchoredChunks:nullptr,mN,mImpactBoundRequested);
         applyImpactBounds<<<(mImpactBoundCapacity+127)/128,128,0,mStream>>>(mImpactBound,mImpactSaved,mImpactBounded,mCheckpointBodies,
             mCheckpointCount,mImpactBoundCapacity,mStatus,mImpactBoundRequested,mImpactSettings.boundImpactor && mImpactSettings.boundPairwise);
         check(cudaEventRecord(mCheckpointReady,mStream));
