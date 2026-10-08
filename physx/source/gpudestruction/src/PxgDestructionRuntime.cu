@@ -1232,7 +1232,7 @@ class Runtime final : public PxgDestructionRuntime {
     // the chunks of routed rows (Ci leaves them to the window), the windows' chunk end
     // velocities (world) and their mask, the bonds the windows decided this tick, and
     // the per-root sums of the fragments' hand-off (PxgDestructionHandoff.cuh).
-    PxU32* mRoutedChunks{};float4* mWindowV{};PxU32* mWindowMask{};PxU32* mWindowDecided{};float4* mHandoffSums{};float4* mClusterStart{};bool mCompliant=false,mHandoff=false;std::vector<PxU32> mHandoffLog;
+    PxU32* mRoutedChunks{};float4* mWindowV{};PxU32* mWindowMask{};PxU32* mWindowDecided{};float4* mHandoffSums{};float4* mClusterStart{};float* mSeqHandoffReport{};bool mCompliant=false,mHandoff=false;std::vector<PxU32> mHandoffLog;
     PxDestructionChunkBox* mChunkBoxes{};   // PxDestructionStressDesc::chunkBoxes (the step's contact geometry), or null
     // Per rigid body (motion storage capacity): the corrected pass's bound on
     // its contacts (max impulse per point; bits of a float), its own max
@@ -1877,7 +1877,7 @@ public:
         cudaFree(mImpactImpactor);mImpactImpactor=nullptr;cudaFree(mImpactStriker);mImpactStriker=nullptr;cudaFree(mCrushDemand);mCrushDemand=nullptr;mCrushDemandCapacity=0;cudaFree(mCrushBoundAudit);mCrushBoundAudit=nullptr;mCrushEnergyBound=false;cudaFree(mAnchoredChunks);mAnchoredChunks=nullptr;cudaFree(mAnchoredBonds);mAnchoredBonds=nullptr;cudaFree(mAnchoredSaturated);mAnchoredSaturated=nullptr;cudaFree(mAnchoredGhosts);mAnchoredGhosts=nullptr;mAnchoredBound=mAnchoredReady=false;
         cudaFree(mImpactRows);mImpactRows=nullptr;cudaFree(mImpactRowCount);mImpactRowCount=nullptr;
         cudaFree(mImpactRowDelta);mImpactRowDelta=nullptr;cudaFree(mImpactRowForce);mImpactRowForce=nullptr;cudaFree(mImpactRowBound);mImpactRowBound=nullptr;cudaFree(mImpactRowRouted);mImpactRowRouted=nullptr;
-        cudaFree(mRoutedChunks);mRoutedChunks=nullptr;cudaFree(mWindowV);mWindowV=nullptr;cudaFree(mWindowMask);mWindowMask=nullptr;cudaFree(mWindowDecided);mWindowDecided=nullptr;cudaFree(mHandoffSums);mHandoffSums=nullptr;cudaFree(mClusterStart);mClusterStart=nullptr;mCompliant=false;mHandoff=false;cudaFree(mChunkBoxes);mChunkBoxes=nullptr;
+        cudaFree(mRoutedChunks);mRoutedChunks=nullptr;cudaFree(mWindowV);mWindowV=nullptr;cudaFree(mWindowMask);mWindowMask=nullptr;cudaFree(mWindowDecided);mWindowDecided=nullptr;cudaFree(mHandoffSums);mHandoffSums=nullptr;cudaFree(mClusterStart);mClusterStart=nullptr;cudaFree(mSeqHandoffReport);mSeqHandoffReport=nullptr;mCompliant=false;mHandoff=false;cudaFree(mChunkBoxes);mChunkBoxes=nullptr;
         cudaFree(mImpactBound);mImpactBound=nullptr;cudaFree(mImpactSaved);mImpactSaved=nullptr;cudaFree(mImpactBounded);mImpactBounded=nullptr;cudaFree(mImpactBoundRequested);mImpactBoundRequested=nullptr;mImpactBoundCapacity=0;
         cudaFree(mCrush);mCrush=nullptr;cudaFree(mTrialCrush);mTrialCrush=nullptr;
         mN=mM=mC=mMapCount=0;
@@ -2222,6 +2222,16 @@ public:
                         mCompliant=true;mHandoff=true;
                         if(d.chunkBoxes && d.chunkCount){allocate(mChunkBoxes,d.chunkCount);check(cudaMemcpy(mChunkBoxes,d.chunkBoxes,sizeof(*mChunkBoxes)*d.chunkCount,cudaMemcpyHostToDevice));}
                     } else mImpactSettings.compliant=false;
+                    // The dynamic sequence's hand-off (requirement 4; before the correction's preparation graph is
+                    // captured): a piece a window frees leaves with its window momentum (handoffWindowMomentum,
+                    // PxgDestructionHandoff.cuh: the compliant contacts' buffers).
+                    {const char* q=std::getenv("PX_DESTRUCTION_DYNAMIC_SEQUENCE");
+                     if(q && q[0]=='1' && mImpactSettings.method==2u && mImpactSettings.coupledContact && d.bondCount) {
+                        const size_t n1=std::max<size_t>(d.chunkCount,1);
+                        if(!mWindowV){allocate(mWindowV,2*n1);allocate(mWindowMask,n1);allocate(mHandoffSums,2*n1);check(cudaMemset(mWindowMask,0,sizeof(PxU32)*n1));}
+                        allocate(mSeqHandoffReport,5);check(cudaMemset(mSeqHandoffReport,0,sizeof(float)*5));
+                        mHandoff=true;
+                     }}
                 }
                 if(d.impactCrush) {
                     allocate(mImpactStress,d.chunkCount);allocate(mImpactRate,d.chunkCount);allocate(mImpactImpactor,d.chunkCount);mImpactCrush=true;
@@ -2343,12 +2353,7 @@ public:
                         check(cudaMemsetAsync(mHandoffSums,0,2*sizeof(float4)*mN,mStream));
                         handoffAccumulate<<<(mN+127)/128,128,0,mStream>>>(mChunks,mN,trial.chunkCluster,mWindowV,mWindowMask,mPoses,mHandoffSums);
                         handoffWindowMomentum<<<(mN+127)/128,128,0,mStream>>>(mCorrectionBodies,mN,mHandoffSums,mN);
-                        if(mSeq.enabled && mImpactLog) {
-                            float* r=nullptr;check(cudaMallocManaged(&r,5*sizeof(float)));for(int q=0;q<5;++q)r[q]=0.0f;
-                            seqHandoffReport<<<(mN+127)/128,128,0,mStream>>>(mCorrectionBodies,mN,mHandoffSums,mN,mWindowMask,r);check(cudaStreamSynchronize(mStream));
-                            if(r[0]>0.0f || r[4]>0.0f)std::fprintf(stderr,"[sequence] hand-off: %.0f free fragments took their window momentum (%.4g kg m/s over %.4g kg of window chunks); %.0f window chunks, %.0f free bodies\n",r[0],r[1],r[2],r[3],r[4]);
-                            cudaFree(r);
-                        }
+                        if(mSeqHandoffReport)seqHandoffReport<<<(mN+127)/128,128,0,mStream>>>(mCorrectionBodies,mN,mHandoffSums,mN,mWindowMask,mSeqHandoffReport);
                     }
                     inspectCorrectionSourceLoads<<<(mN+127)/128,128,0,mStream>>>(mClusters,mAffectedClusters,0,nullptr,0,
                         mCollisionPreparation,mCorrectionPreparation,mChunkCommandSums,mChunkLoads,mCheckpointCommands,nullptr,inputs);
@@ -2396,13 +2401,6 @@ public:
                         std::fprintf(stderr,"[sequence] PX_DESTRUCTION_DYNAMIC_SEQUENCE needs the explicit impact step (PX_DESTRUCTION_IMPACT_EXPLICIT=1); off\n");
                     else {
                         mSeq.allocate(d.chunkCount,d.bondCount);
-                        // The hand-off (requirement 4): a piece a window frees leaves with its window momentum
-                        // (handoffWindowMomentum, PxgDestructionHandoff.cuh: the compliant contacts' buffers).
-                        if(!mWindowV) {
-                            const size_t n1=std::max<size_t>(d.chunkCount,1);
-                            allocate(mWindowV,2*n1);allocate(mWindowMask,n1);allocate(mHandoffSums,2*n1);check(cudaMemset(mWindowMask,0,sizeof(PxU32)*n1));
-                        }
-                        mHandoff=true;
                         mImpactSettings.dynamicSequence=1u;
                         const char* z=std::getenv("PX_DESTRUCTION_DYNAMIC_DAMPING");if(z && *z)mImpactSettings.dynamicDamping=float(std::atof(z));
                         mImpactSettings.dynamicFriction=mRebearingFriction;
@@ -3178,6 +3176,11 @@ public:
             const auto& e=*mImpactHostStatus;
             if(e.sequencePatches)std::fprintf(stderr,"[sequence] evaluation %llu: %u dynamic patches in %u rounds, %u substeps, broke %u, %u fastenings to contact; %.1f ms in %u launches (longest %.1f ms)\n",
                 (unsigned long long)mImpactEvaluations,e.sequencePatches,mSeqRounds,e.sequenceSubsteps,e.sequenceBroken,e.sequenceConverted,mImpact.explicitRunMs,mImpact.dispatches,mImpact.longestDispatch);
+            if(mSeqHandoffReport && !corrected) {
+                float r[5];check(cudaMemcpy(r,mSeqHandoffReport,sizeof r,cudaMemcpyDeviceToHost));
+                if(r[4]>0.0f)std::fprintf(stderr,"[sequence] hand-off (the last correction): %.0f of %.0f free fragments took their window momentum (%.4g kg m/s over %.4g kg of window chunks; %.0f window chunks)\n",r[0],r[4],r[1],r[2],r[3]);
+                check(cudaMemset(mSeqHandoffReport,0,sizeof r));
+            }
             PxU32 fc[4];check(cudaMemcpy(fc,mSeq.counters,sizeof fc,cudaMemcpyDeviceToHost));
             if(fc[0]||fc[1]||fc[2])std::fprintf(stderr,"[sequence] evaluation %llu: %u islands froze, %u thawed, %u held frozen\n",(unsigned long long)mImpactEvaluations,fc[0],fc[1],fc[2]);
             if(fc[3])std::fprintf(stderr,"[sequence] PATCH SLOTS FULL: %u islands kept the static verdict this tick (the snapshot decided their failures; kExPatches %u)\n",fc[3],impact::kExPatches);
@@ -3572,12 +3575,7 @@ public:
                 check(cudaMemsetAsync(mHandoffSums,0,2*sizeof(float4)*mN,stream));
                 handoffAccumulate<<<(mN+127)/128,128,0,stream>>>(mChunks,mN,mTopology->trial().chunkCluster,mWindowV,mWindowMask,mPoses,mHandoffSums);
                 handoffWindowMomentum<<<(mN+127)/128,128,0,stream>>>(mCorrectionBodies,mN,mHandoffSums,mN);
-                if(mSeq.enabled && mImpactLog) {
-                    float* r=nullptr;check(cudaMallocManaged(&r,5*sizeof(float)));for(int q=0;q<5;++q)r[q]=0.0f;
-                    seqHandoffReport<<<(mN+127)/128,128,0,stream>>>(mCorrectionBodies,mN,mHandoffSums,mN,mWindowMask,r);check(cudaStreamSynchronize(stream));
-                    if(r[0]>0.0f || r[4]>0.0f)std::fprintf(stderr,"[sequence] hand-off: %.0f free fragments took their window momentum (%.4g kg m/s over %.4g kg of window chunks); %.0f window chunks, %.0f free bodies\n",r[0],r[1],r[2],r[3],r[4]);
-                    cudaFree(r);
-                }
+                if(mSeqHandoffReport)seqHandoffReport<<<(mN+127)/128,128,0,stream>>>(mCorrectionBodies,mN,mHandoffSums,mN,mWindowMask,mSeqHandoffReport);
             }
             inspectCorrectionSourceLoads<<<(mC+127)/128,128,0,stream>>>(mClusters,mAffectedClusters,mC,mCheckpointBodies,mCheckpointCount,mCollisionPreparation,mCorrectionPreparation,mChunkCommandSums,loads,mCheckpointCommands,
                 loads?mChunkCommandScales:nullptr);
