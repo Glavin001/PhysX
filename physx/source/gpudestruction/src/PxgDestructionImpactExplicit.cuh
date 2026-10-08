@@ -815,14 +815,28 @@ __device__ __forceinline__ void exUnpack(const float4* q,Bond& b,float* J0,PxU32
     J0[0]=q7.x;J0[1]=q7.y;J0[2]=q7.z;J0[3]=q7.w;J0[4]=q8.x;J0[5]=q8.y;a=__float_as_uint(q8.z);e1=__float_as_uint(q8.w);
 }
 // A compliant row's impulse over h (exBuild's law): its normal force at the
-// substep's end, k (d + h g+) (backward Euler, g+ = g_N + W_NN P_N the closing
-// rate after it): P_N = min(0, -k h (d + h g_N) / (1 + k h^2 W_NN)); the
+// substep's end (backward Euler, g+ = g_N + W_NN P_N the closing rate after it):
+// P_N = min(0, -h (F(d) + k h g_N) / (1 + k h^2 W_NN)); the
 // tangential impulse that stops the slip, at most mu |P_N|. g the row's relative
 // motion (g_N > 0 closing), W its (split) 3 x 3 inverse mass, d its depth.
+// The force is the integral of the tangent stiffness k(s) = 2 E* a(s), a(s) = min(face,
+// max(sigma, sqrt(R s))): a flat patch of radius sigma (F = 2 sigma E* d, Johnson 3.8), past
+// d1 = sigma^2 / R Hertz's contact of the curvature R (F = 4/3 E* sqrt(R) d^(3/2), Johnson 4.2),
+// past d2 = face^2 / R the face's punch; at the substep's end F(d) + k(d) h g+ (linearised at d).
+// (vibe-land scripts/impact/contact_law.py row_force, compliant_impulse; hertz_check.)
+__device__ __forceinline__ float exRowForce(float d,float Estar,float sigma,float R,float face)
+{
+    d=fmaxf(d,0.0f);const float sg=fminf(sigma,face);
+    const float d1=R>0.0f?sg*sg/R:FLT_MAX,d2=R>0.0f?face*face/R:FLT_MAX;
+    if(d<=d1)return 2.0f*Estar*sg*d;
+    const float F1=2.0f*Estar*sg*d1,c=4.0f/3.0f*Estar*sqrtf(R);
+    if(d<=d2)return F1+c*(d*sqrtf(d)-d1*sqrtf(d1));
+    return F1+c*(d2*sqrtf(d2)-d1*sqrtf(d1))+2.0f*Estar*face*(d-d2);
+}
 __device__ __forceinline__ void exCompliantRow(const float* W,const float* g,float d,float Estar,float sigma,float R,float face,float mu,float h,float* P)
 {
     const float a=fminf(face,fmaxf(sigma,sqrtf(R*fmaxf(d,0.0f)))),k=2.0f*a*Estar;
-    const float PN=fminf(0.0f,-k*h*(d+h*g[0])/(1.0f+k*h*h*W[0]));
+    const float PN=fminf(0.0f,-h*(exRowForce(d,Estar,sigma,R,face)+k*h*g[0])/(1.0f+k*h*h*W[0]));
     const float r1=g[1]+W[3]*PN,r2=g[2]+W[6]*PN,det=W[4]*W[8]-W[5]*W[7];
     float T1=0.0f,T2=0.0f;
     if(det>0.0f){T1=-(W[8]*r1-W[5]*r2)/det;T2=-(-W[7]*r1+W[4]*r2)/det;}

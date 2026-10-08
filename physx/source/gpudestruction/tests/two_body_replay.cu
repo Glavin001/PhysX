@@ -136,7 +136,7 @@ int run(int argc,char** argv)
         deficit?"; ENERGY DEFICIT":"");
     std::ifstream e(prefix+".expected");double edv[3];PxU32 eyield=0;e>>edv[0]>>edv[1]>>edv[2]>>eyield;std::set<PxU32> want;PxU32 x;while(e>>x)want.insert(x);
     PxU32 both=0;for(PxU32 l:broken)both+=want.count(l)?1u:0u;
-    const double jac=double(both)/double(std::max<size_t>(1,broken.size()+want.size()-both));
+    const double jac=broken.empty() && want.empty()?1.0:double(both)/double(std::max<size_t>(1,broken.size()+want.size()-both));
     const double edvn=std::sqrt(edv[0]*edv[0]+edv[1]*edv[1]+edv[2]*edv[2]),ddv=std::sqrt((dv[0]-edv[0])*(dv[0]-edv[0])+(dv[1]-edv[1])*(dv[1]-edv[1])+(dv[2]-edv[2])*(dv[2]-edv[2]));
     const double relv=edvn>0.0?ddv/edvn:ddv,rely=eyield?std::fabs(double(yielded)-eyield)/eyield:double(yielded);
     const double need=env("TWO_BODY_MIN_JACCARD",0.9f);
