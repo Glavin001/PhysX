@@ -1374,6 +1374,22 @@ public:
                 frictional+=m.shearFriction>0.0f?1u:0u;
             }
             if(frictionOn)std::fprintf(stderr,"[destruction] Mohr-Coulomb shear: %u of %u materials have a friction term\n",frictional,PxU32(materials.size()));
+            // Shear stiffness (PX_DESTRUCTION_SHEAR_STIFFNESS=1, read here): a
+            // joint's stiffness across its normal is gamma times its stiffness
+            // along it. The stress solve carries it with the section's
+            // rotational stiffness only; without either every material is
+            // isotropic (gamma 1) in every model, as before.
+            const char* shearStiffness=std::getenv("PX_DESTRUCTION_SHEAR_STIFFNESS");
+            const bool shearOn=shearStiffness && shearStiffness[0]=='1' && d.sectionRotationalStiffness;
+            if(shearStiffness && shearStiffness[0]=='1' && !d.sectionRotationalStiffness)
+                std::fprintf(stderr,"[destruction] PX_DESTRUCTION_SHEAR_STIFFNESS needs the section's rotational stiffness; off\n");
+            PxU32 anisotropic=0;
+            for(auto& m:materials) {
+                if(!std::isfinite(m.shearStiffnessRatio) || m.shearStiffnessRatio<0)return false;
+                if(!shearOn || !(m.shearStiffnessRatio>0))m.shearStiffnessRatio=1.0f;
+                anisotropic+=m.shearStiffnessRatio!=1.0f?1u:0u;
+            }
+            if(shearOn)std::fprintf(stderr,"[destruction] shear stiffness: %u of %u materials stiffer along their normal than across it\n",anisotropic,PxU32(materials.size()));
             for(auto& m:materials) {
                 if(m.tensionElasticLimit<0)m.tensionElasticLimit=m.compressionElasticLimit;
                 if(m.tensionFatalLimit<0)m.tensionFatalLimit=m.compressionFatalLimit;
@@ -1504,6 +1520,13 @@ public:
                         rows[i]={{axis.x,axis.y,axis.z},r0,r1,rp};
                     }
                     if(!ExtStressGpuSetBondRotationalStiffness(mSolver,rows.data(),d.bondCount)){clear();return false;}
+                    // Shear stiffness (PX_DESTRUCTION_SHEAR_STIFFNESS): each bond's
+                    // material's ratio; isotropic materials (1) leave the solve as it was.
+                    if(!materials.empty()) {
+                        std::vector<float> gamma(d.bondCount);bool any=false;
+                        for(PxU32 i=0;i<d.bondCount;++i){const PxU32 m=d.bonds[i].material;gamma[i]=m<materials.size()?materials[m].shearStiffnessRatio:1.0f;any=any || gamma[i]!=1.0f;}
+                        if(any && !ExtStressGpuSetBondShearStiffness(mSolver,gamma.data(),d.bondCount)){clear();return false;}
+                    }
                 }
                 if(!mSolver->prepareDeviceSolve()){clear();return false;}
             }

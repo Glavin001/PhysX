@@ -6,16 +6,17 @@ __device__ __forceinline__ StressHierarchy::Vector nativeWarmBondSolution(const 
     const auto warm=a.impulses[edge];
     return {{warm.angular.x,warm.angular.y,warm.angular.z},{warm.linear.x,warm.linear.y,warm.linear.z}};
 }
+template<bool Shear=false>
 __device__ __forceinline__ StressHierarchy::Vector nativeBondSolution(const PersistentStressArgs& a,unsigned edge){
     using namespace StressHierarchy;
     const unsigned first=a.m_node0[edge],second=a.m_node1[edge];
     const auto x=scaledValue(a.hierarchy.solution[first],make_float2(a.m_inertia[first].angular,a.m_inertia[first].linear));
     const auto y=scaledValue(a.hierarchy.solution[second],make_float2(a.m_inertia[second].angular,a.m_inertia[second].linear));
     const auto u=a.m_offset0[edge],v=a.m_offset1[edge];
-    const auto delta=bondScaled(a.m_angularScale,edge,sub(couple(x,makeStressReal3(u.x,u.y,u.z)),couple(y,makeStressReal3(v.x,v.y,v.z))),StressReal(a.m_colScales[edge]));
+    const auto delta=bondScaled<Shear>(a.m_angularScale,edge,sub(couple(x,makeStressReal3(u.x,u.y,u.z)),couple(y,makeStressReal3(v.x,v.y,v.z))),StressReal(a.m_colScales[edge]));
     return add(nativeWarmBondSolution(a,edge),delta);
 }
-template<bool Accumulated=true>
+template<bool Accumulated=true,bool Shear=false>
 __device__ __forceinline__ void rebuildNativeResidualNode(const PersistentStressArgs& a,unsigned node){
     using namespace StressHierarchy;
     Vector response{};
@@ -24,9 +25,9 @@ __device__ __forceinline__ void rebuildNativeResidualNode(const PersistentStress
         const unsigned edge=ref&0x7fffffffu;if(a.m_health[edge]<=0)continue;
         const bool second=ref>>31;const auto offset=second?a.m_offset1[edge]:a.m_offset0[edge];
         Vector impulse;
-        if constexpr(Accumulated)impulse=nativeBondSolution(a,edge);
+        if constexpr(Accumulated)impulse=nativeBondSolution<Shear>(a,edge);
         else impulse=nativeWarmBondSolution(a,edge);
-        const auto force=bondScaled(a.m_angularScale,edge,impulse,StressReal(a.m_colScales[edge])*(second?StressReal(-1):StressReal(1)));
+        const auto force=bondScaled<Shear>(a.m_angularScale,edge,impulse,StressReal(a.m_colScales[edge])*(second?StressReal(-1):StressReal(1)));
         response=add(response,transposeCouple(force,makeStressReal3(offset.x,offset.y,offset.z)));
     }
     const auto d=a.m_inertia[node];response=scaledValue(response,make_float2(d.angular,d.linear));
@@ -37,12 +38,13 @@ __device__ __forceinline__ void rebuildNativeResidualNode(const PersistentStress
 // Initialize from the same physical residual used for final verification.
 // No accumulated node correction exists yet, so its zero products and loads
 // are absent. Cold starts already have their exact RHS from initializeSolve.
-template<bool Rotation=false>
+template<bool Rotation=false,bool Shear=false>
 __global__ void initializeNativeWarmResidual(PersistentStressArgs a){
+    static_assert(Rotation || !Shear,"shear stiffness extends the rotational stiffness rows");
     if constexpr(!Rotation){a.m_angularScale=nullptr;a.m_angularWeight=nullptr;}
     if(!a.warmStart)return;
     const unsigned slot=blockIdx.x*blockDim.x+threadIdx.x;
     if(slot<a.m_activeCounts[1]){const unsigned node=a.m_activeNodes[slot];
-        if(!nodeSettled(a.settledIslands,a.m_nodeIsland[node]))rebuildNativeResidualNode<false>(a,node);}
+        if(!nodeSettled(a.settledIslands,a.m_nodeIsland[node]))rebuildNativeResidualNode<false,Shear>(a,node);}
 
 }

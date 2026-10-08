@@ -271,9 +271,11 @@ __device__ __forceinline__ void commitBuild(const Input* input,Status* status)
 #include "StressHierarchyDiagonal.cuh"
 // All mutable construction state stays on the device. Residency limits the
 // physical grid, never the amount of topology processed by its virtual blocks.
-template<bool Rotation=false>
+// Shear (ExtStressGpuSetBondShearStiffness) only with Rotation: twelve floats per bond.
+template<bool Rotation=false,bool Shear=false>
 __global__ void construct(Input input,Buffers buffers,Status* status,Work* work)
 {
+    static_assert(Rotation || !Shear,"shear stiffness extends the rotational stiffness rows");
     if constexpr(!Rotation)input.angularWeight=nullptr; // a constant null: the uniform arithmetic exactly
     const auto grid=cooperative_groups::this_grid();
     if(input.accept && !*input.accept){
@@ -322,7 +324,7 @@ __global__ void construct(Input input,Buffers buffers,Status* status,Work* work)
     grid.sync();
     if(work->pending && !input.levelBonds){
         const unsigned diagonalBlocks=(input.nodes+Threads/32-1)/(Threads/32);
-        for(unsigned block=blockIdx.x;block<diagonalBlocks;block+=gridDim.x)buildFineDiagonal(input,buffers,status,block);
+        for(unsigned block=blockIdx.x;block<diagonalBlocks;block+=gridDim.x)buildFineDiagonal<Shear>(input,buffers,status,block);
     }
     grid.sync();
     if(!blockIdx.x && !threadIdx.x)commitBuild(&input,status);
@@ -413,13 +415,14 @@ __global__ void coarseConstruct(Input input,Buffers buffers,Status* status,Work*
     const unsigned bonds=(input.bonds+Threads-1)/Threads;
     for(unsigned block=blockIdx.x;block<bonds;block+=gridDim.x)buildCoarseBonds(&input,buffers,status,block);
 }
-template<bool Rotation=false>
+template<bool Rotation=false,bool Shear=false>
 __global__ void diagonalConstruct(Input input,Buffers buffers,Status* status,Work* work)
 {
+    static_assert(Rotation || !Shear,"shear stiffness extends the rotational stiffness rows");
     if constexpr(!Rotation)input.angularWeight=nullptr; // a constant null: the uniform arithmetic exactly
     if(!constructLive(work))return;input=resolvedInput(input);if(input.levelBonds)return;
     const unsigned diagonalBlocks=(input.nodes+Threads/32-1)/(Threads/32);
-    for(unsigned block=blockIdx.x;block<diagonalBlocks;block+=gridDim.x)buildFineDiagonal(input,buffers,status,block);
+    for(unsigned block=blockIdx.x;block<diagonalBlocks;block+=gridDim.x)buildFineDiagonal<Shear>(input,buffers,status,block);
 }
 // The fused kernel commits whenever it gets this far; commitBuild itself
 // refuses an errored build, which is the only way pending is clear here.

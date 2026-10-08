@@ -4,6 +4,7 @@
 #include "StressHierarchyOperator.cuh"
 namespace Nv { namespace Blast { namespace StressHierarchy {
 __device__ __forceinline__ Vector scaledValue(Vector v,float2 d){return {mul(v.angular,d.x),mul(v.linear,d.y)};}
+template<bool Shear=false>
 __device__ __forceinline__ Vector levelRowContribution(const Input& input,unsigned node,const Vector* x,unsigned lane=threadIdx.x&31u,unsigned width=32){
     const bool cached=cachedSelfRows(input);
     Vector out=cached && !lane?selfMatrixValue(input,node,x[node],false):Vector{};
@@ -16,7 +17,7 @@ __device__ __forceinline__ Vector levelRowContribution(const Input& input,unsign
         if(first!=Invalid && input.component[first]!=Invalid)a=couple(scaledValue(x[first],sourceInertia(input,first)),sourceOffset(input,edge,false));
         if(second!=Invalid && input.component[second]!=Invalid)b=couple(scaledValue(x[second],sourceInertia(input,second)),sourceOffset(input,edge,true));
         const StressReal scale=sourceScale(input,edge);const bool back=ref>>31;
-        const auto flux=bondFlux(input,edge,sub(a,b),scale*scale*(back?StressReal(-1):StressReal(1)));
+        const auto flux=bondFlux<Shear>(input,edge,sub(a,b),scale*scale*(back?StressReal(-1):StressReal(1)));
         out=add(out,scaledValue(transposeCouple(flux,sourceOffset(input,edge,back)),sourceInertia(input,node)));
     }
     return out;

@@ -54,6 +54,10 @@ __device__ __forceinline__ float stressSquaredContribution(float value)
 // accumulates (D C S^2 t) into accAng/accLin when withW, and the canonical
 // endpoint's ||s t||^2 into zSq. nodeSpaceMatvecBody walks a node's whole row;
 // the component solve's balanced operator walks it in chunks.
+// Shear: the weight rows are twelve floats (StressBondRotation.cuh); the
+// linear rows carry s^2 Wl and the bond's share of the norm d'(s^2 W)d +
+// d_lin'(s^2 Wl)d_lin.
+template<bool Shear=false>
 __device__ __forceinline__ void nodeSpaceBondRange(
     const AngLin* rho, const Inertia* inertia, const std::uint32_t* nodeBondRef,
     const std::uint32_t* node0, const std::uint32_t* node1, const Vec4* offset0, const Vec4* offset1,
@@ -104,8 +108,32 @@ __device__ __forceinline__ void nodeSpaceBondRange(
         const float s2 = s_j * s_j;
         // Rotational stiffness (StressBondRotation.cuh): the angular rows carry
         // s^2 W, and the bond's share of the norm is d'(s^2 W)d + |t_lin|^2/s^2.
-        const float* weight = angularWeight ? angularWeight + 6 * size_t(bond) : nullptr;
+        const float* weight = angularWeight ? angularWeight + (Shear ? 12 : 6) * size_t(bond) : nullptr;
         const Vec4 tAng = weight ? mul(bondRotationApply(weight, sub(a0, a1)), s2) : mul(sub(a0, a1), s2);
+        if constexpr (Shear)
+        {
+            // Shear stiffness: tLin = s^2 Wl d_lin, its norm share d_lin' tLin.
+            const Vec4 dLin = add(sub(l0, l1), sub(cross(o0, a0), cross(o1, a1)));
+            const Vec4 tLin = weight ? mul(bondRotationApply(weight + 6, dLin), s2) : mul(dLin, s2);
+            if (owns)
+            {
+                const Vec4 d = sub(a0, a1);
+                zSq += d.x * tAng.x + d.y * tAng.y + d.z * tAng.z
+                     + (weight ? dLin.x * tLin.x + dLin.y * tLin.y + dLin.z * tLin.z
+                               : (tLin.x * tLin.x + tLin.y * tLin.y + tLin.z * tLin.z) / s2);
+            }
+            if (withW && !isSecond)
+            {
+                accAng = add(accAng, sub(tAng, cross(o0, tLin)));
+                accLin = add(accLin, tLin);
+            }
+            else if (withW)
+            {
+                accAng = add(accAng, sub(cross(o1, tLin), tAng));
+                accLin = sub(accLin, tLin);
+            }
+            continue;
+        }
         const Vec4 tLin =
             mul(add(sub(l0, l1), sub(cross(o0, a0), cross(o1, a1))), s2);
 
@@ -139,6 +167,7 @@ __device__ __forceinline__ void nodeSpaceBondRange(
 
 }
 
+template<bool Shear=false>
 __device__ __forceinline__ void nodeSpaceMatvecBody(
     AngLin* w,
     const AngLin* rho,
@@ -212,7 +241,7 @@ __device__ __forceinline__ void nodeSpaceMatvecBody(
     Vec4 accLin{0.0f, 0.0f, 0.0f, 0.0f};
     float zSq = 0.0f;
 
-    nodeSpaceBondRange(rho, inertia, nodeBondRef, node0, node1, offset0, offset1, health, colScale,
+    nodeSpaceBondRange<Shear>(rho, inertia, nodeBondRef, node0, node1, offset0, offset1, health, colScale,
         bondIsland, islandSkip, w != nullptr, selfAng, selfLin, nodeBondBegin[node], nodeBondBegin[node + 1],
         accAng, accLin, zSq, angularWeight);
 

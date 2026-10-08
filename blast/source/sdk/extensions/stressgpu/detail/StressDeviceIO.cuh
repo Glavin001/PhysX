@@ -3,17 +3,25 @@
 /// Pack the impulses of the islands that were actually solved into a dense
 /// block, so the device-to-host copy and the host's conversion loop cost what
 /// changed rather than what exists.
-template<bool Rotation=false>
+template<bool Rotation=false, bool Shear=false>
 __global__ void exportPhysicalImpulses(const AngLin* impulses, const float* colScales,
     ExtStressGpuImpulse* output, unsigned count, float angularScale, float linearScale,
     const float* bondAngularScale = nullptr)
 {
+    static_assert(Rotation || !Shear, "shear stiffness extends the rotational stiffness rows");
     if constexpr (!Rotation) bondAngularScale = nullptr;
     const unsigned i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i >= count) return;
     auto v = impulses[i];
     // Rotational stiffness: the physical moment is s A times the stored
-    // angular variable (StressBondRotation.cuh).
+    // angular variable (StressBondRotation.cuh); with shear stiffness the
+    // physical force is s Al times the stored linear variable too.
+    if constexpr (Shear) {
+        if (bondAngularScale) {
+            v.angular = bondRotationApply(bondAngularScale + 12 * size_t(i), v.angular);
+            v.linear = bondRotationApply(bondAngularScale + 12 * size_t(i) + 6, v.linear);
+        }
+    } else
     if (bondAngularScale) v.angular = bondRotationApply(bondAngularScale + 6 * size_t(i), v.angular);
     const float a = angularScale * colScales[i], l = linearScale * colScales[i];
     output[i] = {{v.angular.x*a, v.angular.y*a, v.angular.z*a},

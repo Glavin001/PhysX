@@ -16,6 +16,12 @@
 //
 // Both are packed symmetric 3x3 (xx yy zz xy xz yz) per bond, or null, in
 // which case every caller reproduces the uniform arithmetic exactly.
+//
+// Shear stiffness (ExtStressGpuSetBondShearStiffness, the Shear template
+// argument): the linear block of S is s Al too, Al = n n' + sqrt(gamma) (I -
+// n n'), gamma the bond's shear stiffness over its normal stiffness (G/E for a
+// joint of one material; a fastened joint's slip over its bearing). Each row is
+// then twelve floats: the angular block's six, the linear block's six.
 __device__ __forceinline__ Vec4 bondRotationApply(const float* m, const Vec4& v)
 {
     return makeVec(m[0] * v.x + m[3] * v.y + m[4] * v.z,
@@ -24,10 +30,15 @@ __device__ __forceinline__ Vec4 bondRotationApply(const float* m, const Vec4& v)
 }
 #ifdef PHYSX_RESIDENT_DESTRUCTION
 // S v for one bond's impulse-space vector (factor = s, with any sign).
+template<bool Shear=false>
 __device__ __forceinline__ StressHierarchy::Vector bondScaled(const float* angularScale, unsigned bond,
     StressHierarchy::Vector v, StressReal factor)
 {
     if (!angularScale) return StressHierarchy::mul(v, factor);
+    if constexpr (Shear)
+        return {StressHierarchy::mul(StressHierarchy::symmetricApply(angularScale + 12 * size_t(bond), v.angular), factor),
+                StressHierarchy::mul(StressHierarchy::symmetricApply(angularScale + 12 * size_t(bond) + 6, v.linear), factor)};
+    else
     return {StressHierarchy::mul(StressHierarchy::symmetricApply(angularScale + 6 * size_t(bond), v.angular), factor),
             StressHierarchy::mul(v.linear, factor)};
 }

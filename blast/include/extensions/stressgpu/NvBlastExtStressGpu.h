@@ -642,5 +642,18 @@ struct ExtStressGpuBondRotation
 bool ExtStressGpuSetBondRotationalStiffness(ExtStressGpuSolver* solver,
     const ExtStressGpuBondRotation* rows, std::uint32_t count);
 
+/** A bond's shear stiffness apart from its normal stiffness (anisotropic joint).
+ *
+ * By default a bond is equally stiff along its normal and across it: k = s^2
+ * on every linear row. With these ratios a bond is k along its normal and
+ * gamma k across it -- a masonry joint's shear modulus over its Young's modulus
+ * (G = 0.4 E, EN 1996-1-1 3.8.3), a solid's G/E = 1 / (2 (1 + nu)), a fastened
+ * joint's slip modulus over its bearing stiffness. gamma[i] > 0 and finite,
+ * one per bond in bond order; 1 keeps a bond as it was. Native
+ * device-topology solves with rotational stiffness only: call after
+ * ExtStressGpuSetBondRotationalStiffness and before enableDeviceTopology(). A
+ * non-virtual extension. */
+bool ExtStressGpuSetBondShearStiffness(ExtStressGpuSolver* solver, const float* gamma, std::uint32_t count);
+
 } // namespace Blast
 } // namespace Nv

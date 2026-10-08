@@ -5,7 +5,7 @@ constexpr unsigned CoarseTileNodes=128,CoarseRowTiles=8;
 __device__ __forceinline__ bool tiledCoarseRows(const Input& a){
     return a.levelBonds && a.nodes<=CoarseTileNodes;
 }
-template<bool Local,bool Correction>
+template<bool Local,bool Correction,bool Shear=false>
 __device__ __forceinline__ void cycleTiledRows(CycleLevel d,TerminalBuffers pool,unsigned level,CycleWork<Local> work,const Vector* childX){
     for(unsigned index=Local?0u:blockIdx.x;index<work.count(d.input)*CoarseRowTiles;index+=Local?1u:gridDim.x){
         const unsigned node=work.node(d.input,index/CoarseRowTiles),tile=index%CoarseRowTiles;
@@ -13,8 +13,8 @@ __device__ __forceinline__ void cycleTiledRows(CycleLevel d,TerminalBuffers pool
         Vector partial{};
         if(enabled){
             const unsigned lane=tile*blockDim.x+threadIdx.x,width=CoarseRowTiles*blockDim.x;
-            if constexpr(Correction)partial=cycleCoarseEffect(d,node,childX,lane,width);
-            else partial=levelRowContribution(d.input,node,d.x,lane,width);
+            if constexpr(Correction)partial=cycleCoarseEffect<Shear>(d,node,childX,lane,width);
+            else partial=levelRowContribution<Shear>(d.input,node,d.x,lane,width);
         }
         partial=coarseBlockSum(partial);
         if(!threadIdx.x)d.rowPartials[node*CoarseRowTiles+tile]=partial;

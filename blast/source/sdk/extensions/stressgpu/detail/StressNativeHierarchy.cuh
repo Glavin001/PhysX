@@ -10,6 +10,8 @@ struct NativeStressCycleView {
     float *gamma=nullptr,*previous=nullptr;
     StressReal* normalizer=nullptr;
     // Fine rigid block: six Schur-inverse coefficients, three coupling entries, reciprocal linear diagonal.
+    // With per-bond shear stiffness the linear block is no longer c I: the whole
+    // symmetric inverse, 21 coefficients (buildNativeFineInverse).
     StressReal* fineInverse=nullptr;unsigned inverseStride=0;
     unsigned* inverseValid=nullptr;std::uint64_t* inverseGeneration=nullptr;
     unsigned* failed=nullptr;
@@ -44,14 +46,14 @@ class NativeStressHierarchy {
     template<class T>static void allocate(T*& p,size_t count){checkCuda(cudaMalloc(&p,std::max(size_t(1),size_t(count))*sizeof(T)),"allocate native hierarchy workspace");}
     void release()noexcept{cudaFree(mView.settled.inputs);cudaFree(mView.settled.certificates);cudaFree(mView.settled.verifiedStoredOutput);cudaFree(mView.fineInverse);cudaFree(mView.inverseValid);cudaFree(mView.inverseGeneration);cudaFree(mView.rhs);cudaFree(mView.solution);cudaFree(mView.result);cudaFree(mView.g);cudaFree(mView.gamma);cudaFree(mView.previous);cudaFree(mView.failed);cudaFree(mView.normalizer);cudaFree(mView.verification);cudaFree(mView.verificationCount);cudaFree(mView.warmRangeKnown);cudaFree(mView.warmRangeGeneration);cudaFree(mView.carryGeneration);cudaFree(mView.carryCount);cudaFree(mView.carryLoad);cudaFree(mView.carryIterations);}
 public:
-    NativeStressHierarchy(StressHierarchy::Input input,const unsigned* forest,const unsigned* stable,const ExtStressGpuDeviceTopologyStatus* status,cudaStream_t stream)
-        :mHierarchy(coarseWorkInput(input),input.nodes>257?16:7,stream),mModes(input,forest,stable,stream),mStream(stream),mNodes(input.nodes){
+    NativeStressHierarchy(StressHierarchy::Input input,const unsigned* forest,const unsigned* stable,const ExtStressGpuDeviceTopologyStatus* status,cudaStream_t stream,bool shear=false)
+        :mHierarchy(coarseWorkInput(input),input.nodes>257?16:7,stream,shear),mModes(input,forest,stable,stream),mStream(stream),mNodes(input.nodes){
         mView.topology=status;mView.modes=mModes.view();mView.inverseStride=input.nodes;
         try{
             allocate(mView.settled.inputs,input.nodes);allocate(mView.settled.certificates,input.nodes);
             allocate(mView.settled.verifiedStoredOutput,input.nodes);
             checkCuda(cudaMemsetAsync(mView.settled.certificates,0,sizeof(NativeSettledCertificate)*input.nodes,stream),"invalidate native settled certificates");
-            allocate(mView.fineInverse,size_t(input.nodes)*10);
+            allocate(mView.fineInverse,size_t(input.nodes)*(shear?21:10));
             allocate(mView.inverseValid,input.nodes);allocate(mView.inverseGeneration,input.nodes);
             checkCuda(cudaMemsetAsync(mView.inverseValid,0,sizeof(unsigned)*input.nodes,stream),"invalidate native local inverse cache");
             allocate(mView.rhs,input.nodes);allocate(mView.solution,input.nodes);allocate(mView.result,input.nodes);allocate(mView.g,input.nodes);

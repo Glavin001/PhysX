@@ -7,6 +7,7 @@
 // zero eigenvalue. No low mode or load is dropped. Outer projection, equations
 // and authoritative residual acceptance remain unchanged.
 // The off-diagonal row of one node over CSR slots [begin, end), unscaled.
+template<bool Shear=false>
 __device__ __forceinline__ StressHierarchy::Vector nativeOffDiagonalRange(
     const StressHierarchy::Input& input,unsigned node,const StressHierarchy::Vector* physical,unsigned begin,unsigned end)
 {
@@ -21,15 +22,17 @@ __device__ __forceinline__ StressHierarchy::Vector nativeOffDiagonalRange(
         if(other==node || input.component[other]==Invalid)continue;
         const auto remote=couple(physical[other],sourceOffset(input,edge,!back));
         const StressReal scale=input.scale[edge];
-        value=add(value,transposeCouple(bondFlux(input,edge,remote,-scale*scale),sourceOffset(input,edge,back)));
+        value=add(value,transposeCouple(bondFlux<Shear>(input,edge,remote,-scale*scale),sourceOffset(input,edge,back)));
     }
     return value;
 }
+template<bool Shear=false>
 __device__ __forceinline__ StressHierarchy::Vector nativeOffDiagonal(
     const StressHierarchy::Input& input,unsigned node,const StressHierarchy::Vector* physical)
 {
-    return StressHierarchy::scaledValue(nativeOffDiagonalRange(input,node,physical,input.begin[node],input.begin[node+1]),input.inertia[node]);
+    return StressHierarchy::scaledValue(nativeOffDiagonalRange<Shear>(input,node,physical,input.begin[node],input.begin[node+1]),input.inertia[node]);
 }
+template<bool Shear=false>
 __device__ __forceinline__ StressHierarchy::Vector* preconditionNativePolynomial(
     const PersistentStressArgs& a,const unsigned* nodes,unsigned count)
 {
@@ -45,12 +48,12 @@ __device__ __forceinline__ StressHierarchy::Vector* preconditionNativePolynomial
     // residual workspace for scaled local values, without a new allocation.
     auto* physical=a.hierarchy.cycle.levels[0].residual;
     for(unsigned i=threadIdx.x;i<count;i+=blockDim.x){const unsigned node=nodes[i];
-        local[node]=applyNativeRigidInverse(a.hierarchy,node,a.hierarchy.rhs[node]);
+        local[node]=applyNativeBlockInverse<Shear>(a.hierarchy,node,a.hierarchy.rhs[node]);
         physical[node]=scaledValue(local[node],input.inertia[node]);}
     __syncthreads();
     for(unsigned i=threadIdx.x;i<count;i+=blockDim.x){const unsigned node=nodes[i];
-        const auto off=nativeOffDiagonal(input,node,physical);
-        result[node]=sub(mul(local[node],diagonal),mul(applyNativeRigidInverse(a.hierarchy,node,off),coupling));}
+        const auto off=nativeOffDiagonal<Shear>(input,node,physical);
+        result[node]=sub(mul(local[node],diagonal),mul(applyNativeBlockInverse<Shear>(a.hierarchy,node,off),coupling));}
     // One disjoint destination per node. Readers consume this completed view;
     // there is no product buffer, copy back or second launch inside iteration.
     __syncthreads();return result;
@@ -68,6 +71,7 @@ struct ComponentChunks {
     StressReal* partials;    // 8 per chunk
     unsigned count;          // chunks
 };
+template<bool Shear=false>
 __device__ __forceinline__ StressHierarchy::Vector* preconditionNativePolynomialBalanced(
     const PersistentStressArgs& a,const unsigned* nodes,unsigned count,const ComponentChunks chunks)
 {
@@ -80,18 +84,18 @@ __device__ __forceinline__ StressHierarchy::Vector* preconditionNativePolynomial
     auto* result=a.hierarchy.cycle.intermediate;
     auto* physical=a.hierarchy.cycle.levels[0].residual;
     for(unsigned i=threadIdx.x;i<count;i+=blockDim.x){const unsigned node=nodes[i];
-        local[node]=applyNativeRigidInverse(a.hierarchy,node,a.hierarchy.rhs[node]);
+        local[node]=applyNativeBlockInverse<Shear>(a.hierarchy,node,a.hierarchy.rhs[node]);
         physical[node]=scaledValue(local[node],input.inertia[node]);}
     __syncthreads();
     for(unsigned k=threadIdx.x;k<chunks.count;k+=blockDim.x){const unsigned code=chunks.codes[k],node=nodes[code&0xFFFFFu];
         const unsigned first=input.begin[node]+(code>>20)*ComponentChunks::kSlots,last=min(first+ComponentChunks::kSlots,input.begin[node+1]);
-        const Vector v=nativeOffDiagonalRange(input,node,physical,first,last);StressReal* out=chunks.partials+8*size_t(k);
+        const Vector v=nativeOffDiagonalRange<Shear>(input,node,physical,first,last);StressReal* out=chunks.partials+8*size_t(k);
         out[0]=v.angular.x;out[1]=v.angular.y;out[2]=v.angular.z;out[3]=v.linear.x;out[4]=v.linear.y;out[5]=v.linear.z;}
     __syncthreads();
     for(unsigned i=threadIdx.x;i<count;i+=blockDim.x){const unsigned node=nodes[i];Vector value{};
         for(unsigned k=chunks.start[i];k<chunks.start[i+1];++k){const StressReal* p=chunks.partials+8*size_t(k);
             value=add(value,Vector{makeStressReal3(p[0],p[1],p[2]),makeStressReal3(p[3],p[4],p[5])});}
         const auto off=StressHierarchy::scaledValue(value,input.inertia[node]);
-        result[node]=sub(mul(local[node],diagonal),mul(applyNativeRigidInverse(a.hierarchy,node,off),coupling));}
+        result[node]=sub(mul(local[node],diagonal),mul(applyNativeBlockInverse<Shear>(a.hierarchy,node,off),coupling));}
     __syncthreads();return result;
 }

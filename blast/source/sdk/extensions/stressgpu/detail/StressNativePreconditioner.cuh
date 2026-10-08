@@ -1,6 +1,14 @@
 #include "StressDiagnosticClock.cuh"
 #include "StressNativeNullspace.cuh"
 #include "StressNativeRigidInverse.cuh"
+#include "StressNativeFineInverse.cuh"
+// The cached node-block inverse: the rigid-block form (linear block c I), or,
+// with per-bond shear stiffness (a general linear block), the whole inverse.
+template<bool Shear>
+__device__ __forceinline__ StressHierarchy::Vector applyNativeBlockInverse(NativeStressCycleView h,unsigned node,StressHierarchy::Vector value){
+    if constexpr(Shear)return applyNativeFineInverse(h,node,value);
+    else return applyNativeRigidInverse(h,node,value);
+}
 #include "StressNativePolynomial.cuh"
 // Shared projected-CG/preconditioner boundary. Conversion is fused into the
 // resident producer/consumer, not a separate export/copy/reimport operation.
@@ -55,6 +63,7 @@ __device__ __forceinline__ float nativeCycleResult(const PersistentStressArgs& a
     if(!isfinite(gamma))atomicExch(a.hierarchy.failed+id,1u);
     return stressSquaredContribution(gamma);
 }
+template<bool Shear=false>
 __device__ __forceinline__ float preconditionNativeComponent(const PersistentStressArgs& a,
     const unsigned* nodes,unsigned count,unsigned id,unsigned iteration COMPONENT_SUBPROBE_PARAMETER,
     bool balanced=false,const ComponentChunks chunks=ComponentChunks{},bool carried=false){
@@ -75,7 +84,7 @@ __device__ __forceinline__ float preconditionNativeComponent(const PersistentStr
     else {
         // Apply the fixed polynomial using cached local inverses.
         // Large components retain their cooperative multilevel schedule.
-        result=balanced?preconditionNativePolynomialBalanced(a,nodes,count,chunks):preconditionNativePolynomial(a,nodes,count);
+        result=balanced?preconditionNativePolynomialBalanced<Shear>(a,nodes,count,chunks):preconditionNativePolynomial<Shear>(a,nodes,count);
     }
     SUBPROBE_END(0)
     projectNativeNullspace(a,id,nodes,count,result);
@@ -110,13 +119,13 @@ __device__ __forceinline__ void updateNativeDirection(const PersistentStressArgs
     a.m_nsPi[node].angular=add(a.hierarchy.g[node].angular,mul(a.m_nsPi[node].angular,beta));
     a.m_nsPi[node].linear=add(a.hierarchy.g[node].linear,mul(a.m_nsPi[node].linear,beta));
 }
-template<bool Rotation=false>
+template<bool Rotation=false,bool Shear=false>
 __device__ __forceinline__ void preconditionNativeGrid(const PersistentStressArgs& a,StressHierarchy::TerminalShared& shared){
     const auto grid=cooperative_groups::this_grid();const unsigned first=blockIdx.x*blockDim.x+threadIdx.x,stride=gridDim.x*blockDim.x;
     const auto v=a.hierarchy.cycle;
     if(!*a.m_iteration && !a.firstPolynomial){
         for(unsigned i=first;i<a.m_activeCounts[1];i+=stride){const unsigned node=a.m_activeNodes[i];if(a.m_islandActive[a.m_nodeIsland[node]])a.hierarchy.result[node]=a.hierarchy.rhs[node];}grid.sync();
-    }else StressHierarchy::cyclePass<false,Rotation>(v.levels,v.depth,v.pool,shared,a.hierarchy.rhs,a.hierarchy.result,StressHierarchy::Invalid,a.m_islandActive);
+    }else StressHierarchy::cyclePass<false,Rotation,Shear>(v.levels,v.depth,v.pool,shared,a.hierarchy.rhs,a.hierarchy.result,StressHierarchy::Invalid,a.m_islandActive);
     projectNativeNullspacesGrid(a,a.hierarchy.result);
     const unsigned islands=*a.liveIslandCount;
     for(unsigned i=first;i<islands;i+=stride)a.hierarchy.normalizer[a.islandIds[i]]=0;

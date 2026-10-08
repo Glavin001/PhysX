@@ -84,7 +84,7 @@ struct PersistentStressArgs {
 // Rotation: per-bond rotational stiffness (StressBondRotation.cuh). Without it
 // both weight views are constant nulls and every helper folds to the uniform
 // arithmetic it had before they existed.
-template<bool Preconditioned,bool Rotation=false>
+template<bool Preconditioned,bool Rotation=false,bool Shear=false>
 __global__ __launch_bounds__(kBlockSize, 2) void persistentStressSolve(
 #if defined(PX_CUMETAL_EXPLICIT_HIERARCHY_ROOT) && PX_CUMETAL_EXPLICIT_HIERARCHY_ROOT
     PersistentStressArgs original,const StressHierarchy::CycleLevel* __restrict__ cycleLevels
@@ -102,6 +102,7 @@ __global__ __launch_bounds__(kBlockSize, 2) void persistentStressSolve(
     if constexpr(Preconditioned)a.hierarchy.cycle.levels=cycleLevels;
 #endif
     __shared__ StressHierarchy::TerminalShared cycleShared;
+    static_assert(Rotation || !Shear,"shear stiffness extends the rotational stiffness rows");
     if constexpr(!Rotation){a.m_angularScale=nullptr;a.m_angularWeight=nullptr;}
     const auto grid=cooperative_groups::this_grid();
     const unsigned lane=blockIdx.x*blockDim.x+threadIdx.x;
@@ -138,7 +139,7 @@ __global__ __launch_bounds__(kBlockSize, 2) void persistentStressSolve(
         }
         if(gridDim.x==1)__syncthreads();else grid.sync();
         for(unsigned block=blockIdx.x;block<a.nodeBlocks;block+=gridDim.x)
-            nodeSpaceMatvecBody(Preconditioned?nullptr:a.m_nsW,a.m_residual,a.m_inertia,a.m_nodeBondBegin,a.m_nodeBondRef,a.m_node0,a.m_node1,a.m_offset0,a.m_offset1,a.m_health,a.m_colScales,a.m_bondIsland,nullptr,a.m_nodeIsland,a.m_islandActive,true,a.m_reduceSlots,a.slots,a.m_activeNodes,a.m_activeCounts,a.m_iteration,0u,block,nullptr,a.m_angularWeight);
+            nodeSpaceMatvecBody<Shear>(Preconditioned?nullptr:a.m_nsW,a.m_residual,a.m_inertia,a.m_nodeBondBegin,a.m_nodeBondRef,a.m_node0,a.m_node1,a.m_offset0,a.m_offset1,a.m_health,a.m_colScales,a.m_bondIsland,nullptr,a.m_nodeIsland,a.m_islandActive,true,a.m_reduceSlots,a.slots,a.m_activeNodes,a.m_activeCounts,a.m_iteration,0u,block,nullptr,a.m_angularWeight);
         if(gridDim.x==1)__syncthreads();else grid.sync();
         if constexpr(Preconditioned){
             if(!lane)*a.hierarchy.verificationCount=0;grid.sync();
@@ -149,13 +150,13 @@ __global__ __launch_bounds__(kBlockSize, 2) void persistentStressSolve(
             }
             grid.sync();
             if(*a.hierarchy.verificationCount){
-                for(unsigned i=lane;i<a.m_activeCounts[1];i+=stride){const auto node=a.m_activeNodes[i];if(a.hierarchy.verification[a.m_nodeIsland[node]])rebuildNativeResidualNode(a,node);}
+                for(unsigned i=lane;i<a.m_activeCounts[1];i+=stride){const auto node=a.m_activeNodes[i];if(a.hierarchy.verification[a.m_nodeIsland[node]])rebuildNativeResidualNode<true,Shear>(a,node);}
                 for(unsigned i=lane;i<islandCount;i+=stride)if(a.hierarchy.verification[a.islandIds[i]])a.hierarchy.previous[a.islandIds[i]]=0;
                 grid.sync();prepareNativeResidualGrid(a,a.hierarchy.verification);
                 for(unsigned i=lane;i<islandCount*a.slots;i+=stride){const auto id=a.islandIds[i/a.slots];if(a.hierarchy.verification[id])a.m_reduceSlots[id*a.slots+i%a.slots]=0;}
                 grid.sync();
                 for(unsigned block=blockIdx.x;block<a.nodeBlocks;block+=gridDim.x)
-                    nodeSpaceMatvecBody(nullptr,a.m_residual,a.m_inertia,a.m_nodeBondBegin,a.m_nodeBondRef,a.m_node0,a.m_node1,a.m_offset0,a.m_offset1,a.m_health,a.m_colScales,a.m_bondIsland,nullptr,a.m_nodeIsland,a.hierarchy.verification,true,a.m_reduceSlots,a.slots,a.m_activeNodes,a.m_activeCounts,a.m_iteration,0u,block,nullptr,a.m_angularWeight);
+                    nodeSpaceMatvecBody<Shear>(nullptr,a.m_residual,a.m_inertia,a.m_nodeBondBegin,a.m_nodeBondRef,a.m_node0,a.m_node1,a.m_offset0,a.m_offset1,a.m_health,a.m_colScales,a.m_bondIsland,nullptr,a.m_nodeIsland,a.hierarchy.verification,true,a.m_reduceSlots,a.slots,a.m_activeNodes,a.m_activeCounts,a.m_iteration,0u,block,nullptr,a.m_angularWeight);
                 grid.sync();
             }
         }
@@ -179,7 +180,7 @@ __global__ __launch_bounds__(kBlockSize, 2) void persistentStressSolve(
             if(retireConvergedStressGrid(a,islandBlocks,islandCount))break;
 #endif
         }
-        if constexpr(Preconditioned)preconditionNativeGrid<Rotation>(a,cycleShared);
+        if constexpr(Preconditioned)preconditionNativeGrid<Rotation,Shear>(a,cycleShared);
         for(unsigned i=lane;i<islandCount*a.slots;i+=stride) {
             const unsigned id=a.islandIds ? a.islandIds[i/a.slots] : i/a.slots;
             a.m_reduceSlots[id*a.slots+i%a.slots]=0;
@@ -187,7 +188,7 @@ __global__ __launch_bounds__(kBlockSize, 2) void persistentStressSolve(
         if(gridDim.x==1)__syncthreads();else grid.sync();
         for(unsigned block=blockIdx.x;block<a.nodeBlocks;block+=gridDim.x){
             if constexpr(Preconditioned)
-                nodeSpaceMatvecBody(a.m_nsQ,a.m_nsPi,a.m_inertia,a.m_nodeBondBegin,a.m_nodeBondRef,a.m_node0,a.m_node1,a.m_offset0,a.m_offset1,a.m_health,a.m_colScales,a.m_bondIsland,nullptr,a.m_nodeIsland,a.m_islandActive,true,a.m_reduceSlots,a.slots,a.m_activeNodes,a.m_activeCounts,a.m_iteration,0u,block,nullptr,a.m_angularWeight);
+                nodeSpaceMatvecBody<Shear>(a.m_nsQ,a.m_nsPi,a.m_inertia,a.m_nodeBondBegin,a.m_nodeBondRef,a.m_node0,a.m_node1,a.m_offset0,a.m_offset1,a.m_health,a.m_colScales,a.m_bondIsland,nullptr,a.m_nodeIsland,a.m_islandActive,true,a.m_reduceSlots,a.slots,a.m_activeNodes,a.m_activeCounts,a.m_iteration,0u,block,nullptr,a.m_angularWeight);
             else nodeSpaceUpdateDirectionBody(a.m_nsPi,a.m_nsQ,a.m_residual,a.m_nsW,numerator,previous,a.m_nodeIsland,a.m_islandActive,a.m_reduceSlots,a.slots,a.m_activeNodes,a.m_activeCounts,a.m_iteration,block);
         }
         if(gridDim.x==1)__syncthreads();else grid.sync();

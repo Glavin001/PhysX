@@ -21,6 +21,7 @@
 
 // The would-be scaled impulse of `edge` under displacement y (the same
 // arithmetic as applyNativeStressSolution's delta).
+template<bool Shear=false>
 __device__ __forceinline__ StressHierarchy::Vector readmissionImpulse(const StressHierarchy::Vector* y,
     const Inertia* inertia,const unsigned* node0,const unsigned* node1,const Vec4* offset0,const Vec4* offset1,
     const float* scale,const float* angularScale,unsigned edge)
@@ -28,7 +29,7 @@ __device__ __forceinline__ StressHierarchy::Vector readmissionImpulse(const Stre
     const unsigned a=node0[edge],b=node1[edge];const auto r0=offset0[edge],r1=offset1[edge];
     const auto x=StressHierarchy::scaledValue(y[a],make_float2(inertia[a].angular,inertia[a].linear));
     const auto z=StressHierarchy::scaledValue(y[b],make_float2(inertia[b].angular,inertia[b].linear));
-    return bondScaled(angularScale,edge,StressHierarchy::sub(
+    return bondScaled<Shear>(angularScale,edge,StressHierarchy::sub(
         StressHierarchy::couple(x,makeStressReal3(r0.x,r0.y,r0.z)),StressHierarchy::couple(z,makeStressReal3(r1.x,r1.y,r1.z))),StressReal(scale[edge]));
 }
 __device__ __forceinline__ AngLin readmissionAngLin(const StressHierarchy::Vector& v)
@@ -61,7 +62,8 @@ __global__ void clearChangedStressDisplacement(const DeviceStressTopologyBatch* 
     const unsigned id=oldNodeIsland[node];
     if(id==kNoIsland || (changed[id]&1u))y[node]={};
 }
-__global__ void readmitStressBonds(const DeviceStressTopologyBatch* batch,float* health,AngLin* impulses,
+template<bool Shear>
+__device__ __forceinline__ void readmitStressBondsBody(const DeviceStressTopologyBatch* batch,float* health,AngLin* impulses,
     const Inertia* inertia,const unsigned* node0,const unsigned* node1,const Vec4* offset0,const Vec4* offset1,
     const float* scale,unsigned bonds)
 {
@@ -73,19 +75,45 @@ __global__ void readmitStressBonds(const DeviceStressTopologyBatch* batch,float*
     if(health[edge]>0 && !batch->mask[edge]){impulses[edge]={};return;}
     if(!(health[edge]<=0 && batch->mask[edge]))return;
     health[edge]=batch->restHealth[edge];
-    impulses[edge]=readmissionAngLin(readmissionImpulse(static_cast<const StressHierarchy::Vector*>(batch->displacement),
+    impulses[edge]=readmissionAngLin(readmissionImpulse<Shear>(static_cast<const StressHierarchy::Vector*>(batch->displacement),
         inertia,node0,node1,offset0,offset1,scale,batch->angularScale,edge));
+}
+__global__ void readmitStressBonds(const DeviceStressTopologyBatch* batch,float* health,AngLin* impulses,
+    const Inertia* inertia,const unsigned* node0,const unsigned* node1,const Vec4* offset0,const Vec4* offset1,
+    const float* scale,unsigned bonds)
+{
+    readmitStressBondsBody<false>(batch,health,impulses,inertia,node0,node1,offset0,offset1,scale,bonds);
+}
+// With per-bond shear stiffness: batch->angularScale rows are twelve floats.
+__global__ void readmitStressBondsShear(const DeviceStressTopologyBatch* batch,float* health,AngLin* impulses,
+    const Inertia* inertia,const unsigned* node0,const unsigned* node1,const Vec4* offset0,const Vec4* offset1,
+    const float* scale,unsigned bonds)
+{
+    readmitStressBondsBody<true>(batch,health,impulses,inertia,node0,node1,offset0,offset1,scale,bonds);
 }
 // After a restored warm start: every live readmissible bond's impulse is set
 // from the restored displacement (a bond readmitted after the snapshot held no
 // impulse in it). For a bond live at the snapshot this is the value it held.
-__global__ void refreshReadmittedImpulses(const std::uint32_t* readmit,const float* health,AngLin* impulses,
+template<bool Shear>
+__device__ __forceinline__ void refreshReadmittedImpulsesBody(const std::uint32_t* readmit,const float* health,AngLin* impulses,
     const StressHierarchy::Vector* y,const Inertia* inertia,const unsigned* node0,const unsigned* node1,
     const Vec4* offset0,const Vec4* offset1,const float* scale,const float* angularScale,unsigned bonds)
 {
     const unsigned edge=blockIdx.x*blockDim.x+threadIdx.x;
     if(edge>=bonds || !readmit[edge] || !(health[edge]>0))return;
-    impulses[edge]=readmissionAngLin(readmissionImpulse(y,inertia,node0,node1,offset0,offset1,scale,angularScale,edge));
+    impulses[edge]=readmissionAngLin(readmissionImpulse<Shear>(y,inertia,node0,node1,offset0,offset1,scale,angularScale,edge));
+}
+__global__ void refreshReadmittedImpulses(const std::uint32_t* readmit,const float* health,AngLin* impulses,
+    const StressHierarchy::Vector* y,const Inertia* inertia,const unsigned* node0,const unsigned* node1,
+    const Vec4* offset0,const Vec4* offset1,const float* scale,const float* angularScale,unsigned bonds)
+{
+    refreshReadmittedImpulsesBody<false>(readmit,health,impulses,y,inertia,node0,node1,offset0,offset1,scale,angularScale,bonds);
+}
+__global__ void refreshReadmittedImpulsesShear(const std::uint32_t* readmit,const float* health,AngLin* impulses,
+    const StressHierarchy::Vector* y,const Inertia* inertia,const unsigned* node0,const unsigned* node1,
+    const Vec4* offset0,const Vec4* offset1,const float* scale,const float* angularScale,unsigned bonds)
+{
+    refreshReadmittedImpulsesBody<true>(readmit,health,impulses,y,inertia,node0,node1,offset0,offset1,scale,angularScale,bonds);
 }
 // y += mu: the correction this solve applied (applyNativeStressSolution).
 __global__ void accumulateNativeDisplacement(StressHierarchy::Vector* y,const StressHierarchy::Vector* mu,unsigned nodes)
@@ -96,7 +124,7 @@ __global__ void accumulateNativeDisplacement(StressHierarchy::Vector* y,const St
     v.linear.x+=d.linear.x;v.linear.y+=d.linear.y;v.linear.z+=d.linear.z;
 }
 // Physical would-be wrench of each selected bond (exportPhysicalImpulses' units).
-template<bool Rotation>
+template<bool Rotation,bool Shear=false>
 __global__ void probeReadmissionForces(const std::uint32_t* select,const StressHierarchy::Vector* y,const Inertia* inertia,
     const unsigned* node0,const unsigned* node1,const Vec4* offset0,const Vec4* offset1,const float* scale,
     const float* angularScale,ExtStressGpuImpulse* out,unsigned bonds,float angularUnit,float linearUnit)
@@ -104,7 +132,9 @@ __global__ void probeReadmissionForces(const std::uint32_t* select,const StressH
     if constexpr(!Rotation)angularScale=nullptr;
     const unsigned edge=blockIdx.x*blockDim.x+threadIdx.x;
     if(edge>=bonds || !select[edge])return;
-    auto v=readmissionAngLin(readmissionImpulse(y,inertia,node0,node1,offset0,offset1,scale,angularScale,edge));
+    auto v=readmissionAngLin(readmissionImpulse<Shear>(y,inertia,node0,node1,offset0,offset1,scale,angularScale,edge));
+    if constexpr(Shear){if(angularScale){v.angular=bondRotationApply(angularScale+12*size_t(edge),v.angular);v.linear=bondRotationApply(angularScale+12*size_t(edge)+6,v.linear);}}
+    else
     if(angularScale)v.angular=bondRotationApply(angularScale+6*size_t(edge),v.angular);
     const float a=angularUnit*scale[edge],l=linearUnit*scale[edge];
     out[edge]={{v.angular.x*a,v.angular.y*a,v.angular.z*a},{v.linear.x*l,v.linear.y*l,v.linear.z*l}};

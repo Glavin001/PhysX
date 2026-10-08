@@ -23,11 +23,13 @@ public:
 class TerminalLevel {
     Input mInput;const Status* mSource;cudaStream_t mStream;TerminalBuffers mBuffers{};
     Status* mStatus=nullptr;Work* mWork=nullptr;unsigned mBlocks=0,mLevel;bool mAppended=false;
+    bool mShear=false;   // per-bond shear stiffness: twelve-float weight rows
+    void* kernel()const{return mShear && mInput.angularWeight?(void*)constructTerminals<true,true>:mInput.angularWeight?(void*)constructTerminals<true>:(void*)constructTerminals<false>;}
     static void check(cudaError_t e){if(e!=cudaSuccess)throw std::runtime_error(std::string("Resident terminal level: ")+cudaGetErrorString(e));}
     template<class T>static void allocate(T*& p,size_t count){check(cudaMalloc(&p,std::max(size_t(1),count)*sizeof(T)));}
     void release()noexcept{cudaFree(mStatus);cudaFree(mWork);}
 public:
-    TerminalLevel(Input input,const Status* source,TerminalPool& pool,unsigned level,cudaStream_t stream):mInput(input),mSource(source),mStream(stream),mBuffers(pool.buffers()),mLevel(level){
+    TerminalLevel(Input input,const Status* source,TerminalPool& pool,unsigned level,cudaStream_t stream,bool shear=false):mInput(input),mSource(source),mStream(stream),mBuffers(pool.buffers()),mLevel(level),mShear(shear){
         if(pool.capacity()<(input.authoredNodes?input.authoredNodes:input.nodes) || pool.stream()!=stream || level==Invalid)throw std::runtime_error("Resident terminal pool capacity, stream or level mismatch");
         const auto p=input.partition;
         if(!source || !p.ids || !p.begin || !p.end || !p.nodeCount || !p.count || (!input.levelBonds && !p.nodes))
@@ -35,7 +37,7 @@ public:
         try {
             int device=0,sms=0,blocks=0,cooperative=0;check(cudaGetDevice(&device));
             check(cudaDeviceGetAttribute(&sms,cudaDevAttrMultiProcessorCount,device));check(cudaDeviceGetAttribute(&cooperative,cudaDevAttrCooperativeLaunch,device));
-            check(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&blocks,input.angularWeight?constructTerminals<true>:constructTerminals<false>,Threads,0));
+            check(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&blocks,(const void*)kernel(),Threads,0));
             if(!cooperative || sms<=0 || blocks<=0)throw std::runtime_error("Resident terminal construction requires legal cooperative CUDA residency");
             mBlocks=std::min(std::max(1u,input.nodes),unsigned(sms*blocks));
             allocate(mStatus,1);allocate(mWork,1);check(cudaMemsetAsync(mStatus,0,sizeof(Status),stream));
@@ -46,7 +48,7 @@ public:
     cudaGraphNode_t append(cudaGraph_t graph,cudaGraphNode_t prior){
         if(mAppended)throw std::runtime_error("Resident terminal construction already appended");
         void* args[]={&mInput,&mSource,&mStatus,&mWork,&mBuffers,&mLevel};
-        cudaKernelNodeParams params{};params.func=mInput.angularWeight?(void*)constructTerminals<true>:(void*)constructTerminals<false>;params.gridDim=dim3(mBlocks);params.blockDim=dim3(Threads);params.kernelParams=args;
+        cudaKernelNodeParams params{};params.func=kernel();params.gridDim=dim3(mBlocks);params.blockDim=dim3(Threads);params.kernelParams=args;
         cudaGraphNode_t node;check(cudaGraphAddKernelNode(&node,graph,prior?&prior:nullptr,prior?1:0,&params));
         cudaKernelNodeAttrValue attribute{};attribute.cooperative=1;check(cudaGraphKernelNodeSetAttribute(node,cudaKernelNodeAttributeCooperative,&attribute));
         mAppended=true;return node;

@@ -2234,6 +2234,55 @@ public:
         checkCuda(cudaMemcpy(m_offset1, m_hostOffset1.data(), sizeof(Vec4) * m_bondCount, cudaMemcpyHostToDevice), "upload centroid offsets");
         m_hostAngularScale = std::move(scale);
         m_hostAngularInverse = std::move(inverse);
+        m_hostAngularWeight = std::move(weight);
+        m_jacobiBuilt = false;
+        m_graphParamsDirty = true;
+        return true;
+#endif
+    }
+
+    /// ExtStressGpuSetBondShearStiffness: see the header. Each bond's linear
+    /// block of S becomes s Al, Al = n n' + sqrt(gamma) (I - n n'): its normal
+    /// stiffness stays s^2, its shear stiffness is gamma s^2. The per-bond rows
+    /// become twelve floats (StressBondRotation.cuh), so it follows
+    /// setBondRotationalStiffness and precedes the device topology.
+    bool setBondShearStiffness(const float* gamma, std::uint32_t count)
+    {
+#ifndef PHYSX_RESIDENT_DESTRUCTION
+        (void)gamma; (void)count; return false;
+#else
+        if (!gamma || count != m_bondCount || !m_angularScale || m_shear || m_deviceTopology || m_deviceTopologyFailed
+            || m_hasWarmStart || m_topologyDirty || m_hostAngularWeight.size() != 6 * size_t(count)) return false;
+        std::vector<float> scale(12 * size_t(count)), weight(12 * size_t(count)), linearScale(6 * size_t(count)), linearInverse(6 * size_t(count));
+        static const unsigned row[6] = {0, 1, 2, 0, 0, 1}, col[6] = {0, 1, 2, 1, 2, 2};
+        for (std::uint32_t i = 0; i < count; ++i) {
+            const double g = gamma[i];
+            if (!std::isfinite(g) || !(g > 0)) return false;
+            const Vec4 n4 = m_hostNormals[i];
+            double n[3] = {n4.x, n4.y, n4.z};
+            const double length = std::sqrt(n[0]*n[0] + n[1]*n[1] + n[2]*n[2]);
+            if (!std::isfinite(length) || !(length > 0)) return false;
+            for (double& v : n) v /= length;
+            const double root = std::sqrt(g);
+            for (unsigned k = 0; k < 6; ++k) {
+                const double p = n[row[k]] * n[col[k]], identity = row[k] == col[k] ? 1.0 : 0.0;
+                const double a = p + root * (identity - p), w = p + g * (identity - p), v = p + (identity - p) / root;
+                scale[12 * size_t(i) + k] = m_hostAngularScale[6 * size_t(i) + k];
+                weight[12 * size_t(i) + k] = m_hostAngularWeight[6 * size_t(i) + k];
+                scale[12 * size_t(i) + 6 + k] = float(a); weight[12 * size_t(i) + 6 + k] = float(w);
+                linearScale[6 * size_t(i) + k] = float(a); linearInverse[6 * size_t(i) + k] = float(v);
+            }
+        }
+        ContextGuard context(m_cudaContext);
+        checkCuda(cudaStreamSynchronize(m_stream), "order bond shear stiffness after construction");
+        cudaFree(m_angularScale); cudaFree(m_angularWeight); m_angularScale = m_angularWeight = nullptr;
+        allocateDevice(m_angularScale, 12 * size_t(count), "allocate bond shear scales");
+        allocateDevice(m_angularWeight, 12 * size_t(count), "allocate bond shear weights");
+        checkCuda(cudaMemcpy(m_angularScale, scale.data(), sizeof(float) * scale.size(), cudaMemcpyHostToDevice), "upload bond shear scales");
+        checkCuda(cudaMemcpy(m_angularWeight, weight.data(), sizeof(float) * weight.size(), cudaMemcpyHostToDevice), "upload bond shear weights");
+        m_hostLinearScale = std::move(linearScale);
+        m_hostLinearInverse = std::move(linearInverse);
+        m_shear = true;
         m_jacobiBuilt = false;
         m_graphParamsDirty = true;
         return true;
@@ -2255,6 +2304,10 @@ public:
             if (!m_hostAngularInverse.empty()) {
                 const float* m = m_hostAngularInverse.data() + 6 * size_t(i);const auto t = v.angular;
                 v.angular = {m[0]*t.x + m[3]*t.y + m[4]*t.z, m[3]*t.x + m[1]*t.y + m[5]*t.z, m[4]*t.x + m[5]*t.y + m[2]*t.z};
+            }
+            if (!m_hostLinearInverse.empty()) {
+                const float* m = m_hostLinearInverse.data() + 6 * size_t(i);const auto t = v.linear;
+                v.linear = {m[0]*t.x + m[3]*t.y + m[4]*t.z, m[3]*t.x + m[1]*t.y + m[5]*t.z, m[4]*t.x + m[5]*t.y + m[2]*t.z};
             }
             scaled[i].angular = {v.angular.x/a, v.angular.y/a, v.angular.z/a, 0};
             scaled[i].linear = {v.linear.x/l, v.linear.y/l, v.linear.z/l, 0};
@@ -2307,7 +2360,7 @@ public:
             checkCuda(cudaMemcpyAsync(m_displacement, m_displacementSnapshot, sizeof(*m_displacement) * m_nodeCount,
                 cudaMemcpyDeviceToDevice, m_stream), "restore displacement");
             // A bond readmitted since the snapshot held no impulse in it.
-            refreshReadmittedImpulses<<<(m_bondCount+kBlockSize-1)/kBlockSize,kBlockSize,0,m_stream>>>(m_readmit,m_health,m_impulses,
+            (m_shear?refreshReadmittedImpulsesShear:refreshReadmittedImpulses)<<<(m_bondCount+kBlockSize-1)/kBlockSize,kBlockSize,0,m_stream>>>(m_readmit,m_health,m_impulses,
                 m_displacement,m_inertia,m_node0,m_node1,m_offset0,m_offset1,m_colScales,m_angularScale,m_bondCount);
             checkCuda(cudaGetLastError(), "refresh readmitted impulses");
         }
@@ -2345,7 +2398,7 @@ public:
         if (!select || !out || !m_displacement) return false;
         ContextGuard context(m_cudaContext);
         if (producerReady) checkCuda(cudaStreamWaitEvent(m_stream, reinterpret_cast<cudaEvent_t>(producerReady), 0), "wait readmission probe producer");
-        (m_angularScale ? probeReadmissionForces<true> : probeReadmissionForces<false>)<<<(m_bondCount+kBlockSize-1)/kBlockSize, kBlockSize, 0, m_stream>>>(
+        (m_shear ? probeReadmissionForces<true, true> : m_angularScale ? probeReadmissionForces<true> : probeReadmissionForces<false>)<<<(m_bondCount+kBlockSize-1)/kBlockSize, kBlockSize, 0, m_stream>>>(
             select, m_displacement, m_inertia, m_node0, m_node1, m_offset0, m_offset1, m_colScales, m_angularScale, out, m_bondCount,
             m_lengthScale*m_lengthScale*m_massScale, m_lengthScale*m_massScale);
         checkCuda(cudaGetLastError(), "probe readmission forces");
@@ -3864,10 +3917,18 @@ private:
                 {angular.x * physicalAngularScale,
                  angular.y * physicalAngularScale,
                  angular.z * physicalAngularScale};
+            Vec4 linear = value.linear;
+            if (!m_hostLinearScale.empty())
+            {
+                const float* m = m_hostLinearScale.data() + 6 * size_t(bond);
+                linear = makeVec(m[0] * linear.x + m[3] * linear.y + m[4] * linear.z,
+                                 m[3] * linear.x + m[1] * linear.y + m[5] * linear.z,
+                                 m[4] * linear.x + m[5] * linear.y + m[2] * linear.z);
+            }
             bondImpulses[bond].linear =
-                {value.linear.x * physicalLinearScale,
-                 value.linear.y * physicalLinearScale,
-                 value.linear.z * physicalLinearScale};
+                {linear.x * physicalLinearScale,
+                 linear.y * physicalLinearScale,
+                 linear.z * physicalLinearScale};
         }
         m_telemetry.deviceToHostBytes +=
             sizeof(AngLin) * static_cast<std::uint64_t>(count);
@@ -4671,7 +4732,12 @@ private:
     std::vector<float> m_hostBondCentroids, m_hostNodePositions;
     // Per-bond rotational stiffness (StressBondRotation.cuh): host A and A^-1,
     // device A and W = A^2, packed symmetric per bond; empty/null when off.
-    std::vector<float> m_hostAngularScale, m_hostAngularInverse;
+    std::vector<float> m_hostAngularScale, m_hostAngularInverse, m_hostAngularWeight;
+    // Per-bond shear stiffness (ExtStressGpuSetBondShearStiffness): the device
+    // rows of m_angularScale/m_angularWeight are twelve floats (angular, then
+    // linear); host Al and Al^-1, packed symmetric, for the host conversions.
+    bool m_shear{false};
+    std::vector<float> m_hostLinearScale, m_hostLinearInverse;
     float* m_angularScale{nullptr};
     float* m_angularWeight{nullptr};
     PinnedVector<float> m_hostNodeDistances;
@@ -5087,6 +5153,13 @@ bool ExtStressGpuSetBondRotationalStiffness(ExtStressGpuSolver* solver,
 {
     if (!solver) return false;
     try { return static_cast<ExtStressGpuSolverImpl*>(solver)->setBondRotationalStiffness(rows, count); }
+    catch (...) { return false; }
+}
+
+bool ExtStressGpuSetBondShearStiffness(ExtStressGpuSolver* solver, const float* gamma, std::uint32_t count)
+{
+    if (!solver) return false;
+    try { return static_cast<ExtStressGpuSolverImpl*>(solver)->setBondShearStiffness(gamma, count); }
     catch (...) { return false; }
 }
 
