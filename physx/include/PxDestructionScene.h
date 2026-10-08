@@ -47,11 +47,9 @@
 // environment, read at configuration: PX_DESTRUCTION_SHEAR_STIFFNESS=1): a joint
 // is stiffer along its normal than across it, k_s = gamma k_n, gamma per
 // material (masonry G/E = 0.4, EN 1996-1-1 3.8.3; a solid's 1 / (2 (1 + nu)); a
-// fastened joint's slip over its bearing stiffness). Every model applies it: the
-// stress solve (Blast ExtStressGpuSetBondShearStiffness; needs the section's
-// rotational stiffness), and the impact models' joints (their shear rows, the
-// return map's metric, the explicit step's blocks and step bound). Off, every
-// joint is equally stiff in every direction, as before.
+// fastened joint's slip over its bearing stiffness). The stress solve applies it
+// (Blast ExtStressGpuSetBondShearStiffness; needs the section's rotational
+// stiffness). Off, every joint is equally stiff in every direction, as before.
 #define PX_DESTRUCTION_SHEAR_STIFFNESS 1
 #include "foundation/PxTransform.h"
 #include "PxDirectGPUAPI.h"
