@@ -2408,6 +2408,13 @@ public:
                 if(!mImpactCrush)evaluateChunkMaterials<<<(mN+127)/128,128,0,mStream>>>(mChunks,mBonds,mMaterials,mNodeBegin,mNodeRefs,
                     mHealth,forces,mBondCentroids,mSurface,mRates,mCrush,mTrialCrush,mN,dt,mStatus,impactView);
                 if(mM)finalizeMaterialVerdict<<<(mM+127)/128,128,0,mStream>>>(mBonds,mVerdicts,mTrialCrush,mHealth,mM,mStatus);
+                if(impactRan && mImpactLog && mImpactHostStatus) {
+                    check(cudaMemsetAsync(mImpact.w.counters+6,0,sizeof(PxU32)*2,mStream));
+                    impact::breaksBySource<<<(mM+127)/128,128,0,mStream>>>(mVerdicts,mImpact.w.islandFlag,impactIn.bondIslands,mM,mImpact.w.counters+6);
+                    PxU32 by[2]={0,0};check(cudaMemcpyAsync(by,mImpact.w.counters+6,sizeof by,cudaMemcpyDeviceToHost,mStream));check(cudaStreamSynchronize(mStream));
+                    if(by[0] || by[1])std::fprintf(stderr,"[impact] evaluation %llu pass %u breaks: %u on islands the impact %s decided, %u by the static verdict\n",
+                        (unsigned long long)mImpactEvaluations,mPass,by[0],impactSettings.method==1u?"step":"solve",by[1]);
+                }
                 // The invariant where a corrected pass follows (the trial's stop).
                 if(impactRan && impactIn.rows && !mPass) {
                     impact::heldOverCapacity<<<(impact::kContactCapacity+127)/128,128,0,mStream>>>(impactIn,impactSettings,mVerdicts,mImpact.w.status,mStatus);

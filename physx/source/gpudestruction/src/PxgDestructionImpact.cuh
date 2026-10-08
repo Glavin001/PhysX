@@ -1804,6 +1804,15 @@ __global__ void recordState(const PxU32* islandFlag,const PxU32* bondIslands,con
     if(slipState)slipState[i]=(slipBefore?slipBefore[i]:0.0f)+((slip && mine && (islandFlag[island]&1u))?slip[i]:0.0f);
 }
 
+// Diagnostics (PX_DESTRUCTION_IMPACT_LOG): this pass's breaks by source --
+// [0] on islands the impact solve or step decided, [1] elsewhere (the
+// static verdict).
+__global__ void breaksBySource(const PxDestructionBondVerdict* verdict,const PxU32* islandFlag,const PxU32* bondIslands,PxU32 count,PxU32* out)
+{
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count || !verdict[i].broken)return;
+    const PxU32 island=bondIslands[i];
+    atomicAdd(out+((island!=0xffffffffu && islandFlag[island])?0:1),1u);
+}
 // The impact step's rest state: the elastic forces where no patch solved.
 __global__ void recordRest(const PxU32* islandFlag,const PxU32* bondIslands,const PxDestructionVectorPair* elastic,PxDestructionVectorPair* rest,PxU32 count)
 {
