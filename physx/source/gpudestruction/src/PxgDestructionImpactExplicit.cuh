@@ -1486,7 +1486,9 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
                 // in this row's split metric); then the row is spent.
                 else if(x.crush&2u){P[0]=g[0]>0.0f?-g[0]/fmaxf(Wr[0],FLT_MIN):0.0f;P[1]=P[2]=0.0f;x.crush|=4u;}
                 else if(x.on>0.0f)exCrushRow(Wr,g,x,rb.area,h,P);
-                else exCompliantRow(Wr,g,x.d-x.dp-x.dg,x.Estar,x.sigma,x.R,x.face,rb.area,h,P);}   // (its elastic depth: dg holds a late contact's penetration and a seam's geometry, no force)
+                else{exCompliantRow(Wr,g,x.d-x.dp-x.dg,x.Estar,x.sigma,x.R,x.face,rb.area,h,P);
+                    // (Settings::supportRestitution: a held support unloading returns e^2 of its work)
+                    if(s.supportRestitution>0.0f && g[0]<0.0f && !((Small?imS[ra]:nodes[ra].im)>0.0f)){const float e2=s.supportRestitution*s.supportRestitution;P[0]*=e2;P[1]*=e2;P[2]*=e2;}}}   // (its elastic depth: dg holds a late contact's penetration and a seam's geometry, no force)
             else if(!(gap>0.0f)){
             // (a rigid row in contact: its arithmetic exactly as before two-body rows. The
             // gap's subtraction merged into this path, even behind gap > 0, changed the

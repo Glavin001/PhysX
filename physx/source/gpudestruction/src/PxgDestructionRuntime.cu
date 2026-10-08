@@ -709,6 +709,13 @@ __global__ void anchoredGhostCheck(PxU32* saturated,const PxU32* nodeBegin,const
 // (Settings::boundPairwise) the bound holds only between an impactor and the
 // clusters its rows struck (gpusolver constraintPrepShared.cuh
 // contactPairMaxImpulse), and every other pair is an ordinary rigid contact.
+// impact::Settings::separatingOverlap: a released overlapping pair's bound (routeRows) where the
+// window set none.
+__global__ void mergeReleasedBounds(float* rowBound,const float* released,const PxU32* count,PxU32 capacity)
+{
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=min(*count,capacity))return;
+    if(!(rowBound[i]>0.0f) && released[i]>0.0f)rowBound[i]=released[i];
+}
 __global__ void collectImpactBounds(const impact::ContactRow* rows,const PxU32* count,PxU32 capacity,const float* rowBound,
     const PxDestructionStressChunk* chunks,const PxDestructionStressCluster* clusters,float* bound,PxU32 bodies,bool perImpactor=false,bool pairwise=false,
     float4* chunkStep=nullptr,PxU32 chunkCount=0,PxU32* requested=nullptr)
@@ -1216,7 +1223,7 @@ class Runtime final : public PxgDestructionRuntime {
     // the per-root sums of the fragments' hand-off (PxgDestructionHandoff.cuh).
     PxU32* mRoutedChunks{};float4* mWindowV{};PxU32* mWindowMask{};PxU32* mWindowDecided{};float4* mHandoffSums{};float4* mClusterStart{};bool mCompliant=false;std::vector<PxU32> mHandoffLog;
     PxDestructionChunkBox* mChunkBoxes{};   // PxDestructionStressDesc::chunkBoxes (the step's contact geometry), or null
-    PxU32* mFaceBegin{};PxU32* mFaceList{};PxU32* mReboundGain{};float4* mDebugPairs{};PxU32* mDebugCount{};   // chunkFaceNeighbourBegin, chunkFaceNeighbours (internal faces), or null
+    PxU32* mFaceBegin{};PxU32* mFaceList{};PxU32* mReboundGain{};float4* mDebugPairs{};PxU32* mDebugCount{};float* mReleasedBound{};   // chunkFaceNeighbourBegin, chunkFaceNeighbours (internal faces), or null
     // Per rigid body (motion storage capacity): the corrected pass's bound on
     // its contacts (max impulse per point; bits of a float), its own max
     // impulse before (to restore), and whether it is bounded.
@@ -1859,7 +1866,7 @@ public:
         cudaFree(mImpactImpactor);mImpactImpactor=nullptr;cudaFree(mImpactStriker);mImpactStriker=nullptr;cudaFree(mCrushDemand);mCrushDemand=nullptr;mCrushDemandCapacity=0;cudaFree(mCrushBoundAudit);mCrushBoundAudit=nullptr;mCrushEnergyBound=false;cudaFree(mAnchoredChunks);mAnchoredChunks=nullptr;cudaFree(mAnchoredBonds);mAnchoredBonds=nullptr;cudaFree(mAnchoredSaturated);mAnchoredSaturated=nullptr;cudaFree(mAnchoredGhosts);mAnchoredGhosts=nullptr;mAnchoredBound=mAnchoredReady=false;
         cudaFree(mImpactRows);mImpactRows=nullptr;cudaFree(mImpactRowCount);mImpactRowCount=nullptr;
         cudaFree(mImpactRowDelta);mImpactRowDelta=nullptr;cudaFree(mImpactRowForce);mImpactRowForce=nullptr;cudaFree(mImpactRowBound);mImpactRowBound=nullptr;cudaFree(mImpactRowRouted);mImpactRowRouted=nullptr;
-        cudaFree(mRoutedChunks);mRoutedChunks=nullptr;cudaFree(mWindowV);mWindowV=nullptr;cudaFree(mWindowMask);mWindowMask=nullptr;cudaFree(mWindowDecided);mWindowDecided=nullptr;cudaFree(mHandoffSums);mHandoffSums=nullptr;cudaFree(mClusterStart);mClusterStart=nullptr;mCompliant=false;cudaFree(mChunkBoxes);mChunkBoxes=nullptr;cudaFree(mFaceBegin);mFaceBegin=nullptr;cudaFree(mReboundGain);mReboundGain=nullptr;cudaFree(mDebugPairs);mDebugPairs=nullptr;cudaFree(mDebugCount);mDebugCount=nullptr;cudaFree(mFaceList);mFaceList=nullptr;
+        cudaFree(mRoutedChunks);mRoutedChunks=nullptr;cudaFree(mWindowV);mWindowV=nullptr;cudaFree(mWindowMask);mWindowMask=nullptr;cudaFree(mWindowDecided);mWindowDecided=nullptr;cudaFree(mHandoffSums);mHandoffSums=nullptr;cudaFree(mClusterStart);mClusterStart=nullptr;mCompliant=false;cudaFree(mChunkBoxes);mChunkBoxes=nullptr;cudaFree(mFaceBegin);mFaceBegin=nullptr;cudaFree(mReboundGain);mReboundGain=nullptr;cudaFree(mDebugPairs);mDebugPairs=nullptr;cudaFree(mDebugCount);mDebugCount=nullptr;cudaFree(mReleasedBound);mReleasedBound=nullptr;cudaFree(mFaceList);mFaceList=nullptr;
         cudaFree(mImpactBound);mImpactBound=nullptr;cudaFree(mImpactSaved);mImpactSaved=nullptr;cudaFree(mImpactBounded);mImpactBounded=nullptr;cudaFree(mImpactBoundRequested);mImpactBoundRequested=nullptr;mImpactBoundCapacity=0;
         cudaFree(mCrush);mCrush=nullptr;cudaFree(mTrialCrush);mTrialCrush=nullptr;
         mN=mM=mC=mMapCount=0;
@@ -2174,6 +2181,9 @@ public:
                     // The struck cluster's supports as held window nodes (impact::Settings::supports): on with
                     // compliant; PX_DESTRUCTION_IMPACT_SUPPORTS=0 turns it off.
                     mImpactSettings.supports=mImpactSettings.compliant && env("PX_DESTRUCTION_IMPACT_SUPPORTS",1.0f)!=0.0f;
+                    // Pending the owner's call (off): impact::Settings::supportRestitution and separatingOverlap.
+                    mImpactSettings.supportRestitution=mImpactSettings.supports?env("PX_DESTRUCTION_IMPACT_SUPPORT_RESTITUTION",0.0f):0.0f;
+                    mImpactSettings.separatingOverlap=mImpactSettings.compliant && env("PX_DESTRUCTION_IMPACT_SEPARATING",0.0f)!=0.0f;
                     // PX_DESTRUCTION_IMPACT_DYNAMIC_STRUCK=1: a moving bonded structure (a car) struck
                     // by a fast body is the explicit step's too, its whole island a free patch.
                     mImpactSettings.dynamicStruck=env("PX_DESTRUCTION_IMPACT_DYNAMIC_STRUCK",0.0f)!=0.0f;
@@ -2700,8 +2710,10 @@ public:
                 rin.rows=mImpactRows;rin.rowCount=impact::kContactCapacity;rin.rowCounter=mImpactRowCount;
                 impact::Settings rs=mImpactSettings;rs.dt=dt;
                 if(mCompliant){rin.chunkBoxes=mChunkBoxes;rin.faceBegin=mFaceList?mFaceBegin:nullptr;rin.faceList=mFaceList;
-                    if(!mReboundGain)allocate(mReboundGain,1);check(cudaMemsetAsync(mReboundGain,0,sizeof(PxU32),mStream));}
-                impact::routeRows<<<(impact::kContactCapacity+127)/128,128,0,mStream>>>(rin,rs,mImpactRowRouted,mInputs,mCompliant?mReboundGain:nullptr);
+                    if(!mReboundGain)allocate(mReboundGain,1);check(cudaMemsetAsync(mReboundGain,0,sizeof(PxU32),mStream));
+                    if(mImpactSettings.separatingOverlap){if(!mReleasedBound)allocate(mReleasedBound,size_t(impact::kContactCapacity));
+                        check(cudaMemsetAsync(mReleasedBound,0,sizeof(float)*size_t(impact::kContactCapacity),mStream));}}
+                impact::routeRows<<<(impact::kContactCapacity+127)/128,128,0,mStream>>>(rin,rs,mImpactRowRouted,mInputs,mCompliant?mReboundGain:nullptr,mImpactSettings.separatingOverlap?mReleasedBound:nullptr);
                 if(mCompliant && mImpactLog){PxU32 g=0;check(cudaMemcpyAsync(&g,mReboundGain,sizeof g,cudaMemcpyDeviceToHost,mStream));check(cudaStreamSynchronize(mStream));
                     if(g)std::fprintf(stderr,"[impact] REBOUND GAIN: %u trial rows on anchored chunks whose impactor left faster along the contact's normal than it came in (pass %u; a bug signal)\n",g,mPass);}
                 if(mCompliant && !mPass && mN)markRoutedChunks<<<(impact::kContactCapacity+127)/128,128,0,mStream>>>(mImpactRows,mImpactRowCount,impact::kContactCapacity,mImpactRowRouted,mN,mRoutedChunks);
@@ -3076,6 +3088,7 @@ public:
         }
         check(cudaStreamWaitEvent(mStream,mCheckpointReady,0));
         check(cudaMemsetAsync(mImpactBoundRequested,0,sizeof(PxU32),mStream));
+        if(mReleasedBound && mImpactSettings.separatingOverlap)mergeReleasedBounds<<<(impact::kContactCapacity+127)/128,128,0,mStream>>>(mImpactRowBound,mReleasedBound,mImpactRowCount,impact::kContactCapacity);
         collectImpactBounds<<<(impact::kContactCapacity+127)/128,128,0,mStream>>>(mImpactRows,mImpactRowCount,impact::kContactCapacity,
             mImpactRowBound,mChunks,mClusters,mImpactBound,mImpactBoundCapacity,mImpactSettings.boundImpactor,mImpactSettings.boundPairwise,
             (mAnchoredBound && mAnchoredReady)?mAnchoredChunks:nullptr,mN,mImpactBoundRequested);

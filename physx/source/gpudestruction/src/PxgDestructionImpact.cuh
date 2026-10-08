@@ -329,6 +329,16 @@ struct Settings {
     // material has a crush law, never crushed through. Then a window covers a structure standing
     // on its supports (a house on its footings), and its pairs are dropped from the corrected pass.
     bool supports=false;
+    // Pending the owner's call (both off): supportRestitution (PX_DESTRUCTION_IMPACT_SUPPORT_RESTITUTION=e):
+    // a held support's row with no crush law unloads with the coefficient of restitution e -- its
+    // unloading force e^2 its loading law's, so it returns e^2 of the work it stored (Johnson,
+    // Contact Mechanics 11.5: e^2 the ratio of unloading to loading work) -- as the rigid pass's
+    // contact does (the world's e). separatingOverlap (PX_DESTRUCTION_IMPACT_SEPARATING=1): an
+    // impactor whose every row on an anchored cluster separates (released) while overlapping it
+    // gets no impulse from that cluster in the corrected pass (the overlap is the narrowphase
+    // finding it late, FIDELITY_AUDIT H7: no approach to stop, no stored state).
+    float supportRestitution=0.0f;
+    bool separatingOverlap=false;
 };
 // A solve is diverging when, past its first rho rebalance (25 steps), a
 // joint's split |J - Z| exceeds kDivergence times the joint's capacity: the
@@ -1616,7 +1626,7 @@ __device__ bool seamRow(const Inputs& in,const ContactRow& row,PxU32 c,const flo
 // exposed face's normal than it came in along it -- the rigid pass's ghost edge (e <= 1; the
 // 2026-10-08 ground kick). Only seam rows: elsewhere the trial's dv is the body's whole change
 // from all its contacts, which along one row's normal may exceed that row's approach.
-__global__ void routeRows(Inputs in,Settings s,PxU32* routed,PxDestructionVectorPair* inputs,PxU32* reboundGain=nullptr)
+__global__ void routeRows(Inputs in,Settings s,PxU32* routed,PxDestructionVectorPair* inputs,PxU32* reboundGain=nullptr,float* releasedBound=nullptr)
 {
     const PxU32 r=blockIdx.x*blockDim.x+threadIdx.x;
     const PxU32 rows=in.rowCounter?min(*in.rowCounter,in.rowCount):in.rowCount;if(r>=rows)return;
@@ -1636,7 +1646,17 @@ __global__ void routeRows(Inputs in,Settings s,PxU32* routed,PxDestructionVector
         if(mag>0.0f)remove(1.0f-fminf(1.0f,sqrtf(dot3(sum,sum))/mag));
         return;
     }
-    if(!row.points){routed[r]=1u;remove(1.0f);return;}
+    if(!row.points) {
+        // Settings::separatingOverlap: a released row still overlapping its chunk, and every row of
+        // its impactor on that cluster released: the corrected pass gives that pair no impulse.
+        if(releasedBound && s.separatingOverlap && !(row.clusterIm>0.0f) && row.patch[1]>0.0f) {
+            bool all=true;const PxU32 cl=in.chunks[c].cluster;
+            for(PxU32 j=0;j<rows && all;++j){const ContactRow& q=in.rows[j];
+                if(q.body==row.body && q.chunk<in.chunkCount && in.chunks[q.chunk].cluster==cl && q.points)all=false;}
+            if(all)releasedBound[r]=FLT_MIN;
+        }
+        routed[r]=1u;remove(1.0f);return;
+    }
     float n[3]={row.normal[0],row.normal[1],row.normal[2]};const float nl=sqrtf(dot3(n,n));if(!(nl>0.0f))return;
     for(int q=0;q<3;++q)n[q]/=nl;
     // The rigid pass's energy from this contact (Status::reboundGain): its impactor leaving the
