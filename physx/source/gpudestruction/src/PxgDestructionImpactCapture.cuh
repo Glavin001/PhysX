@@ -25,11 +25,12 @@ inline std::vector<PxDestructionMaterial> readCaptureMaterials(FILE* f,PxU32 fla
 }
 // Version 2: ContactRow ends with `resting` (version 1 rows lack it). Version 3:
 // then `other`, `otherPose` and `patch` (the two-body impact; older rows: other ~0).
-// Version 4: then the struck cluster's motion (`clusterIm`...; older rows: anchored).
+// Version 4: then the struck cluster's mass and body (`clusterIm`, `clusterBody`;
+// older rows: anchored). Version 5: then its spin and centre of mass.
 inline std::vector<ContactRow> readCaptureRows(FILE* f,PxU32 version,PxU32 count)
 {
     std::vector<ContactRow> rows(count);
-    const size_t size=version>=4?sizeof(ContactRow):version>=3?offsetof(ContactRow,clusterIm):version>=2?offsetof(ContactRow,other):offsetof(ContactRow,resting);
+    const size_t size=version>=5?sizeof(ContactRow):version>=4?offsetof(ContactRow,clusterSpin):version>=3?offsetof(ContactRow,clusterIm):version>=2?offsetof(ContactRow,other):offsetof(ContactRow,resting);
     std::vector<unsigned char> raw(size*count);
     if(count && std::fread(raw.data(),size,count,f)!=count)return {};
     for(PxU32 i=0;i<count;++i){rows[i]=ContactRow{};std::memcpy(&rows[i],raw.data()+size*i,size);}
@@ -47,7 +48,7 @@ inline bool writeCapture(const char* path,const Inputs& in,const Settings& s,PxU
     FILE* f=std::fopen(path,"wb");if(!f)return false;
     PxU32 rows=0;if(in.rows && in.rowCounter){check(cudaMemcpy(&rows,in.rowCounter,sizeof rows,cudaMemcpyDeviceToHost));rows=rows<in.rowCount?rows:in.rowCount;}
     else if(in.rows)rows=in.rowCount;
-    CaptureHeader h{{'I','M','P','C'},4,in.chunkCount,in.bondCount,materials,rows,PxU32(sizeof(Settings)),
+    CaptureHeader h{{'I','M','P','C'},5,in.chunkCount,in.bondCount,materials,rows,PxU32(sizeof(Settings)),
         (in.ductileSlip?eCAPTURE_SLIP:0u)|(in.stiffness?eCAPTURE_STIFFNESS:0u)|(in.elasticBase?eCAPTURE_ELASTIC_BASE:0u)
         |(in.crushed?eCAPTURE_CRUSHED:0u)|(in.sections?eCAPTURE_SECTIONS:0u)|(rows?eCAPTURE_ROWS:0u)
         |(in.carried?eCAPTURE_CARRIED:0u)|(in.slipBefore?eCAPTURE_SLIP_BEFORE:0u)|((rows && in.rowRouted)?eCAPTURE_ROUTED:0u)|eCAPTURE_MATERIAL_FRICTION};

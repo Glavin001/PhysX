@@ -107,6 +107,13 @@ struct ContactRow {
     // velocities are relative to its rigid motion at the tick's start, as for any row.
     float clusterIm=0.0f;
     PxU32 clusterBody=0xffffffffu;   // (its body: the corrected pass's hand-off record)
+    // Its angular velocity and centre of mass at the tick's start, in its own frame
+    // (capture version 5): a dynamic patch's window translates with the cluster but does
+    // not rotate with it, so its chunks spin with it and the impactor's velocity is
+    // relative to the cluster's translation only (its rotation would give a distant
+    // impactor a fictitious speed: a spinning fragment saw the ball at 460 m/s).
+    float clusterSpin[3]={0.0f,0.0f,0.0f};
+    float clusterCom[3]={0.0f,0.0f,0.0f};
 };
 
 struct Settings {

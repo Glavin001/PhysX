@@ -112,8 +112,8 @@ struct ExPatch {
 // cut free falling under it). Kept, the pinches flung freed rubble: 110 J to 2.5 kJ.
 // eEX_FRICTION: a Mohr-Coulomb joint (Bond::mu > 0): its mu and cap are packed in
 // its record's last float4, read only for such joints (128, 256 and 1024 are the
-// dynamic sequence's bits; 2048 eEX_FREE).
-enum ExState : PxU32 { eEX_LIVE=1, eEX_DUCTILE=2, eEX_YIELDED=4, eEX_BROKEN=8, eEX_ROWS=16, eEX_CAR=32, eEX_IMPLICIT=64, eEX_FRICTION=512, eEX_FREE=2048 };
+// dynamic sequence's bits; 2048 the shear stiffness's; 4096 eEX_FREE).
+enum ExState : PxU32 { eEX_LIVE=1, eEX_DUCTILE=2, eEX_YIELDED=4, eEX_BROKEN=8, eEX_ROWS=16, eEX_CAR=32, eEX_IMPLICIT=64, eEX_FRICTION=512, eEX_FREE=4096 };
 struct ExLink { PxU32 a,b,state,pad; float J0[6],J[6]; float slip,limit,brokeAt,pad2; };
 // A contact row: the struck chunk (a, local), the impactor (b), the stage's row.
 // A compliant row (compliant 1): its depth d (m), the materials' E* (Pa), the
@@ -709,10 +709,11 @@ __global__ __launch_bounds__(kThreads) void exBuild(Inputs in,Settings s,Scratch
                 // (a support: held, im 0 -- the ground the impactor meets in the window)
                 n.im=c.mass>0.0f?1.0f/c.mass:0.0f;n.Iinv[0]=n.Iinv[1]=n.Iinv[2]=(c.mass>0.0f && c.inertia>0.0f)?1.0f/c.inertia:0.0f;
                 if(t.owner && t.boxes){const PxU32 key=c.mass>0.0f?in.nodeIslands[i]:i;if(key<in.chunkCount)atomicOr(t.owner+key,kExTaken);}
-                // (a dynamic struck island's chunks too start at rest: the window's frame
-                // is its cluster's, moving with it -- the rows' velocities are relative
-                // to its rigid motion at the tick's start; the frame's rotation over the
-                // window, a few ms, is left out)
+                // (a dynamic struck island's chunks: the window's frame translates with its
+                // cluster at the tick's start, so they spin with it, w x (x - com))
+                if(dynamic && c.mass>0.0f){const ContactRow& q=in.rows[sp.dynamicRow];const PxVec3 w(q.clusterSpin[0],q.clusterSpin[1],q.clusterSpin[2]);
+                    const PxVec3 v=w.cross(c.position-PxVec3(q.clusterCom[0],q.clusterCom[1],q.clusterCom[2]));
+                    n.v[0]=v.x;n.v[1]=v.y;n.v[2]=v.z;n.v[3]=w.x;n.v[4]=w.y;n.v[5]=w.z;for(int a=0;a<6;++a)n.v0[a]=n.v[a];}
                 n.x0[0]=c.position.x;n.x0[1]=c.position.y;n.x0[2]=c.position.z;n.faces=s.ground?exLiveFaces(in,i):0u;nodes[k]=n;}
         }
         __syncthreads();if(!threadIdx.x)sh.flag+=total;__syncthreads();
@@ -734,8 +735,11 @@ __global__ __launch_bounds__(kThreads) void exBuild(Inputs in,Settings s,Scratch
                 const PxU32 k=sh.flag+prefix;
                 if(k<kExNodes){t.nodeOf[i]=(p<<16)|k;ExNode n{};n.chunk=i;n.tensor=0;n.pad[1]=1u;const auto c=in.chunks[i];
                     n.im=1.0f/c.mass;n.Iinv[0]=n.Iinv[1]=n.Iinv[2]=c.inertia>0.0f?1.0f/c.inertia:0.0f;
-                    const PxVec3 x=rq.rotate(c.position)+rp,v=vel+spin.cross(x-com);
-                    n.v[0]=v.x;n.v[1]=v.y;n.v[2]=v.z;n.v[3]=spin.x;n.v[4]=spin.y;n.v[5]=spin.z;for(int a=0;a<6;++a)n.v0[a]=n.v[a];
+                    PxVec3 x=rq.rotate(c.position)+rp,v=vel+spin.cross(x-com),w=spin;
+                    // (in a dynamic patch's translating frame: plus the struck cluster's spin)
+                    if(sp.dynamic){const ContactRow& d=in.rows[sp.dynamicRow];const PxVec3 cw(d.clusterSpin[0],d.clusterSpin[1],d.clusterSpin[2]);
+                        v+=cw.cross(x-PxVec3(d.clusterCom[0],d.clusterCom[1],d.clusterCom[2]));w+=cw;}
+                    n.v[0]=v.x;n.v[1]=v.y;n.v[2]=v.z;n.v[3]=w.x;n.v[4]=w.y;n.v[5]=w.z;for(int a=0;a<6;++a)n.v0[a]=n.v[a];
                     n.x0[0]=x.x;n.x0[1]=x.y;n.x0[2]=x.z;   // (its start position, struck frame: the hand-off's world velocity)
                     nodes[k]=n;}
             }
@@ -763,6 +767,10 @@ __global__ __launch_bounds__(kThreads) void exBuild(Inputs in,Settings s,Scratch
                 node=n++;++impactors;
                 ExNode m{};m.chunk=in.chunkCount+p*kExNodes+node;m.tensor=1;m.im=q.im;for(int a=0;a<6;++a)m.Iinv[a]=q.ii[a];
                 for(int a=0;a<3;++a){m.v[a]=q.velocity[a];m.v[3+a]=q.spin[a];}
+                // (in a dynamic patch's translating frame: plus the struck cluster's spin at its centre)
+                if(sp.dynamic){const ContactRow& d=in.rows[sp.dynamicRow];const PxVec3 cw(d.clusterSpin[0],d.clusterSpin[1],d.clusterSpin[2]);
+                    const PxVec3 u=cw.cross(PxVec3(q.com[0],q.com[1],q.com[2])-PxVec3(d.clusterCom[0],d.clusterCom[1],d.clusterCom[2]));
+                    m.v[0]+=u.x;m.v[1]+=u.y;m.v[2]+=u.z;m.v[3]+=cw.x;m.v[4]+=cw.y;m.v[5]+=cw.z;}
                 for(int a=0;a<6;++a)m.v0[a]=m.v[a];
                 for(int a=0;a<3;++a)m.x0[a]=q.com[a];
                 // A round impactor (its inertia isotropic, products nil): a sphere of I = 2/5 m R^2,
@@ -1621,7 +1629,8 @@ __global__ void exPublish(Inputs in,Settings s,Scratch w,ExScratch t)
     // The window's chunk end velocities for the corrected pass's free fragments
     // (Settings::compliant: handoffWindowMomentum), in world: the nodes' velocities
     // are relative to the struck cluster, in its frame; a moving (dynamic struck)
-    // cluster's rigid motion at the tick's start is added back at each chunk.
+    // cluster's translation at the tick's start is added back (its rotation is in the
+    // nodes already: a dynamic window translates with its cluster but does not rotate).
     if(in.windowV && in.windowMask && in.clusterPoses && sp.chunks) {
         const PxU32 frame=in.chunks[nodes[0].chunk].cluster;const PxTransform pose=in.clusterPoses[frame];const PxQuat q=pose.q;
         PxVec3 vc(0.0f),wc(0.0f),pc(0.0f);
@@ -1633,7 +1642,7 @@ __global__ void exPublish(Inputs in,Settings s,Scratch w,ExScratch t)
         for(PxU32 k=tid;k<sp.chunks;k+=stride){const ExNode& n=nodes[k];const PxU32 c=n.chunk;if(c>=in.chunkCount)continue;
             if(sp.uncovered && k<sp.chunks-sp.carChunks)continue;
             const PxVec3 x=pose.transform(PxVec3(n.x0[0],n.x0[1],n.x0[2]));
-            const PxVec3 v=q.rotate(PxVec3(n.v[0],n.v[1],n.v[2]))+vc+wc.cross(x-pc),wv=q.rotate(PxVec3(n.v[3],n.v[4],n.v[5]))+wc;
+            const PxVec3 v=q.rotate(PxVec3(n.v[0],n.v[1],n.v[2]))+vc,wv=q.rotate(PxVec3(n.v[3],n.v[4],n.v[5]));PX_UNUSED(wc);PX_UNUSED(pc);PX_UNUSED(x);
             in.windowV[2*size_t(c)]=make_float4(v.x,v.y,v.z,0.0f);in.windowV[2*size_t(c)+1]=make_float4(wv.x,wv.y,wv.z,0.0f);in.windowMask[c]=1u;}
     }
     // The hand-off (ExScratch::handoff): each row decided; each rigid impactor's end
