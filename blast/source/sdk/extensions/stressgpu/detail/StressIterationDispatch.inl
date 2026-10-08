@@ -1,4 +1,8 @@
 // Private member definitions; included once inside ExtStressGpuSolverImpl.
+    /// Whether a warm-started native solve carries each unchanged component's
+    /// PCG state into this solve (carryKrylovMode). The reset kernel and the
+    /// component kernel must agree, so both ask here.
+    bool carryKrylov(bool warmStart) const { return warmStart && m_deviceTopology && carryKrylovMode(m_angularScale != nullptr); }
 // BEGIN UNCHANGED SOURCE
     /// One CG iteration. Parameterised on the stream so it can be captured
     /// either into the main graph (unrolled fallback) or into a conditional
@@ -247,7 +251,7 @@
         args.m_angularScale=m_angularScale;args.m_angularWeight=m_angularWeight;
         if(m_deviceTopology){args.hierarchy=m_deviceTopology->cycleView();args.input=m_input;args.impulses=m_impulses;args.originalRhs=m_rhs;args.warmStart=params.warmStart && m_hasWarmStart;args.settledIslands=m_islandSkip;
             if(m_reportEnabled){args.report=m_report;args.nodeResidual2=m_nodeResidual2;}
-            const unsigned first=firstPreconditionerMode();args.firstPolynomial=first==1u || (first==2u && args.warmStart);args.forceTolerance=params.forceTolerance>0?params.forceTolerance:forceTolerance();}
+            const unsigned first=firstPreconditionerMode();args.firstPolynomial=first==1u || (first==2u && args.warmStart);args.carryKrylov=carryKrylov(args.warmStart);args.carryTolerance=params.tolerance;args.forceTolerance=params.forceTolerance>0?params.forceTolerance:forceTolerance();}
 #if defined(PX_CUMETAL_EXPLICIT_HIERARCHY_ROOT) && PX_CUMETAL_EXPLICIT_HIERARCHY_ROOT
         // Capture copies this pointer value, not the address of this host local.
         // The descriptor allocation survives every captured/eager solve.

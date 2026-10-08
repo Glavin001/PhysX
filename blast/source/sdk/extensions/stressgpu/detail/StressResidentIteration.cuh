@@ -54,6 +54,12 @@ struct PersistentStressArgs {
     // Apply the block polynomial from iteration 0 instead of a projected
     // steepest-descent step (firstPreconditionerMode).
     bool firstPolynomial=false;
+    // Continue the previous solve's PCG recurrence where its operator is
+    // unchanged (carryKrylovMode; NativeStressCycleView::carryGeneration).
+    bool carryKrylov=false;
+    // The solve's relative tolerance (ExtStressGpuSolveParams::tolerance): a
+    // carried solve's load may have moved by at most this fraction of itself.
+    float carryTolerance=0;
     // Converge also when the last step moved the bond forces by at most this
     // fraction of their size (forceTolerance(); 0 = residual test only).
     float forceTolerance=0;

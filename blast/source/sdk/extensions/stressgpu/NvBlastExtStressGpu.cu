@@ -409,6 +409,30 @@ unsigned firstPreconditionerMode()
     return mode;
 }
 
+/// Krylov carry (BLAST_STRESS_CARRY_KRYLOV=0|1; default on with per-bond
+/// rotational stiffness, off otherwise). A warm-started small-component solve
+/// whose operator is unchanged (same topology generation, same component)
+/// and whose load moved by at most the solve tolerance (||b - b_prev|| <=
+/// tol ||b||) continues the previous solve's PCG recurrence -- its last direction and
+/// gamma -- instead of restarting with a steepest-descent step. Each tick at
+/// rest otherwise restarts PCG after at most the iteration cap, and restarted
+/// PCG(16) loses the Krylov space that the slow modes need: the two-storey
+/// veneer house with rotational stiffness never converged at 16 (oracle tick
+/// simulation: 25 ticks restarted, 8 carried). Every step is still an exact
+/// line search on the same energy; a carried step whose gamma grew 16-fold
+/// restarts. The converged answer and every stopping test are unchanged.
+bool carryKrylovMode(bool rotation)
+{
+    static const int mode = [] {
+        const char* raw = std::getenv("BLAST_STRESS_CARRY_KRYLOV");
+        if(raw == nullptr || !*raw) return -1;
+        if(std::string(raw) == "0") return 0;
+        if(std::string(raw) == "1") return 1;
+        throw std::runtime_error("BLAST_STRESS_CARRY_KRYLOV must be 0 or 1");
+    }();
+    return mode < 0 ? rotation : mode == 1;
+}
+
 /// Force convergence: ExtStressGpuSolveParams::forceTolerance, or this A/B
 /// switch when that is 0 (BLAST_STRESS_FORCE_TOLERANCE, default 0 = off). The native test compares ||B^T r||, which weights every force error
 /// by B^T B: on a car (stiffness spread ~1e6) a solve whose bond forces are

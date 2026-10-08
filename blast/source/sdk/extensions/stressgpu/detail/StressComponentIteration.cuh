@@ -179,6 +179,8 @@ __global__ void componentStressSolve(
     // those changes, and the force norm at the start (forceTolerance > 0).
     __shared__ float forceStep,forceTravel,forceStart;
     __shared__ bool forcePass;
+    // Krylov carry: this solve continues the previous solve's PCG state.
+    __shared__ bool carried;
     COMPONENT_PROBE_BEGIN
     // Components have very different convergence costs after fracture. A CTA
     // claims its next independent component only when its previous one finishes;
@@ -204,13 +206,48 @@ __global__ void componentStressSolve(
             __syncthreads();continue;
         }
         if(threadIdx.x==0) {
-            a.hierarchy.previous[id]=0;a.hierarchy.failed[id]=0;
+            // The previous solve of this component left its last gamma in
+            // previous[id] and its last direction in pi. Continue from them only
+            // for the same operator and component (generation, node count) and
+            // the same load (checked below).
+            const float kept=a.hierarchy.previous[id];
+            carried=a.carryKrylov && a.hierarchy.carryCount[id]==count && a.hierarchy.carryGeneration[id]==a.hierarchy.topology->rebuilds
+                && kept>0 && isfinite(kept);
+            a.hierarchy.carryCount[id]=0;
+            if(!carried)a.hierarchy.previous[id]=0;
+            a.hierarchy.failed[id]=0;
             counts[0]=0;counts[1]=count;iteration=0;activeCount=0;
             status={1u,a.maxIterations,0u};
             bestResidual=INFINITY;bestIteration=0;
             if(a.report)reportBegin(a.report+id,id,count,a.hierarchy.modes.components[id].anchored);
         }
         __syncthreads();
+        if(carried){
+            // A static load only: ||b - b_prev|| <= tol ||b|| over the
+            // component, tol the solve's own relative tolerance (the residual
+            // test accepts ||r|| <= tol ||b||). A load that moved by less than
+            // the solve resolves is, to the solve, the same problem: the warm
+            // start's residual already holds that change and the carried
+            // directions remain conjugate to within what the solve can tell.
+            // A load that moved by more (a car on its wheels, debris
+            // settling, a body landing on it) restarts as before: the old
+            // Krylov space describes another problem. In Vibe Town with its
+            // parked fleet, carrying through changing loads drove transient
+            // forces of the cars and the buildings they touched past their
+            // elastic capacity, triggering the impact solve at rest.
+            float change=0,load=0;
+            for(unsigned i=threadIdx.x;i<count;i+=blockDim.x){const unsigned node=c.nodes[begin+i];
+                const AngLin b=a.originalRhs[node],p=a.hierarchy.carryLoad[node];
+                const float dx=b.angular.x-p.angular.x,dy=b.angular.y-p.angular.y,dz=b.angular.z-p.angular.z;
+                const float ex=b.linear.x-p.linear.x,ey=b.linear.y-p.linear.y,ez=b.linear.z-p.linear.z;
+                change+=dx*dx+dy*dy+dz*dz+ex*ex+ey*ey+ez*ez;
+                load+=b.angular.x*b.angular.x+b.angular.y*b.angular.y+b.angular.z*b.angular.z+b.linear.x*b.linear.x+b.linear.y*b.linear.y+b.linear.z*b.linear.z;}
+            change=componentSquaredNorm(change);__syncthreads();
+            if(!threadIdx.x)reduceValue=change;__syncthreads();
+            load=componentSquaredNorm(load);
+            if(!threadIdx.x){carried=reduceValue<=a.carryTolerance*a.carryTolerance*load;if(!carried)a.hierarchy.previous[id]=0;}
+            __syncthreads();
+        }
         COMPONENT_WORK_BEGIN(a,c,id,begin,count)
         if(a.settledIslands && a.settledIslands[id]){
             if(!threadIdx.x){status={0u,0u,1u};COMPONENT_WORK_END(id,status) c.results[id]=status;
@@ -320,13 +357,13 @@ __global__ void componentStressSolve(
             }
             COMPONENT_WORK_PRECONDITION(a,id,iteration)
             float localGamma=0;
-            if(a.m_islandActive[id] && !COMPONENT_ABLATE(2))localGamma=preconditionNativeComponent(a,c.nodes+begin,count,id,iteration COMPONENT_SUBPROBE_ARGUMENT,balanced,chunks);
+            if(a.m_islandActive[id] && !COMPONENT_ABLATE(2))localGamma=preconditionNativeComponent(a,c.nodes+begin,count,id,iteration COMPONENT_SUBPROBE_ARGUMENT,balanced,chunks,carried);
             if(COMPONENT_ABLATE(2))localGamma=threadIdx.x?0.f:1.f;
             const float gamma=componentSquaredNorm(localGamma);
             if(!threadIdx.x){a.hierarchy.gamma[id]=gamma;STRESS_CAPTURE_HISTORY(id,iteration,1u,gamma)if(a.m_islandActive[id] && (!(gamma>0) || !isfinite(gamma)))a.hierarchy.failed[id]=1;}
             __syncthreads();
             COMPONENT_PROBE_END(3)
-            if(!COMPONENT_ABLATE(3))for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)updateNativeDirection(a,c.nodes[begin+i],id,iteration);
+            if(!COMPONENT_ABLATE(3))for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)updateNativeDirection(a,c.nodes[begin+i],id,iteration,carried);
             __syncthreads();
             COMPONENT_PROBE_END(4)
             COMPONENT_WORK_SWEEP(a,id,directionSweeps)
@@ -351,7 +388,7 @@ __global__ void componentStressSolve(
                 if(a.forceTolerance>0){const float g=a.hierarchy.gamma[id];
                     const float step=denominator>0 && g>0?g/sqrtf(denominator):INFINITY;
                     if(isfinite(step))forceTravel+=step;
-                    forceStep=(iteration>0 || a.firstPolynomial)?step:INFINITY;}}
+                    forceStep=(iteration>0 || a.firstPolynomial || carried)?step:INFINITY;}}
             __syncthreads();
             COMPONENT_PROBE_END(5)
             finalizeAndRetireBody(&reduceValue,a.m_projectedDirectionSquared,1u,
@@ -365,6 +402,8 @@ __global__ void componentStressSolve(
             if(!threadIdx.x && (iteration&(iteration-1))==0)printf("native history id=%g nodes=%g iteration=%g residual2=%g tolerance2=%g gamma=%g direction_energy=%g failed=%g\n",double(id),double(count),double(iteration),double(a.m_gradientSquared[id]),double(a.m_deltaSquared[id]),double(a.hierarchy.gamma[id]),double(a.m_projectedDirectionSquared[id]),double(a.hierarchy.failed[id]));
 #endif
         } while(status.active && iteration<a.maxIterations);
+        if(a.carryKrylov)for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)a.hierarchy.carryLoad[c.nodes[begin+i]]=a.originalRhs[c.nodes[begin+i]];
+        __syncthreads();
         if(threadIdx.x==0) {
             if(a.hierarchy.failed[id] || !a.m_islandConverged[id])status.converged=0;
 #ifdef BLAST_GPU_NATIVE_CYCLE_DIAGNOSTIC
@@ -382,6 +421,8 @@ __global__ void componentStressSolve(
                 r->iterations=status.iterations;r->tolerance2=a.m_deltaSquared[id];
             }
             c.results[id]=status;
+            // Leave this solve's PCG state for the next solve of the same operator.
+            if(a.carryKrylov && !a.hierarchy.failed[id]){a.hierarchy.carryCount[id]=count;a.hierarchy.carryGeneration[id]=a.hierarchy.topology->rebuilds;}
             a.hierarchy.settled.verifiedStoredOutput[id]=a.warmStart && status.converged && status.iterations==0;
             // The cooperative stage must never update a small component,
             // including one that exhausted its iteration budget. Its failed
