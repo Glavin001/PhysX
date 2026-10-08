@@ -89,7 +89,13 @@ struct ExPatch {
 // eEX_ROWS: an end of the joint has contact rows (exRunT sets it; the window's
 // other joints run beside the rows).
 // eEX_CAR: a joint of the two-body car; eEX_IMPLICIT: integrated implicitly (exFinish).
-enum ExState : PxU32 { eEX_LIVE=1, eEX_DUCTILE=2, eEX_YIELDED=4, eEX_BROKEN=8, eEX_ROWS=16, eEX_CAR=32, eEX_IMPLICIT=64 };
+// eEX_FREE: a joint of a free body in the window (a two-body car's; a dynamic struck
+// island's): its rest force J0 balances loads that are not the window's to keep -- the
+// trial's contact reactions, position corrections pinching rubble, Vehicle2's loads on
+// the car -- so once it breaks it pulls back to nothing, its wrench B (J - J0) zero (an
+// anchored island's broken joint keeps -B J0: the dead load its path carried, a piece
+// cut free falling under it). Kept, the pinches flung freed rubble: 110 J to 2.5 kJ.
+enum ExState : PxU32 { eEX_LIVE=1, eEX_DUCTILE=2, eEX_YIELDED=4, eEX_BROKEN=8, eEX_ROWS=16, eEX_CAR=32, eEX_IMPLICIT=64, eEX_FREE=128 };
 struct ExLink { PxU32 a,b,state,pad; float J0[6],J[6]; float slip,limit,brokeAt,pad2; };
 // A contact row: the struck chunk (a, local), the impactor (b), the stage's row.
 // A compliant row (compliant 1): its depth d (m), the materials' E* (Pa), the
@@ -619,8 +625,9 @@ __global__ __launch_bounds__(kThreads) void exBuild(Inputs in,Settings s,Scratch
             if(car!=0xffffffffu && in.nodeIslands[c]==car) {
                 const PxQuat rq(sp.carQ[0],sp.carQ[1],sp.carQ[2],sp.carQ[3]);
                 exRotate(rq,b.n);exRotate(rq,b.t1);exRotate(rq,b.t2);exRotate(rq,b.o0);exRotate(rq,b.o1);exRotate(rq,b.pc);
-                e.state|=eEX_CAR;
+                e.state|=eEX_CAR|eEX_FREE;
             }
+            if(sp.dynamic)e.state|=eEX_FREE;
             e.slip=in.slipBefore?in.slipBefore[i]:0.0f;e.limit=b.slip;e.brokeAt=-1.0f;
             bonds[l]=b;links[l]=e;t.linkOf[i]=l;++l;
         }
@@ -971,6 +978,8 @@ __device__ void exImplicitJointA(PxU32 l,const float4* ja,float4* jp,ExLink* lin
         state=(state&~eEX_LIVE)|eEX_BROKEN;for(int i=0;i<6;++i)J[i]=0.0f;links[l].brokeAt=time;atomicAdd(cBroken,1u);}
     q[9]=make_float4(J[0],J[1],J[2],J[3]);q[10]=make_float4(J[4],J[5],__uint_as_float(state),slip);
     float dJ[6],inc[6];for(int i=0;i<6;++i){dJ[i]=J[i]-J0[i];inc[i]=J[i]-Jold[i];}
+    // (a free body's joint, eEX_FREE: broken, back to its rest wrench, B (J0 - J_old) this sweep)
+    if(breaks && (state&eEX_FREE)){for(int i=0;i<6;++i){dJ[i]=0.0f;inc[i]=J0[i]-Jold[i];}}
     float f0[6]={0,0,0,0,0,0},f1[6]={0,0,0,0,0,0};exWrench(b,dJ,0,f0);exWrench(b,dJ,1,f1);
     float4* o=reinterpret_cast<float4*>(wr+12*size_t(l));
     o[0]=make_float4(f0[0],f0[1],f0[2],f0[3]);o[1]=make_float4(f0[4],f0[5],f1[0],f1[1]);o[2]=make_float4(f1[2],f1[3],f1[4],f1[5]);
@@ -1065,6 +1074,7 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
             state=(state&~eEX_LIVE)|eEX_BROKEN;for(int q6=0;q6<6;++q6)J[q6]=0.0f;links[l].brokeAt=time;atomicAdd(&shBroken,1u);}
         q[9]=make_float4(J[0],J[1],J[2],J[3]);q[10]=make_float4(J[4],J[5],__uint_as_float(state),slip);
         float dJ[6];for(int q6=0;q6<6;++q6)dJ[q6]=J[q6]-J0[q6];
+        if(breaks && (state&eEX_FREE)){for(int q6=0;q6<6;++q6)dJ[q6]=0.0f;}   // (a free body's joint: eEX_FREE)
         float* o=wr+12*size_t(l);float f0[6]={0,0,0,0,0,0},f1[6]={0,0,0,0,0,0};
         exWrench(b,dJ,0,f0);exWrench(b,dJ,1,f1);
         reinterpret_cast<float4*>(o)[0]=make_float4(f0[0],f0[1],f0[2],f0[3]);reinterpret_cast<float4*>(o)[1]=make_float4(f0[4],f0[5],f1[0],f1[1]);reinterpret_cast<float4*>(o)[2]=make_float4(f1[2],f1[3],f1[4],f1[5]);
