@@ -1043,10 +1043,12 @@ __global__ void finishCollisionPreparation(PxDestructionCollisionPreparationStat
 #include "PxgDestructionAcceptedProperties.cuh"
 #include "PxgDestructionHandoff.cuh"
 // (diagnostics) the free fragments that took window momentum: count, their momentum's magnitude sum.
-__global__ void seqHandoffReport(const PxDestructionCorrectionBody* output,PxU32 count,const float4* sums,PxU32 n,float* out)
+__global__ void seqHandoffReport(const PxDestructionCorrectionBody* output,PxU32 count,const float4* sums,PxU32 n,const PxU32* mask,float* out)
 {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
+    if(mask[i])atomicAdd(out+3,1.0f);
     const PxDestructionCorrectionBody& o=output[i];
+    if(o.targetBody!=PX_INVALID_U32 && !o.body.supported)atomicAdd(out+4,1.0f);
     if(o.targetBody==PX_INVALID_U32 || o.body.supported)return;
     const PxU32 root=o.body.cluster;if(root>=n)return;
     const float4 s0=sums[2*size_t(root)];if(!(s0.x>0.0f))return;
@@ -2342,9 +2344,9 @@ public:
                         handoffAccumulate<<<(mN+127)/128,128,0,mStream>>>(mChunks,mN,trial.chunkCluster,mWindowV,mWindowMask,mPoses,mHandoffSums);
                         handoffWindowMomentum<<<(mN+127)/128,128,0,mStream>>>(mCorrectionBodies,mN,mHandoffSums,mN);
                         if(mSeq.enabled && mImpactLog) {
-                            float* r=nullptr;check(cudaMallocManaged(&r,3*sizeof(float)));r[0]=r[1]=r[2]=0.0f;
-                            seqHandoffReport<<<(mN+127)/128,128,0,mStream>>>(mCorrectionBodies,mN,mHandoffSums,mN,r);check(cudaStreamSynchronize(mStream));
-                            if(r[0]>0.0f)std::fprintf(stderr,"[sequence] hand-off: %.0f free fragments took their window momentum (%.4g kg m/s over %.4g kg of window chunks)\n",r[0],r[1],r[2]);
+                            float* r=nullptr;check(cudaMallocManaged(&r,5*sizeof(float)));for(int q=0;q<5;++q)r[q]=0.0f;
+                            seqHandoffReport<<<(mN+127)/128,128,0,mStream>>>(mCorrectionBodies,mN,mHandoffSums,mN,mWindowMask,r);check(cudaStreamSynchronize(mStream));
+                            if(r[0]>0.0f || r[4]>0.0f)std::fprintf(stderr,"[sequence] hand-off: %.0f free fragments took their window momentum (%.4g kg m/s over %.4g kg of window chunks); %.0f window chunks, %.0f free bodies\n",r[0],r[1],r[2],r[3],r[4]);
                             cudaFree(r);
                         }
                     }
@@ -3571,9 +3573,9 @@ public:
                 handoffAccumulate<<<(mN+127)/128,128,0,stream>>>(mChunks,mN,mTopology->trial().chunkCluster,mWindowV,mWindowMask,mPoses,mHandoffSums);
                 handoffWindowMomentum<<<(mN+127)/128,128,0,stream>>>(mCorrectionBodies,mN,mHandoffSums,mN);
                 if(mSeq.enabled && mImpactLog) {
-                    float* r=nullptr;check(cudaMallocManaged(&r,3*sizeof(float)));r[0]=r[1]=r[2]=0.0f;
-                    seqHandoffReport<<<(mN+127)/128,128,0,stream>>>(mCorrectionBodies,mN,mHandoffSums,mN,r);check(cudaStreamSynchronize(stream));
-                    if(r[0]>0.0f)std::fprintf(stderr,"[sequence] hand-off: %.0f free fragments took their window momentum (%.4g kg m/s over %.4g kg of window chunks)\n",r[0],r[1],r[2]);
+                    float* r=nullptr;check(cudaMallocManaged(&r,5*sizeof(float)));for(int q=0;q<5;++q)r[q]=0.0f;
+                    seqHandoffReport<<<(mN+127)/128,128,0,stream>>>(mCorrectionBodies,mN,mHandoffSums,mN,mWindowMask,r);check(cudaStreamSynchronize(stream));
+                    if(r[0]>0.0f || r[4]>0.0f)std::fprintf(stderr,"[sequence] hand-off: %.0f free fragments took their window momentum (%.4g kg m/s over %.4g kg of window chunks); %.0f window chunks, %.0f free bodies\n",r[0],r[1],r[2],r[3],r[4]);
                     cudaFree(r);
                 }
             }
