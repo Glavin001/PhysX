@@ -134,7 +134,7 @@ int run(int argc,char** argv){
     if(argc<2){std::fprintf(stderr,"usage: %s CAPTURE.impc [runs]\n",argv[0]);return 2;}
     File f(argv[1]);
     const auto h=f.one<impact::CaptureHeader>();
-    if(std::memcmp(h.magic,"IMPC",4) || (h.version<1 || h.version>3) || h.settingsBytes>sizeof(impact::Settings))throw std::runtime_error("not a capture of this build");
+    if(std::memcmp(h.magic,"IMPC",4) || (h.version<1 || h.version>4) || h.settingsBytes>sizeof(impact::Settings))throw std::runtime_error("not a capture of this build");
     // Settings appended since the capture keep their defaults.
     impact::Settings s{};{const auto raw=f.read<unsigned char>(h.settingsBytes);std::memcpy(&s,raw.data(),h.settingsBytes);}
     s.iterations=PxU32(env("IMPACT_ITERATIONS",float(s.iterations)));s.innerIterations=PxU32(env("IMPACT_INNER",float(s.innerIterations)));
@@ -146,6 +146,10 @@ int run(int argc,char** argv){
     s.innerTolerance=env("IMPACT_INNER_TOLERANCE",s.innerTolerance);
     s.andersonDepth=PxU32(env("IMPACT_ANDERSON",float(s.andersonDepth)));
     s.cappedElastic=env("IMPACT_CAPPED_ELASTIC",std::getenv("IMPACT_DUMP")?1.0f:0.0f)!=0.0f;
+    // IMPACT_TWO_BODY / IMPACT_COMPLIANT_ROWS (0 or 1): the two-body impact and compliant rows
+    // (PX_DESTRUCTION_IMPACT_TWO_BODY, _COMPLIANT_ROWS); unset, as captured.
+    if(std::getenv("IMPACT_TWO_BODY"))s.explicitTwoBody=env("IMPACT_TWO_BODY",0.0f)!=0.0f;
+    if(std::getenv("IMPACT_COMPLIANT_ROWS"))s.compliantRows=env("IMPACT_COMPLIANT_ROWS",0.0f)!=0.0f;
     s.method=PxU32(env("IMPACT_METHOD",float(s.method)));s.stepDuration=env("IMPACT_STEP_DURATION",s.stepDuration);s.stepRadius=env("IMPACT_STEP_RADIUS",s.stepRadius);
     s.dispatchWork=PxU32(env("IMPACT_DISPATCH_WORK",float(s.dispatchWork)));   // keep dispatches short (a capture's own may be 2^20)
     const PxU32 n=h.n,m=h.m;
@@ -176,6 +180,28 @@ int run(int argc,char** argv){
     s.boundImpactor=env("IMPACT_BOUND_IMPACTOR",s.boundImpactor?1.0f:0.0f)!=0.0f;
     s.route=env("IMPACT_ROUTE",s.route?1.0f:0.0f)!=0.0f;
     s.explicitDt=env("IMPACT_EXPLICIT_DT_US",0.0f)*1e-6f;s.explicitWindow=PxU32(env("IMPACT_EXPLICIT_WINDOW",float(s.explicitWindow)));s.explicitSync=PxU32(env("IMPACT_EXPLICIT_SYNC",float(s.explicitSync)));
+    // IMPACT_COMPLIANT=1: every impact contact compliant (impact::Settings::compliant), with
+    // its outputs (the trial crush state, the window's chunk velocities and decided bonds);
+    // IMPACT_UNCRUSH=1 first clears the captured crush of the rows' chunks (a capture from a
+    // build whose impact pressure crushed them before the window: Settings::compliant leaves
+    // a routed row's chunk to the window).
+    PxDestructionCrushState* crushOut=nullptr;PxU32* crushedCount=nullptr;
+    if(env("IMPACT_COMPLIANT",0.0f)!=0.0f) {
+        s.compliant=true;s.compliantRows=s.route=s.boundImpactor=s.boundPairwise=true;s.method=2u;
+        std::vector<PxDestructionCrushState> cr(n);if(in.crushed)check(cudaMemcpy(cr.data(),in.crushed,sizeof(cr[0])*n,cudaMemcpyDeviceToHost));
+        if(env("IMPACT_UNCRUSH",0.0f)!=0.0f){PxU32 k=0;for(const auto& q:hostRows)if(q.chunk<n && cr[q.chunk].crushed){cr[q.chunk]={};++k;}std::printf("uncrushed %u row chunks\n",k);}
+        crushOut=upload(cr);in.crushed=crushOut;in.crushOut=crushOut;allocate(crushedCount,1);check(cudaMemset(crushedCount,0,4));in.crushedChunks=crushedCount;
+        std::vector<PxDestructionStressChunk> hc(n);check(cudaMemcpy(hc.data(),in.chunks,sizeof(hc[0])*n,cudaMemcpyDeviceToHost));
+        PxU32 clusters=1;for(const auto& c:hc)clusters=std::max(clusters,c.cluster+1);
+        in.clusterPoses=upload(std::vector<PxTransform>(clusters,PxTransform(PxIdentity)));
+        float4* wv;allocate(wv,2*size_t(n));in.windowV=wv;PxU32* wm;allocate(wm,n);check(cudaMemset(wm,0,4*size_t(n)));in.windowMask=wm;
+        PxU32* db;allocate(db,m);check(cudaMemset(db,0,4*size_t(m)));in.decidedBonds=db;
+        // IMPACT_BOXES=FILE: each chunk's box (PxDestructionChunkBox, n of them; vibe-land
+        // scripts/impact/compliant-step.py --write-boxes): the window's own geometry.
+        if(const char* bp=std::getenv("IMPACT_BOXES")) {
+            File bf(bp);const auto boxes=bf.read<PxDestructionChunkBox>(n);in.chunkBoxes=upload(boxes);std::printf("chunk boxes from %s\n",bp);
+        }
+    }
     if(s.route && in.rows) {
         PxDestructionVectorPair* loads;allocate(loads,n);check(cudaMemcpy(loads,in.accelerations,sizeof(*loads)*n,cudaMemcpyDeviceToDevice));
         PxU32* routed;allocate(routed,h.rows);impact::routeRows<<<(h.rows+127)/128,128>>>(in,s,routed,loads);check(cudaDeviceSynchronize());
@@ -272,7 +298,8 @@ int run(int argc,char** argv){
         }
         if(!r && std::getenv("IMPACT_ENERGY_CHECK")) {
             std::printf("energy deficit: %u explicit patches dissipated more than their impactors' kinetic energy loss and their joints' elastic energy\n",st.energyDeficit);
-            if(st.energyDeficit)return 1;
+            std::printf("energy gain: %u patches or solves left with more energy than they had (Status::energyGain)\n",st.energyGain);
+            if(st.energyDeficit || st.energyGain)return 1;
         }
         if(!r && std::getenv("IMPACT_HELD_CHECK") && in.rows) {
             PxDestructionBondVerdict* v;allocate(v,m);
@@ -456,6 +483,12 @@ int run(int argc,char** argv){
                 std::printf("  dumped island %u (%u nodes, %u links: %u joints, %u contacts) at its capped level lambda %.4g (last converged %.4g) to %s\n",
                     is.island,nn,nl,I.nb,I.nr,lambda,is.snapLambda,path);
             }
+        }
+        if(crushOut) {
+            std::vector<PxDestructionCrushState> cr(n);check(cudaMemcpy(cr.data(),crushOut,sizeof(cr[0])*n,cudaMemcpyDeviceToHost));
+            PxU32 through=0,partial=0;for(const auto& c:cr){through+=c.crushed?1u:0u;partial+=(!c.crushed && c.damage>0.0f)?1u:0u;}
+            PxU32 counted=0;check(cudaMemcpy(&counted,crushedCount,4,cudaMemcpyDeviceToHost));
+            std::printf("compliant: %u chunks crushed (%u through in the window), %u partly; energy deficit %u; passed intact %u\n",through,counted,partial,st.energyDeficit,st.passedIntact);
         }
         std::printf("%s: %u chunks, %u bonds, %u rows; %u islands, %u solves, %u iterations (%u capped), %u rounds; broke %u, yielded %u; %u contacts, %u impactors; %u diverged (worst bond %d), %u infeasible, %u non-finite, %u energy gains; error %u; %.1f ms in %u dispatches (longest %.1f ms)\n",
             argv[1],n,m,h.rows,st.triggered,st.solves,st.iterations,st.capped,st.rounds,st.broken,st.yielded,st.contacts,st.impactors,st.diverged,int(st.worstBond)-1,st.infeasible,st.nonfinite,st.energyGain,st.error,ms,e.dispatches,e.longestDispatch);

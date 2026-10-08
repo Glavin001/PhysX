@@ -104,7 +104,7 @@ int run(int argc,char** argv)
     t.nodes=upload(nodes);t.bonds=upload(bonds);t.links=upload(links);t.rowBonds=upload(rowBonds);t.rows=upload(rows);t.adj=upload(adj);t.rowAdj=upload(rowAdj);
     allocate(t.wr,12*size_t(impact::kExLinks));allocate(t.rwr,12*size_t(impact::kExRows));allocate(t.jp,impact::kExJoint*size_t(impact::kExLinks));
     allocate(t.jl,size_t(impact::kExLinks));allocate(t.rp,impact::kExRow*size_t(impact::kExRows));
-    allocate(t.vStart,6*size_t(impact::kExNodes));allocate(t.ja,9*size_t(impact::kExLinks));allocate(t.wd,12*size_t(impact::kExLinks));
+    allocate(t.eStart,2*size_t(impact::kExLinks));allocate(t.ja,9*size_t(impact::kExLinks));allocate(t.wd,12*size_t(impact::kExLinks));
     impact::Settings s{};s.dt=dt;s.capacityBand=band;s.explicitDt=h;s.explicitTwoBody=true;
     impact::Scratch w{};
     impact::exFinishKernel<<<1,impact::kThreads>>>(s,t);check(cudaDeviceSynchronize());check(cudaGetLastError());

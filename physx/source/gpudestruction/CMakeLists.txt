@@ -209,6 +209,11 @@ if(BUILD_TESTING)
     # energy and the dead load's work. The cannonball's fragments 13 ticks on (31
     # impactors, one a 7.8 kg piece spinning at 180 rad/s): with the tangential
     # clamp in place of the cone's projection in W the impactors gained 430 J.
+    # One window a car: the monster truck at 10 m/s against the lab wall (compliant, two-body;
+    # evaluation 224) touches two struck clusters. In both patches it shared the chunk and
+    # bond maps and its windows gained 0.6-0.9 GJ from 98 kJ (Status::energyGain).
+    add_test(NAME destruction_gpu_two_body_car_two_patches COMMAND destruction_impact_capture_replay "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/two-body/car-two-patches.impc")
+    set_tests_properties(destruction_gpu_two_body_car_two_patches PROPERTIES ENVIRONMENT "CUMETAL_USE_METAL_DEVICE_ADDRESSES=1;IMPACT_QUIET=1;IMPACT_ENERGY_CHECK=1;IMPACT_TWO_BODY=1;IMPACT_COMPLIANT=1")
     add_test(NAME destruction_gpu_impact_explicit_energy COMMAND destruction_impact_capture_replay "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/impact-handoff/cannon-fragments.impc")
     set_tests_properties(destruction_gpu_impact_explicit_energy PROPERTIES ENVIRONMENT "CUMETAL_USE_METAL_DEVICE_ADDRESSES=1;IMPACT_QUIET=1;IMPACT_ENERGY_CHECK=1")
     px_destruction_label_tests()

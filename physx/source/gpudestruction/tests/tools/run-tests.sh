@@ -8,6 +8,7 @@ run explicit_cannon pass IMPACT_EXPLICIT_DT_US=32 "$T/impact_explicit_replay" "$
 for c in truck-wall-w21rj hertz; do run two_body_$c pass "$T/two_body_replay" "$F/two-body/$c"; done
 run two_body_truck-wall-w10 pass TWO_BODY_MAX_DV=0.09 "$T/two_body_replay" "$F/two-body/truck-wall-w10"
 for c in truck-door truck bay2 rest; do run dynamic_sequence_$c pass "$T/dynamic_sequence_replay" "$F/dynamic-sequence/$c"; done
+run two_body_car_two_patches pass IMPACT_QUIET=1 IMPACT_ENERGY_CHECK=1 IMPACT_TWO_BODY=1 IMPACT_COMPLIANT=1 "$T/impact_capture_replay" "$F/two-body/car-two-patches.impc"
 run explicit_energy pass IMPACT_QUIET=1 IMPACT_ENERGY_CHECK=1 "$T/impact_capture_replay" "$F/impact-handoff/cannon-fragments.impc"
 [ "${ALL:-0}" = 1 ] || exit 0
 for shot in cannon truck; do
