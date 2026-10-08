@@ -156,6 +156,8 @@ if(BUILD_TESTING)
         add_test(NAME destruction_gpu_two_body_${_case} COMMAND destruction_two_body_replay "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/two-body/${_case}")
         set_tests_properties(destruction_gpu_two_body_${_case} PROPERTIES ENVIRONMENT "CUMETAL_USE_METAL_DEVICE_ADDRESSES=1")
     endforeach()
+    # (brittle default joints: the harness's own dv spread over h = 2.5-5 us is 9%)
+    set_tests_properties(destruction_gpu_two_body_truck-wall-w10 PROPERTIES ENVIRONMENT "CUMETAL_USE_METAL_DEVICE_ADDRESSES=1;TWO_BODY_MAX_DV=0.09")
     # The cannonball's pair, and the truck's (framed-house: its chassis's released
     # rows, 3.5e6 N of depenetration on a 2 kg brick): routed 0 and 12 breaks
     # (their own loads converged: 0 and 21); unrouted 2,610 and 3,053.

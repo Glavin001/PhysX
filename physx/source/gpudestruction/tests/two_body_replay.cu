@@ -15,9 +15,9 @@
 // R[9], o0[3], o1[3], friction, E*, sigma, R_hertz, face, gap.
 // PREFIX.expected: the car's dv, its yielded joints, the broken joints.
 // Gates (FP32 against the harness's FP64): the broken sets' Jaccard index >=
-// TWO_BODY_MIN_JACCARD (0.9), the car's dv within 3% (the harness's own spread
-// between h and h/2 on the brittle 10 m/s case is 9%: a brittle chain's order
-// moves with rounding), its yielded joints within 5%, and the energy invariant
+// TWO_BODY_MIN_JACCARD (0.9), the car's dv within TWO_BODY_MAX_DV (3%; on the
+// brittle 10 m/s case 9%, the harness's own spread over h = 2.5-5 us there: a
+// brittle chain's order moves with rounding), its yielded joints within 5%, and the energy invariant
 // (no patch dissipates more than it had).
 #include "PxDestructionScene.h"
 #include "NvBlastExtStressMaterialFormula.h"
@@ -139,10 +139,10 @@ int run(int argc,char** argv)
     const double jac=broken.empty() && want.empty()?1.0:double(both)/double(std::max<size_t>(1,broken.size()+want.size()-both));
     const double edvn=std::sqrt(edv[0]*edv[0]+edv[1]*edv[1]+edv[2]*edv[2]),ddv=std::sqrt((dv[0]-edv[0])*(dv[0]-edv[0])+(dv[1]-edv[1])*(dv[1]-edv[1])+(dv[2]-edv[2])*(dv[2]-edv[2]));
     const double relv=edvn>0.0?ddv/edvn:ddv,rely=eyield?std::fabs(double(yielded)-eyield)/eyield:double(yielded);
-    const double need=env("TWO_BODY_MIN_JACCARD",0.9f);
-    std::printf("against the harness: %zu broken there, Jaccard %.3f (need %.2f); car dv %.3f vs %.3f m/s (%.2f%%, need 3%%); yielded %u vs %u (%.1f%%, need 5%%)\n",
-        want.size(),jac,need,std::sqrt(dv[0]*dv[0]+dv[1]*dv[1]+dv[2]*dv[2]),edvn,100.0*relv,yielded,eyield,100.0*rely);
-    return (jac<need || relv>0.03 || rely>0.05 || deficit)?1:0;
+    const double need=env("TWO_BODY_MIN_JACCARD",0.9f),maxDv=env("TWO_BODY_MAX_DV",0.03f);
+    std::printf("against the harness: %zu broken there, Jaccard %.3f (need %.2f); car dv %.3f vs %.3f m/s (%.2f%%, need %.0f%%); yielded %u vs %u (%.1f%%, need 5%%)\n",
+        want.size(),jac,need,std::sqrt(dv[0]*dv[0]+dv[1]*dv[1]+dv[2]*dv[2]),edvn,100.0*relv,100.0*maxDv,yielded,eyield,100.0*rely);
+    return (jac<need || relv>maxDv || rely>0.05 || deficit)?1:0;
 }
 }} // physx
 int main(int argc,char** argv){try{return physx::run(argc,argv);}catch(const std::exception& e){std::fprintf(stderr,"error: %s\n",e.what());return 2;}}
