@@ -7,6 +7,15 @@ struct DeviceStressTopologyBatch
     const std::uint32_t* mask;
     const std::uint64_t* generation;
     const std::uint32_t* accept;
+    // Bond readmission (ExtStressGpuEnableBondReadmission; StressBondReadmission.cuh),
+    // all null unless enabled. readmit: per bond, nonzero for a bond whose
+    // activity may change both ways (a unilateral contact): a removal keeps its
+    // component's warm start, and a 0 -> 1 mask readmits it at restHealth with
+    // the force the resident displacement gives it (lambda stays in range(B^T)).
+    const std::uint32_t* readmit=nullptr;
+    const float* restHealth=nullptr;
+    void* displacement=nullptr;          // StressHierarchy::Vector per node
+    const float* angularScale=nullptr;   // StressBondRotation.cuh; null = uniform
 };
 __global__ void setDeviceStressTopologyBatch(DeviceStressTopologyBatch* dst, DeviceStressTopologyBatch src)
 { *dst = src; }
@@ -26,7 +35,7 @@ __global__ void validateDeviceStressMask(const DeviceStressTopologyBatch* batch,
     if (i >= count || !batch->mask) return; // configuration initializes from resident health
     const unsigned alive = batch->mask[i];
     if (alive > 1) atomicOr(&status->error, 1u);
-    if (alive == 1 && health[i] <= 0) atomicOr(&status->error, 2u);
+    if (alive == 1 && health[i] <= 0 && !(batch->readmit && batch->readmit[i])) atomicOr(&status->error, 2u);
 }
 __global__ void chooseDeviceStressRebuild(const ExtStressGpuDeviceTopologyStatus* status,
     cudaGraphConditionalHandle rebuild)
@@ -192,6 +201,7 @@ struct DeviceStressTopologyBuffers
 };
 #ifdef PHYSX_RESIDENT_DESTRUCTION
 #include "detail/StressTopologyWarmStart.cuh"
+#include "detail/StressBondReadmission.cuh"
 #endif
 class DeviceStressTopology
 {
@@ -292,11 +302,16 @@ class DeviceStressTopology
         // storage, and consume old component identities before relabeling.
         checkCuda(cudaMemsetAsync(rootFlags,0,sizeof(unsigned)*b.n,captureStream), "clear changed stress component flags");
         markChangedStressComponents<<<bondBlocks,kBlockSize,0,captureStream>>>(batch,state,b.health,b.bondIsland,rootFlags,b.m);
+        markReadmittedStressComponents<<<bondBlocks,kBlockSize,0,captureStream>>>(batch,state,b.health,b.node0,b.node1,b.nodeIsland,rootFlags,b.m);
         refreshNativeSettledCertificates<<<nodeBlocks,kBlockSize,0,captureStream>>>(
             inverse.settled,components(),state,batch,rootFlags);
         clearChangedStressWarmStart<<<bondBlocks,kBlockSize,0,captureStream>>>(state,b.bondIsland,rootFlags,b.impulses,b.m);
+        clearChangedStressDisplacement<<<nodeBlocks,kBlockSize,0,captureStream>>>(batch,state,b.nodeIsland,rootFlags,b.n);
         if(stable)markStableStressRows<<<std::max(nodeBlocks,bondBlocks),kBlockSize,0,captureStream>>>(
             batch,state,b.health,b.nodeIsland,b.bondIsland,rootFlags,stable,b.n,b.m);
+        // After every reader of the old health: readmitted bonds live again.
+        readmitStressBonds<<<bondBlocks,kBlockSize,0,captureStream>>>(batch,b.health,b.impulses,b.inertia,
+            b.node0,b.node1,b.offset0,b.offset1,b.colScales,b.m);
 #endif
         beginDeviceStressRebuild<<<1,1,0,captureStream>>>(state);
         initializeDeviceStressTopology<<<std::max(nodeBlocks,bondBlocks),kBlockSize,0,captureStream>>>(batch,b.inertia,parent,identity,rootFlags,b.health,b.n,b.m,forest,stable?stable+b.n:nullptr);
@@ -352,6 +367,7 @@ public:
 #ifdef PHYSX_RESIDENT_DESTRUCTION
     // The native hierarchy's Krylov carry, dropped (a replaced warm start).
     void resetCarry(cudaStream_t stream){if(nativeHierarchy)nativeHierarchy->resetCarry(stream);}
+    void setDisplacement(StressHierarchy::Vector* y){if(nativeHierarchy)nativeHierarchy->setDisplacement(y);}
 #endif
     explicit DeviceStressTopology(DeviceStressTopologyBuffers buffers):b(buffers) {}
     ~DeviceStressTopology()

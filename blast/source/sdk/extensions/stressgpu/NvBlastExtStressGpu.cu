@@ -2264,6 +2264,11 @@ public:
         }
         checkCuda(cudaMemcpyAsync(m_impulses, scaled.data(), sizeof(AngLin)*count,
             cudaMemcpyHostToDevice, m_stream), "import physical warm start");
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+        // An imported iterate has no known displacement: readmission probes read
+        // zero until the impulses are next cleared (documented limitation).
+        if (m_displacement) checkCuda(cudaMemsetAsync(m_displacement,0,sizeof(*m_displacement)*m_nodeCount,m_stream), "clear imported displacement");
+#endif
         checkCuda(cudaEventRecord(m_statusReady, m_stream), "record warm import");
         // Host storage must outlive the copy. This is a one-time authoring/load
         // operation, never a per-step readback or synchronization.
@@ -2284,6 +2289,10 @@ public:
         ContextGuard context(m_cudaContext);
         if (!m_warmSnapshot) allocateDevice(m_warmSnapshot, m_bondCount, "allocate warm-start snapshot");
         checkCuda(cudaMemcpyAsync(m_warmSnapshot, m_impulses, sizeof(AngLin) * m_bondCount, cudaMemcpyDeviceToDevice, m_stream), "snapshot warm start");
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+        if (m_displacement) checkCuda(cudaMemcpyAsync(m_displacementSnapshot, m_displacement, sizeof(*m_displacement) * m_nodeCount,
+            cudaMemcpyDeviceToDevice, m_stream), "snapshot displacement");
+#endif
         m_warmSnapshotHasStart = m_hasWarmStart;
         return true;
     }
@@ -2294,12 +2303,56 @@ public:
         checkCuda(cudaMemcpyAsync(m_impulses, m_warmSnapshot, sizeof(AngLin) * m_bondCount, cudaMemcpyDeviceToDevice, m_stream), "restore warm start");
 #ifdef PHYSX_RESIDENT_DESTRUCTION
         if (m_deviceTopology) m_deviceTopology->resetCarry(m_stream);
+        if (m_displacement) {
+            checkCuda(cudaMemcpyAsync(m_displacement, m_displacementSnapshot, sizeof(*m_displacement) * m_nodeCount,
+                cudaMemcpyDeviceToDevice, m_stream), "restore displacement");
+            // A bond readmitted since the snapshot held no impulse in it.
+            refreshReadmittedImpulses<<<(m_bondCount+kBlockSize-1)/kBlockSize,kBlockSize,0,m_stream>>>(m_readmit,m_health,m_impulses,
+                m_displacement,m_inertia,m_node0,m_node1,m_offset0,m_offset1,m_colScales,m_angularScale,m_bondCount);
+            checkCuda(cudaGetLastError(), "refresh readmitted impulses");
+        }
 #endif
         m_hasWarmStart = m_warmSnapshotHasStart;
         // A settled island's flags certified the impulses it held; they are replaced.
         invalidateSettledBaseline();
         return true;
     }
+
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+    // Bond readmission (ExtStressGpuEnableBondReadmission, StressBondReadmission.cuh).
+    bool enableBondReadmission(const std::uint32_t* readmit)
+    {
+        if (!readmit || !m_deviceTopology || m_deviceTopologyFailed || m_displacement) return false;
+        ContextGuard context(m_cudaContext);
+        allocateDevice(m_displacement, m_nodeCount, "allocate resident displacement");
+        allocateDevice(m_displacementSnapshot, m_nodeCount, "allocate displacement snapshot");
+        allocateDevice(m_restHealth, m_bondCount, "allocate readmission health");
+        checkCuda(cudaMemsetAsync(m_displacement, 0, sizeof(*m_displacement) * m_nodeCount, m_stream), "clear resident displacement");
+        checkCuda(cudaMemsetAsync(m_displacementSnapshot, 0, sizeof(*m_displacement) * m_nodeCount, m_stream), "clear displacement snapshot");
+        // The configured liveness of every bond, before any removal: what a
+        // readmitted bond returns to (the operator reads it only as live/dead).
+        checkCuda(cudaMemcpyAsync(m_restHealth, m_health, sizeof(float) * m_bondCount, cudaMemcpyDeviceToDevice, m_stream), "copy readmission health");
+        m_readmit = readmit;
+        m_deviceTopology->setDisplacement(m_displacement);
+        // A cold first solve: the impulses held now have no displacement.
+        if (m_hasWarmStart) { checkCuda(cudaMemsetAsync(m_impulses,0,sizeof(AngLin)*m_bondCount,m_stream), "reset warm start for readmission"); m_hasWarmStart = false; invalidateSettledBaseline(); }
+        m_graphParamsDirty = true;
+        checkCuda(cudaEventRecord(m_statusReady, m_stream), "record readmission enable");
+        return true;
+    }
+    bool probeReadmissionForcesAsync(const std::uint32_t* select, ExtStressGpuImpulse* out, void* producerReady)
+    {
+        if (!select || !out || !m_displacement) return false;
+        ContextGuard context(m_cudaContext);
+        if (producerReady) checkCuda(cudaStreamWaitEvent(m_stream, reinterpret_cast<cudaEvent_t>(producerReady), 0), "wait readmission probe producer");
+        (m_angularScale ? probeReadmissionForces<true> : probeReadmissionForces<false>)<<<(m_bondCount+kBlockSize-1)/kBlockSize, kBlockSize, 0, m_stream>>>(
+            select, m_displacement, m_inertia, m_node0, m_node1, m_offset0, m_offset1, m_colScales, m_angularScale, out, m_bondCount,
+            m_lengthScale*m_lengthScale*m_massScale, m_lengthScale*m_massScale);
+        checkCuda(cudaGetLastError(), "probe readmission forces");
+        checkCuda(cudaEventRecord(m_statusReady, m_stream), "record readmission probe");
+        return true;
+    }
+#endif
 
     void resetWarmStart() override
     {
@@ -2308,6 +2361,9 @@ public:
             // Order the reset behind asynchronous topology/solve work instead
             // of racing the nonblocking solver stream through the default one.
             checkCuda(cudaMemsetAsync(m_impulses,0,sizeof(AngLin)*m_bondCount,m_stream), "reset resident warm start");
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+            if (m_displacement) checkCuda(cudaMemsetAsync(m_displacement,0,sizeof(*m_displacement)*m_nodeCount,m_stream), "reset displacement");
+#endif
             checkCuda(cudaEventRecord(m_statusReady,m_stream), "record resident warm reset");
         } else {
             checkCuda(cudaMemset(m_impulses, 0, sizeof(AngLin) * m_bondCount), "reset warm start");
@@ -4583,6 +4639,15 @@ private:
     float m_lengthScale{1.0f};
     bool m_hasWarmStart{false};
     AngLin* m_warmSnapshot{nullptr};bool m_warmSnapshotHasStart{false};
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+    // Bond readmission (StressBondReadmission.cuh): the resident displacement y
+    // (lambda = B^T y), its corrected-pass snapshot, the bonds' configured
+    // liveness and the caller's per-bond readmissible flags. Null when off.
+    StressHierarchy::Vector* m_displacement{nullptr};
+    StressHierarchy::Vector* m_displacementSnapshot{nullptr};
+    float* m_restHealth{nullptr};
+    const std::uint32_t* m_readmit{nullptr};
+#endif
     std::vector<AngLin> m_dbgImpulses;
     std::vector<std::uint32_t> m_dbgActive;
     std::vector<std::uint32_t> m_dbgConverged;
@@ -4992,6 +5057,29 @@ bool ExtStressGpuRestoreWarmStart(ExtStressGpuSolver* solver)
     if (!solver) return false;
     try { return static_cast<ExtStressGpuSolverImpl*>(solver)->restoreWarmStart(); }
     catch (...) { return false; }
+}
+
+bool ExtStressGpuEnableBondReadmission(ExtStressGpuSolver* solver, const std::uint32_t* deviceReadmissible)
+{
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+    if (!solver) return false;
+    try { return static_cast<ExtStressGpuSolverImpl*>(solver)->enableBondReadmission(deviceReadmissible); }
+    catch (...) { return false; }
+#else
+    (void)solver; (void)deviceReadmissible; return false;
+#endif
+}
+
+bool ExtStressGpuProbeBondForcesAsync(ExtStressGpuSolver* solver, const std::uint32_t* deviceSelect,
+    ExtStressGpuImpulse* deviceOut, void* producerReady)
+{
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+    if (!solver) return false;
+    try { return static_cast<ExtStressGpuSolverImpl*>(solver)->probeReadmissionForcesAsync(deviceSelect, deviceOut, producerReady); }
+    catch (...) { return false; }
+#else
+    (void)solver; (void)deviceSelect; (void)deviceOut; (void)producerReady; return false;
+#endif
 }
 
 bool ExtStressGpuSetBondRotationalStiffness(ExtStressGpuSolver* solver,

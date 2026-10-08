@@ -158,7 +158,11 @@
         if (consumerDone) checkCuda(cudaStreamWaitEvent(m_stream,reinterpret_cast<cudaEvent_t>(consumerDone),0), "wait stress topology consumer");
         if (producerReady) checkCuda(cudaStreamWaitEvent(m_stream,reinterpret_cast<cudaEvent_t>(producerReady),0), "wait stress topology producer");
         m_telemetry = {};
-        m_deviceTopology->submit({mask,generation,accept},m_stream);
+        DeviceStressTopologyBatch batch{mask,generation,accept};
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+        if (m_displacement) { batch.readmit=m_readmit; batch.restHealth=m_restHealth; batch.displacement=m_displacement; batch.angularScale=m_angularScale; }
+#endif
+        m_deviceTopology->submit(batch,m_stream);
         checkCuda(cudaEventRecord(m_statusReady,m_stream), "record stress topology update");
         return true;
     }

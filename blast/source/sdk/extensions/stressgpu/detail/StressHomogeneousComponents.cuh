@@ -30,6 +30,7 @@ __device__ __forceinline__ bool nonHomogeneousTreeNode(const PersistentStressArg
 }
 __device__ __forceinline__ void clearHomogeneousTreeNode(const PersistentStressArgs& a,unsigned node){
     a.m_residual[node]={};
+    if(a.hierarchy.displacement)a.hierarchy.displacement[node]={};   // its impulses are zeroed below
     for(unsigned i=a.m_nodeBondBegin[node];i<a.m_nodeBondBegin[node+1];++i){
         const unsigned ref=a.m_nodeBondRef[i];if(ref==kDeadBondRef)continue;
         const unsigned edge=ref&0x7fffffffu;
