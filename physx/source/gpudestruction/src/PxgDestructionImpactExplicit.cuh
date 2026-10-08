@@ -3,6 +3,12 @@
 #ifndef EX_THREADS
 #define EX_THREADS 256
 #endif
+// Timing diagnostics only (never in a product build): a bit mask of the
+// window's phases to skip -- 1 the joint gather, 2 the contact rows, 4 the row
+// gather, 8 the joints.
+#ifndef EX_PROF_SKIP
+#define EX_PROF_SKIP 0
+#endif
 // The explicit impact step (Settings::method 2; vibe-land
 // docs/destruction/IMPACT_STEP_PLAN.md, harness scripts/impact/explicit-step.py):
 // the struck patch's bond graph integrated over the tick by symplectic Euler,
@@ -132,23 +138,68 @@ __device__ __forceinline__ void exApplyInverse(const ExNode& n,const float* f,fl
 //   energy (0 is in K) but lets the contact separate along the cone (dilation).
 // Scaling the tangential part alone, the normal kept, could add energy: a
 // 7.8 kg fragment spinning at 180 rad/s went to 280 rad/s.
+// The same search, cheaply: P = 0 at once where Ps lies in the cone's polar in
+// the metric W (d^T W Ps <= 0 for every generator d: mu |(W Ps)_T| <= (W Ps)_N,
+// where the scan finds nothing below 0); the scan's directions by rotating
+// Ps's tangential direction through a table (no trigonometry); the golden
+// section about the scan's best direction tb by the offset u (cos(tb + u) =
+// cos tb cos u - sin tb sin u), each step reusing one of the last step's two
+// points (24 evaluations, not 48).
+// The value of the cone's boundary direction d = (-1, mu c, mu s): its length l
+// = max(0, d^T W Ps / d^T W d) and (P-Ps)^T W (P-Ps)/2 less a constant there.
+// (Scalars and the device W, no lambdas: CuMetal cannot prove the pointees of
+// a lambda's captured locals.)
+struct ExValue { float v,l; };
+__device__ __forceinline__ ExValue exValue(const float* W,float wp0,float wp1,float wp2,float mu,float c,float s)
+{
+    const float d1=mu*c,d2=mu*s;
+    const float Wd0=-W[0]+W[1]*d1+W[2]*d2,Wd1=-W[3]+W[4]*d1+W[5]*d2,Wd2=-W[6]+W[7]*d1+W[8]*d2;
+    const float dWd=-Wd0+d1*Wd1+d2*Wd2,dWP=-wp0+d1*wp1+d2*wp2;
+    const float l=dWd>0.0f?fmaxf(0.0f,dWP/dWd):0.0f;
+    return ExValue{0.5f*l*l*dWd-l*dWP,l};
+}
+// sin u and cos u for |u| <= pi/8 (the golden section's offsets): Taylor to
+// u^11 and u^12, the remainder below 2e-12, far under float's resolution.
+__device__ __forceinline__ void exSinCosSmall(float u,float& su,float& cu)
+{
+    const float x=u*u;
+    su=u*(1.0f+x*(-1.0f/6.0f+x*(1.0f/120.0f+x*(-1.0f/5040.0f+x*(1.0f/362880.0f+x*(-1.0f/39916800.0f))))));
+    cu=1.0f+x*(-0.5f+x*(1.0f/24.0f+x*(-1.0f/720.0f+x*(1.0f/40320.0f+x*(-1.0f/3628800.0f+x*(1.0f/479001600.0f))))));
+}
+__device__ __forceinline__ float exValueAt(const float* W,float wp0,float wp1,float wp2,float mu,float cb,float sb,float u)
+{
+    float su,cu;exSinCosSmall(u,su,cu);return exValue(W,wp0,wp1,wp2,mu,cb*cu-sb*su,sb*cu+cb*su).v;
+}
+// The projection's search, cheaply: P = 0 at once where Ps lies in the cone's
+// polar in the metric W (d^T W Ps <= 0 for every generator d: mu |(W Ps)_T| <=
+// (W Ps)_N, where the scan finds nothing below 0); the scan's directions by
+// rotating Ps's tangential direction through a table (no trigonometry); the
+// golden section about the scan's best direction tb by the offset u (cos(tb +
+// u) = cos tb cos u - sin tb sin u), each step reusing one of the last step's
+// two points (26 evaluations, not 48).
 __device__ __forceinline__ void exConeMetric(const float* W,const float* Ps,float mu,float* P)
 {
-    float WP[3];for(int i=0;i<3;++i)WP[i]=W[3*i]*Ps[0]+W[3*i+1]*Ps[1]+W[3*i+2]*Ps[2];
-    auto value=[&](float t,float& l){const float d[3]={-1.0f,mu*cosf(t),mu*sinf(t)};
-        float Wd[3];for(int i=0;i<3;++i)Wd[i]=W[3*i]*d[0]+W[3*i+1]*d[1]+W[3*i+2]*d[2];
-        const float dWd=d[0]*Wd[0]+d[1]*Wd[1]+d[2]*Wd[2],dWP=d[0]*WP[0]+d[1]*WP[1]+d[2]*WP[2];
-        l=dWd>0.0f?fmaxf(0.0f,dWP/dWd):0.0f;return 0.5f*l*l*dWd-l*dWP;};   // (P-Ps)^T W (P-Ps)/2 less a constant
-    P[0]=P[1]=P[2]=0.0f;if(!(mu>0.0f)){const float l=W[0]>0.0f?fmaxf(0.0f,-WP[0]/W[0]):0.0f;P[0]=-l;return;}
-    constexpr int kScan=16;float best=0.0f,tb=0.0f;   // P = 0: value 0
-    const float t0=atan2f(Ps[2],Ps[1]);
-    for(int k=0;k<kScan;++k){const float t=t0+6.2831853f*float(k)/float(kScan);float l;const float v=value(t,l);if(v<best){best=v;tb=t;}}
-    if(best<0.0f) {
-        float a=tb-6.2831853f/float(kScan),b=tb+6.2831853f/float(kScan);
-        for(int it=0;it<24;++it){const float c=b-0.618034f*(b-a),e=a+0.618034f*(b-a);float l;if(value(c,l)<value(e,l))b=e;else a=c;}
-        const float t=0.5f*(a+b);float l;if(value(t,l)<best){tb=t;}
-        value(tb,l);P[0]=-l;P[1]=l*mu*cosf(tb);P[2]=l*mu*sinf(tb);
+    const float wp0=W[0]*Ps[0]+W[1]*Ps[1]+W[2]*Ps[2],wp1=W[3]*Ps[0]+W[4]*Ps[1]+W[5]*Ps[2],wp2=W[6]*Ps[0]+W[7]*Ps[1]+W[8]*Ps[2];
+    P[0]=P[1]=P[2]=0.0f;if(!(mu>0.0f)){const float l=W[0]>0.0f?fmaxf(0.0f,-wp0/W[0]):0.0f;P[0]=-l;return;}
+    if(mu*sqrtf(wp1*wp1+wp2*wp2)<=wp0)return;   // in the polar: the projection is 0
+    constexpr int kScan=16;
+    constexpr float kC[kScan]={1.0f,0.92387953f,0.70710678f,0.38268343f,0.0f,-0.38268343f,-0.70710678f,-0.92387953f,-1.0f,-0.92387953f,-0.70710678f,-0.38268343f,0.0f,0.38268343f,0.70710678f,0.92387953f};
+    constexpr float kS[kScan]={0.0f,0.38268343f,0.70710678f,0.92387953f,1.0f,0.92387953f,0.70710678f,0.38268343f,0.0f,-0.38268343f,-0.70710678f,-0.92387953f,-1.0f,-0.92387953f,-0.70710678f,-0.38268343f};
+    const float tn=sqrtf(Ps[1]*Ps[1]+Ps[2]*Ps[2]);
+    const float c0=tn>0.0f?Ps[1]/tn:1.0f,s0=tn>0.0f?Ps[2]/tn:0.0f;   // t0 = atan2(Ps_2, Ps_1)
+    float best=0.0f,cb=0.0f,sb=0.0f;   // P = 0: value 0
+    for(int k=0;k<kScan;++k){const float c=c0*kC[k]-s0*kS[k],s=s0*kC[k]+c0*kS[k];const float v=exValue(W,wp0,wp1,wp2,mu,c,s).v;if(v<best){best=v;cb=c;sb=s;}}
+    if(!(best<0.0f))return;
+    constexpr float kStep=6.2831853f/float(kScan),kG=0.618034f;
+    float a=-kStep,b=kStep,c=b-kG*(b-a),e=a+kG*(b-a);
+    float vc=exValueAt(W,wp0,wp1,wp2,mu,cb,sb,c),ve=exValueAt(W,wp0,wp1,wp2,mu,cb,sb,e);
+    for(int it=0;it<24;++it) {
+        if(vc<ve){b=e;e=c;ve=vc;c=b-kG*(b-a);if(it<23)vc=exValueAt(W,wp0,wp1,wp2,mu,cb,sb,c);}
+        else{a=c;c=e;vc=ve;e=a+kG*(b-a);if(it<23)ve=exValueAt(W,wp0,wp1,wp2,mu,cb,sb,e);}
     }
+    const float um=0.5f*(a+b);float sm,cm;exSinCosSmall(um,sm,cm);const float cx=cb*cm-sb*sm,sx=sb*cm+cb*sm;
+    if(exValue(W,wp0,wp1,wp2,mu,cx,sx).v<best){cb=cx;sb=sx;}
+    const float l=exValue(W,wp0,wp1,wp2,mu,cb,sb).l;P[0]=-l;P[1]=l*mu*cb;P[2]=l*mu*sb;
 }
 __device__ __forceinline__ void exCone(const float* W,const float* g,const float* Ps,float mu,float* P)
 {
@@ -459,7 +510,7 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
         // damage) is the next tick's static verdict.
         if(!threadIdx.x){shActive=0u;shPushing=0u;shNear=0u;}
         // Joint forces on the nodes: each node gathers its joints' wrenches (no atomics).
-        for(PxU32 k=threadIdx.x;k<nn;k+=kExThreads) {
+        if(!(EX_PROF_SKIP&1))for(PxU32 k=threadIdx.x;k<nn;k+=kExThreads) {
             PxU32 b0,b1;jointRange(k,b0,b1);if(b0==b1)continue;
             float f[6]={0,0,0,0,0,0};
             for(PxU32 j=b0;j<b1;++j){const float* q=wr+6*size_t(adj[j]);for(int c=0;c<6;++c)f[c]+=q[c];}
@@ -468,7 +519,7 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
         __syncthreads();
         // Contacts: each row's impulse from the same velocities (Jacobi), in the
         // Coulomb cone (exCone: sliding, never adding energy).
-        if(hasRow) {
+        if(hasRow && !(EX_PROF_SKIP&2)) {
             const Bond rb=rowBonds[threadIdx.x];
             float g[6]={0,0,0,0,0,0};exRelative(rb,0,vS+6*ra,g);exRelative(rb,1,vS+6*rn,g);
             float Ps[3];for(int i=0;i<3;++i)Ps[i]=-(Winv[3*i]*g[0]+Winv[3*i+1]*g[1]+Winv[3*i+2]*g[2]);
@@ -483,7 +534,7 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
             exWrench(rb,x,0,f0);exWrench(rb,x,1,f1);float* o=rwr+12*size_t(threadIdx.x);for(int q=0;q<6;++q){o[q]=f0[q];o[6+q]=f1[q];}
         }
         __syncthreads();
-        if(nr)for(PxU32 k=threadIdx.x;k<nn;k+=kExThreads) {
+        if(nr && !(EX_PROF_SKIP&4))for(PxU32 k=threadIdx.x;k<nn;k+=kExThreads) {
             PxU32 b0,b1;rowRange(k,b0,b1);if(b0==b1)continue;
             float f[6]={0,0,0,0,0,0};
             for(PxU32 j=b0;j<b1;++j){const float* q=rwr+6*size_t(rowAdj[j]);for(int c=0;c<6;++c)f[c]+=q[c];}
@@ -491,7 +542,7 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
         }
         __syncthreads();
         // Joints: the trial, then fracture or the radial return; the force change's wrench on both ends.
-        for(PxU32 l=threadIdx.x;l<nl;l+=kExThreads) {
+        if(!(EX_PROF_SKIP&8))for(PxU32 l=threadIdx.x;l<nl;l+=kExThreads) {
             ExLink& e=links[l];if(!(e.state&eEX_LIVE))continue;
             const Bond b=bonds[l];   // in registers: every field is read more than once
             float d[6]={0,0,0,0,0,0};if(e.a!=0xffffffffu)exRelative(b,0,vS+6*e.a,d);if(e.b!=0xffffffffu)exRelative(b,1,vS+6*e.b,d);
