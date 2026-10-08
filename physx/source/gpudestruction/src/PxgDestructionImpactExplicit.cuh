@@ -1090,12 +1090,18 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
             float P[3];const float gap=rows[threadIdx.x].gap;
             if(rows[threadIdx.x].compliant){const ExRow& x=rows[threadIdx.x];
                 if(gap>0.0f){P[0]=P[1]=P[2]=0.0f;}else exCompliantRow(Wr,g,x.d,x.Estar,x.sigma,x.R,x.face,rb.area,h,P);}
-            else{g[0]-=gap/h;   // (a gap still open: the row may close it this substep before it pushes)
+            else if(!(gap>0.0f)){
+            // (a rigid row in contact: its arithmetic exactly as before two-body rows. The
+            // gap's subtraction merged into this path, even behind gap > 0, changed the
+            // rigid rows' float rounding (cannon-first's IMPACT_HASH, 1e-5 relative))
             float Ps[3];for(int i=0;i<3;++i)Ps[i]=-(Wi[3*i]*g[0]+Wi[3*i+1]*g[1]+Wi[3*i+2]*g[2]);
-            if(gap>0.0f && !(g[0]>0.0f) && !(rows[threadIdx.x].total[0]!=0.0f)){Ps[0]=Ps[1]=Ps[2]=0.0f;}
             exCone(Wr,g,Ps,rb.area,P);
             if(EX_PROF_DUP&2){float g2[6],P2[3],Ps2[3];for(int q=0;q<6;++q)g2[q]=g[q]*(1.0f+FLT_EPSILON*float(step&1));for(int q=0;q<3;++q)Ps2[q]=Ps[q]*(1.0f+FLT_EPSILON*float(step&1));
                 exCone(Wr,g2,Ps2,rb.area,P2);dead+=1e-30f*(P2[0]+P2[1]+P2[2]);}}
+            else{g[0]-=gap/h;   // (a gap still open: the row may close it this substep before it pushes)
+            float Ps[3];for(int i=0;i<3;++i)Ps[i]=-(Wi[3*i]*g[0]+Wi[3*i+1]*g[1]+Wi[3*i+2]*g[2]);
+            if(!(g[0]>0.0f) && !(rows[threadIdx.x].total[0]!=0.0f)){Ps[0]=Ps[1]=Ps[2]=0.0f;}
+            exCone(Wr,g,Ps,rb.area,P);}
             for(int q=0;q<3;++q)rows[threadIdx.x].total[q]+=P[q];
             // Pushing: an impulse the impactor's momentum resolves in float (below
             // its float resolution it exchanges nothing representable).
