@@ -2124,6 +2124,29 @@ struct Stage {
         explicitAllocated=true;
     }
     bool sequence=false;
+    // Diagnostics (PX_DESTRUCTION_SEQUENCE_DUMP=DIR, PX_DESTRUCTION_SEQUENCE_DUMP_COUNT): the
+    // built dynamic patches of the first submissions that have any, as the window starts
+    // (DIR/seq-N.dsqd: 'DSQD', the record sizes, then per patch its ExPatch, nodes, bonds,
+    // links and damping words), for structures/town-kit/scripts/sequence-lab.py --compare.
+    const char* seqDumpDir=nullptr;PxU32 seqDumpsLeft=0,seqDumps=0;
+    void dumpSequence(cudaStream_t stream) {
+        PxU32 count=0;check(cudaMemcpyAsync(&count,x.patchCount,sizeof count,cudaMemcpyDeviceToHost,stream));check(cudaStreamSynchronize(stream));
+        std::vector<ExPatch> ps(count);if(count)check(cudaMemcpy(ps.data(),x.patches,sizeof(ExPatch)*count,cudaMemcpyDeviceToHost));
+        bool any=false;for(const auto& q:ps)any=any || q.sequence;if(!any)return;
+        char path[1024];std::snprintf(path,sizeof path,"%s/seq-%u.dsqd",seqDumpDir,seqDumps);FILE* f=std::fopen(path,"wb");if(!f)return;
+        const PxU32 head[6]={count,PxU32(sizeof(ExPatch)),PxU32(sizeof(ExNode)),PxU32(sizeof(Bond)),PxU32(sizeof(ExLink)),8u};
+        std::fwrite("DSQD",1,4,f);std::fwrite(head,sizeof head,1,f);
+        for(PxU32 p=0;p<count;++p) {
+            const ExPatch& q=ps[p];std::fwrite(&q,sizeof q,1,f);
+            std::vector<ExNode> n(q.nodes);std::vector<Bond> b(q.links);std::vector<ExLink> l(q.links);std::vector<float> d(8*size_t(q.links));
+            if(q.nodes)check(cudaMemcpy(n.data(),x.nodes+size_t(p)*kExNodes,sizeof(ExNode)*q.nodes,cudaMemcpyDeviceToHost));
+            if(q.links){check(cudaMemcpy(b.data(),x.bonds+size_t(p)*kExLinks,sizeof(Bond)*q.links,cudaMemcpyDeviceToHost));
+                check(cudaMemcpy(l.data(),x.links+size_t(p)*kExLinks,sizeof(ExLink)*q.links,cudaMemcpyDeviceToHost));
+                if(x.damp && q.sequence)check(cudaMemcpy(d.data(),x.damp+size_t(p)*kExLinks*8,sizeof(float)*d.size(),cudaMemcpyDeviceToHost));}
+            std::fwrite(n.data(),sizeof(ExNode),n.size(),f);std::fwrite(b.data(),sizeof(Bond),b.size(),f);std::fwrite(l.data(),sizeof(ExLink),l.size(),f);std::fwrite(d.data(),sizeof(float),d.size(),f);
+        }
+        std::fclose(f);std::fprintf(stderr,"[sequence] dumped %s (%u patches)\n",path,count);++seqDumps;--seqDumpsLeft;
+    }
     // The dynamic sequence's second submission (after the static verdict): a patch
     // per island ExScratch::seqIsland flags (the runtime sets it and the persisted
     // state's pointers), without the rows, on the same scratch; the first
@@ -2151,6 +2174,7 @@ struct Stage {
         // Every patch slot builds (an empty one returns at once): no readback
         // before the build; one after it, for the patches and their substeps.
         exBuild<<<kExPatches,kThreads,0,stream>>>(in,s,w,x);
+        if(seqDumpDir && seqDumpsLeft && s.dynamicSequence)dumpSequence(stream);
         // The window follows the build with no readback between them (one host
         // round trip fewer): both kernels over every patch slot, each patch
         // running in the kernel of its size, an empty slot returning at once.
