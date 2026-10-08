@@ -393,15 +393,18 @@ __global__ __launch_bounds__(kThreads) void exBuild(Inputs in,Settings s,Scratch
     }
     const PxU32 chunkNodes=min(sh.flag,kExNodes);
     __syncthreads();
-    // Impactors and rows (one thread: at most kExRows rows).
+    // Impactors and rows (one thread, in row order: at most kExRows rows; the
+    // bodies seen so far in threadgroup memory), then the rows' geometry
+    // (prepareRow) on every thread.
+    __shared__ PxU32 rowBody[kExRows],rowEnd[2*kExRows];
     if(!threadIdx.x) {
         PxU32 n=chunkNodes,k=0,impactors=0;
         for(PxU32 j=0;j<nrows;++j) {
             const PxU32 r=list[j];
             const ContactRow& q=in.rows[r];const PxU32 sc=t.nodeOf[q.chunk];
             if(sc==0xffffffffu || (sc>>16)!=p)continue;
-            PxU32 node=0xffffffffu;
-            for(PxU32 e=0;e<k;++e)if(in.rows[exRows[e].row].body==q.body){node=exRows[e].b;break;}
+            PxU32 node=0xffffffffu;const PxU32 body=q.body;
+            for(PxU32 e=0;e<k;++e)if(rowBody[e]==body){node=rowEnd[2*e+1];break;}
             if(node==0xffffffffu) {
                 if(n>=kExNodes){sp.failed=1;continue;}
                 node=n++;++impactors;
@@ -410,12 +413,12 @@ __global__ __launch_bounds__(kThreads) void exBuild(Inputs in,Settings s,Scratch
                 for(int a=0;a<6;++a)m.v0[a]=m.v[a];
                 nodes[node]=m;
             }
-            Bond b;prepareRow(in,s,r,b);b.c1=in.chunkCount+p*kExNodes+node;
-            rowBonds[k]=b;ExRow e{};e.a=sc&0xffffu;e.b=node;e.row=r;exRows[k]=e;++k;
+            ExRow e{};e.a=sc&0xffffu;e.b=node;e.row=r;exRows[k]=e;rowBody[k]=body;rowEnd[2*k]=e.a;rowEnd[2*k+1]=node;++k;
         }
         sp.nodes=n;sp.chunks=chunkNodes;sp.rows=k;sp.impactors=impactors;
     }
     __syncthreads();
+    for(PxU32 k=threadIdx.x;k<sp.rows;k+=kThreads){Bond b;prepareRow(in,s,exRows[k].row,b);b.c1=in.chunkCount+p*kExNodes+rowEnd[2*k+1];rowBonds[k]=b;}
     const PxU32 nn=sp.nodes,nr=sp.rows;
     // Joints, each from its lower local end (or its only patch end): count, scan, write.
     if(!threadIdx.x)sh.flag=0;
@@ -460,7 +463,7 @@ __global__ __launch_bounds__(kThreads) void exBuild(Inputs in,Settings s,Scratch
             if(k<nn) {
                 if(!pass && k<chunkNodes){const PxU32 c=nodes[k].chunk;
                     for(PxU32 slot=in.nodeBegin[c];slot<in.nodeBegin[c+1];++slot){const PxU32 l=t.linkOf[in.nodeRefs[slot]];if(l!=0xffffffffu && l<nl)++deg;}}
-                if(pass)for(PxU32 r=0;r<nr;++r)deg+=(exRows[r].a==k?1u:0u)+(exRows[r].b==k?1u:0u);
+                if(pass)for(PxU32 r=0;r<nr;++r)deg+=(rowEnd[2*r]==k?1u:0u)+(rowEnd[2*r+1]==k?1u:0u);
             }
             PxU32 prefix;const PxU32 total=blockScan(sh,deg,prefix);
             if(k<nn) {
@@ -473,7 +476,7 @@ __global__ __launch_bounds__(kThreads) void exBuild(Inputs in,Settings s,Scratch
                     nodes[k].jointEnd=at;
                 } else {
                     nodes[k].rowBegin=at;
-                    for(PxU32 r=0;r<nr;++r){if(exRows[r].a==k)rowAdj[at++]=r<<1;if(exRows[r].b==k)rowAdj[at++]=(r<<1)|1u;}
+                    for(PxU32 r=0;r<nr;++r){if(rowEnd[2*r]==k)rowAdj[at++]=r<<1;if(rowEnd[2*r+1]==k)rowAdj[at++]=(r<<1)|1u;}
                     nodes[k].rowEnd=at;
                 }
             }
