@@ -258,6 +258,7 @@ struct ImpactContact {
     // The impact solve's coupled contact: a row per (pair, struck chunk of an
     // anchored -- kinematic -- cluster) whose other body is movable.
     impact::ContactRow* rows; PxU32* rowCount; PxU32 rowCapacity;
+    impact::RowOther* other; // parallel to rows (Settings::routeImpactor), or null
     float separating; // m/s: only a pair closing faster than this along its push is coupled (an impact)
     const PxDestructionStressCluster* clusters;
     // The contact routing (impact::Settings::route): |g|, so a pair that is not
@@ -268,7 +269,10 @@ struct ImpactContact {
 // chunk `chunk` (its cluster kinematic), the other body `other` dynamic. Sums
 // the pair's normal and friction impulses on the chunk; frames: the struck
 // cluster's (the chunk's own coordinates).
-__device__ void coupleRow(PxU32 chunk,PxNodeIndex own,PxNodeIndex other,float side,const PxGpuContactPair& p,
+// `otherChunk`: the impactor's own stage chunk in this pair (a destructible
+// car's part; PX_INVALID_U32 when the impactor is no stage body), so the
+// routing can take the same share off it (impact::Settings::routeImpactor).
+__device__ void coupleRow(PxU32 chunk,PxU32 otherChunk,PxNodeIndex own,PxNodeIndex other,float side,const PxGpuContactPair& p,
     const PxDestructionStressChunk* chunks,const PxTransform* poses,const PxgBodySim* bodies,float invDt,const ImpactContact& ci)
 {
     if(!ci.rows || chunk==PX_INVALID_U32 || other.isStaticBody() || other.isArticulation() || own.isArticulation())return;
@@ -351,6 +355,12 @@ __device__ void coupleRow(PxU32 chunk,PxNodeIndex own,PxNodeIndex other,float si
     auto put=[](float* d,const PxVec3& v){d[0]=v.x;d[1]=v.y;d[2]=v.z;};
     put(row.point,pose.transformInv(point*(1.0f/weight)));put(row.normal,pose.q.rotateInv(normal.getNormalized()));
     put(row.load,pose.q.rotateInv(force*invDt));put(row.torque,pose.q.rotateInv(torque*invDt));put(row.com,pose.transformInv(com));
+    // The impactor's side of the pair: -force on its chunk, in its cluster's frame (as routeContacts loaded it).
+    if(ci.other) {
+        impact::RowOther o{otherChunk,{0.0f,0.0f,0.0f}};
+        if(otherChunk!=PX_INVALID_U32)put(o.load,poses[chunks[otherChunk].cluster].q.rotateInv(-force*invDt));
+        ci.other[slot]=o;
+    }
     // Velocities relative to the struck cluster (its motion at the start of the tick).
     const PxVec3 cw(clusterBefore.angularVelocityXYZ_maxPenBiasW.x,clusterBefore.angularVelocityXYZ_maxPenBiasW.y,clusterBefore.angularVelocityXYZ_maxPenBiasW.z);
     const PxVec3 cv(clusterBefore.linearVelocityXYZ_inverseMassW.x,clusterBefore.linearVelocityXYZ_inverseMassW.y,clusterBefore.linearVelocityXYZ_inverseMassW.z);
@@ -460,8 +470,8 @@ __global__ void routeContacts(PxgDestructionSolvedContacts contacts, const Looku
         }}
     }
     if(normals && ci.rows) {
-        coupleRow(a,p.nodeIndex0,p.nodeIndex1,1.0f,p,chunks,poses,bodies,invDt,ci);
-        coupleRow(b,p.nodeIndex1,p.nodeIndex0,-1.0f,p,chunks,poses,bodies,invDt,ci);
+        coupleRow(a,b,p.nodeIndex0,p.nodeIndex1,1.0f,p,chunks,poses,bodies,invDt,ci);
+        coupleRow(b,a,p.nodeIndex1,p.nodeIndex0,-1.0f,p,chunks,poses,bodies,invDt,ci);
     }
     if(normals || anchors) {
         if(a!=PX_INVALID_U32)loadA.publish(a,chunkA,inputs,surface);
@@ -973,7 +983,7 @@ class Runtime final : public PxgDestructionRuntime {
     ImpactorImpedance* mImpactors{};PxU32 mImpactorCount=0,mImpactorCapacity=0;
     // The impact solve's coupled contact: this pass's rows, their count, and
     // each impactor's velocity change (applied when the pass is the tick's last).
-    impact::ContactRow* mImpactRows{};PxU32* mImpactRowCount{};float *mImpactRowDelta{},*mImpactRowForce{},*mImpactRowBound{};
+    impact::ContactRow* mImpactRows{};impact::RowOther* mImpactRowOther{};PxU32* mImpactRowCount{};float *mImpactRowDelta{},*mImpactRowForce{},*mImpactRowBound{};
     PxU32* mImpactRowRouted{};   // per row: routed to the impact model (Settings::route)
     // Per rigid body (motion storage capacity): the corrected pass's bound on
     // its contacts (max impulse per point; bits of a float), its own max
@@ -1605,7 +1615,7 @@ public:
         cudaFreeHost(mImpactHostStatus);mImpactHostStatus=nullptr;
         mImpactCrush=false;cudaFree(mImpactStress);mImpactStress=nullptr;cudaFree(mImpactRate);mImpactRate=nullptr;
         cudaFree(mImpactImpactor);mImpactImpactor=nullptr;
-        cudaFree(mImpactRows);mImpactRows=nullptr;cudaFree(mImpactRowCount);mImpactRowCount=nullptr;
+        cudaFree(mImpactRows);mImpactRows=nullptr;cudaFree(mImpactRowOther);mImpactRowOther=nullptr;cudaFree(mImpactRowCount);mImpactRowCount=nullptr;
         cudaFree(mImpactRowDelta);mImpactRowDelta=nullptr;cudaFree(mImpactRowForce);mImpactRowForce=nullptr;cudaFree(mImpactRowBound);mImpactRowBound=nullptr;cudaFree(mImpactRowRouted);mImpactRowRouted=nullptr;
         cudaFree(mImpactBound);mImpactBound=nullptr;cudaFree(mImpactSaved);mImpactSaved=nullptr;cudaFree(mImpactBounded);mImpactBounded=nullptr;cudaFree(mImpactBoundRequested);mImpactBoundRequested=nullptr;mImpactBoundCapacity=0;
         cudaFree(mCrush);mCrush=nullptr;cudaFree(mTrialCrush);mTrialCrush=nullptr;
@@ -1888,6 +1898,8 @@ public:
                     mImpactSettings.boundImpactor=env("PX_DESTRUCTION_IMPACT_BOUND_IMPACTOR",0.0f)!=0.0f;
                     // and the contact routing by peak force against capacity.
                     mImpactSettings.route=env("PX_DESTRUCTION_IMPACT_ROUTE",0.0f)!=0.0f;
+                    // and its third law: the impactor's own chunk loses what the struck one does.
+                    mImpactSettings.routeImpactor=env("PX_DESTRUCTION_IMPACT_ROUTE_IMPACTOR",0.0f)!=0.0f;
                     mImpactSettings.explicitWindow=PxU32(env("PX_DESTRUCTION_IMPACT_EXPLICIT_WINDOW",0.0f));
                     std::vector<float> slip(d.materialCount),stiffness(d.materialCount);
                     for(PxU32 i=0;i<d.materialCount;++i){slip[i]=d.materials[i].ductileSlip;stiffness[i]=d.materials[i].impactStiffness;}
@@ -1906,6 +1918,7 @@ public:
                     mImpactSettings.coupledContact=env("PX_DESTRUCTION_IMPACT_COUPLED",1.0f)!=0.0f;
                     if(mImpactSettings.coupledContact) {
                         allocate(mImpactRows,impact::kContactCapacity);allocate(mImpactRowCount,1);
+                        if(mImpactSettings.routeImpactor)allocate(mImpactRowOther,impact::kContactCapacity);
                         allocate(mImpactRowDelta,6*size_t(impact::kContactCapacity));allocate(mImpactRowForce,3*size_t(impact::kContactCapacity));
                         allocate(mImpactRowBound,size_t(impact::kContactCapacity));
                         allocate(mImpactRowRouted,size_t(impact::kContactCapacity));
@@ -2316,6 +2329,7 @@ public:
             if(mImpactRows) {
                 check(cudaMemsetAsync(mImpactRowCount,0,sizeof(PxU32),mStream));
                 impactContacts.rows=mImpactRows;impactContacts.rowCount=mImpactRowCount;impactContacts.rowCapacity=impact::kContactCapacity;
+                impactContacts.other=mImpactRowOther;
                 impactContacts.clusters=mClusters;
                 // The impact solve's motion tolerance over the tick, as a speed.
                 impactContacts.separating=mImpactSettings.tolerance/dt;
@@ -2334,7 +2348,7 @@ public:
                 rin.chunks=mChunks;rin.chunkCount=mN;rin.bonds=mBonds;rin.bondCount=mM;rin.materials=mMaterials;
                 rin.ductileSlip=mImpactSlip;rin.stiffness=mImpactStiffness;rin.health=mHealth;
                 rin.nodeBegin=mNodeBegin;rin.nodeRefs=mNodeRefs;rin.sections=mSectionBending?mSections:nullptr;
-                rin.rows=mImpactRows;rin.rowCount=impact::kContactCapacity;rin.rowCounter=mImpactRowCount;
+                rin.rows=mImpactRows;rin.rowCount=impact::kContactCapacity;rin.rowCounter=mImpactRowCount;rin.rowOther=mImpactRowOther;
                 impact::Settings rs=mImpactSettings;rs.dt=dt;
                 impact::routeRows<<<(impact::kContactCapacity+127)/128,128,0,mStream>>>(rin,rs,mImpactRowRouted,mInputs);
             }

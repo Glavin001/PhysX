@@ -91,6 +91,11 @@ struct ContactRow {
     float ii[6];        // inverse inertia (xx, yy, zz, xy, xz, yz)
     PxU32 resting;      // 1: not closing, its load past what its body can exert (routing only; never coupled)
 };
+// A row's impactor side (Settings::routeImpactor), parallel to the rows (kept
+// out of ContactRow so the .impc capture layout is unchanged): the impactor's
+// stage chunk the pair touched (a destructible car's part; 0xffffffff: none)
+// and the pair's force on it in that chunk's cluster frame (N; -load, rotated).
+struct RowOther { PxU32 chunk; float load[3]; };
 
 struct Settings {
     float dt=1.0f/60.0f;
@@ -231,6 +236,13 @@ struct Settings {
     // joint carries along it, on every tick of contact; the others stay static
     // loads, their rigid stop bounded by that peak.
     bool route=false;
+    // Newton's third law for the routing (PX_DESTRUCTION_IMPACT_ROUTE_IMPACTOR;
+    // with route): what a row's routing takes off the struck chunk's static
+    // input also leaves the impactor's own chunk, when the impactor is a stage
+    // body (a destructible car). Its joints are otherwise graded against the
+    // trial's stop on a kinematic (anchored) struck chunk -- a dead stop plus
+    // the solver's position correction -- whatever that chunk can transmit.
+    bool routeImpactor=false;
     // The explicit step (method 2, PxgDestructionImpactExplicit.cuh): the
     // substep h = explicitSafety x 2 / omega (omega: the patch's Gershgorin
     // bound), or explicitDt where set (tests, A/B: the harness's own h); at
@@ -381,6 +393,7 @@ struct Inputs {
     // [rowCount] per row, nonzero where it is routed to the impact model
     // (Settings::route: routeRows); null: every row is (as before routing).
     const PxU32* rowRouted{};
+    const RowOther* rowOther{};                      // Settings::routeImpactor: each row's impactor side, or none
 };
 
 // ---------------------------------------------------------------------------
@@ -1330,6 +1343,11 @@ __global__ void routeRows(Inputs in,Settings s,PxU32* routed,PxDestructionVector
     if(c>=in.chunkCount || !(in.chunks[c].mass>0.0f) || chunkGone(in,c) || !(row.im>0.0f) || !isfinite(row.im))return;
     const float m=in.chunks[c].mass,L[3]={row.load[0],row.load[1],row.load[2]},Ln=sqrtf(dot3(L,L));
     auto remove=[&](float f){PxVec3& a=inputs[c].linear;atomicAdd(&a.x,-f*L[0]/m);atomicAdd(&a.y,-f*L[1]/m);atomicAdd(&a.z,-f*L[2]/m);};
+    // The same share of the pair off the impactor's own chunk (Settings::routeImpactor).
+    const PxU32 o=s.routeImpactor && in.rowOther?in.rowOther[r].chunk:0xffffffffu;
+    const bool other=o<in.chunkCount && in.chunks[o].mass>0.0f && !chunkGone(in,o);
+    auto removeOther=[&](float f){if(!other || !(f>0.0f))return;const float mo=in.chunks[o].mass,*Lo=in.rowOther[r].load;PxVec3& a=inputs[o].linear;
+        atomicAdd(&a.x,-f*Lo[0]/mo);atomicAdd(&a.y,-f*Lo[1]/mo);atomicAdd(&a.z,-f*Lo[2]/mo);};
     if(row.resting) {
         // A resting row (coupleRow): of its body's resting loads on the
         // structure, only their resultant is exchanged with the body (a pile's
@@ -1339,30 +1357,41 @@ __global__ void routeRows(Inputs in,Settings s,PxU32* routed,PxDestructionVector
         float sum[3]={0,0,0},mag=0.0f;
         for(PxU32 j=0;j<rows;++j){const ContactRow& q=in.rows[j];if(!q.resting || q.body!=row.body)continue;
             for(int k=0;k<3;++k)sum[k]+=q.load[k];mag+=sqrtf(dot3(q.load,q.load));}
-        if(mag>0.0f)remove(1.0f-fminf(1.0f,sqrtf(dot3(sum,sum))/mag));
+        if(mag>0.0f){const float f=1.0f-fminf(1.0f,sqrtf(dot3(sum,sum))/mag);remove(f);removeOther(f);}
         return;
     }
-    if(!row.points){routed[r]=1u;remove(1.0f);return;}
+    if(!row.points){routed[r]=1u;remove(1.0f);removeOther(1.0f);return;}
     float n[3]={row.normal[0],row.normal[1],row.normal[2]};const float nl=sqrtf(dot3(n,n));if(!(nl>0.0f))return;
     for(int q=0;q<3;++q)n[q]/=nl;
     float arm[3],spin[3];for(int q=0;q<3;++q)arm[q]=row.point[q]-row.com[q];cross3(row.spin,arm,spin);
     float vp[3];for(int q=0;q<3;++q)vp[q]=row.velocity[q]+spin[q];
     const float vn=fmaxf(0.0f,dot3(vp,n));
-    float k=0.0f,cap=FLT_MAX;
+    float k=0.0f,cap=FLT_MAX,capSum=0.0f;
     for(PxU32 slot=in.nodeBegin[c];slot<in.nodeBegin[c+1];++slot) {
         const PxU32 i=in.nodeRefs[slot];if(!bondMember(in,i))continue;
         Bond b;if(!prepareBond(in,s,i,b))continue;
         k+=b.kl;
         const float a=(b.c0==c?1.0f:-1.0f)*dot3(b.n,n),t=sqrtf(fmaxf(0.0f,1.0f-a*a));
         float f=FLT_MAX;if(fabsf(a)>0.0f)f=(a>0.0f?b.capC:b.capT)/fabsf(a);if(t>0.0f)f=fminf(f,b.capS/t);
-        cap=fminf(cap,f);
+        cap=fminf(cap,f);capSum+=f;
     }
     if(!(k>0.0f))return;   // no joint: a free chunk, the rigid simulation's own
     const float M=1.0f/row.im,peak=vn*M*sqrtf(k/(M+m));
-    if(peak>cap){routed[r]=1u;remove(1.0f);return;}
+    if(peak>cap) {
+        routed[r]=1u;remove(1.0f);
+        // Past capacity, what the struck chunk can give the impactor over the
+        // tick: its own inertia taking the common velocity (m M/(M+m) v_n) and
+        // its joints at capacity meanwhile (the impact solve's past-capacity
+        // impulse, P = mu v_n + C dt share).
+        if(s.routeImpactor && Ln>0.0f) {
+            const float share=M/(M+m),P=m*share*vn+capSum*s.dt*share;
+            removeOther(1.0f-fminf(1.0f,P/(s.dt*Ln)));
+        }
+        return;
+    }
     // Static: the rigid stop's momentum part, M v_n / dt, at most the peak.
     const float excess=fmaxf(0.0f,M*vn/s.dt-peak);
-    if(excess>0.0f && Ln>0.0f)remove(fminf(1.0f,excess/Ln));
+    if(excess>0.0f && Ln>0.0f){remove(fminf(1.0f,excess/Ln));removeOther(fminf(1.0f,excess/Ln));}
 }
 // Islands with a routed row are the impact solve's (its load is no longer in
 // the elastic solve, so the trigger cannot see it).
