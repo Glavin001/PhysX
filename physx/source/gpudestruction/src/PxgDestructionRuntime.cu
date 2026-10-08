@@ -357,7 +357,7 @@ __device__ void coupleRow(PxU32 chunk,PxU32 otherChunk,PxNodeIndex own,PxNodeInd
     put(row.load,pose.q.rotateInv(force*invDt));put(row.torque,pose.q.rotateInv(torque*invDt));put(row.com,pose.transformInv(com));
     // The impactor's side of the pair: -force on its chunk, in its cluster's frame (as routeContacts loaded it).
     if(ci.other) {
-        impact::RowOther o{otherChunk,{0.0f,0.0f,0.0f}};
+        impact::RowOther o{};o.chunk=otherChunk;
         if(otherChunk!=PX_INVALID_U32)put(o.load,poses[chunks[otherChunk].cluster].q.rotateInv(-force*invDt));
         ci.other[slot]=o;
     }
@@ -2351,6 +2351,7 @@ public:
                 rin.rows=mImpactRows;rin.rowCount=impact::kContactCapacity;rin.rowCounter=mImpactRowCount;rin.rowOther=mImpactRowOther;
                 impact::Settings rs=mImpactSettings;rs.dt=dt;
                 impact::routeRows<<<(impact::kContactCapacity+127)/128,128,0,mStream>>>(rin,rs,mImpactRowRouted,mInputs);
+                if(rs.routeImpactor)impact::routeImpactorRows<<<(impact::kContactCapacity+127)/128,128,0,mStream>>>(rin,rs,mInputs);
             }
             if(mReport)check(cudaMemcpyAsync(mReportInputs+2*mN,mInputs,sizeof(*mInputs)*mN,cudaMemcpyDeviceToDevice,mStream));
             check(cudaEventRecord(mReady,mStream));
