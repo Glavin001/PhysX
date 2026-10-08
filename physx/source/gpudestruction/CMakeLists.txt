@@ -86,7 +86,6 @@ if(BUILD_TESTING)
     target_link_libraries(destruction_impact_replay PRIVATE PhysXDestructionTopologyGpu)
     target_include_directories(destruction_impact_replay PRIVATE ../../../blast/include/extensions/stress)
     px_destruction_cuda_properties(destruction_impact_replay PROPERTIES CUDA_STANDARD 17 CUDA_ARCHITECTURES "${CMAKE_CUDA_ARCHITECTURES}")
-    # After every add_test: the destruction label for the gate.
     px_destruction_label_tests()
 endif()
 

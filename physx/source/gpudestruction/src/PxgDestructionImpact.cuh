@@ -88,16 +88,7 @@ struct ContactRow {
     float dv[3],dw[3];  // the change the trial gave its velocity and angular velocity over the tick
     float im;           // inverse mass
     float ii[6];        // inverse inertia (xx, yy, zz, xy, xz, yz)
-    // A chain row (bodyA valid): a contact between two impactors, body A (one
-    // with its own row on this island's anchored chunk `chunk`, which gives
-    // the island and the frame) and `body` (B). load/normal: the trial's force
-    // on A; torqueA: its torque on A about A's centre of mass (comA). The
-    // impactor fields above are B's. The impactor pushing a freed piece into
-    // the still-anchored structure is in the solve through it.
-    PxU32 bodyA=0xffffffffu; // 0xffffffff: a row on a chunk
-    float torqueA[3],comA[3];
 };
-__device__ __forceinline__ bool chainRow(const ContactRow& r){return r.bodyA!=0xffffffffu;}
 
 struct Settings {
     float dt=1.0f/60.0f;
@@ -174,8 +165,6 @@ struct Settings {
     // The coupled contact (Inputs::rows): false takes the trial's contact
     // impulses as given (step 1, the uncoupled oracle) -- A/B.
     bool coupledContact=true;
-    // A struck chunk held elastically keeps the trial's stop (see stepIslands' publish); false: A/B only.
-    bool heldStops=true;
     // Diagnostics only (tests): 1 corrupts the first link's projection
     // (scales it 10x out of its set), so the detectors can be shown to fire.
     PxU32 faultInjection=0;
@@ -202,9 +191,10 @@ struct Status {
     PxU32 diverged;    // solves stopped as diverging (a bug signal; no verdict from them)
     PxU32 infeasible;  // projections that left their capacity set (a bug signal)
     PxU32 worstBond;   // the bond with the worst split in the last diverged solve, plus 1 (0: none)
-    PxU32 heldStops;   // impactors whose solved velocity was withheld (a struck chunk held elastically)
     PxU32 rolledBack;  // islands with impactors whose evaluation was capped or diverged (the trial's stop stands)
-    PxU32 energyGain;  // impactors the solve would have sped up past their start (a bug signal; withheld)
+    PxU32 energyGain;  // converged solves whose objective (the tick's kinetic energy plus the joints' complementary
+                       // energy) exceeds that of no joint and contact force at all: not a minimum (a bug signal)
+    PxU32 nonfinite;   // solves stopped on a non-finite residual (a bug signal, counted apart from diverged)
 };
 // Optional per-solve record (diagnostics): the first kLogCapacity solves.
 struct SolveRecord { PxU32 island,level,iterations,broken,clipped,capped,links,nodes; float lambda,change,rho,pad; };
@@ -251,7 +241,8 @@ struct Scratch {
     float* impactorMass{}; // [2 R] by impactor slot: inverse mass, largest inverse inertia (the majoriser)
     float* Js{};           // [6 (M + R)] the island's last converged forces
     float* slip{};         // [M] each solved bond's plastic slip this evaluation (m)
-    float* linkResidual{}; // [2 (M + R)] or null: each link's last (primal, dual) (diagnostics, with trace)
+    float* linkResidual{}; // [6 (M + R)] or null: each link's last primal, dual, dual linear/angular and their float floors (diagnostics)
+    PxU32 traceSolve=0;    // which solve the trace records (by Status::solves at its start)
     float* trace{};        // [4 kTraceCapacity] or null: the first solve's (primal, dual, motion, rho) per ADMM step (diagnostics)
     struct IslandState* state{}; // [N] by triggered-island slot
 };
@@ -287,6 +278,7 @@ struct Inputs {
     // others 0): the change the coupled solve makes to the trial's end
     // velocity and angular velocity (struck cluster's frame). Zeroed by the caller.
     float* rowDelta{};
+    float* rowBound{};   // [rowCount] out: the corrected pass's bound per contact point of each row's pair (N s); 0 none
 };
 
 // ---------------------------------------------------------------------------
@@ -379,10 +371,12 @@ __device__ __forceinline__ void polytope(float* p,const float* sc,float g0,float
     // Tension line h . m + N <= capT (h = g, or a bearing joint's 1/d),
     // compression line g . m - N <= capC.
     const float w[3]={sc[0]*sc[0],sc[1]*sc[1],sc[2]*sc[2]};
-    const float tol=1e-6f*(capT+capC);
+    // Each line's own tolerance: a hanger's tension capacity (1.4 kN) beside
+    // an unbounded compression (4e10 N) let 4e4 N of tension pass as feasible.
+    const float tolT=1e-6f*capT,tolC=1e-6f*capC;
     auto tension=[](const float* q,float a,float b){return a*q[1]+b*q[2]+q[0];};
     auto compression=[](const float* q,float a,float b){return a*q[1]+b*q[2]-q[0];};
-    if(tension(p,h0,h1)<=capT+tol && compression(p,g0,g1)<=capC+tol)return;
+    if(tension(p,h0,h1)<=capT+tolT && compression(p,g0,g1)<=capC+tolC)return;
     float q[3];
     const float gm=fmaxf(fminf(g0,g1),1e-30f),hm=fmaxf(fminf(h0,h1),1e-30f);
     const float big=(fabsf(p[0])+capT+capC+(g0+h0)*p[1]+(g1+h1)*p[2])*(w[0]+w[1]/(gm*hm)+w[2]/(gm*hm)+w[1]/(gm*gm)+w[2]/(hm*hm))+1.0f;
@@ -397,7 +391,7 @@ __device__ __forceinline__ void polytope(float* p,const float* sc,float g0,float
         }
         polytopePoint(p,w,g0,g1,h0,h1,side?0.0f:hi,side?hi:0.0f,q);
         const float other=side?tension(q,h0,h1)-capT:compression(q,g0,g1)-capC;
-        if(other<=tol){p[0]=q[0];p[1]=q[1];p[2]=q[2];return;}
+        if(other<=(side?tolT:tolC)){p[0]=q[0];p[1]=q[1];p[2]=q[2];return;}
     }
     // Both lines (the apex): (g + h) . m = capT + capC and N = capT - h . m.
     // On that segment of the quadrant, m0 = s, m1 = (tau - c0 s)/c1: the
@@ -439,19 +433,34 @@ __device__ __forceinline__ bool projectContact(const Bond& b,float* x)
 __device__ __forceinline__ bool project(const Bond& b,float* x,float ml,float mt,float m0,float m1)
 {
     if(b.flags&eCONTACT)return projectContact(b,x);
+    // A compression capacity far past the tension one (over 1e3x, where real
+    // materials stop at ~20x; float resolves no more than ~1e4x in one set:
+    // a hanger's 1.4 kN beside "no compression limit", 4e10 N) cannot be
+    // represented in one set; it is never the binding line for forces a
+    // converging solve meets, and is taken at that reach (stricter, never
+    // looser).
+    const float capC=fminf(b.capC,1e3f*fmaxf(b.capT,b.capS));
     const float sl=sqrtf(ml);
     bool moved=false;
     if(b.g0>0.0f) {   // (N, M0, M1), the section's L1 bending
         const float before[3]={x[0],x[4],x[5]};
         float p[3]={x[0],fabsf(x[4]),fabsf(x[5])};const float sc[3]={sl,sqrtf(m0),sqrtf(m1)};
-        polytope(p,sc,b.g0,b.g1,b.h0,b.h1,b.capT,b.capC);
+        polytope(p,sc,b.g0,b.g1,b.h0,b.h1,b.capT,capC);
         x[0]=p[0];x[4]=copysignf(p[1],before[1]);x[5]=copysignf(p[2],before[2]);
         moved=x[0]!=before[0] || x[4]!=before[1] || x[5]!=before[2];
     } else {   // (N, M_t): base -cF a .. tF a, apex where both fibres reach capacity.
         const float sa=sqrtf(m0);   // the round set has m0 == m1
         const float m=sqrtf(x[4]*x[4]+x[5]*x[5]);
         float s=sl*x[0],r=sa*m;
-        if(triangle(s,r,-sl*b.capC,0.0f,sl*b.capT,0.0f,0.5f*sl*(b.capT-b.capC),0.5f*sa*(b.capT+b.capC)/b.gb)) {
+        // In coordinates from the nearer base vertex: a tension capacity of
+        // 1 kN beside a compression of 1e10 N (no compression limit) is lost to
+        // cancellation if the triangle is written about N = 0.
+        const bool fromTension=s>0.5f*sl*(b.capT-capC);
+        const float o=fromTension?sl*b.capT:-sl*capC;
+        s-=o;
+        const bool moved2=triangle(s,r,-sl*capC-o,0.0f,sl*b.capT-o,0.0f,0.5f*sl*(b.capT-capC)-o,0.5f*sa*(b.capT+capC)/b.gb);
+        s+=o;
+        if(moved2) {
             moved=true;const float mn=r/sa;x[0]=s/sl;
             if(m>0.0f){x[4]*=mn/m;x[5]*=mn/m;}else{x[4]=x[5]=0.0f;}
         }
@@ -506,7 +515,11 @@ __device__ __forceinline__ void relative(const Bond& b,const float* v,float* e)
 __device__ __forceinline__ bool chunkGone(const Inputs& in,PxU32 c){return in.crushed && in.crushed[c].crushed;}
 __device__ __forceinline__ bool bondMember(const Inputs& in,PxU32 i)
 {
-    if(!(in.health[i]>0.0f))return false;
+    // A joint worn to below float's resolution of its authored area (live
+    // area 1.6e-10 of 4e-3 m^2 seen in the lab: capacity 1e-4 N) carries
+    // nothing the solve can resolve: it is not a member (its forces would be
+    // split noise against a zero capacity -- a 'diverged' solve that is not).
+    if(!(in.health[i]>8.0f*FLT_EPSILON*in.bonds[i].area))return false;
     const auto& b=in.bonds[i];return !chunkGone(in,b.chunk0) && !chunkGone(in,b.chunk1);
 }
 
@@ -962,6 +975,10 @@ __device__ PxU32 solve(Shared& sh,const Inputs& in,const Settings& s,const Scrat
             const float k6[6]={b.kl,b.kl,b.kl,b.kt,b.k0,b.k1};const float* T=w.T+6*l;
             float x[6],zold[6];
             for(int q=0;q<6;++q){j[q]=Ainv[q]*(-g[q]+inverseDt2/k6[q]*T[q]+R[q]*(z[q]-uu[q])-ey[q]);x[q]=j[q]+uu[q];zold[q]=z[q];}
+            // The projected point's size: the projection's rounding is eps of
+            // it (a point far outside its set comes back as a difference of
+            // large numbers).
+            float xl=0.0f,xa=0.0f;for(int q=0;q<6;++q){if(q<3)xl+=x[q]*x[q];else xa+=x[q]*x[q];}
             project(b,x,R[0],R[3],R[4],R[5]);
             if(s.faultInjection==1 && k==0)for(int q=0;q<6;++q)x[q]*=10.0f;
             if(!feasible(b,x,s.capacityTolerance)){atomicAdd(&w.status->infeasible,1u);bad=1u;}
@@ -985,13 +1002,33 @@ __device__ PxU32 solve(Shared& sh,const Inputs& in,const Settings& s,const Scrat
                 primal=fmaxf(primal,mine);
                 if(mine>worst){worst=mine;worstBond=b.bond;}
             }
-            if(w.linkResidual){w.linkResidual[2*l]=(b.flags&eCONTACT)?0.0f:(sqrtf(lp)+fmaxf(fmaxf(b.gb,b.gt),fmaxf(b.g0,b.g1))*sqrtf(ap))/cap;
-                w.linkResidual[2*l+1]=0.5f*s.dt*s.dt*fmaxf(sqrtf(ld),sqrtf(ad)*s.lengthScale);}
-            dual=fmaxf(dual,0.5f*s.dt*s.dt*fmaxf(sqrtf(ld),sqrtf(ad)*s.lengthScale));
+            if(w.linkResidual){w.linkResidual[6*l]=(b.flags&eCONTACT)?0.0f:(sqrtf(lp)+fmaxf(fmaxf(b.gb,b.gt),fmaxf(b.g0,b.g1))*sqrtf(ap))/cap;
+                w.linkResidual[6*l+1]=0.5f*s.dt*s.dt*fmaxf(sqrtf(ld),sqrtf(ad)*s.lengthScale);}
+            // The dual residual R |dZ| as motion over the tick, against the
+            // tolerance -- or, where float cannot resolve that, against the
+            // motion a few ulps of the joint's own force stand for
+            // (1/2 dt^2 R 8 eps |Z|): a soft hinge (k r^2 ~ 2e4 N m/rad on a
+            // 2 cm strip) carries 57 N m with R ~ 2e5, and its iterates
+            // dither at 1.5e-4 m for ever (65k steps).
+            {
+                float zl=0.0f,za=0.0f;for(int q=0;q<6;++q){if(q<3)zl+=z[q]*z[q];else za+=z[q]*z[q];}
+                const float half=0.5f*s.dt*s.dt,eps8=8.0f*FLT_EPSILON;
+                // The J step forms the joint's relative motion from its chunks'
+                // accelerations: its rounding is eps of theirs, not of the
+                // difference (two chunks falling together under gravity).
+                float ua=0.0f,uw=0.0f;
+                for(int e=0;e<2;++e){if(!(b.flags&(e?eDYNAMIC1:eDYNAMIC0)))continue;const float* q6=w.u+6*(e?b.c1:b.c0);const float* y6=w.cy+6*(e?b.c1:b.c0);
+                    ua+=sqrtf(q6[0]*q6[0]+q6[1]*q6[1]+q6[2]*q6[2])+sqrtf(y6[0]*y6[0]+y6[1]*y6[1]+y6[2]*y6[2]);
+                    uw+=sqrtf(q6[3]*q6[3]+q6[4]*q6[4]+q6[5]*q6[5])+sqrtf(y6[3]*y6[3]+y6[4]*y6[4]+y6[5]*y6[5]);}
+                const float fl=half*eps8*fmaxf(R[0]*sqrtf(fmaxf(zl,xl)),ua),fa=half*eps8*fmaxf(fmaxf(fmaxf(R[3],R[4]),R[5])*sqrtf(fmaxf(za,xa)),uw)*s.lengthScale;
+                const float rl=half*sqrtf(ld),ra=half*sqrtf(ad)*s.lengthScale;
+                dual=fmaxf(dual,fmaxf(rl/fmaxf(1.0f,fl/s.tolerance),ra/fmaxf(1.0f,fa/s.tolerance)));
+                if(w.linkResidual){float* d=w.linkResidual+6*l;d[2]=rl;d[3]=ra;d[4]=fl;d[5]=fa;}
+            }
             pn+=lp+ap;dn+=ld+ad;
         }
         primal=blockMax(sh,primal);dual=blockMax(sh,dual);last=fmaxf(primal,dual/s.tolerance*s.capacityTolerance);
-        if(w.trace && !threadIdx.x && blockIdx.x==0 && w.status->solves==0 && it<kTraceCapacity){float* t=w.trace+4*it;t[0]=primal;t[1]=dual;t[2]=motion;t[3]=rho;}
+        if(w.trace && !threadIdx.x && blockIdx.x==0 && w.status->solves==w.traceSolve && it<kTraceCapacity){float* t=w.trace+4*it;t[0]=primal;t[1]=dual;t[2]=motion;t[3]=rho;}
         // A projection that left its set is a bug: no verdict from this solve.
         const bool infeasible=blockCount(sh,bad)>0;
         if(!infeasible && !(primal>s.capacityTolerance) && !(dual>s.tolerance) && !(motion>s.tolerance)){done=true;++it;++run;break;}
@@ -1002,7 +1039,7 @@ __device__ PxU32 solve(Shared& sh,const Inputs& in,const Settings& s,const Scrat
         if(infeasible || !isfinite(last) || (it>=25 && split>kDivergence)) {
             // Diverging: stop; the caller rolls the island back, as for a capped solve.
             const PxU32 bond=blockArgMax(sh,worst,worstBond);
-            if(!threadIdx.x){atomicAdd(&w.status->diverged,1u);atomicExch(&w.status->worstBond,bond+1u);}
+            if(!threadIdx.x){atomicAdd(isfinite(last)?&w.status->diverged:&w.status->nonfinite,1u);atomicExch(&w.status->worstBond,bond+1u);}
             ss.diverged=1;done=true;capped=true;++it;++run;break;
         }
         // Balance the residuals (OSQP): rescale rho by sqrt(primal/dual) every
@@ -1013,10 +1050,17 @@ __device__ PxU32 solve(Shared& sh,const Inputs& in,const Settings& s,const Scrat
         // part then diverged (the split 4e3 x capacity, never recovering).
         (void)pn;(void)dn;
         const float rp=primal/s.capacityTolerance,rd=dual/s.tolerance;
-        if(it%25==24 && rp>0.0f && rd>0.0f) {
-            const float ratio=sqrtf(rp/rd);
-            if(ratio>5.0f || ratio<0.2f) {
-                const float next=rho*fminf(fmaxf(ratio,1e-3f),1e3f);
+        // A split closed exactly (rp = 0) with the motion unsettled is the
+        // most unbalanced case, not one to skip: rho was never rescaled there
+        // (OSQP rebalances on it too).
+        if(it%25==24 && (rp>0.0f || rd>0.0f)) {
+            const float ratio=rd>0.0f?sqrtf(rp/rd):10.0f;
+            if((ratio>5.0f && rho<1e3f) || (ratio<0.2f && rho>1e-3f)) {
+                // At most 10x a rebalance, and rho within 1e-3..1e3 of the
+                // kinetic majoriser's scale: beyond, the projection's metric
+                // spans more than float resolves (rho 1e-6 gave infeasible
+                // projections).
+                const float next=fminf(fmaxf(rho*fminf(fmaxf(ratio,0.1f),10.0f),1e-3f),1e3f);
                 for(PxU32 k=threadIdx.x;k<links(is);k+=kThreads)for(int q=0;q<6;++q)U[6*(is.b0+k)+q]*=rho/next;
                 rho=next;__syncthreads();blockJacobi(in,w,is,rho,inverseDt2);
             }
@@ -1024,6 +1068,27 @@ __device__ PxU32 solve(Shared& sh,const Inputs& in,const Settings& s,const Scrat
     }
     if(!done && it>=s.iterations){done=true;capped=true;}
     ss.it=it;ss.rho=rho;ss.last=last;
+    // A converged solve is the minimum of the dual: its objective at most that
+    // of J = 0 (feasible: no joint or contact force). Above it, the solve did
+    // not minimise -- energy from nowhere (Status::energyGain).
+    if(done && !capped) {
+        const float idt2=1.0f/(s.dt*s.dt);
+        float oz=0.0f,o0=0.0f;
+        for(PxU32 k=threadIdx.x;k<nodes(is);k+=kThreads) {
+            const Chunk& c=w.chunks[is.c0+k];float r[6],r0[6];
+            for(int q=0;q<6;++q){r[q]=(1.0f-lambda)*c.pb[q]+lambda*c.pf[q]-c.r[q];r0[q]=r[q];}
+            for(PxU32 slot=c.begin;slot<c.end;++slot){const PxU32 l=w.adj[slot];const Bond& b=w.bonds[l];if(b.flags&eALIVE)addWrench(b,Z+6*l,b.c0==c.chunk,r);}
+            float a[6],a0[6];accelerate(c,r,a);accelerate(c,r0,a0);
+            for(int q=0;q<6;++q){oz+=0.5f*r[q]*a[q];o0+=0.5f*r0[q]*a0[q];}
+        }
+        for(PxU32 k=threadIdx.x;k<links(is);k+=kThreads) {
+            const PxU32 l=is.b0+k;const Bond& b=w.bonds[l];if(!(b.flags&eALIVE))continue;
+            const float k6[6]={b.kl,b.kl,b.kl,b.kt,b.k0,b.k1};const float* T=w.T+6*l;const float* z=Z+6*l;
+            for(int q=0;q<6;++q){const float c=idt2/k6[q];oz+=0.5f*c*(z[q]-T[q])*(z[q]-T[q]);o0+=0.5f*c*T[q]*T[q];}
+        }
+        oz=blockSum(sh,oz);o0=blockSum(sh,o0);
+        if(!threadIdx.x && oz>o0*(1.0f+1e-3f)+1e-6f*o0+1e-9f)atomicAdd(&w.status->energyGain,1u);
+    }
     // The feasible iterate is the answer.
     if(done && !capped)for(PxU32 k=threadIdx.x;k<links(is);k+=kThreads)for(int q=0;q<6;++q)w.J[6*(is.b0+k)+q]=Z[6*(is.b0+k)+q];
     __syncthreads();
@@ -1048,10 +1113,9 @@ __device__ __forceinline__ void prepareRow(const Inputs& in,const Settings& s,Px
     const ContactRow& row=in.rows[r];const auto c=in.chunks[row.chunk];
     PxVec3 n(-row.normal[0],-row.normal[1],-row.normal[2]);
     const float l=n.magnitude();n=l>0.0f?n*(1.0f/l):PxVec3(0.0f,1.0f,0.0f);
-    b=Bond{};b.bond=r;b.c0=chainRow(row)?0u:row.chunk;b.c1=0;b.flags=eALIVE|eDYNAMIC0|eDYNAMIC1|eCONTACT;
+    b=Bond{};b.bond=r;b.c0=row.chunk;b.c1=0;b.flags=eALIVE|eDYNAMIC0|eDYNAMIC1|eCONTACT;
     frame(n,b.n,b.t1,b.t2);
-    const float* origin0=chainRow(row)?row.comA:nullptr;
-    for(int q=0;q<3;++q){b.o0[q]=row.point[q]-(origin0?origin0[q]:c.position[q]);b.o1[q]=row.point[q]-row.com[q];b.pc[q]=0.0f;}
+    for(int q=0;q<3;++q){b.o0[q]=row.point[q]-c.position[q];b.o1[q]=row.point[q]-row.com[q];b.pc[q]=0.0f;}
     // The residual's scale: the force that stops the impactor in the tick.
     const float v=sqrtf(dot3(row.velocity,row.velocity))+sqrtf(dot3(row.dv,row.dv));
     b.capC=fmaxf(sqrtf(dot3(row.load,row.load))+v/(row.im*s.dt),1.0f);b.capT=b.capS=0.0f;
@@ -1186,15 +1250,6 @@ __global__ __launch_bounds__(kThreads) void setupIslands(Inputs in,Settings s,Sc
                 for(PxU32 e=0;e<k;++e){const Bond& f=w.bonds[is.b0+nb+e];if(in.rows[f.bond].body==body && f.c1){b.c1=f.c1;break;}}
             }
             __syncthreads();
-            // A chain row's A side: A's node (from its own row). Without one
-            // (A's rows lie on another island) the chain row is dropped.
-            for(PxU32 k=threadIdx.x;k<nr;k+=kThreads) {
-                Bond& b=w.bonds[is.b0+nb+k];const ContactRow& row=in.rows[b.bond];if(!chainRow(row))continue;
-                PxU32 node=0;
-                for(PxU32 e=0;e<nr && !node;++e){const Bond& f=w.bonds[is.b0+nb+e];if(in.rows[f.bond].body==row.bodyA)node=f.c1;}
-                if(node)b.c0=node;else{b.c0=b.c1;b.flags&=~eALIVE;}
-            }
-            __syncthreads();
             // The trial's force of each coupled pair leaves its chunk's load
             // and its impactor's (the impactor's other loads stay: what the
             // trial gave it, less these pairs).
@@ -1202,11 +1257,7 @@ __global__ __launch_bounds__(kThreads) void setupIslands(Inputs in,Settings s,Sc
                 Chunk& c=w.chunks[is.c0+k];
                 for(PxU32 e=0;e<nr;++e) {
                     const Bond& b=w.bonds[is.b0+nb+e];const ContactRow& row=in.rows[b.bond];
-                    if(!(b.flags&eALIVE))continue;
-                    if(b.c0==c.chunk) {
-                        for(int q=0;q<3;++q)c.pf[q]-=row.load[q];
-                        if(chainRow(row))for(int q=0;q<3;++q)c.pf[3+q]-=row.torqueA[q];
-                    }
+                    if(k<nc && b.c0==c.chunk)for(int q=0;q<3;++q)c.pf[q]-=row.load[q];
                     if(k>=nc && b.c1==c.chunk)for(int q=0;q<3;++q){c.pf[q]+=row.load[q];c.pf[3+q]-=row.torque[q];}
                 }
             }
@@ -1304,7 +1355,9 @@ __global__ __launch_bounds__(kThreads) void stepIslands(Inputs in,Settings s,Scr
         // This block's dispatch budget is spent: the island waits for the next.
         if(budget<=0.0f){if(!threadIdx.x)atomicAdd(w.counters+4,1u);continue;}
         const Island is=st.is;const PxU32 nb=is.nb,island=st.island;
-        const float units=float(links(is)+nodes(is));
+        // A step costs at least a block's pass however small the island (its
+        // synchronisations): a 15-link island ran 4096 steps in one 112 ms dispatch.
+        const float units=float(max(links(is)+nodes(is),kThreads));
         while(st.phase!=eDONE && budget>0.0f) {
             if(st.phase==eTRIAL) {
                 const float lambda=fminf(1.0f,st.first*powf(s.rampFactor,float(st.level)));
@@ -1409,51 +1462,43 @@ __global__ __launch_bounds__(kThreads) void stepIslands(Inputs in,Settings s,Scr
                     }
                     w.verdict[b.bond]=v;if(w.slip)w.slip[b.bond]=slip;
                 }
-                // Each impactor's end velocity against the trial's (none from an
-                // unconverged evaluation: the trial's stands). A struck chunk
-                // still joined to the structure stays where it is in the rigid
-                // simulation (its cluster is kinematic); its motion in the solve
-                // is its joints' deformation, which the rigid simulation does
-                // not have. So the solve's velocity stands only if it does not
-                // carry the impactor into such a chunk held elastically:
-                // otherwise the trial's (the chunk holds it, with the contact's
-                // own restitution).
+                // Each impactor's end velocity against the trial's, for
+                // diagnostics (the rigid simulation's corrected pass decides
+                // the impactor's motion, its contacts bounded by this solve:
+                // in.rowBound). Passivity is checked, never imposed: joints
+                // and unilateral contacts only take momentum from an impactor,
+                // so its end speed past its start plus its other loads' change
+                // is a bug (Status::energyGain).
                 for(PxU32 k2=is.nc+threadIdx.x;k2<nodes(is) && !st.capped;k2+=kThreads) {
                     const Chunk& c=w.chunks[is.c0+k2];const ContactRow& row=in.rows[c.owner];const float* u=w.u+6*c.chunk;
-                    bool into=false;
-                    for(PxU32 slot=c.begin;slot<c.end && !into;++slot) {
-                        const Bond& r=w.bonds[w.adj[slot]];if(!(r.flags&eCONTACT) || r.c1!=c.chunk || r.c0>=in.chunkCount)continue;
-                        // Is the struck chunk still held elastically (a live joint
-                        // below capacity)? One whose joints have all broken or
-                        // yielded moves with the impactor (plastic slip, until it
-                        // breaks); one held below capacity does not.
-                        const Chunk* struck=nullptr;
-                        for(PxU32 m2=0;m2<is.nc;++m2)if(w.chunks[is.c0+m2].chunk==r.c0){struck=&w.chunks[is.c0+m2];break;}
-                        bool held=false;
-                        if(struck)for(PxU32 s2=struck->begin;s2<struck->end && !held;++s2){const PxU32 l=w.adj[s2];const Bond& j=w.bonds[l];
-                            held=!(j.flags&eCONTACT) && (j.flags&eALIVE) && utilisation(j,w.J+6*l)<1.0f-s.capacityBand;}
-                        if(!held || !s.heldStops)continue;
-                        // The impactor's velocity at the contact point along the push (n points from the chunk to the impactor).
-                        float wv[3];cross3(u+3,r.o1,wv);
-                        const float approach=-((u[0]+wv[0])*r.n[0]+(u[1]+wv[1])*r.n[1]+(u[2]+wv[2])*r.n[2])*s.dt;
-                        into=approach>s.tolerance/s.dt;
-                    }
                     float d[6];
                     for(int q=0;q<3;++q){d[q]=u[q]*s.dt-(row.velocity[q]+row.dv[q]);d[3+q]=u[3+q]*s.dt-(row.spin[q]+row.dw[q]);}
-                    if(into){for(int q=0;q<6;++q)d[q]=0.0f;atomicAdd(&w.status->heldStops,1u);}
-                    // Passivity: joints and unilateral contacts only take
-                    // momentum from an impactor; its end speed cannot exceed
-                    // what it started with plus its other loads' change (the
-                    // trial's, less the coupled pairs'). Beyond it: a bug.
-                    else {
-                        // pf: its momentum and every other load over the tick, the coupled pairs' trial forces taken out.
-                        float e2=0.0f,b2=0.0f;
-                        for(int q=0;q<3;++q){const float o=c.pf[q]*c.im*s.dt;e2+=u[q]*s.dt*u[q]*s.dt;b2+=o*o;}
-                        const float start=sqrtf(row.velocity[0]*row.velocity[0]+row.velocity[1]*row.velocity[1]+row.velocity[2]*row.velocity[2]);
-                        if(sqrtf(e2)>fmaxf(start,sqrtf(b2))*1.01f+s.tolerance/s.dt){for(int q=0;q<6;++q)d[q]=0.0f;atomicAdd(&w.status->energyGain,1u);}
-                    }
                     for(int q=0;q<6;++q)finite=finite && isfinite(d[q]);
                     if(in.rowDelta)for(int q=0;q<6;++q)in.rowDelta[6*c.owner+q]=d[q];
+                }
+                // Each row's bound on its contact in the corrected pass, per
+                // contact point (N s): what the solve delivered, where the
+                // struck chunk stays on the structure (held elastically or at
+                // capacity: it gives way -- deflects, slips -- and the rigid
+                // simulation's kinematic cluster must not stop the impactor
+                // harder than its joints and inertia do; a stiff joint's
+                // delivered impulse is the full stop); none (0) where it is
+                // freed (a body of its own in the corrected pass).
+                for(PxU32 k2=threadIdx.x;k2<is.nr;k2+=kThreads) {
+                    const PxU32 l=is.b0+nb+k2;const Bond& r=w.bonds[l];const ContactRow& row=in.rows[r.bond];
+                    float bound=0.0f;
+                    if(!st.capped && r.c0<in.chunkCount) {
+                        const Chunk* struck=nullptr;
+                        for(PxU32 m2=0;m2<is.nc;++m2)if(w.chunks[is.c0+m2].chunk==r.c0){struck=&w.chunks[is.c0+m2];break;}
+                        bool live=false;
+                        if(struck)for(PxU32 s2=struck->begin;s2<struck->end && !live;++s2){const Bond& b2=w.bonds[w.adj[s2]];
+                            live=!(b2.flags&eCONTACT) && (b2.flags&eALIVE);}
+                        if(live) {
+                            float lin[3],ang[3];toWorld(r,w.J+6*l,lin,ang);
+                            bound=sqrtf(lin[0]*lin[0]+lin[1]*lin[1]+lin[2]*lin[2])*s.dt/float(max(row.points,1u));
+                        }
+                    }
+                    if(in.rowBound)in.rowBound[r.bond]=bound;
                 }
                 if(st.capped && is.ni && !threadIdx.x)atomicAdd(&w.status->rolledBack,1u);
                 // Each coupled row's force on its chunk (cluster frame).
@@ -1507,6 +1552,7 @@ __global__ void reportConvergence(const Status* impactStatus,PxDestructionStageS
     }
 }
 
+__global__ void markError(Status* status,PxU32 bit){atomicOr(&status->error,bit);}
 // Host side: persistent scratch and the launches of one evaluation.
 struct Stage {
     Scratch w{};PxU32 n=0,m=0;
@@ -1514,6 +1560,7 @@ struct Stage {
     // The last evaluation's dispatches and the longest of them (host clock,
     // from submission to completion), ms.
     PxU32 dispatches=0;double longestDispatch=0.0,lastSubmit=0.0;
+    bool errorUnfinished=false;
     void release() {
         if(pending)cudaFreeHost(pending);pending=nullptr;
         cudaFree(w.islandFlag);cudaFree(w.islands);cudaFree(w.counters);cudaFree(w.bondLocal);cudaFree(w.degree);
@@ -1554,7 +1601,7 @@ struct Stage {
         // host waits for each and stops when no island has work left. Enough
         // of them for the largest island the scene can have to spend its
         // evaluation budget (ADMM steps, and the ramp's other passes).
-        const double units=double(m)+double(n)+double(in.rows?in.rowCount:0u)*2.0;
+        const double units=std::max(double(m)+double(n)+double(in.rows?in.rowCount:0u)*2.0,double(kThreads));
         const double work=(double(s.evaluationIterations)*(5.0+3.0*double(s.innerIterations))+3.0*double(s.maxRounds)+2.0)*units;
         const PxU32 limit=PxU32(std::min(1e6,std::ceil(work/double(s.dispatchWork))+1.0));
         check(cudaStreamSynchronize(stream));
@@ -1568,6 +1615,10 @@ struct Stage {
             ++dispatches;
             if(!*pending)break;
         }
+        // Work left after the last dispatch the budget allows: an island
+        // never published (its forces are the elastic solve's). A bug.
+        if(*pending){std::fprintf(stderr,"[impact] error: %u islands unfinished after %u dispatches\n",*pending,dispatches);
+            markError<<<1,1,0,stream>>>(w.status,1u);errorUnfinished=true;}
     }
 };
 

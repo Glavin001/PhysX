@@ -130,7 +130,7 @@ void islands(const Structure& s,std::vector<PxU32>& node,std::vector<PxU32>& bon
 struct Result {
     std::vector<PxDestructionVectorPair> elastic,forces;
     std::vector<PxDestructionBondVerdict> verdicts;
-    std::vector<PxU32> impact;std::vector<float> accel,rowDelta,slip; impact::Status status{};
+    std::vector<PxU32> impact;std::vector<float> accel,rowDelta,rowBound,slip; impact::Status status{};
     std::vector<PxU32> carried;  // per bond: its island was solved or carried (the next tick's plastic state)
 };
 // The plastic state carried from the last evaluation (Result::forces, carried, slip).
@@ -178,8 +178,8 @@ Result evaluate(const Structure& s,const std::vector<PxVec3>& F,const std::vecto
     in.accelerations=dInputs.p;in.elastic=dElastic.p;in.base=dBase.p;in.stage=stage.p;
     if(settings.sectionBending)in.sections=dSections.p;
     Device<impact::ContactRow> dRows(s.rows.empty()?std::vector<impact::ContactRow>(1):s.rows);
-    Device<float> dDelta(6*std::max<size_t>(s.rows.size(),1));
-    if(!s.rows.empty()){in.rows=dRows.p;in.rowCount=PxU32(s.rows.size());in.rowDelta=dDelta.p;}
+    Device<float> dDelta(6*std::max<size_t>(s.rows.size(),1)),dBound(std::max<size_t>(s.rows.size(),1));
+    if(!s.rows.empty()){in.rows=dRows.p;in.rowCount=PxU32(s.rows.size());in.rowDelta=dDelta.p;in.rowBound=dBound.p;}
     Device<PxDestructionVectorPair> dElasticBase(carry?carry->elasticBase:std::vector<PxDestructionVectorPair>(1));
     Device<PxU32> dCarried(carry?carry->carried:std::vector<PxU32>(1));Device<float> dSlip(carry?carry->slip:std::vector<float>(1));
     if(carry){in.elasticBase=dElasticBase.p;in.carried=dCarried.p;in.slipBefore=dSlip.p;}
@@ -207,7 +207,7 @@ Result evaluate(const Structure& s,const std::vector<PxVec3>& F,const std::vecto
             out.slip[k]=(carry?carry->slip[k]:0.0f)+((flags[bondIsland[k]]&1u)?slip[k]:0.0f);}
     }
 #endif
-    out.rowDelta=dDelta.get();
+    out.rowDelta=dDelta.get();out.rowBound=dBound.get();
     e.release();cudaStreamDestroy(stream);
     return out;
 }
@@ -494,6 +494,12 @@ void coupled(){
         expect(std::fabs(r.accel[6*wall]*dt-expected)<0.01f*expected,text);
         expect(ductile?(r.impact[0]==impact::eYIELDED && r.verdicts[0].health>0):(r.impact[0]==impact::eBROKEN),
             ductile?"  the joint yields and holds":"  the joint breaks");
+        // The corrected pass's bound on the pair: the force the solve gave it
+        // over the tick, per contact point, where the chunk stays on at
+        // capacity (ductile); none where it is freed (brittle).
+        std::snprintf(text,sizeof text,"  corrected-pass bound %.2f N s per point (expected %s)",r.rowBound[0],ductile?"M (v - v') / 4 points":"0, freed");
+        const float delivered=M*(v-expected)/4.0f;   // the impulse that slowed the body
+        expect(ductile?std::fabs(r.rowBound[0]-delivered)<0.02f*delivered:r.rowBound[0]==0.0f,text);
     }
 }
 
@@ -580,16 +586,15 @@ void carried(){
     expect(solved==0 && broken==0,text);
 }
 
-// 10. An elastically held chunk stops the body (the infinite_wall
-// `unbreakable` control): the same 1000 kg body at 10 m/s, the chunk's joint
-// far beyond any load but soft (k dt^2 ~ 8 against the masses), so in the
-// solve body and chunk ride its spring through most of the tick. The rigid
-// simulation keeps the held chunk where it is (its cluster is kinematic):
-// the solve's velocity would carry the body into it, a tick later the
-// trial stops it again -- momentum from nowhere. The trial's answer stands
-// (no velocity change); a yielded joint (test 6) lets it through.
+// 10. An elastically held chunk (the infinite_wall `unbreakable` control,
+// soft): in the solve the body rides it through the tick on its joint's
+// elastic deflection, which the rigid simulation does not have; the corrected
+// pass's contact is bounded by what the solve delivered (the joint's spring
+// force over the tick, M (v - v')), so the body keeps the rest -- deflection
+// shown as penetration, the spring's force carried into the next tick. A stiff
+// one delivers the full stop.
 void heldStops(){
-    std::printf("coupled contact: a chunk held elastically stops the body\n");
+    std::printf("coupled contact: a chunk held elastically bounds the corrected pass by its spring\n");
     Structure s;const PxU32 anchor=s.chunk(PxVec3(0,0,0),0,0),wall=s.chunk(PxVec3(0,0.5f,0),10.0f,0.5f);
     const PxU32 mat=s.material(1e13f,1e13f,1e13f,0.0f);
     s.bond(anchor,wall,PxVec3(0,0.25f,0),PxVec3(0,1,0),0.01f,mat,1e-3f);   // k = 30 GPa w^2 = 3e4 N/m
@@ -599,19 +604,18 @@ void heldStops(){
     for(int q=0;q<3;++q){row.point[q]=point[q];row.com[q]=com[q];}
     row.normal[0]=1;row.load[0]=M*v/dt;row.velocity[0]=v;row.dv[0]=-v;row.im=1.0f/M;row.ii[0]=row.ii[1]=row.ii[2]=1.0f/400.0f;
     s.rows.push_back(row);
-    // The trial's elastic forces: the stop load is far past... nothing: give
-    // the trigger a reason (a weak trim on the chunk, pulled off).
     const PxU32 trim=s.chunk(PxVec3(0,0.5f,0.1f),1.0f,0.01f),glue=s.material(1e3f,1e3f,1e3f,0.0f);
     s.bond(wall,trim,PxVec3(0,0.5f,0.05f),PxVec3(0,0,1),1e-3f,glue);
     const auto rest=elastic(s,s.force,s.torque);
     auto F=s.force;F[wall]+=PxVec3(row.load[0],0,0);F[trim]+=PxVec3(0,0,100.0f);
-    impact::Settings hs;hs.heldStops=!std::getenv("IMPACT_TEST_NO_HOLD");
-    const auto r=evaluate(s,F,s.torque,rest,true,hs);
-    char text[200];std::snprintf(text,sizeof text,"held joint: the body's velocity change %.3f m/s (expected 0: the trial's stop stands; %u islands, %u contacts)",
-        r.rowDelta[0],r.status.triggered,r.status.contacts);
-    expect(r.status.triggered==1 && r.status.contacts==1 && std::fabs(r.rowDelta[0])<1e-6f && r.impact[0]!=impact::eBROKEN,text);
+    const auto r=evaluate(s,F,s.torque,rest,true);
+    const float delivered=-M*r.rowDelta[0]/4.0f;   // the trial left the body at rest: the change is its end velocity
+    const float kept=r.rowDelta[0];
+    char text[240];std::snprintf(text,sizeof text,"held joint: the body keeps %.2f m/s, the corrected pass's bound %.2f N s per point = M (v - v')/4 = %.2f (%u energy gains)",
+        kept,r.rowBound[0],M*(v-kept)/4.0f,r.status.energyGain);
+    (void)delivered;
+    expect(r.status.triggered==1 && r.impact[0]!=impact::eBROKEN && std::fabs(r.rowBound[0]-M*(v-kept)/4.0f)<0.02f*M*v/4.0f && r.status.energyGain==0,text);
 }
-
 // 11. The section model's projection on a thin section (a drywall screw
 // joint in the house: 1 cm^2, g ~ 2.4e3 /m, capacities 600-900 N, metrics
 // ~1): the projected point is feasible and no feasible point is nearer (in
@@ -679,7 +683,7 @@ __global__ void fuzzProbe(const impact::Bond* bonds,const float* points,PxU32 co
     impact::Bond b=bonds[i];float x[6];for(int q=0;q<6;++q)x[q]=points[6*i+q];
     const float* m=points+6*count+4*i;
     impact::project(b,x,m[0],m[1],m[2],m[3]);
-    if(!impact::feasible(b,x,1e-4f))atomicAdd(infeasible,1u);
+    if(!impact::feasible(b,x,1e-4f)){atomicAdd(infeasible,1u);infeasible[1+i]=1u;float* o=const_cast<float*>(points)+6*count+4*count+6*i;for(int q=0;q<6;++q)o[q]=x[q];}
 }
 void fuzz(){
     std::printf("projections land in their sets (fuzz)\n");
@@ -688,20 +692,34 @@ void fuzz(){
     const PxU32 n=4096;std::vector<impact::Bond> bonds(n);std::vector<float> pts(6*n),metric(4*n);
     for(PxU32 i=0;i<n;++i){
         impact::Bond b{};b.flags=impact::eALIVE;const float a=lg(1e-5f,1.0f);b.area=a;
-        b.capT=lg(1e2f,1e7f);b.capC=b.capT*lg(0.01f,100.0f);b.capS=b.capT*lg(0.1f,10.0f);
+        b.capT=lg(1e2f,1e7f);b.capS=b.capT*lg(0.1f,10.0f);
+        // Real materials: compression 0.01-100x the tension capacity; one in
+        // sixteen a "no compression limit" sentinel (a hanger's 1.4 kN beside
+        // 4e10 N), whose forces stay near the tension capacity.
+        const bool sentinel=i%16==1;
+        b.capC=b.capT*(sentinel?lg(1e6f,1e8f):lg(0.01f,100.0f));
         const int kind=i%3;
         if(kind==0){b.g0=lg(1.0f,3e3f);b.g1=lg(1.0f,3e3f);b.gb=b.g0;b.gt=lg(1.0f,3e3f);   // L1 section, half of them bearing joints
             if(i%2){b.h0=lg(5.0f,200.0f);b.h1=lg(5.0f,200.0f);}else{b.h0=b.g0;b.h1=b.g1;}}
         else {b.gb=lg(0.3f,3e3f);b.gt=lg(0.3f,3e3f);}                                    // round cones
         bonds[i]=b;
-        const float F=b.capT+b.capC,M=F/std::min(b.gb,b.g0>0?std::min(b.g0,b.g1):b.gb);
+        // Points out to 10x the capacities the forces reach: a compression
+        // "beyond any load" (4e10 N) is never met by forces of that size (the
+        // projection takes it at 1e3x the tension's; near that apex, forces
+        // 1e3x a joint's tension capacity are past float's resolution of it).
+        const float F=sentinel?2.0f*b.capT:b.capT+b.capC,M=F/std::min(b.gb,b.g0>0?std::min(b.g0,b.g1):b.gb);
         for(int q=0;q<3;++q)pts[6*i+q]=r(-10*F,10*F);for(int q=3;q<6;++q)pts[6*i+q]=r(-10*M,10*M);
         const float ml=lg(1e-6f,1e6f),ma=lg(1e-6f,1e6f);
         metric[4*i]=ml;metric[4*i+1]=lg(1e-6f,1e6f);metric[4*i+2]=kind==0?lg(1e-6f,1e6f):ma;metric[4*i+3]=kind==0?lg(1e-6f,1e6f):ma;
     }
-    pts.insert(pts.end(),metric.begin(),metric.end());
-    Device<impact::Bond> db(bonds);Device<float> dp(pts);Device<PxU32> bad(1);
+    pts.insert(pts.end(),metric.begin(),metric.end());pts.resize(pts.size()+6*n,0.0f);
+    Device<impact::Bond> db(bonds);Device<float> dp(pts);Device<PxU32> bad(1+n);
     fuzzProbe<<<(n+127)/128,128>>>(db.p,dp.p,n,bad.p);check(cudaDeviceSynchronize());
+    {const auto f=bad.get();PxU32 shown=0;for(PxU32 i=0;i<n && shown<6;++i)if(f[1+i]){++shown;const auto& b=bonds[i];
+        const auto P=dp.get();const float* x=&P[10*n+6*i];const float N=x[0],V=std::sqrt(x[1]*x[1]+x[2]*x[2]),T=std::fabs(x[3]),M=std::sqrt(x[4]*x[4]+x[5]*x[5]);
+        std::printf("    x N %.4g V %.4g T %.4g M %.4g |M0| %.4g |M1| %.4g\n",N,V,T,M,std::fabs(x[4]),std::fabs(x[5]));
+        std::printf("    infeasible: kind %u capT %.3g capC %.3g capS %.3g g %.3g %.3g h %.3g %.3g gb %.3g gt %.3g metric %.2g %.2g %.2g %.2g\n",i%3,b.capT,b.capC,b.capS,b.g0,b.g1,b.h0,b.h1,b.gb,b.gt,
+            pts[6*n+4*i],pts[6*n+4*i+1],pts[6*n+4*i+2],pts[6*n+4*i+3]);}}
     char text[160];std::snprintf(text,sizeof text,"%u projections (L1, round, shear; metrics 1e-6-1e6): %u infeasible (expected 0)",n,bad.get()[0]);
     expect(bad.get()[0]==0,text);
 }
@@ -751,11 +769,51 @@ void bearing(){
     }
 }
 
+// 15. Passivity with rotation: a light spinning body (2 kg, 18 rad/s) strikes
+// a held chunk off its centre, obliquely. Its end kinetic energy (linear and
+// rotational) must not exceed its start's (the contact is unilateral and
+// inelastic). Every combination of spin axis and offset.
+void passivity(){
+    std::printf("coupled contact: a spinning light body loses energy, never gains it\n");
+    PxU32 gains=0,cases=0;float worst=0.0f;
+    for(int axis=0;axis<3;++axis)for(int off=0;off<3;++off)for(int sgn=-1;sgn<=1;sgn+=2) {
+        Structure s;const PxU32 anchor=s.chunk(PxVec3(0,0,0),0,0),wall=s.chunk(PxVec3(0,0.5f,0),10.0f,0.5f);
+        const PxU32 mat=s.material(1e7f,1e7f,1e7f,0.0f);
+        s.bond(anchor,wall,PxVec3(0,0.25f,0),PxVec3(0,1,0),0.01f,mat);
+        const PxU32 trim=s.chunk(PxVec3(0,0.5f,0.1f),1.0f,0.01f),glue=s.material(1e3f,1e3f,1e3f,0.0f);
+        s.bond(wall,trim,PxVec3(0,0.5f,0.05f),PxVec3(0,0,1),1e-3f,glue);
+        const float m=2.0f,dt=1.0f/60.0f;const PxVec3 v(10.0f,0.5f,2.0f);
+        PxVec3 w(0);w[axis]=18.0f*float(sgn);
+        const PxVec3 com(-0.4f,0.5f+0.1f*float(off-1),0.05f*float(off));
+        const PxVec3 point(-0.25f,0.5f+0.1f*float(off-1),0.0f);
+        impact::ContactRow row{};row.chunk=wall;row.body=0;row.points=2;row.friction=0.6f;
+        for(int q=0;q<3;++q){row.point[q]=point[q];row.com[q]=com[q];row.velocity[q]=v[q];row.spin[q]=w[q];row.dv[q]=-v[q];row.dw[q]=-w[q];}
+        row.normal[0]=1;row.load[0]=m*v.x/dt;row.im=1.0f/m;
+        const float I[3]={0.004f,0.01f,0.02f};row.ii[0]=1/I[0];row.ii[1]=1/I[1];row.ii[2]=1/I[2];
+        // The trial stopped it: its torque about the com from the load at the point.
+        const PxVec3 tq=(point-com).cross(PxVec3(-row.load[0],0,0));row.torque[0]=tq.x;row.torque[1]=tq.y;row.torque[2]=tq.z;
+        // The trial's spin change came from that torque: dw = I^-1 tq dt (not the full stop).
+        for(int q=0;q<3;++q)row.dw[q]=tq[q]*row.ii[q]*dt;
+        s.rows.push_back(row);
+        const auto rest=elastic(s,s.force,s.torque);
+        auto F=s.force;F[wall]+=PxVec3(row.load[0],0,0);F[trim]+=PxVec3(0,0,100.0f);
+        const auto r=evaluate(s,F,s.torque,rest,true);
+        const float* d=r.rowDelta.data();
+        PxVec3 ve(row.velocity[0]+row.dv[0]+d[0],row.velocity[1]+row.dv[1]+d[1],row.velocity[2]+row.dv[2]+d[2]);
+        PxVec3 we(row.spin[0]+row.dw[0]+d[3],row.spin[1]+row.dw[1]+d[4],row.spin[2]+row.dw[2]+d[5]);
+        const float k0=0.5f*m*v.magnitudeSquared()+0.5f*(I[0]*w.x*w.x+I[1]*w.y*w.y+I[2]*w.z*w.z);
+        const float k1=0.5f*m*ve.magnitudeSquared()+0.5f*(I[0]*we.x*we.x+I[1]*we.y*we.y+I[2]*we.z*we.z);
+        ++cases;if(k1>1.01f*k0){++gains;worst=std::max(worst,k1/k0);}
+    }
+    char text[160];std::snprintf(text,sizeof text,"%u cases: %u gained energy (worst x%.2f)",cases,gains,worst);
+    expect(gains==0,text);
+}
+
 }} // physx
 
 int main(int argc,char** argv){
     (void)argc;(void)argv;
-    try{if(const char* only=std::getenv("IMPACT_TEST_ONLY")){if(!std::strcmp(only,"unconverged"))physx::unconverged();if(!std::strcmp(only,"dispatches"))physx::dispatches();if(!std::strcmp(only,"carried"))physx::carried();if(!std::strcmp(only,"held"))physx::heldStops();if(!std::strcmp(only,"projection"))physx::projection();if(!std::strcmp(only,"detectors"))physx::detectors();if(!std::strcmp(only,"fuzz"))physx::fuzz();if(!std::strcmp(only,"bearing"))physx::bearing();if(!std::strcmp(only,"coupled"))physx::coupled();}else{physx::column();physx::wall();physx::rest();physx::centroidConvention();physx::impactCrush();physx::section();physx::coupled();physx::unconverged();physx::dispatches();physx::carried();physx::heldStops();physx::projection();physx::detectors();physx::fuzz();physx::bearing();}}
+    try{if(const char* only=std::getenv("IMPACT_TEST_ONLY")){if(!std::strcmp(only,"unconverged"))physx::unconverged();if(!std::strcmp(only,"dispatches"))physx::dispatches();if(!std::strcmp(only,"carried"))physx::carried();if(!std::strcmp(only,"held"))physx::heldStops();if(!std::strcmp(only,"projection"))physx::projection();if(!std::strcmp(only,"detectors"))physx::detectors();if(!std::strcmp(only,"fuzz"))physx::fuzz();if(!std::strcmp(only,"bearing"))physx::bearing();if(!std::strcmp(only,"coupled"))physx::coupled();if(!std::strcmp(only,"passivity"))physx::passivity();}else{physx::column();physx::wall();physx::rest();physx::centroidConvention();physx::impactCrush();physx::section();physx::coupled();physx::unconverged();physx::dispatches();physx::carried();physx::heldStops();physx::projection();physx::detectors();physx::fuzz();physx::bearing();physx::passivity();}}
     catch(const std::exception& e){std::printf("error: %s\n",e.what());return 2;}
     std::printf("%s (%d failed)\n",physx::failures?"FAILED":"passed",physx::failures);
     return physx::failures?1:0;

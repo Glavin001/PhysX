@@ -7,6 +7,7 @@ struct TransactionBatch {
     const unsigned* accept;
     const PxgDestructionClusterMotion* sourceMotion;
     unsigned capacity, abortMask;
+    const unsigned* emptyRequest; // non-zero: an empty batch still prepares (the accepted topology again)
 };
 __global__ void setTransactionBatch(TransactionBatch* out, TransactionBatch batch) {*out=batch;}
 __global__ void setTransactionAccept(TransactionBatch* out, const unsigned* accept) {out->accept=accept;}
@@ -16,7 +17,14 @@ __global__ void beginTransaction(const TransactionBatch* batch,
     status->editCount=*batch->count;
     if(status->editCount>batch->capacity)status->error|=2u;
     if(batch->abort && (*batch->abort & batch->abortMask))status->error|=4u;
-    cudaGraphSetConditional(handle,!status->error && status->editCount?1:0);
+    // An empty transaction: no edit, but the producer requested one (its
+    // emptyRequest: the impact solve's contact bounds need a corrected pass).
+    // The trial is the accepted topology again (prepared, unchanged), so the
+    // correction restores the checkpoint and re-solves with no split work.
+    // Without the request, an empty batch does nothing, as before.
+    const bool empty=!status->editCount && batch->emptyRequest && *batch->emptyRequest;
+    if(empty)status->changed=1u;
+    cudaGraphSetConditional(handle,!status->error && (status->editCount || empty)?1:0);
 }
 __global__ void validateTransaction(const TransactionBatch* batch,
     const unsigned* activeChunks, const unsigned* activeBonds, unsigned n, unsigned m,
@@ -215,9 +223,10 @@ public:
         return buildPrepare() && buildCommit() && signal();
     }
     bool prepare(const PxgDestructionEdit* edits,const unsigned* count,unsigned capacity,
-        const unsigned* abort,unsigned abortMask,void* ready,void* done,const PxgDestructionClusterMotion* sourceMotion) override {
+        const unsigned* abort,unsigned abortMask,void* ready,void* done,const PxgDestructionClusterMotion* sourceMotion,
+        const unsigned* emptyRequest) override {
         if(!count || (capacity && !edits) || capacity>unsigned(std::numeric_limits<int>::max()) || !order(ready,done))return false;
-        const TransactionBatch batch={edits,count,abort,mBatchMirrored?mBatchMirror.accept:nullptr,sourceMotion,capacity,abortMask};
+        const TransactionBatch batch={edits,count,abort,mBatchMirrored?mBatchMirror.accept:nullptr,sourceMotion,capacity,abortMask,emptyRequest};
         return writeBatch(batch) && cudaGraphLaunch(mPrepareExec,mStream)==cudaSuccess && signal();
     }
     bool commit(const unsigned* accept,void* ready,void* done) override {
