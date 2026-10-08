@@ -1163,7 +1163,7 @@ class Runtime final : public PxgDestructionRuntime {
     // solver holds, mBearProbe: the lifted contacts' would-be forces,
     // mBearSupported: per stress island, held by a support this solve.
     // Read at each configuration (the bridge sets them from VIBE_REBEARING).
-    float mRebearingFriction=kRebearingTimberFriction;PxU32 mRebearingLog=0;bool mRebearing=false;float4* mBearEvents{};
+    PxU32 mSeqRounds=0;float mRebearingFriction=kRebearingTimberFriction;PxU32 mRebearingLog=0;bool mRebearing=false;float4* mBearEvents{};
     PxU32 *mBearState{},*mBearTrial{},*mBearMask{},*mBearSupported{},*mBearChanged{},*mBearCounters{};
     PxU64 *mBearGeneration{},*mBearLastAccepted{};PxDestructionVectorPair* mBearProbe{};
     // PX_DESTRUCTION_DYNAMIC_SEQUENCE=1 (with the explicit impact step): islands whose
@@ -3035,8 +3035,17 @@ public:
         } else seqTrigger<<<(mM+127)/128,128,0,mStream>>>(mBonds,mHealth,mVerdicts,mRebearing?mBearState:nullptr,mRebearing?mBearTrial:nullptr,
             stress.bondIslands,mImpact.w.islandFlag,nullptr,mM,mN,mSeq.run,mSeq.breaks,mSeq.seed);
         mSeq.bind(mImpact.x);mImpact.x.seqIsland=mSeq.run;
-        mImpact.submitSequence(impactIn,impactSettings,mStream);
-        mImpact.x.seqIsland=nullptr;
+        // In rounds of kExPatches islands until every dynamic island has had its window
+        // (an island past the slots would otherwise keep the snapshot's verdict).
+        PxU32 overflow=0,rounds=0;
+        for(;;) {
+            check(cudaMemsetAsync(mSeq.counters+3,0,sizeof(PxU32),mStream));
+            mImpact.submitSequence(impactIn,impactSettings,mStream);++rounds;
+            check(cudaMemcpyAsync(&overflow,mSeq.counters+3,sizeof overflow,cudaMemcpyDeviceToHost,mStream));check(cudaStreamSynchronize(mStream));
+            if(!overflow || rounds>mN)break;
+            seqDoneIslands<<<1,impact::kExPatches,0,mStream>>>(mImpact.x,mSeq.run,mN);
+        }
+        mImpact.x.seqIsland=nullptr;mSeqRounds=rounds;
         if(!corrected) {
             check(cudaMemcpyAsync(mSeq.forces,mImpact.w.forces,sizeof(*mSeq.forces)*mM,cudaMemcpyDeviceToDevice,mStream));
             // This frame's static forces: the next frame's dynamic patches start from them.
@@ -3052,8 +3061,8 @@ public:
         if(mImpactLog && mImpactHostStatus) {
             check(cudaMemcpyAsync(mImpactHostStatus,mImpact.w.status,sizeof(*mImpactHostStatus),cudaMemcpyDeviceToHost,mStream));check(cudaStreamSynchronize(mStream));
             const auto& e=*mImpactHostStatus;
-            if(e.sequencePatches)std::fprintf(stderr,"[sequence] evaluation %llu: %u dynamic patches, %u substeps, broke %u, %u fastenings to contact; %.1f ms in %u launches (longest %.1f ms)\n",
-                (unsigned long long)mImpactEvaluations,e.sequencePatches,e.sequenceSubsteps,e.sequenceBroken,e.sequenceConverted,mImpact.explicitRunMs,mImpact.dispatches,mImpact.longestDispatch);
+            if(e.sequencePatches)std::fprintf(stderr,"[sequence] evaluation %llu: %u dynamic patches in %u rounds, %u substeps, broke %u, %u fastenings to contact; %.1f ms in %u launches (longest %.1f ms)\n",
+                (unsigned long long)mImpactEvaluations,e.sequencePatches,mSeqRounds,e.sequenceSubsteps,e.sequenceBroken,e.sequenceConverted,mImpact.explicitRunMs,mImpact.dispatches,mImpact.longestDispatch);
             PxU32 fc[4];check(cudaMemcpy(fc,mSeq.counters,sizeof fc,cudaMemcpyDeviceToHost));
             if(fc[0]||fc[1]||fc[2])std::fprintf(stderr,"[sequence] evaluation %llu: %u islands froze, %u thawed, %u held frozen\n",(unsigned long long)mImpactEvaluations,fc[0],fc[1],fc[2]);
             if(fc[3])std::fprintf(stderr,"[sequence] PATCH SLOTS FULL: %u islands kept the static verdict this tick (the snapshot decided their failures; kExPatches %u)\n",fc[3],impact::kExPatches);

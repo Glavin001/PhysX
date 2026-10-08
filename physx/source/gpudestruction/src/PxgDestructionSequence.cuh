@@ -189,3 +189,10 @@ __global__ void seqHoldIslands(const PxU32* mark,PxU32* islandFlag,PxU32 count)
 {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i<count && mark[i])islandFlag[i]=1u;
 }
+// 2b. A submission's dynamic islands are done: the next round (the islands past the
+// evaluation's kExPatches slots) takes the rest.
+__global__ void seqDoneIslands(impact::ExScratch t,PxU32* run,PxU32 count)
+{
+    const PxU32 p=threadIdx.x;if(p>=*t.patchCount)return;
+    const PxU32 i=t.patches[p].island;if(i<count)run[i]=0u;
+}
