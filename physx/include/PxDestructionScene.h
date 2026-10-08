@@ -30,6 +30,11 @@
 // (PxDestructionMaterial::ductileSlip) yield and break past their ultimate
 // slip. PxDestructionMaterial::impactStiffness gives the joints' stiffness.
 #define PX_DESTRUCTION_IMPACT_CAPACITY 1
+// The impact step (PxDestructionStressDesc::impactStep): one implicit step
+// over the contact duration on a local patch of the struck island, with an
+// exact event ramp (docs/destruction/IMPACT_CHEAP_FORMULATION.md), in place
+// of the impact solve; the other islands keep the elastic verdict.
+#define PX_DESTRUCTION_IMPACT_STEP 1
 // PxDestructionBondSection::bearingDepth0/1: a fastened joint whose members
 // bear on each other (timber connections) is graded by its fasteners in
 // tension once the contact opens, not by a glued patch's extreme fibre.
@@ -299,6 +304,10 @@ struct PxDestructionStressDesc {
     // compression, instead of at the virial of the solve's forces. A chunk
     // crushed so leaves the impact-capacity solve. Requires internalCorrectionLimit >= 1.
     bool impactCrush = false;
+    // The impact step (PX_DESTRUCTION_IMPACT_STEP), opt-in, with impactCapacity
+    // (its materials, contact rows and bounds): impacts are solved by the step
+    // on a patch around each struck chunk instead of by the impact solve.
+    bool impactStep = false;
 };
 struct PxDestructionVectorPair {
     PxVec3 angular, linear;
@@ -342,6 +351,10 @@ struct PxDestructionStageStatus {
     // longest impact-solve GPU dispatch, host clock (ms).
     PxU32 impactIslands, impactSolves, impactSteps, impactCapped, impactDiverged, impactInfeasible, impactWorstBond;
     float impactLongestDispatchMs;
+    // Islands whose impact evaluation capped and took the elastic verdict
+    // instead (a known gap: must trend to 0); and impactor contacts stopped
+    // rigidly by a struck chunk past capacity with nothing broken (a bug).
+    PxU32 impactCappedFallback, impactHeldOverCapacity;
 };
 // Why a stress component's last solve stopped (getStressSolveReport).
 struct PxDestructionStressStopReason {

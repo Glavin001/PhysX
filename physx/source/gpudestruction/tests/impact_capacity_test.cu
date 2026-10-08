@@ -130,7 +130,7 @@ void islands(const Structure& s,std::vector<PxU32>& node,std::vector<PxU32>& bon
 struct Result {
     std::vector<PxDestructionVectorPair> elastic,forces;
     std::vector<PxDestructionBondVerdict> verdicts;
-    std::vector<PxU32> impact;std::vector<float> accel,rowDelta,rowBound,slip; impact::Status status{};
+    std::vector<PxU32> impact;std::vector<float> accel,rowDelta,rowBound,rowForce,slip; impact::Status status{};
     std::vector<PxU32> carried;  // per bond: its island was solved or carried (the next tick's plastic state)
 };
 // The plastic state carried from the last evaluation (Result::forces, carried, slip).
@@ -178,8 +178,8 @@ Result evaluate(const Structure& s,const std::vector<PxVec3>& F,const std::vecto
     in.accelerations=dInputs.p;in.elastic=dElastic.p;in.base=dBase.p;in.stage=stage.p;
     if(settings.sectionBending)in.sections=dSections.p;
     Device<impact::ContactRow> dRows(s.rows.empty()?std::vector<impact::ContactRow>(1):s.rows);
-    Device<float> dDelta(6*std::max<size_t>(s.rows.size(),1)),dBound(std::max<size_t>(s.rows.size(),1));
-    if(!s.rows.empty()){in.rows=dRows.p;in.rowCount=PxU32(s.rows.size());in.rowDelta=dDelta.p;in.rowBound=dBound.p;}
+    Device<float> dDelta(6*std::max<size_t>(s.rows.size(),1)),dBound(std::max<size_t>(s.rows.size(),1)),dForce(3*std::max<size_t>(s.rows.size(),1));
+    if(!s.rows.empty()){in.rows=dRows.p;in.rowCount=PxU32(s.rows.size());in.rowDelta=dDelta.p;in.rowBound=dBound.p;in.rowForce=dForce.p;}
     Device<PxDestructionVectorPair> dElasticBase(carry?carry->elasticBase:std::vector<PxDestructionVectorPair>(1));
     Device<PxU32> dCarried(carry?carry->carried:std::vector<PxU32>(1));Device<float> dSlip(carry?carry->slip:std::vector<float>(1));
     if(carry){in.elasticBase=dElasticBase.p;in.carried=dCarried.p;in.slipBefore=dSlip.p;}
@@ -191,6 +191,9 @@ Result evaluate(const Structure& s,const std::vector<PxVec3>& F,const std::vecto
 #endif
     evaluateBondMaterials<<<(m+127)/128,128,0,stream>>>(chunks.p,bonds.p,materials.p,dHealth.p,dElastic.p,m,settings.dt,2.0f,
         settings.bendGainMax,true,verdicts.p,centroids.p,stage.p,sectionVerdict,sectionVerdict?dSections.p:nullptr,centroid,view);
+#ifndef PX_IMPACT_TODAY
+    if(withImpact && in.rows)impact::heldOverCapacity<<<1,128,0,stream>>>(in,settings,verdicts.p,e.w.status);
+#endif
     check(cudaStreamSynchronize(stream));check(cudaGetLastError());
     out.verdicts=verdicts.get();
     out.forces=out.elastic;out.impact.assign(m,impact::eNONE);out.accel.assign(6*size_t(n),0.0f);
@@ -207,7 +210,7 @@ Result evaluate(const Structure& s,const std::vector<PxVec3>& F,const std::vecto
             out.slip[k]=(carry?carry->slip[k]:0.0f)+((flags[bondIsland[k]]&1u)?slip[k]:0.0f);}
     }
 #endif
-    out.rowDelta=dDelta.get();out.rowBound=dBound.get();
+    out.rowDelta=dDelta.get();out.rowBound=dBound.get();out.rowForce=dForce.get();
     e.release();cudaStreamDestroy(stream);
     return out;
 }
@@ -508,20 +511,174 @@ void coupled(){
 // a subset of the converged evaluation's breaks -- and the evaluation reports
 // itself capped. (Before: the capped iterate was judged, and joints broke on it.)
 void unconverged(){
-    std::printf("an unconverged solve commits nothing\n");
+    std::printf("an unconverged solve: its last converged state (default) or the elastic verdict\n");
     const Structure s=wallStructure();
     const auto rest=elastic(s,s.force,s.torque);
     auto F=s.force;F[kWallBrick]+=PxVec3(0,0,360e3f);
     impact::Settings budget;budget.iterations=1;
+    impact::Settings elasticBudget=budget;elasticBudget.cappedElastic=true;
     const auto full=evaluate(s,F,s.torque,rest,true),r=evaluate(s,F,s.torque,rest,true,budget);
-    PxU32 broken=0,extra=0;
+    const auto el=evaluate(s,F,s.torque,rest,false),re=evaluate(s,F,s.torque,rest,true,elasticBudget);
+    PxU32 broken=0,extra=0,differ=0,active=0;
     for(PxU32 k=0;k<s.bonds.size();++k) {
         const bool b=r.impact[k]==impact::eBROKEN || r.verdicts[k].health<=0,f=full.impact[k]==impact::eBROKEN;
         broken+=b;extra+=b && !f;
+        differ+=(re.verdicts[k].health<=0)!=(el.verdicts[k].health<=0);active+=re.impact[k]!=impact::eNONE;
     }
-    char text[200];std::snprintf(text,sizeof text,"one step per solve: %u capped; %u broken, %u of them not broken by the converged evaluation (expected capped, 0)",
-        r.status.capped,broken,extra);
-    expect(r.status.capped>0 && extra==0,text);
+    char text[300];std::snprintf(text,sizeof text,"one step per solve: %u capped, %u fallen back; %u broken, %u of them not broken by the converged evaluation;"
+        " elastic fallback: %u verdicts differ from the elastic one, %u bonds on E's verdict (expected capped, fallen back, 0, 0, 0)",
+        r.status.capped,r.status.cappedFallback,broken,extra,differ,active);
+    expect(r.status.capped>0 && r.status.cappedFallback>0 && extra==0 && re.status.cappedFallback>0 && differ==0 && active==0,text);
+}
+// 7b. The capped fallback with an impactor: a 1 t body at 10 m/s strikes a
+// 10 kg chunk on a 1 kN joint. The trial's stop (600 kN over the tick,
+// 10 kN s) is far past what the chunk can push back: its joint at capacity
+// and its inertia, P = mu v + C dt M/(M+m) = 99 + 16.5 N s. With one ADMM
+// step per solve the impact solve caps. Default (the capacity fallback): the
+// brittle joint breaks (the corrected pass frees the chunk); a ductile one
+// (1 m ultimate slip) yields and the contact is bounded at P (per point),
+// never the rigid stop. cappedElastic: the elastic verdict (it breaks).
+// The invariant (heldOverCapacity) is 0 in each; before any fallback it
+// counted this case (the rigid stop behind a held joint).
+void fallback(){
+    std::printf("a capped impact island never stops an impactor rigidly past capacity\n");
+    auto make=[](float slip){
+        Structure s;const PxU32 anchor=s.chunk(PxVec3(0,0,0),0,0),wall=s.chunk(PxVec3(0,0.5f,0),10.0f,0.5f);
+        const PxU32 mat=s.material(1e5f,1e5f,1e5f,slip);   // 1 kN over 0.01 m^2
+        s.bond(anchor,wall,PxVec3(0,0.25f,0),PxVec3(0,1,0),0.01f,mat);
+        impact::ContactRow row{};row.chunk=wall;row.body=0;row.points=4;row.friction=0.0f;
+        const float point[3]={-0.25f,0.5f,0},com[3]={-1.0f,0.5f,0};
+        for(int q=0;q<3;++q){row.point[q]=point[q];row.com[q]=com[q];}
+        row.normal[0]=1;row.load[0]=1000.0f*10.0f*60.0f;row.velocity[0]=10.0f;row.dv[0]=-10.0f;row.im=1e-3f;row.ii[0]=row.ii[1]=row.ii[2]=1.0f/400.0f;
+        s.rows.push_back(row);return s;
+    };
+    impact::Settings one;one.iterations=1;impact::Settings oneElastic=one;oneElastic.cappedElastic=true;
+    auto run=[&](const Structure& s,const impact::Settings& st){
+        const auto rest=elastic(s,s.force,s.torque);auto F=s.force;F[1]+=PxVec3(s.rows[0].load[0],0,0);
+        return evaluate(s,F,s.torque,rest,true,st);};
+    const Structure brittle=make(0.0f),ductile=make(1.0f);
+    const auto r=run(brittle,one),d=run(ductile,one),e=run(brittle,oneElastic);
+    const float m=10.0f,M=1000.0f,mu=M*m/(M+m),P=mu*10.0f+1000.0f/60.0f*M/(M+m);
+    char text[400];std::snprintf(text,sizeof text,"capacity fallback: capped %u, fallen back %u, brittle joint %s, held over capacity %u; ductile joint %s (%s), bound %.2f N s per point (P/4 = %.2f);"
+        " elastic: joint %s, held over capacity %u (expected capped, fallen back, broken, 0; held, yielded, P/4; broken, 0)",
+        r.status.capped,r.status.cappedFallback,r.verdicts[0].health<=0?"broken":"held",r.status.heldOverCapacity,
+        d.verdicts[0].health<=0?"broken":"held",d.impact[0]==impact::eYIELDED?"yielded":"not yielded",d.rowBound[0],P/4.0f,
+        e.verdicts[0].health<=0?"broken":"held",e.status.heldOverCapacity);
+    expect(r.status.capped>0 && r.status.cappedFallback>0 && r.verdicts[0].health<=0 && r.status.heldOverCapacity==0
+        && d.verdicts[0].health>0 && d.impact[0]==impact::eYIELDED && std::fabs(d.rowBound[0]-P/4.0f)<1e-3f*P && d.status.heldOverCapacity==0
+        && e.verdicts[0].health<=0 && e.status.heldOverCapacity==0,text);
+}
+// 7c. The impactor's load is its momentum before the tick, m v / dt. The
+// rigid solver reports a pair's accumulated impulse, its penetration bias
+// included: a 1 t body at 10 m/s whose trial stop is reported at 3 M v (a
+// wedged impactor's opposing pairs) is stopped by a stiff 1 MN joint with
+// M v (600 kN over the tick: it holds), not 3 M v (1.8 MN: it would break).
+// The elastic solve, which sees the reported stop, takes the joint past
+// capacity, so the impact solve runs. (The bound per point x points: the
+// impulse the joint delivered.)
+void impactorMomentum(){
+    std::printf("the impactor's load is its own momentum, not its pairs' reported impulses\n");
+    Structure s;const PxU32 anchor=s.chunk(PxVec3(0,0,0),0,0),wall=s.chunk(PxVec3(0,0.5f,0),10.0f,0.5f);
+    const PxU32 mat=s.material(1e8f,1e8f,1e8f,0.0f);   // 1 MN over 0.01 m^2
+    s.bond(anchor,wall,PxVec3(0,0.25f,0),PxVec3(0,1,0),0.01f,mat);
+    const float M=1000.0f,v=10.0f,dt=1.0f/60.0f;
+    impact::ContactRow row{};row.chunk=wall;row.body=0;row.points=4;row.friction=0.0f;
+    const float point[3]={-0.25f,0.5f,0},com[3]={-1.0f,0.5f,0};
+    for(int q=0;q<3;++q){row.point[q]=point[q];row.com[q]=com[q];}
+    row.normal[0]=1;row.load[0]=3.0f*M*v/dt;row.velocity[0]=v;row.dv[0]=-v;row.im=1.0f/M;row.ii[0]=row.ii[1]=row.ii[2]=1.0f/400.0f;
+    s.rows.push_back(row);
+    const auto rest=elastic(s,s.force,s.torque);
+    auto F=s.force;F[wall]+=PxVec3(row.load[0],0,0);
+    const auto r=evaluate(s,F,s.torque,rest,true);
+    const float delivered=r.rowBound[0]*4.0f;
+    char text[400];std::snprintf(text,sizeof text,"a stiff joint stops it with %.4g N s (its momentum M v = %.4g; the reported stop 3 M v = %.4g); %u islands, %u solves, %u capped, %u contacts, joint %s, body's end velocity %.3g m/s",
+        delivered,M*v,3.0f*M*v,r.status.triggered,r.status.solves,r.status.capped,r.status.contacts,r.impact[0]==impact::eBROKEN?"broken":"held",r.rowDelta[0]);
+    expect(r.status.triggered==1 && std::fabs(delivered-M*v)<0.05f*M*v,text);
+}
+// 7d. A released pair (an impactor deep in a thin chunk, receding along the
+// contact's push: the rigid solver's position correction) puts no load on
+// its chunk: a 14 kg stud on a 1 kN joint, the trial's 1.4e7 N (1e5 g) on it
+// from such a pair, holds under its weight.
+void releasedPair(){
+    std::printf("a released (depenetration) pair puts no load on its chunk\n");
+    Structure s;const PxU32 anchor=s.chunk(PxVec3(0,0,0),0,0),stud=s.chunk(PxVec3(0,0.5f,0),14.0f,0.5f);
+    const PxU32 mat=s.material(1e5f,1e5f,1e5f,0.0f);   // 1 kN over 0.01 m^2
+    s.bond(anchor,stud,PxVec3(0,0.25f,0),PxVec3(0,1,0),0.01f,mat);
+    s.gravity();
+    const float load=1e5f*9.81f*14.0f;
+    impact::ContactRow row{};row.chunk=stud;row.body=0;row.points=0;row.friction=0.5f;
+    row.normal[1]=1;row.load[1]=load;row.velocity[2]=60.0f;row.velocity[1]=-3.65f;row.im=1.0f/10650.0f;row.ii[0]=row.ii[1]=row.ii[2]=1.0f/2000.0f;
+    s.rows.push_back(row);
+    const auto rest=elastic(s,s.force,s.torque);
+    auto F=s.force;F[stud]+=PxVec3(0,load,0);
+    const auto r=evaluate(s,F,s.torque,rest,true);
+    char text[240];std::snprintf(text,sizeof text,"the stud's joint %s (health %.3g), its force %.4g N (weight %.4g N); %u islands, %u contacts coupled (expected held, about its weight, 0 coupled)",
+        r.verdicts[0].health<=0?"broken":"held",r.verdicts[0].health,r.forces[0].linear.magnitude(),14.0f*9.81f,r.status.triggered,r.status.contacts);
+    expect(r.verdicts[0].health>0 && r.forces[0].linear.magnitude()<2.0f*14.0f*9.81f && r.status.contacts==0,text);
+}
+// 7e. The invariant reads the bound the corrected pass applies: per body,
+// the largest of its rows'. A strong chunk (1 MN) and a weak ductile one
+// (1 kN, 1 m ultimate slip) of one anchored cluster and island, each struck by a 1 t
+// body at 10 m/s, the solve capped (one step a solve): the capacity fallback
+// bounds the weak one's pair low and the strong one's high, so the body's
+// bound -- the strong pair's -- stops the weak pair rigidly behind a joint
+// past capacity that nothing broke. heldOverCapacity counts it (before: its
+// own row's bound was read, and it passed).
+void heldOverCapacityPerBody(){
+    std::printf("heldOverCapacity reads the bound the corrected pass applies (per body)\n");
+    Structure s;const PxU32 anchor=s.chunk(PxVec3(0,0,0),0,0),strong=s.chunk(PxVec3(0,0.5f,0),10.0f,0.5f),weak=s.chunk(PxVec3(2,0.5f,0),10.0f,0.5f);
+    s.bond(anchor,strong,PxVec3(0,0.25f,0),PxVec3(0,1,0),0.01f,s.material(1e8f,1e8f,1e8f,0.0f));
+    s.bond(anchor,weak,PxVec3(2,0.25f,0),PxVec3(0,1,0),0.01f,s.material(1e5f,1e5f,1e5f,1.0f));
+    s.bond(strong,weak,PxVec3(1,0.5f,0),PxVec3(1,0,0),0.01f,s.material(1e8f,1e8f,1e8f,0.0f));   // one island
+    const float M=1000.0f,v=10.0f,dt=1.0f/60.0f;
+    for(PxU32 c:{strong,weak}){impact::ContactRow row{};row.chunk=c;row.body=c;row.points=4;
+        const float x=c==strong?0.0f:2.0f,point[3]={x-0.25f,0.5f,0},com[3]={x-1.0f,0.5f,0};
+        for(int q=0;q<3;++q){row.point[q]=point[q];row.com[q]=com[q];}
+        row.normal[0]=1;row.load[0]=M*v/dt;row.velocity[0]=v;row.dv[0]=-v;row.im=1.0f/M;row.ii[0]=row.ii[1]=row.ii[2]=1.0f/400.0f;s.rows.push_back(row);}
+    const auto rest=elastic(s,s.force,s.torque);
+    auto F=s.force;F[strong]+=PxVec3(M*v/dt,0,0);F[weak]+=PxVec3(M*v/dt,0,0);
+    impact::Settings one;one.iterations=1;
+    const auto r=evaluate(s,F,s.torque,rest,true,one);
+    char text[400];std::snprintf(text,sizeof text,"capped %u; bounds per point: strong %.4g, weak %.4g N s (the weak pair's stop %.4g); weak joint %s (elastic utilisation %.3g, its verdict health %.3g); held over capacity %u (expected >= 1)",
+        r.status.capped,r.rowBound[0],r.rowBound[1],M*v,r.verdicts[1].health<=0?"broken":"held",utilisation(s,1,r.elastic[1]),r.verdicts[1].health,r.status.heldOverCapacity);
+    expect(r.status.capped>0 && r.verdicts[1].health>0 && r.status.heldOverCapacity>=1,text);
+}
+// 13. The impact step (Settings::method 1): a 1 t ball at 20 m/s into the
+// middle of a slab -- a 5 x 5 grid of 0.5 m chunks, the border anchored, the
+// middle chunk (50 kg) on four 100 N joints, every other joint 1 MN. Its four
+// joints break (no other: the damage is local) and the ball and the chunk
+// leave together: the impulse the ball delivers is the plastic one,
+// m M / (m + M) v = 952 N s (the joints' 400 N over h adds 0.4 N s).
+void impactStep(){
+    std::printf("the impact step: a ball through a slab's middle chunk\n");
+    Structure s;PxU32 id[5][5];
+    const PxU32 weak=s.material(1e4f,1e4f,1e4f,0.0f),strong=s.material(1e8f,1e8f,1e8f,0.0f);
+    for(int i=0;i<5;++i)for(int j=0;j<5;++j){const bool border=i==0||j==0||i==4||j==4;
+        id[i][j]=s.chunk(PxVec3(0.5f*i,0.5f*j,0),border?0.0f:50.0f,border?0.0f:2.0f);}
+    std::vector<PxU32> weakBonds;
+    for(int i=0;i<5;++i)for(int j=0;j<5;++j) {
+        if(i+1<5){const bool w=(i==2&&j==2)||(i+1==2&&j==2);if(!(s.chunks[id[i][j]].mass==0 && s.chunks[id[i+1][j]].mass==0)){if(w)weakBonds.push_back(PxU32(s.bonds.size()));
+            s.bond(id[i][j],id[i+1][j],PxVec3(0.5f*i+0.25f,0.5f*j,0),PxVec3(1,0,0),0.01f,w?weak:strong);}}
+        if(j+1<5){const bool w=(i==2&&j==2)||(i==2&&j+1==2);if(!(s.chunks[id[i][j]].mass==0 && s.chunks[id[i][j+1]].mass==0)){if(w)weakBonds.push_back(PxU32(s.bonds.size()));
+            s.bond(id[i][j],id[i][j+1],PxVec3(0.5f*i,0.5f*j+0.25f,0),PxVec3(0,1,0),0.01f,w?weak:strong);}}
+    }
+    const float M=1000.0f,v=20.0f,dt=1.0f/60.0f,m=50.0f;const PxU32 mid=id[2][2];
+    impact::ContactRow row{};row.chunk=mid;row.body=0;row.points=4;row.friction=0.5f;
+    const float point[3]={1.0f,1.0f,-0.25f},com[3]={1.0f,1.0f,-1.0f};
+    for(int q=0;q<3;++q){row.point[q]=point[q];row.com[q]=com[q];}
+    row.normal[2]=1;row.load[2]=M*v/dt;row.velocity[2]=v;row.dv[2]=-v;row.im=1.0f/M;row.ii[0]=row.ii[1]=row.ii[2]=1.0f/400.0f;
+    s.rows.push_back(row);
+    const auto rest=elastic(s,s.force,s.torque);
+    auto F=s.force;F[mid]+=PxVec3(0,0,row.load[2]);
+    impact::Settings st;st.method=1;
+    const auto r=evaluate(s,F,s.torque,rest,true,st);
+    PxU32 broken=0,weakBroken=0;
+    for(PxU32 k=0;k<s.bonds.size();++k){const bool b=r.verdicts[k].health<=0;broken+=b;
+        for(PxU32 wb:weakBonds)weakBroken+=(b && wb==k);}
+    const float impulse=std::sqrt(r.rowForce[0]*r.rowForce[0]+r.rowForce[1]*r.rowForce[1]+r.rowForce[2]*r.rowForce[2])*dt,plastic=M*m/(M+m)*v;
+    char text[300];std::snprintf(text,sizeof text,"%u patches, %u solves, %u events; %u joints broken (%u of the 4 weak); impulse %.4g N s (plastic %.4g)",
+        r.status.stepPatches,r.status.solves,r.status.iterations,broken,weakBroken,impulse,plastic);
+    expect(r.status.stepPatches==1 && broken==4 && weakBroken==4 && std::fabs(impulse-plastic)<0.02f*plastic,text);
 }
 // 8. The evaluation split into dispatches resumes exactly: the wall with
 // about one ADMM step per dispatch gives the same forces and verdicts, bit
@@ -813,7 +970,7 @@ void passivity(){
 
 int main(int argc,char** argv){
     (void)argc;(void)argv;
-    try{if(const char* only=std::getenv("IMPACT_TEST_ONLY")){if(!std::strcmp(only,"unconverged"))physx::unconverged();if(!std::strcmp(only,"dispatches"))physx::dispatches();if(!std::strcmp(only,"carried"))physx::carried();if(!std::strcmp(only,"held"))physx::heldStops();if(!std::strcmp(only,"projection"))physx::projection();if(!std::strcmp(only,"detectors"))physx::detectors();if(!std::strcmp(only,"fuzz"))physx::fuzz();if(!std::strcmp(only,"bearing"))physx::bearing();if(!std::strcmp(only,"coupled"))physx::coupled();if(!std::strcmp(only,"passivity"))physx::passivity();}else{physx::column();physx::wall();physx::rest();physx::centroidConvention();physx::impactCrush();physx::section();physx::coupled();physx::unconverged();physx::dispatches();physx::carried();physx::heldStops();physx::projection();physx::detectors();physx::fuzz();physx::bearing();physx::passivity();}}
+    try{if(const char* only=std::getenv("IMPACT_TEST_ONLY")){if(!std::strcmp(only,"unconverged"))physx::unconverged();if(!std::strcmp(only,"fallback"))physx::fallback();if(!std::strcmp(only,"momentum"))physx::impactorMomentum();if(!std::strcmp(only,"released"))physx::releasedPair();if(!std::strcmp(only,"perbody"))physx::heldOverCapacityPerBody();if(!std::strcmp(only,"step"))physx::impactStep();if(!std::strcmp(only,"dispatches"))physx::dispatches();if(!std::strcmp(only,"carried"))physx::carried();if(!std::strcmp(only,"held"))physx::heldStops();if(!std::strcmp(only,"projection"))physx::projection();if(!std::strcmp(only,"detectors"))physx::detectors();if(!std::strcmp(only,"fuzz"))physx::fuzz();if(!std::strcmp(only,"bearing"))physx::bearing();if(!std::strcmp(only,"coupled"))physx::coupled();if(!std::strcmp(only,"passivity"))physx::passivity();}else{physx::column();physx::wall();physx::rest();physx::centroidConvention();physx::impactCrush();physx::section();physx::coupled();physx::unconverged();physx::fallback();physx::impactorMomentum();physx::releasedPair();physx::heldOverCapacityPerBody();physx::impactStep();physx::dispatches();physx::carried();physx::heldStops();physx::projection();physx::detectors();physx::fuzz();physx::bearing();physx::passivity();}}
     catch(const std::exception& e){std::printf("error: %s\n",e.what());return 2;}
     std::printf("%s (%d failed)\n",physx::failures?"FAILED":"passed",physx::failures);
     return physx::failures?1:0;

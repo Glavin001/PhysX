@@ -131,7 +131,7 @@ __global__ void mergePostCorrectionStatus(PxDestructionStageStatus* status,PxDes
     status->bondCommands+=prior.bondCommands;status->brokenBonds+=prior.brokenBonds;
     status->crushedChunks+=prior.crushedChunks;status->error|=prior.error;
     status->impactIslands+=prior.impactIslands;status->impactSolves+=prior.impactSolves;status->impactSteps+=prior.impactSteps;
-    status->impactCapped+=prior.impactCapped;status->impactDiverged+=prior.impactDiverged;status->impactInfeasible+=prior.impactInfeasible;
+    status->impactCapped+=prior.impactCapped;status->impactCappedFallback+=prior.impactCappedFallback;status->impactHeldOverCapacity+=prior.impactHeldOverCapacity;status->impactDiverged+=prior.impactDiverged;status->impactInfeasible+=prior.impactInfeasible;
     if(!status->impactWorstBond)status->impactWorstBond=prior.impactWorstBond;
     status->impactLongestDispatchMs=fmaxf(status->impactLongestDispatchMs,prior.impactLongestDispatchMs);
     status->correctionPasses=passes;status->stressPasses=passes+1;
@@ -295,8 +295,16 @@ __device__ void coupleRow(PxU32 chunk,PxNodeIndex own,PxNodeIndex other,float si
     // tick, along that push is not a separation. One that is -- an impactor
     // deep in a thin chunk whose depenetration pushes the chunk back onto it
     // (a 0.11 m brick against 0.36 m of travel a tick) -- is no contact the
-    // impact solve can carry (unilateral along the wrong side); its impulse
-    // stays the trial's load.
+    // impact solve can carry (unilateral along the wrong side), and its
+    // impulse is the rigid solver's position correction, not an exchange of
+    // momentum (a receding body against a still kinematic surface takes no
+    // velocity impulse; the reported impulse accumulates the penetration bias:
+    // gpusolver contactConstraintBlockPrep.cuh biasedErr = unbiasedErr -
+    // scaledBias, solver.cuh appliedForce += deltaF, solverBlock.cuh
+    // writeBackContactBlock). Its row is released (points 0): the impact
+    // solve takes its impulse off the chunk's load and does not couple it.
+    // (The high-profile cannonball: 3.2e7 N, 2.4e5 g, on a 14 kg stud.)
+    bool released=false;
     {
         const PxVec3 cw(clusterBefore.angularVelocityXYZ_maxPenBiasW.x,clusterBefore.angularVelocityXYZ_maxPenBiasW.y,clusterBefore.angularVelocityXYZ_maxPenBiasW.z);
         const PxVec3 cv(clusterBefore.linearVelocityXYZ_inverseMassW.x,clusterBefore.linearVelocityXYZ_inverseMassW.y,clusterBefore.linearVelocityXYZ_inverseMassW.z);
@@ -309,7 +317,9 @@ __device__ void coupleRow(PxU32 chunk,PxNodeIndex own,PxNodeIndex other,float si
         // tolerance a tick. A resting contact (debris on a floor) closes at
         // nothing; the trial's kinematic support is exact for it and needs no
         // coupling (coupling every piece of rubble cost a capped solve a tick).
-        if(!(rel.dot(normal.getNormalized())>ci.separating))return;
+        const float closing=rel.dot(normal.getNormalized());
+        if(closing<-ci.separating)released=true;
+        else if(!(closing>ci.separating))return;
     }
     if(p.frictionPatches && p.contactPatches) {
         PxFrictionAnchorStreamIterator it(p.contactPatches,p.frictionPatches,p.nbPatches);
@@ -319,7 +329,7 @@ __device__ void coupleRow(PxU32 chunk,PxNodeIndex own,PxNodeIndex other,float si
         }}
     }
     const PxU32 slot=atomicAdd(ci.rowCount,1u);if(slot>=ci.rowCapacity)return;
-    impact::ContactRow row{};row.chunk=chunk;row.body=other.index();row.points=points;row.friction=friction;
+    impact::ContactRow row{};row.chunk=chunk;row.body=other.index();row.points=released?0u:points;row.friction=friction;
     auto put=[](float* d,const PxVec3& v){d[0]=v.x;d[1]=v.y;d[2]=v.z;};
     put(row.point,pose.transformInv(point*(1.0f/weight)));put(row.normal,pose.q.rotateInv(normal.getNormalized()));
     put(row.load,pose.q.rotateInv(force*invDt));put(row.torque,pose.q.rotateInv(torque*invDt));put(row.com,pose.transformInv(com));
@@ -1609,6 +1619,7 @@ public:
             // the capped gain or the section model (PxgDestructionImpact.cuh).
             if(d.impactCapacity && (!d.fibreBending || (!(d.bendGainMax>0) && !d.sectionBending && !d.sectionRotationalStiffness)))return false;
             if(d.impactCrush && !d.internalCorrectionLimit)return false;
+            if(d.impactStep && !d.impactCapacity)return false;
             for(PxU32 i=0;d.impactCrush && i<d.materialCount;++i)
                 if(!std::isfinite(d.materials[i].impactImpedance) || d.materials[i].impactImpedance<0)return false;
             for(PxU32 i=0;d.impactCapacity && i<d.materialCount;++i) {
@@ -1831,7 +1842,12 @@ public:
                     mImpactSettings.stiffnessScale=env("PX_DESTRUCTION_IMPACT_STIFFNESS_SCALE",mImpactSettings.stiffnessScale);
                     mImpactSettings.tolerance=env("PX_DESTRUCTION_IMPACT_TOLERANCE",mImpactSettings.tolerance);
                     mImpactSettings.iterations=PxU32(env("PX_DESTRUCTION_IMPACT_ITERATIONS",float(mImpactSettings.iterations)));
+                    mImpactSettings.evaluationIterations=PxU32(env("PX_DESTRUCTION_IMPACT_EVAL_ITERATIONS",float(mImpactSettings.evaluationIterations)));
                     mImpactSettings.rampLevels=PxU32(env("PX_DESTRUCTION_IMPACT_RAMP_LEVELS",float(mImpactSettings.rampLevels)));
+                    mImpactSettings.cappedElastic=env("PX_DESTRUCTION_IMPACT_CAPPED_ELASTIC",0.0f)!=0.0f;
+                    mImpactSettings.method=d.impactStep?1u:0u;
+                    mImpactSettings.stepDuration=env("PX_DESTRUCTION_IMPACT_STEP_DURATION",mImpactSettings.stepDuration);
+                    mImpactSettings.stepRadius=env("PX_DESTRUCTION_IMPACT_STEP_RADIUS",mImpactSettings.stepRadius);
                     std::vector<float> slip(d.materialCount),stiffness(d.materialCount);
                     for(PxU32 i=0;i<d.materialCount;++i){slip[i]=d.materials[i].ductileSlip;stiffness[i]=d.materials[i].impactStiffness;}
                     allocate(mImpactSlip,d.materialCount);allocate(mImpactStiffness,d.materialCount);
@@ -2308,7 +2324,7 @@ public:
                     check(cudaEventRecord(mCheckpointReady,mStream)); // the restore waits on it
                 }
             }
-            impact::View impactView{};
+            impact::View impactView{};impact::Inputs impactIn{};impact::Settings impactSettings{};bool impactRan=false;
             if(mImpactEnabled && mMaterials && mM && forces) {
                 const auto stress=mSolver->deviceView();
                 if(stress.nodeIslands && stress.bondIslands) {
@@ -2329,13 +2345,14 @@ public:
                     const bool timed=mImpactLog || mImpactCaptureDir;++mImpactEvaluations;
                     std::chrono::steady_clock::time_point t0;
                     if(timed){check(cudaStreamSynchronize(mStream));t0=std::chrono::steady_clock::now();}
-                    mImpact.submit(in,settings,mStream);
+                    mImpact.submit(in,settings,mStream);impactIn=in;impactSettings=settings;impactRan=true;
                     impact::reportConvergence<<<1,1,0,mStream>>>(mImpact.w.status,mStatus,mCorrectionEnabled && !mAllowUnconverged,float(mImpact.longestDispatch));
                     // Machine safety: Apple GPUs do not preempt compute well; a dispatch
                     // past 100 ms starves the display (Settings::dispatchWork bounds it).
                     if(mImpact.longestDispatch>100.0)std::fprintf(stderr,"[impact] warning: a dispatch took %.0f ms (over 100 ms)\n",mImpact.longestDispatch);
                     impactView={mImpact.w.islandFlag,stress.bondIslands,mImpact.w.forces,mImpact.w.verdict};
-                    impact::recordState<<<(mM+127)/128,128,0,mStream>>>(mImpact.w.islandFlag,stress.bondIslands,mImpact.w.forces,forces,mImpactState,mM,
+                    // The impact step carries no plastic state: the next tick starts from the elastic forces.
+                    impact::recordState<<<(mM+127)/128,128,0,mStream>>>(settings.method==1u?nullptr:mImpact.w.islandFlag,stress.bondIslands,mImpact.w.forces,forces,mImpactState,mM,
                         mImpactCarried,mImpact.w.slip,mImpactSlipStart,mImpactSlipState);
                     if(timed) {
                         check(cudaMemcpyAsync(mImpactHostStatus,mImpact.w.status,sizeof(*mImpactHostStatus),cudaMemcpyDeviceToHost,mStream));
@@ -2370,8 +2387,8 @@ public:
                             char path[1024];std::snprintf(path,sizeof path,"%s/impact-%llu-%u.impc",mImpactCaptureDir,(unsigned long long)mImpactEvaluations,mPass);
                             if(impact::writeCapture(path,in,settings,mImpactMaterialCount)){++mImpactCaptures;std::fprintf(stderr,"[impact] captured %s (%.1f ms)\n",path,ms);}
                         }
-                        if(e.triggered)std::fprintf(stderr,"[impact] pass %u: %u islands, %u solves, %u iterations (%u capped, %u diverged), %u rounds, broke %u, yielded %u, %u contacts from %u impactors (%u rolled back, %u energy gains), %u infeasible projections, error %u\n",
-                            mPass,e.triggered,e.solves,e.iterations,e.capped,e.diverged,e.rounds,e.broken,e.yielded,e.contacts,e.impactors,e.rolledBack,e.energyGain,e.infeasible,e.error);
+                        if(e.triggered)std::fprintf(stderr,"[impact] pass %u: %u islands, %u solves, %u iterations (%u capped, %u diverged), %u rounds, broke %u, yielded %u, %u contacts from %u impactors (%u rolled back, %u energy gains), %u capped fallback, %u infeasible projections, error %u\n",
+                            mPass,e.triggered,e.solves,e.iterations,e.capped,e.diverged,e.rounds,e.broken,e.yielded,e.contacts,e.impactors,e.rolledBack,e.energyGain,e.cappedFallback,e.infeasible,e.error);
                         if(e.diverged)std::fprintf(stderr,"[impact] DIVERGED: %u solves (a bug signal); worst split at bond %u\n",e.diverged,e.worstBond-1u);
                         if(e.nonfinite)std::fprintf(stderr,"[impact] NON-FINITE: %u solves stopped on a non-finite residual (a bug signal); at bond %u\n",e.nonfinite,e.worstBond-1u);
                         if(e.infeasible)std::fprintf(stderr,"[impact] INFEASIBLE PROJECTIONS: %u (a bug signal)\n",e.infeasible);
@@ -2384,6 +2401,15 @@ public:
                 if(!mImpactCrush)evaluateChunkMaterials<<<(mN+127)/128,128,0,mStream>>>(mChunks,mBonds,mMaterials,mNodeBegin,mNodeRefs,
                     mHealth,forces,mBondCentroids,mSurface,mRates,mCrush,mTrialCrush,mN,dt,mStatus,impactView);
                 if(mM)finalizeMaterialVerdict<<<(mM+127)/128,128,0,mStream>>>(mBonds,mVerdicts,mTrialCrush,mHealth,mM,mStatus);
+                // The invariant where a corrected pass follows (the trial's stop).
+                if(impactRan && impactIn.rows && !mPass) {
+                    impact::heldOverCapacity<<<(impact::kContactCapacity+127)/128,128,0,mStream>>>(impactIn,impactSettings,mVerdicts,mImpact.w.status,mStatus);
+                    if(mImpactLog && mImpactHostStatus) {
+                        check(cudaMemcpyAsync(mImpactHostStatus,mImpact.w.status,sizeof(*mImpactHostStatus),cudaMemcpyDeviceToHost,mStream));
+                        check(cudaStreamSynchronize(mStream));
+                        if(mImpactHostStatus->heldOverCapacity)std::fprintf(stderr,"[impact] HELD OVER CAPACITY: %u contacts stopped rigidly by a struck chunk past capacity with nothing broken (a bug signal)\n",mImpactHostStatus->heldOverCapacity);
+                    }
+                }
                 // With a topology the fused body-preparation kernel sets the bit.
                 if(!mTopology){requireFractureCorrection<<<1,1,0,mStream>>>(mStatus);boundImpactContacts();}
             }

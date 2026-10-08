@@ -86,6 +86,37 @@ if(BUILD_TESTING)
     target_link_libraries(destruction_impact_replay PRIVATE PhysXDestructionTopologyGpu)
     target_include_directories(destruction_impact_replay PRIVATE ../../../blast/include/extensions/stress)
     px_destruction_cuda_properties(destruction_impact_replay PROPERTIES CUDA_STANDARD 17 CUDA_ARCHITECTURES "${CMAKE_CUDA_ARCHITECTURES}")
+    # One dumped level of the impact solve through its ADMM alone (IMPACT_DUMP):
+    # the convergence reproducer and its test (tests/fixtures/impact-level/).
+    add_executable(destruction_impact_level_replay tests/impact_level_replay.cu)
+    target_link_libraries(destruction_impact_level_replay PRIVATE PhysXDestructionTopologyGpu)
+    target_include_directories(destruction_impact_level_replay PRIVATE ../../../blast/include/extensions/stress)
+    px_destruction_cuda_properties(destruction_impact_level_replay PROPERTIES CUDA_STANDARD 17 CUDA_ARCHITECTURES "${CMAKE_CUDA_ARCHITECTURES}")
+    # The veneer house's cannonball, level 5 (lambda 2.8e-4), with the section
+    # model: resumed from the state where its solve sat in a limit cycle for 2e6
+    # steps (J step inexact at the tolerance), it converges in one step with the
+    # J step solved to its limit (64 allowed); from cold within 8192 (2393 run).
+    # The third compares a cold solve with the FP64 optimum (Clarabel,
+    # vibe-land scripts/impact/oracle-level.py --out): a known gap -- converged
+    # by its step residuals at 1e-4, the solve differs from the optimum by 15%
+    # of the contact impulse and 9 brittle joints' capacity; WILL_FAIL until the
+    # termination bounds the error, not the step.
+    # Every capacity set's projection against an exact FP64 reference.
+    add_executable(destruction_impact_projection_fuzz tests/impact_projection_fuzz.cu tests/impact_projection_reference.cpp)
+    target_link_libraries(destruction_impact_projection_fuzz PRIVATE PhysXDestructionTopologyGpu)
+    target_include_directories(destruction_impact_projection_fuzz PRIVATE ../../../blast/include/extensions/stress)
+    px_destruction_cuda_properties(destruction_impact_projection_fuzz PROPERTIES CUDA_STANDARD 17 CUDA_ARCHITECTURES "${CMAKE_CUDA_ARCHITECTURES}")
+    set_target_properties(destruction_impact_projection_fuzz PROPERTIES CXX_STANDARD 17)
+    add_test(NAME destruction_gpu_impact_projection_fuzz COMMAND destruction_impact_projection_fuzz)
+    set_tests_properties(destruction_gpu_impact_projection_fuzz PROPERTIES ENVIRONMENT "CUMETAL_USE_METAL_DEVICE_ADDRESSES=1")
+    set(_level "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/impact-level/cannon-level5")
+    set(_levelEnv "CUMETAL_USE_METAL_DEVICE_ADDRESSES=1;IMPACT_LENGTH_SCALE=0.5616397;IMPACT_DISPATCH_WORK=131072")
+    add_test(NAME destruction_gpu_impact_level_cycle COMMAND destruction_impact_level_replay "${_level}.bin")
+    set_tests_properties(destruction_gpu_impact_level_cycle PROPERTIES ENVIRONMENT "${_levelEnv};IMPACT_ITERATIONS=64;IMPACT_START=${_level}.state.bin")
+    add_test(NAME destruction_gpu_impact_level_cold COMMAND destruction_impact_level_replay "${_level}.bin")
+    set_tests_properties(destruction_gpu_impact_level_cold PROPERTIES ENVIRONMENT "${_levelEnv};IMPACT_ITERATIONS=8192")
+    add_test(NAME destruction_gpu_impact_level_optimum COMMAND destruction_impact_level_replay "${_level}.bin" "${_level}.opt.f64")
+    set_tests_properties(destruction_gpu_impact_level_optimum PROPERTIES ENVIRONMENT "${_levelEnv};IMPACT_ITERATIONS=8192" WILL_FAIL TRUE)
     px_destruction_label_tests()
 endif()
 
