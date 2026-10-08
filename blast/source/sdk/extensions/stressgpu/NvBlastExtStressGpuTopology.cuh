@@ -349,6 +349,10 @@ class DeviceStressTopology
         checkCuda(cudaGraphInstantiate(&exec,graph,0), "instantiate stress topology graph");
     }
 public:
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+    // The native hierarchy's Krylov carry, dropped (a replaced warm start).
+    void resetCarry(cudaStream_t stream){if(nativeHierarchy)nativeHierarchy->resetCarry(stream);}
+#endif
     explicit DeviceStressTopology(DeviceStressTopologyBuffers buffers):b(buffers) {}
     ~DeviceStressTopology()
     {

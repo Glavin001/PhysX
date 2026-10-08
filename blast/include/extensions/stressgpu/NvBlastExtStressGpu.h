@@ -575,6 +575,17 @@ protected:
 bool ExtStressGpuImportWarmStart(ExtStressGpuSolver* solver,
     const ExtStressGpuImpulse* impulses, std::uint32_t count);
 
+/** The warm start a corrected pass begins from. A stage that re-simulates a
+ * tick (a correction pass) snapshots the resident impulses before the tick's
+ * first solve and restores them before the corrected pass's: that pass's solve
+ * starts from the state the tick began with, not from the trial's solution
+ * under loads the corrected pass no longer has (with a capped iteration count
+ * the trial's iterate would carry those loads into its verdict). Restoring
+ * drops the Krylov carry and the settled baseline (the iterate they certified
+ * is replaced). Ordered on the solver's stream. Non-virtual extensions. */
+bool ExtStressGpuSnapshotWarmStart(ExtStressGpuSolver* solver);
+bool ExtStressGpuRestoreWarmStart(ExtStressGpuSolver* solver);
+
 /** A bond's rotational stiffness from its own cross-section.
  *
  * By default the solve weights every bond's rotation with one length scale

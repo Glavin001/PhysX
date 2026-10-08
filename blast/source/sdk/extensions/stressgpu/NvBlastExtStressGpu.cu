@@ -2273,6 +2273,34 @@ public:
         return true;
     }
 
+    // The warm start a corrected pass begins from (ExtStressGpuSnapshotWarmStart,
+    // ExtStressGpuRestoreWarmStart): the resident impulses, copied on the solver
+    // stream (so after every solve and topology update before it).
+    bool snapshotWarmStart()
+    {
+        // Resident (device topology) solvers only: bond slots are stable there
+        // (a host topology's removeBond permutes the impulses between passes).
+        if (!m_impulses || !m_bondCount || !m_deviceTopology) return false;
+        ContextGuard context(m_cudaContext);
+        if (!m_warmSnapshot) allocateDevice(m_warmSnapshot, m_bondCount, "allocate warm-start snapshot");
+        checkCuda(cudaMemcpyAsync(m_warmSnapshot, m_impulses, sizeof(AngLin) * m_bondCount, cudaMemcpyDeviceToDevice, m_stream), "snapshot warm start");
+        m_warmSnapshotHasStart = m_hasWarmStart;
+        return true;
+    }
+    bool restoreWarmStart()
+    {
+        if (!m_warmSnapshot || !m_impulses) return false;
+        ContextGuard context(m_cudaContext);
+        checkCuda(cudaMemcpyAsync(m_impulses, m_warmSnapshot, sizeof(AngLin) * m_bondCount, cudaMemcpyDeviceToDevice, m_stream), "restore warm start");
+#ifdef PHYSX_RESIDENT_DESTRUCTION
+        if (m_deviceTopology) m_deviceTopology->resetCarry(m_stream);
+#endif
+        m_hasWarmStart = m_warmSnapshotHasStart;
+        // A settled island's flags certified the impulses it held; they are replaced.
+        invalidateSettledBaseline();
+        return true;
+    }
+
     void resetWarmStart() override
     {
         ContextGuard context(m_cudaContext);
@@ -4554,6 +4582,7 @@ private:
     float m_massScale{1.0f};
     float m_lengthScale{1.0f};
     bool m_hasWarmStart{false};
+    AngLin* m_warmSnapshot{nullptr};bool m_warmSnapshotHasStart{false};
     std::vector<AngLin> m_dbgImpulses;
     std::vector<std::uint32_t> m_dbgActive;
     std::vector<std::uint32_t> m_dbgConverged;
@@ -4948,6 +4977,20 @@ bool ExtStressGpuImportWarmStart(ExtStressGpuSolver* solver,
 {
     if (!solver) return false;
     try { return static_cast<ExtStressGpuSolverImpl*>(solver)->importPhysicalWarmStart(impulses, count); }
+    catch (...) { return false; }
+}
+
+bool ExtStressGpuSnapshotWarmStart(ExtStressGpuSolver* solver)
+{
+    if (!solver) return false;
+    try { return static_cast<ExtStressGpuSolverImpl*>(solver)->snapshotWarmStart(); }
+    catch (...) { return false; }
+}
+
+bool ExtStressGpuRestoreWarmStart(ExtStressGpuSolver* solver)
+{
+    if (!solver) return false;
+    try { return static_cast<ExtStressGpuSolverImpl*>(solver)->restoreWarmStart(); }
     catch (...) { return false; }
 }
 

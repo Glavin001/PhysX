@@ -705,6 +705,8 @@ class Runtime final : public PxgDestructionRuntime {
     PxDestructionCrushState *mCrush{},*mTrialCrush{};
     float mDamageRate=2,mBendGain=3;bool mFibres=true;
     PxDestructionBondSection* mSections{};bool mSectionBending=false,mSectionRotation=false; // opt-in real sections (PX_DESTRUCTION_SECTION_BENDING)
+    // The corrected pass's elastic solve warm-started from the tick's start (opt-in).
+    const bool mCorrectedWarmStart=[]{const char* v=std::getenv("PX_DESTRUCTION_CORRECTED_WARM_START");return v && v[0]=='1';}();
     float mFragmentMaxPenBias=-1e32f; // negative PhysX clamp; -1e32 leaves inheritance alone
     PxgDestructionTopologyTransaction* mTopology{};
     committedChanges::Publication mChanges;
@@ -1922,6 +1924,12 @@ public:
             const PxDestructionVectorPair* forces=nullptr;
             const ExtStressGpuDeviceStatus* solveStatus=nullptr;
             if(mSolver) {
+                // PX_DESTRUCTION_CORRECTED_WARM_START=1: a corrected pass re-simulates the
+                // tick from its start, so its elastic solve starts from the state the
+                // tick began with, not from the trial's solution (computed under loads
+                // the corrected pass no longer has; with the iteration cap its verdict
+                // judged that iterate: tests destruction_gpu_impact_static_handoff_*).
+                if(mCorrectedWarmStart){if(!mPass)Nv::Blast::ExtStressGpuSnapshotWarmStart(mSolver);else Nv::Blast::ExtStressGpuRestoreWarmStart(mSolver);}
                 if(!mSolver->solveDeviceAsync(reinterpret_cast<ExtStressGpuImpulse*>(mInputs),mN,mParams,mReady,mConsumer))
                     throw std::runtime_error("resident stress solve submission failed");
                 const auto view=mSolver->deviceView();
