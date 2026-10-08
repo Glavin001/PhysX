@@ -205,6 +205,16 @@ int run(int argc,char** argv){
         e.submit(in,s,stream);check(cudaStreamSynchronize(stream));check(cudaGetLastError());
         const double ms=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-t0).count();
         impact::Status st{};check(cudaMemcpy(&st,e.w.status,sizeof st,cudaMemcpyDeviceToHost));
+        // IMPACT_HASH=1: a checksum of every bond's force and verdict and every row's
+        // bound after each run (is the evaluation bitwise repeatable?).
+        if(std::getenv("IMPACT_HASH")) {
+            std::vector<PxDestructionVectorPair> fo(m);std::vector<PxU32> ve(m);check(cudaMemcpy(fo.data(),e.w.forces,sizeof(fo[0])*m,cudaMemcpyDeviceToHost));
+            check(cudaMemcpy(ve.data(),e.w.verdict,sizeof(PxU32)*m,cudaMemcpyDeviceToHost));
+            std::vector<float> rb(in.rowBound?h.rows:0);if(!rb.empty())check(cudaMemcpy(rb.data(),in.rowBound,sizeof(float)*rb.size(),cudaMemcpyDeviceToHost));
+            unsigned long long hsh=1469598103934665603ull;auto mix=[&](const void* d,size_t n){const unsigned char* b=static_cast<const unsigned char*>(d);for(size_t i=0;i<n;++i){hsh^=b[i];hsh*=1099511628211ull;}};
+            mix(fo.data(),fo.size()*sizeof(fo[0]));mix(ve.data(),ve.size()*4);mix(rb.data(),rb.size()*4);
+            std::printf("run %d hash %016llx\n",r,hsh);
+        }
         // IMPACT_EXPLICIT_TIMES=1: when the explicit step's joints broke (ms), per patch.
         if(!r && std::getenv("IMPACT_EXPLICIT_TIMES") && s.method==2u) {
             for(PxU32 p=0;p<e.explicitPatches.size();++p) {
@@ -217,9 +227,17 @@ int run(int argc,char** argv){
                     const auto& na=N[x.a];const auto& nb=N[x.b];
                     std::printf("  row %u: chunk node %u (%u live joints, v %.2f %.2f %.2f) last P (%.3g %.3g %.3g) total (%.3g %.3g %.3g) N s; impactor v %.2f %.2f %.2f\n",x.row,x.a,live,
                         na.v[0],na.v[1],na.v[2],x.P[0],x.P[1],x.P[2],x.total[0],x.total[1],x.total[2],nb.v[0],nb.v[1],nb.v[2]);}
+                for(PxU32 k=q.chunks;k<q.nodes;++k){const auto& n=N[k];const float m=n.im>0?1.0f/n.im:0.0f;
+                    const float e0=0.5f*m*(n.v0[0]*n.v0[0]+n.v0[1]*n.v0[1]+n.v0[2]*n.v0[2]),e1=0.5f*m*(n.v[0]*n.v[0]+n.v[1]*n.v[1]+n.v[2]*n.v[2]);
+                    std::printf("  impactor node %u: m %.3g kg, v (%.2f %.2f %.2f) -> (%.2f %.2f %.2f), w (%.2f %.2f %.2f) -> (%.2f %.2f %.2f); KE %.4g -> %.4g J; Iinv %.3g %.3g %.3g %.3g %.3g %.3g\n",k,m,n.v0[0],n.v0[1],n.v0[2],n.v[0],n.v[1],n.v[2],
+                        n.v0[3],n.v0[4],n.v0[5],n.v[3],n.v[4],n.v[5],e0,e1,n.Iinv[0],n.Iinv[1],n.Iinv[2],n.Iinv[3],n.Iinv[4],n.Iinv[5]);}
                 std::printf("explicit patch %u: %zu breaks; by",p,t.size());
                 for(float c:{0.1f,0.25f,0.5f,1.0f,2.0f,4.0f,8.0f,16.7f}){size_t k=0;while(k<t.size() && t[k]<=c)++k;std::printf(" %.2g ms %zu,",c,k);}std::printf("\n");
             }
+        }
+        if(!r && std::getenv("IMPACT_ENERGY_CHECK")) {
+            std::printf("energy deficit: %u explicit patches dissipated more than their impactors' kinetic energy loss and their joints' elastic energy\n",st.energyDeficit);
+            if(st.energyDeficit)return 1;
         }
         if(!r && std::getenv("IMPACT_HELD_CHECK") && in.rows) {
             PxDestructionBondVerdict* v;allocate(v,m);

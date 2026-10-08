@@ -2464,6 +2464,7 @@ public:
                         if(e.diverged)std::fprintf(stderr,"[impact] DIVERGED: %u solves (a bug signal); worst split at bond %u\n",e.diverged,e.worstBond-1u);
                         if(e.nonfinite)std::fprintf(stderr,"[impact] NON-FINITE: %u solves stopped on a non-finite residual (a bug signal); at bond %u\n",e.nonfinite,e.worstBond-1u);
                         if(e.infeasible)std::fprintf(stderr,"[impact] INFEASIBLE PROJECTIONS: %u (a bug signal)\n",e.infeasible);
+                        if(e.energyDeficit)std::fprintf(stderr,"[impact] ENERGY DEFICIT: %u explicit patches dissipated more than their impactors and joints held (a bug signal)\n",e.energyDeficit);
                     }
                 }
             }

@@ -286,6 +286,10 @@ struct Status {
     // of the tolerance cannot certify its residuals (a limit cycle at 1).
     PxU32 innerWorst;
     PxU32 innerShort;
+    // The explicit step's patches whose fracture and plastic work exceed the
+    // impactors' kinetic energy loss plus the elastic energy the patch held at
+    // the start (energy from nowhere: a bug signal).
+    PxU32 energyDeficit;
 };
 // Optional per-solve record (diagnostics): the first kLogCapacity solves.
 struct SolveRecord { PxU32 island,level,iterations,broken,clipped,capped,links,nodes; float lambda,change,rho,pad; };
@@ -2039,10 +2043,11 @@ struct Stage {
         explicitRunMs=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-built).count();
         exPublishIsland<<<64,kThreads,0,stream>>>(in,w,x);
         exPublish<<<dim3(16,count),kThreads,0,stream>>>(in,s,w,x);
+        if(stepLog){check(cudaMemcpyAsync(explicitPatches.data(),x.patches,sizeof(ExPatch)*count,cudaMemcpyDeviceToHost,stream));check(cudaStreamSynchronize(stream));}
         if(stepLog)std::fprintf(stderr,"[impact]   explicit: %u patches; build %.2f ms, window %.2f ms in %u launches\n",count,explicitBuildMs,explicitRunMs,dispatches);
         if(stepLog)for(PxU32 p=0;p<count;++p){const ExPatch& q=explicitPatches[p];
-            std::fprintf(stderr,"[impact]   explicit patch %u: island %u, %u nodes (%u chunks, %.2f m%s), %u joints, %u contact rows, %u impactors; %u substeps of %.1f us (omega %.3g rad/s; at its end %u contacts pushing, %u joints at an event); broke %u, yielded %u%s\n",
-                p,q.island,q.nodes,q.chunks,q.radius,q.truncated?", shrunk":"",q.links,q.rows,q.impactors,q.substeps,q.h*1e6f,q.omega,q.pushing,q.near,q.broken,q.yielded,q.failed?" (FAILED)":"");}
+            std::fprintf(stderr,"[impact]   explicit patch %u: island %u, %u nodes (%u chunks, %.2f m%s), %u joints, %u contact rows, %u impactors; %u substeps of %.1f us (omega %.3g rad/s; at its end %u contacts pushing, %u joints at an event); broke %u, yielded %u%s; impactors' KE %.6g -> %.6g J, held %.4g J, dead load %.4g J; fracture %.4g J, plastic %.4g J\n",
+                p,q.island,q.nodes,q.chunks,q.radius,q.truncated?", shrunk":"",q.links,q.rows,q.impactors,q.substeps,q.h*1e6f,q.omega,q.pushing,q.near,q.broken,q.yielded,q.failed?" (FAILED)":"",q.keIn,q.keOut,q.u0,q.dead,q.fracture,q.plastic);}
     }
     void releaseStep() {
         if(!stepAllocated)return;
