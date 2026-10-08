@@ -542,7 +542,9 @@ __device__ void exFinish(Shared& sh,const Settings& s,const ExScratch& t,PxU32 p
                 for(int a=0;a<2;++a)for(int c=0;c<2;++c)Lo[4*j+2*a+c]=lump[3*a+c]*sqrtf(a?n.Iinv[0]>0.0f?fmaxf(n.Iinv[0],fmaxf(n.Iinv[1],n.Iinv[2])):0.0f:n.im);
                 O[j]=(e.state&eEX_LIVE)?(end?e.a:e.b):0xffffffffu;
             }
-            for(int q=0;q<6;++q)n.f0[q]=-f[q];
+            // f0: the rest forces' load; with the anchored-contact bound, instead the
+            // node's constant external wrench over the window (exExternal fills it).
+            for(int q=0;q<6;++q)n.f0[q]=s.anchoredBound?0.0f:-f[q];
             float ld[4]={0,0,0,0};
             if(!n.tensor) {
                 for(int r=0;r<6;++r){float t[2]={0.0f,0.0f};
@@ -622,6 +624,26 @@ __device__ __forceinline__ void exUnpack(const float4* q,Bond& b,float* J0,PxU32
     b.t2[2]=q2.x;b.o0[0]=q2.y;b.o0[1]=q2.z;b.o0[2]=q2.w;b.o1[0]=q3.x;b.o1[1]=q3.y;b.o1[2]=q3.z;b.kl=q3.w;
     b.kt=q4.x;b.k0=q4.y;b.k1=q4.z;b.capC=q4.w;b.capT=q5.x;b.capS=q5.y;b.gb=q5.z;b.gt=q5.w;b.g0=q6.x;b.g1=q6.y;b.h0=q6.z;b.h1=q6.w;
     J0[0]=q7.x;J0[1]=q7.y;J0[2]=q7.z;J0[3]=q7.w;J0[4]=q8.x;J0[5]=q8.y;a=__float_as_uint(q8.z);e1=__float_as_uint(q8.w);
+}
+// With the anchored-contact bound (Settings::anchoredBound): each contact on a
+// patch chunk that is not one of the patch's rows -- static, resting, released,
+// debris on it -- loads that chunk over the window with its trial force (at its
+// point, about the chunk), constant: the step decides the patch's joints, and
+// the static verdict does not see its island, so a load it leaves out no model
+// grades (a chunk at its contact bound then held while the body went past it).
+__global__ void exExternal(Inputs in,Settings s,ExScratch t)
+{
+    const PxU32 r=blockIdx.x*blockDim.x+threadIdx.x;
+    const PxU32 rows=in.rowCounter?min(*in.rowCounter,in.rowCount):in.rowCount;if(!s.anchoredBound || !in.rows || r>=rows)return;
+    const ContactRow& row=in.rows[r];const PxU32 c=row.chunk;if(c>=in.chunkCount)return;
+    const PxU32 at=t.nodeOf[c];if(at==0xffffffffu)return;
+    const PxU32 p=at>>16,k=at&0xffffu;if(p>=*t.patchCount || k>=t.patches[p].chunks)return;
+    // The patch's own rows are its contacts already.
+    if(row.points && !(row.resting&1u) && (!in.rowRouted || in.rowRouted[r]) && row.im>0.0f)return;
+    const PxVec3 F(row.load[0],row.load[1],row.load[2]),x(row.point[0],row.point[1],row.point[2]);
+    const PxVec3 T=(x-in.chunks[c].position).cross(F);
+    float* f0=t.nodes[size_t(p)*kExNodes+k].f0;
+    atomicAdd(f0+0,F.x);atomicAdd(f0+1,F.y);atomicAdd(f0+2,F.z);atomicAdd(f0+3,T.x);atomicAdd(f0+4,T.y);atomicAdd(f0+5,T.z);
 }
 template<bool Small> __device__ __forceinline__
 void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
@@ -737,9 +759,13 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
         if(!threadIdx.x){shActive=0u;shPushing=0u;shNear=0u;}
         // Joint forces on the nodes: each node gathers its joints' wrenches (no atomics).
         if(!(EX_PROF_SKIP&1))for(PxU32 k=threadIdx.x;k<nn;k+=kExThreads) {
-            PxU32 b0,b1;jointRange(k,b0,b1);if(b0==b1)continue;
+            PxU32 b0,b1;jointRange(k,b0,b1);
             float f[6]={0,0,0,0,0,0};
-            exGather(wr,adj,b0,b1,f);
+            if(s.anchoredBound) {   // its constant external wrench (exExternal), and that wrench's work
+                const ExNode& n=nodes[k];for(int c=0;c<6;++c){f[c]=n.f0[c];dead+=h*n.f0[c]*vS[6*k+c];}
+            }
+            else if(b0==b1)continue;
+            if(b0<b1)exGather(wr,adj,b0,b1,f);
             apply(k,f,h);
         }
         __syncthreads();

@@ -2050,6 +2050,7 @@ struct Stage {
         // Every patch slot builds (an empty one returns at once): no readback
         // before the build; one after it, for the patches and their substeps.
         exBuild<<<kExPatches,kThreads,0,stream>>>(in,s,w,x);
+        if(s.anchoredBound && in.rows)exExternal<<<(in.rowCount+127)/128,128,0,stream>>>(in,s,x);
         // The window follows the build with no readback between them (one host
         // round trip fewer): both kernels over every patch slot, each patch
         // running in the kernel of its size, an empty slot returning at once.

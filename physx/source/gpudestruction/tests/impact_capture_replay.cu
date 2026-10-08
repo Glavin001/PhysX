@@ -175,6 +175,7 @@ int run(int argc,char** argv){
     // loads routed again here, on a copy).
     s.boundImpactor=env("IMPACT_BOUND_IMPACTOR",s.boundImpactor?1.0f:0.0f)!=0.0f;
     s.route=env("IMPACT_ROUTE",s.route?1.0f:0.0f)!=0.0f;
+    s.anchoredBound=env("IMPACT_ANCHORED",s.anchoredBound?1.0f:0.0f)!=0.0f;   // PX_DESTRUCTION_ANCHORED_CONTACT_BOUND's routing and external loads
     s.explicitDt=env("IMPACT_EXPLICIT_DT_US",0.0f)*1e-6f;s.explicitWindow=PxU32(env("IMPACT_EXPLICIT_WINDOW",float(s.explicitWindow)));s.explicitSync=PxU32(env("IMPACT_EXPLICIT_SYNC",float(s.explicitSync)));
     if(s.route && in.rows) {
         PxDestructionVectorPair* loads;allocate(loads,n);check(cudaMemcpy(loads,in.accelerations,sizeof(*loads)*n,cudaMemcpyDeviceToDevice));
