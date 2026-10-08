@@ -105,7 +105,10 @@ struct ExPatch {
 // eEX_CONTACT: a bearing joint whose fastenings failed, a unilateral contact (the
 // dynamic sequence); eEX_BEARING: a bearing joint (its fastenings may fail to contact).
 // eEX_OPEN: a contact open (lifted) at the last substep (its transitions are activity).
-enum ExState : PxU32 { eEX_LIVE=1, eEX_DUCTILE=2, eEX_YIELDED=4, eEX_BROKEN=8, eEX_ROWS=16, eEX_CAR=32, eEX_IMPLICIT=64, eEX_CONTACT=128, eEX_BEARING=256, eEX_OPEN=1024 };
+// eEX_FRICTION: a Mohr-Coulomb joint (Bond::mu > 0): its mu and cap are packed in
+// its record's last float4, read only for such joints (512: 32-256 are the
+// two-body and dynamic-sequence branches' bits).
+enum ExState : PxU32 { eEX_LIVE=1, eEX_DUCTILE=2, eEX_YIELDED=4, eEX_BROKEN=8, eEX_ROWS=16, eEX_CAR=32, eEX_IMPLICIT=64, eEX_CONTACT=128, eEX_BEARING=256, eEX_FRICTION=512, eEX_OPEN=1024 };
 struct ExLink { PxU32 a,b,state,pad; float J0[6],J[6]; float slip,limit,brokeAt,pad2; };
 // A contact row: the struck chunk (a, local), the impactor (b), the stage's row.
 // A compliant row (compliant 1): its depth d (m), the materials' E* (Pa), the
@@ -126,9 +129,10 @@ struct ExNode { PxU32 chunk,tensor,jointBegin,jointEnd,rowBegin,rowEnd,pad[2]; f
 // Bond cost about three times as much: tests/tools/ex_floor_bench.cu). 0..8 the
 // constants -- frame n, t1, t2, arms o0, o1, stiffnesses kl, kt, k0, k1,
 // capacities and gains, J0, the local ends -- 9..10 the state: J, state bits,
-// slip. exRunT packs them at each launch's start from bonds and links and
-// writes the state back to links at its end.
-constexpr PxU32 kExJoint=11;
+// slip, 11 a Mohr-Coulomb joint's mu and shear cap (read only with
+// eEX_FRICTION). exRunT packs them at each launch's start from bonds and links
+// and writes the state back to links at its end.
+constexpr PxU32 kExJoint=12;
 // A contact row packed for the window: frame, arms, friction, W, W^-1 (kExRow float4s).
 constexpr PxU32 kExRow=9;
 struct ExScratch {
@@ -759,7 +763,7 @@ __global__ __launch_bounds__(kThreads) void exBuild(Inputs in,Settings s,Scratch
             if(!prepareBond(in,s,i,b)){b=Bond{};b.bond=i;b.c0=bd.chunk0;b.c1=bd.chunk1;b.flags=0;}
             const PxU32 a0=t.nodeOf[b.c0],a1=t.nodeOf[b.c1];
             ExLink e{};e.a=(a0!=0xffffffffu && (a0>>16)==p)?(a0&0xffffu):0xffffffffu;e.b=(a1!=0xffffffffu && (a1>>16)==p)?(a1&0xffffu):0xffffffffu;
-            e.state=(b.flags&eALIVE)?(eEX_LIVE|((b.flags&eDUCTILE)?eEX_DUCTILE:0u)):0u;
+            e.state=(b.flags&eALIVE)?(eEX_LIVE|((b.flags&eDUCTILE)?eEX_DUCTILE:0u)|(b.mu>0.0f?eEX_FRICTION:0u)):0u;
             float x[6]={0,0,0,0,0,0};toLocal(b,in.base[i],x);
             for(int q=0;q<6;++q){e.J0[q]=x[q];e.J[q]=x[q];}
             // A car's joint: its frame and arms (its cluster's) rotated into the struck
@@ -1158,6 +1162,13 @@ __device__ __forceinline__ void exPack(const Bond& b,const ExLink& e,float4* q)
     q[4]=make_float4(b.kt,b.k0,b.k1,b.capC);q[5]=make_float4(b.capT,b.capS,b.gb,b.gt);q[6]=make_float4(b.g0,b.g1,b.h0,b.h1);
     q[7]=make_float4(e.J0[0],e.J0[1],e.J0[2],e.J0[3]);q[8]=make_float4(e.J0[4],e.J0[5],__uint_as_float(e.a),__uint_as_float(e.b));
     q[9]=make_float4(e.J[0],e.J[1],e.J[2],e.J[3]);q[10]=make_float4(e.J[4],e.J[5],__uint_as_float(e.state),e.slip);
+    q[11]=make_float4(b.mu,b.capSx,0.0f,0.0f);
+}
+// A Mohr-Coulomb joint's friction (eEX_FRICTION) into its unpacked Bond:
+// every grader of a packed joint calls this after reading its state.
+__device__ __forceinline__ void exUnpackFriction(const float4* q,PxU32 state,Bond& b)
+{
+    if(state&eEX_FRICTION){const float4 f=q[11];b.mu=f.x;b.capSx=f.y;}
 }
 // The packed constants back into a Bond's fields the window reads (the rest unset).
 __device__ __forceinline__ void exUnpack(const float4* q,Bond& b,float* J0,PxU32& a,PxU32& e1)
@@ -1167,6 +1178,7 @@ __device__ __forceinline__ void exUnpack(const float4* q,Bond& b,float* J0,PxU32
     b.t2[2]=q2.x;b.o0[0]=q2.y;b.o0[1]=q2.z;b.o0[2]=q2.w;b.o1[0]=q3.x;b.o1[1]=q3.y;b.o1[2]=q3.z;b.kl=q3.w;
     b.kt=q4.x;b.k0=q4.y;b.k1=q4.z;b.capC=q4.w;b.capT=q5.x;b.capS=q5.y;b.gb=q5.z;b.gt=q5.w;b.g0=q6.x;b.g1=q6.y;b.h0=q6.z;b.h1=q6.w;
     J0[0]=q7.x;J0[1]=q7.y;J0[2]=q7.z;J0[3]=q7.w;J0[4]=q8.x;J0[5]=q8.y;a=__float_as_uint(q8.z);e1=__float_as_uint(q8.w);
+    b.mu=0.0f;b.capSx=0.0f;   // exUnpackFriction, with the joint's state
 }
 // A compliant row's impulse over h (exBuild's law): its normal force at the
 // substep's end (backward Euler, g+ = g_N + W_NN P_N the closing rate after it):
@@ -1242,6 +1254,11 @@ __device__ void exImplicitJointA(PxU32 l,const float4* ja,float4* jp,ExLink* lin
     float g0[6]={0,0,0,0,0,0},g1[6]={0,0,0,0,0,0};exWrench(b,inc,0,g0);exWrench(b,inc,1,g1);
     for(int i=0;i<6;++i){od[i]=g0[i];od[6+i]=g1[i];}
 }
+// A re-bearing contact's friction coefficient: its material's (Bond::mu, Mohr-Coulomb
+// shear, FIDELITY_AUDIT C11; for an exUnpack'ed joint after exUnpackFriction), as the
+// stage's re-bearing law takes it (rebearVerdicts), else the contact law's
+// (Settings::dynamicFriction: the re-bearing friction).
+__device__ __forceinline__ float exContactMu(const Bond& b,float fallback){return b.mu>0.0f?b.mu:fallback;}
 // The dynamic sequence's joint laws (exRunT's joint pass on a dynamic patch).
 // A re-bearing contact (PxgDestructionRebearing.cuh's law, graded as the stage
 // grades it): from its trial force J (bond frame, x[0] the normal force, + in
@@ -1413,6 +1430,7 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
         Bond b;float J0[6];PxU32 ea,eb;exUnpack(q,b,J0,ea,eb);
         const float4 s0=q[9],s1=q[10];PxU32 state=__float_as_uint(s1.z);float slip=s1.w;
         if(!(state&eEX_LIVE) || (state&eEX_IMPLICIT))return;   // broke earlier in this launch; or implicit (exImplicitJointA)
+        exUnpackFriction(q,state,b);
         float d[6]={0,0,0,0,0,0};if(ea!=0xffffffffu)exRelative(b,0,vS+6*ea,d);if(eb!=0xffffffffu)exRelative(b,1,vS+6*eb,d);
         for(int q6=0;q6<6;++q6)dead-=h*J0[q6]*d[q6];
         float k[6];exStiffness(b,k);
@@ -1421,7 +1439,7 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
         if(seqp && !(state&eEX_CAR)) {
             // The dynamic sequence: the joint's own law (exDynamicJoint); its wrench B (F - J0).
             float F[6],fracture=0.0f,plastic=0.0f,slipWork=0.0f,dash=0.0f;
-            const PxU32 ev=exDynamicJoint(b,k,damp+8*size_t(l),shBeta,d,J,F,state,slip,links[l].limit,cslip+2*size_t(l),h,mu,s.capacityBand,fracture,plastic,slipWork,dash);
+            const PxU32 ev=exDynamicJoint(b,k,damp+8*size_t(l),shBeta,d,J,F,state,slip,links[l].limit,cslip+2*size_t(l),h,exContactMu(b,mu),s.capacityBand,fracture,plastic,slipWork,dash);
             if(sample) {
                 // The damping's frequency: this joint's K d on its ends, and d . K d (open contacts and broken joints: none).
                 float kd[6];const bool stiff=(state&eEX_LIVE) && !((state&eEX_CONTACT) && (state&eEX_OPEN));
@@ -1760,7 +1778,7 @@ __global__ void exPublishDynamic(Inputs in,Settings s,Scratch w,ExScratch t)
         const bool live=(e.state&eEX_LIVE)!=0u,contact=(e.state&eEX_CONTACT)!=0u;
         float F[6];for(int q=0;q<6;++q)F[q]=e.J[q];
         if(live && contact) {
-            exContactForce(b,e.J,s.dynamicFriction,F);++contacts;
+            exContactForce(b,e.J,exContactMu(b,s.dynamicFriction),F);++contacts;
             float lin[3],ang[3];toSolver(b,F,lin,ang);
             PxDestructionVectorPair fo;fo.linear=PxVec3(lin[0],lin[1],lin[2]);fo.angular=PxVec3(ang[0],ang[1],ang[2]);w.forces[i]=fo;
         }

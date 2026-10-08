@@ -136,7 +136,7 @@ __global__ void seqThaw(impact::Inputs in,impact::Settings s,const PxU32* persis
     if(persistedBond[i]&2u) {
         const float C=-x[0],V=sqrtf(x[1]*x[1]+x[2]*x[2]),T=fabsf(x[3]);
         const float bend=b.g0>0.0f?b.g0*fabsf(x[4])+b.g1*fabsf(x[5]):b.gb*sqrtf(x[4]*x[4]+x[5]*x[5]);
-        event=!(C>0.0f) || V+b.gt*T>s.dynamicFriction*C || bend+C>=(1.0f-band)*b.capC;
+        event=!(C>0.0f) || V+b.gt*T>impact::exContactMu(b,s.dynamicFriction)*C || bend+C>=(1.0f-band)*b.capC;
     } else event=impact::utilisation(b,x)>=1.0f-band;
     if(event)thaw[island]=1u;
 }
