@@ -211,6 +211,11 @@ struct PxDestructionStressConstraint {
 // face's (the internal-edge problem; Bullet btAdjustInternalEdgeContacts, PhysX
 // triangle-mesh active edges). The face is internal only while each listed
 // neighbour is still in the chunk's cluster (unbroken from it, not crushed).
+// Bit 6 (PX_DESTRUCTION_CHUNK_BOX_EXACT): the box is the chunk's collider itself (a
+// cuboid chunk), not a hull's bounds. Rigid contacts are corrected only on exact
+// boxes whose covering neighbours are exact too: a hull need not fill its bounds,
+// so a face its bounds cover may still be exposed. Face bits are 0..5 only.
+#define PX_DESTRUCTION_CHUNK_BOX_EXACT (1u << 6)
 struct PxDestructionChunkBox {
     PxVec3 center{0.0f}, halfExtents{0.0f};
     PxQuat rotation{PxIdentity};
