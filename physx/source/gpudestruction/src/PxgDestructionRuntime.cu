@@ -2688,8 +2688,12 @@ public:
             // Ci: the crush law at each chunk's impact stress, before E (a chunk
             // crushed so leaves E's solve); in place of the virial evaluation.
             if(mImpactCrush && mMaterials) {
+                // Settings::compliant: the trial leaves its routed rows' chunks to the window; the
+                // corrected pass leaves every window chunk as the window decided it (its crush, like its
+                // bonds' verdict, stands through the pass: a fragment the window left partly crushed
+                // and crushed again here would request a correction with no topology edit).
                 impactCrushStep<<<(mN+127)/128,128,0,mStream>>>(mChunks,mMaterials,mImpactStress,mImpactRate,mCrush,mTrialCrush,mN,dt,mStatus,
-                    mCompliant && !mPass?mRoutedChunks:nullptr);
+                    mCompliant?(mPass?mWindowMask:mRoutedChunks):nullptr);
                 // The trial's crushes are paid from the impactor's start-of-tick
                 // speed, which the corrected pass re-simulates from. (A crush
                 // first found in the corrected pass is not paid: no later pass.)
