@@ -555,6 +555,8 @@ public:
      * A zero deviceAccept rejects the proposed update without reading its mask.
      * Inputs/events remain alive until readyEvent. No host transfer or wait.
      * Status error bits: 1 invalid mask, 2 resurrection, 4 stale generation.
+     * (Readmission of bonds flagged by ExtStressGpuEnableBondReadmission is
+     * the one supported resurrection.)
      * Successful updates reset incompatible warm starts and preconditioners.
      * Last-solve forces retain solvedGeneration until the next solve; they are
      * diagnostic trial output, not a solved answer for a newer topology.
@@ -585,6 +587,32 @@ bool ExtStressGpuImportWarmStart(ExtStressGpuSolver* solver,
  * is replaced). Ordered on the solver's stream. Non-virtual extensions. */
 bool ExtStressGpuSnapshotWarmStart(ExtStressGpuSolver* solver);
 bool ExtStressGpuRestoreWarmStart(ExtStressGpuSolver* solver);
+
+/** Bond readmission: unilateral contacts in the native solve.
+ *
+ * deviceReadmissible: a device array of bondCount flags the caller owns and
+ * keeps alive; a nonzero flag marks a bond whose activity may change both ways
+ * (a contact that bears in compression and lifts off in tension). For such a
+ * bond, updateDeviceTopologyAsync accepts a 0 -> 1 mask change (readmission)
+ * and neither a removal nor a readmission clears its component's warm start.
+ * The solver keeps the resident displacement y with lambda = B^T y (the sum of
+ * every solve's node-space correction, cleared and copied with the impulses),
+ * and a readmitted bond starts at (B^T y) at its row, so the warm start stays
+ * in range(B^T). Native device-topology solvers only: call after
+ * enableDeviceTopology() and before the first solve. Flags are read at every
+ * topology update. A non-virtual extension. */
+bool ExtStressGpuEnableBondReadmission(ExtStressGpuSolver* solver, const std::uint32_t* deviceReadmissible);
+
+/** For every bond with deviceSelect[i] != 0 (device arrays, bondCount long),
+ * writes deviceOut[i]: the physical force and torque (the units of
+ * deviceView().bondImpulses) the bond would carry under the current resident
+ * displacement, B^T y at its row -- for a removed bond, what it would carry if
+ * readmitted with the rest of the structure as it is; for a live one, its
+ * current force. Other entries are untouched. Needs
+ * ExtStressGpuEnableBondReadmission. Ordered on the solver stream after
+ * producerReady; deviceView().readyEvent completes it. */
+bool ExtStressGpuProbeBondForcesAsync(ExtStressGpuSolver* solver, const std::uint32_t* deviceSelect,
+    ExtStressGpuImpulse* deviceOut, void* producerReady = nullptr);
 
 /** A bond's rotational stiffness from its own cross-section.
  *

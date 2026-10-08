@@ -96,10 +96,15 @@ IF(NOT "${PX_CUMETAL_SOFTBODY_INLINE_THRESHOLD}" STREQUAL "")
     ENDIF()
 ENDIF()
 
-# Until cumetalc emits dependency files, conservatively rebuild native objects
-# after shared headers or private host/device fragments change. In particular,
-# stress dispatch/lifetime .inl edits must never reuse a stale embedded kernel.
-# No downloaded include trees.
+# Each native object's dependencies. cumetalc emits no dependency file, so by
+# default (PX_CUMETAL_DEPFILES) each command first has CuMetal's clang list the
+# headers its source includes on both sides, host and device (-M, the same
+# flags, -I and -D cumetalc gets), and make reads that depfile: an edited .cuh or
+# .inl rebuilds exactly the translation units that include it (stress dispatch and
+# lifetime .inl edits still never reuse a stale embedded kernel). OFF falls back
+# to the conservative rule: every native object depends on every shared header,
+# so one header edit recompiles every kernel (about 4 min). No downloaded include trees.
+OPTION(PX_CUMETAL_DEPFILES "CuMetal native objects: per-source header dependencies (clang -M)" ON)
 FILE(GLOB_RECURSE PX_CUMETAL_HEADERS CONFIGURE_DEPENDS
     "${CUMETAL_ROOT_DIR}/runtime/api/*.h"
     "${CUMETAL_ROOT_DIR}/runtime/api/*.cuh"
@@ -109,6 +114,17 @@ FILE(GLOB_RECURSE PX_CUMETAL_HEADERS CONFIGURE_DEPENDS
     "${PHYSX_ROOT_DIR}/../blast/include/*.h"
     "${PHYSX_ROOT_DIR}/../blast/source/sdk/extensions/stressgpu/*.cuh"
     "${PHYSX_ROOT_DIR}/../blast/source/sdk/extensions/stressgpu/*.inl")
+
+# Merges the host and device dependency lists into the command's one depfile.
+# Written only when its content changes (CONFIGURE), so a reconfigure does not
+# make every native object look out of date.
+SET(PX_CUMETAL_MERGE_DEPFILES "${CMAKE_CURRENT_BINARY_DIR}/cumetal-merge-depfiles.cmake")
+FILE(CONFIGURE OUTPUT "${PX_CUMETAL_MERGE_DEPFILES}" @ONLY CONTENT [=[
+FILE(READ "${HOST}" host)
+FILE(READ "${DEVICE}" device)
+FILE(WRITE "${OUT}" "${host}\n${device}")
+FILE(REMOVE "${HOST}" "${DEVICE}")
+]=])
 
 FUNCTION(px_cumetal_objects target)
     IF(PX_CUMETAL_PACK_BOND_STRESS_SCALARS)
@@ -181,16 +197,40 @@ FUNCTION(px_cumetal_objects target)
         STRING(SUBSTRING "${identity}" 0 16 identity)
         SET(directory "${CMAKE_CURRENT_BINARY_DIR}/cumetal/${target}/$<CONFIG>")
         SET(object "${directory}/${stem}-${identity}.o")
-        ADD_CUSTOM_COMMAND(OUTPUT "${object}"
-            COMMAND ${CMAKE_COMMAND} -E make_directory "${directory}"
-            COMMAND "${CUMETALC_EXECUTABLE}" "${absolute}" -c --backend=cumetal-ir
+        SET(compile_command COMMAND "${CUMETALC_EXECUTABLE}" "${absolute}" -c --backend=cumetal-ir
                 --cuda-clang "${CUMETAL_CUDA_CLANG}" --fp64=${PX_CUMETAL_FP64}
                 -std=c++17 ${cooperative_flag} ${reference_inline_flag} ${particle_inline_flag} ${softbody_inline_flag}
-                "-I$<JOIN:$<TARGET_PROPERTY:${target},INCLUDE_DIRECTORIES>,;-I>"
-                "-D$<JOIN:$<TARGET_PROPERTY:${target},COMPILE_DEFINITIONS>,;-D>"
-                -o "${object}"
-            DEPENDS "${absolute}" ${PX_CUMETAL_HEADERS} "${CUMETALC_EXECUTABLE}"
-            COMMAND_EXPAND_LISTS VERBATIM)
+                "-I$<JOIN:$<TARGET_PROPERTY:${target},INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
+                "-D$<JOIN:$<TARGET_PROPERTY:${target},COMPILE_DEFINITIONS>,$<SEMICOLON>-D>"
+                -o "${object}")
+        IF(PX_CUMETAL_DEPFILES)
+            # The preprocessing cumetalc does (cumetalc/main.cpp: CUDA clang,
+            # sm_80, its runtime/api headers, cuda_runtime.h forced), listing
+            # includes only (-M), once per side.
+            SET(scan "${CUMETAL_CUDA_CLANG}" -x cuda -std=c++17 --cuda-gpu-arch=sm_80
+                -nocudainc -nocudalib -Wno-unknown-cuda-version -D__CUDACC__=1 -D__NVCC__=1
+                -I "${CUMETAL_ROOT_DIR}/runtime/api" -include cuda_runtime.h ${reference_inline_flag}
+                "-I$<JOIN:$<TARGET_PROPERTY:${target},INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
+                "-D$<JOIN:$<TARGET_PROPERTY:${target},COMPILE_DEFINITIONS>,$<SEMICOLON>-D>"
+                -M -MT "${object}")
+            # $<SEMICOLON>: the -I and -D lists live in variables here, where a
+            # literal ';' would split the generator expression itself.
+            ADD_CUSTOM_COMMAND(OUTPUT "${object}"
+                COMMAND ${CMAKE_COMMAND} -E make_directory "${directory}"
+                COMMAND ${scan} --cuda-host-only -MF "${object}.host.d" "${absolute}"
+                COMMAND ${scan} --cuda-device-only -MF "${object}.device.d" "${absolute}"
+                COMMAND ${CMAKE_COMMAND} "-DHOST=${object}.host.d" "-DDEVICE=${object}.device.d" "-DOUT=${object}.d" -P "${PX_CUMETAL_MERGE_DEPFILES}"
+                ${compile_command}
+                DEPENDS "${absolute}" "${CUMETALC_EXECUTABLE}" "${PX_CUMETAL_MERGE_DEPFILES}"
+                DEPFILE "${object}.d"
+                COMMAND_EXPAND_LISTS VERBATIM)
+        ELSE()
+            ADD_CUSTOM_COMMAND(OUTPUT "${object}"
+                COMMAND ${CMAKE_COMMAND} -E make_directory "${directory}"
+                ${compile_command}
+                DEPENDS "${absolute}" ${PX_CUMETAL_HEADERS} "${CUMETALC_EXECUTABLE}"
+                COMMAND_EXPAND_LISTS VERBATIM)
+        ENDIF()
         SET_SOURCE_FILES_PROPERTIES("${source}" PROPERTIES HEADER_FILE_ONLY TRUE)
         SET_SOURCE_FILES_PROPERTIES("${object}" PROPERTIES EXTERNAL_OBJECT TRUE GENERATED TRUE)
         LIST(APPEND objects "${object}")
