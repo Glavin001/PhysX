@@ -2022,7 +2022,7 @@ public:
                     const auto accepted=mTopology->accepted();
                     const PxU32* mask=accepted.activeBonds;const PxU64* generation=&accepted.status->generation;
                     if(mRebearing){rebearingMask(accepted,mTopology->accepted().readyEvent);mask=mBearMask;generation=mBearGeneration;}
-                    if(!mSolver->updateDeviceTopologyAsync(mask,mM,generation,nullptr,mRebearing?static_cast<void*>(mReady):accepted.readyEvent))
+                    if(!mSolver->updateDeviceTopologyAsync(mask,mM,generation,nullptr,mRebearing?static_cast<void*>(mReady):static_cast<void*>(accepted.readyEvent)))
                         throw std::runtime_error("native stress topology update submission failed");
                     const auto stress=mSolver->deviceView();
                     check(cudaStreamWaitEvent(mStream,static_cast<cudaEvent_t>(stress.readyEvent),0));
