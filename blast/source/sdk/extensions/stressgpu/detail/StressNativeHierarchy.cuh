@@ -18,6 +18,8 @@ struct NativeStressCycleView {
     // Krylov carry, per component id: the topology generation and node count
     // whose PCG state (previous gamma, direction) the last solve left behind.
     std::uint64_t* carryGeneration=nullptr;unsigned* carryCount=nullptr;AngLin* carryLoad=nullptr;
+    // Iterations since the carried recurrence last restarted.
+    unsigned* carryIterations=nullptr;
     const ExtStressGpuDeviceTopologyStatus* topology=nullptr;
 };
 __global__ void publishNativeHierarchyStatus(const StressHierarchy::Status* hierarchy,const StressHierarchy::Status* modes,ExtStressGpuDeviceTopologyStatus* topology){
@@ -37,7 +39,7 @@ class NativeStressHierarchy {
     NativeStressCycleView mView;cudaStream_t mStream;
     static StressHierarchy::Input coarseWorkInput(StressHierarchy::Input input){input.componentSolverMaxNodes=kResidentComponentMaxNodes;return input;}
     template<class T>static void allocate(T*& p,size_t count){checkCuda(cudaMalloc(&p,std::max(size_t(1),size_t(count))*sizeof(T)),"allocate native hierarchy workspace");}
-    void release()noexcept{cudaFree(mView.settled.inputs);cudaFree(mView.settled.certificates);cudaFree(mView.settled.verifiedStoredOutput);cudaFree(mView.fineInverse);cudaFree(mView.inverseValid);cudaFree(mView.inverseGeneration);cudaFree(mView.rhs);cudaFree(mView.solution);cudaFree(mView.result);cudaFree(mView.g);cudaFree(mView.gamma);cudaFree(mView.previous);cudaFree(mView.failed);cudaFree(mView.normalizer);cudaFree(mView.verification);cudaFree(mView.verificationCount);cudaFree(mView.warmRangeKnown);cudaFree(mView.warmRangeGeneration);cudaFree(mView.carryGeneration);cudaFree(mView.carryCount);cudaFree(mView.carryLoad);}
+    void release()noexcept{cudaFree(mView.settled.inputs);cudaFree(mView.settled.certificates);cudaFree(mView.settled.verifiedStoredOutput);cudaFree(mView.fineInverse);cudaFree(mView.inverseValid);cudaFree(mView.inverseGeneration);cudaFree(mView.rhs);cudaFree(mView.solution);cudaFree(mView.result);cudaFree(mView.g);cudaFree(mView.gamma);cudaFree(mView.previous);cudaFree(mView.failed);cudaFree(mView.normalizer);cudaFree(mView.verification);cudaFree(mView.verificationCount);cudaFree(mView.warmRangeKnown);cudaFree(mView.warmRangeGeneration);cudaFree(mView.carryGeneration);cudaFree(mView.carryCount);cudaFree(mView.carryLoad);cudaFree(mView.carryIterations);}
 public:
     NativeStressHierarchy(StressHierarchy::Input input,const unsigned* forest,const unsigned* stable,const ExtStressGpuDeviceTopologyStatus* status,cudaStream_t stream)
         :mHierarchy(coarseWorkInput(input),input.nodes>257?16:7,stream),mModes(input,forest,stable,stream),mStream(stream){
@@ -51,7 +53,7 @@ public:
             checkCuda(cudaMemsetAsync(mView.inverseValid,0,sizeof(unsigned)*input.nodes,stream),"invalidate native local inverse cache");
             allocate(mView.rhs,input.nodes);allocate(mView.solution,input.nodes);allocate(mView.result,input.nodes);allocate(mView.g,input.nodes);
             allocate(mView.gamma,input.nodes);allocate(mView.previous,input.nodes);allocate(mView.failed,input.nodes);allocate(mView.normalizer,input.nodes);allocate(mView.verification,input.nodes);allocate(mView.verificationCount,1);allocate(mView.warmRangeKnown,1);allocate(mView.warmRangeGeneration,1);
-            allocate(mView.carryGeneration,input.nodes);allocate(mView.carryCount,input.nodes);allocate(mView.carryLoad,input.nodes);
+            allocate(mView.carryGeneration,input.nodes);allocate(mView.carryCount,input.nodes);allocate(mView.carryLoad,input.nodes);allocate(mView.carryIterations,input.nodes);
             checkCuda(cudaMemsetAsync(mView.carryCount,0,sizeof(unsigned)*input.nodes,stream),"initialize native Krylov carry");
             checkCuda(cudaMemsetAsync(mView.warmRangeKnown,0,sizeof(unsigned),stream),"initialize native warm-range proof");
             checkCuda(cudaMemsetAsync(mView.warmRangeGeneration,0,sizeof(std::uint64_t),stream),"initialize native warm-range generation");

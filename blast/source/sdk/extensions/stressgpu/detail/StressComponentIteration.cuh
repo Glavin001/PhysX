@@ -208,11 +208,19 @@ __global__ void componentStressSolve(
         if(threadIdx.x==0) {
             // The previous solve of this component left its last gamma in
             // previous[id] and its last direction in pi. Continue from them only
-            // for the same operator and component (generation, node count) and
-            // the same load (checked below).
+            // for the same operator and component (generation, node count),
+            // the same load (checked below), after an unconverged solve (a
+            // converged one left nothing to continue: restarted from a
+            // converged state, a solve at rest takes the baseline's two
+            // steps), and while the recurrence has run fewer iterations than
+            // the component has unknowns (6 per chunk). Exact CG terminates
+            // within that many; past it an FP32 recurrence iterates only its
+            // own rounding. Carried without these bounds, a converged portal
+            // frame at rest drifted for 400 ticks, two carried steps a tick,
+            // until its solve diverged and broke a bond.
             const float kept=a.hierarchy.previous[id];
             carried=a.carryKrylov && a.hierarchy.carryCount[id]==count && a.hierarchy.carryGeneration[id]==a.hierarchy.topology->rebuilds
-                && kept>0 && isfinite(kept);
+                && a.hierarchy.carryIterations[id]<6u*count && kept>0 && isfinite(kept);
             a.hierarchy.carryCount[id]=0;
             if(!carried)a.hierarchy.previous[id]=0;
             a.hierarchy.failed[id]=0;
@@ -388,7 +396,12 @@ __global__ void componentStressSolve(
                 if(a.forceTolerance>0){const float g=a.hierarchy.gamma[id];
                     const float step=denominator>0 && g>0?g/sqrtf(denominator):INFINITY;
                     if(isfinite(step))forceTravel+=step;
-                    forceStep=(iteration>0 || a.firstPolynomial || carried)?step:INFINITY;}}
+                    // A carried iteration 0 is not judged either: judged, a
+                    // solve at rest stopped on its first carried step every
+                    // tick and stayed at the force tolerance's edge (portal
+                    // frame: column axial 2.2% off the textbook against 0.8%
+                    // restarted); unjudged, each tick refines one more step.
+                    forceStep=(iteration>0 || a.firstPolynomial)?step:INFINITY;}}
             __syncthreads();
             COMPONENT_PROBE_END(5)
             finalizeAndRetireBody(&reduceValue,a.m_projectedDirectionSquared,1u,
@@ -421,8 +434,10 @@ __global__ void componentStressSolve(
                 r->iterations=status.iterations;r->tolerance2=a.m_deltaSquared[id];
             }
             c.results[id]=status;
-            // Leave this solve's PCG state for the next solve of the same operator.
-            if(a.carryKrylov && !a.hierarchy.failed[id]){a.hierarchy.carryCount[id]=count;a.hierarchy.carryGeneration[id]=a.hierarchy.topology->rebuilds;}
+            // Leave an unconverged solve's PCG state for the next solve of the
+            // same operator, with the recurrence's iteration count so far.
+            if(a.carryKrylov && !a.hierarchy.failed[id] && !status.converged){a.hierarchy.carryCount[id]=count;a.hierarchy.carryGeneration[id]=a.hierarchy.topology->rebuilds;
+                a.hierarchy.carryIterations[id]=(carried?a.hierarchy.carryIterations[id]:0u)+status.iterations;}
             a.hierarchy.settled.verifiedStoredOutput[id]=a.warmStart && status.converged && status.iterations==0;
             // The cooperative stage must never update a small component,
             // including one that exhausted its iteration budget. Its failed
