@@ -96,6 +96,13 @@ struct ExPatch {
     // (another island, past the patch's radius, past its rows): the corrected pass then keeps
     // its pairs (bounded at what the window delivered) and the rigid simulation's momentum.
     PxU32 uncovered=0u;
+    // The corrected pass keeps all of this patch's pairs (exResolveDrops): a body of it -- an
+    // impactor, the two-body car, the dynamic struck island -- also takes part in a window whose
+    // pairs stay (uncovered, or a truncated dynamic island). A body's bound is one value for all
+    // its pairs (contactPairMaxImpulse) and its hand-off one velocity, so its windows drop or keep
+    // together: dropped here and kept there, its kept pairs went unbounded or its dropped ones
+    // came back (a fragment both struck and striking left the corrected pass at 1.6 km/s).
+    PxU32 kept=0u;
     // A dynamic struck island (Settings::dynamicStruck; its rows' clusterIm > 0): the
     // whole island, free (the window's frame its cluster's, moving with it); its seed row.
     PxU32 dynamic=0,dynamicRow=0xffffffffu;
@@ -1636,7 +1643,7 @@ __global__ void exPublish(Inputs in,Settings s,Scratch w,ExScratch t)
         // decided the pair: the corrected pass drops it (the least positive bound, pairwise: no
         // impulse between them) and starts the impactor at its window end velocity
         // (applyWindowImpactors). Otherwise its contacts stay bounded at what the window delivered.
-        const bool dropped=s.compliant && ((x.geo && !sp.uncovered) || x.b<sp.chunks);
+        const bool dropped=s.compliant && !sp.kept && ((x.geo && !sp.uncovered) || x.b<sp.chunks);
         if(in.rowBound)in.rowBound[x.row]=dropped?FLT_MIN:((live || s.boundImpactor)?fmaxf(bound,FLT_MIN):0.0f);
         // The struck chunk's crush (Settings::compliant): the depth share its rows crushed,
         // or through (crushed: the stage makes it a free fragment).
@@ -1668,7 +1675,7 @@ __global__ void exPublish(Inputs in,Settings s,Scratch w,ExScratch t)
         // stay in the corrected pass, bounded at what the window delivered, and the struck chunks
         // take that momentum there -- not the window's too; a two-body car's rows are always dropped)
         for(PxU32 k=tid;k<sp.chunks;k+=stride){const ExNode& n=nodes[k];const PxU32 c=n.chunk;if(c>=in.chunkCount)continue;
-            if(sp.uncovered && k<sp.chunks-sp.carChunks)continue;
+            if((sp.uncovered && k<sp.chunks-sp.carChunks) || sp.kept)continue;
             const PxVec3 x=pose.transform(PxVec3(n.x0[0],n.x0[1],n.x0[2]));
             const PxVec3 v=q.rotate(PxVec3(n.v[0],n.v[1],n.v[2]))+vc,wv=q.rotate(PxVec3(n.v[3],n.v[4],n.v[5]));PX_UNUSED(wc);PX_UNUSED(pc);PX_UNUSED(x);
             in.windowV[2*size_t(c)]=make_float4(v.x,v.y,v.z,0.0f);in.windowV[2*size_t(c)+1]=make_float4(wv.x,wv.y,wv.z,0.0f);in.windowMask[c]=1u;}
@@ -1685,12 +1692,12 @@ __global__ void exPublish(Inputs in,Settings s,Scratch w,ExScratch t)
             PxU32 body=0xffffffffu;for(PxU32 r=0;r<sp.rows;++r)if(rows[r].b==k){body=in.rows[rows[r].row].body;break;}
             const PxU32 slot=atomicAdd(t.handoffCount,1u);if(slot>=kExHandoffs)break;
             ExScratch::Handoff hnd{};hnd.island=0xffffffffu;hnd.body=body;hnd.patch=p;for(int q=0;q<3;++q){hnd.v[q]=n.v[q];hnd.w[q]=n.v[3+q];hnd.v0[q]=n.v0[q];hnd.w0[q]=n.v0[3+q];}
-            hnd.pad=(s.compliant && n.radius>0.0f && !sp.uncovered)?1u:0u;   // its pairs dropped: it starts the corrected pass at this velocity
+            hnd.pad=(s.compliant && n.radius>0.0f && !sp.uncovered && !sp.kept)?1u:0u;   // its pairs dropped: it starts the corrected pass at this velocity
             t.handoff[slot]=hnd;}
         if(sp.twoBody) {
             const ContactRow& q=in.rows[sp.carRow];const PxQuat rq(q.otherPose[0],q.otherPose[1],q.otherPose[2],q.otherPose[3]);const PxVec3 rp(q.otherPose[4],q.otherPose[5],q.otherPose[6]);
             const PxU32 slot=atomicAdd(t.handoffCount,1u);
-            if(slot<kExHandoffs){ExScratch::Handoff hnd{};hnd.island=sp.car;hnd.body=q.body;hnd.patch=p;hnd.pad=s.compliant?1u:0u;   // (its rows always dropped)
+            if(slot<kExHandoffs){ExScratch::Handoff hnd{};hnd.island=sp.car;hnd.body=q.body;hnd.patch=p;hnd.pad=(s.compliant && !sp.kept)?1u:0u;   // (its rows always dropped)
                 exGroupMotion(in,nodes,sp.chunks-sp.carChunks,sp.chunks,rq,rp,false,hnd.v,hnd.w);exGroupMotion(in,nodes,sp.chunks-sp.carChunks,sp.chunks,rq,rp,true,hnd.v0,hnd.w0);
                 t.handoff[slot]=hnd;}
         }
@@ -1698,7 +1705,7 @@ __global__ void exPublish(Inputs in,Settings s,Scratch w,ExScratch t)
         if(sp.dynamic && !sp.truncated) {
             const ContactRow& q=in.rows[sp.dynamicRow];const PxQuat rq(PxIdentity);const PxVec3 rp(0.0f);
             const PxU32 slot=atomicAdd(t.handoffCount,1u);
-            if(slot<kExHandoffs){ExScratch::Handoff hnd{};hnd.island=sp.island;hnd.body=q.clusterBody;hnd.patch=p;hnd.pad=(s.compliant && !sp.uncovered)?1u:0u;   // (as its round impactors' rows)
+            if(slot<kExHandoffs){ExScratch::Handoff hnd{};hnd.island=sp.island;hnd.body=q.clusterBody;hnd.patch=p;hnd.pad=(s.compliant && !sp.uncovered && !sp.kept)?1u:0u;   // (as its round impactors' rows)
                 exGroupMotion(in,nodes,0,sp.chunks-sp.carChunks,rq,rp,false,hnd.v,hnd.w);exGroupMotion(in,nodes,0,sp.chunks-sp.carChunks,rq,rp,true,hnd.v0,hnd.w0);
                 t.handoff[slot]=hnd;}
         }
@@ -1738,6 +1745,34 @@ __global__ void exPublish(Inputs in,Settings s,Scratch w,ExScratch t)
         atomicAdd(&w.status->contacts,sp.rows);atomicAdd(&w.status->impactors,sp.impactors);
         atomicAdd(&w.status->stepPatches,1u);if(sp.truncated)atomicAdd(&w.status->stepTruncated,1u);
         if(sp.failed)atomicOr(&w.status->error,4u);
+    }
+}
+// Settings::compliant: which windows' pairs the corrected pass keeps (ExPatch::kept), to a fixed
+// point -- a patch keeps them when it is uncovered or a truncated dynamic island, or when any body
+// of it takes part in a patch that keeps them.
+__device__ __forceinline__ bool exPatchHasBody(const Inputs& in,const ExScratch& t,PxU32 q,PxU32 body)
+{
+    const ExPatch& e=t.patches[q];const PxU32* l=t.rowList+size_t(q)*kExRows;
+    for(PxU32 a=0;a<e.listed;++a){const ContactRow& r=in.rows[l[a]];if(r.body==body || (e.dynamic && r.clusterBody==body))return true;}
+    return false;
+}
+__global__ void exResolveDrops(Inputs in,Settings s,ExScratch t)
+{
+    if(blockIdx.x || threadIdx.x || !s.compliant)return;
+    const PxU32 count=*t.patchCount;ExPatch* const P=t.patches;
+    for(PxU32 p=0;p<count;++p)P[p].kept=(P[p].uncovered || (P[p].dynamic && P[p].truncated))?1u:0u;
+    for(bool change=true;change;) {
+        change=false;
+        for(PxU32 p=0;p<count;++p) {
+            if(P[p].kept)continue;
+            const PxU32* l=t.rowList+size_t(p)*kExRows;bool hit=false;
+            for(PxU32 a=0;a<P[p].listed && !hit;++a) {
+                const ContactRow& r=in.rows[l[a]];
+                for(PxU32 q=0;q<count && !hit;++q){if(q==p || !P[q].kept)continue;
+                    hit=exPatchHasBody(in,t,q,r.body) || (P[p].dynamic && r.clusterBody!=0xffffffffu && exPatchHasBody(in,t,q,r.clusterBody));}
+            }
+            if(hit){P[p].kept=1u;change=true;}
+        }
     }
 }
 // The rest of each patch's island: held at its rest forces.

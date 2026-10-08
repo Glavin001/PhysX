@@ -2405,6 +2405,7 @@ struct Stage {
         explicitPatches.resize(count);
         if(!count){explicitRunMs=0.0;return;}
         explicitRunMs=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-built).count();
+        exResolveDrops<<<1,1,0,stream>>>(in,s,x);
         exPublishIsland<<<64,kThreads,0,stream>>>(in,w,x);
         exPublish<<<dim3(16,count),kThreads,0,stream>>>(in,s,w,x);
         if(stepLog){check(cudaMemcpyAsync(explicitPatches.data(),x.patches,sizeof(ExPatch)*count,cudaMemcpyDeviceToHost,stream));check(cudaStreamSynchronize(stream));}
