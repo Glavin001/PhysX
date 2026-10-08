@@ -174,20 +174,22 @@ struct Settings {
     // stalled the meteor capture's first solve (32768 steps vs 3); A/B knob.
     float relaxation=1.0f;
     // The J step's conjugate gradients stop when their residual leaves at most
-    // innerTolerance x tolerance of motion unexplained. It must be a fraction
-    // of the tolerance, not the tolerance: ADMM with an inexact J step reaches
-    // only a neighbourhood of its fixed point as wide as the step's error (its
-    // convergence needs the errors summable: Eckstein & Bertsekas 1992), and
-    // the dual residual it is judged by reads that error twice (the
-    // difference of two steps' errors). The error, read in the dual
-    // residual's metric (a joint's relative motion), is up to 2 (1 + |o|/L)
-    // times the CG's per-chunk motion (two chunks, each lever |o| against the
-    // length scale L; 2.6x measured on the veneer house): within the
-    // tolerance needs innerTolerance <= 1 / (4 (1 + |o|/L)), 0.125 at |o| = L.
-    // At 1 the house cannonball's level 5 sat in a limit cycle for 2e6 steps
-    // (dual 1.1-1.9e-4 against 1e-4, warm-started CG doing no iteration)
-    // that an exact J step leaves in one step (destruction_impact_level_replay;
-    // vibe-land scripts/impact/admm-fp64.py, FP64 and FP32 alike).
+    // innerTolerance x tolerance of motion unexplained -- and at most the
+    // fraction of it the island's levers allow (solve: innerLimit). It must be
+    // a fraction of the tolerance, not the tolerance: ADMM with an inexact J
+    // step reaches only a neighbourhood of its fixed point as wide as the
+    // step's error (its convergence needs the errors summable: Eckstein &
+    // Bertsekas 1992), and the dual residual it is judged by reads that error
+    // twice (the difference of two steps' errors). In the dual residual's
+    // metric (a joint's relative motion) the error is up to 2 (1 + |o|/L)
+    // times the CG's per-chunk motion (two chunks, each with its lever |o|
+    // against the length scale L; 2.6x measured on the veneer house): within
+    // the tolerance it needs a fraction 1 / (4 (1 + |o|/L)), |o| the island's
+    // longest lever. At 1 the house cannonball's level 5 sat in a limit cycle
+    // for 2e6 steps (dual 1.1-1.9e-4 against 1e-4, the warm-started CG doing
+    // no iteration) that an exact J step leaves in one step
+    // (destruction_impact_level_replay; vibe-land scripts/impact/admm-fp64.py,
+    // FP64 and FP32 alike).
     float innerTolerance=0.1f;
     // Anderson acceleration (type II, Walker & Ni 2011; for ADMM, Zhang,
     // O'Donoghue & Boyd 2020) of the ADMM fixed point, depth up to
@@ -240,6 +242,14 @@ struct Status {
     PxU32 heldOverCapacity;  // impactor contacts stopped rigidly (no bound) by a struck chunk that stays on,
                              // nothing of it broken or crushed, while a joint of it is past capacity under
                              // the trial's forces (a bug signal: heldOverCapacity)
+    // The J step's exactness (Settings::innerTolerance): the largest residual
+    // motion any ADMM step's conjugate gradients left, as a fraction of the
+    // tolerance (float bits; atomicMax on the non-negative float's bits), and
+    // the steps that left more than their limit (innerTolerance, or less: solve) (their CG ran out of
+    // innerIterations). An ADMM step whose J step is not solved to a fraction
+    // of the tolerance cannot certify its residuals (a limit cycle at 1).
+    PxU32 innerWorst;
+    PxU32 innerShort;
 };
 // Optional per-solve record (diagnostics): the first kLogCapacity solves.
 struct SolveRecord { PxU32 island,level,iterations,broken,clipped,capped,links,nodes; float lambda,change,rho,pad; };
@@ -470,7 +480,10 @@ __device__ __forceinline__ bool projectContact(const Bond& b,float* x)
     const float before[6]={x[0],x[1],x[2],x[3],x[4],x[5]};
     const float mu=b.area,s=-x[0],v=sqrtf(x[1]*x[1]+x[2]*x[2]);
     x[3]=x[4]=x[5]=0.0f;
-    if(v<=mu*s) {}
+    // Inside: in compression (s >= 0) within the cone. Without the s test a
+    // frictionless row (mu 0) in tension with no tangential part passed as
+    // inside (0 <= 0 * s): a contact that pulls (destruction_impact_projection_fuzz).
+    if(s>=0.0f && v<=mu*s) {}
     else if(mu*v<=-s){x[0]=x[1]=x[2]=0.0f;}
     else {
         const float t=(s+mu*v)/(1.0f+mu*mu);
@@ -936,6 +949,16 @@ __device__ PxU32 solve(Shared& sh,const Inputs& in,const Settings& s,const Scrat
 {
     const float inverseDt2=1.0f/(s.dt*s.dt);
     precondition(in,s,w,is);
+    // The J step's stop (Settings::innerTolerance): its error, read in a
+    // joint's relative motion, is up to 2 (1 + |o|/L) times the CG's per-chunk
+    // motion; the dual residual reads it twice.
+    float lever=0.0f;
+    for(PxU32 k=threadIdx.x;k<links(is);k+=kThreads) {
+        const Bond& b=w.bonds[is.b0+k];if(!(b.flags&eALIVE))continue;
+        if(b.flags&eDYNAMIC0)lever=fmaxf(lever,sqrtf(dot3(b.o0,b.o0)));
+        if(b.flags&eDYNAMIC1)lever=fmaxf(lever,sqrtf(dot3(b.o1,b.o1)));
+    }
+    const float innerLimit=fminf(s.innerTolerance,0.25f/(1.0f+blockMax(sh,lever)/s.lengthScale));
     float rho=ss.rho;
     blockJacobi(in,w,is,rho,inverseDt2);
     // A fresh solve: Z = J (feasible); U, the scaled dual, kept from the
@@ -999,7 +1022,7 @@ __device__ PxU32 solve(Shared& sh,const Inputs& in,const Settings& s,const Scrat
         // The step's work in link-and-node visits: five passes, three more per
         // conjugate gradient iteration (Settings::dispatchWork).
         budget-=5.0f*units;
-        for(PxU32 inner=0;inner<s.innerIterations && rz>0.0f && motion>s.innerTolerance*s.tolerance;++inner) {
+        for(PxU32 inner=0;inner<s.innerIterations && rz>0.0f && motion>innerLimit*s.tolerance;++inner) {
             budget-=3.0f*units;
             nodeApply(in,w,is,rho,inverseDt2,w.cp,w.cq);
             float pq=0.0f;
@@ -1017,6 +1040,11 @@ __device__ PxU32 solve(Shared& sh,const Inputs& in,const Settings& s,const Scrat
             for(PxU32 k=threadIdx.x;k<nodes(is);k+=kThreads){const PxU32 c=w.chunks[is.c0+k].chunk;for(int t=0;t<6;++t)w.cp[6*c+t]=w.cz[6*c+t]+beta*w.cp[6*c+t];}
             __syncthreads();
             motion=residualMotion(sh,s,w,is);
+        }
+        if(!threadIdx.x) {
+            const float ratio=motion/s.tolerance;
+            atomicMax(&w.status->innerWorst,__float_as_uint(fmaxf(ratio,0.0f)));
+            if(ratio>innerLimit)atomicAdd(&w.status->innerShort,1u);
         }
         // J = A^-1 (c - B^T y); Z = Pi_R(J + U); U += J - Z.
         float primal=0.0f,dual=0.0f,pn=0.0f,dn=0.0f,worst=-1.0f;PxU32 worstBond=0xffffffffu,bad=0u;
