@@ -401,8 +401,20 @@ __global__ void exList(Inputs in,Settings s,Scratch w,ExScratch t)
     PxU32 count=0;
     for(PxU32 r=0;r<rows;++r) {
         const PxU32 c=in.rows[r].chunk;if(c>=in.chunkCount)continue;
-        const PxU32 island=in.nodeIslands[c];if(island>=in.chunkCount || !(stepRow(in,r,island) || exTwoBodyRow(in,s,r,island)))continue;
+        const PxU32 island=in.nodeIslands[c];if(island>=in.chunkCount)continue;
+        const bool stepped=stepRow(in,r,island);if(!stepped && !exTwoBodyRow(in,s,r,island))continue;
         PxU32 p=0;while(p<count && t.patches[p].island!=island)++p;
+        // One window a car: a car's chunks are nodes of one patch only (the patches
+        // share the chunk and bond maps, nodeOf and linkOf: a car in two patches got
+        // the other's joints and nodes, and its windows gained 1e3-1e4 times their
+        // kinetic energy). A car another patch holds: its rows here stay what they
+        // were without two-body impacts (a rigid impactor where the struck side's
+        // impact routed them; else the rigid solve's).
+        const PxU32 o=in.rows[r].other;
+        const PxU32 rowCar=(s.explicitTwoBody && o<in.chunkCount)?in.nodeIslands[o]:0xffffffffu;
+        bool heldElsewhere=false;
+        if(rowCar<in.chunkCount)for(PxU32 k=0;k<count;++k)heldElsewhere=heldElsewhere || (k!=p && t.patches[k].car==rowCar);
+        if(heldElsewhere && !stepped)continue;
         if(p==count) {
             if(count>=kExPatches){atomicOr(&w.status->error,1u);continue;}
             ExPatch e{};e.island=island;e.radius=s.stepRadius;e.seed=r;t.patches[count++]=e;
@@ -413,8 +425,7 @@ __global__ void exList(Inputs in,Settings s,Scratch w,ExScratch t)
         e.bodies+=body?1u:0u;list[e.listed++]=r;
         // The two-body impact: the first destructible other body of the patch's rows
         // (a live chunk of a dynamic island; one car a patch: another's rows stay rigid).
-        const PxU32 o=in.rows[r].other;
-        if(s.explicitTwoBody && e.car==0xffffffffu && o<in.chunkCount && in.chunks[o].mass>0.0f && !chunkGone(in,o)) {
+        if(s.explicitTwoBody && !heldElsewhere && e.car==0xffffffffu && o<in.chunkCount && in.chunks[o].mass>0.0f && !chunkGone(in,o)) {
             const PxU32 car=in.nodeIslands[o];
             if(car<in.chunkCount && car!=island){e.car=car;e.carRow=r;}
         }
@@ -1240,6 +1251,15 @@ __global__ void exPublish(Inputs in,Settings s,Scratch w,ExScratch t)
         // work is paid by the impactors' kinetic energy loss, the elastic energy
         // the patch held and the dead load's work (a sagging patch's).
         if(sp.fracture+sp.plastic>(in0-out0)+sp.u0+fmaxf(sp.dead,0.0f))atomicAdd(&w.status->energyDeficit,1u);
+        // And the other way: the impactors leave with no more kinetic energy than the
+        // window had (theirs, the joints' held elastic energy, the dead load's work),
+        // up to symplectic Euler's energy error: its conserved H~ differs from H by
+        // at most (omega h / 2) H (harmonic oscillator, H~ = H - (h/2) omega^2 x v), so
+        // H <= H~ / (1 - omega h / 2) for omega h < 2. Past that, energy from
+        // nowhere (Status::energyGain): a car whose window gained 1e3-1e4 times its
+        // kinetic energy counted none.
+        {const float wh=sp.omega*sp.h,avail=in0+sp.u0+fmaxf(sp.dead,0.0f);
+         if(wh<2.0f && out0*(1.0f-0.5f*wh)>avail)atomicAdd(&w.status->energyGain,1u);}
         w.islandFlag[sp.island]=1u;if(sp.twoBody)w.islandFlag[sp.car]=1u;
         atomicAdd(&w.status->triggered,1u);atomicAdd(&w.status->solves,1u);atomicAdd(&w.status->iterations,sp.substeps);
         atomicAdd(&w.status->broken,sp.broken);atomicAdd(&w.status->yielded,sp.yielded);
