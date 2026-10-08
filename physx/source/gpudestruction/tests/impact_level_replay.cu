@@ -116,7 +116,7 @@ int run(int argc,char** argv)
         }
         for(int k=0;k<3;++k){b.o0[k]=o0[k];b.o1[k]=o1[k];b.pc[k]=0.0f;}
         b.capC=f[0];b.capT=f[1];b.capS=f[2];b.gb=f[3];b.gt=f[4];b.g0=f[5];b.g1=f[6];b.h0=f[7];b.h1=f[8];
-        b.kl=f[9];b.kt=f[10];b.k0=f[11];b.k1=f[12];b.dl=b.dt=b.d0=b.d1=1.0f;b.slip=0.0f;
+        b.kl=f[9];b.kt=f[10];b.k0=f[11];b.k1=f[12];b.ks=b.kl;b.dl=b.dt=b.d0=b.d1=1.0f;b.slip=0.0f;   // isotropic (dumps predate shear stiffness)
         b.area=(b.flags&impact::eCONTACT)?f[13]:1.0f;
         bonds[l]=b;
         if(b.c0!=kAnchor)adj[b.c0].push_back(l);

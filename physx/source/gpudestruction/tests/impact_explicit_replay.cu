@@ -85,13 +85,16 @@ int run(int argc,char** argv)
         b.bond=L.u[0];b.c0=L.u[1];b.c1=L.u[2];b.flags=L.u[3];
         b.capC=L.f[0];b.capT=L.f[1];b.capS=L.f[2];b.gb=L.f[3];b.gt=L.f[4];b.g0=L.f[5];b.g1=L.f[6];b.h0=L.f[7];b.h1=L.f[8];
         b.kl=L.f[9];b.kt=L.f[10];b.k0=L.f[11];b.k1=L.f[12];b.area=L.f[13];b.slip=at<float>(rb,slipOff+8*size_t(l));
+        // Dumps predate shear stiffness: isotropic joints, unless IMPACT_SHEAR_RATIO
+        // gives every joint ks = ratio kl (PX_DESTRUCTION_SHEAR_STIFFNESS, an experiment).
+        b.ks=(b.flags&impact::eCONTACT)?FLT_MAX:b.kl*env("IMPACT_SHEAR_RATIO",1.0f);
         const PxU32 a=nodeIndex(b.c0),e=nodeIndex(b.c1);
         if(b.flags&impact::eCONTACT) {
             if(!(b.flags&impact::eALIVE))continue;
             impact::ExRow x{};x.a=a;x.b=e;x.row=l;rows.push_back(x);rowBonds.push_back(b);continue;
         }
         impact::ExLink x{};x.a=a;x.b=e;
-        x.state=(b.flags&impact::eALIVE)?(impact::eEX_LIVE|((b.flags&impact::eDUCTILE)?impact::eEX_DUCTILE:0u)):0u;
+        x.state=(b.flags&impact::eALIVE)?(impact::eEX_LIVE|((b.flags&impact::eDUCTILE)?impact::eEX_DUCTILE:0u)|(b.ks!=b.kl?impact::eEX_SHEARK:0u)):0u;
         for(int q=0;q<6;++q){x.J0[q]=(b.flags&impact::eALIVE)?L.J[q]:0.0f;x.J[q]=x.J0[q];}
         x.slip=at<float>(rb,slipOff+8*size_t(l)+4);x.limit=b.slip;x.brokeAt=-1.0f;
         bonds.push_back(b);links.push_back(x);linkOfDump.push_back(l);
