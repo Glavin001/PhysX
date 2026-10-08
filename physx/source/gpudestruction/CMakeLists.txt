@@ -203,6 +203,12 @@ if(BUILD_TESTING)
     # bond maps and its windows gained 0.6-0.9 GJ from 98 kJ (Status::energyGain).
     add_test(NAME destruction_gpu_two_body_car_two_patches COMMAND destruction_impact_capture_replay "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/two-body/car-two-patches.impc")
     set_tests_properties(destruction_gpu_two_body_car_two_patches PROPERTIES ENVIRONMENT "CUMETAL_USE_METAL_DEVICE_ADDRESSES=1;IMPACT_QUIET=1;IMPACT_ENERGY_CHECK=1;IMPACT_TWO_BODY=1;IMPACT_COMPLIANT=1")
+    # A dynamic struck island's freed pieces (PX_DESTRUCTION_IMPACT_DYNAMIC_STRUCK): the truck at
+    # 10.9 m/s through the lab wall, evaluation 244, compliant and two-body. Wall rubble pinched by
+    # the rigid solve's position corrections broke free and its joints' rest forces flung it,
+    # 110 J to 2.5 kJ, until a free body's broken joint returned to its rest wrench (eEX_FREE).
+    add_test(NAME destruction_gpu_two_body_dynamic_rubble COMMAND destruction_impact_capture_replay "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/two-body/dynamic-rubble.impc")
+    set_tests_properties(destruction_gpu_two_body_dynamic_rubble PROPERTIES ENVIRONMENT "CUMETAL_USE_METAL_DEVICE_ADDRESSES=1;IMPACT_QUIET=1;IMPACT_ENERGY_CHECK=1")
     add_test(NAME destruction_gpu_impact_explicit_energy COMMAND destruction_impact_capture_replay "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/impact-handoff/cannon-fragments.impc")
     set_tests_properties(destruction_gpu_impact_explicit_energy PROPERTIES ENVIRONMENT "CUMETAL_USE_METAL_DEVICE_ADDRESSES=1;IMPACT_QUIET=1;IMPACT_ENERGY_CHECK=1")
     px_destruction_label_tests()
