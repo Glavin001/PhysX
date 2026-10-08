@@ -1009,12 +1009,16 @@ extern "C" __global__ void constraintContactBlockPrePrepLaunch(PxgPrePrepDesc* g
 					// against another box of its body): the normal of the surface the
 					// boxes make, not of the seam's edge (PxgInternalFaceContacts.h).
 					// In place, before anything below reads the patch: the solve, its
-					// friction and the contact reports all see the one normal.
+					// friction and the contact reports all see the one normal. A patch
+					// on internal faces only takes no response (its points stay in the
+					// reports, with no impulse).
 					if(shDesc.internalFaceContacts.chunks && contactPatch)
 					{
 						PxVec3 normal = contactPatch->normal;
-						internalFaceContactNormal(shDesc.internalFaceContacts, cmOutputIndex, normal);
-						contactPatch->normal = normal;
+						if(internalFaceContactNormal(shDesc.internalFaceContacts, cmOutputIndex, normal))
+							contactPatch->normal = normal;
+						else
+							contactPatch->internalFlags |= PxContactPatch::eFORCE_NO_RESPONSE;
 					}
 
 					// A contact on an anchored destructible chunk: no more impulse

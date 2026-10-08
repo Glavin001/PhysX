@@ -58,10 +58,12 @@ namespace physx
 // continues into its neighbour, so the feature is no edge along it: that
 // component is dropped and the normal is the adjoining exposed face's (or the cone
 // of the exposed ones). The contact's separation is kept (the depth measured on
-// the feature, as Bullet keeps it). A feature whose every face is internal (a body
-// already inside the compound) is left alone: its neighbour's own contact, on the
-// far side of the face, is what pushes it out. Exact in float: a component is
-// dropped, not compared against a tolerance, so a face contact (one component)
+// the feature, as Bullet keeps it). A feature whose every face is internal -- a
+// contact on the internal face itself, as a box's separating axis finds it when a
+// body sliding over the seam overlaps the next box's side less than it sinks into
+// the surface -- is no contact at all: the body reaches past that face only into
+// the neighbour, whose own contact holds it. Exact in float: a component is
+// dropped, not compared against a tolerance, so a face contact on an exposed face
 // passes unchanged and a patch already corrected is a fixed point.
 struct PxgInternalFaceContactView
 {
@@ -105,14 +107,17 @@ static __device__ __forceinline__ bool internalFaceNow(const PxgInternalFaceCont
 	return true;
 }
 
+enum PxgInternalFaceResult { eINTERNAL_FACE_NONE, eINTERNAL_FACE_CORRECTED, eINTERNAL_FACE_INSIDE };
+
 // The outward normal `out` (world) of the box on transform cache ref `ref`, its
-// components along internal faces dropped. Returns false (out unchanged) when the
-// shape is no marked chunk box, no component was dropped, or every one was.
-static __device__ __forceinline__ bool internalFaceCorrect(const PxgInternalFaceContactView& v, const PxU32 ref, PxVec3& out)
+// components along internal faces dropped. NONE (out unchanged): the shape is no
+// marked chunk box, or no component was dropped; CORRECTED: out is the exposed
+// feature's normal; INSIDE: every component was dropped (no contact).
+static __device__ __forceinline__ PxgInternalFaceResult internalFaceCorrect(const PxgInternalFaceContactView& v, const PxU32 ref, PxVec3& out)
 {
 	const PxU32 c = internalFaceChunk(v, ref);
 	if(c >= v.chunkCount || v.chunks[2 * c] != ref || !(v.chunks[2 * c + 1] & 63u))
-		return false;
+		return eINTERNAL_FACE_NONE;
 	const PxTransform& pose = *reinterpret_cast<const PxTransform*>(v.transforms + size_t(v.transformStride) * ref);
 	const PxVec3 local = pose.q.rotateInv(out);
 	PxVec3 kept = local;
@@ -128,26 +133,34 @@ static __device__ __forceinline__ bool internalFaceCorrect(const PxgInternalFace
 		}
 	}
 	if(!dropped)
-		return false;
+		return eINTERNAL_FACE_NONE;
 	const PxReal m = kept.magnitude();
 	if(!(m > 0.0f))
-		return false;	// every face of the feature internal: left to the neighbours' contacts
+		return eINTERNAL_FACE_INSIDE;	// every face of the feature internal: the neighbours' contacts
 	out = pose.q.rotate(kept * (1.0f / m));
-	return true;
+	return eINTERNAL_FACE_CORRECTED;
 }
 
 // A contact patch's normal (from shape 1 to shape 0) corrected for the internal
 // faces of either side's box: shape 1's outward normal is the patch normal,
-// shape 0's its negative.
-static __device__ __forceinline__ void internalFaceContactNormal(const PxgInternalFaceContactView& v, const PxU32 cmIndex, PxVec3& normal)
+// shape 0's its negative. Returns false when the patch is no contact (a feature
+// of internal faces only on either side).
+static __device__ __forceinline__ bool internalFaceContactNormal(const PxgInternalFaceContactView& v, const PxU32 cmIndex, PxVec3& normal)
 {
 	const PxU32 ref0 = v.inputs[4 * cmIndex + 2], ref1 = v.inputs[4 * cmIndex + 3];
 	PxVec3 out = normal;
-	if(internalFaceCorrect(v, ref1, out))
+	PxgInternalFaceResult r = internalFaceCorrect(v, ref1, out);
+	if(r == eINTERNAL_FACE_INSIDE)
+		return false;
+	if(r == eINTERNAL_FACE_CORRECTED)
 		normal = out;
 	out = -normal;
-	if(internalFaceCorrect(v, ref0, out))
+	r = internalFaceCorrect(v, ref0, out);
+	if(r == eINTERNAL_FACE_INSIDE)
+		return false;
+	if(r == eINTERNAL_FACE_CORRECTED)
 		normal = -out;
+	return true;
 }
 #endif
 }
