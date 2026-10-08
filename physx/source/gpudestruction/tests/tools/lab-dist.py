@@ -10,8 +10,7 @@ def parse(name):
     for l in sys.stdin:
         m = re.search(r'explicit: \d+ patches; build ([\d.]+) ms, window ([\d.]+) ms in (\d+) launches', l)
         if m: runs.append((float(m[2]), float(m[1]), int(m[3]))); seen += 1
-        if seen > 1: continue
-        m = re.search(r'explicit patch (\d+): island \d+, (\d+) nodes .*?, (\d+) joints, (\d+) contact rows, (\d+) impactors; (\d+) substeps of ([\d.]+) us.*?broke (\d+), yielded (\d+)', l)
+        m = None if seen > 1 else re.search(r'explicit patch (\d+): island \d+, (\d+) nodes .*?, (\d+) joints, (\d+) contact rows, (\d+) impactors; (\d+) substeps of ([\d.]+) us.*?broke (\d+), yielded (\d+)', l)
         if m: r['patches'].append(dict(nodes=int(m[2]), joints=int(m[3]), rows=int(m[4]), impactors=int(m[5]), substeps=int(m[6]), h_us=float(m[7]), broke=int(m[8]), yielded=int(m[9])))
         m = re.search(r'explicit patch (\d+): (\d+) breaks; by(.*)', l)
         if m:

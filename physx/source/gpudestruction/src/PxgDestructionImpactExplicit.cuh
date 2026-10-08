@@ -43,6 +43,10 @@ static_assert(kExRows<=kExThreads,"a row a thread (exRunT)");
 // A patch of at most kExSmall nodes runs exRunSmall: its nodes' inverse masses
 // and joint and row ranges in threadgroup memory beside their velocities.
 constexpr PxU32 kExSmall=512;
+// Power-iteration products of the substep's bound (exFinish): each one's bound
+// is rigorous, so this sets only how tight it is (and the build's cost).
+constexpr PxU32 kExBoundProducts=24;
+static_assert(8*kExLinks+8*kExNodes<=12*kExLinks,"the bound's blocks and iterate fit t.wr");
 
 struct ExPatch {
     PxU32 island,nodes,chunks,links,rows,impactors,substeps,done,broken,yielded,truncated,failed,seed,listed,bodies,pushing,near;
@@ -97,23 +101,27 @@ __device__ __forceinline__ void exStiffness(const Bond& b,float* k)
     const float kk[6]={b.kl,b.kl,b.kl,b.kt,b.k0,b.k1};
     for(int q=0;q<6;++q)k[q]=(kk[q]>0.0f && kk[q]<1e30f)?kk[q]:0.0f;
 }
-// The Gershgorin row sums of one end's stiffness block rows against both ends:
-// rows[r] += sum_c |(B_end K B_e^T)_rc|, and the same of M^-1/2 K M^-1/2 less
-// the row's own scale, sym[r] += sum_c |..._rc| sqrt(m^-1 of e's dof c) (both
-// ends on the patch; minv: each end's six inverse masses).
-__device__ void exGershgorin(const Bond& b,const ExLink& l,PxU32 end,const float (*minv)[6],float* rows,float* sym)
+// One end's rows of its joint's stiffness block against both ends, C_e = B_end
+// K B_e^T: the block on its own node is added (signed) into D, its node's
+// diagonal block, summed over the node's joints before its absolute values are
+// taken (a node's joints' couplings between its own dofs cancel in part); the
+// block against the other end (on the patch) by its absolute values, with w
+// the other end's sqrt(m^-1): rows[r] += sum_c |C_rc| (Gershgorin of M^-1 K,
+// times the row's m^-1), sym[r] += sum_c |C_rc| w[c] (of S = M^-1/2 K M^-1/2,
+// less the row's sqrt(m^-1)), and lump[3 g + b] (g: r's group, translation 0
+// or rotation 1) the same sum over c in group b, its largest row's.
+__device__ void exGershgorin(const Bond& b,PxU32 end,bool both,const float* w,float* D,float* rows,float* sym,float* lump)
 {
     float k[6];exStiffness(b,k);
     float Be[2][36];
     for(PxU32 e=0;e<2;++e)for(int q=0;q<6;++q){float x[6]={0,0,0,0,0,0};x[q]=1.0f;float r[6]={0,0,0,0,0,0};exWrench(b,x,e,r);for(int i=0;i<6;++i)Be[e][6*i+q]=r[i];}
-    const PxU32 ends[2]={l.a,l.b};
+    for(int r=0;r<6;++r)for(int c=0;c<6;++c){float v=0.0f;for(int q=0;q<6;++q)v+=Be[end][6*r+q]*k[q]*Be[end][6*c+q];D[6*r+c]+=v;}
+    if(!both)return;
     for(int r=0;r<6;++r) {
-        float s=0.0f,t=0.0f;
-        for(PxU32 e=0;e<2;++e) {
-            if(ends[e]==0xffffffffu)continue;
-            for(int c=0;c<6;++c){float v=0.0f;for(int q=0;q<6;++q)v+=Be[end][6*r+q]*k[q]*Be[e][6*c+q];s+=fabsf(v);t+=fabsf(v)*sqrtf(minv[e][c]);}
-        }
-        rows[r]+=s;sym[r]+=t;
+        float s=0.0f,t[2]={0.0f,0.0f};
+        for(int c=0;c<6;++c){float v=0.0f;for(int q=0;q<6;++q)v+=Be[end][6*r+q]*k[q]*Be[1u-end][6*c+q];s+=fabsf(v);t[c/3]+=fabsf(v)*w[c];}
+        rows[r]+=s;sym[r]+=t[0]+t[1];
+        for(int g=0;g<2;++g)lump[3*(r/3)+g]=fmaxf(lump[3*(r/3)+g],t[g]);
     }
 }
 __device__ __forceinline__ void exApplyInverse(const ExNode& n,const float* f,float* dv)
@@ -394,34 +402,79 @@ __device__ void exFinish(Shared& sh,const Settings& s,const ExScratch& t,PxU32 p
     ExNode* nodes=t.nodes+size_t(p)*kExNodes;const Bond* bonds=t.bonds+size_t(p)*kExLinks;const ExLink* links=t.links+size_t(p)*kExLinks;
     const PxU32* adj=t.adj+size_t(p)*2*kExLinks;
     float* wr=t.wr+size_t(p)*kExLinks*12;
-    for(PxU32 i=threadIdx.x;i<12*sp.links;i+=kThreads)wr[i]=0.0f;
     float u0=0.0f;
     for(PxU32 l=threadIdx.x;l<sp.links;l+=kThreads){const ExLink& e=links[l];if(!(e.state&eEX_LIVE))continue;
         float k[6];exStiffness(bonds[l],k);for(int q=0;q<6;++q)if(k[q]>0.0f)u0+=0.5f*e.J0[q]*e.J0[q]/k[q];}
     u0=blockSum(sh,u0);
     if(!threadIdx.x){sp.u0=u0;sp.keIn=sp.keOut=sp.fracture=sp.plastic=sp.dead=0.0f;}
-    // The largest frequency's square, bounded by Gershgorin's theorem on M^-1 K
-    // and on its similar M^-1/2 K M^-1/2 (both upper bounds: the smaller holds).
-    // Joints act on chunk nodes only (scalar inertia): M^-1 is diagonal there.
-    float lambda=0.0f,lambdaSym=0.0f;
-    for(PxU32 k=threadIdx.x;k<nn;k+=kThreads) {
-        ExNode& n=nodes[k];float f[6]={0,0,0,0,0,0},g[6]={0,0,0,0,0,0},y[6]={0,0,0,0,0,0};
-        for(PxU32 j=n.jointBegin;j<n.jointEnd;++j) {
-            const PxU32 l=adj[j]>>1,end=adj[j]&1u;const ExLink& e=links[l];
-            if(!(e.state&eEX_LIVE))continue;
-            float minv[2][6]={};
-            const PxU32 ends[2]={e.a,e.b};
-            for(PxU32 m=0;m<2;++m)if(ends[m]!=0xffffffffu){const ExNode& o=nodes[ends[m]];for(int q=0;q<3;++q){minv[m][q]=o.im;minv[m][3+q]=o.Iinv[q];}}
-            exWrench(bonds[l],e.J0,end,f);exGershgorin(bonds[l],e,end,minv,g,y);
+    // The largest frequency's square: lambda_max(M^-1 K) = lambda_max(S), S =
+    // M^-1/2 K M^-1/2 symmetric. Gershgorin on M^-1 K and on S bounds it; so,
+    // tighter, does Collatz-Wielandt: lambda_max(S) <= rho(S) <= rho(|S|) <=
+    // max_i (A x)_i / x_i for every positive x and every nonnegative A >= |S|
+    // entrywise (Wielandt). A here: each node's diagonal block assembled before
+    // its absolute values, the joints' blocks between nodes by theirs, and
+    // each node's six dofs lumped into two groups, translation and rotation
+    // (L, 2 x 2 per block: a group's largest row sum over each group; for x
+    // constant on groups (|S| x)_r <= (L x)_g(r), so rho(|S|) <= the bound on
+    // L). x = 1 is Gershgorin; power iteration on L from there tightens it
+    // towards rho(L) (the cannonball's full island: Gershgorin on S 3.45e4
+    // rad/s, after 8 products 2.92e4, rho(|S|) 2.89e4, the true 2.80e4). Every
+    // iterate's bound holds; the least is kept. Joints act on chunk nodes
+    // only (diagonal M^-1). L's blocks and the iterate live in t.wr, zeroed
+    // after: per joint end (adj slot) its block against the other end, per
+    // node its own block, x and y (2 per node; dofs with no stiffness x = 1).
+    float* Lo=wr;float* Ld=wr+8*kExLinks;float* X=Ld+4*kExNodes;float* Y=X+2*kExNodes;
+    float lambda=0.0f;
+    {
+        float gersh=0.0f,cw=0.0f;
+        for(PxU32 k=threadIdx.x;k<nn;k+=kThreads) {
+            ExNode& n=nodes[k];float f[6]={0,0,0,0,0,0},g[6]={0,0,0,0,0,0},y[6]={0,0,0,0,0,0};
+            float D[36];for(int i=0;i<36;++i)D[i]=0.0f;
+            for(PxU32 j=n.jointBegin;j<n.jointEnd;++j) {
+                const PxU32 l=adj[j]>>1,end=adj[j]&1u;const ExLink& e=links[l];
+                float lump[6]={0,0,0,0,0,0};
+                if(e.state&eEX_LIVE) {
+                    const PxU32 other=end?e.a:e.b;float w[6]={0,0,0,0,0,0};
+                    if(other!=0xffffffffu){const ExNode& o=nodes[other];for(int q=0;q<3;++q){w[q]=sqrtf(o.im);w[3+q]=sqrtf(o.Iinv[q]);}}
+                    exWrench(bonds[l],e.J0,end,f);
+                    exGershgorin(bonds[l],end,other!=0xffffffffu,w,D,g,y,lump);
+                }
+                for(int a=0;a<2;++a)for(int c=0;c<2;++c)Lo[4*j+2*a+c]=lump[3*a+c]*sqrtf(a?n.Iinv[0]>0.0f?fmaxf(n.Iinv[0],fmaxf(n.Iinv[1],n.Iinv[2])):0.0f:n.im);
+            }
+            for(int q=0;q<6;++q)n.f0[q]=-f[q];
+            float ld[4]={0,0,0,0};
+            if(!n.tensor) {
+                for(int r=0;r<6;++r){float t[2]={0.0f,0.0f};
+                    for(int c=0;c<6;++c){const float a=fabsf(D[6*r+c]);g[r]+=a;t[c/3]+=a*sqrtf(c<3?n.im:n.Iinv[c-3]);}
+                    y[r]+=t[0]+t[1];const float sr=sqrtf(r<3?n.im:n.Iinv[r-3]);
+                    for(int c=0;c<2;++c)ld[2*(r/3)+c]=fmaxf(ld[2*(r/3)+c],sr*t[c]);}
+                for(int q=0;q<6;++q){const float m=q<3?n.im:n.Iinv[q-3];gersh=fmaxf(gersh,m*g[q]);cw=fmaxf(cw,sqrtf(m)*y[q]);}
+            }
+            for(int q=0;q<4;++q)Ld[4*k+q]=ld[q];
+            X[2*k]=X[2*k+1]=1.0f;
         }
-        for(int q=0;q<6;++q)n.f0[q]=-f[q];
-        if(n.tensor)continue;
-        for(int q=0;q<3;++q){
-            lambda=fmaxf(lambda,fmaxf(n.im*g[q],n.Iinv[q]*g[3+q]));
-            lambdaSym=fmaxf(lambdaSym,fmaxf(sqrtf(n.im)*y[q],sqrtf(n.Iinv[q])*y[3+q]));
-        }
+        lambda=fminf(blockMax(sh,gersh),blockMax(sh,cw));
     }
-    lambda=fminf(blockMax(sh,lambda),blockMax(sh,lambdaSym));
+    for(PxU32 pass=0;pass<kExBoundProducts;++pass) {
+        float cw=0.0f,ymax=0.0f;
+        for(PxU32 k=threadIdx.x;k<nn;k+=kThreads) {
+            const ExNode& n=nodes[k];if(n.tensor)continue;
+            float y[2];for(int a=0;a<2;++a)y[a]=Ld[4*k+2*a]*X[2*k]+Ld[4*k+2*a+1]*X[2*k+1];
+            for(PxU32 j=n.jointBegin;j<n.jointEnd;++j) {
+                const PxU32 l=adj[j]>>1,end=adj[j]&1u;const ExLink& e=links[l];const PxU32 other=end?e.a:e.b;
+                if(other==0xffffffffu)continue;
+                for(int a=0;a<2;++a)y[a]+=Lo[4*j+2*a]*X[2*other]+Lo[4*j+2*a+1]*X[2*other+1];
+            }
+            for(int a=0;a<2;++a){cw=fmaxf(cw,y[a]/X[2*k+a]);Y[2*k+a]=y[a];ymax=fmaxf(ymax,y[a]);}
+        }
+        lambda=fminf(lambda,blockMax(sh,cw));
+        ymax=blockMax(sh,ymax);
+        if(!(ymax>0.0f))break;
+        for(PxU32 i=threadIdx.x;i<2*nn;i+=kThreads)if(!nodes[i/2].tensor)X[i]=Y[i]>0.0f?Y[i]/ymax:1.0f;
+        __syncthreads();
+    }
+    for(PxU32 i=threadIdx.x;i<12*kExLinks;i+=kThreads)wr[i]=0.0f;
+    __syncthreads();
     if(!threadIdx.x) {
         sp.omega=sqrtf(lambda);
         sp.h=s.explicitDt>0.0f?s.explicitDt:(sp.omega>0.0f?s.explicitSafety*2.0f/sp.omega:s.dt);
