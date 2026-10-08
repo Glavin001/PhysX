@@ -2069,7 +2069,7 @@ struct Stage {
         if(!explicitAllocated)return;
         cudaFree(x.nodeOf);cudaFree(x.linkOf);cudaFree(x.patchCount);cudaFree(x.patches);cudaFree(x.nodes);cudaFree(x.bonds);cudaFree(x.links);
         cudaFree(x.rowBonds);cudaFree(x.rows);cudaFree(x.adj);cudaFree(x.rowAdj);cudaFree(x.wr);cudaFree(x.rowList);cudaFree(x.rwr);cudaFree(x.jp);cudaFree(x.jl);cudaFree(x.rp);cudaFree(x.vStart);cudaFree(x.ja);cudaFree(x.wd);cudaFree(x.handoff);cudaFree(x.handoffCount);cudaFree(x.rowDecided);
-        cudaFree(x.damp);cudaFree(x.wk);cudaFree(x.cslip);cudaFree(x.dynLoad);x={};explicitAllocated=false;
+        cudaFree(x.dynPos);cudaFree(x.dynMark);cudaFree(x.damp);cudaFree(x.wk);cudaFree(x.cslip);cudaFree(x.dynLoad);x={};explicitAllocated=false;
     }
     void allocateExplicit() {
         if(explicitAllocated)return;
@@ -2081,7 +2081,7 @@ struct Stage {
         if(twoBody){::physx::allocate(x.vStart,P*kExNodes*6);::physx::allocate(x.ja,P*kExLinks*9);::physx::allocate(x.wd,P*kExLinks*12);
             ::physx::allocate(x.handoff,size_t(kExHandoffs));::physx::allocate(x.handoffCount,1);::physx::allocate(x.rowDecided,size_t(kContactCapacity));}
         // The dynamic sequence's (Settings::dynamicSequence; null otherwise).
-        if(sequence){::physx::allocate(x.damp,P*kExLinks*8);::physx::allocate(x.wk,P*kExLinks*12);::physx::allocate(x.cslip,P*kExLinks*2);::physx::allocate(x.dynLoad,P*kExNodes*6);}
+        if(sequence){::physx::allocate(x.dynPos,P*kExNodes);::physx::allocate(x.dynMark,P*kExNodes);::physx::allocate(x.damp,P*kExLinks*8);::physx::allocate(x.wk,P*kExLinks*12);::physx::allocate(x.cslip,P*kExLinks*2);::physx::allocate(x.dynLoad,P*kExNodes*6);}
         explicitAllocated=true;
     }
     bool sequence=false;
@@ -2103,7 +2103,7 @@ struct Stage {
     }
     void submitExplicit(const Inputs& in,const Settings& s,cudaStream_t stream) {
         twoBody=s.explicitTwoBody;
-        if(s.dynamicSequence && !sequence && explicitAllocated){::physx::allocate(x.damp,size_t(kExPatches)*kExLinks*8);::physx::allocate(x.wk,size_t(kExPatches)*kExLinks*12);::physx::allocate(x.cslip,size_t(kExPatches)*kExLinks*2);::physx::allocate(x.dynLoad,size_t(kExPatches)*kExNodes*6);}
+        if(s.dynamicSequence && !sequence && explicitAllocated){::physx::allocate(x.dynPos,size_t(kExPatches)*kExNodes);::physx::allocate(x.dynMark,size_t(kExPatches)*kExNodes);::physx::allocate(x.damp,size_t(kExPatches)*kExLinks*8);::physx::allocate(x.wk,size_t(kExPatches)*kExLinks*12);::physx::allocate(x.cslip,size_t(kExPatches)*kExLinks*2);::physx::allocate(x.dynLoad,size_t(kExPatches)*kExNodes*6);}
         sequence=sequence || s.dynamicSequence;
         allocateExplicit();
         const auto start=std::chrono::steady_clock::now();
@@ -2140,6 +2140,7 @@ struct Stage {
         explicitPatches.resize(count);
         if(!count){explicitRunMs=0.0;return;}
         explicitRunMs=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-built).count();
+        if(s.dynamicSequence)exSequenceSplit<<<kExPatches,kThreads,0,stream>>>(s,x);
         exPublishIsland<<<64,kThreads,0,stream>>>(in,w,x);
         exPublish<<<dim3(16,count),kThreads,0,stream>>>(in,s,w,x);
         if(s.dynamicSequence){exSequencePeriod<<<kExPatches,kThreads,0,stream>>>(s,x);exPublishDynamic<<<dim3(16,count),kThreads,0,stream>>>(in,s,w,x);exSequenceBooks<<<1,kExPatches,0,stream>>>(w,x);}
@@ -2148,8 +2149,8 @@ struct Stage {
         if(stepLog)for(PxU32 p=0;p<count;++p){const ExPatch& q=explicitPatches[p];
             std::fprintf(stderr,"[impact]   explicit patch %u: island %u, %u nodes (%u chunks, %.2f m%s), %u joints, %u contact rows, %u impactors; %u substeps of %.1f us (omega %.3g rad/s; at its end %u contacts pushing, %u joints at an event); broke %u, yielded %u%s; impactors' KE %.6g -> %.6g J, held %.4g J, dead load %.4g J; fracture %.4g J, plastic %.4g J\n",
                 p,q.island,q.nodes,q.chunks,q.radius,q.truncated?", shrunk":"",q.links,q.rows,q.impactors,q.substeps,q.h*1e6f,q.omega,q.pushing,q.near,q.broken,q.yielded,q.failed?" (FAILED)":"",q.keIn,q.keOut,q.u0,q.dead,q.fracture,q.plastic);
-            if(q.dynamic)std::fprintf(stderr,"[impact]   dynamic patch %u: quiet %.3f s, slowest motion's period %.3f s%s; zeta %.3g; %u events (%u broke, %u fastenings to contact, %u contacts crushed, %u slid off their seats; the last at %.2f ms), %u contacts; KE %.4g -> %.4g J, elastic %.4g -> %.4g J, the loads' work %.4g J; dissipated: fracture %.4g J, plastic %.4g J, slip %.4g J, dashpots %.4g J\n",
-                p,q.quiet,q.period,q.freeze?", FROZEN":"",q.zeta,q.events,q.broken,q.converted,q.crushedContacts,q.seatLost,q.lastEvent*1e3f,q.contacts,q.keStart,q.keEnd,q.u0,q.strainEnd,q.extWork,q.fracture,q.plastic,q.slipWork,q.dashWork);}
+            if(q.dynamic)std::fprintf(stderr,"[impact]   dynamic patch %u: quiet %.3f s, slowest motion's period %.3f s%s; zeta %.3g; %u events (%u broke, %u fastenings to contact, %u contacts crushed, %u slid off their seats, %u fell free; the last at %.2f ms), %u contacts%s; KE %.4g -> %.4g J, elastic %.4g -> %.4g J, the loads' work %.4g J; dissipated: fracture %.4g J, plastic %.4g J, slip %.4g J, dashpots %.4g J\n",
+                p,q.quiet,q.period,q.freeze?", FROZEN":"",q.zeta,q.events,q.broken,q.converted,q.crushedContacts,q.seatLost,q.fellFree,q.lastEvent*1e3f,q.contacts,q.anchored?"":", free (its rigid motion PhysX's)",q.keStart,q.keEnd,q.u0,q.strainEnd,q.extWork,q.fracture,q.plastic,q.slipWork,q.dashWork);}
     }
     void releaseStep() {
         if(!stepAllocated)return;

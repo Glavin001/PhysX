@@ -95,6 +95,7 @@ struct ExPatch {
     // window's end (2 pi / omega_R, omega_R^2 = v^T K v / v^T M v), and 1 when it freezes.
     float lastActive=-1.0f,period=0.0f,quiet=0.0f;PxU32 freeze=0;
     float beta=0.0f;   // the damping's 2 / omega_K (s; times each joint's zeta): its last sample, kept across launches
+    PxU32 anchored=0,fellFree=0;   // a joint to a support (or a held node); open contacts broken at the window's end (exSequenceSplit)
 };
 // A joint of the patch: local node ends (0xffffffff: held), state bits.
 // eEX_ROWS: an end of the joint has contact rows (exRunT sets it; the window's
@@ -200,6 +201,8 @@ struct ExScratch {
     float* wk{};          // [P][kExLinks][12]: each joint's K d wrench on its two ends (the damping's frequency)
     float* cslip{};       // [P][kExLinks][2]
     float* dynLoad{};     // [P][kExNodes][6]
+    float4* dynPos{};     // [P][kExNodes]: each chunk node's position (its cluster's frame)
+    PxU32* dynMark{};     // [P][kExNodes]: exSequenceSplit's: 1 a node with a load path to a support
 };
 
 // A joint's wrench on one end's six dof from a bond-frame force x (end 0: its
@@ -573,6 +576,7 @@ __device__ void exDynamicNode(const Inputs& in,const ExScratch& t,PxU32 p,PxU32 
     const auto c=in.chunks[i];const auto a=in.accelerations[i];float* f=t.dynLoad+(size_t(p)*kExNodes+k)*6;
     f[0]=a.linear.x*c.mass;f[1]=a.linear.y*c.mass;f[2]=a.linear.z*c.mass;
     f[3]=-a.angular.x*c.inertia;f[4]=-a.angular.y*c.inertia;f[5]=-a.angular.z*c.inertia;
+    t.dynPos[size_t(p)*kExNodes+k]=make_float4(c.position.x,c.position.y,c.position.z,0.0f);
 }
 // A dynamic patch's joint: its persisted force and contact state (else the last frame's
 // trial forces: the equilibrium before this tick's change, the study's start), whether it is a
@@ -997,6 +1001,79 @@ __device__ void exFinish(Shared& sh,const Settings& s,const ExScratch& t,PxU32 p
     __syncthreads();
     if(sp.twoBody)exImplicit(sh,s,t,p);
 }
+// A free patch's rigid mode out of its loads (in dynLoad: p) and velocities: the
+// rigid fit (V, Omega) of the velocities and (a, alpha) of the loads by its mass and
+// inertia about its centre of mass (chunks: scalar inertia).
+__device__ void exFreeRigidMode(Shared& sh,const ExScratch& t,PxU32 p)
+{
+    ExPatch& sp=t.patches[p];ExNode* nodes=t.nodes+size_t(p)*kExNodes;const float4* pos=t.dynPos+size_t(p)*kExNodes;
+    float acc[13]={0,0,0,0,0,0,0,0,0,0,0,0,0};   // M, M x, P, F
+    for(PxU32 k=threadIdx.x;k<sp.chunks;k+=kThreads) {
+        const ExNode& n=nodes[k];if(n.tensor || n.pad[1] || !(n.im>0.0f))continue;
+        const float m=1.0f/n.im;const float4 x=pos[k];const float* f=t.dynLoad+(size_t(p)*kExNodes+k)*6;
+        acc[0]+=m;acc[1]+=m*x.x;acc[2]+=m*x.y;acc[3]+=m*x.z;for(int q=0;q<3;++q){acc[4+q]+=m*n.v[q];acc[7+q]+=f[q];}
+    }
+    for(int q=0;q<10;++q)acc[q]=blockSum(sh,acc[q]);
+    if(!(acc[0]>0.0f))return;
+    const float M=acc[0],X[3]={acc[1]/M,acc[2]/M,acc[3]/M},V[3]={acc[4]/M,acc[5]/M,acc[6]/M},A[3]={acc[7]/M,acc[8]/M,acc[9]/M};
+    float red[15]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};   // I (6: xx yy zz xy xz yz), L, torque
+    for(PxU32 k=threadIdx.x;k<sp.chunks;k+=kThreads) {
+        const ExNode& n=nodes[k];if(n.tensor || n.pad[1] || !(n.im>0.0f))continue;
+        const float m=1.0f/n.im,Ii=n.Iinv[0]>0.0f?1.0f/n.Iinv[0]:0.0f;const float4 x=pos[k];const float r[3]={x.x-X[0],x.y-X[1],x.z-X[2]};
+        const float* f=t.dynLoad+(size_t(p)*kExNodes+k)*6;const float rr=r[0]*r[0]+r[1]*r[1]+r[2]*r[2];
+        red[0]+=Ii+m*(rr-r[0]*r[0]);red[1]+=Ii+m*(rr-r[1]*r[1]);red[2]+=Ii+m*(rr-r[2]*r[2]);red[3]-=m*r[0]*r[1];red[4]-=m*r[0]*r[2];red[5]-=m*r[1]*r[2];
+        float mv[3];for(int q=0;q<3;++q)mv[q]=m*n.v[q];float c[3];cross3(r,mv,c);for(int q=0;q<3;++q)red[6+q]+=c[q]+Ii*n.v[3+q];
+        cross3(r,f,c);for(int q=0;q<3;++q)red[9+q]+=c[q]+f[3+q];
+    }
+    for(int q=0;q<12;++q)red[q]=blockSum(sh,red[q]);
+    // I^-1 (symmetric 3 x 3, by its adjugate)
+    const float a=red[0],b=red[1],c=red[2],d=red[3],e=red[4],f=red[5];
+    const float A0=b*c-f*f,B0=a*c-e*e,C0=a*b-d*d,D0=e*f-d*c,E0=d*f-b*e,F0=d*e-a*f,det=a*A0+d*D0+e*E0;
+    float Ii[9]={0,0,0,0,0,0,0,0,0};
+    if(det>0.0f && isfinite(det)){const float id=1.0f/det;Ii[0]=A0*id;Ii[4]=B0*id;Ii[8]=C0*id;Ii[1]=Ii[3]=D0*id;Ii[2]=Ii[6]=E0*id;Ii[5]=Ii[7]=F0*id;}
+    float W[3],Al[3];for(int i=0;i<3;++i){W[i]=Ii[3*i]*red[6]+Ii[3*i+1]*red[7]+Ii[3*i+2]*red[8];Al[i]=Ii[3*i]*red[9]+Ii[3*i+1]*red[10]+Ii[3*i+2]*red[11];}
+    for(PxU32 k=threadIdx.x;k<sp.chunks;k+=kThreads) {
+        ExNode& n=nodes[k];if(n.tensor || n.pad[1] || !(n.im>0.0f))continue;
+        const float m=1.0f/n.im,Ik=n.Iinv[0]>0.0f?1.0f/n.Iinv[0]:0.0f;const float4 x=pos[k];const float r[3]={x.x-X[0],x.y-X[1],x.z-X[2]};
+        float* fl=t.dynLoad+(size_t(p)*kExNodes+k)*6;float wr_[3],ar[3];cross3(W,r,wr_);cross3(Al,r,ar);
+        for(int q=0;q<3;++q){n.v[q]-=V[q]+wr_[q];n.v[3+q]-=W[q];fl[q]-=m*(A[q]+ar[q]);fl[3+q]-=Ik*Al[q];}
+    }
+    __syncthreads();
+}
+// 3b. A dynamic patch's load paths at the window's end: a node is supported when live
+// joints and closed contacts join it to a support or a held node. An open contact with an
+// end that is not has nothing it bears on (a piece hanging on lifted contacts, falling):
+// it breaks, so the piece splits off as a rigid body (the re-bearing law's "fell free",
+// PxgDestructionRebearing.cuh), and its window momentum goes with it.
+__global__ __launch_bounds__(kThreads) void exSequenceSplit(Settings s,ExScratch t)
+{
+    __shared__ PxU32 changed;
+    const PxU32 p=blockIdx.x;if(p>=*t.patchCount)return;
+    ExPatch& sp=t.patches[p];if(!sp.dynamic || !sp.anchored || !t.dynMark)return;
+    ExLink* links=t.links+size_t(p)*kExLinks;PxU32* mark=t.dynMark+size_t(p)*kExNodes;float4* jp=t.jp+size_t(p)*kExLinks*kExJoint;
+    for(PxU32 k=threadIdx.x;k<sp.nodes;k+=kThreads)mark[k]=0u;
+    __syncthreads();
+    auto bears=[](PxU32 st){return (st&eEX_LIVE) && !((st&eEX_CONTACT) && (st&eEX_OPEN));};
+    for(PxU32 l=threadIdx.x;l<sp.links;l+=kThreads){const ExLink& e=links[l];if(!bears(e.state))continue;
+        if(e.a==0xffffffffu && e.b!=0xffffffffu)mark[e.b]=1u;if(e.b==0xffffffffu && e.a!=0xffffffffu)mark[e.a]=1u;}
+    for(PxU32 it=0;it<4096;++it) {
+        __syncthreads();if(!threadIdx.x)changed=0u;__syncthreads();
+        for(PxU32 l=threadIdx.x;l<sp.links;l+=kThreads) {
+            const ExLink& e=links[l];if(!bears(e.state) || e.a==0xffffffffu || e.b==0xffffffffu)continue;
+            const PxU32 ma=mark[e.a],mb=mark[e.b];if(ma!=mb){mark[e.a]=1u;mark[e.b]=1u;changed=1u;}
+        }
+        __syncthreads();if(!changed)break;
+    }
+    PxU32 fell=0;
+    for(PxU32 l=threadIdx.x;l<sp.links;l+=kThreads) {
+        ExLink& e=links[l];if(!(e.state&eEX_LIVE) || !(e.state&eEX_CONTACT) || !(e.state&eEX_OPEN))continue;
+        const bool a=e.a==0xffffffffu || mark[e.a],b=e.b==0xffffffffu || mark[e.b];if(a && b)continue;
+        e.state=(e.state&~eEX_LIVE)|eEX_BROKEN;e.brokeAt=s.dt;for(int q=0;q<6;++q)e.J[q]=0.0f;
+        float4* q4=jp+size_t(kExJoint)*l;q4[9]=make_float4(0,0,0,0);q4[10]=make_float4(0,0,__uint_as_float(e.state),e.slip);
+        ++fell;
+    }
+    if(fell){atomicAdd(&sp.fellFree,fell);atomicAdd(&sp.broken,fell);atomicAdd(&sp.events,fell);sp.lastActive=s.dt;}
+}
 // A dynamic patch after exFinish: each node's residual p + B J0 (exFinish left f0 =
 // -B J0; f0 becomes the load p, the books' external force), its kinetic energy, and
 // each joint's split inverse mass per component, W_q = sum over its ends of (B_q^T
@@ -1008,6 +1085,15 @@ __device__ void exFinishDynamic(Shared& sh,const Settings& s,const ExScratch& t,
     ExPatch& sp=t.patches[p];
     ExNode* nodes=t.nodes+size_t(p)*kExNodes;const Bond* bonds=t.bonds+size_t(p)*kExLinks;const ExLink* links=t.links+size_t(p)*kExLinks;
     float ke=0.0f,zmax=0.0f;
+    // Anchored: a live joint holds it to a support or to a node off the patch (held). A free
+    // patch (debris, a piece that split off) is a rigid body PhysX moves: the window takes only
+    // its internal motion -- its loads less the rigid acceleration they give it, its velocities
+    // less its rigid motion (linear and angular momentum about its centre of mass) -- so it
+    // conserves the body's momentum exactly and never integrates its fall a second time.
+    PxU32 held=0;
+    for(PxU32 l=threadIdx.x;l<sp.links;l+=kThreads){const ExLink& e=links[l];if((e.state&eEX_LIVE) && !(e.state&eEX_CAR) && (e.a==0xffffffffu || e.b==0xffffffffu))held=1u;}
+    held=blockCount(sh,held);
+    if(!held && t.dynPos)exFreeRigidMode(sh,t,p);
     for(PxU32 k=threadIdx.x;k<sp.nodes;k+=kThreads) {
         ExNode& n=nodes[k];float* f=t.dynLoad+(size_t(p)*kExNodes+k)*6;
         if(n.tensor || n.pad[1]){for(int q=0;q<6;++q)f[q]=0.0f;continue;}   // impactors and a car's chunks: no residual
@@ -1032,7 +1118,7 @@ __device__ void exFinishDynamic(Shared& sh,const Settings& s,const ExScratch& t,
     for(PxU32 i=threadIdx.x;i<12*sp.links;i+=kThreads)t.wk[size_t(p)*kExLinks*12+i]=0.0f;
     ke=blockSum(sh,ke);zmax=blockMax(sh,zmax);
     if(!threadIdx.x) {
-        sp.zeta=zmax;sp.keStart=sp.keEnd=ke;sp.strainEnd=sp.u0;sp.extWork=sp.slipWork=sp.dashWork=0.0f;sp.lastEvent=-1.0f;
+        sp.zeta=zmax;sp.keStart=sp.keEnd=ke;sp.anchored=held?1u:0u;sp.fellFree=0u;sp.strainEnd=sp.u0;sp.extWork=sp.slipWork=sp.dashWork=0.0f;sp.lastEvent=-1.0f;
         sp.events=sp.converted=sp.seatLost=sp.crushedContacts=sp.contacts=0;sp.lastActive=-1.0f;sp.period=0.0f;sp.freeze=0u;sp.beta=0.0f;
     }
     __syncthreads();
