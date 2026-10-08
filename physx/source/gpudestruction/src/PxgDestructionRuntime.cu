@@ -2394,11 +2394,13 @@ public:
                     in.chunks=mChunks;in.chunkCount=mN;in.bonds=mBonds;in.bondCount=mM;in.materials=mMaterials;
                     in.ductileSlip=mImpactSlip;in.stiffness=mImpactStiffness;in.health=mHealth;
                     in.nodeBegin=mNodeBegin;in.nodeRefs=mNodeRefs;in.nodeIslands=stress.nodeIslands;in.bondIslands=stress.bondIslands;
-                    in.accelerations=mInputs;in.elastic=forces;in.base=mImpactSettings.method>=1u?(mImpactSettings.route?forces:mImpactRest):mImpactStart;
-                    // (The steps' J0, the state their patch starts from. Routed, this
-                    // pass's elastic solve carries no impact load: the damaged
-                    // structure's own state, where the rest state recorded before the
-                    // impact no longer balances it.)
+                    in.accelerations=mInputs;in.elastic=forces;in.base=mImpactSettings.method>=1u?mImpactRest:mImpactStart;
+                    // (The steps' J0 is the rest state: the elastic forces of the last
+                    // tick their island had no patch. This pass's elastic solve, routed,
+                    // carries no impact load, but after a topology change its 64
+                    // iterations start cold in the changed components: as J0 its
+                    // unconverged forces put joints at capacity at rest and the
+                    // explicit arm's cannonball broke 2,242 joints, against 785-976.)
                     in.elasticBase=mImpactBase;in.stage=mStatus;
                     in.carried=mImpactCarriedStart;in.slipBefore=mImpactSlipStart;
                     in.crushed=mImpactCrush?mTrialCrush:nullptr;in.sections=mSectionBending?mSections:nullptr;

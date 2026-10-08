@@ -31,7 +31,7 @@
 constexpr PxU32 kExPatches=8;      // patches (struck islands) per evaluation
 constexpr PxU32 kExNodes=1024;     // chunks and impactors per patch
 constexpr PxU32 kExLinks=4096;     // joints per patch
-constexpr PxU32 kExRows=128;       // contact rows per patch
+constexpr PxU32 kExRows=256;       // contact rows per patch (a meteor's debris: 216 seen)
 constexpr PxU32 kExThreads=EX_THREADS;  // the window's threads per patch (one block)
 
 struct ExPatch {
