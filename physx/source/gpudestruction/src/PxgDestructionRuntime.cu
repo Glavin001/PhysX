@@ -883,8 +883,11 @@ __global__ void prepareCandidateBodies(PxDestructionTopologyDeviceView topology,
 // abort mask (~8u) and read by no kernel before this one, so it may be set here.
 __global__ void inspectTopologyAndBeginBodyPreparation(const PxDestructionTopologyTransactionStatus* transaction,
     PxDestructionTopologyDeviceView topology,PxDestructionBodyPreparationStatus* body,
-    PxDestructionStageStatus* stage,bool requireCorrection) {
-    if(requireCorrection && (stage->brokenBonds || stage->crushedChunks))stage->error|=8u;
+    PxDestructionStageStatus* stage,bool requireCorrection,bool editsOnly=false) {
+    // editsOnly (impact::Settings::compliant): a crush of a chunk with no live bond (a free
+    // fragment, crushed by a later pass's impact pressure) changes no topology; a correction
+    // requested for it had no transaction to prepare (stage error 264).
+    if(requireCorrection && (stage->brokenBonds || stage->crushedChunks) && (!editsOnly || transaction->prepared))stage->error|=8u;
     if(transaction->error)stage->error|=32u;
     *body={};
     if(transaction->prepared && !transaction->error) {body->generation=topology.status->generation;body->count=topology.status->clusterCount;}
@@ -2921,7 +2924,7 @@ public:
                     mImpactBoundRequested && !mPass?mImpactBoundRequested:nullptr))
                     throw std::runtime_error("native topology transaction submission failed");
                 check(cudaStreamWaitEvent(mStream,static_cast<cudaEvent_t>(mTopology->trial().readyEvent),0));
-                inspectTopologyAndBeginBodyPreparation<<<1,1,0,mStream>>>(mTopology->status(),mTopology->trial(),mBodyPreparation,mStatus,mMaterials!=nullptr);
+                inspectTopologyAndBeginBodyPreparation<<<1,1,0,mStream>>>(mTopology->status(),mTopology->trial(),mBodyPreparation,mStatus,mMaterials!=nullptr,mCompliant);
                 prepareCandidateBodies<<<(mN+127)/128,128,0,mStream>>>(mTopology->trial(),mChunks,mClusters,mTrialBodies,mBodyPreparation,mTopology->accepted(),mBodyRequests,mTrialBodyIndices,mPrincipalFrames);
                 finishBodyPreparationAndBeginCommit<<<1,1,0,mStream>>>(mTopology->status(),mBodyPreparation,mStatus,mTopologyAccept);
                 stageMarker(4);
