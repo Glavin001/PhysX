@@ -1814,7 +1814,7 @@ __global__ void markError(Status* status,PxU32 bit){atomicOr(&status->error,bit)
 
 // The invariant, after the material verdicts (verdict: the stage's, broken or
 // health <= 0): no impactor is stopped rigidly -- its contact unbounded in the
-// corrected pass (rowBound 0) -- by a struck chunk that stays on with nothing
+// corrected pass, or bounded (per body) no lower than the trial's stop -- by a struck chunk that stays on with nothing
 // of it broken or crushed while a joint of it is past capacity under the
 // trial's forces (the elastic solve with the trial's stop). Either the
 // impact solve bounded the contact (it gave way at capacity) or the verdict
@@ -1826,7 +1826,16 @@ __global__ void heldOverCapacity(Inputs in,Settings s,const PxDestructionBondVer
     if(stage && (stage->error & 4096u))return;
     const ContactRow& row=in.rows[i];const PxU32 c=row.chunk;
     if(!row.points || c>=in.chunkCount || !(in.chunks[c].mass>0.0f) || chunkGone(in,c))return;   // released: no stop
-    if(in.rowBound && in.rowBound[i]>0.0f)return;
+    // The bound the corrected pass applies: per body, the largest of its
+    // rows' (collectImpactBounds; a cluster is one body). It stops this pair
+    // rigidly when it is none (0) or no less than the trial's stop.
+    float applied=0.0f;
+    if(in.rowBound) {
+        const PxU32 n=in.rowCounter?min(*in.rowCounter,in.rowCount):in.rowCount,cluster=in.chunks[c].cluster;
+        for(PxU32 j=0;j<n;++j){const PxU32 cj=in.rows[j].chunk;if(cj<in.chunkCount && in.chunks[cj].cluster==cluster)applied=fmaxf(applied,in.rowBound[j]);}
+    }
+    const float stop=sqrtf(row.load[0]*row.load[0]+row.load[1]*row.load[1]+row.load[2]*row.load[2])*s.dt;
+    if(applied>0.0f && applied*float(row.points)<stop)return;
     bool over=false;
     for(PxU32 slot=in.nodeBegin[c];slot<in.nodeBegin[c+1];++slot) {
         const PxU32 k=in.nodeRefs[slot];if(!bondMember(in,k))continue;

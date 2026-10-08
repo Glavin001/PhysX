@@ -616,6 +616,33 @@ void releasedPair(){
         r.verdicts[0].health<=0?"broken":"held",r.verdicts[0].health,r.forces[0].linear.magnitude(),14.0f*9.81f,r.status.triggered,r.status.contacts);
     expect(r.verdicts[0].health>0 && r.forces[0].linear.magnitude()<2.0f*14.0f*9.81f && r.status.contacts==0,text);
 }
+// 7e. The invariant reads the bound the corrected pass applies: per body,
+// the largest of its rows'. A strong chunk (1 MN) and a weak ductile one
+// (1 kN, 1 m ultimate slip) of one anchored cluster and island, each struck by a 1 t
+// body at 10 m/s, the solve capped (one step a solve): the capacity fallback
+// bounds the weak one's pair low and the strong one's high, so the body's
+// bound -- the strong pair's -- stops the weak pair rigidly behind a joint
+// past capacity that nothing broke. heldOverCapacity counts it (before: its
+// own row's bound was read, and it passed).
+void heldOverCapacityPerBody(){
+    std::printf("heldOverCapacity reads the bound the corrected pass applies (per body)\n");
+    Structure s;const PxU32 anchor=s.chunk(PxVec3(0,0,0),0,0),strong=s.chunk(PxVec3(0,0.5f,0),10.0f,0.5f),weak=s.chunk(PxVec3(2,0.5f,0),10.0f,0.5f);
+    s.bond(anchor,strong,PxVec3(0,0.25f,0),PxVec3(0,1,0),0.01f,s.material(1e8f,1e8f,1e8f,0.0f));
+    s.bond(anchor,weak,PxVec3(2,0.25f,0),PxVec3(0,1,0),0.01f,s.material(1e5f,1e5f,1e5f,1.0f));
+    s.bond(strong,weak,PxVec3(1,0.5f,0),PxVec3(1,0,0),0.01f,s.material(1e8f,1e8f,1e8f,0.0f));   // one island
+    const float M=1000.0f,v=10.0f,dt=1.0f/60.0f;
+    for(PxU32 c:{strong,weak}){impact::ContactRow row{};row.chunk=c;row.body=c;row.points=4;
+        const float x=c==strong?0.0f:2.0f,point[3]={x-0.25f,0.5f,0},com[3]={x-1.0f,0.5f,0};
+        for(int q=0;q<3;++q){row.point[q]=point[q];row.com[q]=com[q];}
+        row.normal[0]=1;row.load[0]=M*v/dt;row.velocity[0]=v;row.dv[0]=-v;row.im=1.0f/M;row.ii[0]=row.ii[1]=row.ii[2]=1.0f/400.0f;s.rows.push_back(row);}
+    const auto rest=elastic(s,s.force,s.torque);
+    auto F=s.force;F[strong]+=PxVec3(M*v/dt,0,0);F[weak]+=PxVec3(M*v/dt,0,0);
+    impact::Settings one;one.iterations=1;
+    const auto r=evaluate(s,F,s.torque,rest,true,one);
+    char text[400];std::snprintf(text,sizeof text,"capped %u; bounds per point: strong %.4g, weak %.4g N s (the weak pair's stop %.4g); weak joint %s (elastic utilisation %.3g, its verdict health %.3g); held over capacity %u (expected >= 1)",
+        r.status.capped,r.rowBound[0],r.rowBound[1],M*v,r.verdicts[1].health<=0?"broken":"held",utilisation(s,1,r.elastic[1]),r.verdicts[1].health,r.status.heldOverCapacity);
+    expect(r.status.capped>0 && r.verdicts[1].health>0 && r.status.heldOverCapacity>=1,text);
+}
 // 8. The evaluation split into dispatches resumes exactly: the wall with
 // about one ADMM step per dispatch gives the same forces and verdicts, bit
 // for bit, as in one dispatch.
@@ -906,7 +933,7 @@ void passivity(){
 
 int main(int argc,char** argv){
     (void)argc;(void)argv;
-    try{if(const char* only=std::getenv("IMPACT_TEST_ONLY")){if(!std::strcmp(only,"unconverged"))physx::unconverged();if(!std::strcmp(only,"fallback"))physx::fallback();if(!std::strcmp(only,"momentum"))physx::impactorMomentum();if(!std::strcmp(only,"released"))physx::releasedPair();if(!std::strcmp(only,"dispatches"))physx::dispatches();if(!std::strcmp(only,"carried"))physx::carried();if(!std::strcmp(only,"held"))physx::heldStops();if(!std::strcmp(only,"projection"))physx::projection();if(!std::strcmp(only,"detectors"))physx::detectors();if(!std::strcmp(only,"fuzz"))physx::fuzz();if(!std::strcmp(only,"bearing"))physx::bearing();if(!std::strcmp(only,"coupled"))physx::coupled();if(!std::strcmp(only,"passivity"))physx::passivity();}else{physx::column();physx::wall();physx::rest();physx::centroidConvention();physx::impactCrush();physx::section();physx::coupled();physx::unconverged();physx::fallback();physx::impactorMomentum();physx::releasedPair();physx::dispatches();physx::carried();physx::heldStops();physx::projection();physx::detectors();physx::fuzz();physx::bearing();physx::passivity();}}
+    try{if(const char* only=std::getenv("IMPACT_TEST_ONLY")){if(!std::strcmp(only,"unconverged"))physx::unconverged();if(!std::strcmp(only,"fallback"))physx::fallback();if(!std::strcmp(only,"momentum"))physx::impactorMomentum();if(!std::strcmp(only,"released"))physx::releasedPair();if(!std::strcmp(only,"perbody"))physx::heldOverCapacityPerBody();if(!std::strcmp(only,"dispatches"))physx::dispatches();if(!std::strcmp(only,"carried"))physx::carried();if(!std::strcmp(only,"held"))physx::heldStops();if(!std::strcmp(only,"projection"))physx::projection();if(!std::strcmp(only,"detectors"))physx::detectors();if(!std::strcmp(only,"fuzz"))physx::fuzz();if(!std::strcmp(only,"bearing"))physx::bearing();if(!std::strcmp(only,"coupled"))physx::coupled();if(!std::strcmp(only,"passivity"))physx::passivity();}else{physx::column();physx::wall();physx::rest();physx::centroidConvention();physx::impactCrush();physx::section();physx::coupled();physx::unconverged();physx::fallback();physx::impactorMomentum();physx::releasedPair();physx::heldOverCapacityPerBody();physx::dispatches();physx::carried();physx::heldStops();physx::projection();physx::detectors();physx::fuzz();physx::bearing();physx::passivity();}}
     catch(const std::exception& e){std::printf("error: %s\n",e.what());return 2;}
     std::printf("%s (%d failed)\n",physx::failures?"FAILED":"passed",physx::failures);
     return physx::failures?1:0;
