@@ -102,6 +102,11 @@ struct ContactRow {
     // the deepest point's penetration (m; negative: the gap still open, a row the
     // window closes before it pushes), for the compliant row's contact radius.
     float patch[2]={0.0f,0.0f};
+    // A dynamic struck cluster (Settings::dynamicStruck; a car hit by debris): its
+    // body's inverse mass (0: anchored, every row before capture version 4). The row's
+    // velocities are relative to its rigid motion at the tick's start, as for any row.
+    float clusterIm=0.0f;
+    PxU32 clusterBody=0xffffffffu;   // (its body: the corrected pass's hand-off record)
 };
 
 struct Settings {
@@ -298,6 +303,13 @@ struct Settings {
     //   are dropped from the rigid re-solve, and the impactors and the window's
     //   freed chunks start it with the window's end velocities.
     bool compliant=false;
+    // A dynamic struck structure (PX_DESTRUCTION_IMPACT_DYNAMIC_STRUCK; a car hit by
+    // debris or a cannonball): rows on a moving cluster's chunks too (ContactRow::
+    // clusterIm), its window the whole island, free (no held supports), its
+    // centre-of-mass motion handed to the corrected pass. Without it, a car struck
+    // by a fast body was graded statically on the rigid solve's contact impulse
+    // (debris on a wheel: 462 kN graded against 129 kN of momentum change).
+    bool dynamicStruck=false;
 };
 // A solve is diverging when, past its first rho rebalance (25 steps), a
 // joint's split |J - Z| exceeds kDivergence times the joint's capacity: the
@@ -454,6 +466,12 @@ struct Inputs {
     PxU32* decidedBonds{};
     // The struck clusters' poses (cluster frame -> world), by the chunks' cluster.
     const PxTransform* clusterPoses{};
+    // Settings::dynamicStruck with compliant: each cluster's rigid motion at the tick's
+    // start (the rigid checkpoint), [3 per cluster]: linear velocity at its centre of
+    // mass, angular velocity, the centre of mass (world); null: every struck cluster at
+    // rest. A dynamic struck window's velocities are relative to it (its frame moves
+    // with the cluster), and windowV is the world velocity.
+    const float4* clusterStart{};
     // Each chunk's box (PxDestructionStressDesc::chunkBoxes), or null: the window's
     // own contact geometry for a round impactor (exRefresh).
     const PxDestructionChunkBox* chunkBoxes{};
@@ -1484,7 +1502,11 @@ __device__ bool routeImpact(const Inputs& in,const Settings& s,const ContactRow&
     if(Ea>0.0f && face>0.0f){const float Es=1.0f/(1.0f/Ea+(Eb>0.0f?1.0f/Eb:0.0f)),kr=2.0f*face*Es;keff=1.0f/(1.0f/kr+1.0f/k);}
     float onset,plateau;crushLaw(in.materials[in.chunks[chunk].material],onset,plateau);
     const float crush=onset<FLT_MAX?onset*3.14159265f*face*face:FLT_MAX;
-    const float M=mirrored?in.chunks[row.chunk].mass:1.0f/row.im,m=in.chunks[chunk].mass;
+    // The striker's mass against the struck cluster: a moving (dynamic struck) cluster of
+    // mass Mc recoils as a whole, so the striker meets it with the reduced mass
+    // M Mc / (M + Mc) (the two-body exchange; M itself against an anchored one).
+    float M=mirrored?in.chunks[row.chunk].mass:1.0f/row.im;const float m=in.chunks[chunk].mass;
+    if(!mirrored && row.clusterIm>0.0f && isfinite(row.clusterIm))M=M/(1.0f+M*row.clusterIm);
     const float peak=vn*M*sqrtf(keff/(M+m)),bound=fminf(cap,crush);
     if(peakOut)*peakOut=peak;if(capOut)*capOut=bound;
     return peak>bound;

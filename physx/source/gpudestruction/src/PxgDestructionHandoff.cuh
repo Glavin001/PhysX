@@ -64,12 +64,14 @@ __global__ void handoffWindowMomentum(PxDestructionCorrectionBody* output,PxU32 
     if(!V.isFinite() || !w.isFinite())return;
     for(int k=0;k<3;++k){o.body.linearVelocity[k]=V[k];o.body.angularVelocity[k]=w[k];}
 }
-// Each impactor's (and a two-body car's) window end velocity into the rigid
-// checkpoint the corrected pass restores: the records are in the struck
-// cluster's frame (anchored), rotated into world by its pose. Several windows that
-// met one body each integrated it from the same start, so they superpose: v = v0 +
-// sum_p (v_p - v0) (first order; the two-body agent's agreement). The first record of
-// a body (in record order) writes it.
+// Each impactor's (and a two-body car's, and a dynamic struck island's) window end
+// velocity into the rigid checkpoint the corrected pass restores. A record's v, w and
+// its start v0, w0 are in the struck cluster's frame, relative to that cluster's rigid
+// motion at the tick's start (anchored: the struck frame), so the window's change,
+// R (v - v0), is applied to the body's start velocity (the checkpoint's own). Several
+// windows that met one body each integrated it from the same start, so they superpose:
+// v = v_start + sum_p R_p (v_p - v0_p) (first order; the two-body agent's agreement).
+// The first record of a body (in record order) writes it.
 // A hand-off record's vector, from its struck cluster's frame into world.
 __device__ __forceinline__ PxVec3 handoffWorld(const impact::ExPatch* patches,const PxDestructionStressChunk* chunks,PxU32 n,const PxTransform* poses,PxU32 patch,const float* x)
 {
@@ -82,14 +84,28 @@ __global__ void applyWindowImpactors(const impact::ExScratch::Handoff* records,c
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x,total=min(*count,impact::kExHandoffs);if(i>=total)return;
     const auto r=records[i];if(r.body>=checkpointCount || !r.pad)return;   // (pad: its pairs dropped, exPublish)
     for(PxU32 j=0;j<i;++j)if(records[j].body==r.body && records[j].pad)return;   // (an earlier record writes this body)
-    PxVec3 v=handoffWorld(patches,chunks,n,poses,r.patch,r.v0),w=handoffWorld(patches,chunks,n,poses,r.patch,r.w0);
+    PxgBodySim& b=checkpoint[r.body];
+    PxVec3 v(b.linearVelocityXYZ_inverseMassW.x,b.linearVelocityXYZ_inverseMassW.y,b.linearVelocityXYZ_inverseMassW.z),
+        w(b.angularVelocityXYZ_maxPenBiasW.x,b.angularVelocityXYZ_maxPenBiasW.y,b.angularVelocityXYZ_maxPenBiasW.z);
     for(PxU32 j=i;j<total;++j){const auto& h=records[j];if(h.body!=r.body || !h.pad)continue;
         v+=handoffWorld(patches,chunks,n,poses,h.patch,h.v)-handoffWorld(patches,chunks,n,poses,h.patch,h.v0);
         w+=handoffWorld(patches,chunks,n,poses,h.patch,h.w)-handoffWorld(patches,chunks,n,poses,h.patch,h.w0);}
     if(!v.isFinite() || !w.isFinite())return;
-    PxgBodySim& b=checkpoint[r.body];
     b.linearVelocityXYZ_inverseMassW.x=v.x;b.linearVelocityXYZ_inverseMassW.y=v.y;b.linearVelocityXYZ_inverseMassW.z=v.z;
     b.angularVelocityXYZ_maxPenBiasW.x=w.x;b.angularVelocityXYZ_maxPenBiasW.y=w.y;b.angularVelocityXYZ_maxPenBiasW.z=w.z;
     if(previous){previous[r.body].linearVelocity.x=v.x;previous[r.body].linearVelocity.y=v.y;previous[r.body].linearVelocity.z=v.z;
         previous[r.body].angularVelocity.x=w.x;previous[r.body].angularVelocity.y=w.y;previous[r.body].angularVelocity.z=w.z;}
+}
+// Settings::dynamicStruck with compliant: each cluster's rigid motion at the tick's
+// start, from the rigid checkpoint (impact::Inputs::clusterStart): its body's linear
+// velocity (at its centre of mass), angular velocity and centre of mass, world.
+__global__ void clusterStartMotion(const PxDestructionStressCluster* clusters,PxU32 count,const PxgBodySim* bodies,PxU32 bodyCount,float4* out)
+{
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
+    const PxU32 body=clusters[i].body;float4* o=out+3*size_t(i);
+    if(body>=bodyCount){o[0]=o[1]=o[2]=make_float4(0.0f,0.0f,0.0f,0.0f);return;}
+    const PxgBodySim& b=bodies[body];
+    o[0]=make_float4(b.linearVelocityXYZ_inverseMassW.x,b.linearVelocityXYZ_inverseMassW.y,b.linearVelocityXYZ_inverseMassW.z,0.0f);
+    o[1]=make_float4(b.angularVelocityXYZ_maxPenBiasW.x,b.angularVelocityXYZ_maxPenBiasW.y,b.angularVelocityXYZ_maxPenBiasW.z,0.0f);
+    o[2]=make_float4(b.body2World.p.x,b.body2World.p.y,b.body2World.p.z,0.0f);
 }
