@@ -1305,7 +1305,12 @@ __device__ __forceinline__ PxU32 exContactJoint(const Bond& b,const float* k,flo
 {
     const bool open=!(J[0]<0.0f);PxU32 act=(open!=((state&eEX_OPEN)!=0u))?16u:0u;
     state=open?(state|eEX_OPEN):(state&~eEX_OPEN);
-    if(open) {for(int q=0;q<6;++q)F[q]=0.0f;}
+    if(open) {
+        // A lost contact keeps no tangential or rocking state: on closing again it starts
+        // anew (Cundall & Strack 1979, the shear spring reset when contact is lost); its
+        // normal state is the gap.
+        for(int q=0;q<6;++q)F[q]=0.0f;for(int q=1;q<6;++q)J[q]=0.0f;
+    }
     else {
         const float C=-J[0],V=sqrtf(J[1]*J[1]+J[2]*J[2]),T=fabsf(J[3]),shear=V+b.gt*T;
         if(shear>mu*C) {act=16u;
@@ -1315,8 +1320,18 @@ __device__ __forceinline__ PxU32 exContactJoint(const Bond& b,const float* k,flo
             slipWork+=sc*V*sqrtf(s1*s1+s2*s2)+(k[3]>0.0f?sc*T*(1.0f-sc)*T/k[3]:0.0f);
             J[1]*=sc;J[2]*=sc;J[3]*=sc;
         }
-        const float rock=b.h0*fabsf(J[4])+b.h1*fabsf(J[5]),bsc=rock>C?C/rock:1.0f;
-        F[0]=J[0];F[1]=J[1];F[2]=J[2];F[3]=J[3];F[4]=bsc*J[4];F[5]=bsc*J[5];
+        // Rocking past the cap: the moment follows the cap and the rotation past it is
+        // plastic, as the slip is (the elastic-plastic rolling resistance, Ai, Chen,
+        // Rotter & Ooi 2011, Powder Technol. 206: |M| <= M_max on the incremental spring):
+        // its work at the capped moment is dissipated. (A state kept past the cap is not
+        // energy-consistent: the cap moves with C, and a rotation stored under a small C
+        // would be released under a larger one.)
+        const float rock=b.h0*fabsf(J[4])+b.h1*fabsf(J[5]);
+        if(rock>C) {act=16u;
+            const float bsc=C/rock;
+            for(int q=4;q<6;++q){const float y=bsc*J[q];if(k[q]>0.0f)slipWork+=fabsf(y*(J[q]-y))/k[q];J[q]=y;}
+        }
+        F[0]=J[0];F[1]=J[1];F[2]=J[2];F[3]=J[3];F[4]=J[4];F[5]=J[5];
         const float bend=b.g0>0.0f?b.g0*fabsf(F[4])+b.g1*fabsf(F[5]):b.gb*sqrtf(F[4]*F[4]+F[5]*F[5]);
         if(bend+C>=(1.0f-band)*b.capC)return 1u|act;
     }
