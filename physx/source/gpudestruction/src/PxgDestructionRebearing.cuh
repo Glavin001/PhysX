@@ -72,6 +72,10 @@ __global__ void rebearVerdicts(const PxDestructionStressChunk* chunks,const PxDe
     const float area=health[i];if(!(area>0 && area<0.5f*FLT_MAX))return;
     const auto s=sections[i];if(!(s.bearingDepth0>0 && s.bearingDepth1>0))return;
     const auto b=bonds[i];const auto& m=materials[b.material];auto& v=verdict[i];
+    // A material with its own friction coefficient (PX_DESTRUCTION_MOHR_COULOMB_SHEAR:
+    // masonry's 0.4, EN 1996-1-1 3.6.2) slides at it once its bond has failed,
+    // the same mu its intact joint was graded with; else the stage's (timber).
+    if(m.shearFriction>0.0f)friction=m.shearFriction;
     const auto hold=[&](PxU32 next){v.health=area;v.damage=0.0f;trial[i]=next;};
 
     if(st==eBEAR_FASTENED) {

@@ -33,6 +33,16 @@
 // region it held that is left with no compression path splits as before.
 // PX_DESTRUCTION_REBEARING_LOG=1 prints each evaluation's transitions.
 #define PX_DESTRUCTION_REBEARING 1
+// Feature (PxDestructionMaterial::shearFriction, shearCapacityLimit; opt-in with
+// the environment, read at configuration: PX_DESTRUCTION_MOHR_COULOMB_SHEAR=1):
+// an intact joint's shear strength grows with the compression across it, a
+// Mohr-Coulomb joint: f_v = f_v0 + mu sigma_c, sigma_c = max(0, -N/A) the
+// joint's mean normal compression from the solve (tension adds nothing), capped
+// at shearCapacityLimit (EN 1996-1-1 3.6.2: f_vk = f_vk0 + 0.4 sigma_d <= f_vlt).
+// f_v0 is the authored shear limit. Every grader applies it: the static verdict
+// (both shear limits shift by the friction term) and re-bearing (a contact
+// slides at its material's mu). Off, the materials' mu is ignored.
+#define PX_DESTRUCTION_MOHR_COULOMB_SHEAR 1
 #include "foundation/PxTransform.h"
 #include "PxDirectGPUAPI.h"
 #include "PxDestructionTopologyTypes.h"
@@ -58,6 +68,11 @@ struct PxDestructionMaterial {
     PxReal shearElasticLimit=-1, shearFatalLimit=-1;
     PxReal residualAreaFraction=0;
     PxDestructionCrushProperties crush;
+    // Mohr-Coulomb shear (PX_DESTRUCTION_MOHR_COULOMB_SHEAR): the joint's
+    // friction coefficient mu (masonry 0.4, EN 1996-1-1 3.6.2) and the cap on
+    // its shear strength f_v0 + mu sigma_c (Pa; EN 1996-1-1 f_vlt or 0.065 f_b).
+    // 0 mu: no friction term; 0 cap: uncapped.
+    PxReal shearFriction=0, shearCapacityLimit=0;
 };
 struct PxDestructionBondVerdict {
     PxReal health, damage, stressNormal, stressShear, stressBend;

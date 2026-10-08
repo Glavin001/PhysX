@@ -64,7 +64,13 @@ __global__ void evaluateBondMaterials(const PxDestructionStressChunk* chunks,
     }
     float compression,tension;extStressFibre(fibres,v.stressNormal,v.stressBend,compression,tension);
     if(bearingTension>=0.0f)tension=bearingTension;
-    const auto damage=extStressBondDamage(compression,tension,v.stressShear,area,b.area,materials[b.material],dt,rate);
+    // Mohr-Coulomb joint shear (PX_DESTRUCTION_MOHR_COULOMB_SHEAR; mu 0 when off):
+    // the compression across the joint adds mu sigma_c to both shear limits,
+    // graded as the shear stress net of it (extStressFrictionStrength).
+    float shear=v.stressShear;
+    {const auto& m=materials[b.material];
+     if(m.shearFriction>0.0f)shear=fmaxf(0.0f,shear-extStressFrictionStrength(v.stressNormal,m.shearFriction,m.shearCapacityLimit,m.shearFatalLimit));}
+    const auto damage=extStressBondDamage(compression,tension,shear,area,b.area,materials[b.material],dt,rate);
     v.damage=damage.damage;v.command=damage.command;v.health=area-damage.damage;
     if(!extStressFinite(v.health) || !extStressFinite(v.damage))atomicOr(&status->error,2u);
     if(v.command)atomicAdd(&status->bondCommands,1u);
