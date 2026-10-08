@@ -209,6 +209,13 @@ struct Settings {
     // stage's elastic verdict and forces (its rigid-stop model; on the high
     // profile's veneer house it breaks ~3000 joints in a tick).
     bool cappedElastic=false;
+    // The method: 0 the impact solve (ADMM, the ramp over the tick); 1 the
+    // impact step (PxgDestructionImpactStep.cuh: one implicit step over the
+    // contact duration on a local patch, an exact event ramp).
+    PxU32 method=0;
+    float stepDuration=1e-3f;   // h (s): the contact duration (IMPACT_CHEAP_FORMULATION.md: 0.5-2 ms for hard projectiles)
+    float stepRadius=3.0f;      // the patch (m): the struck chunks' neighbours within it (a 3 m patch matched the island)
+    PxU32 stepMaxEvents=1024;   // events per patch per evaluation (a bug guard: the cannonball takes ~50)
 };
 // A solve is diverging when, past its first rho rebalance (25 steps), a
 // joint's split |J - Z| exceeds kDivergence times the joint's capacity: the
@@ -239,6 +246,8 @@ struct Status {
     PxU32 cappedFallback;    // islands whose evaluation capped (or diverged) and fell back (Settings::
                              // cappedElastic): a known gap that must trend to 0; never a verdict from the
                              // capped iterate, never a rigid stop behind it
+    PxU32 stepPatches;       // the impact step's patches solved
+    PxU32 stepTruncated;     // patches whose radius was shrunk to fit kStepNodes
     PxU32 heldOverCapacity;  // impactor contacts stopped rigidly (no bound) by a struck chunk that stays on,
                              // nothing of it broken or crushed, while a joint of it is past capacity under
                              // the trial's forces (a bug signal: heldOverCapacity)
@@ -1787,7 +1796,7 @@ __global__ void recordState(const PxU32* islandFlag,const PxU32* bondIslands,con
 {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
     const PxU32 island=bondIslands[i];
-    const bool mine=island!=0xffffffffu && islandFlag[island];
+    const bool mine=islandFlag && island!=0xffffffffu && islandFlag[island];
     state[i]=mine?impact[i]:elastic[i];
     if(carried)carried[i]=mine?1u:0u;
     // The plastic slip accumulates where the island was solved (from the
@@ -1848,6 +1857,7 @@ __global__ void heldOverCapacity(Inputs in,Settings s,const PxDestructionBondVer
     }
     if(over){atomicAdd(&status->heldOverCapacity,1u);if(stage)atomicAdd(&stage->impactHeldOverCapacity,1u);}
 }
+#include "PxgDestructionImpactStep.cuh"
 // Host side: persistent scratch and the launches of one evaluation.
 struct Stage {
     Scratch w{};PxU32 n=0,m=0;
@@ -1859,7 +1869,62 @@ struct Stage {
     // Diagnostics: each dispatch's host time and the first island's state
     // before it (recordDispatches).
     bool recordDispatches=false;std::vector<std::pair<double,IslandState>> dispatchRecord;
+    // The impact step's scratch (Settings::method 1), allocated on its first use.
+    StepScratch t{};bool stepAllocated=false;
+    void releaseStep() {
+        if(!stepAllocated)return;
+        cudaFree(t.nodeOf);cudaFree(t.patchCount);cudaFree(t.patches);cudaFree(t.nodeChunk);cudaFree(t.nodeMass);cudaFree(t.links);cudaFree(t.linkEnds);
+        cudaFree(t.B);cudaFree(t.Ainv);cudaFree(t.Atmp);cudaFree(t.G);cudaFree(t.S);cudaFree(t.colLink);cudaFree(t.J);cudaFree(t.dJ);cudaFree(t.J2);
+        cudaFree(t.f);cudaFree(t.w);cudaFree(t.du);cudaFree(t.u);cudaFree(t.d2);cudaFree(t.rhs);cudaFree(t.lam);cudaFree(t.rowNode);t={};stepAllocated=false;
+    }
+    void allocateStep() {
+        if(stepAllocated)return;
+        const size_t P=kStepPatches;
+        ::physx::allocate(t.nodeOf,size_t(n)+P*kStepNodes);::physx::allocate(t.patchCount,1);::physx::allocate(t.patches,P);
+        ::physx::allocate(t.nodeChunk,P*kStepNodes);::physx::allocate(t.nodeMass,P*kStepNodes*7);
+        ::physx::allocate(t.links,P*kStepLinks);::physx::allocate(t.linkEnds,P*kStepLinks);::physx::allocate(t.B,P*kStepLinks*72);
+        ::physx::allocate(t.Ainv,P*kStepDof*kStepDof);::physx::allocate(t.Atmp,P*kStepDof*kStepDof);
+        ::physx::allocate(t.G,P*kStepDof*kStepCols);::physx::allocate(t.S,P*kStepCols*kStepCols);::physx::allocate(t.colLink,P*kStepCols);
+        for(float** a:{&t.J,&t.dJ,&t.J2})::physx::allocate(*a,P*kStepLinks*6);
+        for(float** a:{&t.f,&t.w,&t.du,&t.u,&t.d2,&t.rhs})::physx::allocate(*a,P*kStepDof);
+        ::physx::allocate(t.lam,P*kStepCols);::physx::allocate(t.rowNode,size_t(kContactCapacity));
+        stepAllocated=true;
+    }
+    // The impact step's evaluation: the patches, A inverted (one pivot per
+    // launch, all patches; the host waits every 64 pivots so no command
+    // buffer grows long), the ramp in bounded launches, the verdicts.
+    void submitStep(const Inputs& in,const Settings& s,cudaStream_t stream) {
+        allocateStep();
+        stepClear<<<64,kThreads,0,stream>>>(in,t);
+        stepBuild<<<1,kThreads,0,stream>>>(in,s,w,t);
+        StepPatch host[kStepPatches];PxU32 count=0;
+        check(cudaMemcpyAsync(pending,t.patchCount,sizeof(PxU32),cudaMemcpyDeviceToHost,stream));check(cudaStreamSynchronize(stream));
+        count=*pending;dispatches=0;longestDispatch=0.0;
+        if(!count)return;
+        check(cudaMemcpy(host,t.patches,sizeof(StepPatch)*count,cudaMemcpyDeviceToHost));
+        PxU32 nmax=0;for(PxU32 p=0;p<count;++p)nmax=std::max(nmax,host[p].nodes);
+        const dim3 grid(64,count);
+        stepAssemble<<<grid,kThreads,0,stream>>>(in,s,w,t);
+        stepAssemble2<<<grid,kThreads,0,stream>>>(in,s,w,t);
+        for(PxU32 k=0;k<6*nmax;++k) {
+            stepPivot<<<grid,kThreads,0,stream>>>(t,k);
+            if((k&63u)==63u){const auto t0=std::chrono::steady_clock::now();check(cudaStreamSynchronize(stream));
+                longestDispatch=std::max(longestDispatch,std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-t0).count());++dispatches;}
+        }
+        stepSettle<<<grid,kThreads,0,stream>>>(t);
+        for(PxU32 d=0;d<4096;++d) {
+            const auto t0=std::chrono::steady_clock::now();
+            stepRamp<<<count,kThreads,0,stream>>>(in,s,w,t,4u);
+            check(cudaMemcpyAsync(host,t.patches,sizeof(StepPatch)*count,cudaMemcpyDeviceToHost,stream));check(cudaStreamSynchronize(stream));
+            longestDispatch=std::max(longestDispatch,std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-t0).count());++dispatches;
+            bool done=true;for(PxU32 p=0;p<count;++p)done=done && host[p].phase==eSTEP_DONE;
+            if(done)break;
+        }
+        stepPublish<<<64,kThreads,0,stream>>>(in,s,w,t);
+        stepPublishPatch<<<grid,kThreads,0,stream>>>(in,s,w,t);
+    }
     void release() {
+        releaseStep();
         if(pending)cudaFreeHost(pending);pending=nullptr;
         cudaFree(w.islandFlag);cudaFree(w.islands);cudaFree(w.counters);cudaFree(w.bondLocal);cudaFree(w.degree);
         cudaFree(w.bonds);cudaFree(w.chunks);cudaFree(w.J);cudaFree(w.Y);cudaFree(w.Jn);cudaFree(w.T);cudaFree(w.u);
@@ -1891,6 +1956,7 @@ struct Stage {
         check(cudaMemsetAsync(w.counters,0,sizeof(PxU32)*8,stream));
         check(cudaMemsetAsync(w.status,0,sizeof(Status),stream));
         check(cudaMemsetAsync(w.slip,0,sizeof(float)*m,stream));
+        if(s.method==1u){if(m)submitStep(in,s,stream);return;}
         if(m)trigger<<<(m+127)/128,128,0,stream>>>(in,s,w);
         if(m && in.carried)carryIslands<<<(m+127)/128,128,0,stream>>>(in,s,w);
         if(n)listIslands<<<(n+127)/128,128,0,stream>>>(in,w);

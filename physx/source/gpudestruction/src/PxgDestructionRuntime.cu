@@ -1619,6 +1619,7 @@ public:
             // the capped gain or the section model (PxgDestructionImpact.cuh).
             if(d.impactCapacity && (!d.fibreBending || (!(d.bendGainMax>0) && !d.sectionBending && !d.sectionRotationalStiffness)))return false;
             if(d.impactCrush && !d.internalCorrectionLimit)return false;
+            if(d.impactStep && !d.impactCapacity)return false;
             for(PxU32 i=0;d.impactCrush && i<d.materialCount;++i)
                 if(!std::isfinite(d.materials[i].impactImpedance) || d.materials[i].impactImpedance<0)return false;
             for(PxU32 i=0;d.impactCapacity && i<d.materialCount;++i) {
@@ -1844,6 +1845,9 @@ public:
                     mImpactSettings.evaluationIterations=PxU32(env("PX_DESTRUCTION_IMPACT_EVAL_ITERATIONS",float(mImpactSettings.evaluationIterations)));
                     mImpactSettings.rampLevels=PxU32(env("PX_DESTRUCTION_IMPACT_RAMP_LEVELS",float(mImpactSettings.rampLevels)));
                     mImpactSettings.cappedElastic=env("PX_DESTRUCTION_IMPACT_CAPPED_ELASTIC",0.0f)!=0.0f;
+                    mImpactSettings.method=d.impactStep?1u:0u;
+                    mImpactSettings.stepDuration=env("PX_DESTRUCTION_IMPACT_STEP_DURATION",mImpactSettings.stepDuration);
+                    mImpactSettings.stepRadius=env("PX_DESTRUCTION_IMPACT_STEP_RADIUS",mImpactSettings.stepRadius);
                     std::vector<float> slip(d.materialCount),stiffness(d.materialCount);
                     for(PxU32 i=0;i<d.materialCount;++i){slip[i]=d.materials[i].ductileSlip;stiffness[i]=d.materials[i].impactStiffness;}
                     allocate(mImpactSlip,d.materialCount);allocate(mImpactStiffness,d.materialCount);
@@ -2347,7 +2351,8 @@ public:
                     // past 100 ms starves the display (Settings::dispatchWork bounds it).
                     if(mImpact.longestDispatch>100.0)std::fprintf(stderr,"[impact] warning: a dispatch took %.0f ms (over 100 ms)\n",mImpact.longestDispatch);
                     impactView={mImpact.w.islandFlag,stress.bondIslands,mImpact.w.forces,mImpact.w.verdict};
-                    impact::recordState<<<(mM+127)/128,128,0,mStream>>>(mImpact.w.islandFlag,stress.bondIslands,mImpact.w.forces,forces,mImpactState,mM,
+                    // The impact step carries no plastic state: the next tick starts from the elastic forces.
+                    impact::recordState<<<(mM+127)/128,128,0,mStream>>>(settings.method==1u?nullptr:mImpact.w.islandFlag,stress.bondIslands,mImpact.w.forces,forces,mImpactState,mM,
                         mImpactCarried,mImpact.w.slip,mImpactSlipStart,mImpactSlipState);
                     if(timed) {
                         check(cudaMemcpyAsync(mImpactHostStatus,mImpact.w.status,sizeof(*mImpactHostStatus),cudaMemcpyDeviceToHost,mStream));
