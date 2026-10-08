@@ -774,6 +774,12 @@ __global__ __launch_bounds__(kThreads) void exBuild(Inputs in,Settings s,Scratch
                 e.state|=eEX_CAR;
             }
             e.slip=in.slipBefore?in.slipBefore[i]:0.0f;e.limit=b.slip;e.brokeAt=-1.0f;
+            // A dead-load dynamic patch (no rows): the static model's stiffness, whose
+            // equilibrium it starts from (an impact window keeps the impact solve's).
+            if(sp.sequence && !nrows && in.staticStiffness && in.stiffness && !(e.state&eEX_CAR)) {
+                const PxU32 mat=in.bonds[i].material;const float ki=in.stiffness[mat],ks=in.staticStiffness[mat];
+                if(ki>0.0f && ks>0.0f){const float f=ks/ki;b.kl*=f;b.kt*=f;b.k0*=f;b.k1*=f;}
+            }
             if(sp.sequence && !(e.state&eEX_CAR))exDynamicLink(in,s,t,p,l,i,b,e);
             bonds[l]=b;links[l]=e;t.linkOf[i]=l;++l;
         }

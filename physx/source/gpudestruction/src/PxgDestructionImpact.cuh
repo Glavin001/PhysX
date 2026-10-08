@@ -453,6 +453,9 @@ struct Inputs {
     // null: none), and each material's damping ratio (null: Settings::dynamicDamping).
     const PxU32* bearState{};
     const float* damping{};
+    // Per material, the static model's stiffness (PxDestructionStressDesc::materialStaticStiffness;
+    // null: stiffness): a dead-load dynamic patch's joints (no rows) take it.
+    const float* staticStiffness{};
 };
 
 // ---------------------------------------------------------------------------
@@ -2128,12 +2131,15 @@ struct Stage {
     // built dynamic patches of the first submissions that have any, as the window starts
     // (DIR/seq-N.dsqd: 'DSQD', the record sizes, then per patch its ExPatch, nodes, bonds,
     // links and damping words), for structures/town-kit/scripts/sequence-lab.py --compare.
-    const char* seqDumpDir=nullptr;PxU32 seqDumpsLeft=0,seqDumps=0;
-    void dumpSequence(cudaStream_t stream) {
+    // PX_DESTRUCTION_SEQUENCE_DUMP_ENERGY=N: also, after the window, the first N submissions with a
+    // dynamic patch that broke the energy invariant (DIR/energy-N.dsqd: the start J0 and loads stand,
+    // the velocities and states are the window's end).
+    const char* seqDumpDir=nullptr;PxU32 seqDumpsLeft=0,seqDumps=0,seqEnergyLeft=0,seqEnergyDumps=0;
+    void dumpSequence(cudaStream_t stream,bool energy=false) {
         PxU32 count=0;check(cudaMemcpyAsync(&count,x.patchCount,sizeof count,cudaMemcpyDeviceToHost,stream));check(cudaStreamSynchronize(stream));
         std::vector<ExPatch> ps(count);if(count)check(cudaMemcpy(ps.data(),x.patches,sizeof(ExPatch)*count,cudaMemcpyDeviceToHost));
-        bool any=false;for(const auto& q:ps)any=any || q.sequence;if(!any)return;
-        char path[1024];std::snprintf(path,sizeof path,"%s/seq-%u.dsqd",seqDumpDir,seqDumps);FILE* f=std::fopen(path,"wb");if(!f)return;
+        bool any=false;for(const auto& q:ps)any=any || (q.sequence && (!energy || q.fracture+q.plastic+q.slipWork+q.dashWork>q.keStart+q.u0+std::max(q.extWork,0.0f)));if(!any)return;
+        char path[1024];std::snprintf(path,sizeof path,energy?"%s/energy-%u.dsqd":"%s/seq-%u.dsqd",seqDumpDir,energy?seqEnergyDumps:seqDumps);FILE* f=std::fopen(path,"wb");if(!f)return;
         const PxU32 head[6]={count,PxU32(sizeof(ExPatch)),PxU32(sizeof(ExNode)),PxU32(sizeof(Bond)),PxU32(sizeof(ExLink)),8u};
         std::fwrite("DSQD",1,4,f);std::fwrite(head,sizeof head,1,f);
         for(PxU32 p=0;p<count;++p) {
@@ -2145,7 +2151,8 @@ struct Stage {
                 if(x.damp && q.sequence)check(cudaMemcpy(d.data(),x.damp+size_t(p)*kExLinks*8,sizeof(float)*d.size(),cudaMemcpyDeviceToHost));}
             std::fwrite(n.data(),sizeof(ExNode),n.size(),f);std::fwrite(b.data(),sizeof(Bond),b.size(),f);std::fwrite(l.data(),sizeof(ExLink),l.size(),f);std::fwrite(d.data(),sizeof(float),d.size(),f);
         }
-        std::fclose(f);std::fprintf(stderr,"[sequence] dumped %s (%u patches)\n",path,count);++seqDumps;--seqDumpsLeft;
+        std::fclose(f);std::fprintf(stderr,"[sequence] dumped %s (%u patches)\n",path,count);
+        if(energy){++seqEnergyDumps;--seqEnergyLeft;}else{++seqDumps;--seqDumpsLeft;}
     }
     // The dynamic sequence's second submission (after the static verdict): a patch
     // per island ExScratch::seqIsland flags (the runtime sets it and the persisted
@@ -2206,7 +2213,8 @@ struct Stage {
         if(s.dynamicSequence && !(s.sequenceDiag&1u))exSequenceSplit<<<kExPatches,kThreads,0,stream>>>(s,x);
         exPublishIsland<<<64,kThreads,0,stream>>>(in,w,x);
         exPublish<<<dim3(16,count),kThreads,0,stream>>>(in,s,w,x);
-        if(s.dynamicSequence){exSequencePeriod<<<kExPatches,kThreads,0,stream>>>(s,x);exPublishDynamic<<<dim3(16,count),kThreads,0,stream>>>(in,s,w,x);exSequenceBooks<<<1,kExPatches,0,stream>>>(w,x);}
+        if(s.dynamicSequence){exSequencePeriod<<<kExPatches,kThreads,0,stream>>>(s,x);exPublishDynamic<<<dim3(16,count),kThreads,0,stream>>>(in,s,w,x);exSequenceBooks<<<1,kExPatches,0,stream>>>(w,x);
+            if(seqDumpDir && seqEnergyLeft)dumpSequence(stream,true);}
         if(stepLog){check(cudaMemcpyAsync(explicitPatches.data(),x.patches,sizeof(ExPatch)*count,cudaMemcpyDeviceToHost,stream));check(cudaStreamSynchronize(stream));}
         if(stepLog)std::fprintf(stderr,"[impact]   explicit: %u patches; build %.2f ms, window %.2f ms in %u launches\n",count,explicitBuildMs,explicitRunMs,dispatches);
         if(stepLog)for(PxU32 p=0;p<count;++p){const ExPatch& q=explicitPatches[p];
