@@ -169,7 +169,9 @@ struct ExScratch {
     // The window's hand-off to the corrected pass (exPublish; null: none): per
     // patch and impactor, its body and its end velocity; per stage row, 1 where
     // the window decided it (IMPACT_STEP_PLAN.md section 1, rule 3).
-    struct Handoff { PxU32 island,body,patch,pad; float v[3],w[3]; };
+    // v0, w0: the same body's velocity at the window's start: several windows that met one body
+    // superpose, v = v0 + sum_p (v_p - v0) (applyWindowImpactors).
+    struct Handoff { PxU32 island,body,patch,pad; float v[3],w[3]; float v0[3]={0,0,0},w0[3]={0,0,0}; };
     Handoff* handoff{};   // [kExPatches * kExHandoffs]: island ~0 a rigid impactor, else the two-body car's island
     PxU32* handoffCount{};// [1]
     PxU32* rowDecided{};  // [kContactCapacity]
@@ -1472,7 +1474,7 @@ __global__ void exPublish(Inputs in,Settings s,Scratch w,ExScratch t)
         for(PxU32 k=sp.chunks;k<sp.nodes;++k){const ExNode& n=nodes[k];if(!n.tensor)continue;
             PxU32 body=0xffffffffu;for(PxU32 r=0;r<sp.rows;++r)if(rows[r].b==k){body=in.rows[rows[r].row].body;break;}
             const PxU32 slot=atomicAdd(t.handoffCount,1u);if(slot>=kExHandoffs)break;
-            ExScratch::Handoff hnd{};hnd.island=0xffffffffu;hnd.body=body;hnd.patch=p;for(int q=0;q<3;++q){hnd.v[q]=n.v[q];hnd.w[q]=n.v[3+q];}
+            ExScratch::Handoff hnd{};hnd.island=0xffffffffu;hnd.body=body;hnd.patch=p;for(int q=0;q<3;++q){hnd.v[q]=n.v[q];hnd.w[q]=n.v[3+q];hnd.v0[q]=n.v0[q];hnd.w0[q]=n.v0[3+q];}
             hnd.pad=(s.compliant && n.radius>0.0f && !sp.uncovered)?1u:0u;   // its pairs dropped: it starts the corrected pass at this velocity
             t.handoff[slot]=hnd;}
         if(sp.twoBody) {

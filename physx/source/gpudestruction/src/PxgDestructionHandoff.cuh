@@ -66,15 +66,26 @@ __global__ void handoffWindowMomentum(PxDestructionCorrectionBody* output,PxU32 
 }
 // Each impactor's (and a two-body car's) window end velocity into the rigid
 // checkpoint the corrected pass restores: the records are in the struck
-// cluster's frame (anchored), rotated into world by its pose.
+// cluster's frame (anchored), rotated into world by its pose. Several windows that
+// met one body each integrated it from the same start, so they superpose: v = v0 +
+// sum_p (v_p - v0) (first order; the two-body agent's agreement). The first record of
+// a body (in record order) writes it.
+// A hand-off record's vector, from its struck cluster's frame into world.
+__device__ __forceinline__ PxVec3 handoffWorld(const impact::ExPatch* patches,const PxDestructionStressChunk* chunks,PxU32 n,const PxTransform* poses,PxU32 patch,const float* x)
+{
+    const PxU32 island=patches[patch].island;const PxVec3 a(x[0],x[1],x[2]);
+    return island<n?poses[chunks[island].cluster].q.rotate(a):a;
+}
 __global__ void applyWindowImpactors(const impact::ExScratch::Handoff* records,const PxU32* count,const impact::ExPatch* patches,
     const PxDestructionStressChunk* chunks,PxU32 n,const PxTransform* poses,PxgBodySim* checkpoint,PxgBodySimVelocities* previous,PxU32 checkpointCount)
 {
-    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=min(*count,impact::kExHandoffs))return;
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x,total=min(*count,impact::kExHandoffs);if(i>=total)return;
     const auto r=records[i];if(r.body>=checkpointCount || !r.pad)return;   // (pad: its pairs dropped, exPublish)
-    const PxU32 island=patches[r.patch].island;if(island>=n)return;
-    const PxQuat q=poses[chunks[island].cluster].q;
-    const PxVec3 v=q.rotate(PxVec3(r.v[0],r.v[1],r.v[2])),w=q.rotate(PxVec3(r.w[0],r.w[1],r.w[2]));
+    for(PxU32 j=0;j<i;++j)if(records[j].body==r.body && records[j].pad)return;   // (an earlier record writes this body)
+    PxVec3 v=handoffWorld(patches,chunks,n,poses,r.patch,r.v0),w=handoffWorld(patches,chunks,n,poses,r.patch,r.w0);
+    for(PxU32 j=i;j<total;++j){const auto& h=records[j];if(h.body!=r.body || !h.pad)continue;
+        v+=handoffWorld(patches,chunks,n,poses,h.patch,h.v)-handoffWorld(patches,chunks,n,poses,h.patch,h.v0);
+        w+=handoffWorld(patches,chunks,n,poses,h.patch,h.w)-handoffWorld(patches,chunks,n,poses,h.patch,h.w0);}
     if(!v.isFinite() || !w.isFinite())return;
     PxgBodySim& b=checkpoint[r.body];
     b.linearVelocityXYZ_inverseMassW.x=v.x;b.linearVelocityXYZ_inverseMassW.y=v.y;b.linearVelocityXYZ_inverseMassW.z=v.z;
