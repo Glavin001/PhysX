@@ -1860,6 +1860,18 @@ public:
                 if(!std::isfinite(m.ductileSlip) || m.ductileSlip<0 || !std::isfinite(m.impactStiffness) || !(m.impactStiffness>0))return false;
             }
             materials.assign(d.materials,d.materials+d.materialCount);
+            // Mohr-Coulomb joint shear (PX_DESTRUCTION_MOHR_COULOMB_SHEAR=1, read
+            // here): off, no material has a friction term, so every grader
+            // reads mu 0 and is the shear law it was.
+            const char* mohrCoulomb=std::getenv("PX_DESTRUCTION_MOHR_COULOMB_SHEAR");
+            const bool frictionOn=mohrCoulomb && mohrCoulomb[0]=='1';
+            PxU32 frictional=0;
+            for(auto& m:materials) {
+                if(!std::isfinite(m.shearFriction) || m.shearFriction<0 || !std::isfinite(m.shearCapacityLimit) || m.shearCapacityLimit<0)return false;
+                if(!frictionOn){m.shearFriction=0.0f;m.shearCapacityLimit=0.0f;}
+                frictional+=m.shearFriction>0.0f?1u:0u;
+            }
+            if(frictionOn)std::fprintf(stderr,"[destruction] Mohr-Coulomb shear: %u of %u materials have a friction term\n",frictional,PxU32(materials.size()));
             for(auto& m:materials) {
                 if(m.tensionElasticLimit<0)m.tensionElasticLimit=m.compressionElasticLimit;
                 if(m.tensionFatalLimit<0)m.tensionFatalLimit=m.compressionFatalLimit;

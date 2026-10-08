@@ -78,7 +78,9 @@ struct ExPatch {
 // A joint of the patch: local node ends (0xffffffff: held), state bits.
 // eEX_ROWS: an end of the joint has contact rows (exRunT sets it; the window's
 // other joints run beside the rows).
-enum ExState : PxU32 { eEX_LIVE=1, eEX_DUCTILE=2, eEX_YIELDED=4, eEX_BROKEN=8, eEX_ROWS=16 };
+// eEX_FRICTION: a Mohr-Coulomb joint (Bond::mu > 0): its mu and cap are packed in
+// its record's last float4, read only for such joints.
+enum ExState : PxU32 { eEX_LIVE=1, eEX_DUCTILE=2, eEX_YIELDED=4, eEX_BROKEN=8, eEX_ROWS=16, eEX_FRICTION=32 };
 struct ExLink { PxU32 a,b,state,pad; float J0[6],J[6]; float slip,limit,brokeAt,pad2; };
 // A contact row: the struck chunk (a, local), the impactor (b), the stage's row.
 struct ExRow { PxU32 a,b,row,pad; float P[3],total[3],Winv[9],W[9]; };
@@ -91,9 +93,10 @@ struct ExNode { PxU32 chunk,tensor,jointBegin,jointEnd,rowBegin,rowEnd,pad[2]; f
 // Bond cost about three times as much: tests/tools/ex_floor_bench.cu). 0..8 the
 // constants -- frame n, t1, t2, arms o0, o1, stiffnesses kl, kt, k0, k1,
 // capacities and gains, J0, the local ends -- 9..10 the state: J, state bits,
-// slip. exRunT packs them at each launch's start from bonds and links and
-// writes the state back to links at its end.
-constexpr PxU32 kExJoint=11;
+// slip, 11 a Mohr-Coulomb joint's mu and shear cap (read only with
+// eEX_FRICTION). exRunT packs them at each launch's start from bonds and links
+// and writes the state back to links at its end.
+constexpr PxU32 kExJoint=12;
 // A contact row packed for the window: frame, arms, friction, W, W^-1 (kExRow float4s).
 constexpr PxU32 kExRow=9;
 struct ExScratch {
@@ -451,7 +454,7 @@ __global__ __launch_bounds__(kThreads) void exBuild(Inputs in,Settings s,Scratch
             if(!prepareBond(in,s,i,b)){b=Bond{};b.bond=i;b.c0=bd.chunk0;b.c1=bd.chunk1;b.flags=0;}
             const PxU32 a0=t.nodeOf[b.c0],a1=t.nodeOf[b.c1];
             ExLink e{};e.a=(a0!=0xffffffffu && (a0>>16)==p)?(a0&0xffffu):0xffffffffu;e.b=(a1!=0xffffffffu && (a1>>16)==p)?(a1&0xffffu):0xffffffffu;
-            e.state=(b.flags&eALIVE)?(eEX_LIVE|((b.flags&eDUCTILE)?eEX_DUCTILE:0u)):0u;
+            e.state=(b.flags&eALIVE)?(eEX_LIVE|((b.flags&eDUCTILE)?eEX_DUCTILE:0u)|(b.mu>0.0f?eEX_FRICTION:0u)):0u;
             float x[6]={0,0,0,0,0,0};toLocal(b,in.base[i],x);
             for(int q=0;q<6;++q){e.J0[q]=x[q];e.J[q]=x[q];}
             e.slip=in.slipBefore?in.slipBefore[i]:0.0f;e.limit=b.slip;e.brokeAt=-1.0f;
@@ -613,6 +616,13 @@ __device__ __forceinline__ void exPack(const Bond& b,const ExLink& e,float4* q)
     q[4]=make_float4(b.kt,b.k0,b.k1,b.capC);q[5]=make_float4(b.capT,b.capS,b.gb,b.gt);q[6]=make_float4(b.g0,b.g1,b.h0,b.h1);
     q[7]=make_float4(e.J0[0],e.J0[1],e.J0[2],e.J0[3]);q[8]=make_float4(e.J0[4],e.J0[5],__uint_as_float(e.a),__uint_as_float(e.b));
     q[9]=make_float4(e.J[0],e.J[1],e.J[2],e.J[3]);q[10]=make_float4(e.J[4],e.J[5],__uint_as_float(e.state),e.slip);
+    q[11]=make_float4(b.mu,b.capSx,0.0f,0.0f);
+}
+// A Mohr-Coulomb joint's friction (eEX_FRICTION) into its unpacked Bond:
+// every grader of a packed joint calls this after reading its state.
+__device__ __forceinline__ void exUnpackFriction(const float4* q,PxU32 state,Bond& b)
+{
+    if(state&eEX_FRICTION){const float4 f=q[11];b.mu=f.x;b.capSx=f.y;}
 }
 // The packed constants back into a Bond's fields the window reads (the rest unset).
 __device__ __forceinline__ void exUnpack(const float4* q,Bond& b,float* J0,PxU32& a,PxU32& e1)
@@ -622,6 +632,7 @@ __device__ __forceinline__ void exUnpack(const float4* q,Bond& b,float* J0,PxU32
     b.t2[2]=q2.x;b.o0[0]=q2.y;b.o0[1]=q2.z;b.o0[2]=q2.w;b.o1[0]=q3.x;b.o1[1]=q3.y;b.o1[2]=q3.z;b.kl=q3.w;
     b.kt=q4.x;b.k0=q4.y;b.k1=q4.z;b.capC=q4.w;b.capT=q5.x;b.capS=q5.y;b.gb=q5.z;b.gt=q5.w;b.g0=q6.x;b.g1=q6.y;b.h0=q6.z;b.h1=q6.w;
     J0[0]=q7.x;J0[1]=q7.y;J0[2]=q7.z;J0[3]=q7.w;J0[4]=q8.x;J0[5]=q8.y;a=__float_as_uint(q8.z);e1=__float_as_uint(q8.w);
+    b.mu=0.0f;b.capSx=0.0f;   // exUnpackFriction, with the joint's state
 }
 template<bool Small> __device__ __forceinline__
 void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
@@ -689,6 +700,7 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
         Bond b;float J0[6];PxU32 ea,eb;exUnpack(q,b,J0,ea,eb);
         const float4 s0=q[9],s1=q[10];PxU32 state=__float_as_uint(s1.z);float slip=s1.w;
         if(!(state&eEX_LIVE))return;   // broke earlier in this launch
+        exUnpackFriction(q,state,b);
         float d[6]={0,0,0,0,0,0};if(ea!=0xffffffffu)exRelative(b,0,vS+6*ea,d);if(eb!=0xffffffffu)exRelative(b,1,vS+6*eb,d);
         for(int q6=0;q6<6;++q6)dead-=h*J0[q6]*d[q6];
         float k[6];exStiffness(b,k);
