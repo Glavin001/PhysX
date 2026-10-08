@@ -203,6 +203,7 @@ struct ExScratch {
     // reach it), | kExTaken once a chunk of it is a node (exBuild). ~0: none.
     PxU32* owner{};
     PxU32 ground=0u;   // Settings::ground (held: off)
+    PxU32 supports=0u; // Settings::supports
 };
 constexpr PxU32 kExClaimed=0x10000u,kExTaken=0x40000000u;
 // The patch an owner entry names (or ~0).
@@ -618,7 +619,7 @@ __global__ void exClaim(Inputs in,Settings s,ExScratch t)
 {
     if(!t.owner || !t.boxes)return;
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=in.chunkCount || chunkGone(in,i))return;
-    const bool support=!(in.chunks[i].mass>0.0f);if(support && !t.ground)return;
+    const bool support=!(in.chunks[i].mass>0.0f);if(support && !t.supports)return;
     const PxU32 key=support?i:in.nodeIslands[i];if(key>=in.chunkCount)return;
     if(exOwnerPatch(t.owner[key])!=0xffffffffu && t.owner[key]<kExClaimed)return;   // (a patch's own)
     const PxVec3 x=in.chunks[i].position;const float r2=s.stepRadius*s.stepRadius;
@@ -647,7 +648,7 @@ __device__ __forceinline__ bool exTake(const Inputs& in,const ExScratch& t,PxU32
     if(chunkGone(in,i))return false;
     const bool support=!(in.chunks[i].mass>0.0f);
     if(!t.owner || !t.boxes || dynamic)return !support && in.nodeIslands[i]==island;
-    if(support && !t.ground)return false;   // (supports: Settings::ground only)
+    if(support && !t.supports)return false;   // (supports: Settings::supports)
     const PxU32 key=support?i:in.nodeIslands[i];if(key>=in.chunkCount)return false;
     return exOwnerPatch(t.owner[key])==p;
 }
@@ -814,8 +815,8 @@ __global__ __launch_bounds__(kThreads) void exBuild(Inputs in,Settings s,Scratch
     // corrected pass to drop its pairs with that cluster.
     if(sweep) {
         for(PxU32 i=threadIdx.x;i<in.chunkCount;i+=kThreads) {
-            // (a support of the struck cluster in reach too: the window has no row on a support,
-            // the ground the corrected pass must still meet)
+            // (a support of the struck cluster in reach too: a held node with Settings::supports,
+            // else the ground the corrected pass must still meet)
             if(chunkGone(in,i))continue;
             const PxU32 lo=t.nodeOf[i];if(lo!=0xffffffffu && (lo>>16)==p)continue;
             const PxDestructionChunkBox box=in.chunkBoxes[i];if(!(box.halfExtents.magnitudeSquared()>0.0f))continue;

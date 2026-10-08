@@ -2157,6 +2157,9 @@ public:
                     // PX_DESTRUCTION_IMPACT_GROUND=1 (with compliant; held, off): the window owns its impactor's
                     // ground (impact::Settings::ground).
                     mImpactSettings.ground=mImpactSettings.compliant && env("PX_DESTRUCTION_IMPACT_GROUND",0.0f)!=0.0f;
+                    // The struck cluster's supports as held window nodes (impact::Settings::supports): on with
+                    // compliant; PX_DESTRUCTION_IMPACT_SUPPORTS=0 turns it off.
+                    mImpactSettings.supports=mImpactSettings.compliant && env("PX_DESTRUCTION_IMPACT_SUPPORTS",1.0f)!=0.0f;
                     // PX_DESTRUCTION_IMPACT_DYNAMIC_STRUCK=1: a moving bonded structure (a car) struck
                     // by a fast body is the explicit step's too, its whole island a free patch.
                     mImpactSettings.dynamicStruck=env("PX_DESTRUCTION_IMPACT_DYNAMIC_STRUCK",0.0f)!=0.0f;

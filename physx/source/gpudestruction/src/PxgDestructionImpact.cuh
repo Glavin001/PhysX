@@ -312,11 +312,16 @@ struct Settings {
     bool dynamicStruck=false;
     // Settings::compliant, held pending the internal-edge evidence (PX_DESTRUCTION_IMPACT_GROUND=1,
     // off): the window owns its impactor's ground -- seams (internal chunk faces) in its own
-    // geometry and in the routing, the absorbed depth kept apart from the crushed one, and the
-    // struck cluster's supports in reach as held nodes. Off: none of it (the window's geometry
-    // knows no seams, a late contact's penetration is crushed depth, supports stay the rigid
-    // pass's).
+    // geometry and in the routing, and the absorbed depth kept apart from the crushed one. Off:
+    // none of it (the window's geometry knows no seams, a late contact's penetration is crushed
+    // depth).
     bool ground=false;
+    // Settings::compliant (on with it; PX_DESTRUCTION_IMPACT_SUPPORTS=0 turns it off): the struck
+    // cluster's supports (mass-0 chunks) in a round impactor's reach are held window nodes (im 0)
+    // with compliant rows -- the fixed-support boundary condition: crushing only where their
+    // material has a crush law, never crushed through. Then a window covers a structure standing
+    // on its supports (a house on its footings), and its pairs are dropped from the corrected pass.
+    bool supports=false;
 };
 // A solve is diverging when, past its first rho rebalance (25 steps), a
 // joint's split |J - Z| exceeds kDivergence times the joint's capacity: the
@@ -2323,7 +2328,7 @@ struct Stage {
         allocateExplicit();
         const auto start=std::chrono::steady_clock::now();
         x.boxes=s.compliant?in.chunkBoxes:nullptr;   // (the window's own geometry; ExScratch is passed by value)
-        x.ground=s.ground?1u:0u;
+        x.ground=s.ground?1u:0u;x.supports=s.supports?1u:0u;
         exClear<<<64,kThreads,0,stream>>>(in,x);
         exList<<<1,1,0,stream>>>(in,s,w,x);
         if(x.owner && x.boxes)exClaim<<<(n+kThreads-1)/kThreads,kThreads,0,stream>>>(in,s,x);
