@@ -272,6 +272,11 @@ int run(int argc,char** argv){
                     const float e0=0.5f*m*(n.v0[0]*n.v0[0]+n.v0[1]*n.v0[1]+n.v0[2]*n.v0[2]),e1=0.5f*m*(n.v[0]*n.v[0]+n.v[1]*n.v[1]+n.v[2]*n.v[2]);
                     std::printf("  impactor node %u: m %.3g kg, v (%.2f %.2f %.2f) -> (%.2f %.2f %.2f), w (%.2f %.2f %.2f) -> (%.2f %.2f %.2f); KE %.4g -> %.4g J; Iinv %.3g %.3g %.3g %.3g %.3g %.3g\n",k,m,n.v0[0],n.v0[1],n.v0[2],n.v[0],n.v[1],n.v[2],
                         n.v0[3],n.v0[4],n.v0[5],n.v[3],n.v[4],n.v[5],e0,e1,n.Iinv[0],n.Iinv[1],n.Iinv[2],n.Iinv[3],n.Iinv[4],n.Iinv[5]);}
+                // IMPACT_EXPLICIT_NODES=P: patch P's chunk nodes, their start and end motion, rest load f0 and kinetic energy.
+                if(const char* np=std::getenv("IMPACT_EXPLICIT_NODES"))if(PxU32(std::atoi(np))==p)for(PxU32 k=0;k<q.chunks;++k){const auto& n=N[k];const float m=n.im>0?1.0f/n.im:0.0f;
+                    const float e0=0.5f*m*(n.v0[0]*n.v0[0]+n.v0[1]*n.v0[1]+n.v0[2]*n.v0[2]),e1=0.5f*m*(n.v[0]*n.v[0]+n.v[1]*n.v[1]+n.v[2]*n.v[2]);
+                    std::printf("  chunk node %u (chunk %u): m %.3g kg, v (%.3g %.3g %.3g) -> (%.3g %.3g %.3g), f0 (%.3g %.3g %.3g) N (%.3g %.3g %.3g) N m; KE %.4g -> %.4g J\n",k,n.chunk,m,n.v0[0],n.v0[1],n.v0[2],n.v[0],n.v[1],n.v[2],
+                        n.f0[0],n.f0[1],n.f0[2],n.f0[3],n.f0[4],n.f0[5],e0,e1);}
                 std::printf("explicit patch %u: %zu breaks; by",p,t.size());
                 for(float c:{0.1f,0.25f,0.5f,1.0f,2.0f,4.0f,8.0f,16.7f}){size_t k=0;while(k<t.size() && t[k]<=c)++k;std::printf(" %.2g ms %zu,",c,k);}std::printf("\n");
             }
