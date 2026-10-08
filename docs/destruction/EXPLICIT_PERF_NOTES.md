@@ -38,8 +38,8 @@ radial return, wrench write).
 - The earlier "1.9x faster" figure was measured on the miscompiled kernel and
   does not stand. Current measurement (shared GPU, 12 runs, cannon-first.impc):
 
-  | build | window | evaluation |
-  |---|---|---|
+  | SDK | build | window | evaluation |
+  |---|---|---|---|
   | impact-e (8e9006545) | 0.54 / 0.57 ms | 9.45 / 9.48 ms | 10.20 / 10.30 ms |
   | perf/explicit-step | 0.56 / 0.63 ms | 9.25 / 9.32 ms | 10.10 / 10.20 ms |
 
