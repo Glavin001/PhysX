@@ -97,6 +97,10 @@ if(BUILD_TESTING)
     target_link_libraries(destruction_impact_explicit_replay PRIVATE PhysXDestructionTopologyGpu)
     target_include_directories(destruction_impact_explicit_replay PRIVATE ../../../blast/include/extensions/stress)
     px_destruction_cuda_properties(destruction_impact_explicit_replay PROPERTIES CUDA_STANDARD 17 CUDA_ARCHITECTURES "${CMAKE_CUDA_ARCHITECTURES}")
+    add_executable(destruction_two_body_replay tests/two_body_replay.cu)
+    target_link_libraries(destruction_two_body_replay PRIVATE PhysXDestructionTopologyGpu)
+    target_include_directories(destruction_two_body_replay PRIVATE ../../../blast/include/extensions/stress)
+    px_destruction_cuda_properties(destruction_two_body_replay PROPERTIES CUDA_STANDARD 17 CUDA_ARCHITECTURES "${CMAKE_CUDA_ARCHITECTURES}")
     # The static verdict after an impact (the high-profile cannonball's collapse,
     # step arm, garage-impact 3426f54f7: the corrected pass's static verdict broke
     # 2,466 joints): the trial pass's contact load (the cannonball's rigid stop,
@@ -144,6 +148,13 @@ if(BUILD_TESTING)
     set_tests_properties(destruction_gpu_impact_level_optimum PROPERTIES ENVIRONMENT "${_levelEnv};IMPACT_ITERATIONS=8192" WILL_FAIL TRUE)
     add_test(NAME destruction_gpu_impact_explicit_cannon COMMAND destruction_impact_explicit_replay "${_level}.bin" "${_level}.explicit.txt")
     set_tests_properties(destruction_gpu_impact_explicit_cannon PROPERTIES ENVIRONMENT "CUMETAL_USE_METAL_DEVICE_ADDRESSES=1;IMPACT_EXPLICIT_DT_US=32")
+    # The two-body window (Settings::explicitTwoBody) against vibe-land scripts/impact/two-body.py
+    # --export: the monster truck into the lab's masonry wall, real joints at 21.7 m/s and default
+    # joints at 10 m/s (compliant rows, implicit car joints).
+    foreach(_case w21rj w10)
+        add_test(NAME destruction_gpu_two_body_${_case} COMMAND destruction_two_body_replay "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/two-body/truck-wall-${_case}")
+        set_tests_properties(destruction_gpu_two_body_${_case} PROPERTIES ENVIRONMENT "CUMETAL_USE_METAL_DEVICE_ADDRESSES=1")
+    endforeach()
     # The cannonball's pair, and the truck's (framed-house: its chassis's released
     # rows, 3.5e6 N of depenetration on a 2 kg brick): routed 0 and 12 breaks
     # (their own loads converged: 0 and 21); unrouted 2,610 and 3,053.

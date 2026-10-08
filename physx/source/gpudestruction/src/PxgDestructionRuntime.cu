@@ -274,7 +274,7 @@ struct ImpactContact {
 // chunk `chunk` (its cluster kinematic), the other body `other` dynamic. Sums
 // the pair's normal and friction impulses on the chunk; frames: the struck
 // cluster's (the chunk's own coordinates).
-__device__ void coupleRow(PxU32 chunk,PxNodeIndex own,PxNodeIndex other,float side,const PxGpuContactPair& p,
+__device__ void coupleRow(PxU32 chunk,PxU32 otherChunk,PxNodeIndex own,PxNodeIndex other,float side,const PxGpuContactPair& p,
     const PxDestructionStressChunk* chunks,const PxTransform* poses,const PxgBodySim* bodies,float invDt,const ImpactContact& ci)
 {
     if(!ci.rows || chunk==PX_INVALID_U32 || other.isStaticBody() || other.isArticulation() || own.isArticulation())return;
@@ -288,11 +288,17 @@ __device__ void coupleRow(PxU32 chunk,PxNodeIndex own,PxNodeIndex other,float si
     const PxgBodySim& clusterBefore=early?ci.before[clusterBody]:bodies[clusterBody];
     const PxTransform pose=poses[c.cluster];
     PxVec3 force(0.0f),point(0.0f),normal(0.0f),torque(0.0f);float weight=0.0f,friction=0.0f;PxU32 points=0;
+    // (about its first point: world coordinates of 1e2 m would cancel in float)
+    PxVec3 patchSum(0.0f),patchOrigin(0.0f);float patchSq=0.0f,patchDepth=-FLT_MAX;PxU32 patchPoints=0;
     const PxVec3 com(before.body2World.p.x,before.body2World.p.y,before.body2World.p.z);
     if(p.nbContacts && p.contactPatches && p.contactPoints && p.contactForces) {
         PxContactStreamIterator it(p.contactPatches,p.contactPoints,NULL,p.nbPatches,p.nbContacts);PxU32 k=0;
         while(it.hasNextPatch()){it.nextPatch();friction=fmaxf(friction,it.getDynamicFriction());while(it.hasNextContact()){it.nextContact();
-            const float f=p.contactForces[k++];if(!(f>0.0f))continue;
+            const float f=p.contactForces[k++];
+            // the pair's contact patch, every point (its extent and depth: the compliant row's radius)
+            {if(!patchPoints)patchOrigin=it.getContactPoint();const PxVec3 x=it.getContactPoint()-patchOrigin;
+             patchSum+=x;patchSq+=x.magnitudeSquared();++patchPoints;patchDepth=fmaxf(patchDepth,-it.getSeparation());}
+            if(!(f>0.0f))continue;
             const PxVec3 impulse=it.getContactNormal()*(f*side);
             force+=impulse;point+=it.getContactPoint()*f;normal+=impulse;weight+=f;++points;
             torque+=(it.getContactPoint()-com).cross(-impulse);
@@ -374,6 +380,18 @@ __device__ void coupleRow(PxU32 chunk,PxNodeIndex own,PxNodeIndex other,float si
     const PxMat33 R(q);const PxVec3 d(before.inverseInertiaXYZ_contactReportThresholdW.x,before.inverseInertiaXYZ_contactReportThresholdW.y,before.inverseInertiaXYZ_contactReportThresholdW.z);
     const PxMat33 S=R*PxMat33::createDiagonal(d)*R.getTranspose();
     row.ii[0]=S(0,0);row.ii[1]=S(1,1);row.ii[2]=S(2,2);row.ii[3]=S(0,1);row.ii[4]=S(0,2);row.ii[5]=S(1,2);
+    // The impactor's own chunk of the pair, when it is a stage chunk on the other body
+    // (a destructible car), and its cluster in the struck cluster's frame (the two-body
+    // impact; ContactRow::other).
+    if(otherChunk!=PX_INVALID_U32 && chunks[otherChunk].mass>0.0f && ci.clusters[chunks[otherChunk].cluster].body==other.index()) {
+        const PxTransform rel=pose.transformInv(poses[chunks[otherChunk].cluster]);
+        row.other=otherChunk;
+        row.otherPose[0]=rel.q.x;row.otherPose[1]=rel.q.y;row.otherPose[2]=rel.q.z;row.otherPose[3]=rel.q.w;
+        row.otherPose[4]=rel.p.x;row.otherPose[5]=rel.p.y;row.otherPose[6]=rel.p.z;
+    }
+    // The patch: its points' RMS distance from their centroid, and its deepest point's
+    // penetration (negative: the gap its nearest point still has to close).
+    if(patchPoints){const PxVec3 c=patchSum*(1.0f/float(patchPoints));row.patch[0]=sqrtf(fmaxf(patchSq/float(patchPoints)-c.magnitudeSquared(),0.0f));row.patch[1]=patchDepth;}
     ci.rows[slot]=row;
 }
 __device__ float impedanceOf(PxU32 chunk,PxNodeIndex node,const PxDestructionStressChunk* chunks,
@@ -498,8 +516,8 @@ __global__ void routeContacts(PxgDestructionSolvedContacts contacts, const Looku
     }
     if(normals)anchoredSaturation(a,b,p,bodies,ci);
     if(normals && ci.rows) {
-        coupleRow(a,p.nodeIndex0,p.nodeIndex1,1.0f,p,chunks,poses,bodies,invDt,ci);
-        coupleRow(b,p.nodeIndex1,p.nodeIndex0,-1.0f,p,chunks,poses,bodies,invDt,ci);
+        coupleRow(a,b,p.nodeIndex0,p.nodeIndex1,1.0f,p,chunks,poses,bodies,invDt,ci);
+        coupleRow(b,a,p.nodeIndex1,p.nodeIndex0,-1.0f,p,chunks,poses,bodies,invDt,ci);
     }
     if(normals || anchors) {
         if(a!=PX_INVALID_U32)loadA.publish(a,chunkA,inputs,surface);
@@ -2074,6 +2092,11 @@ public:
                     // and the contact routing by peak force against capacity.
                     mImpactSettings.route=env("PX_DESTRUCTION_IMPACT_ROUTE",0.0f)!=0.0f;
                     mImpactSettings.explicitWindow=PxU32(env("PX_DESTRUCTION_IMPACT_EXPLICIT_WINDOW",0.0f));
+                    // PX_DESTRUCTION_IMPACT_TWO_BODY=1: a destructible impactor (a car) joins the struck
+                    // patch with its own joints (compliant rows between them); PX_DESTRUCTION_IMPACT_COMPLIANT_ROWS=1:
+                    // every row of the explicit step compliant (Johnson's flat punch), not a rigid stop.
+                    mImpactSettings.explicitTwoBody=env("PX_DESTRUCTION_IMPACT_TWO_BODY",0.0f)!=0.0f;
+                    mImpactSettings.compliantRows=env("PX_DESTRUCTION_IMPACT_COMPLIANT_ROWS",0.0f)!=0.0f;
                     std::vector<float> slip(d.materialCount),stiffness(d.materialCount);
                     for(PxU32 i=0;i<d.materialCount;++i){slip[i]=d.materials[i].ductileSlip;stiffness[i]=d.materials[i].impactStiffness;}
                     allocate(mImpactSlip,d.materialCount);allocate(mImpactStiffness,d.materialCount);
