@@ -397,6 +397,7 @@ __device__ void coupleRow(PxU32 chunk,PxU32 otherChunk,PxNodeIndex own,PxNodeInd
     }
     // A dynamic struck cluster's inverse mass (0: anchored; the routing's reduced mass).
     row.clusterIm=clusterIm;row.clusterBody=clusterIm>0.0f?clusterBody:0xffffffffu;
+    if(clusterIm>0.0f){put(row.clusterSpin,pose.q.rotateInv(cw));put(row.clusterCom,pose.transformInv(cp));}
     // The patch: its points' RMS distance from their centroid, and its deepest point's
     // penetration (negative: the gap its nearest point still has to close).
     if(patchPoints){const PxVec3 c=patchSum*(1.0f/float(patchPoints));row.patch[0]=sqrtf(fmaxf(patchSq/float(patchPoints)-c.magnitudeSquared(),0.0f));row.patch[1]=patchDepth;}

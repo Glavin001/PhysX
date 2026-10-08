@@ -134,7 +134,7 @@ int run(int argc,char** argv){
     if(argc<2){std::fprintf(stderr,"usage: %s CAPTURE.impc [runs]\n",argv[0]);return 2;}
     File f(argv[1]);
     const auto h=f.one<impact::CaptureHeader>();
-    if(std::memcmp(h.magic,"IMPC",4) || (h.version<1 || h.version>4) || h.settingsBytes>sizeof(impact::Settings))throw std::runtime_error("not a capture of this build");
+    if(std::memcmp(h.magic,"IMPC",4) || (h.version<1 || h.version>5) || h.settingsBytes>sizeof(impact::Settings))throw std::runtime_error("not a capture of this build");
     // Settings appended since the capture keep their defaults.
     impact::Settings s{};{const auto raw=f.read<unsigned char>(h.settingsBytes);std::memcpy(&s,raw.data(),h.settingsBytes);}
     s.iterations=PxU32(env("IMPACT_ITERATIONS",float(s.iterations)));s.innerIterations=PxU32(env("IMPACT_INNER",float(s.innerIterations)));

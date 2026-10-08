@@ -95,7 +95,7 @@ struct ExPatch {
 // the car -- so once it breaks it pulls back to nothing, its wrench B (J - J0) zero (an
 // anchored island's broken joint keeps -B J0: the dead load its path carried, a piece
 // cut free falling under it). Kept, the pinches flung freed rubble: 110 J to 2.5 kJ.
-enum ExState : PxU32 { eEX_LIVE=1, eEX_DUCTILE=2, eEX_YIELDED=4, eEX_BROKEN=8, eEX_ROWS=16, eEX_CAR=32, eEX_IMPLICIT=64, eEX_FREE=2048 };   // (128, 256, 512, 1024: the dynamic sequence's and the shear law's bits elsewhere)
+enum ExState : PxU32 { eEX_LIVE=1, eEX_DUCTILE=2, eEX_YIELDED=4, eEX_BROKEN=8, eEX_ROWS=16, eEX_CAR=32, eEX_IMPLICIT=64, eEX_FREE=4096 };   // (128, 256, 1024: the dynamic sequence's bits elsewhere; 512 the shear law's, 2048 the shear stiffness's)
 struct ExLink { PxU32 a,b,state,pad; float J0[6],J[6]; float slip,limit,brokeAt,pad2; };
 // A contact row: the struck chunk (a, local), the impactor (b), the stage's row.
 // A compliant row (compliant 1): its depth d (m), the materials' E* (Pa), the
@@ -525,10 +525,11 @@ __global__ __launch_bounds__(kThreads) void exBuild(Inputs in,Settings s,Scratch
             const PxU32 k=sh.flag+prefix;
             if(k<kExNodes){t.nodeOf[i]=(p<<16)|k;ExNode n{};n.chunk=i;n.tensor=0;const auto c=in.chunks[i];
                 n.im=1.0f/c.mass;n.Iinv[0]=n.Iinv[1]=n.Iinv[2]=c.inertia>0.0f?1.0f/c.inertia:0.0f;
-                // (a dynamic struck island's chunks too start at rest: the window's frame
-                // is its cluster's, moving with it -- the rows' velocities are relative
-                // to its rigid motion at the tick's start; the frame's rotation over the
-                // window, a few ms, is left out)
+                // (a dynamic struck island's chunks: the window's frame translates with its
+                // cluster at the tick's start, so they spin with it, w x (x - com))
+                if(dynamic){const ContactRow& q=in.rows[sp.dynamicRow];const PxVec3 w(q.clusterSpin[0],q.clusterSpin[1],q.clusterSpin[2]);
+                    const PxVec3 v=w.cross(c.position-PxVec3(q.clusterCom[0],q.clusterCom[1],q.clusterCom[2]));
+                    n.v[0]=v.x;n.v[1]=v.y;n.v[2]=v.z;n.v[3]=w.x;n.v[4]=w.y;n.v[5]=w.z;for(int a=0;a<6;++a)n.v0[a]=n.v[a];}
                 nodes[k]=n;}
         }
         __syncthreads();if(!threadIdx.x)sh.flag+=total;__syncthreads();
@@ -550,8 +551,11 @@ __global__ __launch_bounds__(kThreads) void exBuild(Inputs in,Settings s,Scratch
                 const PxU32 k=sh.flag+prefix;
                 if(k<kExNodes){t.nodeOf[i]=(p<<16)|k;ExNode n{};n.chunk=i;n.tensor=0;n.pad[1]=1u;const auto c=in.chunks[i];
                     n.im=1.0f/c.mass;n.Iinv[0]=n.Iinv[1]=n.Iinv[2]=c.inertia>0.0f?1.0f/c.inertia:0.0f;
-                    const PxVec3 x=rq.rotate(c.position)+rp,v=vel+spin.cross(x-com);
-                    n.v[0]=v.x;n.v[1]=v.y;n.v[2]=v.z;n.v[3]=spin.x;n.v[4]=spin.y;n.v[5]=spin.z;for(int a=0;a<6;++a)n.v0[a]=n.v[a];
+                    PxVec3 x=rq.rotate(c.position)+rp,v=vel+spin.cross(x-com),w=spin;
+                    // (in a dynamic patch's translating frame: plus the struck cluster's spin)
+                    if(sp.dynamic){const ContactRow& d=in.rows[sp.dynamicRow];const PxVec3 cw(d.clusterSpin[0],d.clusterSpin[1],d.clusterSpin[2]);
+                        v+=cw.cross(x-PxVec3(d.clusterCom[0],d.clusterCom[1],d.clusterCom[2]));w+=cw;}
+                    n.v[0]=v.x;n.v[1]=v.y;n.v[2]=v.z;n.v[3]=w.x;n.v[4]=w.y;n.v[5]=w.z;for(int a=0;a<6;++a)n.v0[a]=n.v[a];
                     nodes[k]=n;}
             }
             __syncthreads();if(!threadIdx.x)sh.flag+=total;__syncthreads();
@@ -578,6 +582,10 @@ __global__ __launch_bounds__(kThreads) void exBuild(Inputs in,Settings s,Scratch
                 node=n++;++impactors;
                 ExNode m{};m.chunk=in.chunkCount+p*kExNodes+node;m.tensor=1;m.im=q.im;for(int a=0;a<6;++a)m.Iinv[a]=q.ii[a];
                 for(int a=0;a<3;++a){m.v[a]=q.velocity[a];m.v[3+a]=q.spin[a];}
+                // (in a dynamic patch's translating frame: plus the struck cluster's spin at its centre)
+                if(sp.dynamic){const ContactRow& d=in.rows[sp.dynamicRow];const PxVec3 cw(d.clusterSpin[0],d.clusterSpin[1],d.clusterSpin[2]);
+                    const PxVec3 u=cw.cross(PxVec3(q.com[0],q.com[1],q.com[2])-PxVec3(d.clusterCom[0],d.clusterCom[1],d.clusterCom[2]));
+                    m.v[0]+=u.x;m.v[1]+=u.y;m.v[2]+=u.z;m.v[3]+=cw.x;m.v[4]+=cw.y;m.v[5]+=cw.z;}
                 for(int a=0;a<6;++a)m.v0[a]=m.v[a];
                 nodes[node]=m;
             }
