@@ -10,7 +10,7 @@ __global__ void evaluateBondMaterials(const PxDestructionStressChunk* chunks,
     const float* health,const PxDestructionVectorPair* forces,PxU32 count,
     float dt,float rate,float bendGain,bool fibres,PxDestructionBondVerdict* verdict,
     PxVec3* centroids,PxDestructionStageStatus* status,bool sectionBending,const PxDestructionBondSection* sections,
-    bool momentAtCentroid=false,impact::View impactView=impact::View{})
+    bool momentAtCentroid=false,impact::View impactView=impact::View{},PxU32 staticDuctile=0u)
 {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
     const auto b=bonds[i];const float area=health[i];auto& v=verdict[i];v={};v.health=area;
@@ -68,6 +68,48 @@ __global__ void evaluateBondMaterials(const PxDestructionStressChunk* chunks,
     float compression,tension;extStressFibre(fibres,v.stressNormal,v.stressBend,compression,tension);
     if(bearingTension>=0.0f)tension=bearingTension;
     auto damage=extStressBondDamage(compression,tension,v.stressShear,area,b.area,materials[b.material],dt,rate);
+    // Steel connections are ductile in the static verdict too
+    // (PX_DESTRUCTION_STATIC_DUCTILE; PxDestructionStressDesc-free: the stage's
+    // env). A metal joint with an authored ultimate slip (ductileSlip: A L0,
+    // its elongation after fracture on the proportional gauge) yields and
+    // strain-hardens between its elastic and fatal limits (EN 1993-1-1 3.2.2:
+    // f_u/f_y >= 1.10, elongation >= 15%): no section loss there. Past fatal
+    // it necks rather than snapping. The excess over its capacity, (u - 1) F_u,
+    // is what the joint cannot carry: it slips by that force over the joint's
+    // stiffness (return mapping, k = E A / L) and by what the excess does to the
+    // lighter of its two chunks over the tick, 1/2 (u - 1) F_u / m dt^2 (as the
+    // impact solve's ductile slip, 1/2 |a_rel| dt^2). The joint loses that
+    // share of its ultimate slip as section (necking: the remaining area
+    // carries the load, so an overload that persists accelerates it) and
+    // ruptures once the slip it accumulated reaches its ultimate slip: a
+    // tick's spike past capacity bends a steel corner, a held one breaks it. Metals
+    // only (E >= 50 GPa: steel 200-210, aluminium 69; concrete <= 44, EN
+    // 1992-1-1 Table 3.1; timber and masonry far below): timber and masonry
+    // joints stay brittle at fatal (a secant ductile yield cascaded the
+    // veneer houses; impact agent, IMPACT_STEP_PLAN.md).
+    if(staticDuctile && !capacity && damage.command) {
+        const auto& m=materials[b.material];
+        const float k=m.impactStiffness*b.complianceScale*b.complianceScale;   // E A / L (bridge append_bonds)
+        const float length=fmaxf(distance,sqrtf(b.area));
+        const float modulus=k>0.0f && b.area>0.0f?k*length/b.area:0.0f;
+        if(m.ductileSlip>0.0f && k>0.0f && modulus>=50e9f) {
+            const auto ratio=[](float s,float f){return f>0.0f?s/f:0.0f;};
+            const float axial=fmaxf(ratio(compression,m.compressionFatalLimit),ratio(tension,m.tensionFatalLimit));
+            const float shear=ratio(v.stressShear,m.shearFatalLimit);
+            const float u=fmaxf(axial,shear);
+            const float fatal=axial>=shear?(compression>tension?m.compressionFatalLimit:m.tensionFatalLimit):m.shearFatalLimit;
+            float loss=0.0f;
+            if(u>1.0f) {
+                const float m0=chunks[b.chunk0].mass,m1=chunks[b.chunk1].mass;
+                const float light=m0>0.0f && m1>0.0f?fminf(m0,m1):fmaxf(m0,m1);
+                const float excess=(u-1.0f)*fatal*area;              // N
+                // Mode 2 (A/B): the return mapping alone (the excess over the joint's stiffness).
+                const float slip=excess/k+(staticDuctile!=2u && light>0.0f?0.5f*excess/light*dt*dt:0.0f);   // this tick's plastic slip, m
+                loss=b.area*fminf(1.0f,slip/m.ductileSlip);          // necking: that share of the ultimate slip, as section
+            }
+            damage.damage=fminf(area,loss);damage.command=loss>0.0f;
+        }
+    }
     if(capacity) {
         // E decides fracture: a joint it broke is gone; one it holds (below
         // capacity, or a ductile joint yielding at it) keeps losing section at
