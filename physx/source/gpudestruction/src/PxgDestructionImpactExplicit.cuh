@@ -202,6 +202,7 @@ struct ExScratch {
     // exList), kExClaimed + p for one it reaches (exClaim: the lowest patch whose impactors
     // reach it), | kExTaken once a chunk of it is a node (exBuild). ~0: none.
     PxU32* owner{};
+    PxU32* reach{};    // [chunkCount] (with owner): patch + 1 whose round impactor's path meets the chunk's box (exClaim)
     PxU32 ground=0u;   // Settings::ground (held: off)
     PxU32 supports=0u; // Settings::supports
 };
@@ -612,30 +613,40 @@ __global__ void exList(Inputs in,Settings s,Scratch w,ExScratch t)
     *t.patchCount=count;
 }
 // Settings::compliant with chunk boxes: each island and support of a struck cluster that a
-// plain patch's impactors reach over the tick (a chunk within the step radius of the
-// patch's rows' struck chunks or of an impactor's centre at the tick's end, as exBuild
-// takes nodes) goes to the lowest such patch, unless a patch owns it already.
+// plain patch's impactors reach over the tick goes to the lowest such patch, unless a patch owns
+// it already. Reach: a chunk within the step radius of the patch's rows' struck chunks or of an
+// impactor's centre at the tick's end (exBuild's neighbourhood), or whose box a round impactor's
+// sphere meets along its path (exSweptReach: a long member -- a roof rafter, a beam -- whose
+// centroid is far but whose box lies across the path); the latter marks the chunk itself
+// (t.reach: patch + 1), so exBuild takes it whatever its distance.
 __global__ void exClaim(Inputs in,Settings s,ExScratch t)
 {
     if(!t.owner || !t.boxes)return;
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=in.chunkCount || chunkGone(in,i))return;
     const bool support=!(in.chunks[i].mass>0.0f);if(support && !t.supports)return;
     const PxU32 key=support?i:in.nodeIslands[i];if(key>=in.chunkCount)return;
-    if(exOwnerPatch(t.owner[key])!=0xffffffffu && t.owner[key]<kExClaimed)return;   // (a patch's own)
+    const PxU32 own=(exOwnerPatch(t.owner[key])!=0xffffffffu && t.owner[key]<kExClaimed)?exOwnerPatch(t.owner[key]):0xffffffffu;
     const PxVec3 x=in.chunks[i].position;const float r2=s.stepRadius*s.stepRadius;
+    const PxDestructionChunkBox box=in.chunkBoxes[i];const bool boxed=box.halfExtents.magnitudeSquared()>0.0f;
     const PxU32 count=*t.patchCount;
     for(PxU32 p=0;p<count;++p) {
         const ExPatch& e=t.patches[p];if(e.car!=0xffffffffu || e.dynamic)continue;
-        const PxU32* l=t.rowList+size_t(p)*kExRows;bool reach=false,struck=false;
-        for(PxU32 a=0;a<e.listed && !reach;++a) {
+        if(own!=0xffffffffu && own!=p)continue;   // (another patch's own island)
+        const PxU32* l=t.rowList+size_t(p)*kExRows;bool near=false,path=false,struck=false;
+        for(PxU32 a=0;a<e.listed && !(near && path);++a) {
             const ContactRow& q=in.rows[l[a]];if(q.chunk>=in.chunkCount)continue;
             struck=struck || in.chunks[q.chunk].cluster==in.chunks[i].cluster;
-            const PxVec3 h0=in.chunks[q.chunk].position,h1(q.com[0]+q.velocity[0]*s.dt,q.com[1]+q.velocity[1]*s.dt,q.com[2]+q.velocity[2]*s.dt);
-            reach=(x-h0).magnitudeSquared()<=r2 || (x-h1).magnitudeSquared()<=r2;
+            const PxVec3 c0(q.com[0],q.com[1],q.com[2]),seg=PxVec3(q.velocity[0],q.velocity[1],q.velocity[2])*s.dt,h0=in.chunks[q.chunk].position;
+            near=near || (x-h0).magnitudeSquared()<=r2 || (x-(c0+seg)).magnitudeSquared()<=r2;
+            if(!path && boxed){const float R=roundImpactorRadius(q);
+                if(R>0.0f){const float L2=seg.magnitudeSquared(),tt=L2>0.0f?fminf(fmaxf((box.center-c0).dot(seg)/L2,0.0f),1.0f):0.0f;
+                    path=(box.center-(c0+seg*tt)).magnitude()<=R+box.halfExtents.magnitude() && exSweptReach(c0,seg,R,box);}}
         }
-        if(!reach)continue;
-        if(!struck)for(PxU32 a=0;a<e.listed && !struck;++a){const PxU32 c=in.rows[l[a]].chunk;struck=c<in.chunkCount && in.chunks[c].cluster==in.chunks[i].cluster;}
-        if(struck){atomicMin(t.owner+key,kExClaimed+p);return;}
+        if(!(near || path))continue;
+        if(!struck)continue;
+        if(path && t.reach)t.reach[i]=p+1u;
+        if(own==0xffffffffu)atomicMin(t.owner+key,kExClaimed+p);
+        return;
     }
 }
 
@@ -704,7 +715,7 @@ __global__ __launch_bounds__(kThreads) void exBuild(Inputs in,Settings s,Scratch
     for(int attempt=0;attempt<33;++attempt) {
         PxU32 c=0;
         for(PxU32 i=threadIdx.x;i<in.chunkCount;i+=kThreads)
-            c+=(exTake(in,t,p,island,dynamic,i) && near(i,radius,hit))?1u:0u;
+            c+=(exTake(in,t,p,island,dynamic,i) && (near(i,radius,hit) || (t.reach && t.boxes && t.reach[i]==p+1u)))?1u:0u;
         count=blockCount(sh,c);
         if(count+bodies+carCount<=kExNodes)break;
         radius=radius==FLT_MAX?s.stepRadius:radius*0.85f;
@@ -714,7 +725,7 @@ __global__ __launch_bounds__(kThreads) void exBuild(Inputs in,Settings s,Scratch
     // Chunk nodes (chunk order).
     for(PxU32 tile=0;tile<in.chunkCount;tile+=kThreads) {
         const PxU32 i=tile+threadIdx.x;PxU32 member=0;
-        if(i<in.chunkCount && exTake(in,t,p,island,dynamic,i))member=near(i,radius,hit)?1u:0u;
+        if(i<in.chunkCount && exTake(in,t,p,island,dynamic,i))member=(near(i,radius,hit) || (t.reach && t.boxes && t.reach[i]==p+1u))?1u:0u;
         PxU32 prefix;const PxU32 total=blockScan(sh,member,prefix);
         if(member) {
             const PxU32 k=sh.flag+prefix;
@@ -1768,5 +1779,6 @@ __global__ void exClear(Inputs in,ExScratch t)
     for(PxU32 i=tid;i<in.bondCount;i+=stride)t.linkOf[i]=0xffffffffu;
     if(t.rowDecided)for(PxU32 i=tid;i<in.rowCount;i+=stride)t.rowDecided[i]=0u;
     if(t.owner)for(PxU32 i=tid;i<in.chunkCount;i+=stride)t.owner[i]=0xffffffffu;
+    if(t.reach)for(PxU32 i=tid;i<in.chunkCount;i+=stride)t.reach[i]=0u;
     if(!tid){*t.patchCount=0;if(t.handoffCount)*t.handoffCount=0;}
 }

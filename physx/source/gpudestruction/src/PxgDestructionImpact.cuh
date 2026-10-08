@@ -2300,7 +2300,7 @@ struct Stage {
     void releaseExplicit() {
         if(!explicitAllocated)return;
         cudaFree(x.nodeOf);cudaFree(x.linkOf);cudaFree(x.patchCount);cudaFree(x.patches);cudaFree(x.nodes);cudaFree(x.bonds);cudaFree(x.links);
-        cudaFree(x.rowBonds);cudaFree(x.rows);cudaFree(x.adj);cudaFree(x.rowAdj);cudaFree(x.wr);cudaFree(x.rowList);cudaFree(x.rwr);cudaFree(x.jp);cudaFree(x.jl);cudaFree(x.rp);cudaFree(x.eStart);cudaFree(x.ja);cudaFree(x.wd);cudaFree(x.handoff);cudaFree(x.handoffCount);cudaFree(x.rowDecided);cudaFree(x.owner);x={};explicitAllocated=false;
+        cudaFree(x.rowBonds);cudaFree(x.rows);cudaFree(x.adj);cudaFree(x.rowAdj);cudaFree(x.wr);cudaFree(x.rowList);cudaFree(x.rwr);cudaFree(x.jp);cudaFree(x.jl);cudaFree(x.rp);cudaFree(x.eStart);cudaFree(x.ja);cudaFree(x.wd);cudaFree(x.handoff);cudaFree(x.handoffCount);cudaFree(x.rowDecided);cudaFree(x.owner);cudaFree(x.reach);x={};explicitAllocated=false;
     }
     void allocateExplicit() {
         if(explicitAllocated)return;
@@ -2312,7 +2312,7 @@ struct Stage {
         if(twoBody){::physx::allocate(x.eStart,P*kExLinks*2);::physx::allocate(x.ja,P*kExLinks*9);::physx::allocate(x.wd,P*kExLinks*12);}
         // The hand-off to the corrected pass (the two-body impact's and Settings::compliant's).
         if(twoBody || handoffs){::physx::allocate(x.handoff,size_t(kExHandoffs));::physx::allocate(x.handoffCount,1);::physx::allocate(x.rowDecided,size_t(kContactCapacity));}
-        if(handoffs)::physx::allocate(x.owner,std::max<size_t>(n,1));   // (Settings::compliant: the windows' islands and supports, exClaim)
+        if(handoffs){::physx::allocate(x.owner,std::max<size_t>(n,1));::physx::allocate(x.reach,std::max<size_t>(n,1));}   // (Settings::compliant: the windows' islands and supports, exClaim)
         explicitAllocated=true;
     }
     // The explicit step's evaluation: the patches, their build (a block
