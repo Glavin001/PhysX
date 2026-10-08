@@ -197,3 +197,29 @@ See the generated reports in `qualification/post-correction-performance/`,
 CUDA checkpoint restore/installation intervals from CPU enqueue time and the
 combined CPU/GPU physics replay interval. CUDA markers run only in profiling
 captures and are collected at existing acceptance waits.
+
+## A crushed chunk under the correction (PX_DESTRUCTION_CRUSH_CORRECTION)
+
+A chunk whose material crushes used to leave the topology (a `DestroyChunk`
+edit). Its hull then had no motion owner in the corrected pass, and no owner
+transaction removes a hull there: `installCollisionOwners` refused the step
+(`collision.removed`), the stage reported error 8, and every later step failed
+the same way. With `internalCorrectionLimit = 1` one crush froze the scene.
+
+`finalizeMaterialVerdict` already breaks every live bond of a crushed chunk, so
+the stage now emits only those bond edits. The crushed chunk becomes a cluster of
+its own and takes the ordinary path: split, rewind, a free body of its own mass in
+the corrected solve (not part of the anchored structure that stopped the
+impactor in the trial), commit. Its accepted `PxDestructionCrushState::crushed`
+marks it, and committed changes publish it as any split chunk. Whether it stays
+in the world as debris or leaves as dust (`debrisMassFraction`) is the
+consumer's to present; the stage creates no new geometry, so
+`debrisFragmentCount` is a count for presentation. A chunk crushed after its
+bonds had all broken changes no membership and commits without a correction.
+
+`native_gpu_crush_correction_test` (TGS and PGS): a 1 t ball at 20 m/s into an
+anchored block that crushes at 10 kPa. Before, the crushing step (tick 4) was
+incomplete with stage error 8; after, 60 of 60 steps complete, one chunk
+crushes, it leaves the anchored wall as a free body, and the ball goes on at
+19.05 m/s (it pushes the 50 kg block ahead). `native_gpu_collision_test --crush`
+checks that preparation keeps every crushed hull on a motion owner.
