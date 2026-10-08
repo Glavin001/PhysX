@@ -132,3 +132,12 @@ __global__ void bumpBearingGeneration(const PxU64* accepted,PxU64* generation,Px
     else if(*changed)++*generation;
     *changed=0u;
 }
+// PX_DESTRUCTION_REBEARING_CHECK=1 (diagnostic): the probe on every live bond
+// must give its solved force (lambda = B^T y). out[0]: max |probe - force| over
+// bonds, out[1]: max |force| (as float bits; both nonnegative).
+__global__ void checkReadmissionProbe(const PxU32* mask,const PxDestructionVectorPair* probe,const PxDestructionVectorPair* forces,PxU32* out,PxU32 count)
+{
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count || !mask[i])return;
+    const float d=(probe[i].linear-forces[i].linear).magnitude(),f=forces[i].linear.magnitude();
+    if(d==d)atomicMax(out,__float_as_uint(d));atomicMax(out+1,__float_as_uint(f));
+}
