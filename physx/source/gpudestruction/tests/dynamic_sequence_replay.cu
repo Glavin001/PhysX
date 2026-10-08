@@ -73,13 +73,16 @@ int run(int argc,char** argv)
     const auto d=slurp(prefix+".bin");Reader r{d};
     // 'DSE2' (an engine patch, structures/town-kit/scripts/sequence-compare.py --replay): per joint
     // after J0 also its ultimate slip (0 brittle; flags 8 ductile), mu, the shear cap and its area.
-    const bool v2=!std::memcmp(d.data(),"DSE2",4);
+    // 'DSE3': DSE2 with each node's start velocity (6) after its load.
+    const bool v3=!std::memcmp(d.data(),"DSE3",4),v2=v3 || !std::memcmp(d.data(),"DSE2",4);
     if(std::memcmp(d.data(),"DSEQ",4) && !v2)throw std::runtime_error("not a dynamic-sequence problem");r.off=4;
     const PxU32 nn=r.get<PxU32>(),nl=r.get<PxU32>();const float T=r.get<float>(),h=r.get<float>(),band=r.get<float>(),mu=r.get<float>();
     if(nn>impact::kExNodes || nl>impact::kExLinks)throw std::runtime_error("problem larger than a patch");
     std::vector<impact::ExNode> nodes(impact::kExNodes);std::vector<float> load(6*size_t(impact::kExNodes),0.0f);
     for(PxU32 k=0;k<nn;++k) {
-        impact::ExNode n{};n.chunk=k;n.tensor=0;n.im=r.get<float>();r.floats(n.Iinv,3);r.floats(&load[6*size_t(k)],6);nodes[k]=n;
+        impact::ExNode n{};n.chunk=k;n.tensor=0;n.im=r.get<float>();r.floats(n.Iinv,3);r.floats(&load[6*size_t(k)],6);
+        if(v3){r.floats(n.v,6);for(int q=0;q<6;++q)n.v0[q]=n.v[q];}
+        nodes[k]=n;
     }
     std::vector<impact::Bond> bonds(impact::kExLinks);std::vector<impact::ExLink> links(impact::kExLinks);std::vector<float> damp(8*size_t(impact::kExLinks),0.0f);
     PxU32 bearing=0;
@@ -98,6 +101,8 @@ int run(int argc,char** argv)
             const float limit=r.get<float>();b.mu=r.get<float>();b.capSx=r.get<float>();b.area=r.get<float>();
             if((flags&8u) && limit>0.0f){b.flags|=impact::eDUCTILE;b.slip=limit;x.limit=limit;x.state|=impact::eEX_DUCTILE;}
             if(b.mu>0.0f)x.state|=impact::eEX_FRICTION;
+            if(flags&16u){x.state|=impact::eEX_CONTACT;if(!(x.J0[0]<0.0f))x.state|=impact::eEX_OPEN;}   // (a contact at the start)
+            if(v3)x.slip=r.get<float>();   // (its ductile slip so far)
         }
         bonds[l]=b;links[l]=x;
     }

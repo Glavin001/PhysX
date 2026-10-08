@@ -674,6 +674,7 @@ __device__ PxU32 exBuildDynamicSeeds(const Inputs& in,const ExScratch& t,Shared&
 __device__ void exDynamicNode(const Inputs& in,const ExScratch& t,PxU32 p,PxU32 k,PxU32 i,ExNode& n)
 {
     if(t.pChunk && (t.pChunk[i]&1u) && !t.seqAtRest)for(int q=0;q<6;++q)n.v[q]=t.pV[6*size_t(i)+q];
+    for(int q=0;q<6;++q)n.v0[q]=n.v[q];   // (its start: the books' and the diagnostics' dumps)
     const auto c=in.chunks[i];const auto a=in.accelerations[i];float* f=t.dynLoad+(size_t(p)*kExNodes+k)*6;
     f[0]=a.linear.x*c.mass;f[1]=a.linear.y*c.mass;f[2]=a.linear.z*c.mass;
     f[3]=-a.angular.x*c.inertia;f[4]=-a.angular.y*c.inertia;f[5]=-a.angular.z*c.inertia;
