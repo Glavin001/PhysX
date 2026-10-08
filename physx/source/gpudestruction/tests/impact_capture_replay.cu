@@ -75,6 +75,7 @@ int run(int argc,char** argv){
     s.innerTolerance=env("IMPACT_INNER_TOLERANCE",s.innerTolerance);
     s.andersonDepth=PxU32(env("IMPACT_ANDERSON",float(s.andersonDepth)));
     s.cappedElastic=env("IMPACT_CAPPED_ELASTIC",std::getenv("IMPACT_DUMP")?1.0f:0.0f)!=0.0f;
+    s.dispatchWork=PxU32(env("IMPACT_DISPATCH_WORK",float(s.dispatchWork)));   // keep dispatches short (a capture's own may be 2^20)
     const PxU32 n=h.n,m=h.m;
     impact::Inputs in{};in.chunkCount=n;in.bondCount=m;
     in.chunks=upload(f.read<PxDestructionStressChunk>(n));in.bonds=upload(f.read<PxDestructionStressBond>(m));
@@ -221,6 +222,16 @@ int run(int argc,char** argv){
                 const float hit[3]={hostRows.empty()?0.0f:hostRows[0].point[0],hostRows.empty()?0.0f:hostRows[0].point[1],hostRows.empty()?0.0f:hostRows[0].point[2]};
                 std::fwrite(&m,4,1,o);std::fwrite(hit,4,3,o);for(const auto& b:hb)std::fwrite(&b.centroid,4,3,o);}
                 std::fclose(o);
+                // The capped solve's ADMM state where it stopped (Z, U, the node
+                // space y, rho, steps): a level replay resumes from it.
+                {std::vector<float> Z(6*size_t(nl)),U(6*size_t(nl)),y(6*size_t(nn));
+                check(cudaMemcpy(Z.data(),e.w.Y+6*size_t(I.b0),sizeof(float)*Z.size(),cudaMemcpyDeviceToHost));
+                check(cudaMemcpy(U.data(),e.w.Jn+6*size_t(I.b0),sizeof(float)*U.size(),cudaMemcpyDeviceToHost));
+                for(PxU32 k=0;k<nn;++k)check(cudaMemcpy(&y[6*k],e.w.cy+6*size_t(ch[k].chunk),sizeof(float)*6,cudaMemcpyDeviceToHost));
+                std::snprintf(path,sizeof path,"%s-island%u.state.bin",std::getenv("IMPACT_DUMP"),is.island);
+                o=std::fopen(path,"wb");if(!o)throw std::runtime_error("cannot write the dump");
+                const float head2[2]={is.solve.rho,float(is.solve.it)};std::fwrite(head2,4,2,o);
+                std::fwrite(Z.data(),4,Z.size(),o);std::fwrite(U.data(),4,U.size(),o);std::fwrite(y.data(),4,y.size(),o);std::fclose(o);}
                 // The contact rows (all of them, coupled or not) beside it.
                 std::snprintf(path,sizeof path,"%s-island%u.rows.bin",std::getenv("IMPACT_DUMP"),is.island);
                 o=std::fopen(path,"wb");if(!o)throw std::runtime_error("cannot write the dump");
