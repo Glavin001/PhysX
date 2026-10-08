@@ -75,7 +75,7 @@ A lab cannonball run is 397 evaluations, mean 14-15 ms, longest dispatch ~20 ms.
 
 ## How to test and time
 
-Scratch tools (session scratchpad .../scratchpad/impact-e-harness):
+Scratch tools /private/tmp/claude-501/-Users-glavin-Development-vibe-land/01c57f95-820d-4c9e-bc1a-a10f13215bce/scratchpad/impact-e-harness (copy them if that directory is gone):
 - `W=<this worktree> OUT=<dir> build-tool2.sh impact_explicit_replay` (and
   `impact_capture_replay`): compiles one test as ctest does (cumetalc).
 - Parity (must pass): `IMPACT_EXPLICIT_DT_US=32 impact_explicit_replay
