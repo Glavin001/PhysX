@@ -161,7 +161,7 @@ def arguments(argv=None):
 def plan(args, root=ROOT):
     root = root.resolve()
     # Overrides never enlarge the approved write boundary.
-    roots = (root, (root.parent / 'cuda-metal').resolve())
+    roots = (root, (root.parent / 'cuda-metal').resolve()) + ((Path(os.environ['STEADY_CUMETAL_ROOT']).resolve(),) if os.environ.get('STEADY_CUMETAL_ROOT') else ())
     cumetal = contained(args.cumetal_root, roots)
     if args.backend == 'cumetal' and not (cumetal / 'spec.md').is_file():
         raise ValueError(f'CuMetal source checkout not found: {cumetal}')
