@@ -65,7 +65,9 @@ struct ExPatch {
     float dead; // the dead load's work over the window (sum h f0 . v: a sagging patch's)
 };
 // A joint of the patch: local node ends (0xffffffff: held), state bits.
-enum ExState : PxU32 { eEX_LIVE=1, eEX_DUCTILE=2, eEX_YIELDED=4, eEX_BROKEN=8 };
+// eEX_ROWS: an end of the joint has contact rows (exRunT sets it; the window's
+// other joints run beside the rows).
+enum ExState : PxU32 { eEX_LIVE=1, eEX_DUCTILE=2, eEX_YIELDED=4, eEX_BROKEN=8, eEX_ROWS=16 };
 struct ExLink { PxU32 a,b,state,pad; float J0[6],J[6]; float slip,limit,brokeAt,pad2; };
 // A contact row: the struck chunk (a, local), the impactor (b), the stage's row.
 struct ExRow { PxU32 a,b,row,pad; float P[3],total[3],Winv[9],W[9]; };
@@ -580,6 +582,45 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
     }
     __syncthreads();
     PxU32 step=sp.substeps;float dead=0.0f;
+    // A joint's substep: the trial, then fracture or the radial return; the force change's wrench on both ends.
+    auto joint=[&](PxU32 l,ExLink& e,float time,bool last) {
+        const Bond b=bonds[l];   // in registers: every field is read more than once
+        float d[6]={0,0,0,0,0,0};if(e.a!=0xffffffffu)exRelative(b,0,vS+6*e.a,d);if(e.b!=0xffffffffu)exRelative(b,1,vS+6*e.b,d);
+        float J0[6];for(int q=0;q<6;++q)J0[q]=e.J0[q];
+        for(int q=0;q<6;++q)dead-=h*J0[q]*d[q];
+        float k[6];exStiffness(b,k);
+        float J[6];for(int q=0;q<6;++q)J[q]=e.J[q]-h*k[q]*d[q];
+        const float u=utilisation(b,J);
+        // An event is near: a brittle joint within the band, a ductile one slipping.
+        if((e.state&eEX_DUCTILE)?u>1.0f:u>=1.0f-s.capacityBand){shActive=1u;if(last)atomicAdd(&shNear,1u);}
+        bool breaks=false;
+        if(!(e.state&eEX_DUCTILE))breaks=u>=1.0f-s.capacityBand;
+        else if(u>1.0f) {
+            float slip=0.0f,work=0.0f;
+            for(int q=0;q<6;++q){const float y=J[q]/u;if(k[q]>0.0f){const float dp=(J[q]-y)/k[q];if(q<3)slip+=dp*dp;work+=fabsf(y*dp);}J[q]=y;}
+            e.slip+=sqrtf(slip);atomicAdd(&shPlastic,work);
+            if(!(e.state&eEX_YIELDED)){e.state|=eEX_YIELDED;atomicAdd(&shYielded,1u);}
+            breaks=e.slip>e.limit;
+        }
+        if(breaks){float u2=0.0f;for(int q=0;q<6;++q)if(k[q]>0.0f)u2+=0.5f*J[q]*J[q]/k[q];atomicAdd(&shFracture,u2);
+            e.state=(e.state&~eEX_LIVE)|eEX_BROKEN;for(int q=0;q<6;++q)J[q]=0.0f;e.brokeAt=time;atomicAdd(&shBroken,1u);}
+        if(EX_PROF_DUP&8){const Bond b2=bonds[l];float d2[6]={0,0,0,0,0,0};if(e.a!=0xffffffffu)exRelative(b2,0,vS+6*e.a,d2);if(e.b!=0xffffffffu)exRelative(b2,1,vS+6*e.b,d2);
+            float J2[6];for(int q=0;q<6;++q)J2[q]=e.J[q]*(1.0f+FLT_EPSILON*float(step&1u))-h*k[q]*d2[q];const float u2=utilisation(b2,J2);
+            float g0[6]={0,0,0,0,0,0},g1[6]={0,0,0,0,0,0};exWrench(b2,J2,0,g0);exWrench(b2,J2,1,g1);dead+=1e-30f*(u2+g0[0]+g1[5]);}
+        for(int q=0;q<6;++q)e.J[q]=J[q];
+        float dJ[6];for(int q=0;q<6;++q)dJ[q]=J[q]-J0[q];
+        float* o=wr+12*size_t(l);float f0[6]={0,0,0,0,0,0},f1[6]={0,0,0,0,0,0};
+        exWrench(b,dJ,0,f0);exWrench(b,dJ,1,f1);for(int q=0;q<6;++q){o[q]=f0[q];o[6+q]=f1[q];}
+    };
+    // Rows run on the first ceil(nr / 32) simdgroups; the joints away from them on the rest at the same time.
+    const PxU32 rowThreads=min((nr+31u)&~31u,kExThreads),freeStride=kExThreads-rowThreads;
+    for(PxU32 l=threadIdx.x;l<nl;l+=kExThreads) {
+        ExLink& e=links[l];PxU32 b0,b1,c0=0,c1=0;
+        if(e.a!=0xffffffffu){rowRange(e.a,b0,b1);c0=b1-b0;}
+        if(e.b!=0xffffffffu){rowRange(e.b,b0,b1);c1=b1-b0;}
+        e.state=(c0||c1)?(e.state|eEX_ROWS):(e.state&~eEX_ROWS);
+    }
+    __syncthreads();
     for(PxU32 it=0;it<budget && step<total;++it,++step) {
         const float time=float(step+1)*h;const bool last=step+1==total;
         // The window's end (Settings::explicitWindow 1): once no contact pushes, no
@@ -595,6 +636,11 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
             apply(k,f,h);
         }
         __syncthreads();
+        // The joints with no row at either end (their ends' velocities are final),
+        // beside the rows: on the threads past the rows' simdgroups.
+        if(!(EX_PROF_SKIP&8) && freeStride)for(PxU32 l=threadIdx.x-rowThreads;threadIdx.x>=rowThreads && l<nl;l+=freeStride) {
+            ExLink& e=links[l];if((e.state&(eEX_LIVE|eEX_ROWS))==eEX_LIVE)joint(l,e,time,last);
+        }
         // Contacts: each row's impulse from the same velocities (Jacobi), in the
         // Coulomb cone (exCone: sliding, never adding energy).
         if(hasRow && !(EX_PROF_SKIP&2)) {
@@ -621,36 +667,9 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
             apply(k,f,1.0f);
         }
         __syncthreads();
-        // Joints: the trial, then fracture or the radial return; the force change's wrench on both ends.
+        // The joints at the rows' nodes (and all of them when no thread is free beside the rows).
         if(!(EX_PROF_SKIP&8))for(PxU32 l=threadIdx.x;l<nl;l+=kExThreads) {
-            ExLink& e=links[l];if(!(e.state&eEX_LIVE))continue;
-            const Bond b=bonds[l];   // in registers: every field is read more than once
-            float d[6]={0,0,0,0,0,0};if(e.a!=0xffffffffu)exRelative(b,0,vS+6*e.a,d);if(e.b!=0xffffffffu)exRelative(b,1,vS+6*e.b,d);
-            float J0[6];for(int q=0;q<6;++q)J0[q]=e.J0[q];
-            for(int q=0;q<6;++q)dead-=h*J0[q]*d[q];
-            float k[6];exStiffness(b,k);
-            float J[6];for(int q=0;q<6;++q)J[q]=e.J[q]-h*k[q]*d[q];
-            const float u=utilisation(b,J);
-            // An event is near: a brittle joint within the band, a ductile one slipping.
-            if((e.state&eEX_DUCTILE)?u>1.0f:u>=1.0f-s.capacityBand){shActive=1u;if(last)atomicAdd(&shNear,1u);}
-            bool breaks=false;
-            if(!(e.state&eEX_DUCTILE))breaks=u>=1.0f-s.capacityBand;
-            else if(u>1.0f) {
-                float slip=0.0f,work=0.0f;
-                for(int q=0;q<6;++q){const float y=J[q]/u;if(k[q]>0.0f){const float dp=(J[q]-y)/k[q];if(q<3)slip+=dp*dp;work+=fabsf(y*dp);}J[q]=y;}
-                e.slip+=sqrtf(slip);atomicAdd(&shPlastic,work);
-                if(!(e.state&eEX_YIELDED)){e.state|=eEX_YIELDED;atomicAdd(&shYielded,1u);}
-                breaks=e.slip>e.limit;
-            }
-            if(breaks){float u2=0.0f;for(int q=0;q<6;++q)if(k[q]>0.0f)u2+=0.5f*J[q]*J[q]/k[q];atomicAdd(&shFracture,u2);
-                e.state=(e.state&~eEX_LIVE)|eEX_BROKEN;for(int q=0;q<6;++q)J[q]=0.0f;e.brokeAt=time;atomicAdd(&shBroken,1u);}
-            if(EX_PROF_DUP&8){const Bond b2=bonds[l];float d2[6]={0,0,0,0,0,0};if(e.a!=0xffffffffu)exRelative(b2,0,vS+6*e.a,d2);if(e.b!=0xffffffffu)exRelative(b2,1,vS+6*e.b,d2);
-                float J2[6];for(int q=0;q<6;++q)J2[q]=e.J[q]*(1.0f+FLT_EPSILON*float(step&1))-h*k[q]*d2[q];const float u2=utilisation(b2,J2);
-                float g0[6]={0,0,0,0,0,0},g1[6]={0,0,0,0,0,0};exWrench(b2,J2,0,g0);exWrench(b2,J2,1,g1);dead+=1e-30f*(u2+g0[0]+g1[5]);}
-            for(int q=0;q<6;++q)e.J[q]=J[q];
-            float dJ[6];for(int q=0;q<6;++q)dJ[q]=J[q]-J0[q];
-            float* o=wr+12*size_t(l);float f0[6]={0,0,0,0,0,0},f1[6]={0,0,0,0,0,0};
-            exWrench(b,dJ,0,f0);exWrench(b,dJ,1,f1);for(int q=0;q<6;++q){o[q]=f0[q];o[6+q]=f1[q];}
+            ExLink& e=links[l];if((e.state&eEX_LIVE) && (!freeStride || (e.state&eEX_ROWS)))joint(l,e,time,last);
         }
         __syncthreads();
         if(s.explicitWindow==1u && !shActive){++step;sp.done=1;break;}
