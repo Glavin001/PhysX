@@ -592,7 +592,10 @@ __global__ void exList(Inputs in,Settings s,Scratch w,ExScratch t)
     // The dynamic sequence: a row patch of a dynamic island is dynamic (one patch per
     // island); the second submission adds a patch for every other dynamic island.
     if(t.seqIsland) {
-        for(PxU32 p=0;p<count;++p)if(t.seqIsland[t.patches[p].island])t.patches[p].sequence=1u;
+        for(PxU32 p=0;p<count;++p)if(t.seqIsland[t.patches[p].island]) {
+            t.patches[p].sequence=1u;
+            if(s.sequenceDiag&8u){t.patches[p].listed=0u;t.patches[p].bodies=0u;t.patches[p].car=0xffffffffu;}   // (diagnostics: the rows left to the stage)
+        }
         if(t.seqCreate)for(PxU32 i=0;i<in.chunkCount;++i) {
             if(!t.seqIsland[i])continue;
             PxU32 p=0;while(p<count && t.patches[p].island!=i)++p;
