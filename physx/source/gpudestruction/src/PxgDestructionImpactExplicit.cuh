@@ -891,6 +891,32 @@ __device__ void exImplicit(Shared& sh,const Settings& s,const ExScratch& t,PxU32
     if(!threadIdx.x)sp.implicitJoints=count;
     __syncthreads();
 }
+// A re-bearing contact's friction coefficient: its material's (Bond::mu, Mohr-Coulomb
+// shear, FIDELITY_AUDIT C11; for an exUnpack'ed joint after exUnpackFriction), as the
+// stage's re-bearing law takes it (rebearVerdicts), else the contact law's
+// (Settings::dynamicFriction: the re-bearing friction).
+__device__ __forceinline__ float exContactMu(const Bond& b,float fallback){return b.mu>0.0f?b.mu:fallback;}
+// A contact's transmitted force from its state J (exContactJoint's projection
+// without its slip: J's shear is already within the cone).
+__device__ __forceinline__ void exContactForce(const Bond& b,const float* J,float mu,float* F)
+{
+    for(int q=0;q<6;++q)F[q]=0.0f;if(!(J[0]<0.0f))return;
+    const float C=-J[0],V=sqrtf(J[1]*J[1]+J[2]*J[2]),T=fabsf(J[3]),shear=V+b.gt*T,sc=shear>mu*C?mu*C/shear:1.0f;
+    const float rock=b.h0*fabsf(J[4])+b.h1*fabsf(J[5]),bsc=rock>C?C/rock:1.0f;
+    F[0]=J[0];F[1]=sc*J[1];F[2]=sc*J[2];F[3]=sc*J[3];F[4]=bsc*J[4];F[5]=bsc*J[5];
+}
+// A joint's stored energy at state J (k its stiffness): 1/2 J K^-1 J; a dynamic
+// sequence's contact (the CPU study's book, sequence-lab.py contactv): its transmitted
+// force F's, but a rocking contact's moments capped at F while it turns on to J,
+// F K^-1 (J - F / 2) (the path to J without permanent set); open, nothing.
+__device__ __forceinline__ float exJointEnergy(const Bond& b,const float* k,const float* J,PxU32 state,float mu)
+{
+    float u=0.0f;
+    if(!(state&eEX_CONTACT)){for(int q=0;q<6;++q)if(k[q]>0.0f)u+=0.5f*J[q]*J[q]/k[q];return u;}
+    float F[6];exContactForce(b,J,mu,F);
+    for(int q=0;q<6;++q)if(k[q]>0.0f)u+=q<4?0.5f*F[q]*F[q]/k[q]:F[q]*(J[q]-0.5f*F[q])/k[q];
+    return u;
+}
 __device__ void exFinish(Shared& sh,const Settings& s,const ExScratch& t,PxU32 p)
 {
     ExPatch& sp=t.patches[p];const PxU32 nn=sp.nodes;
@@ -899,7 +925,7 @@ __device__ void exFinish(Shared& sh,const Settings& s,const ExScratch& t,PxU32 p
     float* wr=t.wr+size_t(p)*kExLinks*12;
     float u0=0.0f;
     for(PxU32 l=threadIdx.x;l<sp.links;l+=kThreads){const ExLink& e=links[l];if(!(e.state&eEX_LIVE))continue;
-        float k[6];exStiffness(bonds[l],k);for(int q=0;q<6;++q)if(k[q]>0.0f)u0+=0.5f*e.J0[q]*e.J0[q]/k[q];}
+        float k[6];exStiffness(bonds[l],k);u0+=exJointEnergy(bonds[l],k,e.J0,e.state,exContactMu(bonds[l],s.dynamicFriction));}
     u0=blockSum(sh,u0);
     if(!threadIdx.x){sp.u0=u0;sp.keIn=sp.keOut=sp.fracture=sp.plastic=sp.dead=0.0f;}
     // The largest frequency's square: lambda_max(M^-1 K) = lambda_max(S), S =
@@ -1254,11 +1280,6 @@ __device__ void exImplicitJointA(PxU32 l,const float4* ja,float4* jp,ExLink* lin
     float g0[6]={0,0,0,0,0,0},g1[6]={0,0,0,0,0,0};exWrench(b,inc,0,g0);exWrench(b,inc,1,g1);
     for(int i=0;i<6;++i){od[i]=g0[i];od[6+i]=g1[i];}
 }
-// A re-bearing contact's friction coefficient: its material's (Bond::mu, Mohr-Coulomb
-// shear, FIDELITY_AUDIT C11; for an exUnpack'ed joint after exUnpackFriction), as the
-// stage's re-bearing law takes it (rebearVerdicts), else the contact law's
-// (Settings::dynamicFriction: the re-bearing friction).
-__device__ __forceinline__ float exContactMu(const Bond& b,float fallback){return b.mu>0.0f?b.mu:fallback;}
 // The dynamic sequence's joint laws (exRunT's joint pass on a dynamic patch).
 // A re-bearing contact (PxgDestructionRebearing.cuh's law, graded as the stage
 // grades it): from its trial force J (bond frame, x[0] the normal force, + in
@@ -1708,15 +1729,6 @@ __global__ void exPublish(Inputs in,Settings s,Scratch w,ExScratch t)
         if(sp.failed)atomicOr(&w.status->error,4u);
     }
 }
-// A contact's transmitted force from its state J (exContactJoint's projection
-// without its slip: J's shear is already within the cone).
-__device__ __forceinline__ void exContactForce(const Bond& b,const float* J,float mu,float* F)
-{
-    for(int q=0;q<6;++q)F[q]=0.0f;if(!(J[0]<0.0f))return;
-    const float C=-J[0],V=sqrtf(J[1]*J[1]+J[2]*J[2]),T=fabsf(J[3]),shear=V+b.gt*T,sc=shear>mu*C?mu*C/shear:1.0f;
-    const float rock=b.h0*fabsf(J[4])+b.h1*fabsf(J[5]),bsc=rock>C?C/rock:1.0f;
-    F[0]=J[0];F[1]=sc*J[1];F[2]=sc*J[2];F[3]=sc*J[3];F[4]=bsc*J[4];F[5]=bsc*J[5];
-}
 // 4a. A dynamic patch's freeze (after exPublish, before exPublishDynamic): the period of
 // its slowest motion at the window's end, 2 pi / omega_R with omega_R^2 = v^T K v / v^T
 // M v (Rayleigh's quotient of the velocity field the island has: K over its live joints
@@ -1782,7 +1794,7 @@ __global__ void exPublishDynamic(Inputs in,Settings s,Scratch w,ExScratch t)
             float lin[3],ang[3];toSolver(b,F,lin,ang);
             PxDestructionVectorPair fo;fo.linear=PxVec3(lin[0],lin[1],lin[2]);fo.angular=PxVec3(ang[0],ang[1],ang[2]);w.forces[i]=fo;
         }
-        if(live){float k[6];exStiffness(b,k);for(int q=0;q<6;++q)if(k[q]>0.0f)strain+=0.5f*F[q]*F[q]/k[q];}
+        if(live){float k[6];exStiffness(b,k);strain+=exJointEnergy(b,k,e.J,e.state,exContactMu(b,s.dynamicFriction));}
         if(t.pJn){for(int q=0;q<6;++q)t.pJn[6*size_t(i)+q]=live?e.J[q]:0.0f;
             t.pSlipn[2*size_t(i)]=cslip[2*l];t.pSlipn[2*size_t(i)+1]=cslip[2*l+1];
             t.pBondn[i]=live?(1u|(contact?2u:0u)|(sp.freeze?4u:0u)):0u;}
