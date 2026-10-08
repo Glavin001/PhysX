@@ -393,7 +393,7 @@ static __device__ void setupFinalizeSolverConstraintsBlock(PxgBlockContactData& 
 			return;
 		}
 
-		PxReal maxImpulse = PxMin(data0.maxImpulse, data1.maxImpulse);
+		PxReal maxImpulse = contactPairMaxImpulse(data0.maxImpulse, data1.maxImpulse);
 
 		contactHeader->forceWritebackOffset[threadIndex] = forceWritebackBufferOffset;
 
@@ -859,7 +859,7 @@ static __device__ void setupFinalizeSolverConstraintsBlockTGS(PxgBlockContactDat
 			return;
 		}
 
-		PxReal maxImpulse = PxMin(data0.maxImpulse, data1.maxImpulse);
+		PxReal maxImpulse = contactPairMaxImpulse(data0.maxImpulse, data1.maxImpulse);
 
 		contactHeader->forceWritebackOffset[threadIndex] = forceWritebackBufferOffset;
 

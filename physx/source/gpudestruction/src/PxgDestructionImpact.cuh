@@ -225,6 +225,13 @@ struct Settings {
     // struck chunks included (what the impact model delivered to them): the
     // pair the impact model solved is bounded and nothing else is.
     bool boundImpactor=false;
+    // With boundImpactor, pairwise (PX_DESTRUCTION_IMPACT_BOUND_PAIRWISE): a
+    // rigid body's max contact impulse holds for all its contacts, so the
+    // impactor's bound also capped its contacts with debris, the ground and
+    // anchored chunks new in the corrected pass, which the step never
+    // evaluated (the truck through the framed house: +10..+17 m). true: it
+    // holds only between the impactor and the clusters its rows struck.
+    bool boundPairwise=false;
     // Contact routing (PX_DESTRUCTION_IMPACT_ROUTE; routeRows): a contact row
     // is the impact model's -- its trial load leaves the static solve's inputs
     // -- when its peak elastic force exceeds what its struck chunk's weakest

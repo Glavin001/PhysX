@@ -243,7 +243,7 @@ static __device__ void setupFinalizeExtSolverConstraintsBlock(PxgBlockContactDat
 		}
 
 		//printf("Prepping %i contacts!\n", contactCount);
-		PxReal maxImpulse = PxMin(b0.maxImpulse, b1.maxImpulse);
+		PxReal maxImpulse = contactPairMaxImpulse(b0.maxImpulse, b1.maxImpulse);
 
 		params.blockContactHeader->forceWritebackOffset[threadIndex] = forceWritebackBufferOffset;
 
@@ -694,7 +694,7 @@ static __device__ void setupFinalizeExtSolverConstraintsBlock(PxgBlockContactDat
 		}
 
 		//printf("Prepping %i contacts!\n", contactCount);
-		PxReal maxImpulse = PxMin(b0.maxImpulse, b1.maxImpulse);
+		PxReal maxImpulse = contactPairMaxImpulse(b0.maxImpulse, b1.maxImpulse);
 
 		params.blockContactHeader->forceWritebackOffset[threadIndex] = forceWritebackBufferOffset;
 

@@ -103,6 +103,10 @@ if(BUILD_TESTING)
     # 4.6e7 N on a 2 kg chunk) in the elastic solve, whose 64-iteration corrected
     # pass starts from it. Routed (Settings::route), the corrected pass breaks what
     # its own loads break; unrouted it collapses (WILL_FAIL: the reproducer).
+    add_executable(destruction_impact_pair_bounds tests/impact_pair_bounds.cu)
+    target_include_directories(destruction_impact_pair_bounds PRIVATE ../gpusolver/include)
+    target_link_libraries(destruction_impact_pair_bounds PRIVATE PhysXDestructionTopologyGpu)
+    px_destruction_cuda_properties(destruction_impact_pair_bounds PROPERTIES CUDA_STANDARD 17 CUDA_ARCHITECTURES "${CMAKE_CUDA_ARCHITECTURES}")
     add_executable(destruction_impact_static_handoff tests/impact_static_handoff.cu)
     target_link_libraries(destruction_impact_static_handoff PRIVATE PhysXDestructionTopologyGpu)
     target_include_directories(destruction_impact_static_handoff PRIVATE ../../../blast/include/extensions/stress)
@@ -158,6 +162,11 @@ if(BUILD_TESTING)
     # impactor stopped rigidly by a struck chunk past capacity with nothing of it
     # broken, on the cannonball's first contact through the explicit step with
     # the routing and the bounds per impactor (exit 1 on any).
+    # The corrected pass's bounds act on the pairs the impact step evaluated only.
+    add_test(NAME destruction_gpu_impact_pair_bounds COMMAND destruction_impact_pair_bounds)
+    set_tests_properties(destruction_gpu_impact_pair_bounds PROPERTIES ENVIRONMENT "CUMETAL_USE_METAL_DEVICE_ADDRESSES=1")
+    add_test(NAME destruction_gpu_impact_pair_bounds_per_body COMMAND destruction_impact_pair_bounds)
+    set_tests_properties(destruction_gpu_impact_pair_bounds_per_body PROPERTIES ENVIRONMENT "CUMETAL_USE_METAL_DEVICE_ADDRESSES=1;IMPACT_PAIR_RULE_MIN=1" WILL_FAIL TRUE)
     add_test(NAME destruction_gpu_impact_held_over_capacity COMMAND destruction_impact_capture_replay "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/impact-handoff/cannon-first.impc")
     set_tests_properties(destruction_gpu_impact_held_over_capacity PROPERTIES ENVIRONMENT "CUMETAL_USE_METAL_DEVICE_ADDRESSES=1;IMPACT_QUIET=1;IMPACT_METHOD=2;IMPACT_ROUTE=1;IMPACT_BOUND_IMPACTOR=1;IMPACT_HELD_CHECK=1")
     # The explicit step's energy invariant (Status::energyDeficit): fracture and
