@@ -150,6 +150,8 @@ int run(int argc,char** argv){
     // (PX_DESTRUCTION_IMPACT_TWO_BODY, _COMPLIANT_ROWS); unset, as captured.
     if(std::getenv("IMPACT_TWO_BODY"))s.explicitTwoBody=env("IMPACT_TWO_BODY",0.0f)!=0.0f;
     if(std::getenv("IMPACT_COMPLIANT_ROWS"))s.compliantRows=env("IMPACT_COMPLIANT_ROWS",0.0f)!=0.0f;
+    // IMPACT_DYNAMIC_STRUCK (0 or 1): rows on moving clusters the window's (PX_DESTRUCTION_IMPACT_DYNAMIC_STRUCK); unset, as captured.
+    if(std::getenv("IMPACT_DYNAMIC_STRUCK"))s.dynamicStruck=env("IMPACT_DYNAMIC_STRUCK",0.0f)!=0.0f;
     s.method=PxU32(env("IMPACT_METHOD",float(s.method)));s.stepDuration=env("IMPACT_STEP_DURATION",s.stepDuration);s.stepRadius=env("IMPACT_STEP_RADIUS",s.stepRadius);
     s.dispatchWork=PxU32(env("IMPACT_DISPATCH_WORK",float(s.dispatchWork)));   // keep dispatches short (a capture's own may be 2^20)
     const PxU32 n=h.n,m=h.m;
