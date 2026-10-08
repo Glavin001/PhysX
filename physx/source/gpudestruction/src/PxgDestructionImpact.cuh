@@ -1687,6 +1687,21 @@ __global__ void routeRows(Inputs in,Settings s,PxU32* routed,PxDestructionVector
     const float excess=fmaxf(0.0f,M*vn/s.dt-peak);
     if(excess>0.0f && Ln>0.0f)remove(fminf(1.0f,excess/Ln));
 }
+// Diagnostics (PX_DESTRUCTION_DEBUG_BODY): the routing of one body's rows -- [chunk, points |
+// resting << 16 | routed << 24, closing speed along its normal, depth], [peak, bound, island, 0].
+__global__ void debugRoutedRows(Inputs in,Settings s,const PxU32* routed,PxU32 body,float4* out,PxU32* count)
+{
+    const PxU32 r=blockIdx.x*blockDim.x+threadIdx.x;
+    const PxU32 rows=in.rowCounter?min(*in.rowCounter,in.rowCount):in.rowCount;if(r>=rows)return;
+    const ContactRow& row=in.rows[r];if(row.body!=body)return;
+    const PxU32 c=row.chunk;float peak=-1.0f,bound=-1.0f;
+    if(c<in.chunkCount && in.chunks[c].mass>0.0f)routeImpact(in,s,row,c,&peak,&bound);
+    float n[3]={row.normal[0],row.normal[1],row.normal[2]};const float nl=sqrtf(dot3(n,n));if(nl>0.0f)for(int q=0;q<3;++q)n[q]/=nl;
+    const float vn=dot3(row.velocity,n);
+    const PxU32 k=atomicAdd(count,1u);if(k>=32u)return;
+    out[2*k]=make_float4(__uint_as_float(c),__uint_as_float(row.points|(row.resting<<16)|((routed?routed[r]:0u)<<24)),vn,row.patch[1]);
+    out[2*k+1]=make_float4(peak,bound,__uint_as_float(c<in.chunkCount?in.nodeIslands?in.nodeIslands[c]:0u:0u),0.0f);
+}
 // Islands with a routed row are the impact solve's (its load is no longer in
 // the elastic solve, so the trigger cannot see it).
 __global__ void triggerRows(Inputs in,Scratch w)

@@ -2714,6 +2714,16 @@ public:
                     if(mImpactSettings.separatingOverlap){if(!mReleasedBound)allocate(mReleasedBound,size_t(impact::kContactCapacity));
                         check(cudaMemsetAsync(mReleasedBound,0,sizeof(float)*size_t(impact::kContactCapacity),mStream));}}
                 impact::routeRows<<<(impact::kContactCapacity+127)/128,128,0,mStream>>>(rin,rs,mImpactRowRouted,mInputs,mCompliant?mReboundGain:nullptr,mImpactSettings.separatingOverlap?mReleasedBound:nullptr);
+                if(mImpactLog && mDebugPairs) {
+                    static const PxU32 debugBody=[]{const char* v=std::getenv("PX_DESTRUCTION_DEBUG_BODY");return v?PxU32(std::atoi(v)):0xffffffffu;}();
+                    check(cudaMemsetAsync(mDebugCount,0,sizeof(PxU32),mStream));
+                    impact::debugRoutedRows<<<(impact::kContactCapacity+127)/128,128,0,mStream>>>(rin,rs,mImpactRowRouted,debugBody,mDebugPairs,mDebugCount);
+                    PxU32 n=0;check(cudaMemcpyAsync(&n,mDebugCount,sizeof n,cudaMemcpyDeviceToHost,mStream));check(cudaStreamSynchronize(mStream));
+                    n=std::min(n,32u);std::vector<float4> h(2*size_t(n));if(n)check(cudaMemcpy(h.data(),mDebugPairs,sizeof(float4)*2*n,cudaMemcpyDeviceToHost));
+                    for(PxU32 k=0;k<n;++k){PxU32 c,f,isl;std::memcpy(&c,&h[2*k].x,4);std::memcpy(&f,&h[2*k].y,4);std::memcpy(&isl,&h[2*k+1].z,4);
+                        std::fprintf(stderr,"[impact] debug body %u row pass %u: chunk %u island %u points %u resting %u routed %u, closing %.2f m/s, depth %.3f m, peak %.3g N against %.3g N\n",
+                            debugBody,mPass,c,isl,f&0xffffu,(f>>16)&0xffu,f>>24,h[2*k].z,h[2*k].w,h[2*k+1].x,h[2*k+1].y);}
+                }
                 if(mCompliant && mImpactLog){PxU32 g=0;check(cudaMemcpyAsync(&g,mReboundGain,sizeof g,cudaMemcpyDeviceToHost,mStream));check(cudaStreamSynchronize(mStream));
                     if(g)std::fprintf(stderr,"[impact] REBOUND GAIN: %u trial rows on anchored chunks whose impactor left faster along the contact's normal than it came in (pass %u; a bug signal)\n",g,mPass);}
                 if(mCompliant && !mPass && mN)markRoutedChunks<<<(impact::kContactCapacity+127)/128,128,0,mStream>>>(mImpactRows,mImpactRowCount,impact::kContactCapacity,mImpactRowRouted,mN,mRoutedChunks);
