@@ -88,7 +88,8 @@ int run(int argc,char** argv){
     cudaStream_t stream;check(cudaStreamCreateWithFlags(&stream,cudaStreamNonBlocking));
     impact::Stage e;e.allocate(n,m);
     impact::SolveRecord* log;allocate(log,impact::kLogCapacity);e.w.log=log;
-    float* trace=nullptr;if(std::getenv("IMPACT_TRACE")){allocate(trace,4*size_t(impact::kTraceCapacity));check(cudaMemset(trace,0,sizeof(float)*4*impact::kTraceCapacity));e.w.trace=trace;if(const char* v=std::getenv("IMPACT_TRACE_SOLVE"))e.w.traceSolve=PxU32(std::atoi(v));}
+    float* trace=nullptr;if(std::getenv("IMPACT_TRACE")){allocate(trace,4*size_t(impact::kTraceCapacity));check(cudaMemset(trace,0,sizeof(float)*4*impact::kTraceCapacity));e.w.trace=trace;if(const char* v=std::getenv("IMPACT_TRACE_SOLVE"))e.w.traceSolve=PxU32(std::atoi(v));
+        if(const char* v=std::getenv("IMPACT_TRACE_STRIDE"))e.w.traceStride=PxU32(std::max(1,std::atoi(v)));}
     float* linkRes=nullptr;const size_t links=size_t(m)+impact::kContactCapacity;
     if(trace){allocate(linkRes,6*links);check(cudaMemset(linkRes,0,sizeof(float)*6*links));e.w.linkResidual=linkRes;}
     // Island sizes as the stage has them.
@@ -134,7 +135,35 @@ int run(int argc,char** argv){
                     Z[6*l],Z[6*l+1],Z[6*l+2],Z[6*l+3],Z[6*l+4],Z[6*l+5]);}
             const PxU32 every=PxU32(std::max(1,std::atoi(std::getenv("IMPACT_TRACE"))));
             for(PxU32 i=0;i<impact::kTraceCapacity;i+=every){if(t[4*i]==0.0f && t[4*i+1]==0.0f && t[4*i+3]==0.0f)break;
-                std::printf("  step %5u: primal %.3e dual %.3e motion %.3e rho %.3e\n",i,t[4*i],t[4*i+1],t[4*i+2],t[4*i+3]);}
+                std::printf("  step %7u: primal %.3e dual %.3e motion %.3e rho %.3e\n",i*e.w.traceStride,t[4*i],t[4*i+1],t[4*i+2],t[4*i+3]);}
+        }
+        // IMPACT_REPORT: the joints broken (with their distance from the first
+        // contact point) and each coupled row's impulse on its chunk and the
+        // impactor's velocity change.
+        if(!r && std::getenv("IMPACT_REPORT")) {
+            std::vector<PxU32> v(m);check(cudaMemcpy(v.data(),e.w.verdict,sizeof(PxU32)*m,cudaMemcpyDeviceToHost));
+            std::vector<PxDestructionStressBond> hb(m);check(cudaMemcpy(hb.data(),in.bonds,sizeof(hb[0])*m,cudaMemcpyDeviceToHost));
+            std::vector<PxU32> flags(n);check(cudaMemcpy(flags.data(),e.w.islandFlag,sizeof(PxU32)*n,cudaMemcpyDeviceToHost));
+            const PxVec3 hit=hostRows.empty()?PxVec3(0):PxVec3(hostRows[0].point[0],hostRows[0].point[1],hostRows[0].point[2]);
+            PxU32 broken=0,yielded=0;std::vector<float> dist;
+            for(PxU32 k=0;k<m;++k){if(bondIslands[k]>=n || !flags[bondIslands[k]])continue;
+                if(v[k]==impact::eBROKEN){++broken;dist.push_back((hb[k].centroid-hit).magnitude());
+                    std::printf("  broken bond %u (chunks %u %u, material %u) at %.2f m from the hit\n",k,hb[k].chunk0,hb[k].chunk1,hb[k].material,dist.back());}
+                else if(v[k]==impact::eYIELDED)++yielded;}
+            std::sort(dist.begin(),dist.end());
+            std::printf("  E's verdict: %u broken (median %.2f m, max %.2f m from the hit), %u yielded\n",broken,dist.empty()?0.0f:dist[dist.size()/2],dist.empty()?0.0f:dist.back(),yielded);
+            if(!hostRows.empty()) {
+                std::vector<float> d(6*size_t(h.rows)),fo(3*size_t(h.rows));
+                check(cudaMemcpy(d.data(),in.rowDelta,sizeof(float)*d.size(),cudaMemcpyDeviceToHost));check(cudaMemcpy(fo.data(),in.rowForce,sizeof(float)*fo.size(),cudaMemcpyDeviceToHost));
+                PxVec3 total(0);
+                for(PxU32 i=0;i<h.rows;++i){const auto& q=hostRows[i];const PxVec3 F(fo[3*i],fo[3*i+1],fo[3*i+2]);total+=F*s.dt;
+                    std::printf("  row %u: chunk %u body %u, closing (%.2f %.2f %.2f) m/s, trial stop %.3g N s, solved impulse (%.3g %.3g %.3g) N s, impactor dv vs trial (%.3f %.3f %.3f) m/s\n",
+                        i,q.chunk,q.body,q.velocity[0],q.velocity[1],q.velocity[2],PxVec3(q.load[0],q.load[1],q.load[2]).magnitude()*s.dt,F.x*s.dt,F.y*s.dt,F.z*s.dt,d[6*i],d[6*i+1],d[6*i+2]);}
+                const float M=hostRows[0].im>0.0f?1.0f/hostRows[0].im:0.0f;
+                std::printf("  impulse on the struck chunks (all rows): (%.4g %.4g %.4g) N s; the impactor (%.0f kg) closing (%.2f %.2f %.2f) m/s: its momentum %.4g N s\n",
+                    total.x,total.y,total.z,M,hostRows[0].velocity[0],hostRows[0].velocity[1],hostRows[0].velocity[2],
+                    M*PxVec3(hostRows[0].velocity[0],hostRows[0].velocity[1],hostRows[0].velocity[2]).magnitude());
+            }
         }
         std::printf("%s: %u chunks, %u bonds, %u rows; %u islands, %u solves, %u iterations (%u capped), %u rounds; broke %u, yielded %u; %u contacts, %u impactors; %u diverged (worst bond %d), %u infeasible, %u non-finite, %u energy gains; error %u; %.1f ms in %u dispatches (longest %.1f ms)\n",
             argv[1],n,m,h.rows,st.triggered,st.solves,st.iterations,st.capped,st.rounds,st.broken,st.yielded,st.contacts,st.impactors,st.diverged,int(st.worstBond)-1,st.infeasible,st.nonfinite,st.energyGain,st.error,ms,e.dispatches,e.longestDispatch);

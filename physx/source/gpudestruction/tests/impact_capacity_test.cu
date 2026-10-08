@@ -531,35 +531,42 @@ void unconverged(){
     expect(r.status.capped>0 && r.status.cappedFallback>0 && extra==0 && re.status.cappedFallback>0 && differ==0 && active==0,text);
 }
 // 7b. The capped fallback with an impactor: a 1 t body at 10 m/s strikes a
-// 10 kg chunk on a 1 kN joint. The trial's stop (600 kN) is far past the
-// joint's capacity. With one ADMM step per solve the impact solve caps.
-// Default: the island keeps its last converged state (here its start: the
-// joint holds, no verdict from the capped iterate) and the impactor's contact
-// is bounded by what that state delivered (nothing), never the rigid stop.
-// cappedElastic: the elastic verdict (the joint breaks; the corrected pass
-// frees the chunk). Either way the invariant (heldOverCapacity) is 0; before
-// either fallback it counted this case (the rigid stop behind a held joint).
+// 10 kg chunk on a 1 kN joint. The trial's stop (600 kN over the tick,
+// 10 kN s) is far past what the chunk can push back: its joint at capacity
+// and its inertia, P = mu v + C dt M/(M+m) = 99 + 16.5 N s. With one ADMM
+// step per solve the impact solve caps. Default (the capacity fallback): the
+// brittle joint breaks (the corrected pass frees the chunk); a ductile one
+// (1 m ultimate slip) yields and the contact is bounded at P (per point),
+// never the rigid stop. cappedElastic: the elastic verdict (it breaks).
+// The invariant (heldOverCapacity) is 0 in each; before any fallback it
+// counted this case (the rigid stop behind a held joint).
 void fallback(){
     std::printf("a capped impact island never stops an impactor rigidly past capacity\n");
-    Structure s;const PxU32 anchor=s.chunk(PxVec3(0,0,0),0,0),wall=s.chunk(PxVec3(0,0.5f,0),10.0f,0.5f);
-    const PxU32 mat=s.material(1e5f,1e5f,1e5f,0.0f);   // 1 kN over 0.01 m^2
-    s.bond(anchor,wall,PxVec3(0,0.25f,0),PxVec3(0,1,0),0.01f,mat);
-    const float M=1000.0f,v=10.0f,dt=1.0f/60.0f;
-    impact::ContactRow row{};row.chunk=wall;row.body=0;row.points=4;row.friction=0.0f;
-    const float point[3]={-0.25f,0.5f,0},com[3]={-1.0f,0.5f,0};
-    for(int q=0;q<3;++q){row.point[q]=point[q];row.com[q]=com[q];}
-    row.normal[0]=1;row.load[0]=M*v/dt;row.velocity[0]=v;row.dv[0]=-v;row.im=1.0f/M;row.ii[0]=row.ii[1]=row.ii[2]=1.0f/400.0f;
-    s.rows.push_back(row);
-    const auto rest=elastic(s,s.force,s.torque);
-    auto F=s.force;F[wall]+=PxVec3(row.load[0],0,0);
+    auto make=[](float slip){
+        Structure s;const PxU32 anchor=s.chunk(PxVec3(0,0,0),0,0),wall=s.chunk(PxVec3(0,0.5f,0),10.0f,0.5f);
+        const PxU32 mat=s.material(1e5f,1e5f,1e5f,slip);   // 1 kN over 0.01 m^2
+        s.bond(anchor,wall,PxVec3(0,0.25f,0),PxVec3(0,1,0),0.01f,mat);
+        impact::ContactRow row{};row.chunk=wall;row.body=0;row.points=4;row.friction=0.0f;
+        const float point[3]={-0.25f,0.5f,0},com[3]={-1.0f,0.5f,0};
+        for(int q=0;q<3;++q){row.point[q]=point[q];row.com[q]=com[q];}
+        row.normal[0]=1;row.load[0]=1000.0f*10.0f*60.0f;row.velocity[0]=10.0f;row.dv[0]=-10.0f;row.im=1e-3f;row.ii[0]=row.ii[1]=row.ii[2]=1.0f/400.0f;
+        s.rows.push_back(row);return s;
+    };
     impact::Settings one;one.iterations=1;impact::Settings oneElastic=one;oneElastic.cappedElastic=true;
-    const auto r=evaluate(s,F,s.torque,rest,true,one),e=evaluate(s,F,s.torque,rest,true,oneElastic);
-    char text[300];std::snprintf(text,sizeof text,"converged state: capped %u, fallen back %u, the joint %s, bound %.3g N s, held over capacity %u;"
-        " elastic: fallen back %u, the joint %s, held over capacity %u (expected capped, fallen back, held, > 0, 0; fallen back, broken, 0)",
-        r.status.capped,r.status.cappedFallback,r.verdicts[0].health<=0?"broken":"held",r.rowBound[0],r.status.heldOverCapacity,
-        e.status.cappedFallback,e.verdicts[0].health<=0?"broken":"held",e.status.heldOverCapacity);
-    expect(r.status.capped>0 && r.status.cappedFallback>0 && r.verdicts[0].health>0 && r.rowBound[0]>0.0f && r.status.heldOverCapacity==0
-        && e.status.cappedFallback>0 && e.verdicts[0].health<=0 && e.status.heldOverCapacity==0,text);
+    auto run=[&](const Structure& s,const impact::Settings& st){
+        const auto rest=elastic(s,s.force,s.torque);auto F=s.force;F[1]+=PxVec3(s.rows[0].load[0],0,0);
+        return evaluate(s,F,s.torque,rest,true,st);};
+    const Structure brittle=make(0.0f),ductile=make(1.0f);
+    const auto r=run(brittle,one),d=run(ductile,one),e=run(brittle,oneElastic);
+    const float m=10.0f,M=1000.0f,mu=M*m/(M+m),P=mu*10.0f+1000.0f/60.0f*M/(M+m);
+    char text[400];std::snprintf(text,sizeof text,"capacity fallback: capped %u, fallen back %u, brittle joint %s, held over capacity %u; ductile joint %s (%s), bound %.2f N s per point (P/4 = %.2f);"
+        " elastic: joint %s, held over capacity %u (expected capped, fallen back, broken, 0; held, yielded, P/4; broken, 0)",
+        r.status.capped,r.status.cappedFallback,r.verdicts[0].health<=0?"broken":"held",r.status.heldOverCapacity,
+        d.verdicts[0].health<=0?"broken":"held",d.impact[0]==impact::eYIELDED?"yielded":"not yielded",d.rowBound[0],P/4.0f,
+        e.verdicts[0].health<=0?"broken":"held",e.status.heldOverCapacity);
+    expect(r.status.capped>0 && r.status.cappedFallback>0 && r.verdicts[0].health<=0 && r.status.heldOverCapacity==0
+        && d.verdicts[0].health>0 && d.impact[0]==impact::eYIELDED && std::fabs(d.rowBound[0]-P/4.0f)<1e-3f*P && d.status.heldOverCapacity==0
+        && e.verdicts[0].health<=0 && e.status.heldOverCapacity==0,text);
 }
 // 8. The evaluation split into dispatches resumes exactly: the wall with
 // about one ADMM step per dispatch gives the same forces and verdicts, bit

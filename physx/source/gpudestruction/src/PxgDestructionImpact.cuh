@@ -63,7 +63,7 @@ namespace impact {
 
 constexpr PxU32 kAndersonDepth=5;   // Anderson acceleration's deepest history (Settings::andersonDepth)
 enum Verdict : PxU32 { eNONE=0, eHELD=1, eYIELDED=2, eBROKEN=3 };
-enum BondFlag : PxU32 { eDYNAMIC0=1, eDYNAMIC1=2, eDUCTILE=4, eALIVE=8, eCONTACT=16 };
+enum BondFlag : PxU32 { eDYNAMIC0=1, eDYNAMIC1=2, eDUCTILE=4, eALIVE=8, eCONTACT=16, eYIELDED_AT_CAPACITY=32 };
 
 // The coupled contact (design step 2): a body that struck an island in the
 // trial -- a vehicle, a ball, a loose piece -- enters the island's solve as a
@@ -278,6 +278,7 @@ struct Scratch {
     float* slip{};         // [M] each solved bond's plastic slip this evaluation (m)
     float* linkResidual{}; // [6 (M + R)] or null: each link's last primal, dual, dual linear/angular and their float floors (diagnostics)
     PxU32 traceSolve=0;    // which solve the trace records (by Status::solves at its start)
+    PxU32 traceStride=1;   // the trace records every traceStride-th step (diagnostics of long solves)
     float* trace{};        // [4 kTraceCapacity] or null: the first solve's (primal, dual, motion, rho) per ADMM step (diagnostics)
     struct IslandState* state{}; // [N] by triggered-island slot
 };
@@ -1081,7 +1082,7 @@ __device__ PxU32 solve(Shared& sh,const Inputs& in,const Settings& s,const Scrat
             }
         }
         primal=blockMax(sh,primal);dual=blockMax(sh,dual);last=fmaxf(primal,dual/s.tolerance*s.capacityTolerance);
-        if(w.trace && !threadIdx.x && blockIdx.x==0 && w.status->solves==w.traceSolve && it<kTraceCapacity){float* t=w.trace+4*it;t[0]=primal;t[1]=dual;t[2]=motion;t[3]=rho;}
+        if(w.trace && !threadIdx.x && blockIdx.x==0 && w.status->solves==w.traceSolve && it%w.traceStride==0 && it/w.traceStride<kTraceCapacity){float* t=w.trace+4*(it/w.traceStride);t[0]=primal;t[1]=dual;t[2]=motion;t[3]=rho;}
         // A projection that left its set is a bug: no verdict from this solve.
         const bool infeasible=blockCount(sh,bad)>0;
         if(!infeasible && !(primal>s.capacityTolerance) && !(dual>s.tolerance) && !(motion>s.tolerance)){done=true;++it;++run;break;}
@@ -1452,6 +1453,67 @@ __global__ __launch_bounds__(kThreads) void setupIslands(Inputs in,Settings s,Sc
     }
 }
 
+// The capped island's contacts, bounded by physics whatever the solve did.
+// A struck chunk pushes back on its impactor with at most its joints'
+// capacities (each joint's linear capacity along the contact force: axial,
+// compression toward a neighbour ahead and tension toward one behind, over
+// the force's axial share, and shear over its transverse share; moments only
+// lower it, so this bounds it from above) and its own inertia: the impactor
+// and the chunk leave together with every joint at capacity,
+//   P = mu v_n + C dt M/(M + m),  mu = M m/(M + m).
+// When the trial's stop D (its rigid impulse on the chunk) exceeds P, the
+// chunk's joints are at capacity: brittle ones break, ductile ones yield and
+// slip with the chunk, 1/2 v' dt (v' = (P - C dt)/m), breaking past their
+// ultimate slip. The impactor loses exactly the impulse the chunk's remaining
+// joints and its inertia take (the bound, in w.T of the row's link; per
+// point when published). Otherwise the joints hold the stop: bound P (>= D).
+// The rest of the island keeps its last converged state. Returns joints broken.
+__device__ PxU32 capacityFallback(Shared& sh,const Inputs& in,const Settings& s,const Scratch& w,const Island& is,PxU32 rounds,PxU32 level)
+{
+    const PxU32 nb=is.nb;PxU32 broken=0;
+    for(PxU32 k=threadIdx.x;k<is.nr;k+=kThreads) {
+        const PxU32 lr=is.b0+nb+k;const Bond& r=w.bonds[lr];const ContactRow& row=in.rows[r.bond];
+        w.T[6*lr]=0.0f;
+        const Chunk* struck=nullptr;
+        for(PxU32 m2=0;m2<is.nc;++m2)if(w.chunks[is.c0+m2].chunk==r.c0){struck=&w.chunks[is.c0+m2];break;}
+        if(!struck || !(struck->im>0.0f))continue;
+        const float* n=row.normal;
+        float brittle=0.0f,ductile=0.0f;
+        for(PxU32 s2=struck->begin;s2<struck->end;++s2) {
+            const Bond& b=w.bonds[w.adj[s2]];if((b.flags&eCONTACT) || !(b.flags&eALIVE))continue;
+            const float a=(b.c0==struck->chunk?1.0f:-1.0f)*(b.n[0]*n[0]+b.n[1]*n[1]+b.n[2]*n[2]);
+            const float t=sqrtf(fmaxf(0.0f,1.0f-a*a));
+            float f=FLT_MAX;
+            if(fabsf(a)>0.0f)f=(a>0.0f?b.capC:b.capT)/fabsf(a);
+            if(t>0.0f)f=fminf(f,b.capS/t);
+            if(b.flags&eDUCTILE)ductile+=f;else brittle+=f;
+        }
+        const float m=1.0f/struck->im,M=row.im>0.0f?1.0f/row.im:FLT_MAX,share=M/(M+m),mu=m*share;
+        const float vn=fmaxf(0.0f,row.velocity[0]*n[0]+row.velocity[1]*n[1]+row.velocity[2]*n[2]);
+        const float D=fabsf(row.load[0]*n[0]+row.load[1]*n[1]+row.load[2]*n[2])*s.dt;
+        const float P=mu*vn+(brittle+ductile)*s.dt*share;
+        if(!(D>P)){w.T[6*lr]=P;continue;}
+        // Past capacity: the brittle joints break; the ductile ones carry their
+        // capacity while the chunk moves off at v'.
+        const float Pd=mu*vn+ductile*s.dt*share,v=fmaxf(0.0f,(Pd-ductile*s.dt)*struck->im);
+        w.T[6*lr]=Pd;
+        for(PxU32 s2=struck->begin;s2<struck->end;++s2) {
+            const PxU32 l=w.adj[s2];Bond& b=w.bonds[l];if((b.flags&eCONTACT) || !(b.flags&eALIVE))continue;
+            bool fails=!(b.flags&eDUCTILE);
+            const float slip=0.5f*v*s.dt;
+            if(!fails)fails=(in.slipBefore?in.slipBefore[b.bond]:0.0f)+slip>b.slip;
+            if(fails) {
+                if(atomicAnd(&b.flags,~PxU32(eALIVE))&eALIVE) {
+                    ++broken;for(int q=0;q<6;++q)w.J[6*l+q]=0.0f;
+                    if(w.breaks){w.breaks[2*b.bond]=float(rounds)+0.01f*float(level);w.breaks[2*b.bond+1]=slip;}
+                }
+            } else {atomicOr(&b.flags,PxU32(eYIELDED_AT_CAPACITY));w.T[6*l]=slip;}
+        }
+        if(!(brittle>0.0f) && !(ductile>0.0f))w.T[6*lr]=0.0f;
+    }
+    return blockCount(sh,broken);
+}
+
 // One dispatch of every island's evaluation: at most Settings::dispatchWork
 // link-and-node visits of ADMM steps per block, then it stops where it is.
 __global__ __launch_bounds__(kThreads) void stepIslands(Inputs in,Settings s,Scratch w)
@@ -1554,6 +1616,7 @@ __global__ __launch_bounds__(kThreads) void stepIslands(Inputs in,Settings s,Scr
             }
             if(st.phase==ePUBLISH) {
                 if(st.failed && !threadIdx.x)finishFailed(w,4u);
+                if(st.capped && !s.cappedElastic && is.nr){st.broken+=capacityFallback(sh,in,s,w,is,st.rounds,st.level);__syncthreads();}
                 // Publish: forces in the solver's convention, verdicts, accelerations.
                 chunkPass(in,w,is,st.capped?st.lambda:1.0f,w.J,true);
                 __syncthreads();
@@ -1571,6 +1634,8 @@ __global__ __launch_bounds__(kThreads) void stepIslands(Inputs in,Settings s,Scr
                         // A yielded joint slips with its chunks' relative motion (a held one does not).
                         if(!st.capped){float e[6];relative(b,w.u,e);slip=0.5f*sqrtf(e[0]*e[0]+e[1]*e[1]+e[2]*e[2])*s.dt*s.dt;}
                     }
+                    // The capacity fallback's ductile joints: yielded at capacity, slipping with the struck chunk.
+                    if(st.capped && (b.flags&eALIVE) && (b.flags&eYIELDED_AT_CAPACITY)){if(v!=eYIELDED)++yielded;v=eYIELDED;slip=w.T[6*l];}
                     w.verdict[b.bond]=v;if(w.slip)w.slip[b.bond]=slip;
                 }
                 // Each impactor's end velocity against the trial's, for
@@ -1609,7 +1674,7 @@ __global__ __launch_bounds__(kThreads) void stepIslands(Inputs in,Settings s,Scr
                             bound=sqrtf(lin[0]*lin[0]+lin[1]*lin[1]+lin[2]*lin[2])*s.dt/float(max(row.points,1u));
                             // Capped: what the last converged state delivered, however
                             // little (a bound of 0 reads as none: the rigid stop).
-                            if(st.capped)bound=fmaxf(bound,FLT_MIN);
+                            if(st.capped)bound=fmaxf(w.T[6*l]/float(max(row.points,1u)),FLT_MIN);
                         }
                     }
                     if(in.rowBound)in.rowBound[r.bond]=bound;
