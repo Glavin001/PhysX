@@ -266,6 +266,8 @@ struct ImpactContact {
     // The contact routing (impact::Settings::route): |g|, so a pair that is not
     // closing but loads the structure past what its body can exchange is a row.
     bool route; float gravity;
+    // Rows on a moving cluster's chunks too (impact::Settings::dynamicStruck).
+    bool dynamicStruck;
     // The anchored-chunk contact bound (PX_DESTRUCTION_ANCHORED_CONTACT_BOUND):
     // each chunk's {capacity * dt, mass} as the rigid solver's contact prep read
     // it, and per chunk a flag: a contact on it was cut at that bound this pass.
@@ -281,7 +283,11 @@ __device__ void coupleRow(PxU32 chunk,PxU32 otherChunk,PxNodeIndex own,PxNodeInd
     if(!ci.rows || chunk==PX_INVALID_U32 || other.isStaticBody() || other.isArticulation() || own.isArticulation())return;
     const auto c=chunks[chunk];if(!(c.mass>0.0f))return;
     const PxU32 clusterBody=ci.clusters[c.cluster].body;
-    if(!(bodies[clusterBody].linearVelocityXYZ_inverseMassW.w==0.0f))return; // the struck cluster moves: the rigid solve has the exchange
+    // A moving struck cluster: the rigid solve has the exchange, unless a dynamic
+    // struck structure is the impact model's too (Settings::dynamicStruck: a car
+    // struck by debris; the rows are relative to its motion at the tick's start).
+    const float clusterIm=bodies[clusterBody].linearVelocityXYZ_inverseMassW.w;
+    if(!(clusterIm==0.0f) && !ci.dynamicStruck)return;
     const auto& b=bodies[other.index()];const float im=b.linearVelocityXYZ_inverseMassW.w;
     if(!(im>0.0f) || other.index()==clusterBody)return;
     const bool early=ci.before && other.index()<ci.beforeCount && clusterBody<ci.beforeCount;
@@ -390,6 +396,8 @@ __device__ void coupleRow(PxU32 chunk,PxU32 otherChunk,PxNodeIndex own,PxNodeInd
         row.otherPose[0]=rel.q.x;row.otherPose[1]=rel.q.y;row.otherPose[2]=rel.q.z;row.otherPose[3]=rel.q.w;
         row.otherPose[4]=rel.p.x;row.otherPose[5]=rel.p.y;row.otherPose[6]=rel.p.z;
     }
+    // A dynamic struck cluster's inverse mass (0: anchored; the routing's reduced mass).
+    row.clusterIm=clusterIm;row.clusterBody=clusterIm>0.0f?clusterBody:0xffffffffu;
     // The patch: its points' RMS distance from their centroid, and its deepest point's
     // penetration (negative: the gap its nearest point still has to close).
     if(patchPoints){const PxVec3 c=patchSum*(1.0f/float(patchPoints));row.patch[0]=sqrtf(fmaxf(patchSq/float(patchPoints)-c.magnitudeSquared(),0.0f));row.patch[1]=patchDepth;}
@@ -2133,6 +2141,9 @@ public:
                     // their routing and the pairwise bounds that drop the decided pairs.
                     mImpactSettings.compliant=env("PX_DESTRUCTION_IMPACT_COMPLIANT",0.0f)!=0.0f && mImpactSettings.method==2u;
                     if(mImpactSettings.compliant){mImpactSettings.compliantRows=mImpactSettings.route=mImpactSettings.boundImpactor=mImpactSettings.boundPairwise=true;}
+                    // PX_DESTRUCTION_IMPACT_DYNAMIC_STRUCK=1: a moving bonded structure (a car) struck
+                    // by a fast body is the explicit step's too, its whole island a free patch.
+                    mImpactSettings.dynamicStruck=env("PX_DESTRUCTION_IMPACT_DYNAMIC_STRUCK",0.0f)!=0.0f;
                     std::vector<float> slip(d.materialCount),stiffness(d.materialCount);
                     for(PxU32 i=0;i<d.materialCount;++i){slip[i]=d.materials[i].ductileSlip;stiffness[i]=d.materials[i].impactStiffness;}
                     allocate(mImpactSlip,d.materialCount);allocate(mImpactStiffness,d.materialCount);
@@ -2616,6 +2627,7 @@ public:
                 // The impact solve's motion tolerance over the tick, as a speed.
                 impactContacts.separating=mImpactSettings.tolerance/dt;
                 impactContacts.route=mImpactSettings.route;impactContacts.gravity=gravity.magnitude();
+                impactContacts.dynamicStruck=mImpactSettings.dynamicStruck;
             }
             if(mImpactCrush || mImpactRows) {
                 if(mCheckpointValid)check(cudaStreamWaitEvent(mStream,mCheckpointReady,0));

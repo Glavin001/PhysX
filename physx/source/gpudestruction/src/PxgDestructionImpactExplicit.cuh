@@ -96,6 +96,9 @@ struct ExPatch {
     // (another island, past the patch's radius, past its rows): the corrected pass then keeps
     // its pairs (bounded at what the window delivered) and the rigid simulation's momentum.
     PxU32 uncovered=0u;
+    // A dynamic struck island (Settings::dynamicStruck; its rows' clusterIm > 0): the
+    // whole island, free (the window's frame its cluster's, moving with it); its seed row.
+    PxU32 dynamic=0,dynamicRow=0xffffffffu;
 };
 // A joint of the patch: local node ends (0xffffffff: held), state bits.
 // eEX_ROWS: an end of the joint has contact rows (exRunT sets it; the window's
@@ -169,8 +172,12 @@ struct ExScratch {
     // The window's hand-off to the corrected pass (exPublish; null: none): per
     // patch and impactor, its body and its end velocity; per stage row, 1 where
     // the window decided it (IMPACT_STEP_PLAN.md section 1, rule 3).
-    struct Handoff { PxU32 island,body,patch,pad; float v[3],w[3]; };
-    Handoff* handoff{};   // [kExPatches * kExHandoffs]: island ~0 a rigid impactor, else the two-body car's island
+    // v, w at the window's end and v0, w0 at its start, in the struck cluster's frame,
+    // relative to its rigid motion at the tick's start: the corrected pass applies the
+    // change, v - v0 (rotated to the world), to the body's start (records of one body
+    // from several windows sum their changes).
+    struct Handoff { PxU32 island,body,patch,pad; float v[3],w[3],v0[3],w0[3]; };
+    Handoff* handoff{};   // [kExPatches * kExHandoffs]: island ~0 a rigid impactor, else the two-body car's or the dynamic struck island
     PxU32* handoffCount{};// [1]
     PxU32* rowDecided{};  // [kContactCapacity]
     float4* ja{};         // [P][kExLinks][9]
@@ -495,11 +502,16 @@ __global__ void exList(Inputs in,Settings s,Scratch w,ExScratch t)
         const PxU32 o=in.rows[r].other;
         const PxU32 rowCar=(s.explicitTwoBody && o<in.chunkCount)?in.nodeIslands[o]:0xffffffffu;
         bool heldElsewhere=false;
-        if(rowCar<in.chunkCount)for(PxU32 k=0;k<count;++k)heldElsewhere=heldElsewhere || (k!=p && t.patches[k].car==rowCar);
+        if(rowCar<in.chunkCount)for(PxU32 k=0;k<count;++k)heldElsewhere=heldElsewhere || (k!=p && (t.patches[k].car==rowCar || t.patches[k].island==rowCar));
         if(heldElsewhere && !stepped)continue;
+        // (likewise a struck island another patch holds as its car: its chunks are that
+        // patch's nodes; this row stays the rigid solve's)
+        {bool carElsewhere=false;for(PxU32 k=0;k<count;++k)carElsewhere=carElsewhere || (k!=p && t.patches[k].car==island);if(carElsewhere)continue;}
         if(p==count) {
             if(count>=kExPatches){atomicOr(&w.status->error,1u);continue;}
-            ExPatch e{};e.island=island;e.radius=s.stepRadius;e.seed=r;t.patches[count++]=e;
+            ExPatch e{};e.island=island;e.radius=s.stepRadius;e.seed=r;
+            if(s.dynamicStruck && in.rows[r].clusterIm>0.0f){e.dynamic=1u;e.dynamicRow=r;e.radius=FLT_MAX;}
+            t.patches[count++]=e;
         }
         ExPatch& e=t.patches[p];PxU32* list=t.rowList+size_t(p)*kExRows;
         if(e.listed>=kExRows){e.failed=1;continue;}
@@ -561,16 +573,19 @@ __global__ __launch_bounds__(kThreads) void exBuild(Inputs in,Settings s,Scratch
         if(carCount+bodies>=kExNodes/2){__syncthreads();if(!threadIdx.x)sp.car=0xffffffffu;__syncthreads();carCount=0;}
     }
     const PxU32 car=sp.car;
-    float radius=s.stepRadius;PxU32 count=0;
-    for(int attempt=0;attempt<32;++attempt) {
+    // (a dynamic struck island: all of it, free; one too large for the patch falls
+    // back to the anchored patch around its rows, its remainder held: truncated)
+    const bool dynamic=sp.dynamic!=0u;
+    float radius=dynamic?FLT_MAX:s.stepRadius;PxU32 count=0;
+    for(int attempt=0;attempt<33;++attempt) {
         PxU32 c=0;
         for(PxU32 i=threadIdx.x;i<in.chunkCount;i+=kThreads)
             c+=(in.nodeIslands[i]==island && in.chunks[i].mass>0.0f && !chunkGone(in,i) && near(i,radius,hit))?1u:0u;
         count=blockCount(sh,c);
         if(count+bodies+carCount<=kExNodes)break;
-        radius*=0.85f;
+        radius=radius==FLT_MAX?s.stepRadius:radius*0.85f;
     }
-    if(!threadIdx.x){sp.radius=radius;if(radius<s.stepRadius)sp.truncated=1;sh.flag=0;}
+    if(!threadIdx.x){sp.radius=radius;if(radius<(dynamic?FLT_MAX:s.stepRadius))sp.truncated=1;sh.flag=0;}
     __syncthreads();
     // Chunk nodes (chunk order).
     for(PxU32 tile=0;tile<in.chunkCount;tile+=kThreads) {
@@ -581,6 +596,10 @@ __global__ __launch_bounds__(kThreads) void exBuild(Inputs in,Settings s,Scratch
             const PxU32 k=sh.flag+prefix;
             if(k<kExNodes){t.nodeOf[i]=(p<<16)|k;ExNode n{};n.chunk=i;n.tensor=0;const auto c=in.chunks[i];
                 n.im=1.0f/c.mass;n.Iinv[0]=n.Iinv[1]=n.Iinv[2]=c.inertia>0.0f?1.0f/c.inertia:0.0f;
+                // (a dynamic struck island's chunks too start at rest: the window's frame
+                // is its cluster's, moving with it -- the rows' velocities are relative
+                // to its rigid motion at the tick's start; the frame's rotation over the
+                // window, a few ms, is left out)
                 n.x0[0]=c.position.x;n.x0[1]=c.position.y;n.x0[2]=c.position.z;nodes[k]=n;}
         }
         __syncthreads();if(!threadIdx.x)sh.flag+=total;__syncthreads();
@@ -1386,6 +1405,23 @@ __global__ __launch_bounds__(kExThreads) void exRunSmall(Settings s,Scratch w,Ex
 // and bound (the impulse delivered over the window, per point), the
 // impactors' change; the rest of the island is held at its rest forces
 // (stepPublish, launched first).
+// A free group of chunk nodes [b0, b1) as one rigid body: its centre-of-mass velocity
+// and its angular momentum about its centre of mass over the sum of its chunks'
+// inertia and m r^2 2/3 (exact for a rigid group of round chunks), at the window's
+// end (n.v) or start (n.v0); chunk positions x = rq c + rp in the struck frame.
+__device__ void exGroupMotion(const Inputs& in,const ExNode* nodes,PxU32 b0,PxU32 b1,const PxQuat& rq,const PxVec3& rp,bool start,float* v,float* w)
+{
+    double m=0.0,c[3]={0,0,0},pm[3]={0,0,0};
+    for(PxU32 k=b0;k<b1;++k){const ExNode& n=nodes[k];const float* u=start?n.v0:n.v;const double mk=n.im>0.0f?1.0/n.im:0.0;const PxVec3 x=rq.rotate(in.chunks[n.chunk].position)+rp;
+        m+=mk;c[0]+=mk*x.x;c[1]+=mk*x.y;c[2]+=mk*x.z;for(int a=0;a<3;++a)pm[a]+=mk*u[a];}
+    if(m>0.0){for(int a=0;a<3;++a){c[a]/=m;pm[a]/=m;}}
+    double L[3]={0,0,0},I=0.0;
+    for(PxU32 k=b0;k<b1;++k){const ExNode& n=nodes[k];const float* u0=start?n.v0:n.v;const double mk=n.im>0.0f?1.0/n.im:0.0,ik=n.Iinv[0]>0.0f?1.0/n.Iinv[0]:0.0;
+        const PxVec3 x=rq.rotate(in.chunks[n.chunk].position)+rp;const double r[3]={x.x-c[0],x.y-c[1],x.z-c[2]},u[3]={u0[0]-pm[0],u0[1]-pm[1],u0[2]-pm[2]};
+        L[0]+=ik*u0[3]+mk*(r[1]*u[2]-r[2]*u[1]);L[1]+=ik*u0[4]+mk*(r[2]*u[0]-r[0]*u[2]);L[2]+=ik*u0[5]+mk*(r[0]*u[1]-r[1]*u[0]);
+        I+=ik+mk*(r[0]*r[0]+r[1]*r[1]+r[2]*r[2])*2.0/3.0;}
+    for(int a=0;a<3;++a){v[a]=float(pm[a]);w[a]=I>0.0?float(L[a]/I):0.0f;}
+}
 __global__ void exPublish(Inputs in,Settings s,Scratch w,ExScratch t)
 {
     const PxU32 p=blockIdx.y;if(p>=*t.patchCount)return;
@@ -1467,35 +1503,38 @@ __global__ void exPublish(Inputs in,Settings s,Scratch w,ExScratch t)
     // velocity; the two-body car's centre-of-mass velocity and an angular velocity
     // (its angular momentum about its centre of mass over the sum of its chunks'
     // inertia and m r^2 2/3: exact for a rigid car of round chunks).
-    if(t.rowDecided)for(PxU32 r=tid;r<sp.rows;r+=stride)t.rowDecided[rows[r].row]=1u;
+    // (a dynamic struck island too large for one patch was held beyond it: its rows'
+    // momentum stays the rigid solve's, so they are not marked decided)
+    if(t.rowDecided && !(sp.dynamic && sp.truncated))for(PxU32 r=tid;r<sp.rows;r+=stride)t.rowDecided[rows[r].row]=1u;
     if(t.handoff && !blockIdx.x && !threadIdx.x) {
         for(PxU32 k=sp.chunks;k<sp.nodes;++k){const ExNode& n=nodes[k];if(!n.tensor)continue;
             PxU32 body=0xffffffffu;for(PxU32 r=0;r<sp.rows;++r)if(rows[r].b==k){body=in.rows[rows[r].row].body;break;}
             const PxU32 slot=atomicAdd(t.handoffCount,1u);if(slot>=kExHandoffs)break;
-            ExScratch::Handoff hnd{};hnd.island=0xffffffffu;hnd.body=body;hnd.patch=p;for(int q=0;q<3;++q){hnd.v[q]=n.v[q];hnd.w[q]=n.v[3+q];}
+            ExScratch::Handoff hnd{};hnd.island=0xffffffffu;hnd.body=body;hnd.patch=p;for(int q=0;q<3;++q){hnd.v[q]=n.v[q];hnd.w[q]=n.v[3+q];hnd.v0[q]=n.v0[q];hnd.w0[q]=n.v0[3+q];}
             hnd.pad=(s.compliant && n.radius>0.0f && !sp.uncovered)?1u:0u;   // its pairs dropped: it starts the corrected pass at this velocity
             t.handoff[slot]=hnd;}
         if(sp.twoBody) {
-            double m=0.0,c[3]={0,0,0},pm[3]={0,0,0};const PxU32 b0=sp.chunks-sp.carChunks;
             const ContactRow& q=in.rows[sp.carRow];const PxQuat rq(q.otherPose[0],q.otherPose[1],q.otherPose[2],q.otherPose[3]);const PxVec3 rp(q.otherPose[4],q.otherPose[5],q.otherPose[6]);
-            for(PxU32 k=b0;k<sp.chunks;++k){const ExNode& n=nodes[k];const double mk=n.im>0.0f?1.0/n.im:0.0;const PxVec3 x=rq.rotate(in.chunks[n.chunk].position)+rp;
-                m+=mk;c[0]+=mk*x.x;c[1]+=mk*x.y;c[2]+=mk*x.z;for(int a=0;a<3;++a)pm[a]+=mk*n.v[a];}
-            if(m>0.0){for(int a=0;a<3;++a){c[a]/=m;pm[a]/=m;}}
-            double L[3]={0,0,0},I=0.0;
-            for(PxU32 k=b0;k<sp.chunks;++k){const ExNode& n=nodes[k];const double mk=n.im>0.0f?1.0/n.im:0.0,ik=n.Iinv[0]>0.0f?1.0/n.Iinv[0]:0.0;
-                const PxVec3 x=rq.rotate(in.chunks[n.chunk].position)+rp;const double r[3]={x.x-c[0],x.y-c[1],x.z-c[2]},u[3]={n.v[0]-pm[0],n.v[1]-pm[1],n.v[2]-pm[2]};
-                L[0]+=ik*n.v[3]+mk*(r[1]*u[2]-r[2]*u[1]);L[1]+=ik*n.v[4]+mk*(r[2]*u[0]-r[0]*u[2]);L[2]+=ik*n.v[5]+mk*(r[0]*u[1]-r[1]*u[0]);
-                I+=ik+mk*(r[0]*r[0]+r[1]*r[1]+r[2]*r[2])*2.0/3.0;}
             const PxU32 slot=atomicAdd(t.handoffCount,1u);
             if(slot<kExHandoffs){ExScratch::Handoff hnd{};hnd.island=sp.car;hnd.body=q.body;hnd.patch=p;hnd.pad=s.compliant?1u:0u;
-                for(int a=0;a<3;++a){hnd.v[a]=float(pm[a]);hnd.w[a]=I>0.0?float(L[a]/I):0.0f;}t.handoff[slot]=hnd;}
+                exGroupMotion(in,nodes,sp.chunks-sp.carChunks,sp.chunks,rq,rp,false,hnd.v,hnd.w);exGroupMotion(in,nodes,sp.chunks-sp.carChunks,sp.chunks,rq,rp,true,hnd.v0,hnd.w0);
+                t.handoff[slot]=hnd;}
+        }
+        // A dynamic struck island (Settings::dynamicStruck): its own motion's change.
+        if(sp.dynamic && !sp.truncated) {
+            const ContactRow& q=in.rows[sp.dynamicRow];const PxQuat rq(PxIdentity);const PxVec3 rp(0.0f);
+            const PxU32 slot=atomicAdd(t.handoffCount,1u);
+            if(slot<kExHandoffs){ExScratch::Handoff hnd{};hnd.island=sp.island;hnd.body=q.clusterBody;hnd.patch=p;hnd.pad=s.compliant?1u:0u;
+                exGroupMotion(in,nodes,0,sp.chunks-sp.carChunks,rq,rp,false,hnd.v,hnd.w);exGroupMotion(in,nodes,0,sp.chunks-sp.carChunks,rq,rp,true,hnd.v0,hnd.w0);
+                t.handoff[slot]=hnd;}
         }
     }
     if(!blockIdx.x && !threadIdx.x) {
         float in0=0.0f,out0=0.0f;
         // (translational and rotational: w . I w / 2, I the inverse of the node's inverse inertia)
         // (and a two-body car's chunks: scalar inertia)
-        for(PxU32 k=sp.chunks-sp.carChunks;k<sp.chunks;++k){const ExNode& n=nodes[k];const float m=n.im>0.0f?1.0f/n.im:0.0f,I=n.Iinv[0]>0.0f?1.0f/n.Iinv[0]:0.0f;
+        // (and a dynamic struck island's chunks: they move, relative to the frame, too)
+        for(PxU32 k=sp.dynamic?0u:sp.chunks-sp.carChunks;k<sp.chunks;++k){const ExNode& n=nodes[k];const float m=n.im>0.0f?1.0f/n.im:0.0f,I=n.Iinv[0]>0.0f?1.0f/n.Iinv[0]:0.0f;
             in0+=0.5f*m*(n.v0[0]*n.v0[0]+n.v0[1]*n.v0[1]+n.v0[2]*n.v0[2])+0.5f*I*(n.v0[3]*n.v0[3]+n.v0[4]*n.v0[4]+n.v0[5]*n.v0[5]);
             out0+=0.5f*m*(n.v[0]*n.v[0]+n.v[1]*n.v[1]+n.v[2]*n.v[2])+0.5f*I*(n.v[3]*n.v[3]+n.v[4]*n.v[4]+n.v[5]*n.v[5]);}
         for(PxU32 k=sp.chunks;k<sp.nodes;++k){const ExNode& n=nodes[k];if(!n.tensor)continue;const float m=n.im>0.0f?1.0f/n.im:0.0f;
