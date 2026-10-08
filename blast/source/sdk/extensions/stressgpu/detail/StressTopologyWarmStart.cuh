@@ -11,7 +11,10 @@ __global__ void markChangedStressComponents(const DeviceStressTopologyBatch* bat
     if(edge>=bonds || !state->initialized || !batch->mask)return;
     if(health[edge]>0 && !batch->mask[edge]){
         const unsigned id=oldIsland[edge];
-        if(id!=kNoIsland)atomicExch(changed+id,1u);
+        // A readmissible (contact) bond's removal keeps the warm start: the
+        // remaining impulses stay B^T times the resident displacement. 2 marks
+        // the component's caches stale without clearing its impulses.
+        if(id!=kNoIsland){if(batch->readmit && batch->readmit[edge])atomicOr(changed+id,2u);else atomicExch(changed+id,1u);}
     }
 }
 __global__ void clearChangedStressWarmStart(const ExtStressGpuDeviceTopologyStatus* state,
@@ -22,7 +25,7 @@ __global__ void clearChangedStressWarmStart(const ExtStressGpuDeviceTopologyStat
     // Initial labels need not be initialized; do not read them on first use.
     if(!state->initialized){impulses[edge]={};return;}
     const unsigned id=oldIsland[edge];
-    if(id==kNoIsland || changed[id])impulses[edge]={};
+    if(id==kNoIsland || (changed[id]&1u))impulses[edge]={};
     // Unaffected lambda remains available. The independent exact-input
     // certificate may authorize reuse; otherwise the solve verifies it again.
 }

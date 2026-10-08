@@ -20,6 +20,7 @@ __global__ void refreshNativeInverseValidity(const DeviceStressTopologyBatch* ba
         const unsigned ref=refs[slot];if(ref==kNoIsland)continue;
         const unsigned bond=ref&0x7fffffffu;
         if(health[bond]>0 && !batch->mask[bond]){valid[node]=0;return;}
+        if(health[bond]<=0 && batch->mask[bond] && batch->readmit && batch->readmit[bond]){valid[node]=0;return;}
     }
     // Retain the existing packed inverse byte-for-byte. Only advance its
     // validity certificate; the normal solver still evaluates current loads.
