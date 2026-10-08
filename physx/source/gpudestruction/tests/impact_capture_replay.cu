@@ -250,6 +250,105 @@ int run(int argc,char** argv){
             mix(fo.data(),fo.size()*sizeof(fo[0]));mix(ve.data(),ve.size()*4);mix(rb.data(),rb.size()*4);
             std::printf("run %d hash %016llx\n",r,hsh);
         }
+        // IMPACT_EXPLICIT_DUMP=PREFIX: each explicit patch as the window starts
+        // (the build run again), for the harness (vibe-land scripts/impact/
+        // explicit-step.py --explicit-dump): PREFIX-p<p>.exd. Little-endian
+        // u32/f32: header u32 nodes, joints, rows, chunks; f32 dt, band, h, omega.
+        // Node: u32 chunk, tensor; f32 im, Iinv[6], v[6]. Joint: u32 bond, a, b,
+        // state; f32 n, t1, t2, o0, o1 (15), kl, kt, k0, k1, capC, capT, capS,
+        // gb, gt, g0, g1, h0, h1, J0[6], slip, limit, centroid[3]. Row: u32 a,
+        // b; f32 n, t1, t2, o0, o1 (15), mu, point[3]. Ends 0xffffffff: held.
+        if(!r && std::getenv("IMPACT_EXPLICIT_DUMP") && s.method==2u) {
+            // The window's outcome first (PREFIX-p<p>.gpu: u32 joints broken; per broken joint u32
+            // bond, f32 time; then per node f32 v[6] at the window's end), then the build again.
+            for(PxU32 p=0;p<e.explicitPatches.size();++p) {
+                const auto& q=e.explicitPatches[p];std::vector<impact::ExLink> L(q.links);std::vector<impact::Bond> Bd(q.links);std::vector<impact::ExNode> N(q.nodes);
+                if(q.links){check(cudaMemcpy(L.data(),e.x.links+size_t(p)*impact::kExLinks,sizeof(L[0])*L.size(),cudaMemcpyDeviceToHost));
+                    check(cudaMemcpy(Bd.data(),e.x.bonds+size_t(p)*impact::kExLinks,sizeof(Bd[0])*Bd.size(),cudaMemcpyDeviceToHost));}
+                check(cudaMemcpy(N.data(),e.x.nodes+size_t(p)*impact::kExNodes,sizeof(N[0])*N.size(),cudaMemcpyDeviceToHost));
+                char path[1024];std::snprintf(path,sizeof path,"%s-p%u.gpu",std::getenv("IMPACT_EXPLICIT_DUMP"),p);
+                FILE* o=std::fopen(path,"wb");if(!o)throw std::runtime_error("cannot write the explicit dump");
+                PxU32 nb=0;for(const auto& x:L)nb+=(x.state&impact::eEX_BROKEN)?1u:0u;std::fwrite(&nb,4,1,o);
+                for(PxU32 l=0;l<q.links;++l)if(L[l].state&impact::eEX_BROKEN){std::fwrite(&Bd[l].bond,4,1,o);std::fwrite(&L[l].brokeAt,4,1,o);}
+                for(const auto& n:N)std::fwrite(n.v,4,6,o);
+                std::fclose(o);
+            }
+            impact::exClear<<<64,impact::kThreads>>>(in,e.x);impact::exList<<<1,1>>>(in,s,e.w,e.x);
+            impact::exBuild<<<impact::kExPatches,impact::kThreads>>>(in,s,e.w,e.x);check(cudaDeviceSynchronize());
+            PxU32 count=0;check(cudaMemcpy(&count,e.x.patchCount,4,cudaMemcpyDeviceToHost));
+            std::vector<PxDestructionStressBond> hb(m);check(cudaMemcpy(hb.data(),in.bonds,sizeof(hb[0])*m,cudaMemcpyDeviceToHost));
+            for(PxU32 p=0;p<count;++p) {
+                impact::ExPatch q;check(cudaMemcpy(&q,e.x.patches+p,sizeof q,cudaMemcpyDeviceToHost));
+                std::vector<impact::ExLink> L(q.links);std::vector<impact::Bond> Bd(q.links),Rb(q.rows);std::vector<impact::ExNode> N(q.nodes);std::vector<impact::ExRow> R(q.rows);
+                if(q.links){check(cudaMemcpy(L.data(),e.x.links+size_t(p)*impact::kExLinks,sizeof(L[0])*L.size(),cudaMemcpyDeviceToHost));
+                    check(cudaMemcpy(Bd.data(),e.x.bonds+size_t(p)*impact::kExLinks,sizeof(Bd[0])*Bd.size(),cudaMemcpyDeviceToHost));}
+                check(cudaMemcpy(N.data(),e.x.nodes+size_t(p)*impact::kExNodes,sizeof(N[0])*N.size(),cudaMemcpyDeviceToHost));
+                if(q.rows){check(cudaMemcpy(R.data(),e.x.rows+size_t(p)*impact::kExRows,sizeof(R[0])*R.size(),cudaMemcpyDeviceToHost));
+                    check(cudaMemcpy(Rb.data(),e.x.rowBonds+size_t(p)*impact::kExRows,sizeof(Rb[0])*Rb.size(),cudaMemcpyDeviceToHost));}
+                char path[1024];std::snprintf(path,sizeof path,"%s-p%u.exd",std::getenv("IMPACT_EXPLICIT_DUMP"),p);
+                FILE* o=std::fopen(path,"wb");if(!o)throw std::runtime_error("cannot write the explicit dump");
+                const PxU32 head[4]={q.nodes,q.links,q.rows,q.chunks};std::fwrite(head,4,4,o);
+                const float fh[4]={s.dt,s.capacityBand,q.h,q.omega};std::fwrite(fh,4,4,o);
+                for(const auto& n:N){const PxU32 u[2]={n.chunk,n.tensor};std::fwrite(u,4,2,o);float f[13];f[0]=n.im;for(int c=0;c<6;++c){f[1+c]=n.Iinv[c];f[7+c]=n.v[c];}std::fwrite(f,4,13,o);}
+                auto frame=[&](const impact::Bond& b,float* f){for(int c=0;c<3;++c){f[c]=b.n[c];f[3+c]=b.t1[c];f[6+c]=b.t2[c];f[9+c]=b.o0[c];f[12+c]=b.o1[c];}};
+                for(PxU32 l=0;l<q.links;++l){const auto& b=Bd[l];const auto& x=L[l];const PxU32 u[4]={b.bond,x.a,x.b,x.state};std::fwrite(u,4,4,o);
+                    float f[15+4+9+6+2+3];frame(b,f);const float k4[4]={b.kl,b.kt,b.k0,b.k1};for(int c=0;c<4;++c)f[15+c]=k4[c];
+                    const float cp[9]={b.capC,b.capT,b.capS,b.gb,b.gt,b.g0,b.g1,b.h0,b.h1};for(int c=0;c<9;++c)f[19+c]=cp[c];
+                    for(int c=0;c<6;++c)f[28+c]=x.J0[c];f[34]=x.slip;f[35]=x.limit;
+                    const PxVec3 cen=b.bond<m?hb[b.bond].centroid:PxVec3(0.0f);f[36]=cen.x;f[37]=cen.y;f[38]=cen.z;std::fwrite(f,4,39,o);}
+                for(PxU32 k=0;k<q.rows;++k){const PxU32 u[2]={R[k].a,R[k].b};std::fwrite(u,4,2,o);float f[19];frame(Rb[k],f);f[15]=Rb[k].area;
+                    const auto& row=hostRows[R[k].row];for(int c=0;c<3;++c)f[16+c]=row.point[c];std::fwrite(f,4,19,o);}
+                std::fclose(o);
+                std::printf("explicit dump: patch %u (%u nodes, %u joints, %u rows; h %.2f us) to %s\n",p,q.nodes,q.links,q.rows,q.h*1e6f,path);
+            }
+        }
+        // IMPACT_EXPLICIT_LOCAL=1: each patch's local frequencies against its
+        // window's bound omega (the substep's): per joint, omega_j^2 =
+        // lambda_max(k^1/2 (W_a + W_b) k^1/2), W_e = B_e^T M_e^-1 B_e (its own
+        // two-chunk element, the joints live at the window's start); per node,
+        // its Gershgorin row of S. How many set the step (multi-rate sizing)?
+        if(!r && std::getenv("IMPACT_EXPLICIT_LOCAL") && s.method==2u) {
+            for(PxU32 p=0;p<e.explicitPatches.size();++p) {
+                const auto& q=e.explicitPatches[p];if(!q.links)continue;
+                std::vector<impact::ExLink> L(q.links);std::vector<impact::Bond> Bd(q.links);std::vector<impact::ExNode> N(q.nodes);
+                check(cudaMemcpy(L.data(),e.x.links+size_t(p)*impact::kExLinks,sizeof(L[0])*L.size(),cudaMemcpyDeviceToHost));
+                check(cudaMemcpy(Bd.data(),e.x.bonds+size_t(p)*impact::kExLinks,sizeof(Bd[0])*Bd.size(),cudaMemcpyDeviceToHost));
+                check(cudaMemcpy(N.data(),e.x.nodes+size_t(p)*impact::kExNodes,sizeof(N[0])*N.size(),cudaMemcpyDeviceToHost));
+                auto Bt=[&](const impact::Bond& b,PxU32 end,double* T){   // 6 x 6: joint component <- node dof (exRelative)
+                    const float* o=end?b.o1:b.o0;const double sg=end?-1.0:1.0;const float* R[3]={b.n,b.t1,b.t2};
+                    for(int i=0;i<3;++i){for(int c=0;c<3;++c){T[6*i+c]=sg*R[i][c];T[6*(3+i)+c]=0.0;}
+                        // lin . R_i with lin = v + w x o: w x o . R_i = w . (o x R_i)
+                        const double ox[3]={o[1]*R[i][2]-o[2]*R[i][1],o[2]*R[i][0]-o[0]*R[i][2],o[0]*R[i][1]-o[1]*R[i][0]};
+                        for(int c=0;c<3;++c){T[6*i+3+c]=sg*ox[c];T[6*(3+i)+3+c]=-sg*R[i][c];}}
+                };
+                std::vector<double> wj;std::vector<double> wnode(q.nodes,0.0);std::vector<double> mj,klj,arj,armj;std::vector<int> rotj;
+                for(PxU32 l=0;l<q.links;++l) {
+                    const auto& x=L[l];if(!(x.state&(impact::eEX_LIVE|impact::eEX_BROKEN)))continue;
+                    const auto& b=Bd[l];const double kk[6]={b.kl,b.kl,b.kl,b.kt,b.k0,b.k1};double k[6];for(int c=0;c<6;++c)k[c]=(kk[c]>0 && kk[c]<1e30)?kk[c]:0.0;
+                    double A[36]={};double mmin=1e30;
+                    for(PxU32 end=0;end<2;++end){const PxU32 n=end?x.b:x.a;if(n==0xffffffffu)continue;
+                        double T[36];Bt(b,end,T);const double mi[6]={N[n].im,N[n].im,N[n].im,N[n].Iinv[0],N[n].Iinv[1],N[n].Iinv[2]};mmin=std::min(mmin,1.0/N[n].im);
+                        for(int i=0;i<6;++i)for(int j=0;j<6;++j){double v=0;for(int c=0;c<6;++c)v+=T[6*i+c]*mi[c]*T[6*j+c];A[6*i+j]+=std::sqrt(k[i]*k[j])*v;}}
+                    double xv[6]={1,1,1,1,1,1},lam=0;for(int it=0;it<200;++it){double y[6]={};for(int i=0;i<6;++i)for(int j=0;j<6;++j)y[i]+=A[6*i+j]*xv[j];
+                        double nrm=0;for(int i=0;i<6;++i)nrm+=y[i]*y[i];nrm=std::sqrt(nrm);if(!(nrm>0))break;lam=nrm;for(int i=0;i<6;++i)xv[i]=y[i]/nrm;}
+                    double rt=0,rr=0;for(int i=0;i<3;++i){rt+=xv[i]*xv[i];rr+=xv[3+i]*xv[3+i];}
+                    wj.push_back(std::sqrt(lam));mj.push_back(mmin);rotj.push_back(rr>rt);klj.push_back(k[0]);arj.push_back(b.area);
+                    {double om=0;for(int c=0;c<3;++c)om=std::max(om,double(std::fabs(b.o0[c])+std::fabs(b.o1[c])));armj.push_back(om);}
+                }
+                std::vector<double> sw=wj;std::sort(sw.begin(),sw.end());
+                const double W=q.omega,wmax=sw.empty()?0:sw.back();
+                auto frac=[&](double f){size_t c=0;for(double v:wj)c+=v>f*wmax?1:0;return double(c)/std::max<size_t>(1,wj.size());};
+                double m2=0;int r2=0,n2=0;for(size_t i=0;i<wj.size();++i)if(wj[i]>0.5*wmax){m2+=mj[i];r2+=rotj[i];++n2;}
+                {auto med=[](std::vector<double> v){if(v.empty())return 0.0;std::sort(v.begin(),v.end());return v[v.size()/2];};
+                 std::vector<double> sk,sa,sm,so,ak,aa,am,ao;for(size_t i=0;i<wj.size();++i){const bool st=wj[i]*2.0>W;(st?sk:ak).push_back(klj[i]);(st?sa:aa).push_back(arj[i]);(st?sm:am).push_back(mj[i]);(st?so:ao).push_back(armj[i]);}
+                 std::printf("stiff: patch %u level-0 %zu of %zu; median k_l %.3g vs %.3g N/m, area %.3g vs %.3g m^2, lighter end %.3g vs %.3g kg, arm (|o0|+|o1|)max %.3g vs %.3g m\n",p,sk.size(),wj.size(),med(sk),med(ak),med(sa),med(aa),med(sm),med(am),med(so),med(ao));}
+                // power-of-two levels against the bound: level L steps at 2^L h (omega_j <= omega / 2^L)
+                int lv[8]={};for(double v:wj){int L=0;while(L<7 && v*double(1<<(L+1))<=W)++L;++lv[L];}
+                std::printf("levels: patch %u joints %zu",p,wj.size());for(int L=0;L<8;++L)std::printf(" %d",lv[L]);std::printf("\n");
+                std::printf("local: patch %u bound %.4g element-max %.4g (%.2f of bound) joints %zu; above 1/2 max %.3f, 1/4 %.3f, 1/8 %.3f; the >1/2 set: %d joints, mean min-end mass %.3g kg (patch median %.3g), %d rotation-led\n",
+                    p,W,wmax,wmax/W,wj.size(),frac(0.5),frac(0.25),frac(0.125),n2,n2?m2/n2:0.0,[&]{std::vector<double> t=mj;std::sort(t.begin(),t.end());return t.empty()?0.0:t[t.size()/2];}(),r2);
+            }
+        }
         // IMPACT_EXPLICIT_TIMES=1: when the explicit step's joints broke (ms), per patch.
         if(!r && std::getenv("IMPACT_EXPLICIT_TIMES") && s.method==2u) {
             for(PxU32 p=0;p<e.explicitPatches.size();++p) {
