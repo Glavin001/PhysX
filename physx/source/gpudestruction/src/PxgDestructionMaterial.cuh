@@ -10,7 +10,7 @@ __global__ void evaluateBondMaterials(const PxDestructionStressChunk* chunks,
     const float* health,const PxDestructionVectorPair* forces,PxU32 count,
     float dt,float rate,float bendGain,bool fibres,PxDestructionBondVerdict* verdict,
     PxVec3* centroids,PxDestructionStageStatus* status,bool sectionBending,const PxDestructionBondSection* sections,
-    bool momentAtCentroid=false,impact::View impactView=impact::View{},bool staticDuctile=false)
+    bool momentAtCentroid=false,impact::View impactView=impact::View{},PxU32 staticDuctile=0u)
 {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
     const auto b=bonds[i];const float area=health[i];auto& v=verdict[i];v={};v.health=area;
@@ -103,7 +103,8 @@ __global__ void evaluateBondMaterials(const PxDestructionStressChunk* chunks,
                 const float m0=chunks[b.chunk0].mass,m1=chunks[b.chunk1].mass;
                 const float light=m0>0.0f && m1>0.0f?fminf(m0,m1):fmaxf(m0,m1);
                 const float excess=(u-1.0f)*fatal*area;              // N
-                const float slip=excess/k+(light>0.0f?0.5f*excess/light*dt*dt:0.0f);   // this tick's plastic slip, m
+                // Mode 2 (A/B): the return mapping alone (the excess over the joint's stiffness).
+                const float slip=excess/k+(staticDuctile!=2u && light>0.0f?0.5f*excess/light*dt*dt:0.0f);   // this tick's plastic slip, m
                 loss=b.area*fminf(1.0f,slip/m.ductileSlip);          // necking: that share of the ultimate slip, as section
             }
             damage.damage=fminf(area,loss);damage.command=loss>0.0f;

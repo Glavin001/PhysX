@@ -968,7 +968,8 @@ class Runtime final : public PxgDestructionRuntime {
     float mDamageRate=2,mBendGain=3;bool mFibres=true;
     // PX_DESTRUCTION_STATIC_DUCTILE=1: metal joints with an ultimate slip yield
     // and neck in the static verdict instead of snapping at fatal (PxgDestructionMaterial.cuh).
-    const bool mStaticDuctile=[]{const char* v=std::getenv("PX_DESTRUCTION_STATIC_DUCTILE");return v && v[0]=='1';}();
+    // 2 (A/B): the return mapping's slip only, no inertial slip of the lighter chunk.
+    const PxU32 mStaticDuctile=[]{const char* v=std::getenv("PX_DESTRUCTION_STATIC_DUCTILE");return v && (v[0]=='1' || v[0]=='2')?PxU32(v[0]-'0'):0u;}();
     PxDestructionBondSection* mSections{};bool mSectionBending=false,mSectionRotation=false; // opt-in real sections (PX_DESTRUCTION_SECTION_BENDING)
     // Impact capacity (PX_DESTRUCTION_IMPACT_CAPACITY, PxgDestructionImpact.cuh):
     // the island solve, the ramp's start (the forces before this tick's trial
