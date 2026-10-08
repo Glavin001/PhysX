@@ -2458,7 +2458,9 @@ public:
     bool finishPostCorrection() override {
         // A pending final acceptance has not been observed yet: the host
         // status still holds the final pass's correction request (8).
-        if(!mPass || mFailed || mPending || (!mTailAcceptancePending && mHostStatus->error)){mTailAcceptancePending=false;return false;}
+        if(!mPass || mFailed || mPending || (!mTailAcceptancePending && mHostStatus->error)){
+            if(mImpactLog && mPass && (mFailed || mHostStatus->error))std::fprintf(stderr,"[destruction] post-correction refused: pass %u, failed %d, pending %d, stage error %u\n",mPass,int(mFailed),int(mPending),mHostStatus->error);
+            mTailAcceptancePending=false;return false;}
         try {Context current(mContext);
             mergePostCorrectionStatus<<<1,1,0,mStream>>>(mStatus,mPriorPasses,mPass,mFirstPassBrokenBonds);
             // Ordered after the final solve (advance joined the core stream)
@@ -3367,7 +3369,9 @@ public:
         }
     }
     bool observeCorrectionPreparation() override {
-        if(!mTopology || mHostStatus->error!=8u)return !mFailed && mHostStatus->error==0;
+        if(!mTopology || mHostStatus->error!=8u){
+            if(mImpactLog && (mFailed || (mHostStatus->error && mHostStatus->error!=8u)))std::fprintf(stderr,"[destruction] pass %u refused: stage error %u, failed %d\n",mPass,mHostStatus->error,int(mFailed));
+            return !mFailed && mHostStatus->error==0;}
         if(mFailed || !mCollisionPreparationSubmitted || !mCorrectionPreparationSubmitted)return false;
         try {
             // The remaining CPU ownership bridge needs these compact verdicts.
@@ -3380,7 +3384,10 @@ public:
                 check(cudaStreamWaitEvent(mStream,mReady,0));observeCompletion();
                 check(cudaEventRecord(mReady,mStream));check(cudaEventSynchronize(mReady));mPreparationObserved=true;
             }
-            return mHostStatus->error==8u && mHostCompletion->collision.valid && mHostCompletion->correction.valid;
+            const bool ready=mHostStatus->error==8u && mHostCompletion->collision.valid && mHostCompletion->correction.valid;
+            if(!ready && mImpactLog)std::fprintf(stderr,"[destruction] correction preparation refused: stage error %u, collision valid %u error %u, correction valid %u error %u\n",
+                mHostStatus->error,mHostCompletion->collision.valid,mHostCompletion->collision.error,mHostCompletion->correction.valid,mHostCompletion->correction.error);
+            return ready;
         }catch(...){mFailed=true;return false;}
     }
     bool completeCorrectionPreparation() override {
