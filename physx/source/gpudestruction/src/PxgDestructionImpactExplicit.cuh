@@ -122,9 +122,11 @@ struct ExLink { PxU32 a,b,state,pad; float J0[6],J[6]; float slip,limit,brokeAt,
 // plateau pressures (Pa), the crushed depth dp and the chunk's depth along the row
 // (m), the force applied this substep (N) and the contact radius it acted on (m);
 // crush bits: 1 crushing, 2 crushed through (the plug pending), 4 done (the row is
-// spent: its chunk is a free fragment).
+// spent: its chunk is a free fragment). dg: the absorbed depth -- a late contact's
+// penetration (the narrowphase finding it a tick late, FIDELITY_AUDIT H7) and a seam's
+// geometry (exRefreshRow) -- no force, no crush: the elastic depth is d - dp - dg.
 struct ExRow { PxU32 a,b,row,pad; float P[3],total[3],Winv[9],W[9]; PxU32 compliant; float d,Estar,sigma,R,face,gap;
-    float on=0.0f,pl=0.0f,dp=0.0f,depth=0.0f,Fa=0.0f,ac=0.0f; PxU32 crush=0u;
+    float on=0.0f,pl=0.0f,dp=0.0f,depth=0.0f,Fa=0.0f,ac=0.0f; PxU32 crush=0u; float dg=0.0f;
     // The window's own geometry (exRefresh; Settings::compliant with chunk boxes): 1 its
     // frame and arms are re-found as the bodies move; 2 a swept row, met only within the
     // window (no stage row of its own: row is its impactor's first, never published to).
@@ -136,8 +138,10 @@ struct ExRow { PxU32 a,b,row,pad; float P[3],total[3],Winv[9],W[9]; PxU32 compli
 // Settings::compliant).
 // x0: its position at the window's start (struck frame); dx, dth: its displacement and
 // rotation (vector) since, for the window's own geometry (exRefresh); radius: a round
-// impactor's (0: the stage's rows only).
-struct ExNode { PxU32 chunk,tensor,jointBegin,jointEnd,rowBegin,rowEnd,pad[2]; float im,Iinv[6],v[6],f0[6],v0[6]; PxU32 crushed=0u;
+// impactor's (0: the stage's rows only). faces: its box's internal faces at the window's
+// start (exLiveFaces: PxDestructionChunkBox::internalFaces whose neighbours are all still
+// in its cluster).
+struct ExNode { PxU32 chunk,tensor,jointBegin,jointEnd,rowBegin,rowEnd,pad[2]; float im,Iinv[6],v[6],f0[6],v0[6]; PxU32 crushed=0u,faces=0u;
     float x0[3]={0,0,0},dx[3]={0,0,0},dth[3]={0,0,0},radius=0.0f; };
 
 // A joint packed for the window: kExJoint float4s, 16-byte aligned, so a
@@ -408,19 +412,47 @@ __device__ __forceinline__ void exCone(const float* W,const float* g,const float
 // he, rotation q), all in the struck frame: its penetration (negative: the gap still
 // open), the unit normal from the box to the sphere and the box's closest point. The
 // centre inside the box: the nearest face's.
-__device__ float exSphereBox(const PxVec3& c,float R,const PxVec3& bc,const PxVec3& he,const PxQuat& q,PxVec3& n,PxVec3& p)
+// internal (PxDestructionChunkBox::internalFaces, live): a face the material continues
+// across is a seam, not a surface. Where the closest feature is on an internal face's
+// boundary, that axis leaves the normal (the adjoining exposed face's; the depth stays
+// the real distance: Bullet's internal-edge normal correction, no box extension, so two
+// flush boxes do not both bear at full depth): *seam = 1. Only internal faces clamped:
+// the contact is the neighbour's, none here (-FLT_MAX: an open gap).
+__device__ float exSphereBox(const PxVec3& c,float R,const PxVec3& bc,const PxVec3& he,const PxQuat& q,PxVec3& n,PxVec3& p,PxU32 internal=0u,PxU32* seam=nullptr)
 {
     const PxVec3 l=q.rotateInv(c-bc);
     const PxVec3 cl(fminf(fmaxf(l.x,-he.x),he.x),fminf(fmaxf(l.y,-he.y),he.y),fminf(fmaxf(l.z,-he.z),he.z));
     const PxVec3 d=l-cl;const float dist=d.magnitude();
-    if(dist>0.0f){n=q.rotate(d*(1.0f/dist));p=bc+q.rotate(cl);return R-dist;}
-    // inside: the face of least depth
-    const float ex=he.x-fabsf(l.x),ey=he.y-fabsf(l.y),ez=he.z-fabsf(l.z);
-    PxVec3 nl(0.0f),pl=l;float depth;
-    if(ex<=ey && ex<=ez){nl.x=l.x>=0.0f?1.0f:-1.0f;pl.x=nl.x*he.x;depth=ex;}
-    else if(ey<=ez){nl.y=l.y>=0.0f?1.0f:-1.0f;pl.y=nl.y*he.y;depth=ey;}
-    else{nl.z=l.z>=0.0f?1.0f:-1.0f;pl.z=nl.z*he.z;depth=ez;}
-    n=q.rotate(nl);p=bc+q.rotate(pl);return R+depth;
+    if(seam)*seam=0u;
+    if(dist>0.0f) {
+        PxVec3 dn=d;PxU32 exposed=0u,dropped=0u;
+        for(int k=0;k<3;++k){if(!(d[k]!=0.0f))continue;const PxU32 f=2u*k+(d[k]>0.0f?1u:0u);
+            if(internal&(1u<<f)){dn[k]=0.0f;++dropped;}else ++exposed;}
+        if(dropped && !exposed)return -FLT_MAX;
+        if(dropped){if(seam)*seam=1u;n=q.rotate(dn.getNormalized());}else n=q.rotate(d*(1.0f/dist));
+        p=bc+q.rotate(cl);return R-dist;
+    }
+    // inside: the exposed face of least depth (an internal face's depth is the neighbour's)
+    float e[6];for(int k=0;k<3;++k){e[2*k]=he[k]+l[k];e[2*k+1]=he[k]-l[k];}
+    int best=-1;for(int f=0;f<6;++f)if(!(internal&(1u<<f)) && (best<0 || e[f]<e[best]))best=f;
+    if(best<0){best=0;for(int f=1;f<6;++f)if(e[f]<e[best])best=f;}
+    PxVec3 nl(0.0f),pl=l;const int k=best/2;const float sg=(best&1)?1.0f:-1.0f;nl[k]=sg;pl[k]=sg*he[k];
+    n=q.rotate(nl);p=bc+q.rotate(pl);return R+e[best];
+}
+// A chunk's internal faces that are still internal: each neighbour listed for the face
+// still in the chunk's cluster and not crushed (PxDestructionChunkBox::internalFaces).
+__device__ PxU32 exLiveFaces(const Inputs& in,PxU32 c)
+{
+    if(!in.chunkBoxes || !in.faceBegin || c>=in.chunkCount)return 0u;
+    const PxU32 mask=in.chunkBoxes[c].internalFaces;PxU32 live=0u;
+    for(PxU32 f=0;f<6;++f) {
+        if(!(mask&(1u<<f)))continue;
+        bool ok=true;
+        for(PxU32 i=in.faceBegin[6*c+f];i<in.faceBegin[6*c+f+1] && ok;++i){const PxU32 j=in.faceList[i];
+            ok=j<in.chunkCount && !chunkGone(in,j) && in.chunks[j].cluster==in.chunks[c].cluster;}
+        if(ok)live|=1u<<f;
+    }
+    return live;
 }
 // A small rotation vector as a quaternion (exp).
 __device__ __forceinline__ PxQuat exRotation(const float* th)
@@ -444,14 +476,19 @@ __device__ void exRefreshRow(const PxDestructionChunkBox* boxes,const ExNode* no
     const PxVec3 xa(a.x0[0]+a.dx[0],a.x0[1]+a.dx[1],a.x0[2]+a.dx[2]),pa(a.x0[0],a.x0[1],a.x0[2]);
     const PxVec3 bc=xa+qa.rotate(box.center-pa);
     const PxVec3 cm(m.x0[0]+m.dx[0],m.x0[1]+m.dx[1],m.x0[2]+m.dx[2]);
-    PxVec3 n,p;const float pen=exSphereBox(cm,m.radius,bc,box.halfExtents,qa*box.rotation,n,p);
+    PxVec3 n,p;PxU32 seam=0u;const float pen=exSphereBox(cm,m.radius,bc,box.halfExtents,qa*box.rotation,n,p,a.faces,&seam);
     frame(n,b.n,b.t1,b.t2);
     for(int q=0;q<3;++q){b.o0[q]=p[q]-xa[q];b.o1[q]=p[q]-cm[q];b.pc[q]=0.0f;}
     // The chunk's depth along the row (its box's extent along n), until its crush starts.
     if(!(x.crush&1u)){const PxQuat qb=qa*box.rotation;const PxVec3 he=box.halfExtents;
         x.depth=2.0f*(fabsf(n.dot(qb.getBasisVector0()))*he.x+fabsf(n.dot(qb.getBasisVector1()))*he.y+fabsf(n.dot(qb.getBasisVector2()))*he.z);}
-    if(initial && pen>x.dp)x.dp=pen;
-    if(pen>=0.0f){x.gap=0.0f;if(x.compliant)x.d=fmaxf(pen,x.dp);}else{x.gap=-pen;if(x.compliant)x.d=x.dp;}
+    if(initial && pen>x.dp+x.dg)x.dg=pen-x.dp;
+    // At a seam (internal face) the depth grows with the sphere's travel along the face,
+    // not only with its approach: the growth past the row's kinematic closing since the
+    // last refresh (its gap closed and depth gained at v_rel . n) is the flush neighbour's
+    // geometry, taken as crushed depth like a late contact's (no force from it).
+    if(!initial && seam && pen>0.0f){const float kin=x.gap>0.0f?0.0f:x.d;if(pen>kin)x.dg+=pen-fmaxf(kin,x.dp+x.dg);}
+    if(pen>=0.0f){x.gap=0.0f;if(x.compliant)x.d=fmaxf(pen,x.dp+x.dg);}else{x.gap=-pen;if(x.compliant)x.d=x.dp+x.dg;}
 }
 // 1. The patches: one per island with a routed row, in row order; each
 // patch's rows (at most kExRows) and its impactor bodies.
@@ -604,7 +641,7 @@ __global__ __launch_bounds__(kThreads) void exBuild(Inputs in,Settings s,Scratch
                 // is its cluster's, moving with it -- the rows' velocities are relative
                 // to its rigid motion at the tick's start; the frame's rotation over the
                 // window, a few ms, is left out)
-                n.x0[0]=c.position.x;n.x0[1]=c.position.y;n.x0[2]=c.position.z;nodes[k]=n;}
+                n.x0[0]=c.position.x;n.x0[1]=c.position.y;n.x0[2]=c.position.z;n.faces=exLiveFaces(in,i);nodes[k]=n;}
         }
         __syncthreads();if(!threadIdx.x)sh.flag+=total;__syncthreads();
     }
@@ -1099,8 +1136,8 @@ __device__ __forceinline__ void exCompliantRow(const float* W,const float* g,flo
 __device__ __forceinline__ void exCrushRow(const float* W,const float* g,ExRow& x,float mu,float h,float* P)
 {
     const bool crushing=(x.crush&1u)!=0u;
-    const float de=x.d-x.dp;
-    const float sg=crushing?fmaxf(x.sigma,fminf(x.face,sqrtf(2.0f*x.R*fmaxf(x.d,0.0f)))):x.sigma;
+    const float de=x.d-x.dp-x.dg;
+    const float sg=crushing?fmaxf(x.sigma,fminf(x.face,sqrtf(2.0f*x.R*fmaxf(x.d-x.dg,0.0f)))):x.sigma;
     exCompliantRow(W,g,de,x.Estar,sg,x.R,x.face,mu,h,P);
     const float a=fminf(x.face,fmaxf(sg,sqrtf(x.R*fmaxf(de,0.0f)))),A=3.14159265f*a*a,F=-P[0]/h;
     if(!crushing && A>0.0f && F>=x.on*A)x.crush|=1u;
@@ -1338,7 +1375,7 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
                 // in this row's split metric); then the row is spent.
                 else if(x.crush&2u){P[0]=g[0]>0.0f?-g[0]/fmaxf(Wr[0],FLT_MIN):0.0f;P[1]=P[2]=0.0f;x.crush|=4u;}
                 else if(x.on>0.0f)exCrushRow(Wr,g,x,rb.area,h,P);
-                else exCompliantRow(Wr,g,x.d-x.dp,x.Estar,x.sigma,x.R,x.face,rb.area,h,P);}   // (its elastic depth: dp holds a late contact's penetration, no force)
+                else exCompliantRow(Wr,g,x.d-x.dp-x.dg,x.Estar,x.sigma,x.R,x.face,rb.area,h,P);}   // (its elastic depth: dg holds a late contact's penetration and a seam's geometry, no force)
             else if(!(gap>0.0f)){
             // (a rigid row in contact: its arithmetic exactly as before two-body rows. The
             // gap's subtraction merged into this path, even behind gap > 0, changed the
@@ -1382,7 +1419,7 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
             // applied (its work the striker's); through the chunk's depth, its joints break and
             // the plug follows.
             if((x.crush&1u) && !(x.crush&6u) && x.ac>0.0f) {
-                const float dy=x.Fa/(2.0f*x.ac*x.Estar),dn=x.d-x.dp;
+                const float dy=x.Fa/(2.0f*x.ac*x.Estar),dn=x.d-x.dp-x.dg;
                 if(dn>dy){x.dp+=dn-dy;crush+=x.Fa*(dn-dy);}
                 if(x.depth>0.0f && x.dp>=x.depth){x.crush|=2u;nodes[ra].crushed=1u;atomicAdd(&shThrough,1u);}
             }

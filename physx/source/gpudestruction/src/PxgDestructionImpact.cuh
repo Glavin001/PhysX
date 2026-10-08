@@ -479,6 +479,10 @@ struct Inputs {
     // Each chunk's box (PxDestructionStressDesc::chunkBoxes), or null: the window's
     // own contact geometry for a round impactor (exRefresh).
     const PxDestructionChunkBox* chunkBoxes{};
+    // The neighbours covering each chunk's internal faces (PxDestructionStressDesc::
+    // chunkFaceNeighbourBegin, chunkFaceNeighbours; exLiveFaces), or null.
+    const PxU32* faceBegin{};
+    const PxU32* faceList{};
 };
 
 // ---------------------------------------------------------------------------
