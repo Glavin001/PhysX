@@ -67,7 +67,13 @@ __global__ void evaluateBondMaterials(const PxDestructionStressChunk* chunks,
     }
     float compression,tension;extStressFibre(fibres,v.stressNormal,v.stressBend,compression,tension);
     if(bearingTension>=0.0f)tension=bearingTension;
-    auto damage=extStressBondDamage(compression,tension,v.stressShear,area,b.area,materials[b.material],dt,rate);
+    // Mohr-Coulomb joint shear (PX_DESTRUCTION_MOHR_COULOMB_SHEAR; mu 0 when off):
+    // the compression across the joint adds mu sigma_c to both shear limits,
+    // graded as the shear stress net of it (extStressFrictionStrength).
+    float shear=v.stressShear;
+    {const auto& m=materials[b.material];
+     if(m.shearFriction>0.0f)shear=fmaxf(0.0f,shear-extStressFrictionStrength(v.stressNormal,m.shearFriction,m.shearCapacityLimit,m.shearFatalLimit));}
+    auto damage=extStressBondDamage(compression,tension,shear,area,b.area,materials[b.material],dt,rate);
     // Steel connections are ductile in the static verdict too
     // (PX_DESTRUCTION_STATIC_DUCTILE; PxDestructionStressDesc-free: the stage's
     // env). A metal joint with an authored ultimate slip (ductileSlip: A L0,
@@ -95,9 +101,9 @@ __global__ void evaluateBondMaterials(const PxDestructionStressChunk* chunks,
         if(m.ductileSlip>0.0f && k>0.0f && modulus>=50e9f) {
             const auto ratio=[](float s,float f){return f>0.0f?s/f:0.0f;};
             const float axial=fmaxf(ratio(compression,m.compressionFatalLimit),ratio(tension,m.tensionFatalLimit));
-            const float shear=ratio(v.stressShear,m.shearFatalLimit);
-            const float u=fmaxf(axial,shear);
-            const float fatal=axial>=shear?(compression>tension?m.compressionFatalLimit:m.tensionFatalLimit):m.shearFatalLimit;
+            const float shearUse=ratio(shear,m.shearFatalLimit);
+            const float u=fmaxf(axial,shearUse);
+            const float fatal=axial>=shearUse?(compression>tension?m.compressionFatalLimit:m.tensionFatalLimit):m.shearFatalLimit;
             float loss=0.0f;
             if(u>1.0f) {
                 const float m0=chunks[b.chunk0].mass,m1=chunks[b.chunk1].mass;
