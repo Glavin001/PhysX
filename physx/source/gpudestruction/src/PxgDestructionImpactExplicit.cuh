@@ -1302,13 +1302,19 @@ __device__ __forceinline__ PxU32 exDynamicJoint(const Bond& b,const float* k,con
         float work=0.0f;for(int q=0;q<6;++q){const float c=beta*dw[6]*k[q],fd=c*d[q]/(1.0f+h*c*dw[q]);F[q]=J[q]-fd;work+=fd*d[q];}
         dash+=h*work;
         const float u=utilisation(b,J);
-        if(state&eEX_DUCTILE) {
-            if(u>1.0f) {   // the radial return (the impact window's), on the spring
-                float sl=0.0f,w=0.0f;
-                for(int q=0;q<6;++q){const float y=J[q]/u;if(k[q]>0.0f){const float dp=(J[q]-y)/k[q];if(q<3)sl+=dp*dp;w+=fabsf(y*dp);}J[q]=y;F[q]/=u;}
+        // A ductile joint (not a bearing one: its fastenings' failure is the contact's, below)
+        // yields by the radial return (the impact window's) on its spring. Its plastic rotation
+        // counts towards its ultimate slip at the patch's half-width (the fastener at the edge
+        // moves by theta x that): over ticks a joint yielding in bending alone would otherwise
+        // turn without limit, a mechanism that never ruptures.
+        if((state&eEX_DUCTILE) && !(state&eEX_BEARING)) {
+            if(u>1.0f) {
+                float sl=0.0f,w=0.0f;const float lever=0.5f*sqrtf(fmaxf(b.area,0.0f));
+                for(int q=0;q<6;++q){const float y=J[q]/u,fd=J[q]-F[q];if(k[q]>0.0f){const float dp=(J[q]-y)/k[q];sl+=q<3?dp*dp:dp*dp*lever*lever;w+=fabsf(y*dp);}J[q]=y;F[q]=y-fd;}
                 slip+=sqrtf(sl);plastic+=w;state|=eEX_YIELDED;
                 if(slip>limit){float u2=0.0f;for(int q=0;q<6;++q)if(k[q]>0.0f)u2+=0.5f*J[q]*J[q]/k[q];fracture+=u2;
                     state=(state&~eEX_LIVE)|eEX_BROKEN;for(int q=0;q<6;++q)J[q]=F[q]=0.0f;return 1u;}
+                return 16u;   // (yielding: activity, not an event)
             }
             return 0u;
         }
