@@ -6,6 +6,9 @@
 // Timing diagnostics only (never in a product build): a bit mask of the
 // window's phases to skip -- 1 the joint gather, 2 the contact rows, 4 the row
 // gather, 8 the joints.
+#ifndef EX_GATHER
+#define EX_GATHER 4
+#endif
 #ifndef EX_PROF_SKIP
 #define EX_PROF_SKIP 0
 #endif
@@ -131,6 +134,19 @@ __device__ void exGershgorin(const Bond& b,PxU32 end,bool both,const float* w,fl
         rows[r]+=s;sym[r]+=t[0]+t[1];
         for(int g=0;g<2;++g)lump[3*(r/3)+g]=fmaxf(lump[3*(r/3)+g],t[g]);
     }
+}
+// f += the six-float records rec[6 idx[j]], j in [b0, b1), in order. The
+// gathers are latency-bound (each record waits on its index): four indices
+// are loaded, then their records, before the sums (the same sums, in order).
+__device__ __forceinline__ void exGather(const float* rec,const PxU32* idx,PxU32 b0,PxU32 b1,float* f)
+{
+    PxU32 j=b0;
+    for(;j+EX_GATHER<=b1;j+=EX_GATHER) {
+        const float* q[EX_GATHER];for(int u=0;u<EX_GATHER;++u)q[u]=rec+6*size_t(idx[j+u]);
+        float r[EX_GATHER][6];for(int u=0;u<EX_GATHER;++u)for(int c=0;c<6;++c)r[u][c]=q[u][c];
+        for(int u=0;u<EX_GATHER;++u)for(int c=0;c<6;++c)f[c]+=r[u][c];
+    }
+    for(;j<b1;++j){const float* q=rec+6*size_t(idx[j]);for(int c=0;c<6;++c)f[c]+=q[c];}
 }
 __device__ __forceinline__ void exApplyInverse(const ExNode& n,const float* f,float* dv)
 {
@@ -632,7 +648,7 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
         if(!(EX_PROF_SKIP&1))for(PxU32 k=threadIdx.x;k<nn;k+=kExThreads) {
             PxU32 b0,b1;jointRange(k,b0,b1);if(b0==b1)continue;
             float f[6]={0,0,0,0,0,0};
-            for(PxU32 j=b0;j<b1;++j){const float* q=wr+6*size_t(adj[j]);for(int c=0;c<6;++c)f[c]+=q[c];}
+            exGather(wr,adj,b0,b1,f);
             apply(k,f,h);
         }
         __syncthreads();
@@ -663,7 +679,7 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
         if(nr && !(EX_PROF_SKIP&4))for(PxU32 k=threadIdx.x;k<nn;k+=kExThreads) {
             PxU32 b0,b1;rowRange(k,b0,b1);if(b0==b1)continue;
             float f[6]={0,0,0,0,0,0};
-            for(PxU32 j=b0;j<b1;++j){const float* q=rwr+6*size_t(rowAdj[j]);for(int c=0;c<6;++c)f[c]+=q[c];}
+            exGather(rwr,rowAdj,b0,b1,f);
             apply(k,f,1.0f);
         }
         __syncthreads();
