@@ -136,6 +136,7 @@ struct WheelConstraintBlock {
     PxReal bumpStopStiffness;
     PxReal bumpStopDamping;
     PxReal tyreMaxForce;   // N; 0: unbounded (NativeVehicleDesc::tyreMaxForce)
+    PxReal tyreMaxImpulse; // its impulse over the step the scene is about to take (N s)
 };
 PxU32 wheelConstraintSolverPrep(Px1DConstraint* rows, PxVec3p& offset, PxU32 capacity,
     PxConstraintInvMassScale& scale, const void* block, const PxTransform& a,
@@ -155,12 +156,12 @@ PxU32 wheelConstraintSolverPrep(Px1DConstraint* rows, PxVec3p& offset, PxU32 cap
             rows[i].mods.spring.damping = data->bumpStopDamping;
         }
         // The road reaches the wheel through its tyre: a limit row pushes no
-        // harder than the tyre can (as forces: the constraint's
-        // eDRIVE_LIMITS_ARE_FORCES, a PxConstraint's default, scales them by dt).
-        if (i < limits && data->tyreMaxForce > 0.0f) {
-            rows[i].flags |= Px1DConstraintFlag::eHAS_DRIVE_LIMIT;
-            rows[i].maxImpulse = PxMin(rows[i].maxImpulse, data->tyreMaxForce);
-            rows[i].minImpulse = PxMax(rows[i].minImpulse, -data->tyreMaxForce);
+        // harder than the tyre can, its impulse over the step at most the tyre's
+        // force times it (as an impulse: the GPU solver took a drive limit's
+        // force for an impulse here, 1 kN bounding the row at 60 kN).
+        if (i < limits && data->tyreMaxForce > 0.0f && data->tyreMaxImpulse > 0.0f) {
+            rows[i].maxImpulse = PxMin(rows[i].maxImpulse, data->tyreMaxImpulse);
+            rows[i].minImpulse = PxMax(rows[i].minImpulse, -data->tyreMaxImpulse);
         }
     }
     return count;
@@ -171,8 +172,10 @@ class WheelConstraintConnector final : public PxVehicleConstraintConnector {
 public:
     WheelConstraintConnector(PxVehiclePhysXConstraintState* source, PxReal stiffness, PxReal damping, PxReal tyreMaxForce) : mSource(source) {
         for (auto& state : mBlock.states) state.setToDefault();
-        mBlock.bumpStopStiffness = stiffness; mBlock.bumpStopDamping = damping; mBlock.tyreMaxForce = tyreMaxForce;
+        mBlock.bumpStopStiffness = stiffness; mBlock.bumpStopDamping = damping; mBlock.tyreMaxForce = tyreMaxForce; mBlock.tyreMaxImpulse = 0.0f;
     }
+    // The scene's next step (NativeVehicle::step): the tyre bound's impulse over it.
+    void setStep(PxReal dt) { mBlock.tyreMaxImpulse = mBlock.tyreMaxForce * dt; }
     void* prepareData() override { mBlock.states[0] = *mSource; return &mBlock; }
     const void* getConstantBlock() const override { return &mBlock; }
     PxConstraintSolverPrep getPrep() const override { return wheelConstraintSolverPrep; }
@@ -538,6 +541,10 @@ public:
         mVehicle.loads.available = true;
 #endif
         mVehicle.loads.centerOfMassPose = actor()->getGlobalPose() * actor()->getCMassLocalPose();
+        // (the tyre bound's limit rows over this step: the connectors are ours
+        // whenever it is set, createWheelConstraints)
+        if (mVehicle.tyreMaxForce > 0.0f) for (PxU32 w=0; w<4; ++w)
+            if (auto* c = mVehicle.mPhysXState.physxConstraints.constraintConnectors[w]) static_cast<WheelConstraintConnector*>(c)->setStep(dt);
         mVehicle.step(dt, mContext);
         if (dt > 0 && !actor()->isSleeping()) {
             const auto& state = mVehicle.mBaseState.rigidBodyState;
