@@ -12,10 +12,22 @@
 // joint: a, b (~0 held), flags (4 a bearing joint), R[9] (n, t1, t2), o0[3],
 // o1[3], k[6] (kl kl kl kt k0 k1), F[9] (capC capT capS gb gt g0 g1 h0 h1), zeta,
 // J0[6] (bond frame). PREFIX.expected: the count of joints the reference broke,
-// then per joint its index, time (ms) and kind.
-// Gates (FP32 against the reference's FP64): the broken sets' Jaccard index >=
-// DYNAMIC_MIN_JACCARD (0.9); the first break within DYNAMIC_FIRST_MS (2 ms, about
-// 60 substeps); the energy invariant (Status::sequenceEnergy 0).
+// then per joint its index, time (ms) and kind. PREFIX.ensemble (optional): the
+// reference run again at substeps scaled by 1 +- 1e-6 .. 1e-3, per line the scale,
+// broken count, first break (ms), Jaccard against the base run, its broken joints.
+// Why an ensemble: the sequence is chaotic past its first breaks. A failure sheds its
+// load into its neighbours, and which of two nearly equal neighbours goes first then
+// decides the rest: the FP64 reference at a substep 1e-6 longer breaks a third of its
+// joints differently by 0.5 s (truck-door). So the gates hold this FP32 run to the
+// reference's own spread, not to one member:
+//   - its first break within the ensemble's first breaks, +- one substep (an event
+//     lands on a substep);
+//   - its broken count within the ensemble's range;
+//   - its coverage, the share of its broken joints some reference run also broke,
+//     at least the least such share of any reference run against the others;
+//   - the energy invariant (dissipated <= what the window had: the kernel's books).
+// Without an ensemble: the broken sets' Jaccard >= DYNAMIC_MIN_JACCARD (0.9) and the
+// first break within DYNAMIC_FIRST_MS (2 ms).
 // The window runs in launches of DYNAMIC_BUDGET substeps (512, as the stage's
 // explicitBudget: a dispatch stays short on a shared GPU).
 #include "PxDestructionScene.h"
@@ -31,6 +43,7 @@
 #include <fstream>
 #include <map>
 #include <set>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -62,7 +75,7 @@ int run(int argc,char** argv)
     for(PxU32 k=0;k<nn;++k) {
         impact::ExNode n{};n.chunk=k;n.tensor=0;n.im=r.get<float>();r.floats(n.Iinv,3);r.floats(&load[6*size_t(k)],6);nodes[k]=n;
     }
-    std::vector<impact::Bond> bonds(impact::kExLinks);std::vector<impact::ExLink> links(impact::kExLinks);std::vector<float> damp(6*size_t(impact::kExLinks),0.0f);
+    std::vector<impact::Bond> bonds(impact::kExLinks);std::vector<impact::ExLink> links(impact::kExLinks);std::vector<float> damp(8*size_t(impact::kExLinks),0.0f);
     PxU32 bearing=0;
     for(PxU32 l=0;l<nl;++l) {
         impact::Bond b{};impact::ExLink x{};x.a=r.get<PxU32>();x.b=r.get<PxU32>();const PxU32 flags=r.get<PxU32>();
@@ -73,7 +86,7 @@ int run(int argc,char** argv)
         b.slip=0.0f;b.bond=l;b.c0=x.a;b.c1=x.b;b.flags=impact::eALIVE|(x.a!=0xffffffffu?impact::eDYNAMIC0:0u)|(x.b!=0xffffffffu?impact::eDYNAMIC1:0u);
         b.area=1.0f;b.dl=b.dt=b.d0=b.d1=1.0f;
         x.state=impact::eEX_LIVE|((flags&4u)?impact::eEX_BEARING:0u);bearing+=(flags&4u)?1u:0u;
-        damp[6*size_t(l)]=r.get<float>();
+        damp[8*size_t(l)+6]=r.get<float>();
         r.floats(x.J0,6);for(int q=0;q<6;++q)x.J[q]=x.J0[q];x.limit=0.0f;x.slip=0.0f;x.brokeAt=-1.0f;
         bonds[l]=b;links[l]=x;
     }
@@ -92,7 +105,7 @@ int run(int argc,char** argv)
     allocate(t.rowBonds,size_t(impact::kExRows));allocate(t.rows,size_t(impact::kExRows));
     allocate(t.wr,12*size_t(impact::kExLinks));allocate(t.rwr,12*size_t(impact::kExRows));allocate(t.jp,impact::kExJoint*size_t(impact::kExLinks));
     allocate(t.jl,size_t(impact::kExLinks));allocate(t.rp,impact::kExRow*size_t(impact::kExRows));
-    t.damp=upload(damp);t.dynLoad=upload(load);allocate(t.cslip,2*size_t(impact::kExLinks));
+    t.damp=upload(damp);t.dynLoad=upload(load);allocate(t.cslip,2*size_t(impact::kExLinks));allocate(t.wk,12*size_t(impact::kExLinks));
     impact::Settings s{};s.dt=T;s.capacityBand=band;s.explicitDt=h;s.dynamicSequence=1u;s.dynamicFriction=mu;
     impact::Scratch w{};allocate(w.status,1);
     impact::exFinishKernel<<<1,impact::kThreads>>>(s,t);check(cudaDeviceSynchronize());check(cudaGetLastError());
@@ -125,6 +138,28 @@ int run(int argc,char** argv)
     std::ifstream e(prefix+".expected");PxU32 count=0;e>>count;std::map<PxU32,float> want;
     for(PxU32 i=0;i<count;++i){PxU32 l;float tm;std::string kind;e>>l>>tm>>kind;want[l]=tm;}
     float wfirst=FLT_MAX;for(const auto& x:want)wfirst=std::min(wfirst,x.second);
+    // The ensemble: every reference run's broken set (the base first), counts and first breaks.
+    std::vector<std::set<PxU32>> runs;std::vector<float> firsts;
+    {std::set<PxU32> b;for(const auto& x:want)b.insert(x.first);runs.push_back(b);firsts.push_back(wfirst);}
+    {std::ifstream en(prefix+".ensemble");std::string line;
+        while(std::getline(en,line)){if(line.empty())continue;std::istringstream q(line);double scale,jac0;PxU32 n;float f;q>>scale>>n>>f>>jac0;
+            std::set<PxU32> b;PxU32 l;while(q>>l)b.insert(l);runs.push_back(b);firsts.push_back(n?f:FLT_MAX);}}
+    if(runs.size()>1) {
+        std::set<PxU32> gpu;for(const auto& x:broken)gpu.insert(x.first);
+        auto coverage=[&](const std::set<PxU32>& x,size_t skip){if(x.empty())return 1.0;PxU32 hit=0;
+            for(PxU32 l:x){bool found=false;for(size_t r=0;r<runs.size() && !found;++r)if(r!=skip)found=runs[r].count(l)!=0;hit+=found?1u:0u;}return double(hit)/double(x.size());};
+        double leastCov=1.0;size_t lo=SIZE_MAX,hi=0;float f0=FLT_MAX,f1=-FLT_MAX;
+        for(size_t r=0;r<runs.size();++r){leastCov=std::min(leastCov,coverage(runs[r],r));lo=std::min(lo,runs[r].size());hi=std::max(hi,runs[r].size());
+            if(firsts[r]<FLT_MAX){f0=std::min(f0,firsts[r]);f1=std::max(f1,firsts[r]);}}
+        const double cov=coverage(gpu,SIZE_MAX),hms=1e3*double(h);
+        const bool countOk=gpu.size()>=lo && gpu.size()<=hi;
+        const bool firstOk2=gpu.empty()?f0==FLT_MAX:(f0<FLT_MAX && first>=f0-hms && first<=f1+hms);
+        const bool covOk=cov>=leastCov;
+        std::printf("against the reference's ensemble (%zu runs): broken %zu in [%zu, %zu]%s; first break %.3f ms in [%.3f, %.3f] +- %.3f ms%s; coverage %.3f (the runs' least %.3f)%s\n",
+            runs.size(),gpu.size(),lo,hi,countOk?"":" FAIL",gpu.empty()?-1.0f:first,f0==FLT_MAX?-1.0f:f0,f1,hms,firstOk2?"":" FAIL",cov,leastCov,covOk?"":" FAIL");
+        if(std::getenv("DYNAMIC_LIST"))for(PxU32 l:gpu){bool found=false;for(const auto& r:runs)found=found || r.count(l);if(!found)std::printf("  gpu %u %.2f ms: in no reference run\n",l,broken[l]);}
+        return (!countOk || !firstOk2 || !covOk || deficit)?1:0;
+    }
     PxU32 both=0;for(const auto& x:broken)both+=want.count(x.first)?1u:0u;
     const double jac=broken.empty() && want.empty()?1.0:double(both)/double(std::max<size_t>(1,broken.size()+want.size()-both));
     const double need=env("DYNAMIC_MIN_JACCARD",0.9f),firstTol=env("DYNAMIC_FIRST_MS",2.0f);
