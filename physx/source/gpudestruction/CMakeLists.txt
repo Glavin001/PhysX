@@ -157,6 +157,13 @@ if(BUILD_TESTING)
     # the routing and the bounds per impactor (exit 1 on any).
     add_test(NAME destruction_gpu_impact_held_over_capacity COMMAND destruction_impact_capture_replay "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/impact-handoff/cannon-first.impc")
     set_tests_properties(destruction_gpu_impact_held_over_capacity PROPERTIES ENVIRONMENT "CUMETAL_USE_METAL_DEVICE_ADDRESSES=1;IMPACT_QUIET=1;IMPACT_METHOD=2;IMPACT_ROUTE=1;IMPACT_BOUND_IMPACTOR=1;IMPACT_HELD_CHECK=1")
+    # The explicit step's energy invariant (Status::energyDeficit): fracture and
+    # plastic work paid by the impactors' kinetic energy loss, the joints' held
+    # energy and the dead load's work. The cannonball's fragments 13 ticks on (31
+    # impactors, one a 7.8 kg piece spinning at 180 rad/s): with the tangential
+    # clamp in place of the cone's projection in W the impactors gained 430 J.
+    add_test(NAME destruction_gpu_impact_explicit_energy COMMAND destruction_impact_capture_replay "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/impact-handoff/cannon-fragments.impc")
+    set_tests_properties(destruction_gpu_impact_explicit_energy PROPERTIES ENVIRONMENT "CUMETAL_USE_METAL_DEVICE_ADDRESSES=1;IMPACT_QUIET=1;IMPACT_ENERGY_CHECK=1")
     px_destruction_label_tests()
 endif()
 
