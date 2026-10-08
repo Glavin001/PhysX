@@ -107,6 +107,7 @@ __device__ __forceinline__ bool stepRow(const Inputs& in,PxU32 r,PxU32 island)
     const ContactRow& row=in.rows[r];
     if(row.chunk>=in.chunkCount || in.nodeIslands[row.chunk]!=island || !(in.chunks[row.chunk].mass>0.0f) || chunkGone(in,row.chunk))return false;
     if(in.rowRouted && !in.rowRouted[r])return false;   // a static load (Settings::route)
+    if(row.resting)return false;
     return row.im>0.0f && isfinite(row.im);
 }
 // 1. The patches: one per island with a coupled row, seeded by its struck

@@ -35,7 +35,7 @@ constexpr PxU32 kExRows=128;       // contact rows per patch
 constexpr PxU32 kExThreads=EX_THREADS;  // the window's threads per patch (one block)
 
 struct ExPatch {
-    PxU32 island,nodes,chunks,links,rows,impactors,substeps,done,broken,yielded,truncated,failed,seed,listed,bodies;
+    PxU32 island,nodes,chunks,links,rows,impactors,substeps,done,broken,yielded,truncated,failed,seed,listed,bodies,pushing,near;
     float radius,h,t,omega;
 };
 // A joint of the patch: local node ends (0xffffffff: held), state bits.
@@ -314,7 +314,7 @@ __global__ __launch_bounds__(kThreads) void exFinishKernel(Settings s,ExScratch 
 // gathers six floats a joint and never reads a joint's geometry.
 __global__ __launch_bounds__(kExThreads) void exRun(Settings s,Scratch w,ExScratch t,PxU32 budget)
 {
-    __shared__ PxU32 shBroken,shYielded;
+    __shared__ PxU32 shBroken,shYielded,shActive,shPushing,shNear;
     __shared__ float vS[6*kExNodes];
     const PxU32 p=blockIdx.x;if(p>=*t.patchCount)return;
     ExPatch& sp=t.patches[p];if(sp.done)return;
@@ -345,6 +345,11 @@ __global__ __launch_bounds__(kExThreads) void exRun(Settings s,Scratch w,ExScrat
     PxU32 step=sp.substeps;
     for(PxU32 it=0;it<budget && step<total;++it,++step) {
         const float time=float(step+1)*h;
+        // The window's end (Settings::explicitWindow 1): once no contact pushes, no
+        // brittle joint is within the capacity band and no ductile one slips, no
+        // event is under way; what remains (the dead load settling around the
+        // damage) is the next tick's static verdict.
+        if(!threadIdx.x){shActive=0u;shPushing=0u;shNear=0u;}
         // Joint forces on the nodes: each node gathers its joints' wrenches (no atomics).
         for(PxU32 k=threadIdx.x;k<nn;k+=kExThreads) {
             const ExNode& n=nodes[k];if(n.jointBegin==n.jointEnd)continue;
@@ -362,6 +367,10 @@ __global__ __launch_bounds__(kExThreads) void exRun(Settings s,Scratch w,ExScrat
             if(P[0]>0.0f){P[0]=P[1]=P[2]=0.0f;}
             else{const float tn=sqrtf(P[1]*P[1]+P[2]*P[2]),lim=b.area*-P[0];if(tn>lim){const float f=lim/tn;P[1]*=f;P[2]*=f;}}
             for(int q=0;q<3;++q){x.P[q]=P[q];x.total[q]+=P[q];}
+            // Pushing: an impulse the impactor's momentum resolves in float (below
+            // its float resolution it exchanges nothing representable).
+            {const ExNode& m=nodes[x.b];const float pm=sqrtf(vS[6*x.b]*vS[6*x.b]+vS[6*x.b+1]*vS[6*x.b+1]+vS[6*x.b+2]*vS[6*x.b+2])/fmaxf(m.im,FLT_MIN);
+             if(-P[0]>FLT_EPSILON*pm){shActive=1u;atomicAdd(&shPushing,1u);}}
         }
         __syncthreads();
         if(nr)for(PxU32 k=threadIdx.x;k<nn;k+=kExThreads) {
@@ -379,6 +388,8 @@ __global__ __launch_bounds__(kExThreads) void exRun(Settings s,Scratch w,ExScrat
             float k[6];exStiffness(b,k);
             float J[6];for(int q=0;q<6;++q)J[q]=e.J[q]-h*k[q]*d[q];
             const float u=utilisation(b,J);
+            // An event is near: a brittle joint within the band, a ductile one slipping.
+            if((e.state&eEX_DUCTILE)?u>1.0f:u>=1.0f-s.capacityBand){shActive=1u;atomicAdd(&shNear,1u);}
             bool breaks=false;
             if(!(e.state&eEX_DUCTILE))breaks=u>=1.0f-s.capacityBand;
             else if(u>1.0f) {
@@ -395,9 +406,11 @@ __global__ __launch_bounds__(kExThreads) void exRun(Settings s,Scratch w,ExScrat
             exWrench(b,dJ,0,f0);exWrench(b,dJ,1,f1);for(int q=0;q<6;++q){o[q]=f0[q];o[6+q]=f1[q];}
         }
         __syncthreads();
+        if(s.explicitWindow==1u && !shActive){++step;sp.done=1;break;}
     }
     for(PxU32 i=threadIdx.x;i<6*nn;i+=kExThreads)nodes[i/6].v[i%6]=vS[i];
-    if(!threadIdx.x){sp.substeps=step;sp.t=float(step)*h;sp.broken+=shBroken;sp.yielded+=shYielded;if(step>=total)sp.done=1;}
+    __syncthreads();
+    if(!threadIdx.x){sp.substeps=step;sp.t=float(step)*h;sp.broken+=shBroken;sp.yielded+=shYielded;sp.pushing=shPushing;sp.near=shNear;if(step>=total)sp.done=1;}
 }
 
 // 4. Publish: the patch's joints (forces, verdicts, slip), the rows' force

@@ -109,7 +109,7 @@ int run(int argc,char** argv){
     if(argc<2){std::fprintf(stderr,"usage: %s CAPTURE.impc [runs]\n",argv[0]);return 2;}
     File f(argv[1]);
     const auto h=f.one<impact::CaptureHeader>();
-    if(std::memcmp(h.magic,"IMPC",4) || h.version!=1 || h.settingsBytes>sizeof(impact::Settings))throw std::runtime_error("not a capture of this build");
+    if(std::memcmp(h.magic,"IMPC",4) || (h.version!=1 && h.version!=2) || h.settingsBytes>sizeof(impact::Settings))throw std::runtime_error("not a capture of this build");
     // Settings appended since the capture keep their defaults.
     impact::Settings s{};{const auto raw=f.read<unsigned char>(h.settingsBytes);std::memcpy(&s,raw.data(),h.settingsBytes);}
     s.iterations=PxU32(env("IMPACT_ITERATIONS",float(s.iterations)));s.innerIterations=PxU32(env("IMPACT_INNER",float(s.innerIterations)));
@@ -141,7 +141,7 @@ int run(int argc,char** argv){
     if(h.flags&impact::eCAPTURE_SECTIONS)in.sections=upload(f.read<PxDestructionBondSection>(m));
     std::vector<float> zero(6*size_t(std::max(h.rows,1u)),0.0f);
     std::vector<impact::ContactRow> hostRows;
-    if(h.flags&impact::eCAPTURE_ROWS){hostRows=f.read<impact::ContactRow>(h.rows);in.rows=upload(hostRows);in.rowCount=h.rows;in.rowDelta=upload(zero);in.rowForce=upload(zero);in.rowBound=upload(zero);}
+    if(h.flags&impact::eCAPTURE_ROWS){hostRows=impact::readCaptureRows(f.f,h.version,h.rows);if(hostRows.size()!=h.rows)throw std::runtime_error("short capture");in.rows=upload(hostRows);in.rowCount=h.rows;in.rowDelta=upload(zero);in.rowForce=upload(zero);in.rowBound=upload(zero);}
     if(h.flags&impact::eCAPTURE_CARRIED)in.carried=upload(f.read<PxU32>(m));
     if(h.flags&impact::eCAPTURE_SLIP_BEFORE)in.slipBefore=upload(f.read<float>(m));
     if(h.flags&impact::eCAPTURE_ROUTED)in.rowRouted=upload(f.read<PxU32>(h.rows));
@@ -150,7 +150,7 @@ int run(int argc,char** argv){
     // loads routed again here, on a copy).
     s.boundImpactor=env("IMPACT_BOUND_IMPACTOR",s.boundImpactor?1.0f:0.0f)!=0.0f;
     s.route=env("IMPACT_ROUTE",s.route?1.0f:0.0f)!=0.0f;
-    s.explicitDt=env("IMPACT_EXPLICIT_DT_US",0.0f)*1e-6f;
+    s.explicitDt=env("IMPACT_EXPLICIT_DT_US",0.0f)*1e-6f;s.explicitWindow=PxU32(env("IMPACT_EXPLICIT_WINDOW",float(s.explicitWindow)));
     if(s.route && in.rows) {
         PxDestructionVectorPair* loads;allocate(loads,n);check(cudaMemcpy(loads,in.accelerations,sizeof(*loads)*n,cudaMemcpyDeviceToDevice));
         PxU32* routed;allocate(routed,h.rows);impact::routeRows<<<(h.rows+127)/128,128>>>(in,s,routed,loads);check(cudaDeviceSynchronize());
@@ -205,6 +205,22 @@ int run(int argc,char** argv){
         e.submit(in,s,stream);check(cudaStreamSynchronize(stream));check(cudaGetLastError());
         const double ms=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-t0).count();
         impact::Status st{};check(cudaMemcpy(&st,e.w.status,sizeof st,cudaMemcpyDeviceToHost));
+        // IMPACT_EXPLICIT_TIMES=1: when the explicit step's joints broke (ms), per patch.
+        if(!r && std::getenv("IMPACT_EXPLICIT_TIMES") && s.method==2u) {
+            for(PxU32 p=0;p<e.explicitPatches.size();++p) {
+                const auto& q=e.explicitPatches[p];std::vector<impact::ExLink> L(q.links);
+                if(q.links)check(cudaMemcpy(L.data(),e.x.links+size_t(p)*impact::kExLinks,sizeof(L[0])*L.size(),cudaMemcpyDeviceToHost));
+                std::vector<float> t;for(const auto& l:L)if(l.state&impact::eEX_BROKEN)t.push_back(l.brokeAt*1e3f);std::sort(t.begin(),t.end());
+                std::vector<impact::ExRow> R(q.rows);if(q.rows)check(cudaMemcpy(R.data(),e.x.rows+size_t(p)*impact::kExRows,sizeof(R[0])*R.size(),cudaMemcpyDeviceToHost));
+                std::vector<impact::ExNode> N(q.nodes);if(q.nodes)check(cudaMemcpy(N.data(),e.x.nodes+size_t(p)*impact::kExNodes,sizeof(N[0])*N.size(),cudaMemcpyDeviceToHost));
+                for(const auto& x:R){PxU32 live=0;for(const auto& l:L)if((l.state&impact::eEX_LIVE) && (l.a==x.a || l.b==x.a))++live;
+                    const auto& na=N[x.a];const auto& nb=N[x.b];
+                    std::printf("  row %u: chunk node %u (%u live joints, v %.2f %.2f %.2f) last P (%.3g %.3g %.3g) total (%.3g %.3g %.3g) N s; impactor v %.2f %.2f %.2f\n",x.row,x.a,live,
+                        na.v[0],na.v[1],na.v[2],x.P[0],x.P[1],x.P[2],x.total[0],x.total[1],x.total[2],nb.v[0],nb.v[1],nb.v[2]);}
+                std::printf("explicit patch %u: %zu breaks; by",p,t.size());
+                for(float c:{0.1f,0.25f,0.5f,1.0f,2.0f,4.0f,8.0f,16.7f}){size_t k=0;while(k<t.size() && t[k]<=c)++k;std::printf(" %.2g ms %zu,",c,k);}std::printf("\n");
+            }
+        }
         if(!r && std::getenv("IMPACT_HELD_CHECK") && in.rows) {
             PxDestructionBondVerdict* v;allocate(v,m);
             stageVerdicts<<<(m+127)/128,128>>>(in,s,e.w,v);

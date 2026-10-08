@@ -49,7 +49,7 @@ Capture load(const char* path)
 {
     File f(path);Capture c;
     const auto h=f.one<impact::CaptureHeader>();
-    if(std::memcmp(h.magic,"IMPC",4) || h.version!=1 || h.settingsBytes>sizeof(impact::Settings))throw std::runtime_error("not a capture of this build");
+    if(std::memcmp(h.magic,"IMPC",4) || (h.version!=1 && h.version!=2) || h.settingsBytes>sizeof(impact::Settings))throw std::runtime_error("not a capture of this build");
     {const auto raw=f.read<unsigned char>(h.settingsBytes);std::memcpy(&c.s,raw.data(),h.settingsBytes);}
     const PxU32 n=h.n,m=h.m;impact::Inputs& in=c.in;in.chunkCount=n;in.bondCount=m;
     in.chunks=upload(f.read<PxDestructionStressChunk>(n));in.bonds=upload(f.read<PxDestructionStressBond>(m));
@@ -65,7 +65,7 @@ Capture load(const char* path)
     if(h.flags&impact::eCAPTURE_ELASTIC_BASE)in.elasticBase=upload(f.read<PxDestructionVectorPair>(m));
     if(h.flags&impact::eCAPTURE_CRUSHED)in.crushed=upload(f.read<PxDestructionCrushState>(n));
     if(h.flags&impact::eCAPTURE_SECTIONS)in.sections=upload(f.read<PxDestructionBondSection>(m));
-    if(h.flags&impact::eCAPTURE_ROWS){c.rows=f.read<impact::ContactRow>(h.rows);in.rows=upload(c.rows);in.rowCount=h.rows;}
+    if(h.flags&impact::eCAPTURE_ROWS){c.rows=impact::readCaptureRows(f.f,h.version,h.rows);if(c.rows.size()!=h.rows)throw std::runtime_error("short capture");in.rows=upload(c.rows);in.rowCount=h.rows;}
     if(h.flags&impact::eCAPTURE_CARRIED)in.carried=upload(f.read<PxU32>(m));
     if(h.flags&impact::eCAPTURE_SLIP_BEFORE)in.slipBefore=upload(f.read<float>(m));
     if(h.flags&impact::eCAPTURE_ROUTED)f.read<PxU32>(h.rows);   // the capture's own routing: recomputed here

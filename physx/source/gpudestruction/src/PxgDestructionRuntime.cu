@@ -260,6 +260,9 @@ struct ImpactContact {
     impact::ContactRow* rows; PxU32* rowCount; PxU32 rowCapacity;
     float separating; // m/s: only a pair closing faster than this along its push is coupled (an impact)
     const PxDestructionStressCluster* clusters;
+    // The contact routing (impact::Settings::route): |g|, so a pair that is not
+    // closing but loads the structure past what its body can exchange is a row.
+    bool route; float gravity;
 };
 // One side of a pair as a coupled-contact row (impact::ContactRow): the struck
 // chunk `chunk` (its cluster kinematic), the other body `other` dynamic. Sums
@@ -304,7 +307,7 @@ __device__ void coupleRow(PxU32 chunk,PxNodeIndex own,PxNodeIndex other,float si
     // writeBackContactBlock). Its row is released (points 0): the impact
     // solve takes its impulse off the chunk's load and does not couple it.
     // (The high-profile cannonball: 3.2e7 N, 2.4e5 g, on a 14 kg stud.)
-    bool released=false;
+    bool released=false,resting=false;
     {
         const PxVec3 cw(clusterBefore.angularVelocityXYZ_maxPenBiasW.x,clusterBefore.angularVelocityXYZ_maxPenBiasW.y,clusterBefore.angularVelocityXYZ_maxPenBiasW.z);
         const PxVec3 cv(clusterBefore.linearVelocityXYZ_inverseMassW.x,clusterBefore.linearVelocityXYZ_inverseMassW.y,clusterBefore.linearVelocityXYZ_inverseMassW.z);
@@ -319,7 +322,22 @@ __device__ void coupleRow(PxU32 chunk,PxNodeIndex own,PxNodeIndex other,float si
         // coupling (coupling every piece of rubble cost a capped solve a tick).
         const float closing=rel.dot(normal.getNormalized());
         if(closing<-ci.separating)released=true;
-        else if(!(closing>ci.separating))return;
+        else if(!(closing>ci.separating)) {
+            // Not closing. A resting pair's load is a static support, up to what
+            // its body can exert (Newton: its momentum change over the tick, its
+            // weight, and what its own contacts' friction can add, m (|dv|/dt +
+            // (1 + mu) g)). Past that it is the rigid solver's position
+            // correction (a body wedged between two of the structure's chunks
+            // loads both with opposing impulses its momentum never sees; the
+            // high-profile truck: 4.5e5 g on a 2 kg brick), not an exchange of
+            // momentum. Such a pair is a resting row: the routing takes its
+            // body's self-cancelling share out of the static solve.
+            if(!ci.route)return;
+            const PxVec3 v1e(b.linearVelocityXYZ_inverseMassW.x,b.linearVelocityXYZ_inverseMassW.y,b.linearVelocityXYZ_inverseMassW.z);
+            const PxVec3 dvb=v1e-vi;const float exertable=(dvb.magnitude()*invDt+(1.0f+friction)*ci.gravity)/im;
+            if(!(force.magnitude()*invDt>exertable))return;
+            resting=true;   // a row for the routing to judge (impact::routeRows), never coupled
+        }
     }
     if(p.frictionPatches && p.contactPatches) {
         PxFrictionAnchorStreamIterator it(p.contactPatches,p.frictionPatches,p.nbPatches);
@@ -329,7 +347,7 @@ __device__ void coupleRow(PxU32 chunk,PxNodeIndex own,PxNodeIndex other,float si
         }}
     }
     const PxU32 slot=atomicAdd(ci.rowCount,1u);if(slot>=ci.rowCapacity)return;
-    impact::ContactRow row{};row.chunk=chunk;row.body=other.index();row.points=released?0u:points;row.friction=friction;
+    impact::ContactRow row{};row.chunk=chunk;row.body=other.index();row.points=released?0u:points;row.friction=friction;row.resting=resting?1u:0u;
     auto put=[](float* d,const PxVec3& v){d[0]=v.x;d[1]=v.y;d[2]=v.z;};
     put(row.point,pose.transformInv(point*(1.0f/weight)));put(row.normal,pose.q.rotateInv(normal.getNormalized()));
     put(row.load,pose.q.rotateInv(force*invDt));put(row.torque,pose.q.rotateInv(torque*invDt));put(row.com,pose.transformInv(com));
@@ -1870,6 +1888,7 @@ public:
                     mImpactSettings.boundImpactor=env("PX_DESTRUCTION_IMPACT_BOUND_IMPACTOR",0.0f)!=0.0f;
                     // and the contact routing by peak force against capacity.
                     mImpactSettings.route=env("PX_DESTRUCTION_IMPACT_ROUTE",0.0f)!=0.0f;
+                    mImpactSettings.explicitWindow=PxU32(env("PX_DESTRUCTION_IMPACT_EXPLICIT_WINDOW",0.0f));
                     std::vector<float> slip(d.materialCount),stiffness(d.materialCount);
                     for(PxU32 i=0;i<d.materialCount;++i){slip[i]=d.materials[i].ductileSlip;stiffness[i]=d.materials[i].impactStiffness;}
                     allocate(mImpactSlip,d.materialCount);allocate(mImpactStiffness,d.materialCount);
@@ -2300,6 +2319,7 @@ public:
                 impactContacts.clusters=mClusters;
                 // The impact solve's motion tolerance over the tick, as a speed.
                 impactContacts.separating=mImpactSettings.tolerance/dt;
+                impactContacts.route=mImpactSettings.route;impactContacts.gravity=gravity.magnitude();
             }
             if(mImpactCrush || mImpactRows) {
                 if(mCheckpointValid)check(cudaStreamWaitEvent(mStream,mCheckpointReady,0));
@@ -2374,7 +2394,12 @@ public:
                     in.chunks=mChunks;in.chunkCount=mN;in.bonds=mBonds;in.bondCount=mM;in.materials=mMaterials;
                     in.ductileSlip=mImpactSlip;in.stiffness=mImpactStiffness;in.health=mHealth;
                     in.nodeBegin=mNodeBegin;in.nodeRefs=mNodeRefs;in.nodeIslands=stress.nodeIslands;in.bondIslands=stress.bondIslands;
-                    in.accelerations=mInputs;in.elastic=forces;in.base=mImpactSettings.method>=1u?mImpactRest:mImpactStart;in.elasticBase=mImpactBase;in.stage=mStatus;
+                    in.accelerations=mInputs;in.elastic=forces;in.base=mImpactSettings.method>=1u?(mImpactSettings.route?forces:mImpactRest):mImpactStart;
+                    // (The steps' J0, the state their patch starts from. Routed, this
+                    // pass's elastic solve carries no impact load: the damaged
+                    // structure's own state, where the rest state recorded before the
+                    // impact no longer balances it.)
+                    in.elasticBase=mImpactBase;in.stage=mStatus;
                     in.carried=mImpactCarriedStart;in.slipBefore=mImpactSlipStart;
                     in.crushed=mImpactCrush?mTrialCrush:nullptr;in.sections=mSectionBending?mSections:nullptr;
                     if(mImpactRows) {

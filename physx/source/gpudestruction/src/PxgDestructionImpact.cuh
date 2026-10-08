@@ -89,6 +89,7 @@ struct ContactRow {
     float dv[3],dw[3];  // the change the trial gave its velocity and angular velocity over the tick
     float im;           // inverse mass
     float ii[6];        // inverse inertia (xx, yy, zz, xy, xz, yz)
+    PxU32 resting;      // 1: not closing, its load past what its body can exert (routing only; never coupled)
 };
 
 struct Settings {
@@ -238,6 +239,10 @@ struct Settings {
     float explicitSafety=0.9f;
     float explicitDt=0.0f;
     PxU32 explicitBudget=512;
+    // The explicit step's window: 0 the whole tick; 1 until no contact pushes
+    // and no live joint is within the capacity band (IMPACT_STEP_PLAN.md §7,
+    // mitigation 1; PX_DESTRUCTION_IMPACT_EXPLICIT_WINDOW).
+    PxU32 explicitWindow=0;
 };
 // A solve is diverging when, past its first rho rebalance (25 steps), a
 // joint's split |J - Z| exceeds kDivergence times the joint's capacity: the
@@ -1297,6 +1302,7 @@ __device__ __forceinline__ bool rowMember(const Inputs& in,PxU32 r,PxU32 island)
     const ContactRow& row=in.rows[r];
     if(row.chunk>=in.chunkCount || in.nodeIslands[row.chunk]!=island || !(in.chunks[row.chunk].mass>0.0f) || chunkGone(in,row.chunk))return false;
     if(in.rowRouted && !in.rowRouted[r])return false;
+    if(row.resting)return false;
     return row.im>0.0f && isfinite(row.im) && row.points>0;
 }
 // The contact routing (Settings::route), before the static solve: per row,
@@ -1320,6 +1326,18 @@ __global__ void routeRows(Inputs in,Settings s,PxU32* routed,PxDestructionVector
     if(c>=in.chunkCount || !(in.chunks[c].mass>0.0f) || chunkGone(in,c) || !(row.im>0.0f) || !isfinite(row.im))return;
     const float m=in.chunks[c].mass,L[3]={row.load[0],row.load[1],row.load[2]},Ln=sqrtf(dot3(L,L));
     auto remove=[&](float f){PxVec3& a=inputs[c].linear;atomicAdd(&a.x,-f*L[0]/m);atomicAdd(&a.y,-f*L[1]/m);atomicAdd(&a.z,-f*L[2]/m);};
+    if(row.resting) {
+        // A resting row (coupleRow): of its body's resting loads on the
+        // structure, only their resultant is exchanged with the body (a pile's
+        // weight: all of it); the rest cancels on the rigid body (a wedge's
+        // opposing pairs) and is the rigid solver's position correction. Each
+        // keeps its share |sum| / sum|.| of the static solve.
+        float sum[3]={0,0,0},mag=0.0f;
+        for(PxU32 j=0;j<rows;++j){const ContactRow& q=in.rows[j];if(!q.resting || q.body!=row.body)continue;
+            for(int k=0;k<3;++k)sum[k]+=q.load[k];mag+=sqrtf(dot3(q.load,q.load));}
+        if(mag>0.0f)remove(1.0f-fminf(1.0f,sqrtf(dot3(sum,sum))/mag));
+        return;
+    }
     if(!row.points){routed[r]=1u;remove(1.0f);return;}
     float n[3]={row.normal[0],row.normal[1],row.normal[2]};const float nl=sqrtf(dot3(n,n));if(!(nl>0.0f))return;
     for(int q=0;q<3;++q)n[q]/=nl;
@@ -1934,7 +1952,7 @@ __global__ void heldOverCapacity(Inputs in,Settings s,const PxDestructionBondVer
     if(!in.rows || i>=(in.rowCounter?min(*in.rowCounter,in.rowCount):in.rowCount))return;
     if(stage && (stage->error & 4096u))return;
     const ContactRow& row=in.rows[i];const PxU32 c=row.chunk;
-    if(!row.points || c>=in.chunkCount || !(in.chunks[c].mass>0.0f) || chunkGone(in,c))return;   // released: no stop
+    if(!row.points || row.resting || c>=in.chunkCount || !(in.chunks[c].mass>0.0f) || chunkGone(in,c))return;   // released or resting: no stop
     // The bound the corrected pass applies: per body, the largest of its
     // rows' (collectImpactBounds; a cluster is one body). It stops this pair
     // rigidly when it is none (0) or no less than the trial's stop.
@@ -2023,8 +2041,8 @@ struct Stage {
         exPublish<<<dim3(16,count),kThreads,0,stream>>>(in,s,w,x);
         if(stepLog)std::fprintf(stderr,"[impact]   explicit: %u patches; build %.2f ms, window %.2f ms in %u launches\n",count,explicitBuildMs,explicitRunMs,dispatches);
         if(stepLog)for(PxU32 p=0;p<count;++p){const ExPatch& q=explicitPatches[p];
-            std::fprintf(stderr,"[impact]   explicit patch %u: island %u, %u nodes (%u chunks, %.2f m%s), %u joints, %u contact rows, %u impactors; %u substeps of %.1f us (omega %.3g rad/s); broke %u, yielded %u%s\n",
-                p,q.island,q.nodes,q.chunks,q.radius,q.truncated?", shrunk":"",q.links,q.rows,q.impactors,q.substeps,q.h*1e6f,q.omega,q.broken,q.yielded,q.failed?" (FAILED)":"");}
+            std::fprintf(stderr,"[impact]   explicit patch %u: island %u, %u nodes (%u chunks, %.2f m%s), %u joints, %u contact rows, %u impactors; %u substeps of %.1f us (omega %.3g rad/s; at its end %u contacts pushing, %u joints at an event); broke %u, yielded %u%s\n",
+                p,q.island,q.nodes,q.chunks,q.radius,q.truncated?", shrunk":"",q.links,q.rows,q.impactors,q.substeps,q.h*1e6f,q.omega,q.pushing,q.near,q.broken,q.yielded,q.failed?" (FAILED)":"");}
     }
     void releaseStep() {
         if(!stepAllocated)return;
