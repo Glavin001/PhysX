@@ -1,7 +1,7 @@
 // Copyright (c) 2026. SPDX-License-Identifier: BSD-3-Clause
 #pragma once
 #ifndef EX_THREADS
-#define EX_THREADS 256
+#define EX_THREADS 512
 #endif
 // Timing diagnostics only (never in a product build): a bit mask of the
 // window's phases to skip -- 1 the joint gather, 2 the contact rows, 4 the row
@@ -54,7 +54,10 @@ static_assert(kExRows<=kExThreads,"a row a thread (exRunT)");
 constexpr PxU32 kExSmall=512;
 // Power-iteration products of the substep's bound (exFinish): each one's bound
 // is rigorous, so this sets only how tight it is (and the build's cost).
-constexpr PxU32 kExBoundProducts=24;
+#ifndef EX_BOUND_PRODUCTS
+#define EX_BOUND_PRODUCTS 8
+#endif
+constexpr PxU32 kExBoundProducts=EX_BOUND_PRODUCTS;
 static_assert(8*kExLinks+8*kExNodes<=12*kExLinks,"the bound's blocks and iterate fit t.wr");
 
 struct ExPatch {
