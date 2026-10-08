@@ -1599,9 +1599,11 @@ __device__ bool seamRow(const Inputs& in,const ContactRow& row,PxU32 c,const flo
     if(seam && face)*face=o.magnitudeSquared()>0.0f?q.rotate(o.getNormalized()):PxVec3(-n[0],-n[1],-n[2]);
     return seam;
 }
-// reboundGain (Settings::compliant; or null): trial rows on an anchored chunk whose impactor
-// leaves it faster along the contact's normal (a seam's: the exposed face's) than it came in --
-// the rigid pass's energy from the contact (e <= 1; the 2026-10-08 ground kick). A bug signal.
+// reboundGain (Settings::compliant; or null): trial rows at a seam of an anchored chunk (seamRow:
+// the rigid contact's normal leans out of an internal face) whose impactor leaves faster along the
+// exposed face's normal than it came in along it -- the rigid pass's ghost edge (e <= 1; the
+// 2026-10-08 ground kick). Only seam rows: elsewhere the trial's dv is the body's whole change
+// from all its contacts, which along one row's normal may exceed that row's approach.
 __global__ void routeRows(Inputs in,Settings s,PxU32* routed,PxDestructionVectorPair* inputs,PxU32* reboundGain=nullptr)
 {
     const PxU32 r=blockIdx.x*blockDim.x+threadIdx.x;
@@ -1627,8 +1629,8 @@ __global__ void routeRows(Inputs in,Settings s,PxU32* routed,PxDestructionVector
     for(int q=0;q<3;++q)n[q]/=nl;
     // The rigid pass's energy from this contact (Status::reboundGain): its impactor leaving the
     // anchored chunk along the normal (a seam's: the exposed face's) faster than it came in.
-    PxVec3 face(-n[0],-n[1],-n[2]);const bool seam=s.compliant && seamRow(in,row,c,n,&face) && s.ground;
-    if(reboundGain && !(row.clusterIm>0.0f)) {
+    PxVec3 face(-n[0],-n[1],-n[2]);const bool atSeam=s.compliant && seamRow(in,row,c,n,&face),seam=atSeam && s.ground;
+    if(reboundGain && atSeam && !(row.clusterIm>0.0f)) {
         const PxVec3 v0(row.velocity[0],row.velocity[1],row.velocity[2]),v1=v0+PxVec3(row.dv[0],row.dv[1],row.dv[2]);
         if(v1.dot(face)>-v0.dot(face) && v1.dot(face)>0.0f)atomicAdd(reboundGain,1u);
     }
