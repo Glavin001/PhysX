@@ -2725,7 +2725,7 @@ public:
                         }
                         if(mImpactCaptureDir && e.triggered && mImpactCaptures<PxU32(std::max(0,std::atoi(std::getenv("PX_DESTRUCTION_IMPACT_CAPTURE_COUNT")?std::getenv("PX_DESTRUCTION_IMPACT_CAPTURE_COUNT"):"4")))
                             && (ms>std::atof(std::getenv("PX_DESTRUCTION_IMPACT_CAPTURE_MS")?std::getenv("PX_DESTRUCTION_IMPACT_CAPTURE_MS"):"1000")
-                                || ((e.diverged || e.infeasible || e.nonfinite || e.energyGain) && std::getenv("PX_DESTRUCTION_IMPACT_CAPTURE_SIGNALS")))) {
+                                || ((e.diverged || e.infeasible || e.nonfinite || e.energyGain || e.energyDeficit) && std::getenv("PX_DESTRUCTION_IMPACT_CAPTURE_SIGNALS")))) {
                             char path[1024];std::snprintf(path,sizeof path,"%s/impact-%llu-%u.impc",mImpactCaptureDir,(unsigned long long)mImpactEvaluations,mPass);
                             if(impact::writeCapture(path,in,settings,mImpactMaterialCount)){++mImpactCaptures;std::fprintf(stderr,"[impact] captured %s (%.1f ms)\n",path,ms);}
                         }
