@@ -24,6 +24,15 @@
 // and corrected solve. Its accepted PxDestructionCrushState::crushed is set;
 // debris vs dust (debrisMassFraction) is the consumer's to present.
 #define PX_DESTRUCTION_CRUSH_CORRECTION 1
+// Feature (no layout change; opt-in with the environment, read at configuration:
+// PX_DESTRUCTION_REBEARING=1): a bearing joint whose fasteners fail becomes a
+// unilateral contact -- it bears in compression up to its material's
+// compression capacity, resists shear by friction only (mu = 0.23, timber,
+// EN 1995-2 Table 6.2; PX_DESTRUCTION_REBEARING_FRICTION), carries no tension
+// and lifts off and re-bears as the stress solve says, instead of breaking. A
+// region it held that is left with no compression path splits as before.
+// PX_DESTRUCTION_REBEARING_LOG=1 prints each evaluation's transitions.
+#define PX_DESTRUCTION_REBEARING 1
 #include "foundation/PxTransform.h"
 #include "PxDirectGPUAPI.h"
 #include "PxDestructionTopologyTypes.h"
