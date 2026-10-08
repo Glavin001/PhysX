@@ -111,7 +111,7 @@ int run(int argc,char** argv)
     t.patchCount=upload(std::vector<PxU32>{1u});t.patches=upload(std::vector<impact::ExPatch>(kP,patch));
     t.nodes=upload(rep(nodes,kP));t.bonds=upload(rep(bonds,kP));t.links=upload(rep(links,kP));t.rowBonds=upload(rep(rowBonds,kP));t.rows=upload(rep(rows,kP));
     t.adj=upload(rep(adj,kP));t.rowAdj=upload(rep(rowAdj,kP));allocate(t.wr,12*size_t(impact::kExLinks)*kP);allocate(t.rwr,12*size_t(impact::kExRows)*kP);
-    allocate(t.jp,impact::kExJoint*size_t(impact::kExLinks)*kP);allocate(t.jl,size_t(impact::kExLinks)*kP);
+    allocate(t.jp,impact::kExJoint*size_t(impact::kExLinks)*kP);allocate(t.jl,size_t(impact::kExLinks)*kP);allocate(t.rp,impact::kExRow*size_t(impact::kExRows)*kP);
     impact::Settings s{};s.dt=dt;s.capacityBand=band;
     impact::Scratch w{};
     std::vector<PxU32> counts;for(int i=2;i<argc;++i)counts.push_back(PxU32(std::atoi(argv[i])));if(counts.empty())counts={1,2,4,8};

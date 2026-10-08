@@ -250,6 +250,9 @@ struct Settings {
     // and no live joint is within the capacity band (IMPACT_STEP_PLAN.md §7,
     // mitigation 1; PX_DESTRUCTION_IMPACT_EXPLICIT_WINDOW).
     PxU32 explicitWindow=0;
+    // 1: read the patches back between the explicit step's build and window
+    // (their times apart, for diagnostics); 0: no round trip between them.
+    PxU32 explicitSync=0;
 };
 // A solve is diverging when, past its first rho rebalance (25 steps), a
 // joint's split |J - Z| exceeds kDivergence times the joint's capacity: the
@@ -2011,14 +2014,14 @@ struct Stage {
     void releaseExplicit() {
         if(!explicitAllocated)return;
         cudaFree(x.nodeOf);cudaFree(x.linkOf);cudaFree(x.patchCount);cudaFree(x.patches);cudaFree(x.nodes);cudaFree(x.bonds);cudaFree(x.links);
-        cudaFree(x.rowBonds);cudaFree(x.rows);cudaFree(x.adj);cudaFree(x.rowAdj);cudaFree(x.wr);cudaFree(x.rowList);cudaFree(x.rwr);cudaFree(x.jp);cudaFree(x.jl);x={};explicitAllocated=false;
+        cudaFree(x.rowBonds);cudaFree(x.rows);cudaFree(x.adj);cudaFree(x.rowAdj);cudaFree(x.wr);cudaFree(x.rowList);cudaFree(x.rwr);cudaFree(x.jp);cudaFree(x.jl);cudaFree(x.rp);x={};explicitAllocated=false;
     }
     void allocateExplicit() {
         if(explicitAllocated)return;
         const size_t P=kExPatches;
         ::physx::allocate(x.nodeOf,std::max<size_t>(n,1));::physx::allocate(x.linkOf,std::max<size_t>(m,1));::physx::allocate(x.patchCount,1);::physx::allocate(x.patches,P);
         ::physx::allocate(x.nodes,P*kExNodes);::physx::allocate(x.bonds,P*kExLinks);::physx::allocate(x.links,P*kExLinks);
-        ::physx::allocate(x.rowBonds,P*kExRows);::physx::allocate(x.rows,P*kExRows);::physx::allocate(x.adj,P*2*kExLinks);::physx::allocate(x.rowAdj,P*2*kExRows);::physx::allocate(x.wr,P*kExLinks*12);::physx::allocate(x.rowList,P*kExRows);::physx::allocate(x.rwr,P*kExRows*12);::physx::allocate(x.jp,P*kExLinks*kExJoint);::physx::allocate(x.jl,P*kExLinks);
+        ::physx::allocate(x.rowBonds,P*kExRows);::physx::allocate(x.rows,P*kExRows);::physx::allocate(x.adj,P*2*kExLinks);::physx::allocate(x.rowAdj,P*2*kExRows);::physx::allocate(x.wr,P*kExLinks*12);::physx::allocate(x.rowList,P*kExRows);::physx::allocate(x.rwr,P*kExRows*12);::physx::allocate(x.jp,P*kExLinks*kExJoint);::physx::allocate(x.jl,P*kExLinks);::physx::allocate(x.rp,P*kExRows*kExRow);
         explicitAllocated=true;
     }
     // The explicit step's evaluation: the patches, their build (a block
@@ -2033,23 +2036,33 @@ struct Stage {
         // Every patch slot builds (an empty one returns at once): no readback
         // before the build; one after it, for the patches and their substeps.
         exBuild<<<kExPatches,kThreads,0,stream>>>(in,s,w,x);
-        check(cudaMemcpyAsync(pending,x.patchCount,sizeof(PxU32),cudaMemcpyDeviceToHost,stream));check(cudaStreamSynchronize(stream));
-        const PxU32 count=*pending;dispatches=0;longestDispatch=0.0;explicitPatches.clear();
-        if(!count){explicitBuildMs=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-start).count();return;}
-        explicitPatches.resize(count);
-        check(cudaMemcpy(explicitPatches.data(),x.patches,sizeof(ExPatch)*count,cudaMemcpyDeviceToHost));
-        bool small=true;for(const auto& q:explicitPatches)small=small && q.nodes<=kExSmall;
+        // The window follows the build with no readback between them (one host
+        // round trip fewer): both kernels over every patch slot, each patch
+        // running in the kernel of its size, an empty slot returning at once.
+        // Settings::explicitSync 1 reads back after the build instead, to time
+        // the build and the window apart (diagnostics).
+        dispatches=0;longestDispatch=0.0;explicitPatches.clear();
+        PxU32 count=0;
+        if(s.explicitSync) {
+            check(cudaMemcpyAsync(pending,x.patchCount,sizeof(PxU32),cudaMemcpyDeviceToHost,stream));check(cudaStreamSynchronize(stream));
+            count=*pending;
+            if(!count){explicitBuildMs=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-start).count();return;}
+        }
         const auto built=std::chrono::steady_clock::now();
-        explicitBuildMs=std::chrono::duration<double,std::milli>(built-start).count();
+        explicitBuildMs=s.explicitSync?std::chrono::duration<double,std::milli>(built-start).count():0.0;
+        explicitPatches.resize(kExPatches);
         for(PxU32 d=0;d<65536;++d) {
             const auto t0=std::chrono::steady_clock::now();
-            if(small)exRunSmall<<<count,kExThreads,0,stream>>>(s,w,x,s.explicitBudget);
-            else exRun<<<count,kExThreads,0,stream>>>(s,w,x,s.explicitBudget);
-            check(cudaMemcpyAsync(explicitPatches.data(),x.patches,sizeof(ExPatch)*count,cudaMemcpyDeviceToHost,stream));check(cudaStreamSynchronize(stream));
+            exRunSmall<<<kExPatches,kExThreads,0,stream>>>(s,w,x,s.explicitBudget);
+            exRun<<<kExPatches,kExThreads,0,stream>>>(s,w,x,s.explicitBudget);
+            check(cudaMemcpyAsync(pending,x.patchCount,sizeof(PxU32),cudaMemcpyDeviceToHost,stream));
+            check(cudaMemcpyAsync(explicitPatches.data(),x.patches,sizeof(ExPatch)*kExPatches,cudaMemcpyDeviceToHost,stream));check(cudaStreamSynchronize(stream));
             longestDispatch=std::max(longestDispatch,std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-t0).count());++dispatches;
-            bool done=true;for(const auto& q:explicitPatches)done=done && q.done;
+            count=*pending;bool done=true;for(PxU32 p=0;p<count;++p)done=done && explicitPatches[p].done;
             if(done)break;
         }
+        explicitPatches.resize(count);
+        if(!count){explicitRunMs=0.0;return;}
         explicitRunMs=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-built).count();
         exPublishIsland<<<64,kThreads,0,stream>>>(in,w,x);
         exPublish<<<dim3(16,count),kThreads,0,stream>>>(in,s,w,x);

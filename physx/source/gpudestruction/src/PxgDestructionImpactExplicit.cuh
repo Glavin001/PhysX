@@ -94,6 +94,8 @@ struct ExNode { PxU32 chunk,tensor,jointBegin,jointEnd,rowBegin,rowEnd,pad[2]; f
 // slip. exRunT packs them at each launch's start from bonds and links and
 // writes the state back to links at its end.
 constexpr PxU32 kExJoint=11;
+// A contact row packed for the window: frame, arms, friction, W, W^-1 (kExRow float4s).
+constexpr PxU32 kExRow=9;
 struct ExScratch {
     PxU32* nodeOf{};      // [chunkCount] patch << 16 | local, or ~0
     PxU32* linkOf{};      // [bondCount] local joint index, or ~0 (each bond is in one patch at most)
@@ -110,6 +112,7 @@ struct ExScratch {
     PxU32* rowList{};     // [P][kExRows]: each patch's stage rows (exList), in row order
     float* rwr{};         // [P][kExRows][2][6]: each row's impulse wrench on its two ends
     float4* jp{};         // [P][kExLinks][kExJoint]: each joint packed for the window (exRunT; exPack)
+    float4* rp{};         // [P][kExRows][kExRow]: each contact row packed for the window (exRunT)
     PxU32* jl{};          // [P][kExLinks]: the live joints away from rows from the front, those at rows from the back (exRunT)
 };
 
@@ -630,10 +633,11 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
     __shared__ PxU32 jS[kN],rS[kN];
     const PxU32 p=blockIdx.x;if(p>=*t.patchCount)return;
     ExPatch& sp=t.patches[p];if(sp.done)return;
+    if(Small!=(sp.nodes<=kExSmall))return;   // each patch runs in the kernel of its size (the host launches both)
     ExNode* nodes=t.nodes+size_t(p)*kExNodes;const Bond* bonds=t.bonds+size_t(p)*kExLinks;ExLink* links=t.links+size_t(p)*kExLinks;
     const Bond* rowBonds=t.rowBonds+size_t(p)*kExRows;ExRow* rows=t.rows+size_t(p)*kExRows;
     const PxU32* adj=t.adj+size_t(p)*2*kExLinks;const PxU32* rowAdj=t.rowAdj+size_t(p)*2*kExRows;
-    float* wr=t.wr+size_t(p)*kExLinks*12;float* rwr=t.rwr+size_t(p)*kExRows*12;float4* jp=t.jp+size_t(p)*kExLinks*kExJoint;PxU32* jl=t.jl+size_t(p)*kExLinks;
+    float* wr=t.wr+size_t(p)*kExLinks*12;float* rwr=t.rwr+size_t(p)*kExRows*12;float4* jp=t.jp+size_t(p)*kExLinks*kExJoint;PxU32* jl=t.jl+size_t(p)*kExLinks;float4* rp=t.rp+size_t(p)*kExRows*kExRow;
     const PxU32 nn=sp.nodes,nl=sp.links,nr=sp.rows;const float h=sp.h,T=s.dt;
     const PxU32 total=PxU32(ceilf(T/h-1e-4f));
     if(!threadIdx.x){shBroken=0;shYielded=0;shFracture=0.0f;shPlastic=0.0f;shDead=0.0f;shFree=0;shAtRows=0;}
@@ -671,6 +675,11 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
             (W[5]*W[6]-W[3]*W[8])*id,(W[0]*W[8]-W[2]*W[6])*id,(W[2]*W[3]-W[0]*W[5])*id,
             (W[3]*W[7]-W[4]*W[6])*id,(W[1]*W[6]-W[0]*W[7])*id,(W[0]*W[4]-W[1]*W[3])*id};
         for(int i=0;i<9;++i){rows[threadIdx.x].Winv[i]=inv[i];rows[threadIdx.x].W[i]=W[i];}
+        float4* q=rp+size_t(kExRow)*threadIdx.x;
+        q[0]=make_float4(rb.n[0],rb.n[1],rb.n[2],rb.t1[0]);q[1]=make_float4(rb.t1[1],rb.t1[2],rb.t2[0],rb.t2[1]);
+        q[2]=make_float4(rb.t2[2],rb.o0[0],rb.o0[1],rb.o0[2]);q[3]=make_float4(rb.o1[0],rb.o1[1],rb.o1[2],rb.area);
+        q[4]=make_float4(W[0],W[1],W[2],W[3]);q[5]=make_float4(W[4],W[5],W[6],W[7]);q[6]=make_float4(W[8],inv[0],inv[1],inv[2]);
+        q[7]=make_float4(inv[3],inv[4],inv[5],inv[6]);q[8]=make_float4(inv[7],inv[8],0.0f,0.0f);
     }
     __syncthreads();
     PxU32 step=sp.substeps;float dead=0.0f;
@@ -740,12 +749,17 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
         // Contacts: each row's impulse from the same velocities (Jacobi), in the
         // Coulomb cone (exCone: sliding, never adding energy).
         if(hasRow && !(EX_PROF_SKIP&2)) {
-            const Bond rb=rowBonds[threadIdx.x];
+            // The row from its packed record (vector loads; no lambda holds W: CUMETAL_COMPATIBILITY.md).
+            const float4* q=rp+size_t(kExRow)*threadIdx.x;
+            const float4 q0=q[0],q1=q[1],q2=q[2],q3=q[3],q4=q[4],q5=q[5],q6=q[6],q7=q[7],q8=q[8];
+            Bond rb;rb.n[0]=q0.x;rb.n[1]=q0.y;rb.n[2]=q0.z;rb.t1[0]=q0.w;rb.t1[1]=q1.x;rb.t1[2]=q1.y;rb.t2[0]=q1.z;rb.t2[1]=q1.w;
+            rb.t2[2]=q2.x;rb.o0[0]=q2.y;rb.o0[1]=q2.z;rb.o0[2]=q2.w;rb.o1[0]=q3.x;rb.o1[1]=q3.y;rb.o1[2]=q3.z;rb.area=q3.w;
+            const float Wr[9]={q4.x,q4.y,q4.z,q4.w,q5.x,q5.y,q5.z,q5.w,q6.x},Wi[9]={q6.y,q6.z,q6.w,q7.x,q7.y,q7.z,q7.w,q8.x,q8.y};
             float g[6]={0,0,0,0,0,0};exRelative(rb,0,vS+6*ra,g);exRelative(rb,1,vS+6*rn,g);
-            const float* Wi=rows[threadIdx.x].Winv;float Ps[3];for(int i=0;i<3;++i)Ps[i]=-(Wi[3*i]*g[0]+Wi[3*i+1]*g[1]+Wi[3*i+2]*g[2]);
-            float P[3];exCone(rows[threadIdx.x].W,g,Ps,rb.area,P);
+            float Ps[3];for(int i=0;i<3;++i)Ps[i]=-(Wi[3*i]*g[0]+Wi[3*i+1]*g[1]+Wi[3*i+2]*g[2]);
+            float P[3];exCone(Wr,g,Ps,rb.area,P);
             if(EX_PROF_DUP&2){float g2[6],P2[3],Ps2[3];for(int q=0;q<6;++q)g2[q]=g[q]*(1.0f+FLT_EPSILON*float(step&1));for(int q=0;q<3;++q)Ps2[q]=Ps[q]*(1.0f+FLT_EPSILON*float(step&1));
-                exCone(rows[threadIdx.x].W,g2,Ps2,rb.area,P2);dead+=1e-30f*(P2[0]+P2[1]+P2[2]);}
+                exCone(Wr,g2,Ps2,rb.area,P2);dead+=1e-30f*(P2[0]+P2[1]+P2[2]);}
             for(int q=0;q<3;++q)rows[threadIdx.x].total[q]+=P[q];
             // Pushing: an impulse the impactor's momentum resolves in float (below
             // its float resolution it exchanges nothing representable).
