@@ -1005,6 +1005,18 @@ extern "C" __global__ void constraintContactBlockPrePrepLaunch(PxgPrePrepDesc* g
 
 					contactCount = contactPatch->nbContacts;
 
+					// A contact on a box of a compound whose face there is internal (flush
+					// against another box of its body): the normal of the surface the
+					// boxes make, not of the seam's edge (PxgInternalFaceContacts.h).
+					// In place, before anything below reads the patch: the solve, its
+					// friction and the contact reports all see the one normal.
+					if(shDesc.internalFaceContacts.chunks && contactPatch)
+					{
+						PxVec3 normal = contactPatch->normal;
+						internalFaceContactNormal(shDesc.internalFaceContacts, cmOutputIndex, normal);
+						contactPatch->normal = normal;
+					}
+
 					// A contact on an anchored destructible chunk: no more impulse
 					// per point than the chunk can take over the step (its bonds'
 					// capacity and its own inertia), from the bodies' velocities at

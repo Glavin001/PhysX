@@ -9,6 +9,7 @@
 #include "PxgDestructionMotionStorage.h"
 #include "PxvDestructionBodyAllocator.h"
 #include "PxgAnchoredContactBound.h"
+#include "PxgInternalFaceContacts.h"
 namespace physx {
 struct PxgBodySim;
 struct PxgConstraintWriteback;
@@ -54,6 +55,12 @@ public:
     // shape -> chunk map and each chunk's capacity and mass, without the
     // contact inputs (the caller's). Disabled: chunks null.
     virtual PxgAnchoredContactBoundView anchoredContactBoundView() const = 0;
+    // The chunk boxes' internal faces for the rigid solver's contact prep
+    // (PX_DESTRUCTION_INTERNAL_EDGES; PxgInternalFaceContacts.h): the shape ->
+    // chunk map, each chunk's box shape and internal faces, and the boxes covering
+    // each face, without the contact inputs, transforms or shape owners (the
+    // caller's). Disabled: chunks null.
+    virtual PxgInternalFaceContactView internalFaceContactView() const = 0;
     virtual bool readRigidIterationLimits(PxU32& position,PxU32& velocity) = 0;
     virtual bool correctionEnabled() const = 0;
     // Configured internalCorrectionLimit: the most corrected rigid passes one

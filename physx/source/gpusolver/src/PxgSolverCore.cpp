@@ -49,6 +49,7 @@
 #include "PxgIslandContext.h"
 #include "PxgNarrowphaseCore.h"
 #include "PxgDestructionRuntime.h"
+#include "PxsCachedTransform.h"
 
 #define GPU_CORE_DEBUG 0
 
@@ -377,6 +378,25 @@ void PxgSolverCore::constructConstraintPrePrepDesc(PxgPrePrepDesc& preDesc, PxU3
 		preDesc.anchoredContactBound = destruction->anchoredContactBoundView();
 		if(preDesc.anchoredContactBound.chunks)
 			preDesc.anchoredContactBound.inputs = reinterpret_cast<const PxU32*>(mGpuContext->getNarrowphaseCore()->getGPUContactManagerInputBase());
+	}
+	// The internal faces of compound boxes (off: chunks null, the prep unchanged).
+	preDesc.internalFaceContacts = PxgInternalFaceContactView();
+	if(PxgDestructionRuntime* destruction = mGpuContext->getSimulationController()->getNativeDestructionRuntime())
+	{
+		preDesc.internalFaceContacts = destruction->internalFaceContactView();
+		if(preDesc.internalFaceContacts.chunks)
+		{
+			PxgGpuNarrowphaseCore* np = mGpuContext->getNarrowphaseCore();
+			preDesc.internalFaceContacts.inputs = reinterpret_cast<const PxU32*>(np->getGPUContactManagerInputBase());
+			preDesc.internalFaceContacts.transforms = reinterpret_cast<const PxU8*>(np->getTransformCache().getDevicePtr());
+			preDesc.internalFaceContacts.transformStride = sizeof(PxsCachedTransform);
+			const PxgCudaBuffer& owners = np->mGpuShapesManager.mGpuShapesRemapTableBuffer;
+			preDesc.internalFaceContacts.owners = reinterpret_cast<const PxNodeIndex*>(owners.getDevicePtr());
+			preDesc.internalFaceContacts.ownerCount = PxU32(owners.getSize() / sizeof(PxNodeIndex));
+			// The transform cache must hold every ref the owners table does.
+			const PxU32 transformCount = PxU32(np->getTransformCache().getSize() / sizeof(PxsCachedTransform));
+			preDesc.internalFaceContacts.ownerCount = PxMin(preDesc.internalFaceContacts.ownerCount, transformCount);
+		}
 	}
 	preDesc.sharedFrictionConstraintIndex = 0;
 	preDesc.sharedContactConstraintIndex = 0;	

@@ -32,6 +32,7 @@
 #include "PxgBucket.h"
 #include "DyCpuGpuBiasCoefficient.h"
 #include "PxgAnchoredContactBound.h"
+#include "PxgInternalFaceContacts.h"
 
 struct float4;
 
@@ -465,6 +466,8 @@ namespace physx
 
 		// The destruction stage's anchored-chunk contact bound (disabled: chunks null).
 		PxgAnchoredContactBoundView			anchoredContactBound;
+		// The internal faces of compound boxes (disabled: chunks null).
+		PxgInternalFaceContactView			internalFaceContacts;
 	};
 }
 

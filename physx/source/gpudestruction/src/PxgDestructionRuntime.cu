@@ -1159,6 +1159,9 @@ class Runtime final : public PxgDestructionRuntime {
     // this pass's contacts, and the non-destructible impactors' impedance.
     bool mImpactCrush=false;float *mImpactStress{},*mImpactRate{},*mImpactEnergy{};PxU32* mImpactImpactor{};
     bool mCrushEnergyBound=false;PxU32* mImpactStriker{};float* mCrushDemand{};PxU32 mCrushDemandCapacity=0;float* mCrushBoundAudit{};
+    // PX_DESTRUCTION_INTERNAL_EDGES (PxgInternalFaceContacts.h): per chunk its box
+    // shape's transform cache ref and internal faces, and each face's covering boxes' refs.
+    PxU32 *mInternalChunks{},*mInternalFaceBegin{},*mInternalNeighbours{};PxU32 mInternalFaceCount{};
     bool mAnchoredBound=false,mAnchoredReady=false;float4* mAnchoredChunks{};float4* mAnchoredBonds{};PxU32 *mAnchoredSaturated{},*mAnchoredGhosts{};
     ImpactorImpedance* mImpactors{};PxU32 mImpactorCount=0,mImpactorCapacity=0;
     // The impact solve's coupled contact: this pass's rows, their count, and
@@ -1336,6 +1339,13 @@ public:
         check(cudaMemset(mCompletion,0,sizeof(*mCompletion)));
         mStatus=&mCompletion->stage;mHostStatus=&mHostCompletion->stage;
         check(cudaEventRecord(mReady,mStream));
+    }
+    PxgInternalFaceContactView internalFaceContactView() const override {
+        PxgInternalFaceContactView v{};
+        if(!mInternalChunks || !mMap || !mN)return v;
+        v.map=reinterpret_cast<const PxU32*>(mMap);v.mapCount=mMapCount;v.chunkCount=mN;
+        v.chunks=mInternalChunks;v.faceBegin=mInternalFaceBegin;v.neighbours=mInternalNeighbours;
+        return v;
     }
     PxgAnchoredContactBoundView anchoredContactBoundView() const override {
         PxgAnchoredContactBoundView v{};
@@ -1804,7 +1814,7 @@ public:
         cudaFree(mImpactSlip);mImpactSlip=nullptr;cudaFree(mImpactStiffness);mImpactStiffness=nullptr;
         cudaFreeHost(mImpactHostStatus);mImpactHostStatus=nullptr;
         mImpactCrush=false;cudaFree(mImpactStress);mImpactStress=nullptr;cudaFree(mImpactRate);mImpactRate=nullptr;
-        cudaFree(mImpactImpactor);mImpactImpactor=nullptr;cudaFree(mImpactStriker);mImpactStriker=nullptr;cudaFree(mCrushDemand);mCrushDemand=nullptr;mCrushDemandCapacity=0;cudaFree(mCrushBoundAudit);mCrushBoundAudit=nullptr;mCrushEnergyBound=false;cudaFree(mAnchoredChunks);mAnchoredChunks=nullptr;cudaFree(mAnchoredBonds);mAnchoredBonds=nullptr;cudaFree(mAnchoredSaturated);mAnchoredSaturated=nullptr;cudaFree(mAnchoredGhosts);mAnchoredGhosts=nullptr;mAnchoredBound=mAnchoredReady=false;
+        cudaFree(mImpactImpactor);mImpactImpactor=nullptr;cudaFree(mImpactStriker);mImpactStriker=nullptr;cudaFree(mCrushDemand);mCrushDemand=nullptr;mCrushDemandCapacity=0;cudaFree(mCrushBoundAudit);mCrushBoundAudit=nullptr;mCrushEnergyBound=false;cudaFree(mInternalChunks);mInternalChunks=nullptr;cudaFree(mInternalFaceBegin);mInternalFaceBegin=nullptr;cudaFree(mInternalNeighbours);mInternalNeighbours=nullptr;mInternalFaceCount=0;cudaFree(mAnchoredChunks);mAnchoredChunks=nullptr;cudaFree(mAnchoredBonds);mAnchoredBonds=nullptr;cudaFree(mAnchoredSaturated);mAnchoredSaturated=nullptr;cudaFree(mAnchoredGhosts);mAnchoredGhosts=nullptr;mAnchoredBound=mAnchoredReady=false;
         cudaFree(mImpactRows);mImpactRows=nullptr;cudaFree(mImpactRowCount);mImpactRowCount=nullptr;
         cudaFree(mImpactRowDelta);mImpactRowDelta=nullptr;cudaFree(mImpactRowForce);mImpactRowForce=nullptr;cudaFree(mImpactRowBound);mImpactRowBound=nullptr;cudaFree(mImpactRowRouted);mImpactRowRouted=nullptr;
         cudaFree(mImpactBound);mImpactBound=nullptr;cudaFree(mImpactSaved);mImpactSaved=nullptr;cudaFree(mImpactBounded);mImpactBounded=nullptr;cudaFree(mImpactBoundRequested);mImpactBoundRequested=nullptr;mImpactBoundCapacity=0;
@@ -2146,6 +2156,39 @@ public:
                 const bool fragmentGravity=d.fragmentGravity;
                 check(cudaMemcpyToSymbol(gNativeFragmentGravity,&fragmentGravity,sizeof(bool)));
             }
+#if PX_DESTRUCTION_CHUNK_BOXES >= 2
+            // Internal-edge contacts (opt-in: PX_DESTRUCTION_INTERNAL_EDGES=1). A face
+            // counts where it is marked internal, its box is the chunk's collider and
+            // every box covering it is one too (PX_DESTRUCTION_CHUNK_BOX_EXACT: a hull
+            // need not fill its bounds), and every one has a shape; the contact prep
+            // tests each pass that they still share the chunk's body.
+            if(std::getenv("PX_DESTRUCTION_INTERNAL_EDGES") && std::atoi(std::getenv("PX_DESTRUCTION_INTERNAL_EDGES"))!=0
+                && d.chunkBoxes && d.chunkFaceNeighbourBegin && d.chunkCount) {
+                const auto exact=[&](PxU32 c){return c<d.chunkCount && (d.chunkBoxes[c].internalFaces&PX_DESTRUCTION_CHUNK_BOX_EXACT)!=0
+                    && d.chunks[c].contactIndex!=PX_INVALID_U32;};
+                std::vector<PxU32> chunks(2*size_t(d.chunkCount)),begin(6*size_t(d.chunkCount)+1,0u),refs;
+                for(PxU32 c=0;c<d.chunkCount;++c) {
+                    PxU32 faces=0;
+                    for(PxU32 f=0;f<6;++f) {
+                        const PxU32 a=d.chunkFaceNeighbourBegin[6*c+f],b=d.chunkFaceNeighbourBegin[6*c+f+1];
+                        bool internal=((d.chunkBoxes[c].internalFaces>>f)&1u) && exact(c) && b>a && d.chunkFaceNeighbours;
+                        for(PxU32 i=a;internal && i<b;++i)internal=exact(d.chunkFaceNeighbours[i]);
+                        if(internal) {
+                            faces|=1u<<f;
+                            for(PxU32 i=a;i<b;++i)refs.push_back(d.chunks[d.chunkFaceNeighbours[i]].contactIndex);
+                        }
+                        begin[6*c+f+1]=PxU32(refs.size());
+                    }
+                    chunks[2*c]=d.chunks[c].contactIndex;chunks[2*c+1]=faces;
+                    mInternalFaceCount+=PxU32(__builtin_popcount(faces));
+                }
+                allocate(mInternalChunks,chunks.size());allocate(mInternalFaceBegin,begin.size());allocate(mInternalNeighbours,std::max<size_t>(refs.size(),1));
+                check(cudaMemcpy(mInternalChunks,chunks.data(),sizeof(PxU32)*chunks.size(),cudaMemcpyHostToDevice));
+                check(cudaMemcpy(mInternalFaceBegin,begin.data(),sizeof(PxU32)*begin.size(),cudaMemcpyHostToDevice));
+                if(!refs.empty())check(cudaMemcpy(mInternalNeighbours,refs.data(),sizeof(PxU32)*refs.size(),cudaMemcpyHostToDevice));
+                std::fprintf(stderr,"[destruction] internal-edge contacts: %u internal faces on %u chunks\n",mInternalFaceCount,d.chunkCount);
+            }
+#endif
             if(d.reservedContactPairs>mGraphPairCapacity) {
                 // Before any graph snapshot exists: nothing in flight to wait for.
                 const PxU32 capacity=d.reservedContactPairs;
