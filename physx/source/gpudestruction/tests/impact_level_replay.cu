@@ -10,11 +10,12 @@
 // Prints the residuals per dispatch (IMPACT_TRACE_EVERY steps with
 // IMPACT_TRACE=1), the objective, and with ORACLE (the FP64 optimum's J, nl x 6
 // doubles, scripts/impact/admm-fp64.py --oracle-out) the largest difference of
-// each link's force from it as a fraction of its capacity.
+// the objective gap and the contact forces' difference from it.
 // Settings: IMPACT_LENGTH_SCALE (required: the capture's), IMPACT_ITERATIONS,
 // IMPACT_INNER, IMPACT_INNER_TOLERANCE, IMPACT_TOLERANCE.
 // Exit status (a test): 0 when the solve converges within IMPACT_ITERATIONS
-// (and agrees with ORACLE to IMPACT_AGREE of capacity, default 2e-2), 1 not.
+// with its J step exact enough on every step (and agrees with ORACLE:
+// IMPACT_AGREE_OBJECTIVE, IMPACT_AGREE_CONTACT), 1 not.
 #include "PxDestructionScene.h"
 #include "NvBlastExtStressMaterialFormula.h"
 #include <cuda_runtime.h>
@@ -205,22 +206,63 @@ int run(int argc,char** argv)
         return c;};
     const std::vector<double> z(Z.begin(),Z.end());
     std::printf("  objective %.9g\n",objective(z));
-    int status=converged?0:1;
+    // The J step's exactness on every step: its CG reached its limit (none
+    // ran out of iterations), and the worst residual left is within the bound
+    // its error allows, 1 / (4 (1 + |o|/L)) for the island's longest lever.
+    float lever=0.0f;for(const auto& b:bonds){if(!(b.flags&impact::eALIVE))continue;
+        if(b.flags&impact::eDYNAMIC0)lever=std::max(lever,std::sqrt(b.o0[0]*b.o0[0]+b.o0[1]*b.o0[1]+b.o0[2]*b.o0[2]));
+        if(b.flags&impact::eDYNAMIC1)lever=std::max(lever,std::sqrt(b.o1[0]*b.o1[0]+b.o1[1]*b.o1[1]+b.o1[2]*b.o1[2]));}
+    float innerWorst;std::memcpy(&innerWorst,&st.innerWorst,4);
+    const float bound=1.0f/(4.0f*(1.0f+lever/s.lengthScale));
+    const bool exact=st.innerShort==0 && innerWorst<=bound*1.0001f;
+    std::printf("  J step: worst residual %.3g x tolerance (%u steps short of their limit); the error bound allows %.3g (longest lever %.3g m, L %.3g m): %s\n",
+        innerWorst,st.innerShort,bound,lever,s.lengthScale,exact?"exact enough":"NOT");
+    int status=converged && exact?0:1;
     if(argc>2) {
         FILE* f=std::fopen(argv[2],"rb");if(!f)throw std::runtime_error("cannot open the oracle");
         std::vector<double> x(6*size_t(nl));if(std::fread(x.data(),8,x.size(),f)!=x.size())throw std::runtime_error("short oracle");std::fclose(f);
-        // Each link's difference from the optimum, as the primal residual
-        // measures a split: (|dF| + gain |dM|) / capacity; contacts against their scale (capC).
+        // What the level decides, against the optimum: its objective (the
+        // tick's kinetic and the joints' complementary energy) as a fraction of
+        // the problem's scale (that of J = 0), and the impactor's contact
+        // impulses as a fraction of the largest. Single joint forces are
+        // reported, not judged: along a near-mechanism the objective is nearly
+        // flat in them (joints k dt^2 / m >> 1 share a load almost freely), so
+        // a solution within tolerance may carry a load on a neighbouring joint.
+        const double scale=objective(std::vector<double>(6*size_t(nl),0.0));
+        const double gap=(objective(z)-objective(x))/scale;
+        double worstF=0.0,largest=0.0;PxU32 atF=0;
+        for(PxU32 l=0;l<nl;++l){const auto& b=bonds[l];if(!(b.flags&impact::eCONTACT) || !(b.flags&impact::eALIVE))continue;
+            double fz[3]={0,0,0},fx[3]={0,0,0};
+            for(int k=0;k<3;++k)for(int q=0;q<6;++q){fz[k]+=double(d.B[72*l+6*k+q])*z[6*l+q];fx[k]+=double(d.B[72*l+6*k+q])*x[6*l+q];}
+            largest=std::max(largest,std::sqrt(fx[0]*fx[0]+fx[1]*fx[1]+fx[2]*fx[2]));
+            const double e=std::sqrt((fz[0]-fx[0])*(fz[0]-fx[0])+(fz[1]-fx[1])*(fz[1]-fx[1])+(fz[2]-fx[2])*(fz[2]-fx[2]));if(e>worstF){worstF=e;atF=l;}}
+        const double relF=largest>0.0?worstF/largest:0.0;
         double worst=0.0;PxU32 at=0;
-        for(PxU32 l=0;l<nl;++l){const auto& b=bonds[l];if(!(b.flags&impact::eALIVE))continue;
+        for(PxU32 l=0;l<nl;++l){const auto& b=bonds[l];if(!(b.flags&impact::eALIVE) || (b.flags&impact::eCONTACT))continue;
             double lf=0.0,af=0.0;for(int q=0;q<6;++q){const double dd=z[6*l+q]-x[6*l+q];(q<3?lf:af)+=dd*dd;}
-            const double gain=(b.flags&impact::eCONTACT)?0.0:std::max(std::max(b.gb,b.gt),std::max(b.g0,b.g1));
-            const double cap=std::max(std::max(b.capC,b.capT),b.capS);
+            const double gain=std::max(std::max(b.gb,b.gt),std::max(b.g0,b.g1)),cap=std::max(std::max(b.capC,b.capT),b.capS);
             const double e=(std::sqrt(lf)+gain*std::sqrt(af))/cap;if(e>worst){worst=e;at=l;}}
-        const double agree=env("IMPACT_AGREE",2e-2f);
-        std::printf("  against the FP64 optimum: objective %.9g; worst link %u (bond %u) differs by %.3e of its capacity (agree within %.1e: %s)\n",
-            objective(x),at,bonds[at].bond,worst,agree,worst<=agree?"yes":"NO");
-        if(worst>agree)status=1;
+        // The joints at capacity (utilisation >= 1 - capacityBand: the
+        // brittle ones break at this level), here and at the optimum.
+        auto util=[&](const impact::Bond& b,const double* v){
+            const double N=v[0],V=std::hypot(v[1],v[2]),T=std::fabs(v[3]),M=std::hypot(v[4],v[5]);
+            const double bend=b.g0>0.0f?b.g0*std::fabs(v[4])+b.g1*std::fabs(v[5]):b.gb*M,pull=b.g0>0.0f?b.h0*std::fabs(v[4])+b.h1*std::fabs(v[5]):bend;
+            auto r=[](double dd,double c){return dd<=0.0?0.0:(c>0.0?dd/c:1e30);};
+            return std::max(std::max(r(std::max(bend-N,0.0),b.capC),r(std::max(N+pull,0.0),b.capT)),r(V+b.gt*T,b.capS));};
+        PxU32 atBoth=0,onlyHere=0,onlyOptimum=0,brittleDiffer=0;
+        for(PxU32 l=0;l<nl;++l){const auto& b=bonds[l];if(!(b.flags&impact::eALIVE) || (b.flags&impact::eCONTACT))continue;
+            const bool h=util(b,&z[6*l])>=1.0-d.band,o=util(b,&x[6*l])>=1.0-d.band;
+            atBoth+=h&&o;onlyHere+=h&&!o;onlyOptimum+=o&&!h;if(h!=o && !(b.flags&impact::eDUCTILE))++brittleDiffer;}
+        double impulse[2][3]={{0,0,0},{0,0,0}};
+        for(PxU32 l=0;l<nl;++l){const auto& b=bonds[l];if(!(b.flags&impact::eCONTACT) || !(b.flags&impact::eALIVE))continue;
+            for(int k=0;k<3;++k)for(int q=0;q<6;++q){impulse[0][k]+=double(d.B[72*l+6*k+q])*z[6*l+q]*d.dt;impulse[1][k]+=double(d.B[72*l+6*k+q])*x[6*l+q]*d.dt;}}
+        std::printf("  joints at capacity: %u both, %u here only, %u the optimum's only (%u brittle differ); total contact impulse (%.4g %.4g %.4g) N s, the optimum's (%.4g %.4g %.4g)\n",
+            atBoth,onlyHere,onlyOptimum,brittleDiffer,impulse[0][0],impulse[0][1],impulse[0][2],impulse[1][0],impulse[1][1],impulse[1][2]);
+        const double agreeObjective=env("IMPACT_AGREE_OBJECTIVE",1e-3f),agreeContact=env("IMPACT_AGREE_CONTACT",1e-2f);
+        const bool agrees=gap<=agreeObjective && relF<=agreeContact;
+        std::printf("  against the FP64 optimum (objective %.9g): objective gap %.3e of the problem's scale (within %.0e), contact forces within %.3e of the largest (link %u; within %.0e): %s; worst joint force %.3e of its capacity (link %u, bond %u: reported)\n",
+            objective(x),gap,agreeObjective,relF,atF,agreeContact,agrees?"agrees":"DISAGREES",worst,at,bonds[at].bond);
+        if(!agrees)status=1;
     }
     return status;
 }
