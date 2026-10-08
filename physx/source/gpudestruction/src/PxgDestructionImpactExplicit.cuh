@@ -95,7 +95,7 @@ struct ExPatch {
 // the car -- so once it breaks it pulls back to nothing, its wrench B (J - J0) zero (an
 // anchored island's broken joint keeps -B J0: the dead load its path carried, a piece
 // cut free falling under it). Kept, the pinches flung freed rubble: 110 J to 2.5 kJ.
-enum ExState : PxU32 { eEX_LIVE=1, eEX_DUCTILE=2, eEX_YIELDED=4, eEX_BROKEN=8, eEX_ROWS=16, eEX_CAR=32, eEX_IMPLICIT=64, eEX_FREE=128 };
+enum ExState : PxU32 { eEX_LIVE=1, eEX_DUCTILE=2, eEX_YIELDED=4, eEX_BROKEN=8, eEX_ROWS=16, eEX_CAR=32, eEX_IMPLICIT=64, eEX_FREE=2048 };   // (128, 256, 512, 1024: the dynamic sequence's and the shear law's bits elsewhere)
 struct ExLink { PxU32 a,b,state,pad; float J0[6],J[6]; float slip,limit,brokeAt,pad2; };
 // A contact row: the struck chunk (a, local), the impactor (b), the stage's row.
 // A compliant row (compliant 1): its depth d (m), the materials' E* (Pa), the
