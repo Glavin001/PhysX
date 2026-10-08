@@ -79,8 +79,9 @@ struct ExPatch {
 // eEX_ROWS: an end of the joint has contact rows (exRunT sets it; the window's
 // other joints run beside the rows).
 // eEX_FRICTION: a Mohr-Coulomb joint (Bond::mu > 0): its mu and cap are packed in
+// (512: 32-256 are the two-body and dynamic-sequence branches' bits)
 // its record's last float4, read only for such joints.
-enum ExState : PxU32 { eEX_LIVE=1, eEX_DUCTILE=2, eEX_YIELDED=4, eEX_BROKEN=8, eEX_ROWS=16, eEX_FRICTION=32 };
+enum ExState : PxU32 { eEX_LIVE=1, eEX_DUCTILE=2, eEX_YIELDED=4, eEX_BROKEN=8, eEX_ROWS=16, eEX_FRICTION=512 };
 struct ExLink { PxU32 a,b,state,pad; float J0[6],J[6]; float slip,limit,brokeAt,pad2; };
 // A contact row: the struck chunk (a, local), the impactor (b), the stage's row.
 struct ExRow { PxU32 a,b,row,pad; float P[3],total[3],Winv[9],W[9]; };
