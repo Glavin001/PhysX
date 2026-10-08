@@ -101,7 +101,7 @@ int run(int argc,char** argv)
         for(PxU32 k=0;k<nn;++k){nodes[k].jointBegin=PxU32(adj.size());adj.insert(adj.end(),per[k].begin(),per[k].end());nodes[k].jointEnd=PxU32(adj.size());nodes[k].rowBegin=nodes[k].rowEnd=0;}
     }
     adj.resize(2*impact::kExLinks);std::vector<PxU32> rowAdj(2*impact::kExRows,0u);
-    impact::ExPatch patch{};patch.nodes=nn;patch.chunks=nn;patch.links=nl;patch.rows=0;patch.dynamic=1u;
+    impact::ExPatch patch{};patch.nodes=nn;patch.chunks=nn;patch.links=nl;patch.rows=0;patch.sequence=1u;
     impact::ExScratch t{};
     t.patchCount=upload(std::vector<PxU32>{1u});t.patches=upload(std::vector<impact::ExPatch>{patch});
     t.nodes=upload(nodes);t.bonds=upload(bonds);t.links=upload(links);t.adj=upload(adj);t.rowAdj=upload(rowAdj);
