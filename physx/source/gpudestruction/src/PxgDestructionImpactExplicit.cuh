@@ -445,7 +445,9 @@ __global__ __launch_bounds__(kThreads) void exFinishKernel(Settings s,ExScratch 
 // - Each joint keeps the wrench of its force change on its two ends, B (J -
 //   J0) (t.wr), so a node gathers six floats a joint and never reads a joint's
 //   geometry; each row likewise (t.rwr).
-// - Each row lives in its thread's registers (geometry, W, W^-1, its impulse).
+// - Each row is its thread's: its ends in registers, W, W^-1 and its running
+//   impulse read from device memory (in registers they cost more: fewer live
+//   registers across the loop measured 8% faster on the whole window).
 // - The dead load's work is the joints' (f0 . v = -sum J0 . B^T v), counted
 //   where the joint phase already has B^T v.
 template<bool Small> __device__ __forceinline__
@@ -484,9 +486,9 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
     // (Jacobi: mass splitting, Tonge et al. 2012; rows sharing a node then
     // cannot together overshoot it), W^-1, its ends, its impulse.
     const bool hasRow=threadIdx.x<nr;
-    float W[9]={0,0,0,0,0,0,0,0,0},Winv[9]={0,0,0,0,0,0,0,0,0},tot[3]={0,0,0};PxU32 ra=0,rn=0;
+    float W[9]={0,0,0,0,0,0,0,0,0};PxU32 ra=0,rn=0;
     if(hasRow) {
-        const Bond rb=rowBonds[threadIdx.x];const ExRow x=rows[threadIdx.x];ra=x.a;rn=x.b;for(int q=0;q<3;++q)tot[q]=x.total[q];
+        const Bond rb=rowBonds[threadIdx.x];const ExRow x=rows[threadIdx.x];ra=x.a;rn=x.b;
         for(PxU32 end=0;end<2;++end) {
             const ExNode& n=nodes[end?x.b:x.a];float col[3][6];
             const float split=float(max(n.rowEnd-n.rowBegin,1u));
@@ -498,7 +500,7 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
         const float inv[9]={(W[4]*W[8]-W[5]*W[7])*id,(W[2]*W[7]-W[1]*W[8])*id,(W[1]*W[5]-W[2]*W[4])*id,
             (W[5]*W[6]-W[3]*W[8])*id,(W[0]*W[8]-W[2]*W[6])*id,(W[2]*W[3]-W[0]*W[5])*id,
             (W[3]*W[7]-W[4]*W[6])*id,(W[1]*W[6]-W[0]*W[7])*id,(W[0]*W[4]-W[1]*W[3])*id};
-        for(int i=0;i<9;++i){Winv[i]=inv[i];rows[threadIdx.x].Winv[i]=inv[i];rows[threadIdx.x].W[i]=W[i];}
+        for(int i=0;i<9;++i){rows[threadIdx.x].Winv[i]=inv[i];rows[threadIdx.x].W[i]=W[i];}
     }
     __syncthreads();
     PxU32 step=sp.substeps;float dead=0.0f;
@@ -522,9 +524,9 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
         if(hasRow && !(EX_PROF_SKIP&2)) {
             const Bond rb=rowBonds[threadIdx.x];
             float g[6]={0,0,0,0,0,0};exRelative(rb,0,vS+6*ra,g);exRelative(rb,1,vS+6*rn,g);
-            float Ps[3];for(int i=0;i<3;++i)Ps[i]=-(Winv[3*i]*g[0]+Winv[3*i+1]*g[1]+Winv[3*i+2]*g[2]);
+            const float* Wi=rows[threadIdx.x].Winv;float Ps[3];for(int i=0;i<3;++i)Ps[i]=-(Wi[3*i]*g[0]+Wi[3*i+1]*g[1]+Wi[3*i+2]*g[2]);
             float P[3];exCone(rows[threadIdx.x].W,g,Ps,rb.area,P);
-            for(int q=0;q<3;++q)tot[q]+=P[q];
+            for(int q=0;q<3;++q)rows[threadIdx.x].total[q]+=P[q];
             // Pushing: an impulse the impactor's momentum resolves in float (below
             // its float resolution it exchanges nothing representable).
             const float im=Small?imS[rn]:nodes[rn].im;
@@ -573,7 +575,6 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
         if(s.explicitWindow==1u && !shActive){++step;sp.done=1;break;}
     }
     for(PxU32 i=threadIdx.x;i<6*nn;i+=kExThreads)nodes[i/6].v[i%6]=vS[i];
-    if(hasRow){ExRow& x=rows[threadIdx.x];for(int q=0;q<3;++q)x.total[q]=tot[q];}
     atomicAdd(&shDead,dead);
     __syncthreads();
     if(!threadIdx.x){sp.dead+=shDead;sp.fracture+=shFracture;sp.plastic+=shPlastic;sp.substeps=step;sp.t=float(step)*h;sp.broken+=shBroken;sp.yielded+=shYielded;sp.pushing=shPushing;sp.near=shNear;if(step>=total)sp.done=1;}
