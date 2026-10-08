@@ -146,8 +146,10 @@ int run(int argc,char** argv){
     s.innerTolerance=env("IMPACT_INNER_TOLERANCE",s.innerTolerance);
     s.andersonDepth=PxU32(env("IMPACT_ANDERSON",float(s.andersonDepth)));
     s.cappedElastic=env("IMPACT_CAPPED_ELASTIC",std::getenv("IMPACT_DUMP")?1.0f:0.0f)!=0.0f;
-    // IMPACT_TWO_BODY=1 / IMPACT_COMPLIANT_ROWS=1: the two-body impact and compliant rows (PX_DESTRUCTION_IMPACT_TWO_BODY, _COMPLIANT_ROWS).
-    s.explicitTwoBody=env("IMPACT_TWO_BODY",0.0f)!=0.0f;s.compliantRows=env("IMPACT_COMPLIANT_ROWS",0.0f)!=0.0f;
+    // IMPACT_TWO_BODY / IMPACT_COMPLIANT_ROWS (0 or 1): the two-body impact and compliant rows
+    // (PX_DESTRUCTION_IMPACT_TWO_BODY, _COMPLIANT_ROWS); unset, as captured.
+    if(std::getenv("IMPACT_TWO_BODY"))s.explicitTwoBody=env("IMPACT_TWO_BODY",0.0f)!=0.0f;
+    if(std::getenv("IMPACT_COMPLIANT_ROWS"))s.compliantRows=env("IMPACT_COMPLIANT_ROWS",0.0f)!=0.0f;
     s.method=PxU32(env("IMPACT_METHOD",float(s.method)));s.stepDuration=env("IMPACT_STEP_DURATION",s.stepDuration);s.stepRadius=env("IMPACT_STEP_RADIUS",s.stepRadius);
     s.dispatchWork=PxU32(env("IMPACT_DISPATCH_WORK",float(s.dispatchWork)));   // keep dispatches short (a capture's own may be 2^20)
     const PxU32 n=h.n,m=h.m;
