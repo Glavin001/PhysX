@@ -116,8 +116,10 @@ FILE(GLOB_RECURSE PX_CUMETAL_HEADERS CONFIGURE_DEPENDS
     "${PHYSX_ROOT_DIR}/../blast/source/sdk/extensions/stressgpu/*.inl")
 
 # Merges the host and device dependency lists into the command's one depfile.
+# Written only when its content changes (CONFIGURE), so a reconfigure does not
+# make every native object look out of date.
 SET(PX_CUMETAL_MERGE_DEPFILES "${CMAKE_CURRENT_BINARY_DIR}/cumetal-merge-depfiles.cmake")
-FILE(WRITE "${PX_CUMETAL_MERGE_DEPFILES}" [=[
+FILE(CONFIGURE OUTPUT "${PX_CUMETAL_MERGE_DEPFILES}" @ONLY CONTENT [=[
 FILE(READ "${HOST}" host)
 FILE(READ "${DEVICE}" device)
 FILE(WRITE "${OUT}" "${host}\n${device}")
