@@ -75,6 +75,7 @@ int run(int argc,char** argv){
     s.innerTolerance=env("IMPACT_INNER_TOLERANCE",s.innerTolerance);
     s.andersonDepth=PxU32(env("IMPACT_ANDERSON",float(s.andersonDepth)));
     s.cappedElastic=env("IMPACT_CAPPED_ELASTIC",std::getenv("IMPACT_DUMP")?1.0f:0.0f)!=0.0f;
+    s.method=PxU32(env("IMPACT_METHOD",float(s.method)));s.stepDuration=env("IMPACT_STEP_DURATION",s.stepDuration);s.stepRadius=env("IMPACT_STEP_RADIUS",s.stepRadius);
     s.dispatchWork=PxU32(env("IMPACT_DISPATCH_WORK",float(s.dispatchWork)));   // keep dispatches short (a capture's own may be 2^20)
     const PxU32 n=h.n,m=h.m;
     impact::Inputs in{};in.chunkCount=n;in.bondCount=m;
@@ -193,6 +194,55 @@ int run(int argc,char** argv){
             for(size_t i=0;i<e.dispatchRecord.size();++i){const auto& d=e.dispatchRecord[i];if(d.first<over)continue;
                 std::printf("  dispatch %zu: %.1f ms; the first island before it: phase %u level %u rounds %u solve step %u total %u lambda %.3g\n",
                     i,d.first,d.second.phase,d.second.level,d.second.rounds,d.second.solve.it,d.second.total,d.second.lambda);}
+        }
+        if(!r && s.method==1u && e.stepAllocated) {
+            PxU32 count=0;check(cudaMemcpy(&count,e.t.patchCount,4,cudaMemcpyDeviceToHost));
+            std::vector<impact::StepPatch> ps(count);if(count)check(cudaMemcpy(ps.data(),e.t.patches,sizeof(ps[0])*count,cudaMemcpyDeviceToHost));
+            if(std::getenv("IMPACT_STEP_DEBUG") && count) {
+                // A again, before and after its inversion.
+                const dim3 g(64,count);
+                impact::stepAssemble<<<g,impact::kThreads>>>(in,s,e.w,e.t);impact::stepAssemble2<<<g,impact::kThreads>>>(in,s,e.w,e.t);check(cudaDeviceSynchronize());
+                const PxU32 n6=6*ps[0].nodes;std::vector<float> A(size_t(n6)*n6);
+                check(cudaMemcpy(A.data(),e.t.Ainv,sizeof(float)*A.size(),cudaMemcpyDeviceToHost));
+                PxU32 nf=0,neg=0;float dmin=FLT_MAX,dmax=0,asym=0;for(PxU32 i=0;i<n6;++i){const float d=A[size_t(i)*n6+i];if(!(d>0))++neg;dmin=std::min(dmin,d);dmax=std::max(dmax,d);
+                    for(PxU32 j=0;j<n6;++j){const float x=A[size_t(i)*n6+j];if(!std::isfinite(x))++nf;asym=std::max(asym,std::fabs(x-A[size_t(j)*n6+i])/std::max(1e-30f,std::fabs(x)));}}
+                std::printf("  step debug A: %u non-finite, %u diagonal <= 0, diagonal %.3g..%.3g, worst asymmetry %.3g\n",nf,neg,dmin,dmax,asym);
+                {float worst=0;PxU32 wi=0,wj=0;for(PxU32 i=0;i<n6;++i)for(PxU32 j=i+1;j<n6;++j){const float d=std::fabs(A[size_t(i)*n6+j]-A[size_t(j)*n6+i])/std::sqrt(A[size_t(i)*n6+i]*A[size_t(j)*n6+j]);if(d>worst){worst=d;wi=i;wj=j;}}
+                 std::printf("  step debug A: worst asymmetry %.3g of sqrt(A_ii A_jj) at (%u, %u): %.6g vs %.6g; diagonal %.6g %.6g\n",worst,wi,wj,A[size_t(wi)*n6+wj],A[size_t(wj)*n6+wi],A[size_t(wi)*n6+wi],A[size_t(wj)*n6+wj]);}
+                {// Cauchy-Schwarz: the worst |A_ij| / sqrt(A_ii A_jj), and the links on those nodes
+                 float worst=0;PxU32 wi=0,wj=0;for(PxU32 i=0;i<n6;++i)for(PxU32 j=i+1;j<n6;++j){const float d=std::fabs(A[size_t(i)*n6+j])/std::sqrt(A[size_t(i)*n6+i]*A[size_t(j)*n6+j]);if(d>worst){worst=d;wi=i;wj=j;}}
+                 std::printf("  step debug A: worst |A_ij|/sqrt(A_ii A_jj) %.3g at (%u, %u)\n",worst,wi,wj);
+                 const PxU32 nl=ps[0].links;std::vector<impact::StepLink> ends(nl);std::vector<impact::Bond> bl(nl);std::vector<PxU32> nc(ps[0].nodes);
+                 check(cudaMemcpy(ends.data(),e.t.linkEnds,sizeof(ends[0])*nl,cudaMemcpyDeviceToHost));check(cudaMemcpy(bl.data(),e.t.links,sizeof(bl[0])*nl,cudaMemcpyDeviceToHost));
+                 check(cudaMemcpy(nc.data(),e.t.nodeChunk,sizeof(PxU32)*nc.size(),cudaMemcpyDeviceToHost));
+                 for(PxU32 l=0;l<nl;++l){const auto& q=ends[l];if(q.a==wi/6||q.b==wi/6||q.a==wj/6||q.b==wj/6)std::printf("    link %u (%s, bond %u, chunks %u %u): ends %d %d; k %.3g %.3g %.3g %.3g\n",l,(q.state&impact::eSL_CONTACT)?"contact":"joint",bl[l].bond,bl[l].c0,bl[l].c1,int(q.a),int(q.b),bl[l].kl,bl[l].kt,bl[l].k0,bl[l].k1);}
+                 std::printf("    node %u chunk %u, node %u chunk %u\n",wi/6,nc[wi/6],wj/6,nc[wj/6]);}
+                {const PxU32 nl=ps[0].links;std::vector<float> B(size_t(nl)*72);check(cudaMemcpy(B.data(),e.t.B,sizeof(float)*B.size(),cudaMemcpyDeviceToHost));
+                 std::vector<impact::StepLink> ends(nl);std::vector<impact::Bond> bl(nl);check(cudaMemcpy(ends.data(),e.t.linkEnds,sizeof(ends[0])*nl,cudaMemcpyDeviceToHost));check(cudaMemcpy(bl.data(),e.t.links,sizeof(bl[0])*nl,cudaMemcpyDeviceToHost));
+                 // the diagonal and off-diagonal (rot-x) contributions of each link touching node 70/71
+                 for(PxU32 l=0;l<nl;++l){const auto& q=ends[l];if(q.a!=70 && q.b!=70)continue;if(q.state&impact::eSL_CONTACT)continue;
+                    float c[6];const float k[6]={bl[l].kl,bl[l].kl,bl[l].kl,bl[l].kt,bl[l].k0,bl[l].k1};for(int t2=0;t2<6;++t2)c[t2]=(k[t2]>0&&k[t2]<1e30f)?k[t2]*1e-6f:0;
+                    const int ea=q.a==70?0:1;double d=0;for(int t2=0;t2<6;++t2){const double b=B[72*l+36*ea+6*3+t2];d+=b*b*c[t2];}
+                    std::printf("    link %u ends %d %d: rot-x row of node 70: %.3g %.3g %.3g %.3g %.3g %.3g; diag contribution %.4g; o0 (%.3g %.3g %.3g) o1 (%.3g %.3g %.3g) n (%.2f %.2f %.2f)\n",l,int(q.a),int(q.b),
+                        B[72*l+36*ea+18],B[72*l+36*ea+19],B[72*l+36*ea+20],B[72*l+36*ea+21],B[72*l+36*ea+22],B[72*l+36*ea+23],d,bl[l].o0[0],bl[l].o0[1],bl[l].o0[2],bl[l].o1[0],bl[l].o1[1],bl[l].o1[2],bl[l].n[0],bl[l].n[1],bl[l].n[2]);}}
+                impact::stepScale<<<g,impact::kThreads>>>(e.t,0u);impact::stepScale<<<g,impact::kThreads>>>(e.t,1u);
+                for(PxU32 k0=0;k0<n6;k0+=impact::kPanel){impact::stepPanelA<<<count,impact::kThreads>>>(e.t,k0);impact::stepPanelB<<<g,impact::kThreads>>>(e.t,k0);check(cudaDeviceSynchronize());
+                    std::vector<float> P(impact::kPanel*impact::kPanel);check(cudaMemcpy(P.data(),e.t.panelP,sizeof(float)*P.size(),cudaMemcpyDeviceToHost));
+                    PxU32 bad=0;for(float x:P)bad+=!std::isfinite(x);if(bad){std::printf("  step debug: panel %u's pivot block inverse non-finite\n",k0/impact::kPanel);break;}}
+                impact::stepScale<<<g,impact::kThreads>>>(e.t,1u);check(cudaDeviceSynchronize());
+                std::vector<float> I(size_t(n6)*n6);check(cudaMemcpy(I.data(),e.t.Ainv,sizeof(float)*I.size(),cudaMemcpyDeviceToHost));
+                double worst=0;for(PxU32 i=0;i<n6;i+=7)for(PxU32 j=0;j<n6;j+=5){double v=0;for(PxU32 k=0;k<n6;++k)v+=double(A[size_t(i)*n6+k])*I[size_t(k)*n6+j];worst=std::max(worst,std::fabs(v-(i==j?1.0:0.0)));}
+                std::printf("  step debug: |A A^-1 - I| sampled at most %.3g\n",worst);
+            }
+            for(PxU32 p=0;p<count && std::getenv("IMPACT_STEP_DEBUG");++p){const PxU32 nn=ps[p].nodes,n6=6*nn;
+                std::vector<float> m(size_t(nn)*7);check(cudaMemcpy(m.data(),e.t.nodeMass+size_t(p)*impact::kStepNodes*7,sizeof(float)*m.size(),cudaMemcpyDeviceToHost));
+                PxU32 zeroI=0,badM=0;for(PxU32 k=0;k<nn;++k){if(!(m[7*k]>0.0f) || !std::isfinite(m[7*k]))++badM;if(!(m[7*k+1]>0.0f))++zeroI;}
+                std::vector<float> A(size_t(n6)*n6);check(cudaMemcpy(A.data(),e.t.Ainv+size_t(p)*impact::kStepDof*impact::kStepDof,sizeof(float)*A.size(),cudaMemcpyDeviceToHost));
+                PxU32 nonfinite=0;float dmin=FLT_MAX,dmax=0;for(PxU32 i=0;i<n6;++i){const float d=A[size_t(i)*n6+i];if(!std::isfinite(d))++nonfinite;else{dmin=std::min(dmin,d);dmax=std::max(dmax,d);}}
+                PxU32 nf=0;for(float x:A)nf+=!std::isfinite(x);
+                std::printf("  step debug patch %u: %u nodes with a bad mass, %u with no inertia; A^-1 diagonal %u non-finite, range %.3g..%.3g; %u non-finite entries\n",p,badM,zeroI,nonfinite,dmin,dmax,nf);}
+            for(const auto& q:ps)std::printf("  step patch: island %u, %u nodes (radius %.2f m%s), %u joints (%u at capacity at rest), %u contacts, %u impactors; h %.3g ms; %u events, %u solves; broke %u, yielded %u%s\n",
+                q.island,q.nodes,q.radius,q.truncated?", shrunk":"",q.joints,q.restOver,q.contacts,q.impactors,q.h*1e3f,q.events,q.solves,q.broken,q.yielded,q.failed?" (FAILED)":"");
         }
         if(!r && std::getenv("IMPACT_DUMP")) {
             PxU32 islands=0;check(cudaMemcpy(&islands,e.w.counters,4,cudaMemcpyDeviceToHost));

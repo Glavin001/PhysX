@@ -1804,6 +1804,22 @@ __global__ void recordState(const PxU32* islandFlag,const PxU32* bondIslands,con
     if(slipState)slipState[i]=(slipBefore?slipBefore[i]:0.0f)+((slip && mine && (islandFlag[island]&1u))?slip[i]:0.0f);
 }
 
+// Diagnostics (PX_DESTRUCTION_IMPACT_LOG): this pass's breaks by source --
+// [0] on islands the impact solve or step decided, [1] elsewhere (the
+// static verdict).
+__global__ void breaksBySource(const PxDestructionBondVerdict* verdict,const PxU32* islandFlag,const PxU32* bondIslands,PxU32 count,PxU32* out)
+{
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count || !verdict[i].broken)return;
+    const PxU32 island=bondIslands[i];
+    atomicAdd(out+((island!=0xffffffffu && islandFlag[island])?0:1),1u);
+}
+// The impact step's rest state: the elastic forces where no patch solved.
+__global__ void recordRest(const PxU32* islandFlag,const PxU32* bondIslands,const PxDestructionVectorPair* elastic,PxDestructionVectorPair* rest,PxU32 count)
+{
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
+    const PxU32 island=bondIslands[i];
+    if(island==0xffffffffu || !islandFlag[island])rest[i]=elastic[i];
+}
 // A solve that ended at its budget did not converge: the stage reports the
 // evaluation unconverged (and, where it requires convergence, rejects it, as
 // it does an unconverged elastic solve: error 4096).
@@ -1870,12 +1886,12 @@ struct Stage {
     // before it (recordDispatches).
     bool recordDispatches=false;std::vector<std::pair<double,IslandState>> dispatchRecord;
     // The impact step's scratch (Settings::method 1), allocated on its first use.
-    StepScratch t{};bool stepAllocated=false;
+    StepScratch t{};bool stepAllocated=false;bool stepLog=false;
     void releaseStep() {
         if(!stepAllocated)return;
         cudaFree(t.nodeOf);cudaFree(t.patchCount);cudaFree(t.patches);cudaFree(t.nodeChunk);cudaFree(t.nodeMass);cudaFree(t.links);cudaFree(t.linkEnds);
         cudaFree(t.B);cudaFree(t.Ainv);cudaFree(t.Atmp);cudaFree(t.G);cudaFree(t.S);cudaFree(t.colLink);cudaFree(t.J);cudaFree(t.dJ);cudaFree(t.J2);
-        cudaFree(t.f);cudaFree(t.w);cudaFree(t.du);cudaFree(t.u);cudaFree(t.d2);cudaFree(t.rhs);cudaFree(t.lam);cudaFree(t.rowNode);t={};stepAllocated=false;
+        cudaFree(t.f);cudaFree(t.w);cudaFree(t.du);cudaFree(t.u);cudaFree(t.d2);cudaFree(t.rhs);cudaFree(t.lam);cudaFree(t.rowNode);cudaFree(t.panelP);cudaFree(t.panelV);cudaFree(t.panelW);cudaFree(t.scale);t={};stepAllocated=false;
     }
     void allocateStep() {
         if(stepAllocated)return;
@@ -1888,6 +1904,7 @@ struct Stage {
         for(float** a:{&t.J,&t.dJ,&t.J2})::physx::allocate(*a,P*kStepLinks*6);
         for(float** a:{&t.f,&t.w,&t.du,&t.u,&t.d2,&t.rhs})::physx::allocate(*a,P*kStepDof);
         ::physx::allocate(t.lam,P*kStepCols);::physx::allocate(t.rowNode,size_t(kContactCapacity));
+        ::physx::allocate(t.panelP,P*kPanel*kPanel);::physx::allocate(t.panelV,P*kStepDof*kPanel);::physx::allocate(t.panelW,P*kPanel*kStepDof);::physx::allocate(t.scale,P*kStepDof);
         stepAllocated=true;
     }
     // The impact step's evaluation: the patches, A inverted (one pivot per
@@ -1906,15 +1923,20 @@ struct Stage {
         const dim3 grid(64,count);
         stepAssemble<<<grid,kThreads,0,stream>>>(in,s,w,t);
         stepAssemble2<<<grid,kThreads,0,stream>>>(in,s,w,t);
-        for(PxU32 k=0;k<6*nmax;++k) {
-            stepPivot<<<grid,kThreads,0,stream>>>(t,k);
-            if((k&63u)==63u){const auto t0=std::chrono::steady_clock::now();check(cudaStreamSynchronize(stream));
-                longestDispatch=std::max(longestDispatch,std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-t0).count());++dispatches;}
+        stepScale<<<grid,kThreads,0,stream>>>(t,0u);stepScale<<<grid,kThreads,0,stream>>>(t,1u);
+        for(PxU32 k0=0;k0<6*nmax;k0+=kPanel) {
+            stepPanelA<<<count,kThreads,0,stream>>>(t,k0);
+            stepPanelB<<<grid,kThreads,0,stream>>>(t,k0);
+            // one panel per wait: a dispatch stays a panel's rank-32 update
+            const auto t0=std::chrono::steady_clock::now();check(cudaStreamSynchronize(stream));
+            longestDispatch=std::max(longestDispatch,std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-t0).count());++dispatches;
         }
-        stepSettle<<<grid,kThreads,0,stream>>>(t);
-        for(PxU32 d=0;d<4096;++d) {
+        stepScale<<<grid,kThreads,0,stream>>>(t,1u);   // A^-1 = D A'^-1 D
+        for(PxU32 d=0;d<65536;++d) {
             const auto t0=std::chrono::steady_clock::now();
-            stepRamp<<<count,kThreads,0,stream>>>(in,s,w,t,4u);
+            // ~32 passes over the largest A a launch (a few ms of one block); fewer passes on a large patch.
+            const PxU32 budget=std::max(2u,PxU32(32.0*double(kStepDof)*double(kStepDof)/std::max(1.0,double(6*nmax)*double(6*nmax))/16.0));
+            stepRamp<<<count,kThreads,0,stream>>>(in,s,w,t,budget);
             check(cudaMemcpyAsync(host,t.patches,sizeof(StepPatch)*count,cudaMemcpyDeviceToHost,stream));check(cudaStreamSynchronize(stream));
             longestDispatch=std::max(longestDispatch,std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-t0).count());++dispatches;
             bool done=true;for(PxU32 p=0;p<count;++p)done=done && host[p].phase==eSTEP_DONE;
@@ -1922,6 +1944,12 @@ struct Stage {
         }
         stepPublish<<<64,kThreads,0,stream>>>(in,s,w,t);
         stepPublishPatch<<<grid,kThreads,0,stream>>>(in,s,w,t);
+        if(stepLog) {
+            check(cudaMemcpyAsync(host,t.patches,sizeof(StepPatch)*count,cudaMemcpyDeviceToHost,stream));check(cudaStreamSynchronize(stream));
+            for(PxU32 p=0;p<count;++p){const StepPatch& q=host[p];
+                std::fprintf(stderr,"[impact]   step patch %u: island %u, %u nodes (%.2f m%s), %u joints (%u at capacity at rest), %u contact rows, %u impactors; %u events, %u solves; broke %u, yielded %u%s\n",
+                    p,q.island,q.nodes,q.radius,q.truncated?", shrunk":"",q.joints,q.restOver,q.contacts,q.impactors,q.events,q.solves,q.broken,q.yielded,q.failed?" (FAILED)":"");}
+        }
     }
     void release() {
         releaseStep();

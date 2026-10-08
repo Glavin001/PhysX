@@ -680,6 +680,27 @@ void impactStep(){
         r.status.stepPatches,r.status.solves,r.status.iterations,broken,weakBroken,impulse,plastic);
     expect(r.status.stepPatches==1 && broken==4 && weakBroken==4 && std::fabs(impulse-plastic)<0.02f*plastic,text);
 }
+// 13b. The impact step's blocked Gauss-Jordan inverse: an SPD 300 x 300
+// (M + G G^T, as the step's A), ten panels: A A^-1 = I to float resolution.
+void stepInverse(){
+    std::printf("the impact step's blocked inverse\n");
+    const PxU32 nodes=50,n=6*nodes;
+    std::vector<float> A(size_t(n)*n,0.0f);std::srand(11);
+    auto r=[](){return float(std::rand())/float(RAND_MAX)-0.5f;};
+    std::vector<float> G(size_t(n)*n/4);for(auto& g:G)g=r();
+    for(PxU32 i=0;i<n;++i)for(PxU32 j=0;j<n;++j){double v=i==j?10.0:0.0;for(PxU32 k=0;k<n/4;++k)v+=double(G[size_t(i)*(n/4)+k])*G[size_t(j)*(n/4)+k];A[size_t(i)*n+j]=float(v);}
+    impact::StepScratch t{};impact::StepPatch sp{};sp.nodes=nodes;
+    Device<impact::StepPatch> dp(std::vector<impact::StepPatch>(1,sp));Device<PxU32> dc(std::vector<PxU32>(1,1u));
+    std::vector<float> big(size_t(impact::kStepDof)*impact::kStepDof,0.0f);for(PxU32 i=0;i<n;++i)for(PxU32 j=0;j<n;++j)big[size_t(i)*n+j]=A[size_t(i)*n+j];
+    Device<float> dA(big),dP(impact::kPanel*impact::kPanel),dV(size_t(impact::kStepDof)*impact::kPanel),dW(size_t(impact::kPanel)*impact::kStepDof);
+    t.patches=dp.p;t.patchCount=dc.p;t.Ainv=dA.p;t.panelP=dP.p;t.panelV=dV.p;t.panelW=dW.p;
+    for(PxU32 k0=0;k0<n;k0+=impact::kPanel){impact::stepPanelA<<<1,impact::kThreads>>>(t,k0);impact::stepPanelB<<<dim3(64,1),impact::kThreads>>>(t,k0);}
+    check(cudaDeviceSynchronize());check(cudaGetLastError());
+    const auto inv=dA.get();double worst=0.0;
+    for(PxU32 i=0;i<n;++i)for(PxU32 j=0;j<n;++j){double v=0.0;for(PxU32 k=0;k<n;++k)v+=double(A[size_t(i)*n+k])*inv[size_t(k)*n+j];worst=std::max(worst,std::fabs(v-(i==j?1.0:0.0)));}
+    char text[160];std::snprintf(text,sizeof text,"300 x 300: |A A^-1 - I| at most %.3g (expected < 1e-3)",worst);
+    expect(worst<1e-3,text);
+}
 // 8. The evaluation split into dispatches resumes exactly: the wall with
 // about one ADMM step per dispatch gives the same forces and verdicts, bit
 // for bit, as in one dispatch.
@@ -970,7 +991,7 @@ void passivity(){
 
 int main(int argc,char** argv){
     (void)argc;(void)argv;
-    try{if(const char* only=std::getenv("IMPACT_TEST_ONLY")){if(!std::strcmp(only,"unconverged"))physx::unconverged();if(!std::strcmp(only,"fallback"))physx::fallback();if(!std::strcmp(only,"momentum"))physx::impactorMomentum();if(!std::strcmp(only,"released"))physx::releasedPair();if(!std::strcmp(only,"perbody"))physx::heldOverCapacityPerBody();if(!std::strcmp(only,"step"))physx::impactStep();if(!std::strcmp(only,"dispatches"))physx::dispatches();if(!std::strcmp(only,"carried"))physx::carried();if(!std::strcmp(only,"held"))physx::heldStops();if(!std::strcmp(only,"projection"))physx::projection();if(!std::strcmp(only,"detectors"))physx::detectors();if(!std::strcmp(only,"fuzz"))physx::fuzz();if(!std::strcmp(only,"bearing"))physx::bearing();if(!std::strcmp(only,"coupled"))physx::coupled();if(!std::strcmp(only,"passivity"))physx::passivity();}else{physx::column();physx::wall();physx::rest();physx::centroidConvention();physx::impactCrush();physx::section();physx::coupled();physx::unconverged();physx::fallback();physx::impactorMomentum();physx::releasedPair();physx::heldOverCapacityPerBody();physx::impactStep();physx::dispatches();physx::carried();physx::heldStops();physx::projection();physx::detectors();physx::fuzz();physx::bearing();physx::passivity();}}
+    try{if(const char* only=std::getenv("IMPACT_TEST_ONLY")){if(!std::strcmp(only,"unconverged"))physx::unconverged();if(!std::strcmp(only,"fallback"))physx::fallback();if(!std::strcmp(only,"momentum"))physx::impactorMomentum();if(!std::strcmp(only,"released"))physx::releasedPair();if(!std::strcmp(only,"perbody"))physx::heldOverCapacityPerBody();if(!std::strcmp(only,"step"))physx::impactStep();if(!std::strcmp(only,"inverse"))physx::stepInverse();if(!std::strcmp(only,"dispatches"))physx::dispatches();if(!std::strcmp(only,"carried"))physx::carried();if(!std::strcmp(only,"held"))physx::heldStops();if(!std::strcmp(only,"projection"))physx::projection();if(!std::strcmp(only,"detectors"))physx::detectors();if(!std::strcmp(only,"fuzz"))physx::fuzz();if(!std::strcmp(only,"bearing"))physx::bearing();if(!std::strcmp(only,"coupled"))physx::coupled();if(!std::strcmp(only,"passivity"))physx::passivity();}else{physx::column();physx::wall();physx::rest();physx::centroidConvention();physx::impactCrush();physx::section();physx::coupled();physx::unconverged();physx::fallback();physx::impactorMomentum();physx::releasedPair();physx::heldOverCapacityPerBody();physx::impactStep();physx::stepInverse();physx::dispatches();physx::carried();physx::heldStops();physx::projection();physx::detectors();physx::fuzz();physx::bearing();physx::passivity();}}
     catch(const std::exception& e){std::printf("error: %s\n",e.what());return 2;}
     std::printf("%s (%d failed)\n",physx::failures?"FAILED":"passed",physx::failures);
     return physx::failures?1:0;

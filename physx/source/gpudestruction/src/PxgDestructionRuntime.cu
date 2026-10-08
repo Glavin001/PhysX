@@ -937,6 +937,10 @@ class Runtime final : public PxgDestructionRuntime {
     // the last evaluation settled on (E's where it solved), mImpactStart: those
     // at the start of this tick (kept for its corrected pass).
     PxDestructionVectorPair *mImpactBase{},*mImpactState{},*mImpactStart{};float *mImpactSlip{},*mImpactStiffness{};
+    // The impact step's rest state: each bond's elastic forces from the last
+    // tick its island had no impact patch (the step's J0; an impact's own
+    // tick-long contact loads are no preload for the next tick's step).
+    PxDestructionVectorPair* mImpactRest{};
     // The plastic state the impact solve leaves: which bonds' forces are its
     // (mImpactCarried) and each bond's accumulated plastic slip; *Start: at
     // the start of this tick (the corrected pass starts there too).
@@ -962,6 +966,11 @@ class Runtime final : public PxgDestructionRuntime {
     // (default 4) -- for tests/impact_capture_replay (implies the log's sync).
     const char* mImpactCaptureDir=std::getenv("PX_DESTRUCTION_IMPACT_CAPTURE");
     PxU32 mImpactCaptures=0,mImpactMaterialCount=0;PxU64 mImpactEvaluations=0;impact::SolveRecord* mImpactRecords{};
+    // PX_DESTRUCTION_IMPACT_CAPTURE_STATIC=N (with the capture directory and
+    // the log): capture a pass whose static verdict breaks N or more bonds,
+    // and the evaluation before it (diagnostics; 0 off).
+    const PxU32 mImpactStaticCapture=[this]{const char* v=std::getenv("PX_DESTRUCTION_IMPACT_CAPTURE_STATIC");
+        return (v && mImpactCaptureDir)?PxU32(std::max(0,std::atoi(v))):0u;}();
     float mFragmentMaxPenBias=-1e32f; // negative PhysX clamp; -1e32 leaves inheritance alone
     PxgDestructionTopologyTransaction* mTopology{};
     committedChanges::Publication mChanges;
@@ -1564,7 +1573,7 @@ public:
         cudaFree(mNodeBegin);mNodeBegin=nullptr;cudaFree(mNodeRefs);mNodeRefs=nullptr;
         cudaFree(mBondCentroids);mBondCentroids=nullptr;cudaFree(mVerdicts);mVerdicts=nullptr;
         cudaFree(mSections);mSections=nullptr;mSectionBending=false;mSectionRotation=false;
-        mImpact.release();mImpactEnabled=false;cudaFree(mImpactRecords);mImpactRecords=nullptr;cudaFree(mImpactBase);mImpactBase=nullptr;
+        mImpact.release();mImpactEnabled=false;cudaFree(mImpactRecords);mImpactRecords=nullptr;cudaFree(mImpactBase);mImpactBase=nullptr;cudaFree(mImpactRest);mImpactRest=nullptr;
         cudaFree(mImpactState);mImpactState=nullptr;cudaFree(mImpactStart);mImpactStart=nullptr;
         cudaFree(mImpactCarried);mImpactCarried=nullptr;cudaFree(mImpactCarriedStart);mImpactCarriedStart=nullptr;
         cudaFree(mImpactSlipState);mImpactSlipState=nullptr;cudaFree(mImpactSlipStart);mImpactSlipStart=nullptr;
@@ -1854,6 +1863,7 @@ public:
                     check(cudaMemcpy(mImpactSlip,slip.data(),sizeof(float)*slip.size(),cudaMemcpyHostToDevice));
                     check(cudaMemcpy(mImpactStiffness,stiffness.data(),sizeof(float)*stiffness.size(),cudaMemcpyHostToDevice));
                     allocate(mImpactBase,d.bondCount);check(cudaMemset(mImpactBase,0,sizeof(*mImpactBase)*d.bondCount));
+                    allocate(mImpactRest,d.bondCount);check(cudaMemset(mImpactRest,0,sizeof(*mImpactRest)*d.bondCount));
                     allocate(mImpactState,d.bondCount);check(cudaMemset(mImpactState,0,sizeof(*mImpactState)*d.bondCount));
                     allocate(mImpactStart,d.bondCount);
                     allocate(mImpactCarried,d.bondCount);check(cudaMemset(mImpactCarried,0,sizeof(PxU32)*d.bondCount));allocate(mImpactCarriedStart,d.bondCount);
@@ -2332,7 +2342,7 @@ public:
                     in.chunks=mChunks;in.chunkCount=mN;in.bonds=mBonds;in.bondCount=mM;in.materials=mMaterials;
                     in.ductileSlip=mImpactSlip;in.stiffness=mImpactStiffness;in.health=mHealth;
                     in.nodeBegin=mNodeBegin;in.nodeRefs=mNodeRefs;in.nodeIslands=stress.nodeIslands;in.bondIslands=stress.bondIslands;
-                    in.accelerations=mInputs;in.elastic=forces;in.base=mImpactStart;in.elasticBase=mImpactBase;in.stage=mStatus;
+                    in.accelerations=mInputs;in.elastic=forces;in.base=mImpactSettings.method==1u?mImpactRest:mImpactStart;in.elasticBase=mImpactBase;in.stage=mStatus;
                     in.carried=mImpactCarriedStart;in.slipBefore=mImpactSlipStart;
                     in.crushed=mImpactCrush?mTrialCrush:nullptr;in.sections=mSectionBending?mSections:nullptr;
                     if(mImpactRows) {
@@ -2345,13 +2355,15 @@ public:
                     const bool timed=mImpactLog || mImpactCaptureDir;++mImpactEvaluations;
                     std::chrono::steady_clock::time_point t0;
                     if(timed){check(cudaStreamSynchronize(mStream));t0=std::chrono::steady_clock::now();}
-                    mImpact.submit(in,settings,mStream);impactIn=in;impactSettings=settings;impactRan=true;
+                    mImpact.stepLog=mImpactLog;mImpact.submit(in,settings,mStream);impactIn=in;impactSettings=settings;impactRan=true;
                     impact::reportConvergence<<<1,1,0,mStream>>>(mImpact.w.status,mStatus,mCorrectionEnabled && !mAllowUnconverged,float(mImpact.longestDispatch));
                     // Machine safety: Apple GPUs do not preempt compute well; a dispatch
                     // past 100 ms starves the display (Settings::dispatchWork bounds it).
                     if(mImpact.longestDispatch>100.0)std::fprintf(stderr,"[impact] warning: a dispatch took %.0f ms (over 100 ms)\n",mImpact.longestDispatch);
                     impactView={mImpact.w.islandFlag,stress.bondIslands,mImpact.w.forces,mImpact.w.verdict};
-                    // The impact step carries no plastic state: the next tick starts from the elastic forces.
+                    // The impact step carries no plastic state: the next tick starts from the elastic forces;
+                    // its rest state follows the islands it did not solve.
+                    if(settings.method==1u)impact::recordRest<<<(mM+127)/128,128,0,mStream>>>(mImpact.w.islandFlag,stress.bondIslands,forces,mImpactRest,mM);
                     impact::recordState<<<(mM+127)/128,128,0,mStream>>>(settings.method==1u?nullptr:mImpact.w.islandFlag,stress.bondIslands,mImpact.w.forces,forces,mImpactState,mM,
                         mImpactCarried,mImpact.w.slip,mImpactSlipStart,mImpactSlipState);
                     if(timed) {
@@ -2401,6 +2413,32 @@ public:
                 if(!mImpactCrush)evaluateChunkMaterials<<<(mN+127)/128,128,0,mStream>>>(mChunks,mBonds,mMaterials,mNodeBegin,mNodeRefs,
                     mHealth,forces,mBondCentroids,mSurface,mRates,mCrush,mTrialCrush,mN,dt,mStatus,impactView);
                 if(mM)finalizeMaterialVerdict<<<(mM+127)/128,128,0,mStream>>>(mBonds,mVerdicts,mTrialCrush,mHealth,mM,mStatus);
+                if(impactRan && mImpactLog && mImpactHostStatus) {
+                    check(cudaMemsetAsync(mImpact.w.counters+6,0,sizeof(PxU32)*2,mStream));
+                    impact::breaksBySource<<<(mM+127)/128,128,0,mStream>>>(mVerdicts,mImpact.w.islandFlag,impactIn.bondIslands,mM,mImpact.w.counters+6);
+                    PxU32 by[2]={0,0};check(cudaMemcpyAsync(by,mImpact.w.counters+6,sizeof by,cudaMemcpyDeviceToHost,mStream));check(cudaStreamSynchronize(mStream));
+                    if(by[0] || by[1])std::fprintf(stderr,"[impact] evaluation %llu pass %u breaks: %u on islands the impact %s decided, %u by the static verdict\n",
+                        (unsigned long long)mImpactEvaluations,mPass,by[0],impactSettings.method==1u?"step":"solve",by[1]);
+                    // Diagnostics: a pass whose static verdict breaks at least
+                    // PX_DESTRUCTION_IMPACT_CAPTURE_STATIC bonds is captured (with the
+                    // evaluation before it, kept in a two-slot ring) beside the elastic
+                    // solve's status.
+                    if(mImpactStaticCapture) {
+                        const unsigned long long ev=(unsigned long long)mImpactEvaluations;
+                        char ring[1024],prior[1024];
+                        std::snprintf(ring,sizeof ring,"%s/ring-%llu.impc",mImpactCaptureDir,ev&1ull);
+                        std::snprintf(prior,sizeof prior,"%s/ring-%llu.impc",mImpactCaptureDir,(ev+1ull)&1ull);
+                        if(by[1]>=mImpactStaticCapture) {
+                            PxDestructionStageStatus st{};check(cudaMemcpy(&st,mStatus,sizeof st,cudaMemcpyDeviceToHost));
+                            std::fprintf(stderr,"[impact] static collapse: evaluation %llu pass %u, the elastic solve %u iterations, converged %u\n",ev,mPass,st.iterations,st.converged);
+                            char path[1024];std::snprintf(path,sizeof path,"%s/impact-%llu-%u-static.impc",mImpactCaptureDir,ev,mPass);
+                            if(impact::writeCapture(path,impactIn,impactSettings,mImpactMaterialCount))std::fprintf(stderr,"[impact] captured %s\n",path);
+                            std::snprintf(path,sizeof path,"%s/impact-%llu-prior.impc",mImpactCaptureDir,ev-1ull);
+                            if(!std::rename(prior,path))std::fprintf(stderr,"[impact] captured %s (the evaluation before)\n",path);
+                        }
+                        impact::writeCapture(ring,impactIn,impactSettings,mImpactMaterialCount);
+                    }
+                }
                 // The invariant where a corrected pass follows (the trial's stop).
                 if(impactRan && impactIn.rows && !mPass) {
                     impact::heldOverCapacity<<<(impact::kContactCapacity+127)/128,128,0,mStream>>>(impactIn,impactSettings,mVerdicts,mImpact.w.status,mStatus);
