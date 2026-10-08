@@ -232,6 +232,13 @@ struct Settings {
     // evaluated (the truck through the framed house: +10..+17 m). true: it
     // holds only between the impactor and the clusters its rows struck.
     bool boundPairwise=false;
+    // The anchored-chunk contact bound is on (PX_DESTRUCTION_ANCHORED_CONTACT_BOUND):
+    // every contact on an anchored chunk is already at most what the chunk can
+    // take, so the routing leaves the static solve each unrouted row's whole load
+    // (no rigid-stop excess, resting share or release to take out). A contact cut
+    // at the bound then loads the chunk at its capacity and the verdict breaks it;
+    // taken out, the chunk held while the impactor went past (a ghost wall).
+    bool anchoredBound=false;
     // Contact routing (PX_DESTRUCTION_IMPACT_ROUTE; routeRows): a contact row
     // is the impact model's -- its trial load leaves the static solve's inputs
     // -- when its peak elastic force exceeds what its struck chunk's weakest
@@ -1337,6 +1344,7 @@ __global__ void routeRows(Inputs in,Settings s,PxU32* routed,PxDestructionVector
     if(c>=in.chunkCount || !(in.chunks[c].mass>0.0f) || chunkGone(in,c) || !(row.im>0.0f) || !isfinite(row.im))return;
     const float m=in.chunks[c].mass,L[3]={row.load[0],row.load[1],row.load[2]},Ln=sqrtf(dot3(L,L));
     auto remove=[&](float f){PxVec3& a=inputs[c].linear;atomicAdd(&a.x,-f*L[0]/m);atomicAdd(&a.y,-f*L[1]/m);atomicAdd(&a.z,-f*L[2]/m);};
+    if(s.anchoredBound && !(row.points && !row.resting)) return;   // released or resting: its bounded load stays static
     if(row.resting) {
         // A resting row (coupleRow): of its body's resting loads on the
         // structure, only their resultant is exchanged with the body (a pile's
@@ -1367,7 +1375,9 @@ __global__ void routeRows(Inputs in,Settings s,PxU32* routed,PxDestructionVector
     if(!(k>0.0f))return;   // no joint: a free chunk, the rigid simulation's own
     const float M=1.0f/row.im,peak=vn*M*sqrtf(k/(M+m));
     if(peak>cap){routed[r]=1u;remove(1.0f);return;}
-    // Static: the rigid stop's momentum part, M v_n / dt, at most the peak.
+    // Static: the rigid stop's momentum part, M v_n / dt, at most the peak
+    // (with the anchored bound the rigid solve already held it to the chunk's capacity).
+    if(s.anchoredBound)return;
     const float excess=fmaxf(0.0f,M*vn/s.dt-peak);
     if(excess>0.0f && Ln>0.0f)remove(fminf(1.0f,excess/Ln));
 }

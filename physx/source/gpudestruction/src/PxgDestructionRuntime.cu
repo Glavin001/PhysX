@@ -2083,6 +2083,7 @@ public:
                     // Those bounds pairwise: an impactor's holds only against the
                     // clusters its rows struck (with BOUND_IMPACTOR).
                     mImpactSettings.boundPairwise=env("PX_DESTRUCTION_IMPACT_BOUND_PAIRWISE",0.0f)!=0.0f;
+                    mImpactSettings.anchoredBound=env("PX_DESTRUCTION_ANCHORED_CONTACT_BOUND",0.0f)!=0.0f;
                     // and the contact routing by peak force against capacity.
                     mImpactSettings.route=env("PX_DESTRUCTION_IMPACT_ROUTE",0.0f)!=0.0f;
                     mImpactSettings.explicitWindow=PxU32(env("PX_DESTRUCTION_IMPACT_EXPLICIT_WINDOW",0.0f));
