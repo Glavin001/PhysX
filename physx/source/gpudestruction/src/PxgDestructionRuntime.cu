@@ -275,7 +275,7 @@ struct ImpactContact {
 // the pair's normal and friction impulses on the chunk; frames: the struck
 // cluster's (the chunk's own coordinates).
 __device__ void coupleRow(PxU32 chunk,PxNodeIndex own,PxNodeIndex other,float side,const PxGpuContactPair& p,
-    const PxDestructionStressChunk* chunks,const PxTransform* poses,const PxgBodySim* bodies,float invDt,const ImpactContact& ci)
+    const PxDestructionStressChunk* chunks,const PxTransform* poses,const PxgBodySim* bodies,float invDt,const ImpactContact& ci,bool cut=false)
 {
     if(!ci.rows || chunk==PX_INVALID_U32 || other.isStaticBody() || other.isArticulation() || own.isArticulation())return;
     const auto c=chunks[chunk];if(!(c.mass>0.0f))return;
@@ -353,7 +353,7 @@ __device__ void coupleRow(PxU32 chunk,PxNodeIndex own,PxNodeIndex other,float si
         }}
     }
     const PxU32 slot=atomicAdd(ci.rowCount,1u);if(slot>=ci.rowCapacity)return;
-    impact::ContactRow row{};row.chunk=chunk;row.body=other.index();row.points=released?0u:points;row.friction=friction;row.resting=resting?1u:0u;
+    impact::ContactRow row{};row.chunk=chunk;row.body=other.index();row.points=released?0u:points;row.friction=friction;row.resting=(resting?1u:0u)|(cut?2u:0u);
     auto put=[](float* d,const PxVec3& v){d[0]=v.x;d[1]=v.y;d[2]=v.z;};
     put(row.point,pose.transformInv(point*(1.0f/weight)));put(row.normal,pose.q.rotateInv(normal.getNormalized()));
     put(row.load,pose.q.rotateInv(force*invDt));put(row.torque,pose.q.rotateInv(torque*invDt));put(row.com,pose.transformInv(com));
@@ -413,9 +413,9 @@ __device__ void impactContact(PxU32 a,PxU32 b,const PxGpuContactPair& pair,const
 // A pair's contact on an anchored chunk cut at its bound (the rigid solver's
 // prep: PxgAnchoredContactBound.h, the same function on the same start-of-pass
 // velocities): the chunk is flagged for the ghost check (anchoredGhostCheck).
-__device__ void anchoredSaturation(PxU32 a,PxU32 b,const PxGpuContactPair& p,const PxgBodySim* bodies,const ImpactContact& ci)
+__device__ bool anchoredSaturation(PxU32 a,PxU32 b,const PxGpuContactPair& p,const PxgBodySim* bodies,const ImpactContact& ci)
 {
-    if(!ci.anchored.chunks || !ci.saturated || !p.contactForces)return;
+    if(!ci.anchored.chunks || !ci.saturated || !p.contactForces)return false;
     const PxNodeIndex n[2]={p.nodeIndex0,p.nodeIndex1};const PxU32 c[2]={a,b};
     bool kin[2];PxVec3 v[2];
     for(int k=0;k<2;++k) {
@@ -425,9 +425,9 @@ __device__ void anchoredSaturation(PxU32 a,PxU32 b,const PxGpuContactPair& p,con
         const float4 l=(early?ci.before:bodies)[i].linearVelocityXYZ_inverseMassW;
         v[k]=PxVec3(l.x,l.y,l.z);kin[k]=l.w==0.0f;
     }
-    if(kin[0]==kin[1])return;
-    const PxU32 chunk=kin[0]?c[0]:c[1];if(chunk==PX_INVALID_U32)return;
-    if(ci.anchored.chunks[4*chunk+2]>0.0f)return;   // the step's chunk: its verdict is the step's
+    if(kin[0]==kin[1])return false;
+    const PxU32 chunk=kin[0]?c[0]:c[1];if(chunk==PX_INVALID_U32)return false;
+    if(ci.anchored.chunks[4*chunk+2]>0.0f)return false;   // the step's chunk: its verdict is the step's
     PxContactStreamIterator it(p.contactPatches,p.contactPoints,NULL,p.nbPatches,p.nbContacts);PxU32 point=0;
     while(it.hasNextPatch()){it.nextPatch();while(it.hasNextContact()){it.nextContact();
         const float f=p.contactForces[point++];
@@ -446,9 +446,10 @@ __device__ void anchoredSaturation(PxU32 a,PxU32 b,const PxGpuContactPair& p,con
                     o[4]=__float_as_uint(bonds);o[5]=__float_as_uint(ci.anchored.chunks[4*chunk+1]);
                     o[6]=__float_as_uint(closing);o[7]=p.nbContacts;}
             }
-            return;
+            return true;
         }
     }}
+    return false;
 }
 __global__ void routeContacts(PxgDestructionSolvedContacts contacts, const Lookup* map, PxU32 maps, const PxDestructionStressChunk* chunks,
     const PxTransform* poses, float invDt, PxDestructionVectorPair* inputs,
@@ -508,10 +509,10 @@ __global__ void routeContacts(PxgDestructionSolvedContacts contacts, const Looku
             ++anchors;
         }}
     }
-    if(normals)anchoredSaturation(a,b,p,bodies,ci);
+    const bool cut=normals && anchoredSaturation(a,b,p,bodies,ci);
     if(normals && ci.rows) {
-        coupleRow(a,p.nodeIndex0,p.nodeIndex1,1.0f,p,chunks,poses,bodies,invDt,ci);
-        coupleRow(b,p.nodeIndex1,p.nodeIndex0,-1.0f,p,chunks,poses,bodies,invDt,ci);
+        coupleRow(a,p.nodeIndex0,p.nodeIndex1,1.0f,p,chunks,poses,bodies,invDt,ci,cut);
+        coupleRow(b,p.nodeIndex1,p.nodeIndex0,-1.0f,p,chunks,poses,bodies,invDt,ci,cut);
     }
     if(normals || anchors) {
         if(a!=PX_INVALID_U32)loadA.publish(a,chunkA,inputs,surface);
