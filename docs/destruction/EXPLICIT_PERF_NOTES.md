@@ -1,77 +1,106 @@
 # Explicit impact step: performance handoff
 
-Branch `perf/explicit-step` (this worktree), on `feat/impact-capacity` 8e9006545.
+Branch `perf/explicit-step` (worktree impact-perf), on `feat/impact-capacity`.
 Goal: <= 2 ms per impact evaluation (the owner's target), every dispatch < 100 ms,
 FP32, no change to the physics: the dump parity, energy and hash tests below must
 still pass bit-for-bit or within their derived tolerances.
 
 ## The kernel
 
-`physx/source/gpudestruction/src/PxgDestructionImpactExplicit.cuh`: one threadgroup
-(kExThreads) per patch; symplectic Euler over rigid chunk nodes and joints (RBSM),
-substep h = 0.9 * 2 / omega (Gershgorin), the window is one tick (16.7 ms).
-Per substep, four `__syncthreads` phases: joint gather -> contact rows (Jacobi,
-mass split, Coulomb cone exCone) -> row gather -> joints (trial, fracture /
-radial return, wrench write).
+`physx/source/gpudestruction/src/PxgDestructionImpactExplicit.cuh`. Each patch is
+one threadgroup of 512 threads (`EX_THREADS`), integrated by symplectic Euler over
+rigid chunk nodes and joints (RBSM). The window is one tick (16.7 ms). A substep
+runs four `__syncthreads` phases:
 
-## State of this branch
+1. Joint gather.
+2. Contact rows, with the joints away from rows running beside them.
+3. Row gather.
+4. The joints at rows' nodes.
 
-- `exRunT<bool Small>`: node velocities in threadgroup memory always; for
-  patches of <= kExSmall (512) nodes also each node's inverse mass, per-axis
-  inverse inertia (3 floats) and CSR ranges (`exRunSmall`; the host picks it
-  when every patch fits).
-- Each row is one thread (kExRows <= kExThreads): its ends and running total
-  in registers; per-row impulse wrenches precomputed into `t.rwr`
-  ([P][kExRows][12]) so the node gather reads six floats per row instead of
-  rebuilding the wrench from the bond.
-- The dead load's work is counted in the joint phase (-sum J0 . B^T v).
-- **CuMetal miscompile workaround**: W (3x3) computed in registers and passed
-  by pointer to `exCone` produced wrong impulses (impactor dp 557 vs 2204 N s
-  on the dump; first substep identical, divergence from substep 2). Storing
-  W / W^-1 in global `rows[r].W/Winv` and passing `rows[threadIdx.x].W`
-  restores parity (Jaccard 1.000, dp 0.00%). W^-1 is still read from
-  registers (works). Worth a minimal reproducer for cuda-metal
-  (a __device__ taking `const float*` to a 9-float local array, called in a
-  loop after a `__syncthreads`), and recording in docs/CUMETAL_COMPATIBILITY.md.
-- Also fixed here: chunks' inverse inertia is per axis (Iinv[0..2]); an
-  earlier draft used Iinv[0] for all three.
-- The earlier "1.9x faster" figure was measured on the miscompiled kernel and
-  does not stand. Current measurement (shared GPU, 12 runs, cannon-first.impc):
+## What was done (perf/explicit-step, 2026-10-08), and what each bought
 
-  | SDK | build | window | evaluation |
-  |---|---|---|---|
-  | impact-e (8e9006545) | 0.54 / 0.57 ms | 9.45 / 9.48 ms | 10.20 / 10.30 ms |
-  | perf/explicit-step | 0.56 / 0.63 ms | 9.25 / 9.32 ms | 10.10 / 10.20 ms |
+Cannonball first contact, window on a shared GPU: 9.47 ms -> about 2.75 ms.
+Lab distributions are at the end of this section.
 
-  (min / median). Essentially no gain yet.
+**1. Substep from a rigorous Collatz-Wielandt bound.** `exFinish` replaced Gershgorin
+with lambda_max(S) <= rho(|S|) <= max_i (L x)_i / x_i, where L >= |S| entrywise:
+- each node's diagonal block is assembled before taking absolute values;
+- the off-diagonal joint blocks are taken in absolute value;
+- each node is lumped to translation and rotation.
 
-## Phase profile (what the numbers say)
+8 power-iteration products start from x = 1, which is the Gershgorin bound. Every
+iterate is a valid bound, and the 0.9 safety factor is kept. The joint blocks are in
+closed form, because the force stiffness is isotropic. Effect:
+- Cannonball full island: omega 3.69e4 -> 2.92e4 rad/s; rho(|S|) is 2.89e4 and
+  the true value 2.80e4.
+- h 50 -> 62 us: about 20% fewer substeps.
+- The harness mirrors it: `explicit-step.py --omega bound`.
 
-cannon-first.impc: 2 patches in one launch; the big one is 220 nodes, 735
-joints, 17 rows, 332 substeps of 50.3 us. Window 9.2 ms / 332 substeps =
-**~28 us per substep** for ~1k items of work: the substep cost is latency
-(four barriers, global loads of bonds/links per joint per substep, atomics),
-not arithmetic. The dump fixture (997 nodes, 3053 joints, 13 rows, 521
-substeps of 32 us, non-small path) takes ~27-31 ms: ~55 us per substep.
-A lab cannonball run is 397 evaluations, mean 14-15 ms, longest dispatch ~20 ms.
+**2. Contact cone without trigonometry or repeats.**
+- A polar test returns P = 0 when Ps is in the polar.
+- The 16-direction scan uses a rotation table, compares N^2/D crosswise and does
+  no divisions.
+- The best direction is refined by safeguarded Newton on F = 2 N' D - N D' instead
+  of 24 golden-section steps. This finds the same minimiser to float precision
+  in about 4 evaluations; the harness does the same.
+- Before this the contacts cost 8.4 of 20 us per substep: one thread running
+  about 70 sincos evaluations.
 
-## Next ideas (in the order I would try them)
+**3. Joints away from contact rows run beside the rows**, on the simdgroups the
+rows don't use. Rows take ceil(nr/32) simdgroups. Same arithmetic.
 
-1. Fewer substeps for the same physics: omega is the Gershgorin bound of
-   M^-1 K; a tighter bound (power iteration on the patch, a few matvecs in
-   exFinish) gives a larger stable h. Keep 0.9 safety. Must be derived, not tuned.
-2. Joint state in registers/threadgroup memory across substeps: each thread
-   owns ceil(nl / kExThreads) joints; keep J, J0, k, state, a/b in registers
-   (735 joints / 256 threads = 3 each) instead of reloading `links[l]` and
-   `bonds[l]` from global every substep. Write back once at the end.
-3. Merge phases: the row phase and its gather could be fused with the joint
-   gather of the next substep (one barrier fewer); joint wrench gather via
-   threadgroup memory instead of `wr` in global.
-4. More threads per patch for big patches (EX_THREADS 512/1024 builds exist
-   in scratch: impact_capture_replay-t512/-t1024) and multiple substeps per
-   launch already happen (budget); check occupancy.
-5. Only then: subcycling (inactive regions stepped at a coarser h) -- needs a
-   physics argument (stability per region), not a heuristic.
+**4. Gathers load four indices, then their records, then sum** (`EX_GATHER`). Same
+order, bit-identical; the gathers are latency-bound.
+
+**5. Joints packed per window into 11 float4s** (`t.jp`): the constants, then J, the
+state and slip. They are read and written in vector loads. A simdgroup's scalar
+loads of the 164-byte Bond cost about 3x as much (`ex_floor_bench`). The live
+joints are walked from lists (`t.jl`) instead of scanning every joint's state.
+
+**6. A row's W^-1 and running impulse are read from device memory** instead of
+held in registers. Fewer live registers measured 8% faster.
+
+**7. 512 threads per patch.** Measured with the clock held (see the keep-alive
+note below), this is as fast or faster at every patch size from 7 to 2,011 joints.
+1,024 threads is slower.
+
+Lab distributions, base `feat/impact-capacity` -> 93536eda8, one process per
+capture, keep-alive, shared GPU:
+
+| Run | Mean per evaluation | p95 | Window mean | Longest dispatch max |
+|---|---|---|---|---|
+| Cannonball (`all/cannonball-framed-house-r1`, 403 captures) | 15.2 -> 7.2 ms | 21.4 -> 12.3 | 12.8 -> 4.6 ms | 20.2 -> 9.5 ms |
+| Truck (`tc/framed-house-r1`, 400 captures) | 13.8 -> 7.6 ms | 19.9 -> 13.3 | 12.7 -> 4.8 ms | |
+
+## What the measurements say (read before optimising further)
+
+- **Hold the clock.** Apple's GPU drops its clock between short evaluations, and a
+  small patch then reads up to 3x slower. `bench.sh` and `lab-dist.sh` set
+  `CUMETAL_GPU_KEEPALIVE_BUSY=1`, as the game does. Without it, 512 threads looked
+  3x slower on small patches.
+- **Phase cost.** `EX_PROF_DUP` computes a phase a second time into a dummy, so the
+  physics is unchanged and the added time is that phase's. `EX_PROF_SKIP`
+  skips a phase, but that changes the physics, so its numbers are confounded.
+  `EX_BUILD_STOP` times the build's stages.
+- **The floor on this GPU** (`ex_floor_bench`):
+  - `__syncthreads`: 0.05 us.
+  - A dependent L1 load: 0.06 us.
+  - `grid.sync` across 2-8 threadgroups (cooperative launch): 1.1-1.4 us.
+  - A core's scalar loads: about 4-10 per ns. Vector loads are about 3x better.
+  - ALU: about 245 FMA per ns per core.
+- **Lab patches** are 450-700 nodes and 1,200-1,900 joints, with 36 rows and 28
+  debris impactors. A substep costs 16-26 us there, and the joint phase is the
+  largest part (about 13 us on 1,919 joints).
+- **Early end (explicitWindow 1, heuristic) barely helps.** It cut mean substeps
+  only 304 -> 274 on the lab run: resting debris keeps pushing. A rigorous
+  criterion can only end later, so early end is not the lever.
+
+## Next levers
+
+1. Spread a patch over several threadgroups (cores) with `grid.sync`.
+2. Reuse the build (the bound's blocks and h) while a patch's topology is
+   unchanged since the last tick.
+3. Reduce joint-phase work further.
 
 ## How to test and time
 
