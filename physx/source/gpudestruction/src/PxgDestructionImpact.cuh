@@ -174,8 +174,21 @@ struct Settings {
     // stalled the meteor capture's first solve (32768 steps vs 3); A/B knob.
     float relaxation=1.0f;
     // The J step's conjugate gradients stop when their residual leaves at most
-    // innerTolerance x tolerance of motion unexplained.
-    float innerTolerance=1.0f;
+    // innerTolerance x tolerance of motion unexplained. It must be a fraction
+    // of the tolerance, not the tolerance: ADMM with an inexact J step reaches
+    // only a neighbourhood of its fixed point as wide as the step's error (its
+    // convergence needs the errors summable: Eckstein & Bertsekas 1992), and
+    // the dual residual it is judged by reads that error twice (the
+    // difference of two steps' errors). The error, read in the dual
+    // residual's metric (a joint's relative motion), is up to 2 (1 + |o|/L)
+    // times the CG's per-chunk motion (two chunks, each lever |o| against the
+    // length scale L; 2.6x measured on the veneer house): within the
+    // tolerance needs innerTolerance <= 1 / (4 (1 + |o|/L)), 0.125 at |o| = L.
+    // At 1 the house cannonball's level 5 sat in a limit cycle for 2e6 steps
+    // (dual 1.1-1.9e-4 against 1e-4, warm-started CG doing no iteration)
+    // that an exact J step leaves in one step (destruction_impact_level_replay;
+    // vibe-land scripts/impact/admm-fp64.py, FP64 and FP32 alike).
+    float innerTolerance=0.1f;
     // Anderson acceleration (type II, Walker & Ni 2011; for ADMM, Zhang,
     // O'Donoghue & Boyd 2020) of the ADMM fixed point, depth up to
     // kAndersonDepth; 0: plain ADMM. ADMM's linear rate collapses on
@@ -977,10 +990,11 @@ __device__ PxU32 solve(Shared& sh,const Inputs& in,const Settings& s,const Scrat
             for(int t=0;t<6;++t){w.cp[6*c.chunk+t]=zz[t];rz+=r[t]*zz[t];}
         }
         rz=blockSum(sh,rz);
-        // The J step is solved to the solve's tolerance: its residual, as the
-        // chunks' motion over the tick it leaves unexplained (1/2 dt^2 M^-1 r),
-        // within `tolerance` -- else ADMM's residuals would certify an inexact
-        // fixed point. innerIterations bounds the conjugate gradients per step.
+        // The J step is solved to a fraction of the solve's tolerance
+        // (Settings::innerTolerance): its residual, as the chunks' motion over
+        // the tick it leaves unexplained (1/2 dt^2 M^-1 r) -- else ADMM's
+        // residuals settle at the step's error (a limit cycle) or certify an
+        // inexact fixed point. innerIterations bounds the conjugate gradients per step.
         float motion=residualMotion(sh,s,w,is);
         // The step's work in link-and-node visits: five passes, three more per
         // conjugate gradient iteration (Settings::dispatchWork).
