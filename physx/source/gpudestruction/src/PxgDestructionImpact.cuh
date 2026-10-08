@@ -303,7 +303,7 @@ struct Settings {
     float dynamicFriction=0.23f;
     // Diagnostics only (PX_DESTRUCTION_SEQUENCE_DIAG, a bit mask; 0 in every profile):
     // 1 no exSequenceSplit, 2 no corrected-pass dynamic patches, 4 dynamic patches start at
-    // rest (no persisted velocities).
+    // rest (no persisted velocities), 8 a dynamic island's rows left to the stage (no impactors in its window).
     PxU32 sequenceDiag=0;
     // Every impact contact compliant (PX_DESTRUCTION_IMPACT_COMPLIANT; vibe-land
     // docs/destruction/IMPACT_STEP_PLAN.md "compliant impact contacts", harness
