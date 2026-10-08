@@ -89,7 +89,8 @@ struct ContactRow {
     float dv[3],dw[3];  // the change the trial gave its velocity and angular velocity over the tick
     float im;           // inverse mass
     float ii[6];        // inverse inertia (xx, yy, zz, xy, xz, yz)
-    PxU32 resting;      // 1: not closing, its load past what its body can exert (routing only; never coupled)
+    PxU32 resting;      // bit 1: not closing, its load past what its body can exert (routing only; never coupled);
+                        // bit 2: cut at its chunk's anchored-contact bound in the trial (PX_DESTRUCTION_ANCHORED_CONTACT_BOUND)
 };
 
 struct Settings {
@@ -232,6 +233,13 @@ struct Settings {
     // evaluated (the truck through the framed house: +10..+17 m). true: it
     // holds only between the impactor and the clusters its rows struck.
     bool boundPairwise=false;
+    // The anchored-chunk contact bound is on (PX_DESTRUCTION_ANCHORED_CONTACT_BOUND):
+    // every contact on an anchored chunk is already at most what the chunk can
+    // take, so the routing leaves the static solve each unrouted row's whole load
+    // (no rigid-stop excess, resting share or release to take out). A contact cut
+    // at the bound then loads the chunk at its capacity and the verdict breaks it;
+    // taken out, the chunk held while the impactor went past (a ghost wall).
+    bool anchoredBound=false;
     // Contact routing (PX_DESTRUCTION_IMPACT_ROUTE; routeRows): a contact row
     // is the impact model's -- its trial load leaves the static solve's inputs
     // -- when its peak elastic force exceeds what its struck chunk's weakest
@@ -1316,7 +1324,7 @@ __device__ __forceinline__ bool rowMember(const Inputs& in,PxU32 r,PxU32 island)
     const ContactRow& row=in.rows[r];
     if(row.chunk>=in.chunkCount || in.nodeIslands[row.chunk]!=island || !(in.chunks[row.chunk].mass>0.0f) || chunkGone(in,row.chunk))return false;
     if(in.rowRouted && !in.rowRouted[r])return false;
-    if(row.resting)return false;
+    if(row.resting&1u)return false;
     return row.im>0.0f && isfinite(row.im) && row.points>0;
 }
 // The contact routing (Settings::route), before the static solve: per row,
@@ -1340,14 +1348,15 @@ __global__ void routeRows(Inputs in,Settings s,PxU32* routed,PxDestructionVector
     if(c>=in.chunkCount || !(in.chunks[c].mass>0.0f) || chunkGone(in,c) || !(row.im>0.0f) || !isfinite(row.im))return;
     const float m=in.chunks[c].mass,L[3]={row.load[0],row.load[1],row.load[2]},Ln=sqrtf(dot3(L,L));
     auto remove=[&](float f){PxVec3& a=inputs[c].linear;atomicAdd(&a.x,-f*L[0]/m);atomicAdd(&a.y,-f*L[1]/m);atomicAdd(&a.z,-f*L[2]/m);};
-    if(row.resting) {
+    if(s.anchoredBound && !(row.points && !(row.resting&1u))) return;   // released or resting: its bounded load stays static
+    if(row.resting&1u) {
         // A resting row (coupleRow): of its body's resting loads on the
         // structure, only their resultant is exchanged with the body (a pile's
         // weight: all of it); the rest cancels on the rigid body (a wedge's
         // opposing pairs) and is the rigid solver's position correction. Each
         // keeps its share |sum| / sum|.| of the static solve.
         float sum[3]={0,0,0},mag=0.0f;
-        for(PxU32 j=0;j<rows;++j){const ContactRow& q=in.rows[j];if(!q.resting || q.body!=row.body)continue;
+        for(PxU32 j=0;j<rows;++j){const ContactRow& q=in.rows[j];if(!(q.resting&1u) || q.body!=row.body)continue;
             for(int k=0;k<3;++k)sum[k]+=q.load[k];mag+=sqrtf(dot3(q.load,q.load));}
         if(mag>0.0f)remove(1.0f-fminf(1.0f,sqrtf(dot3(sum,sum))/mag));
         return;
@@ -1368,9 +1377,14 @@ __global__ void routeRows(Inputs in,Settings s,PxU32* routed,PxDestructionVector
         cap=fminf(cap,f);
     }
     if(!(k>0.0f))return;   // no joint: a free chunk, the rigid simulation's own
+    // Cut at its chunk's anchored bound (the rigid pass wanted more than the
+    // chunk's bonds and inertia can take): an event for its joints, the step's.
+    if(s.anchoredBound && (row.resting&2u)){routed[r]=1u;remove(1.0f);return;}
     const float M=1.0f/row.im,peak=vn*M*sqrtf(k/(M+m));
     if(peak>cap){routed[r]=1u;remove(1.0f);return;}
-    // Static: the rigid stop's momentum part, M v_n / dt, at most the peak.
+    // Static: the rigid stop's momentum part, M v_n / dt, at most the peak
+    // (with the anchored bound the rigid solve already held it to the chunk's capacity).
+    if(s.anchoredBound)return;
     const float excess=fmaxf(0.0f,M*vn/s.dt-peak);
     if(excess>0.0f && Ln>0.0f)remove(fminf(1.0f,excess/Ln));
 }
@@ -1966,7 +1980,7 @@ __global__ void heldOverCapacity(Inputs in,Settings s,const PxDestructionBondVer
     if(!in.rows || i>=(in.rowCounter?min(*in.rowCounter,in.rowCount):in.rowCount))return;
     if(stage && (stage->error & 4096u))return;
     const ContactRow& row=in.rows[i];const PxU32 c=row.chunk;
-    if(!row.points || row.resting || c>=in.chunkCount || !(in.chunks[c].mass>0.0f) || chunkGone(in,c))return;   // released or resting: no stop
+    if(!row.points || (row.resting&1u) || c>=in.chunkCount || !(in.chunks[c].mass>0.0f) || chunkGone(in,c))return;   // released or resting: no stop
     // The bound the corrected pass applies: per body, the largest of its
     // rows' (collectImpactBounds; a cluster is one body). It stops this pair
     // rigidly when it is none (0) or no less than the trial's stop.
@@ -2036,6 +2050,7 @@ struct Stage {
         // Every patch slot builds (an empty one returns at once): no readback
         // before the build; one after it, for the patches and their substeps.
         exBuild<<<kExPatches,kThreads,0,stream>>>(in,s,w,x);
+        if(s.anchoredBound && in.rows)exExternal<<<(in.rowCount+127)/128,128,0,stream>>>(in,s,x);
         // The window follows the build with no readback between them (one host
         // round trip fewer): both kernels over every patch slot, each patch
         // running in the kernel of its size, an empty slot returning at once.

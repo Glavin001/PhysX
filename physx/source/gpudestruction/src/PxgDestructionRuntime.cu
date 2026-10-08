@@ -275,7 +275,7 @@ struct ImpactContact {
 // the pair's normal and friction impulses on the chunk; frames: the struck
 // cluster's (the chunk's own coordinates).
 __device__ void coupleRow(PxU32 chunk,PxNodeIndex own,PxNodeIndex other,float side,const PxGpuContactPair& p,
-    const PxDestructionStressChunk* chunks,const PxTransform* poses,const PxgBodySim* bodies,float invDt,const ImpactContact& ci)
+    const PxDestructionStressChunk* chunks,const PxTransform* poses,const PxgBodySim* bodies,float invDt,const ImpactContact& ci,bool cut=false)
 {
     if(!ci.rows || chunk==PX_INVALID_U32 || other.isStaticBody() || other.isArticulation() || own.isArticulation())return;
     const auto c=chunks[chunk];if(!(c.mass>0.0f))return;
@@ -353,7 +353,7 @@ __device__ void coupleRow(PxU32 chunk,PxNodeIndex own,PxNodeIndex other,float si
         }}
     }
     const PxU32 slot=atomicAdd(ci.rowCount,1u);if(slot>=ci.rowCapacity)return;
-    impact::ContactRow row{};row.chunk=chunk;row.body=other.index();row.points=released?0u:points;row.friction=friction;row.resting=resting?1u:0u;
+    impact::ContactRow row{};row.chunk=chunk;row.body=other.index();row.points=released?0u:points;row.friction=friction;row.resting=(resting?1u:0u)|(cut?2u:0u);
     auto put=[](float* d,const PxVec3& v){d[0]=v.x;d[1]=v.y;d[2]=v.z;};
     put(row.point,pose.transformInv(point*(1.0f/weight)));put(row.normal,pose.q.rotateInv(normal.getNormalized()));
     put(row.load,pose.q.rotateInv(force*invDt));put(row.torque,pose.q.rotateInv(torque*invDt));put(row.com,pose.transformInv(com));
@@ -413,9 +413,9 @@ __device__ void impactContact(PxU32 a,PxU32 b,const PxGpuContactPair& pair,const
 // A pair's contact on an anchored chunk cut at its bound (the rigid solver's
 // prep: PxgAnchoredContactBound.h, the same function on the same start-of-pass
 // velocities): the chunk is flagged for the ghost check (anchoredGhostCheck).
-__device__ void anchoredSaturation(PxU32 a,PxU32 b,const PxGpuContactPair& p,const PxgBodySim* bodies,const ImpactContact& ci)
+__device__ bool anchoredSaturation(PxU32 a,PxU32 b,const PxGpuContactPair& p,const PxgBodySim* bodies,const ImpactContact& ci)
 {
-    if(!ci.anchored.chunks || !ci.saturated || !p.contactForces)return;
+    if(!ci.anchored.chunks || !ci.saturated || !p.contactForces)return false;
     const PxNodeIndex n[2]={p.nodeIndex0,p.nodeIndex1};const PxU32 c[2]={a,b};
     bool kin[2];PxVec3 v[2];
     for(int k=0;k<2;++k) {
@@ -425,18 +425,31 @@ __device__ void anchoredSaturation(PxU32 a,PxU32 b,const PxGpuContactPair& p,con
         const float4 l=(early?ci.before:bodies)[i].linearVelocityXYZ_inverseMassW;
         v[k]=PxVec3(l.x,l.y,l.z);kin[k]=l.w==0.0f;
     }
-    if(kin[0]==kin[1])return;
-    const PxU32 chunk=kin[0]?c[0]:c[1];if(chunk==PX_INVALID_U32)return;
-    if(ci.anchored.chunks[4*chunk+2]>0.0f)return;   // the step's chunk: its verdict is the step's
+    if(kin[0]==kin[1])return false;
+    const PxU32 chunk=kin[0]?c[0]:c[1];if(chunk==PX_INVALID_U32)return false;
+    if(ci.anchored.chunks[4*chunk+2]>0.0f)return false;   // the step's chunk: its verdict is the step's
     PxContactStreamIterator it(p.contactPatches,p.contactPoints,NULL,p.nbPatches,p.nbContacts);PxU32 point=0;
     while(it.hasNextPatch()){it.nextPatch();while(it.hasNextContact()){it.nextContact();
         const float f=p.contactForces[point++];
         const PxVec3 normal=it.getContactNormal();
-        const float bound=anchoredContactImpulse(anchoredChunkImpulse(ci.anchored,chunk,kin[0]?normal:-normal),ci.anchored.chunks[4*chunk+1],
-            PxAbs((v[1]-v[0]).dot(normal)))/float(p.nbContacts);
+        const float bonds=anchoredChunkImpulse(ci.anchored,chunk,kin[0]?normal:-normal),closing=PxAbs((v[1]-v[0]).dot(normal));
+        const float bound=anchoredContactImpulse(bonds,ci.anchored.chunks[4*chunk+1],closing)/float(p.nbContacts);
         // At the bound, to float's resolution of the solver's accumulation.
-        if(f>=bound*(1.0f-8.0f*FLT_EPSILON)){atomicOr(ci.saturated+chunk,1u);return;}
+        if(f>=bound*(1.0f-8.0f*FLT_EPSILON)){
+            atomicOr(ci.saturated+chunk,1u);
+            {   // (the impact log, past the chunks' flags: [0] count, then 8 records of 8 words --
+                // chunk, other body, impulse, bound, the bonds' part, mass, closing speed, points
+                // (float bits); no kernel argument of its own: routeContacts' has no room)
+                PxU32* log=ci.saturated+ci.anchored.chunkCount;const PxU32 k=atomicAdd(log,1u);
+                if(k<8u){PxU32* o=log+1+8*k;
+                    o[0]=chunk;o[1]=n[kin[0]?1:0].isStaticBody()?0xffffffffu:n[kin[0]?1:0].index();o[2]=__float_as_uint(f);o[3]=__float_as_uint(bound);
+                    o[4]=__float_as_uint(bonds);o[5]=__float_as_uint(ci.anchored.chunks[4*chunk+1]);
+                    o[6]=__float_as_uint(closing);o[7]=p.nbContacts;}
+            }
+            return true;
+        }
     }}
+    return false;
 }
 __global__ void routeContacts(PxgDestructionSolvedContacts contacts, const Lookup* map, PxU32 maps, const PxDestructionStressChunk* chunks,
     const PxTransform* poses, float invDt, PxDestructionVectorPair* inputs,
@@ -496,10 +509,10 @@ __global__ void routeContacts(PxgDestructionSolvedContacts contacts, const Looku
             ++anchors;
         }}
     }
-    if(normals)anchoredSaturation(a,b,p,bodies,ci);
+    const bool cut=normals && anchoredSaturation(a,b,p,bodies,ci);
     if(normals && ci.rows) {
-        coupleRow(a,p.nodeIndex0,p.nodeIndex1,1.0f,p,chunks,poses,bodies,invDt,ci);
-        coupleRow(b,p.nodeIndex1,p.nodeIndex0,-1.0f,p,chunks,poses,bodies,invDt,ci);
+        coupleRow(a,p.nodeIndex0,p.nodeIndex1,1.0f,p,chunks,poses,bodies,invDt,ci,cut);
+        coupleRow(b,p.nodeIndex1,p.nodeIndex0,-1.0f,p,chunks,poses,bodies,invDt,ci,cut);
     }
     if(normals || anchors) {
         if(a!=PX_INVALID_U32)loadA.publish(a,chunkA,inputs,surface);
@@ -2075,6 +2088,7 @@ public:
                     // Those bounds pairwise: an impactor's holds only against the
                     // clusters its rows struck (with BOUND_IMPACTOR).
                     mImpactSettings.boundPairwise=env("PX_DESTRUCTION_IMPACT_BOUND_PAIRWISE",0.0f)!=0.0f;
+                    mImpactSettings.anchoredBound=env("PX_DESTRUCTION_ANCHORED_CONTACT_BOUND",0.0f)!=0.0f;
                     // and the contact routing by peak force against capacity.
                     mImpactSettings.route=env("PX_DESTRUCTION_IMPACT_ROUTE",0.0f)!=0.0f;
                     mImpactSettings.explicitWindow=PxU32(env("PX_DESTRUCTION_IMPACT_EXPLICIT_WINDOW",0.0f));
@@ -2111,8 +2125,8 @@ public:
                 // rigid contact on a chunk of a kinematic cluster, every pass, at most
                 // what the chunk's bonds and inertia take (gpusolver PxgAnchoredContactBound.h).
                 if(std::getenv("PX_DESTRUCTION_ANCHORED_CONTACT_BOUND") && std::atoi(std::getenv("PX_DESTRUCTION_ANCHORED_CONTACT_BOUND"))!=0) {
-                    allocate(mAnchoredChunks,std::max<PxU32>(d.chunkCount,1));allocate(mAnchoredBonds,2*size_t(std::max<PxU32>(d.bondCount,1)));allocate(mAnchoredSaturated,std::max<PxU32>(d.chunkCount,1));allocate(mAnchoredGhosts,10);
-                    check(cudaMemsetAsync(mAnchoredSaturated,0,sizeof(PxU32)*std::max<PxU32>(d.chunkCount,1),mStream));
+                    allocate(mAnchoredChunks,std::max<PxU32>(d.chunkCount,1));allocate(mAnchoredBonds,2*size_t(std::max<PxU32>(d.bondCount,1)));allocate(mAnchoredSaturated,std::max<PxU32>(d.chunkCount,1)+65);allocate(mAnchoredGhosts,10);
+                    check(cudaMemsetAsync(mAnchoredSaturated,0,sizeof(PxU32)*(std::max<PxU32>(d.chunkCount,1)+65),mStream));
                     mAnchoredBound=true;mAnchoredReady=false;
                 }
                 mFragmentMaxPenBias=d.fragmentMaxDepenetrationVelocity>0?-d.fragmentMaxDepenetrationVelocity:-1e32f;
@@ -2515,7 +2529,8 @@ public:
                 impactContacts.impactors=mImpactors;impactContacts.impactorCount=mImpactorCount;
                 impactContacts.stress=mImpactStress;impactContacts.rate=mImpactRate;impactContacts.impactor=mImpactImpactor;
             }
-            if(mAnchoredBound && mAnchoredReady){impactContacts.anchored=anchoredContactBoundView();impactContacts.saturated=mAnchoredSaturated;}
+            if(mAnchoredBound && mAnchoredReady){impactContacts.anchored=anchoredContactBoundView();impactContacts.saturated=mAnchoredSaturated;
+                check(cudaMemsetAsync(mAnchoredSaturated+mN,0,sizeof(PxU32),mStream));}
             if(mImpactRows) {
                 check(cudaMemsetAsync(mImpactRowCount,0,sizeof(PxU32),mStream));
                 impactContacts.rows=mImpactRows;impactContacts.rowCount=mImpactRowCount;impactContacts.rowCapacity=impact::kContactCapacity;
@@ -2719,6 +2734,13 @@ public:
                             PxU32 g[10];check(cudaMemcpyAsync(g,mAnchoredGhosts,sizeof g,cudaMemcpyDeviceToHost,mStream));check(cudaStreamSynchronize(mStream));
                             if(g[9])std::fprintf(stderr,"[impact] anchored contacts at their bound: %u chunks in pass %u\n",g[9],mPass);
                             if(g[0])std::fprintf(stderr,"[impact] ANCHORED GHOSTS: %u chunks cut at their contact bound kept every bond (a bug signal); first %u %u %u %u\n",g[0],g[1],g[0]>1?g[2]:0u,g[0]>2?g[3]:0u,g[0]>3?g[4]:0u);
+                            if(g[0]) {
+                                PxU32 r[65];check(cudaMemcpy(r,mAnchoredSaturated+mN,sizeof r,cudaMemcpyDeviceToHost));
+                                auto F=[](PxU32 x){float f;std::memcpy(&f,&x,4);return f;};
+                                for(PxU32 k=0;k<std::min(r[0],8u);++k){const PxU32* o=r+1+8*k;
+                                    std::fprintf(stderr,"[impact]   at the bound: chunk %u, body %u; impulse %.4g >= bound %.4g N s per point (bonds %.4g N s, mass %.4g kg, closing %.3g m/s, %u points)\n",
+                                        o[0],o[1],F(o[2]),F(o[3]),F(o[4]),F(o[5]),F(o[6]),o[7]);}
+                            }
                         }
                     }
                     // For the next pass's contact prep: this pass's live bonds.
