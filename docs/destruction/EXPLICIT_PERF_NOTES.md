@@ -64,13 +64,29 @@ held in registers. Fewer live registers measured 8% faster.
 note below), this is as fast or faster at every patch size from 7 to 2,011 joints.
 1,024 threads is slower.
 
-Lab distributions, base `feat/impact-capacity` -> 93536eda8, one process per
-capture, keep-alive, shared GPU:
+**8. A cheaper build.** The bound's products read their iterate from threadgroup
+memory, with each slot's other end precomputed. The rows' bodies and ends live in
+threadgroup memory, and `prepareRow` runs on every thread. Same results; the lab
+build is about 1.6 -> 0.9-1.2 ms.
 
-| Run | Mean per evaluation | p95 | Window mean | Longest dispatch max |
-|---|---|---|---|---|
-| Cannonball (`all/cannonball-framed-house-r1`, 403 captures) | 15.2 -> 7.2 ms | 21.4 -> 12.3 | 12.8 -> 4.6 ms | 20.2 -> 9.5 ms |
-| Truck (`tc/framed-house-r1`, 400 captures) | 13.8 -> 7.6 ms | 19.9 -> 13.3 | 12.7 -> 4.8 ms | |
+Lab distributions, base `feat/impact-capacity` -> bc0b121a0. Min of 3 runs per
+capture, one process each, keep-alive, shared GPU. Times in ms:
+
+| Run | Evaluation mean | Evaluation p95 | Evaluation max | Window mean | Longest dispatch max |
+|---|---|---|---|---|---|
+| Cannonball (`all/cannonball-framed-house-r1`, 403 captures) | 13.8 -> 5.4 | 19.2 -> 8.2 | 21.5 -> 9.6 | 12.5 -> 4.2 | 20.0 -> 7.1 |
+| Truck (`tc/framed-house-r1`, 400 captures) | 14.0 -> 5.5 | 21.1 -> 8.9 | 25.3 -> 10.3 | 12.7 -> 4.4 | 21.1 -> 8.1 |
+
+Measured and not kept:
+- **Several threadgroups per patch** (branch `exp/explicit-grid`). It is
+  bit-identical, and its per-patch device barrier costs 0.6 us. But the
+  1,919-joint patch only goes 6.67 -> 6.2 ms at G 4-8, and smaller patches get
+  slower.
+- **Two joints interleaved per thread:** 1.5x slower, because of registers.
+- **float2/float4 records for the gathers:** no gain.
+- **Independent patches in one launch already run concurrently.**
+  `ex_patch_scaling` on 1 / 2 / 4 / 8 copies of the full island gives
+  8.5 / 8.8 / 8.8 / 9.6 ms.
 
 ## What the measurements say (read before optimising further)
 
@@ -97,10 +113,28 @@ capture, keep-alive, shared GPU:
 
 ## Next levers
 
-1. Spread a patch over several threadgroups (cores) with `grid.sync`.
-2. Reuse the build (the bound's blocks and h) while a patch's topology is
-   unchanged since the last tick.
-3. Reduce joint-phase work further.
+The substep is latency-bound: each phase's critical path is a chain of dependent
+loads and arithmetic on one thread. On lab patches that costs about 3 us in the
+joint gather, about 6 us in the rows, and about 7 us in the joints, against
+0.05 us per barrier. More threads or cores do not shorten it.
+
+1. **CuMetal: honour `__launch_bounds__`.** Emit
+   `[[max_total_threads_per_threadgroup(N)]]`. Today every pipeline reports
+   1,024 threads, so Metal's compiler budgets registers for 1,024 threads
+   while the step launches 512. A 512-thread budget may stop spills, and it
+   would make the next lever affordable.
+2. **Joint state in registers across substeps** (about 1 joint per thread). The
+   interleaving test suggests registers are already the limit, so this needs
+   lever 1 first.
+3. **A shorter row path.** Pack the rows like the joints (float4). Classify the
+   rows first, then give each expensive row (scan + Newton, or Coulomb sliding)
+   its own simdgroup, so a simdgroup's rows don't serialise their different
+   paths.
+4. **Build reuse.** The build is now about 0.35 ms of fixed launch/sync cost plus
+   0.5-0.8 ms of work, of which the bound is about 0.2 ms. Reusing the bound is
+   valid when the patch's chunk nodes and live joints are subsets of the last
+   tick's with the same geometry and masses: a principal submatrix, or K less
+   PSD terms, has a smaller lambda_max. The saving is small next to the window.
 
 ## How to test and time
 
