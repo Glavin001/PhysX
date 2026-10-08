@@ -96,6 +96,7 @@ struct ExPatch {
     float lastActive=-1.0f,period=0.0f,quiet=0.0f;PxU32 freeze=0;
     float beta=0.0f;   // the damping's 2 / omega_K (s; times each joint's zeta): its last sample, kept across launches
     PxU32 anchored=0,fellFree=0;   // a joint to a support (or a held node); open contacts broken at the window's end (exSequenceSplit)
+    PxU32 bearingJoints=0,looseNodes=0;   // (diagnostics) its bearing joints; its chunk nodes with no live joint
 };
 // A joint of the patch: local node ends (0xffffffff: held), state bits.
 // eEX_ROWS: an end of the joint has contact rows (exRunT sets it; the window's
@@ -1091,8 +1092,14 @@ __device__ void exFinishDynamic(Shared& sh,const Settings& s,const ExScratch& t,
     // less its rigid motion (linear and angular momentum about its centre of mass) -- so it
     // conserves the body's momentum exactly and never integrates its fall a second time.
     PxU32 held=0;
-    for(PxU32 l=threadIdx.x;l<sp.links;l+=kThreads){const ExLink& e=links[l];if((e.state&eEX_LIVE) && !(e.state&eEX_CAR) && (e.a==0xffffffffu || e.b==0xffffffffu))held=1u;}
-    held=blockCount(sh,held);
+    PxU32 bearing=0,loose=0;
+    for(PxU32 l=threadIdx.x;l<sp.links;l+=kThreads){const ExLink& e=links[l];if((e.state&eEX_LIVE) && !(e.state&eEX_CAR) && (e.a==0xffffffffu || e.b==0xffffffffu))held=1u;
+        if((e.state&eEX_LIVE) && (e.state&eEX_BEARING))++bearing;}
+    {const PxU32* adj=t.adj+size_t(p)*2*kExLinks;
+     for(PxU32 k=threadIdx.x;k<sp.chunks;k+=kThreads){const ExNode& n=nodes[k];if(n.tensor || n.pad[1])continue;PxU32 live=0;
+        for(PxU32 j=n.jointBegin;j<n.jointEnd;++j)live+=(links[adj[j]>>1].state&eEX_LIVE)?1u:0u;if(!live)++loose;}}
+    held=blockCount(sh,held);bearing=blockCount(sh,bearing);loose=blockCount(sh,loose);
+    if(!threadIdx.x){sp.bearingJoints=bearing;sp.looseNodes=loose;}
     if(!held && t.dynPos)exFreeRigidMode(sh,t,p);
     for(PxU32 k=threadIdx.x;k<sp.nodes;k+=kThreads) {
         ExNode& n=nodes[k];float* f=t.dynLoad+(size_t(p)*kExNodes+k)*6;
@@ -1310,7 +1317,8 @@ __device__ __forceinline__ PxU32 exDynamicJoint(const Bond& b,const float* k,con
         if((state&eEX_BEARING) && bend-J[0]<(1.0f-band)*b.capC){state|=eEX_CONTACT;ev=2u;}
         else {
             float u2=0.0f;for(int q=0;q<6;++q)if(k[q]>0.0f)u2+=0.5f*J[q]*J[q]/k[q];fracture+=u2;
-            state=(state&~eEX_LIVE)|eEX_BROKEN;for(int q=0;q<6;++q)J[q]=F[q]=0.0f;return 1u;
+            const PxU32 bearingBroke=(state&eEX_BEARING)?32u:0u;   // (diagnostics: a bearing joint crushed at its fatal)
+            state=(state&~eEX_LIVE)|eEX_BROKEN;for(int q=0;q<6;++q)J[q]=F[q]=0.0f;return 1u|bearingBroke;
         }
     }
     const PxU32 r=exContactJoint(b,k,J,F,cs,mu,band,slipWork,state);
@@ -1423,7 +1431,7 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
                 atomicAdd(&shEvents,1u);atomicMax(&shLast,__float_as_uint(time));
                 if(ev&2u)atomicAdd(&shConverted,1u);
                 if(ev&1u){atomicAdd(&shBroken,1u);atomicAdd(&shFracture,fracture);links[l].brokeAt=time;}
-                if(ev&4u)atomicAdd(&shCrushed,1u);if(ev&8u)atomicAdd(&shSeat,1u);
+                if(ev&4u)atomicAdd(&shCrushed,1u);if(ev&8u)atomicAdd(&shSeat,1u);if(ev&32u)atomicAdd(&shCrushed,1u);
             }
             q[9]=make_float4(J[0],J[1],J[2],J[3]);q[10]=make_float4(J[4],J[5],__uint_as_float(state),slip);
             float dJ[6];for(int q6=0;q6<6;++q6)dJ[q6]=F[q6]-J0[q6];
