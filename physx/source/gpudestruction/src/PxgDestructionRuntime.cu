@@ -1841,6 +1841,7 @@ public:
                     mImpactSettings.stiffnessScale=env("PX_DESTRUCTION_IMPACT_STIFFNESS_SCALE",mImpactSettings.stiffnessScale);
                     mImpactSettings.tolerance=env("PX_DESTRUCTION_IMPACT_TOLERANCE",mImpactSettings.tolerance);
                     mImpactSettings.iterations=PxU32(env("PX_DESTRUCTION_IMPACT_ITERATIONS",float(mImpactSettings.iterations)));
+                    mImpactSettings.evaluationIterations=PxU32(env("PX_DESTRUCTION_IMPACT_EVAL_ITERATIONS",float(mImpactSettings.evaluationIterations)));
                     mImpactSettings.rampLevels=PxU32(env("PX_DESTRUCTION_IMPACT_RAMP_LEVELS",float(mImpactSettings.rampLevels)));
                     mImpactSettings.cappedElastic=env("PX_DESTRUCTION_IMPACT_CAPPED_ELASTIC",0.0f)!=0.0f;
                     std::vector<float> slip(d.materialCount),stiffness(d.materialCount);
