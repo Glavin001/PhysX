@@ -966,6 +966,11 @@ class Runtime final : public PxgDestructionRuntime {
     // (default 4) -- for tests/impact_capture_replay (implies the log's sync).
     const char* mImpactCaptureDir=std::getenv("PX_DESTRUCTION_IMPACT_CAPTURE");
     PxU32 mImpactCaptures=0,mImpactMaterialCount=0;PxU64 mImpactEvaluations=0;impact::SolveRecord* mImpactRecords{};
+    // PX_DESTRUCTION_IMPACT_CAPTURE_STATIC=N (with the capture directory and
+    // the log): capture a pass whose static verdict breaks N or more bonds,
+    // and the evaluation before it (diagnostics; 0 off).
+    const PxU32 mImpactStaticCapture=[this]{const char* v=std::getenv("PX_DESTRUCTION_IMPACT_CAPTURE_STATIC");
+        return (v && mImpactCaptureDir)?PxU32(std::max(0,std::atoi(v))):0u;}();
     float mFragmentMaxPenBias=-1e32f; // negative PhysX clamp; -1e32 leaves inheritance alone
     PxgDestructionTopologyTransaction* mTopology{};
     committedChanges::Publication mChanges;
@@ -2414,6 +2419,25 @@ public:
                     PxU32 by[2]={0,0};check(cudaMemcpyAsync(by,mImpact.w.counters+6,sizeof by,cudaMemcpyDeviceToHost,mStream));check(cudaStreamSynchronize(mStream));
                     if(by[0] || by[1])std::fprintf(stderr,"[impact] evaluation %llu pass %u breaks: %u on islands the impact %s decided, %u by the static verdict\n",
                         (unsigned long long)mImpactEvaluations,mPass,by[0],impactSettings.method==1u?"step":"solve",by[1]);
+                    // Diagnostics: a pass whose static verdict breaks at least
+                    // PX_DESTRUCTION_IMPACT_CAPTURE_STATIC bonds is captured (with the
+                    // evaluation before it, kept in a two-slot ring) beside the elastic
+                    // solve's status.
+                    if(mImpactStaticCapture) {
+                        const unsigned long long ev=(unsigned long long)mImpactEvaluations;
+                        char ring[1024],prior[1024];
+                        std::snprintf(ring,sizeof ring,"%s/ring-%llu.impc",mImpactCaptureDir,ev&1ull);
+                        std::snprintf(prior,sizeof prior,"%s/ring-%llu.impc",mImpactCaptureDir,(ev+1ull)&1ull);
+                        if(by[1]>=mImpactStaticCapture) {
+                            PxDestructionStageStatus st{};check(cudaMemcpy(&st,mStatus,sizeof st,cudaMemcpyDeviceToHost));
+                            std::fprintf(stderr,"[impact] static collapse: evaluation %llu pass %u, the elastic solve %u iterations, converged %u\n",ev,mPass,st.iterations,st.converged);
+                            char path[1024];std::snprintf(path,sizeof path,"%s/impact-%llu-%u-static.impc",mImpactCaptureDir,ev,mPass);
+                            if(impact::writeCapture(path,impactIn,impactSettings,mImpactMaterialCount))std::fprintf(stderr,"[impact] captured %s\n",path);
+                            std::snprintf(path,sizeof path,"%s/impact-%llu-prior.impc",mImpactCaptureDir,ev-1ull);
+                            if(!std::rename(prior,path))std::fprintf(stderr,"[impact] captured %s (the evaluation before)\n",path);
+                        }
+                        impact::writeCapture(ring,impactIn,impactSettings,mImpactMaterialCount);
+                    }
                 }
                 // The invariant where a corrected pass follows (the trial's stop).
                 if(impactRan && impactIn.rows && !mPass) {
