@@ -59,7 +59,7 @@ __global__ void rebearVerdicts(const PxDestructionStressChunk* chunks,const PxDe
     const PxDestructionMaterial* materials,const PxDestructionBondSection* sections,const float* health,
     const PxU32* state,PxU32* trial,const PxDestructionVectorPair* probe,const PxU32* nodeIslands,const PxU32* supported,
     PxDestructionBondVerdict* verdict,PxU32 count,float dt,float rate,bool fibres,float friction,
-    impact::View impactView,PxDestructionStageStatus* status,PxU32* counters)
+    impact::View impactView,PxDestructionStageStatus* status,PxU32* counters,float4* events=nullptr,PxU32 eventCapacity=0)
 {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
     const PxU32 st=state[i];trial[i]=st;
@@ -69,24 +69,29 @@ __global__ void rebearVerdicts(const PxDestructionStressChunk* chunks,const PxDe
     if(impactView.active(i))return;
     const auto b=bonds[i];const auto& m=materials[b.material];auto& v=verdict[i];
     const auto hold=[&](PxU32 next){v.health=area;v.damage=0.0f;trial[i]=next;};
+    // Diagnostics (PX_DESTRUCTION_REBEARING_LOG=2): (bond, kind, N, V) per transition;
+    // kind 0 fastening failed, 1 lifted, 2 closed, 3 slid, 4 fell free, 5 crushed.
+    const auto note=[&](float kind,float n,float shear){
+        if(!events)return;const PxU32 k=atomicAdd(counters+5,1u);
+        if(k<eventCapacity)events[k]=make_float4(__uint_as_float(i),kind,n,shear);};
     if(st==eBEAR_FASTENED) {
         if(v.health>0.0f)return;   // its fasteners held
         float compression,tension;extStressFibre(fibres,v.stressNormal,v.stressBend,compression,tension);
-        if(compression>=m.compressionFatalLimit)return;   // crushed at the contact: broken
+        if(compression>=m.compressionFatalLimit){note(5.0f,v.stressNormal*area,v.stressShear*area);return;}   // crushed at the contact: broken
         // The fasteners failed (withdrawal or lateral); the members still touch.
         if(v.stressNormal<0.0f) {
-            if(v.stressShear>friction*-v.stressNormal){atomicAdd(counters+2,1u);return;}   // and slides: broken
+            if(v.stressShear>friction*-v.stressNormal){atomicAdd(counters+2,1u);note(3.0f,v.stressNormal*area,v.stressShear*area);return;}   // and slides: broken
             hold(eBEAR_CONTACT);
         } else hold(eBEAR_LIFTED);
-        atomicAdd(counters,1u);
+        atomicAdd(counters,1u);note(0.0f,v.stressNormal*area,v.stressShear*area);
         return;
     }
     if(st==eBEAR_CONTACT) {
-        if(v.stressNormal>0.0f){hold(eBEAR_LIFTED);atomicAdd(counters+4,1u);return;}   // pulled: it lifts, carrying nothing
+        if(v.stressNormal>0.0f){note(1.0f,v.stressNormal*area,v.stressShear*area);hold(eBEAR_LIFTED);atomicAdd(counters+4,1u);return;}   // pulled: it lifts, carrying nothing
         float compression,tension;extStressFibre(fibres,v.stressNormal,v.stressBend,compression,tension);
         const auto crush=extStressBondDamage(compression,0.0f,0.0f,area,b.area,m,dt,rate);
         const bool slides=v.stressShear>friction*-v.stressNormal;
-        if(slides)atomicAdd(counters+2,1u);
+        if(slides){atomicAdd(counters+2,1u);note(3.0f,v.stressNormal*area,v.stressShear*area);}
         v.damage=slides?area:crush.damage;v.health=area-v.damage;v.command=slides || crush.command;
         return;
     }
@@ -95,11 +100,11 @@ __global__ void rebearVerdicts(const PxDestructionStressChunk* chunks,const PxDe
     const auto loose=[&](PxU32 c,PxU32 island){return chunks[c].mass>0 && (island==0xffffffffu || !supported[island]);};
     const PxU32 i0=nodeIslands[b.chunk0],i1=nodeIslands[b.chunk1];
     if(!(i0==i1 && i0!=0xffffffffu) && (loose(b.chunk0,i0) || loose(b.chunk1,i1))) {
-        v.health=0.0f;v.damage=area;v.command=1u;atomicAdd(counters+3,1u);return;   // no compression path: it splits
+        v.health=0.0f;v.damage=area;v.command=1u;atomicAdd(counters+3,1u);note(4.0f,0.0f,0.0f);return;   // no compression path: it splits
     }
     // Would it press if readmitted (B^T y at its row; signed as stressNormal)?
     const float n=probe[i].linear.dot(rebearingNormal(chunks,b))/area;
-    if(n<0.0f){trial[i]=eBEAR_CONTACT;atomicAdd(counters+1,1u);}
+    if(n<0.0f){trial[i]=eBEAR_CONTACT;atomicAdd(counters+1,1u);note(2.0f,n*area,0.0f);}
 }
 __global__ void commitBearingState(const PxU32* trial,PxU32* state,PxU32 count,const PxDestructionStageStatus* status)
 {
