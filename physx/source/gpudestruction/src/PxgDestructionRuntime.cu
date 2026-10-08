@@ -2631,7 +2631,7 @@ public:
             restoreImpactBounds(bodyStates);
             if(!mPass && mCompliant && mImpactLog && !mHandoffLog.empty()) {
                 for(PxU32 b:mHandoffLog){PxgBodySim x;check(cudaMemcpy(&x,bodyStates+b,sizeof x,cudaMemcpyDeviceToHost));const auto v=x.linearVelocityXYZ_inverseMassW;
-                    std::fprintf(stderr,"[impact] after the corrected pass: body %u v (%.2f %.2f %.2f) |v| %.2f (world)\n",b,v.x,v.y,v.z,std::sqrt(v.x*v.x+v.y*v.y+v.z*v.z));}
+                    std::fprintf(stderr,"[impact] after the corrected pass: body %u at (%.4f %.4f %.4f) v (%.2f %.2f %.2f) |v| %.2f (world)\n",b,x.body2World.p.x,x.body2World.p.y,x.body2World.p.z,v.x,v.y,v.z,std::sqrt(v.x*v.x+v.y*v.y+v.z*v.z));}
                 mHandoffLog.clear();
             }
             if(mTopology) {
@@ -3358,6 +3358,13 @@ public:
             Context current(mContext);const auto stream=reinterpret_cast<cudaStream_t>(coreStream);
             check(cudaStreamWaitEvent(stream,mCheckpointReady,0));
             correctionMarker(0,stream);
+            // (diagnostics, PX_DESTRUCTION_DEBUG_BODY with the impact log: its pose after pass 0 and at the checkpoint)
+            {static const PxU32 dbg=[]{const char* v=std::getenv("PX_DESTRUCTION_DEBUG_BODY");return v?PxU32(std::atoi(v)):0xffffffffu;}();
+             if(mImpactLog && dbg<mCheckpointCount){PxgBodySim x0,x1;check(cudaMemcpyAsync(&x0,bodies+dbg,sizeof x0,cudaMemcpyDeviceToHost,stream));
+                check(cudaMemcpyAsync(&x1,mCheckpointBodies+dbg,sizeof x1,cudaMemcpyDeviceToHost,stream));check(cudaStreamSynchronize(stream));
+                std::fprintf(stderr,"[impact] debug body %u restore: after pass 0 at (%.4f %.4f %.4f) v (%.2f %.2f %.2f); checkpoint at (%.4f %.4f %.4f) v (%.2f %.2f %.2f)\n",dbg,
+                    x0.body2World.p.x,x0.body2World.p.y,x0.body2World.p.z,x0.linearVelocityXYZ_inverseMassW.x,x0.linearVelocityXYZ_inverseMassW.y,x0.linearVelocityXYZ_inverseMassW.z,
+                    x1.body2World.p.x,x1.body2World.p.y,x1.body2World.p.z,x1.linearVelocityXYZ_inverseMassW.x,x1.linearVelocityXYZ_inverseMassW.y,x1.linearVelocityXYZ_inverseMassW.z);}}
             check(cudaMemcpyAsync(bodies,mCheckpointBodies,size_t(mCheckpointCount)*sizeof(*bodies),cudaMemcpyDeviceToDevice,stream));
             if(previous)check(cudaMemcpyAsync(previous,mCheckpointPrevious,size_t(mCheckpointCount)*sizeof(*previous),cudaMemcpyDeviceToDevice,stream));
             if(accelerations)check(cudaMemcpyAsync(accelerations,mCheckpointAccelerations,size_t(mCheckpointCount)*sizeof(*accelerations),cudaMemcpyDeviceToDevice,stream));
