@@ -2350,7 +2350,7 @@ public:
                     const bool timed=mImpactLog || mImpactCaptureDir;++mImpactEvaluations;
                     std::chrono::steady_clock::time_point t0;
                     if(timed){check(cudaStreamSynchronize(mStream));t0=std::chrono::steady_clock::now();}
-                    mImpact.submit(in,settings,mStream);impactIn=in;impactSettings=settings;impactRan=true;
+                    mImpact.stepLog=mImpactLog;mImpact.submit(in,settings,mStream);impactIn=in;impactSettings=settings;impactRan=true;
                     impact::reportConvergence<<<1,1,0,mStream>>>(mImpact.w.status,mStatus,mCorrectionEnabled && !mAllowUnconverged,float(mImpact.longestDispatch));
                     // Machine safety: Apple GPUs do not preempt compute well; a dispatch
                     // past 100 ms starves the display (Settings::dispatchWork bounds it).

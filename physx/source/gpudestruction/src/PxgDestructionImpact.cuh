@@ -1886,7 +1886,7 @@ struct Stage {
     // before it (recordDispatches).
     bool recordDispatches=false;std::vector<std::pair<double,IslandState>> dispatchRecord;
     // The impact step's scratch (Settings::method 1), allocated on its first use.
-    StepScratch t{};bool stepAllocated=false;
+    StepScratch t{};bool stepAllocated=false;bool stepLog=false;
     void releaseStep() {
         if(!stepAllocated)return;
         cudaFree(t.nodeOf);cudaFree(t.patchCount);cudaFree(t.patches);cudaFree(t.nodeChunk);cudaFree(t.nodeMass);cudaFree(t.links);cudaFree(t.linkEnds);
@@ -1944,6 +1944,12 @@ struct Stage {
         }
         stepPublish<<<64,kThreads,0,stream>>>(in,s,w,t);
         stepPublishPatch<<<grid,kThreads,0,stream>>>(in,s,w,t);
+        if(stepLog) {
+            check(cudaMemcpyAsync(host,t.patches,sizeof(StepPatch)*count,cudaMemcpyDeviceToHost,stream));check(cudaStreamSynchronize(stream));
+            for(PxU32 p=0;p<count;++p){const StepPatch& q=host[p];
+                std::fprintf(stderr,"[impact]   step patch %u: island %u, %u nodes (%.2f m%s), %u joints (%u at capacity at rest), %u contact rows, %u impactors; %u events, %u solves; broke %u, yielded %u%s\n",
+                    p,q.island,q.nodes,q.radius,q.truncated?", shrunk":"",q.joints,q.restOver,q.contacts,q.impactors,q.events,q.solves,q.broken,q.yielded,q.failed?" (FAILED)":"");}
+        }
     }
     void release() {
         releaseStep();
