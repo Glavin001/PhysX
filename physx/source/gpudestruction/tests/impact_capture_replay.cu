@@ -214,6 +214,13 @@ int run(int argc,char** argv){
                     const float f[14]={b.capC,b.capT,b.capS,b.gb,b.gt,b.g0,b.g1,b.h0,b.h1,b.kl,b.kt,b.k0,b.k1,mu};std::fwrite(f,4,14,o);
                     std::fwrite(&J[6*l],4,6,o);std::fwrite(&T[6*l],4,6,o);std::fwrite(&B[72*l],4,72,o);}
                 std::fclose(o);
+                // Every bond's centroid and the first contact point (world), for locality.
+                std::snprintf(path,sizeof path,"%s-island%u.centroids.bin",std::getenv("IMPACT_DUMP"),is.island);
+                o=std::fopen(path,"wb");if(!o)throw std::runtime_error("cannot write the dump");
+                {std::vector<PxDestructionStressBond> hb(m);check(cudaMemcpy(hb.data(),in.bonds,sizeof(hb[0])*m,cudaMemcpyDeviceToHost));
+                const float hit[3]={hostRows.empty()?0.0f:hostRows[0].point[0],hostRows.empty()?0.0f:hostRows[0].point[1],hostRows.empty()?0.0f:hostRows[0].point[2]};
+                std::fwrite(&m,4,1,o);std::fwrite(hit,4,3,o);for(const auto& b:hb)std::fwrite(&b.centroid,4,3,o);}
+                std::fclose(o);
                 // The contact rows (all of them, coupled or not) beside it.
                 std::snprintf(path,sizeof path,"%s-island%u.rows.bin",std::getenv("IMPACT_DUMP"),is.island);
                 o=std::fopen(path,"wb");if(!o)throw std::runtime_error("cannot write the dump");
