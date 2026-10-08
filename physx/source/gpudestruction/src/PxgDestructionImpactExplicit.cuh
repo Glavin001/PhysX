@@ -5,7 +5,7 @@
 #endif
 // Timing diagnostics only (never in a product build): a bit mask of the
 // window's phases to skip -- 1 the joint gather, 2 the contact rows, 4 the row
-// gather, 8 the joints.
+// gather, 8 the joints, 16 the two-body implicit sweeps (32 their node gathers, 64 their joint passes).
 #ifndef EX_GATHER
 #define EX_GATHER 4
 #endif
@@ -97,6 +97,24 @@ struct ExPatch {
     float beta=0.0f;   // the damping's 2 / omega_K (s; times each joint's zeta): its last sample, kept across launches
     PxU32 anchored=0,fellFree=0;   // a joint to a support (or a held node); open contacts broken at the window's end (exSequenceSplit)
     PxU32 bearingJoints=0,looseNodes=0;   // (diagnostics) its bearing joints; its chunk nodes with no live joint
+    // Settings::compliant: the crush work its rows did (J, the striker's) and the
+    // chunks they crushed through.
+    float crushWork=0.0f;PxU32 crushedThrough=0u;
+    // The window's own geometry (exRefresh): rows re-found every refreshEvery substeps
+    // (one face radius of the fastest impactor's travel: refreshTime), the swept rows added.
+    PxU32 refreshEvery=0u,swept=0u;float refreshTime=0.0f;
+    // The ghost check (exPublish, the window's own geometry): rows whose impactor's centre
+    // ends inside its chunk's box while the chunk is neither crushed through nor freed (a
+    // joint of it still live): the impactor passed an intact chunk. Must be 0.
+    PxU32 passedIntact=0u;
+    // The window covers its round impactors' reach (exBuild): 0 when a chunk of a struck
+    // cluster that an impactor's sphere can reach over the tick is not a node of the patch
+    // (another island, past the patch's radius, past its rows): the corrected pass then keeps
+    // its pairs (bounded at what the window delivered) and the rigid simulation's momentum.
+    PxU32 uncovered=0u;
+    // A dynamic struck island (Settings::dynamicStruck; its rows' clusterIm > 0): the
+    // whole island, free (the window's frame its cluster's, moving with it); its seed row.
+    PxU32 dynamic=0,dynamicRow=0xffffffffu;
 };
 // A joint of the patch: local node ends (0xffffffff: held), state bits.
 // eEX_ROWS: an end of the joint has contact rows (exRunT sets it; the window's
@@ -118,11 +136,28 @@ struct ExLink { PxU32 a,b,state,pad; float J0[6],J[6]; float slip,limit,brokeAt,
 // pair's contact points' least separation, when positive), closed at its
 // closing rate over the window (a rigid row: it may close by gap / h in a
 // substep; a compliant one pushes only once it is closed).
-struct ExRow { PxU32 a,b,row,pad; float P[3],total[3],Winv[9],W[9]; PxU32 compliant; float d,Estar,sigma,R,face,gap; };
+// Settings::compliant, the struck side's crush in the row (crushLaw; vibe-land
+// scripts/impact/contact_law.py crush_of / compliant_impulse(crush=)): its onset and
+// plateau pressures (Pa), the crushed depth dp and the chunk's depth along the row
+// (m), the force applied this substep (N) and the contact radius it acted on (m);
+// crush bits: 1 crushing, 2 crushed through (the plug pending), 4 done (the row is
+// spent: its chunk is a free fragment).
+struct ExRow { PxU32 a,b,row,pad; float P[3],total[3],Winv[9],W[9]; PxU32 compliant; float d,Estar,sigma,R,face,gap;
+    float on=0.0f,pl=0.0f,dp=0.0f,depth=0.0f,Fa=0.0f,ac=0.0f; PxU32 crush=0u;
+    // The window's own geometry (exRefresh; Settings::compliant with chunk boxes): 1 its
+    // frame and arms are re-found as the bodies move; 2 a swept row, met only within the
+    // window (no stage row of its own: row is its impactor's first, never published to).
+    PxU32 geo=0u; };
 // A node: inverse mass and inverse inertia (chunks: scalar ii in Iinv[0..2]),
 // velocity, the rest forces' load; tensor 1 for an impactor. pad[0]: its
 // material's modulus (float bits; compliant rows), pad[1]: 1 a two-body car's chunk.
-struct ExNode { PxU32 chunk,tensor,jointBegin,jointEnd,rowBegin,rowEnd,pad[2]; float im,Iinv[6],v[6],f0[6],v0[6]; };
+// crushed: 1 once a row of the window crushed the chunk through (its joints break;
+// Settings::compliant).
+// x0: its position at the window's start (struck frame); dx, dth: its displacement and
+// rotation (vector) since, for the window's own geometry (exRefresh); radius: a round
+// impactor's (0: the stage's rows only).
+struct ExNode { PxU32 chunk,tensor,jointBegin,jointEnd,rowBegin,rowEnd,pad[2]; float im,Iinv[6],v[6],f0[6],v0[6]; PxU32 crushed=0u;
+    float x0[3]={0,0,0},dx[3]={0,0,0},dth[3]={0,0,0},radius=0.0f; };
 
 // A joint packed for the window: kExJoint float4s, 16-byte aligned, so a
 // substep reads it in vector loads (a simdgroup's scalar loads of a 164-byte
@@ -153,15 +188,19 @@ struct ExScratch {
     float4* jp{};         // [P][kExLinks][kExJoint]: each joint packed for the window (exRunT; exPack)
     float4* rp{};         // [P][kExRows][kExRow]: each contact row packed for the window (exRunT)
     PxU32* jl{};          // [P][kExLinks]: the live joints away from rows from the front, those at rows from the back (exRunT)
-    // The two-body impact only (null otherwise): each node's velocity at the
-    // substep's start, each implicit joint's A = (I + h^2/2 K W~)^-1 h K
+    // The two-body impact only (null otherwise): each implicit joint's relative
+    // motion at the substep's start, its A = (I + h^2/2 K W~)^-1 h K
     // (9 float4s, row-major 6 x 6), and its increment's wrench on its two ends.
-    float* vStart{};      // [P][kExNodes][6]
+    float4* eStart{};     // [P][kExLinks][2]: each implicit joint's B^T v at the substep's start (its six rates, then two pad)
     // The window's hand-off to the corrected pass (exPublish; null: none): per
     // patch and impactor, its body and its end velocity; per stage row, 1 where
     // the window decided it (IMPACT_STEP_PLAN.md section 1, rule 3).
-    struct Handoff { PxU32 island,body,patch,pad; float v[3],w[3]; };
-    Handoff* handoff{};   // [kExPatches * kExHandoffs]: island ~0 a rigid impactor, else the two-body car's island
+    // v, w at the window's end and v0, w0 at its start, in the struck cluster's frame,
+    // relative to its rigid motion at the tick's start: the corrected pass applies the
+    // change, v - v0 (rotated to the world), to the body's start (records of one body
+    // from several windows sum their changes).
+    struct Handoff { PxU32 island,body,patch,pad; float v[3],w[3],v0[3],w0[3]; };
+    Handoff* handoff{};   // [kExPatches * kExHandoffs]: island ~0 a rigid impactor, else the two-body car's or the dynamic struck island
     PxU32* handoffCount{};// [1]
     PxU32* rowDecided{};  // [kContactCapacity]
     float4* ja{};         // [P][kExLinks][9]
@@ -208,6 +247,7 @@ struct ExScratch {
     float* dynLoad{};     // [P][kExNodes][6]
     float4* dynPos{};     // [P][kExNodes]: each chunk node's position (its cluster's frame)
     PxU32* dynMark{};     // [P][kExNodes]: exSequenceSplit's: 1 a node with a load path to a support
+    const PxDestructionChunkBox* boxes{};   // Inputs::chunkBoxes for the window's own geometry (exRefreshRow), or null
 };
 
 // A joint's wrench on one end's six dof from a bond-frame force x (end 0: its
@@ -425,6 +465,55 @@ __device__ __forceinline__ void exCone(const float* W,const float* g,const float
     }
     exConeMetric(W,Ps,mu,P);
 }
+// A round impactor (radius R, centre c) against a chunk's box (centre bc, half extents
+// he, rotation q), all in the struck frame: its penetration (negative: the gap still
+// open), the unit normal from the box to the sphere and the box's closest point. The
+// centre inside the box: the nearest face's.
+__device__ float exSphereBox(const PxVec3& c,float R,const PxVec3& bc,const PxVec3& he,const PxQuat& q,PxVec3& n,PxVec3& p)
+{
+    const PxVec3 l=q.rotateInv(c-bc);
+    const PxVec3 cl(fminf(fmaxf(l.x,-he.x),he.x),fminf(fmaxf(l.y,-he.y),he.y),fminf(fmaxf(l.z,-he.z),he.z));
+    const PxVec3 d=l-cl;const float dist=d.magnitude();
+    if(dist>0.0f){n=q.rotate(d*(1.0f/dist));p=bc+q.rotate(cl);return R-dist;}
+    // inside: the face of least depth
+    const float ex=he.x-fabsf(l.x),ey=he.y-fabsf(l.y),ez=he.z-fabsf(l.z);
+    PxVec3 nl(0.0f),pl=l;float depth;
+    if(ex<=ey && ex<=ez){nl.x=l.x>=0.0f?1.0f:-1.0f;pl.x=nl.x*he.x;depth=ex;}
+    else if(ey<=ez){nl.y=l.y>=0.0f?1.0f:-1.0f;pl.y=nl.y*he.y;depth=ey;}
+    else{nl.z=l.z>=0.0f?1.0f:-1.0f;pl.z=nl.z*he.z;depth=ez;}
+    n=q.rotate(nl);p=bc+q.rotate(pl);return R+depth;
+}
+// A small rotation vector as a quaternion (exp).
+__device__ __forceinline__ PxQuat exRotation(const float* th)
+{
+    const float a=sqrtf(th[0]*th[0]+th[1]*th[1]+th[2]*th[2]);if(!(a>0.0f))return PxQuat(PxIdentity);
+    const float s=sinf(0.5f*a)/a;return PxQuat(th[0]*s,th[1]*s,th[2]*s,cosf(0.5f*a));
+}
+// The window's own geometry for one row (Settings::compliant with chunk boxes): its
+// impactor's sphere against its chunk's box where both are now (their window
+// displacements), as the row's frame (n from the chunk to the impactor), arms and
+// gap (or, closed, its depth: the whole intrusion). The vibe-land harness's
+// --geometry fixed rebuilt each face radius of travel (scripts/impact/compliant-step.py).
+// initial (the window's start): a penetration the stage's contact already has is the
+// narrowphase finding it a tick late (FIDELITY_AUDIT H7), not a stored elastic state:
+// it is taken as crushed depth (no force from it), the row starts velocity-level.
+__device__ void exRefreshRow(const PxDestructionChunkBox* boxes,const ExNode* nodes,ExRow& x,Bond& b,bool initial=false)
+{
+    const ExNode& a=nodes[x.a];const ExNode& m=nodes[x.b];
+    const PxDestructionChunkBox box=boxes[a.chunk];
+    const PxQuat qa=exRotation(a.dth);
+    const PxVec3 xa(a.x0[0]+a.dx[0],a.x0[1]+a.dx[1],a.x0[2]+a.dx[2]),pa(a.x0[0],a.x0[1],a.x0[2]);
+    const PxVec3 bc=xa+qa.rotate(box.center-pa);
+    const PxVec3 cm(m.x0[0]+m.dx[0],m.x0[1]+m.dx[1],m.x0[2]+m.dx[2]);
+    PxVec3 n,p;const float pen=exSphereBox(cm,m.radius,bc,box.halfExtents,qa*box.rotation,n,p);
+    frame(n,b.n,b.t1,b.t2);
+    for(int q=0;q<3;++q){b.o0[q]=p[q]-xa[q];b.o1[q]=p[q]-cm[q];b.pc[q]=0.0f;}
+    // The chunk's depth along the row (its box's extent along n), until its crush starts.
+    if(!(x.crush&1u)){const PxQuat qb=qa*box.rotation;const PxVec3 he=box.halfExtents;
+        x.depth=2.0f*(fabsf(n.dot(qb.getBasisVector0()))*he.x+fabsf(n.dot(qb.getBasisVector1()))*he.y+fabsf(n.dot(qb.getBasisVector2()))*he.z);}
+    if(initial && pen>x.dp)x.dp=pen;
+    if(pen>=0.0f){x.gap=0.0f;if(x.compliant)x.d=fmaxf(pen,x.dp);}else{x.gap=-pen;if(x.compliant)x.d=x.dp;}
+}
 // 1. The patches: one per island with a routed row, in row order; each
 // patch's rows (at most kExRows) and its impactor bodies.
 // A two-body row (Settings::explicitTwoBody) is the window's when either side of
@@ -466,11 +555,28 @@ __global__ void exList(Inputs in,Settings s,Scratch w,ExScratch t)
     PxU32 count=0;
     for(PxU32 r=0;r<rows;++r) {
         const PxU32 c=in.rows[r].chunk;if(c>=in.chunkCount)continue;
-        const PxU32 island=in.nodeIslands[c];if(island>=in.chunkCount || !(stepRow(in,r,island) || exTwoBodyRow(in,s,r,island)))continue;
+        const PxU32 island=in.nodeIslands[c];if(island>=in.chunkCount)continue;
+        const bool stepped=stepRow(in,r,island);if(!stepped && !exTwoBodyRow(in,s,r,island))continue;
         PxU32 p=0;while(p<count && t.patches[p].island!=island)++p;
+        // One window a car: a car's chunks are nodes of one patch only (the patches
+        // share the chunk and bond maps, nodeOf and linkOf: a car in two patches got
+        // the other's joints and nodes, and its windows gained 1e3-1e4 times their
+        // kinetic energy). A car another patch holds: its rows here stay what they
+        // were without two-body impacts (a rigid impactor where the struck side's
+        // impact routed them; else the rigid solve's).
+        const PxU32 o=in.rows[r].other;
+        const PxU32 rowCar=(s.explicitTwoBody && o<in.chunkCount)?in.nodeIslands[o]:0xffffffffu;
+        bool heldElsewhere=false;
+        if(rowCar<in.chunkCount)for(PxU32 k=0;k<count;++k)heldElsewhere=heldElsewhere || (k!=p && (t.patches[k].car==rowCar || t.patches[k].island==rowCar));
+        if(heldElsewhere && !stepped)continue;
+        // (likewise a struck island another patch holds as its car: its chunks are that
+        // patch's nodes; this row stays the rigid solve's)
+        {bool carElsewhere=false;for(PxU32 k=0;k<count;++k)carElsewhere=carElsewhere || (k!=p && t.patches[k].car==island);if(carElsewhere)continue;}
         if(p==count) {
             if(count>=kExPatches){atomicOr(&w.status->error,1u);continue;}
-            ExPatch e{};e.island=island;e.radius=s.stepRadius;e.seed=r;t.patches[count++]=e;
+            ExPatch e{};e.island=island;e.radius=s.stepRadius;e.seed=r;
+            if(s.dynamicStruck && in.rows[r].clusterIm>0.0f){e.dynamic=1u;e.dynamicRow=r;e.radius=FLT_MAX;}
+            t.patches[count++]=e;
         }
         ExPatch& e=t.patches[p];PxU32* list=t.rowList+size_t(p)*kExRows;
         if(e.listed>=kExRows){e.failed=1;continue;}
@@ -478,8 +584,7 @@ __global__ void exList(Inputs in,Settings s,Scratch w,ExScratch t)
         e.bodies+=body?1u:0u;list[e.listed++]=r;
         // The two-body impact: the first destructible other body of the patch's rows
         // (a live chunk of a dynamic island; one car a patch: another's rows stay rigid).
-        const PxU32 o=in.rows[r].other;
-        if(s.explicitTwoBody && e.car==0xffffffffu && o<in.chunkCount && in.chunks[o].mass>0.0f && !chunkGone(in,o)) {
+        if(s.explicitTwoBody && !heldElsewhere && e.car==0xffffffffu && o<in.chunkCount && in.chunks[o].mass>0.0f && !chunkGone(in,o)) {
             const PxU32 car=in.nodeIslands[o];
             if(car<in.chunkCount && car!=island){e.car=car;e.carRow=r;}
         }
@@ -507,19 +612,7 @@ __device__ __forceinline__ void exRotate(const PxQuat& q,float* v){const PxVec3 
 // is E A / L (the bridge's true stiffness, VIBE_BOND_TRUE_STIFFNESS: L the
 // separation of its chunks along its normal, at least sqrt A), so E = k L / A,
 // averaged over the chunk's joints. 0 where it has none (a rigid row).
-__device__ float exModulus(const Inputs& in,const Settings& s,PxU32 c)
-{
-    float sum=0.0f;PxU32 n=0;
-    for(PxU32 slot=in.nodeBegin[c];slot<in.nodeBegin[c+1];++slot) {
-        const PxU32 i=in.nodeRefs[slot];if(!bondMember(in,i))continue;
-        const auto bd=in.bonds[i];const float A=bd.area;if(!(A>0.0f))continue;
-        const float w=bd.complianceScale,k=s.stiffnessScale*(in.stiffness?in.stiffness[bd.material]:s.stiffness)*w*w;
-        const PxVec3 d=in.chunks[bd.chunk1].position-in.chunks[bd.chunk0].position;
-        const float L=fmaxf(fabsf(d.dot(bd.normal.getNormalized())),sqrtf(A));
-        if(k>0.0f && k<1e30f){sum+=k*L/A;++n;}
-    }
-    return n?sum/float(n):0.0f;
-}
+__device__ float exModulus(const Inputs& in,const Settings& s,PxU32 c){return chunkModulus(in,s,c);}
 // ---------------------------------------------------------------------------
 // The dynamic sequence (Settings::dynamicSequence, PX_DESTRUCTION_DYNAMIC_SEQUENCE;
 // vibe-land FIDELITY_AUDIT C10, docs/calibration/house-headers.md "Sequencing
@@ -557,8 +650,8 @@ __device__ float exModulus(const Inputs& in,const Settings& s,PxU32 c)
 // moves little; a sample costs a joint pass and a gather.
 constexpr PxU32 kExDampSample=32;
 constexpr float kExWhole=1e18f;   // a dynamic patch's radius before any shrink: the whole island (its square stays finite)
-// A dynamic patch's seeds, after its rows' struck chunks in hit: its island's
-// seed chunks in chunk order, as many as fit (kExRows). Returns the seeds' count.
+// A dynamic patch's seeds, after its rows' struck chunks (and their swept ends) in hit: its
+// island's seed chunks in chunk order, as many as fit (hit holds 2 kExRows). Returns the count.
 __device__ PxU32 exBuildDynamicSeeds(const Inputs& in,const ExScratch& t,Shared& sh,PxU32 island,float* hit,PxU32 nrows)
 {
     if(!t.seqSeed)return nrows;
@@ -567,11 +660,11 @@ __device__ PxU32 exBuildDynamicSeeds(const Inputs& in,const ExScratch& t,Shared&
         const PxU32 i=tile+threadIdx.x;
         const PxU32 member=(i<in.chunkCount && t.seqSeed[i] && in.nodeIslands[i]==island && in.chunks[i].mass>0.0f && !chunkGone(in,i))?1u:0u;
         PxU32 prefix;const PxU32 total=blockScan(sh,member,prefix);
-        if(member && base+prefix<kExRows){const PxVec3 x=in.chunks[i].position;hit[3*(base+prefix)]=x.x;hit[3*(base+prefix)+1]=x.y;hit[3*(base+prefix)+2]=x.z;}
+        if(member && base+prefix<2u*kExRows){const PxVec3 x=in.chunks[i].position;hit[3*(base+prefix)]=x.x;hit[3*(base+prefix)+1]=x.y;hit[3*(base+prefix)+2]=x.z;}
         base+=total;
     }
     __syncthreads();
-    return min(base,kExRows);
+    return min(base,2u*kExRows);
 }
 // A dynamic patch's chunk node: its persisted velocity, its load p (exFinishDynamic
 // turns it into the residual p + B J0).
@@ -624,11 +717,18 @@ __global__ __launch_bounds__(kThreads) void exBuild(Inputs in,Settings s,Scratch
     PxU32* adj=t.adj+size_t(p)*2*kExLinks;PxU32* rowAdj=t.rowAdj+size_t(p)*2*kExRows;
     // The patch's rows (exList) and their struck chunks' positions.
     const PxU32 nrows=sp.listed,bodies=sp.bodies;const PxU32* list=t.rowList+size_t(p)*kExRows;
-    __shared__ float hit[3*kExRows];
+    __shared__ float hit[6*kExRows];
     for(PxU32 k=threadIdx.x;k<nrows;k+=kThreads){const PxVec3 x=in.chunks[in.rows[list[k]].chunk].position;hit[3*k]=x.x;hit[3*k+1]=x.y;hit[3*k+2]=x.z;}
+    // The window's own geometry (Settings::compliant with chunk boxes): the patch reaches
+    // along each impactor's path over the tick too (its centre at the tick's end), where its
+    // swept rows are.
+    const bool sweep=s.compliant && in.chunkBoxes;
+    const PxU32 nhits=sweep?2u*nrows:nrows;
+    if(sweep)for(PxU32 k=threadIdx.x;k<nrows;k+=kThreads){const ContactRow& q=in.rows[list[k]];
+        for(int a=0;a<3;++a)hit[3*(nrows+k)+a]=q.com[a]+q.velocity[a]*s.dt;}
     __syncthreads();
     // A dynamic patch: its seed chunks after the rows' (none found: the whole island).
-    const PxU32 nhit=sp.sequence?exBuildDynamicSeeds(in,t,sh,island,hit,nrows):nrows;
+    const PxU32 nhit=sp.sequence?exBuildDynamicSeeds(in,t,sh,island,hit,nhits):nhits;
     const PxDestructionStressChunk* const chunks=in.chunks;   // a local copy: the build writes through other pointers
     auto near=[chunks,nhit](PxU32 i,float radius,const float* hit){const PxVec3 x=chunks[i].position;const float r2=radius*radius;
         if(!nhit)return true;
@@ -644,24 +744,30 @@ __global__ __launch_bounds__(kThreads) void exBuild(Inputs in,Settings s,Scratch
         if(carCount+bodies>=kExNodes/2){__syncthreads();if(!threadIdx.x)sp.car=0xffffffffu;__syncthreads();carCount=0;}
     }
     const PxU32 car=sp.car;
-    const float radius0=sp.sequence?kExWhole:s.stepRadius;
+    // (a dynamic struck island: all of it, free; one too large for the patch falls
+    // back to the anchored patch around its rows, its remainder held: truncated;
+    // a dynamic-sequence patch: its whole island, else around its seeds)
+    const bool dynamic=sp.dynamic!=0u;
+    const float radius0=sp.sequence?kExWhole:(dynamic?FLT_MAX:s.stepRadius);
     float radius=radius0;PxU32 count=0;
-    for(int attempt=0;attempt<32;++attempt) {
+    for(int attempt=0;attempt<33;++attempt) {
         PxU32 c=0;
         for(PxU32 i=threadIdx.x;i<in.chunkCount;i+=kThreads)
             c+=(in.nodeIslands[i]==island && in.chunks[i].mass>0.0f && !chunkGone(in,i) && near(i,radius,hit))?1u:0u;
         count=blockCount(sh,c);
         if(count+bodies+carCount<=kExNodes)break;
-        // A dynamic island too large for a patch: from the farthest chunk's distance to its nearest seed.
-        if(radius>=kExWhole && nhit) {
-            float far2=0.0f;
-            for(PxU32 i=threadIdx.x;i<in.chunkCount;i+=kThreads)if(in.nodeIslands[i]==island && in.chunks[i].mass>0.0f && !chunkGone(in,i)) {
-                const PxVec3 x=in.chunks[i].position;float d2=FLT_MAX;
-                for(PxU32 k=0;k<nhit;++k){const float dx=x.x-hit[3*k],dy=x.y-hit[3*k+1],dz=x.z-hit[3*k+2];d2=fminf(d2,dx*dx+dy*dy+dz*dz);}
-                far2=fmaxf(far2,d2);}
-            radius=sqrtf(blockMax(sh,far2));
-        }
-        radius*=0.85f;
+        if(sp.sequence) {
+            // A dynamic island too large for a patch: from the farthest chunk's distance to its nearest seed.
+            if(radius>=kExWhole && nhit) {
+                float far2=0.0f;
+                for(PxU32 i=threadIdx.x;i<in.chunkCount;i+=kThreads)if(in.nodeIslands[i]==island && in.chunks[i].mass>0.0f && !chunkGone(in,i)) {
+                    const PxVec3 x=in.chunks[i].position;float d2=FLT_MAX;
+                    for(PxU32 k=0;k<nhit;++k){const float dx=x.x-hit[3*k],dy=x.y-hit[3*k+1],dz=x.z-hit[3*k+2];d2=fminf(d2,dx*dx+dy*dy+dz*dz);}
+                    far2=fmaxf(far2,d2);}
+                radius=sqrtf(blockMax(sh,far2));
+            }
+            radius*=0.85f;
+        } else radius=radius==FLT_MAX?s.stepRadius:radius*0.85f;
     }
     if(!threadIdx.x){sp.radius=radius;if(radius<radius0)sp.truncated=1;sh.flag=0;}
     __syncthreads();
@@ -674,6 +780,11 @@ __global__ __launch_bounds__(kThreads) void exBuild(Inputs in,Settings s,Scratch
             const PxU32 k=sh.flag+prefix;
             if(k<kExNodes){t.nodeOf[i]=(p<<16)|k;ExNode n{};n.chunk=i;n.tensor=0;const auto c=in.chunks[i];
                 n.im=1.0f/c.mass;n.Iinv[0]=n.Iinv[1]=n.Iinv[2]=c.inertia>0.0f?1.0f/c.inertia:0.0f;
+                // (a dynamic struck island's chunks too start at rest: the window's frame
+                // is its cluster's, moving with it -- the rows' velocities are relative
+                // to its rigid motion at the tick's start; the frame's rotation over the
+                // window, a few ms, is left out)
+                n.x0[0]=c.position.x;n.x0[1]=c.position.y;n.x0[2]=c.position.z;
                 if(sp.sequence)exDynamicNode(in,t,p,k,i,n);
                 nodes[k]=n;}
         }
@@ -698,6 +809,7 @@ __global__ __launch_bounds__(kThreads) void exBuild(Inputs in,Settings s,Scratch
                     n.im=1.0f/c.mass;n.Iinv[0]=n.Iinv[1]=n.Iinv[2]=c.inertia>0.0f?1.0f/c.inertia:0.0f;
                     const PxVec3 x=rq.rotate(c.position)+rp,v=vel+spin.cross(x-com);
                     n.v[0]=v.x;n.v[1]=v.y;n.v[2]=v.z;n.v[3]=spin.x;n.v[4]=spin.y;n.v[5]=spin.z;for(int a=0;a<6;++a)n.v0[a]=n.v[a];
+                    n.x0[0]=x.x;n.x0[1]=x.y;n.x0[2]=x.z;   // (its start position, struck frame: the hand-off's world velocity)
                     nodes[k]=n;}
             }
             __syncthreads();if(!threadIdx.x)sh.flag+=total;__syncthreads();
@@ -725,13 +837,60 @@ __global__ __launch_bounds__(kThreads) void exBuild(Inputs in,Settings s,Scratch
                 ExNode m{};m.chunk=in.chunkCount+p*kExNodes+node;m.tensor=1;m.im=q.im;for(int a=0;a<6;++a)m.Iinv[a]=q.ii[a];
                 for(int a=0;a<3;++a){m.v[a]=q.velocity[a];m.v[3+a]=q.spin[a];}
                 for(int a=0;a<6;++a)m.v0[a]=m.v[a];
+                for(int a=0;a<3;++a)m.x0[a]=q.com[a];
+                // A round impactor (its inertia isotropic, products nil): a sphere of I = 2/5 m R^2,
+                // the window's own geometry's (Settings::compliant with chunk boxes).
+                if(sweep && q.im>0.0f) {
+                    const float* S=q.ii;const float i0=S[0],tol=1e-3f*i0;
+                    if(i0>0.0f && fabsf(S[1]-i0)<=tol && fabsf(S[2]-i0)<=tol && fabsf(S[3])<=tol && fabsf(S[4])<=tol && fabsf(S[5])<=tol)m.radius=sqrtf(2.5f*q.im/i0);
+                }
                 nodes[node]=m;
             }
-            ExRow e{};e.a=sc&0xffffu;e.b=node;e.row=r;exRows[k]=e;rowBody[k]=body;rowEnd[2*k]=e.a;rowEnd[2*k+1]=node;++k;
+            ExRow e{};e.a=sc&0xffffu;e.b=node;e.row=r;e.geo=(sweep && nodes[node].tensor && nodes[node].radius>0.0f && in.chunkBoxes[q.chunk].halfExtents.magnitudeSquared()>0.0f)?1u:0u;exRows[k]=e;rowBody[k]=body;rowEnd[2*k]=e.a;rowEnd[2*k+1]=node;++k;
+        }
+        // The swept rows: each round impactor against every chunk of the patch its sphere can
+        // reach over the tick (its box within its radius of the path the impactor's centre
+        // takes at its start velocity), one row a pair.
+        if(sweep)for(PxU32 b=chunkNodes;b<n;++b) {
+            const ExNode& m=nodes[b];if(!m.tensor || !(m.radius>0.0f))continue;
+            PxU32 first=0xffffffffu;for(PxU32 e=0;e<k;++e)if(rowEnd[2*e+1]==b){first=exRows[e].row;break;}
+            if(first==0xffffffffu)continue;
+            const PxVec3 c0(m.x0[0],m.x0[1],m.x0[2]),vel(m.v[0],m.v[1],m.v[2]),c1=c0+vel*s.dt,seg=c1-c0;const float L2=seg.magnitudeSquared();
+            for(PxU32 a=0;a<structNodes;++a) {
+                if(k>=kExRows){sp.uncovered=1u;break;}
+                bool have=false;for(PxU32 e=0;e<k && !have;++e)have=rowEnd[2*e]==a && rowEnd[2*e+1]==b;
+                if(have)continue;
+                const PxDestructionChunkBox box=in.chunkBoxes[nodes[a].chunk];
+                if(!(box.halfExtents.magnitudeSquared()>0.0f))continue;   // a chunk with no box (a vehicle part's)
+                const float tt=L2>0.0f?fminf(fmaxf((box.center-c0).dot(seg)/L2,0.0f),1.0f):0.0f;
+                if((box.center-(c0+seg*tt)).magnitude()>m.radius+box.halfExtents.magnitude())continue;
+                ExRow e{};e.a=a;e.b=b;e.row=first;e.geo=3u;exRows[k]=e;rowBody[k]=in.rows[first].body;rowEnd[2*k]=a;rowEnd[2*k+1]=b;++k;++sp.swept;
+            }
         }
         sp.nodes=n;sp.chunks=chunkNodes;sp.rows=k;sp.impactors=impactors;
     }
     __syncthreads();
+    // Coverage (the window's own geometry): every chunk of a struck cluster within a round
+    // impactor's reach over the tick must be a node of this patch (with a row) for the
+    // corrected pass to drop its pairs with that cluster.
+    if(sweep) {
+        for(PxU32 i=threadIdx.x;i<in.chunkCount;i+=kThreads) {
+            // (a support of the struck cluster in reach too: the window has no row on a support,
+            // the ground the corrected pass must still meet)
+            if(chunkGone(in,i))continue;
+            const PxU32 lo=t.nodeOf[i];if(lo!=0xffffffffu && (lo>>16)==p)continue;
+            const PxDestructionChunkBox box=in.chunkBoxes[i];if(!(box.halfExtents.magnitudeSquared()>0.0f))continue;
+            bool struck=false;for(PxU32 e=0;e<sp.rows && !struck;++e)struck=in.chunks[nodes[exRows[e].a].chunk].cluster==in.chunks[i].cluster;
+            if(!struck)continue;
+            for(PxU32 b=chunkNodes;b<sp.nodes;++b) {
+                const ExNode& m=nodes[b];if(!m.tensor || !(m.radius>0.0f))continue;
+                const PxVec3 c0(m.x0[0],m.x0[1],m.x0[2]),seg=PxVec3(m.v[0],m.v[1],m.v[2])*s.dt;const float L2=seg.magnitudeSquared();
+                const float tt=L2>0.0f?fminf(fmaxf((box.center-c0).dot(seg)/L2,0.0f),1.0f):0.0f;
+                if((box.center-(c0+seg*tt)).magnitude()<=m.radius+box.halfExtents.magnitude()){atomicOr(&sp.uncovered,1u);break;}
+            }
+        }
+        __syncthreads();
+    }
     for(PxU32 k=threadIdx.x;k<sp.rows;k+=kThreads){Bond b;prepareRow(in,s,exRows[k].row,b);b.c1=in.chunkCount+p*kExNodes+rowEnd[2*k+1];
         // A two-body row's other end is the car's chunk, not its body's centre of mass.
         const PxU32 bn=rowEnd[2*k+1];
@@ -844,10 +1003,40 @@ __global__ __launch_bounds__(kThreads) void exBuild(Inputs in,Settings s,Scratch
             float Rb=carRow?cbrtf(0.75f*in.chunks[cb].volume/3.14159265f):0.0f;
             if(!carRow){const float Ii=fmaxf(q.ii[0],fmaxf(q.ii[1],q.ii[2]));if(Ii>0.0f && q.im>0.0f)Rb=sqrtf(2.5f/(Ii/q.im));}
             e.R=Rb>0.0f?Ra*Rb/(Ra+Rb):Ra;e.face=sqrtf(powf(V,2.0f/3.0f)/3.14159265f);
+            // The struck side's crush (Settings::compliant): its material's onset and plateau,
+            // its depth along the row (the cube of its volume, V^(1/3)), and the depth a
+            // crush of earlier ticks left (its accepted damage, the crushed share of it).
+            if(s.compliant) {
+                crushLaw(in.materials[in.chunks[ca].material],e.on,e.pl);
+                if(!(e.on<FLT_MAX)){e.on=e.pl=0.0f;}   // no crush law: the row is the two-body law's alone (exCompliantRow)
+                e.depth=cbrtf(fmaxf(in.chunks[ca].volume,0.0f));
+                e.dp=(in.crushed && in.crushed[ca].damage>0.0f)?fminf(in.crushed[ca].damage,1.0f)*e.depth:0.0f;
+                // The row starts at its carried crushed depth, velocity-level (elastic depth 0): a
+                // fresh contact's penetration is the narrowphase finding it a tick late (FIDELITY_AUDIT
+                // H7), not a stored elastic state; a crater carried from earlier ticks keeps its depth
+                // for its radius. A partly crushed chunk is crushing.
+                e.d=e.dp;e.crush=e.dp>0.0f?1u:0u;e.Fa=0.0f;e.ac=0.0f;
+            }
             atomicAdd(&sp.compliant,1u);
         }
     }
     __syncthreads();
+    // The window's own geometry (Settings::compliant with chunk boxes): each round
+    // impactor's rows from its sphere and their chunks' boxes at the window's start (a
+    // swept row: no patch of its own), and the refresh interval: the time the fastest
+    // impactor takes to move one face radius of the chunks its rows meet (a row's frame is
+    // the tangent plane of its pair's distance; it holds while its point stays on the face).
+    if(s.compliant && in.chunkBoxes) {
+        for(PxU32 k=threadIdx.x;k<nr;k+=kThreads){ExRow& e=exRows[k];if(!e.geo)continue;if(e.geo&2u)e.sigma=0.0f;exRefreshRow(in.chunkBoxes,nodes,e,rowBonds[k],true);}
+        __syncthreads();
+        if(!threadIdx.x) {
+            float tmin=FLT_MAX;
+            for(PxU32 k=0;k<nr;++k){const ExRow& e=exRows[k];if(!e.geo || !(e.face>0.0f))continue;const ExNode& m=nodes[e.b];
+                const float v=sqrtf(m.v[0]*m.v[0]+m.v[1]*m.v[1]+m.v[2]*m.v[2]);if(v>0.0f)tmin=fminf(tmin,e.face/v);}
+            sp.refreshTime=tmin<FLT_MAX?tmin:0.0f;
+        }
+        __syncthreads();
+    }
     exFinish(sh,s,t,p);
     if(sp.sequence)exFinishDynamic(sh,s,t,p);
 }
@@ -1034,6 +1223,7 @@ __device__ void exFinish(Shared& sh,const Settings& s,const ExScratch& t,PxU32 p
         sp.h=s.explicitDt>0.0f?s.explicitDt:(sp.omega>0.0f?s.explicitSafety*2.0f/sp.omega:s.dt);
         if(sp.compliant && !(s.explicitDt>0.0f))sp.h=fminf(fminf(sp.h,hRow),s.explicitMaxStep);
         sp.h=fminf(sp.h,s.dt);sp.t=0.0f;sp.substeps=0;sp.done=0;
+        sp.refreshEvery=sp.refreshTime>0.0f?max(1u,PxU32(sp.refreshTime/sp.h)):0u;
     }
     __syncthreads();
     if(sp.twoBody)exImplicit(sh,s,t,p);
@@ -1242,28 +1432,65 @@ __device__ __forceinline__ void exCompliantRow(const float* W,const float* g,flo
     if(n>lim){const float sc=n>0.0f?lim/n:0.0f;T1*=sc;T2*=sc;}
     P[0]=PN;P[1]=T1;P[2]=T2;
 }
+// A compliant row with its struck side's crush (Settings::compliant; vibe-land
+// scripts/impact/contact_law.py compliant_impulse(crush=)). Crushing, the row is a flat
+// punch of the crater's radius, a^2 = 2 R d at the whole intrusion d (a plastic
+// indentation's truncated cap, Johnson 1985 sec. 6.3), at most the face; d - dp is its
+// elastic depth. Its normal force reaching the onset over pi a^2 starts the crush
+// (sticky); crushing, it is at most the plateau over pi a^2, the tangential impulse
+// then the one that stops the slip under it, within mu of it. Returns the force
+// applied (N) and the radius it acted on (m) for the crushed depth's update.
+__device__ __forceinline__ void exCrushRow(const float* W,const float* g,ExRow& x,float mu,float h,float* P)
+{
+    const bool crushing=(x.crush&1u)!=0u;
+    const float de=x.d-x.dp;
+    const float sg=crushing?fmaxf(x.sigma,fminf(x.face,sqrtf(2.0f*x.R*fmaxf(x.d,0.0f)))):x.sigma;
+    exCompliantRow(W,g,de,x.Estar,sg,x.R,x.face,mu,h,P);
+    const float a=fminf(x.face,fmaxf(sg,sqrtf(x.R*fmaxf(de,0.0f)))),A=3.14159265f*a*a,F=-P[0]/h;
+    if(!crushing && A>0.0f && F>=x.on*A)x.crush|=1u;
+    if((x.crush&1u) && F>x.pl*A) {
+        P[0]=-x.pl*A*h;
+        const float r1=g[1]+W[3]*P[0],r2=g[2]+W[6]*P[0],det=W[4]*W[8]-W[5]*W[7];
+        float T1=0.0f,T2=0.0f;if(det>0.0f){T1=-(W[8]*r1-W[5]*r2)/det;T2=-(-W[7]*r1+W[4]*r2)/det;}
+        const float n=sqrtf(T1*T1+T2*T2),lim=mu*-P[0];if(n>lim){const float sc=n>0.0f?lim/n:0.0f;T1*=sc;T2*=sc;}
+        P[1]=T1;P[2]=T2;
+    }
+    x.Fa=-P[0]/h;x.ac=a;
+}
 // An implicit joint's sweep (exImplicit made it so): from its ends' velocities v
-// now and at the substep's start, dJ = -A (B^T v / 2 + B^T vStart / 2) (the
+// now and at the substep's start (eStart), dJ = -A (B^T v / 2 + B^T v0 / 2) (the
 // trapezoidal rule on the joint's own split nodes), then the law (fracture, or the
 // radial return of a ductile joint); its force change's wrench into wr (the next
 // substep's gather) and its increment's into wd (this sweep's, exImplicitNodeB).
 // A broken one writes a zero increment.
-__device__ void exImplicitJointA(PxU32 l,const float4* ja,float4* jp,ExLink* links,float* wr,float* wd,const float* v,const float* vStart,
+// An implicit joint's relative motion B^T v (its six rates) into eStart: at the
+// window's start, and after each substep's sweeps (v is then the next substep's start).
+__device__ __forceinline__ void exImplicitStart(PxU32 l,const float4* jp,const float* v,float4* eStart)
+{
+    const float4* q=jp+size_t(kExJoint)*l;const PxU32 state=__float_as_uint(q[10].z);
+    if(!(state&eEX_IMPLICIT) || !(state&eEX_LIVE))return;
+    Bond b;float J0[6];PxU32 ea,eb;exUnpack(q,b,J0,ea,eb);
+    float d[6]={0,0,0,0,0,0};if(ea!=0xffffffffu)exRelative(b,0,v+6*ea,d);if(eb!=0xffffffffu)exRelative(b,1,v+6*eb,d);
+    eStart[2*size_t(l)]=make_float4(d[0],d[1],d[2],d[3]);eStart[2*size_t(l)+1]=make_float4(d[4],d[5],0.0f,0.0f);
+}
+__device__ void exImplicitJointA(PxU32 l,const float4* ja,float4* jp,ExLink* links,float* wr,float* wd,const float* v,const float4* eStart,
     float h,float time,float band,PxU32* cBroken,PxU32* cYielded,float* cFracture,float* cPlastic,float& dead)
 {
     float4* q=jp+size_t(kExJoint)*l;
     const float4 s1=q[10];PxU32 state=__float_as_uint(s1.z);
     if(!(state&eEX_IMPLICIT))return;
     float* od=wd+12*size_t(l);
-    if(!(state&eEX_LIVE)){for(int i=0;i<12;++i)od[i]=0.0f;return;}
+    if(!(state&eEX_LIVE)){float4* o4=reinterpret_cast<float4*>(od);o4[0]=o4[1]=o4[2]=make_float4(0.0f,0.0f,0.0f,0.0f);return;}
     Bond b;float J0[6];PxU32 ea,eb;exUnpack(q,b,J0,ea,eb);
     const float4 s0=q[9];float slip=s1.w;
-    float d[6]={0,0,0,0,0,0},d0[6]={0,0,0,0,0,0};
-    if(ea!=0xffffffffu){exRelative(b,0,v+6*ea,d);exRelative(b,0,vStart+6*ea,d0);}
-    if(eb!=0xffffffffu){exRelative(b,1,v+6*eb,d);exRelative(b,1,vStart+6*eb,d0);}
+    float d[6]={0,0,0,0,0,0};
+    if(ea!=0xffffffffu)exRelative(b,0,v+6*ea,d);
+    if(eb!=0xffffffffu)exRelative(b,1,v+6*eb,d);
+    const float4 e0=eStart[2*size_t(l)],e1=eStart[2*size_t(l)+1];const float d0[6]={e0.x,e0.y,e0.z,e0.w,e1.x,e1.y};
     for(int i=0;i<6;++i)dead-=0.5f*h*J0[i]*d[i];   // (half of the dead load's work: two sweeps)
     float e[6];for(int i=0;i<6;++i)e[i]=0.5f*d[i]+0.5f*d0[i];
-    const float* A=reinterpret_cast<const float*>(ja+size_t(9)*l);
+    // (A in vector loads: nine float4s, row-major)
+    float A[36];{const float4* q4=ja+size_t(9)*l;for(int i=0;i<9;++i){const float4 a=q4[i];A[4*i]=a.x;A[4*i+1]=a.y;A[4*i+2]=a.z;A[4*i+3]=a.w;}}
     const float Jold[6]={s0.x,s0.y,s0.z,s0.w,s1.x,s1.y};
     float J[6];for(int i=0;i<6;++i){float a=0.0f;for(int j=0;j<6;++j)a+=A[6*i+j]*e[j];J[i]=Jold[i]-a;}
     float k[6];exStiffness(b,k);
@@ -1282,9 +1509,36 @@ __device__ void exImplicitJointA(PxU32 l,const float4* ja,float4* jp,ExLink* lin
     q[9]=make_float4(J[0],J[1],J[2],J[3]);q[10]=make_float4(J[4],J[5],__uint_as_float(state),slip);
     float dJ[6],inc[6];for(int i=0;i<6;++i){dJ[i]=J[i]-J0[i];inc[i]=J[i]-Jold[i];}
     float f0[6]={0,0,0,0,0,0},f1[6]={0,0,0,0,0,0};exWrench(b,dJ,0,f0);exWrench(b,dJ,1,f1);
-    float* o=wr+12*size_t(l);for(int i=0;i<6;++i){o[i]=f0[i];o[6+i]=f1[i];}
+    float4* o=reinterpret_cast<float4*>(wr+12*size_t(l));
+    o[0]=make_float4(f0[0],f0[1],f0[2],f0[3]);o[1]=make_float4(f0[4],f0[5],f1[0],f1[1]);o[2]=make_float4(f1[2],f1[3],f1[4],f1[5]);
     float g0[6]={0,0,0,0,0,0},g1[6]={0,0,0,0,0,0};exWrench(b,inc,0,g0);exWrench(b,inc,1,g1);
-    for(int i=0;i<6;++i){od[i]=g0[i];od[6+i]=g1[i];}
+    float4* o4=reinterpret_cast<float4*>(od);
+    o4[0]=make_float4(g0[0],g0[1],g0[2],g0[3]);o4[1]=make_float4(g0[4],g0[5],g1[0],g1[1]);o4[2]=make_float4(g1[2],g1[3],g1[4],g1[5]);
+}
+// This row's packed record for the window (exRunT): W = B_c^T M^-1 B_c over its three
+// force components, each node's inverse mass times its row count (Jacobi: mass
+// splitting, Tonge et al. 2012; rows sharing a node then cannot together overshoot
+// it), W^-1, its frame and arms. At each launch's start, and after the window's own
+// geometry re-finds the row (exRefreshRow).
+__device__ void exPackRow(const Bond& rb,ExRow& x,const ExNode* nodes,float4* q)
+{
+    float W[9]={0,0,0,0,0,0,0,0,0};
+    for(PxU32 end=0;end<2;++end) {
+        const ExNode& n=nodes[end?x.b:x.a];float col[3][6];
+        const float split=float(max(n.rowEnd-n.rowBegin,1u));
+        for(int c=0;c<3;++c){float xq[6]={0,0,0,0,0,0};xq[c]=1.0f;float f[6]={0,0,0,0,0,0};exWrench(rb,xq,end,f);exApplyInverse(n,f,col[c]);for(int k=0;k<6;++k)col[c][k]*=split;}
+        for(int i=0;i<3;++i)for(int c=0;c<3;++c){float e6[6]={0,0,0,0,0,0};exRelative(rb,end,col[c],e6);W[3*i+c]+=e6[i];}
+    }
+    const float det=W[0]*(W[4]*W[8]-W[5]*W[7])-W[1]*(W[3]*W[8]-W[5]*W[6])+W[2]*(W[3]*W[7]-W[4]*W[6]);
+    const float id=(det>0.0f && isfinite(det))?1.0f/det:0.0f;
+    const float inv[9]={(W[4]*W[8]-W[5]*W[7])*id,(W[2]*W[7]-W[1]*W[8])*id,(W[1]*W[5]-W[2]*W[4])*id,
+        (W[5]*W[6]-W[3]*W[8])*id,(W[0]*W[8]-W[2]*W[6])*id,(W[2]*W[3]-W[0]*W[5])*id,
+        (W[3]*W[7]-W[4]*W[6])*id,(W[1]*W[6]-W[0]*W[7])*id,(W[0]*W[4]-W[1]*W[3])*id};
+    for(int i=0;i<9;++i){x.Winv[i]=inv[i];x.W[i]=W[i];}
+    q[0]=make_float4(rb.n[0],rb.n[1],rb.n[2],rb.t1[0]);q[1]=make_float4(rb.t1[1],rb.t1[2],rb.t2[0],rb.t2[1]);
+    q[2]=make_float4(rb.t2[2],rb.o0[0],rb.o0[1],rb.o0[2]);q[3]=make_float4(rb.o1[0],rb.o1[1],rb.o1[2],rb.area);
+    q[4]=make_float4(W[0],W[1],W[2],W[3]);q[5]=make_float4(W[4],W[5],W[6],W[7]);q[6]=make_float4(W[8],inv[0],inv[1],inv[2]);
+    q[7]=make_float4(inv[3],inv[4],inv[5],inv[6]);q[8]=make_float4(inv[7],inv[8],0.0f,0.0f);
 }
 // The dynamic sequence's joint laws (exRunT's joint pass on a dynamic patch).
 // A re-bearing contact (PxgDestructionRebearing.cuh's law, graded as the stage
@@ -1403,6 +1657,8 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
     // The dynamic sequence's books and events (a dynamic-sequence patch only).
     __shared__ float shSlipWork,shDash,shExt;__shared__ PxU32 shEvents,shConverted,shSeat,shCrushed,shLast,shActive2;
     __shared__ float shNum,shDen,shBeta;__shared__ PxU32 shResample;   // the damping's frequency (dynamic-sequence patches)
+    __shared__ float shCrush;
+    __shared__ PxU32 shThrough;
     __shared__ float vS[6*kV],imS[kN],iiS[3*kN];
     __shared__ PxU32 jS[kN],rS[kN];
     const PxU32 p=blockIdx.x;if(p>=*t.patchCount)return;
@@ -1422,6 +1678,7 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
     const float* damp=seqp?t.damp+size_t(p)*kExLinks*8:nullptr;float* cslip=seqp?t.cslip+size_t(p)*kExLinks*2:nullptr;
     float* wk=seqp?t.wk+size_t(p)*kExLinks*12:nullptr;
     const float mu=s.dynamicFriction;
+    if(!threadIdx.x){shCrush=0.0f;shThrough=0;}
     for(PxU32 k=threadIdx.x;k<nn;k+=kExThreads) {
         const ExNode& n=nodes[k];for(int q=0;q<6;++q)vS[6*k+q]=n.v[q];
         if(Small){imS[k]=n.im;for(int q=0;q<3;++q)iiS[3*k+q]=n.tensor?-1.0f:n.Iinv[q];jS[k]=n.jointBegin|(n.jointEnd<<16);rS[k]=n.rowBegin|(n.rowEnd<<16);}
@@ -1441,29 +1698,10 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
     // (Jacobi: mass splitting, Tonge et al. 2012; rows sharing a node then
     // cannot together overshoot it), W^-1, its ends, its impulse.
     const bool hasRow=threadIdx.x<nr;
-    float W[9]={0,0,0,0,0,0,0,0,0};PxU32 ra=0,rn=0;
-    if(hasRow) {
-        const Bond rb=rowBonds[threadIdx.x];const ExRow x=rows[threadIdx.x];ra=x.a;rn=x.b;
-        for(PxU32 end=0;end<2;++end) {
-            const ExNode& n=nodes[end?x.b:x.a];float col[3][6];
-            const float split=float(max(n.rowEnd-n.rowBegin,1u));
-            for(int q=0;q<3;++q){float xq[6]={0,0,0,0,0,0};xq[q]=1.0f;float f[6]={0,0,0,0,0,0};exWrench(rb,xq,end,f);exApplyInverse(n,f,col[q]);for(int c=0;c<6;++c)col[q][c]*=split;}
-            for(int i=0;i<3;++i)for(int q=0;q<3;++q){float e6[6]={0,0,0,0,0,0};exRelative(rb,end,col[q],e6);W[3*i+q]+=e6[i];}
-        }
-        const float det=W[0]*(W[4]*W[8]-W[5]*W[7])-W[1]*(W[3]*W[8]-W[5]*W[6])+W[2]*(W[3]*W[7]-W[4]*W[6]);
-        const float id=(det>0.0f && isfinite(det))?1.0f/det:0.0f;
-        const float inv[9]={(W[4]*W[8]-W[5]*W[7])*id,(W[2]*W[7]-W[1]*W[8])*id,(W[1]*W[5]-W[2]*W[4])*id,
-            (W[5]*W[6]-W[3]*W[8])*id,(W[0]*W[8]-W[2]*W[6])*id,(W[2]*W[3]-W[0]*W[5])*id,
-            (W[3]*W[7]-W[4]*W[6])*id,(W[1]*W[6]-W[0]*W[7])*id,(W[0]*W[4]-W[1]*W[3])*id};
-        for(int i=0;i<9;++i){rows[threadIdx.x].Winv[i]=inv[i];rows[threadIdx.x].W[i]=W[i];}
-        float4* q=rp+size_t(kExRow)*threadIdx.x;
-        q[0]=make_float4(rb.n[0],rb.n[1],rb.n[2],rb.t1[0]);q[1]=make_float4(rb.t1[1],rb.t1[2],rb.t2[0],rb.t2[1]);
-        q[2]=make_float4(rb.t2[2],rb.o0[0],rb.o0[1],rb.o0[2]);q[3]=make_float4(rb.o1[0],rb.o1[1],rb.o1[2],rb.area);
-        q[4]=make_float4(W[0],W[1],W[2],W[3]);q[5]=make_float4(W[4],W[5],W[6],W[7]);q[6]=make_float4(W[8],inv[0],inv[1],inv[2]);
-        q[7]=make_float4(inv[3],inv[4],inv[5],inv[6]);q[8]=make_float4(inv[7],inv[8],0.0f,0.0f);
-    }
+    PxU32 ra=0,rn=0;
+    if(hasRow){const ExRow& x=rows[threadIdx.x];ra=x.a;rn=x.b;exPackRow(rowBonds[threadIdx.x],rows[threadIdx.x],nodes,rp+size_t(kExRow)*threadIdx.x);}
     __syncthreads();
-    PxU32 step=sp.substeps;float dead=0.0f;
+    PxU32 step=sp.substeps;float dead=0.0f,crush=0.0f;
     float dashLocal=0.0f,slipLocal=0.0f,plasticLocal=0.0f,extLocal=0.0f;   // (the dynamic sequence's books: per thread, summed once)
     float denLocal=0.0f;bool sample=false;   // (the damping's frequency sample: this substep's)
     // A joint's substep: the trial, then fracture or the radial return; the force change's wrench on both ends.
@@ -1473,6 +1711,8 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
         const float4 s0=q[9],s1=q[10];PxU32 state=__float_as_uint(s1.z);float slip=s1.w;
         if(!(state&eEX_LIVE) || (state&eEX_IMPLICIT))return;   // broke earlier in this launch; or implicit (exImplicitJointA)
         exUnpackFriction(q,state,b);
+        // An end a row crushed through (Settings::compliant): the joint goes with it.
+        const bool crushedEnd=(state&eEX_ROWS) && ((ea!=0xffffffffu && nodes[ea].crushed) || (eb!=0xffffffffu && nodes[eb].crushed));
         float d[6]={0,0,0,0,0,0};if(ea!=0xffffffffu)exRelative(b,0,vS+6*ea,d);if(eb!=0xffffffffu)exRelative(b,1,vS+6*eb,d);
         for(int q6=0;q6<6;++q6)dead-=h*J0[q6]*d[q6];
         float k[6];exStiffness(b,k);
@@ -1509,8 +1749,9 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
         const float u=utilisation(b,J);
         // An event is near: a brittle joint within the band, a ductile one slipping.
         if((state&eEX_DUCTILE)?u>1.0f:u>=1.0f-s.capacityBand){shActive=1u;if(last)atomicAdd(&shNear,1u);}
-        bool breaks=false;
-        if(!(state&eEX_DUCTILE))breaks=u>=1.0f-s.capacityBand;
+        bool breaks=crushedEnd;
+        if(crushedEnd){}
+        else if(!(state&eEX_DUCTILE))breaks=u>=1.0f-s.capacityBand;
         else if(u>1.0f) {
             float sl=0.0f,work=0.0f;
             for(int q6=0;q6<6;++q6){const float y=J[q6]/u;if(k[q6]>0.0f){const float dp=(J[q6]-y)/k[q6];if(q6<3)sl+=dp*dp;work+=fabsf(y*dp);}J[q6]=y;}
@@ -1529,7 +1770,7 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
     // Rows run on the first ceil(nr / 32) simdgroups; the joints away from them on the rest at the same time.
     // (a two-body patch: none beside the rows -- the implicit sweeps after them move row nodes)
     const PxU32 rowThreads=min((nr+31u)&~31u,kExThreads),freeStride=sp.twoBody?0u:kExThreads-rowThreads;
-    float* vStart=sp.twoBody?t.vStart+size_t(p)*kExNodes*6:nullptr;const float4* ja=sp.twoBody?t.ja+size_t(p)*kExLinks*9:nullptr;
+    float4* eStart=sp.twoBody?t.eStart+size_t(p)*kExLinks*2:nullptr;const float4* ja=sp.twoBody?t.ja+size_t(p)*kExLinks*9:nullptr;
     float* wd=sp.twoBody?t.wd+size_t(p)*kExLinks*12:nullptr;
     __syncthreads();
     for(PxU32 l=threadIdx.x;l<nl;l+=kExThreads) {
@@ -1546,6 +1787,7 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
     }
     __syncthreads();
     const PxU32 nFree=shFree,nAtRows=shAtRows,nImplicit=shImplicit;
+    if(eStart)for(PxU32 i=threadIdx.x;i<nImplicit;i+=kExThreads)exImplicitStart(jl[i],jp,vS,eStart);
     for(PxU32 it=0;it<budget && step<total;++it,++step) {
         const float time=float(step+1)*h;const bool last=step+1==total;
         // The window's end (Settings::explicitWindow 1): once no contact pushes, no
@@ -1554,9 +1796,16 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
         // damage) is the next tick's static verdict.
         if(!threadIdx.x){shActive=0u;shPushing=0u;shNear=0u;}
         sample=seqp && (step%kExDampSample==0u || shResample);
+        // The window's own geometry (Settings::compliant with chunk boxes): every refreshEvery
+        // substeps each round impactor's rows are re-found where the bodies now are, and
+        // repacked (their frame, arms, W).
+        if(sp.refreshEvery && step>0 && step%sp.refreshEvery==0u) {
+            if(hasRow && rows[threadIdx.x].geo){Bond* rbw=t.rowBonds+size_t(p)*kExRows;
+                exRefreshRow(t.boxes,nodes,rows[threadIdx.x],rbw[threadIdx.x]);exPackRow(rbw[threadIdx.x],rows[threadIdx.x],nodes,rp+size_t(kExRow)*threadIdx.x);}
+            __syncthreads();
+        }
         // Joint forces on the nodes: each node gathers its joints' wrenches (no atomics).
         if(!(EX_PROF_SKIP&1))for(PxU32 k=threadIdx.x;k<nn;k+=kExThreads) {
-            if(vStart)for(int q=0;q<6;++q)vStart[6*k+q]=vS[6*k+q];   // the substep's start (the implicit joints' trapezoid)
             PxU32 b0,b1;jointRange(k,b0,b1);if(b0==b1 && !seqp)continue;
             float f[6]={0,0,0,0,0,0};
             exGather(wr,adj,b0,b1,f);
@@ -1580,14 +1829,26 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
             const float Wr[9]={q4.x,q4.y,q4.z,q4.w,q5.x,q5.y,q5.z,q5.w,q6.x},Wi[9]={q6.y,q6.z,q6.w,q7.x,q7.y,q7.z,q7.w,q8.x,q8.y};
             float g[6]={0,0,0,0,0,0};exRelative(rb,0,vS+6*ra,g);exRelative(rb,1,vS+6*rn,g);
             float P[3];const float gap=rows[threadIdx.x].gap;
-            if(rows[threadIdx.x].compliant){const ExRow& x=rows[threadIdx.x];
-                if(gap>0.0f){P[0]=P[1]=P[2]=0.0f;}else exCompliantRow(Wr,g,x.d,x.Estar,x.sigma,x.R,x.face,rb.area,h,P);}
-            else{g[0]-=gap/h;   // (a gap still open: the row may close it this substep before it pushes)
+            if(rows[threadIdx.x].compliant){ExRow& x=rows[threadIdx.x];
+                if(gap>0.0f || (x.crush&4u)){P[0]=P[1]=P[2]=0.0f;}
+                // Crushed through (Settings::compliant): the crushed material cannot pass through the
+                // striker; it leaves with the striker's normal speed (the plug, perfectly inelastic,
+                // in this row's split metric); then the row is spent.
+                else if(x.crush&2u){P[0]=g[0]>0.0f?-g[0]/fmaxf(Wr[0],FLT_MIN):0.0f;P[1]=P[2]=0.0f;x.crush|=4u;}
+                else if(x.on>0.0f)exCrushRow(Wr,g,x,rb.area,h,P);
+                else exCompliantRow(Wr,g,x.d-x.dp,x.Estar,x.sigma,x.R,x.face,rb.area,h,P);}   // (its elastic depth: dp holds a late contact's penetration, no force)
+            else if(!(gap>0.0f)){
+            // (a rigid row in contact: its arithmetic exactly as before two-body rows. The
+            // gap's subtraction merged into this path, even behind gap > 0, changed the
+            // rigid rows' float rounding (cannon-first's IMPACT_HASH, 1e-5 relative))
             float Ps[3];for(int i=0;i<3;++i)Ps[i]=-(Wi[3*i]*g[0]+Wi[3*i+1]*g[1]+Wi[3*i+2]*g[2]);
-            if(gap>0.0f && !(g[0]>0.0f) && !(rows[threadIdx.x].total[0]!=0.0f)){Ps[0]=Ps[1]=Ps[2]=0.0f;}
             exCone(Wr,g,Ps,rb.area,P);
             if(EX_PROF_DUP&2){float g2[6],P2[3],Ps2[3];for(int q=0;q<6;++q)g2[q]=g[q]*(1.0f+FLT_EPSILON*float(step&1));for(int q=0;q<3;++q)Ps2[q]=Ps[q]*(1.0f+FLT_EPSILON*float(step&1));
                 exCone(Wr,g2,Ps2,rb.area,P2);dead+=1e-30f*(P2[0]+P2[1]+P2[2]);}}
+            else{g[0]-=gap/h;   // (a gap still open: the row may close it this substep before it pushes)
+            float Ps[3];for(int i=0;i<3;++i)Ps[i]=-(Wi[3*i]*g[0]+Wi[3*i+1]*g[1]+Wi[3*i+2]*g[2]);
+            if(!(g[0]>0.0f) && !(rows[threadIdx.x].total[0]!=0.0f)){Ps[0]=Ps[1]=Ps[2]=0.0f;}
+            exCone(Wr,g,Ps,rb.area,P);}
             for(int q=0;q<3;++q)rows[threadIdx.x].total[q]+=P[q];
             // Pushing: an impulse the impactor's momentum resolves in float (below
             // its float resolution it exchanges nothing representable).
@@ -1603,6 +1864,8 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
             float f[6]={0,0,0,0,0,0};
             exGather(rwr,rowAdj,b0,b1,f);
             apply(k,f,1.0f);
+            // The window's own geometry: where the row nodes have moved (exRefreshRow).
+            if(sp.refreshEvery){ExNode& nk=nodes[k];for(int q=0;q<3;++q){nk.dx[q]+=h*vS[6*k+q];nk.dth[q]+=h*vS[6*k+3+q];}}
         }
         __syncthreads();
         // Compliant rows: their depth over the substep, at the closing rate after the impulses.
@@ -1613,13 +1876,21 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
             float g[6]={0,0,0,0,0,0};exRelative(rb,0,vS+6*ra,g);exRelative(rb,1,vS+6*rn,g);
             ExRow& x=rows[threadIdx.x];
             if(x.gap>0.0f)x.gap=fmaxf(x.gap-g[0]*h,0.0f);else if(x.compliant)x.d=fmaxf(x.d+g[0]*h,0.0f);
+            // The crushed depth: the intrusion past the elastic depth F / (2 a E*), at the force
+            // applied (its work the striker's); through the chunk's depth, its joints break and
+            // the plug follows.
+            if((x.crush&1u) && !(x.crush&6u) && x.ac>0.0f) {
+                const float dy=x.Fa/(2.0f*x.ac*x.Estar),dn=x.d-x.dp;
+                if(dn>dy){x.dp+=dn-dy;crush+=x.Fa*(dn-dy);}
+                if(x.depth>0.0f && x.dp>=x.depth){x.crush|=2u;nodes[ra].crushed=1u;atomicAdd(&shThrough,1u);}
+            }
         }
         // The two-body car's implicit joints: two sweeps, each a joint pass and a node gather.
-        if(sp.twoBody && sp.implicitJoints)for(int sweep=0;sweep<2;++sweep) {
-            for(PxU32 i=threadIdx.x;i<nImplicit;i+=kExThreads)exImplicitJointA(jl[i],ja,jp,links,wr,wd,vS,vStart,h,time,s.capacityBand,&shBroken,&shYielded,&shFracture,&shPlastic,dead);
+        if(sp.twoBody && sp.implicitJoints && !(EX_PROF_SKIP&16))for(int sweep=0;sweep<2;++sweep) {
+            if(!(EX_PROF_SKIP&64))for(PxU32 i=threadIdx.x;i<nImplicit;i+=kExThreads)exImplicitJointA(jl[i],ja,jp,links,wr,wd,vS,eStart,h,time,s.capacityBand,&shBroken,&shYielded,&shFracture,&shPlastic,dead);
             __syncthreads();
             // (only the car's nodes: implicit joints are the car's)
-            for(PxU32 k=sp.chunks-sp.carChunks+threadIdx.x;k<sp.chunks;k+=kExThreads) {
+            if(!(EX_PROF_SKIP&32))for(PxU32 k=sp.chunks-sp.carChunks+threadIdx.x;k<sp.chunks;k+=kExThreads) {
                 PxU32 b0,b1;jointRange(k,b0,b1);if(b0==b1)continue;
                 float f[6]={0,0,0,0,0,0};exGather(wd,adj,b0,b1,f);apply(k,f,h);
             }
@@ -1627,6 +1898,8 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
         }
         // The joints at the rows' nodes (and all of them when no thread is free beside the rows).
         if(!(EX_PROF_SKIP&8))for(PxU32 i=threadIdx.x;i<nAtRows;i+=kExThreads)joint(jl[nl-1u-i],time,last);
+        // (v is final: the next substep's start for the implicit joints)
+        if(eStart)for(PxU32 i=threadIdx.x;i<nImplicit;i+=kExThreads)exImplicitStart(jl[i],jp,vS,eStart);
         __syncthreads();
         if(sample) {
             // The damping's frequency from this substep's rates: omega_K^2 = (K v)^T M^-1 (K v) / v^T K v.
@@ -1648,12 +1921,12 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
     for(PxU32 i=threadIdx.x;i<6*nn;i+=kExThreads)nodes[i/6].v[i%6]=vS[i];
     for(PxU32 l=threadIdx.x;l<nl;l+=kExThreads){ExLink& e=links[l];const float4 s0=jp[size_t(kExJoint)*l+9],s1=jp[size_t(kExJoint)*l+10];
         e.J[0]=s0.x;e.J[1]=s0.y;e.J[2]=s0.z;e.J[3]=s0.w;e.J[4]=s1.x;e.J[5]=s1.y;e.state=__float_as_uint(s1.z);e.slip=s1.w;}
-    atomicAdd(&shDead,dead);
+    atomicAdd(&shDead,dead);if(crush>0.0f)atomicAdd(&shCrush,crush);
     if(seqp){atomicAdd(&shDash,dashLocal);atomicAdd(&shSlipWork,slipLocal);atomicAdd(&shPlastic,plasticLocal);atomicAdd(&shExt,extLocal);}
     __syncthreads();
     if(!threadIdx.x && seqp){sp.beta=shBeta;sp.slipWork+=shSlipWork;sp.dashWork+=shDash;sp.extWork+=shExt;sp.events+=shEvents;sp.converted+=shConverted;sp.seatLost+=shSeat;sp.crushedContacts+=shCrushed;
         if(shEvents)sp.lastEvent=__uint_as_float(shLast);if(shActive2)sp.lastActive=__uint_as_float(shActive2);}
-    if(!threadIdx.x){sp.dead+=shDead;sp.fracture+=shFracture;sp.plastic+=shPlastic;sp.substeps=step;sp.t=float(step)*h;sp.broken+=shBroken;sp.yielded+=shYielded;sp.pushing=shPushing;sp.near=shNear;if(step>=total)sp.done=1;}
+    if(!threadIdx.x){sp.dead+=shDead;sp.crushWork+=shCrush;sp.crushedThrough+=shThrough;sp.fracture+=shFracture;sp.plastic+=shPlastic;sp.substeps=step;sp.t=float(step)*h;sp.broken+=shBroken;sp.yielded+=shYielded;sp.pushing=shPushing;sp.near=shNear;if(step>=total)sp.done=1;}
 }
 __global__ __launch_bounds__(kExThreads) void exRun(Settings s,Scratch w,ExScratch t,PxU32 budget){exRunT<false>(s,w,t,budget);}
 __global__ __launch_bounds__(kExThreads) void exRunSmall(Settings s,Scratch w,ExScratch t,PxU32 budget){exRunT<true>(s,w,t,budget);}
@@ -1662,6 +1935,23 @@ __global__ __launch_bounds__(kExThreads) void exRunSmall(Settings s,Scratch w,Ex
 // and bound (the impulse delivered over the window, per point), the
 // impactors' change; the rest of the island is held at its rest forces
 // (stepPublish, launched first).
+// A free group of chunk nodes [b0, b1) as one rigid body: its centre-of-mass velocity
+// and its angular momentum about its centre of mass over the sum of its chunks'
+// inertia and m r^2 2/3 (exact for a rigid group of round chunks), at the window's
+// end (n.v) or start (n.v0); chunk positions x = rq c + rp in the struck frame.
+__device__ void exGroupMotion(const Inputs& in,const ExNode* nodes,PxU32 b0,PxU32 b1,const PxQuat& rq,const PxVec3& rp,bool start,float* v,float* w)
+{
+    double m=0.0,c[3]={0,0,0},pm[3]={0,0,0};
+    for(PxU32 k=b0;k<b1;++k){const ExNode& n=nodes[k];const float* u=start?n.v0:n.v;const double mk=n.im>0.0f?1.0/n.im:0.0;const PxVec3 x=rq.rotate(in.chunks[n.chunk].position)+rp;
+        m+=mk;c[0]+=mk*x.x;c[1]+=mk*x.y;c[2]+=mk*x.z;for(int a=0;a<3;++a)pm[a]+=mk*u[a];}
+    if(m>0.0){for(int a=0;a<3;++a){c[a]/=m;pm[a]/=m;}}
+    double L[3]={0,0,0},I=0.0;
+    for(PxU32 k=b0;k<b1;++k){const ExNode& n=nodes[k];const float* u0=start?n.v0:n.v;const double mk=n.im>0.0f?1.0/n.im:0.0,ik=n.Iinv[0]>0.0f?1.0/n.Iinv[0]:0.0;
+        const PxVec3 x=rq.rotate(in.chunks[n.chunk].position)+rp;const double r[3]={x.x-c[0],x.y-c[1],x.z-c[2]},u[3]={u0[0]-pm[0],u0[1]-pm[1],u0[2]-pm[2]};
+        L[0]+=ik*u0[3]+mk*(r[1]*u[2]-r[2]*u[1]);L[1]+=ik*u0[4]+mk*(r[2]*u[0]-r[0]*u[2]);L[2]+=ik*u0[5]+mk*(r[0]*u[1]-r[1]*u[0]);
+        I+=ik+mk*(r[0]*r[0]+r[1]*r[1]+r[2]*r[2])*2.0/3.0;}
+    for(int a=0;a<3;++a){v[a]=float(pm[a]);w[a]=I>0.0?float(L[a]/I):0.0f;}
+}
 __global__ void exPublish(Inputs in,Settings s,Scratch w,ExScratch t)
 {
     const PxU32 p=blockIdx.y;if(p>=*t.patchCount)return;
@@ -1684,11 +1974,44 @@ __global__ void exPublish(Inputs in,Settings s,Scratch w,ExScratch t)
     for(PxU32 r=tid;r<sp.rows;r+=stride) {
         const ExRow& x=rows[r];const ContactRow& row=in.rows[x.row];
         float lin[3],ang[3];toWorld(rowBonds[r],x.total,lin,ang);
+        // The ghost check (the window's own geometry): the impactor's centre inside an intact chunk.
+        if(x.geo && t.boxes && !(x.crush&2u)) {
+            const ExNode& a=nodes[x.a];const ExNode& m=nodes[x.b];const PxDestructionChunkBox box=t.boxes[a.chunk];
+            const PxQuat qa=exRotation(a.dth);const PxVec3 xa(a.x0[0]+a.dx[0],a.x0[1]+a.dx[1],a.x0[2]+a.dx[2]),pa(a.x0[0],a.x0[1],a.x0[2]);
+            const PxVec3 l=(qa*box.rotation).rotateInv(PxVec3(m.x0[0]+m.dx[0],m.x0[1]+m.dx[1],m.x0[2]+m.dx[2])-(xa+qa.rotate(box.center-pa)));
+            const bool inside=fabsf(l.x)<box.halfExtents.x && fabsf(l.y)<box.halfExtents.y && fabsf(l.z)<box.halfExtents.z;
+            bool tied=false;for(PxU32 j=a.jointBegin;j<a.jointEnd && !tied;++j)tied=(links[t.adj[size_t(p)*2*kExLinks+j]>>1].state&eEX_LIVE)!=0u;
+            if(inside && tied){atomicAdd(&t.patches[p].passedIntact,1u);atomicAdd(&w.status->passedIntact,1u);}
+        }
+        // A swept row (the window's own, met only within it): its chunk's crush and the
+        // window's verdict are published; it has no stage row of its own.
+        if(x.geo&2u) {
+            if(in.crushOut && x.compliant && x.on>0.0f && x.depth>0.0f && (x.dp>0.0f || (x.crush&2u))) {
+                const PxU32 c=nodes[x.a].chunk;PxDestructionCrushState& cs=in.crushOut[c];
+                atomicMax(reinterpret_cast<unsigned*>(&cs.damage),__float_as_uint(fminf(x.dp/x.depth,1.0f)));
+                if((x.crush&2u) && !atomicExch(&cs.crushed,1u) && in.crushedChunks)atomicAdd(in.crushedChunks,1u);
+            }
+            continue;
+        }
         if(in.rowForce)for(int q=0;q<3;++q)in.rowForce[3*x.row+q]=lin[q]/s.dt;
         bool live=false;
         for(PxU32 j=nodes[x.a].jointBegin;j<nodes[x.a].jointEnd && !live;++j)live=(links[t.adj[size_t(p)*2*kExLinks+j]>>1].state&eEX_LIVE)!=0u;
         const float bound=sqrtf(lin[0]*lin[0]+lin[1]*lin[1]+lin[2]*lin[2])/float(max(row.points,1u));
-        if(in.rowBound)in.rowBound[x.row]=(live || s.boundImpactor)?fmaxf(bound,FLT_MIN):0.0f;
+        // Settings::compliant: where the window met every chunk the impactor reaches in the tick
+        // (a round impactor's swept rows; a two-body car, whose joints it graded on them), it
+        // decided the pair: the corrected pass drops it (the least positive bound, pairwise: no
+        // impulse between them) and starts the impactor at its window end velocity
+        // (applyWindowImpactors). Otherwise its contacts stay bounded at what the window delivered.
+        const bool dropped=s.compliant && ((x.geo && !sp.uncovered) || x.b<sp.chunks);
+        if(in.rowBound)in.rowBound[x.row]=dropped?FLT_MIN:((live || s.boundImpactor)?fmaxf(bound,FLT_MIN):0.0f);
+        // The struck chunk's crush (Settings::compliant): the depth share its rows crushed,
+        // or through (crushed: the stage makes it a free fragment).
+        if(in.crushOut && x.compliant && x.on>0.0f && x.depth>0.0f && (x.dp>0.0f || (x.crush&2u))) {
+            const PxU32 c=nodes[x.a].chunk;PxDestructionCrushState& cs=in.crushOut[c];
+            const float share=fminf(x.dp/x.depth,1.0f);
+            atomicMax(reinterpret_cast<unsigned*>(&cs.damage),__float_as_uint(share));
+            if((x.crush&2u) && !atomicExch(&cs.crushed,1u) && in.crushedChunks)atomicAdd(in.crushedChunks,1u);
+        }
         if(in.rowDelta && x.b>=sp.chunks){const ExNode& n=nodes[x.b];for(int q=0;q<3;++q){in.rowDelta[6*x.row+q]=n.v[q]-(row.velocity[q]+row.dv[q]);in.rowDelta[6*x.row+3+q]=n.v[3+q]-(row.spin[q]+row.dw[q]);}}
         // A two-body row: the car's centre-of-mass velocity change (its chunks' momentum).
         else if(in.rowDelta) {
@@ -1697,37 +2020,58 @@ __global__ void exPublish(Inputs in,Settings s,Scratch w,ExScratch t)
             for(int q=0;q<3;++q){in.rowDelta[6*x.row+q]=(m>0.0f?pm[q]/m:0.0f)-(row.velocity[q]+row.dv[q]);in.rowDelta[6*x.row+3+q]=0.0f;}
         }
     }
+    // The window's chunk end velocities for the corrected pass's free fragments
+    // (Settings::compliant: handoffWindowMomentum), in world: the nodes' velocities
+    // are relative to the struck cluster, in its frame; a moving (dynamic struck)
+    // cluster's rigid motion at the tick's start is added back at each chunk.
+    // The dynamic sequence (without compliant: its own patches only) hands its anchored patches'
+    // velocities over -- a free patch's rigid motion is PhysX's, its window only its internal one.
+    if(in.windowV && in.windowMask && in.clusterPoses && sp.chunks && (s.compliant || sp.sequence) && !(sp.sequence && !sp.anchored)) {
+        const PxU32 frame=in.chunks[nodes[0].chunk].cluster;const PxTransform pose=in.clusterPoses[frame];const PxQuat q=pose.q;
+        PxVec3 vc(0.0f),wc(0.0f),pc(0.0f);
+        if(sp.dynamic && in.clusterStart){const float4 a=in.clusterStart[3*size_t(frame)],b=in.clusterStart[3*size_t(frame)+1],c=in.clusterStart[3*size_t(frame)+2];
+            vc=PxVec3(a.x,a.y,a.z);wc=PxVec3(b.x,b.y,b.z);pc=PxVec3(c.x,c.y,c.z);}
+        for(PxU32 k=tid;k<sp.chunks;k+=stride){const ExNode& n=nodes[k];const PxU32 c=n.chunk;if(c>=in.chunkCount)continue;
+            const PxVec3 x=pose.transform(PxVec3(n.x0[0],n.x0[1],n.x0[2]));
+            const PxVec3 v=q.rotate(PxVec3(n.v[0],n.v[1],n.v[2]))+vc+wc.cross(x-pc),wv=q.rotate(PxVec3(n.v[3],n.v[4],n.v[5]))+wc;
+            in.windowV[2*size_t(c)]=make_float4(v.x,v.y,v.z,0.0f);in.windowV[2*size_t(c)+1]=make_float4(wv.x,wv.y,wv.z,0.0f);in.windowMask[c]=1u;}
+    }
     // The hand-off (ExScratch::handoff): each row decided; each rigid impactor's end
     // velocity; the two-body car's centre-of-mass velocity and an angular velocity
     // (its angular momentum about its centre of mass over the sum of its chunks'
     // inertia and m r^2 2/3: exact for a rigid car of round chunks).
-    if(t.rowDecided)for(PxU32 r=tid;r<sp.rows;r+=stride)t.rowDecided[rows[r].row]=1u;
+    // (a dynamic struck island too large for one patch was held beyond it: its rows'
+    // momentum stays the rigid solve's, so they are not marked decided)
+    if(t.rowDecided && !(sp.dynamic && sp.truncated))for(PxU32 r=tid;r<sp.rows;r+=stride)t.rowDecided[rows[r].row]=1u;
     if(t.handoff && !blockIdx.x && !threadIdx.x) {
         for(PxU32 k=sp.chunks;k<sp.nodes;++k){const ExNode& n=nodes[k];if(!n.tensor)continue;
             PxU32 body=0xffffffffu;for(PxU32 r=0;r<sp.rows;++r)if(rows[r].b==k){body=in.rows[rows[r].row].body;break;}
             const PxU32 slot=atomicAdd(t.handoffCount,1u);if(slot>=kExHandoffs)break;
-            ExScratch::Handoff hnd{};hnd.island=0xffffffffu;hnd.body=body;hnd.patch=p;for(int q=0;q<3;++q){hnd.v[q]=n.v[q];hnd.w[q]=n.v[3+q];}t.handoff[slot]=hnd;}
+            ExScratch::Handoff hnd{};hnd.island=0xffffffffu;hnd.body=body;hnd.patch=p;for(int q=0;q<3;++q){hnd.v[q]=n.v[q];hnd.w[q]=n.v[3+q];hnd.v0[q]=n.v0[q];hnd.w0[q]=n.v0[3+q];}
+            hnd.pad=(s.compliant && n.radius>0.0f && !sp.uncovered)?1u:0u;   // its pairs dropped: it starts the corrected pass at this velocity
+            t.handoff[slot]=hnd;}
         if(sp.twoBody) {
-            double m=0.0,c[3]={0,0,0},pm[3]={0,0,0};const PxU32 b0=sp.chunks-sp.carChunks;
             const ContactRow& q=in.rows[sp.carRow];const PxQuat rq(q.otherPose[0],q.otherPose[1],q.otherPose[2],q.otherPose[3]);const PxVec3 rp(q.otherPose[4],q.otherPose[5],q.otherPose[6]);
-            for(PxU32 k=b0;k<sp.chunks;++k){const ExNode& n=nodes[k];const double mk=n.im>0.0f?1.0/n.im:0.0;const PxVec3 x=rq.rotate(in.chunks[n.chunk].position)+rp;
-                m+=mk;c[0]+=mk*x.x;c[1]+=mk*x.y;c[2]+=mk*x.z;for(int a=0;a<3;++a)pm[a]+=mk*n.v[a];}
-            if(m>0.0){for(int a=0;a<3;++a){c[a]/=m;pm[a]/=m;}}
-            double L[3]={0,0,0},I=0.0;
-            for(PxU32 k=b0;k<sp.chunks;++k){const ExNode& n=nodes[k];const double mk=n.im>0.0f?1.0/n.im:0.0,ik=n.Iinv[0]>0.0f?1.0/n.Iinv[0]:0.0;
-                const PxVec3 x=rq.rotate(in.chunks[n.chunk].position)+rp;const double r[3]={x.x-c[0],x.y-c[1],x.z-c[2]},u[3]={n.v[0]-pm[0],n.v[1]-pm[1],n.v[2]-pm[2]};
-                L[0]+=ik*n.v[3]+mk*(r[1]*u[2]-r[2]*u[1]);L[1]+=ik*n.v[4]+mk*(r[2]*u[0]-r[0]*u[2]);L[2]+=ik*n.v[5]+mk*(r[0]*u[1]-r[1]*u[0]);
-                I+=ik+mk*(r[0]*r[0]+r[1]*r[1]+r[2]*r[2])*2.0/3.0;}
             const PxU32 slot=atomicAdd(t.handoffCount,1u);
-            if(slot<kExHandoffs){ExScratch::Handoff hnd{};hnd.island=sp.car;hnd.body=q.body;hnd.patch=p;
-                for(int a=0;a<3;++a){hnd.v[a]=float(pm[a]);hnd.w[a]=I>0.0?float(L[a]/I):0.0f;}t.handoff[slot]=hnd;}
+            if(slot<kExHandoffs){ExScratch::Handoff hnd{};hnd.island=sp.car;hnd.body=q.body;hnd.patch=p;hnd.pad=s.compliant?1u:0u;   // (its rows always dropped)
+                exGroupMotion(in,nodes,sp.chunks-sp.carChunks,sp.chunks,rq,rp,false,hnd.v,hnd.w);exGroupMotion(in,nodes,sp.chunks-sp.carChunks,sp.chunks,rq,rp,true,hnd.v0,hnd.w0);
+                t.handoff[slot]=hnd;}
+        }
+        // A dynamic struck island (Settings::dynamicStruck): its own motion's change.
+        if(sp.dynamic && !sp.truncated) {
+            const ContactRow& q=in.rows[sp.dynamicRow];const PxQuat rq(PxIdentity);const PxVec3 rp(0.0f);
+            const PxU32 slot=atomicAdd(t.handoffCount,1u);
+            if(slot<kExHandoffs){ExScratch::Handoff hnd{};hnd.island=sp.island;hnd.body=q.clusterBody;hnd.patch=p;hnd.pad=(s.compliant && !sp.uncovered)?1u:0u;   // (as its round impactors' rows)
+                exGroupMotion(in,nodes,0,sp.chunks-sp.carChunks,rq,rp,false,hnd.v,hnd.w);exGroupMotion(in,nodes,0,sp.chunks-sp.carChunks,rq,rp,true,hnd.v0,hnd.w0);
+                t.handoff[slot]=hnd;}
         }
     }
     if(!blockIdx.x && !threadIdx.x) {
         float in0=0.0f,out0=0.0f;
         // (translational and rotational: w . I w / 2, I the inverse of the node's inverse inertia)
         // (and a two-body car's chunks: scalar inertia)
-        for(PxU32 k=sp.chunks-sp.carChunks;k<sp.chunks;++k){const ExNode& n=nodes[k];const float m=n.im>0.0f?1.0f/n.im:0.0f,I=n.Iinv[0]>0.0f?1.0f/n.Iinv[0]:0.0f;
+        // (and a dynamic struck island's chunks: they move, relative to the frame, too)
+        for(PxU32 k=sp.dynamic?0u:sp.chunks-sp.carChunks;k<sp.chunks;++k){const ExNode& n=nodes[k];const float m=n.im>0.0f?1.0f/n.im:0.0f,I=n.Iinv[0]>0.0f?1.0f/n.Iinv[0]:0.0f;
             in0+=0.5f*m*(n.v0[0]*n.v0[0]+n.v0[1]*n.v0[1]+n.v0[2]*n.v0[2])+0.5f*I*(n.v0[3]*n.v0[3]+n.v0[4]*n.v0[4]+n.v0[5]*n.v0[5]);
             out0+=0.5f*m*(n.v[0]*n.v[0]+n.v[1]*n.v[1]+n.v[2]*n.v[2])+0.5f*I*(n.v[3]*n.v[3]+n.v[4]*n.v[4]+n.v[5]*n.v[5]);}
         for(PxU32 k=sp.chunks;k<sp.nodes;++k){const ExNode& n=nodes[k];if(!n.tensor)continue;const float m=n.im>0.0f?1.0f/n.im:0.0f;
@@ -1741,7 +2085,16 @@ __global__ void exPublish(Inputs in,Settings s,Scratch w,ExScratch t)
         // The energy invariant: what the window dissipated by fracture and plastic
         // work is paid by the impactors' kinetic energy loss, the elastic energy
         // the patch held and the dead load's work (a sagging patch's).
-        if(!sp.sequence && sp.fracture+sp.plastic>(in0-out0)+sp.u0+fmaxf(sp.dead,0.0f))atomicAdd(&w.status->energyDeficit,1u);
+        if(!sp.sequence && sp.fracture+sp.plastic+sp.crushWork>(in0-out0)+sp.u0+fmaxf(sp.dead,0.0f))atomicAdd(&w.status->energyDeficit,1u);
+        // And the other way: the impactors leave with no more kinetic energy than the
+        // window had (theirs, the joints' held elastic energy, the dead load's work),
+        // up to symplectic Euler's energy error: its conserved H~ differs from H by
+        // at most (omega h / 2) H (harmonic oscillator, H~ = H - (h/2) omega^2 x v), so
+        // H <= H~ / (1 - omega h / 2) for omega h < 2. Past that, energy from
+        // nowhere (Status::energyGain): a car whose window gained 1e3-1e4 times its
+        // kinetic energy counted none.
+        {const float wh=sp.omega*sp.h,avail=in0+sp.u0+fmaxf(sp.dead,0.0f);
+         if(wh<2.0f && out0*(1.0f-0.5f*wh)>avail)atomicAdd(&w.status->energyGain,1u);}
         w.islandFlag[sp.island]=1u;if(sp.twoBody)w.islandFlag[sp.car]=1u;
         atomicAdd(&w.status->triggered,1u);atomicAdd(&w.status->solves,1u);atomicAdd(&w.status->iterations,sp.substeps);
         atomicAdd(&w.status->broken,sp.broken);atomicAdd(&w.status->yielded,sp.yielded);
@@ -1869,7 +2222,10 @@ __global__ void exPublishIsland(Inputs in,Scratch w,ExScratch t)
     const PxU32 patches=*t.patchCount;
     for(PxU32 i=tid;i<in.bondCount;i+=stride) {
         const PxU32 island=in.bondIslands[i];if(island>=in.chunkCount)continue;
-        for(PxU32 p=0;p<patches;++p)if(t.patches[p].island==island || (t.patches[p].twoBody && t.patches[p].car==island)){w.forces[i]=in.base[i];w.verdict[i]=eHELD;if(w.slip)w.slip[i]=0.0f;}
+        for(PxU32 p=0;p<patches;++p)if(t.patches[p].island==island || (t.patches[p].twoBody && t.patches[p].car==island)){
+            if(in.decidedBonds)in.decidedBonds[i]=1u;   // (Settings::compliant: its verdict stands through the corrected pass)
+            if(t.linkOf[i]!=0xffffffffu)continue;       // a joint of the patch: exPublish's
+            w.forces[i]=in.base[i];w.verdict[i]=eHELD;if(w.slip)w.slip[i]=0.0f;}
     }
 }
 // The stress solve report's contact input (getStressSolveReport, its third
