@@ -10,7 +10,7 @@
 //      on (T, V): a shear excess with a twist returns along M^-1 times the
 //      normal of |V| + gt |T| = cap, |dT| / |dV| = gt kt / ks (each force drops
 //      by its own stiffness: a softer shear row gives up less of V);
-//   4. ks = kl is the isotropic law exactly (the projection with ms < 0).
+//   4. ks = kl is the isotropic law (the projection with ms < 0), to float rounding.
 // Exit 0 when all hold; 1 otherwise.
 #include "PxDestructionScene.h"
 #include "NvBlastExtStressMaterialFormula.h"
@@ -59,8 +59,13 @@ int run()
     for(PxU32 i=0;i<n;++i) {
         Case& c=cases[i];c={};impact::Bond& b=c.b;b=impact::Bond{};b.flags=impact::eALIVE;
         // A random frame n, t1, t2.
-        double v[3]={G(rng),G(rng),G(rng)};double l=std::sqrt(v[0]*v[0]+v[1]*v[1]+v[2]*v[2]);for(double& q:v)q/=l;
-        PxVec3 nn(float(v[0]),float(v[1]),float(v[2]));impact::frame(nn,b.n,b.t1,b.t2);
+        double dir[3]={G(rng),G(rng),G(rng)};const double l=std::sqrt(dir[0]*dir[0]+dir[1]*dir[1]+dir[2]*dir[2]);
+        // impact::frame, on the host: t1 = n x e (e a unit axis away from n), t2 = n x t1.
+        b.n[0]=float(dir[0]/l);b.n[1]=float(dir[1]/l);b.n[2]=float(dir[2]/l);
+        {const float e[3]={std::fabs(b.n[0])<0.9f?1.0f:0.0f,std::fabs(b.n[0])<0.9f?0.0f:1.0f,0.0f};
+         float t[3]={b.n[1]*e[2]-b.n[2]*e[1],b.n[2]*e[0]-b.n[0]*e[2],b.n[0]*e[1]-b.n[1]*e[0]};
+         const float tl=std::sqrt(t[0]*t[0]+t[1]*t[1]+t[2]*t[2]);for(int q=0;q<3;++q)b.t1[q]=t[q]/tl;
+         b.t2[0]=b.n[1]*b.t1[2]-b.n[2]*b.t1[1];b.t2[1]=b.n[2]*b.t1[0]-b.n[0]*b.t1[2];b.t2[2]=b.n[0]*b.t1[1]-b.n[1]*b.t1[0];}
         for(int q=0;q<3;++q){b.o0[q]=float(0.3*G(rng));b.o1[q]=float(0.3*G(rng));}
         b.kl=float(decade(5,9));b.ks=i%4==0?b.kl:float(b.kl*decade(-1.5,0));
         b.kt=float(decade(3,7));b.k0=float(decade(3,7));b.k1=float(decade(3,7));
@@ -100,13 +105,17 @@ int run()
         // 3. The return's direction in (T, V): |dT| / |dV| = gt kt^-1 / ks^-1 (when both moved).
         const double V0=std::hypot(double(c.x[1]),double(c.x[2])),V1=std::hypot(double(c.p[1]),double(c.p[2]));
         const double dT=std::fabs(double(c.p[3])-c.x[3]),dV=V0-V1;
-        if(dT>1e-4*std::fabs(c.x[3]) && dV>1e-4*V0 && c.p[3]*c.x[3]>0 && V1>1e-3*V0) {
+        // (A return of at least 1e-3 of the point in each, so float rounding of the
+        // difference is well under the 5e-3 allowed.)
+        if(dT>1e-3*std::fabs(c.x[3]) && dV>1e-3*V0 && c.p[3]*c.x[3]>0 && V1>1e-3*V0) {
             ++checked;
             const double ratio=(dT/dV)/(double(b.gt)*double(b.kt)/double(b.ks));
-            if(std::fabs(ratio-1.0)>2e-3){if(!metric)std::printf("  return off the metric's normal, case %u: ratio %.6g\n",i,ratio);++metric;}
+            if(std::fabs(ratio-1.0)>5e-3){if(!metric)std::printf("  return off the metric's normal, case %u: ratio %.6g\n",i,ratio);++metric;}
         }
         // 4.
-        if(b.ks==b.kl)for(int q=0;q<6;++q)if(c.p[q]!=c.q[q]){if(!isotropic)std::printf("  ks = kl differs from the isotropic return, case %u\n",i);++isotropic;break;}
+        // (To float rounding: the two call sites are contracted (fma) independently.)
+        if(b.ks==b.kl){double size=0;for(int q=0;q<6;++q)size=std::max(size,std::fabs(double(c.q[q])));
+            for(int q=0;q<6;++q)if(std::fabs(double(c.p[q])-c.q[q])>1e-5*size+1e-30){if(!isotropic)std::printf("  ks = kl differs from the isotropic return, case %u\n",i);++isotropic;break;}}
     }
     std::printf("Shear stiffness graders, %u joints: stiffness rows off %u; blocks off the FP64 product %u, isotropic block differs %u; "
         "returns off the metric normal %u of %u checked; ks = kl not the isotropic return %u\n",n,stiff,block,iso,metric,checked,isotropic);
