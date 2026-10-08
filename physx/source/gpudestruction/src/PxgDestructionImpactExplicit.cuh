@@ -444,7 +444,7 @@ __device__ float exSphereBox(const PxVec3& c,float R,const PxVec3& bc,const PxVe
 __device__ PxU32 exLiveFaces(const Inputs& in,PxU32 c)
 {
     if(!in.chunkBoxes || !in.faceBegin || c>=in.chunkCount)return 0u;
-    const PxU32 mask=in.chunkBoxes[c].internalFaces;PxU32 live=0u;
+    const PxU32 mask=in.chunkBoxes[c].internalFaces&0x3fu;PxU32 live=0u;   // (face bits; bit 6: PX_DESTRUCTION_CHUNK_BOX_EXACT)
     for(PxU32 f=0;f<6;++f) {
         if(!(mask&(1u<<f)))continue;
         bool ok=true;
