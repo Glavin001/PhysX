@@ -2059,6 +2059,10 @@ struct Stage {
     // each), the window in launches of at most explicitBudget substeps (the
     // host waits for each), the verdicts. Per patch (host): its substeps.
     std::vector<ExPatch> explicitPatches;double explicitBuildMs=0.0,explicitRunMs=0.0;
+    // After submit: the stress solve report's contact input for two-body cars (exReportLoads).
+    void reportTwoBodyLoads(const Inputs& in,const Settings& s,PxDestructionVectorPair* report,PxU32 n,cudaStream_t stream) {
+        if(s.method==2u && s.explicitTwoBody && explicitAllocated && report)exReportLoads<<<kExPatches,kThreads,0,stream>>>(in,s,x,report,n);
+    }
     void submitExplicit(const Inputs& in,const Settings& s,cudaStream_t stream) {
         twoBody=s.explicitTwoBody;
         allocateExplicit();

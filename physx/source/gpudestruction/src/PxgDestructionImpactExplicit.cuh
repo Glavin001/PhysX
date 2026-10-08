@@ -1148,6 +1148,29 @@ __global__ void exPublishIsland(Inputs in,Scratch w,ExScratch t)
         for(PxU32 p=0;p<patches;++p)if(t.patches[p].island==island || (t.patches[p].twoBody && t.patches[p].car==island)){w.forces[i]=in.base[i];w.verdict[i]=eHELD;if(w.slip)w.slip[i]=0.0f;}
     }
 }
+// The stress solve report's contact input (getStressSolveReport, its third
+// segment: each chunk's acceleration after contact loads) for a two-body car's
+// chunks: its joints were graded on the window's forces, so the report carries
+// each of its rows' window impulse over the tick in place of the trial's contact
+// load there (both the reaction on the car's chunk, in its cluster's frame; linear
+// only). report: [3 n] (prepared, constraint, contact), n chunks.
+__global__ void exReportLoads(Inputs in,Settings s,ExScratch t,PxDestructionVectorPair* report,PxU32 n)
+{
+    const PxU32 p=blockIdx.x;if(p>=*t.patchCount)return;
+    const ExPatch& sp=t.patches[p];if(!sp.twoBody)return;
+    const ExNode* nodes=t.nodes+size_t(p)*kExNodes;const Bond* rowBonds=t.rowBonds+size_t(p)*kExRows;const ExRow* rows=t.rows+size_t(p)*kExRows;
+    const PxQuat back=PxQuat(sp.carQ[0],sp.carQ[1],sp.carQ[2],sp.carQ[3]).getConjugate();
+    for(PxU32 r=threadIdx.x;r<sp.rows;r+=blockDim.x) {
+        const ExRow& x=rows[r];if(x.b>=sp.chunks || x.b<sp.chunks-sp.carChunks)continue;
+        const PxU32 c=nodes[x.b].chunk;if(c>=n)continue;
+        float lin[3],ang[3];toWorld(rowBonds[r],x.total,lin,ang);
+        const ContactRow& row=in.rows[x.row];
+        const PxVec3 window=back.rotate(PxVec3(-lin[0],-lin[1],-lin[2])*(1.0f/s.dt)),trial=back.rotate(PxVec3(-row.load[0],-row.load[1],-row.load[2]));
+        const PxVec3 a=(window-trial)*nodes[x.b].im;
+        PxDestructionVectorPair& e=report[2*size_t(n)+c];
+        atomicAdd(&e.linear.x,a.x);atomicAdd(&e.linear.y,a.y);atomicAdd(&e.linear.z,a.z);
+    }
+}
 __global__ void exClear(Inputs in,ExScratch t)
 {
     const PxU32 tid=blockIdx.x*blockDim.x+threadIdx.x,stride=gridDim.x*blockDim.x;
