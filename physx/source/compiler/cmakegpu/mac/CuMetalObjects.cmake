@@ -198,8 +198,8 @@ FUNCTION(px_cumetal_objects target)
         SET(compile_command COMMAND "${CUMETALC_EXECUTABLE}" "${absolute}" -c --backend=cumetal-ir
                 --cuda-clang "${CUMETAL_CUDA_CLANG}" --fp64=${PX_CUMETAL_FP64}
                 -std=c++17 ${cooperative_flag} ${reference_inline_flag} ${particle_inline_flag} ${softbody_inline_flag}
-                "-I$<JOIN:$<TARGET_PROPERTY:${target},INCLUDE_DIRECTORIES>,;-I>"
-                "-D$<JOIN:$<TARGET_PROPERTY:${target},COMPILE_DEFINITIONS>,;-D>"
+                "-I$<JOIN:$<TARGET_PROPERTY:${target},INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
+                "-D$<JOIN:$<TARGET_PROPERTY:${target},COMPILE_DEFINITIONS>,$<SEMICOLON>-D>"
                 -o "${object}")
         IF(PX_CUMETAL_DEPFILES)
             # The preprocessing cumetalc does (cumetalc/main.cpp: CUDA clang,
@@ -208,9 +208,11 @@ FUNCTION(px_cumetal_objects target)
             SET(scan "${CUMETAL_CUDA_CLANG}" -x cuda -std=c++17 --cuda-gpu-arch=sm_80
                 -nocudainc -nocudalib -Wno-unknown-cuda-version -D__CUDACC__=1 -D__NVCC__=1
                 -I "${CUMETAL_ROOT_DIR}/runtime/api" -include cuda_runtime.h ${reference_inline_flag}
-                "-I$<JOIN:$<TARGET_PROPERTY:${target},INCLUDE_DIRECTORIES>,;-I>"
-                "-D$<JOIN:$<TARGET_PROPERTY:${target},COMPILE_DEFINITIONS>,;-D>"
+                "-I$<JOIN:$<TARGET_PROPERTY:${target},INCLUDE_DIRECTORIES>,$<SEMICOLON>-I>"
+                "-D$<JOIN:$<TARGET_PROPERTY:${target},COMPILE_DEFINITIONS>,$<SEMICOLON>-D>"
                 -M -MT "${object}")
+            # $<SEMICOLON>: the -I and -D lists live in variables here, where a
+            # literal ';' would split the generator expression itself.
             ADD_CUSTOM_COMMAND(OUTPUT "${object}"
                 COMMAND ${CMAKE_COMMAND} -E make_directory "${directory}"
                 COMMAND ${scan} --cuda-host-only -MF "${object}.host.d" "${absolute}"
