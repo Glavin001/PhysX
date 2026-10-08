@@ -636,6 +636,7 @@ __global__ void anchoredGhostCheck(PxU32* saturated,const PxU32* nodeBegin,const
 {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=n || !saturated[i])return;
     saturated[i]=0u;
+    if(ghosts)atomicAdd(ghosts+9,1u);   // (the log: chunks whose contact met its bound this pass)
     // Live: what anchoredChunkBounds counted (a bond to a crushed chunk holds nothing).
     bool live=false,broke=false;
     for(PxU32 slot=nodeBegin[i];slot<nodeBegin[i+1];++slot) {
@@ -2088,7 +2089,7 @@ public:
                 // rigid contact on a chunk of a kinematic cluster, every pass, at most
                 // what the chunk's bonds and inertia take (gpusolver PxgAnchoredContactBound.h).
                 if(std::getenv("PX_DESTRUCTION_ANCHORED_CONTACT_BOUND") && std::atoi(std::getenv("PX_DESTRUCTION_ANCHORED_CONTACT_BOUND"))!=0) {
-                    allocate(mAnchoredChunks,std::max<PxU32>(d.chunkCount,1));allocate(mAnchoredBonds,2*size_t(std::max<PxU32>(d.bondCount,1)));allocate(mAnchoredSaturated,std::max<PxU32>(d.chunkCount,1));allocate(mAnchoredGhosts,9);
+                    allocate(mAnchoredChunks,std::max<PxU32>(d.chunkCount,1));allocate(mAnchoredBonds,2*size_t(std::max<PxU32>(d.bondCount,1)));allocate(mAnchoredSaturated,std::max<PxU32>(d.chunkCount,1));allocate(mAnchoredGhosts,10);
                     check(cudaMemsetAsync(mAnchoredSaturated,0,sizeof(PxU32)*std::max<PxU32>(d.chunkCount,1),mStream));
                     mAnchoredBound=true;mAnchoredReady=false;
                 }
@@ -2689,10 +2690,11 @@ public:
                 if(mM)finalizeMaterialVerdict<<<(mM+127)/128,128,0,mStream>>>(mBonds,mVerdicts,mTrialCrush,mHealth,mM,mStatus);
                 if(mAnchoredBound && mN) {
                     if(mAnchoredReady) {
-                        if(mImpactLog)check(cudaMemsetAsync(mAnchoredGhosts,0,sizeof(PxU32),mStream));
+                        if(mImpactLog){check(cudaMemsetAsync(mAnchoredGhosts,0,sizeof(PxU32),mStream));check(cudaMemsetAsync(mAnchoredGhosts+9,0,sizeof(PxU32),mStream));}
                         anchoredGhostCheck<<<(mN+127)/128,128,0,mStream>>>(mAnchoredSaturated,mNodeBegin,mNodeRefs,mHealth,mVerdicts,mBonds,mImpactCrush?mTrialCrush:nullptr,mN,mStatus,mImpactLog?mAnchoredGhosts:nullptr);
                         if(mImpactLog) {
-                            PxU32 g[9];check(cudaMemcpyAsync(g,mAnchoredGhosts,sizeof g,cudaMemcpyDeviceToHost,mStream));check(cudaStreamSynchronize(mStream));
+                            PxU32 g[10];check(cudaMemcpyAsync(g,mAnchoredGhosts,sizeof g,cudaMemcpyDeviceToHost,mStream));check(cudaStreamSynchronize(mStream));
+                            if(g[9])std::fprintf(stderr,"[impact] anchored contacts at their bound: %u chunks in pass %u\n",g[9],mPass);
                             if(g[0])std::fprintf(stderr,"[impact] ANCHORED GHOSTS: %u chunks cut at their contact bound kept every bond (a bug signal); first %u %u %u %u\n",g[0],g[1],g[0]>1?g[2]:0u,g[0]>2?g[3]:0u,g[0]>3?g[4]:0u);
                         }
                     }
