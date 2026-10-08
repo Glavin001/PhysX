@@ -1973,6 +1973,19 @@ public:
                     if(!Nv::Blast::ExtStressGpuProbeBondForcesAsync(mSolver,mBearState,reinterpret_cast<ExtStressGpuImpulse*>(mBearProbe)))
                         throw std::runtime_error("re-bearing probe submission failed");
                     check(cudaStreamWaitEvent(mStream,reinterpret_cast<cudaEvent_t>(mSolver->deviceView().readyEvent),0));
+                    static const bool probeCheck=[]{const char* v=std::getenv("PX_DESTRUCTION_REBEARING_CHECK");return v && v[0]=='1';}();
+                    if(probeCheck && mM) {
+                        // Diagnostic: the probe of every live bond against its solved force.
+                        PxDestructionVectorPair* all=nullptr;PxU32* out=nullptr;allocate(all,mM);allocate(out,2);
+                        check(cudaMemsetAsync(out,0,sizeof(PxU32)*2,mStream));check(cudaEventRecord(mReady,mStream));
+                        if(!Nv::Blast::ExtStressGpuProbeBondForcesAsync(mSolver,mBearMask,reinterpret_cast<ExtStressGpuImpulse*>(all),mReady))throw std::runtime_error("probe check");
+                        check(cudaStreamWaitEvent(mStream,reinterpret_cast<cudaEvent_t>(mSolver->deviceView().readyEvent),0));
+                        checkReadmissionProbe<<<(mM+127)/128,128,0,mStream>>>(mBearMask,all,forces,out,mM);
+                        PxU32 h[2];check(cudaMemcpyAsync(h,out,sizeof h,cudaMemcpyDeviceToHost,mStream));check(cudaStreamSynchronize(mStream));
+                        float e,f;std::memcpy(&e,h,4);std::memcpy(&f,h+1,4);
+                        std::fprintf(stderr,"[rebearing] probe check pass %u: max |B^T y - lambda| %.4g N over live bonds, max |lambda| %.4g N\n",mPass,e,f);
+                        cudaFree(all);cudaFree(out);
+                    }
                 }
             }
             stageMarker(2);
