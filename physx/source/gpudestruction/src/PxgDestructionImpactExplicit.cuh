@@ -686,6 +686,8 @@ __device__ void exDynamicNode(const Inputs& in,const ExScratch& t,PxU32 p,PxU32 
 // frozen island that thaws starts from its carried force: the frozen one plus the
 // static solve's elastic increment since the freeze (exact by superposition while the
 // topology was the frozen one's).
+__host__ __device__ __forceinline__ float exContactMu(const Bond& b,float fallback);
+__host__ __device__ __forceinline__ void exContactForce(const Bond& b,const float* J,float mu,float* F);
 __device__ void exDynamicLink(const Inputs& in,const Settings& s,const ExScratch& t,PxU32 p,PxU32 l,PxU32 i,const Bond& b,ExLink& e)
 {
     float* c=t.damp+(size_t(p)*kExLinks+l)*8;float* cs=t.cslip+(size_t(p)*kExLinks+l)*2;
@@ -707,6 +709,11 @@ __device__ void exDynamicLink(const Inputs& in,const Settings& s,const ExScratch
         const PxU32 bear=in.bearState?in.bearState[i]:0u;   // eBEAR_CONTACT 1, eBEAR_LIFTED 2
         if(bear==1u || bear==2u || (persisted&2u))e.state|=eEX_CONTACT;
         if((e.state&eEX_CONTACT) && !(e.J0[0]<0.0f))e.state|=eEX_OPEN;
+        // A contact's reference force (J0: the residual p + B J0 the window starts from, its wrench
+        // B (F - J0) after) is what it transmits, not its state: an open contact's state is its gap
+        // (k times it), and as J0 that gap's "force" acted on its ends for the first substep before
+        // its wrench cancelled it -- a 3 MN impulse on a 0.4 kg chunk. Its state J stays.
+        if(e.state&eEX_CONTACT){float F[6];exContactForce(b,e.J,exContactMu(b,s.dynamicFriction),F);for(int q=0;q<6;++q)e.J0[q]=F[q];}
     }
     for(int q=0;q<8;++q)c[q]=0.0f;c[6]=in.damping?in.damping[in.bonds[i].material]:s.dynamicDamping;
 }
@@ -1097,10 +1104,10 @@ __device__ void exImplicit(Shared& sh,const Settings& s,const ExScratch& t,PxU32
 // shear, FIDELITY_AUDIT C11; for an exUnpack'ed joint after exUnpackFriction), as the
 // stage's re-bearing law takes it (rebearVerdicts), else the contact law's
 // (Settings::dynamicFriction: the re-bearing friction).
-__device__ __forceinline__ float exContactMu(const Bond& b,float fallback){return b.mu>0.0f?b.mu:fallback;}
+__host__ __device__ __forceinline__ float exContactMu(const Bond& b,float fallback){return b.mu>0.0f?b.mu:fallback;}
 // A contact's transmitted force from its state J (exContactJoint's projection
 // without its slip: J's shear is already within the cone).
-__device__ __forceinline__ void exContactForce(const Bond& b,const float* J,float mu,float* F)
+__host__ __device__ __forceinline__ void exContactForce(const Bond& b,const float* J,float mu,float* F)
 {
     for(int q=0;q<6;++q)F[q]=0.0f;if(!(J[0]<0.0f))return;
     const float C=-J[0],V=sqrtf(J[1]*J[1]+J[2]*J[2]),T=fabsf(J[3]),shear=V+b.gt*T,sc=shear>mu*C?mu*C/shear:1.0f;
