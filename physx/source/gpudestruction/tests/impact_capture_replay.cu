@@ -47,6 +47,17 @@ struct File {
     template<class T>T one(){return read<T>(1)[0];}
 };
 template<class T>T* upload(const std::vector<T>& v){T* p;allocate(p,v.size());if(!v.empty())check(cudaMemcpy(p,v.data(),v.size()*sizeof(T),cudaMemcpyHostToDevice));return p;}
+// IMPACT_DUMP: each link's wrench blocks on its two nodes (column q: the
+// wrench of a unit force q in the bond frame), for an exact (FP64) solve of
+// the capped level's problem off line (vibe-land scripts/impact/oracle-level.py).
+__global__ void wrenchBlocks(impact::Scratch w,impact::Island is,float* B)
+{
+    const PxU32 l=blockIdx.x*blockDim.x+threadIdx.x;if(l>=impact::links(is))return;
+    const impact::Bond& b=w.bonds[is.b0+l];
+    for(int q=0;q<6;++q){float x[6]={0,0,0,0,0,0};x[q]=1.0f;float r0[6]={0,0,0,0,0,0},r1[6]={0,0,0,0,0,0};
+        impact::addWrench(b,x,true,r0);impact::addWrench(b,x,false,r1);
+        for(int k=0;k<6;++k){B[72*size_t(l)+6*k+q]=r0[k];B[72*size_t(l)+36+6*k+q]=r1[k];}}
+}
 float env(const char* name,float fallback){const char* v=std::getenv(name);return v && *v?float(std::atof(v)):fallback;}
 int run(int argc,char** argv){
     if(argc<2){std::fprintf(stderr,"usage: %s CAPTURE.impc [runs]\n",argv[0]);return 2;}
@@ -63,6 +74,7 @@ int run(int argc,char** argv){
     s.relaxation=env("IMPACT_RELAXATION",s.relaxation);
     s.innerTolerance=env("IMPACT_INNER_TOLERANCE",s.innerTolerance);
     s.andersonDepth=PxU32(env("IMPACT_ANDERSON",float(s.andersonDepth)));
+    s.cappedElastic=env("IMPACT_CAPPED_ELASTIC",std::getenv("IMPACT_DUMP")?1.0f:0.0f)!=0.0f;
     const PxU32 n=h.n,m=h.m;
     impact::Inputs in{};in.chunkCount=n;in.bondCount=m;
     in.chunks=upload(f.read<PxDestructionStressChunk>(n));in.bonds=upload(f.read<PxDestructionStressBond>(m));
@@ -163,6 +175,35 @@ int run(int argc,char** argv){
                 std::printf("  impulse on the struck chunks (all rows): (%.4g %.4g %.4g) N s; the impactor (%.0f kg) closing (%.2f %.2f %.2f) m/s: its momentum %.4g N s\n",
                     total.x,total.y,total.z,M,hostRows[0].velocity[0],hostRows[0].velocity[1],hostRows[0].velocity[2],
                     M*PxVec3(hostRows[0].velocity[0],hostRows[0].velocity[1],hostRows[0].velocity[2]).magnitude());
+            }
+        }
+        if(!r && std::getenv("IMPACT_DUMP")) {
+            PxU32 islands=0;check(cudaMemcpy(&islands,e.w.counters,4,cudaMemcpyDeviceToHost));
+            std::vector<impact::IslandState> states(islands);if(islands)check(cudaMemcpy(states.data(),e.w.state,sizeof(states[0])*islands,cudaMemcpyDeviceToHost));
+            for(const auto& is:states) {
+                if(!is.capped)continue;
+                const impact::Island I=is.is;const PxU32 nl=I.nb+I.nr,nn=I.nc+I.ni;
+                std::vector<impact::Bond> bl(nl);check(cudaMemcpy(bl.data(),e.w.bonds+I.b0,sizeof(bl[0])*nl,cudaMemcpyDeviceToHost));
+                std::vector<impact::Chunk> ch(nn);check(cudaMemcpy(ch.data(),e.w.chunks+I.c0,sizeof(ch[0])*nn,cudaMemcpyDeviceToHost));
+                std::vector<float> J(6*size_t(nl)),T(6*size_t(nl)),B(72*size_t(nl));
+                check(cudaMemcpy(J.data(),e.w.J+6*size_t(I.b0),sizeof(float)*J.size(),cudaMemcpyDeviceToHost));
+                check(cudaMemcpy(T.data(),e.w.T+6*size_t(I.b0),sizeof(float)*T.size(),cudaMemcpyDeviceToHost));
+                float* dB;allocate(dB,B.size());wrenchBlocks<<<(nl+127)/128,128>>>(e.w,I,dB);check(cudaDeviceSynchronize());
+                check(cudaMemcpy(B.data(),dB,sizeof(float)*B.size(),cudaMemcpyDeviceToHost));cudaFree(dB);
+                const float lambda=is.cappedLambda;
+                char path[1024];std::snprintf(path,sizeof path,"%s-island%u.bin",std::getenv("IMPACT_DUMP"),is.island);
+                FILE* o=std::fopen(path,"wb");if(!o)throw std::runtime_error("cannot write the dump");
+                const PxU32 head[4]={nn,nl,I.nb,I.nr};std::fwrite(head,4,4,o);
+                const float fh[4]={s.dt,lambda,s.capacityBand,s.capacityTolerance};std::fwrite(fh,4,4,o);
+                for(const auto& c:ch){const PxU32 u[2]={c.chunk,c.tensor};std::fwrite(u,4,2,o);
+                    float f[14]={c.im,c.ii};for(int q=0;q<6;++q){f[2+q]=c.Iinv[q];f[8+q]=(1.0f-lambda)*c.pb[q]+lambda*c.pf[q]-c.r[q];}std::fwrite(f,4,14,o);}
+                for(PxU32 l=0;l<nl;++l){const auto& b=bl[l];const PxU32 u[4]={b.bond,b.c0,b.c1,b.flags};std::fwrite(u,4,4,o);
+                    const float mu=(b.flags&impact::eCONTACT)?hostRows[b.bond].friction:0.0f;
+                    const float f[14]={b.capC,b.capT,b.capS,b.gb,b.gt,b.g0,b.g1,b.h0,b.h1,b.kl,b.kt,b.k0,b.k1,mu};std::fwrite(f,4,14,o);
+                    std::fwrite(&J[6*l],4,6,o);std::fwrite(&T[6*l],4,6,o);std::fwrite(&B[72*l],4,72,o);}
+                std::fclose(o);
+                std::printf("  dumped island %u (%u nodes, %u links: %u joints, %u contacts) at its capped level lambda %.4g (last converged %.4g) to %s\n",
+                    is.island,nn,nl,I.nb,I.nr,lambda,is.snapLambda,path);
             }
         }
         std::printf("%s: %u chunks, %u bonds, %u rows; %u islands, %u solves, %u iterations (%u capped), %u rounds; broke %u, yielded %u; %u contacts, %u impactors; %u diverged (worst bond %d), %u infeasible, %u non-finite, %u energy gains; error %u; %.1f ms in %u dispatches (longest %.1f ms)\n",

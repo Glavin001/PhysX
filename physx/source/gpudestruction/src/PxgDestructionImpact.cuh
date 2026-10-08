@@ -1258,6 +1258,7 @@ enum Phase : PxU32 { eTRIAL=0, eSOLVE=1, ePOST=2, ePUBLISH=3, eDONE=4 };
 struct IslandState {
     Island is;PxU32 island,phase,level,rounds,broken,plastic,failed,capped,clipped,total;
     float first,previous,lambda,snapLambda;SolveState solve;
+    float cappedLambda;   // the load level of the solve that capped (diagnostics)
 };
 
 // Setup: members, links, nodes, the ramp's start and first event.
@@ -1570,7 +1571,7 @@ __global__ __launch_bounds__(kThreads) void stepIslands(Inputs in,Settings s,Scr
                     // The evaluation reports itself unconverged (Status::capped).
                     for(PxU32 k2=threadIdx.x;k2<links(is);k2+=kThreads)for(int q=0;q<6;++q)w.J[6*(is.b0+k2)+q]=w.Js[6*(is.b0+k2)+q];
                     __syncthreads();
-                    st.capped=1;st.lambda=st.snapLambda;st.phase=ePUBLISH;
+                    st.capped=1;st.cappedLambda=st.lambda;st.lambda=st.snapLambda;st.phase=ePUBLISH;
                 } else st.phase=ePOST;
             }
             if(st.phase==ePOST) {
