@@ -71,7 +71,10 @@ int run(int argc,char** argv)
     if(argc<2){std::fprintf(stderr,"usage: %s PREFIX\n",argv[0]);return 2;}
     const std::string prefix=argv[1];
     const auto d=slurp(prefix+".bin");Reader r{d};
-    if(std::memcmp(d.data(),"DSEQ",4))throw std::runtime_error("not a dynamic-sequence problem");r.off=4;
+    // 'DSE2' (an engine patch, structures/town-kit/scripts/sequence-compare.py --replay): per joint
+    // after J0 also its ultimate slip (0 brittle; flags 8 ductile), mu, the shear cap and its area.
+    const bool v2=!std::memcmp(d.data(),"DSE2",4);
+    if(std::memcmp(d.data(),"DSEQ",4) && !v2)throw std::runtime_error("not a dynamic-sequence problem");r.off=4;
     const PxU32 nn=r.get<PxU32>(),nl=r.get<PxU32>();const float T=r.get<float>(),h=r.get<float>(),band=r.get<float>(),mu=r.get<float>();
     if(nn>impact::kExNodes || nl>impact::kExLinks)throw std::runtime_error("problem larger than a patch");
     std::vector<impact::ExNode> nodes(impact::kExNodes);std::vector<float> load(6*size_t(impact::kExNodes),0.0f);
@@ -91,6 +94,11 @@ int run(int argc,char** argv)
         x.state=impact::eEX_LIVE|((flags&4u)?impact::eEX_BEARING:0u);bearing+=(flags&4u)?1u:0u;
         damp[8*size_t(l)+6]=r.get<float>();
         r.floats(x.J0,6);for(int q=0;q<6;++q)x.J[q]=x.J0[q];x.limit=0.0f;x.slip=0.0f;x.brokeAt=-1.0f;
+        if(v2) {
+            const float limit=r.get<float>();b.mu=r.get<float>();b.capSx=r.get<float>();b.area=r.get<float>();
+            if((flags&8u) && limit>0.0f){b.flags|=impact::eDUCTILE;b.slip=limit;x.limit=limit;x.state|=impact::eEX_DUCTILE;}
+            if(b.mu>0.0f)x.state|=impact::eEX_FRICTION;
+        }
         bonds[l]=b;links[l]=x;
     }
     if(r.off!=d.size())throw std::runtime_error("problem size mismatch");
@@ -138,6 +146,15 @@ int run(int argc,char** argv)
         "KE %.4g -> %.4g J; dissipated %.4g J (fracture %.4g, slip %.4g, dashpots %.4g) of %.4g J it had (KE %.4g, elastic %.4g, the loads' work %.4g)%s\n",
         nn,nl,bearing,p.h*1e6f,p.substeps,T,ms,launches,longest,1e3*ms/std::max(1u,p.substeps),p.events,broken.size(),p.crushedContacts,p.seatLost,p.converted,contacts,
         p.keStart,ke,dissipated,p.fracture,p.slipWork,p.dashWork,had,p.keStart,p.u0,p.extWork,deficit?"; SEQUENCE ENERGY (dissipated more than it had)":"");
+    // DYNAMIC_VOUT=PATH: each node's final velocity (6 floats), and each joint's final state, J
+    // and contact slip (state u32, J 6, slip 2 floats) after them -- diagnostics.
+    if(const char* vo=std::getenv("DYNAMIC_VOUT")) {
+        FILE* f=std::fopen(vo,"wb");
+        if(f){for(const auto& n:nout)std::fwrite(n.v,sizeof(float),6,f);
+            std::vector<float> cs(2*size_t(impact::kExLinks));check(cudaMemcpy(cs.data(),t.cslip,sizeof(float)*cs.size(),cudaMemcpyDeviceToHost));
+            for(PxU32 l=0;l<nl;++l){std::fwrite(&out[l].state,sizeof(PxU32),1,f);std::fwrite(out[l].J,sizeof(float),6,f);std::fwrite(&cs[2*l],sizeof(float),2,f);}
+            std::fclose(f);}
+    }
     std::ifstream e(prefix+".expected");PxU32 count=0;e>>count;std::map<PxU32,float> want;
     for(PxU32 i=0;i<count;++i){PxU32 l;float tm;std::string kind;e>>l>>tm>>kind;want[l]=tm;}
     float wfirst=FLT_MAX;for(const auto& x:want)wfirst=std::min(wfirst,x.second);

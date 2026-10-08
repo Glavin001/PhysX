@@ -131,12 +131,19 @@ __global__ void seqThaw(impact::Inputs in,impact::Settings s,const PxU32* persis
     const PxU32 island=in.bondIslands[i];if(island>=in.chunkCount || !frozen[island])return;
     impact::Bond b;
     if(!impact::bondMember(in,i) || !impact::prepareBond(in,s,i,b)){thaw[island]=1u;return;}
-    float x[6];impact::toLocal(b,seqCarried(frozenForce[i],in.elastic[i],freezeElastic[i]),x);
+    float x[6],xf[6];impact::toLocal(b,seqCarried(frozenForce[i],in.elastic[i],freezeElastic[i]),x);impact::toLocal(b,frozenForce[i],xf);
     const float band=s.capacityBand;bool event;
     if(persistedBond[i]&2u) {
-        const float C=-x[0],V=sqrtf(x[1]*x[1]+x[2]*x[2]),T=fabsf(x[3]);
-        const float bend=b.g0>0.0f?b.g0*fabsf(x[4])+b.g1*fabsf(x[5]):b.gb*sqrtf(x[4]*x[4]+x[5]*x[5]);
-        event=!(C>0.0f) || V+b.gt*T>impact::exContactMu(b,s.dynamicFriction)*C || bend+C>=(1.0f-band)*b.capC;
+        // A contact: it opens or closes (its state's normal crosses zero), or, closed, slides or crushes.
+        const bool open=!(x[0]<0.0f);
+        if(open!=!(xf[0]<0.0f))event=true;
+        else if(open)event=false;
+        else {
+            const float C=-x[0],V=sqrtf(x[1]*x[1]+x[2]*x[2]),T=fabsf(x[3]);
+            float F[6];impact::exContactForce(b,x,impact::exContactMu(b,s.dynamicFriction),F);
+            const float bend=b.g0>0.0f?b.g0*fabsf(F[4])+b.g1*fabsf(F[5]):b.gb*sqrtf(F[4]*F[4]+F[5]*F[5]);
+            event=V+b.gt*T>impact::exContactMu(b,s.dynamicFriction)*C || bend+C>=(1.0f-band)*b.capC;
+        }
     } else event=impact::utilisation(b,x)>=1.0f-band;
     if(event)thaw[island]=1u;
 }
@@ -148,7 +155,7 @@ __global__ void seqResolveFrozen(const PxU32* frozen,const PxU32* thaw,PxU32 cou
 }
 // 1g. A held frozen island: its carried forces stand (the impact view, its contacts held),
 // and its state carries over to the next tick.
-__global__ void seqHoldFrozenBonds(const PxU32* bondIslands,const PxU32* frozen,const PxU32* thaw,const PxU32* persistedBond,
+__global__ void seqHoldFrozenBonds(impact::Inputs in,impact::Settings s,const PxU32* bondIslands,const PxU32* frozen,const PxU32* thaw,const PxU32* persistedBond,
     const PxDestructionVectorPair* elastic,const PxDestructionVectorPair* frozenForce,const PxDestructionVectorPair* freezeElastic,
     const float* J,const float* slip,PxU32* bondNext,float* Jn,float* slipNext,PxDestructionVectorPair* forces,PxU32* verdict,PxU32* hold,PxU32 count,PxU32 islands)
 {
@@ -156,6 +163,12 @@ __global__ void seqHoldFrozenBonds(const PxU32* bondIslands,const PxU32* frozen,
     const PxU32 island=bondIslands[i];if(island>=islands || !frozen[island] || thaw[island])return;
     const PxU32 st=persistedBond[i];if(!(st&1u))return;
     forces[i]=(st&4u)?seqCarried(frozenForce[i],elastic[i],freezeElastic[i]):elastic[i];verdict[i]=impact::eHELD;hold[i]=(st&2u)?1u:0u;
+    // (a contact transmits its state's projection: nothing while open)
+    impact::Bond b;
+    if((st&2u) && impact::prepareBond(in,s,i,b)) {
+        float x[6],F[6],lin[3],ang[3];impact::toLocal(b,forces[i],x);impact::exContactForce(b,x,impact::exContactMu(b,s.dynamicFriction),F);
+        impact::toSolver(b,F,lin,ang);forces[i].linear=PxVec3(lin[0],lin[1],lin[2]);forces[i].angular=PxVec3(ang[0],ang[1],ang[2]);
+    }
     bondNext[i]=st;for(int q=0;q<6;++q)Jn[6*size_t(i)+q]=J[6*size_t(i)+q];slipNext[2*size_t(i)]=slip[2*size_t(i)];slipNext[2*size_t(i)+1]=slip[2*size_t(i)+1];
 }
 __global__ void seqHoldFrozenChunks(const PxU32* nodeIslands,const PxU32* frozen,const PxU32* thaw,const PxU32* chunk,const float* v,const float* quiet,const float* period,
