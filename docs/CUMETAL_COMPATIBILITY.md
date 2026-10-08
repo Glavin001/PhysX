@@ -54,6 +54,17 @@ Build it with `build-tool.sh tests/tools/cumetal_lambda_capture_repro.cu`.
 pointer or array whose pointee is private. Pass it as an argument, or capture
 the pointer by value.
 
+## Known emission bug: `--1.0` from negating a product with the constant -1 (2026-10-08)
+
+`-sign * k * x` inlined with `sign` the constant `-1` is emitted as `v = --1.0;`
+in the generated Metal. `xcrun metal` rejects it ("expression is not
+assignable"), so the build fails; nothing runs wrong. CuMetal `e1a12f7`.
+
+- **Reproducer:** `physx/source/gpudestruction/tests/tools/cumetal_negconst_repro.cu`.
+  Its build fails while the bug is present.
+- **Workaround:** fold the sign into a written-out constant instead of negating
+  it. The explicit step's `exBlock` uses `-O_f` as its own table.
+
 ## vibe-land's rigid feature set on Metal (2026-09-23)
 
 vibe-land's GPU scene (PGS, PCM, stabilization) uses static boxes and a
