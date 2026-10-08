@@ -296,6 +296,10 @@ struct Settings {
     // The re-bearing contacts' friction: kRebearingTimberFriction (EN 1995-2:2004
     // Table 6.2, sawn softwood parallel to the grain), as the static law's.
     float dynamicFriction=0.23f;
+    // Diagnostics only (PX_DESTRUCTION_SEQUENCE_DIAG, a bit mask; 0 in every profile):
+    // 1 no exSequenceSplit, 2 no corrected-pass dynamic patches, 4 dynamic patches start at
+    // rest (no persisted velocities).
+    PxU32 sequenceDiag=0;
 };
 // A solve is diverging when, past its first rho rebalance (25 steps), a
 // joint's split |J - Z| exceeds kDivergence times the joint's capacity: the
@@ -2175,7 +2179,7 @@ struct Stage {
         explicitPatches.resize(count);
         if(!count){explicitRunMs=0.0;return;}
         explicitRunMs=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-built).count();
-        if(s.dynamicSequence)exSequenceSplit<<<kExPatches,kThreads,0,stream>>>(s,x);
+        if(s.dynamicSequence && !(s.sequenceDiag&1u))exSequenceSplit<<<kExPatches,kThreads,0,stream>>>(s,x);
         exPublishIsland<<<64,kThreads,0,stream>>>(in,w,x);
         exPublish<<<dim3(16,count),kThreads,0,stream>>>(in,s,w,x);
         if(s.dynamicSequence){exSequencePeriod<<<kExPatches,kThreads,0,stream>>>(s,x);exPublishDynamic<<<dim3(16,count),kThreads,0,stream>>>(in,s,w,x);exSequenceBooks<<<1,kExPatches,0,stream>>>(w,x);}

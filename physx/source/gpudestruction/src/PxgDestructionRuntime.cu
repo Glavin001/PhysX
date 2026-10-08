@@ -2335,6 +2335,7 @@ public:
                         mImpactSettings.dynamicSequence=1u;
                         const char* z=std::getenv("PX_DESTRUCTION_DYNAMIC_DAMPING");if(z && *z)mImpactSettings.dynamicDamping=float(std::atof(z));
                         mImpactSettings.dynamicFriction=mRebearingFriction;
+                        const char* g=std::getenv("PX_DESTRUCTION_SEQUENCE_DIAG");if(g && *g){mImpactSettings.sequenceDiag=PxU32(std::atoi(g));std::fprintf(stderr,"[sequence] diagnostics %u\n",mImpactSettings.sequenceDiag);}
                     }
                 }
             }
@@ -2878,7 +2879,7 @@ public:
                 // (the first frame has no accepted equilibrium to start a dynamic patch from: its static verdict stands)
                 if(mSeq.enabled && !mPass && impactRan && mM && forces && mFrame>1)runDynamicSequence(impactIn,impactSettings,impactView,forces,dt);
                 else if(mSeq.enabled && !mPass && mM && forces)check(cudaMemcpyAsync(mSeq.trialForces[mSeq.cur^1u],forces,sizeof(*forces)*mM,cudaMemcpyDeviceToDevice,mStream));
-                if(mSeq.enabled && mPass && impactRan && mM && forces && mFrame>1)runDynamicSequence(impactIn,impactSettings,impactView,forces,dt,true);
+                if(mSeq.enabled && mPass && impactRan && mM && forces && mFrame>1 && !(mImpactSettings.sequenceDiag&2u))runDynamicSequence(impactIn,impactSettings,impactView,forces,dt,true);
                 if(!mPass && mM)while(mRemovalNext<mRemovals.size() && mRemovals[mRemovalNext].first<=mFrame) {
                     const auto& r=mRemovals[mRemovalNext++];if(r.second.empty())continue;
                     cudaFree(mRemovalBonds);mRemovalBonds=nullptr;allocate(mRemovalBonds,r.second.size());
@@ -3034,7 +3035,7 @@ public:
         seqKeep<<<(mN+127)/128,128,0,mStream>>>(stress.nodeIslands,mSeq.startChunks(),mImpact.w.islandFlag,mN,mSeq.run);
         } else seqTrigger<<<(mM+127)/128,128,0,mStream>>>(mBonds,mHealth,mVerdicts,mRebearing?mBearState:nullptr,mRebearing?mBearTrial:nullptr,
             stress.bondIslands,mImpact.w.islandFlag,nullptr,mM,mN,mSeq.run,mSeq.breaks,mSeq.seed);
-        mSeq.bind(mImpact.x);mImpact.x.seqIsland=mSeq.run;
+        mSeq.bind(mImpact.x);mImpact.x.seqIsland=mSeq.run;mImpact.x.seqAtRest=(mImpactSettings.sequenceDiag&4u)?1u:0u;
         // In rounds of kExPatches islands until every dynamic island has had its window
         // (an island past the slots would otherwise keep the snapshot's verdict).
         PxU32 overflow=0,rounds=0;

@@ -172,7 +172,7 @@ struct ExScratch {
     // row patches of those islands dynamic. Per chunk: 1 a seed (seqSeed: a chunk
     // of a joint whose verdict changed, or of the island's persisted state).
     const PxU32* seqIsland{};
-    PxU32 seqCreate=0;
+    PxU32 seqCreate=0;PxU32 seqAtRest=0;   // (seqAtRest: Settings::sequenceDiag 4)
     const PxU32* seqSeed{};
     // The persisted state, start (committed at the tick's start) and next (this
     // pass's): per chunk bit 0 dynamic, its velocity (its cluster's frame); per bond
@@ -577,7 +577,7 @@ __device__ PxU32 exBuildDynamicSeeds(const Inputs& in,const ExScratch& t,Shared&
 // turns it into the residual p + B J0).
 __device__ void exDynamicNode(const Inputs& in,const ExScratch& t,PxU32 p,PxU32 k,PxU32 i,ExNode& n)
 {
-    if(t.pChunk && (t.pChunk[i]&1u))for(int q=0;q<6;++q)n.v[q]=t.pV[6*size_t(i)+q];
+    if(t.pChunk && (t.pChunk[i]&1u) && !t.seqAtRest)for(int q=0;q<6;++q)n.v[q]=t.pV[6*size_t(i)+q];
     const auto c=in.chunks[i];const auto a=in.accelerations[i];float* f=t.dynLoad+(size_t(p)*kExNodes+k)*6;
     f[0]=a.linear.x*c.mass;f[1]=a.linear.y*c.mass;f[2]=a.linear.z*c.mass;
     f[3]=-a.angular.x*c.inertia;f[4]=-a.angular.y*c.inertia;f[5]=-a.angular.z*c.inertia;
