@@ -345,6 +345,9 @@ struct Status {
     // impactors' kinetic energy loss plus the elastic energy the patch held at
     // the start (energy from nowhere: a bug signal).
     PxU32 energyDeficit;
+    // Settings::compliant, the window's own geometry: an impactor's centre ending inside a chunk
+    // neither crushed through nor freed (exPublish's ghost check; a bug signal, must be 0).
+    PxU32 passedIntact;
 };
 // Optional per-solve record (diagnostics): the first kLogCapacity solves.
 struct SolveRecord { PxU32 island,level,iterations,broken,clipped,capped,links,nodes; float lambda,change,rho,pad; };
@@ -1455,16 +1458,22 @@ __device__ bool routeImpact(const Inputs& in,const Settings& s,const ContactRow&
     const float vn=fmaxf(0.0f,dot3(vp,n));
     float push[3]={n[0],n[1],n[2]};
     if(mirrored){const PxVec3 r=PxQuat(row.otherPose[0],row.otherPose[1],row.otherPose[2],row.otherPose[3]).getConjugate().rotate(PxVec3(-n[0],-n[1],-n[2]));push[0]=r.x;push[1]=r.y;push[2]=r.z;}
-    float k=0.0f,cap=FLT_MAX;
+    // The load at which the chunk's first joint fails: the joints share a push on the
+    // chunk as parallel springs (the chunk translating along it: each takes k_j / sum k of
+    // it), so joint j fails at its capacity along the push over its share; the first of
+    // them, min_j f_j sum k / k_j (n f for n equal joints; one joint carrying it all, the
+    // weakest's f, overstated the impacts by about n).
+    float k=0.0f,ratio=FLT_MAX;
     for(PxU32 slot=in.nodeBegin[chunk];slot<in.nodeBegin[chunk+1];++slot) {
         const PxU32 i=in.nodeRefs[slot];if(!bondMember(in,i))continue;
         Bond b;if(!prepareBond(in,s,i,b))continue;
         k+=b.kl;
         const float a=(b.c0==chunk?1.0f:-1.0f)*dot3(b.n,push),t=sqrtf(fmaxf(0.0f,1.0f-a*a));
         float f=FLT_MAX;if(fabsf(a)>0.0f)f=(a>0.0f?b.capC:b.capT)/fabsf(a);if(t>0.0f)f=fminf(f,b.capS/t);
-        cap=fminf(cap,f);
+        if(b.kl>0.0f)ratio=fminf(ratio,f/b.kl);
     }
     if(!(k>0.0f))return false;   // no joint: a free chunk, the rigid simulation's own
+    const float cap=ratio<FLT_MAX?ratio*k:FLT_MAX;
     const PxU32 other=mirrored?row.chunk:row.other;
     const float Ea=chunkModulus(in,s,chunk),Eb=(other<in.chunkCount)?chunkModulus(in,s,other):0.0f;
     float Va=in.chunks[chunk].volume;if(other<in.chunkCount && in.chunks[other].volume>0.0f)Va=fminf(Va,in.chunks[other].volume);
@@ -2226,8 +2235,8 @@ struct Stage {
         if(stepLog){check(cudaMemcpyAsync(explicitPatches.data(),x.patches,sizeof(ExPatch)*count,cudaMemcpyDeviceToHost,stream));check(cudaStreamSynchronize(stream));}
         if(stepLog)std::fprintf(stderr,"[impact]   explicit: %u patches; build %.2f ms, window %.2f ms in %u launches\n",count,explicitBuildMs,explicitRunMs,dispatches);
         if(stepLog)for(PxU32 p=0;p<count;++p){const ExPatch& q=explicitPatches[p];
-            std::fprintf(stderr,"[impact]   explicit patch %u: island %u, %u nodes (%u chunks, %.2f m%s), %u joints, %u contact rows, %u impactors; %u substeps of %.1f us (omega %.3g rad/s; at its end %u contacts pushing, %u joints at an event); broke %u, yielded %u%s; impactors' KE %.6g -> %.6g J, held %.4g J, dead load %.4g J; fracture %.4g J, plastic %.4g J, crush %.4g J (%u chunks through)\n",
-                p,q.island,q.nodes,q.chunks,q.radius,q.truncated?", shrunk":"",q.links,q.rows,q.impactors,q.substeps,q.h*1e6f,q.omega,q.pushing,q.near,q.broken,q.yielded,q.failed?" (FAILED)":"",q.keIn,q.keOut,q.u0,q.dead,q.fracture,q.plastic,q.crushWork,q.crushedThrough);}
+            std::fprintf(stderr,"[impact]   explicit patch %u: island %u, %u nodes (%u chunks, %.2f m%s), %u joints, %u contact rows, %u impactors; %u substeps of %.1f us (omega %.3g rad/s; at its end %u contacts pushing, %u joints at an event); broke %u, yielded %u%s; impactors' KE %.6g -> %.6g J, held %.4g J, dead load %.4g J; fracture %.4g J, plastic %.4g J, crush %.4g J (%u chunks through); %u swept rows, refresh every %u substeps; passed intact %u\n",
+                p,q.island,q.nodes,q.chunks,q.radius,q.truncated?", shrunk":"",q.links,q.rows,q.impactors,q.substeps,q.h*1e6f,q.omega,q.pushing,q.near,q.broken,q.yielded,q.failed?" (FAILED)":"",q.keIn,q.keOut,q.u0,q.dead,q.fracture,q.plastic,q.crushWork,q.crushedThrough,q.swept,q.refreshEvery,q.passedIntact);}
     }
     void releaseStep() {
         if(!stepAllocated)return;

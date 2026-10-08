@@ -483,7 +483,7 @@ int run(int argc,char** argv){
             std::vector<PxDestructionCrushState> cr(n);check(cudaMemcpy(cr.data(),crushOut,sizeof(cr[0])*n,cudaMemcpyDeviceToHost));
             PxU32 through=0,partial=0;for(const auto& c:cr){through+=c.crushed?1u:0u;partial+=(!c.crushed && c.damage>0.0f)?1u:0u;}
             PxU32 counted=0;check(cudaMemcpy(&counted,crushedCount,4,cudaMemcpyDeviceToHost));
-            std::printf("compliant: %u chunks crushed (%u through in the window), %u partly; energy deficit %u\n",through,counted,partial,st.energyDeficit);
+            std::printf("compliant: %u chunks crushed (%u through in the window), %u partly; energy deficit %u; passed intact %u\n",through,counted,partial,st.energyDeficit,st.passedIntact);
         }
         std::printf("%s: %u chunks, %u bonds, %u rows; %u islands, %u solves, %u iterations (%u capped), %u rounds; broke %u, yielded %u; %u contacts, %u impactors; %u diverged (worst bond %d), %u infeasible, %u non-finite, %u energy gains; error %u; %.1f ms in %u dispatches (longest %.1f ms)\n",
             argv[1],n,m,h.rows,st.triggered,st.solves,st.iterations,st.capped,st.rounds,st.broken,st.yielded,st.contacts,st.impactors,st.diverged,int(st.worstBond)-1,st.infeasible,st.nonfinite,st.energyGain,st.error,ms,e.dispatches,e.longestDispatch);

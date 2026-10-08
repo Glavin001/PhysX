@@ -1192,7 +1192,7 @@ class Runtime final : public PxgDestructionRuntime {
     // the chunks of routed rows (Ci leaves them to the window), the windows' chunk end
     // velocities (world) and their mask, the bonds the windows decided this tick, and
     // the per-root sums of the fragments' hand-off (PxgDestructionHandoff.cuh).
-    PxU32* mRoutedChunks{};float4* mWindowV{};PxU32* mWindowMask{};PxU32* mWindowDecided{};float4* mHandoffSums{};bool mCompliant=false;
+    PxU32* mRoutedChunks{};float4* mWindowV{};PxU32* mWindowMask{};PxU32* mWindowDecided{};float4* mHandoffSums{};bool mCompliant=false;std::vector<PxU32> mHandoffLog;
     PxDestructionChunkBox* mChunkBoxes{};   // PxDestructionStressDesc::chunkBoxes (the step's contact geometry), or null
     // Per rigid body (motion storage capacity): the corrected pass's bound on
     // its contacts (max impulse per point; bits of a float), its own max
@@ -2560,6 +2560,11 @@ public:
             check(cudaStreamWaitEvent(mStream,mInput,0));
             // The last corrected pass's contact bounds end with it.
             restoreImpactBounds(bodyStates);
+            if(!mPass && mCompliant && mImpactLog && !mHandoffLog.empty()) {
+                for(PxU32 b:mHandoffLog){PxgBodySim x;check(cudaMemcpy(&x,bodyStates+b,sizeof x,cudaMemcpyDeviceToHost));const auto v=x.linearVelocityXYZ_inverseMassW;
+                    std::fprintf(stderr,"[impact] after the corrected pass: body %u v (%.2f %.2f %.2f) |v| %.2f (world)\n",b,v.x,v.y,v.z,std::sqrt(v.x*v.x+v.y*v.y+v.z*v.z));}
+                mHandoffLog.clear();
+            }
             if(mTopology) {
                 check(mMotionAllocation.setStorage(storage,mStream));
                 check(mMotionAllocation.setNodes(mPreNodes,mPreRegistryCapacity,mStream));
@@ -2830,6 +2835,7 @@ public:
                         if(e.diverged)std::fprintf(stderr,"[impact] DIVERGED: %u solves (a bug signal); worst split at bond %u\n",e.diverged,e.worstBond-1u);
                         if(e.nonfinite)std::fprintf(stderr,"[impact] NON-FINITE: %u solves stopped on a non-finite residual (a bug signal); at bond %u\n",e.nonfinite,e.worstBond-1u);
                         if(e.infeasible)std::fprintf(stderr,"[impact] INFEASIBLE PROJECTIONS: %u (a bug signal)\n",e.infeasible);
+                        if(e.passedIntact)std::fprintf(stderr,"[impact] PASSED INTACT: %u rows whose impactor ended inside a chunk it neither crushed nor freed (a bug signal)\n",e.passedIntact);
                         if(e.energyDeficit)std::fprintf(stderr,"[impact] ENERGY DEFICIT: %u explicit patches dissipated more than their impactors and joints held (a bug signal)\n",e.energyDeficit);
                     }
                 }
@@ -3009,6 +3015,15 @@ public:
         if(mCompliant && mImpact.x.handoff && mImpact.x.handoffCount)
             applyWindowImpactors<<<(impact::kExHandoffs+127)/128,128,0,mStream>>>(mImpact.x.handoff,mImpact.x.handoffCount,mImpact.x.patches,
                 mChunks,mN,mPoses,mCheckpointBodies,mCheckpointHasPrevious?mCheckpointPrevious:nullptr,mCheckpointCount);
+        // (diagnostics: the hand-off as applied, and what the corrected pass made of it at the next tick's start)
+        if(mCompliant && mImpactLog && mImpact.x.handoff && mImpact.x.handoffCount) {
+            PxU32 n=0;check(cudaMemcpyAsync(&n,mImpact.x.handoffCount,sizeof n,cudaMemcpyDeviceToHost,mStream));check(cudaStreamSynchronize(mStream));
+            n=std::min(n,impact::kExHandoffs);std::vector<impact::ExScratch::Handoff> h(n);
+            if(n)check(cudaMemcpy(h.data(),mImpact.x.handoff,sizeof(h[0])*n,cudaMemcpyDeviceToHost));
+            mHandoffLog.clear();
+            for(const auto& r:h){std::fprintf(stderr,"[impact] hand-off: body %u patch %u dropped %u v (%.2f %.2f %.2f) |v| %.2f (struck frame)\n",r.body,r.patch,r.pad,r.v[0],r.v[1],r.v[2],std::sqrt(r.v[0]*r.v[0]+r.v[1]*r.v[1]+r.v[2]*r.v[2]));
+                if(r.pad && r.body<mCheckpointCount)mHandoffLog.push_back(r.body);}
+        }
         check(cudaEventRecord(mCheckpointReady,mStream));
         if(mImpactLog) {
             PxDestructionStageStatus st{};PxU32 rows=0;check(cudaMemcpyAsync(&st,mStatus,sizeof st,cudaMemcpyDeviceToHost,mStream));
