@@ -101,7 +101,8 @@ int run(int argc,char** argv)
             const float limit=r.get<float>();b.mu=r.get<float>();b.capSx=r.get<float>();b.area=r.get<float>();
             if((flags&8u) && limit>0.0f){b.flags|=impact::eDUCTILE;b.slip=limit;x.limit=limit;x.state|=impact::eEX_DUCTILE;}
             if(b.mu>0.0f)x.state|=impact::eEX_FRICTION;
-            if(flags&16u){x.state|=impact::eEX_CONTACT;if(!(x.J0[0]<0.0f))x.state|=impact::eEX_OPEN;}   // (a contact at the start)
+            if(flags&16u){x.state|=impact::eEX_CONTACT;if(!(x.J0[0]<0.0f))x.state|=impact::eEX_OPEN;   // (a contact at the start:
+                float F[6];impact::exContactForce(b,x.J,impact::exContactMu(b,mu),F);for(int q=0;q<6;++q)x.J0[q]=F[q];}   // its reference what it transmits, exDynamicLink's)
             if(v3)x.slip=r.get<float>();   // (its ductile slip so far)
         }
         bonds[l]=b;links[l]=x;
@@ -146,6 +147,16 @@ int run(int argc,char** argv)
         if(small)impact::exRunSmall<<<1,impact::kExThreads>>>(s,w,t,budget);else impact::exRun<<<1,impact::kExThreads>>>(s,w,t,budget);
         check(cudaMemcpy(&p,t.patches,sizeof p,cudaMemcpyDeviceToHost));check(cudaGetLastError());++launches;
         longest=std::max(longest,std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-l0).count());
+        if(std::getenv("DYNAMIC_TRACE")) {   // (diagnostics: per launch, KE and the first joints' state and J)
+            std::vector<impact::ExNode> nt(nn);check(cudaMemcpy(nt.data(),t.nodes,sizeof(nt[0])*nn,cudaMemcpyDeviceToHost));
+            std::vector<impact::ExLink> lt(std::min<PxU32>(nl,4));check(cudaMemcpy(lt.data(),t.links,sizeof(lt[0])*lt.size(),cudaMemcpyDeviceToHost));
+            double k=0.0;for(const auto& n:nt){const double m=n.im>0.0f?1.0/n.im:0.0;for(int q=0;q<3;++q)k+=0.5*m*double(n.v[q])*n.v[q]+(n.Iinv[q]>0.0f?0.5/n.Iinv[q]*double(n.v[3+q])*n.v[3+q]:0.0);}
+            std::printf("  substep %u: KE %.5g J; v0 (%.3g %.3g %.3g | %.3g %.3g %.3g)",p.substeps,k,nt[0].v[0],nt[0].v[1],nt[0].v[2],nt[0].v[3],nt[0].v[4],nt[0].v[5]);
+            std::vector<float4> q(impact::kExJoint*lt.size());check(cudaMemcpy(q.data(),t.jp,sizeof(float4)*q.size(),cudaMemcpyDeviceToHost));
+            for(size_t l=0;l<lt.size();++l){const float4 a=q[impact::kExJoint*l+9],b=q[impact::kExJoint*l+10];
+                PxU32 st;std::memcpy(&st,&b.z,4);std::printf("; joint %zu state %u J (%.4g %.4g %.4g %.4g %.4g %.4g)",l,st,a.x,a.y,a.z,a.w,b.x,b.y);}
+            std::printf("\n");
+        }
         if(p.done)break;
     }
     const double ms=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-t0).count();
