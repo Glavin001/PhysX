@@ -177,3 +177,33 @@ function(px_destruction_finalize_gpu_targets)
         set_property(TEST ${test} PROPERTY RUN_SERIAL TRUE)
     endforeach()
 endfunction()
+
+# Tests the CuMetal backend cannot lower or run. They are registered as
+# DISABLED (ctest prints "Not Run (Disabled)", never a silent pass) and carry
+# the "cumetal-unsupported" label; the reason is printed at configure time.
+# Call in the directory that registered the tests. CUDA runs them unchanged.
+function(px_destruction_cumetal_unsupported_tests reason)
+    if(NOT PX_GPU_BACKEND STREQUAL "CUMETAL")
+        return()
+    endif()
+    set_tests_properties(${ARGN} PROPERTIES DISABLED TRUE)
+    foreach(test IN LISTS ARGN)
+        set_property(TEST ${test} APPEND PROPERTY LABELS "cumetal-unsupported")
+    endforeach()
+    list(JOIN ARGN ", " names)
+    message(STATUS "CuMetal: disabled ${names}: ${reason}")
+endfunction()
+
+# The destruction ctest subset: GPU stress (blast_stress_gpu_*, *_gpu), native
+# stage (physx_native_*, physx_persistent_shape_owner*) and gpudestruction
+# (destruction_gpu_*). Adds the "destruction" label to every test registered in
+# the calling directory whose name matches. Run with `ctest -L destruction`.
+function(px_destruction_label_tests)
+    get_property(tests DIRECTORY PROPERTY TESTS)
+    foreach(test IN LISTS tests)
+        if(test MATCHES "^(blast_stress_gpu_|blast_stress_component_work_|destruction_gpu_|physx_native_|physx_persistent_shape_owner)"
+           OR test MATCHES "^blast_stress_.*_gpu$")
+            set_property(TEST ${test} APPEND PROPERTY LABELS destruction)
+        endif()
+    endforeach()
+endfunction()

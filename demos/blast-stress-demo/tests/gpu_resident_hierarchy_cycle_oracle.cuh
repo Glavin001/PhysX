@@ -44,7 +44,7 @@ public:
             const auto labels=download(input.component,n,stream);std::vector<unsigned> identity(n);if(input.identity)identity=download(input.identity,n,stream);else std::iota(identity.begin(),identity.end(),0);
             std::vector<float2> inertia(n,make_float2(1,1));if(!input.levelBonds)inertia=f.inverse;
             std::vector<CoarseBond> edges(m);if(input.levelBonds)edges=download(input.levelBonds,m,stream);
-            else for(unsigned e=0;e<m;++e){const auto a=f.offset0[e],b=f.offset1[e];edges[e]={f.a[e],f.b[e],{a.x,a.y,a.z},{b.x,b.y,b.z},f.health[e]>0?double(f.scale[e]):0};}
+            else for(unsigned e=0;e<m;++e){const auto a=f.offset0[e],b=f.offset1[e];edges[e]={f.a[e],f.b[e],{a.x,a.y,a.z},{b.x,b.y,b.z},Nv::Blast::StressReal(f.health[e]>0?double(f.scale[e]):0)};}
             for(const auto e:edges)if(e.scale>0){
                 std::vector<unsigned> nodes;if(e.a!=Invalid)nodes.push_back(e.a);if(e.b!=Invalid && e.b!=e.a)nodes.push_back(e.b);
                 std::vector<Six> columns(nodes.size()*6);

@@ -309,13 +309,16 @@ void testMaterialsDecoupleStrengthFromStress(PhysXScene& context)
 
     // Index 0 strong (reference), index 1 weak. The weak band is chosen so the
     // footing yields gradually (elastic below self-weight stress ~5.9 kPa,
-    // fatal well above) rather than snapping on tick 1 — that keeps both
+    // fatal above it) rather than snapping on tick 1 — that keeps both
     // columns intact for the stress comparison and still fails the weak one
-    // within the settle window.
+    // within the settle window. Subfatal damage is a rate (BLAST_DAMAGE_RATE,
+    // default 2/s of the remaining section per unit overload), not a per-tick
+    // fraction, so the fatal limit sits close enough to the load (10 kPa) for
+    // section loss to run away inside two seconds; at 100 kPa it took minutes.
     std::vector<ExtStressPhysXMaterial> materials = defaultMaterials();
     ExtStressPhysXMaterial weak;
     weak.compressionElasticLimit = 1.0e3f;
-    weak.compressionFatalLimit = 1.0e5f;
+    weak.compressionFatalLimit = 1.0e4f;
     materials.push_back(weak);
 
     const StackDesc strongStack = makeColumn(panels, 1.0f, /*uniformMaterial=*/0);
