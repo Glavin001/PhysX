@@ -1317,9 +1317,11 @@ __global__ __launch_bounds__(kThreads) void exSequenceSplit(Settings s,ExScratch
 }
 // A dynamic patch after exFinish: each node's residual p + B J0 (exFinish left f0 =
 // -B J0; f0 becomes the load p, the books' external force), its kinetic energy, and
-// each joint's split inverse mass per component, W_q = sum over its ends of (B_q^T
-// M^-1 B_q) times that end's live joints (Jacobi: the joints sharing a node cannot
-// together overshoot it; Tonge et al. 2012), for its implicit dashpot. A test fills
+// each joint's split inverse mass per component, W_q = sum over its ends of the absolute
+// row sum of its 6 x 6 block B^T M^-1 B (its components couple through the arms: the
+// diagonal alone let a stiff dashpot overshoot a shear-rotation pair and grow) times that
+// end's live joints (Jacobi: the joints sharing a node cannot together overshoot it;
+// Tonge et al. 2012), for its implicit dashpot. A test fills
 // dynLoad with p and damp[6] with each joint's zeta before exFinishKernel, as exBuild does.
 __device__ void exFinishDynamic(Shared& sh,const Settings& s,const ExScratch& t,PxU32 p)
 {
@@ -1357,7 +1359,7 @@ __device__ void exFinishDynamic(Shared& sh,const Settings& s,const ExScratch& t,
             const PxU32 node=end?e.b:e.a;if(node==0xffffffffu)continue;const ExNode& n=nodes[node];
             PxU32 deg=0;for(PxU32 j=n.jointBegin;j<n.jointEnd;++j)deg+=(links[adj[j]>>1].state&eEX_LIVE)?1u:0u;
             for(int q=0;q<6;++q){float xq[6]={0,0,0,0,0,0};xq[q]=1.0f;float f[6]={0,0,0,0,0,0},dv[6],e6[6]={0,0,0,0,0,0};
-                exWrench(b,xq,end,f);exApplyInverse(n,f,dv);exRelative(b,end,dv,e6);W[q]+=e6[q]*float(max(deg,1u));}
+                exWrench(b,xq,end,f);exApplyInverse(n,f,dv);exRelative(b,end,dv,e6);for(int r=0;r<6;++r)W[r]+=fabsf(e6[r])*float(max(deg,1u));}
         }
         for(int q=0;q<6;++q)c[q]=fmaxf(W[q],0.0f);
         zmax=fmaxf(zmax,zeta);
