@@ -9,6 +9,12 @@
 #ifndef EX_PROF_SKIP
 #define EX_PROF_SKIP 0
 #endif
+// Timing diagnostics only: phases computed a second time into a dummy (2 the
+// contact rows, 8 the joints), the physics unchanged; the time added is the
+// phase's own.
+#ifndef EX_PROF_DUP
+#define EX_PROF_DUP 0
+#endif
 // The explicit impact step (Settings::method 2; vibe-land
 // docs/destruction/IMPACT_STEP_PLAN.md, harness scripts/impact/explicit-step.py):
 // the struck patch's bond graph integrated over the tick by symplectic Euler,
@@ -174,17 +180,19 @@ __device__ __forceinline__ void exSinCosSmall(float u,float& su,float& cu)
     su=u*(1.0f+x*(-1.0f/6.0f+x*(1.0f/120.0f+x*(-1.0f/5040.0f+x*(1.0f/362880.0f+x*(-1.0f/39916800.0f))))));
     cu=1.0f+x*(-0.5f+x*(1.0f/24.0f+x*(-1.0f/720.0f+x*(1.0f/40320.0f+x*(-1.0f/3628800.0f+x*(1.0f/479001600.0f))))));
 }
-__device__ __forceinline__ float exValueAt(const float* W,float wp0,float wp1,float wp2,float mu,float cb,float sb,float u)
-{
-    float su,cu;exSinCosSmall(u,su,cu);return exValue(W,wp0,wp1,wp2,mu,cb*cu-sb*su,sb*cu+cb*su).v;
-}
-// The projection's search, cheaply: P = 0 at once where Ps lies in the cone's
-// polar in the metric W (d^T W Ps <= 0 for every generator d: mu |(W Ps)_T| <=
-// (W Ps)_N, where the scan finds nothing below 0); the scan's directions by
-// rotating Ps's tangential direction through a table (no trigonometry); the
-// golden section about the scan's best direction tb by the offset u (cos(tb +
-// u) = cos tb cos u - sin tb sin u), each step reusing one of the last step's
-// two points (26 evaluations, not 48).
+// The projection's search: P = 0 at once where Ps lies in the cone's polar in
+// the metric W (d^T W Ps <= 0 for every generator d: mu |(W Ps)_T| <= (W
+// Ps)_N); else a 16-direction scan (Ps's tangential direction rotated through
+// a table), then the best direction refined by safeguarded Newton on the
+// offset u from it. On the boundary P = l d, l = N / D with N = d^T W Ps and D
+// = d^T W d, the value is -N^2 / (2 D): the best direction maximises R = N^2
+// / D where N > 0, a root of F = 2 N' D - N D' (R' = N F / D^2), F' = 2 N'' D +
+// N' D' - N D'' (d' = (0, -mu s, mu c), d'' = (0, -mu c, -mu s)). The root is
+// bracketed in the scan's interval about the best (as the golden section it
+// replaces assumed), Newton steps that leave the bracket or meet F' >= 0
+// bisect it, and it stops when the step is below float's resolution of u:
+// the same minimiser, to float precision (the golden section's 24 steps left
+// it within 1e-5 rad), in about 4 evaluations instead of 26.
 __device__ __forceinline__ void exConeMetric(const float* W,const float* Ps,float mu,float* P)
 {
     const float wp0=W[0]*Ps[0]+W[1]*Ps[1]+W[2]*Ps[2],wp1=W[3]*Ps[0]+W[4]*Ps[1]+W[5]*Ps[2],wp2=W[6]*Ps[0]+W[7]*Ps[1]+W[8]*Ps[2];
@@ -198,14 +206,29 @@ __device__ __forceinline__ void exConeMetric(const float* W,const float* Ps,floa
     float best=0.0f,cb=0.0f,sb=0.0f;   // P = 0: value 0
     for(int k=0;k<kScan;++k){const float c=c0*kC[k]-s0*kS[k],s=s0*kC[k]+c0*kS[k];const float v=exValue(W,wp0,wp1,wp2,mu,c,s).v;if(v<best){best=v;cb=c;sb=s;}}
     if(!(best<0.0f))return;
-    constexpr float kStep=6.2831853f/float(kScan),kG=0.618034f;
-    float a=-kStep,b=kStep,c=b-kG*(b-a),e=a+kG*(b-a);
-    float vc=exValueAt(W,wp0,wp1,wp2,mu,cb,sb,c),ve=exValueAt(W,wp0,wp1,wp2,mu,cb,sb,e);
+    constexpr float kStep=6.2831853f/float(kScan);
+    float a=-kStep,b=kStep,u=0.0f,cx=cb,sx=sb;
     for(int it=0;it<24;++it) {
-        if(vc<ve){b=e;e=c;ve=vc;c=b-kG*(b-a);if(it<23)vc=exValueAt(W,wp0,wp1,wp2,mu,cb,sb,c);}
-        else{a=c;c=e;vc=ve;e=a+kG*(b-a);if(it<23)ve=exValueAt(W,wp0,wp1,wp2,mu,cb,sb,e);}
+        float su,cu;exSinCosSmall(u,su,cu);cx=cb*cu-sb*su;sx=sb*cu+cb*su;
+        const float d1=mu*cx,d2=mu*sx,e1=-d2,e2=d1;   // d = (-1, d1, d2), d' = (0, e1, e2), d'' = (0, -d1, -d2)
+        const float Wd0=-W[0]+W[1]*d1+W[2]*d2,Wd1=-W[3]+W[4]*d1+W[5]*d2,Wd2=-W[6]+W[7]*d1+W[8]*d2;
+        const float We0=W[1]*e1+W[2]*e2,We1=W[4]*e1+W[5]*e2,We2=W[7]*e1+W[8]*e2;
+        const float N=-wp0+d1*wp1+d2*wp2,N1=e1*wp1+e2*wp2,N2=-d1*wp1-d2*wp2;
+        const float D=-Wd0+d1*Wd1+d2*Wd2,D1=e1*Wd1+e2*Wd2+(-We0+d1*We1+d2*We2);
+        const float Wf0=W[1]*d1+W[2]*d2,Wf1=W[4]*d1+W[5]*d2,Wf2=W[7]*d1+W[8]*d2;   // W d'' = -W (0, d1, d2)
+        const float D2=-d1*Wd1-d2*Wd2+2.0f*(e1*We1+e2*We2)-(-Wf0+d1*Wf1+d2*Wf2);
+        float un;
+        if(!(N>0.0f) || !(D>0.0f)){if(u>0.0f)b=u;else a=u;un=0.5f*(a+b);}
+        else {
+            const float F=2.0f*N1*D-N*D1,F1=2.0f*N2*D+N1*D1-N*D2;
+            if(F>0.0f)a=u;else b=u;
+            un=F1<0.0f?u-F/F1:0.5f*(a+b);
+            if(!(un>a && un<b))un=0.5f*(a+b);
+        }
+        const bool done=fabsf(un-u)<=4.0f*FLT_EPSILON*kStep;
+        u=un;if(done)break;
     }
-    const float um=0.5f*(a+b);float sm,cm;exSinCosSmall(um,sm,cm);const float cx=cb*cm-sb*sm,sx=sb*cm+cb*sm;
+    {float su,cu;exSinCosSmall(u,su,cu);cx=cb*cu-sb*su;sx=sb*cu+cb*su;}
     if(exValue(W,wp0,wp1,wp2,mu,cx,sx).v<best){cb=cx;sb=sx;}
     const float l=exValue(W,wp0,wp1,wp2,mu,cb,sb).l;P[0]=-l;P[1]=l*mu*cb;P[2]=l*mu*sb;
 }
@@ -579,6 +602,8 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
             float g[6]={0,0,0,0,0,0};exRelative(rb,0,vS+6*ra,g);exRelative(rb,1,vS+6*rn,g);
             const float* Wi=rows[threadIdx.x].Winv;float Ps[3];for(int i=0;i<3;++i)Ps[i]=-(Wi[3*i]*g[0]+Wi[3*i+1]*g[1]+Wi[3*i+2]*g[2]);
             float P[3];exCone(rows[threadIdx.x].W,g,Ps,rb.area,P);
+            if(EX_PROF_DUP&2){float g2[6],P2[3],Ps2[3];for(int q=0;q<6;++q)g2[q]=g[q]*(1.0f+FLT_EPSILON*float(step&1));for(int q=0;q<3;++q)Ps2[q]=Ps[q]*(1.0f+FLT_EPSILON*float(step&1));
+                exCone(rows[threadIdx.x].W,g2,Ps2,rb.area,P2);dead+=1e-30f*(P2[0]+P2[1]+P2[2]);}
             for(int q=0;q<3;++q)rows[threadIdx.x].total[q]+=P[q];
             // Pushing: an impulse the impactor's momentum resolves in float (below
             // its float resolution it exchanges nothing representable).
@@ -619,6 +644,9 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
             }
             if(breaks){float u2=0.0f;for(int q=0;q<6;++q)if(k[q]>0.0f)u2+=0.5f*J[q]*J[q]/k[q];atomicAdd(&shFracture,u2);
                 e.state=(e.state&~eEX_LIVE)|eEX_BROKEN;for(int q=0;q<6;++q)J[q]=0.0f;e.brokeAt=time;atomicAdd(&shBroken,1u);}
+            if(EX_PROF_DUP&8){const Bond b2=bonds[l];float d2[6]={0,0,0,0,0,0};if(e.a!=0xffffffffu)exRelative(b2,0,vS+6*e.a,d2);if(e.b!=0xffffffffu)exRelative(b2,1,vS+6*e.b,d2);
+                float J2[6];for(int q=0;q<6;++q)J2[q]=e.J[q]*(1.0f+FLT_EPSILON*float(step&1))-h*k[q]*d2[q];const float u2=utilisation(b2,J2);
+                float g0[6]={0,0,0,0,0,0},g1[6]={0,0,0,0,0,0};exWrench(b2,J2,0,g0);exWrench(b2,J2,1,g1);dead+=1e-30f*(u2+g0[0]+g1[5]);}
             for(int q=0;q<6;++q)e.J[q]=J[q];
             float dJ[6];for(int q=0;q<6;++q)dJ[q]=J[q]-J0[q];
             float* o=wr+12*size_t(l);float f0[6]={0,0,0,0,0,0},f1[6]={0,0,0,0,0,0};

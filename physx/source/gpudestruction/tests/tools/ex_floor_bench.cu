@@ -69,13 +69,27 @@ __global__ void kGather8Shared(const unsigned* adj,float* out,int n)
     }
     out[blockIdx.x*blockDim.x+threadIdx.x]=a[0];
 }
+__global__ void kGather8V(float4* buf,const unsigned* adj,float* out,int n)
+{
+    float4* b=buf+size_t(blockIdx.x)*blockDim.x*2;float a[8]={0,0,0,0,0,0,0,0};
+    for(int i=0;i<n;++i){
+        b[2*threadIdx.x]=make_float4(a[0]*0.5f+1.0f,a[1]*0.5f+1.0f,a[2]*0.5f+1.0f,a[3]*0.5f+1.0f);
+        b[2*threadIdx.x+1]=make_float4(a[4]*0.5f+1.0f,a[5]*0.5f+1.0f,0.0f,0.0f);
+        __syncthreads();
+        float f[8]={0,0,0,0,0,0,0,0};
+        for(int j=0;j<8;++j){const float4 p=b[2*adj[8*threadIdx.x+j]],q=b[2*adj[8*threadIdx.x+j]+1];f[0]+=p.x;f[1]+=p.y;f[2]+=p.z;f[3]+=p.w;f[4]+=q.x;f[5]+=q.y;}
+        for(int q=0;q<8;++q)a[q]=f[q]*0.125f;
+        __syncthreads();
+    }
+    out[blockIdx.x*blockDim.x+threadIdx.x]=a[0];
+}
 
 int main(int argc,char** argv)
 {
     try {
         const int N=argc>1?std::atoi(argv[1]):20000;
         float* out;check(cudaMalloc(&out,8*1024*sizeof(float)));
-        float* buf;check(cudaMalloc(&buf,8*1024*6*sizeof(float)));
+        float* buf;check(cudaMalloc(&buf,8*1024*8*sizeof(float)));
         unsigned *next,*adj;check(cudaMalloc(&next,1024*sizeof(unsigned)));check(cudaMalloc(&adj,8*1024*sizeof(unsigned)));
         {unsigned h[1024];for(unsigned i=0;i<1024;++i)h[i]=(i*389u+7u)%1024u;check(cudaMemcpy(next,h,sizeof h,cudaMemcpyHostToDevice));
          static unsigned g[8*1024];for(unsigned i=0;i<8*1024;++i)g[i]=(i*977u+13u)%256u;check(cudaMemcpy(adj,g,sizeof g,cudaMemcpyHostToDevice));}
@@ -87,12 +101,13 @@ int main(int argc,char** argv)
                 const double ms=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-t0).count();if(ms<best[h])best[h]=ms;}
             std::printf("%-34s %8.3f us per iteration (launch of %d: %.2f ms)\n",name,1e3*(best[1]-best[0])/(N/2),N,best[1]);
         };
-        for(int threads:{256,512,1024})for(int blocks:{1,8}) {
+        for(int threads:{256,1024})for(int blocks:{1}) {
             char tag[64];std::snprintf(tag,sizeof tag,"[%d threads x %d blocks]",threads,blocks);std::printf("%s\n",tag);
             time("  barrier",[&](int n){kBarrier<<<blocks,threads>>>(out,n);});
             time("  global chase (dependent load)",[&](int n){kChase<<<blocks,threads>>>(next,out,n);});
             time("  global gather (+2 barriers)",[&](int n){kGlobalGather<<<blocks,threads>>>(buf,out,n);});
             time("  shared gather (+2 barriers)",[&](int n){kSharedGather<<<blocks,threads>>>(out,n);});
+            time("  gather8 x6 floats, device float4",[&](int n){kGather8V<<<blocks,threads>>>(reinterpret_cast<float4*>(buf),adj,out,n);});
             if(threads<=1024 && blocks*threads<=8*1024) {
                 time("  gather8 x6 floats, device",[&](int n){kGather8<<<blocks,threads>>>(buf,adj,out,n);});
                 time("  gather8 x6 floats, shared",[&](int n){kGather8Shared<<<blocks,threads>>>(adj,out,n);});
