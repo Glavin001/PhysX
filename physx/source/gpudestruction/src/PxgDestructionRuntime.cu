@@ -1183,7 +1183,7 @@ class Runtime final : public PxgDestructionRuntime {
     // mImpactBase: the elastic forces before this tick; mImpactState: the forces
     // the last evaluation settled on (E's where it solved), mImpactStart: those
     // at the start of this tick (kept for its corrected pass).
-    PxDestructionVectorPair *mImpactBase{},*mImpactState{},*mImpactStart{};float *mImpactSlip{},*mImpactStiffness{};
+    PxDestructionVectorPair *mImpactBase{},*mImpactState{},*mImpactStart{};float *mImpactSlip{},*mImpactStiffness{},*mSeqStaticStiffness{};
     // The impact step's rest state: each bond's elastic forces from the last
     // tick its island had no impact patch (the step's J0; an impact's own
     // tick-long contact loads are no preload for the next tick's step).
@@ -1840,7 +1840,7 @@ public:
         cudaFree(mImpactState);mImpactState=nullptr;cudaFree(mImpactStart);mImpactStart=nullptr;
         cudaFree(mImpactCarried);mImpactCarried=nullptr;cudaFree(mImpactCarriedStart);mImpactCarriedStart=nullptr;
         cudaFree(mImpactSlipState);mImpactSlipState=nullptr;cudaFree(mImpactSlipStart);mImpactSlipStart=nullptr;
-        cudaFree(mImpactSlip);mImpactSlip=nullptr;cudaFree(mImpactStiffness);mImpactStiffness=nullptr;
+        cudaFree(mImpactSlip);mImpactSlip=nullptr;cudaFree(mImpactStiffness);mImpactStiffness=nullptr;cudaFree(mSeqStaticStiffness);mSeqStaticStiffness=nullptr;
         cudaFreeHost(mImpactHostStatus);mImpactHostStatus=nullptr;
         mImpactCrush=false;cudaFree(mImpactStress);mImpactStress=nullptr;cudaFree(mImpactRate);mImpactRate=nullptr;
         cudaFree(mImpactImpactor);mImpactImpactor=nullptr;cudaFree(mImpactStriker);mImpactStriker=nullptr;cudaFree(mCrushDemand);mCrushDemand=nullptr;mCrushDemandCapacity=0;cudaFree(mCrushBoundAudit);mCrushBoundAudit=nullptr;mCrushEnergyBound=false;cudaFree(mAnchoredChunks);mAnchoredChunks=nullptr;cudaFree(mAnchoredBonds);mAnchoredBonds=nullptr;cudaFree(mAnchoredSaturated);mAnchoredSaturated=nullptr;cudaFree(mAnchoredGhosts);mAnchoredGhosts=nullptr;mAnchoredBound=mAnchoredReady=false;
@@ -2153,6 +2153,10 @@ public:
                     allocate(mImpactSlip,d.materialCount);allocate(mImpactStiffness,d.materialCount);
                     check(cudaMemcpy(mImpactSlip,slip.data(),sizeof(float)*slip.size(),cudaMemcpyHostToDevice));
                     check(cudaMemcpy(mImpactStiffness,stiffness.data(),sizeof(float)*stiffness.size(),cudaMemcpyHostToDevice));
+                    if(d.materialStaticStiffness) {
+                        std::vector<float> st(d.materialCount);for(PxU32 i=0;i<d.materialCount;++i)st[i]=d.materialStaticStiffness[i];
+                        allocate(mSeqStaticStiffness,d.materialCount);check(cudaMemcpy(mSeqStaticStiffness,st.data(),sizeof(float)*st.size(),cudaMemcpyHostToDevice));
+                    }
                     allocate(mImpactBase,d.bondCount);check(cudaMemset(mImpactBase,0,sizeof(*mImpactBase)*d.bondCount));
                     allocate(mImpactRest,d.bondCount);check(cudaMemset(mImpactRest,0,sizeof(*mImpactRest)*d.bondCount));
                     allocate(mImpactState,d.bondCount);check(cudaMemset(mImpactState,0,sizeof(*mImpactState)*d.bondCount));
@@ -2336,7 +2340,8 @@ public:
                         const char* z=std::getenv("PX_DESTRUCTION_DYNAMIC_DAMPING");if(z && *z)mImpactSettings.dynamicDamping=float(std::atof(z));
                         mImpactSettings.dynamicFriction=mRebearingFriction;
                         {const char* dd=std::getenv("PX_DESTRUCTION_SEQUENCE_DUMP");const char* dc=std::getenv("PX_DESTRUCTION_SEQUENCE_DUMP_COUNT");
-                         if(dd && *dd){mImpact.seqDumpDir=dd;mImpact.seqDumpsLeft=dc && *dc?PxU32(std::atoi(dc)):2u;}}
+                         if(dd && *dd){mImpact.seqDumpDir=dd;mImpact.seqDumpsLeft=dc && *dc?PxU32(std::atoi(dc)):2u;
+                            const char* de=std::getenv("PX_DESTRUCTION_SEQUENCE_DUMP_ENERGY");mImpact.seqEnergyLeft=de && *de?PxU32(std::atoi(de)):0u;}}
                         const char* g=std::getenv("PX_DESTRUCTION_SEQUENCE_DIAG");if(g && *g){mImpactSettings.sequenceDiag=PxU32(std::atoi(g));std::fprintf(stderr,"[sequence] diagnostics %u\n",mImpactSettings.sequenceDiag);}
                     }
                 }
@@ -2793,7 +2798,7 @@ public:
                         check(cudaMemsetAsync(mSeq.island,0,sizeof(PxU32)*mN,mStream));
                         if(!mPass)seqMarkPersisted<<<(mN+127)/128,128,0,mStream>>>(stress.nodeIslands,mSeq.startChunks(),mN,mSeq.island,mSeq.seed);
                         mSeq.bind(mImpact.x);mImpact.x.seqIsland=mPass?nullptr:mSeq.island;mImpact.x.seqCreate=0u;
-                        in.bearState=mRebearing?mBearState:nullptr;
+                        in.bearState=mRebearing?mBearState:nullptr;in.staticStiffness=mSeqStaticStiffness;
                     }
                     mImpact.stepLog=mImpactLog;mImpact.submit(in,settings,mStream);impactIn=in;impactSettings=settings;impactRan=true;
                     if(mReport && mReportInputs)mImpact.reportTwoBodyLoads(in,settings,mReportInputs,mN,mStream);

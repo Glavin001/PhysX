@@ -59,6 +59,9 @@
 // at its material's mu), and the impact models' joint set (utilisation,
 // projection, ray capacity). Off, the materials' mu is ignored.
 #define PX_DESTRUCTION_MOHR_COULOMB_SHEAR 1
+// PxDestructionStressDesc::materialStaticStiffness: the stiffness of the static
+// solve's model per material (the dynamic sequence's dead-load windows integrate it).
+#define PX_DESTRUCTION_SEQUENCE_STATIC_STIFFNESS 1
 #include "foundation/PxTransform.h"
 #include "PxDirectGPUAPI.h"
 #include "PxDestructionTopologyTypes.h"
@@ -333,6 +336,13 @@ struct PxDestructionStressDesc {
     // (its materials, contact rows and bounds): impacts are solved by the step
     // on a patch around each struck chunk instead of by the impact solve.
     bool impactStep = false;
+    // materialCount entries, or NULL: per material, the stiffness (N/m) of a bond
+    // whose complianceScale is 1 in the static solve's model (its gravity-sharing
+    // modulus; impactStiffness is the impact solve's, where a material authors
+    // another). The dynamic sequence's windows that only redistribute dead load
+    // (no impact rows) integrate this one, the model whose equilibrium they start
+    // from; NULL: impactStiffness.
+    const PxReal* materialStaticStiffness = NULL;
 };
 struct PxDestructionVectorPair {
     PxVec3 angular, linear;
