@@ -50,8 +50,13 @@ constexpr PxU32 kExRows=256;       // contact rows per patch (a meteor's debris:
 constexpr PxU32 kExThreads=EX_THREADS;  // the window's threads per patch (one block)
 static_assert(kExRows<=kExThreads,"a row a thread (exRunT)");
 // A patch of at most kExSmall nodes runs exRunSmall: its nodes' inverse masses
-// and joint and row ranges in threadgroup memory beside their velocities.
-constexpr PxU32 kExSmall=512;
+// and joint and row ranges in threadgroup memory beside their velocities. 672
+// nodes x 48 bytes is 32,256 of Metal's 32 KB (patches of 561-581 nodes measured
+// 7% faster than through exRun).
+#ifndef EX_SMALL
+#define EX_SMALL 672
+#endif
+constexpr PxU32 kExSmall=EX_SMALL;
 // Power-iteration products of the substep's bound (exFinish): each one's bound
 // is rigorous, so this sets only how tight it is (and the build's cost).
 #ifndef EX_BOUND_PRODUCTS
