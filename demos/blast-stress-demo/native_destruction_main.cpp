@@ -358,6 +358,14 @@ int run(int argc,char** argv){
                     motionTrace<<','<<status.correctionPasses<<'\n';
                 }
                 const float error=(actual.p-poses[i].pose.p).magnitude();maxMotionError=std::max(maxMotionError,error);
+                {static unsigned dbg=0;if(error>(getenv("MOTION_DEBUG")?float(atof(getenv("MOTION_DEBUG"))):0.f) && getenv("MOTION_DEBUG") && dbg++<40){const auto* o=chunks[i].shape->getActor()->is<PxRigidDynamic>();const auto& m=motions[slots[membership[i]]];
+                    const auto bp=physical[i];
+                    std::fprintf(stderr,"MOTIONDBG step=%u chunk=%u cluster=%u body=%u corr=%u sleeping=%d err=%.9g actual=(%.9g,%.9g,%.9g) recorded=(%.9g,%.9g,%.9g) body=(%.9g,%.9g,%.9g|%.9g,%.9g,%.9g,%.9g) motion=(%.17g,%.17g,%.17g|%.17g,%.17g,%.17g,%.17g) local=(%.9g,%.9g,%.9g) shapeLocal=(%.9g,%.9g,%.9g|%.9g,%.9g,%.9g,%.9g)\n",
+                        frame,i,membership[i],owners[i],status.correctionPasses,int(o->isSleeping()),error,actual.p.x,actual.p.y,actual.p.z,poses[i].pose.p.x,poses[i].pose.p.y,poses[i].pose.p.z,
+                        bp.p.x,bp.p.y,bp.p.z,bp.q.x,bp.q.y,bp.q.z,bp.q.w,double(m.origin[0]),double(m.origin[1]),double(m.origin[2]),double(m.orientation[0]),double(m.orientation[1]),double(m.orientation[2]),double(m.orientation[3]),
+                        chunks[i].position.x,chunks[i].position.y,chunks[i].position.z,chunks[i].shape->getLocalPose().p.x,chunks[i].shape->getLocalPose().p.y,chunks[i].shape->getLocalPose().p.z,
+                        chunks[i].shape->getLocalPose().q.x,chunks[i].shape->getLocalPose().q.y,chunks[i].shape->getLocalPose().q.z,chunks[i].shape->getLocalPose().q.w);
+                    const auto cm=o->getCMassLocalPose();std::fprintf(stderr,"MOTIONDBG2 cmass=(%.9g,%.9g,%.9g|%.9g,%.9g,%.9g,%.9g) inertia=(%.9g,%.9g,%.9g)\n",cm.p.x,cm.p.y,cm.p.z,cm.q.x,cm.q.y,cm.q.z,cm.q.w,o->getMassSpaceInertiaTensor().x,o->getMassSpaceInertiaTensor().y,o->getMassSpaceInertiaTensor().z);}}
                 // Compare orientation independently of floating-point quaternion norm drift.
                 const float orientationDot=std::abs(actual.q.getNormalized().dot(poses[i].pose.q.getNormalized()));
                 if(!(error<1e-3f && orientationDot>1-1e-5f)) {
