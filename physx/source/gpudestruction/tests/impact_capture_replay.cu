@@ -175,7 +175,7 @@ int run(int argc,char** argv){
     // loads routed again here, on a copy).
     s.boundImpactor=env("IMPACT_BOUND_IMPACTOR",s.boundImpactor?1.0f:0.0f)!=0.0f;
     s.route=env("IMPACT_ROUTE",s.route?1.0f:0.0f)!=0.0f;
-    s.explicitDt=env("IMPACT_EXPLICIT_DT_US",0.0f)*1e-6f;s.explicitWindow=PxU32(env("IMPACT_EXPLICIT_WINDOW",float(s.explicitWindow)));
+    s.explicitDt=env("IMPACT_EXPLICIT_DT_US",0.0f)*1e-6f;s.explicitWindow=PxU32(env("IMPACT_EXPLICIT_WINDOW",float(s.explicitWindow)));s.explicitGrid=PxU32(env("IMPACT_EXPLICIT_GRID",float(s.explicitGrid)));
     if(s.route && in.rows) {
         PxDestructionVectorPair* loads;allocate(loads,n);check(cudaMemcpy(loads,in.accelerations,sizeof(*loads)*n,cudaMemcpyDeviceToDevice));
         PxU32* routed;allocate(routed,h.rows);impact::routeRows<<<(h.rows+127)/128,128>>>(in,s,routed,loads);check(cudaDeviceSynchronize());

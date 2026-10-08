@@ -9,6 +9,9 @@
 #ifndef EX_GATHER
 #define EX_GATHER 4
 #endif
+#ifndef EX_FORCE_GRID
+#define EX_FORCE_GRID 0
+#endif
 #ifndef EX_PROF_SKIP
 #define EX_PROF_SKIP 0
 #endif
@@ -106,6 +109,7 @@ struct ExScratch {
     float* rwr{};         // [P][kExRows][2][6]: each row's impulse wrench on its two ends
     float4* jp{};         // [P][kExLinks][kExJoint]: each joint packed for the window (exRunT; exPack)
     PxU32* jl{};          // [P][kExLinks]: the live joints away from rows from the front, those at rows from the back (exRunT)
+    PxU32* gs{};          // [P][4]: exRunGrid's per-patch barrier counter, list counts, near count (zeroed before each launch)
 };
 
 // A joint's wrench on one end's six dof from a bond-frame force x (end 0: its
@@ -762,6 +766,148 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
     atomicAdd(&shDead,dead);
     __syncthreads();
     if(!threadIdx.x){sp.dead+=shDead;sp.fracture+=shFracture;sp.plastic+=shPlastic;sp.substeps=step;sp.t=float(step)*h;sp.broken+=shBroken;sp.yielded+=shYielded;sp.pushing=shPushing;sp.near=shNear;if(step>=total)sp.done=1;}
+}
+
+// The window on G threadgroups per patch (exRunGrid; the host picks G from the
+// patch's joints): a core's load and store instructions bound a substep's
+// phases, so a large patch spreads them over G cores. The node velocities live
+// in device memory (nodes[k].v); each node, joint and row has one owner thread
+// in the patch (node and joint k: thread k mod G x kExThreads of the patch;
+// rows: the first block); the phases are separated by a barrier over the
+// patch's G blocks (a device counter; 0.6 us measured), the same four as
+// exRunT, with the same arithmetic per node, joint and row.
+#if PX_CUMETAL
+extern "C" __device__ void __cumetal_grid_sync();
+#endif
+__device__ __forceinline__ void exPatchBarrier(PxU32* counter,PxU32 G,PxU32& phase)
+{
+    __syncthreads();
+    if(G>1) {
+        if(!threadIdx.x){__threadfence();atomicAdd(counter,1u);const PxU32 target=(++phase)*G;while(atomicAdd(counter,0u)<target){}__threadfence();}
+        __syncthreads();
+    }
+}
+__global__ __launch_bounds__(kExThreads) void exRunGrid(Settings s,Scratch w,ExScratch t,PxU32 budget,PxU32 G)
+{
+#if PX_CUMETAL
+    __cumetal_grid_sync();   // once: it also makes the launch a resident grid (CuMetal sizes it by the device's cores)
+#endif
+    constexpr PxU32 kTh=kExThreads;
+    __shared__ PxU32 shBroken,shYielded,shPushing,shNear;
+    __shared__ float shFracture,shPlastic,shDead;
+    const PxU32 p=blockIdx.x/G,part=blockIdx.x%G;if(p>=*t.patchCount)return;
+    ExPatch& sp=t.patches[p];if(sp.done)return;
+    ExNode* nodes=t.nodes+size_t(p)*kExNodes;const Bond* bonds=t.bonds+size_t(p)*kExLinks;ExLink* links=t.links+size_t(p)*kExLinks;
+    const Bond* rowBonds=t.rowBonds+size_t(p)*kExRows;ExRow* rows=t.rows+size_t(p)*kExRows;
+    const PxU32* adj=t.adj+size_t(p)*2*kExLinks;const PxU32* rowAdj=t.rowAdj+size_t(p)*2*kExRows;
+    float* wr=t.wr+size_t(p)*kExLinks*12;float* rwr=t.rwr+size_t(p)*kExRows*12;float4* jp=t.jp+size_t(p)*kExLinks*kExJoint;PxU32* jl=t.jl+size_t(p)*kExLinks;
+    PxU32* gs=t.gs+4*size_t(p);PxU32 phase=0;
+    const PxU32 nn=sp.nodes,nl=sp.links,nr=sp.rows;const float h=sp.h,T=s.dt;
+    const PxU32 total=PxU32(ceilf(T/h-1e-4f));
+    const PxU32 gt=part*kTh+threadIdx.x,GT=G*kTh;   // this thread in its patch; the patch's threads
+    if(!threadIdx.x){shBroken=0;shYielded=0;shFracture=0.0f;shPlastic=0.0f;shDead=0.0f;shPushing=0;shNear=0;}
+    auto apply=[&](PxU32 k,const float* f,float scale){
+        ExNode& n=nodes[k];
+        for(int q=0;q<3;++q)n.v[q]+=scale*n.im*f[q];
+        if(!n.tensor){for(int q=0;q<3;++q)n.v[3+q]+=scale*n.Iinv[q]*f[3+q];}
+        else{float a3[3];symMul(n.Iinv,f+3,a3);for(int q=0;q<3;++q)n.v[3+q]+=scale*a3[q];}
+    };
+    const bool hasRow=part==0u && threadIdx.x<nr;
+    PxU32 ra=0,rn=0;
+    if(hasRow) {
+        float W[9]={0,0,0,0,0,0,0,0,0};
+        const Bond rb=rowBonds[threadIdx.x];const ExRow x=rows[threadIdx.x];ra=x.a;rn=x.b;
+        for(PxU32 end=0;end<2;++end) {
+            const ExNode& n=nodes[end?x.b:x.a];float col[3][6];
+            const float split=float(max(n.rowEnd-n.rowBegin,1u));
+            for(int q=0;q<3;++q){float xq[6]={0,0,0,0,0,0};xq[q]=1.0f;float f[6]={0,0,0,0,0,0};exWrench(rb,xq,end,f);exApplyInverse(n,f,col[q]);for(int c=0;c<6;++c)col[q][c]*=split;}
+            for(int i=0;i<3;++i)for(int q=0;q<3;++q){float e6[6]={0,0,0,0,0,0};exRelative(rb,end,col[q],e6);W[3*i+q]+=e6[i];}
+        }
+        const float det=W[0]*(W[4]*W[8]-W[5]*W[7])-W[1]*(W[3]*W[8]-W[5]*W[6])+W[2]*(W[3]*W[7]-W[4]*W[6]);
+        const float id=(det>0.0f && isfinite(det))?1.0f/det:0.0f;
+        const float inv[9]={(W[4]*W[8]-W[5]*W[7])*id,(W[2]*W[7]-W[1]*W[8])*id,(W[1]*W[5]-W[2]*W[4])*id,
+            (W[5]*W[6]-W[3]*W[8])*id,(W[0]*W[8]-W[2]*W[6])*id,(W[2]*W[3]-W[0]*W[5])*id,
+            (W[3]*W[7]-W[4]*W[6])*id,(W[1]*W[6]-W[0]*W[7])*id,(W[0]*W[4]-W[1]*W[3])*id};
+        for(int i=0;i<9;++i){rows[threadIdx.x].Winv[i]=inv[i];rows[threadIdx.x].W[i]=W[i];}
+    }
+    PxU32 step=sp.substeps;float dead=0.0f;
+    auto joint=[&](PxU32 l,float time,bool last) {
+        float4* q=jp+size_t(kExJoint)*l;
+        Bond b;float J0[6];PxU32 ea,eb;exUnpack(q,b,J0,ea,eb);
+        const float4 s0=q[9],s1=q[10];PxU32 state=__float_as_uint(s1.z);float slip=s1.w;
+        if(!(state&eEX_LIVE))return;
+        float d[6]={0,0,0,0,0,0};if(ea!=0xffffffffu)exRelative(b,0,nodes[ea].v,d);if(eb!=0xffffffffu)exRelative(b,1,nodes[eb].v,d);
+        for(int q6=0;q6<6;++q6)dead-=h*J0[q6]*d[q6];
+        float k[6];exStiffness(b,k);
+        const float Jp[6]={s0.x,s0.y,s0.z,s0.w,s1.x,s1.y};
+        float J[6];for(int q6=0;q6<6;++q6)J[q6]=Jp[q6]-h*k[q6]*d[q6];
+        const float u=utilisation(b,J);
+        if(last && ((state&eEX_DUCTILE)?u>1.0f:u>=1.0f-s.capacityBand))atomicAdd(&shNear,1u);
+        bool breaks=false;
+        if(!(state&eEX_DUCTILE))breaks=u>=1.0f-s.capacityBand;
+        else if(u>1.0f) {
+            float sl=0.0f,work=0.0f;
+            for(int q6=0;q6<6;++q6){const float y=J[q6]/u;if(k[q6]>0.0f){const float dp=(J[q6]-y)/k[q6];if(q6<3)sl+=dp*dp;work+=fabsf(y*dp);}J[q6]=y;}
+            slip+=sqrtf(sl);atomicAdd(&shPlastic,work);
+            if(!(state&eEX_YIELDED)){state|=eEX_YIELDED;atomicAdd(&shYielded,1u);}
+            breaks=slip>links[l].limit;
+        }
+        if(breaks){float u2=0.0f;for(int q6=0;q6<6;++q6)if(k[q6]>0.0f)u2+=0.5f*J[q6]*J[q6]/k[q6];atomicAdd(&shFracture,u2);
+            state=(state&~eEX_LIVE)|eEX_BROKEN;for(int q6=0;q6<6;++q6)J[q6]=0.0f;links[l].brokeAt=time;atomicAdd(&shBroken,1u);}
+        q[9]=make_float4(J[0],J[1],J[2],J[3]);q[10]=make_float4(J[4],J[5],__uint_as_float(state),slip);
+        float dJ[6];for(int q6=0;q6<6;++q6)dJ[q6]=J[q6]-J0[q6];
+        float* o=wr+12*size_t(l);float f0[6]={0,0,0,0,0,0},f1[6]={0,0,0,0,0,0};
+        exWrench(b,dJ,0,f0);exWrench(b,dJ,1,f1);
+        reinterpret_cast<float4*>(o)[0]=make_float4(f0[0],f0[1],f0[2],f0[3]);reinterpret_cast<float4*>(o)[1]=make_float4(f0[4],f0[5],f1[0],f1[1]);reinterpret_cast<float4*>(o)[2]=make_float4(f1[2],f1[3],f1[4],f1[5]);
+    };
+    // The rows take the first block's first ceil(nr / 32) simdgroups; the joints away from rows the patch's other threads.
+    const PxU32 rowThreads=min((nr+31u)&~31u,kTh),freeStride=GT-rowThreads;
+    for(PxU32 l=gt;l<nl;l+=GT) {
+        ExLink& e=links[l];PxU32 c0=0,c1=0;
+        if(e.a!=0xffffffffu)c0=nodes[e.a].rowEnd-nodes[e.a].rowBegin;
+        if(e.b!=0xffffffffu)c1=nodes[e.b].rowEnd-nodes[e.b].rowBegin;
+        e.state=(c0||c1)?(e.state|eEX_ROWS):(e.state&~eEX_ROWS);
+        exPack(bonds[l],e,jp+size_t(kExJoint)*l);
+        if(e.state&eEX_LIVE){if(c0||c1)jl[nl-1u-atomicAdd(gs+2,1u)]=l;else jl[atomicAdd(gs+1,1u)]=l;}
+    }
+    exPatchBarrier(gs,G,phase);
+    const PxU32 nFree=atomicAdd(gs+1,0u),nAtRows=atomicAdd(gs+2,0u);
+    for(PxU32 it=0;it<budget && step<total;++it,++step) {
+        const float time=float(step+1)*h;const bool last=step+1==total;
+        for(PxU32 k=gt;k<nn;k+=GT) {
+            const PxU32 b0=nodes[k].jointBegin,b1=nodes[k].jointEnd;if(b0==b1)continue;
+            float f[6]={0,0,0,0,0,0};exGather(wr,adj,b0,b1,f);apply(k,f,h);
+        }
+        exPatchBarrier(gs,G,phase);
+        if(gt>=rowThreads)for(PxU32 i=gt-rowThreads;i<nFree;i+=freeStride)joint(jl[i],time,last);
+        if(hasRow) {
+            const Bond rb=rowBonds[threadIdx.x];
+            float g[6]={0,0,0,0,0,0};exRelative(rb,0,nodes[ra].v,g);exRelative(rb,1,nodes[rn].v,g);
+            const float* Wi=rows[threadIdx.x].Winv;float Ps[3];for(int i=0;i<3;++i)Ps[i]=-(Wi[3*i]*g[0]+Wi[3*i+1]*g[1]+Wi[3*i+2]*g[2]);
+            float P[3];exCone(rows[threadIdx.x].W,g,Ps,rb.area,P);
+            for(int q=0;q<3;++q)rows[threadIdx.x].total[q]+=P[q];
+            const float* vn=nodes[rn].v;
+            const float pm=sqrtf(vn[0]*vn[0]+vn[1]*vn[1]+vn[2]*vn[2])/fmaxf(nodes[rn].im,FLT_MIN);
+            if(last && -P[0]>FLT_EPSILON*pm)atomicAdd(&shPushing,1u);
+            const float x[6]={P[0],P[1],P[2],0,0,0};float f0[6]={0,0,0,0,0,0},f1[6]={0,0,0,0,0,0};
+            exWrench(rb,x,0,f0);exWrench(rb,x,1,f1);float* o=rwr+12*size_t(threadIdx.x);for(int q=0;q<6;++q){o[q]=f0[q];o[6+q]=f1[q];}
+        }
+        exPatchBarrier(gs,G,phase);
+        if(nr)for(PxU32 k=gt;k<nn;k+=GT) {
+            const PxU32 b0=nodes[k].rowBegin,b1=nodes[k].rowEnd;if(b0==b1)continue;
+            float f[6]={0,0,0,0,0,0};exGather(rwr,rowAdj,b0,b1,f);apply(k,f,1.0f);
+        }
+        exPatchBarrier(gs,G,phase);
+        for(PxU32 i=gt;i<nAtRows;i+=GT)joint(jl[nl-1u-i],time,last);
+        exPatchBarrier(gs,G,phase);
+    }
+    for(PxU32 l=gt;l<nl;l+=GT){ExLink& e=links[l];const float4 s0=jp[size_t(kExJoint)*l+9],s1=jp[size_t(kExJoint)*l+10];
+        e.J[0]=s0.x;e.J[1]=s0.y;e.J[2]=s0.z;e.J[3]=s0.w;e.J[4]=s1.x;e.J[5]=s1.y;e.state=__float_as_uint(s1.z);e.slip=s1.w;}
+    atomicAdd(&shDead,dead);
+    __syncthreads();
+    if(!threadIdx.x){atomicAdd(&sp.dead,shDead);atomicAdd(&sp.fracture,shFracture);atomicAdd(&sp.plastic,shPlastic);atomicAdd(&sp.broken,shBroken);atomicAdd(&sp.yielded,shYielded);atomicAdd(gs+3,shNear);}
+    exPatchBarrier(gs,G,phase);
+    if(!part && !threadIdx.x){sp.substeps=step;sp.t=float(step)*h;sp.pushing=shPushing;sp.near=atomicAdd(gs+3,0u);if(step>=total)sp.done=1;}
 }
 __global__ __launch_bounds__(kExThreads) void exRun(Settings s,Scratch w,ExScratch t,PxU32 budget){exRunT<false>(s,w,t,budget);}
 __global__ __launch_bounds__(kExThreads) void exRunSmall(Settings s,Scratch w,ExScratch t,PxU32 budget){exRunT<true>(s,w,t,budget);}
