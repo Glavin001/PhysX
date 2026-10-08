@@ -690,7 +690,10 @@ __device__ void exDynamicLink(const Inputs& in,const Settings& s,const ExScratch
     float* c=t.damp+(size_t(p)*kExLinks+l)*8;float* cs=t.cslip+(size_t(p)*kExLinks+l)*2;
     cs[0]=cs[1]=0.0f;
     const PxU32 persisted=t.pBond?t.pBond[i]:0u;
-    if(persisted&1u){for(int q=0;q<6;++q){e.J0[q]=t.pJ[6*size_t(i)+q];e.J[q]=e.J0[q];}cs[0]=t.pSlip[2*size_t(i)];cs[1]=t.pSlip[2*size_t(i)+1];}
+    // (pSlip: a contact's slip along t1, t2; a fastened joint's accumulated ductile slip in [0] --
+    // the impact step carries none over ticks, a dynamic island's yield runs on over them)
+    if(persisted&1u){for(int q=0;q<6;++q){e.J0[q]=t.pJ[6*size_t(i)+q];e.J[q]=e.J0[q];}
+        if(persisted&2u){cs[0]=t.pSlip[2*size_t(i)];cs[1]=t.pSlip[2*size_t(i)+1];}else e.slip=t.pSlip[2*size_t(i)];}
     else if(t.seqBase){float x[6];toLocal(b,t.seqBase[i],x);for(int q=0;q<6;++q){e.J0[q]=x[q];e.J[q]=x[q];}}
     if((persisted&4u) && t.frozenForce && in.elastic) {
         const PxDestructionVectorPair f=t.frozenForce[i],a=in.elastic[i],z=t.freezeElastic[i];
@@ -2173,7 +2176,7 @@ __global__ void exPublishDynamic(Inputs in,Settings s,Scratch w,ExScratch t)
         }
         if(live){float k[6];exStiffness(b,k);strain+=exJointEnergy(b,k,e.J,e.state,exContactMu(b,s.dynamicFriction));}
         if(t.pJn){for(int q=0;q<6;++q)t.pJn[6*size_t(i)+q]=live?e.J[q]:0.0f;
-            t.pSlipn[2*size_t(i)]=cslip[2*l];t.pSlipn[2*size_t(i)+1]=cslip[2*l+1];
+            t.pSlipn[2*size_t(i)]=contact?cslip[2*l]:e.slip;t.pSlipn[2*size_t(i)+1]=contact?cslip[2*l+1]:0.0f;
             t.pBondn[i]=live?(1u|(contact?2u:0u)|(sp.freeze?4u:0u)):0u;}
         // A freeze: the state it holds (a contact's J: its gap when open, the force it transmits
         // when closed is exContactForce's of it), and the static solve's at the freeze (the
