@@ -50,15 +50,20 @@ constexpr PxU32 kExRows=256;       // contact rows per patch (a meteor's debris:
 constexpr PxU32 kExThreads=EX_THREADS;  // the window's threads per patch (one block)
 static_assert(kExRows<=kExThreads,"a row a thread (exRunT)");
 // A patch of at most kExSmall nodes runs exRunSmall: its nodes' inverse masses
-// and joint and row ranges in threadgroup memory beside their velocities.
-constexpr PxU32 kExSmall=512;
+// and joint and row ranges in threadgroup memory beside their velocities. 672
+// nodes x 48 bytes is 32,256 of Metal's 32 KB (patches of 561-581 nodes measured
+// 7% faster than through exRun).
+#ifndef EX_SMALL
+#define EX_SMALL 672
+#endif
+constexpr PxU32 kExSmall=EX_SMALL;
 // Power-iteration products of the substep's bound (exFinish): each one's bound
 // is rigorous, so this sets only how tight it is (and the build's cost).
 #ifndef EX_BOUND_PRODUCTS
 #define EX_BOUND_PRODUCTS 8
 #endif
 constexpr PxU32 kExBoundProducts=EX_BOUND_PRODUCTS;
-static_assert(8*kExLinks+8*kExNodes<=12*kExLinks,"the bound's blocks and iterate fit t.wr");
+static_assert(8*kExLinks+6*kExNodes+2*kExLinks<=12*kExLinks,"the bound's blocks, y and ends fit t.wr");
 
 struct ExPatch {
     PxU32 island,nodes,chunks,links,rows,impactors,substeps,done,broken,yielded,truncated,failed,seed,listed,bodies,pushing,near;
@@ -393,15 +398,18 @@ __global__ __launch_bounds__(kThreads) void exBuild(Inputs in,Settings s,Scratch
     }
     const PxU32 chunkNodes=min(sh.flag,kExNodes);
     __syncthreads();
-    // Impactors and rows (one thread: at most kExRows rows).
+    // Impactors and rows (one thread, in row order: at most kExRows rows; the
+    // bodies seen so far in threadgroup memory), then the rows' geometry
+    // (prepareRow) on every thread.
+    __shared__ PxU32 rowBody[kExRows],rowEnd[2*kExRows];
     if(!threadIdx.x) {
         PxU32 n=chunkNodes,k=0,impactors=0;
         for(PxU32 j=0;j<nrows;++j) {
             const PxU32 r=list[j];
             const ContactRow& q=in.rows[r];const PxU32 sc=t.nodeOf[q.chunk];
             if(sc==0xffffffffu || (sc>>16)!=p)continue;
-            PxU32 node=0xffffffffu;
-            for(PxU32 e=0;e<k;++e)if(in.rows[exRows[e].row].body==q.body){node=exRows[e].b;break;}
+            PxU32 node=0xffffffffu;const PxU32 body=q.body;
+            for(PxU32 e=0;e<k;++e)if(rowBody[e]==body){node=rowEnd[2*e+1];break;}
             if(node==0xffffffffu) {
                 if(n>=kExNodes){sp.failed=1;continue;}
                 node=n++;++impactors;
@@ -410,12 +418,12 @@ __global__ __launch_bounds__(kThreads) void exBuild(Inputs in,Settings s,Scratch
                 for(int a=0;a<6;++a)m.v0[a]=m.v[a];
                 nodes[node]=m;
             }
-            Bond b;prepareRow(in,s,r,b);b.c1=in.chunkCount+p*kExNodes+node;
-            rowBonds[k]=b;ExRow e{};e.a=sc&0xffffu;e.b=node;e.row=r;exRows[k]=e;++k;
+            ExRow e{};e.a=sc&0xffffu;e.b=node;e.row=r;exRows[k]=e;rowBody[k]=body;rowEnd[2*k]=e.a;rowEnd[2*k+1]=node;++k;
         }
         sp.nodes=n;sp.chunks=chunkNodes;sp.rows=k;sp.impactors=impactors;
     }
     __syncthreads();
+    for(PxU32 k=threadIdx.x;k<sp.rows;k+=kThreads){Bond b;prepareRow(in,s,exRows[k].row,b);b.c1=in.chunkCount+p*kExNodes+rowEnd[2*k+1];rowBonds[k]=b;}
     const PxU32 nn=sp.nodes,nr=sp.rows;
     // Joints, each from its lower local end (or its only patch end): count, scan, write.
     if(!threadIdx.x)sh.flag=0;
@@ -460,7 +468,7 @@ __global__ __launch_bounds__(kThreads) void exBuild(Inputs in,Settings s,Scratch
             if(k<nn) {
                 if(!pass && k<chunkNodes){const PxU32 c=nodes[k].chunk;
                     for(PxU32 slot=in.nodeBegin[c];slot<in.nodeBegin[c+1];++slot){const PxU32 l=t.linkOf[in.nodeRefs[slot]];if(l!=0xffffffffu && l<nl)++deg;}}
-                if(pass)for(PxU32 r=0;r<nr;++r)deg+=(exRows[r].a==k?1u:0u)+(exRows[r].b==k?1u:0u);
+                if(pass)for(PxU32 r=0;r<nr;++r)deg+=(rowEnd[2*r]==k?1u:0u)+(rowEnd[2*r+1]==k?1u:0u);
             }
             PxU32 prefix;const PxU32 total=blockScan(sh,deg,prefix);
             if(k<nn) {
@@ -473,7 +481,7 @@ __global__ __launch_bounds__(kThreads) void exBuild(Inputs in,Settings s,Scratch
                     nodes[k].jointEnd=at;
                 } else {
                     nodes[k].rowBegin=at;
-                    for(PxU32 r=0;r<nr;++r){if(exRows[r].a==k)rowAdj[at++]=r<<1;if(exRows[r].b==k)rowAdj[at++]=(r<<1)|1u;}
+                    for(PxU32 r=0;r<nr;++r){if(rowEnd[2*r]==k)rowAdj[at++]=r<<1;if(rowEnd[2*r+1]==k)rowAdj[at++]=(r<<1)|1u;}
                     nodes[k].rowEnd=at;
                 }
             }
@@ -511,7 +519,8 @@ __device__ void exFinish(Shared& sh,const Settings& s,const ExScratch& t,PxU32 p
     // only (diagonal M^-1). L's blocks and the iterate live in t.wr, zeroed
     // after: per joint end (adj slot) its block against the other end, per
     // node its own block, x and y (2 per node; dofs with no stiffness x = 1).
-    float* Lo=wr;float* Ld=wr+8*kExLinks;float* X=Ld+4*kExNodes;float* Y=X+2*kExNodes;
+    float* Lo=wr;float* Ld=wr+8*kExLinks;float* Y=Ld+4*kExNodes;PxU32* O=reinterpret_cast<PxU32*>(Y+2*kExNodes);   // O: each adj slot's other end
+    __shared__ float X[2*kExNodes];   // the iterate (threadgroup memory: each product reads it per joint)
     float lambda=0.0f;
     {
         float gersh=0.0f,cw=0.0f;
@@ -528,6 +537,7 @@ __device__ void exFinish(Shared& sh,const Settings& s,const ExScratch& t,PxU32 p
                     exGershgorin(bonds[l],end,other!=0xffffffffu,w,D,g,y,lump);
                 }
                 for(int a=0;a<2;++a)for(int c=0;c<2;++c)Lo[4*j+2*a+c]=lump[3*a+c]*sqrtf(a?n.Iinv[0]>0.0f?fmaxf(n.Iinv[0],fmaxf(n.Iinv[1],n.Iinv[2])):0.0f:n.im);
+                O[j]=(e.state&eEX_LIVE)?(end?e.a:e.b):0xffffffffu;
             }
             for(int q=0;q<6;++q)n.f0[q]=-f[q];
             float ld[4]={0,0,0,0};
@@ -548,11 +558,13 @@ __device__ void exFinish(Shared& sh,const Settings& s,const ExScratch& t,PxU32 p
         for(PxU32 k=threadIdx.x;k<nn;k+=kThreads) {
             const ExNode& n=nodes[k];if(n.tensor)continue;
             float y[2];for(int a=0;a<2;++a)y[a]=Ld[4*k+2*a]*X[2*k]+Ld[4*k+2*a+1]*X[2*k+1];
-            for(PxU32 j=n.jointBegin;j<n.jointEnd;++j) {
-                const PxU32 l=adj[j]>>1,end=adj[j]&1u;const ExLink& e=links[l];const PxU32 other=end?e.a:e.b;
-                if(other==0xffffffffu)continue;
-                for(int a=0;a<2;++a)y[a]+=Lo[4*j+2*a]*X[2*other]+Lo[4*j+2*a+1]*X[2*other+1];
+            const PxU32 b0=n.jointBegin,b1=n.jointEnd;PxU32 j=b0;
+            for(;j+4<=b1;j+=4) {   // four slots' loads issued before their sums (the same sums, in order)
+                PxU32 o[4];float4 L[4];for(int u=0;u<4;++u){o[u]=O[j+u];L[u]=reinterpret_cast<const float4*>(Lo)[j+u];}
+                for(int u=0;u<4;++u)if(o[u]!=0xffffffffu){y[0]+=L[u].x*X[2*o[u]]+L[u].y*X[2*o[u]+1];y[1]+=L[u].z*X[2*o[u]]+L[u].w*X[2*o[u]+1];}
             }
+            for(;j<b1;++j){const PxU32 other=O[j];if(other==0xffffffffu)continue;
+                for(int a=0;a<2;++a)y[a]+=Lo[4*j+2*a]*X[2*other]+Lo[4*j+2*a+1]*X[2*other+1];}
             for(int a=0;a<2;++a){cw=fmaxf(cw,y[a]/X[2*k+a]);Y[2*k+a]=y[a];ymax=fmaxf(ymax,y[a]);}
         }
         lambda=fminf(lambda,blockMax(sh,cw));
