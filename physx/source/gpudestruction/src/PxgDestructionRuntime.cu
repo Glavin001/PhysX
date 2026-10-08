@@ -966,6 +966,9 @@ class Runtime final : public PxgDestructionRuntime {
     PxVec3* mBondCentroids{};PxDestructionBondVerdict* mVerdicts{};
     PxDestructionCrushState *mCrush{},*mTrialCrush{};
     float mDamageRate=2,mBendGain=3;bool mFibres=true;
+    // PX_DESTRUCTION_STATIC_DUCTILE=1: metal joints with an ultimate slip yield
+    // and neck in the static verdict instead of snapping at fatal (PxgDestructionMaterial.cuh).
+    const bool mStaticDuctile=[]{const char* v=std::getenv("PX_DESTRUCTION_STATIC_DUCTILE");return v && v[0]=='1';}();
     PxDestructionBondSection* mSections{};bool mSectionBending=false,mSectionRotation=false; // opt-in real sections (PX_DESTRUCTION_SECTION_BENDING)
     // Impact capacity (PX_DESTRUCTION_IMPACT_CAPACITY, PxgDestructionImpact.cuh):
     // the island solve, the ramp's start (the forces before this tick's trial
@@ -2490,7 +2493,7 @@ public:
             }
             if(mMaterials) {
                 if(mM)evaluateBondMaterials<<<(mM+127)/128,128,0,mStream>>>(mChunks,mBonds,mMaterials,mHealth,forces,mM,
-                    dt,mDamageRate,mBendGain,mFibres,mVerdicts,mBondCentroids,mStatus,mSectionBending,mSections,mSectionRotation,impactView);
+                    dt,mDamageRate,mBendGain,mFibres,mVerdicts,mBondCentroids,mStatus,mSectionBending,mSections,mSectionRotation,impactView,mStaticDuctile);
                 if(!mImpactCrush)evaluateChunkMaterials<<<(mN+127)/128,128,0,mStream>>>(mChunks,mBonds,mMaterials,mNodeBegin,mNodeRefs,
                     mHealth,forces,mBondCentroids,mSurface,mRates,mCrush,mTrialCrush,mN,dt,mStatus,impactView);
                 if(mM)finalizeMaterialVerdict<<<(mM+127)/128,128,0,mStream>>>(mBonds,mVerdicts,mTrialCrush,mHealth,mM,mStatus);
