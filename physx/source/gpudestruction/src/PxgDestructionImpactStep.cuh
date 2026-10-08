@@ -59,7 +59,11 @@ struct StepScratch {
     float* f{};float* w{};float* du{};float* u{};float* d2{};float* rhs{};   // [P][kStepDof]
     float* lam{};         // [P][kStepCols] contact multipliers
     PxU32* rowNode{};     // [kContactCapacity] each row's impactor node (local)
+    float* panelP{};      // [P][32*32]   blocked Gauss-Jordan: the panel's pivot block inverse
+    float* panelV{};      // [P][kStepDof*32] the panel's columns
+    float* panelW{};      // [P][32*kStepDof] the panel's rows times P
 };
+constexpr PxU32 kPanel=32;
 
 __device__ __forceinline__ float* stepA(const StepScratch& w,PxU32 p){return w.Ainv+size_t(p)*kStepDof*kStepDof;}
 
@@ -88,6 +92,16 @@ __device__ __forceinline__ void stepStiffness(const Bond& b,float h,float* c)
     for(int q=0;q<6;++q)c[q]=(k[q]>0.0f && k[q]<1e30f)?k[q]*h*h:0.0f;
 }
 
+// A row the step takes: any pair of an impactor with a live chunk of the
+// island, closing or not (a released pair -- the impactor receding, deep in
+// a thin chunk -- is a unilateral contact that separates): every impactor
+// contact on the island is the step's, none is the static solve's load.
+__device__ __forceinline__ bool stepRow(const Inputs& in,PxU32 r,PxU32 island)
+{
+    const ContactRow& row=in.rows[r];
+    if(row.chunk>=in.chunkCount || in.nodeIslands[row.chunk]!=island || !(in.chunks[row.chunk].mass>0.0f) || chunkGone(in,row.chunk))return false;
+    return row.im>0.0f && isfinite(row.im);
+}
 // 1. The patches: one per island with a coupled row, seeded by its struck
 // chunks; nodes within the radius (shrunk until they fit), the impactors,
 // the links (joints with an end on the patch; the contact rows).
@@ -98,7 +112,7 @@ __global__ __launch_bounds__(kThreads) void stepBuild(Inputs in,Settings s,Scrat
     const PxU32 rows=in.rows?(in.rowCounter?min(*in.rowCounter,in.rowCount):in.rowCount):0u;
     // The islands to solve, in row order (deterministic): each row's struck island once.
     for(PxU32 r=0;r<rows;++r) {
-        if(!rowMember(in,r,in.nodeIslands[in.rows[r].chunk<in.chunkCount?in.rows[r].chunk:0]))continue;
+        if(!stepRow(in,r,in.nodeIslands[in.rows[r].chunk<in.chunkCount?in.rows[r].chunk:0]))continue;
         const PxU32 island=in.nodeIslands[in.rows[r].chunk];
         PxU32 seen=0;for(PxU32 p=0;p<*t.patchCount;++p)seen|=t.patches[p].island==island?1u:0u;
         if(seen)continue;
@@ -115,7 +129,7 @@ __global__ __launch_bounds__(kThreads) void stepBuild(Inputs in,Settings s,Scrat
             for(PxU32 i=threadIdx.x;i<in.chunkCount;i+=kThreads) {
                 if(in.nodeIslands[i]!=island || !(in.chunks[i].mass>0.0f) || chunkGone(in,i))continue;
                 const PxVec3 x=in.chunks[i].position;bool near=false;
-                for(PxU32 r2=0;r2<rows && !near;++r2){const ContactRow& q=in.rows[r2];if(!q.points || q.chunk>=in.chunkCount || in.nodeIslands[q.chunk]!=island)continue;
+                for(PxU32 r2=0;r2<rows && !near;++r2){const ContactRow& q=in.rows[r2];if(!stepRow(in,r2,island))continue;
                     near=(x-in.chunks[q.chunk].position).magnitude()<=radius;}
                 c+=near?1u:0u;
             }
@@ -132,7 +146,7 @@ __global__ __launch_bounds__(kThreads) void stepBuild(Inputs in,Settings s,Scrat
             const PxU32 i=tile+threadIdx.x;PxU32 member=0;
             if(i<in.chunkCount && in.nodeIslands[i]==island && in.chunks[i].mass>0.0f && !chunkGone(in,i)) {
                 const PxVec3 x=in.chunks[i].position;
-                for(PxU32 r2=0;r2<rows && !member;++r2){const ContactRow& q=in.rows[r2];if(!q.points || q.chunk>=in.chunkCount || in.nodeIslands[q.chunk]!=island)continue;
+                for(PxU32 r2=0;r2<rows && !member;++r2){const ContactRow& q=in.rows[r2];if(!stepRow(in,r2,island))continue;
                     member=(x-in.chunks[q.chunk].position).magnitude()<=radius?1u:0u;}
             }
             PxU32 prefix;const PxU32 total=blockScan(sh,member,prefix);
@@ -146,10 +160,10 @@ __global__ __launch_bounds__(kThreads) void stepBuild(Inputs in,Settings s,Scrat
         if(!threadIdx.x) {
             PxU32 links=0,impactors=0;
             for(PxU32 r2=0;r2<rows;++r2) {
-                if(!rowMember(in,r2,island))continue;
+                if(!stepRow(in,r2,island))continue;
                 const ContactRow& q=in.rows[r2];
                 PxU32 node=0xffffffffu;
-                for(PxU32 e=0;e<r2;++e)if(rowMember(in,e,island) && in.rows[e].body==q.body){node=t.rowNode[e];break;}
+                for(PxU32 e=0;e<r2;++e)if(stepRow(in,e,island) && in.rows[e].body==q.body){node=t.rowNode[e];break;}
                 if(node==0xffffffffu && nodes<kStepNodes) {
                     node=nodes++;++impactors;const PxU32 id=in.chunkCount+p*kStepNodes+node;
                     t.nodeChunk[p*kStepNodes+node]=id;
@@ -247,6 +261,53 @@ __global__ void stepPivot(StepScratch t,PxU32 k)
         else if(j==k)v=-A[size_t(i)*n+k]*inv;
         else v=A[idx]-A[size_t(i)*n+k]*A[size_t(k)*n+j]*inv;
         O[idx]=v;
+    }
+}
+// Blocked Gauss-Jordan (in place, SPD, no pivoting), a panel of kPanel
+// pivots K per two launches: P = A_KK^-1, W = P A_K*, V = A_*K; then
+// A_RR -= V W, A_RK = -V P, A_KR = W, A_KK = P.
+__global__ __launch_bounds__(kThreads) void stepPanelA(StepScratch t,PxU32 k0)
+{
+    const PxU32 p=blockIdx.x;if(p>=*t.patchCount)return;
+    const PxU32 n=6*t.patches[p].nodes;if(k0>=n)return;
+    const PxU32 b=min(kPanel,n-k0);const float* A=stepA(t,p);
+    __shared__ float M[kPanel*kPanel],R[kPanel*kPanel];
+    for(PxU32 idx=threadIdx.x;idx<kPanel*kPanel;idx+=kThreads){const PxU32 i=idx/kPanel,j=idx%kPanel;
+        M[idx]=(i<b && j<b)?A[size_t(k0+i)*n+k0+j]:(i==j?1.0f:0.0f);R[idx]=i==j?1.0f:0.0f;}
+    __syncthreads();
+    for(PxU32 k=0;k<b;++k) {
+        const float inv=1.0f/M[k*kPanel+k];
+        __syncthreads();
+        if(threadIdx.x<kPanel){M[k*kPanel+threadIdx.x]*=inv;R[k*kPanel+threadIdx.x]*=inv;}
+        __syncthreads();
+        // eliminate column k from the other rows (two arrays: read the factors first)
+        float fi=0.0f;const PxU32 row=threadIdx.x;
+        if(row<kPanel && row!=k)fi=M[row*kPanel+k];
+        __syncthreads();
+        if(row<kPanel && row!=k)for(PxU32 j=0;j<kPanel;++j){M[row*kPanel+j]-=fi*M[k*kPanel+j];R[row*kPanel+j]-=fi*R[k*kPanel+j];}
+        __syncthreads();
+    }
+    float* P=t.panelP+size_t(p)*kPanel*kPanel;
+    for(PxU32 idx=threadIdx.x;idx<kPanel*kPanel;idx+=kThreads)P[idx]=R[idx];
+    float* V=t.panelV+size_t(p)*kStepDof*kPanel;float* W=t.panelW+size_t(p)*kPanel*kStepDof;
+    for(PxU32 idx=threadIdx.x;idx<n*kPanel;idx+=kThreads){const PxU32 i=idx/kPanel,s2=idx%kPanel;V[idx]=s2<b?A[size_t(i)*n+k0+s2]:0.0f;}
+    for(PxU32 idx=threadIdx.x;idx<kPanel*n;idx+=kThreads){const PxU32 r=idx/n,j=idx%n;float v=0.0f;
+        if(r<b)for(PxU32 s2=0;s2<b;++s2)v+=R[r*kPanel+s2]*A[size_t(k0+s2)*n+j];W[idx]=v;}
+}
+__global__ void stepPanelB(StepScratch t,PxU32 k0)
+{
+    const PxU32 p=blockIdx.y;if(p>=*t.patchCount)return;
+    const PxU32 n=6*t.patches[p].nodes;if(k0>=n)return;
+    const PxU32 b=min(kPanel,n-k0);float* A=stepA(t,p);
+    const float* P=t.panelP+size_t(p)*kPanel*kPanel;const float* V=t.panelV+size_t(p)*kStepDof*kPanel;const float* W=t.panelW+size_t(p)*kPanel*kStepDof;
+    for(PxU32 idx=blockIdx.x*blockDim.x+threadIdx.x;idx<n*n;idx+=gridDim.x*blockDim.x) {
+        const PxU32 i=idx/n,j=idx%n;const bool ik=i>=k0 && i<k0+b,jk=j>=k0 && j<k0+b;
+        float v;
+        if(ik && jk)v=P[(i-k0)*kPanel+(j-k0)];
+        else if(ik)v=W[size_t(i-k0)*n+j];
+        else if(jk){v=0.0f;for(PxU32 s2=0;s2<b;++s2)v-=V[size_t(i)*kPanel+s2]*P[s2*kPanel+(j-k0)];}
+        else{v=A[idx];for(PxU32 s2=0;s2<b;++s2)v-=V[size_t(i)*kPanel+s2]*W[size_t(s2)*n+j];}
+        A[idx]=v;
     }
 }
 // After an odd number of pivots the result is in Atmp: copy back.

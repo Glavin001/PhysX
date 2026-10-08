@@ -937,6 +937,10 @@ class Runtime final : public PxgDestructionRuntime {
     // the last evaluation settled on (E's where it solved), mImpactStart: those
     // at the start of this tick (kept for its corrected pass).
     PxDestructionVectorPair *mImpactBase{},*mImpactState{},*mImpactStart{};float *mImpactSlip{},*mImpactStiffness{};
+    // The impact step's rest state: each bond's elastic forces from the last
+    // tick its island had no impact patch (the step's J0; an impact's own
+    // tick-long contact loads are no preload for the next tick's step).
+    PxDestructionVectorPair* mImpactRest{};
     // The plastic state the impact solve leaves: which bonds' forces are its
     // (mImpactCarried) and each bond's accumulated plastic slip; *Start: at
     // the start of this tick (the corrected pass starts there too).
@@ -1564,7 +1568,7 @@ public:
         cudaFree(mNodeBegin);mNodeBegin=nullptr;cudaFree(mNodeRefs);mNodeRefs=nullptr;
         cudaFree(mBondCentroids);mBondCentroids=nullptr;cudaFree(mVerdicts);mVerdicts=nullptr;
         cudaFree(mSections);mSections=nullptr;mSectionBending=false;mSectionRotation=false;
-        mImpact.release();mImpactEnabled=false;cudaFree(mImpactRecords);mImpactRecords=nullptr;cudaFree(mImpactBase);mImpactBase=nullptr;
+        mImpact.release();mImpactEnabled=false;cudaFree(mImpactRecords);mImpactRecords=nullptr;cudaFree(mImpactBase);mImpactBase=nullptr;cudaFree(mImpactRest);mImpactRest=nullptr;
         cudaFree(mImpactState);mImpactState=nullptr;cudaFree(mImpactStart);mImpactStart=nullptr;
         cudaFree(mImpactCarried);mImpactCarried=nullptr;cudaFree(mImpactCarriedStart);mImpactCarriedStart=nullptr;
         cudaFree(mImpactSlipState);mImpactSlipState=nullptr;cudaFree(mImpactSlipStart);mImpactSlipStart=nullptr;
@@ -1854,6 +1858,7 @@ public:
                     check(cudaMemcpy(mImpactSlip,slip.data(),sizeof(float)*slip.size(),cudaMemcpyHostToDevice));
                     check(cudaMemcpy(mImpactStiffness,stiffness.data(),sizeof(float)*stiffness.size(),cudaMemcpyHostToDevice));
                     allocate(mImpactBase,d.bondCount);check(cudaMemset(mImpactBase,0,sizeof(*mImpactBase)*d.bondCount));
+                    allocate(mImpactRest,d.bondCount);check(cudaMemset(mImpactRest,0,sizeof(*mImpactRest)*d.bondCount));
                     allocate(mImpactState,d.bondCount);check(cudaMemset(mImpactState,0,sizeof(*mImpactState)*d.bondCount));
                     allocate(mImpactStart,d.bondCount);
                     allocate(mImpactCarried,d.bondCount);check(cudaMemset(mImpactCarried,0,sizeof(PxU32)*d.bondCount));allocate(mImpactCarriedStart,d.bondCount);
@@ -2332,7 +2337,7 @@ public:
                     in.chunks=mChunks;in.chunkCount=mN;in.bonds=mBonds;in.bondCount=mM;in.materials=mMaterials;
                     in.ductileSlip=mImpactSlip;in.stiffness=mImpactStiffness;in.health=mHealth;
                     in.nodeBegin=mNodeBegin;in.nodeRefs=mNodeRefs;in.nodeIslands=stress.nodeIslands;in.bondIslands=stress.bondIslands;
-                    in.accelerations=mInputs;in.elastic=forces;in.base=mImpactStart;in.elasticBase=mImpactBase;in.stage=mStatus;
+                    in.accelerations=mInputs;in.elastic=forces;in.base=mImpactSettings.method==1u?mImpactRest:mImpactStart;in.elasticBase=mImpactBase;in.stage=mStatus;
                     in.carried=mImpactCarriedStart;in.slipBefore=mImpactSlipStart;
                     in.crushed=mImpactCrush?mTrialCrush:nullptr;in.sections=mSectionBending?mSections:nullptr;
                     if(mImpactRows) {
@@ -2351,7 +2356,9 @@ public:
                     // past 100 ms starves the display (Settings::dispatchWork bounds it).
                     if(mImpact.longestDispatch>100.0)std::fprintf(stderr,"[impact] warning: a dispatch took %.0f ms (over 100 ms)\n",mImpact.longestDispatch);
                     impactView={mImpact.w.islandFlag,stress.bondIslands,mImpact.w.forces,mImpact.w.verdict};
-                    // The impact step carries no plastic state: the next tick starts from the elastic forces.
+                    // The impact step carries no plastic state: the next tick starts from the elastic forces;
+                    // its rest state follows the islands it did not solve.
+                    if(settings.method==1u)impact::recordRest<<<(mM+127)/128,128,0,mStream>>>(mImpact.w.islandFlag,stress.bondIslands,forces,mImpactRest,mM);
                     impact::recordState<<<(mM+127)/128,128,0,mStream>>>(settings.method==1u?nullptr:mImpact.w.islandFlag,stress.bondIslands,mImpact.w.forces,forces,mImpactState,mM,
                         mImpactCarried,mImpact.w.slip,mImpactSlipStart,mImpactSlipState);
                     if(timed) {

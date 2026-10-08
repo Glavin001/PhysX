@@ -1804,6 +1804,13 @@ __global__ void recordState(const PxU32* islandFlag,const PxU32* bondIslands,con
     if(slipState)slipState[i]=(slipBefore?slipBefore[i]:0.0f)+((slip && mine && (islandFlag[island]&1u))?slip[i]:0.0f);
 }
 
+// The impact step's rest state: the elastic forces where no patch solved.
+__global__ void recordRest(const PxU32* islandFlag,const PxU32* bondIslands,const PxDestructionVectorPair* elastic,PxDestructionVectorPair* rest,PxU32 count)
+{
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
+    const PxU32 island=bondIslands[i];
+    if(island==0xffffffffu || !islandFlag[island])rest[i]=elastic[i];
+}
 // A solve that ended at its budget did not converge: the stage reports the
 // evaluation unconverged (and, where it requires convergence, rejects it, as
 // it does an unconverged elastic solve: error 4096).
@@ -1875,7 +1882,7 @@ struct Stage {
         if(!stepAllocated)return;
         cudaFree(t.nodeOf);cudaFree(t.patchCount);cudaFree(t.patches);cudaFree(t.nodeChunk);cudaFree(t.nodeMass);cudaFree(t.links);cudaFree(t.linkEnds);
         cudaFree(t.B);cudaFree(t.Ainv);cudaFree(t.Atmp);cudaFree(t.G);cudaFree(t.S);cudaFree(t.colLink);cudaFree(t.J);cudaFree(t.dJ);cudaFree(t.J2);
-        cudaFree(t.f);cudaFree(t.w);cudaFree(t.du);cudaFree(t.u);cudaFree(t.d2);cudaFree(t.rhs);cudaFree(t.lam);cudaFree(t.rowNode);t={};stepAllocated=false;
+        cudaFree(t.f);cudaFree(t.w);cudaFree(t.du);cudaFree(t.u);cudaFree(t.d2);cudaFree(t.rhs);cudaFree(t.lam);cudaFree(t.rowNode);cudaFree(t.panelP);cudaFree(t.panelV);cudaFree(t.panelW);t={};stepAllocated=false;
     }
     void allocateStep() {
         if(stepAllocated)return;
@@ -1888,6 +1895,7 @@ struct Stage {
         for(float** a:{&t.J,&t.dJ,&t.J2})::physx::allocate(*a,P*kStepLinks*6);
         for(float** a:{&t.f,&t.w,&t.du,&t.u,&t.d2,&t.rhs})::physx::allocate(*a,P*kStepDof);
         ::physx::allocate(t.lam,P*kStepCols);::physx::allocate(t.rowNode,size_t(kContactCapacity));
+        ::physx::allocate(t.panelP,P*kPanel*kPanel);::physx::allocate(t.panelV,P*kStepDof*kPanel);::physx::allocate(t.panelW,P*kPanel*kStepDof);
         stepAllocated=true;
     }
     // The impact step's evaluation: the patches, A inverted (one pivot per
@@ -1906,12 +1914,12 @@ struct Stage {
         const dim3 grid(64,count);
         stepAssemble<<<grid,kThreads,0,stream>>>(in,s,w,t);
         stepAssemble2<<<grid,kThreads,0,stream>>>(in,s,w,t);
-        for(PxU32 k=0;k<6*nmax;++k) {
-            stepPivot<<<grid,kThreads,0,stream>>>(t,k);
-            if((k&63u)==63u){const auto t0=std::chrono::steady_clock::now();check(cudaStreamSynchronize(stream));
+        for(PxU32 k0=0;k0<6*nmax;k0+=kPanel) {
+            stepPanelA<<<count,kThreads,0,stream>>>(t,k0);
+            stepPanelB<<<grid,kThreads,0,stream>>>(t,k0);
+            if(((k0/kPanel)&7u)==7u){const auto t0=std::chrono::steady_clock::now();check(cudaStreamSynchronize(stream));
                 longestDispatch=std::max(longestDispatch,std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-t0).count());++dispatches;}
         }
-        stepSettle<<<grid,kThreads,0,stream>>>(t);
         for(PxU32 d=0;d<4096;++d) {
             const auto t0=std::chrono::steady_clock::now();
             stepRamp<<<count,kThreads,0,stream>>>(in,s,w,t,4u);
