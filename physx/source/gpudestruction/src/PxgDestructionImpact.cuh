@@ -2069,7 +2069,7 @@ struct Stage {
         if(!explicitAllocated)return;
         cudaFree(x.nodeOf);cudaFree(x.linkOf);cudaFree(x.patchCount);cudaFree(x.patches);cudaFree(x.nodes);cudaFree(x.bonds);cudaFree(x.links);
         cudaFree(x.rowBonds);cudaFree(x.rows);cudaFree(x.adj);cudaFree(x.rowAdj);cudaFree(x.wr);cudaFree(x.rowList);cudaFree(x.rwr);cudaFree(x.jp);cudaFree(x.jl);cudaFree(x.rp);cudaFree(x.vStart);cudaFree(x.ja);cudaFree(x.wd);cudaFree(x.handoff);cudaFree(x.handoffCount);cudaFree(x.rowDecided);
-        cudaFree(x.damp);cudaFree(x.cslip);cudaFree(x.dynLoad);x={};explicitAllocated=false;
+        cudaFree(x.damp);cudaFree(x.wk);cudaFree(x.cslip);cudaFree(x.dynLoad);x={};explicitAllocated=false;
     }
     void allocateExplicit() {
         if(explicitAllocated)return;
@@ -2081,7 +2081,7 @@ struct Stage {
         if(twoBody){::physx::allocate(x.vStart,P*kExNodes*6);::physx::allocate(x.ja,P*kExLinks*9);::physx::allocate(x.wd,P*kExLinks*12);
             ::physx::allocate(x.handoff,size_t(kExHandoffs));::physx::allocate(x.handoffCount,1);::physx::allocate(x.rowDecided,size_t(kContactCapacity));}
         // The dynamic sequence's (Settings::dynamicSequence; null otherwise).
-        if(sequence){::physx::allocate(x.damp,P*kExLinks*6);::physx::allocate(x.cslip,P*kExLinks*2);::physx::allocate(x.dynLoad,P*kExNodes*6);}
+        if(sequence){::physx::allocate(x.damp,P*kExLinks*8);::physx::allocate(x.wk,P*kExLinks*12);::physx::allocate(x.cslip,P*kExLinks*2);::physx::allocate(x.dynLoad,P*kExNodes*6);}
         explicitAllocated=true;
     }
     bool sequence=false;
@@ -2103,7 +2103,7 @@ struct Stage {
     }
     void submitExplicit(const Inputs& in,const Settings& s,cudaStream_t stream) {
         twoBody=s.explicitTwoBody;
-        if(s.dynamicSequence && !sequence && explicitAllocated){::physx::allocate(x.damp,size_t(kExPatches)*kExLinks*6);::physx::allocate(x.cslip,size_t(kExPatches)*kExLinks*2);::physx::allocate(x.dynLoad,size_t(kExPatches)*kExNodes*6);}
+        if(s.dynamicSequence && !sequence && explicitAllocated){::physx::allocate(x.damp,size_t(kExPatches)*kExLinks*8);::physx::allocate(x.wk,size_t(kExPatches)*kExLinks*12);::physx::allocate(x.cslip,size_t(kExPatches)*kExLinks*2);::physx::allocate(x.dynLoad,size_t(kExPatches)*kExNodes*6);}
         sequence=sequence || s.dynamicSequence;
         allocateExplicit();
         const auto start=std::chrono::steady_clock::now();

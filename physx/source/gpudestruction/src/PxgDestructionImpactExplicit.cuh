@@ -94,6 +94,7 @@ struct ExPatch {
     // contact slipping, opening or closing; -1 none), its slowest motion's period at the
     // window's end (2 pi / omega_R, omega_R^2 = v^T K v / v^T M v), and 1 when it freezes.
     float lastActive=-1.0f,period=0.0f,quiet=0.0f;PxU32 freeze=0;
+    float beta=0.0f;   // the damping's 2 / omega_K (s; times each joint's zeta): its last sample, kept across launches
 };
 // A joint of the patch: local node ends (0xffffffff: held), state bits.
 // eEX_ROWS: an end of the joint has contact rows (exRunT sets it; the window's
@@ -102,7 +103,7 @@ struct ExPatch {
 // eEX_CONTACT: a bearing joint whose fastenings failed, a unilateral contact (the
 // dynamic sequence); eEX_BEARING: a bearing joint (its fastenings may fail to contact).
 // eEX_OPEN: a contact open (lifted) at the last substep (its transitions are activity).
-enum ExState : PxU32 { eEX_LIVE=1, eEX_DUCTILE=2, eEX_YIELDED=4, eEX_BROKEN=8, eEX_ROWS=16, eEX_CAR=32, eEX_IMPLICIT=64, eEX_CONTACT=128, eEX_BEARING=256, eEX_OPEN=512 };
+enum ExState : PxU32 { eEX_LIVE=1, eEX_DUCTILE=2, eEX_YIELDED=4, eEX_BROKEN=8, eEX_ROWS=16, eEX_CAR=32, eEX_IMPLICIT=64, eEX_CONTACT=128, eEX_BEARING=256, eEX_OPEN=1024 };
 struct ExLink { PxU32 a,b,state,pad; float J0[6],J[6]; float slip,limit,brokeAt,pad2; };
 // A contact row: the struck chunk (a, local), the impactor (b), the stage's row.
 // A compliant row (compliant 1): its depth d (m), the materials' E* (Pa), the
@@ -188,10 +189,11 @@ struct ExScratch {
     // The window's answer for the stage (exPublishDynamic): per bond its re-bearing
     // state (eBEAR_*; ~0 undecided) and 1 where it is a contact the window holds.
     PxU32* seqBear{};PxU32* seqHold{};
-    // Per patch: each joint's dashpot (6, by component; before exFinishDynamic its
-    // damping ratio in [0]), its contact slip in the window (2), each node's load
+    // Per patch: each joint's damping (8: its split inverse mass per component, its zeta;
+    // before exFinishDynamic its zeta in [6]), its contact slip in the window (2), each node's load
     // residual p + B J0 (6; before exFinishDynamic its load p).
-    float* damp{};        // [P][kExLinks][6]
+    float* damp{};        // [P][kExLinks][8]: each joint's split inverse mass per component (6), its zeta, 0
+    float* wk{};          // [P][kExLinks][12]: each joint's K d wrench on its two ends (the damping's frequency)
     float* cslip{};       // [P][kExLinks][2]
     float* dynLoad{};     // [P][kExNodes][6]
 };
@@ -527,12 +529,21 @@ __device__ float exModulus(const Inputs& in,const Settings& s,PxU32 c)
 //   - its bearing joints (re-bearing, PxgDestructionRebearing.cuh): one whose
 //     fastenings reach capacity becomes a unilateral contact (exContactJoint), as
 //     one in a contact state already is;
-//   - its joints' damping: a dashpot at each joint's own frequency, c_q = 2 zeta
-//     sqrt(k_q / W_qq) (W the joint's inverse mass over its two chunks), zeta the
-//     material's (EN 1995-2:2004 6.4(2): 0.015 for timber with mechanical joints);
-//     symplectic Euler with damping is stable for omega h <= 2 (sqrt(1 + zeta^2)
-//     - zeta), so h is the bound times that factor;
+//   - its joints' damping: Rayleigh's stiffness-proportional damping, c = beta k on
+//     each live joint (Chopra, Dynamics of Structures, 11.4), beta = 2 zeta /
+//     omega_K: zeta the material's modal ratio (EN 1995-2:2004 6.4(2): 0.015 for
+//     timber with mechanical joints) on the frequency of the deformation the island
+//     has, omega_K^2 = (K v)^T M^-1 (K v) / v^T K v (mechanisms, K v = 0, drop out;
+//     every kExDampSample substeps and after an event), more above it. Integrated
+//     implicitly per joint, F = -c d / (1 + h c W), W its split inverse mass (each
+//     end's times its live joints: Jacobi), so h is unchanged. A joint is graded on
+//     its spring's force J: the damping stands for its energy loss, not a stress it
+//     carries (the implicit dashpot is near rigid on the stiffest joints' kHz rates);
 //   - it runs the whole tick, and persists its state for the next.
+// The damping's frequency is sampled every kExDampSample substeps (and after an event):
+// over that many substeps (about 1 ms at h = 33 us) the deformation's frequency content
+// moves little; a sample costs a joint pass and a gather.
+constexpr PxU32 kExDampSample=32;
 constexpr float kExWhole=1e18f;   // a dynamic patch's radius before any shrink: the whole island (its square stays finite)
 // A dynamic patch's seeds, after its rows' struck chunks in hit: its island's
 // seed chunks in chunk order, as many as fit (kExRows). Returns the seeds' count.
@@ -566,7 +577,7 @@ __device__ void exDynamicNode(const Inputs& in,const ExScratch& t,PxU32 p,PxU32 
 // topology was the frozen one's).
 __device__ void exDynamicLink(const Inputs& in,const Settings& s,const ExScratch& t,PxU32 p,PxU32 l,PxU32 i,const Bond& b,ExLink& e)
 {
-    float* c=t.damp+(size_t(p)*kExLinks+l)*6;float* cs=t.cslip+(size_t(p)*kExLinks+l)*2;
+    float* c=t.damp+(size_t(p)*kExLinks+l)*8;float* cs=t.cslip+(size_t(p)*kExLinks+l)*2;
     cs[0]=cs[1]=0.0f;
     const PxU32 persisted=t.pBond?t.pBond[i]:0u;
     if(persisted&1u){for(int q=0;q<6;++q){e.J0[q]=t.pJ[6*size_t(i)+q];e.J[q]=e.J0[q];}cs[0]=t.pSlip[2*size_t(i)];cs[1]=t.pSlip[2*size_t(i)+1];}
@@ -582,7 +593,7 @@ __device__ void exDynamicLink(const Inputs& in,const Settings& s,const ExScratch
         if(bear==1u || bear==2u || (persisted&2u))e.state|=eEX_CONTACT;
         if((e.state&eEX_CONTACT) && !(e.J0[0]<0.0f))e.state|=eEX_OPEN;
     }
-    c[0]=in.damping?in.damping[in.bonds[i].material]:s.dynamicDamping;for(int q=1;q<6;++q)c[q]=0.0f;
+    for(int q=0;q<8;++q)c[q]=0.0f;c[6]=in.damping?in.damping[in.bonds[i].material]:s.dynamicDamping;
 }
 // 2. Each patch (a block): its nodes within the radius of a struck chunk
 // (shrunk until they fit), impactors, rows, joints (each from its lower local
@@ -981,13 +992,11 @@ __device__ void exFinish(Shared& sh,const Settings& s,const ExScratch& t,PxU32 p
     if(sp.twoBody)exImplicit(sh,s,t,p);
 }
 // A dynamic patch after exFinish: each node's residual p + B J0 (exFinish left f0 =
-// -B J0; f0 becomes the load p, the books' external force), its kinetic energy,
-// each joint's dashpot c_q = 2 zeta sqrt(k_q / W_qq) (W_qq the joint's inverse mass
-// in component q over its two chunks: its own frequency's critical damping times
-// zeta), and the substep: exFinish's bound times sqrt(1 + zeta^2) - zeta, the
-// largest zeta of the patch (symplectic Euler with damping ratio zeta is stable for
-// omega h <= 2 (sqrt(1 + zeta^2) - zeta)). A test fills dynLoad with p and damp[0]
-// with each joint's zeta before exFinishKernel, as exBuild does.
+// -B J0; f0 becomes the load p, the books' external force), its kinetic energy, and
+// each joint's split inverse mass per component, W_q = sum over its ends of (B_q^T
+// M^-1 B_q) times that end's live joints (Jacobi: the joints sharing a node cannot
+// together overshoot it; Tonge et al. 2012), for its implicit dashpot. A test fills
+// dynLoad with p and damp[6] with each joint's zeta before exFinishKernel, as exBuild does.
 __device__ void exFinishDynamic(Shared& sh,const Settings& s,const ExScratch& t,PxU32 p)
 {
     ExPatch& sp=t.patches[p];
@@ -1000,24 +1009,25 @@ __device__ void exFinishDynamic(Shared& sh,const Settings& s,const ExScratch& t,
         const float m=n.im>0.0f?1.0f/n.im:0.0f,I=n.Iinv[0]>0.0f?1.0f/n.Iinv[0]:0.0f;
         ke+=0.5f*(m*(n.v[0]*n.v[0]+n.v[1]*n.v[1]+n.v[2]*n.v[2])+I*(n.v[3]*n.v[3]+n.v[4]*n.v[4]+n.v[5]*n.v[5]));
     }
+    const PxU32* adj=t.adj+size_t(p)*2*kExLinks;
     for(PxU32 l=threadIdx.x;l<sp.links;l+=kThreads) {
-        const ExLink& e=links[l];float* c=t.damp+(size_t(p)*kExLinks+l)*6;
-        if(!(e.state&eEX_LIVE) || (e.state&eEX_CAR)){for(int q=0;q<6;++q)c[q]=0.0f;continue;}
-        const float zeta=fmaxf(c[0],0.0f);const Bond& b=bonds[l];
-        float k[6];exStiffness(b,k);float W[6]={0,0,0,0,0,0};
+        const ExLink& e=links[l];float* c=t.damp+(size_t(p)*kExLinks+l)*8;
+        if(!(e.state&eEX_LIVE) || (e.state&eEX_CAR)){for(int q=0;q<8;++q)c[q]=0.0f;continue;}
+        const float zeta=fmaxf(c[6],0.0f);const Bond& b=bonds[l];float W[6]={0,0,0,0,0,0};
         for(PxU32 end=0;end<2;++end) {
             const PxU32 node=end?e.b:e.a;if(node==0xffffffffu)continue;const ExNode& n=nodes[node];
+            PxU32 deg=0;for(PxU32 j=n.jointBegin;j<n.jointEnd;++j)deg+=(links[adj[j]>>1].state&eEX_LIVE)?1u:0u;
             for(int q=0;q<6;++q){float xq[6]={0,0,0,0,0,0};xq[q]=1.0f;float f[6]={0,0,0,0,0,0},dv[6],e6[6]={0,0,0,0,0,0};
-                exWrench(b,xq,end,f);exApplyInverse(n,f,dv);exRelative(b,end,dv,e6);W[q]+=e6[q];}
+                exWrench(b,xq,end,f);exApplyInverse(n,f,dv);exRelative(b,end,dv,e6);W[q]+=e6[q]*float(max(deg,1u));}
         }
-        for(int q=0;q<6;++q)c[q]=(W[q]>0.0f && k[q]>0.0f)?2.0f*zeta*sqrtf(k[q]/W[q]):0.0f;
+        for(int q=0;q<6;++q)c[q]=fmaxf(W[q],0.0f);
         zmax=fmaxf(zmax,zeta);
     }
+    for(PxU32 i=threadIdx.x;i<12*sp.links;i+=kThreads)t.wk[size_t(p)*kExLinks*12+i]=0.0f;
     ke=blockSum(sh,ke);zmax=blockMax(sh,zmax);
     if(!threadIdx.x) {
         sp.zeta=zmax;sp.keStart=sp.keEnd=ke;sp.strainEnd=sp.u0;sp.extWork=sp.slipWork=sp.dashWork=0.0f;sp.lastEvent=-1.0f;
-        sp.events=sp.converted=sp.seatLost=sp.crushedContacts=sp.contacts=0;sp.lastActive=-1.0f;sp.period=0.0f;sp.freeze=0u;
-        if(!(s.explicitDt>0.0f))sp.h=fminf(sp.h*(sqrtf(1.0f+zmax*zmax)-zmax),s.dt);
+        sp.events=sp.converted=sp.seatLost=sp.crushedContacts=sp.contacts=0;sp.lastActive=-1.0f;sp.period=0.0f;sp.freeze=0u;sp.beta=0.0f;
     }
     __syncthreads();
 }
@@ -1176,22 +1186,23 @@ __device__ __forceinline__ PxU32 exContactJoint(const Bond& b,const float* k,flo
     if((b.h1>0.0f && fabsf(cs[0])*b.h1>=2.0f) || (b.h0>0.0f && fabsf(cs[1])*b.h0>=2.0f))return 2u|act;
     return act;
 }
-// A dynamic patch's joint after its trial J: a bond carries J and its dashpot, F = J
-// - c d (d its relative velocity), graded on F at capacity within the band; a
+// A dynamic patch's joint after its trial J: a bond carries J and its damping, F = J
+// - c d / (1 + h c W) (d its relative velocity), graded on J at capacity within the band; a
 // bearing joint that reaches it with its compression below the bearing capacity has
 // lost its fastenings, not its seat: it becomes a contact (bit 2 of the result) and
 // takes the contact law at once. A contact that crushes or slides off breaks.
 // Returns its events: 1 broke, 2 fastenings failed to contact, 4 the break crushed
 // a contact, 8 a contact slid off its seat; 16 activity (a contact slipped, opened or
 // closed). F is what it transmits (0 when broken).
-__device__ __forceinline__ PxU32 exDynamicJoint(const Bond& b,const float* k,const float* c,const float* d,float* J,float* F,
+__device__ __forceinline__ PxU32 exDynamicJoint(const Bond& b,const float* k,const float* dw,float beta,const float* d,float* J,float* F,
     PxU32& state,float& slip,float limit,float* cs,float h,float mu,float band,float& fracture,float& plastic,float& slipWork,float& dash)
 {
     PxU32 ev=0u;
     if(!(state&eEX_CONTACT)) {
-        float work=0.0f;for(int q=0;q<6;++q){F[q]=J[q]-c[q]*d[q];work+=c[q]*d[q]*d[q];}
+        // Its damping (c = beta zeta k, implicit: F_d = -c d / (1 + h c W)); graded on the spring.
+        float work=0.0f;for(int q=0;q<6;++q){const float c=beta*dw[6]*k[q],fd=c*d[q]/(1.0f+h*c*dw[q]);F[q]=J[q]-fd;work+=fd*d[q];}
         dash+=h*work;
-        const float u=utilisation(b,F);
+        const float u=utilisation(b,J);
         if(state&eEX_DUCTILE) {
             if(u>1.0f) {   // the radial return (the impact window's), on the spring
                 float sl=0.0f,w=0.0f;
@@ -1203,8 +1214,8 @@ __device__ __forceinline__ PxU32 exDynamicJoint(const Bond& b,const float* k,con
             return 0u;
         }
         if(!(u>=1.0f-band))return 0u;
-        const float bend=b.g0>0.0f?b.g0*fabsf(F[4])+b.g1*fabsf(F[5]):b.gb*sqrtf(F[4]*F[4]+F[5]*F[5]);
-        if((state&eEX_BEARING) && bend-F[0]<(1.0f-band)*b.capC){state|=eEX_CONTACT;ev=2u;}
+        const float bend=b.g0>0.0f?b.g0*fabsf(J[4])+b.g1*fabsf(J[5]):b.gb*sqrtf(J[4]*J[4]+J[5]*J[5]);
+        if((state&eEX_BEARING) && bend-J[0]<(1.0f-band)*b.capC){state|=eEX_CONTACT;ev=2u;}
         else {
             float u2=0.0f;for(int q=0;q<6;++q)if(k[q]>0.0f)u2+=0.5f*J[q]*J[q]/k[q];fracture+=u2;
             state=(state&~eEX_LIVE)|eEX_BROKEN;for(int q=0;q<6;++q)J[q]=F[q]=0.0f;return 1u;
@@ -1226,6 +1237,7 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
     __shared__ float shFracture,shPlastic,shDead;
     // The dynamic sequence's books and events (a dynamic patch only).
     __shared__ float shSlipWork,shDash,shExt;__shared__ PxU32 shEvents,shConverted,shSeat,shCrushed,shLast,shActive2;
+    __shared__ float shNum,shDen,shBeta;__shared__ PxU32 shResample;   // the damping's frequency (dynamic patches)
     __shared__ float vS[6*kV],imS[kN],iiS[3*kN];
     __shared__ PxU32 jS[kN],rS[kN];
     const PxU32 p=blockIdx.x;if(p>=*t.patchCount)return;
@@ -1238,10 +1250,12 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
     const PxU32 nn=sp.nodes,nl=sp.links,nr=sp.rows;const float h=sp.h,T=s.dt;
     const PxU32 total=PxU32(ceilf(T/h-1e-4f));
     if(!threadIdx.x){shBroken=0;shYielded=0;shFracture=0.0f;shPlastic=0.0f;shDead=0.0f;shFree=0;shAtRows=0;shImplicit=0;
-        shSlipWork=0.0f;shDash=0.0f;shExt=0.0f;shEvents=0;shConverted=0;shSeat=0;shCrushed=0;shLast=0;shActive2=0;}
+        shSlipWork=0.0f;shDash=0.0f;shExt=0.0f;shEvents=0;shConverted=0;shSeat=0;shCrushed=0;shLast=0;shActive2=0;
+        shNum=0.0f;shDen=0.0f;shBeta=sp.beta;shResample=0;}
     const bool dynamic=sp.dynamic!=0u;
     const float* dynLoad=dynamic?t.dynLoad+size_t(p)*kExNodes*6:nullptr;
-    const float* damp=dynamic?t.damp+size_t(p)*kExLinks*6:nullptr;float* cslip=dynamic?t.cslip+size_t(p)*kExLinks*2:nullptr;
+    const float* damp=dynamic?t.damp+size_t(p)*kExLinks*8:nullptr;float* cslip=dynamic?t.cslip+size_t(p)*kExLinks*2:nullptr;
+    float* wk=dynamic?t.wk+size_t(p)*kExLinks*12:nullptr;
     const float mu=s.dynamicFriction;
     for(PxU32 k=threadIdx.x;k<nn;k+=kExThreads) {
         const ExNode& n=nodes[k];for(int q=0;q<6;++q)vS[6*k+q]=n.v[q];
@@ -1286,6 +1300,7 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
     __syncthreads();
     PxU32 step=sp.substeps;float dead=0.0f;
     float dashLocal=0.0f,slipLocal=0.0f,plasticLocal=0.0f,extLocal=0.0f;   // (the dynamic sequence's books: per thread, summed once)
+    float denLocal=0.0f;bool sample=false;   // (the damping's frequency sample: this substep's)
     // A joint's substep: the trial, then fracture or the radial return; the force change's wrench on both ends.
     auto joint=[&](PxU32 l,float time,bool last) {
         float4* q=jp+size_t(kExJoint)*l;
@@ -1300,7 +1315,16 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
         if(dynamic && !(state&eEX_CAR)) {
             // The dynamic sequence: the joint's own law (exDynamicJoint); its wrench B (F - J0).
             float F[6],fracture=0.0f,plastic=0.0f,slipWork=0.0f,dash=0.0f;
-            const PxU32 ev=exDynamicJoint(b,k,damp+6*size_t(l),d,J,F,state,slip,links[l].limit,cslip+2*size_t(l),h,mu,s.capacityBand,fracture,plastic,slipWork,dash);
+            const PxU32 ev=exDynamicJoint(b,k,damp+8*size_t(l),shBeta,d,J,F,state,slip,links[l].limit,cslip+2*size_t(l),h,mu,s.capacityBand,fracture,plastic,slipWork,dash);
+            if(sample) {
+                // The damping's frequency: this joint's K d on its ends, and d . K d (open contacts and broken joints: none).
+                float kd[6];const bool stiff=(state&eEX_LIVE) && !((state&eEX_CONTACT) && (state&eEX_OPEN));
+                for(int q6=0;q6<6;++q6){kd[q6]=stiff?k[q6]*d[q6]:0.0f;denLocal+=kd[q6]*d[q6];}
+                float g0[6]={0,0,0,0,0,0},g1[6]={0,0,0,0,0,0};exWrench(b,kd,0,g0);exWrench(b,kd,1,g1);
+                float* o=wk+12*size_t(l);for(int q6=0;q6<6;++q6){o[q6]=g0[q6];o[6+q6]=g1[q6];}
+            }
+            if(ev&15u)shResample=1u;
+            if((ev&1u) && !sample){float* o=wk+12*size_t(l);for(int q6=0;q6<12;++q6)o[q6]=0.0f;}   // (broken: no stiffness in later samples)
             dashLocal+=dash;slipLocal+=slipWork;plasticLocal+=plastic;
             if(ev)atomicMax(&shActive2,__float_as_uint(time));   // activity: an event, a slip, an opening or closing
             if(ev&15u) {
@@ -1363,6 +1387,7 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
         // event is under way; what remains (the dead load settling around the
         // damage) is the next tick's static verdict.
         if(!threadIdx.x){shActive=0u;shPushing=0u;shNear=0u;}
+        sample=dynamic && (step%kExDampSample==0u || shResample);
         // Joint forces on the nodes: each node gathers its joints' wrenches (no atomics).
         if(!(EX_PROF_SKIP&1))for(PxU32 k=threadIdx.x;k<nn;k+=kExThreads) {
             if(vStart)for(int q=0;q<6;++q)vStart[6*k+q]=vS[6*k+q];   // the substep's start (the implicit joints' trapezoid)
@@ -1437,6 +1462,21 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
         // The joints at the rows' nodes (and all of them when no thread is free beside the rows).
         if(!(EX_PROF_SKIP&8))for(PxU32 i=threadIdx.x;i<nAtRows;i+=kExThreads)joint(jl[nl-1u-i],time,last);
         __syncthreads();
+        if(sample) {
+            // The damping's frequency from this substep's rates: omega_K^2 = (K v)^T M^-1 (K v) / v^T K v.
+            float numLocal=0.0f;
+            for(PxU32 k=threadIdx.x;k<nn;k+=kExThreads) {
+                PxU32 b0,b1;jointRange(k,b0,b1);if(b0==b1)continue;
+                float f[6]={0,0,0,0,0,0};exGather(wk,adj,b0,b1,f);
+                float im,ii[3];if(Small){im=imS[k];for(int q=0;q<3;++q)ii[q]=iiS[3*k+q];}else{const ExNode& n=nodes[k];im=n.im;for(int q=0;q<3;++q)ii[q]=n.tensor?0.0f:n.Iinv[q];}
+                if(ii[0]<0.0f)continue;   // (an impactor: none in a dynamic patch's joints)
+                for(int q=0;q<3;++q)numLocal+=im*f[q]*f[q]+ii[q]*f[3+q]*f[3+q];
+            }
+            atomicAdd(&shNum,numLocal);atomicAdd(&shDen,denLocal);denLocal=0.0f;
+            __syncthreads();
+            if(!threadIdx.x){if(shNum>0.0f && shDen>0.0f)shBeta=2.0f/sqrtf(shNum/shDen);shNum=0.0f;shDen=0.0f;shResample=0u;}
+            __syncthreads();
+        }
         if(s.explicitWindow==1u && !dynamic && !shActive){++step;sp.done=1;break;}
     }
     for(PxU32 i=threadIdx.x;i<6*nn;i+=kExThreads)nodes[i/6].v[i%6]=vS[i];
@@ -1445,7 +1485,7 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
     atomicAdd(&shDead,dead);
     if(dynamic){atomicAdd(&shDash,dashLocal);atomicAdd(&shSlipWork,slipLocal);atomicAdd(&shPlastic,plasticLocal);atomicAdd(&shExt,extLocal);}
     __syncthreads();
-    if(!threadIdx.x && dynamic){sp.slipWork+=shSlipWork;sp.dashWork+=shDash;sp.extWork+=shExt;sp.events+=shEvents;sp.converted+=shConverted;sp.seatLost+=shSeat;sp.crushedContacts+=shCrushed;
+    if(!threadIdx.x && dynamic){sp.beta=shBeta;sp.slipWork+=shSlipWork;sp.dashWork+=shDash;sp.extWork+=shExt;sp.events+=shEvents;sp.converted+=shConverted;sp.seatLost+=shSeat;sp.crushedContacts+=shCrushed;
         if(shEvents)sp.lastEvent=__uint_as_float(shLast);if(shActive2)sp.lastActive=__uint_as_float(shActive2);}
     if(!threadIdx.x){sp.dead+=shDead;sp.fracture+=shFracture;sp.plastic+=shPlastic;sp.substeps=step;sp.t=float(step)*h;sp.broken+=shBroken;sp.yielded+=shYielded;sp.pushing=shPushing;sp.near=shNear;if(step>=total)sp.done=1;}
 }
