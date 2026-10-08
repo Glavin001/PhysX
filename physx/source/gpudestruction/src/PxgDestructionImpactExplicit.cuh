@@ -221,9 +221,18 @@ __device__ __forceinline__ void exConeMetric(const float* W,const float* Ps,floa
     constexpr float kS[kScan]={0.0f,0.38268343f,0.70710678f,0.92387953f,1.0f,0.92387953f,0.70710678f,0.38268343f,0.0f,-0.38268343f,-0.70710678f,-0.92387953f,-1.0f,-0.92387953f,-0.70710678f,-0.38268343f};
     const float tn=sqrtf(Ps[1]*Ps[1]+Ps[2]*Ps[2]);
     const float c0=tn>0.0f?Ps[1]/tn:1.0f,s0=tn>0.0f?Ps[2]/tn:0.0f;   // t0 = atan2(Ps_2, Ps_1)
-    float best=0.0f,cb=0.0f,sb=0.0f;   // P = 0: value 0
-    for(int k=0;k<kScan;++k){const float c=c0*kC[k]-s0*kS[k],s=s0*kC[k]+c0*kS[k];const float v=exValue(W,wp0,wp1,wp2,mu,c,s).v;if(v<best){best=v;cb=c;sb=s;}}
-    if(!(best<0.0f))return;
+    // The scan without divisions: where N > 0 and D > 0 the value is -N^2/(2 D),
+    // so the best direction has the largest N^2 / D (compared crosswise).
+    float bN=0.0f,bD=1.0f,cb=0.0f,sb=0.0f;   // P = 0: value 0
+    #pragma unroll
+    for(int k=0;k<kScan;++k) {
+        const float c=c0*kC[k]-s0*kS[k],s=s0*kC[k]+c0*kS[k],d1=mu*c,d2=mu*s;
+        const float Wd0=-W[0]+W[1]*d1+W[2]*d2,Wd1=-W[3]+W[4]*d1+W[5]*d2,Wd2=-W[6]+W[7]*d1+W[8]*d2;
+        const float D=-Wd0+d1*Wd1+d2*Wd2,N=-wp0+d1*wp1+d2*wp2;
+        if(N>0.0f && D>0.0f && N*N*bD>bN*bN*D){bN=N;bD=D;cb=c;sb=s;}
+    }
+    if(!(bN>0.0f))return;
+    const float best=-0.5f*bN*bN/bD;
     constexpr float kStep=6.2831853f/float(kScan);
     float a=-kStep,b=kStep,u=0.0f,cx=cb,sx=sb;
     for(int it=0;it<24;++it) {
