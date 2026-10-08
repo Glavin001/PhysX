@@ -2142,14 +2142,14 @@ struct Stage {
         explicitRunMs=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-built).count();
         exPublishIsland<<<64,kThreads,0,stream>>>(in,w,x);
         exPublish<<<dim3(16,count),kThreads,0,stream>>>(in,s,w,x);
-        if(s.dynamicSequence){exPublishDynamic<<<dim3(16,count),kThreads,0,stream>>>(in,s,w,x);exSequenceBooks<<<1,kExPatches,0,stream>>>(w,x);}
+        if(s.dynamicSequence){exSequencePeriod<<<kExPatches,kThreads,0,stream>>>(s,x);exPublishDynamic<<<dim3(16,count),kThreads,0,stream>>>(in,s,w,x);exSequenceBooks<<<1,kExPatches,0,stream>>>(w,x);}
         if(stepLog){check(cudaMemcpyAsync(explicitPatches.data(),x.patches,sizeof(ExPatch)*count,cudaMemcpyDeviceToHost,stream));check(cudaStreamSynchronize(stream));}
         if(stepLog)std::fprintf(stderr,"[impact]   explicit: %u patches; build %.2f ms, window %.2f ms in %u launches\n",count,explicitBuildMs,explicitRunMs,dispatches);
         if(stepLog)for(PxU32 p=0;p<count;++p){const ExPatch& q=explicitPatches[p];
             std::fprintf(stderr,"[impact]   explicit patch %u: island %u, %u nodes (%u chunks, %.2f m%s), %u joints, %u contact rows, %u impactors; %u substeps of %.1f us (omega %.3g rad/s; at its end %u contacts pushing, %u joints at an event); broke %u, yielded %u%s; impactors' KE %.6g -> %.6g J, held %.4g J, dead load %.4g J; fracture %.4g J, plastic %.4g J\n",
                 p,q.island,q.nodes,q.chunks,q.radius,q.truncated?", shrunk":"",q.links,q.rows,q.impactors,q.substeps,q.h*1e6f,q.omega,q.pushing,q.near,q.broken,q.yielded,q.failed?" (FAILED)":"",q.keIn,q.keOut,q.u0,q.dead,q.fracture,q.plastic);
-            if(q.dynamic)std::fprintf(stderr,"[impact]   dynamic patch %u: zeta %.3g; %u events (%u broke, %u fastenings to contact, %u contacts crushed, %u slid off their seats; the last at %.2f ms), %u contacts; KE %.4g -> %.4g J, elastic %.4g -> %.4g J, the loads' work %.4g J; dissipated: fracture %.4g J, plastic %.4g J, slip %.4g J, dashpots %.4g J\n",
-                p,q.zeta,q.events,q.broken,q.converted,q.crushedContacts,q.seatLost,q.lastEvent*1e3f,q.contacts,q.keStart,q.keEnd,q.u0,q.strainEnd,q.extWork,q.fracture,q.plastic,q.slipWork,q.dashWork);}
+            if(q.dynamic)std::fprintf(stderr,"[impact]   dynamic patch %u: quiet %.3f s, slowest motion's period %.3f s%s; zeta %.3g; %u events (%u broke, %u fastenings to contact, %u contacts crushed, %u slid off their seats; the last at %.2f ms), %u contacts; KE %.4g -> %.4g J, elastic %.4g -> %.4g J, the loads' work %.4g J; dissipated: fracture %.4g J, plastic %.4g J, slip %.4g J, dashpots %.4g J\n",
+                p,q.quiet,q.period,q.freeze?", FROZEN":"",q.zeta,q.events,q.broken,q.converted,q.crushedContacts,q.seatLost,q.lastEvent*1e3f,q.contacts,q.keStart,q.keEnd,q.u0,q.strainEnd,q.extWork,q.fracture,q.plastic,q.slipWork,q.dashWork);}
     }
     void releaseStep() {
         if(!stepAllocated)return;

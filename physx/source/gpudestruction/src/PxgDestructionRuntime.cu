@@ -2297,8 +2297,6 @@ public:
                         std::fprintf(stderr,"[sequence] PX_DESTRUCTION_DYNAMIC_SEQUENCE needs the explicit impact step (PX_DESTRUCTION_IMPACT_EXPLICIT=1); off\n");
                     else {
                         mSeq.allocate(d.chunkCount,d.bondCount);
-                        // Until the period estimate: never settled (FLT_MAX's bytes).
-                        check(cudaMemset(mSeq.period,0x7f,sizeof(float)*d.chunkCount));
                         mImpactSettings.dynamicSequence=1u;
                         const char* z=std::getenv("PX_DESTRUCTION_DYNAMIC_DAMPING");if(z && *z)mImpactSettings.dynamicDamping=float(std::atof(z));
                         mImpactSettings.dynamicFriction=mRebearingFriction;
@@ -2752,7 +2750,7 @@ public:
                     if(mSeq.enabled) {
                         // The dynamic sequence: a new tick's persisted state; the islands already
                         // dynamic (their row patches are dynamic patches; the trial pass only).
-                        if(!mPass){mSeq.beginTick(mStream);
+                        if(!mPass){mSeq.beginTick(mStream);check(cudaMemsetAsync(mSeq.counters,0,sizeof(PxU32)*4,mStream));
                             check(cudaMemsetAsync(mSeq.bear,0xff,sizeof(PxU32)*mM,mStream));check(cudaMemsetAsync(mSeq.hold,0,sizeof(PxU32)*mM,mStream));}
                         check(cudaMemsetAsync(mSeq.island,0,sizeof(PxU32)*mN,mStream));
                         if(!mPass)seqMarkPersisted<<<(mN+127)/128,128,0,mStream>>>(stress.nodeIslands,mSeq.startChunks(),mN,mSeq.island,mSeq.seed);
@@ -2969,9 +2967,20 @@ public:
         const PxDestructionVectorPair* forces,PxReal dt) {
         const auto stress=mSolver->deviceView();
         check(cudaMemsetAsync(mSeq.run,0,sizeof(PxU32)*mN,mStream));check(cudaMemsetAsync(mSeq.breaks,0,sizeof(PxU32)*mN,mStream));
+        // The frozen islands: thawed by an event of their carried forces, else held.
+        const PxU32 c=mSeq.cur,x=c^1u;
+        check(cudaMemsetAsync(mSeq.frozen,0,sizeof(PxU32)*mN,mStream));check(cudaMemsetAsync(mSeq.thaw,0,sizeof(PxU32)*mN,mStream));
+        seqMarkFrozen<<<(mN+127)/128,128,0,mStream>>>(stress.nodeIslands,mSeq.startChunks(),mImpact.w.islandFlag,mN,mSeq.frozen);
+        seqThaw<<<(mM+127)/128,128,0,mStream>>>(impactIn,impactSettings,mSeq.bond[c],mSeq.frozenForce,mSeq.freezeElastic,mSeq.frozen,mSeq.thaw);
+        seqResolveFrozen<<<(mN+127)/128,128,0,mStream>>>(mSeq.frozen,mSeq.thaw,mN,mSeq.run,mSeq.counters);
+        seqHoldFrozenBonds<<<(mM+127)/128,128,0,mStream>>>(stress.bondIslands,mSeq.frozen,mSeq.thaw,mSeq.bond[c],forces,mSeq.frozenForce,mSeq.freezeElastic,
+            mSeq.J[c],mSeq.slip[c],mSeq.bond[x],mSeq.J[x],mSeq.slip[x],mImpact.w.forces,mImpact.w.verdict,mSeq.hold,mM,mN);
+        seqHoldFrozenChunks<<<(mN+127)/128,128,0,mStream>>>(stress.nodeIslands,mSeq.frozen,mSeq.thaw,mSeq.chunk[c],mSeq.v[c],mSeq.quiet[c],mSeq.periodBuf[c],
+            mSeq.chunk[x],mSeq.v[x],mSeq.quiet[x],mSeq.periodBuf[x],mImpact.w.islandFlag,mN,float(dt));
+        // The trigger (not on impact or frozen islands) and the dynamic islands that keep running.
         seqTrigger<<<(mM+127)/128,128,0,mStream>>>(mBonds,mHealth,mVerdicts,mRebearing?mBearState:nullptr,mRebearing?mBearTrial:nullptr,
-            stress.bondIslands,mImpact.w.islandFlag,mM,mN,mSeq.run,mSeq.breaks,mSeq.seed);
-        seqKeep<<<(mN+127)/128,128,0,mStream>>>(stress.nodeIslands,mSeq.startChunks(),mSeq.quiet[mSeq.cur],mSeq.period,mImpact.w.islandFlag,mSeq.breaks,mN,mSeq.run);
+            stress.bondIslands,mImpact.w.islandFlag,mSeq.frozen,mM,mN,mSeq.run,mSeq.breaks,mSeq.seed);
+        seqKeep<<<(mN+127)/128,128,0,mStream>>>(stress.nodeIslands,mSeq.startChunks(),mImpact.w.islandFlag,mN,mSeq.run);
         mSeq.bind(mImpact.x);mImpact.x.seqIsland=mSeq.run;
         mImpact.submitSequence(impactIn,impactSettings,mStream);
         mImpact.x.seqIsland=nullptr;
@@ -2988,6 +2997,8 @@ public:
             const auto& e=*mImpactHostStatus;
             if(e.sequencePatches)std::fprintf(stderr,"[sequence] evaluation %llu: %u dynamic patches, %u substeps, broke %u, %u fastenings to contact; %.1f ms in %u launches (longest %.1f ms)\n",
                 (unsigned long long)mImpactEvaluations,e.sequencePatches,e.sequenceSubsteps,e.sequenceBroken,e.sequenceConverted,mImpact.explicitRunMs,mImpact.dispatches,mImpact.longestDispatch);
+            PxU32 fc[4];check(cudaMemcpy(fc,mSeq.counters,sizeof fc,cudaMemcpyDeviceToHost));
+            if(fc[0]||fc[1]||fc[2])std::fprintf(stderr,"[sequence] evaluation %llu: %u islands froze, %u thawed, %u held frozen\n",(unsigned long long)mImpactEvaluations,fc[0],fc[1],fc[2]);
             if(e.sequenceEnergy)std::fprintf(stderr,"[sequence] SEQUENCE ENERGY: %u dynamic patches dissipated more than they had (a bug signal)\n",e.sequenceEnergy);
         }
     }
