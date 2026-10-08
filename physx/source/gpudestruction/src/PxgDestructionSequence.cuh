@@ -29,7 +29,9 @@
 //      capacity, a contact lifting, sliding or crushing) or its topology changes
 //      (seqThaw); freezes and thaws are counted (counters, cycles per chunk);
 //   4. its breaks reach the topology through the corrected pass (correction limit
-//      1), where it is not stepped again: its trial forces and verdicts stand;
+//      1), where it is not stepped again: its trial forces and verdicts stand. An
+//      island whose static verdict changes its topology only in the corrected pass
+//      (after the trial's split) runs a dynamic patch there, committed in the tick;
 //   5. its re-bearing contacts are the kernel's (exContactJoint), their states
 //      written into the static law's trial (seqApplyBear).
 struct DynamicSequence {
@@ -43,20 +45,20 @@ struct DynamicSequence {
     PxU32 *island{},*run{},*breaks{},*seed{},*bear{},*hold{},*frozen{},*thaw{},*cycles{},*counters{};
     PxDestructionVectorPair *forces{},*frozenForce{},*freezeElastic{};
     // The trial pass's static forces, per frame ([cur] the last frame's: a new dynamic patch's start).
-    PxDestructionVectorPair* trialForces[2]{};PxU32 *heldCount{};
+    PxDestructionVectorPair* trialForces[2]{};
     template<class T> static void alloc(T*& p,size_t k){if(cudaMalloc(&p,sizeof(T)*std::max<size_t>(k,1))!=cudaSuccess)throw std::runtime_error("dynamic sequence: allocation");cudaMemset(p,0,sizeof(T)*std::max<size_t>(k,1));}
     void allocate(PxU32 chunks,PxU32 bonds) {
         release();n=chunks;m=bonds;
         for(int b=0;b<2;++b){alloc(chunk[b],n);alloc(v[b],6*size_t(n));alloc(quiet[b],n);alloc(periodBuf[b],n);alloc(bond[b],m);alloc(J[b],6*size_t(m));alloc(slip[b],2*size_t(m));}
         alloc(island,n);alloc(run,n);alloc(breaks,n);alloc(seed,n);alloc(frozen,n);alloc(thaw,n);alloc(cycles,n);alloc(counters,4);
-        alloc(bear,m);alloc(hold,m);alloc(forces,m);alloc(frozenForce,m);alloc(freezeElastic,m);alloc(trialForces[0],m);alloc(trialForces[1],m);alloc(heldCount,1);
+        alloc(bear,m);alloc(hold,m);alloc(forces,m);alloc(frozenForce,m);alloc(freezeElastic,m);alloc(trialForces[0],m);alloc(trialForces[1],m);
         enabled=true;cur=0;
     }
     void release() {
         for(int b=0;b<2;++b){cudaFree(chunk[b]);cudaFree(v[b]);cudaFree(quiet[b]);cudaFree(periodBuf[b]);cudaFree(bond[b]);cudaFree(J[b]);cudaFree(slip[b]);
             chunk[b]=bond[b]=nullptr;v[b]=quiet[b]=periodBuf[b]=J[b]=slip[b]=nullptr;}
         for(PxU32* p:{island,run,breaks,seed,bear,hold,frozen,thaw,cycles,counters})cudaFree(p);
-        for(PxDestructionVectorPair* p:{forces,frozenForce,freezeElastic,trialForces[0],trialForces[1]})cudaFree(p);cudaFree(heldCount);heldCount=nullptr;trialForces[0]=trialForces[1]=nullptr;
+        for(PxDestructionVectorPair* p:{forces,frozenForce,freezeElastic,trialForces[0],trialForces[1]})cudaFree(p);trialForces[0]=trialForces[1]=nullptr;
         island=run=breaks=seed=bear=hold=frozen=thaw=cycles=counters=nullptr;forces=frozenForce=freezeElastic=nullptr;enabled=false;
     }
     // A new tick: last tick's state becomes the start; this tick's starts empty.
@@ -186,19 +188,4 @@ __global__ void seqHoldBonds(const PxU32* bondIslands,const PxU32* mark,const Px
 __global__ void seqHoldIslands(const PxU32* mark,PxU32* islandFlag,PxU32 count)
 {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i<count && mark[i])islandFlag[i]=1u;
-}
-// 4b. The corrected pass: no window runs there, so the static verdict's topology changes on
-// the islands no window decided (a break, a re-bearing contact's state) are held, not
-// applied: the next tick's trigger hands them to a dynamic patch, from the forces before
-// the change (the static snapshot never decides a failure under the dynamic sequence).
-__global__ void seqHoldCorrectedStatic(const float* health,const PxU32* bondIslands,const PxU32* islandFlag,PxDestructionBondVerdict* verdict,
-    const PxU32* bearState,PxU32* bearTrial,PxU32 count,PxU32 islands,PxU32* held)
-{
-    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
-    const float area=health[i];if(!(area>0.0f && area<0.5f*FLT_MAX))return;
-    const PxU32 island=bondIslands[i];if(island<islands && islandFlag && islandFlag[island])return;
-    bool change=false;
-    if(verdict[i].health<=0.0f){verdict[i].health=area;verdict[i].damage=0.0f;verdict[i].command=0u;change=true;}
-    if(bearState && bearTrial && bearTrial[i]!=bearState[i]){bearTrial[i]=bearState[i];change=true;}
-    if(change)atomicAdd(held,1u);
 }

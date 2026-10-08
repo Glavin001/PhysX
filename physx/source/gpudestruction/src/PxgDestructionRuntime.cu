@@ -2866,14 +2866,7 @@ public:
                 // (the first frame has no accepted equilibrium to start a dynamic patch from: its static verdict stands)
                 if(mSeq.enabled && !mPass && impactRan && mM && forces && mFrame>1)runDynamicSequence(impactIn,impactSettings,impactView,forces,dt);
                 else if(mSeq.enabled && !mPass && mM && forces)check(cudaMemcpyAsync(mSeq.trialForces[mSeq.cur^1u],forces,sizeof(*forces)*mM,cudaMemcpyDeviceToDevice,mStream));
-                if(mSeq.enabled && mPass && impactRan && mM && forces && mFrame>1) {
-                    const auto stress=mSolver->deviceView();
-                    check(cudaMemsetAsync(mSeq.heldCount,0,sizeof(PxU32),mStream));
-                    seqHoldCorrectedStatic<<<(mM+127)/128,128,0,mStream>>>(mHealth,stress.bondIslands,mImpact.w.islandFlag,mVerdicts,
-                        mRebearing?mBearState:nullptr,mRebearing?mBearTrial:nullptr,mM,mN,mSeq.heldCount);
-                    if(mImpactLog){PxU32 h=0;check(cudaMemcpyAsync(&h,mSeq.heldCount,sizeof h,cudaMemcpyDeviceToHost,mStream));check(cudaStreamSynchronize(mStream));
-                        if(h)std::fprintf(stderr,"[sequence] pass %u: %u static topology changes held for the next tick's trigger\n",mPass,h);}
-                }
+                if(mSeq.enabled && mPass && impactRan && mM && forces && mFrame>1)runDynamicSequence(impactIn,impactSettings,impactView,forces,dt,true);
                 if(!mPass && mM)while(mRemovalNext<mRemovals.size() && mRemovals[mRemovalNext].first<=mFrame) {
                     const auto& r=mRemovals[mRemovalNext++];if(r.second.empty())continue;
                     cudaFree(mRemovalBonds);mRemovalBonds=nullptr;allocate(mRemovalBonds,r.second.size());
@@ -3003,10 +2996,16 @@ public:
     // The dynamic sequence's trial pass, after the static verdict (PxgDestructionSequence.cuh):
     // the trigger, the dynamic patches (the explicit step's second submission), and the
     // verdict again with their answer (the impact view now holds them).
+    // The corrected pass (corrected): no window re-runs on an island the trial decided (its
+    // forces and verdicts stand, seqHold*), but an island whose static verdict would change its
+    // topology now -- after the trial's split -- is decided by a dynamic patch here too, from the
+    // last frame's trial forces, and committed in this tick as any corrected-pass change is (an
+    // island beyond the evaluation's patch slots keeps the static verdict: counters[3]).
     void runDynamicSequence(const impact::Inputs& impactIn,const impact::Settings& impactSettings,impact::View& impactView,
-        const PxDestructionVectorPair* forces,PxReal dt) {
+        const PxDestructionVectorPair* forces,PxReal dt,bool corrected=false) {
         const auto stress=mSolver->deviceView();
         check(cudaMemsetAsync(mSeq.run,0,sizeof(PxU32)*mN,mStream));check(cudaMemsetAsync(mSeq.breaks,0,sizeof(PxU32)*mN,mStream));
+        if(!corrected) {
         // The frozen islands: thawed by an event of their carried forces, else held.
         const PxU32 c=mSeq.cur,x=c^1u;
         check(cudaMemsetAsync(mSeq.frozen,0,sizeof(PxU32)*mN,mStream));check(cudaMemsetAsync(mSeq.thaw,0,sizeof(PxU32)*mN,mStream));
@@ -3021,12 +3020,16 @@ public:
         seqTrigger<<<(mM+127)/128,128,0,mStream>>>(mBonds,mHealth,mVerdicts,mRebearing?mBearState:nullptr,mRebearing?mBearTrial:nullptr,
             stress.bondIslands,mImpact.w.islandFlag,mSeq.frozen,mM,mN,mSeq.run,mSeq.breaks,mSeq.seed);
         seqKeep<<<(mN+127)/128,128,0,mStream>>>(stress.nodeIslands,mSeq.startChunks(),mImpact.w.islandFlag,mN,mSeq.run);
+        } else seqTrigger<<<(mM+127)/128,128,0,mStream>>>(mBonds,mHealth,mVerdicts,mRebearing?mBearState:nullptr,mRebearing?mBearTrial:nullptr,
+            stress.bondIslands,mImpact.w.islandFlag,nullptr,mM,mN,mSeq.run,mSeq.breaks,mSeq.seed);
         mSeq.bind(mImpact.x);mImpact.x.seqIsland=mSeq.run;
         mImpact.submitSequence(impactIn,impactSettings,mStream);
         mImpact.x.seqIsland=nullptr;
-        check(cudaMemcpyAsync(mSeq.forces,mImpact.w.forces,sizeof(*mSeq.forces)*mM,cudaMemcpyDeviceToDevice,mStream));
-        // This frame's static forces: the next frame's dynamic patches start from them.
-        check(cudaMemcpyAsync(mSeq.trialForces[mSeq.cur^1u],forces,sizeof(*forces)*mM,cudaMemcpyDeviceToDevice,mStream));
+        if(!corrected) {
+            check(cudaMemcpyAsync(mSeq.forces,mImpact.w.forces,sizeof(*mSeq.forces)*mM,cudaMemcpyDeviceToDevice,mStream));
+            // This frame's static forces: the next frame's dynamic patches start from them.
+            check(cudaMemcpyAsync(mSeq.trialForces[mSeq.cur^1u],forces,sizeof(*forces)*mM,cudaMemcpyDeviceToDevice,mStream));
+        }
         evaluateBondMaterials<<<(mM+127)/128,128,0,mStream>>>(mChunks,mBonds,mMaterials,mHealth,forces,mM,
             dt,mDamageRate,mBendGain,mFibres,mVerdicts,mBondCentroids,mStatus,mSectionBending,mSections,mSectionRotation,impactView,mStaticDuctile);
         if(mRebearing) {
@@ -3041,6 +3044,7 @@ public:
                 (unsigned long long)mImpactEvaluations,e.sequencePatches,e.sequenceSubsteps,e.sequenceBroken,e.sequenceConverted,mImpact.explicitRunMs,mImpact.dispatches,mImpact.longestDispatch);
             PxU32 fc[4];check(cudaMemcpy(fc,mSeq.counters,sizeof fc,cudaMemcpyDeviceToHost));
             if(fc[0]||fc[1]||fc[2])std::fprintf(stderr,"[sequence] evaluation %llu: %u islands froze, %u thawed, %u held frozen\n",(unsigned long long)mImpactEvaluations,fc[0],fc[1],fc[2]);
+            if(fc[3])std::fprintf(stderr,"[sequence] PATCH SLOTS FULL: %u islands kept the static verdict this tick (the snapshot decided their failures; kExPatches %u)\n",fc[3],impact::kExPatches);
             if(e.sequenceEnergy)std::fprintf(stderr,"[sequence] SEQUENCE ENERGY: %u dynamic patches dissipated more than they had (a bug signal)\n",e.sequenceEnergy);
         }
     }

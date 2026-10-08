@@ -189,7 +189,7 @@ struct ExScratch {
     // frame's trial (static) solve: a dynamic patch's start where nothing is persisted (null:
     // Inputs::base).
     const PxDestructionVectorPair* seqBase{};
-    PxU32* seqCounters{}; // [4] this pass: islands frozen, thawed, held frozen; spare
+    PxU32* seqCounters{}; // [4] this tick: islands frozen, thawed, held frozen; islands left to the static verdict (patch slots full)
     // The window's answer for the stage (exPublishDynamic): per bond its re-bearing
     // state (eBEAR_*; ~0 undecided) and 1 where it is a contact the window holds.
     PxU32* seqBear{};PxU32* seqHold{};
@@ -484,7 +484,7 @@ __global__ void exList(Inputs in,Settings s,Scratch w,ExScratch t)
             if(!t.seqIsland[i])continue;
             PxU32 p=0;while(p<count && t.patches[p].island!=i)++p;
             if(p<count)continue;
-            if(count>=kExPatches){atomicOr(&w.status->error,1u);break;}
+            if(count>=kExPatches){atomicOr(&w.status->error,1u);if(t.seqCounters)atomicAdd(t.seqCounters+3,1u);continue;}   // (counted: the static verdict stands there)
             ExPatch e{};e.island=i;e.radius=s.stepRadius;e.seed=0xffffffffu;e.dynamic=1u;t.patches[count++]=e;
         }
     }
