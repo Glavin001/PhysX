@@ -122,6 +122,10 @@ int run(int argc,char** argv){
             x.s0,x.s1,x.zt,x.g0,x.g1,x.gb,x.gt,x.N,x.V,x.T,x.M0,x.M1);
     }
     e.recordDispatches=std::getenv("IMPACT_DISPATCH_LOG")!=nullptr;
+    // Warm the island kernel's pipeline (built on its first launch: 1.3 s on
+    // Metal, which a timed first dispatch would count): no islands, no work.
+    check(cudaMemset(e.w.counters,0,sizeof(PxU32)*8));
+    impact::stepIslands<<<1,impact::kThreads>>>(in,s,e.w);check(cudaDeviceSynchronize());
     const int runs=argc>2?std::atoi(argv[2]):1;
     for(int r=0;r<runs;++r) {
         const auto t0=std::chrono::steady_clock::now();
