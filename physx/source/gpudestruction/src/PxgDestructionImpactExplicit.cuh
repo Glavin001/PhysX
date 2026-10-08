@@ -105,6 +105,7 @@ struct ExScratch {
     PxU32* rowList{};     // [P][kExRows]: each patch's stage rows (exList), in row order
     float* rwr{};         // [P][kExRows][2][6]: each row's impulse wrench on its two ends
     float4* jp{};         // [P][kExLinks][kExJoint]: each joint packed for the window (exRunT; exPack)
+    PxU32* jl{};          // [P][kExLinks]: the live joints away from rows from the front, those at rows from the back (exRunT)
 };
 
 // A joint's wrench on one end's six dof from a bond-frame force x (end 0: its
@@ -611,7 +612,7 @@ template<bool Small> __device__ __forceinline__
 void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
 {
     constexpr PxU32 kV=Small?kExSmall:kExNodes,kN=Small?kExSmall:1u;
-    __shared__ PxU32 shBroken,shYielded,shActive,shPushing,shNear;
+    __shared__ PxU32 shBroken,shYielded,shActive,shPushing,shNear,shFree,shAtRows;
     __shared__ float shFracture,shPlastic,shDead;
     __shared__ float vS[6*kV],imS[kN],iiS[3*kN];
     __shared__ PxU32 jS[kN],rS[kN];
@@ -620,10 +621,10 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
     ExNode* nodes=t.nodes+size_t(p)*kExNodes;const Bond* bonds=t.bonds+size_t(p)*kExLinks;ExLink* links=t.links+size_t(p)*kExLinks;
     const Bond* rowBonds=t.rowBonds+size_t(p)*kExRows;ExRow* rows=t.rows+size_t(p)*kExRows;
     const PxU32* adj=t.adj+size_t(p)*2*kExLinks;const PxU32* rowAdj=t.rowAdj+size_t(p)*2*kExRows;
-    float* wr=t.wr+size_t(p)*kExLinks*12;float* rwr=t.rwr+size_t(p)*kExRows*12;float4* jp=t.jp+size_t(p)*kExLinks*kExJoint;
+    float* wr=t.wr+size_t(p)*kExLinks*12;float* rwr=t.rwr+size_t(p)*kExRows*12;float4* jp=t.jp+size_t(p)*kExLinks*kExJoint;PxU32* jl=t.jl+size_t(p)*kExLinks;
     const PxU32 nn=sp.nodes,nl=sp.links,nr=sp.rows;const float h=sp.h,T=s.dt;
     const PxU32 total=PxU32(ceilf(T/h-1e-4f));
-    if(!threadIdx.x){shBroken=0;shYielded=0;shFracture=0.0f;shPlastic=0.0f;shDead=0.0f;}
+    if(!threadIdx.x){shBroken=0;shYielded=0;shFracture=0.0f;shPlastic=0.0f;shDead=0.0f;shFree=0;shAtRows=0;}
     for(PxU32 k=threadIdx.x;k<nn;k+=kExThreads) {
         const ExNode& n=nodes[k];for(int q=0;q<6;++q)vS[6*k+q]=n.v[q];
         if(Small){imS[k]=n.im;for(int q=0;q<3;++q)iiS[3*k+q]=n.tensor?-1.0f:n.Iinv[q];jS[k]=n.jointBegin|(n.jointEnd<<16);rS[k]=n.rowBegin|(n.rowEnd<<16);}
@@ -666,6 +667,7 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
         float4* q=jp+size_t(kExJoint)*l;
         Bond b;float J0[6];PxU32 ea,eb;exUnpack(q,b,J0,ea,eb);
         const float4 s0=q[9],s1=q[10];PxU32 state=__float_as_uint(s1.z);float slip=s1.w;
+        if(!(state&eEX_LIVE))return;   // broke earlier in this launch
         float d[6]={0,0,0,0,0,0};if(ea!=0xffffffffu)exRelative(b,0,vS+6*ea,d);if(eb!=0xffffffffu)exRelative(b,1,vS+6*eb,d);
         for(int q6=0;q6<6;++q6)dead-=h*J0[q6]*d[q6];
         float k[6];exStiffness(b,k);
@@ -691,18 +693,20 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
         exWrench(b,dJ,0,f0);exWrench(b,dJ,1,f1);
         reinterpret_cast<float4*>(o)[0]=make_float4(f0[0],f0[1],f0[2],f0[3]);reinterpret_cast<float4*>(o)[1]=make_float4(f0[4],f0[5],f1[0],f1[1]);reinterpret_cast<float4*>(o)[2]=make_float4(f1[2],f1[3],f1[4],f1[5]);
     };
-    // The joint's state bits, from its packed record.
-    auto jointState=[&](PxU32 l){return __float_as_uint(jp[size_t(kExJoint)*l+10].z);};
     // Rows run on the first ceil(nr / 32) simdgroups; the joints away from them on the rest at the same time.
     const PxU32 rowThreads=min((nr+31u)&~31u,kExThreads),freeStride=kExThreads-rowThreads;
+    __syncthreads();
     for(PxU32 l=threadIdx.x;l<nl;l+=kExThreads) {
         ExLink& e=links[l];PxU32 b0,b1,c0=0,c1=0;
         if(e.a!=0xffffffffu){rowRange(e.a,b0,b1);c0=b1-b0;}
         if(e.b!=0xffffffffu){rowRange(e.b,b0,b1);c1=b1-b0;}
         e.state=(c0||c1)?(e.state|eEX_ROWS):(e.state&~eEX_ROWS);
         exPack(bonds[l],e,jp+size_t(kExJoint)*l);
+        // The lists the substeps walk (any order: each joint's substep is its own).
+        if(e.state&eEX_LIVE){if((c0||c1) || !freeStride)jl[nl-1u-atomicAdd(&shAtRows,1u)]=l;else jl[atomicAdd(&shFree,1u)]=l;}
     }
     __syncthreads();
+    const PxU32 nFree=shFree,nAtRows=shAtRows;
     for(PxU32 it=0;it<budget && step<total;++it,++step) {
         const float time=float(step+1)*h;const bool last=step+1==total;
         // The window's end (Settings::explicitWindow 1): once no contact pushes, no
@@ -720,9 +724,7 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
         __syncthreads();
         // The joints with no row at either end (their ends' velocities are final),
         // beside the rows: on the threads past the rows' simdgroups.
-        if(!(EX_PROF_SKIP&8) && freeStride)for(PxU32 l=threadIdx.x-rowThreads;threadIdx.x>=rowThreads && l<nl;l+=freeStride) {
-            if((jointState(l)&(eEX_LIVE|eEX_ROWS))==eEX_LIVE)joint(l,time,last);
-        }
+        if(!(EX_PROF_SKIP&8) && threadIdx.x>=rowThreads)for(PxU32 i=threadIdx.x-rowThreads;i<nFree;i+=freeStride)joint(jl[i],time,last);
         // Contacts: each row's impulse from the same velocities (Jacobi), in the
         // Coulomb cone (exCone: sliding, never adding energy).
         if(hasRow && !(EX_PROF_SKIP&2)) {
@@ -750,9 +752,7 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
         }
         __syncthreads();
         // The joints at the rows' nodes (and all of them when no thread is free beside the rows).
-        if(!(EX_PROF_SKIP&8))for(PxU32 l=threadIdx.x;l<nl;l+=kExThreads) {
-            const PxU32 st=jointState(l);if((st&eEX_LIVE) && (!freeStride || (st&eEX_ROWS)))joint(l,time,last);
-        }
+        if(!(EX_PROF_SKIP&8))for(PxU32 i=threadIdx.x;i<nAtRows;i+=kExThreads)joint(jl[nl-1u-i],time,last);
         __syncthreads();
         if(s.explicitWindow==1u && !shActive){++step;sp.done=1;break;}
     }
