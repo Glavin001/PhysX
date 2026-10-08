@@ -11,11 +11,12 @@
 namespace impact {
 struct CaptureHeader { char magic[4]; PxU32 version,n,m,materials,rows,settingsBytes,flags; };
 enum CaptureFlag : PxU32 { eCAPTURE_SLIP=1, eCAPTURE_STIFFNESS=2, eCAPTURE_ELASTIC_BASE=4, eCAPTURE_CRUSHED=8, eCAPTURE_SECTIONS=16, eCAPTURE_ROWS=32, eCAPTURE_CARRIED=64, eCAPTURE_SLIP_BEFORE=128, eCAPTURE_ROUTED=256 };
-// Version 2: ContactRow ends with `resting` (version 1 rows lack it).
+// Version 2: ContactRow ends with `resting` (version 1 rows lack it). Version 3:
+// then `other` and `otherPose` (the two-body impact; older rows: other ~0).
 inline std::vector<ContactRow> readCaptureRows(FILE* f,PxU32 version,PxU32 count)
 {
     std::vector<ContactRow> rows(count);
-    const size_t size=version>=2?sizeof(ContactRow):offsetof(ContactRow,resting);
+    const size_t size=version>=3?sizeof(ContactRow):version>=2?offsetof(ContactRow,other):offsetof(ContactRow,resting);
     std::vector<unsigned char> raw(size*count);
     if(count && std::fread(raw.data(),size,count,f)!=count)return {};
     for(PxU32 i=0;i<count;++i){rows[i]=ContactRow{};std::memcpy(&rows[i],raw.data()+size*i,size);}
@@ -33,7 +34,7 @@ inline bool writeCapture(const char* path,const Inputs& in,const Settings& s,PxU
     FILE* f=std::fopen(path,"wb");if(!f)return false;
     PxU32 rows=0;if(in.rows && in.rowCounter){check(cudaMemcpy(&rows,in.rowCounter,sizeof rows,cudaMemcpyDeviceToHost));rows=rows<in.rowCount?rows:in.rowCount;}
     else if(in.rows)rows=in.rowCount;
-    CaptureHeader h{{'I','M','P','C'},2,in.chunkCount,in.bondCount,materials,rows,PxU32(sizeof(Settings)),
+    CaptureHeader h{{'I','M','P','C'},3,in.chunkCount,in.bondCount,materials,rows,PxU32(sizeof(Settings)),
         (in.ductileSlip?eCAPTURE_SLIP:0u)|(in.stiffness?eCAPTURE_STIFFNESS:0u)|(in.elasticBase?eCAPTURE_ELASTIC_BASE:0u)
         |(in.crushed?eCAPTURE_CRUSHED:0u)|(in.sections?eCAPTURE_SECTIONS:0u)|(rows?eCAPTURE_ROWS:0u)
         |(in.carried?eCAPTURE_CARRIED:0u)|(in.slipBefore?eCAPTURE_SLIP_BEFORE:0u)|((rows && in.rowRouted)?eCAPTURE_ROUTED:0u)};
