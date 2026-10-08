@@ -71,7 +71,7 @@ __global__ void applyWindowImpactors(const impact::ExScratch::Handoff* records,c
     const PxDestructionStressChunk* chunks,PxU32 n,const PxTransform* poses,PxgBodySim* checkpoint,PxgBodySimVelocities* previous,PxU32 checkpointCount)
 {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=min(*count,impact::kExHandoffs))return;
-    const auto r=records[i];if(r.body>=checkpointCount)return;
+    const auto r=records[i];if(r.body>=checkpointCount || !r.pad)return;   // (pad: its pairs dropped, exPublish)
     const PxU32 island=patches[r.patch].island;if(island>=n)return;
     const PxQuat q=poses[chunks[island].cluster].q;
     const PxVec3 v=q.rotate(PxVec3(r.v[0],r.v[1],r.v[2])),w=q.rotate(PxVec3(r.w[0],r.w[1],r.w[2]));

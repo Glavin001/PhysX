@@ -1357,9 +1357,13 @@ __global__ void exPublish(Inputs in,Settings s,Scratch w,ExScratch t)
         bool live=false;
         for(PxU32 j=nodes[x.a].jointBegin;j<nodes[x.a].jointEnd && !live;++j)live=(links[t.adj[size_t(p)*2*kExLinks+j]>>1].state&eEX_LIVE)!=0u;
         const float bound=sqrtf(lin[0]*lin[0]+lin[1]*lin[1]+lin[2]*lin[2])/float(max(row.points,1u));
-        // Settings::compliant: the window decided the pair; the corrected pass drops it (the
-        // least positive bound, pairwise: no impulse between them).
-        if(in.rowBound)in.rowBound[x.row]=s.compliant?FLT_MIN:((live || s.boundImpactor)?fmaxf(bound,FLT_MIN):0.0f);
+        // Settings::compliant: where the window met every chunk the impactor reaches in the tick
+        // (a round impactor's swept rows; a two-body car, whose joints it graded on them), it
+        // decided the pair: the corrected pass drops it (the least positive bound, pairwise: no
+        // impulse between them) and starts the impactor at its window end velocity
+        // (applyWindowImpactors). Otherwise its contacts stay bounded at what the window delivered.
+        const bool dropped=s.compliant && (x.geo || x.b<sp.chunks);
+        if(in.rowBound)in.rowBound[x.row]=dropped?FLT_MIN:((live || s.boundImpactor)?fmaxf(bound,FLT_MIN):0.0f);
         // The struck chunk's crush (Settings::compliant): the depth share its rows crushed,
         // or through (crushed: the stage makes it a free fragment).
         if(in.crushOut && x.compliant && x.depth>0.0f && (x.dp>0.0f || (x.crush&2u))) {
@@ -1394,7 +1398,9 @@ __global__ void exPublish(Inputs in,Settings s,Scratch w,ExScratch t)
         for(PxU32 k=sp.chunks;k<sp.nodes;++k){const ExNode& n=nodes[k];if(!n.tensor)continue;
             PxU32 body=0xffffffffu;for(PxU32 r=0;r<sp.rows;++r)if(rows[r].b==k){body=in.rows[rows[r].row].body;break;}
             const PxU32 slot=atomicAdd(t.handoffCount,1u);if(slot>=kExHandoffs)break;
-            ExScratch::Handoff hnd{};hnd.island=0xffffffffu;hnd.body=body;hnd.patch=p;for(int q=0;q<3;++q){hnd.v[q]=n.v[q];hnd.w[q]=n.v[3+q];}t.handoff[slot]=hnd;}
+            ExScratch::Handoff hnd{};hnd.island=0xffffffffu;hnd.body=body;hnd.patch=p;for(int q=0;q<3;++q){hnd.v[q]=n.v[q];hnd.w[q]=n.v[3+q];}
+            hnd.pad=(s.compliant && n.radius>0.0f)?1u:0u;   // its pairs dropped: it starts the corrected pass at this velocity
+            t.handoff[slot]=hnd;}
         if(sp.twoBody) {
             double m=0.0,c[3]={0,0,0},pm[3]={0,0,0};const PxU32 b0=sp.chunks-sp.carChunks;
             const ContactRow& q=in.rows[sp.carRow];const PxQuat rq(q.otherPose[0],q.otherPose[1],q.otherPose[2],q.otherPose[3]);const PxVec3 rp(q.otherPose[4],q.otherPose[5],q.otherPose[6]);
@@ -1407,7 +1413,7 @@ __global__ void exPublish(Inputs in,Settings s,Scratch w,ExScratch t)
                 L[0]+=ik*n.v[3]+mk*(r[1]*u[2]-r[2]*u[1]);L[1]+=ik*n.v[4]+mk*(r[2]*u[0]-r[0]*u[2]);L[2]+=ik*n.v[5]+mk*(r[0]*u[1]-r[1]*u[0]);
                 I+=ik+mk*(r[0]*r[0]+r[1]*r[1]+r[2]*r[2])*2.0/3.0;}
             const PxU32 slot=atomicAdd(t.handoffCount,1u);
-            if(slot<kExHandoffs){ExScratch::Handoff hnd{};hnd.island=sp.car;hnd.body=q.body;hnd.patch=p;
+            if(slot<kExHandoffs){ExScratch::Handoff hnd{};hnd.island=sp.car;hnd.body=q.body;hnd.patch=p;hnd.pad=s.compliant?1u:0u;
                 for(int a=0;a<3;++a){hnd.v[a]=float(pm[a]);hnd.w[a]=I>0.0?float(L[a]/I):0.0f;}t.handoff[slot]=hnd;}
         }
     }
