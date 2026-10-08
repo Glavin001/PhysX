@@ -1280,7 +1280,7 @@ void exRunT(Settings s,Scratch w,ExScratch t,PxU32 budget)
                 // in this row's split metric); then the row is spent.
                 else if(x.crush&2u){P[0]=g[0]>0.0f?-g[0]/fmaxf(Wr[0],FLT_MIN):0.0f;P[1]=P[2]=0.0f;x.crush|=4u;}
                 else if(x.on>0.0f)exCrushRow(Wr,g,x,rb.area,h,P);
-                else exCompliantRow(Wr,g,x.d,x.Estar,x.sigma,x.R,x.face,rb.area,h,P);}
+                else exCompliantRow(Wr,g,x.d-x.dp,x.Estar,x.sigma,x.R,x.face,rb.area,h,P);}   // (its elastic depth: dp holds a late contact's penetration, no force)
             else{g[0]-=gap/h;   // (a gap still open: the row may close it this substep before it pushes)
             float Ps[3];for(int i=0;i<3;++i)Ps[i]=-(Wi[3*i]*g[0]+Wi[3*i+1]*g[1]+Wi[3*i+2]*g[2]);
             if(gap>0.0f && !(g[0]>0.0f) && !(rows[threadIdx.x].total[0]!=0.0f)){Ps[0]=Ps[1]=Ps[2]=0.0f;}
