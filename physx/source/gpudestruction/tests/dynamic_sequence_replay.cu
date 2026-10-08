@@ -22,7 +22,10 @@
 // reference's own spread, not to one member:
 //   - its first break within the ensemble's first breaks, +- one substep (an event
 //     lands on a substep);
-//   - its broken count within the ensemble's range;
+//   - its broken count within the ensemble's range widened by the ensemble's standard
+//     deviation each side (this run is one more chaotic member: of n + 1 exchangeable runs
+//     one falls outside the others' range with probability 2 / (n + 1), 20% for n = 9; the
+//     deviation keeps a sound kernel from failing that often while a biased one still does);
 //   - its coverage, the share of its broken joints some reference run also broke,
 //     at least the least such share of any reference run against the others;
 //   - the energy invariant (dissipated <= what the window had: the kernel's books).
@@ -152,11 +155,13 @@ int run(int argc,char** argv)
         for(size_t r=0;r<runs.size();++r){leastCov=std::min(leastCov,coverage(runs[r],r));lo=std::min(lo,runs[r].size());hi=std::max(hi,runs[r].size());
             if(firsts[r]<FLT_MAX){f0=std::min(f0,firsts[r]);f1=std::max(f1,firsts[r]);}}
         const double cov=coverage(gpu,SIZE_MAX),hms=1e3*double(h);
-        const bool countOk=gpu.size()>=lo && gpu.size()<=hi;
+        double mean=0.0,var=0.0;for(const auto& r:runs)mean+=double(r.size());mean/=double(runs.size());
+        for(const auto& r:runs)var+=(double(r.size())-mean)*(double(r.size())-mean);const double sd=runs.size()>1?std::sqrt(var/double(runs.size()-1)):0.0;
+        const bool countOk=double(gpu.size())>=double(lo)-sd && double(gpu.size())<=double(hi)+sd;
         const bool firstOk2=gpu.empty()?f0==FLT_MAX:(f0<FLT_MAX && first>=f0-hms && first<=f1+hms);
         const bool covOk=cov>=leastCov;
-        std::printf("against the reference's ensemble (%zu runs): broken %zu in [%zu, %zu]%s; first break %.3f ms in [%.3f, %.3f] +- %.3f ms%s; coverage %.3f (the runs' least %.3f)%s\n",
-            runs.size(),gpu.size(),lo,hi,countOk?"":" FAIL",gpu.empty()?-1.0f:first,f0==FLT_MAX?-1.0f:f0,f1,hms,firstOk2?"":" FAIL",cov,leastCov,covOk?"":" FAIL");
+        std::printf("against the reference's ensemble (%zu runs): broken %zu in [%zu, %zu] +- %.1f%s; first break %.3f ms in [%.3f, %.3f] +- %.3f ms%s; coverage %.3f (the runs' least %.3f)%s\n",
+            runs.size(),gpu.size(),lo,hi,sd,countOk?"":" FAIL",gpu.empty()?-1.0f:first,f0==FLT_MAX?-1.0f:f0,f1,hms,firstOk2?"":" FAIL",cov,leastCov,covOk?"":" FAIL");
         if(std::getenv("DYNAMIC_LIST"))for(PxU32 l:gpu){bool found=false;for(const auto& r:runs)found=found || r.count(l);if(!found)std::printf("  gpu %u %.2f ms: in no reference run\n",l,broken[l]);}
         return (!countOk || !firstOk2 || !covOk || deficit)?1:0;
     }
