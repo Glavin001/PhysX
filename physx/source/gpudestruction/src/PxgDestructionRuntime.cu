@@ -499,6 +499,17 @@ __global__ void routeContacts(PxgDestructionSolvedContacts contacts, const Looku
     p.frictionPatches=const_cast<PxU8*>(contacts.friction+patchOffset/sizeof(PxContactPatch)*sizeof(PxFrictionPatch));
     p.nbPatches=output.nbPatches;p.nbContacts=output.nbContacts;
     const PxU32 a=findChunk(map,maps,p.transformCacheRef0), b=findChunk(map,maps,p.transformCacheRef1);
+    // (diagnostics: the debug body's pairs with anything not a stage chunk -- statics, other bodies)
+    if(a==PX_INVALID_U32 && b==PX_INVALID_U32 && ci.debug && p.contactForces && p.contactPatches && p.contactPoints
+        && (p.nodeIndex0.index()==ci.debugBody || p.nodeIndex1.index()==ci.debugBody)) {
+        const bool first=p.nodeIndex0.index()==ci.debugBody;const PxNodeIndex on=first?p.nodeIndex1:p.nodeIndex0;
+        PxVec3 J(0.0f);float sep=FLT_MAX;PxU32 pt=0;
+        PxContactStreamIterator it(p.contactPatches,p.contactPoints,NULL,p.nbPatches,p.nbContacts);
+        while(it.hasNextPatch()){it.nextPatch();while(it.hasNextContact()){it.nextContact();J+=it.getContactNormal()*(p.contactForces[pt++]*(first?1.0f:-1.0f));sep=fminf(sep,it.getSeparation());}}
+        const PxU32 k=atomicAdd(ci.debugCount,1u);
+        if(k<64u){const float im=on.isStaticBody()?0.0f:bodies[on.index()].linearVelocityXYZ_inverseMassW.w;
+            ci.debug[2*k]=make_float4(__uint_as_float(0xfffffffeu),__uint_as_float(on.isStaticBody()?0xffffffffu:on.index()),im,sep);ci.debug[2*k+1]=make_float4(J.x,J.y,J.z,float(pt));}
+    }
     if(a==PX_INVALID_U32 && b==PX_INVALID_U32)return;
     // Loads, contact and anchor counts are summed per pair and published once.
     PxU32 normals=0,anchors=0;
