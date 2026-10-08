@@ -185,6 +185,15 @@ struct Settings {
     // (depth 5, safeguarded restarts) it did not converge either (cannon
     // 32768 steps capped, meteor 4120 capped against 4546 plain).
     PxU32 andersonDepth=0;
+    // A capped (or diverged) island: false (default), it keeps its last
+    // converged state -- the ramp's last level, a valid plastic state at that
+    // fraction of the tick's load -- and continues next tick (as the stress
+    // solve's unconverged solves do), each impactor's contact bounded in the
+    // corrected pass by the impulse that state delivered (never the rigid
+    // stop: the rest of the impactor's momentum stays with it). true: the
+    // stage's elastic verdict and forces (its rigid-stop model; on the high
+    // profile's veneer house it breaks ~3000 joints in a tick).
+    bool cappedElastic=false;
 };
 // A solve is diverging when, past its first rho rebalance (25 steps), a
 // joint's split |J - Z| exceeds kDivergence times the joint's capacity: the
@@ -212,9 +221,9 @@ struct Status {
     PxU32 energyGain;  // converged solves whose objective (the tick's kinetic energy plus the joints' complementary
                        // energy) exceeds that of no joint and contact force at all: not a minimum (a bug signal)
     PxU32 nonfinite;   // solves stopped on a non-finite residual (a bug signal, counted apart from diverged)
-    PxU32 cappedFallback;    // islands whose evaluation capped (or diverged): they take the stage's elastic
-                             // verdict and forces (a known gap that must trend to 0; never a verdict from the
-                             // capped iterate, never its last converged ramp level behind a rigid stop)
+    PxU32 cappedFallback;    // islands whose evaluation capped (or diverged) and fell back (Settings::
+                             // cappedElastic): a known gap that must trend to 0; never a verdict from the
+                             // capped iterate, never a rigid stop behind it
     PxU32 heldOverCapacity;  // impactor contacts stopped rigidly (no bound) by a struck chunk that stays on,
                              // nothing of it broken or crushed, while a joint of it is past capacity under
                              // the trial's forces (a bug signal: heldOverCapacity)
@@ -1493,11 +1502,10 @@ __global__ __launch_bounds__(kThreads) void stepIslands(Inputs in,Settings s,Scr
                     if(capped && !st.solve.diverged)atomicAdd(&w.status->capped,1u);
                     if(w.log && slot<kLogCapacity)w.log[slot]={island,st.level,st.solve.it,st.broken,st.clipped,capped?1u:0u,links(is),nodes(is),st.lambda,st.solve.last,st.solve.rho,0.0f};}
                 if(capped) {
-                    // Not converged: no verdict from it. The island falls back
-                    // to the stage's elastic verdict at publish (cappedFallback);
-                    // its iterate returns to the last converged state, which
-                    // nothing reads but the diagnostics. The evaluation reports
-                    // itself unconverged (Status::capped).
+                    // Not converged: no verdict from it. The island returns to
+                    // its last converged state (forces, breaks) and falls back
+                    // at publish (Settings::cappedElastic, Status::cappedFallback).
+                    // The evaluation reports itself unconverged (Status::capped).
                     for(PxU32 k2=threadIdx.x;k2<links(is);k2+=kThreads)for(int q=0;q<6;++q)w.J[6*(is.b0+k2)+q]=w.Js[6*(is.b0+k2)+q];
                     __syncthreads();
                     st.capped=1;st.lambda=st.snapLambda;st.phase=ePUBLISH;
@@ -1590,7 +1598,7 @@ __global__ __launch_bounds__(kThreads) void stepIslands(Inputs in,Settings s,Scr
                 for(PxU32 k2=threadIdx.x;k2<is.nr;k2+=kThreads) {
                     const PxU32 l=is.b0+nb+k2;const Bond& r=w.bonds[l];const ContactRow& row=in.rows[r.bond];
                     float bound=0.0f;
-                    if(!st.capped && r.c0<in.chunkCount) {
+                    if((!st.capped || !s.cappedElastic) && r.c0<in.chunkCount) {
                         const Chunk* struck=nullptr;
                         for(PxU32 m2=0;m2<is.nc;++m2)if(w.chunks[is.c0+m2].chunk==r.c0){struck=&w.chunks[is.c0+m2];break;}
                         bool live=false;
@@ -1599,19 +1607,23 @@ __global__ __launch_bounds__(kThreads) void stepIslands(Inputs in,Settings s,Scr
                         if(live) {
                             float lin[3],ang[3];toWorld(r,w.J+6*l,lin,ang);
                             bound=sqrtf(lin[0]*lin[0]+lin[1]*lin[1]+lin[2]*lin[2])*s.dt/float(max(row.points,1u));
+                            // Capped: what the last converged state delivered, however
+                            // little (a bound of 0 reads as none: the rigid stop).
+                            if(st.capped)bound=fmaxf(bound,FLT_MIN);
                         }
                     }
                     if(in.rowBound)in.rowBound[r.bond]=bound;
                 }
                 if(st.capped && is.ni && !threadIdx.x)atomicAdd(&w.status->rolledBack,1u);
-                // The fallback: a capped island takes the stage's elastic forces
-                // and verdict (its own model: the trial's stop breaks what it
-                // loads past capacity, and the corrected pass re-simulates the
-                // freed chunks), its contacts unbounded (rowBound 0 above): the
-                // rigid stop the elastic verdict was made against. Nothing
-                // plastic is carried from it (recordState: the elastic forces).
+                // The fallback. Default: the last converged state, published
+                // above, its contacts bounded by what it delivered; it carries
+                // into the next tick (recordState), where the solve continues.
+                // cappedElastic: the stage's elastic forces and verdict (the
+                // trial's stop breaks what it loads past capacity; the corrected
+                // pass frees it), contacts unbounded (rowBound 0 above), nothing
+                // plastic carried (recordState: the elastic forces).
                 __syncthreads();
-                if(st.capped && !threadIdx.x){w.islandFlag[island]=0u;atomicAdd(&w.status->cappedFallback,1u);}
+                if(st.capped && !threadIdx.x){if(s.cappedElastic)w.islandFlag[island]=0u;atomicAdd(&w.status->cappedFallback,1u);}
                 // Each coupled row's force on its chunk (cluster frame).
                 for(PxU32 k2=threadIdx.x;k2<is.nr;k2+=kThreads) {
                     const PxU32 l=is.b0+nb+k2;const Bond& b=w.bonds[l];float lin[3],ang[3];toWorld(b,w.J+6*l,lin,ang);
@@ -1685,7 +1697,9 @@ __global__ void heldOverCapacity(Inputs in,Settings s,const PxDestructionBondVer
         const PxU32 k=in.nodeRefs[slot];if(!bondMember(in,k))continue;
         if(verdict[k].broken || !(verdict[k].health>0.0f))return;   // something gave way
         Bond b;if(!prepareBond(in,s,k,b))continue;
-        float x[6];toLocal(b,in.elastic[k],x);
+        // The trigger's own measure: a carried joint's forces are its plastic
+        // state plus the elastic increment since.
+        float x[6];toLocal(b,isCarried(in,k)?carriedForces(in,k):in.elastic[k],x);
         over=over || utilisation(b,x)>1.0f+s.capacityTolerance;
     }
     if(over){atomicAdd(&status->heldOverCapacity,1u);if(stage)atomicAdd(&stage->impactHeldOverCapacity,1u);}

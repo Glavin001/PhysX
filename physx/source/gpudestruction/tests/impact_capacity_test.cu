@@ -511,29 +511,36 @@ void coupled(){
 // a subset of the converged evaluation's breaks -- and the evaluation reports
 // itself capped. (Before: the capped iterate was judged, and joints broke on it.)
 void unconverged(){
-    std::printf("an unconverged solve takes the elastic verdict\n");
+    std::printf("an unconverged solve: its last converged state (default) or the elastic verdict\n");
     const Structure s=wallStructure();
     const auto rest=elastic(s,s.force,s.torque);
     auto F=s.force;F[kWallBrick]+=PxVec3(0,0,360e3f);
     impact::Settings budget;budget.iterations=1;
-    const auto el=evaluate(s,F,s.torque,rest,false),r=evaluate(s,F,s.torque,rest,true,budget);
-    PxU32 broken=0,differ=0,active=0;
+    impact::Settings elasticBudget=budget;elasticBudget.cappedElastic=true;
+    const auto full=evaluate(s,F,s.torque,rest,true),r=evaluate(s,F,s.torque,rest,true,budget);
+    const auto el=evaluate(s,F,s.torque,rest,false),re=evaluate(s,F,s.torque,rest,true,elasticBudget);
+    PxU32 broken=0,extra=0,differ=0,active=0;
     for(PxU32 k=0;k<s.bonds.size();++k) {
-        const bool b=r.verdicts[k].health<=0,e=el.verdicts[k].health<=0;
-        broken+=b;differ+=b!=e;active+=r.impact[k]!=impact::eNONE;
+        const bool b=r.impact[k]==impact::eBROKEN || r.verdicts[k].health<=0,f=full.impact[k]==impact::eBROKEN;
+        broken+=b;extra+=b && !f;
+        differ+=(re.verdicts[k].health<=0)!=(el.verdicts[k].health<=0);active+=re.impact[k]!=impact::eNONE;
     }
-    char text[240];std::snprintf(text,sizeof text,"one step per solve: %u capped, %u fallen back; %u broken, %u verdicts differ from the elastic one, %u bonds on E's verdict (expected capped, fallen back, 0, 0)",
-        r.status.capped,r.status.cappedFallback,broken,differ,active);
-    expect(r.status.capped>0 && r.status.cappedFallback>0 && differ==0 && active==0,text);
+    char text[300];std::snprintf(text,sizeof text,"one step per solve: %u capped, %u fallen back; %u broken, %u of them not broken by the converged evaluation;"
+        " elastic fallback: %u verdicts differ from the elastic one, %u bonds on E's verdict (expected capped, fallen back, 0, 0, 0)",
+        r.status.capped,r.status.cappedFallback,broken,extra,differ,active);
+    expect(r.status.capped>0 && r.status.cappedFallback>0 && extra==0 && re.status.cappedFallback>0 && differ==0 && active==0,text);
 }
 // 7b. The capped fallback with an impactor: a 1 t body at 10 m/s strikes a
 // 10 kg chunk on a 1 kN joint. The trial's stop (600 kN) is far past the
-// joint's capacity. With one ADMM step per solve the impact solve caps: the
-// island takes the elastic verdict (the joint breaks: the corrected pass
-// frees the chunk), never the rigid stop behind an unbroken joint. The
-// invariant (heldOverCapacity) is 0 here and counts that case.
+// joint's capacity. With one ADMM step per solve the impact solve caps.
+// Default: the island keeps its last converged state (here its start: the
+// joint holds, no verdict from the capped iterate) and the impactor's contact
+// is bounded by what that state delivered (nothing), never the rigid stop.
+// cappedElastic: the elastic verdict (the joint breaks; the corrected pass
+// frees the chunk). Either way the invariant (heldOverCapacity) is 0; before
+// either fallback it counted this case (the rigid stop behind a held joint).
 void fallback(){
-    std::printf("a capped impact island falls back to the elastic verdict; no rigid stop past capacity\n");
+    std::printf("a capped impact island never stops an impactor rigidly past capacity\n");
     Structure s;const PxU32 anchor=s.chunk(PxVec3(0,0,0),0,0),wall=s.chunk(PxVec3(0,0.5f,0),10.0f,0.5f);
     const PxU32 mat=s.material(1e5f,1e5f,1e5f,0.0f);   // 1 kN over 0.01 m^2
     s.bond(anchor,wall,PxVec3(0,0.25f,0),PxVec3(0,1,0),0.01f,mat);
@@ -545,11 +552,14 @@ void fallback(){
     s.rows.push_back(row);
     const auto rest=elastic(s,s.force,s.torque);
     auto F=s.force;F[wall]+=PxVec3(row.load[0],0,0);
-    impact::Settings one;one.iterations=1;
-    const auto r=evaluate(s,F,s.torque,rest,true,one);
-    char text[240];std::snprintf(text,sizeof text,"capped %u, fallen back %u; the joint %s (health %.3g); bound %.3g; held over capacity %u (expected capped, fallen back, broken, 0, 0)",
-        r.status.capped,r.status.cappedFallback,r.verdicts[0].health<=0?"broken":"held",r.verdicts[0].health,r.rowBound[0],r.status.heldOverCapacity);
-    expect(r.status.capped>0 && r.status.cappedFallback>0 && r.verdicts[0].health<=0 && r.status.heldOverCapacity==0,text);
+    impact::Settings one;one.iterations=1;impact::Settings oneElastic=one;oneElastic.cappedElastic=true;
+    const auto r=evaluate(s,F,s.torque,rest,true,one),e=evaluate(s,F,s.torque,rest,true,oneElastic);
+    char text[300];std::snprintf(text,sizeof text,"converged state: capped %u, fallen back %u, the joint %s, bound %.3g N s, held over capacity %u;"
+        " elastic: fallen back %u, the joint %s, held over capacity %u (expected capped, fallen back, held, > 0, 0; fallen back, broken, 0)",
+        r.status.capped,r.status.cappedFallback,r.verdicts[0].health<=0?"broken":"held",r.rowBound[0],r.status.heldOverCapacity,
+        e.status.cappedFallback,e.verdicts[0].health<=0?"broken":"held",e.status.heldOverCapacity);
+    expect(r.status.capped>0 && r.status.cappedFallback>0 && r.verdicts[0].health>0 && r.rowBound[0]>0.0f && r.status.heldOverCapacity==0
+        && e.status.cappedFallback>0 && e.verdicts[0].health<=0 && e.status.heldOverCapacity==0,text);
 }
 // 8. The evaluation split into dispatches resumes exactly: the wall with
 // about one ADMM step per dispatch gives the same forces and verdicts, bit
