@@ -3370,7 +3370,11 @@ public:
     }
     bool observeCorrectionPreparation() override {
         if(!mTopology || mHostStatus->error!=8u){
-            if(mImpactLog && (mFailed || (mHostStatus->error && mHostStatus->error!=8u)))std::fprintf(stderr,"[destruction] pass %u refused: stage error %u, failed %d\n",mPass,mHostStatus->error,int(mFailed));
+            if(mImpactLog && (mFailed || (mHostStatus->error && mHostStatus->error!=8u))){
+                std::fprintf(stderr,"[destruction] pass %u refused: stage error %u, failed %d\n",mPass,mHostStatus->error,int(mFailed));
+                if(mHostBodyPreparation)std::fprintf(stderr,"[destruction]   body preparation: count %u valid %u error %u requests %u; allocation: count %u reserved %u valid %u error %u initialized %u initError %u\n",
+                    mHostBodyPreparation->count,mHostBodyPreparation->valid,mHostBodyPreparation->error,mHostBodyPreparation->allocationRequests,
+                    mHostBodyAllocation.count,mHostBodyAllocation.reserved,mHostBodyAllocation.valid,mHostBodyAllocation.error,mHostBodyAllocation.initialized,mHostBodyAllocation.initializationError);}
             return !mFailed && mHostStatus->error==0;}
         if(mFailed || !mCollisionPreparationSubmitted || !mCorrectionPreparationSubmitted)return false;
         try {
