@@ -35,7 +35,7 @@ constexpr PxU32 kStepCols=192;       // contact constraint columns per patch (3 
 
 enum StepPhase : PxU32 { eSTEP_RAMP=0, eSTEP_DONE=1 };
 struct StepPatch {
-    PxU32 island,nodes,links,joints,contacts,cols,phase,events,solves,broken,yielded,truncated,failed,impactors,restOver;
+    PxU32 island,nodes,links,joints,contacts,cols,phase,events,solves,broken,yielded,truncated,failed,impactors,restOver,cascade;
     float lam,h,radius;
 };
 struct StepLink { PxU32 a,b,state,pad; };   // local node ends (0xffffffff: held), state bits below
@@ -507,11 +507,17 @@ __device__ float stepContactCritical(const Bond& b,const StepLink& e,const float
     return hi;
 }
 
-// 4. The ramp: one block per patch, at most `events` events per launch (resumable).
+// 4. The ramp: one block per patch, resumable. A launch spends at most
+// `budget` units of work (a unit: one pass over A, n^2 multiply-adds), so a
+// dispatch stays bounded however long a cascade runs: a solve costs 1, a
+// joint leaving the operator 7 (its rank-6 update and the contact columns).
+// The cascade at one load factor goes a joint at a time: the first joint at
+// capacity yields (ductile) or breaks and its force is released as a load
+// and solved; then the next, until none is at capacity.
 __global__ __launch_bounds__(kThreads) void stepRamp(Inputs in,Settings s,Scratch w,StepScratch t,PxU32 budget)
 {
     __shared__ Shared sh;
-    __shared__ float shStep;__shared__ PxU32 shHit;
+    __shared__ PxU32 shHit;
     for(PxU32 p=blockIdx.x;p<*t.patchCount;p+=gridDim.x) {
         StepPatch& sp=t.patches[p];
         if(sp.phase==eSTEP_DONE)continue;
@@ -519,18 +525,60 @@ __global__ __launch_bounds__(kThreads) void stepRamp(Inputs in,Settings s,Scratc
         float* J=t.J+size_t(p)*kStepLinks*6;float* dJ=t.dJ+size_t(p)*kStepLinks*6;float* J2=t.J2+size_t(p)*kStepLinks*6;
         float* du=t.du+size_t(p)*kStepDof;float* u=t.u+size_t(p)*kStepDof;float* d2=t.d2+size_t(p)*kStepDof;
         const float* f=t.f+size_t(p)*kStepDof;
-        if(!sp.events && sp.lam==0.0f && !sp.solves) {
-            // J0: the forces before the tick (bond frame); contacts 0.
+        PxU32 work=0;
+        if(!sp.events && sp.lam==0.0f && !sp.solves && !sp.cascade) {
+            // J0: the rest forces (bond frame); contacts 0.
             for(PxU32 l=threadIdx.x;l<sp.links;l+=kThreads){const Bond& b=t.links[p*kStepLinks+l];const StepLink& e=t.linkEnds[p*kStepLinks+l];
                 float x[6]={0,0,0,0,0,0};if(!(e.state&eSL_CONTACT))toLocal(b,in.base[b.bond],x);for(int q=0;q<6;++q)J[6*l+q]=x[q];
                 if(!(e.state&eSL_CONTACT) && utilisation(b,x)>=1.0f-s.capacityBand)atomicAdd(&sp.restOver,1u);}
             for(PxU32 i=threadIdx.x;i<n;i+=kThreads)u[i]=0.0f;
             __syncthreads();
-            stepContacts(sh,t,p);
+            stepContacts(sh,t,p);++work;
+            // Joints at capacity at rest: the cascade first.
+            if(!threadIdx.x)sp.cascade=1;
+            __syncthreads();
         }
-        for(PxU32 ev=0;ev<budget && sp.phase!=eSTEP_DONE;++ev) {
-            stepSolve(sh,t,p,f,du,dJ);
-            // The next event along this increment.
+        while(work<budget && sp.phase!=eSTEP_DONE) {
+            if(sp.cascade) {
+                // The first joint at capacity, if any.
+                if(!threadIdx.x)shHit=0xffffffffu;
+                __syncthreads();
+                for(PxU32 l=threadIdx.x;l<sp.links;l+=kThreads) {
+                    const StepLink& e=t.linkEnds[p*kStepLinks+l];
+                    if((e.state&eSL_CONTACT) || !(e.state&eSL_LIVE) || (e.state&eSL_YIELDED))continue;
+                    if(utilisation(t.links[p*kStepLinks+l],J+6*l)>=1.0f-s.capacityBand)atomicMin(&shHit,l);
+                }
+                __syncthreads();
+                const PxU32 l=shHit;
+                if(l==0xffffffffu){if(!threadIdx.x)sp.cascade=0;__syncthreads();continue;}
+                StepLink& e=t.linkEnds[p*kStepLinks+l];const Bond& b=t.links[p*kStepLinks+l];
+                if(b.flags&eDUCTILE) {
+                    stepRemove(sh,t,p,l);
+                    if(!threadIdx.x){e.state|=eSL_YIELDED;++sp.yielded;}
+                    __syncthreads();
+                    stepContacts(sh,t,p);work+=7;
+                    continue;
+                }
+                // brittle: its force leaves as a load on its ends
+                for(PxU32 i=threadIdx.x;i<n;i+=kThreads)d2[i]=0.0f;
+                __syncthreads();
+                if(!threadIdx.x)stepScatter(t.B+(size_t(p)*kStepLinks+l)*72,e,J+6*l,d2,-1.0f);
+                __syncthreads();
+                stepRemove(sh,t,p,l);
+                if(!threadIdx.x){e.state&=~eSL_LIVE;e.state|=eSL_BROKEN;for(int q=0;q<6;++q)J[6*l+q]=0.0f;++sp.broken;
+                    if(w.breaks){w.breaks[2*b.bond]=sp.lam;w.breaks[2*b.bond+1]=0.0f;}}
+                __syncthreads();
+                stepContacts(sh,t,p);
+                stepSolve(sh,t,p,d2,du,J2);
+                for(PxU32 m=threadIdx.x;m<sp.links;m+=kThreads)for(int q=0;q<6;++q)J[6*m+q]+=J2[6*m+q];
+                for(PxU32 i=threadIdx.x;i<n;i+=kThreads)u[i]+=du[i];
+                __syncthreads();
+                work+=8;
+                continue;
+            }
+            if(sp.events>=s.stepMaxEvents){if(!threadIdx.x){sp.failed=1;sp.phase=eSTEP_DONE;}__syncthreads();break;}
+            // The next increment of the impactors' load and its first event.
+            stepSolve(sh,t,p,f,du,dJ);++work;
             const float cap=1.0f-sp.lam;float best=FLT_MAX;
             for(PxU32 l=threadIdx.x;l<sp.links;l+=kThreads) {
                 const StepLink& e=t.linkEnds[p*kStepLinks+l];const Bond& b=t.links[p*kStepLinks+l];
@@ -548,78 +596,30 @@ __global__ __launch_bounds__(kThreads) void stepRamp(Inputs in,Settings s,Scratc
             if(!threadIdx.x){sp.lam=last?1.0f:sp.lam+step;if(!last)++sp.events;}
             __syncthreads();
             if(last){if(!threadIdx.x)sp.phase=eSTEP_DONE;__syncthreads();break;}
-            const float tol=step+1e-6f*fmaxf(1.0f,step);
             // Contacts at their event: separate (its force 0) or slide (its friction released as a load).
             bool changed=false;
             for(PxU32 l=0;l<sp.links;++l) {
                 StepLink& e=t.linkEnds[p*kStepLinks+l];if(!(e.state&eSL_CONTACT) || (e.state&eSL_OFF))continue;
                 const Bond& b=t.links[p*kStepLinks+l];
-                // re-evaluate at the new state: an event at 0 now
                 if(stepContactCritical(b,e,J+6*l,dJ+6*l,1e-6f)>0.0f)continue;
                 __syncthreads();
                 const bool separates=(e.state&eSL_SLIDE) || J[6*l]>=-1e-6f*fmaxf(1.0f,fabsf(J[6*l]));
                 if(separates){if(!threadIdx.x){e.state|=eSL_OFF;for(int q=0;q<6;++q)J[6*l+q]=0.0f;}changed=true;__syncthreads();continue;}
-                // slide: the tangential force leaves as a load
-                float* rhs=t.rhs+size_t(p)*kStepDof;
-                for(PxU32 i=threadIdx.x;i<n;i+=kThreads)rhs[i]=0.0f;
+                for(PxU32 i=threadIdx.x;i<n;i+=kThreads)d2[i]=0.0f;
                 __syncthreads();
-                if(!threadIdx.x){float x[6]={0,J[6*l+1],J[6*l+2],0,0,0};stepScatter(t.B+(size_t(p)*kStepLinks+l)*72,e,x,rhs,-1.0f);
+                if(!threadIdx.x){float x[6]={0,J[6*l+1],J[6*l+2],0,0,0};stepScatter(t.B+(size_t(p)*kStepLinks+l)*72,e,x,d2,-1.0f);
                     J[6*l+1]=J[6*l+2]=0.0f;e.state|=eSL_SLIDE;}
                 __syncthreads();
                 stepContacts(sh,t,p);
-                // copy rhs: stepSolve uses t.rhs as scratch
-                for(PxU32 i=threadIdx.x;i<n;i+=kThreads)d2[i]=rhs[i];
-                __syncthreads();
                 stepSolve(sh,t,p,d2,du,J2);
                 for(PxU32 m=threadIdx.x;m<sp.links;m+=kThreads)for(int q=0;q<6;++q)J[6*m+q]+=J2[6*m+q];
                 for(PxU32 i=threadIdx.x;i<n;i+=kThreads)u[i]+=du[i];
                 __syncthreads();
-                changed=false;
+                work+=2;changed=false;
             }
-            if(changed)stepContacts(sh,t,p);
-            (void)tol;
-            // Joints at capacity: the ductile yield, the brittle break and release; cascade at this lam.
-            for(int cascade=0;cascade<1024;++cascade) {
-                if(!threadIdx.x)shHit=0;
-                __syncthreads();
-                for(PxU32 l=threadIdx.x;l<sp.links;l+=kThreads) {
-                    const StepLink& e=t.linkEnds[p*kStepLinks+l];
-                    if((e.state&eSL_CONTACT) || !(e.state&eSL_LIVE) || (e.state&eSL_YIELDED))continue;
-                    if(utilisation(t.links[p*kStepLinks+l],J+6*l)>=1.0f-s.capacityBand)atomicAdd(&shHit,1u);
-                }
-                __syncthreads();
-                if(!shHit)break;
-                float* rhs=t.rhs+size_t(p)*kStepDof;
-                for(PxU32 i=threadIdx.x;i<n;i+=kThreads)d2[i]=0.0f;
-                __syncthreads();
-                bool brittle=false;
-                for(PxU32 l=0;l<sp.links;++l) {
-                    StepLink& e=t.linkEnds[p*kStepLinks+l];
-                    if((e.state&eSL_CONTACT) || !(e.state&eSL_LIVE) || (e.state&eSL_YIELDED))continue;
-                    const Bond& b=t.links[p*kStepLinks+l];
-                    if(utilisation(b,J+6*l)<1.0f-s.capacityBand)continue;
-                    if(b.flags&eDUCTILE){stepRemove(sh,t,p,l);if(!threadIdx.x){e.state|=eSL_YIELDED;++sp.yielded;}__syncthreads();continue;}
-                    // brittle: its force leaves as a load on its ends
-                    if(!threadIdx.x){stepScatter(t.B+(size_t(p)*kStepLinks+l)*72,e,J+6*l,d2,-1.0f);}
-                    __syncthreads();
-                    stepRemove(sh,t,p,l);
-                    if(!threadIdx.x){e.state&=~eSL_LIVE;e.state|=eSL_BROKEN;for(int q=0;q<6;++q)J[6*l+q]=0.0f;++sp.broken;
-                        if(w.breaks){w.breaks[2*b.bond]=sp.lam;w.breaks[2*b.bond+1]=0.0f;}}
-                    __syncthreads();
-                    brittle=true;
-                }
-                stepContacts(sh,t,p);
-                if(!brittle)break;
-                for(PxU32 i=threadIdx.x;i<n;i+=kThreads)rhs[i]=d2[i];
-                __syncthreads();
-                for(PxU32 i=threadIdx.x;i<n;i+=kThreads)d2[i]=rhs[i];
-                __syncthreads();
-                stepSolve(sh,t,p,d2,du,J2);
-                for(PxU32 m=threadIdx.x;m<sp.links;m+=kThreads)for(int q=0;q<6;++q)J[6*m+q]+=J2[6*m+q];
-                for(PxU32 i=threadIdx.x;i<n;i+=kThreads)u[i]+=du[i];
-                __syncthreads();
-            }
-            if(sp.events>=s.stepMaxEvents){if(!threadIdx.x){sp.failed=1;sp.phase=eSTEP_DONE;}__syncthreads();}
+            if(changed){stepContacts(sh,t,p);++work;}
+            if(!threadIdx.x)sp.cascade=1;
+            __syncthreads();
         }
         __syncthreads();
     }

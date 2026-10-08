@@ -1923,9 +1923,11 @@ struct Stage {
             longestDispatch=std::max(longestDispatch,std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-t0).count());++dispatches;
         }
         stepScale<<<grid,kThreads,0,stream>>>(t,1u);   // A^-1 = D A'^-1 D
-        for(PxU32 d=0;d<4096;++d) {
+        for(PxU32 d=0;d<65536;++d) {
             const auto t0=std::chrono::steady_clock::now();
-            stepRamp<<<count,kThreads,0,stream>>>(in,s,w,t,4u);
+            // ~32 passes over the largest A a launch (a few ms of one block); fewer passes on a large patch.
+            const PxU32 budget=std::max(2u,PxU32(32.0*double(kStepDof)*double(kStepDof)/std::max(1.0,double(6*nmax)*double(6*nmax))/16.0));
+            stepRamp<<<count,kThreads,0,stream>>>(in,s,w,t,budget);
             check(cudaMemcpyAsync(host,t.patches,sizeof(StepPatch)*count,cudaMemcpyDeviceToHost,stream));check(cudaStreamSynchronize(stream));
             longestDispatch=std::max(longestDispatch,std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-t0).count());++dispatches;
             bool done=true;for(PxU32 p=0;p<count;++p)done=done && host[p].phase==eSTEP_DONE;
