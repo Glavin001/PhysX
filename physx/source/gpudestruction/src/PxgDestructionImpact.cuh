@@ -102,6 +102,11 @@ struct ContactRow {
     // the deepest point's penetration (m; negative: the gap still open, a row the
     // window closes before it pushes), for the compliant row's contact radius.
     float patch[2]={0.0f,0.0f};
+    // A dynamic struck cluster (Settings::dynamicStruck; a car hit by debris): its
+    // body's inverse mass (0: anchored, every row before capture version 4). The row's
+    // velocities are relative to its rigid motion at the tick's start, as for any row.
+    float clusterIm=0.0f;
+    PxU32 clusterBody=0xffffffffu;   // (its body: the corrected pass's hand-off record)
 };
 
 struct Settings {
@@ -282,6 +287,13 @@ struct Settings {
     // error (w h)^2 / 3), and at most explicitMaxStep.
     float explicitAccuracy=0.1f;
     float explicitMaxStep=50e-6f;
+    // A dynamic struck structure (PX_DESTRUCTION_IMPACT_DYNAMIC_STRUCK; a car hit by
+    // debris or a cannonball): rows on a moving cluster's chunks too (ContactRow::
+    // clusterIm), its window the whole island, free (no held supports), its
+    // centre-of-mass motion handed to the corrected pass. Without it, a car struck
+    // by a fast body was graded statically on the rigid solve's contact impulse
+    // (debris on a wheel: 462 kN graded against 129 kN of momentum change).
+    bool dynamicStruck=false;
 };
 // A solve is diverging when, past its first rho rebalance (25 steps), a
 // joint's split |J - Z| exceeds kDivergence times the joint's capacity: the
