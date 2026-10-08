@@ -64,6 +64,15 @@ if(BUILD_TESTING)
         ../gpunarrowphase/include ../gpusimulationcontroller/include ../lowlevel/software/include ../lowlevel/api/include)
     px_destruction_cuda_properties(destruction_contact_graph_test PROPERTIES CUDA_STANDARD 17 CUDA_ARCHITECTURES "${CMAKE_CUDA_ARCHITECTURES}")
     add_test(NAME destruction_gpu_contact_graph COMMAND destruction_contact_graph_test)
+    # Mohr-Coulomb joint shear in the static verdict (PX_DESTRUCTION_MOHR_COULOMB_SHEAR):
+    # the stage's grader against the FP64 closed form, shifted limits, tension and the cap.
+    add_executable(destruction_mohr_coulomb_static_test tests/mohr_coulomb_static.cu)
+    target_link_libraries(destruction_mohr_coulomb_static_test PRIVATE PhysXDestructionTopologyGpu)
+    target_include_directories(destruction_mohr_coulomb_static_test PRIVATE ../../../blast/include/extensions/stress)
+    px_destruction_cuda_properties(destruction_mohr_coulomb_static_test PROPERTIES CUDA_STANDARD 17 CUDA_ARCHITECTURES "${CMAKE_CUDA_ARCHITECTURES}")
+    set_target_properties(destruction_mohr_coulomb_static_test PROPERTIES CXX_STANDARD 17)
+    add_test(NAME destruction_gpu_mohr_coulomb_static COMMAND destruction_mohr_coulomb_static_test)
+    set_tests_properties(destruction_gpu_mohr_coulomb_static PROPERTIES ENVIRONMENT "CUMETAL_USE_METAL_DEVICE_ADDRESSES=1")
     px_destruction_label_tests()
 endif()
 
