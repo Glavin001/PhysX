@@ -191,6 +191,9 @@ Result evaluate(const Structure& s,const std::vector<PxVec3>& F,const std::vecto
 #endif
     evaluateBondMaterials<<<(m+127)/128,128,0,stream>>>(chunks.p,bonds.p,materials.p,dHealth.p,dElastic.p,m,settings.dt,2.0f,
         settings.bendGainMax,true,verdicts.p,centroids.p,stage.p,sectionVerdict,sectionVerdict?dSections.p:nullptr,centroid,view);
+#ifndef PX_IMPACT_TODAY
+    if(withImpact && in.rows)impact::heldOverCapacity<<<1,128,0,stream>>>(in,settings,verdicts.p,e.w.status);
+#endif
     check(cudaStreamSynchronize(stream));check(cudaGetLastError());
     out.verdicts=verdicts.get();
     out.forces=out.elastic;out.impact.assign(m,impact::eNONE);out.accel.assign(6*size_t(n),0.0f);
@@ -508,20 +511,45 @@ void coupled(){
 // a subset of the converged evaluation's breaks -- and the evaluation reports
 // itself capped. (Before: the capped iterate was judged, and joints broke on it.)
 void unconverged(){
-    std::printf("an unconverged solve commits nothing\n");
+    std::printf("an unconverged solve takes the elastic verdict\n");
     const Structure s=wallStructure();
     const auto rest=elastic(s,s.force,s.torque);
     auto F=s.force;F[kWallBrick]+=PxVec3(0,0,360e3f);
     impact::Settings budget;budget.iterations=1;
-    const auto full=evaluate(s,F,s.torque,rest,true),r=evaluate(s,F,s.torque,rest,true,budget);
-    PxU32 broken=0,extra=0;
+    const auto el=evaluate(s,F,s.torque,rest,false),r=evaluate(s,F,s.torque,rest,true,budget);
+    PxU32 broken=0,differ=0,active=0;
     for(PxU32 k=0;k<s.bonds.size();++k) {
-        const bool b=r.impact[k]==impact::eBROKEN || r.verdicts[k].health<=0,f=full.impact[k]==impact::eBROKEN;
-        broken+=b;extra+=b && !f;
+        const bool b=r.verdicts[k].health<=0,e=el.verdicts[k].health<=0;
+        broken+=b;differ+=b!=e;active+=r.impact[k]!=impact::eNONE;
     }
-    char text[200];std::snprintf(text,sizeof text,"one step per solve: %u capped; %u broken, %u of them not broken by the converged evaluation (expected capped, 0)",
-        r.status.capped,broken,extra);
-    expect(r.status.capped>0 && extra==0,text);
+    char text[240];std::snprintf(text,sizeof text,"one step per solve: %u capped, %u fallen back; %u broken, %u verdicts differ from the elastic one, %u bonds on E's verdict (expected capped, fallen back, 0, 0)",
+        r.status.capped,r.status.cappedFallback,broken,differ,active);
+    expect(r.status.capped>0 && r.status.cappedFallback>0 && differ==0 && active==0,text);
+}
+// 7b. The capped fallback with an impactor: a 1 t body at 10 m/s strikes a
+// 10 kg chunk on a 1 kN joint. The trial's stop (600 kN) is far past the
+// joint's capacity. With one ADMM step per solve the impact solve caps: the
+// island takes the elastic verdict (the joint breaks: the corrected pass
+// frees the chunk), never the rigid stop behind an unbroken joint. The
+// invariant (heldOverCapacity) is 0 here and counts that case.
+void fallback(){
+    std::printf("a capped impact island falls back to the elastic verdict; no rigid stop past capacity\n");
+    Structure s;const PxU32 anchor=s.chunk(PxVec3(0,0,0),0,0),wall=s.chunk(PxVec3(0,0.5f,0),10.0f,0.5f);
+    const PxU32 mat=s.material(1e5f,1e5f,1e5f,0.0f);   // 1 kN over 0.01 m^2
+    s.bond(anchor,wall,PxVec3(0,0.25f,0),PxVec3(0,1,0),0.01f,mat);
+    const float M=1000.0f,v=10.0f,dt=1.0f/60.0f;
+    impact::ContactRow row{};row.chunk=wall;row.body=0;row.points=4;row.friction=0.0f;
+    const float point[3]={-0.25f,0.5f,0},com[3]={-1.0f,0.5f,0};
+    for(int q=0;q<3;++q){row.point[q]=point[q];row.com[q]=com[q];}
+    row.normal[0]=1;row.load[0]=M*v/dt;row.velocity[0]=v;row.dv[0]=-v;row.im=1.0f/M;row.ii[0]=row.ii[1]=row.ii[2]=1.0f/400.0f;
+    s.rows.push_back(row);
+    const auto rest=elastic(s,s.force,s.torque);
+    auto F=s.force;F[wall]+=PxVec3(row.load[0],0,0);
+    impact::Settings one;one.iterations=1;
+    const auto r=evaluate(s,F,s.torque,rest,true,one);
+    char text[240];std::snprintf(text,sizeof text,"capped %u, fallen back %u; the joint %s (health %.3g); bound %.3g; held over capacity %u (expected capped, fallen back, broken, 0, 0)",
+        r.status.capped,r.status.cappedFallback,r.verdicts[0].health<=0?"broken":"held",r.verdicts[0].health,r.rowBound[0],r.status.heldOverCapacity);
+    expect(r.status.capped>0 && r.status.cappedFallback>0 && r.verdicts[0].health<=0 && r.status.heldOverCapacity==0,text);
 }
 // 8. The evaluation split into dispatches resumes exactly: the wall with
 // about one ADMM step per dispatch gives the same forces and verdicts, bit
@@ -813,7 +841,7 @@ void passivity(){
 
 int main(int argc,char** argv){
     (void)argc;(void)argv;
-    try{if(const char* only=std::getenv("IMPACT_TEST_ONLY")){if(!std::strcmp(only,"unconverged"))physx::unconverged();if(!std::strcmp(only,"dispatches"))physx::dispatches();if(!std::strcmp(only,"carried"))physx::carried();if(!std::strcmp(only,"held"))physx::heldStops();if(!std::strcmp(only,"projection"))physx::projection();if(!std::strcmp(only,"detectors"))physx::detectors();if(!std::strcmp(only,"fuzz"))physx::fuzz();if(!std::strcmp(only,"bearing"))physx::bearing();if(!std::strcmp(only,"coupled"))physx::coupled();if(!std::strcmp(only,"passivity"))physx::passivity();}else{physx::column();physx::wall();physx::rest();physx::centroidConvention();physx::impactCrush();physx::section();physx::coupled();physx::unconverged();physx::dispatches();physx::carried();physx::heldStops();physx::projection();physx::detectors();physx::fuzz();physx::bearing();physx::passivity();}}
+    try{if(const char* only=std::getenv("IMPACT_TEST_ONLY")){if(!std::strcmp(only,"unconverged"))physx::unconverged();if(!std::strcmp(only,"fallback"))physx::fallback();if(!std::strcmp(only,"dispatches"))physx::dispatches();if(!std::strcmp(only,"carried"))physx::carried();if(!std::strcmp(only,"held"))physx::heldStops();if(!std::strcmp(only,"projection"))physx::projection();if(!std::strcmp(only,"detectors"))physx::detectors();if(!std::strcmp(only,"fuzz"))physx::fuzz();if(!std::strcmp(only,"bearing"))physx::bearing();if(!std::strcmp(only,"coupled"))physx::coupled();if(!std::strcmp(only,"passivity"))physx::passivity();}else{physx::column();physx::wall();physx::rest();physx::centroidConvention();physx::impactCrush();physx::section();physx::coupled();physx::unconverged();physx::fallback();physx::dispatches();physx::carried();physx::heldStops();physx::projection();physx::detectors();physx::fuzz();physx::bearing();physx::passivity();}}
     catch(const std::exception& e){std::printf("error: %s\n",e.what());return 2;}
     std::printf("%s (%d failed)\n",physx::failures?"FAILED":"passed",physx::failures);
     return physx::failures?1:0;

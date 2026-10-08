@@ -341,6 +341,10 @@ struct PxDestructionStageStatus {
     // longest impact-solve GPU dispatch, host clock (ms).
     PxU32 impactIslands, impactSolves, impactSteps, impactCapped, impactDiverged, impactInfeasible, impactWorstBond;
     float impactLongestDispatchMs;
+    // Islands whose impact evaluation capped and took the elastic verdict
+    // instead (a known gap: must trend to 0); and impactor contacts stopped
+    // rigidly by a struck chunk past capacity with nothing broken (a bug).
+    PxU32 impactCappedFallback, impactHeldOverCapacity;
 };
 // Why a stress component's last solve stopped (getStressSolveReport).
 struct PxDestructionStressStopReason {

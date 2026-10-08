@@ -131,7 +131,7 @@ __global__ void mergePostCorrectionStatus(PxDestructionStageStatus* status,PxDes
     status->bondCommands+=prior.bondCommands;status->brokenBonds+=prior.brokenBonds;
     status->crushedChunks+=prior.crushedChunks;status->error|=prior.error;
     status->impactIslands+=prior.impactIslands;status->impactSolves+=prior.impactSolves;status->impactSteps+=prior.impactSteps;
-    status->impactCapped+=prior.impactCapped;status->impactDiverged+=prior.impactDiverged;status->impactInfeasible+=prior.impactInfeasible;
+    status->impactCapped+=prior.impactCapped;status->impactCappedFallback+=prior.impactCappedFallback;status->impactHeldOverCapacity+=prior.impactHeldOverCapacity;status->impactDiverged+=prior.impactDiverged;status->impactInfeasible+=prior.impactInfeasible;
     if(!status->impactWorstBond)status->impactWorstBond=prior.impactWorstBond;
     status->impactLongestDispatchMs=fmaxf(status->impactLongestDispatchMs,prior.impactLongestDispatchMs);
     status->correctionPasses=passes;status->stressPasses=passes+1;
@@ -2308,7 +2308,7 @@ public:
                     check(cudaEventRecord(mCheckpointReady,mStream)); // the restore waits on it
                 }
             }
-            impact::View impactView{};
+            impact::View impactView{};impact::Inputs impactIn{};impact::Settings impactSettings{};bool impactRan=false;
             if(mImpactEnabled && mMaterials && mM && forces) {
                 const auto stress=mSolver->deviceView();
                 if(stress.nodeIslands && stress.bondIslands) {
@@ -2329,7 +2329,7 @@ public:
                     const bool timed=mImpactLog || mImpactCaptureDir;++mImpactEvaluations;
                     std::chrono::steady_clock::time_point t0;
                     if(timed){check(cudaStreamSynchronize(mStream));t0=std::chrono::steady_clock::now();}
-                    mImpact.submit(in,settings,mStream);
+                    mImpact.submit(in,settings,mStream);impactIn=in;impactSettings=settings;impactRan=true;
                     impact::reportConvergence<<<1,1,0,mStream>>>(mImpact.w.status,mStatus,mCorrectionEnabled && !mAllowUnconverged,float(mImpact.longestDispatch));
                     // Machine safety: Apple GPUs do not preempt compute well; a dispatch
                     // past 100 ms starves the display (Settings::dispatchWork bounds it).
@@ -2370,8 +2370,8 @@ public:
                             char path[1024];std::snprintf(path,sizeof path,"%s/impact-%llu-%u.impc",mImpactCaptureDir,(unsigned long long)mImpactEvaluations,mPass);
                             if(impact::writeCapture(path,in,settings,mImpactMaterialCount)){++mImpactCaptures;std::fprintf(stderr,"[impact] captured %s (%.1f ms)\n",path,ms);}
                         }
-                        if(e.triggered)std::fprintf(stderr,"[impact] pass %u: %u islands, %u solves, %u iterations (%u capped, %u diverged), %u rounds, broke %u, yielded %u, %u contacts from %u impactors (%u rolled back, %u energy gains), %u infeasible projections, error %u\n",
-                            mPass,e.triggered,e.solves,e.iterations,e.capped,e.diverged,e.rounds,e.broken,e.yielded,e.contacts,e.impactors,e.rolledBack,e.energyGain,e.infeasible,e.error);
+                        if(e.triggered)std::fprintf(stderr,"[impact] pass %u: %u islands, %u solves, %u iterations (%u capped, %u diverged), %u rounds, broke %u, yielded %u, %u contacts from %u impactors (%u rolled back, %u energy gains), %u capped fallback, %u infeasible projections, error %u\n",
+                            mPass,e.triggered,e.solves,e.iterations,e.capped,e.diverged,e.rounds,e.broken,e.yielded,e.contacts,e.impactors,e.rolledBack,e.energyGain,e.cappedFallback,e.infeasible,e.error);
                         if(e.diverged)std::fprintf(stderr,"[impact] DIVERGED: %u solves (a bug signal); worst split at bond %u\n",e.diverged,e.worstBond-1u);
                         if(e.nonfinite)std::fprintf(stderr,"[impact] NON-FINITE: %u solves stopped on a non-finite residual (a bug signal); at bond %u\n",e.nonfinite,e.worstBond-1u);
                         if(e.infeasible)std::fprintf(stderr,"[impact] INFEASIBLE PROJECTIONS: %u (a bug signal)\n",e.infeasible);
@@ -2384,6 +2384,14 @@ public:
                 if(!mImpactCrush)evaluateChunkMaterials<<<(mN+127)/128,128,0,mStream>>>(mChunks,mBonds,mMaterials,mNodeBegin,mNodeRefs,
                     mHealth,forces,mBondCentroids,mSurface,mRates,mCrush,mTrialCrush,mN,dt,mStatus,impactView);
                 if(mM)finalizeMaterialVerdict<<<(mM+127)/128,128,0,mStream>>>(mBonds,mVerdicts,mTrialCrush,mHealth,mM,mStatus);
+                if(impactRan && impactIn.rows) {
+                    impact::heldOverCapacity<<<(impact::kContactCapacity+127)/128,128,0,mStream>>>(impactIn,impactSettings,mVerdicts,mImpact.w.status,mStatus);
+                    if(mImpactLog && mImpactHostStatus) {
+                        check(cudaMemcpyAsync(mImpactHostStatus,mImpact.w.status,sizeof(*mImpactHostStatus),cudaMemcpyDeviceToHost,mStream));
+                        check(cudaStreamSynchronize(mStream));
+                        if(mImpactHostStatus->heldOverCapacity)std::fprintf(stderr,"[impact] HELD OVER CAPACITY: %u contacts stopped rigidly by a struck chunk past capacity with nothing broken (a bug signal)\n",mImpactHostStatus->heldOverCapacity);
+                    }
+                }
                 // With a topology the fused body-preparation kernel sets the bit.
                 if(!mTopology){requireFractureCorrection<<<1,1,0,mStream>>>(mStatus);boundImpactContacts();}
             }

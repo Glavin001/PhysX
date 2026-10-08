@@ -61,6 +61,8 @@ int run(int argc,char** argv){
     s.coupledContact=env("IMPACT_COUPLED",s.coupledContact?1.0f:0.0f)!=0.0f;
     s.evaluationIterations=PxU32(env("IMPACT_EVAL_ITERATIONS",float(s.evaluationIterations)));
     s.relaxation=env("IMPACT_RELAXATION",s.relaxation);
+    s.innerTolerance=env("IMPACT_INNER_TOLERANCE",s.innerTolerance);
+    s.andersonDepth=PxU32(env("IMPACT_ANDERSON",float(s.andersonDepth)));
     const PxU32 n=h.n,m=h.m;
     impact::Inputs in{};in.chunkCount=n;in.bondCount=m;
     in.chunks=upload(f.read<PxDestructionStressChunk>(n));in.bonds=upload(f.read<PxDestructionStressBond>(m));
