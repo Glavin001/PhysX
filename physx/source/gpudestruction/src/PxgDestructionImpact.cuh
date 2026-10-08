@@ -540,13 +540,19 @@ __device__ __forceinline__ bool project(const Bond& b,float* x,float ml,float mt
 }
 // Whether a bond-frame wrench lies in its link's set, to `tol` of its
 // capacity (the projection's own check: a point outside is a bug).
-__device__ __forceinline__ bool feasible(const Bond& b,const float* x,float tol)
+// Whether a projected point is in its set: within tol of the capacity, plus
+// the projection's own rounding -- float epsilon of the point it projected
+// (lin, ang: its force and moment sizes), which a point 1e3x past capacity
+// makes far larger than 1e-4 of the capacity (a difference of large numbers).
+__device__ __forceinline__ bool feasible(const Bond& b,const float* x,float tol,float lin=0.0f,float ang=0.0f)
 {
+    const float rounding=16.0f*FLT_EPSILON;
     if(b.flags&eCONTACT) {
-        const float scale=fmaxf(b.capC,1.0f),V=sqrtf(x[1]*x[1]+x[2]*x[2]);
-        return x[0]<=tol*scale && V<=b.area*fmaxf(-x[0],0.0f)+tol*scale && fabsf(x[3])+fabsf(x[4])+fabsf(x[5])==0.0f;
+        const float scale=fmaxf(b.capC,1.0f),V=sqrtf(x[1]*x[1]+x[2]*x[2]),slack=tol*scale+rounding*lin;
+        return x[0]<=slack && V<=b.area*fmaxf(-x[0],0.0f)+slack && fabsf(x[3])+fabsf(x[4])+fabsf(x[5])==0.0f;
     }
-    return utilisation(b,x)<=1.0f+tol;
+    const float cap=fminf(fminf(b.capC,b.capT),b.capS),gain=fmaxf(fmaxf(b.gb,b.gt),fmaxf(fmaxf(b.g0,b.g1),fmaxf(b.h0,b.h1)));
+    return utilisation(b,x)<=1.0f+tol+(cap>0.0f?rounding*(lin+gain*ang)/cap:0.0f);
 }
 // The return map: the projection in the joint's compliance metric K^-1.
 __device__ __forceinline__ bool returnMap(const Bond& b,float* x){return project(b,x,1.0f/b.kl,1.0f/b.kt,1.0f/b.k0,1.0f/b.k1);}
@@ -1064,7 +1070,7 @@ __device__ PxU32 solve(Shared& sh,const Inputs& in,const Settings& s,const Scrat
             float xl=0.0f,xa=0.0f;for(int q=0;q<6;++q){if(q<3)xl+=x[q]*x[q];else xa+=x[q]*x[q];}
             project(b,x,R[0],R[3],R[4],R[5]);
             if(s.faultInjection==1 && k==0)for(int q=0;q<6;++q)x[q]*=10.0f;
-            if(!feasible(b,x,s.capacityTolerance)){atomicAdd(&w.status->infeasible,1u);bad=1u;}
+            if(!feasible(b,x,s.capacityTolerance,sqrtf(xl),sqrtf(xa))){atomicAdd(&w.status->infeasible,1u);bad=1u;}
             const float cap=fmaxf(fmaxf(b.capC,b.capT),b.capS);
             float lp=0.0f,ap=0.0f,ld=0.0f,ad=0.0f;
             for(int q=0;q<6;++q) {

@@ -39,9 +39,11 @@ __global__ void projectAll(Case* c,PxU32 n)
 {
     const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=n)return;
     Case& k=c[i];float x[6];for(int q=0;q<6;++q)x[q]=k.x[q];
+    const float lin=sqrtf(x[0]*x[0]+x[1]*x[1]+x[2]*x[2]),ang=sqrtf(x[3]*x[3]+x[4]*x[4]+x[5]*x[5]);
     impact::project(k.b,x,k.m[0],k.m[1],k.m[2],k.m[3]);
     for(int q=0;q<6;++q)k.p[q]=x[q];
-    k.feasible=impact::feasible(k.b,x,1e-4f)?1u:0u;
+    // As the solve calls it: with the projected point's size (its rounding).
+    k.feasible=impact::feasible(k.b,x,1e-4f,lin,ang)?1u:0u;
 }
 
 // The reference (impact_projection_reference.cpp, plain host C++).
@@ -90,8 +92,9 @@ int run()
             c.x[0],c.x[1],c.x[2],c.x[3],c.x[4],c.x[5],c.p[0],c.p[1],c.p[2],c.p[3],c.p[4],c.p[5],ref[0],ref[1],ref[2],ref[3],ref[4],ref[5]);};
     // Feasibility in FP64, to float's resolution of the terms each line sums
     // (8 ulps): N + h.m beside a tension capacity 1e3 x smaller resolves it
-    // only to 1e3 eps. (The product's own feasible() reads its tolerance
-    // against the capacity alone: its misfires there are counted, not failed.)
+    // only to 1e3 eps. The product's own feasible() must agree: a projection
+    // the reference finds in its set that feasible() rejects is a misfire
+    // (a spurious "infeasible", which stops a solve as diverged).
     auto inSet=[&](const Case& c)->bool{
         const impact::Bond& b=c.b;double p[6];for(int q=0;q<6;++q)p[q]=c.p[q];
         const double e8=8.0*FLT_EPSILON;
@@ -117,12 +120,13 @@ int run()
                 std::min(double(c.b.capC),1e3*std::max(double(c.b.capT),double(c.b.capS))));
             const double rel=std::sqrt(e)/(2e-4*std::sqrt(move)+1e-6*(std::sqrt(size)+setScale)+1e-300);
             if(!inSet(c)){++infeasible;if(firstInfeasible==~0u)firstInfeasible=i;}
-            if(!c.feasible)++misfires;
+            if(!c.feasible && inSet(c)){if(!misfires)show("misfire",i);++misfires;}
             if(rel>1.0)++bad;
             if(rel>worst){worst=rel;at=i;}
         }
         std::printf("%-14s %u cases: %u infeasible, %u off the FP64 projection (worst %.3g of the allowance); feasible() misfires %u\n",kName[kind],perKind,infeasible,bad,worst,misfires);
         if(bad){status=1;show("worst",at);}
+        if(misfires)status=1;
         if(infeasible){status=1;show("infeasible",firstInfeasible);}
     }
     return status;
