@@ -1,0 +1,13 @@
+[package]
+name = "stress-physx"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Couples the stress-ref destruction stress solver to the PhysX CPU rigid-body engine"
+
+[dependencies]
+stress-ref = { path = "../stress-ref" }
+# The repository's PhysX adapter (C++ backend + Rust marshalling). `scenarios` is
+# needed for that crate to compile (its scene_pack module uses serde).
+blast-stress-solver = { path = "../../../../blast/blast-stress-solver-rs", default-features = false, features = ["physx", "scenarios"] }
