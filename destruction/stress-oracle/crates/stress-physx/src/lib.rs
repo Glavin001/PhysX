@@ -28,9 +28,13 @@
 
 use std::collections::HashMap;
 
+pub mod engine;
+pub use engine::PhysxEngine;
+use engine::{pq, pv, rq, rv};
+
 use blast_stress_solver::backend::{
     BodyKind, BodyStateSoa, CommandBuffer, CommandResults, ContactBatch, CreateBody, CreateShape, Phase,
-    PhysicsBackend, Pose as PxPose, Quat as PxQuat, ShapeGeom,
+    PhysicsBackend, Pose as PxPose, ShapeGeom,
 };
 use blast_stress_solver::backends::physx_backend::{PhysXWorld, PxBodyId, PxShapeId};
 use blast_stress_solver::types::Vec3 as PxVec3;
@@ -38,19 +42,6 @@ use stress_ref::api::{ChildBody, ClusterId, ClusterMotion, ContactImpulse, Engin
 use stress_ref::solver::SolverEvent;
 use stress_ref::math::{Pose, Quat, Vec3};
 use stress_ref::scene::{ImpactorShape, Scene};
-
-fn pv(v: Vec3) -> PxVec3 {
-    PxVec3::new(v.x as f32, v.y as f32, v.z as f32)
-}
-fn rv(v: PxVec3) -> Vec3 {
-    Vec3::new(v.x as f64, v.y as f64, v.z as f64)
-}
-fn pq(q: Quat) -> PxQuat {
-    PxQuat::new(q.x as f32, q.y as f32, q.z as f32, q.w as f32)
-}
-fn rq(q: PxQuat) -> Quat {
-    Quat { w: q.w as f64, x: q.x as f64, y: q.y as f64, z: q.z as f64 }.normalized()
-}
 
 /// What a PhysX shape stands for.
 #[derive(Clone, Copy, Debug)]

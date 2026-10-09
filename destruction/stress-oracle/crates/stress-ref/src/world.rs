@@ -11,7 +11,11 @@
 //! solver and no edge-edge contact. Production runs couple the stress solver to PhysX
 //! through `api.rs`.
 
+use std::collections::HashMap;
+
+use crate::api::{hertz_duration, ContactImpulse, ContactLoadFilter};
 use crate::blast::FaceBlast;
+use crate::engine::{BodyGeometry, BodyKey, BodyMotion, BoxShape, EngineBody, RigidEngine};
 use crate::contact::{OBox, SAMPLE_POINTS};
 use crate::material::Material;
 use crate::math::{Mat3, Pose, Quat, Vec3};
@@ -21,6 +25,9 @@ use crate::scene::{
 };
 use crate::solver::{Activity, ChunkLoads, ReferenceSolver};
 use crate::statics::StaticOptions;
+
+#[path = "world_coupling.rs"]
+mod coupling;
 
 /// Friction regularisation speed (m/s): below it friction scales linearly with slip speed.
 const FRICTION_REGULARIZATION: f64 = 1e-3;
@@ -40,6 +47,8 @@ pub struct Impactor {
     pub crush: Option<(f64, f64)>,
     pub crush_used: f64,
     pub crush_depth: f64,
+    /// Moved by an external engine this frame (not in an impact island).
+    pub driven: bool,
 }
 
 impl Impactor {
@@ -118,6 +127,21 @@ pub struct World {
     /// in contact); dropped when the pair separates.
     pair_offsets: std::collections::HashMap<ChunkPair, [(f64, Vec3); 2 * SAMPLE_POINTS]>,
     pairs_seen: std::collections::HashSet<ChunkPair>,
+    /// External rigid-body engine, if the world is coupled to one (`World::with_engine`).
+    coupling: Option<Coupling>,
+    /// Coupled mode: frames that had an impact island, and the most bodies in islands.
+    pub island_frames: u64,
+    pub max_island_bodies: usize,
+}
+
+/// State of the coupling to an external engine (see `engine.rs`).
+struct Coupling {
+    engine: Box<dyn RigidEngine>,
+    /// Engine contacts on driven clusters, as resting loads and impact pulses.
+    filter: ContactLoadFilter,
+    /// Engine motion of every body at the start and the end of the current frame.
+    start: HashMap<BodyKey, BodyMotion>,
+    end: HashMap<BodyKey, BodyMotion>,
 }
 
 /// Contact stiffness of two bodies pressed together along `dir`: their half-thicknesses
@@ -176,6 +200,7 @@ impl World {
                     crush: d.crush.map(|c| (c.max_force, c.energy)),
                     crush_used: 0.0,
                     crush_depth: 0.0,
+                    driven: false,
                 }
             })
             .collect();
@@ -213,6 +238,9 @@ impl World {
             contact_hits,
             pair_offsets: Default::default(),
             pairs_seen: Default::default(),
+            coupling: None,
+            island_frames: 0,
+            max_island_bodies: 0,
             scene: scene.clone(),
             solver,
         };
@@ -571,14 +599,20 @@ impl World {
         let boxes: Vec<OBox> = active.iter().map(|&(s, c)| self.chunk_box(s, c)).collect();
 
         // Impactors against chunks, with the crush cap applied to the impactor's total force.
+        // Only bodies in an impact island take contact here (all of them in the
+        // standalone world); an external engine handles the others.
+        let in_island = |solver: &ReferenceSolver, s: usize, c: usize| !solver.clusters[solver.chunks[s][c].cluster].driven;
         for ii in 0..self.impactors.len() {
+            if self.impactors[ii].driven {
+                continue;
+            }
             let imp = self.impactors[ii].clone();
             let ib = imp.obox();
             let reach = ib.bounding_radius();
             let mut contacts = Vec::new();
             for (k, &(s, c)) in active.iter().enumerate() {
                 let b = &boxes[k];
-                if (b.center - ib.center).norm() > reach + b.bounding_radius() {
+                if (b.center - ib.center).norm() > reach + b.bounding_radius() || !in_island(&self.solver, s, c) {
                     continue;
                 }
                 let kc = contact_stiffness(&imp.material, &ib, self.chunk_material(s, c), b, b.center - ib.center, scale);
@@ -649,7 +683,7 @@ impl World {
                     continue;
                 }
                 let cl = &self.solver.clusters[self.solver.chunks[s][c].cluster];
-                if cl.anchored {
+                if cl.anchored || cl.driven {
                     continue;
                 }
                 let kc = contact_stiffness(&gm, b, self.chunk_material(s, c), b, Vec3::Z, scale) / 5.0;
@@ -666,6 +700,9 @@ impl World {
                 }
             }
             for ii in 0..self.impactors.len() {
+                if self.impactors[ii].driven {
+                    continue;
+                }
                 let imp = self.impactors[ii].clone();
                 let ib = imp.obox();
                 let kc = contact_stiffness(&gm, &ib, &imp.material, &ib, Vec3::Z, scale);
@@ -710,6 +747,9 @@ impl World {
                         continue;
                     }
                     if self.solver.clusters[ca].anchored && self.solver.clusters[cb].anchored {
+                        continue;
+                    }
+                    if self.solver.clusters[ca].driven || self.solver.clusters[cb].driven {
                         continue;
                     }
                     for &ka in &by_cluster[ca] {
@@ -847,6 +887,9 @@ impl World {
 
     /// Advance one frame (`sim.frame_dt`).
     pub fn step_frame(&mut self) {
+        if self.coupling.is_some() {
+            return self.step_frame_coupled();
+        }
         let dt = self.substep_dt();
         let n = (self.scene.sim.frame_dt / dt).round().max(1.0) as usize;
         self.frame_loads.resize(&self.solver);
@@ -962,6 +1005,9 @@ impl World {
         self.loads.resize(&self.solver);
         self.loads.clear();
         self.apply_scripted_loads(self.solver.time);
+        if let Some(c) = &self.coupling {
+            c.filter.loads_at(&self.solver, self.solver.time, &mut self.loads);
+        }
         let imp_loads = self.apply_contacts(dt);
         if self.scene.sim.solve_mode == SolveMode::Adaptive {
             self.wake_loaded_clusters();
@@ -973,6 +1019,9 @@ impl World {
         }
         let g = self.solver.config.gravity;
         for (imp, (f, tq)) in self.impactors.iter_mut().zip(imp_loads) {
+            if imp.driven {
+                continue;
+            }
             imp.velocity += (f / imp.mass + g) * dt;
             let r = imp.pose.rotation.to_mat3();
             let l = r * imp.inertia * r.transpose() * imp.angular_velocity + tq * dt;
@@ -1151,8 +1200,16 @@ impl World {
     }
 
     pub fn observation(&self) -> Observation {
-        let mut obs = Observation::new(&self.scene.name, "stress-ref", env!("CARGO_PKG_VERSION"), self.scene.sim.seed);
+        let solver = match self.engine_name() {
+            Some(engine) => format!("stress-ref+{engine}"),
+            None => "stress-ref".to_string(),
+        };
+        let mut obs = Observation::new(&self.scene.name, &solver, env!("CARGO_PKG_VERSION"), self.scene.sim.seed);
         obs.end_time = self.solver.time;
+        if self.coupling.is_some() {
+            obs.values.insert("island_frames".into(), self.island_frames as f64);
+            obs.values.insert("max_island_bodies".into(), self.max_island_bodies as f64);
+        }
         for (p, acc) in self.scene.probes.iter().zip(&self.probes) {
             obs.probes.insert(p.name.clone(), acc.series.clone());
         }

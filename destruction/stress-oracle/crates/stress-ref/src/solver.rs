@@ -96,6 +96,9 @@ pub struct Cluster {
     pub angular_velocity: Vec3,
     pub activity: Activity,
     pub active_timer: f64,
+    /// Rigid motion owned by an external engine this frame (see `engine.rs`): the
+    /// solver neither integrates it nor folds hidden motion into it.
+    pub driven: bool,
     /// External chunk loads at the last quasi-static solve (for change detection).
     pub settled_load_norm: f64,
 }
@@ -461,6 +464,7 @@ impl ReferenceSolver {
             angular_velocity,
             activity: Activity::Active,
             active_timer: self.config.active_time,
+            driven: false,
             settled_load_norm: 0.0,
         });
         self.next_cluster_id += 1;
@@ -735,7 +739,7 @@ impl ReferenceSolver {
     }
 
     /// Net external force and torque (about the com) on a cluster, world frame, gravity included.
-    fn net_load(&self, ci: usize, loads: &ChunkLoads) -> (Vec3, Vec3) {
+    pub(crate) fn net_load(&self, ci: usize, loads: &ChunkLoads) -> (Vec3, Vec3) {
         let cl = &self.clusters[ci];
         let s = cl.structure;
         let com = cl.com_world();
@@ -777,7 +781,7 @@ impl ReferenceSolver {
     /// conserved when the net torque vanishes) and recovers the angular velocity from
     /// the rotated inertia.
     fn integrate_rigid(&mut self, ci: usize, dt: f64, a: Vec3, alpha: Vec3) {
-        if !self.config.integrate_rigid || self.clusters[ci].anchored {
+        if !self.config.integrate_rigid || self.clusters[ci].anchored || self.clusters[ci].driven {
             return;
         }
         let cl = &mut self.clusters[ci];
@@ -1038,7 +1042,7 @@ impl ReferenceSolver {
             cs.v -= dv + dw.cross(r);
             cs.w -= dw;
         }
-        if self.config.integrate_rigid {
+        if self.config.integrate_rigid && !self.clusters[ci].driven {
             let cl = &mut self.clusters[ci];
             let rot = cl.pose.rotation;
             cl.pose.position += rot.rotate(t - phi.cross(com));
