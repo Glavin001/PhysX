@@ -132,9 +132,13 @@ of stress-ref and of the analytic values.
 * Scene features not exported: scripted events (`remove_chunks`, `remove_supports`),
   ground plane, blast loads, rotated chunks/impactors, crushable impactors, refined
   (level > 0) chunks, rebar.  The exporter raises instead of approximating.
-* Weibull seeds: supported (`--seed N` derives the scene with `stress-ref with-seed`);
-  bonds are grouped into one cohesive part per distinct strength set, which can create
-  many parts for randomized scenes.
+* Weibull seeds: `--seed N` derives the scene with `stress-ref with-seed` (binary from
+  `--stress-ref` or `$STRESS_REF`, default `target/release/stress-ref`) and writes
+  `opencourant_seedN.json` with `seed = N`.  LAW169 has no per-element strength, so bonds
+  are grouped into one cohesive part (material) per distinct strength set: with Weibull
+  strengths every bond gets its own part with `TENMAX = f_t * weibull` and
+  `SHRMAX = c * weibull` (verified on b9_panel_high_weibull: 838 bonds -> 838 parts).
+  The many small element groups make such runs ~2.5x slower (b9: 210 s instead of 82 s).
 
 ## Goldens (seed 0) and cost
 

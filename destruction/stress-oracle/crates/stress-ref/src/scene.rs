@@ -500,7 +500,7 @@ pub enum MetricKind {
     DetachedMass { body: String, region: Option<Region> },
     /// Whether any chunk of `body` in `region` detached.
     DetachedAny { body: String, region: Option<Region> },
-    /// Mean (or max) speed along `axis` of detached chunks in `region`; 0 if none.
+    /// Mass-weighted mean (or max) speed along `axis` of detached chunks in `region`; 0 if none.
     DetachedSpeed { body: String, region: Option<Region>, axis: [f64; 3], max: bool },
     /// "hole", "push_over" or "intact" (see `metrics::failure_mode`).
     FailureMode { body: String, impact_region: Region },

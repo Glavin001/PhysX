@@ -533,43 +533,58 @@ pub fn wall_impact(speed: f64, name: &str) -> Scene {
     s
 }
 
-/// Benchmark 6: a 1 m thick concrete block hit face-on by an elastic steel plate. The
-/// compressive pulse reflects from the free back face as tension and spalls it.
+/// Benchmark 6: a 0.5 m thick, 1.2 m wide concrete slab hit face-on by a 0.1 m steel
+/// plate covering its whole face, so the stress wave is planar. The compressive pulse
+/// (`sigma = v Zs Zc / (Zs + Zc)`, about 21 MPa at 3 m/s: below the crushing strength)
+/// reflects from the free back face as tension far above the tensile strength and
+/// spalls a layer about half a pulse length thick, which flies off at about twice the
+/// particle velocity. The front face is not damaged.
 pub fn spall(speed: f64, name: &str) -> Scene {
-    let mut s = new_scene(name, "Thick concrete block, flat steel plate impact: back-face spall.");
+    let mut s = new_scene(name, "Wide concrete slab, full-face steel plate impact: back-face spall (planar wave).");
     s.benchmark = Some(6);
     s.gravity = [0.0; 3];
-    s.materials.insert("concrete".into(), oracle_concrete(None));
-    s.materials.insert("steel".into(), elastic_steel());
-    let h = 0.05;
-    let block = grid(Vec3::new(-0.3, 0.0, -0.3), [12, 20, 12], Vec3::splat(h), "concrete");
+    let concrete = oracle_concrete(None);
+    let steel = elastic_steel();
+    s.materials.insert("concrete".into(), concrete.clone());
+    s.materials.insert("steel".into(), steel.clone());
+    let counts = [12, 10, 12];
+    let size = Vec3::new(0.1, 0.05, 0.1);
+    let block = grid(Vec3::new(-0.6, 0.0, -0.6), counts, size, "concrete");
     let bonds = auto_bonds(&block, |_, _| "concrete".into());
     s.bodies.push(body("block", block, bonds));
-    let plate = grid(Vec3::new(-0.2, -0.2 - 1e-3, -0.2), [8, 4, 8], Vec3::splat(h), "steel");
+    // Four layers through the plate thickness resolve its 40 us pulse (2 L / c).
+    let plate = grid(Vec3::new(-0.6, -0.1 - 1e-4, -0.6), [12, 4, 12], Vec3::new(0.1, 0.025, 0.1), "steel");
     let pb = auto_bonds(&plate, |_, _| "steel".into());
     let mut plate_body = body("plate", plate, pb);
     plate_body.linear_velocity = [0.0, speed, 0.0];
     s.bodies.push(plate_body);
     s.sim.gravity_prestress = false;
-    s.sim.duration = 1.5e-3;
+    // Elastic contact: the plate-slab interface must transmit the wave, not damp it.
+    s.sim.contact_restitution = 1.0;
+    s.sim.duration = 1.0e-3;
     s.sim.frame_dt = 1e-4;
-    s.sim.sample_interval = Some(5e-6);
-    s.probes.push(probe("back_face_velocity", ProbeKind::ChunkVelocity { body: "block".into(), chunk: grid_index([12, 20, 12], 6, 19, 6), axis: [0.0, 1.0, 0.0] }));
-    s.probes.push(probe("front_face_velocity", ProbeKind::ChunkVelocity { body: "block".into(), chunk: grid_index([12, 20, 12], 6, 0, 6), axis: [0.0, 1.0, 0.0] }));
-    let back = Some(region([-0.3, 0.8, -0.3], [0.3, 1.0, 0.3]));
-    let front = Some(region([-0.3, 0.0, -0.3], [0.3, 0.2, 0.3]));
+    s.sim.sample_interval = Some(2e-6);
+    s.probes.push(probe("back_face_velocity", ProbeKind::ChunkVelocity { body: "block".into(), chunk: grid_index(counts, 6, 9, 6), axis: [0.0, 1.0, 0.0] }));
+    s.probes.push(probe("front_face_velocity", ProbeKind::ChunkVelocity { body: "block".into(), chunk: grid_index(counts, 6, 0, 6), axis: [0.0, 1.0, 0.0] }));
+    // Analytic 1-D expectation for the central region (lateral release arrives later).
+    let zc = concrete.density * concrete.bar_wave_speed();
+    let zs = steel.density * steel.bar_wave_speed();
+    let sigma = speed * zs * zc / (zs + zc);
+    let v_free = 2.0 * sigma / zc;
+    let back = Some(region([-0.35, 0.4, -0.35], [0.35, 0.5, 0.35]));
+    let front = Some(region([-0.6, 0.0, -0.6], [0.6, 0.1, 0.6]));
     let o = &["opencourant"];
-    s.metrics.push(metric("spall_occurs", MetricKind::DetachedAny { body: "block".into(), region: back }, Tolerance::Exact, None, o));
+    s.metrics.push(metric("spall_occurs", MetricKind::DetachedAny { body: "block".into(), region: back }, Tolerance::Exact, Some(serde_json::json!(true)), o));
     s.metrics.push(metric(
         "spall_speed",
         MetricKind::DetachedSpeed { body: "block".into(), region: back, axis: [0.0, 1.0, 0.0], max: false },
         Tolerance::Relative(0.30),
-        None,
+        num(v_free),
         o,
     ));
+    s.metrics.push(metric("front_face_detached", MetricKind::DetachedAny { body: "block".into(), region: front }, Tolerance::Exact, Some(serde_json::json!(false)), o));
+    s.metrics.push(metric("peak_back_face_velocity", MetricKind::ProbeMax { probe: "back_face_velocity".into() }, Tolerance::Relative(0.30), num(v_free), o));
     s.metrics.push(metric("spall_mass", MetricKind::DetachedMass { body: "block".into(), region: back }, Tolerance::Report, None, o));
-    s.metrics.push(metric("front_damage_mass", MetricKind::DetachedMass { body: "block".into(), region: front }, Tolerance::Report, None, o));
-    s.metrics.push(metric("peak_back_face_velocity", MetricKind::ProbeMax { probe: "back_face_velocity".into() }, Tolerance::Relative(0.30), None, o));
     s
 }
 
@@ -836,6 +851,15 @@ pub fn pressure_panel_sized(peak: f64, cell: f64, name: &str) -> Scene {
     s
 }
 
+/// Benchmark 9 with Weibull-distributed bond strengths (modulus 8): compared as a
+/// distribution over seeds (`stress-ref seeds`, oracle `_seedN` goldens).
+pub fn pressure_panel_weibull(peak: f64, name: &str) -> Scene {
+    let mut s = pressure_panel(peak, name);
+    s.description = "One-way concrete panel, Friedlander pulse, Weibull bond strengths: distributions over seeds.".into();
+    s.materials.insert("concrete".into(), oracle_concrete(Some(8.0)));
+    s
+}
+
 /// A grid of coarse chunks, each pre-fractured into `2 x 2 x 2` finer children
 /// (level 1), with bonds on both levels: the two-scale representation.
 pub fn two_level_grid(min_corner: Vec3, counts: [usize; 3], size: Vec3, material: &str) -> (Vec<ChunkDesc>, Vec<BondDesc>) {
@@ -907,5 +931,6 @@ pub fn catalog() -> Vec<Scene> {
         frame_column_removal_with(0.0, false, "b8_frame_sudden_elastic"),
         pressure_panel(10e3, "b9_panel_low"),
         pressure_panel(300e3, "b9_panel_high"),
+        pressure_panel_weibull(300e3, "b9_panel_high_weibull"),
     ]
 }

@@ -29,7 +29,7 @@ import observe  # noqa: E402
 import run as runner  # noqa: E402
 
 RUNS = os.environ.get("OPENCOURANT_RUNS", "/home/user/oracle-runs/opencourant")
-STRESS_REF = os.path.join(ROOT, "target", "release", "stress-ref")
+STRESS_REF = os.environ.get("STRESS_REF", os.path.join(ROOT, "target", "release", "stress-ref"))
 PINNED = {
     "tool": "OpenCourant (OpenRadioss fork)",
     "release_tag": "latest-20261006",
@@ -57,9 +57,11 @@ def main(argv=None):
     ap.add_argument("--threads", type=int)
     ap.add_argument("--rundir")
     ap.add_argument("--golden", default=os.path.join(ROOT, "golden"))
+    ap.add_argument("--stress-ref", default=STRESS_REF, help="stress-ref binary used for `with-seed`")
     a = ap.parse_args(argv)
 
     t_start = time.time()
+    derived_cmd = None
     scene_path = os.path.abspath(a.scene)
     scene = json.load(open(scene_path))
     name = scene["name"]
@@ -71,7 +73,8 @@ def main(argv=None):
         os.remove(os.path.join(rundir, f))
     if seed != scene["sim"].get("seed", 0):
         derived = os.path.join(rundir, f"{name}{suffix}.scene.json")
-        subprocess.run([STRESS_REF, "with-seed", scene_path, str(seed), derived], check=True)
+        subprocess.run([a.stress_ref, "with-seed", scene_path, str(seed), derived], check=True)
+        derived_cmd = f"{a.stress_ref} with-seed {a.scene} {seed} {derived}"
         scene_path = derived
         scene = json.load(open(scene_path))
 
@@ -102,6 +105,8 @@ def main(argv=None):
         "seed": seed,
         "scene_file": os.path.relpath(scene_path, ROOT) if scene_path.startswith(ROOT) else scene_path,
         "scene_sha256": sha256_file(scene_path),
+        "base_scene_sha256": sha256_file(os.path.abspath(a.scene)),
+        "derive_command": derived_cmd,
         "tool": PINNED,
         "starter_deck_sha256": meta["deck_sha256"]["starter"],
         "engine_deck_sha256": meta["deck_sha256"]["engine"],

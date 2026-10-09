@@ -222,18 +222,20 @@ pub fn evaluate(scene: &Scene, metric: &MetricDesc, obs: &Observation) -> Result
             MetricValue::Bool(coarse(desc).any(|i| st[i].detached && !st[i].removed && in_region(desc, i, region)))
         }
         MetricKind::DetachedSpeed { body, region, axis, max } => {
+            // Mass-weighted mean (momentum over mass) of the detached chunks, or the max.
             let (desc, st) = body_states(scene, obs, body)?;
             let a = Vec3::from_array(*axis).normalized();
-            let speeds: Vec<f64> = coarse(desc)
+            let pieces: Vec<(f64, f64)> = coarse(desc)
                 .filter(|&i| st[i].detached && !st[i].removed && in_region(desc, i, region))
-                .map(|i| Vec3::from_array(st[i].velocity).dot(a))
+                .map(|i| (chunk_mass(scene, desc, i), Vec3::from_array(st[i].velocity).dot(a)))
                 .collect();
-            MetricValue::Number(if speeds.is_empty() {
+            let mass: f64 = pieces.iter().map(|p| p.0).sum();
+            MetricValue::Number(if pieces.is_empty() {
                 0.0
             } else if *max {
-                speeds.iter().copied().fold(f64::NEG_INFINITY, f64::max)
+                pieces.iter().map(|p| p.1).fold(f64::NEG_INFINITY, f64::max)
             } else {
-                speeds.iter().sum::<f64>() / speeds.len() as f64
+                pieces.iter().map(|p| p.0 * p.1).sum::<f64>() / mass
             })
         }
         MetricKind::FailureMode { body, impact_region } => {
@@ -329,6 +331,69 @@ pub fn compare(scene: &Scene, ours: &Observation, oracles: &[Observation]) -> Ve
                 note: our_val.as_ref().err().cloned().unwrap_or_default(),
             });
         }
+    }
+    out
+}
+
+/// Compare metric distributions over seeds (fracture is chaotic: compare statistics,
+/// not single crack patterns). Numbers: the mean is compared with the metric's
+/// tolerance and the standard deviations are reported. Booleans and categories: the
+/// most frequent outcome must agree and its frequency may differ by at most 0.25.
+pub fn compare_distributions(scene: &Scene, ours: &[Observation], oracle: &[Observation], source: &str) -> Vec<Comparison> {
+    let mut out = Vec::new();
+    for m in &scene.metrics {
+        if !m.oracles.is_empty() && !m.oracles.iter().any(|x| x == source) {
+            continue;
+        }
+        let a: Vec<MetricValue> = ours.iter().filter_map(|o| evaluate(scene, m, o).ok()).collect();
+        let b: Vec<MetricValue> = oracle.iter().filter_map(|o| evaluate(scene, m, o).ok()).collect();
+        if a.is_empty() || b.is_empty() {
+            continue;
+        }
+        let numeric = |v: &[MetricValue]| -> Option<Vec<f64>> {
+            v.iter().map(|x| if let MetricValue::Number(n) = x { Some(*n) } else { None }).collect()
+        };
+        let (pass, rel, ours_v, ref_v, note) = match (numeric(&a), numeric(&b)) {
+            (Some(x), Some(y)) => {
+                let stats = |v: &[f64]| {
+                    let n = v.len() as f64;
+                    let mean = v.iter().sum::<f64>() / n;
+                    (mean, (v.iter().map(|q| (q - mean).powi(2)).sum::<f64>() / n).sqrt())
+                };
+                let ((ma, sa), (mb, sb)) = (stats(&x), stats(&y));
+                let (p, r) = compare_values(&m.tolerance, &MetricValue::Number(ma), &MetricValue::Number(mb));
+                (p, r, MetricValue::Number(ma), MetricValue::Number(mb), format!("std {sa:.3e} vs {sb:.3e}, n {} vs {}", x.len(), y.len()))
+            }
+            _ => {
+                let mode = |v: &[MetricValue]| {
+                    let mut counts: Vec<(String, usize)> = Vec::new();
+                    for x in v {
+                        let k = x.to_string();
+                        match counts.iter_mut().find(|c| c.0 == k) {
+                            Some(c) => c.1 += 1,
+                            None => counts.push((k, 1)),
+                        }
+                    }
+                    counts.sort_by(|p, q| q.1.cmp(&p.1));
+                    (counts[0].0.clone(), counts[0].1 as f64 / v.len() as f64)
+                };
+                let ((ka, fa), (kb, fb)) = (mode(&a), mode(&b));
+                let pass = match m.tolerance {
+                    Tolerance::Report => None,
+                    _ => Some(ka == kb && (fa - fb).abs() <= 0.25),
+                };
+                (pass, None, MetricValue::Category(format!("{ka} ({:.0}%)", 100.0 * fa)), MetricValue::Category(format!("{kb} ({:.0}%)", 100.0 * fb)), String::new())
+            }
+        };
+        out.push(Comparison {
+            metric: m.name.clone(),
+            reference_source: format!("{source} x{}", b.len()),
+            ours: Some(ours_v),
+            reference: Some(ref_v),
+            relative_error: rel,
+            pass,
+            note,
+        });
     }
     out
 }

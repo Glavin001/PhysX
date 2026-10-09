@@ -58,7 +58,6 @@ def main(deck_dir):
     chipy.ComputeMass()
 
     nb = chipy.RBDY3_GetNbRBDY3()
-    chunk_body = np.array(man["chunk_body"], dtype=int)
     ball = int(man["impactor"]["body"])
     v0 = np.array(man["impactor"]["velocity"] + man["impactor"]["angular_velocity"], dtype=float)
     coor0 = np.array([chipy.RBDY3_GetBodyVector("Coor0", i)[:3] for i in range(1, nb + 1)])
@@ -74,11 +73,26 @@ def main(deck_dir):
         chipy.ComputeFreeVelocity()
         chipy.SelectProxTactors()
         chipy.RecupRloc()
-        chipy.ExSolver(solver_type, norm, p["nlgs_tol"], p["nlgs_relax"], p["gs_it1"], p["gs_it2"])
+        # Same algorithm as chipy.ExSolver, unrolled to record iterations/convergence.
+        chipy.nlgs_3D_SetCheckType(norm, p["nlgs_tol"], p["nlgs_relax"])
+        chipy.nlgs_3D_ExPrep(solver_type)
+        iters, conv = 0, 1
+        for _ in range(p["gs_it2"]):
+            if p.get("quick_scramble", False):
+                chipy.nlgs_3D_QuickScrambleContactOrder()
+            chipy.nlgs_3D_ExIter(p["gs_it1"])
+            iters += p["gs_it1"]
+            conv = chipy.nlgs_3D_AfterIterCheck()
+            if conv in (0, -1):
+                break
+        chipy.nlgs_3D_ExPost()
+        if conv == -1:
+            raise RuntimeError("NLGS produced NaN reactions")
         chipy.UpdateTactBehav()
         chipy.StockRloc()
         chipy.ComputeDof()
         chipy.UpdateStep()
+        return iters, conv == 0
 
     def interactions():
         it = chipy.getInteractions()
@@ -93,8 +107,9 @@ def main(deck_dir):
     chipy.RBDY3_SetInvisible(ball)
     t_settle0 = time.time()
     first = None
+    settle_iters = []
     for k in range(man["n_settle"]):
-        step()
+        settle_iters.append(step())
         if k == 0:
             first = interactions()
     t_settle = time.time() - t_settle0
@@ -115,19 +130,29 @@ def main(deck_dir):
     chipy.RBDY3_PutBodyVector("V____", ball, v0)
 
     every = man["sample_every"]
-    times, ball_v, lo, hi = [0.0], [float(v0[1])], [float(v0[1])], [float(v0[1])]
-    run_lo, run_hi = np.inf, -np.inf
+    # Impactor-velocity probes are projected every step so the lo/hi envelope is exact.
+    axes = np.array([pr["axis"] for pr in man["probe_axes"]], dtype=float).reshape(-1, 3)
+    axes = axes / np.maximum(np.linalg.norm(axes, axis=1, keepdims=True), 1e-300)
+    pv0 = axes @ v0[:3]
+    times, ball_v, lo, hi = [0.0], [pv0], [pv0], [pv0]
+    run_lo, run_hi = np.full(len(axes), np.inf), np.full(len(axes), -np.inf)
+    ball_vec = [v0[:3].tolist()]
     t_run0 = time.time()
+    impact_iters = []
     for k in range(1, man["n_steps"] + 1):
-        step()
-        vb = float(chipy.RBDY3_GetBodyVector("V____", ball)[1])
-        run_lo, run_hi = min(run_lo, vb), max(run_hi, vb)
+        impact_iters.append(step())
+        if k % 100 == 0:
+            print("step %d/%d  %.1f s  nlgs %d" % (k, man["n_steps"], time.time() - t_run0, impact_iters[-1][0]), flush=True)
+        vball = np.array(chipy.RBDY3_GetBodyVector("V____", ball)[:3])
+        pv = axes @ vball
+        run_lo, run_hi = np.minimum(run_lo, pv), np.maximum(run_hi, pv)
         if k % every == 0 or k == man["n_steps"]:
             times.append(k * man["dt"])
-            ball_v.append(vb)
+            ball_v.append(pv)
             lo.append(run_lo)
             hi.append(run_hi)
-            run_lo, run_hi = np.inf, -np.inf
+            ball_vec.append(vball.tolist())
+            run_lo, run_hi = np.full(len(axes), np.inf), np.full(len(axes), -np.inf)
     t_run = time.time() - t_run0
 
     vel = np.array([chipy.RBDY3_GetBodyVector("V____", i) for i in range(1, nb + 1)])
@@ -144,13 +169,14 @@ def main(deck_dir):
     np.savez_compressed(
         deck_dir / "raw.npz",
         coor0=coor0, pos_settle=pos_settle, pos=pos, vel=vel, mass=mass,
-        t=np.array(times), ball_v=np.array(ball_v), ball_lo=np.array(lo), ball_hi=np.array(hi),
+        t=np.array(times), probe_v=np.array(ball_v).reshape(len(times), -1), probe_lo=np.array(lo).reshape(len(times), -1),
+        probe_hi=np.array(hi).reshape(len(times), -1), ball_vec=np.array(ball_vec),
         **{"first_" + k: v for k, v in first.items()}, **{"last_" + k: v for k, v in last.items()},
     )
-    import pylmgc90
+    import importlib.metadata as md
     info = {
-        "solver_version": "LMGC90 user 2026.rc1 (pylmgc90 wheel built from lmgc90_user_2026.rc1.zip; wheel metadata says %s)"
-        % getattr(pylmgc90, "__version__", "?"),
+        "solver_version": "LMGC90 user 2026.rc1 (pylmgc90 built from lmgc90_user_2026.rc1.zip, sha256 a3190240...; dist metadata %s)"
+        % md.version("pylmgc90"),
         "wall_seconds": time.time() - t_wall0,
         "settle_seconds": t_settle,
         "impact_seconds": t_run,
@@ -158,6 +184,15 @@ def main(deck_dir):
         "n_settle": man["n_settle"],
         "n_steps": man["n_steps"],
         "ke_after_settle": ke_settle,
+        "nlgs": {
+            "norm": norm, "tol": p["nlgs_tol"], "max_iterations": p["gs_it1"] * p["gs_it2"],
+            "settle_unconverged_steps": int(sum(1 for _, c in settle_iters if not c)),
+            "impact_unconverged_steps": int(sum(1 for _, c in impact_iters if not c)),
+            "impact_iterations_mean": float(np.mean([i for i, _ in impact_iters])) if impact_iters else 0.0,
+            "impact_iterations_max": int(max([i for i, _ in impact_iters], default=0)),
+            "impact_iterations": [i for i, _ in impact_iters],
+            "impact_converged": [bool(c) for _, c in impact_iters],
+        },
         "law_internal_comment": law_comment,
     }
     (deck_dir / "run.json").write_text(json.dumps(info, indent=1))

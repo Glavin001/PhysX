@@ -23,7 +23,7 @@
 
 use crate::bond::{BondGeometry, BondStiffness, Local6};
 use crate::joint::{FailureMode, JointModel, JointState, JointStrength, RebarParams, StressMeasures};
-use crate::math::{Mat3, Pose, Vec3};
+use crate::math::{Mat3, Pose, Quat, Vec3};
 use crate::scene::{Scene, SolveMode, Support};
 use crate::structure::{BondData, Structure};
 
@@ -836,26 +836,55 @@ impl ReferenceSolver {
         }
     }
 
-    /// Keep the hidden velocities of a free cluster free of net linear momentum (the
-    /// floating frame carries the translation). Any drift is moved into the cluster's
-    /// rigid velocity, which leaves every chunk's world velocity, and therefore the total
-    /// momentum, exactly unchanged; under an engine (which owns rigid motion) it is
-    /// removed. Hidden angular momentum is left alone: a cracked cluster can be a
-    /// mechanism (pieces turning on contact hinges), and folding that into one rigid
-    /// rotation would change the frame's rotation without the matching inertial loads.
+    /// Keep the floating frame on the cluster (a mean-axis frame): fold the best-fit
+    /// rigid translation and rotation of the hidden displacements into the cluster pose,
+    /// and the net linear and angular momentum of the hidden velocities into its rigid
+    /// velocity. Chunk positions are unchanged to second order in the (tiny, per-substep)
+    /// correction and chunk velocities exactly, so total momentum is conserved.
+    ///
+    /// Without this the small-rotation bond model sees a growing rigid rotation of the
+    /// hidden field whose bond forces do not turn with it, which is unstable in a
+    /// spinning body. Moving only the velocities (not the rotation) is inconsistent too:
+    /// the hidden field then integrates the opposite rotation. Under an engine (which owns
+    /// rigid motion) the hidden rigid motion is removed instead.
     fn remove_rigid_drift(&mut self, ci: usize) {
         let cl = &self.clusters[ci];
         let s = cl.structure;
         let st = &self.structures[s];
-        let p = cl.chunks.iter().map(|&c| self.chunks[s][c].v * st.chunks[c].mass).fold(Vec3::ZERO, |a, b| a + b);
-        let dv = p / cl.mass;
-        for &c in &cl.chunks.clone() {
-            self.chunks[s][c].v -= dv;
+        let inv_i = cl.inertia.inverse().expect("invertible");
+        let (mut tu, mut pv) = (Vec3::ZERO, Vec3::ZERO);
+        for &c in &cl.chunks {
+            let m = st.chunks[c].mass;
+            tu += self.chunks[s][c].u * m;
+            pv += self.chunks[s][c].v * m;
+        }
+        let (t, dv) = (tu / cl.mass, pv / cl.mass);
+        let (mut lu, mut lv) = (Vec3::ZERO, Vec3::ZERO);
+        for &c in &cl.chunks {
+            let ch = &st.chunks[c];
+            let cs = &self.chunks[s][c];
+            let r = ch.center - cl.com;
+            lu += r.cross(cs.u - t) * ch.mass + ch.inertia * cs.th;
+            lv += r.cross(cs.v - dv) * ch.mass + ch.inertia * cs.w;
+        }
+        let (phi, dw) = (inv_i * lu, inv_i * lv);
+        let chunks = cl.chunks.clone();
+        let com = cl.com;
+        for c in chunks {
+            let r = st.chunks[c].center - com;
+            let cs = &mut self.chunks[s][c];
+            cs.u -= t + phi.cross(r);
+            cs.th -= phi;
+            cs.v -= dv + dw.cross(r);
+            cs.w -= dw;
         }
         if self.config.integrate_rigid {
             let cl = &mut self.clusters[ci];
-            let dvw = cl.pose.transform_vector(dv);
-            cl.velocity += dvw;
+            let rot = cl.pose.rotation;
+            cl.pose.position += rot.rotate(t - phi.cross(com));
+            cl.pose.rotation = (rot * Quat::from_axis_angle(phi, phi.norm())).normalized();
+            cl.velocity += rot.rotate(dv);
+            cl.angular_velocity += rot.rotate(dw);
         }
     }
 

@@ -43,12 +43,6 @@ pub struct Impactor {
 }
 
 impl Impactor {
-    fn size(&self) -> f64 {
-        match self.shape {
-            ImpactorShape::Sphere { radius } => radius,
-            ImpactorShape::Box { half_extents } => half_extents.iter().copied().fold(f64::INFINITY, f64::min),
-        }
-    }
     fn obox(&self) -> OBox {
         let h = match self.shape {
             ImpactorShape::Box { half_extents } => Vec3::from_array(half_extents),
@@ -118,11 +112,29 @@ pub struct World {
     pairs_seen: std::collections::HashSet<(usize, usize, usize, usize)>,
 }
 
-/// Effective contact modulus of two materials (scaled moduli).
-fn contact_modulus(a: &Material, b: &Material, scale: f64) -> f64 {
-    let ea = a.youngs_modulus * scale;
-    let eb = b.youngs_modulus * scale;
-    1.0 / ((1.0 - a.poisson_ratio.powi(2)) / ea + (1.0 - b.poisson_ratio.powi(2)) / eb)
+/// Contact stiffness of two bodies pressed together along `dir`: their half-thicknesses
+/// along `dir` in series over the smaller projected face, like a bond between them.
+/// Chunks are rigid (all compliance lives in springs), so a softer contact would act
+/// as a cushion and cut the stress wave it transmits.
+fn contact_stiffness(a: &Material, box_a: &OBox, b: &Material, box_b: &OBox, dir: Vec3, scale: f64) -> f64 {
+    let e = |m: &Material| m.youngs_modulus * scale / (1.0 - m.poisson_ratio * m.poisson_ratio);
+    let d = dir.normalized();
+    let (ha, aa) = half_thickness_and_area(box_a, d);
+    let (hb, ab) = half_thickness_and_area(box_b, d);
+    aa.min(ab) / (ha / e(a) + hb / e(b))
+}
+
+/// Half-thickness of a box along a unit direction and its area projected on the
+/// plane perpendicular to it.
+fn half_thickness_and_area(b: &OBox, d: Vec3) -> (f64, f64) {
+    let mut h = 0.0;
+    let mut area = 0.0;
+    for k in 0..3 {
+        let c = d.dot(b.rotation.col(k)).abs();
+        h += c * b.half[k];
+        area += c * 4.0 * b.half[(k + 1) % 3] * b.half[(k + 2) % 3];
+    }
+    (h, area)
 }
 
 fn damping_ratio(restitution: f64) -> f64 {
@@ -229,10 +241,6 @@ impl World {
         OBox { center: self.solver.chunk_position(s, c), rotation: cl.rotation() * hidden * ch.rotation, half: ch.half_extents }
     }
 
-    fn chunk_size(&self, s: usize, c: usize) -> f64 {
-        self.solver.structures[s].chunks[c].volume().cbrt()
-    }
-
     fn chunk_material(&self, s: usize, c: usize) -> &Material {
         self.scene.material(&self.solver.structures[s].chunks[c].material)
     }
@@ -245,14 +253,18 @@ impl World {
         let mut w2: f64 = 0.0;
         for (s, st) in self.solver.structures.iter().enumerate() {
             for (c, ch) in st.chunks.iter().enumerate() {
-                let k = contact_modulus(self.chunk_material(s, c), stiffest, scale) * self.chunk_size(s, c);
+                let b = OBox { center: Vec3::ZERO, rotation: ch.rotation, half: ch.half_extents };
+                let k = (0..3)
+                    .map(|axis| contact_stiffness(self.chunk_material(s, c), &b, stiffest, &b, ch.rotation.col(axis), scale))
+                    .fold(0.0, f64::max);
                 // A face pair engages ~10 sample points of k/10 each (total k); a chunk
                 // buried in rubble can touch on all six faces.
                 w2 = w2.max(6.0 * k / ch.mass);
             }
         }
         for imp in &self.impactors {
-            let k = contact_modulus(&imp.material, stiffest, scale) * imp.size();
+            let b = imp.obox();
+            let k = (0..3).map(|axis| contact_stiffness(&imp.material, &b, stiffest, &b, b.rotation.col(axis), scale)).fold(0.0, f64::max);
             w2 = w2.max(k / imp.mass);
         }
         if w2 <= 0.0 {
@@ -540,7 +552,7 @@ impl World {
                 if (b.center - ib.center).norm() > reach + b.bounding_radius() {
                     continue;
                 }
-                let kc = contact_modulus(&imp.material, self.chunk_material(s, c), scale) * imp.size().min(self.chunk_size(s, c));
+                let kc = contact_stiffness(&imp.material, &ib, self.chunk_material(s, c), b, b.center - ib.center, scale);
                 match imp.shape {
                     ImpactorShape::Sphere { radius } => {
                         if let Some(cp) = b.sphere_contact(imp.pose.position, radius - imp.crush_depth) {
@@ -611,7 +623,7 @@ impl World {
                 if cl.anchored {
                     continue;
                 }
-                let kc = contact_modulus(&gm, self.chunk_material(s, c), scale) * self.chunk_size(s, c) / 5.0;
+                let kc = contact_stiffness(&gm, b, self.chunk_material(s, c), b, Vec3::Z, scale) / 5.0;
                 let m = self.solver.structures[s].chunks[c].mass;
                 for p in b.sample_points() {
                     let depth = g.height - p.z;
@@ -626,7 +638,8 @@ impl World {
             }
             for ii in 0..self.impactors.len() {
                 let imp = self.impactors[ii].clone();
-                let kc = contact_modulus(&gm, &imp.material, scale) * imp.size();
+                let ib = imp.obox();
+                let kc = contact_stiffness(&gm, &ib, &imp.material, &ib, Vec3::Z, scale);
                 let pts: Vec<Vec3> = match imp.shape {
                     ImpactorShape::Sphere { radius } => vec![imp.pose.position - Vec3::Z * radius],
                     ImpactorShape::Box { .. } => imp.obox().sample_points().to_vec(),
@@ -693,8 +706,14 @@ impl World {
         let scale = self.scene.sim.stiffness_scale;
         let (sa, ca, ba) = a;
         let (sb, cb, bb) = b;
-        let k_pair = contact_modulus(self.chunk_material(sa, ca), self.chunk_material(sb, cb), scale)
-            * self.chunk_size(sa, ca).min(self.chunk_size(sb, cb));
+        let k_pair = contact_stiffness(
+            self.chunk_material(sa, ca),
+            &ba,
+            self.chunk_material(sb, cb),
+            &bb,
+            bb.center - ba.center,
+            scale,
+        );
         let (ma, mb) = (self.solver.structures[sa].chunks[ca].mass, self.solver.structures[sb].chunks[cb].mass);
         let m_red = ma * mb / (ma + mb);
         let mu = self.pair_friction(self.chunk_material(sa, ca), self.chunk_material(sb, cb));

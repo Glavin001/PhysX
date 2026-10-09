@@ -1,28 +1,32 @@
 //! `stress-ref` command line.
 //!
 //! ```text
-//! stress-ref gen-scenes <dir>                       write the scene catalogue (with derived bond data)
+//! stress-ref gen-scenes <dir>                       write the scene catalogue (with derived bond data;
+//!                                                    showcases into <dir>/showcases)
 //! stress-ref with-seed <scene.json> <seed> <out.json>  same scene, Weibull strengths for another seed
 //! stress-ref run <scene.json> [--seed N] [--out obs.json] [--mode explicit|adaptive|quasi_static]
 //!                [--stiffness-scale S] [--max-substep DT] [--frame-dt DT] [--no-fracture]
 //! stress-ref compare <scene.json> <ours.json> [<oracle.json> ...] [--json report.json]
+//! stress-ref seeds <scene.json> --out <dir> [--from 0] [--count 20]  run a scene for many Weibull seeds
 //! stress-ref check <scenes-dir> <golden-dir> [--only NAME] [--json report.json]
 //! ```
 //!
 //! `check` runs every scene, compares against analytic expectations and every golden
 //! oracle observation in `<golden-dir>/<scene>/*.json`, and exits non-zero on failure.
+//! Goldens with a non-zero seed (`<tool>_seedN.json`) are compared as distributions:
+//! ours is run for the same seeds.
 
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-use stress_ref::builders;
+use stress_ref::{builders, showcases};
 use stress_ref::metrics::{compare, format_table, Comparison};
 use stress_ref::observation::Observation;
 use stress_ref::scene::Scene;
 use stress_ref::world::World;
 
 fn usage() -> ExitCode {
-    eprintln!("usage: stress-ref gen-scenes <dir> | run <scene> [opts] | compare <scene> <ours> [oracles..] | check <scenes> <golden>");
+    eprintln!("usage: stress-ref gen-scenes <dir> | with-seed <scene> <seed> <out> | run <scene> [opts] | seeds <scene> --out <dir> | compare <scene> <ours> [oracles..] | check <scenes> <golden>");
     ExitCode::from(2)
 }
 
@@ -102,8 +106,11 @@ fn main() -> ExitCode {
     let result: Result<bool, String> = (|| match cmd.as_str() {
         "gen-scenes" => {
             let dir = PathBuf::from(pos.first().ok_or("missing <dir>")?);
-            std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-            for scene in builders::catalog() {
+            // Showcases go to a subdirectory: `check` runs only the benchmarks.
+            let show_dir = dir.join("showcases");
+            std::fs::create_dir_all(&show_dir).map_err(|e| e.to_string())?;
+            let scenes = builders::catalog().into_iter().map(|s| (dir.clone(), s));
+            for (dir, scene) in scenes.chain(showcases::catalog().into_iter().map(|s| (show_dir.clone(), s))) {
                 scene.validate()?;
                 let path = dir.join(format!("{}.json", scene.name));
                 // Large scenes are written compactly; both forms parse identically.
@@ -121,6 +128,24 @@ fn main() -> ExitCode {
             scene.sim.seed = pos.get(1).ok_or("missing <seed>")?.parse().map_err(|e| format!("seed: {e}"))?;
             let out = pos.get(2).ok_or("missing <out>")?;
             std::fs::write(out, serde_json::to_string(&scene.with_derived()).unwrap() + "\n").map_err(|e| e.to_string())?;
+            Ok(true)
+        }
+        "seeds" => {
+            // Run a scene for seeds first..first+count (randomized strengths).
+            let scene = Scene::load(Path::new(pos.first().ok_or("missing <scene>")?))?;
+            let first: u64 = flag(rest, "--from").map(|v| v.parse().unwrap_or(0)).unwrap_or(0);
+            let count: u64 = flag(rest, "--count").map(|v| v.parse().unwrap_or(20)).unwrap_or(20);
+            let out = PathBuf::from(flag(rest, "--out").ok_or("missing --out <dir>")?);
+            std::fs::create_dir_all(&out).map_err(|e| e.to_string())?;
+            for seed in first..first + count {
+                let mut sc = scene.clone();
+                sc.sim.seed = seed;
+                apply_overrides(&mut sc, rest)?;
+                let obs = run_scene(&sc);
+                let path = out.join(format!("stress-ref_seed{seed}.json"));
+                std::fs::write(&path, serde_json::to_string(&obs).unwrap() + "\n").map_err(|e| e.to_string())?;
+                println!("wrote {}", path.display());
+            }
             Ok(true)
         }
         "run" => {
@@ -166,9 +191,27 @@ fn main() -> ExitCode {
                 }
                 apply_overrides(&mut scene, rest)?;
                 {
+                    let all_goldens = load_goldens(&golden.join(&scene.name));
+                    let (seeded, oracles): (Vec<Observation>, Vec<Observation>) =
+                        all_goldens.into_iter().partition(|o| o.notes.iter().any(|n| n == "seeded") || o.seed != 0);
                     let obs = run_scene(&scene);
-                    let oracles = load_goldens(&golden.join(&scene.name));
-                    let rows = compare(&scene, &obs, &oracles);
+                    let mut rows = compare(&scene, &obs, &oracles);
+                    // Distributions: run ours for the same seeds as each oracle's seeded goldens.
+                    let mut by_tool: std::collections::BTreeMap<String, Vec<Observation>> = Default::default();
+                    for o in seeded {
+                        by_tool.entry(o.solver.clone()).or_default().push(o);
+                    }
+                    for (tool, theirs) in by_tool {
+                        let ours: Vec<Observation> = theirs
+                            .iter()
+                            .map(|o| {
+                                let mut sc = scene.clone();
+                                sc.sim.seed = o.seed;
+                                run_scene(&sc)
+                            })
+                            .collect();
+                        rows.extend(stress_ref::metrics::compare_distributions(&scene, &ours, &theirs, &tool));
+                    }
                     print!("{}", format_table(&scene.name, &rows));
                     ok &= rows.iter().all(|r| r.pass != Some(false));
                     all.push((scene.name.clone(), rows));

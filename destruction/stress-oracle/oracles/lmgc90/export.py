@@ -31,20 +31,21 @@ import numpy as np
 
 # Numerical settings (not physics). Overridable per scene via scene["oracle"]["lmgc90"].
 DEFAULTS = {
-    "dt": 5.0e-5,            # NSCD time step (s); theta-method, implicit cohesive springs
+    "dt": 1.0e-4,            # NSCD time step (s); theta-method, implicit cohesive springs
     "theta": 0.5,
     "settle_time": 0.01,     # gravity settling before the impactor is made visible (s)
     "alert": 2.0e-3,         # contact detection distance (m)
     "f2f_tol": 1.0e-3,       # face-to-face detection tolerance (cos of normal mismatch)
     "shrink": 1.0e-3,        # PRPRx_ShrinkPolyrFaces: avoids degenerate shared-corner projections
     "detection": "f2f",
+    "impact_restitution": 0.2,   # not in the scene; RST_CLB normal restitution (0 -> IQS_CLB)
     "joint_law": "IQS_EXPO_CZM",  # IQS_MAL_CZM (other softening shape) / IQS_CLB (diagnostic, no cohesion)
     "eta": 0.01,             # EXPO_CZM residual ratio at which a joint is fully broken
-    "nlgs_tol": 1.0e-4,
+    "nlgs_tol": 1.666e-4,    # LMGC90's customary QM/16 tolerance
     "nlgs_relax": 1.0,
-    "nlgs_norm": "Quad ",
-    "gs_it1": 50,
-    "gs_it2": 40,
+    "nlgs_norm": "QM/16",
+    "gs_it1": 50,            # iterations between convergence checks
+    "gs_it2": 200,           # max checks -> at most 10000 NLGS iterations per step
 }
 
 COLOR_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -297,11 +298,15 @@ def export(scene_path, deck_dir):
     for col in allc:
         mu = min([scene["materials"][imp["material"]]["friction"]] + [scene["materials"][m]["friction"] for m in colour_mats[col]])
         nm = ("B%03d" % allc.index(col)) + "x"
-        law = pre.tact_behav(name=nm, law="IQS_CLB", fric=mu)
+        e = params["impact_restitution"]
+        if e > 0.0:
+            law = pre.tact_behav(name=nm, law="RST_CLB", rstn=e, rstt=0.0, fric=mu)
+        else:
+            law = pre.tact_behav(name=nm, law="IQS_CLB", fric=mu)
         tacts += law
         svs += pre.see_table(CorpsCandidat="RBDY3", candidat="SPHER", colorCandidat="IMPAC", behav=law,
                              CorpsAntagoniste="RBDY3", antagoniste="POLYR", colorAntagoniste=col, alert=params["alert"])
-        laws.append({"name": nm, "law": "IQS_CLB", "mu": mu, "colours": [["IMPAC", col]]})
+        laws.append({"name": nm, "law": "RST_CLB" if e > 0 else "IQS_CLB", "mu": mu, "restitution": e, "colours": [["IMPAC", col]]})
 
     datbox = deck_dir / "DATBOX"
     datbox.mkdir(parents=True, exist_ok=True)
@@ -345,6 +350,9 @@ def export(scene_path, deck_dir):
                      "velocity": imp["velocity"], "angular_velocity": imp.get("angular_velocity", [0, 0, 0]),
                      "mass": imp["mass"], "radius": r, "density": ball_density},
         "probes": [p for p in scene.get("probes", [])],
+        # Probes this oracle measures: impactor velocity along an axis.
+        "probe_axes": [{"name": p["name"], "axis": p["axis"]} for p in scene.get("probes", [])
+                       if p["type"] == "impactor_velocity" and p["impactor"] == imp["name"]],
         "laws": laws,
         "deck_sha256": deck_hash.hexdigest(),
         "notes": notes,

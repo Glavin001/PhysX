@@ -196,3 +196,43 @@ fn stiffness_scaling_keeps_strength_and_crossing_time() {
     let crossing = 2.1 / c;
     assert!(crossing <= 2.0 * s.sim.frame_dt * 1.0001 && scale < 1.0, "scale {scale}, crossing {crossing}");
 }
+
+/// Rigid-body motion is subtracted from chunk loads: a cluster in free fall carries no
+/// stress, and a spinning bar's centre bond carries exactly the centripetal tension
+/// `sum m w^2 r` of the chunks on one side (linear, angular and centrifugal terms).
+#[test]
+fn rigid_motion_is_subtracted_from_chunk_loads() {
+    // Free fall from rest under gravity: no bond force at all.
+    let mut s = new_scene("fall", "");
+    s.materials.insert("m".into(), Material { damping_ratio: 0.05, ..Material::analytic_test() });
+    let chunks = grid(Vec3::new(-0.5, -0.05, 2.0), [10, 1, 1], Vec3::splat(0.1), "m");
+    let bonds = auto_bonds(&chunks, |_, _| "m".into());
+    s.bodies.push(body("bar", chunks, bonds));
+    s.sim.duration = 0.2;
+    s.sim.fracture = false;
+    let mut w = World::new(&s);
+    w.run();
+    let max_force = w.solver.bonds[0].iter().map(|b| b.force.lin.norm()).fold(0.0, f64::max);
+    assert!(max_force < 1e-6, "free fall stressed the bar: {max_force} N");
+
+    // Spinning about its centre (z axis): settle the centripetal tension with damping.
+    let omega = 20.0;
+    let mut s = new_scene("spin", "");
+    s.gravity = [0.0; 3];
+    s.materials.insert("m".into(), Material { damping_ratio: 0.2, ..Material::analytic_test() });
+    let chunks = grid(Vec3::new(-0.5, -0.05, -0.05), [10, 1, 1], Vec3::splat(0.1), "m");
+    let bonds = auto_bonds(&chunks, |_, _| "m".into());
+    let mut b = body("bar", chunks, bonds);
+    b.angular_velocity = [0.0, 0.0, omega];
+    s.bodies.push(b);
+    s.sim.duration = 0.3;
+    s.sim.fracture = false;
+    let mut w = World::new(&s);
+    w.run();
+    let centre = w.solver.bonds[0].iter().find(|b| b.geometry.a == 4 && b.geometry.b == 5).unwrap();
+    let m = w.solver.structures[0].chunks[0].mass;
+    let expected: f64 = (5..10).map(|i| m * omega * omega * ((i as f64 - 4.5) * 0.1)).sum();
+    let tension = centre.force.lin.z;
+    println!("centre tension {tension} expected {expected}");
+    assert!(common::rel(tension, expected) < 0.01, "{tension} vs {expected}");
+}

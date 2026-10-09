@@ -26,6 +26,7 @@ pub mod observation;
 pub mod refine;
 pub mod rng;
 pub mod scene;
+pub mod showcases;
 pub mod solver;
 pub mod statics;
 pub mod structure;
