@@ -209,6 +209,58 @@ implements: `step(FrameInput{dt, motion, contacts}) -> FrameOutput{fractures, ev
 `clusters()`, `bond_reports(structure)`. Applying fractures to the engine
 (`stress-physx`) is shared code on the other side of that trait.
 
+## PhysX as the rigid-body engine
+
+The standalone world is the oracle: its own stress solve *and* its own rigid-body
+motion and contact (chunk-level penalty contact on the stress substep). As an
+additional comparison, `World::with_engine(scene, PhysxEngine::boxed(gravity))` runs
+the same scene with PhysX CPU integrating the rigid bodies and resolving their
+contacts. `stress-physx` is the same command line as `stress-ref`; its `run` and
+`check` also run each scene in the standalone world and gate every metric against
+it, next to the analytic and oracle-golden rows.
+
+**Where a rigid engine's assumption fails, and what happens then** (`engine.rs`,
+`world_coupling.rs`). A rigid-body engine treats bodies as infinitely stiff: a contact
+instantly involves the whole body and the body cannot change during it. That holds
+for resting, stacking, sliding and slow contact, and fails for a fast impact on
+something breakable. Before each frame the world tests every pair whose swept bounds
+touch: the rigid assumption fails if the Hertz contact time at the closing speed is
+shorter than a wave round trip across the struck body, or if the peak contact force
+exceeds its weakest bond. Such pairs, and every body touching them during the frame
+(union-find over swept bounds), form an **impact island**. PhysX holds island bodies
+kinematic for the frame; the world simulates them with the validated reference
+physics (chunk contact on the stress substep, fracture during the contact) and hands
+PhysX their end states. Every other body is **driven**: PhysX integrates it with all
+its contacts and with the impulses of the scripted loads; the stress solve follows
+its motion (interpolated across the substeps) and takes its contact impulses. After
+fractures the bodies are rebuilt in PhysX (one body per cluster, one box shape per
+chunk, so contacts are reported on the chunk they touch).
+
+**Engine contacts into stress** (`api::ContactLoadFilter`). A frame's contact points
+between one chunk and one body are one manifold (summed impulse; point and closing
+speed at its centre of pressure). An impact at closing speed `v` between bodies of
+reduced mass `m` delivers at most `2 m v`, so `min(J, 2 m v)` is an impact (a Hertz
+pulse, or a velocity condition) and the rest of the frame's impulse is a force
+sustained over the frame; only the closing speed above the engine's resting cycle
+`|g| dt` counts. No tuning constants. PhysX bodies are kept awake: a sleeping body
+reports no contacts, and a resting body's reactions are loads.
+
+| check (`cargo test --release -p stress-physx`) | standalone | PhysX |
+|---|---|---|
+| box resting on the ground: reported impulse per step | — | 16.351 N s up (m g dt = 16.350) |
+| free column on the ground, base joint (4 m g = 753.4 N) | 753.4 N | 753.7 N (PhysX integrates it every frame, no island) |
+| 40 m/s ram through a free wall: ram after, fragments, momentum | 35.03 m/s, 6 | 35.05 m/s, 6, conserved to 1e-3 |
+| showcases (`tests/shared/showcases.rs`, all 7 behaviours asserted) | pass | pass |
+
+Remaining differences are where PhysX drives debris: after the keystone goes the
+arch breaks identically (14 bonds, 16 fragments); the dropped floor breaks 113 bonds
+in 33 fragments (standalone 122 in 44), the impact itself being an island and the
+difference coming from debris settling under PhysX contact. PhysX's backend has no
+sphere shape: sphere impactors are 42-vertex hulls of the sphere's volume while
+PhysX drives them; their impacts on breakable bodies are islands, resolved against
+the true sphere. PhysX's material is the backend's (friction 0.25, no restitution),
+not the scene's.
+
 ## Status
 
 All results below are from this revision (`cargo test --release`, `stress-ref check scenes golden`).
@@ -259,34 +311,33 @@ All results below are from this revision (`cargo test --release`, `stress-ref ch
   (`ImpactModel::VelocityCondition`), which is momentum exact in both modes; the
   struck beam breaks into 3 (pulse), 4 (velocity condition, explicit) or 6 pieces
   (velocity condition, implicit at the frame step).
-* **The engine's impulse is the weak link for punch-through** (open). A 200 kg ram at
-  40 m/s into a free 528 kg concrete wall: the reference world, which resolves the
-  contact on individual chunks while they fail, leaves the ram at 35.0 m/s (~1000 N s
-  handed over) and 6 fragments. PhysX resolves the rigid contact against the whole
-  wall within one step: the ram ends at 11.1 m/s — the perfectly inelastic whole-wall
-  collision, 200 x 40 / 728 = 11.0 — so the stress solver receives 5.8x the real
-  impulse. Contact attribution is right (each contact is reported on its chunk shape
-  with its point and normal); the magnitude is wrong. Measured remedies
-  (`physx_impact_impulse_vs_reference_world`, run with `--ignored`):
+* **A rigid-body engine's impulse is wrong for punch-through; impact islands fix it.**
+  A 200 kg ram at 40 m/s into a free 528 kg concrete wall: the reference world, which
+  resolves the contact on individual chunks while they fail, leaves the ram at
+  35.0 m/s (~1000 N s handed over) and 6 fragments. PhysX resolves the rigid contact
+  against the whole wall within one step: the ram ends near 11 m/s — the perfectly
+  inelastic whole-wall collision, 200 x 40 / 728 = 11.0 — so the stress solver
+  receives ~5.8x the real impulse. Contact attribution is right (each contact is
+  reported on its chunk shape with its point and normal); the magnitude is wrong
+  (`physx_impact_impulse_vs_reference_world`, run with `--ignored`, and
+  `engine_world::ram_through_free_wall_matches_the_reference_world`):
 
   | engine path | ram after (m/s) | bodies |
   |---|---|---|
-  | reference world (truth) | 35.0 | 6 |
-  | PhysX 1/60 s, no correction | 11.1 | 24 |
-  | PhysX 1/60 s, 4 correction passes | 11.1 | 11 |
-  | PhysX 1/960 s, no correction | 10.6 | 28 |
-  | PhysX 1/960 s, 4 correction passes | 10.8 | 21 |
+  | reference world (truth) | 35.03 | 6 |
+  | PhysX 1/60 s, contacts fed to the stress solve | 10.93 | 22 |
+  | PhysX 1/60 s, 4 correction passes | 10.93 | 25 |
+  | PhysX 1/960 s | 11.52 | 42 |
+  | PhysX 1/960 s, 4 correction passes | 13.26 | 63 |
+  | **PhysX with stress-owned impact islands** (`World::with_engine`) | **35.05** | **6** |
 
   Correction passes (`PhysxDestruction::correction_limit`, the native
   `internalCorrectionLimit`: rewind, accept the trial's first failure front, re-solve)
-  are momentum exact and reduce over-fragmentation, but cannot change the impulse: the
-  plug needs ~20-30 bonds broken before it is a separate body, and a rigid contact
-  spends its impulse in zero time. Accepting a trial's whole verdict instead
-  over-shatters (100+ bodies), because that verdict was computed from the wrong
-  impulse. What fixes the input is resolving impactor contact *inside* the stress
-  solve over the contact duration (as the reference world does) and handing the engine
-  the resulting impulse, or bounding the engine contact by the struck region's
-  capacity; both are engine-architecture decisions.
+  are momentum exact but cannot change the impulse: a rigid contact spends it in zero
+  time, before the plug is a separate body. (An earlier version of this table showed
+  corrections reducing fragmentation; that came from a reversed contact-normal sign,
+  since fixed.) What works is letting the stress solve own the contact whenever the
+  rigid assumption fails for it — see "PhysX as the rigid-body engine".
 * **Mass scaling** keeps statics exact and cuts substeps, but on uniform chunks every
   chunk is critical: 4x the step on the 40-chunk cantilever costs 15x the mass.
 
