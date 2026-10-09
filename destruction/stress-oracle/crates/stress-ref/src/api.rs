@@ -7,9 +7,10 @@
 //! and VFX. Applying fractures to the engine is shared code on the engine side.
 //!
 //! [`StressSolverApi`] is the contract; [`EngineCoupledSolver`] implements it with the
-//! reference solver. Contact impulses go through [`ContactLoadFilter`]: a low-pass
-//! resting load plus impacts, never `impulse / dt`. An impact is either a pulse spread
-//! over a physical impact duration (Hertz, or crush-limited for soft impactors), or,
+//! reference solver. Contact impulses go through [`ContactLoadFilter`], which splits
+//! each into the impact that stopped the bodies' approach (bounded by momentum) and a
+//! force sustained over the frame; an impact is never `impulse / dt`. It is either a
+//! pulse spread over a physical impact duration (Hertz, or crush-limited for soft impactors), or,
 //! since inertia is in the stress solve, an instantaneous velocity change of the struck
 //! chunk ([`ImpactModel::VelocityCondition`]): momentum-exact and free of any assumed
 //! duration — the bond network and the chunks' inertia shape the stress pulse.
@@ -44,6 +45,10 @@ pub struct ContactImpulse {
     pub other_radius: f64,
     /// Crush model of a soft impactor (vehicle).
     pub crush: Option<CrushDesc>,
+    /// The other body, by any id the engine likes (`None`: static geometry). A frame's
+    /// contact points between one chunk and one body are one manifold and are filtered
+    /// as one contact.
+    pub other: Option<u64>,
 }
 
 /// Rigid state of a cluster as integrated by the engine.
@@ -128,16 +133,20 @@ pub enum ImpactModel {
 }
 
 /// Turns per-frame contact impulses into a substep force history.
+///
+/// An engine reports, per touching pair, the impulse it applied over its step. Part of
+/// it stopped the bodies' approach (an impact), the rest held them against steady
+/// forces (gravity, pushing). An impact at closing speed `v` between bodies of reduced
+/// mass `m` delivers at most `2 m v` (a perfectly elastic one), so the impact part is
+/// `min(J, 2 m v)`, delivered over its Hertz contact duration, and the remainder is a
+/// force sustained over the frame. `v` counts only what exceeds the engine's resting
+/// cycle, `|g| dt` (see `ingest`).
 #[derive(Clone, Debug, Default)]
 pub struct ContactLoadFilter {
     pub impact_model: ImpactModel,
-    /// Time constant of the resting-load low-pass filter (s).
-    pub resting_time: f64,
-    /// Impulse change (fraction of the resting impulse plus an absolute floor in N s)
-    /// above which a contact is treated as an impact.
-    pub impact_fraction: f64,
-    pub impact_floor: f64,
-    resting: HashMap<(usize, usize), (Vec3, Vec3)>,
+    /// This frame's sustained contact force and its point, per (structure, chunk,
+    /// other body).
+    sustained: std::collections::BTreeMap<(usize, usize, Option<u64>), (Vec3, Vec3)>,
     pulses: Vec<Pulse>,
     /// Impact impulses waiting to be applied as velocity conditions.
     kicks: Vec<(usize, usize, Vec3, Vec3)>,
@@ -178,6 +187,38 @@ impl Pulse {
     }
 }
 
+/// One contact per (structure, chunk, other body): the summed impulse, with the point
+/// and closing speed of its centre of pressure (impulse-weighted means; a rocking body
+/// approaches at one corner and recedes at another). Engines report a
+/// manifold (several points for one touching pair); the impact bound is per pair, not
+/// per point.
+fn manifolds(contacts: &[ContactImpulse]) -> Vec<ContactImpulse> {
+    let mut index: HashMap<(usize, usize, Option<u64>), usize> = HashMap::new();
+    let mut out: Vec<ContactImpulse> = Vec::new();
+    let mut weight: Vec<f64> = Vec::new();
+    for c in contacts {
+        let w = c.impulse.norm();
+        match index.get(&(c.structure, c.chunk, c.other)) {
+            Some(&i) => {
+                let m = &mut out[i];
+                let total = weight[i] + w;
+                if total > 0.0 {
+                    m.point = (m.point * weight[i] + c.point * w) * (1.0 / total);
+                    m.approach_speed = (m.approach_speed * weight[i] + c.approach_speed * w) / total;
+                }
+                m.impulse += c.impulse;
+                weight[i] = total;
+            }
+            None => {
+                index.insert((c.structure, c.chunk, c.other), out.len());
+                out.push(c.clone());
+                weight.push(w);
+            }
+        }
+    }
+    out
+}
+
 /// Hertz contact duration of a sphere (reduced mass `m`, radius `r`) on a half-space,
 /// effective modulus `e`, approach speed `v`.
 pub fn hertz_duration(m: f64, r: f64, e: f64, v: f64) -> f64 {
@@ -187,79 +228,79 @@ pub fn hertz_duration(m: f64, r: f64, e: f64, v: f64) -> f64 {
 
 impl ContactLoadFilter {
     pub fn new() -> ContactLoadFilter {
-        ContactLoadFilter { resting_time: 0.1, impact_fraction: 0.5, impact_floor: 0.0, ..Default::default() }
+        ContactLoadFilter::default()
     }
 
-    /// Ingest one frame of impulses starting at time `t0`.
+    /// Ingest one frame of impulses (the frame starts at `t0` and lasts `dt`).
     pub fn ingest(&mut self, solver: &ReferenceSolver, t0: f64, dt: f64, contacts: &[ContactImpulse]) {
-        let alpha = dt / (self.resting_time + dt);
-        let mut seen = std::collections::HashSet::new();
-        for c in contacts {
-            let key = (c.structure, c.chunk);
-            seen.insert(key);
-            let rest = self.resting.entry(key).or_insert((Vec3::ZERO, c.point));
-            let resting_impulse = rest.0 * dt;
-            let excess = c.impulse - resting_impulse;
-            let threshold = self.impact_fraction * resting_impulse.norm() + self.impact_floor;
-            if excess.norm() > threshold && c.approach_speed > 0.0 && self.impact_model == ImpactModel::VelocityCondition {
-                self.kicks.push((c.structure, c.chunk, excess, c.point));
-            } else if excess.norm() > threshold && c.approach_speed > 0.0 {
-                let ch = &solver.structures[c.structure].chunks[c.chunk];
-                // An impact loads the whole struck body (an anchored one is immovable).
-                let cluster = &solver.clusters[solver.chunks[c.structure][c.chunk].cluster];
-                let m_body = if cluster.anchored { f64::INFINITY } else { cluster.mass };
-                let m = match (m_body.is_finite(), c.other_mass.is_finite()) {
-                    (true, true) => m_body * c.other_mass / (m_body + c.other_mass),
-                    (true, false) => m_body,
-                    (false, true) => c.other_mass,
-                    (false, false) => ch.mass,
-                };
-                let e_star = 1.0 / ((1.0 - ch.poisson_ratio.powi(2)) / ch.youngs_modulus + 1.0 / c.other_modulus);
-                let r = c.other_radius.min(ch.volume().cbrt());
-                let duration = hertz_duration(m, r, e_star, c.approach_speed);
-                let j = excess.norm();
-                let dir = excess / j;
-                let (mut plateau, mut plateau_time, mut rest_j) = (0.0, 0.0, j);
-                if let Some(cr) = c.crush {
-                    // Crushing absorbs up to its energy at the plateau force; the
-                    // remaining impulse arrives as a stiff (bottomed-out) pulse.
-                    let ke = 0.5 * m * c.approach_speed * c.approach_speed;
-                    let e_crush = ke.min(cr.energy);
-                    let v1 = (c.approach_speed * c.approach_speed - 2.0 * e_crush / m).max(0.0).sqrt();
-                    let jc = (m * (c.approach_speed - v1)).min(j);
-                    plateau = cr.max_force;
-                    plateau_time = jc / cr.max_force;
-                    rest_j = j - jc;
-                }
-                let peak = std::f64::consts::PI * rest_j / (2.0 * duration);
-                self.pulses.push(Pulse {
-                    structure: c.structure,
-                    chunk: c.chunk,
-                    point: c.point,
-                    direction: dir,
-                    start: t0,
-                    plateau,
-                    plateau_time,
-                    peak,
-                    duration,
-                });
-            } else {
-                rest.0 = rest.0 + (c.impulse / dt - rest.0) * alpha;
-                rest.1 = c.point;
+        self.sustained.clear();
+        // The engine resolves contact once per step: a body held against gravity is
+        // re-accelerated towards its support by up to |g| dt every step and stopped
+        // again. Closing speeds within that band are how a discrete engine holds a
+        // resting contact; only the closing speed above it is a resolvable impact.
+        let resolution = solver.config.gravity.norm() * dt;
+        for c in &manifolds(contacts) {
+            let j = c.impulse.norm();
+            if j == 0.0 {
+                continue;
             }
-        }
-        for (k, v) in self.resting.iter_mut() {
-            if !seen.contains(k) {
-                v.0 *= 1.0 - alpha;
+            let ch = &solver.structures[c.structure].chunks[c.chunk];
+            // An impact loads the whole struck body (an anchored one is immovable).
+            let cluster = &solver.clusters[solver.chunks[c.structure][c.chunk].cluster];
+            let m_body = if cluster.anchored { f64::INFINITY } else { cluster.mass };
+            let m = match (m_body.is_finite(), c.other_mass.is_finite()) {
+                (true, true) => m_body * c.other_mass / (m_body + c.other_mass),
+                (true, false) => m_body,
+                (false, true) => c.other_mass,
+                (false, false) => ch.mass,
+            };
+            let j_impact = j.min(2.0 * m * (c.approach_speed - resolution).max(0.0));
+            let dir = c.impulse / j;
+            if j_impact < j {
+                let f = dir * ((j - j_impact) / dt);
+                self.sustained.insert((c.structure, c.chunk, c.other), (f, c.point));
             }
+            if j_impact <= 0.0 {
+                continue;
+            }
+            if self.impact_model == ImpactModel::VelocityCondition {
+                self.kicks.push((c.structure, c.chunk, dir * j_impact, c.point));
+                continue;
+            }
+            let e_star = 1.0 / ((1.0 - ch.poisson_ratio.powi(2)) / ch.youngs_modulus + 1.0 / c.other_modulus);
+            let r = c.other_radius.min(ch.volume().cbrt());
+            let duration = hertz_duration(m, r, e_star, c.approach_speed);
+            let (mut plateau, mut plateau_time, mut rest_j) = (0.0, 0.0, j_impact);
+            if let Some(cr) = c.crush {
+                // Crushing absorbs up to its energy at the plateau force; the
+                // remaining impulse arrives as a stiff (bottomed-out) pulse.
+                let ke = 0.5 * m * c.approach_speed * c.approach_speed;
+                let e_crush = ke.min(cr.energy);
+                let v1 = (c.approach_speed * c.approach_speed - 2.0 * e_crush / m).max(0.0).sqrt();
+                let jc = (m * (c.approach_speed - v1)).min(j_impact);
+                plateau = cr.max_force;
+                plateau_time = jc / cr.max_force;
+                rest_j = j_impact - jc;
+            }
+            let peak = std::f64::consts::PI * rest_j / (2.0 * duration);
+            self.pulses.push(Pulse {
+                structure: c.structure,
+                chunk: c.chunk,
+                point: c.point,
+                direction: dir,
+                start: t0,
+                plateau,
+                plateau_time,
+                peak,
+                duration,
+            });
         }
-        self.resting.retain(|_, v| v.0.norm() > 0.0);
         self.pulses.retain(|p| p.end() > t0);
     }
 
     /// Force on every chunk at time `t`.
     pub fn loads_at(&self, solver: &ReferenceSolver, t: f64, loads: &mut ChunkLoads) {
-        for (&(s, c), &(f, p)) in &self.resting {
+        for (&(s, c, _), &(f, p)) in &self.sustained {
             if solver.chunks[s][c].active {
                 loads.add_at(s, c, f, p, solver.chunk_position(s, c));
             }

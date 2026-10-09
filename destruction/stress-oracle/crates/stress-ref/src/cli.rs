@@ -123,6 +123,18 @@ fn load_goldens(dir: &Path) -> Vec<Observation> {
     out
 }
 
+/// For an engine-coupled run: how much of the movable bodies' motion the engine
+/// integrated, and how much the world simulated in impact islands.
+fn engine_share(obs: &Observation) -> String {
+    let (Some(e), Some(i)) = (obs.values.get("engine_body_frames"), obs.values.get("island_body_frames")) else {
+        return String::new();
+    };
+    if e + i == 0.0 {
+        return "  engine: no movable bodies (all motion is the stress solve's)\n".into();
+    }
+    format!("  engine: {e} body-frames integrated by {}, {i} in impact islands ({:.0}% engine)\n", obs.solver, 100.0 * e / (e + i))
+}
+
 /// Rows comparing `ours` with a run of the same scene in the `baseline` world (the
 /// standalone reference), each metric gated at the scene's own tolerance for it.
 fn compare_to_baseline(scene: &Scene, ours: &Observation, baseline: &Observation) -> Vec<Comparison> {
@@ -262,6 +274,7 @@ pub fn main(make: &WorldFactory, baseline: Option<&WorldFactory>, args: Vec<Stri
                         rows.extend(crate::metrics::compare_distributions(&scene, &ours, &theirs, &tool));
                     }
                     print!("{}", format_table(&scene.name, &rows));
+                    print!("{}", engine_share(&obs));
                     ok &= rows.iter().all(|r| r.pass != Some(false));
                     all.push((scene.name.clone(), rows));
                 }

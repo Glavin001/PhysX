@@ -1,5 +1,5 @@
-//! The engine-facing contract: contact impulses become a resting load plus impact pulses
-//! spread over a physical duration (never impulse / dt), crush-capped impactors, fracture
+//! The engine-facing contract: contact impulses become a sustained load plus impact
+//! pulses spread over a physical duration (never impulse / dt), crush-capped impactors, fracture
 //! output with inherited velocities, and per-bond state exposed to other systems.
 
 mod common;
@@ -51,6 +51,7 @@ fn impact_impulse_is_spread_over_the_hertz_duration() {
         other_modulus: 2e11,
         other_radius: 0.1,
         crush: None,
+        other: None,
     };
     filter.ingest(&engine.solver, 0.0, 1.0 / 60.0, &[c]);
     // The wall is anchored, so the impact's effective mass is the impactor's.
@@ -83,6 +84,7 @@ fn crush_capped_impactor_holds_its_force_limit_and_delivers_the_impulse() {
         other_modulus: 2e11,
         other_radius: 0.3,
         crush: Some(CrushDesc { max_force, energy: 40e3 }),
+        other: None,
     };
     filter.ingest(&engine.solver, 0.0, 1.0 / 60.0, &[c]);
     assert!(common::rel(filter.pulse_impulse(), 15_000.0) < 1e-9, "impulse {}", filter.pulse_impulse());
@@ -99,7 +101,7 @@ fn crush_capped_impactor_holds_its_force_limit_and_delivers_the_impulse() {
 }
 
 #[test]
-fn resting_contact_converges_to_the_steady_load() {
+fn resting_contact_is_the_steady_load() {
     let s = wall();
     let engine = EngineCoupledSolver::new(&s);
     let chunk = 500;
@@ -117,6 +119,7 @@ fn resting_contact_converges_to_the_steady_load() {
             other_modulus: 3e10,
             other_radius: 0.1,
             crush: None,
+            other: None,
         };
         filter.ingest(&engine.solver, f as f64 * dt, dt, &[c]);
     }
@@ -166,6 +169,7 @@ fn engine_coupled_fracture_reports_children_and_bond_state() {
                     other_modulus: 2e11,
                     other_radius: 0.05,
                     crush: None,
+                    other: None,
                 }]
             } else {
                 vec![]

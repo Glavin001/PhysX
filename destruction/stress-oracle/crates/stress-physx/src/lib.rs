@@ -285,7 +285,9 @@ impl PhysxDestruction {
             let j = c.force as f64 * dt;
             let closing = (-rv(c.relative_velocity).dot(n)).max(0.0);
             let other_of = |shape: Option<PxShapeId>| shape.and_then(|s| self.owners.get(&s).copied());
-            for (mine, other, sign) in [(Some(c.shape_a), c.shape_b, -1.0), (c.shape_b, Some(c.shape_a), 1.0)] {
+            // Shape A is pushed along the normal, shape B against it (checked by
+            // `engine_contact_impulses_carry_the_weight_upwards`).
+            for (mine, other, sign) in [(Some(c.shape_a), c.shape_b, 1.0), (c.shape_b, Some(c.shape_a), -1.0)] {
                 let Some(ShapeOwner::Chunk { structure, chunk }) = other_of(mine) else { continue };
                 let (other_mass, other_modulus, other_radius) = match other_of(other) {
                     Some(ShapeOwner::Impactor { index }) => {
@@ -308,6 +310,13 @@ impl PhysxDestruction {
                     other_modulus,
                     other_radius,
                     crush: None,
+                    other: match other_of(other) {
+                        Some(ShapeOwner::Impactor { index }) => Some(2 * index as u64 + 1),
+                        Some(ShapeOwner::Chunk { structure: s2, chunk: c2 }) => {
+                            Some(2 * self.stress.solver.clusters[self.stress.solver.chunks[s2][c2].cluster].id)
+                        }
+                        None => None,
+                    },
                 });
             }
         }

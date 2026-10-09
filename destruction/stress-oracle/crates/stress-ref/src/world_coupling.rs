@@ -397,6 +397,10 @@ impl World {
                     other_modulus,
                     other_radius,
                     crush: None,
+                    other: c.other.map(|k| match k {
+                        BodyKey::Cluster(id) => 2 * id,
+                        BodyKey::Impactor(i) => 2 * i as u64 + 1,
+                    }),
                 }
             })
             .collect()
@@ -410,6 +414,14 @@ impl World {
         if island_bodies > 0 {
             self.island_frames += 1;
             self.max_island_bodies = self.max_island_bodies.max(island_bodies);
+        }
+        let movable = self.solver.clusters.iter().filter(|c| !c.anchored).map(|c| c.driven).chain(self.impactors.iter().map(|m| m.driven));
+        for driven in movable {
+            if driven {
+                self.engine_body_frames += 1;
+            } else {
+                self.island_body_frames += 1;
+            }
         }
         // Island contacts need the contact-limited substep; otherwise only the stress does.
         let mut dt = if island_bodies > 0 { self.substep_dt() } else { self.solver.stable_dt().min(fdt) };

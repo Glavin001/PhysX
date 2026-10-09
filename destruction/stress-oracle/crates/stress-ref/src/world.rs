@@ -132,6 +132,10 @@ pub struct World {
     /// Coupled mode: frames that had an impact island, and the most bodies in islands.
     pub island_frames: u64,
     pub max_island_bodies: usize,
+    /// Coupled mode, summed over frames: movable bodies (free clusters, impactors) whose
+    /// motion the engine integrated, and those the world simulated in an island.
+    pub engine_body_frames: u64,
+    pub island_body_frames: u64,
 }
 
 /// State of the coupling to an external engine (see `engine.rs`).
@@ -241,6 +245,8 @@ impl World {
             coupling: None,
             island_frames: 0,
             max_island_bodies: 0,
+            engine_body_frames: 0,
+            island_body_frames: 0,
             scene: scene.clone(),
             solver,
         };
@@ -1209,6 +1215,8 @@ impl World {
         if self.coupling.is_some() {
             obs.values.insert("island_frames".into(), self.island_frames as f64);
             obs.values.insert("max_island_bodies".into(), self.max_island_bodies as f64);
+            obs.values.insert("engine_body_frames".into(), self.engine_body_frames as f64);
+            obs.values.insert("island_body_frames".into(), self.island_body_frames as f64);
         }
         for (p, acc) in self.scene.probes.iter().zip(&self.probes) {
             obs.probes.insert(p.name.clone(), acc.series.clone());

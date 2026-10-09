@@ -44,6 +44,7 @@ fn engine_contact_impulses_carry_the_weight_upwards() {
         last = e.step(dt, &[], &[]);
     }
     let total = last.iter().fold(Vec3::ZERO, |a, c| a + c.impulse);
+    println!("closing speeds {:?}", last.iter().map(|c| c.approach_speed).collect::<Vec<_>>());
     println!("{} contacts, impulse {total:?}", last.len());
     assert!(last.iter().all(|c| c.structure == 0 && c.chunk == 7 && c.other.is_none()));
     assert!((total.z - mass * 9.81 * dt).abs() < 0.02 * mass * 9.81 * dt, "{total:?}");
@@ -73,10 +74,65 @@ fn ram_through_free_wall_matches_the_reference_world() {
         ro.values["fragments"], o.values["fragments"], w.island_frames, w.max_island_bodies
     );
     assert!(w.island_frames > 0);
+    println!("engine body-frames {}, island body-frames {}", w.engine_body_frames, w.island_body_frames);
     assert!((vp - vr).abs() < 0.05 * vr, "ram {vp} vs {vr}");
     assert!((p1 - p0).norm() < 1e-3 * p0.norm(), "momentum {p1:?} vs {p0:?}");
     let (fr, fp) = (ro.values["fragments"], o.values["fragments"]);
     assert!((fp - fr).abs() <= 0.25 * fr, "fragments {fp} vs {fr}");
+}
+
+/// A free (unsupported) column standing on the ground: PhysX carries it, and the
+/// ground reaction it reports must reach the stress solve, so the bottom joint carries
+/// the weight of the four chunks above it (statics: N = 4 m g), as in the standalone
+/// world. Nothing about this scene breaks the rigid assumption, so PhysX integrates
+/// the column every frame.
+#[test]
+fn free_column_on_the_ground_carries_its_weight_through_physx_contacts() {
+    use stress_ref::builders::*;
+    use stress_ref::scene::*;
+    let mut s = new_scene("free_column", "five free chunks standing on the ground");
+    s.materials.insert("concrete".into(), oracle_concrete(None));
+    let chunks = grid(Vec3::new(-0.1, -0.1, 0.0), [1, 1, 5], Vec3::splat(0.2), "concrete");
+    let bonds = auto_bonds(&chunks, |_, _| "concrete".into());
+    s.bodies.push(body("column", chunks, bonds));
+    s.ground = Some(GroundDesc { height: 0.0, friction: 0.5, material: "concrete".into() });
+    s.sim.duration = 1.0;
+    let base_force = |w: &mut World| {
+        let mut sum = 0.0;
+        let mut n = 0;
+        while w.solver.time < s.sim.duration {
+            w.step_frame();
+            if w.solver.time > 0.5 {
+                let b = w.solver.bonds[0].iter().find(|b| b.geometry.a.min(b.geometry.b) == 0 && b.geometry.a.max(b.geometry.b) == 1).unwrap();
+                sum += b.force.lin.z;
+                n += 1;
+            }
+        }
+        sum / n as f64
+    };
+    let mass = w_mass(&s);
+    let expected = -4.0 * mass * 9.81;
+    let standalone = base_force(&mut World::new(&s));
+    let Some(mut w) = coupled(&s) else {
+        eprintln!("PhysX CPU unavailable; skipping");
+        return;
+    };
+    let physx = base_force(&mut w);
+    println!(
+        "base joint: expected {expected:.1} N, standalone {standalone:.1} N, physx {physx:.1} N; engine body-frames {}, island {}",
+        w.engine_body_frames, w.island_body_frames
+    );
+    assert_eq!(w.island_body_frames, 0);
+    assert!(w.engine_body_frames > 0);
+    assert!((standalone - expected).abs() < 0.01 * expected.abs(), "standalone {standalone} vs {expected}");
+    assert!((physx - expected).abs() < 0.01 * expected.abs(), "physx {physx} vs {expected}");
+    let z = w.solver.clusters[0].com_world().z;
+    assert!((z - 0.5).abs() < 0.01, "column centre at {z}");
+}
+
+/// Mass of one chunk of the scene's first body.
+fn w_mass(s: &Scene) -> f64 {
+    stress_ref::structure::Structure::from_scene(s, 0).chunks[0].mass
 }
 
 /// Linear momentum of every body (hidden deformation carries none: mean-axis frame).
