@@ -338,7 +338,19 @@ All results below are from this revision (`cargo test --release`, `stress-ref ch
 
 ### Videos
 
-`scripts/render_videos.sh` renders every benchmark, showcase and feature comparison
-(`feature_*`: inertia, stiffness vs mass scaling, implicit, shadowing, softening,
-crack contact, Weibull; `lead_*`: fast vs slow car, sudden vs gradual column loss)
-into `videos/`.
+`scripts/render_videos.sh` renders every benchmark, showcase and comparison into
+`videos/` (47 MP4s, ~90 MB, not committed; about 1.5 h on 2 cores). Comparisons:
+
+| video | what it shows |
+|---|---|
+| `lead_fast_vs_slow` | same ram at 40 vs 2 m/s: local failure vs the wall pushed over |
+| `lead_sudden_vs_gradual` | sudden column loss collapses the frame that gradual removal leaves standing |
+| `feature_inertia` | explicit dynamics vs quasi-static (no inertia) on the 40 m/s ram |
+| `feature_stiffness_scaling` | true E, `E x 0.01` and mass scaling to 4x the step on the 40 m/s ram: 114, 63 and 3 pieces — both compromises change the failure (mass scaling turns it into a punched plug; on uniform chunks it is not selective) |
+| `feature_implicit` | explicit vs implicit at the frame step on sudden column loss |
+| `feature_shadowing` | blast beside two walls: with shadowing the back wall survives, without it breaks up |
+| `feature_softening` | fracture-energy softening vs a threshold model |
+| `feature_crack_contact` | arch without its keystone, with and without the cracked joints' contact patch |
+| `feature_weibull` | Weibull vs uniform bond strengths on the breached panel |
+| `s_overhang_thin_fatigue` | overhang with and without static fatigue (snaps at ~9 s vs holds) |
+| `b5_wall_impact_v10_rate`, `b7_masonry_v15_modes` | rate effects on/off; explicit vs adaptive |
