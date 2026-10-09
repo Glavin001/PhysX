@@ -226,8 +226,14 @@ for resting, stacking, sliding and slow contact, and fails for a fast impact on
 something breakable. Before each frame the world tests every pair whose swept bounds
 touch: the rigid assumption fails if the Hertz contact time at the closing speed is
 shorter than a wave round trip across the struck body, or if the peak contact force
-exceeds its weakest bond. Such pairs, and every body touching them during the frame
-(union-find over swept bounds), form an **impact island**. PhysX holds island bodies
+exceeds its weakest bond (the closing speed is taken along the normal from each
+body's centre to the nearest point of the other's bounds, so bodies flying apart are
+not impacts). Such pairs, and every body touching them during the frame (union-find
+over swept bounds), form an **impact island**. The prediction is then **verified**:
+if a body PhysX moved fractures during the frame (a force at the tip of a slab breaks
+it far below its weakest bond's capacity, through leverage), PhysX's assumption was
+wrong for it; the world and PhysX roll back to the start of the frame, the body joins
+an island, and the frame is solved again. PhysX holds island bodies
 kinematic for the frame; the world simulates them with the validated reference
 physics (chunk contact on the stress substep, fracture during the contact) and hands
 PhysX their end states. Every other body is **driven**: PhysX integrates it with all
@@ -267,19 +273,36 @@ integrated by PhysX vs simulated in impact islands):
 | b8 sudden (frame collapse) | 44% PhysX | collapse debris under PhysX; same redistribution and first failure |
 | b5, b6, b7, b9 high (impacts, spall, blast) | 0-0.3% PhysX | islands own the impact; shows the hand-off is clean, not PhysX's contact dynamics |
 
-The island test is conservative: it uses the relative speed of bodies whose swept
-bounds touch, so neighbouring fragments flying apart count as closing and stay in the
-island. That errs towards the reference physics; using the closing speed along the
-contact normal would hand more of the debris phase to PhysX.
+**Showcases, oracle vs PhysX** (bonds broken / fragments; "PhysX" is the share of
+movable body-frames PhysX integrated; "redone" counts frames solved again because a
+body PhysX moved fractured, see `engine.rs`). All 7 asserted behaviours also pass
+through PhysX (`showcases_physx`).
 
-Remaining differences are where PhysX drives debris: after the keystone goes the
-arch breaks identically (14 bonds, 16 fragments); the dropped floor breaks 113 bonds
-in 33 fragments (standalone 122 in 44), the impact itself being an island and the
-difference coming from debris settling under PhysX contact. PhysX's backend has no
-sphere shape: sphere impactors are 42-vertex hulls of the sphere's volume while
-PhysX drives them; their impacts on breakable bodies are islands, resolved against
-the true sphere. PhysX's material is the backend's (friction 0.25, no restitution),
-not the scene's.
+| showcase | oracle | PhysX path | PhysX | redone |
+|---|---|---|---|---|
+| arch standing / keystone removed | 0 / 1, 14 / 16 | 0 / 1, 14 / 16 | —, 69% | 0, 1 |
+| overhang, thin neck (creak 3.6 s, crack 6.8 s, snap 8.8 s) | 1 / 2 | 1 / 2, same times | 93% | 3 |
+| supports removed one by one | 1 / 2 | 1 / 2 | | |
+| car into brick / ductile wall | 158 / 75, 10 / 2 | 158 / 75, 10 / 2 | 0% | 0 |
+| explosion beside two walls | 319 / 14 | 319 / 14 | 0% | 2 |
+| brick house: car / blast / settlement | 234 / 64, 413 / 75, 633 / 243 | identical | 0%, 0%, 6% | 0, 3, 3 |
+| floor dropped onto floor | 122 / 44 | 113 / 33 | 5% | 0 |
+
+The floor drop is the one difference, and it is inside the oracle's own spread: the
+slab breaks in a fracture cascade, and moving the falling slab by 1 mm or changing
+the frame step changes the oracle's own result to 108-122 bonds and 32-44 fragments
+(PhysX runs at three engine steps: 113-118 bonds, 33-37 fragments).
+
+What PhysX moves: free flight, resting, stacking, slow contact and debris settling;
+impacts between stiff breakable bodies are usually islands (a concrete-on-concrete
+Hertz contact is shorter than a wave round trip), which is why the impact-heavy
+scenes run at 0%. Sphere impactors are 42-vertex hulls of the sphere's volume while
+PhysX drives them (the backend has no sphere shape); their impacts on breakable
+bodies are islands, resolved against the true sphere.
+
+**Known gap: friction.** The PhysX backend gives every shape one material (friction
+0.25, no restitution) instead of the scene's. Fixing it needs a per-shape material in
+the backend's `CreateShape`, which the native GPU pipeline shares.
 
 ## Status
 
