@@ -179,7 +179,8 @@ __device__ __forceinline__ void finalizeAndCheckConvergenceBody(
     std::uint32_t islandCount,
     const std::uint32_t* partialBegin, unsigned logicalBlock,
     const std::uint32_t* islandIds = nullptr,
-    std::uint32_t reductionBase = 0u)
+    std::uint32_t reductionBase = 0u,
+    const std::uint32_t* hold = nullptr)
 {
     __shared__ std::uint32_t partial[kBlockSize];
     const std::uint32_t tid = threadIdx.x;
@@ -196,7 +197,9 @@ __device__ __forceinline__ void finalizeAndCheckConvergenceBody(
     std::uint32_t active = 0;
     if (slot < islandCount && islandActive[id])
     {
-        if (sum <= deltaSquared[id])
+        // hold (by slot, optional): the caller's own evidence that this
+        // island's residual is not yet within tolerance, whatever sum says.
+        if (sum <= deltaSquared[id] && !(hold && hold[slot]))
         {
             islandActive[id] = 0;
             islandConverged[id] = 1;

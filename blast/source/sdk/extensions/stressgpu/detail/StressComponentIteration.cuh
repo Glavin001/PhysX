@@ -77,6 +77,35 @@ __device__ __forceinline__ float componentForceNorm2(const PersistentStressArgs&
     return sum;
 }
 
+// ||r||^2 over a component's dynamic rows: the native residual r = b - A lambda
+// (rows weighted by m^-1/2; a free component's null motion already projected
+// out by prepareNativeResidualComponent), in the units of b. Per thread;
+// reduce with componentSquaredNorm. Subnormal squares flush as the operator
+// norm's do (stressSquaredContribution).
+//
+// Why the residual test needs it. The test inherited from Blast's CGNR
+// (cgnr.h, Golub & Van Loan 11.3.9) accepts ||A^T r|| <= tol ||b||: a
+// bond-space norm against a node-space one, relative only while ||A|| ~ 1
+// (equalized masses). With the native A = M^-1/2 C S the rows scale by
+// sqrt(massScale/m): under gravity on a cold start A^T b is the anchor bonds'
+// s g / L alone, whatever the masses, while ||b||^2 = g^2 sum(m)/(massScale L^2).
+// A heavy chunk on light ones then passes at iteration 0 with lambda = 0
+// (vibe-land simply-supported-point/n37: zero reactions, "converged"). The
+// relative residual ||r|| <= tol ||b|| of the compatible system is the
+// standard test (Barrett et al., Templates (1994) 4.2.1; Paige & Saunders,
+// LSQR (1982) rule S1); it bounds any set of chunks' net force imbalance by
+// tol times the load (Cauchy-Schwarz over the m^-1/2 weights). Convergence
+// now requires both; where ||r|| already meets it, nothing changes.
+__device__ __forceinline__ float componentResidualNorm2(const PersistentStressArgs& a,const unsigned* nodes,unsigned count){
+    float sum=0;
+    for(unsigned i=threadIdx.x;i<count;i+=blockDim.x){const unsigned node=nodes[i];const Inertia inv=a.m_inertia[node];
+        if(inv.angular==0.0f && inv.linear==0.0f)continue;   // a static row is not an equation
+        const AngLin r=a.m_residual[node];
+        sum+=stressSquaredContribution(r.angular.x*r.angular.x+r.angular.y*r.angular.y+r.angular.z*r.angular.z
+            +r.linear.x*r.linear.x+r.linear.y*r.linear.y+r.linear.z*r.linear.z);}
+    return sum;
+}
+
 // Bond-balanced component operator (BLAST_STRESS_BALANCED_OPERATOR=1).
 // One thread per node made every operator pass as slow as the node with the
 // most bonds: car hubs carry 36-48 bonds against a median of 5-7, and the
@@ -182,6 +211,9 @@ __global__ void componentStressSolve(
     // those changes, and the force norm at the start (forceTolerance > 0).
     __shared__ float forceStep,forceTravel,forceStart;
     __shared__ bool forcePass;
+    // The relative residual ||r|| exceeds tol ||b|| (componentResidualNorm2):
+    // the residual test may not retire the component.
+    __shared__ std::uint32_t residualHold;
     // Krylov carry: this solve continues the previous solve's PCG state.
     __shared__ bool carried;
     COMPONENT_PROBE_BEGIN
@@ -308,9 +340,18 @@ __global__ void componentStressSolve(
                 squared+=contribution;
             }
             const float numerator=componentSquaredNorm(squared);
-            if(threadIdx.x==0)reduceValue=numerator;
+            if(threadIdx.x==0){reduceValue=numerator;residualHold=0;}
             __syncthreads();
-            if((iteration || a.warmStart) && a.m_islandActive[id] && a.m_deltaSquared[id]>0 && reduceValue<=a.m_deltaSquared[id]){
+            // Only where ||A^T r|| passes is ||r|| needed: one node pass. It
+            // screens the reliable-residual rebuild below as well, which
+            // restarts the recurrence: rebuilt every iteration while ||r||
+            // is still large, PCG would degrade to steepest descent.
+            if(a.m_islandActive[id] && reduceValue<=a.m_deltaSquared[id]){
+                const float residual=componentSquaredNorm(componentResidualNorm2(a,c.nodes+begin,count));
+                if(!threadIdx.x)residualHold=!(residual<=a.m_deltaSquared[id]);
+                __syncthreads();
+            }
+            if((iteration || a.warmStart) && a.m_islandActive[id] && a.m_deltaSquared[id]>0 && reduceValue<=a.m_deltaSquared[id] && !residualHold){
                 for(unsigned i=threadIdx.x;i<count;i+=blockDim.x)rebuildNativeResidualNode<true,Shear>(a,c.nodes[begin+i]);
                 if(!threadIdx.x)a.hierarchy.previous[id]=0;__syncthreads();
                 prepareNativeResidualComponent(a,c.nodes+begin,count,id);
@@ -323,6 +364,10 @@ __global__ void componentStressSolve(
                     verified+=contribution;
                 }
                 const float norm=componentSquaredNorm(verified);if(!threadIdx.x)reduceValue=norm;__syncthreads();
+                // Both tests again on the rebuilt residual.
+                const float residual=componentSquaredNorm(componentResidualNorm2(a,c.nodes+begin,count));
+                if(!threadIdx.x)residualHold=!(residual<=a.m_deltaSquared[id]);
+                __syncthreads();
             }
             COMPONENT_PROBE_END(1)
             // A component that has stopped converging is reported unconverged
@@ -340,7 +385,7 @@ __global__ void componentStressSolve(
             __syncthreads();
             if(!status.active)break;
             finalizeAndCheckConvergenceBody(&reduceValue,a.m_gradientSquared,1u,
-                a.m_islandActive,a.m_islandConverged,a.m_deltaSquared,&activeCount,1u,nullptr,0u,c.ids+slot,id);
+                a.m_islandActive,a.m_islandConverged,a.m_deltaSquared,&activeCount,1u,nullptr,0u,c.ids+slot,id,&residualHold);
             __syncthreads();
             if(a.forceTolerance>0 && iteration>0 && a.m_islandActive[id]){
                 // The bond forces stopped moving: the last step changed them by
