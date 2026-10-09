@@ -241,6 +241,7 @@ def options_from(scene, cli):
         "anim_frames": 10,
         "th_dt": None,  # default: half the scene sample interval
         "isolid": 24,
+        "body_contact_stfac": 1.0,  # TYPE7 Stfac of body-body contacts
         "contact_damping": 0.05,  # TYPE7 VIS_S (fraction of critical damping, the Radioss default)
     }
     for k, v in hints.items():
@@ -348,7 +349,10 @@ def export(scene, outdir, opts):
             if c.get("level", 0) != 0:
                 raise NotImplementedError("pre-fractured (level > 0) chunks are not exported")
         min_edge = min(2 * h for c in chunks for h in c["half_extents"])
-        he = min_edge / K
+        # element size per axis: K elements along the body's smallest chunk extent on that
+        # axis (conforming grids across bonds; flat chunks get flat elements)
+        he_ax = [min(2 * c["half_extents"][a] for c in chunks) / K for a in range(3)]
+        he = min(he_ax)
         tc = tc_frac * he
         min_tc = min(min_tc, tc)
         # bonded faces (chunk, axis, side)
@@ -373,7 +377,7 @@ def export(scene, outdir, opts):
         for ci, c in enumerate(chunks):
             ctr, h = c["center"], c["half_extents"]
             pid = solid_mat(c["material"])
-            n = [max(1, int(round(2 * h[a] / he))) for a in range(3)]
+            n = [max(1, int(round(2 * h[a] / he_ax[a]))) for a in range(3)]
             lo = [ctr[a] - h[a] for a in range(3)]
             hi = [ctr[a] + h[a] for a in range(3)]
             dlo = [tc / 2 if (ci, a, -1) in bonded else 0.0 for a in range(3)]
@@ -770,7 +774,8 @@ def export(scene, outdir, opts):
         m.groups.append(grnod_block(g, title, ids))
         return g
 
-    def type7(title, gnod, surf, gap, fric, stfac=1.0, istf=0):
+    def type7(title, gnod, surf, gap, fric, stfac=1.0, istf=0, vis=None):
+        vis = float(opts["contact_damping"]) if vis is None else vis
         iid = m.new("inter")
         m.inter.append("\n".join([
             f"/INTER/TYPE7/{iid}", title,
@@ -783,7 +788,7 @@ def export(scene, outdir, opts):
             "#              Stfac                Fric              GAPmin              Tstart               Tstop",
             fnum(stfac) + fnum(fric) + fnum(gap * L) + fnum(0.0) + fnum(0.0),
             "#      IBC                        Inacti               VIS_S               VIS_F              Bumult",
-            f"{'':7s}000{'':20s}{0:10d}" + fnum(float(opts["contact_damping"])) + fnum(0.0) + fnum(0.0),
+            f"{'':7s}000{'':20s}{0:10d}" + fnum(vis) + fnum(0.0) + fnum(0.0),
             "#    Ifric    Ifiltr               Xfreq     Iform   sens_ID   fct_IDF             AscaleF   fric_ID",
             f"{0:10d}{0:10d}" + fnum(0.0) + f"{0:10d}{0:10d}{0:10d}" + fnum(0.0) + f"{0:10d}",
         ]))
@@ -800,21 +805,56 @@ def export(scene, outdir, opts):
             tcb = meta["bodies"][bn]["cohesive_thickness"]
             type7(f"self contact {bn}", body_grnod_id[bn], body_surf_id[bn], opts["contact_gap_fraction"] * tcb, min(mus))
     gap_i = float(opts["impact_gap"])
+
+    def aabb(boxes):
+        return ([min(c[a] - h[a] for c, h in boxes) for a in range(3)], [max(c[a] + h[a] for c, h in boxes) for a in range(3)])
+
+    def clearance(b1, b2):
+        d2 = 0.0
+        for a in range(3):
+            g = max(b1[0][a] - b2[1][a], b2[0][a] - b1[1][a], 0.0)
+            d2 += g * g
+        return math.sqrt(d2)
+
+    boxes = {b["name"]: aabb([(to_world(b, c["center"]), c["half_extents"]) for c in b["chunks"]]) for b in scene["bodies"]}
+    for imp in scene.get("impactors", []):
+        hh = [imp["shape"]["radius"]] * 3 if imp["shape"]["type"] == "sphere" else imp["shape"]["half_extents"]
+        boxes["impactor " + imp["name"]] = aabb([(imp["position"], hh)])
+    keys = list(boxes)
+    for i in range(len(keys)):
+        for j in range(i + 1, len(keys)):
+            cl = clearance(boxes[keys[i]], boxes[keys[j]])
+            if 0.0 < cl < 2.0 * gap_i:
+                gap_i = 0.5 * cl
+                notes.append(f"body/impactor contact gap reduced to {gap_i:.3g} m (initial clearance {cl:.3g} m)")
+    # elastic contact (scene contact_restitution ~ 1): no contact damping between bodies
+    rest = sim.get("contact_restitution")
+    vis_i = 1e-6 if (rest is not None and rest >= 0.99) else None
+    if vis_i is not None:
+        notes.append("contact_restitution = 1: body-body/impactor contacts without damping (VIS_S = 1e-6)")
+    stf_i = float(opts["body_contact_stfac"])
+    fric_override = sim.get("contact_friction")
     names = [b["name"] for b in scene["bodies"]]
     for i in range(len(names)):
         for j in range(i + 1, len(names)):
             bi_, bj_ = scene["bodies"][i], scene["bodies"][j]
             mu = min(mats[bi_["chunks"][0]["material"]]["friction"], mats[bj_["chunks"][0]["material"]]["friction"])
-            type7(f"contact {names[i]} on {names[j]}", body_grnod_id[names[i]], body_surf_id[names[j]], gap_i, mu)
-            type7(f"contact {names[j]} on {names[i]}", body_grnod_id[names[j]], body_surf_id[names[i]], gap_i, mu)
+            if fric_override is not None:
+                mu = fric_override
+            type7(f"contact {names[i]} on {names[j]}", body_grnod_id[names[i]], body_surf_id[names[j]], gap_i, mu,
+                  stfac=stf_i, vis=vis_i)
+            type7(f"contact {names[j]} on {names[i]}", body_grnod_id[names[j]], body_surf_id[names[i]], gap_i, mu,
+                  stfac=stf_i, vis=vis_i)
     for iname, isf in imp_surfaces.items():
         s_imp = add_surf(f"impactor {iname} faces", isf["segs"])
         g_imp = add_grnod(f"impactor {iname} surface nodes", isf["nodes"])
         for body in scene["bodies"]:
             bn = body["name"]
             mu = min(mats[isf["material"]]["friction"], mats[body["chunks"][0]["material"]]["friction"])
-            type7(f"{bn} on impactor {iname}", body_grnod_id[bn], s_imp, gap_i, mu)
-            type7(f"impactor {iname} on {bn}", g_imp, body_surf_id[bn], gap_i, mu)
+            if fric_override is not None:
+                mu = fric_override
+            type7(f"{bn} on impactor {iname}", body_grnod_id[bn], s_imp, gap_i, mu, vis=vis_i)
+            type7(f"impactor {iname} on {bn}", g_imp, body_surf_id[bn], gap_i, mu, vis=vis_i)
 
     # ---------------------------------------------------------------- probes / time history
     th = []

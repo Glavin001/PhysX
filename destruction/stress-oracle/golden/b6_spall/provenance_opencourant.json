@@ -3,7 +3,9 @@
   "scene": "b6_spall",
   "seed": 0,
   "scene_file": "scenes/b6_spall.json",
-  "scene_sha256": "66669d4b55a6a2b48f6fdf5897ca73a042c227a7cb8ffb3e20f74f65385c7f4f",
+  "scene_sha256": "36ad671f067da4077ffad8fce192db21258761897de2967114b25cdb4cbc6b4d",
+  "base_scene_sha256": "36ad671f067da4077ffad8fce192db21258761897de2967114b25cdb4cbc6b4d",
+  "derive_command": null,
   "tool": {
     "tool": "OpenCourant (OpenRadioss fork)",
     "release_tag": "latest-20261006",
@@ -12,8 +14,8 @@
     "asset_sha256": "9d67531de156dd9beba05fbfe710dcdc2bcecbdf3dc3a12642cf85dcece80081",
     "url": "https://github.com/OpenCourant/OpenCourant/releases/download/latest-20261006/OpenCourant_linux64.zip"
   },
-  "starter_deck_sha256": "df81c14eb6ba83450bc1c97ddaa4b5d8e3d4b32762413e9b84399792073e3026",
-  "engine_deck_sha256": "36e538eb23f58ddf603e44a836cb0b1f407ac4550eeb99e553516ddb8abb1f27",
+  "starter_deck_sha256": "4bcb9fac54dfa09372ed4c588d5f0fa0e2443f1013dd15481b5817e65261549e",
+  "engine_deck_sha256": "6c13e9ba06e5a751231d81711824c2514be52417c7366f67aa0da0e4e9528a55",
   "options": {
     "elements_per_chunk": 2,
     "cohesive_thickness": 0.2,
@@ -25,6 +27,7 @@
     "anim_frames": 10,
     "th_dt": null,
     "isolid": 24,
+    "body_contact_stfac": 1.0,
     "contact_damping": 0.05
   },
   "command": "python -I oracles/opencourant/pipeline.py scenes/b6_spall.json --threads 2",
@@ -35,14 +38,14 @@
     "/home/user/oracle-env/opencourant/OpenCourant/exec/anim_to_vtk_linux64_gf <A-files>"
   ],
   "threads": 2,
-  "starter_wall_s": 2.77,
-  "engine_wall_s": 54.48,
-  "pipeline_wall_s": 64.43,
-  "engine_cycles": 1668,
+  "starter_wall_s": 1.43,
+  "engine_wall_s": 125.15,
+  "pipeline_wall_s": 132.44,
+  "engine_cycles": 2079,
   "model_size": {
-    "nodes": 84672,
-    "elements": 59712,
-    "cohesive": 34624
+    "nodes": 54432,
+    "elements": 37824,
+    "cohesive": 21696
   },
   "python": "3.12.3",
   "numpy": "2.5.3",

@@ -24,11 +24,11 @@ CLI flags override them.
 
 | scene item | OpenRadioss model |
 |---|---|
-| chunk (box) | `K x K x K` (default 2 per smallest chunk edge) 8-node hexahedra, `/PROP/SOLID` Isolid=24, `/MAT/LAW1` with the chunk material's E (x `stiffness_scale`), nu, rho |
+| chunk (box) | 8-node hexahedra, `K` (default 2) along the body's smallest chunk extent on each axis (flat chunks get flat elements; grids conform across bonds), `/PROP/SOLID` Isolid=24, `/MAT/LAW1` with the chunk material's E (x `stiffness_scale`), nu, rho |
 | bond | layer of 8-node cohesive solids `/PROP/TYPE43` + `/MAT/LAW169` over the bond patch, one per pair of matching chunk-face elements |
 | bond strength | `TENMAX = f_t * weibull`, `SHRMAX = c * weibull`, `SHT_SL = friction` (Mohr-Coulomb: shear strength `c + mu * compression`), `GCTEN = G_f,tension`, `GCSHR = G_f,shear`, `SHRP = 0` (no plateau) |
 | no bond | chunk faces are not connected |
-| contact | `/INTER/TYPE7` self contact of each body (all chunk faces, friction = joint friction, constant gap = 0.5 t_c), body-body and impactor-body TYPE7 in both directions (gap 0.2 mm, friction = min of the two materials, as in stress-ref) |
+| contact | `/INTER/TYPE7` self contact of each body (all chunk faces, friction = joint friction, constant gap = 0.5 t_c), body-body and impactor-body TYPE7 in both directions (gap 0.2 mm, reduced to half the initial clearance if smaller; friction = scene `contact_friction` or min of the two materials, as in stress-ref; with `contact_restitution` = 1 these contacts are undamped, VIS_S = 1e-6, otherwise the Radioss default 5 % of critical) |
 | `support: fixed` | `/BCS 111 111` on every node of the chunk (`pinned` is held the same way and noted) |
 | rigid impactor | hexahedral box (or cube-to-ball mapped sphere) of nominal density inside an `/RBODY` (Ikrem=1) whose main node carries the scene mass and inertia; `/INIVEL` |
 | body velocity | `/INIVEL/TRA` on the body's nodes |
@@ -151,11 +151,21 @@ Single machine, 4 shared cores, `-nt 2` for the larger runs (engine wall time):
 | b5_wall_impact_v02 | **1** | 2,938 (2,018) | 196 s | 109k |
 | b5_wall_impact_v10 | 2 | 15,432 (8,072) | 639 s | 50k |
 | b5_wall_impact_v40 | 2 | 15,432 (8,072) | 174 s | 21k |
-| b6_spall | 2 | 59,712 (34,624) | 54 s | 1.7k |
+| b6_spall (redesigned, planar plate) | 2 | 37,824 (21,696) | 125 s | 2.1k |
 | b7_masonry_v04 / v15 | 2 | 4,580 (1,804) | 23 / 28 s | 12k / 14k |
 | b9_panel_low / high | 2 | 6,872 (3,352) | 79 / 82 s | 27k |
 
 Mesh sensitivity seen on the walls (1 vs 2 elements per chunk edge): v40 `hole` (hole
 area 1.06 m^2, speed lost 4.93 m/s) vs `push_over` (base joints fail, 5.97 m/s); v10
-`hole` (0.66 m^2, 1.31 m/s) vs `push_over` (1.63 m/s).  b6 shows no spall in either
-model at 3 m/s; b7 and b9 agree with stress-ref on every gated metric.
+`hole` (0.66 m^2, 1.31 m/s) vs `push_over` (1.63 m/s).  b7 and b9 agree with stress-ref
+on every gated metric.
+
+b6 (steel plate body at 3 m/s on a 0.5 m slab): the back face peaks at 4.83 m/s at 182 us
+(1-D analytic 4.94; 3 elements per edge: 4.89 m/s at 178 us).  The reflected tension
+cracks the y-joints on several planes (y = 0.25 - 0.45 m, 473 broken bonds) and the back
+layer leaves at ~3.0 m/s against ~1.3 m/s for the front, but at 1 ms the cracked planes
+are still held by ligaments at the four slab corners, where the release waves from both
+lateral free faces keep the tension below f_t.  The connectivity criterion therefore
+reports no detached chunk (spall_occurs false), whereas the rigid-chunk reference (no
+lateral release) separates whole planes.  The same holds with 3 elements per edge
+(474 broken bonds, no detachment).
