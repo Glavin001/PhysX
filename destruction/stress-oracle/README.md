@@ -260,18 +260,20 @@ reports no contacts, and a resting body's reactions are loads.
 
 **Oracle check through PhysX** (`stress-physx check scenes golden`). Every gated
 metric gives the same verdict as the standalone run against the analytic values and
-the goldens; the only failures are b5 at 40 m/s against OpenCourant, the documented
-gap that the standalone world fails identically. Against the standalone run every
-metric agrees to 0.00% except b3's wave speed (0.01%). How much of each scene PhysX
-actually moved matters for reading this ("engine share": movable body-frames
-integrated by PhysX vs simulated in impact islands):
+the goldens (including the 20-seed Weibull distribution); the only failures are b5 at
+40 m/s against OpenCourant, the documented gap that the standalone world fails
+identically. Against the standalone run all 76 gated metrics pass, the largest
+difference 0.03% (b3 wave speed 0.01%, b9 fragment speed and peak displacement
+0.02-0.03%; all others 0.00%). How much of each scene PhysX actually moved matters for
+reading this ("engine share": movable body-frames integrated by PhysX vs simulated in
+impact islands):
 
 | benchmarks | engine share | what the agreement shows |
 |---|---|---|
 | b2, b4, b8 gradual / sudden elastic, b9 low | no movable bodies | nothing for an engine to do (anchored structures) |
-| b1 (broken pieces), b3 (free bar) | 100% PhysX | PhysX motion with the stress solve following it: wave speed and reflections as standalone |
-| b8 sudden (frame collapse) | 44% PhysX | collapse debris under PhysX; same redistribution and first failure |
-| b5, b6, b7, b9 high (impacts, spall, blast) | 0-0.3% PhysX | islands own the impact; shows the hand-off is clean, not PhysX's contact dynamics |
+| b1 (broken pieces), b3 (free bar) | 100% PhysX | PhysX motion with the stress solve following it: failure loads, wave speed and reflections as standalone |
+| b6 (spall) | 75% PhysX | the spalled layer flies under PhysX: same spall speed and back-face velocity |
+| b5, b7, b8 sudden, b9 high (impacts, collapse, blast) | 0-0.3% PhysX | islands own the impacts, and collapse debris that fractures as it falls is re-solved as islands; shows the hand-off and the verification are clean, not PhysX's contact dynamics |
 
 **Showcases, oracle vs PhysX** (bonds broken / fragments; "PhysX" is the share of
 movable body-frames PhysX integrated; "redone" counts frames solved again because a
@@ -282,7 +284,7 @@ through PhysX (`showcases_physx`).
 |---|---|---|---|---|
 | arch standing / keystone removed | 0 / 1, 14 / 16 | 0 / 1, 14 / 16 | —, 69% | 0, 1 |
 | overhang, thin neck (creak 3.6 s, crack 6.8 s, snap 8.8 s) | 1 / 2 | 1 / 2, same times | 93% | 3 |
-| supports removed one by one | 1 / 2 | 1 / 2 | | |
+| supports removed one by one | 1 / 2 | 1 / 2 | 100% | 1 |
 | car into brick / ductile wall | 158 / 75, 10 / 2 | 158 / 75, 10 / 2 | 0% | 0 |
 | explosion beside two walls | 319 / 14 | 319 / 14 | 0% | 2 |
 | brick house: car / blast / settlement | 234 / 64, 413 / 75, 633 / 243 | identical | 0%, 0%, 6% | 0, 3, 3 |
