@@ -8,14 +8,16 @@
 //! * buckling cap: `-N <= pi^2 E I_min / L_b^2` for bonds of slender members.
 //!
 //! Each strength is multiplied by the bond's Weibull factor, the dynamic increase
-//! factor of the current strain rate and `1 - omega` (sustained-load damage).
+//! factor of the current strain rate and the residual-strength factor of static
+//! fatigue (delayed failure under sustained load, see [`StaticFatigue`]).
 //!
 //! **Damage** (two scalars): `D` for the tension/shear family, `Dc` for crushing. Each
 //! is a function of the history maximum `kappa` of its failure index. With `U0` the
 //! energy the bond stores at the onset of failure along the current deformation, the
 //! ductility `r = G_f A / U0` fixes the softening so that the energy dissipated by a
 //! bond equals `G_f A` whatever the chunk size (resolution independence):
-//! * brittle: linear softening, `D = r (kappa - 1) / (kappa (r - 1))`; `r <= 1` snaps;
+//! * brittle: linear softening, `D = r (kappa - 1) / (kappa (r - 1))`; `r <= 1` snaps
+//!   (and every bond snaps with [`Features::softening`] off);
 //! * ductile: plateau `D = 1 - 1/kappa` until `kappa = (r + 1)/2`, then snaps.
 //!
 //! `D` degrades shear, bending, torsion and tensile axial stiffness; compression is
@@ -36,7 +38,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::bond::{BondGeometry, BondStiffness, Local6};
-use crate::material::{BondKind, DifParams, Material, SustainedLoadParams};
+use crate::material::{BondKind, DifParams, Material, StaticFatigue};
+use crate::scene::Features;
 use crate::math::Vec3;
 
 /// The failure mode that governed a damage increment.
@@ -64,7 +67,11 @@ pub struct JointStrength {
     /// Euler load of the member (N), if the bond belongs to a slender member.
     pub buckling_load: Option<f64>,
     pub dif: Option<DifParams>,
-    pub sustained: Option<SustainedLoadParams>,
+    pub static_fatigue: Option<StaticFatigue>,
+    /// Fracture-energy softening (else bonds snap at their strength).
+    pub softening: bool,
+    /// The cracked share of the joint acts as a no-tension frictional contact.
+    pub crack_contact: bool,
     /// Physical Young's modulus, for converting stress rate to strain rate.
     pub youngs_modulus: f64,
     /// Smoothing time of the strain-rate estimate.
@@ -72,7 +79,7 @@ pub struct JointStrength {
 }
 
 impl JointStrength {
-    pub fn new(m: &Material, g: &BondGeometry, buckling_length: Option<f64>, stiffness_scale: f64) -> JointStrength {
+    pub fn new(m: &Material, g: &BondGeometry, buckling_length: Option<f64>, stiffness_scale: f64, features: &Features) -> JointStrength {
         let i_min = g.i_t1.min(g.i_t2);
         let wave_speed = (m.youngs_modulus * stiffness_scale / m.density).sqrt();
         JointStrength {
@@ -86,10 +93,12 @@ impl JointStrength {
             g_compression: m.fracture_energy.compression,
             kind: m.kind,
             buckling_load: buckling_length
-                .filter(|l| *l > 0.0)
+                .filter(|l| features.buckling && *l > 0.0)
                 .map(|l| std::f64::consts::PI.powi(2) * m.youngs_modulus * i_min / (l * l)),
-            dif: m.dif,
-            sustained: m.sustained,
+            dif: m.dif.filter(|_| features.rate_effects),
+            static_fatigue: m.static_fatigue.filter(|_| features.static_fatigue),
+            softening: features.softening,
+            crack_contact: features.crack_contact,
             youngs_modulus: m.youngs_modulus,
             rate_filter_time: 2.0 * g.length / wave_speed,
         }
@@ -131,8 +140,8 @@ pub struct JointState {
     pub kappa_c: f64,
     pub ductility: f64,
     pub ductility_c: f64,
-    /// Sustained-load strength loss `omega`.
-    pub sustained: f64,
+    /// Static fatigue: fraction of the sustained-load life consumed (`omega`).
+    pub fatigue: f64,
     /// Plastic offsets of the contact part: `lin.x, lin.y` sliding, `ang.x, ang.y`
     /// rocking, `ang.z` twist (`lin.z` unused).
     pub plastic: Local6Ser,
@@ -238,6 +247,11 @@ impl FailureIndices {
     pub fn max(&self) -> f64 {
         self.tension.max(self.shear).max(self.compression).max(self.buckling)
     }
+}
+
+/// Residual strength factor of static fatigue (1 without it).
+pub fn fatigue_factor(s: &JointStrength, st: &JointState) -> f64 {
+    s.static_fatigue.map(|f| f.strength_factor(st.fatigue)).unwrap_or(1.0)
 }
 
 /// Strength multiplier and resulting indices.
@@ -365,7 +379,7 @@ fn return_map(k: f64, total: f64, plastic: f64, cap: f64) -> (f64, f64) {
 impl<'a> JointModel<'a> {
     /// Evaluate the bond at generalised displacement `d`.
     ///
-    /// `dt > 0` advances the rate-dependent history (strain rate, sustained damage);
+    /// `dt > 0` advances the rate-dependent history (strain rate, static fatigue);
     /// `dt = 0` evaluates without it (static iterations). With `fracture = false` the
     /// damage variables are frozen (but contacts and rebar still act).
     pub fn evaluate(&self, state: &JointState, d: &Local6, dt: f64, fracture: bool) -> JointResponse {
@@ -388,7 +402,7 @@ impl<'a> JointModel<'a> {
             st.governing_stress = governing;
         }
         let dif = s.dif.map(|p| p.factor(st.strain_rate)).unwrap_or(1.0);
-        let multiplier = self.weibull * dif * (1.0 - st.sustained);
+        let multiplier = self.weibull * dif * fatigue_factor(s, &st);
         let idx = failure_indices(s, &measures, multiplier);
         st.utilization = idx.max();
 
@@ -400,6 +414,9 @@ impl<'a> JointModel<'a> {
         // Contact part (the degraded share of the joint), computed with the old damage
         // so the damage increment below sees the contact energy it is replaced by.
         let contact = |st: &mut JointState, commit_dissipation: bool| -> (Local6, f64, f64) {
+            if !s.crack_contact {
+                return (Local6::default(), 0.0, 0.0);
+            }
             // No-tension multi-spring patch (the Applied Element Method's spring grid):
             // each spring carries compression only, so a cracked joint rocks about its
             // compressed edge and develops arching thrust when restrained.
@@ -457,9 +474,10 @@ impl<'a> JointModel<'a> {
             let (lambda_ts, mode_ts) = idx.tension_shear();
             if lambda_ts > st.kappa && lambda_ts > 1.0 && psi_ts > 0.0 {
                 let g_f = if mode_ts == FailureMode::Tension { s.g_tension } else { s.g_shear };
-                let r = g_f * g.area * lambda_ts * lambda_ts / psi_ts;
+                let r = if s.softening { g_f * g.area * lambda_ts * lambda_ts / psi_ts } else { 0.0 };
                 st.ductility = r;
-                let (new_d, released) = damage_increment(s.kind, st.kappa, lambda_ts, r, st.damage, psi_ts);
+                let kind = if s.softening { s.kind } else { BondKind::Brittle };
+                let (new_d, released) = damage_increment(kind, st.kappa, lambda_ts, r, st.damage, psi_ts);
                 if new_d > st.damage {
                     let mut probe = st.clone();
                     let (_, psi_contact, _) = contact(&mut probe, false);
@@ -491,9 +509,15 @@ impl<'a> JointModel<'a> {
             };
             let (lambda_c, mode_c) = comp_idx.compression_family();
             if lambda_c > st.kappa_c && lambda_c > 1.0 && psi_c > 0.0 {
-                let r = s.g_compression * g.area * lambda_c * lambda_c / psi_c;
+                let r = if s.softening { s.g_compression * g.area * lambda_c * lambda_c / psi_c } else { 0.0 };
                 st.ductility_c = r;
-                let kind = if mode_c == FailureMode::Buckling { BondKind::Ductile } else { s.kind };
+                let kind = if !s.softening {
+                    BondKind::Brittle
+                } else if mode_c == FailureMode::Buckling {
+                    BondKind::Ductile
+                } else {
+                    s.kind
+                };
                 let (new_dc, released) = damage_increment(kind, st.kappa_c, lambda_c, r, st.crush, psi_c);
                 if new_dc > st.crush {
                     dissipated += released;
@@ -547,13 +571,14 @@ impl<'a> JointModel<'a> {
             }
         }
 
-        // Sustained-load damage from the actual stress ratio against the static strength.
+        // Static fatigue consumes life at the actual stress ratio against the static
+        // (rate-free, undamaged) strength.
         if fracture && dt > 0.0 {
-            if let Some(sp) = s.sustained {
+            if let Some(f) = s.static_fatigue {
                 let actual = stress_measures(g, &force);
                 let static_idx = failure_indices(s, &actual, self.weibull);
                 let ratio = static_idx.tension.max(static_idx.shear).max(static_idx.compression);
-                st.sustained = (st.sustained + sp.rate(ratio) * dt).min(0.999);
+                st.fatigue = (st.fatigue + f.life_rate(ratio) * dt).min(1.0);
             }
         }
 

@@ -1,5 +1,5 @@
 //! Per-material parameters and the closed-form material laws that depend only on
-//! them: dynamic increase factor, sustained-load damage rate, Weibull sampling.
+//! them: dynamic increase factor, static fatigue, Weibull sampling.
 //!
 //! Units are SI throughout (kg, m, s, Pa, J/m^2).
 
@@ -32,7 +32,7 @@ pub struct FractureEnergy {
 
 /// Dynamic increase factor: strength multiplier as a function of strain rate.
 ///
-/// Piecewise power law in the CEB-FIP form:
+/// Piecewise power law in the CEB-FIP / fib Model Code 2010 form:
 /// `1` below `reference_rate`, `(rate/reference)^exponent` up to `transition_rate`,
 /// then continuing with `exponent_high`, clamped to `max`.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
@@ -61,27 +61,61 @@ impl DifParams {
     }
 }
 
-/// Time-dependent damage under sustained overload ("creak, crack, give way").
+/// Static fatigue: delayed failure under sustained load by subcritical crack growth
+/// ("creak, crack, give way"). This is a loss of strength with time, not creep: no
+/// viscous deformation is modelled.
 ///
-/// While the actual stress ratio `s` (stress over the static strength) exceeds
-/// `threshold`, a strength-loss variable `omega` grows at
-/// `d omega/dt = ((s - threshold)/(1 - threshold))^exponent / time_constant`, and the
-/// bond's strength is multiplied by `1 - omega`.
+/// Cracks grow at `da/dt = A K^n` below the fracture toughness (stress corrosion;
+/// Charles 1958, Wiederhorn 1967). Integrating this law with `K = Y sigma sqrt(a)`
+/// (Evans & Wiederhorn 1974) gives, for a strength `S` relative to its initial value,
+/// `d(S^(n-2))/dt = -C sigma^n`. Normalised by the strength `f` measured in a standard
+/// test lasting `t_test` (constant stress rate), with `s = sigma / f`:
+///
+/// * consumed life `omega` grows at `d omega/dt = (n + 1) s^n / t_test`;
+/// * the residual strength factor is `(1 - omega)^(1/(n-2))`;
+/// * under a constant `s` the bond fails (strength factor = `s`) after
+///   `t_f = t_test (1 - s^(n-2)) / ((n + 1) s^n)` — the classical static/dynamic fatigue
+///   equivalence `t_f ~ t_test / (n + 1) s^-n` (Ritter 1978) for `s` well below 1.
+///
+/// The same mechanism is what makes quasi-static strength rate dependent: strength
+/// grows as `rate^(1/(n+1))`, so `n` follows from the low-rate exponent of the material's
+/// dynamic increase factor and `t_test` from its reference strain rate
+/// ([`StaticFatigue::from_dif`]). Combined with that DIF the reference-rate strength is
+/// counted twice only to first order in `1/n` (about 1% for concrete).
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct SustainedLoadParams {
-    pub threshold: f64,
-    pub time_constant: f64,
+pub struct StaticFatigue {
+    /// Crack-growth (stress-corrosion) exponent `n` (> 2).
     pub exponent: f64,
+    /// Duration of the standard strength test the material strengths refer to (s).
+    pub test_time: f64,
 }
 
-impl SustainedLoadParams {
-    pub fn rate(&self, stress_ratio: f64) -> f64 {
-        if stress_ratio <= self.threshold {
+impl StaticFatigue {
+    /// Consistent with a DIF whose low-rate branch is `(rate/ref)^alpha`:
+    /// `n = 1/alpha - 1`, and `t_test` is the time to reach `strength / E` at the
+    /// reference strain rate.
+    pub fn from_dif(dif: &DifParams, strength: f64, youngs_modulus: f64) -> StaticFatigue {
+        StaticFatigue { exponent: 1.0 / dif.exponent - 1.0, test_time: strength / youngs_modulus / dif.reference_rate }
+    }
+
+    /// Rate at which life is consumed at stress ratio `s` (stress over test strength), 1/s.
+    pub fn life_rate(&self, s: f64) -> f64 {
+        if s <= 0.0 {
             return 0.0;
         }
-        let x = (stress_ratio - self.threshold) / (1.0 - self.threshold).max(1e-12);
-        x.powf(self.exponent) / self.time_constant
+        (self.exponent + 1.0) * s.powf(self.exponent) / self.test_time
+    }
+
+    /// Residual strength factor after consuming the life fraction `omega`.
+    pub fn strength_factor(&self, omega: f64) -> f64 {
+        (1.0 - omega.clamp(0.0, 1.0)).powf(1.0 / (self.exponent - 2.0))
+    }
+
+    /// Time to failure under a constant stress ratio `s` in (0, 1].
+    pub fn lifetime(&self, s: f64) -> f64 {
+        let n = self.exponent;
+        self.test_time * (1.0 - s.powf(n - 2.0)) / ((n + 1.0) * s.powf(n))
     }
 }
 
@@ -114,8 +148,9 @@ pub struct Material {
     pub weibull_modulus: Option<f64>,
     #[serde(default)]
     pub dif: Option<DifParams>,
+    /// Delayed failure under sustained load; `None` for materials without data.
     #[serde(default)]
-    pub sustained: Option<SustainedLoadParams>,
+    pub static_fatigue: Option<StaticFatigue>,
     /// Fraction of critical damping of the bond dashpots (light; removes ringing).
     #[serde(default = "default_damping")]
     pub damping_ratio: f64,
@@ -180,6 +215,8 @@ impl Material {
             fracture_energy: FractureEnergy { tension: 120.0, shear: 1200.0, compression: 20_000.0 },
             kind: BondKind::Brittle,
             weibull_modulus: None,
+            // fib Model Code 2010 (5.1-105/106), tensile strength: (rate / 1e-6)^0.018 up
+            // to 10 /s, then 0.0062 (rate / 1e-6)^(1/3) (continuous at 10 /s).
             dif: Some(DifParams {
                 reference_rate: 1e-6,
                 exponent: 0.018,
@@ -187,7 +224,9 @@ impl Material {
                 exponent_high: 1.0 / 3.0,
                 max: 6.0,
             }),
-            sustained: Some(SustainedLoadParams { threshold: 0.75, time_constant: 1.5, exponent: 2.0 }),
+            // fib Model Code 2010 low-rate tension exponent 0.018 at 1e-6 /s:
+            // n = 54.6, t_test = (3 MPa / 30 GPa) / 1e-6 /s = 100 s.
+            static_fatigue: Some(StaticFatigue { exponent: 1.0 / 0.018 - 1.0, test_time: 100.0 }),
             damping_ratio: 0.01,
         }
     }
@@ -207,7 +246,7 @@ impl Material {
             kind: BondKind::Brittle,
             weibull_modulus: None,
             dif: None,
-            sustained: None,
+            static_fatigue: None,
             damping_ratio: 0.01,
         }
     }
@@ -227,7 +266,7 @@ impl Material {
             kind: BondKind::Brittle,
             weibull_modulus: None,
             dif: None,
-            sustained: None,
+            static_fatigue: None,
             damping_ratio: 0.01,
         }
     }
@@ -247,7 +286,9 @@ impl Material {
             kind: BondKind::Brittle,
             weibull_modulus: None,
             dif: None,
-            sustained: None,
+            // Soda-lime glass in humid air: n = 16 (Wiederhorn 1967); strength from
+            // EN 1288 tests at 2 MPa/s, i.e. 20 s to the 40 MPa strength.
+            static_fatigue: Some(StaticFatigue { exponent: 16.0, test_time: 20.0 }),
             damping_ratio: 0.005,
         }
     }
@@ -267,7 +308,7 @@ impl Material {
             kind: BondKind::Ductile,
             weibull_modulus: None,
             dif: None,
-            sustained: None,
+            static_fatigue: None,
             damping_ratio: 0.005,
         }
     }
@@ -287,7 +328,7 @@ impl Material {
             kind: BondKind::Brittle,
             weibull_modulus: None,
             dif: None,
-            sustained: None,
+            static_fatigue: None,
             damping_ratio: 0.0,
         }
     }
@@ -368,6 +409,26 @@ mod tests {
         let above = d.factor(d.transition_rate * 1.000_001);
         assert!((below - above).abs() < 1e-4);
         assert!(d.factor(1e9) <= d.max);
+    }
+
+    #[test]
+    fn static_fatigue_lifetime_matches_the_integrated_law() {
+        let f = StaticFatigue { exponent: 20.0, test_time: 10.0 };
+        for s in [0.7, 0.9, 0.97] {
+            // Integrate the consumed life until the residual strength drops to s.
+            let (mut omega, mut t) = (0.0, 0.0);
+            let dt = f.lifetime(s) * 1e-5;
+            while f.strength_factor(omega) > s {
+                omega += f.life_rate(s) * dt;
+                t += dt;
+            }
+            assert!((t / f.lifetime(s) - 1.0).abs() < 1e-3, "s {s}: {t} vs {}", f.lifetime(s));
+        }
+        // Consistency with the fib tension DIF of concrete.
+        let c = Material::concrete();
+        let from = StaticFatigue::from_dif(&c.dif.unwrap(), c.tensile_strength, c.youngs_modulus);
+        let preset = c.static_fatigue.unwrap();
+        assert!((from.exponent - preset.exponent).abs() < 1e-9 && (from.test_time - preset.test_time).abs() < 1e-9);
     }
 
     #[test]

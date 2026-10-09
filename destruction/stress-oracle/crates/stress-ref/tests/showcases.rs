@@ -60,11 +60,12 @@ fn event_time(e: &SolverEvent) -> f64 {
     }
 }
 
-/// Overhang on a thin connection: the neck holds at first, creaks under sustained load,
+/// Overhang on a thin connection: the neck holds at first, creaks under sustained load
+/// (static fatigue),
 /// cracks and snaps; the slab swings down. A neck at 40% utilization holds.
 #[test]
 fn overhang_on_thin_neck_creaks_cracks_and_swings_down() {
-    let thin = run(&overhang(0.85, "s_overhang_thin"));
+    let thin = run(&overhang(0.97, "s_overhang_thin"));
     let creak = thin.first(|e| matches!(e, SolverEvent::Creaked { .. })).expect("thin neck never creaked");
     let crack = thin.first(|e| matches!(e, SolverEvent::Cracked { .. })).expect("thin neck never cracked");
     let snap = thin.first(|e| matches!(e, SolverEvent::Broken { .. })).expect("thin neck never snapped");
@@ -79,11 +80,11 @@ fn overhang_on_thin_neck_creaks_cracks_and_swings_down() {
 }
 
 /// Supports removed one by one: the first gradual removal is carried by redistribution;
-/// after the second (line load set for 0.9 utilization) the overhang root creaks, cracks
+/// after the second (line load set for 0.97 utilization) the overhang root creaks, cracks
 /// and gives way over seconds, not at the moment the post goes.
 #[test]
 fn supports_removed_one_by_one_fail_progressively() {
-    let r = run(&supports_one_by_one(300.0, "s_supports_one_by_one"));
+    let r = run(&supports_one_by_one(410.0, "s_supports_one_by_one"));
     let creak = r.first(|e| matches!(e, SolverEvent::Creaked { .. })).expect("no creak");
     let crack = r.first(|e| matches!(e, SolverEvent::Cracked { .. })).expect("no crack");
     let snap = r.first(|e| matches!(e, SolverEvent::Broken { .. })).expect("beam never broke");
@@ -93,7 +94,7 @@ fn supports_removed_one_by_one_fail_progressively() {
     assert!(r.broken("beam"));
 
     // Same structure with one post removed: redistribution carries it.
-    let mut one = supports_one_by_one(300.0, "s_supports_one_removed");
+    let mut one = supports_one_by_one(410.0, "s_supports_one_removed");
     one.events.truncate(1);
     let r1 = run(&one);
     assert_eq!(r1.value("broken_bonds"), 0.0);

@@ -90,8 +90,8 @@ pub struct BondReport {
     pub chunks: (usize, usize),
     pub damage: f64,
     pub crush: f64,
-    /// Sustained-load strength loss.
-    pub sustained: f64,
+    /// Strength lost to static fatigue (0..1).
+    pub fatigue_loss: f64,
     /// Largest stress-over-strength ratio at the last evaluation.
     pub utilization: f64,
     pub mode: Option<FailureMode>,
@@ -340,7 +340,7 @@ impl StressSolverApi for EngineCoupledSolver {
                 chunks: (b.geometry.a, b.geometry.b),
                 damage: b.joint.damage,
                 crush: b.joint.crush,
-                sustained: b.joint.sustained,
+                fatigue_loss: 1.0 - crate::joint::fatigue_factor(&b.strength, &b.joint),
                 utilization: b.joint.utilization,
                 mode: b.joint.mode,
                 broken: !b.connected(),

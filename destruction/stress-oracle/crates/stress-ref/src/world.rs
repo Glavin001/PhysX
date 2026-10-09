@@ -416,9 +416,12 @@ impl World {
                     let r = to_charge.norm().max(1e-6);
                     let cos_theta = n.dot(to_charge) / r;
                     let start = x + n * 1e-6;
-                    let shadowed = cos_theta > 0.0
+                    let features = &self.scene.sim.features;
+                    let shadowed = features.blast_shadowing
+                        && cos_theta > 0.0
                         && boxes.iter().any(|(bs, bc, b)| (*bs, *bc) != (s, c) && b.segment_hit(start, position).is_some());
-                    let s_clear = clearing.get(&(c, f)).copied().unwrap_or(0.0);
+                    // Without clearing the reflected pressure acts for the whole pulse.
+                    let s_clear = if features.blast_clearing { clearing.get(&(c, f)).copied().unwrap_or(0.0) } else { f64::INFINITY };
                     faces.push((s, c, f, area, FaceBlast::new(tnt, time, r, cos_theta, shadowed, s_clear)));
                 }
             }

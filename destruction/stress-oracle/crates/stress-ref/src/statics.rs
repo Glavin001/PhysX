@@ -444,7 +444,7 @@ impl ReferenceSolver {
     }
 
     /// Commit damage at the current (equilibrium) displacements; returns
-    /// (damage changed, any bond disconnected). `dt` advances sustained-load damage.
+    /// (damage changed, any bond disconnected). `dt` advances static fatigue.
     pub fn commit_damage(&mut self, ci: usize, dt: f64) -> (bool, bool) {
         let s = self.clusters[ci].structure;
         let mut changed = false;
@@ -454,7 +454,7 @@ impl ReferenceSolver {
             let (sa, sb) = (&self.chunks[s][b.geometry.a], &self.chunks[s][b.geometry.b]);
             let d = b.geometry.kinematics(sa.u, sa.th, sb.u, sb.th);
             let resp = b.model().evaluate(&b.joint, &d, dt, self.config.fracture);
-            let before = (b.joint.damage, b.joint.crush, b.joint.sustained);
+            let before = (b.joint.damage, b.joint.crush);
             if resp.state.damage > before.0 + 1e-9 || resp.state.crush > before.1 + 1e-9 {
                 changed = true;
             }
@@ -502,7 +502,7 @@ impl ReferenceSolver {
                 total.converged &= r.converged;
                 self.clusters[ci].activity = Activity::Settled;
                 if opts.cascade {
-                    // Sustained damage advances once per call, not per cascade pass.
+                    // Static fatigue advances once per call, not per cascade pass.
                     let (changed, disc) = self.commit_damage(ci, if pass == 0 { dt } else { 0.0 });
                     any |= changed || disc;
                     if disc {

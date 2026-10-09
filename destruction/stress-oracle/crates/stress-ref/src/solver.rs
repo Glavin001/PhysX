@@ -22,12 +22,15 @@
 //! plus the hidden deformation velocity), conserving linear and angular momentum.
 
 use crate::bond::{BondGeometry, BondStiffness, Local6};
-use crate::joint::{FailureMode, JointModel, JointState, JointStrength, RebarParams, StressMeasures};
+use crate::joint::{fatigue_factor, FailureMode, JointModel, JointState, JointStrength, RebarParams, StressMeasures};
 use crate::math::{Mat3, Pose, Quat, Vec3};
-use crate::scene::{Scene, SolveMode, Support};
+use crate::scene::{Features, Scene, SolveMode, Support};
 use crate::structure::{BondData, Structure};
 
 /// Solver settings (from the scene's `sim` block).
+/// Residual static-fatigue strength factor at which a bond "creaks" ([`SolverEvent::Creaked`]).
+pub const CREAK_STRENGTH: f64 = 0.99;
+
 #[derive(Clone, Debug)]
 pub struct SolverConfig {
     pub gravity: Vec3,
@@ -41,6 +44,7 @@ pub struct SolverConfig {
     pub active_time: f64,
     /// Adaptive mode: relative load change that wakes a settled cluster.
     pub wake_threshold: f64,
+    pub features: Features,
 }
 
 impl SolverConfig {
@@ -54,6 +58,7 @@ impl SolverConfig {
             refine_utilization: scene.sim.refine_utilization,
             active_time: 0.5,
             wake_threshold: 0.02,
+            features: scene.sim.features,
         }
     }
 }
@@ -184,7 +189,8 @@ impl RtBond {
 pub enum SolverEvent {
     /// A bond first took damage (crack initiation).
     Cracked { time: f64, structure: usize, bond: usize, mode: Option<FailureMode>, position: [f64; 3] },
-    /// Sustained-load damage crossed 10% (audible creak).
+    /// Static fatigue cost a bond its first percent of strength ([`CREAK_STRENGTH`]):
+    /// the onset of measurable strength loss, heard as creaking (acoustic emission).
     Creaked { time: f64, structure: usize, bond: usize, position: [f64; 3] },
     /// A bond stopped connecting its chunks.
     Broken { time: f64, structure: usize, bond: usize, mode: Option<FailureMode>, position: [f64; 3], normal: [f64; 3], dissipated: f64 },
@@ -635,17 +641,22 @@ impl ReferenceSolver {
         let w = cl.angular_velocity;
         let rot = cl.rotation();
         let iw = rot * ch.inertia * rot.transpose();
-        let f_world = loads.force[s][c] + self.config.gravity * ch.mass
-            - (a + alpha.cross(r_world) + w.cross(w.cross(r_world))) * ch.mass;
-        let t_world = loads.torque[s][c] - (iw * alpha + w.cross(iw * w));
+        let mut f_world = loads.force[s][c] + self.config.gravity * ch.mass;
+        let mut t_world = loads.torque[s][c];
+        if self.config.features.rigid_motion_loads {
+            f_world -= (a + alpha.cross(r_world) + w.cross(w.cross(r_world))) * ch.mass;
+            t_world -= iw * alpha + w.cross(iw * w);
+        }
         let mut f = cl.pose.inverse_transform_vector(f_world);
         let mut m = cl.pose.inverse_transform_vector(t_world);
-        // Coupling of the hidden velocities with the frame rotation (body frame):
-        // Coriolis force on the chunk and the gyroscopic cross terms of its spin.
-        let wb = cl.pose.inverse_transform_vector(w);
-        let st = &self.chunks[s][c];
-        f -= wb.cross(st.v) * (2.0 * ch.mass);
-        m -= wb.cross(ch.inertia * st.w) + st.w.cross(ch.inertia * wb) + st.w.cross(ch.inertia * st.w);
+        if self.config.features.rigid_motion_loads {
+            // Coupling of the hidden velocities with the frame rotation (body frame):
+            // Coriolis force on the chunk and the gyroscopic cross terms of its spin.
+            let wb = cl.pose.inverse_transform_vector(w);
+            let st = &self.chunks[s][c];
+            f -= wb.cross(st.v) * (2.0 * ch.mass);
+            m -= wb.cross(ch.inertia * st.w) + st.w.cross(ch.inertia * wb) + st.w.cross(ch.inertia * st.w);
+        }
         for rl in &self.replacements {
             if rl.structure == s && rl.chunk == c {
                 let k = rl.factor(t);
@@ -752,7 +763,7 @@ impl ReferenceSolver {
             self.max_utilization = self.max_utilization.max(resp.state.utilization);
             let (fa, ma, fb, mb) = b.geometry.chunk_loads(&q);
             let prev_damage = b.joint.damage + b.joint.crush;
-            let prev_sustained = b.joint.sustained;
+            let prev_fatigue = fatigue_factor(&b.strength, &b.joint);
             let (pos, normal) = (b.geometry.centroid, b.geometry.normal);
             let bm = &mut self.bonds[s][bi];
             bm.joint = resp.state;
@@ -769,7 +780,7 @@ impl ReferenceSolver {
                 self.events.push(SolverEvent::Cracked { time: t, structure: s, bond: bi, mode, position: p.to_array() });
             }
             let bm = &self.bonds[s][bi];
-            if prev_sustained < 0.1 && bm.joint.sustained >= 0.1 {
+            if prev_fatigue > CREAK_STRENGTH && fatigue_factor(&bm.strength, &bm.joint) <= CREAK_STRENGTH {
                 let p = self.clusters[ci].pose.transform_point(pos);
                 self.events.push(SolverEvent::Creaked { time: t, structure: s, bond: bi, position: p.to_array() });
             }

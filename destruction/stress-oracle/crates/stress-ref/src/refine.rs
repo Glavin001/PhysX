@@ -111,7 +111,7 @@ impl ReferenceSolver {
             );
             let mred = reduced_mass(&st.chunks[rx], &st.chunks[ry]);
             let (stiffness, strength, rebar, damping) =
-                bond_physics(&geometry, &sb.material, sb.buckling_length, sb.rebar_spec.as_ref(), st.stiffness_scale, mred);
+                bond_physics(&geometry, &sb.material, sb.buckling_length, sb.rebar_spec.as_ref(), st.stiffness_scale, mred, &st.features);
             // Interface with the outside inherits the coarse bond's history.
             let outside = if child_set.contains(&x) { ry } else { rx };
             let outside_parent = if child_set.contains(&x) { y } else { x };

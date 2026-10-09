@@ -1,6 +1,6 @@
 //! Failure capabilities of the spec: tension cutoff, Mohr-Coulomb shear, crushing,
 //! buckling cap, dynamic increase factor, fracture-energy softening (resolution
-//! independence), sustained-load damage, Weibull strengths, same-step cascade, rebar,
+//! independence), static fatigue, Weibull strengths, same-step cascade, rebar,
 //! steel vs brittle energy absorption.
 
 mod common;
@@ -8,10 +8,10 @@ mod common;
 use stress_ref::bond::{BondGeometry, BondStiffness, Local6};
 use stress_ref::builders::*;
 use stress_ref::joint::{JointModel, JointState, JointStrength};
-use stress_ref::material::{gamma, Material, SustainedLoadParams};
+use stress_ref::material::{gamma, Material, StaticFatigue};
 use stress_ref::math::Vec3;
 use stress_ref::scene::*;
-use stress_ref::solver::{ChunkLoads, ReferenceSolver, SolverEvent};
+use stress_ref::solver::{ChunkLoads, ReferenceSolver, SolverEvent, CREAK_STRENGTH};
 use stress_ref::statics::StaticOptions;
 use stress_ref::world::World;
 
@@ -26,7 +26,7 @@ fn cube_bond() -> BondGeometry {
 fn force_at_onset(m: &Material, buckling: Option<f64>, base: Local6, dir: Local6) -> Local6 {
     let g = cube_bond();
     let k = BondStiffness::new(&g, m, 1.0);
-    let strength = JointStrength::new(m, &g, buckling, 1.0);
+    let strength = JointStrength::new(m, &g, buckling, 1.0, &Features::default());
     let model = JointModel { geometry: &g, stiffness: &k, strength: &strength, rebar: None, weibull: 1.0 };
     let mut state = JointState::new();
     let mut last = Local6::ZERO;
@@ -80,7 +80,7 @@ fn buckling_caps_compression_of_slender_members_at_the_euler_load() {
     // Beyond the cap the member holds about the Euler load (plateau), it does not snap.
     let g = cube_bond();
     let k = BondStiffness::new(&g, &m, 1.0);
-    let strength = JointStrength::new(&m, &g, Some(lb), 1.0);
+    let strength = JointStrength::new(&m, &g, Some(lb), 1.0, &Features::default());
     let model = JointModel { geometry: &g, stiffness: &k, strength: &strength, rebar: None, weibull: 1.0 };
     let mut st = JointState::new();
     let d0 = p_cr / k.kn;
@@ -97,7 +97,7 @@ fn buckling_caps_compression_of_slender_members_at_the_euler_load() {
 /// the DIF of the strain rate at that moment, and is higher for faster loading.
 #[test]
 fn dynamic_increase_factor_raises_strength_with_loading_rate() {
-    let m = Material { weibull_modulus: None, sustained: None, damping_ratio: 0.0, ..Material::concrete() };
+    let m = Material { weibull_modulus: None, static_fatigue: None, damping_ratio: 0.0, ..Material::concrete() };
     let dif = m.dif.unwrap();
     let h = 0.05;
     let f_static = m.tensile_strength * 4.0 * h * h;
@@ -152,15 +152,17 @@ fn steel_absorbs_its_large_fracture_energy_brick_shatters_cheaply() {
     assert!(absorbed[0] > 1000.0 * absorbed[1]);
 }
 
-/// Creak, crack, give way: a bond held at 85% of its strength loses strength over
-/// time and fails after `(1 - 0.85) / rate` seconds; at 60% it never does.
+/// Creak, crack, give way (static fatigue): a bond held at 97% of its strength creaks
+/// when it has lost 1% of its strength and fails at the closed-form lifetime
+/// `t_test (1 - s^(n-2)) / ((n + 1) s^n)`; at 60% its lifetime is hours.
 #[test]
 fn sustained_overload_creaks_cracks_then_gives_way() {
-    let sp = SustainedLoadParams { threshold: 0.75, time_constant: 1.5, exponent: 2.0 };
-    let m = Material { sustained: Some(sp), dif: None, damping_ratio: 0.05, ..Material::analytic_test() };
+    let fatigue = StaticFatigue { exponent: 20.0, test_time: 10.0 };
+    let m = Material { static_fatigue: Some(fatigue), dif: None, damping_ratio: 0.05, ..Material::analytic_test() };
     let h = 0.05;
     let area = 4.0 * h * h;
-    let s = bond_pull("creep", m.clone(), h, TimeFunction::Constant { value: 0.85 * m.tensile_strength * area }, 2.0);
+    let ratio = 0.97;
+    let s = bond_pull("fatigue", m.clone(), h, TimeFunction::Constant { value: ratio * m.tensile_strength * area }, 1.0);
     let mut w = World::new(&s);
     w.run();
     let ev = &w.solver.events;
@@ -171,15 +173,17 @@ fn sustained_overload_creaks_cracks_then_gives_way() {
     let creak = time(&|e| matches!(e, SolverEvent::Creaked { .. })).expect("creak");
     let crack = time(&|e| matches!(e, SolverEvent::Cracked { .. })).expect("crack");
     let broken = time(&|e| matches!(e, SolverEvent::Broken { .. })).expect("give way");
-    let rate = sp.rate(0.85);
-    assert!(common::rel(creak, 0.1 / rate) < 0.02, "creak {creak}");
-    assert!(common::rel(crack, 0.15 / rate) < 0.02, "crack {crack}");
+    let n = fatigue.exponent;
+    let creak_expected = (1.0 - CREAK_STRENGTH.powf(n - 2.0)) / fatigue.life_rate(ratio);
+    assert!(common::rel(creak, creak_expected) < 0.01, "creak {creak} vs {creak_expected}");
+    assert!(common::rel(crack, fatigue.lifetime(ratio)) < 0.01, "crack {crack} vs {}", fatigue.lifetime(ratio));
     assert!(creak < crack && crack <= broken);
 
-    let s = bond_pull("creep_low", m.clone(), h, TimeFunction::Constant { value: 0.6 * m.tensile_strength * area }, 2.0);
+    let s = bond_pull("fatigue_low", m.clone(), h, TimeFunction::Constant { value: 0.6 * m.tensile_strength * area }, 1.0);
     let mut w = World::new(&s);
     w.run();
-    assert!(w.solver.events.is_empty(), "no damage below the sustained threshold");
+    assert!(fatigue.lifetime(0.6) > 3600.0);
+    assert!(w.solver.events.is_empty(), "no damage within a second at 60%");
 }
 
 #[test]

@@ -466,10 +466,10 @@ pub fn support_loss(duration: f64, name: &str) -> Scene {
 
 // ======================================================================== oracle scenes
 
-/// Concrete without rate effects or sustained-load damage, so continuum oracles that
+/// Concrete without rate effects or static fatigue, so continuum oracles that
 /// lack them run the identical material. `weibull` enables randomized strengths.
 pub fn oracle_concrete(weibull: Option<f64>) -> Material {
-    Material { dif: None, sustained: None, weibull_modulus: weibull, ..Material::concrete() }
+    Material { dif: None, static_fatigue: None, weibull_modulus: weibull, ..Material::concrete() }
 }
 
 /// A steel that stays elastic in these scenes (impactor bodies).

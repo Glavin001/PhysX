@@ -5,7 +5,7 @@ use crate::bond::{BondGeometry, BondStiffness, Local6};
 use crate::joint::{JointStrength, RebarParams};
 use crate::material::{bond_strength_factor, Material};
 use crate::math::{Mat3, Quat, Vec3};
-use crate::scene::{box_mass_inertia, BodyDesc, Scene, Support};
+use crate::scene::{box_mass_inertia, BodyDesc, Features, Scene, Support};
 
 /// One face of a box chunk (body frame).
 #[derive(Clone, Copy, Debug)]
@@ -93,14 +93,18 @@ pub fn bond_physics(
     rebar: Option<&(f64, Material)>,
     stiffness_scale: f64,
     reduced_mass: f64,
+    features: &Features,
 ) -> (BondStiffness, JointStrength, Option<RebarParams>, Local6) {
     let stiffness = BondStiffness::new(geometry, material, stiffness_scale);
-    let strength = JointStrength::new(material, geometry, buckling_length, stiffness_scale);
-    let rebar = rebar.map(|(area, steel)| RebarParams::new(*area, steel, geometry.length, stiffness_scale));
+    let strength = JointStrength::new(material, geometry, buckling_length, stiffness_scale, features);
+    let rebar = rebar
+        .filter(|_| features.rebar)
+        .map(|(area, steel)| RebarParams::new(*area, steel, geometry.length, stiffness_scale));
     // Stiffness-proportional dashpots: damping ratio `zeta` at the bond's own axial
     // frequency, proportionally less for slower (global) modes.
     let omega = (stiffness.kn / reduced_mass).sqrt();
-    let beta = 2.0 * material.damping_ratio / omega;
+    let zeta = if features.damping { material.damping_ratio } else { 0.0 };
+    let beta = 2.0 * zeta / omega;
     (stiffness, strength, rebar, stiffness.as_local().scale(beta))
 }
 
@@ -124,6 +128,8 @@ pub struct Structure {
     pub initial_velocity: Vec3,
     pub initial_angular_velocity: Vec3,
     pub stiffness_scale: f64,
+    /// Model switches the bonds were derived with (kept for re-derivation on refinement).
+    pub features: Features,
 }
 
 /// The face of a box whose outward normal is closest to `dir` (body frame).
@@ -151,6 +157,7 @@ impl Structure {
     pub fn from_scene(scene: &Scene, index: usize) -> Structure {
         let body: &BodyDesc = &scene.bodies[index];
         let scale = scene.sim.stiffness_scale;
+        let features = scene.sim.features;
         let mut chunks: Vec<ChunkData> = body
             .chunks
             .iter()
@@ -192,8 +199,8 @@ impl Structure {
             let rebar_spec = desc.rebar.as_ref().map(|r| (r.area, scene.material(&r.material).clone()));
             let mred = reduced_mass(&chunks[desc.a], &chunks[desc.b]);
             let (stiffness, strength, rebar, damping) =
-                bond_physics(&geometry, m, desc.buckling_length, rebar_spec.as_ref(), scale, mred);
-            let weibull = bond_strength_factor(m.weibull_modulus, scene.sim.seed, index, bi);
+                bond_physics(&geometry, m, desc.buckling_length, rebar_spec.as_ref(), scale, mred, &features);
+            let weibull = if features.weibull { bond_strength_factor(m.weibull_modulus, scene.sim.seed, index, bi) } else { 1.0 };
             let face_a = face_index(&chunks[desc.a].faces, geometry.normal);
             let face_b = face_index(&chunks[desc.b].faces, -geometry.normal);
             chunks[desc.a].bonds.push(bi);
@@ -224,6 +231,7 @@ impl Structure {
             initial_velocity: Vec3::from_array(body.linear_velocity),
             initial_angular_velocity: Vec3::from_array(body.angular_velocity),
             stiffness_scale: scale,
+            features,
         }
     }
 

@@ -6,6 +6,7 @@
 //! stress-ref with-seed <scene.json> <seed> <out.json>  same scene, Weibull strengths for another seed
 //! stress-ref run <scene.json> [--seed N] [--out obs.json] [--mode explicit|adaptive|quasi_static]
 //!                [--stiffness-scale S] [--max-substep DT] [--frame-dt DT] [--no-fracture]
+//!                [--feature NAME=on|off]... [--set dotted.path=JSON]...
 //! stress-ref compare <scene.json> <ours.json> [<oracle.json> ...] [--json report.json]
 //! stress-ref seeds <scene.json> --out <dir> [--from 0] [--count 20]  run a scene for many Weibull seeds
 //! stress-ref check <scenes-dir> <golden-dir> [--only NAME] [--json report.json]
@@ -69,6 +70,25 @@ fn apply_overrides(scene: &mut Scene, args: &[String]) -> Result<(), String> {
     }
     if let Some(v) = flag(args, "--frame-dt") {
         scene.sim.frame_dt = v.parse().map_err(|e| format!("--frame-dt: {e}"))?;
+    }
+    for (i, a) in args.iter().enumerate() {
+        let Some(v) = args.get(i + 1) else { continue };
+        match a.as_str() {
+            "--feature" => {
+                let (name, state) = v.split_once('=').ok_or("--feature takes name=on|off")?;
+                let on = match state {
+                    "on" | "true" => true,
+                    "off" | "false" => false,
+                    _ => return Err(format!("--feature {v}: expected on or off")),
+                };
+                *scene = scene.with_feature(name, on)?;
+            }
+            "--set" => {
+                let (path, value) = v.split_once('=').ok_or("--set takes path=json")?;
+                *scene = scene.with_override(path, value)?;
+            }
+            _ => {}
+        }
     }
     Ok(())
 }

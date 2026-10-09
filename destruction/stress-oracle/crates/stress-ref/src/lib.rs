@@ -27,6 +27,7 @@ pub mod refine;
 pub mod rng;
 pub mod scene;
 pub mod showcases;
+pub mod snapshot;
 pub mod solver;
 pub mod statics;
 pub mod structure;

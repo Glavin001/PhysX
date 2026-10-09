@@ -6,26 +6,22 @@
 //! oracle benchmarks 5, 8 and 6 in `builders.rs`.
 
 use crate::builders::*;
-use crate::material::{BondKind, FractureEnergy, Material, SustainedLoadParams};
+use crate::material::{BondKind, FractureEnergy, Material};
 use crate::math::{Quat, Vec3};
 use crate::scene::*;
 
-/// Concrete with sustained-load damage but no rate effects (static showcases).
-pub fn creeping_concrete() -> Material {
-    Material {
-        dif: None,
-        sustained: Some(SustainedLoadParams { threshold: 0.75, time_constant: 1.5, exponent: 2.0 }),
-        ..Material::concrete()
-    }
+/// Concrete with static fatigue but no rate effects (slow, static showcases).
+pub fn static_load_concrete() -> Material {
+    Material { dif: None, ..Material::concrete() }
 }
 
 /// Overhang on a thin connection (load path): a column carries a 2 m cantilevered slab
 /// through a neck sized to `utilization` of its bending strength under self weight.
-/// Below 1 the neck holds at first, then sustained-load damage makes it sag, crack and
-/// snap, and the slab swings down.
+/// Just below 1 the neck holds at first; static fatigue then makes it creak, crack and
+/// snap (concrete at 97%: about 8 s), and the slab swings down.
 pub fn overhang(utilization: f64, name: &str) -> Scene {
     let mut s = new_scene(name, "Cantilevered slab hanging on a thin neck: snaps, sags, swings down.");
-    let m = creeping_concrete();
+    let m = static_load_concrete();
     s.materials.insert("concrete".into(), m.clone());
     let mut chunks = grid(Vec3::new(0.0, 0.0, 0.0), [1, 1, 6], Vec3::splat(0.2), "concrete");
     chunks[0].support = Support::Fixed;
@@ -43,7 +39,7 @@ pub fn overhang(utilization: f64, name: &str) -> Scene {
     }
     let bonds = auto_bonds(&chunks, |_, _| "concrete".into());
     s.bodies.push(body("overhang", chunks, bonds));
-    s.sim.duration = 4.5;
+    s.sim.duration = 12.0;
     s.probes.push(probe("slab_tip", ProbeKind::ChunkDisplacement { body: "overhang".into(), chunk: 16, axis: [0.0, 0.0, 1.0] }));
     s
 }
@@ -51,12 +47,12 @@ pub fn overhang(utilization: f64, name: &str) -> Scene {
 /// Supports removed one by one (redistribution, damage over time): a 4 m beam on four
 /// posts carries a line load; the two outer posts are removed in turn, gradually (no
 /// dynamic overshoot). The first removal leaves a short overhang well below strength;
-/// the second leaves a 2.4 m overhang just below it, so the root creaks, cracks and
-/// gives way over seconds. (Removing interior posts instead leaves spans restrained at
+/// the second leaves a 2.4 m overhang just below it (97% at 410 N/m), so the root
+/// creaks, cracks and gives way over seconds (static fatigue). (Removing interior posts instead leaves spans restrained at
 /// both ends, which arch once cracked and do not come down: correct, but no showcase.)
 pub fn supports_one_by_one(line_load: f64, name: &str) -> Scene {
     let mut s = new_scene(name, "Beam on four posts, outer two removed in turn: creak, crack, give way over seconds.");
-    s.materials.insert("concrete".into(), creeping_concrete());
+    s.materials.insert("concrete".into(), static_load_concrete());
     let mut chunks = grid(Vec3::new(0.0, 0.0, 0.2), [20, 1, 1], Vec3::splat(0.2), "concrete");
     for (k, i) in [0usize, 7, 13, 19].iter().enumerate() {
         let mut post = chunk(Vec3::new(0.1 + 0.2 * *i as f64, 0.1, 0.1), Vec3::splat(0.1), "concrete");
@@ -78,7 +74,7 @@ pub fn supports_one_by_one(line_load: f64, name: &str) -> Scene {
     for (t, k) in [(0.2, 3), (0.8, 2)] {
         s.events.push(EventDesc::RemoveChunks { time: t, duration: 0.3, body: "beam".into(), chunks: ChunkSelector::Group(format!("post_{k}")) });
     }
-    s.sim.duration = 5.0;
+    s.sim.duration = 12.0;
     s
 }
 
@@ -87,7 +83,7 @@ pub fn supports_one_by_one(line_load: f64, name: &str) -> Scene {
 /// (steel-like) fracture behaviour.
 pub fn car_into_wall(ductile: bool, name: &str) -> Scene {
     let mut s = new_scene(name, "Same car into a brittle or a ductile wall: energy absorption before failure.");
-    let mut m = Material { dif: None, sustained: None, ..Material::brick() };
+    let mut m = Material { dif: None, static_fatigue: None, ..Material::brick() };
     if ductile {
         m.kind = BondKind::Ductile;
         m.fracture_energy = FractureEnergy {
@@ -242,9 +238,9 @@ fn quat_from_axes(x: Vec3, y: Vec3, z: Vec3) -> Quat {
 /// Every showcase scene, for `gen-scenes`.
 pub fn catalog() -> Vec<Scene> {
     vec![
-        overhang(0.85, "s_overhang_thin"),
+        overhang(0.97, "s_overhang_thin"),
         overhang(0.4, "s_overhang_thick"),
-        supports_one_by_one(300.0, "s_supports_one_by_one"),
+        supports_one_by_one(410.0, "s_supports_one_by_one"),
         car_into_wall(false, "s_car_brick"),
         car_into_wall(true, "s_car_ductile"),
         floor_onto_floor(1.0, "s_floor_drop"),

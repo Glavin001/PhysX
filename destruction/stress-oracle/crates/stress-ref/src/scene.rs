@@ -382,6 +382,101 @@ pub struct SimDesc {
     /// Contact friction: the smaller of the two materials' `friction`, unless overridden.
     #[serde(default)]
     pub contact_friction: Option<f64>,
+    /// Model capabilities (all on by default); switch one off to see what it contributes.
+    #[serde(default)]
+    pub features: Features,
+}
+
+/// Switches for the model's capabilities, all on by default.
+///
+/// Each switch removes one mechanism and leaves the others unchanged, so running a scene
+/// with and without it shows what that mechanism contributes. A switch only disables
+/// what the scene's materials provide (e.g. `rate_effects` does nothing for a material
+/// without a DIF). Inertia in the stress solve is selected by [`SolveMode`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct Features {
+    /// Strength rises with loading rate (dynamic increase factor).
+    pub rate_effects: bool,
+    /// Delayed failure under sustained load (static fatigue).
+    pub static_fatigue: bool,
+    /// Per-bond Weibull strengths (off: every bond at the mean strength).
+    pub weibull: bool,
+    /// Fracture-energy softening (off: a bond breaks the instant it reaches its
+    /// strength and releases all its stored energy, like a threshold model).
+    pub softening: bool,
+    /// Cracked joints keep carrying compression and friction through a no-tension
+    /// contact patch (off: the cracked share of a joint carries nothing).
+    pub crack_contact: bool,
+    /// Euler buckling cap on bonds of slender members.
+    pub buckling: bool,
+    /// Rebar crossing bonds.
+    pub rebar: bool,
+    /// Inertial loads of a cluster's rigid motion on its chunks (linear, angular,
+    /// centrifugal, Coriolis); off, chunks feel only applied loads, as if the cluster
+    /// were at rest.
+    pub rigid_motion_loads: bool,
+    /// Blast: faces behind other chunks receive only the diffracted pressure.
+    pub blast_shadowing: bool,
+    /// Blast: reflected pressure clears from the free edges (and from new holes).
+    pub blast_clearing: bool,
+    /// Bond dashpots (light stiffness-proportional damping).
+    pub damping: bool,
+}
+
+impl Default for Features {
+    fn default() -> Self {
+        Features {
+            rate_effects: true,
+            static_fatigue: true,
+            weibull: true,
+            softening: true,
+            crack_contact: true,
+            buckling: true,
+            rebar: true,
+            rigid_motion_loads: true,
+            blast_shadowing: true,
+            blast_clearing: true,
+            damping: true,
+        }
+    }
+}
+
+impl Features {
+    /// Names of every switch, in declaration order.
+    pub const NAMES: [&'static str; 11] = [
+        "rate_effects",
+        "static_fatigue",
+        "weibull",
+        "softening",
+        "crack_contact",
+        "buckling",
+        "rebar",
+        "rigid_motion_loads",
+        "blast_shadowing",
+        "blast_clearing",
+        "damping",
+    ];
+
+    /// Set a switch by name.
+    pub fn set(&mut self, name: &str, on: bool) -> Result<(), String> {
+        let slot = match name {
+            "rate_effects" => &mut self.rate_effects,
+            "static_fatigue" => &mut self.static_fatigue,
+            "weibull" => &mut self.weibull,
+            "softening" => &mut self.softening,
+            "crack_contact" => &mut self.crack_contact,
+            "buckling" => &mut self.buckling,
+            "rebar" => &mut self.rebar,
+            "rigid_motion_loads" => &mut self.rigid_motion_loads,
+            "blast_shadowing" => &mut self.blast_shadowing,
+            "blast_clearing" => &mut self.blast_clearing,
+            "damping" => &mut self.damping,
+            _ => return Err(format!("unknown feature '{name}' (known: {})", Self::NAMES.join(", "))),
+        };
+        *slot = on;
+        Ok(())
+    }
 }
 
 fn default_restitution() -> f64 {
@@ -414,6 +509,7 @@ impl Default for SimDesc {
             refine_utilization: None,
             contact_restitution: default_restitution(),
             contact_friction: None,
+            features: Features::default(),
         }
     }
 }
@@ -539,6 +635,39 @@ impl Scene {
 
     pub fn to_json_pretty(&self) -> String {
         serde_json::to_string_pretty(self).expect("scene serializes")
+    }
+
+    /// The scene with one field replaced: `path` is a dotted path into the scene's JSON
+    /// (object keys and array indices, e.g. `sim.stiffness_scale`, `impactors.0.velocity`,
+    /// `materials.concrete.tensile_strength`) and `value` is JSON (a bare word that is not
+    /// valid JSON is taken as a string, so `sim.solve_mode=adaptive` works).
+    pub fn with_override(&self, path: &str, value: &str) -> Result<Scene, String> {
+        let mut root = serde_json::to_value(self).map_err(|e| e.to_string())?;
+        let new: serde_json::Value =
+            serde_json::from_str(value).unwrap_or_else(|_| serde_json::Value::String(value.to_string()));
+        let mut node = &mut root;
+        for key in path.split('.') {
+            node = match node {
+                serde_json::Value::Object(map) => map.entry(key.to_string()).or_insert(serde_json::Value::Null),
+                serde_json::Value::Array(items) => {
+                    let i: usize = key.parse().map_err(|_| format!("'{path}': '{key}' is not an array index"))?;
+                    let len = items.len();
+                    items.get_mut(i).ok_or_else(|| format!("'{path}': index {i} out of range ({len})"))?
+                }
+                _ => return Err(format!("'{path}': '{key}' is inside a non-container value")),
+            };
+        }
+        *node = new;
+        let scene: Scene = serde_json::from_value(root).map_err(|e| format!("'{path}={value}': {e}"))?;
+        scene.validate()?;
+        Ok(scene)
+    }
+
+    /// The scene with a model feature switched on or off (see [`Features`]).
+    pub fn with_feature(&self, name: &str, on: bool) -> Result<Scene, String> {
+        let mut scene = self.clone();
+        scene.sim.features.set(name, on)?;
+        Ok(scene)
     }
 
     pub fn material(&self, name: &str) -> &Material {
