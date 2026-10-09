@@ -283,7 +283,8 @@ def export_model(scene):
             w0, w1 = bond["width"]
             long, short = max(w0, w1), min(w0, w1)
             ratio = short / long
-            torsion_modulus = long * short * short / (3.0 + 1.8 * ratio)
+            # bond.rs: max shear stress = T / W, W = long short^2 / (3 + 1.8 short/long).
+            torsion_modulus = d.get("torsion_modulus", long * short * short / (3.0 + 1.8 * ratio))
             bl = bond.get("buckling_length")
             i_min = min(d["i_t1"], d["i_t2"])
             failure.append({

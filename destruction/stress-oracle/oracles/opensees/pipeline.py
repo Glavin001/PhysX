@@ -133,7 +133,7 @@ def main(argv=None):
         "damping: per-element stiffness-proportional beta_e = 2 zeta / sqrt(kn / m_red), i.e. zeta at each bond's own axial "
         "frequency like the reference solver's dashpots (much less than zeta for the slow global modes); reported forces "
         "exclude the damping force",
-        "elastic analysis: no damage, nothing detaches (collapse = false by construction); any_bond_broken = some bond's "
+        "elastic analysis: no damage, nothing detaches (collapse = false by construction); any_bond_cracked = any_bond_broken = some bond's "
         "joint.rs failure index (strengths x Weibull, at the bond centroid) reached 1 at some analysis step",
         "removed chunks are reported with removed = true and zero velocity/displacement",
     ]
@@ -150,7 +150,7 @@ def main(argv=None):
     os.makedirs(out_dir, exist_ok=True)
     obs_path = os.path.join(out_dir, f"opensees{suffix}.json")
     with open(obs_path, "w") as f:
-        json.dump(obs, f, indent=1)
+        json.dump(obs, f, separators=(",", ":"))
         f.write("\n")
     prov = {
         "tool": "opensees",

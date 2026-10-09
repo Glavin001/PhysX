@@ -17,12 +17,12 @@
  "license": "OpenSeesPy: free for research/education/internal use, NOT OSI open source (UC Berkeley / OpenSeesPy license); commercial redistribution needs a license",
  "scene": {
   "path": "/home/user/PhysX/destruction/stress-oracle/scenes/b8_frame_gradual.json",
-  "sha256": "345e7b2f0107e800b7c0cf1e71942331718ac97afe65ad15f1c8cb40f4e766b4"
+  "sha256": "d0c4960db7f9d9784a95f31016eb952149334bc02aec6346e9933b6fe575d2f4"
  },
  "seed": 0,
  "deck": {
-  "path": "/root/oracle-runs/opensees/b8_frame_gradual/model.json",
-  "sha256": "7b77e14cca758d21209cd3de0ab96e2d5857d84346d41840f427ab34baf0d767",
+  "path": "/home/user/oracle-runs/opensees/b8_frame_gradual/model.json",
+  "sha256": "1434a4f8b4566e8d1869cc08cc6e08db5ad915a0feb9ebd35512008d94e282bc",
   "format": "opensees-frame-model/1"
  },
  "command": [
@@ -32,20 +32,20 @@
   "scenes/b8_frame_gradual.json"
  ],
  "cwd": "/home/user/PhysX/destruction/stress-oracle",
- "wall_seconds": 13.493427673000042,
+ "wall_seconds": 9.125650384999972,
  "timing": {
-  "build_and_eigen_s": 3.7863333709997278,
-  "static_s": 0.0022017090000190365,
-  "transient_s": 8.058871352000097,
+  "build_and_eigen_s": 0.005473901000186743,
+  "static_s": 0.00114073799977632,
+  "transient_s": 8.154597701000057,
   "steps": 6600
  },
  "host": {
   "platform": "Linux-6.18.44-fc-v80-x86_64-with-glibc2.39",
   "cpus": 4
  },
- "date_utc": "2026-10-09T08:03:02+00:00",
+ "date_utc": "2026-10-09T08:11:20+00:00",
  "observation": {
   "path": "/home/user/PhysX/destruction/stress-oracle/golden/b8_frame_gradual/opensees.json",
-  "sha256": "700adc8320488650e3974d2ace9d1a2ef2ef5a62e6d4a10babfd4b6bc671c9a0"
+  "sha256": "ee901bf7f54ec4ee0ccc86d0e7d619c922f3b7da31f627938ff9c2d58b1cbc90"
  }
 }

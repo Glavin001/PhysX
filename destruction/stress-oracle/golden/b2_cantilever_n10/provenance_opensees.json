@@ -17,12 +17,12 @@
  "license": "OpenSeesPy: free for research/education/internal use, NOT OSI open source (UC Berkeley / OpenSeesPy license); commercial redistribution needs a license",
  "scene": {
   "path": "/home/user/PhysX/destruction/stress-oracle/scenes/b2_cantilever_n10.json",
-  "sha256": "0d5690bf796ec69557628f02c1f8d9656c2d64932a41ed67c32a199dc8731d71"
+  "sha256": "2501d21e8ecde6edcdc2924459581aaeb9d4df7cfb36adab1b3becae748adb46"
  },
  "seed": 0,
  "deck": {
   "path": "/home/user/oracle-runs/opensees/b2_cantilever_n10/model.json",
-  "sha256": "d736dc51821fff7c1ec6f5b99abbc6b02ab2a873450afb0e14ae7b3157ee5f42",
+  "sha256": "6ba6a978325399fd32f06ae67634e056d9d762b99e8e5e1673e6d7c48107b469",
   "format": "opensees-frame-model/1"
  },
  "command": [
@@ -32,20 +32,20 @@
   "scenes/b2_cantilever_n10.json"
  ],
  "cwd": "/home/user/PhysX/destruction/stress-oracle",
- "wall_seconds": 0.9833773420000398,
+ "wall_seconds": 1.0212893139996595,
  "timing": {
-  "build_and_eigen_s": 0.0010775490000014543,
-  "static_s": 0.00013421200037555536,
-  "transient_s": 0.4866242759999295,
+  "build_and_eigen_s": 0.0008647579998068977,
+  "static_s": 0.00011303400015094667,
+  "transient_s": 0.5150972249998631,
   "steps": 8000
  },
  "host": {
   "platform": "Linux-6.18.44-fc-v80-x86_64-with-glibc2.39",
   "cpus": 4
  },
- "date_utc": "2026-10-09T08:05:52+00:00",
+ "date_utc": "2026-10-09T08:11:30+00:00",
  "observation": {
   "path": "/home/user/PhysX/destruction/stress-oracle/golden/b2_cantilever_n10/opensees.json",
-  "sha256": "0b80b4324ce6d0d9267fa932fdc27eb1a831ebd57294f2d11dd497a277286757"
+  "sha256": "58e417901921a278e75d5bc6ade45ad277fde41bb8161b9efa1f8c0703c657e9"
  }
 }

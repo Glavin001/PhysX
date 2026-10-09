@@ -187,6 +187,9 @@ def observe(scene, model, raw, version, seed, extra_notes=()):
     best, best_el, best_mode, per_el = failure_history(model, raw)
     kmax = int(np.argmax(best))
     broken = bool(best.max() >= 1.0)
+    # Elastic analysis: damage onset (index >= 1) is all we can detect, so both flags
+    # mean "some bond reached its failure surface"; nothing ever disconnects here.
+    obs["flags"]["any_bond_cracked"] = broken
     obs["flags"]["any_bond_broken"] = broken
     obs["flags"]["collapse"] = False
     obs["values"]["max_failure_index"] = float(best.max())
@@ -197,6 +200,7 @@ def observe(scene, model, raw, version, seed, extra_notes=()):
     if broken:
         k1 = int(np.argmax(best >= 1.0))
         obs["values"]["first_failure_time"] = float(t[k1])
+        obs["values"]["first_crack_time"] = float(t[k1])
         e1 = el_by_tag[int(best_el[k1])]
         obs["notes"].append(
             f"first failure index >= 1 at t={t[k1]:.6f} s: bond {e1['bond']} (chunks {_chunk_pair(model, e1)}), "
