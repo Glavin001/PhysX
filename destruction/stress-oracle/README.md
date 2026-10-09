@@ -252,6 +252,26 @@ reports no contacts, and a resting body's reactions are loads.
 | 40 m/s ram through a free wall: ram after, fragments, momentum | 35.03 m/s, 6 | 35.05 m/s, 6, conserved to 1e-3 |
 | showcases (`tests/shared/showcases.rs`, all 7 behaviours asserted) | pass | pass |
 
+**Oracle check through PhysX** (`stress-physx check scenes golden`). Every gated
+metric gives the same verdict as the standalone run against the analytic values and
+the goldens; the only failures are b5 at 40 m/s against OpenCourant, the documented
+gap that the standalone world fails identically. Against the standalone run every
+metric agrees to 0.00% except b3's wave speed (0.01%). How much of each scene PhysX
+actually moved matters for reading this ("engine share": movable body-frames
+integrated by PhysX vs simulated in impact islands):
+
+| benchmarks | engine share | what the agreement shows |
+|---|---|---|
+| b2, b4, b8 gradual / sudden elastic, b9 low | no movable bodies | nothing for an engine to do (anchored structures) |
+| b1 (broken pieces), b3 (free bar) | 100% PhysX | PhysX motion with the stress solve following it: wave speed and reflections as standalone |
+| b8 sudden (frame collapse) | 44% PhysX | collapse debris under PhysX; same redistribution and first failure |
+| b5, b6, b7, b9 high (impacts, spall, blast) | 0-0.3% PhysX | islands own the impact; shows the hand-off is clean, not PhysX's contact dynamics |
+
+The island test is conservative: it uses the relative speed of bodies whose swept
+bounds touch, so neighbouring fragments flying apart count as closing and stay in the
+island. That errs towards the reference physics; using the closing speed along the
+contact normal would hand more of the debris phase to PhysX.
+
 Remaining differences are where PhysX drives debris: after the keystone goes the
 arch breaks identically (14 bonds, 16 fragments); the dropped floor breaks 113 bonds
 in 33 fragments (standalone 122 in 44), the impact itself being an island and the
