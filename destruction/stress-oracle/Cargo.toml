@@ -1,0 +1,16 @@
+[workspace]
+resolver = "2"
+members = ["crates/stress-ref"]
+
+[workspace.package]
+edition = "2021"
+license = "BSD-3-Clause"
+publish = false
+
+[profile.release]
+debug = 1
+
+# Tests are numerical: run them optimized so the explicit reference stays fast.
+[profile.test]
+opt-level = 3
+debug-assertions = true

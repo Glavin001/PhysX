@@ -1,0 +1,542 @@
+//! Quasi-static equilibrium of a cluster: `K(D) u = f`.
+//!
+//! Used for gravity prestress (structures settle to equilibrium before any event), for
+//! settled clusters in `SolveMode::Adaptive`, and for `SolveMode::QuasiStatic` with its
+//! same-step cascade (re-solve and recheck after breaks until stable).
+//!
+//! The nonlinear joint response (contacts, damage) is handled by a modified-Newton
+//! iteration on the true residual; each correction solves the secant system with a
+//! matrix-free conjugate gradient, block-Jacobi (6x6 per chunk) preconditioned. Free
+//! clusters use inertia relief: the loads are made self-equilibrated by the cluster's
+//! rigid acceleration, and the rigid modes are projected out (mass-orthogonally).
+
+use crate::bond::Local6;
+use crate::math::Vec3;
+use crate::scene::Support;
+use crate::solver::{Activity, ChunkLoads, ReferenceSolver};
+
+type V6 = [f64; 6];
+
+fn dot6(a: &[V6], b: &[V6]) -> f64 {
+    a.iter().zip(b).map(|(x, y)| (0..6).map(|i| x[i] * y[i]).sum::<f64>()).sum()
+}
+
+fn split(v: &V6) -> (Vec3, Vec3) {
+    (Vec3::new(v[0], v[1], v[2]), Vec3::new(v[3], v[4], v[5]))
+}
+
+fn join(a: Vec3, b: Vec3) -> V6 {
+    [a.x, a.y, a.z, b.x, b.y, b.z]
+}
+
+/// Dense symmetric 6x6 block with an in-place Cholesky inverse.
+#[derive(Clone, Copy)]
+struct Block6([[f64; 6]; 6]);
+
+impl Block6 {
+    fn zero() -> Block6 {
+        Block6([[0.0; 6]; 6])
+    }
+    fn add_outer(&mut self, k: f64, v: &V6) {
+        for i in 0..6 {
+            for j in 0..6 {
+                self.0[i][j] += k * v[i] * v[j];
+            }
+        }
+    }
+    /// Inverse of an SPD matrix (falls back to the diagonal if not SPD).
+    fn inverse(&self) -> Block6 {
+        let a = self.0;
+        let mut l = [[0.0f64; 6]; 6];
+        for i in 0..6 {
+            for j in 0..=i {
+                let mut sum = a[i][j];
+                for k in 0..j {
+                    sum -= l[i][k] * l[j][k];
+                }
+                if i == j {
+                    if sum <= 0.0 {
+                        let mut d = Block6::zero();
+                        for k in 0..6 {
+                            d.0[k][k] = if a[k][k] > 0.0 { 1.0 / a[k][k] } else { 0.0 };
+                        }
+                        return d;
+                    }
+                    l[i][i] = sum.sqrt();
+                } else {
+                    l[i][j] = sum / l[j][j];
+                }
+            }
+        }
+        // inv = L^-T L^-1, column by column.
+        let mut inv = Block6::zero();
+        for col in 0..6 {
+            let mut y = [0.0f64; 6];
+            for i in 0..6 {
+                let mut s = if i == col { 1.0 } else { 0.0 };
+                for k in 0..i {
+                    s -= l[i][k] * y[k];
+                }
+                y[i] = s / l[i][i];
+            }
+            let mut x = [0.0f64; 6];
+            for i in (0..6).rev() {
+                let mut s = y[i];
+                for k in i + 1..6 {
+                    s -= l[k][i] * x[k];
+                }
+                x[i] = s / l[i][i];
+            }
+            for i in 0..6 {
+                inv.0[i][col] = x[i];
+            }
+        }
+        inv
+    }
+    fn mul(&self, v: &V6) -> V6 {
+        let mut o = [0.0; 6];
+        for (i, oi) in o.iter_mut().enumerate() {
+            *oi = (0..6).map(|j| self.0[i][j] * v[j]).sum();
+        }
+        o
+    }
+}
+
+/// Outcome of a quasi-static solve.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct StaticReport {
+    pub newton_iterations: usize,
+    pub cg_iterations: usize,
+    pub residual: f64,
+    pub converged: bool,
+    pub cascade_passes: usize,
+    pub bonds_broken: usize,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct StaticOptions {
+    /// Relative residual tolerance (against the external load norm).
+    pub tolerance: f64,
+    pub max_newton: usize,
+    /// Update damage after equilibrium and re-solve until no bond changes.
+    pub cascade: bool,
+    pub max_cascade: usize,
+}
+
+impl Default for StaticOptions {
+    fn default() -> Self {
+        StaticOptions { tolerance: 1e-10, max_newton: 60, cascade: false, max_cascade: 200 }
+    }
+}
+
+struct Layout {
+    chunks: Vec<usize>,
+    local: std::collections::HashMap<usize, usize>,
+    /// Per local chunk: which of its 6 DOFs are held.
+    fixed: Vec<[bool; 6]>,
+}
+
+impl ReferenceSolver {
+    fn layout(&self, ci: usize) -> Layout {
+        let cl = &self.clusters[ci];
+        let st = &self.structures[cl.structure];
+        let chunks = cl.chunks.clone();
+        let local = chunks.iter().enumerate().map(|(i, &c)| (c, i)).collect();
+        let fixed = chunks
+            .iter()
+            .map(|&c| match st.chunks[c].support {
+                Support::Fixed => [true; 6],
+                Support::Pinned => [true, true, true, false, false, false],
+                Support::None => [false; 6],
+            })
+            .collect();
+        Layout { chunks, local, fixed }
+    }
+
+    /// Bond forces exerted on the cluster's chunks at the current displacements,
+    /// without committing any history. Returns per local chunk `[force; moment]`.
+    fn bond_forces(&self, ci: usize, lay: &Layout) -> Vec<V6> {
+        let cl = &self.clusters[ci];
+        let s = cl.structure;
+        let mut out = vec![[0.0; 6]; lay.chunks.len()];
+        for &bi in &cl.bonds {
+            let b = &self.bonds[s][bi];
+            let (ga, gb) = (b.geometry.a, b.geometry.b);
+            let (sa, sb) = (&self.chunks[s][ga], &self.chunks[s][gb]);
+            let d = b.geometry.kinematics(sa.u, sa.th, sb.u, sb.th);
+            let resp = b.model().evaluate(&b.joint, &d, 0.0, false);
+            let (fa, ma, fb, mb) = b.geometry.chunk_loads(&resp.force);
+            let (ia, ib) = (lay.local[&ga], lay.local[&gb]);
+            for k in 0..3 {
+                out[ia][k] += fa[k];
+                out[ia][3 + k] += ma[k];
+                out[ib][k] += fb[k];
+                out[ib][3 + k] += mb[k];
+            }
+        }
+        out
+    }
+
+    /// Secant factors per bond at the current state.
+    fn secant(&self, ci: usize) -> Vec<Local6> {
+        let cl = &self.clusters[ci];
+        let s = cl.structure;
+        cl.bonds
+            .iter()
+            .map(|&bi| {
+                let b = &self.bonds[s][bi];
+                let (sa, sb) = (&self.chunks[s][b.geometry.a], &self.chunks[s][b.geometry.b]);
+                let d = b.geometry.kinematics(sa.u, sa.th, sb.u, sb.th);
+                b.model().secant_factors(&b.joint, &d).mul_elem(&b.stiffness.as_local())
+            })
+            .collect()
+    }
+
+    /// `K x` (the resisting force of displacement field `x`) with secant stiffnesses `k`.
+    fn apply_k(&self, ci: usize, lay: &Layout, k: &[Local6], x: &[V6]) -> Vec<V6> {
+        let cl = &self.clusters[ci];
+        let s = cl.structure;
+        let mut y = vec![[0.0; 6]; x.len()];
+        for (j, &bi) in cl.bonds.iter().enumerate() {
+            let g = &self.bonds[s][bi].geometry;
+            let (ia, ib) = (lay.local[&g.a], lay.local[&g.b]);
+            let (ua, ta) = split(&x[ia]);
+            let (ub, tb) = split(&x[ib]);
+            let q = g.kinematics(ua, ta, ub, tb).mul_elem(&k[j]);
+            let (fa, ma, fb, mb) = g.chunk_loads(&q);
+            for c in 0..3 {
+                y[ia][c] -= fa[c];
+                y[ia][3 + c] -= ma[c];
+                y[ib][c] -= fb[c];
+                y[ib][3 + c] -= mb[c];
+            }
+        }
+        for (i, f) in lay.fixed.iter().enumerate() {
+            for d in 0..6 {
+                if f[d] {
+                    y[i][d] = x[i][d];
+                }
+            }
+        }
+        y
+    }
+
+    fn block_jacobi(&self, ci: usize, lay: &Layout, k: &[Local6]) -> Vec<Block6> {
+        let cl = &self.clusters[ci];
+        let s = cl.structure;
+        let mut blocks = vec![Block6::zero(); lay.chunks.len()];
+        for (j, &bi) in cl.bonds.iter().enumerate() {
+            let g = &self.bonds[s][bi].geometry;
+            let (ia, ib) = (lay.local[&g.a], lay.local[&g.b]);
+            let ks = [k[j].lin.x, k[j].lin.y, k[j].lin.z, k[j].ang.x, k[j].ang.y, k[j].ang.z];
+            let axes = [g.t1, g.t2, g.normal];
+            for comp in 0..6 {
+                let t = axes[comp % 3];
+                let (va, vb) = if comp < 3 {
+                    (join(-t, -(g.ra.cross(t))), join(t, g.rb.cross(t)))
+                } else {
+                    (join(Vec3::ZERO, -t), join(Vec3::ZERO, t))
+                };
+                blocks[ia].add_outer(ks[comp], &va);
+                blocks[ib].add_outer(ks[comp], &vb);
+            }
+        }
+        for (i, f) in lay.fixed.iter().enumerate() {
+            for d in 0..6 {
+                if f[d] {
+                    for e in 0..6 {
+                        blocks[i].0[d][e] = 0.0;
+                        blocks[i].0[e][d] = 0.0;
+                    }
+                    blocks[i].0[d][d] = 1.0;
+                }
+            }
+            // Isolated rotational DOFs (e.g. a pinned chunk with no bending bonds).
+            for d in 0..6 {
+                if blocks[i].0[d][d] == 0.0 {
+                    blocks[i].0[d][d] = 1.0;
+                }
+            }
+        }
+        blocks.iter().map(|b| b.inverse()).collect()
+    }
+
+    /// Mass-orthogonal projection of a displacement field off the rigid modes of a free cluster.
+    fn project_displacement(&self, ci: usize, lay: &Layout, x: &mut [V6]) {
+        let cl = &self.clusters[ci];
+        let st = &self.structures[cl.structure];
+        let mut p = Vec3::ZERO;
+        let mut l = Vec3::ZERO;
+        for (i, &c) in lay.chunks.iter().enumerate() {
+            let ch = &st.chunks[c];
+            let (u, th) = split(&x[i]);
+            let r = ch.center - cl.com;
+            p += u * ch.mass;
+            l += r.cross(u) * ch.mass + ch.inertia * th;
+        }
+        let t = p / cl.mass;
+        let th0 = cl.inertia.inverse().expect("invertible") * l;
+        for (i, &c) in lay.chunks.iter().enumerate() {
+            let r = st.chunks[c].center - cl.com;
+            let (u, th) = split(&x[i]);
+            x[i] = join(u - t - th0.cross(r), th - th0);
+        }
+    }
+
+    /// Remove the net force and moment from a load field (inertia relief).
+    fn project_load(&self, ci: usize, lay: &Layout, f: &mut [V6]) {
+        let cl = &self.clusters[ci];
+        let st = &self.structures[cl.structure];
+        let mut net_f = Vec3::ZERO;
+        let mut net_m = Vec3::ZERO;
+        for (i, &c) in lay.chunks.iter().enumerate() {
+            let (fi, mi) = split(&f[i]);
+            net_f += fi;
+            net_m += (st.chunks[c].center - cl.com).cross(fi) + mi;
+        }
+        let a = net_f / cl.mass;
+        let alpha = cl.inertia.inverse().expect("invertible") * net_m;
+        for (i, &c) in lay.chunks.iter().enumerate() {
+            let ch = &st.chunks[c];
+            let r = ch.center - cl.com;
+            let (fi, mi) = split(&f[i]);
+            f[i] = join(fi - (a + alpha.cross(r)) * ch.mass, mi - ch.inertia * alpha);
+        }
+    }
+
+    /// Preconditioned CG for `K x = r` (secant `k`); returns (x, iterations).
+    fn pcg(&self, ci: usize, lay: &Layout, k: &[Local6], r0: &[V6], tol: f64) -> (Vec<V6>, usize) {
+        let free = !self.clusters[ci].anchored;
+        let n = r0.len();
+        let pre = self.block_jacobi(ci, lay, k);
+        let precondition = |r: &[V6]| -> Vec<V6> {
+            let mut z: Vec<V6> = r.iter().zip(&pre).map(|(ri, b)| b.mul(ri)).collect();
+            if free {
+                self.project_displacement(ci, lay, &mut z);
+            }
+            z
+        };
+        let mut x = vec![[0.0; 6]; n];
+        let mut r = r0.to_vec();
+        let norm0 = dot6(&r, &r).sqrt();
+        if norm0 == 0.0 {
+            return (x, 0);
+        }
+        let mut z = precondition(&r);
+        let mut p = z.clone();
+        let mut rz = dot6(&r, &z);
+        let max_iter = 20 * n * 6 + 200;
+        for it in 0..max_iter {
+            let kp = self.apply_k(ci, lay, k, &p);
+            let pkp = dot6(&p, &kp);
+            if pkp <= 0.0 {
+                return (x, it);
+            }
+            let alpha = rz / pkp;
+            for i in 0..n {
+                for d in 0..6 {
+                    x[i][d] += alpha * p[i][d];
+                    r[i][d] -= alpha * kp[i][d];
+                }
+            }
+            if dot6(&r, &r).sqrt() <= tol * norm0 {
+                return (x, it + 1);
+            }
+            z = precondition(&r);
+            let rz_new = dot6(&r, &z);
+            let beta = rz_new / rz;
+            rz = rz_new;
+            for i in 0..n {
+                for d in 0..6 {
+                    p[i][d] = z[i][d] + beta * p[i][d];
+                }
+            }
+        }
+        (x, max_iter)
+    }
+
+    /// External chunk loads of a cluster in its body frame (gravity, given loads,
+    /// replacement loads, minus rigid inertial loads), per local chunk.
+    fn static_loads(&self, ci: usize, lay: &Layout, loads: &ChunkLoads) -> Vec<V6> {
+        let (a, alpha) = self.rigid_acceleration(ci, loads);
+        lay.chunks
+            .iter()
+            .map(|&c| {
+                let (f, m) = self.frame_loads(ci, c, loads, a, alpha, self.time);
+                join(f, m)
+            })
+            .collect()
+    }
+
+    /// Solve one cluster to equilibrium under `loads` (no damage update).
+    pub fn equilibrate(&mut self, ci: usize, loads: &ChunkLoads, opts: &StaticOptions) -> StaticReport {
+        let lay = self.layout(ci);
+        let s = self.clusters[ci].structure;
+        let free = !self.clusters[ci].anchored;
+        let mut f_ext = self.static_loads(ci, &lay, loads);
+        if free {
+            self.project_load(ci, &lay, &mut f_ext);
+        }
+        let scale = dot6(&f_ext, &f_ext).sqrt().max(1e-300);
+        let mut report = StaticReport::default();
+        for it in 0..opts.max_newton {
+            let fb = self.bond_forces(ci, &lay);
+            let mut r: Vec<V6> = f_ext.iter().zip(&fb).map(|(e, b)| std::array::from_fn(|d| e[d] + b[d])).collect();
+            for (i, f) in lay.fixed.iter().enumerate() {
+                for d in 0..6 {
+                    if f[d] {
+                        r[i][d] = 0.0;
+                    }
+                }
+            }
+            if free {
+                self.project_load(ci, &lay, &mut r);
+            }
+            let res = dot6(&r, &r).sqrt() / scale;
+            report.residual = res;
+            report.newton_iterations = it;
+            if res <= opts.tolerance {
+                report.converged = true;
+                break;
+            }
+            let k = self.secant(ci);
+            let (dx, cg) = self.pcg(ci, &lay, &k, &r, (opts.tolerance * 0.1).max(1e-14));
+            report.cg_iterations += cg;
+            for (i, &c) in lay.chunks.iter().enumerate() {
+                let (du, dth) = split(&dx[i]);
+                let st = &mut self.chunks[s][c];
+                st.u += du;
+                st.th += dth;
+            }
+        }
+        // Equilibrium: no deformation velocity; refresh the stored bond forces.
+        for &c in &lay.chunks {
+            let st = &mut self.chunks[s][c];
+            st.v = Vec3::ZERO;
+            st.w = Vec3::ZERO;
+        }
+        let fb = self.bond_forces(ci, &lay);
+        for (i, &c) in lay.chunks.iter().enumerate() {
+            let (fe, me) = split(&f_ext[i]);
+            let (fi, mi) = split(&fb[i]);
+            if lay.fixed[i].iter().any(|&x| x) {
+                let rm = if lay.fixed[i][3] { -(me + mi) } else { Vec3::ZERO };
+                self.chunks[s][c].reaction = (-(fe + fi), rm);
+            }
+        }
+        self.refresh_bond_forces(ci);
+        report
+    }
+
+    /// Re-evaluate and store each bond's force/energy without advancing history.
+    pub fn refresh_bond_forces(&mut self, ci: usize) {
+        let s = self.clusters[ci].structure;
+        for &bi in &self.clusters[ci].bonds.clone() {
+            let b = &self.bonds[s][bi];
+            let (sa, sb) = (&self.chunks[s][b.geometry.a], &self.chunks[s][b.geometry.b]);
+            let d = b.geometry.kinematics(sa.u, sa.th, sb.u, sb.th);
+            let resp = b.model().evaluate(&b.joint, &d, 0.0, false);
+            let bm = &mut self.bonds[s][bi];
+            bm.force = resp.force;
+            bm.measures = resp.measures;
+            bm.stored = resp.stored;
+        }
+    }
+
+    /// Commit damage at the current (equilibrium) displacements; returns
+    /// (damage changed, any bond disconnected). `dt` advances sustained-load damage.
+    pub fn commit_damage(&mut self, ci: usize, dt: f64) -> (bool, bool) {
+        let s = self.clusters[ci].structure;
+        let mut changed = false;
+        let mut disconnected = false;
+        for &bi in &self.clusters[ci].bonds.clone() {
+            let b = &self.bonds[s][bi];
+            let (sa, sb) = (&self.chunks[s][b.geometry.a], &self.chunks[s][b.geometry.b]);
+            let d = b.geometry.kinematics(sa.u, sa.th, sb.u, sb.th);
+            let resp = b.model().evaluate(&b.joint, &d, dt, self.config.fracture);
+            let before = (b.joint.damage, b.joint.crush, b.joint.sustained);
+            if resp.state.damage > before.0 + 1e-9 || resp.state.crush > before.1 + 1e-9 {
+                changed = true;
+            }
+            if resp.disconnected {
+                disconnected = true;
+                let cl = &self.clusters[ci];
+                self.events.push(crate::solver::SolverEvent::Broken {
+                    time: self.time,
+                    structure: s,
+                    bond: bi,
+                    mode: resp.state.mode,
+                    position: cl.pose.transform_point(b.geometry.centroid).to_array(),
+                    normal: cl.pose.transform_vector(b.geometry.normal).to_array(),
+                    dissipated: resp.state.dissipated,
+                });
+            }
+            self.energy.bond_dissipation += resp.dissipated;
+            let bm = &mut self.bonds[s][bi];
+            bm.joint = resp.state;
+            bm.force = resp.force;
+            bm.measures = resp.measures;
+            bm.stored = resp.stored;
+        }
+        (changed, disconnected)
+    }
+
+    /// Quasi-static solve of every cluster with same-step cascade: equilibrate, update
+    /// damage, split, and repeat until no bond changes.
+    pub fn solve_static_all(&mut self, loads: &ChunkLoads, opts: &StaticOptions, dt: f64) -> StaticReport {
+        let mut total = StaticReport { converged: true, ..Default::default() };
+        let broken_before = self.broken_bond_count();
+        for pass in 0..opts.max_cascade.max(1) {
+            let mut any = false;
+            let n = self.clusters.len();
+            let mut to_split = Vec::new();
+            for ci in 0..n {
+                if self.clusters[ci].bonds.is_empty() {
+                    continue;
+                }
+                let r = self.equilibrate(ci, loads, opts);
+                total.newton_iterations += r.newton_iterations;
+                total.cg_iterations += r.cg_iterations;
+                total.residual = total.residual.max(r.residual);
+                total.converged &= r.converged;
+                self.clusters[ci].activity = Activity::Settled;
+                if opts.cascade {
+                    // Sustained damage advances once per call, not per cascade pass.
+                    let (changed, disc) = self.commit_damage(ci, if pass == 0 { dt } else { 0.0 });
+                    any |= changed || disc;
+                    if disc {
+                        to_split.push(ci);
+                    }
+                }
+            }
+            for &ci in to_split.iter().rev() {
+                self.split_cluster(ci);
+            }
+            total.cascade_passes = pass + 1;
+            if !opts.cascade || !any {
+                break;
+            }
+        }
+        total.bonds_broken = self.broken_bond_count() - broken_before;
+        total
+    }
+
+    /// Settle every anchored cluster under gravity (and nothing else) before t = 0.
+    pub fn gravity_prestress(&mut self) -> StaticReport {
+        let loads = ChunkLoads::new(self);
+        let opts = StaticOptions::default();
+        let mut total = StaticReport { converged: true, ..Default::default() };
+        for ci in 0..self.clusters.len() {
+            if !self.clusters[ci].anchored || self.clusters[ci].bonds.is_empty() {
+                continue;
+            }
+            let r = self.equilibrate(ci, &loads, &opts);
+            total.newton_iterations += r.newton_iterations;
+            total.cg_iterations += r.cg_iterations;
+            total.residual = total.residual.max(r.residual);
+            total.converged &= r.converged;
+        }
+        total
+    }
+}
+
