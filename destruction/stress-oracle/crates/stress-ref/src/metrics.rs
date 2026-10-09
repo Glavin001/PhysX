@@ -318,7 +318,7 @@ pub fn compare(scene: &Scene, ours: &Observation, oracles: &[Observation]) -> Ve
         let mut push = |src: &str, reference: Result<MetricValue, String>| {
             let (pass, rel, note) = match (&our_val, &reference) {
                 (Ok(a), Ok(b)) => {
-                    let (p, r) = compare_values(&m.tolerance, a, b);
+                    let (p, r) = compare_values(&m.tolerance_for(src), a, b);
                     (p, r, String::new())
                 }
                 (Err(e), _) => (Some(false), None, format!("ours: {e}")),
@@ -386,7 +386,7 @@ pub fn compare_distributions(scene: &Scene, ours: &[Observation], oracle: &[Obse
                     (mean, (v.iter().map(|q| (q - mean).powi(2)).sum::<f64>() / n).sqrt())
                 };
                 let ((ma, sa), (mb, sb)) = (stats(&x), stats(&y));
-                let (p, r) = compare_values(&m.tolerance, &MetricValue::Number(ma), &MetricValue::Number(mb));
+                let (p, r) = compare_values(&m.tolerance_for(source), &MetricValue::Number(ma), &MetricValue::Number(mb));
                 (p, r, MetricValue::Number(ma), MetricValue::Number(mb), format!("std {sa:.3e} vs {sb:.3e}, n {} vs {}", x.len(), y.len()))
             }
             _ => {

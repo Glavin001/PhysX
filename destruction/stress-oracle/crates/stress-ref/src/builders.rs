@@ -154,7 +154,7 @@ pub fn probe(name: &str, kind: ProbeKind) -> ProbeDesc {
 }
 
 pub fn metric(name: &str, kind: MetricKind, tolerance: Tolerance, expected: Option<serde_json::Value>, oracles: &[&str]) -> MetricDesc {
-    MetricDesc { name: name.into(), kind, tolerance, oracles: oracles.iter().map(|s| s.to_string()).collect(), expected }
+    MetricDesc { name: name.into(), kind, tolerance, oracle_tolerance: None, oracles: oracles.iter().map(|s| s.to_string()).collect(), expected }
 }
 
 fn num(x: f64) -> Option<serde_json::Value> {
@@ -189,14 +189,21 @@ pub fn bond_tension() -> Scene {
         "axial",
         ProbeKind::SectionForce { body: "pair".into(), point: [h, 0.0, 0.0], normal: [1.0, 0.0, 0.0], region: None, component: SectionComponent::Normal },
     ));
-    s.metrics.push(metric("failure_force", MetricKind::ProbeMax { probe: "axial".into() }, Tolerance::Relative(0.05), num(m.tensile_strength * area), &[]));
-    s.metrics.push(metric(
-        "dissipated_energy",
-        MetricKind::Value { key: "bond_dissipation".into() },
-        Tolerance::Relative(0.05),
-        num(m.fracture_energy.tension * area),
-        &[],
-    ));
+    // Exact for the bond model (1%: probe sampling); continuum oracles within 5%.
+    s.metrics.push(
+        metric("failure_force", MetricKind::ProbeMax { probe: "axial".into() }, Tolerance::Relative(0.01), num(m.tensile_strength * area), &[])
+            .with_oracle_tolerance(Tolerance::Relative(0.05)),
+    );
+    s.metrics.push(
+        metric(
+            "dissipated_energy",
+            MetricKind::Value { key: "bond_dissipation".into() },
+            Tolerance::Relative(0.01),
+            num(m.fracture_energy.tension * area),
+            &[],
+        )
+        .with_oracle_tolerance(Tolerance::Relative(0.05)),
+    );
     s.metrics.push(metric("broke", MetricKind::Flag { flag: "any_bond_broken".into() }, Tolerance::Exact, Some(serde_json::json!(true)), &[]));
     s
 }
@@ -261,7 +268,7 @@ pub fn bond_shear() -> Scene {
             component: SectionComponent::Force([0.0, -1.0, 0.0]),
         },
     ));
-    s.metrics.push(metric("failure_force", MetricKind::ProbeMax { probe: "shear".into() }, Tolerance::Relative(0.05), num(v_fail), &[]));
+    s.metrics.push(metric("failure_force", MetricKind::ProbeMax { probe: "shear".into() }, Tolerance::Relative(0.01), num(v_fail), &[]));
     s.metrics.push(metric("broke", MetricKind::Flag { flag: "any_bond_broken".into() }, Tolerance::Exact, Some(serde_json::json!(true)), &[]));
     s
 }
@@ -327,25 +334,29 @@ pub fn cantilever(n: usize, name: &str) -> Scene {
         },
     ));
     let i = 0.1f64.powi(4) / 12.0;
+    let area = 0.01;
     let e = m.youngs_modulus;
     let a = cfg.arm();
     let tip = -cfg.load * a.powi(3) / (3.0 * e * i);
     let root_moment = -cfg.load * (a - 0.5 * h);
-    let area = 0.01;
     let l = cfg.span();
     let f1 = 1.875_104_07f64.powi(2) / (2.0 * std::f64::consts::PI) * (e * i / (m.density * area * l.powi(4))).sqrt();
-    s.metrics.push(metric("tip_deflection", MetricKind::ProbeAt { probe: "tip".into(), time: 0.0 }, Tolerance::Relative(0.05), num(tip), &["opensees"]));
-    s.metrics.push(metric(
-        "root_moment",
-        MetricKind::ProbeAt { probe: "root_moment".into(), time: 0.0 },
-        Tolerance::Relative(0.05),
-        num(root_moment),
-        &["opensees"],
-    ));
+    // Euler-Bernoulli (and OpenSees' elastic beam elements) within 1%: the chunk model
+    // adds the bonds' shear flexibility and an O(h^2) midpoint error of the rotations.
+    s.metrics.push(metric("tip_deflection", MetricKind::ProbeAt { probe: "tip".into(), time: 0.0 }, Tolerance::Relative(0.01), num(tip), &["opensees"]));
+    // The exact discrete model (rigid chunks, bond springs EI/h and GA/h at the joints):
+    // tip = P (a^3/3 - a h^2/12) / EI + P a / (G A), at the static solver's tolerance.
+    let g = m.shear_modulus();
+    let discrete = -cfg.load * (a.powi(3) / 3.0 - a * h * h / 12.0) / (e * i) - cfg.load * a / (g * area);
+    s.metrics.push(metric("tip_deflection_discrete", MetricKind::ProbeAt { probe: "tip".into(), time: 0.0 }, Tolerance::Relative(1e-6), num(discrete), &["none"]));
+    s.metrics.push(
+        metric("root_moment", MetricKind::ProbeAt { probe: "root_moment".into(), time: 0.0 }, Tolerance::Relative(1e-6), num(root_moment), &["opensees"])
+            .with_oracle_tolerance(Tolerance::Relative(0.01)),
+    );
     s.metrics.push(metric(
         "first_frequency",
         MetricKind::ProbeFrequency { probe: "tip".into(), after: release + 0.01 },
-        Tolerance::Relative(0.05),
+        Tolerance::Relative(0.01),
         num(f1),
         &["opensees"],
     ));
@@ -398,31 +409,35 @@ pub fn bar_wave(stiffness_scale: f64, name: &str) -> Scene {
     s.metrics.push(metric(
         "wave_speed",
         MetricKind::WaveSpeed { probe_a: "v20".into(), probe_b: "v80".into(), distance: 60.0 * h, threshold: 0.5 * v_particle },
-        Tolerance::Relative(0.05),
+        Tolerance::Relative(0.01),
         num(c),
         &["opencourant"],
-    ));
+    )
+    .with_oracle_tolerance(Tolerance::Relative(0.05)));
     s.metrics.push(metric(
         "free_end_velocity_ratio",
         MetricKind::ProbePeakRatioOf { probe: "v_end".into(), reference: "v50".into() },
-        Tolerance::Relative(0.05),
+        Tolerance::Relative(0.01),
         num(2.0),
         &["opencourant"],
-    ));
+    )
+    .with_oracle_tolerance(Tolerance::Relative(0.05)));
     s.metrics.push(metric(
         "incident_compression",
         MetricKind::ProbeMin { probe: "axial_mid".into() },
-        Tolerance::Relative(0.05),
+        Tolerance::Relative(0.01),
         num(-peak_force),
         &["opencourant"],
-    ));
+    )
+    .with_oracle_tolerance(Tolerance::Relative(0.05)));
     s.metrics.push(metric(
         "reflected_tension",
         MetricKind::ProbeMax { probe: "axial_mid".into() },
-        Tolerance::Relative(0.05),
+        Tolerance::Relative(0.01),
         num(peak_force),
         &["opencourant"],
-    ));
+    )
+    .with_oracle_tolerance(Tolerance::Relative(0.05)));
     s
 }
 
@@ -438,7 +453,7 @@ pub fn support_loss(duration: f64, name: &str) -> Scene {
     let h = 0.05;
     let mut s = new_scene(name, "Mass between two supports; one support removed (sudden or gradual).");
     s.benchmark = Some(4);
-    s.materials.insert("rock".into(), m);
+    s.materials.insert("rock".into(), m.clone());
     let mut chunks = grid(Vec3::new(-h, -h, 0.0), [1, 1, 3], Vec3::splat(2.0 * h), "rock");
     chunks[0].support = Support::Fixed;
     chunks[2].support = Support::Fixed;
@@ -453,11 +468,14 @@ pub fn support_loss(duration: f64, name: &str) -> Scene {
     s.sim.frame_dt = 1e-3;
     s.sim.sample_interval = Some(2e-5);
     s.probes.push(probe("reaction", ProbeKind::Reaction { body: "stack".into(), chunks: ChunkSelector::Group("lower".into()), axis: [0.0, 0.0, 1.0] }));
-    let expected = if duration == 0.0 { 2.0 } else { 1.0 };
+    // Sudden: the damped single-degree-of-freedom peak 1 + exp(-zeta pi / sqrt(1 - zeta^2))
+    // (2 without damping); gradual (much slower than the period): 1.
+    let zeta = m.damping_ratio;
+    let expected = if duration == 0.0 { 1.0 + (-zeta * std::f64::consts::PI / (1.0 - zeta * zeta).sqrt()).exp() } else { 1.0 };
     s.metrics.push(metric(
         "dynamic_amplification",
         MetricKind::DynamicAmplification { probe: "reaction".into(), before: t_remove - 1e-6 },
-        Tolerance::Relative(0.10),
+        Tolerance::Relative(0.01),
         num(expected),
         &[],
     ));

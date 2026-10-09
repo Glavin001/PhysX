@@ -639,13 +639,35 @@ pub struct MetricDesc {
     pub name: String,
     #[serde(flatten)]
     pub kind: MetricKind,
+    /// Tolerance against the analytic `expected` value (and against oracles unless
+    /// `oracle_tolerance` is given).
     pub tolerance: Tolerance,
+    /// Tolerance against oracle observations when it differs (another formulation:
+    /// a continuum or a different beam theory converges to a slightly different value).
+    #[serde(default)]
+    pub oracle_tolerance: Option<Tolerance>,
     /// Which oracles this metric is compared against ("analytic" uses `expected`).
     #[serde(default)]
     pub oracles: Vec<String>,
     /// Closed-form expected value, for analytic benchmarks.
     #[serde(default)]
     pub expected: Option<serde_json::Value>,
+}
+
+impl MetricDesc {
+    pub fn with_oracle_tolerance(mut self, t: Tolerance) -> MetricDesc {
+        self.oracle_tolerance = Some(t);
+        self
+    }
+
+    /// The tolerance against a reference (`"analytic"` or an oracle's name).
+    pub fn tolerance_for(&self, source: &str) -> Tolerance {
+        if source == "analytic" {
+            self.tolerance
+        } else {
+            self.oracle_tolerance.unwrap_or(self.tolerance)
+        }
+    }
 }
 
 impl Scene {
