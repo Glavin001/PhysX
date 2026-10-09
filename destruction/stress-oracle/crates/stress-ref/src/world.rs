@@ -110,6 +110,10 @@ pub struct World {
     contact_dt: f64,
     /// Contact force magnitude received by each chunk during the current substep.
     contact_hits: Vec<Vec<f64>>,
+    /// Initial overlap per sample point of chunk pairs that were bonded, for the
+    /// current contact episode (dropped when the pair separates).
+    pair_offsets: std::collections::HashMap<(usize, usize, usize, usize), [f64; 2 * SAMPLE_POINTS]>,
+    pairs_seen: std::collections::HashSet<(usize, usize, usize, usize)>,
 }
 
 /// Effective contact modulus of two materials (scaled moduli).
@@ -180,6 +184,8 @@ impl World {
             blast_caches: vec![None; scene.loads.len()],
             contact_dt: f64::INFINITY,
             contact_hits,
+            pair_offsets: Default::default(),
+            pairs_seen: Default::default(),
             scene: scene.clone(),
             solver,
         };
@@ -235,8 +241,9 @@ impl World {
         for (s, st) in self.solver.structures.iter().enumerate() {
             for (c, ch) in st.chunks.iter().enumerate() {
                 let k = contact_modulus(self.chunk_material(s, c), stiffest, scale) * self.chunk_size(s, c);
-                // Up to two simultaneous face contacts on opposite sides.
-                w2 = w2.max(2.0 * k / ch.mass);
+                // A face pair engages ~10 sample points of k/10 each (total k); a chunk
+                // buried in rubble can touch on all six faces.
+                w2 = w2.max(6.0 * k / ch.mass);
             }
         }
         for imp in &self.impactors {
@@ -532,10 +539,10 @@ impl World {
                     ImpactorShape::Box { .. } => {
                         let shrunk = OBox { half: ib.half - Vec3::splat(imp.crush_depth).component_min(ib.half * 0.5), ..ib };
                         for cp in b.points_inside(&shrunk) {
-                            contacts.push((s, c, kc / 5.0, cp.point, cp.normal, cp.depth));
+                            contacts.push((s, c, kc / 10.0, cp.point, cp.normal, cp.depth));
                         }
                         for cp in shrunk.points_inside(b) {
-                            contacts.push((s, c, kc / 5.0, cp.point, -cp.normal, cp.depth));
+                            contacts.push((s, c, kc / 10.0, cp.point, -cp.normal, cp.depth));
                         }
                     }
                 }
@@ -628,6 +635,7 @@ impl World {
 
         // Chunks of different clusters (debris on structures, fragments on fragments).
         let n_clusters = self.solver.clusters.len();
+        self.pairs_seen.clear();
         if n_clusters > 1 {
             let mut cluster_boxes: Vec<(Vec3, Vec3)> = vec![(Vec3::splat(f64::INFINITY), Vec3::splat(f64::NEG_INFINITY)); n_clusters];
             for (k, &(s, c)) in active.iter().enumerate() {
@@ -664,6 +672,8 @@ impl World {
                 }
             }
         }
+        let seen = &self.pairs_seen;
+        self.pair_offsets.retain(|k, _| seen.contains(k));
         imp_loads
     }
 
@@ -673,15 +683,37 @@ impl World {
         let (sb, cb, bb) = b;
         let k = contact_modulus(self.chunk_material(sa, ca), self.chunk_material(sb, cb), scale)
             * self.chunk_size(sa, ca).min(self.chunk_size(sb, cb))
-            / 5.0;
+            / 10.0;
         let (ma, mb) = (self.solver.structures[sa].chunks[ca].mass, self.solver.structures[sb].chunks[cb].mass);
         let m_red = ma * mb / (ma + mb);
         let mu = self.chunk_material(sa, ca).friction.min(self.chunk_material(sb, cb).friction);
         // Points of a inside b push a out along b's face normal, and vice versa.
-        let mut pairs: Vec<(Vec3, Vec3, f64, bool)> = ba.points_inside(&bb).into_iter().map(|p| (p.point, p.normal, p.depth, true)).collect();
-        pairs.extend(bb.points_inside(&ba).into_iter().map(|p| (p.point, -p.normal, p.depth, true)));
-        let _ = SAMPLE_POINTS;
-        for (p, n, depth, _) in pairs {
+        let mut pairs: Vec<(usize, Vec3, Vec3, f64)> =
+            ba.points_inside(&bb).into_iter().map(|p| (p.index, p.point, p.normal, p.depth)).collect();
+        pairs.extend(bb.points_inside(&ba).into_iter().map(|p| (SAMPLE_POINTS + p.index, p.point, -p.normal, p.depth)));
+        if pairs.is_empty() {
+            return;
+        }
+        let key = (sa, ca, sb, cb);
+        self.pairs_seen.insert(key);
+        let bonded = sa == sb
+            && self.solver.structures[sa].chunks[ca].bonds.iter().any(|&b| self.solver.structures[sa].bond_other(b, ca) == cb);
+        if bonded && !self.pair_offsets.contains_key(&key) {
+            let mut off = [0.0; 2 * SAMPLE_POINTS];
+            for &(i, _, _, depth) in &pairs {
+                off[i] = depth;
+            }
+            self.pair_offsets.insert(key, off);
+        }
+        let offsets = self.pair_offsets.get(&key).copied();
+        for (i, p, n, depth) in pairs {
+            let depth = match offsets {
+                Some(off) => depth - off[i],
+                None => depth,
+            };
+            if depth <= 0.0 {
+                continue;
+            }
             let va = self.solver.point_velocity(sa, ca, p);
             let vb = self.solver.point_velocity(sb, cb, p);
             let f = self.contact_force(k, m_red, IMPACT_RESTITUTION, mu, depth, n, va - vb, dt);
@@ -843,11 +875,12 @@ impl World {
         for (imp, (f, tq)) in self.impactors.iter_mut().zip(imp_loads) {
             imp.velocity += (f / imp.mass + g) * dt;
             let r = imp.pose.rotation.to_mat3();
-            let iw = r * imp.inertia * r.transpose();
-            let w = imp.angular_velocity;
-            imp.angular_velocity += iw.inverse().unwrap() * (tq - w.cross(iw * w)) * dt;
+            let l = r * imp.inertia * r.transpose() * imp.angular_velocity + tq * dt;
+            let w_mid = (r * imp.inertia * r.transpose()).inverse().unwrap() * l;
             imp.pose.position += imp.velocity * dt;
-            imp.pose.rotation = imp.pose.rotation.integrate(imp.angular_velocity, dt);
+            imp.pose.rotation = imp.pose.rotation.integrate(w_mid, dt);
+            let r = imp.pose.rotation.to_mat3();
+            imp.angular_velocity = (r * imp.inertia * r.transpose()).inverse().unwrap() * l;
         }
         debug_assert!((self.solver.time - t).abs() < 1e-9);
         self.record_probes(false);

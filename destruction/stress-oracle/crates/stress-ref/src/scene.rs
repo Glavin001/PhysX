@@ -486,6 +486,8 @@ pub enum MetricKind {
     /// Projected area (perpendicular to `axis`) of detached chunks of `body` within `region`.
     DetachedArea { body: String, region: Option<Region>, axis: [f64; 3] },
     DetachedMass { body: String, region: Option<Region> },
+    /// Whether any chunk of `body` in `region` detached.
+    DetachedAny { body: String, region: Option<Region> },
     /// Mean (or max) speed along `axis` of detached chunks in `region`; 0 if none.
     DetachedSpeed { body: String, region: Option<Region>, axis: [f64; 3], max: bool },
     /// "hole", "push_over" or "intact" (see `metrics::failure_mode`).
@@ -630,17 +632,19 @@ impl Scene {
     /// Copy with each bond's `derived` section properties filled in (for exporters).
     pub fn with_derived(&self) -> Scene {
         let mut s = self.clone();
-        for body in &mut s.bodies {
+        for (body_index, body) in s.bodies.iter_mut().enumerate() {
             let chunks = body.chunks.clone();
-            for bond in &mut body.bonds {
+            for (bond_index, bond) in body.bonds.iter_mut().enumerate() {
                 let m = &self.materials[&bond.material];
                 let g = crate::bond::BondGeometry::from_desc(bond, &chunks);
                 let k = crate::bond::BondStiffness::new(&g, m, 1.0);
+                let weibull = crate::material::bond_strength_factor(m.weibull_modulus, self.sim.seed, body_index, bond_index);
                 bond.derived = Some(serde_json::json!({
                     "length": g.length,
                     "i_t1": g.i_t1, "i_t2": g.i_t2, "torsion_constant": g.torsion_constant,
                     "section_modulus_t1": g.s_t1, "section_modulus_t2": g.s_t2,
                     "kn": k.kn, "ks": k.ks, "kb_t1": k.kb_t1, "kb_t2": k.kb_t2, "kt": k.kt,
+                    "weibull": weibull,
                 }));
             }
         }

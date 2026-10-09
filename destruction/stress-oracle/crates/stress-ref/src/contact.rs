@@ -4,6 +4,11 @@
 //! decay over the physical contact duration set by the contact stiffness and masses;
 //! there is no impulse divided by a timestep anywhere.
 //!
+//! Chunks that were bonded can still overlap slightly when they separate (residual
+//! bond deformation and rotation). The world records that initial overlap per sample
+//! point at the start of the contact episode and resists only further penetration,
+//! so a split never converts it into spurious kinetic energy.
+//!
 //! Box contact uses sample points: the 8 corners pulled 10% towards the centre plus the
 //! 6 face centres. Pulling corners inwards avoids double counting where the corners of
 //! aligned, equal chunks meet exactly on an edge.
@@ -21,6 +26,8 @@ pub struct OBox {
 /// A penetrating contact: `normal` points from the first shape towards the second.
 #[derive(Clone, Copy, Debug)]
 pub struct ContactPoint {
+    /// Sample-point index on the first shape (0 for spheres).
+    pub index: usize,
     pub point: Vec3,
     pub normal: Vec3,
     pub depth: f64,
@@ -80,7 +87,8 @@ impl OBox {
     pub fn points_inside(&self, other: &OBox) -> Vec<ContactPoint> {
         self.sample_points()
             .iter()
-            .filter_map(|&p| other.penetration(p).map(|(depth, normal)| ContactPoint { point: p, normal, depth }))
+            .enumerate()
+            .filter_map(|(index, &p)| other.penetration(p).map(|(depth, normal)| ContactPoint { index, point: p, normal, depth }))
             .collect()
     }
 
@@ -99,11 +107,11 @@ impl OBox {
                 return None;
             }
             let n = self.rotation * (d / dist);
-            return Some(ContactPoint { point: self.center + self.rotation * q, normal: n, depth: radius - dist });
+            return Some(ContactPoint { index: 0, point: self.center + self.rotation * q, normal: n, depth: radius - dist });
         }
         // Centre inside the box: push out through the nearest face.
         let (inside, n) = self.penetration(center)?;
-        Some(ContactPoint { point: center - n * (radius.min(inside)), normal: n, depth: radius + inside })
+        Some(ContactPoint { index: 0, point: center - n * (radius.min(inside)), normal: n, depth: radius + inside })
     }
 
     /// Ray (segment `a + t (b - a)`, `t in [0, 1]`) against the box: entry parameter.

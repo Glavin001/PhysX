@@ -3,9 +3,8 @@
 
 use crate::bond::{BondGeometry, BondStiffness, Local6};
 use crate::joint::{JointStrength, RebarParams};
-use crate::material::{weibull_unit_mean, Material};
+use crate::material::{bond_strength_factor, Material};
 use crate::math::{Mat3, Quat, Vec3};
-use crate::rng;
 use crate::scene::{box_mass_inertia, BodyDesc, Scene, Support};
 
 /// One face of a box chunk (body frame).
@@ -189,10 +188,7 @@ impl Structure {
             let mred = reduced_mass(&chunks[desc.a], &chunks[desc.b]);
             let (stiffness, strength, rebar, damping) =
                 bond_physics(&geometry, m, desc.buckling_length, rebar_spec.as_ref(), scale, mred);
-            let weibull = match m.weibull_modulus {
-                Some(wm) => weibull_unit_mean(wm, rng::uniform(scene.sim.seed, &[index as u64, bi as u64, 0x5745])),
-                None => 1.0,
-            };
+            let weibull = bond_strength_factor(m.weibull_modulus, scene.sim.seed, index, bi);
             let face_a = face_index(&chunks[desc.a].faces, geometry.normal);
             let face_b = face_index(&chunks[desc.b].faces, -geometry.normal);
             chunks[desc.a].bonds.push(bi);

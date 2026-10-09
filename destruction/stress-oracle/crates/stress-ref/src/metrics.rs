@@ -217,6 +217,10 @@ pub fn evaluate(scene: &Scene, metric: &MetricDesc, obs: &Observation) -> Result
                     .sum(),
             )
         }
+        MetricKind::DetachedAny { body, region } => {
+            let (desc, st) = body_states(scene, obs, body)?;
+            MetricValue::Bool(coarse(desc).any(|i| st[i].detached && !st[i].removed && in_region(desc, i, region)))
+        }
         MetricKind::DetachedSpeed { body, region, axis, max } => {
             let (desc, st) = body_states(scene, obs, body)?;
             let a = Vec3::from_array(*axis).normalized();
@@ -306,10 +310,24 @@ pub fn compare(scene: &Scene, ours: &Observation, oracles: &[Observation]) -> Ve
         if let Some(exp) = &m.expected {
             push("analytic", MetricValue::from_json(exp).ok_or_else(|| "bad expected value".to_string()));
         }
+        let mut compared = m.expected.is_some();
         for o in oracles {
             if m.oracles.is_empty() || m.oracles.iter().any(|x| x == &o.solver) {
                 push(&o.solver, evaluate(scene, m, o));
+                compared = true;
             }
+        }
+        if !compared {
+            // No reference available: still show our value.
+            out.push(Comparison {
+                metric: m.name.clone(),
+                reference_source: "none".into(),
+                ours: our_val.clone().ok(),
+                reference: None,
+                relative_error: None,
+                pass: None,
+                note: our_val.as_ref().err().cloned().unwrap_or_default(),
+            });
         }
     }
     out

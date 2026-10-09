@@ -333,6 +333,16 @@ pub fn gamma(x: f64) -> f64 {
     }
 }
 
+/// Strength multiplier of bond `bond` of body `body` for a scene seed: Weibull with unit
+/// mean, or 1 for deterministic materials. Exporters receive the same value in the
+/// bond's `derived.weibull`.
+pub fn bond_strength_factor(modulus: Option<f64>, seed: u64, body: usize, bond: usize) -> f64 {
+    match modulus {
+        Some(m) => weibull_unit_mean(m, crate::rng::uniform(seed, &[body as u64, bond as u64, 0x5745])),
+        None => 1.0,
+    }
+}
+
 /// Weibull strength multiplier with unit mean, from a uniform sample `u` in (0, 1).
 pub fn weibull_unit_mean(modulus: f64, u: f64) -> f64 {
     let u = u.clamp(1e-300, 1.0 - 1e-16);

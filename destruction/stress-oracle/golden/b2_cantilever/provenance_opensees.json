@@ -1,0 +1,51 @@
+{
+ "tool": "opensees",
+ "solver_version": "OpenSeesPy 3.8.0.0 (OpenSees 3.8.0, openseespylinux 3.8.0.0)",
+ "versions": {
+  "openseespy": "3.8.0.0",
+  "openseespylinux": "3.8.0.0",
+  "opensees_core": "3.8.0",
+  "opensees_so_sha256": "b1bfa97ceb8f0f5d3c3c49eb498ac4e9dc57f86971f0f54c03074968a0f830a3",
+  "opensees_so_matches_pinned_wheel": true,
+  "wheels_sha256": {
+   "openseespy-3.8.0.0-py3-none-any.whl": "ce6a43503b737025f763a87bebacb1cc2fbd82a156982647e9e014a11b85fdbd",
+   "openseespylinux-3.8.0.0-py3-none-any.whl": "2307e40213f1d7128a5a5151d5c8beee8244b8b988528a58f5e44394a045ba64"
+  },
+  "numpy": "2.5.3",
+  "python": "3.12.3"
+ },
+ "license": "OpenSeesPy: free for research/education/internal use, NOT OSI open source (UC Berkeley / OpenSeesPy license); commercial redistribution needs a license",
+ "scene": {
+  "path": "/home/user/PhysX/destruction/stress-oracle/scenes/b2_cantilever.json",
+  "sha256": "dce0811342b48636e7f843a246d61368ec999c1cf0aff4ea424c42edd572ea0c"
+ },
+ "seed": 0,
+ "deck": {
+  "path": "/home/user/oracle-runs/opensees/b2_cantilever/model.json",
+  "sha256": "fa6451e3584bf9010959a1300800a4f156f2d3e8590ffea82a7c23ee45ea9ec8",
+  "format": "opensees-frame-model/1"
+ },
+ "command": [
+  "/home/user/oracle-env/venv/bin/python",
+  "-I",
+  "/home/user/PhysX/destruction/stress-oracle/oracles/opensees/pipeline.py",
+  "scenes/b2_cantilever.json"
+ ],
+ "cwd": "/home/user/PhysX/destruction/stress-oracle",
+ "wall_seconds": 1.6365126050000072,
+ "timing": {
+  "build_and_eigen_s": 0.0012133890004406567,
+  "static_s": 0.00019655500000226311,
+  "transient_s": 1.0716177819999757,
+  "steps": 8000
+ },
+ "host": {
+  "platform": "Linux-6.18.44-fc-v80-x86_64-with-glibc2.39",
+  "cpus": 4
+ },
+ "date_utc": "2026-10-09T08:05:51+00:00",
+ "observation": {
+  "path": "/home/user/PhysX/destruction/stress-oracle/golden/b2_cantilever/opensees.json",
+  "sha256": "7feff82b4d57c3d58dd838c1937b52d3aa7fc77668e90238a87c359df7826849"
+ }
+}

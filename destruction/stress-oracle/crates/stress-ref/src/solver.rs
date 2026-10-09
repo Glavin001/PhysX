@@ -631,6 +631,12 @@ impl ReferenceSolver {
         let t_world = loads.torque[s][c] - (iw * alpha + w.cross(iw * w));
         let mut f = cl.pose.inverse_transform_vector(f_world);
         let mut m = cl.pose.inverse_transform_vector(t_world);
+        // Coupling of the hidden velocities with the frame rotation (body frame):
+        // Coriolis force on the chunk and the gyroscopic cross terms of its spin.
+        let wb = cl.pose.inverse_transform_vector(w);
+        let st = &self.chunks[s][c];
+        f -= wb.cross(st.v) * (2.0 * ch.mass);
+        m -= wb.cross(ch.inertia * st.w) + st.w.cross(ch.inertia * wb) + st.w.cross(ch.inertia * st.w);
         for rl in &self.replacements {
             if rl.structure == s && rl.chunk == c {
                 let k = rl.factor(t);
@@ -680,17 +686,26 @@ impl ReferenceSolver {
         (f / cl.mass, alpha)
     }
 
+    /// Symplectic rigid update. The angular part integrates angular momentum (exactly
+    /// conserved when the net torque vanishes) and recovers the angular velocity from
+    /// the rotated inertia.
     fn integrate_rigid(&mut self, ci: usize, dt: f64, a: Vec3, alpha: Vec3) {
         if !self.config.integrate_rigid || self.clusters[ci].anchored {
             return;
         }
         let cl = &mut self.clusters[ci];
         let com_world = cl.com_world();
+        let iw = cl.world_inertia();
+        // alpha = Iw^-1 (tau - w x Iw w)  =>  dL/dt = tau = Iw alpha + w x Iw w.
+        let torque = iw * alpha + cl.angular_velocity.cross(iw * cl.angular_velocity);
+        let l = iw * cl.angular_velocity + torque * dt;
         cl.velocity += a * dt;
-        cl.angular_velocity += alpha * dt;
         let new_com = com_world + cl.velocity * dt;
-        cl.pose.rotation = cl.pose.rotation.integrate(cl.angular_velocity, dt);
+        // Rotate with the momentum-consistent angular velocity, then refresh it.
+        let w_mid = iw.inverse().expect("invertible") * l;
+        cl.pose.rotation = cl.pose.rotation.integrate(w_mid, dt);
         cl.pose.position = new_com - cl.pose.rotation.rotate(cl.com);
+        cl.angular_velocity = cl.world_inertia().inverse().expect("invertible") * l;
     }
 
     fn advance_rigid_only(&mut self, ci: usize, dt: f64, loads: &ChunkLoads) {
@@ -810,8 +825,11 @@ impl ReferenceSolver {
         }
     }
 
-    /// Remove any net linear/angular momentum from the deformation velocities of a free
-    /// cluster (the floating frame carries all rigid motion); round-off only.
+    /// Keep the hidden velocities of a free cluster free of net linear and angular
+    /// momentum (the floating frame carries all rigid motion). Any round-off drift is
+    /// moved into the cluster's rigid velocity, which leaves every chunk's world
+    /// velocity, and therefore the total momentum, exactly unchanged. Under an engine
+    /// (which owns rigid motion) the drift is simply removed.
     fn remove_rigid_drift(&mut self, ci: usize) {
         let cl = &self.clusters[ci];
         let s = cl.structure;
@@ -821,20 +839,25 @@ impl ReferenceSolver {
         for &c in &cl.chunks {
             let ch = &st.chunks[c];
             let cs = &self.chunks[s][c];
-            let r = ch.center - cl.com;
+            let r = ch.center + cs.u - cl.com;
             p += cs.v * ch.mass;
             l += r.cross(cs.v) * ch.mass + ch.inertia * cs.w;
         }
         let dv = p / cl.mass;
         let dw = cl.inertia.inverse().expect("invertible") * l;
-        // Translational part is exact; the rotational part uses the undeformed inertia.
         let chunks = cl.chunks.clone();
         let com = cl.com;
         for c in chunks {
-            let r = st.chunks[c].center - com;
+            let r = st.chunks[c].center + self.chunks[s][c].u - com;
             let cs = &mut self.chunks[s][c];
             cs.v -= dv + dw.cross(r);
             cs.w -= dw;
+        }
+        if self.config.integrate_rigid {
+            let cl = &mut self.clusters[ci];
+            let (dvw, dww) = (cl.pose.transform_vector(dv), cl.pose.transform_vector(dw));
+            cl.velocity += dvw;
+            cl.angular_velocity += dww;
         }
     }
 
@@ -1049,9 +1072,9 @@ impl ReferenceSolver {
         self.structures.iter().position(|s| s.name == name)
     }
 
-    /// Number of bonds (static, level 0) that no longer connect their chunks.
+    /// Number of bonds broken by fracture (bonds of removed chunks do not count).
     pub fn broken_bond_count(&self) -> usize {
-        self.bonds.iter().flatten().filter(|b| !b.connected()).count()
+        self.bonds.iter().flatten().filter(|b| !b.joint.connected(b.rebar.is_some())).count()
     }
 
     /// Support reaction of a chunk in world frame.

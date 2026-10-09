@@ -2,6 +2,7 @@
 //!
 //! ```text
 //! stress-ref gen-scenes <dir>                       write the scene catalogue (with derived bond data)
+//! stress-ref with-seed <scene.json> <seed> <out.json>  same scene, Weibull strengths for another seed
 //! stress-ref run <scene.json> [--seed N] [--out obs.json] [--mode explicit|adaptive|quasi_static]
 //!                [--stiffness-scale S] [--max-substep DT] [--frame-dt DT]
 //! stress-ref compare <scene.json> <ours.json> [<oracle.json> ...] [--json report.json]
@@ -102,9 +103,21 @@ fn main() -> ExitCode {
             for scene in builders::catalog() {
                 scene.validate()?;
                 let path = dir.join(format!("{}.json", scene.name));
-                std::fs::write(&path, scene.with_derived().to_json_pretty() + "\n").map_err(|e| e.to_string())?;
+                // Large scenes are written compactly; both forms parse identically.
+                let derived = scene.with_derived();
+                let chunks: usize = derived.bodies.iter().map(|b| b.chunks.len()).sum();
+                let text = if chunks < 300 { derived.to_json_pretty() } else { serde_json::to_string(&derived).unwrap() };
+                std::fs::write(&path, text + "\n").map_err(|e| e.to_string())?;
                 println!("wrote {}", path.display());
             }
+            Ok(true)
+        }
+        "with-seed" => {
+            // Re-derive a scene for another Weibull seed (exporters read derived.weibull).
+            let mut scene = Scene::load(Path::new(pos.first().ok_or("missing <scene>")?))?;
+            scene.sim.seed = pos.get(1).ok_or("missing <seed>")?.parse().map_err(|e| format!("seed: {e}"))?;
+            let out = pos.get(2).ok_or("missing <out>")?;
+            std::fs::write(out, serde_json::to_string(&scene.with_derived()).unwrap() + "\n").map_err(|e| e.to_string())?;
             Ok(true)
         }
         "run" => {
