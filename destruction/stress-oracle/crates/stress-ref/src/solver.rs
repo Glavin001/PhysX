@@ -294,6 +294,7 @@ impl ChunkLoads {
     }
 }
 
+#[derive(Clone)]
 pub struct ReferenceSolver {
     pub config: SolverConfig,
     pub structures: Vec<Structure>,
@@ -947,6 +948,33 @@ impl ReferenceSolver {
             });
         }
         disconnected
+    }
+
+    /// Disconnect the given bonds now (a fracture verdict decided elsewhere, e.g. by a
+    /// trial evaluation of the same tick) and split the clusters they held together.
+    /// The energy the bonds store is booked as `split_release`; each bond gets a
+    /// `Broken` event. Children inherit the exact momentum of their chunks.
+    pub fn break_bonds(&mut self, bonds: &[(usize, usize)]) {
+        let mut clusters = Vec::new();
+        for &(s, bi) in bonds {
+            if !self.bonds[s][bi].connected() {
+                continue;
+            }
+            let previous = self.bonds[s][bi].joint.clone();
+            let b = &mut self.bonds[s][bi];
+            b.joint.damage = 1.0;
+            b.joint.rebar_broken = true;
+            let ci = self.chunks[s][b.geometry.a].cluster;
+            self.record_bond_events(ci, bi, &previous, true, self.time);
+            if !clusters.contains(&ci) {
+                clusters.push(ci);
+            }
+        }
+        // Highest index first: splitting swap-removes the parent.
+        clusters.sort_unstable();
+        for &ci in clusters.iter().rev() {
+            self.split_cluster(ci);
+        }
     }
 
     /// Keep the floating frame on the cluster (a mean-axis frame): fold the best-fit

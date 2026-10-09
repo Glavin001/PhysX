@@ -253,17 +253,34 @@ All results below are from this revision (`cargo test --release`, `stress-ref ch
   (`ImpactModel::VelocityCondition`), which is momentum exact in both modes; the
   struck beam breaks into 3 (pulse), 4 (velocity condition, explicit) or 6 pieces
   (velocity condition, implicit at the frame step).
-* **The engine's impulse is the weak link for punch-through**: a 200 kg ram at
-  40 m/s into a free 528 kg concrete wall. The reference world (contact resolved at
-  the substep against individual chunks, which break off during the contact) leaves
-  the ram at 35 m/s (about 1000 N s transferred) and 6 fragments. Through PhysX the
-  contact is resolved against the whole rigid wall and transfers several times that
-  impulse; the stress solver then makes 24 bodies (Hertz pulse) or 184 (velocity
-  condition, implicit). Momentum is exact in every case — what differs is how much
-  of it the engine hands over. Feeding fracture back into the contact within the
-  frame (or resolving impactor contact against the struck chunks' effective mass) is
-  what the engine path needs for local failure; `tests/physx_integration.rs` runs
-  both impact models end to end.
+* **The engine's impulse is the weak link for punch-through** (open). A 200 kg ram at
+  40 m/s into a free 528 kg concrete wall: the reference world, which resolves the
+  contact on individual chunks while they fail, leaves the ram at 35.0 m/s (~1000 N s
+  handed over) and 6 fragments. PhysX resolves the rigid contact against the whole
+  wall within one step: the ram ends at 11.1 m/s — the perfectly inelastic whole-wall
+  collision, 200 x 40 / 728 = 11.0 — so the stress solver receives 5.8x the real
+  impulse. Contact attribution is right (each contact is reported on its chunk shape
+  with its point and normal); the magnitude is wrong. Measured remedies
+  (`physx_impact_impulse_vs_reference_world`, run with `--ignored`):
+
+  | engine path | ram after (m/s) | bodies |
+  |---|---|---|
+  | reference world (truth) | 35.0 | 6 |
+  | PhysX 1/60 s, no correction | 11.1 | 24 |
+  | PhysX 1/60 s, 4 correction passes | 11.1 | 11 |
+  | PhysX 1/960 s, no correction | 10.6 | 28 |
+  | PhysX 1/960 s, 4 correction passes | 10.8 | 21 |
+
+  Correction passes (`PhysxDestruction::correction_limit`, the native
+  `internalCorrectionLimit`: rewind, accept the trial's first failure front, re-solve)
+  are momentum exact and reduce over-fragmentation, but cannot change the impulse: the
+  plug needs ~20-30 bonds broken before it is a separate body, and a rigid contact
+  spends its impulse in zero time. Accepting a trial's whole verdict instead
+  over-shatters (100+ bodies), because that verdict was computed from the wrong
+  impulse. What fixes the input is resolving impactor contact *inside* the stress
+  solve over the contact duration (as the reference world does) and handing the engine
+  the resulting impulse, or bounding the engine contact by the struck region's
+  capacity; both are engine-architecture decisions.
 * **Mass scaling** keeps statics exact and cuts substeps, but on uniform chunks every
   chunk is critical: 4x the step on the 40-chunk cantilever costs 15x the mass.
 

@@ -106,3 +106,61 @@ fn physx_slow_contact_does_not_fracture() {
     assert_eq!(sim.fractures, 0);
     assert_eq!(sim.stress.solver.broken_bond_count(), 0);
 }
+
+/// A 200 kg ram at 40 m/s into a free 528 kg concrete wall, against the reference
+/// world, which resolves the contact on individual chunks during the stress solve.
+fn ram_into_free_wall() -> Scene {
+    let mut s = wall_and_ram(false, false, 40.0);
+    s.impactors[0].position = [0.0, -0.15, 0.5];
+    s.sim.duration = 0.5;
+    s
+}
+
+/// Correction passes (rewind, accept the trial's first failure front, re-solve) keep
+/// momentum exact and bring fragmentation towards the reference.
+#[test]
+fn physx_correction_passes_conserve_momentum() {
+    let scene = ram_into_free_wall();
+    let mut bodies = Vec::new();
+    for limit in [0usize, 4] {
+        let Some(mut sim) = PhysxDestruction::new(&scene) else {
+            eprintln!("PhysX CPU scene unavailable; skipping");
+            return;
+        };
+        sim.correction_limit = limit;
+        let p0 = sim.momentum();
+        let mut corrections = 0;
+        for _ in 0..30 {
+            sim.step(1.0 / 60.0);
+            corrections += sim.last_corrections;
+        }
+        let p1 = sim.momentum();
+        println!("limit {limit}: {} bodies, {corrections} corrections, ram {:.2} m/s", sim.cluster_bodies(), sim.impactor_state(0).1.y);
+        assert!((p1 - p0).norm() < 1e-3 * p0.norm(), "limit {limit}: momentum {p1:?} vs {p0:?}");
+        assert!(limit == 0 || corrections > 0);
+        bodies.push(sim.cluster_bodies());
+    }
+    assert!(bodies[1] < bodies[0], "corrections should reduce over-fragmentation: {bodies:?}");
+}
+
+/// Known gap, measured (run with `--ignored`): a rigid-body engine resolves the ram
+/// against the whole wall within one step whatever the step and the correction passes
+/// (perfectly inelastic: 200 x 40 / 728 = 11 m/s), while the wall really fails at chunk
+/// level within the first millisecond and the ram keeps ~35 m/s. The engine's impulse
+/// is the wrong input; see README "Known gaps".
+#[test]
+#[ignore]
+fn physx_impact_impulse_vs_reference_world() {
+    let scene = ram_into_free_wall();
+    let mut w = stress_ref::world::World::new(&scene);
+    let o = w.run();
+    println!("reference world: ram {:.2} m/s, {} fragments", w.impactors[0].velocity.y, o.values["fragments"]);
+    for (limit, sub) in [(0usize, 1usize), (4, 1), (0, 16), (4, 16)] {
+        let Some(mut sim) = PhysxDestruction::new(&scene) else { return };
+        sim.correction_limit = limit;
+        for _ in 0..30 * sub {
+            sim.step(1.0 / (60.0 * sub as f64));
+        }
+        println!("PhysX dt 1/{} corrections {limit}: ram {:.2} m/s, {} bodies", 60 * sub, sim.impactor_state(0).1.y, sim.cluster_bodies());
+    }
+}

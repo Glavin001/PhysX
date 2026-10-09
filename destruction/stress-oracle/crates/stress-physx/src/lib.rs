@@ -11,6 +11,18 @@
 //!    chunk shapes and the velocities the solver computed (`v + w x r` of the parent
 //!    plus the hidden deformation velocity, momentum-exact).
 //!
+//! **Correction passes.** PhysX resolves a contact against the whole rigid body that
+//! carries the struck chunk. If the structure breaks during the contact, that is the
+//! wrong body: a ram punching through a wall exchanges momentum with the plug it
+//! knocks out, not with the wall. So, as the native pipeline does
+//! (`docs/destruction/RESIMULATION.md`, `POST_CORRECTION_FRACTURE.md`), a frame may be
+//! re-solved: the motion is checkpointed, PhysX solves the tick (trial) and the stress
+//! solver evaluates the trial's actual impulses on a copy of its state; if bonds break
+//! and `correction_limit` allows, the motion is restored, the verdict is accepted at
+//! the start of the tick (fragments installed with their exact momentum) and the tick
+//! is solved again, so the contact now meets the fragment. The last pass's verdict is
+//! applied at its final motion without another solve.
+//!
 //! The engine-side fracture application here is shared by any implementation of
 //! [`StressSolverApi`]: swap the solver, keep this adapter.
 
@@ -23,6 +35,7 @@ use blast_stress_solver::backend::{
 use blast_stress_solver::backends::physx_backend::{PhysXWorld, PxBodyId, PxShapeId};
 use blast_stress_solver::types::Vec3 as PxVec3;
 use stress_ref::api::{ChildBody, ClusterId, ClusterMotion, ContactImpulse, EngineCoupledSolver, FrameInput, FrameOutput, StressSolverApi};
+use stress_ref::solver::SolverEvent;
 use stress_ref::math::{Pose, Quat, Vec3};
 use stress_ref::scene::{ImpactorShape, Scene};
 
@@ -66,6 +79,15 @@ pub struct PhysxDestruction {
     contacts: ContactBatch<PxShapeId>,
     /// Fractures applied so far.
     pub fractures: usize,
+    /// Correction passes allowed per frame (the native `internalCorrectionLimit`):
+    /// 0 never re-solves; N lets an impact break N failure fronts within one frame.
+    /// Off by default: see `tests/physx_integration.rs` for what it does and does not
+    /// fix (it cannot shorten a rigid contact, which hands over the whole-body impulse).
+    pub correction_limit: usize,
+    /// Correction passes used by the last frame.
+    pub last_corrections: usize,
+    /// Time window of a failure front: the longest wave transit across one chunk.
+    pub front_window: f64,
     /// Contact impulses handed to the stress solver in the last frame, and their total.
     pub last_contact_count: usize,
     pub last_contact_impulse: f64,
@@ -86,6 +108,9 @@ impl PhysxDestruction {
             body_mass: HashMap::new(),
             contacts: ContactBatch::default(),
             fractures: 0,
+            correction_limit: 0,
+            last_corrections: 0,
+            front_window: chunk_transit_time(scene),
             last_contact_count: 0,
             last_contact_impulse: 0.0,
         };
@@ -188,8 +213,64 @@ impl PhysxDestruction {
 
     /// Advance one frame of `dt`.
     pub fn step(&mut self, dt: f64) -> FrameOutput {
-        self.world.step(dt as f32);
+        let mut checkpoint = (self.correction_limit > 0).then(|| self.world.capture_motion(&[]).expect("motion snapshot"));
+        let mut accepted = FrameOutput::default();
+        let mut pass = 0;
+        loop {
+            self.world.step(dt as f32);
+            let input = self.frame_input(dt);
+            // Evaluate the trial's actual impulses on a copy of the stress state.
+            let mut trial = self.stress.clone();
+            let out = trial.step(&input);
+            let verdict = self.failure_front(&out.events);
+            if verdict.is_empty() || pass == self.correction_limit {
+                self.stress = trial;
+                for f in &out.fractures {
+                    self.apply_fracture(f.parent, &f.children);
+                }
+                accepted.fractures.extend(out.fractures);
+                accepted.events.extend(out.events);
+                break;
+            }
+            // Correction: rewind the motion, accept the first failure front at the start
+            // of the tick (fragments get their exact start-of-tick momentum), checkpoint
+            // the tick again with the fragments, and re-solve.
+            let token = checkpoint.take().expect("checkpoint taken when corrections are allowed");
+            self.world.restore_motion(token, &[]).expect("restore motion");
+            self.world.release_snapshot(token);
+            let split = self.stress.accept_verdict(&verdict);
+            for f in &split.fractures {
+                self.apply_fracture(f.parent, &f.children);
+            }
+            checkpoint = Some(self.world.capture_motion(&[]).expect("motion snapshot"));
+            accepted.fractures.extend(split.fractures);
+            accepted.events.extend(split.events);
+            pass += 1;
+        }
+        if let Some(token) = checkpoint {
+            self.world.release_snapshot(token);
+        }
+        self.last_corrections = pass;
+        accepted
+    }
 
+    /// The bonds of a trial that broke within one chunk wave-transit of the first: the
+    /// failure front the trial's impulses are right about. Everything after it was
+    /// computed with contacts against bodies that would no longer exist.
+    fn failure_front(&self, events: &[SolverEvent]) -> Vec<(usize, usize)> {
+        let broken: Vec<(f64, usize, usize)> = events
+            .iter()
+            .filter_map(|e| match e {
+                SolverEvent::Broken { time, structure, bond, .. } => Some((*time, *structure, *bond)),
+                _ => None,
+            })
+            .collect();
+        let Some(first) = broken.iter().map(|b| b.0).reduce(f64::min) else { return Vec::new() };
+        broken.iter().filter(|b| b.0 <= first + self.front_window).map(|b| (b.1, b.2)).collect()
+    }
+
+    /// The engine state after a PhysX step: cluster motion and contact impulses on chunks.
+    fn frame_input(&mut self, dt: f64) -> FrameInput {
         // Rigid state of every cluster body, from PhysX.
         let ids: Vec<(ClusterId, PxBodyId)> = self.bodies.iter().map(|(c, b)| (*c, *b)).collect();
         let mut states = BodyStateSoa::default();
@@ -239,14 +320,9 @@ impl PhysxDestruction {
                 });
             }
         }
-
         self.last_contact_count = contacts.len();
         self.last_contact_impulse = contacts.iter().map(|c| c.impulse.norm()).sum();
-        let out = self.stress.step(&FrameInput { dt, motion, contacts });
-        for f in &out.fractures {
-            self.apply_fracture(f.parent, &f.children);
-        }
-        out
+        FrameInput { dt, motion, contacts }
     }
 
     /// Replace the parent body by one body per child.
@@ -283,6 +359,20 @@ impl PhysxDestruction {
         self.world.read_bodies(&[self.impactors[index].body], &mut st);
         (rv(st.pose[0].translation), rv(st.linvel[0]))
     }
+}
+
+/// Longest time a bar wave takes to cross one chunk (along its largest dimension).
+fn chunk_transit_time(scene: &Scene) -> f64 {
+    let mut t: f64 = 0.0;
+    for b in &scene.bodies {
+        for c in &b.chunks {
+            let m = scene.material(&c.material);
+            let speed = (m.youngs_modulus * scene.sim.stiffness_scale / m.density).sqrt();
+            let size = 2.0 * c.half_extents.iter().copied().fold(0.0, f64::max);
+            t = t.max(size / speed);
+        }
+    }
+    t
 }
 
 /// Unit quaternion of an orthonormal rotation matrix.

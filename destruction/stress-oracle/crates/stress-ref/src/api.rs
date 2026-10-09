@@ -288,6 +288,7 @@ impl ContactLoadFilter {
 }
 
 /// The reference solver driven by an external rigid-body engine.
+#[derive(Clone)]
 pub struct EngineCoupledSolver {
     pub solver: ReferenceSolver,
     pub filter: ContactLoadFilter,
@@ -304,6 +305,32 @@ impl EngineCoupledSolver {
         s.solver.gravity_prestress();
         s.solver.mark_implicit_step_start();
         s
+    }
+
+    /// Accept a fracture verdict at the current (start-of-tick) state: break the given
+    /// bonds, split, and return the resulting fractures for the engine to install
+    /// before it re-solves the tick (a correction pass).
+    pub fn accept_verdict(&mut self, bonds: &[(usize, usize)]) -> FrameOutput {
+        let n_events = self.solver.events.len();
+        self.solver.break_bonds(bonds);
+        self.output_since(n_events)
+    }
+
+    /// Fractures and events recorded since event index `n_events`.
+    fn output_since(&self, n_events: usize) -> FrameOutput {
+        let events: Vec<SolverEvent> = self.solver.events[n_events..].to_vec();
+        let mut fractures = Vec::new();
+        for e in &events {
+            if let SolverEvent::Split { parent, children, .. } = e {
+                let kids = children
+                    .iter()
+                    .filter_map(|id| self.solver.clusters.iter().position(|c| c.id == *id))
+                    .map(|ci| self.child_body(ci))
+                    .collect();
+                fractures.push(Fracture { parent: *parent, children: kids });
+            }
+        }
+        FrameOutput { fractures, events }
     }
 
     fn child_body(&self, ci: usize) -> ChildBody {
@@ -362,19 +389,7 @@ impl StressSolverApi for EngineCoupledSolver {
                 self.solver.substep(h, &self.loads);
             }
         }
-        let events: Vec<SolverEvent> = self.solver.events[n_events..].to_vec();
-        let mut fractures = Vec::new();
-        for e in &events {
-            if let SolverEvent::Split { parent, children, .. } = e {
-                let kids = children
-                    .iter()
-                    .filter_map(|id| self.solver.clusters.iter().position(|c| c.id == *id))
-                    .map(|ci| self.child_body(ci))
-                    .collect();
-                fractures.push(Fracture { parent: *parent, children: kids });
-            }
-        }
-        FrameOutput { fractures, events }
+        self.output_since(n_events)
     }
 
     fn clusters(&self) -> Vec<ChildBody> {
