@@ -4,7 +4,7 @@
 //! Run with `PHYSX_ROOT=<PhysX SDK install> cargo test --release -p stress-physx`.
 
 use stress_physx::PhysxDestruction;
-use stress_ref::api::StressSolverApi;
+use stress_ref::api::{ImpactModel, StressSolverApi};
 use stress_ref::builders::*;
 use stress_ref::math::Vec3;
 use stress_ref::scene::*;
@@ -41,28 +41,37 @@ fn wall_and_ram(supported: bool, gravity: bool, speed: f64) -> Scene {
     s
 }
 
+/// A free wall hit at 40 m/s: it fractures into new PhysX bodies and momentum is
+/// conserved. Run with the impact as a Hertz pulse in the explicit solve, and as the
+/// review's recommended pipeline: impulse as a velocity condition, one implicit step
+/// per frame at true stiffness.
 #[test]
 fn physx_impact_fractures_the_wall_into_new_bodies_and_conserves_momentum() {
-    let scene = wall_and_ram(false, false, 40.0);
-    let Some(mut sim) = PhysxDestruction::new(&scene) else {
-        eprintln!("PhysX CPU scene unavailable; skipping");
-        return;
-    };
-    let p0 = sim.momentum();
-    assert!((p0 - Vec3::new(0.0, 8000.0, 0.0)).norm() < 1.0, "initial momentum {p0:?}");
-    let mut broken = false;
-    for _ in 0..30 {
-        let out = sim.step(1.0 / 60.0);
-        broken |= !out.fractures.is_empty();
+    for (model, mode) in [(ImpactModel::Pulse, SolveMode::Explicit), (ImpactModel::VelocityCondition, SolveMode::Implicit)] {
+        let mut scene = wall_and_ram(false, false, 40.0);
+        scene.sim.solve_mode = mode;
+        let Some(mut sim) = PhysxDestruction::new(&scene) else {
+            eprintln!("PhysX CPU scene unavailable; skipping");
+            return;
+        };
+        sim.stress.filter.impact_model = model;
+        let p0 = sim.momentum();
+        assert!((p0 - Vec3::new(0.0, 8000.0, 0.0)).norm() < 1.0, "initial momentum {p0:?}");
+        let mut broken = false;
+        for _ in 0..30 {
+            let out = sim.step(1.0 / 60.0);
+            broken |= !out.fractures.is_empty();
+        }
+        let label = format!("{model:?} {mode:?}");
+        assert!(broken, "{label}: the impact should fracture the wall");
+        assert!(sim.cluster_bodies() > 1, "{label}: fragments become separate PhysX bodies");
+        let p1 = sim.momentum();
+        println!("{label}: momentum {p0:?} -> {p1:?}, bodies {}", sim.cluster_bodies());
+        // PhysX contacts and the solver's splits both conserve momentum (PhysX in f32).
+        assert!((p1 - p0).norm() < 0.02 * p0.norm(), "{label}: momentum {p1:?} vs {p0:?}");
+        let reports = sim.stress.solver.bonds[0].iter().filter(|b| !b.connected()).count();
+        assert!(reports > 0, "{label}");
     }
-    assert!(broken, "the impact should fracture the wall");
-    assert!(sim.cluster_bodies() > 1, "fragments become separate PhysX bodies");
-    let p1 = sim.momentum();
-    println!("momentum {p0:?} -> {p1:?}, bodies {}", sim.cluster_bodies());
-    // PhysX contacts and the solver's splits both conserve momentum (PhysX in f32).
-    assert!((p1 - p0).norm() < 0.02 * p0.norm(), "momentum {p1:?} vs {p0:?}");
-    let reports = sim.stress.solver.bonds[0].iter().filter(|b| !b.connected()).count();
-    assert!(reports > 0);
 }
 
 #[test]

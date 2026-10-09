@@ -253,6 +253,17 @@ All results below are from this revision (`cargo test --release`, `stress-ref ch
   (`ImpactModel::VelocityCondition`), which is momentum exact in both modes; the
   struck beam breaks into 3 (pulse), 4 (velocity condition, explicit) or 6 pieces
   (velocity condition, implicit at the frame step).
+* **The engine's impulse is the weak link for punch-through**: a 200 kg ram at
+  40 m/s into a free 528 kg concrete wall. The reference world (contact resolved at
+  the substep against individual chunks, which break off during the contact) leaves
+  the ram at 35 m/s (about 1000 N s transferred) and 6 fragments. Through PhysX the
+  contact is resolved against the whole rigid wall and transfers several times that
+  impulse; the stress solver then makes 24 bodies (Hertz pulse) or 184 (velocity
+  condition, implicit). Momentum is exact in every case — what differs is how much
+  of it the engine hands over. Feeding fracture back into the contact within the
+  frame (or resolving impactor contact against the struck chunks' effective mass) is
+  what the engine path needs for local failure; `tests/physx_integration.rs` runs
+  both impact models end to end.
 * **Mass scaling** keeps statics exact and cuts substeps, but on uniform chunks every
   chunk is critical: 4x the step on the 40-chunk cantilever costs 15x the mass.
 
