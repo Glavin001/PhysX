@@ -342,6 +342,9 @@ pub enum SolveMode {
     Adaptive,
     /// Quasi-static equilibrium every frame with same-step cascade (no inertia in the stress solve).
     QuasiStatic,
+    /// One implicit Newmark (average acceleration) step per frame: inertia and true
+    /// stiffness at the frame step; failures cascade over steps (see `implicit.rs`).
+    Implicit,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -382,6 +385,15 @@ pub struct SimDesc {
     /// Contact friction: the smaller of the two materials' `friction`, unless overridden.
     #[serde(default)]
     pub contact_friction: Option<f64>,
+    /// Selective mass scaling (explicit solve): chunks whose stable substep is below
+    /// this get extra deformation inertia to reach it (an alternative to lowering
+    /// `stiffness_scale`; see `ReferenceSolver::apply_mass_scaling`).
+    #[serde(default)]
+    pub mass_scaling_dt: Option<f64>,
+    /// `SolveMode::Implicit`: the implicit step (defaults to `frame_dt`). It must resolve
+    /// the periods whose dynamics matter (about 10 steps per period for a few percent).
+    #[serde(default)]
+    pub implicit_dt: Option<f64>,
     /// Model capabilities (all on by default); switch one off to see what it contributes.
     #[serde(default)]
     pub features: Features,
@@ -509,6 +521,8 @@ impl Default for SimDesc {
             refine_utilization: None,
             contact_restitution: default_restitution(),
             contact_friction: None,
+            implicit_dt: None,
+            mass_scaling_dt: None,
             features: Features::default(),
         }
     }

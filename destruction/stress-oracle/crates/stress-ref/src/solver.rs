@@ -120,6 +120,14 @@ pub struct ChunkState {
     pub th: Vec3,
     pub v: Vec3,
     pub w: Vec3,
+    /// Multiplier on the chunk's deformation inertia (selective mass scaling; 1 = none).
+    pub inertia_scale: f64,
+    /// `SolveMode::Implicit` only: hidden accelerations of the last implicit step, and
+    /// the hidden state at its end (the next step starts from it; between steps `u`,
+    /// `th`, `v`, `w` hold the predictor, see `implicit.rs`).
+    pub a: Vec3,
+    pub alpha: Vec3,
+    pub step_start: [Vec3; 4],
     /// Represented in the simulation (not removed, and on the current refinement level).
     pub active: bool,
     pub removed: bool,
@@ -254,9 +262,30 @@ impl ChunkLoads {
         self.force = solver.structures.iter().map(|s| vec![Vec3::ZERO; s.chunks.len()]).collect();
         self.torque = self.force.clone();
     }
+    /// Resize (zeroed) only if the solver's chunk counts differ; keeps the values otherwise.
+    pub fn ensure_shape(&mut self, solver: &ReferenceSolver) {
+        let same = self.force.len() == solver.structures.len()
+            && self.force.iter().zip(&solver.structures).all(|(f, s)| f.len() == s.chunks.len());
+        if !same {
+            self.resize(solver);
+        }
+    }
     pub fn clear(&mut self) {
         self.force.iter_mut().flatten().for_each(|f| *f = Vec3::ZERO);
         self.torque.iter_mut().flatten().for_each(|f| *f = Vec3::ZERO);
+    }
+    /// `self += other * k`.
+    pub fn add_scaled(&mut self, other: &ChunkLoads, k: f64) {
+        for (a, b) in self.force.iter_mut().flatten().zip(other.force.iter().flatten()) {
+            *a += *b * k;
+        }
+        for (a, b) in self.torque.iter_mut().flatten().zip(other.torque.iter().flatten()) {
+            *a += *b * k;
+        }
+    }
+    pub fn scale(&mut self, k: f64) {
+        self.force.iter_mut().flatten().for_each(|f| *f *= k);
+        self.torque.iter_mut().flatten().for_each(|f| *f *= k);
     }
     /// Add a world force applied at world point `at` on a chunk centred at `center`.
     pub fn add_at(&mut self, structure: usize, chunk: usize, force: Vec3, at: Vec3, center: Vec3) {
@@ -314,7 +343,7 @@ impl ReferenceSolver {
             let chunks: Vec<ChunkState> = s
                 .chunks
                 .iter()
-                .map(|c| ChunkState { active: c.level == 0, ..Default::default() })
+                .map(|c| ChunkState { active: c.level == 0, inertia_scale: 1.0, ..Default::default() })
                 .collect();
             let bonds: Vec<RtBond> =
                 s.bonds.iter().enumerate().filter(|(_, b)| b.level == 0).map(|(i, b)| RtBond::from_static(i, b)).collect();
@@ -535,9 +564,10 @@ impl ReferenceSolver {
 
     // ------------------------------------------------------------------ timestep
 
-    /// Gershgorin bound on the highest natural frequency (rad/s) of a cluster's
-    /// deformation, with every bond at full stiffness (damage only lowers it).
-    pub fn max_frequency(&self, ci: usize) -> f64 {
+    /// Gershgorin bound on each chunk's squared natural frequency (rad^2/s^2) in a
+    /// cluster, with every bond at full stiffness (damage only lowers it) and the
+    /// chunk's (possibly scaled) deformation inertia. Returns `(chunk, omega^2)`.
+    pub fn chunk_frequencies(&self, ci: usize) -> Vec<(usize, f64)> {
         let cl = &self.clusters[ci];
         let s = cl.structure;
         let st = &self.structures[s];
@@ -570,16 +600,49 @@ impl ReferenceSolver {
                 }
             }
         }
-        let mut w2: f64 = 0.0;
-        for &c in &cl.chunks {
-            let ch = &st.chunks[c];
-            let i_min = smallest_principal_moment(&ch.inertia);
-            for d in 0..3 {
-                w2 = w2.max(row[c][d] / ch.mass);
-                w2 = w2.max(row[c][3 + d] / i_min);
+        cl.chunks
+            .iter()
+            .map(|&c| {
+                let ch = &st.chunks[c];
+                let mu = self.chunks[s][c].inertia_scale;
+                let i_min = smallest_principal_moment(&ch.inertia);
+                let w2 = (0..3).map(|d| (row[c][d] / ch.mass).max(row[c][3 + d] / i_min)).fold(0.0, f64::max);
+                (c, w2 / mu)
+            })
+            .collect()
+    }
+
+    /// Gershgorin bound on the highest natural frequency (rad/s) of a cluster's deformation.
+    pub fn max_frequency(&self, ci: usize) -> f64 {
+        self.chunk_frequencies(ci).iter().map(|&(_, w2)| w2).fold(0.0, f64::max).sqrt()
+    }
+
+    /// Selective mass scaling (explicit solve): give every chunk whose own stable
+    /// substep is below `target_dt` just enough extra *deformation* inertia to reach it
+    /// (`mu = (target / dt_chunk)^2`), as explicit FE codes do instead of softening the
+    /// material. Stiffness, strengths, loads and rigid-body masses stay physical; only
+    /// the response of the smallest chunks to fast loading is slowed. Returns the added
+    /// mass as a fraction of the total.
+    pub fn apply_mass_scaling(&mut self, target_dt: f64) -> f64 {
+        let safety = self.config.courant_safety;
+        let mut added = 0.0;
+        let mut total = 0.0;
+        for ci in 0..self.clusters.len() {
+            let s = self.clusters[ci].structure;
+            for (c, w2) in self.chunk_frequencies(ci) {
+                let dt_chunk = if w2 > 0.0 { 2.0 * safety / w2.sqrt() } else { f64::INFINITY };
+                let state = &mut self.chunks[s][c];
+                state.inertia_scale *= (target_dt / dt_chunk).powi(2).max(1.0);
+                let m = self.structures[s].chunks[c].mass;
+                added += (state.inertia_scale - 1.0) * m;
+                total += m;
             }
         }
-        w2.sqrt()
+        if total > 0.0 {
+            added / total
+        } else {
+            0.0
+        }
     }
 
     /// Largest stable explicit substep over all active clusters (with damping and safety).
@@ -615,12 +678,15 @@ impl ReferenceSolver {
         for ci in 0..self.clusters.len() {
             let explicit = match self.config.mode {
                 SolveMode::Explicit => true,
-                SolveMode::QuasiStatic => false,
+                SolveMode::QuasiStatic | SolveMode::Implicit => false,
                 SolveMode::Adaptive => self.clusters[ci].activity == Activity::Active,
             };
             if explicit {
                 self.substep_cluster(ci, dt, loads, t_mid);
             } else {
+                if self.config.mode == SolveMode::Implicit {
+                    self.implicit_predict(ci, dt, loads, t_mid);
+                }
                 self.advance_rigid_only(ci, dt, loads);
             }
         }
@@ -762,9 +828,7 @@ impl ReferenceSolver {
             self.energy.softening_overshoot += resp.overshoot;
             self.max_utilization = self.max_utilization.max(resp.state.utilization);
             let (fa, ma, fb, mb) = b.geometry.chunk_loads(&q);
-            let prev_damage = b.joint.damage + b.joint.crush;
-            let prev_fatigue = fatigue_factor(&b.strength, &b.joint);
-            let (pos, normal) = (b.geometry.centroid, b.geometry.normal);
+            let previous = b.joint.clone();
             let bm = &mut self.bonds[s][bi];
             bm.joint = resp.state;
             bm.force = q;
@@ -774,30 +838,8 @@ impl ReferenceSolver {
             self.f_int[s][ga].1 += ma;
             self.f_int[s][gb].0 += fb;
             self.f_int[s][gb].1 += mb;
-            if prev_damage == 0.0 && bm.joint.damage + bm.joint.crush > 0.0 {
-                let mode = bm.joint.mode;
-                let p = self.clusters[ci].pose.transform_point(pos);
-                self.events.push(SolverEvent::Cracked { time: t, structure: s, bond: bi, mode, position: p.to_array() });
-            }
-            let bm = &self.bonds[s][bi];
-            if prev_fatigue > CREAK_STRENGTH && fatigue_factor(&bm.strength, &bm.joint) <= CREAK_STRENGTH {
-                let p = self.clusters[ci].pose.transform_point(pos);
-                self.events.push(SolverEvent::Creaked { time: t, structure: s, bond: bi, position: p.to_array() });
-            }
-            if resp.disconnected {
-                let cl = &self.clusters[ci];
-                self.events.push(SolverEvent::Broken {
-                    time: t,
-                    structure: s,
-                    bond: bi,
-                    mode: bm.joint.mode,
-                    position: cl.pose.transform_point(pos).to_array(),
-                    normal: cl.pose.transform_vector(normal).to_array(),
-                    dissipated: bm.joint.dissipated,
-                });
-                if !self.pending_split.contains(&ci) {
-                    self.pending_split.push(ci);
-                }
+            if self.record_bond_events(ci, bi, &previous, resp.disconnected, t) && !self.pending_split.contains(&ci) {
+                self.pending_split.push(ci);
             }
         }
         self.energy.bond_dissipation += dissipated;
@@ -824,12 +866,12 @@ impl ReferenceSolver {
                 Support::Pinned => {
                     st.reaction = (-(f_ext + fi), Vec3::ZERO);
                     st.v = Vec3::ZERO;
-                    st.w += ch.inv_inertia * (m_ext + mi) * dt;
+                    st.w += ch.inv_inertia * (m_ext + mi) * (dt / st.inertia_scale);
                     st.th += st.w * dt;
                 }
                 Support::None => {
-                    st.v += (f_ext + fi) * (dt / ch.mass);
-                    st.w += ch.inv_inertia * (m_ext + mi) * dt;
+                    st.v += (f_ext + fi) * (dt / (ch.mass * st.inertia_scale));
+                    st.w += ch.inv_inertia * (m_ext + mi) * (dt / st.inertia_scale);
                     st.u += st.v * dt;
                     st.th += st.w * dt;
                 }
@@ -847,6 +889,38 @@ impl ReferenceSolver {
         }
     }
 
+    /// Emit the events of bond `bi` (in cluster `ci`) changing from `previous` to its
+    /// current state at time `t`: first damage (`Cracked`), first percent of strength
+    /// lost to static fatigue (`Creaked`), disconnection (`Broken`). Returns whether the
+    /// bond disconnected (the cluster must then be split).
+    pub(crate) fn record_bond_events(&mut self, ci: usize, bi: usize, previous: &JointState, disconnected: bool, t: f64) -> bool {
+        let s = self.clusters[ci].structure;
+        let b = &self.bonds[s][bi];
+        let pose = self.clusters[ci].pose;
+        let position = pose.transform_point(b.geometry.centroid).to_array();
+        if !previous.is_damaged() && b.joint.is_damaged() {
+            let mode = b.joint.mode;
+            self.events.push(SolverEvent::Cracked { time: t, structure: s, bond: bi, mode, position });
+        }
+        let b = &self.bonds[s][bi];
+        if fatigue_factor(&b.strength, previous) > CREAK_STRENGTH && fatigue_factor(&b.strength, &b.joint) <= CREAK_STRENGTH {
+            self.events.push(SolverEvent::Creaked { time: t, structure: s, bond: bi, position });
+        }
+        let b = &self.bonds[s][bi];
+        if disconnected {
+            self.events.push(SolverEvent::Broken {
+                time: t,
+                structure: s,
+                bond: bi,
+                mode: b.joint.mode,
+                position,
+                normal: pose.transform_vector(b.geometry.normal).to_array(),
+                dissipated: b.joint.dissipated,
+            });
+        }
+        disconnected
+    }
+
     /// Keep the floating frame on the cluster (a mean-axis frame): fold the best-fit
     /// rigid translation and rotation of the hidden displacements into the cluster pose,
     /// and the net linear and angular momentum of the hidden velocities into its rigid
@@ -858,29 +932,48 @@ impl ReferenceSolver {
     /// spinning body. Moving only the velocities (not the rotation) is inconsistent too:
     /// the hidden field then integrates the opposite rotation. Under an engine (which owns
     /// rigid motion) the hidden rigid motion is removed instead.
-    fn remove_rigid_drift(&mut self, ci: usize) {
+    pub(crate) fn remove_rigid_drift(&mut self, ci: usize) {
         let cl = &self.clusters[ci];
         let s = cl.structure;
         let st = &self.structures[s];
-        let inv_i = cl.inertia.inverse().expect("invertible");
+        // Deformation-inertia weights (true masses unless mass scaling is on): the
+        // frame follows the hidden field's momentum under the inertia that integrates it.
+        let weight = |c: usize| self.chunks[s][c].inertia_scale;
+        let scaled = cl.chunks.iter().any(|&c| weight(c) != 1.0);
+        let (mass, com, inertia) = if scaled {
+            let mass: f64 = cl.chunks.iter().map(|&c| st.chunks[c].mass * weight(c)).sum();
+            let com = cl.chunks.iter().map(|&c| st.chunks[c].center * (st.chunks[c].mass * weight(c))).fold(Vec3::ZERO, |a, b| a + b)
+                / mass;
+            let mut inertia = Mat3::ZERO;
+            for &c in &cl.chunks {
+                let ch = &st.chunks[c];
+                let r = ch.center - com;
+                inertia += (ch.inertia + (Mat3::IDENTITY * r.norm2() - Mat3::outer(r, r)) * ch.mass) * weight(c);
+            }
+            (mass, com, inertia)
+        } else {
+            (cl.mass, cl.com, cl.inertia)
+        };
+        let inv_i = inertia.inverse().expect("invertible");
         let (mut tu, mut pv) = (Vec3::ZERO, Vec3::ZERO);
         for &c in &cl.chunks {
-            let m = st.chunks[c].mass;
+            let m = st.chunks[c].mass * weight(c);
             tu += self.chunks[s][c].u * m;
             pv += self.chunks[s][c].v * m;
         }
-        let (t, dv) = (tu / cl.mass, pv / cl.mass);
+        let (t, dv) = (tu / mass, pv / mass);
         let (mut lu, mut lv) = (Vec3::ZERO, Vec3::ZERO);
         for &c in &cl.chunks {
             let ch = &st.chunks[c];
             let cs = &self.chunks[s][c];
-            let r = ch.center - cl.com;
-            lu += r.cross(cs.u - t) * ch.mass + ch.inertia * cs.th;
-            lv += r.cross(cs.v - dv) * ch.mass + ch.inertia * cs.w;
+            let r = ch.center - com;
+            let k = weight(c);
+            lu += (r.cross(cs.u - t) * ch.mass + ch.inertia * cs.th) * k;
+            lv += (r.cross(cs.v - dv) * ch.mass + ch.inertia * cs.w) * k;
         }
         let (phi, dw) = (inv_i * lu, inv_i * lv);
         let chunks = cl.chunks.clone();
-        let com = cl.com;
+        let true_com = cl.com;
         for c in chunks {
             let r = st.chunks[c].center - com;
             let cs = &mut self.chunks[s][c];
@@ -894,7 +987,8 @@ impl ReferenceSolver {
             let rot = cl.pose.rotation;
             cl.pose.position += rot.rotate(t - phi.cross(com));
             cl.pose.rotation = (rot * Quat::from_axis_angle(phi, phi.norm())).normalized();
-            cl.velocity += rot.rotate(dv);
+            // The removed velocity field `dv + dw x (x - com)` evaluated at the true com.
+            cl.velocity += rot.rotate(dv + dw.cross(true_com - com));
             cl.angular_velocity += rot.rotate(dw);
         }
     }

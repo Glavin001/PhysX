@@ -93,6 +93,9 @@ pub struct World {
     pub frame: u64,
     loads: ChunkLoads,
     frame_loads: ChunkLoads,
+    /// Implicit mode: time-integrated loads since the last implicit step, and that time.
+    implicit_loads: ChunkLoads,
+    implicit_elapsed: f64,
     events_done: Vec<bool>,
     probes: Vec<ProbeAcc>,
     next_sample: f64,
@@ -104,6 +107,11 @@ pub struct World {
     topology_version: u64,
     blast_caches: Vec<Option<BlastCache>>,
     contact_dt: f64,
+    /// Implicit mode: the last step's solver report and the worst residual so far.
+    pub implicit_report: crate::implicit::ImplicitReport,
+    pub implicit_worst_residual: f64,
+    /// Mass added by selective mass scaling, as a fraction of the total.
+    pub added_mass_fraction: f64,
     /// Contact force magnitude received by each chunk during the current substep.
     contact_hits: Vec<Vec<f64>>,
     /// Pre-existing overlap per sample point of chunk pairs in contact (NaN = point not
@@ -183,6 +191,8 @@ impl World {
         let contact_hits = solver.structures.iter().map(|s| vec![0.0; s.chunks.len()]).collect();
         let mut w = World {
             frame_loads: loads.clone(),
+            implicit_loads: loads.clone(),
+            implicit_elapsed: 0.0,
             loads,
             impactors,
             contact: ContactLedger::default(),
@@ -197,14 +207,21 @@ impl World {
             topology_version: 0,
             blast_caches: vec![None; scene.loads.len()],
             contact_dt: f64::INFINITY,
+            added_mass_fraction: 0.0,
+            implicit_report: Default::default(),
+            implicit_worst_residual: 0.0,
             contact_hits,
             pair_offsets: Default::default(),
             pairs_seen: Default::default(),
             scene: scene.clone(),
             solver,
         };
+        if let Some(target) = scene.sim.mass_scaling_dt {
+            w.added_mass_fraction = w.solver.apply_mass_scaling(target);
+        }
         w.contact_dt = w.contact_stable_dt();
         w.prestress();
+        w.solver.mark_implicit_step_start();
         w.record_probes(true);
         w
     }
@@ -258,8 +275,9 @@ impl World {
                     .map(|axis| contact_stiffness(self.chunk_material(s, c), &b, stiffest, &b, ch.rotation.col(axis), scale))
                     .fold(0.0, f64::max);
                 // A face pair engages ~10 sample points of k/10 each (total k); a chunk
-                // buried in rubble can touch on all six faces.
-                w2 = w2.max(6.0 * k / ch.mass);
+                // buried in rubble can touch on all six faces. Contact loads drive the
+                // chunk's deformation inertia (scaled under mass scaling).
+                w2 = w2.max(6.0 * k / (ch.mass * self.solver.chunks[s][c].inertia_scale));
             }
         }
         for imp in &self.impactors {
@@ -280,7 +298,13 @@ impl World {
 
     /// The substep used for the next frame.
     pub fn substep_dt(&self) -> f64 {
-        let mut dt = self.solver.stable_dt().min(self.contact_dt).min(self.scene.sim.frame_dt);
+        // The implicit stress step is unconditionally stable: only contacts limit the substep.
+        let stress_dt = if self.scene.sim.solve_mode == SolveMode::Implicit {
+            self.scene.sim.implicit_dt.unwrap_or(f64::INFINITY)
+        } else {
+            self.solver.stable_dt()
+        };
+        let mut dt = stress_dt.min(self.contact_dt).min(self.scene.sim.frame_dt);
         if let Some(m) = self.scene.sim.max_substep {
             dt = dt.min(m);
         }
@@ -825,16 +849,14 @@ impl World {
         let n = (self.scene.sim.frame_dt / dt).round().max(1.0) as usize;
         self.frame_loads.resize(&self.solver);
         let splits_before = self.solver.events.len();
-        for _ in 0..n {
+        for i in 0..n {
             self.substep(dt);
             let mut fl = std::mem::take(&mut self.frame_loads);
-            for s in 0..fl.force.len() {
-                for c in 0..fl.force[s].len() {
-                    fl.force[s][c] += self.loads.force[s][c] * (1.0 / n as f64);
-                    fl.torque[s][c] += self.loads.torque[s][c] * (1.0 / n as f64);
-                }
-            }
+            fl.add_scaled(&self.loads, 1.0 / n as f64);
             self.frame_loads = fl;
+            if self.scene.sim.solve_mode == SolveMode::Implicit {
+                self.accumulate_implicit(dt, i + 1 == n);
+            }
         }
         self.frame += 1;
         if self.solver.events.len() != splits_before {
@@ -848,12 +870,40 @@ impl World {
                 self.solver.solve_static_all(&fl, &opts, self.scene.sim.frame_dt);
                 self.topology_version += 1;
             }
+            SolveMode::Implicit => {}
             SolveMode::Adaptive => self.settle_quiet_clusters(),
         }
         if let Some(u) = self.scene.sim.refine_utilization {
             self.refine_where_needed(u);
+            self.solver.mark_implicit_step_start();
         }
         self.frame_loads.clear();
+    }
+
+    /// Implicit mode: integrate this substep's loads and take an implicit step once
+    /// `sim.implicit_dt` (or the frame) has elapsed, with the average loads since the last.
+    fn accumulate_implicit(&mut self, dt: f64, frame_end: bool) {
+        self.implicit_loads.ensure_shape(&self.solver);
+        let mut acc = std::mem::take(&mut self.implicit_loads);
+        acc.add_scaled(&self.loads, dt);
+        self.implicit_loads = acc;
+        self.implicit_elapsed += dt;
+        let step = self.scene.sim.implicit_dt.unwrap_or(self.scene.sim.frame_dt);
+        if self.implicit_elapsed < step * (1.0 - 1e-9) && !frame_end {
+            return;
+        }
+        let elapsed = self.implicit_elapsed;
+        let mut average = std::mem::take(&mut self.implicit_loads);
+        average.scale(1.0 / elapsed);
+        let events = self.solver.events.len();
+        self.implicit_report = self.solver.implicit_step_all(&average, elapsed);
+        self.implicit_worst_residual = self.implicit_worst_residual.max(self.implicit_report.residual);
+        if self.solver.events.len() != events {
+            self.topology_version += 1;
+        }
+        average.clear();
+        self.implicit_loads = average;
+        self.implicit_elapsed = 0.0;
     }
 
     /// Adaptive mode: clusters whose last dynamic load is older than `active_time` and
@@ -1192,6 +1242,12 @@ impl World {
         obs.values.insert("softening_overshoot".into(), self.solver.energy.softening_overshoot);
         obs.values.insert("split_release".into(), self.solver.energy.split_release);
         obs.values.insert("crush_energy".into(), self.contact.crush);
+        if self.scene.sim.solve_mode == SolveMode::Implicit {
+            obs.values.insert("implicit_worst_residual".into(), self.implicit_worst_residual);
+        }
+        if self.added_mass_fraction > 0.0 {
+            obs.values.insert("added_mass_fraction".into(), self.added_mass_fraction);
+        }
         obs
     }
 

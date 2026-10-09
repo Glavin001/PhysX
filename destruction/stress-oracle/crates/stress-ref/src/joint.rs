@@ -587,8 +587,63 @@ impl<'a> JointModel<'a> {
         JointResponse { force, state: st, dissipated, overshoot, stored, disconnected, measures }
     }
 
+    /// Per-component tangent stiffness factors (relative to the elastic stiffness) at
+    /// displacement `d`, for the Newton iterations of the static and implicit solves:
+    /// the intact share at full stiffness (compression degraded by crushing), the
+    /// cracked share as the contact patch's *active* springs (compressed springs only,
+    /// their bending lever arms; sliding friction contributes no shear stiffness), plus
+    /// rebar. The diagonal (component-wise) form drops the normal-bending coupling of a
+    /// partly open patch; the line search covers the difference.
+    pub fn tangent_factors(&self, state: &JointState, d: &Local6) -> Local6 {
+        let k = self.stiffness;
+        let s = self.strength;
+        let g = self.geometry;
+        let dmg = state.damage;
+        let normal_intact = if d.lin.z > 0.0 { 1.0 } else { 1.0 - state.crush };
+        let mut f = Local6 { lin: Vec3::new(1.0 - dmg, 1.0 - dmg, (1.0 - dmg) * normal_intact), ang: Vec3::splat(1.0 - dmg) };
+        if dmg > 0.0 && s.crack_contact {
+            let n = CONTACT_SPRINGS;
+            let ki = k.kn * (1.0 - state.crush) / (n * n) as f64;
+            let (mut kn, mut kb1, mut kb2, mut nc) = (0.0, 0.0, 0.0, 0.0);
+            for a in 0..n {
+                let s1 = ((a as f64 + 0.5) / n as f64 - 0.5) * g.width[0];
+                for b in 0..n {
+                    let s2 = ((b as f64 + 0.5) / n as f64 - 0.5) * g.width[1];
+                    let di = d.lin.z + d.ang.x * s2 - d.ang.y * s1;
+                    if di < 0.0 {
+                        kn += ki;
+                        kb1 += ki * s2 * s2;
+                        kb2 += ki * s1 * s1;
+                        nc -= ki * di;
+                    }
+                }
+            }
+            // Shear and torsion stick (full stiffness) unless the friction limit is reached.
+            let p: Local6 = state.plastic.into();
+            let shear_trial = k.ks * Vec3::new(d.lin.x - p.lin.x, d.lin.y - p.lin.y, 0.0).norm();
+            let sticks = |trial: f64, cap: f64| if nc > 0.0 && trial <= cap { 1.0 } else { 0.0 };
+            let shear = sticks(shear_trial, s.friction * nc);
+            let twist = sticks(k.kt * (d.ang.z - p.ang.z).abs(), s.friction * nc * g.friction_radius);
+            f.lin.x += dmg * shear;
+            f.lin.y += dmg * shear;
+            f.lin.z += dmg * kn / k.kn;
+            f.ang.x += dmg * kb1 / k.kb_t1;
+            f.ang.y += dmg * kb2 / k.kb_t2;
+            f.ang.z += dmg * twist;
+        }
+        if let Some(rb) = self.rebar {
+            if !state.rebar_broken {
+                f.lin.z += rb.k_axial / k.kn;
+                f.lin.x += rb.k_dowel / k.ks;
+                f.lin.y += rb.k_dowel / k.ks;
+            }
+        }
+        let floor = |x: f64| x.max(1e-6);
+        Local6 { lin: Vec3::new(floor(f.lin.x), floor(f.lin.y), floor(f.lin.z)), ang: Vec3::new(floor(f.ang.x), floor(f.ang.y), floor(f.ang.z)) }
+    }
+
     /// Per-component secant stiffness factors at the given state (used for the
-    /// damping dashpots and the quasi-static operator). Floored to stay positive.
+    /// damping dashpots). Floored to stay positive.
     pub fn secant_factors(&self, state: &JointState, d: &Local6) -> Local6 {
         let dmg = state.damage;
         let compressed = d.lin.z < 0.0;

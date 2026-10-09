@@ -15,26 +15,26 @@ use crate::math::Vec3;
 use crate::scene::Support;
 use crate::solver::{Activity, ChunkLoads, ReferenceSolver};
 
-type V6 = [f64; 6];
+pub(crate) type V6 = [f64; 6];
 
-fn dot6(a: &[V6], b: &[V6]) -> f64 {
+pub(crate) fn dot6(a: &[V6], b: &[V6]) -> f64 {
     a.iter().zip(b).map(|(x, y)| (0..6).map(|i| x[i] * y[i]).sum::<f64>()).sum()
 }
 
-fn split(v: &V6) -> (Vec3, Vec3) {
+pub(crate) fn split(v: &V6) -> (Vec3, Vec3) {
     (Vec3::new(v[0], v[1], v[2]), Vec3::new(v[3], v[4], v[5]))
 }
 
-fn join(a: Vec3, b: Vec3) -> V6 {
+pub(crate) fn join(a: Vec3, b: Vec3) -> V6 {
     [a.x, a.y, a.z, b.x, b.y, b.z]
 }
 
 /// Dense symmetric 6x6 block with an in-place Cholesky inverse.
 #[derive(Clone, Copy)]
-struct Block6([[f64; 6]; 6]);
+pub(crate) struct Block6(pub(crate) [[f64; 6]; 6]);
 
 impl Block6 {
-    fn zero() -> Block6 {
+    pub(crate) fn zero() -> Block6 {
         Block6([[0.0; 6]; 6])
     }
     fn add_outer(&mut self, k: f64, v: &V6) {
@@ -93,13 +93,62 @@ impl Block6 {
         }
         inv
     }
-    fn mul(&self, v: &V6) -> V6 {
+    pub(crate) fn mul(&self, v: &V6) -> V6 {
         let mut o = [0.0; 6];
         for (i, oi) in o.iter_mut().enumerate() {
             *oi = (0..6).map(|j| self.0[i][j] * v[j]).sum();
         }
         o
     }
+}
+
+/// Preconditioned conjugate gradient for an SPD operator: solves `A x = r0` to a
+/// relative residual `tol`; returns (x, iterations). Stops early if the operator
+/// shows a non-positive curvature (the caller's Newton loop then re-linearises).
+pub(crate) fn pcg_solve(
+    apply: impl Fn(&[V6]) -> Vec<V6>,
+    precondition: impl Fn(&[V6]) -> Vec<V6>,
+    r0: &[V6],
+    tol: f64,
+) -> (Vec<V6>, usize) {
+    let n = r0.len();
+    let mut x = vec![[0.0; 6]; n];
+    let mut r = r0.to_vec();
+    let norm0 = dot6(&r, &r).sqrt();
+    if norm0 == 0.0 {
+        return (x, 0);
+    }
+    let mut z = precondition(&r);
+    let mut p = z.clone();
+    let mut rz = dot6(&r, &z);
+    let max_iter = 20 * n * 6 + 200;
+    for it in 0..max_iter {
+        let ap = apply(&p);
+        let pap = dot6(&p, &ap);
+        if pap <= 0.0 {
+            return (x, it);
+        }
+        let alpha = rz / pap;
+        for i in 0..n {
+            for d in 0..6 {
+                x[i][d] += alpha * p[i][d];
+                r[i][d] -= alpha * ap[i][d];
+            }
+        }
+        if dot6(&r, &r).sqrt() <= tol * norm0 {
+            return (x, it + 1);
+        }
+        z = precondition(&r);
+        let rz_new = dot6(&r, &z);
+        let beta = rz_new / rz;
+        rz = rz_new;
+        for i in 0..n {
+            for d in 0..6 {
+                p[i][d] = z[i][d] + beta * p[i][d];
+            }
+        }
+    }
+    (x, max_iter)
 }
 
 /// Outcome of a quasi-static solve.
@@ -129,15 +178,15 @@ impl Default for StaticOptions {
     }
 }
 
-struct Layout {
-    chunks: Vec<usize>,
-    local: std::collections::HashMap<usize, usize>,
+pub(crate) struct Layout {
+    pub(crate) chunks: Vec<usize>,
+    pub(crate) local: std::collections::HashMap<usize, usize>,
     /// Per local chunk: which of its 6 DOFs are held.
-    fixed: Vec<[bool; 6]>,
+    pub(crate) fixed: Vec<[bool; 6]>,
 }
 
 impl ReferenceSolver {
-    fn layout(&self, ci: usize) -> Layout {
+    pub(crate) fn layout(&self, ci: usize) -> Layout {
         let cl = &self.clusters[ci];
         let st = &self.structures[cl.structure];
         let chunks = cl.chunks.clone();
@@ -155,7 +204,7 @@ impl ReferenceSolver {
 
     /// Bond forces exerted on the cluster's chunks at the current displacements,
     /// without committing any history. Returns per local chunk `[force; moment]`.
-    fn bond_forces(&self, ci: usize, lay: &Layout) -> Vec<V6> {
+    pub(crate) fn bond_forces(&self, ci: usize, lay: &Layout) -> Vec<V6> {
         let cl = &self.clusters[ci];
         let s = cl.structure;
         let mut out = vec![[0.0; 6]; lay.chunks.len()];
@@ -177,8 +226,10 @@ impl ReferenceSolver {
         out
     }
 
-    /// Secant factors per bond at the current state.
-    fn secant(&self, ci: usize) -> Vec<Local6> {
+    /// Stiffness per bond at the current state for a Newton correction: the joint's
+    /// tangent (`tangent = true`) or its secant, an upper bound of every tangent of the
+    /// nonsmooth contact patch that makes a safe (if slower) direction.
+    pub(crate) fn newton_stiffness(&self, ci: usize, tangent: bool) -> Vec<Local6> {
         let cl = &self.clusters[ci];
         let s = cl.structure;
         cl.bonds
@@ -187,13 +238,14 @@ impl ReferenceSolver {
                 let b = &self.bonds[s][bi];
                 let (sa, sb) = (&self.chunks[s][b.geometry.a], &self.chunks[s][b.geometry.b]);
                 let d = b.geometry.kinematics(sa.u, sa.th, sb.u, sb.th);
-                b.model().secant_factors(&b.joint, &d).mul_elem(&b.stiffness.as_local())
+                let f = if tangent { b.model().tangent_factors(&b.joint, &d) } else { b.model().secant_factors(&b.joint, &d) };
+                f.mul_elem(&b.stiffness.as_local())
             })
             .collect()
     }
 
     /// `K x` (the resisting force of displacement field `x`) with secant stiffnesses `k`.
-    fn apply_k(&self, ci: usize, lay: &Layout, k: &[Local6], x: &[V6]) -> Vec<V6> {
+    pub(crate) fn apply_k(&self, ci: usize, lay: &Layout, k: &[Local6], x: &[V6]) -> Vec<V6> {
         let cl = &self.clusters[ci];
         let s = cl.structure;
         let mut y = vec![[0.0; 6]; x.len()];
@@ -221,7 +273,9 @@ impl ReferenceSolver {
         y
     }
 
-    fn block_jacobi(&self, ci: usize, lay: &Layout, k: &[Local6]) -> Vec<Block6> {
+    /// Inverse 6x6 diagonal blocks of `K` (secant `k`) plus optional per-chunk blocks
+    /// (the mass term of a dynamic step).
+    pub(crate) fn block_jacobi(&self, ci: usize, lay: &Layout, k: &[Local6], extra: Option<&[Block6]>) -> Vec<Block6> {
         let cl = &self.clusters[ci];
         let s = cl.structure;
         let mut blocks = vec![Block6::zero(); lay.chunks.len()];
@@ -239,6 +293,15 @@ impl ReferenceSolver {
                 };
                 blocks[ia].add_outer(ks[comp], &va);
                 blocks[ib].add_outer(ks[comp], &vb);
+            }
+        }
+        if let Some(extra) = extra {
+            for (b, e) in blocks.iter_mut().zip(extra) {
+                for i in 0..6 {
+                    for j in 0..6 {
+                        b.0[i][j] += e.0[i][j];
+                    }
+                }
             }
         }
         for (i, f) in lay.fixed.iter().enumerate() {
@@ -307,8 +370,7 @@ impl ReferenceSolver {
     /// Preconditioned CG for `K x = r` (secant `k`); returns (x, iterations).
     fn pcg(&self, ci: usize, lay: &Layout, k: &[Local6], r0: &[V6], tol: f64) -> (Vec<V6>, usize) {
         let free = !self.clusters[ci].anchored;
-        let n = r0.len();
-        let pre = self.block_jacobi(ci, lay, k);
+        let pre = self.block_jacobi(ci, lay, k, None);
         let precondition = |r: &[V6]| -> Vec<V6> {
             let mut z: Vec<V6> = r.iter().zip(&pre).map(|(ri, b)| b.mul(ri)).collect();
             if free {
@@ -316,48 +378,12 @@ impl ReferenceSolver {
             }
             z
         };
-        let mut x = vec![[0.0; 6]; n];
-        let mut r = r0.to_vec();
-        let norm0 = dot6(&r, &r).sqrt();
-        if norm0 == 0.0 {
-            return (x, 0);
-        }
-        let mut z = precondition(&r);
-        let mut p = z.clone();
-        let mut rz = dot6(&r, &z);
-        let max_iter = 20 * n * 6 + 200;
-        for it in 0..max_iter {
-            let kp = self.apply_k(ci, lay, k, &p);
-            let pkp = dot6(&p, &kp);
-            if pkp <= 0.0 {
-                return (x, it);
-            }
-            let alpha = rz / pkp;
-            for i in 0..n {
-                for d in 0..6 {
-                    x[i][d] += alpha * p[i][d];
-                    r[i][d] -= alpha * kp[i][d];
-                }
-            }
-            if dot6(&r, &r).sqrt() <= tol * norm0 {
-                return (x, it + 1);
-            }
-            z = precondition(&r);
-            let rz_new = dot6(&r, &z);
-            let beta = rz_new / rz;
-            rz = rz_new;
-            for i in 0..n {
-                for d in 0..6 {
-                    p[i][d] = z[i][d] + beta * p[i][d];
-                }
-            }
-        }
-        (x, max_iter)
+        pcg_solve(|x| self.apply_k(ci, lay, k, x), precondition, r0, tol)
     }
 
     /// External chunk loads of a cluster in its body frame (gravity, given loads,
     /// replacement loads, minus rigid inertial loads), per local chunk.
-    fn static_loads(&self, ci: usize, lay: &Layout, loads: &ChunkLoads) -> Vec<V6> {
+    pub(crate) fn static_loads(&self, ci: usize, lay: &Layout, loads: &ChunkLoads) -> Vec<V6> {
         let (a, alpha) = self.rigid_acceleration(ci, loads);
         lay.chunks
             .iter()
@@ -399,7 +425,7 @@ impl ReferenceSolver {
                 report.converged = true;
                 break;
             }
-            let k = self.secant(ci);
+            let k = self.newton_stiffness(ci, false);
             let (dx, cg) = self.pcg(ci, &lay, &k, &r, (opts.tolerance * 0.1).max(1e-14));
             report.cg_iterations += cg;
             for (i, &c) in lay.chunks.iter().enumerate() {
@@ -454,22 +480,10 @@ impl ReferenceSolver {
             let (sa, sb) = (&self.chunks[s][b.geometry.a], &self.chunks[s][b.geometry.b]);
             let d = b.geometry.kinematics(sa.u, sa.th, sb.u, sb.th);
             let resp = b.model().evaluate(&b.joint, &d, dt, self.config.fracture);
-            let before = (b.joint.damage, b.joint.crush);
-            if resp.state.damage > before.0 + 1e-9 || resp.state.crush > before.1 + 1e-9 {
+            self.max_utilization = self.max_utilization.max(resp.state.utilization);
+            let previous = b.joint.clone();
+            if resp.state.damage > previous.damage + 1e-9 || resp.state.crush > previous.crush + 1e-9 {
                 changed = true;
-            }
-            if resp.disconnected {
-                disconnected = true;
-                let cl = &self.clusters[ci];
-                self.events.push(crate::solver::SolverEvent::Broken {
-                    time: self.time,
-                    structure: s,
-                    bond: bi,
-                    mode: resp.state.mode,
-                    position: cl.pose.transform_point(b.geometry.centroid).to_array(),
-                    normal: cl.pose.transform_vector(b.geometry.normal).to_array(),
-                    dissipated: resp.state.dissipated,
-                });
             }
             self.energy.bond_dissipation += resp.dissipated;
             self.energy.softening_overshoot += resp.overshoot;
@@ -478,6 +492,7 @@ impl ReferenceSolver {
             bm.force = resp.force;
             bm.measures = resp.measures;
             bm.stored = resp.stored;
+            disconnected |= self.record_bond_events(ci, bi, &previous, resp.disconnected, self.time);
         }
         (changed, disconnected)
     }
