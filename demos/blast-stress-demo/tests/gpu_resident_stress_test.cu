@@ -394,7 +394,8 @@ void largeToSmallComponents()
 #include "resident_unaffected_warm_test.cuh"
 #include "resident_settled_reuse_test.cuh"
 #include "resident_corrected_warm_test.cuh"
+#include "resident_zero_iteration_test.cuh"
 }
 int main(int argc,char** argv){std::setvbuf(stdout,nullptr,_IOLBF,0);try{
-    if(argc==2){const std::string fixture=argv[1];if(fixture=="epochs"){columns(12,true);unaffectedWarmColumn();nativeSettledReuse();return 0;}if(fixture=="settled"){nativeSettledReuse();return 0;}if(fixture=="warm"){correctedWarmStart();return 0;}require(fixture=="mixed","unknown resident fixture");mixedComponentSizes(false);mixedComponentSizes(true);return 0;}
+    if(argc==2){const std::string fixture=argv[1];if(fixture=="epochs"){columns(12,true);unaffectedWarmColumn();nativeSettledReuse();return 0;}if(fixture=="settled"){nativeSettledReuse();return 0;}if(fixture=="warm"){correctedWarmStart();return 0;}if(fixture=="zero"){zeroIterationConvergence();return 0;}require(fixture=="mixed","unknown resident fixture");mixedComponentSizes(false);mixedComponentSizes(true);return 0;}
     require(argc==1,"invalid resident fixture arguments");for(bool gpu:{false,true})for(unsigned n:{12u,1536u,131072u})columns(n,gpu);mixedComponentSizes(false);mixedComponentSizes(true);unevenComponents(false);unevenComponents(true);largeToSmallComponents();unaffectedWarmColumn();nativeSettledReuse();return 0;}catch(const std::exception& e){std::fprintf(stderr,"%s\n",e.what());return 1;}}

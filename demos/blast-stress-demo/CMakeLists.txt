@@ -1357,6 +1357,10 @@ if(BLAST_ENABLE_CUDA_STRESS AND (PX_GPU_BACKEND STREQUAL "CUMETAL" OR (CMAKE_CUD
     # corrected solve does not remember the trial (bit for bit) on a wall at 64 iterations.
     add_test(NAME blast_stress_gpu_corrected_warm_start COMMAND gpu_resident_stress_test warm)
     set_tests_properties(blast_stress_gpu_corrected_warm_start PROPERTIES TIMEOUT 120 LABELS "gpu" RUN_SERIAL TRUE)
+    # A solve never reports convergence for an answer it did not compute: a column of
+    # 0.1 g blocks under 10 t on one anchor (vibe-land simply-supported-point/n37).
+    add_test(NAME blast_stress_gpu_zero_iteration_convergence COMMAND gpu_resident_stress_test zero)
+    set_tests_properties(blast_stress_gpu_zero_iteration_convergence PROPERTIES TIMEOUT 120 LABELS "gpu" RUN_SERIAL TRUE)
     set_tests_properties(blast_stress_gpu_operator_epoch_integration PROPERTIES TIMEOUT 600 LABELS "gpu" RUN_SERIAL TRUE)
     add_executable(gpu_angular_convention_test EXCLUDE_FROM_ALL tests/gpu_angular_convention_test.cpp)
     target_link_libraries(gpu_angular_convention_test PRIVATE gpu_resident_stress_test_core)
