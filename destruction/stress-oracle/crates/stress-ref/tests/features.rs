@@ -172,15 +172,16 @@ fn crack_contact_off_leaves_a_cracked_joint_carrying_nothing() {
 }
 
 #[test]
-fn damping_buckling_and_rebar_switches_remove_their_terms() {
+fn damping_buckling_rebar_and_crushing_switches_remove_their_terms() {
     let s = bond_tension();
     let structure = Structure::from_scene(&s, 0);
     let g = &structure.bonds[0].geometry;
     let m = Material { damping_ratio: 0.05, ..Material::analytic_test() };
     let rebar = (1e-4, Material::steel());
-    let off = Features { damping: false, buckling: false, rebar: false, ..Features::default() };
+    let off = Features { damping: false, buckling: false, rebar: false, crushing: false, ..Features::default() };
     let (_, strength, rb, damping) = bond_physics(g, &m, Some(2.0), Some(&rebar), 1.0, 1.0, &Features::default());
     assert!(strength.buckling_load.is_some() && rb.is_some() && damping.lin.z > 0.0);
     let (_, strength, rb, damping) = bond_physics(g, &m, Some(2.0), Some(&rebar), 1.0, 1.0, &off);
     assert!(strength.buckling_load.is_none() && rb.is_none() && damping.lin.z == 0.0);
+    assert!(strength.compressive.is_infinite(), "no crushing");
 }

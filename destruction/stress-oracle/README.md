@@ -173,8 +173,8 @@ See the module docs for the equations. In brief:
 * **Model switches** (`sim.features`, `Scene::with_feature`, `--feature`): every
   mechanism can be switched off to see what it contributes: `rate_effects`,
   `static_fatigue`, `weibull`, `softening` (off = threshold model), `crack_contact`,
-  `buckling`, `rebar`, `rigid_motion_loads`, `blast_shadowing`, `blast_clearing`,
-  `damping`. `tests/features.rs` checks that each removes exactly its mechanism.
+  `crushing`, `buckling`, `rebar`, `rigid_motion_loads`, `blast_shadowing`,
+  `blast_clearing`, `damping`. `tests/features.rs` checks that each removes exactly its mechanism.
 * **Outputs**: per-bond damage/utilization/mode (`api::BondReport`), debug snapshots
   (`World::snapshot`: Love-Weber chunk stress, von Mises, principal stress, bond
   status), events (`Cracked`, `Creaked`, `Broken` with position and normal, `Split`,
@@ -215,7 +215,7 @@ All results below are from this revision (`cargo test --release`, `stress-ref ch
 | 2 | chunked cantilever, N = 10/20/40 | Euler-Bernoulli (1%), exact discrete model (1e-6), OpenSees | tip 0.09-0.14%, root moment exact, frequency 0.07-0.15%; discrete model exact; OpenSees within 0.15% |
 | 3 | bar impact, true and scaled E | analytic (1%), OpenCourant | wave speed 0.57%, reflection 0.46-0.66%, free-end doubling 0.55%; OpenCourant within 1.6% |
 | 4 | sudden / gradual support loss | damped SDOF closed form (1%) | 1.9433 vs 1.9391 (0.22%); gradual 1.0014 |
-| 5 | ram speed sweep 2/10/40 m/s | OpenCourant | 2 and 10 m/s: push-over as OpenCourant, speed lost within 21-29%. **40 m/s: ours punches a hole, OpenCourant (2 elements per chunk) pushes the wall over** — see gaps |
+| 5 | ram speed sweep 2/10/40 m/s | OpenCourant | 2 and 10 m/s: push-over as OpenCourant, speed lost within 21-29%. **40 m/s: open** — ours punches a hole; OpenCourant pushes over at every mesh but that verdict rests on unconverged far-field cracking (see gaps) |
 | 6 | planar spall | 1-D analytic, OpenCourant | spall occurs in both (central back layer separates), layer speed 3.61 vs 3.02 m/s (19%), back-face peak 4.48 vs 4.83 m/s (7%; 1-D 4.94), front face intact in both |
 | 7 | masonry wall, 4 and 15 m/s | LMGC90, Kratos DEM, OpenCourant (ensemble) | breach in all; ball speed lost and debris speed inside the oracles' spread. The oracles disagree among themselves (4 m/s debris speed 0.07-3.7 m/s) |
 | 8 | frame column removal, sudden / gradual | OpenSees | redistribution within 0.01-0.3% (gradual), sudden elastic peaks within 2.3%; first failure matches |
@@ -269,9 +269,17 @@ All results below are from this revision (`cargo test --release`, `stress-ref ch
 
 ### Known gaps
 
-* **b5 at 40 m/s**: ours makes a local hole, OpenCourant at 2 elements per chunk edge
-  pushes the wall over; at 1 element per edge OpenCourant also makes a hole (mesh
-  sensitive). A finer OpenCourant mesh is being run to see which way it converges.
+* **b5 at 40 m/s**: ours makes a local hole; OpenCourant pushes the wall over at 2, 3
+  and 4 elements per chunk edge (a hole only at 1). The oracle mesh study
+  (`golden_mesh/b5_wall_impact_v40/`) shows why this is not yet a usable verdict: the
+  impact zone is fully shattered and converged at every mesh (ours detaches it too),
+  but the far-field bending cracks that make it a push-over keep growing with
+  refinement (9, 128, 348, 552 broken bonds) — the oracle's elastic chunks have no
+  crushing or erosion, so the ram face sees ~190 MPa (concrete crushes at 30 MPa) and
+  a pulse ~5x sharper than ours. The converged oracle quantity, ram speed lost
+  ~6.4 m/s, is 37% above ours (4.0; 4.2 with `--feature crushing=off`), just outside
+  the 30% gate. Closing this needs a crushing law in the oracle (pressure-capped
+  chunks) and a contact-pulse comparison; it stays open.
 * **Lateral release / Poisson coupling**: the chunk network has no Poisson effect, so
   spall breaks whole planes where the continuum keeps corner ligaments (b6), and peak
   panel displacement is 20-24% above OpenCourant (b9).

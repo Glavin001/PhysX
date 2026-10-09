@@ -84,7 +84,7 @@ impl JointStrength {
         let wave_speed = (m.youngs_modulus * stiffness_scale / m.density).sqrt();
         JointStrength {
             tensile: m.tensile_strength,
-            compressive: m.compressive_strength,
+            compressive: if features.crushing { m.compressive_strength } else { f64::INFINITY },
             cohesion: m.cohesion,
             friction: m.friction,
             shear_cap: m.shear_cap.unwrap_or(f64::INFINITY),

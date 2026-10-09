@@ -426,6 +426,9 @@ pub struct Features {
     /// Cracked joints keep carrying compression and friction through a no-tension
     /// contact patch (off: the cracked share of a joint carries nothing).
     pub crack_contact: bool,
+    /// Compressive crushing of bonds (off: unlimited compressive strength, as in an
+    /// elastic continuum without a crushing law).
+    pub crushing: bool,
     /// Euler buckling cap on bonds of slender members.
     pub buckling: bool,
     /// Rebar crossing bonds.
@@ -450,6 +453,7 @@ impl Default for Features {
             weibull: true,
             softening: true,
             crack_contact: true,
+            crushing: true,
             buckling: true,
             rebar: true,
             rigid_motion_loads: true,
@@ -462,12 +466,13 @@ impl Default for Features {
 
 impl Features {
     /// Names of every switch, in declaration order.
-    pub const NAMES: [&'static str; 11] = [
+    pub const NAMES: [&'static str; 12] = [
         "rate_effects",
         "static_fatigue",
         "weibull",
         "softening",
         "crack_contact",
+        "crushing",
         "buckling",
         "rebar",
         "rigid_motion_loads",
@@ -484,6 +489,7 @@ impl Features {
             "weibull" => &mut self.weibull,
             "softening" => &mut self.softening,
             "crack_contact" => &mut self.crack_contact,
+            "crushing" => &mut self.crushing,
             "buckling" => &mut self.buckling,
             "rebar" => &mut self.rebar,
             "rigid_motion_loads" => &mut self.rigid_motion_loads,
