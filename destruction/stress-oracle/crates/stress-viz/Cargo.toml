@@ -10,5 +10,11 @@ description = "Debug renderer and video tool for the reference destruction stres
 name = "stress-viz"
 path = "src/main.rs"
 
+[features]
+# PhysX CPU as the rigid-body engine (`--engine physx`, variant item `engine physx`);
+# needs PHYSX_ROOT, see the README.
+physx = ["dep:stress-physx"]
+
 [dependencies]
 stress-ref = { path = "../stress-ref" }
+stress-physx = { path = "../stress-physx", optional = true }

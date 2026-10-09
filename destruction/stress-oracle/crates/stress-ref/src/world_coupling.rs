@@ -11,6 +11,10 @@ struct Part {
     /// Bounds swept over the frame.
     lo: Vec3,
     hi: Vec3,
+    /// Centre of mass and bounds at the start of the frame (the ground: a half-space).
+    center: Vec3,
+    box_lo: Vec3,
+    box_hi: Vec3,
     velocity: Vec3,
     angular_velocity: Vec3,
     /// Largest distance of its surface from the centre of mass (for rotation sweeps).
@@ -41,7 +45,7 @@ struct Struck {
 /// contact. Both follow from the bodies' masses, moduli, sizes and strengths.
 fn rigid_assumption_fails(a: &Part, b: &Part) -> bool {
     let Some(struck) = b.struck else { return false };
-    let speed = (a.velocity - b.velocity).norm() + a.angular_velocity.norm() * a.reach + b.angular_velocity.norm() * b.reach;
+    let speed = closing_speed(a, b);
     let m = match (a.mass.is_finite(), b.mass.is_finite()) {
         (true, true) => a.mass * b.mass / (a.mass + b.mass),
         (true, false) => a.mass,
@@ -55,6 +59,33 @@ fn rigid_assumption_fails(a: &Part, b: &Part) -> bool {
     let duration = hertz_duration(m, a.contact_radius.min(b.contact_radius), modulus, speed);
     let peak_force = std::f64::consts::PI * (2.0 * m * speed) / (2.0 * duration);
     duration < struck.round_trip || peak_force > struck.capacity
+}
+
+/// Speed at which `a` and `b` approach. The contact normal is estimated from each
+/// body's centre to the nearest point of the other's bounds (both ways, the larger
+/// closing speed kept), which stays right for a small body landing anywhere on a large
+/// one; spin adds its full surface speed. If either centre lies inside the other's
+/// bounds there is no normal to estimate and the relative speed is used.
+fn closing_speed(a: &Part, b: &Part) -> f64 {
+    let spin = a.angular_velocity.norm() * a.reach + b.angular_velocity.norm() * b.reach;
+    let rel = a.velocity - b.velocity;
+    // The ground is a half-space: the normal is vertical wherever the body is.
+    if b.key.is_none() {
+        return -rel.z + spin;
+    }
+    if a.key.is_none() {
+        return rel.z + spin;
+    }
+    let towards = |from: Vec3, lo: Vec3, hi: Vec3| {
+        let nearest = from.component_max(lo).component_min(hi);
+        let d = nearest - from;
+        (d.norm() > 0.0).then(|| d.normalized())
+    };
+    let normals = [towards(a.center, b.box_lo, b.box_hi), towards(b.center, a.box_lo, a.box_hi).map(|n| -n)];
+    if normals.iter().any(Option::is_none) {
+        return rel.norm() + spin;
+    }
+    normals.iter().flatten().map(|n| rel.dot(*n)).fold(f64::NEG_INFINITY, f64::max) + spin
 }
 
 fn overlaps(a: &Part, b: &Part) -> bool {
@@ -231,6 +262,9 @@ impl World {
                 key: Some(BodyKey::Cluster(cl.id)),
                 lo: lo - sweep,
                 hi: hi + sweep,
+                center: com,
+                box_lo: lo,
+                box_hi: hi,
                 velocity: cl.velocity,
                 angular_velocity: cl.angular_velocity,
                 reach,
@@ -248,6 +282,9 @@ impl World {
                 key: Some(BodyKey::Impactor(i)),
                 lo: b.center - Vec3::splat(r) - sweep,
                 hi: b.center + Vec3::splat(r) + sweep,
+                center: b.center,
+                box_lo: b.center - Vec3::splat(r),
+                box_hi: b.center + Vec3::splat(r),
                 velocity: imp.velocity,
                 angular_velocity: imp.angular_velocity,
                 reach: r,
@@ -258,10 +295,14 @@ impl World {
             });
         }
         if let Some(g) = &self.scene.ground {
+            // A half-space (see `closing_speed`).
             parts.push(Part {
                 key: None,
                 lo: Vec3::splat(f64::NEG_INFINITY),
                 hi: Vec3::new(f64::INFINITY, f64::INFINITY, g.height),
+                center: Vec3::new(0.0, 0.0, g.height),
+                box_lo: Vec3::splat(f64::NEG_INFINITY),
+                box_hi: Vec3::new(f64::INFINITY, f64::INFINITY, g.height),
                 velocity: Vec3::ZERO,
                 angular_velocity: Vec3::ZERO,
                 reach: 0.0,

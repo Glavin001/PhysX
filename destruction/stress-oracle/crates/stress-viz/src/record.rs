@@ -88,6 +88,41 @@ pub struct RecordOptions {
     pub duration: f64,
     /// Prefix for progress lines on stderr (empty = quiet).
     pub label: String,
+    /// Rigid-body engine.
+    pub engine: Engine,
+}
+
+/// Which rigid-body engine moves the bodies: the standalone world's own (the oracle) or
+/// PhysX CPU (`World::with_engine`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Engine {
+    Standalone,
+    Physx,
+}
+
+impl std::str::FromStr for Engine {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Engine, String> {
+        match s {
+            "standalone" | "oracle" | "reference" => Ok(Engine::Standalone),
+            "physx" if cfg!(feature = "physx") => Ok(Engine::Physx),
+            "physx" => Err("engine physx: build stress-viz with --features physx (needs PHYSX_ROOT)".into()),
+            other => Err(format!("unknown engine '{other}' (standalone | physx)")),
+        }
+    }
+}
+
+fn new_world(scene: &Scene, engine: Engine) -> World {
+    match engine {
+        Engine::Standalone => World::new(scene),
+        #[cfg(feature = "physx")]
+        Engine::Physx => {
+            let gravity = Vec3::from_array(scene.gravity);
+            World::with_engine(scene, stress_physx::PhysxEngine::boxed(gravity).expect("PhysX CPU scene"))
+        }
+        #[cfg(not(feature = "physx"))]
+        Engine::Physx => unreachable!("rejected when parsed"),
+    }
 }
 
 fn f3(a: [f64; 3]) -> [f32; 3] {
@@ -167,7 +202,7 @@ fn probe_unit(kind: &ProbeKind) -> &'static str {
 /// Simulates `scene` and records the frames to render.
 pub fn record(scene: &Scene, opts: &RecordOptions) -> Recording {
     let start = Instant::now();
-    let mut world = World::new(scene);
+    let mut world = new_world(scene, opts.engine);
     let first = world.snapshot();
     let mut bounds = Aabb::EMPTY;
     let mut halves = Vec::with_capacity(first.chunks.len());

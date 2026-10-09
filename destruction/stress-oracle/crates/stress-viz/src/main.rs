@@ -10,8 +10,10 @@
 //!
 //! `<scene>` is a scene JSON file (`stress-ref gen-scenes <dir>`) or a catalogue name
 //! (`builders::catalog()`, `showcases::catalog()`); `--name NAME` / `--scene PATH` work too.
-//! A variant item is `dotted.path=json` (a scene override, see `Scene::with_override`)
-//! or `feature NAME=on|off` (a model switch, see `Scene::with_feature`).
+//! A variant item is `dotted.path=json` (a scene override, see `Scene::with_override`),
+//! `feature NAME=on|off` (a model switch, see `Scene::with_feature`) or `engine physx`
+//! (PhysX CPU as the rigid-body engine, `World::with_engine`; needs the `physx` cargo
+//! feature). `--engine physx` does the same for `render` and `still`.
 //!
 //! The scene is stepped one frame at a time, every rendered frame is snapshotted, then
 //! frames are rendered in parallel with a software rasterizer and piped to ffmpeg.
@@ -94,6 +96,8 @@ struct Args {
     overrides: Vec<String>,
     features: Vec<String>,
     variants: Vec<String>,
+    /// Rigid-body engine of a single run (`render`, `still`).
+    engine: record::Engine,
     duration: Option<f64>,
     frame_dt: Option<f64>,
     every: Option<usize>,
@@ -136,6 +140,7 @@ fn parse_args(raw: Vec<String>) -> Result<Args, String> {
         overrides: Vec::new(),
         features: Vec::new(),
         variants: Vec::new(),
+        engine: record::Engine::Standalone,
         duration: None,
         frame_dt: None,
         every: None,
@@ -168,6 +173,7 @@ fn parse_args(raw: Vec<String>) -> Result<Args, String> {
             "--set" => a.overrides.push(value()?),
             "--feature" => a.features.push(value()?),
             "--variant" => a.variants.push(value()?),
+            "--engine" => a.engine = value()?.parse()?,
             "--duration" => a.duration = Some(parse_num(&flag, &value()?)?),
             "--frame-dt" => a.frame_dt = Some(parse_num(&flag, &value()?)?),
             "--every" => a.every = Some(parse_num::<usize>(&flag, &value()?)?.max(1)),
@@ -251,6 +257,10 @@ fn load_scene(spec: &str) -> Result<Scene, String> {
 /// Applies one override item: `path=json` or `feature NAME=on|off`.
 fn apply_item(scene: &Scene, item: &str) -> Result<Scene, String> {
     let item = item.trim();
+    if item.starts_with("engine ") || item.starts_with("engine:") {
+        // Not a scene change: see `variant_engines`.
+        return Ok(scene.clone());
+    }
     if let Some(f) = item.strip_prefix("feature ").or_else(|| item.strip_prefix("feature:")) {
         let (name, state) = f.trim().split_once('=').ok_or_else(|| format!("'{item}': expected feature NAME=on|off"))?;
         let on = match state.trim() {
@@ -315,25 +325,46 @@ fn build_scenes(a: &Args) -> Result<Vec<(String, Scene)>, String> {
         .collect()
 }
 
+/// The rigid-body engine of each run: `--engine`, or per `--variant` its `engine` item.
+fn variant_engines(a: &Args) -> Result<Vec<record::Engine>, String> {
+    if a.cmd != "compare" {
+        return Ok(vec![a.engine]);
+    }
+    a.variants
+        .iter()
+        .map(|v| {
+            let items = v.split_once(':').map_or("", |(_, i)| i);
+            let mut engine = a.engine;
+            for item in items.split(';').map(str::trim) {
+                if let Some(e) = item.strip_prefix("engine ").or_else(|| item.strip_prefix("engine:")) {
+                    engine = e.trim().parse()?;
+                }
+            }
+            Ok(engine)
+        })
+        .collect()
+}
+
 /// Records every scene (in parallel, at most `jobs` at a time).
-fn record_all(scenes: &[(String, Scene)], a: &Args, until: Option<f64>) -> Vec<Recording> {
+fn record_all(scenes: &[(String, Scene)], a: &Args, until: Option<f64>) -> Result<Vec<Recording>, String> {
+    let engines = variant_engines(a)?;
     let base = &scenes[0].1;
     let timing = plan_timing(base, a, until.or(a.duration).unwrap_or(base.sim.duration));
     let mut out: Vec<Option<Recording>> = (0..scenes.len()).map(|_| None).collect();
-    for (batch_scenes, batch_out) in scenes.chunks(a.jobs).zip(out.chunks_mut(a.jobs)) {
+    for ((batch_scenes, batch_out), batch_engines) in scenes.chunks(a.jobs).zip(out.chunks_mut(a.jobs)).zip(engines.chunks(a.jobs)) {
         std::thread::scope(|s| {
-            for ((label, scene), slot) in batch_scenes.iter().zip(batch_out.iter_mut()) {
+            for (((label, scene), slot), &engine) in batch_scenes.iter().zip(batch_out.iter_mut()).zip(batch_engines) {
                 let timing = &timing;
                 s.spawn(move || {
                     let mut scene = scene.clone();
                     scene.sim.frame_dt = timing.frame_dt;
-                    let opts = RecordOptions { every: timing.every, duration: timing.duration, label: label.clone() };
+                    let opts = RecordOptions { every: timing.every, duration: timing.duration, label: label.clone(), engine };
                     *slot = Some(record::record(&scene, &opts));
                 });
             }
         });
     }
-    out.into_iter().map(|r| r.expect("recorded")).collect()
+    Ok(out.into_iter().map(|r| r.expect("recorded")).collect())
 }
 
 fn header_text(a: &Args, scenes: &[(String, Scene)]) -> (String, String) {
@@ -449,7 +480,7 @@ fn run(raw: Vec<String>) -> Result<(), String> {
         }
         "render" | "compare" => {
             let scenes = build_scenes(&a)?;
-            let recs = record_all(&scenes, &a, None);
+            let recs = record_all(&scenes, &a, None)?;
             for r in &recs {
                 eprintln!("{}: {} frames recorded, {:.1} s simulation", r.scene.name, r.frames.len(), r.wall_seconds);
             }
@@ -460,7 +491,7 @@ fn run(raw: Vec<String>) -> Result<(), String> {
         "still" => {
             let t = a.time.ok_or("still needs --time T")?;
             let scenes = build_scenes(&a)?;
-            let recs = record_all(&scenes, &a, Some(t));
+            let recs = record_all(&scenes, &a, Some(t))?;
             let comp = composer(&a, &scenes, &recs)?;
             let start = Instant::now();
             let canvas = comp.render(comp.frame_count() - 1, &mut comp.new_raster());

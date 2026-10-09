@@ -15,7 +15,13 @@ JOBS=${JOBS:-2}
 VIDEOS=${VIDEOS:-videos}
 mkdir -p "$VIDEOS"
 
-cargo build --release --offline -p stress-viz
+# With PHYSX_ROOT set, the renderer can also run scenes with PhysX as the rigid-body
+# engine and the oracle-vs-PhysX comparisons at the end are rendered.
+if [ -n "${PHYSX_ROOT:-}" ]; then
+  cargo build --release --offline -p stress-viz --features physx
+else
+  cargo build --release --offline -p stress-viz
+fi
 VIZ="${CARGO_TARGET_DIR:-target}/release/stress-viz"
 
 PATTERNS=("$@")
@@ -137,5 +143,27 @@ compare feature_crack_contact s_arch_keystone_removed \
 compare feature_weibull b9_panel_high_weibull \
   --variant "Weibull strengths:" --variant "uniform strengths:feature weibull=off" \
   --views damage,fragments --yaw 35
+
+# --- the oracle vs PhysX as the rigid-body engine (needs PHYSX_ROOT) ----------------
+# Left: the standalone world (its own rigid bodies and contact, the oracle). Right: the
+# same scene with PhysX CPU moving the bodies, the stress solve owning impact islands.
+if [ -n "${PHYSX_ROOT:-}" ]; then
+  # physx NAME [stress-viz options...]
+  physx() {
+    local name=$1; shift
+    compare "physx_$name" "$name" --variant "oracle (standalone world):" --variant "PhysX rigid bodies:engine physx" "$@"
+  }
+  physx s_arch_keystone_removed --views utilization,fragments --camera front --arrows
+  physx s_floor_drop --views utilization,fragments --camera iso
+  physx s_overhang_thin --views utilization,fragments --yaw -20 --pitch 12 --plot slab_tip
+  physx s_supports_one_by_one --views utilization,fragments --camera front --pitch 15
+  physx s_car_brick --views utilization,fragments --arrows --plot car_velocity
+  physx s_blast_two_walls --views damage,fragments --camera iso --arrows
+  physx s_house_car --views utilization,fragments --camera iso --yaw 40 --arrows
+  physx s_house_settlement --views utilization,fragments --camera iso --plot broken
+  physx b8_frame_sudden --views utilization,fragments --camera front --plot axial_col0,axial_col2
+  physx b7_masonry_v15 --views utilization,fragments --arrows --plot ball_velocity
+  physx b5_wall_impact_v40 --views utilization,fragments --arrows
+fi
 
 echo "videos in $VIDEOS/"
