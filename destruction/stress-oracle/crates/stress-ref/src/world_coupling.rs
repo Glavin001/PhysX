@@ -129,7 +129,10 @@ impl World {
     /// The world coupled to an external rigid-body engine, which then owns rigid motion
     /// and contact except in impact islands (see `engine.rs`). Runs the explicit solve.
     pub fn with_engine(scene: &Scene, mut engine: Box<dyn RigidEngine>) -> World {
-        assert!(scene.sim.solve_mode == SolveMode::Explicit, "the engine-coupled world runs the explicit solve");
+        assert!(
+            matches!(scene.sim.solve_mode, SolveMode::Explicit | SolveMode::Adaptive),
+            "the engine-coupled world runs the explicit or adaptive solve"
+        );
         let mut w = World::new(scene);
         if let Some(g) = &scene.ground {
             engine.add_ground(g.height);
@@ -169,6 +172,7 @@ impl World {
                         half_extents: ch.half_extents,
                         mass: ch.mass,
                         chunk: Some((cl.structure, c)),
+                        hull: ch.hull.as_ref().map(|h| h.vertices.clone()),
                     }
                 })
                 .collect();
@@ -191,6 +195,7 @@ impl World {
                     half_extents: Vec3::from_array(half_extents),
                     mass: imp.mass,
                     chunk: None,
+                    hull: None,
                 }]),
             };
             out.push(EngineBody {
@@ -521,6 +526,13 @@ impl World {
             }
         }
         let driven: HashSet<BodyKey> = self.solver.clusters.iter().filter(|c| c.driven).map(|c| BodyKey::Cluster(c.id)).collect();
+        // Adaptive: a cluster in an impact island is integrated explicitly.
+        if self.scene.sim.solve_mode == SolveMode::Adaptive {
+            for cl in self.solver.clusters.iter_mut().filter(|c| !c.driven && c.activity != Activity::Active) {
+                cl.activity = Activity::Active;
+                cl.active_timer = self.solver.config.active_time;
+            }
+        }
         // Island contacts need the contact-limited substep; otherwise only the stress does.
         let mut dt = if island_bodies > 0 { self.substep_dt() } else { self.solver.stable_dt().min(fdt) };
         if let Some(m) = self.scene.sim.max_substep {
@@ -560,6 +572,10 @@ impl World {
         self.frame += 1;
         if self.solver.events.len() != splits_before {
             self.topology_version += 1;
+        }
+        if self.scene.sim.solve_mode == SolveMode::Adaptive {
+            self.settle_quiet_clusters();
+            self.advance_settled_fatigue();
         }
         if let Some(u) = self.scene.sim.refine_utilization {
             self.refine_where_needed(u);

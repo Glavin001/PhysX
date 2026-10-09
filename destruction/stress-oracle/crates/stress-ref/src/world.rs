@@ -16,7 +16,7 @@ use std::collections::HashMap;
 use crate::api::{hertz_duration, ContactImpulse, ContactLoadFilter};
 use crate::blast::FaceBlast;
 use crate::engine::{BodyGeometry, BodyKey, BodyMotion, BoxShape, EngineBody, RigidEngine};
-use crate::contact::{OBox, SAMPLE_POINTS};
+use crate::contact::OBox;
 use crate::material::Material;
 use crate::math::{Mat3, Pose, Quat, Vec3};
 use crate::observation::{ChunkObservation, Observation, ProbeSeries};
@@ -57,7 +57,7 @@ impl Impactor {
             ImpactorShape::Box { half_extents } => Vec3::from_array(half_extents),
             ImpactorShape::Sphere { radius } => Vec3::splat(radius),
         };
-        OBox { center: self.pose.position, rotation: self.pose.rotation.to_mat3(), half: h }
+        OBox { center: self.pose.position, rotation: self.pose.rotation.to_mat3(), half: h, hull: None }
     }
     pub fn kinetic_energy(&self) -> f64 {
         let r = self.pose.rotation.to_mat3();
@@ -112,7 +112,7 @@ pub struct World {
     sample_interval: f64,
     initial_positions: Vec<Vec<Vec3>>,
     /// Exposed area per structure, chunk, face.
-    exposure: Vec<Vec<[f64; 6]>>,
+    exposure: Vec<Vec<Vec<f64>>>,
     exposure_version: u64,
     topology_version: u64,
     blast_caches: Vec<Option<BlastCache>>,
@@ -126,7 +126,7 @@ pub struct World {
     contact_hits: Vec<Vec<f64>>,
     /// Pre-existing overlap per sample point of chunk pairs in contact (NaN = point not
     /// in contact); dropped when the pair separates.
-    pair_offsets: std::collections::HashMap<ChunkPair, [(f64, Vec3); 2 * SAMPLE_POINTS]>,
+    pair_offsets: std::collections::HashMap<ChunkPair, Vec<(f64, Vec3)>>,
     pairs_seen: std::collections::HashSet<ChunkPair>,
     /// External rigid-body engine, if the world is coupled to one (`World::with_engine`).
     coupling: Option<Coupling>,
@@ -317,7 +317,12 @@ impl World {
         // The hidden rotation turns the box too: contact torques do work on it, so the
         // geometry must follow it for the penalty force to stay conservative.
         let hidden = Quat::from_axis_angle(st.th, st.th.norm()).to_mat3();
-        OBox { center: self.solver.chunk_position(s, c), rotation: cl.rotation() * hidden * ch.rotation, half: ch.half_extents }
+        OBox { center: self.solver.chunk_position(s, c), rotation: cl.rotation() * hidden * ch.rotation, half: ch.half_extents, hull: ch.hull.clone() }
+    }
+
+    /// `chunk_box`, built once per substep and kept in `cache` (indexed like the active list).
+    fn cached_box(&self, cache: &mut [Option<OBox>], k: usize, s: usize, c: usize) -> OBox {
+        cache[k].get_or_insert_with(|| self.chunk_box(s, c)).clone()
     }
 
     fn chunk_material(&self, s: usize, c: usize) -> &Material {
@@ -332,7 +337,7 @@ impl World {
         let mut w2: f64 = 0.0;
         for (s, st) in self.solver.structures.iter().enumerate() {
             for (c, ch) in st.chunks.iter().enumerate() {
-                let b = OBox { center: Vec3::ZERO, rotation: ch.rotation, half: ch.half_extents };
+                let b = OBox { center: Vec3::ZERO, rotation: ch.rotation, half: ch.half_extents, hull: ch.hull.clone() };
                 let k = (0..3)
                     .map(|axis| contact_stiffness(self.chunk_material(s, c), &b, stiffest, &b, ch.rotation.col(axis), scale))
                     .fold(0.0, f64::max);
@@ -386,8 +391,7 @@ impl World {
             .iter()
             .enumerate()
             .map(|(s, st)| {
-                let mut e: Vec<[f64; 6]> =
-                    st.chunks.iter().map(|c| std::array::from_fn(|f| c.faces[f].area)).collect();
+                let mut e: Vec<Vec<f64>> = st.chunks.iter().map(|c| c.faces.iter().map(|f| f.area).collect()).collect();
                 for b in self.solver.bonds[s].iter().filter(|b| b.alive) {
                     let sb = &st.bonds[b.source];
                     let (a, bb) = (b.geometry.a, b.geometry.b);
@@ -399,7 +403,7 @@ impl World {
                 }
                 for (c, row) in e.iter_mut().enumerate() {
                     if !self.solver.chunks[s][c].active {
-                        *row = [0.0; 6];
+                        row.iter_mut().for_each(|v| *v = 0.0);
                     }
                     for v in row.iter_mut() {
                         *v = v.max(0.0);
@@ -430,7 +434,7 @@ impl World {
             if !self.solver.chunks[s][c].active {
                 continue;
             }
-            for f in 0..6 {
+            for f in 0..ch.faces.len() {
                 if !exposed(c, f) {
                     continue;
                 }
@@ -494,7 +498,7 @@ impl World {
                 if !self.solver.chunks[s][c].active {
                     continue;
                 }
-                for f in 0..6 {
+                for f in 0..self.exposure[s][c].len() {
                     let area = self.exposure[s][c][f];
                     if area <= 0.0 {
                         continue;
@@ -551,7 +555,7 @@ impl World {
                         if !self.solver.chunks[s][c].active {
                             continue;
                         }
-                        for f in 0..6 {
+                        for f in 0..self.exposure[s][c].len() {
                             let area = self.exposure[s][c][f];
                             if area <= 0.0 || self.solver.structures[s].chunks[c].faces[f].normal.dot(n) < 0.99 {
                                 continue;
@@ -630,7 +634,13 @@ impl World {
             .flat_map(|s| (0..self.solver.structures[s].chunks.len()).map(move |c| (s, c)))
             .filter(|&(s, c)| self.solver.chunks[s][c].active)
             .collect();
-        let boxes: Vec<OBox> = active.iter().map(|&(s, c)| self.chunk_box(s, c)).collect();
+        // Bounding spheres for every active chunk; the oriented box only for candidates
+        // (building it is the costly part, and most chunks touch nothing).
+        let bounds: Vec<(Vec3, f64)> = active
+            .iter()
+            .map(|&(s, c)| (self.solver.chunk_position(s, c), self.solver.structures[s].chunks[c].half_extents.norm()))
+            .collect();
+        let mut boxes: Vec<Option<OBox>> = vec![None; active.len()];
 
         // Impactors against chunks, with the crush cap applied to the impactor's total force.
         // Only bodies in an impact island take contact here (all of them in the
@@ -645,10 +655,11 @@ impl World {
             let reach = ib.bounding_radius();
             let mut contacts = Vec::new();
             for (k, &(s, c)) in active.iter().enumerate() {
-                let b = &boxes[k];
-                if (b.center - ib.center).norm() > reach + b.bounding_radius() || !in_island(&self.solver, s, c) {
+                let (center, radius) = bounds[k];
+                if (center - ib.center).norm() > reach + radius || !in_island(&self.solver, s, c) {
                     continue;
                 }
+                let b = &self.cached_box(&mut boxes, k, s, c);
                 let kc = contact_stiffness(&imp.material, &ib, self.chunk_material(s, c), b, b.center - ib.center, scale);
                 match imp.shape {
                     ImpactorShape::Sphere { radius } => {
@@ -658,7 +669,7 @@ impl World {
                         }
                     }
                     ImpactorShape::Box { .. } => {
-                        let shrunk = OBox { half: ib.half - Vec3::splat(imp.crush_depth).component_min(ib.half * 0.5), ..ib };
+                        let shrunk = OBox { half: ib.half - Vec3::splat(imp.crush_depth).component_min(ib.half * 0.5), ..ib.clone() };
                         for cp in b.points_inside(&shrunk) {
                             contacts.push((s, c, kc / 10.0, cp.point, cp.normal, cp.depth));
                         }
@@ -712,14 +723,15 @@ impl World {
         if let Some(g) = self.scene.ground.clone() {
             let gm = self.scene.material(&g.material).clone();
             for (k, &(s, c)) in active.iter().enumerate() {
-                let b = &boxes[k];
-                if b.center.z - b.bounding_radius() > g.height {
+                let (center, radius) = bounds[k];
+                if center.z - radius > g.height {
                     continue;
                 }
                 let cl = &self.solver.clusters[self.solver.chunks[s][c].cluster];
                 if cl.anchored || cl.driven {
                     continue;
                 }
+                let b = &self.cached_box(&mut boxes, k, s, c);
                 let kc = contact_stiffness(&gm, b, self.chunk_material(s, c), b, Vec3::Z, scale) / 5.0;
                 let m = self.solver.structures[s].chunks[c].mass;
                 for p in b.sample_points() {
@@ -765,9 +777,10 @@ impl World {
             let mut cluster_boxes: Vec<(Vec3, Vec3)> = vec![(Vec3::splat(f64::INFINITY), Vec3::splat(f64::NEG_INFINITY)); n_clusters];
             for (k, &(s, c)) in active.iter().enumerate() {
                 let ci = self.solver.chunks[s][c].cluster;
-                let r = Vec3::splat(boxes[k].bounding_radius());
-                cluster_boxes[ci].0 = cluster_boxes[ci].0.component_min(boxes[k].center - r);
-                cluster_boxes[ci].1 = cluster_boxes[ci].1.component_max(boxes[k].center + r);
+                let (center, radius) = bounds[k];
+                let r = Vec3::splat(radius);
+                cluster_boxes[ci].0 = cluster_boxes[ci].0.component_min(center - r);
+                cluster_boxes[ci].1 = cluster_boxes[ci].1.component_max(center + r);
             }
             let mut by_cluster: Vec<Vec<usize>> = vec![Vec::new(); n_clusters];
             for (k, &(s, c)) in active.iter().enumerate() {
@@ -788,12 +801,14 @@ impl World {
                     }
                     for &ka in &by_cluster[ca] {
                         for &kb in &by_cluster[cb] {
-                            let (ba, bb) = (boxes[ka], boxes[kb]);
-                            if (ba.center - bb.center).norm() > ba.bounding_radius() + bb.bounding_radius() {
+                            let ((pa, ra), (pb, rb)) = (bounds[ka], bounds[kb]);
+                            if (pa - pb).norm() > ra + rb {
                                 continue;
                             }
                             let (sa, chunk_a) = active[ka];
                             let (sb, chunk_b) = active[kb];
+                            let ba = self.cached_box(&mut boxes, ka, sa, chunk_a);
+                            let bb = self.cached_box(&mut boxes, kb, sb, chunk_b);
                             self.chunk_pair_contact((sa, chunk_a, ba), (sb, chunk_b, bb), dt);
                         }
                     }
@@ -821,16 +836,17 @@ impl World {
         let m_red = ma * mb / (ma + mb);
         let mu = self.pair_friction(self.chunk_material(sa, ca), self.chunk_material(sb, cb));
         // Points of a inside b push a out along b's face normal, and vice versa.
+        let (na, nb) = (ba.sample_points().len(), bb.sample_points().len());
         let mut pairs: Vec<(usize, Vec3, Vec3, f64)> =
             ba.points_inside(&bb).into_iter().map(|p| (p.index, p.point, p.normal, p.depth)).collect();
-        pairs.extend(bb.points_inside(&ba).into_iter().map(|p| (SAMPLE_POINTS + p.index, p.point, -p.normal, p.depth)));
+        pairs.extend(bb.points_inside(&ba).into_iter().map(|p| (na + p.index, p.point, -p.normal, p.depth)));
         if pairs.is_empty() {
             return;
         }
         let key = (sa, ca, sb, cb);
         self.pairs_seen.insert(key);
-        let entry = self.pair_offsets.entry(key).or_insert([(f64::NAN, Vec3::ZERO); 2 * SAMPLE_POINTS]);
-        let mut inside = [false; 2 * SAMPLE_POINTS];
+        let entry = self.pair_offsets.entry(key).or_insert_with(|| vec![(f64::NAN, Vec3::ZERO); na + nb]);
+        let mut inside = vec![false; na + nb];
         let mut effective = Vec::with_capacity(pairs.len());
         for &(i, p, n, depth) in &pairs {
             inside[i] = true;
@@ -950,7 +966,10 @@ impl World {
                 self.topology_version += 1;
             }
             SolveMode::Implicit => {}
-            SolveMode::Adaptive => self.settle_quiet_clusters(),
+            SolveMode::Adaptive => {
+                self.settle_quiet_clusters();
+                self.advance_settled_fatigue();
+            }
         }
         if let Some(u) = self.scene.sim.refine_utilization {
             self.refine_where_needed(u);
@@ -1015,6 +1034,28 @@ impl World {
             self.solver.equilibrate(ci, &self.loads, &opts);
             self.solver.clusters[ci].activity = Activity::Settled;
             self.solver.clusters[ci].settled_load_norm = self.cluster_load_norm(ci);
+        }
+    }
+
+    /// Static fatigue keeps acting on a settled cluster: once per frame its bonds are
+    /// evaluated at the equilibrium displacements with the frame's duration. A bond
+    /// that starts to damage wakes the cluster, so the failure itself runs explicitly.
+    pub(crate) fn advance_settled_fatigue(&mut self) {
+        let fdt = self.scene.sim.frame_dt;
+        for ci in (0..self.solver.clusters.len()).rev() {
+            let cl = &self.solver.clusters[ci];
+            if cl.activity != Activity::Settled || cl.bonds.is_empty() {
+                continue;
+            }
+            let (changed, disconnected) = self.solver.commit_damage(ci, fdt);
+            if changed || disconnected {
+                self.solver.clusters[ci].activity = Activity::Active;
+                self.solver.clusters[ci].active_timer = self.solver.config.active_time;
+            }
+            if disconnected {
+                self.solver.split_cluster(ci);
+                self.topology_version += 1;
+            }
         }
     }
 
@@ -1387,9 +1428,9 @@ pub fn min_stiffness_scale(scene: &Scene, frames: f64) -> f64 {
     scale.min(1.0)
 }
 
-/// The face of a box whose outward normal is within ~8 degrees of `dir`.
-fn face_towards(faces: &[crate::structure::Face; 6], dir: Vec3) -> Option<usize> {
-    let best = (0..6).max_by(|&i, &j| faces[i].normal.dot(dir).total_cmp(&faces[j].normal.dot(dir)))?;
+/// The face of a chunk whose outward normal is within ~8 degrees of `dir`.
+fn face_towards(faces: &[crate::structure::Face], dir: Vec3) -> Option<usize> {
+    let best = (0..faces.len()).max_by(|&i, &j| faces[i].normal.dot(dir).total_cmp(&faces[j].normal.dot(dir)))?;
     (faces[best].normal.dot(dir) > 0.99).then_some(best)
 }
 

@@ -352,6 +352,11 @@ pub struct JointResponse {
 /// Springs per side of the cracked joint's no-tension patch.
 pub const CONTACT_SPRINGS: usize = 6;
 
+/// Positions of the contact springs across a patch of the given width (centred).
+fn spring_offsets(width: f64) -> [f64; CONTACT_SPRINGS] {
+    std::array::from_fn(|i| ((i as f64 + 0.5) / CONTACT_SPRINGS as f64 - 0.5) * width)
+}
+
 fn sq(x: f64) -> f64 {
     x * x
 }
@@ -423,10 +428,9 @@ impl<'a> JointModel<'a> {
             let n = CONTACT_SPRINGS;
             let ki = k.kn * (1.0 - st.crush) / (n * n) as f64;
             let (mut nc_sum, mut m1, mut m2, mut energy) = (0.0, 0.0, 0.0, 0.0);
-            for a in 0..n {
-                let s1 = ((a as f64 + 0.5) / n as f64 - 0.5) * g.width[0];
-                for b in 0..n {
-                    let s2 = ((b as f64 + 0.5) / n as f64 - 0.5) * g.width[1];
+            let (o1, o2) = (spring_offsets(g.width[0]), spring_offsets(g.width[1]));
+            for &s1 in &o1 {
+                for &s2 in &o2 {
                     let di = d.lin.z + d.ang.x * s2 - d.ang.y * s1;
                     if di < 0.0 {
                         let f = ki * di;
@@ -498,13 +502,16 @@ impl<'a> JointModel<'a> {
             // Using the undamaged bending stiffness here would "crush" any cracked joint
             // that keeps rotating.
             let comp_idx = {
-                let mut probe = state.clone();
-                let (qc, _, _) = contact(&mut probe, false);
                 let d_old = state.damage;
-                let q = Local6 {
-                    lin: Vec3::new(0.0, 0.0, q_eff.lin.z.min(0.0)),
-                    ang: q_eff.ang * (1.0 - d_old) + qc.ang * d_old,
+                // An uncracked joint has no contact share: skip the patch (most joints).
+                let ang = if d_old > 0.0 {
+                    let mut probe = state.clone();
+                    let (qc, _, _) = contact(&mut probe, false);
+                    q_eff.ang * (1.0 - d_old) + qc.ang * d_old
+                } else {
+                    q_eff.ang
                 };
+                let q = Local6 { lin: Vec3::new(0.0, 0.0, q_eff.lin.z.min(0.0)), ang };
                 failure_indices(s, &stress_measures(g, &q), multiplier)
             };
             let (lambda_c, mode_c) = comp_idx.compression_family();
@@ -606,10 +613,9 @@ impl<'a> JointModel<'a> {
             let n = CONTACT_SPRINGS;
             let ki = k.kn * (1.0 - state.crush) / (n * n) as f64;
             let mut nc = 0.0;
-            for a in 0..n {
-                let s1 = ((a as f64 + 0.5) / n as f64 - 0.5) * g.width[0];
-                for b in 0..n {
-                    let s2 = ((b as f64 + 0.5) / n as f64 - 0.5) * g.width[1];
+            let (o1, o2) = (spring_offsets(g.width[0]), spring_offsets(g.width[1]));
+            for &s1 in &o1 {
+                for &s2 in &o2 {
                     let di = d.lin.z + d.ang.x * s2 - d.ang.y * s1;
                     if di < 0.0 {
                         nc -= ki * di;

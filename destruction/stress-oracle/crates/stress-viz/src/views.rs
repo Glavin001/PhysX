@@ -318,6 +318,7 @@ mod tests {
             von_mises: 0.0,
             principal: -2e6,
             utilization: 1.3,
+            hull: None,
         };
         let s = Scales { stress: 4e6, von_mises: 1.0, speed: 1.0, deformation: 1.0, exaggeration: 1.0 };
         assert_eq!(ViewMode::Utilization.chunk_color(&c, &s), FAILED);

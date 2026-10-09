@@ -31,6 +31,7 @@ fn engine_contact_impulses_carry_the_weight_upwards() {
             half_extents: Vec3::splat(0.5),
             mass,
             chunk: Some((0, 7)),
+            hull: None,
         }]),
         fixed: false,
         ccd: false,

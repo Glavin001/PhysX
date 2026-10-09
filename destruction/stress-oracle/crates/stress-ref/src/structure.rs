@@ -4,6 +4,7 @@
 use crate::bond::{BondGeometry, BondStiffness, Local6};
 use crate::joint::{JointStrength, RebarParams};
 use crate::material::{bond_strength_factor, Material};
+use crate::hull::ConvexHull;
 use crate::math::{Mat3, Quat, Vec3};
 use crate::scene::{box_mass_inertia, BodyDesc, Features, Scene, Support};
 
@@ -36,14 +37,19 @@ pub struct ChunkData {
     pub level: u32,
     pub parent: Option<usize>,
     pub children: Vec<usize>,
-    pub faces: [Face; 6],
+    /// Box: 6 faces (-x, +x, -y, +y, -z, +z); hull: its faces.
+    pub faces: Vec<Face>,
+    /// The convex hull of a hull chunk (chunk frame, centred), `None` for a box.
+    pub hull: Option<std::sync::Arc<ConvexHull>>,
+    /// Solid volume (m^3).
+    pub volume: f64,
     /// Bond indices touching this chunk.
     pub bonds: Vec<usize>,
 }
 
 impl ChunkData {
     pub fn volume(&self) -> f64 {
-        8.0 * self.half_extents.x * self.half_extents.y * self.half_extents.z
+        self.volume
     }
 
     /// The eight corners relative to the chunk centre (body frame).
@@ -133,11 +139,11 @@ pub struct Structure {
 }
 
 /// The face of a box whose outward normal is closest to `dir` (body frame).
-fn face_index(faces: &[Face; 6], dir: Vec3) -> usize {
-    (0..6).max_by(|&i, &j| faces[i].normal.dot(dir).total_cmp(&faces[j].normal.dot(dir))).unwrap()
+fn face_index(faces: &[Face], dir: Vec3) -> usize {
+    (0..faces.len()).max_by(|&i, &j| faces[i].normal.dot(dir).total_cmp(&faces[j].normal.dot(dir))).unwrap()
 }
 
-fn faces_of(half: Vec3, rot: Mat3) -> [Face; 6] {
+fn faces_of(half: Vec3, rot: Mat3) -> Vec<Face> {
     let mut faces = [Face { normal: Vec3::ZERO, offset: Vec3::ZERO, area: 0.0 }; 6];
     for axis in 0..3 {
         let (a, b) = ((axis + 1) % 3, (axis + 2) % 3);
@@ -149,7 +155,7 @@ fn faces_of(half: Vec3, rot: Mat3) -> [Face; 6] {
             faces[2 * axis + s] = Face { normal: n, offset: n * half[axis], area };
         }
     }
-    faces
+    faces.to_vec()
 }
 
 impl Structure {
@@ -163,9 +169,28 @@ impl Structure {
             .iter()
             .map(|c| {
                 let m = scene.material(&c.material);
-                let (mass, inertia) = box_mass_inertia(c.half_extents, c.orientation, m.density);
                 let rotation = Quat::from_wxyz(c.orientation).to_mat3();
                 let half = Vec3::from_array(c.half_extents);
+                let hull = c.hull.as_ref().map(|points| {
+                    let pts: Vec<Vec3> = points.iter().map(|p| Vec3::from_array(*p)).collect();
+                    std::sync::Arc::new(ConvexHull::new(&pts).expect("validated hull"))
+                });
+                let (mass, inertia, volume, faces) = match &hull {
+                    None => {
+                        let (mass, inertia) = box_mass_inertia(c.half_extents, c.orientation, m.density);
+                        (mass, inertia, 8.0 * half.x * half.y * half.z, faces_of(half, rotation))
+                    }
+                    Some(h) => {
+                        let um = h.unit_mass();
+                        let faces = h
+                            .faces
+                            .iter()
+                            .map(|f| Face { normal: rotation * f.normal, offset: rotation * f.centroid, area: f.area })
+                            .collect();
+                        let inertia = rotation * (um.inertia * m.density) * rotation.transpose();
+                        (m.density * um.volume, inertia, um.volume, faces)
+                    }
+                };
                 ChunkData {
                     center: Vec3::from_array(c.center),
                     half_extents: half,
@@ -181,7 +206,9 @@ impl Structure {
                     level: c.level,
                     parent: c.parent,
                     children: Vec::new(),
-                    faces: faces_of(half, rotation),
+                    faces,
+                    hull,
+                    volume,
                     bonds: Vec::new(),
                 }
             })

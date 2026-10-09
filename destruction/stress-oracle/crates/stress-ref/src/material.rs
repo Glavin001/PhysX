@@ -293,6 +293,51 @@ impl Material {
         }
     }
 
+    /// Structural softwood, strength class C24 (EN 338 mean values, loaded along the
+    /// grain). The bond model is isotropic, so splitting across the grain (tension
+    /// perpendicular ~0.4 MPa) is not represented; members fail at their along-grain
+    /// strength. Duration of load follows the Madison curve (Wood 1951: about 9% strength
+    /// per decade of load duration, n ~ 24) referred to the EN 408 short-term test
+    /// (failure in about 300 s).
+    pub fn timber() -> Material {
+        Material {
+            density: 420.0,
+            youngs_modulus: 11e9,
+            poisson_ratio: 0.3,
+            tensile_strength: 14.5e6,
+            compressive_strength: 21e6,
+            cohesion: 4.0e6,
+            friction: 0.5,
+            shear_cap: None,
+            fracture_energy: FractureEnergy { tension: 300.0, shear: 1000.0, compression: 20_000.0 },
+            kind: BondKind::Brittle,
+            weibull_modulus: None,
+            dif: None,
+            static_fatigue: Some(StaticFatigue { exponent: 24.0, test_time: 300.0 }),
+            damping_ratio: 0.02,
+        }
+    }
+
+    /// Building stone (sandstone or limestone ashlar), typical handbook values.
+    pub fn stone() -> Material {
+        Material {
+            density: 2300.0,
+            youngs_modulus: 20e9,
+            poisson_ratio: 0.2,
+            tensile_strength: 3.0e6,
+            compressive_strength: 60e6,
+            cohesion: 4.0e6,
+            friction: 0.7,
+            shear_cap: None,
+            fracture_energy: FractureEnergy { tension: 60.0, shear: 600.0, compression: 20_000.0 },
+            kind: BondKind::Brittle,
+            weibull_modulus: None,
+            dif: None,
+            static_fatigue: None,
+            damping_ratio: 0.01,
+        }
+    }
+
     /// Structural steel: ductile bond with a high fracture energy.
     pub fn steel() -> Material {
         Material {

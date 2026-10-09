@@ -221,7 +221,7 @@ impl World {
                 let cl = &solver.clusters[state.cluster];
                 let r = cl.rotation();
                 let hidden = Quat::from_axis_angle(state.th, state.th.norm()).to_mat3();
-                let volume = 8.0 * ch.half_extents.x * ch.half_extents.y * ch.half_extents.z;
+                let volume = ch.volume();
                 let sigma = r * stress[c] * r.transpose() * (1.0 / volume);
                 let (v, _) = solver.chunk_velocity(s, c);
                 chunks.push(ChunkView {

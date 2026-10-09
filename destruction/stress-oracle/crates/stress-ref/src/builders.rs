@@ -40,6 +40,7 @@ pub fn chunk(center: Vec3, half: Vec3, material: &str) -> ChunkDesc {
         groups: Vec::new(),
         level: 0,
         parent: None,
+        hull: None,
     }
 }
 

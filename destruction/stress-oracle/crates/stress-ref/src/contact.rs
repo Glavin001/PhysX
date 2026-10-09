@@ -12,16 +12,22 @@
 //!
 //! Box contact uses sample points: the 8 corners pulled 10% towards the centre plus the
 //! 6 face centres. Pulling corners inwards avoids double counting where the corners of
-//! aligned, equal chunks meet exactly on an edge.
+//! aligned, equal chunks meet exactly on an edge. Convex hull chunks are sampled the same
+//! way (corners pulled in, face centroids) and resolved against their face planes.
 
+use std::sync::Arc;
+
+use crate::hull::ConvexHull;
 use crate::math::{Mat3, Vec3};
 
-/// An oriented box in world space.
-#[derive(Clone, Copy, Debug)]
+/// A chunk's shape in world space: an oriented box, or a convex hull (`half` then
+/// bounds the hull and serves as its thickness for contact stiffness).
+#[derive(Clone, Debug)]
 pub struct OBox {
     pub center: Vec3,
     pub rotation: Mat3,
     pub half: Vec3,
+    pub hull: Option<Arc<ConvexHull>>,
 }
 
 /// A penetrating contact: `normal` points from the first shape towards the second.
@@ -34,6 +40,7 @@ pub struct ContactPoint {
     pub depth: f64,
 }
 
+/// Sample points of a box.
 pub const SAMPLE_POINTS: usize = 14;
 
 impl OBox {
@@ -41,8 +48,11 @@ impl OBox {
         self.half.norm()
     }
 
-    pub fn sample_points(&self) -> [Vec3; SAMPLE_POINTS] {
-        let mut pts = [Vec3::ZERO; SAMPLE_POINTS];
+    pub fn sample_points(&self) -> Vec<Vec3> {
+        if let Some(h) = &self.hull {
+            return h.sample_points().into_iter().map(|p| self.center + self.rotation * p).collect();
+        }
+        let mut pts = vec![Vec3::ZERO; SAMPLE_POINTS];
         let h = self.half * 0.9;
         for (i, p) in pts.iter_mut().take(8).enumerate() {
             let s = Vec3::new(
@@ -65,6 +75,10 @@ impl OBox {
     /// If `p` is inside, the depth to the nearest face and that face's outward normal.
     pub fn penetration(&self, p: Vec3) -> Option<(f64, Vec3)> {
         let local = self.rotation.transpose() * (p - self.center);
+        if let Some(h) = &self.hull {
+            let (d, f) = h.signed_distance(local);
+            return (d < 0.0).then(|| (-d, self.rotation * h.faces[f].normal));
+        }
         let mut best = f64::INFINITY;
         let mut axis = 0;
         for k in 0..3 {
@@ -96,6 +110,15 @@ impl OBox {
     /// Sphere against this box: normal points from the box to the sphere centre.
     pub fn sphere_contact(&self, center: Vec3, radius: f64) -> Option<ContactPoint> {
         let local = self.rotation.transpose() * (center - self.center);
+        if let Some(h) = &self.hull {
+            // Nearest face plane (exact over a face, conservative near edges and corners).
+            let (d, f) = h.signed_distance(local);
+            if d >= radius {
+                return None;
+            }
+            let n = self.rotation * h.faces[f].normal;
+            return Some(ContactPoint { index: 0, point: center - n * d.max(0.0), normal: n, depth: radius - d });
+        }
         let q = Vec3::new(
             local.x.clamp(-self.half.x, self.half.x),
             local.y.clamp(-self.half.y, self.half.y),
@@ -119,6 +142,26 @@ impl OBox {
     pub fn segment_hit(&self, a: Vec3, b: Vec3) -> Option<f64> {
         let ro = self.rotation.transpose() * (a - self.center);
         let rd = self.rotation.transpose() * (b - a);
+        if let Some(h) = &self.hull {
+            // Clip the segment against every face's half-space (Cyrus-Beck).
+            let (mut t0, mut t1) = (0.0f64, 1.0f64);
+            for f in &h.faces {
+                let (num, den) = (f.offset - f.normal.dot(ro), f.normal.dot(rd));
+                if den.abs() < 1e-15 {
+                    if num < 0.0 {
+                        return None;
+                    }
+                } else if den < 0.0 {
+                    t0 = t0.max(num / den);
+                } else {
+                    t1 = t1.min(num / den);
+                }
+                if t0 > t1 {
+                    return None;
+                }
+            }
+            return Some(t0);
+        }
         let mut t0: f64 = 0.0;
         let mut t1: f64 = 1.0;
         for k in 0..3 {
@@ -148,7 +191,7 @@ mod tests {
     use super::*;
 
     fn unit_box(c: Vec3) -> OBox {
-        OBox { center: c, rotation: Mat3::IDENTITY, half: Vec3::splat(0.5) }
+        OBox { center: c, rotation: Mat3::IDENTITY, half: Vec3::splat(0.5), hull: None }
     }
 
     #[test]

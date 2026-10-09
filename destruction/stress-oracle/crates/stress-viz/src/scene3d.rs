@@ -8,7 +8,7 @@ use stress_ref::scene::ImpactorShape;
 use crate::camera::{Aabb, Camera};
 use crate::colormap::{rgb8, scale, Colormap, Rgb};
 use crate::raster::{object_id, Depth, OutlineStyle, Raster};
-use crate::record::{ChunkRec, Frame};
+use crate::record::{ChunkRec, Frame, HullMesh};
 use crate::views::{fmt_number, nice_ceil, Scales, ViewMode, BROKEN};
 
 /// Background gradient of the 3-D views.
@@ -126,7 +126,11 @@ impl PanelScene<'_> {
             }
             let d = self.mode.displacement(c, self.scales);
             let center = v3(c.center) + v3(d);
-            self.draw_box(r, center, &c.rotation, c.half_extents, self.mode.chunk_color(c, self.scales), i as u32 + 1);
+            let color = self.mode.chunk_color(c, self.scales);
+            match &c.hull {
+                Some(mesh) => self.draw_hull(r, center, &c.rotation, mesh, color, i as u32 + 1),
+                None => self.draw_box(r, center, &c.rotation, c.half_extents, color, i as u32 + 1),
+            }
         }
         let first_impactor = frame.chunks.len() as u32 + 1;
         for (j, imp) in frame.impactors.iter().enumerate() {
@@ -164,6 +168,20 @@ impl PanelScene<'_> {
                 ];
                 r.polygon(&pts, self.lambert(base, n), Depth::Write { id: object_id(obj, 2 * k as u32 + s) });
             }
+        }
+    }
+
+    /// A convex hull chunk: each face polygon facing the camera, flat shaded.
+    fn draw_hull(&self, r: &mut Raster, center: Vec3, rot: &[[f32; 3]; 3], mesh: &HullMesh, base: Rgb, obj: u32) {
+        let world = |p: [f32; 3]| center + col(rot, 0) * p[0] as f64 + col(rot, 1) * p[1] as f64 + col(rot, 2) * p[2] as f64;
+        for (k, (normal, poly)) in mesh.iter().enumerate() {
+            let n = col(rot, 0) * normal[0] as f64 + col(rot, 1) * normal[1] as f64 + col(rot, 2) * normal[2] as f64;
+            let fc = world(poly[0]);
+            if n.dot(self.camera.eye - fc) <= 0.0 {
+                continue;
+            }
+            let pts: Vec<[f32; 3]> = poly.iter().map(|p| self.view(world(*p))).collect();
+            r.polygon(&pts, self.lambert(base, n), Depth::Write { id: object_id(obj, k as u32) });
         }
     }
 
@@ -312,6 +330,7 @@ mod tests {
             von_mises: 0.0,
             principal: 0.0,
             utilization: 0.5,
+            hull: None,
         }
     }
 

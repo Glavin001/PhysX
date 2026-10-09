@@ -654,7 +654,9 @@ impl ReferenceSolver {
     pub fn stable_dt(&self) -> f64 {
         let mut dt = f64::INFINITY;
         for ci in 0..self.clusters.len() {
-            if self.clusters[ci].bonds.is_empty() {
+            // Only clusters integrated explicitly limit the step (adaptive: the active ones).
+            let settled = self.config.mode == SolveMode::Adaptive && self.clusters[ci].activity != Activity::Active;
+            if self.clusters[ci].bonds.is_empty() || settled {
                 continue;
             }
             let w = self.max_frequency(ci);
@@ -841,29 +843,34 @@ impl ReferenceSolver {
         }
         let fracture = self.config.fracture;
         let bond_ids = self.clusters[ci].bonds.clone();
-        let mut dissipated = 0.0;
-        let mut damped = 0.0;
-        for bi in bond_ids {
-            let (ga, gb) = {
-                let g = &self.bonds[s][bi].geometry;
-                (g.a, g.b)
-            };
-            let (sa, sb) = (self.chunks[s][ga], self.chunks[s][gb]);
+        // Every bond's response depends only on the state at the start of the substep:
+        // evaluate them in parallel, then apply them in bond order (bit-identical).
+        let updates = crate::par::map(&bond_ids, |&bi| {
             let b = &self.bonds[s][bi];
+            let (sa, sb) = (self.chunks[s][b.geometry.a], self.chunks[s][b.geometry.b]);
             let d = b.geometry.kinematics(sa.u, sa.th, sb.u, sb.th);
             let rate = b.geometry.kinematics(sa.v, sa.w, sb.v, sb.w);
             let resp = b.model().evaluate(&b.joint, &d, dt, fracture);
             let factors = b.model().secant_factors(&resp.state, &d);
             let q_damp = rate.mul_elem(&b.damping).mul_elem(&factors);
             let q = resp.force.add(&q_damp);
-            damped += q_damp.dot(&rate) * dt;
+            let damped = q_damp.dot(&rate) * dt;
+            (resp, q, damped)
+        });
+        let mut dissipated = 0.0;
+        let mut damped = 0.0;
+        for (bi, (resp, q, bond_damped)) in bond_ids.into_iter().zip(updates) {
+            let (ga, gb) = {
+                let g = &self.bonds[s][bi].geometry;
+                (g.a, g.b)
+            };
+            damped += bond_damped;
             dissipated += resp.dissipated;
             self.energy.softening_overshoot += resp.overshoot;
             self.max_utilization = self.max_utilization.max(resp.state.utilization);
-            let (fa, ma, fb, mb) = b.geometry.chunk_loads(&q);
-            let previous = b.joint.clone();
+            let (fa, ma, fb, mb) = self.bonds[s][bi].geometry.chunk_loads(&q);
             let bm = &mut self.bonds[s][bi];
-            bm.joint = resp.state;
+            let previous = std::mem::replace(&mut bm.joint, resp.state);
             bm.force = q;
             bm.measures = resp.measures;
             bm.stored = resp.stored;
@@ -885,8 +892,8 @@ impl ReferenceSolver {
             (cl.pose, cl.velocity, cl.angular_velocity, cl.com)
         };
         let mut work = 0.0;
-        for c in chunk_ids {
-            let (f_ext, m_ext) = self.frame_loads(ci, c, loads, a, alpha, t);
+        let frame_loads = crate::par::map(&chunk_ids, |&c| self.frame_loads(ci, c, loads, a, alpha, t));
+        for (c, (f_ext, m_ext)) in chunk_ids.into_iter().zip(frame_loads) {
             let (fi, mi) = self.f_int[s][c];
             let ch = &self.structures[s].chunks[c];
             let st = &mut self.chunks[s][c];

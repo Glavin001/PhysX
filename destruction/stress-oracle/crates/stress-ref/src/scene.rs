@@ -108,6 +108,10 @@ pub struct ChunkDesc {
     /// The coarser chunk this one refines, for level > 0.
     #[serde(default)]
     pub parent: Option<usize>,
+    /// Convex hull chunk: up to 64 points in the chunk frame, centred on the chunk's
+    /// centre of mass (`half_extents` then bound it). Absent: a box of `half_extents`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hull: Option<Vec<[f64; 3]>>,
 }
 
 /// A bond between two touching chunks of the same body.
@@ -756,6 +760,22 @@ impl Scene {
                 known(&c.material)?;
                 if c.half_extents.iter().any(|h| !(*h > 0.0)) {
                     return Err(format!("body '{}' chunk {i}: half extents must be positive", body.name));
+                }
+                if let Some(points) = &c.hull {
+                    let pts: Vec<Vec3> = points.iter().map(|p| Vec3::from_array(*p)).collect();
+                    let hull = crate::hull::ConvexHull::new(&pts).map_err(|e| format!("body '{}' chunk {i}: {e}", body.name))?;
+                    let um = hull.unit_mass();
+                    let size = hull.half_extents().norm();
+                    if um.centroid.norm() > 1e-6 * size {
+                        return Err(format!("body '{}' chunk {i}: hull centroid {:?} is not at the chunk centre", body.name, um.centroid));
+                    }
+                    let h = hull.half_extents();
+                    if (0..3).any(|k| h[k] > c.half_extents[k] * (1.0 + 1e-9)) {
+                        return Err(format!("body '{}' chunk {i}: half extents do not bound the hull", body.name));
+                    }
+                    if c.parent.is_some() || body.chunks.iter().any(|o| o.parent == Some(i)) {
+                        return Err(format!("body '{}' chunk {i}: hull chunks cannot be pre-fractured levels", body.name));
+                    }
                 }
                 if let Some(p) = c.parent {
                     if p >= body.chunks.len() || body.chunks[p].level + 1 != c.level {

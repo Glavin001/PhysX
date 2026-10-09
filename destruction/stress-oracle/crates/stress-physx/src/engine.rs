@@ -126,7 +126,16 @@ impl PhysxEngine {
                 let mass: f64 = boxes.iter().map(|s| s.mass).sum();
                 let com = boxes.iter().fold(Vec3::ZERO, |a, s| a + s.local.position * s.mass) * (1.0 / mass.max(1e-300));
                 (
-                    boxes.iter().map(|s| (s.local, ShapeGeom::Cuboid { half_extents: pv(s.half_extents) }, s.mass as f32)).collect(),
+                    boxes
+                        .iter()
+                        .map(|s| {
+                            let geom = match &s.hull {
+                                Some(points) => ShapeGeom::ConvexHull { points: points.iter().map(|p| pv(*p)).collect() },
+                                None => ShapeGeom::Cuboid { half_extents: pv(s.half_extents) },
+                            };
+                            (s.local, geom, s.mass as f32)
+                        })
+                        .collect(),
                     boxes.iter().map(|s| s.chunk).collect(),
                     com,
                 )

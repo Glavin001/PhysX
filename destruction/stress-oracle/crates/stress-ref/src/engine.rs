@@ -47,13 +47,15 @@ pub enum BodyKey {
 }
 
 /// One box shape of a body, in the body frame.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct BoxShape {
     pub local: Pose,
     pub half_extents: Vec3,
     pub mass: f64,
     /// The chunk this shape is (structure, chunk); contacts on it are reported on it.
     pub chunk: Option<(usize, usize)>,
+    /// Convex hull vertices in the shape frame (a hull chunk); `None`: the box.
+    pub hull: Option<Vec<Vec3>>,
 }
 
 #[derive(Clone, Debug)]

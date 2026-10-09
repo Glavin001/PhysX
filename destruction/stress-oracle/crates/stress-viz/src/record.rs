@@ -32,6 +32,31 @@ pub struct ChunkRec {
     /// (Pa, tension positive), so compression shows as negative.
     pub principal: f32,
     pub utilization: f32,
+    /// Faces of a hull chunk (chunk frame), shared by every frame; `None` for a box.
+    pub hull: Option<HullMesh>,
+}
+
+/// Outward normal and counter-clockwise polygon of each face of a hull chunk.
+pub type HullMesh = std::sync::Arc<Vec<([f32; 3], Vec<[f32; 3]>)>>;
+
+/// Hull meshes per (body, chunk), built once.
+fn hull_meshes(world: &World) -> Vec<Vec<Option<HullMesh>>> {
+    let f = |v: Vec3| [v.x as f32, v.y as f32, v.z as f32];
+    world
+        .solver
+        .structures
+        .iter()
+        .map(|st| {
+            st.chunks
+                .iter()
+                .map(|ch| {
+                    ch.hull.as_ref().map(|h| {
+                        std::sync::Arc::new(h.faces.iter().map(|face| (f(face.normal), face.vertices.iter().map(|&i| f(h.vertices[i])).collect())).collect())
+                    })
+                })
+                .collect()
+        })
+        .collect()
 }
 
 /// A damaged (cracked or broken) bond patch; intact bonds are not kept.
@@ -143,7 +168,7 @@ fn dominant_principal(stress: [[f64; 3]; 3]) -> f64 {
     }
 }
 
-fn compact(s: &Snapshot) -> Frame {
+fn compact(s: &Snapshot, hulls: &[Vec<Option<HullMesh>>]) -> Frame {
     let chunks = s
         .chunks
         .iter()
@@ -158,6 +183,7 @@ fn compact(s: &Snapshot) -> Frame {
             von_mises: c.von_mises as f32,
             principal: dominant_principal(c.stress) as f32,
             utilization: c.utilization as f32,
+            hull: hulls[c.body][c.chunk].clone(),
         })
         .collect();
     let bonds = s
@@ -233,14 +259,15 @@ pub fn record(scene: &Scene, opts: &RecordOptions) -> Recording {
     let frame_dt = scene.sim.frame_dt;
     let total = (opts.duration / frame_dt).round().max(1.0) as u64;
     let every = opts.every.max(1) as u64;
-    let mut frames = vec![compact(&first)];
+    let hulls = hull_meshes(&world);
+    let mut frames = vec![compact(&first, &hulls)];
     let mut last_report = Instant::now();
     // Stop on simulated time: a frame never advances less than one substep.
     while world.solver.time < opts.duration - 0.5 * frame_dt {
         world.step_frame();
         let done = world.solver.time >= opts.duration - 0.5 * frame_dt;
         if world.frame.is_multiple_of(every) || done {
-            frames.push(compact(&world.snapshot()));
+            frames.push(compact(&world.snapshot(), &hulls));
         }
         if !opts.label.is_empty() && (last_report.elapsed().as_secs_f64() > 5.0 || done) {
             last_report = Instant::now();
