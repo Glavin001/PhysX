@@ -93,6 +93,7 @@ struct BlastCache {
     faces: Vec<(usize, usize, usize, f64, FaceBlast)>,
 }
 
+#[derive(Clone)]
 pub struct World {
     pub scene: Scene,
     pub solver: ReferenceSolver,
@@ -136,11 +137,37 @@ pub struct World {
     /// motion the engine integrated, and those the world simulated in an island.
     pub engine_body_frames: u64,
     pub island_body_frames: u64,
+    /// Coupled mode: frames solved again because a body the engine moved fractured.
+    pub redone_frames: u64,
+}
+
+/// The external engine. A clone of the world is detached from it (the cell clones
+/// empty): world snapshots hold everything but the engine, which keeps its own.
+struct EngineCell(Option<Box<dyn RigidEngine>>);
+
+impl Clone for EngineCell {
+    fn clone(&self) -> EngineCell {
+        EngineCell(None)
+    }
+}
+
+impl std::ops::Deref for EngineCell {
+    type Target = dyn RigidEngine;
+    fn deref(&self) -> &(dyn RigidEngine + 'static) {
+        self.0.as_deref().expect("a world snapshot has no engine")
+    }
+}
+
+impl std::ops::DerefMut for EngineCell {
+    fn deref_mut(&mut self) -> &mut (dyn RigidEngine + 'static) {
+        self.0.as_deref_mut().expect("a world snapshot has no engine")
+    }
 }
 
 /// State of the coupling to an external engine (see `engine.rs`).
+#[derive(Clone)]
 struct Coupling {
-    engine: Box<dyn RigidEngine>,
+    engine: EngineCell,
     /// Engine contacts on driven clusters, as resting loads and impact pulses.
     filter: ContactLoadFilter,
     /// Engine motion of every body at the start and the end of the current frame.
@@ -247,6 +274,7 @@ impl World {
             max_island_bodies: 0,
             engine_body_frames: 0,
             island_body_frames: 0,
+            redone_frames: 0,
             scene: scene.clone(),
             solver,
         };
@@ -1217,6 +1245,7 @@ impl World {
             obs.values.insert("max_island_bodies".into(), self.max_island_bodies as f64);
             obs.values.insert("engine_body_frames".into(), self.engine_body_frames as f64);
             obs.values.insert("island_body_frames".into(), self.island_body_frames as f64);
+            obs.values.insert("redone_frames".into(), self.redone_frames as f64);
         }
         for (p, acc) in self.scene.probes.iter().zip(&self.probes) {
             obs.probes.insert(p.name.clone(), acc.series.clone());

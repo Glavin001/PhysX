@@ -1,7 +1,9 @@
 //! The world coupled to an external rigid-body engine; see `engine.rs` for the design.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
+
+use crate::solver::SolverEvent;
 
 use super::*;
 
@@ -132,7 +134,7 @@ impl World {
         if let Some(g) = &scene.ground {
             engine.add_ground(g.height);
         }
-        w.coupling = Some(Coupling { engine, filter: ContactLoadFilter::new(), start: HashMap::new(), end: HashMap::new() });
+        w.coupling = Some(Coupling { engine: EngineCell(Some(engine)), filter: ContactLoadFilter::new(), start: HashMap::new(), end: HashMap::new() });
         w.sync_engine_bodies();
         w
     }
@@ -225,8 +227,9 @@ impl World {
     }
 
     /// Mark this frame's impact islands (bodies the world simulates) and the driven
-    /// bodies (the engine's). Returns the number of bodies in islands.
-    fn select_islands(&mut self, dt: f64) -> usize {
+    /// bodies (the engine's); `forced` bodies seed islands whatever the prediction.
+    /// Returns the number of bodies in islands.
+    fn select_islands(&mut self, dt: f64, forced: &HashSet<BodyKey>) -> usize {
         let scale = self.scene.sim.stiffness_scale;
         let plane_strain = |m: &Material| m.youngs_modulus * scale / (1.0 - m.poisson_ratio * m.poisson_ratio);
         let mut parts: Vec<Part> = Vec::new();
@@ -343,6 +346,11 @@ impl World {
                 }
             }
         }
+        for (i, p) in parts.iter().enumerate() {
+            if p.key.is_some_and(|k| forced.contains(&k)) {
+                seed[i] = true;
+            }
+        }
         let mut island_root = vec![false; n];
         for i in 0..n {
             if seed[i] {
@@ -447,11 +455,59 @@ impl World {
             .collect()
     }
 
-    /// One frame with the engine: islands, engine step, substeps, write-back, sync.
+    /// One frame with the engine: islands, engine step, substeps, verification (redo
+    /// with more islands if a body the engine moved fractured), write-back, sync.
     pub(super) fn step_frame_coupled(&mut self) {
+        let mut forced: HashSet<BodyKey> = HashSet::new();
+        let frozen = loop {
+            let saved = self.clone();
+            self.coupling.as_mut().expect("coupled").engine.save();
+            let (frozen, driven) = self.coupled_attempt(&forced);
+            let broke = self.fractured_since(&saved, &driven);
+            if broke.is_empty() || broke.is_subset(&forced) {
+                self.coupling.as_mut().expect("coupled").engine.discard();
+                break frozen;
+            }
+            // The engine's assumption failed for these bodies: solve the frame again
+            // with them in islands.
+            let engine = std::mem::replace(&mut self.coupling.as_mut().expect("coupled").engine, EngineCell(None));
+            *self = saved;
+            let c = self.coupling.as_mut().expect("coupled");
+            c.engine = engine;
+            c.engine.restore();
+            self.redone_frames += 1;
+            forced.extend(broke);
+        };
+        // Island bodies that still exist go back to the engine with the world's state;
+        // new fragments are created by the sync with theirs.
+        let motion = self.world_motion();
+        let back: Vec<BodyMotion> = frozen.iter().filter_map(|k| motion.get(k).copied()).collect();
+        self.coupling.as_mut().expect("coupled").engine.set_motion(&back);
+        self.sync_engine_bodies();
+    }
+
+    /// Bodies (by their key at the start of the frame, in `driven`) with a bond broken
+    /// since `saved`.
+    fn fractured_since(&self, saved: &World, driven: &HashSet<BodyKey>) -> HashSet<BodyKey> {
+        self.solver.events[saved.solver.events.len()..]
+            .iter()
+            .filter_map(|e| match e {
+                SolverEvent::Broken { structure, bond, .. } => {
+                    let chunk = saved.solver.bonds[*structure][*bond].geometry.a;
+                    let key = BodyKey::Cluster(saved.solver.clusters[saved.solver.chunks[*structure][chunk].cluster].id);
+                    driven.contains(&key).then_some(key)
+                }
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// One attempt at the frame. Returns the bodies held frozen in the engine and the
+    /// clusters it drove.
+    fn coupled_attempt(&mut self, forced: &HashSet<BodyKey>) -> (Vec<BodyKey>, HashSet<BodyKey>) {
         let fdt = self.scene.sim.frame_dt;
         let t0 = self.solver.time;
-        let island_bodies = self.select_islands(fdt);
+        let island_bodies = self.select_islands(fdt, forced);
         if island_bodies > 0 {
             self.island_frames += 1;
             self.max_island_bodies = self.max_island_bodies.max(island_bodies);
@@ -464,6 +520,7 @@ impl World {
                 self.island_body_frames += 1;
             }
         }
+        let driven: HashSet<BodyKey> = self.solver.clusters.iter().filter(|c| c.driven).map(|c| BodyKey::Cluster(c.id)).collect();
         // Island contacts need the contact-limited substep; otherwise only the stress does.
         let mut dt = if island_bodies > 0 { self.substep_dt() } else { self.solver.stable_dt().min(fdt) };
         if let Some(m) = self.scene.sim.max_substep {
@@ -508,13 +565,7 @@ impl World {
             self.refine_where_needed(u);
         }
         self.frame_loads.clear();
-
-        // Island bodies that still exist go back to the engine with the world's state;
-        // new fragments are created by the sync with theirs.
-        let motion = self.world_motion();
-        let back: Vec<BodyMotion> = frozen.iter().filter_map(|k| motion.get(k).copied()).collect();
-        self.coupling.as_mut().expect("coupled").engine.set_motion(&back);
-        self.sync_engine_bodies();
+        (frozen, driven)
     }
 }
 

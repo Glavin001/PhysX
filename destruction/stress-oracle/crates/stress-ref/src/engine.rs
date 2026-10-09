@@ -28,6 +28,12 @@
 //!
 //! The engine is the single owner of a body's rigid motion except for the frames in
 //! which that body is in an island; then the world is, and the engine is told.
+//!
+//! **Verified, not just predicted.** The island test is a prediction. The stress solve
+//! then checks it: if a body the engine moved fractured during the frame, the engine's
+//! assumption (the body stays whole through its contacts) was wrong for that frame. The
+//! world and the engine are rolled back to the start of the frame, the body is made an
+//! island seed, and the frame is solved again; the forced set only grows, so this ends.
 
 use crate::math::{Pose, Vec3};
 
@@ -114,4 +120,11 @@ pub trait RigidEngine {
     fn motion(&self) -> Vec<BodyMotion>;
     /// Overwrite the motion of the given (frozen) bodies and release them.
     fn set_motion(&mut self, states: &[BodyMotion]);
+    /// Remember every body's motion (start of a frame that may be redone).
+    fn save(&mut self);
+    /// Return every body to the saved motion and release frozen bodies; the body set
+    /// is the saved one (no sync in between).
+    fn restore(&mut self);
+    /// Forget the saved motion.
+    fn discard(&mut self);
 }

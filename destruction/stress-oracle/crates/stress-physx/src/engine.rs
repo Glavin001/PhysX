@@ -15,7 +15,7 @@ use std::collections::HashMap;
 
 use blast_stress_solver::backend::{
     BodyKind, BodyStateSoa, CommandBuffer, CommandResults, ContactBatch, CreateBody, CreateShape, Phase, PhysicsBackend,
-    Pose as PxPose, Quat as PxQuat, ShapeGeom,
+    Pose as PxPose, Quat as PxQuat, ShapeGeom, SnapshotToken,
 };
 use blast_stress_solver::backends::physx_backend::{PhysXWorld, PxBodyId, PxShapeId};
 use blast_stress_solver::types::Vec3 as PxVec3;
@@ -70,6 +70,8 @@ pub struct PhysxEngine {
     contacts: ContactBatch<PxShapeId>,
     /// Bodies currently held kinematic for an island.
     frozen: Vec<BodyKey>,
+    /// Motion saved at the start of a frame that may be redone.
+    saved: Option<SnapshotToken>,
 }
 
 impl PhysxEngine {
@@ -81,6 +83,7 @@ impl PhysxEngine {
             owners: HashMap::new(),
             contacts: ContactBatch::default(),
             frozen: Vec::new(),
+            saved: None,
         })
     }
 
@@ -307,6 +310,33 @@ impl RigidEngine for PhysxEngine {
             }
         }
         self.apply(Phase::Motion, &cmd);
+    }
+
+    fn save(&mut self) {
+        self.discard();
+        self.saved = Some(self.world.capture_motion(&[]).expect("PhysX motion snapshot"));
+    }
+
+    fn restore(&mut self) {
+        // Kinematic bodies restore their pose only: release the frozen ones first.
+        let mut cmd = CommandBuffer::new();
+        for k in self.frozen.drain(..) {
+            if let Some(e) = self.bodies.get(&k) {
+                cmd.set_body_kind.push((e.id, BodyKind::Dynamic));
+            }
+        }
+        self.apply(Phase::Motion, &cmd);
+        if let Some(token) = self.saved.take() {
+            self.world.restore_motion(token, &[]).expect("PhysX motion restore");
+            self.world.release_snapshot(token);
+        }
+        self.world.drain_contacts(&mut self.contacts);
+    }
+
+    fn discard(&mut self) {
+        if let Some(token) = self.saved.take() {
+            self.world.release_snapshot(token);
+        }
     }
 }
 
