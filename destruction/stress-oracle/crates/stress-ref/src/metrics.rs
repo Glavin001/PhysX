@@ -449,7 +449,7 @@ pub fn compare_distributions(scene: &Scene, ours: &[Observation], oracle: &[Obse
                             None => counts.push((k, 1)),
                         }
                     }
-                    counts.sort_by(|p, q| q.1.cmp(&p.1));
+                    counts.sort_by_key(|p| std::cmp::Reverse(p.1));
                     (counts[0].0.clone(), counts[0].1 as f64 / v.len() as f64)
                 };
                 let ((ka, fa), (kb, fb)) = (mode(&a), mode(&b));

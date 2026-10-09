@@ -13,6 +13,10 @@
 //!   computed identically from ours and every oracle's observation;
 //! * [`api`] — the engine-facing trait for swapping stress-solver implementations.
 
+// Numeric kernels index several parallel arrays with one loop variable, and the
+// validators write `!(x > 0.0)` on purpose so that NaN fails.
+#![allow(clippy::needless_range_loop, clippy::neg_cmp_op_on_partial_ord)]
+
 pub mod api;
 pub mod blast;
 pub mod bond;

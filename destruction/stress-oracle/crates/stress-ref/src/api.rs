@@ -250,7 +250,7 @@ impl ContactLoadFilter {
         }
         for (k, v) in self.resting.iter_mut() {
             if !seen.contains(k) {
-                v.0 = v.0 * (1.0 - alpha);
+                v.0 *= 1.0 - alpha;
             }
         }
         self.resting.retain(|_, v| v.0.norm() > 0.0);

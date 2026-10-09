@@ -565,7 +565,7 @@ impl<'a> JointModel<'a> {
                     st.rebar_broken = true;
                     dissipated += elastic;
                 } else {
-                    force.lin = force.lin + Vec3::new(v1, v2, n_r);
+                    force.lin += Vec3::new(v1, v2, n_r);
                     stored += elastic;
                 }
             }

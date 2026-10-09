@@ -116,8 +116,8 @@ pub struct World {
     contact_hits: Vec<Vec<f64>>,
     /// Pre-existing overlap per sample point of chunk pairs in contact (NaN = point not
     /// in contact); dropped when the pair separates.
-    pair_offsets: std::collections::HashMap<(usize, usize, usize, usize), [(f64, Vec3); 2 * SAMPLE_POINTS]>,
-    pairs_seen: std::collections::HashSet<(usize, usize, usize, usize)>,
+    pair_offsets: std::collections::HashMap<ChunkPair, [(f64, Vec3); 2 * SAMPLE_POINTS]>,
+    pairs_seen: std::collections::HashSet<ChunkPair>,
 }
 
 /// Contact stiffness of two bodies pressed together along `dir`: their half-thicknesses
@@ -361,7 +361,9 @@ impl World {
     fn clearing_distances(&self, s: usize) -> std::collections::HashMap<(usize, usize), f64> {
         let st = &self.solver.structures[s];
         let exposed = |c: usize, f: usize| self.exposure[s][c][f] > 0.5 * st.chunks[c].faces[f].area;
-        let mut neighbours: std::collections::HashMap<(usize, usize), Vec<((usize, usize), f64)>> = Default::default();
+        // Per exposed face (chunk, face): its in-plane exposed neighbours and their distance.
+        type Face = (usize, usize);
+        let mut neighbours: std::collections::HashMap<Face, Vec<(Face, f64)>> = Default::default();
         for (c, ch) in st.chunks.iter().enumerate() {
             if !self.solver.chunks[s][c].active {
                 continue;
@@ -1201,7 +1203,7 @@ impl World {
                     v += self.solver.chunk_velocity(s, r).0 * m;
                     x += (self.solver.chunk_position(s, r) + self.offset_from_representative(s, c, r)) * m;
                 }
-                let x = if reps.len() == 1 { x / mass } else { x / mass };
+                let x = x / mass;
                 let detached = detached_mass > 0.5 * mass;
                 if detached && has_supports {
                     collapse = true;
@@ -1312,9 +1314,23 @@ fn select_with_descendants(sel: &ChunkSelector, scene: &Scene, s: usize) -> Vec<
     out
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
+/// Two chunks in contact: (structure, chunk, structure, chunk).
+type ChunkPair = (usize, usize, usize, usize);
+
+/// `f64` ordered by `total_cmp`, for the Dijkstra heap.
+#[derive(Clone, Copy, Debug)]
 struct OrdF64(f64);
+impl PartialEq for OrdF64 {
+    fn eq(&self, o: &Self) -> bool {
+        self.0.total_cmp(&o.0).is_eq()
+    }
+}
 impl Eq for OrdF64 {}
+impl PartialOrd for OrdF64 {
+    fn partial_cmp(&self, o: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(o))
+    }
+}
 impl Ord for OrdF64 {
     fn cmp(&self, o: &Self) -> std::cmp::Ordering {
         self.0.total_cmp(&o.0)
