@@ -1,7 +1,8 @@
 //! `stress-physx`: the `stress-ref` command line (see `stress_ref::cli`) with every scene
-//! run in the world coupled to PhysX CPU as its rigid-body engine. `check` therefore
-//! compares the PhysX-coupled runs against the analytic expectations and the oracle
-//! goldens.
+//! run in the world coupled to PhysX CPU as its rigid-body engine. This is an
+//! alternative to the standalone oracle, not a replacement: `run` and `check` gate the
+//! PhysX-coupled run against the analytic expectations, the oracle goldens, and the
+//! standalone reference world's run of the same scene.
 
 use std::process::ExitCode;
 
@@ -16,5 +17,5 @@ fn coupled(scene: &Scene) -> World {
 }
 
 fn main() -> ExitCode {
-    stress_ref::cli::main(&coupled, std::env::args().skip(1).collect())
+    stress_ref::cli::main(&coupled, Some(&World::new), std::env::args().skip(1).collect())
 }

@@ -1,5 +1,6 @@
 //! The `stress-ref` command line, shared by every rigid-body engine's binary: the
-//! `stress-ref` binary runs scenes in the standalone world, `stress-physx` with PhysX.
+//! `stress-ref` binary runs scenes in the standalone world (the oracle), `stress-physx`
+//! with PhysX as the rigid-body engine and the standalone world as its baseline.
 //!
 //! ```text
 //! stress-ref gen-scenes <dir>                       write the scene catalogue (with derived bond data;
@@ -122,9 +123,26 @@ fn load_goldens(dir: &Path) -> Vec<Observation> {
     out
 }
 
+/// Rows comparing `ours` with a run of the same scene in the `baseline` world (the
+/// standalone reference), each metric gated at the scene's own tolerance for it.
+fn compare_to_baseline(scene: &Scene, ours: &Observation, baseline: &Observation) -> Vec<Comparison> {
+    let mut gate = scene.clone();
+    for m in &mut gate.metrics {
+        m.expected = None;
+        m.oracles.clear();
+        m.oracle_tolerance = None;
+    }
+    let mut rows = compare(&gate, ours, std::slice::from_ref(baseline));
+    for r in &mut rows {
+        r.reference_source = format!("{} (standalone)", baseline.solver);
+    }
+    rows
+}
+
 /// Run the command line `args` (without the program name), with scenes run in the
-/// worlds `make` builds.
-pub fn main(make: &WorldFactory, args: Vec<String>) -> ExitCode {
+/// worlds `make` builds. With a `baseline` (another engine's binary), `run` and `check`
+/// also run every scene in the baseline world and gate the two against each other.
+pub fn main(make: &WorldFactory, baseline: Option<&WorldFactory>, args: Vec<String>) -> ExitCode {
     let Some(cmd) = args.first().cloned() else { return usage() };
     let rest = &args[1..];
     let pos = positional(rest);
@@ -182,7 +200,10 @@ pub fn main(make: &WorldFactory, args: Vec<String>) -> ExitCode {
                 Some(p) => std::fs::write(&p, text + "\n").map_err(|e| e.to_string())?,
                 None => println!("{text}"),
             }
-            let rows = compare(&scene, &obs, &[]);
+            let mut rows = compare(&scene, &obs, &[]);
+            if let Some(b) = baseline {
+                rows.extend(compare_to_baseline(&scene, &obs, &run_scene(b, &scene)));
+            }
             eprint!("{}", format_table(&scene.name, &rows));
             Ok(rows.iter().all(|r| r.pass != Some(false)))
         }
@@ -221,6 +242,9 @@ pub fn main(make: &WorldFactory, args: Vec<String>) -> ExitCode {
                         all_goldens.into_iter().partition(|o| o.notes.iter().any(|n| n == "seeded") || o.seed != 0);
                     let obs = run_scene(make, &scene);
                     let mut rows = compare(&scene, &obs, &oracles);
+                    if let Some(b) = baseline {
+                        rows.extend(compare_to_baseline(&scene, &obs, &run_scene(b, &scene)));
+                    }
                     // Distributions: run ours for the same seeds as each oracle's seeded goldens.
                     let mut by_tool: std::collections::BTreeMap<String, Vec<Observation>> = Default::default();
                     for o in seeded {
