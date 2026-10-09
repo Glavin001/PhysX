@@ -50,6 +50,10 @@ enum Owner {
     Ground,
 }
 
+/// Shapes of a new body: (local pose, geometry, mass), the chunk each stands for, and
+/// the centre of mass in the body frame.
+type BodyShapes = (Vec<(Pose, ShapeGeom, f32)>, Vec<Option<(usize, usize)>>, Vec3);
+
 struct Entry {
     id: PxBodyId,
     signature: u64,
@@ -114,7 +118,7 @@ impl PhysxEngine {
     }
 
     fn create_body(&mut self, b: &EngineBody) {
-        let (shapes, chunks, com): (Vec<(Pose, ShapeGeom, f32)>, Vec<Option<(usize, usize)>>, Vec3) = match &b.geometry {
+        let (shapes, chunks, com): BodyShapes = match &b.geometry {
             BodyGeometry::Boxes(boxes) => {
                 let mass: f64 = boxes.iter().map(|s| s.mass).sum();
                 let com = boxes.iter().fold(Vec3::ZERO, |a, s| a + s.local.position * s.mass) * (1.0 / mass.max(1e-300));

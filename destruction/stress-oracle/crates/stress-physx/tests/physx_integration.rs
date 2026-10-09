@@ -117,11 +117,12 @@ fn ram_into_free_wall() -> Scene {
 }
 
 /// Correction passes (rewind, accept the trial's first failure front, re-solve) keep
-/// momentum exact and bring fragmentation towards the reference.
+/// momentum exact. They do not fix the impact: the rigid contact still hands over the
+/// whole-wall impulse (the ram ends near 11 m/s either way, see the next test); the
+/// fix is stress-owned impact islands (`engine_world.rs`).
 #[test]
 fn physx_correction_passes_conserve_momentum() {
     let scene = ram_into_free_wall();
-    let mut bodies = Vec::new();
     for limit in [0usize, 4] {
         let Some(mut sim) = PhysxDestruction::new(&scene) else {
             eprintln!("PhysX CPU scene unavailable; skipping");
@@ -138,9 +139,7 @@ fn physx_correction_passes_conserve_momentum() {
         println!("limit {limit}: {} bodies, {corrections} corrections, ram {:.2} m/s", sim.cluster_bodies(), sim.impactor_state(0).1.y);
         assert!((p1 - p0).norm() < 1e-3 * p0.norm(), "limit {limit}: momentum {p1:?} vs {p0:?}");
         assert!(limit == 0 || corrections > 0);
-        bodies.push(sim.cluster_bodies());
     }
-    assert!(bodies[1] < bodies[0], "corrections should reduce over-fragmentation: {bodies:?}");
 }
 
 /// Known gap, measured (run with `--ignored`): a rigid-body engine resolves the ram

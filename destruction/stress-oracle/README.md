@@ -10,8 +10,11 @@ cluster, fracture by dynamic stress). It has three layers, validated in order:
 2. **Reference solver** (`crates/stress-ref`): slow, double-precision, explicit CPU
    Rust implementation of the full model, with true or scaled stiffness. It must
    pass every benchmark; the optimized CUDA solver is later diffed against it.
-3. **Engine coupling** (`crates/stress-physx`): the reference solver driven by PhysX
-   (CPU), behind the engine-facing trait that a CUDA solver will also implement.
+3. **Engine coupling** (`crates/stress-physx`): the same world with PhysX (CPU) as its
+   rigid-body engine instead of its own rigid-body code, plus the engine-facing trait
+   that a CUDA solver will also implement. This is an *additional* comparison, not a
+   replacement: every PhysX run is gated against the analytic values, the oracle
+   goldens and the standalone world's run of the same scene.
 
 Nothing is "is this right?": every quantity is compared, by one shared metric
 implementation, against an analytic value or an oracle run of the identical setup.
@@ -25,14 +28,16 @@ implementation, against an analytic value or an oracle run of the identical setu
 | `crates/stress-ref/src/material.rs`, `bond.rs`, `joint.rs` | materials, bond geometry/stiffness, the damageable joint |
 | `crates/stress-ref/src/solver.rs`, `statics.rs`, `implicit.rs`, `refine.rs` | clusters, explicit substeps, quasi-static solve, implicit Newmark step, fracture/splitting, refinement |
 | `crates/stress-ref/src/world.rs`, `contact.rs`, `blast.rs` | standalone world: impactors, ground, contact, scripted loads, blast, events, probes |
+| `crates/stress-ref/src/engine.rs`, `world_coupling.rs` | `RigidEngine` trait and `World::with_engine`: an external engine owns rigid motion and contact except in stress-owned impact islands |
+| `crates/stress-ref/src/cli.rs` | the command line, shared by `stress-ref` (standalone) and `stress-physx` (PhysX, gated against standalone) |
 | `crates/stress-ref/src/observation.rs`, `metrics.rs` | `stress-observation/1` and the metrics computed identically for every solver |
 | `crates/stress-ref/src/api.rs` | engine-facing trait (`StressSolverApi`), contact-impulse filter (pulse or velocity condition), `EngineCoupledSolver` |
 | `crates/stress-ref/src/snapshot.rs` | `World::snapshot()`: world-frame chunk boxes, Love-Weber chunk stress, bond damage, for renderers and debugging |
 | `crates/stress-ref/src/showcases.rs` | the spec's showcase scenes (overhang, supports, car, floor drop, arch, house) |
-| `crates/stress-ref/tests/` | the test suite (analytic, conservation, failure laws, dynamics, solve modes, features, determinism, refinement, engine API, snapshots, showcases, oracle goldens) |
+| `crates/stress-ref/tests/` | the test suite (analytic, conservation, failure laws, dynamics, solve modes, features, determinism, refinement, engine API, snapshots, showcases, oracle goldens); `tests/shared/showcases.rs` is also run through PhysX |
 | `crates/stress-viz` | debug renderer: runs a scene and writes an MP4 of view panels (utilization, stress, damage, fragments, speed, deformation) and variant comparisons |
 | `scripts/render_videos.sh` | renders every benchmark, showcase and feature comparison into `videos/` (not committed) |
-| `crates/stress-physx` | PhysX coupling and its end-to-end tests |
+| `crates/stress-physx` | `PhysxEngine` (PhysX CPU behind `RigidEngine`), the `stress-physx` command, the older `PhysxDestruction` adapter over `StressSolverApi`, and their tests |
 | `oracles/CONTRACT.md` | what an oracle reads and writes |
 | `oracles/<tool>/` | `install.sh`, `PINNED.md`, `export.py`, `run.py`, `observe.py`, `pipeline.py`, `README.md` |
 | `golden/<scene>/<tool>[_seedN].json` | oracle observations, with `provenance_<tool>*.json` |
@@ -49,8 +54,9 @@ cargo run --release -- compare scenes/b2_cantilever.json /tmp/ours.json golden/b
 cargo run --release -- check scenes golden   # run every scene, compare with analytic + every golden (~7 min)
 cargo run --release -- seeds scenes/b9_panel_high_weibull.json --out /tmp/seeds --count 20
 
-# PhysX coupling (needs a PhysX SDK build; see "PhysX" below)
+# PhysX as the rigid-body engine (needs a PhysX SDK build; see "PhysX" below)
 PHYSX_ROOT=/path/to/physx-install cargo test --release -p stress-physx
+PHYSX_ROOT=/path/to/physx-install cargo run --release -p stress-physx -- check scenes golden
 ```
 
 `stress-ref run` options: `--seed N`, `--mode explicit|implicit|adaptive|quasi_static`,
