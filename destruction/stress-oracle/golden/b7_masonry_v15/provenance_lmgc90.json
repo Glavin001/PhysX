@@ -1,0 +1,60 @@
+{
+ "tool": "lmgc90",
+ "scene": "b7_masonry_v15",
+ "seed": 0,
+ "scene_file": "/home/user/PhysX/destruction/stress-oracle/scenes/b7_masonry_v15.json",
+ "scene_sha256": "7a0c27033cfa6ef69c998aafaa5d731ab7faea75e37d9e3be5a2d86d9e463229",
+ "run_scene_sha256": "7a0c27033cfa6ef69c998aafaa5d731ab7faea75e37d9e3be5a2d86d9e463229",
+ "deck_sha256": "fa8137d9268d0fd33330328b5d310b77e933de633a6175357f1a1a6a35555027",
+ "observation_sha256": "d361307939b1537b8d9f72c85b25cb6fc57b9069447ef4f14eba53f7ba520136",
+ "command": "/home/user/oracle-env/venv/bin/python -I oracles/lmgc90/pipeline.py scenes/b7_masonry_v15.json",
+ "versions": {
+  "pylmgc90_dist": "2025.rc3",
+  "numpy": "2.5.3",
+  "pylmgc90_path": "/home/user/oracle-env/venv/lib/python3.12/site-packages/pylmgc90/__init__.py",
+  "python": "3.12.3",
+  "lmgc90_source": "lmgc90_user_2026.rc1.zip (see oracles/lmgc90/PINNED.md)"
+ },
+ "solver_version": "LMGC90 user 2026.rc1 (pylmgc90 wheel built from lmgc90_user_2026.rc1.zip; wheel metadata says ?)",
+ "params": {
+  "dt": 0.0001,
+  "theta": 0.5,
+  "settle_time": 0.01,
+  "alert": 0.002,
+  "f2f_tol": 0.001,
+  "shrink": 0.001,
+  "detection": "f2f",
+  "impact_restitution": 0.2,
+  "joint_law": "IQS_EXPO_CZM",
+  "eta": 0.01,
+  "nlgs_tol": 0.0001666,
+  "nlgs_relax": 1.0,
+  "nlgs_norm": "QM/16",
+  "gs_it1": 50,
+  "gs_it2": 200
+ },
+ "dt": 0.0001,
+ "n_settle": 100,
+ "n_steps": 1000,
+ "nlgs": {
+  "norm": "QM/16",
+  "tol": 0.0001666,
+  "max_iterations": 10000,
+  "settle_unconverged_steps": 0,
+  "impact_unconverged_steps": 1,
+  "impact_iterations_mean": 799.65,
+  "impact_iterations_max": 10000
+ },
+ "wall_seconds": {
+  "export": 0.5530929565429688,
+  "run": 238.70219373703003,
+  "observe": 0.14179039001464844,
+  "total": 239.86842584609985,
+  "solver_settle": 5.765430927276611,
+  "solver_impact": 232.5049967765808
+ },
+ "threads": 1,
+ "host": "Linux-6.18.44-fc-v80-x86_64-with-glibc2.39",
+ "date": "2026-10-09T08:59:24+00:00",
+ "work_dir": "/home/user/oracle-runs/lmgc90/b7_masonry_v15"
+}
