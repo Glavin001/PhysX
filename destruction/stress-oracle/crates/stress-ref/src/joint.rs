@@ -37,7 +37,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::bond::{BondGeometry, BondStiffness, Local6};
+use crate::bond::{BondGeometry, BondStiffness, Local6, Mat6};
 use crate::material::{BondKind, DifParams, Material, StaticFatigue};
 use crate::scene::Features;
 use crate::math::Vec3;
@@ -587,59 +587,80 @@ impl<'a> JointModel<'a> {
         JointResponse { force, state: st, dissipated, overshoot, stored, disconnected, measures }
     }
 
-    /// Per-component tangent stiffness factors (relative to the elastic stiffness) at
-    /// displacement `d`, for the Newton iterations of the static and implicit solves:
-    /// the intact share at full stiffness (compression degraded by crushing), the
-    /// cracked share as the contact patch's *active* springs (compressed springs only,
-    /// their bending lever arms; sliding friction contributes no shear stiffness), plus
-    /// rebar. The diagonal (component-wise) form drops the normal-bending coupling of a
-    /// partly open patch; the line search covers the difference.
-    pub fn tangent_factors(&self, state: &JointState, d: &Local6) -> Local6 {
+    /// Tangent stiffness at displacement `d` (history frozen), for the Newton
+    /// iterations of the static and implicit solves: the intact share elastic
+    /// (compression degraded by crushing); the cracked share as the contact patch's
+    /// *active* springs, `sum k_i g_i g_i^T` over the compressed springs with
+    /// `g_i = d(spring)/d(lin.z, ang.x, ang.y)`, which couples the normal force with the
+    /// rocking moments; sticking friction at the shear/torsion stiffness, sliding
+    /// friction with the radial-return tangent `ks (cap/trial) (I - s s^T)`; plus rebar.
+    pub fn tangent(&self, state: &JointState, d: &Local6) -> Mat6 {
         let k = self.stiffness;
         let s = self.strength;
         let g = self.geometry;
         let dmg = state.damage;
-        let normal_intact = if d.lin.z > 0.0 { 1.0 } else { 1.0 - state.crush };
-        let mut f = Local6 { lin: Vec3::new(1.0 - dmg, 1.0 - dmg, (1.0 - dmg) * normal_intact), ang: Vec3::splat(1.0 - dmg) };
+        let normal_intact = if d.lin.z > 0.0 { k.kn } else { (1.0 - state.crush) * k.kn };
+        let intact = Local6 { lin: Vec3::new(k.ks, k.ks, normal_intact), ang: Vec3::new(k.kb_t1, k.kb_t2, k.kt) };
+        let mut m = Mat6::diag(&intact.scale(1.0 - dmg));
         if dmg > 0.0 && s.crack_contact {
             let n = CONTACT_SPRINGS;
             let ki = k.kn * (1.0 - state.crush) / (n * n) as f64;
-            let (mut kn, mut kb1, mut kb2, mut nc) = (0.0, 0.0, 0.0, 0.0);
+            let mut nc = 0.0;
             for a in 0..n {
                 let s1 = ((a as f64 + 0.5) / n as f64 - 0.5) * g.width[0];
                 for b in 0..n {
                     let s2 = ((b as f64 + 0.5) / n as f64 - 0.5) * g.width[1];
                     let di = d.lin.z + d.ang.x * s2 - d.ang.y * s1;
                     if di < 0.0 {
-                        kn += ki;
-                        kb1 += ki * s2 * s2;
-                        kb2 += ki * s1 * s1;
                         nc -= ki * di;
+                        // Rows/columns 2 (lin.z), 3 (ang.x), 4 (ang.y).
+                        let gv = [(2usize, 1.0), (3usize, s2), (4usize, -s1)];
+                        for &(i, gi) in &gv {
+                            for &(j, gj) in &gv {
+                                m.0[i][j] += dmg * ki * gi * gj;
+                            }
+                        }
                     }
                 }
             }
-            // Shear and torsion stick (full stiffness) unless the friction limit is reached.
             let p: Local6 = state.plastic.into();
-            let shear_trial = k.ks * Vec3::new(d.lin.x - p.lin.x, d.lin.y - p.lin.y, 0.0).norm();
-            let sticks = |trial: f64, cap: f64| if nc > 0.0 && trial <= cap { 1.0 } else { 0.0 };
-            let shear = sticks(shear_trial, s.friction * nc);
-            let twist = sticks(k.kt * (d.ang.z - p.ang.z).abs(), s.friction * nc * g.friction_radius);
-            f.lin.x += dmg * shear;
-            f.lin.y += dmg * shear;
-            f.lin.z += dmg * kn / k.kn;
-            f.ang.x += dmg * kb1 / k.kb_t1;
-            f.ang.y += dmg * kb2 / k.kb_t2;
-            f.ang.z += dmg * twist;
+            let trial = Vec3::new(k.ks * (d.lin.x - p.lin.x), k.ks * (d.lin.y - p.lin.y), 0.0);
+            let cap = s.friction * nc;
+            let tn = trial.norm();
+            if nc > 0.0 {
+                if tn <= cap || tn == 0.0 {
+                    m.0[0][0] += dmg * k.ks;
+                    m.0[1][1] += dmg * k.ks;
+                } else {
+                    let dir = trial / tn;
+                    let r = k.ks * cap / tn;
+                    let dirs = [dir.x, dir.y];
+                    for i in 0..2 {
+                        for j in 0..2 {
+                            let delta = if i == j { 1.0 } else { 0.0 };
+                            m.0[i][j] += dmg * r * (delta - dirs[i] * dirs[j]);
+                        }
+                    }
+                }
+                if k.kt * (d.ang.z - p.ang.z).abs() <= cap * g.friction_radius {
+                    m.0[5][5] += dmg * k.kt;
+                }
+            }
         }
         if let Some(rb) = self.rebar {
             if !state.rebar_broken {
-                f.lin.z += rb.k_axial / k.kn;
-                f.lin.x += rb.k_dowel / k.ks;
-                f.lin.y += rb.k_dowel / k.ks;
+                m = m.add_diag(&Local6 { lin: Vec3::new(rb.k_dowel, rb.k_dowel, rb.k_axial), ang: Vec3::ZERO });
             }
         }
-        let floor = |x: f64| x.max(1e-6);
-        Local6 { lin: Vec3::new(floor(f.lin.x), floor(f.lin.y), floor(f.lin.z)), ang: Vec3::new(floor(f.ang.x), floor(f.ang.y), floor(f.ang.z)) }
+        // Keep every component minimally positive (a fully opened, unbonded joint).
+        let floor = intact.scale(1e-6);
+        m.add_diag(&floor)
+    }
+
+    /// Secant stiffness (diagonal): an upper bound of [`tangent`](Self::tangent) for
+    /// the contact patch, so a correction with it always descends.
+    pub fn secant(&self, state: &JointState, d: &Local6) -> Mat6 {
+        Mat6::diag(&self.secant_factors(state, d).mul_elem(&self.stiffness.as_local()))
     }
 
     /// Per-component secant stiffness factors at the given state (used for the

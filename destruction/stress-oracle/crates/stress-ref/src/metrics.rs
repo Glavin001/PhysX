@@ -69,6 +69,22 @@ fn in_region(body: &BodyDesc, i: usize, region: &Option<Region>) -> bool {
     region.map(|r| r.contains(Vec3::from_array(body.chunks[i].center))).unwrap_or(true)
 }
 
+/// Mass-weighted mean velocity along `axis` of the chunks that started in `region`.
+fn region_speed(scene: &Scene, desc: &BodyDesc, st: &[ChunkObservation], region: &Region, axis: [f64; 3]) -> f64 {
+    let a = Vec3::from_array(axis).normalized();
+    let (mut p, mut m) = (0.0, 0.0);
+    for i in coarse(desc).filter(|&i| !st[i].removed && region.contains(Vec3::from_array(desc.chunks[i].center))) {
+        let mass = chunk_mass(scene, desc, i);
+        p += mass * Vec3::from_array(st[i].velocity).dot(a);
+        m += mass;
+    }
+    if m > 0.0 {
+        p / m
+    } else {
+        f64::NAN
+    }
+}
+
 /// Area of a box chunk projected on the plane perpendicular to `axis` (body frame).
 pub fn projected_area(body: &BodyDesc, i: usize, axis: Vec3) -> f64 {
     let c = &body.chunks[i];
@@ -237,6 +253,15 @@ pub fn evaluate(scene: &Scene, metric: &MetricDesc, obs: &Observation) -> Result
             } else {
                 pieces.iter().map(|p| p.0 * p.1).sum::<f64>() / mass
             })
+        }
+        MetricKind::RegionSpeed { body, region, axis } => {
+            let (desc, st) = body_states(scene, obs, body)?;
+            MetricValue::Number(region_speed(scene, desc, st, region, *axis))
+        }
+        MetricKind::Separating { body, outer, inner, axis, threshold } => {
+            let (desc, st) = body_states(scene, obs, body)?;
+            let gap = region_speed(scene, desc, st, outer, *axis) - region_speed(scene, desc, st, inner, *axis);
+            MetricValue::Bool(gap > *threshold)
         }
         MetricKind::FailureMode { body, impact_region } => {
             let (desc, st) = body_states(scene, obs, body)?;

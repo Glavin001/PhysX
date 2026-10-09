@@ -159,9 +159,15 @@ pub enum ImpactorShape {
     Box { half_extents: [f64; 3] },
 }
 
-/// Crush model of a soft impactor (vehicle): the contact force never exceeds
-/// `max_force` while the crushable energy `energy` lasts; afterwards it bottoms out
-/// and contacts with its material stiffness.
+/// Crush law of a soft impactor (vehicle front, crate): the impactor's own
+/// force-deformation curve, rigid-perfectly plastic. While its crushable energy lasts
+/// the impactor deforms (its contact surface recedes) instead of transmitting more than
+/// `max_force`; then it bottoms out and contacts with its material stiffness. This is a
+/// material law of the impactor acting in its contact with the structure, not a cap on
+/// rigid-body contacts in general. For vehicles the plateau force and the crush energy
+/// (crush depth = energy / max_force) come from crash-test force-deformation curves;
+/// EN 1991-1-7 Annex C idealises the same behaviour as an equivalent elastic stiffness
+/// (`F = v sqrt(k m)`), which gives the same impulse with a different pulse shape.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CrushDesc {
@@ -612,6 +618,13 @@ pub enum MetricKind {
     DetachedAny { body: String, region: Option<Region> },
     /// Mass-weighted mean (or max) speed along `axis` of detached chunks in `region`; 0 if none.
     DetachedSpeed { body: String, region: Option<Region>, axis: [f64; 3], max: bool },
+    /// Mass-weighted mean velocity along `axis` of every (non-removed) chunk of `body`
+    /// that started in `region`, attached or not.
+    RegionSpeed { body: String, region: Region, axis: [f64; 3] },
+    /// Whether the chunks that started in `outer` move away from those in `inner` (along
+    /// `axis`) faster than `threshold` m/s at the end: a layer separating across a crack
+    /// plane, whether or not ligaments elsewhere still connect it (e.g. a spall layer).
+    Separating { body: String, outer: Region, inner: Region, axis: [f64; 3], threshold: f64 },
     /// "hole", "push_over" or "intact" (see `metrics::failure_mode`).
     FailureMode { body: String, impact_region: Region },
     /// Boolean flag recorded by the solver (e.g. `collapse`, `any_bond_broken`).

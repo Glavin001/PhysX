@@ -50,6 +50,40 @@ impl Local6 {
     pub fn mul_elem(&self, k: &Local6) -> Local6 {
         Local6 { lin: self.lin.mul_elem(k.lin), ang: self.ang.mul_elem(k.ang) }
     }
+    /// Components in the order `[lin.x, lin.y, lin.z, ang.x, ang.y, ang.z]`.
+    pub fn to_array(&self) -> [f64; 6] {
+        [self.lin.x, self.lin.y, self.lin.z, self.ang.x, self.ang.y, self.ang.z]
+    }
+    pub fn from_array(a: [f64; 6]) -> Local6 {
+        Local6 { lin: Vec3::new(a[0], a[1], a[2]), ang: Vec3::new(a[3], a[4], a[5]) }
+    }
+}
+
+/// A bond's 6x6 stiffness in local generalised coordinates (component order as in
+/// [`Local6::to_array`]); the Newton tangent of a joint whose components couple.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Mat6(pub [[f64; 6]; 6]);
+
+impl Mat6 {
+    pub fn diag(d: &Local6) -> Mat6 {
+        let a = d.to_array();
+        let mut m = [[0.0; 6]; 6];
+        for i in 0..6 {
+            m[i][i] = a[i];
+        }
+        Mat6(m)
+    }
+    pub fn mul(&self, x: &Local6) -> Local6 {
+        let v = x.to_array();
+        Local6::from_array(std::array::from_fn(|i| (0..6).map(|j| self.0[i][j] * v[j]).sum()))
+    }
+    pub fn add_diag(&self, d: &Local6) -> Mat6 {
+        let mut m = *self;
+        for (i, x) in d.to_array().iter().enumerate() {
+            m.0[i][i] += x;
+        }
+        m
+    }
 }
 
 /// Undeformed geometry of a bond, in the body frame.

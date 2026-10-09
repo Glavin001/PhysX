@@ -8,8 +8,11 @@
 //!
 //! [`StressSolverApi`] is the contract; [`EngineCoupledSolver`] implements it with the
 //! reference solver. Contact impulses go through [`ContactLoadFilter`]: a low-pass
-//! resting load plus impact pulses spread over a physical impact duration (Hertz, or
-//! crush-limited for soft impactors), never `impulse / dt`.
+//! resting load plus impacts, never `impulse / dt`. An impact is either a pulse spread
+//! over a physical impact duration (Hertz, or crush-limited for soft impactors), or,
+//! since inertia is in the stress solve, an instantaneous velocity change of the struck
+//! chunk ([`ImpactModel::VelocityCondition`]): momentum-exact and free of any assumed
+//! duration — the bond network and the chunks' inertia shape the stress pulse.
 
 use std::collections::HashMap;
 
@@ -17,7 +20,7 @@ use serde::Serialize;
 
 use crate::joint::FailureMode;
 use crate::math::{Pose, Vec3};
-use crate::scene::{CrushDesc, Scene};
+use crate::scene::{CrushDesc, Scene, SolveMode};
 use crate::solver::{ChunkLoads, ReferenceSolver, SolverEvent};
 
 /// Stable id of a cluster (rigid body) across frames.
@@ -111,9 +114,23 @@ pub trait StressSolverApi {
     fn bond_reports(&self, structure: usize) -> Vec<BondReport>;
 }
 
+/// How the filter turns an impact impulse into stress-solver input.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ImpactModel {
+    /// A force pulse over the Hertz contact duration (crush plateau first for a soft
+    /// impactor with a crush law).
+    #[default]
+    Pulse,
+    /// The impulse changes the struck chunk's (hidden) velocity at the start of the
+    /// frame; the engine already gave the whole body its rigid share. Crush laws are
+    /// not applied (the engine's contact decides the impulse).
+    VelocityCondition,
+}
+
 /// Turns per-frame contact impulses into a substep force history.
 #[derive(Clone, Debug, Default)]
 pub struct ContactLoadFilter {
+    pub impact_model: ImpactModel,
     /// Time constant of the resting-load low-pass filter (s).
     pub resting_time: f64,
     /// Impulse change (fraction of the resting impulse plus an absolute floor in N s)
@@ -122,6 +139,8 @@ pub struct ContactLoadFilter {
     pub impact_floor: f64,
     resting: HashMap<(usize, usize), (Vec3, Vec3)>,
     pulses: Vec<Pulse>,
+    /// Impact impulses waiting to be applied as velocity conditions.
+    kicks: Vec<(usize, usize, Vec3, Vec3)>,
 }
 
 #[derive(Clone, Debug)]
@@ -182,7 +201,9 @@ impl ContactLoadFilter {
             let resting_impulse = rest.0 * dt;
             let excess = c.impulse - resting_impulse;
             let threshold = self.impact_fraction * resting_impulse.norm() + self.impact_floor;
-            if excess.norm() > threshold && c.approach_speed > 0.0 {
+            if excess.norm() > threshold && c.approach_speed > 0.0 && self.impact_model == ImpactModel::VelocityCondition {
+                self.kicks.push((c.structure, c.chunk, excess, c.point));
+            } else if excess.norm() > threshold && c.approach_speed > 0.0 {
                 let ch = &solver.structures[c.structure].chunks[c.chunk];
                 // An impact loads the whole struck body (an anchored one is immovable).
                 let cluster = &solver.clusters[solver.chunks[c.structure][c.chunk].cluster];
@@ -251,6 +272,15 @@ impl ContactLoadFilter {
         }
     }
 
+    /// Apply the pending velocity-condition impacts to the solver.
+    pub fn apply_kicks(&mut self, solver: &mut ReferenceSolver) {
+        for (s, c, impulse, point) in self.kicks.drain(..) {
+            if solver.chunks[s][c].active {
+                solver.apply_chunk_impulse(s, c, impulse, point);
+            }
+        }
+    }
+
     /// Total impulse of all pulses (for momentum checks).
     pub fn pulse_impulse(&self) -> f64 {
         self.pulses.iter().map(|p| p.plateau * p.plateau_time + 2.0 * p.peak * p.duration / std::f64::consts::PI).sum()
@@ -272,6 +302,7 @@ impl EngineCoupledSolver {
         let mut s = EngineCoupledSolver { solver, filter: ContactLoadFilter::new(), loads };
         s.loads.clear();
         s.solver.gravity_prestress();
+        s.solver.mark_implicit_step_start();
         s
     }
 
@@ -304,15 +335,32 @@ impl StressSolverApi for EngineCoupledSolver {
         }
         let t0 = self.solver.time;
         self.filter.ingest(&self.solver, t0, input.dt, &input.contacts);
+        self.filter.apply_kicks(&mut self.solver);
         let n_events = self.solver.events.len();
-        let dt_sub = self.solver.stable_dt().min(input.dt);
-        let n = (input.dt / dt_sub).ceil().max(1.0) as usize;
-        let h = input.dt / n as f64;
-        for _ in 0..n {
-            self.loads.resize(&self.solver);
-            self.loads.clear();
-            self.filter.loads_at(&self.solver, self.solver.time, &mut self.loads);
-            self.solver.substep(h, &self.loads);
+        if self.solver.config.mode == SolveMode::Implicit {
+            // One implicit step per frame with the frame's average filtered load.
+            let samples = 16;
+            let mut average = ChunkLoads::new(&self.solver);
+            for k in 0..samples {
+                self.loads.resize(&self.solver);
+                self.filter.loads_at(&self.solver, t0 + (k as f64 + 0.5) * input.dt / samples as f64, &mut self.loads);
+                average.add_scaled(&self.loads, 1.0 / samples as f64);
+            }
+            for ci in 0..self.solver.clusters.len() {
+                self.solver.advance_rigid(ci, input.dt, &average);
+            }
+            self.solver.time += input.dt;
+            self.solver.implicit_step_all(&average, input.dt);
+        } else {
+            let dt_sub = self.solver.stable_dt().min(input.dt);
+            let n = (input.dt / dt_sub).ceil().max(1.0) as usize;
+            let h = input.dt / n as f64;
+            for _ in 0..n {
+                self.loads.resize(&self.solver);
+                self.loads.clear();
+                self.filter.loads_at(&self.solver, self.solver.time, &mut self.loads);
+                self.solver.substep(h, &self.loads);
+            }
         }
         let events: Vec<SolverEvent> = self.solver.events[n_events..].to_vec();
         let mut fractures = Vec::new();

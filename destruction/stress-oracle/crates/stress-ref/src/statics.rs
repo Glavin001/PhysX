@@ -10,7 +10,7 @@
 //! clusters use inertia relief: the loads are made self-equilibrated by the cluster's
 //! rigid acceleration, and the rigid modes are projected out (mass-orthogonally).
 
-use crate::bond::Local6;
+use crate::bond::Mat6;
 use crate::math::Vec3;
 use crate::scene::Support;
 use crate::solver::{Activity, ChunkLoads, ReferenceSolver};
@@ -37,10 +37,11 @@ impl Block6 {
     pub(crate) fn zero() -> Block6 {
         Block6([[0.0; 6]; 6])
     }
-    fn add_outer(&mut self, k: f64, v: &V6) {
+    /// `self += k u v^T`.
+    fn add_product(&mut self, k: f64, u: &V6, v: &V6) {
         for i in 0..6 {
             for j in 0..6 {
-                self.0[i][j] += k * v[i] * v[j];
+                self.0[i][j] += k * u[i] * v[j];
             }
         }
     }
@@ -229,7 +230,7 @@ impl ReferenceSolver {
     /// Stiffness per bond at the current state for a Newton correction: the joint's
     /// tangent (`tangent = true`) or its secant, an upper bound of every tangent of the
     /// nonsmooth contact patch that makes a safe (if slower) direction.
-    pub(crate) fn newton_stiffness(&self, ci: usize, tangent: bool) -> Vec<Local6> {
+    pub(crate) fn newton_stiffness(&self, ci: usize, tangent: bool) -> Vec<Mat6> {
         let cl = &self.clusters[ci];
         let s = cl.structure;
         cl.bonds
@@ -238,14 +239,17 @@ impl ReferenceSolver {
                 let b = &self.bonds[s][bi];
                 let (sa, sb) = (&self.chunks[s][b.geometry.a], &self.chunks[s][b.geometry.b]);
                 let d = b.geometry.kinematics(sa.u, sa.th, sb.u, sb.th);
-                let f = if tangent { b.model().tangent_factors(&b.joint, &d) } else { b.model().secant_factors(&b.joint, &d) };
-                f.mul_elem(&b.stiffness.as_local())
+                if tangent {
+                    b.model().tangent(&b.joint, &d)
+                } else {
+                    b.model().secant(&b.joint, &d)
+                }
             })
             .collect()
     }
 
-    /// `K x` (the resisting force of displacement field `x`) with secant stiffnesses `k`.
-    pub(crate) fn apply_k(&self, ci: usize, lay: &Layout, k: &[Local6], x: &[V6]) -> Vec<V6> {
+    /// `K x` (the resisting force of displacement field `x`) with bond stiffnesses `k`.
+    pub(crate) fn apply_k(&self, ci: usize, lay: &Layout, k: &[Mat6], x: &[V6]) -> Vec<V6> {
         let cl = &self.clusters[ci];
         let s = cl.structure;
         let mut y = vec![[0.0; 6]; x.len()];
@@ -254,7 +258,7 @@ impl ReferenceSolver {
             let (ia, ib) = (lay.local[&g.a], lay.local[&g.b]);
             let (ua, ta) = split(&x[ia]);
             let (ub, tb) = split(&x[ib]);
-            let q = g.kinematics(ua, ta, ub, tb).mul_elem(&k[j]);
+            let q = k[j].mul(&g.kinematics(ua, ta, ub, tb));
             let (fa, ma, fb, mb) = g.chunk_loads(&q);
             for c in 0..3 {
                 y[ia][c] -= fa[c];
@@ -275,24 +279,32 @@ impl ReferenceSolver {
 
     /// Inverse 6x6 diagonal blocks of `K` (secant `k`) plus optional per-chunk blocks
     /// (the mass term of a dynamic step).
-    pub(crate) fn block_jacobi(&self, ci: usize, lay: &Layout, k: &[Local6], extra: Option<&[Block6]>) -> Vec<Block6> {
+    pub(crate) fn block_jacobi(&self, ci: usize, lay: &Layout, k: &[Mat6], extra: Option<&[Block6]>) -> Vec<Block6> {
         let cl = &self.clusters[ci];
         let s = cl.structure;
         let mut blocks = vec![Block6::zero(); lay.chunks.len()];
         for (j, &bi) in cl.bonds.iter().enumerate() {
             let g = &self.bonds[s][bi].geometry;
             let (ia, ib) = (lay.local[&g.a], lay.local[&g.b]);
-            let ks = [k[j].lin.x, k[j].lin.y, k[j].lin.z, k[j].ang.x, k[j].ang.y, k[j].ang.z];
             let axes = [g.t1, g.t2, g.normal];
-            for comp in 0..6 {
+            // Kinematic rows of the six local components on each chunk's 6 DOFs.
+            let rows = |comp: usize| -> (V6, V6) {
                 let t = axes[comp % 3];
-                let (va, vb) = if comp < 3 {
+                if comp < 3 {
                     (join(-t, -(g.ra.cross(t))), join(t, g.rb.cross(t)))
                 } else {
                     (join(Vec3::ZERO, -t), join(Vec3::ZERO, t))
-                };
-                blocks[ia].add_outer(ks[comp], &va);
-                blocks[ib].add_outer(ks[comp], &vb);
+                }
+            };
+            let r: Vec<(V6, V6)> = (0..6).map(rows).collect();
+            for p in 0..6 {
+                for q in 0..6 {
+                    let kpq = k[j].0[p][q];
+                    if kpq != 0.0 {
+                        blocks[ia].add_product(kpq, &r[p].0, &r[q].0);
+                        blocks[ib].add_product(kpq, &r[p].1, &r[q].1);
+                    }
+                }
             }
         }
         if let Some(extra) = extra {
@@ -368,7 +380,7 @@ impl ReferenceSolver {
     }
 
     /// Preconditioned CG for `K x = r` (secant `k`); returns (x, iterations).
-    fn pcg(&self, ci: usize, lay: &Layout, k: &[Local6], r0: &[V6], tol: f64) -> (Vec<V6>, usize) {
+    fn pcg(&self, ci: usize, lay: &Layout, k: &[Mat6], r0: &[V6], tol: f64) -> (Vec<V6>, usize) {
         let free = !self.clusters[ci].anchored;
         let pre = self.block_jacobi(ci, lay, k, None);
         let precondition = |r: &[V6]| -> Vec<V6> {

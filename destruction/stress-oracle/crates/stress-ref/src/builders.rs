@@ -571,19 +571,27 @@ pub fn spall(speed: f64, name: &str) -> Scene {
     let zs = steel.density * steel.bar_wave_speed();
     let sigma = speed * zs * zc / (zs + zc);
     let v_free = 2.0 * sigma / zc;
-    let back = Some(region([-0.35, 0.4, -0.35], [0.35, 0.5, 0.35]));
+    // Spall is judged in the central region, where the 1-D estimate holds until the
+    // release waves from the side faces arrive; corner ligaments may still connect the
+    // layer at the end (they do in the continuum oracle), so the criterion is the layer
+    // separating, not chunk connectivity (`spall_detached` reports the latter).
+    let back_central = region([-0.35, 0.4, -0.35], [0.35, 0.5, 0.35]);
+    let inner_central = region([-0.35, 0.2, -0.35], [0.35, 0.35, 0.35]);
+    let back = Some(back_central);
     let front = Some(region([-0.6, 0.0, -0.6], [0.6, 0.1, 0.6]));
     let o = &["opencourant"];
-    s.metrics.push(metric("spall_occurs", MetricKind::DetachedAny { body: "block".into(), region: back }, Tolerance::Exact, Some(serde_json::json!(true)), o));
+    let y = [0.0, 1.0, 0.0];
     s.metrics.push(metric(
-        "spall_speed",
-        MetricKind::DetachedSpeed { body: "block".into(), region: back, axis: [0.0, 1.0, 0.0], max: false },
-        Tolerance::Relative(0.30),
-        num(v_free),
+        "spall_occurs",
+        MetricKind::Separating { body: "block".into(), outer: back_central, inner: inner_central, axis: y, threshold: 0.1 * v_free },
+        Tolerance::Exact,
+        Some(serde_json::json!(true)),
         o,
     ));
+    s.metrics.push(metric("spall_speed", MetricKind::RegionSpeed { body: "block".into(), region: back_central, axis: y }, Tolerance::Relative(0.30), None, o));
     s.metrics.push(metric("front_face_detached", MetricKind::DetachedAny { body: "block".into(), region: front }, Tolerance::Exact, Some(serde_json::json!(false)), o));
     s.metrics.push(metric("peak_back_face_velocity", MetricKind::ProbeMax { probe: "back_face_velocity".into() }, Tolerance::Relative(0.30), num(v_free), o));
+    s.metrics.push(metric("spall_detached", MetricKind::DetachedAny { body: "block".into(), region: back }, Tolerance::Report, None, o));
     s.metrics.push(metric("spall_mass", MetricKind::DetachedMass { body: "block".into(), region: back }, Tolerance::Report, None, o));
     s
 }

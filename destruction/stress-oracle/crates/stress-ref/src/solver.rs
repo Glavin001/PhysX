@@ -794,6 +794,34 @@ impl ReferenceSolver {
         cl.angular_velocity = cl.world_inertia().inverse().expect("invertible") * l;
     }
 
+    /// Rigid update only (no deformation), e.g. between implicit steps.
+    pub(crate) fn advance_rigid(&mut self, ci: usize, dt: f64, loads: &ChunkLoads) {
+        self.advance_rigid_only(ci, dt, loads);
+    }
+
+    /// An impulse `impulse` (world, N s) at world point `point` on chunk `c`, as an
+    /// instantaneous change of the chunk's velocity: the velocity condition of an impact
+    /// with inertia in the stress solve. Under an engine (`integrate_rigid` off) the
+    /// engine has already given the cluster its rigid share, so the chunk's hidden
+    /// velocity takes the change and the floating frame removes the rigid share again.
+    /// In implicit mode the next step starts from the kicked velocity.
+    pub fn apply_chunk_impulse(&mut self, s: usize, c: usize, impulse: Vec3, point: Vec3) {
+        let ci = self.chunks[s][c].cluster;
+        let pose = self.clusters[ci].pose;
+        let ch = &self.structures[s].chunks[c];
+        if ch.support != Support::None {
+            return;
+        }
+        let x = self.chunk_position(s, c);
+        let st = &mut self.chunks[s][c];
+        let dv = pose.inverse_transform_vector(impulse) * (1.0 / (ch.mass * st.inertia_scale));
+        let dw = ch.inv_inertia * pose.inverse_transform_vector((point - x).cross(impulse)) * (1.0 / st.inertia_scale);
+        st.v += dv;
+        st.w += dw;
+        st.step_start[2] += dv;
+        st.step_start[3] += dw;
+    }
+
     fn advance_rigid_only(&mut self, ci: usize, dt: f64, loads: &ChunkLoads) {
         let (a, alpha) = self.rigid_acceleration(ci, loads);
         self.integrate_rigid(ci, dt, a, alpha);

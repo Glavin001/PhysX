@@ -7,7 +7,7 @@ mod common;
 use stress_ref::api::*;
 use stress_ref::builders::*;
 use stress_ref::math::{Pose, Vec3};
-use stress_ref::scene::CrushDesc;
+use stress_ref::scene::{CrushDesc, SolveMode};
 use stress_ref::solver::{ChunkLoads, SolverEvent};
 
 fn wall() -> stress_ref::scene::Scene {
@@ -128,56 +128,67 @@ fn resting_contact_converges_to_the_steady_load() {
 /// Drive the solver like an engine would: a free beam, rigid motion owned by the
 /// "engine", a hard hit in the middle. The solver reports the split, children carry
 /// the parent's rigid velocity field plus what the impact gave them, and the bond
-/// reports expose damage for decals, audio and VFX.
+/// reports expose damage for decals, audio and VFX. Checked for the impact as a pulse
+/// (explicit) and as a velocity condition (explicit and implicit at the frame step).
 #[test]
 fn engine_coupled_fracture_reports_children_and_bond_state() {
-    let mut s = new_scene("free_beam", "");
-    s.gravity = [0.0; 3];
-    s.materials.insert("concrete".into(), oracle_concrete(None));
-    let chunks = grid(Vec3::new(-0.5, -0.05, -0.05), [10, 1, 1], Vec3::splat(0.1), "concrete");
-    let bonds = auto_bonds(&chunks, |_, _| "concrete".into());
-    s.bodies.push(body("beam", chunks, bonds));
-    let mut engine = EngineCoupledSolver::new(&s);
-    let id = engine.clusters()[0].id;
-    let impulse = Vec3::new(0.0, 1500.0, 0.0);
-    let mass0 = engine.clusters()[0].mass;
-    // Like PhysX, the "engine" has already applied the contact impulse to the body.
-    let v = Vec3::new(1.0, 0.0, 0.0) + impulse / mass0;
-    let w = Vec3::new(0.0, 0.0, 0.5);
-    let mut out_all = Vec::new();
-    for f in 0..10 {
-        let motion = vec![ClusterMotion { id, pose: Pose::default(), velocity: v, angular_velocity: w }];
-        let contacts = if f == 0 {
-            vec![ContactImpulse {
-                structure: 0,
-                chunk: 4,
-                point: engine.solver.chunk_position(0, 4),
-                impulse,
-                other_mass: 100.0,
-                approach_speed: 30.0,
-                other_modulus: 2e11,
-                other_radius: 0.05,
-                crush: None,
-            }]
-        } else {
-            vec![]
-        };
-        let out = engine.step(&FrameInput { dt: 1.0 / 60.0, motion: if f == 0 { motion } else { vec![] }, contacts });
-        out_all.push(out);
+    for (model, mode) in [
+        (ImpactModel::Pulse, SolveMode::Explicit),
+        (ImpactModel::VelocityCondition, SolveMode::Explicit),
+        (ImpactModel::VelocityCondition, SolveMode::Implicit),
+    ] {
+        let mut s = new_scene("free_beam", "");
+        s.gravity = [0.0; 3];
+        s.sim.solve_mode = mode;
+        s.materials.insert("concrete".into(), oracle_concrete(None));
+        let chunks = grid(Vec3::new(-0.5, -0.05, -0.05), [10, 1, 1], Vec3::splat(0.1), "concrete");
+        let bonds = auto_bonds(&chunks, |_, _| "concrete".into());
+        s.bodies.push(body("beam", chunks, bonds));
+        let mut engine = EngineCoupledSolver::new(&s);
+        engine.filter.impact_model = model;
+        let id = engine.clusters()[0].id;
+        let impulse = Vec3::new(0.0, 1500.0, 0.0);
+        let mass0 = engine.clusters()[0].mass;
+        // Like PhysX, the "engine" has already applied the contact impulse to the body.
+        let v = Vec3::new(1.0, 0.0, 0.0) + impulse / mass0;
+        let w = Vec3::new(0.0, 0.0, 0.5);
+        let mut out_all = Vec::new();
+        for f in 0..10 {
+            let motion = vec![ClusterMotion { id, pose: Pose::default(), velocity: v, angular_velocity: w }];
+            let contacts = if f == 0 {
+                vec![ContactImpulse {
+                    structure: 0,
+                    chunk: 4,
+                    point: engine.solver.chunk_position(0, 4),
+                    impulse,
+                    other_mass: 100.0,
+                    approach_speed: 30.0,
+                    other_modulus: 2e11,
+                    other_radius: 0.05,
+                    crush: None,
+                }]
+            } else {
+                vec![]
+            };
+            let out = engine.step(&FrameInput { dt: 1.0 / 60.0, motion: if f == 0 { motion } else { vec![] }, contacts });
+            out_all.push(out);
+        }
+        let label = format!("{model:?} {mode:?}");
+        let fractures: Vec<&Fracture> = out_all.iter().flat_map(|o| o.fractures.iter()).collect();
+        assert!(!fractures.is_empty(), "{label}: the hit should break the beam");
+        assert!(fractures[0].children.len() >= 2, "{label}");
+        let reports = engine.bond_reports(0);
+        assert!(reports.iter().any(|r| r.broken && r.damage >= 1.0), "{label}");
+        assert!(reports.iter().all(|r| (0.0..=1.0).contains(&r.damage) && r.utilization >= 0.0), "{label}");
+        let events: Vec<&SolverEvent> = out_all.iter().flat_map(|o| o.events.iter()).collect();
+        assert!(events.iter().any(|e| matches!(e, SolverEvent::Cracked { .. })), "{label}");
+        assert!(events.iter().any(|e| matches!(e, SolverEvent::Broken { .. })), "{label}");
+        // The pieces carry exactly the momentum the engine gave the parent: the stress
+        // solve only redistributes it (the impulse is not counted twice).
+        let p: Vec3 = engine.clusters().iter().map(|c| Vec3::from_array(c.velocity) * c.mass).fold(Vec3::ZERO, |a, b| a + b);
+        let expected = v * mass0;
+        assert!((p - expected).norm() < 1e-6 * expected.norm(), "{label}: {p:?} vs {expected:?}");
+        assert!(engine.clusters().iter().all(|c| !c.anchored), "{label}");
+        println!("{label}: {} pieces", engine.clusters().len());
     }
-    let fractures: Vec<&Fracture> = out_all.iter().flat_map(|o| o.fractures.iter()).collect();
-    assert!(!fractures.is_empty(), "the hit should break the beam");
-    assert!(fractures[0].children.len() >= 2);
-    let reports = engine.bond_reports(0);
-    assert!(reports.iter().any(|r| r.broken && r.damage >= 1.0));
-    assert!(reports.iter().all(|r| (0.0..=1.0).contains(&r.damage) && r.utilization >= 0.0));
-    let events: Vec<&SolverEvent> = out_all.iter().flat_map(|o| o.events.iter()).collect();
-    assert!(events.iter().any(|e| matches!(e, SolverEvent::Cracked { .. })));
-    assert!(events.iter().any(|e| matches!(e, SolverEvent::Broken { .. })));
-    // The pieces carry exactly the momentum the engine gave the parent: the stress
-    // solve only redistributes it (the impulse is not counted twice).
-    let p: Vec3 = engine.clusters().iter().map(|c| Vec3::from_array(c.velocity) * c.mass).fold(Vec3::ZERO, |a, b| a + b);
-    let expected = v * mass0;
-    assert!((p - expected).norm() < 1e-6 * expected.norm(), "{p:?} vs {expected:?}");
-    assert!(engine.clusters().iter().all(|c| !c.anchored));
 }

@@ -34,7 +34,7 @@
 //!
 //! [`SolveMode::Explicit`]: crate::scene::SolveMode::Explicit
 
-use crate::bond::Local6;
+use crate::bond::{Local6, Mat6};
 use crate::math::{Mat3, Vec3};
 use crate::solver::{ChunkLoads, ReferenceSolver};
 use crate::statics::{dot6, join, pcg_solve, split, Block6, Layout, V6};
@@ -110,6 +110,11 @@ impl ReferenceSolver {
                 continue;
             }
             let r = self.newmark_step(ci, loads, dt);
+            // Fold the hidden field's rigid motion into the frame before any split, so
+            // children inherit each momentum once.
+            if !self.clusters[ci].anchored {
+                self.remove_rigid_drift(ci);
+            }
             total.newton_iterations += r.newton_iterations;
             total.cg_iterations += r.cg_iterations;
             total.residual = total.residual.max(r.residual);
@@ -121,11 +126,6 @@ impl ReferenceSolver {
         }
         for &ci in to_split.iter().rev() {
             self.split_cluster(ci);
-        }
-        for ci in 0..self.clusters.len() {
-            if !self.clusters[ci].anchored && !self.clusters[ci].bonds.is_empty() {
-                self.remove_rigid_drift(ci);
-            }
         }
         self.mark_implicit_step_start();
         total
@@ -247,8 +247,8 @@ impl ReferenceSolver {
             // the residual: the contact patch and friction make the law nonsmooth.
             let mut improved = false;
             for tangent in [true, false] {
-                let k: Vec<Local6> =
-                    self.newton_stiffness(ci, tangent).iter().zip(&damping).map(|(k, c)| k.add(&c.scale(c_v))).collect();
+                let k: Vec<Mat6> =
+                    self.newton_stiffness(ci, tangent).iter().zip(&damping).map(|(k, c)| k.add_diag(&c.scale(c_v))).collect();
                 let pre = self.block_jacobi(ci, &lay, &k, Some(&shifted));
                 let apply = |p: &[V6]| -> Vec<V6> {
                     let mut y = self.apply_k(ci, &lay, &k, p);
