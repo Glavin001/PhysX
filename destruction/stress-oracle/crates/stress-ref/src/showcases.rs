@@ -215,6 +215,162 @@ pub fn arch(t_remove: Option<f64>, name: &str) -> Scene {
     s
 }
 
+/// What happens to the masonry house.
+#[derive(Clone, Copy, Debug)]
+pub enum HouseEvent {
+    /// Nothing: the house stands under its own weight (the prestress stress field).
+    None,
+    /// The footing under the front-right corner settles away over a second.
+    Settlement,
+    /// A crush-capped car hits the side wall at `speed` m/s.
+    Impact { speed: f64 },
+    /// `tnt` kg of TNT detonates 3 m in front of the house.
+    Blast { tnt: f64 },
+}
+
+/// A 3 x 3 m brick house, 2.7 m high, one brick thick (0.3 x 0.15 x 0.15 m bricks in
+/// running bond on mortar joints, corners interlocked course by course), with a door,
+/// windows and concrete lintels, on footing chunks, carrying a roof load on its top
+/// course. The front-right corner footing can settle away (1.65 m along both walls).
+pub fn masonry_house(event: HouseEvent, name: &str) -> Scene {
+    let mut s = new_scene(name, "Brick house with door and windows: stress paths around openings; settlement, impact or blast.");
+    s.materials.insert("brick".into(), Material::brick());
+    s.materials.insert("mortar".into(), Material::mortar());
+    s.materials.insert("lintel".into(), Material { dif: None, static_fatigue: None, ..Material::concrete() });
+    let (bl, bt, bh) = (0.3, 0.15, 0.15);
+    let (width, depth, courses) = (3.0, 3.0, 18usize);
+    // Wall lines: (runs along x?, coordinate of the wall's centre plane, outward normal sign).
+    let walls = [(true, 0.5 * bt), (true, depth - 0.5 * bt), (false, 0.5 * bt), (false, width - 0.5 * bt)];
+    // Openings: (wall, along-wall interval, height interval). Edges on the half-brick grid.
+    let openings: [(usize, [f64; 2], [f64; 2]); 5] = [
+        (0, [1.2, 1.8], [0.0, 2.1]),  // door
+        (0, [2.1, 2.7], [0.9, 1.8]),  // front window
+        (1, [1.2, 1.8], [1.2, 1.8]),  // back window
+        (2, [1.05, 1.95], [0.9, 1.8]), // left window
+        (3, [0.9, 2.1], [0.9, 1.8]),  // right window
+    ];
+    let cut = |pieces: Vec<[f64; 2]>, hole: [f64; 2]| -> Vec<[f64; 2]> {
+        let mut out = Vec::new();
+        for [a, b] in pieces {
+            if b <= hole[0] + 1e-9 || a >= hole[1] - 1e-9 {
+                out.push([a, b]);
+                continue;
+            }
+            if hole[0] - a > 1e-9 {
+                out.push([a, hole[0]]);
+            }
+            if b - hole[1] > 1e-9 {
+                out.push([hole[1], b]);
+            }
+        }
+        out
+    };
+    let mut chunks = Vec::new();
+    let place = |along_x: bool, at: f64, a0: f64, a1: f64, z: f64, half_h: f64, material: &str| {
+        let (c, h) = if along_x {
+            (Vec3::new(0.5 * (a0 + a1), at, z), Vec3::new(0.5 * (a1 - a0), 0.5 * bt, half_h))
+        } else {
+            (Vec3::new(at, 0.5 * (a0 + a1), z), Vec3::new(0.5 * bt, 0.5 * (a1 - a0), half_h))
+        };
+        chunk(c, h, material)
+    };
+    for (wi, &(along_x, at)) in walls.iter().enumerate() {
+        // Footing: fixed chunks under the full wall line.
+        let length = if along_x { width } else { depth };
+        let (lo, hi) = if along_x { (0.0, length) } else { (bt, length - bt) };
+        let mut a = lo;
+        while a < hi - 1e-9 {
+            let b = (a + bl).min(hi);
+            let mut f = place(along_x, at, a, b, -0.5 * bh, 0.5 * bh, "brick");
+            f.support = Support::Fixed;
+            let corner = if along_x { 0.5 * (a + b) > width - 1.65 && wi == 0 } else { 0.5 * (a + b) < 1.65 && wi == 3 };
+            f.groups.push(if corner { "settling_footing".into() } else { "footing".into() });
+            chunks.push(f);
+            a = b;
+        }
+        for k in 0..courses {
+            let z = (k as f64 + 0.5) * bh;
+            // Corners interlock: x-walls run through on even courses, y-walls on odd ones.
+            let through = (k % 2 == 0) == along_x;
+            let (lo, hi) = if through { (0.0, length) } else { (bt, length - bt) };
+            let mut edges = vec![lo];
+            let mut e = lo + if k % 2 == 1 { 0.5 * bl } else { bl };
+            while e < hi - 1e-9 {
+                edges.push(e);
+                e += bl;
+            }
+            edges.push(hi);
+            let mut pieces: Vec<[f64; 2]> = edges.windows(2).map(|w| [w[0], w[1]]).filter(|p| p[1] - p[0] > 1e-9).collect();
+            let mut lintels = Vec::new();
+            for &(ow, span, height) in &openings {
+                if ow != wi {
+                    continue;
+                }
+                if z > height[0] && z < height[1] {
+                    pieces = cut(pieces, span);
+                } else if (z - 0.5 * bh - height[1]).abs() < 1e-9 {
+                    let lintel = [span[0] - 0.5 * bl, span[1] + 0.5 * bl];
+                    pieces = cut(pieces, lintel);
+                    lintels.push(lintel);
+                }
+            }
+            for [a, b] in pieces {
+                let mut c = place(along_x, at, a, b, z, 0.5 * bh, "brick");
+                if k + 1 == courses {
+                    c.groups.push("roof_bearing".into());
+                }
+                chunks.push(c);
+            }
+            for [a, b] in lintels {
+                chunks.push(place(along_x, at, a, b, z, 0.5 * bh, "lintel"));
+            }
+        }
+    }
+    let bonds = auto_bonds(&chunks, |_, _| "mortar".into());
+    s.bodies.push(body("house", chunks, bonds));
+    // Roof and floor dead load on the top course (30 kPa on its 0.15 m bearing, 4.5 kN/m).
+    s.loads.push(LoadDesc::Pressure {
+        body: "house".into(),
+        chunks: ChunkSelector::Group("roof_bearing".into()),
+        face_normal: [0.0, 0.0, 1.0],
+        pressure: TimeFunction::Constant { value: 30e3 },
+    });
+    s.sim.frame_dt = 1e-3;
+    match event {
+        HouseEvent::None => s.sim.duration = 0.1,
+        HouseEvent::Settlement => {
+            s.events.push(EventDesc::RemoveSupports {
+                time: 0.05,
+                duration: 1.0,
+                body: "house".into(),
+                chunks: ChunkSelector::Group("settling_footing".into()),
+            });
+            s.sim.duration = 2.0;
+            s.sim.frame_dt = 1.0 / 60.0;
+        }
+        HouseEvent::Impact { speed } => {
+            s.materials.insert("steel".into(), elastic_steel());
+            s.impactors.push(ImpactorDesc {
+                name: "car".into(),
+                shape: ImpactorShape::Box { half_extents: [0.4, 0.5, 0.3] },
+                mass: 1500.0,
+                position: [width + 0.401, 1.5, 0.75],
+                orientation: [1.0, 0.0, 0.0, 0.0],
+                velocity: [-speed, 0.0, 0.0],
+                angular_velocity: [0.0; 3],
+                material: "steel".into(),
+                crush: Some(CrushDesc { max_force: 400e3, energy: 20e3 }),
+            });
+            s.sim.duration = 0.3;
+        }
+        HouseEvent::Blast { tnt } => {
+            s.loads.push(LoadDesc::Blast { position: [1.5, -3.0, 1.0], tnt_mass: tnt, time: 0.0 });
+            s.sim.duration = 0.1;
+        }
+    }
+    s
+}
+
 /// Quaternion of the rotation whose matrix has columns `x`, `y`, `z`.
 fn quat_from_axes(x: Vec3, y: Vec3, z: Vec3) -> Quat {
     let m = [[x.x, y.x, z.x], [x.y, y.y, z.y], [x.z, y.z, z.z]];
@@ -248,5 +404,9 @@ pub fn catalog() -> Vec<Scene> {
         arch(Some(0.1), "s_arch_keystone_removed"),
         arch(None, "s_arch"),
         blast_two_walls(30.0, "s_blast_two_walls"),
+        masonry_house(HouseEvent::None, "s_house"),
+        masonry_house(HouseEvent::Settlement, "s_house_settlement"),
+        masonry_house(HouseEvent::Impact { speed: 10.0 }, "s_house_car"),
+        masonry_house(HouseEvent::Blast { tnt: 5.0 }, "s_house_blast"),
     ]
 }

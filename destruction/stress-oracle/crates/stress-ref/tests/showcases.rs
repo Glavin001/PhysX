@@ -153,3 +153,14 @@ fn blast_breaches_front_wall_and_shadowed_wall_survives() {
     let r = run(&alone);
     assert!(r.broken("back"), "back wall alone did not breach: shadowing test is vacuous");
 }
+
+/// The brick house stands under its roof load with stress paths around the openings;
+/// a car through the side wall breaches it; a corner settlement brings the corner down.
+#[test]
+fn masonry_house_stands_and_fails_under_impact() {
+    let standing = run(&masonry_house(HouseEvent::None, "s_house"));
+    assert_eq!(standing.value("broken_bonds"), 0.0);
+    assert!(standing.value("max_failure_index") > 0.1 && standing.value("max_failure_index") < 0.5);
+    let car = run(&masonry_house(HouseEvent::Impact { speed: 10.0 }, "s_house_car"));
+    assert!(car.broken("house"), "the car did not breach the wall");
+}

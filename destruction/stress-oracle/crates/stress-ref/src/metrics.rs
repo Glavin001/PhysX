@@ -309,12 +309,35 @@ pub fn compare_values(tol: &Tolerance, ours: &MetricValue, reference: &MetricVal
     }
 }
 
+/// Comparison against several independent oracles that disagree among themselves
+/// (different formulations: continuum, rigid blocks, DEM): ours passes if it lies in
+/// their spread widened by the tolerance (numbers), or equals one of their outcomes
+/// (booleans, categories; all of them when they agree). Returns (pass, low, high).
+pub fn ensemble(tol: &Tolerance, ours: &MetricValue, oracles: &[MetricValue]) -> (Option<bool>, Option<MetricValue>, Option<MetricValue>) {
+    let numbers: Vec<f64> = oracles.iter().filter_map(|v| if let MetricValue::Number(x) = v { Some(*x) } else { None }).collect();
+    if let (MetricValue::Number(x), true) = (ours, numbers.len() == oracles.len()) {
+        let x = *x;
+        let lo = numbers.iter().copied().fold(f64::INFINITY, f64::min);
+        let hi = numbers.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+        let (lo_w, hi_w) = match tol {
+            Tolerance::Relative(r) => (lo - r * lo.abs(), hi + r * hi.abs()),
+            Tolerance::Absolute(a) => (lo - a, hi + a),
+            Tolerance::Exact | Tolerance::Report => (lo, hi),
+        };
+        let pass = (*tol != Tolerance::Report).then_some(x >= lo_w && x <= hi_w);
+        return (pass, Some(MetricValue::Number(lo)), Some(MetricValue::Number(hi)));
+    }
+    (Some(oracles.contains(ours)), oracles.first().cloned(), None)
+}
+
 /// Compare every metric of `scene` for `ours` against analytic expectations and the
 /// given oracle observations.
 pub fn compare(scene: &Scene, ours: &Observation, oracles: &[Observation]) -> Vec<Comparison> {
     let mut out = Vec::new();
     for m in &scene.metrics {
         let our_val = evaluate(scene, m, ours);
+        // The analytic row (if any) comes first, then one row per oracle.
+        let first_oracle_row = out.len() + usize::from(m.expected.is_some());
         let mut push = |src: &str, reference: Result<MetricValue, String>| {
             let (pass, rel, note) = match (&our_val, &reference) {
                 (Ok(a), Ok(b)) => {
@@ -338,10 +361,37 @@ pub fn compare(scene: &Scene, ours: &Observation, oracles: &[Observation]) -> Ve
             push("analytic", MetricValue::from_json(exp).ok_or_else(|| "bad expected value".to_string()));
         }
         let mut compared = m.expected.is_some();
+        let mut oracle_values = Vec::new();
         for o in oracles {
             if m.oracles.is_empty() || m.oracles.iter().any(|x| x == &o.solver) {
-                push(&o.solver, evaluate(scene, m, o));
+                let v = evaluate(scene, m, o);
+                if let Ok(v) = &v {
+                    oracle_values.push(v.clone());
+                }
+                push(&o.solver, v);
                 compared = true;
+            }
+        }
+        // Several independent oracles: their spread is the reference (see `ensemble`);
+        // the single-oracle rows stay as information.
+        if oracle_values.len() >= 2 && m.tolerance_for("oracles") != Tolerance::Report {
+            if let Ok(ours) = &our_val {
+                let (pass, lo, hi) = ensemble(&m.tolerance_for("oracles"), ours, &oracle_values);
+                for row in &mut out[first_oracle_row..] {
+                    if row.pass.is_some() {
+                        row.pass = None;
+                        row.note = "(see ensemble)".into();
+                    }
+                }
+                out.push(Comparison {
+                    metric: m.name.clone(),
+                    reference_source: format!("{} oracles", oracle_values.len()),
+                    ours: Some(ours.clone()),
+                    reference: lo,
+                    relative_error: None,
+                    pass,
+                    note: hi.map(|h| format!("range up to {h}")).unwrap_or_default(),
+                });
             }
         }
         if !compared {
@@ -449,6 +499,19 @@ pub fn format_table(scene: &str, rows: &[Comparison]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ensemble_accepts_the_oracle_spread_widened_by_the_tolerance() {
+        let oracles = [MetricValue::Number(2.0), MetricValue::Number(4.0)];
+        let tol = Tolerance::Relative(0.25);
+        assert_eq!(ensemble(&tol, &MetricValue::Number(1.6), &oracles).0, Some(true));
+        assert_eq!(ensemble(&tol, &MetricValue::Number(4.9), &oracles).0, Some(true));
+        assert_eq!(ensemble(&tol, &MetricValue::Number(1.4), &oracles).0, Some(false));
+        assert_eq!(ensemble(&tol, &MetricValue::Number(5.1), &oracles).0, Some(false));
+        let modes = [MetricValue::Category("hole".into()), MetricValue::Category("push_over".into())];
+        assert_eq!(ensemble(&Tolerance::Exact, &MetricValue::Category("hole".into()), &modes).0, Some(true));
+        assert_eq!(ensemble(&Tolerance::Exact, &MetricValue::Category("intact".into()), &modes).0, Some(false));
+    }
 
     #[test]
     fn frequency_of_a_sine() {
