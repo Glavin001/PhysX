@@ -171,11 +171,12 @@ See the module docs for the equations. In brief:
   crush laws (the impactor's own rigid-plastic force-deformation curve, acting in its
   contact with the structure), Friedlander face pressures, Kinney-Graham blasts with
   angle of incidence, shadowing and clearing/venting, member and support removal by
-  force replacement (sudden or gradual). Engine contact impulses become a filtered
-  resting load plus impacts — never `impulse / dt` — either as pulses of Hertz (or
-  crush-plateau) duration or, with `ImpactModel::VelocityCondition`, as an
-  instantaneous velocity change of the struck chunk (momentum exact, no assumed
-  duration).
+  force replacement (sudden or gradual). Engine contact impulses are split per
+  touching pair into the impact that stopped the approach (at most `2 m v`, counted
+  above the engine's resting band `|g| dt`) and a force sustained over the frame; the
+  impact is never `impulse / dt` but a pulse of Hertz (or crush-plateau) duration or,
+  with `ImpactModel::VelocityCondition`, an instantaneous velocity change of the
+  struck chunk (momentum exact, no assumed duration).
 * **Model switches** (`sim.features`, `Scene::with_feature`, `--feature`): every
   mechanism can be switched off to see what it contributes: `rate_effects`,
   `static_fatigue`, `weibull`, `softening` (off = threshold model), `crack_contact`,
