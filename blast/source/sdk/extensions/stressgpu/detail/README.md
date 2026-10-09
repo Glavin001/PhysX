@@ -29,7 +29,14 @@ this is what the code does now:
   (PxDestructionStressDesc v24) adds force convergence: ||dlambda|| of a
   preconditioned step <= tol ||lambda||. The residual test weights force errors
   by W^T W; on stiff structures it can read 1e3x over tolerance with forces
-  within 1e-3 (vibe-land `scripts/stress/oracle.py`).
+  within 1e-3 (vibe-land `scripts/stress/oracle.py`). The small-component
+  solve (`componentStressSolve`) also requires the relative residual
+  ||r|| <= tol ||b|| (Barrett et al., Templates 4.2.1; LSQR rule S1): the
+  W-weighted test alone is relative only while ||W|| ~ 1, and a heavy chunk on
+  light ones passed it at iteration 0 with zero forces
+  (`blast_stress_gpu_zero_iteration_convergence`). The cooperative
+  large-component kernel (`StressResidentIteration.cuh`, components over 8192
+  nodes) still uses the W-weighted test alone: the same flaw, a follow-up.
 - **Diagnostics.** The solve report (`readSolveReport`) and, in the
   `PhysXDestructionGpuProblemDiagnostic` build only, the equation capture v2
   (`StressProblemCapture.cuh`): the system, its final iterate and the
