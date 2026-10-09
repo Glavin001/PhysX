@@ -297,8 +297,8 @@ def export_model(scene):
                 "buckling_load": (math.pi ** 2 * mat["youngs_modulus"] * i_min / bl ** 2) if bl else None,
                 "weibull": d["weibull"],
             })
-            if mat.get("dif") or mat.get("sustained"):
-                notes.append(f"material '{bond['material']}': DIF / sustained-load strength changes are not applied (static strengths x Weibull)")
+            if mat.get("dif") or mat.get("static_fatigue"):
+                notes.append(f"material '{bond['material']}': DIF / static-fatigue strength changes are not applied (static strengths x Weibull)")
 
     # ---- loads
     def body_index(name):

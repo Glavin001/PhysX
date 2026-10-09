@@ -71,7 +71,7 @@ For `--seed N` the pipeline first re-derives the scene with `stress-ref with-see
     the structure.
 - **Failure:** at every analysis step, every element gets the generalised bond force at
   its centroid. The runner evaluates `joint.rs` `stress_measures` and `failure_indices`
-  on it, with strengths times `derived.weibull`; DIF and sustained-load factors are not
+  on it, with strengths times `derived.weibull`; DIF and static-fatigue factors are not
   applied.
   - `flags.any_bond_cracked` (and `any_bond_broken`, which is identical here because an
     elastic model cannot tell damage onset from disconnection) is true when any index

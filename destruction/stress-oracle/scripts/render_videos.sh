@@ -90,6 +90,11 @@ for s in s_arch_keystone_removed s_arch; do
   render "$s" --views utilization,stress,damage,fragments --camera front --arrows
 done
 render s_blast_two_walls --views utilization,damage,fragments,velocity --camera iso --arrows
+# Brick house: the self-weight stress field around the openings, then three failures.
+render s_house --views utilization,stress,von_mises,deformation --camera iso
+render s_house_settlement --views utilization,stress,damage,fragments --camera iso --plot broken
+render s_house_car --views utilization,damage,fragments,velocity --camera iso --yaw 40 --arrows
+render s_house_blast --views utilization,damage,fragments,velocity --camera iso --yaw -30 --arrows
 
 # --- comparisons --------------------------------------------------------------------
 compare s_overhang_thin_fatigue s_overhang_thin \
@@ -101,5 +106,36 @@ compare b5_wall_impact_v10_rate b5_wall_impact_v10 \
 compare b7_masonry_v15_modes b7_masonry_v15 \
   --variant "explicit:" --variant "adaptive:sim.solve_mode=adaptive" \
   --views utilization,fragments --plot ball_velocity
+
+# Lead demos: same ram fast vs slow (inertia decides hole vs push-over) and sudden vs
+# gradual column loss (dynamic amplification).
+compare lead_fast_vs_slow b5_wall_impact_v40 \
+  --variant "40 m/s:" --variant "2 m/s:impactors.0.velocity=[0,2,0]" \
+  --views utilization,fragments --duration 0.3
+compare lead_sudden_vs_gradual b8_frame_sudden \
+  --variant "sudden removal:" --variant "gradual removal (2 s):events.0.duration=2.0" \
+  --views utilization,damage --camera front
+# What each capability contributes: the same scene with it switched off.
+compare feature_inertia b5_wall_impact_v40 \
+  --variant "explicit dynamics:" --variant "quasi-static (no inertia):sim.solve_mode=quasi_static" \
+  --views utilization,fragments
+compare feature_stiffness_scaling b5_wall_impact_v40 \
+  --variant "true stiffness:" --variant "E x 0.01:sim.stiffness_scale=0.01" --variant "mass scaling to 4 x dt:sim.mass_scaling_dt=1e-5" \
+  --views utilization,fragments
+compare feature_implicit b8_frame_sudden \
+  --variant "explicit:" --variant "implicit at the frame step:sim.solve_mode=implicit" \
+  --views utilization,damage --camera front
+compare feature_shadowing s_blast_two_walls \
+  --variant "shadowing on:" --variant "shadowing off:feature blast_shadowing=off" \
+  --views damage,fragments --camera iso
+compare feature_softening b5_wall_impact_v10 \
+  --variant "fracture-energy softening:" --variant "threshold (no softening):feature softening=off" \
+  --views damage,fragments
+compare feature_crack_contact s_arch_keystone_removed \
+  --variant "cracked joints carry compression:" --variant "cracked joints carry nothing:feature crack_contact=off" \
+  --views utilization,fragments --camera front
+compare feature_weibull b9_panel_high_weibull \
+  --variant "Weibull strengths:" --variant "uniform strengths:feature weibull=off" \
+  --views damage,fragments --yaw 35
 
 echo "videos in $VIDEOS/"

@@ -23,11 +23,15 @@ implementation, against an analytic value or an oracle run of the identical setu
 | `crates/stress-ref/src/scene.rs` | scene format `stress-scene/1` (the single input every solver reads) |
 | `crates/stress-ref/src/builders.rs` | the benchmark scene catalogue (single source of every scene) |
 | `crates/stress-ref/src/material.rs`, `bond.rs`, `joint.rs` | materials, bond geometry/stiffness, the damageable joint |
-| `crates/stress-ref/src/solver.rs`, `statics.rs`, `refine.rs` | clusters, explicit substeps, quasi-static solve, fracture/splitting, refinement |
+| `crates/stress-ref/src/solver.rs`, `statics.rs`, `implicit.rs`, `refine.rs` | clusters, explicit substeps, quasi-static solve, implicit Newmark step, fracture/splitting, refinement |
 | `crates/stress-ref/src/world.rs`, `contact.rs`, `blast.rs` | standalone world: impactors, ground, contact, scripted loads, blast, events, probes |
 | `crates/stress-ref/src/observation.rs`, `metrics.rs` | `stress-observation/1` and the metrics computed identically for every solver |
-| `crates/stress-ref/src/api.rs` | engine-facing trait (`StressSolverApi`), contact-impulse filter, `EngineCoupledSolver` |
-| `crates/stress-ref/tests/` | the test suite (analytic, conservation, failure laws, dynamics, refinement, engine API) |
+| `crates/stress-ref/src/api.rs` | engine-facing trait (`StressSolverApi`), contact-impulse filter (pulse or velocity condition), `EngineCoupledSolver` |
+| `crates/stress-ref/src/snapshot.rs` | `World::snapshot()`: world-frame chunk boxes, Love-Weber chunk stress, bond damage, for renderers and debugging |
+| `crates/stress-ref/src/showcases.rs` | the spec's showcase scenes (overhang, supports, car, floor drop, arch, house) |
+| `crates/stress-ref/tests/` | the test suite (analytic, conservation, failure laws, dynamics, solve modes, features, determinism, refinement, engine API, snapshots, showcases, oracle goldens) |
+| `crates/stress-viz` | debug renderer: runs a scene and writes an MP4 of view panels (utilization, stress, damage, fragments, speed, deformation) and variant comparisons |
+| `scripts/render_videos.sh` | renders every benchmark, showcase and feature comparison into `videos/` (not committed) |
 | `crates/stress-physx` | PhysX coupling and its end-to-end tests |
 | `oracles/CONTRACT.md` | what an oracle reads and writes |
 | `oracles/<tool>/` | `install.sh`, `PINNED.md`, `export.py`, `run.py`, `observe.py`, `pipeline.py`, `README.md` |
@@ -49,8 +53,18 @@ cargo run --release -- seeds scenes/b9_panel_high_weibull.json --out /tmp/seeds 
 PHYSX_ROOT=/path/to/physx-install cargo test --release -p stress-physx
 ```
 
-`stress-ref run` options: `--seed N`, `--mode explicit|adaptive|quasi_static`,
-`--stiffness-scale S`, `--max-substep DT`, `--frame-dt DT`, `--no-fracture`.
+`stress-ref run` options: `--seed N`, `--mode explicit|implicit|adaptive|quasi_static`,
+`--stiffness-scale S`, `--max-substep DT`, `--frame-dt DT`, `--no-fracture`,
+`--feature NAME=on|off` (model switches, see below), `--set dotted.path=JSON` (any scene
+field, e.g. `--set sim.implicit_dt=2e-4`, `--set impactors.0.velocity=[0,2,0]`).
+
+```sh
+# Videos (needs ffmpeg): one scene, a comparison, or the whole set
+cargo run --release -p stress-viz -- render b5_wall_impact_v40 --views utilization,stress,damage,fragments -o v.mp4
+cargo run --release -p stress-viz -- compare s_blast_two_walls \
+    --variant "shadowing on:" --variant "shadowing off:feature blast_shadowing=off" -o cmp.mp4
+scripts/render_videos.sh            # or a subset: scripts/render_videos.sh b5 s_house feature_
+```
 
 ### Oracles
 
@@ -106,38 +120,81 @@ See the module docs for the equations. In brief:
   along the normal. E and G may be scaled (`sim.stiffness_scale`); strengths and
   fracture energies never are.
 * **Joint law** (`joint.rs`): tension cutoff on the extreme fibre, Mohr-Coulomb shear
-  (`c + mu sigma_c`, capped), crushing, Euler buckling cap for slender members, DIF
-  (CEB-FIP power law), Weibull strength factor per bond, sustained-load strength loss.
-  Damage `D` (tension/shear) and `Dc` (crushing) soften with the fracture energy so a
-  bond dissipates exactly `G_f A` (resolution independent); brittle = linear
-  softening, ductile (steel) = plateau then snap. The cracked share of a joint becomes a
-  no-tension multi-spring patch with Coulomb friction (rocking about the compressed
-  edge, arching), so a cracked joint still carries compression inside its cluster.
-  Rebar acts in parallel until its plastic work reaches its rupture energy.
+  (`c + mu sigma_c`, capped), crushing, Euler buckling cap for slender members, dynamic
+  increase factor (fib Model Code 2010 tensile law for concrete), Weibull strength
+  factor per bond, and **static fatigue** (delayed failure under sustained load):
+  subcritical crack growth `da/dt = A K^n` (Charles; Evans & Wiederhorn) integrated to
+  a consumed life `omega' = (n + 1) s^n / t_test` and a residual strength
+  `(1 - omega)^(1/(n-2))`. For concrete `n` and `t_test` follow from the same fib
+  low-rate DIF exponent and reference rate (`n = 54.6`, `t_test = 100 s`): rate
+  dependence and delayed failure are one mechanism. This is strength loss with time,
+  not creep (no viscous deformation). Damage `D` (tension/shear) and `Dc` (crushing)
+  soften with the fracture energy so a bond dissipates exactly `G_f A` (resolution
+  independent); brittle = linear softening, ductile (steel) = plateau then snap. The
+  cracked share of a joint becomes a no-tension multi-spring patch with Coulomb
+  friction (rocking about the compressed edge, arching), so a cracked joint still
+  carries compression inside its cluster. Rebar acts in parallel until its plastic
+  work reaches its rupture energy.
 * **Clusters** (`solver.rs`): connected components of intact bonds, one rigid body
-  each. Chunks carry hidden 6-DOF displacements in the cluster's floating frame;
-  chunk loads subtract the rigid motion (linear, angular, centrifugal, Coriolis and
-  gyroscopic terms). Explicit central differences with stiffness-proportional dashpots;
-  the substep is a safety fraction of the Gershgorin bound. Splits give each child the
-  exact momentum of its chunks (`v + w x r` plus hidden velocities).
-* **Statics** (`statics.rs`): modified Newton with block-Jacobi PCG, inertia relief
-  for free clusters, gravity prestress, same-step cascade.
-* **Activity** (`SolveMode::Adaptive`): explicit while recently loaded, quasi-static
-  once quiet, no work while loads are steady; `Explicit` everywhere is the ground truth.
+  each. Chunks carry hidden 6-DOF displacements in the cluster's floating (mean-axis)
+  frame; chunk loads subtract the rigid motion (linear, angular, centrifugal, Coriolis
+  and gyroscopic terms). Splits give each child the exact momentum of its chunks
+  (`v + w x r` plus hidden velocities); the energy still stored in the separating
+  bonds is booked (`split_release`), not injected into the fragments.
+* **Solve modes** (`sim.solve_mode`):
+  * `explicit` — central differences with stiffness-proportional dashpots, the
+    substep a safety fraction of the Gershgorin bound. **The ground truth.**
+  * `implicit` (`implicit.rs`) — Newmark average acceleration at `sim.implicit_dt`
+    (default the frame): `(K + gamma/(beta dt) C + M/(beta dt^2)) du = r`, i.e. the
+    static solve plus one diagonal term; modified Newton with the joints' exact 6x6
+    tangent (active contact springs, friction return map), secant fallback and line
+    search; damage committed after convergence, so cascades spread over steps.
+  * `quasi_static` (`statics.rs`) — equilibrium every frame (block-Jacobi PCG, inertia
+    relief for free clusters) with the same-step cascade.
+  * `adaptive` — explicit while recently loaded, quasi-static once quiet, no work
+    while loads are steady.
+* **Stiffness vs mass scaling**: `sim.stiffness_scale` lowers E (the original
+  real-time compromise; strengths stay physical); `sim.mass_scaling_dt` instead adds
+  deformation inertia only to chunks whose own stable step is below the target (as
+  explicit FE codes do) and reports the added mass (`added_mass_fraction`).
 * **Two scales** (`refine.rs`): coarse chunks with pre-fractured children refine where
   a bond's utilization passes `sim.refine_utilization` or a contact hits them; the
   children are relaxed to equilibrium and inherit crack history.
 * **Loads** (`world.rs`, `blast.rs`, `api.rs`): gravity, supports with reactions,
-  substep penalty contact (impactors, ground, debris landing on structures),
-  crush-capped impactors (force cap + energy budget), Friedlander face pressures,
-  Kinney-Graham blasts with angle of incidence, shadowing and clearing/venting, member
-  and support removal by force replacement (sudden or gradual). Engine contact impulses
-  become a filtered resting load plus impact pulses of Hertz (or crush-plateau)
-  duration — never `impulse / dt`.
-* **Outputs**: per-bond damage/utilization/mode (`api::BondReport`), events
-  (`Cracked`, `Creaked`, `Broken` with position and normal, `Split`, `Refined`), an
-  energy ledger (fracture, friction, dashpots, contact, softening overshoot, energy
-  left in split bonds).
+  substep penalty contact (impactors, ground, debris landing on structures), impactor
+  crush laws (the impactor's own rigid-plastic force-deformation curve, acting in its
+  contact with the structure), Friedlander face pressures, Kinney-Graham blasts with
+  angle of incidence, shadowing and clearing/venting, member and support removal by
+  force replacement (sudden or gradual). Engine contact impulses become a filtered
+  resting load plus impacts — never `impulse / dt` — either as pulses of Hertz (or
+  crush-plateau) duration or, with `ImpactModel::VelocityCondition`, as an
+  instantaneous velocity change of the struck chunk (momentum exact, no assumed
+  duration).
+* **Model switches** (`sim.features`, `Scene::with_feature`, `--feature`): every
+  mechanism can be switched off to see what it contributes: `rate_effects`,
+  `static_fatigue`, `weibull`, `softening` (off = threshold model), `crack_contact`,
+  `buckling`, `rebar`, `rigid_motion_loads`, `blast_shadowing`, `blast_clearing`,
+  `damping`. `tests/features.rs` checks that each removes exactly its mechanism.
+* **Outputs**: per-bond damage/utilization/mode (`api::BondReport`), debug snapshots
+  (`World::snapshot`: Love-Weber chunk stress, von Mises, principal stress, bond
+  status), events (`Cracked`, `Creaked`, `Broken` with position and normal, `Split`,
+  `Refined`), an energy ledger (fracture, friction, dashpots, contact, softening
+  overshoot, energy left in split bonds).
+
+## Review decisions (2026-10-09)
+
+A review of the spec raised these points; how the reference resolves each:
+
+| point | resolution |
+|---|---|
+| "Stored elastic energy of broken bonds released to fragments" would mean writing velocities into engine bodies | Not done. Splits are momentum exact from the chunks' actual velocities; the energy left in separating bonds is booked as `split_release`. Engine bodies only ever receive the children's exact momentum. |
+| Crush caps vs PhysX contacts | The crush law is the impactor's own force-deformation curve in its contact with the structure (`CrushDesc`), never a cap on rigid-body contacts. With `ImpactModel::VelocityCondition` the engine's contact impulse is used as is. |
+| Same-step cascade vs one correction per tick | Only `quasi_static` cascades within a step. `explicit` and `implicit` cascade over steps (a cascade takes time). |
+| Sustained-load damage needs a cited law (and creep is out of scope) | Replaced by static fatigue from subcritical crack growth (Charles 1958; Evans & Wiederhorn 1974; Ritter 1978), with `n` and `t_test` derived from the material's fib MC2010 rate law. It is strength loss, not creep. |
+| Lowering E shifts the impulsive/quasi-static boundary | Kept as an option and measured. Added implicit Newmark at true E and selective mass scaling; `scripts/render_videos.sh` renders the b5 punch-through with true E, `E x 0.01` and mass scaling side by side. |
+| Impact as an initial velocity condition | `ImpactModel::VelocityCondition` (engine path), and the implicit mode's predictor delivers substep contact impulses the same way. |
+| Analytic tolerances of 5% hide bugs | Benchmarks 1-4 gate at 1%; b2 also gates the exact discrete model at 1e-6; oracle-only comparisons keep the spec's 20-30%. |
+| Bit-identical runs; explicit convergence criteria | `tests/determinism.rs`: repeated fracturing runs are bit-identical (explicit and implicit); static solves stop on a relative residual of 1e-10 and match the exact discrete solution in every load direction. |
 
 ## Swapping implementations
 
@@ -148,4 +205,121 @@ implements: `step(FrameInput{dt, motion, contacts}) -> FrameOutput{fractures, ev
 
 ## Status
 
-STATUS_PLACEHOLDER
+All results below are from this revision (`cargo test --release`, `stress-ref check scenes golden`).
+
+### Validation benchmarks
+
+| # | benchmark | reference | result |
+|---|---|---|---|
+| 1 | single bond, tension and shear | analytic (1%), OpenCourant (5%) | failure force 0.01% / 0.00%, fracture energy 0.00%; OpenCourant 3.6% / 0.5% |
+| 2 | chunked cantilever, N = 10/20/40 | Euler-Bernoulli (1%), exact discrete model (1e-6), OpenSees | tip 0.09-0.14%, root moment exact, frequency 0.07-0.15%; discrete model exact; OpenSees within 0.15% |
+| 3 | bar impact, true and scaled E | analytic (1%), OpenCourant | wave speed 0.57%, reflection 0.46-0.66%, free-end doubling 0.55%; OpenCourant within 1.6% |
+| 4 | sudden / gradual support loss | damped SDOF closed form (1%) | 1.9433 vs 1.9391 (0.22%); gradual 1.0014 |
+| 5 | ram speed sweep 2/10/40 m/s | OpenCourant | 2 and 10 m/s: push-over as OpenCourant, speed lost within 21-29%. **40 m/s: ours punches a hole, OpenCourant (2 elements per chunk) pushes the wall over** — see gaps |
+| 6 | planar spall | 1-D analytic, OpenCourant | spall occurs in both (central back layer separates), layer speed 3.61 vs 3.02 m/s (19%), back-face peak 4.48 vs 4.83 m/s (7%; 1-D 4.94), front face intact in both |
+| 7 | masonry wall, 4 and 15 m/s | LMGC90, Kratos DEM, OpenCourant (ensemble) | breach in all; ball speed lost and debris speed inside the oracles' spread. The oracles disagree among themselves (4 m/s debris speed 0.07-3.7 m/s) |
+| 8 | frame column removal, sudden / gradual | OpenSees | redistribution within 0.01-0.3% (gradual), sudden elastic peaks within 2.3%; first failure matches |
+| 9 | pressure pulse on a panel, low / high / 20 Weibull seeds | OpenCourant | breach matches; fragment speed 3.46 vs 3.45 m/s; 20-seed mean 3.13 vs 2.88 m/s (8%), peak displacement within 24% |
+| 10 | refinement study | itself | timestep halving: < 1% on waves, < 10% on fracture metrics; two chunk sizes: same breach (fragment speed differs, see gaps) |
+| 11 | optimized vs reference | — | out of scope here (no CUDA solver yet); the reference provides `StressSolverApi`, snapshots and bit-identical runs to diff against |
+
+### Showcases (`tests/showcases.rs`)
+
+| scenario | ours (asserted) |
+|---|---|
+| same car, fast vs slow | b5: 40 m/s punches a hole, 2 m/s pushes the wall over |
+| overhang on a thin connection | creak 3.6 s, crack 6.8 s, snap 8.8 s, slab swings down; a thick neck holds |
+| sudden vs gradual column loss | b8: sudden collapses the frame that gradual removal leaves standing |
+| supports removed one by one | first removal carried; after the second: creak 4.3 s, crack 6.6 s, give way 8.9 s |
+| thick-wall hit (spalling) | b6: back face separates first, front face intact |
+| explosion beside building | facing wall breaches, shadowed wall behind survives; the same wall alone breaches |
+| steel vs brick, same car | ductile wall dissipates ~100x more and takes more car speed |
+| floor falls onto floor below | dropped slab breaks the lower slab; the same weight as a static load does not |
+| masonry arch, keystone removed | stands under self-weight; collapses without its keystone |
+| same wall, two chunk sizes | same breach outcome (`dynamics::same_panel_two_chunk_sizes_same_outcome`) |
+| brick house | stands at 25% utilization with stress paths around the openings; car breaches it; corner settlement brings the corner down |
+
+### Solve-mode findings (for the optimized solver)
+
+* **Implicit Newmark at the frame step** reproduces structural redistribution (b8
+  within 5% of explicit, b2 statics exact) and is unconditionally stable, but cannot
+  show dynamics faster than its step: b4's amplification (period 0.89 ms) is 1.26 at
+  one step per period and converges as the step resolves it (1.73 at T/4.5, 1.92 at
+  T/18, 1.936 at T/45). It also needs the joint's exact tangent: with a diagonal secant
+  the Newton iteration diverged on cracked joints (contact patch, friction).
+* **Penalty contact must not be split across solve rates**: substep penalty contacts
+  with an implicit frame step (predictor/corrector) inject energy on impact (b5 at
+  10 m/s). In the engine path the contact is PhysX's and enters as an impulse
+  (`ImpactModel::VelocityCondition`), which is momentum exact in both modes; the
+  struck beam breaks into 3 (pulse), 4 (velocity condition, explicit) or 6 pieces
+  (velocity condition, implicit at the frame step).
+* **Mass scaling** keeps statics exact and cuts substeps, but on uniform chunks every
+  chunk is critical: 4x the step on the 40-chunk cantilever costs 15x the mass.
+
+### Known gaps
+
+* **b5 at 40 m/s**: ours makes a local hole, OpenCourant at 2 elements per chunk edge
+  pushes the wall over; at 1 element per edge OpenCourant also makes a hole (mesh
+  sensitive). A finer OpenCourant mesh is being run to see which way it converges.
+* **Lateral release / Poisson coupling**: the chunk network has no Poisson effect, so
+  spall breaks whole planes where the continuum keeps corner ligaments (b6), and peak
+  panel displacement is 20-24% above OpenCourant (b9).
+* **Fragment speed vs chunk size**: the breached panel at 0.05 m chunks throws
+  fragments at 2.3 m/s vs 3.5 m/s at 0.1 m (two layers through the thickness resolve
+  hinge crushing). Breach agrees; speed is reported, not gated.
+* **Angular momentum** is conserved to 0.1-0.2% in a 40 m/s fracturing impact (the
+  small-strain bond model's moments balance about undeformed centres); linear
+  momentum to round-off.
+* **Implicit mode in the standalone world** is for structural dynamics, blasts and
+  debris; impactor impacts need the explicit solve or the engine path.
+* **Debris management** (lifetimes, merging settled rubble) is an engine concern and
+  not in the reference.
+
+### Spec checklist → implementation → test
+
+| spec item | where | verified by |
+|---|---|---|
+| Clusters with a bond graph, split into rigid bodies | `solver.rs` (`split_cluster`) | `conservation::momentum_is_conserved_through_impact_and_fracture`, `stress-physx` tests |
+| Fragments inherit `v + w x r`; momentum through splits | `solver.rs` | `conservation::fragments_inherit_parent_rigid_velocity_field` |
+| Bond stiffness from E, G, area, spacing | `bond.rs`, `scene.rs` (`with_derived`) | b2 (OpenSees, Euler-Bernoulli), b3 (wave speed) |
+| Axial, shear, bending, torsion | `bond.rs` | `bond.rs` unit tests (torsion constant), b2, b8 |
+| Per-material parameters | `material.rs` | `failure_laws` |
+| Brittle, steel (ductile) and rebar bond types | `joint.rs` | `failure_laws::steel_absorbs_…`, `failure_laws::rebar_holds_…`, showcase car |
+| Multi-level pre-fracture | `refine.rs`, `world.rs` | `refinement` (3 tests) |
+| Gravity prestress | `statics.rs` | `dynamics::gravity_prestress_starts_structures_at_rest` |
+| Anchors and supports with reactions | `world.rs` | b4, b8 (OpenSees reactions), `dynamics::debris_landing_…` |
+| Rigid motion subtracted from chunk loads | `solver.rs` (`frame_loads`) | `dynamics::rigid_motion_is_subtracted_from_chunk_loads` |
+| Contact: resting load + impact pulse of physical duration | `api.rs` (`ContactLoadFilter`) | `engine_api` (Hertz duration, resting load), `stress-physx` |
+| Crush-capped impactors | `world.rs`, `api.rs` | `engine_api::crush_capped_…`, showcase car |
+| Blast: pulse, falloff, incidence, shadowing, venting | `blast.rs`, `world.rs` | `blast.rs` unit tests, b9 (OpenCourant), showcase two walls |
+| Debris landing loads structure dynamically | `world.rs` contact | `dynamics::debris_landing_…`, showcase floor drop |
+| Chunk inertia in the stress solve | explicit dynamics | b3, b4, b6 |
+| Wave speed `sqrt(E_eff/rho)` | | b3 (true and scaled stiffness) |
+| Dynamic amplification on sudden release | | b4 (analytic 2x), b8 sudden vs gradual (OpenSees) |
+| Reflection at free surfaces (spall) | | b3 reflection, b6 spall |
+| Light damping | stiffness-proportional dashpots | energy ledger tests |
+| Tension cutoff, Mohr-Coulomb, crushing | `joint.rs` | `failure_laws`, b1 |
+| Buckling cap | `joint.rs` | `failure_laws::buckling_caps_…` |
+| Dynamic increase factor | `material.rs` (fib MC2010), `joint.rs` | `failure_laws::dynamic_increase_factor_…`, `features::rate_effects_off_…` |
+| Fracture-energy softening (resolution independent) | `joint.rs` (`damage_increment`) | b1 energy, `failure_laws::fracture_energy_per_area_…`, `joint.rs` unit tests |
+| Time-dependent damage under sustained overload (creak, crack, give way) | static fatigue, `material.rs` / `joint.rs` | `failure_laws::sustained_overload_…` (closed-form lifetime within 1%), showcases overhang and supports |
+| Weibull strengths | `material.rs` | `failure_laws::weibull_…`, b9 20-seed distribution |
+| Same-step cascade | `statics.rs` | `failure_laws::same_step_cascade_…` |
+| Stored energy of broken bonds released | ledger `split_release`, `softening_overshoot` | `conservation::fracture_never_gains_energy_…` |
+| Per-bond damage exposed | `api.rs` (`BondReport`), `SolverEvent` | `engine_api::engine_coupled_fracture_reports_…` |
+| Converges with timestep and chunk size | | `dynamics::converges_as_the_timestep_shrinks`, `dynamics::same_panel_two_chunk_sizes_…`, `refinement` |
+| No energy gain; dissipation accounted | `EnergyLedger`, `ContactLedger` | `conservation` |
+| Momentum through fracture | | `conservation`, `stress-physx` |
+| Same outcome at different frame rates | | `dynamics::same_outcome_at_different_frame_rates` |
+| Stiffness scaling compromise | `sim.stiffness_scale`, `min_stiffness_scale`, or `sim.mass_scaling_dt` | b3 scaled, `dynamics::stiffness_scaling_…`, `solve_modes::mass_scaling_…` |
+| Activity-based solving | `SolveMode::Adaptive`, `SolveMode::Implicit` | `dynamics::solve_modes_agree`, `solve_modes` |
+| Model switches (runtime) | `sim.features` | `features` (9 tests) |
+| Two-scale structure | `refine.rs` | `refinement` |
+| Debris management (lifetimes, merging rubble) | not in the reference: an engine concern | — |
+
+### Videos
+
+`scripts/render_videos.sh` renders every benchmark, showcase and feature comparison
+(`feature_*`: inertia, stiffness vs mass scaling, implicit, shadowing, softening,
+crack contact, Weibull; `lead_*`: fast vs slow car, sudden vs gradual column loss)
+into `videos/`.

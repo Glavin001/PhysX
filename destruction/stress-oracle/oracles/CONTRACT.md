@@ -14,7 +14,7 @@ another Weibull seed. Authoritative schema: `crates/stress-ref/src/scene.rs`.
 - SI units, z up, quaternions `[w, x, y, z]`, default gravity `[0, 0, -9.81]`.
 - `materials{name: {density, youngs_modulus, poisson_ratio, tensile_strength,
   compressive_strength, cohesion, friction, shear_cap, fracture_energy{tension,
-  shear, compression}, kind: brittle|ductile, weibull_modulus, dif, sustained,
+  shear, compression}, kind: brittle|ductile, weibull_modulus, dif, static_fatigue,
   damping_ratio}}`.
 - `bodies[]`: `{name, position, orientation, linear_velocity, angular_velocity,
   chunks[], bonds[]}`. Chunk and bond geometry is in the body frame.
@@ -42,8 +42,12 @@ another Weibull seed. Authoritative schema: `crates/stress-ref/src/scene.rs`.
   replaced by equal external forces that ramp linearly to zero over `duration`
   (0 = sudden); `remove_supports{...}` likewise for support reactions.
 - `sim{duration, frame_dt, stiffness_scale, seed, solve_mode,
-  gravity_prestress, ...}`. `gravity_prestress: true` means the structure starts
-  in static equilibrium under gravity and the t=0 loads (no dynamic shock).
+  gravity_prestress, contact_restitution, contact_friction, features, ...}`.
+  `gravity_prestress: true` means the structure starts in static equilibrium
+  under gravity and the t=0 loads (no dynamic shock). `features{...}` are the
+  reference solver's model switches (all on by default); an exporter honours the
+  ones its tool can represent (e.g. `weibull: false` = every bond at mean
+  strength) and records the rest in its notes.
 - `probes[]` (`type` + fields): `chunk_displacement{body, chunk, axis}`,
   `chunk_velocity{...}`, `section_force{body, point, normal, region,
   component}` (internal force across the plane through `point` with `normal`,
@@ -53,7 +57,10 @@ another Weibull seed. Authoritative schema: `crates/stress-ref/src/scene.rs`.
   reactions on the selected chunks = force the support exerts on the
   structure), `impactor_velocity{impactor, axis}`, `impactor_position`.
 - `metrics[]`: computed by `crates/stress-ref/src/metrics.rs` from
-  observations; `oracles[]` names which oracles a metric is compared against.
+  observations; `oracles[]` names which oracles a metric is compared against,
+  `tolerance` applies to the analytic `expected` value and `oracle_tolerance`
+  (if given) to oracles. With several oracles the gate is their spread widened
+  by the tolerance (`metrics::ensemble`); single-oracle rows are informational.
 - `oracle{<tool>: {...}}`: free-form per-tool hints.
 
 ## Output: `stress-observation/1`
