@@ -4,7 +4,7 @@
 //! stress-ref gen-scenes <dir>                       write the scene catalogue (with derived bond data)
 //! stress-ref with-seed <scene.json> <seed> <out.json>  same scene, Weibull strengths for another seed
 //! stress-ref run <scene.json> [--seed N] [--out obs.json] [--mode explicit|adaptive|quasi_static]
-//!                [--stiffness-scale S] [--max-substep DT] [--frame-dt DT]
+//!                [--stiffness-scale S] [--max-substep DT] [--frame-dt DT] [--no-fracture]
 //! stress-ref compare <scene.json> <ours.json> [<oracle.json> ...] [--json report.json]
 //! stress-ref check <scenes-dir> <golden-dir> [--only NAME] [--json report.json]
 //! ```
@@ -39,7 +39,7 @@ fn positional(args: &[String]) -> Vec<String> {
             continue;
         }
         if a.starts_with("--") {
-            skip = true;
+            skip = a != "--no-fracture";
             continue;
         }
         out.push(a.clone());
@@ -59,6 +59,9 @@ fn apply_overrides(scene: &mut Scene, args: &[String]) -> Result<(), String> {
     }
     if let Some(v) = flag(args, "--max-substep") {
         scene.sim.max_substep = Some(v.parse().map_err(|e| format!("--max-substep: {e}"))?);
+    }
+    if args.iter().any(|a| a == "--no-fracture") {
+        scene.sim.fracture = false;
     }
     if let Some(v) = flag(args, "--frame-dt") {
         scene.sim.frame_dt = v.parse().map_err(|e| format!("--frame-dt: {e}"))?;

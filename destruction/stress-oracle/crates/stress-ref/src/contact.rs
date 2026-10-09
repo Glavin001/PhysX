@@ -4,10 +4,11 @@
 //! decay over the physical contact duration set by the contact stiffness and masses;
 //! there is no impulse divided by a timestep anywhere.
 //!
-//! Chunks that were bonded can still overlap slightly when they separate (residual
-//! bond deformation and rotation). The world records that initial overlap per sample
-//! point at the start of the contact episode and resists only further penetration,
-//! so a split never converts it into spurious kinetic energy.
+//! Chunks that were one cluster can overlap slightly when they separate (residual bond
+//! deformation, rotation, crushing). Per sample point, the world treats a contact born
+//! deeper than one substep of approach could produce as pre-existing overlap: it keeps
+//! it as an offset that only ratchets down, so a split never converts it into kinetic
+//! energy.
 //!
 //! Box contact uses sample points: the 8 corners pulled 10% towards the centre plus the
 //! 6 face centres. Pulling corners inwards avoids double counting where the corners of

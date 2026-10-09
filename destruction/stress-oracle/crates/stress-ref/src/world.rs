@@ -22,10 +22,10 @@ use crate::scene::{
 use crate::solver::{Activity, ChunkLoads, ReferenceSolver};
 use crate::statics::StaticOptions;
 
-/// Restitution used for contact damping when none is specified.
-const IMPACT_RESTITUTION: f64 = 0.2;
 /// Friction regularisation speed (m/s): below it friction scales linearly with slip speed.
 const FRICTION_REGULARIZATION: f64 = 1e-3;
+/// Largest viscous coefficient of one contact point, as a fraction of `m_red / dt`.
+const MAX_POINT_VISCOSITY: f64 = 0.1;
 
 #[derive(Clone, Debug)]
 pub struct Impactor {
@@ -71,6 +71,8 @@ pub struct ContactLedger {
     /// Dashpot, friction and crush dissipation so far.
     pub dissipated: f64,
     pub crush: f64,
+    /// Work done by chunk-pair contact forces on the chunks (diagnostic).
+    pub pair_work: f64,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -110,9 +112,9 @@ pub struct World {
     contact_dt: f64,
     /// Contact force magnitude received by each chunk during the current substep.
     contact_hits: Vec<Vec<f64>>,
-    /// Initial overlap per sample point of chunk pairs that were bonded, for the
-    /// current contact episode (dropped when the pair separates).
-    pair_offsets: std::collections::HashMap<(usize, usize, usize, usize), [f64; 2 * SAMPLE_POINTS]>,
+    /// Pre-existing overlap per sample point of chunk pairs in contact (NaN = point not
+    /// in contact); dropped when the pair separates.
+    pair_offsets: std::collections::HashMap<(usize, usize, usize, usize), [(f64, Vec3); 2 * SAMPLE_POINTS]>,
     pairs_seen: std::collections::HashSet<(usize, usize, usize, usize)>,
 }
 
@@ -219,9 +221,12 @@ impl World {
 
     fn chunk_box(&self, s: usize, c: usize) -> OBox {
         let ch = &self.solver.structures[s].chunks[c];
-        let cl = &self.solver.clusters[self.solver.chunks[s][c].cluster];
-        let rot = cl.rotation();
-        OBox { center: self.solver.chunk_position(s, c), rotation: rot * ch.rotation, half: ch.half_extents }
+        let st = &self.solver.chunks[s][c];
+        let cl = &self.solver.clusters[st.cluster];
+        // The hidden rotation turns the box too: contact torques do work on it, so the
+        // geometry must follow it for the penalty force to stay conservative.
+        let hidden = Quat::from_axis_angle(st.th, st.th.norm()).to_mat3();
+        OBox { center: self.solver.chunk_position(s, c), rotation: cl.rotation() * hidden * ch.rotation, half: ch.half_extents }
     }
 
     fn chunk_size(&self, s: usize, c: usize) -> f64 {
@@ -255,6 +260,10 @@ impl World {
         } else {
             2.0 / w2.sqrt() * self.scene.sim.courant_safety
         }
+    }
+
+    fn pair_friction(&self, a: &Material, b: &Material) -> f64 {
+        self.scene.sim.contact_friction.unwrap_or(a.friction.min(b.friction))
     }
 
     /// The substep used for the next frame.
@@ -490,18 +499,21 @@ impl World {
         rel_velocity: Vec3,
         dt: f64,
     ) -> Vec3 {
-        let c = 2.0 * damping_ratio(restitution) * (k * m_red).sqrt();
+        // Explicit integration stays stable only while every viscous coefficient acting
+        // on a chunk keeps `c dt / m` well below 2; a chunk may touch at ~20 points.
+        let c_max = MAX_POINT_VISCOSITY * m_red / dt;
+        let c = (2.0 * damping_ratio(restitution) * (k * m_red).sqrt()).min(c_max);
         let vn = rel_velocity.dot(normal);
         let fn_mag = (k * depth - c * vn).max(0.0);
         let vt = rel_velocity - normal * vn;
         let vt_mag = vt.norm();
-        let ft = if vt_mag > 0.0 {
-            -vt * (friction * fn_mag * (vt_mag / FRICTION_REGULARIZATION).min(1.0) / vt_mag)
-        } else {
-            Vec3::ZERO
-        };
+        // Regularised Coulomb friction: viscous below the sliding speed, with the same cap.
+        let ft_mag = (friction * fn_mag).min(c_max.min(friction * fn_mag / FRICTION_REGULARIZATION) * vt_mag);
+        let ft = if vt_mag > 0.0 { -vt * (ft_mag / vt_mag) } else { Vec3::ZERO };
         self.contact.stored += 0.5 * k * depth * depth;
-        let damping_power = if k * depth - c * vn > 0.0 { c * vn * vn } else { 0.0 };
+        // While the dashpot clamps the normal force to zero (fast separation), the
+        // penalty spring unloads without doing work: that energy is dissipated too.
+        let damping_power = if k * depth - c * vn > 0.0 { c * vn * vn } else { k * depth * vn.max(0.0) };
         self.contact.dissipated += (damping_power + ft.norm() * vt_mag) * dt;
         normal * fn_mag + ft
     }
@@ -572,8 +584,8 @@ impl World {
                 let f = self.contact_force(
                     kc,
                     m_red,
-                    IMPACT_RESTITUTION,
-                    imp.material.friction.min(self.chunk_material(s, c).friction),
+                    self.scene.sim.contact_restitution,
+                    self.pair_friction(&imp.material, self.chunk_material(s, c)),
                     depth * crush_factor,
                     normal,
                     v_chunk - v_imp,
@@ -607,7 +619,7 @@ impl World {
                         continue;
                     }
                     let v = self.solver.point_velocity(s, c, p);
-                    let f = self.contact_force(kc, m, IMPACT_RESTITUTION, g.friction, depth, Vec3::Z, v, dt);
+                    let f = self.contact_force(kc, m, self.scene.sim.contact_restitution, self.scene.sim.contact_friction.unwrap_or(g.friction), depth, Vec3::Z, v, dt);
                     let center = self.solver.chunk_position(s, c);
                     self.loads.add_at(s, c, f, p, center);
                 }
@@ -626,7 +638,7 @@ impl World {
                         continue;
                     }
                     let v = imp.velocity + imp.angular_velocity.cross(p - imp.pose.position);
-                    let f = self.contact_force(kp, imp.mass, IMPACT_RESTITUTION, g.friction, depth, Vec3::Z, v, dt);
+                    let f = self.contact_force(kp, imp.mass, self.scene.sim.contact_restitution, self.scene.sim.contact_friction.unwrap_or(g.friction), depth, Vec3::Z, v, dt);
                     imp_loads[ii].0 += f;
                     imp_loads[ii].1 += (p - imp.pose.position).cross(f);
                 }
@@ -681,12 +693,11 @@ impl World {
         let scale = self.scene.sim.stiffness_scale;
         let (sa, ca, ba) = a;
         let (sb, cb, bb) = b;
-        let k = contact_modulus(self.chunk_material(sa, ca), self.chunk_material(sb, cb), scale)
-            * self.chunk_size(sa, ca).min(self.chunk_size(sb, cb))
-            / 10.0;
+        let k_pair = contact_modulus(self.chunk_material(sa, ca), self.chunk_material(sb, cb), scale)
+            * self.chunk_size(sa, ca).min(self.chunk_size(sb, cb));
         let (ma, mb) = (self.solver.structures[sa].chunks[ca].mass, self.solver.structures[sb].chunks[cb].mass);
         let m_red = ma * mb / (ma + mb);
-        let mu = self.chunk_material(sa, ca).friction.min(self.chunk_material(sb, cb).friction);
+        let mu = self.pair_friction(self.chunk_material(sa, ca), self.chunk_material(sb, cb));
         // Points of a inside b push a out along b's face normal, and vice versa.
         let mut pairs: Vec<(usize, Vec3, Vec3, f64)> =
             ba.points_inside(&bb).into_iter().map(|p| (p.index, p.point, p.normal, p.depth)).collect();
@@ -696,27 +707,42 @@ impl World {
         }
         let key = (sa, ca, sb, cb);
         self.pairs_seen.insert(key);
-        let bonded = sa == sb
-            && self.solver.structures[sa].chunks[ca].bonds.iter().any(|&b| self.solver.structures[sa].bond_other(b, ca) == cb);
-        if bonded && !self.pair_offsets.contains_key(&key) {
-            let mut off = [0.0; 2 * SAMPLE_POINTS];
-            for &(i, _, _, depth) in &pairs {
-                off[i] = depth;
+        let entry = self.pair_offsets.entry(key).or_insert([(f64::NAN, Vec3::ZERO); 2 * SAMPLE_POINTS]);
+        let mut inside = [false; 2 * SAMPLE_POINTS];
+        let mut effective = Vec::with_capacity(pairs.len());
+        for &(i, p, n, depth) in &pairs {
+            inside[i] = true;
+            // A new contact (or the same point now pushed through a different face): a
+            // point born deeper than one substep of approach could carry it was already
+            // overlapping (residual deformation of chunks that were one cluster). Keep
+            // that overlap as an offset instead of firing it as energy.
+            if entry[i].0.is_nan() || entry[i].1.dot(n) < 0.99 {
+                let va = self.solver.point_velocity(sa, ca, p);
+                let vb = self.solver.point_velocity(sb, cb, p);
+                let reach = 2.0 * (va - vb).dot(n).abs() * dt + 1e-9;
+                entry[i] = (if depth > reach { depth } else { 0.0 }, n);
             }
-            self.pair_offsets.insert(key, off);
+            // The offset only ratchets down as the overlap relaxes.
+            entry[i].0 = entry[i].0.min(depth);
+            effective.push((p, n, depth - entry[i].0));
         }
-        let offsets = self.pair_offsets.get(&key).copied();
-        for (i, p, n, depth) in pairs {
-            let depth = match offsets {
-                Some(off) => depth - off[i],
-                None => depth,
-            };
+        for (i, e) in entry.iter_mut().enumerate() {
+            if !inside[i] {
+                e.0 = f64::NAN;
+            }
+        }
+        // A face pair engages ~10 points; deeper overlaps engage more. Never let the
+        // pair exceed its face-pair stiffness (the stable-timestep assumption).
+        let engaged = effective.iter().filter(|e| e.2 > 0.0).count();
+        let k = k_pair / (engaged.max(10) as f64);
+        for (p, n, depth) in effective {
             if depth <= 0.0 {
                 continue;
             }
             let va = self.solver.point_velocity(sa, ca, p);
             let vb = self.solver.point_velocity(sb, cb, p);
-            let f = self.contact_force(k, m_red, IMPACT_RESTITUTION, mu, depth, n, va - vb, dt);
+            let f = self.contact_force(k, m_red, self.scene.sim.contact_restitution, mu, depth, n, va - vb, dt);
+            self.contact.pair_work += f.dot(va - vb) * dt;
             let xa = self.solver.chunk_position(sa, ca);
             let xb = self.solver.chunk_position(sb, cb);
             self.loads.add_at(sa, ca, f, p, xa);
@@ -1121,6 +1147,19 @@ impl World {
         }
         let broken = self.solver.broken_bond_count();
         obs.flags.insert("any_bond_broken".into(), broken > 0);
+        // Damage onset anywhere (the criterion an elastic oracle can evaluate).
+        let first_crack = self.solver.events.iter().find_map(|e| match e {
+            crate::solver::SolverEvent::Cracked { time, .. } => Some(*time),
+            _ => None,
+        });
+        // With fracture disabled, "cracked" means a failure index reached 1 (as an
+        // elastic oracle evaluates it).
+        let cracked = first_crack.is_some() || (!self.scene.sim.fracture && self.solver.max_utilization >= 1.0);
+        obs.flags.insert("any_bond_cracked".into(), cracked);
+        obs.values.insert("max_failure_index".into(), self.solver.max_utilization);
+        if let Some(t) = first_crack {
+            obs.values.insert("first_crack_time".into(), t);
+        }
         obs.flags.insert("collapse".into(), collapse);
         obs.values.insert("broken_bonds".into(), broken as f64);
         obs.values.insert("fragments".into(), fragments as f64);
@@ -1128,6 +1167,8 @@ impl World {
         obs.values.insert("bond_dissipation".into(), self.solver.energy.bond_dissipation);
         obs.values.insert("damping_dissipation".into(), self.solver.energy.damping_dissipation);
         obs.values.insert("contact_dissipation".into(), self.contact.dissipated);
+        obs.values.insert("softening_overshoot".into(), self.solver.energy.softening_overshoot);
+        obs.values.insert("split_release".into(), self.solver.energy.split_release);
         obs.values.insert("crush_energy".into(), self.contact.crush);
         obs
     }
@@ -1144,8 +1185,32 @@ impl World {
 
     /// Everything dissipated so far.
     pub fn dissipated_energy(&self) -> f64 {
-        self.solver.energy.bond_dissipation + self.solver.energy.damping_dissipation + self.contact.dissipated
+        let e = &self.solver.energy;
+        e.bond_dissipation + e.damping_dissipation + e.softening_overshoot + e.split_release + self.contact.dissipated
     }
+}
+
+/// Smallest stiffness scale for which a stress wave still crosses every structure of
+/// the scene (its largest extent, at the slowest bar wave speed) within `frames` frames.
+/// The real-time compromise: lower E as far as this allows, keep strengths physical.
+pub fn min_stiffness_scale(scene: &Scene, frames: f64) -> f64 {
+    let mut scale: f64 = 0.0;
+    for b in &scene.bodies {
+        let (mut lo, mut hi) = (Vec3::splat(f64::INFINITY), Vec3::splat(f64::NEG_INFINITY));
+        let mut c_min = f64::INFINITY;
+        for c in &b.chunks {
+            let x = Vec3::from_array(c.center);
+            let h = Vec3::from_array(c.half_extents);
+            lo = lo.component_min(x - h);
+            hi = hi.component_max(x + h);
+            c_min = c_min.min(scene.material(&c.material).bar_wave_speed());
+        }
+        let extent = (hi - lo).max_elem();
+        // Required speed extent / (frames * frame_dt); speed scales with sqrt(scale).
+        let needed = extent / (frames * scene.sim.frame_dt);
+        scale = scale.max((needed / c_min).powi(2));
+    }
+    scale.min(1.0)
 }
 
 /// The face of a box whose outward normal is within ~8 degrees of `dir`.

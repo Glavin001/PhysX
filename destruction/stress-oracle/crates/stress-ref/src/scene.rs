@@ -376,6 +376,16 @@ pub struct SimDesc {
     /// this utilization (None disables refinement; level-0 only).
     #[serde(default)]
     pub refine_utilization: Option<f64>,
+    /// Coefficient of restitution of every penalty contact (sets the contact dashpot).
+    #[serde(default = "default_restitution")]
+    pub contact_restitution: f64,
+    /// Contact friction: the smaller of the two materials' `friction`, unless overridden.
+    #[serde(default)]
+    pub contact_friction: Option<f64>,
+}
+
+fn default_restitution() -> f64 {
+    0.2
 }
 
 fn default_frame_dt() -> f64 {
@@ -402,6 +412,8 @@ impl Default for SimDesc {
             fracture: true,
             sample_interval: None,
             refine_utilization: None,
+            contact_restitution: default_restitution(),
+            contact_friction: None,
         }
     }
 }
@@ -643,6 +655,7 @@ impl Scene {
                     "length": g.length,
                     "i_t1": g.i_t1, "i_t2": g.i_t2, "torsion_constant": g.torsion_constant,
                     "section_modulus_t1": g.s_t1, "section_modulus_t2": g.s_t2,
+                    "torsion_modulus": g.torsion_modulus,
                     "kn": k.kn, "ks": k.ks, "kb_t1": k.kb_t1, "kb_t2": k.kb_t2, "kt": k.kt,
                     "weibull": weibull,
                 }));

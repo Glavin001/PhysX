@@ -184,10 +184,18 @@ impl ContactLoadFilter {
             let threshold = self.impact_fraction * resting_impulse.norm() + self.impact_floor;
             if excess.norm() > threshold && c.approach_speed > 0.0 {
                 let ch = &solver.structures[c.structure].chunks[c.chunk];
-                let m_chunk = ch.mass;
-                let m = if c.other_mass.is_finite() { m_chunk * c.other_mass / (m_chunk + c.other_mass) } else { m_chunk };
+                // An impact loads the whole struck body (an anchored one is immovable).
+                let cluster = &solver.clusters[solver.chunks[c.structure][c.chunk].cluster];
+                let m_body = if cluster.anchored { f64::INFINITY } else { cluster.mass };
+                let m = match (m_body.is_finite(), c.other_mass.is_finite()) {
+                    (true, true) => m_body * c.other_mass / (m_body + c.other_mass),
+                    (true, false) => m_body,
+                    (false, true) => c.other_mass,
+                    (false, false) => ch.mass,
+                };
+                let e_star = 1.0 / ((1.0 - ch.poisson_ratio.powi(2)) / ch.youngs_modulus + 1.0 / c.other_modulus);
                 let r = c.other_radius.min(ch.volume().cbrt());
-                let duration = hertz_duration(m, r, c.other_modulus, c.approach_speed);
+                let duration = hertz_duration(m, r, e_star, c.approach_speed);
                 let j = excess.norm();
                 let dir = excess / j;
                 let (mut plateau, mut plateau_time, mut rest_j) = (0.0, 0.0, j);

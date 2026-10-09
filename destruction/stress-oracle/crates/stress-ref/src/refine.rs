@@ -7,10 +7,18 @@
 //! still coarse, the fine bond is re-attached to it (geometry, stiffness and
 //! strength re-derived for the new chunk spacing) and inherits the damage history of
 //! the coarse bond it replaces, so a refined crack keeps its state.
+//!
+//! The coarse chunk was rigid, so its children start without internal stress. Rather
+//! than letting that mismatch ring through the structure (which would push the
+//! neighbours over the refinement threshold in turn), the children are relaxed to
+//! static equilibrium against their current neighbours: a small dense solve over the
+//! children's degrees of freedom with every other chunk held. Velocities (and so
+//! momentum and kinetic energy) are untouched.
 
 use std::collections::HashMap;
 
 use crate::bond::BondGeometry;
+use crate::math::Vec3;
 use crate::joint::JointState;
 use crate::solver::{ReferenceSolver, RtBond, SolverEvent};
 use crate::structure::{bond_physics, reduced_mass};
@@ -134,9 +142,110 @@ impl ReferenceSolver {
         }
         self.rebuild_adjacency(s);
         self.refresh_cluster_membership(ci);
+        self.relax_children(s, &children);
         self.events.push(SolverEvent::Refined { time: self.time, structure: s, chunk: p });
         // Refinement can expose a crack that already disconnects the children.
         self.split_cluster(ci);
         true
     }
+
+    /// Move the given (just activated) chunks to the static equilibrium of the bonds
+    /// touching them, with all other chunks held at their current displacements.
+    fn relax_children(&mut self, s: usize, children: &[usize]) {
+        let n = children.len();
+        let index: std::collections::HashMap<usize, usize> = children.iter().enumerate().map(|(i, &c)| (c, i)).collect();
+        let dim = 6 * n;
+        let mut k = vec![vec![0.0f64; dim]; dim];
+        let mut rhs = vec![0.0f64; dim];
+        let mut bonds: Vec<usize> = children.iter().flat_map(|&c| self.chunk_bonds[s][c].iter().copied()).collect();
+        bonds.sort_unstable();
+        bonds.dedup();
+        for bi in bonds {
+            let b = &self.bonds[s][bi];
+            let g = &b.geometry;
+            let (sa, sb) = (&self.chunks[s][g.a], &self.chunks[s][g.b]);
+            let d = g.kinematics(sa.u, sa.th, sb.u, sb.th);
+            let kv = b.model().secant_factors(&b.joint, &d).mul_elem(&b.stiffness.as_local());
+            let ks = [kv.lin.x, kv.lin.y, kv.lin.z, kv.ang.x, kv.ang.y, kv.ang.z];
+            let axes = [g.t1, g.t2, g.normal];
+            for comp in 0..6 {
+                let t = axes[comp % 3];
+                // Kinematic row of this component over [u_a, th_a, u_b, th_b].
+                let row: [Vec3; 4] = if comp < 3 {
+                    [-t, -(g.ra.cross(t)), t, g.rb.cross(t)]
+                } else {
+                    [Vec3::ZERO, -t, Vec3::ZERO, t]
+                };
+                let ends = [(g.a, 0usize), (g.b, 2usize)];
+                // Contribution of held DOFs to the component's deformation.
+                let mut held = 0.0;
+                for &(c, blk) in &ends {
+                    if !index.contains_key(&c) || self.structures[s].chunks[c].support != crate::scene::Support::None {
+                        let st = &self.chunks[s][c];
+                        held += row[blk].dot(st.u) + row[blk + 1].dot(st.th);
+                    }
+                }
+                let free: Vec<(usize, f64)> = ends
+                    .iter()
+                    .filter(|(c, _)| index.contains_key(c) && self.structures[s].chunks[*c].support == crate::scene::Support::None)
+                    .flat_map(|&(c, blk)| {
+                        let base = 6 * index[&c];
+                        (0..3).map(move |d| (base + d, row[blk][d])).chain((0..3).map(move |d| (base + 3 + d, row[blk + 1][d])))
+                    })
+                    .collect();
+                for &(i, ri) in &free {
+                    rhs[i] -= ks[comp] * ri * held;
+                    for &(j, rj) in &free {
+                        k[i][j] += ks[comp] * ri * rj;
+                    }
+                }
+            }
+        }
+        // Held (supported) children keep their DOFs.
+        for (i, &c) in children.iter().enumerate() {
+            if self.structures[s].chunks[c].support != crate::scene::Support::None {
+                for d in 0..6 {
+                    k[6 * i + d][6 * i + d] = 1.0;
+                    rhs[6 * i + d] = 0.0;
+                }
+            }
+        }
+        let Some(x) = solve_dense(k, rhs) else { return };
+        for (i, &c) in children.iter().enumerate() {
+            if self.structures[s].chunks[c].support != crate::scene::Support::None {
+                continue;
+            }
+            let st = &mut self.chunks[s][c];
+            st.u = Vec3::new(x[6 * i], x[6 * i + 1], x[6 * i + 2]);
+            st.th = Vec3::new(x[6 * i + 3], x[6 * i + 4], x[6 * i + 5]);
+        }
+    }
+}
+
+/// Gaussian elimination with partial pivoting; `None` if singular.
+fn solve_dense(mut a: Vec<Vec<f64>>, mut b: Vec<f64>) -> Option<Vec<f64>> {
+    let n = b.len();
+    for col in 0..n {
+        let piv = (col..n).max_by(|&i, &j| a[i][col].abs().total_cmp(&a[j][col].abs()))?;
+        if a[piv][col].abs() < 1e-300 {
+            return None;
+        }
+        a.swap(col, piv);
+        b.swap(col, piv);
+        for r in col + 1..n {
+            let f = a[r][col] / a[col][col];
+            if f != 0.0 {
+                for c in col..n {
+                    a[r][c] -= f * a[col][c];
+                }
+                b[r] -= f * b[col];
+            }
+        }
+    }
+    let mut x = vec![0.0; n];
+    for r in (0..n).rev() {
+        let s: f64 = (r + 1..n).map(|c| a[r][c] * x[c]).sum();
+        x[r] = (b[r] - s) / a[r][r];
+    }
+    Some(x)
 }

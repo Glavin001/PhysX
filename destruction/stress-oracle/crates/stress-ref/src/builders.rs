@@ -201,6 +201,25 @@ pub fn bond_tension() -> Scene {
     s
 }
 
+/// Two cubes of size `2h`, the first held, the second pulled along +x through the
+/// bond centroid by `magnitude(t)`; probe `axial` is the bond's normal force.
+pub fn bond_pull(name: &str, m: Material, h: f64, magnitude: TimeFunction, duration: f64) -> Scene {
+    let mut s = new_scene(name, "Single bond pulled along its normal.");
+    s.gravity = [0.0; 3];
+    let mut chunks = vec![chunk(Vec3::ZERO, Vec3::splat(h), "rock"), chunk(Vec3::new(2.0 * h, 0.0, 0.0), Vec3::splat(h), "rock")];
+    chunks[0].support = Support::Fixed;
+    let bonds = auto_bonds(&chunks, |_, _| "rock".into());
+    s.materials.insert("rock".into(), m);
+    s.bodies.push(body("pair", chunks, bonds));
+    s.loads.push(LoadDesc::PointForce { body: "pair".into(), chunk: 1, direction: [1.0, 0.0, 0.0], magnitude, point: None });
+    s.sim.duration = duration;
+    s.probes.push(probe(
+        "axial",
+        ProbeKind::SectionForce { body: "pair".into(), point: [h, 0.0, 0.0], normal: [1.0, 0.0, 0.0], region: None, component: SectionComponent::Normal },
+    ));
+    s
+}
+
 /// Benchmark 1, shear: compressive preload `sigma_n`, then a shear force ramp through
 /// the bond centroid. Analytic Mohr-Coulomb failure force `(c + mu sigma_n) A`.
 pub fn bond_shear() -> Scene {
@@ -641,6 +660,13 @@ impl FrameLayout {
 /// second ground-floor column, suddenly or over `duration`. Sudden loss overloads the
 /// beams over the lost column (dynamic amplification); gradual loss does not.
 pub fn frame_column_removal(duration: f64, name: &str) -> Scene {
+    frame_column_removal_with(duration, true, name)
+}
+
+/// The frame scene; with `fracture = false` it is the elastic variant whose peak
+/// forces an elastic oracle can match (a fracturing frame's peaks after the first
+/// break are not comparable with an elastic analysis).
+pub fn frame_column_removal_with(duration: f64, fracture: bool, name: &str) -> Scene {
     let mut s = new_scene(name, "3-bay 2-storey concrete frame, ground column removed (sudden or gradual).");
     s.benchmark = Some(8);
     s.materials.insert("concrete".into(), oracle_concrete(None));
@@ -734,36 +760,55 @@ pub fn frame_column_removal(duration: f64, name: &str) -> Scene {
         None,
         o,
     ));
-    s.metrics.push(metric("axial_col0_peak", MetricKind::ProbePeak { probe: "axial_col0".into() }, Tolerance::Relative(0.20), None, o));
-    s.metrics.push(metric("axial_col2_peak", MetricKind::ProbePeak { probe: "axial_col2".into() }, Tolerance::Relative(0.20), None, o));
-    s.metrics.push(metric(
-        "beam_moment_peak",
-        MetricKind::ProbePeak { probe: "beam_moment_at_lost_column".into() },
-        Tolerance::Relative(0.20),
-        None,
-        o,
-    ));
-    s.metrics.push(metric("first_failure", MetricKind::Flag { flag: "any_bond_broken".into() }, Tolerance::Exact, None, o));
+    s.sim.fracture = fracture;
+    let peaks_comparable = !fracture || duration > 0.0;
+    if peaks_comparable {
+        s.metrics.push(metric("axial_col0_peak", MetricKind::ProbePeak { probe: "axial_col0".into() }, Tolerance::Relative(0.20), None, o));
+        s.metrics.push(metric("axial_col2_peak", MetricKind::ProbePeak { probe: "axial_col2".into() }, Tolerance::Relative(0.20), None, o));
+        s.metrics.push(metric(
+            "beam_moment_peak",
+            MetricKind::ProbePeak { probe: "beam_moment_at_lost_column".into() },
+            Tolerance::Relative(0.20),
+            None,
+            o,
+        ));
+    }
+    // Damage onset anywhere: the criterion an elastic analysis can evaluate.
+    s.metrics.push(metric("first_failure", MetricKind::Flag { flag: "any_bond_cracked".into() }, Tolerance::Exact, None, o));
+    if fracture {
+        s.metrics.push(metric("collapse", MetricKind::Flag { flag: "collapse".into() }, Tolerance::Report, None, &[]));
+    }
     s
 }
 
 /// Benchmark 9: a 2 m x 2 m x 0.1 m concrete panel spanning between fixed top and
 /// bottom edge strips, loaded on its front face by a Friedlander pressure pulse.
 pub fn pressure_panel(peak: f64, name: &str) -> Scene {
+    pressure_panel_sized(peak, 0.1, name)
+}
+
+/// The pressure panel with chunks of size `cell` (0.1 m in the benchmark): the same
+/// 2 m x 2 m x 0.1 m panel, edge strips and pulse for refinement studies.
+pub fn pressure_panel_sized(peak: f64, cell: f64, name: &str) -> Scene {
     let mut s = new_scene(name, "One-way concrete panel under a Friedlander pressure pulse: breach and fragment speeds.");
     s.benchmark = Some(9);
     s.materials.insert("concrete".into(), oracle_concrete(None));
-    let counts = [20, 1, 22];
-    let mut chunks = grid(Vec3::new(-1.0, 0.0, -0.1), counts, Vec3::splat(0.1), "concrete");
+    let n = (2.0 / cell).round() as usize;
+    let nt = (0.1 / cell).round().max(1.0) as usize;
+    let counts = [n, nt, n + 2];
+    let mut chunks = grid(Vec3::new(-1.0, 0.0, -cell), counts, Vec3::new(cell, 0.1 / nt as f64, cell), "concrete");
     for i in 0..counts[0] {
+        for j in 0..counts[1] {
         for k in [0, counts[2] - 1] {
-            let c = &mut chunks[grid_index(counts, i, 0, k)];
+            let c = &mut chunks[grid_index(counts, i, j, k)];
             c.support = Support::Fixed;
             c.groups.push("support".into());
+        }
         }
     }
     let bonds = auto_bonds(&chunks, |_, _| "concrete".into());
     s.bodies.push(body("panel", chunks, bonds));
+    let centre = grid_index(counts, n / 2, 0, n / 2 + 1);
     s.loads.push(LoadDesc::Pressure {
         body: "panel".into(),
         chunks: ChunkSelector::Region(region([-1.0, -1.0, 0.0], [1.0, 1.0, 2.0])),
@@ -775,7 +820,7 @@ pub fn pressure_panel(peak: f64, name: &str) -> Scene {
     s.sim.sample_interval = Some(2.5e-4);
     s.probes.push(probe(
         "center_displacement",
-        ProbeKind::ChunkDisplacement { body: "panel".into(), chunk: grid_index(counts, 10, 0, 11), axis: [0.0, 1.0, 0.0] },
+        ProbeKind::ChunkDisplacement { body: "panel".into(), chunk: centre, axis: [0.0, 1.0, 0.0] },
     ));
     let o = &["opencourant"];
     s.metrics.push(metric("breach", MetricKind::DetachedAny { body: "panel".into(), region: None }, Tolerance::Exact, None, o));
@@ -788,6 +833,54 @@ pub fn pressure_panel(peak: f64, name: &str) -> Scene {
     ));
     s.metrics.push(metric("first_failure", MetricKind::Flag { flag: "any_bond_broken".into() }, Tolerance::Exact, None, o));
     s.metrics.push(metric("peak_center_displacement", MetricKind::ProbeMax { probe: "center_displacement".into() }, Tolerance::Relative(0.30), None, o));
+    s
+}
+
+/// A grid of coarse chunks, each pre-fractured into `2 x 2 x 2` finer children
+/// (level 1), with bonds on both levels: the two-scale representation.
+pub fn two_level_grid(min_corner: Vec3, counts: [usize; 3], size: Vec3, material: &str) -> (Vec<ChunkDesc>, Vec<BondDesc>) {
+    let mut chunks = grid(min_corner, counts, size, material);
+    let n0 = chunks.len();
+    for p in 0..n0 {
+        let c = Vec3::from_array(chunks[p].center);
+        let h = size * 0.25;
+        for k in 0..8 {
+            let o = Vec3::new(
+                if k & 1 == 0 { -h.x } else { h.x },
+                if k & 2 == 0 { -h.y } else { h.y },
+                if k & 4 == 0 { -h.z } else { h.z },
+            );
+            let mut ch = chunk(c + o, h, material);
+            ch.level = 1;
+            ch.parent = Some(p);
+            chunks.push(ch);
+        }
+    }
+    let bonds = auto_bonds(&chunks, |_, _| material.to_string());
+    (chunks, bonds)
+}
+
+/// Explosion beside a building: two parallel anchored walls, the charge in front of the
+/// first. The facing wall takes the reflected pulse; the wall behind it is shadowed.
+pub fn blast_two_walls(tnt: f64, name: &str) -> Scene {
+    let mut s = new_scene(name, "Charge beside two parallel walls: facing wall breaches, shadowed wall survives.");
+    s.materials.insert("concrete".into(), oracle_concrete(None));
+    for (bname, y0) in [("front", 0.0), ("back", 2.0)] {
+        let counts = [20, 2, 21];
+        let mut chunks = grid(Vec3::new(-1.0, y0, -0.1), counts, Vec3::splat(0.1), "concrete");
+        for i in 0..counts[0] {
+            for j in 0..counts[1] {
+                chunks[grid_index(counts, i, j, 0)].support = Support::Fixed;
+            }
+        }
+        let bonds = auto_bonds(&chunks, |_, _| "concrete".into());
+        s.bodies.push(body(bname, chunks, bonds));
+    }
+    s.loads.push(LoadDesc::Blast { position: [0.0, -2.0, 1.0], tnt_mass: tnt, time: 0.0 });
+    s.sim.duration = 0.03;
+    s.sim.frame_dt = 1e-3;
+    s.metrics.push(metric("front_breach", MetricKind::DetachedAny { body: "front".into(), region: None }, Tolerance::Report, None, &[]));
+    s.metrics.push(metric("back_breach", MetricKind::DetachedAny { body: "back".into(), region: None }, Tolerance::Report, None, &[]));
     s
 }
 
@@ -811,6 +904,7 @@ pub fn catalog() -> Vec<Scene> {
         masonry_wall(15.0, "b7_masonry_v15"),
         frame_column_removal(0.0, "b8_frame_sudden"),
         frame_column_removal(1.0, "b8_frame_gradual"),
+        frame_column_removal_with(0.0, false, "b8_frame_sudden_elastic"),
         pressure_panel(10e3, "b9_panel_low"),
         pressure_panel(300e3, "b9_panel_high"),
     ]

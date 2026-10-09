@@ -472,6 +472,7 @@ impl ReferenceSolver {
                 });
             }
             self.energy.bond_dissipation += resp.dissipated;
+            self.energy.softening_overshoot += resp.overshoot;
             let bm = &mut self.bonds[s][bi];
             bm.joint = resp.state;
             bm.force = resp.force;

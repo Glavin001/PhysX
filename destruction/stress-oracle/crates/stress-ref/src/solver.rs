@@ -201,6 +201,12 @@ pub struct EnergyLedger {
     pub damping_dissipation: f64,
     /// Work done on chunks by external (non-gravity) loads.
     pub external_work: f64,
+    /// Stored energy released beyond the softening law by bonds snapping within one
+    /// substep (time-discretisation; shrinks with the substep).
+    pub softening_overshoot: f64,
+    /// Energy stored in bonds between chunks that a split separates; the pieces keep
+    /// their overlap instead of being pushed apart (see `contact.rs`).
+    pub split_release: f64,
 }
 
 /// Force-replacement load of a removed member (alternate-path procedure).
@@ -272,6 +278,8 @@ pub struct ReferenceSolver {
     pending_split: Vec<usize>,
     /// Substep count, for diagnostics.
     pub substeps: u64,
+    /// Largest bond failure index seen so far (meaningful with fracture disabled too).
+    pub max_utilization: f64,
 }
 
 impl ReferenceSolver {
@@ -292,6 +300,7 @@ impl ReferenceSolver {
             f_int: Vec::new(),
             pending_split: Vec::new(),
             substeps: 0,
+            max_utilization: 0.0,
             structures,
         };
         for si in 0..solver.structures.len() {
@@ -739,6 +748,8 @@ impl ReferenceSolver {
             let q = resp.force.add(&q_damp);
             damped += q_damp.dot(&rate) * dt;
             dissipated += resp.dissipated;
+            self.energy.softening_overshoot += resp.overshoot;
+            self.max_utilization = self.max_utilization.max(resp.state.utilization);
             let (fa, ma, fb, mb) = b.geometry.chunk_loads(&q);
             let prev_damage = b.joint.damage + b.joint.crush;
             let prev_sustained = b.joint.sustained;
@@ -825,39 +836,26 @@ impl ReferenceSolver {
         }
     }
 
-    /// Keep the hidden velocities of a free cluster free of net linear and angular
-    /// momentum (the floating frame carries all rigid motion). Any round-off drift is
-    /// moved into the cluster's rigid velocity, which leaves every chunk's world
-    /// velocity, and therefore the total momentum, exactly unchanged. Under an engine
-    /// (which owns rigid motion) the drift is simply removed.
+    /// Keep the hidden velocities of a free cluster free of net linear momentum (the
+    /// floating frame carries the translation). Any drift is moved into the cluster's
+    /// rigid velocity, which leaves every chunk's world velocity, and therefore the total
+    /// momentum, exactly unchanged; under an engine (which owns rigid motion) it is
+    /// removed. Hidden angular momentum is left alone: a cracked cluster can be a
+    /// mechanism (pieces turning on contact hinges), and folding that into one rigid
+    /// rotation would change the frame's rotation without the matching inertial loads.
     fn remove_rigid_drift(&mut self, ci: usize) {
         let cl = &self.clusters[ci];
         let s = cl.structure;
         let st = &self.structures[s];
-        let mut p = Vec3::ZERO;
-        let mut l = Vec3::ZERO;
-        for &c in &cl.chunks {
-            let ch = &st.chunks[c];
-            let cs = &self.chunks[s][c];
-            let r = ch.center + cs.u - cl.com;
-            p += cs.v * ch.mass;
-            l += r.cross(cs.v) * ch.mass + ch.inertia * cs.w;
-        }
+        let p = cl.chunks.iter().map(|&c| self.chunks[s][c].v * st.chunks[c].mass).fold(Vec3::ZERO, |a, b| a + b);
         let dv = p / cl.mass;
-        let dw = cl.inertia.inverse().expect("invertible") * l;
-        let chunks = cl.chunks.clone();
-        let com = cl.com;
-        for c in chunks {
-            let r = st.chunks[c].center + self.chunks[s][c].u - com;
-            let cs = &mut self.chunks[s][c];
-            cs.v -= dv + dw.cross(r);
-            cs.w -= dw;
+        for &c in &cl.chunks.clone() {
+            self.chunks[s][c].v -= dv;
         }
         if self.config.integrate_rigid {
             let cl = &mut self.clusters[ci];
-            let (dvw, dww) = (cl.pose.transform_vector(dv), cl.pose.transform_vector(dw));
+            let dvw = cl.pose.transform_vector(dv);
             cl.velocity += dvw;
-            cl.angular_velocity += dww;
         }
     }
 
@@ -918,6 +916,7 @@ impl ReferenceSolver {
         for &bi in &parent.bonds {
             let g = &self.bonds[s][bi].geometry;
             if comp_of[&g.a] != comp_of[&g.b] {
+                self.energy.split_release += self.bonds[s][bi].stored;
                 self.bonds[s][bi].alive = false;
             }
         }

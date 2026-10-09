@@ -20,8 +20,10 @@
 //!
 //! `D` degrades shear, bending, torsion and tensile axial stiffness; compression is
 //! degraded only by `Dc` (crack closure). The degraded share `D` of the joint is
-//! replaced by a unilateral frictional contact: Coulomb sliding (`|V| <= mu N_c`),
-//! rocking about the patch edges (`|M_i| <= N_c w/2`) and torsional friction. A bond
+//! replaced by a unilateral frictional contact: a no-tension grid of normal springs
+//! over the patch (so a cracked joint rocks about its compressed edge and develops
+//! arching thrust when restrained), Coulomb sliding (`|V| <= mu N_c`) and torsional
+//! friction. A bond
 //! with `D = 1` therefore still transmits compression and friction while its chunks
 //! remain in one cluster, but it no longer connects them.
 //!
@@ -319,8 +321,12 @@ pub struct JointResponse {
     pub force: Local6,
     /// Updated history (commit it to advance).
     pub state: JointState,
-    /// Energy dissipated by this evaluation (J).
+    /// Energy dissipated by this evaluation (J): the softening law's fracture energy,
+    /// friction and rebar plasticity.
     pub dissipated: f64,
+    /// Stored energy released beyond the law when a step overshoots the softening
+    /// branch (the bond snaps within one step); vanishes as the step shrinks.
+    pub overshoot: f64,
     /// Recoverable elastic energy stored after the evaluation (J).
     pub stored: f64,
     /// The bond's connectivity changed from connected to disconnected.
@@ -328,6 +334,9 @@ pub struct JointResponse {
     /// Effective stress measures (for exposure).
     pub measures: StressMeasures,
 }
+
+/// Springs per side of the cracked joint's no-tension patch.
+pub const CONTACT_SPRINGS: usize = 6;
 
 fn sq(x: f64) -> f64 {
     x * x
@@ -384,16 +393,36 @@ impl<'a> JointModel<'a> {
         st.utilization = idx.max();
 
         let mut dissipated = 0.0;
+        let mut overshoot = 0.0;
         let psi_ts = psi_tension_shear(k, d);
         let psi_c = if d.lin.z < 0.0 { 0.5 * k.kn * sq(d.lin.z) } else { 0.0 };
 
         // Contact part (the degraded share of the joint), computed with the old damage
         // so the damage increment below sees the contact energy it is replaced by.
         let contact = |st: &mut JointState, commit_dissipation: bool| -> (Local6, f64, f64) {
-            let n_force = if d.lin.z < 0.0 { (1.0 - st.crush) * k.kn * d.lin.z } else { 0.0 };
-            let nc = (-n_force).max(0.0);
+            // No-tension multi-spring patch (the Applied Element Method's spring grid):
+            // each spring carries compression only, so a cracked joint rocks about its
+            // compressed edge and develops arching thrust when restrained.
+            let n = CONTACT_SPRINGS;
+            let ki = k.kn * (1.0 - st.crush) / (n * n) as f64;
+            let (mut nc_sum, mut m1, mut m2, mut energy) = (0.0, 0.0, 0.0, 0.0);
+            for a in 0..n {
+                let s1 = ((a as f64 + 0.5) / n as f64 - 0.5) * g.width[0];
+                for b in 0..n {
+                    let s2 = ((b as f64 + 0.5) / n as f64 - 0.5) * g.width[1];
+                    let di = d.lin.z + d.ang.x * s2 - d.ang.y * s1;
+                    if di < 0.0 {
+                        let f = ki * di;
+                        nc_sum += f;
+                        m1 += f * s2;
+                        m2 -= f * s1;
+                        energy += 0.5 * ki * di * di;
+                    }
+                }
+            }
+            let nc = -nc_sum;
             let mut p: Local6 = st.plastic.into();
-            let mut q = Local6::ZERO;
+            let mut q = Local6 { lin: Vec3::new(0.0, 0.0, nc_sum), ang: Vec3::new(m1, m2, 0.0) };
             let mut diss = 0.0;
             // Coulomb sliding (isotropic in the patch plane).
             let slide_cap = s.friction * nc;
@@ -411,15 +440,12 @@ impl<'a> JointModel<'a> {
                 q.lin.x = trial.x;
                 q.lin.y = trial.y;
             }
-            // Rocking about the patch edges: bending about t1 levers over width[1]/2.
-            let (m1, dp1) = return_map(k.kb_t1, d.ang.x, p.ang.x, nc * 0.5 * g.width[1]);
-            let (m2, dp2) = return_map(k.kb_t2, d.ang.y, p.ang.y, nc * 0.5 * g.width[0]);
+            // Torsional friction.
             let (tq, dpt) = return_map(k.kt, d.ang.z, p.ang.z, s.friction * nc * g.friction_radius);
-            diss += m1.abs() * dp1.abs() + m2.abs() * dp2.abs() + tq.abs() * dpt.abs();
-            p.ang = p.ang + Vec3::new(dp1, dp2, dpt);
-            q.ang = Vec3::new(m1, m2, tq);
-            let energy = 0.5
-                * (sq(q.lin.x) / k.ks + sq(q.lin.y) / k.ks + sq(m1) / k.kb_t1 + sq(m2) / k.kb_t2 + sq(tq) / k.kt);
+            diss += tq.abs() * dpt.abs();
+            p.ang.z += dpt;
+            q.ang.z = tq;
+            energy += 0.5 * (sq(q.lin.x) / k.ks + sq(q.lin.y) / k.ks + sq(tq) / k.kt);
             if commit_dissipation {
                 st.plastic = p.into();
             }
@@ -437,14 +463,33 @@ impl<'a> JointModel<'a> {
                 if new_d > st.damage {
                     let mut probe = st.clone();
                     let (_, psi_contact, _) = contact(&mut probe, false);
-                    dissipated += (released - psi_contact * (new_d - st.damage)).max(0.0);
+                    // Pure compression is carried identically by both shares.
+                    let excess = (psi_contact - (1.0 - st.crush) * psi_c).max(0.0);
+                    let law = (released - excess * (new_d - st.damage)).max(0.0);
+                    dissipated += law;
+                    overshoot += ((psi_ts - excess) * (new_d - st.damage) - law).max(0.0);
                     st.damage = new_d;
                     st.mode = Some(mode_ts);
                 }
             }
             st.kappa = st.kappa.max(lambda_ts);
 
-            let (lambda_c, mode_c) = idx.compression_family();
+            // Crushing acts on the stress the joint actually transmits in compression:
+            // the axial force is never degraded by D, but once cracked the joint carries
+            // bending only through its intact share and the (capped) rocking contact.
+            // Using the undamaged bending stiffness here would "crush" any cracked joint
+            // that keeps rotating.
+            let comp_idx = {
+                let mut probe = state.clone();
+                let (qc, _, _) = contact(&mut probe, false);
+                let d_old = state.damage;
+                let q = Local6 {
+                    lin: Vec3::new(0.0, 0.0, q_eff.lin.z.min(0.0)),
+                    ang: q_eff.ang * (1.0 - d_old) + qc.ang * d_old,
+                };
+                failure_indices(s, &stress_measures(g, &q), multiplier)
+            };
+            let (lambda_c, mode_c) = comp_idx.compression_family();
             if lambda_c > st.kappa_c && lambda_c > 1.0 && psi_c > 0.0 {
                 let r = s.g_compression * g.area * lambda_c * lambda_c / psi_c;
                 st.ductility_c = r;
@@ -452,6 +497,7 @@ impl<'a> JointModel<'a> {
                 let (new_dc, released) = damage_increment(kind, st.kappa_c, lambda_c, r, st.crush, psi_c);
                 if new_dc > st.crush {
                     dissipated += released;
+                    overshoot += (psi_c * (new_dc - st.crush) - released).max(0.0);
                     st.crush = new_dc;
                     st.mode = Some(mode_c);
                     if st.crush >= 1.0 && st.damage < 1.0 {
@@ -468,16 +514,16 @@ impl<'a> JointModel<'a> {
         let dmg = st.damage;
         let (q_contact, psi_contact, diss_contact) = contact(&mut st, true);
         dissipated += dmg * diss_contact;
-        let normal = if d.lin.z > 0.0 { (1.0 - dmg) * k.kn * d.lin.z } else { (1.0 - st.crush) * k.kn * d.lin.z };
+        let intact_normal = if d.lin.z > 0.0 { k.kn * d.lin.z } else { (1.0 - st.crush) * k.kn * d.lin.z };
         let mut force = Local6 {
             lin: Vec3::new(
                 (1.0 - dmg) * q_eff.lin.x + dmg * q_contact.lin.x,
                 (1.0 - dmg) * q_eff.lin.y + dmg * q_contact.lin.y,
-                normal,
+                (1.0 - dmg) * intact_normal + dmg * q_contact.lin.z,
             ),
             ang: q_eff.ang * (1.0 - dmg) + q_contact.ang * dmg,
         };
-        let mut stored = (1.0 - dmg) * psi_ts + (1.0 - st.crush) * psi_c + dmg * psi_contact;
+        let mut stored = (1.0 - dmg) * (psi_ts + (1.0 - st.crush) * psi_c) + dmg * psi_contact;
 
         if let Some(rb) = self.rebar {
             if !st.rebar_broken {
@@ -513,7 +559,7 @@ impl<'a> JointModel<'a> {
 
         st.dissipated += dissipated;
         let disconnected = was_connected && !st.connected(self.rebar.is_some());
-        JointResponse { force, state: st, dissipated, stored, disconnected, measures }
+        JointResponse { force, state: st, dissipated, overshoot, stored, disconnected, measures }
     }
 
     /// Per-component secant stiffness factors at the given state (used for the

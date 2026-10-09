@@ -1,6 +1,8 @@
 [workspace]
 resolver = "2"
-members = ["crates/stress-ref"]
+members = ["crates/stress-ref", "crates/stress-physx"]
+# stress-physx links the PhysX SDK (needs PHYSX_ROOT); build it explicitly with -p.
+default-members = ["crates/stress-ref"]
 
 [workspace.package]
 edition = "2021"

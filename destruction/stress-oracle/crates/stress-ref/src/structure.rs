@@ -28,6 +28,9 @@ pub struct ChunkData {
     pub inertia: Mat3,
     pub inv_inertia: Mat3,
     pub material: String,
+    /// Physical Young's modulus and Poisson ratio of the chunk material (contact).
+    pub youngs_modulus: f64,
+    pub poisson_ratio: f64,
     pub support: Support,
     pub groups: Vec<String>,
     pub level: u32,
@@ -164,6 +167,8 @@ impl Structure {
                     inertia,
                     inv_inertia: inertia.inverse().expect("chunk inertia is invertible"),
                     material: c.material.clone(),
+                    youngs_modulus: m.youngs_modulus,
+                    poisson_ratio: m.poisson_ratio,
                     support: c.support,
                     groups: c.groups.clone(),
                     level: c.level,
