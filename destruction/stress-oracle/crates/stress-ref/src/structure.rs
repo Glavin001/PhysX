@@ -100,9 +100,13 @@ pub fn bond_physics(
     stiffness_scale: f64,
     reduced_mass: f64,
     features: &Features,
+    methods: &crate::scene::Methods,
 ) -> (BondStiffness, JointStrength, Option<RebarParams>, Local6) {
     let stiffness = BondStiffness::new(geometry, material, stiffness_scale);
-    let strength = JointStrength::new(material, geometry, buckling_length, stiffness_scale, features);
+    let mut strength = JointStrength::new(material, geometry, buckling_length, stiffness_scale, features);
+    strength.exact_patch = methods.exact_joint_patch;
+    strength.patch_after_damage = methods.patch_after_damage;
+    strength.exact_rate_filter = methods.exact_rate_filter;
     let rebar = rebar
         .filter(|_| features.rebar)
         .map(|(area, steel)| RebarParams::new(*area, steel, geometry.length, stiffness_scale));
@@ -136,6 +140,7 @@ pub struct Structure {
     pub stiffness_scale: f64,
     /// Model switches the bonds were derived with (kept for re-derivation on refinement).
     pub features: Features,
+    pub methods: crate::scene::Methods,
 }
 
 /// The face of a box whose outward normal is closest to `dir` (body frame).
@@ -164,6 +169,7 @@ impl Structure {
         let body: &BodyDesc = &scene.bodies[index];
         let scale = scene.sim.stiffness_scale;
         let features = scene.sim.features;
+        let methods = scene.sim.methods;
         let mut chunks: Vec<ChunkData> = body
             .chunks
             .iter()
@@ -226,7 +232,7 @@ impl Structure {
             let rebar_spec = desc.rebar.as_ref().map(|r| (r.area, scene.material(&r.material).clone()));
             let mred = reduced_mass(&chunks[desc.a], &chunks[desc.b]);
             let (stiffness, strength, rebar, damping) =
-                bond_physics(&geometry, m, desc.buckling_length, rebar_spec.as_ref(), scale, mred, &features);
+                bond_physics(&geometry, m, desc.buckling_length, rebar_spec.as_ref(), scale, mred, &features, &methods);
             let weibull = if features.weibull { bond_strength_factor(m.weibull_modulus, scene.sim.seed, index, bi) } else { 1.0 };
             let face_a = face_index(&chunks[desc.a].faces, geometry.normal);
             let face_b = face_index(&chunks[desc.b].faces, -geometry.normal);
@@ -259,6 +265,7 @@ impl Structure {
             initial_angular_velocity: Vec3::from_array(body.angular_velocity),
             stiffness_scale: scale,
             features,
+            methods,
         }
     }
 

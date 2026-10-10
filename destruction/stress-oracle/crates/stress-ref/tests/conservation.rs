@@ -156,10 +156,15 @@ fn fracture_never_gains_energy_and_dissipation_is_accounted() {
     let scene = free_wall_impact(40.0, true);
     let mut w = World::new(&scene);
     let e0 = w.mechanical_energy();
+    let mut contact = 0.0;
     for _ in 0..30 {
         w.step_frame();
         let e = w.mechanical_energy() + w.dissipated_energy();
         assert!((e - e0).abs() <= 0.05 * e0, "transient imbalance: {e} vs {e0}");
+        // The second law for the contacts: what they have taken out of the motion
+        // (net of what they store) never falls, else the contact law creates energy.
+        assert!(w.contact.dissipated >= contact - 1e-9 * e0, "contacts gave back energy: {} after {contact}", w.contact.dissipated);
+        contact = w.contact.dissipated;
     }
     let e = w.mechanical_energy() + w.dissipated_energy();
     assert!(e <= e0 * 1.001, "energy gain: {e} vs {e0}");

@@ -284,6 +284,111 @@ pub fn main(make: &WorldFactory, baseline: Option<&WorldFactory>, args: Vec<Stri
             }
             Ok(ok)
         }
+        "ab" => {
+            // A/B of method switches (IMPROVEMENTS.md): every scene as loaded (A) and
+            // with the switches given by `--feature NAME=on|off` (B), gated against the
+            // oracles both ways, with every recorded value's change.
+            let scenes = PathBuf::from(pos.first().ok_or("missing <scenes-dir>")?);
+            let golden = PathBuf::from(pos.get(1).ok_or("missing <golden-dir>")?);
+            let only = flag(rest, "--only");
+            let mut paths: Vec<PathBuf> = std::fs::read_dir(&scenes)
+                .map_err(|e| format!("{}: {e}", scenes.display()))?
+                .filter_map(|e| e.ok().map(|e| e.path()))
+                .filter(|p| p.extension().is_some_and(|e| e == "json"))
+                .collect();
+            paths.sort();
+            let switches: Vec<(String, bool)> = rest
+                .iter()
+                .zip(rest.iter().skip(1))
+                .filter(|(f, _)| f.as_str() == "--feature")
+                .map(|(_, v)| {
+                    let (n, s) = v.split_once('=').ok_or(format!("--feature {v}: expected NAME=on|off"))?;
+                    Ok((n.to_string(), matches!(s, "on" | "true")))
+                })
+                .collect::<Result<_, String>>()?;
+            if switches.is_empty() {
+                return Err("ab needs at least one --feature NAME=on|off (the B side)".into());
+            }
+            let base_args: Vec<String> = {
+                // `--set` overrides apply to both sides; `--feature` only to B.
+                let mut v = Vec::new();
+                let mut it = rest.iter();
+                while let Some(a) = it.next() {
+                    if a == "--feature" {
+                        it.next();
+                    } else {
+                        v.push(a.clone());
+                    }
+                }
+                v
+            };
+            let (mut pass_a, mut pass_b, mut gated, mut regressions) = (0, 0, 0, Vec::new());
+            let (mut wall_a, mut wall_b) = (0.0, 0.0);
+            let mut report = Vec::new();
+            for p in paths {
+                let mut a = Scene::load(&p)?;
+                if only.as_ref().is_some_and(|o| !a.name.contains(o.as_str())) {
+                    continue;
+                }
+                apply_overrides(&mut a, &base_args)?;
+                let mut b = a.clone();
+                for (n, on) in &switches {
+                    b = b.with_feature(n, *on)?;
+                }
+                let oracles: Vec<Observation> = load_goldens(&golden.join(&a.name)).into_iter().filter(|o| !o.notes.iter().any(|n| n == "seeded") && o.seed == 0).collect();
+                let (oa, ob) = (run_scene(make, &a), run_scene(make, &b));
+                let (ra, rb) = (compare(&a, &oa, &oracles), compare(&b, &ob, &oracles));
+                println!("scene {}  (A {:.2} s, {} substeps; B {:.2} s, {} substeps)", a.name, oa.values["wall_seconds"], oa.values.get("substeps").copied().unwrap_or(0.0), ob.values["wall_seconds"], ob.values.get("substeps").copied().unwrap_or(0.0));
+                wall_a += oa.values["wall_seconds"];
+                wall_b += ob.values["wall_seconds"];
+                for (x, y) in ra.iter().zip(&rb) {
+                    let fmt = |v: &Option<crate::metrics::MetricValue>| v.as_ref().map_or("-".into(), |v| v.to_string());
+                    let tag = |r: &Comparison| match r.pass {
+                        Some(true) => "PASS",
+                        Some(false) => "FAIL",
+                        None => "----",
+                    };
+                    let err = |r: &Comparison| r.relative_error.map_or(String::new(), |e| format!(" {:.1}%", 100.0 * e));
+                    println!("  {:28} vs {:14} A {} {}{}  B {} {}{}", x.metric, x.reference_source, tag(x), fmt(&x.ours), err(x), tag(y), fmt(&y.ours), err(y));
+                    if x.pass.is_some() {
+                        gated += 1;
+                        pass_a += usize::from(x.pass == Some(true));
+                        pass_b += usize::from(y.pass == Some(true));
+                        if x.pass == Some(true) && y.pass == Some(false) {
+                            regressions.push(format!("{}: {} vs {}", a.name, x.metric, x.reference_source));
+                        }
+                    }
+                }
+                let mut changes = Vec::new();
+                for (k, va) in &oa.values {
+                    if k == "wall_seconds" {
+                        continue;
+                    }
+                    let vb = ob.values.get(k).copied().unwrap_or(f64::NAN);
+                    let rel = if *va != 0.0 { (vb - va) / va.abs() } else if vb == 0.0 { 0.0 } else { f64::INFINITY };
+                    if rel != 0.0 {
+                        changes.push(format!("{k} {va:.6e} -> {vb:.6e} ({:+.2}%)", 100.0 * rel));
+                    }
+                }
+                for (k, fa) in &oa.flags {
+                    if ob.flags.get(k) != Some(fa) {
+                        changes.push(format!("flag {k} {fa} -> {:?}", ob.flags.get(k)));
+                    }
+                }
+                for c in &changes {
+                    println!("    {c}");
+                }
+                report.push(serde_json::json!({ "scene": a.name, "a": ra, "b": rb, "a_values": oa.values, "b_values": ob.values }));
+            }
+            println!("\nA/B {}: gated metrics passing A {pass_a}/{gated}, B {pass_b}/{gated}; wall A {wall_a:.1} s, B {wall_b:.1} s", switches.iter().map(|(n, o)| format!("{n}={}", if *o { "on" } else { "off" })).collect::<Vec<_>>().join(" "));
+            for r in &regressions {
+                println!("  REGRESSION {r}");
+            }
+            if let Some(p) = flag(rest, "--json") {
+                std::fs::write(p, serde_json::to_string_pretty(&report).unwrap()).map_err(|e| e.to_string())?;
+            }
+            Ok(regressions.is_empty())
+        }
         _ => Err(format!("unknown command '{cmd}'")),
     })();
     match result {

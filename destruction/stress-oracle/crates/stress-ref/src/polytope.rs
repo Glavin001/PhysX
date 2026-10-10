@@ -1,0 +1,1065 @@
+//! Convex polytopes in world space, their intersections and mass properties: the
+//! geometry of the elastic-layer contact (`world.rs`, `sim.methods.layer_contact`).
+//!
+//! Two chunks in contact are rigid bodies separated by a thin elastic layer (the
+//! elastic-foundation model of contact mechanics, Johnson, *Contact Mechanics* 4.3):
+//! the layer's pressure at a point is `p = k'' delta`, with `delta` the local
+//! interpenetration along the contact normal and `k'' = 1 / (h_a / E'_a + h_b / E'_b)`
+//! the series stiffness per unit area of the two half-thicknesses along the normal
+//! (`E' = E / (1 - nu^2)`). Integrated over the contact,
+//!
+//! * the normal force is `k'' V`, `V` the overlap volume, acting at the overlap's
+//!   centroid (its first moment), and
+//! * the stored energy is `k'' int s dV`, `s` the depth below the contact surface,
+//!
+//! exactly, whatever the overlap's shape, when the contact surface is a plane (a face
+//! of the other body, the ground, the tangent plane of a sphere). Between two faces this
+//! is the stiffness of the joint the chunks shared (`E A / L` axially, `E I / L` in
+//! bending, `L = h_a + h_b`), so a cracked joint and a contact behave alike.
+//!
+//! Every face of an intersection remembers which body it came from (`owner`): the faces
+//! on the other body's surface give the contact normal (their area-weighted outward
+//! normal) and the contact area.
+
+use crate::math::{Mat3, Vec3};
+
+/// The body a face of a polytope belongs to.
+pub type Owner = u8;
+
+/// A planar convex face: vertices counter-clockwise seen from outside.
+#[derive(Clone, Debug)]
+pub struct Face {
+    pub vertices: Vec<Vec3>,
+    /// Outward unit normal.
+    pub normal: Vec3,
+    pub owner: Owner,
+}
+
+/// A convex polytope as its faces.
+#[derive(Clone, Debug, Default)]
+pub struct Polytope {
+    pub faces: Vec<Face>,
+}
+
+/// Volume, centroid and second moments about the centroid (`int r r^T dV`).
+#[derive(Clone, Copy, Debug)]
+pub struct MassProperties {
+    pub volume: f64,
+    pub centroid: Vec3,
+    pub second_moment: Mat3,
+}
+
+impl Polytope {
+    /// An oriented box (half extents `half`, rotation columns its axes, centre `center`).
+    pub fn cuboid(center: Vec3, rotation: Mat3, half: Vec3, owner: Owner) -> Polytope {
+        let corner = |sx: f64, sy: f64, sz: f64| center + rotation * Vec3::new(sx * half.x, sy * half.y, sz * half.z);
+        let mut faces = Vec::with_capacity(6);
+        for axis in 0..3 {
+            let (u, v) = ((axis + 1) % 3, (axis + 2) % 3);
+            for sign in [-1.0, 1.0] {
+                // Counter-clockwise about the outward normal `sign * e_axis`: (u, v) is
+                // right-handed with e_axis, reversed on the negative side.
+                let mut quad = Vec::with_capacity(4);
+                for (a, b) in [(-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0)] {
+                    let mut s = [0.0; 3];
+                    s[axis] = sign;
+                    s[u] = a;
+                    s[v] = b;
+                    quad.push(corner(s[0], s[1], s[2]));
+                }
+                if sign < 0.0 {
+                    quad.reverse();
+                }
+                let mut n = Vec3::ZERO;
+                n[axis] = sign;
+                faces.push(Face { vertices: quad, normal: rotation * n, owner });
+            }
+        }
+        Polytope { faces }
+    }
+
+    /// A convex hull (hull frame `vertices` and faces) placed at `center` with `rotation`.
+    pub fn hull(hull: &crate::hull::ConvexHull, center: Vec3, rotation: Mat3, owner: Owner) -> Polytope {
+        let faces = hull
+            .faces
+            .iter()
+            .map(|f| Face { vertices: f.vertices.iter().map(|&i| center + rotation * hull.vertices[i]).collect(), normal: rotation * f.normal, owner })
+            .collect();
+        Polytope { faces }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.faces.is_empty()
+    }
+
+    /// The part on the side `normal . x <= offset`; the new face (on the plane) gets
+    /// `owner`. Empty if nothing remains.
+    ///
+    /// Each face crossing the plane keeps its inside part, and contributes to the new
+    /// face the edge along the plane from where its boundary re-enters to where it
+    /// leaves; chained head to tail, those edges are the new face, counter-clockwise
+    /// about `normal`. No sorting, tolerance or reference axis is involved, so the result
+    /// does not depend on the orientation of the world axes.
+    pub fn clip(&self, normal: Vec3, offset: f64, owner: Owner) -> Polytope {
+        let side = |p: Vec3| normal.dot(p) - offset;
+        let mut faces = Vec::with_capacity(self.faces.len() + 1);
+        // (entry, exit) on the plane, one per face crossing it.
+        let mut segments: Vec<(Vec3, Vec3)> = Vec::new();
+        let mut cut = false;
+        for f in &self.faces {
+            let n = f.vertices.len();
+            let s: Vec<f64> = f.vertices.iter().map(|&p| side(p)).collect();
+            if s.iter().all(|&x| x <= 0.0) {
+                faces.push(f.clone());
+                continue;
+            }
+            cut = true;
+            let mut kept = Vec::with_capacity(n + 1);
+            let (mut entry, mut exit) = (None, None);
+            for i in 0..n {
+                let (p, q) = (f.vertices[i], f.vertices[(i + 1) % n]);
+                let (sp, sq) = (s[i], s[(i + 1) % n]);
+                if sp <= 0.0 {
+                    kept.push(p);
+                    if sq > 0.0 {
+                        // Leaving: at p itself when p lies on the plane.
+                        let x = if sp == 0.0 { p } else { p + (q - p) * (sp / (sp - sq)) };
+                        if sp < 0.0 {
+                            kept.push(x);
+                        }
+                        exit = Some(x);
+                    }
+                } else if sq <= 0.0 {
+                    // Re-entering: at q itself when q lies on the plane (pushed next).
+                    let x = if sq == 0.0 { q } else { p + (q - p) * (sp / (sp - sq)) };
+                    if sq < 0.0 {
+                        kept.push(x);
+                    }
+                    entry = Some(x);
+                }
+            }
+            if let (Some(a), Some(b)) = (entry, exit) {
+                segments.push((a, b));
+            }
+            if kept.len() >= 3 {
+                faces.push(Face { vertices: kept, normal: f.normal, owner: f.owner });
+            }
+        }
+        if !cut {
+            return self.clone();
+        }
+        let ring = chain(segments);
+        if ring.len() >= 3 {
+            faces.push(Face { vertices: ring, normal, owner });
+        }
+        // A remnant with no volume (touching only) is no polytope.
+        if faces.len() < 4 {
+            return Polytope::default();
+        }
+        Polytope { faces }
+    }
+
+    /// The intersection with `other` (its faces keep `other`'s owners).
+    pub fn intersect(&self, other: &Polytope) -> Polytope {
+        let mut out = self.clone();
+        for f in &other.faces {
+            let offset = f.normal.dot(f.vertices[0]);
+            out = out.clip(f.normal, offset, f.owner);
+            if out.is_empty() {
+                break;
+            }
+        }
+        out
+    }
+
+    /// Volume, centroid and second moments (tetrahedra from one vertex).
+    pub fn mass_properties(&self) -> Option<MassProperties> {
+        let origin = self.faces.first()?.vertices[0];
+        let (mut vol, mut first, mut second) = (0.0, Vec3::ZERO, [[0.0f64; 3]; 3]);
+        for f in &self.faces {
+            for i in 1..f.vertices.len().saturating_sub(1) {
+                let (a, b, c) = (f.vertices[0] - origin, f.vertices[i] - origin, f.vertices[i + 1] - origin);
+                let v = a.dot(b.cross(c)) / 6.0;
+                vol += v;
+                first += (a + b + c) * (v / 4.0);
+                // int x x^T over the tetrahedron (0, a, b, c): v/20 (sum w w^T + s s^T).
+                let s = a + b + c;
+                for (p, q) in [(0, 0), (0, 1), (0, 2), (1, 1), (1, 2), (2, 2)] {
+                    let w = a[p] * a[q] + b[p] * b[q] + c[p] * c[q] + s[p] * s[q];
+                    second[p][q] += v / 20.0 * w;
+                }
+            }
+        }
+        if vol <= 0.0 {
+            return None;
+        }
+        let c = first / vol;
+        let mut m = [[0.0; 3]; 3];
+        for p in 0..3 {
+            for q in p..3 {
+                // Parallel-axis shift from the origin vertex to the centroid.
+                m[p][q] = second[p][q] - vol * c[p] * c[q];
+                m[q][p] = m[p][q];
+            }
+        }
+        Some(MassProperties { volume: vol, centroid: origin + c, second_moment: Mat3 { m } })
+    }
+
+    /// Sum of `area * outward normal` over the faces of `owner`, and their
+    /// area-weighted centroid.
+    pub fn owner_surface(&self, owner: Owner) -> (Vec3, Vec3, f64) {
+        let (mut an, mut ac, mut a) = (Vec3::ZERO, Vec3::ZERO, 0.0);
+        for f in self.faces.iter().filter(|f| f.owner == owner) {
+            let (area, centroid) = polygon_area_centroid(&f.vertices);
+            an += f.normal * area;
+            ac += centroid * area;
+            a += area;
+        }
+        (an, if a > 0.0 { ac / a } else { Vec3::ZERO }, a)
+    }
+
+    /// Polar second moment `int |r_perp|^2 dA` of the faces of `owner`, projected on the
+    /// plane normal to `axis`, about the axis through `point`.
+    pub fn projected_polar_moment(&self, owner: Owner, point: Vec3, axis: Vec3) -> f64 {
+        let flat = |x: Vec3| {
+            let r = x - point;
+            r - axis * r.dot(axis)
+        };
+        let mut j = 0.0;
+        for f in self.faces.iter().filter(|f| f.owner == owner) {
+            let p0 = flat(f.vertices[0]);
+            for i in 1..f.vertices.len().saturating_sub(1) {
+                let (p1, p2) = (flat(f.vertices[i]), flat(f.vertices[i + 1]));
+                let area = (p1 - p0).cross(p2 - p0).norm() * 0.5;
+                // int |x|^2 over a triangle: A/6 (sum |p_i|^2 + sum_{i<j} p_i . p_j).
+                j += area / 6.0 * (p0.dot(p0) + p1.dot(p1) + p2.dot(p2) + p0.dot(p1) + p1.dot(p2) + p2.dot(p0));
+            }
+        }
+        j
+    }
+
+    /// Mean distance from the axis `(point, axis)`, weighted by volume:
+    /// `int |r_perp| dV / V` (each tetrahedron from `point` split in eight, four-point rule).
+    pub fn mean_axis_distance(&self, point: Vec3, axis: Vec3) -> f64 {
+        let dist = |x: Vec3| {
+            let r = x - point;
+            (r - axis * r.dot(axis)).norm()
+        };
+        let (mut num, mut den) = (0.0, 0.0);
+        for f in &self.faces {
+            for i in 1..f.vertices.len().saturating_sub(1) {
+                let tet = [point, f.vertices[0], f.vertices[i], f.vertices[i + 1]];
+                for sub in subdivide(&tet) {
+                    let v = (sub[1] - sub[0]).dot((sub[2] - sub[0]).cross(sub[3] - sub[0])).abs() / 6.0;
+                    if v == 0.0 {
+                        continue;
+                    }
+                    let mut s = 0.0;
+                    for k in 0..4 {
+                        // Four-point rule (degree 2): one vertex weighted alpha, the rest beta.
+                        let x = sub[k] * TET_ALPHA + (sub[(k + 1) % 4] + sub[(k + 2) % 4] + sub[(k + 3) % 4]) * TET_BETA;
+                        s += dist(x);
+                    }
+                    num += v * s / 4.0;
+                    den += v;
+                }
+            }
+        }
+        if den > 0.0 {
+            num / den
+        } else {
+            0.0
+        }
+    }
+}
+
+const TET_ALPHA: f64 = 0.585_410_196_624_968_5;
+const TET_BETA: f64 = 0.138_196_601_125_010_5;
+
+/// The eight tetrahedra of a tetrahedron split at its edge midpoints.
+fn subdivide(t: &[Vec3; 4]) -> [[Vec3; 4]; 8] {
+    let m = |i: usize, j: usize| (t[i] + t[j]) * 0.5;
+    let (m01, m02, m03, m12, m13, m23) = (m(0, 1), m(0, 2), m(0, 3), m(1, 2), m(1, 3), m(2, 3));
+    [
+        [t[0], m01, m02, m03],
+        [m01, t[1], m12, m13],
+        [m02, m12, t[2], m23],
+        [m03, m13, m23, t[3]],
+        [m01, m02, m03, m13],
+        [m01, m02, m12, m13],
+        [m02, m03, m13, m23],
+        [m02, m12, m13, m23],
+    ]
+}
+
+/// Area and centroid of a planar convex polygon.
+pub fn polygon_area_centroid(p: &[Vec3]) -> (f64, Vec3) {
+    let (mut area, mut c) = (0.0, Vec3::ZERO);
+    for i in 1..p.len().saturating_sub(1) {
+        let a = (p[i] - p[0]).cross(p[i + 1] - p[0]).norm() * 0.5;
+        area += a;
+        c += (p[0] + p[i] + p[i + 1]) * (a / 3.0);
+    }
+    (area, if area > 0.0 { c / area } else { p.first().copied().unwrap_or(Vec3::ZERO) })
+}
+
+/// Joins directed segments head to tail into a polygon: each next segment is the one
+/// whose start is nearest the current end (they meet up to round-off).
+fn chain(mut segments: Vec<(Vec3, Vec3)>) -> Vec<Vec3> {
+    let mut ring = Vec::with_capacity(segments.len());
+    let Some((start, mut end)) = segments.pop() else { return ring };
+    ring.push(start);
+    while !segments.is_empty() {
+        let next = (0..segments.len()).min_by(|&i, &j| (segments[i].0 - end).norm2().total_cmp(&(segments[j].0 - end).norm2())).expect("not empty");
+        let (a, b) = segments.swap_remove(next);
+        ring.push(a);
+        end = b;
+    }
+    ring
+}
+
+/// A body's share of an overlap that lies nearest one of its faces: the part of the
+/// elastic-layer energy `k'' int s dV` (`s` the depth below the body's surface, the
+/// distance to its nearest face) belonging to that face.
+#[derive(Clone, Copy, Debug)]
+pub struct FieldCell {
+    pub volume: f64,
+    pub centroid: Vec3,
+    /// The face's outward unit normal.
+    pub normal: Vec3,
+    /// `int s dV / V` over the cell.
+    pub depth: f64,
+}
+
+/// The overlap `region` (inside `body`) split into the cells of `body`'s faces: where
+/// each face is the nearest, `s = o_f - n_f . x` is the depth (the faces receded by
+/// `indent`, the crushed surface, and the region clipped to it). The energy
+/// `E = k'' int s dV` summed over cells is a potential of the two bodies' relative pose,
+/// and by the divergence theorem (`s = 0` on the body's surface) its gradient is the
+/// force `k'' V_f n_f` per cell at the cell's centroid, pushing the other body out:
+/// exactly conservative, continuous, and between two faces the joint's stiffness. Only
+/// faces that can be nearest somewhere in the region are clipped for: face `f` is the
+/// nearest at some point only if `min_v s_f(v) <= min_g max_v s_g(v)` over the region's
+/// vertices `v` (each `s_g` is linear); with one such face the cell is the region.
+pub fn field_cells(region: &Polytope, body: &Polytope, indent: f64) -> Vec<FieldCell> {
+    let planes: Vec<(Vec3, f64)> = body.faces.iter().map(|f| (f.normal, f.normal.dot(f.vertices[0]) - indent)).collect();
+    let mut region = region.clone();
+    if indent > 0.0 {
+        for &(n, o) in &planes {
+            region = region.clip(n, o, OWNER_B);
+            if region.is_empty() {
+                return Vec::new();
+            }
+        }
+    }
+    let vertices: Vec<Vec3> = region.faces.iter().flat_map(|f| f.vertices.iter().copied()).collect();
+    if vertices.is_empty() {
+        return Vec::new();
+    }
+    let depth = |k: usize, x: Vec3| planes[k].1 - planes[k].0.dot(x);
+    let range: Vec<(f64, f64)> = (0..planes.len())
+        .map(|k| vertices.iter().fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), &v| (lo.min(depth(k, v)), hi.max(depth(k, v)))))
+        .collect();
+    let bound = range.iter().map(|r| r.1).fold(f64::INFINITY, f64::min);
+    let candidates: Vec<usize> = (0..planes.len()).filter(|&k| range[k].0 <= bound).collect();
+    let mut cells = Vec::with_capacity(candidates.len());
+    for &f in &candidates {
+        let mut cell = region.clone();
+        if candidates.len() > 1 {
+            for &g in &candidates {
+                if g == f {
+                    continue;
+                }
+                // s_f <= s_g: (n_g - n_f) . x <= o_g - o_f.
+                let d = planes[g].0 - planes[f].0;
+                let len = d.norm();
+                cell = cell.clip(d / len, (planes[g].1 - planes[f].1) / len, OWNER_B);
+                if cell.is_empty() {
+                    break;
+                }
+            }
+        }
+        if let Some(mp) = cell.mass_properties() {
+            if mp.volume > 0.0 {
+                cells.push(FieldCell { volume: mp.volume, centroid: mp.centroid, normal: planes[f].0, depth: depth(f, mp.centroid) });
+            }
+        }
+    }
+    cells
+}
+
+/// The elastic-layer contact of a body (`A`) pressed into another (`B`, or a plane):
+/// everything the force law needs, from the overlap polytope.
+#[derive(Clone, Copy, Debug)]
+pub struct LayerContact {
+    /// Overlap volume.
+    pub volume: f64,
+    /// Overlap centroid: the line of action of the normal force.
+    pub centroid: Vec3,
+    /// Unit contact normal, pushing `A` out of `B`.
+    pub normal: Vec3,
+    /// Contact area (the overlap's surface on `B`, projected on the normal).
+    pub area: f64,
+    /// Depth of the centroid below the contact surface (`int s dV = V * depth`).
+    pub depth: f64,
+    /// Volume-weighted mean distance of the overlap from the normal through the
+    /// centroid (the lever arm of torsional friction at full slip).
+    pub mean_radius: f64,
+    /// Polar second moment of the contact area (projected on the plane normal to
+    /// `normal`) about the normal through the centroid: the torsional stiffness of the
+    /// shear layer is `k''_t` times it.
+    pub polar_moment: f64,
+}
+
+/// The overlap of two bodies: its depth along the contact normal, and the contact it
+/// makes beyond a permanent indentation (`None` when the overlap lies within it).
+#[derive(Clone, Copy, Debug)]
+pub struct Overlap {
+    pub contact: Option<LayerContact>,
+    /// Largest thickness of the overlap along the normal.
+    pub max_depth: f64,
+}
+
+impl LayerContact {
+    /// The contact of polytope `a` with polytope `b` (whose faces carry `OWNER_B`),
+    /// beyond a permanent indentation `indent` of `b`'s surface (crushed material that
+    /// no longer pushes back: the layer acts only deeper than `indent`). The normal is the
+    /// area-weighted outward normal of `b`'s surface inside `a`: it varies continuously
+    /// with the geometry (an edge sliver between aligned boxes pushes diagonally, not
+    /// along whichever face axis round-off favours). Between two faces it is their
+    /// normal, tilted by `delta / w` where one face overhangs the other's edge (`delta`
+    /// the overlap depth, `w` the face width): 1e-5 at elastic contact depths.
+    pub fn between(a: &Polytope, b: &Polytope, indent: f64) -> Option<Overlap> {
+        let overlap = a.intersect(b);
+        if overlap.is_empty() {
+            return None;
+        }
+        let (an, _, _) = overlap.owner_surface(OWNER_B);
+        let len = an.norm();
+        if len == 0.0 {
+            return None;
+        }
+        LayerContact::from_overlap(&overlap, an / len, indent)
+    }
+
+    /// The geometry of an overlap seen along a given contact normal (no indentation):
+    /// volume, centroid, the area of its faces owned by `B` projected on the normal,
+    /// depth below its extreme plane, torsional lever arm and polar moment.
+    pub fn with_normal(overlap: &Polytope, normal: Vec3) -> Option<LayerContact> {
+        LayerContact::from_overlap(overlap, normal, 0.0)?.contact
+    }
+
+    /// The contact of polytope `a` with the half-space `normal . x <= offset` (ground),
+    /// beyond a permanent indentation `indent`.
+    pub fn with_half_space(a: &Polytope, normal: Vec3, offset: f64, indent: f64) -> Option<Overlap> {
+        let overlap = a.clip(normal, offset, OWNER_B);
+        if overlap.is_empty() {
+            return None;
+        }
+        LayerContact::from_overlap(&overlap, normal, indent)
+    }
+
+    fn from_overlap(overlap: &Polytope, normal: Vec3, indent: f64) -> Option<Overlap> {
+        let (lo, hi) = overlap
+            .faces
+            .iter()
+            .flat_map(|f| f.vertices.iter())
+            .map(|v| v.dot(normal))
+            .fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), x| (lo.min(x), hi.max(x)));
+        let max_depth = (hi - lo).max(0.0);
+        // The contact surface is the overlap's extreme plane along the normal, receded by
+        // the indentation: the layer acts on the part of the overlap deeper than it.
+        let (engaged, top) = if indent > 0.0 { (overlap.clip(normal, hi - indent, OWNER_B), hi - indent) } else { (overlap.clone(), hi) };
+        let contact = (|| {
+            let mp = engaged.mass_properties()?;
+            // Contact area: the engaged overlap's surface on the other body, projected.
+            let area: f64 = engaged
+                .faces
+                .iter()
+                .filter(|f| f.owner == OWNER_B)
+                .map(|f| polygon_area_centroid(&f.vertices).0 * f.normal.dot(normal).max(0.0))
+                .sum();
+            if area <= 0.0 {
+                return None;
+            }
+            let depth = (top - mp.centroid.dot(normal)).max(0.0);
+            let mean_radius = engaged.mean_axis_distance(mp.centroid, normal);
+            let polar_moment = engaged.projected_polar_moment(OWNER_B, mp.centroid, normal);
+            Some(LayerContact { volume: mp.volume, centroid: mp.centroid, normal, area, depth, mean_radius, polar_moment })
+        })();
+        Some(Overlap { contact, max_depth })
+    }
+
+    /// The contact of polytope `a` with a ball `b` (centre `center`, radius `radius`):
+    /// the overlap `a ∩ b` in closed form, exact wherever the ball meets the polytope
+    /// (a face, an edge, a corner, several chunks at once), so the force is the same
+    /// function of the geometry whichever chunk the ball's surface crosses.
+    ///
+    /// By the divergence theorem over the overlap's boundary, which is the polytope's
+    /// faces inside the ball (planar regions `R_f`: a polygon cut by a disc) and the
+    /// ball's surface inside the polytope, with `x` from the centre and `h_f` the signed
+    /// distance of face `f`'s plane (`x . n_f = h_f` on it):
+    ///
+    /// * `V = 4/3 pi r^3 [centre inside] + sum_f (h_f A_f - r^3 Omega_f) / 3`, from the
+    ///   field `x (1 - r^3 / |x|^3) / 3` (divergence one, zero flux through the sphere),
+    ///   `Omega_f = int_R h_f / |x|^3` the solid angle of `R_f`;
+    /// * `int x dV = sum_f n_f (int_R |x|^2 / 2 - r^2 A_f / 2)`, from the gradient of
+    ///   `|x|^2 / 2`, the sphere's part closed by `int n dA = 0`;
+    /// * the ball's surface inside the polytope has area vector `-sum_f n_f A_f`: its
+    ///   direction is the normal and its length the contact area; projected along the
+    ///   normal it covers what the faces do, which gives its polar moment.
+    ///
+    /// Each region is summed over its polygon's edges from the foot of the
+    /// perpendicular: triangles where an edge runs inside the disc, circular sectors
+    /// where it runs outside. The depth is measured from the overlap's extreme plane on
+    /// `a`'s side (its face, for a ball on a face: the spherical cap exactly). The
+    /// torsional lever arm is the shallow cap's, `8 rho / 15` with `pi rho^2` the area.
+    pub fn with_ball(a: &Polytope, center: Vec3, radius: f64) -> Option<LayerContact> {
+        let r = radius;
+        let mut inside = true;
+        let mut through: Vec<Vec3> = Vec::new(); // normals of the faces whose plane holds the centre
+        let mut volume = 0.0;
+        let mut first = Vec3::ZERO; // int x dV, x from the centre
+        let mut area_vector = Vec3::ZERO;
+        let mut regions: Vec<(Vec3, Vec3, Vec3, Vec3, DiscRegion)> = Vec::new();
+        let mut lo = f64::INFINITY;
+        for f in &a.faces {
+            let n = f.normal;
+            let h = n.dot(f.vertices[0] - center);
+            if h < 0.0 {
+                inside = false;
+            } else if h == 0.0 {
+                through.push(n);
+            }
+            if h.abs() >= r || f.vertices.len() < 3 {
+                continue;
+            }
+            let u = (f.vertices[1] - f.vertices[0]).normalized();
+            let v = n.cross(u);
+            let foot = center + n * h;
+            let poly: Vec<[f64; 2]> = f.vertices.iter().map(|&x| [(x - foot).dot(u), (x - foot).dot(v)]).collect();
+            let reg = disc_region(&poly, h, r);
+            if reg.area <= 0.0 {
+                continue;
+            }
+            volume += reg.volume;
+            first += n * reg.moment;
+            area_vector += n * reg.area;
+            regions.push((n, foot, u, v, reg));
+        }
+        if inside {
+            // The field's singular point: its share of the ball, the solid angle of the
+            // polytope at the centre over 4 pi (all of it inside; on a face, edge or
+            // vertex, the face planes through the centre bound it).
+            volume += r * r * r / 3.0 * interior_solid_angle(&through);
+        }
+        let len = area_vector.norm();
+        if volume <= 0.0 || len == 0.0 {
+            return None;
+        }
+        let normal = -area_vector / len;
+        let centroid = center + first / volume;
+        // The overlap's extreme along -normal: the ball's own extreme point if the
+        // polytope holds it, else a point of a face region.
+        let tip = center - normal * r;
+        if a.faces.iter().all(|f| f.normal.dot(tip - f.vertices[0]) <= 0.0) {
+            lo = tip.dot(normal);
+        }
+        let mut polar = 0.0;
+        for (n, foot, u, v, reg) in &regions {
+            lo = lo.min(reg.min_along([normal.dot(*u), normal.dot(*v)]) + foot.dot(normal));
+            // int |P (x - centroid)|^2 over the region, P the projection off `normal`.
+            let y0 = *foot - centroid;
+            let m = *u * reg.first[0] + *v * reg.first[1];
+            let s = &reg.second;
+            let q = |e: Vec3, g: Vec3| {
+                let (eu, ev, gu, gv) = (e.dot(*u), e.dot(*v), g.dot(*u), g.dot(*v));
+                reg.area * e.dot(y0) * g.dot(y0) + e.dot(y0) * g.dot(m) + e.dot(m) * g.dot(y0) + eu * gu * s[0][0] + (eu * gv + ev * gu) * s[0][1] + ev * gv * s[1][1]
+            };
+            let trace = q(Vec3::new(1.0, 0.0, 0.0), Vec3::new(1.0, 0.0, 0.0)) + q(Vec3::new(0.0, 1.0, 0.0), Vec3::new(0.0, 1.0, 0.0)) + q(Vec3::new(0.0, 0.0, 1.0), Vec3::new(0.0, 0.0, 1.0));
+            polar -= n.dot(normal) * (trace - q(normal, normal));
+        }
+        let depth = (centroid.dot(normal) - lo).max(0.0);
+        let rho = (len / std::f64::consts::PI).sqrt();
+        Some(LayerContact { volume, centroid, normal, area: len, depth, mean_radius: 8.0 * rho / 15.0, polar_moment: polar.max(0.0) })
+    }
+
+    /// A sphere (centre `center`, radius `radius`) whose surface dips `delta` below the
+    /// plane through `surface_point` with outward normal `normal`: the spherical cap.
+    pub fn sphere_cap(center: Vec3, radius: f64, normal: Vec3, delta: f64) -> Option<LayerContact> {
+        if delta <= 0.0 {
+            return None;
+        }
+        let d = delta.min(2.0 * radius);
+        let volume = std::f64::consts::PI * d * d * (3.0 * radius - d) / 3.0;
+        // Cap centroid, from the sphere's centre along -normal.
+        let from_center = 3.0 * (2.0 * radius - d).powi(2) / (4.0 * (3.0 * radius - d));
+        let centroid = center - normal * from_center;
+        let plane = radius - d; // distance of the plane from the centre
+        let depth = (from_center - plane).max(0.0);
+        let a = std::f64::consts::PI * (2.0 * radius * d - d * d);
+        let rho = (2.0 * radius * d - d * d).sqrt(); // cap base radius
+        // The contact area is the disc of radius rho. Over it the cap's thickness is
+        // d (1 - (r / rho)^2) for shallow caps, whose volume-weighted mean radius is
+        // 8 rho / 15 (exact as d / R -> 0, within a few percent at d = R).
+        let mean_radius = 8.0 * rho / 15.0;
+        let polar_moment = a * rho * rho / 2.0;
+        Some(LayerContact { volume, centroid, normal, area: a, depth, mean_radius, polar_moment })
+    }
+}
+
+/// A convex polygon (counter-clockwise, coordinates from the foot of the perpendicular
+/// from a ball's centre to its plane, at signed distance `h`, `|h| < r`) cut by the disc
+/// the ball makes in the plane: the region's area, first and second moments about the
+/// foot, its share of the overlap's volume and first moment (the divergence theorem's
+/// terms, see `LayerContact::with_ball`), and the points where its boundary leaves the
+/// polygon's (vertices inside the disc, edge crossings of the circle).
+///
+/// Summed over the polygon's edges from the foot: a triangle where an edge runs inside
+/// the disc, a circular sector where it runs outside. The sectors carry the bulk of a
+/// shallow overlap and are written without cancellation in `delta = r - |h|` (a cap of
+/// depth `1e-6 r` exact to round-off); a triangle's volume is the difference of its
+/// cone and pyramid, `(h A - r^3 Omega) / 3`, good to `1e-16 r / delta` relatively.
+/// A centre on the plane (`h = 0`): the principal value, zero (`with_ball` adds the
+/// singular point's share).
+#[derive(Clone, Debug, Default)]
+struct DiscRegion {
+    area: f64,
+    first: [f64; 2],
+    second: [[f64; 2]; 2],
+    /// `int_R (h - r^3 h / |x|^3) / 3`: the region's term of the overlap volume.
+    volume: f64,
+    /// `int_R (|x|^2 - r^2) / 2`: its term of the overlap's first moment (along `n`).
+    moment: f64,
+    points: Vec<[f64; 2]>,
+    rho: f64,
+    polygon: Vec<[f64; 2]>,
+}
+
+impl DiscRegion {
+    /// Smallest `d . p` over the region (`d` a direction in the plane, any length).
+    fn min_along(&self, d: [f64; 2]) -> f64 {
+        let mut lo = self.points.iter().map(|p| d[0] * p[0] + d[1] * p[1]).fold(f64::INFINITY, f64::min);
+        let len = (d[0] * d[0] + d[1] * d[1]).sqrt();
+        if len > 0.0 {
+            // The disc's own extreme point, where the polygon holds it.
+            let e = [-self.rho * d[0] / len, -self.rho * d[1] / len];
+            let n = self.polygon.len();
+            let held = (0..n).all(|i| {
+                let (p, q) = (self.polygon[i], self.polygon[(i + 1) % n]);
+                (q[0] - p[0]) * (e[1] - p[1]) - (q[1] - p[1]) * (e[0] - p[0]) >= 0.0
+            });
+            if held {
+                lo = lo.min(-self.rho * len);
+            }
+        }
+        lo
+    }
+}
+
+/// Solid angle of the cone `{y : n_i . y <= 0}` of the given outward unit normals (the
+/// polytope seen from a point of its boundary; `4 pi` with none): a half-space, a wedge
+/// (twice its dihedral angle), or a polyhedral cone (its dihedral angles less
+/// `(k - 2) pi`, the normals taken in order around their mean).
+fn interior_solid_angle(normals: &[Vec3]) -> f64 {
+    use std::f64::consts::PI;
+    match normals.len() {
+        0 => 4.0 * PI,
+        1 => 2.0 * PI,
+        2 => 2.0 * (PI - normals[0].dot(normals[1]).clamp(-1.0, 1.0).acos()),
+        k => {
+            let axis = normals.iter().fold(Vec3::ZERO, |a, &n| a + n).normalized();
+            let e1 = axis.any_perpendicular().normalized();
+            let e2 = axis.cross(e1);
+            let mut order: Vec<Vec3> = normals.to_vec();
+            order.sort_by(|a, b| a.dot(e2).atan2(a.dot(e1)).total_cmp(&b.dot(e2).atan2(b.dot(e1))));
+            let dihedrals: f64 = (0..k).map(|i| PI - order[i].dot(order[(i + 1) % k]).clamp(-1.0, 1.0).acos()).sum();
+            dihedrals - (k as f64 - 2.0) * PI
+        }
+    }
+}
+
+fn disc_region(poly: &[[f64; 2]], h: f64, r: f64) -> DiscRegion {
+    let delta = r - h.abs();
+    let rho2 = delta * (2.0 * r - delta);
+    let rho = rho2.sqrt();
+    // The side of the plane the centre is on (on it: the principal value, zero).
+    let side = if h > 0.0 {
+        1.0
+    } else if h < 0.0 {
+        -1.0
+    } else {
+        0.0
+    };
+    let mut reg = DiscRegion { rho, polygon: poly.to_vec(), ..Default::default() };
+    let cross = |a: [f64; 2], b: [f64; 2]| a[0] * b[1] - a[1] * b[0];
+    let dot = |a: [f64; 2], b: [f64; 2]| a[0] * b[0] + a[1] * b[1];
+    let triangle = |reg: &mut DiscRegion, a: [f64; 2], b: [f64; 2]| {
+        let area = 0.5 * cross(a, b);
+        reg.area += area;
+        reg.first[0] += area * (a[0] + b[0]) / 3.0;
+        reg.first[1] += area * (a[1] + b[1]) / 3.0;
+        let c = [a[0] + b[0], a[1] + b[1]];
+        for i in 0..2 {
+            for j in 0..2 {
+                reg.second[i][j] += area / 12.0 * (a[i] * a[j] + b[i] * b[j] + c[i] * c[j]);
+            }
+        }
+        let polar = area / 6.0 * (dot(a, a) + dot(b, b) + dot(a, b));
+        reg.moment += 0.5 * (polar - rho2 * area);
+        // Solid angle of the triangle (foot, a, b) seen from the centre, signed by
+        // orientation and side (Van Oosterom and Strackee); zero on the plane.
+        let omega = if h == 0.0 {
+            0.0
+        } else {
+            let (la, lb, l0) = ((dot(a, a) + h * h).sqrt(), (dot(b, b) + h * h).sqrt(), h.abs());
+            let den = l0 * la * lb + h * h * (la + lb) + (dot(a, b) + h * h) * l0;
+            2.0 * (h * cross(a, b)).atan2(den)
+        };
+        reg.volume += (h * area - r * r * r * omega) / 3.0;
+    };
+    // The disc's sector from angle t1 through dt.
+    let arc = |reg: &mut DiscRegion, t1: f64, dt: f64| {
+        let t2 = t1 + dt;
+        reg.area += 0.5 * rho2 * dt;
+        reg.first[0] += rho2 * rho / 3.0 * (t2.sin() - t1.sin());
+        reg.first[1] += rho2 * rho / 3.0 * (t1.cos() - t2.cos());
+        let s2 = ((2.0 * t2).sin() - (2.0 * t1).sin()) / 4.0;
+        let q = rho2 * rho2 / 4.0;
+        reg.second[0][0] += q * (dt / 2.0 + s2);
+        reg.second[1][1] += q * (dt / 2.0 - s2);
+        let off = q * (t2.sin().powi(2) - t1.sin().powi(2)) / 2.0;
+        reg.second[0][1] += off;
+        reg.second[1][0] += off;
+        // (h A - r^3 Omega) / 3 with A = rho^2 dt / 2, Omega = side dt (1 - |h| / r),
+        // and (|x|^2 - r^2) / 2 integrated, both reduced exactly.
+        reg.volume -= side * dt * delta * delta * (3.0 * r - delta) / 6.0;
+        reg.moment -= rho2 * rho2 * dt / 8.0;
+    };
+    let sector = |reg: &mut DiscRegion, a: [f64; 2], b: [f64; 2]| arc(reg, a[1].atan2(a[0]), cross(a, b).atan2(dot(a, b)));
+    let n = poly.len();
+    // Where the polygon's boundary never meets the disc, the region is the whole disc
+    // (the foot inside the polygon) or nothing: exactly, not as sectors cancelling.
+    let meets = (0..n).any(|i| {
+        let (p, q) = (poly[i], poly[(i + 1) % n]);
+        let d = [q[0] - p[0], q[1] - p[1]];
+        let t = if dot(d, d) > 0.0 { (-dot(p, d) / dot(d, d)).clamp(0.0, 1.0) } else { 0.0 };
+        let c = [p[0] + d[0] * t, p[1] + d[1] * t];
+        dot(c, c) < rho2
+    });
+    if !meets {
+        let holds = (0..n).all(|i| cross(poly[i], poly[(i + 1) % n]) >= 0.0);
+        if holds {
+            arc(&mut reg, 0.0, 2.0 * std::f64::consts::PI);
+        }
+        return reg;
+    }
+    for i in 0..n {
+        let (p, q) = (poly[i], poly[(i + 1) % n]);
+        if dot(p, p) <= rho2 {
+            reg.points.push(p);
+        }
+        // |p + t (q - p)|^2 = rho^2.
+        let d = [q[0] - p[0], q[1] - p[1]];
+        let (aa, bb, cc) = (dot(d, d), 2.0 * dot(p, d), dot(p, p) - rho2);
+        if aa == 0.0 {
+            continue;
+        }
+        let disc = bb * bb - 4.0 * aa * cc;
+        if disc <= 0.0 {
+            sector(&mut reg, p, q);
+            continue;
+        }
+        // Roots without cancellation: k / aa and cc / k.
+        let k = -0.5 * (bb + if bb >= 0.0 { disc.sqrt() } else { -disc.sqrt() });
+        let (mut t0, mut t1) = (k / aa, cc / k);
+        if t0 > t1 {
+            std::mem::swap(&mut t0, &mut t1);
+        }
+        let (s0, s1) = (t0.max(0.0), t1.min(1.0));
+        if s0 >= s1 {
+            sector(&mut reg, p, q);
+            continue;
+        }
+        let at = |t: f64| [p[0] + d[0] * t, p[1] + d[1] * t];
+        let (e0, e1) = (if s0 > 0.0 { at(s0) } else { p }, if s1 < 1.0 { at(s1) } else { q });
+        if s0 > 0.0 {
+            sector(&mut reg, p, e0);
+            reg.points.push(e0);
+        }
+        triangle(&mut reg, e0, e1);
+        if s1 < 1.0 {
+            reg.points.push(e1);
+            sector(&mut reg, e1, q);
+        }
+    }
+    reg
+}
+
+/// Owner tags: the body the force acts on and the body it presses into.
+pub const OWNER_A: Owner = 0;
+pub const OWNER_B: Owner = 1;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::math::Quat;
+
+    fn cube(c: Vec3, h: f64) -> Polytope {
+        Polytope::cuboid(c, Mat3::IDENTITY, Vec3::splat(h), OWNER_A)
+    }
+
+    use std::f64::consts::PI;
+
+    fn rel(a: f64, b: f64) -> f64 {
+        (a - b).abs() / b.abs().max(1e-300)
+    }
+
+    #[test]
+    fn a_ball_on_a_face_is_the_spherical_cap() {
+        let rot = Quat::from_axis_angle(Vec3::new(0.3, -1.0, 0.4).normalized(), 0.7).to_mat3();
+        let center = Vec3::new(0.2, -0.1, 0.3);
+        let block = Polytope::cuboid(center, rot, Vec3::new(2.0, 1.5, 1.0), OWNER_A);
+        let up = rot.col(2);
+        for (delta, x, y) in [(1e-6, 0.0, 0.0), (1e-3, 0.3, -0.2), (0.05, -0.4, 0.1), (0.1, 0.0, 0.5)] {
+            let r = 0.1;
+            let ball = center + rot.col(0) * x + rot.col(1) * y + up * (1.0 + r - delta);
+            let c = LayerContact::with_ball(&block, ball, r).unwrap();
+            let cap = LayerContact::sphere_cap(ball, r, up, delta).unwrap();
+            let cap = LayerContact { normal: -cap.normal, ..cap };
+            assert!(rel(c.volume, cap.volume) < 1e-9, "{delta}: {} vs {}", c.volume, cap.volume);
+            assert!((c.centroid - cap.centroid).norm() < 1e-12, "{delta}: {:?} vs {:?}", c.centroid, cap.centroid);
+            assert!((c.normal - cap.normal).norm() < 1e-12);
+            assert!(rel(c.area, cap.area) < 1e-9, "{delta}: {} vs {}", c.area, cap.area);
+            assert!((c.depth - cap.depth).abs() < 1e-12 * r, "{delta}: {} vs {}", c.depth, cap.depth);
+            assert!(rel(c.polar_moment, cap.polar_moment) < 1e-9, "{delta}: {} vs {}", c.polar_moment, cap.polar_moment);
+        }
+    }
+
+    #[test]
+    fn a_ball_at_a_face_edge_or_corner_takes_its_exact_share() {
+        // Centred on a face, an edge, a corner: a half, quarter, eighth ball.
+        let (r, h) = (0.3, 1.0);
+        let block = cube(Vec3::ZERO, h);
+        let v = 4.0 / 3.0 * PI * r * r * r;
+        let cases = [
+            (Vec3::new(0.0, 0.0, h), v / 2.0, Vec3::new(0.0, 0.0, -3.0 * r / 8.0)),
+            // (each slice across the edge is cut symmetrically: the half ball's 3r/8)
+            (Vec3::new(0.0, h, h), v / 4.0, Vec3::new(0.0, -1.0, -1.0) * (3.0 * r / 8.0)),
+            (Vec3::new(h, h, h), v / 8.0, Vec3::new(-1.0, -1.0, -1.0) * (3.0 * r / 8.0)),
+        ];
+        for (at, vol, offset) in cases {
+            let c = LayerContact::with_ball(&block, at, r).unwrap();
+            assert!(rel(c.volume, vol) < 1e-12, "{at:?}: {} vs {vol}", c.volume);
+            assert!((c.centroid - (at + offset)).norm() < 1e-12, "{at:?}: {:?}", c.centroid - at);
+            assert!((c.normal - offset.normalized()).norm() < 1e-12, "{at:?}: {:?}", c.normal);
+        }
+        // Whole ball inside; whole cube inside.
+        let c = LayerContact::with_ball(&block, Vec3::new(0.1, -0.2, 0.3), r);
+        assert!(c.is_none(), "no surface of the ball in contact");
+        let small = cube(Vec3::new(0.01, 0.02, -0.03), 0.1);
+        let c = LayerContact::with_ball(&small, Vec3::ZERO, 1.0);
+        assert!(c.is_none(), "a cube inside the ball has no ball surface inside it");
+    }
+
+    #[test]
+    fn a_ball_over_an_edge_matches_brute_force_integration() {
+        // Independent reference: columns along z through an axis-aligned box, each the
+        // exact length of the line inside both box and ball, midpoint rule on a fine grid.
+        let half = Vec3::new(0.4, 0.3, 0.25);
+        let block = cube(Vec3::ZERO, 1.0);
+        let block = Polytope { faces: block.faces.into_iter().map(|f| Face { vertices: f.vertices.iter().map(|v| v.mul_elem(half)).collect(), ..f }).collect() };
+        for (center, r) in [(Vec3::new(0.35, 0.33, 0.2), 0.12), (Vec3::new(0.45, -0.31, 0.28), 0.1), (Vec3::new(0.1, 0.0, 0.31), 0.08)] {
+            let c = LayerContact::with_ball(&block, center, r).unwrap();
+            let n = 3000;
+            let (x0, y0, step) = (center.x - r, center.y - r, 2.0 * r / n as f64);
+            let (mut vol, mut mom) = (0.0, Vec3::ZERO);
+            for i in 0..n {
+                for j in 0..n {
+                    let (x, y) = (x0 + (i as f64 + 0.5) * step, y0 + (j as f64 + 0.5) * step);
+                    let q = r * r - (x - center.x).powi(2) - (y - center.y).powi(2);
+                    if q <= 0.0 || x.abs() > half.x || y.abs() > half.y {
+                        continue;
+                    }
+                    let (lo, hi) = ((center.z - q.sqrt()).max(-half.z), (center.z + q.sqrt()).min(half.z));
+                    if hi > lo {
+                        let a = step * step * (hi - lo);
+                        vol += a;
+                        mom += Vec3::new(x, y, 0.5 * (lo + hi)) * a;
+                    }
+                }
+            }
+            // (the brute force agrees to 3e-7 at this grid)
+            assert!(rel(c.volume, vol) < 2e-6, "{center:?}: {} vs {vol}", c.volume);
+            assert!((c.centroid - mom / vol).norm() < 2e-6 * r, "{center:?}: {:?} vs {:?}", c.centroid, mom / vol);
+        }
+    }
+
+    #[test]
+    fn ball_overlaps_add_over_a_split_polytope() {
+        // A box cut in two (in any plane): the halves' overlaps with any ball add up to
+        // the whole box's, volume and first moment, whatever edges the ball crosses.
+        let rot = Quat::from_axis_angle(Vec3::new(1.0, 0.4, -0.2).normalized(), 0.35).to_mat3();
+        let whole = Polytope::cuboid(Vec3::new(0.05, 0.0, -0.02), rot, Vec3::new(0.3, 0.2, 0.15), OWNER_A);
+        let cut_n = Vec3::new(0.2, 1.0, 0.1).normalized();
+        let (left, right) = (whole.clip(cut_n, 0.01, OWNER_A), whole.clip(-cut_n, -0.01, OWNER_A));
+        let mut seed = 0x1234_5678u64;
+        let mut rnd = || {
+            seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            (seed >> 11) as f64 / (1u64 << 53) as f64 - 0.5
+        };
+        let mut tested = 0;
+        for _ in 0..400 {
+            let center = Vec3::new(rnd(), rnd(), rnd()) * 1.0;
+            let r = 0.05 + 0.3 * (rnd() + 0.5);
+            let moments = |p: &Polytope| LayerContact::with_ball(p, center, r).map_or((0.0, Vec3::ZERO), |c| (c.volume, c.centroid * c.volume));
+            let (vw, mw) = moments(&whole);
+            let ((vl, ml), (vr, mr)) = (moments(&left), moments(&right));
+            if vw == 0.0 {
+                continue;
+            }
+            tested += 1;
+            assert!((vl + vr - vw).abs() < 1e-12 * r * r * r, "volume {vl} + {vr} vs {vw}");
+            assert!((ml + mr - mw).norm() < 1e-12 * r * r * r, "first moment");
+        }
+        assert!(tested > 100, "{tested}");
+    }
+
+    #[test]
+    fn cuboid_mass_properties_are_exact() {
+        let half = Vec3::new(0.5, 1.0, 1.5);
+        let r = Quat::from_axis_angle(Vec3::new(1.0, 2.0, 3.0).normalized(), 0.9).to_mat3();
+        let p = Polytope::cuboid(Vec3::new(1.0, -2.0, 3.0), r, half, OWNER_A);
+        let mp = p.mass_properties().unwrap();
+        assert!((mp.volume - 6.0).abs() < 1e-12, "{}", mp.volume);
+        assert!((mp.centroid - Vec3::new(1.0, -2.0, 3.0)).norm() < 1e-12);
+        // Body-frame second moments V a^2 / 3 along each axis.
+        let local = r.transpose() * mp.second_moment * r;
+        for (k, h) in [half.x, half.y, half.z].iter().enumerate() {
+            assert!((local.m[k][k] - 6.0 * h * h / 3.0).abs() < 1e-10, "{k}: {}", local.m[k][k]);
+        }
+        for f in &p.faces {
+            let (_, c) = polygon_area_centroid(&f.vertices);
+            assert!(f.normal.dot(c - Vec3::new(1.0, -2.0, 3.0)) > 0.0, "outward normals");
+        }
+    }
+
+    #[test]
+    fn a_resting_box_overlaps_the_ground_over_its_whole_face() {
+        // Box of half 0.1 sunk by 1e-3 into the ground z <= 0.
+        let p = cube(Vec3::new(0.3, -0.2, 0.1 - 1e-3), 0.1);
+        let c = LayerContact::with_half_space(&p, Vec3::Z, 0.0, 0.0).unwrap().contact.unwrap();
+        assert!((c.volume - 0.04 * 1e-3).abs() < 1e-15, "{}", c.volume);
+        assert!((c.area - 0.04).abs() < 1e-12);
+        assert!((c.normal - Vec3::Z).norm() < 1e-12);
+        assert!((c.centroid - Vec3::new(0.3, -0.2, -0.5e-3)).norm() < 1e-12);
+        assert!((c.depth - 0.5e-3).abs() < 1e-12);
+        // Square of side 0.2: polar moment a^4 / 6, mean distance 0.3826 * a.
+        assert!((c.polar_moment - 0.2f64.powi(4) / 6.0).abs() < 1e-9, "{}", c.polar_moment);
+        assert!((c.mean_radius - 0.382_597_858_6 * 0.2).abs() < 2e-3 * 0.2, "{}", c.mean_radius / 0.2);
+    }
+
+    #[test]
+    fn a_tilted_box_overlaps_the_ground_in_a_wedge() {
+        // Unit cube tilted by t about y, its lowest edge 1e-2 below the ground: the
+        // overlap is a triangular prism.
+        let t = 0.1f64;
+        let r = Quat::from_axis_angle(Vec3::Y, t).to_mat3();
+        let half = 0.5;
+        // Lowest corner height relative to the centre: -half (cos t + sin t).
+        let low = half * (t.cos() + t.sin());
+        let d = 1e-2;
+        let p = Polytope::cuboid(Vec3::new(0.0, 0.0, low - d), r, Vec3::splat(half), OWNER_A);
+        let c = LayerContact::with_half_space(&p, Vec3::Z, 0.0, 0.0).unwrap().contact.unwrap();
+        // Cross-section in x-z: triangle with legs d / sin t and d / cos t, depth 1.
+        let expected = 0.5 * (d / t.sin()) * (d / t.cos()) * 1.0;
+        assert!((c.volume - expected).abs() < 1e-12, "{} vs {expected}", c.volume);
+        assert!((c.normal - Vec3::Z).norm() < 1e-12);
+        // Triangle centroid one third of the way up from the edge: depth d / 3.
+        assert!((c.depth - d / 3.0).abs() < 1e-10, "{}", c.depth);
+    }
+
+    #[test]
+    fn overlaps_are_symmetric_and_face_contact_is_exact() {
+        let a = cube(Vec3::new(0.0, 0.0, 0.199), 0.1);
+        let mut b = cube(Vec3::new(0.05, 0.0, 0.0), 0.1);
+        b.faces.iter_mut().for_each(|f| f.owner = OWNER_B);
+        let ab = LayerContact::between(&a, &b, 0.0).unwrap().contact.unwrap();
+        // Face overlap 0.15 x 0.2, thickness 1e-3.
+        assert!((ab.volume - 0.15 * 0.2 * 1e-3).abs() < 1e-15, "{}", ab.volume);
+        // Overhang tilt: delta / w = 1e-3 / 0.15.
+        assert!((ab.normal - Vec3::Z).norm() < 1e-3 / 0.15 * 1.01, "{:?}", ab.normal);
+        assert!((ab.area - 0.03).abs() < 1e-6);
+        let mut a2 = a.clone();
+        a2.faces.iter_mut().for_each(|f| f.owner = OWNER_B);
+        let mut b2 = b.clone();
+        b2.faces.iter_mut().for_each(|f| f.owner = OWNER_A);
+        let ba = LayerContact::between(&b2, &a2, 0.0).unwrap().contact.unwrap();
+        assert!((ba.volume - ab.volume).abs() < 1e-15 && (ba.normal + ab.normal).norm() < 1e-12);
+        assert!((ba.centroid - ab.centroid).norm() < 1e-12);
+    }
+
+    #[test]
+    fn random_intersections_agree_both_ways() {
+        let mut seed = 99u64;
+        let mut rnd = || {
+            seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            (seed >> 11) as f64 / (1u64 << 53) as f64
+        };
+        let mut hits = 0;
+        for _ in 0..2000 {
+            let mut shape = |owner| {
+                let axis = Vec3::new(rnd() - 0.5, rnd() - 0.5, rnd() - 0.5);
+                let r = Quat::from_axis_angle(axis.normalized(), axis.norm() * 6.0).to_mat3();
+                let c = Vec3::new(rnd() - 0.5, rnd() - 0.5, rnd() - 0.5);
+                Polytope::cuboid(c, r, Vec3::new(0.1 + rnd(), 0.1 + rnd(), 0.1 + rnd()) * 0.5, owner)
+            };
+            let (a, b) = (shape(OWNER_A), shape(OWNER_B));
+            let (ab, ba) = (a.intersect(&b), b.intersect(&a));
+            match (ab.mass_properties(), ba.mass_properties()) {
+                (Some(x), Some(y)) => {
+                    hits += 1;
+                    let scale = x.volume.max(y.volume);
+                    assert!((x.volume - y.volume).abs() < 1e-9 * scale.max(1e-12) + 1e-15, "{} vs {}", x.volume, y.volume);
+                    assert!((x.centroid - y.centroid).norm() < 1e-7, "{:?} vs {:?}", x.centroid, y.centroid);
+                    // A closed surface: owner normals cancel.
+                    let (na, _, _) = ab.owner_surface(OWNER_A);
+                    let (nb, _, _) = ab.owner_surface(OWNER_B);
+                    assert!((na + nb).norm() < 1e-9 * (1.0 + na.norm()), "{:?} {:?}", na, nb);
+                }
+                (None, None) => {}
+                (x, y) => {
+                    // Only slivers below rounding may disagree.
+                    let v = x.map_or(0.0, |m| m.volume).max(y.map_or(0.0, |m| m.volume));
+                    assert!(v < 1e-12, "one-sided intersection of volume {v}");
+                }
+            }
+        }
+        assert!(hits > 300, "{hits}");
+    }
+
+    #[test]
+    fn an_indentation_removes_that_depth_of_overlap() {
+        // Box sunk 1e-3 into the ground, indented 4e-4: the layer acts on the deepest 6e-4.
+        let p = cube(Vec3::new(0.0, 0.0, 0.1 - 1e-3), 0.1);
+        let o = LayerContact::with_half_space(&p, Vec3::Z, 0.0, 4e-4).unwrap();
+        assert!((o.max_depth - 1e-3).abs() < 1e-12);
+        let c = o.contact.unwrap();
+        assert!((c.volume - 0.04 * 6e-4).abs() < 1e-15, "{}", c.volume);
+        assert!((c.depth - 3e-4).abs() < 1e-12 && (c.area - 0.04).abs() < 1e-12);
+        // Fully indented: in contact, but no force (at most a round-off sliver).
+        let o = LayerContact::with_half_space(&p, Vec3::Z, 0.0, 1e-3).unwrap();
+        assert!(o.contact.is_none_or(|c| c.volume < 1e-18) && (o.max_depth - 1e-3).abs() < 1e-12);
+    }
+
+    #[test]
+    fn sphere_cap_volume_and_centroid() {
+        let (r, d) = (0.5, 0.1);
+        let c = LayerContact::sphere_cap(Vec3::new(0.0, 0.0, r - d), r, Vec3::Z, d).unwrap();
+        assert!((c.volume - std::f64::consts::PI * d * d * (3.0 * r - d) / 3.0).abs() < 1e-15);
+        // Cap centroid height below the plane z = 0: from the classical formula.
+        let zc = (r - d) - 3.0 * (2.0 * r - d).powi(2) / (4.0 * (3.0 * r - d));
+        assert!((c.centroid.z - zc).abs() < 1e-12 && (c.depth + zc).abs() < 1e-12);
+        assert!((c.area - std::f64::consts::PI * (2.0 * r * d - d * d)).abs() < 1e-12);
+    }
+}

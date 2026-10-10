@@ -46,6 +46,7 @@ pub struct SolverConfig {
     /// Adaptive mode: relative load change that wakes a settled cluster.
     pub wake_threshold: f64,
     pub features: Features,
+    pub methods: crate::scene::Methods,
 }
 
 impl SolverConfig {
@@ -60,6 +61,7 @@ impl SolverConfig {
             active_time: 0.5,
             wake_threshold: 0.02,
             features: scene.sim.features,
+            methods: scene.sim.methods,
         }
     }
 }
@@ -210,6 +212,19 @@ pub enum SolverEvent {
     Refined { time: f64, structure: usize, chunk: usize },
 }
 
+/// A joint broken by a split, as the world needs it to hand its compression over to the
+/// contact of its two chunks.
+#[derive(Clone, Copy, Debug)]
+pub struct Handover {
+    pub structure: usize,
+    pub a: usize,
+    pub b: usize,
+    /// The joint's compressive normal force at the split (N, >= 0).
+    pub compression: f64,
+    /// The joint's stored elastic energy at the split (J).
+    pub stored: f64,
+}
+
 /// Cumulative energy terms (J). See `energy_balance` in `world.rs` for the closed form.
 #[derive(Clone, Copy, Debug, Default, serde::Serialize)]
 pub struct EnergyLedger {
@@ -311,6 +326,9 @@ pub struct ReferenceSolver {
     pub energy: EnergyLedger,
     pub events: Vec<SolverEvent>,
     pub replacements: Vec<ReplacementLoad>,
+    /// Joints broken by splits since the world last took them (`sim.methods.layer_contact`):
+    /// their compression is handed over to the chunks' contact (`World`).
+    pub handovers: Vec<Handover>,
     next_cluster_id: u64,
     /// Scratch: internal forces per chunk.
     f_int: Vec<Vec<(Vec3, Vec3)>>,
@@ -336,6 +354,7 @@ impl ReferenceSolver {
             energy: EnergyLedger::default(),
             events: Vec::new(),
             replacements: Vec::new(),
+            handovers: Vec::new(),
             next_cluster_id: 0,
             f_int: Vec::new(),
             pending_split: Vec::new(),
@@ -602,6 +621,49 @@ impl ReferenceSolver {
         row
     }
 
+    /// Gershgorin row sums of the mass-normalised matrix `M^-1/2 A M^-1/2` (`A` the
+    /// bonds' stiffness or damping per `coeffs`), per chunk and degree of freedom:
+    /// every entry has the units of `A / M` whatever the units of length, so the bound
+    /// (and the substep it sets) is a property of the physics, not of the units. Rotations
+    /// use the smallest principal moment (conservative: a smaller inertia only raises the
+    /// bound), masses the deformation inertia (`inertia_scale`).
+    fn normalized_gershgorin_rows(&self, ci: usize, coeffs: impl Fn(&RtBond) -> [f64; 6]) -> Vec<[f64; 6]> {
+        let cl = &self.clusters[ci];
+        let s = cl.structure;
+        let st = &self.structures[s];
+        let inv_sqrt = |c: usize| {
+            let mu = self.chunks[s][c].inertia_scale;
+            (1.0 / (mu * st.chunks[c].mass).sqrt(), 1.0 / (mu * smallest_principal_moment(&st.chunks[c].inertia)).sqrt())
+        };
+        let mut row = vec![[0.0f64; 6]; st.chunks.len()];
+        for &bi in &cl.bonds {
+            let b = &self.bonds[s][bi];
+            let g = &b.geometry;
+            let ks = coeffs(b);
+            let axes = [g.t1, g.t2, g.normal];
+            let ((ta, ra), (tb, rb)) = (inv_sqrt(g.a), inv_sqrt(g.b));
+            for comp in 0..6 {
+                let t = axes[comp % 3];
+                let row_vec: [Vec3; 4] = if comp < 3 {
+                    [-t, -(g.ra.cross(t)), t, g.rb.cross(t)]
+                } else {
+                    [Vec3::ZERO, -t, Vec3::ZERO, t]
+                };
+                // Each entry divided by the square root of its degree of freedom's inertia.
+                let scale = [ta, ra, tb, rb];
+                let hat: [Vec3; 4] = std::array::from_fn(|k| row_vec[k].abs() * scale[k]);
+                let l1: f64 = hat.iter().map(|v| v.x + v.y + v.z).sum();
+                for (blk, chunk) in [(0usize, g.a), (2usize, g.b)] {
+                    for d in 0..3 {
+                        row[chunk][d] += ks[comp] * hat[blk][d] * l1;
+                        row[chunk][3 + d] += ks[comp] * hat[blk + 1][d] * l1;
+                    }
+                }
+            }
+        }
+        row
+    }
+
     /// Full stiffness of a bond's 6 components (concrete plus rebar).
     fn bond_stiffness6(b: &RtBond) -> [f64; 6] {
         let mut k = b.stiffness.as_local();
@@ -617,6 +679,10 @@ impl ReferenceSolver {
     /// cluster, with every bond at full stiffness (damage only lowers it) and the
     /// chunk's (possibly scaled) deformation inertia. Returns `(chunk, omega^2)`.
     pub fn chunk_frequencies(&self, ci: usize) -> Vec<(usize, f64)> {
+        if self.config.methods.scaled_step_bound {
+            let row = self.normalized_gershgorin_rows(ci, Self::bond_stiffness6);
+            return self.clusters[ci].chunks.iter().map(|&c| (c, row[c].iter().copied().fold(0.0, f64::max))).collect();
+        }
         let row = self.gershgorin_rows(ci, Self::bond_stiffness6);
         let st = &self.structures[self.clusters[ci].structure];
         let s = self.clusters[ci].structure;
@@ -640,6 +706,25 @@ impl ReferenceSolver {
     /// frequency, so a soft bond adds little damping: pairing one bond's damping ratio
     /// with another chunk's frequency would overstate the damping.
     pub fn chunk_stable_dts(&self, ci: usize) -> Vec<(usize, f64)> {
+        if self.config.methods.scaled_step_bound {
+            let k = self.normalized_gershgorin_rows(ci, Self::bond_stiffness6);
+            let c = self.normalized_gershgorin_rows(ci, |b| [b.damping.lin.x, b.damping.lin.y, b.damping.lin.z, b.damping.ang.x, b.damping.ang.y, b.damping.ang.z]);
+            return self.clusters[ci]
+                .chunks
+                .iter()
+                .map(|&ch| {
+                    let dt = (0..6)
+                        .filter(|&d| k[ch][d] > 0.0)
+                        .map(|d| {
+                            let w = k[ch][d].sqrt();
+                            let zeta = c[ch][d] / (2.0 * w);
+                            2.0 / w * ((1.0 + zeta * zeta).sqrt() - zeta)
+                        })
+                        .fold(f64::INFINITY, f64::min);
+                    (ch, dt)
+                })
+                .collect();
+        }
         let k = self.gershgorin_rows(ci, Self::bond_stiffness6);
         let c = self.gershgorin_rows(ci, |b| [b.damping.lin.x, b.damping.lin.y, b.damping.lin.z, b.damping.ang.x, b.damping.ang.y, b.damping.ang.z]);
         let s = self.clusters[ci].structure;
@@ -1188,7 +1273,12 @@ impl ReferenceSolver {
         for &bi in &parent.bonds {
             let g = &self.bonds[s][bi].geometry;
             if comp_of[&g.a] != comp_of[&g.b] {
-                self.energy.split_release += self.bonds[s][bi].stored;
+                let b = &self.bonds[s][bi];
+                if self.config.methods.layer_contact {
+                    self.handovers.push(Handover { structure: s, a: g.a, b: g.b, compression: (-b.force.lin.z).max(0.0), stored: b.stored });
+                } else {
+                    self.energy.split_release += b.stored;
+                }
                 self.bonds[s][bi].alive = false;
             }
         }

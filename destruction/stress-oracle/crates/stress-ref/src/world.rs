@@ -17,6 +17,7 @@ use crate::api::{hertz_duration, ContactImpulse, ContactLoadFilter};
 use crate::blast::FaceBlast;
 use crate::engine::{BodyGeometry, BodyKey, BodyMotion, BoxShape, EngineBody, RigidEngine};
 use crate::contact::OBox;
+use crate::polytope::{LayerContact, Owner, Polytope, OWNER_A, OWNER_B};
 use crate::material::Material;
 use crate::math::{Mat3, Pose, Quat, Vec3};
 use crate::observation::{ChunkObservation, Observation, ProbeSeries};
@@ -82,6 +83,63 @@ pub struct ContactLedger {
     pub crush: f64,
     /// Work done by chunk-pair contact forces on the chunks (diagnostic).
     pub pair_work: f64,
+    /// Work done by every contact force on the bodies over the displacement the
+    /// integrator applied (force at the start of the substep, velocity at its end):
+    /// `-work - stored + received` is the energy the contacts actually took out of the
+    /// motion: with `layer_contact`, the dissipation booked.
+    pub work: f64,
+    /// Energy handed to contacts by the joints of a split (their compression).
+    pub received: f64,
+    /// With `layer_contact`: the dashpot, friction and crush dissipation by the force
+    /// law's own quadrature (first order in the substep; diagnostic).
+    pub modelled: f64,
+    /// With `layer_contact`, by kind of contact (impactor on chunk, chunk on ground,
+    /// impactor on ground, chunk on chunk): a force law that is the gradient of its
+    /// stored energy plus its dashpots and friction has `modelled` and the dissipation
+    /// from the work converging together with the substep.
+    pub kinds: [KindLedger; 4],
+}
+
+/// One kind of contact's energy terms (J).
+#[derive(Clone, Copy, Debug, Default, serde::Serialize)]
+pub struct KindLedger {
+    pub stored: f64,
+    pub work: f64,
+    pub received: f64,
+    pub modelled: f64,
+}
+
+impl KindLedger {
+    /// What these contacts took out of the motion, net of what they store.
+    pub fn dissipated(&self) -> f64 {
+        -self.work - self.stored + self.received
+    }
+}
+
+pub const KIND_IMPACTOR: usize = 0;
+pub const KIND_GROUND: usize = 1;
+pub const KIND_IMPACTOR_GROUND: usize = 2;
+pub const KIND_PAIR: usize = 3;
+
+/// A body a contact acts on, for the contact work.
+#[derive(Clone, Copy, Debug)]
+enum Party {
+    Chunk(usize, usize),
+    Impactor(usize),
+    Ground,
+}
+
+/// A contact's load this substep: force and moment on `a` (the opposite on `b`), with
+/// the lever arms from each body's centre to the point of action.
+#[derive(Clone, Copy, Debug)]
+struct Applied {
+    kind: usize,
+    a: Party,
+    ra: Vec3,
+    b: Party,
+    rb: Vec3,
+    force: Vec3,
+    moment: Vec3,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -136,6 +194,11 @@ pub struct World {
     /// Pre-existing overlap per sample point of chunk pairs in contact (NaN = point not
     /// in contact); dropped when the pair separates.
     pair_offsets: std::collections::HashMap<ChunkPair, Vec<(f64, Vec3)>>,
+    /// Elastic-layer contact: the friction state (shear-layer slip and twist) of every
+    /// contact in touch, carried from substep to substep; dropped when it separates.
+    sticks: HashMap<ContactKey, Stick>,
+    /// Elastic-layer contacts applied this substep (for the contact work by kind).
+    applied: Vec<Applied>,
     /// External rigid-body engine, if the world is coupled to one (`World::with_engine`).
     coupling: Option<Coupling>,
     /// Coupled mode: frames that had an impact island, and the most bodies in islands.
@@ -277,6 +340,8 @@ impl World {
             implicit_worst_residual: 0.0,
             contact_hits,
             pair_offsets: Default::default(),
+            sticks: Default::default(),
+            applied: Vec::new(),
             coupling: None,
             island_frames: 0,
             max_island_bodies: 0,
@@ -362,9 +427,150 @@ impl World {
         }
         if w2 <= 0.0 {
             f64::INFINITY
+        } else if self.scene.sim.methods.layer_contact {
+            // The contact dashpots are not capped: the step resolves the damped
+            // oscillator, `(2 / w) (sqrt(1 + z^2) - z)`, as for the bonds.
+            let z = damping_ratio(self.scene.sim.contact_restitution);
+            2.0 / w2.sqrt() * ((1.0 + z * z).sqrt() - z) * self.scene.sim.courant_safety
         } else {
             2.0 / w2.sqrt() * self.scene.sim.courant_safety
         }
+    }
+
+    /// Contact substep for the coming frame (`sim.methods.frame_contact_step`, with the
+    /// elastic-layer contact): a Gershgorin bound over the contacts that can engage
+    /// within the frame, from bounding spheres swept by the bodies' speeds (translation
+    /// plus rotation at the bounding radius) and gravity over the frame. Each contact
+    /// adds to both bodies' rows its normal and two tangential layer stiffnesses at the
+    /// largest cross-section either body has (`k'' A`), acting through lever arms up to
+    /// the bounding radius; torsion adds `k''_t A R^2`. Infinite when nothing can touch.
+    /// A pair that splits within the frame needs nothing here: its contact has the
+    /// stiffness of the joint it replaces, already in the stress bound.
+    fn frame_contact_dt(&self) -> f64 {
+        let scale = self.scene.sim.stiffness_scale;
+        let fdt = self.scene.sim.frame_dt;
+        let fall = Vec3::from_array(self.scene.gravity).norm() * fdt * fdt;
+        let e = |m: &Material| m.youngs_modulus * scale / (1.0 - m.poisson_ratio * m.poisson_ratio);
+        let g = |m: &Material| m.shear_modulus() * scale;
+        // A body as the bound sees it.
+        #[derive(Clone, Copy)]
+        struct B {
+            center: Vec3,
+            radius: f64,
+            speed: f64,
+            /// sqrt(3) (1/sqrt(m) + R/sqrt(I_min)): the L1 norm of a contact row scaled by
+            /// the inverse square roots of the inertias, at most.
+            beta: f64,
+            rot: f64,
+            h: f64,
+            area: f64,
+            e: f64,
+            g: f64,
+        }
+        let row = |m: f64, i: f64, r: f64| (3f64.sqrt() * (1.0 / m.sqrt() + r / i.sqrt()), 3f64.sqrt() / i.sqrt());
+        let mut bodies: Vec<B> = Vec::new();
+        let mut chunk_of: Vec<(usize, usize, usize)> = Vec::new(); // (body index, structure, chunk)
+        for (si, st) in self.solver.structures.iter().enumerate() {
+            for (ci, ch) in st.chunks.iter().enumerate() {
+                if !self.solver.chunks[si][ci].active {
+                    continue;
+                }
+                let mu = self.solver.chunks[si][ci].inertia_scale;
+                let (v, w) = self.solver.chunk_velocity(si, ci);
+                let r = ch.half_extents.norm();
+                let h = ch.half_extents;
+                let area = match &ch.hull {
+                    Some(hull) => 0.5 * hull.faces.iter().map(|f| f.area).sum::<f64>(),
+                    None => 4.0 * ((h.x * h.y).powi(2) + (h.y * h.z).powi(2) + (h.z * h.x).powi(2)).sqrt(),
+                };
+                let mat = self.chunk_material(si, ci);
+                let (beta, rot) = row(ch.mass * mu, crate::solver::smallest_principal_moment(&ch.inertia) * mu, r);
+                chunk_of.push((bodies.len(), si, ci));
+                bodies.push(B { center: self.solver.chunk_position(si, ci), radius: r, speed: v.norm() + w.norm() * r, beta, rot, h: h.min_elem(), area, e: e(mat), g: g(mat) });
+            }
+        }
+        let first_impactor = bodies.len();
+        for imp in &self.impactors {
+            let (r, h, area) = match imp.shape {
+                ImpactorShape::Sphere { radius } => (radius, radius, std::f64::consts::PI * radius * radius),
+                ImpactorShape::Box { half_extents } => {
+                    let h = Vec3::from_array(half_extents);
+                    (h.norm(), h.min_elem(), 4.0 * ((h.x * h.y).powi(2) + (h.y * h.z).powi(2) + (h.z * h.x).powi(2)).sqrt())
+                }
+            };
+            let (beta, rot) = row(imp.mass, crate::solver::smallest_principal_moment(&imp.inertia), r);
+            bodies.push(B { center: imp.pose.position, radius: r, speed: imp.velocity.norm() + imp.angular_velocity.norm() * r, beta, rot, h, area, e: e(&imp.material), g: g(&imp.material) });
+        }
+        let mut w2 = vec![0.0f64; bodies.len()];
+        // One contact between bodies a and b (b = None: the ground, which has no rows).
+        let add = |w2: &mut Vec<f64>, a: usize, b: Option<usize>, ground: Option<(f64, f64)>| {
+            let ba = bodies[a];
+            let (bb_beta, bb_rot, h_b, e_b, g_b, area_b) = match b {
+                Some(j) => (bodies[j].beta, bodies[j].rot, bodies[j].h, bodies[j].e, bodies[j].g, bodies[j].area),
+                None => {
+                    let (ge, gg) = ground.expect("ground moduli");
+                    (0.0, 0.0, ba.h, ge, gg, f64::INFINITY)
+                }
+            };
+            let area = ba.area.min(area_b);
+            let k_n = area / (ba.h / ba.e + h_b / e_b);
+            let k_t = area / (ba.h / ba.g + h_b / g_b);
+            let radius = b.map_or(ba.radius, |j| ba.radius.max(bodies[j].radius));
+            let lin = k_n + 2.0 * k_t;
+            let tor = k_t * radius * radius;
+            w2[a] += lin * ba.beta * (ba.beta + bb_beta) + tor * ba.rot * (ba.rot + bb_rot);
+            if let Some(j) = b {
+                w2[j] += lin * bodies[j].beta * (ba.beta + bodies[j].beta) + tor * bodies[j].rot * (ba.rot + bodies[j].rot);
+            }
+        };
+        let near = |a: &B, b: &B| (a.center - b.center).norm() <= a.radius + b.radius + (a.speed + b.speed) * fdt + fall;
+        // Ground.
+        if let Some(gd) = &self.scene.ground {
+            let gm = self.scene.material(&gd.material);
+            let moduli = (e(gm), g(gm));
+            for &(k, si, ci) in &chunk_of {
+                let cl = &self.solver.clusters[self.solver.chunks[si][ci].cluster];
+                let b = bodies[k];
+                if !cl.anchored && !cl.driven && b.center.z - b.radius - b.speed * fdt - fall <= gd.height {
+                    add(&mut w2, k, None, Some(moduli));
+                }
+            }
+            for k in first_impactor..bodies.len() {
+                let b = bodies[k];
+                if b.center.z - b.radius - b.speed * fdt - fall <= gd.height {
+                    add(&mut w2, k, None, Some(moduli));
+                }
+            }
+        }
+        // Impactors against chunks.
+        for k in first_impactor..bodies.len() {
+            for &(j, si, ci) in &chunk_of {
+                if !self.solver.clusters[self.solver.chunks[si][ci].cluster].driven && near(&bodies[k], &bodies[j]) {
+                    add(&mut w2, j, Some(k), None);
+                }
+            }
+        }
+        // Chunks of different clusters.
+        for (x, &(ka, sa, ca)) in chunk_of.iter().enumerate() {
+            let cla = self.solver.chunks[sa][ca].cluster;
+            for &(kb, sb, cb) in &chunk_of[x + 1..] {
+                let clb = self.solver.chunks[sb][cb].cluster;
+                if cla == clb {
+                    continue;
+                }
+                let (a, b) = (&self.solver.clusters[cla], &self.solver.clusters[clb]);
+                if (a.anchored && b.anchored) || a.driven || b.driven || !near(&bodies[ka], &bodies[kb]) {
+                    continue;
+                }
+                add(&mut w2, ka, Some(kb), None);
+            }
+        }
+        let w2_max = w2.iter().copied().fold(0.0, f64::max);
+        if w2_max <= 0.0 {
+            return f64::INFINITY;
+        }
+        let z = damping_ratio(self.scene.sim.contact_restitution);
+        2.0 / w2_max.sqrt() * ((1.0 + z * z).sqrt() - z) * self.scene.sim.courant_safety
     }
 
     fn pair_friction(&self, a: &Material, b: &Material) -> f64 {
@@ -379,7 +585,15 @@ impl World {
         } else {
             self.solver.stable_dt()
         };
-        let mut dt = stress_dt.min(self.contact_dt).min(self.scene.sim.frame_dt);
+        // A chunk with bonds and contacts feels both stiffnesses: with the unit-consistent
+        // bound the two limits combine as `1/dt^2 = 1/dt_stress^2 + 1/dt_contact^2`
+        // (exact for undamped oscillators sharing a mass); else the smaller is taken.
+        let combined = if self.scene.sim.methods.scaled_step_bound {
+            1.0 / (stress_dt.powi(-2) + self.contact_dt.powi(-2)).sqrt()
+        } else {
+            stress_dt.min(self.contact_dt)
+        };
+        let mut dt = combined.min(self.scene.sim.frame_dt);
         if let Some(m) = self.scene.sim.max_substep {
             dt = dt.min(m);
         }
@@ -627,6 +841,9 @@ impl World {
         let mut imp_loads = vec![(Vec3::ZERO, Vec3::ZERO); self.impactors.len()];
         self.contact.stored = 0.0;
         self.contact_hits.iter_mut().flatten().for_each(|h| *h = 0.0);
+        if self.scene.sim.methods.layer_contact {
+            return self.apply_layer_contacts(dt);
+        }
         let active: Vec<(usize, usize)> = (0..self.solver.structures.len())
             .flat_map(|s| (0..self.solver.structures[s].chunks.len()).map(move |c| (s, c)))
             .filter(|&(s, c)| self.solver.chunks[s][c].active)
@@ -843,6 +1060,320 @@ impl World {
         imp_loads
     }
 
+    /// Elastic-layer contacts (`sim.methods.layer_contact`; see `polytope.rs`):
+    /// impactors against chunks, chunks and impactors on the ground, and chunks of
+    /// different clusters. Each contact is one overlap: its normal force `k'' V` acts at
+    /// the overlap's centroid, with anchored stick-slip friction (`layer_force`).
+    fn apply_layer_contacts(&mut self, dt: f64) -> Vec<(Vec3, Vec3)> {
+        let scale = self.scene.sim.stiffness_scale;
+        let restitution = self.scene.sim.contact_restitution;
+        let mut imp_loads = vec![(Vec3::ZERO, Vec3::ZERO); self.impactors.len()];
+        let mut previous = std::mem::take(&mut self.sticks);
+        self.applied.clear();
+        for k in &mut self.contact.kinds {
+            k.stored = 0.0;
+        }
+        let active: Vec<(usize, usize)> = (0..self.solver.structures.len())
+            .flat_map(|s| (0..self.solver.structures[s].chunks.len()).map(move |c| (s, c)))
+            .filter(|&(s, c)| self.solver.chunks[s][c].active)
+            .collect();
+        let bounds: Vec<(Vec3, f64)> = active
+            .iter()
+            .map(|&(s, c)| (self.solver.chunk_position(s, c), self.solver.structures[s].chunks[c].half_extents.norm()))
+            .collect();
+        let mut boxes: Vec<Option<OBox>> = vec![None; active.len()];
+        let in_island = |solver: &ReferenceSolver, s: usize, c: usize| !solver.clusters[solver.chunks[s][c].cluster].driven;
+
+        // Impactors against chunks; the crush cap limits the impactor's total force.
+        for ii in 0..self.impactors.len() {
+            if self.impactors[ii].driven {
+                continue;
+            }
+            let imp = self.impactors[ii].clone();
+            let ib = imp.obox();
+            let reach = ib.bounding_radius();
+            // (chunk, contact seen from the chunk, layer moduli)
+            let mut contacts: Vec<(usize, usize, LayerContact, f64, f64)> = Vec::new();
+            for (k, &(s, c)) in active.iter().enumerate() {
+                let (center, radius) = bounds[k];
+                if (center - ib.center).norm() > reach + radius || !in_island(&self.solver, s, c) {
+                    continue;
+                }
+                let b = self.cached_box(&mut boxes, k, s, c).clone();
+                let (lc, h_imp) = match imp.shape {
+                    ImpactorShape::Sphere { radius } => {
+                        let r = radius - imp.crush_depth;
+                        // The ball's overlap with the chunk, exact at faces, edges and
+                        // corners: across neighbouring chunks the shares add up to the
+                        // overlap with their union.
+                        let Some(lc) = LayerContact::with_ball(&polytope_of(&b, OWNER_A), imp.pose.position, r) else { continue };
+                        (lc, r)
+                    }
+                    ImpactorShape::Box { .. } => {
+                        let shrunk = OBox { half: ib.half - Vec3::splat(imp.crush_depth).component_min(ib.half * 0.5), ..ib.clone() };
+                        if !b.may_overlap(&shrunk) {
+                            continue;
+                        }
+                        let Some(lc) = LayerContact::between(&polytope_of(&b, OWNER_A), &polytope_of(&shrunk, OWNER_B), 0.0).and_then(|o| o.contact) else { continue };
+                        let h = half_thickness_and_area(&shrunk, lc.normal).0;
+                        (lc, h)
+                    }
+                };
+                let h_chunk = half_thickness_and_area(&b, lc.normal).0;
+                let (k_n, k_t) = layer_moduli(self.chunk_material(s, c), h_chunk, &imp.material, h_imp, scale);
+                contacts.push((s, c, lc, k_n, k_t));
+            }
+            if contacts.is_empty() {
+                continue;
+            }
+            let mut elastic_scale = 1.0;
+            if let Some((max_force, energy)) = imp.crush {
+                let total: f64 = contacts.iter().map(|c| c.3 * c.2.volume).sum();
+                if imp.crush_used < energy && total > max_force {
+                    let stiffness: f64 = contacts.iter().map(|c| c.3 * c.2.area).sum();
+                    let extra = (total - max_force) / stiffness;
+                    self.impactors[ii].crush_depth += extra;
+                    self.impactors[ii].crush_used += max_force * extra;
+                    self.contact.crush += max_force * extra;
+                    self.contact.modelled += max_force * extra;
+                    self.contact.kinds[KIND_IMPACTOR].modelled += max_force * extra;
+                    elastic_scale = max_force / total;
+                }
+            }
+            let ri = imp.pose.rotation.to_mat3();
+            let imp_inertia = ri * imp.inertia * ri.transpose();
+            for (s, c, lc, k_n, k_t) in contacts {
+                let key = ContactKey::Impactor(ii, s, c);
+                let (m, inertia) = self.chunk_mass_inertia(s, c);
+                let p = lc.centroid;
+                let (v_chunk, w_chunk) = (self.solver.point_velocity(s, c, p), self.solver.chunk_velocity(s, c).1);
+                let v_imp = imp.velocity + imp.angular_velocity.cross(p - imp.pose.position);
+                let law = LayerLaw {
+                    k_n,
+                    k_t,
+                    restitution,
+                    friction: self.pair_friction(&imp.material, self.chunk_material(s, c)),
+                    m_red: m * imp.mass / (m + imp.mass),
+                    i_red: reduced(lc.normal.dot(inertia * lc.normal), lc.normal.dot(imp_inertia * lc.normal)),
+                    elastic_scale,
+                    elastic: None,
+                };
+                let out = layer_force(&law, &lc, v_chunk - v_imp, w_chunk - imp.angular_velocity, previous.remove(&key).unwrap_or_default(), dt);
+                let center = self.solver.chunk_position(s, c);
+                self.loads.add_at(s, c, out.force, p, center);
+                self.loads.torque[s][c] += out.moment;
+                self.contact_hits[s][c] += out.force.norm();
+                imp_loads[ii].0 -= out.force;
+                imp_loads[ii].1 -= (p - imp.pose.position).cross(out.force) + out.moment;
+                self.contact.stored += out.stored;
+                self.contact.modelled += out.dissipated;
+                self.contact.kinds[KIND_IMPACTOR].stored += out.stored;
+                self.contact.kinds[KIND_IMPACTOR].modelled += out.dissipated;
+                self.applied.push(Applied { kind: KIND_IMPACTOR, a: Party::Chunk(s, c), ra: p - center, b: Party::Impactor(ii), rb: p - imp.pose.position, force: out.force, moment: out.moment });
+                self.sticks.insert(key, out.stick);
+            }
+        }
+
+        // Ground: the half-space below `height`, pressed by chunks and impactors.
+        if let Some(g) = self.scene.ground.clone() {
+            let gm = self.scene.material(&g.material).clone();
+            let mu = self.scene.sim.contact_friction.unwrap_or(g.friction);
+            for (k, &(s, c)) in active.iter().enumerate() {
+                let (center, radius) = bounds[k];
+                if center.z - radius > g.height {
+                    continue;
+                }
+                let cl = &self.solver.clusters[self.solver.chunks[s][c].cluster];
+                if cl.anchored || cl.driven {
+                    continue;
+                }
+                let b = self.cached_box(&mut boxes, k, s, c).clone();
+                let Some(lc) = LayerContact::with_half_space(&polytope_of(&b, OWNER_A), Vec3::Z, g.height, 0.0).and_then(|o| o.contact) else { continue };
+                // The ground's layer is as thick as the chunk's (a mirror image of it).
+                let h = half_thickness_and_area(&b, Vec3::Z).0;
+                let (k_n, k_t) = layer_moduli(&gm, h, self.chunk_material(s, c), h, scale);
+                let (m, inertia) = self.chunk_mass_inertia(s, c);
+                let key = ContactKey::Ground(s, c);
+                let p = lc.centroid;
+                let law = LayerLaw { k_n, k_t, restitution, friction: mu, m_red: m, i_red: lc.normal.dot(inertia * lc.normal), elastic_scale: 1.0, elastic: None };
+                let (v, w) = (self.solver.point_velocity(s, c, p), self.solver.chunk_velocity(s, c).1);
+                let out = layer_force(&law, &lc, v, w, previous.remove(&key).unwrap_or_default(), dt);
+                let center = self.solver.chunk_position(s, c);
+                self.loads.add_at(s, c, out.force, p, center);
+                self.loads.torque[s][c] += out.moment;
+                self.contact.stored += out.stored;
+                self.contact.modelled += out.dissipated;
+                self.contact.kinds[KIND_GROUND].stored += out.stored;
+                self.contact.kinds[KIND_GROUND].modelled += out.dissipated;
+                self.applied.push(Applied { kind: KIND_GROUND, a: Party::Chunk(s, c), ra: p - center, b: Party::Ground, rb: Vec3::ZERO, force: out.force, moment: out.moment });
+                self.sticks.insert(key, out.stick);
+            }
+            for ii in 0..self.impactors.len() {
+                if self.impactors[ii].driven {
+                    continue;
+                }
+                let imp = self.impactors[ii].clone();
+                let ib = imp.obox();
+                let (lc, h) = match imp.shape {
+                    ImpactorShape::Sphere { radius } => {
+                        let Some(cap) = LayerContact::sphere_cap(imp.pose.position, radius, Vec3::Z, g.height - (imp.pose.position.z - radius)) else { continue };
+                        (cap, radius)
+                    }
+                    ImpactorShape::Box { .. } => {
+                        if ib.center.z - ib.bounding_radius() > g.height {
+                            continue;
+                        }
+                        let Some(lc) = LayerContact::with_half_space(&polytope_of(&ib, OWNER_A), Vec3::Z, g.height, 0.0).and_then(|o| o.contact) else { continue };
+                        (lc, half_thickness_and_area(&ib, Vec3::Z).0)
+                    }
+                };
+                let (k_n, k_t) = layer_moduli(&gm, h, &imp.material, h, scale);
+                let ri = imp.pose.rotation.to_mat3();
+                let i_n = lc.normal.dot((ri * imp.inertia * ri.transpose()) * lc.normal);
+                let p = lc.centroid;
+                let law = LayerLaw { k_n, k_t, restitution, friction: mu, m_red: imp.mass, i_red: i_n, elastic_scale: 1.0, elastic: None };
+                let v = imp.velocity + imp.angular_velocity.cross(p - imp.pose.position);
+                let key = ContactKey::ImpactorGround(ii);
+                let out = layer_force(&law, &lc, v, imp.angular_velocity, previous.remove(&key).unwrap_or_default(), dt);
+                imp_loads[ii].0 += out.force;
+                imp_loads[ii].1 += (p - imp.pose.position).cross(out.force) + out.moment;
+                self.contact.stored += out.stored;
+                self.contact.modelled += out.dissipated;
+                self.contact.kinds[KIND_IMPACTOR_GROUND].stored += out.stored;
+                self.contact.kinds[KIND_IMPACTOR_GROUND].modelled += out.dissipated;
+                self.applied.push(Applied { kind: KIND_IMPACTOR_GROUND, a: Party::Impactor(ii), ra: p - imp.pose.position, b: Party::Ground, rb: Vec3::ZERO, force: out.force, moment: out.moment });
+                self.sticks.insert(key, out.stick);
+            }
+        }
+
+        // Chunks of different clusters (debris on structures, fragments on fragments).
+        let n_clusters = self.solver.clusters.len();
+        if n_clusters > 1 {
+            let mut cluster_boxes: Vec<(Vec3, Vec3)> = vec![(Vec3::splat(f64::INFINITY), Vec3::splat(f64::NEG_INFINITY)); n_clusters];
+            let mut by_cluster: Vec<Vec<usize>> = vec![Vec::new(); n_clusters];
+            for (k, &(s, c)) in active.iter().enumerate() {
+                let ci = self.solver.chunks[s][c].cluster;
+                let (center, radius) = bounds[k];
+                let r = Vec3::splat(radius);
+                cluster_boxes[ci].0 = cluster_boxes[ci].0.component_min(center - r);
+                cluster_boxes[ci].1 = cluster_boxes[ci].1.component_max(center + r);
+                by_cluster[ci].push(k);
+            }
+            let mut candidates = Vec::new();
+            for ca in 0..n_clusters {
+                for cb in ca + 1..n_clusters {
+                    let ((a0, a1), (b0, b1)) = (cluster_boxes[ca], cluster_boxes[cb]);
+                    if (0..3).any(|i| a1[i] < b0[i] || b1[i] < a0[i]) {
+                        continue;
+                    }
+                    let (cla, clb) = (&self.solver.clusters[ca], &self.solver.clusters[cb]);
+                    if (cla.anchored && clb.anchored) || cla.driven || clb.driven {
+                        continue;
+                    }
+                    for &ka in &by_cluster[ca] {
+                        for &kb in &by_cluster[cb] {
+                            let ((pa, ra), (pb, rb)) = (bounds[ka], bounds[kb]);
+                            if (pa - pb).norm() > ra + rb {
+                                continue;
+                            }
+                            // Pairs by chunk identity (lower first), not by cluster order,
+                            // which a split renumbers: the contact keeps its state.
+                            let (ka, kb) = if active[ka] < active[kb] { (ka, kb) } else { (kb, ka) };
+                            let ((sa, chunk_a), (sb, chunk_b)) = (active[ka], active[kb]);
+                            self.cached_box(&mut boxes, ka, sa, chunk_a);
+                            self.cached_box(&mut boxes, kb, sb, chunk_b);
+                            let key = ContactKey::Pair(sa, chunk_a, sb, chunk_b);
+                            candidates.push((key, ka, kb, previous.remove(&key).unwrap_or_default()));
+                        }
+                    }
+                }
+            }
+            // Each pair depends only on the state at the start of the substep: evaluate
+            // in parallel, apply in candidate order (bit-identical for any thread count).
+            let (solver, scene, boxes) = (&self.solver, &self.scene, &boxes);
+            let outcomes = crate::par::map_into(candidates, |(key, ka, kb, stick)| {
+                let shape = |k: usize| boxes[k].as_ref().expect("cached above");
+                pair_layer_contact(solver, scene, key, stick, shape(ka), shape(kb), dt)
+            });
+            for (key, p, out, work) in outcomes.into_iter().flatten() {
+                let ContactKey::Pair(sa, ca, sb, cb) = key else { unreachable!("pair keys only") };
+                let (center_a, center_b) = (self.solver.chunk_position(sa, ca), self.solver.chunk_position(sb, cb));
+                self.loads.add_at(sa, ca, out.force, p, center_a);
+                self.loads.torque[sa][ca] += out.moment;
+                self.loads.add_at(sb, cb, -out.force, p, center_b);
+                self.loads.torque[sb][cb] -= out.moment;
+                self.contact_hits[sa][ca] += out.force.norm();
+                self.contact_hits[sb][cb] += out.force.norm();
+                self.contact.stored += out.stored;
+                self.contact.modelled += out.dissipated;
+                self.contact.pair_work += work;
+                self.contact.kinds[KIND_PAIR].stored += out.stored;
+                self.contact.kinds[KIND_PAIR].modelled += out.dissipated;
+                self.applied.push(Applied { kind: KIND_PAIR, a: Party::Chunk(sa, ca), ra: p - center_a, b: Party::Chunk(sb, cb), rb: p - center_b, force: out.force, moment: out.moment });
+                self.sticks.insert(key, out.stick);
+            }
+        }
+        imp_loads
+    }
+
+    /// Joints broken by this substep's splits hand their compression over to the
+    /// elastic-layer contact of the two chunks: the contact gets the permanent
+    /// indentation (crushed material) at which its force equals the joint's compressive
+    /// force, raised if needed so it stores no more energy than the joint did; the rest
+    /// of the joint's stored energy is booked as released at the split. A joint in
+    /// tension leaves no overlap to hand over.
+    fn hand_over_split_joints(&mut self) {
+        let handovers = std::mem::take(&mut self.solver.handovers);
+        let scale = self.scene.sim.stiffness_scale;
+        for h in handovers {
+            let (s, a, b) = (h.structure, h.a.min(h.b), h.a.max(h.b));
+            let (ba, bb) = (self.chunk_box(s, a), self.chunk_box(s, b));
+            let (pa, pb) = (polytope_of(&ba, OWNER_A), polytope_of(&bb, OWNER_B));
+            let contact_at = |indent: f64| LayerContact::between(&pa, &pb, indent);
+            let Some(full) = (if ba.may_overlap(&bb) { contact_at(0.0) } else { None }) else {
+                self.solver.energy.split_release += h.stored;
+                continue;
+            };
+            let Some(lc0) = full.contact else {
+                self.solver.energy.split_release += h.stored;
+                continue;
+            };
+            let material = |c: usize| self.scene.material(&self.solver.structures[s].chunks[c].material);
+            let (k_n, _) = layer_moduli(material(a), half_thickness_and_area(&ba, lc0.normal).0, material(b), half_thickness_and_area(&bb, lc0.normal).0, scale);
+            // Force and stored energy beyond an indentation (both fall as it deepens).
+            let force = |i: f64| contact_at(i).and_then(|o| o.contact).map_or(0.0, |c| k_n * c.volume);
+            let energy = |i: f64| contact_at(i).and_then(|o| o.contact).map_or(0.0, |c| k_n * c.volume * c.depth);
+            let bisect = |f: &dyn Fn(f64) -> f64, target: f64| {
+                let (mut lo, mut hi) = (0.0, full.max_depth);
+                for _ in 0..60 {
+                    let mid = 0.5 * (lo + hi);
+                    if f(mid) > target {
+                        lo = mid;
+                    } else {
+                        hi = mid;
+                    }
+                }
+                hi
+            };
+            let mut indent = if force(0.0) > h.compression { bisect(&force, h.compression) } else { 0.0 };
+            if energy(indent) > h.stored {
+                indent = bisect(&energy, h.stored);
+            }
+            let kept = energy(indent);
+            self.solver.energy.split_release += h.stored - kept;
+            self.contact.received += kept;
+            self.contact.kinds[KIND_PAIR].received += kept;
+            self.sticks.insert(ContactKey::Pair(s, a, s, b), Stick { indent, ..Default::default() });
+        }
+    }
+
+    /// A chunk's mass and its world-frame inertia (about its centre).
+    fn chunk_mass_inertia(&self, s: usize, c: usize) -> (f64, Mat3) {
+        let ch = &self.solver.structures[s].chunks[c];
+        let r = self.solver.clusters[self.solver.chunks[s][c].cluster].rotation();
+        (ch.mass, r * ch.inertia * r.transpose())
+    }
+
     // ------------------------------------------------------------------ events
 
     fn process_events(&mut self, t: f64) {
@@ -890,6 +1421,9 @@ impl World {
 
     /// Advance one frame (`sim.frame_dt`).
     pub fn step_frame(&mut self) {
+        if self.scene.sim.methods.frame_contact_step && self.scene.sim.methods.layer_contact {
+            self.contact_dt = self.frame_contact_dt();
+        }
         if self.coupling.is_some() {
             return self.step_frame_coupled();
         }
@@ -1042,14 +1576,29 @@ impl World {
         if let Some(c) = &self.coupling {
             c.filter.loads_at(&self.solver, self.solver.time, &mut self.loads);
         }
+        let before = (self.loads.force.clone(), self.loads.torque.clone());
         let imp_loads = self.apply_contacts(dt);
+        let contact_loads: Vec<(usize, usize, Vec3, Vec3)> = (0..before.0.len())
+            .flat_map(|s| (0..before.0[s].len()).map(move |c| (s, c)))
+            .map(|(s, c)| (s, c, self.loads.force[s][c] - before.0[s][c], self.loads.torque[s][c] - before.1[s][c]))
+            .filter(|l| l.2 != Vec3::ZERO || l.3 != Vec3::ZERO)
+            .collect();
         if self.scene.sim.solve_mode == SolveMode::Adaptive {
             self.wake_loaded_clusters();
         }
         let n_events = self.solver.events.len();
         self.solver.substep(dt, &self.loads);
+        if self.scene.sim.methods.layer_contact {
+            self.hand_over_split_joints();
+        }
         if self.solver.events.len() != n_events {
             self.topology_version += 1;
+        }
+        for &(s, c, f, tq) in &contact_loads {
+            if self.solver.chunks[s][c].active {
+                let (v, w) = self.solver.chunk_velocity(s, c);
+                self.contact.work += (f.dot(v) + tq.dot(w)) * dt;
+            }
         }
         let g = self.solver.config.gravity;
         for (imp, (f, tq)) in self.impactors.iter_mut().zip(imp_loads) {
@@ -1064,6 +1613,26 @@ impl World {
             imp.pose.rotation = imp.pose.rotation.integrate(w_mid, dt);
             let r = imp.pose.rotation.to_mat3();
             imp.angular_velocity = (r * imp.inertia * r.transpose()).inverse().unwrap() * l;
+            self.contact.work += (f.dot(imp.velocity) + tq.dot(imp.angular_velocity)) * dt;
+        }
+        if self.scene.sim.methods.layer_contact {
+            // Exact for the motion the integrator produced: what the contact forces took
+            // out of it, less what the contacts still store.
+            self.contact.dissipated = -self.contact.work - self.contact.stored + self.contact.received;
+            for ap in std::mem::take(&mut self.applied) {
+                let power = |party: Party, r: Vec3| match party {
+                    Party::Chunk(s, c) if self.solver.chunks[s][c].active => {
+                        let (v, w) = self.solver.chunk_velocity(s, c);
+                        ap.force.dot(v) + (r.cross(ap.force) + ap.moment).dot(w)
+                    }
+                    Party::Impactor(i) => {
+                        let imp = &self.impactors[i];
+                        ap.force.dot(imp.velocity) + (r.cross(ap.force) + ap.moment).dot(imp.angular_velocity)
+                    }
+                    _ => 0.0,
+                };
+                self.contact.kinds[ap.kind].work += (power(ap.a, ap.ra) - power(ap.b, ap.rb)) * dt;
+            }
         }
         debug_assert!((self.solver.time - t).abs() < 1e-9);
         self.record_probes(false);
@@ -1421,6 +1990,231 @@ fn penalty_force(
     let damping_power = if k * depth - c * vn > 0.0 { c * vn * vn } else { k * depth * vn.max(0.0) };
     let dissipated = (damping_power + ft.norm() * vt_mag) * dt;
     (normal * fn_mag + ft, stored, dissipated)
+}
+
+/// A contact of the elastic-layer method, by the bodies it joins.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+enum ContactKey {
+    Ground(usize, usize),
+    ImpactorGround(usize),
+    Impactor(usize, usize, usize),
+    Pair(usize, usize, usize, usize),
+}
+
+/// Friction state of an elastic-layer contact: the shear layer's elastic force (world
+/// vector, in the contact plane) and moment about the normal, updated incrementally
+/// (Mindlin-Deresiewicz), with the stiffnesses they were stored at. Where the contact
+/// grows, new layer enters unstrained (the force carries over); where it shrinks, the
+/// layer leaving takes its share of the force with it (the force scales with the
+/// stiffness): the force stays continuous where it should, inside Coulomb's cone, and
+/// its stored energy `F^2 / 2k` never grows without work.
+#[derive(Clone, Copy, Debug, Default)]
+struct Stick {
+    shear: Vec3,
+    torque: f64,
+    k_t: f64,
+    k_r: f64,
+    /// Permanent indentation of the contact surface (crushed material inherited from
+    /// the joint the pair shared): the layer acts only on overlap deeper than this. It
+    /// relaxes with the overlap, so a pair that separates forgets it.
+    indent: f64,
+}
+
+/// Material and inertia data of one elastic-layer contact.
+struct LayerLaw {
+    /// Normal and shear layer moduli per unit area: `1 / (h_a / E'_a + h_b / E'_b)` and
+    /// `1 / (h_a / G_a + h_b / G_b)`.
+    k_n: f64,
+    k_t: f64,
+    restitution: f64,
+    friction: f64,
+    m_red: f64,
+    /// Reduced moment of inertia about the normal (torsional dashpot).
+    i_red: f64,
+    /// Fraction of the elastic force transmitted (a crush-capped impactor).
+    elastic_scale: f64,
+    /// The layer's elastic force (along the contact normal), its moment about the
+    /// contact point and stored energy, where the contact computes them itself
+    /// (`pair_elastic`); else `k_n V` at the overlap centroid.
+    elastic: Option<Elastic>,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct Elastic {
+    force: f64,
+    moment: Vec3,
+    stored: f64,
+}
+
+/// Forces of one elastic-layer contact over a substep, on body `a`.
+struct LayerOutcome {
+    /// Force, acting at the overlap's centroid.
+    force: Vec3,
+    /// Torsional friction moment (along the normal).
+    moment: Vec3,
+    stick: Stick,
+    stored: f64,
+    dissipated: f64,
+}
+
+/// The layer moduli per unit area of two half-thicknesses along the normal.
+fn layer_moduli(a: &Material, h_a: f64, b: &Material, h_b: f64, scale: f64) -> (f64, f64) {
+    let e = |m: &Material| m.youngs_modulus * scale / (1.0 - m.poisson_ratio * m.poisson_ratio);
+    let g = |m: &Material| m.shear_modulus() * scale;
+    (1.0 / (h_a / e(a) + h_b / e(b)), 1.0 / (h_a / g(a) + h_b / g(b)))
+}
+
+/// `x y / (x + y)`, infinite masses allowed.
+fn reduced(x: f64, y: f64) -> f64 {
+    if x.is_infinite() {
+        y
+    } else if y.is_infinite() {
+        x
+    } else {
+        x * y / (x + y)
+    }
+}
+
+/// The elastic-layer contact law over one substep (`polytope.rs`). Normal: the layer's
+/// elastic force `k_n V` at the overlap centroid, minus a dashpot `c v_n` (`c` from the
+/// coefficient of restitution and the incremental stiffness `k_n A`), never pulling.
+/// Tangential: the shear layer `k_t A` with a dashpot, its elastic slip anchored to the
+/// contact and capped by Coulomb's `mu F_n` (return mapping: at the cap the slip is set
+/// to what the capped force needs). Torsion: the same with the layer's polar moment and
+/// the cap `mu F_n r_mean`. Exact static friction: a stuck contact holds any force inside
+/// the cone with no slip rate, independent of the substep.
+/// The fraction of a layer force stored at stiffness `before` that stays in the layer at
+/// stiffness `now`: all of it where the contact has grown, the remaining layer's share
+/// where it has shrunk.
+fn shrink(now: f64, before: f64) -> f64 {
+    if before > now { now / before } else { 1.0 }
+}
+
+fn layer_force(law: &LayerLaw, lc: &LayerContact, v: Vec3, w: Vec3, stick: Stick, dt: f64) -> LayerOutcome {
+    let n = lc.normal;
+    let zeta = damping_ratio(law.restitution);
+    // Normal.
+    let k_inc = law.k_n * lc.area;
+    let (f_el, m_el, mut stored) = match law.elastic {
+        Some(e) => (e.force, e.moment, e.stored),
+        None => (law.k_n * lc.volume * law.elastic_scale, Vec3::ZERO, law.k_n * lc.volume * lc.depth * law.elastic_scale),
+    };
+    let c_n = 2.0 * zeta * (k_inc * law.m_red).sqrt();
+    let vn = v.dot(n);
+    let trial = f_el - c_n * vn;
+    let (f_n, mut dissipated, couple) = if trial > 0.0 {
+        (trial, c_n * vn * vn * dt, m_el)
+    } else {
+        // The dashpot holds the layer at zero force: it unloads without doing work.
+        (0.0, f_el * vn.max(0.0) * dt, Vec3::ZERO)
+    };
+    // Tangential: carry the elastic shear force into the current contact plane (keeping
+    // its magnitude), add this substep's elastic increment, then the dashpot; Coulomb's
+    // cap by radial return. Stored energy |F|^2 / (2 k) at the current stiffness.
+    let k_t = law.k_t * lc.area;
+    let c_t = 2.0 * zeta * (k_t * law.m_red).sqrt();
+    let vt = v - n * vn;
+    let mut shear = stick.shear - n * stick.shear.dot(n);
+    let (len0, len1) = (stick.shear.norm(), shear.norm());
+    if len1 > 0.0 {
+        shear = shear * (len0 / len1 * shrink(k_t, stick.k_t));
+    }
+    let energy = |f: Vec3| if k_t > 0.0 { 0.5 * f.dot(f) / k_t } else { 0.0 };
+    let before = energy(shear);
+    if stick.k_t > 0.0 {
+        dissipated += 0.5 * stick.shear.dot(stick.shear) / stick.k_t - before;
+    }
+    shear -= vt * (k_t * dt);
+    let mut f_t = shear - vt * c_t;
+    let cap = law.friction * f_n;
+    if f_n == 0.0 || k_t == 0.0 {
+        f_t = Vec3::ZERO;
+        shear = Vec3::ZERO;
+    } else if f_t.norm() > cap {
+        // Sliding: Coulomb's slider in series with the layer (spring and dashpot in
+        // parallel) carries the cap, `k e + c de/dt = cap`; the layer's elastic force
+        // relaxes towards the cap (backward Euler), continuous with sticking at the
+        // threshold and never beyond the larger of the cap and its previous value.
+        f_t = f_t * (cap / f_t.norm());
+        let carried = shear + vt * (k_t * dt);
+        shear = (f_t * k_t + carried * (c_t / dt)) / (k_t + c_t / dt);
+    }
+    let after = energy(shear);
+    dissipated += -f_t.dot(vt) * dt - (after - before);
+    stored += after;
+    // Torsion about the normal, the same with the layer's polar moment.
+    let k_r = law.k_t * lc.polar_moment;
+    let c_r = 2.0 * zeta * (k_r * law.i_red).sqrt();
+    let spin = w.dot(n);
+    let energy_r = |m: f64| if k_r > 0.0 { 0.5 * m * m / k_r } else { 0.0 };
+    let carried = stick.torque * shrink(k_r, stick.k_r);
+    let before_r = energy_r(carried);
+    if stick.k_r > 0.0 {
+        dissipated += 0.5 * stick.torque * stick.torque / stick.k_r - before_r;
+    }
+    let mut torque = carried - k_r * spin * dt;
+    let mut m = torque - c_r * spin;
+    let cap_r = law.friction * f_n * lc.mean_radius;
+    if f_n == 0.0 || k_r == 0.0 {
+        m = 0.0;
+        torque = 0.0;
+    } else if m.abs() > cap_r {
+        m = cap_r * m.signum();
+        let carried = torque + k_r * spin * dt;
+        torque = (m * k_r + carried * (c_r / dt)) / (k_r + c_r / dt);
+    }
+    let after_r = energy_r(torque);
+    dissipated += -m * spin * dt - (after_r - before_r);
+    stored += after_r;
+    LayerOutcome { force: n * f_n + f_t, moment: n * m + couple, stick: Stick { shear, torque, k_t, k_r, indent: stick.indent }, stored, dissipated }
+}
+
+/// The elastic-layer contact of one chunk pair over a substep: the key, the point of
+/// action, the outcome on `a` (minus on `b`) and the force's work on the relative motion.
+fn pair_layer_contact(solver: &ReferenceSolver, scene: &Scene, key: ContactKey, stick: Stick, ba: &OBox, bb: &OBox, dt: f64) -> Option<(ContactKey, Vec3, LayerOutcome, f64)> {
+    let ContactKey::Pair(sa, ca, sb, cb) = key else { return None };
+    if !ba.may_overlap(bb) {
+        return None;
+    }
+    let overlap = LayerContact::between(&polytope_of(ba, OWNER_A), &polytope_of(bb, OWNER_B), stick.indent)?;
+    // The indentation relaxes with the overlap; within it the pair touches without force.
+    let stick = Stick { indent: stick.indent.min(overlap.max_depth), ..stick };
+    let Some(lc) = overlap.contact else {
+        let none = LayerOutcome { force: Vec3::ZERO, moment: Vec3::ZERO, stick: Stick { shear: Vec3::ZERO, torque: 0.0, k_t: 0.0, k_r: 0.0, ..stick }, stored: 0.0, dissipated: 0.0 };
+        return Some((key, ba.center, none, 0.0));
+    };
+    let material = |s: usize, c: usize| scene.material(&solver.structures[s].chunks[c].material);
+    let (h_a, h_b) = (half_thickness_and_area(ba, lc.normal).0, half_thickness_and_area(bb, lc.normal).0);
+    let (k_n, k_t) = layer_moduli(material(sa, ca), h_a, material(sb, cb), h_b, scene.sim.stiffness_scale);
+    let inertia = |s: usize, c: usize| {
+        let r = solver.clusters[solver.chunks[s][c].cluster].rotation();
+        lc.normal.dot((r * solver.structures[s].chunks[c].inertia * r.transpose()) * lc.normal)
+    };
+    let (ma, mb) = (solver.structures[sa].chunks[ca].mass, solver.structures[sb].chunks[cb].mass);
+    let law = LayerLaw {
+        k_n,
+        k_t,
+        restitution: scene.sim.contact_restitution,
+        friction: scene.sim.contact_friction.unwrap_or(material(sa, ca).friction.min(material(sb, cb).friction)),
+        m_red: ma * mb / (ma + mb),
+        i_red: reduced(inertia(sa, ca), inertia(sb, cb)),
+        elastic_scale: 1.0,
+        elastic: None,
+    };
+    let p = lc.centroid;
+    let (va, vb) = (solver.point_velocity(sa, ca, p), solver.point_velocity(sb, cb, p));
+    let (wa, wb) = (solver.chunk_velocity(sa, ca).1, solver.chunk_velocity(sb, cb).1);
+    let out = layer_force(&law, &lc, va - vb, wa - wb, stick, dt);
+    let work = (out.force.dot(va - vb) + out.moment.dot(wa - wb)) * dt;
+    Some((key, p, out, work))
+}
+
+/// A chunk's (or impactor's) shape as a polytope.
+fn polytope_of(b: &OBox, owner: Owner) -> Polytope {
+    match &b.hull {
+        Some(h) => Polytope::hull(h, b.center, b.rotation, owner),
+        None => Polytope::cuboid(b.center, b.rotation, b.half, owner),
+    }
 }
 
 /// The contact of one chunk pair over a substep, computed from the state at its start.

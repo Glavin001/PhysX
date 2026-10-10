@@ -161,7 +161,7 @@ fn crack_contact_off_leaves_a_cracked_joint_carrying_nothing() {
     cracked.damage = 1.0;
     let closing = Local6 { lin: Vec3::new(0.0, 0.0, -1e-5), ang: Vec3::ZERO };
     let force = |features: &Features| {
-        let (stiffness, strength, _, _) = bond_physics(g, &m, None, None, 1.0, 1.0, features);
+        let (stiffness, strength, _, _) = bond_physics(g, &m, None, None, 1.0, 1.0, features, &Methods::default());
         let model = JointModel { geometry: g, stiffness: &stiffness, strength: &strength, rebar: None, weibull: 1.0 };
         model.evaluate(&cracked, &closing, 0.0, true).force.lin.z
     };
@@ -179,9 +179,9 @@ fn damping_buckling_rebar_and_crushing_switches_remove_their_terms() {
     let m = Material { damping_ratio: 0.05, ..Material::analytic_test() };
     let rebar = (1e-4, Material::steel());
     let off = Features { damping: false, buckling: false, rebar: false, crushing: false, ..Features::default() };
-    let (_, strength, rb, damping) = bond_physics(g, &m, Some(2.0), Some(&rebar), 1.0, 1.0, &Features::default());
+    let (_, strength, rb, damping) = bond_physics(g, &m, Some(2.0), Some(&rebar), 1.0, 1.0, &Features::default(), &Methods::default());
     assert!(strength.buckling_load.is_some() && rb.is_some() && damping.lin.z > 0.0);
-    let (_, strength, rb, damping) = bond_physics(g, &m, Some(2.0), Some(&rebar), 1.0, 1.0, &off);
+    let (_, strength, rb, damping) = bond_physics(g, &m, Some(2.0), Some(&rebar), 1.0, 1.0, &off, &Methods::default());
     assert!(strength.buckling_load.is_none() && rb.is_none() && damping.lin.z == 0.0);
     assert!(strength.compressive.is_infinite(), "no crushing");
 }

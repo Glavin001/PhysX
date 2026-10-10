@@ -76,6 +76,15 @@ pub struct JointStrength {
     pub youngs_modulus: f64,
     /// Smoothing time of the strain-rate estimate.
     pub rate_filter_time: f64,
+    /// `sim.methods.exact_joint_patch`: the cracked share's no-tension layer integrated
+    /// exactly over the patch (`no_tension_patch`) instead of a 6 x 6 spring grid.
+    pub exact_patch: bool,
+    /// `sim.methods.patch_after_damage`: an uncracked joint has no contact interface, so
+    /// its patch is not evaluated and accumulates no friction history before the first
+    /// crack (its share of the force is zero there anyway).
+    pub patch_after_damage: bool,
+    /// `sim.methods.exact_rate_filter`: the strain-rate filter's exact discrete gain.
+    pub exact_rate_filter: bool,
 }
 
 impl JointStrength {
@@ -101,6 +110,9 @@ impl JointStrength {
             crack_contact: features.crack_contact,
             youngs_modulus: m.youngs_modulus,
             rate_filter_time: 2.0 * g.length / wave_speed,
+            exact_patch: false,
+            patch_after_damage: false,
+            exact_rate_filter: false,
         }
     }
 }
@@ -357,6 +369,70 @@ fn spring_offsets(width: f64) -> [f64; CONTACT_SPRINGS] {
     std::array::from_fn(|i| ((i as f64 + 0.5) / CONTACT_SPRINGS as f64 - 0.5) * width)
 }
 
+/// Area, centroid and central second moments `(A, c1, c2, I11, I22, I12)` of the part
+/// of the `w0 x w1` patch (centred, `s1` along `w0`) where the opening
+/// `dz + ax s2 - ay s1` is negative (compressed): the patch clipped by one line. The
+/// moments are taken about the polygon's first vertex, so they stay accurate as the
+/// compressed region shrinks to a sliver at an edge (a joint lifting off).
+pub fn compressed_region(w: [f64; 2], dz: f64, ax: f64, ay: f64) -> [f64; 6] {
+    let (h0, h1) = (0.5 * w[0], 0.5 * w[1]);
+    let open = |p: (f64, f64)| dz + ax * p.1 - ay * p.0;
+    let rect = [(-h0, -h1), (h0, -h1), (h0, h1), (-h0, h1)];
+    let mut poly: Vec<(f64, f64)> = Vec::with_capacity(5);
+    for i in 0..4 {
+        let (p, q) = (rect[i], rect[(i + 1) % 4]);
+        let (fp, fq) = (open(p), open(q));
+        if fp < 0.0 {
+            poly.push(p);
+        }
+        if (fp < 0.0) != (fq < 0.0) {
+            let t = fp / (fp - fq);
+            poly.push((p.0 + t * (q.0 - p.0), p.1 + t * (q.1 - p.1)));
+        }
+    }
+    if poly.len() < 3 {
+        return [0.0; 6];
+    }
+    let o = poly[0];
+    let (mut a, mut sx, mut sy, mut ixx, mut iyy, mut ixy) = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+    for i in 0..poly.len() {
+        let (x0, y0) = (poly[i].0 - o.0, poly[i].1 - o.1);
+        let (x1, y1) = (poly[(i + 1) % poly.len()].0 - o.0, poly[(i + 1) % poly.len()].1 - o.1);
+        let cr = x0 * y1 - x1 * y0;
+        a += cr / 2.0;
+        sx += (x0 + x1) * cr / 6.0;
+        sy += (y0 + y1) * cr / 6.0;
+        ixx += (x0 * x0 + x0 * x1 + x1 * x1) * cr / 12.0;
+        iyy += (y0 * y0 + y0 * y1 + y1 * y1) * cr / 12.0;
+        ixy += (x0 * y1 + 2.0 * x0 * y0 + 2.0 * x1 * y1 + x1 * y0) * cr / 24.0;
+    }
+    if a <= 0.0 {
+        return [0.0; 6];
+    }
+    let (cx, cy) = (sx / a, sy / a);
+    [a, o.0 + cx, o.1 + cy, ixx - a * cx * cx, iyy - a * cy * cy, ixy - a * cx * cy]
+}
+
+/// The no-tension elastic layer of a cracked joint (axial stiffness `kn` spread evenly
+/// over the `w0 x w1` patch) under the opening `dz + ax s2 - ay s1`: normal force
+/// (negative, compression), moments about the patch axes and stored energy, exact
+/// (the opening is linear: its integrals follow from its value at the compressed
+/// region's centroid and the region's central moments).
+fn no_tension_patch(kn: f64, w: [f64; 2], dz: f64, ax: f64, ay: f64) -> (f64, f64, f64, f64) {
+    let [a, c1, c2, i11, i22, i12] = compressed_region(w, dz, ax, ay);
+    if a == 0.0 {
+        return (0.0, 0.0, 0.0, 0.0);
+    }
+    let k = kn / (w[0] * w[1]);
+    let fc = dz + ax * c2 - ay * c1;
+    // int f s1 and int f s2 over the region, f the opening.
+    let fs1 = a * fc * c1 + (-ay * i11 + ax * i12);
+    let fs2 = a * fc * c2 + (-ay * i12 + ax * i22);
+    let n = k * a * fc;
+    let energy = 0.5 * k * (a * fc * fc + ay * ay * i11 + ax * ax * i22 - 2.0 * ax * ay * i12);
+    (n, k * fs2, -k * fs1, energy)
+}
+
 fn sq(x: f64) -> f64 {
     x * x
 }
@@ -402,7 +478,10 @@ impl<'a> JointModel<'a> {
         let governing = measures.tension.max(measures.shear).max(measures.compression);
         if dt > 0.0 {
             let raw = ((governing - st.governing_stress) / dt).max(0.0) / s.youngs_modulus;
-            let a = (dt / s.rate_filter_time).min(1.0);
+            // First-order filter of time constant tau over the step: exactly
+            // 1 - exp(-dt / tau) (the clamped explicit-Euler `dt / tau` is its
+            // first-order approximation, raw beyond dt = tau).
+            let a = if s.exact_rate_filter { -(-dt / s.rate_filter_time).exp_m1() } else { (dt / s.rate_filter_time).min(1.0) };
             st.strain_rate += (raw - st.strain_rate) * a;
             st.governing_stress = governing;
         }
@@ -425,19 +504,23 @@ impl<'a> JointModel<'a> {
             // No-tension multi-spring patch (the Applied Element Method's spring grid):
             // each spring carries compression only, so a cracked joint rocks about its
             // compressed edge and develops arching thrust when restrained.
-            let n = CONTACT_SPRINGS;
-            let ki = k.kn * (1.0 - st.crush) / (n * n) as f64;
             let (mut nc_sum, mut m1, mut m2, mut energy) = (0.0, 0.0, 0.0, 0.0);
-            let (o1, o2) = (spring_offsets(g.width[0]), spring_offsets(g.width[1]));
-            for &s1 in &o1 {
-                for &s2 in &o2 {
-                    let di = d.lin.z + d.ang.x * s2 - d.ang.y * s1;
-                    if di < 0.0 {
-                        let f = ki * di;
-                        nc_sum += f;
-                        m1 += f * s2;
-                        m2 -= f * s1;
-                        energy += 0.5 * ki * di * di;
+            if s.exact_patch {
+                (nc_sum, m1, m2, energy) = no_tension_patch(k.kn * (1.0 - st.crush), g.width, d.lin.z, d.ang.x, d.ang.y);
+            } else {
+                let n = CONTACT_SPRINGS;
+                let ki = k.kn * (1.0 - st.crush) / (n * n) as f64;
+                let (o1, o2) = (spring_offsets(g.width[0]), spring_offsets(g.width[1]));
+                for &s1 in &o1 {
+                    for &s2 in &o2 {
+                        let di = d.lin.z + d.ang.x * s2 - d.ang.y * s1;
+                        if di < 0.0 {
+                            let f = ki * di;
+                            nc_sum += f;
+                            m1 += f * s2;
+                            m2 -= f * s1;
+                            energy += 0.5 * ki * di * di;
+                        }
                     }
                 }
             }
@@ -543,7 +626,8 @@ impl<'a> JointModel<'a> {
 
         // Actual force: intact share + contact share + rebar.
         let dmg = st.damage;
-        let (q_contact, psi_contact, diss_contact) = contact(&mut st, true);
+        let (q_contact, psi_contact, diss_contact) =
+            if dmg == 0.0 && s.patch_after_damage { (Local6::default(), 0.0, 0.0) } else { contact(&mut st, true) };
         dissipated += dmg * diss_contact;
         let intact_normal = if d.lin.z > 0.0 { k.kn * d.lin.z } else { (1.0 - st.crush) * k.kn * d.lin.z };
         let mut force = Local6 {
@@ -610,20 +694,38 @@ impl<'a> JointModel<'a> {
         let intact = Local6 { lin: Vec3::new(k.ks, k.ks, normal_intact), ang: Vec3::new(k.kb_t1, k.kb_t2, k.kt) };
         let mut m = Mat6::diag(&intact.scale(1.0 - dmg));
         if dmg > 0.0 && s.crack_contact {
-            let n = CONTACT_SPRINGS;
-            let ki = k.kn * (1.0 - state.crush) / (n * n) as f64;
             let mut nc = 0.0;
-            let (o1, o2) = (spring_offsets(g.width[0]), spring_offsets(g.width[1]));
-            for &s1 in &o1 {
-                for &s2 in &o2 {
-                    let di = d.lin.z + d.ang.x * s2 - d.ang.y * s1;
-                    if di < 0.0 {
-                        nc -= ki * di;
-                        // Rows/columns 2 (lin.z), 3 (ang.x), 4 (ang.y).
-                        let gv = [(2usize, 1.0), (3usize, s2), (4usize, -s1)];
-                        for &(i, gi) in &gv {
-                            for &(j, gj) in &gv {
-                                m.0[i][j] += dmg * ki * gi * gj;
+            if s.exact_patch {
+                // Tangent of the exact patch: k'' int g g^T over the compressed region,
+                // g = (1, s2, -s1) for (lin.z, ang.x, ang.y).
+                let kn = k.kn * (1.0 - state.crush);
+                let [a, c1, c2, j11, j22, j12] = compressed_region(g.width, d.lin.z, d.ang.x, d.ang.y);
+                // Raw moments about the patch centre.
+                let (s1, s2) = (a * c1, a * c2);
+                let (i11, i22, i12) = (j11 + a * c1 * c1, j22 + a * c2 * c2, j12 + a * c1 * c2);
+                let kp = kn / (g.width[0] * g.width[1]);
+                nc = -no_tension_patch(kn, g.width, d.lin.z, d.ang.x, d.ang.y).0;
+                let block = [[a, s2, -s1], [s2, i22, -i12], [-s1, -i12, i11]];
+                for (i, row) in block.iter().enumerate() {
+                    for (j, v) in row.iter().enumerate() {
+                        m.0[2 + i][2 + j] += dmg * kp * v;
+                    }
+                }
+            } else {
+                let n = CONTACT_SPRINGS;
+                let ki = k.kn * (1.0 - state.crush) / (n * n) as f64;
+                let (o1, o2) = (spring_offsets(g.width[0]), spring_offsets(g.width[1]));
+                for &s1 in &o1 {
+                    for &s2 in &o2 {
+                        let di = d.lin.z + d.ang.x * s2 - d.ang.y * s1;
+                        if di < 0.0 {
+                            nc -= ki * di;
+                            // Rows/columns 2 (lin.z), 3 (ang.x), 4 (ang.y).
+                            let gv = [(2usize, 1.0), (3usize, s2), (4usize, -s1)];
+                            for &(i, gi) in &gv {
+                                for &(j, gj) in &gv {
+                                    m.0[i][j] += dmg * ki * gi * gj;
+                                }
                             }
                         }
                     }
@@ -703,6 +805,35 @@ mod tests {
         for kappa in [1.5, 2.0, 3.0] {
             let t = (1.0 - damage_law(BondKind::Brittle, kappa, r)) * kappa;
             assert!((t - (r - kappa) / (r - 1.0)).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn exact_patch_matches_the_intact_joint_when_fully_compressed_and_rocks_on_its_edge() {
+        let (kn, w) = (2.0e9, [0.2, 0.1]);
+        // Fully compressed: the axial and bending stiffness of the intact joint.
+        let (dz, ax, ay) = (-1e-5, 1e-5, -2e-5);
+        let (n, m1, m2, e) = no_tension_patch(kn, w, dz, ax, ay);
+        let k = kn / (w[0] * w[1]);
+        let (i1, i2) = (w[0] * w[1].powi(3) / 12.0, w[1] * w[0].powi(3) / 12.0);
+        assert!((n - kn * dz).abs() < 1e-9 * (kn * dz).abs());
+        assert!((m1 - k * i1 * ax).abs() < 1e-9 * (k * i1 * ax).abs(), "{m1}");
+        assert!((m2 - k * i2 * ay).abs() < 1e-9 * (k * i2 * ay).abs(), "{m2}");
+        let expect = 0.5 * (kn * dz * dz + k * i1 * ax * ax + k * i2 * ay * ay);
+        assert!((e - expect).abs() < 1e-9 * expect);
+        // Rocking about the edge s1 = +w0/2 with a compressed strip of width c: the
+        // pressure is triangular over the strip, its resultant c/3 from the edge.
+        let ay = 1e-3;
+        for c in [0.01, 1e-5, 1e-9] {
+            let dz = ay * (0.5 * w[0] - c); // the opening dz - ay s1 vanishes at s1 = w0/2 - c
+            let (n, _, m2, _) = no_tension_patch(kn, w, dz, 0.0, ay);
+            let arm = m2 / -n;
+            let expect = 0.5 * w[0] - c / 3.0;
+            assert!(n < 0.0 && (arm - expect).abs() < 1e-9 * w[0], "strip {c}: lever arm {arm} vs {expect}");
+            // Force: the triangle's area times the layer modulus.
+            let k = kn / (w[0] * w[1]);
+            let expect_n = -k * 0.5 * ay * c * c * w[1];
+            assert!((n - expect_n).abs() < 1e-6 * expect_n.abs(), "strip {c}: force {n} vs {expect_n}");
         }
     }
 

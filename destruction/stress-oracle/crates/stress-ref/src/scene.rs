@@ -407,6 +407,88 @@ pub struct SimDesc {
     /// Model capabilities (all on by default); switch one off to see what it contributes.
     #[serde(default)]
     pub features: Features,
+    /// Methods under evaluation, each against the established one (see `IMPROVEMENTS.md`).
+    /// Written only when one is switched on, so a written scene follows `STRESS_METHODS`.
+    #[serde(default, skip_serializing_if = "Methods::is_established")]
+    pub methods: Methods,
+}
+
+/// Switches selecting a replacement for an established method. Each defaults to the
+/// established method until the A/B diff of its switch over the scene catalogue and the
+/// test suite meets its bar (`IMPROVEMENTS.md`); then its default flips. Set like the
+/// model switches: `--feature NAME=on|off`, `--set sim.methods.NAME=true`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct Methods {
+    /// Elastic-layer contact (`polytope.rs`): normal force from the overlap volume of
+    /// the two shapes at its centroid, anchored stick-slip Coulomb friction (tangential
+    /// and torsional), dashpots bounded by a damped stable substep. Off: sample-point
+    /// penalty contact with regularised friction and per-point stiffness shares.
+    pub layer_contact: bool,
+    /// Stable-substep bound from the Gershgorin rows of the mass-normalised stiffness
+    /// `M^-1/2 K M^-1/2` (unit-consistent). Off: rows of `K` mixing translational and
+    /// rotational entries, divided by each row's own inertia, which changes with the
+    /// unit of length (1.3-1.4x on the benchmark scenes for metres vs half-metres).
+    pub scaled_step_bound: bool,
+    /// A cracked joint's no-tension contact layer integrated exactly over its patch
+    /// (compressed region clipped by the opening line, polygon moments). Off: a 6 x 6
+    /// grid of springs at cell centres, whose outermost spring sits at 0.417 of the
+    /// width (rocking capacity 17 % low) and whose bending stiffness is 2.8 % low.
+    pub exact_joint_patch: bool,
+    /// A joint's contact patch is evaluated only once it has cracked (item 2a): no
+    /// friction slip is accumulated on an interface that does not exist yet. Off: the
+    /// patch runs at every evaluation and commits slip even at zero damage.
+    pub patch_after_damage: bool,
+    /// The strain-rate filter (rate effects) integrated exactly over each step,
+    /// `1 - exp(-dt / tau)`. Off: `min(dt / tau, 1)`, which passes the raw one-step rate
+    /// whenever the step exceeds `tau` (implicit, quasi-static and settled steps).
+    pub exact_rate_filter: bool,
+    /// With `layer_contact`: the contact substep computed every frame from the contacts
+    /// that can engage within it (a Gershgorin bound), infinite when nothing can touch.
+    /// Off: once at the start, every chunk pressed against the stiffest material on all
+    /// six faces whether or not anything ever touches it.
+    pub frame_contact_step: bool,
+}
+
+impl Default for Methods {
+    /// The established methods, or those named in the environment variable
+    /// `STRESS_METHODS` (comma-separated switch names): the A/B hook that runs the whole
+    /// test suite and catalogue with a switch on, without editing any scene or test.
+    /// Scenes that set `sim.methods` explicitly keep their setting.
+    fn default() -> Self {
+        let mut m = Methods { layer_contact: false, scaled_step_bound: false, exact_joint_patch: false, patch_after_damage: false, exact_rate_filter: false, frame_contact_step: false };
+        if let Ok(list) = std::env::var("STRESS_METHODS") {
+            for name in list.split(',').map(str::trim).filter(|n| !n.is_empty()) {
+                m.set(name, true).unwrap_or_else(|e| panic!("STRESS_METHODS: {e}"));
+            }
+        }
+        m
+    }
+}
+
+impl Methods {
+    /// Every switch at the established method (whatever `STRESS_METHODS` says).
+    pub fn is_established(&self) -> bool {
+        *self == Methods { layer_contact: false, scaled_step_bound: false, exact_joint_patch: false, patch_after_damage: false, exact_rate_filter: false, frame_contact_step: false }
+    }
+
+    /// Names of every switch, in declaration order.
+    pub const NAMES: [&'static str; 6] = ["layer_contact", "scaled_step_bound", "exact_joint_patch", "patch_after_damage", "exact_rate_filter", "frame_contact_step"];
+
+    /// Set a switch by name.
+    pub fn set(&mut self, name: &str, on: bool) -> Result<(), String> {
+        let slot = match name {
+            "layer_contact" => &mut self.layer_contact,
+            "scaled_step_bound" => &mut self.scaled_step_bound,
+            "exact_joint_patch" => &mut self.exact_joint_patch,
+            "patch_after_damage" => &mut self.patch_after_damage,
+            "exact_rate_filter" => &mut self.exact_rate_filter,
+            "frame_contact_step" => &mut self.frame_contact_step,
+            _ => return Err(format!("unknown method '{name}' (known: {})", Self::NAMES.join(", "))),
+        };
+        *slot = on;
+        Ok(())
+    }
 }
 
 /// Switches for the model's capabilities, all on by default.
@@ -540,6 +622,7 @@ impl Default for SimDesc {
             implicit_dt: None,
             mass_scaling_dt: None,
             features: Features::default(),
+            methods: Methods::default(),
         }
     }
 }
@@ -723,9 +806,14 @@ impl Scene {
     }
 
     /// The scene with a model feature switched on or off (see [`Features`]).
+    /// The scene with a model switch ([`Features`]) or a method switch ([`Methods`]) set.
     pub fn with_feature(&self, name: &str, on: bool) -> Result<Scene, String> {
         let mut scene = self.clone();
-        scene.sim.features.set(name, on)?;
+        if Methods::NAMES.contains(&name) {
+            scene.sim.methods.set(name, on)?;
+        } else {
+            scene.sim.features.set(name, on).map_err(|e| format!("{e}; methods: {}", Methods::NAMES.join(", ")))?;
+        }
         Ok(scene)
     }
 
