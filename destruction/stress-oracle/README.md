@@ -449,6 +449,10 @@ that commit, one thread (`verify_identical.py --bench`): house hit by a car with
 layer contact 312.6 -> 94.3 s, b9 panel 205.8 -> 59.3 s, floor drop 196.4 -> 64.9 s,
 and 830.6 -> 296.6 s (2.8x) over the 22 bench cells.
 
+Against cd112933c (proven methods default), which it reproduces bit for bit: 531.6 ->
+209.8 s (2.5x) over the 22 bench cells; house hit by a car 298.8 -> 97.0 s, floor drop
+81.5 -> 23.2 s.
+
 `stress-ref run SCENE --profile` prints where a run spends its time.
 
 ### Scene packs (`scene_pack.rs`, `examples/import_pack.rs`)

@@ -385,6 +385,30 @@ same code plus every runtime commit):
 ("layer" here is `layer_contact,scaled_step_bound`, which cd112933c made part of the
 default; the gate now runs the default methods and `STRESS_METHODS=established`.)
 
+Final state, HEAD's code (ab72210b0 plus documentation) against cd112933c, the upstream it
+reproduces bit for bit (182/182): `verify_identical.py --bench`, one thread, default
+(proven) and established methods:
+
+| Cell | cd112933c | HEAD | Speedup |
+|---|---|---|---|
+| s_house_car, default | 298.8 | 97.0 | 3.1x |
+| s_floor_drop, default | 81.5 | 23.2 | 3.5x |
+| b5_wall_impact_v10, default | 35.1 | 16.8 | 2.1x |
+| b9_panel_high, default | 34.2 | 10.3 | 3.3x |
+| s_car_brick, default | 11.1 | 3.2 | 3.5x |
+| s_arch_keystone_removed, default | 4.3 | 1.2 | 3.6x |
+| b8_frame_sudden, default | 4.2 | 2.1 | 2.0x |
+| b5_wall_impact_v10, established | 25.7 | 19.9 | 1.3x |
+| All 22 bench cells | 531.6 | 209.8 | 2.5x |
+
+Where the time goes now: every scene, default methods, one thread, profile stages summed
+(578 s): pair geometry 61 % (field cells 23 %, intersection 13 %, contact geometry 12 %,
+force law 10 %), bond responses 20 %, broadphase 5.5 %, scripted loads 3 %, chunk frame
+loads 2.7 %, integration 1.8 %. The plan items not done (cluster-local Gershgorin rows,
+split speedups, probe buffers) act on stages that together take under 0.3 % (step dt
+0.2 s, splits 0.07 s, split handover 0.7 s, probes 0.6 s, events 0.1 s). The
+replacement-load index is bounded by the whole of the frame loads, 2.7 %.
+
 The default methods are dominated by bond responses (about 130 ns per evaluation).
 What is left of them is fixed-order arithmetic; the contact patch's 36-spring loop,
 for one, is bound by the latency of its four ordered sums. Little more is to be had
