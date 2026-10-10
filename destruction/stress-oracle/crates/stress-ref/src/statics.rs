@@ -34,9 +34,13 @@ fn dot4(x: &[f64], y: &[f64]) -> f64 {
 
 /// Newton steps of a static solve taken by the PCG before a direct solve may take over.
 const DIRECT_AFTER: usize = 10;
-/// Widest band (degrees of freedom) and largest band storage the direct solve takes on.
-const DIRECT_MAX_BAND: usize = 600;
-const DIRECT_MAX_ENTRIES: usize = 4_000_000;
+/// Widest band (degrees of freedom) and largest band storage (64 MB) the direct solve
+/// takes on: cost limits only (a factor of n b^2 / 2 flops against PCG steps of
+/// thousands of iterations there); the accepted state is decided by the residual test.
+const DIRECT_MAX_BAND: usize = 1200;
+const DIRECT_MAX_ENTRIES: usize = 8_000_000;
+/// Rows of a Cholesky column per parallel task (each an inner product of up to a band).
+const CHOLESKY_ROWS_PER_TASK: usize = 64;
 /// Halvings of a globalised (`tangent_statics`) Newton step before its direction is given
 /// up: steps down to 2^-30 of the full correction.
 const LINE_SEARCH_HALVINGS: usize = 31;
@@ -425,21 +429,41 @@ impl ReferenceSolver {
     }
 
     /// `K x = r` for an anchored cluster's tangent stiffness `K` (bond stiffnesses `k`,
-    /// held degrees of freedom as identity rows, as `apply_k`) by Cholesky of its band
-    /// (chunks in layout order). None when the band is too wide to pay or `K` is not
-    /// positive definite (the caller then uses the PCG).
+    /// held degrees of freedom as identity rows, as `apply_k`) by Cholesky of its band:
+    /// chunks in layout order, or where that band is too wide in reverse Cuthill-McKee
+    /// order (the same system, renumbered). None when the band is still too wide to pay
+    /// or `K` is not positive definite (the caller then uses the PCG).
     fn banded_tangent_solve(&self, ci: usize, lay: &Layout, k: &[Mat6], r: &[V6]) -> Option<Vec<V6>> {
+        let n = lay.chunks.len() * 6;
+        let fits = |band: usize| band <= DIRECT_MAX_BAND && n * band <= DIRECT_MAX_ENTRIES;
+        let mut at: Vec<usize> = (0..lay.chunks.len()).collect();
+        if !fits(self.band_of(ci, lay, &at)?) {
+            at = self.reverse_cuthill_mckee(ci, lay);
+            if !fits(self.band_of(ci, lay, &at)?) {
+                return None;
+            }
+        }
+        self.banded_solve(ci, lay, k, r, &at)
+    }
+
+    /// Band (degrees of freedom, diagonal included) of a cluster's stiffness with local
+    /// chunk i at band position `at[i]`; None without bonds.
+    fn band_of(&self, ci: usize, lay: &Layout, at: &[usize]) -> Option<usize> {
+        let cl = &self.clusters[ci];
+        let s = cl.structure;
+        let width = cl.bonds.iter().map(|&bi| {
+            let g = &self.bonds[s][bi].geometry;
+            at[lay.local[g.a]].abs_diff(at[lay.local[g.b]])
+        }).max()?;
+        Some(6 * (width + 1))
+    }
+
+    /// `banded_tangent_solve` with local chunk i at band position `at[i]`.
+    fn banded_solve(&self, ci: usize, lay: &Layout, k: &[Mat6], r: &[V6], at: &[usize]) -> Option<Vec<V6>> {
         let cl = &self.clusters[ci];
         let s = cl.structure;
         let n = lay.chunks.len() * 6;
-        let bw_chunks = cl.bonds.iter().map(|&bi| {
-            let g = &self.bonds[s][bi].geometry;
-            lay.local[g.a].abs_diff(lay.local[g.b])
-        }).max()?;
-        let band = 6 * (bw_chunks + 1);
-        if band > DIRECT_MAX_BAND || n * band > DIRECT_MAX_ENTRIES {
-            return None;
-        }
+        let band = self.band_of(ci, lay, at)?;
         // Row i, column j (i - band < j <= i) at a[i * band + (j + band - 1 - i)].
         let pos = |i: usize, j: usize| i * band + (j + band - 1 - i);
         let mut a = vec![0.0f64; n * band];
@@ -467,7 +491,7 @@ impl ReferenceSolver {
                     }
                 }
             }
-            let base = [6 * ia, 6 * ib];
+            let base = [6 * at[ia], 6 * at[ib]];
             for x in 0..12 {
                 for y in 0..12 {
                     let (gi, gj) = (base[x / 6] + x % 6, base[y / 6] + y % 6);
@@ -480,7 +504,7 @@ impl ReferenceSolver {
         for (i, f) in lay.fixed.iter().enumerate() {
             for d in 0..6 {
                 if f[d] {
-                    let gi = 6 * i + d;
+                    let gi = 6 * at[i] + d;
                     for j in (gi + 1).saturating_sub(band)..=gi {
                         a[pos(gi, j)] = 0.0;
                     }
@@ -491,25 +515,31 @@ impl ReferenceSolver {
                 }
             }
         }
-        // Cholesky L L^T in place, row by row.
-        for i in 0..n {
-            let lo_i = (i + 1).saturating_sub(band);
-            for j in lo_i..=i {
-                let lo = lo_i.max((j + 1).saturating_sub(band));
+        // Cholesky L L^T in place, column by column: each entry is the same inner product
+        // of earlier entries as row by row, so the factor does not depend on the order.
+        // A column's entries below the diagonal are independent (rows in parallel).
+        for j in 0..n {
+            let lo_j = (j + 1).saturating_sub(band);
+            let v = a[pos(j, j)] - dot4(&a[pos(j, lo_j)..pos(j, j)], &a[pos(j, lo_j)..pos(j, j)]);
+            if !(v > 0.0) {
+                return None;
+            }
+            let ljj = v.sqrt();
+            a[pos(j, j)] = ljj;
+            let end = (j + band).min(n);
+            let col = crate::par::map_range(j + 1..end, CHOLESKY_ROWS_PER_TASK, |i| {
+                let lo = (i + 1).saturating_sub(band);
                 let (ri, rj) = (pos(i, lo), pos(j, lo));
-                let dot = dot4(&a[ri..ri + (j - lo)], &a[rj..rj + (j - lo)]);
-                let v = a[pos(i, j)] - dot;
-                if i == j {
-                    if !(v > 0.0) {
-                        return None;
-                    }
-                    a[pos(i, i)] = v.sqrt();
-                } else {
-                    a[pos(i, j)] = v / a[pos(j, j)];
-                }
+                (a[pos(i, j)] - dot4(&a[ri..ri + (j - lo)], &a[rj..rj + (j - lo)])) / ljj
+            });
+            for (i, v) in (j + 1..end).zip(col) {
+                a[pos(i, j)] = v;
             }
         }
-        let mut y: Vec<f64> = r.iter().flat_map(|v| v.iter().copied()).collect();
+        let mut y = vec![0.0f64; n];
+        for (i, v) in r.iter().enumerate() {
+            y[6 * at[i]..6 * at[i] + 6].copy_from_slice(v);
+        }
         for i in 0..n {
             let lo = (i + 1).saturating_sub(band);
             let dot = dot4(&a[pos(i, lo)..pos(i, i)], &y[lo..i]);
@@ -522,7 +552,85 @@ impl ReferenceSolver {
             }
             y[i] = v / a[pos(i, i)];
         }
-        Some(y.chunks(6).map(|c| [c[0], c[1], c[2], c[3], c[4], c[5]]).collect())
+        Some(at.iter().map(|&b| std::array::from_fn(|d| y[6 * b + d])).collect())
+    }
+
+    /// Reverse Cuthill-McKee numbering of a cluster's chunks over its bond graph: band
+    /// position per local chunk. Each connected part starts from a pseudo-peripheral chunk
+    /// (George-Liu: restart from the farthest, least-connected chunk of the last level
+    /// while the depth grows); neighbours by ascending degree, then index.
+    fn reverse_cuthill_mckee(&self, ci: usize, lay: &Layout) -> Vec<usize> {
+        let cl = &self.clusters[ci];
+        let s = cl.structure;
+        let m = lay.chunks.len();
+        let mut adj: Vec<Vec<usize>> = vec![Vec::new(); m];
+        for &bi in &cl.bonds {
+            let g = &self.bonds[s][bi].geometry;
+            let (a, b) = (lay.local[g.a], lay.local[g.b]);
+            if a != b {
+                adj[a].push(b);
+                adj[b].push(a);
+            }
+        }
+        for v in adj.iter_mut() {
+            v.sort_unstable();
+            v.dedup();
+        }
+        let deg: Vec<usize> = adj.iter().map(Vec::len).collect();
+        for v in adj.iter_mut() {
+            v.sort_by_key(|&j| (deg[j], j));
+        }
+        // Breadth-first levels from `root` over unplaced chunks: (order, start of the
+        // last level, number of levels).
+        let bfs = |root: usize, placed: &[bool]| -> (Vec<usize>, usize, usize) {
+            let mut seen = placed.to_vec();
+            seen[root] = true;
+            let (mut order, mut level, mut depth) = (vec![root], 0, 0);
+            let mut head = 0;
+            while head < order.len() {
+                let end = order.len();
+                level = head;
+                depth += 1;
+                for q in head..end {
+                    for &j in &adj[order[q]] {
+                        if !seen[j] {
+                            seen[j] = true;
+                            order.push(j);
+                        }
+                    }
+                }
+                head = end;
+            }
+            (order, level, depth)
+        };
+        let mut placed = vec![false; m];
+        let mut order = Vec::with_capacity(m);
+        for start in 0..m {
+            if placed[start] {
+                continue;
+            }
+            // `start` is the first unplaced chunk; its part's least-connected chunk roots it.
+            let (first, _, _) = bfs(start, &placed);
+            let root = first.iter().copied().min_by_key(|&i| (deg[i], i)).unwrap_or(start);
+            let (mut part, mut last, mut depth) = bfs(root, &placed);
+            loop {
+                let far = part[last..].iter().copied().min_by_key(|&i| (deg[i], i)).unwrap();
+                let (p2, l2, d2) = bfs(far, &placed);
+                if d2 <= depth {
+                    break;
+                }
+                (part, last, depth) = (p2, l2, d2);
+            }
+            for &i in &part {
+                placed[i] = true;
+            }
+            order.extend(part);
+        }
+        let mut at = vec![0; m];
+        for (p, &i) in order.iter().rev().enumerate() {
+            at[i] = p;
+        }
+        at
     }
 
     /// External chunk loads of a cluster in its body frame (gravity, given loads,
@@ -813,6 +921,64 @@ impl ReferenceSolver {
             total.converged &= r.converged;
         }
         total
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The direct solve in reverse Cuthill-McKee order solves the same system as in layout
+    /// order: the numbering is a permutation, its band is no wider, and both solutions meet
+    /// banded Cholesky's backward-error bound. The normwise error `|r - K x| / (|K| |x|)`
+    /// (infinity norms, `K x` summed densely from `K`'s columns) stays below
+    /// `n gamma(4b + 2)`, `gamma(m) = m u / (1 - m u)`: Higham, Accuracy and Stability of
+    /// Numerical Algorithms, Thm 10.4 (`gamma(3b + 1)` for the factor and both
+    /// substitutions, `| |R^T| |R| | <= n |K|`) plus `gamma(b)` for the residual's sums.
+    #[test]
+    fn reordered_direct_solve_solves_the_same_system() {
+        let scene = crate::builders::pressure_panel(300e3, "panel");
+        let world = crate::world::World::new(&scene);
+        let sv = &world.solver;
+        let ci = (0..sv.clusters.len()).find(|&c| sv.clusters[c].anchored && !sv.clusters[c].bonds.is_empty()).unwrap();
+        let lay = sv.layout(ci);
+        let m = lay.chunks.len();
+        let n = 6 * m;
+        let k = sv.newton_stiffness(ci, false);
+        let at = sv.reverse_cuthill_mckee(ci, &lay);
+        let mut sorted = at.clone();
+        sorted.sort_unstable();
+        assert_eq!(sorted, (0..m).collect::<Vec<_>>(), "not a permutation");
+        let natural: Vec<usize> = (0..m).collect();
+        let (b_nat, b_rcm) = (sv.band_of(ci, &lay, &natural).unwrap(), sv.band_of(ci, &lay, &at).unwrap());
+        assert!(b_rcm <= b_nat, "RCM band {b_rcm} wider than the layout's {b_nat}");
+        // K's columns (unit displacements through `apply_k`).
+        let cols: Vec<Vec<V6>> = (0..n)
+            .map(|j| {
+                let mut e = vec![[0.0; 6]; m];
+                e[j / 6][j % 6] = 1.0;
+                sv.apply_k(ci, &lay, &k, &e)
+            })
+            .collect();
+        let k_norm = (0..n).map(|i| cols.iter().map(|c| c[i / 6][i % 6].abs()).sum::<f64>()).fold(0.0, f64::max);
+        // Zero on held DOFs, as every Newton residual (there `apply_k` keeps K's columns
+        // and the direct solve drops them; they agree only on such loads).
+        let r: Vec<V6> = (0..m).map(|i| std::array::from_fn(|d| if lay.fixed[i][d] { 0.0 } else { ((7 * i + d) as f64 * 0.37).sin() * 1e3 })).collect();
+        let u = f64::EPSILON / 2.0;
+        for (name, order, band) in [("layout", &natural, b_nat), ("rcm", &at, b_rcm)] {
+            let x = sv.banded_solve(ci, &lay, &k, &r, order).expect("secant stiffness is positive definite");
+            let x_norm = x.iter().flat_map(|v| v.iter()).fold(0.0f64, |a, v| a.max(v.abs()));
+            let mut res = 0.0f64;
+            for i in 0..n {
+                let kx: f64 = (0..n).map(|j| cols[j][i / 6][i % 6] * x[j / 6][j % 6]).sum();
+                res = res.max((r[i / 6][i % 6] - kx).abs());
+            }
+            let eta = res / (k_norm * x_norm);
+            let mb = (4 * band + 2) as f64 * u;
+            let bound = n as f64 * mb / (1.0 - mb);
+            println!("{name}: band {band}, backward error {eta:.3e} (bound {bound:.3e})");
+            assert!(eta <= bound, "{name}: backward error {eta:.3e} above {bound:.3e}");
+        }
     }
 }
 

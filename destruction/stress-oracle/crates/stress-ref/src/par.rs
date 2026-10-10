@@ -56,6 +56,15 @@ pub fn map_into_heavy<T: Send, R: Send>(items: Vec<T>, f: impl Fn(T) -> R + Sync
     items.into_par_iter().with_min_len(2).map(f).collect()
 }
 
+/// `range.map(f).collect()`, split over the pool in runs of at least `min_len` items, in
+/// order (bit-identical for any thread count); serial below two runs.
+pub fn map_range<R: Send>(range: std::ops::Range<usize>, min_len: usize, f: impl Fn(usize) -> R + Sync + Send) -> Vec<R> {
+    if range.len() < 2 * min_len || !pooled() {
+        return range.map(f).collect();
+    }
+    range.into_par_iter().with_min_len(min_len).map(f).collect()
+}
+
 #[cfg(test)]
 mod tests {
     #[test]
