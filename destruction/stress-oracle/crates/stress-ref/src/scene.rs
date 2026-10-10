@@ -462,6 +462,15 @@ pub struct Methods {
     /// the contact that replaces a broken joint has the joint's stiffness but unlimited
     /// strength, so hinges between fragments never crush (over-strong arching).
     pub contact_crushing: bool,
+    /// The static (quasi-static and settling) solve iterates with each joint's consistent
+    /// tangent stiffness (`JointModel::tangent`: the intact share elastic, the cracked
+    /// share's active contact springs, sticking or sliding friction, rebar). Off: the
+    /// secant stiffness, whose fixed-point iteration converges only linearly. Where the
+    /// joints are nonlinear it stops at the step limit short of an equilibrium that exists,
+    /// and the cluster keeps its last state (s_arch_keystone_removed: 109 of 1309 solves
+    /// converged, against 2269 of 2281 with the tangent). Either way a solve is accepted
+    /// only by the same residual test, so every accepted state is an equilibrium.
+    pub tangent_statics: bool,
 }
 
 impl Default for Methods {
@@ -503,6 +512,7 @@ impl Methods {
             frame_contact_step: false,
             exact_frame_transfer: false,
             contact_crushing: false,
+            tangent_statics: false,
         }
     }
 
@@ -526,7 +536,7 @@ impl Methods {
     }
 
     /// Names of every switch, in declaration order.
-    pub const NAMES: [&'static str; 8] = ["layer_contact", "scaled_step_bound", "exact_joint_patch", "patch_after_damage", "exact_rate_filter", "frame_contact_step", "exact_frame_transfer", "contact_crushing"];
+    pub const NAMES: [&'static str; 9] = ["layer_contact", "scaled_step_bound", "exact_joint_patch", "patch_after_damage", "exact_rate_filter", "frame_contact_step", "exact_frame_transfer", "contact_crushing", "tangent_statics"];
 
     /// Set a switch by name.
     pub fn set(&mut self, name: &str, on: bool) -> Result<(), String> {
@@ -539,6 +549,7 @@ impl Methods {
             "frame_contact_step" => &mut self.frame_contact_step,
             "exact_frame_transfer" => &mut self.exact_frame_transfer,
             "contact_crushing" => &mut self.contact_crushing,
+            "tangent_statics" => &mut self.tangent_statics,
             _ => return Err(format!("unknown method '{name}' (known: {})", Self::NAMES.join(", "))),
         };
         *slot = on;

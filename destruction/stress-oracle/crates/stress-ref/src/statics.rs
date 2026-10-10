@@ -544,18 +544,7 @@ impl ReferenceSolver {
         let scale = dot6(&f_ext, &f_ext).sqrt().max(1e-300);
         let mut report = StaticReport::default();
         for it in 0..opts.max_newton {
-            let fb = self.bond_forces(ci, &lay);
-            let mut r: Vec<V6> = f_ext.iter().zip(&fb).map(|(e, b)| std::array::from_fn(|d| e[d] + b[d])).collect();
-            for (i, f) in lay.fixed.iter().enumerate() {
-                for d in 0..6 {
-                    if f[d] {
-                        r[i][d] = 0.0;
-                    }
-                }
-            }
-            if free {
-                self.project_load(ci, &lay, &mut r);
-            }
+            let r = self.static_residual(ci, &lay, &f_ext, free);
             let res = dot6(&r, &r).sqrt() / scale;
             report.residual = res;
             report.newton_iterations = it;
@@ -563,26 +552,47 @@ impl ReferenceSolver {
                 report.converged = true;
                 break;
             }
-            let k = self.newton_stiffness(ci, false);
-            // A solve still unconverged after DIRECT_AFTER Newton steps takes its remaining
-            // steps by a direct (banded Cholesky) solve of the same system where it fits:
-            // about twice as fast as the PCG's 500-900 iterations there, and exact to
-            // round-off rather than to the PCG's tolerance. Earlier steps are the PCG's, so
-            // every solve that converges within them is unchanged.
-            let direct = if it >= DIRECT_AFTER && !free { self.banded_tangent_solve(ci, &lay, &k, &r) } else { None };
-            let (dx, cg) = match direct {
-                Some(dx) => {
-                    crate::profile::count(crate::profile::Counter::DirectSolves, 1);
-                    (dx, 0)
+            // `sim.methods.tangent_statics`: a step with the joints' tangent first, kept
+            // only if it lowers the residual; else (and always without the switch) the
+            // secant step, an upper bound and a descent direction (as the implicit solve).
+            let tangent_first = self.config.methods.tangent_statics;
+            let saved: Vec<(Vec3, Vec3)> = if tangent_first { lay.chunks.iter().map(|&c| (self.chunks[s][c].u, self.chunks[s][c].th)).collect() } else { Vec::new() };
+            for tangent in [true, false] {
+                if tangent && !tangent_first {
+                    continue;
                 }
-                None => self.pcg(ci, &lay, &k, &r, (opts.tolerance * 0.1).max(1e-14)),
-            };
-            report.cg_iterations += cg;
-            for (i, &c) in lay.chunks.iter().enumerate() {
-                let (du, dth) = split(&dx[i]);
-                let st = &mut self.chunks[s][c];
-                st.u += du;
-                st.th += dth;
+                let k = self.newton_stiffness(ci, tangent);
+                // A solve still unconverged after DIRECT_AFTER Newton steps takes its
+                // remaining steps by a direct (banded Cholesky) solve of the same system
+                // where it fits: about twice as fast as the PCG's 500-900 iterations
+                // there, and exact to round-off rather than to the PCG's tolerance.
+                // Earlier steps are the PCG's, so every solve that converges within them
+                // is unchanged.
+                let direct = if it >= DIRECT_AFTER && !free { self.banded_tangent_solve(ci, &lay, &k, &r) } else { None };
+                let (dx, cg) = match direct {
+                    Some(dx) => {
+                        crate::profile::count(crate::profile::Counter::DirectSolves, 1);
+                        (dx, 0)
+                    }
+                    None => self.pcg(ci, &lay, &k, &r, (opts.tolerance * 0.1).max(1e-14)),
+                };
+                report.cg_iterations += cg;
+                for (i, &c) in lay.chunks.iter().enumerate() {
+                    let (du, dth) = split(&dx[i]);
+                    let st = &mut self.chunks[s][c];
+                    st.u += du;
+                    st.th += dth;
+                }
+                if !tangent {
+                    break;
+                }
+                let tried = self.static_residual(ci, &lay, &f_ext, free);
+                if dot6(&tried, &tried).sqrt() / scale < res {
+                    break;
+                }
+                for (i, &c) in lay.chunks.iter().enumerate() {
+                    (self.chunks[s][c].u, self.chunks[s][c].th) = saved[i];
+                }
             }
         }
         // Equilibrium: no deformation velocity; refresh the stored bond forces.
@@ -606,6 +616,24 @@ impl ReferenceSolver {
         crate::profile::count(crate::profile::Counter::NewtonIterations, report.newton_iterations as u64);
         crate::profile::count(crate::profile::Counter::CgIterations, report.cg_iterations as u64);
         report
+    }
+
+    /// Out-of-balance loads of a cluster at its current displacements (external plus bond
+    /// forces, held DOFs zeroed, rigid modes projected out of a free cluster).
+    fn static_residual(&self, ci: usize, lay: &Layout, f_ext: &[V6], free: bool) -> Vec<V6> {
+        let fb = self.bond_forces(ci, lay);
+        let mut r: Vec<V6> = f_ext.iter().zip(&fb).map(|(e, b)| std::array::from_fn(|d| e[d] + b[d])).collect();
+        for (i, f) in lay.fixed.iter().enumerate() {
+            for d in 0..6 {
+                if f[d] {
+                    r[i][d] = 0.0;
+                }
+            }
+        }
+        if free {
+            self.project_load(ci, lay, &mut r);
+        }
+        r
     }
 
     /// `equilibrate`, keeping the cluster's previous state when no equilibrium is found:
