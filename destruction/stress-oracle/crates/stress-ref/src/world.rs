@@ -2502,12 +2502,12 @@ struct ClusterSweep {
 
 impl ClusterSweep {
     fn new(chunks: &[usize], bounds: &[(Vec3, f64)], intervals: &[[f64; 6]]) -> Self {
-        let spread = |i: usize| {
+        let spread: [f64; 3] = std::array::from_fn(|i| {
             let (lo, hi) = chunks.iter().map(|&k| bounds[k].0[i]).fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), x| (lo.min(x), hi.max(x)));
             hi - lo
-        };
-        let axis = (0..3).max_by(|&i, &j| spread(i).total_cmp(&spread(j))).unwrap_or(0);
-        let across = (0..3).filter(|&i| i != axis).max_by(|&i, &j| spread(i).total_cmp(&spread(j))).unwrap_or((axis + 1) % 3);
+        });
+        let axis = (0..3).max_by(|&i, &j| spread[i].total_cmp(&spread[j])).unwrap_or(0);
+        let across = (0..3).filter(|&i| i != axis).max_by(|&i, &j| spread[i].total_cmp(&spread[j])).unwrap_or((axis + 1) % 3);
         let h = chunks.iter().map(|&k| intervals[k][3 + axis] - intervals[k][axis]).fold(0.0, f64::max);
         let c = chunks.iter().map(|&k| intervals[k][axis].abs()).fold(0.0, f64::max);
         let inv_h = if h > 0.0 && h.is_finite() && h >= 1e-6 * c { 1.0 / h } else { 0.0 };
@@ -2564,6 +2564,9 @@ impl ClusterSweep {
         }
     }
 }
+
+/// Below this many queries in a substep a cluster is scanned rather than indexed.
+const INDEX_MIN_QUERIES: usize = 10;
 
 /// The chunk pairs of the contact broadphase, as the all-pairs loops decide them: over
 /// cluster pairs `ca < cb` whose boxes overlap (`boxes[c]`: min, max corner; skipped
@@ -2622,12 +2625,21 @@ fn chunk_pairs(bounds: &[(Vec3, f64)], cluster: &[usize], boxes: &[(Vec3, Vec3)]
     let mut sweeps: Vec<Option<ClusterSweep>> = (0..boxes.len()).map(|_| None).collect();
     let mut hits = Vec::new();
     let mut tests = 0u64;
-    for (ca, cb) in aabb_pairs(boxes) {
-        if !admit(ca, cb) {
-            continue;
+    let pairs: Vec<(usize, usize)> = aabb_pairs(boxes).into_iter().filter(|&(ca, cb)| admit(ca, cb)).collect();
+    let sides = |ca: usize, cb: usize| if by_cluster[ca].len() > by_cluster[cb].len() { (cb, ca) } else { (ca, cb) };
+    // Chunks each cluster will be queried with as the larger side of a pair this
+    // substep: its index is built only when they repay it (about ten scans of it).
+    let mut demand = vec![0usize; boxes.len()];
+    for &(ca, cb) in &pairs {
+        if by_cluster[ca].len() * by_cluster[cb].len() > 16 {
+            let (query, swept) = sides(ca, cb);
+            demand[swept] += by_cluster[query].len();
         }
+    }
+    for &(ca, cb) in &pairs {
         let (a, b) = (&by_cluster[ca], &by_cluster[cb]);
-        if a.len() * b.len() <= 16 {
+        let (query, swept) = sides(ca, cb);
+        if a.len() * b.len() <= 16 || (demand[swept] < INDEX_MIN_QUERIES && sweeps[swept].is_none()) {
             for &ka in a {
                 for &kb in b {
                     if !apart(ka, kb) && touch(ka, kb) {
@@ -2637,7 +2649,6 @@ fn chunk_pairs(bounds: &[(Vec3, f64)], cluster: &[usize], boxes: &[(Vec3, Vec3)]
             }
             continue;
         }
-        let (query, swept) = if a.len() > b.len() { (cb, ca) } else { (ca, cb) };
         let sw = sweeps[swept].get_or_insert_with(|| ClusterSweep::new(&by_cluster[swept], bounds, &intervals));
         hits.clear();
         for &kq in &by_cluster[query] {
