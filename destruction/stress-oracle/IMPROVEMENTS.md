@@ -299,6 +299,7 @@ field-cell calls, splits, and which limit set each frame's step.
 | 8fe879496 | A cluster is indexed only when its queries in the substep repay it (about ten); otherwise it is scanned directly. One 664-chunk structure against one fallen chunk paid 13 us per substep for an index used once. Settlement, default methods: -6.3 % cycles | 182/182 |
 | bad18bcb5 | The contact patch's 36 springs in their own non-inlined function (same arithmetic): evaluate compiles better. Bond-response micro-bench 105.6 -> ~100 ns per bond | 182/182 |
 | f4d514c62 | Merge of fix/oracle-accuracy (e6fc3ade9), its polytope changes ported to the flat representation with the same arithmetic | gated against e6fc3ade9 |
+| c347352ea | The contact layer's cohorts: about 3 passes instead of 14, no clones, the same sums in the same order (held energy with the stiffness, load with energy, the carried load only to slide). Floor drop with layer contact: 80.3 -> 69.4 s | gate pending |
 
 Small exact changes are now judged by cycle counts (`/usr/bin/time -l`, about 0.1 %
 between repeats on a quiet machine, up to 1-2 % under load). Changes to one function
@@ -359,6 +360,15 @@ Excluded (cannot be shown exact or within round-off without the physics tests):
 - the volume-weighted mean radius of an overlap (`mean_axis_distance`, about 10 % of
   layer contact). Only friction torque that may slide needs it, but no cheap bound
   holds for its quadrature value.
+
+Finding for the model (not a runtime change): the LIFO shear layer's cohort lists grow
+long. On s_floor_drop with layer contact, about 2.3 M of the 6.1 M contact evaluations
+carried 256 to 2047 cohorts, and 0.4 M more than 2048. Every substep each contact goes
+over all of them, and the force law was 22 % of the run before c347352ea. Most cohorts
+are slivers of area (round-off flicker of a contact edge, a cohort pushed whenever the
+area grows after the displacement moved). Merging cohorts would change rounding, so
+it is not a runtime change. A tolerance for "the same displacement" would be a model
+decision.
 
 Finding for the solver (not a runtime change): in `quasi_static` mode, b9_panel_high's
 static solves mostly fail. Over its first 10 frames, 9 of 12 diverge: the plain
