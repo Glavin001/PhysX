@@ -328,6 +328,16 @@ every accepted state is an equilibrium.
 **Status:** default on (from 6126ca847's switch). `STRESS_METHODS=-tangent_statics`
 restores the secant.
 
+Against cd112933c, `verify_identical.py` gives 97/182. The established-method cells are
+unchanged (switch off there) except the quasi_static cantilever (the direct solve,
+above). Every default-method run starts from a static equilibrium, now reached by the
+tangent iteration, so it differs at tolerance level: b1_bond_shear by 1e-17 m in
+displacement and 1e-12 relative in energy. Runs with fracture then diverge as such runs
+do: b5_wall_impact_v02's base-shear history changes phase after the impact. Its outcome
+does not change (failure mode push_over, hole area 2.88 m^2; speed lost 1.44 vs 1.45,
+failing the same gate as before). Its run time is unchanged (70.8 vs 69.2 s, scene-mode
+A/B).
+
 ## Runtime (bit-exact, no switch)
 
 Speedups that change no result take no switch. Each must reproduce the established
