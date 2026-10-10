@@ -17,6 +17,21 @@ use crate::solver::{Activity, ChunkLoads, ChunkState, ReferenceSolver};
 
 pub(crate) type V6 = [f64; 6];
 
+/// `sum x_i y_i` in four interleaved partial sums (the direct solve's inner products: no
+/// order to keep there, and the CPU overlaps the four chains).
+fn dot4(x: &[f64], y: &[f64]) -> f64 {
+    let (xc, yc) = (x.chunks_exact(4), y.chunks_exact(4));
+    let (xr, yr) = (xc.remainder(), yc.remainder());
+    let mut acc = [0.0f64; 4];
+    for (a, b) in xc.zip(yc) {
+        for l in 0..4 {
+            acc[l] += a[l] * b[l];
+        }
+    }
+    let tail: f64 = xr.iter().zip(yr).map(|(a, b)| a * b).sum();
+    (acc[0] + acc[1]) + (acc[2] + acc[3]) + tail
+}
+
 /// Newton steps of a static solve taken by the PCG before a direct solve may take over.
 const DIRECT_AFTER: usize = 10;
 /// Widest band (degrees of freedom) and largest band storage the direct solve takes on.
@@ -476,7 +491,7 @@ impl ReferenceSolver {
             for j in lo_i..=i {
                 let lo = lo_i.max((j + 1).saturating_sub(band));
                 let (ri, rj) = (pos(i, lo), pos(j, lo));
-                let dot: f64 = a[ri..ri + (j - lo)].iter().zip(&a[rj..rj + (j - lo)]).map(|(x, y)| x * y).sum();
+                let dot = dot4(&a[ri..ri + (j - lo)], &a[rj..rj + (j - lo)]);
                 let v = a[pos(i, j)] - dot;
                 if i == j {
                     if !(v > 0.0) {
@@ -491,7 +506,7 @@ impl ReferenceSolver {
         let mut y: Vec<f64> = r.iter().flat_map(|v| v.iter().copied()).collect();
         for i in 0..n {
             let lo = (i + 1).saturating_sub(band);
-            let dot: f64 = a[pos(i, lo)..pos(i, i)].iter().zip(&y[lo..i]).map(|(x, y)| x * y).sum();
+            let dot = dot4(&a[pos(i, lo)..pos(i, i)], &y[lo..i]);
             y[i] = (y[i] - dot) / a[pos(i, i)];
         }
         for i in (0..n).rev() {
