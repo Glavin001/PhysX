@@ -18,16 +18,9 @@
 // per-substep increments are far below f32 resolution at world scale.
 
 import joint;
-
-static const uint SUPPORT_NONE = 0;
-static const uint SUPPORT_FIXED = 1;
-static const uint SUPPORT_PINNED = 2;
+import common;
 
 static const uint THREADS = 256;
-
-static const uint ISLAND_ANCHORED = 1;
-static const uint ISLAND_DRIVEN = 2;
-static const uint ISLAND_HALTED = 1;
 
 struct Params
 {
@@ -40,6 +33,10 @@ struct Params
     float t_lo;
     uint probe_base;    // first float4 of the probe outputs in `scratch`
     uint probe_stride;  // floats per probe item (multiple of 4)
+    uint max_steps;     // substeps per island in this dispatch at most
+    uint contact_mode;  // 0: islands outside the contact pipeline; 1: contact islands
+    uint contact_base;  // float4 index of the chunk contact loads in `contact_out`
+    uint halt_index;    // sentinel island (batch control, see contact.slang)
 };
 
 // Load terms (in `loads`, 5 float4 each).
@@ -92,48 +89,6 @@ struct BondDyn
     uint4 events;      // absolute substep of: crack, creak, break (0: none); w: mode at crack
 };
 
-// Static data of a chunk (body frame of its cluster).
-struct ChunkStatic
-{
-    float4 center;     // w: mass
-    float4 inertia0;   // rows of the inertia
-    float4 inertia1;
-    float4 inertia2;
-    float4 inv0;       // rows of the inverse inertia
-    float4 inv1;
-    float4 inv2;
-    float4 scale;      // inertia scale mu, 1 / (m mu), 1 / mu, -
-    uint4 info;        // support, island, structure, chunk
-    uint4 load_range;  // load terms [x, y) in `loads`
-};
-
-// An island (cluster): static mass data and dynamic rigid state.
-struct Island
-{
-    uint4 range;       // chunks [x, y), bonds [z, w)
-    uint4 info;        // flags (ISLAND_*), substeps to run, status (ISLAND_HALTED), absolute substep at start
-    float4 com;        // body frame centre of mass; w: mass
-    float4 inertia0;   // rows of the body inertia about com
-    float4 inertia1;
-    float4 inertia2;
-    float4 inv0;       // rows of its inverse
-    float4 inv1;
-    float4 inv2;
-    float4 wcom;       // drift-removal weights (deformation inertia): com, w mass
-    float4 winv0;      // rows of the inverse weighted inertia
-    float4 winv1;
-    float4 winv2;
-    float4 rotation;   // quaternion (x, y, z, w)
-    float4 position;   // world, compensated with position_err
-    float4 position_err;
-    float4 velocity;   // com velocity, compensated with velocity_err
-    float4 velocity_err;
-    float4 angular_velocity;
-    uint4 done;        // x: substeps run in the last dispatch
-    uint4 probes;      // probe items [x, y) in `loads`
-    float4 energy;     // external work (compensated: x + y)
-};
-
 [[vk::binding(0, 0)]] ConstantBuffer<Params> params;
 [[vk::binding(1, 0)]] ConstantBuffer<MaterialTable> materials;
 [[vk::binding(2, 0)]] StructuredBuffer<BondStatic> bonds;
@@ -149,128 +104,8 @@ struct Island
 [[vk::binding(8, 0)]] RWStructuredBuffer<Island> islands;
 // Load terms, table data and probe items.
 [[vk::binding(9, 0)]] StructuredBuffer<float4> loads;
-
-// ------------------------------------------------------------------ small math
-
-struct Quat
-{
-    float w;
-    float x;
-    float y;
-    float z;
-};
-
-Quat quat_of(float4 q)
-{
-    Quat r;
-    r.x = q.x;
-    r.y = q.y;
-    r.z = q.z;
-    r.w = q.w;
-    return r;
-}
-
-float4 quat_vec(Quat q)
-{
-    return float4(q.x, q.y, q.z, q.w);
-}
-
-float3 rotate(Quat q, float3 v)
-{
-    float3 qv = float3(q.x, q.y, q.z);
-    float3 t = cross(qv, v) * 2.0;
-    return v + t * q.w + cross(qv, t);
-}
-
-float3 inverse_rotate(Quat q, float3 v)
-{
-    Quat c;
-    c.w = q.w;
-    c.x = -q.x;
-    c.y = -q.y;
-    c.z = -q.z;
-    return rotate(c, v);
-}
-
-Quat quat_mul(Quat a, Quat o)
-{
-    Quat r;
-    r.w = a.w * o.w - a.x * o.x - a.y * o.y - a.z * o.z;
-    r.x = a.w * o.x + a.x * o.w + a.y * o.z - a.z * o.y;
-    r.y = a.w * o.y - a.x * o.z + a.y * o.w + a.z * o.x;
-    r.z = a.w * o.z + a.x * o.y - a.y * o.x + a.z * o.w;
-    return r;
-}
-
-Quat normalized(Quat q)
-{
-    float n = sqrt(q.w * q.w + q.x * q.x + q.y * q.y + q.z * q.z);
-    Quat r;
-    r.w = q.w / n;
-    r.x = q.x / n;
-    r.y = q.y / n;
-    r.z = q.z / n;
-    return r;
-}
-
-// Vec3::normalized: zero for a (near-)zero input.
-float3 safe_normalize(float3 v)
-{
-    float n = length(v);
-    return n > 1e-30 ? v / n : float3(0.0);
-}
-
-Quat from_axis_angle(float3 axis, float angle)
-{
-    float3 a = safe_normalize(axis);
-    float s = sin(0.5 * angle);
-    float c = cos(0.5 * angle);
-    Quat q;
-    q.w = c;
-    q.x = a.x * s;
-    q.y = a.y * s;
-    q.z = a.z * s;
-    return q;
-}
-
-Quat integrate_rotation(Quat q, float3 omega, float dt)
-{
-    float angle = length(omega) * dt;
-    if (angle < 1e-30)
-        return q;
-    return normalized(quat_mul(from_axis_angle(omega, angle), q));
-}
-
-float3 rows_mul(float4 r0, float4 r1, float4 r2, float3 v)
-{
-    return float3(dot(r0.xyz, v), dot(r1.xyz, v), dot(r2.xyz, v));
-}
-
-// (R M R^T) v for a body-frame matrix M given by rows.
-float3 world_mul(Quat q, float4 r0, float4 r1, float4 r2, float3 v)
-{
-    return rotate(q, rows_mul(r0, r1, r2, inverse_rotate(q, v)));
-}
-
-// Compensated accumulation: (sum, err) += x (Kahan-Babuska / Neumaier).
-void comp_add(inout float3 sum, inout float3 err, float3 x)
-{
-    float3 t = sum + x;
-    float3 big = select(abs(sum) >= abs(x), sum, x);
-    float3 small = select(abs(sum) >= abs(x), x, sum);
-    err += (big - t) + small;
-    sum = t;
-}
-
-void comp_add1(inout float sum, inout float err, float x)
-{
-    float t = sum + x;
-    if (abs(sum) >= abs(x))
-        err += (sum - t) + x;
-    else
-        err += (x - t) + sum;
-    sum = t;
-}
+// Contact outputs (contact.slang): the chunk contact loads from params.contact_base.
+[[vk::binding(10, 0)]] StructuredBuffer<float4> contact_out;
 
 // ------------------------------------------------------------------ loads
 
@@ -339,7 +174,7 @@ float eval_function(uint term, uint k, float dt, float shift)
 
 // The external (non-gravity) load on chunk c at substep k, world frame (force, torque
 // about the chunk centre), in the order the reference adds it.
-void chunk_external(uint c, ChunkStatic ch, Quat rot, uint k, float dt, out float3 f, out float3 t)
+void chunk_external(uint c, ChunkStatic ch, Quat rot, uint k, float dt, bool contact, out float3 f, out float3 t)
 {
     f = float3(0.0);
     t = float3(0.0);
@@ -354,6 +189,12 @@ void chunk_external(uint c, ChunkStatic ch, Quat rot, uint k, float dt, out floa
         float3 fw = info.y == LOAD_WORLD_FORCE ? dir.xyz * value : rotate(rot, dir.xyz) * (-value * dir.w);
         f += fw;
         t += cross(rotate(rot, arm.xyz), fw);
+    }
+    if (contact)
+    {
+        // Contacts, added after the scripted loads (world.rs `apply_contacts`).
+        f += contact_out[params.contact_base + 2 * c].xyz;
+        t += contact_out[params.contact_base + 2 * c + 1].xyz;
     }
 }
 
@@ -385,6 +226,7 @@ void group_sum2(uint tid, inout float3 a, inout float3 b)
 // ------------------------------------------------------------------ phases
 
 groupshared uint g_halt;
+groupshared uint g_run;
 
 float3 to_local(BondStatic b, float3 x)
 {
@@ -500,7 +342,7 @@ void chunk_update(uint c, Island isl, Rigid rg, float dt, bool rml, uint k, inou
     float3 r_world = rotate(rg.rot, ch.center.xyz + u - isl.com.xyz);
     float3 f_load;
     float3 t_load;
-    chunk_external(c, ch, rg.rot, k, dt, f_load, t_load);
+    chunk_external(c, ch, rg.rot, k, dt, (isl.info.x & ISLAND_CONTACT) != 0, f_load, t_load);
     float3 f_world = f_load + params.gravity.xyz * mass;
     float3 t_world = t_load;
     if (rml)
@@ -627,7 +469,20 @@ void island_frame(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
     bool anchored = (isl.info.x & ISLAND_ANCHORED) != 0;
     bool driven = (isl.info.x & ISLAND_DRIVEN) != 0;
     bool free_motion = !anchored && !driven;
-    uint steps = (isl.info.z & ISLAND_HALTED) != 0 ? 0 : isl.info.y;
+    bool contact_island = (isl.info.x & ISLAND_CONTACT) != 0;
+    // Batch control (contact.slang): read once, uniformly for the whole group.
+    if (tid == 0)
+    {
+        Island sentinel = islands[params.halt_index];
+        uint run = 1;
+        if (contact_island != (params.contact_mode == 1))
+            run = 0;
+        if (contact_island && ((sentinel.info.z & 1) != 0 || (sentinel.info.y != 0 && sentinel.info.y <= isl.info.w)))
+            run = 0;
+        g_run = run;
+    }
+    GroupMemoryBarrierWithGroupSync();
+    uint steps = ((isl.info.z & ISLAND_HALTED) != 0 || g_run == 0) ? 0 : min(isl.info.y, params.max_steps);
     float dt = params.dt;
     bool fracture = params.fracture != 0;
     bool rml = params.rigid_motion_loads != 0;
@@ -664,7 +519,7 @@ void island_frame(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
                 ChunkStatic ch = chunks[c];
                 float3 fl;
                 float3 tl;
-                chunk_external(c, ch, rg.rot, k, dt, fl, tl);
+                chunk_external(c, ch, rg.rot, k, dt, contact_island, fl, tl);
                 float3 fc = fl + g * ch.center.w;
                 float3 r = rotate(rg.rot, ch.center.xyz + state[4 * c].xyz - isl.com.xyz);
                 f += fc;
@@ -778,6 +633,14 @@ void island_frame(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
         isl.velocity_err = float4(rg.vel_err, 0.0);
         isl.angular_velocity = float4(rg.w, 0.0);
         isl.done.x = done;
+        isl.info.y -= done;
+        if (g_halt != 0 && contact_island)
+        {
+            // This substep completes in every contact island; then the batch stops.
+            uint at = isl.info.w + done;
+            uint previous = islands[params.halt_index].info.y;
+            islands[params.halt_index].info.y = previous == 0 ? at : min(previous, at);
+        }
         comp_add1(isl.energy.x, isl.energy.y, wsum.x);
         isl.energy.y += wsum.y;
         isl.info.w += done;

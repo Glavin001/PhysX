@@ -7,6 +7,7 @@
 //! Everything on the GPU is f32; accuracy against the reference is measured, not assumed.
 
 pub mod gpu;
+pub mod contacts;
 pub mod joint;
 pub mod loads;
 
@@ -41,6 +42,8 @@ pub mod shaders {
     pub const STRESS_STEP: ShaderSet = shader_set!("stress_step", [("bond_forces", (64, 1, 1)), ("chunk_integrate", (64, 1, 1)), ("island_substeps", (256, 1, 1)), ("island_shared_substeps", (256, 1, 1))]);
     pub const JOINT_TEST: ShaderSet = shader_set!("joint_test", [("joint_eval_test", (64, 1, 1))]);
     pub const STRESS_ISLAND: ShaderSet = shader_set!("stress_island", [("island_frame", (256, 1, 1))]);
+    pub const CONTACT: ShaderSet =
+        shader_set!("contact", [("contact_pairs", (64, 1, 1)), ("contact_impactors", (64, 1, 1)), ("contact_gather", (64, 1, 1)), ("impactor_integrate", (64, 1, 1))]);
     pub const STRESS_RENDER: ShaderSet = shader_set!("stress_render", [("stress_vs", (1, 1, 1)), ("stress_fs", (1, 1, 1))]);
 }
 

@@ -43,11 +43,11 @@ pub fn unsupported(scene: &Scene) -> Option<String> {
     if scene.sim.solve_mode != SolveMode::Explicit {
         return Some(format!("solve mode {:?} (only explicit so far)", scene.sim.solve_mode));
     }
-    if !scene.impactors.is_empty() {
-        return Some("impactors (contacts are not on the GPU yet)".into());
+    if scene.sim.methods.layer_contact {
+        return Some("layer contact (the penalty contact is on the GPU so far)".into());
     }
-    if scene.ground.is_some() {
-        return Some("ground contact (contacts are not on the GPU yet)".into());
+    if scene.bodies.iter().any(|b| b.chunks.iter().any(|c| c.hull.is_some())) {
+        return Some("convex hull chunks".into());
     }
     if scene.sim.refine_utilization.is_some() {
         return Some("refinement".into());
@@ -63,7 +63,7 @@ impl GpuWorld {
         let mut shell = World::new(scene);
         let mirror = shell.solver.clone();
         let loads = WorldLoads::new(scene, &mirror);
-        let solver = GpuSolver::new(gpu, mirror, Some(loads))?;
+        let solver = GpuSolver::new(gpu, mirror, Some(loads), shell.impactors.clone())?;
         // The shell keeps a light placeholder; the mirror is swapped in when needed.
         shell.solver = ReferenceSolver::new(&Scene { bodies: Vec::new(), ..scene.clone() });
         let mut w = GpuWorld {
@@ -84,6 +84,9 @@ impl GpuWorld {
 
     /// Run `f` with the mirror in the shell `World`.
     fn with_shell<R>(&mut self, f: impl FnOnce(&World) -> R) -> R {
+        self.shell.impactors = self.solver.impactors.clone();
+        self.shell.contact.dissipated = self.solver.contact_dissipated;
+        self.shell.contact.crush = self.solver.crush_energy;
         std::mem::swap(&mut self.shell.solver, &mut self.solver.mirror);
         let r = f(&self.shell);
         std::mem::swap(&mut self.shell.solver, &mut self.solver.mirror);
@@ -153,7 +156,7 @@ impl GpuWorld {
                     // The removal may have split clusters: the reference re-forms them
                     // inside `remove_chunks`/`remove_supports`.
                 }
-                self.solver.rebuild(gpu)?;
+                self.solver.rebuild(gpu, 0.0)?;
             }
             // The segment runs to the next substep at which an event or blast is due.
             let mut len = 1;
@@ -277,7 +280,14 @@ impl GpuWorld {
                 let a = Vec3::from_array(*axis).normalized();
                 chunks.select(&self.scene.bodies[s]).into_iter().map(|c| m.reaction_world(s, c).0.dot(a)).sum()
             }
-            ProbeKind::ImpactorVelocity { .. } | ProbeKind::ImpactorPosition { .. } => f64::NAN,
+            ProbeKind::ImpactorVelocity { impactor, axis } => {
+                let imp = self.solver.impactors.iter().find(|i| &i.name == impactor).expect("probe impactor");
+                imp.velocity.dot(Vec3::from_array(*axis).normalized())
+            }
+            ProbeKind::ImpactorPosition { impactor, axis } => {
+                let imp = self.solver.impactors.iter().find(|i| &i.name == impactor).expect("probe impactor");
+                imp.pose.position.dot(Vec3::from_array(*axis).normalized())
+            }
         }
     }
 }
