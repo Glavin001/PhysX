@@ -79,7 +79,11 @@ struct Params
     uint solve_mode;         // 0 explicit, 1 adaptive (settled islands can wake), 2 quasi-static
     uint cload_base;         // scratch: each chunk's external load of its last substep (2 float4)
     uint cframe_base;        // scratch: each chunk's external load summed over the frame (2 float4)
-    uint pad0;
+    uint statics_base;       // scratch: static solves (island_statics)
+    uint statics_bonds;      // bonds in the layout
+    uint statics_newton;     // Newton iterations at most
+    uint statics_cg;         // conjugate-gradient iterations per Newton step at most
+    float statics_tol;       // relative residual of an equilibrium
 };
 
 static const uint MODE_EXPLICIT = 0;
@@ -1980,4 +1984,536 @@ void wide_end(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
     if (halt)
         isl.info.z = (isl.info.z & ~ISLAND_HALT_PENDING) | ISLAND_HALTED;
     islands[wg.island] = isl;
+}
+
+// ------------------------------------------------------------------ static equilibrium
+//
+// statics.rs `equilibrate` for the islands flagged ISLAND_SOLVE, one threadgroup each:
+// a modified Newton iteration on the true residual (joint law at dt = 0, no history),
+// each correction solving the secant system `K x = r` by conjugate gradients with the
+// 6x6 block-Jacobi preconditioner; free islands use inertia relief (loads made
+// self-equilibrated, rigid modes projected out mass-orthogonally). The host supplies
+// the external loads (statics.rs `static_loads`, body frame) per chunk.
+//
+// Scratch from `statics_base`: per chunk 21 float4 (external load 2, x 2, r 2, z 2,
+// p 2, ap 2, inverse block 9); then per bond its secant stiffness (2 float4); then per
+// island its result (residual, Newton iterations, CG iterations, converged).
+
+static const uint ISLAND_SOLVE = 8;      // status: solve this island to equilibrium
+static const uint STATICS_PER_CHUNK = 23; // ... then the displacement's low parts (u, theta)
+static const float STATICS_FLOOR = 1e-3;
+
+uint sv(uint c, uint slot)
+{
+    return params.statics_base + STATICS_PER_CHUNK * c + slot;
+}
+
+uint statics_bond_slot(uint i)
+{
+    return params.statics_base + STATICS_PER_CHUNK * params.chunk_count + 2 * i;
+}
+
+uint statics_result_slot(uint island)
+{
+    return params.statics_base + STATICS_PER_CHUNK * params.chunk_count + 2 * params.statics_bonds + island;
+}
+
+// Which of a chunk's 6 DOFs its support holds: bit d.
+uint fixed_mask(uint c)
+{
+    uint support = chunks[c].info.x;
+    return support == SUPPORT_FIXED ? 0x3fu : (support == SUPPORT_PINNED ? 0x7u : 0u);
+}
+
+float comp6(float4 lin, float4 ang, uint d)
+{
+    return d < 3 ? lin[d] : ang[d - 3];
+}
+
+// Zero the held DOFs of a 6-vector (or set them to `keep`'s).
+void hold(uint mask, inout float4 lin, inout float4 ang, float4 keep_lin, float4 keep_ang)
+{
+    for (uint d = 0; d < 3; d++)
+    {
+        if ((mask & (1u << d)) != 0)
+            lin[d] = keep_lin[d];
+        if ((mask & (1u << (d + 3))) != 0)
+            ang[d] = keep_ang[d];
+    }
+}
+
+// The bond's local deformation from the chunk 6-vectors at `slot` (x, or u/theta).
+void bond_kinematics(BondStatic b, float3 ua, float3 ta, float3 ub, float3 tb, out float3 d_lin, out float3 d_ang)
+{
+    d_lin = to_local(b, (ub + cross(tb, b.rb.xyz)) - (ua + cross(ta, b.ra.xyz)));
+    d_ang = to_local(b, tb - ta);
+}
+
+// Chunk loads of a local generalized force on the bond (bond.rs `chunk_loads`), in the
+// explicit kernel's slots (force on a, moment on a, moment on b; force on b = -force).
+void write_bond_loads(uint i, BondStatic b, float3 q_lin, float3 q_ang, float peak)
+{
+    float3 f = to_body(b, q_lin);
+    float3 m = to_body(b, q_ang);
+    scratch[3 * i + 0] = float4(f, peak);
+    scratch[3 * i + 1] = float4(m + cross(b.ra.xyz, f), 0.0);
+    scratch[3 * i + 2] = float4(-m + cross(b.rb.xyz, -f), 0.0);
+}
+
+// Gather a chunk's bond loads (fixed CSR order).
+void gather_loads(uint c, out float3 fi, out float3 mi)
+{
+    fi = float3(0.0);
+    mi = float3(0.0);
+    for (uint e = index[c]; e < index[c + 1]; e++)
+    {
+        uint entry = index[e];
+        uint bond = entry >> 1;
+        if ((entry & 1) == 0)
+        {
+            fi += scratch[3 * bond].xyz;
+            mi += scratch[3 * bond + 1].xyz;
+        }
+        else
+        {
+            fi -= scratch[3 * bond].xyz;
+            mi += scratch[3 * bond + 2].xyz;
+        }
+    }
+}
+
+// The bond's deformation from the compensated displacements of a static solve:
+// displacements build up along a structure to far more than the bond deformations
+// they differ into, so the high parts are differenced first (nearly exact), then the
+// low parts.
+void static_kinematics(BondStatic b, out float3 d_lin, out float3 d_ang)
+{
+    uint ca = b.law.ids.y;
+    uint cb = b.law.ids.z;
+    float3 du = (state[4 * cb].xyz - state[4 * ca].xyz) + (scratch[sv(cb, 21)].xyz - scratch[sv(ca, 21)].xyz);
+    float3 dth = (state[4 * cb + 1].xyz - state[4 * ca + 1].xyz) + (scratch[sv(cb, 22)].xyz - scratch[sv(ca, 22)].xyz);
+    float3 ta = state[4 * ca + 1].xyz + scratch[sv(ca, 22)].xyz;
+    float3 tb = state[4 * cb + 1].xyz + scratch[sv(cb, 22)].xyz;
+    d_lin = to_local(b, du + (cross(tb, b.rb.xyz) - cross(ta, b.ra.xyz)));
+    d_ang = to_local(b, dth);
+}
+
+// The joint's response at the current displacements, without history (dt = 0).
+JointResponse static_response(uint i)
+{
+    BondStatic b = bonds[i];
+    float3 d_lin;
+    float3 d_ang;
+    static_kinematics(b, d_lin, d_ang);
+    return joint_evaluate(materials.m[b.law.ids.x], b.law, bond_dyn[i].js, d_lin, d_ang, 0.0, false);
+}
+
+// Group dot product of two chunk vector slots over the island.
+float island_dot(uint tid, uint c0, uint c1, uint sa, uint sb)
+{
+    float4 acc = float4(0.0);
+    float4 unused = float4(0.0);
+    for (uint c = c0 + tid; c < c1; c += THREADS)
+        acc.x += dot(scratch[sv(c, sa)].xyz, scratch[sv(c, sb)].xyz) + dot(scratch[sv(c, sa + 1)].xyz, scratch[sv(c, sb + 1)].xyz);
+    group_sum2(tid, acc, unused);
+    return acc.x;
+}
+
+// statics.rs `project_load` (inertia relief) on a chunk vector slot.
+void project_load_slot(uint tid, Island isl, uint slot)
+{
+    float3 net_f = float3(0.0);
+    float3 net_m = float3(0.0);
+    for (uint c = isl.range.x + tid; c < isl.range.y; c += THREADS)
+    {
+        float3 fi = scratch[sv(c, slot)].xyz;
+        net_f += fi;
+        net_m += cross(chunks[c].center.xyz - isl.com.xyz, fi) + scratch[sv(c, slot + 1)].xyz;
+    }
+    group_sum3(tid, net_f, net_m);
+    float3 a = net_f / isl.com.w;
+    float3 alpha = rows_mul(isl.inv0, isl.inv1, isl.inv2, net_m);
+    for (uint c = isl.range.x + tid; c < isl.range.y; c += THREADS)
+    {
+        ChunkStatic ch = chunks[c];
+        float3 r = ch.center.xyz - isl.com.xyz;
+        scratch[sv(c, slot)] = float4(scratch[sv(c, slot)].xyz - (a + cross(alpha, r)) * ch.center.w, 0.0);
+        scratch[sv(c, slot + 1)] = float4(scratch[sv(c, slot + 1)].xyz - rows_mul(ch.inertia0, ch.inertia1, ch.inertia2, alpha), 0.0);
+    }
+    AllMemoryBarrierWithGroupSync();
+}
+
+// statics.rs `project_displacement` (rigid modes off, mass-orthogonally) on a slot.
+void project_displacement_slot(uint tid, Island isl, uint slot)
+{
+    float3 p = float3(0.0);
+    float3 l = float3(0.0);
+    for (uint c = isl.range.x + tid; c < isl.range.y; c += THREADS)
+    {
+        ChunkStatic ch = chunks[c];
+        float3 u = scratch[sv(c, slot)].xyz;
+        float3 th = scratch[sv(c, slot + 1)].xyz;
+        float3 r = ch.center.xyz - isl.com.xyz;
+        p += u * ch.center.w;
+        l += cross(r, u) * ch.center.w + rows_mul(ch.inertia0, ch.inertia1, ch.inertia2, th);
+    }
+    group_sum3(tid, p, l);
+    float3 t = p / isl.com.w;
+    float3 th0 = rows_mul(isl.inv0, isl.inv1, isl.inv2, l);
+    for (uint c = isl.range.x + tid; c < isl.range.y; c += THREADS)
+    {
+        float3 r = chunks[c].center.xyz - isl.com.xyz;
+        scratch[sv(c, slot)] = float4(scratch[sv(c, slot)].xyz - t - cross(th0, r), 0.0);
+        scratch[sv(c, slot + 1)] = float4(scratch[sv(c, slot + 1)].xyz - th0, 0.0);
+    }
+    AllMemoryBarrierWithGroupSync();
+}
+
+float block_get(uint c, uint i, uint j)
+{
+    uint k = i * 6 + j;
+    return scratch[sv(c, 12 + k / 4)][k % 4];
+}
+
+// The 6x6 inverse (statics.rs `Block6::inverse`: Cholesky, diagonal fallback) of a
+// symmetric block given by rows, stored in the chunk's inverse-block slots.
+void store_inverse(uint c, float a[36])
+{
+    float l[36];
+    for (uint k = 0; k < 36; k++)
+        l[k] = 0.0;
+    bool spd = true;
+    for (uint i = 0; i < 6 && spd; i++)
+    {
+        for (uint j = 0; j <= i; j++)
+        {
+            float sum = a[i * 6 + j];
+            for (uint k = 0; k < j; k++)
+                sum -= l[i * 6 + k] * l[j * 6 + k];
+            if (i == j)
+            {
+                if (sum <= 0.0)
+                {
+                    spd = false;
+                    break;
+                }
+                l[i * 6 + i] = sqrt(sum);
+            }
+            else
+                l[i * 6 + j] = sum / l[j * 6 + j];
+        }
+    }
+    float inv[36];
+    if (!spd)
+    {
+        for (uint k = 0; k < 36; k++)
+            inv[k] = 0.0;
+        for (uint k = 0; k < 6; k++)
+            inv[k * 6 + k] = a[k * 6 + k] > 0.0 ? 1.0 / a[k * 6 + k] : 0.0;
+    }
+    else
+    {
+        for (uint col = 0; col < 6; col++)
+        {
+            float y[6] = { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 };
+            for (uint i = 0; i < 6; i++)
+            {
+                float s = i == col ? 1.0 : 0.0;
+                for (uint k = 0; k < i; k++)
+                    s -= l[i * 6 + k] * y[k];
+                y[i] = s / l[i * 6 + i];
+            }
+            float x[6] = { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 };
+            for (uint ii = 0; ii < 6; ii++)
+            {
+                uint i = 5 - ii;
+                float s = y[i];
+                for (uint k = i + 1; k < 6; k++)
+                    s -= l[k * 6 + i] * x[k];
+                x[i] = s / l[i * 6 + i];
+            }
+            for (uint i = 0; i < 6; i++)
+                inv[i * 6 + col] = x[i];
+        }
+    }
+    for (uint q = 0; q < 9; q++)
+        scratch[sv(c, 12 + q)] = float4(inv[4 * q], inv[4 * q + 1], inv[4 * q + 2], inv[4 * q + 3]);
+}
+
+// statics.rs `block_jacobi` for chunk c from its bonds' secant stiffness.
+void assemble_block(uint c)
+{
+    float a[36];
+    for (uint k = 0; k < 36; k++)
+        a[k] = 0.0;
+    for (uint e = index[c]; e < index[c + 1]; e++)
+    {
+        uint entry = index[e];
+        uint i = entry >> 1;
+        bool side_b = (entry & 1) != 0;
+        BondStatic b = bonds[i];
+        float4 k_lin = scratch[statics_bond_slot(i)];
+        float4 k_ang = scratch[statics_bond_slot(i) + 1];
+        for (uint p = 0; p < 6; p++)
+        {
+            float3 t = (p % 3) == 0 ? b.t1.xyz : ((p % 3) == 1 ? b.t2.xyz : b.normal.xyz);
+            float3 row_u;
+            float3 row_t;
+            if (p < 3)
+            {
+                row_u = side_b ? t : -t;
+                row_t = side_b ? cross(b.rb.xyz, t) : -cross(b.ra.xyz, t);
+            }
+            else
+            {
+                row_u = float3(0.0);
+                row_t = side_b ? t : -t;
+            }
+            float kp = p < 3 ? k_lin[p] : k_ang[p - 3];
+            if (kp == 0.0)
+                continue;
+            float row[6] = { row_u.x, row_u.y, row_u.z, row_t.x, row_t.y, row_t.z };
+            for (uint r = 0; r < 6; r++)
+                for (uint q = 0; q < 6; q++)
+                    a[r * 6 + q] += kp * row[r] * row[q];
+        }
+    }
+    uint mask = fixed_mask(c);
+    for (uint d = 0; d < 6; d++)
+    {
+        if ((mask & (1u << d)) != 0)
+        {
+            for (uint e2 = 0; e2 < 6; e2++)
+            {
+                a[d * 6 + e2] = 0.0;
+                a[e2 * 6 + d] = 0.0;
+            }
+            a[d * 6 + d] = 1.0;
+        }
+    }
+    for (uint d = 0; d < 6; d++)
+        if (a[d * 6 + d] == 0.0)
+            a[d * 6 + d] = 1.0;
+    store_inverse(c, a);
+}
+
+// z = M^-1 r (block-Jacobi) at slots (r: 4, z: 6).
+void precondition(uint c)
+{
+    float4 r_lin = scratch[sv(c, 4)];
+    float4 r_ang = scratch[sv(c, 5)];
+    float rv[6] = { r_lin.x, r_lin.y, r_lin.z, r_ang.x, r_ang.y, r_ang.z };
+    float z[6];
+    for (uint i = 0; i < 6; i++)
+    {
+        float s = 0.0;
+        for (uint j = 0; j < 6; j++)
+            s += block_get(c, i, j) * rv[j];
+        z[i] = s;
+    }
+    scratch[sv(c, 6)] = float4(z[0], z[1], z[2], 0.0);
+    scratch[sv(c, 7)] = float4(z[3], z[4], z[5], 0.0);
+}
+
+[shader("compute")]
+[numthreads(256, 1, 1)]
+void island_statics(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
+{
+    uint tid = thread.x;
+    Island isl = islands[group.x];
+    if ((isl.info.z & ISLAND_SOLVE) == 0)
+        return;
+    bool free = (isl.info.x & ISLAND_ANCHORED) == 0;
+    uint c0 = isl.range.x;
+    uint c1 = isl.range.y;
+    uint b0 = isl.range.z;
+    uint b1 = isl.range.w;
+    for (uint c = c0 + tid; c < c1; c += THREADS)
+    {
+        scratch[sv(c, 21)] = float4(0.0);
+        scratch[sv(c, 22)] = float4(0.0);
+    }
+    AllMemoryBarrierWithGroupSync();
+    if (free)
+        project_load_slot(tid, isl, 0);
+    float scale = max(sqrt(island_dot(tid, c0, c1, 0, 0)), 1e-30);
+    float tol = params.statics_tol;
+    float residual = 0.0;
+    uint newton = 0;
+    uint cg_total = 0;
+    bool converged = false;
+    float previous = 1e30;
+    uint max_cg = min(params.statics_cg, 20 * (c1 - c0) * 6 + 200);
+    for (uint it = 0; it < params.statics_newton; it++)
+    {
+        // Residual: external loads plus the bond forces at the current displacements.
+        for (uint i = b0 + tid; i < b1; i += THREADS)
+        {
+            JointResponse resp = static_response(i);
+            write_bond_loads(i, bonds[i], resp.force_lin, resp.force_ang, 0.0);
+        }
+        AllMemoryBarrierWithGroupSync();
+        for (uint c = c0 + tid; c < c1; c += THREADS)
+        {
+            float3 fi;
+            float3 mi;
+            gather_loads(c, fi, mi);
+            float4 r_lin = float4(scratch[sv(c, 0)].xyz + fi, 0.0);
+            float4 r_ang = float4(scratch[sv(c, 1)].xyz + mi, 0.0);
+            hold(fixed_mask(c), r_lin, r_ang, float4(0.0), float4(0.0));
+            scratch[sv(c, 4)] = r_lin;
+            scratch[sv(c, 5)] = r_ang;
+        }
+        AllMemoryBarrierWithGroupSync();
+        if (free)
+            project_load_slot(tid, isl, 4);
+        residual = sqrt(island_dot(tid, c0, c1, 4, 4)) / scale;
+        newton = it;
+        // Converged at the tolerance, or at f32's floor: the residual of a structure
+        // in equilibrium stops falling at a level set by rounding (displacements far
+        // larger than the bond deformations they differ into); a mechanism's stays at
+        // the size of its loads.
+        if (residual <= tol || (residual <= STATICS_FLOOR && residual > 0.5 * previous))
+        {
+            converged = true;
+            break;
+        }
+        previous = residual;
+        // The secant system and its preconditioner.
+        for (uint i = b0 + tid; i < b1; i += THREADS)
+        {
+            BondStatic b = bonds[i];
+            float3 d_lin;
+            float3 d_ang;
+            static_kinematics(b, d_lin, d_ang);
+            float3 f_lin;
+            float3 f_ang;
+            secant_factors(b.law, bond_dyn[i].js, d_lin, f_lin, f_ang);
+            float4 st0 = b.law.stiff0;
+            scratch[statics_bond_slot(i)] = float4(st0.y * f_lin.x, st0.y * f_lin.y, st0.x * f_lin.z, 0.0);
+            scratch[statics_bond_slot(i) + 1] = float4(st0.z * f_ang.x, st0.w * f_ang.y, b.law.stiff1.x * f_ang.z, 0.0);
+        }
+        AllMemoryBarrierWithGroupSync();
+        for (uint c = c0 + tid; c < c1; c += THREADS)
+        {
+            assemble_block(c);
+            scratch[sv(c, 2)] = float4(0.0);
+            scratch[sv(c, 3)] = float4(0.0);
+        }
+        AllMemoryBarrierWithGroupSync();
+        // Conjugate gradients for K x = r (pcg_solve); r is consumed.
+        for (uint c = c0 + tid; c < c1; c += THREADS)
+            precondition(c);
+        AllMemoryBarrierWithGroupSync();
+        if (free)
+            project_displacement_slot(tid, isl, 6);
+        for (uint c = c0 + tid; c < c1; c += THREADS)
+        {
+            scratch[sv(c, 8)] = scratch[sv(c, 6)];
+            scratch[sv(c, 9)] = scratch[sv(c, 7)];
+        }
+        AllMemoryBarrierWithGroupSync();
+        float rz = island_dot(tid, c0, c1, 4, 6);
+        float norm0 = sqrt(island_dot(tid, c0, c1, 4, 4));
+        // Inexact Newton: each correction to 1e-4 of its residual.
+        float cg_tol = 1e-4;
+        for (uint k = 0; k < max_cg && norm0 > 0.0; k++)
+        {
+            // ap = K p.
+            for (uint i = b0 + tid; i < b1; i += THREADS)
+            {
+                BondStatic b = bonds[i];
+                uint ca = b.law.ids.y;
+                uint cb = b.law.ids.z;
+                float3 d_lin;
+                float3 d_ang;
+                bond_kinematics(b, scratch[sv(ca, 8)].xyz, scratch[sv(ca, 9)].xyz, scratch[sv(cb, 8)].xyz, scratch[sv(cb, 9)].xyz, d_lin, d_ang);
+                write_bond_loads(i, b, d_lin * scratch[statics_bond_slot(i)].xyz, d_ang * scratch[statics_bond_slot(i) + 1].xyz, 0.0);
+            }
+            AllMemoryBarrierWithGroupSync();
+            for (uint c = c0 + tid; c < c1; c += THREADS)
+            {
+                float3 fi;
+                float3 mi;
+                gather_loads(c, fi, mi);
+                float4 ap_lin = float4(-fi, 0.0);
+                float4 ap_ang = float4(-mi, 0.0);
+                hold(fixed_mask(c), ap_lin, ap_ang, scratch[sv(c, 8)], scratch[sv(c, 9)]);
+                scratch[sv(c, 10)] = ap_lin;
+                scratch[sv(c, 11)] = ap_ang;
+            }
+            AllMemoryBarrierWithGroupSync();
+            float pap = island_dot(tid, c0, c1, 8, 10);
+            cg_total++;
+            if (pap <= 0.0)
+                break;
+            float alpha = rz / pap;
+            for (uint c = c0 + tid; c < c1; c += THREADS)
+            {
+                scratch[sv(c, 2)] = float4(scratch[sv(c, 2)].xyz + alpha * scratch[sv(c, 8)].xyz, 0.0);
+                scratch[sv(c, 3)] = float4(scratch[sv(c, 3)].xyz + alpha * scratch[sv(c, 9)].xyz, 0.0);
+                scratch[sv(c, 4)] = float4(scratch[sv(c, 4)].xyz - alpha * scratch[sv(c, 10)].xyz, 0.0);
+                scratch[sv(c, 5)] = float4(scratch[sv(c, 5)].xyz - alpha * scratch[sv(c, 11)].xyz, 0.0);
+            }
+            AllMemoryBarrierWithGroupSync();
+            if (sqrt(island_dot(tid, c0, c1, 4, 4)) <= cg_tol * norm0)
+                break;
+            for (uint c = c0 + tid; c < c1; c += THREADS)
+                precondition(c);
+            AllMemoryBarrierWithGroupSync();
+            if (free)
+                project_displacement_slot(tid, isl, 6);
+            float rz_new = island_dot(tid, c0, c1, 4, 6);
+            float beta = rz_new / rz;
+            rz = rz_new;
+            for (uint c = c0 + tid; c < c1; c += THREADS)
+            {
+                scratch[sv(c, 8)] = float4(scratch[sv(c, 6)].xyz + beta * scratch[sv(c, 8)].xyz, 0.0);
+                scratch[sv(c, 9)] = float4(scratch[sv(c, 7)].xyz + beta * scratch[sv(c, 9)].xyz, 0.0);
+            }
+            AllMemoryBarrierWithGroupSync();
+        }
+        // The Newton correction, compensated.
+        for (uint c = c0 + tid; c < c1; c += THREADS)
+        {
+            float3 u = state[4 * c].xyz;
+            float3 u_lo = scratch[sv(c, 21)].xyz;
+            float3 th = state[4 * c + 1].xyz;
+            float3 th_lo = scratch[sv(c, 22)].xyz;
+            comp_add(u, u_lo, scratch[sv(c, 2)].xyz);
+            comp_add(th, th_lo, scratch[sv(c, 3)].xyz);
+            state[4 * c] = float4(u, state[4 * c].w);
+            state[4 * c + 1] = float4(th, state[4 * c + 1].w);
+            scratch[sv(c, 21)] = float4(u_lo, 0.0);
+            scratch[sv(c, 22)] = float4(th_lo, 0.0);
+        }
+        AllMemoryBarrierWithGroupSync();
+        newton = it + 1;
+    }
+    // Equilibrium: no deformation velocity; reactions; the bond forces at it.
+    for (uint i = b0 + tid; i < b1; i += THREADS)
+    {
+        JointResponse resp = static_response(i);
+        BondDyn bd = bond_dyn[i];
+        bd.force_lin = float4(resp.force_lin, resp.stored);
+        bd.force_ang = float4(resp.force_ang, bd.force_ang.w);
+        bond_dyn[i] = bd;
+        write_bond_loads(i, bonds[i], resp.force_lin, resp.force_ang, max(resp.measures.tension, resp.measures.compression));
+    }
+    AllMemoryBarrierWithGroupSync();
+    for (uint c = c0 + tid; c < c1; c += THREADS)
+    {
+        float3 fi;
+        float3 mi;
+        gather_loads(c, fi, mi);
+        float3 reaction = fixed_mask(c) != 0 ? -(scratch[sv(c, 0)].xyz + fi) : float3(state[4 * c + 1].w, state[4 * c + 2].w, state[4 * c + 3].w);
+        state[4 * c + 1] = float4(state[4 * c + 1].xyz, reaction.x);
+        state[4 * c + 2] = float4(0.0, 0.0, 0.0, reaction.y);
+        state[4 * c + 3] = float4(0.0, 0.0, 0.0, reaction.z);
+    }
+    if (tid == 0)
+    {
+        scratch[statics_result_slot(group.x)] = float4(residual, asfloat(newton), asfloat(cg_total), converged ? 1.0 : 0.0);
+        islands[group.x].info.z = isl.info.z & ~ISLAND_SOLVE;
+    }
 }

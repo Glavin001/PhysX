@@ -33,6 +33,7 @@ const ISLAND_DRIVEN: u32 = 2;
 const ISLAND_CONTACT: u32 = 4;
 const ISLAND_WIDE: u32 = 8;
 const ISLAND_SETTLED: u32 = 16;
+const ISLAND_SOLVE: u32 = 8;
 /// Threads per group of the wide kernels (chunks or bonds per group).
 const WIDE_GROUP: usize = 256;
 
@@ -90,7 +91,11 @@ struct Params {
     solve_mode: u32,
     cload_base: u32,
     cframe_base: u32,
-    pad: u32,
+    statics_base: u32,
+    statics_bonds: u32,
+    statics_newton: u32,
+    statics_cg: u32,
+    statics_tol: f32,
 }
 
 #[repr(C)]
@@ -295,6 +300,7 @@ struct Kernels {
     wide: [Kernel; 5],
     sums: Kernel,
     wake: Kernel,
+    statics: Kernel,
 }
 
 /// The bindings of every `world.slang` kernel.
@@ -411,6 +417,7 @@ impl GpuSolver {
             wide: ["wide_bonds", "wide_chunks", "wide_drift", "wide_rigid", "wide_end"].map(|e| gpu.compute(&shaders::WORLD, e, &WORLD_BINDINGS)),
             sums: gpu.compute(&shaders::WORLD, "contact_sums", &WORLD_BINDINGS),
             wake: gpu.compute(&shaders::WORLD, "wide_wake", &WORLD_BINDINGS),
+            statics: gpu.compute(&shaders::WORLD, "island_statics", &WORLD_BINDINGS),
         };
         let timing = (std::env::var("STRESS_GPU_TIMING").is_ok_and(|v| v == "1") && gpu.device.features().contains(wgpu::Features::TIMESTAMP_QUERY)).then(|| Timing {
             queries: gpu.device.create_query_set(&wgpu::QuerySetDescriptor { label: Some("timestamps"), ty: wgpu::QueryType::Timestamp, count: 2 * TIMED_DISPATCHES as u32 }),
@@ -876,7 +883,9 @@ impl GpuSolver {
         // Each chunk's external load: of the last substep, and summed over the frame.
         let cload_base = seg_base + 2 * seg_count as usize;
         let cframe_base = cload_base + 2 * n;
-        let scratch_len = cframe_base + 2 * n + 1;
+        // Static solves: 23 float4 per chunk, 2 per bond, 1 per island.
+        let statics_base = cframe_base + 2 * n;
+        let scratch_len = statics_base + 23 * n + 2 * bonds.len() + islands.len() + 1;
 
         let (gravity, ground) = (m.config.gravity, scene.as_ref().and_then(|s| s.ground.clone()));
         let (g_hi, g_lo) = split1(ground.as_ref().map_or(0.0, |g| g.height));
@@ -919,6 +928,12 @@ impl GpuSolver {
             },
             cload_base: cload_base as u32,
             cframe_base: cframe_base as u32,
+            statics_base: statics_base as u32,
+            statics_bonds: bonds.len() as u32,
+            // statics.rs: 60 Newton iterations; the residual tolerance at f32's reach.
+            statics_newton: 60,
+            statics_cg: 20_000,
+            statics_tol: std::env::var("STRESS_GPU_STATICS_TOL").ok().and_then(|v| v.parse().ok()).unwrap_or(1e-5),
             ..Default::default()
         };
 
@@ -1581,6 +1596,95 @@ impl GpuSolver {
             gpu.queue.submit([encoder.finish()]);
             gpu.device.poll(wgpu::PollType::wait_indefinitely()).ok();
             out.push((name, t.elapsed().as_secs_f64() / reps as f64));
+        }
+        out
+    }
+
+    /// Solve clusters to static equilibrium on the GPU (statics.rs `equilibrate_or_keep`)
+    /// under the given external loads: all in one dispatch, one threadgroup each. The
+    /// buffers must hold the mirror's state (as after `step` or `rebuild`). Converged
+    /// clusters' equilibrium (displacements, zero velocities, reactions, bond forces) is
+    /// copied into the mirror; the others keep their previous state on both sides.
+    pub fn equilibrate(&mut self, gpu: &Gpu, clusters: &[usize], loads: &ChunkLoads) -> Vec<crate::statics::Equilibrium> {
+        if clusters.is_empty() {
+            return Vec::new();
+        }
+        let p = self.buffers.params;
+        // External loads per chunk (body frame), into each chunk's first two slots.
+        for &ci in clusters {
+            let f = crate::statics::static_loads(&self.mirror, ci, loads);
+            let first = self.layout.islands[ci].range[0] as usize;
+            let data: Vec<[f32; 4]> = f.iter().enumerate().flat_map(|(k, (fo, mo))| {
+                let _ = k;
+                [v4(*fo, 0.0), v4(*mo, 0.0)]
+            }).collect();
+            for (k, pair) in data.chunks(2).enumerate() {
+                let at = p.statics_base as usize + 23 * (first + k);
+                gpu.queue.write_buffer(&self.buffers.scratch, (16 * at) as u64, bytemuck::cast_slice(pair));
+            }
+        }
+        let mut islands = self.layout.islands.clone();
+        for isl in islands.iter_mut() {
+            isl.info[2] &= !ISLAND_SOLVE;
+        }
+        for &ci in clusters {
+            islands[ci].info[2] |= ISLAND_SOLVE;
+        }
+        let mut with_sentinel = islands.clone();
+        with_sentinel.push(Island::default());
+        gpu.queue.write_buffer(&self.buffers.islands, 0, bytemuck::cast_slice(&with_sentinel));
+        let mut encoder = gpu.device.create_command_encoder(&Default::default());
+        {
+            let mut pass = encoder.begin_compute_pass(&Default::default());
+            pass.set_pipeline(&self.kernels.statics.pipeline);
+            pass.set_bind_group(0, &self.buffers.bind_segment, &[]);
+            pass.dispatch_workgroups(islands.len().max(1) as u32, 1, 1);
+        }
+        gpu.queue.submit([encoder.finish()]);
+        gpu.device.poll(wgpu::PollType::wait_indefinitely()).ok();
+        let result_at = p.statics_base as usize + 23 * self.layout.chunks.len() + 2 * self.layout.bonds.len();
+        let results: Vec<[f32; 4]> = gpu.read_range(&self.buffers.scratch, result_at, islands.len());
+        let state: Vec<[f32; 4]> = gpu.read(&self.buffers.state);
+        let bond_dyn: Vec<BondDyn> = gpu.read(&self.buffers.bond_dyn);
+        let mut out = Vec::with_capacity(clusters.len());
+        for &ci in clusters {
+            let r = results[ci];
+            let eq = crate::statics::Equilibrium { converged: r[3] != 0.0, residual: r[0] as f64, newton_iterations: r[1].to_bits(), cg_iterations: r[2].to_bits() };
+            let isl = self.layout.islands[ci];
+            let (c0, c1) = (isl.range[0] as usize, isl.range[1] as usize);
+            if eq.converged {
+                let m = &mut self.mirror;
+                for k in c0..c1 {
+                    let (s, c) = self.layout.chunks[k];
+                    let cs = &mut m.chunks[s][c];
+                    cs.u = vec3(state[4 * k]);
+                    cs.th = vec3(state[4 * k + 1]);
+                    cs.v = Vec3::ZERO;
+                    cs.w = Vec3::ZERO;
+                    if m.structures[s].chunks[c].support != Support::None {
+                        cs.reaction = (Vec3::new(state[4 * k + 1][3] as f64, state[4 * k + 2][3] as f64, state[4 * k + 3][3] as f64), Vec3::ZERO);
+                    }
+                }
+                for k in isl.range[2] as usize..isl.range[3] as usize {
+                    let (s, bi) = self.layout.bonds[k];
+                    let b = &mut m.bonds[s][bi];
+                    b.force = Local6 { lin: vec3(bond_dyn[k].force_lin), ang: vec3(bond_dyn[k].force_ang) };
+                    b.stored = bond_dyn[k].force_lin[3] as f64;
+                }
+            } else {
+                // statics.rs `equilibrate_or_keep`: back to the state before the solve.
+                let m = &self.mirror;
+                let back: Vec<[f32; 4]> = (c0..c1)
+                    .flat_map(|k| {
+                        let (s, c) = self.layout.chunks[k];
+                        let cs = &m.chunks[s][c];
+                        let r = cs.reaction.0;
+                        [v4(cs.u, 0.0), v4(cs.th, r.x), v4(cs.v, r.y), v4(cs.w, r.z)]
+                    })
+                    .collect();
+                gpu.queue.write_buffer(&self.buffers.state, (64 * c0) as u64, bytemuck::cast_slice(&back));
+            }
+            out.push(eq);
         }
         out
     }

@@ -41,3 +41,7 @@ path = "src/bin/stress_gpu_support.rs"
 [[bin]]
 name = "stress-gpu-events"
 path = "src/bin/stress_gpu_events.rs"
+
+[[bin]]
+name = "stress-gpu-spread"
+path = "src/bin/stress_gpu_spread.rs"

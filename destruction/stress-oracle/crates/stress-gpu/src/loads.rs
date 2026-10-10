@@ -35,6 +35,21 @@ impl Function {
             TimeFunction::Table { points } => Function::Table(points.clone()),
         }
     }
+
+    /// The function's value at `t` (on the host, as the reference evaluates it).
+    pub fn value(&self, t: f64) -> f64 {
+        match self {
+            Function::Constant(value) => TimeFunction::Constant { value: *value }.eval(t),
+            Function::Ramp { t0, t1, value } => TimeFunction::Ramp { t0: *t0, t1: *t1, value: *value }.eval(t),
+            Function::HalfSine { start, duration, peak } => TimeFunction::HalfSine { start: *start, duration: *duration, peak: *peak }.eval(t),
+            Function::Friedlander { arrival, peak, duration, decay } => {
+                TimeFunction::Friedlander { arrival: *arrival, peak: *peak, duration: *duration, decay: *decay }.eval(t)
+            }
+            Function::Table(points) => TimeFunction::Table { points: points.clone() }.eval(t),
+            Function::Blast(fb) => fb.pressure(t),
+            Function::Replacement { .. } => 0.0,
+        }
+    }
 }
 
 pub const LOAD_WORLD_FORCE: u32 = 0;
@@ -345,6 +360,24 @@ impl WorldLoads {
 
     /// Times at which a blast first acts (segments start there so its faces are cached
     /// with the geometry of that moment, as the reference does).
+    /// The scripted loads at time `t` (world.rs `apply_scripted_loads`): world forces,
+    /// torques about the chunk centres, as the GPU applies them.
+    pub fn chunk_loads(&mut self, m: &ReferenceSolver, t: f64) -> stress_ref::solver::ChunkLoads {
+        let mut l = stress_ref::solver::ChunkLoads::new(m);
+        for term in self.terms(m, t) {
+            if term.kind == LOAD_REPLACEMENT {
+                continue;
+            }
+            let (s, c) = (term.structure, term.chunk);
+            let rot = m.clusters[m.chunks[s][c].cluster].rotation();
+            let value = term.function.value(t);
+            let f = if term.kind == LOAD_WORLD_FORCE { term.dir * value } else { rot * term.dir * (-value * term.area) };
+            l.force[s][c] += f;
+            l.torque[s][c] += (rot * term.arm).cross(f);
+        }
+        l
+    }
+
     pub fn blast_times(&self) -> Vec<f64> {
         self.scene
             .loads

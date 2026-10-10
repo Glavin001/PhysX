@@ -67,10 +67,18 @@ impl GpuWorld {
         if let Some(why) = unsupported(scene) {
             return Err(why);
         }
-        let mut shell = World::new(scene);
+        // The gravity prestress (world.rs `prestress`) runs on the GPU below, unless the
+        // static solves stay on the host (`STRESS_GPU_HOST_STATICS=1`).
+        let host_statics = std::env::var("STRESS_GPU_HOST_STATICS").is_ok_and(|v| v == "1");
+        let mut shell_scene = scene.clone();
+        shell_scene.sim.gravity_prestress &= host_statics;
+        let mut shell = World::new(&shell_scene);
         let mirror = shell.solver.clone();
         let loads = WorldLoads::new(scene, &mirror);
-        let solver = GpuSolver::new(gpu, mirror, Some(loads), shell.impactors.clone())?;
+        let mut solver = GpuSolver::new(gpu, mirror, Some(loads), shell.impactors.clone())?;
+        if scene.sim.gravity_prestress && !host_statics {
+            prestress(gpu, &mut solver, scene.sim.solve_mode)?;
+        }
         // The shell keeps a light placeholder; the mirror is swapped in when needed.
         shell.solver = ReferenceSolver::new(&Scene { bodies: Vec::new(), ..scene.clone() });
         let mut w = GpuWorld {
@@ -200,14 +208,13 @@ impl GpuWorld {
                 // world.rs: the frame's average loads, equilibrium with same-step cascade.
                 let mut fl = self.solver.frame_load_sum.clone();
                 fl.scale(1.0 / n as f64);
-                let opts = StaticOptions { cascade: true, ..Default::default() };
-                if !self.solver.mirror.solve_static_all(&fl, &opts, self.scene.sim.frame_dt).converged {
+                if !self.solve_static_all(gpu, &fl)? {
                     self.shell.static_unconverged_frames += 1;
                 }
                 true
             }
             SolveMode::Adaptive => {
-                let settled = self.settle_quiet_clusters();
+                let settled = self.settle_quiet_clusters(gpu);
                 self.advance_settled_fatigue() || settled
             }
             _ => false,
@@ -222,14 +229,64 @@ impl GpuWorld {
         Ok(())
     }
 
+    /// Static equilibrium of `clusters` (statics.rs `equilibrate_or_keep`): on the GPU, or
+    /// with `STRESS_GPU_HOST_STATICS=1` by the reference on the mirror. Whether each
+    /// converged.
+    fn equilibrate(&mut self, gpu: &Gpu, clusters: &[usize], loads: &ChunkLoads) -> Vec<bool> {
+        if std::env::var("STRESS_GPU_HOST_STATICS").is_ok_and(|v| v == "1") {
+            let opts = StaticOptions::default();
+            return clusters.iter().map(|&ci| self.solver.mirror.equilibrate_or_keep(ci, loads, &opts).converged).collect();
+        }
+        self.solver.equilibrate(gpu, clusters, loads).iter().map(|e| e.converged).collect()
+    }
+
+    /// statics.rs `solve_static_all` with the same-step cascade: every cluster to
+    /// equilibrium (one GPU dispatch), damage committed at it, splits, and again until no
+    /// bond changes. Whether every solve converged.
+    fn solve_static_all(&mut self, gpu: &Gpu, loads: &ChunkLoads) -> Result<bool, String> {
+        let dt = self.scene.sim.frame_dt;
+        let mut converged = true;
+        for pass in 0..StaticOptions::default().max_cascade.max(1) {
+            let clusters: Vec<usize> = (0..self.solver.mirror.clusters.len()).filter(|&ci| !self.solver.mirror.clusters[ci].bonds.is_empty()).collect();
+            let results = self.equilibrate(gpu, &clusters, loads);
+            let m = &mut self.solver.mirror;
+            let mut any = false;
+            let mut to_split = Vec::new();
+            for (&ci, &ok) in clusters.iter().zip(&results) {
+                converged &= ok;
+                m.clusters[ci].activity = Activity::Settled;
+                if ok {
+                    // Static fatigue advances once per call, not per cascade pass.
+                    let (changed, disconnected) = m.commit_damage(ci, if pass == 0 { dt } else { 0.0 });
+                    any |= changed || disconnected;
+                    if disconnected {
+                        to_split.push(ci);
+                    }
+                }
+            }
+            for &ci in to_split.iter().rev() {
+                m.split_cluster(ci);
+            }
+            if !any {
+                break;
+            }
+            // Damage (and topology) changed on the mirror: the next pass solves from it.
+            if let Some(l) = self.solver.loads.as_mut() {
+                l.topology_version += 1;
+            }
+            self.solver.rebuild(gpu, 0.0)?;
+        }
+        Ok(converged)
+    }
+
     /// world.rs `settle_quiet_clusters`: clusters whose last dynamic load is older than
-    /// `active_time` and whose deformation has calmed down go to static equilibrium.
-    /// True if any did (or tried to).
-    fn settle_quiet_clusters(&mut self) -> bool {
+    /// `active_time` and whose deformation has calmed down go to static equilibrium
+    /// (all such clusters in one solve). True if any did (or tried to).
+    fn settle_quiet_clusters(&mut self, gpu: &Gpu) -> bool {
         let fdt = self.scene.sim.frame_dt;
         let loads: ChunkLoads = self.solver.last_loads.clone();
         let m = &mut self.solver.mirror;
-        let mut any = false;
+        let mut candidates = Vec::new();
         for ci in 0..m.clusters.len() {
             if m.clusters[ci].activity != Activity::Active {
                 continue;
@@ -252,9 +309,15 @@ impl GpuWorld {
             if ke > 1e-3 * stored.max(1e-9) {
                 continue;
             }
-            any = true;
-            let opts = StaticOptions { cascade: true, max_cascade: 1, ..Default::default() };
-            if !m.equilibrate_or_keep(ci, &loads, &opts).converged {
+            candidates.push(ci);
+        }
+        if candidates.is_empty() {
+            return false;
+        }
+        let results = self.equilibrate(gpu, &candidates, &loads);
+        let m = &mut self.solver.mirror;
+        for (&ci, &ok) in candidates.iter().zip(&results) {
+            if !ok {
                 // No static equilibrium (a mechanism): it stays in the explicit solve.
                 m.clusters[ci].active_timer = m.config.active_time;
                 continue;
@@ -263,7 +326,7 @@ impl GpuWorld {
             let cl = &m.clusters[ci];
             m.clusters[ci].settled_load_norm = cl.chunks.iter().map(|&c| loads.force[cl.structure][c].norm()).sum();
         }
-        any
+        true
     }
 
     /// world.rs `advance_settled_fatigue`: settled clusters' bonds evaluated at their
@@ -395,6 +458,31 @@ impl GpuWorld {
             }
         }
     }
+}
+
+/// world.rs `prestress` on the GPU: supported structures settle under gravity and the
+/// scripted loads at t = 0 (all in one solve); in the adaptive and quasi-static modes
+/// they start settled.
+fn prestress(gpu: &Gpu, solver: &mut GpuSolver, mode: SolveMode) -> Result<(), String> {
+    let loads = solver.loads.as_mut().expect("loads").chunk_loads(&solver.mirror, 0.0);
+    let m = &solver.mirror;
+    let clusters: Vec<usize> = (0..m.clusters.len()).filter(|&ci| m.clusters[ci].anchored && !m.clusters[ci].bonds.is_empty()).collect();
+    if clusters.is_empty() {
+        return Ok(());
+    }
+    let results = solver.equilibrate(gpu, &clusters, &loads);
+    for (&ci, r) in clusters.iter().zip(&results) {
+        if !r.converged {
+            return Err(format!("prestress did not converge (cluster {ci}, residual {:.3e})", r.residual));
+        }
+        if mode != SolveMode::Explicit {
+            let m = &mut solver.mirror;
+            m.clusters[ci].activity = Activity::Settled;
+            let cl = &m.clusters[ci];
+            m.clusters[ci].settled_load_norm = cl.chunks.iter().map(|&c| loads.force[cl.structure][c].norm()).sum();
+        }
+    }
+    solver.rebuild(gpu, 0.0)
 }
 
 fn select_with_descendants(sel: &stress_ref::scene::ChunkSelector, scene: &Scene, s: usize) -> Vec<usize> {

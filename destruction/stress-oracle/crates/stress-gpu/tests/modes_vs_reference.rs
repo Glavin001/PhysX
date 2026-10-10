@@ -11,7 +11,7 @@ use stress_ref::scene::{Scene, SolveMode};
 use stress_ref::world::World;
 
 mod common;
-use common::{difference, gate, refined, spread_run};
+use common::{difference, gate, refined, spread_difference, spread_run};
 
 fn scene(name: &str) -> Scene {
     stress_ref::builders::catalog()
@@ -58,7 +58,7 @@ fn solve_modes_match_the_reference_world() {
         let spread = spread_run(&s, &reference);
         let half = World::new(&refined(&s)).run();
         let (gpu_err, gpu_notes) = difference(&reference, &ours);
-        let (self_err, _) = difference(&reference, &spread);
+        let (self_err, _) = spread_difference(&reference, &spread);
         let (half_err, _) = difference(&reference, &half);
         ran += 1;
         eprintln!("{label:<34} gpu {gpu_err:.1e} vs reference's spread {self_err:.1e}, half step {half_err:.1e} | time gpu {gpu_time:.1} s, reference {ref_time:.1} s");

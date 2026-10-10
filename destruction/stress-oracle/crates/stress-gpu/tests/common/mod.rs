@@ -44,10 +44,6 @@ pub fn difference(reference: &Observation, other: &Observation) -> (f64, Vec<Str
     (worst, notes)
 }
 
-pub fn perturbed(scene: &Scene) -> Scene {
-    perturbed_by(scene, std::env::var("STRESS_GPU_PERTURB").ok().and_then(|v| v.parse::<f64>().ok()).unwrap_or(1e-4))
-}
-
 /// The scene with its impactor and body velocities and gravity scaled by `1 + eps`.
 pub fn perturbed_by(scene: &Scene, eps: f64) -> Scene {
     let mut s = scene.clone();
@@ -62,14 +58,20 @@ pub fn perturbed_by(scene: &Scene, eps: f64) -> Scene {
     s
 }
 
-/// The reference's sensitivity to its inputs: the run with its inputs perturbed by
-/// 1e-4 (`STRESS_GPU_PERTURB` overrides). That is the size of the GPU's own perturbation:
+/// The reference's sensitivity to its inputs: the runs with its inputs perturbed by
+/// +-1e-4 (`STRESS_GPU_PERTURB` overrides). That is the size of the GPU's own perturbation:
 /// f32 arithmetic moves even smooth, intact runs by 1e-5 to 5e-4 of their range over
 /// thousands of substeps (the cantilevers, the bar wave), so wherever the reference
 /// separates under a 1e-4 change (fracture cascades, fatigue and settling thresholds),
 /// the GPU may separate as far.
-pub fn spread_run(scene: &Scene, _reference: &Observation) -> Observation {
-    stress_ref::world::World::new(&perturbed(scene)).run()
+pub fn spread_run(scene: &Scene, _reference: &Observation) -> Vec<Observation> {
+    let eps = std::env::var("STRESS_GPU_PERTURB").ok().and_then(|v| v.parse::<f64>().ok()).unwrap_or(1e-4);
+    [eps, -eps].iter().map(|&e| stress_ref::world::World::new(&perturbed_by(scene, e)).run()).collect()
+}
+
+/// The largest of the spread runs' differences from the reference (with its notes).
+pub fn spread_difference(reference: &Observation, spreads: &[Observation]) -> (f64, Vec<String>) {
+    spreads.iter().map(|o| difference(reference, o)).fold((0.0, Vec::new()), |a, b| if b.0 > a.0 || a.1.is_empty() { b } else { a })
 }
 
 /// The scene at half the reference's substep (its Courant safety halved).
@@ -84,14 +86,16 @@ fn value(o: &Observation, key: &str) -> f64 {
 }
 
 /// The accuracy gate (the analysis's G2, judged against the reference's own spread):
-/// probes within 1e-3 of their range, or within twice the larger of the reference's
-/// timestep-halving and input-perturbation spreads; broken bonds and fragments within
-/// 10% (at least one), or within those spreads. Returns what fails.
-pub fn gate(reference: &Observation, ours: &Observation, half: &Observation, spread: &Observation) -> Vec<String> {
+/// probes within 1e-3 of their range, or within twice the largest difference of the
+/// reference's timestep-halving and input-perturbation runs; broken bonds and fragments
+/// within 10% (at least one), or within twice those runs' largest deviation (fracture
+/// cascades scatter their counts: b5 v10 adaptive gives 41-50 fragments over input
+/// changes of 1e-6 to 2e-4). Returns what fails.
+pub fn gate(reference: &Observation, ours: &Observation, half: &Observation, spreads: &[Observation]) -> Vec<String> {
     let mut fails = Vec::new();
     let (gpu_err, _) = difference(reference, ours);
     let (half_err, _) = difference(reference, half);
-    let (spread_err, _) = difference(reference, spread);
+    let (spread_err, _) = spread_difference(reference, spreads);
     let allowed = (2.0 * half_err.max(spread_err)).max(1e-3);
     if !(gpu_err <= allowed) {
         fails.push(format!("probes {gpu_err:.1e} > {allowed:.1e}"));
@@ -99,7 +103,8 @@ pub fn gate(reference: &Observation, ours: &Observation, half: &Observation, spr
     for key in ["broken_bonds", "fragments"] {
         let r = value(reference, key);
         let d = (value(ours, key) - r).abs();
-        let allowed = (0.1 * r).max(1.0).max((value(half, key) - r).abs()).max((value(spread, key) - r).abs());
+        let deviation = spreads.iter().chain(std::iter::once(half)).map(|o| (value(o, key) - r).abs()).fold(0.0, f64::max);
+        let allowed = (0.1 * r).max(1.0).max(2.0 * deviation);
         if d > allowed {
             fails.push(format!("{key} {} vs {r} (allowed {allowed})", value(ours, key)));
         }

@@ -12,7 +12,7 @@ use stress_ref::scene::{ImpactorDesc, ImpactorShape, ProbeDesc, ProbeKind, Scene
 use stress_ref::world::World;
 
 mod common;
-use common::{difference, gate, refined, spread_run};
+use common::{difference, gate, refined, spread_difference, spread_run};
 
 /// The bounds of a scene's chunks (world).
 fn bounds(scene: &Scene) -> (Vec3, Vec3) {
@@ -109,7 +109,7 @@ fn scene_packs_match_the_reference_world() {
         let spread = spread_run(&scene, &reference);
         let half = World::new(&refined(&scene)).run();
         let (gpu_err, gpu_notes) = difference(&reference, &ours);
-        let (self_err, self_notes) = difference(&reference, &spread);
+        let (self_err, self_notes) = spread_difference(&reference, &spread);
         let (half_err, half_notes) = difference(&reference, &half);
         ran += 1;
         eprintln!("{name:<28} gpu {gpu_err:.1e} vs reference's spread {self_err:.1e}, half step {half_err:.1e} | time gpu {gpu_time:.1} s, reference {ref_time:.1} s");
