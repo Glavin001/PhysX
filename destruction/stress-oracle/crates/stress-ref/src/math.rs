@@ -329,6 +329,24 @@ impl Quat {
     /// The squares summed in pairs, `(w^2 + x^2) + (y^2 + z^2)`: a half turn about a
     /// coordinate axis permutes the components with signs and keeps or swaps the pairs,
     /// so the sum rounds identically (DECISIONS.md 17).
+    /// The rotation by the vector `v` (axis `v / |v|`, angle `|v|`); the identity for zero.
+    pub fn from_rotation_vector(v: Vec3) -> Quat {
+        let angle = v.norm();
+        if angle == 0.0 {
+            return Quat::IDENTITY;
+        }
+        Quat::from_axis_angle(v, angle)
+    }
+    /// The rotation vector (axis times angle, the angle in `[0, pi]`) of this rotation.
+    pub fn to_rotation_vector(self) -> Vec3 {
+        let q = if self.w < 0.0 { Quat { w: -self.w, x: -self.x, y: -self.y, z: -self.z } } else { self };
+        let v = Vec3::new(q.x, q.y, q.z);
+        let s = v.norm();
+        if s == 0.0 {
+            return Vec3::ZERO;
+        }
+        v * (2.0 * s.atan2(q.w) / s)
+    }
     pub fn normalized(self) -> Quat {
         let n = ((self.w * self.w + self.x * self.x) + (self.y * self.y + self.z * self.z)).sqrt();
         Quat { w: self.w / n, x: self.x / n, y: self.y / n, z: self.z / n }

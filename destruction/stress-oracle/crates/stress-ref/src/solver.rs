@@ -599,11 +599,11 @@ impl ReferenceSolver {
     /// Gershgorin row sums of a cluster's bond matrix for one per-bond coefficient set
     /// (`coeffs` gives the 6 local components: shear t1, shear t2, axial, bending t1,
     /// bending t2, torsion): per chunk, the 3 translational then 3 rotational rows.
-    fn gershgorin_rows(&self, ci: usize, coeffs: impl Fn(&RtBond) -> [f64; 6]) -> Vec<[f64; 6]> {
+    fn gershgorin_rows(&self, ci: usize, bonds: &[usize], coeffs: impl Fn(&RtBond) -> [f64; 6]) -> Vec<[f64; 6]> {
         let cl = &self.clusters[ci];
         let s = cl.structure;
         let mut row = vec![[0.0f64; 6]; self.structures[s].chunks.len()];
-        for &bi in &cl.bonds {
+        for &bi in bonds {
             let b = &self.bonds[s][bi];
             let g = &b.geometry;
             let ks = coeffs(b);
@@ -634,7 +634,7 @@ impl ReferenceSolver {
     /// (and the substep it sets) is a property of the physics, not of the units. Rotations
     /// use the smallest principal moment (conservative: a smaller inertia only raises the
     /// bound), masses the deformation inertia (`inertia_scale`).
-    fn normalized_gershgorin_rows(&self, ci: usize, coeffs: impl Fn(&RtBond) -> [f64; 6]) -> Vec<[f64; 6]> {
+    fn normalized_gershgorin_rows(&self, ci: usize, bonds: &[usize], coeffs: impl Fn(&RtBond) -> [f64; 6]) -> Vec<[f64; 6]> {
         let cl = &self.clusters[ci];
         let s = cl.structure;
         let st = &self.structures[s];
@@ -643,7 +643,7 @@ impl ReferenceSolver {
             (1.0 / (mu * st.chunks[c].mass).sqrt(), 1.0 / (mu * smallest_principal_moment(&st.chunks[c].inertia)).sqrt())
         };
         let mut row = vec![[0.0f64; 6]; st.chunks.len()];
-        for &bi in &cl.bonds {
+        for &bi in bonds {
             let b = &self.bonds[s][bi];
             let g = &b.geometry;
             let ks = coeffs(b);
@@ -687,10 +687,10 @@ impl ReferenceSolver {
     /// chunk's (possibly scaled) deformation inertia. Returns `(chunk, omega^2)`.
     pub fn chunk_frequencies(&self, ci: usize) -> Vec<(usize, f64)> {
         if self.config.methods.scaled_step_bound {
-            let row = self.normalized_gershgorin_rows(ci, Self::bond_stiffness6);
+            let row = self.normalized_gershgorin_rows(ci, &self.clusters[ci].bonds, Self::bond_stiffness6);
             return self.clusters[ci].chunks.iter().map(|&c| (c, row[c].iter().copied().fold(0.0, f64::max))).collect();
         }
-        let row = self.gershgorin_rows(ci, Self::bond_stiffness6);
+        let row = self.gershgorin_rows(ci, &self.clusters[ci].bonds, Self::bond_stiffness6);
         let st = &self.structures[self.clusters[ci].structure];
         let s = self.clusters[ci].structure;
         self.clusters[ci]
@@ -713,11 +713,16 @@ impl ReferenceSolver {
     /// frequency, so a soft bond adds little damping: pairing one bond's damping ratio
     /// with another chunk's frequency would overstate the damping.
     pub fn chunk_stable_dts(&self, ci: usize) -> Vec<(usize, f64)> {
+        self.chunk_stable_dts_over(ci, &self.clusters[ci].bonds, &self.clusters[ci].chunks)
+    }
+
+    /// `chunk_stable_dts` of the given chunks from the given bonds (all a chunk's rows
+    /// come from its own bonds, so a chunk's substep needs only those).
+    fn chunk_stable_dts_over(&self, ci: usize, bonds: &[usize], chunks: &[usize]) -> Vec<(usize, f64)> {
         if self.config.methods.scaled_step_bound {
-            let k = self.normalized_gershgorin_rows(ci, Self::bond_stiffness6);
-            let c = self.normalized_gershgorin_rows(ci, |b| [b.damping.lin.x, b.damping.lin.y, b.damping.lin.z, b.damping.ang.x, b.damping.ang.y, b.damping.ang.z]);
-            return self.clusters[ci]
-                .chunks
+            let k = self.normalized_gershgorin_rows(ci, bonds, Self::bond_stiffness6);
+            let c = self.normalized_gershgorin_rows(ci, bonds, |b| [b.damping.lin.x, b.damping.lin.y, b.damping.lin.z, b.damping.ang.x, b.damping.ang.y, b.damping.ang.z]);
+            return chunks
                 .iter()
                 .map(|&ch| {
                     let dt = (0..6)
@@ -732,11 +737,10 @@ impl ReferenceSolver {
                 })
                 .collect();
         }
-        let k = self.gershgorin_rows(ci, Self::bond_stiffness6);
-        let c = self.gershgorin_rows(ci, |b| [b.damping.lin.x, b.damping.lin.y, b.damping.lin.z, b.damping.ang.x, b.damping.ang.y, b.damping.ang.z]);
+        let k = self.gershgorin_rows(ci, bonds, Self::bond_stiffness6);
+        let c = self.gershgorin_rows(ci, bonds, |b| [b.damping.lin.x, b.damping.lin.y, b.damping.lin.z, b.damping.ang.x, b.damping.ang.y, b.damping.ang.z]);
         let s = self.clusters[ci].structure;
-        self.clusters[ci]
-            .chunks
+        chunks
             .iter()
             .map(|&ch| {
                 let data = &self.structures[s].chunks[ch];
@@ -757,23 +761,54 @@ impl ReferenceSolver {
     }
 
     /// Selective mass scaling (explicit solve): give every chunk whose own stable
-    /// substep is below `target_dt` just enough extra *deformation* inertia to reach it
-    /// (`mu = (target / dt_chunk)^2`), as explicit FE codes do instead of softening the
-    /// material. Stiffness, strengths, loads and rigid-body masses stay physical; only
-    /// the response of the smallest chunks to fast loading is slowed. Returns the added
-    /// mass as a fraction of the total.
+    /// substep is below `target_dt` just enough extra *deformation* inertia to reach it,
+    /// as explicit FE codes do instead of softening the material. Stiffness, strengths,
+    /// loads and rigid-body masses stay physical; only the response of the smallest chunks
+    /// to fast loading is slowed. Each chunk's factor is found by bisection on its own
+    /// stable substep (the same bound, damping and safety as `stable_dt`), the others
+    /// held: that substep only grows with the chunk's inertia, and scaling a neighbour
+    /// afterwards only lowers a chunk's rows, so after one sweep `stable_dt` meets the
+    /// target exactly. (A one-shot `(target / dt)^2` ignored the dashpots and, with the
+    /// mass-normalised bound, the neighbours' inertia: it fell 5 % short.) Returns the
+    /// added mass as a fraction of the total.
     pub fn apply_mass_scaling(&mut self, target_dt: f64) -> f64 {
         let safety = self.config.courant_safety;
-        let mut added = 0.0;
-        let mut total = 0.0;
+        let (mut added, mut total) = (0.0, 0.0);
         for ci in 0..self.clusters.len() {
             let s = self.clusters[ci].structure;
-            for (c, w2) in self.chunk_frequencies(ci) {
-                let dt_chunk = if w2 > 0.0 { 2.0 * safety / w2.sqrt() } else { f64::INFINITY };
-                let state = &mut self.chunks[s][c];
-                state.inertia_scale *= (target_dt / dt_chunk).powi(2).max(1.0);
+            let chunks = self.clusters[ci].chunks.clone();
+            for c in chunks {
+                let bonds: Vec<usize> = self.chunk_bonds[s][c].iter().copied().filter(|b| self.clusters[ci].bonds.binary_search(b).is_ok()).collect();
+                if !bonds.is_empty() {
+                    let meets = |sv: &mut Self, mu: f64| {
+                        sv.chunks[s][c].inertia_scale = mu;
+                        sv.chunk_stable_dts_over(ci, &bonds, &[c])[0].1 * safety >= target_dt
+                    };
+                    let mu0 = self.chunks[s][c].inertia_scale;
+                    let mut mu = mu0;
+                    if !meets(self, mu0) {
+                        let (mut lo, mut hi) = (mu0, 2.0 * mu0);
+                        while !meets(self, hi) {
+                            lo = hi;
+                            hi *= 2.0;
+                        }
+                        loop {
+                            let mid = 0.5 * (lo + hi);
+                            if mid <= lo || mid >= hi {
+                                break;
+                            }
+                            if meets(self, mid) {
+                                hi = mid;
+                            } else {
+                                lo = mid;
+                            }
+                        }
+                        mu = hi;
+                    }
+                    self.chunks[s][c].inertia_scale = mu;
+                }
                 let m = self.structures[s].chunks[c].mass;
-                added += (state.inertia_scale - 1.0) * m;
+                added += (self.chunks[s][c].inertia_scale - 1.0) * m;
                 total += m;
             }
         }
@@ -1164,6 +1199,15 @@ impl ReferenceSolver {
     /// the hidden field then integrates the opposite rotation. Under an engine (which owns
     /// rigid motion) the hidden rigid motion is removed instead.
     pub(crate) fn remove_rigid_drift(&mut self, ci: usize) {
+        self.fold_rigid_drift(ci, false);
+    }
+
+    /// `remove_rigid_drift`; with `exact`, the transfer keeps every chunk's world
+    /// position, orientation, velocity and spin exactly (for the finite fold of a new
+    /// fragment's hidden rigid motion; per substep the fold is O(dt) and the linear
+    /// transfer, free of cancellation, is the accurate one).
+    fn fold_rigid_drift(&mut self, ci: usize, exact: bool) {
+        let weight_of = |sv: &Self, s: usize, c: usize| sv.chunks[s][c].inertia_scale;
         let cl = &self.clusters[ci];
         let s = cl.structure;
         let st = &self.structures[s];
@@ -1205,6 +1249,60 @@ impl ReferenceSolver {
         let (phi, dw) = (inv_i * lu, inv_i * lv);
         let chunks = cl.chunks.clone();
         let true_com = cl.com;
+        if exact && self.config.integrate_rigid && !self.clusters[ci].driven {
+            // Every chunk keeps its world position, orientation, velocity and spin exactly:
+            // record them, move the frame, and re-express them in it. The linearised
+            // transfer below moves positions by O(phi^2) and velocities by O(phi v): a
+            // finite fold (the first after a split) changed momentum and energy.
+            let world: Vec<(Vec3, Quat, Vec3, Vec3)> = chunks
+                .iter()
+                .map(|&c| {
+                    let (v, w) = self.chunk_velocity(s, c);
+                    let th = self.chunks[s][c].th;
+                    (self.chunk_position(s, c), self.clusters[ci].pose.rotation * Quat::from_rotation_vector(th), v, w)
+                })
+                .collect();
+            let cl = &mut self.clusters[ci];
+            let rot = cl.pose.rotation;
+            cl.pose.position += rot.rotate(t - phi.cross(com));
+            cl.pose.rotation = (rot * Quat::from_rotation_vector(phi)).normalized();
+            cl.velocity += rot.rotate(dv + dw.cross(true_com - com));
+            cl.angular_velocity += rot.rotate(dw);
+            let cl = self.clusters[ci].clone();
+            let back = cl.pose.rotation.conjugate();
+            for (&c, (x, q, v, w)) in chunks.iter().zip(world) {
+                let center = self.structures[s].chunks[c].center;
+                let u = cl.pose.inverse_transform_point(x) - center;
+                let r = cl.pose.transform_vector(center + u - cl.com);
+                let cs = &mut self.chunks[s][c];
+                cs.u = u;
+                cs.th = (back * q).to_rotation_vector();
+                cs.v = back.rotate(v - cl.velocity - cl.angular_velocity.cross(r));
+                cs.w = back.rotate(w - cl.angular_velocity);
+            }
+            // Re-centre (the scheme conserves momentum exactly only with the hidden mean
+            // displacement and velocity at zero): the frame takes them, the chunks keep
+            // their world positions and velocities.
+            let (mut tu, mut pv) = (Vec3::ZERO, Vec3::ZERO);
+            for &c in &chunks {
+                let m = self.structures[s].chunks[c].mass * weight_of(self, s, c);
+                tu += self.chunks[s][c].u * m;
+                pv += self.chunks[s][c].v * m;
+            }
+            let (t2, v2) = (tu / mass, pv / mass);
+            for &c in &chunks {
+                self.chunks[s][c].u -= t2;
+                self.chunks[s][c].v -= v2;
+            }
+            let rot = self.clusters[ci].pose.rotation;
+            let shift = rot.rotate(t2);
+            self.clusters[ci].pose.position += shift;
+            // The chunks' lever arms from the frame's centre moved by `-shift`: the
+            // frame's velocity takes the rigid field's change there too.
+            let w = self.clusters[ci].angular_velocity;
+            self.clusters[ci].velocity += rot.rotate(v2) + w.cross(shift);
+            return;
+        }
         for c in chunks {
             let r = st.chunks[c].center - com;
             let cs = &mut self.chunks[s][c];
@@ -1338,6 +1436,26 @@ impl ReferenceSolver {
                     self.chunks[s][c].u -= mean;
                 }
                 self.clusters[idx].pose.position += parent.pose.transform_vector(mean);
+            }
+            if self.config.methods.exact_frame_transfer {
+                // Every chunk keeps its world velocity and spin exactly: the lever arms
+                // above leave out the hidden displacement (and the fold moves it), which
+                // shifted velocities by `w x u` and changed the momentum at every split.
+                let child = self.clusters[idx].clone();
+                let back = child.pose.rotation.conjugate();
+                for &c in &comp {
+                    let (v, w) = vel[&c];
+                    let r = child.pose.transform_vector(lite[&c].0 + self.chunks[s][c].u - child.com);
+                    let cs = &mut self.chunks[s][c];
+                    cs.v = back.rotate(v - child.velocity - child.angular_velocity.cross(r));
+                    cs.w = back.rotate(w - child.angular_velocity);
+                }
+                // The child's hidden field holds whatever rigid motion it had inside the
+                // parent, which can be finite (a loose piece turning on a cracked hinge):
+                // fold it into the child's frame exactly, once.
+                if !child.anchored {
+                    self.fold_rigid_drift(idx, true);
+                }
             }
             children.push(self.clusters[idx].id);
         }

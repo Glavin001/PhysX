@@ -403,6 +403,9 @@ pub struct FieldCell {
     pub normal: Vec3,
     /// `int s dV / V` over the cell.
     pub depth: f64,
+    /// The largest depth `s` in the cell (at one of its vertices: `s` is linear there);
+    /// zero for a ball's cells (impactors crush by their own law).
+    pub max_depth: f64,
     /// Over the cell's boundaries with the cells of other faces (outward normal `m`):
     /// `int s m dA` and `int x x (s m) dA`. Where neighbouring cells have different
     /// stiffnesses, these carry the energy's gradient across the interface.
@@ -477,7 +480,8 @@ pub fn field_cells(region: &Polytope, body: &Polytope, indent: f64) -> Vec<Field
                     let xs = c * (o_f * area) - second * n_f;
                     interface_moment += xs.cross(face.normal);
                 }
-                cells.push(FieldCell { face: f, volume: mp.volume, centroid: mp.centroid, normal: planes[f].0, depth: depth(f, mp.centroid), interface_force, interface_moment });
+                let max_depth = cell.faces.iter().flat_map(|x| x.vertices.iter()).map(|&v| depth(f, v)).fold(0.0, f64::max);
+                cells.push(FieldCell { face: f, volume: mp.volume, centroid: mp.centroid, normal: planes[f].0, depth: depth(f, mp.centroid), max_depth, interface_force, interface_moment });
             }
         }
     }
@@ -889,17 +893,21 @@ fn disc_region(poly: &[[f64; 2]], h: f64, r: f64) -> DiscRegion {
         };
         reg.volume += (h * area - r * r * r * omega) / 3.0;
     };
-    // The disc's sector from angle t1 through dt.
-    let arc = |reg: &mut DiscRegion, t1: f64, dt: f64| {
-        let t2 = t1 + dt;
+    // The disc's sector from the unit direction `a` through the angle `dt` to the unit
+    // direction `b`: its moments from the directions themselves (`(cos t, sin t)` at
+    // either end), not from absolute angles, so they depend on the in-plane basis only
+    // through the coordinates (a reflection of the basis maps them exactly; half turns
+    // stay bit for bit, DECISIONS.md 17).
+    let arc = |reg: &mut DiscRegion, a: [f64; 2], b: [f64; 2], dt: f64| {
         reg.area += 0.5 * rho2 * dt;
-        reg.first[0] += rho2 * rho / 3.0 * (t2.sin() - t1.sin());
-        reg.first[1] += rho2 * rho / 3.0 * (t1.cos() - t2.cos());
-        let s2 = ((2.0 * t2).sin() - (2.0 * t1).sin()) / 4.0;
+        reg.first[0] += rho2 * rho / 3.0 * (b[1] - a[1]);
+        reg.first[1] += rho2 * rho / 3.0 * (a[0] - b[0]);
+        // (sin 2t2 - sin 2t1) / 4 and (sin^2 t2 - sin^2 t1) / 2.
+        let s2 = (b[0] * b[1] - a[0] * a[1]) / 2.0;
         let q = rho2 * rho2 / 4.0;
         reg.second[0][0] += q * (dt / 2.0 + s2);
         reg.second[1][1] += q * (dt / 2.0 - s2);
-        let off = q * (t2.sin().powi(2) - t1.sin().powi(2)) / 2.0;
+        let off = q * (b[1] * b[1] - a[1] * a[1]) / 2.0;
         reg.second[0][1] += off;
         reg.second[1][0] += off;
         // (h A - r^3 Omega) / 3 with A = rho^2 dt / 2, Omega = side dt (1 - |h| / r),
@@ -907,7 +915,18 @@ fn disc_region(poly: &[[f64; 2]], h: f64, r: f64) -> DiscRegion {
         reg.volume -= side * dt * delta * delta * (3.0 * r - delta) / 6.0;
         reg.moment -= rho2 * rho2 * dt / 8.0;
     };
-    let sector = |reg: &mut DiscRegion, a: [f64; 2], b: [f64; 2]| arc(reg, a[1].atan2(a[0]), cross(a, b).atan2(dot(a, b)));
+    let unit = |a: [f64; 2]| {
+        let l = dot(a, a).sqrt();
+        [a[0] / l, a[1] / l]
+    };
+    let sector = |reg: &mut DiscRegion, a: [f64; 2], b: [f64; 2]| {
+        let dt = cross(a, b).atan2(dot(a, b));
+        // A sector of no angle (or with an end at the foot, where the angle is zero
+        // too) contributes nothing.
+        if dt != 0.0 {
+            arc(reg, unit(a), unit(b), dt);
+        }
+    };
     let n = poly.len();
     // Where the polygon's boundary never meets the disc, the region is the whole disc
     // (the foot inside the polygon) or nothing: exactly, not as sectors cancelling.
@@ -921,7 +940,7 @@ fn disc_region(poly: &[[f64; 2]], h: f64, r: f64) -> DiscRegion {
     if !meets {
         let holds = (0..n).all(|i| cross(poly[i], poly[(i + 1) % n]) >= 0.0);
         if holds {
-            arc(&mut reg, 0.0, 2.0 * std::f64::consts::PI);
+            arc(&mut reg, [1.0, 0.0], [1.0, 0.0], 2.0 * std::f64::consts::PI);
         }
         return reg;
     }
@@ -1012,7 +1031,7 @@ pub fn ball_cells(body: &Polytope, center: Vec3, r: f64) -> Vec<FieldCell> {
             let xs = first * o_f - second * n_f;
             interface_moment += xs.cross(face.normal);
         }
-        cells.push(FieldCell { face: f, volume: lc.volume, centroid: lc.centroid, normal: n_f, depth: o_f - n_f.dot(lc.centroid), interface_force, interface_moment });
+        cells.push(FieldCell { face: f, volume: lc.volume, centroid: lc.centroid, normal: n_f, depth: o_f - n_f.dot(lc.centroid), max_depth: 0.0, interface_force, interface_moment });
     }
     cells
 }

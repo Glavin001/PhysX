@@ -491,7 +491,6 @@ impl<'a> JointModel<'a> {
         st.utilization = idx.max();
 
         let mut dissipated = 0.0;
-        let mut overshoot = 0.0;
         let psi_ts = psi_tension_shear(k, d);
         let psi_c = if d.lin.z < 0.0 { 0.5 * k.kn * sq(d.lin.z) } else { 0.0 };
 
@@ -556,6 +555,45 @@ impl<'a> JointModel<'a> {
             (q, energy, diss)
         };
 
+        // The joint's stored energy at this displacement with its internal variables as
+        // they were (damage, crush, slip, rebar plasticity): what the update below can
+        // release. The energy dissipated by the update is exactly this less the energy
+        // stored after it (DECISIONS.md 33).
+        let frozen = {
+            let st0 = state;
+            let patch = if !s.crack_contact || st0.damage == 0.0 {
+                0.0
+            } else {
+                let kn = k.kn * (1.0 - st0.crush);
+                let normal = if s.exact_patch {
+                    no_tension_patch(kn, g.width, d.lin.z, d.ang.x, d.ang.y).3
+                } else {
+                    let n = CONTACT_SPRINGS;
+                    let ki = kn / (n * n) as f64;
+                    let (o1, o2) = (spring_offsets(g.width[0]), spring_offsets(g.width[1]));
+                    let mut e = 0.0;
+                    for &s1 in &o1 {
+                        for &s2 in &o2 {
+                            let di = d.lin.z + d.ang.x * s2 - d.ang.y * s1;
+                            if di < 0.0 {
+                                e += 0.5 * ki * di * di;
+                            }
+                        }
+                    }
+                    e
+                };
+                let p: Local6 = st0.plastic.into();
+                normal + 0.5 * (k.ks * (sq(d.lin.x - p.lin.x) + sq(d.lin.y - p.lin.y)) + k.kt * sq(d.ang.z - p.ang.z))
+            };
+            let rebar = match self.rebar {
+                Some(rb) if !st0.rebar_broken => {
+                    0.5 * (rb.k_axial * sq(d.lin.z - st0.rebar_plastic) + rb.k_dowel * (sq(d.lin.x - st0.rebar_slip[0]) + sq(d.lin.y - st0.rebar_slip[1])))
+                }
+                _ => 0.0,
+            };
+            (1.0 - st0.damage) * (psi_ts + (1.0 - st0.crush) * psi_c) + st0.damage * patch + rebar
+        };
+
         // Damage evolution.
         if fracture {
             let (lambda_ts, mode_ts) = idx.tension_shear();
@@ -572,7 +610,6 @@ impl<'a> JointModel<'a> {
                     let excess = (psi_contact - (1.0 - st.crush) * psi_c).max(0.0);
                     let law = (released - excess * (new_d - st.damage)).max(0.0);
                     dissipated += law;
-                    overshoot += ((psi_ts - excess) * (new_d - st.damage) - law).max(0.0);
                     st.damage = new_d;
                     st.mode = Some(mode_ts);
                 }
@@ -611,7 +648,6 @@ impl<'a> JointModel<'a> {
                 let (new_dc, released) = damage_increment(kind, st.kappa_c, lambda_c, r, st.crush, psi_c);
                 if new_dc > st.crush {
                     dissipated += released;
-                    overshoot += (psi_c * (new_dc - st.crush) - released).max(0.0);
                     st.crush = new_dc;
                     st.mode = Some(mode_c);
                     if st.crush >= 1.0 && st.damage < 1.0 {
@@ -673,6 +709,24 @@ impl<'a> JointModel<'a> {
             }
         }
 
+        // The exact energy balance: whatever the update released is dissipated. The
+        // laws' own accounts (the softening law's fracture energy, friction, plasticity)
+        // are its share up to that total; any excess they would book is energy the
+        // cracked share still holds (compression, rocking, friction-held shear), and what
+        // they miss is `overshoot` (a step crossing the softening branch).
+        // (Nothing changed: nothing is released, exactly; the two sums would differ by
+        // round-off.)
+        let changed = st.damage != state.damage
+            || st.crush != state.crush
+            || st.plastic.lin != state.plastic.lin
+            || st.plastic.ang != state.plastic.ang
+            || st.rebar_plastic != state.rebar_plastic
+            || st.rebar_slip != state.rebar_slip
+            || st.rebar_broken != state.rebar_broken;
+        let released = if changed { frozen - stored } else { 0.0 };
+        let law = dissipated.min(released).max(0.0);
+        let overshoot = released - law;
+        let dissipated = law;
         st.dissipated += dissipated;
         let disconnected = was_connected && !st.connected(self.rebar.is_some());
         JointResponse { force, state: st, dissipated, overshoot, stored, disconnected, measures }

@@ -7,11 +7,14 @@ ledger: what each switch replaces, why, the evidence, and its status.
 
 ## Protocol
 
-1. **A switch.** A field of `sim.methods` (`scene.rs`, `Methods`), default off. It is
-   set like a model switch: `--feature NAME=on`, `--set sim.methods.NAME=true`, or for a
-   whole run of the test suite or the catalogue `STRESS_METHODS=NAME,NAME` (the default
-   of every scene that does not set `sim.methods` itself; written scenes omit
-   `sim.methods` while it is at the established default).
+1. **A switch.** A field of `sim.methods` (`scene.rs`, `Methods`), off until proven. It
+   is set like a model switch: `--feature NAME=on|off`, `--set sim.methods.NAME=true`,
+   or for a whole run of the test suite or the catalogue `STRESS_METHODS` (`NAME` or
+   `NAME=on` on, `-NAME` or `NAME=off` off, `established` for every established method;
+   it adjusts the default of every scene that does not set `sim.methods` itself; written
+   scenes omit `sim.methods` while it is at the built-in default). **Proven switches
+   are on by default** (`Methods::proven`): `layer_contact`, `scaled_step_bound`,
+   `exact_frame_transfer`, `contact_crushing` (DECISIONS.md 41).
 2. **The principles** (`tests/principles.rs`): laws every faithful simulation obeys
    whatever its internals, which a cap, a regularisation or a hand-picked constant
    fails even when every benchmark gate passes: bit-exact reproduction under a change of
@@ -260,6 +263,41 @@ at 2x: it leaves more than 2x on the table. (The harness first measured nothing:
 bonds' stored energy is their last evaluation's, zero before the first step.)
 
 **Status:** catalogue A/B and test suite running.
+
+### `exact_frame_transfer` (fix)
+
+**Replaces** the linearised transfer of a new fragment's hidden rigid motion into its
+frame, and the split's re-expression of chunk velocities with lever arms that left out
+the hidden displacement: both moved chunks or changed their velocities at every split
+(a deformed beam's split: 1.0e-2 in angular momentum, 5.1e-2 J created).
+
+**Method:** at a split, every chunk's world position, orientation, velocity and spin are
+re-expressed exactly in the child's frame, which is then re-centred (hidden mean
+displacement and velocity zero, the frame taking them, lever arms included). Per
+substep the fold stays linear (O(dt), no cancellation).
+
+**Evidence:** `a_split_of_a_deformed_body_keeps_its_motion` (momentum, angular momentum,
+kinetic energy to rounding); angular momentum changes only by the bonds' small-strain
+imbalance, converging to zero with the substep. **Status:** default on.
+
+### `contact_crushing` (model change)
+
+**Replaces** contacts of unlimited compressive strength: the contact that takes over a
+broken joint had the joint's stiffness but not its strength, so hinges between fragments
+never crushed (b9: fragments rebounding against the pulse).
+
+**Method:** the joint's crushing law on the contact: strength `f_c (1 - c / d_u)`,
+`d_u = 2 G_c / f_c` (energy-limited like the joint's own crushing; a perfectly plastic
+crush dissipated 3.1 kJ of 6.7 kJ on b9), the indentation ratcheting where the layer's
+peak pressure `k''_f s` exceeds it.
+
+**Evidence:** b9 high against OpenCourant: fragment speed 2.79 vs 3.45 m/s (gate 30 %),
+peak centre displacement 9 % (established 22 %). **Status:** default on.
+
+**Joint law ledger (fix, all runs):** the dissipation booked by a bond is exactly the
+drop of its stored energy caused by its internal-variable update; the law's own accounts
+had booked up to twice the energy released (DECISIONS.md 33). This closed the fracture
+energy balance with `layer_contact`.
 
 ## Open (from the audit and `CPU Oracle Improvements to Prove First`)
 

@@ -167,12 +167,12 @@ cited textbook factor, or the oracle's own uncertainty.
     (0.33 e0 booked against 0.34 e0 taken out of the motion at safety 1/16; the
     imbalance grows from 0.4% to 2.3% as the substep shrinks). Its ledger monotonicity
     is still tested.
-26. **Angular momentum is an exact target** (separate test, derived round-off bound with
+26. (Superseded by 35-36.) **Angular momentum is an exact target** (separate test, derived round-off bound with
     lever arms to the scene's extent). **Known failing**: the small-strain bond model
     balances moments about the undeformed chunk centres and the floating frame couples
     hidden and rigid motion to first order; the drift does not shrink with the
     substep (5.9e-4 of |L0| without fracture, 1.2e-3 to 1.6e-3 with it).
-27. **Fracture energy closure (layer contact) is an exact target. Known failing**: the
+27. (Resolved by 33: the joint law's ledger.) **Fracture energy closure (layer contact) is an exact target. Known failing**: the
     residual converges at first order (ratios 0.48) to about -1.3e-3 e0 (Aitken limits
     -1.31e-3, -1.38e-3, -1.37e-3, -1.26e-3 down to safety 1/128). Located: none of it
     in substeps without contact (2.5e-9), none at splits or bond breaks (those parts
@@ -230,3 +230,79 @@ cited textbook factor, or the oracle's own uncertainty.
     relative; uncertainty 1e-12 to 1e-9 (was 2e-6).
 32. Removed a leftover scratch test in `world.rs` (`zz_slab_energy`, which always
     panicked).
+
+## Second round: physics fixes found by the exact targets (Mine)
+
+33. **Joint law energy ledger (bug, fixed, all runs).** The law's own accounts (the
+    softening law's `int U0 kappa^2 dD`, crushing, friction, rebar) are exact only for
+    proportional single-mode loading; on general paths they booked up to twice the
+    energy the joint actually released (the cracked share still held it: compression,
+    rocking, friction-held shear). Found by a new test
+    (`the_joint_law_balances_energy_on_any_path`: 40 random smooth paths through every
+    mechanism; old law: -32 % at every step size). Now the dissipation is exactly the
+    drop of stored energy at the new displacement caused by the internal-variable
+    update (`frozen - stored`, zero exactly when nothing changed); the law's share is
+    `bond_dissipation` (clipped to that total), the rest `softening_overshoot`. Forces
+    and dynamics are bit-identical. Closure converges at second order (trapezoid); no
+    update ever releases negative energy. This was the whole fracture-energy residue
+    of item 27: the 40 m/s fracture balance now halves with every halving of the
+    substep (2.6e-3 at safety 1/32, 1.24e-3 at 1/64) and its test passes.
+34. **Half turns bit for bit, with fracture** (item 17 completed): `disc_region`'s
+    sector moments from the unit vectors of the arc's ends (relative angles only), not
+    absolute angles in an arbitrary in-plane basis. All three axes, with and without
+    fracture, `layer_contact` on: position and velocity differences exactly 0.
+35. **`exact_frame_transfer` (new switch).** The floating frame's transfer of a fragment's
+    hidden rigid motion is linearised (positions move by O(phi^2), velocities by
+    O(phi v)), harmless per substep (phi = O(dt)) but not for the finite fold of a new
+    fragment; and the split re-expressed velocities with lever arms that left out the
+    hidden displacement. Together they changed angular momentum and kinetic energy at
+    every split, by amounts that do not vanish with the substep (a deformed beam's
+    split: 1.0e-2 in L, 5.1e-2 J created). With the switch, a split keeps every chunk's
+    position, orientation, velocity and spin exactly (re-expressed in the child's frame,
+    then re-centred so the hidden mean displacement and velocity stay zero, the frame
+    taking them, lever-arm change included). Applying the exact transfer every substep
+    was tried and rejected: re-deriving the hidden displacement from world positions
+    adds rounding at the scale of the positions to a 1e-6 m field (it broke the
+    resting-box and momentum round-off targets). Tests: `a_split_of_a_deformed_body
+    _keeps_its_motion` (round-off), the angular-momentum ledger below.
+36. **Angular momentum: an exact ledger, not a tolerance.** The small-strain bonds act at
+    undeformed lever arms (their linear kinematics are invariant only under
+    infinitesimal rotations of the undeformed configuration), so internal forces turn
+    the system by `sum (u_a - u_b) x f` (about 5e-4 of |L0| in the 40 m/s impact). The
+    test integrates this imbalance and requires `L - L0 - imbalance` to converge to
+    zero with the substep: nothing else (contacts, splits, frame, rigid update) may
+    create angular momentum. Removing the imbalance itself needs co-rotational
+    (geometrically exact) bond kinematics with consistent rotation variables: open.
+37. **Engine API reported fractures incompletely (bug, fixed).** A fragment that split
+    again in the same frame was dropped from its parent's report and its own split
+    reported under an id the engine never saw. Each body the engine knew is now
+    reported once with every piece it ended as; the test checks the pieces carry all
+    of the body's mass.
+38. **Mass scaling meets its target exactly (fixed).** The one-shot `(target / dt)^2`
+    ignored the dashpots and, with the mass-normalised bound, the neighbours' inertia
+    (5 % short). Each chunk's factor is now found by bisection on its own damped stable
+    substep (the same bound as `stable_dt`); scaling a neighbour only lowers a chunk's
+    rows, so one sweep meets the target everywhere. The test's 0.99 allowance is gone.
+39. **`contact_crushing` (new switch): the joint's crushing law on the contact that
+    replaces it.** Over-strong arching on b9 (fragments rebounding against the pulse)
+    came from contacts with the joint's stiffness but unlimited strength. A perfectly
+    plastic crush (indentation where the layer's peak pressure `k''_f s` is `f_c`) was
+    tried first: it dissipated 3.1 kJ of the 6.7 kJ input and left fragments 35 % slow.
+    The joint law's crushing is energy-limited, so the contact's is too: strength
+    `f_c (1 - c / d_u)`, `d_u = 2 G_c / f_c` (concrete: 20 kJ/m^2, 1.33 mm), the
+    increment from the cell's linear softening equation, crushing through when softening
+    outruns the layer. b9 high against OpenCourant: fragment speed 2.79 vs 3.45 m/s
+    (19 %, gate 30 %), peak centre displacement 9 % (established: 22 %).
+40. Engine and mass-scaling tests that had failed with `layer_contact` now pass (37,
+    38); the candidate set is `layer_contact, scaled_step_bound, exact_frame_transfer,
+    contact_crushing`.
+41. **The proven methods are the default** (the protocol's "then its default flips"):
+    `layer_contact`, `scaled_step_bound`, `exact_frame_transfer`, `contact_crushing`. With
+    them the whole suite passes (exact targets, conservation ledgers, gradients, oracle
+    goldens, analytic benchmarks); the established methods fail the exact targets
+    (contact equilibrium, Coulomb sticking/sliding/stopping, unit rescaling,
+    convergence, angular momentum, motion kept through a split) and stay available as
+    `STRESS_METHODS=established` (or `-NAME` per switch) for A/B comparison. Not yet
+    proven and left off: `exact_joint_patch`, `patch_after_damage`, `exact_rate_filter`,
+    `frame_contact_step`. Open before the next round: the catalogue-wide A/B
+    (`stress-ref ab`) of the new default, and co-rotational bonds (36).

@@ -3,7 +3,8 @@
 # Same tests, minus the ones that simulate a whole breaching panel, the hull scene packs
 # and the showcases (minutes each). Run the full suite before committing:
 #   cargo test --release -p stress-ref --no-fail-fast
-# Method switches apply as usual: STRESS_METHODS=layer_contact scripts/test_fast.sh
+# Method switches apply as usual (the proven methods are the default; the established
+# ones for comparison): STRESS_METHODS=established scripts/test_fast.sh
 set -euo pipefail
 cd "$(dirname "$0")/.."
 exec cargo test --release -p stress-ref --no-fail-fast "$@" -- \

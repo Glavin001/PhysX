@@ -2066,6 +2066,9 @@ struct Stick {
     /// the joint the pair shared): the layer acts only on overlap deeper than this. It
     /// stays while the pair overlaps; a pair that separates forgets it.
     indent: f64,
+    /// With `contact_crushing`: depth crushed so far (the share of `indent` the
+    /// crushing law added), which softens the remaining strength.
+    crushed: f64,
 }
 
 /// A shear layer whose contact area changes, as the cohorts of material that entered
@@ -2246,6 +2249,7 @@ fn ball_elastic(b: &OBox, mat_chunk: &Material, center: Vec3, r: f64, mat_ball: 
     let point = kvc / kv;
     let geometry = LayerContact::with_ball(&body, center, r)?;
     Some(PairElastic {
+        peaks: Vec::new(),
         elastic: Elastic { force: f_el, moment: moment - point.cross(force), stored },
         k_n: kv / vol,
         k_t: ktv / vol,
@@ -2362,7 +2366,7 @@ fn layer_force(law: &LayerLaw, lc: &LayerContact, v: Vec3, w: Vec3, stick: Stick
     let after_r = twist.energy();
     dissipated += -m * spin * dt - (after_r - before_r);
     stored += after_r;
-    LayerOutcome { force: n * f_n + f_t, moment: n * m + couple, stick: Stick { shear: layer, torque: twist, normal: n, indent: stick.indent }, stored, dissipated }
+    LayerOutcome { force: n * f_n + f_t, moment: n * m + couple, stick: Stick { shear: layer, torque: twist, normal: n, indent: stick.indent, crushed: stick.crushed }, stored, dissipated }
 }
 
 /// The elastic-layer contact of one chunk pair over a substep: the key, the point of
@@ -2373,7 +2377,49 @@ fn pair_layer_contact(solver: &ReferenceSolver, scene: &Scene, key: ContactKey, 
         return None;
     }
     let material = |s: usize, c: usize| scene.material(&solver.structures[s].chunks[c].material);
-    let pe = pair_elastic(ba, bb, material(sa, ca), material(sb, cb), scene.sim.stiffness_scale, stick.indent)?;
+    let mut pe = pair_elastic(ba, bb, material(sa, ca), material(sb, cb), scene.sim.stiffness_scale, stick.indent)?;
+    let mut stick = stick;
+    if scene.sim.methods.contact_crushing {
+        // The joint's crushing law carried over to the contact that replaces it: where
+        // the layer's peak pressure `k''_f s` exceeds the strength, the material crushes
+        // (the indentation grows), and the strength softens linearly with the crushed
+        // depth `c`, `f_c (1 - c / d_u)`, `d_u = 2 G_c / f_c`, so a face crushed through
+        // has dissipated the compressive fracture energy `G_c` per area, as the joint's
+        // own crushing does. The crush increment `x` of a cell solves
+        // `s - f_c (1 - (c + x) / d_u) / k = indent + x`; the stored energy it drops is
+        // dissipated (the contacts' work ledger).
+        let (ma, mb) = (material(sa, ca), material(sb, cb));
+        let weak = if ma.compressive_strength <= mb.compressive_strength { ma } else { mb };
+        let (f_c, g_c) = (weak.compressive_strength, weak.fracture_energy.compression);
+        let d_u = 2.0 * g_c / f_c;
+        let strength = |c: f64| f_c * (1.0 - c / d_u).max(0.0);
+        let mut grow: f64 = 0.0;
+        let mut through = false;
+        for &(depth, k) in &pe.peaks {
+            let excess = depth - stick.indent - strength(stick.crushed) / k;
+            if excess > 0.0 {
+                let slope = 1.0 - f_c / (k * d_u);
+                if slope <= 0.0 || stick.crushed + excess / slope >= d_u {
+                    through = true;
+                } else {
+                    grow = grow.max(excess / slope);
+                }
+            }
+        }
+        if through {
+            // Softening faster than the layer unloads (or the strength exhausted): the
+            // face crushes through; nothing deeper than the overlap is left to push.
+            let deepest = pe.peaks.iter().map(|p| p.0).fold(stick.indent, f64::max);
+            grow = deepest - stick.indent;
+            stick.crushed = stick.crushed.max(d_u);
+        } else {
+            stick.crushed += grow;
+        }
+        if grow > 0.0 {
+            stick.indent += grow;
+            pe = pair_elastic(ba, bb, ma, mb, scene.sim.stiffness_scale, stick.indent)?;
+        }
+    }
     // The indentation (crushed material) stays while the pair overlaps, and is forgotten
     // when they part (the pair then has no contact state): lowering it while they touch
     // would raise the stored energy without work.
@@ -2419,6 +2465,9 @@ fn pair_layer_contact(solver: &ReferenceSolver, scene: &Scene, key: ContactKey, 
 /// moments friction uses are the overlap's shadow along the normal.
 struct PairElastic {
     elastic: Elastic,
+    /// Per field cell: its deepest point below the original surface (indentation
+    /// included) and its layer modulus `k''_f`: the layer's peak pressure is `k''_f s`.
+    peaks: Vec<(f64, f64)>,
     /// Effective normal and shear moduli per area (stiffness-weighted over the cells).
     k_n: f64,
     k_t: f64,
@@ -2449,6 +2498,7 @@ fn pair_elastic_of(overlap: &Polytope, ba: &OBox, bb: &OBox, mat_a: &Material, m
     // Force and moment (about the origin) on `a`, stored energy, weights.
     let (mut force, mut moment, mut stored) = (Vec3::ZERO, Vec3::ZERO, 0.0);
     let (mut kv, mut kvc, mut vol, mut ktv) = (0.0, Vec3::ZERO, 0.0, 0.0);
+    let mut peaks = Vec::new();
     for (field, sign) in [(&pb, 1.0), (&pa, -1.0)] {
         // The other body, whose half-thickness along the field's normals turns with it.
         let (other, e_other) = if sign > 0.0 { (ba, e(mat_a)) } else { (bb, e(mat_b)) };
@@ -2462,6 +2512,8 @@ fn pair_elastic_of(overlap: &Polytope, ba: &OBox, bb: &OBox, mat_a: &Material, m
             force += f * sign;
             moment += m * sign;
             stored += w * integral;
+            // Depth below the original surface `max_depth + indent`; pressure `k''_f s`.
+            peaks.push((c.max_depth + indent, k_n));
             kv += w * c.volume;
             kvc += c.centroid * (w * c.volume);
             vol += 0.5 * c.volume;
@@ -2470,17 +2522,17 @@ fn pair_elastic_of(overlap: &Polytope, ba: &OBox, bb: &OBox, mat_a: &Material, m
     }
     let f_el = force.norm();
     if f_el == 0.0 || kv == 0.0 {
-        return Some(PairElastic { elastic: Elastic { force: 0.0, moment: Vec3::ZERO, stored: 0.0 }, k_n: 0.0, k_t: 0.0, max_depth: 0.0, contact: None });
+        return Some(PairElastic { elastic: Elastic { force: 0.0, moment: Vec3::ZERO, stored: 0.0 }, peaks, k_n: 0.0, k_t: 0.0, max_depth: 0.0, contact: None });
     }
     let n = force / f_el;
     let point = kvc / kv;
     let elastic = Elastic { force: f_el, moment: moment - point.cross(force), stored };
     if !geometry {
-        return Some(PairElastic { elastic, k_n: kv / vol, k_t: ktv / vol, max_depth: 0.0, contact: None });
+        return Some(PairElastic { elastic, peaks, k_n: kv / vol, k_t: ktv / vol, max_depth: 0.0, contact: None });
     }
     let (lo, hi) = overlap.faces.iter().flat_map(|f| f.vertices.iter()).map(|v| v.dot(n)).fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), x| (lo.min(x), hi.max(x)));
     let geometry = LayerContact::with_normal(overlap, n)?;
-    Some(PairElastic { elastic, k_n: kv / vol, k_t: ktv / vol, max_depth: (hi - lo).max(0.0), contact: Some(geometry.about(point)) })
+    Some(PairElastic { elastic, peaks, k_n: kv / vol, k_t: ktv / vol, max_depth: (hi - lo).max(0.0), contact: Some(geometry.about(point)) })
 }
 
 /// A chunk's (or impactor's) shape as a polytope.

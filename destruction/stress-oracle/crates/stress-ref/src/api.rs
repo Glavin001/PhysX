@@ -360,10 +360,33 @@ impl EngineCoupledSolver {
     /// Fractures and events recorded since event index `n_events`.
     fn output_since(&self, n_events: usize) -> FrameOutput {
         let events: Vec<SolverEvent> = self.solver.events[n_events..].to_vec();
+        // A child can split again within the same frame: the engine only knows the
+        // bodies that existed before it, so each of those is reported with the pieces it
+        // ended as (the leaves of this frame's splits), and the intermediate clusters
+        // are not reported at all.
+        let splits: std::collections::HashMap<ClusterId, Vec<ClusterId>> = events
+            .iter()
+            .filter_map(|e| match e {
+                SolverEvent::Split { parent, children, .. } => Some((*parent, children.clone())),
+                _ => None,
+            })
+            .collect();
+        let born: std::collections::HashSet<ClusterId> = splits.values().flatten().copied().collect();
+        fn leaves(id: ClusterId, splits: &std::collections::HashMap<ClusterId, Vec<ClusterId>>, out: &mut Vec<ClusterId>) {
+            match splits.get(&id) {
+                Some(children) => children.iter().for_each(|&c| leaves(c, splits, out)),
+                None => out.push(id),
+            }
+        }
         let mut fractures = Vec::new();
         for e in &events {
-            if let SolverEvent::Split { parent, children, .. } = e {
-                let kids = children
+            if let SolverEvent::Split { parent, .. } = e {
+                if born.contains(parent) {
+                    continue;
+                }
+                let mut ids = Vec::new();
+                leaves(*parent, &splits, &mut ids);
+                let kids = ids
                     .iter()
                     .filter_map(|id| self.solver.clusters.iter().position(|c| c.id == *id))
                     .map(|ci| self.child_body(ci))
