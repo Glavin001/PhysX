@@ -380,6 +380,38 @@ equilibrium. With the re-solve every frame converges, with 5 of 2464 joints crac
 one fragment, the criteria the other three assets meet. The test now expects the villa to
 stand, except with the switch off.
 
+**Re-solve residual scale:** the re-solve measures its residual against the larger of
+the load and the starting out-of-balance force, as the implicit solve does. A free
+fragment under rigid loads alone (falling, or accelerating with its cluster) has a
+deforming load that is round-off once the rigid modes are projected out (1e-15 N in
+b5_wall_impact_v40). Its equilibrium is its bonds relaxed, and a residual relative to
+that round-off load could never accept it.
+
+Every solve the secant converges is still unchanged. Against the build before this
+change (310a2c14f), the gate differs only in the three default quasi_static cells
+already changed above:
+
+| Cell | Unconverged frames | Outcome | CPU |
+|---|---|---|---|
+| b7_masonry_v15 | 4 -> 2 | 191 -> 190 broken bonds | 77.1 -> 10.6 s |
+| b9_panel_high | 16 -> 6 | still breaches; 168 -> 154 broken bonds | 46.3 -> 48.0 s |
+| s_arch_keystone_removed | 1 -> 0 | | 1.7 -> 2.2 s |
+
+The quasi_static A/B stays at 53/91 with no regression. b9's fragment speed moves from
+25.6 % to 18.7 % off OpenCourant, and its peak displacement from 11.2 % to 11.9 %.
+
+**Open (a model decision, not taken):** b5_wall_impact_v40 in quasi_static still fails
+115 of 308 solves, all on free fragments, in two kinds:
+- **At rest within round-off** (bond forces about 1e-15 N under a 1e-15 N load). They are
+  already in equilibrium, but no residual relative to round-off can say so.
+- **Stalled:** bonds relaxed by about 8 orders of magnitude (7e4 to 6e-4 N), then no
+  descent from either direction, most likely at contact kinks.
+
+`equilibrate_or_keep` then keeps the previous state, which is further from
+equilibrium than the stalled iterate. Accepting either kind needs an acceptance test
+other than the relative residual (an absolute force floor, or the round-off bound of
+the residual's own sums). That is a model choice, left open.
+
 **Finding corrected:** "Finding for the solver" below concluded that b9's failing solves
 have no equilibrium (a mechanism), because a line search on the secant held the
 residual at 4 to 75. The tangent re-solve finds equilibria for most of them. The secant
@@ -430,7 +462,7 @@ field-cell calls, splits, and which limit set each frame's step.
 | ab72210b0 | Merge of fix/oracle-accuracy (cd112933c: proven methods default, exact frame transfer, contact crushing); the gate now runs the default and `established` methods | 182/182 vs cd112933c |
 | 604c1e4a5 | Split data in dense per-chunk arrays (SipHash maps that were only looked up); splits stage 0.07 -> 0.05 s over the catalogue | 182/182 vs cd112933c |
 | c002276eb, e328b485d | A static solve unconverged after 10 Newton steps takes its remaining steps by a banded Cholesky of the same tangent (anchored cluster, band <= 600 DOFs), not the PCG. b9 quasi_static 48.5 -> 31.1 s. **Not bit-exact: 178/182; the 4 quasi_static cells of b2_cantilever and s_arch_keystone_removed differ, more accurate.** See below | 178/182 vs cd112933c, suite 121/121 |
-| (this commit) | The direct static solve takes on a cluster whose layout band is too wide in reverse Cuthill-McKee order (the villa scene pack: band 2766 -> 690 DOFs), with cost limits raised to a 1200-DOF band and 64 MB; the Cholesky goes column by column (each entry the same inner product as row by row, so the same factor) with a column's rows in parallel. Villa quasi_static self-weight (3 frames, hulls test): 2545 -> 1190 s, 30.6 M -> 7.1 M CG iterations; its observation changes only at round-off (bond dissipation 1e-12 relative; 5 broken bonds, 1 fragment). Test: the reordered solve meets banded Cholesky's backward-error bound (mutation-checked); hulls tests 1962 -> 1496 s | 182/182 vs 32f92fbd6 |
+| 310a2c14f | The direct static solve takes on a cluster whose layout band is too wide in reverse Cuthill-McKee order (the villa scene pack: band 2766 -> 690 DOFs), with cost limits raised to a 1200-DOF band and 64 MB; the Cholesky goes column by column (each entry the same inner product as row by row, so the same factor) with a column's rows in parallel. Villa quasi_static self-weight (3 frames, hulls test): 2545 -> 1190 s, 30.6 M -> 7.1 M CG iterations; its observation changes only at round-off (bond dissipation 1e-12 relative; 5 broken bonds, 1 fragment). Test: the reordered solve meets banded Cholesky's backward-error bound (mutation-checked); hulls tests 1962 -> 1496 s | 182/182 vs 32f92fbd6 |
 | c347352ea | The contact layer's cohorts: about 3 passes instead of 14, no clones, the same sums in the same order (held energy with the stiffness, load with energy, the carried load only to slide). Floor drop with layer contact: 80.3 -> 69.4 s | 182/182 vs e6fc3ade9 |
 
 Small exact changes are now judged by cycle counts (`/usr/bin/time -l`, about 0.1 %

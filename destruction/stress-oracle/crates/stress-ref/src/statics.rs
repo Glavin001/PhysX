@@ -665,6 +665,13 @@ impl ReferenceSolver {
             for (i, &c) in lay.chunks.iter().enumerate() {
                 (self.chunks[s][c].u, self.chunks[s][c].th) = start[i];
             }
+            // Its residual is measured against the larger of the load and the starting
+            // out-of-balance force, as the implicit solve's: a cluster whose deforming
+            // load vanishes (a free fragment under rigid loads alone, its load round-off
+            // after the rigid modes are projected out) relaxes its bonds, and that
+            // equilibrium is reached when their forces have fallen by the tolerance.
+            let r0 = self.static_residual(ci, &lay, &f_ext, free);
+            let scale = scale.max(dot6(&r0, &r0).sqrt());
             let second = self.newton(ci, &lay, &f_ext, free, scale, opts, true);
             report = StaticReport {
                 newton_iterations: report.newton_iterations + second.newton_iterations,
