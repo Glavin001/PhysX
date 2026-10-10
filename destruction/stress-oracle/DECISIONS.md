@@ -391,3 +391,10 @@ cited textbook factor, or the oracle's own uncertainty.
     gap remains unresolved: neither the elastic oracle (not mesh-converged, uncapped
     contact stresses) nor this crushing variant can arbitrate it; a proper concrete
     law in the oracle (LAW24 / LAW124 CDPM2) with an energy check is the next step.
+51. **Oracle mesh study at 2 m/s, four meshes:** speed lost 0.940, 1.055, 1.113, 1.206
+    m/s at 1, 2, 3, 4 elements per chunk edge (broken bonds 734, 642, 712, 768): still
+    rising, not converged (the increments do not shrink steadily), every refinement
+    toward ours (1.418) and the rigid push-over (1.442). The committed golden is the
+    coarsest mesh; the b5 2 m/s gate failure is a property of that golden, not evidence
+    against the model. A converged oracle needs finer meshes than this machine can run
+    under x86 emulation in reasonable time (4 per edge took 54 min).
