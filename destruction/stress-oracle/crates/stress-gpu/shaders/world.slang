@@ -1,0 +1,1440 @@
+// The standalone world on the GPU (stress-ref `World` / `ReferenceSolver`, explicit
+// mode): every kernel shares one set of bindings and parameters.
+//
+// Per substep, for the islands in the contact pipeline (and impactors):
+//   [impactor_shares, impactor_crush]  only when an impactor has a crush cap: the
+//                       candidates' shares of the impactor's elastic force, then the cap;
+//   contact_forces      chunk pairs, impactor candidates (forces on the chunk, reactions
+//                       on the impactor), and every contact chunk's travel check;
+//   island_frame        one threadgroup per island: rigid acceleration, the joint law per
+//                       bond, the per-chunk gather of bond loads and of contact loads
+//                       (impactors, ground, chunk pairs, in the reference's order), frame
+//                       loads, central differences, rigid integration, drift removal,
+//                       probes; islands outside the pipeline run every substep of a
+//                       segment in one dispatch;
+//   impactor_integrate one threadgroup per impactor: its contact reactions (tree sum),
+//                       the ground, its rigid motion, its probe record.
+//
+// Reference: solver.rs (substep, frame_loads, rigid_acceleration, integrate_cluster,
+// integrate_rigid, remove_rigid_drift), joint.rs (joint.slang), bond.rs, world.rs
+// (apply_contacts, penalty_force, pair_contact, scripted loads, probes), contact.rs.
+// Geometry is computed relative to nearby points with compensated positions (world
+// coordinates in f32 resolve ~1e-6 m at 10 m).
+
+import joint;
+import common;
+
+static const uint THREADS = 256;
+
+static const float MAX_SET_VISCOSITY = 1.0;
+static const float FACE_PAIR_POINTS = 10.0;
+static const float FRICTION_REGULARIZATION = 1e-3;
+static const uint SAMPLE_POINTS = 14;
+
+// Batch control, in the sentinel island `islands[halt_index]`: `info.z` bit STOP_NOW
+// (a chunk left its candidate budget: skip everything from this substep on, the host
+// re-plans), `info.y` the substep at which a contact island split (that substep
+// completes everywhere, then everything stops).
+static const uint STOP_NOW = 1;
+
+struct Params
+{
+    float4 gravity;          // world
+    float dt;
+    uint fracture;           // 0/1
+    uint rigid_motion_loads; // 0/1
+    uint step_start;         // absolute substep count when the host's step began
+    float t_hi;              // time when the host's step began (compensated pair)
+    float t_lo;
+    uint max_steps;          // island_frame: substeps per island in this dispatch at most
+    uint contact_mode;       // island_frame: 0 islands outside the pipeline, 1 contact islands
+    uint halt_index;         // sentinel island
+    uint chunk_count;
+    uint pair_count;
+    uint impactor_count;
+    uint cand_count;         // impactor candidates (all impactors, in order)
+    uint probe_base;         // scratch: probe outputs (float4 index)
+    uint probe_stride;       // floats per probe item (multiple of 4)
+    uint slot_base;          // scratch: contact output slots (2 float4 each)
+    uint ledger_base;        // scratch: pair ledgers, then chunk ground ledgers
+    uint record_base;        // scratch: impactor records (2 per impactor and substep)
+    uint record_stride;
+    uint cand_base;          // scratch: impactor candidate data (3 per candidate)
+    uint pair_index;         // index: pair candidates (6 uints each)
+    uint cand_index;         // index: impactor candidates (3 uints each)
+    float zeta;              // damping ratio of the contact restitution
+    float pair_friction;     // sim.contact_friction, or < 0 for min of the materials
+    float ground_hi;         // ground height (compensated pair)
+    float ground_lo;
+    float ground_friction;   // resolved (contact_friction or the ground's)
+    float ground_modulus;    // E' of the ground material (scaled)
+    uint has_ground;
+    uint pad0;
+    uint pad1;
+    uint pad2;
+};
+
+struct MaterialTable
+{
+    JointMaterial m[64];
+};
+
+// Static data of a bond (body frame of its cluster).
+struct BondStatic
+{
+    float4 t1;
+    float4 t2;
+    float4 normal;
+    float4 ra;       // centroid - centre of a
+    float4 rb;       // centroid - centre of b
+    float4 centroid; // body frame
+    float4 c_lin;    // dashpots
+    float4 c_ang;
+    JointBond law;   // ids: x material, y chunk a, z chunk b, w island
+};
+
+// Dynamic data of a bond.
+struct BondDyn
+{
+    JointState js;
+    float4 force_lin;  // last force incl. dashpots; w: stored energy
+    float4 force_ang;  // w: largest utilization seen
+    float4 sums;       // dissipated, overshoot, damped (compensated with `comps`)
+    float4 comps;
+    uint4 events;      // absolute substep of: crack, creak, break (0: none); w: mode at crack
+};
+
+struct Impactor
+{
+    float4 position;     // compensated with position_err
+    float4 position_err;
+    float4 velocity;     // compensated with velocity_err
+    float4 velocity_err;
+    float4 angular_velocity;
+    float4 rotation;     // quaternion (x, y, z, w)
+    float4 inertia0;     // body inertia rows
+    float4 inertia1;
+    float4 inertia2;
+    float4 inv0;         // body inverse inertia rows
+    float4 inv1;
+    float4 inv2;
+    float4 shape;        // x: 0 sphere, 1 box; y: radius
+    float4 half;         // box half extents (sphere: radius); w: bounding radius
+    float4 mat;          // E' (scaled), friction, mass, -
+    float4 crush;        // max force (0: none), energy, used, depth
+    float4 geom;         // x: crush factor, y: crush depth the contacts use (this substep)
+    float4 unused;
+    float4 ledger;       // dissipated (compensated x + y), crush (z + w)
+    uint4 cand;          // candidates [x, y) (candidate numbers); z: driven; w: substeps integrated
+};
+
+[[vk::binding(0, 0)]] ConstantBuffer<Params> params;
+[[vk::binding(1, 0)]] ConstantBuffer<MaterialTable> materials;
+[[vk::binding(2, 0)]] StructuredBuffer<BondStatic> bonds;
+[[vk::binding(3, 0)]] StructuredBuffer<ChunkStatic> chunks;
+// Integer data: CSR incidence ([chunk_count + 1 offsets], then 2 * bond + side), chunk
+// contact contributions (slot, or 0x80000000 for the ground), pair candidates (a, b,
+// slot, state, m_red bits, mu bits), impactor candidates (chunk, slot, impactor).
+[[vk::binding(4, 0)]] StructuredBuffer<uint> index;
+// Load terms, table data and probe items.
+[[vk::binding(5, 0)]] StructuredBuffer<float4> loads;
+// 4 per chunk: u (w: largest bond stress), theta, v, w (w lanes: support reaction).
+[[vk::binding(6, 0)]] RWStructuredBuffer<float4> state;
+[[vk::binding(7, 0)]] RWStructuredBuffer<BondDyn> bond_dyn;
+// Bond loads (3 per bond: f on a (w: peak stress), moment on a, moment on b), probe
+// outputs, contact slots, ledgers, impactor records, impactor candidate data.
+[[vk::binding(8, 0)]] RWStructuredBuffer<float4> scratch;
+[[vk::binding(9, 0)]] RWStructuredBuffer<Island> islands;
+[[vk::binding(10, 0)]] RWStructuredBuffer<Impactor> impactors;
+// Per pair: 28 sample-point offsets (offset, normal; NaN offset: not in contact).
+[[vk::binding(11, 0)]] RWStructuredBuffer<float4> contact_state;
+
+static const uint GROUND_ENTRY = 0x80000000u;
+
+// Stop before this substep's contacts: re-plan pending, or a split in the last one.
+bool stopped()
+{
+    Island sentinel = islands[params.halt_index];
+    return (sentinel.info.z & STOP_NOW) != 0 || sentinel.info.y != 0;
+}
+
+// ------------------------------------------------------------------ group reductions
+
+groupshared float4 g_red_a[THREADS];
+groupshared float4 g_red_b[THREADS];
+
+// Sums of two float4 over the group (fixed tree order: deterministic).
+void group_sum2(uint tid, inout float4 a, inout float4 b)
+{
+    g_red_a[tid] = a;
+    g_red_b[tid] = b;
+    GroupMemoryBarrierWithGroupSync();
+    for (uint s = THREADS / 2; s > 0; s >>= 1)
+    {
+        if (tid < s)
+        {
+            g_red_a[tid] += g_red_a[tid + s];
+            g_red_b[tid] += g_red_b[tid + s];
+        }
+        GroupMemoryBarrierWithGroupSync();
+    }
+    a = g_red_a[0];
+    b = g_red_b[0];
+    GroupMemoryBarrierWithGroupSync();
+}
+
+void group_sum3(uint tid, inout float3 a, inout float3 b)
+{
+    float4 x = float4(a, 0.0);
+    float4 y = float4(b, 0.0);
+    group_sum2(tid, x, y);
+    a = x.xyz;
+    b = y.xyz;
+}
+
+// ------------------------------------------------------------------ geometry
+
+// A box in a local frame: centre relative to a reference point, axes (columns), half.
+struct Box
+{
+    float3 center;
+    float3 axis0;
+    float3 axis1;
+    float3 axis2;
+    float3 half;
+};
+
+float3 box_axis(Box b, uint k)
+{
+    return k == 0 ? b.axis0 : (k == 1 ? b.axis1 : b.axis2);
+}
+
+float comp3(float3 v, uint k)
+{
+    return k == 0 ? v.x : (k == 1 ? v.y : v.z);
+}
+
+// World position as (hi, lo, local offset): hi + lo + rel.
+struct WorldPoint
+{
+    float3 hi;
+    float3 lo;
+    float3 rel;
+};
+
+WorldPoint chunk_world(uint c)
+{
+    ChunkStatic ch = chunks[c];
+    Island isl = islands[ch.info.y];
+    Quat q = quat_of(isl.rotation);
+    WorldPoint w;
+    w.hi = isl.position.xyz;
+    w.lo = isl.position_err.xyz;
+    w.rel = rotate(q, ch.center.xyz + state[4 * c].xyz);
+    return w;
+}
+
+// a - b without cancellation.
+float3 world_diff(WorldPoint a, WorldPoint b)
+{
+    return ((a.hi - b.hi) + (a.lo - b.lo)) + (a.rel - b.rel);
+}
+
+// The chunk's box (world.rs `chunk_box`: cluster rotation x hidden rotation x chunk
+// rotation) centred at `center`.
+Box chunk_box(uint c, float3 center)
+{
+    ChunkStatic ch = chunks[c];
+    Island isl = islands[ch.info.y];
+    Quat q = quat_of(isl.rotation);
+    float3 th = state[4 * c + 1].xyz;
+    Quat hidden = from_axis_angle(th, length(th));
+    Box b;
+    b.center = center;
+    b.axis0 = rotate(q, rotate(hidden, float3(ch.crot0.x, ch.crot1.x, ch.crot2.x)));
+    b.axis1 = rotate(q, rotate(hidden, float3(ch.crot0.y, ch.crot1.y, ch.crot2.y)));
+    b.axis2 = rotate(q, rotate(hidden, float3(ch.crot0.z, ch.crot1.z, ch.crot2.z)));
+    b.half = ch.half.xyz;
+    return b;
+}
+
+// World velocity and angular velocity of chunk c (solver.rs `chunk_velocity`).
+void chunk_velocity(uint c, out float3 v, out float3 w)
+{
+    ChunkStatic ch = chunks[c];
+    Island isl = islands[ch.info.y];
+    Quat q = quat_of(isl.rotation);
+    float3 r = rotate(q, ch.center.xyz + state[4 * c].xyz - isl.com.xyz);
+    v = (isl.velocity.xyz + isl.velocity_err.xyz) + cross(isl.angular_velocity.xyz, r) + rotate(q, state[4 * c + 2].xyz);
+    w = isl.angular_velocity.xyz + rotate(q, state[4 * c + 3].xyz);
+}
+
+float3 sample_point(Box b, uint i)
+{
+    if (i < 8)
+    {
+        float3 h = b.half * 0.9;
+        float3 s = float3((i & 1) == 0 ? -h.x : h.x, (i & 2) == 0 ? -h.y : h.y, (i & 4) == 0 ? -h.z : h.z);
+        return b.center + b.axis0 * s.x + b.axis1 * s.y + b.axis2 * s.z;
+    }
+    uint axis = (i - 8) / 2;
+    float sign = ((i - 8) % 2) == 0 ? -1.0 : 1.0;
+    return b.center + box_axis(b, axis) * (sign * comp3(b.half, axis));
+}
+
+// contact.rs `penetration`: depth to the nearest face and its outward normal.
+bool penetration(Box b, float3 p, out float depth, out float3 normal)
+{
+    depth = 0.0;
+    normal = float3(0.0);
+    float3 r = p - b.center;
+    if (dot(r, r) > dot(b.half, b.half) * (1.0 + 1e-5))
+        return false;
+    float best = 1e30;
+    uint axis = 0;
+    float side = 1.0;
+    for (uint k = 0; k < 3; k++)
+    {
+        float local = dot(r, box_axis(b, k));
+        float d = comp3(b.half, k) - abs(local);
+        if (d <= 0.0)
+            return false;
+        if (d < best)
+        {
+            best = d;
+            axis = k;
+            side = local >= 0.0 ? 1.0 : -1.0;
+        }
+    }
+    depth = best;
+    normal = box_axis(b, axis) * side;
+    return true;
+}
+
+// contact.rs `may_overlap` (separating axes), with a margin above f32 rounding.
+bool may_overlap(Box a, Box b)
+{
+    float3 d = b.center - a.center;
+    float margin = 1e-5 * (length(a.half) + length(b.half));
+    float3 axes[6] = { a.axis0, a.axis1, a.axis2, b.axis0, b.axis1, b.axis2 };
+    for (uint i = 0; i < 15; i++)
+    {
+        float3 l = i < 6 ? axes[i] : cross(axes[(i - 6) / 3], axes[3 + (i - 6) % 3]);
+        float len = length(l);
+        if (len <= 1e-6)
+            continue;
+        float ra = a.half.x * abs(dot(a.axis0, l)) + a.half.y * abs(dot(a.axis1, l)) + a.half.z * abs(dot(a.axis2, l));
+        float rb = b.half.x * abs(dot(b.axis0, l)) + b.half.y * abs(dot(b.axis1, l)) + b.half.z * abs(dot(b.axis2, l));
+        if (abs(dot(d, l)) > ra + rb + margin * len)
+            return false;
+    }
+    return true;
+}
+
+// world.rs `half_thickness_and_area`.
+float2 half_thickness_and_area(Box b, float3 d)
+{
+    float h = 0.0;
+    float area = 0.0;
+    for (uint k = 0; k < 3; k++)
+    {
+        float c = abs(dot(d, box_axis(b, k)));
+        h += c * comp3(b.half, k);
+        area += c * 4.0 * comp3(b.half, (k + 1) % 3) * comp3(b.half, (k + 2) % 3);
+    }
+    return float2(h, area);
+}
+
+// world.rs `contact_stiffness` with E' = E scale / (1 - nu^2) given per body.
+float contact_stiffness(float ea, Box a, float eb, Box b, float3 dir)
+{
+    float3 d = safe_normalize(dir);
+    float2 ta = half_thickness_and_area(a, d);
+    float2 tb = half_thickness_and_area(b, d);
+    return min(ta.y, tb.y) / (ta.x / ea + tb.x / eb);
+}
+
+// world.rs `penalty_force`: (force, stored, dissipated).
+float3 penalty_force(float k, float m_red, float friction, float depth, float3 normal, float3 rel_velocity, float dt, uint points, out float stored, out float dissipated)
+{
+    float c_max = MAX_SET_VISCOSITY / max(float(points), FACE_PAIR_POINTS) * m_red / dt;
+    float c = min(2.0 * params.zeta * sqrt(k * m_red), c_max);
+    float vn = dot(rel_velocity, normal);
+    float fn_mag = max(k * depth - c * vn, 0.0);
+    float3 vt = rel_velocity - normal * vn;
+    float vt_mag = length(vt);
+    float ft_mag = min(friction * fn_mag, min(c_max, friction * fn_mag / FRICTION_REGULARIZATION) * vt_mag);
+    float3 ft = vt_mag > 0.0 ? -vt * (ft_mag / vt_mag) : float3(0.0);
+    stored = 0.5 * k * depth * depth;
+    float damping_power = (k * depth - c * vn > 0.0) ? c * vn * vn : k * depth * max(vn, 0.0);
+    dissipated = (damping_power + length(ft) * vt_mag) * dt;
+    return normal * fn_mag + ft;
+}
+
+Box impactor_box(Impactor imp, float3 center, float3 half)
+{
+    Quat q = quat_of(imp.rotation);
+    Box b;
+    b.center = center;
+    b.axis0 = rotate(q, float3(1, 0, 0));
+    b.axis1 = rotate(q, float3(0, 1, 0));
+    b.axis2 = rotate(q, float3(0, 0, 1));
+    b.half = half;
+    return b;
+}
+
+WorldPoint impactor_point(Impactor imp)
+{
+    WorldPoint wi;
+    wi.hi = imp.position.xyz;
+    wi.lo = imp.position_err.xyz;
+    wi.rel = float3(0.0);
+    return wi;
+}
+
+// contact.rs `sphere_contact` of a sphere (centre relative to the box frame) and a box.
+bool sphere_contact(Box b, float3 center, float radius, out float3 point, out float3 normal, out float depth)
+{
+    point = float3(0.0);
+    normal = float3(0.0);
+    depth = 0.0;
+    float3 r = center - b.center;
+    float3 local = float3(dot(r, b.axis0), dot(r, b.axis1), dot(r, b.axis2));
+    float3 q = clamp(local, -b.half, b.half);
+    float3 d = local - q;
+    float dist = length(d);
+    if (dist > 1e-12)
+    {
+        if (dist >= radius)
+            return false;
+        float3 dn = d / dist;
+        normal = b.axis0 * dn.x + b.axis1 * dn.y + b.axis2 * dn.z;
+        point = b.center + b.axis0 * q.x + b.axis1 * q.y + b.axis2 * q.z;
+        depth = radius - dist;
+        return true;
+    }
+    float inside;
+    float3 n;
+    if (!penetration(b, center, inside, n))
+        return false;
+    normal = n;
+    point = center - n * min(radius, inside);
+    depth = radius + inside;
+    return true;
+}
+
+// The contacts of an impactor with one chunk (world.rs `apply_contacts`), in the
+// impactor's frame (origin at its centre). Returns the number of points.
+uint impactor_points(Impactor imp, float crush_depth, Box ib, Box b, out float3 pts[28], out float3 nrm[28], out float dep[28])
+{
+    uint count = 0;
+    if (imp.shape.x == 0.0)
+    {
+        float3 p;
+        float3 n;
+        float d;
+        if (sphere_contact(b, float3(0.0), imp.shape.y - crush_depth, p, n, d))
+        {
+            pts[0] = p;
+            nrm[0] = -n;
+            dep[0] = d;
+            count = 1;
+        }
+        return count;
+    }
+    Box shrunk = ib;
+    shrunk.half = ib.half - min(float3(crush_depth), ib.half * 0.5);
+    for (uint s = 0; s < SAMPLE_POINTS; s++)
+    {
+        float3 p = sample_point(b, s);
+        float d;
+        float3 n;
+        if (penetration(shrunk, p, d, n))
+        {
+            pts[count] = p;
+            nrm[count] = n;
+            dep[count] = d;
+            count++;
+        }
+    }
+    for (uint s = 0; s < SAMPLE_POINTS; s++)
+    {
+        float3 p = sample_point(shrunk, s);
+        float d;
+        float3 n;
+        if (penetration(b, p, d, n))
+        {
+            pts[count] = p;
+            nrm[count] = -n;
+            dep[count] = d;
+            count++;
+        }
+    }
+    return count;
+}
+
+// ------------------------------------------------------------------ contacts
+
+static const float NAN_OFFSET = asfloat(0x7fc00000u);
+
+void pair_contact(uint i)
+{
+    uint at = params.pair_index + 6 * i;
+    uint ca = index[at];
+    uint cb = index[at + 1];
+    uint slot = index[at + 2];
+    uint st = index[at + 3] * 28;
+    float m_red = asfloat(index[at + 4]);
+    float mu = asfloat(index[at + 5]);
+    float dt = params.dt;
+    uint out = params.slot_base + 2 * slot;
+    WorldPoint wa = chunk_world(ca);
+    WorldPoint wb = chunk_world(cb);
+    // Pair-local frame: the origin at chunk a's centre.
+    float3 cb_rel = world_diff(wb, wa);
+    bool touching = !(length(cb_rel) > chunks[ca].half.w + chunks[cb].half.w);
+    float4 ledger = scratch[params.ledger_base + i];
+    uint flags = asuint(ledger.w);
+    if (!touching)
+    {
+        // Far apart (most candidates): forget the pair's overlap, clear its outputs,
+        // and write nothing when there is nothing to clear.
+        if ((flags & 1) != 0)
+            for (uint e = 0; e < 2 * SAMPLE_POINTS; e++)
+                contact_state[st + e] = float4(NAN_OFFSET, 0.0, 0.0, 0.0);
+        if ((flags & 2) != 0)
+            for (uint e = 0; e < 4; e++)
+                scratch[out + e] = float4(0.0);
+        if (flags != 0 || ledger.x != 0.0)
+        {
+            ledger.x = 0.0;
+            ledger.w = asfloat(0u);
+            scratch[params.ledger_base + i] = ledger;
+        }
+        return;
+    }
+    Box ba = chunk_box(ca, float3(0.0));
+    Box bb = chunk_box(cb, cb_rel);
+    float3 fa = float3(0.0), ta = float3(0.0), fb = float3(0.0), tb = float3(0.0);
+    float stored_sum = 0.0;
+    bool has_state = false;
+    if (may_overlap(ba, bb))
+    {
+        // Sample points of each box inside the other.
+        float3 pts[28];
+        float3 nrm[28];
+        float dep[28];
+        uint idx[28];
+        uint count = 0;
+        for (uint s = 0; s < SAMPLE_POINTS; s++)
+        {
+            float3 p = sample_point(ba, s);
+            float d;
+            float3 n;
+            if (penetration(bb, p, d, n))
+            {
+                pts[count] = p;
+                nrm[count] = n;
+                dep[count] = d;
+                idx[count] = s;
+                count++;
+            }
+        }
+        for (uint s = 0; s < SAMPLE_POINTS; s++)
+        {
+            float3 p = sample_point(bb, s);
+            float d;
+            float3 n;
+            if (penetration(ba, p, d, n))
+            {
+                pts[count] = p;
+                nrm[count] = -n;
+                dep[count] = d;
+                idx[count] = SAMPLE_POINTS + s;
+                count++;
+            }
+        }
+        if (count > 0)
+        {
+            float k_pair = contact_stiffness(chunks[ca].cmat.x, ba, chunks[cb].cmat.x, bb, bb.center - ba.center);
+            float3 va0, wa0, vb0, wb0;
+            chunk_velocity(ca, va0, wa0);
+            chunk_velocity(cb, vb0, wb0);
+            uint inside_mask = 0;
+            float eff[28];
+            uint engaged = 0;
+            for (uint j = 0; j < count; j++)
+            {
+                uint e = idx[j];
+                inside_mask |= 1u << e;
+                float4 entry = contact_state[st + e];
+                float3 p = pts[j];
+                float3 n = nrm[j];
+                // A new contact (or the same point now through another face): an overlap
+                // deeper than one substep of approach was already there; keep it as an
+                // offset that only ratchets down.
+                if (isnan(entry.x) || dot(entry.yzw, n) < 0.99)
+                {
+                    float3 va = va0 + cross(wa0, p);
+                    float3 vb = vb0 + cross(wb0, p - bb.center);
+                    float reach = 2.0 * abs(dot(va - vb, n)) * dt + 1e-9;
+                    entry = float4(dep[j] > reach ? dep[j] : 0.0, n);
+                }
+                entry.x = min(entry.x, dep[j]);
+                contact_state[st + e] = entry;
+                eff[j] = dep[j] - entry.x;
+                if (eff[j] > 0.0)
+                    engaged++;
+            }
+            for (uint e = 0; e < 2 * SAMPLE_POINTS; e++)
+                if ((inside_mask & (1u << e)) == 0)
+                    contact_state[st + e] = float4(NAN_OFFSET, 0.0, 0.0, 0.0);
+            has_state = true;
+            float k = k_pair / max(float(engaged), FACE_PAIR_POINTS);
+            for (uint j = 0; j < count; j++)
+            {
+                if (eff[j] <= 0.0)
+                    continue;
+                float3 p = pts[j];
+                float3 va = va0 + cross(wa0, p);
+                float3 vb = vb0 + cross(wb0, p - bb.center);
+                float stored;
+                float diss;
+                float3 f = penalty_force(k, m_red, mu, eff[j], nrm[j], va - vb, dt, engaged, stored, diss);
+                fa += f;
+                ta += cross(p, f);
+                fb += -f;
+                tb += cross(p - bb.center, -f);
+                stored_sum += stored;
+                comp_add1(ledger.y, ledger.z, diss);
+            }
+        }
+    }
+    if (!has_state && (flags & 1) != 0)
+        for (uint e = 0; e < 2 * SAMPLE_POINTS; e++)
+            contact_state[st + e] = float4(NAN_OFFSET, 0.0, 0.0, 0.0);
+    bool loaded = any(fa != 0.0) || any(ta != 0.0) || any(fb != 0.0) || any(tb != 0.0);
+    if (loaded || (flags & 2) != 0)
+    {
+        scratch[out] = float4(fa, 0.0);
+        scratch[out + 1] = float4(ta, 0.0);
+        scratch[out + 2] = float4(fb, 0.0);
+        scratch[out + 3] = float4(tb, 0.0);
+    }
+    ledger.x = stored_sum;
+    ledger.w = asfloat((has_state ? 1u : 0u) | (loaded ? 2u : 0u));
+    scratch[params.ledger_base + i] = ledger;
+}
+
+// The forces of impactor candidate k on its chunk, and their reaction on the impactor.
+void impactor_candidate_forces(uint k)
+{
+    uint at = params.cand_index + 3 * k;
+    uint c = index[at];
+    uint slot = index[at + 1];
+    Impactor imp = impactors[index[at + 2]];
+    float dt = params.dt;
+    float3 f_sum = float3(0.0), t_sum = float3(0.0), imp_f = float3(0.0), imp_t = float3(0.0);
+    float4 data = scratch[params.cand_base + 3 * k];
+    if (imp.cand.z == 0)
+    {
+        float3 rel = world_diff(chunk_world(c), impactor_point(imp));
+        if (!(length(rel) > imp.half.w + chunks[c].half.w))
+        {
+            Box ib = impactor_box(imp, float3(0.0), imp.half.xyz);
+            Box b = chunk_box(c, rel);
+            float kc = contact_stiffness(imp.mat.x, ib, chunks[c].cmat.x, b, b.center - ib.center);
+            float3 pts[28];
+            float3 nrm[28];
+            float dep[28];
+            uint n = impactor_points(imp, imp.geom.y, ib, b, pts, nrm, dep);
+            float kp = imp.shape.x == 0.0 ? kc : kc / max(float(n), FACE_PAIR_POINTS);
+            uint points = imp.shape.x == 0.0 ? 1 : n;
+            float m = chunks[c].center.w;
+            float m_red = m * imp.mat.z / (m + imp.mat.z);
+            float mu = params.pair_friction >= 0.0 ? params.pair_friction : min(imp.mat.y, chunks[c].cmat.y);
+            float3 v_imp = imp.velocity.xyz + imp.velocity_err.xyz;
+            float3 vc;
+            float3 wc;
+            chunk_velocity(c, vc, wc);
+            for (uint j = 0; j < n; j++)
+            {
+                float3 p = pts[j];
+                float3 v_chunk = vc + cross(wc, p - b.center);
+                float3 v_i = v_imp + cross(imp.angular_velocity.xyz, p);
+                float stored;
+                float diss;
+                float3 f = penalty_force(kp, m_red, mu, dep[j] * imp.geom.x, nrm[j], v_chunk - v_i, dt, points, stored, diss);
+                f_sum += f;
+                t_sum += cross(p - b.center, f);
+                imp_f -= f;
+                imp_t -= cross(p, f);
+                comp_add1(data.z, data.w, diss);
+            }
+        }
+    }
+    scratch[params.slot_base + 2 * slot] = float4(f_sum, 0.0);
+    scratch[params.slot_base + 2 * slot + 1] = float4(t_sum, 0.0);
+    scratch[params.cand_base + 3 * k] = data;
+    scratch[params.cand_base + 3 * k + 1] = float4(imp_f, 0.0);
+    scratch[params.cand_base + 3 * k + 2] = float4(imp_t, 0.0);
+}
+
+// A contact chunk outside its candidate budget stops the batch (the host re-plans).
+void travel_check(uint c)
+{
+    ChunkStatic ch = chunks[c];
+    if (ch.cinfo.z == 0)
+        return;
+    WorldPoint wp = chunk_world(c);
+    float3 moved = ((wp.hi - ch.start_hi.xyz) + (wp.lo - ch.start_lo.xyz)) + wp.rel;
+    if (length(moved) > ch.start_hi.w)
+    {
+        // Every writer stores the same bit: no atomics needed.
+        islands[params.halt_index].info.z = islands[params.halt_index].info.z | STOP_NOW;
+    }
+}
+
+[shader("compute")]
+[numthreads(64, 1, 1)]
+void contact_forces(uint3 id: SV_DispatchThreadID)
+{
+    uint i = id.x;
+    if (stopped())
+        return;
+    if (i < params.pair_count)
+        pair_contact(i);
+    else if (i < params.pair_count + params.cand_count)
+        impactor_candidate_forces(i - params.pair_count);
+    else if (i < params.pair_count + params.cand_count + params.chunk_count)
+        travel_check(i - params.pair_count - params.cand_count);
+}
+
+// Crush cap, first pass: each candidate's share of its impactor's elastic force.
+[shader("compute")]
+[numthreads(64, 1, 1)]
+void impactor_shares(uint3 id: SV_DispatchThreadID)
+{
+    uint k = id.x;
+    if (k >= params.cand_count || stopped())
+        return;
+    uint at = params.cand_index + 3 * k;
+    uint c = index[at];
+    Impactor imp = impactors[index[at + 2]];
+    float total = 0.0;
+    float ksum = 0.0;
+    if (imp.cand.z == 0 && imp.crush.x > 0.0)
+    {
+        float3 rel = world_diff(chunk_world(c), impactor_point(imp));
+        if (!(length(rel) > imp.half.w + chunks[c].half.w))
+        {
+            Box ib = impactor_box(imp, float3(0.0), imp.half.xyz);
+            Box b = chunk_box(c, rel);
+            float kc = contact_stiffness(imp.mat.x, ib, chunks[c].cmat.x, b, b.center - ib.center);
+            float3 pts[28];
+            float3 nrm[28];
+            float dep[28];
+            uint n = impactor_points(imp, imp.crush.w, ib, b, pts, nrm, dep);
+            float kp = imp.shape.x == 0.0 ? kc : kc / max(float(n), FACE_PAIR_POINTS);
+            for (uint j = 0; j < n; j++)
+            {
+                total += kp * dep[j];
+                ksum += kp;
+            }
+        }
+    }
+    float4 data = scratch[params.cand_base + 3 * k];
+    scratch[params.cand_base + 3 * k] = float4(total, ksum, data.z, data.w);
+}
+
+// Crush cap, second pass (one group per impactor): the total, the cap, the factor the
+// contacts use this substep.
+[shader("compute")]
+[numthreads(256, 1, 1)]
+void impactor_crush(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
+{
+    uint ii = group.x;
+    uint tid = thread.x;
+    if (ii >= params.impactor_count || stopped())
+        return;
+    Impactor imp = impactors[ii];
+    float4 shares = float4(0.0);
+    float4 unused = float4(0.0);
+    for (uint k = imp.cand.x + tid; k < imp.cand.y; k += THREADS)
+        shares += scratch[params.cand_base + 3 * k];
+    group_sum2(tid, shares, unused);
+    if (tid != 0 || imp.cand.z != 0)
+        return;
+    imp.geom = float4(1.0, imp.crush.w, 0.0, 0.0);
+    float total = shares.x;
+    if (imp.crush.x > 0.0 && imp.crush.z < imp.crush.y && total > imp.crush.x)
+    {
+        float extra = (total - imp.crush.x) / shares.y;
+        imp.crush.w += extra;
+        imp.crush.z += imp.crush.x * extra;
+        comp_add1(imp.ledger.z, imp.ledger.w, imp.crush.x * extra);
+        comp_add1(imp.ledger.x, imp.ledger.y, imp.crush.x * extra);
+        imp.geom.x = imp.crush.x / total;
+    }
+    impactors[ii] = imp;
+}
+
+[shader("compute")]
+[numthreads(256, 1, 1)]
+void impactor_integrate(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
+{
+    uint ii = group.x;
+    uint tid = thread.x;
+    if (ii >= params.impactor_count)
+        return;
+    Island sentinel = islands[params.halt_index];
+    Impactor imp = impactors[ii];
+    // cand.w: substeps integrated so far. Integrate through the substep of a split
+    // (it completes), not past it; nothing after a re-plan stop.
+    if (imp.cand.z != 0 || (sentinel.info.z & STOP_NOW) != 0 || (sentinel.info.y != 0 && imp.cand.w >= sentinel.info.y))
+        return;
+    // The contact reactions of the candidates (strided, then a tree).
+    float4 rf = float4(0.0);
+    float4 rt = float4(0.0);
+    for (uint k = imp.cand.x + tid; k < imp.cand.y; k += THREADS)
+    {
+        rf += scratch[params.cand_base + 3 * k + 1];
+        rt += scratch[params.cand_base + 3 * k + 2];
+    }
+    group_sum2(tid, rf, rt);
+    if (tid != 0)
+        return;
+    float dt = params.dt;
+    float3 load_f = float3(0.0);
+    float3 load_t = float3(0.0);
+    // The impactor on the ground (world.rs, after the chunk contacts).
+    if (params.has_ground != 0)
+    {
+        Box ib = impactor_box(imp, float3(0.0), imp.half.xyz);
+        float3 v_imp = imp.velocity.xyz + imp.velocity_err.xyz;
+        float kc = contact_stiffness(params.ground_modulus, ib, imp.mat.x, ib, float3(0.0, 0.0, 1.0));
+        float above = ((imp.position.z - params.ground_hi) + (imp.position_err.z - params.ground_lo));
+        uint total_points = imp.shape.x == 0.0 ? 1 : SAMPLE_POINTS;
+        float kp = kc / float(min(total_points, 5u));
+        uint below = 0;
+        for (uint s = 0; s < total_points; s++)
+        {
+            float3 p = imp.shape.x == 0.0 ? float3(0.0, 0.0, -imp.shape.y) : sample_point(ib, s);
+            if (above + p.z < 0.0)
+                below++;
+        }
+        for (uint s = 0; s < total_points; s++)
+        {
+            float3 p = imp.shape.x == 0.0 ? float3(0.0, 0.0, -imp.shape.y) : sample_point(ib, s);
+            float depth = -(above + p.z);
+            if (depth <= 0.0)
+                continue;
+            float3 v = v_imp + cross(imp.angular_velocity.xyz, p);
+            float stored;
+            float diss;
+            float3 f = penalty_force(kp, imp.mat.z, params.ground_friction, depth, float3(0.0, 0.0, 1.0), v, dt, below, stored, diss);
+            load_f += f;
+            load_t += cross(p, f);
+            comp_add1(imp.ledger.x, imp.ledger.y, diss);
+        }
+    }
+    load_f = rf.xyz + load_f;
+    load_t = rt.xyz + load_t;
+    // Rigid motion (world.rs `substep`).
+    float m = imp.mat.z;
+    float3 vel = imp.velocity.xyz;
+    float3 vel_err = imp.velocity_err.xyz;
+    comp_add(vel, vel_err, (load_f / m + params.gravity.xyz) * dt);
+    Quat q = quat_of(imp.rotation);
+    float3 l = world_mul(q, imp.inertia0, imp.inertia1, imp.inertia2, imp.angular_velocity.xyz) + load_t * dt;
+    float3 w_mid = world_mul(q, imp.inv0, imp.inv1, imp.inv2, l);
+    float3 pos = imp.position.xyz;
+    float3 pos_err = imp.position_err.xyz;
+    comp_add(pos, pos_err, (vel + vel_err) * dt);
+    q = integrate_rotation(q, w_mid, dt);
+    imp.angular_velocity = float4(world_mul(q, imp.inv0, imp.inv1, imp.inv2, l), 0.0);
+    imp.rotation = quat_vec(q);
+    imp.position = float4(pos, 0.0);
+    imp.position_err = float4(pos_err, 0.0);
+    imp.velocity = float4(vel, 0.0);
+    imp.velocity_err = float4(vel_err, 0.0);
+    imp.cand.w += 1;
+    // The next substep's contacts see the crush depth reached, at full force unless
+    // the crush pass says otherwise.
+    imp.geom = float4(1.0, imp.crush.w, 0.0, 0.0);
+    impactors[ii] = imp;
+    // Per-substep record for the impactor probes: velocity, position.
+    uint k = imp.cand.w - 1 - params.step_start;
+    if (k < params.record_stride)
+    {
+        uint at = params.record_base + 2 * (ii * params.record_stride + k);
+        scratch[at] = float4(vel + vel_err, 0.0);
+        scratch[at + 1] = float4(pos + pos_err, 0.0);
+    }
+}
+
+// ------------------------------------------------------------------ loads
+
+static const uint LOAD_WORLD_FORCE = 0;   // world-fixed direction, lever arm in the body frame
+static const uint LOAD_FACE = 1;          // body-fixed outward normal, -p(t) * area, lever arm
+static const uint LOAD_REPLACEMENT = 2;   // body-frame force and moment ramping to zero
+
+static const uint FN_CONSTANT = 0;
+static const uint FN_RAMP = 1;
+static const uint FN_HALF_SINE = 2;
+static const uint FN_FRIEDLANDER = 3;
+static const uint FN_TABLE = 4;
+static const uint FN_BLAST = 5;
+static const uint FN_REPLACEMENT = 6;
+
+static const uint PROBE_DISPLACEMENT = 0;
+static const uint PROBE_VELOCITY = 1;
+static const uint PROBE_SECTION_BOND = 2;
+static const uint PROBE_REACTION = 3;
+
+// Time since a function's origin (compensated pair) at substep k of the host's step.
+float time_since(float4 origin, uint k, float dt)
+{
+    return ((params.t_hi - origin.x) + (params.t_lo - origin.y)) + float(k) * dt;
+}
+
+float table_eval(uint offset, uint count, float tau)
+{
+    float4 first = loads[offset];
+    if (tau <= first.x)
+        return first.y;
+    for (uint i = 1; i < count; i++)
+    {
+        float4 b = loads[offset + i];
+        if (tau <= b.x)
+        {
+            float4 a = loads[offset + i - 1];
+            float f = (tau - a.x) / max(b.x - a.x, 1e-30);
+            return a.y + f * (b.y - a.y);
+        }
+    }
+    return loads[offset + count - 1].y;
+}
+
+// Value of a term's time function at substep k (substep start time) plus `shift`.
+float eval_function(uint term, uint k, float dt, float shift)
+{
+    uint4 info = asuint(loads[5 * term]);
+    float4 origin = loads[5 * term + 3];
+    float4 p = loads[5 * term + 4];
+    uint kind = info.z;
+    if (kind == FN_CONSTANT)
+        return origin.z;
+    float tau = time_since(origin, k, dt) + shift;
+    if (kind == FN_RAMP)
+        return tau <= 0.0 ? 0.0 : (tau >= p.x ? p.y : p.y * tau / p.x);
+    if (kind == FN_HALF_SINE)
+        return (tau < 0.0 || tau > p.x) ? 0.0 : p.y * sin(3.14159265358979 * tau / p.x);
+    if (kind == FN_FRIEDLANDER)
+    {
+        float sn = tau / p.y;
+        return (sn < 0.0 || sn > 1.0) ? 0.0 : p.x * (1.0 - sn) * exp(-p.z * sn);
+    }
+    if (kind == FN_TABLE)
+        return table_eval(info.w, asuint(p.x), tau);
+    if (kind == FN_BLAST)
+    {
+        if (tau < 0.0)
+            return 0.0;
+        float sn = tau / p.x;
+        float shape = (sn < 0.0 || sn > 1.0) ? 0.0 : (1.0 - sn) * exp(-p.y * sn);
+        float clearing = origin.w;
+        float relax = clearing > 0.0 ? max(1.0 - tau / clearing, 0.0) : 0.0;
+        return (p.w + (p.z - p.w) * relax) * shape;
+    }
+    if (p.x <= 0.0)
+        return 0.0;
+    return clamp(1.0 - tau / p.x, 0.0, 1.0);
+}
+
+// Ground contact of chunk c (world.rs `apply_contacts`): its box's sample points below
+// the ground, as force and torque about the chunk centre (world).
+void ground_contact(uint c, bool account, inout float3 f, inout float3 t)
+{
+    ChunkStatic ch = chunks[c];
+    WorldPoint wp = chunk_world(c);
+    float above = ((wp.hi.z - params.ground_hi) + (wp.lo.z - params.ground_lo)) + wp.rel.z;
+    if (above - ch.half.w > 0.0)
+        return;
+    Box b = chunk_box(c, float3(0.0));
+    float kc = contact_stiffness(params.ground_modulus, b, ch.cmat.x, b, float3(0.0, 0.0, 1.0));
+    uint n = 0;
+    for (uint s = 0; s < SAMPLE_POINTS; s++)
+        if (above + sample_point(b, s).z < 0.0)
+            n++;
+    if (n == 0)
+        return;
+    float3 vc;
+    float3 wc;
+    chunk_velocity(c, vc, wc);
+    float4 ledger = scratch[params.ledger_base + params.pair_count + c];
+    for (uint s = 0; s < SAMPLE_POINTS; s++)
+    {
+        float3 p = sample_point(b, s);
+        if (!(above + p.z < 0.0))
+            continue;
+        float depth = -(above + p.z);
+        float3 v = vc + cross(wc, p);
+        float stored;
+        float diss;
+        float3 g = penalty_force(kc / float(max(n, 5u)), ch.center.w, params.ground_friction, depth, float3(0.0, 0.0, 1.0), v, params.dt, n, stored, diss);
+        f += g;
+        t += cross(p, g);
+        comp_add1(ledger.y, ledger.z, diss);
+    }
+    if (account)
+        scratch[params.ledger_base + params.pair_count + c] = ledger;
+}
+
+// The external (non-gravity) load on chunk c at substep k, world frame (force, torque
+// about the chunk centre), in the order the reference adds it: scripted loads, then
+// contacts (impactors, ground, chunk pairs). `account` books the ground dissipation
+// (once per substep).
+void chunk_external(uint c, ChunkStatic ch, Quat rot, uint k, float dt, bool contact, bool account, out float3 f, out float3 t)
+{
+    f = float3(0.0);
+    t = float3(0.0);
+    for (uint term = ch.load_range.x; term < ch.load_range.y; term++)
+    {
+        uint4 info = asuint(loads[5 * term]);
+        if (info.y == LOAD_REPLACEMENT)
+            continue;
+        float4 dir = loads[5 * term + 1];
+        float4 arm = loads[5 * term + 2];
+        float value = eval_function(term, k, dt, 0.0);
+        float3 fw = info.y == LOAD_WORLD_FORCE ? dir.xyz * value : rotate(rot, dir.xyz) * (-value * dir.w);
+        f += fw;
+        t += cross(rotate(rot, arm.xyz), fw);
+    }
+    if (contact && ch.cinfo.z != 0)
+    {
+        for (uint e = ch.cinfo.x; e < ch.cinfo.y; e++)
+        {
+            uint entry = index[e];
+            if (entry == GROUND_ENTRY)
+            {
+                ground_contact(c, account, f, t);
+                continue;
+            }
+            f += scratch[params.slot_base + 2 * entry].xyz;
+            t += scratch[params.slot_base + 2 * entry + 1].xyz;
+        }
+    }
+}
+
+// ------------------------------------------------------------------ islands
+
+groupshared uint g_halt;
+groupshared uint g_run;
+
+float3 to_local(BondStatic b, float3 x)
+{
+    return float3(dot(x, b.t1.xyz), dot(x, b.t2.xyz), dot(x, b.normal.xyz));
+}
+
+float3 to_body(BondStatic b, float3 l)
+{
+    return b.t1.xyz * l.x + b.t2.xyz * l.y + b.normal.xyz * l.z;
+}
+
+void bond_update(uint i, float dt, bool fracture, uint abs_step)
+{
+    BondStatic b = bonds[i];
+    BondDyn bd = bond_dyn[i];
+    uint ca = b.law.ids.y;
+    uint cb = b.law.ids.z;
+    float3 ra = b.ra.xyz;
+    float3 rb = b.rb.xyz;
+    float3 ua = state[4 * ca].xyz, ta = state[4 * ca + 1].xyz, va = state[4 * ca + 2].xyz, wa = state[4 * ca + 3].xyz;
+    float3 ub = state[4 * cb].xyz, tb = state[4 * cb + 1].xyz, vb = state[4 * cb + 2].xyz, wb = state[4 * cb + 3].xyz;
+    float3 d_lin = to_local(b, (ub + cross(tb, rb)) - (ua + cross(ta, ra)));
+    float3 d_ang = to_local(b, tb - ta);
+    float3 r_lin = to_local(b, (vb + cross(wb, rb)) - (va + cross(wa, ra)));
+    float3 r_ang = to_local(b, wb - wa);
+    JointMaterial mat = materials.m[b.law.ids.x];
+    JointState previous = bd.js;
+    JointResponse resp = joint_evaluate(mat, b.law, previous, d_lin, d_ang, dt, fracture);
+    float3 f_lin;
+    float3 f_ang;
+    secant_factors(b.law, resp.state, d_lin, f_lin, f_ang);
+    float3 qd_lin = r_lin * b.c_lin.xyz * f_lin;
+    float3 qd_ang = r_ang * b.c_ang.xyz * f_ang;
+    float3 q_lin = resp.force_lin + qd_lin;
+    float3 q_ang = resp.force_ang + qd_ang;
+    float damped = (dot(qd_lin, r_lin) + dot(qd_ang, r_ang)) * dt;
+    float3 f = to_body(b, q_lin);
+    float3 m = to_body(b, q_ang);
+    Measures em = resp.measures;
+    scratch[3 * i + 0] = float4(f, max(em.tension, em.compression));
+    scratch[3 * i + 1] = float4(m + cross(ra, f), 0.0);
+    scratch[3 * i + 2] = float4(-m + cross(rb, -f), 0.0);
+    comp_add1(bd.sums.x, bd.comps.x, resp.dissipated);
+    comp_add1(bd.sums.y, bd.comps.y, resp.overshoot);
+    comp_add1(bd.sums.z, bd.comps.z, damped);
+    bd.force_lin = float4(q_lin, resp.stored);
+    bd.force_ang = float4(q_ang, max(bd.force_ang.w, resp.state.utilization));
+    if (!is_damaged(previous) && is_damaged(resp.state) && bd.events.x == 0)
+    {
+        bd.events.x = abs_step;
+        bd.events.w = resp.state.mode;
+    }
+    if (bd.events.y == 0 && fatigue_factor(mat, previous.fatigue) > 0.99 && fatigue_factor(mat, resp.state.fatigue) <= 0.99)
+        bd.events.y = abs_step;
+    if (resp.disconnected)
+    {
+        bd.events.z = abs_step;
+        g_halt = 1;
+    }
+    bd.js = resp.state;
+    bond_dyn[i] = bd;
+}
+
+// Rigid-frame state every thread holds identically (computed redundantly, no broadcast).
+struct Rigid
+{
+    Quat rot;
+    float3 pos;
+    float3 pos_err;
+    float3 vel;
+    float3 vel_err;
+    float3 w;
+    float3 a;
+    float3 alpha;
+};
+
+void chunk_update(uint c, Island isl, Rigid rg, float dt, bool rml, uint step, bool contact, inout float work, inout float work_err)
+{
+    ChunkStatic ch = chunks[c];
+    float3 fi = float3(0.0);
+    float3 mi = float3(0.0);
+    float peak = 0.0;
+    for (uint e = index[c]; e < index[c + 1]; e++)
+    {
+        uint entry = index[e];
+        uint bond = entry >> 1;
+        float4 fa = scratch[3 * bond];
+        if ((entry & 1) == 0)
+        {
+            fi += fa.xyz;
+            mi += scratch[3 * bond + 1].xyz;
+        }
+        else
+        {
+            fi += -fa.xyz;
+            mi += scratch[3 * bond + 2].xyz;
+        }
+        peak = max(peak, fa.w);
+    }
+    float3 u = state[4 * c].xyz;
+    float3 th = state[4 * c + 1].xyz;
+    float3 v = state[4 * c + 2].xyz;
+    float3 w = state[4 * c + 3].xyz;
+    float mass = ch.center.w;
+    // Frame loads (solver.rs `frame_loads`).
+    float3 r_world = rotate(rg.rot, ch.center.xyz + u - isl.com.xyz);
+    float3 f_load;
+    float3 t_load;
+    chunk_external(c, ch, rg.rot, step, dt, contact, true, f_load, t_load);
+    float3 f_world = f_load + params.gravity.xyz * mass;
+    float3 t_world = t_load;
+    if (rml)
+    {
+        f_world -= (rg.a + cross(rg.alpha, r_world) + cross(rg.w, cross(rg.w, r_world))) * mass;
+        float3 iw_alpha = world_mul(rg.rot, ch.inertia0, ch.inertia1, ch.inertia2, rg.alpha);
+        float3 iw_w = world_mul(rg.rot, ch.inertia0, ch.inertia1, ch.inertia2, rg.w);
+        t_world -= iw_alpha + cross(rg.w, iw_w);
+    }
+    float3 f_ext = inverse_rotate(rg.rot, f_world);
+    float3 m_ext = inverse_rotate(rg.rot, t_world);
+    if (rml)
+    {
+        float3 wb = inverse_rotate(rg.rot, rg.w);
+        f_ext -= cross(wb, v) * (2.0 * mass);
+        float3 i_w = rows_mul(ch.inertia0, ch.inertia1, ch.inertia2, w);
+        float3 i_wb = rows_mul(ch.inertia0, ch.inertia1, ch.inertia2, wb);
+        m_ext -= cross(wb, i_w) + cross(w, i_wb) + cross(w, i_w);
+    }
+    // Replacement loads (body frame), evaluated at t + dt as `frame_loads` is.
+    for (uint term = ch.load_range.x; term < ch.load_range.y; term++)
+    {
+        if (asuint(loads[5 * term]).y != LOAD_REPLACEMENT)
+            continue;
+        float kf = eval_function(term, step, dt, dt);
+        f_ext += loads[5 * term + 1].xyz * kf;
+        m_ext += loads[5 * term + 2].xyz * kf;
+    }
+    // Central differences by support kind (solver.rs `integrate_cluster`).
+    float3 f = f_ext + fi;
+    float3 m = m_ext + mi;
+    uint support = ch.info.x;
+    float3 reaction = float3(state[4 * c + 1].w, state[4 * c + 2].w, state[4 * c + 3].w);
+    if (support == SUPPORT_FIXED)
+    {
+        reaction = -(f_ext + fi);
+        v = float3(0.0);
+        w = float3(0.0);
+    }
+    else
+    {
+        w += rows_mul(ch.inv0, ch.inv1, ch.inv2, m) * (dt * ch.scale.z);
+        th += w * dt;
+        if (support == SUPPORT_PINNED)
+        {
+            reaction = -(f_ext + fi);
+            v = float3(0.0);
+        }
+        else
+        {
+            v += f * (dt * ch.scale.y);
+            u += v * dt;
+        }
+    }
+    state[4 * c] = float4(u, peak);
+    state[4 * c + 1] = float4(th, reaction.x);
+    state[4 * c + 2] = float4(v, reaction.y);
+    state[4 * c + 3] = float4(w, reaction.z);
+    // Work of the external (non-gravity) loads at the chunk's world velocity.
+    float3 r_new = rotate(rg.rot, ch.center.xyz + u - isl.com.xyz);
+    float3 v_world = (rg.vel + rg.vel_err) + cross(rg.w, r_new) + rotate(rg.rot, v);
+    float3 w_world = rg.w + rotate(rg.rot, w);
+    comp_add1(work, work_err, (dot(f_load, v_world) + dot(t_load, w_world)) * dt);
+}
+
+void write_probe(uint slot, uint k, float value)
+{
+    uint at = params.probe_base * 4 + slot * params.probe_stride + k;
+    float4 v = scratch[at / 4];
+    v[at % 4] = value;
+    scratch[at / 4] = v;
+}
+
+void record_probes(Island isl, Rigid rg, uint k)
+{
+    for (uint at = isl.probes.x; at < isl.probes.y; at += 4)
+    {
+        uint4 info = asuint(loads[at]);
+        float4 a = loads[at + 1];
+        float4 b = loads[at + 2];
+        float4 c4 = loads[at + 3];
+        uint kind = info.x;
+        uint i = info.y;
+        float value = 0.0;
+        if (kind == PROBE_DISPLACEMENT)
+        {
+            ChunkStatic ch = chunks[i];
+            float3 x = ((rg.pos - b.xyz) + (rg.pos_err - c4.xyz)) + rotate(rg.rot, ch.center.xyz + state[4 * i].xyz);
+            value = dot(x, a.xyz);
+        }
+        else if (kind == PROBE_VELOCITY)
+        {
+            ChunkStatic ch = chunks[i];
+            float3 r = rotate(rg.rot, ch.center.xyz + state[4 * i].xyz - isl.com.xyz);
+            float3 v = (rg.vel + rg.vel_err) + cross(rg.w, r) + rotate(rg.rot, state[4 * i + 2].xyz);
+            value = dot(v, a.xyz);
+        }
+        else if (kind == PROBE_SECTION_BOND)
+        {
+            float3 f = scratch[3 * i].xyz;
+            float3 mc = info.z == 0 ? scratch[3 * i + 1].xyz : scratch[3 * i + 2].xyz;
+            float3 fc = info.z == 0 ? f : -f;
+            value = dot(fc, a.xyz) + dot(mc, b.xyz);
+        }
+        else
+        {
+            float3 reaction = float3(state[4 * i + 1].w, state[4 * i + 2].w, state[4 * i + 3].w);
+            value = dot(rotate(rg.rot, reaction), a.xyz);
+        }
+        write_probe(info.w, k, value);
+    }
+}
+
+[shader("compute")]
+[numthreads(256, 1, 1)]
+void island_frame(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
+{
+    uint tid = thread.x;
+    Island isl = islands[group.x];
+    bool anchored = (isl.info.x & ISLAND_ANCHORED) != 0;
+    bool driven = (isl.info.x & ISLAND_DRIVEN) != 0;
+    bool free_motion = !anchored && !driven;
+    bool contact_island = (isl.info.x & ISLAND_CONTACT) != 0;
+    // Batch control: read once, uniformly for the whole group.
+    if (tid == 0)
+    {
+        Island sentinel = islands[params.halt_index];
+        uint run = 1;
+        if (contact_island != (params.contact_mode == 1))
+            run = 0;
+        if (contact_island && ((sentinel.info.z & STOP_NOW) != 0 || (sentinel.info.y != 0 && sentinel.info.y <= isl.info.w)))
+            run = 0;
+        g_run = run;
+        g_halt = 0;
+    }
+    GroupMemoryBarrierWithGroupSync();
+    uint steps = ((isl.info.z & ISLAND_HALTED) != 0 || g_run == 0) ? 0 : min(isl.info.y, params.max_steps);
+    float dt = params.dt;
+    bool fracture = params.fracture != 0;
+    bool rml = params.rigid_motion_loads != 0;
+    float3 g = params.gravity.xyz;
+    float mass_total = isl.com.w;
+
+    Rigid rg;
+    rg.rot = quat_of(isl.rotation);
+    rg.pos = isl.position.xyz;
+    rg.pos_err = isl.position_err.xyz;
+    rg.vel = isl.velocity.xyz;
+    rg.vel_err = isl.velocity_err.xyz;
+    rg.w = isl.angular_velocity.xyz;
+    rg.a = float3(0.0);
+    rg.alpha = float3(0.0);
+
+    uint done = 0;
+    float work = 0.0;
+    float work_err = 0.0;
+    for (uint s = 0; s < steps; s++)
+    {
+        uint abs_step = isl.info.w + s + 1;
+        uint k = abs_step - 1 - params.step_start; // substeps since the host's step began
+        // 1. Rigid acceleration of a free cluster (solver.rs `rigid_acceleration`).
+        if (!anchored)
+        {
+            float3 f = float3(0.0);
+            float3 t = float3(0.0);
+            for (uint c = isl.range.x + tid; c < isl.range.y; c += THREADS)
+            {
+                ChunkStatic ch = chunks[c];
+                float3 fl;
+                float3 tl;
+                chunk_external(c, ch, rg.rot, k, dt, contact_island, false, fl, tl);
+                float3 fc = fl + g * ch.center.w;
+                float3 r = rotate(rg.rot, ch.center.xyz + state[4 * c].xyz - isl.com.xyz);
+                f += fc;
+                t += cross(r, fc) + tl;
+                // Replacement loads (solver.rs `net_load`), at the substep start.
+                for (uint term = ch.load_range.x; term < ch.load_range.y; term++)
+                {
+                    if (asuint(loads[5 * term]).y != LOAD_REPLACEMENT)
+                        continue;
+                    float kf = eval_function(term, k, dt, 0.0);
+                    float3 fw = rotate(rg.rot, loads[5 * term + 1].xyz * kf);
+                    f += fw;
+                    t += cross(rotate(rg.rot, ch.center.xyz - isl.com.xyz), fw) + rotate(rg.rot, loads[5 * term + 2].xyz * kf);
+                }
+            }
+            group_sum3(tid, f, t);
+            float3 iw_w = world_mul(rg.rot, isl.inertia0, isl.inertia1, isl.inertia2, rg.w);
+            rg.a = f / mass_total;
+            rg.alpha = world_mul(rg.rot, isl.inv0, isl.inv1, isl.inv2, t - cross(rg.w, iw_w));
+        }
+        // 2. Bonds.
+        for (uint i = isl.range.z + tid; i < isl.range.w; i += THREADS)
+            bond_update(i, dt, fracture, abs_step);
+        AllMemoryBarrierWithGroupSync();
+        // 3. Chunks.
+        for (uint c = isl.range.x + tid; c < isl.range.y; c += THREADS)
+            chunk_update(c, isl, rg, dt, rml, k, contact_island, work, work_err);
+        AllMemoryBarrierWithGroupSync();
+        if (free_motion)
+        {
+            // 4. Rigid integration (solver.rs `integrate_rigid`).
+            float3 iw_w = world_mul(rg.rot, isl.inertia0, isl.inertia1, isl.inertia2, rg.w);
+            float3 torque = world_mul(rg.rot, isl.inertia0, isl.inertia1, isl.inertia2, rg.alpha) + cross(rg.w, iw_w);
+            float3 l = iw_w + torque * dt;
+            comp_add(rg.vel, rg.vel_err, rg.a * dt);
+            float3 vel = rg.vel + rg.vel_err;
+            float3 w_mid = world_mul(rg.rot, isl.inv0, isl.inv1, isl.inv2, l);
+            Quat rot1 = integrate_rotation(rg.rot, w_mid, dt);
+            float3 delta = vel * dt + (rotate(rg.rot, isl.com.xyz) - rotate(rot1, isl.com.xyz));
+            comp_add(rg.pos, rg.pos_err, delta);
+            rg.rot = rot1;
+            rg.w = world_mul(rg.rot, isl.inv0, isl.inv1, isl.inv2, l);
+        }
+        if (!anchored)
+        {
+            // 5. Drift removal (solver.rs `remove_rigid_drift`), with deformation weights.
+            float3 wcom = isl.wcom.xyz;
+            float wmass = isl.wcom.w;
+            float3 tu = float3(0.0);
+            float3 pv = float3(0.0);
+            for (uint c = isl.range.x + tid; c < isl.range.y; c += THREADS)
+            {
+                ChunkStatic ch = chunks[c];
+                float m = ch.center.w * ch.scale.x;
+                tu += state[4 * c].xyz * m;
+                pv += state[4 * c + 2].xyz * m;
+            }
+            group_sum3(tid, tu, pv);
+            float3 tr = tu / wmass;
+            float3 dv = pv / wmass;
+            float3 lu = float3(0.0);
+            float3 lv = float3(0.0);
+            for (uint c = isl.range.x + tid; c < isl.range.y; c += THREADS)
+            {
+                ChunkStatic ch = chunks[c];
+                float3 r = ch.center.xyz - wcom;
+                float kw = ch.scale.x;
+                lu += (cross(r, state[4 * c].xyz - tr) * ch.center.w + rows_mul(ch.inertia0, ch.inertia1, ch.inertia2, state[4 * c + 1].xyz)) * kw;
+                lv += (cross(r, state[4 * c + 2].xyz - dv) * ch.center.w + rows_mul(ch.inertia0, ch.inertia1, ch.inertia2, state[4 * c + 3].xyz)) * kw;
+            }
+            group_sum3(tid, lu, lv);
+            float3 phi = rows_mul(isl.winv0, isl.winv1, isl.winv2, lu);
+            float3 dw = rows_mul(isl.winv0, isl.winv1, isl.winv2, lv);
+            for (uint c = isl.range.x + tid; c < isl.range.y; c += THREADS)
+            {
+                float3 r = chunks[c].center.xyz - wcom;
+                state[4 * c] = float4(state[4 * c].xyz - (tr + cross(phi, r)), state[4 * c].w);
+                state[4 * c + 1] = float4(state[4 * c + 1].xyz - phi, state[4 * c + 1].w);
+                state[4 * c + 2] = float4(state[4 * c + 2].xyz - (dv + cross(dw, r)), state[4 * c + 2].w);
+                state[4 * c + 3] = float4(state[4 * c + 3].xyz - dw, state[4 * c + 3].w);
+            }
+            if (!driven)
+            {
+                Quat rot = rg.rot;
+                comp_add(rg.pos, rg.pos_err, rotate(rot, tr - cross(phi, wcom)));
+                rg.rot = normalized(quat_mul(rot, from_axis_angle(phi, length(phi))));
+                comp_add(rg.vel, rg.vel_err, rotate(rot, dv + cross(dw, isl.com.xyz - wcom)));
+                rg.w += rotate(rot, dw);
+            }
+            AllMemoryBarrierWithGroupSync();
+        }
+        // 6. Probe values after the substep (thread 0, in item order).
+        if (tid == 0 && isl.probes.y > isl.probes.x)
+            record_probes(isl, rg, k);
+        done = s + 1;
+        if (g_halt != 0)
+            break;
+    }
+    // Island external work: per-thread compensated sums, reduced in a fixed order.
+    float3 wsum = float3(work, work_err, 0.0);
+    float3 unused = float3(0.0);
+    group_sum3(tid, wsum, unused);
+    if (tid == 0)
+    {
+        isl.rotation = quat_vec(rg.rot);
+        isl.position = float4(rg.pos, 0.0);
+        isl.position_err = float4(rg.pos_err, 0.0);
+        isl.velocity = float4(rg.vel, 0.0);
+        isl.velocity_err = float4(rg.vel_err, 0.0);
+        isl.angular_velocity = float4(rg.w, 0.0);
+        isl.done.x = done;
+        isl.info.y -= done;
+        if (g_halt != 0 && contact_island)
+        {
+            // This substep completes in every contact island; then the batch stops.
+            uint at = isl.info.w + done;
+            uint previous = islands[params.halt_index].info.y;
+            islands[params.halt_index].info.y = previous == 0 ? at : min(previous, at);
+        }
+        comp_add1(isl.energy.x, isl.energy.y, wsum.x);
+        isl.energy.y += wsum.y;
+        isl.info.w += done;
+        if (g_halt != 0)
+            isl.info.z |= ISLAND_HALTED;
+        islands[group.x] = isl;
+    }
+}

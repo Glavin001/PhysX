@@ -335,6 +335,30 @@ Contact contact_part(JointMaterial mat, JointBond b, float crush, float3 plastic
     else
     {
         float ki = kn * (1.0 - crush) / float(CONTACT_SPRINGS * CONTACT_SPRINGS);
+        // The spring closures di = dz + ax s2 - ay s1 are linear over the grid: when the
+        // corner springs are all open (or all closed) so is every spring, and the sums
+        // have a closed form (sum s = 0, sum s^2 = w^2 (n^2 - 1) / (12 n)). The loop is
+        // only for a partly closed patch.
+        float n = float(CONTACT_SPRINGS);
+        float edge = 0.5 - 0.5 / n;
+        float spread = abs(d_ang.x) * edge * w1 + abs(d_ang.y) * edge * w0;
+        float slack = 1e-6 * (abs(d_lin.z) + spread);
+        if (d_lin.z - spread > slack)
+        {
+            // Every spring open: no contact force.
+        }
+        else if (d_lin.z + spread < -slack)
+        {
+            float q = (n * n - 1.0) / (12.0 * n);
+            float i1 = n * q * w0 * w0; // sum over the grid of s1^2
+            float i2 = n * q * w1 * w1;
+            float area = n * n;
+            nc_sum = ki * area * d_lin.z;
+            m1 = ki * d_ang.x * i2;
+            m2 = ki * d_ang.y * i1;
+            energy = 0.5 * ki * (area * d_lin.z * d_lin.z + d_ang.x * d_ang.x * i2 + d_ang.y * d_ang.y * i1);
+        }
+        else
         for (uint i = 0; i < CONTACT_SPRINGS; i++)
         {
             float s1 = ((float(i) + 0.5) / float(CONTACT_SPRINGS) - 0.5) * w0;

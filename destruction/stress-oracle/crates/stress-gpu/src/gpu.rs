@@ -67,7 +67,9 @@ impl Gpu {
             (Some("metallib") | None, true) => ShaderPath::MetalLib,
             (Some(other), _) => return Err(format!("STRESS_GPU_SHADERS={other}: expected wgsl, or msl/metallib on the Metal backend")),
         };
-        let required_features = if passthrough { wgpu::Features::PASSTHROUGH_SHADERS } else { wgpu::Features::empty() };
+        let mut required_features = if passthrough { wgpu::Features::PASSTHROUGH_SHADERS } else { wgpu::Features::empty() };
+        // GPU timestamps for profiling, where available.
+        required_features |= adapter.features() & wgpu::Features::TIMESTAMP_QUERY;
         let (device, queue) = adapter
             .request_device(&wgpu::DeviceDescriptor {
                 label: Some("stress-gpu"),

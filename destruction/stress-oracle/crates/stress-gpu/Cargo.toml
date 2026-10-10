@@ -25,3 +25,11 @@ path = "src/bin/stress_gpu_bench.rs"
 [[bin]]
 name = "stress-gpu-run"
 path = "src/bin/stress_gpu_run.rs"
+
+[[bin]]
+name = "stress-gpu-steps"
+path = "src/bin/stress_gpu_steps.rs"
+
+[[bin]]
+name = "stress-gpu-stepcheck"
+path = "src/bin/stress_gpu_stepcheck.rs"

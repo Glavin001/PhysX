@@ -64,10 +64,17 @@ fn main() {
             p.split,
             p.download
         );
+        for (k, name) in stress_gpu::solver::KERNEL_NAMES.iter().enumerate() {
+            if p.kernel_dispatches[k] > 0 {
+                eprintln!("  {name:<20} {:8.3} s GPU over {:>7} dispatches ({:6.1} us each)", p.kernels[k], p.kernel_dispatches[k], p.kernels[k] / p.kernel_dispatches[k] as f64 * 1e6);
+            }
+        }
     }
     if std::env::var("STRESS_GPU_BENCH_KERNELS").is_ok() {
         let dt = 1.0 / 60.0 / 400.0;
         world.solver.step(&gpu, dt, 1).expect("step");
+        // Contact candidates for a realistic horizon (one frame), as a frame step plans.
+        world.solver.rebuild(&gpu, 1.0 / 60.0).expect("rebuild");
         for (name, secs) in world.solver.bench_kernels(&gpu, dt, 200) {
             eprintln!("  {name:<28} {:8.1} us", secs * 1e6);
         }

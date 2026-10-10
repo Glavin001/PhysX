@@ -14,7 +14,7 @@ public static const uint ISLAND_HALTED = 1;
 // Island flag: the island takes part in the per-substep contact pipeline.
 public static const uint ISLAND_CONTACT = 4;
 
-// Static data of a chunk (body frame of its cluster).
+// Static data of a chunk (body frame of its cluster), with its contact data.
 public struct ChunkStatic
 {
     public float4 center;     // w: mass
@@ -27,6 +27,14 @@ public struct ChunkStatic
     public float4 scale;      // inertia scale mu, 1 / (m mu), 1 / mu, -
     public uint4 info;        // support, island, structure, chunk
     public uint4 load_range;  // load terms [x, y) in `loads`
+    public float4 half;       // half extents; w: bounding radius
+    public float4 crot0;      // chunk rotation rows (body frame of the structure)
+    public float4 crot1;
+    public float4 crot2;
+    public float4 cmat;       // contact: E' (scaled), friction, -, -
+    public float4 start_hi;   // world position at the segment start; w: travel budget
+    public float4 start_lo;
+    public uint4 cinfo;       // contact contributions [x, y) in `index`; z: 1 = in contact
 };
 
 // An island (cluster): static mass data and dynamic rigid state.

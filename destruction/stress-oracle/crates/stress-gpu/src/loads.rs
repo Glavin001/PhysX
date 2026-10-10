@@ -13,7 +13,7 @@ use stress_ref::scene::{ChunkSelector, LoadDesc, ProbeKind, Scene, SectionCompon
 use stress_ref::solver::ReferenceSolver;
 use stress_ref::structure::Face;
 
-/// A time function as the GPU evaluates it (`stress_island.slang`, FN_*).
+/// A time function as the GPU evaluates it (`world.slang`, FN_*).
 #[derive(Clone, Debug)]
 pub enum Function {
     Constant(f64),

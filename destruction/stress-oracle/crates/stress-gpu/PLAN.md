@@ -2,7 +2,9 @@
 
 The goal is a GPU stress solver with the same model and features as `stress-ref`. It must match the reference's accuracy, run in real time at massive scale, and use f32 throughout.
 
-The kernels are written in Slang. They run on Metal natively and on WebGPU through WGSL. CUDA is not a target.
+The kernels are written in Slang. They run on Metal natively and on WebGPU through WGSL.
+
+CUDA is a target through PhysX GPU: a GPU physics scene pairs with the GPU stress solver, and a CPU scene with the CPU solver. The integration point is the one the previous GPU stress solver used. `Nv::Blast::ExtStressGpuSolver` (`blast/include/extensions/stressgpu/NvBlastExtStressGpu.h`) is created by `PxgDestructionRuntime` and advanced from `PxgSimulationController::advanceDestruction`. The same Slang kernels compile to CUDA there. They share PhysX's CUDA context and streams, read contact buffers in place, and commit fractures with device kernels. The scene does not use the direct GPU API (`PxSceneFlag::eENABLE_DIRECT_GPU_API` stays off), and sleeping stays enabled. No CUDA machine is reachable from this checkout, so that backend is validated on one later. The Metal/WebGPU host here defines the kernels and their accuracy gates.
 
 The design follows the colleague's speed-of-light analysis ("GPU Stress Solver: Speed-of-Light Analysis v2"). It is adapted where Metal and WebGPU differ from an RTX 4090. Each adaptation is listed under "Departures from the analysis" with its reason.
 
@@ -24,6 +26,12 @@ The design follows the colleague's speed-of-light analysis ("GPU Stress Solver: 
 ## Architecture on Metal and WebGPU
 
 - **Island kernel.** One threadgroup per island, where an island is a cluster or a contact-coupled group of clusters. It runs every substep of a segment inside one dispatch, with threadgroup barriers between phases. That removes the 1.5–3.5 µs a dispatch costs per substep. The reference's per-substep cluster reductions become threadgroup reductions: net load, rigid acceleration, drift removal.
+- **One shader, one binding layout.** `shaders/world.slang` holds every kernel with shared bindings and parameters. Islands that touch nothing run a whole segment per dispatch. Islands in the contact pipeline, and impactors, advance one substep per round of three dispatches:
+  1. `contact_forces`: chunk pairs, impactor candidates and travel checks, one thread each;
+  2. `island_frame`: the island kernel, which gathers impactor, ground and pair contact loads inline;
+  3. `impactor_integrate`.
+
+  Two crush passes come first, only when an impactor has a crush cap.
 - **Substep phases:**
   1. Bonds: evaluate the joint law and write the 9-float body-frame loads.
   2. Chunks: fixed-order CSR gather, external and frame loads, then the central-difference update by support type.

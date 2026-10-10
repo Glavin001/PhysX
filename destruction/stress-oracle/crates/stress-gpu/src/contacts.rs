@@ -1,4 +1,4 @@
-//! Contact planning for a segment (`shaders/contact.slang`): candidate chunk pairs,
+//! Contact planning for a segment (`shaders/world.slang`): candidate chunk pairs,
 //! impactor and ground candidates from bounds swept over the segment, the contact data
 //! of every chunk, impactors, and the per-pair memory of pre-existing overlap.
 //!
