@@ -672,12 +672,15 @@ namespace physx
 		// The solver stream owns every write to the record; drain it first.
 		mCudaContextManager->getCudaContext()->streamSynchronize(mDynamicContext->getGpuSolverCore()->getStream());
 		mCudaContextManager->getCudaContext()->memcpyDtoH(&sim, CUdeviceptr(mSimulationCore->getBodySimBufferDeviceData()) + CUdeviceptr(node) * sizeof(PxgBodySim), sizeof(PxgBodySim));
-		fprintf(stderr, "[trace %ld] #%u %-16s p=(%.6f %.6f %.6f) v=(%.5f %.5f %.5f) w=(%.4f %.4f %.4f) wc=%g flags=%x maxPenBias=%g invMass=%g noGravity=%u\n", node, count, tag,
+		fprintf(stderr, "[trace %ld] #%u %-16s p=(%.6f %.6f %.6f) v=(%.5f %.5f %.5f) w=(%.4f %.4f %.4f) wc=%g flags=%x maxPenBias=%g invMass=%g noGravity=%u maxLinSq=%g maxAngSq=%g damp=(%g %g) dynLimits=(%g %g %g %g)\n", node, count, tag,
 			double(sim.body2World.p.x), double(sim.body2World.p.y), double(sim.body2World.p.z),
 			double(sim.linearVelocityXYZ_inverseMassW.x), double(sim.linearVelocityXYZ_inverseMassW.y), double(sim.linearVelocityXYZ_inverseMassW.z),
 			double(sim.angularVelocityXYZ_maxPenBiasW.x), double(sim.angularVelocityXYZ_maxPenBiasW.y), double(sim.angularVelocityXYZ_maxPenBiasW.z),
 			double(sim.freezeThresholdX_wakeCounterY_sleepThresholdZ_bodySimIndex.y), unsigned(sim.internalFlags), double(sim.angularVelocityXYZ_maxPenBiasW.w),
-			double(sim.linearVelocityXYZ_inverseMassW.w), unsigned(sim.disableGravity));
+			double(sim.linearVelocityXYZ_inverseMassW.w), unsigned(sim.disableGravity),
+			double(sim.maxLinearVelocitySqX_maxAngularVelocitySqY_linearDampingZ_angularDampingW.x), double(sim.maxLinearVelocitySqX_maxAngularVelocitySqY_linearDampingZ_angularDampingW.y),
+			double(sim.maxLinearVelocitySqX_maxAngularVelocitySqY_linearDampingZ_angularDampingW.z), double(sim.maxLinearVelocitySqX_maxAngularVelocitySqY_linearDampingZ_angularDampingW.w),
+			double(sim.dynamicLimitsDamping.x), double(sim.dynamicLimitsDamping.y), double(sim.dynamicLimitsDamping.z), double(sim.dynamicLimitsDamping.w));
 	}
 
 	bool PxgSimulationController::getRigidDynamicData(void* PX_RESTRICT data, const PxRigidDynamicGPUIndex* PX_RESTRICT gpuIndices, PxRigidDynamicGPUAPIReadType::Enum dataType, PxU32 nbElements, CUevent startEvent, CUevent finishEvent) const
