@@ -340,6 +340,7 @@ field-cell calls, splits, and which limit set each frame's step.
 | f4d514c62 | Merge of fix/oracle-accuracy (e6fc3ade9), its polytope changes ported to the flat representation with the same arithmetic | 182/182 vs e6fc3ade9 |
 | 05e58f430 | Blast decay fit (`fit_decay`) stops at its bisection's fixed point (each step depends only on `(lo, hi)`); no per-substep clone of the blast faces. s_house_blast: 21.9 -> 15.9 s | 182/182 vs e6fc3ade9 |
 | a3ddf33c8 | Blast shadowing tests a face's line of sight only against boxes reaching nearer the charge than the face (every point of the line is that near); boxes sorted once per rebuild. 869 M segment tests in s_blast_two_walls; 24.7 -> 21.7 s | 182/182 vs e6fc3ade9 |
+| ab72210b0 | Merge of fix/oracle-accuracy (cd112933c: proven methods default, exact frame transfer, contact crushing); the gate now runs the default and `established` methods | 182/182 vs cd112933c |
 | c347352ea | The contact layer's cohorts: about 3 passes instead of 14, no clones, the same sums in the same order (held energy with the stiffness, load with energy, the carried load only to slide). Floor drop with layer contact: 80.3 -> 69.4 s | 182/182 vs e6fc3ade9 |
 
 Small exact changes are now judged by cycle counts (`/usr/bin/time -l`, about 0.1 %
