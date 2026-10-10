@@ -12,6 +12,7 @@ wgpu = "30"
 bytemuck = { version = "1", features = ["derive"] }
 pollster = "1"
 winit = "0.30"
+serde_json = "1"
 
 [[bin]]
 name = "stress-gpu-view"
@@ -20,3 +21,7 @@ path = "src/bin/stress_gpu_view.rs"
 [[bin]]
 name = "stress-gpu-bench"
 path = "src/bin/stress_gpu_bench.rs"
+
+[[bin]]
+name = "stress-gpu-run"
+path = "src/bin/stress_gpu_run.rs"

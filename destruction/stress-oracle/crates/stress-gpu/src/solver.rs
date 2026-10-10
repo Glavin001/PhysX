@@ -72,6 +72,10 @@ struct ContactParams {
     ledger_base: u32,
     step_start: u32,
     record_stride: u32,
+    cand_begin: u32,
+    cand_count: u32,
+    cand_base: u32,
+    pad0: u32,
 }
 
 #[repr(C)]
@@ -239,7 +243,9 @@ fn pack_term(t: &LoadTerm, chunk: u32, data: &mut Vec<[f32; 4]>, data_base: u32)
 struct Kernels {
     island: Kernel,
     pairs: Kernel,
+    impactor_candidates: Kernel,
     impactors: Kernel,
+    impactor_forces: Kernel,
     gather: Kernel,
     integrate: Kernel,
 }
@@ -289,6 +295,21 @@ struct Layout {
     gpu_impactors: Vec<GpuImpactor>,
 }
 
+/// Host-side time spent per activity (seconds) and counts, for profiling.
+#[derive(Clone, Debug, Default)]
+pub struct Profile {
+    pub build: f64,
+    pub gpu: f64,
+    pub readback: f64,
+    pub download: f64,
+    pub split: f64,
+    pub batches: u64,
+    pub substeps: u64,
+    /// Largest contact plan seen: pair candidates, impactor candidates.
+    pub max_pairs: usize,
+    pub max_impactor_candidates: usize,
+}
+
 pub struct GpuSolver {
     /// The host mirror: topology and history, current after `download`.
     pub mirror: ReferenceSolver,
@@ -309,6 +330,7 @@ pub struct GpuSolver {
     pub dispatches: u64,
     pub host_splits: u64,
     pub replans: u64,
+    pub profile: Profile,
 }
 
 impl GpuSolver {
@@ -332,7 +354,9 @@ impl GpuSolver {
                 ],
             ),
             pairs: gpu.compute(&shaders::CONTACT, "contact_pairs", &CONTACT_BINDINGS),
+            impactor_candidates: gpu.compute(&shaders::CONTACT, "impactor_candidates", &CONTACT_BINDINGS),
             impactors: gpu.compute(&shaders::CONTACT, "contact_impactors", &CONTACT_BINDINGS),
+            impactor_forces: gpu.compute(&shaders::CONTACT, "impactor_forces", &CONTACT_BINDINGS),
             gather: gpu.compute(&shaders::CONTACT, "contact_gather", &CONTACT_BINDINGS),
             integrate: gpu.compute(&shaders::CONTACT, "impactor_integrate", &CONTACT_BINDINGS),
         };
@@ -354,6 +378,7 @@ impl GpuSolver {
             dispatches: 0,
             host_splits: 0,
             replans: 0,
+            profile: Profile::default(),
         })
     }
 
@@ -607,7 +632,7 @@ impl GpuSolver {
         for list in &plan.impactor_chunks {
             let begin = cstatic.len() as u32;
             for &k in list {
-                cstatic.push([k, slot, 0, 0]);
+                cstatic.push([k, slot, imp_ranges.len() as u32, 0]);
                 contributions[k as usize].push([0, slot, 0, 0]);
                 slot += 1;
             }
@@ -645,9 +670,13 @@ impl GpuSolver {
             cstatic.push([0; 4]);
         }
         let mut cstate: Vec<[f32; 4]> = Vec::with_capacity(28 * plan.pairs.len());
-        for (key, ..) in &plan.pairs {
+        let mut remembered = Vec::new();
+        for (i, (key, ..)) in plan.pairs.iter().enumerate() {
             match pair_memory.get(key) {
-                Some(st) => cstate.extend_from_slice(st),
+                Some(st) => {
+                    cstate.extend_from_slice(st);
+                    remembered.push(i);
+                }
                 None => cstate.extend(std::iter::repeat(NAN_STATE).take(28)),
             }
         }
@@ -697,8 +726,12 @@ impl GpuSolver {
         materials[..table.materials.len()].copy_from_slice(&table.materials);
         let probe_base = (3 * bonds.len()) as u32;
         let scratch_len = 3 * bonds.len() + (layout_items.len() * probe_stride as usize).div_ceil(4) + 1;
-        // Chunk contact loads, then the impactor records (2 per impactor and substep).
-        let contact_out_len = contact_base as usize + 2 * n + 2 * impactors.len() * probe_stride as usize + 1;
+        // Chunk contact loads, the impactor records (2 per impactor and substep), the
+        // impactor candidate scratch (3 per candidate).
+        let cand_base = contact_base as usize + 2 * n + 2 * impactors.len() * probe_stride as usize;
+        let cand_count = imp_slots;
+        let cand_begin = imp_ranges.first().map_or(0, |r| r[0]);
+        let contact_out_len = cand_base + 3 * cand_count + 1;
 
         let (gravity, ground) = (m.config.gravity, scene.as_ref().and_then(|s| s.ground.clone()));
         let (g_hi, g_lo) = split1(ground.as_ref().map_or(0.0, |g| g.height));
@@ -720,6 +753,10 @@ impl GpuSolver {
             ledger_base,
             step_start: 0,
             record_stride: probe_stride,
+            cand_begin,
+            cand_count: cand_count as u32,
+            cand_base: cand_base as u32,
+            pad0: 0,
         };
 
         let params_segment = gpu.uniform("params segment", &Params::default());
@@ -739,7 +776,12 @@ impl GpuSolver {
         let cstatic_buf = gpu.storage("contact static", &cstatic);
         let cstate_buf = gpu.storage("contact state", &cstate);
         let impactors_buf = gpu.storage("impactors", &if gpu_impactors.is_empty() { vec![GpuImpactor::default()] } else { gpu_impactors.clone() });
-        let contact_out = gpu.storage("contact out", &vec![[0f32; 4]; contact_out_len]);
+        let mut contact_out_init = vec![[0f32; 4]; contact_out_len];
+        for &i in &remembered {
+            // Pair ledger flags (contact.slang): overlap state present.
+            contact_out_init[ledger_base as usize + i][3] = f32::from_bits(1);
+        }
+        let contact_out = gpu.storage("contact out", &contact_out_init);
         let island_buffers = |params: &wgpu::Buffer| {
             gpu.bind(&kernels.island.group, &[params, &materials, &bonds_buf, &chunks_buf, &csr, &state, &bond_dyn_buf, &scratch, &islands_buf, &loads_buf, &contact_out])
         };
@@ -783,11 +825,16 @@ impl GpuSolver {
         let stride = (substeps as u32).div_ceil(4) * 4;
         let horizon = dt * substeps as f64;
         if stride > self.buffers.probe_stride || self.contacts_possible() {
+            let t = std::time::Instant::now();
             let stride = stride.max(self.buffers.probe_stride);
             let (layout, buffers) = Self::build(gpu, &self.kernels, &self.mirror, self.loads.as_mut(), &self.impactors, &self.pair_memory, stride, horizon)?;
             self.layout = layout;
             self.buffers = buffers;
+            self.profile.build += t.elapsed().as_secs_f64();
         }
+        self.profile.substeps += substeps as u64;
+        self.profile.max_pairs = self.profile.max_pairs.max(self.layout.plan.pairs.len());
+        self.profile.max_impactor_candidates = self.profile.max_impactor_candidates.max(self.buffers.contact_params_host.cand_count as usize);
         let start = self.mirror.substeps as usize;
         while self.step_times.len() <= start + substeps {
             let t = *self.step_times.last().unwrap() + dt;
@@ -815,6 +862,10 @@ impl GpuSolver {
         let mut remaining: HashMap<u64, usize> = self.mirror.clusters.iter().map(|c| (c.id, substeps)).collect();
         // Substeps the contact pipeline (impactors) still has to run.
         let mut pipeline_left = substeps;
+        // Pipeline substeps per submission: a halt (split, re-plan) stops the rest of a
+        // submission, whose dispatches still launch; small chunks after a halt, growing
+        // while none occurs.
+        let mut chunk = 16usize;
         // Impactor velocity and position after every substep (for the impactor probes).
         let mut impactor_records = vec![vec![(Vec3::splat(f64::NAN), Vec3::splat(f64::NAN)); substeps]; self.impactors.len()];
         loop {
@@ -832,7 +883,7 @@ impl GpuSolver {
                 }
             }
             let pipeline = !self.impactors.is_empty() || contact_left > 0;
-            let pipeline_steps = if !self.impactors.is_empty() { pipeline_left.max(contact_left) } else { contact_left };
+            let pipeline_steps = if !self.impactors.is_empty() { pipeline_left.max(contact_left) } else { contact_left }.min(chunk);
             if !any && pipeline_steps == 0 {
                 break;
             }
@@ -864,25 +915,48 @@ impl GpuSolver {
                 if pipeline {
                     let n = self.layout.chunks.len();
                     let groups = |count: usize| (count as u32).div_ceil(64).max(1);
+                    // Diagnostics: STRESS_GPU_SKIP=pairs,impactors,gather,island,integrate.
+                    let skip = std::env::var("STRESS_GPU_SKIP").unwrap_or_default();
+                    let on = |k: &str| !skip.split(',').any(|s| s == k);
                     for _ in 0..pipeline_steps {
                         pass.set_bind_group(0, &self.buffers.bind_contact_kernels, &[]);
-                        pass.set_pipeline(&self.kernels.pairs.pipeline);
-                        pass.dispatch_workgroups(groups(self.layout.plan.pairs.len()), 1, 1);
-                        pass.set_pipeline(&self.kernels.impactors.pipeline);
-                        pass.dispatch_workgroups(groups(self.impactors.len()), 1, 1);
-                        pass.set_pipeline(&self.kernels.gather.pipeline);
-                        pass.dispatch_workgroups(groups(n), 1, 1);
-                        pass.set_pipeline(&self.kernels.island.pipeline);
-                        pass.set_bind_group(0, &self.buffers.bind_contact, &[]);
-                        pass.dispatch_workgroups(islands_n.max(1), 1, 1);
-                        pass.set_bind_group(0, &self.buffers.bind_contact_kernels, &[]);
-                        pass.set_pipeline(&self.kernels.integrate.pipeline);
-                        pass.dispatch_workgroups(groups(self.impactors.len()), 1, 1);
+                        if on("pairs") {
+                            pass.set_pipeline(&self.kernels.pairs.pipeline);
+                            pass.dispatch_workgroups(groups(self.layout.plan.pairs.len()), 1, 1);
+                        }
+                        if on("impactors") {
+                            let cands = self.buffers.contact_params_host.cand_count as usize;
+                            pass.set_pipeline(&self.kernels.impactor_candidates.pipeline);
+                            pass.dispatch_workgroups(groups(cands), 1, 1);
+                            pass.set_pipeline(&self.kernels.impactors.pipeline);
+                            pass.dispatch_workgroups(self.impactors.len().max(1) as u32, 1, 1);
+                            pass.set_pipeline(&self.kernels.impactor_forces.pipeline);
+                            pass.dispatch_workgroups(groups(cands), 1, 1);
+                        }
+                        if on("gather") {
+                            pass.set_pipeline(&self.kernels.gather.pipeline);
+                            pass.dispatch_workgroups(groups(n), 1, 1);
+                        }
+                        if on("island") {
+                            pass.set_pipeline(&self.kernels.island.pipeline);
+                            pass.set_bind_group(0, &self.buffers.bind_contact, &[]);
+                            pass.dispatch_workgroups(islands_n.max(1), 1, 1);
+                        }
+                        if on("integrate") {
+                            pass.set_bind_group(0, &self.buffers.bind_contact_kernels, &[]);
+                            pass.set_pipeline(&self.kernels.integrate.pipeline);
+                            pass.dispatch_workgroups(self.impactors.len().max(1) as u32, 1, 1);
+                        }
                     }
                 }
             }
+            let t = std::time::Instant::now();
             gpu.queue.submit([encoder.finish()]);
+            gpu.device.poll(wgpu::PollType::wait_indefinitely()).ok();
+            self.profile.gpu += t.elapsed().as_secs_f64();
+            self.profile.batches += 1;
             self.dispatches += 1;
+            let t_read = std::time::Instant::now();
             let mut islands: Vec<Island> = gpu.read(&self.buffers.islands);
             let sentinel = islands.pop().unwrap_or_default();
             // Probe outputs of the substeps each island ran.
@@ -921,6 +995,7 @@ impl GpuSolver {
                 let done = imps[0].cand[3] as usize - (start + substeps - pipeline_left);
                 pipeline_left -= done;
             }
+            self.profile.readback += t_read.elapsed().as_secs_f64();
             let halted: Vec<usize> = (0..islands.len()).filter(|&i| islands[i].info[2] & ISLAND_HALTED != 0).collect();
             for (ci, isl) in islands.iter().enumerate() {
                 let id = self.mirror.clusters[ci].id;
@@ -929,11 +1004,17 @@ impl GpuSolver {
             self.layout.islands = islands;
             let replan = sentinel.info[2] & STOP_NOW != 0;
             if halted.is_empty() && !replan {
-                // Everything ran to the end of the step.
-                break;
+                if remaining.values().all(|&l| l == 0) && pipeline_left == 0 {
+                    break;
+                }
+                // The pipeline ran a full chunk without a halt: continue with a larger one.
+                chunk = (chunk * 2).min(512);
+                continue;
             }
+            chunk = 16;
             // Split the halted clusters on the host mirror, at the time they reached;
             // re-plan contacts from the state reached.
+            let t_split = std::time::Instant::now();
             self.download(gpu);
             let mut pending: Vec<usize> = halted;
             pending.sort_unstable();
@@ -962,8 +1043,11 @@ impl GpuSolver {
             let (layout, buffers) = Self::build(gpu, &self.kernels, &self.mirror, self.loads.as_mut(), &self.impactors, &self.pair_memory, self.buffers.probe_stride, dt * left_now as f64)?;
             self.layout = layout;
             self.buffers = buffers;
+            self.profile.split += t_split.elapsed().as_secs_f64();
         }
+        let t = std::time::Instant::now();
         self.download(gpu);
+        self.profile.download += t.elapsed().as_secs_f64();
         self.mirror.time = self.step_times[start + substeps];
         self.mirror.substeps = (start + substeps) as u64;
         // Each probe's value: the sum of its items (NaN without any); impactor probes from
@@ -1054,7 +1138,7 @@ impl GpuSolver {
             gpu.queue.write_buffer(&self.buffers.impactors, 0, bytemuck::cast_slice(&imps));
         }
         let plan = &self.layout.plan;
-        if !plan.pairs.is_empty() || !plan.ground.is_empty() {
+        if !plan.pairs.is_empty() || !plan.ground.is_empty() || self.buffers.contact_params_host.cand_count > 0 {
             let mut out: Vec<[f32; 4]> = gpu.read(&self.buffers.contact_out);
             let lb = self.buffers.ledger_base as usize;
             for i in 0..plan.pairs.len() + self.layout.chunks.len() {
@@ -1062,6 +1146,13 @@ impl GpuSolver {
                 self.contact_dissipated += l[1] as f64 + l[2] as f64;
                 l[1] = 0.0;
                 l[2] = 0.0;
+            }
+            let cb = self.buffers.contact_params_host.cand_base as usize;
+            for k in 0..self.buffers.contact_params_host.cand_count as usize {
+                let l = &mut out[cb + 3 * k];
+                self.contact_dissipated += l[2] as f64 + l[3] as f64;
+                l[2] = 0.0;
+                l[3] = 0.0;
             }
             gpu.queue.write_buffer(&self.buffers.contact_out, 0, bytemuck::cast_slice(&out));
             if !plan.pairs.is_empty() {
@@ -1140,6 +1231,70 @@ impl GpuSolver {
             gpu.queue.write_buffer(&self.buffers.bond_dyn, 0, bytemuck::cast_slice(&reset));
         }
         let _ = &self.layout.gpu_impactors;
+    }
+
+    /// Diagnostics: the time of each pipeline kernel, repeated `reps` times on the
+    /// current buffers (the state is advanced meaningfully only by the island kernel).
+    pub fn bench_kernels(&mut self, gpu: &Gpu, dt: f64, reps: usize) -> Vec<(&'static str, f64)> {
+        let halt_index = self.layout.islands.len() as u32;
+        let params = Params {
+            gravity: v4(self.mirror.config.gravity, 0.0),
+            dt: dt as f32,
+            fracture: self.mirror.config.fracture as u32,
+            rigid_motion_loads: 1,
+            step_start: self.mirror.substeps as u32,
+            t_hi: self.mirror.time as f32,
+            t_lo: 0.0,
+            probe_base: self.buffers.probe_base,
+            probe_stride: self.buffers.probe_stride,
+            max_steps: 1,
+            contact_mode: 1,
+            contact_base: self.buffers.contact_base,
+            halt_index,
+        };
+        gpu.queue.write_buffer(&self.buffers.params_contact, 0, bytemuck::bytes_of(&params));
+        let mut cp = self.buffers.contact_params_host;
+        cp.dt = dt as f32;
+        cp.step_start = self.mirror.substeps as u32;
+        gpu.queue.write_buffer(&self.buffers.contact_params, 0, bytemuck::bytes_of(&cp));
+        let n = self.layout.chunks.len();
+        let groups = |count: usize| (count as u32).div_ceil(64).max(1);
+        let cands = cp.cand_count as usize;
+        let mut out = Vec::new();
+        let kernels: [(&'static str, &Kernel, u32, bool); 7] = [
+            ("contact_pairs", &self.kernels.pairs, groups(self.layout.plan.pairs.len()), false),
+            ("impactor_candidates", &self.kernels.impactor_candidates, groups(cands), false),
+            ("contact_impactors", &self.kernels.impactors, self.impactors.len().max(1) as u32, false),
+            ("impactor_forces", &self.kernels.impactor_forces, groups(cands), false),
+            ("contact_gather", &self.kernels.gather, groups(n), false),
+            ("island_frame (1 substep)", &self.kernels.island, self.layout.islands.len().max(1) as u32, true),
+            ("impactor_integrate", &self.kernels.integrate, self.impactors.len().max(1) as u32, false),
+        ];
+        for (name, kernel, count, island) in kernels {
+            let mut islands = self.layout.islands.clone();
+            for isl in islands.iter_mut() {
+                isl.info[1] = reps as u32;
+                isl.info[2] = 0;
+                isl.info[0] |= ISLAND_CONTACT;
+            }
+            islands.push(Island::default());
+            gpu.queue.write_buffer(&self.buffers.islands, 0, bytemuck::cast_slice(&islands));
+            gpu.device.poll(wgpu::PollType::wait_indefinitely()).ok();
+            let t = std::time::Instant::now();
+            let mut encoder = gpu.device.create_command_encoder(&Default::default());
+            {
+                let mut pass = encoder.begin_compute_pass(&Default::default());
+                pass.set_pipeline(&kernel.pipeline);
+                pass.set_bind_group(0, if island { &self.buffers.bind_contact } else { &self.buffers.bind_contact_kernels }, &[]);
+                for _ in 0..reps {
+                    pass.dispatch_workgroups(count, 1, 1);
+                }
+            }
+            gpu.queue.submit([encoder.finish()]);
+            gpu.device.poll(wgpu::PollType::wait_indefinitely()).ok();
+            out.push((name, t.elapsed().as_secs_f64() / reps as f64));
+        }
+        out
     }
 
     /// GPU order of chunks (structure, chunk).

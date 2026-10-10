@@ -6,9 +6,12 @@
 //                       and separating-axis rejection, the 14 sample points of each box
 //                       inside the other, pre-existing overlap offsets (ratcheting, per
 //                       pair state), penalty forces with regularised Coulomb friction;
-//   contact_impactors   per impactor: sphere/box impactors against candidate chunks with
-//                       the crush cap on the impactor's total force, and the impactor on
-//                       the ground; the impactor's load for its integration;
+//   impactor_candidates per impactor candidate chunk: its contact points and their share
+//                       of the impactor's total elastic force (for the crush cap);
+//   contact_impactors   per impactor: the crush cap from those shares (in order), and
+//                       the impactor on the ground;
+//   impactor_forces     per impactor candidate: penalty forces on the chunk and their
+//                       reaction on the impactor;
 //   contact_gather      per chunk: its contact loads summed in the reference's order
 //                       (impactors, ground, chunk pairs) for the island kernel; travel
 //                       check (a chunk leaving its candidate budget stops the batch so the
@@ -50,6 +53,10 @@ struct ContactParams
     uint ledger_base;        // float4 index of the pair and chunk ledgers in `contact_out`
     uint step_start;         // absolute substep count when the host's step began
     uint record_stride;      // substeps per impactor record row (multiple of 1)
+    uint cand_begin;         // first impactor candidate entry in `contact_static`
+    uint cand_count;         // impactor candidate entries (all impactors, in order)
+    uint cand_base;          // float4 index of the candidate scratch (3 per candidate)
+    uint pad0;
 };
 
 // Contact data of a chunk (indexed like the chunks).
@@ -315,12 +322,38 @@ void contact_pairs(uint3 id: SV_DispatchThreadID)
     float ra = contact_chunks[ca].half.w;
     float rb = contact_chunks[cb].half.w;
     bool touching = !(length(cb_rel) > ra + rb);
+    float4 ledger = contact_out[params.ledger_base + i];
+    uint flags = asuint(ledger.w);
+    if (!touching)
+    {
+        // Far apart (most candidates): forget the pair's overlap, clear its outputs,
+        // and write nothing when there is nothing to clear.
+        if ((flags & 1) != 0)
+        {
+            for (uint e = 0; e < 2 * SAMPLE_POINTS; e++)
+                contact_state[st + e] = float4(asfloat(0x7fc00000u), 0.0, 0.0, 0.0);
+        }
+        if ((flags & 2) != 0)
+        {
+            contact_out[2 * slot] = float4(0.0);
+            contact_out[2 * slot + 1] = float4(0.0);
+            contact_out[2 * slot + 2] = float4(0.0);
+            contact_out[2 * slot + 3] = float4(0.0);
+        }
+        if (flags != 0 || ledger.x != 0.0)
+        {
+            ledger.x = 0.0;
+            ledger.w = asfloat(0u);
+            contact_out[params.ledger_base + i] = ledger;
+        }
+        return;
+    }
     Box ba = chunk_box(ca, float3(0.0));
     Box bb = chunk_box(cb, cb_rel);
     float3 fa = float3(0.0), ta = float3(0.0), fb = float3(0.0), tb = float3(0.0);
     float stored_sum = 0.0;
-    float4 ledger = contact_out[params.ledger_base + i];
-    if (touching && may_overlap(ba, bb))
+    bool has_state = false;
+    if (may_overlap(ba, bb))
     {
         // Sample points of each box inside the other.
         float3 pts[28];
@@ -388,6 +421,7 @@ void contact_pairs(uint3 id: SV_DispatchThreadID)
             for (uint e = 0; e < 2 * SAMPLE_POINTS; e++)
                 if ((inside_mask & (1u << e)) == 0)
                     contact_state[st + e] = float4(asfloat(0x7fc00000u), 0.0, 0.0, 0.0);
+            has_state = true;
             float k = k_pair / max(float(engaged), FACE_PAIR_POINTS);
             for (uint j = 0; j < count; j++)
             {
@@ -407,23 +441,23 @@ void contact_pairs(uint3 id: SV_DispatchThreadID)
                 comp_add1(ledger.y, ledger.z, diss);
             }
         }
-        else
-        {
-            for (uint e = 0; e < 2 * SAMPLE_POINTS; e++)
-                contact_state[st + e] = float4(asfloat(0x7fc00000u), 0.0, 0.0, 0.0);
-        }
     }
-    else
+    if (!has_state && (flags & 1) != 0)
     {
         for (uint e = 0; e < 2 * SAMPLE_POINTS; e++)
             contact_state[st + e] = float4(asfloat(0x7fc00000u), 0.0, 0.0, 0.0);
     }
+    bool loaded = any(fa != 0.0) || any(ta != 0.0) || any(fb != 0.0) || any(tb != 0.0);
+    if (loaded || (flags & 2) != 0)
+    {
+        contact_out[2 * slot] = float4(fa, 0.0);
+        contact_out[2 * slot + 1] = float4(ta, 0.0);
+        contact_out[2 * slot + 2] = float4(fb, 0.0);
+        contact_out[2 * slot + 3] = float4(tb, 0.0);
+    }
     ledger.x = stored_sum;
+    ledger.w = asfloat((has_state ? 1u : 0u) | (loaded ? 2u : 0u));
     contact_out[params.ledger_base + i] = ledger;
-    contact_out[2 * slot] = float4(fa, 0.0);
-    contact_out[2 * slot + 1] = float4(ta, 0.0);
-    contact_out[2 * slot + 2] = float4(fb, 0.0);
-    contact_out[2 * slot + 3] = float4(tb, 0.0);
 }
 
 // ------------------------------------------------------------------ impactors
@@ -473,7 +507,7 @@ bool sphere_contact(Box b, float3 center, float radius, out float3 point, out fl
 
 // The contacts of an impactor with one chunk (world.rs `apply_contacts`), in the
 // impactor's frame (origin at its centre). Returns the number of points.
-uint impactor_points(Impactor imp, Box ib, Box b, out float3 pts[28], out float3 nrm[28], out float dep[28])
+uint impactor_points(Impactor imp, float crush_depth, Box ib, Box b, out float3 pts[28], out float3 nrm[28], out float dep[28])
 {
     uint count = 0;
     if (imp.shape.x == 0.0)
@@ -481,7 +515,7 @@ uint impactor_points(Impactor imp, Box ib, Box b, out float3 pts[28], out float3
         float3 p;
         float3 n;
         float d;
-        if (sphere_contact(b, float3(0.0), imp.shape.y - imp.crush.w, p, n, d))
+        if (sphere_contact(b, float3(0.0), imp.shape.y - crush_depth, p, n, d))
         {
             pts[0] = p;
             nrm[0] = -n;
@@ -491,7 +525,7 @@ uint impactor_points(Impactor imp, Box ib, Box b, out float3 pts[28], out float3
         return count;
     }
     Box shrunk = ib;
-    shrunk.half = ib.half - min(float3(imp.crush.w), ib.half * 0.5);
+    shrunk.half = ib.half - min(float3(crush_depth), ib.half * 0.5);
     for (uint s = 0; s < SAMPLE_POINTS; s++)
     {
         float3 p = sample_point(b, s);
@@ -521,40 +555,62 @@ uint impactor_points(Impactor imp, Box ib, Box b, out float3 pts[28], out float3
     return count;
 }
 
+static const uint REDUCE_THREADS = 256;
+groupshared float4 g_red_a[REDUCE_THREADS];
+groupshared float4 g_red_b[REDUCE_THREADS];
+
+// Sums over the group of two float4 (fixed tree order: deterministic).
+void group_sum2(uint tid, inout float4 a, inout float4 b)
+{
+    g_red_a[tid] = a;
+    g_red_b[tid] = b;
+    GroupMemoryBarrierWithGroupSync();
+    for (uint s = REDUCE_THREADS / 2; s > 0; s >>= 1)
+    {
+        if (tid < s)
+        {
+            g_red_a[tid] += g_red_a[tid + s];
+            g_red_b[tid] += g_red_b[tid + s];
+        }
+        GroupMemoryBarrierWithGroupSync();
+    }
+    a = g_red_a[0];
+    b = g_red_b[0];
+    GroupMemoryBarrierWithGroupSync();
+}
+
+WorldPoint impactor_point(Impactor imp)
+{
+    WorldPoint wi;
+    wi.hi = imp.position.xyz;
+    wi.lo = imp.position_err.xyz;
+    wi.rel = float3(0.0);
+    return wi;
+}
+
 [shader("compute")]
 [numthreads(64, 1, 1)]
-void contact_impactors(uint3 id: SV_DispatchThreadID)
+void impactor_candidates(uint3 id: SV_DispatchThreadID)
 {
-    uint ii = id.x;
-    if (ii >= params.impactor_count || stopped())
+    if (id.x >= params.cand_count || stopped())
         return;
-    Impactor imp = impactors[ii];
-    float dt = params.dt;
-    float3 load_f = float3(0.0);
-    float3 load_t = float3(0.0);
+    uint4 entry = contact_static[params.cand_begin + id.x];
+    uint c = entry.x;
+    Impactor imp = impactors[entry.z];
+    float total = 0.0;
+    float ksum = 0.0;
     if (imp.cand.z == 0)
     {
-        WorldPoint wi;
-        wi.hi = imp.position.xyz;
-        wi.lo = imp.position_err.xyz;
-        wi.rel = float3(0.0);
-        Box ib = impactor_box(imp, float3(0.0), imp.half.xyz);
-        float reach = imp.half.w;
-        // Pass 1: total elastic force (for the crush cap).
-        float total = 0.0;
-        float ksum = 0.0;
-        for (uint e = imp.cand.x; e < imp.cand.y; e++)
+        float3 rel = world_diff(chunk_world(c), impactor_point(imp));
+        if (!(length(rel) > imp.half.w + contact_chunks[c].half.w))
         {
-            uint c = contact_static[e].x;
-            float3 rel = world_diff(chunk_world(c), wi);
-            if (length(rel) > reach + contact_chunks[c].half.w)
-                continue;
+            Box ib = impactor_box(imp, float3(0.0), imp.half.xyz);
             Box b = chunk_box(c, rel);
             float kc = contact_stiffness(imp.mat.x, ib, contact_chunks[c].mat.x, b, b.center - ib.center);
             float3 pts[28];
             float3 nrm[28];
             float dep[28];
-            uint n = impactor_points(imp, ib, b, pts, nrm, dep);
+            uint n = impactor_points(imp, imp.crush.w, ib, b, pts, nrm, dep);
             float kp = imp.shape.x == 0.0 ? kc : kc / max(float(n), FACE_PAIR_POINTS);
             for (uint j = 0; j < n; j++)
             {
@@ -562,7 +618,38 @@ void contact_impactors(uint3 id: SV_DispatchThreadID)
                 ksum += kp;
             }
         }
-        float crush_factor = 1.0;
+    }
+    float4 scratch = contact_out[params.cand_base + 3 * id.x];
+    contact_out[params.cand_base + 3 * id.x] = float4(total, ksum, scratch.z, scratch.w);
+}
+
+[shader("compute")]
+[numthreads(256, 1, 1)]
+void contact_impactors(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
+{
+    uint ii = group.x;
+    uint tid = thread.x;
+    if (ii >= params.impactor_count || stopped())
+        return;
+    Impactor imp = impactors[ii];
+    // The candidates' shares of the impactor's elastic force (strided, then a tree).
+    float4 shares = float4(0.0);
+    float4 unused = float4(0.0);
+    for (uint e = imp.cand.x + tid; e < imp.cand.y; e += REDUCE_THREADS)
+        shares += contact_out[params.cand_base + 3 * (e - params.cand_begin)];
+    group_sum2(tid, shares, unused);
+    if (tid != 0)
+        return;
+    float dt = params.dt;
+    float3 load_f = float3(0.0);
+    float3 load_t = float3(0.0);
+    float crush_factor = 1.0;
+    float depth_at_start = imp.crush.w;
+    if (imp.cand.z == 0)
+    {
+        // The crush cap from the candidates' shares.
+        float total = shares.x;
+        float ksum = shares.y;
         if (imp.crush.x > 0.0 && imp.crush.z < imp.crush.y && total > imp.crush.x)
         {
             float extra = (total - imp.crush.x) / ksum;
@@ -572,69 +659,25 @@ void contact_impactors(uint3 id: SV_DispatchThreadID)
             comp_add1(imp.ledger.x, imp.ledger.y, imp.crush.x * extra);
             crush_factor = imp.crush.x / total;
         }
-        // Pass 2: forces, with the crush depth the contacts were found at.
-        Impactor at = impactors[ii];
-        float3 v_imp = imp.velocity.xyz + imp.velocity_err.xyz;
-        for (uint e = imp.cand.x; e < imp.cand.y; e++)
-        {
-            uint c = contact_static[e].x;
-            uint slot = contact_static[e].y;
-            float3 rel = world_diff(chunk_world(c), wi);
-            float3 f_sum = float3(0.0);
-            float3 t_sum = float3(0.0);
-            if (!(length(rel) > reach + contact_chunks[c].half.w))
-            {
-                Box b = chunk_box(c, rel);
-                float kc = contact_stiffness(imp.mat.x, ib, contact_chunks[c].mat.x, b, b.center - ib.center);
-                float3 pts[28];
-                float3 nrm[28];
-                float dep[28];
-                uint n = impactor_points(at, ib, b, pts, nrm, dep);
-                float kp = imp.shape.x == 0.0 ? kc : kc / max(float(n), FACE_PAIR_POINTS);
-                uint points = imp.shape.x == 0.0 ? 1 : n;
-                float m = contact_chunks[c].mat.z;
-                float m_red = m * imp.mat.z / (m + imp.mat.z);
-                float mu = params.pair_friction >= 0.0 ? params.pair_friction : min(imp.mat.y, contact_chunks[c].mat.y);
-                float3 vc;
-                float3 wc;
-                chunk_velocity(c, vc, wc);
-                for (uint j = 0; j < n; j++)
-                {
-                    float3 p = pts[j];
-                    float3 v_chunk = vc + cross(wc, p - b.center);
-                    float3 v_i = v_imp + cross(imp.angular_velocity.xyz, p);
-                    float stored;
-                    float diss;
-                    float3 f = penalty_force(kp, m_red, mu, dep[j] * crush_factor, nrm[j], v_chunk - v_i, dt, points, stored, diss);
-                    f_sum += f;
-                    t_sum += cross(p - b.center, f);
-                    load_f -= f;
-                    load_t -= cross(p, f);
-                    comp_add1(imp.ledger.x, imp.ledger.y, diss);
-                }
-            }
-            contact_out[2 * slot] = float4(f_sum, 0.0);
-            contact_out[2 * slot + 1] = float4(t_sum, 0.0);
-        }
         // The impactor on the ground.
         if (params.has_ground != 0)
         {
-            Box ib_world = ib;
+            Box ib = impactor_box(imp, float3(0.0), imp.half.xyz);
+            float3 v_imp = imp.velocity.xyz + imp.velocity_err.xyz;
             float kc = contact_stiffness(params.ground_modulus, ib, imp.mat.x, ib, float3(0.0, 0.0, 1.0));
-            // Height of the impactor centre above the ground, compensated.
             float above = ((imp.position.z - params.ground_hi) + (imp.position_err.z - params.ground_lo));
             uint total_points = imp.shape.x == 0.0 ? 1 : SAMPLE_POINTS;
             float kp = kc / float(min(total_points, 5u));
             uint below = 0;
             for (uint s = 0; s < total_points; s++)
             {
-                float3 p = imp.shape.x == 0.0 ? float3(0.0, 0.0, -imp.shape.y) : sample_point(ib_world, s);
+                float3 p = imp.shape.x == 0.0 ? float3(0.0, 0.0, -imp.shape.y) : sample_point(ib, s);
                 if (above + p.z < 0.0)
                     below++;
             }
             for (uint s = 0; s < total_points; s++)
             {
-                float3 p = imp.shape.x == 0.0 ? float3(0.0, 0.0, -imp.shape.y) : sample_point(ib_world, s);
+                float3 p = imp.shape.x == 0.0 ? float3(0.0, 0.0, -imp.shape.y) : sample_point(ib, s);
                 float depth = -(above + p.z);
                 if (depth <= 0.0)
                     continue;
@@ -648,9 +691,72 @@ void contact_impactors(uint3 id: SV_DispatchThreadID)
             }
         }
     }
-    imp.load_force = float4(load_f, 0.0);
-    imp.load_torque = float4(load_t, 0.0);
+    // Ground load (the contact reactions are added at integration); the crush factor
+    // and the crush depth the contacts were found at, for impactor_forces.
+    imp.load_force = float4(load_f, crush_factor);
+    imp.load_torque = float4(load_t, depth_at_start);
     impactors[ii] = imp;
+}
+
+[shader("compute")]
+[numthreads(64, 1, 1)]
+void impactor_forces(uint3 id: SV_DispatchThreadID)
+{
+    if (id.x >= params.cand_count || stopped())
+        return;
+    uint4 entry = contact_static[params.cand_begin + id.x];
+    uint c = entry.x;
+    uint slot = entry.y;
+    Impactor imp = impactors[entry.z];
+    float dt = params.dt;
+    float3 f_sum = float3(0.0);
+    float3 t_sum = float3(0.0);
+    float3 imp_f = float3(0.0);
+    float3 imp_t = float3(0.0);
+    float4 scratch = contact_out[params.cand_base + 3 * id.x];
+    if (imp.cand.z == 0)
+    {
+        float3 rel = world_diff(chunk_world(c), impactor_point(imp));
+        if (!(length(rel) > imp.half.w + contact_chunks[c].half.w))
+        {
+            Box ib = impactor_box(imp, float3(0.0), imp.half.xyz);
+            Box b = chunk_box(c, rel);
+            float kc = contact_stiffness(imp.mat.x, ib, contact_chunks[c].mat.x, b, b.center - ib.center);
+            float3 pts[28];
+            float3 nrm[28];
+            float dep[28];
+            uint n = impactor_points(imp, imp.load_torque.w, ib, b, pts, nrm, dep);
+            float kp = imp.shape.x == 0.0 ? kc : kc / max(float(n), FACE_PAIR_POINTS);
+            uint points = imp.shape.x == 0.0 ? 1 : n;
+            float m = contact_chunks[c].mat.z;
+            float m_red = m * imp.mat.z / (m + imp.mat.z);
+            float mu = params.pair_friction >= 0.0 ? params.pair_friction : min(imp.mat.y, contact_chunks[c].mat.y);
+            float3 v_imp = imp.velocity.xyz + imp.velocity_err.xyz;
+            float crush_factor = imp.load_force.w;
+            float3 vc;
+            float3 wc;
+            chunk_velocity(c, vc, wc);
+            for (uint j = 0; j < n; j++)
+            {
+                float3 p = pts[j];
+                float3 v_chunk = vc + cross(wc, p - b.center);
+                float3 v_i = v_imp + cross(imp.angular_velocity.xyz, p);
+                float stored;
+                float diss;
+                float3 f = penalty_force(kp, m_red, mu, dep[j] * crush_factor, nrm[j], v_chunk - v_i, dt, points, stored, diss);
+                f_sum += f;
+                t_sum += cross(p - b.center, f);
+                imp_f -= f;
+                imp_t -= cross(p, f);
+                comp_add1(scratch.z, scratch.w, diss);
+            }
+        }
+    }
+    contact_out[2 * slot] = float4(f_sum, 0.0);
+    contact_out[2 * slot + 1] = float4(t_sum, 0.0);
+    contact_out[params.cand_base + 3 * id.x] = scratch;
+    contact_out[params.cand_base + 3 * id.x + 1] = float4(imp_f, 0.0);
+    contact_out[params.cand_base + 3 * id.x + 2] = float4(imp_t, 0.0);
 }
 
 // ------------------------------------------------------------------ gather
@@ -723,10 +829,11 @@ void contact_gather(uint3 id: SV_DispatchThreadID)
 // ------------------------------------------------------------------ impactor motion
 
 [shader("compute")]
-[numthreads(64, 1, 1)]
-void impactor_integrate(uint3 id: SV_DispatchThreadID)
+[numthreads(256, 1, 1)]
+void impactor_integrate(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
 {
-    uint ii = id.x;
+    uint ii = group.x;
+    uint tid = thread.x;
     if (ii >= params.impactor_count)
         return;
     Island sentinel = islands[params.halt_index];
@@ -735,14 +842,28 @@ void impactor_integrate(uint3 id: SV_DispatchThreadID)
     // (it completes), not past it; nothing after a re-plan stop.
     if (imp.cand.z != 0 || (sentinel.info.z & STOP_NOW) != 0 || (sentinel.info.y != 0 && imp.cand.w >= sentinel.info.y))
         return;
+    // The contact reactions of the candidates (strided, then a tree), then the ground.
+    float4 rf = float4(0.0);
+    float4 rt = float4(0.0);
+    for (uint e = imp.cand.x + tid; e < imp.cand.y; e += REDUCE_THREADS)
+    {
+        uint k = e - params.cand_begin;
+        rf += contact_out[params.cand_base + 3 * k + 1];
+        rt += contact_out[params.cand_base + 3 * k + 2];
+    }
+    group_sum2(tid, rf, rt);
+    if (tid != 0)
+        return;
     imp.cand.w += 1;
     float dt = params.dt;
     float m = imp.mat.z;
     float3 vel = imp.velocity.xyz;
     float3 vel_err = imp.velocity_err.xyz;
-    comp_add(vel, vel_err, (imp.load_force.xyz / m + params.gravity.xyz) * dt);
+    float3 load_f = rf.xyz + imp.load_force.xyz;
+    float3 load_t = rt.xyz + imp.load_torque.xyz;
+    comp_add(vel, vel_err, (load_f / m + params.gravity.xyz) * dt);
     Quat q = quat_of(imp.rotation);
-    float3 l = world_mul(q, imp.inertia0, imp.inertia1, imp.inertia2, imp.angular_velocity.xyz) + imp.load_torque.xyz * dt;
+    float3 l = world_mul(q, imp.inertia0, imp.inertia1, imp.inertia2, imp.angular_velocity.xyz) + load_t * dt;
     float3 w_mid = world_mul(q, imp.inv0, imp.inv1, imp.inv2, l);
     float3 pos = imp.position.xyz;
     float3 pos_err = imp.position_err.xyz;

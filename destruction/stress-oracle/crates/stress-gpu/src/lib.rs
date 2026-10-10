@@ -43,7 +43,14 @@ pub mod shaders {
     pub const JOINT_TEST: ShaderSet = shader_set!("joint_test", [("joint_eval_test", (64, 1, 1))]);
     pub const STRESS_ISLAND: ShaderSet = shader_set!("stress_island", [("island_frame", (256, 1, 1))]);
     pub const CONTACT: ShaderSet =
-        shader_set!("contact", [("contact_pairs", (64, 1, 1)), ("contact_impactors", (64, 1, 1)), ("contact_gather", (64, 1, 1)), ("impactor_integrate", (64, 1, 1))]);
+        shader_set!("contact", [
+            ("contact_pairs", (64, 1, 1)),
+            ("impactor_candidates", (64, 1, 1)),
+            ("contact_impactors", (256, 1, 1)),
+            ("impactor_forces", (64, 1, 1)),
+            ("contact_gather", (64, 1, 1)),
+            ("impactor_integrate", (256, 1, 1)),
+        ]);
     pub const STRESS_RENDER: ShaderSet = shader_set!("stress_render", [("stress_vs", (1, 1, 1)), ("stress_fs", (1, 1, 1))]);
 }
 

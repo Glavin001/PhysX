@@ -1,0 +1,78 @@
+//! Run a scene on the GPU world and write its observation (`stress-observation/1`).
+//!
+//!   stress-gpu-run SCENE.json|catalogue-name [--out OBS.json] [--duration S] [--profile]
+
+use std::time::Instant;
+
+use stress_gpu::gpu::Gpu;
+use stress_gpu::world::GpuWorld;
+use stress_ref::scene::Scene;
+
+fn main() {
+    let mut args = std::env::args().skip(1);
+    let name = args.next().expect("scene file or catalogue name");
+    let (mut out, mut duration, mut profile) = (None, None, false);
+    while let Some(a) = args.next() {
+        match a.as_str() {
+            "--out" => out = args.next(),
+            "--duration" => duration = args.next().and_then(|v| v.parse::<f64>().ok()),
+            "--profile" => profile = true,
+            other => panic!("unknown argument {other}"),
+        }
+    }
+    let mut scene = if name.ends_with(".json") {
+        Scene::load(std::path::Path::new(&name)).expect("scene")
+    } else {
+        stress_ref::builders::catalog()
+            .into_iter()
+            .chain(stress_ref::showcases::catalog())
+            .find(|s| s.name == name)
+            .unwrap_or_else(|| panic!("no catalogue scene {name}"))
+    };
+    if let Some(d) = duration {
+        scene.sim.duration = d;
+    }
+    let gpu = Gpu::new().expect("GPU");
+    let t = Instant::now();
+    let mut world = GpuWorld::new(&gpu, &scene).unwrap_or_else(|e| panic!("{}: {e}", scene.name));
+    let setup = t.elapsed().as_secs_f64();
+    let t = Instant::now();
+    let obs = world.run(&gpu).expect("run");
+    let run = t.elapsed().as_secs_f64();
+    eprintln!(
+        "{}: {:.3} s simulated in {run:.2} s (setup {setup:.2} s); {} chunks, {} clusters; broken bonds {}, fragments {}",
+        scene.name,
+        scene.sim.duration,
+        world.solver.chunk_order().len(),
+        world.solver.island_count(),
+        obs.values.get("broken_bonds").copied().unwrap_or(0.0),
+        obs.values.get("fragments").copied().unwrap_or(0.0)
+    );
+    if profile {
+        let p = &world.solver.profile;
+        eprintln!(
+            "profile: substeps {}, batches {}, splits {}, re-plans {}, max pairs {}, max impactor candidates {}; build {:.2} s, gpu {:.2} s, readback {:.2} s, split {:.2} s, download {:.2} s",
+            p.substeps,
+            p.batches,
+            world.solver.host_splits,
+            world.solver.replans,
+            p.max_pairs,
+            p.max_impactor_candidates,
+            p.build,
+            p.gpu,
+            p.readback,
+            p.split,
+            p.download
+        );
+    }
+    if std::env::var("STRESS_GPU_BENCH_KERNELS").is_ok() {
+        let dt = 1.0 / 60.0 / 400.0;
+        world.solver.step(&gpu, dt, 1).expect("step");
+        for (name, secs) in world.solver.bench_kernels(&gpu, dt, 200) {
+            eprintln!("  {name:<28} {:8.1} us", secs * 1e6);
+        }
+    }
+    if let Some(path) = out {
+        std::fs::write(&path, serde_json::to_string_pretty(&obs).expect("json")).expect("write");
+    }
+}
