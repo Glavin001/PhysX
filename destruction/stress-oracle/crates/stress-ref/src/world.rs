@@ -1045,6 +1045,7 @@ impl World {
                 cluster_boxes[ci].1 = cluster_boxes[ci].1.component_max(center + r);
             }
             let mut candidates = Vec::new();
+            let mut touching = Vec::new();
             let mut by_cluster: Vec<Vec<usize>> = vec![Vec::new(); n_clusters];
             for (k, &(s, c)) in active.iter().enumerate() {
                 by_cluster[self.solver.chunks[s][c].cluster].push(k);
@@ -1062,19 +1063,14 @@ impl World {
                     if self.solver.clusters[ca].driven || self.solver.clusters[cb].driven {
                         continue;
                     }
-                    for &ka in &by_cluster[ca] {
-                        for &kb in &by_cluster[cb] {
-                            let ((pa, ra), (pb, rb)) = (bounds[ka], bounds[kb]);
-                            if (pa - pb).norm() > ra + rb {
-                                continue;
-                            }
-                            let (sa, chunk_a) = active[ka];
-                            let (sb, chunk_b) = active[kb];
-                            self.cached_box(&mut boxes, ka, sa, chunk_a);
-                            self.cached_box(&mut boxes, kb, sb, chunk_b);
-                            let key = (sa, chunk_a, sb, chunk_b);
-                            candidates.push((key, ka, kb, previous.remove(&key)));
-                        }
+                    sphere_pairs(&by_cluster[ca], &by_cluster[cb], &bounds, &mut touching);
+                    for &(ka, kb) in &touching {
+                        let (sa, chunk_a) = active[ka];
+                        let (sb, chunk_b) = active[kb];
+                        self.cached_box(&mut boxes, ka, sa, chunk_a);
+                        self.cached_box(&mut boxes, kb, sb, chunk_b);
+                        let key = (sa, chunk_a, sb, chunk_b);
+                        candidates.push((key, ka, kb, previous.remove(&key)));
                     }
                 }
             }
@@ -1318,6 +1314,7 @@ impl World {
                 by_cluster[ci].push(k);
             }
             let mut candidates = Vec::new();
+            let mut touching = Vec::new();
             for ca in 0..n_clusters {
                 for cb in ca + 1..n_clusters {
                     let ((a0, a1), (b0, b1)) = (cluster_boxes[ca], cluster_boxes[cb]);
@@ -1328,21 +1325,16 @@ impl World {
                     if (cla.anchored && clb.anchored) || cla.driven || clb.driven {
                         continue;
                     }
-                    for &ka in &by_cluster[ca] {
-                        for &kb in &by_cluster[cb] {
-                            let ((pa, ra), (pb, rb)) = (bounds[ka], bounds[kb]);
-                            if (pa - pb).norm() > ra + rb {
-                                continue;
-                            }
-                            // Pairs by chunk identity (lower first), not by cluster order,
-                            // which a split renumbers: the contact keeps its state.
-                            let (ka, kb) = if active[ka] < active[kb] { (ka, kb) } else { (kb, ka) };
-                            let ((sa, chunk_a), (sb, chunk_b)) = (active[ka], active[kb]);
-                            self.cached_box(&mut boxes, ka, sa, chunk_a);
-                            self.cached_box(&mut boxes, kb, sb, chunk_b);
-                            let key = ContactKey::Pair(sa, chunk_a, sb, chunk_b);
-                            candidates.push((key, ka, kb, previous.remove(&key).unwrap_or_default()));
-                        }
+                    sphere_pairs(&by_cluster[ca], &by_cluster[cb], &bounds, &mut touching);
+                    for &(ka, kb) in &touching {
+                        // Pairs by chunk identity (lower first), not by cluster order,
+                        // which a split renumbers: the contact keeps its state.
+                        let (ka, kb) = if active[ka] < active[kb] { (ka, kb) } else { (kb, ka) };
+                        let ((sa, chunk_a), (sb, chunk_b)) = (active[ka], active[kb]);
+                        self.cached_box(&mut boxes, ka, sa, chunk_a);
+                        self.cached_box(&mut boxes, kb, sb, chunk_b);
+                        let key = ContactKey::Pair(sa, chunk_a, sb, chunk_b);
+                        candidates.push((key, ka, kb, previous.remove(&key).unwrap_or_default()));
                     }
                 }
             }
@@ -2454,6 +2446,57 @@ fn pair_elastic_of(overlap: &Polytope, ba: &OBox, bb: &OBox, mat_a: &Material, m
     let (lo, hi) = overlap.faces().flat_map(|f| f.vertices.iter()).map(|v| v.dot(n)).fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), x| (lo.min(x), hi.max(x)));
     let geometry = LayerContact::with_normal(overlap, n)?;
     Some(PairElastic { elastic, k_n: kv / vol, k_t: ktv / vol, max_depth: (hi - lo).max(0.0), contact: Some(LayerContact { centroid: point, ..geometry }) })
+}
+
+/// The pairs `(ka, kb)`, `ka` from `a` and `kb` from `b`, whose bounding spheres
+/// (`bounds[k]`: centre, radius) touch, `|pa - pb| <= ra + rb`, written to `out` in the
+/// order of the all-pairs loop over `a` then `b`, and decided by exactly its test. A
+/// sweep along x only skips pairs that test would reject: a pair it accepts has
+/// `|xa - xb| <= (ra + rb) (1 + 4 eps)` (`|p| >= |p.x|`, the norm and the sum each
+/// rounded), so a window of `(ra + max rb) (1 + 8 eps)`, widened by the rounding of the
+/// window's own ends, holds every accepted pair.
+fn sphere_pairs(a: &[usize], b: &[usize], bounds: &[(Vec3, f64)], out: &mut Vec<(usize, usize)>) {
+    out.clear();
+    let touch = |ka: usize, kb: usize| {
+        let ((pa, ra), (pb, rb)) = (bounds[ka], bounds[kb]);
+        // As the all-pairs loop's `if |pa - pb| > ra + rb { continue }`, NaN included.
+        !((pa - pb).norm() > ra + rb)
+    };
+    let finite = |k: &usize| bounds[*k].0.x.is_finite() && bounds[*k].1.is_finite();
+    if a.len() * b.len() <= 64 || !a.iter().all(finite) || !b.iter().all(finite) {
+        for &ka in a {
+            for &kb in b {
+                if touch(ka, kb) {
+                    out.push((ka, kb));
+                }
+            }
+        }
+        return;
+    }
+    // b sorted by x: (x, position in b).
+    let mut sorted: Vec<(f64, usize)> = b.iter().enumerate().map(|(i, &kb)| (bounds[kb].0.x, i)).collect();
+    sorted.sort_by(|p, q| p.0.total_cmp(&q.0).then(p.1.cmp(&q.1)));
+    let r_max = b.iter().map(|&kb| bounds[kb].1).fold(0.0, f64::max);
+    let x_max = sorted.iter().map(|p| p.0.abs()).fold(0.0, f64::max);
+    let eps = f64::EPSILON;
+    let mut hits: Vec<usize> = Vec::new();
+    for &ka in a {
+        let (pa, ra) = bounds[ka];
+        let w = (ra + r_max) * (1.0 + 8.0 * eps) + 8.0 * eps * (pa.x.abs() + x_max);
+        let (lo, hi) = (pa.x - w, pa.x + w);
+        let start = sorted.partition_point(|p| p.0 < lo);
+        hits.clear();
+        for &(x, i) in &sorted[start..] {
+            if x > hi {
+                break;
+            }
+            if touch(ka, b[i]) {
+                hits.push(i);
+            }
+        }
+        hits.sort_unstable();
+        out.extend(hits.iter().map(|&i| (ka, b[i])));
+    }
 }
 
 /// A chunk's (or impactor's) shape as a polytope.
