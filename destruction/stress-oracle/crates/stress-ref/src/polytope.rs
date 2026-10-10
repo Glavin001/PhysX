@@ -448,8 +448,32 @@ fn cap_polygon(segments: &[(Vec3, Vec3)], normal: Vec3, pts: &mut Vec<(f64, f64,
     let u = normal.any_perpendicular().normalized();
     let v = normal.cross(u);
     pts.clear();
-    pts.extend(segments.iter().flat_map(|&(a, b)| [a, b]).map(|p| (p.dot(u), p.dot(v), p)));
-    pts.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.total_cmp(&b.1)));
+    // Each crossing point is usually both a face's exit and the next face's entry, bit
+    // for bit; a repeat is left out, as the deduplication below would drop it (it sorts
+    // next to the first, which is the one kept), unless its key is NaN (never equal).
+    for p in segments.iter().flat_map(|&(a, b)| [a, b]) {
+        let (pu, pv) = (p.dot(u), p.dot(v));
+        let same = |q: &(f64, f64, Vec3)| q.2.x.to_bits() == p.x.to_bits() && q.2.y.to_bits() == p.y.to_bits() && q.2.z.to_bits() == p.z.to_bits();
+        if pu.is_nan() || pv.is_nan() || !pts.iter().any(same) {
+            pts.push((pu, pv, p));
+        }
+    }
+    // Stable insertion sort by (u, v) in `total_cmp` order (as integer keys): a stable
+    // sort's result is unique, so this is the order of `sort_by` with that comparator.
+    let key = |x: f64| {
+        let b = x.to_bits() as i64;
+        b ^ (((b >> 63) as u64) >> 1) as i64
+    };
+    for i in 1..pts.len() {
+        let x = pts[i];
+        let kx = (key(x.0), key(x.1));
+        let mut j = i;
+        while j > 0 && (key(pts[j - 1].0), key(pts[j - 1].1)) > kx {
+            pts[j] = pts[j - 1];
+            j -= 1;
+        }
+        pts[j] = x;
+    }
     pts.dedup_by(|a, b| a.0 == b.0 && a.1 == b.1);
     if pts.len() < 3 {
         return;
@@ -1391,5 +1415,79 @@ mod tests {
         let zc = (r - d) - 3.0 * (2.0 * r - d).powi(2) / (4.0 * (3.0 * r - d));
         assert!((c.centroid.z - zc).abs() < 1e-12 && (c.depth + zc).abs() < 1e-12);
         assert!((c.area - std::f64::consts::PI * (2.0 * r * d - d * d)).abs() < 1e-12);
+    }
+
+    /// `cap_polygon` as first written (stable `sort_by`, then deduplication).
+    fn cap_polygon_reference(segments: &[(Vec3, Vec3)], normal: Vec3) -> Vec<Vec3> {
+        let u = normal.any_perpendicular().normalized();
+        let v = normal.cross(u);
+        let mut pts: Vec<(f64, f64, Vec3)> = segments.iter().flat_map(|&(a, b)| [a, b]).map(|p| (p.dot(u), p.dot(v), p)).collect();
+        pts.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.total_cmp(&b.1)));
+        pts.dedup_by(|a, b| a.0 == b.0 && a.1 == b.1);
+        if pts.len() < 3 {
+            return Vec::new();
+        }
+        let cross = |o: &(f64, f64, Vec3), a: &(f64, f64, Vec3), b: &(f64, f64, Vec3)| (a.0 - o.0) * (b.1 - o.1) - (a.1 - o.1) * (b.0 - o.0);
+        let mut hull: Vec<(f64, f64, Vec3)> = Vec::new();
+        for p in pts.iter() {
+            while hull.len() >= 2 && cross(&hull[hull.len() - 2], &hull[hull.len() - 1], p) <= 0.0 {
+                hull.pop();
+            }
+            hull.push(*p);
+        }
+        let lower = hull.len() + 1;
+        for p in pts.iter().rev().skip(1) {
+            while hull.len() >= lower && cross(&hull[hull.len() - 2], &hull[hull.len() - 1], p) <= 0.0 {
+                hull.pop();
+            }
+            hull.push(*p);
+        }
+        hull.pop();
+        hull.iter().map(|p| p.2).collect()
+    }
+
+    /// The cap of a clip is the reference's, bit for bit: shared crossing points, points
+    /// that coincide to round-off, collinear points, signed zeros and NaN.
+    #[test]
+    fn cap_polygon_matches_its_reference() {
+        let mut state = 11u64;
+        let mut next = || {
+            state = state.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            (state >> 11) as f64 / (1u64 << 53) as f64
+        };
+        let bits = |r: &[Vec3]| r.iter().map(|p| p.to_array().map(f64::to_bits)).collect::<Vec<_>>();
+        for trial in 0..3000 {
+            let normal = Vec3::new(next() - 0.5, next() - 0.5, next() - 0.5).normalized();
+            let n = 3 + (next() * 7.0) as usize;
+            let mut ring: Vec<Vec3> = (0..n)
+                .map(|_| {
+                    let c = |x: f64| if trial % 3 == 0 { (x * 4.0).round() / 4.0 } else { x };
+                    Vec3::new(c(next() * 2.0 - 1.0), c(next() * 2.0 - 1.0), c(next() * 2.0 - 1.0))
+                })
+                .collect();
+            if trial % 5 == 1 {
+                ring[0] = Vec3::new(-0.0, 0.0, -0.0);
+                ring[1] = Vec3::new(0.0, -0.0, 0.0);
+            }
+            if trial % 7 == 2 {
+                // Coincident to round-off, not bit for bit.
+                ring[1] = ring[0] + Vec3::new(f64::EPSILON, 0.0, 0.0);
+            }
+            if trial % 11 == 3 {
+                ring[2].y = f64::NAN;
+            }
+            // Segments head to tail (each point an exit and the next entry), some
+            // reversed, some repeated.
+            let mut segments: Vec<(Vec3, Vec3)> = (0..n).map(|i| (ring[i], ring[(i + 1) % n])).collect();
+            if trial % 4 == 0 {
+                segments.reverse();
+            }
+            if trial % 6 == 5 {
+                segments.push(segments[0]);
+            }
+            let (mut pts, mut hull, mut out) = (Vec::new(), Vec::new(), Vec::new());
+            cap_polygon(&segments, normal, &mut pts, &mut hull, &mut out);
+            assert_eq!(bits(&out), bits(&cap_polygon_reference(&segments, normal)), "trial {trial}");
+        }
     }
 }
