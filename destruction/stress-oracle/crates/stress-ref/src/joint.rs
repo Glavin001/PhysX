@@ -364,6 +364,30 @@ pub struct JointResponse {
 /// Springs per side of the cracked joint's no-tension patch.
 pub const CONTACT_SPRINGS: usize = 6;
 
+/// The `CONTACT_SPRINGS^2` no-tension springs of a joint's contact patch (normal
+/// stiffness `kn` shared among them): (sum of spring forces, moments about the patch
+/// axes, stored energy) at opening `dz + ax s2 - ay s1`.
+#[inline(never)]
+fn spring_patch(kn: f64, width: [f64; 2], dz: f64, ax: f64, ay: f64) -> (f64, f64, f64, f64) {
+    let (mut nc_sum, mut m1, mut m2, mut energy) = (0.0, 0.0, 0.0, 0.0);
+    let n = CONTACT_SPRINGS;
+    let ki = kn / (n * n) as f64;
+    let (o1, o2) = (spring_offsets(width[0]), spring_offsets(width[1]));
+    for &s1 in &o1 {
+        for &s2 in &o2 {
+            let di = dz + ax * s2 - ay * s1;
+            if di < 0.0 {
+                let f = ki * di;
+                nc_sum += f;
+                m1 += f * s2;
+                m2 -= f * s1;
+                energy += 0.5 * ki * di * di;
+            }
+        }
+    }
+    (nc_sum, m1, m2, energy)
+}
+
 /// Positions of the contact springs across a patch of the given width (centred).
 fn spring_offsets(width: f64) -> [f64; CONTACT_SPRINGS] {
     std::array::from_fn(|i| ((i as f64 + 0.5) / CONTACT_SPRINGS as f64 - 0.5) * width)
@@ -504,26 +528,9 @@ impl<'a> JointModel<'a> {
             // No-tension multi-spring patch (the Applied Element Method's spring grid):
             // each spring carries compression only, so a cracked joint rocks about its
             // compressed edge and develops arching thrust when restrained.
-            let (mut nc_sum, mut m1, mut m2, mut energy) = (0.0, 0.0, 0.0, 0.0);
-            if s.exact_patch {
-                (nc_sum, m1, m2, energy) = no_tension_patch(k.kn * (1.0 - st.crush), g.width, d.lin.z, d.ang.x, d.ang.y);
-            } else {
-                let n = CONTACT_SPRINGS;
-                let ki = k.kn * (1.0 - st.crush) / (n * n) as f64;
-                let (o1, o2) = (spring_offsets(g.width[0]), spring_offsets(g.width[1]));
-                for &s1 in &o1 {
-                    for &s2 in &o2 {
-                        let di = d.lin.z + d.ang.x * s2 - d.ang.y * s1;
-                        if di < 0.0 {
-                            let f = ki * di;
-                            nc_sum += f;
-                            m1 += f * s2;
-                            m2 -= f * s1;
-                            energy += 0.5 * ki * di * di;
-                        }
-                    }
-                }
-            }
+            let kn = k.kn * (1.0 - st.crush);
+            let (nc_sum, m1, m2, mut energy) =
+                if s.exact_patch { no_tension_patch(kn, g.width, d.lin.z, d.ang.x, d.ang.y) } else { spring_patch(kn, g.width, d.lin.z, d.ang.x, d.ang.y) };
             let nc = -nc_sum;
             let mut p: Local6 = st.plastic.into();
             let mut q = Local6 { lin: Vec3::new(0.0, 0.0, nc_sum), ang: Vec3::new(m1, m2, 0.0) };
