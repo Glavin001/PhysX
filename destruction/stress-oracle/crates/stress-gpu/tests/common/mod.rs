@@ -45,7 +45,7 @@ pub fn difference(reference: &Observation, other: &Observation) -> (f64, Vec<Str
 }
 
 pub fn perturbed(scene: &Scene) -> Scene {
-    perturbed_by(scene, std::env::var("STRESS_GPU_PERTURB").ok().and_then(|v| v.parse::<f64>().ok()).unwrap_or(1e-6))
+    perturbed_by(scene, std::env::var("STRESS_GPU_PERTURB").ok().and_then(|v| v.parse::<f64>().ok()).unwrap_or(1e-4))
 }
 
 /// The scene with its impactor and body velocities and gravity scaled by `1 + eps`.
@@ -62,21 +62,14 @@ pub fn perturbed_by(scene: &Scene, eps: f64) -> Scene {
     s
 }
 
-/// The reference's sensitivity to its inputs: the run perturbed by 1e-6, or, where that
-/// already moves a probe by more than 1e-3 of its range (a chaotic scene, whose
-/// trajectories separate whatever the perturbation), the larger of that and a 1e-4
-/// perturbation.
-pub fn spread_run(scene: &Scene, reference: &Observation) -> Observation {
-    let small = stress_ref::world::World::new(&perturbed(scene)).run();
-    if difference(reference, &small).0 <= 1e-3 {
-        return small;
-    }
-    let large = stress_ref::world::World::new(&perturbed_by(scene, 1e-4)).run();
-    if difference(reference, &large).0 > difference(reference, &small).0 {
-        large
-    } else {
-        small
-    }
+/// The reference's sensitivity to its inputs: the run with its inputs perturbed by
+/// 1e-4 (`STRESS_GPU_PERTURB` overrides). That is the size of the GPU's own perturbation:
+/// f32 arithmetic moves even smooth, intact runs by 1e-5 to 5e-4 of their range over
+/// thousands of substeps (the cantilevers, the bar wave), so wherever the reference
+/// separates under a 1e-4 change (fracture cascades, fatigue and settling thresholds),
+/// the GPU may separate as far.
+pub fn spread_run(scene: &Scene, _reference: &Observation) -> Observation {
+    stress_ref::world::World::new(&perturbed(scene)).run()
 }
 
 /// The scene at half the reference's substep (its Courant safety halved).

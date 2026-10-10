@@ -1,5 +1,12 @@
-//! The standalone world on the GPU: stress-ref `World::step_frame` (explicit mode)
-//! with the stress solve, scripted loads and probes on the GPU (`GpuSolver`).
+//! The standalone world on the GPU: stress-ref `World::step_frame` (explicit, adaptive
+//! and quasi-static modes) with the stress solve, scripted loads and probes on the GPU
+//! (`GpuSolver`).
+//!
+//! Adaptive and quasi-static modes: settled clusters move rigidly on the GPU (and, in
+//! adaptive mode, wake there when their loads change); the frame's static solves (settle,
+//! settled fatigue, the quasi-static cascade) run the reference's own code on the mirror
+//! with the external loads the GPU recorded, as the plan keeps static solves on the host
+//! until they move to the GPU.
 //!
 //! A stress-ref `World` is kept as the host shell: it supplies the prestressed initial
 //! state, the substep schedule (`substep_dt`) and the observation assembly, run on the
@@ -10,7 +17,8 @@
 use stress_ref::math::Vec3;
 use stress_ref::observation::{Observation, ProbeSeries};
 use stress_ref::scene::{EventDesc, LoadDesc, ProbeKind, Scene, SectionComponent, SolveMode};
-use stress_ref::solver::ReferenceSolver;
+use stress_ref::solver::{Activity, ChunkLoads, ReferenceSolver};
+use stress_ref::statics::StaticOptions;
 use stress_ref::world::World;
 
 use crate::gpu::Gpu;
@@ -36,12 +44,14 @@ pub struct GpuWorld {
     probes: Vec<ProbeAcc>,
     next_sample: f64,
     sample_interval: f64,
+    /// Host time (s) in the frame tails (static solves on the mirror, rebuilds).
+    pub tail_seconds: f64,
 }
 
 /// Why a scene cannot run on the GPU yet.
 pub fn unsupported(scene: &Scene) -> Option<String> {
-    if scene.sim.solve_mode != SolveMode::Explicit {
-        return Some(format!("solve mode {:?} (only explicit so far)", scene.sim.solve_mode));
+    if scene.sim.solve_mode == SolveMode::Implicit {
+        return Some("implicit solve mode".into());
     }
     if scene.sim.methods.layer_contact {
         return Some("layer contact (the penalty contact is on the GPU so far)".into());
@@ -73,6 +83,7 @@ impl GpuWorld {
             probes: vec![ProbeAcc::default(); scene.probes.len()],
             next_sample: 0.0,
             sample_interval: scene.sim.sample_interval.unwrap_or(scene.sim.frame_dt),
+            tail_seconds: 0.0,
         };
         let values: Vec<f64> = (0..scene.probes.len()).map(|p| w.probe_value(p)).collect();
         w.record(w.solver.mirror.time, &values, true);
@@ -140,6 +151,9 @@ impl GpuWorld {
     pub fn step_frame(&mut self, gpu: &Gpu) -> Result<(), String> {
         let dt = self.with_shell(|w| w.substep_dt());
         let n = (self.scene.sim.frame_dt / dt).round().max(1.0) as usize;
+        let sum = &mut self.solver.frame_load_sum;
+        sum.ensure_shape(&self.solver.mirror);
+        sum.clear();
         let mut done = 0;
         while done < n {
             let t = self.solver.mirror.time;
@@ -180,7 +194,101 @@ impl GpuWorld {
             done += len;
         }
         self.frame += 1;
+        let tail = std::time::Instant::now();
+        let changed = match self.scene.sim.solve_mode {
+            SolveMode::QuasiStatic => {
+                // world.rs: the frame's average loads, equilibrium with same-step cascade.
+                let mut fl = self.solver.frame_load_sum.clone();
+                fl.scale(1.0 / n as f64);
+                let opts = StaticOptions { cascade: true, ..Default::default() };
+                if !self.solver.mirror.solve_static_all(&fl, &opts, self.scene.sim.frame_dt).converged {
+                    self.shell.static_unconverged_frames += 1;
+                }
+                true
+            }
+            SolveMode::Adaptive => {
+                let settled = self.settle_quiet_clusters();
+                self.advance_settled_fatigue() || settled
+            }
+            _ => false,
+        };
+        if changed {
+            if let Some(l) = self.solver.loads.as_mut() {
+                l.topology_version += 1;
+            }
+            self.solver.rebuild(gpu, 0.0)?;
+        }
+        self.tail_seconds += tail.elapsed().as_secs_f64();
         Ok(())
+    }
+
+    /// world.rs `settle_quiet_clusters`: clusters whose last dynamic load is older than
+    /// `active_time` and whose deformation has calmed down go to static equilibrium.
+    /// True if any did (or tried to).
+    fn settle_quiet_clusters(&mut self) -> bool {
+        let fdt = self.scene.sim.frame_dt;
+        let loads: ChunkLoads = self.solver.last_loads.clone();
+        let m = &mut self.solver.mirror;
+        let mut any = false;
+        for ci in 0..m.clusters.len() {
+            if m.clusters[ci].activity != Activity::Active {
+                continue;
+            }
+            m.clusters[ci].active_timer -= fdt;
+            if m.clusters[ci].active_timer > 0.0 || m.clusters[ci].bonds.is_empty() {
+                continue;
+            }
+            let s = m.clusters[ci].structure;
+            let ke: f64 = m.clusters[ci]
+                .chunks
+                .iter()
+                .map(|&c| {
+                    let ch = &m.structures[s].chunks[c];
+                    let st = &m.chunks[s][c];
+                    0.5 * ch.mass * st.v.norm2() + 0.5 * st.w.dot(ch.inertia * st.w)
+                })
+                .sum();
+            let stored: f64 = m.clusters[ci].bonds.iter().map(|&b| m.bonds[s][b].stored).sum();
+            if ke > 1e-3 * stored.max(1e-9) {
+                continue;
+            }
+            any = true;
+            let opts = StaticOptions { cascade: true, max_cascade: 1, ..Default::default() };
+            if !m.equilibrate_or_keep(ci, &loads, &opts).converged {
+                // No static equilibrium (a mechanism): it stays in the explicit solve.
+                m.clusters[ci].active_timer = m.config.active_time;
+                continue;
+            }
+            m.clusters[ci].activity = Activity::Settled;
+            let cl = &m.clusters[ci];
+            m.clusters[ci].settled_load_norm = cl.chunks.iter().map(|&c| loads.force[cl.structure][c].norm()).sum();
+        }
+        any
+    }
+
+    /// world.rs `advance_settled_fatigue`: settled clusters' bonds evaluated at their
+    /// equilibrium with the frame's duration; damage wakes the cluster, a disconnection
+    /// splits it. True if anything changed.
+    fn advance_settled_fatigue(&mut self) -> bool {
+        let fdt = self.scene.sim.frame_dt;
+        let m = &mut self.solver.mirror;
+        let mut any = false;
+        for ci in (0..m.clusters.len()).rev() {
+            let cl = &m.clusters[ci];
+            if cl.activity != Activity::Settled || cl.bonds.is_empty() {
+                continue;
+            }
+            let (changed, disconnected) = m.commit_damage(ci, fdt);
+            any = true;
+            if changed || disconnected {
+                m.clusters[ci].activity = Activity::Active;
+                m.clusters[ci].active_timer = m.config.active_time;
+            }
+            if disconnected {
+                m.split_cluster(ci);
+            }
+        }
+        any
     }
 
     /// Run the scene to its duration and return the observation.

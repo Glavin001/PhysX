@@ -3,9 +3,10 @@
 //! the reference's probe range) and by the observation's outcome values.
 //!
 //! Fracture cascades can be chaotic: tiny differences grow into different breakage.
-//! Each comparison is therefore set beside the reference's own sensitivity: the same
-//! scene run by the reference with its impactor and body velocities and gravity scaled
-//! by (1 + 1e-6). `STRESS_GPU_SCENES=b5,b7` restricts the scenes.
+//! Each comparison is therefore set beside the reference's own spread: the scene run
+//! with its impactor and body velocities and gravity scaled by (1 + 1e-4), the size of
+//! the GPU's own f32 perturbation, and at half the substep (`common::gate`).
+//! `STRESS_GPU_SCENES=b5,b7` restricts the scenes.
 
 use stress_gpu::gpu::Gpu;
 use stress_gpu::world::{unsupported, GpuWorld};

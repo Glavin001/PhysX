@@ -15,6 +15,11 @@ public static const uint ISLAND_HALTED = 1;
 public static const uint ISLAND_CONTACT = 4;
 // Island flag: the island spreads over many threadgroups (wide kernels).
 public static const uint ISLAND_WIDE = 8;
+// Island flag: held at quasi-static equilibrium (adaptive and quasi-static modes): it
+// moves rigidly only, its chunk state frozen.
+public static const uint ISLAND_SETTLED = 16;
+// Island status: a settled island woke (its external loads changed) during the batch.
+public static const uint ISLAND_WOKE = 4;
 
 // Static data of a chunk (body frame of its cluster), with its contact data.
 public struct ChunkStatic
@@ -63,7 +68,7 @@ public struct Island
     public float4 angular_velocity;
     public uint4 done;        // x: substeps run (narrow: in the last dispatch); z: wide chunk groups
     public uint4 probes;      // probe items [x, y) in `loads`
-    public float4 energy;     // external work (compensated: x + y)
+    public float4 energy;     // external work (compensated: x + y); settled: z load norm when it settled, w the change that wakes it
 };
 
 // ------------------------------------------------------------------ rigid math

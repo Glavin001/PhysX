@@ -76,10 +76,14 @@ struct Params
     uint seg_index;          // index: contact segments (chunk, begin, end)
     uint seg_count;
     uint seg_base;           // scratch: contact segment sums (force, torque)
+    uint solve_mode;         // 0 explicit, 1 adaptive (settled islands can wake), 2 quasi-static
+    uint cload_base;         // scratch: each chunk's external load of its last substep (2 float4)
+    uint cframe_base;        // scratch: each chunk's external load summed over the frame (2 float4)
     uint pad0;
-    uint pad1;
-    uint pad2;
 };
+
+static const uint MODE_EXPLICIT = 0;
+static const uint MODE_ADAPTIVE = 1;
 
 struct MaterialTable
 {
@@ -1222,6 +1226,30 @@ struct Rigid
     float3 alpha;
 };
 
+// The external (non-gravity) load of chunk c this substep (world.rs `loads`), for the
+// host's settle, wake and quasi-static solves: the last substep's, and the frame's sum.
+void record_chunk_load(uint c, float3 f, float3 t)
+{
+    if (params.solve_mode == MODE_EXPLICIT)
+        return;
+    scratch[params.cload_base + 2 * c] = float4(f, 0.0);
+    scratch[params.cload_base + 2 * c + 1] = float4(t, 0.0);
+    scratch[params.cframe_base + 2 * c] = float4(scratch[params.cframe_base + 2 * c].xyz + f, 0.0);
+    scratch[params.cframe_base + 2 * c + 1] = float4(scratch[params.cframe_base + 2 * c + 1].xyz + t, 0.0);
+}
+
+// A settled chunk this substep: its external load recorded, its norm returned
+// (world.rs `cluster_load_norm` term).
+float settled_chunk_load(uint c, Quat rot, uint k, float dt, bool contact)
+{
+    ChunkStatic ch = chunks[c];
+    float3 f;
+    float3 t;
+    chunk_external(c, ch, rot, k, dt, contact, f, t);
+    record_chunk_load(c, f, t);
+    return length(f);
+}
+
 void chunk_update(uint c, Island isl, Rigid rg, float dt, bool rml, uint step, bool contact, inout float work, inout float work_err)
 {
     ChunkStatic ch = chunks[c];
@@ -1255,6 +1283,7 @@ void chunk_update(uint c, Island isl, Rigid rg, float dt, bool rml, uint step, b
     float3 f_load;
     float3 t_load;
     chunk_external(c, ch, rg.rot, step, dt, contact, f_load, t_load);
+    record_chunk_load(c, f_load, t_load);
     float3 f_world = f_load + params.gravity.xyz * mass;
     float3 t_world = t_load;
     if (rml)
@@ -1505,6 +1534,8 @@ void island_frame(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
     bool driven = (isl.info.x & ISLAND_DRIVEN) != 0;
     bool free_motion = !anchored && !driven;
     bool contact_island = (isl.info.x & ISLAND_CONTACT) != 0;
+    bool settled = (isl.info.x & ISLAND_SETTLED) != 0;
+    bool woke = false;
     // Batch control: read once, uniformly for the whole group. Wide islands run in
     // their own kernels.
     if (tid == 0)
@@ -1531,6 +1562,21 @@ void island_frame(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
     {
         uint abs_step = isl.info.w + s + 1;
         uint k = abs_step - 1 - params.step_start; // substeps since the host's step began
+        // 0. A settled island (world.rs `wake_loaded_clusters`): its loads recorded;
+        // it wakes, and takes this substep explicitly, when they changed.
+        if (settled)
+        {
+            float3 norm = float3(0.0);
+            float3 unused0 = float3(0.0);
+            for (uint c = isl.range.x + tid; c < isl.range.y; c += THREADS)
+                norm.x += settled_chunk_load(c, rg.rot, k, dt, contact_island);
+            group_sum3(tid, norm, unused0);
+            if (params.solve_mode == MODE_ADAPTIVE && abs(norm.x - isl.energy.z) > isl.energy.w)
+            {
+                settled = false;
+                woke = true;
+            }
+        }
         // 1. Rigid acceleration of a free cluster.
         if (!anchored)
         {
@@ -1540,6 +1586,16 @@ void island_frame(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
                 net_load(c, isl, rg, k, dt, contact_island, f, t);
             group_sum3(tid, f, t);
             rigid_acceleration(isl, rg, f, t);
+        }
+        if (settled)
+        {
+            // Rigid motion only (solver.rs `advance_rigid_only`).
+            if (free_motion)
+                integrate_rigid(isl, rg, dt);
+            if (tid == 0 && isl.probes.y > isl.probes.x)
+                record_probes(isl, rg, k);
+            done = s + 1;
+            continue;
         }
         // 2. Bonds.
         for (uint i = isl.range.z + tid; i < isl.range.w; i += THREADS)
@@ -1605,6 +1661,11 @@ void island_frame(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
         isl.info.w += done;
         if (g_halt != 0)
             isl.info.z |= ISLAND_HALTED;
+        if (woke)
+        {
+            isl.info.x &= ~ISLAND_SETTLED;
+            isl.info.z |= ISLAND_WOKE;
+        }
         islands[group.x] = isl;
     }
 }
@@ -1690,6 +1751,33 @@ uint wide_step(Island isl)
     return isl.info.w - params.step_start;
 }
 
+// A settled wide island this substep (the island's first group, before the round): its
+// loads recorded, and the wake check.
+[shader("compute")]
+[numthreads(256, 1, 1)]
+void wide_wake(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
+{
+    uint tid = thread.x;
+    WideGroup wg = wide_group(params.wide_chunk_table, group.x);
+    if (group.x != wg.first)
+        return;
+    Island isl = islands[wg.island];
+    if ((isl.info.x & ISLAND_SETTLED) == 0 || !wide_enter(tid, isl))
+        return;
+    Quat rot = quat_of(isl.rotation);
+    bool contact = (isl.info.x & ISLAND_CONTACT) != 0;
+    float3 norm = float3(0.0);
+    float3 unused = float3(0.0);
+    for (uint c = isl.range.x + tid; c < isl.range.y; c += THREADS)
+        norm.x += settled_chunk_load(c, rot, wide_step(isl), params.dt, contact);
+    group_sum3(tid, norm, unused);
+    if (tid == 0 && params.solve_mode == MODE_ADAPTIVE && abs(norm.x - isl.energy.z) > isl.energy.w)
+    {
+        islands[wg.island].info.x = isl.info.x & ~ISLAND_SETTLED;
+        islands[wg.island].info.z = isl.info.z | ISLAND_WOKE;
+    }
+}
+
 [shader("compute")]
 [numthreads(256, 1, 1)]
 void wide_bonds(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
@@ -1703,6 +1791,8 @@ void wide_bonds(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
     uint k = wide_step(isl);
     if (bond_group)
     {
+        if ((isl.info.x & ISLAND_SETTLED) != 0)
+            return;
         uint i = wg.begin + tid;
         if (i < wg.end && bond_update(i, params.dt, params.fracture != 0, isl.info.w + 1))
             islands[wg.island].info.z = isl.info.z | ISLAND_HALT_PENDING;
@@ -1744,6 +1834,13 @@ void wide_chunks(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
     if (!wide_enter(tid, isl))
         return;
     bool anchored = (isl.info.x & ISLAND_ANCHORED) != 0;
+    if ((isl.info.x & ISLAND_SETTLED) != 0)
+    {
+        // Rigid motion only; its loads were recorded by `wide_wake`.
+        if (tid == 0)
+            scratch[params.wide_base + 8 * group.x + 6] = float4(0.0);
+        return;
+    }
     Rigid rg = wide_rigid_frame(tid, isl, wg);
     float work = 0.0;
     float work_err = 0.0;
@@ -1776,7 +1873,7 @@ void wide_drift(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
     uint tid = thread.x;
     WideGroup wg = wide_group(params.wide_chunk_table, group.x);
     Island isl = islands[wg.island];
-    if ((isl.info.x & ISLAND_ANCHORED) != 0 || !wide_enter(tid, isl))
+    if ((isl.info.x & (ISLAND_ANCHORED | ISLAND_SETTLED)) != 0 || !wide_enter(tid, isl))
         return;
     float3 tu;
     float3 pv;
@@ -1802,6 +1899,23 @@ void wide_rigid(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
     Island isl = islands[wg.island];
     if ((isl.info.x & ISLAND_ANCHORED) != 0 || !wide_enter(tid, isl))
         return;
+    if ((isl.info.x & ISLAND_SETTLED) != 0)
+    {
+        // Rigid motion only (solver.rs `advance_rigid_only`).
+        if (group.x != wg.first)
+            return;
+        Rigid rs = wide_rigid_frame(tid, isl, wg);
+        if (tid != 0 || (isl.info.x & ISLAND_DRIVEN) != 0)
+            return;
+        integrate_rigid(isl, rs, params.dt);
+        islands[wg.island].rotation = quat_vec(rs.rot);
+        islands[wg.island].position = float4(rs.pos, 0.0);
+        islands[wg.island].position_err = float4(rs.pos_err, 0.0);
+        islands[wg.island].velocity = float4(rs.vel, 0.0);
+        islands[wg.island].velocity_err = float4(rs.vel_err, 0.0);
+        islands[wg.island].angular_velocity = float4(rs.w, 0.0);
+        return;
+    }
     float3 tu;
     float3 pv;
     wide_partials(tid, wg.first, isl.done.z, 2, tu, pv);

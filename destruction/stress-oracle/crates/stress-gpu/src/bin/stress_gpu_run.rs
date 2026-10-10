@@ -4,6 +4,8 @@
 //!
 //! `--pack`: the file is an authored scene pack (`stress_ref::scene_pack`).
 //! `--true-step`: run at the true stable step (`stability::with_true_step`, safety 0.9).
+//! `--set path=value`: override a scene field (`Scene::with_override`), e.g.
+//! `--set sim.solve_mode=adaptive`.
 
 use std::time::Instant;
 
@@ -15,6 +17,7 @@ fn main() {
     let mut args = std::env::args().skip(1);
     let name = args.next().expect("scene file or catalogue name");
     let (mut out, mut duration, mut profile, mut pack, mut true_step) = (None, None, false, false, false);
+    let mut overrides: Vec<String> = Vec::new();
     while let Some(a) = args.next() {
         match a.as_str() {
             "--out" => out = args.next(),
@@ -22,6 +25,7 @@ fn main() {
             "--profile" => profile = true,
             "--pack" => pack = true,
             "--true-step" => true_step = true,
+            "--set" => overrides.push(args.next().expect("--set path=value")),
             other => panic!("unknown argument {other}"),
         }
     }
@@ -37,6 +41,10 @@ fn main() {
             .find(|s| s.name == name)
             .unwrap_or_else(|| panic!("no catalogue scene {name}"))
     };
+    for o in &overrides {
+        let (path, value) = o.split_once('=').expect("--set path=value");
+        scene = scene.with_override(path, value).unwrap_or_else(|e| panic!("--set {o}: {e}"));
+    }
     if let Some(d) = duration {
         scene.sim.duration = d;
     }
@@ -77,6 +85,7 @@ fn main() {
             p.split,
             p.download
         );
+        eprintln!("frame tails (host static solves, rebuilds): {:.2} s", world.tail_seconds);
         for (k, name) in stress_gpu::solver::KERNEL_NAMES.iter().enumerate() {
             if p.kernel_dispatches[k] > 0 {
                 eprintln!("  {name:<20} {:8.3} s GPU over {:>7} dispatches ({:6.1} us each)", p.kernels[k], p.kernel_dispatches[k], p.kernels[k] / p.kernel_dispatches[k] as f64 * 1e6);

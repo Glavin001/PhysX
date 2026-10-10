@@ -57,6 +57,7 @@ pub mod shaders {
             ("wide_drift", (256, 1, 1)),
             ("wide_rigid", (256, 1, 1)),
             ("wide_end", (256, 1, 1)),
+            ("wide_wake", (256, 1, 1)),
         ]);
     pub const STRESS_RENDER: ShaderSet = shader_set!("stress_render", [("stress_vs", (1, 1, 1)), ("stress_fs", (1, 1, 1))]);
 }
