@@ -17,6 +17,12 @@ use crate::solver::{Activity, ChunkLoads, ChunkState, ReferenceSolver};
 
 pub(crate) type V6 = [f64; 6];
 
+/// Newton steps of a static solve taken by the PCG before a direct solve may take over.
+const DIRECT_AFTER: usize = 10;
+/// Widest band (degrees of freedom) and largest band storage the direct solve takes on.
+const DIRECT_MAX_BAND: usize = 600;
+const DIRECT_MAX_ENTRIES: usize = 4_000_000;
+
 pub(crate) fn dot6(a: &[V6], b: &[V6]) -> f64 {
     a.iter().zip(b).map(|(x, y)| (0..6).map(|i| x[i] * y[i]).sum::<f64>()).sum()
 }
@@ -397,6 +403,107 @@ impl ReferenceSolver {
         pcg_solve(|x| self.apply_k(ci, lay, k, x), precondition, r0, tol)
     }
 
+    /// `K x = r` for an anchored cluster's tangent stiffness `K` (bond stiffnesses `k`,
+    /// held degrees of freedom as identity rows, as `apply_k`) by Cholesky of its band
+    /// (chunks in layout order). None when the band is too wide to pay or `K` is not
+    /// positive definite (the caller then uses the PCG).
+    fn banded_tangent_solve(&self, ci: usize, lay: &Layout, k: &[Mat6], r: &[V6]) -> Option<Vec<V6>> {
+        let cl = &self.clusters[ci];
+        let s = cl.structure;
+        let n = lay.chunks.len() * 6;
+        let bw_chunks = cl.bonds.iter().map(|&bi| {
+            let g = &self.bonds[s][bi].geometry;
+            lay.local[g.a].abs_diff(lay.local[g.b])
+        }).max()?;
+        let band = 6 * (bw_chunks + 1);
+        if band > DIRECT_MAX_BAND || n * band > DIRECT_MAX_ENTRIES {
+            return None;
+        }
+        // Row i, column j (i - band < j <= i) at a[i * band + (j + band - 1 - i)].
+        let pos = |i: usize, j: usize| i * band + (j + band - 1 - i);
+        let mut a = vec![0.0f64; n * band];
+        for (jb, &bi) in cl.bonds.iter().enumerate() {
+            let g = &self.bonds[s][bi].geometry;
+            let (ia, ib) = (lay.local[g.a], lay.local[g.b]);
+            let axes = [g.t1, g.t2, g.normal];
+            // The six kinematic rows (as `block_jacobi`) on the pair's 12 DOFs.
+            let rows: [[f64; 12]; 6] = std::array::from_fn(|comp| {
+                let t = axes[comp % 3];
+                let (ra, rb) = if comp < 3 { (join(-t, -(g.ra.cross(t))), join(t, g.rb.cross(t))) } else { (join(Vec3::ZERO, -t), join(Vec3::ZERO, t)) };
+                std::array::from_fn(|x| if x < 6 { ra[x] } else { rb[x - 6] })
+            });
+            let mut kb = [[0.0f64; 12]; 12];
+            for p in 0..6 {
+                for q in 0..6 {
+                    let kpq = k[jb].0[p][q];
+                    if kpq == 0.0 {
+                        continue;
+                    }
+                    for x in 0..12 {
+                        for y in 0..12 {
+                            kb[x][y] += kpq * rows[p][x] * rows[q][y];
+                        }
+                    }
+                }
+            }
+            let base = [6 * ia, 6 * ib];
+            for x in 0..12 {
+                for y in 0..12 {
+                    let (gi, gj) = (base[x / 6] + x % 6, base[y / 6] + y % 6);
+                    if gi >= gj {
+                        a[pos(gi, gj)] += kb[x][y];
+                    }
+                }
+            }
+        }
+        for (i, f) in lay.fixed.iter().enumerate() {
+            for d in 0..6 {
+                if f[d] {
+                    let gi = 6 * i + d;
+                    for j in (gi + 1).saturating_sub(band)..=gi {
+                        a[pos(gi, j)] = 0.0;
+                    }
+                    for j in gi..(gi + band).min(n) {
+                        a[pos(j, gi)] = 0.0;
+                    }
+                    a[pos(gi, gi)] = 1.0;
+                }
+            }
+        }
+        // Cholesky L L^T in place, row by row.
+        for i in 0..n {
+            let lo_i = (i + 1).saturating_sub(band);
+            for j in lo_i..=i {
+                let lo = lo_i.max((j + 1).saturating_sub(band));
+                let (ri, rj) = (pos(i, lo), pos(j, lo));
+                let dot: f64 = a[ri..ri + (j - lo)].iter().zip(&a[rj..rj + (j - lo)]).map(|(x, y)| x * y).sum();
+                let v = a[pos(i, j)] - dot;
+                if i == j {
+                    if !(v > 0.0) {
+                        return None;
+                    }
+                    a[pos(i, i)] = v.sqrt();
+                } else {
+                    a[pos(i, j)] = v / a[pos(j, j)];
+                }
+            }
+        }
+        let mut y: Vec<f64> = r.iter().flat_map(|v| v.iter().copied()).collect();
+        for i in 0..n {
+            let lo = (i + 1).saturating_sub(band);
+            let dot: f64 = a[pos(i, lo)..pos(i, i)].iter().zip(&y[lo..i]).map(|(x, y)| x * y).sum();
+            y[i] = (y[i] - dot) / a[pos(i, i)];
+        }
+        for i in (0..n).rev() {
+            let mut v = y[i];
+            for j in i + 1..(i + band).min(n) {
+                v -= a[pos(j, i)] * y[j];
+            }
+            y[i] = v / a[pos(i, i)];
+        }
+        Some(y.chunks(6).map(|c| [c[0], c[1], c[2], c[3], c[4], c[5]]).collect())
+    }
+
     /// External chunk loads of a cluster in its body frame (gravity, given loads,
     /// replacement loads, minus rigid inertial loads), per local chunk.
     pub(crate) fn static_loads(&self, ci: usize, lay: &Layout, loads: &ChunkLoads) -> Vec<V6> {
@@ -442,7 +549,19 @@ impl ReferenceSolver {
                 break;
             }
             let k = self.newton_stiffness(ci, false);
-            let (dx, cg) = self.pcg(ci, &lay, &k, &r, (opts.tolerance * 0.1).max(1e-14));
+            // A solve still unconverged after DIRECT_AFTER Newton steps takes its remaining
+            // steps by a direct (banded Cholesky) solve of the same system where it fits:
+            // about twice as fast as the PCG's 500-900 iterations there, and exact to
+            // round-off rather than to the PCG's tolerance. Earlier steps are the PCG's, so
+            // every solve that converges within them is unchanged.
+            let direct = if it >= DIRECT_AFTER && !free { self.banded_tangent_solve(ci, &lay, &k, &r) } else { None };
+            let (dx, cg) = match direct {
+                Some(dx) => {
+                    crate::profile::count(crate::profile::Counter::DirectSolves, 1);
+                    (dx, 0)
+                }
+                None => self.pcg(ci, &lay, &k, &r, (opts.tolerance * 0.1).max(1e-14)),
+            };
             report.cg_iterations += cg;
             for (i, &c) in lay.chunks.iter().enumerate() {
                 let (du, dth) = split(&dx[i]);

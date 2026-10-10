@@ -88,6 +88,7 @@ pub enum Counter {
     StaticConverged,
     NewtonIterations,
     CgIterations,
+    DirectSolves,
     PairCandidates,
     PairOverlaps,
     PolytopeClips,
@@ -100,7 +101,7 @@ pub enum Counter {
     StepByMaxSubstep,
 }
 
-const COUNTERS: [(Counter, &str); 20] = [
+const COUNTERS: [(Counter, &str); 21] = [
     (Counter::Frames, "frames"),
     (Counter::Substeps, "substeps"),
     (Counter::ExplicitClusters, "explicit cluster-substeps"),
@@ -111,6 +112,7 @@ const COUNTERS: [(Counter, &str); 20] = [
     (Counter::StaticConverged, "static solves converged"),
     (Counter::NewtonIterations, "static Newton iterations"),
     (Counter::CgIterations, "static CG iterations"),
+    (Counter::DirectSolves, "static direct (banded) solves"),
     (Counter::PairCandidates, "chunk-pair candidates"),
     (Counter::PairOverlaps, "chunk-pair overlaps"),
     (Counter::PolytopeClips, "polytope clips"),
@@ -126,7 +128,7 @@ const COUNTERS: [(Counter, &str); 20] = [
 static ENABLED: AtomicBool = AtomicBool::new(false);
 static FROM_ENV: OnceLock<()> = OnceLock::new();
 static NANOS: [AtomicU64; 30] = [const { AtomicU64::new(0) }; 30];
-static COUNTS: [AtomicU64; 20] = [const { AtomicU64::new(0) }; 20];
+static COUNTS: [AtomicU64; 21] = [const { AtomicU64::new(0) }; 21];
 
 /// Turns profiling on (also on when `STRESS_PROFILE` is set).
 pub fn enable() {
