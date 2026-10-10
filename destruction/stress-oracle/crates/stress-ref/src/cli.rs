@@ -206,7 +206,14 @@ pub fn main(make: &WorldFactory, baseline: Option<&WorldFactory>, args: Vec<Stri
         "run" => {
             let mut scene = Scene::load(Path::new(pos.first().ok_or("missing <scene>")?))?;
             apply_overrides(&mut scene, rest)?;
+            if rest.iter().any(|a| a == "--profile") {
+                crate::profile::enable();
+            }
+            crate::profile::reset();
             let obs = run_scene(make, &scene);
+            if crate::profile::enabled() {
+                eprint!("{}", crate::profile::report());
+            }
             let text = obs.to_json_pretty();
             match flag(rest, "--out") {
                 Some(p) => std::fs::write(&p, text + "\n").map_err(|e| e.to_string())?,

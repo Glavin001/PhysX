@@ -596,6 +596,25 @@ impl World {
     }
 
     /// The substep used for the next frame.
+    /// Profiling: which limit set this frame's substep (stress, contact, frame or
+    /// `max_substep`), recomputed outside the timed stages.
+    fn count_step_limit(&self) {
+        use crate::profile::{count, Counter};
+        let stress = if self.scene.sim.solve_mode == SolveMode::Implicit {
+            self.scene.sim.implicit_dt.unwrap_or(f64::INFINITY)
+        } else {
+            self.solver.stable_dt()
+        };
+        let candidates = [
+            (stress, Counter::StepByStress),
+            (self.contact_dt, Counter::StepByContact),
+            (self.scene.sim.frame_dt, Counter::StepByFrame),
+            (self.scene.sim.max_substep.unwrap_or(f64::INFINITY), Counter::StepByMaxSubstep),
+        ];
+        let binding = candidates.iter().min_by(|a, b| a.0.total_cmp(&b.0)).expect("four limits");
+        count(binding.1, 1);
+    }
+
     pub fn substep_dt(&self) -> f64 {
         // The implicit stress step is unconditionally stable: only contacts limit the substep.
         let stress_dt = if self.scene.sim.solve_mode == SolveMode::Implicit {
@@ -874,6 +893,7 @@ impl World {
             .collect();
         let mut boxes: Vec<Option<OBox>> = vec![None; active.len()];
 
+        let t_imp = crate::profile::time(crate::profile::Stage::ContactImpactors);
         // Impactors against chunks, with the crush cap applied to the impactor's total force.
         // Only bodies in an impact island take contact here (all of them in the
         // standalone world); an external engine handles the others.
@@ -952,6 +972,8 @@ impl World {
             }
         }
 
+        drop(t_imp);
+        let t_ground = crate::profile::time(crate::profile::Stage::ContactGround);
         // Ground.
         if let Some(g) = self.scene.ground.clone() {
             let gm = self.scene.material(&g.material).clone();
@@ -1006,7 +1028,9 @@ impl World {
             }
         }
 
+        drop(t_ground);
         // Chunks of different clusters (debris on structures, fragments on fragments).
+        let t_broad = crate::profile::time(crate::profile::Stage::ContactBroadphase);
         let n_clusters = self.solver.clusters.len();
         // Overlap offsets of the pairs in contact last substep; a pair that is not in
         // contact this substep forgets its offsets.
@@ -1054,6 +1078,9 @@ impl World {
                     }
                 }
             }
+            drop(t_broad);
+            crate::profile::count(crate::profile::Counter::PairCandidates, candidates.len() as u64);
+            let _t_pairs = crate::profile::time(crate::profile::Stage::ContactPairs);
             // Every pair's contact depends only on the state at the start of the substep:
             // evaluate them in parallel, apply them in pair order (bit-identical).
             let (solver, scene, boxes) = (&self.solver, &self.scene, &boxes);
@@ -1062,6 +1089,7 @@ impl World {
                 pair_contact(solver, scene, key, offsets, shape(ka), shape(kb), dt)
             });
             for pc in outcomes.into_iter().flatten() {
+                crate::profile::count(crate::profile::Counter::PairOverlaps, 1);
                 let (sa, ca, sb, cb) = pc.key;
                 self.pair_offsets.insert(pc.key, pc.offsets);
                 for (p, f, stored, dissipated, work) in pc.points {
@@ -1102,6 +1130,7 @@ impl World {
         let mut boxes: Vec<Option<OBox>> = vec![None; active.len()];
         let in_island = |solver: &ReferenceSolver, s: usize, c: usize| !solver.clusters[solver.chunks[s][c].cluster].driven;
 
+        let t_imp = crate::profile::time(crate::profile::Stage::ContactImpactors);
         // Impactors against chunks; the crush cap limits the impactor's total force.
         for ii in 0..self.impactors.len() {
             if self.impactors[ii].driven {
@@ -1189,6 +1218,8 @@ impl World {
             }
         }
 
+        drop(t_imp);
+        let t_ground = crate::profile::time(crate::profile::Stage::ContactGround);
         // Ground: the half-space below `height`, pressed by chunks and impactors.
         if let Some(g) = self.scene.ground.clone() {
             let gm = self.scene.material(&g.material).clone();
@@ -1271,6 +1302,8 @@ impl World {
             }
         }
 
+        drop(t_ground);
+        let t_broad = crate::profile::time(crate::profile::Stage::ContactBroadphase);
         // Chunks of different clusters (debris on structures, fragments on fragments).
         let n_clusters = self.solver.clusters.len();
         if n_clusters > 1 {
@@ -1313,14 +1346,20 @@ impl World {
                     }
                 }
             }
+            drop(t_broad);
+            crate::profile::count(crate::profile::Counter::PairCandidates, candidates.len() as u64);
+            let _t_pairs = crate::profile::time(crate::profile::Stage::ContactPairs);
             // Each pair depends only on the state at the start of the substep: evaluate
             // in parallel, apply in candidate order (bit-identical for any thread count).
             let (solver, scene, boxes) = (&self.solver, &self.scene, &boxes);
             let outcomes = crate::par::map_into_heavy(candidates, |(key, ka, kb, stick)| {
+                let _t = crate::profile::time(crate::profile::Stage::PairEval);
                 let shape = |k: usize| boxes[k].as_ref().expect("cached above");
                 pair_layer_contact(solver, scene, key, stick, shape(ka), shape(kb), dt)
             });
+            let _t_apply = crate::profile::time(crate::profile::Stage::PairApply);
             for (key, p, out, work) in outcomes.into_iter().flatten() {
+                crate::profile::count(crate::profile::Counter::PairOverlaps, 1);
                 let ContactKey::Pair(sa, ca, sb, cb) = key else { unreachable!("pair keys only") };
                 let (center_a, center_b) = (self.solver.chunk_position(sa, ca), self.solver.chunk_position(sb, cb));
                 self.loads.add_at(sa, ca, out.force, p, center_a);
@@ -1481,7 +1520,13 @@ impl World {
         if self.coupling.is_some() {
             return self.step_frame_coupled();
         }
+        let t_dt = crate::profile::time(crate::profile::Stage::StepDt);
         let dt = self.substep_dt();
+        drop(t_dt);
+        crate::profile::count(crate::profile::Counter::Frames, 1);
+        if crate::profile::enabled() {
+            self.count_step_limit();
+        }
         let n = (self.scene.sim.frame_dt / dt).round().max(1.0) as usize;
         self.frame_loads.resize(&self.solver);
         let splits_before = self.solver.events.len();
@@ -1498,11 +1543,13 @@ impl World {
         if self.solver.events.len() != splits_before {
             self.topology_version += 1;
         }
+        let _t_tail = crate::profile::time(crate::profile::Stage::FrameTail);
         match self.scene.sim.solve_mode {
             SolveMode::Explicit => {}
             SolveMode::QuasiStatic => {
                 let opts = StaticOptions { cascade: true, ..Default::default() };
                 let fl = self.frame_loads.clone();
+                let _t = crate::profile::time(crate::profile::Stage::Statics);
                 if !self.solver.solve_static_all(&fl, &opts, self.scene.sim.frame_dt).converged {
                     self.static_unconverged_frames += 1;
                 }
@@ -1510,11 +1557,13 @@ impl World {
             }
             SolveMode::Implicit => {}
             SolveMode::Adaptive => {
+                let _t = crate::profile::time(crate::profile::Stage::Settle);
                 self.settle_quiet_clusters();
                 self.advance_settled_fatigue();
             }
         }
         if let Some(u) = self.scene.sim.refine_utilization {
+            let _t = crate::profile::time(crate::profile::Stage::Refine);
             self.refine_where_needed(u);
             self.solver.mark_implicit_step_start();
         }
@@ -1537,7 +1586,9 @@ impl World {
         let mut average = std::mem::take(&mut self.implicit_loads);
         average.scale(1.0 / elapsed);
         let events = self.solver.events.len();
+        let t_implicit = crate::profile::time(crate::profile::Stage::Implicit);
         self.implicit_report = self.solver.implicit_step_all(&average, elapsed);
+        drop(t_implicit);
         self.implicit_worst_residual = self.implicit_worst_residual.max(self.implicit_report.residual);
         if self.solver.events.len() != events {
             self.topology_version += 1;
@@ -1623,13 +1674,19 @@ impl World {
 
     fn substep(&mut self, dt: f64) {
         let t = self.solver.time + dt;
+        crate::profile::count(crate::profile::Counter::Substeps, 1);
+        let t_events = crate::profile::time(crate::profile::Stage::Events);
         self.process_events(self.solver.time);
+        drop(t_events);
+        let t_loads = crate::profile::time(crate::profile::Stage::ScriptedLoads);
         self.loads.resize(&self.solver);
         self.loads.clear();
         self.apply_scripted_loads(self.solver.time);
         if let Some(c) = &self.coupling {
             c.filter.loads_at(&self.solver, self.solver.time, &mut self.loads);
         }
+        drop(t_loads);
+        let t_contacts = crate::profile::time(crate::profile::Stage::Contacts);
         let before = (self.loads.force.clone(), self.loads.torque.clone());
         let imp_loads = self.apply_contacts(dt);
         let contact_loads: Vec<(usize, usize, Vec3, Vec3)> = (0..before.0.len())
@@ -1637,17 +1694,23 @@ impl World {
             .map(|(s, c)| (s, c, self.loads.force[s][c] - before.0[s][c], self.loads.torque[s][c] - before.1[s][c]))
             .filter(|l| l.2 != Vec3::ZERO || l.3 != Vec3::ZERO)
             .collect();
+        drop(t_contacts);
         if self.scene.sim.solve_mode == SolveMode::Adaptive {
+            let _t = crate::profile::time(crate::profile::Stage::Wake);
             self.wake_loaded_clusters();
         }
         let n_events = self.solver.events.len();
+        let t_solver = crate::profile::time(crate::profile::Stage::SolverSubstep);
         self.solver.substep(dt, &self.loads);
+        drop(t_solver);
         if self.scene.sim.methods.layer_contact {
+            let _t = crate::profile::time(crate::profile::Stage::Handover);
             self.hand_over_split_joints();
         }
         if self.solver.events.len() != n_events {
             self.topology_version += 1;
         }
+        let t_work = crate::profile::time(crate::profile::Stage::ContactWork);
         for &(s, c, f, tq) in &contact_loads {
             if self.solver.chunks[s][c].active {
                 let (v, w) = self.solver.chunk_velocity(s, c);
@@ -1688,7 +1751,9 @@ impl World {
                 self.contact.kinds[ap.kind].work += (power(ap.a, ap.ra) - power(ap.b, ap.rb)) * dt;
             }
         }
+        drop(t_work);
         debug_assert!((self.solver.time - t).abs() < 1e-9);
+        let _t = crate::profile::time(crate::profile::Stage::Probes);
         self.record_probes(false);
     }
 
@@ -2298,6 +2363,7 @@ fn pair_layer_contact(solver: &ReferenceSolver, scene: &Scene, key: ContactKey, 
         elastic: Some(pe.elastic),
     };
     let p = lc.centroid;
+    let _t_law = crate::profile::time(crate::profile::Stage::PairLaw);
     let (va, vb) = (solver.point_velocity(sa, ca, p), solver.point_velocity(sb, cb, p));
     let (wa, wb) = (solver.chunk_velocity(sa, ca).1, solver.chunk_velocity(sb, cb).1);
     let out = layer_force(&law, &lc, va - vb, wa - wb, stick, dt);
@@ -2329,7 +2395,10 @@ struct PairElastic {
 }
 
 fn pair_elastic(ba: &OBox, bb: &OBox, mat_a: &Material, mat_b: &Material, scale: f64, indent: f64) -> Option<PairElastic> {
-    let overlap = pair_overlap(ba, bb)?;
+    let t_overlap = crate::profile::time(crate::profile::Stage::PairOverlap);
+    let overlap = pair_overlap(ba, bb);
+    drop(t_overlap);
+    let overlap = overlap?;
     pair_elastic_of(&overlap, ba, bb, mat_a, mat_b, scale, indent, true)
 }
 
@@ -2350,6 +2419,7 @@ fn pair_elastic_of(overlap: &Polytope, ba: &OBox, bb: &OBox, mat_a: &Material, m
     // Force and moment (about the origin) on `a`, stored energy, weights.
     let (mut force, mut moment, mut stored) = (Vec3::ZERO, Vec3::ZERO, 0.0);
     let (mut kv, mut kvc, mut vol, mut ktv) = (0.0, Vec3::ZERO, 0.0, 0.0);
+    let t_cells = crate::profile::time(crate::profile::Stage::PairCells);
     for (field, sign) in [(&pb, 1.0), (&pa, -1.0)] {
         // The other body, whose half-thickness along the field's normals turns with it.
         let (other, e_other) = if sign > 0.0 { (ba, e(mat_a)) } else { (bb, e(mat_b)) };
@@ -2369,10 +2439,12 @@ fn pair_elastic_of(overlap: &Polytope, ba: &OBox, bb: &OBox, mat_a: &Material, m
             ktv += 0.5 * k_t * c.volume;
         }
     }
+    drop(t_cells);
     let f_el = force.norm();
     if f_el == 0.0 || kv == 0.0 {
         return Some(PairElastic { elastic: Elastic { force: 0.0, moment: Vec3::ZERO, stored: 0.0 }, k_n: 0.0, k_t: 0.0, max_depth: 0.0, contact: None });
     }
+    let _t_geometry = crate::profile::time(crate::profile::Stage::PairGeometry);
     let n = force / f_el;
     let point = kvc / kv;
     let elastic = Elastic { force: f_el, moment: moment - point.cross(force), stored };

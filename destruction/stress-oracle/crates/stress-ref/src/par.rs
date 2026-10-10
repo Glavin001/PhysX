@@ -4,7 +4,8 @@
 //! start of the substep, so they are computed in parallel into a list in item order and
 //! then applied sequentially in that order. Results (and every floating-point sum taken
 //! from them) are therefore bit-identical for any thread count. The worker pool is
-//! rayon's (`RAYON_NUM_THREADS` sets its size).
+//! rayon's (`RAYON_NUM_THREADS` sets its size); with a single worker every loop runs on
+//! the calling thread (handing work to the pool and waiting for it only costs time).
 
 use rayon::prelude::*;
 
@@ -13,9 +14,14 @@ use rayon::prelude::*;
 /// fast or faster serially, so only larger structures go to the pool.
 const MIN_PARALLEL_ITEMS: usize = 4096;
 
+/// Whether the pool has more than one worker.
+fn pooled() -> bool {
+    rayon::current_num_threads() > 1
+}
+
 /// `items.iter().map(f).collect()`, split over the worker pool, in item order.
 pub fn map<T: Sync, R: Send>(items: &[T], f: impl Fn(&T) -> R + Sync + Send) -> Vec<R> {
-    if items.len() < MIN_PARALLEL_ITEMS {
+    if items.len() < MIN_PARALLEL_ITEMS || !pooled() {
         return items.iter().map(f).collect();
     }
     items.par_iter().with_min_len(MIN_PARALLEL_ITEMS / 4).map(f).collect()
@@ -23,20 +29,23 @@ pub fn map<T: Sync, R: Send>(items: &[T], f: impl Fn(&T) -> R + Sync + Send) -> 
 
 /// `items.into_iter().map(f).collect()`, split over the worker pool, in item order.
 pub fn map_into<T: Send, R: Send>(items: Vec<T>, f: impl Fn(T) -> R + Sync + Send) -> Vec<R> {
-    if items.len() < MIN_PARALLEL_ITEMS {
+    if items.len() < MIN_PARALLEL_ITEMS || !pooled() {
         return items.into_iter().map(f).collect();
     }
     items.into_par_iter().with_min_len(MIN_PARALLEL_ITEMS / 4).map(f).collect()
 }
 
 /// Below this many items a loop of expensive items (tens of microseconds each, such as
-/// the polytope contacts of chunk pairs) runs on the calling thread.
-const MIN_PARALLEL_HEAVY: usize = 16;
+/// the polytope contacts of chunk pairs) runs on the calling thread. Measured on 16
+/// cores (layer contact, all threads): a frame collapse with ~20 pairs per substep spent
+/// 11 s of system time waking the pool at 16 (2.6 s of work, the same wall time
+/// serially); a breaching panel with ~600 pairs per substep runs 5x faster in the pool.
+const MIN_PARALLEL_HEAVY: usize = 64;
 
-/// `map_into` for expensive items: split over the pool from a few items on, in item order
-/// (bit-identical for any thread count).
+/// `map_into` for expensive items: split over the pool from a few dozen items on, in
+/// item order (bit-identical for any thread count).
 pub fn map_into_heavy<T: Send, R: Send>(items: Vec<T>, f: impl Fn(T) -> R + Sync + Send) -> Vec<R> {
-    if items.len() < MIN_PARALLEL_HEAVY {
+    if items.len() < MIN_PARALLEL_HEAVY || !pooled() {
         return items.into_iter().map(f).collect();
     }
     items.into_par_iter().with_min_len(2).map(f).collect()

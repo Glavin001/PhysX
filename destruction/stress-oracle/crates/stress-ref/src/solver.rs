@@ -809,7 +809,10 @@ impl ReferenceSolver {
         // cluster by cluster in index order, bond by bond, exactly as a sequential sweep
         // would (bit-identical for any thread count).
         let explicit: Vec<usize> = (0..self.clusters.len()).filter(|&ci| self.integrates_explicitly(ci)).collect();
+        crate::profile::count(crate::profile::Counter::ExplicitClusters, explicit.len() as u64);
+        let t_accel = crate::profile::time(crate::profile::Stage::RigidAccel);
         let accel = crate::par::map(&explicit, |&ci| self.rigid_acceleration(ci, loads));
+        drop(t_accel);
         let fracture = self.config.fracture;
         let bond_jobs: Vec<(usize, usize)> = explicit
             .iter()
@@ -818,10 +821,16 @@ impl ReferenceSolver {
                 cl.bonds.iter().map(move |&bi| (cl.structure, bi))
             })
             .collect();
+        crate::profile::count(crate::profile::Counter::BondEvaluations, bond_jobs.len() as u64);
+        let t_bonds = crate::profile::time(crate::profile::Stage::BondResponses);
         let mut responses = crate::par::map(&bond_jobs, |&(s, bi)| self.bond_response(s, bi, dt, fracture)).into_iter();
+        drop(t_bonds);
+        let t_apply = crate::profile::time(crate::profile::Stage::ApplyBonds);
         for &ci in &explicit {
             self.apply_bond_responses(ci, &mut responses, t_mid);
         }
+        drop(t_apply);
+        let t_loads = crate::profile::time(crate::profile::Stage::ChunkLoads);
         let chunk_jobs: Vec<(usize, usize)> =
             explicit.iter().enumerate().flat_map(|(k, &ci)| self.clusters[ci].chunks.iter().map(move |&c| (k, c))).collect();
         let mut frame_loads = crate::par::map(&chunk_jobs, |&(k, c)| {
@@ -829,6 +838,8 @@ impl ReferenceSolver {
             self.frame_loads(explicit[k], c, loads, a, alpha, t_mid)
         })
         .into_iter();
+        drop(t_loads);
+        let t_integrate = crate::profile::time(crate::profile::Stage::Integrate);
         let mut next = explicit.iter().zip(&accel).peekable();
         for ci in 0..self.clusters.len() {
             match next.peek() {
@@ -844,9 +855,11 @@ impl ReferenceSolver {
                 }
             }
         }
+        drop(t_integrate);
         self.time += dt;
         self.substeps += 1;
         if !self.pending_split.is_empty() {
+            let _t = crate::profile::time(crate::profile::Stage::Splits);
             self.process_splits();
         }
     }
@@ -1238,6 +1251,8 @@ impl ReferenceSolver {
 
     /// Recompute the connectivity of cluster `ci` and split it into children.
     pub fn split_cluster(&mut self, ci: usize) {
+        crate::profile::count(crate::profile::Counter::Splits, 1);
+        crate::profile::count(crate::profile::Counter::SplitChunks, self.clusters[ci].chunks.len() as u64);
         let s = self.clusters[ci].structure;
         let comps = self.components(s, &self.clusters[ci].chunks.clone());
         if comps.len() <= 1 {

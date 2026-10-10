@@ -101,6 +101,7 @@ impl Polytope {
     /// about `normal`. No sorting, tolerance or reference axis is involved, so the result
     /// does not depend on the orientation of the world axes.
     pub fn clip(&self, normal: Vec3, offset: f64, owner: Owner) -> Polytope {
+        crate::profile::count(crate::profile::Counter::PolytopeClips, 1);
         let side = |p: Vec3| normal.dot(p) - offset;
         let mut faces = Vec::with_capacity(self.faces.len() + 1);
         // (entry, exit) on the plane, one per face crossing it.
@@ -108,7 +109,17 @@ impl Polytope {
         let mut cut = false;
         for f in &self.faces {
             let n = f.vertices.len();
-            let s: Vec<f64> = f.vertices.iter().map(|&p| side(p)).collect();
+            let mut buf = [0.0f64; 16];
+            let mut heap = Vec::new();
+            let s: &mut [f64] = if n <= 16 {
+                &mut buf[..n]
+            } else {
+                heap.resize(n, 0.0);
+                &mut heap
+            };
+            for (x, &p) in s.iter_mut().zip(&f.vertices) {
+                *x = side(p);
+            }
             if s.iter().all(|&x| x <= 0.0) {
                 faces.push(f.clone());
                 continue;
@@ -380,6 +391,7 @@ pub struct FieldCell {
 /// With a stiffness that differs from face to face, the gradient adds each cell's
 /// interface integrals (`FieldCell::interface_force`).
 pub fn field_cells(region: &Polytope, body: &Polytope, indent: f64) -> Vec<FieldCell> {
+    crate::profile::count(crate::profile::Counter::FieldCells, 1);
     let planes: Vec<(Vec3, f64)> = body.faces.iter().map(|f| (f.normal, f.normal.dot(f.vertices[0]) - indent)).collect();
     let mut region = region.clone();
     if indent > 0.0 {
