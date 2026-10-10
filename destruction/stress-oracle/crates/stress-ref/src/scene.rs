@@ -462,14 +462,16 @@ pub struct Methods {
     /// the contact that replaces a broken joint has the joint's stiffness but unlimited
     /// strength, so hinges between fragments never crush (over-strong arching).
     pub contact_crushing: bool,
-    /// The static (quasi-static and settling) solve iterates with each joint's consistent
-    /// tangent stiffness (`JointModel::tangent`: the intact share elastic, the cracked
-    /// share's active contact springs, sticking or sliding friction, rebar). Off: the
-    /// secant stiffness, whose fixed-point iteration converges only linearly. Where the
-    /// joints are nonlinear it stops at the step limit short of an equilibrium that exists,
-    /// and the cluster keeps its last state (s_arch_keystone_removed: 109 of 1309 solves
-    /// converged, against 2269 of 2281 with the tangent). Either way a solve is accepted
-    /// only by the same residual test, so every accepted state is an equilibrium.
+    /// A static (quasi-static and settling) solve that the secant iteration leaves
+    /// unconverged is solved again from the same start by a globalised Newton: steps with
+    /// each joint's consistent tangent (`JointModel::tangent`: the intact share elastic,
+    /// the cracked share's active contact springs, sticking or sliding friction, rebar),
+    /// else the secant, scaled back until the residual falls (Armijo). Off: the secant
+    /// iteration alone, which converges only linearly and can diverge; where it fails the
+    /// cluster keeps its last state even when an equilibrium exists
+    /// (s_arch_keystone_removed in quasi_static: 109 of 1309 solves converged, against 2087
+    /// of 2089 with the re-solve). Every solve the secant converges is unchanged, and
+    /// either way a solve is accepted only by the same residual test.
     pub tangent_statics: bool,
 }
 

@@ -302,41 +302,90 @@ energy balance with `layer_contact`.
 
 ### `tangent_statics` (fix)
 
-**Replaces** the static solve's iteration with the joints' secant stiffness. That
-fixed-point iteration converges only linearly. Where the joints are nonlinear (cracked
-contact patches, friction) it stops at its 60-step limit short of an equilibrium that
-exists, and `equilibrate_or_keep` then silently keeps the cluster's last state:
-- s_arch_keystone_removed in quasi_static: all 600 frames unconverged, the residual
-  falling about 4 % per step and still falling at the limit;
-- b9 in quasi_static: the panel never fails.
+**Replaces** the verdict of a failed secant solve. The static solve iterates with the
+joints' secant stiffness. That fixed-point iteration converges only linearly and can
+diverge (b9's residual climbs to 1e13, the villa's to inf). Where it stops short at its
+60-step limit, `equilibrate_or_keep` silently keeps the cluster's last state, even where
+an equilibrium exists:
+- s_arch_keystone_removed in quasi_static: all 600 frames unconverged;
+- b9 in quasi_static: the panel never fails;
+- the villa (scene pack) under self-weight: no equilibrium found.
 
-**Method:** each Newton step with the joints' consistent tangent (`JointModel::tangent`,
-as the implicit solve), kept only if it lowers the residual; else the secant step (an
-upper bound, a descent direction). Solves are accepted by the same residual test, so
-every accepted state is an equilibrium.
+**Method:**
+- The secant iteration runs unchanged. Every solve it converges is bit-identical.
+- Where it fails, the cluster is solved again from the same start by a globalised
+  Newton:
+  - each step uses the joints' consistent tangent (`JointModel::tangent`, as the
+    implicit solve), else the secant (an upper bound of the nonsmooth patch's
+    tangents);
+  - the step is halved until the residual falls by the Armijo fraction (1e-4 alpha);
+  - where neither direction lowers it, the solve stops unconverged and the cluster
+    keeps its state as before.
+- A solve is accepted only by the same residual test, so every accepted state is an
+  equilibrium.
+- A secant residual that turns non-finite ends the secant at once, since every later
+  iterate is NaN. Its state is discarded for the re-solve anyway, and the gate shows no
+  observation changes (182/182 against the build without the early stop).
 
-**Evidence:**
-- quasi_static, converged solves: s_arch_keystone_removed 109/1309 -> 2239/2244;
-  b7_masonry_v15 17/34 -> 35/49; b9_panel_high 3/62 -> 386/729.
-- `stress-ref ab scenes golden --feature tangent_statics=on`: 87/91 gated metrics both
-  ways in the scenes' own modes. With quasi_static forced, 44/91 -> 51/91, no regression:
-  b5_wall_impact_v02 failure mode (push_over) and hole area, b7_masonry_v04 breach,
-  b9_panel_high breach, fragment speed, first failure and peak displacement now pass
-  against OpenCourant.
-- Test suite with it on: 121/121.
+**Rejected (both measured, b9 quasi_static):**
+- **Tangent first in every solve** (6126ca847..4184fdffc). It changes solves the secant
+  already converges, at round-off. Those differences decide whether plain tangent
+  Newton converges on a nonsmooth contact: at t = 0.002 (cascade pass 2) it converges
+  in 14 steps from one start and cycles for 60 from a start 5.6e-15 m away. So b9's
+  breach hung on round-off. It also changed default dynamic runs chaotically
+  (house_settlement broken bonds 161 -> 214).
+- **Fallback re-solve without the line search:** b9 never breaches (20 broken bonds),
+  the same round-off failure.
 
-**Status:** default on (from 6126ca847's switch). `STRESS_METHODS=-tangent_statics`
-restores the secant.
+With the line search, both starts reach the same equilibrium (umax 1.488699e-2 m) and
+both runs breach.
 
-Against cd112933c, `verify_identical.py` gives 97/182. The established-method cells are
-unchanged (switch off there) except the quasi_static cantilever (the direct solve,
-above). Every default-method run starts from a static equilibrium, now reached by the
-tangent iteration, so it differs at tolerance level: b1_bond_shear by 1e-17 m in
-displacement and 1e-12 relative in energy. Runs with fracture then diverge as such runs
-do: b5_wall_impact_v02's base-shear history changes phase after the impact. Its outcome
-does not change (failure mode push_over, hole area 2.88 m^2; speed lost 1.44 vs 1.45,
-failing the same gate as before). Its run time is unchanged (70.8 vs 69.2 s, scene-mode
-A/B).
+**Evidence (against cd112933c):**
+
+`verify_identical.py`: 176/182 cells identical. Every cell in the scenes' own modes is
+identical, at 1 thread and at all threads. The six differing cells are all forced
+quasi_static, at 1 thread:
+
+| Cell | Unconverged frames | Outcome |
+|---|---|---|
+| s_arch_keystone_removed default | 600 -> 1 | 6 bonds break, 8 fragments |
+| b9_panel_high default | 59 -> 16 | breaches (168 bonds, 36 fragments) |
+| b7_masonry_v15 default | 6 -> 4 | broken bonds 66 -> 191 |
+| b2_cantilever, both method sets | (direct solve, above) | (direct solve, above) |
+| s_arch_keystone_removed established | (direct solve, above) | 3e-21 m |
+
+The three default quasi_static cells give identical observations at 16 threads.
+
+**Quasi_static solves converged:**
+
+| Scene | Secant | Re-solve |
+|---|---|---|
+| s_arch_keystone_removed | 109/1309 | 2087/2089 |
+| b7_masonry_v15 | 17/34 | 2813/3030 |
+| b9_panel_high | 3/62 | 714/739 |
+
+b2_cantilever is unchanged (121/121).
+
+**Catalogue A/B** (`STRESS_METHODS=-tangent_statics ... ab --feature tangent_statics=on`):
+- **scenes' own modes:** 87/91 gated metrics both ways;
+- **quasi_static forced:** 44/91 -> 53/91, no regression. The b5_wall_impact v02 and v10
+  failure mode (push_over) and hole area, and b9_panel_high's breach, fragment speed,
+  first failure and peak displacement now pass against OpenCourant.
+
+**Cost** follows the fracture the secant missed: quasi_static A/B wall 190 -> 566 s
+(b5_wall_impact_v02 55 -> 245 s, b7_masonry_v15 2.8 -> 73 s).
+
+**Test:** `hulls::scene_packs_import_and_stand` expected the villa to have no static
+equilibrium. With the re-solve every frame converges, with 5 of 2464 joints cracked and
+one fragment, the criteria the other three assets meet. The test now expects the villa to
+stand, except with the switch off.
+
+**Finding corrected:** "Finding for the solver" below concluded that b9's failing solves
+have no equilibrium (a mechanism), because a line search on the secant held the
+residual at 4 to 75. The tangent re-solve finds equilibria for most of them. The secant
+direction, not the physics, was the obstacle.
+
+**Status:** default on. `STRESS_METHODS=-tangent_statics` restores the secant verdict.
 
 ## Runtime (bit-exact, no switch)
 
@@ -548,7 +597,9 @@ stays several times the applied load: the panel has no static equilibrium under 
 pressure (a mechanism, the breach of the dynamic run). Keeping the last equilibrium is
 the physically right verdict, and globalising Newton changes nothing but the cost. Not
 adopted. A direct sparse solve would only make these failing iterations cheaper, in a
-mode three tests use once each, at round-off cost to exactness. Not pursued.
+mode three tests use once each, at round-off cost to exactness. Not pursued. (Corrected: the
+globalised *tangent* Newton of `tangent_statics` finds equilibria for most of these
+solves; it was the secant direction that failed, not the existence of an equilibrium.)
 
 ## Open (from the audit and `CPU Oracle Improvements to Prove First`)
 

@@ -37,6 +37,12 @@ const DIRECT_AFTER: usize = 10;
 /// Widest band (degrees of freedom) and largest band storage the direct solve takes on.
 const DIRECT_MAX_BAND: usize = 600;
 const DIRECT_MAX_ENTRIES: usize = 4_000_000;
+/// Halvings of a globalised (`tangent_statics`) Newton step before its direction is given
+/// up: steps down to 2^-30 of the full correction.
+const LINE_SEARCH_HALVINGS: usize = 31;
+/// Armijo fraction: a scaled step `alpha dx` is kept when it lowers the residual norm by at
+/// least `ARMIJO alpha` of itself.
+const ARMIJO: f64 = 1e-4;
 
 pub(crate) fn dot6(a: &[V6], b: &[V6]) -> f64 {
     a.iter().zip(b).map(|(x, y)| (0..6).map(|i| x[i] * y[i]).sum::<f64>()).sum()
@@ -542,58 +548,21 @@ impl ReferenceSolver {
             self.project_load(ci, &lay, &mut f_ext);
         }
         let scale = dot6(&f_ext, &f_ext).sqrt().max(1e-300);
-        let mut report = StaticReport::default();
-        for it in 0..opts.max_newton {
-            let r = self.static_residual(ci, &lay, &f_ext, free);
-            let res = dot6(&r, &r).sqrt() / scale;
-            report.residual = res;
-            report.newton_iterations = it;
-            if res <= opts.tolerance {
-                report.converged = true;
-                break;
+        let start: Vec<(Vec3, Vec3)> = lay.chunks.iter().map(|&c| (self.chunks[s][c].u, self.chunks[s][c].th)).collect();
+        let mut report = self.newton(ci, &lay, &f_ext, free, scale, opts, false);
+        if !report.converged && self.config.methods.tangent_statics {
+            // `sim.methods.tangent_statics`: the secant iteration stopped short; solve
+            // again from the same start with tangent steps. A solve the secant
+            // converges is unchanged.
+            for (i, &c) in lay.chunks.iter().enumerate() {
+                (self.chunks[s][c].u, self.chunks[s][c].th) = start[i];
             }
-            // `sim.methods.tangent_statics`: a step with the joints' tangent first, kept
-            // only if it lowers the residual; else (and always without the switch) the
-            // secant step, an upper bound and a descent direction (as the implicit solve).
-            let tangent_first = self.config.methods.tangent_statics;
-            let saved: Vec<(Vec3, Vec3)> = if tangent_first { lay.chunks.iter().map(|&c| (self.chunks[s][c].u, self.chunks[s][c].th)).collect() } else { Vec::new() };
-            for tangent in [true, false] {
-                if tangent && !tangent_first {
-                    continue;
-                }
-                let k = self.newton_stiffness(ci, tangent);
-                // A solve still unconverged after DIRECT_AFTER Newton steps takes its
-                // remaining steps by a direct (banded Cholesky) solve of the same system
-                // where it fits: about twice as fast as the PCG's 500-900 iterations
-                // there, and exact to round-off rather than to the PCG's tolerance.
-                // Earlier steps are the PCG's, so every solve that converges within them
-                // is unchanged.
-                let direct = if it >= DIRECT_AFTER && !free { self.banded_tangent_solve(ci, &lay, &k, &r) } else { None };
-                let (dx, cg) = match direct {
-                    Some(dx) => {
-                        crate::profile::count(crate::profile::Counter::DirectSolves, 1);
-                        (dx, 0)
-                    }
-                    None => self.pcg(ci, &lay, &k, &r, (opts.tolerance * 0.1).max(1e-14)),
-                };
-                report.cg_iterations += cg;
-                for (i, &c) in lay.chunks.iter().enumerate() {
-                    let (du, dth) = split(&dx[i]);
-                    let st = &mut self.chunks[s][c];
-                    st.u += du;
-                    st.th += dth;
-                }
-                if !tangent {
-                    break;
-                }
-                let tried = self.static_residual(ci, &lay, &f_ext, free);
-                if dot6(&tried, &tried).sqrt() / scale < res {
-                    break;
-                }
-                for (i, &c) in lay.chunks.iter().enumerate() {
-                    (self.chunks[s][c].u, self.chunks[s][c].th) = saved[i];
-                }
-            }
+            let second = self.newton(ci, &lay, &f_ext, free, scale, opts, true);
+            report = StaticReport {
+                newton_iterations: report.newton_iterations + second.newton_iterations,
+                cg_iterations: report.cg_iterations + second.cg_iterations,
+                ..second
+            };
         }
         // Equilibrium: no deformation velocity; refresh the stored bond forces.
         for &c in &lay.chunks {
@@ -616,6 +585,96 @@ impl ReferenceSolver {
         crate::profile::count(crate::profile::Counter::NewtonIterations, report.newton_iterations as u64);
         crate::profile::count(crate::profile::Counter::CgIterations, report.cg_iterations as u64);
         report
+    }
+
+    /// The Newton iteration of `equilibrate` from the cluster's current displacements:
+    /// secant steps, or with `tangent` globalised tangent (else secant) steps.
+    #[allow(clippy::too_many_arguments)]
+    fn newton(&mut self, ci: usize, lay: &Layout, f_ext: &[V6], free: bool, scale: f64, opts: &StaticOptions, tangent: bool) -> StaticReport {
+        let s = self.clusters[ci].structure;
+        let mut report = StaticReport::default();
+        for it in 0..opts.max_newton {
+            let r = self.static_residual(ci, lay, f_ext, free);
+            let res = dot6(&r, &r).sqrt() / scale;
+            report.residual = res;
+            report.newton_iterations = it;
+            if res <= opts.tolerance {
+                report.converged = true;
+                break;
+            }
+            // A non-finite residual never comes back (every later iterate is NaN or
+            // infinite). Under `tangent_statics` the secant's unconverged state is
+            // discarded for the re-solve from the start, so it ends here.
+            if !res.is_finite() && !tangent && self.config.methods.tangent_statics {
+                break;
+            }
+            if !tangent {
+                let k = self.newton_stiffness(ci, false);
+                let dx = self.newton_step(ci, lay, &k, &r, it, free, opts, &mut report);
+                for (i, &c) in lay.chunks.iter().enumerate() {
+                    let (du, dth) = split(&dx[i]);
+                    let st = &mut self.chunks[s][c];
+                    st.u += du;
+                    st.th += dth;
+                }
+                continue;
+            }
+            // With `tangent`, a globalised Newton step: the joints' tangent, else the
+            // secant (an upper bound of the nonsmooth patch's tangents), each scaled back
+            // by halving until the residual falls by the Armijo fraction. Where neither
+            // direction lowers it the iterate is a stationary point of the residual norm
+            // that is no equilibrium, and the solve stops unconverged.
+            let saved: Vec<(Vec3, Vec3)> = lay.chunks.iter().map(|&c| (self.chunks[s][c].u, self.chunks[s][c].th)).collect();
+            let mut accepted = false;
+            'directions: for use_tangent in [true, false] {
+                let k = self.newton_stiffness(ci, use_tangent);
+                let dx = self.newton_step(ci, lay, &k, &r, it, free, opts, &mut report);
+                let mut alpha = 1.0;
+                for _ in 0..LINE_SEARCH_HALVINGS {
+                    for (i, &c) in lay.chunks.iter().enumerate() {
+                        let (du, dth) = split(&dx[i]);
+                        let st = &mut self.chunks[s][c];
+                        st.u = saved[i].0 + du * alpha;
+                        st.th = saved[i].1 + dth * alpha;
+                    }
+                    let tried = self.static_residual(ci, lay, f_ext, free);
+                    if dot6(&tried, &tried).sqrt() / scale <= (1.0 - ARMIJO * alpha) * res {
+                        accepted = true;
+                        break 'directions;
+                    }
+                    alpha *= 0.5;
+                }
+            }
+            if !accepted {
+                for (i, &c) in lay.chunks.iter().enumerate() {
+                    (self.chunks[s][c].u, self.chunks[s][c].th) = saved[i];
+                }
+                break;
+            }
+        }
+        report
+    }
+
+    /// One Newton correction `K dx = r` with bond stiffnesses `k`: by the PCG, or once
+    /// the solve has taken DIRECT_AFTER steps by a direct (banded Cholesky) solve where
+    /// it fits.
+    #[allow(clippy::too_many_arguments)]
+    fn newton_step(&self, ci: usize, lay: &Layout, k: &[Mat6], r: &[V6], it: usize, free: bool, opts: &StaticOptions, report: &mut StaticReport) -> Vec<V6> {
+        // A solve still unconverged after DIRECT_AFTER Newton steps takes its remaining
+        // steps by a direct (banded Cholesky) solve of the same system where it fits:
+        // about twice as fast as the PCG's 500-900 iterations there, and exact to
+        // round-off rather than to the PCG's tolerance. Earlier steps are the PCG's, so
+        // every solve that converges within them is unchanged.
+        let direct = if it >= DIRECT_AFTER && !free { self.banded_tangent_solve(ci, lay, k, r) } else { None };
+        let (dx, cg) = match direct {
+            Some(dx) => {
+                crate::profile::count(crate::profile::Counter::DirectSolves, 1);
+                (dx, 0)
+            }
+            None => self.pcg(ci, lay, k, r, (opts.tolerance * 0.1).max(1e-14)),
+        };
+        report.cg_iterations += cg;
+        dx
     }
 
     /// Out-of-balance loads of a cluster at its current displacements (external plus bond

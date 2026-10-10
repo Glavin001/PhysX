@@ -71,8 +71,10 @@ fn hull_boxes_match_boxes_under_impact() {
 
 /// The authored assets import with their geometry: hull chunks, supports, bonds with
 /// patches recomputed from shared faces. Under their own weight (calibrated materials,
-/// code-minimum reinforcement) three stand; the villa's cantilevered stairs and roof
-/// parapets have no static equilibrium (its explicit run cracks them progressively).
+/// code-minimum reinforcement) all four stand. The villa's cantilevered stairs and roof
+/// parapets crack a few joints on the way (5 of 2464) to an equilibrium that only the
+/// globalised tangent re-solve (`sim.methods.tangent_statics`) reaches; the secant
+/// iteration alone diverges there and finds none.
 #[test]
 fn scene_packs_import_and_stand() {
     let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../../blast/blast-stress-demo-rs/assets/scenes");
@@ -83,6 +85,7 @@ fn scene_packs_import_and_stand() {
             continue;
         }
         let mut s = stress_ref::scene_pack::import(&path, file, "structure").unwrap();
+        let stands = stands || s.sim.methods.tangent_statics;
         let b = &s.bodies[0];
         let hulls = b.chunks.iter().filter(|c| c.hull.is_some()).count();
         let supports = b.chunks.iter().filter(|c| c.support == stress_ref::scene::Support::Fixed).count();
@@ -98,7 +101,7 @@ fn scene_packs_import_and_stand() {
         let unconverged = o.values.get("static_unconverged_frames").copied().unwrap_or(0.0);
         println!("{file}: broken {} fragments {} unconverged frames {unconverged}", o.values["broken_bonds"], o.values["fragments"]);
         if !stands {
-            assert!(unconverged > 0.0, "{file} now has a static equilibrium");
+            assert!(unconverged > 0.0, "{file} now has a static equilibrium with the secant iteration");
             continue;
         }
         // In equilibrium and nothing separates. Single overloaded joints may crack and
