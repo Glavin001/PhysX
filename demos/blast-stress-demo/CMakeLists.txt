@@ -1361,6 +1361,13 @@ if(BLAST_ENABLE_CUDA_STRESS AND (PX_GPU_BACKEND STREQUAL "CUMETAL" OR (CMAKE_CUD
     # 0.1 g blocks under 10 t on one anchor (vibe-land simply-supported-point/n37).
     add_test(NAME blast_stress_gpu_zero_iteration_convergence COMMAND gpu_resident_stress_test zero)
     set_tests_properties(blast_stress_gpu_zero_iteration_convergence PROPERTIES TIMEOUT 120 LABELS "gpu" RUN_SERIAL TRUE)
+    # The same fixture past kResidentComponentMaxNodes: the cooperative kernel.
+    add_test(NAME blast_stress_gpu_zero_iteration_convergence_large COMMAND gpu_resident_stress_test zero-large)
+    set_tests_properties(blast_stress_gpu_zero_iteration_convergence_large PROPERTIES TIMEOUT 300 LABELS "gpu" RUN_SERIAL TRUE)
+    # A uniform 8,202-node column: the same hierarchy failure without the
+    # heavy-on-light masses (a 101 x 101 wall, 10,302 nodes, builds and solves).
+    add_test(NAME blast_stress_gpu_large_chain COMMAND gpu_resident_stress_test chain-uniform)
+    set_tests_properties(blast_stress_gpu_large_chain PROPERTIES TIMEOUT 300 LABELS "gpu" RUN_SERIAL TRUE)
     set_tests_properties(blast_stress_gpu_operator_epoch_integration PROPERTIES TIMEOUT 600 LABELS "gpu" RUN_SERIAL TRUE)
     add_executable(gpu_angular_convention_test EXCLUDE_FROM_ALL tests/gpu_angular_convention_test.cpp)
     target_link_libraries(gpu_angular_convention_test PRIVATE gpu_resident_stress_test_core)
@@ -1418,6 +1425,16 @@ endif()
 set_property(TEST blast_stress_reference_building_load_path blast_stress_destruction_quality
     blast_stress_reference_building_crush_ordinary_impact blast_stress_crush_wall_bite
     APPEND PROPERTY LABELS known-failure)
+# 2026-10-10: a column of 8,202 nodes (past kResidentComponentMaxNodes, the
+# cooperative kernel) fails to build its native hierarchy (topology error
+# 0x5002008: hierarchy error 32, the fine factors not usable), so the solve is
+# honest but makes no progress (anchor reaction 0 N after 512 iterations). A
+# 101 x 101 wall of 10,302 nodes builds and solves (vibe-land textbook
+# large/wall-101x101-equilibrium, 1.2e-8 of the weight). Cause open.
+if(TEST blast_stress_gpu_zero_iteration_convergence_large)
+    set_property(TEST blast_stress_gpu_zero_iteration_convergence_large blast_stress_gpu_large_chain
+        APPEND PROPERTY LABELS known-failure)
+endif()
 
 # Open on CuMetal (Apple M-series, 2026-10-07 triage of 0e0aba8a0): these fail
 # deterministically when run alone and are not explained by the harness. Each

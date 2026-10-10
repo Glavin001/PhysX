@@ -29,9 +29,14 @@
 // is honest whatever its forces. Run as the stage runs: 64 iterations a
 // tick, tolerance 1e-3, warm start, for several ticks; with and without the
 // force tolerance (the high-fidelity profile's 1e-3).
-void zeroIterationConvergence(){
-    constexpr unsigned light=4,n=light+2;   // the anchor, four blocks, the load
-    constexpr float tol=1e-3f,g=9.81f,lightMass=1e-4f,loadMass=1e4f;
+// `light` blocks: 4 is one small component (the per-component solve); past
+// kResidentComponentMaxNodes (8192 on CuMetal, 1024 on CUDA; 8200 is past
+// both) the column is solved by the cooperative
+// large-component kernel, which must be as honest.
+void zeroIterationConvergence(unsigned light,float lightMass=1e-4f,float loadMass=1e4f){
+    const unsigned n=light+2;   // the anchor, the light blocks, the load
+    constexpr float tol=1e-3f,g=9.81f;
+    const bool fooling=lightMass<loadMass;
     std::vector<ExtStressGpuNode> nodes(n);std::vector<ExtStressGpuBond> bonds;
     for(unsigned i=0;i<n;++i){
         const float m=i==0?0.f:(i<=light?lightMass:loadMass);
@@ -43,9 +48,9 @@ void zeroIterationConvergence(){
     // nothing): massScale / sum(m) < tol^2, the anchor bond's s = 1.
     double logMass=0,total=0;for(unsigned i=1;i<n;++i){logMass+=std::log(double(nodes[i].mass));total+=nodes[i].mass;}
     const double massScale=std::exp(logMass/(n-1)),W=total*g;
-    require(massScale/total<double(tol)*tol,"zero iteration: the fixture does not pass the residual test at iteration 0");
+    if(fooling)require(massScale/total<double(tol)*tol,"zero iteration: the fixture does not pass the residual test at iteration 0");
     std::vector<ExtStressGpuImpulse> gravity(n);for(unsigned i=1;i<n;++i)gravity[i].linear.y=-g;
-    unsigned dishonest=0;
+    unsigned dishonest=0,hierarchyErrors=0;
     for(float forceTolerance:{0.f,1e-3f}){
         std::unique_ptr<ExtStressGpuSolver,Release> solver(ExtStressGpuSolver::create(nodes.data(),n,bonds.data(),m));
         require(bool(solver) && solver->prepareDeviceSolve() && solver->enableDeviceTopology(),"zero iteration: solver initialization failed");
@@ -60,11 +65,20 @@ void zeroIterationConvergence(){
             std::vector<ExtStressGpuImpulse> out(m);check(cudaMemcpy(out.data(),view.bondImpulses,m*sizeof(out[0]),cudaMemcpyDeviceToHost));
             // Bond orientation may use either action/reaction convention.
             const double reaction=std::fabs(double(out[0].linear.y)),error=std::fabs(reaction-W);
-            std::printf("zero iteration: force tolerance %g, tick %u: %u iterations, converged %u; anchor bond %.6g N of the weight %.6g N (error %.3g of W)\n",
-                forceTolerance,tick,status.iterations,status.converged,reaction,W,error/W);
+            std::printf("zero iteration (%u nodes): force tolerance %g, tick %u: %u iterations, converged %u; anchor bond %.6g N of the weight %.6g N (error %.3g of W)\n",
+                n,forceTolerance,tick,status.iterations,status.converged,reaction,W,error/W);
             if(status.converged && !(error<=double(tol)*W))++dishonest;
+            // The preconditioner hierarchy must build for any connected
+            // component: without it the solve is honest (unconverged) but does
+            // no work. Error bits: NvBlastExtStressGpu.h ExtStressGpuDeviceTopologyStatus.
+            if(view.topologyStatus){ExtStressGpuDeviceTopologyStatus topology{};
+                check(cudaMemcpy(&topology,view.topologyStatus,sizeof(topology),cudaMemcpyDeviceToHost));
+                if(topology.error)++hierarchyErrors;
+                if(tick==1 || tick==8)std::printf("  topology: initialized %u error 0x%x islands %u active nodes %u bonds %u rebuilds %llu\n",topology.initialized,topology.error,
+                    topology.islandCount,topology.activeNodeCount,topology.activeBondCount,(unsigned long long)topology.rebuilds);}
         }
         check(cudaEventDestroy(ready));check(cudaStreamDestroy(stream));
     }
     require(dishonest==0,"zero iteration: a solve reported converged with the anchor reaction off the weight by more than its tolerance");
+    require(hierarchyErrors==0,"zero iteration: the native hierarchy failed to build for the column (topology error), so the solve made no progress");
 }
