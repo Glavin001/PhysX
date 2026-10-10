@@ -294,6 +294,16 @@ field-cell calls, splits, and which limit set each frame's step.
 | 1f74bd25d | Cluster index in two dimensions: columns along the widest axis, sorted across within each. A wall was searched along a slab; window tests on b5_wall_impact_v02 fall 3.56e9 -> 2.5e8, broadphase 16.8 -> 9.4 s | 182/182 |
 | c4d31ba78 | On one thread, each bond response is applied as it is computed. Previously every substep collected all responses, each holding the whole joint state, in a fresh list. A response reads only its bond and the chunks' motion, which applying the others does not change | 182/182 |
 | 5161fb0aa | The statics layout's chunk-to-local index is a dense array, not a SipHash map (about a fifth of the static and implicit solves) | 182/182 |
+| fd78110ea | Clip caps: bit-equal repeats of crossing points left out before sorting, then a stable insertion sort on integer keys (a stable sort's order is unique). Randomized test against the original, mutation-checked. Floor drop with layer contact: 65.0 -> 60.8 s | 182/182 |
+| 771fc64ac | No second copy of an uncut clip. Static-solve counters (solves, converged, Newton and CG iterations) | 182/182 |
+| 8fe879496 | A cluster is indexed only when its queries in the substep repay it (about ten); otherwise it is scanned directly. One 664-chunk structure against one fallen chunk paid 13 us per substep for an index used once. Settlement, default methods: -6.3 % cycles | 182/182 |
+| bad18bcb5 | The contact patch's 36 springs in their own non-inlined function (same arithmetic): evaluate compiles better. Bond-response micro-bench 105.6 -> ~100 ns per bond | 182/182 |
+| f4d514c62 | Merge of fix/oracle-accuracy (e6fc3ade9), its polytope changes ported to the flat representation with the same arithmetic | gated against e6fc3ade9 |
+
+Small exact changes are now judged by cycle counts (`/usr/bin/time -l`, about 0.1 %
+between repeats on a quiet machine, up to 1-2 % under load). Changes to one function
+are judged by an in-process micro-bench on captured or mid-run inputs, which is
+repeatable to about 0.3 %.
 
 CPU seconds at one thread, from the gate run of 5161fb0aa (both builds run 8 at a
 time on the same 16-core machine):
@@ -328,6 +338,20 @@ Measured and rejected (exact, but no faster):
 - Replacement loads indexed by chunk (plan item): there are only a few (support or
   chunk removal), and expired ones still add a signed zero, so they cannot simply be
   dropped.
+- Micro-bench of bond responses: the branchless loop (128 ns against 100) and the
+  intact-joint skip (118 ns) are slower. The compression-only failure indices of the
+  crushing test (no `hypot(0, 0)`, no tension or shear indices) are within noise.
+- A depth table in `field_cells` (each vertex's depth below each face evaluated once):
+  7.7 % more cycles on floor drop.
+- The four quadrature distances of `mean_axis_distance` computed as an array: +-2 %
+  depending on the scene, within noise.
+- The bond's world position in `record_bond_events` computed only for an event: 0.8 %
+  fewer instructions but no fewer cycles.
+- Impactor-chunk layers evaluated in the pool: rarely more than a few chunks, only
+  more CPU.
+- Bond responses in the pool below 4096 bonds (b5_wall_impact_v02, 1900 bonds, 16
+  threads): 1024/256 at best about as fast in wall time for 2-4x the CPU; finer is
+  slower.
 
 Excluded (cannot be shown exact or within round-off without the physics tests):
 - rows 1, 4, 5, 7, 8, 9 and 2a below (step change, closed form, certificate,
