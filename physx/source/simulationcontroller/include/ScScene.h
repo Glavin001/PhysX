@@ -914,6 +914,13 @@ namespace Sc
 					void						addShapes(NpShape*const* shapes, PxU32 nbShapes, size_t ptrOffset, RigidSim& sim, PxBounds3* outBounds);
 					void						removeShapes(RigidSim& , PxInlineArray<ShapeSim*, 64>& , PxInlineArray<const ShapeCore*, 64>&, bool wakeOnLostTouch);
 
+		// A split's ownership transaction switched this body between kinematic
+		// and dynamic (NpDestructionBodyAllocator::applyBindings). With
+		// preserveUnchangedContactPairs its pairs must still be refiltered, as
+		// the reference path refilters every active dynamic shape: kept as they
+		// were, they still treat the body as kinematic (a punched-out plug
+		// stayed immovable under the ball that freed it).
+		void noteDestructionKinematicSwitch(BodySim* body) { mDestructionKinematicSwitches.pushBack(body); }
 	private:
 					void						addShapes(NpShape*const* shapes, PxU32 nbShapes, size_t ptrOffset, RigidSim& sim, ShapeSim*& prefetchedShapeSim, PxBounds3* outBounds);
 					void						updateContactDistances(PxBaseTask* continuation);
@@ -939,6 +946,7 @@ namespace Sc
                     PxArray<DestructionKinematic> mDestructionTrialKinematics;
                     PxArray<DestructionActivity> mDestructionTrialActivity;
                     PxArray<BodySim*> mDestructionTrialSleepNotifications;
+                    PxArray<BodySim*> mDestructionKinematicSwitches;
                     PxBitMap mDestructionQueryDirty;
                     PxArray<PxU32> mDestructionQueryShapes;
                     void captureDestructionActivity();

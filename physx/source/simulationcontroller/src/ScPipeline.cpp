@@ -3150,6 +3150,18 @@ void Sc::Scene::finalizationPhase(PxBaseTask* continuation)
         if(preservePairs) {
             PxProfileScoped repair(PxGetProfilerCallback(),"GpuDestruction.reportRepair",false,
                 PxU64(reinterpret_cast<size_t>(mSimulationController)));
+            // A body the split switched between kinematic and dynamic is not
+            // unchanged: its pairs were classified for the other kind (a
+            // kinematic partner has no mass in the solve). Refilter its
+            // shapes as the reference path does (noteDestructionKinematicSwitch).
+            for(PxU32 i=0;i<mDestructionKinematicSwitches.size();++i) {
+                BodySim* body=mDestructionKinematicSwitches[i];
+                ElementSim** elements=body->getElements();
+                for(PxU32 e=0;e<body->getNbElements();++e) {
+                    auto* shape=static_cast<ShapeSimBase*>(elements[e]);
+                    if(shape->isInBroadPhase())reportRepairShapes.pushBack(shape->getElementID());
+                }
+            }
             // Recreate reporting relationships exactly as the complete path
             // does, while preserving unrelated GPU collision managers/islands.
             PxSort(reportRepairShapes.begin(),reportRepairShapes.size());
@@ -3170,6 +3182,7 @@ void Sc::Scene::finalizationPhase(PxBaseTask* continuation)
             }
         }
         }
+        mDestructionKinematicSwitches.clear();
         restoreDestructionActivity();
         PX_PROFILE_STOP_CROSSTHREAD("Basic.rigidBodySolver", mContextId);
         // advanceStep picks a finalization task other than this running one:
@@ -3182,6 +3195,7 @@ void Sc::Scene::finalizationPhase(PxBaseTask* continuation)
         return;
     }
     mDestructionCorrectionInProgress=false;
+    mDestructionKinematicSwitches.clear();
     mDestructionTrialKinematics.clear();
     mDestructionTrialActivity.clear();mDestructionTrialSleepNotifications.clear();
     publishDestructionQueryMembership();

@@ -217,6 +217,7 @@ void BodySim::tearDownSimStateData(bool isKinematic)
 
 void BodySim::switchToKinematic(bool deviceOwnerTransaction)
 {
+	if(deviceOwnerTransaction)mScene.noteDestructionKinematicSwitch(this);
 	setupSimStateData(true);
 
 	{
@@ -240,6 +241,7 @@ void BodySim::switchToKinematic(bool deviceOwnerTransaction)
 
 void BodySim::switchToDynamic(bool deviceOwnerTransaction)
 {
+	if(deviceOwnerTransaction)mScene.noteDestructionKinematicSwitch(this);
 	tearDownSimStateData(true);
 
 	{
