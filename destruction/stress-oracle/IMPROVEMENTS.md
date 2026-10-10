@@ -315,6 +315,18 @@ Excluded (cannot be shown exact or within round-off without the physics tests):
   layer contact). Only friction torque that may slide needs it, but no cheap bound
   holds for its quadrature value.
 
+Finding for the solver (not a runtime change): in `quasi_static` mode, b9_panel_high's
+static solves mostly fail. Over its first 10 frames, 9 of 12 diverge: the plain
+Newton loop's relative residual grows from about 10 to 1e21 over its 60 iterations
+(about 520 CG iterations each). `equilibrate_or_keep` then keeps the previous state,
+which is right if there is truly no equilibrium (a mechanism). Ending the loop early
+would not be exact, since one solve climbs to 5e5 and comes back down. A globalised
+Newton (backtracking on the residual, the full step kept whenever it already
+decreases it) would leave every solve that converges today bit-identical. It would
+change only the ones that fail now: they would converge where an equilibrium exists,
+or fail sooner where none does. That is a method change for a `sim.methods` switch,
+and nearly all of that cell's 47 s goes to these divergent iterations.
+
 ## Open (from the audit and `CPU Oracle Improvements to Prove First`)
 
 | # | Change | Class | Status |
