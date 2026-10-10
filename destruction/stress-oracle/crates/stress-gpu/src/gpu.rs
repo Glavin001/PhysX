@@ -189,6 +189,15 @@ impl Gpu {
         })
     }
 
+    /// A uniform buffer holding an array.
+    pub fn uniform_slice<T: bytemuck::Pod>(&self, label: &str, values: &[T]) -> wgpu::Buffer {
+        self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some(label),
+            contents: bytemuck::cast_slice(values),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        })
+    }
+
     /// Copy a buffer back to the host (blocking).
     pub fn read<T: bytemuck::Pod>(&self, buffer: &wgpu::Buffer) -> Vec<T> {
         let size = buffer.size();

@@ -39,8 +39,10 @@ pub mod shaders {
     pub const SMOKE: ShaderSet = shader_set!("smoke", [("smoke", (64, 1, 1))]);
     pub const STRESS_STEP: ShaderSet = shader_set!("stress_step", [("bond_forces", (64, 1, 1)), ("chunk_integrate", (64, 1, 1)), ("island_substeps", (256, 1, 1)), ("island_shared_substeps", (256, 1, 1))]);
     pub const JOINT_TEST: ShaderSet = shader_set!("joint_test", [("joint_eval_test", (64, 1, 1))]);
+    pub const STRESS_ISLAND: ShaderSet = shader_set!("stress_island", [("island_frame", (256, 1, 1))]);
     pub const STRESS_RENDER: ShaderSet = shader_set!("stress_render", [("stress_vs", (1, 1, 1)), ("stress_fs", (1, 1, 1))]);
 }
 
 pub mod scenes;
+pub mod solver;
 pub mod stress;

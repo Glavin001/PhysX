@@ -1,0 +1,577 @@
+// The stress solver's explicit substep with the full model (stress-ref
+// `ReferenceSolver::substep`, explicit mode): one threadgroup per island (cluster)
+// runs every substep of a segment in one dispatch, in the reference's order:
+//
+//   1. rigid acceleration of a free cluster from its net load (group reductions);
+//   2. bond phase: kinematics, the joint law (joint.slang) with its history, secant
+//      dashpots, loads on both chunks, energies (compensated sums) and events;
+//   3. chunk phase: fixed-order gather of bond loads (CSR, no atomics), frame loads
+//      (gravity, rigid-motion inertial loads, Coriolis and gyroscopic terms) and the
+//      central-difference update by support kind;
+//   4. rigid integration of the cluster (angular momentum, exact rotation);
+//   5. drift removal: the best-fit rigid motion of the hidden field folded into the
+//      cluster's pose and velocity (group reductions).
+//
+// An island stops after a substep in which a bond disconnected, so the host can split
+// it before the next one (as the reference splits at the end of that substep). Cluster
+// position and velocity are kept as compensated pairs (value + rounding error): their
+// per-substep increments are far below f32 resolution at world scale.
+
+import joint;
+
+static const uint SUPPORT_NONE = 0;
+static const uint SUPPORT_FIXED = 1;
+static const uint SUPPORT_PINNED = 2;
+
+static const uint THREADS = 256;
+
+static const uint ISLAND_ANCHORED = 1;
+static const uint ISLAND_DRIVEN = 2;
+static const uint ISLAND_HALTED = 1;
+
+struct Params
+{
+    float4 gravity;     // world, w unused
+    float dt;
+    uint fracture;      // 0/1
+    uint rigid_motion_loads; // 0/1
+    uint pad;
+};
+
+struct MaterialTable
+{
+    JointMaterial m[64];
+};
+
+// Static data of a bond (body frame of its cluster).
+struct BondStatic
+{
+    float4 t1;
+    float4 t2;
+    float4 normal;
+    float4 ra;       // centroid - centre of a
+    float4 rb;       // centroid - centre of b
+    float4 centroid; // body frame
+    float4 c_lin;    // dashpots
+    float4 c_ang;
+    JointBond law;   // ids: x material, y chunk a, z chunk b, w island
+};
+
+// Dynamic data of a bond.
+struct BondDyn
+{
+    JointState js;
+    float4 force_lin;  // last force incl. dashpots; w: stored energy
+    float4 force_ang;  // w: largest utilization seen
+    float4 sums;       // dissipated, overshoot, damped (compensated with `comps`)
+    float4 comps;
+    uint4 events;      // absolute substep of: crack, creak, break (0: none); w: mode at crack
+};
+
+// Static data of a chunk (body frame of its cluster).
+struct ChunkStatic
+{
+    float4 center;     // w: mass
+    float4 inertia0;   // rows of the inertia
+    float4 inertia1;
+    float4 inertia2;
+    float4 inv0;       // rows of the inverse inertia
+    float4 inv1;
+    float4 inv2;
+    float4 scale;      // inertia scale mu, 1 / (m mu), 1 / mu, -
+    uint4 info;        // support, island, structure, chunk
+};
+
+// An island (cluster): static mass data and dynamic rigid state.
+struct Island
+{
+    uint4 range;       // chunks [x, y), bonds [z, w)
+    uint4 info;        // flags (ISLAND_*), substeps to run, status (ISLAND_HALTED), absolute substep at start
+    float4 com;        // body frame centre of mass; w: mass
+    float4 inertia0;   // rows of the body inertia about com
+    float4 inertia1;
+    float4 inertia2;
+    float4 inv0;       // rows of its inverse
+    float4 inv1;
+    float4 inv2;
+    float4 wcom;       // drift-removal weights (deformation inertia): com, w mass
+    float4 winv0;      // rows of the inverse weighted inertia
+    float4 winv1;
+    float4 winv2;
+    float4 rotation;   // quaternion (x, y, z, w)
+    float4 position;   // world, compensated with position_err
+    float4 position_err;
+    float4 velocity;   // com velocity, compensated with velocity_err
+    float4 velocity_err;
+    float4 angular_velocity;
+    uint4 done;        // x: substeps run in the last dispatch
+};
+
+[[vk::binding(0, 0)]] ConstantBuffer<Params> params;
+[[vk::binding(1, 0)]] ConstantBuffer<MaterialTable> materials;
+[[vk::binding(2, 0)]] StructuredBuffer<BondStatic> bonds;
+[[vk::binding(3, 0)]] StructuredBuffer<ChunkStatic> chunks;
+// CSR incidence: [chunk_count + 1 offsets into this buffer], then entries 2 * bond + side.
+[[vk::binding(4, 0)]] StructuredBuffer<uint> csr;
+// 4 per chunk: u (w: largest bond stress), theta, v, w.
+[[vk::binding(5, 0)]] RWStructuredBuffer<float4> state;
+[[vk::binding(6, 0)]] RWStructuredBuffer<BondDyn> bond_dyn;
+// 3 per bond: f on a (w: peak normal stress), moment on a, moment on b (force on b: -f).
+[[vk::binding(7, 0)]] RWStructuredBuffer<float4> bond_loads;
+[[vk::binding(8, 0)]] RWStructuredBuffer<Island> islands;
+
+// ------------------------------------------------------------------ small math
+
+struct Quat
+{
+    float w;
+    float x;
+    float y;
+    float z;
+};
+
+Quat quat_of(float4 q)
+{
+    Quat r;
+    r.x = q.x;
+    r.y = q.y;
+    r.z = q.z;
+    r.w = q.w;
+    return r;
+}
+
+float4 quat_vec(Quat q)
+{
+    return float4(q.x, q.y, q.z, q.w);
+}
+
+float3 rotate(Quat q, float3 v)
+{
+    float3 qv = float3(q.x, q.y, q.z);
+    float3 t = cross(qv, v) * 2.0;
+    return v + t * q.w + cross(qv, t);
+}
+
+float3 inverse_rotate(Quat q, float3 v)
+{
+    Quat c;
+    c.w = q.w;
+    c.x = -q.x;
+    c.y = -q.y;
+    c.z = -q.z;
+    return rotate(c, v);
+}
+
+Quat quat_mul(Quat a, Quat o)
+{
+    Quat r;
+    r.w = a.w * o.w - a.x * o.x - a.y * o.y - a.z * o.z;
+    r.x = a.w * o.x + a.x * o.w + a.y * o.z - a.z * o.y;
+    r.y = a.w * o.y - a.x * o.z + a.y * o.w + a.z * o.x;
+    r.z = a.w * o.z + a.x * o.y - a.y * o.x + a.z * o.w;
+    return r;
+}
+
+Quat normalized(Quat q)
+{
+    float n = sqrt(q.w * q.w + q.x * q.x + q.y * q.y + q.z * q.z);
+    Quat r;
+    r.w = q.w / n;
+    r.x = q.x / n;
+    r.y = q.y / n;
+    r.z = q.z / n;
+    return r;
+}
+
+// Vec3::normalized: zero for a (near-)zero input.
+float3 safe_normalize(float3 v)
+{
+    float n = length(v);
+    return n > 1e-30 ? v / n : float3(0.0);
+}
+
+Quat from_axis_angle(float3 axis, float angle)
+{
+    float3 a = safe_normalize(axis);
+    float s = sin(0.5 * angle);
+    float c = cos(0.5 * angle);
+    Quat q;
+    q.w = c;
+    q.x = a.x * s;
+    q.y = a.y * s;
+    q.z = a.z * s;
+    return q;
+}
+
+Quat integrate_rotation(Quat q, float3 omega, float dt)
+{
+    float angle = length(omega) * dt;
+    if (angle < 1e-30)
+        return q;
+    return normalized(quat_mul(from_axis_angle(omega, angle), q));
+}
+
+float3 rows_mul(float4 r0, float4 r1, float4 r2, float3 v)
+{
+    return float3(dot(r0.xyz, v), dot(r1.xyz, v), dot(r2.xyz, v));
+}
+
+// (R M R^T) v for a body-frame matrix M given by rows.
+float3 world_mul(Quat q, float4 r0, float4 r1, float4 r2, float3 v)
+{
+    return rotate(q, rows_mul(r0, r1, r2, inverse_rotate(q, v)));
+}
+
+// Compensated accumulation: (sum, err) += x (Kahan-Babuska / Neumaier).
+void comp_add(inout float3 sum, inout float3 err, float3 x)
+{
+    float3 t = sum + x;
+    float3 big = select(abs(sum) >= abs(x), sum, x);
+    float3 small = select(abs(sum) >= abs(x), x, sum);
+    err += (big - t) + small;
+    sum = t;
+}
+
+void comp_add1(inout float sum, inout float err, float x)
+{
+    float t = sum + x;
+    if (abs(sum) >= abs(x))
+        err += (sum - t) + x;
+    else
+        err += (x - t) + sum;
+    sum = t;
+}
+
+// ------------------------------------------------------------------ group reductions
+
+groupshared float4 g_red_a[THREADS];
+groupshared float4 g_red_b[THREADS];
+
+// Sums of two vectors over the group (fixed tree order: deterministic).
+void group_sum2(uint tid, inout float3 a, inout float3 b)
+{
+    g_red_a[tid] = float4(a, 0.0);
+    g_red_b[tid] = float4(b, 0.0);
+    GroupMemoryBarrierWithGroupSync();
+    for (uint s = THREADS / 2; s > 0; s >>= 1)
+    {
+        if (tid < s)
+        {
+            g_red_a[tid] += g_red_a[tid + s];
+            g_red_b[tid] += g_red_b[tid + s];
+        }
+        GroupMemoryBarrierWithGroupSync();
+    }
+    a = g_red_a[0].xyz;
+    b = g_red_b[0].xyz;
+    GroupMemoryBarrierWithGroupSync();
+}
+
+// ------------------------------------------------------------------ phases
+
+groupshared uint g_halt;
+
+float3 to_local(BondStatic b, float3 x)
+{
+    return float3(dot(x, b.t1.xyz), dot(x, b.t2.xyz), dot(x, b.normal.xyz));
+}
+
+float3 to_body(BondStatic b, float3 l)
+{
+    return b.t1.xyz * l.x + b.t2.xyz * l.y + b.normal.xyz * l.z;
+}
+
+void bond_update(uint i, float dt, bool fracture, uint abs_step)
+{
+    BondStatic b = bonds[i];
+    BondDyn bd = bond_dyn[i];
+    uint ca = b.law.ids.y;
+    uint cb = b.law.ids.z;
+    float3 ra = b.ra.xyz;
+    float3 rb = b.rb.xyz;
+    float3 ua = state[4 * ca].xyz, ta = state[4 * ca + 1].xyz, va = state[4 * ca + 2].xyz, wa = state[4 * ca + 3].xyz;
+    float3 ub = state[4 * cb].xyz, tb = state[4 * cb + 1].xyz, vb = state[4 * cb + 2].xyz, wb = state[4 * cb + 3].xyz;
+    float3 d_lin = to_local(b, (ub + cross(tb, rb)) - (ua + cross(ta, ra)));
+    float3 d_ang = to_local(b, tb - ta);
+    float3 r_lin = to_local(b, (vb + cross(wb, rb)) - (va + cross(wa, ra)));
+    float3 r_ang = to_local(b, wb - wa);
+    JointMaterial mat = materials.m[b.law.ids.x];
+    JointState previous = bd.js;
+    JointResponse resp = joint_evaluate(mat, b.law, previous, d_lin, d_ang, dt, fracture);
+    float3 f_lin;
+    float3 f_ang;
+    secant_factors(b.law, resp.state, d_lin, f_lin, f_ang);
+    float3 qd_lin = r_lin * b.c_lin.xyz * f_lin;
+    float3 qd_ang = r_ang * b.c_ang.xyz * f_ang;
+    float3 q_lin = resp.force_lin + qd_lin;
+    float3 q_ang = resp.force_ang + qd_ang;
+    float damped = (dot(qd_lin, r_lin) + dot(qd_ang, r_ang)) * dt;
+
+    // Loads on the chunks (body frame).
+    float3 f = to_body(b, q_lin);
+    float3 m = to_body(b, q_ang);
+    Measures em = resp.measures;
+    float peak = max(em.tension, em.compression);
+    bond_loads[3 * i + 0] = float4(f, peak);
+    bond_loads[3 * i + 1] = float4(m + cross(ra, f), 0.0);
+    bond_loads[3 * i + 2] = float4(-m + cross(rb, -f), 0.0);
+
+    // History, energies, events.
+    comp_add1(bd.sums.x, bd.comps.x, resp.dissipated);
+    comp_add1(bd.sums.y, bd.comps.y, resp.overshoot);
+    comp_add1(bd.sums.z, bd.comps.z, damped);
+    bd.force_lin = float4(q_lin, resp.stored);
+    bd.force_ang = float4(q_ang, max(bd.force_ang.w, resp.state.utilization));
+    if (!is_damaged(previous) && is_damaged(resp.state) && bd.events.x == 0)
+    {
+        bd.events.x = abs_step;
+        bd.events.w = resp.state.mode;
+    }
+    if (bd.events.y == 0 && fatigue_factor(mat, previous.fatigue) > 0.99 && fatigue_factor(mat, resp.state.fatigue) <= 0.99)
+        bd.events.y = abs_step;
+    if (resp.disconnected)
+    {
+        bd.events.z = abs_step;
+        g_halt = 1;
+    }
+    bd.js = resp.state;
+    bond_dyn[i] = bd;
+}
+
+// Rigid-frame state every thread holds identically (computed redundantly, no broadcast).
+struct Rigid
+{
+    Quat rot;
+    float3 pos;
+    float3 pos_err;
+    float3 vel;
+    float3 vel_err;
+    float3 w;
+    float3 a;
+    float3 alpha;
+};
+
+void chunk_update(uint c, Island isl, Rigid rg, float dt, bool rml)
+{
+    ChunkStatic ch = chunks[c];
+    float3 fi = float3(0.0);
+    float3 mi = float3(0.0);
+    float peak = 0.0;
+    for (uint k = csr[c]; k < csr[c + 1]; k++)
+    {
+        uint e = csr[k];
+        uint bond = e >> 1;
+        float4 fa = bond_loads[3 * bond];
+        if ((e & 1) == 0)
+        {
+            fi += fa.xyz;
+            mi += bond_loads[3 * bond + 1].xyz;
+        }
+        else
+        {
+            fi += -fa.xyz;
+            mi += bond_loads[3 * bond + 2].xyz;
+        }
+        peak = max(peak, fa.w);
+    }
+    float3 u = state[4 * c].xyz;
+    float3 th = state[4 * c + 1].xyz;
+    float3 v = state[4 * c + 2].xyz;
+    float3 w = state[4 * c + 3].xyz;
+    float mass = ch.center.w;
+
+    // Frame loads (solver.rs `frame_loads`): external loads in the body frame minus the
+    // inertial loads of the cluster's rigid motion.
+    float3 r_world = rotate(rg.rot, ch.center.xyz + u - isl.com.xyz);
+    float3 f_world = params.gravity.xyz * mass;
+    float3 t_world = float3(0.0);
+    if (rml)
+    {
+        f_world -= (rg.a + cross(rg.alpha, r_world) + cross(rg.w, cross(rg.w, r_world))) * mass;
+        float3 iw_alpha = world_mul(rg.rot, ch.inertia0, ch.inertia1, ch.inertia2, rg.alpha);
+        float3 iw_w = world_mul(rg.rot, ch.inertia0, ch.inertia1, ch.inertia2, rg.w);
+        t_world -= iw_alpha + cross(rg.w, iw_w);
+    }
+    float3 f_ext = inverse_rotate(rg.rot, f_world);
+    float3 m_ext = inverse_rotate(rg.rot, t_world);
+    if (rml)
+    {
+        float3 wb = inverse_rotate(rg.rot, rg.w);
+        f_ext -= cross(wb, v) * (2.0 * mass);
+        float3 i_w = rows_mul(ch.inertia0, ch.inertia1, ch.inertia2, w);
+        float3 i_wb = rows_mul(ch.inertia0, ch.inertia1, ch.inertia2, wb);
+        m_ext -= cross(wb, i_w) + cross(w, i_wb) + cross(w, i_w);
+    }
+
+    // Central differences by support kind (solver.rs `integrate_cluster`).
+    float3 f = f_ext + fi;
+    float3 m = m_ext + mi;
+    uint support = ch.info.x;
+    if (support == SUPPORT_FIXED)
+    {
+        v = float3(0.0);
+        w = float3(0.0);
+    }
+    else
+    {
+        w += rows_mul(ch.inv0, ch.inv1, ch.inv2, m) * (dt * ch.scale.z);
+        th += w * dt;
+        if (support == SUPPORT_PINNED)
+        {
+            v = float3(0.0);
+        }
+        else
+        {
+            v += f * (dt * ch.scale.y);
+            u += v * dt;
+        }
+    }
+    state[4 * c] = float4(u, peak);
+    state[4 * c + 1] = float4(th, 0.0);
+    state[4 * c + 2] = float4(v, 0.0);
+    state[4 * c + 3] = float4(w, 0.0);
+}
+
+[shader("compute")]
+[numthreads(256, 1, 1)]
+void island_frame(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
+{
+    uint tid = thread.x;
+    Island isl = islands[group.x];
+    bool anchored = (isl.info.x & ISLAND_ANCHORED) != 0;
+    bool driven = (isl.info.x & ISLAND_DRIVEN) != 0;
+    bool free_motion = !anchored && !driven;
+    uint steps = (isl.info.z & ISLAND_HALTED) != 0 ? 0 : isl.info.y;
+    float dt = params.dt;
+    bool fracture = params.fracture != 0;
+    bool rml = params.rigid_motion_loads != 0;
+    float3 g = params.gravity.xyz;
+    float mass_total = isl.com.w;
+
+    Rigid rg;
+    rg.rot = quat_of(isl.rotation);
+    rg.pos = isl.position.xyz;
+    rg.pos_err = isl.position_err.xyz;
+    rg.vel = isl.velocity.xyz;
+    rg.vel_err = isl.velocity_err.xyz;
+    rg.w = isl.angular_velocity.xyz;
+    rg.a = float3(0.0);
+    rg.alpha = float3(0.0);
+
+    if (tid == 0)
+        g_halt = 0;
+    GroupMemoryBarrierWithGroupSync();
+    uint done = 0;
+    for (uint s = 0; s < steps; s++)
+    {
+        uint abs_step = isl.info.w + s + 1;
+        // 1. Rigid acceleration of a free cluster (solver.rs `rigid_acceleration`).
+        if (!anchored)
+        {
+            float3 f = float3(0.0);
+            float3 t = float3(0.0);
+            for (uint c = isl.range.x + tid; c < isl.range.y; c += THREADS)
+            {
+                ChunkStatic ch = chunks[c];
+                float3 fc = g * ch.center.w;
+                float3 r = rotate(rg.rot, ch.center.xyz + state[4 * c].xyz - isl.com.xyz);
+                f += fc;
+                t += cross(r, fc);
+            }
+            group_sum2(tid, f, t);
+            float3 iw_w = world_mul(rg.rot, isl.inertia0, isl.inertia1, isl.inertia2, rg.w);
+            rg.a = f / mass_total;
+            rg.alpha = world_mul(rg.rot, isl.inv0, isl.inv1, isl.inv2, t - cross(rg.w, iw_w));
+        }
+        // 2. Bonds.
+        for (uint i = isl.range.z + tid; i < isl.range.w; i += THREADS)
+            bond_update(i, dt, fracture, abs_step);
+        AllMemoryBarrierWithGroupSync();
+        // 3. Chunks.
+        for (uint c = isl.range.x + tid; c < isl.range.y; c += THREADS)
+            chunk_update(c, isl, rg, dt, rml);
+        AllMemoryBarrierWithGroupSync();
+        if (free_motion)
+        {
+            // 4. Rigid integration (solver.rs `integrate_rigid`).
+            float3 com_world = rg.pos + rotate(rg.rot, isl.com.xyz);
+            float3 iw_w = world_mul(rg.rot, isl.inertia0, isl.inertia1, isl.inertia2, rg.w);
+            float3 torque = world_mul(rg.rot, isl.inertia0, isl.inertia1, isl.inertia2, rg.alpha) + cross(rg.w, iw_w);
+            float3 l = iw_w + torque * dt;
+            comp_add(rg.vel, rg.vel_err, rg.a * dt);
+            float3 vel = rg.vel + rg.vel_err;
+            float3 w_mid = world_mul(rg.rot, isl.inv0, isl.inv1, isl.inv2, l);
+            Quat rot1 = integrate_rotation(rg.rot, w_mid, dt);
+            // position = (com_world + v dt) - R1 com, as a compensated update of the old position.
+            float3 delta = vel * dt + (rotate(rg.rot, isl.com.xyz) - rotate(rot1, isl.com.xyz));
+            comp_add(rg.pos, rg.pos_err, delta);
+            rg.rot = rot1;
+            rg.w = world_mul(rg.rot, isl.inv0, isl.inv1, isl.inv2, l);
+        }
+        if (!anchored)
+        {
+            // 5. Drift removal (solver.rs `remove_rigid_drift`), with deformation weights.
+            float3 wcom = isl.wcom.xyz;
+            float wmass = isl.wcom.w;
+            float3 tu = float3(0.0);
+            float3 pv = float3(0.0);
+            for (uint c = isl.range.x + tid; c < isl.range.y; c += THREADS)
+            {
+                ChunkStatic ch = chunks[c];
+                float m = ch.center.w * ch.scale.x;
+                tu += state[4 * c].xyz * m;
+                pv += state[4 * c + 2].xyz * m;
+            }
+            group_sum2(tid, tu, pv);
+            float3 tr = tu / wmass;
+            float3 dv = pv / wmass;
+            float3 lu = float3(0.0);
+            float3 lv = float3(0.0);
+            for (uint c = isl.range.x + tid; c < isl.range.y; c += THREADS)
+            {
+                ChunkStatic ch = chunks[c];
+                float3 r = ch.center.xyz - wcom;
+                float k = ch.scale.x;
+                lu += (cross(r, state[4 * c].xyz - tr) * ch.center.w + rows_mul(ch.inertia0, ch.inertia1, ch.inertia2, state[4 * c + 1].xyz)) * k;
+                lv += (cross(r, state[4 * c + 2].xyz - dv) * ch.center.w + rows_mul(ch.inertia0, ch.inertia1, ch.inertia2, state[4 * c + 3].xyz)) * k;
+            }
+            group_sum2(tid, lu, lv);
+            float3 phi = rows_mul(isl.winv0, isl.winv1, isl.winv2, lu);
+            float3 dw = rows_mul(isl.winv0, isl.winv1, isl.winv2, lv);
+            for (uint c = isl.range.x + tid; c < isl.range.y; c += THREADS)
+            {
+                float3 r = chunks[c].center.xyz - wcom;
+                state[4 * c] = float4(state[4 * c].xyz - (tr + cross(phi, r)), state[4 * c].w);
+                state[4 * c + 1] = float4(state[4 * c + 1].xyz - phi, 0.0);
+                state[4 * c + 2] = float4(state[4 * c + 2].xyz - (dv + cross(dw, r)), 0.0);
+                state[4 * c + 3] = float4(state[4 * c + 3].xyz - dw, 0.0);
+            }
+            if (!driven)
+            {
+                Quat rot = rg.rot;
+                comp_add(rg.pos, rg.pos_err, rotate(rot, tr - cross(phi, wcom)));
+                rg.rot = normalized(quat_mul(rot, from_axis_angle(phi, length(phi))));
+                comp_add(rg.vel, rg.vel_err, rotate(rot, dv + cross(dw, isl.com.xyz - wcom)));
+                rg.w += rotate(rot, dw);
+            }
+            AllMemoryBarrierWithGroupSync();
+        }
+        done = s + 1;
+        if (g_halt != 0)
+            break;
+    }
+    if (tid == 0)
+    {
+        isl.rotation = quat_vec(rg.rot);
+        isl.position = float4(rg.pos, 0.0);
+        isl.position_err = float4(rg.pos_err, 0.0);
+        isl.velocity = float4(rg.vel, 0.0);
+        isl.velocity_err = float4(rg.vel_err, 0.0);
+        isl.angular_velocity = float4(rg.w, 0.0);
+        isl.done.x = done;
+        isl.info.w += done;
+        if (g_halt != 0)
+            isl.info.z |= ISLAND_HALTED;
+        islands[group.x] = isl;
+    }
+}
