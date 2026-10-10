@@ -750,6 +750,13 @@ impl World {
                 }
             }
         }
+        // Boxes by how near the charge they reach (`|centre - charge| - bounding radius`):
+        // a box can block a face's line of sight only if it reaches nearer than the face,
+        // as every point of the line is (see below).
+        let near = |b: &OBox| (b.center - position).norm() - b.bounding_radius();
+        let mut by_reach: Vec<(f64, usize)> = boxes.iter().enumerate().map(|(i, (_, _, b))| (near(b), i)).collect();
+        let finite_reach = by_reach.iter().all(|r| r.0.is_finite());
+        by_reach.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)));
         let mut faces = Vec::new();
         for s in 0..self.solver.structures.len() {
             let clearing = self.clearing_distances(s);
@@ -768,9 +775,25 @@ impl World {
                     let cos_theta = n.dot(to_charge) / r;
                     let start = x + n * 1e-6;
                     let features = &self.scene.sim.features;
-                    let shadowed = features.blast_shadowing
-                        && cos_theta > 0.0
-                        && boxes.iter().any(|(bs, bc, b)| (*bs, *bc) != (s, c) && b.segment_hit(start, position).is_some());
+                    // Every point of the segment from `start` to the charge is within
+                    // `|start - charge|` of it, so a box it crosses reaches nearer than
+                    // that (with a margin far beyond the rounding of either side); the
+                    // others need no test (`any` is the same over any order).
+                    let blocks = |i: usize| {
+                        let (bs, bc, b) = &boxes[i];
+                        (*bs, *bc) != (s, c) && b.segment_hit(start, position).is_some()
+                    };
+                    let shadowed = features.blast_shadowing && cos_theta > 0.0 && {
+                        let reach = (start - position).norm();
+                        let scale = start.to_array().iter().chain(position.to_array().iter()).map(|x| x.abs()).fold(reach, f64::max);
+                        let limit = reach * (1.0 + 1e-9) + 1e-9 * scale;
+                        if finite_reach && limit.is_finite() {
+                            let end = by_reach.partition_point(|r| r.0 <= limit);
+                            by_reach[..end].iter().any(|&(_, i)| blocks(i))
+                        } else {
+                            (0..boxes.len()).any(blocks)
+                        }
+                    };
                     // Without clearing the reflected pressure acts for the whole pulse.
                     let s_clear = if features.blast_clearing { clearing.get(&(c, f)).copied().unwrap_or(0.0) } else { f64::INFINITY };
                     faces.push((s, c, f, area, FaceBlast::new(tnt, time, r, cos_theta, shadowed, s_clear)));
