@@ -84,8 +84,8 @@ fn main() {
     println!("{} ({:?})", gpu.adapter_info.name, gpu.adapter_info.backend);
 
     println!("\n## Island kernel: one island, one threadgroup of 256 threads, 2000 substeps");
-    println!("| slab | chunks | bonds | bonds/thread | us/substep |");
-    println!("|---|---:|---:|---:|---:|");
+    println!("| slab | chunks | bonds | bonds/thread | us/substep | batches | gpu wait us/substep | readback us/substep |");
+    println!("|---|---:|---:|---:|---:|---:|---:|---:|");
     for n in [[2, 2, 1], [4, 2, 2], [8, 6, 2], [12, 6, 2], [16, 8, 2], [16, 12, 2], [20, 16, 2], [32, 16, 2], [40, 20, 4]] {
         let mut scene = scenes::slab(n);
         scene.sim.solve_mode = SolveMode::Explicit;
@@ -96,10 +96,22 @@ fn main() {
         let mut solver = GpuSolver::new(&gpu, reference, None, Vec::new()).expect("GPU solver");
         let substeps = 2000;
         solver.step(&gpu, dt, substeps).expect("warm-up");
+        let before = solver.profile.clone();
         let t = Instant::now();
         solver.step(&gpu, dt, substeps).expect("step");
         let us = t.elapsed().as_secs_f64() / substeps as f64 * 1e6;
-        println!("| {}x{}x{} | {chunks} | {bonds} | {:.2} | {us:.1} |", n[0], n[1], n[2], bonds as f64 / 256.0);
+        let p = &solver.profile;
+        let per = |x: f64| x / substeps as f64 * 1e6;
+        println!(
+            "| {}x{}x{} | {chunks} | {bonds} | {:.2} | {us:.1} | {} | {:.1} | {:.1} |",
+            n[0],
+            n[1],
+            n[2],
+            bonds as f64 / 256.0,
+            p.batches - before.batches,
+            per(p.gpu - before.gpu),
+            per(p.readback - before.readback)
+        );
     }
 
     println!("\n## Primitive latencies (one workgroup of 256, dependent loop)");

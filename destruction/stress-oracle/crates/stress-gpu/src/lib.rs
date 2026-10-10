@@ -7,6 +7,7 @@
 //! Everything on the GPU is f32; accuracy against the reference is measured, not assumed.
 
 pub mod gpu;
+pub mod gate;
 pub mod contacts;
 pub mod coupled;
 pub mod joint;
