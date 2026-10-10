@@ -252,7 +252,7 @@ impl Polytope {
             }
         }
         if !cut {
-            out.clone_from(self);
+            // Every face was copied above, in order: `out` is already `self`.
             return;
         }
         let ClipScratch { segments, points, hull, kept, .. } = scratch;

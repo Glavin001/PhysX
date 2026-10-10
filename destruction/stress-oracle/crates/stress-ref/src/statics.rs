@@ -467,6 +467,10 @@ impl ReferenceSolver {
             }
         }
         self.refresh_bond_forces(ci);
+        crate::profile::count(crate::profile::Counter::StaticSolves, 1);
+        crate::profile::count(crate::profile::Counter::StaticConverged, report.converged as u64);
+        crate::profile::count(crate::profile::Counter::NewtonIterations, report.newton_iterations as u64);
+        crate::profile::count(crate::profile::Counter::CgIterations, report.cg_iterations as u64);
         report
     }
 
