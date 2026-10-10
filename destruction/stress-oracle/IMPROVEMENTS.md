@@ -211,6 +211,27 @@ fragments never crush. Planned: the joint's crushing criterion on the contact, i
 form (peak layer pressure `max_f k''_f d_f`, the indentation ratcheted to
 `max_f (d_f - f_c / k''_f)`).
 
+**Rocking damping and the exact shear layer** (this round, DECISIONS.md 10-12): the
+dashpot spreads over the area like the springs, so relative spin about in-plane axes is
+resisted (`-(c_n / A) Q w`); before, a resting heavy block rocked forever. The friction
+layer is an exact last-in-first-out stack of entry cohorts; the uniform-strain rule it
+replaces made a near-grazing contact edge creep (8e-14 m/s) as round-off flickered its
+area. Both are proven by exact targets (`tests/principles.rs`: rest at the exact
+two-field equilibrium, sticking at the exact elastic offset with no creep, the exact
+discrete Coulomb stop).
+
+**Sliver contacts (bug, fixed):** the contact area's second moment was formed about the
+world origin and shifted to the contact point; for a thin sliver the shift cancelled to
+the size of the value, the polar moment came out negative and the torsional dashpot's
+`sqrt` gave NaN (40 m/s fracture at Courant safety 1/64). Moments are now integrated
+about the point and the parallel-axis shift only adds a positive term (DECISIONS.md 28).
+
+**Open, energy closure with fracture:** the balance converges at first order to about
+-1.3e-3 e0, not zero; the loss accrues at a fixed rate while contacts push loose cracked
+chunks, the signature of the small-strain floating-frame coupling that also keeps
+angular momentum from being conserved (DECISIONS.md 26-27). Both are exact targets now
+and fail until that coupling is made exact.
+
 **Status:** catalogue A/B rerun pending.
 
 ### `scaled_step_bound` (fix, step change)
@@ -260,3 +281,7 @@ bonds' stored energy is their last evaluation's, zero before the first step.)
 | - | Adaptive wake on per-bond utilisation, not summed force norms | Fix | to do |
 | - | Settle and refinement energy booked, not discarded | Fix | to do |
 | - | `split_release`: hand the joint's compression, shear and torsion to the contact (with `layer_contact`) | Fix | done |
+| - | Test targets audited: exact answers or derived bounds, no picked tolerances (DECISIONS.md) | - | done for principles, conservation, gradients, ball overlap |
+| - | Exact rigid/hidden coupling of the floating frame (angular momentum, fracture energy closure) | Model change | to do |
+| - | Half turns bit for bit (covariant quaternion formulas or matrix orientation) | Fix | in progress |
+| - | Shallow ball caps without cancellation (centroid off ~1e-4 m on a 1e-16 m^3 cap) | Fix | to do |

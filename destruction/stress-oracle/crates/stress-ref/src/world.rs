@@ -1404,12 +1404,11 @@ impl World {
                     let room = (h.stored - kept).max(0.0);
                     let scale = if energy_t + energy_r > room { (room / (energy_t + energy_r)).sqrt() } else { 1.0 };
                     if k_t > 0.0 {
-                        stick.shear = shear * scale;
-                        stick.k_t = k_t;
+                        stick.shear = Layer::uniform(shear * scale, k_t);
+                        stick.normal = n;
                     }
                     if k_r > 0.0 {
-                        stick.torque = torque * scale;
-                        stick.k_r = k_r;
+                        stick.torque = Layer::uniform(torque * scale, k_r);
                     }
                     friction = (energy_t + energy_r) * scale * scale;
                 }
@@ -2055,23 +2054,123 @@ enum ContactKey {
     Pair(usize, usize, usize, usize),
 }
 
-/// Friction state of an elastic-layer contact: the shear layer's elastic force (world
-/// vector, in the contact plane) and moment about the normal, updated incrementally
-/// (Mindlin-Deresiewicz), with the stiffnesses they were stored at. Where the contact
-/// grows, new layer enters unstrained (the force carries over); where it shrinks, the
-/// layer leaving takes its share of the force with it (the force scales with the
-/// stiffness): the force stays continuous where it should, inside Coulomb's cone, and
-/// its stored energy `F^2 / 2k` never grows without work.
-#[derive(Clone, Copy, Debug, Default)]
+/// Friction state of an elastic-layer contact: its shear layer (world vectors, in the
+/// contact plane of `normal`) and its torsion about the normal.
+#[derive(Clone, Debug, Default)]
 struct Stick {
-    shear: Vec3,
-    torque: f64,
-    k_t: f64,
-    k_r: f64,
+    shear: Layer<Vec3>,
+    torque: Layer<f64>,
+    /// The contact normal the shear layer was last carried in.
+    normal: Vec3,
     /// Permanent indentation of the contact surface (crushed material inherited from
     /// the joint the pair shared): the layer acts only on overlap deeper than this. It
     /// stays while the pair overlaps; a pair that separates forgets it.
     indent: f64,
+}
+
+/// A shear layer whose contact area changes, as the cohorts of material that entered
+/// it (Mindlin-Deresiewicz, exactly): each cohort's stiffness (`k''_t` times its area,
+/// or its polar moment for torsion) and the layer's displacement when it entered; the
+/// layer's force is `sum k_i (d - d_i)`, `d` its displacement now. New material enters
+/// unstrained (a cohort at the current `d`); when the area shrinks, the newest material
+/// leaves first, taking the strain it gained since it entered (at a moving contact
+/// edge, what crosses it last crosses it back first). A contact edge that flickers in
+/// and out (at a near-grazing edge the area follows the position's rounding a million
+/// times over) then neither loses nor gains force, whatever its history; real growth
+/// adds unstrained layer, real shrinking releases what the leaving layer held. Slip
+/// (the whole patch sliding) leaves the strain uniform: one cohort. The stored energy
+/// `sum k_i |d - d_i|^2 / 2` never grows without work.
+#[derive(Clone, Debug, Default)]
+struct Layer<V> {
+    d: V,
+    cohorts: Vec<(f64, V)>,
+}
+
+/// A layer load: a force (vector) or a moment (scalar).
+trait Load: Copy + Default + PartialEq + std::ops::Add<Output = Self> + std::ops::Sub<Output = Self> + std::ops::Mul<f64, Output = Self> {
+    fn square(self) -> f64;
+}
+
+impl Load for Vec3 {
+    fn square(self) -> f64 {
+        self.dot(self)
+    }
+}
+
+impl Load for f64 {
+    fn square(self) -> f64 {
+        self * self
+    }
+}
+
+impl<V: Load> Layer<V> {
+    /// A uniformly strained layer of stiffness `k` holding `load`.
+    fn uniform(load: V, k: f64) -> Layer<V> {
+        if k > 0.0 {
+            Layer { d: V::default(), cohorts: vec![(k, load * (-1.0 / k))] }
+        } else {
+            Layer::default()
+        }
+    }
+    fn stiffness(&self) -> f64 {
+        self.cohorts.iter().map(|c| c.0).sum()
+    }
+    fn load(&self) -> V {
+        self.cohorts.iter().fold(V::default(), |f, &(k, d0)| f + (self.d - d0) * k)
+    }
+    fn energy(&self) -> f64 {
+        self.cohorts.iter().map(|&(k, d0)| 0.5 * k * (self.d - d0).square()).sum()
+    }
+    /// The layer at stiffness `k` (its area changed).
+    fn resize(mut self, k: f64) -> Layer<V> {
+        let total = self.stiffness();
+        if k > total {
+            let gain = k - total;
+            match self.cohorts.last_mut() {
+                Some(top) if top.1 == self.d => top.0 += gain,
+                _ => self.cohorts.push((gain, self.d)),
+            }
+        } else {
+            let mut leaving = total - k;
+            while leaving > 0.0 {
+                let Some(top) = self.cohorts.last_mut() else { break };
+                if top.0 > leaving {
+                    top.0 -= leaving;
+                    break;
+                }
+                leaving -= top.0;
+                self.cohorts.pop();
+            }
+        }
+        self
+    }
+    /// Strained by the displacement `x`.
+    fn strain(mut self, x: V) -> Layer<V> {
+        self.d = self.d + x;
+        self
+    }
+}
+
+impl Layer<Vec3> {
+    /// The layer turned with its contact plane, from normal `from` to `to` (the minimal
+    /// rotation: magnitudes and the cohorts' strains kept exactly).
+    fn turned(mut self, from: Vec3, to: Vec3) -> Layer<Vec3> {
+        let c = from.dot(to);
+        if from == to || from == Vec3::ZERO {
+            return self;
+        }
+        if c <= -1.0 + f64::EPSILON {
+            // Flipped: no rotation is defined; the layer cannot hold across it.
+            return Layer::default();
+        }
+        let axis = from.cross(to);
+        let rotate = |v: Vec3| v * c + axis.cross(v) + axis * (axis.dot(v) / (1.0 + c));
+        self.d = rotate(self.d);
+        for co in &mut self.cohorts {
+            co.1 = rotate(co.1);
+        }
+        self
+    }
 }
 
 /// Material and inertia data of one elastic-layer contact.
@@ -2151,7 +2250,7 @@ fn ball_elastic(b: &OBox, mat_chunk: &Material, center: Vec3, r: f64, mat_ball: 
         k_n: kv / vol,
         k_t: ktv / vol,
         max_depth: 0.0,
-        contact: Some(LayerContact { normal: n, centroid: point, ..geometry }),
+        contact: Some(LayerContact { normal: n, ..geometry }.about(point)),
     })
 }
 
@@ -2180,13 +2279,6 @@ fn reduced(x: f64, y: f64) -> f64 {
 /// to what the capped force needs). Torsion: the same with the layer's polar moment and
 /// the cap `mu F_n r_mean`. Exact static friction: a stuck contact holds any force inside
 /// the cone with no slip rate, independent of the substep.
-/// The fraction of a layer force stored at stiffness `before` that stays in the layer at
-/// stiffness `now`: all of it where the contact has grown, the remaining layer's share
-/// where it has shrunk.
-fn shrink(now: f64, before: f64) -> f64 {
-    if before > now { now / before } else { 1.0 }
-}
-
 fn layer_force(law: &LayerLaw, lc: &LayerContact, v: Vec3, w: Vec3, stick: Stick, dt: f64) -> LayerOutcome {
     let n = lc.normal;
     let zeta = damping_ratio(law.restitution);
@@ -2200,70 +2292,77 @@ fn layer_force(law: &LayerLaw, lc: &LayerContact, v: Vec3, w: Vec3, stick: Stick
     let vn = v.dot(n);
     let trial = f_el - c_n * vn;
     let (f_n, mut dissipated, couple) = if trial > 0.0 {
-        (trial, c_n * vn * vn * dt, m_el)
+        // The dashpot spreads over the area like the springs (`c_n / A` per area): the
+        // relative spin about axes in the contact plane opens and closes the layer
+        // linearly across it, and the dashpots resist it with `-(c_n / A) Q w`,
+        // `Q = int (r x n)(r x n)^T dA` (the area's in-plane second moment turned a
+        // quarter): it only dissipates.
+        let rocking = w - n * w.dot(n);
+        let damper = if lc.area > 0.0 {
+            let plane = Mat3::IDENTITY - Mat3::outer(n, n);
+            let q = plane * lc.area_moment.trace() - lc.area_moment;
+            q * rocking * (c_n / lc.area)
+        } else {
+            Vec3::ZERO
+        };
+        (trial, c_n * vn * vn * dt + damper.dot(rocking) * dt, m_el - damper)
     } else {
         // The dashpot holds the layer at zero force: it unloads without doing work.
         (0.0, f_el * vn.max(0.0) * dt, Vec3::ZERO)
     };
-    // Tangential: carry the elastic shear force into the current contact plane (keeping
-    // its magnitude), add this substep's elastic increment, then the dashpot; Coulomb's
-    // cap by radial return. Stored energy |F|^2 / (2 k) at the current stiffness.
+    // Tangential: turn the layer with the contact plane, resize it to the current area,
+    // add this substep's elastic displacement, then the dashpot; Coulomb's cap by
+    // radial return.
     let k_t = law.k_t * lc.area;
     let c_t = 2.0 * zeta * (k_t * law.m_red).sqrt();
     let vt = v - n * vn;
-    let mut shear = stick.shear - n * stick.shear.dot(n);
-    let (len0, len1) = (stick.shear.norm(), shear.norm());
-    if len1 > 0.0 {
-        shear = shear * (len0 / len1 * shrink(k_t, stick.k_t));
-    }
-    let energy = |f: Vec3| if k_t > 0.0 { 0.5 * f.dot(f) / k_t } else { 0.0 };
-    let before = energy(shear);
-    if stick.k_t > 0.0 {
-        dissipated += 0.5 * stick.shear.dot(stick.shear) / stick.k_t - before;
-    }
-    shear -= vt * (k_t * dt);
-    let mut f_t = shear - vt * c_t;
+    let held = stick.shear.clone().turned(stick.normal, n);
+    let held_energy = held.energy();
+    let mut layer = held.resize(k_t);
+    let before = layer.energy();
+    dissipated += held_energy - before;
+    let carried = layer.load();
+    layer = layer.strain(vt * -dt);
+    let mut f_t = layer.load() - vt * c_t;
     let cap = law.friction * f_n;
     if f_n == 0.0 || k_t == 0.0 {
         f_t = Vec3::ZERO;
-        shear = Vec3::ZERO;
+        layer = Layer::default();
     } else if f_t.norm() > cap {
         // Sliding: Coulomb's slider in series with the layer (spring and dashpot in
         // parallel) carries the cap, `k e + c de/dt = cap`; the layer's elastic force
         // relaxes towards the cap (backward Euler), continuous with sticking at the
-        // threshold and never beyond the larger of the cap and its previous value.
+        // threshold and never beyond the larger of the cap and its previous value. The
+        // whole patch slips: its strain is uniform.
         f_t = f_t * (cap / f_t.norm());
-        let carried = shear + vt * (k_t * dt);
-        shear = (f_t * k_t + carried * (c_t / dt)) / (k_t + c_t / dt);
+        layer = Layer::uniform((f_t * k_t + carried * (c_t / dt)) / (k_t + c_t / dt), k_t);
     }
-    let after = energy(shear);
+    let after = layer.energy();
     dissipated += -f_t.dot(vt) * dt - (after - before);
     stored += after;
     // Torsion about the normal, the same with the layer's polar moment.
     let k_r = law.k_t * lc.polar_moment;
     let c_r = 2.0 * zeta * (k_r * law.i_red).sqrt();
     let spin = w.dot(n);
-    let energy_r = |m: f64| if k_r > 0.0 { 0.5 * m * m / k_r } else { 0.0 };
-    let carried = stick.torque * shrink(k_r, stick.k_r);
-    let before_r = energy_r(carried);
-    if stick.k_r > 0.0 {
-        dissipated += 0.5 * stick.torque * stick.torque / stick.k_r - before_r;
-    }
-    let mut torque = carried - k_r * spin * dt;
-    let mut m = torque - c_r * spin;
+    let held_r = stick.torque.energy();
+    let mut twist = stick.torque.clone().resize(k_r);
+    let before_r = twist.energy();
+    dissipated += held_r - before_r;
+    let carried = twist.load();
+    twist = twist.strain(-spin * dt);
+    let mut m = twist.load() - c_r * spin;
     let cap_r = law.friction * f_n * lc.mean_radius;
     if f_n == 0.0 || k_r == 0.0 {
         m = 0.0;
-        torque = 0.0;
+        twist = Layer::default();
     } else if m.abs() > cap_r {
         m = cap_r * m.signum();
-        let carried = torque + k_r * spin * dt;
-        torque = (m * k_r + carried * (c_r / dt)) / (k_r + c_r / dt);
+        twist = Layer::uniform((m * k_r + carried * (c_r / dt)) / (k_r + c_r / dt), k_r);
     }
-    let after_r = energy_r(torque);
+    let after_r = twist.energy();
     dissipated += -m * spin * dt - (after_r - before_r);
     stored += after_r;
-    LayerOutcome { force: n * f_n + f_t, moment: n * m + couple, stick: Stick { shear, torque, k_t, k_r, indent: stick.indent }, stored, dissipated }
+    LayerOutcome { force: n * f_n + f_t, moment: n * m + couple, stick: Stick { shear: layer, torque: twist, normal: n, indent: stick.indent }, stored, dissipated }
 }
 
 /// The elastic-layer contact of one chunk pair over a substep: the key, the point of
@@ -2279,7 +2378,7 @@ fn pair_layer_contact(solver: &ReferenceSolver, scene: &Scene, key: ContactKey, 
     // when they part (the pair then has no contact state): lowering it while they touch
     // would raise the stored energy without work.
     let Some(lc) = pe.contact else {
-        let none = LayerOutcome { force: Vec3::ZERO, moment: Vec3::ZERO, stick: Stick { shear: Vec3::ZERO, torque: 0.0, k_t: 0.0, k_r: 0.0, ..stick }, stored: 0.0, dissipated: 0.0 };
+        let none = LayerOutcome { force: Vec3::ZERO, moment: Vec3::ZERO, stick: Stick { shear: Layer::default(), torque: Layer::default(), ..stick }, stored: 0.0, dissipated: 0.0 };
         return Some((key, ba.center, none, 0.0));
     };
     let inertia = |s: usize, c: usize| {
@@ -2381,7 +2480,7 @@ fn pair_elastic_of(overlap: &Polytope, ba: &OBox, bb: &OBox, mat_a: &Material, m
     }
     let (lo, hi) = overlap.faces.iter().flat_map(|f| f.vertices.iter()).map(|v| v.dot(n)).fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), x| (lo.min(x), hi.max(x)));
     let geometry = LayerContact::with_normal(overlap, n)?;
-    Some(PairElastic { elastic, k_n: kv / vol, k_t: ktv / vol, max_depth: (hi - lo).max(0.0), contact: Some(LayerContact { centroid: point, ..geometry }) })
+    Some(PairElastic { elastic, k_n: kv / vol, k_t: ktv / vol, max_depth: (hi - lo).max(0.0), contact: Some(geometry.about(point)) })
 }
 
 /// A chunk's (or impactor's) shape as a polytope.
@@ -2525,6 +2624,70 @@ mod tests {
         OBox { center, rotation, half, hull: None }
     }
 
+    /// How far `analytic` is from the derivative at 0 of `e`, in units of its
+    /// uncertainty (at most 1 passes): `noise`, the analytic value's own rounding, plus
+    /// the error bound of the finite difference. Five-point central differences `D(d)`
+    /// over steps `d = size 2^-k`, each with the classical error model: rounding
+    /// `N(d) = 1.5 noise_e / d` (the stencil's weights `(1 + 8 + 8 + 1) / 12` on
+    /// energies each off by at most `noise_e`, the energy's measured rounding) and
+    /// truncation `T(d) = (|D(2d) - D(d)| + N(d) + N(2d)) / 15` (the error is `c d^4`).
+    /// The step where `T + N` is smallest is used: a bound, not a sample of the spread,
+    /// so choosing the best step does not bias it low.
+    fn gradient_misfit(analytic: f64, noise: f64, e: impl Fn(f64) -> f64, noise_e: f64, size: f64) -> (f64, f64, f64) {
+        let ladder: Vec<(f64, f64)> = (1..=50)
+            .map(|k| {
+                let d = size * 0.5f64.powi(k);
+                let (u1, d1, u2, d2) = (e(d), e(-d), e(2.0 * d), e(-2.0 * d));
+                (d, (8.0 * (u1 - d1) - (u2 - d2)) / (12.0 * d))
+            })
+            .collect();
+        let n = |d: f64| 1.5 * noise_e / d;
+        let mut best = (f64::INFINITY, 0.0, 0.0);
+        for k in 1..ladder.len() {
+            let ((d2, coarse), (d, fd)) = (ladder[k - 1], ladder[k]);
+            let bound = ((coarse - fd).abs() + n(d) + n(d2)) / 15.0 + n(d);
+            if bound < best.0 {
+                best = (bound, fd, d);
+            }
+        }
+        let (bound, fd, d) = best;
+        ((analytic - fd).abs() / (bound + noise), fd, d)
+    }
+
+    /// The rounding of an energy (`eval` of a rigid shift of the whole scene): its
+    /// largest change over the same 19 shifts as `rounding_of`.
+    fn energy_rounding(eval: impl Fn(Vec3) -> f64, reach: f64) -> f64 {
+        let e0 = eval(Vec3::ZERO);
+        let mut seed = 0x9e37_79b9_7f4a_7c15u64;
+        let mut rnd = || {
+            seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            ((seed >> 11) as f64 / (1u64 << 53) as f64 - 0.5) * 2.0 * reach
+        };
+        (0..19).map(|_| (eval(Vec3::new(rnd(), rnd(), rnd())) - e0).abs()).fold(0.0, f64::max)
+    }
+
+    /// The rounding of a force and moment (`eval` of a rigid shift of the whole scene,
+    /// which changes nothing physical): their largest change, as vectors, over 19
+    /// fixed pseudo-random shifts up to `reach` (a frame change rounds every coordinate;
+    /// as in the frame tests, a 1/20 chance that the true rounding lies beyond).
+    fn rounding_of(eval: impl Fn(Vec3) -> (Vec3, Vec3), reach: f64) -> (Vec3, Vec3) {
+        let (f0, t0) = eval(Vec3::ZERO);
+        let mut seed = 0x9e37_79b9_7f4a_7c15u64;
+        let mut rnd = || {
+            seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            ((seed >> 11) as f64 / (1u64 << 53) as f64 - 0.5) * 2.0 * reach
+        };
+        let (mut nf, mut nt) = (0.0f64, 0.0f64);
+        for _ in 0..19 {
+            let (f, t) = eval(Vec3::new(rnd(), rnd(), rnd()));
+            nf = nf.max((f - f0).norm());
+            nt = nt.max((t - t0).norm());
+        }
+        // Each component rounds at the scale of the whole vector (a component near zero
+        // is the difference of terms the size of the others), as in the frame tests.
+        (Vec3::splat(nf), Vec3::splat(nt))
+    }
+
     /// A ball's elastic force and moment on a chunk are the gradient of the layer's energy,
     /// at a face, an edge and a corner of a non-cubic chunk (cells of different stiffness).
     #[test]
@@ -2547,20 +2710,28 @@ mod tests {
             let lc = pe.contact.expect(label);
             let force = lc.normal * pe.elastic.force;
             let torque = (lc.centroid - chunk.center).cross(force) + pe.elastic.moment;
-            // (the energy carries ~1e-9 relative round-off from shallow solid angles: a step
-            // well above it, well below the 1e-3 overlap; truncation and round-off of the
-            // differences both stay under 1e-4)
-            let d = 1e-6;
+            let (nf, nt) = rounding_of(
+                |x| {
+                    let moved = cube(chunk.center + x, chunk.rotation, chunk.half);
+                    let pe = ball_elastic(&moved, &m, ball + x, radius, &steel, 1.0).expect(label);
+                    let lc = pe.contact.expect(label);
+                    let f = lc.normal * pe.elastic.force;
+                    (f, (lc.centroid - moved.center).cross(f) + pe.elastic.moment)
+                },
+                0.1,
+            );
+            let ne = energy_rounding(|x| ball_elastic(&cube(chunk.center + x, chunk.rotation, chunk.half), &m, ball + x, radius, &steel, 1.0).map_or(0.0, |p| p.elastic.stored), 0.1);
             for k in 0..3 {
                 let mut e = Vec3::ZERO;
                 e[k] = 1.0;
-                let shifted = |s: f64| cube(chunk.center + e * s, chunk.rotation, chunk.half);
-                let grad = (energy(&shifted(d)) - energy(&shifted(-d))) / (2.0 * d);
-                let turned = |s: f64| cube(chunk.center, Quat::from_axis_angle(e, s).to_mat3() * chunk.rotation, chunk.half);
-                let grad_r = (energy(&turned(d)) - energy(&turned(-d))) / (2.0 * d);
-                let scale = force.norm();
-                assert!((force[k] + grad).abs() < 1e-4 * scale, "{label}: force {k}: {} vs -dE/dx {}", force[k], -grad);
-                assert!((torque[k] + grad_r).abs() < 1e-4 * scale * 0.1, "{label}: torque {k}: {} vs -dE/dtheta {}", torque[k], -grad_r);
+                let shifted = |s: f64| energy(&cube(chunk.center + e * s, chunk.rotation, chunk.half));
+                let turned = |s: f64| energy(&cube(chunk.center, Quat::from_axis_angle(e, s).to_mat3() * chunk.rotation, chunk.half));
+                let (mf, fd, d) = gradient_misfit(-force[k], nf[k], shifted, ne, 1e-3);
+                println!("{label} force {k}: {:.6e} vs -dE/dx {:.6e} (step {d:.1e}): misfit {mf:.2}", force[k], -fd);
+                assert!(mf <= 1.0, "{label}: force {k}: {} vs -dE/dx {} (step {d:.1e}): {mf:.2} times the difference's uncertainty", force[k], -fd);
+                let (mt, fd, d) = gradient_misfit(-torque[k], nt[k], turned, ne, 1e-3 / half.norm());
+                println!("{label} torque {k}: {:.6e} vs -dE/dtheta {:.6e} (step {d:.1e}): misfit {mt:.2}", torque[k], -fd);
+                assert!(mt <= 1.0, "{label}: torque {k}: {} vs -dE/dtheta {} (step {d:.1e}): {mt:.2} times the difference's uncertainty", torque[k], -fd);
             }
         }
     }
@@ -2597,22 +2768,31 @@ mod tests {
             let Some(lc) = pe.contact else { continue };
             let force = lc.normal * pe.elastic.force;
             let torque = (lc.centroid - a.center).cross(force) + pe.elastic.moment;
-            let d = 1e-10;
+            let (nf, nt) = rounding_of(
+                |x| {
+                    let (ma, mb) = (cube(a.center + x, a.rotation, a.half), cube(b.center + x, b.rotation, b.half));
+                    let pe = pair_elastic(&ma, &mb, &m, &m, 1.0, 0.0).expect("shifted");
+                    let lc = pe.contact.expect("shifted");
+                    let f = lc.normal * pe.elastic.force;
+                    (f, (lc.centroid - ma.center).cross(f) + pe.elastic.moment)
+                },
+                0.1,
+            );
+            let ne = energy_rounding(|x| pair_elastic(&cube(a.center + x, a.rotation, a.half), &cube(b.center + x, b.rotation, b.half), &m, &m, 1.0, 0.0).map_or(0.0, |p| p.elastic.stored), 0.1);
             let mut err: f64 = 0.0;
             for k in 0..3 {
                 let mut e = Vec3::ZERO;
                 e[k] = 1.0;
-                let shifted = |s: f64| cube(a.center + e * s, a.rotation, a.half);
-                let grad = (energy(&shifted(d)) - energy(&shifted(-d))) / (2.0 * d);
-                let turned = |s: f64| cube(a.center, Quat::from_axis_angle(e, s).to_mat3() * a.rotation, a.half);
-                let grad_r = (energy(&turned(d)) - energy(&turned(-d))) / (2.0 * d);
-                err = err.max((force[k] + grad).abs() / force.norm()).max((torque[k] + grad_r).abs() / (force.norm() * 0.05));
+                let shifted = |s: f64| energy(&cube(a.center + e * s, a.rotation, a.half));
+                let turned = |s: f64| energy(&cube(a.center, Quat::from_axis_angle(e, s).to_mat3() * a.rotation, a.half));
+                err = err.max(gradient_misfit(-force[k], nf[k], shifted, ne, depth).0).max(gradient_misfit(-torque[k], nt[k], turned, ne, depth / h.norm()).0);
             }
             if err > worst.0 {
-                worst = (err, format!("i {i} err {err:.3e} dir {dir:?} axis {axis:?} F {force:?} T {torque:?} E {:.3e}", energy(&a)));
+                worst = (err, format!("i {i} misfit {err:.3e} dir {dir:?} axis {axis:?} F {force:?} T {torque:?} E {:.3e}", energy(&a)));
             }
         }
-        assert!(worst.0 < 1e-4, "{}", worst.1);
+        println!("worst: {}", worst.1);
+        assert!(worst.0 <= 1.0, "{}", worst.1);
     }
 
     /// The pair contact's elastic force and moment are the exact gradient of its stored
@@ -2653,17 +2833,28 @@ mod tests {
             let torque = (lc.centroid - a.center).cross(force) + pe.elastic.moment;
             let e0 = energy(&a);
             assert!(e0 > 0.0, "{label}");
-            let d = 1e-9;
+            let (nf, nt) = rounding_of(
+                |x| {
+                    let (ma, mb) = (cube(a.center + x, a.rotation, a.half), cube(b.center + x, b.rotation, b.half));
+                    let pe = pair_elastic(&ma, &mb, &m, &m, 1.0, 0.0).expect(label);
+                    let lc = pe.contact.expect(label);
+                    let f = lc.normal * pe.elastic.force;
+                    (f, (lc.centroid - ma.center).cross(f) + pe.elastic.moment)
+                },
+                0.1,
+            );
+            let ne = energy_rounding(|x| pair_elastic(&cube(a.center + x, a.rotation, a.half), &cube(b.center + x, b.rotation, b.half), &m, &m, 1.0, 0.0).map_or(0.0, |p| p.elastic.stored), 0.1);
             for k in 0..3 {
                 let mut e = Vec3::ZERO;
                 e[k] = 1.0;
-                let shifted = |s: f64| cube(a.center + e * s, a.rotation, a.half);
-                let grad = (energy(&shifted(d)) - energy(&shifted(-d))) / (2.0 * d);
-                let turned = |s: f64| cube(a.center, Quat::from_axis_angle(e, s).to_mat3() * a.rotation, a.half);
-                let grad_r = (energy(&turned(d)) - energy(&turned(-d))) / (2.0 * d);
-                let scale = force.norm();
-                assert!((force[k] + grad).abs() < 1e-5 * scale, "{label}: force {k}: {} vs -dE/dx {}", force[k], -grad);
-                assert!((torque[k] + grad_r).abs() < 1e-5 * scale * 0.1, "{label}: torque {k}: {} vs -dE/dtheta {}", torque[k], -grad_r);
+                let shifted = |s: f64| energy(&cube(a.center + e * s, a.rotation, a.half));
+                let turned = |s: f64| energy(&cube(a.center, Quat::from_axis_angle(e, s).to_mat3() * a.rotation, a.half));
+                let (mf, fd, d) = gradient_misfit(-force[k], nf[k], shifted, ne, 1e-4);
+                println!("{label} force {k}: {:.6e} vs -dE/dx {:.6e} (step {d:.1e}): misfit {mf:.2}", force[k], -fd);
+                assert!(mf <= 1.0, "{label}: force {k}: {} vs -dE/dx {} (step {d:.1e}): {mf:.2} times the difference's uncertainty", force[k], -fd);
+                let (mt, fd, d) = gradient_misfit(-torque[k], nt[k], turned, ne, 1e-4 / h.norm());
+                println!("{label} torque {k}: {:.6e} vs -dE/dtheta {:.6e} (step {d:.1e}): misfit {mt:.2}", torque[k], -fd);
+                assert!(mt <= 1.0, "{label}: torque {k}: {} vs -dE/dtheta {} (step {d:.1e}): {mt:.2} times the difference's uncertainty", torque[k], -fd);
             }
         }
     }

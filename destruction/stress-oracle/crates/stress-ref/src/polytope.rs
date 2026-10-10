@@ -241,6 +241,41 @@ impl Polytope {
         j
     }
 
+    /// The polytope seen along `normal`, about `point` in the plane normal to it: area,
+    /// first and second moments of the projection of its faces of `owner` (those facing
+    /// along the normal), or with `None` of its whole shadow (every point of which a
+    /// convex body's boundary covers twice).
+    pub fn shadow(&self, owner: Option<Owner>, normal: Vec3, point: Vec3) -> Shadow {
+        let plane = Mat3::IDENTITY - Mat3::outer(normal, normal);
+        let mut out = Shadow::default();
+        for f in &self.faces {
+            let w = match owner {
+                Some(o) if f.owner == o => f.normal.dot(normal).max(0.0),
+                Some(_) => continue,
+                None => 0.5 * f.normal.dot(normal).abs(),
+            };
+            if w == 0.0 {
+                continue;
+            }
+            // Over the face, y = P (x - point): each fan triangle from its vertices
+            // already shifted to `point` and projected, so the second moment is a sum of
+            // outer products with positive weights (a sliver's large, nearly edge-on faces
+            // would otherwise cancel to round-off of the moment about the origin, and the
+            // polar moment could come out negative).
+            let y: Vec<Vec3> = f.vertices.iter().map(|&x| plane * (x - point)).collect();
+            for i in 1..f.vertices.len().saturating_sub(1) {
+                let (a, b, d) = (f.vertices[0], f.vertices[i], f.vertices[i + 1]);
+                let t = (b - a).cross(d - a).norm() * 0.5 * w;
+                let (ya, yb, yd) = (y[0], y[i], y[i + 1]);
+                let sum = ya + yb + yd;
+                out.area += t;
+                out.first += sum * (t / 3.0);
+                out.second += (Mat3::outer(ya, ya) + Mat3::outer(yb, yb) + Mat3::outer(yd, yd) + Mat3::outer(sum, sum)) * (t / 12.0);
+            }
+        }
+        out
+    }
+
     /// Mean distance from the axis `(point, axis)`, weighted by volume:
     /// `int |r_perp| dV / V` (tetrahedra from `point` over each face fanned from its
     /// centroid, each split in eight, four-point rule).
@@ -317,7 +352,8 @@ pub fn polygon_area_centroid(p: &[Vec3]) -> (f64, Vec3) {
 /// plane through the edge of the two faces it bisects, coplanar faces of neighbouring
 /// chunks), round-off can drop or duplicate a segment, and only a hull of the points is
 /// immune. Its in-plane basis affects nothing but which of two points that coincide to
-/// round-off is kept.
+/// round-off is kept (the turn of the hull is invariant: its tests are 2D cross
+/// products, which a reflection of the basis leaves unchanged).
 fn cap_polygon(segments: &[(Vec3, Vec3)], normal: Vec3) -> Vec<Vec3> {
     let u = normal.any_perpendicular().normalized();
     let v = normal.cross(u);
@@ -344,6 +380,13 @@ fn cap_polygon(segments: &[(Vec3, Vec3)], normal: Vec3) -> Vec<Vec3> {
         hull.push(*p);
     }
     hull.pop();
+    // Start at the hull vertex met first among the segments (their order follows the
+    // faces', which turns with the body), not at the extreme of the arbitrary in-plane
+    // basis: a turned body then gets the same face, vertex for vertex, and every sum over
+    // it rounds identically (half turns bit for bit, DECISIONS.md 17).
+    let order = |p: Vec3| segments.iter().flat_map(|&(a, b)| [a, b]).position(|q| q == p).unwrap_or(usize::MAX);
+    let start = (0..hull.len()).min_by_key(|&i| order(hull[i].2)).unwrap_or(0);
+    hull.rotate_left(start);
     hull.into_iter().map(|p| p.2).collect()
 }
 
@@ -460,8 +503,21 @@ pub struct LayerContact {
     pub mean_radius: f64,
     /// Polar second moment of the contact area (projected on the plane normal to
     /// `normal`) about the normal through the centroid: the torsional stiffness of the
-    /// shear layer is `k''_t` times it.
+    /// shear layer is `k''_t` times it. The trace of `area_moment`.
     pub polar_moment: f64,
+    /// The contact area's first and second moments about the centroid, in the plane
+    /// normal to `normal`: `int r dA` and `int r r^T dA`, `r` the in-plane offset. The
+    /// layer's springs and dashpots spread over the area resist rocking with them.
+    pub area_first: Vec3,
+    pub area_moment: Mat3,
+}
+
+/// Moments of a contact area seen along a normal (`Polytope::shadow`).
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Shadow {
+    pub area: f64,
+    pub first: Vec3,
+    pub second: Mat3,
 }
 
 /// The overlap of two bodies: its depth along the contact normal, and the contact it
@@ -474,6 +530,29 @@ pub struct Overlap {
 }
 
 impl LayerContact {
+    /// The same contact with its forces acting at `point` (moments of the area shifted
+    /// there by the parallel-axis theorem, in the contact plane).
+    pub fn about(self, point: Vec3) -> LayerContact {
+        let n = self.normal;
+        let d = {
+            let x = point - self.centroid;
+            x - n * x.dot(n)
+        };
+        let (a, m) = (self.area, self.area_first);
+        if a <= 0.0 {
+            return LayerContact { centroid: point, ..self };
+        }
+        // About the area's own centroid (`m / a` from the old point) the moment is
+        // central, then the shift adds `a e e^T` (`e` from that centroid to `point`):
+        // the polar moment, `|m|^2 / a` below the trace exactly, is never negative, so a
+        // round-off excess of `|m|^2 / a` is a zero central polar moment.
+        let e = d - m / a;
+        let central = self.area_moment - Mat3::outer(m, m) * (1.0 / a);
+        let polar = (self.area_moment.trace() - m.norm2() / a).max(0.0) + a * e.norm2();
+        let second = central + Mat3::outer(e, e) * a;
+        LayerContact { centroid: point, area_first: m - d * a, area_moment: second, polar_moment: polar, ..self }
+    }
+
     /// The contact of polytope `a` with polytope `b` (whose faces carry `OWNER_B`),
     /// beyond a permanent indentation `indent` of `b`'s surface (crushed material that
     /// no longer pushes back: the layer acts only deeper than `indent`). The normal is the
@@ -508,7 +587,7 @@ impl LayerContact {
             return None;
         }
         let hi = overlap.faces.iter().flat_map(|f| f.vertices.iter()).map(|v| v.dot(normal)).fold(f64::NEG_INFINITY, f64::max);
-        let all = Polytope { faces: overlap.faces.iter().map(|f| Face { owner: OWNER_B, ..f.clone() }).collect() };
+        let shadow = overlap.shadow(None, normal, mp.centroid);
         Some(LayerContact {
             volume: mp.volume,
             centroid: mp.centroid,
@@ -516,7 +595,9 @@ impl LayerContact {
             area,
             depth: (hi - mp.centroid.dot(normal)).max(0.0),
             mean_radius: overlap.mean_axis_distance(mp.centroid, normal),
-            polar_moment: 0.5 * all.projected_polar_moment(OWNER_B, mp.centroid, normal),
+            polar_moment: shadow.second.trace(),
+            area_first: shadow.first,
+            area_moment: shadow.second,
         })
     }
 
@@ -555,8 +636,18 @@ impl LayerContact {
             }
             let depth = (top - mp.centroid.dot(normal)).max(0.0);
             let mean_radius = engaged.mean_axis_distance(mp.centroid, normal);
-            let polar_moment = engaged.projected_polar_moment(OWNER_B, mp.centroid, normal);
-            Some(LayerContact { volume: mp.volume, centroid: mp.centroid, normal, area, depth, mean_radius, polar_moment })
+            let shadow = engaged.shadow(Some(OWNER_B), normal, mp.centroid);
+            Some(LayerContact {
+                volume: mp.volume,
+                centroid: mp.centroid,
+                normal,
+                area,
+                depth,
+                mean_radius,
+                polar_moment: shadow.second.trace(),
+                area_first: shadow.first,
+                area_moment: shadow.second,
+            })
         })();
         Some(Overlap { contact, max_depth })
     }
@@ -636,23 +727,26 @@ impl LayerContact {
         if a.faces.iter().all(|f| f.normal.dot(tip - f.vertices[0]) <= 0.0) {
             lo = tip.dot(normal);
         }
-        let mut polar = 0.0;
+        // The ball's surface inside the polytope seen along the normal covers what the
+        // faces do (their area weighted by -n_f . normal): its moments about the
+        // centroid, in the plane normal to `normal`.
+        let plane = Mat3::IDENTITY - Mat3::outer(normal, normal);
+        let (mut first, mut second) = (Vec3::ZERO, Mat3::default());
         for (n, foot, u, v, reg) in &regions {
             lo = lo.min(reg.min_along([normal.dot(*u), normal.dot(*v)]) + foot.dot(normal));
-            // int |P (x - centroid)|^2 over the region, P the projection off `normal`.
+            let w = -n.dot(normal);
             let y0 = *foot - centroid;
             let m = *u * reg.first[0] + *v * reg.first[1];
             let s = &reg.second;
-            let q = |e: Vec3, g: Vec3| {
-                let (eu, ev, gu, gv) = (e.dot(*u), e.dot(*v), g.dot(*u), g.dot(*v));
-                reg.area * e.dot(y0) * g.dot(y0) + e.dot(y0) * g.dot(m) + e.dot(m) * g.dot(y0) + eu * gu * s[0][0] + (eu * gv + ev * gu) * s[0][1] + ev * gv * s[1][1]
-            };
-            let trace = q(Vec3::new(1.0, 0.0, 0.0), Vec3::new(1.0, 0.0, 0.0)) + q(Vec3::new(0.0, 1.0, 0.0), Vec3::new(0.0, 1.0, 0.0)) + q(Vec3::new(0.0, 0.0, 1.0), Vec3::new(0.0, 0.0, 1.0));
-            polar -= n.dot(normal) * (trace - q(normal, normal));
+            let local = Mat3::outer(*u, *u) * s[0][0] + (Mat3::outer(*u, *v) + Mat3::outer(*v, *u)) * s[0][1] + Mat3::outer(*v, *v) * s[1][1];
+            let raw = Mat3::outer(y0, y0) * reg.area + Mat3::outer(y0, m) + Mat3::outer(m, y0) + local;
+            first += plane * ((y0 * reg.area + m) * w);
+            second += plane * raw * plane * w;
         }
         let depth = (centroid.dot(normal) - lo).max(0.0);
         let rho = (len / std::f64::consts::PI).sqrt();
-        Some(LayerContact { volume, centroid, normal, area: len, depth, mean_radius: 8.0 * rho / 15.0, polar_moment: polar.max(0.0) })
+        let polar = second.trace();
+        Some(LayerContact { volume, centroid, normal, area: len, depth, mean_radius: 8.0 * rho / 15.0, polar_moment: polar, area_first: first, area_moment: second })
     }
 
     /// A sphere (centre `center`, radius `radius`) whose surface dips `delta` below the
@@ -675,7 +769,9 @@ impl LayerContact {
         // 8 rho / 15 (exact as d / R -> 0, within a few percent at d = R).
         let mean_radius = 8.0 * rho / 15.0;
         let polar_moment = a * rho * rho / 2.0;
-        Some(LayerContact { volume, centroid, normal, area: a, depth, mean_radius, polar_moment })
+        // The disc, centred on the normal through the centroid: isotropic in its plane.
+        let plane = Mat3::IDENTITY - Mat3::outer(normal, normal);
+        Some(LayerContact { volume, centroid, normal, area: a, depth, mean_radius, polar_moment, area_first: Vec3::ZERO, area_moment: plane * (polar_moment / 2.0) })
     }
 }
 
@@ -982,6 +1078,40 @@ mod tests {
         (a - b).abs() / b.abs().max(1e-300)
     }
 
+    /// A sliver (an edge or a slightly tilted face just touching another body, away from
+    /// the origin) has a contact area whose second moment is positive semi-definite and
+    /// whose polar moment is never negative, about its centroid and about any point
+    /// (exact properties of `int r r^T dA`; computing them about the origin and shifting
+    /// cancelled to the size of the true value, gave a negative torsional stiffness and
+    /// a NaN moment).
+    #[test]
+    fn a_sliver_contact_has_a_positive_area_moment() {
+        let b = Polytope::cuboid(Vec3::new(0.1, 0.1, -0.05), Mat3::IDENTITY, Vec3::splat(0.05), OWNER_B);
+        for tilt in [0.7, 1e-2, 1e-4] {
+            for depth in [1e-9, 1e-7, 1e-5] {
+                let rot = Quat::from_axis_angle(Vec3::new(1.0, 0.3, 0.0).normalized(), tilt).to_mat3();
+                let half = Vec3::splat(0.05);
+                let low = (0..8)
+                    .map(|i| (rot * Vec3::new(if i & 1 == 0 { -half.x } else { half.x }, if i & 2 == 0 { -half.y } else { half.y }, if i & 4 == 0 { -half.z } else { half.z })).z)
+                    .fold(f64::INFINITY, f64::min);
+                let a = Polytope::cuboid(Vec3::new(0.11, 0.09, -low - depth), rot, half, OWNER_A);
+                let Some(lc) = LayerContact::between(&a, &b, 0.0).and_then(|o| o.contact) else { continue };
+                let m = lc.area_moment;
+                let label = format!("tilt {tilt}, depth {depth}");
+                assert!(lc.polar_moment >= 0.0 && m.m[0][0] >= 0.0 && m.m[1][1] >= 0.0 && m.m[2][2] >= 0.0, "{label}: {lc:?}");
+                for k in 0..3 {
+                    for l in 0..3 {
+                        assert!(m.m[k][l] * m.m[k][l] <= m.m[k][k] * m.m[l][l] * (1.0 + 8.0 * f64::EPSILON), "{label}: not semi-definite: {m:?}");
+                    }
+                }
+                for shift in [Vec3::new(1e-6, -2e-6, 0.0), Vec3::new(0.01, 0.0, 0.003), Vec3::ZERO] {
+                    let p = lc.about(lc.centroid + shift);
+                    assert!(p.polar_moment >= 0.0, "{label}: shifted by {shift:?}: {}", p.polar_moment);
+                }
+            }
+        }
+    }
+
     #[test]
     fn a_ball_on_a_face_is_the_spherical_cap() {
         let rot = Quat::from_axis_angle(Vec3::new(0.3, -1.0, 0.4).normalized(), 0.7).to_mat3();
@@ -1029,36 +1159,169 @@ mod tests {
         assert!(c.is_none(), "a cube inside the ball has no ball surface inside it");
     }
 
-    #[test]
-    fn a_ball_over_an_edge_matches_brute_force_integration() {
-        // Independent reference: columns along z through an axis-aligned box, each the
-        // exact length of the line inside both box and ball, midpoint rule on a fine grid.
-        let half = Vec3::new(0.4, 0.3, 0.25);
-        let block = cube(Vec3::ZERO, 1.0);
-        let block = Polytope { faces: block.faces.into_iter().map(|f| Face { vertices: f.vertices.iter().map(|v| v.mul_elem(half)).collect(), ..f }).collect() };
-        for (center, r) in [(Vec3::new(0.35, 0.33, 0.2), 0.12), (Vec3::new(0.45, -0.31, 0.28), 0.1), (Vec3::new(0.1, 0.0, 0.31), 0.08)] {
-            let c = LayerContact::with_ball(&block, center, r).unwrap();
-            let n = 3000;
-            let (x0, y0, step) = (center.x - r, center.y - r, 2.0 * r / n as f64);
-            let (mut vol, mut mom) = (0.0, Vec3::ZERO);
-            for i in 0..n {
-                for j in 0..n {
-                    let (x, y) = (x0 + (i as f64 + 0.5) * step, y0 + (j as f64 + 0.5) * step);
-                    let q = r * r - (x - center.x).powi(2) - (y - center.y).powi(2);
-                    if q <= 0.0 || x.abs() > half.x || y.abs() > half.y {
-                        continue;
+    /// Gauss-Legendre nodes and weights on [-1, 1] (Newton on the Legendre polynomial).
+    fn gauss_legendre(n: usize) -> Vec<(f64, f64)> {
+        (0..n)
+            .map(|i| {
+                let mut x = (PI * (i as f64 + 0.75) / (n as f64 + 0.5)).cos();
+                loop {
+                    let (mut p0, mut p1) = (1.0, x);
+                    for k in 2..=n {
+                        let p2 = ((2 * k - 1) as f64 * x * p1 - (k - 1) as f64 * p0) / k as f64;
+                        p0 = p1;
+                        p1 = p2;
                     }
-                    let (lo, hi) = ((center.z - q.sqrt()).max(-half.z), (center.z + q.sqrt()).min(half.z));
-                    if hi > lo {
-                        let a = step * step * (hi - lo);
-                        vol += a;
-                        mom += Vec3::new(x, y, 0.5 * (lo + hi)) * a;
+                    let dp = n as f64 * (x * p1 - p0) / (x * x - 1.0);
+                    let dx = p1 / dp;
+                    x -= dx;
+                    if dx.abs() <= 1e-16 {
+                        return (x, 2.0 / ((1.0 - x * x) * dp * dp));
                     }
                 }
+            })
+            .collect()
+    }
+
+    /// `int f(t) dt` over [a, b] split at `kinks`, `n`-point Gauss-Legendre on each piece,
+    /// and the sum of `|f| w` (the scale of the sum's rounding).
+    fn integrate(f: &dyn Fn(f64) -> [f64; 4], a: f64, b: f64, kinks: &[f64], n: usize) -> ([f64; 4], f64) {
+        let mut cuts: Vec<f64> = kinks.iter().copied().filter(|&t| t > a && t < b).collect();
+        cuts.push(a);
+        cuts.push(b);
+        cuts.sort_by(|x, y| x.partial_cmp(y).unwrap());
+        let rule = gauss_legendre(n);
+        let (mut out, mut scale) = ([0.0; 4], 0.0);
+        for w in cuts.windows(2) {
+            let (mid, half) = (0.5 * (w[0] + w[1]), 0.5 * (w[1] - w[0]));
+            for &(x, wt) in &rule {
+                let v = f(mid + half * x);
+                for k in 0..4 {
+                    out[k] += v[k] * wt * half;
+                }
+                scale += v[0].abs() * wt * half;
             }
-            // (the brute force agrees to 3e-7 at this grid)
-            assert!(rel(c.volume, vol) < 2e-6, "{center:?}: {} vs {vol}", c.volume);
-            assert!((c.centroid - mom / vol).norm() < 2e-6 * r, "{center:?}: {:?} vs {:?}", c.centroid, mom / vol);
+        }
+        (out, scale)
+    }
+
+    /// Volume and first moment `int x dV` of an axis-aligned box (half-sizes `half`, at
+    /// the origin) cut by a ball, by nested quadrature over slices: `x = c_x - r cos t`
+    /// and, in a slice of radius `rho`, `y = c_y - rho cos u` take the square roots out
+    /// of the rims, and each integral is split where the integrand has a kink (the circle
+    /// reaching a box edge or corner, a slice reaching a box face), so every piece is
+    /// smooth and Gauss-Legendre converges exponentially. Returns `[V, int x, int y,
+    /// int z]` and the scale of the sums (for their rounding).
+    fn ball_box_reference(half: Vec3, c: Vec3, r: f64, n: usize) -> ([f64; 4], f64) {
+        let arcs = |d: f64, rho: f64| -> Vec<f64> {
+            if d > 0.0 && d < rho {
+                let t = (d / rho).asin();
+                vec![t, PI - t]
+            } else {
+                vec![]
+            }
+        };
+        let slice = |rho: f64| -> [f64; 4] {
+            if rho <= 0.0 {
+                return [0.0; 4];
+            }
+            let mut kinks = Vec::new();
+            for y in [-half.y, half.y] {
+                let q = (c.y - y) / rho;
+                if q.abs() < 1.0 {
+                    kinks.push(q.acos());
+                }
+            }
+            for d in [half.z - c.z, half.z + c.z] {
+                kinks.extend(arcs(d.abs(), rho));
+            }
+            let f = |u: f64| -> [f64; 4] {
+                let y = c.y - rho * u.cos();
+                if y.abs() > half.y {
+                    return [0.0; 4];
+                }
+                let s = rho * u.sin();
+                let (lo, hi) = ((c.z - s).max(-half.z), (c.z + s).min(half.z));
+                if hi <= lo {
+                    return [0.0; 4];
+                }
+                let a = (hi - lo) * rho * u.sin();
+                [a, 0.0, y * a, 0.5 * (lo + hi) * a]
+            };
+            integrate(&f, 0.0, PI, &kinks, n).0
+        };
+        let mut kinks = Vec::new();
+        for x in [-half.x, half.x] {
+            let q = (c.x - x) / r;
+            if q.abs() < 1.0 {
+                kinks.push(q.acos());
+            }
+        }
+        for dy in [half.y - c.y, half.y + c.y] {
+            for dz in [half.z - c.z, half.z + c.z] {
+                kinks.extend(arcs(dy.abs(), r));
+                kinks.extend(arcs(dz.abs(), r));
+                kinks.extend(arcs((dy * dy + dz * dz).sqrt(), r));
+            }
+        }
+        let f = |t: f64| -> [f64; 4] {
+            let x = c.x - r * t.cos();
+            if x.abs() > half.x {
+                return [0.0; 4];
+            }
+            let s = slice(r * t.sin());
+            let j = r * t.sin();
+            [s[0] * j, x * s[0] * j, s[2] * j, s[3] * j]
+        };
+        integrate(&f, 0.0, PI, &kinks, n)
+    }
+
+    /// A ball over an edge or a corner of a box against an independent reference (nested
+    /// Gauss-Legendre over the exact slices, `ball_box_reference`): volume and centroid
+    /// agree within the reference's own uncertainty (64 against 128 points per piece, and
+    /// the worst-case rounding of its sums, `n eps` of their scale) plus `with_ball`'s
+    /// rounding (measured by moving the whole scene: 19 fixed shifts).
+    #[test]
+    fn a_ball_over_an_edge_matches_an_independent_integration() {
+        let half = Vec3::new(0.4, 0.3, 0.25);
+        let block = |x: Vec3| {
+            let b = cube(Vec3::ZERO, 1.0);
+            Polytope { faces: b.faces.into_iter().map(|f| Face { vertices: f.vertices.iter().map(|v| v.mul_elem(half) + x).collect(), ..f }).collect() }
+        };
+        for (center, r) in [(Vec3::new(0.35, 0.33, 0.2), 0.12), (Vec3::new(0.45, -0.31, 0.28), 0.1), (Vec3::new(0.1, 0.0, 0.31), 0.08)] {
+            let ((coarse, _), (fine, scale)) = (ball_box_reference(half, center, r, 64), ball_box_reference(half, center, r, 128));
+            // Nested recursive sums round by at most (inner terms + outer terms + the few
+            // roundings forming each term) eps of the sum of magnitudes (Higham): 128 nodes
+            // on each piece, at most 27 outer pieces (2 face and 24 rim kinks) and 7
+            // inner ones (2 face and 4 rim kinks).
+            let terms = 128.0 * (27.0 + 7.0) + 16.0;
+            let reference_error = |k: usize| (fine[k] - coarse[k]).abs() + terms * f64::EPSILON * scale * if k == 0 { 1.0 } else { half.norm() + r };
+            let measure = |x: Vec3| {
+                let c = LayerContact::with_ball(&block(x), center + x, r).unwrap();
+                [c.volume, c.centroid.x - x.x, c.centroid.y - x.y, c.centroid.z - x.z]
+            };
+            let got = measure(Vec3::ZERO);
+            let mut noise = [0.0f64; 4];
+            let mut seed = 0x9e37_79b9_7f4a_7c15u64;
+            for _ in 0..19 {
+                let mut rnd = || {
+                    seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+                    ((seed >> 11) as f64 / (1u64 << 53) as f64 - 0.5) * 0.2
+                };
+                let m = measure(Vec3::new(rnd(), rnd(), rnd()));
+                for k in 0..4 {
+                    noise[k] = noise[k].max((m[k] - got[k]).abs());
+                }
+            }
+            let v = fine[0];
+            assert!((got[0] - v).abs() <= reference_error(0) + noise[0], "{center:?}: volume {} vs {v} (uncertainty {:.1e} + {:.1e})", got[0], reference_error(0), noise[0]);
+            for k in 1..4 {
+                let want = fine[k] / v;
+                // The centroid's uncertainty from the moment's and the volume's.
+                let allowed = (reference_error(k) + reference_error(0) * want.abs()) / v + noise[k];
+                println!("{center:?} centroid {k}: {:.3e} off, uncertainty {allowed:.1e}", (got[k] - want).abs());
+                assert!((got[k] - want).abs() <= allowed, "{center:?}: centroid {k}: {} vs {want} (uncertainty {allowed:.1e})", got[k]);
+            }
+            println!("{center:?}: volume {:.3e} off of {v:.6e}, uncertainty {:.1e} + {:.1e}", (got[0] - v).abs(), reference_error(0), noise[0]);
         }
     }
 

@@ -326,20 +326,34 @@ impl Quat {
         let (s, c) = (0.5 * angle).sin_cos();
         Quat { w: c, x: a.x * s, y: a.y * s, z: a.z * s }
     }
+    /// The squares summed in pairs, `(w^2 + x^2) + (y^2 + z^2)`: a half turn about a
+    /// coordinate axis permutes the components with signs and keeps or swaps the pairs,
+    /// so the sum rounds identically (DECISIONS.md 17).
     pub fn normalized(self) -> Quat {
-        let n = (self.w * self.w + self.x * self.x + self.y * self.y + self.z * self.z).sqrt();
+        let n = ((self.w * self.w + self.x * self.x) + (self.y * self.y + self.z * self.z)).sqrt();
         Quat { w: self.w / n, x: self.x / n, y: self.y / n, z: self.z / n }
     }
     pub fn conjugate(self) -> Quat {
         Quat { w: self.w, x: -self.x, y: -self.y, z: -self.z }
     }
-    pub fn rotate(self, v: Vec3) -> Vec3 {
-        let q = Vec3::new(self.x, self.y, self.z);
-        let t = q.cross(v) * 2.0;
-        v + t * self.w + q.cross(t)
-    }
+    /// The rotation matrix, its entries grouped so that a half turn about a coordinate
+    /// axis (which permutes the quaternion's components with signs) changes them only by
+    /// the exact sign flips of `D R`, `D = diag(+-1)`: the diagonal as differences and
+    /// sums of the pairs `(w, x)`, `(y, z)`, the rest as two products.
     pub fn to_mat3(self) -> Mat3 {
-        Mat3::from_cols(self.rotate(Vec3::X), self.rotate(Vec3::Y), self.rotate(Vec3::Z))
+        let (w, x, y, z) = (self.w, self.x, self.y, self.z);
+        let (ww, xx, yy, zz) = (w * w, x * x, y * y, z * z);
+        let (xy, xz, yz, wx, wy, wz) = (x * y, x * z, y * z, w * x, w * y, w * z);
+        Mat3 {
+            m: [
+                [(ww + xx) - (yy + zz), 2.0 * (xy - wz), 2.0 * (xz + wy)],
+                [2.0 * (xy + wz), (ww - xx) + (yy - zz), 2.0 * (yz - wx)],
+                [2.0 * (xz - wy), 2.0 * (yz + wx), (ww - xx) - (yy - zz)],
+            ],
+        }
+    }
+    pub fn rotate(self, v: Vec3) -> Vec3 {
+        self.to_mat3() * v
     }
     /// Advance by angular velocity `omega` (world frame) over `dt` using the exact
     /// rotation for that constant velocity.
@@ -352,14 +366,20 @@ impl Quat {
     }
 }
 
+/// Hamilton product, each component's four terms summed in pairs: then a half turn
+/// about a coordinate axis applied to either factor (left: a permutation of components
+/// with signs; right: a body-frame factor, unchanged) maps every pair onto a pair, so the
+/// product rounds identically up to sign (checked exhaustively on random factors; the
+/// sequential sums reversed their order and did not).
 impl Mul for Quat {
     type Output = Quat;
     fn mul(self, o: Quat) -> Quat {
+        let (w, x, y, z) = (self.w, self.x, self.y, self.z);
         Quat {
-            w: self.w * o.w - self.x * o.x - self.y * o.y - self.z * o.z,
-            x: self.w * o.x + self.x * o.w + self.y * o.z - self.z * o.y,
-            y: self.w * o.y - self.x * o.z + self.y * o.w + self.z * o.x,
-            z: self.w * o.z + self.x * o.y - self.y * o.x + self.z * o.w,
+            w: (w * o.w - x * o.x) - (y * o.y + z * o.z),
+            x: (w * o.x + x * o.w) + (y * o.z - z * o.y),
+            y: (w * o.y - x * o.z) + (y * o.w + z * o.x),
+            z: (w * o.z + x * o.y) - (y * o.x - z * o.w),
         }
     }
 }
