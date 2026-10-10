@@ -270,28 +270,43 @@ field-cell calls, splits, and which limit set each frame's step.
 | 9b6971c10 | Broadphase: exact sweep over cluster boxes, then each cluster's chunk intervals sorted once per substep along its widest axis. Padded intervals (`m = 16 eps (max r + max |x|)`, bound in `chunk_pairs`) reject before the unchanged sphere test; pairs restored to loop order (randomised test against the all-pairs loops, mutation-checked) | 182/182 |
 | 0a64daf59 | `field_cells` in thread-local buffers; `Polytope::clone_from` reuses capacity (the derived one reallocated) | 182/182 |
 | 454220656 | Each pair's polytopes built once (they were built twice, and on every bisection step of the split handover); `intersect` clips `self` directly | 182/182 |
-| (next) | Cluster index in two dimensions: columns along the widest axis, sorted across within each. A wall was searched along a slab; window tests on b5_wall_impact_v02 fall 3.56e9 -> 2.5e8, broadphase 16.8 -> 9.4 s | gate pending |
+| 1f74bd25d | Cluster index in two dimensions: columns along the widest axis, sorted across within each. A wall was searched along a slab; window tests on b5_wall_impact_v02 fall 3.56e9 -> 2.5e8, broadphase 16.8 -> 9.4 s | 182/182 |
+| c4d31ba78 | On one thread, each bond response is applied as it is computed. Previously every substep collected all responses, each holding the whole joint state, in a fresh list. A response reads only its bond and the chunks' motion, which applying the others does not change | 182/182 |
+| 5161fb0aa | The statics layout's chunk-to-local index is a dense array, not a SipHash map (about a fifth of the static and implicit solves) | 182/182 |
 
-CPU seconds at one thread, from the gate run of 0a64daf59 (both builds run 8 at a
+CPU seconds at one thread, from the gate run of 5161fb0aa (both builds run 8 at a
 time on the same 16-core machine):
 
-| Cell | Base 0c71ffe13 | 0a64daf59 | Speedup |
+| Cell | Base 0c71ffe13 | 5161fb0aa | Speedup |
 |---|---|---|---|
-| s_house_settlement, layer | 372.7 | 171.2 | 2.2x |
-| s_house_car, layer | 252.3 | 94.8 | 2.7x |
-| b9_panel_high, layer | 227.1 | 73.6 | 3.1x |
-| s_floor_drop, layer | 203.5 | 70.6 | 2.9x |
-| b5_wall_impact_v02, layer | 161.4 | 80.0 | 2.0x |
-| s_house_settlement, default | 115.5 | 115.5 | 1.0x |
-| b5_wall_impact_v02, default | 80.8 | 74.8 | 1.1x |
-| b9_panel_high, quasi_static | 70.8 | 74.2 | 1.0x (noise) |
-| All 91 one-thread cells | 2353 | 1308 | 1.8x |
+| s_house_settlement, layer | 372.7 | 165.7 | 2.2x |
+| s_house_car, layer | 252.3 | 88.0 | 2.9x |
+| b9_panel_high, layer | 227.1 | 69.6 | 3.3x |
+| s_floor_drop, layer | 203.5 | 65.1 | 3.1x |
+| b5_wall_impact_v02, layer | 161.4 | 73.3 | 2.2x |
+| s_house_settlement, default | 115.5 | 111.8 | 1.0x |
+| s_house_blast, layer | 83.6 | 37.3 | 2.2x |
+| b5_wall_impact_v02, default | 80.8 | 62.5 | 1.3x |
+| b9_panel_high, quasi_static | 70.8 | 47.6 | 1.5x |
+| All 91 one-thread cells | 2353 | 1178 | 2.0x |
+
+The default methods are dominated by bond responses (about 130 ns per evaluation).
+What is left of them is fixed-order arithmetic; the contact patch's 36-spring loop,
+for one, is bound by the latency of its four ordered sums. Little more is to be had
+there exactly.
 
 Measured and rejected (exact, but no faster):
 - Skipping the intact joint's patch moments and energy when `D = 0`. They only enter
   multiplied by `D`, so the skip is exact for nonzero intact moments and finite sums;
   shadow-checked, but 11 % slower (16.6 s vs 15.0 s, settlement intact phase).
 - A multiply-rotate hasher for the contact-state maps: no measurable change.
+- A branchless contact-patch loop: exact (an open spring adds `+0`, and no sum is ever
+  `-0`) but no faster.
+- The cluster rotation hoisted out of the per-chunk frame loads, and one flat list of
+  cluster members in the broadphase: within noise.
+- Replacement loads indexed by chunk (plan item): there are only a few (support or
+  chunk removal), and expired ones still add a signed zero, so they cannot simply be
+  dropped.
 
 Excluded (cannot be shown exact or within round-off without the physics tests):
 - rows 1, 4, 5, 7, 8, 9 and 2a below (step change, closed form, certificate,
