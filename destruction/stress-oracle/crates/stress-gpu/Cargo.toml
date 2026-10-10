@@ -33,3 +33,7 @@ path = "src/bin/stress_gpu_steps.rs"
 [[bin]]
 name = "stress-gpu-stepcheck"
 path = "src/bin/stress_gpu_stepcheck.rs"
+
+[[bin]]
+name = "stress-gpu-support"
+path = "src/bin/stress_gpu_support.rs"

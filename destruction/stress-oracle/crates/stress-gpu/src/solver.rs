@@ -21,7 +21,7 @@ use stress_ref::scene::{ImpactorShape, Scene, Support};
 use stress_ref::solver::{ReferenceSolver, SolverEvent};
 use stress_ref::world::Impactor;
 
-use crate::contacts::{modulus, plan, PairKey, PairState, Plan, NAN_STATE};
+use crate::contacts::{modulus, plan, sample_count, PairKey, PairState, Plan, NAN_STATE};
 use crate::gpu::{Binding, Gpu, Kernel};
 use crate::joint::{bond_law, from_gpu_state, mode_of, to_gpu_state, GpuJointBond, GpuJointMaterial, GpuJointState, MaterialTable};
 use crate::loads::{Function, LoadTerm, ProbeItem, Target, WorldLoads};
@@ -332,6 +332,8 @@ struct Layout {
     islands: Vec<Island>,
     items: Vec<ProbeItem>,
     plan: Plan,
+    /// Per pair: its sample-point entries in the contact state (offset, count).
+    pair_state: Vec<(u32, u32)>,
     gpu_impactors: Vec<GpuImpactor>,
 }
 
@@ -637,6 +639,18 @@ impl GpuSolver {
             }
             island.probes = [begin, items_base + 4 * layout_items.len() as u32, 0, 0];
         }
+        // Convex hulls (chunk frame): vertices, face planes (normal, offset), face
+        // centroids; each chunk's at `cmat.z`, counts in `cmat.w` (vertices | faces << 8).
+        let mut hull_of = vec![(0u32, 0u32); n];
+        for (k, &(s, c)) in chunks.iter().enumerate() {
+            if let Some(h) = &m.structures[s].chunks[c].hull {
+                let at = packed.len() as u32;
+                packed.extend(h.vertices.iter().map(|v| v4(*v, 0.0)));
+                packed.extend(h.faces.iter().map(|f| v4(f.normal, f.offset)));
+                packed.extend(h.faces.iter().map(|f| v4(f.centroid, 0.0)));
+                hull_of[k] = (at, h.vertices.len() as u32 | (h.faces.len() as u32) << 8);
+            }
+        }
         if packed.is_empty() {
             packed.push([0.0; 4]);
         }
@@ -664,8 +678,14 @@ impl GpuSolver {
         let slots = pair_slots + cand_count;
         let mut index = csr;
         let pair_index = index.len() as u32;
+        let samples = |k: u32| sample_count(&m.structures[chunks[k as usize].0].chunks[chunks[k as usize].1]) as u32;
+        let mut pair_state = Vec::with_capacity(plan.pairs.len());
+        let mut state_len = 0u32;
         for (i, (_, a, b, m_red, mu)) in plan.pairs.iter().enumerate() {
-            index.extend([*a, *b, (2 * i) as u32, i as u32, (*m_red as f32).to_bits(), (*mu as f32).to_bits()]);
+            let len = samples(*a) + samples(*b);
+            pair_state.push((state_len, len));
+            index.extend([*a, *b, (2 * i) as u32, state_len, (*m_red as f32).to_bits(), (*mu as f32).to_bits()]);
+            state_len += len;
         }
         let cand_index = index.len() as u32;
         let mut contributions: Vec<Vec<u32>> = vec![Vec::new(); n];
@@ -707,7 +727,7 @@ impl GpuSolver {
             let cs = &mut chunk_static[k];
             cs.half = v4(data.half_extents, data.half_extents.norm());
             cs.crot = rows(&data.rotation);
-            cs.cmat = [e as f32, mu as f32, 0.0, 0.0];
+            cs.cmat = [e as f32, mu as f32, f32::from_bits(hull_of[k].0), f32::from_bits(hull_of[k].1)];
             cs.start_hi = [start_hi[0], start_hi[1], start_hi[2], plan.budget[k] as f32];
             cs.start_lo = start_lo;
             cs.cinfo = [begin, (segments.len() / 3) as u32, plan.contact_clusters[ci] as u32, 0];
@@ -718,15 +738,16 @@ impl GpuSolver {
             let biggest = islands.iter().map(|isl| isl.range[1] - isl.range[0]).max().unwrap_or(0);
             eprintln!("contacts: {} pairs, longest chunk list {per_chunk}, busiest island {per_island} entries, biggest island {biggest} chunks, {} islands", plan.pairs.len(), islands.len());
         }
-        let mut cstate: Vec<[f32; 4]> = Vec::with_capacity(28 * plan.pairs.len());
+        let mut cstate: Vec<[f32; 4]> = Vec::with_capacity(state_len as usize);
         let mut remembered = Vec::new();
         for (i, (key, ..)) in plan.pairs.iter().enumerate() {
+            let len = pair_state[i].1 as usize;
             match pair_memory.get(key) {
-                Some(st) => {
+                Some(st) if st.len() == len => {
                     cstate.extend_from_slice(st);
                     remembered.push(i);
                 }
-                None => cstate.extend(std::iter::repeat(NAN_STATE).take(28)),
+                _ => cstate.extend(std::iter::repeat(NAN_STATE).take(len)),
             }
         }
         if cstate.is_empty() {
@@ -879,7 +900,7 @@ impl GpuSolver {
         let bind_segment = bind(&params_segment);
         let bind_contact = bind(&params_contact);
         Ok((
-            Layout { chunks, bonds, islands, items: layout_items, plan, gpu_impactors },
+            Layout { chunks, bonds, islands, items: layout_items, plan, pair_state, gpu_impactors },
             Buffers {
                 params_segment,
                 params_contact,
@@ -1286,7 +1307,8 @@ impl GpuSolver {
             if !plan.pairs.is_empty() {
                 let cstate: Vec<[f32; 4]> = gpu.read(&self.buffers.contact_state);
                 for (i, (key, ..)) in plan.pairs.iter().enumerate() {
-                    let st: PairState = std::array::from_fn(|e| cstate[28 * i + e]);
+                    let (at, len) = self.layout.pair_state[i];
+                    let st: PairState = cstate[at as usize..(at + len) as usize].to_vec();
                     if st.iter().all(|e| e[0].is_nan()) {
                         self.pair_memory.remove(key);
                     } else {

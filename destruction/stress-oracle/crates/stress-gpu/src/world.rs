@@ -46,9 +46,6 @@ pub fn unsupported(scene: &Scene) -> Option<String> {
     if scene.sim.methods.layer_contact {
         return Some("layer contact (the penalty contact is on the GPU so far)".into());
     }
-    if scene.bodies.iter().any(|b| b.chunks.iter().any(|c| c.hull.is_some())) {
-        return Some("convex hull chunks".into());
-    }
     if scene.sim.refine_utilization.is_some() {
         return Some("refinement".into());
     }

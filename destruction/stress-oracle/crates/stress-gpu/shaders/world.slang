@@ -202,6 +202,8 @@ void group_sum3(uint tid, inout float3 a, inout float3 b)
 // ------------------------------------------------------------------ geometry
 
 // A box in a local frame: centre relative to a reference point, axes (columns), half.
+// A convex hull chunk keeps `half` as its bounds; its vertices, face planes and face
+// centroids are in `loads` from `hull_at` (hull frame = the box axes).
 struct Box
 {
     float3 center;
@@ -209,7 +211,20 @@ struct Box
     float3 axis1;
     float3 axis2;
     float3 half;
+    uint hull_at;
+    uint hull_v; // 0: a box
+    uint hull_f;
 };
+
+float3 box_to_world(Box b, float3 local)
+{
+    return b.axis0 * local.x + b.axis1 * local.y + b.axis2 * local.z;
+}
+
+float3 box_to_local(Box b, float3 r)
+{
+    return float3(dot(r, b.axis0), dot(r, b.axis1), dot(r, b.axis2));
+}
 
 float3 box_axis(Box b, uint k)
 {
@@ -262,6 +277,9 @@ Box chunk_box(uint c, float3 center)
     b.axis1 = rotate(q, rotate(hidden, float3(ch.crot0.y, ch.crot1.y, ch.crot2.y)));
     b.axis2 = rotate(q, rotate(hidden, float3(ch.crot0.z, ch.crot1.z, ch.crot2.z)));
     b.half = ch.half.xyz;
+    b.hull_at = asuint(ch.cmat.z);
+    b.hull_v = asuint(ch.cmat.w) & 0xffu;
+    b.hull_f = asuint(ch.cmat.w) >> 8;
     return b;
 }
 
@@ -276,8 +294,21 @@ void chunk_velocity(uint c, out float3 v, out float3 w)
     w = isl.angular_velocity.xyz + rotate(q, state[4 * c + 3].xyz);
 }
 
+// contact.rs `sample_count`: 14 for a box; a hull's vertices and faces.
+uint sample_count(Box b)
+{
+    return b.hull_v == 0 ? SAMPLE_POINTS : b.hull_v + b.hull_f;
+}
+
+// contact.rs `for_each_sample`: box corners pulled 10% in, then face centres; a hull's
+// vertices pulled 10% in, then its face centroids.
 float3 sample_point(Box b, uint i)
 {
+    if (b.hull_v != 0)
+    {
+        float3 local = i < b.hull_v ? loads[b.hull_at + i].xyz * 0.9 : loads[b.hull_at + b.hull_v + b.hull_f + (i - b.hull_v)].xyz;
+        return b.center + box_to_world(b, local);
+    }
     if (i < 8)
     {
         float3 h = b.half * 0.9;
@@ -289,6 +320,24 @@ float3 sample_point(Box b, uint i)
     return b.center + box_axis(b, axis) * (sign * comp3(b.half, axis));
 }
 
+// hull.rs `signed_distance`: the largest face-plane distance (first face on ties).
+float hull_signed_distance(Box b, float3 local, out uint face)
+{
+    float best = -1e30;
+    face = 0;
+    for (uint f = 0; f < b.hull_f; f++)
+    {
+        float4 plane = loads[b.hull_at + b.hull_v + f];
+        float d = dot(plane.xyz, local) - plane.w;
+        if (d > best)
+        {
+            best = d;
+            face = f;
+        }
+    }
+    return best;
+}
+
 // contact.rs `penetration`: depth to the nearest face and its outward normal.
 bool penetration(Box b, float3 p, out float depth, out float3 normal)
 {
@@ -297,6 +346,16 @@ bool penetration(Box b, float3 p, out float depth, out float3 normal)
     float3 r = p - b.center;
     if (dot(r, r) > dot(b.half, b.half) * (1.0 + 1e-5))
         return false;
+    if (b.hull_v != 0)
+    {
+        uint face;
+        float d = hull_signed_distance(b, box_to_local(b, r), face);
+        if (!(d < 0.0))
+            return false;
+        depth = -d;
+        normal = box_to_world(b, loads[b.hull_at + b.hull_v + face].xyz);
+        return true;
+    }
     float best = 1e30;
     uint axis = 0;
     float side = 1.0;
@@ -387,6 +446,9 @@ Box impactor_box(Impactor imp, float3 center, float3 half)
     b.axis1 = rotate(q, float3(0, 1, 0));
     b.axis2 = rotate(q, float3(0, 0, 1));
     b.half = half;
+    b.hull_at = 0;
+    b.hull_v = 0;
+    b.hull_f = 0;
     return b;
 }
 
@@ -407,6 +469,18 @@ bool sphere_contact(Box b, float3 center, float radius, out float3 point, out fl
     depth = 0.0;
     float3 r = center - b.center;
     float3 local = float3(dot(r, b.axis0), dot(r, b.axis1), dot(r, b.axis2));
+    if (b.hull_v != 0)
+    {
+        // Nearest face plane (exact over a face, conservative near edges and corners).
+        uint face;
+        float d = hull_signed_distance(b, local, face);
+        if (d >= radius)
+            return false;
+        normal = box_to_world(b, loads[b.hull_at + b.hull_v + face].xyz);
+        point = center - normal * max(d, 0.0);
+        depth = radius - d;
+        return true;
+    }
     float3 q = clamp(local, -b.half, b.half);
     float3 d = local - q;
     float dist = length(d);
@@ -431,51 +505,57 @@ bool sphere_contact(Box b, float3 center, float radius, out float3 point, out fl
 }
 
 // The contacts of an impactor with one chunk (world.rs `apply_contacts`), in the
-// impactor's frame (origin at its centre). Returns the number of points.
-uint impactor_points(Impactor imp, float crush_depth, Box ib, Box b, out float3 pts[28], out float3 nrm[28], out float dep[28])
+// impactor's frame (origin at its centre), enumerated by `j` in [0, impactor_slots):
+// a sphere has one; a box has the chunk's samples inside it (shrunk by the crush depth),
+// then its own samples inside the chunk. False where `j` is not in contact.
+uint impactor_slots(Impactor imp, Box b)
+{
+    return imp.shape.x == 0.0 ? 1 : sample_count(b) + SAMPLE_POINTS;
+}
+
+Box impactor_shrunk(Impactor imp, float crush_depth, Box ib)
+{
+    Box shrunk = ib;
+    shrunk.half = ib.half - min(float3(crush_depth), ib.half * 0.5);
+    return shrunk;
+}
+
+bool impactor_contact(Impactor imp, float crush_depth, Box shrunk, Box b, uint j, out float3 p, out float3 n, out float d)
+{
+    p = float3(0.0);
+    n = float3(0.0);
+    d = 0.0;
+    if (imp.shape.x == 0.0)
+    {
+        if (!sphere_contact(b, float3(0.0), imp.shape.y - crush_depth, p, n, d))
+            return false;
+        n = -n;
+        return true;
+    }
+    uint cb = sample_count(b);
+    if (j < cb)
+    {
+        p = sample_point(b, j);
+        return penetration(shrunk, p, d, n);
+    }
+    p = sample_point(shrunk, j - cb);
+    if (!penetration(b, p, d, n))
+        return false;
+    n = -n;
+    return true;
+}
+
+// The number of contact points of an impactor with a chunk.
+uint impactor_contact_count(Impactor imp, float crush_depth, Box shrunk, Box b)
 {
     uint count = 0;
-    if (imp.shape.x == 0.0)
+    for (uint j = 0; j < impactor_slots(imp, b); j++)
     {
         float3 p;
         float3 n;
         float d;
-        if (sphere_contact(b, float3(0.0), imp.shape.y - crush_depth, p, n, d))
-        {
-            pts[0] = p;
-            nrm[0] = -n;
-            dep[0] = d;
-            count = 1;
-        }
-        return count;
-    }
-    Box shrunk = ib;
-    shrunk.half = ib.half - min(float3(crush_depth), ib.half * 0.5);
-    for (uint s = 0; s < SAMPLE_POINTS; s++)
-    {
-        float3 p = sample_point(b, s);
-        float d;
-        float3 n;
-        if (penetration(shrunk, p, d, n))
-        {
-            pts[count] = p;
-            nrm[count] = n;
-            dep[count] = d;
+        if (impactor_contact(imp, crush_depth, shrunk, b, j, p, n, d))
             count++;
-        }
-    }
-    for (uint s = 0; s < SAMPLE_POINTS; s++)
-    {
-        float3 p = sample_point(shrunk, s);
-        float d;
-        float3 n;
-        if (penetration(b, p, d, n))
-        {
-            pts[count] = p;
-            nrm[count] = -n;
-            dep[count] = d;
-            count++;
-        }
     }
     return count;
 }
@@ -484,13 +564,29 @@ uint impactor_points(Impactor imp, float crush_depth, Box ib, Box b, out float3 
 
 static const float NAN_OFFSET = asfloat(0x7fc00000u);
 
+// A sample point of the pair (entry e: a's samples, then b's) inside the other chunk:
+// its point, the normal pushing a out of b, and the depth.
+bool pair_point(Box ba, Box bb, uint na, uint e, out float3 p, out float3 n, out float d)
+{
+    if (e < na)
+    {
+        p = sample_point(ba, e);
+        return penetration(bb, p, d, n);
+    }
+    p = sample_point(bb, e - na);
+    if (!penetration(ba, p, d, n))
+        return false;
+    n = -n;
+    return true;
+}
+
 void pair_contact(uint i)
 {
     uint at = params.pair_index + 6 * i;
     uint ca = index[at];
     uint cb = index[at + 1];
     uint slot = index[at + 2];
-    uint st = index[at + 3] * 28;
+    uint st = index[at + 3];
     float m_red = asfloat(index[at + 4]);
     float mu = asfloat(index[at + 5]);
     float dt = params.dt;
@@ -502,12 +598,15 @@ void pair_contact(uint i)
     bool touching = !(length(cb_rel) > chunks[ca].half.w + chunks[cb].half.w);
     float4 ledger = scratch[params.ledger_base + i];
     uint flags = asuint(ledger.w);
+    Box ba = chunk_box(ca, float3(0.0));
+    Box bb = chunk_box(cb, cb_rel);
+    uint entries = sample_count(ba) + sample_count(bb);
     if (!touching)
     {
         // Far apart (most candidates): forget the pair's overlap, clear its outputs,
         // and write nothing when there is nothing to clear.
         if ((flags & 1) != 0)
-            for (uint e = 0; e < 2 * SAMPLE_POINTS; e++)
+            for (uint e = 0; e < entries; e++)
                 contact_state[st + e] = float4(NAN_OFFSET, 0.0, 0.0, 0.0);
         if ((flags & 2) != 0)
             for (uint e = 0; e < 4; e++)
@@ -520,94 +619,67 @@ void pair_contact(uint i)
         }
         return;
     }
-    Box ba = chunk_box(ca, float3(0.0));
-    Box bb = chunk_box(cb, cb_rel);
+    uint na = sample_count(ba);
     float3 fa = float3(0.0), ta = float3(0.0), fb = float3(0.0), tb = float3(0.0);
     float stored_sum = 0.0;
     bool has_state = false;
     if (may_overlap(ba, bb))
     {
-        // Sample points of each box inside the other.
-        float3 pts[28];
-        float3 nrm[28];
-        float dep[28];
-        uint idx[28];
+        float3 va0, wa0, vb0, wb0;
+        chunk_velocity(ca, va0, wa0);
+        chunk_velocity(cb, vb0, wb0);
+        // Pass 1: the overlap offsets of the points inside (new contacts born deeper
+        // than one substep of approach keep their overlap as an offset that only
+        // ratchets down); the points outside forget theirs.
         uint count = 0;
-        for (uint s = 0; s < SAMPLE_POINTS; s++)
+        uint engaged = 0;
+        for (uint e = 0; e < entries; e++)
         {
-            float3 p = sample_point(ba, s);
-            float d;
+            float3 p;
             float3 n;
-            if (penetration(bb, p, d, n))
-            {
-                pts[count] = p;
-                nrm[count] = n;
-                dep[count] = d;
-                idx[count] = s;
-                count++;
-            }
-        }
-        for (uint s = 0; s < SAMPLE_POINTS; s++)
-        {
-            float3 p = sample_point(bb, s);
             float d;
-            float3 n;
-            if (penetration(ba, p, d, n))
+            if (!pair_point(ba, bb, na, e, p, n, d))
             {
-                pts[count] = p;
-                nrm[count] = -n;
-                dep[count] = d;
-                idx[count] = SAMPLE_POINTS + s;
-                count++;
+                if (!isnan(contact_state[st + e].x))
+                    contact_state[st + e] = float4(NAN_OFFSET, 0.0, 0.0, 0.0);
+                continue;
             }
+            count++;
+            float4 entry = contact_state[st + e];
+            if (isnan(entry.x) || dot(entry.yzw, n) < 0.99)
+            {
+                float3 va = va0 + cross(wa0, p);
+                float3 vb = vb0 + cross(wb0, p - bb.center);
+                float reach = 2.0 * abs(dot(va - vb, n)) * dt + 1e-9;
+                entry = float4(d > reach ? d : 0.0, n);
+            }
+            entry.x = min(entry.x, d);
+            contact_state[st + e] = entry;
+            if (d - entry.x > 0.0)
+                engaged++;
         }
         if (count > 0)
         {
-            float k_pair = contact_stiffness(chunks[ca].cmat.x, ba, chunks[cb].cmat.x, bb, bb.center - ba.center);
-            float3 va0, wa0, vb0, wb0;
-            chunk_velocity(ca, va0, wa0);
-            chunk_velocity(cb, vb0, wb0);
-            uint inside_mask = 0;
-            float eff[28];
-            uint engaged = 0;
-            for (uint j = 0; j < count; j++)
-            {
-                uint e = idx[j];
-                inside_mask |= 1u << e;
-                float4 entry = contact_state[st + e];
-                float3 p = pts[j];
-                float3 n = nrm[j];
-                // A new contact (or the same point now through another face): an overlap
-                // deeper than one substep of approach was already there; keep it as an
-                // offset that only ratchets down.
-                if (isnan(entry.x) || dot(entry.yzw, n) < 0.99)
-                {
-                    float3 va = va0 + cross(wa0, p);
-                    float3 vb = vb0 + cross(wb0, p - bb.center);
-                    float reach = 2.0 * abs(dot(va - vb, n)) * dt + 1e-9;
-                    entry = float4(dep[j] > reach ? dep[j] : 0.0, n);
-                }
-                entry.x = min(entry.x, dep[j]);
-                contact_state[st + e] = entry;
-                eff[j] = dep[j] - entry.x;
-                if (eff[j] > 0.0)
-                    engaged++;
-            }
-            for (uint e = 0; e < 2 * SAMPLE_POINTS; e++)
-                if ((inside_mask & (1u << e)) == 0)
-                    contact_state[st + e] = float4(NAN_OFFSET, 0.0, 0.0, 0.0);
             has_state = true;
+            // Pass 2: penalty forces of the engaged points (geometry recomputed: the
+            // same values, without per-point storage).
+            float k_pair = contact_stiffness(chunks[ca].cmat.x, ba, chunks[cb].cmat.x, bb, bb.center - ba.center);
             float k = k_pair / max(float(engaged), FACE_PAIR_POINTS);
-            for (uint j = 0; j < count; j++)
+            for (uint e = 0; e < entries; e++)
             {
-                if (eff[j] <= 0.0)
+                float3 p;
+                float3 n;
+                float d;
+                if (!pair_point(ba, bb, na, e, p, n, d))
                     continue;
-                float3 p = pts[j];
+                float eff = d - contact_state[st + e].x;
+                if (eff <= 0.0)
+                    continue;
                 float3 va = va0 + cross(wa0, p);
                 float3 vb = vb0 + cross(wb0, p - bb.center);
                 float stored;
                 float diss;
-                float3 f = penalty_force(k, m_red, mu, eff[j], nrm[j], va - vb, dt, engaged, stored, diss);
+                float3 f = penalty_force(k, m_red, mu, eff, n, va - vb, dt, engaged, stored, diss);
                 fa += f;
                 ta += cross(p, f);
                 fb += -f;
@@ -618,7 +690,7 @@ void pair_contact(uint i)
         }
     }
     if (!has_state && (flags & 1) != 0)
-        for (uint e = 0; e < 2 * SAMPLE_POINTS; e++)
+        for (uint e = 0; e < entries; e++)
             contact_state[st + e] = float4(NAN_OFFSET, 0.0, 0.0, 0.0);
     bool loaded = any(fa != 0.0) || any(ta != 0.0) || any(fb != 0.0) || any(tb != 0.0);
     if (loaded || (flags & 2) != 0)
@@ -651,10 +723,8 @@ void impactor_candidate_forces(uint k)
             Box ib = impactor_box(imp, float3(0.0), imp.half.xyz);
             Box b = chunk_box(c, rel);
             float kc = contact_stiffness(imp.mat.x, ib, chunks[c].cmat.x, b, b.center - ib.center);
-            float3 pts[28];
-            float3 nrm[28];
-            float dep[28];
-            uint n = impactor_points(imp, imp.geom.y, ib, b, pts, nrm, dep);
+            Box shrunk = impactor_shrunk(imp, imp.geom.y, ib);
+            uint n = impactor_contact_count(imp, imp.geom.y, shrunk, b);
             float kp = imp.shape.x == 0.0 ? kc : kc / max(float(n), FACE_PAIR_POINTS);
             uint points = imp.shape.x == 0.0 ? 1 : n;
             float m = chunks[c].center.w;
@@ -664,14 +734,18 @@ void impactor_candidate_forces(uint k)
             float3 vc;
             float3 wc;
             chunk_velocity(c, vc, wc);
-            for (uint j = 0; j < n; j++)
+            for (uint j = 0; n > 0 && j < impactor_slots(imp, b); j++)
             {
-                float3 p = pts[j];
+                float3 p;
+                float3 nrm;
+                float dep;
+                if (!impactor_contact(imp, imp.geom.y, shrunk, b, j, p, nrm, dep))
+                    continue;
                 float3 v_chunk = vc + cross(wc, p - b.center);
                 float3 v_i = v_imp + cross(imp.angular_velocity.xyz, p);
                 float stored;
                 float diss;
-                float3 f = penalty_force(kp, m_red, mu, dep[j] * imp.geom.x, nrm[j], v_chunk - v_i, dt, points, stored, diss);
+                float3 f = penalty_force(kp, m_red, mu, dep * imp.geom.x, nrm, v_chunk - v_i, dt, points, stored, diss);
                 f_sum += f;
                 t_sum += cross(p - b.center, f);
                 imp_f -= f;
@@ -738,14 +812,17 @@ void impactor_shares(uint3 id: SV_DispatchThreadID)
             Box ib = impactor_box(imp, float3(0.0), imp.half.xyz);
             Box b = chunk_box(c, rel);
             float kc = contact_stiffness(imp.mat.x, ib, chunks[c].cmat.x, b, b.center - ib.center);
-            float3 pts[28];
-            float3 nrm[28];
-            float dep[28];
-            uint n = impactor_points(imp, imp.crush.w, ib, b, pts, nrm, dep);
+            Box shrunk = impactor_shrunk(imp, imp.crush.w, ib);
+            uint n = impactor_contact_count(imp, imp.crush.w, shrunk, b);
             float kp = imp.shape.x == 0.0 ? kc : kc / max(float(n), FACE_PAIR_POINTS);
-            for (uint j = 0; j < n; j++)
+            for (uint j = 0; n > 0 && j < impactor_slots(imp, b); j++)
             {
-                total += kp * dep[j];
+                float3 p;
+                float3 nrm;
+                float dep;
+                if (!impactor_contact(imp, imp.crush.w, shrunk, b, j, p, nrm, dep))
+                    continue;
+                total += kp * dep;
                 ksum += kp;
             }
         }
@@ -970,8 +1047,9 @@ void ground_contact(uint c, bool account, inout float3 f, inout float3 t)
         return;
     Box b = chunk_box(c, float3(0.0));
     float kc = contact_stiffness(params.ground_modulus, b, ch.cmat.x, b, float3(0.0, 0.0, 1.0));
+    uint samples = sample_count(b);
     uint n = 0;
-    for (uint s = 0; s < SAMPLE_POINTS; s++)
+    for (uint s = 0; s < samples; s++)
         if (above + sample_point(b, s).z < 0.0)
             n++;
     if (n == 0)
@@ -980,7 +1058,7 @@ void ground_contact(uint c, bool account, inout float3 f, inout float3 t)
     float3 wc;
     chunk_velocity(c, vc, wc);
     float4 ledger = scratch[params.ledger_base + params.pair_count + c];
-    for (uint s = 0; s < SAMPLE_POINTS; s++)
+    for (uint s = 0; s < samples; s++)
     {
         float3 p = sample_point(b, s);
         if (!(above + p.z < 0.0))

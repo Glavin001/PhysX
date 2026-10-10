@@ -19,8 +19,14 @@ use stress_ref::world::Impactor;
 /// in the lower-index cluster first.
 pub type PairKey = (usize, usize, usize, usize);
 
-/// The 28 sample-point offsets of a pair (offset, normal; NaN offset: not in contact).
-pub type PairState = [[f32; 4]; 28];
+/// The sample-point offsets of a pair, a's samples then b's (offset, normal; NaN offset:
+/// not in contact).
+pub type PairState = Vec<[f32; 4]>;
+
+/// Contact sample points of a chunk (contact.rs `sample_count`).
+pub fn sample_count(chunk: &stress_ref::structure::ChunkData) -> usize {
+    chunk.hull.as_ref().map_or(stress_ref::contact::SAMPLE_POINTS, |h| h.vertices.len() + h.faces.len())
+}
 
 pub const NAN_STATE: [f32; 4] = [f32::NAN, 0.0, 0.0, 0.0];
 
