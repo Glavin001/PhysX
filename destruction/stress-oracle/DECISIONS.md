@@ -375,3 +375,19 @@ cited textbook factor, or the oracle's own uncertainty.
     1.418; rigid push-over 1.442. Refining the oracle's mesh moves it toward ours
     (fewer broken bonds: 805, 734, 642); crushing barely matters at 2 m/s. K = 3 and
     40 m/s with crushing: see below.
+49. **Oracle mesh study at 2 m/s** (speed lost): 1, 2, 3 elements per chunk edge give
+    0.940, 1.055, 1.113 m/s (broken bonds 734, 642, 712): rising with refinement and
+    slowing; extrapolation is uncertain (first order 1.17-1.23, a fitted order of 0.3
+    gives 1.56); ours 1.418 and the rigid push-over 1.442 lie inside that range. The
+    oracle at the golden's mesh (one element per chunk edge) is not converged; 4
+    elements per edge is running.
+50. **Oracle with crushing at 40 m/s** (`--chunk-crushing`, two elements per edge): the
+    J2 elements invert before eroding at this speed (the first run stopped: "infinite
+    domain" in the contact); with time-step erosion (`/DT/BRICK/DEL` at a tenth of the
+    run's step) it completes, speed lost 4.36 m/s (elastic oracle 5.97, ours 3.04, now
+    30.2 % off), still a push-over with a 2.88 m^2 hole region, 1440 broken bonds (ours
+    49). But its kinetic energy ends at 3.2 MJ against the ram's 0.8 MJ: the run creates
+    energy (crush-and-erode at this speed), so it is not a valid reference. The 40 m/s
+    gap remains unresolved: neither the elastic oracle (not mesh-converged, uncapped
+    contact stresses) nor this crushing variant can arbitrate it; a proper concrete
+    law in the oracle (LAW24 / LAW124 CDPM2) with an energy check is the next step.

@@ -1066,6 +1066,14 @@ def export(scene, outdir, opts):
         f"{0.0:20.12g}{dt_max:20.12g}",
         "/PARITH/ON",
     ]
+    if opts.get("chunk_crushing"):
+        # Crushed elements collapse volumetrically (J2 plasticity does not resist it) and
+        # invert before their plastic strain reaches the erosion limit at high impact
+        # speed (b5 at 40 m/s stopped with an inverted element in the contact). Standard
+        # time-step erosion deletes an element once its distortion has cut its stable
+        # step to a tenth of the run's: a numerical safeguard for elements already crushed.
+        en += ["/DT/BRICK/DEL", f"{0.0:20.12g}{0.1 * dt_max:20.12g}"]
+        notes.append(f"crushing: bricks deleted once their stable step falls below {0.1 * dt_max:.3g} s (a tenth of the run's)")
     engine_text = "\n".join(en) + "\n"
     with open(os.path.join(outdir, f"{name}_0000.rad"), "w") as f:
         f.write(starter_text)
