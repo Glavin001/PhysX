@@ -421,6 +421,31 @@ serially. The per-chunk damped step bound (see "Solve modes") then gives house_c
 fewer substeps and the imported house and villa 25-28x larger substeps; other scenes
 move by 0-2%.
 
+A second round of bit-identical work (2026-10-10, `IMPROVEMENTS.md`, "Runtime")
+reproduces every observation byte for byte over all 182 cells of
+`scripts/verify_identical.py`. That covers every scene, both method sets, one thread
+and all threads, and forced solve modes. CPU seconds at one thread on a 16-core
+machine, base 0c71ffe13 -> 5161fb0aa:
+
+| scene | default methods | `layer_contact,scaled_step_bound` |
+|---|---|---|
+| house settlement | 115.5 -> 111.8 s | 372.7 -> 165.7 s |
+| house hit by a car | 16.0 -> 15.4 s | 252.3 -> 88.0 s |
+| b9 panel, high pressure | 5.3 -> 5.1 s | 227.1 -> 69.6 s |
+| b9 panel, quasi-static | 70.8 -> 47.6 s | 69.2 -> 46.7 s |
+| floor drop | 11.6 -> 12.0 s | 203.5 -> 65.1 s |
+| b5 wall impact 2 m/s | 80.8 -> 62.5 s | 161.4 -> 73.3 s |
+| all one-thread cells | | 2353 -> 1178 s (2.0x) |
+
+The gains come from:
+- polytope clipping and field cells in reused buffers;
+- a broadphase that indexes each cluster in two dimensions instead of testing every
+  chunk pair of overlapping clusters;
+- a dense index in the static solve;
+- bond responses applied as they are computed.
+
+`stress-ref run SCENE --profile` prints where a run spends its time.
+
 ### Scene packs (`scene_pack.rs`, `examples/import_pack.rs`)
 
 The repository's authored destruction assets (`blast/blast-stress-demo-rs/assets/scenes`)
