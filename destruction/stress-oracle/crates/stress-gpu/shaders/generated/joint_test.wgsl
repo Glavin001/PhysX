@@ -41,7 +41,7 @@ struct JointState_std430_0
     @align(4) kappa_c_0 : f32,
     @align(4) ductility_0 : f32,
     @align(4) ductility_c_0 : f32,
-    @align(4) fatigue_0 : f32,
+    @align(4) life_0 : f32,
     @align(4) plastic_x_0 : f32,
     @align(4) plastic_y_0 : f32,
     @align(4) plastic_t_0 : f32,
@@ -93,7 +93,7 @@ struct JointState_0
      kappa_c_0 : f32,
      ductility_0 : f32,
      ductility_c_0 : f32,
-     fatigue_0 : f32,
+     life_0 : f32,
      plastic_x_0 : f32,
      plastic_y_0 : f32,
      plastic_t_0 : f32,
@@ -204,13 +204,13 @@ fn dif_factor_0( mat_0 : ptr<function, JointMaterial_std430_0>,  strain_rate_1 :
     return clamp(f_0, 1.0f, (*mat_0).misc_0.x);
 }
 
-fn fatigue_factor_0( mat_1 : ptr<function, JointMaterial_std430_0>,  fatigue_1 : f32) -> f32
+fn fatigue_factor_0( mat_1 : ptr<function, JointMaterial_std430_0>,  life_1 : f32) -> f32
 {
     if(((((*mat_1).kind_flags_0.y) & (u32(64)))) == u32(0))
     {
         return 1.0f;
     }
-    return fpow_0(1.0f - clamp(fatigue_1, 0.0f, 1.0f), fdiv_0(1.0f, (*mat_1).misc_0.y - 2.0f));
+    return fpow_0(clamp(life_1, 0.0f, 1.0f), fdiv_0(1.0f, (*mat_1).misc_0.y - 2.0f));
 }
 
 fn infinity_0() -> f32
@@ -803,7 +803,7 @@ fn joint_evaluate_0( mat_6 : ptr<function, JointMaterial_std430_0>,  b_6 : ptr<f
     st_2.kappa_c_0 = (*state_1).kappa_c_0;
     st_2.ductility_0 = (*state_1).ductility_0;
     st_2.ductility_c_0 = (*state_1).ductility_c_0;
-    st_2.fatigue_0 = (*state_1).fatigue_0;
+    st_2.life_0 = (*state_1).life_0;
     st_2.plastic_x_0 = (*state_1).plastic_x_0;
     st_2.plastic_y_0 = (*state_1).plastic_y_0;
     st_2.plastic_t_0 = (*state_1).plastic_t_0;
@@ -850,7 +850,7 @@ fn joint_evaluate_0( mat_6 : ptr<function, JointMaterial_std430_0>,  b_6 : ptr<f
     }
     var weibull_0 : f32 = (*b_6).geom1_0.w;
     var _S74 : f32 = weibull_0 * dif_1;
-    var _S75 : f32 = fatigue_factor_0(&((*mat_6)), st_2.fatigue_0);
+    var _S75 : f32 = fatigue_factor_0(&((*mat_6)), st_2.life_0);
     var multiplier_1 : f32 = _S74 * _S75;
     var _S76 : vec4<f32> = failure_indices_0(&((*mat_6)), &((*b_6)), _S70, multiplier_1);
     var _S77 : f32 = _S76.x;
@@ -1212,7 +1212,7 @@ fn joint_evaluate_0( mat_6 : ptr<function, JointMaterial_std430_0>,  b_6 : ptr<f
         var _S110 : Measures_0 = stress_measures_0(&((*b_6)), force_lin_2, force_ang_1);
         var _S111 : vec4<f32> = failure_indices_0(&((*mat_6)), &((*b_6)), _S110, weibull_0);
         var _S112 : f32 = life_rate_0(&((*mat_6)), max(max(_S111.x, _S111.y), _S111.z));
-        st_2.fatigue_0 = min(st_2.fatigue_0 + _S112 * dt_0, 1.0f);
+        st_2.life_0 = max(st_2.life_0 - _S112 * dt_0, 0.0f);
     }
     st_2.dissipated_0 = st_2.dissipated_0 + dissipated_2;
     var resp_0 : JointResponse_0;
@@ -1307,7 +1307,7 @@ fn joint_eval_test(@builtin(global_invocation_id) id_0 : vec3<u32>)
     states_out_0[i_3].kappa_c_0 = _S124.state_0.kappa_c_0;
     states_out_0[i_3].ductility_0 = _S124.state_0.ductility_0;
     states_out_0[i_3].ductility_c_0 = _S124.state_0.ductility_c_0;
-    states_out_0[i_3].fatigue_0 = _S124.state_0.fatigue_0;
+    states_out_0[i_3].life_0 = _S124.state_0.life_0;
     states_out_0[i_3].plastic_x_0 = _S124.state_0.plastic_x_0;
     states_out_0[i_3].plastic_y_0 = _S124.state_0.plastic_y_0;
     states_out_0[i_3].plastic_t_0 = _S124.state_0.plastic_t_0;

@@ -75,6 +75,9 @@ public struct Island
     public uint4 done;        // x: substeps run (narrow: in the last dispatch); z: wide chunk groups
     public uint4 probes;      // probe items [x, y) in `loads`
     public float4 energy;     // external work (compensated: x + y); settled: z load norm when it settled, w the change that wakes it
+    public float4 rotation_err; // rotation = (rotation + rotation_err): see `turn_left`
+    public float4 momentum;     // world angular momentum about the com, compensated with
+    public float4 momentum_err; // momentum_err; angular_velocity is derived from it
 };
 
 // ------------------------------------------------------------------ rigid math
@@ -179,12 +182,91 @@ public float3 world_mul(Quat q, float4 r0, float4 r1, float4 r2, float3 v)
     return rotate(q, rows_mul(r0, r1, r2, inverse_rotate(q, v)));
 }
 
+// Compensated quaternions (hi + lo). A substep turns a cluster by ~1e-6 rad: as an f32
+// quaternion product and renormalisation that increment is rounded to a few percent,
+// and the orientation of a spinning fragment drifts by ~1e-4 rad over 1e4 substeps
+// (millimetres at its contacts, which then fire at other times than the reference's).
+// Instead the increment (dq - 1) q is formed on its own and added to the pair, which
+// keeps the rotation to f32 resolution of the increment; dq is unit, so the pair stays
+// normalised to that resolution too.
+
+// (hi, lo) += x as a double-float: the sum's rounding error joins `lo`, then `hi` takes
+// what of `lo` it can hold, so `hi` alone stays the rotation to f32 rounding.
+public void quat_accumulate(inout Quat hi, inout float4 lo, float4 x)
+{
+    float4 h = quat_vec(hi);
+    float4 sum = h;
+    comp_add4(sum, lo, x);
+    float4 t = sum + lo;
+    lo = lo - (t - sum);
+    hi = quat_of(t);
+}
+
+// (dq - 1) for a turn by `angle` about the unit `axis`: (axis sin(a/2), cos(a/2) - 1).
+public float4 turn_minus_one(float3 axis, float angle)
+{
+    float s = sin(0.25 * angle);
+    return float4(axis * sin(0.5 * angle), -2.0 * s * s);
+}
+
+// (hi, lo) = dq (hi + lo), dq the turn by `omega dt` (world frame, `integrate_rotation`).
+public void turn_left(inout Quat hi, inout float4 lo, float3 omega, float dt)
+{
+    float angle = length(omega) * dt;
+    if (angle < 1e-30)
+        return;
+    float4 d = turn_minus_one(omega / length(omega), angle);
+    Quat dq;
+    dq.x = d.x;
+    dq.y = d.y;
+    dq.z = d.z;
+    dq.w = d.w;
+    quat_accumulate(hi, lo, quat_vec(quat_mul(dq, hi)));
+}
+
+// (hi, lo) = (hi + lo) dq, dq the turn by `phi` (body frame, as `q * from_axis_angle(phi)`).
+public void turn_right(inout Quat hi, inout float4 lo, float3 phi)
+{
+    float angle = length(phi);
+    if (angle < 1e-30)
+        return;
+    float4 d = turn_minus_one(phi / angle, angle);
+    Quat dq;
+    dq.x = d.x;
+    dq.y = d.y;
+    dq.z = d.z;
+    dq.w = d.w;
+    quat_accumulate(hi, lo, quat_vec(quat_mul(hi, dq)));
+}
+
+// R v - v for the turn by `omega dt` (world frame), without the cancellation of the
+// difference of two rotated (possibly long) vectors.
+public float3 turn_difference(float3 omega, float dt, float3 v)
+{
+    float angle = length(omega) * dt;
+    if (angle < 1e-30)
+        return float3(0.0);
+    float3 a = omega / length(omega);
+    float s = sin(0.5 * angle);
+    float3 av = cross(a, v);
+    return av * sin(angle) + cross(a, av) * (2.0 * s * s);
+}
+
 // Compensated accumulation: (sum, err) += x (Neumaier).
 public void comp_add(inout float3 sum, inout float3 err, float3 x)
 {
     float3 t = sum + x;
     float3 big = select(abs(sum) >= abs(x), sum, x);
     float3 small = select(abs(sum) >= abs(x), x, sum);
+    err += (big - t) + small;
+    sum = t;
+}
+
+public void comp_add4(inout float4 sum, inout float4 err, float4 x)
+{
+    float4 t = sum + x;
+    float4 big = select(abs(sum) >= abs(x), sum, x);
+    float4 small = select(abs(sum) >= abs(x), x, sum);
     err += (big - t) + small;
     sum = t;
 }

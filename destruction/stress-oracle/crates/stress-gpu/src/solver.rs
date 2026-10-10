@@ -159,9 +159,11 @@ struct GpuImpactor {
     mat: [f32; 4],
     crush: [f32; 4],
     geom: [f32; 4],
-    unused: [f32; 4],
+    rotation_err: [f32; 4],
     ledger: [f32; 4],
     cand: [u32; 4],
+    momentum: [f32; 4],
+    momentum_err: [f32; 4],
 }
 
 #[repr(C)]
@@ -183,6 +185,12 @@ pub struct Island {
     pub done: [u32; 4],
     pub probes: [u32; 4],
     pub energy: [f32; 4],
+    /// The rounding error of `rotation` (compensated quaternion, world.slang `turn_left`).
+    pub rotation_err: [f32; 4],
+    /// World angular momentum about the centre of mass (compensated with
+    /// `momentum_err`); the GPU derives `angular_velocity` from it.
+    pub momentum: [f32; 4],
+    pub momentum_err: [f32; 4],
 }
 
 fn v4(v: Vec3, w: f64) -> [f32; 4] {
@@ -191,6 +199,12 @@ fn v4(v: Vec3, w: f64) -> [f32; 4] {
 
 fn rows(m: &Mat3) -> [[f32; 4]; 3] {
     std::array::from_fn(|r| [m.m[r][0] as f32, m.m[r][1] as f32, m.m[r][2] as f32, 0.0])
+}
+
+/// A quaternion as f32 components plus their rounding errors (`Island::rotation_err`).
+fn split_quat(q: Quat) -> ([f32; 4], [f32; 4]) {
+    let (x, y, z, w) = (split1(q.x), split1(q.y), split1(q.z), split1(q.w));
+    ([x.0, y.0, z.0, w.0], [x.1, y.1, z.1, w.1])
 }
 
 /// A value as an f32 plus the f32 rounding error of that value.
@@ -599,7 +613,8 @@ impl GpuSolver {
             }
             let (position, position_err) = split(cl.pose.position);
             let (velocity, velocity_err) = split(cl.velocity);
-            let q = cl.pose.rotation;
+            let (rotation, rotation_err) = split_quat(cl.pose.rotation);
+            let (momentum, momentum_err) = split(cl.world_inertia() * cl.angular_velocity);
             let inv = cl.inertia.inverse().unwrap_or(Mat3::ZERO);
             let winv = winertia.inverse().unwrap_or(Mat3::ZERO);
             islands.push(Island {
@@ -610,7 +625,10 @@ impl GpuSolver {
                 inv: rows(&inv),
                 wcom: v4(wcom, wmass),
                 winv: rows(&winv),
-                rotation: [q.x as f32, q.y as f32, q.z as f32, q.w as f32],
+                rotation,
+                rotation_err,
+                momentum,
+                momentum_err,
                 position,
                 position_err,
                 velocity,
@@ -845,7 +863,9 @@ impl GpuSolver {
             .map(|(ii, imp)| {
                 let (position, position_err) = split(imp.pose.position);
                 let (velocity, velocity_err) = split(imp.velocity);
-                let q = imp.pose.rotation;
+                let (rotation, rotation_err) = split_quat(imp.pose.rotation);
+                let r = imp.pose.rotation.to_mat3();
+                let (momentum, momentum_err) = split(r * imp.inertia * r.transpose() * imp.angular_velocity);
                 let (shape, half) = match imp.shape {
                     ImpactorShape::Sphere { radius } => ([0.0, radius as f32, 0.0, 0.0], Vec3::splat(radius)),
                     ImpactorShape::Box { half_extents } => ([1.0, 0.0, 0.0, 0.0], Vec3::from_array(half_extents)),
@@ -861,7 +881,10 @@ impl GpuSolver {
                     velocity,
                     velocity_err,
                     angular_velocity: v4(imp.angular_velocity, 0.0),
-                    rotation: [q.x as f32, q.y as f32, q.z as f32, q.w as f32],
+                    rotation,
+                    rotation_err,
+                    momentum,
+                    momentum_err,
                     inertia: rows(&imp.inertia),
                     inv: rows(&imp.inertia.inverse().unwrap_or(Mat3::ZERO)),
                     shape,
@@ -1520,11 +1543,14 @@ impl GpuSolver {
                 cl.active_timer = m.config.active_time;
             }
             if !cl.anchored {
-                let q = isl.rotation;
-                cl.pose.rotation = Quat { x: q[0] as f64, y: q[1] as f64, z: q[2] as f64, w: q[3] as f64 }.normalized();
+                let (q, e) = (isl.rotation, isl.rotation_err);
+                let j = |k: usize| q[k] as f64 + e[k] as f64;
+                cl.pose.rotation = Quat { x: j(0), y: j(1), z: j(2), w: j(3) }.normalized();
                 cl.pose.position = joined(isl.position, isl.position_err);
                 cl.velocity = joined(isl.velocity, isl.velocity_err);
-                cl.angular_velocity = vec3(isl.angular_velocity);
+                // From the momentum the GPU integrates (its `angular_velocity` is derived).
+                let l = joined(isl.momentum, isl.momentum_err);
+                cl.angular_velocity = cl.world_inertia().inverse().map_or(vec3(isl.angular_velocity), |inv| inv * l);
             }
         }
         let mut with_sentinel = islands.clone();
@@ -1536,10 +1562,14 @@ impl GpuSolver {
             let mut imps: Vec<GpuImpactor> = gpu.read(&self.buffers.impactors);
             for (imp, g) in self.impactors.iter_mut().zip(imps.iter_mut()) {
                 imp.pose.position = joined(g.position, g.position_err);
-                let q = g.rotation;
-                imp.pose.rotation = Quat { x: q[0] as f64, y: q[1] as f64, z: q[2] as f64, w: q[3] as f64 }.normalized();
+                let (q, e) = (g.rotation, g.rotation_err);
+                let j = |k: usize| q[k] as f64 + e[k] as f64;
+                imp.pose.rotation = Quat { x: j(0), y: j(1), z: j(2), w: j(3) }.normalized();
                 imp.velocity = joined(g.velocity, g.velocity_err);
-                imp.angular_velocity = vec3(g.angular_velocity);
+                // From the momentum the GPU integrates (its angular velocity is derived).
+                let r = imp.pose.rotation.to_mat3();
+                let l = joined(g.momentum, g.momentum_err);
+                imp.angular_velocity = (r * imp.inertia * r.transpose()).inverse().map_or(vec3(g.angular_velocity), |inv| inv * l);
                 imp.crush_used = g.crush[2] as f64;
                 imp.crush_depth = g.crush[3] as f64;
                 self.contact_dissipated += g.ledger[0] as f64 + g.ledger[1] as f64;

@@ -138,9 +138,11 @@ struct Impactor
     float4 mat;          // E' (scaled), friction, mass, -
     float4 crush;        // max force (0: none), energy, used, depth
     float4 geom;         // x: crush factor, y: crush depth the contacts use (this substep)
-    float4 unused;
+    float4 rotation_err; // rotation = rotation + rotation_err (common.slang `turn_left`)
     float4 ledger;       // dissipated (compensated x + y), crush (z + w)
     uint4 cand;          // candidates [x, y) (candidate numbers); z: driven; w: substeps integrated
+    float4 momentum;     // world angular momentum, compensated with momentum_err; the
+    float4 momentum_err; // angular velocity follows from it (as the islands', `integrate_rigid`)
 };
 
 [[vk::binding(0, 0)]] ConstantBuffer<Params> params;
@@ -978,14 +980,21 @@ void impactor_integrate(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
     float3 vel_err = imp.velocity_err.xyz;
     comp_add(vel, vel_err, (load_f / m + params.gravity.xyz) * dt);
     Quat q = quat_of(imp.rotation);
-    float3 l = world_mul(q, imp.inertia0, imp.inertia1, imp.inertia2, imp.angular_velocity.xyz) + load_t * dt;
+    float4 q_err = imp.rotation_err;
+    float3 l_hi = imp.momentum.xyz;
+    float3 l_err = imp.momentum_err.xyz;
+    comp_add(l_hi, l_err, load_t * dt);
+    float3 l = l_hi + l_err;
     float3 w_mid = world_mul(q, imp.inv0, imp.inv1, imp.inv2, l);
     float3 pos = imp.position.xyz;
     float3 pos_err = imp.position_err.xyz;
     comp_add(pos, pos_err, (vel + vel_err) * dt);
-    q = integrate_rotation(q, w_mid, dt);
+    turn_left(q, q_err, w_mid, dt);
     imp.angular_velocity = float4(world_mul(q, imp.inv0, imp.inv1, imp.inv2, l), 0.0);
     imp.rotation = quat_vec(q);
+    imp.rotation_err = q_err;
+    imp.momentum = float4(l_hi, 0.0);
+    imp.momentum_err = float4(l_err, 0.0);
     imp.position = float4(pos, 0.0);
     imp.position_err = float4(pos_err, 0.0);
     imp.velocity = float4(vel, 0.0);
@@ -1257,7 +1266,7 @@ bool bond_update(uint i, float dt, bool fracture, uint abs_step)
         bd.events.x = abs_step;
         bd.events.w = resp.state.mode;
     }
-    if (bd.events.y == 0 && fatigue_factor(mat, previous.fatigue) > 0.99 && fatigue_factor(mat, resp.state.fatigue) <= 0.99)
+    if (bd.events.y == 0 && fatigue_factor(mat, previous.life) > 0.99 && fatigue_factor(mat, resp.state.life) <= 0.99)
         bd.events.y = abs_step;
     if (resp.disconnected)
         bd.events.z = abs_step;
@@ -1269,12 +1278,16 @@ bool bond_update(uint i, float dt, bool fracture, uint abs_step)
 // Rigid-frame state every thread holds identically (computed redundantly, no broadcast).
 struct Rigid
 {
-    Quat rot;
+    Quat rot;          // compensated with rot_err (`turn_left`)
+    float4 rot_err;
     float3 pos;
     float3 pos_err;
     float3 vel;
     float3 vel_err;
     float3 w;
+    float3 l;          // angular momentum (world, about the com), compensated with l_err:
+    float3 l_err;      // `w` follows from it and never feeds back (see `integrate_rigid`)
+    float3 torque;     // the net external torque `rigid_acceleration` saw
     float3 a;
     float3 alpha;
 };
@@ -1460,11 +1473,15 @@ Rigid rigid_of(Island isl)
 {
     Rigid rg;
     rg.rot = quat_of(isl.rotation);
+    rg.rot_err = isl.rotation_err;
     rg.pos = isl.position.xyz;
     rg.pos_err = isl.position_err.xyz;
     rg.vel = isl.velocity.xyz;
     rg.vel_err = isl.velocity_err.xyz;
     rg.w = isl.angular_velocity.xyz;
+    rg.l = isl.momentum.xyz;
+    rg.l_err = isl.momentum_err.xyz;
+    rg.torque = float3(0.0);
     rg.a = float3(0.0);
     rg.alpha = float3(0.0);
     return rg;
@@ -1500,21 +1517,26 @@ void rigid_acceleration(Island isl, inout Rigid rg, float3 f, float3 t)
     float3 iw_w = world_mul(rg.rot, isl.inertia0, isl.inertia1, isl.inertia2, rg.w);
     rg.a = f / isl.com.w;
     rg.alpha = world_mul(rg.rot, isl.inv0, isl.inv1, isl.inv2, t - cross(rg.w, iw_w));
+    rg.torque = t;
 }
 
 // solver.rs `integrate_rigid`.
 void integrate_rigid(Island isl, inout Rigid rg, float dt)
 {
-    float3 iw_w = world_mul(rg.rot, isl.inertia0, isl.inertia1, isl.inertia2, rg.w);
-    float3 torque = world_mul(rg.rot, isl.inertia0, isl.inertia1, isl.inertia2, rg.alpha) + cross(rg.w, iw_w);
-    float3 l = iw_w + torque * dt;
+    // The reference's l = Iw w + (Iw alpha + w x Iw w) dt is Iw w + t dt. Recomputing
+    // Iw w from w every substep in f32 repeats nearly the same rounding each time: the
+    // spin of a fragment drifts by ~1 ulp per substep (0.3% over 1e4 substeps). The
+    // momentum is kept instead (compensated) and w derived from it.
+    comp_add(rg.l, rg.l_err, rg.torque * dt);
+    float3 l = rg.l + rg.l_err;
     comp_add(rg.vel, rg.vel_err, rg.a * dt);
     float3 vel = rg.vel + rg.vel_err;
     float3 w_mid = world_mul(rg.rot, isl.inv0, isl.inv1, isl.inv2, l);
-    Quat rot1 = integrate_rotation(rg.rot, w_mid, dt);
-    float3 delta = vel * dt + (rotate(rg.rot, isl.com.xyz) - rotate(rot1, isl.com.xyz));
+    // The origin follows the centre of mass: (R0 - R1) com, formed as the small turn of
+    // R0 com (the frame's origin can lie metres from a fragment's centre).
+    float3 delta = vel * dt - turn_difference(w_mid, dt, rotate(rg.rot, isl.com.xyz));
     comp_add(rg.pos, rg.pos_err, delta);
-    rg.rot = rot1;
+    turn_left(rg.rot, rg.rot_err, w_mid, dt);
     rg.w = world_mul(rg.rot, isl.inv0, isl.inv1, isl.inv2, l);
 }
 
@@ -1554,9 +1576,14 @@ void drift_rigid(Island isl, inout Rigid rg, float3 tr, float3 phi, float3 dv, f
     float3 wcom = isl.wcom.xyz;
     Quat rot = rg.rot;
     comp_add(rg.pos, rg.pos_err, rotate(rot, tr - cross(phi, wcom)));
-    rg.rot = normalized(quat_mul(rot, from_axis_angle(phi, length(phi))));
+    // The momentum the reference's next Iw w has: the turn phi changes Iw by
+    // R (phi x I - I phi x) R^T (first order), and w gains R dw.
+    float3 b = inverse_rotate(rot, rg.w);
+    float3 dl_turn = rotate(rot, cross(phi, rows_mul(isl.inertia0, isl.inertia1, isl.inertia2, b)) - rows_mul(isl.inertia0, isl.inertia1, isl.inertia2, cross(phi, b)));
+    turn_right(rg.rot, rg.rot_err, phi);
     comp_add(rg.vel, rg.vel_err, rotate(rot, dv + cross(dw, isl.com.xyz - wcom)));
     rg.w += rotate(rot, dw);
+    comp_add(rg.l, rg.l_err, dl_turn + world_mul(rg.rot, isl.inertia0, isl.inertia1, isl.inertia2, rotate(rot, dw)));
 }
 
 // Batch control for a contact island: stopped for a re-plan, or past the substep at
@@ -1707,11 +1734,14 @@ void island_frame(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
     if (tid == 0)
     {
         isl.rotation = quat_vec(rg.rot);
+        isl.rotation_err = rg.rot_err;
         isl.position = float4(rg.pos, 0.0);
         isl.position_err = float4(rg.pos_err, 0.0);
         isl.velocity = float4(rg.vel, 0.0);
         isl.velocity_err = float4(rg.vel_err, 0.0);
         isl.angular_velocity = float4(rg.w, 0.0);
+        isl.momentum = float4(rg.l, 0.0);
+        isl.momentum_err = float4(rg.l_err, 0.0);
         isl.done.x = done;
         isl.info.y -= done;
         if (g_halt != 0 && contact_island)
@@ -1969,11 +1999,14 @@ void wide_rigid(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
             return;
         integrate_rigid(isl, rs, params.dt);
         islands[wg.island].rotation = quat_vec(rs.rot);
+        islands[wg.island].rotation_err = rs.rot_err;
         islands[wg.island].position = float4(rs.pos, 0.0);
         islands[wg.island].position_err = float4(rs.pos_err, 0.0);
         islands[wg.island].velocity = float4(rs.vel, 0.0);
         islands[wg.island].velocity_err = float4(rs.vel_err, 0.0);
         islands[wg.island].angular_velocity = float4(rs.w, 0.0);
+        islands[wg.island].momentum = float4(rs.l, 0.0);
+        islands[wg.island].momentum_err = float4(rs.l_err, 0.0);
         return;
     }
     float3 tu;
@@ -2003,11 +2036,14 @@ void wide_rigid(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
         drift_rigid(isl, rg, tr, phi, dv, dw);
     }
     islands[wg.island].rotation = quat_vec(rg.rot);
+    islands[wg.island].rotation_err = rg.rot_err;
     islands[wg.island].position = float4(rg.pos, 0.0);
     islands[wg.island].position_err = float4(rg.pos_err, 0.0);
     islands[wg.island].velocity = float4(rg.vel, 0.0);
     islands[wg.island].velocity_err = float4(rg.vel_err, 0.0);
     islands[wg.island].angular_velocity = float4(rg.w, 0.0);
+    islands[wg.island].momentum = float4(rg.l, 0.0);
+    islands[wg.island].momentum_err = float4(rg.l_err, 0.0);
 }
 
 [shader("compute")]
@@ -2644,7 +2680,7 @@ void settled_fatigue(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
             bd.events.x = abs_step;
             bd.events.w = resp.state.mode;
         }
-        if (bd.events.y == 0 && fatigue_factor(mat, previous.fatigue) > 0.99 && fatigue_factor(mat, resp.state.fatigue) <= 0.99)
+        if (bd.events.y == 0 && fatigue_factor(mat, previous.life) > 0.99 && fatigue_factor(mat, resp.state.life) <= 0.99)
             bd.events.y = abs_step;
         if (resp.disconnected)
         {

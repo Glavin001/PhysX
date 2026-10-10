@@ -289,7 +289,7 @@ fn joint_law_matches_the_reference() {
         note("kappa", (g.kappa as f64 - r.state.kappa).abs() / r.state.kappa.abs().max(1.0), i);
         note("kappa_c", (g.kappa_c as f64 - r.state.kappa_c).abs() / r.state.kappa_c.abs().max(1.0), i);
         note("utilization", (g.utilization as f64 - r.state.utilization).abs() / r.state.utilization.abs().max(1e-3), i);
-        note("fatigue", (g.fatigue as f64 - r.state.fatigue).abs(), i);
+        note("fatigue", (1.0 - g.life as f64 - r.state.fatigue).abs(), i);
         note("strain_rate", (g.strain_rate as f64 - r.state.strain_rate).abs() / r.state.strain_rate.abs().max(1e-3), i);
         let plastic_scale = c.d.lin.norm() + c.state.plastic.lin[0].abs() + c.state.plastic.lin[1].abs() + 1e-30;
         note("plastic", ((g.plastic_x as f64 - r.state.plastic.lin[0]).abs() + (g.plastic_y as f64 - r.state.plastic.lin[1]).abs()) / plastic_scale, i);

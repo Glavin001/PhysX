@@ -57,7 +57,7 @@ public struct JointState
     public float kappa_c;
     public float ductility;
     public float ductility_c;
-    public float fatigue;
+    public float life;          // static fatigue: remaining life 1 - omega (see fatigue_factor)
     public float plastic_x;     // contact sliding offsets and twist
     public float plastic_y;
     public float plastic_t;
@@ -186,11 +186,15 @@ public float4 failure_indices(JointMaterial mat, JointBond b, Measures m, float 
     return idx;
 }
 
-public float fatigue_factor(JointMaterial mat, float fatigue)
+// Residual strength factor at the remaining life `life` = 1 - omega. The GPU keeps the
+// remaining life, not the consumed fraction: near failure omega sits within an ulp of 1
+// in f32, where its increments round away and the life never runs out (the joint then
+// softens gradually at a residual strength instead of failing as the reference's does).
+public float fatigue_factor(JointMaterial mat, float life)
 {
     if ((mat.kind_flags.y & FLAG_FATIGUE) == 0)
         return 1.0;
-    return fpow(1.0 - clamp(fatigue, 0.0, 1.0), fdiv(1.0, mat.misc.y - 2.0));
+    return fpow(clamp(life, 0.0, 1.0), fdiv(1.0, mat.misc.y - 2.0));
 }
 
 float life_rate(JointMaterial mat, float s)
@@ -561,7 +565,7 @@ public JointResponse joint_evaluate(JointMaterial mat, JointBond b, JointState s
     }
     float dif = (flags & FLAG_DIF) != 0 ? dif_factor(mat, st.strain_rate) : 1.0;
     float weibull = b.geom1.w;
-    float multiplier = weibull * dif * fatigue_factor(mat, st.fatigue);
+    float multiplier = weibull * dif * fatigue_factor(mat, st.life);
     float4 idx = failure_indices(mat, b, measures, multiplier);
     st.utilization = max(max(idx.x, idx.y), max(idx.z, idx.w));
 
@@ -702,7 +706,7 @@ public JointResponse joint_evaluate(JointMaterial mat, JointBond b, JointState s
         Measures actual = stress_measures(b, force_lin, force_ang);
         float4 static_idx = failure_indices(mat, b, actual, weibull);
         float ratio = max(max(static_idx.x, static_idx.y), static_idx.z);
-        st.fatigue = min(st.fatigue + life_rate(mat, ratio) * dt, 1.0);
+        st.life = max(st.life - life_rate(mat, ratio) * dt, 0.0);
     }
 
     st.dissipated += dissipated;

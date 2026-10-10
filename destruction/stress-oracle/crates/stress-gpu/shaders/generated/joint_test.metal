@@ -11,7 +11,7 @@ struct JointState_0
     float kappa_c_0;
     float ductility_0;
     float ductility_c_0;
-    float fatigue_0;
+    float life_0;
     float plastic_x_0;
     float plastic_y_0;
     float plastic_t_0;
@@ -140,13 +140,13 @@ float dif_factor_0(const JointMaterial_natural_0 thread* mat_0, float strain_rat
     return clamp(f_0, 1.0f, (float4(mat_0->misc_0) ).x);
 }
 
-float fatigue_factor_0(const JointMaterial_natural_0 thread* mat_1, float fatigue_1)
+float fatigue_factor_0(const JointMaterial_natural_0 thread* mat_1, float life_1)
 {
     if((((uint4(mat_1->kind_flags_0) ).y) & 64U) == 0U)
     {
         return 1.0f;
     }
-    float _S21 = 1.0f - clamp(fatigue_1, 0.0f, 1.0f);
+    float _S21 = clamp(life_1, 0.0f, 1.0f);
     float _S22 = (metal::fast::divide((1.0f), ((float4(mat_1->misc_0) ).y - 2.0f)));
     float _S23 = (metal::fast::pow((_S21), (_S22)));
     return _S23;
@@ -801,7 +801,7 @@ JointResponse_0 joint_evaluate_0(const JointMaterial_natural_0 thread* mat_6, co
     }
     float weibull_0 = (float4(b_4->geom1_0) ).w;
     float _S117 = weibull_0 * dif_1;
-    float _S118 = fatigue_factor_0(mat_6, (&st_1)->fatigue_0);
+    float _S118 = fatigue_factor_0(mat_6, (&st_1)->life_0);
     float multiplier_1 = _S117 * _S118;
     thread Measures_0 _S119 = _S110;
     float4 _S120 = failure_indices_0(mat_6, b_4, &_S119, multiplier_1);
@@ -1171,7 +1171,7 @@ JointResponse_0 joint_evaluate_0(const JointMaterial_natural_0 thread* mat_6, co
         thread Measures_0 _S161 = _S160;
         float4 _S162 = failure_indices_0(mat_6, b_4, &_S161, weibull_0);
         float _S163 = life_rate_0(mat_6, max(max(_S162.x, _S162.y), _S162.z));
-        (&st_1)->fatigue_0 = min((&st_1)->fatigue_0 + _S163 * dt_0, 1.0f);
+        (&st_1)->life_0 = max((&st_1)->life_0 - _S163 * dt_0, 0.0f);
     }
     (&st_1)->dissipated_0 = (&st_1)->dissipated_0 + dissipated_2;
     thread JointResponse_0 resp_0;
