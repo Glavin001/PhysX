@@ -3154,6 +3154,21 @@ void Sc::Scene::finalizationPhase(PxBaseTask* continuation)
             // unchanged: its pairs were classified for the other kind (a
             // kinematic partner has no mass in the solve). Refilter its
             // shapes as the reference path does (noteDestructionKinematicSwitch).
+            // Diagnostic bisection (PX_DESTRUCTION_PAIR_REUSE_PROBE): 1 also
+            // refilters active dynamic shapes of bodies the stage does not own
+            // (a ball), 2 those it owns (fragments), 3 both (the reference set).
+            static const int probe=[]{const char* v=getenv("PX_DESTRUCTION_PAIR_REUSE_PROBE");return v?atoi(v):0;}();
+            if(probe) {
+                Sc::ShapeSimBase** shapes=mSimulationController->getShapeSims();
+                const PxU32 count=mSimulationController->getNbShapes();
+                for(PxU32 i=0;i<count;++i) {
+                    if(!shapes[i] || !shapes[i]->isInBroadPhase())continue;
+                    const auto* body=shapes[i]->getBodySim();
+                    if(!body || !body->isActive() || body->isKinematic())continue;
+                    const bool owned=(body->getLowLevelBody().mInternalFlags&PxsRigidBody::eDESTRUCTION_MASS_GPU)!=0;
+                    if((probe&1 && !owned) || (probe&2 && owned))reportRepairShapes.pushBack(i);
+                }
+            }
             for(PxU32 i=0;i<mDestructionKinematicSwitches.size();++i) {
                 BodySim* body=mDestructionKinematicSwitches[i];
                 ElementSim** elements=body->getElements();
