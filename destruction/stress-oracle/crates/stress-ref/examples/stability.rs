@@ -26,6 +26,7 @@ fn quiet(scene: &Scene, safety: f64) -> Scene {
     s.loads.clear();
     s.events.clear();
     s.impactors.clear();
+    s.probes.clear();
     s.ground = None;
     s
 }
@@ -46,9 +47,12 @@ fn growth(scene: &Scene) -> (f64, u64) {
             cs.th += Vec3::new(rnd(), rnd(), rnd()) * 1e-6;
         }
     }
+    // The bonds' stored energy is what their last evaluation found: the reference is the
+    // deformation energy after the first frame has seen the perturbation.
+    let start = w.solver.substeps;
+    w.step_frame();
     let e0 = (w.solver.elastic_energy() + w.solver.kinetic_energy()).max(1e-300);
     let mut worst: f64 = 1.0;
-    let start = w.solver.substeps;
     while w.solver.substeps - start < SUBSTEPS {
         w.step_frame();
         let e = w.solver.elastic_energy() + w.solver.kinetic_energy();
@@ -56,6 +60,9 @@ fn growth(scene: &Scene) -> (f64, u64) {
             return (f64::INFINITY, w.solver.substeps - start);
         }
         worst = worst.max(e / e0);
+        if std::env::var("TRACE").is_ok() {
+            println!("  substep {} e {e:.6e} ke {:.3e} el {:.3e} e0 {e0:.3e}", w.solver.substeps - start, w.solver.kinetic_energy(), w.solver.elastic_energy());
+        }
         if worst > 1e12 {
             break;
         }

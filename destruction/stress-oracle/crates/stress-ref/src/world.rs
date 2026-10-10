@@ -17,7 +17,7 @@ use crate::api::{hertz_duration, ContactImpulse, ContactLoadFilter};
 use crate::blast::FaceBlast;
 use crate::engine::{BodyGeometry, BodyKey, BodyMotion, BoxShape, EngineBody, RigidEngine};
 use crate::contact::OBox;
-use crate::polytope::{LayerContact, Owner, Polytope, OWNER_A, OWNER_B};
+use crate::polytope::{ball_cells, field_cells, LayerContact, Owner, Polytope, OWNER_A, OWNER_B};
 use crate::material::Material;
 use crate::math::{Mat3, Pose, Quat, Vec3};
 use crate::observation::{ChunkObservation, Observation, ProbeSeries};
@@ -269,6 +269,24 @@ fn half_thickness_and_area(b: &OBox, d: Vec3) -> (f64, f64) {
         area += c * 4.0 * b.half[(k + 1) % 3] * b.half[(k + 2) % 3];
     }
     (h, area)
+}
+
+/// A box's half-thickness along the unit direction `n` for the elastic layer, and its
+/// rate of change as the box turns (`dh = g . dtheta`): `sqrt(sum_k (n . e_k)^2 half_k^2)`.
+/// Along an axis it is that half-extent (the joint's `L / 2`), and it is smooth in the
+/// orientation, unlike the support function `sum_k |n . e_k| half_k`, whose kink at
+/// alignment would make the torque of a face-to-face contact jump as it passes through
+/// alignment.
+fn layer_thickness(b: &OBox, n: Vec3) -> (f64, Vec3) {
+    let (mut h2, mut g) = (0.0, Vec3::ZERO);
+    for k in 0..3 {
+        let axis = b.rotation.col(k);
+        let (c, w2) = (axis.dot(n), b.half[k] * b.half[k]);
+        h2 += c * c * w2;
+        g += axis.cross(n) * (c * w2);
+    }
+    let h = h2.sqrt();
+    (h, if h > 0.0 { g / h } else { Vec3::ZERO })
 }
 
 fn damping_ratio(restitution: f64) -> f64 {
@@ -1092,45 +1110,40 @@ impl World {
             let imp = self.impactors[ii].clone();
             let ib = imp.obox();
             let reach = ib.bounding_radius();
-            // (chunk, contact seen from the chunk, layer moduli)
-            let mut contacts: Vec<(usize, usize, LayerContact, f64, f64)> = Vec::new();
+            // (chunk, the layer between them seen from the chunk)
+            let mut contacts: Vec<(usize, usize, PairElastic)> = Vec::new();
             for (k, &(s, c)) in active.iter().enumerate() {
                 let (center, radius) = bounds[k];
                 if (center - ib.center).norm() > reach + radius || !in_island(&self.solver, s, c) {
                     continue;
                 }
                 let b = self.cached_box(&mut boxes, k, s, c).clone();
-                let (lc, h_imp) = match imp.shape {
-                    ImpactorShape::Sphere { radius } => {
-                        let r = radius - imp.crush_depth;
-                        // The ball's overlap with the chunk, exact at faces, edges and
-                        // corners: across neighbouring chunks the shares add up to the
-                        // overlap with their union.
-                        let Some(lc) = LayerContact::with_ball(&polytope_of(&b, OWNER_A), imp.pose.position, r) else { continue };
-                        (lc, r)
-                    }
+                let chunk_material = self.chunk_material(s, c);
+                let pe = match imp.shape {
+                    // The ball's overlap with the chunk, exact at faces, edges and corners
+                    // (across neighbouring chunks the shares add up to the overlap with
+                    // their union), in the chunk's nearest-face cells.
+                    ImpactorShape::Sphere { radius } => ball_elastic(&b, chunk_material, imp.pose.position, radius - imp.crush_depth, &imp.material, scale),
                     ImpactorShape::Box { .. } => {
                         let shrunk = OBox { half: ib.half - Vec3::splat(imp.crush_depth).component_min(ib.half * 0.5), ..ib.clone() };
                         if !b.may_overlap(&shrunk) {
                             continue;
                         }
-                        let Some(lc) = LayerContact::between(&polytope_of(&b, OWNER_A), &polytope_of(&shrunk, OWNER_B), 0.0).and_then(|o| o.contact) else { continue };
-                        let h = half_thickness_and_area(&shrunk, lc.normal).0;
-                        (lc, h)
+                        pair_elastic(&b, &shrunk, chunk_material, &imp.material, scale, 0.0)
                     }
                 };
-                let h_chunk = half_thickness_and_area(&b, lc.normal).0;
-                let (k_n, k_t) = layer_moduli(self.chunk_material(s, c), h_chunk, &imp.material, h_imp, scale);
-                contacts.push((s, c, lc, k_n, k_t));
+                if let Some(pe) = pe.filter(|p| p.contact.is_some()) {
+                    contacts.push((s, c, pe));
+                }
             }
             if contacts.is_empty() {
                 continue;
             }
             let mut elastic_scale = 1.0;
             if let Some((max_force, energy)) = imp.crush {
-                let total: f64 = contacts.iter().map(|c| c.3 * c.2.volume).sum();
+                let total: f64 = contacts.iter().map(|c| c.2.elastic.force).sum();
                 if imp.crush_used < energy && total > max_force {
-                    let stiffness: f64 = contacts.iter().map(|c| c.3 * c.2.area).sum();
+                    let stiffness: f64 = contacts.iter().map(|c| c.2.k_n * c.2.contact.as_ref().map_or(0.0, |l| l.area)).sum();
                     let extra = (total - max_force) / stiffness;
                     self.impactors[ii].crush_depth += extra;
                     self.impactors[ii].crush_used += max_force * extra;
@@ -1142,21 +1155,23 @@ impl World {
             }
             let ri = imp.pose.rotation.to_mat3();
             let imp_inertia = ri * imp.inertia * ri.transpose();
-            for (s, c, lc, k_n, k_t) in contacts {
+            for (s, c, pe) in contacts {
+                let lc = pe.contact.expect("filtered above");
                 let key = ContactKey::Impactor(ii, s, c);
                 let (m, inertia) = self.chunk_mass_inertia(s, c);
                 let p = lc.centroid;
                 let (v_chunk, w_chunk) = (self.solver.point_velocity(s, c, p), self.solver.chunk_velocity(s, c).1);
                 let v_imp = imp.velocity + imp.angular_velocity.cross(p - imp.pose.position);
+                let e = pe.elastic;
                 let law = LayerLaw {
-                    k_n,
-                    k_t,
+                    k_n: pe.k_n,
+                    k_t: pe.k_t,
                     restitution,
                     friction: self.pair_friction(&imp.material, self.chunk_material(s, c)),
                     m_red: m * imp.mass / (m + imp.mass),
                     i_red: reduced(lc.normal.dot(inertia * lc.normal), lc.normal.dot(imp_inertia * lc.normal)),
-                    elastic_scale,
-                    elastic: None,
+                    elastic_scale: 1.0,
+                    elastic: Some(Elastic { force: e.force * elastic_scale, moment: e.moment * elastic_scale, stored: e.stored * elastic_scale }),
                 };
                 let out = layer_force(&law, &lc, v_chunk - v_imp, w_chunk - imp.angular_velocity, previous.remove(&key).unwrap_or_default(), dt);
                 let center = self.solver.chunk_position(s, c);
@@ -1189,13 +1204,17 @@ impl World {
                 }
                 let b = self.cached_box(&mut boxes, k, s, c).clone();
                 let Some(lc) = LayerContact::with_half_space(&polytope_of(&b, OWNER_A), Vec3::Z, g.height, 0.0).and_then(|o| o.contact) else { continue };
-                // The ground's layer is as thick as the chunk's (a mirror image of it).
-                let h = half_thickness_and_area(&b, Vec3::Z).0;
+                // The ground's layer is as thick as the chunk's (a mirror image of it); the
+                // chunk's thickness along the normal turns with it, which the energy's
+                // gradient (`k V depth`, `dk/dh = -k^2 (1/E'_g + 1/E'_c)`) makes a torque.
+                let (h, turning) = layer_thickness(&b, Vec3::Z);
                 let (k_n, k_t) = layer_moduli(&gm, h, self.chunk_material(s, c), h, scale);
+                let e_inv = 1.0 / layer_modulus(&gm, scale) + 1.0 / layer_modulus(self.chunk_material(s, c), scale);
                 let (m, inertia) = self.chunk_mass_inertia(s, c);
                 let key = ContactKey::Ground(s, c);
                 let p = lc.centroid;
-                let law = LayerLaw { k_n, k_t, restitution, friction: mu, m_red: m, i_red: lc.normal.dot(inertia * lc.normal), elastic_scale: 1.0, elastic: None };
+                let elastic = Elastic { force: k_n * lc.volume, moment: turning * (k_n * k_n * e_inv * lc.volume * lc.depth), stored: k_n * lc.volume * lc.depth };
+                let law = LayerLaw { k_n, k_t, restitution, friction: mu, m_red: m, i_red: lc.normal.dot(inertia * lc.normal), elastic_scale: 1.0, elastic: Some(elastic) };
                 let (v, w) = (self.solver.point_velocity(s, c, p), self.solver.chunk_velocity(s, c).1);
                 let out = layer_force(&law, &lc, v, w, previous.remove(&key).unwrap_or_default(), dt);
                 let center = self.solver.chunk_position(s, c);
@@ -1224,14 +1243,20 @@ impl World {
                             continue;
                         }
                         let Some(lc) = LayerContact::with_half_space(&polytope_of(&ib, OWNER_A), Vec3::Z, g.height, 0.0).and_then(|o| o.contact) else { continue };
-                        (lc, half_thickness_and_area(&ib, Vec3::Z).0)
+                        (lc, layer_thickness(&ib, Vec3::Z).0)
                     }
+                };
+                let turning = match imp.shape {
+                    ImpactorShape::Sphere { .. } => Vec3::ZERO,
+                    ImpactorShape::Box { .. } => layer_thickness(&ib, Vec3::Z).1,
                 };
                 let (k_n, k_t) = layer_moduli(&gm, h, &imp.material, h, scale);
                 let ri = imp.pose.rotation.to_mat3();
                 let i_n = lc.normal.dot((ri * imp.inertia * ri.transpose()) * lc.normal);
                 let p = lc.centroid;
-                let law = LayerLaw { k_n, k_t, restitution, friction: mu, m_red: imp.mass, i_red: i_n, elastic_scale: 1.0, elastic: None };
+                let e_inv = 1.0 / layer_modulus(&gm, scale) + 1.0 / layer_modulus(&imp.material, scale);
+                let elastic = Elastic { force: k_n * lc.volume, moment: turning * (k_n * k_n * e_inv * lc.volume * lc.depth), stored: k_n * lc.volume * lc.depth };
+                let law = LayerLaw { k_n, k_t, restitution, friction: mu, m_red: imp.mass, i_red: i_n, elastic_scale: 1.0, elastic: Some(elastic) };
                 let v = imp.velocity + imp.angular_velocity.cross(p - imp.pose.position);
                 let key = ContactKey::ImpactorGround(ii);
                 let out = layer_force(&law, &lc, v, imp.angular_velocity, previous.remove(&key).unwrap_or_default(), dt);
@@ -1291,7 +1316,7 @@ impl World {
             // Each pair depends only on the state at the start of the substep: evaluate
             // in parallel, apply in candidate order (bit-identical for any thread count).
             let (solver, scene, boxes) = (&self.solver, &self.scene, &boxes);
-            let outcomes = crate::par::map_into(candidates, |(key, ka, kb, stick)| {
+            let outcomes = crate::par::map_into_heavy(candidates, |(key, ka, kb, stick)| {
                 let shape = |k: usize| boxes[k].as_ref().expect("cached above");
                 pair_layer_contact(solver, scene, key, stick, shape(ka), shape(kb), dt)
             });
@@ -1328,21 +1353,21 @@ impl World {
         for h in handovers {
             let (s, a, b) = (h.structure, h.a.min(h.b), h.a.max(h.b));
             let (ba, bb) = (self.chunk_box(s, a), self.chunk_box(s, b));
-            let (pa, pb) = (polytope_of(&ba, OWNER_A), polytope_of(&bb, OWNER_B));
-            let contact_at = |indent: f64| LayerContact::between(&pa, &pb, indent);
-            let Some(full) = (if ba.may_overlap(&bb) { contact_at(0.0) } else { None }) else {
-                self.solver.energy.split_release += h.stored;
-                continue;
-            };
-            let Some(lc0) = full.contact else {
-                self.solver.energy.split_release += h.stored;
-                continue;
-            };
             let material = |c: usize| self.scene.material(&self.solver.structures[s].chunks[c].material);
-            let (k_n, _) = layer_moduli(material(a), half_thickness_and_area(&ba, lc0.normal).0, material(b), half_thickness_and_area(&bb, lc0.normal).0, scale);
+            let (mat_a, mat_b) = (material(a), material(b));
+            let Some(overlap) = (if ba.may_overlap(&bb) { pair_overlap(&ba, &bb) } else { None }) else {
+                self.solver.energy.split_release += h.stored;
+                continue;
+            };
+            let at = |indent: f64| pair_elastic_of(&overlap, &ba, &bb, mat_a, mat_b, scale, indent, true);
+            let Some(full) = at(0.0).filter(|p| p.elastic.force > 0.0) else {
+                self.solver.energy.split_release += h.stored;
+                continue;
+            };
             // Force and stored energy beyond an indentation (both fall as it deepens).
-            let force = |i: f64| contact_at(i).and_then(|o| o.contact).map_or(0.0, |c| k_n * c.volume);
-            let energy = |i: f64| contact_at(i).and_then(|o| o.contact).map_or(0.0, |c| k_n * c.volume * c.depth);
+            let elastic = |i: f64| pair_elastic_of(&overlap, &ba, &bb, mat_a, mat_b, scale, i, false).map_or(Elastic { force: 0.0, moment: Vec3::ZERO, stored: 0.0 }, |p| p.elastic);
+            let force = |i: f64| elastic(i).force;
+            let energy = |i: f64| elastic(i).stored;
             let bisect = |f: &dyn Fn(f64) -> f64, target: f64| {
                 let (mut lo, mut hi) = (0.0, full.max_depth);
                 for _ in 0..60 {
@@ -1355,15 +1380,44 @@ impl World {
                 }
                 hi
             };
-            let mut indent = if force(0.0) > h.compression { bisect(&force, h.compression) } else { 0.0 };
+            let mut indent = if full.elastic.force > h.compression { bisect(&force, h.compression) } else { 0.0 };
             if energy(indent) > h.stored {
                 indent = bisect(&energy, h.stored);
             }
             let kept = energy(indent);
-            self.solver.energy.split_release += h.stored - kept;
-            self.contact.received += kept;
-            self.contact.kinds[KIND_PAIR].received += kept;
-            self.sticks.insert(ContactKey::Pair(s, a, s, b), Stick { indent, ..Default::default() });
+            // The joint's shear and torsion become the contact's friction (the same
+            // stiffness: k''_t A and k''_t J are the joint's G A / L and G J / L), on the
+            // pair's first chunk; Coulomb's cap applies at the contact's next step, where
+            // any excess slips. Never more energy than the joint stored.
+            let mut stick = Stick { indent, ..Default::default() };
+            let mut friction = 0.0;
+            if let Some(pe) = at(indent) {
+                if let Some(lc) = pe.contact {
+                    let n = lc.normal;
+                    let sign = if h.a <= h.b { 1.0 } else { -1.0 };
+                    let (f, m) = (h.force * sign, h.couple * sign);
+                    let (k_t, k_r) = (pe.k_t * lc.area, pe.k_t * lc.polar_moment);
+                    let shear = f - n * f.dot(n);
+                    let torque = m.dot(n);
+                    let energy_t = if k_t > 0.0 { 0.5 * shear.dot(shear) / k_t } else { 0.0 };
+                    let energy_r = if k_r > 0.0 { 0.5 * torque * torque / k_r } else { 0.0 };
+                    let room = (h.stored - kept).max(0.0);
+                    let scale = if energy_t + energy_r > room { (room / (energy_t + energy_r)).sqrt() } else { 1.0 };
+                    if k_t > 0.0 {
+                        stick.shear = shear * scale;
+                        stick.k_t = k_t;
+                    }
+                    if k_r > 0.0 {
+                        stick.torque = torque * scale;
+                        stick.k_r = k_r;
+                    }
+                    friction = (energy_t + energy_r) * scale * scale;
+                }
+            }
+            self.solver.energy.split_release += h.stored - kept - friction;
+            self.contact.received += kept + friction;
+            self.contact.kinds[KIND_PAIR].received += kept + friction;
+            self.sticks.insert(ContactKey::Pair(s, a, s, b), stick);
         }
     }
 
@@ -2016,7 +2070,7 @@ struct Stick {
     k_r: f64,
     /// Permanent indentation of the contact surface (crushed material inherited from
     /// the joint the pair shared): the layer acts only on overlap deeper than this. It
-    /// relaxes with the overlap, so a pair that separates forgets it.
+    /// stays while the pair overlaps; a pair that separates forgets it.
     indent: f64,
 }
 
@@ -2058,6 +2112,49 @@ struct LayerOutcome {
 }
 
 /// The layer moduli per unit area of two half-thicknesses along the normal.
+/// The plane-strain modulus `E' = E / (1 - nu^2)` (scaled) of an elastic layer.
+fn layer_modulus(m: &Material, scale: f64) -> f64 {
+    m.youngs_modulus * scale / (1.0 - m.poisson_ratio * m.poisson_ratio)
+}
+
+/// The elastic layer between a chunk (box `b`) and a ball, in the chunk's nearest-face
+/// cells (`polytope::ball_cells`): `E = sum_f k''_f int s dV`, `k''_f` from the chunk's
+/// half-thickness along face `f`'s normal and the ball's radius (both fixed, so no
+/// turning term), its exact gradient the force and moment on the chunk.
+fn ball_elastic(b: &OBox, mat_chunk: &Material, center: Vec3, r: f64, mat_ball: &Material, scale: f64) -> Option<PairElastic> {
+    let body = polytope_of(b, OWNER_A);
+    let cells = ball_cells(&body, center, r);
+    if cells.is_empty() {
+        return None;
+    }
+    let (mut force, mut moment, mut stored, mut kv, mut kvc, mut vol, mut ktv) = (Vec3::ZERO, Vec3::ZERO, 0.0, 0.0, Vec3::ZERO, 0.0, 0.0);
+    for c in &cells {
+        let (k_n, k_t) = layer_moduli(mat_chunk, layer_thickness(b, c.normal).0, mat_ball, r, scale);
+        // The chunk's field pushes the ball out; the chunk takes the opposite.
+        force -= (c.normal * c.volume + c.interface_force) * k_n;
+        moment -= (c.centroid.cross(c.normal) * c.volume + c.interface_moment) * k_n;
+        stored += k_n * c.volume * c.depth;
+        kv += k_n * c.volume;
+        kvc += c.centroid * (k_n * c.volume);
+        vol += c.volume;
+        ktv += k_t * c.volume;
+    }
+    let f_el = force.norm();
+    if f_el == 0.0 || kv == 0.0 {
+        return None;
+    }
+    let n = force / f_el;
+    let point = kvc / kv;
+    let geometry = LayerContact::with_ball(&body, center, r)?;
+    Some(PairElastic {
+        elastic: Elastic { force: f_el, moment: moment - point.cross(force), stored },
+        k_n: kv / vol,
+        k_t: ktv / vol,
+        max_depth: 0.0,
+        contact: Some(LayerContact { normal: n, centroid: point, ..geometry }),
+    })
+}
+
 fn layer_moduli(a: &Material, h_a: f64, b: &Material, h_b: f64, scale: f64) -> (f64, f64) {
     let e = |m: &Material| m.youngs_modulus * scale / (1.0 - m.poisson_ratio * m.poisson_ratio);
     let g = |m: &Material| m.shear_modulus() * scale;
@@ -2176,30 +2273,29 @@ fn pair_layer_contact(solver: &ReferenceSolver, scene: &Scene, key: ContactKey, 
     if !ba.may_overlap(bb) {
         return None;
     }
-    let overlap = LayerContact::between(&polytope_of(ba, OWNER_A), &polytope_of(bb, OWNER_B), stick.indent)?;
-    // The indentation relaxes with the overlap; within it the pair touches without force.
-    let stick = Stick { indent: stick.indent.min(overlap.max_depth), ..stick };
-    let Some(lc) = overlap.contact else {
+    let material = |s: usize, c: usize| scene.material(&solver.structures[s].chunks[c].material);
+    let pe = pair_elastic(ba, bb, material(sa, ca), material(sb, cb), scene.sim.stiffness_scale, stick.indent)?;
+    // The indentation (crushed material) stays while the pair overlaps, and is forgotten
+    // when they part (the pair then has no contact state): lowering it while they touch
+    // would raise the stored energy without work.
+    let Some(lc) = pe.contact else {
         let none = LayerOutcome { force: Vec3::ZERO, moment: Vec3::ZERO, stick: Stick { shear: Vec3::ZERO, torque: 0.0, k_t: 0.0, k_r: 0.0, ..stick }, stored: 0.0, dissipated: 0.0 };
         return Some((key, ba.center, none, 0.0));
     };
-    let material = |s: usize, c: usize| scene.material(&solver.structures[s].chunks[c].material);
-    let (h_a, h_b) = (half_thickness_and_area(ba, lc.normal).0, half_thickness_and_area(bb, lc.normal).0);
-    let (k_n, k_t) = layer_moduli(material(sa, ca), h_a, material(sb, cb), h_b, scene.sim.stiffness_scale);
     let inertia = |s: usize, c: usize| {
         let r = solver.clusters[solver.chunks[s][c].cluster].rotation();
         lc.normal.dot((r * solver.structures[s].chunks[c].inertia * r.transpose()) * lc.normal)
     };
     let (ma, mb) = (solver.structures[sa].chunks[ca].mass, solver.structures[sb].chunks[cb].mass);
     let law = LayerLaw {
-        k_n,
-        k_t,
+        k_n: pe.k_n,
+        k_t: pe.k_t,
         restitution: scene.sim.contact_restitution,
         friction: scene.sim.contact_friction.unwrap_or(material(sa, ca).friction.min(material(sb, cb).friction)),
         m_red: ma * mb / (ma + mb),
         i_red: reduced(inertia(sa, ca), inertia(sb, cb)),
         elastic_scale: 1.0,
-        elastic: None,
+        elastic: Some(pe.elastic),
     };
     let p = lc.centroid;
     let (va, vb) = (solver.point_velocity(sa, ca, p), solver.point_velocity(sb, cb, p));
@@ -2207,6 +2303,85 @@ fn pair_layer_contact(solver: &ReferenceSolver, scene: &Scene, key: ContactKey, 
     let out = layer_force(&law, &lc, va - vb, wa - wb, stick, dt);
     let work = (out.force.dot(va - vb) + out.moment.dot(wa - wb)) * dt;
     Some((key, p, out, work))
+}
+
+/// The elastic layer between two chunks `a` and `b` (`polytope::field_cells`): the energy
+/// `E = (E_a + E_b) / 2`, each `E_x = sum_f k''_f int s dV` over the overlap's cells
+/// nearest the faces `f` of body `x` (its surface receded by `indent`), `k''_f` the
+/// series stiffness of the two bodies' half-thicknesses along that face's normal
+/// (`layer_thickness`). The
+/// elastic force and moment are its exact gradient: per cell `k''_f V_f n_f` at the
+/// cell's centroid (pushing the other body out), plus, where neighbouring cells differ
+/// in stiffness, the interface integrals of `k'' s`, plus the torque of the stiffness
+/// turning with the bodies (`dk''/dh = -k''^2 / E'`). Conservative and
+/// continuous, independent of which chunk is `a`, and between two faces `k'' V` at the
+/// centroid (the joint's stiffness). The contact normal is the force's direction; the
+/// contact point is the stiffness-weighted centroid of the cells, and the area and
+/// moments friction uses are the overlap's shadow along the normal.
+struct PairElastic {
+    elastic: Elastic,
+    /// Effective normal and shear moduli per area (stiffness-weighted over the cells).
+    k_n: f64,
+    k_t: f64,
+    max_depth: f64,
+    /// The contact seen by friction and the dashpot (`None`: no force).
+    contact: Option<LayerContact>,
+}
+
+fn pair_elastic(ba: &OBox, bb: &OBox, mat_a: &Material, mat_b: &Material, scale: f64, indent: f64) -> Option<PairElastic> {
+    let overlap = pair_overlap(ba, bb)?;
+    pair_elastic_of(&overlap, ba, bb, mat_a, mat_b, scale, indent, true)
+}
+
+/// The overlap of two chunks (`None` when they do not overlap).
+fn pair_overlap(ba: &OBox, bb: &OBox) -> Option<Polytope> {
+    let overlap = polytope_of(ba, OWNER_A).intersect(&polytope_of(bb, OWNER_B));
+    (!overlap.is_empty()).then_some(overlap)
+}
+
+/// `pair_elastic` on an overlap already computed (it does not depend on the
+/// indentation); without `geometry`, only the elastic force and energy (no contact
+/// geometry for friction).
+#[allow(clippy::too_many_arguments)]
+fn pair_elastic_of(overlap: &Polytope, ba: &OBox, bb: &OBox, mat_a: &Material, mat_b: &Material, scale: f64, indent: f64, geometry: bool) -> Option<PairElastic> {
+    let (pa, pb) = (polytope_of(ba, OWNER_A), polytope_of(bb, OWNER_B));
+    let e = |m: &Material| m.youngs_modulus * scale / (1.0 - m.poisson_ratio * m.poisson_ratio);
+    let turning = |b: &OBox, n: Vec3| layer_thickness(b, n).1;
+    // Force and moment (about the origin) on `a`, stored energy, weights.
+    let (mut force, mut moment, mut stored) = (Vec3::ZERO, Vec3::ZERO, 0.0);
+    let (mut kv, mut kvc, mut vol, mut ktv) = (0.0, Vec3::ZERO, 0.0, 0.0);
+    for (field, sign) in [(&pb, 1.0), (&pa, -1.0)] {
+        // The other body, whose half-thickness along the field's normals turns with it.
+        let (other, e_other) = if sign > 0.0 { (ba, e(mat_a)) } else { (bb, e(mat_b)) };
+        for c in field_cells(overlap, field, indent) {
+            let (k_n, k_t) = layer_moduli(mat_a, layer_thickness(ba, c.normal).0, mat_b, layer_thickness(bb, c.normal).0, scale);
+            let w = 0.5 * k_n;
+            let integral = c.volume * c.depth;
+            // On the body the field pushes out (`a` for b's field, `b` for a's).
+            let f = (c.normal * c.volume + c.interface_force) * w;
+            let m = (c.centroid.cross(c.normal) * c.volume + c.interface_moment) * w + turning(other, c.normal) * (0.5 * k_n * k_n / e_other * integral);
+            force += f * sign;
+            moment += m * sign;
+            stored += w * integral;
+            kv += w * c.volume;
+            kvc += c.centroid * (w * c.volume);
+            vol += 0.5 * c.volume;
+            ktv += 0.5 * k_t * c.volume;
+        }
+    }
+    let f_el = force.norm();
+    if f_el == 0.0 || kv == 0.0 {
+        return Some(PairElastic { elastic: Elastic { force: 0.0, moment: Vec3::ZERO, stored: 0.0 }, k_n: 0.0, k_t: 0.0, max_depth: 0.0, contact: None });
+    }
+    let n = force / f_el;
+    let point = kvc / kv;
+    let elastic = Elastic { force: f_el, moment: moment - point.cross(force), stored };
+    if !geometry {
+        return Some(PairElastic { elastic, k_n: kv / vol, k_t: ktv / vol, max_depth: 0.0, contact: None });
+    }
+    let (lo, hi) = overlap.faces.iter().flat_map(|f| f.vertices.iter()).map(|v| v.dot(n)).fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), x| (lo.min(x), hi.max(x)));
+    let geometry = LayerContact::with_normal(overlap, n)?;
+    Some(PairElastic { elastic, k_n: kv / vol, k_t: ktv / vol, max_depth: (hi - lo).max(0.0), contact: Some(LayerContact { centroid: point, ..geometry }) })
 }
 
 /// A chunk's (or impactor's) shape as a polytope.
@@ -2338,5 +2513,158 @@ impl PartialOrd for OrdF64 {
 impl Ord for OrdF64 {
     fn cmp(&self, o: &Self) -> std::cmp::Ordering {
         self.0.total_cmp(&o.0)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::math::Quat;
+
+    fn cube(center: Vec3, rotation: Mat3, half: Vec3) -> OBox {
+        OBox { center, rotation, half, hull: None }
+    }
+
+    /// A ball's elastic force and moment on a chunk are the gradient of the layer's energy,
+    /// at a face, an edge and a corner of a non-cubic chunk (cells of different stiffness).
+    #[test]
+    fn the_ball_elastic_force_is_the_gradient_of_its_energy() {
+        let (m, steel) = (crate::builders::oracle_concrete(None), crate::builders::elastic_steel());
+        let half = Vec3::new(0.05, 0.08, 0.03);
+        let r = Quat::from_axis_angle(Vec3::new(0.3, 1.0, -0.2).normalized(), 0.4).to_mat3();
+        let chunk = cube(Vec3::new(0.01, -0.02, 0.03), r, half);
+        let radius = 0.07;
+        let at = |local: Vec3| chunk.center + r * local;
+        let cases = [
+            ("face", at(Vec3::new(0.01, 0.02, half.z + radius - 1e-3))),
+            ("edge", at(Vec3::new(0.0, half.y, half.z) + Vec3::new(0.0, 1.0, 1.0).normalized() * (radius - 1e-3))),
+            ("corner", at(half + Vec3::new(1.0, 1.0, 1.0).normalized() * (radius - 1e-3))),
+            ("deep edge", at(Vec3::new(0.02, half.y, half.z) + Vec3::new(0.0, 1.0, 0.3).normalized() * (radius - 0.02))),
+        ];
+        for (label, ball) in cases {
+            let energy = |b: &OBox| ball_elastic(b, &m, ball, radius, &steel, 1.0).map_or(0.0, |p| p.elastic.stored);
+            let pe = ball_elastic(&chunk, &m, ball, radius, &steel, 1.0).expect(label);
+            let lc = pe.contact.expect(label);
+            let force = lc.normal * pe.elastic.force;
+            let torque = (lc.centroid - chunk.center).cross(force) + pe.elastic.moment;
+            // (the energy carries ~1e-9 relative round-off from shallow solid angles: a step
+            // well above it, well below the 1e-3 overlap; truncation and round-off of the
+            // differences both stay under 1e-4)
+            let d = 1e-6;
+            for k in 0..3 {
+                let mut e = Vec3::ZERO;
+                e[k] = 1.0;
+                let shifted = |s: f64| cube(chunk.center + e * s, chunk.rotation, chunk.half);
+                let grad = (energy(&shifted(d)) - energy(&shifted(-d))) / (2.0 * d);
+                let turned = |s: f64| cube(chunk.center, Quat::from_axis_angle(e, s).to_mat3() * chunk.rotation, chunk.half);
+                let grad_r = (energy(&turned(d)) - energy(&turned(-d))) / (2.0 * d);
+                let scale = force.norm();
+                assert!((force[k] + grad).abs() < 1e-4 * scale, "{label}: force {k}: {} vs -dE/dx {}", force[k], -grad);
+                assert!((torque[k] + grad_r).abs() < 1e-4 * scale * 0.1, "{label}: torque {k}: {} vs -dE/dtheta {}", torque[k], -grad_r);
+            }
+        }
+    }
+
+    /// The same over random relative poses of two cubes just overlapping (a face, an
+    /// edge or a corner of either in the other).
+    #[test]
+    fn the_pair_elastic_force_is_the_gradient_of_its_energy_anywhere() {
+        let m = crate::builders::oracle_concrete(None);
+        let h = Vec3::splat(0.05);
+        let b = cube(Vec3::ZERO, Mat3::IDENTITY, h);
+        let mut seed = 0x2545_f491_4f6c_dd1du64;
+        let mut rnd = || {
+            seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            (seed >> 11) as f64 / (1u64 << 53) as f64 - 0.5
+        };
+        let mut worst = (0.0, String::new());
+        for i in 0..500 {
+            let axis = Vec3::new(rnd(), rnd(), rnd()).normalized();
+            let r = Quat::from_axis_angle(axis, 2.0 * rnd()).to_mat3();
+            let dir = Vec3::new(rnd(), rnd(), rnd()).normalized();
+            // Place a so its support towards b's centre just overlaps.
+            let mut lo = 0.0;
+            let mut hi = 0.3;
+            for _ in 0..60 {
+                let mid = 0.5 * (lo + hi);
+                let a = cube(dir * mid, r, h);
+                if pair_elastic(&a, &b, &m, &m, 1.0, 0.0).map_or(false, |p| p.elastic.stored > 0.0) { lo = mid; } else { hi = mid; }
+            }
+            let depth = 1e-4 * (rnd() + 0.6);
+            let a = cube(dir * (lo - depth), r, h);
+            let energy = |a: &OBox| pair_elastic(a, &b, &m, &m, 1.0, 0.0).map_or(0.0, |p| p.elastic.stored);
+            let Some(pe) = pair_elastic(&a, &b, &m, &m, 1.0, 0.0) else { continue };
+            let Some(lc) = pe.contact else { continue };
+            let force = lc.normal * pe.elastic.force;
+            let torque = (lc.centroid - a.center).cross(force) + pe.elastic.moment;
+            let d = 1e-10;
+            let mut err: f64 = 0.0;
+            for k in 0..3 {
+                let mut e = Vec3::ZERO;
+                e[k] = 1.0;
+                let shifted = |s: f64| cube(a.center + e * s, a.rotation, a.half);
+                let grad = (energy(&shifted(d)) - energy(&shifted(-d))) / (2.0 * d);
+                let turned = |s: f64| cube(a.center, Quat::from_axis_angle(e, s).to_mat3() * a.rotation, a.half);
+                let grad_r = (energy(&turned(d)) - energy(&turned(-d))) / (2.0 * d);
+                err = err.max((force[k] + grad).abs() / force.norm()).max((torque[k] + grad_r).abs() / (force.norm() * 0.05));
+            }
+            if err > worst.0 {
+                worst = (err, format!("i {i} err {err:.3e} dir {dir:?} axis {axis:?} F {force:?} T {torque:?} E {:.3e}", energy(&a)));
+            }
+        }
+        assert!(worst.0 < 1e-4, "{}", worst.1);
+    }
+
+    /// The pair contact's elastic force and moment are the exact gradient of its stored
+    /// energy (finite differences of the energy under translations and rotations of
+    /// `a`), in configurations where the overlap reaches faces, edges and corners.
+    #[test]
+    fn the_pair_elastic_force_is_the_gradient_of_its_energy() {
+        let m = crate::builders::oracle_concrete(None);
+        let h = Vec3::splat(0.05);
+        let tilt = |axis: Vec3, angle: f64| Quat::from_axis_angle(axis.normalized(), angle).to_mat3();
+        let b = cube(Vec3::ZERO, Mat3::IDENTITY, h);
+        let cases = [
+            // Face on face, overhanging an edge.
+            ("face overhang", cube(Vec3::new(0.03, 0.01, 0.0999), Mat3::IDENTITY, h)),
+            // Tilted: an edge pressed into the face, overhanging.
+            ("edge into face", cube(Vec3::new(0.02, -0.01, 0.0995), tilt(Vec3::new(1.0, 0.3, 0.0), 0.02), h)),
+            // A corner into a face.
+            ("corner into face", {
+                // The cube's diagonal (1, 1, 1) turned to point down, a corner 4e-4 deep.
+                let d = Vec3::new(1.0, 1.0, 1.0).normalized();
+                let axis = d.cross(-Vec3::Z);
+                let r = tilt(axis, (-d.z).acos()) * tilt(Vec3::new(0.3, 0.1, 1.0), 0.0);
+                let r = tilt(Vec3::new(1.0, 2.0, 0.0), 0.05) * r;
+                let low = (0..8).map(|i| {
+                    let v = Vec3::new(if i & 1 == 0 { -1.0 } else { 1.0 }, if i & 2 == 0 { -1.0 } else { 1.0 }, if i & 4 == 0 { -1.0 } else { 1.0 });
+                    (r * v.mul_elem(h)).z
+                }).fold(f64::INFINITY, f64::min);
+                cube(Vec3::new(0.01, 0.02, 0.05 - 4e-4 - low), r, h)
+            }),
+            // Edge against edge.
+            ("edge on edge", cube(Vec3::new(0.0995, 0.0, 0.0995), tilt(Vec3::new(0.2, 1.0, 0.1), 0.01), h)),
+        ];
+        for (label, a) in cases {
+            let energy = |a: &OBox| pair_elastic(a, &b, &m, &m, 1.0, 0.0).map_or(0.0, |p| p.elastic.stored);
+            let pe = pair_elastic(&a, &b, &m, &m, 1.0, 0.0).expect(label);
+            let lc = pe.contact.expect(label);
+            let force = lc.normal * pe.elastic.force;
+            let torque = (lc.centroid - a.center).cross(force) + pe.elastic.moment;
+            let e0 = energy(&a);
+            assert!(e0 > 0.0, "{label}");
+            let d = 1e-9;
+            for k in 0..3 {
+                let mut e = Vec3::ZERO;
+                e[k] = 1.0;
+                let shifted = |s: f64| cube(a.center + e * s, a.rotation, a.half);
+                let grad = (energy(&shifted(d)) - energy(&shifted(-d))) / (2.0 * d);
+                let turned = |s: f64| cube(a.center, Quat::from_axis_angle(e, s).to_mat3() * a.rotation, a.half);
+                let grad_r = (energy(&turned(d)) - energy(&turned(-d))) / (2.0 * d);
+                let scale = force.norm();
+                assert!((force[k] + grad).abs() < 1e-5 * scale, "{label}: force {k}: {} vs -dE/dx {}", force[k], -grad);
+                assert!((torque[k] + grad_r).abs() < 1e-5 * scale * 0.1, "{label}: torque {k}: {} vs -dE/dtheta {}", torque[k], -grad_r);
+            }
+        }
     }
 }

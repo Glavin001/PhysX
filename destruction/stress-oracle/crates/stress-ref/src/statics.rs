@@ -493,6 +493,7 @@ impl ReferenceSolver {
             let resp = b.model().evaluate(&b.joint, &d, 0.0, false);
             let bm = &mut self.bonds[s][bi];
             bm.force = resp.force;
+            bm.elastic = resp.force;
             bm.measures = resp.measures;
             bm.stored = resp.stored;
         }
@@ -519,6 +520,7 @@ impl ReferenceSolver {
             let bm = &mut self.bonds[s][bi];
             bm.joint = resp.state;
             bm.force = resp.force;
+            bm.elastic = resp.force;
             bm.measures = resp.measures;
             bm.stored = resp.stored;
             disconnected |= self.record_bond_events(ci, bi, &previous, resp.disconnected, self.time);

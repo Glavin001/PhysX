@@ -171,3 +171,53 @@ fn fracture_never_gains_energy_and_dissipation_is_accounted() {
     assert!((e - e0).abs() <= 0.025 * e0, "final imbalance: {e} vs {e0}");
     assert!(w.solver.energy.bond_dissipation > 0.0);
 }
+
+/// A frictionless, perfectly elastic collision of two free cubes (face on face
+/// overhanging an edge, tilted onto an edge, edge on edge, spinning) conserves energy:
+/// the contact force is the gradient of the layer's energy, so what is left is the
+/// integration error, which shrinks with the substep. A contact law that is not a
+/// gradient (a normal tilted by an overhang, a stiffness changing with orientation
+/// without its torque) gains or loses energy whatever the substep.
+#[test]
+fn an_elastic_collision_of_two_cubes_conserves_energy() {
+    if !Methods::default().layer_contact {
+        return; // the sample-point penalty contact is not a gradient (IMPROVEMENTS.md)
+    }
+    for (label, offset, tilt) in [("face", [0.03, 0.02], 0.0), ("tilted", [0.03, 0.02], 0.3), ("edge", [0.09, 0.0], 0.7)] {
+        let error = |safety: f64| {
+            let mut s = new_scene("two_cubes", "two free cubes collide");
+            s.gravity = [0.0; 3];
+            s.materials.insert("concrete".into(), oracle_concrete(None));
+            s.bodies.push(body("a", vec![chunk(Vec3::ZERO, Vec3::splat(0.05), "concrete")], vec![]));
+            let mut b = body("b", vec![chunk(Vec3::ZERO, Vec3::splat(0.05), "concrete")], vec![]);
+            let q = stress_ref::math::Quat::from_axis_angle(Vec3::new(1.0, 0.5, 0.2).normalized(), tilt);
+            // Just clear of a's top face.
+            let low = (0..8)
+                .map(|i| q.rotate(Vec3::new(if i & 1 == 0 { -0.05 } else { 0.05 }, if i & 2 == 0 { -0.05 } else { 0.05 }, if i & 4 == 0 { -0.05 } else { 0.05 })).z)
+                .fold(f64::INFINITY, f64::min);
+            b.position = [offset[0], offset[1], 0.05 - low + 2e-4];
+            b.orientation = q.to_wxyz();
+            b.linear_velocity = [0.3, -0.2, -2.0];
+            b.angular_velocity = [3.0, -2.0, 1.0];
+            s.bodies.push(b);
+            s.sim.duration = 0.01;
+            s.sim.frame_dt = 1e-3;
+            s.sim.fracture = false;
+            s.sim.gravity_prestress = false;
+            s.sim.contact_restitution = 1.0;
+            s.sim.contact_friction = Some(0.0);
+            s.sim.courant_safety = safety;
+            let mut w = World::new(&s);
+            let e0 = w.mechanical_energy();
+            for _ in 0..10 {
+                w.step_frame();
+            }
+            assert!(w.contact.kinds[3].work != 0.0, "{label}: the cubes never touched");
+            ((w.mechanical_energy() - e0) / e0).abs()
+        };
+        let (coarse, fine) = (error(0.5), error(0.125));
+        println!("{label}: |dE/E| {coarse:.2e} at safety 0.5, {fine:.2e} at 0.125");
+        assert!(coarse < 3e-3 && fine < 1e-3, "{label}: energy not conserved: {coarse:.2e}, {fine:.2e}");
+        assert!(fine <= 0.6 * coarse || fine < 1e-8, "{label}: the error does not shrink with the substep: {coarse:.2e} -> {fine:.2e}");
+    }
+}

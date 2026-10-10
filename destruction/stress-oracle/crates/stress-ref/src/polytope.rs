@@ -131,7 +131,10 @@ impl Polytope {
                     }
                 } else if sq <= 0.0 {
                     // Re-entering: at q itself when q lies on the plane (pushed next).
-                    let x = if sq == 0.0 { q } else { p + (q - p) * (sp / (sp - sq)) };
+                    // Interpolated from the inside end, as where leaving: the two faces
+                    // sharing an edge traverse it in opposite directions and must make
+                    // the same point, bit for bit, for the result to stay watertight.
+                    let x = if sq == 0.0 { q } else { q + (p - q) * (sq / (sq - sp)) };
                     if sq < 0.0 {
                         kept.push(x);
                     }
@@ -148,7 +151,7 @@ impl Polytope {
         if !cut {
             return self.clone();
         }
-        let ring = chain(segments);
+        let ring = cap_polygon(&segments, normal);
         if ring.len() >= 3 {
             faces.push(Face { vertices: ring, normal, owner });
         }
@@ -239,7 +242,8 @@ impl Polytope {
     }
 
     /// Mean distance from the axis `(point, axis)`, weighted by volume:
-    /// `int |r_perp| dV / V` (each tetrahedron from `point` split in eight, four-point rule).
+    /// `int |r_perp| dV / V` (tetrahedra from `point` over each face fanned from its
+    /// centroid, each split in eight, four-point rule).
     pub fn mean_axis_distance(&self, point: Vec3, axis: Vec3) -> f64 {
         let dist = |x: Vec3| {
             let r = x - point;
@@ -247,8 +251,12 @@ impl Polytope {
         };
         let (mut num, mut den) = (0.0, 0.0);
         for f in &self.faces {
-            for i in 1..f.vertices.len().saturating_sub(1) {
-                let tet = [point, f.vertices[0], f.vertices[i], f.vertices[i + 1]];
+            // Fanned from the face's centroid, not a vertex: the rule's error must not
+            // depend on where a face's vertex list happens to start.
+            let n = f.vertices.len();
+            let mid = f.vertices.iter().fold(Vec3::ZERO, |a, &v| a + v) / n as f64;
+            for i in 0..n {
+                let tet = [point, mid, f.vertices[i], f.vertices[(i + 1) % n]];
                 for sub in subdivide(&tet) {
                     let v = (sub[1] - sub[0]).dot((sub[2] - sub[0]).cross(sub[3] - sub[0])).abs() / 6.0;
                     if v == 0.0 {
@@ -303,19 +311,40 @@ pub fn polygon_area_centroid(p: &[Vec3]) -> (f64, Vec3) {
     (area, if area > 0.0 { c / area } else { p.first().copied().unwrap_or(Vec3::ZERO) })
 }
 
-/// Joins directed segments head to tail into a polygon: each next segment is the one
-/// whose start is nearest the current end (they meet up to round-off).
-fn chain(mut segments: Vec<(Vec3, Vec3)>) -> Vec<Vec3> {
-    let mut ring = Vec::with_capacity(segments.len());
-    let Some((start, mut end)) = segments.pop() else { return ring };
-    ring.push(start);
-    while !segments.is_empty() {
-        let next = (0..segments.len()).min_by(|&i, &j| (segments[i].0 - end).norm2().total_cmp(&(segments[j].0 - end).norm2())).expect("not empty");
-        let (a, b) = segments.swap_remove(next);
-        ring.push(a);
-        end = b;
+/// The new face a clip makes: the convex hull, in the plane, of the points where the
+/// faces cross it (counter-clockwise about `normal`). A hull, not a chain of the
+/// faces' segments: where the plane runs through vertices and along edges (a bisecting
+/// plane through the edge of the two faces it bisects, coplanar faces of neighbouring
+/// chunks), round-off can drop or duplicate a segment, and only a hull of the points is
+/// immune. Its in-plane basis affects nothing but which of two points that coincide to
+/// round-off is kept.
+fn cap_polygon(segments: &[(Vec3, Vec3)], normal: Vec3) -> Vec<Vec3> {
+    let u = normal.any_perpendicular().normalized();
+    let v = normal.cross(u);
+    let mut pts: Vec<(f64, f64, Vec3)> = segments.iter().flat_map(|&(a, b)| [a, b]).map(|p| (p.dot(u), p.dot(v), p)).collect();
+    pts.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.total_cmp(&b.1)));
+    pts.dedup_by(|a, b| a.0 == b.0 && a.1 == b.1);
+    if pts.len() < 3 {
+        return Vec::new();
     }
-    ring
+    // Andrew's monotone chain, counter-clockwise in (u, v), i.e. about `normal`.
+    let cross = |o: &(f64, f64, Vec3), a: &(f64, f64, Vec3), b: &(f64, f64, Vec3)| (a.0 - o.0) * (b.1 - o.1) - (a.1 - o.1) * (b.0 - o.0);
+    let mut hull: Vec<(f64, f64, Vec3)> = Vec::with_capacity(pts.len() + 1);
+    for p in &pts {
+        while hull.len() >= 2 && cross(&hull[hull.len() - 2], &hull[hull.len() - 1], p) <= 0.0 {
+            hull.pop();
+        }
+        hull.push(*p);
+    }
+    let lower = hull.len() + 1;
+    for p in pts.iter().rev().skip(1) {
+        while hull.len() >= lower && cross(&hull[hull.len() - 2], &hull[hull.len() - 1], p) <= 0.0 {
+            hull.pop();
+        }
+        hull.push(*p);
+    }
+    hull.pop();
+    hull.into_iter().map(|p| p.2).collect()
 }
 
 /// A body's share of an overlap that lies nearest one of its faces: the part of the
@@ -323,12 +352,19 @@ fn chain(mut segments: Vec<(Vec3, Vec3)>) -> Vec<Vec3> {
 /// distance to its nearest face) belonging to that face.
 #[derive(Clone, Copy, Debug)]
 pub struct FieldCell {
+    /// Index of the body's face.
+    pub face: usize,
     pub volume: f64,
     pub centroid: Vec3,
     /// The face's outward unit normal.
     pub normal: Vec3,
     /// `int s dV / V` over the cell.
     pub depth: f64,
+    /// Over the cell's boundaries with the cells of other faces (outward normal `m`):
+    /// `int s m dA` and `int x x (s m) dA`. Where neighbouring cells have different
+    /// stiffnesses, these carry the energy's gradient across the interface.
+    pub interface_force: Vec3,
+    pub interface_moment: Vec3,
 }
 
 /// The overlap `region` (inside `body`) split into the cells of `body`'s faces: where
@@ -341,6 +377,8 @@ pub struct FieldCell {
 /// faces that can be nearest somewhere in the region are clipped for: face `f` is the
 /// nearest at some point only if `min_v s_f(v) <= min_g max_v s_g(v)` over the region's
 /// vertices `v` (each `s_g` is linear); with one such face the cell is the region.
+/// With a stiffness that differs from face to face, the gradient adds each cell's
+/// interface integrals (`FieldCell::interface_force`).
 pub fn field_cells(region: &Polytope, body: &Polytope, indent: f64) -> Vec<FieldCell> {
     let planes: Vec<(Vec3, f64)> = body.faces.iter().map(|f| (f.normal, f.normal.dot(f.vertices[0]) - indent)).collect();
     let mut region = region.clone();
@@ -364,24 +402,39 @@ pub fn field_cells(region: &Polytope, body: &Polytope, indent: f64) -> Vec<Field
     let candidates: Vec<usize> = (0..planes.len()).filter(|&k| range[k].0 <= bound).collect();
     let mut cells = Vec::with_capacity(candidates.len());
     for &f in &candidates {
+        // A convex region is on one side of a plane exactly when its vertices are: a
+        // bisector it lies wholly inside needs no cut, and one it lies wholly outside
+        // leaves the cell empty.
+        let gap = |g: usize| vertices.iter().fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), &v| {
+            let x = depth(f, v) - depth(g, v);
+            (lo.min(x), hi.max(x))
+        });
+        let cuts: Vec<usize> = candidates.iter().copied().filter(|&g| g != f).filter(|&g| gap(g).1 > 0.0).collect();
+        if cuts.iter().any(|&g| gap(g).0 > 0.0) {
+            continue;
+        }
         let mut cell = region.clone();
-        if candidates.len() > 1 {
-            for &g in &candidates {
-                if g == f {
-                    continue;
-                }
-                // s_f <= s_g: (n_g - n_f) . x <= o_g - o_f.
-                let d = planes[g].0 - planes[f].0;
-                let len = d.norm();
-                cell = cell.clip(d / len, (planes[g].1 - planes[f].1) / len, OWNER_B);
-                if cell.is_empty() {
-                    break;
-                }
+        for &g in &cuts {
+            // s_f <= s_g: (n_g - n_f) . x <= o_g - o_f.
+            let d = planes[g].0 - planes[f].0;
+            let len = d.norm();
+            cell = cell.clip(d / len, (planes[g].1 - planes[f].1) / len, INTERFACE + g as Owner);
+            if cell.is_empty() {
+                break;
             }
         }
         if let Some(mp) = cell.mass_properties() {
             if mp.volume > 0.0 {
-                cells.push(FieldCell { volume: mp.volume, centroid: mp.centroid, normal: planes[f].0, depth: depth(f, mp.centroid) });
+                let (mut interface_force, mut interface_moment) = (Vec3::ZERO, Vec3::ZERO);
+                for face in cell.faces.iter().filter(|x| x.owner >= INTERFACE) {
+                    // s = o_f - n_f . x is linear: int s dA = A s(c), int x s dA = o_f A c - S n_f.
+                    let (area, c, second) = polygon_moments(&face.vertices);
+                    let (n_f, o_f) = planes[f];
+                    interface_force += face.normal * (area * (o_f - n_f.dot(c)));
+                    let xs = c * (o_f * area) - second * n_f;
+                    interface_moment += xs.cross(face.normal);
+                }
+                cells.push(FieldCell { face: f, volume: mp.volume, centroid: mp.centroid, normal: planes[f].0, depth: depth(f, mp.centroid), interface_force, interface_moment });
             }
         }
     }
@@ -442,11 +495,29 @@ impl LayerContact {
         LayerContact::from_overlap(&overlap, an / len, indent)
     }
 
-    /// The geometry of an overlap seen along a given contact normal (no indentation):
-    /// volume, centroid, the area of its faces owned by `B` projected on the normal,
-    /// depth below its extreme plane, torsional lever arm and polar moment.
+    /// The geometry of an overlap seen along a given contact normal, from the overlap
+    /// alone (no face ownership, which round-off decides where the two bodies' faces
+    /// are coplanar): volume, centroid, its shadow along the normal (area and polar
+    /// moment about the normal through the centroid: every point of the shadow is
+    /// covered twice by a convex body's boundary), depth below its extreme plane and
+    /// the volume-weighted torsional lever arm.
     pub fn with_normal(overlap: &Polytope, normal: Vec3) -> Option<LayerContact> {
-        LayerContact::from_overlap(overlap, normal, 0.0)?.contact
+        let mp = overlap.mass_properties()?;
+        let area = 0.5 * overlap.faces.iter().map(|f| polygon_area_centroid(&f.vertices).0 * f.normal.dot(normal).abs()).sum::<f64>();
+        if area <= 0.0 || mp.volume <= 0.0 {
+            return None;
+        }
+        let hi = overlap.faces.iter().flat_map(|f| f.vertices.iter()).map(|v| v.dot(normal)).fold(f64::NEG_INFINITY, f64::max);
+        let all = Polytope { faces: overlap.faces.iter().map(|f| Face { owner: OWNER_B, ..f.clone() }).collect() };
+        Some(LayerContact {
+            volume: mp.volume,
+            centroid: mp.centroid,
+            normal,
+            area,
+            depth: (hi - mp.centroid.dot(normal)).max(0.0),
+            mean_radius: overlap.mean_axis_distance(mp.centroid, normal),
+            polar_moment: 0.5 * all.projected_polar_moment(OWNER_B, mp.centroid, normal),
+        })
     }
 
     /// The contact of polytope `a` with the half-space `normal . x <= offset` (ground),
@@ -534,7 +605,7 @@ impl LayerContact {
             if h.abs() >= r || f.vertices.len() < 3 {
                 continue;
             }
-            let u = (f.vertices[1] - f.vertices[0]).normalized();
+            let u = n.any_perpendicular().normalized();
             let v = n.cross(u);
             let foot = center + n * h;
             let poly: Vec<[f64; 2]> = f.vertices.iter().map(|&x| [(x - foot).dot(u), (x - foot).dot(v)]).collect();
@@ -639,6 +710,10 @@ struct DiscRegion {
 impl DiscRegion {
     /// Smallest `d . p` over the region (`d` a direction in the plane, any length).
     fn min_along(&self, d: [f64; 2]) -> f64 {
+        if d == [0.0, 0.0] {
+            // Every point of the (non-empty) region is as low as any other.
+            return 0.0;
+        }
         let mut lo = self.points.iter().map(|p| d[0] * p[0] + d[1] * p[1]).fold(f64::INFINITY, f64::min);
         let len = (d[0] * d[0] + d[1] * d[1]).sqrt();
         if len > 0.0 {
@@ -796,6 +871,98 @@ fn disc_region(poly: &[[f64; 2]], h: f64, r: f64) -> DiscRegion {
     reg
 }
 
+/// The overlap of a ball (centre `center`, radius `r`) with `body`, split into the cells
+/// of `body`'s faces as in `field_cells`: each cell is the body cut by the bisecting
+/// planes towards the other candidate faces, intersected with the ball exactly
+/// (`LayerContact::with_ball`), and its interfaces are those planes' polygons cut by the
+/// ball's discs. Candidates are found on a polytope holding the overlap: the body cut,
+/// along each of its face normals, at the ball's far extent.
+pub fn ball_cells(body: &Polytope, center: Vec3, r: f64) -> Vec<FieldCell> {
+    let planes: Vec<(Vec3, f64)> = body.faces.iter().map(|f| (f.normal, f.normal.dot(f.vertices[0]))).collect();
+    let mut hull = body.clone();
+    for &(n, _) in &planes {
+        hull = hull.clip(-n, r - n.dot(center), OWNER_B);
+        if hull.is_empty() {
+            return Vec::new();
+        }
+    }
+    let vertices: Vec<Vec3> = hull.faces.iter().flat_map(|f| f.vertices.iter().copied()).collect();
+    let depth = |k: usize, x: Vec3| planes[k].1 - planes[k].0.dot(x);
+    let range: Vec<(f64, f64)> = (0..planes.len())
+        .map(|k| vertices.iter().fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), &v| (lo.min(depth(k, v)), hi.max(depth(k, v)))))
+        .collect();
+    let bound = range.iter().map(|r| r.1).fold(f64::INFINITY, f64::min);
+    let candidates: Vec<usize> = (0..planes.len()).filter(|&k| range[k].0 <= bound).collect();
+    let mut cells = Vec::with_capacity(candidates.len());
+    for &f in &candidates {
+        let mut cell = body.clone();
+        for &g in candidates.iter().filter(|&&g| g != f) {
+            let d = planes[g].0 - planes[f].0;
+            let len = d.norm();
+            cell = cell.clip(d / len, (planes[g].1 - planes[f].1) / len, INTERFACE + g as Owner);
+            if cell.is_empty() {
+                break;
+            }
+        }
+        if cell.is_empty() {
+            continue;
+        }
+        let Some(lc) = LayerContact::with_ball(&cell, center, r) else { continue };
+        let (n_f, o_f) = planes[f];
+        let (mut interface_force, mut interface_moment) = (Vec3::ZERO, Vec3::ZERO);
+        for face in cell.faces.iter().filter(|x| x.owner >= INTERFACE) {
+            let Some((area, first, second)) = disc_moments(face, center, r) else { continue };
+            interface_force += face.normal * (o_f * area - n_f.dot(first));
+            let xs = first * o_f - second * n_f;
+            interface_moment += xs.cross(face.normal);
+        }
+        cells.push(FieldCell { face: f, volume: lc.volume, centroid: lc.centroid, normal: n_f, depth: o_f - n_f.dot(lc.centroid), interface_force, interface_moment });
+    }
+    cells
+}
+
+/// Area, first moment and second moment `int x x^T dA` (about the origin) of a planar
+/// convex polygon cut by a ball (`None` when the ball misses its plane).
+fn disc_moments(face: &Face, center: Vec3, r: f64) -> Option<(f64, Vec3, Mat3)> {
+    let n = face.normal;
+    let h = n.dot(face.vertices[0] - center);
+    if h.abs() >= r || face.vertices.len() < 3 {
+        return None;
+    }
+    let u = n.any_perpendicular().normalized();
+    let v = n.cross(u);
+    let foot = center + n * h;
+    let poly: Vec<[f64; 2]> = face.vertices.iter().map(|&x| [(x - foot).dot(u), (x - foot).dot(v)]).collect();
+    let reg = disc_region(&poly, h, r);
+    if reg.area <= 0.0 {
+        return None;
+    }
+    let m = u * reg.first[0] + v * reg.first[1];
+    let sq = &reg.second;
+    let local = Mat3::outer(u, u) * sq[0][0] + (Mat3::outer(u, v) + Mat3::outer(v, u)) * sq[0][1] + Mat3::outer(v, v) * sq[1][1];
+    let second = Mat3::outer(foot, foot) * reg.area + Mat3::outer(foot, m) + Mat3::outer(m, foot) + local;
+    Some((reg.area, foot * reg.area + m, second))
+}
+
+/// Area, centroid and second moment `int x x^T dA` (about the origin) of a planar
+/// convex polygon.
+fn polygon_moments(p: &[Vec3]) -> (f64, Vec3, Mat3) {
+    let (mut area, mut c, mut second) = (0.0, Vec3::ZERO, Mat3::default());
+    for i in 1..p.len().saturating_sub(1) {
+        let (a, b, d) = (p[0], p[i], p[i + 1]);
+        let t = (b - a).cross(d - a).norm() * 0.5;
+        area += t;
+        c += (a + b + d) * (t / 3.0);
+        let sum = a + b + d;
+        second += (Mat3::outer(a, a) + Mat3::outer(b, b) + Mat3::outer(d, d) + Mat3::outer(sum, sum)) * (t / 12.0);
+    }
+    (area, if area > 0.0 { c / area } else { Vec3::ZERO }, second)
+}
+
+/// Owner tags of the faces `field_cells` cuts between cells: `INTERFACE + g`, `g` the
+/// neighbouring cell's face.
+pub const INTERFACE: Owner = 2;
+
 /// Owner tags: the body the force acts on and the body it presses into.
 pub const OWNER_A: Owner = 0;
 pub const OWNER_B: Owner = 1;
@@ -923,6 +1090,31 @@ mod tests {
             assert!((ml + mr - mw).norm() < 1e-12 * r * r * r, "first moment");
         }
         assert!(tested > 100, "{tested}");
+    }
+
+    #[test]
+    fn a_plane_through_an_edge_cuts_an_exact_prism() {
+        // A thin slab cut by a 45-degree plane through one of its long edges: a prism of
+        // right-triangle section (legs the slab's thickness) along the edge, whichever
+        // edge and side.
+        let (lo, hi) = (Vec3::new(-0.02, -0.04, 0.0499), Vec3::new(0.05, 0.05, 0.05));
+        let slab = Polytope::cuboid((lo + hi) * 0.5, Mat3::IDENTITY, (hi - lo) * 0.5, OWNER_A);
+        let t = hi.z - lo.z;
+        let cuts = [
+            (Vec3::new(1.0, 0.0, -1.0), lo.x - lo.z, hi.y - lo.y),
+            (Vec3::new(-1.0, 0.0, 1.0), -lo.x + lo.z, hi.y - lo.y),
+            (Vec3::new(0.0, -1.0, -1.0), -hi.y - hi.z + t, hi.x - lo.x),
+            (Vec3::new(-1.0, 0.0, -1.0), -hi.x - hi.z + t, hi.y - lo.y),
+        ];
+        for (n, o, len) in cuts {
+            let len_n = n.norm();
+            let cut = slab.clip(n / len_n, o / len_n, OWNER_B);
+            let v = cut.mass_properties().map_or(0.0, |m| m.volume);
+            let full = slab.mass_properties().unwrap().volume;
+            let prism = 0.5 * t * t * len;
+            let got = v.min(full - v);
+            assert!((got - prism).abs() < 1e-9 * prism, "{n:?}: {got:e} vs {prism:e}");
+        }
     }
 
     #[test]

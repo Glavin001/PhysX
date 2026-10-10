@@ -136,6 +136,7 @@ impl ReferenceSolver {
                 alive: true,
                 joint,
                 force: Default::default(),
+                elastic: Default::default(),
                 measures: Default::default(),
                 stored: 0.0,
             });

@@ -159,6 +159,8 @@ pub struct RtBond {
     pub joint: JointState,
     /// Last actual generalised force (incl. damping) and effective stress measures.
     pub force: Local6,
+    /// Its elastic part (no damping): the joint's spring forces.
+    pub elastic: Local6,
     pub measures: StressMeasures,
     pub stored: f64,
 }
@@ -177,6 +179,7 @@ impl RtBond {
             alive: true,
             joint: JointState::new(),
             force: Local6::ZERO,
+            elastic: Local6::ZERO,
             measures: StressMeasures::default(),
             stored: 0.0,
         }
@@ -219,10 +222,14 @@ pub struct Handover {
     pub structure: usize,
     pub a: usize,
     pub b: usize,
-    /// The joint's compressive normal force at the split (N, >= 0).
+    /// The joint's elastic compressive normal force at the split (N, >= 0).
     pub compression: f64,
     /// The joint's stored elastic energy at the split (J).
     pub stored: f64,
+    /// The joint's elastic force on chunk `a` and its couple (world frame), whose
+    /// shear and torsion the contact's friction takes over.
+    pub force: Vec3,
+    pub couple: Vec3,
 }
 
 /// Cumulative energy terms (J). See `energy_balance` in `world.rs` for the closed form.
@@ -1023,6 +1030,7 @@ impl ReferenceSolver {
             let bm = &mut self.bonds[s][bi];
             let previous = std::mem::replace(&mut bm.joint, resp.state);
             bm.force = q;
+            bm.elastic = resp.force;
             bm.measures = resp.measures;
             bm.stored = resp.stored;
             self.f_int[s][ga].0 += fa;
@@ -1275,7 +1283,16 @@ impl ReferenceSolver {
             if comp_of[&g.a] != comp_of[&g.b] {
                 let b = &self.bonds[s][bi];
                 if self.config.methods.layer_contact {
-                    self.handovers.push(Handover { structure: s, a: g.a, b: g.b, compression: (-b.force.lin.z).max(0.0), stored: b.stored });
+                    let e = b.elastic;
+                    self.handovers.push(Handover {
+                        structure: s,
+                        a: g.a,
+                        b: g.b,
+                        compression: (-e.lin.z).max(0.0),
+                        stored: b.stored,
+                        force: rot * g.to_body(e.lin),
+                        couple: rot * g.to_body(e.ang),
+                    });
                 } else {
                     self.energy.split_release += b.stored;
                 }

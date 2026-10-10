@@ -29,6 +29,19 @@ pub fn map_into<T: Send, R: Send>(items: Vec<T>, f: impl Fn(T) -> R + Sync + Sen
     items.into_par_iter().with_min_len(MIN_PARALLEL_ITEMS / 4).map(f).collect()
 }
 
+/// Below this many items a loop of expensive items (tens of microseconds each, such as
+/// the polytope contacts of chunk pairs) runs on the calling thread.
+const MIN_PARALLEL_HEAVY: usize = 16;
+
+/// `map_into` for expensive items: split over the pool from a few items on, in item order
+/// (bit-identical for any thread count).
+pub fn map_into_heavy<T: Send, R: Send>(items: Vec<T>, f: impl Fn(T) -> R + Sync + Send) -> Vec<R> {
+    if items.len() < MIN_PARALLEL_HEAVY {
+        return items.into_iter().map(f).collect();
+    }
+    items.into_par_iter().with_min_len(2).map(f).collect()
+}
+
 #[cfg(test)]
 mod tests {
     #[test]

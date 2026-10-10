@@ -127,22 +127,91 @@ The new contact's residual is a loss and halves with the step (first-order integ
 error, no energy created). The established method's residual with fracture grows as
 the step is refined (-0.01 % at Courant 1 to -2.3 % at 1/16): its ledger is inconsistent.
 
-**Open, pair contacts (chunk on chunk):** the force law's tally exceeds the actual
-work by about 1.8e3 J in the fine-step limit on the 40 m/s impact (17 % of the pair
-dissipation): the elastic force is not the gradient of its energy. Cause: the
-area-weighted normal tilts by `delta L / A` where one face overhangs the other's edge,
-which gives a tangential force `k delta^2 L`. The energy `k delta^2 A_overlap / 2` has
-gradient `k delta^2 L / 2`. Fix in progress: the energy `k int s dV`, `s` the depth below
-each body's nearest face (`polytope::field_cells`). By the divergence theorem its exact
-gradient is `k V_f n_f` per nearest-face cell, averaged over both bodies' fields; the
-first wiring of it is not yet right and is not in use.
+**Every elastic layer force is the exact gradient of its energy.** Found by the
+per-kind ledger (`ContactLedger::kinds`: the force law's own tally against the work
+done, which must converge together with the substep for a conservative law):
 
-**Open, frame invariance with fracture** (`a_rigid_rotation_of_the_scene_rotates_the_result`):
-the rotated run departs by 1.3e-4 m against a round-off envelope of 1e-9 (4e-2 before
-this session's fixes; without fracture 8e-13). Something in the fracture path amplifies
-round-off beyond the envelope; to bisect.
+* *Pairs* (chunk on chunk): the area-weighted normal tilts by `delta L / A` where a
+  face overhangs the other's edge, a tangential force `k delta^2 L` where the energy
+  `k delta^2 A_overlap / 2` has gradient `k delta^2 L / 2`. It created 1.8e3 J on the
+  40 m/s impact, whatever the substep. Now (`pair_elastic`, `polytope::field_cells`)
+  the energy is `(E_a + E_b) / 2`, each `E_x = sum_f k''_f int s dV` over the overlap's
+  cells nearest each face `f` of body `x` (`s` the depth below it). By the divergence
+  theorem its exact gradient is `k''_f V_f n_f` per cell at the cell's centroid, plus
+  the interface integrals where neighbouring cells differ in stiffness, plus the torque
+  of the stiffness turning with the bodies. The half-thickness along a direction is
+  the smooth `sqrt(sum (n . e_k)^2 half_k^2)`, not the support function, whose kink at
+  alignment makes a face-to-face torque jump as it passes through alignment.
+* *Balls* (sphere impactors): the same, with the chunk's nearest-face cells cut from
+  the ball exactly (`polytope::ball_cells`); interface integrals from the closed-form
+  moments of a polygon cut by a disc.
+* *Ground*: the torque of the chunk's thickness turning with it.
+* *Indentation* (crushed material from a split joint) stays while the pair overlaps
+  and is forgotten when they part; lowering it while they touched created energy.
 
-**Status:** catalogue A/B to rerun after the pair-contact fix.
+Tests: finite differences of the energy against the force and moment
+(`world::tests`), in face, edge and corner configurations of cubes, a non-cubic chunk
+and a ball, and over 500 random relative poses (worst 3.5e-6, the differences' own
+error). A frictionless, perfectly elastic collision of two free cubes conserves energy
+(`an_elastic_collision_of_two_cubes_conserves_energy`): `|dE/E|` 1.4e-3 / 2.2e-5 (face
+overhanging an edge), 9e-10 / 2e-12 (tilted onto an edge), 1.1e-3 / 3.0e-4 (edge on
+edge) at Courant 0.5 / 0.125.
+
+**Robust polytope clipping.** The planes the cells are cut by are structurally
+degenerate: a bisector passes through the edge of the two faces it bisects, and
+neighbouring chunks of a grid have coplanar faces. Three fixes, each found by a failing
+gradient test:
+* a crossing point is interpolated from the inside end, so the two faces sharing an
+  edge make it bit for bit and the result stays watertight (one ulp apart, a later
+  clip through that edge lost a face: 2/3 of the volume);
+* the new face is the convex hull of the crossing points in its plane, not a chain of
+  segments (round-off dropped or duplicated a segment; a duplicated vertex then gave
+  the disc integrals a zero-length basis edge and an energy jump of 4e4 J on a 1 J
+  contact);
+* the in-plane basis of a face comes from its normal alone.
+
+**Frame invariance with fracture** (`a_rigid_rotation_of_the_scene_rotates_the_result`)
+now holds to round-off: 6.5e-11 m against an envelope of 3.4e-9 m (1.3e-4 m before;
+4e-2 m at the start of this work). Found by tracing where the rotated run first
+departed: (1) the contact area and normal came from which body owns a face of the
+overlap, which round-off decides where the bodies' faces are coplanar; it now comes
+from the overlap alone (its shadow along the normal). (2) The torsional lever arm's
+quadrature fanned each face from its first vertex, so its error depended on the
+orientation; it now fans from the face's centroid.
+
+**Split handover.** A joint broken by a split hands its elastic compression to the
+contact (the indentation at which the contact's force equals it), and now also its
+shear and torsion to the contact's friction (same stiffness, `k''_t A` and `k''_t J`
+being the joint's `G A / L` and `G J / L`). Coulomb's cap applies at the contact's
+next step, where any excess slips. It is never more than the joint stored; the rest is
+`split_release`. The elastic force (no dashpot) is what is handed over. On the 40 m/s
+impact the energy released at splits halves (87 J to 46 J of about 350 J handed over).
+
+**Cost.** Chunk-pair contacts are evaluated in parallel from 16 pairs on
+(`par::map_into_heavy`, item order kept: bit-identical for any thread count), and cell
+cuts a convex region's vertices show to be idle are skipped (exact). The breaching
+pressure panel is still ~12x slower than with the established contact: ~870 pairs per
+substep after it breaks, ~45 us of CPU each, mostly allocation in polytope clipping (a
+flat-arena polytope is the next lever).
+
+**Suite** (`cargo test --release -p stress-ref --no-fail-fast`; `scripts/test_fast.sh`
+skips the panel, hull-pack and showcase runs: ~2 min instead of ~25 with the switch):
+default methods pass everything but the principles (by design). With `layer_contact`
+alone, unit rescaling also needs `scaled_step_bound` (each fixes a unit dependence), and
+the implicit free-vibration test needs `frame_contact_step`: energy is conserved to 7
+digits, but the global contact step (with the dashpot factor, though nothing can touch)
+shortens the substep and the sampled peaks fall 1.5 % lower. With both switches:
+principles 8/8, showcases 7/7; open: elastic impact at the larger step (1.07 %),
+convergence, engine-coupled, mass scaling, and the b9 panel (below).
+
+**Open, b9 panel (over-strong arching):** the breaching panel breaks 300 bonds into 16
+fragments and barely moves (established: 60 bonds, 4 fragments, matching OpenCourant).
+The contact has the joint's stiffness but not its compressive strength: hinges between
+fragments never crush. Planned: the joint's crushing criterion on the contact, in closed
+form (peak layer pressure `max_f k''_f d_f`, the indentation ratcheted to
+`max_f (d_f - f_c / k''_f)`).
+
+**Status:** catalogue A/B rerun pending.
 
 ### `scaled_step_bound` (fix, step change)
 
@@ -160,7 +229,14 @@ principal moment (conservative).
 small impact, the frame and the masonry wall; the "length constant at chunk removal"
 (frame b8 diverging when its column is removed) was this bound, recomputed for the new
 clusters. The bound is 1.8-3.4x larger on those scenes (the old one was conservative in
-metres): stability to be confirmed by the stability harness (item 1 below).
+metres).
+
+Stability harness (`examples/stability.rs`: every catalogue scene, perturbed at rest,
+20,000 substeps at fractions 0.9 to 2 of the bound): the scaled bound is stable at
+0.9, 1, 1.1 and 1.5 on every scene, and first blows up at 2 (b2, b5, b6, b9, s_blast,
+s_supports): valid and tight within 1.5-2x. The established bound never blows up, even
+at 2x: it leaves more than 2x on the table. (The harness first measured nothing: the
+bonds' stored energy is their last evaluation's, zero before the first step.)
 
 **Status:** catalogue A/B and test suite running.
 
@@ -169,7 +245,7 @@ metres): stability to be confirmed by the stability harness (item 1 below).
 | # | Change | Class | Status |
 |---|---|---|---|
 | 0 | Instrumentation: work counters, binding limit of the step, adaptive decisions | - | to do |
-| 1 | True stable step (power iteration on the explicit update itself) and a per-frame contact step from the contacts that can engage; stability harness (`examples/stability.rs`) | Step change | to do |
+| 1 | True stable step (power iteration on the explicit update itself) and a per-frame contact step from the contacts that can engage; stability harness (`examples/stability.rs`) | Step change | harness done (scaled bound valid, tight within 1.5-2x); power iteration to do |
 | 2a | Joint contact patch only after first damage | Model change | to do |
 | 2b | Cold-bond fast path (exact variant first) | A, then bounded | to do |
 | 3 | Direct (sparse Cholesky) solve for intact islands | Exact | to do |
@@ -183,4 +259,4 @@ metres): stability to be confirmed by the stability harness (item 1 below).
 | - | Joint contact springs at the patch edges (outer spring at 0.417 w, rocking 17 % low) | Fix | to do |
 | - | Adaptive wake on per-bond utilisation, not summed force norms | Fix | to do |
 | - | Settle and refinement energy booked, not discarded | Fix | to do |
-| - | `split_release`: hand the joint's compression to the contact (consistent with `layer_contact`) | Fix | to do |
+| - | `split_release`: hand the joint's compression, shear and torsion to the contact (with `layer_contact`) | Fix | done |
