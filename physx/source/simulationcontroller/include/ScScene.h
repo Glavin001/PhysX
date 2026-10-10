@@ -914,6 +914,7 @@ namespace Sc
 					void						addShapes(NpShape*const* shapes, PxU32 nbShapes, size_t ptrOffset, RigidSim& sim, PxBounds3* outBounds);
 					void						removeShapes(RigidSim& , PxInlineArray<ShapeSim*, 64>& , PxInlineArray<const ShapeCore*, 64>&, bool wakeOnLostTouch);
 
+	public:
 		// A split's ownership transaction switched this body between kinematic
 		// and dynamic (NpDestructionBodyAllocator::applyBindings). With
 		// preserveUnchangedContactPairs its pairs must still be refiltered, as
