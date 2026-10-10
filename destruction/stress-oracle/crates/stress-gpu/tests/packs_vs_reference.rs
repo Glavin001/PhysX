@@ -9,10 +9,9 @@ use stress_gpu::gpu::Gpu;
 use stress_gpu::world::{unsupported, GpuWorld};
 use stress_ref::math::Vec3;
 use stress_ref::scene::{ImpactorDesc, ImpactorShape, ProbeDesc, ProbeKind, Scene};
-use stress_ref::world::World;
 
 mod common;
-use common::{difference, gate, refined, spread_difference, spread_run};
+use common::{difference, gate, spread_difference};
 
 /// The bounds of a scene's chunks (world).
 fn bounds(scene: &Scene) -> (Vec3, Vec3) {
@@ -103,11 +102,9 @@ fn scene_packs_match_the_reference_world() {
         let t = std::time::Instant::now();
         let ours = GpuWorld::new(&gpu, &scene).and_then(|mut w| w.run(&gpu)).expect("GPU world");
         let gpu_time = t.elapsed().as_secs_f64();
-        let t = std::time::Instant::now();
-        let reference = World::new(&scene).run();
-        let ref_time = t.elapsed().as_secs_f64();
-        let spread = spread_run(&scene, &reference);
-        let half = World::new(&refined(&scene)).run();
+        // The reference's runs come from the cache (computed on a miss): see gate.rs.
+        let refs = stress_gpu::gate::reference_set(&scene, true).expect("reference set");
+        let (reference, spread, half, ref_time) = (refs.reference, refs.spreads, refs.half, refs.reference_seconds);
         let (gpu_err, gpu_notes) = difference(&reference, &ours);
         let (self_err, self_notes) = spread_difference(&reference, &spread);
         let (half_err, half_notes) = difference(&reference, &half);

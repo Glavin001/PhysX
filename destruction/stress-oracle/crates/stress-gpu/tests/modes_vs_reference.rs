@@ -8,10 +8,9 @@
 use stress_gpu::gpu::Gpu;
 use stress_gpu::world::{unsupported, GpuWorld};
 use stress_ref::scene::{Scene, SolveMode};
-use stress_ref::world::World;
 
 mod common;
-use common::{difference, gate, refined, spread_difference, spread_run};
+use common::{difference, gate, spread_difference};
 
 fn scene(name: &str) -> Scene {
     stress_ref::builders::catalog()
@@ -52,11 +51,9 @@ fn solve_modes_match_the_reference_world() {
         let t = std::time::Instant::now();
         let ours = GpuWorld::new(&gpu, &s).and_then(|mut w| w.run(&gpu)).expect("GPU world");
         let gpu_time = t.elapsed().as_secs_f64();
-        let t = std::time::Instant::now();
-        let reference = World::new(&s).run();
-        let ref_time = t.elapsed().as_secs_f64();
-        let spread = spread_run(&s, &reference);
-        let half = World::new(&refined(&s)).run();
+        // The reference's runs come from the cache (computed on a miss): see gate.rs.
+        let refs = stress_gpu::gate::reference_set(&s, true).expect("reference set");
+        let (reference, spread, half, ref_time) = (refs.reference, refs.spreads, refs.half, refs.reference_seconds);
         let (gpu_err, gpu_notes) = difference(&reference, &ours);
         let (self_err, _) = spread_difference(&reference, &spread);
         let (half_err, _) = difference(&reference, &half);

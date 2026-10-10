@@ -153,10 +153,14 @@ fn coupled_frames_match_the_reference() {
         },
     ];
     for case in &cases {
-        let mut reference = EngineCoupledSolver::new(&case.scene);
-        let (r_rows, r_frac) = run(case, &mut reference, 1.0);
-        let mut perturbed = EngineCoupledSolver::new(&case.scene);
-        let (p_rows, p_frac) = run(case, &mut perturbed, 1.0 + 1e-4);
+        // The reference runs come from the cache (gate.rs), keyed by the case and its
+        // scene; the contact and motion closures are not serializable, so
+        // `INPUTS_VERSION` stands for them: bump it when they change.
+        const INPUTS_VERSION: u32 = 1;
+        let key = |scale: f64| (case.name, &case.scene, case.frames, scale.to_bits(), INPUTS_VERSION);
+        let label = format!("coupled-{}", case.name);
+        let (r_rows, r_frac) = stress_gpu::gate::cached(&label, &key(1.0), || run(case, &mut EngineCoupledSolver::new(&case.scene), 1.0));
+        let (p_rows, p_frac) = stress_gpu::gate::cached(&label, &key(1.0 + 1e-4), || run(case, &mut EngineCoupledSolver::new(&case.scene), 1.0 + 1e-4));
         let gpu_scene = if case.sleeping { case.scene.with_override("sim.solve_mode", "\"adaptive\"").expect("adaptive") } else { case.scene.clone() };
         let mut gpu = GpuStressSolverApi::new(&gpu_scene).expect("GPU coupled solver");
         let (g_rows, g_frac) = run(case, &mut gpu, 1.0);

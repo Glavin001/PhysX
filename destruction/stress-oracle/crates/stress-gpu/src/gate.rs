@@ -241,23 +241,35 @@ pub fn cases() -> Vec<Case> {
     out
 }
 
+/// The quick tier: a representative subset that runs in a few minutes (elastic
+/// benchmarks, fracture, contact, the solve modes, a pack), for iterating; the full
+/// set before a commit.
+pub const QUICK: [&str; 13] = [
+    "b1_bond_tension",
+    "b2_cantilever",
+    "b3_bar_wave",
+    "b4_support_loss_sudden",
+    "b7_masonry_v15",
+    "b8_frame_sudden",
+    "b9_panel_high",
+    "s_car_brick",
+    "s_floor_static",
+    "s_house_car",
+    "b8_frame_sudden (QuasiStatic)",
+    "b9_panel_high (Adaptive)",
+    "rig-portal (box)",
+];
+
 // ------------------------------------------------------------------ the cache
 
 /// A case's reference runs.
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub struct ReferenceSet {
     pub reference: Observation,
     pub half: Observation,
     pub spreads: Vec<Observation>,
     /// Host seconds the reference run took (when it was computed).
     pub reference_seconds: f64,
-}
-
-#[derive(serde::Serialize, serde::Deserialize)]
-struct Stored {
-    reference: Observation,
-    half: Observation,
-    spreads: Vec<Observation>,
-    reference_seconds: f64,
 }
 
 /// 64-bit FNV-1a (stable across runs and toolchains, unlike `DefaultHasher`).
@@ -269,49 +281,154 @@ fn fnv(bytes: &[u8], mut h: u64) -> u64 {
     h
 }
 
-/// A fingerprint of stress-ref's sources: the cache is stale when they change.
-fn reference_fingerprint() -> u64 {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../stress-ref");
-    let mut files = Vec::new();
-    let mut stack = vec![root.join("src"), root.join("Cargo.toml")];
-    while let Some(p) = stack.pop() {
-        if p.is_dir() {
-            for e in std::fs::read_dir(&p).into_iter().flatten().flatten() {
-                stack.push(e.path());
+/// A fingerprint of stress-ref's sources (and manifest): every cached result is stale
+/// once they change. Computed once per process.
+pub fn reference_fingerprint() -> u64 {
+    static FINGERPRINT: std::sync::OnceLock<u64> = std::sync::OnceLock::new();
+    *FINGERPRINT.get_or_init(|| {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../stress-ref");
+        let mut files = Vec::new();
+        let mut stack = vec![root.join("src"), root.join("Cargo.toml")];
+        while let Some(p) = stack.pop() {
+            if p.is_dir() {
+                for e in std::fs::read_dir(&p).into_iter().flatten().flatten() {
+                    stack.push(e.path());
+                }
+            } else {
+                files.push(p);
             }
-        } else {
-            files.push(p);
         }
-    }
-    files.sort();
-    let mut h = 0xcbf29ce484222325;
-    for f in files {
-        h = fnv(f.to_string_lossy().as_bytes(), h);
-        h = fnv(&std::fs::read(&f).unwrap_or_default(), h);
-    }
-    h
+        files.sort();
+        let mut h = 0xcbf29ce484222325;
+        for f in files {
+            h = fnv(f.to_string_lossy().as_bytes(), h);
+            h = fnv(&std::fs::read(&f).unwrap_or_default(), h);
+        }
+        h
+    })
 }
 
-fn cache_dir() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../target/stress-gate-cache")
+static REFRESH: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Recompute (and overwrite) every cached result this process asks for: `--refresh`,
+/// or `STRESS_GATE_REFRESH=1`.
+pub fn set_refresh(on: bool) {
+    REFRESH.store(on, std::sync::atomic::Ordering::Relaxed);
 }
 
-fn cache_path(scene: &Scene, fingerprint: u64) -> PathBuf {
+fn refresh() -> bool {
+    REFRESH.load(std::sync::atomic::Ordering::Relaxed) || std::env::var("STRESS_GATE_REFRESH").is_ok_and(|v| v == "1")
+}
+
+/// Where cached results live (`target/stress-gate-cache`, or `STRESS_GATE_CACHE`).
+pub fn cache_dir() -> PathBuf {
+    std::env::var_os("STRESS_GATE_CACHE").map(PathBuf::from).unwrap_or_else(|| Path::new(env!("CARGO_MANIFEST_DIR")).join("../../target/stress-gate-cache"))
+}
+
+/// The cache file of a computation: `label` (readable), its inputs `key` (serialized,
+/// hashed with stress-ref's fingerprint).
+fn cache_path<K: serde::Serialize>(label: &str, key: &K) -> PathBuf {
+    let json = serde_json::to_string(key).expect("cache key json");
+    let mut h = fnv(json.as_bytes(), 0xcbf29ce484222325);
+    h = fnv(&reference_fingerprint().to_le_bytes(), h);
+    let safe: String = label.chars().map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '_' }).collect();
+    cache_dir().join(format!("{safe}-{h:016x}.json"))
+}
+
+/// A cached result: `compute` runs only on a miss (or with refresh on), and its result
+/// is stored. The key must hold every input of the computation besides stress-ref's
+/// sources (the fingerprint covers those): the same inputs on the same reference build
+/// reproduce the result.
+pub fn cached<K, T>(label: &str, key: &K, compute: impl FnOnce() -> T) -> T
+where
+    K: serde::Serialize,
+    T: serde::Serialize + serde::de::DeserializeOwned,
+{
+    lookup(label, key).unwrap_or_else(|| {
+        let value = compute();
+        store(label, key, &value);
+        value
+    })
+}
+
+/// The cached result, if present and fresh (refresh on: none).
+pub fn lookup<K: serde::Serialize, T: serde::de::DeserializeOwned>(label: &str, key: &K) -> Option<T> {
+    lookup_at(&cache_path(label, key))
+}
+
+fn lookup_at<T: serde::de::DeserializeOwned>(path: &Path) -> Option<T> {
+    if refresh() {
+        return None;
+    }
+    serde_json::from_str(&std::fs::read_to_string(path).ok()?).ok()
+}
+
+/// Store a result.
+pub fn store<K: serde::Serialize, T: serde::Serialize>(label: &str, key: &K, value: &T) {
+    store_at(&cache_path(label, key), value);
+}
+
+/// Written, then renamed: a cache file is complete or absent.
+fn store_at<T: serde::Serialize>(path: &Path, value: &T) {
+    std::fs::create_dir_all(cache_dir()).ok();
+    let tmp = path.with_extension("tmp");
+    if std::fs::write(&tmp, serde_json::to_string(value).expect("cache json")).is_ok() {
+        std::fs::rename(&tmp, &path).ok();
+    }
+}
+
+/// The reference set's cache file: the scene's JSON, the perturbation and stress-ref's
+/// fingerprint.
+fn reference_path(scene: &Scene) -> PathBuf {
     let json = serde_json::to_string(scene).expect("scene json");
     let mut h = fnv(json.as_bytes(), 0xcbf29ce484222325);
     h = fnv(&perturbation().to_bits().to_le_bytes(), h);
-    h = fnv(&fingerprint.to_le_bytes(), h);
+    h = fnv(&reference_fingerprint().to_le_bytes(), h);
     cache_dir().join(format!("{}-{h:016x}.json", scene.name))
+}
+
+/// JSON has no NaN or infinity (serde writes null, which does not read back as f64):
+/// such samples and values (a chunk gone, an unbounded failure index) are stored as
+/// these values.
+const NAN_SENTINEL: f64 = -3.0e307;
+const INF_SENTINEL: f64 = 3.1e307;
+const NEG_INF_SENTINEL: f64 = -3.1e307;
+
+fn map_observation(o: &mut Observation, f: impl Fn(f64) -> f64) {
+    for p in o.probes.values_mut() {
+        for x in p.t.iter_mut().chain(p.v.iter_mut()).chain(p.lo.iter_mut()).chain(p.hi.iter_mut()) {
+            *x = f(*x);
+        }
+    }
+    for x in o.values.values_mut() {
+        *x = f(*x);
+    }
+}
+
+fn map_set(set: &mut ReferenceSet, f: impl Fn(f64) -> f64 + Copy) {
+    map_observation(&mut set.reference, f);
+    map_observation(&mut set.half, f);
+    for o in &mut set.spreads {
+        map_observation(o, f);
+    }
+}
+
+fn encode(mut set: ReferenceSet) -> ReferenceSet {
+    map_set(&mut set, |x| if x.is_nan() { NAN_SENTINEL } else if x == f64::INFINITY { INF_SENTINEL } else if x == f64::NEG_INFINITY { NEG_INF_SENTINEL } else { x });
+    set
+}
+
+fn decode(mut set: ReferenceSet) -> ReferenceSet {
+    map_set(&mut set, |x| if x == NAN_SENTINEL { f64::NAN } else if x == INF_SENTINEL { f64::INFINITY } else if x == NEG_INF_SENTINEL { f64::NEG_INFINITY } else { x });
+    set
 }
 
 /// The case's reference set from the cache, or computed (its four runs in parallel) and
 /// stored. `compute`: false returns None on a miss instead of running the reference.
 pub fn reference_set(scene: &Scene, compute: bool) -> Option<ReferenceSet> {
-    let path = cache_path(scene, reference_fingerprint());
-    if let Ok(text) = std::fs::read_to_string(&path) {
-        if let Ok(s) = serde_json::from_str::<Stored>(&text) {
-            return Some(ReferenceSet { reference: s.reference, half: s.half, spreads: s.spreads, reference_seconds: s.reference_seconds });
-        }
+    let path = reference_path(scene);
+    if let Some(r) = lookup_at::<ReferenceSet>(&path) {
+        return Some(decode(r));
     }
     if !compute {
         return None;
@@ -328,8 +445,8 @@ pub fn reference_set(scene: &Scene, compute: bool) -> Option<ReferenceSet> {
         let m = sc.spawn(|| World::new(&perturbed_by(scene, -eps)).run());
         (r.join().unwrap(), h.join().unwrap(), p.join().unwrap(), m.join().unwrap())
     });
-    let stored = Stored { reference: reference.0, half, spreads: vec![plus, minus], reference_seconds: reference.1 };
-    std::fs::create_dir_all(cache_dir()).ok();
-    std::fs::write(&path, serde_json::to_string(&stored).expect("json")).ok();
-    Some(ReferenceSet { reference: stored.reference, half: stored.half, spreads: stored.spreads, reference_seconds: stored.reference_seconds })
+    let set = ReferenceSet { reference: reference.0, half, spreads: vec![plus, minus], reference_seconds: reference.1 };
+    let set = encode(set);
+    store_at(&path, &set);
+    Some(decode(set))
 }

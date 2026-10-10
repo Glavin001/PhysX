@@ -10,10 +10,9 @@
 
 use stress_gpu::gpu::Gpu;
 use stress_gpu::world::{unsupported, GpuWorld};
-use stress_ref::world::World;
 
 mod common;
-use common::{difference, gate, refined, spread_difference, spread_run};
+use common::{difference, gate, spread_difference};
 
 #[test]
 fn catalogue_matches_the_reference_world() {
@@ -40,11 +39,9 @@ fn catalogue_matches_the_reference_world() {
             }
         };
         let gpu_time = t.elapsed().as_secs_f64();
-        let t = std::time::Instant::now();
-        let reference = World::new(&scene).run();
-        let ref_time = t.elapsed().as_secs_f64();
-        let spread = spread_run(&scene, &reference);
-        let half = World::new(&refined(&scene)).run();
+        // The reference's runs come from the cache (computed on a miss): see gate.rs.
+        let refs = stress_gpu::gate::reference_set(&scene, true).expect("reference set");
+        let (reference, spread, half, ref_time) = (refs.reference, refs.spreads, refs.half, refs.reference_seconds);
         let (gpu_err, gpu_notes) = difference(&reference, &ours);
         let (self_err, self_notes) = spread_difference(&reference, &spread);
         let (half_err, half_notes) = difference(&reference, &half);
