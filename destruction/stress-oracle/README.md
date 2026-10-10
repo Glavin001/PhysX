@@ -121,6 +121,11 @@ it unconditionally); without a GPU it returns null and the CPU scene is used.
 
 See the module docs for the equations. In brief:
 
+* **Chunks** (`structure.rs`, `hull.rs`): boxes or convex hulls (up to 64 vertices;
+  exact mass, centroid and inertia by Mirtich's integrals). Contact samples a hull as
+  it does a box (corners pulled 10% in, face centroids) against the other's face
+  planes. A scene given as hulls of its boxes reproduces the box scene (statics and
+  waves to 1e-14; impact to rounding, `tests/hulls.rs`).
 * **Bonds** (`bond.rs`): beam-type joints at the contact patch with axial `EA/L`,
   shear `GA/L`, bending `EI/L` (two axes) and torsion `GJ/L`; `L` is the chunk spacing
   along the normal. E and G may be scaled (`sim.stiffness_scale`); strengths and
@@ -149,14 +154,21 @@ See the module docs for the equations. In brief:
   bonds is booked (`split_release`), not injected into the fragments.
 * **Solve modes** (`sim.solve_mode`):
   * `explicit` — central differences with stiffness-proportional dashpots, the
-    substep a safety fraction of the Gershgorin bound. **The ground truth.**
+    substep a safety fraction of the smallest per-chunk damped limit
+    `2/w (sqrt(1 + zeta^2) - zeta)`, with `w` and `zeta` from Gershgorin bounds on
+    each chunk's own stiffness and dashpot rows. **The ground truth.**
   * `implicit` (`implicit.rs`) — Newmark average acceleration at `sim.implicit_dt`
     (default the frame): `(K + gamma/(beta dt) C + M/(beta dt^2)) du = r`, i.e. the
     static solve plus one diagonal term; modified Newton with the joints' exact 6x6
     tangent (active contact springs, friction return map), secant fallback and line
     search; damage committed after convergence, so cascades spread over steps.
   * `quasi_static` (`statics.rs`) — equilibrium every frame (block-Jacobi PCG, inertia
-    relief for free clusters) with the same-step cascade.
+    relief for free clusters) with the same-step cascade. A cluster with no static
+    equilibrium (a mechanism, e.g. a joint yielding through) keeps its last
+    equilibrium and the frame is counted (`static_unconverged_frames`): damage is never
+    committed from a non-converged iterate (it used to be, which collapsed the villa
+    pack in one frame while the explicit solve breaks 15 of its 2464 bonds in 0.1 s).
+    `adaptive` keeps such a cluster explicit.
   * `adaptive` — explicit while recently loaded, quasi-static once quiet, no work
     while loads are steady.
 * **Stiffness vs mass scaling**: `sim.stiffness_scale` lowers E (the original
@@ -319,7 +331,7 @@ All results below are from this revision (`cargo test --release`, `stress-ref ch
 | 2 | chunked cantilever, N = 10/20/40 | Euler-Bernoulli (1%), exact discrete model (1e-6), OpenSees | tip 0.09-0.14%, root moment exact, frequency 0.07-0.15%; discrete model exact; OpenSees within 0.15% |
 | 3 | bar impact, true and scaled E | analytic (1%), OpenCourant | wave speed 0.57%, reflection 0.46-0.66%, free-end doubling 0.55%; OpenCourant within 1.6% |
 | 4 | sudden / gradual support loss | damped SDOF closed form (1%) | 1.9433 vs 1.9391 (0.22%); gradual 1.0014 |
-| 5 | ram speed sweep 2/10/40 m/s | OpenCourant | 2 and 10 m/s: push-over as OpenCourant, speed lost within 21-29%. **40 m/s: open** — ours punches a hole; OpenCourant pushes over at every mesh but that verdict rests on unconverged far-field cracking (see gaps) |
+| 5 | ram speed sweep 2/10/40 m/s | OpenCourant | 2 and 10 m/s: push-over as OpenCourant; speed lost at 10 m/s within 1%, at 2 m/s within 21% at a converged step but **bimodal** (41% at the default step, see gaps). **40 m/s: open** — ours punches a hole; OpenCourant pushes over at every mesh but that verdict rests on unconverged far-field cracking (see gaps) |
 | 6 | planar spall | 1-D analytic, OpenCourant | spall occurs in both (central back layer separates), layer speed 3.61 vs 3.02 m/s (19%), back-face peak 4.48 vs 4.83 m/s (7%; 1-D 4.94), front face intact in both |
 | 7 | masonry wall, 4 and 15 m/s | LMGC90, Kratos DEM, OpenCourant (ensemble) | breach in all; ball speed lost and debris speed inside the oracles' spread. The oracles disagree among themselves (4 m/s debris speed 0.07-3.7 m/s) |
 | 8 | frame column removal, sudden / gradual | OpenSees | redistribution within 0.01-0.3% (gradual), sudden elastic peaks within 2.3%; first failure matches |
@@ -387,8 +399,58 @@ All results below are from this revision (`cargo test --release`, `stress-ref ch
 * **Mass scaling** keeps statics exact and cuts substeps, but on uniform chunks every
   chunk is critical: 4x the step on the 40-chunk cantilever costs 15x the mass.
 
+### Performance (single thread, 4-core container)
+
+| scene | before the speedups | convex-hull commit | bit-identical speedups | + step bound |
+|---|---|---|---|---|
+| b5 wall impact 10 m/s | 75.3 s | 77.8 s | 55.1 s | 57.7 s |
+| b9 panel, high pressure | 14.3 s | 15.2 s | 11.5 s | 11.1 s |
+| house hit by a car | 56.6 s | 48.6 s | 45.6 s | 32.0 s |
+| floor drop | 28.2 s | 31.6 s | 24.2 s | 21.6 s |
+| car into brick wall | 1.23 s | 1.83 s | 1.46 s | 1.47 s |
+
+The bit-identical speedups reproduce every benchmark output bit for bit: substep
+phases evaluated from the start-of-substep state then applied in order, allocation-free
+contact sampling, bounding-sphere and separating-axis rejection of pairs that cannot
+touch, pair-contact memory moved instead of cloned and rehashed. A deterministic
+rayon pool is in place (results are identical for any thread count) but only takes
+loops above 4096 items: on 4 cores every benchmark scene ran as fast or faster
+serially. The per-chunk damped step bound (see "Solve modes") then gives house_car 30%
+fewer substeps and the imported house and villa 25-28x larger substeps; other scenes
+move by 0-2%.
+
+### Scene packs (`scene_pack.rs`, `examples/import_pack.rs`)
+
+The repository's authored destruction assets (`blast/blast-stress-demo-rs/assets/scenes`)
+import as oracle scenes: hull chunks (up to 64 vertices; the Voronoi-fractured v1 packs
+have more and are refused), supports, and bonds whose patches are recomputed from the
+touching faces (the asset's area where no shared face is found: 17 of 1652 in the
+house). Physics comes from the calibrated materials, not the assets' gameplay limits
+(their "reinforced concrete" breaks in tension at 11.5 MPa). Three assumptions, each
+from the assets' own conventions or a design code:
+
+* the ground is the assets' grade (`y = 0`, the demo's ground plane; footings are
+  embedded below it) and chunks reaching grade bear on it as supports;
+* reinforced-concrete joints carry the EN 1992-1-1 minimum reinforcement
+  (`max(0.26 fctm/fyk, 0.0013)`, 0.22% with the calibrated concrete and steel);
+* masonry units are joined by mortar, and a joint takes the asset's bond material.
+
+Under self-weight (`tests/hulls.rs`): rig-portal, comp-wall-bay and the 2-storey house
+stand; in the house the four mortar joints holding its solid steel rails
+(470 kg each) to the brick crack and the rails stay on their steel and concrete
+supports. The villa (1045 chunks) has no static equilibrium: its cantilevered stairs
+and roof parapets exceed plain/minimum-reinforced capacity, and an explicit run cracks
+them progressively (1, 1, 2, 10, 13, 15 broken bonds over the first 0.1 s, one piece).
+
 ### Known gaps
 
+* **b5 at 2 m/s is bimodal in the substep.** Speed lost is 1.152 m/s (150 broken
+  bonds, 21% from OpenCourant) at Courant safety 0.3 and 0.4 with either step bound,
+  but 1.34-1.50 m/s (230-282 bonds) at 0.45-0.5: in those runs the penalty contact
+  dissipates ~1500 J instead of ~350 J. With contact friction off it is 1.152 at every
+  step, so a frictional contact event (most likely debris wedged between the ram and
+  the wall) flips the outcome; capping the friction's viscosity harder does not remove
+  it. The gate fails at the default step.
 * **b5 at 40 m/s**: ours makes a local hole; OpenCourant pushes the wall over at 2, 3
   and 4 elements per chunk edge (a hole only at 1). The oracle mesh study
   (`golden_mesh/b5_wall_impact_v40/`) shows why this is not yet a usable verdict: the

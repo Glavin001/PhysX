@@ -31,8 +31,14 @@ mod coupling;
 
 /// Friction regularisation speed (m/s): below it friction scales linearly with slip speed.
 const FRICTION_REGULARIZATION: f64 = 1e-3;
-/// Largest viscous coefficient of one contact point, as a fraction of `m_red / dt`.
-const MAX_POINT_VISCOSITY: f64 = 0.1;
+/// Largest total viscous coefficient (normal dashpot or regularised friction) of one
+/// contact set (a chunk against one other body), as a fraction of `m_red / dt`. Its
+/// points share it, so a set stays stable however many points engage; a chunk may be
+/// in contact with a few sets at once (explicit stability needs `c dt / m < 2`).
+const MAX_SET_VISCOSITY: f64 = 1.0;
+/// Points over which a face pair spreads its stiffness and viscosity: a set engaging
+/// more never exceeds its face-pair values (the stable-substep assumption).
+const FACE_PAIR_POINTS: usize = 10;
 
 #[derive(Clone, Debug)]
 pub struct Impactor {
@@ -122,6 +128,9 @@ pub struct World {
     pub implicit_worst_residual: f64,
     /// Mass added by selective mass scaling, as a fraction of the total.
     pub added_mass_fraction: f64,
+    /// Quasi-static mode: frames in which some cluster had no static equilibrium (a
+    /// mechanism); it kept its last equilibrium.
+    pub static_unconverged_frames: usize,
     /// Contact force magnitude received by each chunk during the current substep.
     contact_hits: Vec<Vec<f64>>,
     /// Pre-existing overlap per sample point of chunk pairs in contact (NaN = point not
@@ -263,6 +272,7 @@ impl World {
             blast_caches: vec![None; scene.loads.len()],
             contact_dt: f64::INFINITY,
             added_mass_fraction: 0.0,
+            static_unconverged_frames: 0,
             implicit_report: Default::default(),
             implicit_worst_residual: 0.0,
             contact_hits,
@@ -604,8 +614,9 @@ impl World {
         normal: Vec3,
         rel_velocity: Vec3,
         dt: f64,
+        points: usize,
     ) -> Vec3 {
-        let (f, stored, dissipated) = penalty_force(k, m_red, restitution, friction, depth, normal, rel_velocity, dt);
+        let (f, stored, dissipated) = penalty_force(k, m_red, restitution, friction, depth, normal, rel_velocity, dt, points);
         self.contact.stored += stored;
         self.contact.dissipated += dissipated;
         f
@@ -651,16 +662,16 @@ impl World {
                     ImpactorShape::Sphere { radius } => {
                         if let Some(cp) = b.sphere_contact(imp.pose.position, radius - imp.crush_depth) {
                             // Normal from chunk to impactor: the chunk is pushed along -normal.
-                            contacts.push((s, c, kc, cp.point, -cp.normal, cp.depth));
+                            contacts.push((s, c, kc, cp.point, -cp.normal, cp.depth, 1));
                         }
                     }
                     ImpactorShape::Box { .. } => {
                         let shrunk = OBox { half: ib.half - Vec3::splat(imp.crush_depth).component_min(ib.half * 0.5), ..ib.clone() };
-                        for cp in b.points_inside(&shrunk) {
-                            contacts.push((s, c, kc / 10.0, cp.point, cp.normal, cp.depth));
-                        }
-                        for cp in shrunk.points_inside(b) {
-                            contacts.push((s, c, kc / 10.0, cp.point, -cp.normal, cp.depth));
+                        let mut points: Vec<(Vec3, Vec3, f64)> = b.points_inside(&shrunk).into_iter().map(|cp| (cp.point, cp.normal, cp.depth)).collect();
+                        points.extend(shrunk.points_inside(b).into_iter().map(|cp| (cp.point, -cp.normal, cp.depth)));
+                        let n = points.len();
+                        for (p, normal, depth) in points {
+                            contacts.push((s, c, kc / n.max(FACE_PAIR_POINTS) as f64, p, normal, depth, n));
                         }
                     }
                 }
@@ -682,7 +693,7 @@ impl World {
                     crush_factor = max_force / total;
                 }
             }
-            for (s, c, kc, point, normal, depth) in contacts {
+            for (s, c, kc, point, normal, depth, points) in contacts {
                 let m = self.solver.structures[s].chunks[c].mass;
                 let m_red = m * imp.mass / (m + imp.mass);
                 let v_chunk = self.solver.point_velocity(s, c, point);
@@ -696,6 +707,7 @@ impl World {
                     normal,
                     v_chunk - v_imp,
                     dt,
+                    points,
                 );
                 let center = self.solver.chunk_position(s, c);
                 self.loads.add_at(s, c, f, point, center);
@@ -718,15 +730,16 @@ impl World {
                     continue;
                 }
                 let b = self.cached_box(&mut boxes, k, s, c);
-                let kc = contact_stiffness(&gm, b, self.chunk_material(s, c), b, Vec3::Z, scale) / 5.0;
+                // A face resting flat engages 5 points (4 corners and its centre).
+                let kc = contact_stiffness(&gm, b, self.chunk_material(s, c), b, Vec3::Z, scale);
                 let m = self.solver.structures[s].chunks[c].mass;
-                for p in b.sample_points() {
+                let below: Vec<Vec3> = b.sample_points().into_iter().filter(|p| p.z < g.height).collect();
+                let n = below.len();
+                for p in below {
                     let depth = g.height - p.z;
-                    if depth <= 0.0 {
-                        continue;
-                    }
                     let v = self.solver.point_velocity(s, c, p);
-                    let f = self.contact_force(kc, m, self.scene.sim.contact_restitution, self.scene.sim.contact_friction.unwrap_or(g.friction), depth, Vec3::Z, v, dt);
+                    let mu = self.scene.sim.contact_friction.unwrap_or(g.friction);
+                    let f = self.contact_force(kc / n.max(5) as f64, m, self.scene.sim.contact_restitution, mu, depth, Vec3::Z, v, dt, n);
                     let center = self.solver.chunk_position(s, c);
                     self.loads.add_at(s, c, f, p, center);
                 }
@@ -743,13 +756,15 @@ impl World {
                     ImpactorShape::Box { .. } => imp.obox().sample_points().to_vec(),
                 };
                 let kp = kc / pts.len().min(5) as f64;
+                let n = pts.iter().filter(|p| p.z < g.height).count();
                 for p in pts {
                     let depth = g.height - p.z;
                     if depth <= 0.0 {
                         continue;
                     }
                     let v = imp.velocity + imp.angular_velocity.cross(p - imp.pose.position);
-                    let f = self.contact_force(kp, imp.mass, self.scene.sim.contact_restitution, self.scene.sim.contact_friction.unwrap_or(g.friction), depth, Vec3::Z, v, dt);
+                    let mu = self.scene.sim.contact_friction.unwrap_or(g.friction);
+                    let f = self.contact_force(kp, imp.mass, self.scene.sim.contact_restitution, mu, depth, Vec3::Z, v, dt, n);
                     imp_loads[ii].0 += f;
                     imp_loads[ii].1 += (p - imp.pose.position).cross(f);
                 }
@@ -900,7 +915,9 @@ impl World {
             SolveMode::QuasiStatic => {
                 let opts = StaticOptions { cascade: true, ..Default::default() };
                 let fl = self.frame_loads.clone();
-                self.solver.solve_static_all(&fl, &opts, self.scene.sim.frame_dt);
+                if !self.solver.solve_static_all(&fl, &opts, self.scene.sim.frame_dt).converged {
+                    self.static_unconverged_frames += 1;
+                }
                 self.topology_version += 1;
             }
             SolveMode::Implicit => {}
@@ -969,7 +986,11 @@ impl World {
                 continue;
             }
             let opts = StaticOptions { cascade: true, max_cascade: 1, ..Default::default() };
-            self.solver.equilibrate(ci, &self.loads, &opts);
+            if !self.solver.equilibrate_or_keep(ci, &self.loads, &opts).converged {
+                // No static equilibrium (a mechanism): it stays in the explicit solve.
+                self.solver.clusters[ci].active_timer = self.solver.config.active_time;
+                continue;
+            }
             self.solver.clusters[ci].activity = Activity::Settled;
             self.solver.clusters[ci].settled_load_norm = self.cluster_load_norm(ci);
         }
@@ -1320,6 +1341,9 @@ impl World {
         if self.scene.sim.solve_mode == SolveMode::Implicit {
             obs.values.insert("implicit_worst_residual".into(), self.implicit_worst_residual);
         }
+        if self.static_unconverged_frames > 0 {
+            obs.values.insert("static_unconverged_frames".into(), self.static_unconverged_frames as f64);
+        }
         if self.added_mass_fraction > 0.0 {
             obs.values.insert("added_mass_fraction".into(), self.added_mass_fraction);
         }
@@ -1378,10 +1402,11 @@ fn penalty_force(
     normal: Vec3,
     rel_velocity: Vec3,
     dt: f64,
+    points: usize,
 ) -> (Vec3, f64, f64) {
-    // Explicit integration stays stable only while every viscous coefficient acting
-    // on a chunk keeps `c dt / m` well below 2; a chunk may touch at ~20 points.
-    let c_max = MAX_POINT_VISCOSITY * m_red / dt;
+    // Explicit integration stays stable only while the viscous coefficients acting on a
+    // chunk keep `c dt / m` below 2: the `points` of this set share its budget.
+    let c_max = MAX_SET_VISCOSITY / points.max(FACE_PAIR_POINTS) as f64 * m_red / dt;
     let c = (2.0 * damping_ratio(restitution) * (k * m_red).sqrt()).min(c_max);
     let vn = rel_velocity.dot(normal);
     let fn_mag = (k * depth - c * vn).max(0.0);
@@ -1464,7 +1489,7 @@ fn pair_contact(
     // A face pair engages ~10 points; deeper overlaps engage more. Never let the
     // pair exceed its face-pair stiffness (the stable-timestep assumption).
     let engaged = effective.iter().filter(|e| e.2 > 0.0).count();
-    let k = k_pair / (engaged.max(10) as f64);
+    let k = k_pair / (engaged.max(FACE_PAIR_POINTS) as f64);
     let mut points = Vec::new();
     for (p, n, depth) in effective {
         if depth <= 0.0 {
@@ -1472,7 +1497,7 @@ fn pair_contact(
         }
         let va = solver.point_velocity(sa, ca, p);
         let vb = solver.point_velocity(sb, cb, p);
-        let (f, stored, dissipated) = penalty_force(k, m_red, scene.sim.contact_restitution, mu, depth, n, va - vb, dt);
+        let (f, stored, dissipated) = penalty_force(k, m_red, scene.sim.contact_restitution, mu, depth, n, va - vb, dt, engaged);
         points.push((p, f, stored, dissipated, f.dot(va - vb) * dt));
     }
     Some(PairContact { key, offsets: entry, centers: (solver.chunk_position(sa, ca), solver.chunk_position(sb, cb)), points })

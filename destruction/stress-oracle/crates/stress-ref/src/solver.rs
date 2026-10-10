@@ -12,8 +12,9 @@
 //! supported chunks) live in the static world frame and report support reactions.
 //!
 //! **Integration.** Explicit central differences with light stiffness-proportional
-//! damping; the substep is a safety fraction of the Gershgorin bound on the highest
-//! natural frequency. Settled clusters may instead be solved quasi-statically
+//! damping; the substep is a safety fraction of the smallest per-chunk damped
+//! central-difference limit, from Gershgorin bounds on each chunk's stiffness and
+//! dashpot rows. Settled clusters may instead be solved quasi-statically
 //! (`statics.rs`) and idle clusters sleep (`SolveMode::Adaptive`).
 //!
 //! **Fracture.** Bonds are evaluated every substep (`joint.rs`). When a bond stops
@@ -569,24 +570,17 @@ impl ReferenceSolver {
 
     // ------------------------------------------------------------------ timestep
 
-    /// Gershgorin bound on each chunk's squared natural frequency (rad^2/s^2) in a
-    /// cluster, with every bond at full stiffness (damage only lowers it) and the
-    /// chunk's (possibly scaled) deformation inertia. Returns `(chunk, omega^2)`.
-    pub fn chunk_frequencies(&self, ci: usize) -> Vec<(usize, f64)> {
+    /// Gershgorin row sums of a cluster's bond matrix for one per-bond coefficient set
+    /// (`coeffs` gives the 6 local components: shear t1, shear t2, axial, bending t1,
+    /// bending t2, torsion): per chunk, the 3 translational then 3 rotational rows.
+    fn gershgorin_rows(&self, ci: usize, coeffs: impl Fn(&RtBond) -> [f64; 6]) -> Vec<[f64; 6]> {
         let cl = &self.clusters[ci];
         let s = cl.structure;
-        let st = &self.structures[s];
-        let mut row = vec![[0.0f64; 6]; st.chunks.len()];
+        let mut row = vec![[0.0f64; 6]; self.structures[s].chunks.len()];
         for &bi in &cl.bonds {
             let b = &self.bonds[s][bi];
             let g = &b.geometry;
-            let mut k = b.stiffness.as_local();
-            if let Some(r) = &b.rebar {
-                k.lin.z += r.k_axial;
-                k.lin.x += r.k_dowel;
-                k.lin.y += r.k_dowel;
-            }
-            let ks = [k.lin.x, k.lin.y, k.lin.z, k.ang.x, k.ang.y, k.ang.z];
+            let ks = coeffs(b);
             let axes = [g.t1, g.t2, g.normal];
             for comp in 0..6 {
                 let t = axes[comp % 3];
@@ -605,7 +599,29 @@ impl ReferenceSolver {
                 }
             }
         }
-        cl.chunks
+        row
+    }
+
+    /// Full stiffness of a bond's 6 components (concrete plus rebar).
+    fn bond_stiffness6(b: &RtBond) -> [f64; 6] {
+        let mut k = b.stiffness.as_local();
+        if let Some(r) = &b.rebar {
+            k.lin.z += r.k_axial;
+            k.lin.x += r.k_dowel;
+            k.lin.y += r.k_dowel;
+        }
+        [k.lin.x, k.lin.y, k.lin.z, k.ang.x, k.ang.y, k.ang.z]
+    }
+
+    /// Gershgorin bound on each chunk's squared natural frequency (rad^2/s^2) in a
+    /// cluster, with every bond at full stiffness (damage only lowers it) and the
+    /// chunk's (possibly scaled) deformation inertia. Returns `(chunk, omega^2)`.
+    pub fn chunk_frequencies(&self, ci: usize) -> Vec<(usize, f64)> {
+        let row = self.gershgorin_rows(ci, Self::bond_stiffness6);
+        let st = &self.structures[self.clusters[ci].structure];
+        let s = self.clusters[ci].structure;
+        self.clusters[ci]
+            .chunks
             .iter()
             .map(|&c| {
                 let ch = &st.chunks[c];
@@ -617,9 +633,35 @@ impl ReferenceSolver {
             .collect()
     }
 
-    /// Gershgorin bound on the highest natural frequency (rad/s) of a cluster's deformation.
-    pub fn max_frequency(&self, ci: usize) -> f64 {
-        self.chunk_frequencies(ci).iter().map(|&(_, w2)| w2).fold(0.0, f64::max).sqrt()
+    /// Stable central-difference substep of each chunk of a cluster (before the safety
+    /// factor), `2/w (sqrt(1 + zeta^2) - zeta)` for every translational and rotational
+    /// row, with `w` and `zeta` from that row's own stiffness and dashpot sums
+    /// (Gershgorin). Each bond's dashpot is proportional to its own stiffness at its own
+    /// frequency, so a soft bond adds little damping: pairing one bond's damping ratio
+    /// with another chunk's frequency would overstate the damping.
+    pub fn chunk_stable_dts(&self, ci: usize) -> Vec<(usize, f64)> {
+        let k = self.gershgorin_rows(ci, Self::bond_stiffness6);
+        let c = self.gershgorin_rows(ci, |b| [b.damping.lin.x, b.damping.lin.y, b.damping.lin.z, b.damping.ang.x, b.damping.ang.y, b.damping.ang.z]);
+        let s = self.clusters[ci].structure;
+        self.clusters[ci]
+            .chunks
+            .iter()
+            .map(|&ch| {
+                let data = &self.structures[s].chunks[ch];
+                let mu = self.chunks[s][ch].inertia_scale;
+                let i_min = smallest_principal_moment(&data.inertia);
+                let dt = (0..6)
+                    .filter(|&d| k[ch][d] > 0.0)
+                    .map(|d| {
+                        let m = mu * if d < 3 { data.mass } else { i_min };
+                        let w = (k[ch][d] / m).sqrt();
+                        let zeta = c[ch][d] / (2.0 * m * w);
+                        2.0 / w * ((1.0 + zeta * zeta).sqrt() - zeta)
+                    })
+                    .fold(f64::INFINITY, f64::min);
+                (ch, dt)
+            })
+            .collect()
     }
 
     /// Selective mass scaling (explicit solve): give every chunk whose own stable
@@ -659,20 +701,7 @@ impl ReferenceSolver {
             if self.clusters[ci].bonds.is_empty() || settled {
                 continue;
             }
-            let w = self.max_frequency(ci);
-            if w <= 0.0 {
-                continue;
-            }
-            let zeta = self.clusters[ci]
-                .bonds
-                .iter()
-                .map(|&b| {
-                    let bd = &self.bonds[self.clusters[ci].structure][b];
-                    0.5 * bd.damping.lin.z / bd.stiffness.kn * w
-                })
-                .fold(0.0f64, f64::max);
-            let crit = 2.0 / w * ((1.0 + zeta * zeta).sqrt() - zeta);
-            dt = dt.min(crit);
+            dt = self.chunk_stable_dts(ci).iter().map(|&(_, d)| d).fold(dt, f64::min);
         }
         dt * self.config.courant_safety
     }

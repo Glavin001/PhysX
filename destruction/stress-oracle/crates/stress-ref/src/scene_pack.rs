@@ -14,6 +14,13 @@
 //! * Hull points are given relative to the node centroid; the chunk centre is moved to
 //!   the hull's centre of mass (exactly computed) and the points re-centred on it.
 //! * A node with zero mass is a support: the chunk is fixed.
+//! * The ground is the assets' grade, `y = 0` (the demo's ground plane); their footings
+//!   are embedded below it. A chunk reaching down to grade bears on the soil, which the
+//!   oracle does not model: it is a support, as the bottom courses of the oracle's own
+//!   scenes are.
+//! * Joints of reinforced concrete carry the code-minimum reinforcement (EN 1992-1-1
+//!   9.2.1.1: `As,min = max(0.26 fctm / fyk, 0.0013)` of the section), from the
+//!   calibrated concrete and steel; the assets give no reinforcement.
 //! * Bond patches are recomputed from the touching faces of the two chunks (area,
 //!   centroid, principal widths); the asset's centroid, normal and area are the fallback
 //!   where no shared face is found within the seam tolerance.
@@ -26,11 +33,24 @@ use crate::builders::{body, chunk, new_scene};
 use crate::hull::{contact_patch, ConvexHull, MAX_HULL_VERTICES};
 use crate::material::Material;
 use crate::math::Vec3;
-use crate::scene::{BondDesc, ChunkDesc, GroundDesc, Scene, Support};
+use crate::scene::{BondDesc, ChunkDesc, GroundDesc, RebarSpec, Scene, Support};
 
 /// Faces closer than this (m) count as touching: the assets' Voronoi cutter leaves
 /// hairline seams between neighbouring cells.
 const SEAM: f64 = 5e-3;
+
+/// The assets' ground plane (Z-up height).
+const GRADE: f64 = 0.0;
+
+/// Asset materials that are reinforced concrete.
+fn is_reinforced_concrete(asset: &str) -> bool {
+    matches!(asset, "reinforced-concrete" | "prestressed-concrete" | "concrete-slab" | "footing-anchor")
+}
+
+/// Code-minimum reinforcement ratio of a section (EN 1992-1-1 9.2.1.1).
+fn minimum_reinforcement(concrete: &Material, steel: &Material) -> f64 {
+    (0.26 * concrete.tensile_strength / steel.tensile_strength).max(0.0013)
+}
 
 /// The calibrated material standing for an asset material, as (chunk, joint) material
 /// names: masonry units are joined by mortar.
@@ -83,7 +103,7 @@ fn points(v: &Value) -> Vec<Vec3> {
 }
 
 /// Load the scene pack at `path` as a scene named `name` with one body `body_name`,
-/// on a ground at the bottom of its supports.
+/// on the assets' ground plane.
 pub fn import(path: &std::path::Path, name: &str, body_name: &str) -> Result<Scene, String> {
     let text = std::fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))?;
     let json: Value = serde_json::from_str(&text).map_err(|e| format!("{}: {e}", path.display()))?;
@@ -128,7 +148,8 @@ pub fn import(path: &std::path::Path, name: &str, body_name: &str) -> Result<Sce
         let half = hull.half_extents() * (1.0 + 1e-9);
         let mut c = chunk(centroid + com, half, mat);
         c.hull = Some(hull.vertices.iter().map(|v| v.to_array()).collect());
-        if node["mass"].as_f64().unwrap_or(0.0) <= 0.0 {
+        let lowest = hull.vertices.iter().map(|v| v.z).fold(f64::INFINITY, f64::min) + c.center[2];
+        if node["mass"].as_f64().unwrap_or(0.0) <= 0.0 || lowest <= GRADE + SEAM {
             c.support = Support::Fixed;
         }
         if let Some(t) = node_types.get(i).filter(|t| !t.is_empty()) {
@@ -164,6 +185,10 @@ pub fn import(path: &std::path::Path, name: &str, body_name: &str) -> Result<Sce
         if area <= 0.0 {
             continue;
         }
+        let rebar = is_reinforced_concrete(&asset_material).then(|| {
+            scene.materials.entry("steel".into()).or_insert_with(Material::steel);
+            RebarSpec { area: area * minimum_reinforcement(&Material::concrete(), &Material::steel()), material: "steel".into() }
+        });
         bonds.push(BondDesc {
             a,
             b: bb,
@@ -173,7 +198,7 @@ pub fn import(path: &std::path::Path, name: &str, body_name: &str) -> Result<Sce
             area,
             width,
             material: joint.to_string(),
-            rebar: None,
+            rebar,
             buckling_length: None,
             level: 0,
             groups: Vec::new(),
@@ -184,14 +209,8 @@ pub fn import(path: &std::path::Path, name: &str, body_name: &str) -> Result<Sce
         scene.description = format!("{} ({fallback} of {} bond patches from the asset's area, no shared face found)", scene.description, bonds.len());
     }
 
-    let bottom = chunks
-        .iter()
-        .filter(|c| c.support == Support::Fixed)
-        .map(|c| c.center[2] - c.half_extents[2])
-        .fold(f64::INFINITY, f64::min);
-    let ground = if bottom.is_finite() { bottom } else { chunks.iter().map(|c| c.center[2] - c.half_extents[2]).fold(f64::INFINITY, f64::min) };
     scene.materials.entry("concrete".into()).or_insert_with(Material::concrete);
-    scene.ground = Some(GroundDesc { height: ground, friction: 0.6, material: "concrete".into() });
+    scene.ground = Some(GroundDesc { height: GRADE, friction: 0.6, material: "concrete".into() });
     scene.bodies.push(body(body_name, chunks, bonds));
     scene.validate()?;
     Ok(scene)

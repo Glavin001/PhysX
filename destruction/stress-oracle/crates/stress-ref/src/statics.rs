@@ -13,7 +13,7 @@
 use crate::bond::Mat6;
 use crate::math::Vec3;
 use crate::scene::Support;
-use crate::solver::{Activity, ChunkLoads, ReferenceSolver};
+use crate::solver::{Activity, ChunkLoads, ChunkState, ReferenceSolver};
 
 pub(crate) type V6 = [f64; 6];
 
@@ -466,6 +466,23 @@ impl ReferenceSolver {
         report
     }
 
+    /// `equilibrate`, keeping the cluster's previous state when no equilibrium is found:
+    /// a mechanism (e.g. a joint yielding through) has no static solution, and damage
+    /// evaluated at a non-equilibrium iterate would be meaningless. Its motion needs the
+    /// dynamic solve.
+    pub fn equilibrate_or_keep(&mut self, ci: usize, loads: &ChunkLoads, opts: &StaticOptions) -> StaticReport {
+        let s = self.clusters[ci].structure;
+        let saved: Vec<(usize, ChunkState)> = self.clusters[ci].chunks.iter().map(|&c| (c, self.chunks[s][c])).collect();
+        let r = self.equilibrate(ci, loads, opts);
+        if !r.converged {
+            for (c, st) in saved {
+                self.chunks[s][c] = st;
+            }
+            self.refresh_bond_forces(ci);
+        }
+        r
+    }
+
     /// Re-evaluate and store each bond's force/energy without advancing history.
     pub fn refresh_bond_forces(&mut self, ci: usize) {
         let s = self.clusters[ci].structure;
@@ -522,13 +539,13 @@ impl ReferenceSolver {
                 if self.clusters[ci].bonds.is_empty() {
                     continue;
                 }
-                let r = self.equilibrate(ci, loads, opts);
+                let r = self.equilibrate_or_keep(ci, loads, opts);
                 total.newton_iterations += r.newton_iterations;
                 total.cg_iterations += r.cg_iterations;
                 total.residual = total.residual.max(r.residual);
                 total.converged &= r.converged;
                 self.clusters[ci].activity = Activity::Settled;
-                if opts.cascade {
+                if opts.cascade && r.converged {
                     // Static fatigue advances once per call, not per cascade pass.
                     let (changed, disc) = self.commit_damage(ci, if pass == 0 { dt } else { 0.0 });
                     any |= changed || disc;
