@@ -446,6 +446,15 @@ where an equilibrium exists, or fail sooner where none does. That is a method ch
 for a `sim.methods` switch, and nearly all of that cell's 47 s goes to these
 divergent iterations.
 
+Tried (experiment, not committed): a backtracking line search (step halved until the
+residual falls, down to 1e-6). The same 9 of 12 solves still fail, now with the
+relative residual held at 4 to 75 instead of growing to 1e27. The out-of-balance force
+stays several times the applied load: the panel has no static equilibrium under that
+pressure (a mechanism, the breach of the dynamic run). Keeping the last equilibrium is
+the physically right verdict, and globalising Newton changes nothing but the cost. Not
+adopted. A direct sparse solve would only make these failing iterations cheaper, in a
+mode three tests use once each, at round-off cost to exactness. Not pursued.
+
 ## Open (from the audit and `CPU Oracle Improvements to Prove First`)
 
 | # | Change | Class | Status |
