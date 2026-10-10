@@ -19,9 +19,14 @@ fn pooled() -> bool {
     rayon::current_num_threads() > 1
 }
 
+/// Whether `map` over `n` items runs on the calling thread.
+pub fn serial(n: usize) -> bool {
+    n < MIN_PARALLEL_ITEMS || !pooled()
+}
+
 /// `items.iter().map(f).collect()`, split over the worker pool, in item order.
 pub fn map<T: Sync, R: Send>(items: &[T], f: impl Fn(&T) -> R + Sync + Send) -> Vec<R> {
-    if items.len() < MIN_PARALLEL_ITEMS || !pooled() {
+    if serial(items.len()) {
         return items.iter().map(f).collect();
     }
     items.par_iter().with_min_len(MIN_PARALLEL_ITEMS / 4).map(f).collect()

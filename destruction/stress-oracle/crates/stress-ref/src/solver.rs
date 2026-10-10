@@ -822,14 +822,24 @@ impl ReferenceSolver {
             })
             .collect();
         crate::profile::count(crate::profile::Counter::BondEvaluations, bond_jobs.len() as u64);
-        let t_bonds = crate::profile::time(crate::profile::Stage::BondResponses);
-        let mut responses = crate::par::map(&bond_jobs, |&(s, bi)| self.bond_response(s, bi, dt, fracture)).into_iter();
-        drop(t_bonds);
-        let t_apply = crate::profile::time(crate::profile::Stage::ApplyBonds);
-        for &ci in &explicit {
-            self.apply_bond_responses(ci, &mut responses, t_mid);
+        if crate::par::serial(bond_jobs.len()) {
+            // On one thread each response is applied as it is computed (no list of them):
+            // a response reads only its bond and the chunks' motion, which applying the
+            // others does not change, so this is the same sweep.
+            let _t = crate::profile::time(crate::profile::Stage::BondResponses);
+            for &ci in &explicit {
+                self.apply_bond_responses(ci, &mut None::<std::iter::Empty<_>>, (dt, fracture), t_mid);
+            }
+        } else {
+            let t_bonds = crate::profile::time(crate::profile::Stage::BondResponses);
+            let responses = crate::par::map(&bond_jobs, |&(s, bi)| self.bond_response(s, bi, dt, fracture)).into_iter();
+            drop(t_bonds);
+            let _t = crate::profile::time(crate::profile::Stage::ApplyBonds);
+            let mut responses = Some(responses);
+            for &ci in &explicit {
+                self.apply_bond_responses(ci, &mut responses, (dt, fracture), t_mid);
+            }
         }
-        drop(t_apply);
         let t_loads = crate::profile::time(crate::profile::Stage::ChunkLoads);
         let chunk_jobs: Vec<(usize, usize)> =
             explicit.iter().enumerate().flat_map(|(k, &ci)| self.clusters[ci].chunks.iter().map(move |&c| (k, c))).collect();
@@ -1019,9 +1029,10 @@ impl ReferenceSolver {
         (resp, q, damped)
     }
 
-    /// Commit the bond responses of cluster `ci` (taken in bond order from `responses`):
-    /// joint states, internal chunk forces, energies and events.
-    fn apply_bond_responses(&mut self, ci: usize, responses: &mut impl Iterator<Item = (JointResponse, Local6, f64)>, t: f64) {
+    /// Commit the bond responses of cluster `ci` (taken in bond order from `responses`,
+    /// or computed here, over `(dt, fracture)`, without one): joint states, internal
+    /// chunk forces, energies and events.
+    fn apply_bond_responses(&mut self, ci: usize, responses: &mut Option<impl Iterator<Item = (JointResponse, Local6, f64)>>, (dt, fracture): (f64, bool), t: f64) {
         let s = self.clusters[ci].structure;
         for &c in &self.clusters[ci].chunks {
             self.f_int[s][c] = (Vec3::ZERO, Vec3::ZERO);
@@ -1030,7 +1041,10 @@ impl ReferenceSolver {
         let mut damped = 0.0;
         for k in 0..self.clusters[ci].bonds.len() {
             let bi = self.clusters[ci].bonds[k];
-            let (resp, q, bond_damped) = responses.next().expect("one response per bond");
+            let (resp, q, bond_damped) = match responses {
+                Some(list) => list.next().expect("one response per bond"),
+                None => self.bond_response(s, bi, dt, fracture),
+            };
             let (ga, gb) = {
                 let g = &self.bonds[s][bi].geometry;
                 (g.a, g.b)
