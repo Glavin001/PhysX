@@ -67,10 +67,15 @@ impl ConvexHull {
                     }
                     let mut normal = normal.normalized();
                     let mut offset = normal.dot(points[i]);
-                    let (lo, hi) = points.iter().fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), p| {
+                    // Points on both sides: not a face (most triples; stop at the first pair).
+                    let (mut lo, mut hi) = (f64::INFINITY, f64::NEG_INFINITY);
+                    for p in points {
                         let d = normal.dot(*p) - offset;
-                        (lo.min(d), hi.max(d))
-                    });
+                        (lo, hi) = (lo.min(d), hi.max(d));
+                        if lo < -tol && hi > tol {
+                            break;
+                        }
+                    }
                     if hi <= tol {
                         // All points behind: outward as computed.
                     } else if lo >= -tol {
@@ -188,8 +193,8 @@ impl ConvexHull {
 
     /// Contact sample points (hull frame): the corners pulled 10% towards the centre
     /// plus the face centroids, as for boxes.
-    pub fn sample_points(&self) -> Vec<Vec3> {
-        self.vertices.iter().map(|v| *v * 0.9).chain(self.faces.iter().map(|f| f.centroid)).collect()
+    pub fn samples(&self) -> impl Iterator<Item = Vec3> + '_ {
+        self.vertices.iter().map(|v| *v * 0.9).chain(self.faces.iter().map(|f| f.centroid))
     }
 }
 

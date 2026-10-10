@@ -22,7 +22,7 @@
 //! plus the hidden deformation velocity), conserving linear and angular momentum.
 
 use crate::bond::{BondGeometry, BondStiffness, Local6};
-use crate::joint::{fatigue_factor, FailureMode, JointModel, JointState, JointStrength, RebarParams, StressMeasures};
+use crate::joint::{fatigue_factor, FailureMode, JointModel, JointResponse, JointState, JointStrength, RebarParams, StressMeasures};
 use crate::math::{Mat3, Pose, Quat, Vec3};
 use crate::scene::{Features, Scene, SolveMode, Support};
 use crate::structure::{BondData, Structure};
@@ -682,25 +682,61 @@ impl ReferenceSolver {
     /// Advance every cluster by one explicit substep under the given external loads.
     pub fn substep(&mut self, dt: f64, loads: &ChunkLoads) {
         let t_mid = self.time + dt;
+        // Clusters integrated explicitly this substep. Their bond responses and chunk
+        // loads depend only on the state at the start of the substep, so all of them
+        // (across every cluster) are evaluated in parallel; the results are then applied
+        // cluster by cluster in index order, bond by bond, exactly as a sequential sweep
+        // would (bit-identical for any thread count).
+        let explicit: Vec<usize> = (0..self.clusters.len()).filter(|&ci| self.integrates_explicitly(ci)).collect();
+        let accel = crate::par::map(&explicit, |&ci| self.rigid_acceleration(ci, loads));
+        let fracture = self.config.fracture;
+        let bond_jobs: Vec<(usize, usize)> = explicit
+            .iter()
+            .flat_map(|&ci| {
+                let cl = &self.clusters[ci];
+                cl.bonds.iter().map(move |&bi| (cl.structure, bi))
+            })
+            .collect();
+        let mut responses = crate::par::map(&bond_jobs, |&(s, bi)| self.bond_response(s, bi, dt, fracture)).into_iter();
+        for &ci in &explicit {
+            self.apply_bond_responses(ci, &mut responses, t_mid);
+        }
+        let chunk_jobs: Vec<(usize, usize)> =
+            explicit.iter().enumerate().flat_map(|(k, &ci)| self.clusters[ci].chunks.iter().map(move |&c| (k, c))).collect();
+        let mut frame_loads = crate::par::map(&chunk_jobs, |&(k, c)| {
+            let (a, alpha) = accel[k];
+            self.frame_loads(explicit[k], c, loads, a, alpha, t_mid)
+        })
+        .into_iter();
+        let mut next = explicit.iter().zip(&accel).peekable();
         for ci in 0..self.clusters.len() {
-            let explicit = match self.config.mode {
-                SolveMode::Explicit => true,
-                SolveMode::QuasiStatic | SolveMode::Implicit => false,
-                SolveMode::Adaptive => self.clusters[ci].activity == Activity::Active,
-            };
-            if explicit {
-                self.substep_cluster(ci, dt, loads, t_mid);
-            } else {
-                if self.config.mode == SolveMode::Implicit {
-                    self.implicit_predict(ci, dt, loads, t_mid);
+            match next.peek() {
+                Some(&(&e, &(a, alpha))) if e == ci => {
+                    next.next();
+                    self.integrate_cluster(ci, dt, loads, a, alpha, &mut frame_loads);
                 }
-                self.advance_rigid_only(ci, dt, loads);
+                _ => {
+                    if self.config.mode == SolveMode::Implicit {
+                        self.implicit_predict(ci, dt, loads, t_mid);
+                    }
+                    self.advance_rigid_only(ci, dt, loads);
+                }
             }
         }
         self.time += dt;
         self.substeps += 1;
         if !self.pending_split.is_empty() {
             self.process_splits();
+        }
+    }
+
+    /// Whether cluster `ci` takes explicit substeps (the others are quasi-static,
+    /// implicit or settled and only move rigidly here).
+    fn integrates_explicitly(&self, ci: usize) -> bool {
+        match self.config.mode {
+            SolveMode::Explicit => true,
+            SolveMode::QuasiStatic | SolveMode::Implicit => false,
+            SolveMode::Adaptive => self.clusters[ci].activity == Activity::Active,
         }
     }
 
@@ -834,32 +870,33 @@ impl ReferenceSolver {
         self.integrate_rigid(ci, dt, a, alpha);
     }
 
-    fn substep_cluster(&mut self, ci: usize, dt: f64, loads: &ChunkLoads, t: f64) {
-        let (a, alpha) = self.rigid_acceleration(ci, loads);
+    /// Response of bond `bi` of structure `s` to the current chunk displacements, with
+    /// its dashpot force (from the lagged velocities) and the energy that dissipates.
+    fn bond_response(&self, s: usize, bi: usize, dt: f64, fracture: bool) -> (JointResponse, Local6, f64) {
+        let b = &self.bonds[s][bi];
+        let (sa, sb) = (self.chunks[s][b.geometry.a], self.chunks[s][b.geometry.b]);
+        let d = b.geometry.kinematics(sa.u, sa.th, sb.u, sb.th);
+        let rate = b.geometry.kinematics(sa.v, sa.w, sb.v, sb.w);
+        let resp = b.model().evaluate(&b.joint, &d, dt, fracture);
+        let factors = b.model().secant_factors(&resp.state, &d);
+        let q_damp = rate.mul_elem(&b.damping).mul_elem(&factors);
+        let q = resp.force.add(&q_damp);
+        let damped = q_damp.dot(&rate) * dt;
+        (resp, q, damped)
+    }
+
+    /// Commit the bond responses of cluster `ci` (taken in bond order from `responses`):
+    /// joint states, internal chunk forces, energies and events.
+    fn apply_bond_responses(&mut self, ci: usize, responses: &mut impl Iterator<Item = (JointResponse, Local6, f64)>, t: f64) {
         let s = self.clusters[ci].structure;
-        // Internal forces from the current displacements (and lagged velocities for damping).
         for &c in &self.clusters[ci].chunks {
             self.f_int[s][c] = (Vec3::ZERO, Vec3::ZERO);
         }
-        let fracture = self.config.fracture;
-        let bond_ids = self.clusters[ci].bonds.clone();
-        // Every bond's response depends only on the state at the start of the substep:
-        // evaluate them in parallel, then apply them in bond order (bit-identical).
-        let updates = crate::par::map(&bond_ids, |&bi| {
-            let b = &self.bonds[s][bi];
-            let (sa, sb) = (self.chunks[s][b.geometry.a], self.chunks[s][b.geometry.b]);
-            let d = b.geometry.kinematics(sa.u, sa.th, sb.u, sb.th);
-            let rate = b.geometry.kinematics(sa.v, sa.w, sb.v, sb.w);
-            let resp = b.model().evaluate(&b.joint, &d, dt, fracture);
-            let factors = b.model().secant_factors(&resp.state, &d);
-            let q_damp = rate.mul_elem(&b.damping).mul_elem(&factors);
-            let q = resp.force.add(&q_damp);
-            let damped = q_damp.dot(&rate) * dt;
-            (resp, q, damped)
-        });
         let mut dissipated = 0.0;
         let mut damped = 0.0;
-        for (bi, (resp, q, bond_damped)) in bond_ids.into_iter().zip(updates) {
+        for k in 0..self.clusters[ci].bonds.len() {
+            let bi = self.clusters[ci].bonds[k];
+            let (resp, q, bond_damped) = responses.next().expect("one response per bond");
             let (ga, gb) = {
                 let g = &self.bonds[s][bi].geometry;
                 (g.a, g.b)
@@ -884,16 +921,21 @@ impl ReferenceSolver {
         }
         self.energy.bond_dissipation += dissipated;
         self.energy.damping_dissipation += damped;
+    }
 
-        // Update chunk deformation (central difference: v at half steps).
-        let chunk_ids = self.clusters[ci].chunks.clone();
+    /// Central-difference update of cluster `ci`'s chunk deformation (velocities at half
+    /// steps) under the internal forces and its chunk loads (taken in chunk order from
+    /// `frame_loads`), then its rigid motion.
+    fn integrate_cluster(&mut self, ci: usize, dt: f64, loads: &ChunkLoads, a: Vec3, alpha: Vec3, frame_loads: &mut impl Iterator<Item = (Vec3, Vec3)>) {
+        let s = self.clusters[ci].structure;
         let (pose, cv, cw, com) = {
             let cl = &self.clusters[ci];
             (cl.pose, cl.velocity, cl.angular_velocity, cl.com)
         };
         let mut work = 0.0;
-        let frame_loads = crate::par::map(&chunk_ids, |&c| self.frame_loads(ci, c, loads, a, alpha, t));
-        for (c, (f_ext, m_ext)) in chunk_ids.into_iter().zip(frame_loads) {
+        for k in 0..self.clusters[ci].chunks.len() {
+            let c = self.clusters[ci].chunks[k];
+            let (f_ext, m_ext) = frame_loads.next().expect("one load per chunk");
             let (fi, mi) = self.f_int[s][c];
             let ch = &self.structures[s].chunks[c];
             let st = &mut self.chunks[s][c];
