@@ -533,8 +533,13 @@ impl World {
                 cl.active_timer = self.solver.config.active_time;
             }
         }
-        // Island contacts need the contact-limited substep; otherwise only the stress does.
-        let mut dt = if island_bodies > 0 { self.substep_dt() } else { self.solver.stable_dt().min(fdt) };
+        // The same substep as the standalone world (`substep_dt`), contacts or not: the
+        // engine only owns rigid motion, so the stress solution must not depend on it.
+        // (Taking only the stress limit without islands gave a larger step than the
+        // standalone world's under `scaled_step_bound`, and b3's reflected tension moved
+        // 0.6 % with it; with the established bound the two coincided.)
+        let _ = island_bodies;
+        let mut dt = self.substep_dt().min(fdt);
         if let Some(m) = self.scene.sim.max_substep {
             dt = dt.min(m);
         }

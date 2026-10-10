@@ -325,3 +325,53 @@ cited textbook factor, or the oracle's own uncertainty.
     remaining b5 failures are disagreements with an oracle whose contact stresses are
     uncapped, not convergence or ledger failures of ours. Closing them needs the
     oracle rerun with a crushing law (it runs on Linux; not available here).
+44. **Co-rotational bonds: designed, deferred** (User: not now; documented). The
+    angular-momentum leak of the small-strain bonds (about 5e-4 of |L0| at 40 m/s,
+    item 36) goes only with a bond energy that is invariant under finite rigid rotations
+    AND rotation variables used consistently by the hidden integrator; correcting only
+    the lever arms (second-order terms) leaves a leak of the same size, because the
+    additive rotation vector `th` turns the geometry at `J(th) w`, not `w`. The design:
+    (a) each chunk carries an exact hidden orientation `R` (cluster frame) advanced by
+    `exp(w dt)` (`w` the spin), `th = log R` kept only for compatibility; (b) the bond
+    strain is the gap between the deformed attachment points `g = (u_b + R_b r_b) -
+    (u_a + R_a r_a) - (r_b - r_a)` seen from the pair's mean frame `R_m = R_a
+    exp(phi/2)`, and the relative rotation `phi = log(R_a^T R_b)`; (c) the loads are the
+    exact gradient with respect to displacements and spins: `f = R_m q_lin`,
+    `m_a = (R_a r_a) x f + (I - K)^T (g x f) + R_a J_l^-1(phi)^T q_ang`,
+    `m_b = -(R_b r_b) x f + K^T (g x f) - R_a J_l^-1(phi)^T q_ang`, with
+    `K = R_m J_r(phi/2) J_l^-1(phi) R_a^T / 2` (the mean frame's share of `b`'s spin);
+    they balance exactly about any point; (d) the dashpot rate is the same Jacobian
+    applied to the hidden velocities and spins; (e) the drift fold turns `R` by
+    `exp(-phi)`, the split's exact transfer sets it, the implicit, static and refinement
+    paths set `R = exp(th)`. Behind a `corotational_bonds` switch, proven by the
+    angular-momentum test (the ledger then zero) and the energy tests. Not started in
+    the code (a partial wiring was reverted).
+45. **b5 at 2 m/s against an analytic estimate** (User: try it): the rigid push-over by
+    momentum alone (the wall turning about its toe, `I = m (h^2 + t^2) / 3`, perfectly
+    plastic at 1 m) loses 1.442 m/s; ours 1.418 (1.7 % below: the wall is not rigid),
+    OpenCourant 0.951 (34 % below). Added as a report metric
+    (`speed_lost_rigid_push`, not gated: an idealisation).
+46. **PhysX coupling verified on Linux (Docker, CPU-only SDK).** The PhysX SDK's
+    `linux-aarch64-clang-cpu-only` preset builds in Docker (snippets and PVD runtime
+    off: they need OpenGL); Blast's `build.rs` now compiles the adapter without CUDA
+    when the Linux SDK ships no GPU module (`PxCreateCudaContextManager` was left
+    undefined). `stress-physx` tests: 15 passed, 1 ignored. `stress-physx check`: every
+    gated metric but the four known b5 ones.
+47. **The coupled world takes the standalone world's substep (fix).** Without impact
+    islands it took only the stress limit, a larger step than the standalone world's
+    under `scaled_step_bound`; b3's reflected tension (1.25 %) and b4's dynamic
+    amplification (1.08 %) then failed their 1 % analytic gates in the coupled world
+    only. The bar's converged answer is 1006.6 (0.66 %: the chunk lattice); the larger
+    step added 0.6 % of time-step error. The stress solution must not depend on who
+    owns the rigid motion; with the established bound the two worlds already agreed
+    exactly. (The standalone contact limit assumes every chunk pressed on all faces,
+    conservative when nothing touches; `frame_contact_step` would lift it in both.)
+48. **OpenCourant rerun (x86 Docker, pinned release, hash-verified)** with a new
+    optional crushing law for the chunk solids (`--chunk-crushing`: J2 plasticity at
+    `f_c`, eroded at the plastic strain dissipating `G_c` per area over one element;
+    written as oracle `opencourant_crushing`, off by default so the goldens
+    reproduce). b5 at 2 m/s, speed lost: golden (1 element per chunk edge) 0.951;
+    Docker K = 1 0.940 (reproduces it); K = 2 1.055; K = 2 with crushing 1.068; ours
+    1.418; rigid push-over 1.442. Refining the oracle's mesh moves it toward ours
+    (fewer broken bonds: 805, 734, 642); crushing barely matters at 2 m/s. K = 3 and
+    40 m/s with crushing: see below.

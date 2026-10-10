@@ -55,6 +55,8 @@ def main(argv=None):
     ap.add_argument("--elements-per-chunk", type=int)
     ap.add_argument("--cohesive-thickness", type=float)
     ap.add_argument("--threads", type=int)
+    ap.add_argument("--chunk-crushing", action="store_true",
+                    help="chunk solids crush at f_c (J2, eroded at G_c per area): written as oracle `opencourant_crushing`")
     ap.add_argument("--rundir")
     ap.add_argument("--golden", default=os.path.join(ROOT, "golden"))
     ap.add_argument("--stress-ref", default=STRESS_REF, help="stress-ref binary used for `with-seed`")
@@ -79,7 +81,7 @@ def main(argv=None):
         scene = json.load(open(scene_path))
 
     cli = {"elements_per_chunk": a.elements_per_chunk, "cohesive_thickness": a.cohesive_thickness,
-           "threads": a.threads}
+           "threads": a.threads, "chunk_crushing": True if a.chunk_crushing else None}
     opts = export.options_from(scene, cli)
     meta = export.export(scene, rundir, opts)
     info = runner.run(rundir, name, threads=int(opts["threads"]))
@@ -90,7 +92,10 @@ def main(argv=None):
 
     out_dir = os.path.join(a.golden, name)
     os.makedirs(out_dir, exist_ok=True)
-    out = os.path.join(out_dir, f"opencourant{suffix}.json")
+    oracle = "opencourant_crushing" if opts.get("chunk_crushing") else "opencourant"
+    if oracle != "opencourant":
+        obs["solver"] = oracle
+    out = os.path.join(out_dir, f"{oracle}{suffix}.json")
     with open(out, "w") as f:
         json.dump(obs, f, separators=(",", ":"))
         f.write("\n")
@@ -100,7 +105,7 @@ def main(argv=None):
         if "TOTAL NUMBER OF CYCLES" in line:
             cycles = int(line.split(":")[1])
     prov = {
-        "oracle": "opencourant",
+        "oracle": oracle,
         "scene": name,
         "seed": seed,
         "scene_file": os.path.relpath(scene_path, ROOT) if scene_path.startswith(ROOT) else scene_path,
@@ -124,7 +129,7 @@ def main(argv=None):
         "host": platform.platform(),
         "rundir": rundir,
     }
-    with open(os.path.join(out_dir, f"provenance_opencourant{suffix}.json"), "w") as f:
+    with open(os.path.join(out_dir, f"provenance_{oracle}{suffix}.json"), "w") as f:
         json.dump(prov, f, indent=2)
         f.write("\n")
     print(f"wrote {out} (engine {info['engine_s']:.1f} s, {cycles} cycles)")

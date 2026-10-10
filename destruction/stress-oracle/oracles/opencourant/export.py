@@ -243,6 +243,10 @@ def options_from(scene, cli):
         "isolid": 24,
         "body_contact_stfac": 1.0,  # TYPE7 Stfac of body-body contacts
         "contact_damping": 0.05,  # TYPE7 VIS_S (fraction of critical damping, the Radioss default)
+        # Chunk solids crush (/MAT/LAW2, J2 plasticity at the compressive strength, eroded
+        # at the plastic strain that dissipates G_c per area over one element):
+        # off reproduces the committed goldens (elastic chunks, /MAT/LAW1).
+        "chunk_crushing": False,
     }
     for k, v in hints.items():
         if k in o:
@@ -294,20 +298,43 @@ def export(scene, outdir, opts):
     ])
     elastic_mat = {}
 
-    def solid_mat(name):
-        if name in elastic_mat:
-            return elastic_mat[name]
+    def solid_mat(name, element_size):
+        key = (name, element_size if opts.get("chunk_crushing") else None)
+        if key in elastic_mat:
+            return elastic_mat[key]
         mt = mats[name]
         mid = m.new("mat")
-        m.mats[mid] = "\n".join([
-            f"/MAT/LAW1/{mid}", f"{name} (elastic)",
-            "#              RHO_I", fnum(mt["density"] * RHO),
-            "#                  E                  nu",
-            fnum(mt["youngs_modulus"] * scale * P) + fnum(mt["poisson_ratio"]),
-        ])
+        if opts.get("chunk_crushing"):
+            # Crushing: von Mises plasticity at the uniaxial compressive strength (no
+            # hardening, no rate effect), the element eroded once its plastic strain
+            # reaches G_c / (f_c h): a crushed band one element thick has then dissipated
+            # the compressive fracture energy per area, as the reference's crushing does.
+            fc = mt["compressive_strength"]
+            gc = mt["fracture_energy"]["compression"]
+            eps_max = gc / (fc * element_size)
+            m.mats[mid] = "\n".join([
+                f"/MAT/LAW2/{mid}", f"{name} (crushing at f_c)",
+                "#              RHO_I", fnum(mt["density"] * RHO),
+                "#                  E                  Nu     Iflag    flagVP                Pmin",
+                fnum(mt["youngs_modulus"] * scale * P) + fnum(mt["poisson_ratio"]) + f"{0:10d}{0:10d}" + fnum(0.0),
+                "#                  a                   b                   n           EPS_p_max            SIG_max0",
+                fnum(fc * P) + fnum(0.0) + fnum(1.0) + fnum(eps_max) + fnum(0.0),
+                "#                  c           EPS_DOT_0       ICC   Fsmooth               F_cut               Chard",
+                fnum(0.0) + fnum(0.0) + f"{0:10d}{0:10d}" + fnum(0.0) + fnum(0.0),
+                "#                  m              T_melt              rhoC_p                 T_r               T_max",
+                fnum(0.0) + fnum(0.0) + fnum(0.0) + fnum(0.0) + fnum(0.0),
+            ])
+            notes.append(f"{name}: chunk solids crush at f_c = {fc:g} Pa (J2), eroded at plastic strain {eps_max:.4g} (G_c / (f_c h), h = {element_size:g} m)")
+        else:
+            m.mats[mid] = "\n".join([
+                f"/MAT/LAW1/{mid}", f"{name} (elastic)",
+                "#              RHO_I", fnum(mt["density"] * RHO),
+                "#                  E                  nu",
+                fnum(mt["youngs_modulus"] * scale * P) + fnum(mt["poisson_ratio"]),
+            ])
         pid = m.new("part")
         m.parts[pid] = {"title": f"chunks {name}", "prop": solid_prop, "mat": mid}
-        elastic_mat[name] = pid
+        elastic_mat[key] = pid
         return pid
 
     coh_parts = {}
@@ -376,7 +403,7 @@ def export(scene, outdir, opts):
         segs = []
         for ci, c in enumerate(chunks):
             ctr, h = c["center"], c["half_extents"]
-            pid = solid_mat(c["material"])
+            pid = solid_mat(c["material"], min(he_ax))
             n = [max(1, int(round(2 * h[a] / he_ax[a]))) for a in range(3)]
             lo = [ctr[a] - h[a] for a in range(3)]
             hi = [ctr[a] + h[a] for a in range(3)]

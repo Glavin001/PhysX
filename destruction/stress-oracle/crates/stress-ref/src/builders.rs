@@ -548,6 +548,17 @@ pub fn wall_impact(speed: f64, name: &str) -> Scene {
         o,
     ));
     s.metrics.push(metric("speed_lost", MetricKind::ProbeDrop { probe: "ram_velocity".into() }, Tolerance::Relative(0.30), None, o));
+    if speed <= 2.0 {
+        // The slow push-over by momentum alone: the wall (above the foundation, 2 m x
+        // 0.2 m x 2 m) as a rigid body turning about its toe, `I = m (h^2 + t^2) / 3`, the
+        // ram striking at `r = 1` m, perfectly plastic: the ram's angular momentum about
+        // the toe is shared, `v0 m_r r^2 / (I + m_r r^2)` remains. An idealisation (rigid
+        // wall, no rebound, no local damage), so reported against, not gated.
+        let (m_w, h, t, r, m_r) = (2400.0 * 2.0 * 0.2 * 2.0, 2.0, 0.2, 1.0, 1000.0);
+        let i_toe = m_w * (h * h + t * t) / 3.0;
+        let lost = speed * i_toe / (i_toe + m_r * r * r);
+        s.metrics.push(metric("speed_lost_rigid_push", MetricKind::ProbeDrop { probe: "ram_velocity".into() }, Tolerance::Report, num(lost), &[]));
+    }
     s.metrics.push(metric("peak_base_shear", MetricKind::ProbePeak { probe: "base_shear".into() }, Tolerance::Report, None, o));
     s
 }
