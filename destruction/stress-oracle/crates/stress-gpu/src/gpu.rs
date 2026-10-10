@@ -211,7 +211,16 @@ impl Gpu {
 
     /// Copy a buffer back to the host (blocking).
     pub fn read<T: bytemuck::Pod>(&self, buffer: &wgpu::Buffer) -> Vec<T> {
-        let size = buffer.size();
+        self.read_range(buffer, 0, buffer.size() as usize / std::mem::size_of::<T>())
+    }
+
+    /// Elements `[first, first + count)` of a buffer of `T`.
+    pub fn read_range<T: bytemuck::Pod>(&self, buffer: &wgpu::Buffer, first: usize, count: usize) -> Vec<T> {
+        let offset = (first * std::mem::size_of::<T>()) as u64;
+        let size = ((count * std::mem::size_of::<T>()) as u64).div_ceil(4) * 4;
+        if size == 0 {
+            return Vec::new();
+        }
         let staging = self.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("readback"),
             size,
@@ -219,7 +228,7 @@ impl Gpu {
             mapped_at_creation: false,
         });
         let mut encoder = self.device.create_command_encoder(&Default::default());
-        encoder.copy_buffer_to_buffer(buffer, 0, &staging, 0, size);
+        encoder.copy_buffer_to_buffer(buffer, offset, &staging, 0, size);
         self.queue.submit([encoder.finish()]);
         staging.map_async(wgpu::MapMode::Read, .., |r| r.expect("map readback"));
         self.device.poll(wgpu::PollType::wait_indefinitely()).expect("poll");

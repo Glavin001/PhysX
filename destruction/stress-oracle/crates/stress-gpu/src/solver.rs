@@ -275,6 +275,8 @@ pub const KERNEL_NAMES: [&str; 12] = [
 ];
 /// Contact contributions per segment (`contact_sums`, one thread each).
 const SEGMENT: usize = 8;
+/// Most per-substep rounds per submission.
+const MAX_BATCH_ROUNDS: usize = 2048;
 /// Dispatches per submission while profiling (2 timestamps each).
 const TIMED_DISPATCHES: usize = 2048;
 
@@ -389,6 +391,11 @@ pub struct GpuSolver {
     /// GPU submissions, host splits and contact re-plans so far.
     pub dispatches: u64,
     pub host_splits: u64,
+    /// Halts whose disconnections left the cluster whole (resumed on the GPU).
+    pub resumed_halts: u64,
+    /// Per-substep rounds per submission: small after a split, doubling while none
+    /// occurs (kept across steps).
+    batch_rounds: usize,
     pub replans: u64,
     pub profile: Profile,
 }
@@ -434,6 +441,8 @@ impl GpuSolver {
             step_times,
             dispatches: 0,
             host_splits: 0,
+            resumed_halts: 0,
+            batch_rounds: 16,
             replans: 0,
             profile: Profile::default(),
         })
@@ -1012,7 +1021,7 @@ impl GpuSolver {
         // Pipeline substeps per submission: a halt (split, re-plan) stops the rest of a
         // submission, whose dispatches still launch; small chunks after a halt, growing
         // while none occurs.
-        let mut chunk = 16usize;
+        let mut chunk = self.batch_rounds;
         // Impactor velocity and position after every substep (for the impactor probes).
         let mut impactor_records = vec![vec![(Vec3::splat(f64::NAN), Vec3::splat(f64::NAN)); substeps]; self.impactors.len()];
         loop {
@@ -1208,10 +1217,18 @@ impl GpuSolver {
                     break;
                 }
                 // The pipeline ran a full chunk without a halt: continue with a larger one.
-                chunk = (chunk * 2).min(512);
+                chunk = (chunk * 2).min(MAX_BATCH_ROUNDS);
+                self.batch_rounds = chunk;
+                continue;
+            }
+            // A disconnection that leaves its cluster in one piece changes nothing
+            // (`split_cluster` returns): those islands resume without a host round trip.
+            if !replan && halted.iter().all(|&ci| self.still_connected(gpu, ci)) {
+                self.resumed_halts += halted.len() as u64;
                 continue;
             }
             chunk = 16;
+            self.batch_rounds = chunk;
             // Split the halted clusters on the host mirror, at the time they reached;
             // re-plan contacts from the state reached.
             let t_split = std::time::Instant::now();
@@ -1293,6 +1310,41 @@ impl GpuSolver {
             }
         }
         Ok(out)
+    }
+
+    /// Whether cluster `ci` stays one piece with the bonds that disconnected on the GPU
+    /// since the last download (their break events are pending there) removed.
+    fn still_connected(&self, gpu: &Gpu, ci: usize) -> bool {
+        let isl = &self.layout.islands[ci];
+        let (first, last) = (isl.range[2] as usize, isl.range[3] as usize);
+        let dyns: Vec<BondDyn> = gpu.read_range(&self.buffers.bond_dyn, first, last - first);
+        let m = &self.mirror;
+        let cl = &m.clusters[ci];
+        let s = cl.structure;
+        let mut broken = std::collections::HashSet::new();
+        for (k, d) in dyns.iter().enumerate() {
+            if d.events[2] != 0 {
+                broken.insert(self.layout.bonds[first + k].1);
+            }
+        }
+        let mut member = std::collections::HashSet::new();
+        member.extend(cl.chunks.iter().copied());
+        let mut seen = std::collections::HashSet::new();
+        let mut queue = vec![cl.chunks[0]];
+        seen.insert(cl.chunks[0]);
+        while let Some(c) = queue.pop() {
+            for &bi in &m.chunk_bonds[s][c] {
+                let b = &m.bonds[s][bi];
+                if !b.connected() || broken.contains(&bi) {
+                    continue;
+                }
+                let o = if b.geometry.a == c { b.geometry.b } else { b.geometry.a };
+                if member.contains(&o) && seen.insert(o) {
+                    queue.push(o);
+                }
+            }
+        }
+        seen.len() == cl.chunks.len()
     }
 
     /// Copy the GPU state into the mirror: hidden state, reactions, bond history and

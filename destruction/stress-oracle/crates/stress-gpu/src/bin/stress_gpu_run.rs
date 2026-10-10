@@ -72,10 +72,11 @@ fn main() {
     if profile {
         let p = &world.solver.profile;
         eprintln!(
-            "profile: substeps {}, batches {}, splits {}, re-plans {}, max pairs {}, max impactor candidates {}; build {:.2} s, gpu {:.2} s, readback {:.2} s, split {:.2} s, download {:.2} s",
+            "profile: substeps {}, batches {}, splits {} (+{} resumed), re-plans {}, max pairs {}, max impactor candidates {}; build {:.2} s, gpu {:.2} s, readback {:.2} s, split {:.2} s, download {:.2} s",
             p.substeps,
             p.batches,
             world.solver.host_splits,
+            world.solver.resumed_halts,
             world.solver.replans,
             p.max_pairs,
             p.max_impactor_candidates,
