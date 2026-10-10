@@ -280,6 +280,8 @@ pub const KERNEL_NAMES: [&str; 12] = [
 ];
 /// Contact contributions per segment (`contact_sums`, one thread each).
 const SEGMENT: usize = 8;
+/// Steps a contact plan covers (re-planned sooner when a chunk leaves its budget).
+const PLAN_STEPS: f64 = 4.0;
 /// Most per-substep rounds per submission.
 const MAX_BATCH_ROUNDS: usize = 2048;
 /// Dispatches per submission while profiling (2 timestamps each).
@@ -320,6 +322,9 @@ const WORLD_BINDINGS: [Binding; 12] = [
 ];
 
 struct Buffers {
+    /// Static bond data and the material table (unchanged while the topology is).
+    bonds_static: wgpu::Buffer,
+    materials: wgpu::Buffer,
     /// Dispatch params: segment mode (contact_mode 0) and per-substep mode (1).
     params_segment: wgpu::Buffer,
     params_contact: wgpu::Buffer,
@@ -399,6 +404,10 @@ pub struct GpuSolver {
     pub host_splits: u64,
     /// Halts whose disconnections left the cluster whole (resumed on the GPU).
     pub resumed_halts: u64,
+    /// The GPU's bond history is ahead of the mirror's (synced lazily, `sync`).
+    bonds_stale: bool,
+    /// Time until which the current contact plan covers the motion.
+    plan_until: f64,
     /// Per-substep rounds per submission: small after a split, doubling while none
     /// occurs (kept across steps).
     batch_rounds: usize,
@@ -431,7 +440,7 @@ impl GpuSolver {
         let step_times = vec![mirror.time];
         let mut loads = loads;
         let pair_memory = HashMap::new();
-        let (layout, buffers) = Self::build(gpu, &kernels, &mirror, loads.as_mut(), &impactors, &pair_memory, 4, 0.0)?;
+        let (layout, buffers) = Self::build(gpu, &kernels, &mirror, loads.as_mut(), &impactors, &pair_memory, 4, 0.0, None)?;
         Ok(GpuSolver {
             mirror,
             loads,
@@ -449,6 +458,8 @@ impl GpuSolver {
             dispatches: 0,
             host_splits: 0,
             resumed_halts: 0,
+            bonds_stale: false,
+            plan_until: f64::NEG_INFINITY,
             batch_rounds: 16,
             replans: 0,
             profile: Profile::default(),
@@ -457,9 +468,15 @@ impl GpuSolver {
 
     /// Rebuild every buffer from the mirror (after the host changed topology or loads),
     /// planning contacts for the next `horizon` seconds.
+    /// The mirror must be current (`sync` before changing it): everything is uploaded
+    /// from it.
     pub fn rebuild(&mut self, gpu: &Gpu, horizon: f64) -> Result<(), String> {
+        if self.bonds_stale {
+            return Err("rebuild from a mirror whose bonds lag the GPU (sync first)".into());
+        }
         let stride = self.buffers.params.probe_stride;
-        let (layout, buffers) = Self::build(gpu, &self.kernels, &self.mirror, self.loads.as_mut(), &self.impactors, &self.pair_memory, stride, horizon)?;
+        self.plan_until = self.mirror.time + horizon;
+        let (layout, buffers) = Self::build(gpu, &self.kernels, &self.mirror, self.loads.as_mut(), &self.impactors, &self.pair_memory, stride, horizon, None)?;
         self.layout = layout;
         self.buffers = buffers;
         Ok(())
@@ -480,6 +497,7 @@ impl GpuSolver {
         pair_memory: &HashMap<PairKey, PairState>,
         probe_stride: u32,
         horizon: f64,
+        keep: Option<&Buffers>,
     ) -> Result<(Layout, Buffers), String> {
         if m.config.mode == SolveMode::Implicit {
             return Err("the implicit solve mode is not on the GPU yet".into());
@@ -939,12 +957,26 @@ impl GpuSolver {
 
         let params_segment = gpu.uniform("params segment", &params);
         let params_contact = gpu.uniform("params contact", &params);
-        let materials = gpu.uniform_slice("materials", &materials);
-        let bonds_buf = gpu.storage("bond static", &bond_static);
+        // A re-plan (same topology) keeps the GPU's chunk state, bond history and static
+        // bond data: the GPU holds the current values, the mirror may lag.
+        let materials = match keep {
+            Some(k) => k.materials.clone(),
+            None => gpu.uniform_slice("materials", &materials),
+        };
+        let bonds_buf = match keep {
+            Some(k) => k.bonds_static.clone(),
+            None => gpu.storage("bond static", &bond_static),
+        };
         let chunks_buf = gpu.storage("chunk static", &chunk_static);
         let index_buf = gpu.storage("index", &index);
-        let state = gpu.storage("state", &state);
-        let bond_dyn_buf = gpu.storage("bond dyn", &bond_dyn);
+        let state = match keep {
+            Some(k) => k.state.clone(),
+            None => gpu.storage("state", &state),
+        };
+        let bond_dyn_buf = match keep {
+            Some(k) => k.bond_dyn.clone(),
+            None => gpu.storage("bond dyn", &bond_dyn),
+        };
         let mut scratch_init = vec![[0f32; 4]; scratch_len];
         // Bond loads from the mirror's forces: settled islands keep them (their bonds are
         // not evaluated) for the section probes.
@@ -975,6 +1007,8 @@ impl GpuSolver {
         Ok((
             Layout { chunks, bonds, islands, items: layout_items, plan, pair_state, gpu_impactors },
             Buffers {
+                bonds_static: bonds_buf.clone(),
+                materials: materials.clone(),
                 params_segment,
                 params_contact,
                 params,
@@ -1002,10 +1036,24 @@ impl GpuSolver {
     pub fn step(&mut self, gpu: &Gpu, dt: f64, substeps: usize) -> Result<Vec<Vec<f64>>, String> {
         let stride = (substeps as u32).div_ceil(4) * 4;
         let horizon = dt * substeps as f64;
-        if stride > self.buffers.params.probe_stride || self.contacts_possible() {
+        let start_time = self.mirror.time;
+        let replan = self.contacts_possible() && start_time + horizon > self.plan_until * (1.0 + 1e-12) + 1e-12;
+        if stride > self.buffers.params.probe_stride || replan {
+            // A longer probe stride re-lays the scratch: a full rebuild from the synced
+            // mirror. Otherwise a contact re-plan, from the positions the GPU reached
+            // (synced after every step), keeping state and bond history resident. Plans
+            // cover PLAN_STEPS steps; the GPU's travel check re-plans sooner when a chunk
+            // outruns its budget.
             let t = std::time::Instant::now();
+            let full = stride > self.buffers.params.probe_stride;
+            let horizon = if self.contacts_possible() { horizon * PLAN_STEPS } else { 0.0 };
+            self.plan_until = start_time + horizon;
+            if full {
+                self.sync(gpu);
+            }
             let stride = stride.max(self.buffers.params.probe_stride);
-            let (layout, buffers) = Self::build(gpu, &self.kernels, &self.mirror, self.loads.as_mut(), &self.impactors, &self.pair_memory, stride, horizon)?;
+            let keep = if full { None } else { Some(&self.buffers) };
+            let (layout, buffers) = Self::build(gpu, &self.kernels, &self.mirror, self.loads.as_mut(), &self.impactors, &self.pair_memory, stride, horizon, keep)?;
             self.layout = layout;
             self.buffers = buffers;
             self.profile.build += t.elapsed().as_secs_f64();
@@ -1272,13 +1320,15 @@ impl GpuSolver {
             }
             self.mirror.time = self.step_times[start];
             let left_now = remaining.values().copied().max().unwrap_or(0).max(pipeline_left);
-            let (layout, buffers) = Self::build(gpu, &self.kernels, &self.mirror, self.loads.as_mut(), &self.impactors, &self.pair_memory, self.buffers.params.probe_stride, dt * left_now as f64)?;
+            self.plan_until = self.mirror.time + dt * left_now as f64;
+            let (layout, buffers) = Self::build(gpu, &self.kernels, &self.mirror, self.loads.as_mut(), &self.impactors, &self.pair_memory, self.buffers.params.probe_stride, dt * left_now as f64, None)?;
             self.layout = layout;
             self.buffers = buffers;
             self.profile.split += t_split.elapsed().as_secs_f64();
         }
         let t = std::time::Instant::now();
-        self.download(gpu);
+        self.sync_motion(gpu);
+        self.bonds_stale = true;
         self.profile.download += t.elapsed().as_secs_f64();
         self.mirror.time = self.step_times[start + substeps];
         self.mirror.substeps = (start + substeps) as u64;
@@ -1366,18 +1416,28 @@ impl GpuSolver {
     /// forces, cluster motion, energies (accumulated since the last download), events,
     /// impactors and the contacts' overlap memory.
     pub fn download(&mut self, gpu: &Gpu) {
+        self.sync_motion(gpu);
+        self.sync_bonds(gpu);
+    }
+
+    /// Bring the mirror's bonds (history, forces, energies, events) up to the GPU's, if
+    /// they lag: before the host changes the mirror, and for observations.
+    pub fn sync(&mut self, gpu: &Gpu) {
+        if self.bonds_stale {
+            self.sync_bonds(gpu);
+        }
+    }
+
+    /// The mirror's motion from the GPU: chunk state, cluster poses and work, impactors,
+    /// contact energies and overlap memory, recorded loads. Cheap: no bond data.
+    fn sync_motion(&mut self, gpu: &Gpu) {
         let state: Vec<[f32; 4]> = gpu.read(&self.buffers.state);
-        let bond_dyn: Vec<BondDyn> = gpu.read(&self.buffers.bond_dyn);
         let mut islands: Vec<Island> = gpu.read(&self.buffers.islands);
         let sentinel = islands.pop().unwrap_or_default();
         let m = &mut self.mirror;
         // Settled islands' chunks and bonds never change on the GPU: the mirror keeps its
         // own (f64) equilibrium for them, which the next static solve starts from.
         let frozen: Vec<bool> = self.layout.islands.iter().map(|isl| isl.info[0] & ISLAND_SETTLED != 0).collect();
-        let mut frozen_bond = vec![false; self.layout.bonds.len()];
-        for isl in self.layout.islands.iter().filter(|isl| isl.info[0] & ISLAND_SETTLED != 0) {
-            frozen_bond[isl.range[2] as usize..isl.range[3] as usize].fill(true);
-        }
         for (k, &(s, c)) in self.layout.chunks.iter().enumerate() {
             if frozen[m.chunks[s][c].cluster] {
                 continue;
@@ -1479,6 +1539,17 @@ impl GpuSolver {
                     }
                 }
             }
+        }
+    }
+
+    /// The mirror's bonds from the GPU (and the GPU's per-sync accumulators reset).
+    fn sync_bonds(&mut self, gpu: &Gpu) {
+        self.bonds_stale = false;
+        let bond_dyn: Vec<BondDyn> = gpu.read(&self.buffers.bond_dyn);
+        let m = &mut self.mirror;
+        let mut frozen_bond = vec![false; self.layout.bonds.len()];
+        for isl in self.layout.islands.iter().filter(|isl| isl.info[0] & ISLAND_SETTLED != 0) {
+            frozen_bond[isl.range[2] as usize..isl.range[3] as usize].fill(true);
         }
         // Events in the reference's order: by substep, then cluster, then bond.
         let mut events: Vec<(u32, usize, usize, u8, SolverEvent)> = Vec::new();
@@ -1687,6 +1758,27 @@ impl GpuSolver {
             out.push(eq);
         }
         out
+    }
+
+    /// Write the mirror's bond state (history, forces) of `clusters` to the GPU, with the
+    /// per-sync accumulators zeroed: for changes the host made to bonds that do not run
+    /// on the GPU (settled clusters' static fatigue).
+    pub fn upload_bonds(&mut self, gpu: &Gpu, clusters: &[usize]) {
+        let m = &self.mirror;
+        for &ci in clusters {
+            let isl = self.layout.islands[ci];
+            let (b0, b1) = (isl.range[2] as usize, isl.range[3] as usize);
+            let data: Vec<BondDyn> = (b0..b1)
+                .map(|k| {
+                    let (s, bi) = self.layout.bonds[k];
+                    let b = &m.bonds[s][bi];
+                    BondDyn { js: to_gpu_state(&b.joint), force_lin: v4(b.force.lin, b.stored), force_ang: v4(b.force.ang, b.joint.utilization), ..Default::default() }
+                })
+                .collect();
+            if !data.is_empty() {
+                gpu.queue.write_buffer(&self.buffers.bond_dyn, (std::mem::size_of::<BondDyn>() * b0) as u64, bytemuck::cast_slice(&data));
+            }
+        }
     }
 
     /// GPU order of chunks (structure, chunk).

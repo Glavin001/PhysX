@@ -52,6 +52,7 @@ fn compare(name: &str, mut scene: Scene, frames: usize, per_frame: usize) {
         }
         solver.step(&gpu, dt, per_frame).expect("GPU step");
     }
+    solver.sync(&gpu);
     let gpu_m = &solver.mirror;
     // Events: same kinds, bonds and order; times equal.
     let ref_events: Vec<String> = reference.events.iter().map(event_key).collect();

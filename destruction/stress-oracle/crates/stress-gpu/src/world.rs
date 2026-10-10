@@ -110,11 +110,17 @@ impl GpuWorld {
     }
 
     /// Apply scripted events due at time `t` (world.rs `process_events`). True if any.
-    fn process_events(&mut self, t: f64) -> bool {
+    fn process_events(&mut self, gpu: &Gpu, t: f64) -> bool {
         let mut any = false;
         for ei in 0..self.scene.events.len() {
             if self.events_done[ei] {
                 continue;
+            }
+            let due = match &self.scene.events[ei] {
+                EventDesc::RemoveChunks { time, .. } | EventDesc::RemoveSupports { time, .. } => t + 1e-12 >= *time,
+            };
+            if due {
+                self.solver.sync(gpu);
             }
             let m = &mut self.solver.mirror;
             match self.scene.events[ei].clone() {
@@ -165,9 +171,10 @@ impl GpuWorld {
         let mut done = 0;
         while done < n {
             let t = self.solver.mirror.time;
-            let changed = self.process_events(t);
+            let changed = self.process_events(gpu, t);
             let blast = self.blasts_starting(t);
             if changed || blast {
+                self.solver.sync(gpu);
                 if let Some(l) = self.solver.loads.as_mut() {
                     l.topology_version += changed as u64;
                 }
@@ -203,6 +210,9 @@ impl GpuWorld {
         }
         self.frame += 1;
         let tail = std::time::Instant::now();
+        if self.scene.sim.solve_mode != SolveMode::Explicit {
+            self.solver.sync(gpu);
+        }
         let changed = match self.scene.sim.solve_mode {
             SolveMode::QuasiStatic => {
                 // world.rs: the frame's average loads, equilibrium with same-step cascade.
@@ -215,7 +225,12 @@ impl GpuWorld {
             }
             SolveMode::Adaptive => {
                 let settled = self.settle_quiet_clusters(gpu);
-                self.advance_settled_fatigue() || settled
+                let (fatigued, structural) = self.advance_settled_fatigue();
+                if !(settled || structural) {
+                    // Only settled bonds' history moved: no rebuild.
+                    self.solver.upload_bonds(gpu, &fatigued);
+                }
+                settled || structural
             }
             _ => false,
         };
@@ -331,19 +346,21 @@ impl GpuWorld {
 
     /// world.rs `advance_settled_fatigue`: settled clusters' bonds evaluated at their
     /// equilibrium with the frame's duration; damage wakes the cluster, a disconnection
-    /// splits it. True if anything changed.
-    fn advance_settled_fatigue(&mut self) -> bool {
+    /// splits it. The clusters evaluated, and whether any woke or split.
+    fn advance_settled_fatigue(&mut self) -> (Vec<usize>, bool) {
         let fdt = self.scene.sim.frame_dt;
         let m = &mut self.solver.mirror;
         let mut any = false;
+        let mut fatigued = Vec::new();
         for ci in (0..m.clusters.len()).rev() {
             let cl = &m.clusters[ci];
             if cl.activity != Activity::Settled || cl.bonds.is_empty() {
                 continue;
             }
             let (changed, disconnected) = m.commit_damage(ci, fdt);
-            any = true;
+            fatigued.push(ci);
             if changed || disconnected {
+                any = true;
                 m.clusters[ci].activity = Activity::Active;
                 m.clusters[ci].active_timer = m.config.active_time;
             }
@@ -351,7 +368,7 @@ impl GpuWorld {
                 m.split_cluster(ci);
             }
         }
-        any
+        (fatigued, any)
     }
 
     /// Run the scene to its duration and return the observation.
@@ -360,10 +377,12 @@ impl GpuWorld {
         while self.frame < frames {
             self.step_frame(gpu)?;
         }
+        self.solver.sync(gpu);
         Ok(self.observation())
     }
 
     /// The observation (world.rs `observation`, on the GPU state), with the GPU's probes.
+    /// The mirror's bonds must be synced (`GpuSolver::sync`; `run` does).
     pub fn observation(&mut self) -> Observation {
         let mut obs = self.with_shell(|w| w.observation());
         obs.solver = "stress-gpu".into();
