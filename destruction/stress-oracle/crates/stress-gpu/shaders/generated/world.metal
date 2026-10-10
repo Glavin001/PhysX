@@ -3519,6 +3519,7 @@ float damage_law_0(uint kind_2, float kappa_1, float r_8)
     return 1.0f - _S617;
 }
 
+__attribute__((noinline))
 float2 damage_increment_0(uint kind_3, float kappa_old_0, float lambda_0, float r_9, float d_old_0, float psi_0)
 {
     float _S618 = damage_law_0(kind_3, lambda_0, r_9);
@@ -3689,6 +3690,7 @@ void compressed_region_0(float w0_0, float w1_0, float dz_0, float ax_0, float a
     return;
 }
 
+__attribute__((noinline))
 float4 no_tension_patch_0(float kn_0, float w0_1, float w1_1, float dz_1, float ax_1, float ay_1)
 {
     thread array<float, int(6)> r_10;
@@ -3740,6 +3742,7 @@ struct Contact_0
     float3 plastic_1;
 };
 
+__attribute__((noinline))
 Contact_0 contact_part_0(const JointMaterial_0 constant* mat_4, const JointBond_natural_0 thread* b_25, float crush_2, float3 plastic_2, float3 d_lin_0, float3 d_ang_0)
 {
     thread Contact_0 c_14;

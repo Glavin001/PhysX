@@ -231,6 +231,7 @@ public float damage_law(uint kind, float kappa, float r)
 }
 
 // (new damage, released energy)
+[noinline]
 float2 damage_increment(uint kind, float kappa_old, float lambda, float r, float d_old, float psi)
 {
     float d_new = max(damage_law(kind, lambda, r), d_old);
@@ -305,6 +306,7 @@ void compressed_region(float w0, float w1, float dz, float ax, float ay, out flo
 }
 
 // Exact no-tension layer: (normal force, moment 1, moment 2, energy).
+[noinline]
 float4 no_tension_patch(float kn, float w0, float w1, float dz, float ax, float ay)
 {
     float r[6];
@@ -348,6 +350,7 @@ struct Contact
     float3 plastic; // x, y sliding; z twist
 };
 
+[noinline]
 Contact contact_part(JointMaterial mat, JointBond b, float crush, float3 plastic, float3 d_lin, float3 d_ang)
 {
     Contact c;

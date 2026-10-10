@@ -98,6 +98,15 @@ fn main() {
             refs.reference_seconds,
             if fails.is_empty() { "pass".to_string() } else { format!("FAIL: {}", fails.join("; ")) }
         );
+        if !fails.is_empty() {
+            // Where it differs, beside the reference's own spread and half step.
+            let (_, notes) = difference(&refs.reference, &ours);
+            let (_, spread) = stress_gpu::gate::spread_difference(&refs.reference, &refs.spreads);
+            let (_, half) = difference(&refs.reference, &refs.half);
+            eprintln!("  {}: gpu: {}", c.name, notes.join("; "));
+            eprintln!("  {}: ref spread: {}", c.name, spread.join("; "));
+            eprintln!("  {}: ref half step: {}", c.name, half.join("; "));
+        }
         failed += !fails.is_empty() as usize;
     }
     eprintln!("{} of {} cases pass ({:.0} s)", selected.len() - failed, selected.len(), started.elapsed().as_secs_f64());

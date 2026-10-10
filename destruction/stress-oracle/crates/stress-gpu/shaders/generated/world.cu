@@ -3296,7 +3296,7 @@ static __device__ float damage_law_0(uint kind_2, float kappa_1, float r_7)
     return 1.0f - fdiv_0(1.0f, kappa_1);
 }
 
-static __device__ float2  damage_increment_0(uint kind_3, float kappa_old_0, float lambda_0, float r_8, float d_old_0, float psi_0)
+static __device__ __noinline__ float2  damage_increment_0(uint kind_3, float kappa_old_0, float lambda_0, float r_8, float d_old_0, float psi_0)
 {
     float _S711 = (F32_max((damage_law_0(kind_3, lambda_0, r_8)), (d_old_0)));
     bool _S712;
@@ -3474,7 +3474,7 @@ static __device__ void compressed_region_0(float w0_0, float w1_0, float dz_0, f
     return;
 }
 
-static __device__ float4  no_tension_patch_0(float kn_0, float w0_1, float w1_1, float dz_1, float ax_1, float ay_1)
+static __device__ __noinline__ float4  no_tension_patch_0(float kn_0, float w0_1, float w1_1, float dz_1, float ax_1, float ay_1)
 {
     FixedArray<float, 6>  r_9;
     compressed_region_0(w0_1, w1_1, dz_1, ax_1, ay_1, &r_9);
@@ -3524,7 +3524,7 @@ struct Contact_0
     float3  plastic_1;
 };
 
-static __device__ Contact_0 contact_part_0(JointMaterial_0 * mat_4, JointBond_0 * b_26, float crush_2, float3  plastic_2, float3  d_lin_0, float3  d_ang_0)
+static __device__ __noinline__ Contact_0 contact_part_0(JointMaterial_0 * mat_4, JointBond_0 * b_26, float crush_2, float3  plastic_2, float3  d_lin_0, float3  d_ang_0)
 {
     Contact_0 c_10;
     float3  _S737 = make_float3 (0.0f);
