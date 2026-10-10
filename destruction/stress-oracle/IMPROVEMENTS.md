@@ -269,7 +269,8 @@ field-cell calls, splits, and which limit set each frame's step.
 | 186477277 | x sweep for chunk pairs (superseded below: it re-sorted per cluster pair) | 182/182 |
 | 9b6971c10 | Broadphase: exact sweep over cluster boxes, then each cluster's chunk intervals sorted once per substep along its widest axis. Padded intervals (`m = 16 eps (max r + max |x|)`, bound in `chunk_pairs`) reject before the unchanged sphere test; pairs restored to loop order (randomised test against the all-pairs loops, mutation-checked) | 182/182 |
 | 0a64daf59 | `field_cells` in thread-local buffers; `Polytope::clone_from` reuses capacity (the derived one reallocated) | 182/182 |
-| 454220656 | Each pair's polytopes built once (they were built twice, and on every bisection step of the split handover); `intersect` clips `self` directly | gate pending |
+| 454220656 | Each pair's polytopes built once (they were built twice, and on every bisection step of the split handover); `intersect` clips `self` directly | 182/182 |
+| (next) | Cluster index in two dimensions: columns along the widest axis, sorted across within each. A wall was searched along a slab; window tests on b5_wall_impact_v02 fall 3.56e9 -> 2.5e8, broadphase 16.8 -> 9.4 s | gate pending |
 
 CPU seconds at one thread, from the gate run of 0a64daf59 (both builds run 8 at a
 time on the same 16-core machine):

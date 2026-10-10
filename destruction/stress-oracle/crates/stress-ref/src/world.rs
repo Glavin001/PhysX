@@ -2478,15 +2478,25 @@ fn aabb_pairs(boxes: &[(Vec3, Vec3)]) -> Vec<(usize, usize)> {
     out
 }
 
-/// One cluster's chunks sorted by the start of their intervals along the axis their
-/// centres spread most on, for `chunk_pairs`; built once per substep, the first time
-/// the cluster is the larger side of a pair.
+/// One cluster's chunks indexed for `chunk_pairs`, built once per substep the first
+/// time the cluster is the larger side of a pair: in columns along the axis its centres
+/// spread most on (`axis`; column `floor(lo / h)` of each interval's start, `h` the
+/// longest interval), each column sorted by interval start along the next most spread
+/// axis (`across`) with a running maximum of the interval ends. A planar cluster (a
+/// wall) is then searched in two dimensions, not along a slab.
 struct ClusterSweep {
     axis: usize,
-    /// (interval start on `axis`, chunk), by start then chunk.
+    across: usize,
+    /// `1 / h`, or 0 for a single column (`h` not resolvable at these coordinates).
+    inv_h: f64,
+    /// The longest interval along `axis` (`h`).
+    h: f64,
+    /// (column, first entry) of each non-empty column, by column.
+    columns: Vec<(i64, usize)>,
+    /// (interval start across, chunk), by column, then start, then chunk.
     sorted: Vec<(f64, usize)>,
-    /// Running maximum of the interval ends along `sorted`: every entry before the
-    /// first one reaching `lo` ends below `lo`.
+    /// Running maximum of the interval ends across, restarting at each column: every
+    /// entry of a column before the first one reaching `lo` ends below `lo`.
     reach: Vec<f64>,
 }
 
@@ -2497,16 +2507,61 @@ impl ClusterSweep {
             hi - lo
         };
         let axis = (0..3).max_by(|&i, &j| spread(i).total_cmp(&spread(j))).unwrap_or(0);
-        let mut sorted: Vec<(f64, usize)> = chunks.iter().map(|&k| (intervals[k][axis], k)).collect();
-        sorted.sort_by(|p, q| p.0.total_cmp(&q.0).then(p.1.cmp(&q.1)));
-        let reach = sorted
-            .iter()
-            .scan(f64::NEG_INFINITY, |m, &(_, k)| {
-                *m = m.max(intervals[k][3 + axis]);
-                Some(*m)
-            })
-            .collect();
-        ClusterSweep { axis, sorted, reach }
+        let across = (0..3).filter(|&i| i != axis).max_by(|&i, &j| spread(i).total_cmp(&spread(j))).unwrap_or((axis + 1) % 3);
+        let h = chunks.iter().map(|&k| intervals[k][3 + axis] - intervals[k][axis]).fold(0.0, f64::max);
+        let c = chunks.iter().map(|&k| intervals[k][axis].abs()).fold(0.0, f64::max);
+        let inv_h = if h > 0.0 && h.is_finite() && h >= 1e-6 * c { 1.0 / h } else { 0.0 };
+        let mut entries: Vec<(i64, f64, usize)> = chunks.iter().map(|&k| (Self::column_of(inv_h, intervals[k][axis]), intervals[k][across], k)).collect();
+        entries.sort_by(|p, q| p.0.cmp(&q.0).then(p.1.total_cmp(&q.1)).then(p.2.cmp(&q.2)));
+        let mut columns = Vec::new();
+        let mut reach = Vec::with_capacity(entries.len());
+        let mut m = f64::NEG_INFINITY;
+        for (n, &(col, _, k)) in entries.iter().enumerate() {
+            if columns.last().map_or(true, |&(c, _)| c != col) {
+                columns.push((col, n));
+                m = f64::NEG_INFINITY;
+            }
+            m = m.max(intervals[k][3 + across]);
+            reach.push(m);
+        }
+        let sorted = entries.into_iter().map(|(_, lo, k)| (lo, k)).collect();
+        ClusterSweep { axis, across, inv_h, h, columns, sorted, reach }
+    }
+
+    /// The column of an interval starting at `lo` (monotone in `lo`).
+    fn column_of(inv_h: f64, lo: f64) -> i64 {
+        if inv_h > 0.0 {
+            (lo * inv_h).floor() as i64
+        } else {
+            0
+        }
+    }
+
+    /// Calls `visit` with every chunk whose interval can overlap `q` on both indexed
+    /// axes (`q`: [lo x, lo y, lo z, hi x, hi y, hi z]). An interval overlapping `q`
+    /// along `axis` starts in `[q.lo - len, q.hi]` (real numbers, `len <= h / (1 - eps)`),
+    /// so in a column from `floor((q.lo - 2 h) / h)` to `floor(q.hi / h)` when `q.lo - 2 h`
+    /// rounds by less than `h / 2` (`h >= 1e-6 |q.lo|`); otherwise every column is visited.
+    fn visit(&self, q: &[f64; 6], mut visit: impl FnMut(usize)) {
+        let (lo, hi) = (q[self.axis], q[3 + self.axis]);
+        let (lo2, hi2) = (q[self.across], q[3 + self.across]);
+        let first = if self.inv_h > 0.0 && self.h >= 1e-6 * lo.abs() { Self::column_of(self.inv_h, lo - 2.0 * self.h) } else { i64::MIN };
+        let last = Self::column_of(self.inv_h, hi);
+        let from = self.columns.partition_point(|&(c, _)| c < first);
+        for (n, &(col, start)) in self.columns.iter().enumerate().skip(from) {
+            if col > last {
+                break;
+            }
+            let end = self.columns.get(n + 1).map_or(self.sorted.len(), |&(_, e)| e);
+            let begin = start + self.reach[start..end].partition_point(|&r| r < lo2);
+            for &(start2, k) in &self.sorted[begin..end] {
+                // Later entries of the column start at or after this one, across.
+                if start2 > hi2 {
+                    break;
+                }
+                visit(k);
+            }
+        }
     }
 }
 
@@ -2522,9 +2577,9 @@ impl ClusterSweep {
 /// `|xa - xb| <= (ra + rb) (1 + 7 eps)` on every axis (`fl|p| >= |fl(dx)| (1 - 3 eps)`,
 /// `|fl(dx)| >= |dx| (1 - eps)`, the sum rounded once), so intervals
 /// `[x - r - m, x + r + m]` with `m = 16 eps (max r + max |x|)` overlap on every axis even
-/// after the rounding of their ends. The larger cluster of a pair is swept along one
-/// axis (`ClusterSweep`), each chunk of the smaller visiting only the intervals that
-/// can overlap its own; the touching pairs are then put back in loop order.
+/// after the rounding of their ends. The larger cluster of a pair is indexed on two
+/// axes (`ClusterSweep`), each chunk of the smaller visiting only the intervals that
+/// can overlap its own there; the touching pairs are then put back in loop order.
 fn chunk_pairs(bounds: &[(Vec3, f64)], cluster: &[usize], boxes: &[(Vec3, Vec3)], admit: impl Fn(usize, usize) -> bool) -> Vec<(usize, usize)> {
     let touch = |ka: usize, kb: usize| {
         let ((pa, ra), (pb, rb)) = (bounds[ka], bounds[kb]);
@@ -2586,18 +2641,13 @@ fn chunk_pairs(bounds: &[(Vec3, f64)], cluster: &[usize], boxes: &[(Vec3, Vec3)]
         let sw = sweeps[swept].get_or_insert_with(|| ClusterSweep::new(&by_cluster[swept], bounds, &intervals));
         hits.clear();
         for &kq in &by_cluster[query] {
-            let (lo, hi) = (intervals[kq][sw.axis], intervals[kq][3 + sw.axis]);
-            let start = sw.reach.partition_point(|&r| r < lo);
-            for &(start_e, ke) in &sw.sorted[start..] {
-                if start_e > hi {
-                    break;
-                }
+            sw.visit(&intervals[kq], |ke| {
                 tests += 1;
                 let (ka, kb) = if query == ca { (kq, ke) } else { (ke, kq) };
                 if !apart(ka, kb) && touch(ka, kb) {
                     hits.push((ka, kb));
                 }
-            }
+            });
         }
         // Chunks of a cluster are listed in index order: sorting restores the loop order.
         hits.sort_unstable();
