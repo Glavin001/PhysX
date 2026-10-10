@@ -45,3 +45,15 @@ path = "src/bin/stress_gpu_events.rs"
 [[bin]]
 name = "stress-gpu-spread"
 path = "src/bin/stress_gpu_spread.rs"
+
+[[bin]]
+name = "stress-gpu-fps"
+path = "src/bin/stress_gpu_fps.rs"
+
+[[bin]]
+name = "stress-gpu-latency"
+path = "src/bin/stress_gpu_latency.rs"
+
+[[bin]]
+name = "stress-gpu-coupled-fps"
+path = "src/bin/stress_gpu_coupled_fps.rs"
