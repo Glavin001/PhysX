@@ -317,3 +317,11 @@ cited textbook factor, or the oracle's own uncertainty.
     wall time 339 s against 162 s over the catalogue (the layer contact; the perf plan
     covers it). The b5 speed-lost gap is a lead for the next round: the new default is
     further from the (unconverged) oracle there.
+43. **b5 at 2 m/s converges with the proven default** (speed lost 1.441, 1.423, 1.425,
+    1.418 m/s at safety 0.5 to 1/16; the README's "not converged" gap was the
+    established contact's) and agrees with the rigid-pivot momentum balance (plastic
+    limit 1.438 m/s lost). OpenCourant's 0.951 needs the wall to shatter under the ram
+    (805 broken cohesive elements at 2 m/s, no crushing in its elastic elements): the
+    remaining b5 failures are disagreements with an oracle whose contact stresses are
+    uncapped, not convergence or ledger failures of ours. Closing them needs the
+    oracle rerun with a crushing law (it runs on Linux; not available here).

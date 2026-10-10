@@ -446,14 +446,19 @@ them progressively (1, 1, 2, 10, 13, 15 broken bonds over the first 0.1 s, one p
 
 ### Known gaps
 
-* **b5 at 2 m/s: the push-over is not converged at the default substep** (open; see
-  `HANDOFF.md`). The first impact is converged (ram 2.0 -> 0.848 m/s at every step).
-  The ram then follows the wall and strikes it again; that second impact comes at
-  0.283 s at Courant safety 0.5 and 0.45 but at 0.31-0.334 s at 0.4 and below, and the
-  0.3 s window of `speed_lost` cuts through it (1.152 m/s lost before it, 1.34-1.50
-  after). The energy balance closes in every run (no injection). Contact friction is
-  the main suspect: its regularised viscosity is capped in proportion to `m_red / dt`.
-  The gate fails at the default step.
+* **b5 at 2 m/s: ours and OpenCourant disagree on the speed the ram loses.** With the
+  proven default methods (`layer_contact` and the rest) the result is converged:
+  1.441, 1.423, 1.425, 1.418 m/s at Courant safety 0.5 to 1/16 (with the established
+  contact it was not, the ram striking twice at times that depended on the step). It
+  agrees with the momentum balance of the wall as a rigid body pivoting on its base
+  (1920 kg, 2 m high, `I = m h^2 / 3`, struck at 1 m): a perfectly plastic impact
+  leaves the ram at `1000 * 2 / (1000 + 2560) = 0.562` m/s, 1.438 lost; ours loses a
+  little less (the wall cracks). OpenCourant loses 0.951 (the ram keeps 1.05 m/s while
+  the wall's angular momentum allows its mid-height 0.37 m/s): only possible if the
+  wall breaks up under the ram, and it does, with 805 broken cohesive elements at 2 m/s.
+  Its elastic elements have no crushing (as at 40 m/s below), so the contact stress at
+  the ram face is not capped. Failure mode (push-over) agrees. The gate fails; closing
+  it needs the oracle rerun with a crushing law.
 * **b5 at 40 m/s**: ours makes a local hole; OpenCourant pushes the wall over at 2, 3
   and 4 elements per chunk edge (a hole only at 1). The oracle mesh study
   (`golden_mesh/b5_wall_impact_v40/`) shows why this is not yet a usable verdict: the
