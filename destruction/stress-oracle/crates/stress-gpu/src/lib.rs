@@ -8,6 +8,7 @@
 
 pub mod gpu;
 pub mod contacts;
+pub mod coupled;
 pub mod joint;
 pub mod loads;
 

@@ -239,6 +239,7 @@ fn pack_term(t: &LoadTerm, chunk: u32, data: &mut Vec<[f32; 4]>, data_base: u32)
         }
         Function::Blast(fb) => (5, fb.arrival, [fb.duration as f32, fb.decay as f32, fb.peak as f32, fb.stagnation as f32], 0),
         Function::Replacement { start, duration } => (6, *start, [*duration as f32, 0.0, 0.0, 0.0], 0),
+        Function::Pulse { start, plateau, plateau_time, peak, duration } => (7, *start, [*plateau as f32, *plateau_time as f32, *peak as f32, *duration as f32], 0),
     };
     let (o_hi, o_lo) = split1(origin);
     let constant = match &t.function {
@@ -412,6 +413,12 @@ pub struct GpuSolver {
     bonds_stale: bool,
     /// Time until which the current contact plan covers the motion.
     plan_until: f64,
+    /// Load terms besides the scene's (an engine's contact loads, `coupled`), applied
+    /// from the next build.
+    pub extra_terms: Vec<LoadTerm>,
+    /// Whether the solver resolves contacts itself (standalone world); off under an
+    /// engine, which owns them.
+    pub own_contacts: bool,
     /// Per-substep rounds per submission: small after a split, doubling while none
     /// occurs (kept across steps).
     batch_rounds: usize,
@@ -445,7 +452,7 @@ impl GpuSolver {
         let step_times = vec![mirror.time];
         let mut loads = loads;
         let pair_memory = HashMap::new();
-        let (layout, buffers) = Self::build(gpu, &kernels, &mirror, loads.as_mut(), &impactors, &pair_memory, 4, 0.0, None)?;
+        let (layout, buffers) = Self::build(gpu, &kernels, &mirror, loads.as_mut(), &impactors, &pair_memory, 4, 0.0, None, &[])?;
         Ok(GpuSolver {
             mirror,
             loads,
@@ -465,6 +472,8 @@ impl GpuSolver {
             resumed_halts: 0,
             bonds_stale: false,
             plan_until: f64::NEG_INFINITY,
+            extra_terms: Vec::new(),
+            own_contacts: true,
             batch_rounds: 16,
             replans: 0,
             profile: Profile::default(),
@@ -481,7 +490,7 @@ impl GpuSolver {
         }
         let stride = self.buffers.params.probe_stride;
         self.plan_until = self.mirror.time + horizon;
-        let (layout, buffers) = Self::build(gpu, &self.kernels, &self.mirror, self.loads.as_mut(), &self.impactors, &self.pair_memory, stride, horizon, None)?;
+        let (layout, buffers) = Self::build(gpu, &self.kernels, &self.mirror, self.loads.as_mut(), &self.impactors, &self.pair_memory, stride, horizon, None, &self.extra_terms)?;
         self.layout = layout;
         self.buffers = buffers;
         Ok(())
@@ -503,15 +512,17 @@ impl GpuSolver {
         probe_stride: u32,
         horizon: f64,
         keep: Option<&Buffers>,
+        extra_terms: &[LoadTerm],
     ) -> Result<(Layout, Buffers), String> {
         if m.config.mode == SolveMode::Implicit {
             return Err("the implicit solve mode is not on the GPU yet".into());
         }
         let scene = loads.as_ref().map(|l| l.scene.clone());
-        let (terms, items) = match loads {
+        let (mut terms, items) = match loads {
             Some(l) => (l.terms(m, m.time), l.probe_items(m)),
             None => (Vec::new(), Vec::new()),
         };
+        terms.extend_from_slice(extra_terms);
         let mut chunk_index: Vec<Vec<u32>> = m.structures.iter().map(|st| vec![u32::MAX; st.chunks.len()]).collect();
         let mut chunks = Vec::new();
         let mut chunk_static = Vec::new();
@@ -564,7 +575,10 @@ impl GpuSolver {
             } else {
                 (cl.mass, cl.com, cl.inertia)
             };
-            let mut flags = if cl.anchored { ISLAND_ANCHORED } else { 0 } | if cl.driven { ISLAND_DRIVEN } else { 0 };
+            // Under an engine (`integrate_rigid` off) every free cluster's rigid motion is
+            // the engine's: it is driven (solver.rs `integrate_rigid`, `remove_rigid_drift`).
+            let driven = cl.driven || !m.config.integrate_rigid;
+            let mut flags = if cl.anchored { ISLAND_ANCHORED } else { 0 } | if driven { ISLAND_DRIVEN } else { 0 };
             // Quasi-static mode: every cluster moves rigidly between the frame's static
             // solves; adaptive: the settled ones, until their loads change (world.rs
             // `wake_loaded_clusters`: by more than `wake_threshold` of weight + norm).
@@ -1043,6 +1057,9 @@ impl GpuSolver {
     /// Whether anything can touch: a free (or driven) cluster, or an impactor (anchored
     /// clusters touch neither each other nor the ground in the reference's contact).
     fn contacts_possible(&self) -> bool {
+        if !self.own_contacts {
+            return false;
+        }
         let free = self.mirror.clusters.iter().any(|c| !c.anchored);
         !self.impactors.is_empty() || (free && (self.mirror.clusters.len() > 1 || self.scene().is_some_and(|s| s.ground.is_some())))
     }
@@ -1070,7 +1087,7 @@ impl GpuSolver {
             }
             let stride = stride.max(self.buffers.params.probe_stride);
             let keep = if full { None } else { Some(&self.buffers) };
-            let (layout, buffers) = Self::build(gpu, &self.kernels, &self.mirror, self.loads.as_mut(), &self.impactors, &self.pair_memory, stride, horizon, keep)?;
+            let (layout, buffers) = Self::build(gpu, &self.kernels, &self.mirror, self.loads.as_mut(), &self.impactors, &self.pair_memory, stride, horizon, keep, &self.extra_terms)?;
             self.layout = layout;
             self.buffers = buffers;
             self.profile.build += t.elapsed().as_secs_f64();
@@ -1338,7 +1355,7 @@ impl GpuSolver {
             self.mirror.time = self.step_times[start];
             let left_now = remaining.values().copied().max().unwrap_or(0).max(pipeline_left);
             self.plan_until = self.mirror.time + dt * left_now as f64;
-            let (layout, buffers) = Self::build(gpu, &self.kernels, &self.mirror, self.loads.as_mut(), &self.impactors, &self.pair_memory, self.buffers.params.probe_stride, dt * left_now as f64, None)?;
+            let (layout, buffers) = Self::build(gpu, &self.kernels, &self.mirror, self.loads.as_mut(), &self.impactors, &self.pair_memory, self.buffers.params.probe_stride, dt * left_now as f64, None, &self.extra_terms)?;
             self.layout = layout;
             self.buffers = buffers;
             self.profile.split += t_split.elapsed().as_secs_f64();
@@ -1702,6 +1719,19 @@ impl GpuSolver {
             out.push((name, t.elapsed().as_secs_f64() / reps as f64));
         }
         out
+    }
+
+    /// Re-lay the per-step data (load terms, island poses) from the mirror, keeping the
+    /// GPU's chunk state and bond history: for an engine's new frame (poses, contact
+    /// loads). The mirror's bonds may lag (nothing is taken from them).
+    pub fn refresh(&mut self, gpu: &Gpu) -> Result<(), String> {
+        let stride = self.buffers.params.probe_stride;
+        self.plan_until = self.mirror.time;
+        let (layout, buffers) =
+            Self::build(gpu, &self.kernels, &self.mirror, self.loads.as_mut(), &self.impactors, &self.pair_memory, stride, 0.0, Some(&self.buffers), &self.extra_terms)?;
+        self.layout = layout;
+        self.buffers = buffers;
+        Ok(())
     }
 
     /// Solve clusters to static equilibrium on the GPU (statics.rs `equilibrate_or_keep`)

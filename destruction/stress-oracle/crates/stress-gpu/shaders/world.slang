@@ -976,6 +976,9 @@ void impactor_integrate(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
 static const uint LOAD_WORLD_FORCE = 0;   // world-fixed direction, lever arm in the body frame
 static const uint LOAD_FACE = 1;          // body-fixed outward normal, -p(t) * area, lever arm
 static const uint LOAD_REPLACEMENT = 2;   // body-frame force and moment ramping to zero
+static const uint LOAD_POINT = 3;         // world-fixed force at a point fixed in the frame (body-frame
+                                          // offset from the chunk's rest centre; the lever follows the
+                                          // chunk's hidden displacement, as `ChunkLoads::add_at` does)
 
 static const uint FN_CONSTANT = 0;
 static const uint FN_RAMP = 1;
@@ -984,6 +987,7 @@ static const uint FN_FRIEDLANDER = 3;
 static const uint FN_TABLE = 4;
 static const uint FN_BLAST = 5;
 static const uint FN_REPLACEMENT = 6;
+static const uint FN_PULSE = 7;           // api.rs impact `Pulse`: crush plateau, then a half-sine
 
 static const uint PROBE_DISPLACEMENT = 0;
 static const uint PROBE_VELOCITY = 1;
@@ -1044,6 +1048,16 @@ float eval_function(uint term, uint k, float dt, float shift)
         float clearing = origin.w;
         float relax = clearing > 0.0 ? max(1.0 - tau / clearing, 0.0) : 0.0;
         return (p.w + (p.z - p.w) * relax) * shape;
+    }
+    if (kind == FN_PULSE)
+    {
+        // p: plateau force, plateau time, half-sine peak, half-sine duration.
+        if (tau < 0.0)
+            return 0.0;
+        if (tau < p.y)
+            return p.x;
+        float s = tau - p.y;
+        return s > p.w ? 0.0 : p.z * sin(3.14159265358979 * s / p.w);
     }
     if (p.x <= 0.0)
         return 0.0;
@@ -1106,9 +1120,10 @@ void chunk_external(uint c, ChunkStatic ch, Quat rot, uint k, float dt, bool con
         float4 dir = loads[5 * term + 1];
         float4 arm = loads[5 * term + 2];
         float value = eval_function(term, k, dt, 0.0);
-        float3 fw = info.y == LOAD_WORLD_FORCE ? dir.xyz * value : rotate(rot, dir.xyz) * (-value * dir.w);
+        float3 fw = (info.y == LOAD_WORLD_FORCE || info.y == LOAD_POINT) ? dir.xyz * value : rotate(rot, dir.xyz) * (-value * dir.w);
+        float3 lever = info.y == LOAD_POINT ? arm.xyz - state[4 * c].xyz : arm.xyz;
         f += fw;
-        t += cross(rotate(rot, arm.xyz), fw);
+        t += cross(rotate(rot, lever), fw);
     }
     if (contact && ch.cinfo.z != 0)
     {

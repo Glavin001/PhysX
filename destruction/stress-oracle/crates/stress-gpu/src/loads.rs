@@ -23,6 +23,9 @@ pub enum Function {
     Table(Vec<[f64; 2]>),
     Blast(FaceBlast),
     Replacement { start: f64, duration: f64 },
+    /// api.rs impact `Pulse` (from `start`): `plateau` for `plateau_time`, then a
+    /// half-sine of `peak` over `duration`.
+    Pulse { start: f64, plateau: f64, plateau_time: f64, peak: f64, duration: f64 },
 }
 
 impl Function {
@@ -48,12 +51,28 @@ impl Function {
             Function::Table(points) => TimeFunction::Table { points: points.clone() }.eval(t),
             Function::Blast(fb) => fb.pressure(t),
             Function::Replacement { .. } => 0.0,
+            Function::Pulse { start, plateau, plateau_time, peak, duration } => {
+                let tau = t - start;
+                if tau < 0.0 {
+                    0.0
+                } else if tau < *plateau_time {
+                    *plateau
+                } else if tau - plateau_time > *duration {
+                    0.0
+                } else {
+                    peak * (std::f64::consts::PI * (tau - plateau_time) / duration).sin()
+                }
+            }
         }
     }
 }
 
 pub const LOAD_WORLD_FORCE: u32 = 0;
 pub const LOAD_FACE: u32 = 1;
+/// A world-fixed force at a point fixed in the cluster frame: `arm` is the point's offset
+/// from the chunk's rest centre (body frame); the lever follows the chunk's hidden
+/// displacement (`ChunkLoads::add_at` at the chunk's current position).
+pub const LOAD_POINT: u32 = 3;
 pub const LOAD_REPLACEMENT: u32 = 2;
 
 /// One load term on a chunk, in the order the reference adds it.
@@ -371,9 +390,10 @@ impl WorldLoads {
             let (s, c) = (term.structure, term.chunk);
             let rot = m.clusters[m.chunks[s][c].cluster].rotation();
             let value = term.function.value(t);
-            let f = if term.kind == LOAD_WORLD_FORCE { term.dir * value } else { rot * term.dir * (-value * term.area) };
+            let f = if term.kind == LOAD_WORLD_FORCE || term.kind == LOAD_POINT { term.dir * value } else { rot * term.dir * (-value * term.area) };
             l.force[s][c] += f;
-            l.torque[s][c] += (rot * term.arm).cross(f);
+            let lever = if term.kind == LOAD_POINT { term.arm - m.chunks[s][c].u } else { term.arm };
+            l.torque[s][c] += (rot * lever).cross(f);
         }
         l
     }
