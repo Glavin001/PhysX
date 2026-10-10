@@ -240,14 +240,73 @@ bonds' stored energy is their last evaluation's, zero before the first step.)
 
 **Status:** catalogue A/B and test suite running.
 
+## Runtime (bit-exact, no switch)
+
+Speedups that change no result take no switch. Each must reproduce the established
+build's observations byte for byte (`wall_seconds` aside). The bar does not lean on the
+physics tests (some were being reworked at the time), so it holds whatever they say.
+
+**Gate:** `scripts/verify_identical.py --base OLD --cand NEW --out DIR`. It covers
+every scene (catalogue and showcases):
+- under the default methods and under `layer_contact,scaled_step_bound`;
+- at `RAYON_NUM_THREADS=1` and with every thread;
+- on a subset, with each `sim.solve_mode` forced (adaptive, quasi_static, implicit).
+
+That is 182 cells. The baseline checked against itself is 182/182 identical, so the
+gate is deterministic. `--bench --repeat K` gives the minimum CPU time per scene at one
+thread.
+
+**Profile:** `stress-ref run SCENE --profile` (or `STRESS_PROFILE=1`) prints stage
+times and work counters to stderr; nothing goes into the observation. It covers the
+substep stages, contact broadphase and pair stages, bond responses, splits, statics,
+plus counters for bonds evaluated, pair candidates and overlaps, polytope clips,
+field-cell calls, splits, and which limit set each frame's step.
+
+| Commit | Change | Gate |
+|---|---|---|
+| 53895036b | Profiling and gate. Pool dispatch only with more than one worker and from 64 heavy items (a frame collapse spent 11 s of system time waking 16 workers for ~20 pairs). Clip side buffer | 182/182 |
+| 19e5cf7e0 | Polytopes as one vertex list with face spans; clips into reused thread-local buffers | 182/182 |
+| 186477277 | x sweep for chunk pairs (superseded below: it re-sorted per cluster pair) | 182/182 |
+| 9b6971c10 | Broadphase: exact sweep over cluster boxes, then each cluster's chunk intervals sorted once per substep along its widest axis. Padded intervals (`m = 16 eps (max r + max |x|)`, bound in `chunk_pairs`) reject before the unchanged sphere test; pairs restored to loop order (randomised test against the all-pairs loops, mutation-checked) | 182/182 |
+| 0a64daf59 | `field_cells` in thread-local buffers; `Polytope::clone_from` reuses capacity (the derived one reallocated) | 182/182 |
+| 454220656 | Each pair's polytopes built once (they were built twice, and on every bisection step of the split handover); `intersect` clips `self` directly | gate pending |
+
+CPU seconds at one thread, from the gate run of 0a64daf59 (both builds run 8 at a
+time on the same 16-core machine):
+
+| Cell | Base 0c71ffe13 | 0a64daf59 | Speedup |
+|---|---|---|---|
+| s_house_settlement, layer | 372.7 | 171.2 | 2.2x |
+| s_house_car, layer | 252.3 | 94.8 | 2.7x |
+| b9_panel_high, layer | 227.1 | 73.6 | 3.1x |
+| s_floor_drop, layer | 203.5 | 70.6 | 2.9x |
+| b5_wall_impact_v02, layer | 161.4 | 80.0 | 2.0x |
+| s_house_settlement, default | 115.5 | 115.5 | 1.0x |
+| b5_wall_impact_v02, default | 80.8 | 74.8 | 1.1x |
+| b9_panel_high, quasi_static | 70.8 | 74.2 | 1.0x (noise) |
+| All 91 one-thread cells | 2353 | 1308 | 1.8x |
+
+Measured and rejected (exact, but no faster):
+- Skipping the intact joint's patch moments and energy when `D = 0`. They only enter
+  multiplied by `D`, so the skip is exact for nonzero intact moments and finite sums;
+  shadow-checked, but 11 % slower (16.6 s vs 15.0 s, settlement intact phase).
+- A multiply-rotate hasher for the contact-state maps: no measurable change.
+
+Excluded (cannot be shown exact or within round-off without the physics tests):
+- rows 1, 4, 5, 7, 8, 9 and 2a below (step change, closed form, certificate,
+  iterative tolerance, f32, model changes);
+- the volume-weighted mean radius of an overlap (`mean_axis_distance`, about 10 % of
+  layer contact). Only friction torque that may slide needs it, but no cheap bound
+  holds for its quadrature value.
+
 ## Open (from the audit and `CPU Oracle Improvements to Prove First`)
 
 | # | Change | Class | Status |
 |---|---|---|---|
-| 0 | Instrumentation: work counters, binding limit of the step, adaptive decisions | - | to do |
+| 0 | Instrumentation: work counters, binding limit of the step, adaptive decisions | - | done (`--profile`; adaptive decisions not yet counted) |
 | 1 | True stable step (power iteration on the explicit update itself) and a per-frame contact step from the contacts that can engage; stability harness (`examples/stability.rs`) | Step change | harness done (scaled bound valid, tight within 1.5-2x); power iteration to do |
 | 2a | Joint contact patch only after first damage | Model change | to do |
-| 2b | Cold-bond fast path (exact variant first) | A, then bounded | to do |
+| 2b | Cold-bond fast path (exact variant first) | A, then bounded | exact variant measured slower, rejected (see Runtime) |
 | 3 | Direct (sparse Cholesky) solve for intact islands | Exact | to do |
 | 4 | Sleeping with closed-form fatigue | B | to do |
 | 5 | Energy certificate for settling and waking, shadow first | C | to do |
