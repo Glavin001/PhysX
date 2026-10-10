@@ -300,6 +300,34 @@ drop of its stored energy caused by its internal-variable update; the law's own 
 had booked up to twice the energy released (DECISIONS.md 33). This closed the fracture
 energy balance with `layer_contact`.
 
+### `tangent_statics` (fix)
+
+**Replaces** the static solve's iteration with the joints' secant stiffness. That
+fixed-point iteration converges only linearly. Where the joints are nonlinear (cracked
+contact patches, friction) it stops at its 60-step limit short of an equilibrium that
+exists, and `equilibrate_or_keep` then silently keeps the cluster's last state:
+- s_arch_keystone_removed in quasi_static: all 600 frames unconverged, the residual
+  falling about 4 % per step and still falling at the limit;
+- b9 in quasi_static: the panel never fails.
+
+**Method:** each Newton step with the joints' consistent tangent (`JointModel::tangent`,
+as the implicit solve), kept only if it lowers the residual; else the secant step (an
+upper bound, a descent direction). Solves are accepted by the same residual test, so
+every accepted state is an equilibrium.
+
+**Evidence:**
+- quasi_static, converged solves: s_arch_keystone_removed 109/1309 -> 2239/2244;
+  b7_masonry_v15 17/34 -> 35/49; b9_panel_high 3/62 -> 386/729.
+- `stress-ref ab scenes golden --feature tangent_statics=on`: 87/91 gated metrics both
+  ways in the scenes' own modes. With quasi_static forced, 44/91 -> 51/91, no regression:
+  b5_wall_impact_v02 failure mode (push_over) and hole area, b7_masonry_v04 breach,
+  b9_panel_high breach, fragment speed, first failure and peak displacement now pass
+  against OpenCourant.
+- Test suite with it on: 121/121.
+
+**Status:** default on (from 6126ca847's switch). `STRESS_METHODS=-tangent_statics`
+restores the secant.
+
 ## Runtime (bit-exact, no switch)
 
 Speedups that change no result take no switch. Each must reproduce the established

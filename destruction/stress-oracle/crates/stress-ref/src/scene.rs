@@ -522,7 +522,7 @@ impl Methods {
     /// targets (contact equilibrium, sticking, Coulomb sliding and stopping, unit
     /// rescaling, convergence, angular momentum, motion kept through a split).
     pub const fn proven() -> Methods {
-        Methods { layer_contact: true, scaled_step_bound: true, exact_frame_transfer: true, contact_crushing: true, ..Methods::established() }
+        Methods { layer_contact: true, scaled_step_bound: true, exact_frame_transfer: true, contact_crushing: true, tangent_statics: true, ..Methods::established() }
     }
 
     /// Every switch at the established method (whatever `STRESS_METHODS` says).
