@@ -144,7 +144,11 @@ fn main() {
     };
     let packs = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../../blast/blast-stress-demo-rs/assets/scenes");
     let pack = |p: &str| stress_ref::scene_pack::import(&packs.join(format!("{p}.json")), p, "structure").expect("pack");
-    let cases: Vec<Scene> = vec![wall([16, 2, 8]), wall([40, 2, 20]), pack("house-1story"), pack("villa-savoye")];
+    // villa-savoye is left out: as authored (plain concrete with code-minimum
+    // reinforcement) 25 of its joints are over strength at rest, in exact equilibrium
+    // (a stair landing on two slender posts, rooftop walls on small bearing patches),
+    // so it fails under its own weight; it is not an idle scene.
+    let cases: Vec<Scene> = vec![wall([16, 2, 8]), wall([40, 2, 20]), pack("house-1story")];
     println!("Engine-coupled frames (engine owns motion and contacts); {frames} frames of 1/60 s");
     println!("| scene | regime | stress step | solver | frames | broken | vs reference@ref-step | first ms | median ms | worst ms | worst FPS | >8 ms | >16.7 ms | substeps/frame | setup |");
     println!("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
