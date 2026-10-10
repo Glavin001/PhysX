@@ -2451,7 +2451,7 @@ fn pair_elastic_of(overlap: &Polytope, ba: &OBox, bb: &OBox, mat_a: &Material, m
     if !geometry {
         return Some(PairElastic { elastic, k_n: kv / vol, k_t: ktv / vol, max_depth: 0.0, contact: None });
     }
-    let (lo, hi) = overlap.faces.iter().flat_map(|f| f.vertices.iter()).map(|v| v.dot(n)).fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), x| (lo.min(x), hi.max(x)));
+    let (lo, hi) = overlap.faces().flat_map(|f| f.vertices.iter()).map(|v| v.dot(n)).fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), x| (lo.min(x), hi.max(x)));
     let geometry = LayerContact::with_normal(overlap, n)?;
     Some(PairElastic { elastic, k_n: kv / vol, k_t: ktv / vol, max_depth: (hi - lo).max(0.0), contact: Some(LayerContact { centroid: point, ..geometry }) })
 }

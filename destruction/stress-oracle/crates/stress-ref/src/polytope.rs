@@ -27,18 +27,42 @@ use crate::math::{Mat3, Vec3};
 pub type Owner = u8;
 
 /// A planar convex face: vertices counter-clockwise seen from outside.
-#[derive(Clone, Debug)]
-pub struct Face {
-    pub vertices: Vec<Vec3>,
+#[derive(Clone, Copy, Debug)]
+pub struct Face<'a> {
+    pub vertices: &'a [Vec3],
     /// Outward unit normal.
     pub normal: Vec3,
     pub owner: Owner,
 }
 
-/// A convex polytope as its faces.
+/// Where a face's vertices lie in its polytope's vertex list.
+#[derive(Clone, Copy, Debug)]
+struct Span {
+    start: u32,
+    len: u32,
+    normal: Vec3,
+    owner: Owner,
+}
+
+/// A convex polytope as its faces, their vertices in one list (face after face).
 #[derive(Clone, Debug, Default)]
 pub struct Polytope {
-    pub faces: Vec<Face>,
+    vertices: Vec<Vec3>,
+    spans: Vec<Span>,
+}
+
+/// Reusable buffers of `Polytope::clip_into`.
+#[derive(Default)]
+pub struct ClipScratch {
+    sides: Vec<f64>,
+    kept: Vec<Vec3>,
+    segments: Vec<(Vec3, Vec3)>,
+    points: Vec<(f64, f64, Vec3)>,
+    hull: Vec<(f64, f64, Vec3)>,
+}
+
+thread_local! {
+    static SCRATCH: std::cell::RefCell<ClipScratch> = std::cell::RefCell::new(ClipScratch::default());
 }
 
 /// Volume, centroid and second moments about the centroid (`int r r^T dV`).
@@ -50,46 +74,85 @@ pub struct MassProperties {
 }
 
 impl Polytope {
+    /// The faces, in order.
+    pub fn faces(&self) -> impl ExactSizeIterator<Item = Face<'_>> + Clone + '_ {
+        self.spans.iter().map(move |sp| self.face_of(sp))
+    }
+
+    fn face_of(&self, sp: &Span) -> Face<'_> {
+        Face { vertices: &self.vertices[sp.start as usize..(sp.start + sp.len) as usize], normal: sp.normal, owner: sp.owner }
+    }
+
+    pub fn face_count(&self) -> usize {
+        self.spans.len()
+    }
+
+    /// Every vertex, face after face (a vertex shared by faces appears once per face).
+    pub fn all_vertices(&self) -> &[Vec3] {
+        &self.vertices
+    }
+
+    /// Appends a face.
+    pub fn push_face(&mut self, vertices: &[Vec3], normal: Vec3, owner: Owner) {
+        self.spans.push(Span { start: self.vertices.len() as u32, len: vertices.len() as u32, normal, owner });
+        self.vertices.extend_from_slice(vertices);
+    }
+
+    /// Gives every face `owner`.
+    pub fn set_owner(&mut self, owner: Owner) {
+        self.spans.iter_mut().for_each(|sp| sp.owner = owner);
+    }
+
+    /// The same faces with every vertex mapped by `f`.
+    pub fn map_vertices(&self, f: impl Fn(Vec3) -> Vec3) -> Polytope {
+        Polytope { vertices: self.vertices.iter().map(|&v| f(v)).collect(), spans: self.spans.clone() }
+    }
+
+    fn clear(&mut self) {
+        self.vertices.clear();
+        self.spans.clear();
+    }
+
     /// An oriented box (half extents `half`, rotation columns its axes, centre `center`).
     pub fn cuboid(center: Vec3, rotation: Mat3, half: Vec3, owner: Owner) -> Polytope {
         let corner = |sx: f64, sy: f64, sz: f64| center + rotation * Vec3::new(sx * half.x, sy * half.y, sz * half.z);
-        let mut faces = Vec::with_capacity(6);
+        let mut out = Polytope { vertices: Vec::with_capacity(24), spans: Vec::with_capacity(6) };
         for axis in 0..3 {
             let (u, v) = ((axis + 1) % 3, (axis + 2) % 3);
             for sign in [-1.0, 1.0] {
                 // Counter-clockwise about the outward normal `sign * e_axis`: (u, v) is
                 // right-handed with e_axis, reversed on the negative side.
-                let mut quad = Vec::with_capacity(4);
-                for (a, b) in [(-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0)] {
+                let mut quad = [Vec3::ZERO; 4];
+                for (k, (a, b)) in [(-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0)].into_iter().enumerate() {
                     let mut s = [0.0; 3];
                     s[axis] = sign;
                     s[u] = a;
                     s[v] = b;
-                    quad.push(corner(s[0], s[1], s[2]));
+                    quad[k] = corner(s[0], s[1], s[2]);
                 }
                 if sign < 0.0 {
                     quad.reverse();
                 }
                 let mut n = Vec3::ZERO;
                 n[axis] = sign;
-                faces.push(Face { vertices: quad, normal: rotation * n, owner });
+                out.push_face(&quad, rotation * n, owner);
             }
         }
-        Polytope { faces }
+        out
     }
 
     /// A convex hull (hull frame `vertices` and faces) placed at `center` with `rotation`.
     pub fn hull(hull: &crate::hull::ConvexHull, center: Vec3, rotation: Mat3, owner: Owner) -> Polytope {
-        let faces = hull
-            .faces
-            .iter()
-            .map(|f| Face { vertices: f.vertices.iter().map(|&i| center + rotation * hull.vertices[i]).collect(), normal: rotation * f.normal, owner })
-            .collect();
-        Polytope { faces }
+        let mut out = Polytope::default();
+        for f in &hull.faces {
+            out.spans.push(Span { start: out.vertices.len() as u32, len: f.vertices.len() as u32, normal: rotation * f.normal, owner });
+            out.vertices.extend(f.vertices.iter().map(|&i| center + rotation * hull.vertices[i]));
+        }
+        out
     }
 
     pub fn is_empty(&self) -> bool {
-        self.faces.is_empty()
+        self.spans.is_empty()
     }
 
     /// The part on the side `normal . x <= offset`; the new face (on the plane) gets
@@ -101,31 +164,32 @@ impl Polytope {
     /// about `normal`. No sorting, tolerance or reference axis is involved, so the result
     /// does not depend on the orientation of the world axes.
     pub fn clip(&self, normal: Vec3, offset: f64, owner: Owner) -> Polytope {
+        let mut out = Polytope::default();
+        SCRATCH.with(|s| self.clip_into(normal, offset, owner, &mut out, &mut s.borrow_mut()));
+        out
+    }
+
+    /// `clip` into `out` (its buffers reused), with `scratch` for the intermediates.
+    pub fn clip_into(&self, normal: Vec3, offset: f64, owner: Owner, out: &mut Polytope, scratch: &mut ClipScratch) {
         crate::profile::count(crate::profile::Counter::PolytopeClips, 1);
         let side = |p: Vec3| normal.dot(p) - offset;
-        let mut faces = Vec::with_capacity(self.faces.len() + 1);
+        out.clear();
         // (entry, exit) on the plane, one per face crossing it.
-        let mut segments: Vec<(Vec3, Vec3)> = Vec::new();
+        scratch.segments.clear();
         let mut cut = false;
-        for f in &self.faces {
+        for sp in &self.spans {
+            let f = self.face_of(sp);
             let n = f.vertices.len();
-            let mut buf = [0.0f64; 16];
-            let mut heap = Vec::new();
-            let s: &mut [f64] = if n <= 16 {
-                &mut buf[..n]
-            } else {
-                heap.resize(n, 0.0);
-                &mut heap
-            };
-            for (x, &p) in s.iter_mut().zip(&f.vertices) {
-                *x = side(p);
-            }
+            scratch.sides.clear();
+            scratch.sides.extend(f.vertices.iter().map(|&p| side(p)));
+            let s = &scratch.sides;
             if s.iter().all(|&x| x <= 0.0) {
-                faces.push(f.clone());
+                out.push_face(f.vertices, f.normal, f.owner);
                 continue;
             }
             cut = true;
-            let mut kept = Vec::with_capacity(n + 1);
+            let kept = &mut scratch.kept;
+            kept.clear();
             let (mut entry, mut exit) = (None, None);
             for i in 0..n {
                 let (p, q) = (f.vertices[i], f.vertices[(i + 1) % n]);
@@ -153,44 +217,50 @@ impl Polytope {
                 }
             }
             if let (Some(a), Some(b)) = (entry, exit) {
-                segments.push((a, b));
+                scratch.segments.push((a, b));
             }
             if kept.len() >= 3 {
-                faces.push(Face { vertices: kept, normal: f.normal, owner: f.owner });
+                out.push_face(kept, f.normal, f.owner);
             }
         }
         if !cut {
-            return self.clone();
+            out.clone_from(self);
+            return;
         }
-        let ring = cap_polygon(&segments, normal);
-        if ring.len() >= 3 {
-            faces.push(Face { vertices: ring, normal, owner });
+        let ClipScratch { segments, points, hull, kept, .. } = scratch;
+        cap_polygon(segments, normal, points, hull, kept);
+        if kept.len() >= 3 {
+            out.push_face(kept, normal, owner);
         }
         // A remnant with no volume (touching only) is no polytope.
-        if faces.len() < 4 {
-            return Polytope::default();
+        if out.spans.len() < 4 {
+            out.clear();
         }
-        Polytope { faces }
     }
 
     /// The intersection with `other` (its faces keep `other`'s owners).
     pub fn intersect(&self, other: &Polytope) -> Polytope {
         let mut out = self.clone();
-        for f in &other.faces {
-            let offset = f.normal.dot(f.vertices[0]);
-            out = out.clip(f.normal, offset, f.owner);
-            if out.is_empty() {
-                break;
+        let mut next = Polytope::default();
+        SCRATCH.with(|s| {
+            let scratch = &mut s.borrow_mut();
+            for f in other.faces() {
+                let offset = f.normal.dot(f.vertices[0]);
+                out.clip_into(f.normal, offset, f.owner, &mut next, scratch);
+                std::mem::swap(&mut out, &mut next);
+                if out.is_empty() {
+                    break;
+                }
             }
-        }
+        });
         out
     }
 
     /// Volume, centroid and second moments (tetrahedra from one vertex).
     pub fn mass_properties(&self) -> Option<MassProperties> {
-        let origin = self.faces.first()?.vertices[0];
+        let origin = *self.vertices.first()?;
         let (mut vol, mut first, mut second) = (0.0, Vec3::ZERO, [[0.0f64; 3]; 3]);
-        for f in &self.faces {
+        for f in self.faces() {
             for i in 1..f.vertices.len().saturating_sub(1) {
                 let (a, b, c) = (f.vertices[0] - origin, f.vertices[i] - origin, f.vertices[i + 1] - origin);
                 let v = a.dot(b.cross(c)) / 6.0;
@@ -223,7 +293,7 @@ impl Polytope {
     /// area-weighted centroid.
     pub fn owner_surface(&self, owner: Owner) -> (Vec3, Vec3, f64) {
         let (mut an, mut ac, mut a) = (Vec3::ZERO, Vec3::ZERO, 0.0);
-        for f in self.faces.iter().filter(|f| f.owner == owner) {
+        for f in self.faces().filter(|f| f.owner == owner) {
             let (area, centroid) = polygon_area_centroid(&f.vertices);
             an += f.normal * area;
             ac += centroid * area;
@@ -235,12 +305,17 @@ impl Polytope {
     /// Polar second moment `int |r_perp|^2 dA` of the faces of `owner`, projected on the
     /// plane normal to `axis`, about the axis through `point`.
     pub fn projected_polar_moment(&self, owner: Owner, point: Vec3, axis: Vec3) -> f64 {
+        self.projected_polar_moment_of(Some(owner), point, axis)
+    }
+
+    /// `projected_polar_moment` of the faces of `owner`, or of every face with `None`.
+    pub fn projected_polar_moment_of(&self, owner: Option<Owner>, point: Vec3, axis: Vec3) -> f64 {
         let flat = |x: Vec3| {
             let r = x - point;
             r - axis * r.dot(axis)
         };
         let mut j = 0.0;
-        for f in self.faces.iter().filter(|f| f.owner == owner) {
+        for f in self.faces().filter(|f| owner.is_none_or(|o| f.owner == o)) {
             let p0 = flat(f.vertices[0]);
             for i in 1..f.vertices.len().saturating_sub(1) {
                 let (p1, p2) = (flat(f.vertices[i]), flat(f.vertices[i + 1]));
@@ -261,7 +336,7 @@ impl Polytope {
             (r - axis * r.dot(axis)).norm()
         };
         let (mut num, mut den) = (0.0, 0.0);
-        for f in &self.faces {
+        for f in self.faces() {
             // Fanned from the face's centroid, not a vertex: the rule's error must not
             // depend on where a face's vertex list happens to start.
             let n = f.vertices.len();
@@ -329,19 +404,21 @@ pub fn polygon_area_centroid(p: &[Vec3]) -> (f64, Vec3) {
 /// chunks), round-off can drop or duplicate a segment, and only a hull of the points is
 /// immune. Its in-plane basis affects nothing but which of two points that coincide to
 /// round-off is kept.
-fn cap_polygon(segments: &[(Vec3, Vec3)], normal: Vec3) -> Vec<Vec3> {
+fn cap_polygon(segments: &[(Vec3, Vec3)], normal: Vec3, pts: &mut Vec<(f64, f64, Vec3)>, hull: &mut Vec<(f64, f64, Vec3)>, ring: &mut Vec<Vec3>) {
+    ring.clear();
     let u = normal.any_perpendicular().normalized();
     let v = normal.cross(u);
-    let mut pts: Vec<(f64, f64, Vec3)> = segments.iter().flat_map(|&(a, b)| [a, b]).map(|p| (p.dot(u), p.dot(v), p)).collect();
+    pts.clear();
+    pts.extend(segments.iter().flat_map(|&(a, b)| [a, b]).map(|p| (p.dot(u), p.dot(v), p)));
     pts.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.total_cmp(&b.1)));
     pts.dedup_by(|a, b| a.0 == b.0 && a.1 == b.1);
     if pts.len() < 3 {
-        return Vec::new();
+        return;
     }
     // Andrew's monotone chain, counter-clockwise in (u, v), i.e. about `normal`.
     let cross = |o: &(f64, f64, Vec3), a: &(f64, f64, Vec3), b: &(f64, f64, Vec3)| (a.0 - o.0) * (b.1 - o.1) - (a.1 - o.1) * (b.0 - o.0);
-    let mut hull: Vec<(f64, f64, Vec3)> = Vec::with_capacity(pts.len() + 1);
-    for p in &pts {
+    hull.clear();
+    for p in pts.iter() {
         while hull.len() >= 2 && cross(&hull[hull.len() - 2], &hull[hull.len() - 1], p) <= 0.0 {
             hull.pop();
         }
@@ -355,7 +432,7 @@ fn cap_polygon(segments: &[(Vec3, Vec3)], normal: Vec3) -> Vec<Vec3> {
         hull.push(*p);
     }
     hull.pop();
-    hull.into_iter().map(|p| p.2).collect()
+    ring.extend(hull.iter().map(|p| p.2));
 }
 
 /// A body's share of an overlap that lies nearest one of its faces: the part of the
@@ -392,7 +469,7 @@ pub struct FieldCell {
 /// interface integrals (`FieldCell::interface_force`).
 pub fn field_cells(region: &Polytope, body: &Polytope, indent: f64) -> Vec<FieldCell> {
     crate::profile::count(crate::profile::Counter::FieldCells, 1);
-    let planes: Vec<(Vec3, f64)> = body.faces.iter().map(|f| (f.normal, f.normal.dot(f.vertices[0]) - indent)).collect();
+    let planes: Vec<(Vec3, f64)> = body.faces().map(|f| (f.normal, f.normal.dot(f.vertices[0]) - indent)).collect();
     let mut region = region.clone();
     if indent > 0.0 {
         for &(n, o) in &planes {
@@ -402,7 +479,7 @@ pub fn field_cells(region: &Polytope, body: &Polytope, indent: f64) -> Vec<Field
             }
         }
     }
-    let vertices: Vec<Vec3> = region.faces.iter().flat_map(|f| f.vertices.iter().copied()).collect();
+    let vertices: &[Vec3] = region.all_vertices();
     if vertices.is_empty() {
         return Vec::new();
     }
@@ -413,6 +490,7 @@ pub fn field_cells(region: &Polytope, body: &Polytope, indent: f64) -> Vec<Field
     let bound = range.iter().map(|r| r.1).fold(f64::INFINITY, f64::min);
     let candidates: Vec<usize> = (0..planes.len()).filter(|&k| range[k].0 <= bound).collect();
     let mut cells = Vec::with_capacity(candidates.len());
+    let (mut cell, mut next) = (Polytope::default(), Polytope::default());
     for &f in &candidates {
         // A convex region is on one side of a plane exactly when its vertices are: a
         // bisector it lies wholly inside needs no cut, and one it lies wholly outside
@@ -425,20 +503,24 @@ pub fn field_cells(region: &Polytope, body: &Polytope, indent: f64) -> Vec<Field
         if cuts.iter().any(|&g| gap(g).0 > 0.0) {
             continue;
         }
-        let mut cell = region.clone();
-        for &g in &cuts {
-            // s_f <= s_g: (n_g - n_f) . x <= o_g - o_f.
-            let d = planes[g].0 - planes[f].0;
-            let len = d.norm();
-            cell = cell.clip(d / len, (planes[g].1 - planes[f].1) / len, INTERFACE + g as Owner);
-            if cell.is_empty() {
-                break;
+        cell.clone_from(&region);
+        SCRATCH.with(|sc| {
+            let sc = &mut sc.borrow_mut();
+            for &g in &cuts {
+                // s_f <= s_g: (n_g - n_f) . x <= o_g - o_f.
+                let d = planes[g].0 - planes[f].0;
+                let len = d.norm();
+                cell.clip_into(d / len, (planes[g].1 - planes[f].1) / len, INTERFACE + g as Owner, &mut next, sc);
+                std::mem::swap(&mut cell, &mut next);
+                if cell.is_empty() {
+                    break;
+                }
             }
-        }
+        });
         if let Some(mp) = cell.mass_properties() {
             if mp.volume > 0.0 {
                 let (mut interface_force, mut interface_moment) = (Vec3::ZERO, Vec3::ZERO);
-                for face in cell.faces.iter().filter(|x| x.owner >= INTERFACE) {
+                for face in cell.faces().filter(|x| x.owner >= INTERFACE) {
                     // s = o_f - n_f . x is linear: int s dA = A s(c), int x s dA = o_f A c - S n_f.
                     let (area, c, second) = polygon_moments(&face.vertices);
                     let (n_f, o_f) = planes[f];
@@ -515,12 +597,11 @@ impl LayerContact {
     /// the volume-weighted torsional lever arm.
     pub fn with_normal(overlap: &Polytope, normal: Vec3) -> Option<LayerContact> {
         let mp = overlap.mass_properties()?;
-        let area = 0.5 * overlap.faces.iter().map(|f| polygon_area_centroid(&f.vertices).0 * f.normal.dot(normal).abs()).sum::<f64>();
+        let area = 0.5 * overlap.faces().map(|f| polygon_area_centroid(&f.vertices).0 * f.normal.dot(normal).abs()).sum::<f64>();
         if area <= 0.0 || mp.volume <= 0.0 {
             return None;
         }
-        let hi = overlap.faces.iter().flat_map(|f| f.vertices.iter()).map(|v| v.dot(normal)).fold(f64::NEG_INFINITY, f64::max);
-        let all = Polytope { faces: overlap.faces.iter().map(|f| Face { owner: OWNER_B, ..f.clone() }).collect() };
+        let hi = overlap.faces().flat_map(|f| f.vertices.iter()).map(|v| v.dot(normal)).fold(f64::NEG_INFINITY, f64::max);
         Some(LayerContact {
             volume: mp.volume,
             centroid: mp.centroid,
@@ -528,7 +609,7 @@ impl LayerContact {
             area,
             depth: (hi - mp.centroid.dot(normal)).max(0.0),
             mean_radius: overlap.mean_axis_distance(mp.centroid, normal),
-            polar_moment: 0.5 * all.projected_polar_moment(OWNER_B, mp.centroid, normal),
+            polar_moment: 0.5 * overlap.projected_polar_moment_of(None, mp.centroid, normal),
         })
     }
 
@@ -544,8 +625,7 @@ impl LayerContact {
 
     fn from_overlap(overlap: &Polytope, normal: Vec3, indent: f64) -> Option<Overlap> {
         let (lo, hi) = overlap
-            .faces
-            .iter()
+            .faces()
             .flat_map(|f| f.vertices.iter())
             .map(|v| v.dot(normal))
             .fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), x| (lo.min(x), hi.max(x)));
@@ -557,8 +637,7 @@ impl LayerContact {
             let mp = engaged.mass_properties()?;
             // Contact area: the engaged overlap's surface on the other body, projected.
             let area: f64 = engaged
-                .faces
-                .iter()
+                .faces()
                 .filter(|f| f.owner == OWNER_B)
                 .map(|f| polygon_area_centroid(&f.vertices).0 * f.normal.dot(normal).max(0.0))
                 .sum();
@@ -606,7 +685,7 @@ impl LayerContact {
         let mut area_vector = Vec3::ZERO;
         let mut regions: Vec<(Vec3, Vec3, Vec3, Vec3, DiscRegion)> = Vec::new();
         let mut lo = f64::INFINITY;
-        for f in &a.faces {
+        for f in a.faces() {
             let n = f.normal;
             let h = n.dot(f.vertices[0] - center);
             if h < 0.0 {
@@ -645,7 +724,7 @@ impl LayerContact {
         // The overlap's extreme along -normal: the ball's own extreme point if the
         // polytope holds it, else a point of a face region.
         let tip = center - normal * r;
-        if a.faces.iter().all(|f| f.normal.dot(tip - f.vertices[0]) <= 0.0) {
+        if a.faces().all(|f| f.normal.dot(tip - f.vertices[0]) <= 0.0) {
             lo = tip.dot(normal);
         }
         let mut polar = 0.0;
@@ -890,7 +969,7 @@ fn disc_region(poly: &[[f64; 2]], h: f64, r: f64) -> DiscRegion {
 /// ball's discs. Candidates are found on a polytope holding the overlap: the body cut,
 /// along each of its face normals, at the ball's far extent.
 pub fn ball_cells(body: &Polytope, center: Vec3, r: f64) -> Vec<FieldCell> {
-    let planes: Vec<(Vec3, f64)> = body.faces.iter().map(|f| (f.normal, f.normal.dot(f.vertices[0]))).collect();
+    let planes: Vec<(Vec3, f64)> = body.faces().map(|f| (f.normal, f.normal.dot(f.vertices[0]))).collect();
     let mut hull = body.clone();
     for &(n, _) in &planes {
         hull = hull.clip(-n, r - n.dot(center), OWNER_B);
@@ -898,7 +977,7 @@ pub fn ball_cells(body: &Polytope, center: Vec3, r: f64) -> Vec<FieldCell> {
             return Vec::new();
         }
     }
-    let vertices: Vec<Vec3> = hull.faces.iter().flat_map(|f| f.vertices.iter().copied()).collect();
+    let vertices: Vec<Vec3> = hull.all_vertices().to_vec();
     let depth = |k: usize, x: Vec3| planes[k].1 - planes[k].0.dot(x);
     let range: Vec<(f64, f64)> = (0..planes.len())
         .map(|k| vertices.iter().fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), &v| (lo.min(depth(k, v)), hi.max(depth(k, v)))))
@@ -922,8 +1001,8 @@ pub fn ball_cells(body: &Polytope, center: Vec3, r: f64) -> Vec<FieldCell> {
         let Some(lc) = LayerContact::with_ball(&cell, center, r) else { continue };
         let (n_f, o_f) = planes[f];
         let (mut interface_force, mut interface_moment) = (Vec3::ZERO, Vec3::ZERO);
-        for face in cell.faces.iter().filter(|x| x.owner >= INTERFACE) {
-            let Some((area, first, second)) = disc_moments(face, center, r) else { continue };
+        for face in cell.faces().filter(|x| x.owner >= INTERFACE) {
+            let Some((area, first, second)) = disc_moments(&face, center, r) else { continue };
             interface_force += face.normal * (o_f * area - n_f.dot(first));
             let xs = first * o_f - second * n_f;
             interface_moment += xs.cross(face.normal);
@@ -1047,7 +1126,7 @@ mod tests {
         // exact length of the line inside both box and ball, midpoint rule on a fine grid.
         let half = Vec3::new(0.4, 0.3, 0.25);
         let block = cube(Vec3::ZERO, 1.0);
-        let block = Polytope { faces: block.faces.into_iter().map(|f| Face { vertices: f.vertices.iter().map(|v| v.mul_elem(half)).collect(), ..f }).collect() };
+        let block = block.map_vertices(|v| v.mul_elem(half));
         for (center, r) in [(Vec3::new(0.35, 0.33, 0.2), 0.12), (Vec3::new(0.45, -0.31, 0.28), 0.1), (Vec3::new(0.1, 0.0, 0.31), 0.08)] {
             let c = LayerContact::with_ball(&block, center, r).unwrap();
             let n = 3000;
@@ -1142,7 +1221,7 @@ mod tests {
         for (k, h) in [half.x, half.y, half.z].iter().enumerate() {
             assert!((local.m[k][k] - 6.0 * h * h / 3.0).abs() < 1e-10, "{k}: {}", local.m[k][k]);
         }
-        for f in &p.faces {
+        for f in p.faces() {
             let (_, c) = polygon_area_centroid(&f.vertices);
             assert!(f.normal.dot(c - Vec3::new(1.0, -2.0, 3.0)) > 0.0, "outward normals");
         }
@@ -1187,7 +1266,7 @@ mod tests {
     fn overlaps_are_symmetric_and_face_contact_is_exact() {
         let a = cube(Vec3::new(0.0, 0.0, 0.199), 0.1);
         let mut b = cube(Vec3::new(0.05, 0.0, 0.0), 0.1);
-        b.faces.iter_mut().for_each(|f| f.owner = OWNER_B);
+        b.set_owner(OWNER_B);
         let ab = LayerContact::between(&a, &b, 0.0).unwrap().contact.unwrap();
         // Face overlap 0.15 x 0.2, thickness 1e-3.
         assert!((ab.volume - 0.15 * 0.2 * 1e-3).abs() < 1e-15, "{}", ab.volume);
@@ -1195,9 +1274,9 @@ mod tests {
         assert!((ab.normal - Vec3::Z).norm() < 1e-3 / 0.15 * 1.01, "{:?}", ab.normal);
         assert!((ab.area - 0.03).abs() < 1e-6);
         let mut a2 = a.clone();
-        a2.faces.iter_mut().for_each(|f| f.owner = OWNER_B);
+        a2.set_owner(OWNER_B);
         let mut b2 = b.clone();
-        b2.faces.iter_mut().for_each(|f| f.owner = OWNER_A);
+        b2.set_owner(OWNER_A);
         let ba = LayerContact::between(&b2, &a2, 0.0).unwrap().contact.unwrap();
         assert!((ba.volume - ab.volume).abs() < 1e-15 && (ba.normal + ab.normal).norm() < 1e-12);
         assert!((ba.centroid - ab.centroid).norm() < 1e-12);
