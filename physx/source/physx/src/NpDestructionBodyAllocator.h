@@ -23,6 +23,8 @@ class NpDestructionBodyAllocator final : public PxvDestructionBodyAllocator, pub
     struct ManagedConstraint { NpConstraint* joint; PxU32 originalBody; PxConstraintFlags originalFlags; };
     PxArray<ManagedConstraint> mConstraints;
     NpScene& mScene;
+    // PxDestructionStressDesc::fragmentWake: wakeCounterResetValue, or 0.
+    PxReal mFragmentWakeCounter=0;
     PxArray<Entry> mBodies;
     PxArray<Entry> mAcceptedBodies;
     PxArray<PxU32> mGrantedNodes;
@@ -150,6 +152,7 @@ public:
         return true;
     }
     bool supportsGpuIslandRepair() const override { return mScene.getScScene().canUseGpuDestructionIslandRepair(); }
+    PxReal setFragmentWake(bool on) override { return mFragmentWakeCounter=on?mScene.getWakeCounterResetValueInternal():0; }
 
     explicit NpDestructionBodyAllocator(NpScene& scene):mScene(scene) {}
     ~NpDestructionBodyAllocator() override {clear();}
@@ -315,6 +318,11 @@ public:
                 // otherwise contact separation can freeze a falling fragment even
                 // in an eDISABLE_SLEEPING scene. This changes scheduler metadata only.
                 core.getSim()->notifyNotReadyForSleeping();
+                // fragmentWake: the host mirror of the GPU record's wake
+                // counter (nativeCandidateState), without a host upload: the
+                // GPU record is authoritative for correction bodies.
+                if(mFragmentWakeCounter>0){auto& body=core.getCore();
+                    body.wakeCounter=body.solverWakeCounter=PxMax(body.wakeCounter,mFragmentWakeCounter);}
             }
         }
         }

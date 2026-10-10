@@ -234,6 +234,45 @@ void carrierGravity() {
     const bool off=false;CUDA(cudaMemcpyToSymbol(gNativeFragmentGravity,&off,sizeof(bool)));
     CUDA(cudaFree(candidates));CUDA(cudaFree(source));CUDA(cudaFree(targets));CUDA(cudaFree(disabled));
 }
+// fragmentWake: a free body a split installs starts awake for at least the
+// scene's wakeCounterResetValue, as a body PhysX creates or wakes does. A
+// sleeping or kinematic source has wake counter 0, which the fragment copied:
+// its first sleep check put it back to sleep, mid-air (impact-plate-punch). The
+// counter only rises (an awake source keeps a longer one); supported
+// (kinematic) bodies are unchanged; off, everything inherits.
+__global__ void candidateWakeKernel(const PxDestructionClusterBodyState* candidates,const PxgBodySim* source,
+    const PxU32* ids,PxU32 count,float* wake) {
+    const PxU32 i=blockIdx.x*blockDim.x+threadIdx.x;if(i>=count)return;
+    wake[i]=nativeCandidateState(candidates[i],*source,ids[i]).freezeThresholdX_wakeCounterY_sleepThresholdZ_bodySimIndex.y;
+}
+void fragmentWake() {
+    std::vector<PxDestructionClusterBodyState> states(4);
+    for(auto& v:states){v.sourceBody=7;v.inverseMass=1;v.bodyToWorldOrientation[3]=v.bodyToActorOrientation[3]=1;}
+    states[2].supported=1;
+    // 0: a new free fragment; 1: the source itself, unsupported; 2: a
+    // supported new body; 3: another new free fragment.
+    const std::vector<PxU32> ids={12,7,13,14};
+    auto* candidates=make<PxDestructionClusterBodyState>(4);auto* source=make<PxgBodySim>();
+    auto* targets=make<PxU32>(4);auto* wake=make<float>(4);
+    CUDA(cudaMemcpy(candidates,states.data(),4*sizeof(states[0]),cudaMemcpyHostToDevice));
+    CUDA(cudaMemcpy(targets,ids.data(),4*sizeof(PxU32),cudaMemcpyHostToDevice));
+    std::vector<float> result(4);
+    const float reset=0.4f;
+    for(const float sourceWake:{0.f,1.5f}) {
+        PxgBodySim body{};body.freezeThresholdX_wakeCounterY_sleepThresholdZ_bodySimIndex.y=sourceWake;put(source,body);
+        for(const float on:{0.f,reset}) {
+            CUDA(cudaMemcpyToSymbol(gNativeFragmentWakeCounter,&on,sizeof(float)));
+            candidateWakeKernel<<<1,32>>>(candidates,source,targets,4,wake);
+            CUDA(cudaDeviceSynchronize());
+            CUDA(cudaMemcpy(result.data(),wake,4*sizeof(float),cudaMemcpyDeviceToHost));
+            const float free=sourceWake>on?sourceWake:on;
+            CHECK(result[0]==free && result[1]==free && result[2]==sourceWake && result[3]==free);
+        }
+    }
+    const float off=0.f;CUDA(cudaMemcpyToSymbol(gNativeFragmentWakeCounter,&off,sizeof(float)));
+    CUDA(cudaFree(candidates));CUDA(cudaFree(source));CUDA(cudaFree(targets));CUDA(cudaFree(wake));
+    std::puts("fragment wake: free split bodies start awake for wakeCounterResetValue: PASS");
+}
 int main(int argc,char** argv) {
 #if defined(PX_CUMETAL) && PX_CUMETAL
     cudaDeviceProp capabilities{};
@@ -249,7 +288,9 @@ int main(int argc,char** argv) {
     if(argc==2 && std::strcmp(argv[1],"--descriptor-stability")==0){descriptorStability();return 0;}
     if(argc==2 && std::strcmp(argv[1],"--address-isolation")==0){addressIsolation();return 0;}
     if(argc==2 && std::strcmp(argv[1],"--carrier-gravity")==0){carrierGravity();return 0;}
+    if(argc==2 && std::strcmp(argv[1],"--fragment-wake")==0){fragmentWake();return 0;}
     carrierGravity();
+    fragmentWake();
     descriptorStability();
     addressIsolation();
     std::mt19937 random(1709);

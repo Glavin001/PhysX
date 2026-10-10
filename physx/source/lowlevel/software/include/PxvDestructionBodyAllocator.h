@@ -37,6 +37,11 @@ public:
     // Accepted physical observation only; never a prerequisite of GPU correction.
     virtual bool publishCorrectionProperties(const PxvDestructionBodyProperties*,PxU32) { return false; }
     virtual bool supportsGpuIslandRepair() const { return false; }
+    // PxDestructionStressDesc::fragmentWake: the wake counter a free body
+    // installed by a split starts with (the scene's wakeCounterResetValue), or
+    // 0 to keep the inherited one. Also applied to the host mirror in
+    // applyBindings.
+    virtual PxReal setFragmentWake(bool) { return 0; }
 
     virtual bool isValidSource(PxU32 body) const = 0;
     // Exceptional capacity grant, containing indices only. No solver bodies are

@@ -17,6 +17,9 @@ __global__ void validateReservedBodies(const PxvDestructionBodyRequest* requests
 __device__ float gNativeFragmentMaxPenBias=-1e32f;
 // PxDestructionStressDesc::fragmentGravity: free fragments are not weightless.
 __device__ bool gNativeFragmentGravity=false;
+// PxDestructionStressDesc::fragmentWake: the scene's wakeCounterResetValue,
+// or 0 (off: the source's wake counter is inherited).
+__device__ float gNativeFragmentWakeCounter=0.f;
 __device__ PxgBodySim nativeCandidateState(const PxDestructionClusterBodyState& candidate,const PxgBodySim& source,PxU32 id) {
     auto b=source;
     // Inherit physical settings from the authoritative GPU source, not the CPU
@@ -44,6 +47,10 @@ __device__ PxgBodySim nativeCandidateState(const PxDestructionClusterBodyState& 
         PxAlignedQuat(candidate.bodyToActorOrientation[0],candidate.bodyToActorOrientation[1],candidate.bodyToActorOrientation[2],candidate.bodyToActorOrientation[3]));
     b.body2Actor_maxImpulseW.p.w=maxImpulse;
     b.freezeThresholdX_wakeCounterY_sleepThresholdZ_bodySimIndex.w=__uint_as_float(id);
+    // A free body starts awake like any body PhysX creates or wakes: the wake
+    // counter only rises (Sc::BodySim::internalWakeUpBase), never falls.
+    if(!candidate.supported)b.freezeThresholdX_wakeCounterY_sleepThresholdZ_bodySimIndex.y=
+        fmaxf(b.freezeThresholdX_wakeCounterY_sleepThresholdZ_bodySimIndex.y,gNativeFragmentWakeCounter);
     b.sleepLinVelAccXYZ_freezeCountW=make_float4(0,0,0,0);
     b.sleepAngVelAccXYZ_accelScaleW=make_float4(0,0,0,1);
     b.internalFlags &= PxsRigidBody::eSPECULATIVE_CCD_GPU | PxsRigidBody::eENABLE_GYROSCOPIC_GPU | PxsRigidBody::eRETAIN_ACCELERATION_GPU;

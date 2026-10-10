@@ -1592,6 +1592,8 @@ public:
                 check(cudaMemcpyToSymbol(gNativeFragmentMaxPenBias,&mFragmentMaxPenBias,sizeof(float)));
                 const bool fragmentGravity=d.fragmentGravity;
                 check(cudaMemcpyToSymbol(gNativeFragmentGravity,&fragmentGravity,sizeof(bool)));
+                const float fragmentWake=mBodyAllocator?mBodyAllocator->setFragmentWake(d.fragmentWake):0.f;
+                check(cudaMemcpyToSymbol(gNativeFragmentWakeCounter,&fragmentWake,sizeof(float)));
             }
             if(d.reservedContactPairs>mGraphPairCapacity) {
                 // Before any graph snapshot exists: nothing in flight to wait for.

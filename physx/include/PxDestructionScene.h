@@ -277,6 +277,18 @@ struct PxDestructionStressDesc {
     // share of the commands, which already carry its weight for that tick:
     // its scene gravity starts when that tick completes.
     bool fragmentGravity = false;
+    // A body PhysX creates starts awake for wakeCounterResetValue
+    // (Sc::Physics::sWakeCounterOnCreation, 0.4 s at the default); a body woken
+    // by wakeUp() gets the same. A fragment copies its source's body record,
+    // and a sleeping or kinematic (supported) source has wake counter 0: the
+    // fragment's first sleep check put it straight back to sleep, so a plug
+    // punched out of an anchored plate hung in the air and the ball rebounded.
+    // When set, every free (unsupported) body a split installs -- new
+    // fragments and an unsupported source re-installed as its own remnant --
+    // starts with at least the scene's wakeCounterResetValue, as PhysX's own
+    // new and woken bodies do. PhysX then decides when it sleeps. Supported
+    // (kinematic) remnants are unchanged.
+    bool fragmentWake = false;
     // Contact-graph storage (pairs, island nodes, retained slots) allocated at
     // configure time. Grown on demand instead, the first large split waits for
     // all in-flight GPU work and reallocates at its busiest moment (78 ms
