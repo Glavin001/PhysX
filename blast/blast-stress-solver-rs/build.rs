@@ -281,6 +281,16 @@ fn probe_libcxx_wasm_include() -> Option<PathBuf> {
     None
 }
 
+/// The PhysX libraries: `PHYSX_LIB_DIR`, else the relocatable install's `lib`, else the
+/// in-tree Linux build.
+#[cfg(feature = "physx")]
+fn physx_lib_dir(root: &Path) -> PathBuf {
+    env::var_os("PHYSX_LIB_DIR").map(PathBuf::from).unwrap_or_else(|| {
+        if root.join("lib/libPhysX_static_64.a").is_file() { root.join("lib") }
+        else { root.join("bin/linux.x86_64/release") }
+    })
+}
+
 /// Compile the PhysX backend and link the PhysX SDK.
 ///
 /// Kept behind the `physx` feature so the crate's default build needs nothing
@@ -321,16 +331,19 @@ fn build_physx_backend(blast: &Path) {
     if env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("macos") && root.join("lib/libcumetal.dylib").is_file() {
         b.define("PX_CUMETAL", "1");
     }
+    // A CPU-only Linux SDK (the `*-cpu-only` presets) ships no GPU module and its
+    // headers then still declare the GPU API: compile the adapter as its CMake build
+    // compiled the SDK, without CUDA, or `PxCreateCudaContextManager` is left undefined.
+    if env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("linux") && !physx_lib_dir(&root).join("libPhysXGpu_64.so").is_file() {
+        b.define("DISABLE_CUDA_PHYSX", None);
+    }
     b
         .flag_if_supported("-Wno-unused-parameter")
         .flag_if_supported("-Wno-unused-variable");
     b.compile("blast_physx_backend");
 
     // Static archives are order sensitive: dependents first.
-    let libdir = env::var_os("PHYSX_LIB_DIR").map(PathBuf::from).unwrap_or_else(|| {
-        if root.join("lib/libPhysX_static_64.a").is_file() { root.join("lib") }
-        else { root.join("bin/linux.x86_64/release") }
-    });
+    let libdir = physx_lib_dir(&root);
     println!("cargo:rerun-if-env-changed=PHYSX_LIB_DIR");
     assert!(libdir.is_dir(), "PhysX libs not found at {}", libdir.display());
     println!("cargo:rustc-link-search=native={}", libdir.display());

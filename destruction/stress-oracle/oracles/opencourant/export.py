@@ -243,6 +243,13 @@ def options_from(scene, cli):
         "isolid": 24,
         "body_contact_stfac": 1.0,  # TYPE7 Stfac of body-body contacts
         "contact_damping": 0.05,  # TYPE7 VIS_S (fraction of critical damping, the Radioss default)
+        # Chunk solids crush (/MAT/LAW2, J2 plasticity at the compressive strength, eroded
+        # at the plastic strain that dissipates G_c per area over one element):
+        # off reproduces the committed goldens (elastic chunks, /MAT/LAW1).
+        "chunk_crushing": False,
+        # Chunk solids as concrete (/MAT/LAW124, CDPM2: damage-plasticity with tensile and
+        # compressive softening regularised by the fracture energies): off by default.
+        "chunk_cdpm2": False,
     }
     for k, v in hints.items():
         if k in o:
@@ -294,20 +301,67 @@ def export(scene, outdir, opts):
     ])
     elastic_mat = {}
 
-    def solid_mat(name):
-        if name in elastic_mat:
-            return elastic_mat[name]
+    def solid_mat(name, element_size):
+        key = (name, element_size if (opts.get("chunk_crushing") or opts.get("chunk_cdpm2")) else None)
+        if key in elastic_mat:
+            return elastic_mat[key]
         mt = mats[name]
         mid = m.new("mat")
-        m.mats[mid] = "\n".join([
-            f"/MAT/LAW1/{mid}", f"{name} (elastic)",
-            "#              RHO_I", fnum(mt["density"] * RHO),
-            "#                  E                  nu",
-            fnum(mt["youngs_modulus"] * scale * P) + fnum(mt["poisson_ratio"]),
-        ])
+        if opts.get("chunk_cdpm2"):
+            # CDPM2 (Grassl et al. 2013): the scene's E, nu, f_t, f_c; tensile softening
+            # linear to the crack opening 2 G_f / f_t; compressive softening at the
+            # inelastic strain G_c / (f_c h) (the compressive fracture energy over one
+            # element, as the reference's crushing); shape, hardening and damage
+            # constants at the law's defaults (zeros); damaged elements deleted.
+            ft, fc = mt["tensile_strength"], mt["compressive_strength"]
+            wf = 2.0 * mt["fracture_energy"]["tension"] / ft
+            efc = mt["fracture_energy"]["compression"] / (fc * element_size)
+            m.mats[mid] = "\n".join([
+                f"/MAT/LAW124/{mid}", f"{name} (concrete, CDPM2)",
+                "#              RHO_I", fnum(mt["density"] * RHO),
+                "#                  E                  NU                IDEL               IRATE                FCUT",
+                fnum(mt["youngs_modulus"] * scale * P) + fnum(mt["poisson_ratio"]) + f"{'':10s}{1:10d}{'':10s}{0:10d}" + fnum(0.0),
+                "#                ECC                 QH0                  FT                  FC                  HP",
+                fnum(0.0) + fnum(0.0) + fnum(ft * P) + fnum(fc * P) + fnum(0.0),
+                "#                 AH                  BH                  CH                  DH",
+                fnum(0.0) + fnum(0.0) + fnum(0.0) + fnum(0.0),
+                "#                 AS                  BS                  DF               DFLAG     DTYPE      IREG",
+                fnum(0.0) + fnum(0.0) + fnum(0.0) + f"{'':10s}{0:10d}{0:10d}{0:10d}",
+                "#                 WF                 WF1                 FT1                 EFC",
+                fnum(wf * L) + fnum(0.0) + fnum(0.0) + fnum(efc),
+            ])
+            notes.append(f"{name}: chunk solids CDPM2 (f_t {ft:g}, f_c {fc:g} Pa, w_f {wf:.3g} m, e_fc {efc:.4g}, h {element_size:g} m)")
+        elif opts.get("chunk_crushing"):
+            # Crushing: von Mises plasticity at the uniaxial compressive strength (no
+            # hardening, no rate effect), the element eroded once its plastic strain
+            # reaches G_c / (f_c h): a crushed band one element thick has then dissipated
+            # the compressive fracture energy per area, as the reference's crushing does.
+            fc = mt["compressive_strength"]
+            gc = mt["fracture_energy"]["compression"]
+            eps_max = gc / (fc * element_size)
+            m.mats[mid] = "\n".join([
+                f"/MAT/LAW2/{mid}", f"{name} (crushing at f_c)",
+                "#              RHO_I", fnum(mt["density"] * RHO),
+                "#                  E                  Nu     Iflag    flagVP                Pmin",
+                fnum(mt["youngs_modulus"] * scale * P) + fnum(mt["poisson_ratio"]) + f"{0:10d}{0:10d}" + fnum(0.0),
+                "#                  a                   b                   n           EPS_p_max            SIG_max0",
+                fnum(fc * P) + fnum(0.0) + fnum(1.0) + fnum(eps_max) + fnum(0.0),
+                "#                  c           EPS_DOT_0       ICC   Fsmooth               F_cut               Chard",
+                fnum(0.0) + fnum(0.0) + f"{0:10d}{0:10d}" + fnum(0.0) + fnum(0.0),
+                "#                  m              T_melt              rhoC_p                 T_r               T_max",
+                fnum(0.0) + fnum(0.0) + fnum(0.0) + fnum(0.0) + fnum(0.0),
+            ])
+            notes.append(f"{name}: chunk solids crush at f_c = {fc:g} Pa (J2), eroded at plastic strain {eps_max:.4g} (G_c / (f_c h), h = {element_size:g} m)")
+        else:
+            m.mats[mid] = "\n".join([
+                f"/MAT/LAW1/{mid}", f"{name} (elastic)",
+                "#              RHO_I", fnum(mt["density"] * RHO),
+                "#                  E                  nu",
+                fnum(mt["youngs_modulus"] * scale * P) + fnum(mt["poisson_ratio"]),
+            ])
         pid = m.new("part")
         m.parts[pid] = {"title": f"chunks {name}", "prop": solid_prop, "mat": mid}
-        elastic_mat[name] = pid
+        elastic_mat[key] = pid
         return pid
 
     coh_parts = {}
@@ -376,7 +430,7 @@ def export(scene, outdir, opts):
         segs = []
         for ci, c in enumerate(chunks):
             ctr, h = c["center"], c["half_extents"]
-            pid = solid_mat(c["material"])
+            pid = solid_mat(c["material"], min(he_ax))
             n = [max(1, int(round(2 * h[a] / he_ax[a]))) for a in range(3)]
             lo = [ctr[a] - h[a] for a in range(3)]
             hi = [ctr[a] + h[a] for a in range(3)]
@@ -1039,6 +1093,14 @@ def export(scene, outdir, opts):
         f"{0.0:20.12g}{dt_max:20.12g}",
         "/PARITH/ON",
     ]
+    if opts.get("chunk_crushing") or opts.get("chunk_cdpm2"):
+        # Crushed elements collapse volumetrically (J2 plasticity does not resist it) and
+        # invert before their plastic strain reaches the erosion limit at high impact
+        # speed (b5 at 40 m/s stopped with an inverted element in the contact). Standard
+        # time-step erosion deletes an element once its distortion has cut its stable
+        # step to a tenth of the run's: a numerical safeguard for elements already crushed.
+        en += ["/DT/BRICK/DEL", f"{0.0:20.12g}{0.1 * dt_max:20.12g}"]
+        notes.append(f"crushing: bricks deleted once their stable step falls below {0.1 * dt_max:.3g} s (a tenth of the run's)")
     engine_text = "\n".join(en) + "\n"
     with open(os.path.join(outdir, f"{name}_0000.rad"), "w") as f:
         f.write(starter_text)
