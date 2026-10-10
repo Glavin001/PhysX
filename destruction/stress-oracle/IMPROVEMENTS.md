@@ -322,10 +322,11 @@ Newton loop's relative residual grows from about 10 to 1e21 over its 60 iteratio
 which is right if there is truly no equilibrium (a mechanism). Ending the loop early
 would not be exact, since one solve climbs to 5e5 and comes back down. A globalised
 Newton (backtracking on the residual, the full step kept whenever it already
-decreases it) would leave every solve that converges today bit-identical. It would
-change only the ones that fail now: they would converge where an equilibrium exists,
-or fail sooner where none does. That is a method change for a `sim.methods` switch,
-and nearly all of that cell's 47 s goes to these divergent iterations.
+decreases it) would leave bit-identical every solve whose residual falls at every
+step. It would change the others, mainly the ones that fail now: they would converge
+where an equilibrium exists, or fail sooner where none does. That is a method change
+for a `sim.methods` switch, and nearly all of that cell's 47 s goes to these
+divergent iterations.
 
 ## Open (from the audit and `CPU Oracle Improvements to Prove First`)
 
