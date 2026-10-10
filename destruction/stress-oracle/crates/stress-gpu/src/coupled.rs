@@ -152,10 +152,22 @@ impl LoadFilter {
     }
 }
 
+/// Host seconds per stage of the coupled frames so far.
+#[derive(Clone, Debug, Default)]
+pub struct CoupledProfile {
+    pub frames: u64,
+    pub sync: f64,
+    pub filter: f64,
+    pub refresh: f64,
+    pub step: f64,
+    pub output: f64,
+}
+
 /// The GPU stress solver under an engine (api.rs `EngineCoupledSolver`).
 pub struct GpuCoupledSolver {
     pub solver: GpuSolver,
     pub filter: LoadFilter,
+    pub profile: CoupledProfile,
 }
 
 impl GpuCoupledSolver {
@@ -175,13 +187,16 @@ impl GpuCoupledSolver {
             }
             solver.rebuild(gpu, 0.0)?;
         }
-        Ok(GpuCoupledSolver { solver, filter: LoadFilter::default() })
+        Ok(GpuCoupledSolver { solver, filter: LoadFilter::default(), profile: CoupledProfile::default() })
     }
 
     /// One engine frame on the GPU; the fractures and events it produced.
     pub fn step_gpu(&mut self, gpu: &Gpu, input: &FrameInput) -> Result<FrameOutput, String> {
         // The mirror's motion and history must be current before it is changed.
+        let t = std::time::Instant::now();
         self.solver.sync(gpu);
+        self.profile.sync += t.elapsed().as_secs_f64();
+        let t = std::time::Instant::now();
         let m = &mut self.solver.mirror;
         for motion in &input.motion {
             if let Some(c) = m.clusters.iter_mut().find(|c| c.id == motion.id) {
@@ -195,14 +210,23 @@ impl GpuCoupledSolver {
         let t0 = m.time;
         self.filter.ingest(m, t0, input.dt, &input.contacts);
         self.solver.extra_terms = self.filter.terms(&self.solver.mirror);
+        self.profile.filter += t.elapsed().as_secs_f64();
+        let t = std::time::Instant::now();
         self.solver.refresh(gpu)?;
+        self.profile.refresh += t.elapsed().as_secs_f64();
+        let t = std::time::Instant::now();
         let n_events = self.solver.mirror.events.len();
         let dt_sub = self.solver.mirror.stable_dt().min(input.dt);
         let n = (input.dt / dt_sub).ceil().max(1.0) as usize;
         let h = input.dt / n as f64;
         self.solver.step(gpu, h, n)?;
+        self.profile.step += t.elapsed().as_secs_f64();
+        let t = std::time::Instant::now();
         self.solver.sync(gpu);
-        Ok(self.output_since(n_events))
+        let out = self.output_since(n_events);
+        self.profile.output += t.elapsed().as_secs_f64();
+        self.profile.frames += 1;
+        Ok(out)
     }
 
     fn output_since(&self, n_events: usize) -> FrameOutput {

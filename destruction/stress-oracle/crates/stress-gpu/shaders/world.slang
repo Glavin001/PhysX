@@ -177,32 +177,66 @@ bool stopped()
 
 groupshared float4 g_red_a[THREADS];
 groupshared float4 g_red_b[THREADS];
+static const uint SIMD_LANES = 32;
+// Per-SIMD-group partials (at most 1024 threads of 32 lanes).
+groupshared float4 g_part_a[32];
+groupshared float4 g_part_b[32];
 
-// Sums of two float4 over the group (fixed tree order: deterministic).
-void group_sum2(uint tid, inout float4 a, inout float4 b)
+// Sums of two float4 over a group of N threads, the same on every thread and on every
+// run (no float atomics): on Metal and CUDA a SIMD-group sum, then the partials in
+// SIMD-group order (two barriers); elsewhere (WGSL, N = THREADS) a fixed tree.
+void group_sum2<let N : uint>(uint tid, inout float4 a, inout float4 b)
 {
-    g_red_a[tid] = a;
-    g_red_b[tid] = b;
-    GroupMemoryBarrierWithGroupSync();
-    for (uint s = THREADS / 2; s > 0; s >>= 1)
+    __target_switch
     {
-        if (tid < s)
+    case metal:
+    case cuda:
+        // SIMD groups of 32 lanes in thread order (Apple GPUs and NVIDIA; CuMetal requires
+        // it). Slang does not pass the lane builtins to kernels that reach this through
+        // helper calls, so the lane is taken from the thread index.
+        float4 wa = WaveActiveSum(a);
+        float4 wb = WaveActiveSum(b);
+        uint lanes = SIMD_LANES;
+        if (tid % lanes == 0)
         {
-            g_red_a[tid] += g_red_a[tid + s];
-            g_red_b[tid] += g_red_b[tid + s];
+            g_part_a[tid / lanes] = wa;
+            g_part_b[tid / lanes] = wb;
         }
         GroupMemoryBarrierWithGroupSync();
+        float4 sa = g_part_a[0];
+        float4 sb = g_part_b[0];
+        for (uint w = 1; w < N / lanes; w++)
+        {
+            sa += g_part_a[w];
+            sb += g_part_b[w];
+        }
+        GroupMemoryBarrierWithGroupSync();
+        a = sa;
+        b = sb;
+    default:
+        g_red_a[tid] = a;
+        g_red_b[tid] = b;
+        GroupMemoryBarrierWithGroupSync();
+        for (uint s = THREADS / 2; s > 0; s >>= 1)
+        {
+            if (tid < s)
+            {
+                g_red_a[tid] += g_red_a[tid + s];
+                g_red_b[tid] += g_red_b[tid + s];
+            }
+            GroupMemoryBarrierWithGroupSync();
+        }
+        a = g_red_a[0];
+        b = g_red_b[0];
+        GroupMemoryBarrierWithGroupSync();
     }
-    a = g_red_a[0];
-    b = g_red_b[0];
-    GroupMemoryBarrierWithGroupSync();
 }
 
-void group_sum3(uint tid, inout float3 a, inout float3 b)
+void group_sum3<let N : uint>(uint tid, inout float3 a, inout float3 b)
 {
     float4 x = float4(a, 0.0);
     float4 y = float4(b, 0.0);
-    group_sum2(tid, x, y);
+    group_sum2<N>(tid, x, y);
     a = x.xyz;
     b = y.xyz;
 }
@@ -860,7 +894,7 @@ void impactor_crush(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
     float4 unused = float4(0.0);
     for (uint k = imp.cand.x + tid; k < imp.cand.y; k += THREADS)
         shares += scratch[params.cand_base + 3 * k];
-    group_sum2(tid, shares, unused);
+    group_sum2<THREADS>(tid, shares, unused);
     if (tid != 0 || imp.cand.z != 0)
         return;
     imp.geom = float4(1.0, imp.crush.w, 0.0, 0.0);
@@ -899,7 +933,7 @@ void impactor_integrate(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
         rf += scratch[params.cand_base + 3 * k + 1];
         rt += scratch[params.cand_base + 3 * k + 2];
     }
-    group_sum2(tid, rf, rt);
+    group_sum2<THREADS>(tid, rf, rt);
     if (tid != 0)
         return;
     float dt = params.dt;
@@ -1596,7 +1630,7 @@ void island_frame(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
             float3 unused0 = float3(0.0);
             for (uint c = isl.range.x + tid; c < isl.range.y; c += THREADS)
                 norm.x += settled_chunk_load(c, rg.rot, k, dt, contact_island);
-            group_sum3(tid, norm, unused0);
+            group_sum3<THREADS>(tid, norm, unused0);
             if (params.solve_mode == MODE_ADAPTIVE && abs(norm.x - isl.energy.z) > isl.energy.w)
             {
                 settled = false;
@@ -1610,7 +1644,7 @@ void island_frame(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
             float3 t = float3(0.0);
             for (uint c = isl.range.x + tid; c < isl.range.y; c += THREADS)
                 net_load(c, isl, rg, k, dt, contact_island, f, t);
-            group_sum3(tid, f, t);
+            group_sum3<THREADS>(tid, f, t);
             rigid_acceleration(isl, rg, f, t);
         }
         if (settled)
@@ -1643,14 +1677,14 @@ void island_frame(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
             float3 pv = float3(0.0);
             for (uint c = isl.range.x + tid; c < isl.range.y; c += THREADS)
                 drift_moments(c, tu, pv);
-            group_sum3(tid, tu, pv);
+            group_sum3<THREADS>(tid, tu, pv);
             float3 tr = tu / isl.wcom.w;
             float3 dv = pv / isl.wcom.w;
             float3 lu = float3(0.0);
             float3 lv = float3(0.0);
             for (uint c = isl.range.x + tid; c < isl.range.y; c += THREADS)
                 drift_angular(c, wcom, tr, dv, lu, lv);
-            group_sum3(tid, lu, lv);
+            group_sum3<THREADS>(tid, lu, lv);
             float3 phi = rows_mul(isl.winv0, isl.winv1, isl.winv2, lu);
             float3 dw = rows_mul(isl.winv0, isl.winv1, isl.winv2, lv);
             for (uint c = isl.range.x + tid; c < isl.range.y; c += THREADS)
@@ -1669,7 +1703,7 @@ void island_frame(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
     // Island external work: per-thread compensated sums, reduced in a fixed order.
     float3 wsum = float3(work, work_err, 0.0);
     float3 unused = float3(0.0);
-    group_sum3(tid, wsum, unused);
+    group_sum3<THREADS>(tid, wsum, unused);
     if (tid == 0)
     {
         isl.rotation = quat_vec(rg.rot);
@@ -1752,7 +1786,7 @@ void wide_partials(uint tid, uint first, uint count, uint p, out float3 a, out f
         x += scratch[params.wide_base + 8 * (first + s) + p];
         y += scratch[params.wide_base + 8 * (first + s) + p + 1];
     }
-    group_sum2(tid, x, y);
+    group_sum2<THREADS>(tid, x, y);
     a = x.xyz;
     b = y.xyz;
 }
@@ -1796,7 +1830,7 @@ void wide_wake(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
     float3 unused = float3(0.0);
     for (uint c = isl.range.x + tid; c < isl.range.y; c += THREADS)
         norm.x += settled_chunk_load(c, rot, wide_step(isl), params.dt, contact);
-    group_sum3(tid, norm, unused);
+    group_sum3<THREADS>(tid, norm, unused);
     if (tid == 0 && params.solve_mode == MODE_ADAPTIVE && abs(norm.x - isl.energy.z) > isl.energy.w)
     {
         islands[wg.island].info.x = isl.info.x & ~ISLAND_SETTLED;
@@ -1831,7 +1865,7 @@ void wide_bonds(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
     uint c = wg.begin + tid;
     if (c < wg.end)
         net_load(c, isl, rigid_of(isl), k, params.dt, (isl.info.x & ISLAND_CONTACT) != 0, f, t);
-    group_sum3(tid, f, t);
+    group_sum3<THREADS>(tid, f, t);
     if (tid == 0)
         wide_store(group.x - params.wide_bond_groups, 0, f, t);
 }
@@ -1881,9 +1915,9 @@ void wide_chunks(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
     }
     float3 wsum = float3(work, work_err, 0.0);
     float3 unused = float3(0.0);
-    group_sum3(tid, wsum, unused);
+    group_sum3<THREADS>(tid, wsum, unused);
     if (!anchored)
-        group_sum3(tid, tu, pv);
+        group_sum3<THREADS>(tid, tu, pv);
     if (tid == 0)
     {
         scratch[params.wide_base + 8 * group.x + 6] = float4(wsum, 0.0);
@@ -1911,7 +1945,7 @@ void wide_drift(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
     uint c = wg.begin + tid;
     if (c < wg.end)
         drift_angular(c, isl.wcom.xyz, tr, dv, lu, lv);
-    group_sum3(tid, lu, lv);
+    group_sum3<THREADS>(tid, lu, lv);
     if (tid == 0)
         wide_store(group.x, 4, lu, lv);
 }
@@ -2153,7 +2187,7 @@ float island_dot(uint tid, uint c0, uint c1, uint sa, uint sb)
     float4 unused = float4(0.0);
     for (uint c = c0 + tid; c < c1; c += THREADS)
         acc.x += dot(scratch[sv(c, sa)].xyz, scratch[sv(c, sb)].xyz) + dot(scratch[sv(c, sa + 1)].xyz, scratch[sv(c, sb + 1)].xyz);
-    group_sum2(tid, acc, unused);
+    group_sum2<THREADS>(tid, acc, unused);
     return acc.x;
 }
 
@@ -2168,7 +2202,7 @@ void project_load_slot(uint tid, Island isl, uint slot)
         net_f += fi;
         net_m += cross(chunks[c].center.xyz - isl.com.xyz, fi) + scratch[sv(c, slot + 1)].xyz;
     }
-    group_sum3(tid, net_f, net_m);
+    group_sum3<THREADS>(tid, net_f, net_m);
     float3 a = net_f / isl.com.w;
     float3 alpha = rows_mul(isl.inv0, isl.inv1, isl.inv2, net_m);
     for (uint c = isl.range.x + tid; c < isl.range.y; c += THREADS)
@@ -2195,7 +2229,7 @@ void project_displacement_slot(uint tid, Island isl, uint slot)
         p += u * ch.center.w;
         l += cross(r, u) * ch.center.w + rows_mul(ch.inertia0, ch.inertia1, ch.inertia2, th);
     }
-    group_sum3(tid, p, l);
+    group_sum3<THREADS>(tid, p, l);
     float3 t = p / isl.com.w;
     float3 th0 = rows_mul(isl.inv0, isl.inv1, isl.inv2, l);
     for (uint c = isl.range.x + tid; c < isl.range.y; c += THREADS)
@@ -2406,7 +2440,7 @@ void island_statics(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
             scratch[sv(c, 5)] = r_ang;
         }
         AllMemoryBarrierWithGroupSync();
-        group_sum2(tid, magnitude, unused_m);
+        group_sum2<THREADS>(tid, magnitude, unused_m);
         if (free)
             project_load_slot(tid, isl, 4);
         residual = sqrt(island_dot(tid, c0, c1, 4, 4)) / scale;

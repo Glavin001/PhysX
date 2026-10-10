@@ -347,6 +347,9 @@ struct Buffers {
     crush: bool,
     /// Chunk groups of the wide islands (0: none).
     wide_chunk_groups: u32,
+    /// Some wide island is free (not anchored): its rounds need the drift and rigid
+    /// passes, which anchored islands skip.
+    wide_free: bool,
 }
 
 /// Where each GPU chunk and bond lives in the mirror, the probe items by slot, the
@@ -906,6 +909,7 @@ impl GpuSolver {
         index.extend(segments);
         let wide_bond_groups = (bond_table.len() / 4) as u32;
         let wide_chunk_groups = (chunk_table.len() / 4) as u32;
+        let wide_free = islands.iter().any(|i| i.info[0] & ISLAND_WIDE != 0 && i.info[0] & ISLAND_ANCHORED == 0);
         let wide_bond_table = index.len() as u32;
         index.extend(bond_table);
         let wide_chunk_table = index.len() as u32;
@@ -1050,6 +1054,7 @@ impl GpuSolver {
                 bind_contact,
                 crush,
                 wide_chunk_groups,
+                wide_free,
             },
         ))
     }
@@ -1188,7 +1193,10 @@ impl GpuSolver {
                     }
                     ops.push((K_WIDE[0], p.wide_bond_groups + wide_groups, true));
                     for &k in &K_WIDE[1..] {
-                        ops.push((k, wide_groups, true));
+                        // wide_drift and wide_rigid return at once for anchored islands.
+                        if self.buffers.wide_free || (k != K_WIDE[2] && k != K_WIDE[3]) {
+                            ops.push((k, wide_groups, true));
+                        }
                     }
                 }
                 if contact && !self.impactors.is_empty() {

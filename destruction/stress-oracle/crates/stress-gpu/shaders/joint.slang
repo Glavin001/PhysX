@@ -451,6 +451,70 @@ Contact contact_part(JointMaterial mat, JointBond b, float crush, float3 plastic
     return c;
 }
 
+// The friction offsets `contact_part` leaves after an evaluation, without the force,
+// moments and energy: an uncracked joint (damage 0) weights those by zero, so only the
+// offsets of its contact interface evolve. The same operations as `contact_part`, in the
+// same order, for the normal force and the two return maps.
+float3 contact_offsets(JointMaterial mat, JointBond b, float crush, float3 plastic, float3 d_lin, float3 d_ang)
+{
+    if ((mat.kind_flags.y & FLAG_CRACK_CONTACT) == 0)
+        return plastic;
+    float kn = b.stiff0.x;
+    float ks = b.stiff0.y;
+    float kt = b.stiff1.x;
+    float w0 = b.geom0.y;
+    float w1 = b.geom0.z;
+    float nc_sum = 0.0;
+    if ((mat.kind_flags.y & FLAG_EXACT_PATCH) != 0)
+    {
+        nc_sum = no_tension_patch(kn * (1.0 - crush), w0, w1, d_lin.z, d_ang.x, d_ang.y).x;
+    }
+    else
+    {
+        float ki = kn * (1.0 - crush) / float(CONTACT_SPRINGS * CONTACT_SPRINGS);
+        float n = float(CONTACT_SPRINGS);
+        float edge = 0.5 - 0.5 / n;
+        float spread = abs(d_ang.x) * edge * w1 + abs(d_ang.y) * edge * w0;
+        float slack = 1e-6 * (abs(d_lin.z) + spread);
+        if (d_lin.z - spread > slack)
+        {
+        }
+        else if (d_lin.z + spread < -slack)
+        {
+            float area = n * n;
+            nc_sum = ki * area * d_lin.z;
+        }
+        else
+        for (uint i = 0; i < CONTACT_SPRINGS; i++)
+        {
+            float s1 = ((float(i) + 0.5) / float(CONTACT_SPRINGS) - 0.5) * w0;
+            for (uint j = 0; j < CONTACT_SPRINGS; j++)
+            {
+                float s2 = ((float(j) + 0.5) / float(CONTACT_SPRINGS) - 0.5) * w1;
+                float di = d_lin.z + d_ang.x * s2 - d_ang.y * s1;
+                if (di < 0.0)
+                    nc_sum += ki * di;
+            }
+        }
+    }
+    float nc = -nc_sum;
+    float3 p = plastic;
+    float friction = mat.strength.w;
+    float slide_cap = friction * nc;
+    float2 trial = float2(ks * (d_lin.x - p.x), ks * (d_lin.y - p.y));
+    float tn = fsqrt(trial.x * trial.x + trial.y * trial.y);
+    if (tn > slide_cap && tn > 0.0)
+    {
+        float2 dir = float2(fdiv(trial.x, tn), fdiv(trial.y, tn));
+        float dslip = fdiv(tn - slide_cap, ks);
+        p.x += dir.x * dslip;
+        p.y += dir.y * dslip;
+    }
+    float2 tq = return_map(kt, d_ang.z, p.z, friction * nc * b.geom1.z);
+    p.z += tq.y;
+    return p;
+}
+
 float expm1_accurate(float x)
 {
     // exp(x) - 1 without cancellation for small x.
@@ -569,7 +633,18 @@ public JointResponse joint_evaluate(JointMaterial mat, JointBond b, JointState s
     float3 qc_ang = float3(0.0);
     float psi_contact = 0.0;
     float diss_contact = 0.0;
-    if (!(dmg == 0.0 && (flags & FLAG_PATCH_AFTER_DAMAGE) != 0))
+    if (dmg == 0.0)
+    {
+        // Uncracked: the contact share is weighted by zero; only its offsets move.
+        if ((flags & FLAG_PATCH_AFTER_DAMAGE) == 0)
+        {
+            float3 p = contact_offsets(mat, b, st.crush, plastic, d_lin, d_ang);
+            st.plastic_x = p.x;
+            st.plastic_y = p.y;
+            st.plastic_t = p.z;
+        }
+    }
+    else
     {
         Contact c = contact_part(mat, b, st.crush, plastic, d_lin, d_ang);
         qc_lin = c.q_lin;

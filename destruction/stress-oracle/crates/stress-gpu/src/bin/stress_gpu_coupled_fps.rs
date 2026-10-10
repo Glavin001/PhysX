@@ -166,6 +166,19 @@ fn main() {
                     Ok(mut gpu) => {
                         let r = run(s, &mut gpu, t.elapsed().as_secs_f64(), frames, destruction, f64::INFINITY);
                         report(&scene.name, regime, step, "GPU", &r, Some(&truth), n);
+                        let p = &gpu.coupled.profile;
+                        let per = |x: f64| x / p.frames.max(1) as f64 * 1e3;
+                        eprintln!(
+                            "  {} {regime} {step}: per frame sync {:.2} ms, filter {:.2}, refresh {:.2}, step {:.2} (gpu {:.2}, readback {:.2}), output {:.2}",
+                            scene.name,
+                            per(p.sync),
+                            per(p.filter),
+                            per(p.refresh),
+                            per(p.step),
+                            per(gpu.coupled.solver.profile.gpu),
+                            per(gpu.coupled.solver.profile.readback),
+                            per(p.output)
+                        );
                     }
                     Err(e) => println!("| {} | {regime} | {step} | GPU | error: {e} |", scene.name),
                 }

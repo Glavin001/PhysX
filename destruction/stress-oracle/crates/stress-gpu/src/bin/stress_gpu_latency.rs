@@ -86,7 +86,7 @@ fn main() {
     println!("\n## Island kernel: one island, one threadgroup of 256 threads, 2000 substeps");
     println!("| slab | chunks | bonds | bonds/thread | us/substep |");
     println!("|---|---:|---:|---:|---:|");
-    for n in [[2, 2, 1], [4, 2, 2], [6, 4, 2], [8, 6, 2], [12, 6, 2], [16, 8, 2], [16, 12, 2]] {
+    for n in [[2, 2, 1], [4, 2, 2], [8, 6, 2], [12, 6, 2], [16, 8, 2], [16, 12, 2], [20, 16, 2], [32, 16, 2], [40, 20, 4]] {
         let mut scene = scenes::slab(n);
         scene.sim.solve_mode = SolveMode::Explicit;
         let reference = ReferenceSolver::new(&scene);
