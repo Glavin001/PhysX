@@ -63,6 +63,7 @@ struct JointState_std430_0
 
 @binding(6) @group(0) var<storage, read_write> outputs_0 : array<vec4<f32>>;
 
+var<private> SPRING_AT_0 : array<f32, i32(6)> = array<f32, i32(6)>( -0.4166666567325592f, -0.25f, -0.0833333358168602f, 0.0833333358168602f, 0.25f, 0.4166666567325592f );
 fn connected_0( st_0 : ptr<function, JointState_std430_0>,  has_rebar_0 : bool) -> bool
 {
     var _S1 : bool;
@@ -571,7 +572,7 @@ fn contact_part_0( mat_3 : ptr<function, JointMaterial_std430_0>,  b_4 : ptr<fun
                     {
                         break;
                     }
-                    var _S49 : f32 = ((f32(i_1) + 0.5f) / 6.0f - 0.5f) * w0_2;
+                    var _S49 : f32 = SPRING_AT_0[i_1] * w0_2;
                     var j_0 : u32 = u32(0);
                     nc_sum_0 = diss_1;
                     m1_0 = m1_1;
@@ -586,7 +587,7 @@ fn contact_part_0( mat_3 : ptr<function, JointMaterial_std430_0>,  b_4 : ptr<fun
                         {
                             break;
                         }
-                        var s2_0 : f32 = ((f32(j_0) + 0.5f) / 6.0f - 0.5f) * w1_2;
+                        var s2_0 : f32 = SPRING_AT_0[j_0] * w1_2;
                         var di_0 : f32 = _S45 + _S43 * s2_0 - _S44 * _S49;
                         if(di_0 < 0.0f)
                         {
@@ -709,7 +710,7 @@ fn contact_offsets_0( mat_4 : ptr<function, JointMaterial_std430_0>,  b_5 : ptr<
                     {
                         break;
                     }
-                    var _S62 : f32 = ((f32(i_2) + 0.5f) / 6.0f - 0.5f) * w0_3;
+                    var _S62 : f32 = SPRING_AT_0[i_2] * w0_3;
                     var j_1 : u32 = u32(0);
                     nc_sum_1 = nc_sum_2;
                     loop
@@ -721,7 +722,7 @@ fn contact_offsets_0( mat_4 : ptr<function, JointMaterial_std430_0>,  b_5 : ptr<
                         {
                             break;
                         }
-                        var di_1 : f32 = _S61 + _S59 * (((f32(j_1) + 0.5f) / 6.0f - 0.5f) * w1_3) - _S60 * _S62;
+                        var di_1 : f32 = _S61 + _S59 * (SPRING_AT_0[j_1] * w1_3) - _S60 * _S62;
                         if(di_1 < 0.0f)
                         {
                             nc_sum_1 = nc_sum_1 + ki_1 * di_1;

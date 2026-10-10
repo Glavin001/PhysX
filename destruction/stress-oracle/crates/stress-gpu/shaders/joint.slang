@@ -333,6 +333,9 @@ float2 return_map(float k, float total, float plastic, float cap)
 }
 
 static const uint CONTACT_SPRINGS = 6;
+// Spring positions across the patch, (i + 0.5) / n - 0.5 for n = 6, as constants: the
+// divisions in the loop were most of an uncracked bond's evaluation time on Apple GPUs.
+static const float SPRING_AT[6] = { -5.0 / 12.0, -0.25, -1.0 / 12.0, 1.0 / 12.0, 0.25, 5.0 / 12.0 };
 
 // The cracked share's contact: force (lin, ang), energy, dissipation; the friction
 // offsets after the evaluation in `plastic` (committed by the caller when it should).
@@ -398,10 +401,10 @@ Contact contact_part(JointMaterial mat, JointBond b, float crush, float3 plastic
         else
         for (uint i = 0; i < CONTACT_SPRINGS; i++)
         {
-            float s1 = ((float(i) + 0.5) / float(CONTACT_SPRINGS) - 0.5) * w0;
+            float s1 = SPRING_AT[i] * w0;
             for (uint j = 0; j < CONTACT_SPRINGS; j++)
             {
-                float s2 = ((float(j) + 0.5) / float(CONTACT_SPRINGS) - 0.5) * w1;
+                float s2 = SPRING_AT[j] * w1;
                 float di = d_lin.z + d_ang.x * s2 - d_ang.y * s1;
                 if (di < 0.0)
                 {
@@ -487,10 +490,10 @@ float3 contact_offsets(JointMaterial mat, JointBond b, float crush, float3 plast
         else
         for (uint i = 0; i < CONTACT_SPRINGS; i++)
         {
-            float s1 = ((float(i) + 0.5) / float(CONTACT_SPRINGS) - 0.5) * w0;
+            float s1 = SPRING_AT[i] * w0;
             for (uint j = 0; j < CONTACT_SPRINGS; j++)
             {
-                float s2 = ((float(j) + 0.5) / float(CONTACT_SPRINGS) - 0.5) * w1;
+                float s2 = SPRING_AT[j] * w1;
                 float di = d_lin.z + d_ang.x * s2 - d_ang.y * s1;
                 if (di < 0.0)
                     nc_sum += ki * di;

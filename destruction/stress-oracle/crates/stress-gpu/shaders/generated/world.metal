@@ -2,6 +2,7 @@
 #include <metal_math>
 #include <metal_texture>
 using namespace metal;
+constant array<float, int(6)> SPRING_AT_0 = { { -0.4166666567325592f, -0.25f, -0.0833333358168602f, 0.0833333358168602f, 0.25f, 0.4166666567325592f } };
 struct Params_0
 {
     float4 gravity_0;
@@ -3821,7 +3822,7 @@ Contact_0 contact_part_0(const JointMaterial_0 constant* mat_4, const JointBond_
                     {
                         break;
                     }
-                    float _S660 = ((float(i_8) + 0.5f) / 6.0f - 0.5f) * w0_2;
+                    float _S660 = SPRING_AT_0[i_8] * w0_2;
                     uint j_5 = 0U;
                     nc_sum_0 = diss_5;
                     m1_0 = m1_1;
@@ -3836,7 +3837,7 @@ Contact_0 contact_part_0(const JointMaterial_0 constant* mat_4, const JointBond_
                         {
                             break;
                         }
-                        float s2_0 = ((float(j_5) + 0.5f) / 6.0f - 0.5f) * w1_2;
+                        float s2_0 = SPRING_AT_0[j_5] * w1_2;
                         float di_0 = _S656 + _S654 * s2_0 - _S655 * _S660;
                         if(di_0 < 0.0f)
                         {
@@ -3965,7 +3966,7 @@ float3 contact_offsets_0(const JointMaterial_0 constant* mat_5, const JointBond_
                     {
                         break;
                     }
-                    float _S679 = ((float(i_9) + 0.5f) / 6.0f - 0.5f) * w0_3;
+                    float _S679 = SPRING_AT_0[i_9] * w0_3;
                     uint j_6 = 0U;
                     nc_sum_1 = nc_sum_2;
                     for(;;)
@@ -3977,7 +3978,7 @@ float3 contact_offsets_0(const JointMaterial_0 constant* mat_5, const JointBond_
                         {
                             break;
                         }
-                        float di_1 = _S678 + _S676 * (((float(j_6) + 0.5f) / 6.0f - 0.5f) * w1_3) - _S677 * _S679;
+                        float di_1 = _S678 + _S676 * (SPRING_AT_0[j_6] * w1_3) - _S677 * _S679;
                         if(di_1 < 0.0f)
                         {
                             nc_sum_1 = nc_sum_1 + ki_1 * di_1;

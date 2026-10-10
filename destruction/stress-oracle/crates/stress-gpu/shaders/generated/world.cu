@@ -230,6 +230,9 @@ static __device__ float3  max_0(float3  x_0, float3  y_0)
     return result_0;
 }
 
+__device__ static const FixedArray<float, 6>  SPRING_AT_0 = { {
+    -0.4166666567325592f, -0.25f, -0.0833333358168602f, 0.0833333358168602f, 0.25f, 0.4166666567325592f
+} };
 static __device__ float clamp_0(float x_1, float minBound_0, float maxBound_0)
 {
     return (F32_min(((F32_max((x_1), (minBound_0)))), (maxBound_0)));
@@ -3601,7 +3604,7 @@ static __device__ Contact_0 contact_part_0(JointMaterial_0 * mat_4, JointBond_0 
                     {
                         break;
                     }
-                    float _S748 = ((float(i_12) + 0.5f) / 6.0f - 0.5f) * w0_2;
+                    float _S748 = SPRING_AT_0[i_12] * w0_2;
                     uint j_4 = 0U;
                     nc_sum_0 = diss_5;
                     m1_0 = m1_1;
@@ -3616,7 +3619,7 @@ static __device__ Contact_0 contact_part_0(JointMaterial_0 * mat_4, JointBond_0 
                         {
                             break;
                         }
-                        float s2_0 = ((float(j_4) + 0.5f) / 6.0f - 0.5f) * w1_2;
+                        float s2_0 = SPRING_AT_0[j_4] * w1_2;
                         float di_0 = _S744 + _S742 * s2_0 - _S743 * _S748;
                         if(di_0 < 0.0f)
                         {
@@ -3739,7 +3742,7 @@ static __device__ float3  contact_offsets_0(JointMaterial_0 * mat_5, JointBond_0
                     {
                         break;
                     }
-                    float _S761 = ((float(i_13) + 0.5f) / 6.0f - 0.5f) * w0_3;
+                    float _S761 = SPRING_AT_0[i_13] * w0_3;
                     uint j_5 = 0U;
                     nc_sum_1 = nc_sum_2;
                     for(;;)
@@ -3751,7 +3754,7 @@ static __device__ float3  contact_offsets_0(JointMaterial_0 * mat_5, JointBond_0
                         {
                             break;
                         }
-                        float di_1 = _S760 + _S758 * (((float(j_5) + 0.5f) / 6.0f - 0.5f) * w1_3) - _S759 * _S761;
+                        float di_1 = _S760 + _S758 * (SPRING_AT_0[j_5] * w1_3) - _S759 * _S761;
                         if(di_1 < 0.0f)
                         {
                             nc_sum_1 = nc_sum_1 + ki_1 * di_1;

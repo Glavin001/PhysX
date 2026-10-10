@@ -2,6 +2,7 @@
 #include <metal_math>
 #include <metal_texture>
 using namespace metal;
+constant array<float, int(6)> SPRING_AT_0 = { { -0.4166666567325592f, -0.25f, -0.0833333358168602f, 0.0833333358168602f, 0.25f, 0.4166666567325592f } };
 struct JointState_0
 {
     float damage_0;
@@ -522,7 +523,7 @@ Contact_0 contact_part_0(const JointMaterial_natural_0 thread* mat_3, const Join
                     {
                         break;
                     }
-                    float _S76 = ((float(i_1) + 0.5f) / 6.0f - 0.5f) * w0_2;
+                    float _S76 = SPRING_AT_0[i_1] * w0_2;
                     uint j_0 = 0U;
                     nc_sum_0 = diss_1;
                     m1_0 = m1_1;
@@ -537,7 +538,7 @@ Contact_0 contact_part_0(const JointMaterial_natural_0 thread* mat_3, const Join
                         {
                             break;
                         }
-                        float s2_0 = ((float(j_0) + 0.5f) / 6.0f - 0.5f) * w1_2;
+                        float s2_0 = SPRING_AT_0[j_0] * w1_2;
                         float di_0 = _S72 + _S70 * s2_0 - _S71 * _S76;
                         if(di_0 < 0.0f)
                         {
@@ -666,7 +667,7 @@ float3 contact_offsets_0(const JointMaterial_natural_0 thread* mat_4, const Join
                     {
                         break;
                     }
-                    float _S95 = ((float(i_2) + 0.5f) / 6.0f - 0.5f) * w0_3;
+                    float _S95 = SPRING_AT_0[i_2] * w0_3;
                     uint j_1 = 0U;
                     nc_sum_1 = nc_sum_2;
                     for(;;)
@@ -678,7 +679,7 @@ float3 contact_offsets_0(const JointMaterial_natural_0 thread* mat_4, const Join
                         {
                             break;
                         }
-                        float di_1 = _S94 + _S92 * (((float(j_1) + 0.5f) / 6.0f - 0.5f) * w1_3) - _S93 * _S95;
+                        float di_1 = _S94 + _S92 * (SPRING_AT_0[j_1] * w1_3) - _S93 * _S95;
                         if(di_1 < 0.0f)
                         {
                             nc_sum_1 = nc_sum_1 + ki_1 * di_1;
