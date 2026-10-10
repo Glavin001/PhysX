@@ -658,7 +658,9 @@ namespace physx
 		if(nodes->empty()) return;
 		static PxU32 count = 0;
 		if(strcmp(tag, "end-of-step") == 0) ++count;
-		if(count % 30 != 0 && nodes->size() > 1) return; // multi-node traces sample every 30th step
+		// Multi-node traces sample every 30th step unless PX_DESTRUCTION_TRACE_EVERY=1.
+		static const bool every = getenv("PX_DESTRUCTION_TRACE_EVERY") && atoi(getenv("PX_DESTRUCTION_TRACE_EVERY"));
+		if(!every && count % 30 != 0 && nodes->size() > 1) return;
 		for(PxU32 n = 0; n < nodes->size(); ++n) debugTraceOne((*nodes)[n], tag, count);
 	}
 
@@ -670,11 +672,12 @@ namespace physx
 		// The solver stream owns every write to the record; drain it first.
 		mCudaContextManager->getCudaContext()->streamSynchronize(mDynamicContext->getGpuSolverCore()->getStream());
 		mCudaContextManager->getCudaContext()->memcpyDtoH(&sim, CUdeviceptr(mSimulationCore->getBodySimBufferDeviceData()) + CUdeviceptr(node) * sizeof(PxgBodySim), sizeof(PxgBodySim));
-		fprintf(stderr, "[trace %ld] #%u %-16s p=(%.6f %.6f %.6f) v=(%.5f %.5f %.5f) w=(%.4f %.4f %.4f) wc=%g flags=%x maxPenBias=%g\n", node, count, tag,
+		fprintf(stderr, "[trace %ld] #%u %-16s p=(%.6f %.6f %.6f) v=(%.5f %.5f %.5f) w=(%.4f %.4f %.4f) wc=%g flags=%x maxPenBias=%g invMass=%g noGravity=%u\n", node, count, tag,
 			double(sim.body2World.p.x), double(sim.body2World.p.y), double(sim.body2World.p.z),
 			double(sim.linearVelocityXYZ_inverseMassW.x), double(sim.linearVelocityXYZ_inverseMassW.y), double(sim.linearVelocityXYZ_inverseMassW.z),
 			double(sim.angularVelocityXYZ_maxPenBiasW.x), double(sim.angularVelocityXYZ_maxPenBiasW.y), double(sim.angularVelocityXYZ_maxPenBiasW.z),
-			double(sim.freezeThresholdX_wakeCounterY_sleepThresholdZ_bodySimIndex.y), unsigned(sim.internalFlags), double(sim.angularVelocityXYZ_maxPenBiasW.w));
+			double(sim.freezeThresholdX_wakeCounterY_sleepThresholdZ_bodySimIndex.y), unsigned(sim.internalFlags), double(sim.angularVelocityXYZ_maxPenBiasW.w),
+			double(sim.linearVelocityXYZ_inverseMassW.w), unsigned(sim.disableGravity));
 	}
 
 	bool PxgSimulationController::getRigidDynamicData(void* PX_RESTRICT data, const PxRigidDynamicGPUIndex* PX_RESTRICT gpuIndices, PxRigidDynamicGPUAPIReadType::Enum dataType, PxU32 nbElements, CUevent startEvent, CUevent finishEvent) const
