@@ -31,6 +31,15 @@ const MAX_MATERIALS: usize = 64;
 const ISLAND_ANCHORED: u32 = 1;
 const ISLAND_DRIVEN: u32 = 2;
 const ISLAND_CONTACT: u32 = 4;
+const ISLAND_WIDE: u32 = 8;
+/// Threads per group of the wide kernels (chunks or bonds per group).
+const WIDE_GROUP: usize = 256;
+
+/// Islands with at least this many chunks spread over many threadgroups
+/// (`STRESS_GPU_WIDE_CHUNKS` overrides; 0 disables).
+fn wide_threshold() -> usize {
+    std::env::var("STRESS_GPU_WIDE_CHUNKS").ok().and_then(|v| v.parse().ok()).unwrap_or(192)
+}
 const ISLAND_HALTED: u32 = 1;
 const STOP_NOW: u32 = 1;
 
@@ -70,6 +79,13 @@ struct Params {
     ground_friction: f32,
     ground_modulus: f32,
     has_ground: u32,
+    wide_bond_groups: u32,
+    wide_bond_table: u32,
+    wide_chunk_table: u32,
+    wide_base: u32,
+    seg_index: u32,
+    seg_count: u32,
+    seg_base: u32,
     pad: [u32; 3],
 }
 
@@ -235,8 +251,24 @@ const K_FORCES: usize = 1;
 const K_SHARES: usize = 2;
 const K_CRUSH: usize = 3;
 const K_INTEGRATE: usize = 4;
+const K_WIDE: [usize; 5] = [5, 6, 7, 8, 9];
+const K_SUMS: usize = 10;
 /// Kernel names by `K_*` index.
-pub const KERNEL_NAMES: [&str; 5] = ["island_frame", "contact_forces", "impactor_shares", "impactor_crush", "impactor_integrate"];
+pub const KERNEL_NAMES: [&str; 11] = [
+    "island_frame",
+    "contact_forces",
+    "impactor_shares",
+    "impactor_crush",
+    "impactor_integrate",
+    "wide_bonds",
+    "wide_chunks",
+    "wide_drift",
+    "wide_rigid",
+    "wide_end",
+    "contact_sums",
+];
+/// Contact contributions per segment (`contact_sums`, one thread each).
+const SEGMENT: usize = 8;
 /// Dispatches per submission while profiling (2 timestamps each).
 const TIMED_DISPATCHES: usize = 2048;
 
@@ -252,6 +284,8 @@ struct Kernels {
     shares: Kernel,
     crush: Kernel,
     integrate: Kernel,
+    wide: [Kernel; 5],
+    sums: Kernel,
 }
 
 /// The bindings of every `world.slang` kernel.
@@ -286,6 +320,8 @@ struct Buffers {
     bind_contact: wgpu::BindGroup,
     /// Some impactor has a crush cap (the crush passes run each substep).
     crush: bool,
+    /// Chunk groups of the wide islands (0: none).
+    wide_chunk_groups: u32,
 }
 
 /// Where each GPU chunk and bond lives in the mirror, the probe items by slot, the
@@ -312,9 +348,12 @@ pub struct Profile {
     /// Largest contact plan seen: pair candidates, impactor candidates.
     pub max_pairs: usize,
     pub max_impactor_candidates: usize,
+    /// Longest contact contribution list of a chunk, and of an island (sum over its chunks).
+    pub max_chunk_contacts: usize,
+    pub max_island_contacts: usize,
     /// GPU time (s) and dispatches per kernel (`KERNEL_NAMES`), with `STRESS_GPU_TIMING=1`.
-    pub kernels: [f64; 5],
-    pub kernel_dispatches: [u64; 5],
+    pub kernels: [f64; 11],
+    pub kernel_dispatches: [u64; 11],
 }
 
 pub struct GpuSolver {
@@ -349,6 +388,8 @@ impl GpuSolver {
             shares: gpu.compute(&shaders::WORLD, "impactor_shares", &WORLD_BINDINGS),
             crush: gpu.compute(&shaders::WORLD, "impactor_crush", &WORLD_BINDINGS),
             integrate: gpu.compute(&shaders::WORLD, "impactor_integrate", &WORLD_BINDINGS),
+            wide: ["wide_bonds", "wide_chunks", "wide_drift", "wide_rigid", "wide_end"].map(|e| gpu.compute(&shaders::WORLD, e, &WORLD_BINDINGS)),
+            sums: gpu.compute(&shaders::WORLD, "contact_sums", &WORLD_BINDINGS),
         };
         let timing = (std::env::var("STRESS_GPU_TIMING").is_ok_and(|v| v == "1") && gpu.device.features().contains(wgpu::Features::TIMESTAMP_QUERY)).then(|| Timing {
             queries: gpu.device.create_query_set(&wgpu::QuerySetDescriptor { label: Some("timestamps"), ty: wgpu::QueryType::Timestamp, count: 2 * TIMED_DISPATCHES as u32 }),
@@ -647,11 +688,17 @@ impl GpuSolver {
             contributions[*a as usize].push((2 * i) as u32);
             contributions[*b as usize].push((2 * i + 1) as u32);
         }
+        let mut segments: Vec<u32> = Vec::new();
         for (k, &(s, c)) in chunks.iter().enumerate() {
             let ci = m.chunks[s][c].cluster;
             let data = &m.structures[s].chunks[c];
-            let begin = index.len() as u32;
+            let entries = index.len() as u32;
             index.extend_from_slice(&contributions[k]);
+            let begin = (segments.len() / 3) as u32;
+            for at in (0..contributions[k].len()).step_by(SEGMENT) {
+                let end = (at + SEGMENT).min(contributions[k].len());
+                segments.extend([k as u32, entries + at as u32, entries + end as u32]);
+            }
             let (e, mu) = match &scene {
                 Some(scene) => (modulus(scene, &data.material), scene.material(&data.material).friction),
                 None => (1.0, 0.0),
@@ -663,7 +710,13 @@ impl GpuSolver {
             cs.cmat = [e as f32, mu as f32, 0.0, 0.0];
             cs.start_hi = [start_hi[0], start_hi[1], start_hi[2], plan.budget[k] as f32];
             cs.start_lo = start_lo;
-            cs.cinfo = [begin, index.len() as u32, plan.contact_clusters[ci] as u32, 0];
+            cs.cinfo = [begin, (segments.len() / 3) as u32, plan.contact_clusters[ci] as u32, 0];
+        }
+        if std::env::var("STRESS_GPU_CONTACT_STATS").is_ok() {
+            let per_chunk = contributions.iter().map(|c| c.len()).max().unwrap_or(0);
+            let per_island = islands.iter().map(|isl| (isl.range[0]..isl.range[1]).map(|k| contributions[k as usize].len()).sum::<usize>()).max().unwrap_or(0);
+            let biggest = islands.iter().map(|isl| isl.range[1] - isl.range[0]).max().unwrap_or(0);
+            eprintln!("contacts: {} pairs, longest chunk list {per_chunk}, busiest island {per_island} entries, biggest island {biggest} chunks, {} islands", plan.pairs.len(), islands.len());
         }
         let mut cstate: Vec<[f32; 4]> = Vec::with_capacity(28 * plan.pairs.len());
         let mut remembered = Vec::new();
@@ -716,6 +769,34 @@ impl GpuSolver {
             })
             .collect();
         let crush = impactors.iter().any(|imp| !imp.driven && imp.crush.is_some_and(|(f, _)| f > 0.0));
+        // Wide islands: groups of bonds and of chunks, each chunk group with its island's
+        // first chunk group (where the island's partial sums start).
+        let threshold = wide_threshold();
+        let (mut bond_table, mut chunk_table) = (Vec::new(), Vec::new());
+        for (ci, island) in islands.iter_mut().enumerate() {
+            let chunk_count = (island.range[1] - island.range[0]) as usize;
+            if threshold == 0 || chunk_count < threshold {
+                continue;
+            }
+            island.info[0] |= ISLAND_WIDE;
+            for b in (island.range[2]..island.range[3]).step_by(WIDE_GROUP) {
+                bond_table.extend([ci as u32, b, (b + WIDE_GROUP as u32).min(island.range[3]), 0]);
+            }
+            let first = (chunk_table.len() / 4) as u32;
+            for c in (island.range[0]..island.range[1]).step_by(WIDE_GROUP) {
+                chunk_table.extend([ci as u32, c, (c + WIDE_GROUP as u32).min(island.range[1]), first]);
+            }
+            island.done[2] = (chunk_table.len() / 4) as u32 - first;
+        }
+        let seg_count = (segments.len() / 3) as u32;
+        let seg_index = index.len() as u32;
+        index.extend(segments);
+        let wide_bond_groups = (bond_table.len() / 4) as u32;
+        let wide_chunk_groups = (chunk_table.len() / 4) as u32;
+        let wide_bond_table = index.len() as u32;
+        index.extend(bond_table);
+        let wide_chunk_table = index.len() as u32;
+        index.extend(chunk_table);
         // The sentinel island (batch control) after the islands.
         let halt_index = islands.len() as u32;
         let mut islands_gpu = islands.clone();
@@ -730,7 +811,9 @@ impl GpuSolver {
         let ledger_base = slot_base + 2 * slots;
         let record_base = ledger_base + plan.pairs.len() + n;
         let cand_base = record_base + 2 * impactors.len() * probe_stride as usize;
-        let scratch_len = cand_base + 3 * cand_count + 1;
+        let wide_base = cand_base + 3 * cand_count;
+        let seg_base = wide_base + 8 * wide_chunk_groups as usize;
+        let scratch_len = seg_base + 2 * seg_count as usize + 1;
 
         let (gravity, ground) = (m.config.gravity, scene.as_ref().and_then(|s| s.ground.clone()));
         let (g_hi, g_lo) = split1(ground.as_ref().map_or(0.0, |g| g.height));
@@ -759,6 +842,13 @@ impl GpuSolver {
             ground_friction: ground.as_ref().map_or(0.0, |g| scene.as_ref().unwrap().sim.contact_friction.unwrap_or(g.friction)) as f32,
             ground_modulus: ground.as_ref().map_or(1.0, |g| modulus(scene.as_ref().unwrap(), &g.material)) as f32,
             has_ground: ground.is_some() as u32,
+            wide_bond_groups,
+            wide_bond_table,
+            wide_chunk_table,
+            wide_base: wide_base as u32,
+            seg_index,
+            seg_count,
+            seg_base: seg_base as u32,
             ..Default::default()
         };
 
@@ -803,6 +893,7 @@ impl GpuSolver {
                 bind_segment,
                 bind_contact,
                 crush,
+                wide_chunk_groups,
             },
         ))
     }
@@ -857,6 +948,7 @@ impl GpuSolver {
         loop {
             let mut any = false;
             let mut contact_left = 0usize;
+            let mut wide_left = 0usize;
             for (ci, isl) in self.layout.islands.iter_mut().enumerate() {
                 let left = remaining[&self.mirror.clusters[ci].id];
                 isl.info[1] = left as u32;
@@ -866,13 +958,19 @@ impl GpuSolver {
                 if isl.info[0] & ISLAND_CONTACT != 0 {
                     contact_left = contact_left.max(left);
                 }
+                if isl.info[0] & ISLAND_WIDE != 0 {
+                    wide_left = wide_left.max(left);
+                }
             }
             let pipeline = !self.impactors.is_empty() || contact_left > 0;
             let mut pipeline_steps = if !self.impactors.is_empty() { pipeline_left.max(contact_left) } else { contact_left }.min(chunk);
+            // Rounds of per-substep dispatches: the contact pipeline and the wide islands.
+            let mut rounds = pipeline_steps.max(wide_left.min(chunk));
             if self.timing.is_some() {
-                pipeline_steps = pipeline_steps.min((TIMED_DISPATCHES - 1) / 5);
+                rounds = rounds.min((TIMED_DISPATCHES - 1) / 11);
+                pipeline_steps = pipeline_steps.min(rounds);
             }
-            if !any && pipeline_steps == 0 {
+            if !any && rounds == 0 {
                 break;
             }
             let mut islands_gpu = self.layout.islands.clone();
@@ -891,24 +989,36 @@ impl GpuSolver {
             let islands_n = self.layout.islands.len().max(1) as u32;
             // Islands that touch nothing: every substep in one dispatch.
             let mut ops: Vec<(usize, u32, bool)> = vec![(K_ISLAND, islands_n, false)];
-            if pipeline {
-                // Contact islands and impactors: the per-substep pipeline.
-                let p = &self.buffers.params;
-                let groups = |count: u32| count.div_ceil(64).max(1);
-                let impactors_n = self.impactors.len().max(1) as u32;
-                for _ in 0..pipeline_steps {
+            // Per substep: contact islands and impactors (the contact pipeline), and the wide
+            // islands (a round of dispatches each).
+            let p = &self.buffers.params;
+            let groups = |count: u32| count.div_ceil(64).max(1);
+            let impactors_n = self.impactors.len().max(1) as u32;
+            let wide_groups = self.buffers.wide_chunk_groups;
+            for r in 0..rounds {
+                let contact = pipeline && r < pipeline_steps;
+                if contact {
                     if self.buffers.crush {
                         ops.push((K_SHARES, groups(p.cand_count), true));
                         ops.push((K_CRUSH, impactors_n, true));
                     }
                     ops.push((K_FORCES, groups(p.pair_count + p.cand_count + p.chunk_count), true));
+                    ops.push((K_SUMS, groups(p.seg_count), true));
                     ops.push((K_ISLAND, islands_n, true));
-                    if !self.impactors.is_empty() {
-                        ops.push((K_INTEGRATE, impactors_n, true));
+                }
+                if wide_groups > 0 {
+                    ops.push((K_WIDE[0], p.wide_bond_groups + wide_groups, true));
+                    for &k in &K_WIDE[1..] {
+                        ops.push((k, wide_groups, true));
                     }
                 }
+                if contact && !self.impactors.is_empty() {
+                    ops.push((K_INTEGRATE, impactors_n, true));
+                }
             }
-            let kernels = [&self.kernels.island, &self.kernels.forces, &self.kernels.shares, &self.kernels.crush, &self.kernels.integrate];
+            let w = &self.kernels.wide;
+            let kernels =
+                [&self.kernels.island, &self.kernels.forces, &self.kernels.shares, &self.kernels.crush, &self.kernels.integrate, &w[0], &w[1], &w[2], &w[3], &w[4], &self.kernels.sums];
             let bind = |contact: bool| if contact { &self.buffers.bind_contact } else { &self.buffers.bind_segment };
             let mut encoder = gpu.device.create_command_encoder(&Default::default());
             match &self.timing {
@@ -945,7 +1055,7 @@ impl GpuSolver {
             if let Some(timing) = &self.timing {
                 let stamps: Vec<u64> = gpu.read(&timing.resolve);
                 let period = gpu.queue.get_timestamp_period() as f64 * 1e-9;
-                let mut batch = [(0.0f64, 0.0f64, 0u32); 5];
+                let mut batch = [(0.0f64, 0.0f64, 0u32); 11];
                 for (q, &(k, ..)) in ops.iter().enumerate() {
                     let secs = stamps[2 * q + 1].saturating_sub(stamps[2 * q]) as f64 * period;
                     self.profile.kernels[k] += secs;
@@ -1075,6 +1185,16 @@ impl GpuSolver {
             }
         }
         let mut seen = vec![vec![false; substeps]; probes];
+        // Sums over bonds or chunks (world.rs `probe_value`): zero once nothing is left
+        // to sum, e.g. after every bond across a section broke.
+        if let Some(l) = self.loads.as_ref() {
+            for (p, probe) in l.scene.probes.iter().enumerate() {
+                if matches!(probe.kind, stress_ref::scene::ProbeKind::SectionForce { .. } | stress_ref::scene::ProbeKind::Reaction { .. }) {
+                    out[p].fill(0.0);
+                    seen[p].fill(true);
+                }
+            }
+        }
         for (key, row) in &values {
             for k in 0..substeps {
                 if row[k].is_nan() {

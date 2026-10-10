@@ -69,6 +69,13 @@ struct Params
     float ground_friction;   // resolved (contact_friction or the ground's)
     float ground_modulus;    // E' of the ground material (scaled)
     uint has_ground;
+    uint wide_bond_groups;   // wide islands: bond groups (dispatched before the chunk groups)
+    uint wide_bond_table;    // index: bond groups (island, begin, end, -)
+    uint wide_chunk_table;   // index: chunk groups (island, begin, end, first group)
+    uint wide_base;          // scratch: per chunk group partial sums (8 float4)
+    uint seg_index;          // index: contact segments (chunk, begin, end)
+    uint seg_count;
+    uint seg_base;           // scratch: contact segment sums (force, torque)
     uint pad0;
     uint pad1;
     uint pad2;
@@ -995,7 +1002,7 @@ void ground_contact(uint c, bool account, inout float3 f, inout float3 t)
 // about the chunk centre), in the order the reference adds it: scripted loads, then
 // contacts (impactors, ground, chunk pairs). `account` books the ground dissipation
 // (once per substep).
-void chunk_external(uint c, ChunkStatic ch, Quat rot, uint k, float dt, bool contact, bool account, out float3 f, out float3 t)
+void chunk_external(uint c, ChunkStatic ch, Quat rot, uint k, float dt, bool contact, out float3 f, out float3 t)
 {
     f = float3(0.0);
     t = float3(0.0);
@@ -1013,18 +1020,43 @@ void chunk_external(uint c, ChunkStatic ch, Quat rot, uint k, float dt, bool con
     }
     if (contact && ch.cinfo.z != 0)
     {
-        for (uint e = ch.cinfo.x; e < ch.cinfo.y; e++)
+        // The chunk's contact loads, summed by segments (`contact_sums`), in order.
+        for (uint g = ch.cinfo.x; g < ch.cinfo.y; g++)
         {
-            uint entry = index[e];
-            if (entry == GROUND_ENTRY)
-            {
-                ground_contact(c, account, f, t);
-                continue;
-            }
-            f += scratch[params.slot_base + 2 * entry].xyz;
-            t += scratch[params.slot_base + 2 * entry + 1].xyz;
+            f += scratch[params.seg_base + 2 * g].xyz;
+            t += scratch[params.seg_base + 2 * g + 1].xyz;
         }
     }
+}
+
+// The contact loads of a chunk in the reference's order (impactors, ground, chunk
+// pairs), summed in segments of a few entries, one thread each: a chunk in a pile can
+// have hundreds of candidates, too long a chain for one thread.
+[shader("compute")]
+[numthreads(64, 1, 1)]
+void contact_sums(uint3 id: SV_DispatchThreadID)
+{
+    uint g = id.x;
+    if (g >= params.seg_count || stopped())
+        return;
+    uint c = index[params.seg_index + 3 * g];
+    uint begin = index[params.seg_index + 3 * g + 1];
+    uint end = index[params.seg_index + 3 * g + 2];
+    float3 f = float3(0.0);
+    float3 t = float3(0.0);
+    for (uint e = begin; e < end; e++)
+    {
+        uint entry = index[e];
+        if (entry == GROUND_ENTRY)
+        {
+            ground_contact(c, true, f, t);
+            continue;
+        }
+        f += scratch[params.slot_base + 2 * entry].xyz;
+        t += scratch[params.slot_base + 2 * entry + 1].xyz;
+    }
+    scratch[params.seg_base + 2 * g] = float4(f, 0.0);
+    scratch[params.seg_base + 2 * g + 1] = float4(t, 0.0);
 }
 
 // ------------------------------------------------------------------ islands
@@ -1042,7 +1074,8 @@ float3 to_body(BondStatic b, float3 l)
     return b.t1.xyz * l.x + b.t2.xyz * l.y + b.normal.xyz * l.z;
 }
 
-void bond_update(uint i, float dt, bool fracture, uint abs_step)
+// Returns whether the bond disconnected.
+bool bond_update(uint i, float dt, bool fracture, uint abs_step)
 {
     BondStatic b = bonds[i];
     BondDyn bd = bond_dyn[i];
@@ -1086,12 +1119,10 @@ void bond_update(uint i, float dt, bool fracture, uint abs_step)
     if (bd.events.y == 0 && fatigue_factor(mat, previous.fatigue) > 0.99 && fatigue_factor(mat, resp.state.fatigue) <= 0.99)
         bd.events.y = abs_step;
     if (resp.disconnected)
-    {
         bd.events.z = abs_step;
-        g_halt = 1;
-    }
     bd.js = resp.state;
     bond_dyn[i] = bd;
+    return resp.disconnected;
 }
 
 // Rigid-frame state every thread holds identically (computed redundantly, no broadcast).
@@ -1139,7 +1170,7 @@ void chunk_update(uint c, Island isl, Rigid rg, float dt, bool rml, uint step, b
     float3 r_world = rotate(rg.rot, ch.center.xyz + u - isl.com.xyz);
     float3 f_load;
     float3 t_load;
-    chunk_external(c, ch, rg.rot, step, dt, contact, true, f_load, t_load);
+    chunk_external(c, ch, rg.rot, step, dt, contact, f_load, t_load);
     float3 f_world = f_load + params.gravity.xyz * mass;
     float3 t_world = t_load;
     if (rml)
@@ -1253,6 +1284,133 @@ void record_probes(Island isl, Rigid rg, uint k)
     }
 }
 
+// ------------------------------------------------------------------ island phases
+//
+// Shared by the narrow kernel (one threadgroup per island, whole segments) and the wide
+// kernels (one island over many threadgroups, a round of dispatches per substep): the
+// same per-chunk terms, summed in a fixed order by each.
+
+Rigid rigid_of(Island isl)
+{
+    Rigid rg;
+    rg.rot = quat_of(isl.rotation);
+    rg.pos = isl.position.xyz;
+    rg.pos_err = isl.position_err.xyz;
+    rg.vel = isl.velocity.xyz;
+    rg.vel_err = isl.velocity_err.xyz;
+    rg.w = isl.angular_velocity.xyz;
+    rg.a = float3(0.0);
+    rg.alpha = float3(0.0);
+    return rg;
+}
+
+// Chunk c's share of the net load on its free cluster (solver.rs `rigid_acceleration`,
+// `net_load`): force and torque about the cluster's centre of mass, world frame.
+void net_load(uint c, Island isl, Rigid rg, uint k, float dt, bool contact, inout float3 f, inout float3 t)
+{
+    ChunkStatic ch = chunks[c];
+    float3 fl;
+    float3 tl;
+    chunk_external(c, ch, rg.rot, k, dt, contact, fl, tl);
+    float3 fc = fl + params.gravity.xyz * ch.center.w;
+    float3 r = rotate(rg.rot, ch.center.xyz + state[4 * c].xyz - isl.com.xyz);
+    f += fc;
+    t += cross(r, fc) + tl;
+    // Replacement loads (solver.rs `net_load`), at the substep start.
+    for (uint term = ch.load_range.x; term < ch.load_range.y; term++)
+    {
+        if (asuint(loads[5 * term]).y != LOAD_REPLACEMENT)
+            continue;
+        float kf = eval_function(term, k, dt, 0.0);
+        float3 fw = rotate(rg.rot, loads[5 * term + 1].xyz * kf);
+        f += fw;
+        t += cross(rotate(rg.rot, ch.center.xyz - isl.com.xyz), fw) + rotate(rg.rot, loads[5 * term + 2].xyz * kf);
+    }
+}
+
+// Rigid acceleration from the net load (solver.rs `rigid_acceleration`).
+void rigid_acceleration(Island isl, inout Rigid rg, float3 f, float3 t)
+{
+    float3 iw_w = world_mul(rg.rot, isl.inertia0, isl.inertia1, isl.inertia2, rg.w);
+    rg.a = f / isl.com.w;
+    rg.alpha = world_mul(rg.rot, isl.inv0, isl.inv1, isl.inv2, t - cross(rg.w, iw_w));
+}
+
+// solver.rs `integrate_rigid`.
+void integrate_rigid(Island isl, inout Rigid rg, float dt)
+{
+    float3 iw_w = world_mul(rg.rot, isl.inertia0, isl.inertia1, isl.inertia2, rg.w);
+    float3 torque = world_mul(rg.rot, isl.inertia0, isl.inertia1, isl.inertia2, rg.alpha) + cross(rg.w, iw_w);
+    float3 l = iw_w + torque * dt;
+    comp_add(rg.vel, rg.vel_err, rg.a * dt);
+    float3 vel = rg.vel + rg.vel_err;
+    float3 w_mid = world_mul(rg.rot, isl.inv0, isl.inv1, isl.inv2, l);
+    Quat rot1 = integrate_rotation(rg.rot, w_mid, dt);
+    float3 delta = vel * dt + (rotate(rg.rot, isl.com.xyz) - rotate(rot1, isl.com.xyz));
+    comp_add(rg.pos, rg.pos_err, delta);
+    rg.rot = rot1;
+    rg.w = world_mul(rg.rot, isl.inv0, isl.inv1, isl.inv2, l);
+}
+
+// Drift removal (solver.rs `remove_rigid_drift`, deformation weights), per chunk: the
+// weighted translation and velocity sums, ...
+void drift_moments(uint c, inout float3 tu, inout float3 pv)
+{
+    ChunkStatic ch = chunks[c];
+    float m = ch.center.w * ch.scale.x;
+    tu += state[4 * c].xyz * m;
+    pv += state[4 * c + 2].xyz * m;
+}
+
+// ... the weighted angular sums about the weighted centre once those are removed, ...
+void drift_angular(uint c, float3 wcom, float3 tr, float3 dv, inout float3 lu, inout float3 lv)
+{
+    ChunkStatic ch = chunks[c];
+    float3 r = ch.center.xyz - wcom;
+    float kw = ch.scale.x;
+    lu += (cross(r, state[4 * c].xyz - tr) * ch.center.w + rows_mul(ch.inertia0, ch.inertia1, ch.inertia2, state[4 * c + 1].xyz)) * kw;
+    lv += (cross(r, state[4 * c + 2].xyz - dv) * ch.center.w + rows_mul(ch.inertia0, ch.inertia1, ch.inertia2, state[4 * c + 3].xyz)) * kw;
+}
+
+// ... the correction of a chunk's hidden state, ...
+void drift_apply(uint c, float3 wcom, float3 tr, float3 phi, float3 dv, float3 dw)
+{
+    float3 r = chunks[c].center.xyz - wcom;
+    state[4 * c] = float4(state[4 * c].xyz - (tr + cross(phi, r)), state[4 * c].w);
+    state[4 * c + 1] = float4(state[4 * c + 1].xyz - phi, state[4 * c + 1].w);
+    state[4 * c + 2] = float4(state[4 * c + 2].xyz - (dv + cross(dw, r)), state[4 * c + 2].w);
+    state[4 * c + 3] = float4(state[4 * c + 3].xyz - dw, state[4 * c + 3].w);
+}
+
+// ... and the drift moved into the cluster's rigid motion.
+void drift_rigid(Island isl, inout Rigid rg, float3 tr, float3 phi, float3 dv, float3 dw)
+{
+    float3 wcom = isl.wcom.xyz;
+    Quat rot = rg.rot;
+    comp_add(rg.pos, rg.pos_err, rotate(rot, tr - cross(phi, wcom)));
+    rg.rot = normalized(quat_mul(rot, from_axis_angle(phi, length(phi))));
+    comp_add(rg.vel, rg.vel_err, rotate(rot, dv + cross(dw, isl.com.xyz - wcom)));
+    rg.w += rotate(rot, dw);
+}
+
+// Batch control for a contact island: stopped for a re-plan, or past the substep at
+// which some contact island split.
+bool contact_stopped(Island isl)
+{
+    Island sentinel = islands[params.halt_index];
+    return (sentinel.info.z & STOP_NOW) != 0 || (sentinel.info.y != 0 && sentinel.info.y <= isl.info.w);
+}
+
+// A contact island split after substep `at` (absolute): that substep completes in every
+// contact island, then the batch stops.
+void contact_split_at(uint at)
+{
+    uint previous = islands[params.halt_index].info.y;
+    islands[params.halt_index].info.y = previous == 0 ? at : min(previous, at);
+}
+
+// ------------------------------------------------------------------ narrow islands
+
 [shader("compute")]
 [numthreads(256, 1, 1)]
 void island_frame(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
@@ -1263,14 +1421,14 @@ void island_frame(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
     bool driven = (isl.info.x & ISLAND_DRIVEN) != 0;
     bool free_motion = !anchored && !driven;
     bool contact_island = (isl.info.x & ISLAND_CONTACT) != 0;
-    // Batch control: read once, uniformly for the whole group.
+    // Batch control: read once, uniformly for the whole group. Wide islands run in
+    // their own kernels.
     if (tid == 0)
     {
-        Island sentinel = islands[params.halt_index];
         uint run = 1;
-        if (contact_island != (params.contact_mode == 1))
+        if (contact_island != (params.contact_mode == 1) || (isl.info.x & ISLAND_WIDE) != 0)
             run = 0;
-        if (contact_island && ((sentinel.info.z & STOP_NOW) != 0 || (sentinel.info.y != 0 && sentinel.info.y <= isl.info.w)))
+        if (contact_island && contact_stopped(isl))
             run = 0;
         g_run = run;
         g_halt = 0;
@@ -1280,18 +1438,7 @@ void island_frame(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
     float dt = params.dt;
     bool fracture = params.fracture != 0;
     bool rml = params.rigid_motion_loads != 0;
-    float3 g = params.gravity.xyz;
-    float mass_total = isl.com.w;
-
-    Rigid rg;
-    rg.rot = quat_of(isl.rotation);
-    rg.pos = isl.position.xyz;
-    rg.pos_err = isl.position_err.xyz;
-    rg.vel = isl.velocity.xyz;
-    rg.vel_err = isl.velocity_err.xyz;
-    rg.w = isl.angular_velocity.xyz;
-    rg.a = float3(0.0);
-    rg.alpha = float3(0.0);
+    Rigid rg = rigid_of(isl);
 
     uint done = 0;
     float work = 0.0;
@@ -1300,106 +1447,50 @@ void island_frame(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
     {
         uint abs_step = isl.info.w + s + 1;
         uint k = abs_step - 1 - params.step_start; // substeps since the host's step began
-        // 1. Rigid acceleration of a free cluster (solver.rs `rigid_acceleration`).
+        // 1. Rigid acceleration of a free cluster.
         if (!anchored)
         {
             float3 f = float3(0.0);
             float3 t = float3(0.0);
             for (uint c = isl.range.x + tid; c < isl.range.y; c += THREADS)
-            {
-                ChunkStatic ch = chunks[c];
-                float3 fl;
-                float3 tl;
-                chunk_external(c, ch, rg.rot, k, dt, contact_island, false, fl, tl);
-                float3 fc = fl + g * ch.center.w;
-                float3 r = rotate(rg.rot, ch.center.xyz + state[4 * c].xyz - isl.com.xyz);
-                f += fc;
-                t += cross(r, fc) + tl;
-                // Replacement loads (solver.rs `net_load`), at the substep start.
-                for (uint term = ch.load_range.x; term < ch.load_range.y; term++)
-                {
-                    if (asuint(loads[5 * term]).y != LOAD_REPLACEMENT)
-                        continue;
-                    float kf = eval_function(term, k, dt, 0.0);
-                    float3 fw = rotate(rg.rot, loads[5 * term + 1].xyz * kf);
-                    f += fw;
-                    t += cross(rotate(rg.rot, ch.center.xyz - isl.com.xyz), fw) + rotate(rg.rot, loads[5 * term + 2].xyz * kf);
-                }
-            }
+                net_load(c, isl, rg, k, dt, contact_island, f, t);
             group_sum3(tid, f, t);
-            float3 iw_w = world_mul(rg.rot, isl.inertia0, isl.inertia1, isl.inertia2, rg.w);
-            rg.a = f / mass_total;
-            rg.alpha = world_mul(rg.rot, isl.inv0, isl.inv1, isl.inv2, t - cross(rg.w, iw_w));
+            rigid_acceleration(isl, rg, f, t);
         }
         // 2. Bonds.
         for (uint i = isl.range.z + tid; i < isl.range.w; i += THREADS)
-            bond_update(i, dt, fracture, abs_step);
+            if (bond_update(i, dt, fracture, abs_step))
+                g_halt = 1;
         AllMemoryBarrierWithGroupSync();
         // 3. Chunks.
         for (uint c = isl.range.x + tid; c < isl.range.y; c += THREADS)
             chunk_update(c, isl, rg, dt, rml, k, contact_island, work, work_err);
         AllMemoryBarrierWithGroupSync();
+        // 4. Rigid integration.
         if (free_motion)
-        {
-            // 4. Rigid integration (solver.rs `integrate_rigid`).
-            float3 iw_w = world_mul(rg.rot, isl.inertia0, isl.inertia1, isl.inertia2, rg.w);
-            float3 torque = world_mul(rg.rot, isl.inertia0, isl.inertia1, isl.inertia2, rg.alpha) + cross(rg.w, iw_w);
-            float3 l = iw_w + torque * dt;
-            comp_add(rg.vel, rg.vel_err, rg.a * dt);
-            float3 vel = rg.vel + rg.vel_err;
-            float3 w_mid = world_mul(rg.rot, isl.inv0, isl.inv1, isl.inv2, l);
-            Quat rot1 = integrate_rotation(rg.rot, w_mid, dt);
-            float3 delta = vel * dt + (rotate(rg.rot, isl.com.xyz) - rotate(rot1, isl.com.xyz));
-            comp_add(rg.pos, rg.pos_err, delta);
-            rg.rot = rot1;
-            rg.w = world_mul(rg.rot, isl.inv0, isl.inv1, isl.inv2, l);
-        }
+            integrate_rigid(isl, rg, dt);
         if (!anchored)
         {
-            // 5. Drift removal (solver.rs `remove_rigid_drift`), with deformation weights.
+            // 5. Drift removal.
             float3 wcom = isl.wcom.xyz;
-            float wmass = isl.wcom.w;
             float3 tu = float3(0.0);
             float3 pv = float3(0.0);
             for (uint c = isl.range.x + tid; c < isl.range.y; c += THREADS)
-            {
-                ChunkStatic ch = chunks[c];
-                float m = ch.center.w * ch.scale.x;
-                tu += state[4 * c].xyz * m;
-                pv += state[4 * c + 2].xyz * m;
-            }
+                drift_moments(c, tu, pv);
             group_sum3(tid, tu, pv);
-            float3 tr = tu / wmass;
-            float3 dv = pv / wmass;
+            float3 tr = tu / isl.wcom.w;
+            float3 dv = pv / isl.wcom.w;
             float3 lu = float3(0.0);
             float3 lv = float3(0.0);
             for (uint c = isl.range.x + tid; c < isl.range.y; c += THREADS)
-            {
-                ChunkStatic ch = chunks[c];
-                float3 r = ch.center.xyz - wcom;
-                float kw = ch.scale.x;
-                lu += (cross(r, state[4 * c].xyz - tr) * ch.center.w + rows_mul(ch.inertia0, ch.inertia1, ch.inertia2, state[4 * c + 1].xyz)) * kw;
-                lv += (cross(r, state[4 * c + 2].xyz - dv) * ch.center.w + rows_mul(ch.inertia0, ch.inertia1, ch.inertia2, state[4 * c + 3].xyz)) * kw;
-            }
+                drift_angular(c, wcom, tr, dv, lu, lv);
             group_sum3(tid, lu, lv);
             float3 phi = rows_mul(isl.winv0, isl.winv1, isl.winv2, lu);
             float3 dw = rows_mul(isl.winv0, isl.winv1, isl.winv2, lv);
             for (uint c = isl.range.x + tid; c < isl.range.y; c += THREADS)
-            {
-                float3 r = chunks[c].center.xyz - wcom;
-                state[4 * c] = float4(state[4 * c].xyz - (tr + cross(phi, r)), state[4 * c].w);
-                state[4 * c + 1] = float4(state[4 * c + 1].xyz - phi, state[4 * c + 1].w);
-                state[4 * c + 2] = float4(state[4 * c + 2].xyz - (dv + cross(dw, r)), state[4 * c + 2].w);
-                state[4 * c + 3] = float4(state[4 * c + 3].xyz - dw, state[4 * c + 3].w);
-            }
+                drift_apply(c, wcom, tr, phi, dv, dw);
             if (!driven)
-            {
-                Quat rot = rg.rot;
-                comp_add(rg.pos, rg.pos_err, rotate(rot, tr - cross(phi, wcom)));
-                rg.rot = normalized(quat_mul(rot, from_axis_angle(phi, length(phi))));
-                comp_add(rg.vel, rg.vel_err, rotate(rot, dv + cross(dw, isl.com.xyz - wcom)));
-                rg.w += rotate(rot, dw);
-            }
+                drift_rigid(isl, rg, tr, phi, dv, dw);
             AllMemoryBarrierWithGroupSync();
         }
         // 6. Probe values after the substep (thread 0, in item order).
@@ -1424,12 +1515,7 @@ void island_frame(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
         isl.done.x = done;
         isl.info.y -= done;
         if (g_halt != 0 && contact_island)
-        {
-            // This substep completes in every contact island; then the batch stops.
-            uint at = isl.info.w + done;
-            uint previous = islands[params.halt_index].info.y;
-            islands[params.halt_index].info.y = previous == 0 ? at : min(previous, at);
-        }
+            contact_split_at(isl.info.w + done);
         comp_add1(isl.energy.x, isl.energy.y, wsum.x);
         isl.energy.y += wsum.y;
         isl.info.w += done;
@@ -1437,4 +1523,263 @@ void island_frame(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
             isl.info.z |= ISLAND_HALTED;
         islands[group.x] = isl;
     }
+}
+
+// ------------------------------------------------------------------ wide islands
+//
+// An island above the host's size threshold spreads over many threadgroups, one round
+// of five dispatches per substep (any order of rounds is a valid substep sequence):
+//   wide_bonds   bond groups: the joint law; chunk groups: net-load partial sums;
+//   wide_chunks  chunk groups: rigid acceleration (from the partials), chunk updates,
+//                external-work and drift-moment partials;
+//   wide_drift   chunk groups: the angular drift partials;
+//   wide_rigid   chunk groups: the drift correction of their chunks; the island's
+//                first group also moves the rigid frame;
+//   wide_end     the island's first group: substep bookkeeping, work, probes.
+// Partials: 8 float4 per chunk group at `wide_base` (net force, net torque, drift
+// translation, momentum, angular drift (2), work, -). Each group sums its island's
+// partials in group order, so every group and every run gets identical sums.
+
+static const uint ISLAND_HALT_PENDING = 2;   // status: a bond disconnected this substep
+
+struct WideGroup
+{
+    uint island;
+    uint begin;
+    uint end;
+    uint first; // chunk groups: the island's first chunk group (partial slot)
+};
+
+WideGroup wide_group(uint table, uint g)
+{
+    WideGroup w;
+    w.island = index[table + 4 * g];
+    w.begin = index[table + 4 * g + 1];
+    w.end = index[table + 4 * g + 2];
+    w.first = index[table + 4 * g + 3];
+    return w;
+}
+
+// Whether the island runs this substep (uniform over the round: only `wide_end` changes
+// what this reads).
+bool wide_runs(Island isl)
+{
+    if ((isl.info.z & ISLAND_HALTED) != 0 || isl.info.y == 0)
+        return false;
+    return (isl.info.x & ISLAND_CONTACT) == 0 || !contact_stopped(isl);
+}
+
+groupshared uint g_wide_run;
+
+// The island's partial pair `p` summed over its chunk groups (fixed order).
+void wide_partials(uint tid, uint first, uint count, uint p, out float3 a, out float3 b)
+{
+    float4 x = float4(0.0);
+    float4 y = float4(0.0);
+    for (uint s = tid; s < count; s += THREADS)
+    {
+        x += scratch[params.wide_base + 8 * (first + s) + p];
+        y += scratch[params.wide_base + 8 * (first + s) + p + 1];
+    }
+    group_sum2(tid, x, y);
+    a = x.xyz;
+    b = y.xyz;
+}
+
+void wide_store(uint slot, uint p, float3 a, float3 b)
+{
+    scratch[params.wide_base + 8 * slot + p] = float4(a, 0.0);
+    scratch[params.wide_base + 8 * slot + p + 1] = float4(b, 0.0);
+}
+
+// Every group reads the island's state once; the result is uniform over the group.
+bool wide_enter(uint tid, Island isl)
+{
+    if (tid == 0)
+        g_wide_run = wide_runs(isl) ? 1 : 0;
+    GroupMemoryBarrierWithGroupSync();
+    return g_wide_run != 0;
+}
+
+uint wide_step(Island isl)
+{
+    return isl.info.w - params.step_start;
+}
+
+[shader("compute")]
+[numthreads(256, 1, 1)]
+void wide_bonds(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
+{
+    uint tid = thread.x;
+    bool bond_group = group.x < params.wide_bond_groups;
+    WideGroup wg = bond_group ? wide_group(params.wide_bond_table, group.x) : wide_group(params.wide_chunk_table, group.x - params.wide_bond_groups);
+    Island isl = islands[wg.island];
+    if (!wide_enter(tid, isl))
+        return;
+    uint k = wide_step(isl);
+    if (bond_group)
+    {
+        uint i = wg.begin + tid;
+        if (i < wg.end && bond_update(i, params.dt, params.fracture != 0, isl.info.w + 1))
+            islands[wg.island].info.z = isl.info.z | ISLAND_HALT_PENDING;
+        return;
+    }
+    if ((isl.info.x & ISLAND_ANCHORED) != 0)
+        return;
+    float3 f = float3(0.0);
+    float3 t = float3(0.0);
+    uint c = wg.begin + tid;
+    if (c < wg.end)
+        net_load(c, isl, rigid_of(isl), k, params.dt, (isl.info.x & ISLAND_CONTACT) != 0, f, t);
+    group_sum3(tid, f, t);
+    if (tid == 0)
+        wide_store(group.x - params.wide_bond_groups, 0, f, t);
+}
+
+// The island's rigid frame at the substep start with its acceleration.
+Rigid wide_rigid_frame(uint tid, Island isl, WideGroup wg)
+{
+    Rigid rg = rigid_of(isl);
+    if ((isl.info.x & ISLAND_ANCHORED) == 0)
+    {
+        float3 f;
+        float3 t;
+        wide_partials(tid, wg.first, isl.done.z, 0, f, t);
+        rigid_acceleration(isl, rg, f, t);
+    }
+    return rg;
+}
+
+[shader("compute")]
+[numthreads(256, 1, 1)]
+void wide_chunks(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
+{
+    uint tid = thread.x;
+    WideGroup wg = wide_group(params.wide_chunk_table, group.x);
+    Island isl = islands[wg.island];
+    if (!wide_enter(tid, isl))
+        return;
+    bool anchored = (isl.info.x & ISLAND_ANCHORED) != 0;
+    Rigid rg = wide_rigid_frame(tid, isl, wg);
+    float work = 0.0;
+    float work_err = 0.0;
+    float3 tu = float3(0.0);
+    float3 pv = float3(0.0);
+    uint c = wg.begin + tid;
+    if (c < wg.end)
+    {
+        chunk_update(c, isl, rg, params.dt, params.rigid_motion_loads != 0, wide_step(isl), (isl.info.x & ISLAND_CONTACT) != 0, work, work_err);
+        if (!anchored)
+            drift_moments(c, tu, pv);
+    }
+    float3 wsum = float3(work, work_err, 0.0);
+    float3 unused = float3(0.0);
+    group_sum3(tid, wsum, unused);
+    if (!anchored)
+        group_sum3(tid, tu, pv);
+    if (tid == 0)
+    {
+        scratch[params.wide_base + 8 * group.x + 6] = float4(wsum, 0.0);
+        if (!anchored)
+            wide_store(group.x, 2, tu, pv);
+    }
+}
+
+[shader("compute")]
+[numthreads(256, 1, 1)]
+void wide_drift(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
+{
+    uint tid = thread.x;
+    WideGroup wg = wide_group(params.wide_chunk_table, group.x);
+    Island isl = islands[wg.island];
+    if ((isl.info.x & ISLAND_ANCHORED) != 0 || !wide_enter(tid, isl))
+        return;
+    float3 tu;
+    float3 pv;
+    wide_partials(tid, wg.first, isl.done.z, 2, tu, pv);
+    float3 tr = tu / isl.wcom.w;
+    float3 dv = pv / isl.wcom.w;
+    float3 lu = float3(0.0);
+    float3 lv = float3(0.0);
+    uint c = wg.begin + tid;
+    if (c < wg.end)
+        drift_angular(c, isl.wcom.xyz, tr, dv, lu, lv);
+    group_sum3(tid, lu, lv);
+    if (tid == 0)
+        wide_store(group.x, 4, lu, lv);
+}
+
+[shader("compute")]
+[numthreads(256, 1, 1)]
+void wide_rigid(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
+{
+    uint tid = thread.x;
+    WideGroup wg = wide_group(params.wide_chunk_table, group.x);
+    Island isl = islands[wg.island];
+    if ((isl.info.x & ISLAND_ANCHORED) != 0 || !wide_enter(tid, isl))
+        return;
+    float3 tu;
+    float3 pv;
+    wide_partials(tid, wg.first, isl.done.z, 2, tu, pv);
+    float3 lu;
+    float3 lv;
+    wide_partials(tid, wg.first, isl.done.z, 4, lu, lv);
+    float3 tr = tu / isl.wcom.w;
+    float3 dv = pv / isl.wcom.w;
+    float3 phi = rows_mul(isl.winv0, isl.winv1, isl.winv2, lu);
+    float3 dw = rows_mul(isl.winv0, isl.winv1, isl.winv2, lv);
+    uint c = wg.begin + tid;
+    if (c < wg.end)
+        drift_apply(c, isl.wcom.xyz, tr, phi, dv, dw);
+    // The island's first group moves the frame (others read only static island data
+    // and the partials from here on).
+    if (group.x != wg.first)
+        return;
+    Rigid rg = wide_rigid_frame(tid, isl, wg);
+    if (tid != 0)
+        return;
+    bool driven = (isl.info.x & ISLAND_DRIVEN) != 0;
+    if (!driven)
+    {
+        integrate_rigid(isl, rg, params.dt);
+        drift_rigid(isl, rg, tr, phi, dv, dw);
+    }
+    islands[wg.island].rotation = quat_vec(rg.rot);
+    islands[wg.island].position = float4(rg.pos, 0.0);
+    islands[wg.island].position_err = float4(rg.pos_err, 0.0);
+    islands[wg.island].velocity = float4(rg.vel, 0.0);
+    islands[wg.island].velocity_err = float4(rg.vel_err, 0.0);
+    islands[wg.island].angular_velocity = float4(rg.w, 0.0);
+}
+
+[shader("compute")]
+[numthreads(256, 1, 1)]
+void wide_end(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
+{
+    uint tid = thread.x;
+    WideGroup wg = wide_group(params.wide_chunk_table, group.x);
+    if (group.x != wg.first)
+        return;
+    Island isl = islands[wg.island];
+    if (!wide_enter(tid, isl))
+        return;
+    float3 work;
+    float3 unused;
+    wide_partials(tid, wg.first, isl.done.z, 6, work, unused);
+    if (tid != 0)
+        return;
+    uint k = wide_step(isl);
+    if (isl.probes.y > isl.probes.x)
+        record_probes(isl, rigid_of(isl), k);
+    bool halt = (isl.info.z & ISLAND_HALT_PENDING) != 0;
+    if (halt && (isl.info.x & ISLAND_CONTACT) != 0)
+        contact_split_at(isl.info.w + 1);
+    comp_add1(isl.energy.x, isl.energy.y, work.x);
+    isl.energy.y += work.y;
+    isl.done.x += 1;
+    isl.info.y -= 1;
+    isl.info.w += 1;
+    if (halt)
+        isl.info.z = (isl.info.z & ~ISLAND_HALT_PENDING) | ISLAND_HALTED;
+    islands[wg.island] = isl;
 }

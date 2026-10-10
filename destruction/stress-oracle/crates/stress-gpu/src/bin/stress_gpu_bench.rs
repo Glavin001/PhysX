@@ -30,6 +30,9 @@ fn main() {
     eprintln!("{} ({:?}), shaders {:?}, {substeps} substeps per run", gpu.adapter_info.name, gpu.adapter_info.backend, gpu.shader_path);
     let cases: Vec<(&str, Scene)> = vec![
         ("slab 12x6x2", scenes::slab([12, 6, 2])),
+        ("slab 16x8x2", scenes::slab([16, 8, 2])),
+        ("slab 24x12x2", scenes::slab([24, 12, 2])),
+        ("slab 32x16x2", scenes::slab([32, 16, 2])),
         ("slab 40x20x4", scenes::slab([40, 20, 4])),
         ("slab 100x50x4", scenes::slab([100, 50, 4])),
         ("town 64 x (12x6x2)", scenes::town(64, [12, 6, 2])),

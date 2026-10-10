@@ -44,10 +44,16 @@ pub mod shaders {
     pub const WORLD: ShaderSet =
         shader_set!("world", [
             ("contact_forces", (64, 1, 1)),
+            ("contact_sums", (64, 1, 1)),
             ("impactor_shares", (64, 1, 1)),
             ("impactor_crush", (256, 1, 1)),
             ("island_frame", (256, 1, 1)),
             ("impactor_integrate", (256, 1, 1)),
+            ("wide_bonds", (256, 1, 1)),
+            ("wide_chunks", (256, 1, 1)),
+            ("wide_drift", (256, 1, 1)),
+            ("wide_rigid", (256, 1, 1)),
+            ("wide_end", (256, 1, 1)),
         ]);
     pub const STRESS_RENDER: ShaderSet = shader_set!("stress_render", [("stress_vs", (1, 1, 1)), ("stress_fs", (1, 1, 1))]);
 }

@@ -13,6 +13,8 @@ public static const uint ISLAND_DRIVEN = 2;
 public static const uint ISLAND_HALTED = 1;
 // Island flag: the island takes part in the per-substep contact pipeline.
 public static const uint ISLAND_CONTACT = 4;
+// Island flag: the island spreads over many threadgroups (wide kernels).
+public static const uint ISLAND_WIDE = 8;
 
 // Static data of a chunk (body frame of its cluster), with its contact data.
 public struct ChunkStatic
@@ -59,7 +61,7 @@ public struct Island
     public float4 velocity;   // com velocity, compensated with velocity_err
     public float4 velocity_err;
     public float4 angular_velocity;
-    public uint4 done;        // x: substeps run in the last dispatch
+    public uint4 done;        // x: substeps run (narrow: in the last dispatch); z: wide chunk groups
     public uint4 probes;      // probe items [x, y) in `loads`
     public float4 energy;     // external work (compensated: x + y)
 };
