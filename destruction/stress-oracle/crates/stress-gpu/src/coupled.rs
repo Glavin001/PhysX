@@ -15,8 +15,8 @@ use std::collections::{BTreeMap, HashMap};
 
 use stress_ref::api::{hertz_duration, BondReport, ChildBody, ContactImpulse, FrameInput, FrameOutput, Fracture, StressSolverApi};
 use stress_ref::math::Vec3;
-use stress_ref::scene::Scene;
-use stress_ref::solver::{ReferenceSolver, SolverEvent};
+use stress_ref::scene::{Scene, SolveMode};
+use stress_ref::solver::{Activity, ReferenceSolver, SolverEvent};
 
 use crate::gpu::Gpu;
 use crate::loads::{Function, LoadTerm, LOAD_POINT};
@@ -180,9 +180,15 @@ impl GpuCoupledSolver {
         let clusters: Vec<usize> = (0..solver.mirror.clusters.len()).filter(|&ci| solver.mirror.clusters[ci].anchored && !solver.mirror.clusters[ci].bonds.is_empty()).collect();
         if !clusters.is_empty() {
             let loads = stress_ref::solver::ChunkLoads::new(&solver.mirror);
-            for (ci, r) in clusters.iter().zip(solver.equilibrate(gpu, &clusters, &loads)) {
+            for (&ci, r) in clusters.iter().zip(solver.equilibrate(gpu, &clusters, &loads)) {
                 if !r.converged {
                     return Err(format!("prestress did not converge (cluster {ci}, residual {:.3e})", r.residual));
+                }
+                // world.rs `prestress`: outside explicit mode the prestressed clusters
+                // start settled (no external load beside gravity: norm 0).
+                if solver.mirror.config.mode != SolveMode::Explicit {
+                    solver.mirror.clusters[ci].activity = Activity::Settled;
+                    solver.mirror.clusters[ci].settled_load_norm = 0.0;
                 }
             }
             solver.rebuild(gpu, 0.0)?;
@@ -216,10 +222,44 @@ impl GpuCoupledSolver {
         self.profile.refresh += t.elapsed().as_secs_f64();
         let t = std::time::Instant::now();
         let n_events = self.solver.mirror.events.len();
+        // Adaptive mode: a settled cluster wakes on the GPU when its loads change, in the
+        // middle of the frame; the substep must already resolve it. Those that can wake
+        // this frame (engine contacts reach them, or the engine moves them) count as
+        // active for the step.
+        let adaptive = self.solver.mirror.config.mode == SolveMode::Adaptive;
+        let mut may_wake = Vec::new();
+        if adaptive {
+            let m = &mut self.solver.mirror;
+            for t in &self.solver.extra_terms {
+                may_wake.push(m.chunks[t.structure][t.chunk].cluster);
+            }
+            may_wake.extend((0..m.clusters.len()).filter(|&ci| !m.clusters[ci].anchored));
+            may_wake.sort_unstable();
+            may_wake.dedup();
+            may_wake.retain(|&ci| m.clusters[ci].activity == Activity::Settled);
+            for &ci in &may_wake {
+                m.clusters[ci].activity = Activity::Active;
+            }
+        }
         let dt_sub = self.solver.mirror.stable_dt().min(input.dt);
+        if std::env::var("STRESS_GPU_COUPLED_TRACE").is_ok() {
+            let m = &self.solver.mirror;
+            let active: Vec<String> = (0..m.clusters.len())
+                .filter(|&ci| m.clusters[ci].activity == Activity::Active && !may_wake.contains(&ci))
+                .map(|ci| format!("{}({}{})", ci, m.clusters[ci].chunks.len(), if m.clusters[ci].anchored { "a" } else { "" }))
+                .collect();
+            let woken: Vec<String> = may_wake.iter().map(|&ci| format!("{}({}{})", ci, m.clusters[ci].chunks.len(), if m.clusters[ci].anchored { "a" } else { "" })).collect();
+            eprintln!("t {:.3}: {} clusters, active {:?}, may wake {:?}, {} terms, substep {:.2e}", m.time, m.clusters.len(), active, woken, self.solver.extra_terms.len(), dt_sub);
+        }
+        for &ci in &may_wake {
+            self.solver.mirror.clusters[ci].activity = Activity::Settled;
+        }
         let n = (input.dt / dt_sub).ceil().max(1.0) as usize;
         let h = input.dt / n as f64;
         self.solver.step(gpu, h, n)?;
+        if adaptive && self.solver.adaptive_tail(gpu, input.dt)? {
+            self.solver.rebuild(gpu, 0.0)?;
+        }
         self.profile.step += t.elapsed().as_secs_f64();
         let t = std::time::Instant::now();
         self.solver.sync(gpu);

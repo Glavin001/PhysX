@@ -9,7 +9,9 @@
 //! Accuracy is each run's broken bonds and largest damage difference against the
 //! reference at the reference step (the truth).
 //!
-//!   stress-gpu-coupled-fps [--frames N] [--ref-cap SECONDS] [--only NAME]
+//!   stress-gpu-coupled-fps [--frames N] [--ref-cap SECONDS] [--only NAME] [--gpu-only]
+//!
+//! `--gpu-only`: skip the stress-ref runs (timing only; accuracy is the tests' job).
 
 use std::time::Instant;
 
@@ -101,7 +103,7 @@ fn report(scene: &str, regime: &str, step: &str, who: &str, r: &Run, truth: Opti
             format!("{differ} differ, damage {dmg:.1e}")
         }
         Some(_) => "(reference capped)".into(),
-        None => "truth".into(),
+        None => "-".into(),
     };
     println!(
         "| {scene} | {regime} | {step} | {who} | {} | {broken} | {accuracy} | {:.1} | {:.2} | {:.2} | {:.0} | {} | {} | {} | {:.2} s |",
@@ -121,12 +123,14 @@ fn main() {
     let mut frames = 60usize;
     let mut cap = 60.0;
     let mut only: Option<String> = None;
+    let mut gpu_only = false;
     let mut args = std::env::args().skip(1);
     while let Some(a) = args.next() {
         match a.as_str() {
             "--frames" => frames = args.next().and_then(|v| v.parse().ok()).expect("--frames N"),
             "--ref-cap" => cap = args.next().and_then(|v| v.parse().ok()).expect("--ref-cap S"),
             "--only" => only = args.next(),
+            "--gpu-only" => gpu_only = true,
             other => panic!("unknown argument {other}"),
         }
     }
@@ -149,6 +153,8 @@ fn main() {
             continue;
         }
         let (true_scene, ratio) = stress_gpu::stability::with_true_step(&scene, 0.9);
+        // Sleeping: adaptive mode (intact structures settle; contacts and damage wake them).
+        let sleep_scene = true_scene.with_override("sim.solve_mode", "\"adaptive\"").expect("adaptive");
         let sub = |s: &Scene| {
             let m = stress_ref::solver::ReferenceSolver::new(s);
             (1.0 / 60.0 / m.stable_dt().min(1.0 / 60.0)).ceil() as usize
@@ -156,21 +162,25 @@ fn main() {
         let (n_ref, n_true) = (sub(&scene), sub(&true_scene));
         eprintln!("{}: true step {ratio:.1}x the reference's ({n_ref} -> {n_true} substeps per frame)", scene.name);
         for (regime, destruction) in [("idle", false), ("destruction", true)] {
-            let t = Instant::now();
-            let mut reference = EngineCoupledSolver::new(&scene);
-            let truth = run(&scene, &mut reference, t.elapsed().as_secs_f64(), frames, destruction, cap);
-            report(&scene.name, regime, "reference", "stress-ref", &truth, None, n_ref);
-            for (step, s, n) in [("reference", &scene, n_ref), ("true", &true_scene, n_true)] {
+            let truth = (!gpu_only).then(|| {
+                let t = Instant::now();
+                let mut reference = EngineCoupledSolver::new(&scene);
+                let truth = run(&scene, &mut reference, t.elapsed().as_secs_f64(), frames, destruction, cap);
+                report(&scene.name, regime, "reference", "stress-ref", &truth, None, n_ref);
+                truth
+            });
+            for (step, s, n) in [("reference", &scene, n_ref), ("true", &true_scene, n_true), ("true+sleep", &sleep_scene, n_true)] {
                 let t = Instant::now();
                 match GpuStressSolverApi::new(s) {
                     Ok(mut gpu) => {
                         let r = run(s, &mut gpu, t.elapsed().as_secs_f64(), frames, destruction, f64::INFINITY);
-                        report(&scene.name, regime, step, "GPU", &r, Some(&truth), n);
+                        report(&scene.name, regime, step, "GPU", &r, truth.as_ref(), n);
                         let p = &gpu.coupled.profile;
                         let per = |x: f64| x / p.frames.max(1) as f64 * 1e3;
                         eprintln!(
-                            "  {} {regime} {step}: per frame sync {:.2} ms, filter {:.2}, refresh {:.2}, step {:.2} (gpu {:.2}, readback {:.2}), output {:.2}",
+                            "  {} {regime} {step}: {:.0} substeps per frame; per frame sync {:.2} ms, filter {:.2}, refresh {:.2}, step {:.2} (gpu {:.2}, readback {:.2}), output {:.2}",
                             scene.name,
+                            gpu.coupled.solver.profile.substeps as f64 / p.frames.max(1) as f64,
                             per(p.sync),
                             per(p.filter),
                             per(p.refresh),
@@ -182,11 +192,11 @@ fn main() {
                     }
                     Err(e) => println!("| {} | {regime} | {step} | GPU | error: {e} |", scene.name),
                 }
-                if step == "true" {
+                if step == "true" && !gpu_only {
                     let t = Instant::now();
                     let mut cpu = EngineCoupledSolver::new(s);
                     let r = run(s, &mut cpu, t.elapsed().as_secs_f64(), frames, destruction, cap);
-                    report(&scene.name, regime, step, "stress-ref", &r, Some(&truth), n);
+                    report(&scene.name, regime, step, "stress-ref", &r, truth.as_ref(), n);
                 }
             }
         }

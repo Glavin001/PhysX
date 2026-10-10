@@ -1831,6 +1831,96 @@ impl GpuSolver {
         out
     }
 
+    /// world.rs `settle_quiet_clusters` (adaptive mode): clusters whose last dynamic load
+    /// is older than `active_time` and whose deformation has calmed down go to static
+    /// equilibrium under the external loads the GPU recorded last (all such clusters in
+    /// one solve; `host`: the reference's own solve on the mirror). True if any did (or
+    /// tried to). The mirror's bonds must be current (`sync`).
+    pub fn settle_quiet_clusters(&mut self, gpu: &Gpu, frame_dt: f64, host: bool) -> bool {
+        let loads: ChunkLoads = self.last_loads.clone();
+        let m = &mut self.mirror;
+        let mut candidates = Vec::new();
+        for ci in 0..m.clusters.len() {
+            if m.clusters[ci].activity != Activity::Active {
+                continue;
+            }
+            m.clusters[ci].active_timer -= frame_dt;
+            if m.clusters[ci].active_timer > 0.0 || m.clusters[ci].bonds.is_empty() {
+                continue;
+            }
+            let s = m.clusters[ci].structure;
+            let ke: f64 = m.clusters[ci]
+                .chunks
+                .iter()
+                .map(|&c| {
+                    let ch = &m.structures[s].chunks[c];
+                    let st = &m.chunks[s][c];
+                    0.5 * ch.mass * st.v.norm2() + 0.5 * st.w.dot(ch.inertia * st.w)
+                })
+                .sum();
+            let stored: f64 = m.clusters[ci].bonds.iter().map(|&b| m.bonds[s][b].stored).sum();
+            if ke > 1e-3 * stored.max(1e-9) {
+                continue;
+            }
+            candidates.push(ci);
+        }
+        if candidates.is_empty() {
+            return false;
+        }
+        let results: Vec<bool> = if host {
+            let opts = stress_ref::statics::StaticOptions::default();
+            candidates.iter().map(|&ci| self.mirror.equilibrate_or_keep(ci, &loads, &opts).converged).collect()
+        } else {
+            self.equilibrate(gpu, &candidates, &loads).iter().map(|e| e.converged).collect()
+        };
+        let m = &mut self.mirror;
+        for (&ci, &ok) in candidates.iter().zip(&results) {
+            if !ok {
+                // No static equilibrium (a mechanism): it stays in the explicit solve.
+                m.clusters[ci].active_timer = m.config.active_time;
+                continue;
+            }
+            m.clusters[ci].activity = Activity::Settled;
+            let cl = &m.clusters[ci];
+            m.clusters[ci].settled_load_norm = cl.chunks.iter().map(|&c| loads.force[cl.structure][c].norm()).sum();
+        }
+        true
+    }
+
+    /// The adaptive mode's frame end (world.rs `step_frame`): quiet clusters settle, then
+    /// the settled clusters' static fatigue on the GPU; a bond whose damage grew wakes its
+    /// cluster, a disconnection splits it. True if the activity or topology changed (the
+    /// caller rebuilds).
+    pub fn adaptive_tail(&mut self, gpu: &Gpu, frame_dt: f64) -> Result<bool, String> {
+        let may_settle = self.mirror.clusters.iter().any(|c| c.activity == Activity::Active && !c.bonds.is_empty() && c.active_timer - frame_dt <= 0.0);
+        if may_settle {
+            self.sync(gpu);
+        }
+        // Every frame: it also counts the active clusters' timers down.
+        if self.settle_quiet_clusters(gpu, frame_dt, false) {
+            // The newly settled clusters take part in this frame's fatigue.
+            self.rebuild(gpu, 0.0)?;
+        }
+        let (damaged, disconnected) = self.settled_fatigue(gpu, frame_dt);
+        if damaged.is_empty() && disconnected.is_empty() {
+            return Ok(false);
+        }
+        // A bond's damage grew: the cluster wakes; one disconnected: it splits.
+        self.sync(gpu);
+        let m = &mut self.mirror;
+        let mut woke: Vec<usize> = damaged.iter().chain(&disconnected).copied().collect();
+        woke.sort_unstable();
+        woke.dedup();
+        for &ci in &woke {
+            m.clusters[ci].activity = Activity::Active;
+            m.clusters[ci].active_timer = m.config.active_time;
+        }
+        for &ci in disconnected.iter().rev() {
+            m.split_cluster(ci);
+        }
+        Ok(true)
+    }
+
     /// world.rs `advance_settled_fatigue` on the GPU: every settled cluster's bonds
     /// committed at its equilibrium with `frame_dt` of static fatigue. The clusters whose
     /// bonds' damage grew, and those with a disconnected bond (the mirror's bonds are then

@@ -40,6 +40,8 @@ fn contact(scene: &Scene, chunk: usize, impulse: Vec3, approach: f64, crush: Opt
 struct Case {
     name: &'static str,
     scene: Scene,
+    /// Run the GPU in adaptive mode (sleeping); the reference stays explicit.
+    sleeping: bool,
     frames: usize,
     contacts: Box<dyn Fn(usize, f64) -> Vec<ContactImpulse>>,
     motion: Box<dyn Fn(usize, &dyn StressSolverApi) -> Vec<ClusterMotion>>,
@@ -87,11 +89,13 @@ fn coupled_frames_match_the_reference() {
     };
     let free_target = nearest(&free, Vec3::new(0.0, 0.4, 0.2));
     let wall_scene = wall.clone();
+    let wall_sleep = wall_scene.clone();
     let free_scene = free.clone();
     let cases = vec![
         Case {
             name: "wall: ram impact, then a sustained push",
-            scene: wall,
+            scene: wall.clone(),
+            sleeping: false,
             frames: 12,
             contacts: Box::new(move |f, k| match f {
                 0..=2 => vec![contact(&wall_scene, wall_target, Vec3::new(0.0, 6000.0 * k / (f as f64 + 1.0), 0.0), 12.0, None)],
@@ -102,6 +106,7 @@ fn coupled_frames_match_the_reference() {
         Case {
             name: "free slab: engine-driven motion, crushing impactor",
             scene: free,
+            sleeping: false,
             frames: 10,
             contacts: Box::new(move |f, k| {
                 if f < 3 {
@@ -127,13 +132,33 @@ fn coupled_frames_match_the_reference() {
                     .collect()
             }),
         },
+        Case {
+            name: "wall, sleeping: ram impact, then a sustained push",
+            scene: wall.clone(),
+            sleeping: true,
+            frames: 12,
+            contacts: Box::new(move |f, k| match f {
+                0..=2 => vec![contact(&wall_sleep, wall_target, Vec3::new(0.0, 6000.0 * k / (f as f64 + 1.0), 0.0), 12.0, None)],
+                _ => vec![contact(&wall_sleep, wall_target, Vec3::new(0.0, 400.0 * k, 0.0), 0.0, None)],
+            }),
+            motion: Box::new(|_, _| Vec::new()),
+        },
+        Case {
+            name: "wall, sleeping: idle (no contacts)",
+            scene: wall,
+            sleeping: true,
+            frames: 12,
+            contacts: Box::new(|_, _| Vec::new()),
+            motion: Box::new(|_, _| Vec::new()),
+        },
     ];
     for case in &cases {
         let mut reference = EngineCoupledSolver::new(&case.scene);
         let (r_rows, r_frac) = run(case, &mut reference, 1.0);
         let mut perturbed = EngineCoupledSolver::new(&case.scene);
         let (p_rows, p_frac) = run(case, &mut perturbed, 1.0 + 1e-4);
-        let mut gpu = GpuStressSolverApi::new(&case.scene).expect("GPU coupled solver");
+        let gpu_scene = if case.sleeping { case.scene.with_override("sim.solve_mode", "\"adaptive\"").expect("adaptive") } else { case.scene.clone() };
+        let mut gpu = GpuStressSolverApi::new(&gpu_scene).expect("GPU coupled solver");
         let (g_rows, g_frac) = run(case, &mut gpu, 1.0);
         let gpu_err = compare(&r_rows, &g_rows);
         let spread = compare(&r_rows, &p_rows);

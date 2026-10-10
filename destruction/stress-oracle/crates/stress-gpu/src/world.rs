@@ -240,31 +240,7 @@ impl GpuWorld {
                 }
                 settled || structural
             }
-            SolveMode::Adaptive => {
-                if self.settle_quiet_clusters(gpu) {
-                    // The newly settled clusters take part in this frame's fatigue.
-                    self.solver.rebuild(gpu, 0.0)?;
-                }
-                let (damaged, disconnected) = self.solver.settled_fatigue(gpu, fdt);
-                if damaged.is_empty() && disconnected.is_empty() {
-                    false
-                } else {
-                    // A bond's damage grew: the cluster wakes; one disconnected: it splits.
-                    self.solver.sync(gpu);
-                    let m = &mut self.solver.mirror;
-                    let mut woke: Vec<usize> = damaged.iter().chain(&disconnected).copied().collect();
-                    woke.sort_unstable();
-                    woke.dedup();
-                    for &ci in &woke {
-                        m.clusters[ci].activity = Activity::Active;
-                        m.clusters[ci].active_timer = m.config.active_time;
-                    }
-                    for &ci in disconnected.iter().rev() {
-                        m.split_cluster(ci);
-                    }
-                    true
-                }
-            }
+            SolveMode::Adaptive => self.solver.adaptive_tail(gpu, fdt)?,
             _ => false,
         };
         if changed {
@@ -327,54 +303,10 @@ impl GpuWorld {
         Ok(converged)
     }
 
-    /// world.rs `settle_quiet_clusters`: clusters whose last dynamic load is older than
-    /// `active_time` and whose deformation has calmed down go to static equilibrium
-    /// (all such clusters in one solve). True if any did (or tried to).
+    /// world.rs `settle_quiet_clusters` (`GpuSolver::settle_quiet_clusters`).
     fn settle_quiet_clusters(&mut self, gpu: &Gpu) -> bool {
-        let fdt = self.scene.sim.frame_dt;
-        let loads: ChunkLoads = self.solver.last_loads.clone();
-        let m = &mut self.solver.mirror;
-        let mut candidates = Vec::new();
-        for ci in 0..m.clusters.len() {
-            if m.clusters[ci].activity != Activity::Active {
-                continue;
-            }
-            m.clusters[ci].active_timer -= fdt;
-            if m.clusters[ci].active_timer > 0.0 || m.clusters[ci].bonds.is_empty() {
-                continue;
-            }
-            let s = m.clusters[ci].structure;
-            let ke: f64 = m.clusters[ci]
-                .chunks
-                .iter()
-                .map(|&c| {
-                    let ch = &m.structures[s].chunks[c];
-                    let st = &m.chunks[s][c];
-                    0.5 * ch.mass * st.v.norm2() + 0.5 * st.w.dot(ch.inertia * st.w)
-                })
-                .sum();
-            let stored: f64 = m.clusters[ci].bonds.iter().map(|&b| m.bonds[s][b].stored).sum();
-            if ke > 1e-3 * stored.max(1e-9) {
-                continue;
-            }
-            candidates.push(ci);
-        }
-        if candidates.is_empty() {
-            return false;
-        }
-        let results = self.equilibrate(gpu, &candidates, &loads);
-        let m = &mut self.solver.mirror;
-        for (&ci, &ok) in candidates.iter().zip(&results) {
-            if !ok {
-                // No static equilibrium (a mechanism): it stays in the explicit solve.
-                m.clusters[ci].active_timer = m.config.active_time;
-                continue;
-            }
-            m.clusters[ci].activity = Activity::Settled;
-            let cl = &m.clusters[ci];
-            m.clusters[ci].settled_load_norm = cl.chunks.iter().map(|&c| loads.force[cl.structure][c].norm()).sum();
-        }
-        true
+        let host = std::env::var("STRESS_GPU_HOST_STATICS").is_ok_and(|v| v == "1");
+        self.solver.settle_quiet_clusters(gpu, self.scene.sim.frame_dt, host)
     }
 
     /// world.rs `advance_settled_fatigue`: settled clusters' bonds evaluated at their
