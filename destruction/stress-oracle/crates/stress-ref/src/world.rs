@@ -1045,34 +1045,18 @@ impl World {
                 cluster_boxes[ci].1 = cluster_boxes[ci].1.component_max(center + r);
             }
             let mut candidates = Vec::new();
-            let mut touching = Vec::new();
-            let mut by_cluster: Vec<Vec<usize>> = vec![Vec::new(); n_clusters];
-            for (k, &(s, c)) in active.iter().enumerate() {
-                by_cluster[self.solver.chunks[s][c].cluster].push(k);
-            }
-            for ca in 0..n_clusters {
-                for cb in ca + 1..n_clusters {
-                    let (a0, a1) = cluster_boxes[ca];
-                    let (b0, b1) = cluster_boxes[cb];
-                    if (0..3).any(|i| a1[i] < b0[i] || b1[i] < a0[i]) {
-                        continue;
-                    }
-                    if self.solver.clusters[ca].anchored && self.solver.clusters[cb].anchored {
-                        continue;
-                    }
-                    if self.solver.clusters[ca].driven || self.solver.clusters[cb].driven {
-                        continue;
-                    }
-                    sphere_pairs(&by_cluster[ca], &by_cluster[cb], &bounds, &mut touching);
-                    for &(ka, kb) in &touching {
-                        let (sa, chunk_a) = active[ka];
-                        let (sb, chunk_b) = active[kb];
-                        self.cached_box(&mut boxes, ka, sa, chunk_a);
-                        self.cached_box(&mut boxes, kb, sb, chunk_b);
-                        let key = (sa, chunk_a, sb, chunk_b);
-                        candidates.push((key, ka, kb, previous.remove(&key)));
-                    }
-                }
+            let cluster_of: Vec<usize> = active.iter().map(|&(s, c)| self.solver.chunks[s][c].cluster).collect();
+            let clusters = &self.solver.clusters;
+            let admit = |ca: usize, cb: usize| !(clusters[ca].anchored && clusters[cb].anchored) && !clusters[ca].driven && !clusters[cb].driven;
+            let touching = chunk_pairs(&bounds, &cluster_of, &cluster_boxes, admit);
+            crate::profile::count(crate::profile::Counter::BroadphaseChunks, active.len() as u64);
+            for (ka, kb) in touching {
+                let (sa, chunk_a) = active[ka];
+                let (sb, chunk_b) = active[kb];
+                self.cached_box(&mut boxes, ka, sa, chunk_a);
+                self.cached_box(&mut boxes, kb, sb, chunk_b);
+                let key = (sa, chunk_a, sb, chunk_b);
+                candidates.push((key, ka, kb, previous.remove(&key)));
             }
             drop(t_broad);
             crate::profile::count(crate::profile::Counter::PairCandidates, candidates.len() as u64);
@@ -1304,39 +1288,32 @@ impl World {
         let n_clusters = self.solver.clusters.len();
         if n_clusters > 1 {
             let mut cluster_boxes: Vec<(Vec3, Vec3)> = vec![(Vec3::splat(f64::INFINITY), Vec3::splat(f64::NEG_INFINITY)); n_clusters];
-            let mut by_cluster: Vec<Vec<usize>> = vec![Vec::new(); n_clusters];
+            let mut cluster_of = Vec::with_capacity(active.len());
             for (k, &(s, c)) in active.iter().enumerate() {
                 let ci = self.solver.chunks[s][c].cluster;
                 let (center, radius) = bounds[k];
                 let r = Vec3::splat(radius);
                 cluster_boxes[ci].0 = cluster_boxes[ci].0.component_min(center - r);
                 cluster_boxes[ci].1 = cluster_boxes[ci].1.component_max(center + r);
-                by_cluster[ci].push(k);
+                cluster_of.push(ci);
             }
             let mut candidates = Vec::new();
-            let mut touching = Vec::new();
-            for ca in 0..n_clusters {
-                for cb in ca + 1..n_clusters {
-                    let ((a0, a1), (b0, b1)) = (cluster_boxes[ca], cluster_boxes[cb]);
-                    if (0..3).any(|i| a1[i] < b0[i] || b1[i] < a0[i]) {
-                        continue;
-                    }
-                    let (cla, clb) = (&self.solver.clusters[ca], &self.solver.clusters[cb]);
-                    if (cla.anchored && clb.anchored) || cla.driven || clb.driven {
-                        continue;
-                    }
-                    sphere_pairs(&by_cluster[ca], &by_cluster[cb], &bounds, &mut touching);
-                    for &(ka, kb) in &touching {
-                        // Pairs by chunk identity (lower first), not by cluster order,
-                        // which a split renumbers: the contact keeps its state.
-                        let (ka, kb) = if active[ka] < active[kb] { (ka, kb) } else { (kb, ka) };
-                        let ((sa, chunk_a), (sb, chunk_b)) = (active[ka], active[kb]);
-                        self.cached_box(&mut boxes, ka, sa, chunk_a);
-                        self.cached_box(&mut boxes, kb, sb, chunk_b);
-                        let key = ContactKey::Pair(sa, chunk_a, sb, chunk_b);
-                        candidates.push((key, ka, kb, previous.remove(&key).unwrap_or_default()));
-                    }
-                }
+            let clusters = &self.solver.clusters;
+            let admit = |ca: usize, cb: usize| {
+                let (cla, clb) = (&clusters[ca], &clusters[cb]);
+                !((cla.anchored && clb.anchored) || cla.driven || clb.driven)
+            };
+            let touching = chunk_pairs(&bounds, &cluster_of, &cluster_boxes, admit);
+            crate::profile::count(crate::profile::Counter::BroadphaseChunks, active.len() as u64);
+            for (ka, kb) in touching {
+                // Pairs by chunk identity (lower first), not by cluster order,
+                // which a split renumbers: the contact keeps its state.
+                let (ka, kb) = if active[ka] < active[kb] { (ka, kb) } else { (kb, ka) };
+                let ((sa, chunk_a), (sb, chunk_b)) = (active[ka], active[kb]);
+                self.cached_box(&mut boxes, ka, sa, chunk_a);
+                self.cached_box(&mut boxes, kb, sb, chunk_b);
+                let key = ContactKey::Pair(sa, chunk_a, sb, chunk_b);
+                candidates.push((key, ka, kb, previous.remove(&key).unwrap_or_default()));
             }
             drop(t_broad);
             crate::profile::count(crate::profile::Counter::PairCandidates, candidates.len() as u64);
@@ -2448,55 +2425,175 @@ fn pair_elastic_of(overlap: &Polytope, ba: &OBox, bb: &OBox, mat_a: &Material, m
     Some(PairElastic { elastic, k_n: kv / vol, k_t: ktv / vol, max_depth: (hi - lo).max(0.0), contact: Some(LayerContact { centroid: point, ..geometry }) })
 }
 
-/// The pairs `(ka, kb)`, `ka` from `a` and `kb` from `b`, whose bounding spheres
-/// (`bounds[k]`: centre, radius) touch, `|pa - pb| <= ra + rb`, written to `out` in the
-/// order of the all-pairs loop over `a` then `b`, and decided by exactly its test. A
-/// sweep along x only skips pairs that test would reject: a pair it accepts has
-/// `|xa - xb| <= (ra + rb) (1 + 4 eps)` (`|p| >= |p.x|`, the norm and the sum each
-/// rounded), so a window of `(ra + max rb) (1 + 8 eps)`, widened by the rounding of the
-/// window's own ends, holds every accepted pair.
-fn sphere_pairs(a: &[usize], b: &[usize], bounds: &[(Vec3, f64)], out: &mut Vec<(usize, usize)>) {
-    out.clear();
+/// The cluster pairs `(ca, cb)`, `ca < cb`, whose boxes (`boxes[c]`: min, max corner)
+/// overlap, in the order of the all-pairs loop over `ca` then `cb`, decided by exactly
+/// its test (skip when `a1[i] < b0[i] || b1[i] < a0[i]` on some axis). A sweep along x
+/// (boxes sorted by min x) only skips pairs that test rejects on x. A cluster with no
+/// active chunk keeps the empty box `(+inf, -inf)` and overlaps nothing; any other
+/// non-finite box falls back to the all-pairs loop.
+fn aabb_pairs(boxes: &[(Vec3, Vec3)]) -> Vec<(usize, usize)> {
+    let overlap = |ca: usize, cb: usize| {
+        let ((a0, a1), (b0, b1)) = (boxes[ca], boxes[cb]);
+        !(0..3).any(|i| a1[i] < b0[i] || b1[i] < a0[i])
+    };
+    let empty = |b: &(Vec3, Vec3)| b.0 == Vec3::splat(f64::INFINITY) && b.1 == Vec3::splat(f64::NEG_INFINITY);
+    let finite = |b: &(Vec3, Vec3)| b.0.to_array().iter().chain(b.1.to_array().iter()).all(|x| x.is_finite());
+    let mut out = Vec::new();
+    if boxes.len() <= 32 || !boxes.iter().all(|b| empty(b) || finite(b)) {
+        for ca in 0..boxes.len() {
+            for cb in ca + 1..boxes.len() {
+                if overlap(ca, cb) {
+                    out.push((ca, cb));
+                }
+            }
+        }
+        return out;
+    }
+    let mut order: Vec<usize> = (0..boxes.len()).filter(|&c| !empty(&boxes[c])).collect();
+    order.sort_by(|&p, &q| boxes[p].0.x.total_cmp(&boxes[q].0.x).then(p.cmp(&q)));
+    for (i, &ca) in order.iter().enumerate() {
+        let a1x = boxes[ca].1.x;
+        for &cb in &order[i + 1..] {
+            // Every later box starts at or after this one: past `a1.x` none overlaps on x.
+            if boxes[cb].0.x > a1x {
+                break;
+            }
+            if overlap(ca, cb) {
+                out.push((ca.min(cb), ca.max(cb)));
+            }
+        }
+    }
+    out.sort_unstable();
+    out
+}
+
+/// One cluster's chunks sorted by the start of their intervals along the axis their
+/// centres spread most on, for `chunk_pairs`; built once per substep, the first time
+/// the cluster is the larger side of a pair.
+struct ClusterSweep {
+    axis: usize,
+    /// (interval start on `axis`, chunk), by start then chunk.
+    sorted: Vec<(f64, usize)>,
+    /// Running maximum of the interval ends along `sorted`: every entry before the
+    /// first one reaching `lo` ends below `lo`.
+    reach: Vec<f64>,
+}
+
+impl ClusterSweep {
+    fn new(chunks: &[usize], bounds: &[(Vec3, f64)], intervals: &[[f64; 6]]) -> Self {
+        let spread = |i: usize| {
+            let (lo, hi) = chunks.iter().map(|&k| bounds[k].0[i]).fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), x| (lo.min(x), hi.max(x)));
+            hi - lo
+        };
+        let axis = (0..3).max_by(|&i, &j| spread(i).total_cmp(&spread(j))).unwrap_or(0);
+        let mut sorted: Vec<(f64, usize)> = chunks.iter().map(|&k| (intervals[k][axis], k)).collect();
+        sorted.sort_by(|p, q| p.0.total_cmp(&q.0).then(p.1.cmp(&q.1)));
+        let reach = sorted
+            .iter()
+            .scan(f64::NEG_INFINITY, |m, &(_, k)| {
+                *m = m.max(intervals[k][3 + axis]);
+                Some(*m)
+            })
+            .collect();
+        ClusterSweep { axis, sorted, reach }
+    }
+}
+
+/// The chunk pairs of the contact broadphase, as the all-pairs loops decide them: over
+/// cluster pairs `ca < cb` whose boxes overlap (`boxes[c]`: min, max corner; skipped
+/// when `a1[i] < b0[i] || b1[i] < a0[i]` on some axis) and that `admit`, then over their
+/// chunks `ka` of `ca` and `kb` of `cb` in index order, the pairs whose bounding spheres
+/// touch (`bounds[k]`: centre, radius; skipped when `|pa - pb| > ra + rb`). `cluster[k]`
+/// is chunk `k`'s cluster. Returns `(ka, kb)` in that loop order.
+///
+/// With every sphere finite, padded intervals reject most pairs before the sphere test
+/// without changing its outcome: a pair the test accepts has
+/// `|xa - xb| <= (ra + rb) (1 + 7 eps)` on every axis (`fl|p| >= |fl(dx)| (1 - 3 eps)`,
+/// `|fl(dx)| >= |dx| (1 - eps)`, the sum rounded once), so intervals
+/// `[x - r - m, x + r + m]` with `m = 16 eps (max r + max |x|)` overlap on every axis even
+/// after the rounding of their ends. The larger cluster of a pair is swept along one
+/// axis (`ClusterSweep`), each chunk of the smaller visiting only the intervals that
+/// can overlap its own; the touching pairs are then put back in loop order.
+fn chunk_pairs(bounds: &[(Vec3, f64)], cluster: &[usize], boxes: &[(Vec3, Vec3)], admit: impl Fn(usize, usize) -> bool) -> Vec<(usize, usize)> {
     let touch = |ka: usize, kb: usize| {
         let ((pa, ra), (pb, rb)) = (bounds[ka], bounds[kb]);
         // As the all-pairs loop's `if |pa - pb| > ra + rb { continue }`, NaN included.
         !((pa - pb).norm() > ra + rb)
     };
-    let finite = |k: &usize| bounds[*k].0.x.is_finite() && bounds[*k].1.is_finite();
-    if a.len() * b.len() <= 64 || !a.iter().all(finite) || !b.iter().all(finite) {
-        for &ka in a {
-            for &kb in b {
-                if touch(ka, kb) {
-                    out.push((ka, kb));
+    let mut by_cluster: Vec<Vec<usize>> = vec![Vec::new(); boxes.len()];
+    for (k, &c) in cluster.iter().enumerate() {
+        by_cluster[c].push(k);
+    }
+    let mut out = Vec::new();
+    let finite = bounds.iter().all(|(p, r)| p.to_array().iter().all(|x| x.is_finite()) && r.is_finite() && *r >= 0.0);
+    if !finite {
+        for ca in 0..boxes.len() {
+            for cb in ca + 1..boxes.len() {
+                let ((a0, a1), (b0, b1)) = (boxes[ca], boxes[cb]);
+                if (0..3).any(|i| a1[i] < b0[i] || b1[i] < a0[i]) || !admit(ca, cb) {
+                    continue;
+                }
+                for &ka in &by_cluster[ca] {
+                    for &kb in &by_cluster[cb] {
+                        if touch(ka, kb) {
+                            out.push((ka, kb));
+                        }
+                    }
                 }
             }
         }
-        return;
+        return out;
     }
-    // b sorted by x: (x, position in b).
-    let mut sorted: Vec<(f64, usize)> = b.iter().enumerate().map(|(i, &kb)| (bounds[kb].0.x, i)).collect();
-    sorted.sort_by(|p, q| p.0.total_cmp(&q.0).then(p.1.cmp(&q.1)));
-    let r_max = b.iter().map(|&kb| bounds[kb].1).fold(0.0, f64::max);
-    let x_max = sorted.iter().map(|p| p.0.abs()).fold(0.0, f64::max);
-    let eps = f64::EPSILON;
-    let mut hits: Vec<usize> = Vec::new();
-    for &ka in a {
-        let (pa, ra) = bounds[ka];
-        let w = (ra + r_max) * (1.0 + 8.0 * eps) + 8.0 * eps * (pa.x.abs() + x_max);
-        let (lo, hi) = (pa.x - w, pa.x + w);
-        let start = sorted.partition_point(|p| p.0 < lo);
-        hits.clear();
-        for &(x, i) in &sorted[start..] {
-            if x > hi {
-                break;
+    let r_max = bounds.iter().map(|b| b.1).fold(0.0, f64::max);
+    let c_max = bounds.iter().flat_map(|b| b.0.to_array()).map(f64::abs).fold(0.0, f64::max);
+    let m = 16.0 * f64::EPSILON * (r_max + c_max);
+    // [lo x, lo y, lo z, hi x, hi y, hi z]
+    let intervals: Vec<[f64; 6]> = bounds.iter().map(|&(p, r)| [p.x - r - m, p.y - r - m, p.z - r - m, p.x + r + m, p.y + r + m, p.z + r + m]).collect();
+    let apart = |ka: usize, kb: usize| {
+        let (a, b) = (&intervals[ka], &intervals[kb]);
+        (0..3).any(|i| a[3 + i] < b[i] || b[3 + i] < a[i])
+    };
+    let mut sweeps: Vec<Option<ClusterSweep>> = (0..boxes.len()).map(|_| None).collect();
+    let mut hits = Vec::new();
+    let mut tests = 0u64;
+    for (ca, cb) in aabb_pairs(boxes) {
+        if !admit(ca, cb) {
+            continue;
+        }
+        let (a, b) = (&by_cluster[ca], &by_cluster[cb]);
+        if a.len() * b.len() <= 16 {
+            for &ka in a {
+                for &kb in b {
+                    if !apart(ka, kb) && touch(ka, kb) {
+                        out.push((ka, kb));
+                    }
+                }
             }
-            if touch(ka, b[i]) {
-                hits.push(i);
+            continue;
+        }
+        let (query, swept) = if a.len() > b.len() { (cb, ca) } else { (ca, cb) };
+        let sw = sweeps[swept].get_or_insert_with(|| ClusterSweep::new(&by_cluster[swept], bounds, &intervals));
+        hits.clear();
+        for &kq in &by_cluster[query] {
+            let (lo, hi) = (intervals[kq][sw.axis], intervals[kq][3 + sw.axis]);
+            let start = sw.reach.partition_point(|&r| r < lo);
+            for &(start_e, ke) in &sw.sorted[start..] {
+                if start_e > hi {
+                    break;
+                }
+                tests += 1;
+                let (ka, kb) = if query == ca { (kq, ke) } else { (ke, kq) };
+                if !apart(ka, kb) && touch(ka, kb) {
+                    hits.push((ka, kb));
+                }
             }
         }
+        // Chunks of a cluster are listed in index order: sorting restores the loop order.
         hits.sort_unstable();
-        out.extend(hits.iter().map(|&i| (ka, b[i])));
+        out.extend_from_slice(&hits);
     }
+    crate::profile::count(crate::profile::Counter::SphereTests, tests);
+    out
 }
 
 /// A chunk's (or impactor's) shape as a polytope.
@@ -2780,6 +2877,80 @@ mod tests {
                 assert!((force[k] + grad).abs() < 1e-5 * scale, "{label}: force {k}: {} vs -dE/dx {}", force[k], -grad);
                 assert!((torque[k] + grad_r).abs() < 1e-5 * scale * 0.1, "{label}: torque {k}: {} vs -dE/dtheta {}", torque[k], -grad_r);
             }
+        }
+    }
+
+    /// A small deterministic generator (64-bit LCG) for the broadphase tests.
+    struct Lcg(u64);
+    impl Lcg {
+        fn next(&mut self) -> f64 {
+            self.0 = self.0.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            (self.0 >> 11) as f64 / (1u64 << 53) as f64
+        }
+        /// Coordinates on a coarse grid (many exact ties), or anywhere.
+        fn coord(&mut self, grid: bool) -> f64 {
+            let x = self.next() * 4.0 - 2.0;
+            if grid { (x * 8.0).round() / 8.0 } else { x }
+        }
+    }
+
+    /// The broadphase sweep gives exactly the pairs, in exactly the order, of the
+    /// all-pairs loops it replaces: clusters of every size, coincident centres, spheres
+    /// touching at exactly `ra + rb`, far from the origin, clusters refused by `admit`,
+    /// empty clusters and non-finite centres.
+    #[test]
+    fn the_broadphase_sweep_matches_the_all_pairs_loops() {
+        let mut rng = Lcg(7);
+        for trial in 0..600 {
+            let grid = trial % 2 == 0;
+            let offset = [0.0, 1e3, -7.5e5][trial % 3];
+            let n = 1 + (rng.next() * 150.0) as usize;
+            let mut bounds: Vec<(Vec3, f64)> = (0..n)
+                .map(|_| {
+                    let p = Vec3::new(rng.coord(grid) + offset, rng.coord(grid), rng.coord(grid) - offset);
+                    (p, if grid { 0.125 } else { rng.next() * 0.3 })
+                })
+                .collect();
+            if trial % 7 == 3 {
+                bounds[n / 2].0.x = f64::NAN;
+            }
+            if trial % 11 == 5 {
+                bounds[n / 3].0.y = f64::INFINITY;
+            }
+            let n_clusters = 1 + (rng.next() * 60.0) as usize;
+            let cluster: Vec<usize> = (0..n)
+                // Skewed: cluster 0 large (a structure), the rest small (debris), some empty.
+                .map(|_| if rng.next() < 0.5 { 0 } else { (rng.next() * n_clusters as f64) as usize % n_clusters })
+                .collect();
+            let refused: Vec<bool> = (0..n_clusters).map(|_| rng.next() < 0.2).collect();
+            let admit = |ca: usize, cb: usize| !(refused[ca] && refused[cb]);
+            let mut boxes = vec![(Vec3::splat(f64::INFINITY), Vec3::splat(f64::NEG_INFINITY)); n_clusters];
+            let mut by_cluster: Vec<Vec<usize>> = vec![Vec::new(); n_clusters];
+            for (k, &c) in cluster.iter().enumerate() {
+                let (center, radius) = bounds[k];
+                boxes[c].0 = boxes[c].0.component_min(center - Vec3::splat(radius));
+                boxes[c].1 = boxes[c].1.component_max(center + Vec3::splat(radius));
+                by_cluster[c].push(k);
+            }
+            let mut expected = Vec::new();
+            for ca in 0..n_clusters {
+                for cb in ca + 1..n_clusters {
+                    let ((a0, a1), (b0, b1)) = (boxes[ca], boxes[cb]);
+                    if (0..3).any(|i| a1[i] < b0[i] || b1[i] < a0[i]) || !admit(ca, cb) {
+                        continue;
+                    }
+                    for &ka in &by_cluster[ca] {
+                        for &kb in &by_cluster[cb] {
+                            let ((pa, ra), (pb, rb)) = (bounds[ka], bounds[kb]);
+                            if (pa - pb).norm() > ra + rb {
+                                continue;
+                            }
+                            expected.push((ka, kb));
+                        }
+                    }
+                }
+            }
+            assert_eq!(chunk_pairs(&bounds, &cluster, &boxes, admit), expected, "trial {trial}");
         }
     }
 }
