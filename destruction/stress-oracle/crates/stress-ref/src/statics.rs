@@ -181,7 +181,8 @@ impl Default for StaticOptions {
 
 pub(crate) struct Layout {
     pub(crate) chunks: Vec<usize>,
-    pub(crate) local: std::collections::HashMap<usize, usize>,
+    /// Local index of each of the structure's chunks (`usize::MAX` outside the cluster).
+    pub(crate) local: Vec<usize>,
     /// Per local chunk: which of its 6 DOFs are held.
     pub(crate) fixed: Vec<[bool; 6]>,
 }
@@ -191,7 +192,10 @@ impl ReferenceSolver {
         let cl = &self.clusters[ci];
         let st = &self.structures[cl.structure];
         let chunks = cl.chunks.clone();
-        let local = chunks.iter().enumerate().map(|(i, &c)| (c, i)).collect();
+        let mut local = vec![usize::MAX; st.chunks.len()];
+        for (i, &c) in chunks.iter().enumerate() {
+            local[c] = i;
+        }
         let fixed = chunks
             .iter()
             .map(|&c| match st.chunks[c].support {
@@ -216,7 +220,7 @@ impl ReferenceSolver {
             let d = b.geometry.kinematics(sa.u, sa.th, sb.u, sb.th);
             let resp = b.model().evaluate(&b.joint, &d, 0.0, false);
             let (fa, ma, fb, mb) = b.geometry.chunk_loads(&resp.force);
-            let (ia, ib) = (lay.local[&ga], lay.local[&gb]);
+            let (ia, ib) = (lay.local[ga], lay.local[gb]);
             for k in 0..3 {
                 out[ia][k] += fa[k];
                 out[ia][3 + k] += ma[k];
@@ -255,7 +259,7 @@ impl ReferenceSolver {
         let mut y = vec![[0.0; 6]; x.len()];
         for (j, &bi) in cl.bonds.iter().enumerate() {
             let g = &self.bonds[s][bi].geometry;
-            let (ia, ib) = (lay.local[&g.a], lay.local[&g.b]);
+            let (ia, ib) = (lay.local[g.a], lay.local[g.b]);
             let (ua, ta) = split(&x[ia]);
             let (ub, tb) = split(&x[ib]);
             let q = k[j].mul(&g.kinematics(ua, ta, ub, tb));
@@ -285,7 +289,7 @@ impl ReferenceSolver {
         let mut blocks = vec![Block6::zero(); lay.chunks.len()];
         for (j, &bi) in cl.bonds.iter().enumerate() {
             let g = &self.bonds[s][bi].geometry;
-            let (ia, ib) = (lay.local[&g.a], lay.local[&g.b]);
+            let (ia, ib) = (lay.local[g.a], lay.local[g.b]);
             let axes = [g.t1, g.t2, g.normal];
             // Kinematic rows of the six local components on each chunk's 6 DOFs.
             let rows = |comp: usize| -> (V6, V6) {

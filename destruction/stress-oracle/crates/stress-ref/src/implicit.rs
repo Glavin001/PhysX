@@ -149,7 +149,7 @@ impl ReferenceSolver {
             let q = rate.mul_elem(&c);
             power += q.dot(&rate);
             let (fa, ma, fb, mb) = g.chunk_loads(&q);
-            let (ia, ib) = (lay.local[&g.a], lay.local[&g.b]);
+            let (ia, ib) = (lay.local[g.a], lay.local[g.b]);
             for k in 0..3 {
                 out[ia][k] += fa[k];
                 out[ia][3 + k] += ma[k];
