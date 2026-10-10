@@ -29,7 +29,7 @@ fn compare(name: &str, mut scene: Scene, frames: usize, per_frame: usize) {
     scene.sim.solve_mode = SolveMode::Explicit;
     let mut reference = ReferenceSolver::new(&scene);
     let gpu = Gpu::new().expect("GPU");
-    let mut solver = GpuSolver::new(&gpu, reference.clone()).expect("GPU solver");
+    let mut solver = GpuSolver::new(&gpu, reference.clone(), None).expect("GPU solver");
     let dt = reference.stable_dt();
     let loads = ChunkLoads::new(&reference);
     let initial: Vec<Vec<Vec3>> = (0..reference.structures.len())

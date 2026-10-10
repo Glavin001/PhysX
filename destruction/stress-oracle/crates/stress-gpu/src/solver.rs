@@ -1,6 +1,6 @@
 //! The GPU stress solver with the full model (`shaders/stress_island.slang`): explicit
-//! substeps of every cluster with the joint law, fracture, rigid motion and drift
-//! removal on the GPU, one threadgroup per island.
+//! substeps of every cluster with the joint law, fracture, rigid motion, drift removal,
+//! scripted and replacement loads and probes on the GPU, one threadgroup per island.
 //!
 //! A `ReferenceSolver` is kept as the host mirror of topology and history. Rare
 //! operations run the reference's own code on it after the GPU state is downloaded:
@@ -14,13 +14,13 @@ use std::collections::HashMap;
 use stress_ref::bond::Local6;
 use stress_ref::math::{Mat3, Quat, Vec3};
 use stress_ref::scene::Support;
-use stress_ref::solver::{ReferenceSolver, SolverEvent, CREAK_STRENGTH};
+use stress_ref::solver::{ReferenceSolver, SolverEvent};
 
 use crate::gpu::{Binding, Gpu, Kernel};
 use crate::joint::{bond_law, from_gpu_state, mode_of, to_gpu_state, GpuJointBond, GpuJointMaterial, GpuJointState, MaterialTable};
+use crate::loads::{Function, LoadTerm, ProbeItem, Target, WorldLoads};
 use crate::shaders;
 
-const THREADS: u32 = 256;
 const MAX_MATERIALS: usize = 64;
 const ISLAND_ANCHORED: u32 = 1;
 const ISLAND_DRIVEN: u32 = 2;
@@ -33,7 +33,11 @@ struct Params {
     dt: f32,
     fracture: u32,
     rigid_motion_loads: u32,
-    pad: u32,
+    step_start: u32,
+    t_hi: f32,
+    t_lo: f32,
+    probe_base: u32,
+    probe_stride: u32,
 }
 
 #[repr(C)]
@@ -69,6 +73,7 @@ struct ChunkStatic {
     inv: [[f32; 4]; 3],
     scale: [f32; 4],
     info: [u32; 4],
+    load_range: [u32; 4],
 }
 
 #[repr(C)]
@@ -88,6 +93,8 @@ pub struct Island {
     pub velocity_err: [f32; 4],
     pub angular_velocity: [f32; 4],
     pub done: [u32; 4],
+    pub probes: [u32; 4],
+    pub energy: [f32; 4],
 }
 
 fn v4(v: Vec3, w: f64) -> [f32; 4] {
@@ -96,6 +103,12 @@ fn v4(v: Vec3, w: f64) -> [f32; 4] {
 
 fn rows(m: &Mat3) -> [[f32; 4]; 3] {
     std::array::from_fn(|r| [m.m[r][0] as f32, m.m[r][1] as f32, m.m[r][2] as f32, 0.0])
+}
+
+/// A value as an f32 plus the f32 rounding error of that value.
+fn split1(x: f64) -> (f32, f32) {
+    let hi = x as f32;
+    (hi, (x - hi as f64) as f32)
 }
 
 /// A vector as an f32 value plus the f32 rounding error of that value.
@@ -113,24 +126,69 @@ fn vec3(a: [f32; 4]) -> Vec3 {
     Vec3::new(a[0] as f64, a[1] as f64, a[2] as f64)
 }
 
+/// The GPU form of a load term (5 float4) and its table data.
+fn pack_term(t: &LoadTerm, chunk: u32, data: &mut Vec<[f32; 4]>, data_base: u32) -> [[f32; 4]; 5] {
+    let (fn_kind, origin, p, offset): (u32, f64, [f32; 4], u32) = match &t.function {
+        Function::Constant(v) => (0, 0.0, [0.0; 4], *v as f32 as u32 * 0),
+        Function::Ramp { t0, t1, value } => (1, *t0, [(t1 - t0) as f32, *value as f32, 0.0, 0.0], 0),
+        Function::HalfSine { start, duration, peak } => (2, *start, [*duration as f32, *peak as f32, 0.0, 0.0], 0),
+        Function::Friedlander { arrival, peak, duration, decay } => (3, *arrival, [*peak as f32, *duration as f32, *decay as f32, 0.0], 0),
+        Function::Table(points) => {
+            let origin = points.first().map(|p| p[0]).unwrap_or(0.0);
+            let offset = data_base + data.len() as u32;
+            for p in points {
+                data.push([(p[0] - origin) as f32, p[1] as f32, 0.0, 0.0]);
+            }
+            if points.is_empty() {
+                data.push([0.0; 4]);
+            }
+            (4, origin, [f32::from_bits(points.len().max(1) as u32), 0.0, 0.0, 0.0], offset)
+        }
+        Function::Blast(fb) => (5, fb.arrival, [fb.duration as f32, fb.decay as f32, fb.peak as f32, fb.stagnation as f32], 0),
+        Function::Replacement { start, duration } => (6, *start, [*duration as f32, 0.0, 0.0, 0.0], 0),
+    };
+    let (o_hi, o_lo) = split1(origin);
+    let constant = match &t.function {
+        Function::Constant(v) => *v as f32,
+        _ => 0.0,
+    };
+    let clearing = match &t.function {
+        Function::Blast(fb) => fb.clearing_time as f32,
+        _ => 0.0,
+    };
+    [
+        [f32::from_bits(chunk), f32::from_bits(t.kind), f32::from_bits(fn_kind), f32::from_bits(offset)],
+        v4(t.dir, t.area),
+        v4(t.arm, 0.0),
+        [o_hi, o_lo, constant, clearing],
+        p,
+    ]
+}
+
 struct Buffers {
     params: wgpu::Buffer,
     state: wgpu::Buffer,
     bond_dyn: wgpu::Buffer,
+    scratch: wgpu::Buffer,
     islands: wgpu::Buffer,
     bind: wgpu::BindGroup,
+    probe_base: u32,
+    probe_stride: u32,
 }
 
-/// Where each GPU chunk and bond lives in the mirror.
+/// Where each GPU chunk and bond lives in the mirror, and the probe items by slot.
 struct Layout {
     chunks: Vec<(usize, usize)>,
     bonds: Vec<(usize, usize)>,
     islands: Vec<Island>,
+    items: Vec<ProbeItem>,
 }
 
 pub struct GpuSolver {
     /// The host mirror: topology and history, current after `download`.
     pub mirror: ReferenceSolver,
+    /// The scene's loads and probes (none: gravity only, no probes).
+    pub loads: Option<WorldLoads>,
     kernel: Kernel,
     layout: Layout,
     buffers: Buffers,
@@ -142,7 +200,7 @@ pub struct GpuSolver {
 }
 
 impl GpuSolver {
-    pub fn new(gpu: &Gpu, mirror: ReferenceSolver) -> Result<GpuSolver, String> {
+    pub fn new(gpu: &Gpu, mirror: ReferenceSolver, loads: Option<WorldLoads>) -> Result<GpuSolver, String> {
         let kernel = gpu.compute(
             &shaders::STRESS_ISLAND,
             "island_frame",
@@ -156,21 +214,33 @@ impl GpuSolver {
                 Binding::StorageRw,
                 Binding::StorageRw,
                 Binding::StorageRw,
+                Binding::Storage,
             ],
         );
         let step_times = vec![mirror.time];
-        let (layout, buffers) = Self::build(gpu, &kernel, &mirror)?;
-        Ok(GpuSolver { mirror, kernel, layout, buffers, step_times, dispatches: 0, host_splits: 0 })
+        let mut loads = loads;
+        let (layout, buffers) = Self::build(gpu, &kernel, &mirror, loads.as_mut(), 4)?;
+        Ok(GpuSolver { mirror, loads, kernel, layout, buffers, step_times, dispatches: 0, host_splits: 0 })
+    }
+
+    /// Rebuild every buffer from the mirror (after the host changed topology or loads).
+    pub fn rebuild(&mut self, gpu: &Gpu) -> Result<(), String> {
+        let stride = self.buffers.probe_stride;
+        let (layout, buffers) = Self::build(gpu, &self.kernel, &self.mirror, self.loads.as_mut(), stride)?;
+        self.layout = layout;
+        self.buffers = buffers;
+        Ok(())
     }
 
     /// Every buffer from the mirror's current state.
-    fn build(gpu: &Gpu, kernel: &Kernel, m: &ReferenceSolver) -> Result<(Layout, Buffers), String> {
+    fn build(gpu: &Gpu, kernel: &Kernel, m: &ReferenceSolver, loads: Option<&mut WorldLoads>, probe_stride: u32) -> Result<(Layout, Buffers), String> {
         if m.config.mode != stress_ref::scene::SolveMode::Explicit {
             return Err("only the explicit solve mode is on the GPU so far".into());
         }
-        if !m.replacements.is_empty() {
-            return Err("replacement loads are not on the GPU yet".into());
-        }
+        let (terms, items) = match loads {
+            Some(l) => (l.terms(m, m.time), l.probe_items(m)),
+            None => (Vec::new(), Vec::new()),
+        };
         let mut chunk_index: Vec<Vec<u32>> = m.structures.iter().map(|st| vec![u32::MAX; st.chunks.len()]).collect();
         let mut chunks = Vec::new();
         let mut chunk_static = Vec::new();
@@ -201,8 +271,10 @@ impl GpuSolver {
                         s as u32,
                         c as u32,
                     ],
+                    load_range: [0; 4],
                 });
-                state.extend([v4(cs.u, 0.0), v4(cs.th, 0.0), v4(cs.v, 0.0), v4(cs.w, 0.0)]);
+                let r = cs.reaction.0;
+                state.extend([v4(cs.u, 0.0), v4(cs.th, r.x), v4(cs.v, r.y), v4(cs.w, r.z)]);
             }
             // Drift-removal weights (solver.rs `remove_rigid_drift`).
             let weight = |c: usize| m.chunks[s][c].inertia_scale;
@@ -240,11 +312,12 @@ impl GpuSolver {
                 velocity,
                 velocity_err,
                 angular_velocity: v4(cl.angular_velocity, 0.0),
-                done: [0; 4],
+                ..Default::default()
             });
         }
         let mut table = MaterialTable::default();
         let mut bonds = Vec::new();
+        let mut bond_index: HashMap<(usize, usize), u32> = HashMap::new();
         let mut bond_static = Vec::new();
         let mut bond_dyn = Vec::new();
         let mut incident = vec![Vec::new(); chunks.len()];
@@ -261,6 +334,7 @@ impl GpuSolver {
                 let i = bonds.len() as u32;
                 incident[a as usize].push(2 * i);
                 incident[bb as usize].push(2 * i + 1);
+                bond_index.insert((s, bi), i);
                 bonds.push((s, bi));
                 bond_static.push(BondStatic {
                     t1: v4(g.t1, 0.0),
@@ -295,8 +369,66 @@ impl GpuSolver {
         }
         csr[n] = (n + 1 + entries.len()) as u32;
         csr.extend(entries);
+
+        // Load terms by GPU chunk (stable: the reference's order within a chunk), then
+        // table data, then probe items grouped by island.
+        let mut by_chunk: Vec<Vec<&LoadTerm>> = vec![Vec::new(); n];
+        for t in &terms {
+            let k = chunk_index[t.structure][t.chunk];
+            if k != u32::MAX {
+                by_chunk[k as usize].push(t);
+            }
+        }
+        let term_count: usize = by_chunk.iter().map(|v| v.len()).sum();
+        let data_base = (5 * term_count) as u32;
+        let mut data = Vec::new();
+        let mut packed: Vec<[f32; 4]> = Vec::with_capacity(5 * term_count);
+        for (k, list) in by_chunk.iter().enumerate() {
+            let begin = (packed.len() / 5) as u32;
+            for t in list {
+                packed.extend(pack_term(t, k as u32, &mut data, data_base));
+            }
+            chunk_static[k].load_range = [begin, (packed.len() / 5) as u32, 0, 0];
+        }
+        packed.extend(data);
+        // Probe items: those whose target is on the GPU, grouped by island.
+        let item_island = |it: &ProbeItem| -> Option<(u32, u32)> {
+            match it.target {
+                Target::Chunk(s, c) => {
+                    let k = chunk_index[s][c];
+                    (k != u32::MAX).then(|| (chunk_static[k as usize].info[1], k))
+                }
+                Target::Bond(s, b) => bond_index.get(&(s, b)).map(|&i| (bond_static[i as usize].law.ids[3], i)),
+            }
+        };
+        let mut placed: Vec<(u32, u32, ProbeItem)> = items.into_iter().filter_map(|it| item_island(&it).map(|(isl, idx)| (isl, idx, it))).collect();
+        placed.sort_by_key(|p| p.0);
+        let mut layout_items = Vec::new();
+        let items_base = packed.len() as u32;
+        let mut cursor = 0;
+        for ci in 0..islands.len() {
+            let begin = items_base + 4 * layout_items.len() as u32;
+            while cursor < placed.len() && placed[cursor].0 == ci as u32 {
+                let (_, idx, it) = &placed[cursor];
+                let slot = layout_items.len() as u32;
+                packed.push([f32::from_bits(it.kind), f32::from_bits(*idx), f32::from_bits(it.side), f32::from_bits(slot)]);
+                packed.push(v4(it.a, 0.0));
+                let (hi, lo) = split(it.x0);
+                packed.push(if it.kind == crate::loads::PROBE_SECTION_BOND { v4(it.b, 0.0) } else { hi });
+                packed.push(lo);
+                layout_items.push(it.clone());
+                cursor += 1;
+            }
+            islands[ci].probes = [begin, items_base + 4 * layout_items.len() as u32, 0, 0];
+        }
+        if packed.is_empty() {
+            packed.push([0.0; 4]);
+        }
+
         let mut materials = vec![GpuJointMaterial::default(); MAX_MATERIALS];
         materials[..table.materials.len()].copy_from_slice(&table.materials);
+        let probe_base = (3 * bonds.len()) as u32;
+        let scratch_len = 3 * bonds.len() + (layout_items.len() * probe_stride as usize).div_ceil(4) + 1;
 
         let params = gpu.uniform("params", &Params::default());
         let materials = gpu.uniform_slice("materials", &materials);
@@ -305,32 +437,48 @@ impl GpuSolver {
         let csr = gpu.storage("csr", &csr);
         let state = gpu.storage("state", &state);
         let bond_dyn_buf = gpu.storage("bond dyn", &bond_dyn);
-        let bond_loads = gpu.storage("bond loads", &vec![[0f32; 4]; 3 * bonds.len()]);
+        let scratch = gpu.storage("scratch", &vec![[0f32; 4]; scratch_len]);
         let islands_buf = gpu.storage("islands", &islands);
-        let bind = gpu.bind(&kernel.group, &[&params, &materials, &bonds_buf, &chunks_buf, &csr, &state, &bond_dyn_buf, &bond_loads, &islands_buf]);
-        Ok((Layout { chunks, bonds, islands }, Buffers { params, state, bond_dyn: bond_dyn_buf, islands: islands_buf, bind }))
+        let loads_buf = gpu.storage("loads", &packed);
+        let bind = gpu.bind(&kernel.group, &[&params, &materials, &bonds_buf, &chunks_buf, &csr, &state, &bond_dyn_buf, &scratch, &islands_buf, &loads_buf]);
+        Ok((
+            Layout { chunks, bonds, islands, items: layout_items },
+            Buffers { params, state, bond_dyn: bond_dyn_buf, scratch, islands: islands_buf, bind, probe_base, probe_stride },
+        ))
     }
 
     /// Advance every cluster by `substeps` explicit substeps of `dt` (splits included).
-    pub fn step(&mut self, gpu: &Gpu, dt: f64, substeps: usize) -> Result<(), String> {
-        let m = &self.mirror;
-        let params = Params {
-            gravity: v4(m.config.gravity, 0.0),
-            dt: dt as f32,
-            fracture: m.config.fracture as u32,
-            rigid_motion_loads: m.config.features.rigid_motion_loads as u32,
-            pad: 0,
-        };
-        gpu.queue.write_buffer(&self.buffers.params, 0, bytemuck::bytes_of(&params));
+    /// Returns each probe's value after every substep (NaN where it has no item).
+    pub fn step(&mut self, gpu: &Gpu, dt: f64, substeps: usize) -> Result<Vec<Vec<f64>>, String> {
+        let stride = (substeps as u32).div_ceil(4) * 4;
+        if stride > self.buffers.probe_stride {
+            let (layout, buffers) = Self::build(gpu, &self.kernel, &self.mirror, self.loads.as_mut(), stride)?;
+            self.layout = layout;
+            self.buffers = buffers;
+        }
         let start = self.mirror.substeps as usize;
         while self.step_times.len() <= start + substeps {
             let t = *self.step_times.last().unwrap() + dt;
             self.step_times.push(t);
         }
-        // Remaining substeps per cluster id.
+        let (t_hi, t_lo) = split1(self.step_times[start]);
+        let (gravity, fracture, rml) = (self.mirror.config.gravity, self.mirror.config.fracture, self.mirror.config.features.rigid_motion_loads);
+        let params = |b: &Buffers| Params {
+            gravity: v4(gravity, 0.0),
+            dt: dt as f32,
+            fracture: fracture as u32,
+            rigid_motion_loads: rml as u32,
+            step_start: start as u32,
+            t_hi,
+            t_lo,
+            probe_base: b.probe_base,
+            probe_stride: b.probe_stride,
+        };
+        gpu.queue.write_buffer(&self.buffers.params, 0, bytemuck::bytes_of(&params(&self.buffers)));
+        // Probe values per item (by identity) and substep.
+        let mut values: HashMap<(usize, u32, Target, u32), Vec<f64>> = HashMap::new();
         let mut remaining: HashMap<u64, usize> = self.mirror.clusters.iter().map(|c| (c.id, substeps)).collect();
         loop {
-            // Each island runs its remaining substeps; it stops early at a disconnection.
             let mut any = false;
             for (ci, isl) in self.layout.islands.iter_mut().enumerate() {
                 let left = remaining[&self.mirror.clusters[ci].id];
@@ -353,6 +501,24 @@ impl GpuSolver {
             gpu.queue.submit([encoder.finish()]);
             self.dispatches += 1;
             let islands: Vec<Island> = gpu.read(&self.buffers.islands);
+            // Probe outputs of the substeps each island ran.
+            if !self.layout.items.is_empty() {
+                let scratch: Vec<[f32; 4]> = gpu.read(&self.buffers.scratch);
+                let flat: &[f32] = bytemuck::cast_slice(&scratch[self.buffers.probe_base as usize..]);
+                for (ci, isl) in islands.iter().enumerate() {
+                    let first = (isl.info[3] - isl.done[0]) as usize - start;
+                    let island = &self.layout.islands[ci];
+                    for at in (island.probes[0]..island.probes[1]).step_by(4) {
+                        // Items are stored by island in slot order: slot = offset / 4.
+                        let slot = ((at - self.layout.islands[0].probes[0]) / 4) as usize;
+                        let item = &self.layout.items[slot];
+                        let row = values.entry(item.key()).or_insert_with(|| vec![f64::NAN; substeps]);
+                        for k in first..first + isl.done[0] as usize {
+                            row[k] = flat[slot * self.buffers.probe_stride as usize + k] as f64;
+                        }
+                    }
+                }
+            }
             let halted: Vec<usize> = (0..islands.len()).filter(|&i| islands[i].info[2] & ISLAND_HALTED != 0).collect();
             for (ci, isl) in islands.iter().enumerate() {
                 let id = self.mirror.clusters[ci].id;
@@ -374,29 +540,47 @@ impl GpuSolver {
                 let before = self.mirror.clusters.len();
                 self.mirror.split_cluster(ci);
                 self.host_splits += 1;
-                // Children (appended) inherit the parent's remaining substeps.
                 for c in &self.mirror.clusters[before.saturating_sub(1)..] {
                     remaining.entry(c.id).or_insert(left);
                 }
             }
-            self.mirror.time = self.step_times[start + substeps];
-            let (layout, buffers) = Self::build(gpu, &self.kernel, &self.mirror)?;
+            if let Some(l) = self.loads.as_mut() {
+                l.topology_version += 1;
+            }
+            self.mirror.time = self.step_times[start];
+            let (layout, buffers) = Self::build(gpu, &self.kernel, &self.mirror, self.loads.as_mut(), self.buffers.probe_stride)?;
             self.layout = layout;
             self.buffers = buffers;
-            gpu.queue.write_buffer(&self.buffers.params, 0, bytemuck::bytes_of(&params));
+            gpu.queue.write_buffer(&self.buffers.params, 0, bytemuck::bytes_of(&params(&self.buffers)));
         }
         self.download(gpu);
         self.mirror.time = self.step_times[start + substeps];
         self.mirror.substeps = (start + substeps) as u64;
-        Ok(())
+        // Each probe's value: the sum of its items (NaN without any).
+        let probes = self.loads.as_ref().map(|l| l.scene.probes.len()).unwrap_or(0);
+        let mut out = vec![vec![f64::NAN; substeps]; probes];
+        let mut seen = vec![vec![false; substeps]; probes];
+        for (key, row) in &values {
+            for k in 0..substeps {
+                if row[k].is_nan() {
+                    continue;
+                }
+                if !seen[key.0][k] {
+                    out[key.0][k] = 0.0;
+                    seen[key.0][k] = true;
+                }
+                out[key.0][k] += row[k];
+            }
+        }
+        Ok(out)
     }
 
-    /// Copy the GPU state into the mirror: hidden state, bond history and forces,
-    /// cluster motion, energies (accumulated since the last download) and events.
+    /// Copy the GPU state into the mirror: hidden state, reactions, bond history and
+    /// forces, cluster motion, energies (accumulated since the last download) and events.
     pub fn download(&mut self, gpu: &Gpu) {
         let state: Vec<[f32; 4]> = gpu.read(&self.buffers.state);
         let bond_dyn: Vec<BondDyn> = gpu.read(&self.buffers.bond_dyn);
-        let islands: Vec<Island> = gpu.read(&self.buffers.islands);
+        let mut islands: Vec<Island> = gpu.read(&self.buffers.islands);
         let m = &mut self.mirror;
         for (k, &(s, c)) in self.layout.chunks.iter().enumerate() {
             let cs = &mut m.chunks[s][c];
@@ -404,8 +588,13 @@ impl GpuSolver {
             cs.th = vec3(state[4 * k + 1]);
             cs.v = vec3(state[4 * k + 2]);
             cs.w = vec3(state[4 * k + 3]);
+            if m.structures[s].chunks[c].support != Support::None {
+                cs.reaction = (Vec3::new(state[4 * k + 1][3] as f64, state[4 * k + 2][3] as f64, state[4 * k + 3][3] as f64), Vec3::ZERO);
+            }
         }
-        for (ci, isl) in islands.iter().enumerate() {
+        for (ci, isl) in islands.iter_mut().enumerate() {
+            m.energy.external_work += isl.energy[0] as f64 + isl.energy[1] as f64;
+            isl.energy = [0.0; 4];
             let cl = &mut m.clusters[ci];
             if !cl.anchored {
                 let q = isl.rotation;
@@ -415,6 +604,8 @@ impl GpuSolver {
                 cl.angular_velocity = vec3(isl.angular_velocity);
             }
         }
+        gpu.queue.write_buffer(&self.buffers.islands, 0, bytemuck::cast_slice(&islands));
+        self.layout.islands = islands;
         // Events in the reference's order: by substep, then cluster, then bond.
         let mut events: Vec<(u32, usize, usize, u8, SolverEvent)> = Vec::new();
         let mut cleared = Vec::new();
@@ -463,7 +654,6 @@ impl GpuSolver {
                 cleared.push(k);
             }
         }
-        let _ = CREAK_STRENGTH;
         events.sort_by_key(|e| (e.0, e.1, e.2, e.3));
         m.events.extend(events.into_iter().map(|e| e.4));
         m.energy.bond_dissipation += dissipated;
@@ -489,9 +679,9 @@ impl GpuSolver {
     pub fn island_count(&self) -> usize {
         self.layout.islands.len()
     }
-}
 
-#[allow(dead_code)]
-fn threads() -> u32 {
-    THREADS
+    /// Time after `n` substeps since the start.
+    pub fn time_after(&self, n: usize) -> f64 {
+        self.step_times[n]
+    }
 }

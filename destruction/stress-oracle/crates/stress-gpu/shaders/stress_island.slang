@@ -35,8 +35,32 @@ struct Params
     float dt;
     uint fracture;      // 0/1
     uint rigid_motion_loads; // 0/1
-    uint pad;
+    uint step_start;    // absolute substep count when the host's step began
+    float t_hi;         // time when the host's step began (compensated pair)
+    float t_lo;
+    uint probe_base;    // first float4 of the probe outputs in `scratch`
+    uint probe_stride;  // floats per probe item (multiple of 4)
 };
+
+// Load terms (in `loads`, 5 float4 each).
+static const uint LOAD_WORLD_FORCE = 0;   // world-fixed direction, lever arm in the body frame
+static const uint LOAD_FACE = 1;          // body-fixed outward normal, -p(t) * area, lever arm
+static const uint LOAD_REPLACEMENT = 2;   // body-frame force and moment ramping to zero
+
+// Time functions (stress-ref `TimeFunction`, blast `FaceBlast::pressure`, replacement ramp).
+static const uint FN_CONSTANT = 0;
+static const uint FN_RAMP = 1;
+static const uint FN_HALF_SINE = 2;
+static const uint FN_FRIEDLANDER = 3;
+static const uint FN_TABLE = 4;
+static const uint FN_BLAST = 5;
+static const uint FN_REPLACEMENT = 6;
+
+// Probe items (in `loads`, 4 float4 each).
+static const uint PROBE_DISPLACEMENT = 0;
+static const uint PROBE_VELOCITY = 1;
+static const uint PROBE_SECTION_BOND = 2;
+static const uint PROBE_REACTION = 3;
 
 struct MaterialTable
 {
@@ -80,6 +104,7 @@ struct ChunkStatic
     float4 inv2;
     float4 scale;      // inertia scale mu, 1 / (m mu), 1 / mu, -
     uint4 info;        // support, island, structure, chunk
+    uint4 load_range;  // load terms [x, y) in `loads`
 };
 
 // An island (cluster): static mass data and dynamic rigid state.
@@ -105,6 +130,8 @@ struct Island
     float4 velocity_err;
     float4 angular_velocity;
     uint4 done;        // x: substeps run in the last dispatch
+    uint4 probes;      // probe items [x, y) in `loads`
+    float4 energy;     // external work (compensated: x + y)
 };
 
 [[vk::binding(0, 0)]] ConstantBuffer<Params> params;
@@ -116,9 +143,12 @@ struct Island
 // 4 per chunk: u (w: largest bond stress), theta, v, w.
 [[vk::binding(5, 0)]] RWStructuredBuffer<float4> state;
 [[vk::binding(6, 0)]] RWStructuredBuffer<BondDyn> bond_dyn;
-// 3 per bond: f on a (w: peak normal stress), moment on a, moment on b (force on b: -f).
+// 3 per bond: f on a (w: peak normal stress), moment on a, moment on b (force on b: -f);
+// then the probe outputs (from params.probe_base).
 [[vk::binding(7, 0)]] RWStructuredBuffer<float4> bond_loads;
 [[vk::binding(8, 0)]] RWStructuredBuffer<Island> islands;
+// Load terms, table data and probe items.
+[[vk::binding(9, 0)]] StructuredBuffer<float4> loads;
 
 // ------------------------------------------------------------------ small math
 
@@ -242,6 +272,91 @@ void comp_add1(inout float sum, inout float err, float x)
     sum = t;
 }
 
+// ------------------------------------------------------------------ loads
+
+// Time since a function's origin (compensated pair) at substep k of the host's step.
+float time_since(float4 origin, uint k, float dt)
+{
+    return ((params.t_hi - origin.x) + (params.t_lo - origin.y)) + float(k) * dt;
+}
+
+float table_eval(uint offset, uint count, float tau)
+{
+    // Points (t - origin, value), clamped at both ends.
+    float4 first = loads[offset];
+    if (tau <= first.x)
+        return first.y;
+    for (uint i = 1; i < count; i++)
+    {
+        float4 b = loads[offset + i];
+        if (tau <= b.x)
+        {
+            float4 a = loads[offset + i - 1];
+            float f = (tau - a.x) / max(b.x - a.x, 1e-30);
+            return a.y + f * (b.y - a.y);
+        }
+    }
+    return loads[offset + count - 1].y;
+}
+
+// Value of a term's time function at substep k (substep start time) plus `shift`.
+float eval_function(uint term, uint k, float dt, float shift)
+{
+    uint4 info = asuint(loads[5 * term]);
+    float4 origin = loads[5 * term + 3];
+    float4 p = loads[5 * term + 4];
+    uint kind = info.z;
+    if (kind == FN_CONSTANT)
+        return origin.z;
+    float tau = time_since(origin, k, dt) + shift;
+    if (kind == FN_RAMP)
+        return tau <= 0.0 ? 0.0 : (tau >= p.x ? p.y : p.y * tau / p.x);
+    if (kind == FN_HALF_SINE)
+        return (tau < 0.0 || tau > p.x) ? 0.0 : p.y * sin(3.14159265358979 * tau / p.x);
+    if (kind == FN_FRIEDLANDER)
+    {
+        float sn = tau / p.y;
+        return (sn < 0.0 || sn > 1.0) ? 0.0 : p.x * (1.0 - sn) * exp(-p.z * sn);
+    }
+    if (kind == FN_TABLE)
+        return table_eval(info.w, asuint(p.x), tau);
+    if (kind == FN_BLAST)
+    {
+        // FaceBlast::pressure: duration, decay, peak, stagnation; clearing time in origin.w.
+        if (tau < 0.0)
+            return 0.0;
+        float sn = tau / p.x;
+        float shape = (sn < 0.0 || sn > 1.0) ? 0.0 : (1.0 - sn) * exp(-p.y * sn);
+        float clearing = origin.w;
+        float relax = clearing > 0.0 ? max(1.0 - tau / clearing, 0.0) : 0.0;
+        return (p.w + (p.z - p.w) * relax) * shape;
+    }
+    // FN_REPLACEMENT: ReplacementLoad::factor.
+    if (p.x <= 0.0)
+        return 0.0;
+    return clamp(1.0 - tau / p.x, 0.0, 1.0);
+}
+
+// The external (non-gravity) load on chunk c at substep k, world frame (force, torque
+// about the chunk centre), in the order the reference adds it.
+void chunk_external(uint c, ChunkStatic ch, Quat rot, uint k, float dt, out float3 f, out float3 t)
+{
+    f = float3(0.0);
+    t = float3(0.0);
+    for (uint term = ch.load_range.x; term < ch.load_range.y; term++)
+    {
+        uint4 info = asuint(loads[5 * term]);
+        if (info.y == LOAD_REPLACEMENT)
+            continue;
+        float4 dir = loads[5 * term + 1];
+        float4 arm = loads[5 * term + 2];
+        float value = eval_function(term, k, dt, 0.0);
+        float3 fw = info.y == LOAD_WORLD_FORCE ? dir.xyz * value : rotate(rot, dir.xyz) * (-value * dir.w);
+        f += fw;
+        t += cross(rotate(rot, arm.xyz), fw);
+    }
+}
+
 // ------------------------------------------------------------------ group reductions
 
 groupshared float4 g_red_a[THREADS];
@@ -351,7 +466,7 @@ struct Rigid
     float3 alpha;
 };
 
-void chunk_update(uint c, Island isl, Rigid rg, float dt, bool rml)
+void chunk_update(uint c, Island isl, Rigid rg, float dt, bool rml, uint k, inout float work, inout float work_err)
 {
     ChunkStatic ch = chunks[c];
     float3 fi = float3(0.0);
@@ -383,8 +498,11 @@ void chunk_update(uint c, Island isl, Rigid rg, float dt, bool rml)
     // Frame loads (solver.rs `frame_loads`): external loads in the body frame minus the
     // inertial loads of the cluster's rigid motion.
     float3 r_world = rotate(rg.rot, ch.center.xyz + u - isl.com.xyz);
-    float3 f_world = params.gravity.xyz * mass;
-    float3 t_world = float3(0.0);
+    float3 f_load;
+    float3 t_load;
+    chunk_external(c, ch, rg.rot, k, dt, f_load, t_load);
+    float3 f_world = f_load + params.gravity.xyz * mass;
+    float3 t_world = t_load;
     if (rml)
     {
         f_world -= (rg.a + cross(rg.alpha, r_world) + cross(rg.w, cross(rg.w, r_world))) * mass;
@@ -402,13 +520,25 @@ void chunk_update(uint c, Island isl, Rigid rg, float dt, bool rml)
         float3 i_wb = rows_mul(ch.inertia0, ch.inertia1, ch.inertia2, wb);
         m_ext -= cross(wb, i_w) + cross(w, i_wb) + cross(w, i_w);
     }
+    // Replacement loads (body frame) at the end of the substep (solver.rs `frame_loads`
+    // is evaluated at t + dt).
+    for (uint term = ch.load_range.x; term < ch.load_range.y; term++)
+    {
+        if (asuint(loads[5 * term]).y != LOAD_REPLACEMENT)
+            continue;
+        float kf = eval_function(term, k, dt, dt);
+        f_ext += loads[5 * term + 1].xyz * kf;
+        m_ext += loads[5 * term + 2].xyz * kf;
+    }
 
     // Central differences by support kind (solver.rs `integrate_cluster`).
     float3 f = f_ext + fi;
     float3 m = m_ext + mi;
     uint support = ch.info.x;
+    float3 reaction = float3(state[4 * c + 1].w, state[4 * c + 2].w, state[4 * c + 3].w);
     if (support == SUPPORT_FIXED)
     {
+        reaction = -(f_ext + fi);
         v = float3(0.0);
         w = float3(0.0);
     }
@@ -418,6 +548,7 @@ void chunk_update(uint c, Island isl, Rigid rg, float dt, bool rml)
         th += w * dt;
         if (support == SUPPORT_PINNED)
         {
+            reaction = -(f_ext + fi);
             v = float3(0.0);
         }
         else
@@ -426,10 +557,65 @@ void chunk_update(uint c, Island isl, Rigid rg, float dt, bool rml)
             u += v * dt;
         }
     }
+    // Reaction force (body frame) in the w lanes of theta, v and w.
     state[4 * c] = float4(u, peak);
-    state[4 * c + 1] = float4(th, 0.0);
-    state[4 * c + 2] = float4(v, 0.0);
-    state[4 * c + 3] = float4(w, 0.0);
+    state[4 * c + 1] = float4(th, reaction.x);
+    state[4 * c + 2] = float4(v, reaction.y);
+    state[4 * c + 3] = float4(w, reaction.z);
+    // Work of the external (non-gravity) loads at the chunk's world velocity.
+    float3 r_new = rotate(rg.rot, ch.center.xyz + u - isl.com.xyz);
+    float3 v_world = (rg.vel + rg.vel_err) + cross(rg.w, r_new) + rotate(rg.rot, v);
+    float3 w_world = rg.w + rotate(rg.rot, w);
+    comp_add1(work, work_err, (dot(f_load, v_world) + dot(t_load, w_world)) * dt);
+}
+
+void write_probe(uint slot, uint k, float value)
+{
+    uint index = params.probe_base * 4 + slot * params.probe_stride + k;
+    float4 v = bond_loads[index / 4];
+    v[index % 4] = value;
+    bond_loads[index / 4] = v;
+}
+
+void record_probes(Island isl, Rigid rg, uint k)
+{
+    // isl.probes: absolute float4 range of this island's items (4 float4 each).
+    for (uint at = isl.probes.x; at < isl.probes.y; at += 4)
+    {
+        uint4 info = asuint(loads[at]);
+        float4 a = loads[at + 1];
+        float4 b = loads[at + 2];
+        float4 c4 = loads[at + 3];
+        uint kind = info.x;
+        uint index = info.y;
+        float value = 0.0;
+        if (kind == PROBE_DISPLACEMENT)
+        {
+            ChunkStatic ch = chunks[index];
+            float3 x = ((rg.pos - b.xyz) + (rg.pos_err - c4.xyz)) + rotate(rg.rot, ch.center.xyz + state[4 * index].xyz);
+            value = dot(x, a.xyz);
+        }
+        else if (kind == PROBE_VELOCITY)
+        {
+            ChunkStatic ch = chunks[index];
+            float3 r = rotate(rg.rot, ch.center.xyz + state[4 * index].xyz - isl.com.xyz);
+            float3 v = (rg.vel + rg.vel_err) + cross(rg.w, r) + rotate(rg.rot, state[4 * index + 2].xyz);
+            value = dot(v, a.xyz);
+        }
+        else if (kind == PROBE_SECTION_BOND)
+        {
+            float3 f = bond_loads[3 * index].xyz;
+            float3 mc = info.z == 0 ? bond_loads[3 * index + 1].xyz : bond_loads[3 * index + 2].xyz;
+            float3 fc = info.z == 0 ? f : -f;
+            value = dot(fc, a.xyz) + dot(mc, b.xyz);
+        }
+        else
+        {
+            float3 reaction = float3(state[4 * index + 1].w, state[4 * index + 2].w, state[4 * index + 3].w);
+            value = dot(rotate(rg.rot, reaction), a.xyz);
+        }
+        write_probe(info.w, k, value);
+    }
 }
 
 [shader("compute")]
@@ -462,9 +648,12 @@ void island_frame(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
         g_halt = 0;
     GroupMemoryBarrierWithGroupSync();
     uint done = 0;
+    float work = 0.0;
+    float work_err = 0.0;
     for (uint s = 0; s < steps; s++)
     {
         uint abs_step = isl.info.w + s + 1;
+        uint k = abs_step - 1 - params.step_start; // substeps since the host's step began
         // 1. Rigid acceleration of a free cluster (solver.rs `rigid_acceleration`).
         if (!anchored)
         {
@@ -473,10 +662,23 @@ void island_frame(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
             for (uint c = isl.range.x + tid; c < isl.range.y; c += THREADS)
             {
                 ChunkStatic ch = chunks[c];
-                float3 fc = g * ch.center.w;
+                float3 fl;
+                float3 tl;
+                chunk_external(c, ch, rg.rot, k, dt, fl, tl);
+                float3 fc = fl + g * ch.center.w;
                 float3 r = rotate(rg.rot, ch.center.xyz + state[4 * c].xyz - isl.com.xyz);
                 f += fc;
-                t += cross(r, fc);
+                t += cross(r, fc) + tl;
+                // Replacement loads (solver.rs `net_load`), at the substep start.
+                for (uint term = ch.load_range.x; term < ch.load_range.y; term++)
+                {
+                    if (asuint(loads[5 * term]).y != LOAD_REPLACEMENT)
+                        continue;
+                    float kf = eval_function(term, k, dt, 0.0);
+                    float3 fw = rotate(rg.rot, loads[5 * term + 1].xyz * kf);
+                    f += fw;
+                    t += cross(rotate(rg.rot, ch.center.xyz - isl.com.xyz), fw) + rotate(rg.rot, loads[5 * term + 2].xyz * kf);
+                }
             }
             group_sum2(tid, f, t);
             float3 iw_w = world_mul(rg.rot, isl.inertia0, isl.inertia1, isl.inertia2, rg.w);
@@ -489,7 +691,7 @@ void island_frame(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
         AllMemoryBarrierWithGroupSync();
         // 3. Chunks.
         for (uint c = isl.range.x + tid; c < isl.range.y; c += THREADS)
-            chunk_update(c, isl, rg, dt, rml);
+            chunk_update(c, isl, rg, dt, rml, k, work, work_err);
         AllMemoryBarrierWithGroupSync();
         if (free_motion)
         {
@@ -542,9 +744,9 @@ void island_frame(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
             {
                 float3 r = chunks[c].center.xyz - wcom;
                 state[4 * c] = float4(state[4 * c].xyz - (tr + cross(phi, r)), state[4 * c].w);
-                state[4 * c + 1] = float4(state[4 * c + 1].xyz - phi, 0.0);
-                state[4 * c + 2] = float4(state[4 * c + 2].xyz - (dv + cross(dw, r)), 0.0);
-                state[4 * c + 3] = float4(state[4 * c + 3].xyz - dw, 0.0);
+                state[4 * c + 1] = float4(state[4 * c + 1].xyz - phi, state[4 * c + 1].w);
+                state[4 * c + 2] = float4(state[4 * c + 2].xyz - (dv + cross(dw, r)), state[4 * c + 2].w);
+                state[4 * c + 3] = float4(state[4 * c + 3].xyz - dw, state[4 * c + 3].w);
             }
             if (!driven)
             {
@@ -556,10 +758,17 @@ void island_frame(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
             }
             AllMemoryBarrierWithGroupSync();
         }
+        // 6. Probe values after the substep (thread 0, in item order).
+        if (tid == 0 && isl.probes.y > isl.probes.x)
+            record_probes(isl, rg, k);
         done = s + 1;
         if (g_halt != 0)
             break;
     }
+    // Island external work: per-thread compensated sums, reduced in a fixed order.
+    float3 wsum = float3(work, work_err, 0.0);
+    float3 unused = float3(0.0);
+    group_sum2(tid, wsum, unused);
     if (tid == 0)
     {
         isl.rotation = quat_vec(rg.rot);
@@ -569,6 +778,8 @@ void island_frame(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
         isl.velocity_err = float4(rg.vel_err, 0.0);
         isl.angular_velocity = float4(rg.w, 0.0);
         isl.done.x = done;
+        comp_add1(isl.energy.x, isl.energy.y, wsum.x);
+        isl.energy.y += wsum.y;
         isl.info.w += done;
         if (g_halt != 0)
             isl.info.z |= ISLAND_HALTED;

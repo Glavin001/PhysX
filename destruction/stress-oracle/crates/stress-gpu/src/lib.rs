@@ -8,6 +8,7 @@
 
 pub mod gpu;
 pub mod joint;
+pub mod loads;
 
 /// The generated shaders of one Slang file, in every form the runtime can load.
 #[derive(Clone, Copy, Debug)]
@@ -45,4 +46,5 @@ pub mod shaders {
 
 pub mod scenes;
 pub mod solver;
+pub mod world;
 pub mod stress;
