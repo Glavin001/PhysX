@@ -363,6 +363,27 @@ time on the same 16-core machine):
 | b9_panel_high, quasi_static | 70.8 | 47.6 | 1.5x |
 | All 91 one-thread cells | 2353 | 1178 | 2.0x |
 
+After merging fix/oracle-accuracy's e6fc3ade9 (its layer contact does more per contact:
+the LIFO shear layer, rocking damping, area moments), `verify_identical.py --bench`,
+one thread, sequential, minimum of one run each, base e6fc3ade9 against df60bfba4 (the
+same code plus every runtime commit):
+
+| Cell | e6fc3ade9 | df60bfba4 | Speedup |
+|---|---|---|---|
+| s_house_car, layer | 312.6 | 94.3 | 3.3x |
+| b9_panel_high, layer | 205.8 | 59.3 | 3.5x |
+| s_floor_drop, layer | 196.4 | 64.9 | 3.0x |
+| b5_wall_impact_v10, layer | 33.6 | 18.6 | 1.8x |
+| b5_wall_impact_v10, default | 24.8 | 18.4 | 1.3x |
+| s_house_car, default | 14.9 | 13.8 | 1.1x |
+| b8_frame_sudden, layer | 9.0 | 3.5 | 2.6x |
+| s_arch_keystone_removed, layer | 6.9 | 2.3 | 3.1x |
+| s_car_brick, layer | 6.9 | 2.2 | 3.1x |
+| All 22 bench cells | 830.6 | 296.6 | 2.8x |
+
+("layer" here is `layer_contact,scaled_step_bound`, which cd112933c made part of the
+default; the gate now runs the default methods and `STRESS_METHODS=established`.)
+
 The default methods are dominated by bond responses (about 130 ns per evaluation).
 What is left of them is fixed-order arithmetic; the contact patch's 36-spring loop,
 for one, is bound by the latency of its four ordered sums. Little more is to be had

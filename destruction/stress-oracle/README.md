@@ -444,6 +444,11 @@ The gains come from:
 - a dense index in the static solve;
 - bond responses applied as they are computed.
 
+After the accuracy fixes of e6fc3ade9 (a heavier layer contact), the same work against
+that commit, one thread (`verify_identical.py --bench`): house hit by a car with
+layer contact 312.6 -> 94.3 s, b9 panel 205.8 -> 59.3 s, floor drop 196.4 -> 64.9 s,
+and 830.6 -> 296.6 s (2.8x) over the 22 bench cells.
+
 `stress-ref run SCENE --profile` prints where a run spends its time.
 
 ### Scene packs (`scene_pack.rs`, `examples/import_pack.rs`)
