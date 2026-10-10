@@ -407,7 +407,19 @@ force law 10 %), bond responses 20 %, broadphase 5.5 %, scripted loads 3 %, chun
 loads 2.7 %, integration 1.8 %. The plan items not done (cluster-local Gershgorin rows,
 split speedups, probe buffers) act on stages that together take under 0.3 % (step dt
 0.2 s, splits 0.07 s, split handover 0.7 s, probes 0.6 s, events 0.1 s). The
-replacement-load index is bounded by the whole of the frame loads, 2.7 %.
+replacement-load index is bounded by the whole of the frame loads, 2.7 %. A change
+cannot save more than its stage takes: even at zero cost these items would gain at most
+0.03 % (step dt, both Gershgorin passes), 0.01 % (splits) and 0.1 % (probes). That is
+below the 0.1 % repeat noise of cycle counts, so no build of them could show a gain.
+
+The direct sparse solve for statics (plan Phase 2), sized on b9's quasi-static solves:
+- 440 chunks, so 2640 unknowns; a grid ordering gives a band of about 6 x 40 = 240.
+- A banded Cholesky is about 2640 x 240^2 = 1.5e8 flops, roughly 50 ms.
+- The converged solves take about 100 CG iterations at 27 us, about 2.7 ms.
+- The failing ones take about 520 per Newton step, about 14 ms, with a singular or
+  indefinite tangent (a mechanism) that Cholesky cannot factor.
+
+So it would be slower as well as round-off-inexact. Not built.
 
 The default methods are dominated by bond responses (about 130 ns per evaluation).
 What is left of them is fixed-order arithmetic; the contact patch's 36-spring loop,
