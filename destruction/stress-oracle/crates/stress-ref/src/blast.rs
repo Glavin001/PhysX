@@ -100,10 +100,16 @@ pub fn fit_decay(peak: f64, duration: f64, impulse: f64) -> f64 {
     let (mut lo, mut hi) = (0.0f64, 1e4f64);
     for _ in 0..200 {
         let mid = 0.5 * (lo + hi);
+        let (was_lo, was_hi) = (lo, hi);
         if friedlander_impulse_fraction(mid) > target {
             lo = mid;
         } else {
             hi = mid;
+        }
+        // A step that changes nothing is a fixed point (each step depends only on
+        // `(lo, hi)`): the remaining steps would change nothing either.
+        if lo.to_bits() == was_lo.to_bits() && hi.to_bits() == was_hi.to_bits() {
+            break;
         }
     }
     0.5 * (lo + hi)

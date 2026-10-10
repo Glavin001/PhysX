@@ -833,8 +833,8 @@ impl World {
                     if stale {
                         self.rebuild_blast(li, Vec3::from_array(position), tnt_mass, time);
                     }
-                    let faces = self.blast_caches[li].as_ref().unwrap().faces.clone();
-                    for (s, c, f, area, fb) in faces {
+                    let faces = std::mem::take(&mut self.blast_caches[li].as_mut().unwrap().faces);
+                    for &(s, c, f, area, fb) in &faces {
                         if !self.solver.chunks[s][c].active {
                             continue;
                         }
@@ -846,6 +846,7 @@ impl World {
                         let center = self.solver.chunk_position(s, c);
                         self.loads.add_at(s, c, nw * (-p * area), x, center);
                     }
+                    self.blast_caches[li].as_mut().unwrap().faces = faces;
                 }
             }
         }
