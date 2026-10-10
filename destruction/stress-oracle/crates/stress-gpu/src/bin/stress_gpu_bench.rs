@@ -6,7 +6,9 @@
 //!
 //!   world        the GPU world frame by frame (`--world MODE`: explicit, adaptive, ...)
 //!
-//!   stress-gpu-bench [--substeps N] [--full] [--world MODE --frames N]
+//!   versus       the full model against the f64 reference, time per substep
+//!
+//!   stress-gpu-bench [--substeps N] [--full] [--versus] [--world MODE --frames N]
 
 use std::time::Instant;
 
@@ -20,6 +22,7 @@ use stress_ref::solver::ReferenceSolver;
 fn main() {
     let mut substeps = 2000usize;
     let mut full = false;
+    let mut vs = false;
     let mut world_mode: Option<String> = None;
     let mut frames = 60usize;
     let mut args = std::env::args().skip(1);
@@ -27,6 +30,7 @@ fn main() {
         match a.as_str() {
             "--substeps" => substeps = args.next().and_then(|v| v.parse().ok()).expect("--substeps N"),
             "--full" => full = true,
+            "--versus" => vs = true,
             "--world" => world_mode = args.next(),
             "--frames" => frames = args.next().and_then(|v| v.parse().ok()).expect("--frames N"),
             other => panic!("unknown argument {other}"),
@@ -46,6 +50,9 @@ fn main() {
     ];
     if full {
         return full_model(&gpu, cases, substeps);
+    }
+    if vs {
+        return versus(&gpu, cases, substeps);
     }
     if let Some(mode) = world_mode {
         return world_frames(&gpu, cases, &mode, frames);
@@ -150,5 +157,41 @@ fn world_frames(gpu: &Gpu, cases: Vec<(&str, Scene)>, mode: &str, frames: usize)
             p.split / f,
             p.batches
         );
+    }
+}
+
+/// The same substeps on the same intact scenes by the f64 reference (`ReferenceSolver`,
+/// every CPU thread) and the GPU solver: time per substep and the speed-up. The reference
+/// runs fewer substeps on big scenes (its cost is linear in them).
+fn versus(gpu: &Gpu, cases: Vec<(&str, Scene)>, substeps: usize) {
+    println!(
+        "{:<22} {:>8} {:>8}  {:>14} {:>14} {:>9}",
+        "scene", "chunks", "bonds", "reference/sub", "gpu/sub", "speed-up"
+    );
+    for (name, mut scene) in cases {
+        scene.sim.solve_mode = SolveMode::Explicit;
+        let mut reference = ReferenceSolver::new(&scene);
+        let dt = reference.stable_dt();
+        let bonds: usize = reference.clusters.iter().map(|c| c.bonds.len()).sum();
+        let chunks: usize = reference.clusters.iter().map(|c| c.chunks.len()).sum();
+        let mut solver = GpuSolver::new(gpu, reference.clone(), None, Vec::new()).expect("GPU solver");
+        solver.step(gpu, dt, substeps).expect("warm-up");
+        let t = Instant::now();
+        solver.step(gpu, dt, substeps).expect("step");
+        let gpu_sub = t.elapsed().as_secs_f64() / substeps as f64;
+        // About two seconds of reference work, at least 5 substeps.
+        let loads = stress_ref::solver::ChunkLoads::new(&reference);
+        reference.substep(dt, &loads);
+        let t = Instant::now();
+        reference.substep(dt, &loads);
+        let probe = t.elapsed().as_secs_f64();
+        let n = ((2.0 / probe) as usize).clamp(5, substeps);
+        let t = Instant::now();
+        for _ in 0..n {
+            reference.substep(dt, &loads);
+        }
+        let ref_sub = t.elapsed().as_secs_f64() / n as f64;
+        let us = |s: f64| format!("{:.1} us", s * 1e6);
+        println!("{name:<22} {chunks:>8} {bonds:>8}  {:>14} {:>14} {:>8.0}x", us(ref_sub), us(gpu_sub), ref_sub / gpu_sub);
     }
 }
