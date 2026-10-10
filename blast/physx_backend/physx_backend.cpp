@@ -152,9 +152,12 @@ PxCudaContextManager* runtime_cuda() {
     PxRuntime& r = runtime();
     if (!r.cuda_tried) {
         r.cuda_tried = true;
+#if PX_SUPPORT_GPU_PHYSX
         PxCudaContextManagerDesc d;
         r.cuda = PxCreateCudaContextManager(*r.foundation, d, PxGetProfilerCallback());
         if (r.cuda && !r.cuda->contextIsValid()) { r.cuda->release(); r.cuda = nullptr; }
+#endif
+        // A CPU-only SDK has no GPU API: GPU worlds then report "no GPU".
     }
     return r.cuda;
 }

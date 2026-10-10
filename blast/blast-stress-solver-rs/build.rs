@@ -314,7 +314,14 @@ fn build_physx_backend(blast: &Path) {
         .include(blast.join("physx_backend"))
         .include(&include)
         .define("NDEBUG", None)
-        .define("PX_PHYSX_STATIC_LIB", None)
+        .define("PX_PHYSX_STATIC_LIB", None);
+    // A macOS SDK with the CuMetal GPU modules (CUDA on Metal) exposes the GPU
+    // API only under PX_CUMETAL, as its CMake package config defines for its
+    // consumers; a CPU-only macOS SDK (the host stage) has no GPU API.
+    if env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("macos") && root.join("lib/libcumetal.dylib").is_file() {
+        b.define("PX_CUMETAL", "1");
+    }
+    b
         .flag_if_supported("-Wno-unused-parameter")
         .flag_if_supported("-Wno-unused-variable");
     b.compile("blast_physx_backend");
@@ -344,7 +351,10 @@ fn build_physx_backend(blast: &Path) {
     if libdir.join("libPVDRuntime_64.so").is_file() {
         println!("cargo:rustc-link-lib=dylib=PVDRuntime_64");
     }
-    println!("cargo:rustc-link-lib=dylib=stdc++");
+    // cc links the platform C++ runtime (libc++ on macOS, where there is no stdc++).
+    if env::var("CARGO_CFG_TARGET_OS").as_deref() != Ok("macos") {
+        println!("cargo:rustc-link-lib=dylib=stdc++");
+    }
     println!("cargo:rustc-link-lib=dylib=dl");
     println!("cargo:rustc-link-lib=dylib=pthread");
 }
