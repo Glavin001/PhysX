@@ -362,8 +362,8 @@ Excluded (cannot be shown exact or within round-off without the physics tests):
   holds for its quadrature value.
 
 Finding for the model (not a runtime change): the LIFO shear layer's cohort lists grow
-long. On s_floor_drop with layer contact, about 2.3 M of the 6.1 M contact evaluations
-carried 256 to 2047 cohorts, and 0.4 M more than 2048. Every substep each contact goes
+long. On s_floor_drop with layer contact, about 1.3 M of the 5.5 M contact evaluations
+carried 256 to 1023 cohorts, and 0.4 M carried 1024 or more. Every substep each contact goes
 over all of them, and the force law was 22 % of the run before c347352ea. Most cohorts
 are slivers of area (round-off flicker of a contact edge, a cohort pushed whenever the
 area grows after the displacement moved). Merging cohorts would change rounding, so
