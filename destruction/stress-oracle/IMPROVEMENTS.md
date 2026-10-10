@@ -341,6 +341,8 @@ field-cell calls, splits, and which limit set each frame's step.
 | 05e58f430 | Blast decay fit (`fit_decay`) stops at its bisection's fixed point (each step depends only on `(lo, hi)`); no per-substep clone of the blast faces. s_house_blast: 21.9 -> 15.9 s | 182/182 vs e6fc3ade9 |
 | a3ddf33c8 | Blast shadowing tests a face's line of sight only against boxes reaching nearer the charge than the face (every point of the line is that near); boxes sorted once per rebuild. 869 M segment tests in s_blast_two_walls; 24.7 -> 21.7 s | 182/182 vs e6fc3ade9 |
 | ab72210b0 | Merge of fix/oracle-accuracy (cd112933c: proven methods default, exact frame transfer, contact crushing); the gate now runs the default and `established` methods | 182/182 vs cd112933c |
+| 604c1e4a5 | Split data in dense per-chunk arrays (SipHash maps that were only looked up); splits stage 0.07 -> 0.05 s over the catalogue | 182/182 vs cd112933c |
+| c002276eb, e328b485d | A static solve unconverged after 10 Newton steps takes its remaining steps by a banded Cholesky of the same tangent (anchored cluster, band <= 600 DOFs), not the PCG. b9 quasi_static 48.5 -> 31.1 s. **Not bit-exact: 178/182; the 4 quasi_static cells of b2_cantilever and s_arch_keystone_removed differ, more accurate.** See below | 178/182 vs cd112933c, suite 121/121 |
 | c347352ea | The contact layer's cohorts: about 3 passes instead of 14, no clones, the same sums in the same order (held energy with the stiffness, load with energy, the carried load only to slide). Floor drop with layer contact: 80.3 -> 69.4 s | 182/182 vs e6fc3ade9 |
 
 Small exact changes are now judged by cycle counts (`/usr/bin/time -l`, about 0.1 %
@@ -452,6 +454,21 @@ Measured and rejected (exact, but no faster):
 - Bond responses in the pool below 4096 bonds (b5_wall_impact_v02, 1900 bonds, 16
   threads): 1024/256 at best about as fast in wall time for 2-4x the CPU; finer is
   slower.
+
+**The direct static solve (c002276eb) is the one runtime change that is not bit-exact.**
+Its commit message says "exact on the catalogue", which the gate disproved. It changes
+two scenes in quasi_static mode, and both changes are physically better or round-off:
+- **b2_cantilever:** the 30 N tip load is released at 0.05 s, with no gravity, so the
+  quasi-static equilibrium from then on is the beam at rest. The PCG-Newton cannot meet
+  its tolerance there (relative to a zero load). 116 frames ended unconverged, keeping
+  a stale deflection of up to 3.6e-6 m; only 5 of 121 solves converged, in 6847 Newton
+  steps. With the direct solve all 121 converge (17 Newton steps) and the beam ends at
+  rest. Tip deflection, its discrete value and the root moment are unchanged
+  (-9.609e-3, -58.5).
+- **s_arch_keystone_removed:** displacements differ by about 1e-21 m.
+
+The direct solution agrees with the PCG's to about 1e-12 wherever both converge. The full
+suite passes with it (121/121).
 
 Excluded (cannot be shown exact or within round-off without the physics tests):
 - rows 1, 4, 5, 7, 8, 9 and 2a below (step change, closed form, certificate,
