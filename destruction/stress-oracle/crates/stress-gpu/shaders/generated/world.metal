@@ -2765,58 +2765,144 @@ Rigid_0 rigid_of_1(const Island_0 thread* isl_3)
     return rg_1;
 }
 
-float time_since_0(float4 origin_0, uint k_11, float dt_4, KernelContext_0 thread* kernelContext_30)
+void write_probe_0(uint slot_1, uint k_11, float value_0, KernelContext_0 thread* kernelContext_30)
 {
-    return kernelContext_30->params_0->t_hi_0 - origin_0.x + (kernelContext_30->params_0->t_lo_0 - origin_0.y) + float(k_11) * dt_4;
+    uint at_4 = kernelContext_30->params_0->probe_base_0 * 4U + slot_1 * kernelContext_30->params_0->probe_stride_0 + k_11;
+    thread float4 v_9 = float4(*(kernelContext_30->scratch_0+at_4 / 4U)) ;
+    v_9[at_4 % 4U] = value_0;
+    *(kernelContext_30->scratch_0+at_4 / 4U) = packed_float4(v_9) ;
+    return;
 }
 
-float table_eval_0(uint offset_0, uint count_2, float tau_0, KernelContext_0 thread* kernelContext_31)
+void record_probes_0(const Island_0 thread* isl_4, const Rigid_0 thread* rg_2, uint k_12, KernelContext_0 thread* kernelContext_31)
 {
-    float4 _S446 = float4(*(kernelContext_31->loads_0+offset_0)) ;
-    if(tau_0 <= (_S446.x))
-    {
-        return _S446.y;
-    }
-    uint i_5 = 1U;
+    uint4 _S446 = isl_4->probes_0;
+    uint at_5 = isl_4->probes_0.x;
     for(;;)
     {
-        if(i_5 < count_2)
+        if(at_5 < (_S446.y))
         {
         }
         else
         {
             break;
         }
-        uint _S447 = offset_0 + i_5;
-        float4 _S448 = float4(*(kernelContext_31->loads_0+_S447)) ;
-        float _S449 = _S448.x;
-        if(tau_0 <= _S449)
+        uint4 info_2 = (as_type<uint4>((float4(*(kernelContext_31->loads_0+at_5)) )));
+        float4 _S447 = float4(*(kernelContext_31->loads_0+(at_5 + 1U))) ;
+        float4 _S448 = float4(*(kernelContext_31->loads_0+(at_5 + 2U))) ;
+        float4 _S449 = float4(*(kernelContext_31->loads_0+(at_5 + 3U))) ;
+        uint kind_0 = info_2.x;
+        uint i_5 = info_2.y;
+        float value_1;
+        if(kind_0 == 0U)
         {
-            float4 _S450 = float4(*(kernelContext_31->loads_0+(_S447 - 1U))) ;
-            float _S451 = _S450.x;
-            float _S452 = _S450.y;
-            return _S452 + (tau_0 - _S451) / max(_S449 - _S451, 1.00000000317107685e-30f) * (_S448.y - _S452);
+            float3 _S450 = rg_2->pos_1 - _S448.xyz + (rg_2->pos_err_1 - _S449.xyz);
+            float3 _S451 = rotate_0(&rg_2->rot_0, (float4((kernelContext_31->chunks_0+i_5)->center_0) ).xyz + (float4(*(kernelContext_31->state_0+4U * i_5)) ).xyz);
+            value_1 = dot(_S450 + _S451, _S447.xyz);
         }
-        i_5 = i_5 + 1U;
+        else
+        {
+            if(kind_0 == 1U)
+            {
+                uint _S452 = 4U * i_5;
+                float3 _S453 = rotate_0(&rg_2->rot_0, (float4((kernelContext_31->chunks_0+i_5)->center_0) ).xyz + (float4(*(kernelContext_31->state_0+_S452)) ).xyz - isl_4->com_0.xyz);
+                float3 _S454 = rg_2->vel_1 + rg_2->vel_err_1 + cross(rg_2->w_3, _S453);
+                float3 _S455 = rotate_0(&rg_2->rot_0, (float4(*(kernelContext_31->state_0+(_S452 + 2U))) ).xyz);
+                value_1 = dot(_S454 + _S455, _S447.xyz);
+            }
+            else
+            {
+                if(kind_0 == 2U)
+                {
+                    uint _S456 = 3U * i_5;
+                    float3 f_3 = (float4(*(kernelContext_31->scratch_0+_S456)) ).xyz;
+                    bool _S457 = (info_2.z) == 0U;
+                    float3 mc_0;
+                    if(_S457)
+                    {
+                        mc_0 = (float4(*(kernelContext_31->scratch_0+(_S456 + 1U))) ).xyz;
+                    }
+                    else
+                    {
+                        mc_0 = (float4(*(kernelContext_31->scratch_0+(_S456 + 2U))) ).xyz;
+                    }
+                    float3 fc_0;
+                    if(_S457)
+                    {
+                        fc_0 = f_3;
+                    }
+                    else
+                    {
+                        fc_0 = - f_3;
+                    }
+                    value_1 = dot(fc_0, _S447.xyz) + dot(mc_0, _S448.xyz);
+                }
+                else
+                {
+                    uint _S458 = 4U * i_5;
+                    float3 _S459 = rotate_0(&rg_2->rot_0, float3((float4(*(kernelContext_31->state_0+(_S458 + 1U))) ).w, (float4(*(kernelContext_31->state_0+(_S458 + 2U))) ).w, (float4(*(kernelContext_31->state_0+(_S458 + 3U))) ).w));
+                    value_1 = dot(_S459, _S447.xyz);
+                }
+            }
+        }
+        write_probe_0(info_2.w, k_12, value_1, kernelContext_31);
+        at_5 = at_5 + 4U;
     }
-    return (float4(*(kernelContext_31->loads_0+(offset_0 + count_2 - 1U))) ).y;
+    return;
 }
 
-float eval_function_0(uint term_0, uint k_12, float dt_5, float shift_0, KernelContext_0 thread* kernelContext_32)
+float time_since_0(float4 origin_0, uint k_13, float dt_4, KernelContext_0 thread* kernelContext_32)
 {
-    uint _S453 = 5U * term_0;
-    uint4 info_2 = (as_type<uint4>((float4(*(kernelContext_32->loads_0+_S453)) )));
-    float4 _S454 = float4(*(kernelContext_32->loads_0+(_S453 + 3U))) ;
-    float4 _S455 = float4(*(kernelContext_32->loads_0+(_S453 + 4U))) ;
-    uint kind_0 = info_2.z;
-    if(kind_0 == 0U)
+    return kernelContext_32->params_0->t_hi_0 - origin_0.x + (kernelContext_32->params_0->t_lo_0 - origin_0.y) + float(k_13) * dt_4;
+}
+
+float table_eval_0(uint offset_0, uint count_2, float tau_0, KernelContext_0 thread* kernelContext_33)
+{
+    float4 _S460 = float4(*(kernelContext_33->loads_0+offset_0)) ;
+    if(tau_0 <= (_S460.x))
     {
-        return _S454.z;
+        return _S460.y;
     }
-    float _S456 = time_since_0(_S454, k_12, dt_5, kernelContext_32);
-    float tau_1 = _S456 + shift_0;
+    uint i_6 = 1U;
+    for(;;)
+    {
+        if(i_6 < count_2)
+        {
+        }
+        else
+        {
+            break;
+        }
+        uint _S461 = offset_0 + i_6;
+        float4 _S462 = float4(*(kernelContext_33->loads_0+_S461)) ;
+        float _S463 = _S462.x;
+        if(tau_0 <= _S463)
+        {
+            float4 _S464 = float4(*(kernelContext_33->loads_0+(_S461 - 1U))) ;
+            float _S465 = _S464.x;
+            float _S466 = _S464.y;
+            return _S466 + (tau_0 - _S465) / max(_S463 - _S465, 1.00000000317107685e-30f) * (_S462.y - _S466);
+        }
+        i_6 = i_6 + 1U;
+    }
+    return (float4(*(kernelContext_33->loads_0+(offset_0 + count_2 - 1U))) ).y;
+}
+
+float eval_function_0(uint term_0, uint k_14, float dt_5, float shift_0, KernelContext_0 thread* kernelContext_34)
+{
+    uint _S467 = 5U * term_0;
+    uint4 info_3 = (as_type<uint4>((float4(*(kernelContext_34->loads_0+_S467)) )));
+    float4 _S468 = float4(*(kernelContext_34->loads_0+(_S467 + 3U))) ;
+    float4 _S469 = float4(*(kernelContext_34->loads_0+(_S467 + 4U))) ;
+    uint kind_1 = info_3.z;
+    if(kind_1 == 0U)
+    {
+        return _S468.z;
+    }
+    float _S470 = time_since_0(_S468, k_14, dt_5, kernelContext_34);
+    float tau_1 = _S470 + shift_0;
     float shape_1;
-    if(kind_0 == 1U)
+    if(kind_1 == 1U)
     {
         if(tau_1 <= 0.0f)
         {
@@ -2824,89 +2910,89 @@ float eval_function_0(uint term_0, uint k_12, float dt_5, float shift_0, KernelC
         }
         else
         {
-            float _S457 = _S455.x;
-            if(tau_1 >= _S457)
+            float _S471 = _S469.x;
+            if(tau_1 >= _S471)
             {
-                shape_1 = _S455.y;
+                shape_1 = _S469.y;
             }
             else
             {
-                shape_1 = _S455.y * tau_1 / _S457;
+                shape_1 = _S469.y * tau_1 / _S471;
             }
         }
         return shape_1;
     }
-    bool _S458;
-    if(kind_0 == 2U)
+    bool _S472;
+    if(kind_1 == 2U)
     {
         if(tau_1 < 0.0f)
         {
-            _S458 = true;
+            _S472 = true;
         }
         else
         {
-            _S458 = tau_1 > (_S455.x);
+            _S472 = tau_1 > (_S469.x);
         }
-        if(_S458)
+        if(_S472)
         {
             shape_1 = 0.0f;
         }
         else
         {
-            shape_1 = _S455.y * sin(3.14159274101257324f * tau_1 / _S455.x);
+            shape_1 = _S469.y * sin(3.14159274101257324f * tau_1 / _S469.x);
         }
         return shape_1;
     }
-    if(kind_0 == 3U)
+    if(kind_1 == 3U)
     {
-        float sn_0 = tau_1 / _S455.y;
+        float sn_0 = tau_1 / _S469.y;
         if(sn_0 < 0.0f)
         {
-            _S458 = true;
+            _S472 = true;
         }
         else
         {
-            _S458 = sn_0 > 1.0f;
+            _S472 = sn_0 > 1.0f;
         }
-        if(_S458)
+        if(_S472)
         {
             shape_1 = 0.0f;
         }
         else
         {
-            shape_1 = _S455.x * (1.0f - sn_0) * exp(- _S455.z * sn_0);
+            shape_1 = _S469.x * (1.0f - sn_0) * exp(- _S469.z * sn_0);
         }
         return shape_1;
     }
-    if(kind_0 == 4U)
+    if(kind_1 == 4U)
     {
-        float _S459 = table_eval_0(info_2.w, (as_type<uint>((_S455.x))), tau_1, kernelContext_32);
-        return _S459;
+        float _S473 = table_eval_0(info_3.w, (as_type<uint>((_S469.x))), tau_1, kernelContext_34);
+        return _S473;
     }
-    if(kind_0 == 5U)
+    if(kind_1 == 5U)
     {
         if(tau_1 < 0.0f)
         {
             return 0.0f;
         }
-        float sn_1 = tau_1 / _S455.x;
+        float sn_1 = tau_1 / _S469.x;
         if(sn_1 < 0.0f)
         {
-            _S458 = true;
+            _S472 = true;
         }
         else
         {
-            _S458 = sn_1 > 1.0f;
+            _S472 = sn_1 > 1.0f;
         }
-        if(_S458)
+        if(_S472)
         {
             shape_1 = 0.0f;
         }
         else
         {
-            shape_1 = (1.0f - sn_1) * exp(- _S455.y * sn_1);
+            shape_1 = (1.0f - sn_1) * exp(- _S469.y * sn_1);
         }
-        float clearing_0 = _S454.w;
+        float clearing_0 = _S468.w;
         float relax_0;
         if(clearing_0 > 0.0f)
         {
@@ -2916,387 +3002,301 @@ float eval_function_0(uint term_0, uint k_12, float dt_5, float shift_0, KernelC
         {
             relax_0 = 0.0f;
         }
-        float _S460 = _S455.w;
-        return (_S460 + (_S455.z - _S460) * relax_0) * shape_1;
+        float _S474 = _S469.w;
+        return (_S474 + (_S469.z - _S474) * relax_0) * shape_1;
     }
-    float _S461 = _S455.x;
-    if(_S461 <= 0.0f)
+    float _S475 = _S469.x;
+    if(_S475 <= 0.0f)
     {
         return 0.0f;
     }
-    return clamp(1.0f - tau_1 / _S461, 0.0f, 1.0f);
+    return clamp(1.0f - tau_1 / _S475, 0.0f, 1.0f);
 }
 
-void record_chunk_load_0(uint c_10, float3 f_3, float3 t_6, KernelContext_0 thread* kernelContext_33)
+void record_chunk_load_0(uint c_10, float3 f_4, float3 t_6, KernelContext_0 thread* kernelContext_35)
 {
-    if((kernelContext_33->params_0->solve_mode_0) == 0U)
+    if((kernelContext_35->params_0->solve_mode_0) == 0U)
     {
         return;
     }
-    uint _S462 = 2U * c_10;
-    *(kernelContext_33->scratch_0+(kernelContext_33->params_0->cload_base_0 + _S462)) = packed_float4(float4(f_3, 0.0f)) ;
-    *(kernelContext_33->scratch_0+(kernelContext_33->params_0->cload_base_0 + _S462 + 1U)) = packed_float4(float4(t_6, 0.0f)) ;
-    *(kernelContext_33->scratch_0+(kernelContext_33->params_0->cframe_base_0 + _S462)) = packed_float4(float4((float4(*(kernelContext_33->scratch_0+(kernelContext_33->params_0->cframe_base_0 + _S462))) ).xyz + f_3, 0.0f)) ;
-    *(kernelContext_33->scratch_0+(kernelContext_33->params_0->cframe_base_0 + _S462 + 1U)) = packed_float4(float4((float4(*(kernelContext_33->scratch_0+(kernelContext_33->params_0->cframe_base_0 + _S462 + 1U))) ).xyz + t_6, 0.0f)) ;
+    uint _S476 = 2U * c_10;
+    *(kernelContext_35->scratch_0+(kernelContext_35->params_0->cload_base_0 + _S476)) = packed_float4(float4(f_4, 0.0f)) ;
+    *(kernelContext_35->scratch_0+(kernelContext_35->params_0->cload_base_0 + _S476 + 1U)) = packed_float4(float4(t_6, 0.0f)) ;
+    *(kernelContext_35->scratch_0+(kernelContext_35->params_0->cframe_base_0 + _S476)) = packed_float4(float4((float4(*(kernelContext_35->scratch_0+(kernelContext_35->params_0->cframe_base_0 + _S476))) ).xyz + f_4, 0.0f)) ;
+    *(kernelContext_35->scratch_0+(kernelContext_35->params_0->cframe_base_0 + _S476 + 1U)) = packed_float4(float4((float4(*(kernelContext_35->scratch_0+(kernelContext_35->params_0->cframe_base_0 + _S476 + 1U))) ).xyz + t_6, 0.0f)) ;
     return;
 }
 
-void chunk_external_0(uint _S463, uint _S464, const Quat_0 thread* _S465, uint _S466, float _S467, bool _S468, float3 thread* _S469, float3 thread* _S470, KernelContext_0 thread* kernelContext_34)
+void chunk_external_0(uint _S477, uint _S478, const Quat_0 thread* _S479, uint _S480, float _S481, bool _S482, float3 thread* _S483, float3 thread* _S484, KernelContext_0 thread* kernelContext_36)
 {
-    ChunkStatic_natural_0 device* _S471 = kernelContext_34->chunks_0+_S464;
-    float3 _S472 = float3(0.0f) ;
-    *_S469 = _S472;
-    *_S470 = _S472;
-    uint4 _S473 = uint4(_S471->load_range_0) ;
-    uint term_1 = _S473.x;
+    ChunkStatic_natural_0 device* _S485 = kernelContext_36->chunks_0+_S478;
+    float3 _S486 = float3(0.0f) ;
+    *_S483 = _S486;
+    *_S484 = _S486;
+    uint4 _S487 = uint4(_S485->load_range_0) ;
+    uint term_1 = _S487.x;
     for(;;)
     {
-        if(term_1 < (_S473.y))
+        if(term_1 < (_S487.y))
         {
         }
         else
         {
             break;
         }
-        uint _S474 = 5U * term_1;
-        uint _S475 = (as_type<uint4>((float4(*(kernelContext_34->loads_0+_S474)) ))).y;
-        if(_S475 == 2U)
+        uint _S488 = 5U * term_1;
+        uint _S489 = (as_type<uint4>((float4(*(kernelContext_36->loads_0+_S488)) ))).y;
+        if(_S489 == 2U)
         {
             term_1 = term_1 + 1U;
             continue;
         }
-        float4 _S476 = float4(*(kernelContext_34->loads_0+(_S474 + 1U))) ;
-        float4 _S477 = float4(*(kernelContext_34->loads_0+(_S474 + 2U))) ;
-        float _S478 = eval_function_0(term_1, _S466, _S467, 0.0f, kernelContext_34);
+        float4 _S490 = float4(*(kernelContext_36->loads_0+(_S488 + 1U))) ;
+        float4 _S491 = float4(*(kernelContext_36->loads_0+(_S488 + 2U))) ;
+        float _S492 = eval_function_0(term_1, _S480, _S481, 0.0f, kernelContext_36);
         float3 fw_0;
-        if(_S475 == 0U)
+        if(_S489 == 0U)
         {
-            fw_0 = _S476.xyz * float3(_S478) ;
+            fw_0 = _S490.xyz * float3(_S492) ;
         }
         else
         {
-            float3 _S479 = rotate_0(_S465, _S476.xyz);
-            fw_0 = _S479 * float3((- _S478 * _S476.w)) ;
+            float3 _S493 = rotate_0(_S479, _S490.xyz);
+            fw_0 = _S493 * float3((- _S492 * _S490.w)) ;
         }
-        *_S469 = *_S469 + fw_0;
-        float3 _S480 = rotate_0(_S465, _S477.xyz);
-        *_S470 = *_S470 + cross(_S480, fw_0);
+        *_S483 = *_S483 + fw_0;
+        float3 _S494 = rotate_0(_S479, _S491.xyz);
+        *_S484 = *_S484 + cross(_S494, fw_0);
         term_1 = term_1 + 1U;
     }
-    bool _S481;
-    if(_S468)
+    bool _S495;
+    if(_S482)
     {
-        _S481 = ((uint4(_S471->cinfo_0) ).z) != 0U;
+        _S495 = ((uint4(_S485->cinfo_0) ).z) != 0U;
     }
     else
     {
-        _S481 = false;
+        _S495 = false;
     }
-    if(_S481)
+    if(_S495)
     {
-        uint4 _S482 = uint4(_S471->cinfo_0) ;
-        uint g_1 = _S482.x;
+        uint4 _S496 = uint4(_S485->cinfo_0) ;
+        uint g_1 = _S496.x;
         for(;;)
         {
-            if(g_1 < (_S482.y))
+            if(g_1 < (_S496.y))
             {
             }
             else
             {
                 break;
             }
-            uint _S483 = 2U * g_1;
-            *_S469 = *_S469 + (float4(*(kernelContext_34->scratch_0+(kernelContext_34->params_0->seg_base_0 + _S483))) ).xyz;
-            *_S470 = *_S470 + (float4(*(kernelContext_34->scratch_0+(kernelContext_34->params_0->seg_base_0 + _S483 + 1U))) ).xyz;
+            uint _S497 = 2U * g_1;
+            *_S483 = *_S483 + (float4(*(kernelContext_36->scratch_0+(kernelContext_36->params_0->seg_base_0 + _S497))) ).xyz;
+            *_S484 = *_S484 + (float4(*(kernelContext_36->scratch_0+(kernelContext_36->params_0->seg_base_0 + _S497 + 1U))) ).xyz;
             g_1 = g_1 + 1U;
         }
     }
     return;
 }
 
-float settled_chunk_load_0(uint c_11, const Quat_0 thread* rot_1, uint k_13, float dt_6, bool contact_0, KernelContext_0 thread* kernelContext_35)
+float settled_chunk_load_0(uint c_11, const Quat_0 thread* rot_1, uint k_15, float dt_6, bool contact_0, KernelContext_0 thread* kernelContext_37)
 {
-    thread float3 f_4;
+    thread float3 f_5;
     thread float3 t_7;
-    chunk_external_0(c_11, c_11, rot_1, k_13, dt_6, contact_0, &f_4, &t_7, kernelContext_35);
-    record_chunk_load_0(c_11, f_4, t_7, kernelContext_35);
-    return length(f_4);
+    chunk_external_0(c_11, c_11, rot_1, k_15, dt_6, contact_0, &f_5, &t_7, kernelContext_37);
+    record_chunk_load_0(c_11, f_5, t_7, kernelContext_37);
+    return length(f_5);
 }
 
-void group_sum3_0(uint tid_3, float3 thread* a_7, float3 thread* b_22, KernelContext_0 thread* kernelContext_36)
+void group_sum3_0(uint tid_3, float3 thread* a_7, float3 thread* b_22, KernelContext_0 thread* kernelContext_38)
 {
     thread float4 x_4 = float4(*a_7, 0.0f);
     thread float4 y_1 = float4(*b_22, 0.0f);
-    group_sum2_0(tid_3, &x_4, &y_1, kernelContext_36);
+    group_sum2_0(tid_3, &x_4, &y_1, kernelContext_38);
     *a_7 = x_4.xyz;
     *b_22 = y_1.xyz;
     return;
 }
 
-void net_load_0(uint c_12, const Island_natural_0 thread* isl_4, const Rigid_0 thread* rg_2, uint k_14, float dt_7, bool contact_1, float3 thread* f_5, float3 thread* t_8, KernelContext_0 thread* kernelContext_37)
+void net_load_0(uint c_12, const Island_natural_0 thread* isl_5, const Rigid_0 thread* rg_3, uint k_16, float dt_7, bool contact_1, float3 thread* f_6, float3 thread* t_8, KernelContext_0 thread* kernelContext_39)
 {
-    ChunkStatic_natural_0 device* _S484 = kernelContext_37->chunks_0+c_12;
+    ChunkStatic_natural_0 device* _S498 = kernelContext_39->chunks_0+c_12;
     thread float3 fl_0;
     thread float3 tl_0;
-    chunk_external_0(c_12, c_12, &rg_2->rot_0, k_14, dt_7, contact_1, &fl_0, &tl_0, kernelContext_37);
-    float4 _S485 = float4(_S484->center_0) ;
-    float3 fc_0 = fl_0 + kernelContext_37->params_0->gravity_0.xyz * float3(_S485.w) ;
-    float3 _S486 = _S485.xyz;
-    float3 _S487 = (float4(isl_4->com_0) ).xyz;
-    float3 _S488 = rotate_0(&rg_2->rot_0, _S486 + (float4(*(kernelContext_37->state_0+4U * c_12)) ).xyz - _S487);
-    *f_5 = *f_5 + fc_0;
-    *t_8 = *t_8 + (cross(_S488, fc_0) + tl_0);
-    uint4 _S489 = uint4(_S484->load_range_0) ;
-    uint term_2 = _S489.x;
+    chunk_external_0(c_12, c_12, &rg_3->rot_0, k_16, dt_7, contact_1, &fl_0, &tl_0, kernelContext_39);
+    float4 _S499 = float4(_S498->center_0) ;
+    float3 fc_1 = fl_0 + kernelContext_39->params_0->gravity_0.xyz * float3(_S499.w) ;
+    float3 _S500 = _S499.xyz;
+    float3 _S501 = (float4(isl_5->com_0) ).xyz;
+    float3 _S502 = rotate_0(&rg_3->rot_0, _S500 + (float4(*(kernelContext_39->state_0+4U * c_12)) ).xyz - _S501);
+    *f_6 = *f_6 + fc_1;
+    *t_8 = *t_8 + (cross(_S502, fc_1) + tl_0);
+    uint4 _S503 = uint4(_S498->load_range_0) ;
+    uint term_2 = _S503.x;
     for(;;)
     {
-        if(term_2 < (_S489.y))
+        if(term_2 < (_S503.y))
         {
         }
         else
         {
             break;
         }
-        uint _S490 = 5U * term_2;
-        if(((as_type<uint4>((float4(*(kernelContext_37->loads_0+_S490)) ))).y) != 2U)
+        uint _S504 = 5U * term_2;
+        if(((as_type<uint4>((float4(*(kernelContext_39->loads_0+_S504)) ))).y) != 2U)
         {
             term_2 = term_2 + 1U;
             continue;
         }
-        float _S491 = eval_function_0(term_2, k_14, dt_7, 0.0f, kernelContext_37);
-        float3 _S492 = float3(_S491) ;
-        float3 _S493 = rotate_0(&rg_2->rot_0, (float4(*(kernelContext_37->loads_0+(_S490 + 1U))) ).xyz * _S492);
-        *f_5 = *f_5 + _S493;
-        float3 _S494 = rotate_0(&rg_2->rot_0, _S486 - _S487);
-        float3 _S495 = cross(_S494, _S493);
-        float3 _S496 = rotate_0(&rg_2->rot_0, (float4(*(kernelContext_37->loads_0+(_S490 + 2U))) ).xyz * _S492);
-        *t_8 = *t_8 + (_S495 + _S496);
+        float _S505 = eval_function_0(term_2, k_16, dt_7, 0.0f, kernelContext_39);
+        float3 _S506 = float3(_S505) ;
+        float3 _S507 = rotate_0(&rg_3->rot_0, (float4(*(kernelContext_39->loads_0+(_S504 + 1U))) ).xyz * _S506);
+        *f_6 = *f_6 + _S507;
+        float3 _S508 = rotate_0(&rg_3->rot_0, _S500 - _S501);
+        float3 _S509 = cross(_S508, _S507);
+        float3 _S510 = rotate_0(&rg_3->rot_0, (float4(*(kernelContext_39->loads_0+(_S504 + 2U))) ).xyz * _S506);
+        *t_8 = *t_8 + (_S509 + _S510);
         term_2 = term_2 + 1U;
     }
     return;
 }
 
-void net_load_1(uint c_13, const Island_0 thread* isl_5, const Rigid_0 thread* rg_3, uint k_15, float dt_8, bool contact_2, float3 thread* f_6, float3 thread* t_9, KernelContext_0 thread* kernelContext_38)
+void net_load_1(uint c_13, const Island_0 thread* isl_6, const Rigid_0 thread* rg_4, uint k_17, float dt_8, bool contact_2, float3 thread* f_7, float3 thread* t_9, KernelContext_0 thread* kernelContext_40)
 {
-    ChunkStatic_natural_0 device* _S497 = kernelContext_38->chunks_0+c_13;
+    ChunkStatic_natural_0 device* _S511 = kernelContext_40->chunks_0+c_13;
     thread float3 fl_1;
     thread float3 tl_1;
-    chunk_external_0(c_13, c_13, &rg_3->rot_0, k_15, dt_8, contact_2, &fl_1, &tl_1, kernelContext_38);
-    float4 _S498 = float4(_S497->center_0) ;
-    float3 fc_1 = fl_1 + kernelContext_38->params_0->gravity_0.xyz * float3(_S498.w) ;
-    float3 _S499 = _S498.xyz;
-    float3 _S500 = isl_5->com_0.xyz;
-    float3 _S501 = rotate_0(&rg_3->rot_0, _S499 + (float4(*(kernelContext_38->state_0+4U * c_13)) ).xyz - _S500);
-    *f_6 = *f_6 + fc_1;
-    *t_9 = *t_9 + (cross(_S501, fc_1) + tl_1);
-    uint4 _S502 = uint4(_S497->load_range_0) ;
-    uint term_3 = _S502.x;
+    chunk_external_0(c_13, c_13, &rg_4->rot_0, k_17, dt_8, contact_2, &fl_1, &tl_1, kernelContext_40);
+    float4 _S512 = float4(_S511->center_0) ;
+    float3 fc_2 = fl_1 + kernelContext_40->params_0->gravity_0.xyz * float3(_S512.w) ;
+    float3 _S513 = _S512.xyz;
+    float3 _S514 = isl_6->com_0.xyz;
+    float3 _S515 = rotate_0(&rg_4->rot_0, _S513 + (float4(*(kernelContext_40->state_0+4U * c_13)) ).xyz - _S514);
+    *f_7 = *f_7 + fc_2;
+    *t_9 = *t_9 + (cross(_S515, fc_2) + tl_1);
+    uint4 _S516 = uint4(_S511->load_range_0) ;
+    uint term_3 = _S516.x;
     for(;;)
     {
-        if(term_3 < (_S502.y))
+        if(term_3 < (_S516.y))
         {
         }
         else
         {
             break;
         }
-        uint _S503 = 5U * term_3;
-        if(((as_type<uint4>((float4(*(kernelContext_38->loads_0+_S503)) ))).y) != 2U)
+        uint _S517 = 5U * term_3;
+        if(((as_type<uint4>((float4(*(kernelContext_40->loads_0+_S517)) ))).y) != 2U)
         {
             term_3 = term_3 + 1U;
             continue;
         }
-        float _S504 = eval_function_0(term_3, k_15, dt_8, 0.0f, kernelContext_38);
-        float3 _S505 = float3(_S504) ;
-        float3 _S506 = rotate_0(&rg_3->rot_0, (float4(*(kernelContext_38->loads_0+(_S503 + 1U))) ).xyz * _S505);
-        *f_6 = *f_6 + _S506;
-        float3 _S507 = rotate_0(&rg_3->rot_0, _S499 - _S500);
-        float3 _S508 = cross(_S507, _S506);
-        float3 _S509 = rotate_0(&rg_3->rot_0, (float4(*(kernelContext_38->loads_0+(_S503 + 2U))) ).xyz * _S505);
-        *t_9 = *t_9 + (_S508 + _S509);
+        float _S518 = eval_function_0(term_3, k_17, dt_8, 0.0f, kernelContext_40);
+        float3 _S519 = float3(_S518) ;
+        float3 _S520 = rotate_0(&rg_4->rot_0, (float4(*(kernelContext_40->loads_0+(_S517 + 1U))) ).xyz * _S519);
+        *f_7 = *f_7 + _S520;
+        float3 _S521 = rotate_0(&rg_4->rot_0, _S513 - _S514);
+        float3 _S522 = cross(_S521, _S520);
+        float3 _S523 = rotate_0(&rg_4->rot_0, (float4(*(kernelContext_40->loads_0+(_S517 + 2U))) ).xyz * _S519);
+        *t_9 = *t_9 + (_S522 + _S523);
         term_3 = term_3 + 1U;
     }
     return;
 }
 
-void rigid_acceleration_0(const Island_natural_0 thread* isl_6, Rigid_0 thread* rg_4, float3 f_7, float3 t_10)
+void rigid_acceleration_0(const Island_natural_0 thread* isl_7, Rigid_0 thread* rg_5, float3 f_8, float3 t_10)
 {
-    float4 _S510 = float4(isl_6->inertia0_0) ;
-    float4 _S511 = float4(isl_6->inertia1_0) ;
-    float4 _S512 = float4(isl_6->inertia2_0) ;
-    thread Quat_0 _S513 = rg_4->rot_0;
-    float3 _S514 = world_mul_0(&_S513, _S510, _S511, _S512, rg_4->w_3);
-    rg_4->a_6 = f_7 / float3((float4(isl_6->com_0) ).w) ;
-    float4 _S515 = float4(isl_6->inv0_0) ;
-    float4 _S516 = float4(isl_6->inv1_0) ;
-    float4 _S517 = float4(isl_6->inv2_0) ;
-    float3 _S518 = t_10 - cross(rg_4->w_3, _S514);
-    thread Quat_0 _S519 = rg_4->rot_0;
-    float3 _S520 = world_mul_0(&_S519, _S515, _S516, _S517, _S518);
-    rg_4->alpha_0 = _S520;
+    float4 _S524 = float4(isl_7->inertia0_0) ;
+    float4 _S525 = float4(isl_7->inertia1_0) ;
+    float4 _S526 = float4(isl_7->inertia2_0) ;
+    thread Quat_0 _S527 = rg_5->rot_0;
+    float3 _S528 = world_mul_0(&_S527, _S524, _S525, _S526, rg_5->w_3);
+    rg_5->a_6 = f_8 / float3((float4(isl_7->com_0) ).w) ;
+    float4 _S529 = float4(isl_7->inv0_0) ;
+    float4 _S530 = float4(isl_7->inv1_0) ;
+    float4 _S531 = float4(isl_7->inv2_0) ;
+    float3 _S532 = t_10 - cross(rg_5->w_3, _S528);
+    thread Quat_0 _S533 = rg_5->rot_0;
+    float3 _S534 = world_mul_0(&_S533, _S529, _S530, _S531, _S532);
+    rg_5->alpha_0 = _S534;
     return;
 }
 
-void rigid_acceleration_1(const Island_0 thread* isl_7, Rigid_0 thread* rg_5, float3 f_8, float3 t_11)
+void rigid_acceleration_1(const Island_0 thread* isl_8, Rigid_0 thread* rg_6, float3 f_9, float3 t_11)
 {
-    thread Quat_0 _S521 = rg_5->rot_0;
-    float3 _S522 = world_mul_0(&_S521, isl_7->inertia0_0, isl_7->inertia1_0, isl_7->inertia2_0, rg_5->w_3);
-    rg_5->a_6 = f_8 / float3(isl_7->com_0.w) ;
-    float3 _S523 = t_11 - cross(rg_5->w_3, _S522);
-    thread Quat_0 _S524 = rg_5->rot_0;
-    float3 _S525 = world_mul_0(&_S524, isl_7->inv0_0, isl_7->inv1_0, isl_7->inv2_0, _S523);
-    rg_5->alpha_0 = _S525;
+    thread Quat_0 _S535 = rg_6->rot_0;
+    float3 _S536 = world_mul_0(&_S535, isl_8->inertia0_0, isl_8->inertia1_0, isl_8->inertia2_0, rg_6->w_3);
+    rg_6->a_6 = f_9 / float3(isl_8->com_0.w) ;
+    float3 _S537 = t_11 - cross(rg_6->w_3, _S536);
+    thread Quat_0 _S538 = rg_6->rot_0;
+    float3 _S539 = world_mul_0(&_S538, isl_8->inv0_0, isl_8->inv1_0, isl_8->inv2_0, _S537);
+    rg_6->alpha_0 = _S539;
     return;
 }
 
-void integrate_rigid_0(const Island_natural_0 thread* isl_8, Rigid_0 thread* rg_6, float dt_9)
+void integrate_rigid_0(const Island_natural_0 thread* isl_9, Rigid_0 thread* rg_7, float dt_9)
 {
-    float4 _S526 = float4(isl_8->inertia0_0) ;
-    float4 _S527 = float4(isl_8->inertia1_0) ;
-    float4 _S528 = float4(isl_8->inertia2_0) ;
-    thread Quat_0 _S529 = rg_6->rot_0;
-    float3 _S530 = world_mul_0(&_S529, _S526, _S527, _S528, rg_6->w_3);
-    thread Quat_0 _S531 = rg_6->rot_0;
-    float3 _S532 = world_mul_0(&_S531, _S526, _S527, _S528, rg_6->alpha_0);
-    float3 _S533 = float3(dt_9) ;
-    float3 l_2 = _S530 + (_S532 + cross(rg_6->w_3, _S530)) * _S533;
-    comp_add_0(&rg_6->vel_1, &rg_6->vel_err_1, rg_6->a_6 * _S533);
-    float3 vel_2 = rg_6->vel_1 + rg_6->vel_err_1;
-    float4 _S534 = float4(isl_8->inv0_0) ;
-    float4 _S535 = float4(isl_8->inv1_0) ;
-    float4 _S536 = float4(isl_8->inv2_0) ;
-    thread Quat_0 _S537 = rg_6->rot_0;
-    float3 _S538 = world_mul_0(&_S537, _S534, _S535, _S536, l_2);
-    thread Quat_0 _S539 = rg_6->rot_0;
-    Quat_0 _S540 = integrate_rotation_0(&_S539, _S538, dt_9);
-    float3 _S541 = vel_2 * _S533;
-    float3 _S542 = (float4(isl_8->com_0) ).xyz;
-    thread Quat_0 _S543 = rg_6->rot_0;
-    float3 _S544 = rotate_0(&_S543, _S542);
-    thread Quat_0 _S545 = _S540;
-    float3 _S546 = rotate_0(&_S545, _S542);
-    comp_add_0(&rg_6->pos_1, &rg_6->pos_err_1, _S541 + (_S544 - _S546));
-    rg_6->rot_0 = _S540;
-    thread Quat_0 _S547 = _S540;
-    float3 _S548 = world_mul_0(&_S547, _S534, _S535, _S536, l_2);
-    rg_6->w_3 = _S548;
-    return;
-}
-
-void integrate_rigid_1(const Island_0 thread* isl_9, Rigid_0 thread* rg_7, float dt_10)
-{
-    thread Quat_0 _S549 = rg_7->rot_0;
-    float3 _S550 = world_mul_0(&_S549, isl_9->inertia0_0, isl_9->inertia1_0, isl_9->inertia2_0, rg_7->w_3);
+    float4 _S540 = float4(isl_9->inertia0_0) ;
+    float4 _S541 = float4(isl_9->inertia1_0) ;
+    float4 _S542 = float4(isl_9->inertia2_0) ;
+    thread Quat_0 _S543 = rg_7->rot_0;
+    float3 _S544 = world_mul_0(&_S543, _S540, _S541, _S542, rg_7->w_3);
+    thread Quat_0 _S545 = rg_7->rot_0;
+    float3 _S546 = world_mul_0(&_S545, _S540, _S541, _S542, rg_7->alpha_0);
+    float3 _S547 = float3(dt_9) ;
+    float3 l_2 = _S544 + (_S546 + cross(rg_7->w_3, _S544)) * _S547;
+    comp_add_0(&rg_7->vel_1, &rg_7->vel_err_1, rg_7->a_6 * _S547);
+    float3 vel_2 = rg_7->vel_1 + rg_7->vel_err_1;
+    float4 _S548 = float4(isl_9->inv0_0) ;
+    float4 _S549 = float4(isl_9->inv1_0) ;
+    float4 _S550 = float4(isl_9->inv2_0) ;
     thread Quat_0 _S551 = rg_7->rot_0;
-    float3 _S552 = world_mul_0(&_S551, isl_9->inertia0_0, isl_9->inertia1_0, isl_9->inertia2_0, rg_7->alpha_0);
-    float3 _S553 = float3(dt_10) ;
-    float3 l_3 = _S550 + (_S552 + cross(rg_7->w_3, _S550)) * _S553;
-    comp_add_0(&rg_7->vel_1, &rg_7->vel_err_1, rg_7->a_6 * _S553);
-    float3 vel_3 = rg_7->vel_1 + rg_7->vel_err_1;
-    float4 _S554 = isl_9->inv0_0;
-    float4 _S555 = isl_9->inv1_0;
-    float4 _S556 = isl_9->inv2_0;
+    float3 _S552 = world_mul_0(&_S551, _S548, _S549, _S550, l_2);
+    thread Quat_0 _S553 = rg_7->rot_0;
+    Quat_0 _S554 = integrate_rotation_0(&_S553, _S552, dt_9);
+    float3 _S555 = vel_2 * _S547;
+    float3 _S556 = (float4(isl_9->com_0) ).xyz;
     thread Quat_0 _S557 = rg_7->rot_0;
-    float3 _S558 = world_mul_0(&_S557, isl_9->inv0_0, isl_9->inv1_0, isl_9->inv2_0, l_3);
-    thread Quat_0 _S559 = rg_7->rot_0;
-    Quat_0 _S560 = integrate_rotation_0(&_S559, _S558, dt_10);
-    float3 _S561 = vel_3 * _S553;
-    float3 _S562 = isl_9->com_0.xyz;
-    thread Quat_0 _S563 = rg_7->rot_0;
-    float3 _S564 = rotate_0(&_S563, _S562);
-    thread Quat_0 _S565 = _S560;
-    float3 _S566 = rotate_0(&_S565, _S562);
-    comp_add_0(&rg_7->pos_1, &rg_7->pos_err_1, _S561 + (_S564 - _S566));
-    rg_7->rot_0 = _S560;
-    thread Quat_0 _S567 = _S560;
-    float3 _S568 = world_mul_0(&_S567, _S554, _S555, _S556, l_3);
-    rg_7->w_3 = _S568;
+    float3 _S558 = rotate_0(&_S557, _S556);
+    thread Quat_0 _S559 = _S554;
+    float3 _S560 = rotate_0(&_S559, _S556);
+    comp_add_0(&rg_7->pos_1, &rg_7->pos_err_1, _S555 + (_S558 - _S560));
+    rg_7->rot_0 = _S554;
+    thread Quat_0 _S561 = _S554;
+    float3 _S562 = world_mul_0(&_S561, _S548, _S549, _S550, l_2);
+    rg_7->w_3 = _S562;
     return;
 }
 
-void write_probe_0(uint slot_1, uint k_16, float value_0, KernelContext_0 thread* kernelContext_39)
+void integrate_rigid_1(const Island_0 thread* isl_10, Rigid_0 thread* rg_8, float dt_10)
 {
-    uint at_4 = kernelContext_39->params_0->probe_base_0 * 4U + slot_1 * kernelContext_39->params_0->probe_stride_0 + k_16;
-    thread float4 v_9 = float4(*(kernelContext_39->scratch_0+at_4 / 4U)) ;
-    v_9[at_4 % 4U] = value_0;
-    *(kernelContext_39->scratch_0+at_4 / 4U) = packed_float4(v_9) ;
-    return;
-}
-
-void record_probes_0(const Island_0 thread* isl_10, const Rigid_0 thread* rg_8, uint k_17, KernelContext_0 thread* kernelContext_40)
-{
-    uint4 _S569 = isl_10->probes_0;
-    uint at_5 = isl_10->probes_0.x;
-    for(;;)
-    {
-        if(at_5 < (_S569.y))
-        {
-        }
-        else
-        {
-            break;
-        }
-        uint4 info_3 = (as_type<uint4>((float4(*(kernelContext_40->loads_0+at_5)) )));
-        float4 _S570 = float4(*(kernelContext_40->loads_0+(at_5 + 1U))) ;
-        float4 _S571 = float4(*(kernelContext_40->loads_0+(at_5 + 2U))) ;
-        float4 _S572 = float4(*(kernelContext_40->loads_0+(at_5 + 3U))) ;
-        uint kind_1 = info_3.x;
-        uint i_6 = info_3.y;
-        float value_1;
-        if(kind_1 == 0U)
-        {
-            float3 _S573 = rg_8->pos_1 - _S571.xyz + (rg_8->pos_err_1 - _S572.xyz);
-            float3 _S574 = rotate_0(&rg_8->rot_0, (float4((kernelContext_40->chunks_0+i_6)->center_0) ).xyz + (float4(*(kernelContext_40->state_0+4U * i_6)) ).xyz);
-            value_1 = dot(_S573 + _S574, _S570.xyz);
-        }
-        else
-        {
-            if(kind_1 == 1U)
-            {
-                uint _S575 = 4U * i_6;
-                float3 _S576 = rotate_0(&rg_8->rot_0, (float4((kernelContext_40->chunks_0+i_6)->center_0) ).xyz + (float4(*(kernelContext_40->state_0+_S575)) ).xyz - isl_10->com_0.xyz);
-                float3 _S577 = rg_8->vel_1 + rg_8->vel_err_1 + cross(rg_8->w_3, _S576);
-                float3 _S578 = rotate_0(&rg_8->rot_0, (float4(*(kernelContext_40->state_0+(_S575 + 2U))) ).xyz);
-                value_1 = dot(_S577 + _S578, _S570.xyz);
-            }
-            else
-            {
-                if(kind_1 == 2U)
-                {
-                    uint _S579 = 3U * i_6;
-                    float3 f_9 = (float4(*(kernelContext_40->scratch_0+_S579)) ).xyz;
-                    bool _S580 = (info_3.z) == 0U;
-                    float3 mc_0;
-                    if(_S580)
-                    {
-                        mc_0 = (float4(*(kernelContext_40->scratch_0+(_S579 + 1U))) ).xyz;
-                    }
-                    else
-                    {
-                        mc_0 = (float4(*(kernelContext_40->scratch_0+(_S579 + 2U))) ).xyz;
-                    }
-                    float3 fc_2;
-                    if(_S580)
-                    {
-                        fc_2 = f_9;
-                    }
-                    else
-                    {
-                        fc_2 = - f_9;
-                    }
-                    value_1 = dot(fc_2, _S570.xyz) + dot(mc_0, _S571.xyz);
-                }
-                else
-                {
-                    uint _S581 = 4U * i_6;
-                    float3 _S582 = rotate_0(&rg_8->rot_0, float3((float4(*(kernelContext_40->state_0+(_S581 + 1U))) ).w, (float4(*(kernelContext_40->state_0+(_S581 + 2U))) ).w, (float4(*(kernelContext_40->state_0+(_S581 + 3U))) ).w));
-                    value_1 = dot(_S582, _S570.xyz);
-                }
-            }
-        }
-        write_probe_0(info_3.w, k_17, value_1, kernelContext_40);
-        at_5 = at_5 + 4U;
-    }
+    thread Quat_0 _S563 = rg_8->rot_0;
+    float3 _S564 = world_mul_0(&_S563, isl_10->inertia0_0, isl_10->inertia1_0, isl_10->inertia2_0, rg_8->w_3);
+    thread Quat_0 _S565 = rg_8->rot_0;
+    float3 _S566 = world_mul_0(&_S565, isl_10->inertia0_0, isl_10->inertia1_0, isl_10->inertia2_0, rg_8->alpha_0);
+    float3 _S567 = float3(dt_10) ;
+    float3 l_3 = _S564 + (_S566 + cross(rg_8->w_3, _S564)) * _S567;
+    comp_add_0(&rg_8->vel_1, &rg_8->vel_err_1, rg_8->a_6 * _S567);
+    float3 vel_3 = rg_8->vel_1 + rg_8->vel_err_1;
+    float4 _S568 = isl_10->inv0_0;
+    float4 _S569 = isl_10->inv1_0;
+    float4 _S570 = isl_10->inv2_0;
+    thread Quat_0 _S571 = rg_8->rot_0;
+    float3 _S572 = world_mul_0(&_S571, isl_10->inv0_0, isl_10->inv1_0, isl_10->inv2_0, l_3);
+    thread Quat_0 _S573 = rg_8->rot_0;
+    Quat_0 _S574 = integrate_rotation_0(&_S573, _S572, dt_10);
+    float3 _S575 = vel_3 * _S567;
+    float3 _S576 = isl_10->com_0.xyz;
+    thread Quat_0 _S577 = rg_8->rot_0;
+    float3 _S578 = rotate_0(&_S577, _S576);
+    thread Quat_0 _S579 = _S574;
+    float3 _S580 = rotate_0(&_S579, _S576);
+    comp_add_0(&rg_8->pos_1, &rg_8->pos_err_1, _S575 + (_S578 - _S580));
+    rg_8->rot_0 = _S574;
+    thread Quat_0 _S581 = _S574;
+    float3 _S582 = world_mul_0(&_S581, _S568, _S569, _S570, l_3);
+    rg_8->w_3 = _S582;
     return;
 }
 
@@ -5182,12 +5182,39 @@ void contact_split_at_0(uint at_6, KernelContext_0 thread* kernelContext_49)
         uint abs_step_1 = (&isl_15)->info_0.w + s_5 + 1U;
         uint k_20 = abs_step_1 - 1U - (&kernelContext_50)->params_0->step_start_0;
         bool _S941;
+        bool settled_1;
+        if((((&isl_15)->info_0.x) & 32U) != 0U)
+        {
+            if(_S933)
+            {
+                _S941 = ((&isl_15)->probes_0.y) > ((&isl_15)->probes_0.x);
+            }
+            else
+            {
+                _S941 = false;
+            }
+            if(_S941)
+            {
+                thread Island_0 _S942 = isl_15;
+                thread Rigid_0 _S943 = rg_13;
+                record_probes_0(&_S942, &_S943, k_20, &kernelContext_50);
+            }
+            uint _S944 = s_5 + 1U;
+            settled_1 = settled_0;
+            done_1 = _S944;
+            woke_0 = woke_1;
+            uint _S945 = s_5 + 1U;
+            settled_0 = settled_1;
+            woke_1 = woke_0;
+            s_5 = _S945;
+            continue;
+        }
         uint i_10;
         if(settled_0)
         {
-            float3 _S942 = float3(0.0f) ;
-            thread float3 norm_0 = _S942;
-            thread float3 unused0_0 = _S942;
+            float3 _S946 = float3(0.0f) ;
+            thread float3 norm_0 = _S946;
+            thread float3 unused0_0 = _S946;
             i_10 = (&isl_15)->range_0.x + tid_4;
             for(;;)
             {
@@ -5198,9 +5225,9 @@ void contact_split_at_0(uint at_6, KernelContext_0 thread* kernelContext_49)
                 {
                     break;
                 }
-                thread Quat_0 _S943 = (&rg_13)->rot_0;
-                float _S944 = settled_chunk_load_0(i_10, &_S943, k_20, _S936, contact_island_0, &kernelContext_50);
-                norm_0.x = norm_0.x + _S944;
+                thread Quat_0 _S947 = (&rg_13)->rot_0;
+                float _S948 = settled_chunk_load_0(i_10, &_S947, k_20, _S936, contact_island_0, &kernelContext_50);
+                norm_0.x = norm_0.x + _S948;
                 i_10 = i_10 + 256U;
             }
             group_sum3_0(tid_4, &norm_0, &unused0_0, &kernelContext_50);
@@ -5212,7 +5239,6 @@ void contact_split_at_0(uint at_6, KernelContext_0 thread* kernelContext_49)
             {
                 _S941 = false;
             }
-            bool settled_1;
             if(_S941)
             {
                 settled_1 = false;
@@ -5223,17 +5249,17 @@ void contact_split_at_0(uint at_6, KernelContext_0 thread* kernelContext_49)
                 settled_1 = settled_0;
                 woke_0 = woke_1;
             }
-            settled_0 = settled_1;
         }
         else
         {
+            settled_1 = settled_0;
             woke_0 = woke_1;
         }
         if(_S930)
         {
-            float3 _S945 = float3(0.0f) ;
-            thread float3 f_15 = _S945;
-            thread float3 t_13 = _S945;
+            float3 _S949 = float3(0.0f) ;
+            thread float3 f_15 = _S949;
+            thread float3 t_13 = _S949;
             i_10 = (&isl_15)->range_0.x + tid_4;
             for(;;)
             {
@@ -5244,21 +5270,21 @@ void contact_split_at_0(uint at_6, KernelContext_0 thread* kernelContext_49)
                 {
                     break;
                 }
-                thread Island_0 _S946 = isl_15;
-                thread Rigid_0 _S947 = rg_13;
-                net_load_1(i_10, &_S946, &_S947, k_20, _S936, contact_island_0, &f_15, &t_13, &kernelContext_50);
+                thread Island_0 _S950 = isl_15;
+                thread Rigid_0 _S951 = rg_13;
+                net_load_1(i_10, &_S950, &_S951, k_20, _S936, contact_island_0, &f_15, &t_13, &kernelContext_50);
                 i_10 = i_10 + 256U;
             }
             group_sum3_0(tid_4, &f_15, &t_13, &kernelContext_50);
-            thread Island_0 _S948 = isl_15;
-            rigid_acceleration_1(&_S948, &rg_13, f_15, t_13);
+            thread Island_0 _S952 = isl_15;
+            rigid_acceleration_1(&_S952, &rg_13, f_15, t_13);
         }
-        if(settled_0)
+        if(settled_1)
         {
             if(_S931)
             {
-                thread Island_0 _S949 = isl_15;
-                integrate_rigid_1(&_S949, &rg_13, _S936);
+                thread Island_0 _S953 = isl_15;
+                integrate_rigid_1(&_S953, &rg_13, _S936);
             }
             if(_S933)
             {
@@ -5270,14 +5296,15 @@ void contact_split_at_0(uint at_6, KernelContext_0 thread* kernelContext_49)
             }
             if(_S941)
             {
-                thread Island_0 _S950 = isl_15;
-                thread Rigid_0 _S951 = rg_13;
-                record_probes_0(&_S950, &_S951, k_20, &kernelContext_50);
+                thread Island_0 _S954 = isl_15;
+                thread Rigid_0 _S955 = rg_13;
+                record_probes_0(&_S954, &_S955, k_20, &kernelContext_50);
             }
             done_1 = s_5 + 1U;
-            uint _S952 = s_5 + 1U;
+            uint _S945 = s_5 + 1U;
+            settled_0 = settled_1;
             woke_1 = woke_0;
-            s_5 = _S952;
+            s_5 = _S945;
             continue;
         }
         i_10 = (&isl_15)->range_0.z + tid_4;
@@ -5290,8 +5317,8 @@ void contact_split_at_0(uint at_6, KernelContext_0 thread* kernelContext_49)
             {
                 break;
             }
-            bool _S953 = bond_update_0(i_10, _S936, _S937, abs_step_1, &kernelContext_50);
-            if(_S953)
+            bool _S956 = bond_update_0(i_10, _S936, _S937, abs_step_1, &kernelContext_50);
+            if(_S956)
             {
                 *(&kernelContext_50)->g_halt_0 = 1U;
             }
@@ -5308,23 +5335,23 @@ void contact_split_at_0(uint at_6, KernelContext_0 thread* kernelContext_49)
             {
                 break;
             }
-            thread Island_0 _S954 = isl_15;
-            thread Rigid_0 _S955 = rg_13;
-            chunk_update_1(c_20, &_S954, &_S955, _S936, _S938, k_20, contact_island_0, &work_3, &work_err_2, &kernelContext_50);
+            thread Island_0 _S957 = isl_15;
+            thread Rigid_0 _S958 = rg_13;
+            chunk_update_1(c_20, &_S957, &_S958, _S936, _S938, k_20, contact_island_0, &work_3, &work_err_2, &kernelContext_50);
             c_20 = c_20 + 256U;
         }
         threadgroup_barrier(mem_flags::mem_device | mem_flags::mem_threadgroup | mem_flags::mem_texture | mem_flags::mem_threadgroup_imageblock);
         if(_S931)
         {
-            thread Island_0 _S956 = isl_15;
-            integrate_rigid_1(&_S956, &rg_13, _S936);
+            thread Island_0 _S959 = isl_15;
+            integrate_rigid_1(&_S959, &rg_13, _S936);
         }
         if(_S930)
         {
-            float3 _S957 = (&isl_15)->wcom_0.xyz;
-            float3 _S958 = float3(0.0f) ;
-            thread float3 tu_1 = _S958;
-            thread float3 pv_1 = _S958;
+            float3 _S960 = (&isl_15)->wcom_0.xyz;
+            float3 _S961 = float3(0.0f) ;
+            thread float3 tu_1 = _S961;
+            thread float3 pv_1 = _S961;
             uint c_21 = (&isl_15)->range_0.x + tid_4;
             for(;;)
             {
@@ -5341,8 +5368,8 @@ void contact_split_at_0(uint at_6, KernelContext_0 thread* kernelContext_49)
             group_sum3_0(tid_4, &tu_1, &pv_1, &kernelContext_50);
             float3 tr_4 = tu_1 / float3((&isl_15)->wcom_0.w) ;
             float3 dv_4 = pv_1 / float3((&isl_15)->wcom_0.w) ;
-            thread float3 lu_1 = _S958;
-            thread float3 lv_1 = _S958;
+            thread float3 lu_1 = _S961;
+            thread float3 lv_1 = _S961;
             uint c_22 = (&isl_15)->range_0.x + tid_4;
             for(;;)
             {
@@ -5353,7 +5380,7 @@ void contact_split_at_0(uint at_6, KernelContext_0 thread* kernelContext_49)
                 {
                     break;
                 }
-                drift_angular_0(c_22, _S957, tr_4, dv_4, &lu_1, &lv_1, &kernelContext_50);
+                drift_angular_0(c_22, _S960, tr_4, dv_4, &lu_1, &lv_1, &kernelContext_50);
                 c_22 = c_22 + 256U;
             }
             group_sum3_0(tid_4, &lu_1, &lv_1, &kernelContext_50);
@@ -5369,13 +5396,13 @@ void contact_split_at_0(uint at_6, KernelContext_0 thread* kernelContext_49)
                 {
                     break;
                 }
-                drift_apply_0(c_23, _S957, tr_4, phi_3, dv_4, dw_3, &kernelContext_50);
+                drift_apply_0(c_23, _S960, tr_4, phi_3, dv_4, dw_3, &kernelContext_50);
                 c_23 = c_23 + 256U;
             }
             if(!driven_0)
             {
-                thread Island_0 _S959 = isl_15;
-                drift_rigid_1(&_S959, &rg_13, tr_4, phi_3, dv_4, dw_3);
+                thread Island_0 _S962 = isl_15;
+                drift_rigid_1(&_S962, &rg_13, tr_4, phi_3, dv_4, dw_3);
             }
             threadgroup_barrier(mem_flags::mem_device | mem_flags::mem_threadgroup | mem_flags::mem_texture | mem_flags::mem_threadgroup_imageblock);
         }
@@ -5389,29 +5416,30 @@ void contact_split_at_0(uint at_6, KernelContext_0 thread* kernelContext_49)
         }
         if(_S941)
         {
-            thread Island_0 _S960 = isl_15;
-            thread Rigid_0 _S961 = rg_13;
-            record_probes_0(&_S960, &_S961, k_20, &kernelContext_50);
+            thread Island_0 _S963 = isl_15;
+            thread Rigid_0 _S964 = rg_13;
+            record_probes_0(&_S963, &_S964, k_20, &kernelContext_50);
         }
-        uint _S962 = s_5 + 1U;
+        uint _S965 = s_5 + 1U;
         if((*(&kernelContext_50)->g_halt_0) != 0U)
         {
-            done_1 = _S962;
+            done_1 = _S965;
             break;
         }
-        done_1 = _S962;
-        uint _S952 = s_5 + 1U;
+        done_1 = _S965;
+        uint _S945 = s_5 + 1U;
+        settled_0 = settled_1;
         woke_1 = woke_0;
-        s_5 = _S952;
+        s_5 = _S945;
     }
     thread float3 wsum_0 = float3(work_3, work_err_2, 0.0f);
     thread float3 unused_2 = float3(0.0f) ;
     group_sum3_0(tid_4, &wsum_0, &unused_2, &kernelContext_50);
     if(_S933)
     {
-        thread Quat_0 _S963 = (&rg_13)->rot_0;
-        float4 _S964 = quat_vec_0(&_S963);
-        (&isl_15)->rotation_0 = _S964;
+        thread Quat_0 _S966 = (&rg_13)->rot_0;
+        float4 _S967 = quat_vec_0(&_S966);
+        (&isl_15)->rotation_0 = _S967;
         (&isl_15)->position_0 = float4((&rg_13)->pos_1, 0.0f);
         (&isl_15)->position_err_0 = float4((&rg_13)->pos_err_1, 0.0f);
         (&isl_15)->velocity_0 = float4((&rg_13)->vel_1, 0.0f);
@@ -5431,12 +5459,12 @@ void contact_split_at_0(uint at_6, KernelContext_0 thread* kernelContext_49)
         {
             contact_split_at_0((&isl_15)->info_0.w + done_1, &kernelContext_50);
         }
-        float _S965 = wsum_0.x;
-        thread float _S966 = (&isl_15)->energy_0.x;
-        thread float _S967 = (&isl_15)->energy_0.y;
-        comp_add1_0(&_S966, &_S967, _S965);
-        (&isl_15)->energy_0.x = _S966;
-        (&isl_15)->energy_0.y = _S967 + wsum_0.y;
+        float _S968 = wsum_0.x;
+        thread float _S969 = (&isl_15)->energy_0.x;
+        thread float _S970 = (&isl_15)->energy_0.y;
+        comp_add1_0(&_S969, &_S970, _S968);
+        (&isl_15)->energy_0.x = _S969;
+        (&isl_15)->energy_0.y = _S970 + wsum_0.y;
         (&isl_15)->info_0.w = (&isl_15)->info_0.w + done_1;
         if((*(&kernelContext_50)->g_halt_0) != 0U)
         {
@@ -5447,29 +5475,29 @@ void contact_split_at_0(uint at_6, KernelContext_0 thread* kernelContext_49)
             (&isl_15)->info_0.x = ((&isl_15)->info_0.x) & 4294967279U;
             (&isl_15)->info_0.z = ((&isl_15)->info_0.z) | 4U;
         }
-        Island_natural_0 device* _S968 = (&kernelContext_50)->islands_0+_S907;
-        _S968->range_0 = packed_uint4(isl_15.range_0) ;
-        _S968->info_0 = packed_uint4(isl_15.info_0) ;
-        _S968->com_0 = packed_float4(isl_15.com_0) ;
-        _S968->inertia0_0 = packed_float4(isl_15.inertia0_0) ;
-        _S968->inertia1_0 = packed_float4(isl_15.inertia1_0) ;
-        _S968->inertia2_0 = packed_float4(isl_15.inertia2_0) ;
-        _S968->inv0_0 = packed_float4(isl_15.inv0_0) ;
-        _S968->inv1_0 = packed_float4(isl_15.inv1_0) ;
-        _S968->inv2_0 = packed_float4(isl_15.inv2_0) ;
-        _S968->wcom_0 = packed_float4(isl_15.wcom_0) ;
-        _S968->winv0_0 = packed_float4(isl_15.winv0_0) ;
-        _S968->winv1_0 = packed_float4(isl_15.winv1_0) ;
-        _S968->winv2_0 = packed_float4(isl_15.winv2_0) ;
-        _S968->rotation_0 = packed_float4(isl_15.rotation_0) ;
-        _S968->position_0 = packed_float4(isl_15.position_0) ;
-        _S968->position_err_0 = packed_float4(isl_15.position_err_0) ;
-        _S968->velocity_0 = packed_float4(isl_15.velocity_0) ;
-        _S968->velocity_err_0 = packed_float4(isl_15.velocity_err_0) ;
-        _S968->angular_velocity_0 = packed_float4(isl_15.angular_velocity_0) ;
-        _S968->done_0 = packed_uint4(isl_15.done_0) ;
-        _S968->probes_0 = packed_uint4(isl_15.probes_0) ;
-        _S968->energy_0 = packed_float4(isl_15.energy_0) ;
+        Island_natural_0 device* _S971 = (&kernelContext_50)->islands_0+_S907;
+        _S971->range_0 = packed_uint4(isl_15.range_0) ;
+        _S971->info_0 = packed_uint4(isl_15.info_0) ;
+        _S971->com_0 = packed_float4(isl_15.com_0) ;
+        _S971->inertia0_0 = packed_float4(isl_15.inertia0_0) ;
+        _S971->inertia1_0 = packed_float4(isl_15.inertia1_0) ;
+        _S971->inertia2_0 = packed_float4(isl_15.inertia2_0) ;
+        _S971->inv0_0 = packed_float4(isl_15.inv0_0) ;
+        _S971->inv1_0 = packed_float4(isl_15.inv1_0) ;
+        _S971->inv2_0 = packed_float4(isl_15.inv2_0) ;
+        _S971->wcom_0 = packed_float4(isl_15.wcom_0) ;
+        _S971->winv0_0 = packed_float4(isl_15.winv0_0) ;
+        _S971->winv1_0 = packed_float4(isl_15.winv1_0) ;
+        _S971->winv2_0 = packed_float4(isl_15.winv2_0) ;
+        _S971->rotation_0 = packed_float4(isl_15.rotation_0) ;
+        _S971->position_0 = packed_float4(isl_15.position_0) ;
+        _S971->position_err_0 = packed_float4(isl_15.position_err_0) ;
+        _S971->velocity_0 = packed_float4(isl_15.velocity_0) ;
+        _S971->velocity_err_0 = packed_float4(isl_15.velocity_err_0) ;
+        _S971->angular_velocity_0 = packed_float4(isl_15.angular_velocity_0) ;
+        _S971->done_0 = packed_uint4(isl_15.done_0) ;
+        _S971->probes_0 = packed_uint4(isl_15.probes_0) ;
+        _S971->energy_0 = packed_float4(isl_15.energy_0) ;
     }
     return;
 }
@@ -5485,57 +5513,57 @@ struct WideGroup_0
 WideGroup_0 wide_group_0(uint table_0, uint g_2, KernelContext_0 thread* kernelContext_51)
 {
     thread WideGroup_0 w_10;
-    uint _S969 = table_0 + 4U * g_2;
-    (&w_10)->island_0 = kernelContext_51->index_0[_S969];
-    (&w_10)->begin_1 = kernelContext_51->index_0[_S969 + 1U];
-    (&w_10)->end_0 = kernelContext_51->index_0[_S969 + 2U];
-    (&w_10)->first_0 = kernelContext_51->index_0[_S969 + 3U];
+    uint _S972 = table_0 + 4U * g_2;
+    (&w_10)->island_0 = kernelContext_51->index_0[_S972];
+    (&w_10)->begin_1 = kernelContext_51->index_0[_S972 + 1U];
+    (&w_10)->end_0 = kernelContext_51->index_0[_S972 + 2U];
+    (&w_10)->first_0 = kernelContext_51->index_0[_S972 + 3U];
     return w_10;
 }
 
 bool wide_runs_0(const Island_natural_0 thread* isl_16, KernelContext_0 thread* kernelContext_52)
 {
-    uint4 _S970 = uint4(isl_16->info_0) ;
-    bool _S971;
-    if(((_S970.z) & 1U) != 0U)
+    uint4 _S973 = uint4(isl_16->info_0) ;
+    bool _S974;
+    if(((_S973.z) & 1U) != 0U)
     {
-        _S971 = true;
+        _S974 = true;
     }
     else
     {
-        _S971 = (_S970.y) == 0U;
+        _S974 = (_S973.y) == 0U;
     }
-    if(_S971)
+    if(_S974)
     {
         return false;
     }
-    if(((_S970.x) & 4U) == 0U)
+    if(((_S973.x) & 4U) == 0U)
     {
-        _S971 = true;
+        _S974 = true;
     }
     else
     {
-        bool _S972 = contact_stopped_0(isl_16, kernelContext_52);
-        _S971 = !_S972;
+        bool _S975 = contact_stopped_0(isl_16, kernelContext_52);
+        _S974 = !_S975;
     }
-    return _S971;
+    return _S974;
 }
 
 bool wide_enter_0(uint tid_5, const Island_natural_0 thread* isl_17, KernelContext_0 thread* kernelContext_53)
 {
     if(tid_5 == 0U)
     {
-        bool _S973 = wide_runs_0(isl_17, kernelContext_53);
-        int _S974;
-        if(_S973)
+        bool _S976 = wide_runs_0(isl_17, kernelContext_53);
+        int _S977;
+        if(_S976)
         {
-            _S974 = int(1);
+            _S977 = int(1);
         }
         else
         {
-            _S974 = int(0);
+            _S977 = int(0);
         }
-        *kernelContext_53->g_wide_run_0 = uint(_S974);
+        *kernelContext_53->g_wide_run_0 = uint(_S977);
     }
     threadgroup_barrier(mem_flags::mem_threadgroup);
     return (*kernelContext_53->g_wide_run_0) != 0U;
@@ -5551,73 +5579,73 @@ uint wide_step_1(const Island_0 thread* isl_19, KernelContext_0 thread* kernelCo
     return isl_19->info_0.w - kernelContext_55->params_0->step_start_0;
 }
 
-bool contact_stopped_2(uint _S975, KernelContext_0 thread* kernelContext_56)
+bool contact_stopped_2(uint _S978, KernelContext_0 thread* kernelContext_56)
 {
-    Island_natural_0 device* _S976 = kernelContext_56->islands_0+_S975;
-    uint4 _S977 = uint4((kernelContext_56->islands_0+kernelContext_56->params_0->halt_index_0)->info_0) ;
-    bool _S978;
-    if(((_S977.z) & 1U) != 0U)
+    Island_natural_0 device* _S979 = kernelContext_56->islands_0+_S978;
+    uint4 _S980 = uint4((kernelContext_56->islands_0+kernelContext_56->params_0->halt_index_0)->info_0) ;
+    bool _S981;
+    if(((_S980.z) & 1U) != 0U)
     {
-        _S978 = true;
+        _S981 = true;
     }
     else
     {
-        uint _S979 = _S977.y;
-        if(_S979 != 0U)
+        uint _S982 = _S980.y;
+        if(_S982 != 0U)
         {
-            _S978 = _S979 <= ((uint4(_S976->info_0) ).w);
+            _S981 = _S982 <= ((uint4(_S979->info_0) ).w);
         }
         else
         {
-            _S978 = false;
+            _S981 = false;
         }
     }
-    return _S978;
+    return _S981;
 }
 
-bool wide_runs_1(uint _S980, KernelContext_0 thread* kernelContext_57)
+bool wide_runs_1(uint _S983, KernelContext_0 thread* kernelContext_57)
 {
-    uint4 _S981 = uint4((kernelContext_57->islands_0+_S980)->info_0) ;
-    bool _S982;
-    if(((_S981.z) & 1U) != 0U)
+    uint4 _S984 = uint4((kernelContext_57->islands_0+_S983)->info_0) ;
+    bool _S985;
+    if(((_S984.z) & 1U) != 0U)
     {
-        _S982 = true;
+        _S985 = true;
     }
     else
     {
-        _S982 = (_S981.y) == 0U;
+        _S985 = (_S984.y) == 0U;
     }
-    if(_S982)
+    if(_S985)
     {
         return false;
     }
-    if(((_S981.x) & 4U) == 0U)
+    if(((_S984.x) & 4U) == 0U)
     {
-        _S982 = true;
+        _S985 = true;
     }
     else
     {
-        bool _S983 = contact_stopped_2(_S980, kernelContext_57);
-        _S982 = !_S983;
+        bool _S986 = contact_stopped_2(_S983, kernelContext_57);
+        _S985 = !_S986;
     }
-    return _S982;
+    return _S985;
 }
 
-bool wide_enter_1(uint _S984, uint _S985, KernelContext_0 thread* kernelContext_58)
+bool wide_enter_1(uint _S987, uint _S988, KernelContext_0 thread* kernelContext_58)
 {
-    if(_S984 == 0U)
+    if(_S987 == 0U)
     {
-        bool _S986 = wide_runs_1(_S985, kernelContext_58);
-        int _S987;
-        if(_S986)
+        bool _S989 = wide_runs_1(_S988, kernelContext_58);
+        int _S990;
+        if(_S989)
         {
-            _S987 = int(1);
+            _S990 = int(1);
         }
         else
         {
-            _S987 = int(0);
+            _S990 = int(0);
         }
-        *kernelContext_58->g_wide_run_0 = uint(_S987);
+        *kernelContext_58->g_wide_run_0 = uint(_S990);
     }
     threadgroup_barrier(mem_flags::mem_threadgroup);
     return (*kernelContext_58->g_wide_run_0) != 0U;
@@ -5649,83 +5677,83 @@ bool wide_enter_1(uint _S984, uint _S985, KernelContext_0 thread* kernelContext_
     threadgroup uint g_wide_run_7;
     (&kernelContext_59)->g_wide_run_0 = &g_wide_run_7;
     uint tid_6 = thread_3.x;
-    uint _S988 = group_3.x;
-    WideGroup_0 _S989 = wide_group_0(params_7->wide_chunk_table_0, _S988, &kernelContext_59);
-    if(_S988 != (_S989.first_0))
+    uint _S991 = group_3.x;
+    WideGroup_0 _S992 = wide_group_0(params_7->wide_chunk_table_0, _S991, &kernelContext_59);
+    if(_S991 != (_S992.first_0))
     {
         return;
     }
-    thread Island_natural_0 _S990 = *((&kernelContext_59)->islands_0+_S989.island_0);
-    uint4 _S991 = uint4((&_S990)->info_0) ;
-    uint _S992 = _S991.x;
-    bool _S993;
-    if((_S992 & 16U) == 0U)
+    thread Island_natural_0 _S993 = *((&kernelContext_59)->islands_0+_S992.island_0);
+    uint4 _S994 = uint4((&_S993)->info_0) ;
+    uint _S995 = _S994.x;
+    bool _S996;
+    if((_S995 & 16U) == 0U)
     {
-        _S993 = true;
+        _S996 = true;
     }
     else
     {
-        bool _S994 = wide_enter_1(tid_6, _S989.island_0, &kernelContext_59);
-        _S993 = !_S994;
+        bool _S997 = wide_enter_1(tid_6, _S992.island_0, &kernelContext_59);
+        _S996 = !_S997;
     }
-    if(_S993)
+    if(_S996)
     {
         return;
     }
-    Quat_0 _S995 = quat_of_0(float4((&_S990)->rotation_0) );
-    bool _S996 = (_S992 & 4U) != 0U;
-    float3 _S997 = float3(0.0f) ;
-    thread float3 norm_1 = _S997;
-    thread float3 unused_3 = _S997;
-    uint4 _S998 = uint4((&_S990)->range_0) ;
-    uint c_24 = _S998.x + tid_6;
+    Quat_0 _S998 = quat_of_0(float4((&_S993)->rotation_0) );
+    bool _S999 = (_S995 & 4U) != 0U;
+    float3 _S1000 = float3(0.0f) ;
+    thread float3 norm_1 = _S1000;
+    thread float3 unused_3 = _S1000;
+    uint4 _S1001 = uint4((&_S993)->range_0) ;
+    uint c_24 = _S1001.x + tid_6;
     for(;;)
     {
-        if(c_24 < (_S998.y))
+        if(c_24 < (_S1001.y))
         {
         }
         else
         {
             break;
         }
-        uint _S999 = wide_step_0(&_S990, &kernelContext_59);
-        float _S1000 = (&kernelContext_59)->params_0->dt_0;
-        thread Quat_0 _S1001 = _S995;
-        float _S1002 = settled_chunk_load_0(c_24, &_S1001, _S999, _S1000, _S996, &kernelContext_59);
-        norm_1.x = norm_1.x + _S1002;
+        uint _S1002 = wide_step_0(&_S993, &kernelContext_59);
+        float _S1003 = (&kernelContext_59)->params_0->dt_0;
+        thread Quat_0 _S1004 = _S998;
+        float _S1005 = settled_chunk_load_0(c_24, &_S1004, _S1002, _S1003, _S999, &kernelContext_59);
+        norm_1.x = norm_1.x + _S1005;
         c_24 = c_24 + 256U;
     }
     group_sum3_0(tid_6, &norm_1, &unused_3, &kernelContext_59);
     if(tid_6 == 0U)
     {
-        _S993 = ((&kernelContext_59)->params_0->solve_mode_0) == 1U;
+        _S996 = ((&kernelContext_59)->params_0->solve_mode_0) == 1U;
     }
     else
     {
-        _S993 = false;
+        _S996 = false;
     }
-    if(_S993)
+    if(_S996)
     {
-        float4 _S1003 = float4((&_S990)->energy_0) ;
-        _S993 = (abs(norm_1.x - _S1003.z)) > (_S1003.w);
+        float4 _S1006 = float4((&_S993)->energy_0) ;
+        _S996 = (abs(norm_1.x - _S1006.z)) > (_S1006.w);
     }
     else
     {
-        _S993 = false;
+        _S996 = false;
     }
-    if(_S993)
+    if(_S996)
     {
-        ((&kernelContext_59)->islands_0+_S989.island_0)->info_0[int(0)] = _S992 & 4294967279U;
-        ((&kernelContext_59)->islands_0+_S989.island_0)->info_0[int(2)] = (_S991.z) | 4U;
+        ((&kernelContext_59)->islands_0+_S992.island_0)->info_0[int(0)] = _S995 & 4294967279U;
+        ((&kernelContext_59)->islands_0+_S992.island_0)->info_0[int(2)] = (_S994.z) | 4U;
     }
     return;
 }
 
 void wide_store_0(uint slot_2, uint p_13, float3 a_11, float3 b_28, KernelContext_0 thread* kernelContext_60)
 {
-    uint _S1004 = 8U * slot_2;
-    *(kernelContext_60->scratch_0+(kernelContext_60->params_0->wide_base_0 + _S1004 + p_13)) = packed_float4(float4(a_11, 0.0f)) ;
-    *(kernelContext_60->scratch_0+(kernelContext_60->params_0->wide_base_0 + _S1004 + p_13 + 1U)) = packed_float4(float4(b_28, 0.0f)) ;
+    uint _S1007 = 8U * slot_2;
+    *(kernelContext_60->scratch_0+(kernelContext_60->params_0->wide_base_0 + _S1007 + p_13)) = packed_float4(float4(a_11, 0.0f)) ;
+    *(kernelContext_60->scratch_0+(kernelContext_60->params_0->wide_base_0 + _S1007 + p_13 + 1U)) = packed_float4(float4(b_28, 0.0f)) ;
     return;
 }
 
@@ -5755,81 +5783,81 @@ void wide_store_0(uint slot_2, uint p_13, float3 a_11, float3 b_28, KernelContex
     threadgroup uint g_wide_run_8;
     (&kernelContext_61)->g_wide_run_0 = &g_wide_run_8;
     uint tid_7 = thread_4.x;
-    uint _S1005 = group_4.x;
-    bool bond_group_0 = _S1005 < (params_8->wide_bond_groups_0);
+    uint _S1008 = group_4.x;
+    bool bond_group_0 = _S1008 < (params_8->wide_bond_groups_0);
     WideGroup_0 wg_0;
     if(bond_group_0)
     {
-        WideGroup_0 _S1006 = wide_group_0((&kernelContext_61)->params_0->wide_bond_table_0, _S1005, &kernelContext_61);
-        wg_0 = _S1006;
+        WideGroup_0 _S1009 = wide_group_0((&kernelContext_61)->params_0->wide_bond_table_0, _S1008, &kernelContext_61);
+        wg_0 = _S1009;
     }
     else
     {
-        WideGroup_0 _S1007 = wide_group_0((&kernelContext_61)->params_0->wide_chunk_table_0, _S1005 - params_8->wide_bond_groups_0, &kernelContext_61);
-        wg_0 = _S1007;
+        WideGroup_0 _S1010 = wide_group_0((&kernelContext_61)->params_0->wide_chunk_table_0, _S1008 - params_8->wide_bond_groups_0, &kernelContext_61);
+        wg_0 = _S1010;
     }
-    WideGroup_0 _S1008 = wg_0;
-    thread Island_natural_0 _S1009 = *((&kernelContext_61)->islands_0+wg_0.island_0);
-    bool _S1010 = wide_enter_1(tid_7, wg_0.island_0, &kernelContext_61);
-    if(!_S1010)
+    WideGroup_0 _S1011 = wg_0;
+    thread Island_natural_0 _S1012 = *((&kernelContext_61)->islands_0+wg_0.island_0);
+    bool _S1013 = wide_enter_1(tid_7, wg_0.island_0, &kernelContext_61);
+    if(!_S1013)
     {
         return;
     }
-    uint _S1011 = wide_step_0(&_S1009, &kernelContext_61);
+    uint _S1014 = wide_step_0(&_S1012, &kernelContext_61);
     if(bond_group_0)
     {
-        uint4 _S1012 = uint4((&_S1009)->info_0) ;
-        if(((_S1012.x) & 16U) != 0U)
+        uint4 _S1015 = uint4((&_S1012)->info_0) ;
+        if(((_S1015.x) & 16U) != 0U)
         {
             return;
         }
         uint i_11 = wg_0.begin_1 + tid_7;
-        bool _S1013;
+        bool _S1016;
         if(i_11 < (wg_0.end_0))
         {
-            bool _S1014 = bond_update_0(i_11, (&kernelContext_61)->params_0->dt_0, ((&kernelContext_61)->params_0->fracture_0) != 0U, _S1012.w + 1U, &kernelContext_61);
-            _S1013 = _S1014;
+            bool _S1017 = bond_update_0(i_11, (&kernelContext_61)->params_0->dt_0, ((&kernelContext_61)->params_0->fracture_0) != 0U, _S1015.w + 1U, &kernelContext_61);
+            _S1016 = _S1017;
         }
         else
         {
-            _S1013 = false;
+            _S1016 = false;
         }
-        if(_S1013)
+        if(_S1016)
         {
-            ((&kernelContext_61)->islands_0+_S1008.island_0)->info_0[int(2)] = (_S1012.z) | 2U;
+            ((&kernelContext_61)->islands_0+_S1011.island_0)->info_0[int(2)] = (_S1015.z) | 2U;
         }
         return;
     }
-    uint _S1015 = (uint4((&_S1009)->info_0) ).x;
-    if((_S1015 & 1U) != 0U)
+    uint _S1018 = (uint4((&_S1012)->info_0) ).x;
+    if((_S1018 & 1U) != 0U)
     {
         return;
     }
-    float3 _S1016 = float3(0.0f) ;
-    thread float3 f_16 = _S1016;
-    thread float3 t_14 = _S1016;
+    float3 _S1019 = float3(0.0f) ;
+    thread float3 f_16 = _S1019;
+    thread float3 t_14 = _S1019;
     uint c_25 = wg_0.begin_1 + tid_7;
     if(c_25 < (wg_0.end_0))
     {
-        Rigid_0 _S1017 = rigid_of_0(&_S1009);
-        float _S1018 = (&kernelContext_61)->params_0->dt_0;
-        bool _S1019 = (_S1015 & 4U) != 0U;
-        thread Rigid_0 _S1020 = _S1017;
-        net_load_0(c_25, &_S1009, &_S1020, _S1011, _S1018, _S1019, &f_16, &t_14, &kernelContext_61);
+        Rigid_0 _S1020 = rigid_of_0(&_S1012);
+        float _S1021 = (&kernelContext_61)->params_0->dt_0;
+        bool _S1022 = (_S1018 & 4U) != 0U;
+        thread Rigid_0 _S1023 = _S1020;
+        net_load_0(c_25, &_S1012, &_S1023, _S1014, _S1021, _S1022, &f_16, &t_14, &kernelContext_61);
     }
     group_sum3_0(tid_7, &f_16, &t_14, &kernelContext_61);
     if(tid_7 == 0U)
     {
-        wide_store_0(_S1005 - params_8->wide_bond_groups_0, 0U, f_16, t_14, &kernelContext_61);
+        wide_store_0(_S1008 - params_8->wide_bond_groups_0, 0U, f_16, t_14, &kernelContext_61);
     }
     return;
 }
 
 void wide_partials_0(uint tid_8, uint first_1, uint count_5, uint p_14, float3 thread* a_12, float3 thread* b_29, KernelContext_0 thread* kernelContext_62)
 {
-    float4 _S1021 = float4(0.0f) ;
-    thread float4 x_8 = _S1021;
-    thread float4 y_2 = _S1021;
+    float4 _S1024 = float4(0.0f) ;
+    thread float4 x_8 = _S1024;
+    thread float4 y_2 = _S1024;
     uint s_6 = tid_8;
     for(;;)
     {
@@ -5840,9 +5868,9 @@ void wide_partials_0(uint tid_8, uint first_1, uint count_5, uint p_14, float3 t
         {
             break;
         }
-        uint _S1022 = 8U * (first_1 + s_6);
-        x_8 = x_8 + float4(*(kernelContext_62->scratch_0+(kernelContext_62->params_0->wide_base_0 + _S1022 + p_14))) ;
-        y_2 = y_2 + float4(*(kernelContext_62->scratch_0+(kernelContext_62->params_0->wide_base_0 + _S1022 + p_14 + 1U))) ;
+        uint _S1025 = 8U * (first_1 + s_6);
+        x_8 = x_8 + float4(*(kernelContext_62->scratch_0+(kernelContext_62->params_0->wide_base_0 + _S1025 + p_14))) ;
+        y_2 = y_2 + float4(*(kernelContext_62->scratch_0+(kernelContext_62->params_0->wide_base_0 + _S1025 + p_14 + 1U))) ;
         s_6 = s_6 + 256U;
     }
     group_sum2_0(tid_8, &x_8, &y_2, kernelContext_62);
@@ -5853,8 +5881,8 @@ void wide_partials_0(uint tid_8, uint first_1, uint count_5, uint p_14, float3 t
 
 Rigid_0 wide_rigid_frame_0(uint tid_9, const Island_natural_0 thread* isl_20, const WideGroup_0 thread* wg_1, KernelContext_0 thread* kernelContext_63)
 {
-    Rigid_0 _S1023 = rigid_of_0(isl_20);
-    thread Rigid_0 rg_14 = _S1023;
+    Rigid_0 _S1026 = rigid_of_0(isl_20);
+    thread Rigid_0 rg_14 = _S1026;
     if((((uint4(isl_20->info_0) ).x) & 1U) == 0U)
     {
         thread float3 f_17;
@@ -5891,59 +5919,59 @@ Rigid_0 wide_rigid_frame_0(uint tid_9, const Island_natural_0 thread* isl_20, co
     threadgroup uint g_wide_run_9;
     (&kernelContext_64)->g_wide_run_0 = &g_wide_run_9;
     uint tid_10 = thread_5.x;
-    uint _S1024 = group_5.x;
-    WideGroup_0 _S1025 = wide_group_0(params_9->wide_chunk_table_0, _S1024, &kernelContext_64);
-    thread Island_natural_0 _S1026 = *((&kernelContext_64)->islands_0+_S1025.island_0);
-    bool _S1027 = wide_enter_1(tid_10, _S1025.island_0, &kernelContext_64);
-    if(!_S1027)
+    uint _S1027 = group_5.x;
+    WideGroup_0 _S1028 = wide_group_0(params_9->wide_chunk_table_0, _S1027, &kernelContext_64);
+    thread Island_natural_0 _S1029 = *((&kernelContext_64)->islands_0+_S1028.island_0);
+    bool _S1030 = wide_enter_1(tid_10, _S1028.island_0, &kernelContext_64);
+    if(!_S1030)
     {
         return;
     }
-    uint _S1028 = (uint4((&_S1026)->info_0) ).x;
-    bool anchored_0 = (_S1028 & 1U) != 0U;
-    if((_S1028 & 16U) != 0U)
+    uint _S1031 = (uint4((&_S1029)->info_0) ).x;
+    bool anchored_0 = (_S1031 & 1U) != 0U;
+    if((_S1031 & 16U) != 0U)
     {
         if(tid_10 == 0U)
         {
-            *((&kernelContext_64)->scratch_0+((&kernelContext_64)->params_0->wide_base_0 + 8U * _S1024 + 6U)) = packed_float4(float4(0.0f) ) ;
+            *((&kernelContext_64)->scratch_0+((&kernelContext_64)->params_0->wide_base_0 + 8U * _S1027 + 6U)) = packed_float4(float4(0.0f) ) ;
         }
         return;
     }
-    thread WideGroup_0 _S1029 = _S1025;
-    Rigid_0 _S1030 = wide_rigid_frame_0(tid_10, &_S1026, &_S1029, &kernelContext_64);
+    thread WideGroup_0 _S1032 = _S1028;
+    Rigid_0 _S1033 = wide_rigid_frame_0(tid_10, &_S1029, &_S1032, &kernelContext_64);
     thread float work_4 = 0.0f;
     thread float work_err_3 = 0.0f;
-    float3 _S1031 = float3(0.0f) ;
-    thread float3 tu_2 = _S1031;
-    thread float3 pv_2 = _S1031;
-    uint c_26 = _S1025.begin_1 + tid_10;
-    if(c_26 < (_S1025.end_0))
+    float3 _S1034 = float3(0.0f) ;
+    thread float3 tu_2 = _S1034;
+    thread float3 pv_2 = _S1034;
+    uint c_26 = _S1028.begin_1 + tid_10;
+    if(c_26 < (_S1028.end_0))
     {
-        float _S1032 = (&kernelContext_64)->params_0->dt_0;
-        bool _S1033 = ((&kernelContext_64)->params_0->rigid_motion_loads_0) != 0U;
-        uint _S1034 = wide_step_0(&_S1026, &kernelContext_64);
-        bool _S1035 = (_S1028 & 4U) != 0U;
-        thread Rigid_0 _S1036 = _S1030;
-        chunk_update_0(c_26, &_S1026, &_S1036, _S1032, _S1033, _S1034, _S1035, &work_4, &work_err_3, &kernelContext_64);
+        float _S1035 = (&kernelContext_64)->params_0->dt_0;
+        bool _S1036 = ((&kernelContext_64)->params_0->rigid_motion_loads_0) != 0U;
+        uint _S1037 = wide_step_0(&_S1029, &kernelContext_64);
+        bool _S1038 = (_S1031 & 4U) != 0U;
+        thread Rigid_0 _S1039 = _S1033;
+        chunk_update_0(c_26, &_S1029, &_S1039, _S1035, _S1036, _S1037, _S1038, &work_4, &work_err_3, &kernelContext_64);
         if(!anchored_0)
         {
             drift_moments_0(c_26, &tu_2, &pv_2, &kernelContext_64);
         }
     }
     thread float3 wsum_1 = float3(work_4, work_err_3, 0.0f);
-    thread float3 unused_4 = _S1031;
+    thread float3 unused_4 = _S1034;
     group_sum3_0(tid_10, &wsum_1, &unused_4, &kernelContext_64);
-    bool _S1037 = !anchored_0;
-    if(_S1037)
+    bool _S1040 = !anchored_0;
+    if(_S1040)
     {
         group_sum3_0(tid_10, &tu_2, &pv_2, &kernelContext_64);
     }
     if(tid_10 == 0U)
     {
-        *((&kernelContext_64)->scratch_0+((&kernelContext_64)->params_0->wide_base_0 + 8U * _S1024 + 6U)) = packed_float4(float4(wsum_1, 0.0f)) ;
-        if(_S1037)
+        *((&kernelContext_64)->scratch_0+((&kernelContext_64)->params_0->wide_base_0 + 8U * _S1027 + 6U)) = packed_float4(float4(wsum_1, 0.0f)) ;
+        if(_S1040)
         {
-            wide_store_0(_S1024, 2U, tu_2, pv_2, &kernelContext_64);
+            wide_store_0(_S1027, 2U, tu_2, pv_2, &kernelContext_64);
         }
     }
     return;
@@ -5975,43 +6003,43 @@ Rigid_0 wide_rigid_frame_0(uint tid_9, const Island_natural_0 thread* isl_20, co
     threadgroup uint g_wide_run_10;
     (&kernelContext_65)->g_wide_run_0 = &g_wide_run_10;
     uint tid_11 = thread_6.x;
-    uint _S1038 = group_6.x;
-    WideGroup_0 _S1039 = wide_group_0(params_10->wide_chunk_table_0, _S1038, &kernelContext_65);
-    Island_natural_0 device* _S1040 = (&kernelContext_65)->islands_0+_S1039.island_0;
-    Island_natural_0 isl_21 = *_S1040;
-    bool _S1041;
-    if((((uint4((*_S1040).info_0) ).x) & 17U) != 0U)
+    uint _S1041 = group_6.x;
+    WideGroup_0 _S1042 = wide_group_0(params_10->wide_chunk_table_0, _S1041, &kernelContext_65);
+    Island_natural_0 device* _S1043 = (&kernelContext_65)->islands_0+_S1042.island_0;
+    Island_natural_0 isl_21 = *_S1043;
+    bool _S1044;
+    if((((uint4((*_S1043).info_0) ).x) & 17U) != 0U)
     {
-        _S1041 = true;
+        _S1044 = true;
     }
     else
     {
-        bool _S1042 = wide_enter_1(tid_11, _S1039.island_0, &kernelContext_65);
-        _S1041 = !_S1042;
+        bool _S1045 = wide_enter_1(tid_11, _S1042.island_0, &kernelContext_65);
+        _S1044 = !_S1045;
     }
-    if(_S1041)
+    if(_S1044)
     {
         return;
     }
     thread float3 tu_3;
     thread float3 pv_3;
-    wide_partials_0(tid_11, _S1039.first_0, (uint4(isl_21.done_0) ).z, 2U, &tu_3, &pv_3, &kernelContext_65);
-    float4 _S1043 = float4(isl_21.wcom_0) ;
-    float3 _S1044 = float3(_S1043.w) ;
-    float3 tr_5 = tu_3 / _S1044;
-    float3 dv_5 = pv_3 / _S1044;
-    float3 _S1045 = float3(0.0f) ;
-    thread float3 lu_2 = _S1045;
-    thread float3 lv_2 = _S1045;
-    uint c_27 = _S1039.begin_1 + tid_11;
-    if(c_27 < (_S1039.end_0))
+    wide_partials_0(tid_11, _S1042.first_0, (uint4(isl_21.done_0) ).z, 2U, &tu_3, &pv_3, &kernelContext_65);
+    float4 _S1046 = float4(isl_21.wcom_0) ;
+    float3 _S1047 = float3(_S1046.w) ;
+    float3 tr_5 = tu_3 / _S1047;
+    float3 dv_5 = pv_3 / _S1047;
+    float3 _S1048 = float3(0.0f) ;
+    thread float3 lu_2 = _S1048;
+    thread float3 lv_2 = _S1048;
+    uint c_27 = _S1042.begin_1 + tid_11;
+    if(c_27 < (_S1042.end_0))
     {
-        drift_angular_0(c_27, _S1043.xyz, tr_5, dv_5, &lu_2, &lv_2, &kernelContext_65);
+        drift_angular_0(c_27, _S1046.xyz, tr_5, dv_5, &lu_2, &lv_2, &kernelContext_65);
     }
     group_sum3_0(tid_11, &lu_2, &lv_2, &kernelContext_65);
     if(tid_11 == 0U)
     {
-        wide_store_0(_S1038, 4U, lu_2, lv_2, &kernelContext_65);
+        wide_store_0(_S1041, 4U, lu_2, lv_2, &kernelContext_65);
     }
     return;
 }
@@ -6042,101 +6070,101 @@ Rigid_0 wide_rigid_frame_0(uint tid_9, const Island_natural_0 thread* isl_20, co
     threadgroup uint g_wide_run_11;
     (&kernelContext_66)->g_wide_run_0 = &g_wide_run_11;
     uint tid_12 = thread_7.x;
-    uint _S1046 = group_7.x;
-    WideGroup_0 _S1047 = wide_group_0(params_11->wide_chunk_table_0, _S1046, &kernelContext_66);
-    thread Island_natural_0 _S1048 = *((&kernelContext_66)->islands_0+_S1047.island_0);
-    uint _S1049 = (uint4((&_S1048)->info_0) ).x;
-    bool _S1050;
-    if((_S1049 & 1U) != 0U)
+    uint _S1049 = group_7.x;
+    WideGroup_0 _S1050 = wide_group_0(params_11->wide_chunk_table_0, _S1049, &kernelContext_66);
+    thread Island_natural_0 _S1051 = *((&kernelContext_66)->islands_0+_S1050.island_0);
+    uint _S1052 = (uint4((&_S1051)->info_0) ).x;
+    bool _S1053;
+    if((_S1052 & 1U) != 0U)
     {
-        _S1050 = true;
+        _S1053 = true;
     }
     else
     {
-        bool _S1051 = wide_enter_1(tid_12, _S1047.island_0, &kernelContext_66);
-        _S1050 = !_S1051;
+        bool _S1054 = wide_enter_1(tid_12, _S1050.island_0, &kernelContext_66);
+        _S1053 = !_S1054;
     }
-    if(_S1050)
+    if(_S1053)
     {
         return;
     }
-    if((_S1049 & 16U) != 0U)
+    if((_S1052 & 16U) != 0U)
     {
-        if(_S1046 != (_S1047.first_0))
+        if(_S1049 != (_S1050.first_0))
         {
             return;
         }
-        thread WideGroup_0 _S1052 = _S1047;
-        Rigid_0 _S1053 = wide_rigid_frame_0(tid_12, &_S1048, &_S1052, &kernelContext_66);
-        thread Rigid_0 rs_0 = _S1053;
+        thread WideGroup_0 _S1055 = _S1050;
+        Rigid_0 _S1056 = wide_rigid_frame_0(tid_12, &_S1051, &_S1055, &kernelContext_66);
+        thread Rigid_0 rs_0 = _S1056;
         if(tid_12 != 0U)
         {
-            _S1050 = true;
+            _S1053 = true;
         }
         else
         {
-            _S1050 = (_S1049 & 2U) != 0U;
+            _S1053 = (_S1052 & 2U) != 0U;
         }
-        if(_S1050)
+        if(_S1053)
         {
             return;
         }
-        integrate_rigid_0(&_S1048, &rs_0, (&kernelContext_66)->params_0->dt_0);
-        thread Quat_0 _S1054 = (&rs_0)->rot_0;
-        float4 _S1055 = quat_vec_0(&_S1054);
-        ((&kernelContext_66)->islands_0+_S1047.island_0)->rotation_0 = packed_float4(_S1055) ;
-        ((&kernelContext_66)->islands_0+_S1047.island_0)->position_0 = packed_float4(float4((&rs_0)->pos_1, 0.0f)) ;
-        ((&kernelContext_66)->islands_0+_S1047.island_0)->position_err_0 = packed_float4(float4((&rs_0)->pos_err_1, 0.0f)) ;
-        ((&kernelContext_66)->islands_0+_S1047.island_0)->velocity_0 = packed_float4(float4((&rs_0)->vel_1, 0.0f)) ;
-        ((&kernelContext_66)->islands_0+_S1047.island_0)->velocity_err_0 = packed_float4(float4((&rs_0)->vel_err_1, 0.0f)) ;
-        ((&kernelContext_66)->islands_0+_S1047.island_0)->angular_velocity_0 = packed_float4(float4((&rs_0)->w_3, 0.0f)) ;
+        integrate_rigid_0(&_S1051, &rs_0, (&kernelContext_66)->params_0->dt_0);
+        thread Quat_0 _S1057 = (&rs_0)->rot_0;
+        float4 _S1058 = quat_vec_0(&_S1057);
+        ((&kernelContext_66)->islands_0+_S1050.island_0)->rotation_0 = packed_float4(_S1058) ;
+        ((&kernelContext_66)->islands_0+_S1050.island_0)->position_0 = packed_float4(float4((&rs_0)->pos_1, 0.0f)) ;
+        ((&kernelContext_66)->islands_0+_S1050.island_0)->position_err_0 = packed_float4(float4((&rs_0)->pos_err_1, 0.0f)) ;
+        ((&kernelContext_66)->islands_0+_S1050.island_0)->velocity_0 = packed_float4(float4((&rs_0)->vel_1, 0.0f)) ;
+        ((&kernelContext_66)->islands_0+_S1050.island_0)->velocity_err_0 = packed_float4(float4((&rs_0)->vel_err_1, 0.0f)) ;
+        ((&kernelContext_66)->islands_0+_S1050.island_0)->angular_velocity_0 = packed_float4(float4((&rs_0)->w_3, 0.0f)) ;
         return;
     }
-    uint _S1056 = (uint4((&_S1048)->done_0) ).z;
+    uint _S1059 = (uint4((&_S1051)->done_0) ).z;
     thread float3 tu_4;
     thread float3 pv_4;
-    wide_partials_0(tid_12, _S1047.first_0, _S1056, 2U, &tu_4, &pv_4, &kernelContext_66);
+    wide_partials_0(tid_12, _S1050.first_0, _S1059, 2U, &tu_4, &pv_4, &kernelContext_66);
     thread float3 lu_3;
     thread float3 lv_3;
-    wide_partials_0(tid_12, _S1047.first_0, _S1056, 4U, &lu_3, &lv_3, &kernelContext_66);
-    float4 _S1057 = float4((&_S1048)->wcom_0) ;
-    float3 _S1058 = float3(_S1057.w) ;
-    float3 tr_6 = tu_4 / _S1058;
-    float3 dv_6 = pv_4 / _S1058;
-    float4 _S1059 = float4((&_S1048)->winv0_0) ;
-    float4 _S1060 = float4((&_S1048)->winv1_0) ;
-    float4 _S1061 = float4((&_S1048)->winv2_0) ;
-    float3 phi_4 = rows_mul_0(_S1059, _S1060, _S1061, lu_3);
-    float3 dw_4 = rows_mul_0(_S1059, _S1060, _S1061, lv_3);
-    uint c_28 = _S1047.begin_1 + tid_12;
-    if(c_28 < (_S1047.end_0))
+    wide_partials_0(tid_12, _S1050.first_0, _S1059, 4U, &lu_3, &lv_3, &kernelContext_66);
+    float4 _S1060 = float4((&_S1051)->wcom_0) ;
+    float3 _S1061 = float3(_S1060.w) ;
+    float3 tr_6 = tu_4 / _S1061;
+    float3 dv_6 = pv_4 / _S1061;
+    float4 _S1062 = float4((&_S1051)->winv0_0) ;
+    float4 _S1063 = float4((&_S1051)->winv1_0) ;
+    float4 _S1064 = float4((&_S1051)->winv2_0) ;
+    float3 phi_4 = rows_mul_0(_S1062, _S1063, _S1064, lu_3);
+    float3 dw_4 = rows_mul_0(_S1062, _S1063, _S1064, lv_3);
+    uint c_28 = _S1050.begin_1 + tid_12;
+    if(c_28 < (_S1050.end_0))
     {
-        drift_apply_0(c_28, _S1057.xyz, tr_6, phi_4, dv_6, dw_4, &kernelContext_66);
+        drift_apply_0(c_28, _S1060.xyz, tr_6, phi_4, dv_6, dw_4, &kernelContext_66);
     }
-    if(_S1046 != (_S1047.first_0))
+    if(_S1049 != (_S1050.first_0))
     {
         return;
     }
-    thread WideGroup_0 _S1062 = _S1047;
-    Rigid_0 _S1063 = wide_rigid_frame_0(tid_12, &_S1048, &_S1062, &kernelContext_66);
-    thread Rigid_0 rg_15 = _S1063;
+    thread WideGroup_0 _S1065 = _S1050;
+    Rigid_0 _S1066 = wide_rigid_frame_0(tid_12, &_S1051, &_S1065, &kernelContext_66);
+    thread Rigid_0 rg_15 = _S1066;
     if(tid_12 != 0U)
     {
         return;
     }
-    if(!((_S1049 & 2U) != 0U))
+    if(!((_S1052 & 2U) != 0U))
     {
-        integrate_rigid_0(&_S1048, &rg_15, (&kernelContext_66)->params_0->dt_0);
-        drift_rigid_0(&_S1048, &rg_15, tr_6, phi_4, dv_6, dw_4);
+        integrate_rigid_0(&_S1051, &rg_15, (&kernelContext_66)->params_0->dt_0);
+        drift_rigid_0(&_S1051, &rg_15, tr_6, phi_4, dv_6, dw_4);
     }
-    thread Quat_0 _S1064 = (&rg_15)->rot_0;
-    float4 _S1065 = quat_vec_0(&_S1064);
-    ((&kernelContext_66)->islands_0+_S1047.island_0)->rotation_0 = packed_float4(_S1065) ;
-    ((&kernelContext_66)->islands_0+_S1047.island_0)->position_0 = packed_float4(float4((&rg_15)->pos_1, 0.0f)) ;
-    ((&kernelContext_66)->islands_0+_S1047.island_0)->position_err_0 = packed_float4(float4((&rg_15)->pos_err_1, 0.0f)) ;
-    ((&kernelContext_66)->islands_0+_S1047.island_0)->velocity_0 = packed_float4(float4((&rg_15)->vel_1, 0.0f)) ;
-    ((&kernelContext_66)->islands_0+_S1047.island_0)->velocity_err_0 = packed_float4(float4((&rg_15)->vel_err_1, 0.0f)) ;
-    ((&kernelContext_66)->islands_0+_S1047.island_0)->angular_velocity_0 = packed_float4(float4((&rg_15)->w_3, 0.0f)) ;
+    thread Quat_0 _S1067 = (&rg_15)->rot_0;
+    float4 _S1068 = quat_vec_0(&_S1067);
+    ((&kernelContext_66)->islands_0+_S1050.island_0)->rotation_0 = packed_float4(_S1068) ;
+    ((&kernelContext_66)->islands_0+_S1050.island_0)->position_0 = packed_float4(float4((&rg_15)->pos_1, 0.0f)) ;
+    ((&kernelContext_66)->islands_0+_S1050.island_0)->position_err_0 = packed_float4(float4((&rg_15)->pos_err_1, 0.0f)) ;
+    ((&kernelContext_66)->islands_0+_S1050.island_0)->velocity_0 = packed_float4(float4((&rg_15)->vel_1, 0.0f)) ;
+    ((&kernelContext_66)->islands_0+_S1050.island_0)->velocity_err_0 = packed_float4(float4((&rg_15)->vel_err_1, 0.0f)) ;
+    ((&kernelContext_66)->islands_0+_S1050.island_0)->angular_velocity_0 = packed_float4(float4((&rg_15)->w_3, 0.0f)) ;
     return;
 }
 
@@ -6166,101 +6194,101 @@ Rigid_0 wide_rigid_frame_0(uint tid_9, const Island_natural_0 thread* isl_20, co
     threadgroup uint g_wide_run_12;
     (&kernelContext_67)->g_wide_run_0 = &g_wide_run_12;
     uint tid_13 = thread_8.x;
-    uint _S1066 = group_8.x;
-    WideGroup_0 _S1067 = wide_group_0(params_12->wide_chunk_table_0, _S1066, &kernelContext_67);
-    if(_S1066 != (_S1067.first_0))
+    uint _S1069 = group_8.x;
+    WideGroup_0 _S1070 = wide_group_0(params_12->wide_chunk_table_0, _S1069, &kernelContext_67);
+    if(_S1069 != (_S1070.first_0))
     {
         return;
     }
-    Island_natural_0 device* _S1068 = (&kernelContext_67)->islands_0+_S1067.island_0;
-    thread Island_natural_0 _S1069 = *_S1068;
-    uint4 _S1070 = uint4((&_S1069)->info_0) ;
-    float4 _S1071 = float4((&_S1069)->com_0) ;
-    float4 _S1072 = float4((&_S1069)->inertia0_0) ;
-    float4 _S1073 = float4((&_S1069)->inertia1_0) ;
-    float4 _S1074 = float4((&_S1069)->inertia2_0) ;
-    float4 _S1075 = float4((&_S1069)->inv0_0) ;
-    float4 _S1076 = float4((&_S1069)->inv1_0) ;
-    float4 _S1077 = float4((&_S1069)->inv2_0) ;
-    float4 _S1078 = float4((&_S1069)->wcom_0) ;
-    float4 _S1079 = float4((&_S1069)->winv0_0) ;
-    float4 _S1080 = float4((&_S1069)->winv1_0) ;
-    float4 _S1081 = float4((&_S1069)->winv2_0) ;
-    float4 _S1082 = float4((&_S1069)->rotation_0) ;
-    float4 _S1083 = float4((&_S1069)->position_0) ;
-    float4 _S1084 = float4((&_S1069)->position_err_0) ;
-    float4 _S1085 = float4((&_S1069)->velocity_0) ;
-    float4 _S1086 = float4((&_S1069)->velocity_err_0) ;
-    float4 _S1087 = float4((&_S1069)->angular_velocity_0) ;
-    uint4 _S1088 = uint4((&_S1069)->done_0) ;
-    uint4 _S1089 = uint4((&_S1069)->probes_0) ;
-    float4 _S1090 = float4((&_S1069)->energy_0) ;
+    Island_natural_0 device* _S1071 = (&kernelContext_67)->islands_0+_S1070.island_0;
+    thread Island_natural_0 _S1072 = *_S1071;
+    uint4 _S1073 = uint4((&_S1072)->info_0) ;
+    float4 _S1074 = float4((&_S1072)->com_0) ;
+    float4 _S1075 = float4((&_S1072)->inertia0_0) ;
+    float4 _S1076 = float4((&_S1072)->inertia1_0) ;
+    float4 _S1077 = float4((&_S1072)->inertia2_0) ;
+    float4 _S1078 = float4((&_S1072)->inv0_0) ;
+    float4 _S1079 = float4((&_S1072)->inv1_0) ;
+    float4 _S1080 = float4((&_S1072)->inv2_0) ;
+    float4 _S1081 = float4((&_S1072)->wcom_0) ;
+    float4 _S1082 = float4((&_S1072)->winv0_0) ;
+    float4 _S1083 = float4((&_S1072)->winv1_0) ;
+    float4 _S1084 = float4((&_S1072)->winv2_0) ;
+    float4 _S1085 = float4((&_S1072)->rotation_0) ;
+    float4 _S1086 = float4((&_S1072)->position_0) ;
+    float4 _S1087 = float4((&_S1072)->position_err_0) ;
+    float4 _S1088 = float4((&_S1072)->velocity_0) ;
+    float4 _S1089 = float4((&_S1072)->velocity_err_0) ;
+    float4 _S1090 = float4((&_S1072)->angular_velocity_0) ;
+    uint4 _S1091 = uint4((&_S1072)->done_0) ;
+    uint4 _S1092 = uint4((&_S1072)->probes_0) ;
+    float4 _S1093 = float4((&_S1072)->energy_0) ;
     thread Island_0 isl_22;
-    (&isl_22)->range_0 = uint4((&_S1069)->range_0) ;
-    (&isl_22)->info_0 = _S1070;
-    (&isl_22)->com_0 = _S1071;
-    (&isl_22)->inertia0_0 = _S1072;
-    (&isl_22)->inertia1_0 = _S1073;
-    (&isl_22)->inertia2_0 = _S1074;
-    (&isl_22)->inv0_0 = _S1075;
-    (&isl_22)->inv1_0 = _S1076;
-    (&isl_22)->inv2_0 = _S1077;
-    (&isl_22)->wcom_0 = _S1078;
-    (&isl_22)->winv0_0 = _S1079;
-    (&isl_22)->winv1_0 = _S1080;
-    (&isl_22)->winv2_0 = _S1081;
-    (&isl_22)->rotation_0 = _S1082;
-    (&isl_22)->position_0 = _S1083;
-    (&isl_22)->position_err_0 = _S1084;
-    (&isl_22)->velocity_0 = _S1085;
-    (&isl_22)->velocity_err_0 = _S1086;
-    (&isl_22)->angular_velocity_0 = _S1087;
-    (&isl_22)->done_0 = _S1088;
-    (&isl_22)->probes_0 = _S1089;
-    (&isl_22)->energy_0 = _S1090;
-    _S1069 = *_S1068;
-    bool _S1091 = wide_enter_0(tid_13, &_S1069, &kernelContext_67);
-    if(!_S1091)
+    (&isl_22)->range_0 = uint4((&_S1072)->range_0) ;
+    (&isl_22)->info_0 = _S1073;
+    (&isl_22)->com_0 = _S1074;
+    (&isl_22)->inertia0_0 = _S1075;
+    (&isl_22)->inertia1_0 = _S1076;
+    (&isl_22)->inertia2_0 = _S1077;
+    (&isl_22)->inv0_0 = _S1078;
+    (&isl_22)->inv1_0 = _S1079;
+    (&isl_22)->inv2_0 = _S1080;
+    (&isl_22)->wcom_0 = _S1081;
+    (&isl_22)->winv0_0 = _S1082;
+    (&isl_22)->winv1_0 = _S1083;
+    (&isl_22)->winv2_0 = _S1084;
+    (&isl_22)->rotation_0 = _S1085;
+    (&isl_22)->position_0 = _S1086;
+    (&isl_22)->position_err_0 = _S1087;
+    (&isl_22)->velocity_0 = _S1088;
+    (&isl_22)->velocity_err_0 = _S1089;
+    (&isl_22)->angular_velocity_0 = _S1090;
+    (&isl_22)->done_0 = _S1091;
+    (&isl_22)->probes_0 = _S1092;
+    (&isl_22)->energy_0 = _S1093;
+    _S1072 = *_S1071;
+    bool _S1094 = wide_enter_0(tid_13, &_S1072, &kernelContext_67);
+    if(!_S1094)
     {
         return;
     }
     thread float3 work_5;
     thread float3 unused_5;
-    wide_partials_0(tid_13, _S1067.first_0, (&isl_22)->done_0.z, 6U, &work_5, &unused_5, &kernelContext_67);
+    wide_partials_0(tid_13, _S1070.first_0, (&isl_22)->done_0.z, 6U, &work_5, &unused_5, &kernelContext_67);
     if(tid_13 != 0U)
     {
         return;
     }
-    thread Island_0 _S1092 = isl_22;
-    uint _S1093 = wide_step_1(&_S1092, &kernelContext_67);
+    thread Island_0 _S1095 = isl_22;
+    uint _S1096 = wide_step_1(&_S1095, &kernelContext_67);
     if(((&isl_22)->probes_0.y) > ((&isl_22)->probes_0.x))
     {
-        thread Island_0 _S1094 = isl_22;
-        Rigid_0 _S1095 = rigid_of_1(&_S1094);
-        thread Island_0 _S1096 = isl_22;
-        thread Rigid_0 _S1097 = _S1095;
-        record_probes_0(&_S1096, &_S1097, _S1093, &kernelContext_67);
+        thread Island_0 _S1097 = isl_22;
+        Rigid_0 _S1098 = rigid_of_1(&_S1097);
+        thread Island_0 _S1099 = isl_22;
+        thread Rigid_0 _S1100 = _S1098;
+        record_probes_0(&_S1099, &_S1100, _S1096, &kernelContext_67);
     }
     bool halt_0 = (((&isl_22)->info_0.z) & 2U) != 0U;
-    bool _S1098;
+    bool _S1101;
     if(halt_0)
     {
-        _S1098 = (((&isl_22)->info_0.x) & 4U) != 0U;
+        _S1101 = (((&isl_22)->info_0.x) & 4U) != 0U;
     }
     else
     {
-        _S1098 = false;
+        _S1101 = false;
     }
-    if(_S1098)
+    if(_S1101)
     {
         contact_split_at_0((&isl_22)->info_0.w + 1U, &kernelContext_67);
     }
-    float _S1099 = work_5.x;
-    thread float _S1100 = (&isl_22)->energy_0.x;
-    thread float _S1101 = (&isl_22)->energy_0.y;
-    comp_add1_0(&_S1100, &_S1101, _S1099);
-    (&isl_22)->energy_0.x = _S1100;
-    (&isl_22)->energy_0.y = _S1101 + work_5.y;
+    float _S1102 = work_5.x;
+    thread float _S1103 = (&isl_22)->energy_0.x;
+    thread float _S1104 = (&isl_22)->energy_0.y;
+    comp_add1_0(&_S1103, &_S1104, _S1102);
+    (&isl_22)->energy_0.x = _S1103;
+    (&isl_22)->energy_0.y = _S1104 + work_5.y;
     (&isl_22)->done_0.x = (&isl_22)->done_0.x + 1U;
     (&isl_22)->info_0.y = (&isl_22)->info_0.y - 1U;
     (&isl_22)->info_0.w = (&isl_22)->info_0.w + 1U;
@@ -6268,29 +6296,29 @@ Rigid_0 wide_rigid_frame_0(uint tid_9, const Island_natural_0 thread* isl_20, co
     {
         (&isl_22)->info_0.z = (((&isl_22)->info_0.z) & 4294967293U) | 1U;
     }
-    Island_natural_0 device* _S1102 = (&kernelContext_67)->islands_0+_S1067.island_0;
-    _S1102->range_0 = packed_uint4(isl_22.range_0) ;
-    _S1102->info_0 = packed_uint4(isl_22.info_0) ;
-    _S1102->com_0 = packed_float4(isl_22.com_0) ;
-    _S1102->inertia0_0 = packed_float4(isl_22.inertia0_0) ;
-    _S1102->inertia1_0 = packed_float4(isl_22.inertia1_0) ;
-    _S1102->inertia2_0 = packed_float4(isl_22.inertia2_0) ;
-    _S1102->inv0_0 = packed_float4(isl_22.inv0_0) ;
-    _S1102->inv1_0 = packed_float4(isl_22.inv1_0) ;
-    _S1102->inv2_0 = packed_float4(isl_22.inv2_0) ;
-    _S1102->wcom_0 = packed_float4(isl_22.wcom_0) ;
-    _S1102->winv0_0 = packed_float4(isl_22.winv0_0) ;
-    _S1102->winv1_0 = packed_float4(isl_22.winv1_0) ;
-    _S1102->winv2_0 = packed_float4(isl_22.winv2_0) ;
-    _S1102->rotation_0 = packed_float4(isl_22.rotation_0) ;
-    _S1102->position_0 = packed_float4(isl_22.position_0) ;
-    _S1102->position_err_0 = packed_float4(isl_22.position_err_0) ;
-    _S1102->velocity_0 = packed_float4(isl_22.velocity_0) ;
-    _S1102->velocity_err_0 = packed_float4(isl_22.velocity_err_0) ;
-    _S1102->angular_velocity_0 = packed_float4(isl_22.angular_velocity_0) ;
-    _S1102->done_0 = packed_uint4(isl_22.done_0) ;
-    _S1102->probes_0 = packed_uint4(isl_22.probes_0) ;
-    _S1102->energy_0 = packed_float4(isl_22.energy_0) ;
+    Island_natural_0 device* _S1105 = (&kernelContext_67)->islands_0+_S1070.island_0;
+    _S1105->range_0 = packed_uint4(isl_22.range_0) ;
+    _S1105->info_0 = packed_uint4(isl_22.info_0) ;
+    _S1105->com_0 = packed_float4(isl_22.com_0) ;
+    _S1105->inertia0_0 = packed_float4(isl_22.inertia0_0) ;
+    _S1105->inertia1_0 = packed_float4(isl_22.inertia1_0) ;
+    _S1105->inertia2_0 = packed_float4(isl_22.inertia2_0) ;
+    _S1105->inv0_0 = packed_float4(isl_22.inv0_0) ;
+    _S1105->inv1_0 = packed_float4(isl_22.inv1_0) ;
+    _S1105->inv2_0 = packed_float4(isl_22.inv2_0) ;
+    _S1105->wcom_0 = packed_float4(isl_22.wcom_0) ;
+    _S1105->winv0_0 = packed_float4(isl_22.winv0_0) ;
+    _S1105->winv1_0 = packed_float4(isl_22.winv1_0) ;
+    _S1105->winv2_0 = packed_float4(isl_22.winv2_0) ;
+    _S1105->rotation_0 = packed_float4(isl_22.rotation_0) ;
+    _S1105->position_0 = packed_float4(isl_22.position_0) ;
+    _S1105->position_err_0 = packed_float4(isl_22.position_err_0) ;
+    _S1105->velocity_0 = packed_float4(isl_22.velocity_0) ;
+    _S1105->velocity_err_0 = packed_float4(isl_22.velocity_err_0) ;
+    _S1105->angular_velocity_0 = packed_float4(isl_22.angular_velocity_0) ;
+    _S1105->done_0 = packed_uint4(isl_22.done_0) ;
+    _S1105->probes_0 = packed_uint4(isl_22.probes_0) ;
+    _S1105->energy_0 = packed_float4(isl_22.energy_0) ;
     return;
 }
 
@@ -6301,53 +6329,53 @@ uint sv_0(uint c_29, uint slot_3, KernelContext_0 thread* kernelContext_68)
 
 void project_load_slot_0(uint tid_14, const Island_natural_0 thread* isl_23, uint slot_4, KernelContext_0 thread* kernelContext_69)
 {
-    uint _S1103;
-    float3 _S1104 = float3(0.0f) ;
-    thread float3 net_f_0 = _S1104;
-    thread float3 net_m_0 = _S1104;
-    uint4 _S1105 = uint4(isl_23->range_0) ;
-    uint _S1106 = _S1105.x + tid_14;
-    uint c_30 = _S1106;
+    uint _S1106;
+    float3 _S1107 = float3(0.0f) ;
+    thread float3 net_f_0 = _S1107;
+    thread float3 net_m_0 = _S1107;
+    uint4 _S1108 = uint4(isl_23->range_0) ;
+    uint _S1109 = _S1108.x + tid_14;
+    uint c_30 = _S1109;
     for(;;)
     {
-        uint _S1107 = _S1105.y;
-        _S1103 = _S1107;
-        if(c_30 < _S1107)
+        uint _S1110 = _S1108.y;
+        _S1106 = _S1110;
+        if(c_30 < _S1110)
         {
         }
         else
         {
             break;
         }
-        uint _S1108 = sv_0(c_30, slot_4, kernelContext_69);
-        float3 fi_2 = (float4(*(kernelContext_69->scratch_0+_S1108)) ).xyz;
+        uint _S1111 = sv_0(c_30, slot_4, kernelContext_69);
+        float3 fi_2 = (float4(*(kernelContext_69->scratch_0+_S1111)) ).xyz;
         net_f_0 = net_f_0 + fi_2;
-        float3 _S1109 = cross((float4((kernelContext_69->chunks_0+c_30)->center_0) ).xyz - (float4(isl_23->com_0) ).xyz, fi_2);
-        uint _S1110 = sv_0(c_30, slot_4 + 1U, kernelContext_69);
-        net_m_0 = net_m_0 + (_S1109 + (float4(*(kernelContext_69->scratch_0+_S1110)) ).xyz);
+        float3 _S1112 = cross((float4((kernelContext_69->chunks_0+c_30)->center_0) ).xyz - (float4(isl_23->com_0) ).xyz, fi_2);
+        uint _S1113 = sv_0(c_30, slot_4 + 1U, kernelContext_69);
+        net_m_0 = net_m_0 + (_S1112 + (float4(*(kernelContext_69->scratch_0+_S1113)) ).xyz);
         c_30 = c_30 + 256U;
     }
     group_sum3_0(tid_14, &net_f_0, &net_m_0, kernelContext_69);
-    float4 _S1111 = float4(isl_23->com_0) ;
-    float3 _S1112 = net_f_0 / float3(_S1111.w) ;
-    float3 _S1113 = rows_mul_0(float4(isl_23->inv0_0) , float4(isl_23->inv1_0) , float4(isl_23->inv2_0) , net_m_0);
-    c_30 = _S1106;
+    float4 _S1114 = float4(isl_23->com_0) ;
+    float3 _S1115 = net_f_0 / float3(_S1114.w) ;
+    float3 _S1116 = rows_mul_0(float4(isl_23->inv0_0) , float4(isl_23->inv1_0) , float4(isl_23->inv2_0) , net_m_0);
+    c_30 = _S1109;
     for(;;)
     {
-        if(c_30 < _S1103)
+        if(c_30 < _S1106)
         {
         }
         else
         {
             break;
         }
-        ChunkStatic_natural_0 device* _S1114 = kernelContext_69->chunks_0+c_30;
-        float4 _S1115 = float4(_S1114->center_0) ;
-        float3 r_13 = _S1115.xyz - _S1111.xyz;
-        uint _S1116 = sv_0(c_30, slot_4, kernelContext_69);
-        *(kernelContext_69->scratch_0+_S1116) = packed_float4(float4((float4(*(kernelContext_69->scratch_0+_S1116)) ).xyz - (_S1112 + cross(_S1113, r_13)) * float3(_S1115.w) , 0.0f)) ;
-        uint _S1117 = sv_0(c_30, slot_4 + 1U, kernelContext_69);
-        *(kernelContext_69->scratch_0+_S1117) = packed_float4(float4((float4(*(kernelContext_69->scratch_0+_S1117)) ).xyz - rows_mul_0(float4(_S1114->inertia0_1) , float4(_S1114->inertia1_1) , float4(_S1114->inertia2_1) , _S1113), 0.0f)) ;
+        ChunkStatic_natural_0 device* _S1117 = kernelContext_69->chunks_0+c_30;
+        float4 _S1118 = float4(_S1117->center_0) ;
+        float3 r_13 = _S1118.xyz - _S1114.xyz;
+        uint _S1119 = sv_0(c_30, slot_4, kernelContext_69);
+        *(kernelContext_69->scratch_0+_S1119) = packed_float4(float4((float4(*(kernelContext_69->scratch_0+_S1119)) ).xyz - (_S1115 + cross(_S1116, r_13)) * float3(_S1118.w) , 0.0f)) ;
+        uint _S1120 = sv_0(c_30, slot_4 + 1U, kernelContext_69);
+        *(kernelContext_69->scratch_0+_S1120) = packed_float4(float4((float4(*(kernelContext_69->scratch_0+_S1120)) ).xyz - rows_mul_0(float4(_S1117->inertia0_1) , float4(_S1117->inertia1_1) , float4(_S1117->inertia2_1) , _S1116), 0.0f)) ;
         c_30 = c_30 + 256U;
     }
     threadgroup_barrier(mem_flags::mem_device | mem_flags::mem_threadgroup | mem_flags::mem_texture | mem_flags::mem_threadgroup_imageblock);
@@ -6356,9 +6384,9 @@ void project_load_slot_0(uint tid_14, const Island_natural_0 thread* isl_23, uin
 
 float island_dot_0(uint tid_15, uint c0_0, uint c1_0, uint sa_0, uint sb_0, KernelContext_0 thread* kernelContext_70)
 {
-    float4 _S1118 = float4(0.0f) ;
-    thread float4 acc_0 = _S1118;
-    thread float4 unused_6 = _S1118;
+    float4 _S1121 = float4(0.0f) ;
+    thread float4 acc_0 = _S1121;
+    thread float4 unused_6 = _S1121;
     uint c_31 = c0_0 + tid_15;
     for(;;)
     {
@@ -6369,65 +6397,65 @@ float island_dot_0(uint tid_15, uint c0_0, uint c1_0, uint sa_0, uint sb_0, Kern
         {
             break;
         }
-        uint _S1119 = sv_0(c_31, sa_0, kernelContext_70);
-        float3 _S1120 = (float4(*(kernelContext_70->scratch_0+_S1119)) ).xyz;
-        uint _S1121 = sv_0(c_31, sb_0, kernelContext_70);
-        float _S1122 = dot(_S1120, (float4(*(kernelContext_70->scratch_0+_S1121)) ).xyz);
-        uint _S1123 = sv_0(c_31, sa_0 + 1U, kernelContext_70);
-        float3 _S1124 = (float4(*(kernelContext_70->scratch_0+_S1123)) ).xyz;
-        uint _S1125 = sv_0(c_31, sb_0 + 1U, kernelContext_70);
-        acc_0.x = acc_0.x + (_S1122 + dot(_S1124, (float4(*(kernelContext_70->scratch_0+_S1125)) ).xyz));
+        uint _S1122 = sv_0(c_31, sa_0, kernelContext_70);
+        float3 _S1123 = (float4(*(kernelContext_70->scratch_0+_S1122)) ).xyz;
+        uint _S1124 = sv_0(c_31, sb_0, kernelContext_70);
+        float _S1125 = dot(_S1123, (float4(*(kernelContext_70->scratch_0+_S1124)) ).xyz);
+        uint _S1126 = sv_0(c_31, sa_0 + 1U, kernelContext_70);
+        float3 _S1127 = (float4(*(kernelContext_70->scratch_0+_S1126)) ).xyz;
+        uint _S1128 = sv_0(c_31, sb_0 + 1U, kernelContext_70);
+        acc_0.x = acc_0.x + (_S1125 + dot(_S1127, (float4(*(kernelContext_70->scratch_0+_S1128)) ).xyz));
         c_31 = c_31 + 256U;
     }
     group_sum2_0(tid_15, &acc_0, &unused_6, kernelContext_70);
     return acc_0.x;
 }
 
-void static_kinematics_0(uint _S1126, float3 thread* _S1127, float3 thread* _S1128, KernelContext_0 thread* kernelContext_71)
+void static_kinematics_0(uint _S1129, float3 thread* _S1130, float3 thread* _S1131, KernelContext_0 thread* kernelContext_71)
 {
-    BondStatic_natural_0 device* _S1129 = kernelContext_71->bonds_0+_S1126;
-    uint4 _S1130 = uint4(_S1129->law_0.ids_0) ;
-    uint ca_1 = _S1130.y;
-    uint cb_1 = _S1130.z;
-    uint _S1131 = 4U * cb_1;
-    uint _S1132 = 4U * ca_1;
-    float3 _S1133 = (float4(*(kernelContext_71->state_0+_S1131)) ).xyz - (float4(*(kernelContext_71->state_0+_S1132)) ).xyz;
-    uint _S1134 = sv_0(cb_1, 21U, kernelContext_71);
-    float3 _S1135 = (float4(*(kernelContext_71->scratch_0+_S1134)) ).xyz;
-    uint _S1136 = sv_0(ca_1, 21U, kernelContext_71);
-    float3 du_0 = _S1133 + (_S1135 - (float4(*(kernelContext_71->scratch_0+_S1136)) ).xyz);
-    uint _S1137 = _S1131 + 1U;
-    uint _S1138 = _S1132 + 1U;
-    float3 _S1139 = (float4(*(kernelContext_71->state_0+_S1137)) ).xyz - (float4(*(kernelContext_71->state_0+_S1138)) ).xyz;
-    uint _S1140 = sv_0(cb_1, 22U, kernelContext_71);
-    float3 _S1141 = (float4(*(kernelContext_71->scratch_0+_S1140)) ).xyz;
-    uint _S1142 = sv_0(ca_1, 22U, kernelContext_71);
-    float3 dth_0 = _S1139 + (_S1141 - (float4(*(kernelContext_71->scratch_0+_S1142)) ).xyz);
-    float3 _S1143 = to_local_0(_S1126, du_0 + (cross((float4(*(kernelContext_71->state_0+_S1137)) ).xyz + (float4(*(kernelContext_71->scratch_0+_S1140)) ).xyz, (float4(_S1129->rb_0) ).xyz) - cross((float4(*(kernelContext_71->state_0+_S1138)) ).xyz + (float4(*(kernelContext_71->scratch_0+_S1142)) ).xyz, (float4(_S1129->ra_0) ).xyz)), kernelContext_71);
-    *_S1127 = _S1143;
-    float3 _S1144 = to_local_0(_S1126, dth_0, kernelContext_71);
-    *_S1128 = _S1144;
+    BondStatic_natural_0 device* _S1132 = kernelContext_71->bonds_0+_S1129;
+    uint4 _S1133 = uint4(_S1132->law_0.ids_0) ;
+    uint ca_1 = _S1133.y;
+    uint cb_1 = _S1133.z;
+    uint _S1134 = 4U * cb_1;
+    uint _S1135 = 4U * ca_1;
+    float3 _S1136 = (float4(*(kernelContext_71->state_0+_S1134)) ).xyz - (float4(*(kernelContext_71->state_0+_S1135)) ).xyz;
+    uint _S1137 = sv_0(cb_1, 21U, kernelContext_71);
+    float3 _S1138 = (float4(*(kernelContext_71->scratch_0+_S1137)) ).xyz;
+    uint _S1139 = sv_0(ca_1, 21U, kernelContext_71);
+    float3 du_0 = _S1136 + (_S1138 - (float4(*(kernelContext_71->scratch_0+_S1139)) ).xyz);
+    uint _S1140 = _S1134 + 1U;
+    uint _S1141 = _S1135 + 1U;
+    float3 _S1142 = (float4(*(kernelContext_71->state_0+_S1140)) ).xyz - (float4(*(kernelContext_71->state_0+_S1141)) ).xyz;
+    uint _S1143 = sv_0(cb_1, 22U, kernelContext_71);
+    float3 _S1144 = (float4(*(kernelContext_71->scratch_0+_S1143)) ).xyz;
+    uint _S1145 = sv_0(ca_1, 22U, kernelContext_71);
+    float3 dth_0 = _S1142 + (_S1144 - (float4(*(kernelContext_71->scratch_0+_S1145)) ).xyz);
+    float3 _S1146 = to_local_0(_S1129, du_0 + (cross((float4(*(kernelContext_71->state_0+_S1140)) ).xyz + (float4(*(kernelContext_71->scratch_0+_S1143)) ).xyz, (float4(_S1132->rb_0) ).xyz) - cross((float4(*(kernelContext_71->state_0+_S1141)) ).xyz + (float4(*(kernelContext_71->scratch_0+_S1145)) ).xyz, (float4(_S1132->ra_0) ).xyz)), kernelContext_71);
+    *_S1130 = _S1146;
+    float3 _S1147 = to_local_0(_S1129, dth_0, kernelContext_71);
+    *_S1131 = _S1147;
     return;
 }
 
 JointResponse_0 static_response_0(uint i_12, KernelContext_0 thread* kernelContext_72)
 {
-    BondStatic_natural_0 device* _S1145 = kernelContext_72->bonds_0+i_12;
+    BondStatic_natural_0 device* _S1148 = kernelContext_72->bonds_0+i_12;
     thread float3 d_lin_3;
     thread float3 d_ang_2;
     static_kinematics_0(i_12, &d_lin_3, &d_ang_2, kernelContext_72);
-    thread JointBond_natural_0 _S1146 = _S1145->law_0;
-    _S1146 = _S1145->law_0;
-    thread JointState_0 _S1147 = (kernelContext_72->bond_dyn_0+i_12)->js_0;
-    JointResponse_0 _S1148 = joint_evaluate_0(&kernelContext_72->materials_0->m_0[(uint4((&_S1146)->ids_0) ).x], &_S1146, &_S1147, d_lin_3, d_ang_2, 0.0f, false);
-    return _S1148;
+    thread JointBond_natural_0 _S1149 = _S1148->law_0;
+    _S1149 = _S1148->law_0;
+    thread JointState_0 _S1150 = (kernelContext_72->bond_dyn_0+i_12)->js_0;
+    JointResponse_0 _S1151 = joint_evaluate_0(&kernelContext_72->materials_0->m_0[(uint4((&_S1149)->ids_0) ).x], &_S1149, &_S1150, d_lin_3, d_ang_2, 0.0f, false);
+    return _S1151;
 }
 
 void gather_loads_0(uint c_32, float3 thread* fi_3, float3 thread* mi_6, KernelContext_0 thread* kernelContext_73)
 {
-    float3 _S1149 = float3(0.0f) ;
-    *fi_3 = _S1149;
-    *mi_6 = _S1149;
+    float3 _S1152 = float3(0.0f) ;
+    *fi_3 = _S1152;
+    *mi_6 = _S1152;
     uint e_5 = kernelContext_73->index_0[c_32];
     for(;;)
     {
@@ -6442,41 +6470,73 @@ void gather_loads_0(uint c_32, float3 thread* fi_3, float3 thread* mi_6, KernelC
         uint bond_0 = entry_4 >> 1U;
         if((entry_4 & 1U) == 0U)
         {
-            uint _S1150 = 3U * bond_0;
-            *fi_3 = *fi_3 + (float4(*(kernelContext_73->scratch_0+_S1150)) ).xyz;
-            *mi_6 = *mi_6 + (float4(*(kernelContext_73->scratch_0+(_S1150 + 1U))) ).xyz;
+            uint _S1153 = 3U * bond_0;
+            *fi_3 = *fi_3 + (float4(*(kernelContext_73->scratch_0+_S1153)) ).xyz;
+            *mi_6 = *mi_6 + (float4(*(kernelContext_73->scratch_0+(_S1153 + 1U))) ).xyz;
         }
         else
         {
-            uint _S1151 = 3U * bond_0;
-            *fi_3 = *fi_3 - (float4(*(kernelContext_73->scratch_0+_S1151)) ).xyz;
-            *mi_6 = *mi_6 + (float4(*(kernelContext_73->scratch_0+(_S1151 + 2U))) ).xyz;
+            uint _S1154 = 3U * bond_0;
+            *fi_3 = *fi_3 - (float4(*(kernelContext_73->scratch_0+_S1154)) ).xyz;
+            *mi_6 = *mi_6 + (float4(*(kernelContext_73->scratch_0+(_S1154 + 2U))) ).xyz;
         }
         e_5 = e_5 + 1U;
     }
     return;
 }
 
-uint fixed_mask_0(uint c_33, KernelContext_0 thread* kernelContext_74)
+float bond_load_magnitude2_0(uint c_33, KernelContext_0 thread* kernelContext_74)
 {
-    uint support_2 = (uint4((kernelContext_74->chunks_0+c_33)->info_1) ).x;
-    uint _S1152;
+    uint e_6 = kernelContext_74->index_0[c_33];
+    float m_7 = 0.0f;
+    for(;;)
+    {
+        if(e_6 < (kernelContext_74->index_0)[c_33 + 1U])
+        {
+        }
+        else
+        {
+            break;
+        }
+        uint entry_5 = kernelContext_74->index_0[e_6];
+        uint _S1155 = 3U * (entry_5 >> 1U);
+        float3 f_18 = (float4(*(kernelContext_74->scratch_0+_S1155)) ).xyz;
+        float3 t_16;
+        if((entry_5 & 1U) == 0U)
+        {
+            t_16 = (float4(*(kernelContext_74->scratch_0+(_S1155 + 1U))) ).xyz;
+        }
+        else
+        {
+            t_16 = (float4(*(kernelContext_74->scratch_0+(_S1155 + 2U))) ).xyz;
+        }
+        float m_8 = m_7 + (dot(f_18, f_18) + dot(t_16, t_16));
+        e_6 = e_6 + 1U;
+        m_7 = m_8;
+    }
+    return m_7;
+}
+
+uint fixed_mask_0(uint c_34, KernelContext_0 thread* kernelContext_75)
+{
+    uint support_2 = (uint4((kernelContext_75->chunks_0+c_34)->info_1) ).x;
+    uint _S1156;
     if(support_2 == 1U)
     {
-        _S1152 = 63U;
+        _S1156 = 63U;
     }
     else
     {
         if(support_2 == 2U)
         {
-            _S1152 = 7U;
+            _S1156 = 7U;
         }
         else
         {
-            _S1152 = 0U;
+            _S1156 = 0U;
         }
     }
-    return _S1152;
+    return _S1156;
 }
 
 void hold_0(uint mask_0, float4 thread* lin_0, float4 thread* ang_0, float4 keep_lin_0, float4 keep_ang_0)
@@ -6504,12 +6564,12 @@ void hold_0(uint mask_0, float4 thread* lin_0, float4 thread* ang_0, float4 keep
     return;
 }
 
-uint statics_bond_slot_0(uint i_13, KernelContext_0 thread* kernelContext_75)
+uint statics_bond_slot_0(uint i_13, KernelContext_0 thread* kernelContext_76)
 {
-    return kernelContext_75->params_0->statics_base_0 + 23U * kernelContext_75->params_0->chunk_count_0 + 2U * i_13;
+    return kernelContext_76->params_0->statics_base_0 + 23U * kernelContext_76->params_0->chunk_count_0 + 2U * i_13;
 }
 
-void store_inverse_0(uint c_34, const array<float, int(36)> thread* a_13, KernelContext_0 thread* kernelContext_76)
+void store_inverse_0(uint c_35, const array<float, int(36)> thread* a_13, KernelContext_0 thread* kernelContext_77)
 {
     uint j_6;
     float sum_2;
@@ -6531,16 +6591,16 @@ void store_inverse_0(uint c_34, const array<float, int(36)> thread* a_13, Kernel
     uint i_14 = 0U;
     for(;;)
     {
-        bool _S1153;
+        bool _S1157;
         if(i_14 < 6U)
         {
-            _S1153 = spd_0;
+            _S1157 = spd_0;
         }
         else
         {
-            _S1153 = false;
+            _S1157 = false;
         }
-        if(_S1153)
+        if(_S1157)
         {
         }
         else
@@ -6557,10 +6617,10 @@ void store_inverse_0(uint c_34, const array<float, int(36)> thread* a_13, Kernel
             {
                 break;
             }
-            uint _S1154 = i_14 * 6U;
-            uint _S1155 = _S1154 + j_6;
+            uint _S1158 = i_14 * 6U;
+            uint _S1159 = _S1158 + j_6;
             k_21 = 0U;
-            sum_2 = (*a_13)[_S1155];
+            sum_2 = (*a_13)[_S1159];
             for(;;)
             {
                 if(k_21 < j_6)
@@ -6570,7 +6630,7 @@ void store_inverse_0(uint c_34, const array<float, int(36)> thread* a_13, Kernel
                 {
                     break;
                 }
-                float sum_3 = sum_2 - l_4[_S1154 + k_21] * l_4[j_6 * 6U + k_21];
+                float sum_3 = sum_2 - l_4[_S1158 + k_21] * l_4[j_6 * 6U + k_21];
                 k_21 = k_21 + 1U;
                 sum_2 = sum_3;
             }
@@ -6581,11 +6641,11 @@ void store_inverse_0(uint c_34, const array<float, int(36)> thread* a_13, Kernel
                     spd_0 = false;
                     break;
                 }
-                l_4[_S1154 + i_14] = sqrt(sum_2);
+                l_4[_S1158 + i_14] = sqrt(sum_2);
             }
             else
             {
-                l_4[_S1155] = sum_2 / l_4[j_6 * 6U + j_6];
+                l_4[_S1159] = sum_2 / l_4[j_6 * 6U + j_6];
             }
             j_6 = j_6 + 1U;
         }
@@ -6617,17 +6677,17 @@ void store_inverse_0(uint c_34, const array<float, int(36)> thread* a_13, Kernel
             {
                 break;
             }
-            uint _S1156 = k_21 * 6U + k_21;
-            float _S1157 = (*a_13)[_S1156];
-            if(((*a_13)[_S1156]) > 0.0f)
+            uint _S1160 = k_21 * 6U + k_21;
+            float _S1161 = (*a_13)[_S1160];
+            if(((*a_13)[_S1160]) > 0.0f)
             {
-                sum_2 = 1.0f / _S1157;
+                sum_2 = 1.0f / _S1161;
             }
             else
             {
                 sum_2 = 0.0f;
             }
-            inv_0[_S1156] = sum_2;
+            inv_0[_S1160] = sum_2;
             k_21 = k_21 + 1U;
         }
     }
@@ -6748,15 +6808,15 @@ void store_inverse_0(uint c_34, const array<float, int(36)> thread* a_13, Kernel
         {
             break;
         }
-        uint _S1158 = sv_0(c_34, 12U + j_6, kernelContext_76);
-        uint _S1159 = 4U * j_6;
-        *(kernelContext_76->scratch_0+_S1158) = packed_float4(float4(inv_0[_S1159], inv_0[_S1159 + 1U], inv_0[_S1159 + 2U], inv_0[_S1159 + 3U])) ;
+        uint _S1162 = sv_0(c_35, 12U + j_6, kernelContext_77);
+        uint _S1163 = 4U * j_6;
+        *(kernelContext_77->scratch_0+_S1162) = packed_float4(float4(inv_0[_S1163], inv_0[_S1163 + 1U], inv_0[_S1163 + 2U], inv_0[_S1163 + 3U])) ;
         j_6 = j_6 + 1U;
     }
     return;
 }
 
-void assemble_block_0(uint c_35, KernelContext_0 thread* kernelContext_77)
+void assemble_block_0(uint c_36, KernelContext_0 thread* kernelContext_78)
 {
     uint p_15;
     uint r_14;
@@ -6774,23 +6834,23 @@ void assemble_block_0(uint c_35, KernelContext_0 thread* kernelContext_77)
         a_14[k_22] = 0.0f;
         k_22 = k_22 + 1U;
     }
-    uint e_6 = kernelContext_77->index_0[c_35];
+    uint e_7 = kernelContext_78->index_0[c_36];
     for(;;)
     {
-        if(e_6 < (kernelContext_77->index_0)[c_35 + 1U])
+        if(e_7 < (kernelContext_78->index_0)[c_36 + 1U])
         {
         }
         else
         {
             break;
         }
-        uint entry_5 = kernelContext_77->index_0[e_6];
-        uint i_17 = entry_5 >> 1U;
-        bool _S1160 = (entry_5 & 1U) != 0U;
-        BondStatic_natural_0 device* _S1161 = kernelContext_77->bonds_0+i_17;
-        uint _S1162 = statics_bond_slot_0(i_17, kernelContext_77);
-        float4 _S1163 = float4(*(kernelContext_77->scratch_0+_S1162)) ;
-        float4 _S1164 = float4(*(kernelContext_77->scratch_0+(_S1162 + 1U))) ;
+        uint entry_6 = kernelContext_78->index_0[e_7];
+        uint i_17 = entry_6 >> 1U;
+        bool _S1164 = (entry_6 & 1U) != 0U;
+        BondStatic_natural_0 device* _S1165 = kernelContext_78->bonds_0+i_17;
+        uint _S1166 = statics_bond_slot_0(i_17, kernelContext_78);
+        float4 _S1167 = float4(*(kernelContext_78->scratch_0+_S1166)) ;
+        float4 _S1168 = float4(*(kernelContext_78->scratch_0+(_S1166 + 1U))) ;
         p_15 = 0U;
         for(;;)
         {
@@ -6801,75 +6861,75 @@ void assemble_block_0(uint c_35, KernelContext_0 thread* kernelContext_77)
             {
                 break;
             }
-            uint _S1165 = p_15 % 3U;
-            float3 t_16;
-            if(_S1165 == 0U)
+            uint _S1169 = p_15 % 3U;
+            float3 t_17;
+            if(_S1169 == 0U)
             {
-                t_16 = (float4(_S1161->t1_0) ).xyz;
+                t_17 = (float4(_S1165->t1_0) ).xyz;
             }
             else
             {
-                if(_S1165 == 1U)
+                if(_S1169 == 1U)
                 {
-                    t_16 = (float4(_S1161->t2_0) ).xyz;
+                    t_17 = (float4(_S1165->t2_0) ).xyz;
                 }
                 else
                 {
-                    t_16 = (float4(_S1161->normal_0) ).xyz;
+                    t_17 = (float4(_S1165->normal_0) ).xyz;
                 }
             }
-            bool _S1166 = p_15 < 3U;
+            bool _S1170 = p_15 < 3U;
             float3 row_u_0;
             float3 row_t_0;
-            if(_S1166)
+            if(_S1170)
             {
-                if(_S1160)
+                if(_S1164)
                 {
-                    row_u_0 = t_16;
+                    row_u_0 = t_17;
                 }
                 else
                 {
-                    row_u_0 = - t_16;
+                    row_u_0 = - t_17;
                 }
-                if(_S1160)
+                if(_S1164)
                 {
-                    row_t_0 = cross((float4(_S1161->rb_0) ).xyz, t_16);
+                    row_t_0 = cross((float4(_S1165->rb_0) ).xyz, t_17);
                 }
                 else
                 {
-                    row_t_0 = - cross((float4(_S1161->ra_0) ).xyz, t_16);
+                    row_t_0 = - cross((float4(_S1165->ra_0) ).xyz, t_17);
                 }
             }
             else
             {
-                float3 _S1167 = float3(0.0f) ;
-                if(_S1160)
+                float3 _S1171 = float3(0.0f) ;
+                if(_S1164)
                 {
-                    row_u_0 = t_16;
+                    row_u_0 = t_17;
                 }
                 else
                 {
-                    row_u_0 = - t_16;
+                    row_u_0 = - t_17;
                 }
-                float3 _S1168 = row_u_0;
-                row_u_0 = _S1167;
-                row_t_0 = _S1168;
+                float3 _S1172 = row_u_0;
+                row_u_0 = _S1171;
+                row_t_0 = _S1172;
             }
             float kp_0;
-            if(_S1166)
+            if(_S1170)
             {
-                kp_0 = _S1163[p_15];
+                kp_0 = _S1167[p_15];
             }
             else
             {
-                kp_0 = _S1164[p_15 - 3U];
+                kp_0 = _S1168[p_15 - 3U];
             }
             if(kp_0 == 0.0f)
             {
                 p_15 = p_15 + 1U;
                 continue;
             }
-            array<float, int(6)> _S1169 = { { row_u_0.x, row_u_0.y, row_u_0.z, row_t_0.x, row_t_0.y, row_t_0.z } };
+            array<float, int(6)> _S1173 = { { row_u_0.x, row_u_0.y, row_u_0.z, row_t_0.x, row_t_0.y, row_t_0.z } };
             r_14 = 0U;
             for(;;)
             {
@@ -6890,16 +6950,16 @@ void assemble_block_0(uint c_35, KernelContext_0 thread* kernelContext_77)
                     {
                         break;
                     }
-                    a_14[r_14 * 6U + q_17] = a_14[r_14 * 6U + q_17] + kp_0 * _S1169[r_14] * _S1169[q_17];
+                    a_14[r_14 * 6U + q_17] = a_14[r_14 * 6U + q_17] + kp_0 * _S1173[r_14] * _S1173[q_17];
                     q_17 = q_17 + 1U;
                 }
                 r_14 = r_14 + 1U;
             }
             p_15 = p_15 + 1U;
         }
-        e_6 = e_6 + 1U;
+        e_7 = e_7 + 1U;
     }
-    uint _S1170 = fixed_mask_0(c_35, kernelContext_77);
+    uint _S1174 = fixed_mask_0(c_36, kernelContext_78);
     p_15 = 0U;
     for(;;)
     {
@@ -6910,7 +6970,7 @@ void assemble_block_0(uint c_35, KernelContext_0 thread* kernelContext_77)
         {
             break;
         }
-        if((_S1170 & (1U << p_15)) != 0U)
+        if((_S1174 & (1U << p_15)) != 0U)
         {
             r_14 = 0U;
             for(;;)
@@ -6946,25 +7006,25 @@ void assemble_block_0(uint c_35, KernelContext_0 thread* kernelContext_77)
         }
         p_15 = p_15 + 1U;
     }
-    thread array<float, int(36)> _S1171 = a_14;
-    store_inverse_0(c_35, &_S1171, kernelContext_77);
+    thread array<float, int(36)> _S1175 = a_14;
+    store_inverse_0(c_36, &_S1175, kernelContext_78);
     return;
 }
 
-float block_get_0(uint c_36, uint i_18, uint j_7, KernelContext_0 thread* kernelContext_78)
+float block_get_0(uint c_37, uint i_18, uint j_7, KernelContext_0 thread* kernelContext_79)
 {
     uint k_23 = i_18 * 6U + j_7;
-    uint _S1172 = sv_0(c_36, 12U + k_23 / 4U, kernelContext_78);
-    return (*(kernelContext_78->scratch_0+_S1172))[k_23 % 4U];
+    uint _S1176 = sv_0(c_37, 12U + k_23 / 4U, kernelContext_79);
+    return (*(kernelContext_79->scratch_0+_S1176))[k_23 % 4U];
 }
 
-void precondition_0(uint c_37, KernelContext_0 thread* kernelContext_79)
+void precondition_0(uint c_38, KernelContext_0 thread* kernelContext_80)
 {
-    uint _S1173 = sv_0(c_37, 4U, kernelContext_79);
-    float4 _S1174 = float4(*(kernelContext_79->scratch_0+_S1173)) ;
-    uint _S1175 = sv_0(c_37, 5U, kernelContext_79);
-    float4 _S1176 = float4(*(kernelContext_79->scratch_0+_S1175)) ;
-    array<float, int(6)> _S1177 = { { _S1174.x, _S1174.y, _S1174.z, _S1176.x, _S1176.y, _S1176.z } };
+    uint _S1177 = sv_0(c_38, 4U, kernelContext_80);
+    float4 _S1178 = float4(*(kernelContext_80->scratch_0+_S1177)) ;
+    uint _S1179 = sv_0(c_38, 5U, kernelContext_80);
+    float4 _S1180 = float4(*(kernelContext_80->scratch_0+_S1179)) ;
+    array<float, int(6)> _S1181 = { { _S1178.x, _S1178.y, _S1178.z, _S1180.x, _S1180.y, _S1180.z } };
     thread array<float, int(6)> z_1;
     uint i_19 = 0U;
     for(;;)
@@ -6987,102 +7047,102 @@ void precondition_0(uint c_37, KernelContext_0 thread* kernelContext_79)
             {
                 break;
             }
-            float _S1178 = block_get_0(c_37, i_19, j_8, kernelContext_79);
-            float s_11 = s_10 + _S1178 * _S1177[j_8];
+            float _S1182 = block_get_0(c_38, i_19, j_8, kernelContext_80);
+            float s_11 = s_10 + _S1182 * _S1181[j_8];
             j_8 = j_8 + 1U;
             s_10 = s_11;
         }
         z_1[i_19] = s_10;
         i_19 = i_19 + 1U;
     }
-    uint _S1179 = sv_0(c_37, 6U, kernelContext_79);
-    *(kernelContext_79->scratch_0+_S1179) = packed_float4(float4(z_1[int(0)], z_1[int(1)], z_1[int(2)], 0.0f)) ;
-    uint _S1180 = sv_0(c_37, 7U, kernelContext_79);
-    *(kernelContext_79->scratch_0+_S1180) = packed_float4(float4(z_1[int(3)], z_1[int(4)], z_1[int(5)], 0.0f)) ;
+    uint _S1183 = sv_0(c_38, 6U, kernelContext_80);
+    *(kernelContext_80->scratch_0+_S1183) = packed_float4(float4(z_1[int(0)], z_1[int(1)], z_1[int(2)], 0.0f)) ;
+    uint _S1184 = sv_0(c_38, 7U, kernelContext_80);
+    *(kernelContext_80->scratch_0+_S1184) = packed_float4(float4(z_1[int(3)], z_1[int(4)], z_1[int(5)], 0.0f)) ;
     return;
 }
 
-void project_displacement_slot_0(uint tid_16, const Island_natural_0 thread* isl_24, uint slot_5, KernelContext_0 thread* kernelContext_80)
+void project_displacement_slot_0(uint tid_16, const Island_natural_0 thread* isl_24, uint slot_5, KernelContext_0 thread* kernelContext_81)
 {
-    uint _S1181;
-    float3 _S1182 = float3(0.0f) ;
-    thread float3 p_16 = _S1182;
-    thread float3 l_5 = _S1182;
-    uint4 _S1183 = uint4(isl_24->range_0) ;
-    uint _S1184 = _S1183.x + tid_16;
-    uint c_38 = _S1184;
+    uint _S1185;
+    float3 _S1186 = float3(0.0f) ;
+    thread float3 p_16 = _S1186;
+    thread float3 l_5 = _S1186;
+    uint4 _S1187 = uint4(isl_24->range_0) ;
+    uint _S1188 = _S1187.x + tid_16;
+    uint c_39 = _S1188;
     for(;;)
     {
-        uint _S1185 = _S1183.y;
-        _S1181 = _S1185;
-        if(c_38 < _S1185)
+        uint _S1189 = _S1187.y;
+        _S1185 = _S1189;
+        if(c_39 < _S1189)
         {
         }
         else
         {
             break;
         }
-        ChunkStatic_natural_0 device* _S1186 = kernelContext_80->chunks_0+c_38;
-        uint _S1187 = sv_0(c_38, slot_5, kernelContext_80);
-        float3 u_6 = (float4(*(kernelContext_80->scratch_0+_S1187)) ).xyz;
-        uint _S1188 = sv_0(c_38, slot_5 + 1U, kernelContext_80);
-        float3 th_7 = (float4(*(kernelContext_80->scratch_0+_S1188)) ).xyz;
-        float4 _S1189 = float4(_S1186->center_0) ;
-        float3 r_15 = _S1189.xyz - (float4(isl_24->com_0) ).xyz;
-        float3 _S1190 = float3(_S1189.w) ;
-        p_16 = p_16 + u_6 * _S1190;
-        l_5 = l_5 + (cross(r_15, u_6) * _S1190 + rows_mul_0(float4(_S1186->inertia0_1) , float4(_S1186->inertia1_1) , float4(_S1186->inertia2_1) , th_7));
-        c_38 = c_38 + 256U;
+        ChunkStatic_natural_0 device* _S1190 = kernelContext_81->chunks_0+c_39;
+        uint _S1191 = sv_0(c_39, slot_5, kernelContext_81);
+        float3 u_6 = (float4(*(kernelContext_81->scratch_0+_S1191)) ).xyz;
+        uint _S1192 = sv_0(c_39, slot_5 + 1U, kernelContext_81);
+        float3 th_7 = (float4(*(kernelContext_81->scratch_0+_S1192)) ).xyz;
+        float4 _S1193 = float4(_S1190->center_0) ;
+        float3 r_15 = _S1193.xyz - (float4(isl_24->com_0) ).xyz;
+        float3 _S1194 = float3(_S1193.w) ;
+        p_16 = p_16 + u_6 * _S1194;
+        l_5 = l_5 + (cross(r_15, u_6) * _S1194 + rows_mul_0(float4(_S1190->inertia0_1) , float4(_S1190->inertia1_1) , float4(_S1190->inertia2_1) , th_7));
+        c_39 = c_39 + 256U;
     }
-    group_sum3_0(tid_16, &p_16, &l_5, kernelContext_80);
-    float4 _S1191 = float4(isl_24->com_0) ;
-    float3 _S1192 = p_16 / float3(_S1191.w) ;
-    float3 _S1193 = rows_mul_0(float4(isl_24->inv0_0) , float4(isl_24->inv1_0) , float4(isl_24->inv2_0) , l_5);
-    c_38 = _S1184;
+    group_sum3_0(tid_16, &p_16, &l_5, kernelContext_81);
+    float4 _S1195 = float4(isl_24->com_0) ;
+    float3 _S1196 = p_16 / float3(_S1195.w) ;
+    float3 _S1197 = rows_mul_0(float4(isl_24->inv0_0) , float4(isl_24->inv1_0) , float4(isl_24->inv2_0) , l_5);
+    c_39 = _S1188;
     for(;;)
     {
-        if(c_38 < _S1181)
+        if(c_39 < _S1185)
         {
         }
         else
         {
             break;
         }
-        float3 r_16 = (float4((kernelContext_80->chunks_0+c_38)->center_0) ).xyz - _S1191.xyz;
-        uint _S1194 = sv_0(c_38, slot_5, kernelContext_80);
-        *(kernelContext_80->scratch_0+_S1194) = packed_float4(float4((float4(*(kernelContext_80->scratch_0+_S1194)) ).xyz - _S1192 - cross(_S1193, r_16), 0.0f)) ;
-        uint _S1195 = sv_0(c_38, slot_5 + 1U, kernelContext_80);
-        *(kernelContext_80->scratch_0+_S1195) = packed_float4(float4((float4(*(kernelContext_80->scratch_0+_S1195)) ).xyz - _S1193, 0.0f)) ;
-        c_38 = c_38 + 256U;
+        float3 r_16 = (float4((kernelContext_81->chunks_0+c_39)->center_0) ).xyz - _S1195.xyz;
+        uint _S1198 = sv_0(c_39, slot_5, kernelContext_81);
+        *(kernelContext_81->scratch_0+_S1198) = packed_float4(float4((float4(*(kernelContext_81->scratch_0+_S1198)) ).xyz - _S1196 - cross(_S1197, r_16), 0.0f)) ;
+        uint _S1199 = sv_0(c_39, slot_5 + 1U, kernelContext_81);
+        *(kernelContext_81->scratch_0+_S1199) = packed_float4(float4((float4(*(kernelContext_81->scratch_0+_S1199)) ).xyz - _S1197, 0.0f)) ;
+        c_39 = c_39 + 256U;
     }
     threadgroup_barrier(mem_flags::mem_device | mem_flags::mem_threadgroup | mem_flags::mem_texture | mem_flags::mem_threadgroup_imageblock);
     return;
 }
 
-uint statics_result_slot_0(uint island_1, KernelContext_0 thread* kernelContext_81)
+uint statics_result_slot_0(uint island_1, KernelContext_0 thread* kernelContext_82)
 {
-    return kernelContext_81->params_0->statics_base_0 + 23U * kernelContext_81->params_0->chunk_count_0 + 2U * kernelContext_81->params_0->statics_bonds_0 + island_1;
+    return kernelContext_82->params_0->statics_base_0 + 23U * kernelContext_82->params_0->chunk_count_0 + 2U * kernelContext_82->params_0->statics_bonds_0 + island_1;
 }
 
-void write_bond_loads_0(uint _S1196, uint _S1197, float3 _S1198, float3 _S1199, float _S1200, KernelContext_0 thread* kernelContext_82)
+void write_bond_loads_0(uint _S1200, uint _S1201, float3 _S1202, float3 _S1203, float _S1204, KernelContext_0 thread* kernelContext_83)
 {
-    BondStatic_natural_0 device* _S1201 = kernelContext_82->bonds_0+_S1197;
-    float3 _S1202 = to_body_0(_S1197, _S1198, kernelContext_82);
-    float3 _S1203 = to_body_0(_S1197, _S1199, kernelContext_82);
-    uint _S1204 = 3U * _S1196;
-    *(kernelContext_82->scratch_0+_S1204) = packed_float4(float4(_S1202, _S1200)) ;
-    *(kernelContext_82->scratch_0+(_S1204 + 1U)) = packed_float4(float4(_S1203 + cross((float4(_S1201->ra_0) ).xyz, _S1202), 0.0f)) ;
-    *(kernelContext_82->scratch_0+(_S1204 + 2U)) = packed_float4(float4(- _S1203 + cross((float4(_S1201->rb_0) ).xyz, - _S1202), 0.0f)) ;
+    BondStatic_natural_0 device* _S1205 = kernelContext_83->bonds_0+_S1201;
+    float3 _S1206 = to_body_0(_S1201, _S1202, kernelContext_83);
+    float3 _S1207 = to_body_0(_S1201, _S1203, kernelContext_83);
+    uint _S1208 = 3U * _S1200;
+    *(kernelContext_83->scratch_0+_S1208) = packed_float4(float4(_S1206, _S1204)) ;
+    *(kernelContext_83->scratch_0+(_S1208 + 1U)) = packed_float4(float4(_S1207 + cross((float4(_S1205->ra_0) ).xyz, _S1206), 0.0f)) ;
+    *(kernelContext_83->scratch_0+(_S1208 + 2U)) = packed_float4(float4(- _S1207 + cross((float4(_S1205->rb_0) ).xyz, - _S1206), 0.0f)) ;
     return;
 }
 
-void bond_kinematics_0(uint _S1205, float3 _S1206, float3 _S1207, float3 _S1208, float3 _S1209, float3 thread* _S1210, float3 thread* _S1211, KernelContext_0 thread* kernelContext_83)
+void bond_kinematics_0(uint _S1209, float3 _S1210, float3 _S1211, float3 _S1212, float3 _S1213, float3 thread* _S1214, float3 thread* _S1215, KernelContext_0 thread* kernelContext_84)
 {
-    BondStatic_natural_0 device* _S1212 = kernelContext_83->bonds_0+_S1205;
-    float3 _S1213 = to_local_0(_S1205, _S1208 + cross(_S1209, (float4(_S1212->rb_0) ).xyz) - (_S1206 + cross(_S1207, (float4(_S1212->ra_0) ).xyz)), kernelContext_83);
-    *_S1210 = _S1213;
-    float3 _S1214 = to_local_0(_S1205, _S1209 - _S1207, kernelContext_83);
-    *_S1211 = _S1214;
+    BondStatic_natural_0 device* _S1216 = kernelContext_84->bonds_0+_S1209;
+    float3 _S1217 = to_local_0(_S1209, _S1212 + cross(_S1213, (float4(_S1216->rb_0) ).xyz) - (_S1210 + cross(_S1211, (float4(_S1216->ra_0) ).xyz)), kernelContext_84);
+    *_S1214 = _S1217;
+    float3 _S1218 = to_local_0(_S1209, _S1213 - _S1211, kernelContext_84);
+    *_S1215 = _S1218;
     return;
 }
 
@@ -7090,79 +7150,79 @@ void bond_kinematics_0(uint _S1205, float3 _S1206, float3 _S1207, float3 _S1208,
 {
     uint i_20;
     bool converged_0;
-    uint c_39;
-    thread KernelContext_0 kernelContext_84;
-    (&kernelContext_84)->params_0 = params_13;
-    (&kernelContext_84)->islands_0 = islands_13;
-    (&kernelContext_84)->index_0 = index_13;
-    (&kernelContext_84)->chunks_0 = chunks_13;
-    (&kernelContext_84)->state_0 = state_15;
-    (&kernelContext_84)->scratch_0 = scratch_13;
-    (&kernelContext_84)->contact_state_0 = contact_state_13;
-    (&kernelContext_84)->loads_0 = loads_13;
-    (&kernelContext_84)->impactors_0 = impactors_13;
-    (&kernelContext_84)->bonds_0 = bonds_13;
-    (&kernelContext_84)->bond_dyn_0 = bond_dyn_13;
-    (&kernelContext_84)->materials_0 = materials_13;
+    uint c_40;
+    thread KernelContext_0 kernelContext_85;
+    (&kernelContext_85)->params_0 = params_13;
+    (&kernelContext_85)->islands_0 = islands_13;
+    (&kernelContext_85)->index_0 = index_13;
+    (&kernelContext_85)->chunks_0 = chunks_13;
+    (&kernelContext_85)->state_0 = state_15;
+    (&kernelContext_85)->scratch_0 = scratch_13;
+    (&kernelContext_85)->contact_state_0 = contact_state_13;
+    (&kernelContext_85)->loads_0 = loads_13;
+    (&kernelContext_85)->impactors_0 = impactors_13;
+    (&kernelContext_85)->bonds_0 = bonds_13;
+    (&kernelContext_85)->bond_dyn_0 = bond_dyn_13;
+    (&kernelContext_85)->materials_0 = materials_13;
     threadgroup array<float4, int(256)> g_red_a_13;
-    (&kernelContext_84)->g_red_a_0 = &g_red_a_13;
+    (&kernelContext_85)->g_red_a_0 = &g_red_a_13;
     threadgroup array<float4, int(256)> g_red_b_13;
-    (&kernelContext_84)->g_red_b_0 = &g_red_b_13;
+    (&kernelContext_85)->g_red_b_0 = &g_red_b_13;
     threadgroup uint g_run_13;
-    (&kernelContext_84)->g_run_0 = &g_run_13;
+    (&kernelContext_85)->g_run_0 = &g_run_13;
     threadgroup uint g_halt_13;
-    (&kernelContext_84)->g_halt_0 = &g_halt_13;
+    (&kernelContext_85)->g_halt_0 = &g_halt_13;
     threadgroup uint g_wide_run_13;
-    (&kernelContext_84)->g_wide_run_0 = &g_wide_run_13;
+    (&kernelContext_85)->g_wide_run_0 = &g_wide_run_13;
     uint tid_17 = thread_9.x;
-    uint _S1215 = group_9.x;
-    thread Island_natural_0 _S1216 = *(islands_13+_S1215);
-    uint4 _S1217 = uint4((&_S1216)->info_0) ;
-    uint _S1218 = _S1217.z;
-    if((_S1218 & 8U) == 0U)
+    uint _S1219 = group_9.x;
+    thread Island_natural_0 _S1220 = *(islands_13+_S1219);
+    uint4 _S1221 = uint4((&_S1220)->info_0) ;
+    uint _S1222 = _S1221.z;
+    if((_S1222 & 8U) == 0U)
     {
         return;
     }
-    bool free_0 = ((_S1217.x) & 1U) == 0U;
-    uint4 _S1219 = uint4((&_S1216)->range_0) ;
-    uint c0_1 = _S1219.x;
-    uint c1_1 = _S1219.y;
-    uint b0_0 = _S1219.z;
-    uint _S1220 = _S1219.w;
-    uint _S1221 = c0_1 + tid_17;
-    uint c_40 = _S1221;
+    bool free_0 = ((_S1221.x) & 1U) == 0U;
+    uint4 _S1223 = uint4((&_S1220)->range_0) ;
+    uint c0_1 = _S1223.x;
+    uint c1_1 = _S1223.y;
+    uint b0_0 = _S1223.z;
+    uint _S1224 = _S1223.w;
+    uint _S1225 = c0_1 + tid_17;
+    uint c_41 = _S1225;
     for(;;)
     {
-        if(c_40 < c1_1)
+        if(c_41 < c1_1)
         {
         }
         else
         {
             break;
         }
-        uint _S1222 = sv_0(c_40, 21U, &kernelContext_84);
-        packed_float4 _S1223 = packed_float4(float4(0.0f) ) ;
-        *((&kernelContext_84)->scratch_0+_S1222) = _S1223;
-        uint _S1224 = sv_0(c_40, 22U, &kernelContext_84);
-        *((&kernelContext_84)->scratch_0+_S1224) = _S1223;
-        c_40 = c_40 + 256U;
+        uint _S1226 = sv_0(c_41, 21U, &kernelContext_85);
+        packed_float4 _S1227 = packed_float4(float4(0.0f) ) ;
+        *((&kernelContext_85)->scratch_0+_S1226) = _S1227;
+        uint _S1228 = sv_0(c_41, 22U, &kernelContext_85);
+        *((&kernelContext_85)->scratch_0+_S1228) = _S1227;
+        c_41 = c_41 + 256U;
     }
     threadgroup_barrier(mem_flags::mem_device | mem_flags::mem_threadgroup | mem_flags::mem_texture | mem_flags::mem_threadgroup_imageblock);
     if(free_0)
     {
-        project_load_slot_0(tid_17, &_S1216, 0U, &kernelContext_84);
+        project_load_slot_0(tid_17, &_S1220, 0U, &kernelContext_85);
     }
-    float _S1225 = island_dot_0(tid_17, c0_1, c1_1, 0U, 0U, &kernelContext_84);
-    float _S1226 = max(sqrt(_S1225), 1.00000000317107685e-30f);
-    float _S1227 = (&kernelContext_84)->params_0->statics_tol_0;
-    uint _S1228 = min((&kernelContext_84)->params_0->statics_cg_0, 20U * (c1_1 - c0_1) * 6U + 200U);
+    float _S1229 = island_dot_0(tid_17, c0_1, c1_1, 0U, 0U, &kernelContext_85);
+    float _S1230 = max(sqrt(_S1229), 1.00000000317107685e-30f);
+    float _S1231 = (&kernelContext_85)->params_0->statics_tol_0;
+    uint _S1232 = min((&kernelContext_85)->params_0->statics_cg_0, 20U * (c1_1 - c0_1) * 6U + 200U);
     float previous_2 = 1.00000001504746622e+30f;
     float residual_0 = 0.0f;
     uint newton_0 = 0U;
     uint cg_total_0 = 0U;
     for(;;)
     {
-        if(newton_0 < ((&kernelContext_84)->params_0->statics_newton_0))
+        if(newton_0 < ((&kernelContext_85)->params_0->statics_newton_0))
         {
         }
         else
@@ -7170,26 +7230,29 @@ void bond_kinematics_0(uint _S1205, float3 _S1206, float3 _S1207, float3 _S1208,
             converged_0 = false;
             break;
         }
-        uint _S1229 = b0_0 + tid_17;
-        i_20 = _S1229;
+        uint _S1233 = b0_0 + tid_17;
+        i_20 = _S1233;
         for(;;)
         {
-            if(i_20 < _S1220)
+            if(i_20 < _S1224)
             {
             }
             else
             {
                 break;
             }
-            JointResponse_0 _S1230 = static_response_0(i_20, &kernelContext_84);
-            write_bond_loads_0(i_20, i_20, _S1230.force_lin_1, _S1230.force_ang_1, 0.0f, &kernelContext_84);
+            JointResponse_0 _S1234 = static_response_0(i_20, &kernelContext_85);
+            write_bond_loads_0(i_20, i_20, _S1234.force_lin_1, _S1234.force_ang_1, 0.0f, &kernelContext_85);
             i_20 = i_20 + 256U;
         }
         threadgroup_barrier(mem_flags::mem_device | mem_flags::mem_threadgroup | mem_flags::mem_texture | mem_flags::mem_threadgroup_imageblock);
-        c_40 = _S1221;
+        float4 _S1235 = float4(0.0f) ;
+        thread float4 magnitude_0 = _S1235;
+        thread float4 unused_m_0 = _S1235;
+        c_41 = _S1225;
         for(;;)
         {
-            if(c_40 < c1_1)
+            if(c_41 < c1_1)
             {
             }
             else
@@ -7198,34 +7261,37 @@ void bond_kinematics_0(uint _S1205, float3 _S1206, float3 _S1207, float3 _S1208,
             }
             thread float3 fi_4;
             thread float3 mi_7;
-            gather_loads_0(c_40, &fi_4, &mi_7, &kernelContext_84);
-            uint _S1231 = sv_0(c_40, 0U, &kernelContext_84);
-            thread float4 r_lin_0 = float4((float4(*((&kernelContext_84)->scratch_0+_S1231)) ).xyz + fi_4, 0.0f);
-            uint _S1232 = sv_0(c_40, 1U, &kernelContext_84);
-            thread float4 r_ang_0 = float4((float4(*((&kernelContext_84)->scratch_0+_S1232)) ).xyz + mi_7, 0.0f);
-            uint _S1233 = fixed_mask_0(c_40, &kernelContext_84);
-            float4 _S1234 = float4(0.0f) ;
-            hold_0(_S1233, &r_lin_0, &r_ang_0, _S1234, _S1234);
-            uint _S1235 = sv_0(c_40, 4U, &kernelContext_84);
-            *((&kernelContext_84)->scratch_0+_S1235) = packed_float4(r_lin_0) ;
-            uint _S1236 = sv_0(c_40, 5U, &kernelContext_84);
-            *((&kernelContext_84)->scratch_0+_S1236) = packed_float4(r_ang_0) ;
-            c_40 = c_40 + 256U;
+            gather_loads_0(c_41, &fi_4, &mi_7, &kernelContext_85);
+            float _S1236 = bond_load_magnitude2_0(c_41, &kernelContext_85);
+            magnitude_0.x = magnitude_0.x + _S1236;
+            uint _S1237 = sv_0(c_41, 0U, &kernelContext_85);
+            thread float4 r_lin_0 = float4((float4(*((&kernelContext_85)->scratch_0+_S1237)) ).xyz + fi_4, 0.0f);
+            uint _S1238 = sv_0(c_41, 1U, &kernelContext_85);
+            thread float4 r_ang_0 = float4((float4(*((&kernelContext_85)->scratch_0+_S1238)) ).xyz + mi_7, 0.0f);
+            uint _S1239 = fixed_mask_0(c_41, &kernelContext_85);
+            hold_0(_S1239, &r_lin_0, &r_ang_0, _S1235, _S1235);
+            uint _S1240 = sv_0(c_41, 4U, &kernelContext_85);
+            *((&kernelContext_85)->scratch_0+_S1240) = packed_float4(r_lin_0) ;
+            uint _S1241 = sv_0(c_41, 5U, &kernelContext_85);
+            *((&kernelContext_85)->scratch_0+_S1241) = packed_float4(r_ang_0) ;
+            c_41 = c_41 + 256U;
         }
         threadgroup_barrier(mem_flags::mem_device | mem_flags::mem_threadgroup | mem_flags::mem_texture | mem_flags::mem_threadgroup_imageblock);
+        group_sum2_0(tid_17, &magnitude_0, &unused_m_0, &kernelContext_85);
         if(free_0)
         {
-            project_load_slot_0(tid_17, &_S1216, 4U, &kernelContext_84);
+            project_load_slot_0(tid_17, &_S1220, 4U, &kernelContext_85);
         }
-        float _S1237 = island_dot_0(tid_17, c0_1, c1_1, 4U, 4U, &kernelContext_84);
-        float residual_1 = sqrt(_S1237) / _S1226;
-        if(residual_1 <= _S1227)
+        float _S1242 = island_dot_0(tid_17, c0_1, c1_1, 4U, 4U, &kernelContext_85);
+        float residual_1 = sqrt(_S1242) / _S1230;
+        float _S1243 = max(0.00100000004749745f, 3.83999986297567375e-06f * sqrt(magnitude_0.x) / _S1230);
+        if(residual_1 <= _S1231)
         {
             converged_0 = true;
         }
         else
         {
-            if(residual_1 <= 0.00100000004749745f)
+            if(residual_1 <= _S1243)
             {
                 converged_0 = residual_1 > (0.5f * previous_2);
             }
@@ -7240,53 +7306,34 @@ void bond_kinematics_0(uint _S1205, float3 _S1206, float3 _S1207, float3 _S1208,
             converged_0 = true;
             break;
         }
-        uint i_21 = _S1229;
+        uint i_21 = _S1233;
         for(;;)
         {
-            if(i_21 < _S1220)
+            if(i_21 < _S1224)
             {
             }
             else
             {
                 break;
             }
-            BondStatic_natural_0 device* _S1238 = (&kernelContext_84)->bonds_0+i_21;
+            BondStatic_natural_0 device* _S1244 = (&kernelContext_85)->bonds_0+i_21;
             thread float3 d_lin_4;
             thread float3 d_ang_3;
-            static_kinematics_0(i_21, &d_lin_4, &d_ang_3, &kernelContext_84);
-            thread JointBond_natural_0 _S1239 = _S1238->law_0;
-            thread JointState_0 _S1240 = ((&kernelContext_84)->bond_dyn_0+i_21)->js_0;
+            static_kinematics_0(i_21, &d_lin_4, &d_ang_3, &kernelContext_85);
+            thread JointBond_natural_0 _S1245 = _S1244->law_0;
+            thread JointState_0 _S1246 = ((&kernelContext_85)->bond_dyn_0+i_21)->js_0;
             thread float3 f_lin_2;
             thread float3 f_ang_2;
-            secant_factors_0(&_S1239, &_S1240, d_lin_4, &f_lin_2, &f_ang_2);
-            float4 _S1241 = float4((&_S1239)->stiff0_0) ;
-            uint _S1242 = statics_bond_slot_0(i_21, &kernelContext_84);
-            float _S1243 = _S1241.y;
-            *((&kernelContext_84)->scratch_0+_S1242) = packed_float4(float4(_S1243 * f_lin_2.x, _S1243 * f_lin_2.y, _S1241.x * f_lin_2.z, 0.0f)) ;
-            *((&kernelContext_84)->scratch_0+(_S1242 + 1U)) = packed_float4(float4(_S1241.z * f_ang_2.x, _S1241.w * f_ang_2.y, (float4((&_S1239)->stiff1_0) ).x * f_ang_2.z, 0.0f)) ;
+            secant_factors_0(&_S1245, &_S1246, d_lin_4, &f_lin_2, &f_ang_2);
+            float4 _S1247 = float4((&_S1245)->stiff0_0) ;
+            uint _S1248 = statics_bond_slot_0(i_21, &kernelContext_85);
+            float _S1249 = _S1247.y;
+            *((&kernelContext_85)->scratch_0+_S1248) = packed_float4(float4(_S1249 * f_lin_2.x, _S1249 * f_lin_2.y, _S1247.x * f_lin_2.z, 0.0f)) ;
+            *((&kernelContext_85)->scratch_0+(_S1248 + 1U)) = packed_float4(float4(_S1247.z * f_ang_2.x, _S1247.w * f_ang_2.y, (float4((&_S1245)->stiff1_0) ).x * f_ang_2.z, 0.0f)) ;
             i_21 = i_21 + 256U;
         }
         threadgroup_barrier(mem_flags::mem_device | mem_flags::mem_threadgroup | mem_flags::mem_texture | mem_flags::mem_threadgroup_imageblock);
-        uint c_41 = _S1221;
-        for(;;)
-        {
-            if(c_41 < c1_1)
-            {
-            }
-            else
-            {
-                break;
-            }
-            assemble_block_0(c_41, &kernelContext_84);
-            uint _S1244 = sv_0(c_41, 2U, &kernelContext_84);
-            packed_float4 _S1245 = packed_float4(float4(0.0f) ) ;
-            *((&kernelContext_84)->scratch_0+_S1244) = _S1245;
-            uint _S1246 = sv_0(c_41, 3U, &kernelContext_84);
-            *((&kernelContext_84)->scratch_0+_S1246) = _S1245;
-            c_41 = c_41 + 256U;
-        }
-        threadgroup_barrier(mem_flags::mem_device | mem_flags::mem_threadgroup | mem_flags::mem_texture | mem_flags::mem_threadgroup_imageblock);
-        uint c_42 = _S1221;
+        uint c_42 = _S1225;
         for(;;)
         {
             if(c_42 < c1_1)
@@ -7296,15 +7343,16 @@ void bond_kinematics_0(uint _S1205, float3 _S1206, float3 _S1207, float3 _S1208,
             {
                 break;
             }
-            precondition_0(c_42, &kernelContext_84);
+            assemble_block_0(c_42, &kernelContext_85);
+            uint _S1250 = sv_0(c_42, 2U, &kernelContext_85);
+            packed_float4 _S1251 = packed_float4(_S1235) ;
+            *((&kernelContext_85)->scratch_0+_S1250) = _S1251;
+            uint _S1252 = sv_0(c_42, 3U, &kernelContext_85);
+            *((&kernelContext_85)->scratch_0+_S1252) = _S1251;
             c_42 = c_42 + 256U;
         }
         threadgroup_barrier(mem_flags::mem_device | mem_flags::mem_threadgroup | mem_flags::mem_texture | mem_flags::mem_threadgroup_imageblock);
-        if(free_0)
-        {
-            project_displacement_slot_0(tid_17, &_S1216, 6U, &kernelContext_84);
-        }
-        uint c_43 = _S1221;
+        uint c_43 = _S1225;
         for(;;)
         {
             if(c_43 < c1_1)
@@ -7314,35 +7362,53 @@ void bond_kinematics_0(uint _S1205, float3 _S1206, float3 _S1207, float3 _S1208,
             {
                 break;
             }
-            uint _S1247 = sv_0(c_43, 8U, &kernelContext_84);
-            packed_float4 device* _S1248 = (&kernelContext_84)->scratch_0+_S1247;
-            uint _S1249 = sv_0(c_43, 6U, &kernelContext_84);
-            *_S1248 = packed_float4(float4(*((&kernelContext_84)->scratch_0+_S1249)) ) ;
-            uint _S1250 = sv_0(c_43, 9U, &kernelContext_84);
-            packed_float4 device* _S1251 = (&kernelContext_84)->scratch_0+_S1250;
-            uint _S1252 = sv_0(c_43, 7U, &kernelContext_84);
-            *_S1251 = packed_float4(float4(*((&kernelContext_84)->scratch_0+_S1252)) ) ;
+            precondition_0(c_43, &kernelContext_85);
             c_43 = c_43 + 256U;
         }
         threadgroup_barrier(mem_flags::mem_device | mem_flags::mem_threadgroup | mem_flags::mem_texture | mem_flags::mem_threadgroup_imageblock);
-        float _S1253 = island_dot_0(tid_17, c0_1, c1_1, 4U, 6U, &kernelContext_84);
-        float _S1254 = island_dot_0(tid_17, c0_1, c1_1, 4U, 4U, &kernelContext_84);
-        float _S1255 = sqrt(_S1254);
-        float rz_0 = _S1253;
+        if(free_0)
+        {
+            project_displacement_slot_0(tid_17, &_S1220, 6U, &kernelContext_85);
+        }
+        uint c_44 = _S1225;
+        for(;;)
+        {
+            if(c_44 < c1_1)
+            {
+            }
+            else
+            {
+                break;
+            }
+            uint _S1253 = sv_0(c_44, 8U, &kernelContext_85);
+            packed_float4 device* _S1254 = (&kernelContext_85)->scratch_0+_S1253;
+            uint _S1255 = sv_0(c_44, 6U, &kernelContext_85);
+            *_S1254 = packed_float4(float4(*((&kernelContext_85)->scratch_0+_S1255)) ) ;
+            uint _S1256 = sv_0(c_44, 9U, &kernelContext_85);
+            packed_float4 device* _S1257 = (&kernelContext_85)->scratch_0+_S1256;
+            uint _S1258 = sv_0(c_44, 7U, &kernelContext_85);
+            *_S1257 = packed_float4(float4(*((&kernelContext_85)->scratch_0+_S1258)) ) ;
+            c_44 = c_44 + 256U;
+        }
+        threadgroup_barrier(mem_flags::mem_device | mem_flags::mem_threadgroup | mem_flags::mem_texture | mem_flags::mem_threadgroup_imageblock);
+        float _S1259 = island_dot_0(tid_17, c0_1, c1_1, 4U, 6U, &kernelContext_85);
+        float _S1260 = island_dot_0(tid_17, c0_1, c1_1, 4U, 4U, &kernelContext_85);
+        float _S1261 = sqrt(_S1260);
+        float rz_0 = _S1259;
         uint k_24 = 0U;
         uint cg_total_1 = cg_total_0;
         for(;;)
         {
-            bool _S1256;
-            if(k_24 < _S1228)
+            bool _S1262;
+            if(k_24 < _S1232)
             {
-                _S1256 = _S1255 > 0.0f;
+                _S1262 = _S1261 > 0.0f;
             }
             else
             {
-                _S1256 = false;
+                _S1262 = false;
             }
-            if(_S1256)
+            if(_S1262)
             {
             }
             else
@@ -7350,38 +7416,38 @@ void bond_kinematics_0(uint _S1205, float3 _S1206, float3 _S1207, float3 _S1208,
                 cg_total_0 = cg_total_1;
                 break;
             }
-            uint i_22 = _S1229;
+            uint i_22 = _S1233;
             for(;;)
             {
-                if(i_22 < _S1220)
+                if(i_22 < _S1224)
                 {
                 }
                 else
                 {
                     break;
                 }
-                uint4 _S1257 = uint4(((&kernelContext_84)->bonds_0+i_22)->law_0.ids_0) ;
-                uint ca_2 = _S1257.y;
-                uint cb_2 = _S1257.z;
-                uint _S1258 = sv_0(ca_2, 8U, &kernelContext_84);
-                float3 _S1259 = (float4(*((&kernelContext_84)->scratch_0+_S1258)) ).xyz;
-                uint _S1260 = sv_0(ca_2, 9U, &kernelContext_84);
-                float3 _S1261 = (float4(*((&kernelContext_84)->scratch_0+_S1260)) ).xyz;
-                uint _S1262 = sv_0(cb_2, 8U, &kernelContext_84);
-                float3 _S1263 = (float4(*((&kernelContext_84)->scratch_0+_S1262)) ).xyz;
-                uint _S1264 = sv_0(cb_2, 9U, &kernelContext_84);
+                uint4 _S1263 = uint4(((&kernelContext_85)->bonds_0+i_22)->law_0.ids_0) ;
+                uint ca_2 = _S1263.y;
+                uint cb_2 = _S1263.z;
+                uint _S1264 = sv_0(ca_2, 8U, &kernelContext_85);
+                float3 _S1265 = (float4(*((&kernelContext_85)->scratch_0+_S1264)) ).xyz;
+                uint _S1266 = sv_0(ca_2, 9U, &kernelContext_85);
+                float3 _S1267 = (float4(*((&kernelContext_85)->scratch_0+_S1266)) ).xyz;
+                uint _S1268 = sv_0(cb_2, 8U, &kernelContext_85);
+                float3 _S1269 = (float4(*((&kernelContext_85)->scratch_0+_S1268)) ).xyz;
+                uint _S1270 = sv_0(cb_2, 9U, &kernelContext_85);
                 thread float3 d_lin_5;
                 thread float3 d_ang_4;
-                bond_kinematics_0(i_22, _S1259, _S1261, _S1263, (float4(*((&kernelContext_84)->scratch_0+_S1264)) ).xyz, &d_lin_5, &d_ang_4, &kernelContext_84);
-                uint _S1265 = statics_bond_slot_0(i_22, &kernelContext_84);
-                write_bond_loads_0(i_22, i_22, d_lin_5 * (float4(*((&kernelContext_84)->scratch_0+_S1265)) ).xyz, d_ang_4 * (float4(*((&kernelContext_84)->scratch_0+(_S1265 + 1U))) ).xyz, 0.0f, &kernelContext_84);
+                bond_kinematics_0(i_22, _S1265, _S1267, _S1269, (float4(*((&kernelContext_85)->scratch_0+_S1270)) ).xyz, &d_lin_5, &d_ang_4, &kernelContext_85);
+                uint _S1271 = statics_bond_slot_0(i_22, &kernelContext_85);
+                write_bond_loads_0(i_22, i_22, d_lin_5 * (float4(*((&kernelContext_85)->scratch_0+_S1271)) ).xyz, d_ang_4 * (float4(*((&kernelContext_85)->scratch_0+(_S1271 + 1U))) ).xyz, 0.0f, &kernelContext_85);
                 i_22 = i_22 + 256U;
             }
             threadgroup_barrier(mem_flags::mem_device | mem_flags::mem_threadgroup | mem_flags::mem_texture | mem_flags::mem_threadgroup_imageblock);
-            c_39 = _S1221;
+            c_40 = _S1225;
             for(;;)
             {
-                if(c_39 < c1_1)
+                if(c_40 < c1_1)
                 {
                 }
                 else
@@ -7390,70 +7456,30 @@ void bond_kinematics_0(uint _S1205, float3 _S1206, float3 _S1207, float3 _S1208,
                 }
                 thread float3 fi_5;
                 thread float3 mi_8;
-                gather_loads_0(c_39, &fi_5, &mi_8, &kernelContext_84);
+                gather_loads_0(c_40, &fi_5, &mi_8, &kernelContext_85);
                 thread float4 ap_lin_0 = float4(- fi_5, 0.0f);
                 thread float4 ap_ang_0 = float4(- mi_8, 0.0f);
-                uint _S1266 = fixed_mask_0(c_39, &kernelContext_84);
-                uint _S1267 = sv_0(c_39, 8U, &kernelContext_84);
-                float4 _S1268 = float4(*((&kernelContext_84)->scratch_0+_S1267)) ;
-                uint _S1269 = sv_0(c_39, 9U, &kernelContext_84);
-                hold_0(_S1266, &ap_lin_0, &ap_ang_0, _S1268, float4(*((&kernelContext_84)->scratch_0+_S1269)) );
-                uint _S1270 = sv_0(c_39, 10U, &kernelContext_84);
-                *((&kernelContext_84)->scratch_0+_S1270) = packed_float4(ap_lin_0) ;
-                uint _S1271 = sv_0(c_39, 11U, &kernelContext_84);
-                *((&kernelContext_84)->scratch_0+_S1271) = packed_float4(ap_ang_0) ;
-                c_39 = c_39 + 256U;
+                uint _S1272 = fixed_mask_0(c_40, &kernelContext_85);
+                uint _S1273 = sv_0(c_40, 8U, &kernelContext_85);
+                float4 _S1274 = float4(*((&kernelContext_85)->scratch_0+_S1273)) ;
+                uint _S1275 = sv_0(c_40, 9U, &kernelContext_85);
+                hold_0(_S1272, &ap_lin_0, &ap_ang_0, _S1274, float4(*((&kernelContext_85)->scratch_0+_S1275)) );
+                uint _S1276 = sv_0(c_40, 10U, &kernelContext_85);
+                *((&kernelContext_85)->scratch_0+_S1276) = packed_float4(ap_lin_0) ;
+                uint _S1277 = sv_0(c_40, 11U, &kernelContext_85);
+                *((&kernelContext_85)->scratch_0+_S1277) = packed_float4(ap_ang_0) ;
+                c_40 = c_40 + 256U;
             }
             threadgroup_barrier(mem_flags::mem_device | mem_flags::mem_threadgroup | mem_flags::mem_texture | mem_flags::mem_threadgroup_imageblock);
-            float _S1272 = island_dot_0(tid_17, c0_1, c1_1, 8U, 10U, &kernelContext_84);
-            uint _S1273 = cg_total_1 + 1U;
-            if(_S1272 <= 0.0f)
+            float _S1278 = island_dot_0(tid_17, c0_1, c1_1, 8U, 10U, &kernelContext_85);
+            uint _S1279 = cg_total_1 + 1U;
+            if(_S1278 <= 0.0f)
             {
-                cg_total_0 = _S1273;
+                cg_total_0 = _S1279;
                 break;
             }
-            float _S1274 = rz_0 / _S1272;
-            uint c_44 = _S1221;
-            for(;;)
-            {
-                if(c_44 < c1_1)
-                {
-                }
-                else
-                {
-                    break;
-                }
-                uint _S1275 = sv_0(c_44, 2U, &kernelContext_84);
-                packed_float4 device* _S1276 = (&kernelContext_84)->scratch_0+_S1275;
-                float3 _S1277 = (float4(*((&kernelContext_84)->scratch_0+_S1275)) ).xyz;
-                uint _S1278 = sv_0(c_44, 8U, &kernelContext_84);
-                float3 _S1279 = float3(_S1274) ;
-                *_S1276 = packed_float4(float4(_S1277 + _S1279 * (float4(*((&kernelContext_84)->scratch_0+_S1278)) ).xyz, 0.0f)) ;
-                uint _S1280 = sv_0(c_44, 3U, &kernelContext_84);
-                packed_float4 device* _S1281 = (&kernelContext_84)->scratch_0+_S1280;
-                float3 _S1282 = (float4(*((&kernelContext_84)->scratch_0+_S1280)) ).xyz;
-                uint _S1283 = sv_0(c_44, 9U, &kernelContext_84);
-                *_S1281 = packed_float4(float4(_S1282 + _S1279 * (float4(*((&kernelContext_84)->scratch_0+_S1283)) ).xyz, 0.0f)) ;
-                uint _S1284 = sv_0(c_44, 4U, &kernelContext_84);
-                packed_float4 device* _S1285 = (&kernelContext_84)->scratch_0+_S1284;
-                float3 _S1286 = (float4(*((&kernelContext_84)->scratch_0+_S1284)) ).xyz;
-                uint _S1287 = sv_0(c_44, 10U, &kernelContext_84);
-                *_S1285 = packed_float4(float4(_S1286 - _S1279 * (float4(*((&kernelContext_84)->scratch_0+_S1287)) ).xyz, 0.0f)) ;
-                uint _S1288 = sv_0(c_44, 5U, &kernelContext_84);
-                packed_float4 device* _S1289 = (&kernelContext_84)->scratch_0+_S1288;
-                float3 _S1290 = (float4(*((&kernelContext_84)->scratch_0+_S1288)) ).xyz;
-                uint _S1291 = sv_0(c_44, 11U, &kernelContext_84);
-                *_S1289 = packed_float4(float4(_S1290 - _S1279 * (float4(*((&kernelContext_84)->scratch_0+_S1291)) ).xyz, 0.0f)) ;
-                c_44 = c_44 + 256U;
-            }
-            threadgroup_barrier(mem_flags::mem_device | mem_flags::mem_threadgroup | mem_flags::mem_texture | mem_flags::mem_threadgroup_imageblock);
-            float _S1292 = island_dot_0(tid_17, c0_1, c1_1, 4U, 4U, &kernelContext_84);
-            if((sqrt(_S1292)) <= (0.00009999999747379f * _S1255))
-            {
-                cg_total_0 = _S1273;
-                break;
-            }
-            uint c_45 = _S1221;
+            float _S1280 = rz_0 / _S1278;
+            uint c_45 = _S1225;
             for(;;)
             {
                 if(c_45 < c1_1)
@@ -7463,17 +7489,37 @@ void bond_kinematics_0(uint _S1205, float3 _S1206, float3 _S1207, float3 _S1208,
                 {
                     break;
                 }
-                precondition_0(c_45, &kernelContext_84);
+                uint _S1281 = sv_0(c_45, 2U, &kernelContext_85);
+                packed_float4 device* _S1282 = (&kernelContext_85)->scratch_0+_S1281;
+                float3 _S1283 = (float4(*((&kernelContext_85)->scratch_0+_S1281)) ).xyz;
+                uint _S1284 = sv_0(c_45, 8U, &kernelContext_85);
+                float3 _S1285 = float3(_S1280) ;
+                *_S1282 = packed_float4(float4(_S1283 + _S1285 * (float4(*((&kernelContext_85)->scratch_0+_S1284)) ).xyz, 0.0f)) ;
+                uint _S1286 = sv_0(c_45, 3U, &kernelContext_85);
+                packed_float4 device* _S1287 = (&kernelContext_85)->scratch_0+_S1286;
+                float3 _S1288 = (float4(*((&kernelContext_85)->scratch_0+_S1286)) ).xyz;
+                uint _S1289 = sv_0(c_45, 9U, &kernelContext_85);
+                *_S1287 = packed_float4(float4(_S1288 + _S1285 * (float4(*((&kernelContext_85)->scratch_0+_S1289)) ).xyz, 0.0f)) ;
+                uint _S1290 = sv_0(c_45, 4U, &kernelContext_85);
+                packed_float4 device* _S1291 = (&kernelContext_85)->scratch_0+_S1290;
+                float3 _S1292 = (float4(*((&kernelContext_85)->scratch_0+_S1290)) ).xyz;
+                uint _S1293 = sv_0(c_45, 10U, &kernelContext_85);
+                *_S1291 = packed_float4(float4(_S1292 - _S1285 * (float4(*((&kernelContext_85)->scratch_0+_S1293)) ).xyz, 0.0f)) ;
+                uint _S1294 = sv_0(c_45, 5U, &kernelContext_85);
+                packed_float4 device* _S1295 = (&kernelContext_85)->scratch_0+_S1294;
+                float3 _S1296 = (float4(*((&kernelContext_85)->scratch_0+_S1294)) ).xyz;
+                uint _S1297 = sv_0(c_45, 11U, &kernelContext_85);
+                *_S1295 = packed_float4(float4(_S1296 - _S1285 * (float4(*((&kernelContext_85)->scratch_0+_S1297)) ).xyz, 0.0f)) ;
                 c_45 = c_45 + 256U;
             }
             threadgroup_barrier(mem_flags::mem_device | mem_flags::mem_threadgroup | mem_flags::mem_texture | mem_flags::mem_threadgroup_imageblock);
-            if(free_0)
+            float _S1298 = island_dot_0(tid_17, c0_1, c1_1, 4U, 4U, &kernelContext_85);
+            if((sqrt(_S1298)) <= (0.00009999999747379f * _S1261))
             {
-                project_displacement_slot_0(tid_17, &_S1216, 6U, &kernelContext_84);
+                cg_total_0 = _S1279;
+                break;
             }
-            float _S1293 = island_dot_0(tid_17, c0_1, c1_1, 4U, 6U, &kernelContext_84);
-            float _S1294 = _S1293 / rz_0;
-            uint c_46 = _S1221;
+            uint c_46 = _S1225;
             for(;;)
             {
                 if(c_46 < c1_1)
@@ -7483,98 +7529,118 @@ void bond_kinematics_0(uint _S1205, float3 _S1206, float3 _S1207, float3 _S1208,
                 {
                     break;
                 }
-                uint _S1295 = sv_0(c_46, 8U, &kernelContext_84);
-                packed_float4 device* _S1296 = (&kernelContext_84)->scratch_0+_S1295;
-                uint _S1297 = sv_0(c_46, 6U, &kernelContext_84);
-                float3 _S1298 = float3(_S1294) ;
-                *_S1296 = packed_float4(float4((float4(*((&kernelContext_84)->scratch_0+_S1297)) ).xyz + _S1298 * (float4(*((&kernelContext_84)->scratch_0+_S1295)) ).xyz, 0.0f)) ;
-                uint _S1299 = sv_0(c_46, 9U, &kernelContext_84);
-                packed_float4 device* _S1300 = (&kernelContext_84)->scratch_0+_S1299;
-                uint _S1301 = sv_0(c_46, 7U, &kernelContext_84);
-                *_S1300 = packed_float4(float4((float4(*((&kernelContext_84)->scratch_0+_S1301)) ).xyz + _S1298 * (float4(*((&kernelContext_84)->scratch_0+_S1299)) ).xyz, 0.0f)) ;
+                precondition_0(c_46, &kernelContext_85);
                 c_46 = c_46 + 256U;
             }
             threadgroup_barrier(mem_flags::mem_device | mem_flags::mem_threadgroup | mem_flags::mem_texture | mem_flags::mem_threadgroup_imageblock);
-            uint _S1302 = k_24 + 1U;
-            rz_0 = _S1293;
-            k_24 = _S1302;
-            cg_total_1 = _S1273;
+            if(free_0)
+            {
+                project_displacement_slot_0(tid_17, &_S1220, 6U, &kernelContext_85);
+            }
+            float _S1299 = island_dot_0(tid_17, c0_1, c1_1, 4U, 6U, &kernelContext_85);
+            float _S1300 = _S1299 / rz_0;
+            uint c_47 = _S1225;
+            for(;;)
+            {
+                if(c_47 < c1_1)
+                {
+                }
+                else
+                {
+                    break;
+                }
+                uint _S1301 = sv_0(c_47, 8U, &kernelContext_85);
+                packed_float4 device* _S1302 = (&kernelContext_85)->scratch_0+_S1301;
+                uint _S1303 = sv_0(c_47, 6U, &kernelContext_85);
+                float3 _S1304 = float3(_S1300) ;
+                *_S1302 = packed_float4(float4((float4(*((&kernelContext_85)->scratch_0+_S1303)) ).xyz + _S1304 * (float4(*((&kernelContext_85)->scratch_0+_S1301)) ).xyz, 0.0f)) ;
+                uint _S1305 = sv_0(c_47, 9U, &kernelContext_85);
+                packed_float4 device* _S1306 = (&kernelContext_85)->scratch_0+_S1305;
+                uint _S1307 = sv_0(c_47, 7U, &kernelContext_85);
+                *_S1306 = packed_float4(float4((float4(*((&kernelContext_85)->scratch_0+_S1307)) ).xyz + _S1304 * (float4(*((&kernelContext_85)->scratch_0+_S1305)) ).xyz, 0.0f)) ;
+                c_47 = c_47 + 256U;
+            }
+            threadgroup_barrier(mem_flags::mem_device | mem_flags::mem_threadgroup | mem_flags::mem_texture | mem_flags::mem_threadgroup_imageblock);
+            uint _S1308 = k_24 + 1U;
+            rz_0 = _S1299;
+            k_24 = _S1308;
+            cg_total_1 = _S1279;
         }
-        c_39 = _S1221;
+        c_40 = _S1225;
         for(;;)
         {
-            if(c_39 < c1_1)
+            if(c_40 < c1_1)
             {
             }
             else
             {
                 break;
             }
-            uint _S1303 = 4U * c_39;
-            thread float3 u_7 = (float4(*((&kernelContext_84)->state_0+_S1303)) ).xyz;
-            uint _S1304 = sv_0(c_39, 21U, &kernelContext_84);
-            thread float3 u_lo_0 = (float4(*((&kernelContext_84)->scratch_0+_S1304)) ).xyz;
-            uint _S1305 = _S1303 + 1U;
-            thread float3 th_8 = (float4(*((&kernelContext_84)->state_0+_S1305)) ).xyz;
-            uint _S1306 = sv_0(c_39, 22U, &kernelContext_84);
-            thread float3 th_lo_0 = (float4(*((&kernelContext_84)->scratch_0+_S1306)) ).xyz;
-            uint _S1307 = sv_0(c_39, 2U, &kernelContext_84);
-            comp_add_0(&u_7, &u_lo_0, (float4(*((&kernelContext_84)->scratch_0+_S1307)) ).xyz);
-            uint _S1308 = sv_0(c_39, 3U, &kernelContext_84);
-            comp_add_0(&th_8, &th_lo_0, (float4(*((&kernelContext_84)->scratch_0+_S1308)) ).xyz);
-            *((&kernelContext_84)->state_0+_S1303) = packed_float4(float4(u_7, (float4(*((&kernelContext_84)->state_0+_S1303)) ).w)) ;
-            *((&kernelContext_84)->state_0+_S1305) = packed_float4(float4(th_8, (float4(*((&kernelContext_84)->state_0+_S1305)) ).w)) ;
-            *((&kernelContext_84)->scratch_0+_S1304) = packed_float4(float4(u_lo_0, 0.0f)) ;
-            *((&kernelContext_84)->scratch_0+_S1306) = packed_float4(float4(th_lo_0, 0.0f)) ;
-            c_39 = c_39 + 256U;
+            uint _S1309 = 4U * c_40;
+            thread float3 u_7 = (float4(*((&kernelContext_85)->state_0+_S1309)) ).xyz;
+            uint _S1310 = sv_0(c_40, 21U, &kernelContext_85);
+            thread float3 u_lo_0 = (float4(*((&kernelContext_85)->scratch_0+_S1310)) ).xyz;
+            uint _S1311 = _S1309 + 1U;
+            thread float3 th_8 = (float4(*((&kernelContext_85)->state_0+_S1311)) ).xyz;
+            uint _S1312 = sv_0(c_40, 22U, &kernelContext_85);
+            thread float3 th_lo_0 = (float4(*((&kernelContext_85)->scratch_0+_S1312)) ).xyz;
+            uint _S1313 = sv_0(c_40, 2U, &kernelContext_85);
+            comp_add_0(&u_7, &u_lo_0, (float4(*((&kernelContext_85)->scratch_0+_S1313)) ).xyz);
+            uint _S1314 = sv_0(c_40, 3U, &kernelContext_85);
+            comp_add_0(&th_8, &th_lo_0, (float4(*((&kernelContext_85)->scratch_0+_S1314)) ).xyz);
+            *((&kernelContext_85)->state_0+_S1309) = packed_float4(float4(u_7, (float4(*((&kernelContext_85)->state_0+_S1309)) ).w)) ;
+            *((&kernelContext_85)->state_0+_S1311) = packed_float4(float4(th_8, (float4(*((&kernelContext_85)->state_0+_S1311)) ).w)) ;
+            *((&kernelContext_85)->scratch_0+_S1310) = packed_float4(float4(u_lo_0, 0.0f)) ;
+            *((&kernelContext_85)->scratch_0+_S1312) = packed_float4(float4(th_lo_0, 0.0f)) ;
+            c_40 = c_40 + 256U;
         }
         threadgroup_barrier(mem_flags::mem_device | mem_flags::mem_threadgroup | mem_flags::mem_texture | mem_flags::mem_threadgroup_imageblock);
-        uint _S1309 = newton_0 + 1U;
+        uint _S1315 = newton_0 + 1U;
         previous_2 = residual_1;
         residual_0 = residual_1;
-        newton_0 = _S1309;
+        newton_0 = _S1315;
     }
     i_20 = b0_0 + tid_17;
     for(;;)
     {
-        if(i_20 < _S1220)
+        if(i_20 < _S1224)
         {
         }
         else
         {
             break;
         }
-        JointResponse_0 _S1310 = static_response_0(i_20, &kernelContext_84);
-        BondDyn_natural_0 device* _S1311 = (&kernelContext_84)->bond_dyn_0+i_20;
-        float4 _S1312 = float4((*_S1311).force_lin_0) ;
-        float4 _S1313 = float4((*_S1311).force_ang_0) ;
-        float4 _S1314 = float4((*_S1311).sums_0) ;
-        float4 _S1315 = float4((*_S1311).comps_0) ;
-        uint4 _S1316 = uint4((*_S1311).events_0) ;
+        JointResponse_0 _S1316 = static_response_0(i_20, &kernelContext_85);
+        BondDyn_natural_0 device* _S1317 = (&kernelContext_85)->bond_dyn_0+i_20;
+        float4 _S1318 = float4((*_S1317).force_lin_0) ;
+        float4 _S1319 = float4((*_S1317).force_ang_0) ;
+        float4 _S1320 = float4((*_S1317).sums_0) ;
+        float4 _S1321 = float4((*_S1317).comps_0) ;
+        uint4 _S1322 = uint4((*_S1317).events_0) ;
         thread BondDyn_0 bd_1;
-        (&bd_1)->js_0 = (*_S1311).js_0;
-        (&bd_1)->force_lin_0 = _S1312;
-        (&bd_1)->force_ang_0 = _S1313;
-        (&bd_1)->sums_0 = _S1314;
-        (&bd_1)->comps_0 = _S1315;
-        (&bd_1)->events_0 = _S1316;
-        (&bd_1)->force_lin_0 = float4(_S1310.force_lin_1, _S1310.stored_5);
-        (&bd_1)->force_ang_0 = float4(_S1310.force_ang_1, (&bd_1)->force_ang_0.w);
-        BondDyn_natural_0 device* _S1317 = (&kernelContext_84)->bond_dyn_0+i_20;
-        _S1317->js_0 = bd_1.js_0;
-        _S1317->force_lin_0 = packed_float4(bd_1.force_lin_0) ;
-        _S1317->force_ang_0 = packed_float4(bd_1.force_ang_0) ;
-        _S1317->sums_0 = packed_float4(bd_1.sums_0) ;
-        _S1317->comps_0 = packed_float4(bd_1.comps_0) ;
-        _S1317->events_0 = packed_uint4(bd_1.events_0) ;
-        write_bond_loads_0(i_20, i_20, _S1310.force_lin_1, _S1310.force_ang_1, max(_S1310.measures_0.tension_0, _S1310.measures_0.compression_0), &kernelContext_84);
+        (&bd_1)->js_0 = (*_S1317).js_0;
+        (&bd_1)->force_lin_0 = _S1318;
+        (&bd_1)->force_ang_0 = _S1319;
+        (&bd_1)->sums_0 = _S1320;
+        (&bd_1)->comps_0 = _S1321;
+        (&bd_1)->events_0 = _S1322;
+        (&bd_1)->force_lin_0 = float4(_S1316.force_lin_1, _S1316.stored_5);
+        (&bd_1)->force_ang_0 = float4(_S1316.force_ang_1, (&bd_1)->force_ang_0.w);
+        BondDyn_natural_0 device* _S1323 = (&kernelContext_85)->bond_dyn_0+i_20;
+        _S1323->js_0 = bd_1.js_0;
+        _S1323->force_lin_0 = packed_float4(bd_1.force_lin_0) ;
+        _S1323->force_ang_0 = packed_float4(bd_1.force_ang_0) ;
+        _S1323->sums_0 = packed_float4(bd_1.sums_0) ;
+        _S1323->comps_0 = packed_float4(bd_1.comps_0) ;
+        _S1323->events_0 = packed_uint4(bd_1.events_0) ;
+        write_bond_loads_0(i_20, i_20, _S1316.force_lin_1, _S1316.force_ang_1, max(_S1316.measures_0.tension_0, _S1316.measures_0.compression_0), &kernelContext_85);
         i_20 = i_20 + 256U;
     }
     threadgroup_barrier(mem_flags::mem_device | mem_flags::mem_threadgroup | mem_flags::mem_texture | mem_flags::mem_threadgroup_imageblock);
-    c_40 = _S1221;
+    c_41 = _S1225;
     for(;;)
     {
-        if(c_40 < c1_1)
+        if(c_41 < c1_1)
         {
         }
         else
@@ -7583,32 +7649,32 @@ void bond_kinematics_0(uint _S1205, float3 _S1206, float3 _S1207, float3 _S1208,
         }
         thread float3 fi_6;
         thread float3 mi_9;
-        gather_loads_0(c_40, &fi_6, &mi_9, &kernelContext_84);
-        uint _S1318 = fixed_mask_0(c_40, &kernelContext_84);
+        gather_loads_0(c_41, &fi_6, &mi_9, &kernelContext_85);
+        uint _S1324 = fixed_mask_0(c_41, &kernelContext_85);
         float3 reaction_2;
-        if(_S1318 != 0U)
+        if(_S1324 != 0U)
         {
-            uint _S1319 = sv_0(c_40, 0U, &kernelContext_84);
-            reaction_2 = - ((float4(*((&kernelContext_84)->scratch_0+_S1319)) ).xyz + fi_6);
+            uint _S1325 = sv_0(c_41, 0U, &kernelContext_85);
+            reaction_2 = - ((float4(*((&kernelContext_85)->scratch_0+_S1325)) ).xyz + fi_6);
         }
         else
         {
-            uint _S1320 = 4U * c_40;
-            reaction_2 = float3((float4(*((&kernelContext_84)->state_0+(_S1320 + 1U))) ).w, (float4(*((&kernelContext_84)->state_0+(_S1320 + 2U))) ).w, (float4(*((&kernelContext_84)->state_0+(_S1320 + 3U))) ).w);
+            uint _S1326 = 4U * c_41;
+            reaction_2 = float3((float4(*((&kernelContext_85)->state_0+(_S1326 + 1U))) ).w, (float4(*((&kernelContext_85)->state_0+(_S1326 + 2U))) ).w, (float4(*((&kernelContext_85)->state_0+(_S1326 + 3U))) ).w);
         }
-        uint _S1321 = 4U * c_40;
-        uint _S1322 = _S1321 + 1U;
-        *((&kernelContext_84)->state_0+_S1322) = packed_float4(float4((float4(*((&kernelContext_84)->state_0+_S1322)) ).xyz, reaction_2.x)) ;
-        *((&kernelContext_84)->state_0+(_S1321 + 2U)) = packed_float4(float4(0.0f, 0.0f, 0.0f, reaction_2.y)) ;
-        *((&kernelContext_84)->state_0+(_S1321 + 3U)) = packed_float4(float4(0.0f, 0.0f, 0.0f, reaction_2.z)) ;
-        c_40 = c_40 + 256U;
+        uint _S1327 = 4U * c_41;
+        uint _S1328 = _S1327 + 1U;
+        *((&kernelContext_85)->state_0+_S1328) = packed_float4(float4((float4(*((&kernelContext_85)->state_0+_S1328)) ).xyz, reaction_2.x)) ;
+        *((&kernelContext_85)->state_0+(_S1327 + 2U)) = packed_float4(float4(0.0f, 0.0f, 0.0f, reaction_2.y)) ;
+        *((&kernelContext_85)->state_0+(_S1327 + 3U)) = packed_float4(float4(0.0f, 0.0f, 0.0f, reaction_2.z)) ;
+        c_41 = c_41 + 256U;
     }
     if(tid_17 == 0U)
     {
-        uint _S1323 = statics_result_slot_0(_S1215, &kernelContext_84);
-        packed_float4 device* _S1324 = (&kernelContext_84)->scratch_0+_S1323;
-        float _S1325 = (as_type<float>((newton_0)));
-        float _S1326 = (as_type<float>((cg_total_0)));
+        uint _S1329 = statics_result_slot_0(_S1219, &kernelContext_85);
+        packed_float4 device* _S1330 = (&kernelContext_85)->scratch_0+_S1329;
+        float _S1331 = (as_type<float>((newton_0)));
+        float _S1332 = (as_type<float>((cg_total_0)));
         if(converged_0)
         {
             previous_2 = 1.0f;
@@ -7617,8 +7683,241 @@ void bond_kinematics_0(uint _S1205, float3 _S1206, float3 _S1207, float3 _S1208,
         {
             previous_2 = 0.0f;
         }
-        *_S1324 = packed_float4(float4(residual_0, _S1325, _S1326, previous_2)) ;
-        ((&kernelContext_84)->islands_0+_S1215)->info_0[int(2)] = _S1218 & 4294967287U;
+        *_S1330 = packed_float4(float4(residual_0, _S1331, _S1332, previous_2)) ;
+        ((&kernelContext_85)->islands_0+_S1219)->info_0[int(2)] = _S1222 & 4294967287U;
+    }
+    return;
+}
+
+[[kernel]] void settled_fatigue(uint3 group_10 [[threadgroup_position_in_grid]], uint3 thread_10 [[thread_position_in_threadgroup]], Params_0 constant* params_14 [[buffer(0)]], Island_natural_0 device* islands_14 [[buffer(9)]], uint device* index_14 [[buffer(4)]], ChunkStatic_natural_0 device* chunks_14 [[buffer(3)]], packed_float4 device* state_16 [[buffer(6)]], packed_float4 device* scratch_14 [[buffer(8)]], packed_float4 device* contact_state_14 [[buffer(11)]], packed_float4 device* loads_14 [[buffer(5)]], Impactor_natural_0 device* impactors_14 [[buffer(10)]], BondStatic_natural_0 device* bonds_14 [[buffer(2)]], BondDyn_natural_0 device* bond_dyn_14 [[buffer(7)]], MaterialTable_0 constant* materials_14 [[buffer(1)]])
+{
+    thread KernelContext_0 kernelContext_86;
+    (&kernelContext_86)->params_0 = params_14;
+    (&kernelContext_86)->islands_0 = islands_14;
+    (&kernelContext_86)->index_0 = index_14;
+    (&kernelContext_86)->chunks_0 = chunks_14;
+    (&kernelContext_86)->state_0 = state_16;
+    (&kernelContext_86)->scratch_0 = scratch_14;
+    (&kernelContext_86)->contact_state_0 = contact_state_14;
+    (&kernelContext_86)->loads_0 = loads_14;
+    (&kernelContext_86)->impactors_0 = impactors_14;
+    (&kernelContext_86)->bonds_0 = bonds_14;
+    (&kernelContext_86)->bond_dyn_0 = bond_dyn_14;
+    (&kernelContext_86)->materials_0 = materials_14;
+    threadgroup array<float4, int(256)> g_red_a_14;
+    (&kernelContext_86)->g_red_a_0 = &g_red_a_14;
+    threadgroup array<float4, int(256)> g_red_b_14;
+    (&kernelContext_86)->g_red_b_0 = &g_red_b_14;
+    threadgroup uint g_run_14;
+    (&kernelContext_86)->g_run_0 = &g_run_14;
+    threadgroup uint g_halt_14;
+    (&kernelContext_86)->g_halt_0 = &g_halt_14;
+    threadgroup uint g_wide_run_14;
+    (&kernelContext_86)->g_wide_run_0 = &g_wide_run_14;
+    uint tid_18 = thread_10.x;
+    uint _S1333 = group_10.x;
+    Island_natural_0 device* _S1334 = islands_14+_S1333;
+    Island_natural_0 isl_25 = *_S1334;
+    uint4 _S1335 = uint4((*_S1334).info_0) ;
+    bool _S1336;
+    if(((_S1335.x) & 16U) == 0U)
+    {
+        _S1336 = true;
+    }
+    else
+    {
+        uint4 _S1337 = uint4(isl_25.range_0) ;
+        _S1336 = (_S1337.w) == (_S1337.z);
+    }
+    if(_S1336)
+    {
+        return;
+    }
+    bool _S1338 = tid_18 == 0U;
+    if(_S1338)
+    {
+        *(&kernelContext_86)->g_halt_0 = 0U;
+        *(&kernelContext_86)->g_run_0 = 0U;
+    }
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    uint _S1339 = _S1335.w;
+    uint4 _S1340 = uint4(isl_25.range_0) ;
+    uint i_23 = _S1340.z + tid_18;
+    for(;;)
+    {
+        if(i_23 < (_S1340.w))
+        {
+        }
+        else
+        {
+            break;
+        }
+        BondStatic_natural_0 device* _S1341 = (&kernelContext_86)->bonds_0+i_23;
+        BondDyn_natural_0 device* _S1342 = (&kernelContext_86)->bond_dyn_0+i_23;
+        float4 _S1343 = float4((*_S1342).force_lin_0) ;
+        float4 _S1344 = float4((*_S1342).force_ang_0) ;
+        float4 _S1345 = float4((*_S1342).sums_0) ;
+        float4 _S1346 = float4((*_S1342).comps_0) ;
+        uint4 _S1347 = uint4((*_S1342).events_0) ;
+        thread BondDyn_0 bd_2;
+        (&bd_2)->js_0 = (*_S1342).js_0;
+        (&bd_2)->force_lin_0 = _S1343;
+        (&bd_2)->force_ang_0 = _S1344;
+        (&bd_2)->sums_0 = _S1345;
+        (&bd_2)->comps_0 = _S1346;
+        (&bd_2)->events_0 = _S1347;
+        thread JointBond_natural_0 _S1348 = _S1341->law_0;
+        uint4 _S1349 = uint4((&_S1348)->ids_0) ;
+        uint _S1350 = 4U * _S1349.y;
+        uint _S1351 = 4U * _S1349.z;
+        thread float3 d_lin_6;
+        thread float3 d_ang_5;
+        bond_kinematics_0(i_23, (float4(*((&kernelContext_86)->state_0+_S1350)) ).xyz, (float4(*((&kernelContext_86)->state_0+(_S1350 + 1U))) ).xyz, (float4(*((&kernelContext_86)->state_0+_S1351)) ).xyz, (float4(*((&kernelContext_86)->state_0+(_S1351 + 1U))) ).xyz, &d_lin_6, &d_ang_5, &kernelContext_86);
+        JointState_0 previous_3 = (&bd_2)->js_0;
+        float _S1352 = (&kernelContext_86)->params_0->dt_0;
+        bool _S1353 = ((&kernelContext_86)->params_0->fracture_0) != 0U;
+        _S1348 = _S1341->law_0;
+        thread JointState_0 _S1354 = (&bd_2)->js_0;
+        JointResponse_0 _S1355 = joint_evaluate_0(&(&kernelContext_86)->materials_0->m_0[_S1349.x], &_S1348, &_S1354, d_lin_6, d_ang_5, _S1352, _S1353);
+        if((_S1355.state_6.damage_0) > (previous_3.damage_0 + 9.99999971718068537e-10f))
+        {
+            _S1336 = true;
+        }
+        else
+        {
+            _S1336 = (_S1355.state_6.crush_1) > (previous_3.crush_1 + 9.99999971718068537e-10f);
+        }
+        uint flags_2;
+        if(_S1336)
+        {
+            flags_2 = 16U;
+        }
+        else
+        {
+            flags_2 = 0U;
+        }
+        thread float _S1356 = (&bd_2)->sums_0.x;
+        thread float _S1357 = (&bd_2)->comps_0.x;
+        comp_add1_0(&_S1356, &_S1357, _S1355.dissipated_2);
+        (&bd_2)->comps_0.x = _S1357;
+        (&bd_2)->sums_0.x = _S1356;
+        thread float _S1358 = (&bd_2)->sums_0.y;
+        thread float _S1359 = (&bd_2)->comps_0.y;
+        comp_add1_0(&_S1358, &_S1359, _S1355.overshoot_0);
+        (&bd_2)->comps_0.y = _S1359;
+        (&bd_2)->sums_0.y = _S1358;
+        (&bd_2)->force_lin_0 = float4(_S1355.force_lin_1, _S1355.stored_5);
+        (&bd_2)->force_ang_0 = float4(_S1355.force_ang_1, max((&bd_2)->force_ang_0.w, _S1355.state_6.utilization_0));
+        thread JointState_0 _S1360 = previous_3;
+        bool _S1361 = is_damaged_0(&_S1360);
+        bool _S1362;
+        if(!_S1361)
+        {
+            thread JointState_0 _S1363 = _S1355.state_6;
+            bool _S1364 = is_damaged_0(&_S1363);
+            _S1362 = _S1364;
+        }
+        else
+        {
+            _S1362 = false;
+        }
+        bool _S1365;
+        if(_S1362)
+        {
+            _S1365 = ((&bd_2)->events_0.x) == 0U;
+        }
+        else
+        {
+            _S1365 = false;
+        }
+        if(_S1365)
+        {
+            (&bd_2)->events_0.x = _S1339;
+            (&bd_2)->events_0.w = _S1355.state_6.mode_0;
+        }
+        bool _S1366;
+        if(((&bd_2)->events_0.y) == 0U)
+        {
+            float _S1367 = fatigue_factor_0(&(&kernelContext_86)->materials_0->m_0[_S1349.x], previous_3.fatigue_0);
+            _S1366 = _S1367 > 0.99000000953674316f;
+        }
+        else
+        {
+            _S1366 = false;
+        }
+        bool _S1368;
+        if(_S1366)
+        {
+            float _S1369 = fatigue_factor_0(&(&kernelContext_86)->materials_0->m_0[_S1349.x], _S1355.state_6.fatigue_0);
+            _S1368 = _S1369 <= 0.99000000953674316f;
+        }
+        else
+        {
+            _S1368 = false;
+        }
+        if(_S1368)
+        {
+            (&bd_2)->events_0.y = _S1339;
+        }
+        uint flags_3;
+        if(_S1355.disconnected_0)
+        {
+            (&bd_2)->events_0.z = _S1339;
+            flags_3 = flags_2 | 32U;
+        }
+        else
+        {
+            flags_3 = flags_2;
+        }
+        (&bd_2)->js_0 = _S1355.state_6;
+        BondDyn_natural_0 device* _S1370 = (&kernelContext_86)->bond_dyn_0+i_23;
+        _S1370->js_0 = bd_2.js_0;
+        _S1370->force_lin_0 = packed_float4(bd_2.force_lin_0) ;
+        _S1370->force_ang_0 = packed_float4(bd_2.force_ang_0) ;
+        _S1370->sums_0 = packed_float4(bd_2.sums_0) ;
+        _S1370->comps_0 = packed_float4(bd_2.comps_0) ;
+        _S1370->events_0 = packed_uint4(bd_2.events_0) ;
+        write_bond_loads_0(i_23, i_23, _S1355.force_lin_1, _S1355.force_ang_1, max(_S1355.measures_0.tension_0, _S1355.measures_0.compression_0), &kernelContext_86);
+        if((flags_3 & 16U) != 0U)
+        {
+            *(&kernelContext_86)->g_halt_0 = 1U;
+        }
+        if((flags_3 & 32U) != 0U)
+        {
+            *(&kernelContext_86)->g_run_0 = 1U;
+        }
+        i_23 = i_23 + 256U;
+    }
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    if(_S1338)
+    {
+        _S1336 = ((*(&kernelContext_86)->g_halt_0) | (*(&kernelContext_86)->g_run_0)) != 0U;
+    }
+    else
+    {
+        _S1336 = false;
+    }
+    if(_S1336)
+    {
+        uint _S1371 = _S1335.z;
+        if((*(&kernelContext_86)->g_halt_0) != 0U)
+        {
+            i_23 = 16U;
+        }
+        else
+        {
+            i_23 = 0U;
+        }
+        uint _S1372 = _S1371 | i_23;
+        if((*(&kernelContext_86)->g_run_0) != 0U)
+        {
+            i_23 = 32U;
+        }
+        else
+        {
+            i_23 = 0U;
+        }
+        ((&kernelContext_86)->islands_0+_S1333)->info_0[int(2)] = _S1372 | i_23;
     }
     return;
 }

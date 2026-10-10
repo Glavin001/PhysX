@@ -4,6 +4,8 @@
 # WGSL (shaders/generated/<name>.wgsl, for WebGPU), with the pinned Slang compiler in
 # Docker (tools/slang/Dockerfile). The output is checked in, so building the solver needs
 # neither Slang nor Docker; build.rs turns the .metal into a .metallib with Xcode.
+# world.slang is also emitted as CUDA C++ (shaders/generated/world.cu, with Slang's CUDA
+# prelude, Apache-2.0 WITH LLVM-exception) for the PhysX GPU integration, built with nvcc.
 #   scripts/compile_shaders.sh           regenerate
 #   scripts/compile_shaders.sh --check   fail if the checked-in output is stale
 set -euo pipefail
@@ -31,6 +33,11 @@ for src in shaders/*.slang; do
       "/work/$src" -I /work/shaders -target "$target" -line-directive-mode none -o "/out/$name.$target"
   done
 done
+docker run --rm -v "$PWD:/work" -v "$out:/out" "$IMAGE" \
+  /work/shaders/world.slang -I /work/shaders -target cuda -line-directive-mode none -o /out/world.cu
+sed -e 's#"/opt/slang/include/slang-cuda-prelude.h"#"slang-cuda-prelude.h"#' "$out/world.cu" > "$out/world.cu.tmp"
+mv "$out/world.cu.tmp" "$out/world.cu"
+docker run --rm --entrypoint cat "$IMAGE" /opt/slang/include/slang-cuda-prelude.h > "$out/slang-cuda-prelude.h"
 if [ "$check" = 1 ]; then
   if ! diff -r "$out" shaders/generated; then
     echo "generated shaders are stale: run scripts/compile_shaders.sh" >&2

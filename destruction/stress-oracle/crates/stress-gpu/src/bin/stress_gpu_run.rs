@@ -87,6 +87,10 @@ fn main() {
             p.download
         );
         eprintln!("frame tails (host static solves, rebuilds): {:.2} s", world.tail_seconds);
+        let m = &world.solver.mirror;
+        for (ci, cl) in m.clusters.iter().enumerate().take(12) {
+            eprintln!("  cluster {ci}: {} chunks, {} bonds, anchored {}, {:?}", cl.chunks.len(), cl.bonds.len(), cl.anchored, cl.activity);
+        }
         for (k, name) in stress_gpu::solver::KERNEL_NAMES.iter().enumerate() {
             if p.kernel_dispatches[k] > 0 {
                 eprintln!("  {name:<20} {:8.3} s GPU over {:>7} dispatches ({:6.1} us each)", p.kernels[k], p.kernel_dispatches[k], p.kernels[k] / p.kernel_dispatches[k] as f64 * 1e6);

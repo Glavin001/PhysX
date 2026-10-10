@@ -34,6 +34,9 @@ const ISLAND_CONTACT: u32 = 4;
 const ISLAND_WIDE: u32 = 8;
 const ISLAND_SETTLED: u32 = 16;
 const ISLAND_SOLVE: u32 = 8;
+const ISLAND_QUIET: u32 = 32;
+const ISLAND_DAMAGED: u32 = 16;
+const ISLAND_DISCONNECTED: u32 = 32;
 /// Threads per group of the wide kernels (chunks or bonds per group).
 const WIDE_GROUP: usize = 256;
 
@@ -303,6 +306,7 @@ struct Kernels {
     sums: Kernel,
     wake: Kernel,
     statics: Kernel,
+    fatigue: Kernel,
 }
 
 /// The bindings of every `world.slang` kernel.
@@ -427,6 +431,7 @@ impl GpuSolver {
             sums: gpu.compute(&shaders::WORLD, "contact_sums", &WORLD_BINDINGS),
             wake: gpu.compute(&shaders::WORLD, "wide_wake", &WORLD_BINDINGS),
             statics: gpu.compute(&shaders::WORLD, "island_statics", &WORLD_BINDINGS),
+            fatigue: gpu.compute(&shaders::WORLD, "settled_fatigue", &WORLD_BINDINGS),
         };
         let timing = (std::env::var("STRESS_GPU_TIMING").is_ok_and(|v| v == "1") && gpu.device.features().contains(wgpu::Features::TIMESTAMP_QUERY)).then(|| Timing {
             queries: gpu.device.create_query_set(&wgpu::QuerySetDescriptor { label: Some("timestamps"), ty: wgpu::QueryType::Timestamp, count: 2 * TIMED_DISPATCHES as u32 }),
@@ -854,13 +859,22 @@ impl GpuSolver {
             })
             .collect();
         let crush = impactors.iter().any(|imp| !imp.driven && imp.crush.is_some_and(|(f, _)| f > 0.0));
+        for isl in islands.iter_mut() {
+            let loaded = (isl.range[0]..isl.range[1]).any(|k| chunk_static[k as usize].load_range[0] != chunk_static[k as usize].load_range[1]);
+            let contact = (isl.range[0]..isl.range[1]).any(|k| chunk_static[k as usize].cinfo[2] != 0);
+            if isl.info[0] & ISLAND_SETTLED != 0 && isl.info[0] & ISLAND_ANCHORED != 0 && !loaded && !contact {
+                isl.info[0] |= ISLAND_QUIET;
+            }
+        }
         // Wide islands: groups of bonds and of chunks, each chunk group with its island's
         // first chunk group (where the island's partial sums start).
         let threshold = wide_threshold();
         let (mut bond_table, mut chunk_table) = (Vec::new(), Vec::new());
         for (ci, island) in islands.iter_mut().enumerate() {
             let chunk_count = (island.range[1] - island.range[0]) as usize;
-            if threshold == 0 || chunk_count < threshold {
+            // Settled islands only check their loads and move rigidly: the narrow kernel
+            // runs them a whole segment per dispatch, whatever their size.
+            if threshold == 0 || chunk_count < threshold || island.info[0] & ISLAND_SETTLED != 0 {
                 continue;
             }
             island.info[0] |= ISLAND_WIDE;
@@ -1026,8 +1040,11 @@ impl GpuSolver {
         ))
     }
 
+    /// Whether anything can touch: a free (or driven) cluster, or an impactor (anchored
+    /// clusters touch neither each other nor the ground in the reference's contact).
     fn contacts_possible(&self) -> bool {
-        self.mirror.clusters.len() > 1 || !self.impactors.is_empty() || self.scene().is_some_and(|s| s.ground.is_some())
+        let free = self.mirror.clusters.iter().any(|c| !c.anchored);
+        !self.impactors.is_empty() || (free && (self.mirror.clusters.len() > 1 || self.scene().is_some_and(|s| s.ground.is_some())))
     }
 
     /// Advance every cluster by `substeps` explicit substeps of `dt` (splits and
@@ -1431,7 +1448,23 @@ impl GpuSolver {
     /// The mirror's motion from the GPU: chunk state, cluster poses and work, impactors,
     /// contact energies and overlap memory, recorded loads. Cheap: no bond data.
     fn sync_motion(&mut self, gpu: &Gpu) {
-        let state: Vec<[f32; 4]> = gpu.read(&self.buffers.state);
+        // Settled islands' chunk state is frozen: read the rest only (in runs).
+        let mut state: Vec<[f32; 4]> = vec![[0.0; 4]; 4 * self.layout.chunks.len()];
+        let mut runs: Vec<(usize, usize)> = Vec::new();
+        for isl in &self.layout.islands {
+            let (c0, c1) = (isl.range[0] as usize, isl.range[1] as usize);
+            if isl.info[0] & ISLAND_SETTLED != 0 || c0 == c1 {
+                continue;
+            }
+            match runs.last_mut() {
+                Some(r) if r.1 == c0 => r.1 = c1,
+                _ => runs.push((c0, c1)),
+            }
+        }
+        for (a, b) in runs {
+            let part: Vec<[f32; 4]> = gpu.read_range(&self.buffers.state, 4 * a, 4 * (b - a));
+            state[4 * a..4 * b].copy_from_slice(&part);
+        }
         let mut islands: Vec<Island> = gpu.read(&self.buffers.islands);
         let sentinel = islands.pop().unwrap_or_default();
         let m = &mut self.mirror;
@@ -1495,11 +1528,12 @@ impl GpuSolver {
             // External loads (world.rs `loads`): the last substep's, and the frame's sum
             // (the GPU's is cleared once added here).
             let n = self.layout.chunks.len();
-            let out: Vec<[f32; 4]> = gpu.read(&self.buffers.scratch);
+            // The last-substep loads, then the frame sums (adjacent in the scratch).
+            let out: Vec<[f32; 4]> = gpu.read_range(&self.buffers.scratch, p.cload_base as usize, 4 * n);
             self.last_loads.ensure_shape(m);
             self.frame_load_sum.ensure_shape(m);
             for (k, &(s, c)) in self.layout.chunks.iter().enumerate() {
-                let (cl, cf) = (p.cload_base as usize + 2 * k, p.cframe_base as usize + 2 * k);
+                let (cl, cf) = (2 * k, 2 * n + 2 * k);
                 self.last_loads.force[s][c] = vec3(out[cl]);
                 self.last_loads.torque[s][c] = vec3(out[cl + 1]);
                 self.frame_load_sum.force[s][c] += vec3(out[cf]);
@@ -1510,22 +1544,23 @@ impl GpuSolver {
         let plan = &self.layout.plan;
         if !plan.pairs.is_empty() || !plan.ground.is_empty() || p.cand_count > 0 {
             // Contact dissipation: the pair and chunk ledgers, the impactor candidates'.
-            let mut out: Vec<[f32; 4]> = gpu.read(&self.buffers.scratch);
             let (lb, le) = (p.ledger_base as usize, p.ledger_base as usize + plan.pairs.len() + self.layout.chunks.len());
-            for l in &mut out[lb..le] {
+            let mut ledgers: Vec<[f32; 4]> = gpu.read_range(&self.buffers.scratch, lb, le - lb);
+            for l in ledgers.iter_mut() {
                 self.contact_dissipated += l[1] as f64 + l[2] as f64;
                 l[1] = 0.0;
                 l[2] = 0.0;
             }
+            gpu.queue.write_buffer(&self.buffers.scratch, (16 * lb) as u64, bytemuck::cast_slice(&ledgers));
             let (cb, ce) = (p.cand_base as usize, p.cand_base as usize + 3 * p.cand_count as usize);
-            for l in out[cb..ce].iter_mut().step_by(3) {
-                self.contact_dissipated += l[2] as f64 + l[3] as f64;
-                l[2] = 0.0;
-                l[3] = 0.0;
-            }
-            gpu.queue.write_buffer(&self.buffers.scratch, (16 * lb) as u64, bytemuck::cast_slice(&out[lb..le]));
             if ce > cb {
-                gpu.queue.write_buffer(&self.buffers.scratch, (16 * cb) as u64, bytemuck::cast_slice(&out[cb..ce]));
+                let mut cands: Vec<[f32; 4]> = gpu.read_range(&self.buffers.scratch, cb, ce - cb);
+                for l in cands.iter_mut().step_by(3) {
+                    self.contact_dissipated += l[2] as f64 + l[3] as f64;
+                    l[2] = 0.0;
+                    l[3] = 0.0;
+                }
+                gpu.queue.write_buffer(&self.buffers.scratch, (16 * cb) as u64, bytemuck::cast_slice(&cands));
             }
             if !plan.pairs.is_empty() {
                 let cstate: Vec<[f32; 4]> = gpu.read(&self.buffers.contact_state);
@@ -1547,10 +1582,8 @@ impl GpuSolver {
         self.bonds_stale = false;
         let bond_dyn: Vec<BondDyn> = gpu.read(&self.buffers.bond_dyn);
         let m = &mut self.mirror;
-        let mut frozen_bond = vec![false; self.layout.bonds.len()];
-        for isl in self.layout.islands.iter().filter(|isl| isl.info[0] & ISLAND_SETTLED != 0) {
-            frozen_bond[isl.range[2] as usize..isl.range[3] as usize].fill(true);
-        }
+        // Settled bonds change on the GPU too (static fatigue): every bond is taken.
+        let frozen_bond = vec![false; self.layout.bonds.len()];
         // Events in the reference's order: by substep, then cluster, then bond.
         let mut events: Vec<(u32, usize, usize, u8, SolverEvent)> = Vec::new();
         let mut cleared = Vec::new();
@@ -1758,6 +1791,38 @@ impl GpuSolver {
             out.push(eq);
         }
         out
+    }
+
+    /// world.rs `advance_settled_fatigue` on the GPU: every settled cluster's bonds
+    /// committed at its equilibrium with `frame_dt` of static fatigue. The clusters whose
+    /// bonds' damage grew, and those with a disconnected bond (the mirror's bonds are then
+    /// behind the GPU's until `sync`).
+    pub fn settled_fatigue(&mut self, gpu: &Gpu, frame_dt: f64) -> (Vec<usize>, Vec<usize>) {
+        if !self.layout.islands.iter().any(|isl| isl.info[0] & ISLAND_SETTLED != 0) {
+            return (Vec::new(), Vec::new());
+        }
+        let p = Params { dt: frame_dt as f32, ..self.buffers.params };
+        gpu.queue.write_buffer(&self.buffers.params_segment, 0, bytemuck::bytes_of(&p));
+        let mut islands = self.layout.islands.clone();
+        islands.iter_mut().for_each(|isl| isl.info[2] &= !(ISLAND_DAMAGED | ISLAND_DISCONNECTED));
+        let mut with_sentinel = islands.clone();
+        with_sentinel.push(Island::default());
+        gpu.queue.write_buffer(&self.buffers.islands, 0, bytemuck::cast_slice(&with_sentinel));
+        let mut encoder = gpu.device.create_command_encoder(&Default::default());
+        {
+            let mut pass = encoder.begin_compute_pass(&Default::default());
+            pass.set_pipeline(&self.kernels.fatigue.pipeline);
+            pass.set_bind_group(0, &self.buffers.bind_segment, &[]);
+            pass.dispatch_workgroups(islands.len().max(1) as u32, 1, 1);
+        }
+        gpu.queue.submit([encoder.finish()]);
+        self.bonds_stale = true;
+        let mut read: Vec<Island> = gpu.read(&self.buffers.islands);
+        read.pop();
+        let damaged = (0..read.len()).filter(|&ci| read[ci].info[2] & ISLAND_DAMAGED != 0).collect();
+        let disconnected = (0..read.len()).filter(|&ci| read[ci].info[2] & ISLAND_DISCONNECTED != 0).collect();
+        self.layout.islands = islands;
+        (damaged, disconnected)
     }
 
     /// Write the mirror's bond state (history, forces) of `clusters` to the GPU, with the

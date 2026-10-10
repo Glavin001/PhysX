@@ -210,8 +210,16 @@ impl GpuWorld {
         }
         self.frame += 1;
         let tail = std::time::Instant::now();
-        if self.scene.sim.solve_mode != SolveMode::Explicit {
-            self.solver.sync(gpu);
+        // The host's static work needs the mirror's bonds current: always in quasi-static
+        // mode, in adaptive mode only when a cluster may settle or the host does the
+        // settled fatigue.
+        let fdt = self.scene.sim.frame_dt;
+        let host_statics = std::env::var("STRESS_GPU_HOST_STATICS").is_ok_and(|v| v == "1");
+        let may_settle = self.solver.mirror.clusters.iter().any(|c| c.activity == Activity::Active && !c.bonds.is_empty() && c.active_timer - fdt <= 0.0);
+        match self.scene.sim.solve_mode {
+            SolveMode::QuasiStatic => self.solver.sync(gpu),
+            SolveMode::Adaptive if may_settle || host_statics => self.solver.sync(gpu),
+            _ => {}
         }
         let changed = match self.scene.sim.solve_mode {
             SolveMode::QuasiStatic => {
@@ -223,7 +231,7 @@ impl GpuWorld {
                 }
                 true
             }
-            SolveMode::Adaptive => {
+            SolveMode::Adaptive if host_statics => {
                 let settled = self.settle_quiet_clusters(gpu);
                 let (fatigued, structural) = self.advance_settled_fatigue();
                 if !(settled || structural) {
@@ -231,6 +239,31 @@ impl GpuWorld {
                     self.solver.upload_bonds(gpu, &fatigued);
                 }
                 settled || structural
+            }
+            SolveMode::Adaptive => {
+                if self.settle_quiet_clusters(gpu) {
+                    // The newly settled clusters take part in this frame's fatigue.
+                    self.solver.rebuild(gpu, 0.0)?;
+                }
+                let (damaged, disconnected) = self.solver.settled_fatigue(gpu, fdt);
+                if damaged.is_empty() && disconnected.is_empty() {
+                    false
+                } else {
+                    // A bond's damage grew: the cluster wakes; one disconnected: it splits.
+                    self.solver.sync(gpu);
+                    let m = &mut self.solver.mirror;
+                    let mut woke: Vec<usize> = damaged.iter().chain(&disconnected).copied().collect();
+                    woke.sort_unstable();
+                    woke.dedup();
+                    for &ci in &woke {
+                        m.clusters[ci].activity = Activity::Active;
+                        m.clusters[ci].active_timer = m.config.active_time;
+                    }
+                    for &ci in disconnected.iter().rev() {
+                        m.split_cluster(ci);
+                    }
+                    true
+                }
             }
             _ => false,
         };

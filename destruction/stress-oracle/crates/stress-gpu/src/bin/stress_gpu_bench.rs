@@ -4,7 +4,9 @@
 //!
 //!   full         the full model (`GpuSolver`: joint law, rigid motion, drift removal)
 //!
-//!   stress-gpu-bench [--substeps N] [--full]
+//!   world        the GPU world frame by frame (`--world MODE`: explicit, adaptive, ...)
+//!
+//!   stress-gpu-bench [--substeps N] [--full] [--world MODE --frames N]
 
 use std::time::Instant;
 
@@ -18,11 +20,15 @@ use stress_ref::solver::ReferenceSolver;
 fn main() {
     let mut substeps = 2000usize;
     let mut full = false;
+    let mut world_mode: Option<String> = None;
+    let mut frames = 60usize;
     let mut args = std::env::args().skip(1);
     while let Some(a) = args.next() {
         match a.as_str() {
             "--substeps" => substeps = args.next().and_then(|v| v.parse().ok()).expect("--substeps N"),
             "--full" => full = true,
+            "--world" => world_mode = args.next(),
+            "--frames" => frames = args.next().and_then(|v| v.parse().ok()).expect("--frames N"),
             other => panic!("unknown argument {other}"),
         }
     }
@@ -40,6 +46,9 @@ fn main() {
     ];
     if full {
         return full_model(&gpu, cases, substeps);
+    }
+    if let Some(mode) = world_mode {
+        return world_frames(&gpu, cases, &mode, frames);
     }
     println!("{:<22} {:>8} {:>8} {:>8}  {:>12} {:>12}  {:>8}", "scene", "islands", "chunks", "bonds", "per-substep", "island", "speedup");
     for (name, mut scene) in cases {
@@ -95,6 +104,51 @@ fn full_model(gpu: &Gpu, cases: Vec<(&str, Scene)>, substeps: usize) {
             bonds,
             substeps as f64 / secs,
             secs / substeps as f64 / bonds as f64 * 1e9
+        );
+    }
+}
+
+/// The GPU world on each scene in a solve mode: setup, and the frame time (first frame
+/// and steady state) over `frames` frames, with the clusters still active at the end.
+fn world_frames(gpu: &Gpu, cases: Vec<(&str, Scene)>, mode: &str, frames: usize) {
+    println!("{:<22} {:>8} {:>8}  {:>9} {:>11} {:>11} {:>8}", "scene", "chunks", "bonds", "setup", "first frame", "per frame", "active");
+    for (name, scene) in cases {
+        let scene = scene.with_override("sim.solve_mode", &format!("\"{mode}\"")).expect("solve mode");
+        let t = Instant::now();
+        let mut world = stress_gpu::world::GpuWorld::new(gpu, &scene).expect("GPU world");
+        let setup = t.elapsed().as_secs_f64();
+        let t = Instant::now();
+        world.step_frame(gpu).expect("frame");
+        let first = t.elapsed().as_secs_f64();
+        let t = Instant::now();
+        for _ in 1..frames {
+            world.step_frame(gpu).expect("frame");
+        }
+        let per = t.elapsed().as_secs_f64() / (frames - 1).max(1) as f64;
+        let m = &world.solver.mirror;
+        let chunks: usize = m.clusters.iter().map(|c| c.chunks.len()).sum();
+        let bonds: usize = m.clusters.iter().map(|c| c.bonds.len()).sum();
+        let active = m.clusters.iter().filter(|c| c.activity == stress_ref::solver::Activity::Active).count();
+        println!(
+            "{name:<22} {chunks:>8} {bonds:>8}  {:>7.2} s {:>8.2} ms {:>8.2} ms {active:>4}/{}  ({:.0} substeps/frame; host tails {:.1} ms/frame)",
+            setup,
+            first * 1e3,
+            per * 1e3,
+            m.clusters.len(),
+            m.substeps as f64 / frames as f64,
+            world.tail_seconds / frames as f64 * 1e3
+        );
+        let p = &world.solver.profile;
+        let f = frames as f64 / 1e3;
+        println!(
+            "{:<22} per frame: build {:.1} ms, gpu {:.1} ms, readback {:.1} ms, sync {:.1} ms, split {:.1} ms; {} batches",
+            "",
+            p.build / f,
+            p.gpu / f,
+            p.readback / f,
+            p.download / f,
+            p.split / f,
+            p.batches
         );
     }
 }

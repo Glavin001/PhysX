@@ -20,6 +20,12 @@ public static const uint ISLAND_WIDE = 8;
 public static const uint ISLAND_SETTLED = 16;
 // Island status: a settled island woke (its external loads changed) during the batch.
 public static const uint ISLAND_WOKE = 4;
+// Island flag: settled, anchored, without load terms or contact candidates: nothing can
+// wake or move it, so its substeps only keep count (and record its probes).
+public static const uint ISLAND_QUIET = 32;
+// Island status (settled_fatigue): a bond's damage grew; a bond disconnected.
+public static const uint ISLAND_DAMAGED = 16;
+public static const uint ISLAND_DISCONNECTED = 32;
 
 // Static data of a chunk (body frame of its cluster), with its contact data.
 public struct ChunkStatic

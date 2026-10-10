@@ -1566,6 +1566,13 @@ void island_frame(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
     {
         uint abs_step = isl.info.w + s + 1;
         uint k = abs_step - 1 - params.step_start; // substeps since the host's step began
+        if ((isl.info.x & ISLAND_QUIET) != 0)
+        {
+            if (tid == 0 && isl.probes.y > isl.probes.x)
+                record_probes(isl, rg, k);
+            done = s + 1;
+            continue;
+        }
         // 0. A settled island (world.rs `wake_loaded_clusters`): its loads recorded;
         // it wakes, and takes this substep explicitly, when they changed.
         if (settled)
@@ -2002,6 +2009,22 @@ void wide_end(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
 static const uint ISLAND_SOLVE = 8;      // status: solve this island to equilibrium
 static const uint STATICS_PER_CHUNK = 23; // ... then the displacement's low parts (u, theta)
 static const float STATICS_FLOOR = 1e-3;
+static const float STATICS_ULPS = 64.0;
+
+// The squared magnitude of the bond loads on chunk c (sum over its bonds, each term's).
+float bond_load_magnitude2(uint c)
+{
+    float m = 0.0;
+    for (uint e = index[c]; e < index[c + 1]; e++)
+    {
+        uint entry = index[e];
+        uint bond = entry >> 1;
+        float3 f = scratch[3 * bond].xyz;
+        float3 t = (entry & 1) == 0 ? scratch[3 * bond + 1].xyz : scratch[3 * bond + 2].xyz;
+        m += dot(f, f) + dot(t, t);
+    }
+    return m;
+}
 
 uint sv(uint c, uint slot)
 {
@@ -2353,11 +2376,14 @@ void island_statics(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
             write_bond_loads(i, bonds[i], resp.force_lin, resp.force_ang, 0.0);
         }
         AllMemoryBarrierWithGroupSync();
+        float4 magnitude = float4(0.0);
+        float4 unused_m = float4(0.0);
         for (uint c = c0 + tid; c < c1; c += THREADS)
         {
             float3 fi;
             float3 mi;
             gather_loads(c, fi, mi);
+            magnitude.x += bond_load_magnitude2(c);
             float4 r_lin = float4(scratch[sv(c, 0)].xyz + fi, 0.0);
             float4 r_ang = float4(scratch[sv(c, 1)].xyz + mi, 0.0);
             hold(fixed_mask(c), r_lin, r_ang, float4(0.0), float4(0.0));
@@ -2365,15 +2391,19 @@ void island_statics(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
             scratch[sv(c, 5)] = r_ang;
         }
         AllMemoryBarrierWithGroupSync();
+        group_sum2(tid, magnitude, unused_m);
         if (free)
             project_load_slot(tid, isl, 4);
         residual = sqrt(island_dot(tid, c0, c1, 4, 4)) / scale;
+        // f32's floor for this structure: rounding of the bond loads, which can exceed
+        // the chunks' own loads by orders of magnitude (a long cantilever's root).
+        float floor_level = max(STATICS_FLOOR, STATICS_ULPS * 6e-8 * sqrt(magnitude.x) / scale);
         newton = it;
         // Converged at the tolerance, or at f32's floor: the residual of a structure
         // in equilibrium stops falling at a level set by rounding (displacements far
         // larger than the bond deformations they differ into); a mechanism's stays at
         // the size of its loads.
-        if (residual <= tol || (residual <= STATICS_FLOOR && residual > 0.5 * previous))
+        if (residual <= tol || (residual <= floor_level && residual > 0.5 * previous))
         {
             converged = true;
             break;
@@ -2516,4 +2546,71 @@ void island_statics(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
         scratch[statics_result_slot(group.x)] = float4(residual, asfloat(newton), asfloat(cg_total), converged ? 1.0 : 0.0);
         islands[group.x].info.z = isl.info.z & ~ISLAND_SOLVE;
     }
+}
+
+// ------------------------------------------------------------------ settled fatigue
+//
+// world.rs `advance_settled_fatigue` (statics.rs `commit_damage`): each settled island's
+// bonds evaluated at the equilibrium with the frame's duration (`params.dt`), history
+// committed, events recorded at the current substep; the island flagged when a bond's
+// damage grew (it wakes) or a bond disconnected (it splits).
+
+[shader("compute")]
+[numthreads(256, 1, 1)]
+void settled_fatigue(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
+{
+    uint tid = thread.x;
+    Island isl = islands[group.x];
+    if ((isl.info.x & ISLAND_SETTLED) == 0 || isl.range.w == isl.range.z)
+        return;
+    // Group flags (every writer stores the same value): damage grew, a bond disconnected.
+    if (tid == 0)
+    {
+        g_halt = 0;
+        g_run = 0;
+    }
+    GroupMemoryBarrierWithGroupSync();
+    uint abs_step = isl.info.w;
+    for (uint i = isl.range.z + tid; i < isl.range.w; i += THREADS)
+    {
+        BondStatic b = bonds[i];
+        BondDyn bd = bond_dyn[i];
+        uint ca = b.law.ids.y;
+        uint cb = b.law.ids.z;
+        float3 d_lin;
+        float3 d_ang;
+        bond_kinematics(b, state[4 * ca].xyz, state[4 * ca + 1].xyz, state[4 * cb].xyz, state[4 * cb + 1].xyz, d_lin, d_ang);
+        JointMaterial mat = materials.m[b.law.ids.x];
+        JointState previous = bd.js;
+        JointResponse resp = joint_evaluate(mat, b.law, previous, d_lin, d_ang, params.dt, params.fracture != 0);
+        uint flags = 0;
+        if (resp.state.damage > previous.damage + 1e-9 || resp.state.crush > previous.crush + 1e-9)
+            flags |= ISLAND_DAMAGED;
+        comp_add1(bd.sums.x, bd.comps.x, resp.dissipated);
+        comp_add1(bd.sums.y, bd.comps.y, resp.overshoot);
+        bd.force_lin = float4(resp.force_lin, resp.stored);
+        bd.force_ang = float4(resp.force_ang, max(bd.force_ang.w, resp.state.utilization));
+        if (!is_damaged(previous) && is_damaged(resp.state) && bd.events.x == 0)
+        {
+            bd.events.x = abs_step;
+            bd.events.w = resp.state.mode;
+        }
+        if (bd.events.y == 0 && fatigue_factor(mat, previous.fatigue) > 0.99 && fatigue_factor(mat, resp.state.fatigue) <= 0.99)
+            bd.events.y = abs_step;
+        if (resp.disconnected)
+        {
+            bd.events.z = abs_step;
+            flags |= ISLAND_DISCONNECTED;
+        }
+        bd.js = resp.state;
+        bond_dyn[i] = bd;
+        write_bond_loads(i, b, resp.force_lin, resp.force_ang, max(resp.measures.tension, resp.measures.compression));
+        if ((flags & ISLAND_DAMAGED) != 0)
+            g_halt = 1;
+        if ((flags & ISLAND_DISCONNECTED) != 0)
+            g_run = 1;
+    }
+    GroupMemoryBarrierWithGroupSync();
+    if (tid == 0 && (g_halt | g_run) != 0)
+        islands[group.x].info.z = isl.info.z | (g_halt != 0 ? ISLAND_DAMAGED : 0) | (g_run != 0 ? ISLAND_DISCONNECTED : 0);
 }
