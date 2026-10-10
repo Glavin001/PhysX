@@ -19,6 +19,8 @@ cluster, fracture by dynamic stress). It has three layers, validated in order:
 Nothing is "is this right?": every quantity is compared, by one shared metric
 implementation, against an analytic value or an oracle run of the identical setup.
 
+Taking over this work? Start with [`HANDOFF.md`](HANDOFF.md).
+
 ## Layout
 
 | path | what |
@@ -444,13 +446,14 @@ them progressively (1, 1, 2, 10, 13, 15 broken bonds over the first 0.1 s, one p
 
 ### Known gaps
 
-* **b5 at 2 m/s is bimodal in the substep.** Speed lost is 1.152 m/s (150 broken
-  bonds, 21% from OpenCourant) at Courant safety 0.3 and 0.4 with either step bound,
-  but 1.34-1.50 m/s (230-282 bonds) at 0.45-0.5: in those runs the penalty contact
-  dissipates ~1500 J instead of ~350 J. With contact friction off it is 1.152 at every
-  step, so a frictional contact event (most likely debris wedged between the ram and
-  the wall) flips the outcome; capping the friction's viscosity harder does not remove
-  it. The gate fails at the default step.
+* **b5 at 2 m/s: the push-over is not converged at the default substep** (open; see
+  `HANDOFF.md`). The first impact is converged (ram 2.0 -> 0.848 m/s at every step).
+  The ram then follows the wall and strikes it again; that second impact comes at
+  0.283 s at Courant safety 0.5 and 0.45 but at 0.31-0.334 s at 0.4 and below, and the
+  0.3 s window of `speed_lost` cuts through it (1.152 m/s lost before it, 1.34-1.50
+  after). The energy balance closes in every run (no injection). Contact friction is
+  the main suspect: its regularised viscosity is capped in proportion to `m_red / dt`.
+  The gate fails at the default step.
 * **b5 at 40 m/s**: ours makes a local hole; OpenCourant pushes the wall over at 2, 3
   and 4 elements per chunk edge (a hole only at 1). The oracle mesh study
   (`golden_mesh/b5_wall_impact_v40/`) shows why this is not yet a usable verdict: the
