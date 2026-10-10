@@ -11,6 +11,8 @@
 //!
 //!   stress-gpu-coupled-fps [--frames N] [--ref-cap SECONDS] [--only NAME] [--gpu-only]
 //!
+//! The reference runs (the truth) are cached (`gate::cached`).
+//!
 //! `--gpu-only`: skip the stress-ref runs (timing only; accuracy is the tests' job).
 
 use std::time::Instant;
@@ -21,6 +23,7 @@ use stress_ref::api::{ContactImpulse, EngineCoupledSolver, FrameInput, StressSol
 use stress_ref::math::Vec3;
 use stress_ref::scene::{Scene, Support};
 
+#[derive(serde::Serialize, serde::Deserialize)]
 struct Run {
     times: Vec<f64>,
     setup: f64,
@@ -121,7 +124,7 @@ fn report(scene: &str, regime: &str, step: &str, who: &str, r: &Run, truth: Opti
 
 fn main() {
     let mut frames = 60usize;
-    let mut cap = 60.0;
+    let mut cap: f64 = 60.0;
     let mut only: Option<String> = None;
     let mut gpu_only = false;
     let mut args = std::env::args().skip(1);
@@ -167,13 +170,20 @@ fn main() {
         eprintln!("{}: true step {ratio:.1}x the reference's ({n_ref} -> {n_true} substeps per frame)", scene.name);
         for (regime, destruction) in [("idle", false), ("destruction", true)] {
             let truth = (!gpu_only).then(|| {
-                let t = Instant::now();
-                let mut reference = EngineCoupledSolver::new(&scene);
-                let truth = run(&scene, &mut reference, t.elapsed().as_secs_f64(), frames, destruction, cap);
+                // The reference at its own step: cached (the contact inputs are this
+                // tool's; bump the version when `contacts` changes).
+                const INPUTS_VERSION: u32 = 1;
+                let key = (&scene, frames, destruction, cap.to_bits(), INPUTS_VERSION);
+                let truth: Run = stress_gpu::gate::cached(&format!("coupled-fps-{}-{regime}", scene.name), &key, || {
+                    let t = Instant::now();
+                    let mut reference = EngineCoupledSolver::new(&scene);
+                    run(&scene, &mut reference, t.elapsed().as_secs_f64(), frames, destruction, cap)
+                });
                 report(&scene.name, regime, "reference", "stress-ref", &truth, None, n_ref);
                 truth
             });
-            for (step, s, n) in [("reference", &scene, n_ref), ("true", &true_scene, n_true), ("true+sleep", &sleep_scene, n_true)] {
+            let steps: Vec<(String, &Scene, usize)> = vec![("reference".into(), &scene, n_ref), ("true".into(), &true_scene, n_true), ("true+sleep".into(), &sleep_scene, n_true)];
+            for (step, s, n) in steps.iter().map(|(a, b, c)| (a.as_str(), *b, *c)) {
                 let t = Instant::now();
                 match GpuStressSolverApi::new(s) {
                     Ok(mut gpu) => {
