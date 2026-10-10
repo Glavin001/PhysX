@@ -36,8 +36,8 @@ macro_rules! shader_set {
 pub mod shaders {
     use super::ShaderSet;
     pub const SMOKE: ShaderSet = shader_set!("smoke", [("smoke", (64, 1, 1))]);
-    pub const LATTICE_STEP: ShaderSet = shader_set!("lattice_step", [("lattice_forces", (64, 1, 1)), ("lattice_positions", (64, 1, 1))]);
-    pub const LATTICE_RENDER: ShaderSet = shader_set!("lattice_render", [("lattice_vs", (1, 1, 1)), ("lattice_fs", (1, 1, 1))]);
+    pub const STRESS_STEP: ShaderSet = shader_set!("stress_step", [("bond_forces", (64, 1, 1)), ("chunk_integrate", (64, 1, 1))]);
+    pub const STRESS_RENDER: ShaderSet = shader_set!("stress_render", [("stress_vs", (1, 1, 1)), ("stress_fs", (1, 1, 1))]);
 }
 
-pub mod lattice;
+pub mod stress;
