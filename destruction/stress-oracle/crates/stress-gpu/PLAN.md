@@ -45,17 +45,21 @@ The design follows the colleague's speed-of-light analysis ("GPU Stress Solver: 
 
 ## Milestones
 
-| # | Milestone | Gate |
-| --- | --- | --- |
-| G0 | Toolchain, intact explicit substep, native viewer | Done: displacement error under 1e-5 relative to f64 over 4,000 substeps |
-| G1 | Island kernel: all substeps of a segment in one dispatch; benchmark against a dispatch per substep | P2 unchanged; substeps per second measured on growing scenes |
-| G2 | Full joint law on the GPU (damage, crushing, contact patch, friction, rebar, DIF, fatigue, Weibull, buckling); events | P1 on random states; P2 on scenes with fracture and no splits |
-| G3 | Free clusters (rigid motion, frame loads, drift removal); splits through the host mirror | P2 on splitting scenes: same events and fragments |
-| G4 | World loads: point forces, pressure, blasts, supports, removal events, replacement loads; probes; observation output | P3 on every benchmark without contact |
-| G5 | Contacts: impactors, ground, chunk pairs (penalty contact, then layer contact) | P3 on the impact benchmarks and showcases |
-| G6 | Solve modes: quasi-static, implicit and adaptive on the GPU (block PCG for small islands, smoothed aggregation for big ones) | P3 in every mode |
-| G7 | True step, per island; certificates for sleeping and waking | Step-change bar; idle scenes cost zero substeps |
-| G8 | Scale: scene packs (house, garage, park, skyline), town scenes, GPU topology | Real time at measured bounds; accuracy gates still pass |
+Status as of 2026-10-10 (Apple M3 Max). Every accuracy gate runs in `cargo test --release -p stress-gpu`.
+
+| # | Milestone | Gate | Status |
+| --- | --- | --- | --- |
+| G0 | Toolchain, intact explicit substep, native viewer | Displacement error under 1e-5 relative to f64 over 4,000 substeps | Done |
+| G1 | Island kernel: all substeps of a segment in one dispatch; big islands over many threadgroups | P2 unchanged; substeps per second measured on growing scenes | Done: narrow (one group, whole segment) and wide (a round of 5 dispatches per substep) kernels; `stress-gpu-bench --full` |
+| G2 | Full joint law (damage, crushing, contact patch, friction, rebar, DIF, fatigue, Weibull, buckling); events | P1 on random states; P2 on fracture without splits | Done: `joint_parity` (0 discrete mismatches in 20,000 cases) |
+| G3 | Free clusters (rigid motion, frame loads, drift removal); splits through the host mirror | P2 on splitting scenes | Done: `solver_vs_reference`; halts that do not split resume on the GPU |
+| G4 | World loads, supports, removal events, replacement loads, probes, observation output | P3 on every benchmark without contact | Done: `world_vs_reference` |
+| G5 | Contacts: impactors, ground, chunk pairs; convex hull chunks | P3 on the impact benchmarks and showcases | Penalty contact and hulls done (`world_vs_reference`, `packs_vs_reference`); layer contact open |
+| G6 | Solve modes: quasi-static, implicit and adaptive | P3 in every mode | Quasi-static and adaptive done, with the static solves on the GPU (`modes_vs_reference`, `statics_vs_reference`); implicit open; multi-group and multigrid statics for big islands open |
+| G7 | True step; sleeping | Step-change bar; idle scenes nearly free | The true step is a scene setting (`--true-step`; `stress-gpu-stepcheck`). Adaptive sleeping with GPU wake checks and settled fatigue: 512 idle structures take 13 ms per frame. Certificates (classes A-C) open |
+| G8 | Scale: scene packs, towns, GPU topology | Real time at measured bounds; gates still pass | All packs run. A fully active 24k-chunk island costs 139 us per substep at the true step; GPU connectivity open |
+
+The accuracy gate (`tests/common`) holds each probe within 1e-3 of its range, or within twice the reference's own spread. That spread is the larger of timestep halving and +-1e-4 input perturbations, the size of the GPU's f32 drift. Broken bonds and fragments must be within 10%, or within twice the spread's deviation.
 
 ## Departures from the analysis
 
