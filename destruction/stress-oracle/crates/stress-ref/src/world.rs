@@ -2147,19 +2147,38 @@ impl<V: Load> Layer<V> {
             Layer::default()
         }
     }
-    fn stiffness(&self) -> f64 {
-        self.cohorts.iter().map(|c| c.0).sum()
-    }
-    fn load(&self) -> V {
-        self.cohorts.iter().fold(V::default(), |f, &(k, d0)| f + (self.d - d0) * k)
-    }
     fn energy(&self) -> f64 {
         self.cohorts.iter().map(|&(k, d0)| 0.5 * k * (self.d - d0).square()).sum()
     }
-    /// The layer at stiffness `k` (its area changed).
-    fn resize(mut self, k: f64) -> Layer<V> {
-        let total = self.stiffness();
+    /// The load `sum k_i (d - d_i)` at displacement `d` (not necessarily the layer's own).
+    fn load_at(&self, d: V) -> V {
+        self.cohorts.iter().fold(V::default(), |f, &(k, d0)| f + (d - d0) * k)
+    }
+    /// The stiffness `sum k_i` and `energy()` in one pass over the cohorts (each sum in
+    /// cohort order from `-0`, as `Iterator::sum`).
+    fn stiffness_energy(&self) -> (f64, f64) {
+        let (mut k_sum, mut e_sum) = (-0.0, -0.0);
+        for &(k, d0) in &self.cohorts {
+            k_sum += k;
+            e_sum += 0.5 * k * (self.d - d0).square();
+        }
+        (k_sum, e_sum)
+    }
+    /// `load_at(self.d)` and `energy()` in one pass over the cohorts.
+    fn load_energy(&self) -> (V, f64) {
+        let (mut f, mut e_sum) = (V::default(), -0.0);
+        for &(k, d0) in &self.cohorts {
+            f = f + (self.d - d0) * k;
+            e_sum += 0.5 * k * (self.d - d0).square();
+        }
+        (f, e_sum)
+    }
+    /// The layer at stiffness `k` (its area changed), from its current stiffness `total`
+    /// (`stiffness_energy`); also whether any cohort changed.
+    fn resize_from(mut self, total: f64, k: f64) -> (Layer<V>, bool) {
+        let mut changed = false;
         if k > total {
+            changed = true;
             let gain = k - total;
             match self.cohorts.last_mut() {
                 Some(top) if top.1 == self.d => top.0 += gain,
@@ -2169,6 +2188,7 @@ impl<V: Load> Layer<V> {
             let mut leaving = total - k;
             while leaving > 0.0 {
                 let Some(top) = self.cohorts.last_mut() else { break };
+                changed = true;
                 if top.0 > leaving {
                     top.0 -= leaving;
                     break;
@@ -2177,7 +2197,7 @@ impl<V: Load> Layer<V> {
                 self.cohorts.pop();
             }
         }
-        self
+        (self, changed)
     }
     /// Strained by the displacement `x`.
     fn strain(mut self, x: V) -> Layer<V> {
@@ -2351,53 +2371,64 @@ fn layer_force(law: &LayerLaw, lc: &LayerContact, v: Vec3, w: Vec3, stick: Stick
     let k_t = law.k_t * lc.area;
     let c_t = 2.0 * zeta * (k_t * law.m_red).sqrt();
     let vt = v - n * vn;
-    let held = stick.shear.clone().turned(stick.normal, n);
-    let held_energy = held.energy();
-    let mut layer = held.resize(k_t);
-    let before = layer.energy();
+    // (Each pass over the layer's cohorts computes what the single-purpose methods
+    // would, in the same order: the held energy with the stiffness `resize` needs, the
+    // load with the energy after straining; `before` is the held energy when resizing
+    // changed nothing; the carried load is needed only to slide.)
+    let Stick { shear, torque, normal: held_normal, indent } = stick;
+    let held = shear.turned(held_normal, n);
+    let (held_k, held_energy) = held.stiffness_energy();
+    let (mut layer, changed) = held.resize_from(held_k, k_t);
+    let before = if changed { layer.energy() } else { held_energy };
     dissipated += held_energy - before;
-    let carried = layer.load();
+    let unstrained = layer.d;
     layer = layer.strain(vt * -dt);
-    let mut f_t = layer.load() - vt * c_t;
+    let (load, mut after) = layer.load_energy();
+    let mut f_t = load - vt * c_t;
     let cap = law.friction * f_n;
     if f_n == 0.0 || k_t == 0.0 {
         f_t = Vec3::ZERO;
         layer = Layer::default();
+        after = layer.energy();
     } else if f_t.norm() > cap {
         // Sliding: Coulomb's slider in series with the layer (spring and dashpot in
         // parallel) carries the cap, `k e + c de/dt = cap`; the layer's elastic force
         // relaxes towards the cap (backward Euler), continuous with sticking at the
         // threshold and never beyond the larger of the cap and its previous value. The
         // whole patch slips: its strain is uniform.
+        let carried = layer.load_at(unstrained);
         f_t = f_t * (cap / f_t.norm());
         layer = Layer::uniform((f_t * k_t + carried * (c_t / dt)) / (k_t + c_t / dt), k_t);
+        after = layer.energy();
     }
-    let after = layer.energy();
     dissipated += -f_t.dot(vt) * dt - (after - before);
     stored += after;
     // Torsion about the normal, the same with the layer's polar moment.
     let k_r = law.k_t * lc.polar_moment;
     let c_r = 2.0 * zeta * (k_r * law.i_red).sqrt();
     let spin = w.dot(n);
-    let held_r = stick.torque.energy();
-    let mut twist = stick.torque.clone().resize(k_r);
-    let before_r = twist.energy();
+    let (held_k_r, held_r) = torque.stiffness_energy();
+    let (mut twist, changed_r) = torque.resize_from(held_k_r, k_r);
+    let before_r = if changed_r { twist.energy() } else { held_r };
     dissipated += held_r - before_r;
-    let carried = twist.load();
+    let unstrained_r = twist.d;
     twist = twist.strain(-spin * dt);
-    let mut m = twist.load() - c_r * spin;
+    let (twist_load, mut after_r) = twist.load_energy();
+    let mut m = twist_load - c_r * spin;
     let cap_r = law.friction * f_n * lc.mean_radius;
     if f_n == 0.0 || k_r == 0.0 {
         m = 0.0;
         twist = Layer::default();
+        after_r = twist.energy();
     } else if m.abs() > cap_r {
+        let carried = twist.load_at(unstrained_r);
         m = cap_r * m.signum();
         twist = Layer::uniform((m * k_r + carried * (c_r / dt)) / (k_r + c_r / dt), k_r);
+        after_r = twist.energy();
     }
-    let after_r = twist.energy();
     dissipated += -m * spin * dt - (after_r - before_r);
     stored += after_r;
-    LayerOutcome { force: n * f_n + f_t, moment: n * m + couple, stick: Stick { shear: layer, torque: twist, normal: n, indent: stick.indent }, stored, dissipated }
+    LayerOutcome { force: n * f_n + f_t, moment: n * m + couple, stick: Stick { shear: layer, torque: twist, normal: n, indent }, stored, dissipated }
 }
 
 /// The elastic-layer contact of one chunk pair over a substep: the key, the point of
