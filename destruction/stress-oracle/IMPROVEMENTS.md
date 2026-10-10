@@ -430,8 +430,12 @@ carried 256 to 1023 cohorts, and 0.4 M carried 1024 or more. Every substep each 
 over all of them, and the force law was 22 % of the run before c347352ea. Most cohorts
 are slivers of area (round-off flicker of a contact edge, a cohort pushed whenever the
 area grows after the displacement moved). Merging cohorts would change rounding, so
-it is not a runtime change. A tolerance for "the same displacement" would be a model
-decision.
+it is not a runtime change. Cohorts are only physically one when their anchor
+displacements are equal, and `resize` already merges that case (growth at the top while
+the displacement has not moved). Any other bound replaces real cohorts with an
+approximation. A tolerance for "the same displacement" would be a model decision. Under
+the proven default (with `contact_crushing`), the force law is 17 s of 154 s on the
+settlement, against 111 s of 318 s with layer contact alone.
 
 Finding for the solver (not a runtime change): in `quasi_static` mode, b9_panel_high's
 static solves mostly fail. Over its first 10 frames, 9 of 12 diverge: the plain
