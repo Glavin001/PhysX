@@ -71,6 +71,8 @@ pub struct ClipScratch {
     segments: Vec<(Vec3, Vec3)>,
     points: Vec<(f64, f64, Vec3)>,
     hull: Vec<(f64, f64, Vec3)>,
+    /// The second buffer of `intersect`'s clips.
+    spare: Polytope,
 }
 
 thread_local! {
@@ -266,19 +268,30 @@ impl Polytope {
 
     /// The intersection with `other` (its faces keep `other`'s owners).
     pub fn intersect(&self, other: &Polytope) -> Polytope {
-        let mut out = self.clone();
-        let mut next = Polytope::default();
+        let mut out = Polytope::default();
+        let mut clipped = false;
         SCRATCH.with(|s| {
             let scratch = &mut s.borrow_mut();
+            let mut next = std::mem::take(&mut scratch.spare);
             for f in other.faces() {
                 let offset = f.normal.dot(f.vertices[0]);
-                out.clip_into(f.normal, offset, f.owner, &mut next, scratch);
-                std::mem::swap(&mut out, &mut next);
+                // The first clip reads `self` directly (a copy of it would clip the same).
+                if clipped {
+                    out.clip_into(f.normal, offset, f.owner, &mut next, scratch);
+                    std::mem::swap(&mut out, &mut next);
+                } else {
+                    self.clip_into(f.normal, offset, f.owner, &mut out, scratch);
+                    clipped = true;
+                }
                 if out.is_empty() {
                     break;
                 }
             }
+            scratch.spare = next;
         });
+        if !clipped {
+            out.clone_from(self);
+        }
         out
     }
 

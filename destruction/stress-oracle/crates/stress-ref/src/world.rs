@@ -1363,17 +1363,18 @@ impl World {
             let (ba, bb) = (self.chunk_box(s, a), self.chunk_box(s, b));
             let material = |c: usize| self.scene.material(&self.solver.structures[s].chunks[c].material);
             let (mat_a, mat_b) = (material(a), material(b));
-            let Some(overlap) = (if ba.may_overlap(&bb) { pair_overlap(&ba, &bb) } else { None }) else {
+            let (pa, pb) = (polytope_of(&ba, OWNER_A), polytope_of(&bb, OWNER_B));
+            let Some(overlap) = (if ba.may_overlap(&bb) { pair_overlap_of(&pa, &pb) } else { None }) else {
                 self.solver.energy.split_release += h.stored;
                 continue;
             };
-            let at = |indent: f64| pair_elastic_of(&overlap, &ba, &bb, mat_a, mat_b, scale, indent, true);
+            let at = |indent: f64| pair_elastic_with(&overlap, (&ba, &pa), (&bb, &pb), mat_a, mat_b, scale, indent, true);
             let Some(full) = at(0.0).filter(|p| p.elastic.force > 0.0) else {
                 self.solver.energy.split_release += h.stored;
                 continue;
             };
             // Force and stored energy beyond an indentation (both fall as it deepens).
-            let elastic = |i: f64| pair_elastic_of(&overlap, &ba, &bb, mat_a, mat_b, scale, i, false).map_or(Elastic { force: 0.0, moment: Vec3::ZERO, stored: 0.0 }, |p| p.elastic);
+            let elastic = |i: f64| pair_elastic_with(&overlap, (&ba, &pa), (&bb, &pb), mat_a, mat_b, scale, i, false).map_or(Elastic { force: 0.0, moment: Vec3::ZERO, stored: 0.0 }, |p| p.elastic);
             let force = |i: f64| elastic(i).force;
             let energy = |i: f64| elastic(i).stored;
             let bisect = |f: &dyn Fn(f64) -> f64, target: f64| {
@@ -2365,31 +2366,41 @@ struct PairElastic {
 
 fn pair_elastic(ba: &OBox, bb: &OBox, mat_a: &Material, mat_b: &Material, scale: f64, indent: f64) -> Option<PairElastic> {
     let t_overlap = crate::profile::time(crate::profile::Stage::PairOverlap);
-    let overlap = pair_overlap(ba, bb);
+    let (pa, pb) = (polytope_of(ba, OWNER_A), polytope_of(bb, OWNER_B));
+    let overlap = pair_overlap_of(&pa, &pb);
     drop(t_overlap);
     let overlap = overlap?;
-    pair_elastic_of(&overlap, ba, bb, mat_a, mat_b, scale, indent, true)
+    pair_elastic_with(&overlap, (ba, &pa), (bb, &pb), mat_a, mat_b, scale, indent, true)
 }
 
-/// The overlap of two chunks (`None` when they do not overlap).
-fn pair_overlap(ba: &OBox, bb: &OBox) -> Option<Polytope> {
-    let overlap = polytope_of(ba, OWNER_A).intersect(&polytope_of(bb, OWNER_B));
+/// The overlap of two chunks, from their polytopes (`polytope_of`, owners A and B;
+/// `None` when they do not overlap).
+fn pair_overlap_of(pa: &Polytope, pb: &Polytope) -> Option<Polytope> {
+    let overlap = pa.intersect(pb);
     (!overlap.is_empty()).then_some(overlap)
 }
 
 /// `pair_elastic` on an overlap already computed (it does not depend on the
-/// indentation); without `geometry`, only the elastic force and energy (no contact
-/// geometry for friction).
+/// indentation), with the chunks' polytopes (`polytope_of`, owners A and B); without
+/// `geometry`, only the elastic force and energy (no contact geometry for friction).
 #[allow(clippy::too_many_arguments)]
-fn pair_elastic_of(overlap: &Polytope, ba: &OBox, bb: &OBox, mat_a: &Material, mat_b: &Material, scale: f64, indent: f64, geometry: bool) -> Option<PairElastic> {
-    let (pa, pb) = (polytope_of(ba, OWNER_A), polytope_of(bb, OWNER_B));
+fn pair_elastic_with(
+    overlap: &Polytope,
+    (ba, pa): (&OBox, &Polytope),
+    (bb, pb): (&OBox, &Polytope),
+    mat_a: &Material,
+    mat_b: &Material,
+    scale: f64,
+    indent: f64,
+    geometry: bool,
+) -> Option<PairElastic> {
     let e = |m: &Material| m.youngs_modulus * scale / (1.0 - m.poisson_ratio * m.poisson_ratio);
     let turning = |b: &OBox, n: Vec3| layer_thickness(b, n).1;
     // Force and moment (about the origin) on `a`, stored energy, weights.
     let (mut force, mut moment, mut stored) = (Vec3::ZERO, Vec3::ZERO, 0.0);
     let (mut kv, mut kvc, mut vol, mut ktv) = (0.0, Vec3::ZERO, 0.0, 0.0);
     let t_cells = crate::profile::time(crate::profile::Stage::PairCells);
-    for (field, sign) in [(&pb, 1.0), (&pa, -1.0)] {
+    for (field, sign) in [(pb, 1.0), (pa, -1.0)] {
         // The other body, whose half-thickness along the field's normals turns with it.
         let (other, e_other) = if sign > 0.0 { (ba, e(mat_a)) } else { (bb, e(mat_b)) };
         for c in field_cells(overlap, field, indent) {
