@@ -1379,35 +1379,34 @@ impl ReferenceSolver {
             }
         }
         // Mass data of the parent's chunks (copied: the loop below mutates `self`).
-        let lite: std::collections::HashMap<usize, (Vec3, f64, Mat3)> = parent
-            .chunks
-            .iter()
-            .map(|&c| {
-                let ch = &self.structures[s].chunks[c];
-                (c, (ch.center, ch.mass, ch.inertia))
-            })
-            .collect();
+        // (Dense by chunk: only looked up.)
+        let n_chunks = self.structures[s].chunks.len();
+        let mut lite = vec![(Vec3::ZERO, 0.0, Mat3::default()); n_chunks];
+        for &c in &parent.chunks {
+            let ch = &self.structures[s].chunks[c];
+            lite[c] = (ch.center, ch.mass, ch.inertia);
+        }
         let rot = parent.rotation();
         // Exact world velocity of every chunk before the split.
-        let mut vel: std::collections::HashMap<usize, (Vec3, Vec3)> = std::collections::HashMap::new();
+        let mut vel = vec![(Vec3::ZERO, Vec3::ZERO); n_chunks];
         let com_world = parent.com_world();
         for &c in &parent.chunks {
             let cs = &self.chunks[s][c];
-            let x = parent.pose.transform_point(lite[&c].0 + cs.u);
+            let x = parent.pose.transform_point(lite[c].0 + cs.u);
             let v = parent.velocity + parent.angular_velocity.cross(x - com_world) + rot * cs.v;
             let w = parent.angular_velocity + rot * cs.w;
-            vel.insert(c, (v, w));
+            vel[c] = (v, w);
         }
         // Bonds crossing between children are handed over to rigid-body contact.
-        let mut comp_of = std::collections::HashMap::new();
+        let mut comp_of = vec![usize::MAX; n_chunks];
         for (k, comp) in comps.iter().enumerate() {
             for &c in comp {
-                comp_of.insert(c, k);
+                comp_of[c] = k;
             }
         }
         for &bi in &parent.bonds {
             let g = &self.bonds[s][bi].geometry;
-            if comp_of[&g.a] != comp_of[&g.b] {
+            if comp_of[g.a] != comp_of[g.b] {
                 let b = &self.bonds[s][bi];
                 if self.config.methods.layer_contact {
                     let e = b.elastic;
@@ -1430,15 +1429,15 @@ impl ReferenceSolver {
         let mut children = Vec::new();
         for comp in comps {
             // Linear and angular momentum of the child from its chunks' exact velocities.
-            let mass: f64 = comp.iter().map(|&c| lite[&c].1).sum();
+            let mass: f64 = comp.iter().map(|&c| lite[c].1).sum();
             let com_local =
-                comp.iter().map(|&c| lite[&c].0 * lite[&c].1).fold(Vec3::ZERO, |a, b| a + b) / mass;
+                comp.iter().map(|&c| lite[c].0 * lite[c].1).fold(Vec3::ZERO, |a, b| a + b) / mass;
             let mut p = Vec3::ZERO;
             let mut l = Vec3::ZERO;
             let mut i_local = Mat3::ZERO;
             for &c in &comp {
-                let (center, ch_mass, ch_inertia) = lite[&c];
-                let (v, w) = vel[&c];
+                let (center, ch_mass, ch_inertia) = lite[c];
+                let (v, w) = vel[c];
                 let r = parent.pose.transform_vector(center - com_local);
                 p += v * ch_mass;
                 l += r.cross(v) * ch_mass + rot * ch_inertia * rot.transpose() * w;
@@ -1451,15 +1450,15 @@ impl ReferenceSolver {
             let child = self.clusters[idx].clone();
             // Hidden velocities: whatever the child's rigid motion does not carry.
             for &c in &comp {
-                let (v, w) = vel[&c];
-                let r = parent.pose.transform_vector(lite[&c].0 - child.com);
+                let (v, w) = vel[c];
+                let r = parent.pose.transform_vector(lite[c].0 - child.com);
                 let cs = &mut self.chunks[s][c];
                 cs.v = rot.transpose() * (v - child.velocity - child.angular_velocity.cross(r));
                 cs.w = rot.transpose() * (w - child.angular_velocity);
             }
             // Fold the mean hidden translation of a free child into its pose.
             if !child.anchored {
-                let mean = comp.iter().map(|&c| self.chunks[s][c].u * lite[&c].1).fold(Vec3::ZERO, |a, b| a + b)
+                let mean = comp.iter().map(|&c| self.chunks[s][c].u * lite[c].1).fold(Vec3::ZERO, |a, b| a + b)
                     / mass;
                 for &c in &comp {
                     self.chunks[s][c].u -= mean;
@@ -1473,8 +1472,8 @@ impl ReferenceSolver {
                 let child = self.clusters[idx].clone();
                 let back = child.pose.rotation.conjugate();
                 for &c in &comp {
-                    let (v, w) = vel[&c];
-                    let r = child.pose.transform_vector(lite[&c].0 + self.chunks[s][c].u - child.com);
+                    let (v, w) = vel[c];
+                    let r = child.pose.transform_vector(lite[c].0 + self.chunks[s][c].u - child.com);
                     let cs = &mut self.chunks[s][c];
                     cs.v = back.rotate(v - child.velocity - child.angular_velocity.cross(r));
                     cs.w = back.rotate(w - child.angular_velocity);
