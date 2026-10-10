@@ -16,3 +16,7 @@ winit = "0.30"
 [[bin]]
 name = "stress-gpu-view"
 path = "src/bin/stress_gpu_view.rs"
+
+[[bin]]
+name = "stress-gpu-bench"
+path = "src/bin/stress_gpu_bench.rs"

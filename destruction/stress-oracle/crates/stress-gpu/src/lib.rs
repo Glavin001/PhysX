@@ -36,8 +36,9 @@ macro_rules! shader_set {
 pub mod shaders {
     use super::ShaderSet;
     pub const SMOKE: ShaderSet = shader_set!("smoke", [("smoke", (64, 1, 1))]);
-    pub const STRESS_STEP: ShaderSet = shader_set!("stress_step", [("bond_forces", (64, 1, 1)), ("chunk_integrate", (64, 1, 1))]);
+    pub const STRESS_STEP: ShaderSet = shader_set!("stress_step", [("bond_forces", (64, 1, 1)), ("chunk_integrate", (64, 1, 1)), ("island_substeps", (256, 1, 1)), ("island_shared_substeps", (256, 1, 1))]);
     pub const STRESS_RENDER: ShaderSet = shader_set!("stress_render", [("stress_vs", (1, 1, 1)), ("stress_fs", (1, 1, 1))]);
 }
 
+pub mod scenes;
 pub mod stress;

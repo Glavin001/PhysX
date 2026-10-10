@@ -18,7 +18,7 @@ struct StepParams {
     chunk_count: u32,
     bond_count: u32,
     dt: f32,
-    pad: u32,
+    substeps: u32,
 }
 
 /// `Bond` of stress_step.slang.
@@ -59,8 +59,16 @@ pub struct RenderChunk {
     pub pose_rot: [[f32; 4]; 3],
 }
 
-const STEP_BINDINGS: [Binding; 7] =
-    [Binding::Uniform, Binding::Storage, Binding::Storage, Binding::Storage, Binding::Storage, Binding::StorageRw, Binding::StorageRw];
+const STEP_BINDINGS: [Binding; 8] = [
+    Binding::Uniform,
+    Binding::Storage,
+    Binding::Storage,
+    Binding::Storage,
+    Binding::Storage,
+    Binding::StorageRw,
+    Binding::StorageRw,
+    Binding::Storage,
+];
 
 fn v4(v: Vec3, w: f64) -> [f32; 4] {
     [v.x as f32, v.y as f32, v.z as f32, w as f32]
@@ -78,30 +86,44 @@ pub struct GpuStress {
     /// The substep (s), the reference solver's stable step in f32.
     pub dt: f32,
     pub render_chunks: Vec<RenderChunk>,
+    /// Per island (cluster): chunk range and bond range in GPU order.
+    pub islands: Vec<[u32; 4]>,
+    params: wgpu::Buffer,
+    step: StepParams,
     /// 4 per chunk: u (w: largest bond stress), theta, v, w.
     pub state: wgpu::Buffer,
     pub bond_loads: wgpu::Buffer,
     bond_forces: Kernel,
     chunk_integrate: Kernel,
+    island_substeps: Kernel,
+    island_shared_substeps: Kernel,
     bind_bonds: wgpu::BindGroup,
     bind_chunks: wgpu::BindGroup,
+    /// Islands that fit threadgroup memory, and the rest: (bind group, island count).
+    bind_shared: (wgpu::BindGroup, u32),
+    bind_device: (wgpu::BindGroup, u32),
 }
+
+/// Island capacity of `island_shared_substeps` (stress_step.slang).
+pub const SHARED_CHUNKS: u32 = 160;
+pub const SHARED_BONDS: u32 = 400;
 
 impl GpuStress {
     pub fn new(gpu: &Gpu, solver: &ReferenceSolver) -> Result<GpuStress, String> {
         if solver.config.fracture {
             return Err("fracture is not on the GPU yet: run with sim.fracture = false".into());
         }
-        let mut index = vec![Vec::new(); solver.structures.len()];
+        // Chunks stored by cluster (island), each in its cluster's order.
+        let mut index: Vec<Vec<u32>> = solver.structures.iter().map(|st| vec![u32::MAX; st.chunks.len()]).collect();
         let mut chunks = Vec::new();
-        for (s, st) in solver.structures.iter().enumerate() {
-            index[s] = vec![u32::MAX; st.chunks.len()];
-            for c in 0..st.chunks.len() {
-                if solver.chunks[s][c].active {
-                    index[s][c] = chunks.len() as u32;
-                    chunks.push((s, c));
-                }
+        let mut islands = Vec::new();
+        for cl in &solver.clusters {
+            let begin = chunks.len() as u32;
+            for &c in &cl.chunks {
+                index[cl.structure][c] = chunks.len() as u32;
+                chunks.push((cl.structure, c));
             }
+            islands.push([begin, chunks.len() as u32, 0, 0]);
         }
         let g = solver.config.gravity;
         let mut gpu_chunks = vec![GpuChunk::default(); chunks.len()];
@@ -140,8 +162,9 @@ impl GpuStress {
         // a chunk's internal loads in this order).
         let mut bonds = Vec::new();
         let mut incident = vec![Vec::new(); chunks.len()];
-        for cl in &solver.clusters {
+        for (ci, cl) in solver.clusters.iter().enumerate() {
             let s = cl.structure;
+            islands[ci][2] = bonds.len() as u32;
             for &bi in &cl.bonds {
                 let b = &solver.bonds[s][bi];
                 if b.rebar.is_some() {
@@ -171,6 +194,7 @@ impl GpuStress {
                     section: [geo.area as f32, geo.s_t1 as f32, geo.s_t2 as f32, 0.0],
                 });
             }
+            islands[ci][3] = bonds.len() as u32;
         }
         let mut start = vec![0u32];
         let mut list = Vec::new();
@@ -179,21 +203,47 @@ impl GpuStress {
             start.push(list.len() as u32);
         }
         let dt = solver.stable_dt() as f32;
-        let params = StepParams { chunk_count: chunks.len() as u32, bond_count: bonds.len() as u32, dt, pad: 0 };
-
-        let params = gpu.uniform("stress params", &params);
+        let step = StepParams { chunk_count: chunks.len() as u32, bond_count: bonds.len() as u32, dt, substeps: 1 };
+        let params = gpu.uniform("stress params", &step);
         let bonds_buf = gpu.storage("bonds", &bonds);
         let chunks_buf = gpu.storage("chunks", &gpu_chunks);
         let start = gpu.storage("chunk bond start", &start);
         let list = gpu.storage("chunk bonds", &list);
         let state = gpu.storage("state", &state);
-        let bond_loads = gpu.storage("bond loads", &vec![[0f32; 4]; 4 * bonds.len()]);
+        let bond_loads = gpu.storage("bond loads", &vec![[0f32; 4]; 3 * bonds.len()]);
         let bond_forces = gpu.compute(&shaders::STRESS_STEP, "bond_forces", &STEP_BINDINGS);
         let chunk_integrate = gpu.compute(&shaders::STRESS_STEP, "chunk_integrate", &STEP_BINDINGS);
-        let buffers = [&params, &bonds_buf, &chunks_buf, &start, &list, &state, &bond_loads];
+        let island_substeps = gpu.compute(&shaders::STRESS_STEP, "island_substeps", &STEP_BINDINGS);
+        let island_shared_substeps = gpu.compute(&shaders::STRESS_STEP, "island_shared_substeps", &STEP_BINDINGS);
+        let fits = |i: &&[u32; 4]| i[1] - i[0] <= SHARED_CHUNKS && i[3] - i[2] <= SHARED_BONDS;
+        let shared_islands: Vec<[u32; 4]> = islands.iter().filter(fits).copied().collect();
+        let device_islands: Vec<[u32; 4]> = islands.iter().filter(|i| !fits(i)).copied().collect();
+        let (shared_buf, device_buf) = (gpu.storage("shared islands", &shared_islands), gpu.storage("device islands", &device_islands));
+        let buffers = [&params, &bonds_buf, &chunks_buf, &start, &list, &state, &bond_loads, &shared_buf];
         let bind_bonds = gpu.bind(&bond_forces.group, &buffers);
         let bind_chunks = gpu.bind(&chunk_integrate.group, &buffers);
-        Ok(GpuStress { chunks, bond_count: bonds.len(), dt, render_chunks, state, bond_loads, bond_forces, chunk_integrate, bind_bonds, bind_chunks })
+        let bind_shared = (gpu.bind(&island_shared_substeps.group, &buffers), shared_islands.len() as u32);
+        let buffers = [&params, &bonds_buf, &chunks_buf, &start, &list, &state, &bond_loads, &device_buf];
+        let bind_device = (gpu.bind(&island_substeps.group, &buffers), device_islands.len() as u32);
+        Ok(GpuStress {
+            chunks,
+            bond_count: bonds.len(),
+            dt,
+            render_chunks,
+            islands,
+            params,
+            step,
+            state,
+            bond_loads,
+            bond_forces,
+            chunk_integrate,
+            island_substeps,
+            island_shared_substeps,
+            bind_bonds,
+            bind_chunks,
+            bind_shared,
+            bind_device,
+        })
     }
 
     /// Record `substeps` explicit substeps (two dispatches each) into one compute pass.
@@ -205,10 +255,30 @@ impl GpuStress {
         }
     }
 
-    /// Run `substeps` substeps and wait for them.
+    /// Run `substeps` substeps, one dispatch per phase per substep.
     pub fn run(&self, gpu: &Gpu, substeps: usize) {
         let mut encoder = gpu.device.create_command_encoder(&Default::default());
         self.record(&mut encoder, substeps);
+        gpu.queue.submit([encoder.finish()]);
+    }
+
+    /// Run `substeps` substeps in one dispatch per island kind: one threadgroup per
+    /// island, looping over the substeps with a barrier between phases; islands that
+    /// fit threadgroup memory keep their state there.
+    pub fn run_islands(&mut self, gpu: &Gpu, substeps: usize) {
+        self.step.substeps = substeps as u32;
+        gpu.queue.write_buffer(&self.params, 0, bytemuck::bytes_of(&self.step));
+        let mut encoder = gpu.device.create_command_encoder(&Default::default());
+        {
+            let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: Some("island substeps"), timestamp_writes: None });
+            for (kernel, (bind, count)) in [(&self.island_shared_substeps, &self.bind_shared), (&self.island_substeps, &self.bind_device)] {
+                if *count > 0 {
+                    pass.set_pipeline(&kernel.pipeline);
+                    pass.set_bind_group(0, bind, &[]);
+                    pass.dispatch_workgroups(*count, 1, 1);
+                }
+            }
+        }
         gpu.queue.submit([encoder.finish()]);
     }
 

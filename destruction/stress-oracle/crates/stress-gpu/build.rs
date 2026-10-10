@@ -37,6 +37,6 @@ fn compile(metal: &Path, air: &Path, lib: &Path) -> bool {
             false
         }
     };
-    run(&["-sdk".as_ref(), "macosx".as_ref(), "metal".as_ref(), "-c".as_ref(), metal.as_os_str(), "-o".as_ref(), air.as_os_str()])
+    run(&["-sdk".as_ref(), "macosx".as_ref(), "metal".as_ref(), "-fno-fast-math".as_ref(), "-c".as_ref(), metal.as_os_str(), "-o".as_ref(), air.as_os_str()])
         && run(&["-sdk".as_ref(), "macosx".as_ref(), "metallib".as_ref(), air.as_os_str(), "-o".as_ref(), lib.as_os_str()])
 }
