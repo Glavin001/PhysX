@@ -45,10 +45,22 @@ struct Span {
 }
 
 /// A convex polytope as its faces, their vertices in one list (face after face).
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Default)]
 pub struct Polytope {
     vertices: Vec<Vec3>,
     spans: Vec<Span>,
+}
+
+// By hand: `clone_from` reuses the destination's buffers (the derived one reallocates).
+impl Clone for Polytope {
+    fn clone(&self) -> Self {
+        Polytope { vertices: self.vertices.clone(), spans: self.spans.clone() }
+    }
+
+    fn clone_from(&mut self, source: &Self) {
+        self.vertices.clone_from(&source.vertices);
+        self.spans.clone_from(&source.spans);
+    }
 }
 
 /// Reusable buffers of `Polytope::clip_into`.
@@ -63,6 +75,20 @@ pub struct ClipScratch {
 
 thread_local! {
     static SCRATCH: std::cell::RefCell<ClipScratch> = std::cell::RefCell::new(ClipScratch::default());
+    static FIELD: std::cell::RefCell<FieldScratch> = std::cell::RefCell::new(FieldScratch::default());
+}
+
+/// Reusable buffers of `field_cells`.
+#[derive(Default)]
+struct FieldScratch {
+    planes: Vec<(Vec3, f64)>,
+    range: Vec<(f64, f64)>,
+    candidates: Vec<usize>,
+    /// (face, (min, max) over the region of `s_f - s_g`) of the bisectors that cut.
+    cuts: Vec<(usize, (f64, f64))>,
+    region: Polytope,
+    cell: Polytope,
+    next: Polytope,
 }
 
 /// Volume, centroid and second moments about the centroid (`int r r^T dV`).
@@ -469,29 +495,39 @@ pub struct FieldCell {
 /// interface integrals (`FieldCell::interface_force`).
 pub fn field_cells(region: &Polytope, body: &Polytope, indent: f64) -> Vec<FieldCell> {
     crate::profile::count(crate::profile::Counter::FieldCells, 1);
-    let planes: Vec<(Vec3, f64)> = body.faces().map(|f| (f.normal, f.normal.dot(f.vertices[0]) - indent)).collect();
-    let mut region = region.clone();
-    if indent > 0.0 {
-        for &(n, o) in &planes {
-            region = region.clip(n, o, OWNER_B);
-            if region.is_empty() {
+    FIELD.with(|fs| SCRATCH.with(|sc| field_cells_in(region, body, indent, &mut fs.borrow_mut(), &mut sc.borrow_mut())))
+}
+
+fn field_cells_in(region: &Polytope, body: &Polytope, indent: f64, fs: &mut FieldScratch, sc: &mut ClipScratch) -> Vec<FieldCell> {
+    let FieldScratch { planes, range, candidates, cuts, region: receded, cell, next } = fs;
+    planes.clear();
+    planes.extend(body.faces().map(|f| (f.normal, f.normal.dot(f.vertices[0]) - indent)));
+    let region: &Polytope = if indent > 0.0 {
+        receded.clone_from(region);
+        for &(n, o) in planes.iter() {
+            receded.clip_into(n, o, OWNER_B, next, sc);
+            std::mem::swap(receded, next);
+            if receded.is_empty() {
                 return Vec::new();
             }
         }
-    }
+        receded
+    } else {
+        region
+    };
     let vertices: &[Vec3] = region.all_vertices();
     if vertices.is_empty() {
         return Vec::new();
     }
+    let planes = &*planes;
     let depth = |k: usize, x: Vec3| planes[k].1 - planes[k].0.dot(x);
-    let range: Vec<(f64, f64)> = (0..planes.len())
-        .map(|k| vertices.iter().fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), &v| (lo.min(depth(k, v)), hi.max(depth(k, v)))))
-        .collect();
+    range.clear();
+    range.extend((0..planes.len()).map(|k| vertices.iter().fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), &v| (lo.min(depth(k, v)), hi.max(depth(k, v))))));
     let bound = range.iter().map(|r| r.1).fold(f64::INFINITY, f64::min);
-    let candidates: Vec<usize> = (0..planes.len()).filter(|&k| range[k].0 <= bound).collect();
+    candidates.clear();
+    candidates.extend((0..planes.len()).filter(|&k| range[k].0 <= bound));
     let mut cells = Vec::with_capacity(candidates.len());
-    let (mut cell, mut next) = (Polytope::default(), Polytope::default());
-    for &f in &candidates {
+    for &f in candidates.iter() {
         // A convex region is on one side of a plane exactly when its vertices are: a
         // bisector it lies wholly inside needs no cut, and one it lies wholly outside
         // leaves the cell empty.
@@ -499,24 +535,22 @@ pub fn field_cells(region: &Polytope, body: &Polytope, indent: f64) -> Vec<Field
             let x = depth(f, v) - depth(g, v);
             (lo.min(x), hi.max(x))
         });
-        let cuts: Vec<usize> = candidates.iter().copied().filter(|&g| g != f).filter(|&g| gap(g).1 > 0.0).collect();
-        if cuts.iter().any(|&g| gap(g).0 > 0.0) {
+        cuts.clear();
+        cuts.extend(candidates.iter().copied().filter(|&g| g != f).map(|g| (g, gap(g))).filter(|c| c.1 .1 > 0.0));
+        if cuts.iter().any(|c| c.1 .0 > 0.0) {
             continue;
         }
-        cell.clone_from(&region);
-        SCRATCH.with(|sc| {
-            let sc = &mut sc.borrow_mut();
-            for &g in &cuts {
-                // s_f <= s_g: (n_g - n_f) . x <= o_g - o_f.
-                let d = planes[g].0 - planes[f].0;
-                let len = d.norm();
-                cell.clip_into(d / len, (planes[g].1 - planes[f].1) / len, INTERFACE + g as Owner, &mut next, sc);
-                std::mem::swap(&mut cell, &mut next);
-                if cell.is_empty() {
-                    break;
-                }
+        cell.clone_from(region);
+        for &(g, _) in cuts.iter() {
+            // s_f <= s_g: (n_g - n_f) . x <= o_g - o_f.
+            let d = planes[g].0 - planes[f].0;
+            let len = d.norm();
+            cell.clip_into(d / len, (planes[g].1 - planes[f].1) / len, INTERFACE + g as Owner, next, sc);
+            std::mem::swap(cell, next);
+            if cell.is_empty() {
+                break;
             }
-        });
+        }
         if let Some(mp) = cell.mass_properties() {
             if mp.volume > 0.0 {
                 let (mut interface_force, mut interface_moment) = (Vec3::ZERO, Vec3::ZERO);
