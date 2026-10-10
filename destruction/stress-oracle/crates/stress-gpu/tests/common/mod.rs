@@ -45,8 +45,13 @@ pub fn difference(reference: &Observation, other: &Observation) -> (f64, Vec<Str
 }
 
 pub fn perturbed(scene: &Scene) -> Scene {
+    perturbed_by(scene, std::env::var("STRESS_GPU_PERTURB").ok().and_then(|v| v.parse::<f64>().ok()).unwrap_or(1e-6))
+}
+
+/// The scene with its impactor and body velocities and gravity scaled by `1 + eps`.
+pub fn perturbed_by(scene: &Scene, eps: f64) -> Scene {
     let mut s = scene.clone();
-    let k = 1.0 + std::env::var("STRESS_GPU_PERTURB").ok().and_then(|v| v.parse::<f64>().ok()).unwrap_or(1e-6);
+    let k = 1.0 + eps;
     s.gravity = s.gravity.map(|g| g * k);
     for imp in &mut s.impactors {
         imp.velocity = imp.velocity.map(|v| v * k);
@@ -55,4 +60,56 @@ pub fn perturbed(scene: &Scene) -> Scene {
         b.linear_velocity = b.linear_velocity.map(|v| v * k);
     }
     s
+}
+
+/// The reference's sensitivity to its inputs: the run perturbed by 1e-6, or, where that
+/// already moves a probe by more than 1e-3 of its range (a chaotic scene, whose
+/// trajectories separate whatever the perturbation), the larger of that and a 1e-4
+/// perturbation.
+pub fn spread_run(scene: &Scene, reference: &Observation) -> Observation {
+    let small = stress_ref::world::World::new(&perturbed(scene)).run();
+    if difference(reference, &small).0 <= 1e-3 {
+        return small;
+    }
+    let large = stress_ref::world::World::new(&perturbed_by(scene, 1e-4)).run();
+    if difference(reference, &large).0 > difference(reference, &small).0 {
+        large
+    } else {
+        small
+    }
+}
+
+/// The scene at half the reference's substep (its Courant safety halved).
+pub fn refined(scene: &Scene) -> Scene {
+    let mut s = scene.clone();
+    s.sim.courant_safety *= 0.5;
+    s
+}
+
+fn value(o: &Observation, key: &str) -> f64 {
+    o.values.get(key).copied().unwrap_or(0.0)
+}
+
+/// The accuracy gate (the analysis's G2, judged against the reference's own spread):
+/// probes within 1e-3 of their range, or within twice the larger of the reference's
+/// timestep-halving and input-perturbation spreads; broken bonds and fragments within
+/// 10% (at least one), or within those spreads. Returns what fails.
+pub fn gate(reference: &Observation, ours: &Observation, half: &Observation, spread: &Observation) -> Vec<String> {
+    let mut fails = Vec::new();
+    let (gpu_err, _) = difference(reference, ours);
+    let (half_err, _) = difference(reference, half);
+    let (spread_err, _) = difference(reference, spread);
+    let allowed = (2.0 * half_err.max(spread_err)).max(1e-3);
+    if !(gpu_err <= allowed) {
+        fails.push(format!("probes {gpu_err:.1e} > {allowed:.1e}"));
+    }
+    for key in ["broken_bonds", "fragments"] {
+        let r = value(reference, key);
+        let d = (value(ours, key) - r).abs();
+        let allowed = (0.1 * r).max(1.0).max((value(half, key) - r).abs()).max((value(spread, key) - r).abs());
+        if d > allowed {
+            fails.push(format!("{key} {} vs {r} (allowed {allowed})", value(ours, key)));
+        }
+    }
+    fails
 }

@@ -135,3 +135,21 @@ pub fn true_stable_dt(m: &ReferenceSolver, iters: usize, safety: f64) -> f64 {
     }
     dt
 }
+
+/// The scene with the true stable step: its Courant safety scaled so the reference's
+/// stress step equals the power-iteration bound at `safety` (contacts scale with it).
+/// Both solvers then run the same substep, so the GPU and the reference stay comparable
+/// like for like; the step change itself is measured by `stress-gpu-stepcheck`.
+/// Returns the scene and the step ratio (true over the reference's own).
+pub fn with_true_step(scene: &stress_ref::scene::Scene, safety: f64) -> (stress_ref::scene::Scene, f64) {
+    let m = ReferenceSolver::new(scene);
+    let reference = m.stable_dt();
+    let truth = true_stable_dt(&m, 1000, safety);
+    let mut s = scene.clone();
+    if !(truth.is_finite() && reference.is_finite() && reference > 0.0) {
+        return (s, 1.0);
+    }
+    let ratio = (truth / reference).max(1.0);
+    s.sim.courant_safety *= ratio;
+    (s, ratio)
+}

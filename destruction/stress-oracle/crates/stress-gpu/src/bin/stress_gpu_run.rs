@@ -1,6 +1,9 @@
 //! Run a scene on the GPU world and write its observation (`stress-observation/1`).
 //!
-//!   stress-gpu-run SCENE.json|catalogue-name [--out OBS.json] [--duration S] [--profile]
+//!   stress-gpu-run SCENE.json|catalogue-name [--pack] [--true-step] [--out OBS.json] [--duration S] [--profile]
+//!
+//! `--pack`: the file is an authored scene pack (`stress_ref::scene_pack`).
+//! `--true-step`: run at the true stable step (`stability::with_true_step`, safety 0.9).
 
 use std::time::Instant;
 
@@ -11,16 +14,21 @@ use stress_ref::scene::Scene;
 fn main() {
     let mut args = std::env::args().skip(1);
     let name = args.next().expect("scene file or catalogue name");
-    let (mut out, mut duration, mut profile) = (None, None, false);
+    let (mut out, mut duration, mut profile, mut pack, mut true_step) = (None, None, false, false, false);
     while let Some(a) = args.next() {
         match a.as_str() {
             "--out" => out = args.next(),
             "--duration" => duration = args.next().and_then(|v| v.parse::<f64>().ok()),
             "--profile" => profile = true,
+            "--pack" => pack = true,
+            "--true-step" => true_step = true,
             other => panic!("unknown argument {other}"),
         }
     }
-    let mut scene = if name.ends_with(".json") {
+    let mut scene = if pack {
+        let stem = std::path::Path::new(&name).file_stem().unwrap().to_string_lossy().to_string();
+        stress_ref::scene_pack::import(std::path::Path::new(&name), &stem, "structure").expect("scene pack")
+    } else if name.ends_with(".json") {
         Scene::load(std::path::Path::new(&name)).expect("scene")
     } else {
         stress_ref::builders::catalog()
@@ -31,6 +39,11 @@ fn main() {
     };
     if let Some(d) = duration {
         scene.sim.duration = d;
+    }
+    if true_step {
+        let (s, ratio) = stress_gpu::stability::with_true_step(&scene, 0.9);
+        eprintln!("true step: {ratio:.1}x the reference's stress step");
+        scene = s;
     }
     let gpu = Gpu::new().expect("GPU");
     let t = Instant::now();

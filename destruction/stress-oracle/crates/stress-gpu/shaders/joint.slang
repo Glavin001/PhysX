@@ -110,6 +110,43 @@ float sq(float x)
     return x * x;
 }
 
+// Division, square root and power on Metal's fast paths (a few ulp, no IEEE rounding
+// sequence): the joint law is a long dependent chain, and its latency sets the substep
+// floor. Only here: the compensated position, time and contact-depth arithmetic
+// elsewhere keeps IEEE operations. Other targets use the plain operations.
+float fdiv(float a, float b)
+{
+    __target_switch
+    {
+    case metal:
+        __intrinsic_asm "metal::fast::divide($0, $1)";
+    default:
+        return a / b;
+    }
+}
+
+float fsqrt(float a)
+{
+    __target_switch
+    {
+    case metal:
+        __intrinsic_asm "metal::fast::sqrt($0)";
+    default:
+        return sqrt(a);
+    }
+}
+
+float fpow(float a, float b)
+{
+    __target_switch
+    {
+    case metal:
+        __intrinsic_asm "metal::fast::pow($0, $1)";
+    default:
+        return pow(a, b);
+    }
+}
+
 public bool connected(JointState st, bool has_rebar)
 {
     return st.damage < 1.0 || (has_rebar && st.rebar_broken == 0.0);
@@ -123,9 +160,9 @@ public bool is_damaged(JointState st)
 public Measures stress_measures(JointBond b, float3 q_lin, float3 q_ang)
 {
     float area = b.geom0.x;
-    float axial = q_lin.z / area;
-    float bending = abs(q_ang.x) / b.geom1.x + abs(q_ang.y) / b.geom1.y;
-    float shear = sqrt(q_lin.x * q_lin.x + q_lin.y * q_lin.y) / area + abs(q_ang.z) / b.geom0.w;
+    float axial = fdiv(q_lin.z, area);
+    float bending = fdiv(abs(q_ang.x), b.geom1.x) + fdiv(abs(q_ang.y), b.geom1.y);
+    float shear = fdiv(fsqrt(q_lin.x * q_lin.x + q_lin.y * q_lin.y), area) + fdiv(abs(q_ang.z), b.geom0.w);
     Measures m;
     m.tension = axial + bending;
     m.shear = shear;
@@ -142,10 +179,10 @@ public float4 failure_indices(JointMaterial mat, JointBond b, Measures m, float 
     float fc = mat.strength.y * multiplier;
     float tau_max = min(mat.strength.z * multiplier + mat.strength.w * m.normal_compression, mat.energy.x * multiplier);
     float4 idx;
-    idx.x = max(m.tension / ft, 0.0);
-    idx.y = tau_max > 0.0 ? m.shear / tau_max : infinity();
-    idx.z = max(m.compression / fc, 0.0);
-    idx.w = b.stiff1.y > 0.0 ? m.compressive_force / b.stiff1.y : 0.0;
+    idx.x = max(fdiv(m.tension, ft), 0.0);
+    idx.y = tau_max > 0.0 ? fdiv(m.shear, tau_max) : infinity();
+    idx.z = max(fdiv(m.compression, fc), 0.0);
+    idx.w = b.stiff1.y > 0.0 ? fdiv(m.compressive_force, b.stiff1.y) : 0.0;
     return idx;
 }
 
@@ -153,14 +190,14 @@ public float fatigue_factor(JointMaterial mat, float fatigue)
 {
     if ((mat.kind_flags.y & FLAG_FATIGUE) == 0)
         return 1.0;
-    return pow(1.0 - clamp(fatigue, 0.0, 1.0), 1.0 / (mat.misc.y - 2.0));
+    return fpow(1.0 - clamp(fatigue, 0.0, 1.0), fdiv(1.0, mat.misc.y - 2.0));
 }
 
 float life_rate(JointMaterial mat, float s)
 {
     if (s <= 0.0)
         return 0.0;
-    return (mat.misc.y + 1.0) * pow(s, mat.misc.y) / mat.misc.z;
+    return fdiv((mat.misc.y + 1.0) * fpow(s, mat.misc.y), mat.misc.z);
 }
 
 float dif_factor(JointMaterial mat, float strain_rate)
@@ -171,9 +208,9 @@ float dif_factor(JointMaterial mat, float strain_rate)
         return 1.0;
     float f;
     if (r <= mat.dif.z)
-        f = pow(r / ref, mat.dif.y);
+        f = fpow(fdiv(r, ref), mat.dif.y);
     else
-        f = pow(mat.dif.z / ref, mat.dif.y) * pow(r / mat.dif.z, mat.dif.w);
+        f = fpow(fdiv(mat.dif.z, ref), mat.dif.y) * fpow(fdiv(r, mat.dif.z), mat.dif.w);
     return clamp(f, 1.0, mat.misc.x);
 }
 
@@ -185,12 +222,12 @@ public float damage_law(uint kind, float kappa, float r)
     {
         if (r <= 1.0)
             return 1.0;
-        return min(r * (kappa - 1.0) / (kappa * (r - 1.0)), 1.0);
+        return min(fdiv(r * (kappa - 1.0), kappa * (r - 1.0)), 1.0);
     }
     float kappa_u = 0.5 * (r + 1.0);
     if (kappa >= kappa_u)
         return 1.0;
-    return 1.0 - 1.0 / kappa;
+    return 1.0 - fdiv(1.0, kappa);
 }
 
 // (new damage, released energy)
@@ -199,12 +236,12 @@ float2 damage_increment(uint kind, float kappa_old, float lambda, float r, float
     float d_new = max(damage_law(kind, lambda, r), d_old);
     if (d_new <= d_old || d_old >= 1.0)
         return float2(d_old, 0.0);
-    float u0 = psi / (lambda * lambda);
+    float u0 = fdiv(psi, lambda * lambda);
     float k1 = max(kappa_old, 1.0);
     if (kind == KIND_BRITTLE)
     {
         if (r > 1.0)
-            return float2(d_new, u0 * r / (r - 1.0) * max(min(lambda, r) - min(k1, r), 0.0));
+            return float2(d_new, fdiv(u0 * r, r - 1.0) * max(min(lambda, r) - min(k1, r), 0.0));
         return float2(d_new, (1.0 - d_old) * psi);
     }
     float ku = 0.5 * (r + 1.0);
@@ -292,7 +329,7 @@ float2 return_map(float k, float total, float plastic, float cap)
     if (abs(trial) <= cap)
         return float2(trial, 0.0);
     float f = cap * signum(trial);
-    return float2(f, (trial - f) / k);
+    return float2(f, fdiv(trial - f, k));
 }
 
 static const uint CONTACT_SPRINGS = 6;
@@ -386,11 +423,11 @@ Contact contact_part(JointMaterial mat, JointBond b, float crush, float3 plastic
     // Coulomb sliding (isotropic in the patch plane).
     float slide_cap = friction * nc;
     float2 trial = float2(ks * (d_lin.x - p.x), ks * (d_lin.y - p.y));
-    float tn = sqrt(trial.x * trial.x + trial.y * trial.y);
+    float tn = fsqrt(trial.x * trial.x + trial.y * trial.y);
     if (tn > slide_cap && tn > 0.0)
     {
-        float2 dir = trial / tn;
-        float dslip = (tn - slide_cap) / ks;
+        float2 dir = float2(fdiv(trial.x, tn), fdiv(trial.y, tn));
+        float dslip = fdiv(tn - slide_cap, ks);
         p.x += dir.x * dslip;
         p.y += dir.y * dslip;
         c.q_lin.x = dir.x * slide_cap;
@@ -407,7 +444,7 @@ Contact contact_part(JointMaterial mat, JointBond b, float crush, float3 plastic
     diss += abs(tq.x) * abs(tq.y);
     p.z += tq.y;
     c.q_ang.z = tq.x;
-    energy += 0.5 * (sq(c.q_lin.x) / ks + sq(c.q_lin.y) / ks + sq(tq.x) / kt);
+    energy += 0.5 * (fdiv(sq(c.q_lin.x), ks) + fdiv(sq(c.q_lin.y), ks) + fdiv(sq(tq.x), kt));
     c.energy = energy;
     c.diss = diss;
     c.plastic = p;
@@ -446,9 +483,9 @@ public JointResponse joint_evaluate(JointMaterial mat, JointBond b, JointState s
     float governing = max(max(measures.tension, measures.shear), measures.compression);
     if (dt > 0.0)
     {
-        float raw = max((governing - st.governing_stress) / dt, 0.0) / mat.misc.w;
+        float raw = fdiv(max(fdiv(governing - st.governing_stress, dt), 0.0), mat.misc.w);
         float tau = b.stiff1.z;
-        float a = (flags & FLAG_EXACT_RATE_FILTER) != 0 ? -expm1_accurate(-dt / tau) : min(dt / tau, 1.0);
+        float a = (flags & FLAG_EXACT_RATE_FILTER) != 0 ? -expm1_accurate(-fdiv(dt, tau)) : min(fdiv(dt, tau), 1.0);
         st.strain_rate += (raw - st.strain_rate) * a;
         st.governing_stress = governing;
     }
@@ -473,7 +510,7 @@ public JointResponse joint_evaluate(JointMaterial mat, JointBond b, JointState s
         if (lambda_ts > st.kappa && lambda_ts > 1.0 && psi_ts > 0.0)
         {
             float g_f = mode_ts == MODE_TENSION ? mat.energy.y : mat.energy.z;
-            float r = softening ? g_f * b.geom0.x * lambda_ts * lambda_ts / psi_ts : 0.0;
+            float r = softening ? fdiv(g_f * b.geom0.x * lambda_ts * lambda_ts, psi_ts) : 0.0;
             st.ductility = r;
             uint law = softening ? kind : KIND_BRITTLE;
             float2 inc = damage_increment(law, st.kappa, lambda_ts, r, st.damage, psi_ts);
@@ -505,7 +542,7 @@ public JointResponse joint_evaluate(JointMaterial mat, JointBond b, JointState s
         uint mode_c = comp_idx.z >= comp_idx.w ? MODE_COMPRESSION : MODE_BUCKLING;
         if (lambda_c > st.kappa_c && lambda_c > 1.0 && psi_c > 0.0)
         {
-            float r = softening ? mat.energy.w * b.geom0.x * lambda_c * lambda_c / psi_c : 0.0;
+            float r = softening ? fdiv(mat.energy.w * b.geom0.x * lambda_c * lambda_c, psi_c) : 0.0;
             st.ductility_c = r;
             uint law = !softening ? KIND_BRITTLE : (mode_c == MODE_BUCKLING ? KIND_DUCTILE : kind);
             float2 inc = damage_increment(law, st.kappa_c, lambda_c, r, st.crush, psi_c);
@@ -564,7 +601,7 @@ public JointResponse joint_evaluate(JointMaterial mat, JointBond b, JointState s
         st.rebar_slip1 += v2.y;
         st.rebar_work += work;
         dissipated += work;
-        float elastic = 0.5 * (sq(nr.x) / k_axial + (sq(v1.x) + sq(v2.x)) / k_dowel);
+        float elastic = 0.5 * (fdiv(sq(nr.x), k_axial) + fdiv(sq(v1.x) + sq(v2.x), k_dowel));
         if (fracture && st.rebar_work >= b.rebar1.x)
         {
             st.rebar_broken = 1.0;
@@ -612,8 +649,8 @@ public void secant_factors(JointBond b, JointState st, float3 d_lin, out float3 
     f_ang = float3(ts);
     if (b.stiff1.w != 0.0 && st.rebar_broken == 0.0)
     {
-        f_lin.z += b.rebar0.x / b.stiff0.x;
-        f_lin.x += b.rebar0.y / b.stiff0.y;
-        f_lin.y += b.rebar0.y / b.stiff0.y;
+        f_lin.z += fdiv(b.rebar0.x, b.stiff0.x);
+        f_lin.x += fdiv(b.rebar0.y, b.stiff0.y);
+        f_lin.y += fdiv(b.rebar0.y, b.stiff0.y);
     }
 }

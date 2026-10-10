@@ -188,6 +188,71 @@ fn joint_law_matches_the_reference() {
     }
     gpu.queue.submit([encoder.finish()]);
     let out_states: Vec<GpuJointState> = gpu.read(&buffers[5]);
+    // Cost of one evaluation: latency (one group, repeated) and throughput (every case).
+    for (threads, reps) in [(n, 50usize), (64, 400), (64, 4000), (n, 500), (1024, 2000)] {
+        gpu.device.poll(wgpu::PollType::wait_indefinitely()).ok();
+        let t = std::time::Instant::now();
+        let mut encoder = gpu.device.create_command_encoder(&Default::default());
+        {
+            let mut pass = encoder.begin_compute_pass(&Default::default());
+            for _ in 0..reps {
+                kernel.dispatch(&mut pass, &bind, threads);
+            }
+        }
+        gpu.queue.submit([encoder.finish()]);
+        gpu.device.poll(wgpu::PollType::wait_indefinitely()).ok();
+        let per = t.elapsed().as_secs_f64() / reps as f64;
+        println!("joint law: {threads} evaluations per dispatch: {:.1} us per dispatch, {:.2} ns per evaluation", per * 1e6, per / threads as f64 * 1e9);
+    }
+    // One group of identical intact cases (no divergence): the latency of the path an
+    // intact bond takes in the solver.
+    if let Some(k) = (0..n).find(|&k| cases[k].state.damage == 0.0 && cases[k].state.crush == 0.0 && cases[k].rebar.is_none() && cases[k].dt > 0.0) {
+        let same = |v: &[[f32; 4]], per: usize| -> Vec<[f32; 4]> { (0..64).flat_map(|_| v[per * k..per * (k + 1)].to_vec()).collect() };
+        let one = [
+            gpu.uniform("params", &TestParams { count: 64, pad: [0; 3] }),
+            gpu.storage("materials", &table.materials),
+            gpu.storage("bonds", &vec![gpu_bonds[k]; 64]),
+            gpu.storage("states", &vec![states[k]; 64]),
+            gpu.storage("inputs", &same(&inputs, 2)),
+            gpu.storage("states out", &vec![GpuJointState::default(); 64]),
+            gpu.storage("outputs", &vec![[0f32; 4]; 5 * 64]),
+        ];
+        let refs_one: Vec<&wgpu::Buffer> = one.iter().collect();
+        let bind_one = gpu.bind(&kernel.group, &refs_one);
+        for reps in [400usize, 4000] {
+            gpu.device.poll(wgpu::PollType::wait_indefinitely()).ok();
+            let t = std::time::Instant::now();
+            let mut encoder = gpu.device.create_command_encoder(&Default::default());
+            {
+                let mut pass = encoder.begin_compute_pass(&Default::default());
+                for _ in 0..reps {
+                    kernel.dispatch(&mut pass, &bind_one, 64);
+                }
+            }
+            gpu.queue.submit([encoder.finish()]);
+            gpu.device.poll(wgpu::PollType::wait_indefinitely()).ok();
+            println!("joint law, one intact case x 64: {:.1} us per dispatch", t.elapsed().as_secs_f64() / reps as f64 * 1e6);
+        }
+    }
+    // The same dispatches with nothing to evaluate: the dispatch floor.
+    let empty = gpu.uniform("params", &TestParams { count: 0, pad: [0; 3] });
+    let mut refs_empty: Vec<&wgpu::Buffer> = buffers.iter().collect();
+    refs_empty[0] = &empty;
+    let bind_empty = gpu.bind(&kernel.group, &refs_empty);
+    for reps in [400usize, 4000] {
+        gpu.device.poll(wgpu::PollType::wait_indefinitely()).ok();
+        let t = std::time::Instant::now();
+        let mut encoder = gpu.device.create_command_encoder(&Default::default());
+        {
+            let mut pass = encoder.begin_compute_pass(&Default::default());
+            for _ in 0..reps {
+                kernel.dispatch(&mut pass, &bind_empty, 64);
+            }
+        }
+        gpu.queue.submit([encoder.finish()]);
+        gpu.device.poll(wgpu::PollType::wait_indefinitely()).ok();
+        println!("empty dispatch: {:.1} us", t.elapsed().as_secs_f64() / reps as f64 * 1e6);
+    }
     let outputs: Vec<[f32; 4]> = gpu.read(&buffers[6]);
 
     // Worst error per quantity, relative to that case's natural scale.

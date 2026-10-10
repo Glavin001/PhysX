@@ -28,6 +28,9 @@ pub struct Gpu {
     pub shader_path: ShaderPath,
     /// The device accepts Metal libraries directly (Metal backend).
     pub passthrough: bool,
+    /// Metal libraries built with fast math (`STRESS_GPU_MATH=fast`); the default is the
+    /// parity build without it.
+    pub fast_math: bool,
 }
 
 /// What a binding of a kernel's group 0 holds (bindings are numbered in order).
@@ -79,7 +82,12 @@ impl Gpu {
             })
             .await
             .map_err(|e| format!("no GPU device: {e}"))?;
-        Ok(Gpu { adapter, device, queue, adapter_info, shader_path, passthrough })
+        let fast_math = match std::env::var("STRESS_GPU_MATH").as_deref() {
+            Ok("fast") => true,
+            Ok("precise") | Err(_) => false,
+            Ok(other) => return Err(format!("STRESS_GPU_MATH={other}: expected fast or precise")),
+        };
+        Ok(Gpu { adapter, device, queue, adapter_info, shader_path, passthrough, fast_math })
     }
 
     /// Run later-built pipelines from another shader form; false (unchanged) when the
@@ -105,7 +113,8 @@ impl Gpu {
             set.entries.iter().map(|&(name, size)| wgpu::PassthroughShaderEntryPoint { name: Cow::Borrowed(name), workgroup_size: size }).collect();
         let mut desc = wgpu::ShaderModuleDescriptorPassthrough { label: Some(set.name), entry_points: Cow::Owned(entry_points), ..Default::default() };
         if path == ShaderPath::MetalLib {
-            desc.metallib = Some(Cow::Borrowed(set.metallib));
+            let fast = self.fast_math && !set.metallib_fast.is_empty();
+            desc.metallib = Some(Cow::Borrowed(if fast { set.metallib_fast } else { set.metallib }));
         } else {
             desc.msl = Some(Cow::Borrowed(set.msl));
         }

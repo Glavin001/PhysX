@@ -564,6 +564,12 @@ uint impactor_contact_count(Impactor imp, float crush_depth, Box shrunk, Box b)
 
 static const float NAN_OFFSET = asfloat(0x7fc00000u);
 
+// NaN by its bits: holds under fast math, which may assume no NaN.
+bool is_nan(float x)
+{
+    return (asuint(x) & 0x7fffffffu) > 0x7f800000u;
+}
+
 // A sample point of the pair (entry e: a's samples, then b's) inside the other chunk:
 // its point, the normal pushing a out of b, and the depth.
 bool pair_point(Box ba, Box bb, uint na, uint e, out float3 p, out float3 n, out float d)
@@ -640,13 +646,13 @@ void pair_contact(uint i)
             float d;
             if (!pair_point(ba, bb, na, e, p, n, d))
             {
-                if (!isnan(contact_state[st + e].x))
+                if (!is_nan(contact_state[st + e].x))
                     contact_state[st + e] = float4(NAN_OFFSET, 0.0, 0.0, 0.0);
                 continue;
             }
             count++;
             float4 entry = contact_state[st + e];
-            if (isnan(entry.x) || dot(entry.yzw, n) < 0.99)
+            if (is_nan(entry.x) || dot(entry.yzw, n) < 0.99)
             {
                 float3 va = va0 + cross(wa0, p);
                 float3 vb = vb0 + cross(wb0, p - bb.center);

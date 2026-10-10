@@ -17,8 +17,10 @@ pub struct ShaderSet {
     pub name: &'static str,
     pub wgsl: &'static str,
     pub msl: &'static str,
-    /// Built from `msl` by `build.rs` (empty when Xcode was unavailable).
+    /// Built from `msl` by `build.rs` (empty when Xcode was unavailable): without fast
+    /// math (parity), and with it (production, `STRESS_GPU_MATH=fast`).
     pub metallib: &'static [u8],
+    pub metallib_fast: &'static [u8],
     /// Entry points and their workgroup sizes (render stages: `(1, 1, 1)`).
     pub entries: &'static [(&'static str, (u32, u32, u32))],
 }
@@ -30,6 +32,7 @@ macro_rules! shader_set {
             wgsl: include_str!(concat!("../shaders/generated/", $name, ".wgsl")),
             msl: include_str!(concat!("../shaders/generated/", $name, ".metal")),
             metallib: include_bytes!(concat!(env!("OUT_DIR"), "/", $name, ".metallib")),
+            metallib_fast: include_bytes!(concat!(env!("OUT_DIR"), "/", $name, ".fast.metallib")),
             entries: &[$(($entry, $size)),*],
         }
     };

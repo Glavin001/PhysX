@@ -12,7 +12,7 @@ use stress_ref::scene::{ImpactorDesc, ImpactorShape, ProbeDesc, ProbeKind, Scene
 use stress_ref::world::World;
 
 mod common;
-use common::{difference, perturbed};
+use common::{difference, gate, refined, spread_run};
 
 /// The bounds of a scene's chunks (world).
 fn bounds(scene: &Scene) -> (Vec3, Vec3) {
@@ -78,6 +78,7 @@ fn scene_packs_match_the_reference_world() {
     let cases: [(&str, &str, f64); 5] =
         [("rig-portal", "box", 0.05), ("comp-wall-bay", "sphere", 0.05), ("rig-toppled", "box", 0.05), ("house-1story", "box", 0.03), ("villa-savoye", "self-weight", 0.05)];
     let mut ran = 0;
+    let mut failures = Vec::new();
     for (pack, load, duration) in cases {
         if filter.as_ref().is_some_and(|f| !f.iter().any(|p| pack.starts_with(p.as_str()))) {
             continue;
@@ -105,14 +106,24 @@ fn scene_packs_match_the_reference_world() {
         let t = std::time::Instant::now();
         let reference = World::new(&scene).run();
         let ref_time = t.elapsed().as_secs_f64();
-        let spread = World::new(&perturbed(&scene)).run();
+        let spread = spread_run(&scene, &reference);
+        let half = World::new(&refined(&scene)).run();
         let (gpu_err, gpu_notes) = difference(&reference, &ours);
         let (self_err, self_notes) = difference(&reference, &spread);
+        let (half_err, half_notes) = difference(&reference, &half);
         ran += 1;
-        eprintln!("{name:<28} gpu {gpu_err:.1e} vs reference's own spread {self_err:.1e} | time gpu {gpu_time:.1} s, reference {ref_time:.1} s");
+        eprintln!("{name:<28} gpu {gpu_err:.1e} vs reference's spread {self_err:.1e}, half step {half_err:.1e} | time gpu {gpu_time:.1} s, reference {ref_time:.1} s");
         eprintln!("{:<28}   gpu: {}", "", gpu_notes.join("; "));
         eprintln!("{:<28}   ref spread: {}", "", self_notes.join("; "));
-        assert!(gpu_err.is_finite(), "{name}: a probe is NaN on one side only");
+        eprintln!("{:<28}   ref half step: {}", "", half_notes.join("; "));
+        let fails = gate(&reference, &ours, &half, &spread);
+        if !fails.is_empty() {
+            eprintln!("{:<28}   GATE: {}", "", fails.join("; "));
+            failures.push(format!("{name}: {}", fails.join("; ")));
+        }
+    }
+    if std::env::var("STRESS_GPU_GATE").as_deref() != Ok("report") {
+        assert!(failures.is_empty(), "accuracy gate:\n{}", failures.join("\n"));
     }
     if ran == 0 {
         eprintln!("no scene pack found");

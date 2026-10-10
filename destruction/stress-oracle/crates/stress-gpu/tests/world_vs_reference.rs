@@ -12,13 +12,14 @@ use stress_gpu::world::{unsupported, GpuWorld};
 use stress_ref::world::World;
 
 mod common;
-use common::{difference, perturbed};
+use common::{difference, gate, refined, spread_run};
 
 #[test]
 fn catalogue_matches_the_reference_world() {
     let gpu = Gpu::new().expect("GPU");
     let filter: Option<Vec<String>> = std::env::var("STRESS_GPU_SCENES").ok().map(|v| v.split(',').map(str::to_string).collect());
     let mut ran = 0;
+    let mut failures = Vec::new();
     for mut scene in stress_ref::builders::catalog() {
         let name = scene.name.clone();
         if filter.as_ref().is_some_and(|f| !f.iter().any(|p| name.starts_with(p.as_str()))) {
@@ -41,13 +42,24 @@ fn catalogue_matches_the_reference_world() {
         let t = std::time::Instant::now();
         let reference = World::new(&scene).run();
         let ref_time = t.elapsed().as_secs_f64();
-        let spread = World::new(&perturbed(&scene)).run();
+        let spread = spread_run(&scene, &reference);
+        let half = World::new(&refined(&scene)).run();
         let (gpu_err, gpu_notes) = difference(&reference, &ours);
         let (self_err, self_notes) = difference(&reference, &spread);
+        let (half_err, half_notes) = difference(&reference, &half);
         ran += 1;
-        eprintln!("{name:<26} gpu {gpu_err:.1e} vs reference's own spread {self_err:.1e} | time gpu {gpu_time:.1} s, reference {ref_time:.1} s");
+        eprintln!("{name:<26} gpu {gpu_err:.1e} vs reference's spread {self_err:.1e}, half step {half_err:.1e} | time gpu {gpu_time:.1} s, reference {ref_time:.1} s");
         eprintln!("{:<26}   gpu: {}", "", gpu_notes.join("; "));
         eprintln!("{:<26}   ref spread: {}", "", self_notes.join("; "));
+        eprintln!("{:<26}   ref half step: {}", "", half_notes.join("; "));
+        let fails = gate(&reference, &ours, &half, &spread);
+        if !fails.is_empty() {
+            eprintln!("{:<26}   GATE: {}", "", fails.join("; "));
+            failures.push(format!("{name}: {}", fails.join("; ")));
+        }
     }
     assert!(ran > 0);
+    if std::env::var("STRESS_GPU_GATE").as_deref() != Ok("report") {
+        assert!(failures.is_empty(), "accuracy gate:\n{}", failures.join("\n"));
+    }
 }
