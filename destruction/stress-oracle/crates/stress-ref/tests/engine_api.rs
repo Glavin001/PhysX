@@ -180,7 +180,14 @@ fn engine_coupled_fracture_reports_children_and_bond_state() {
         let label = format!("{model:?} {mode:?}");
         let fractures: Vec<&Fracture> = out_all.iter().flat_map(|o| o.fractures.iter()).collect();
         assert!(!fractures.is_empty(), "{label}: the hit should break the beam");
-        assert!(fractures[0].children.len() >= 2, "{label}");
+        assert!(fractures[0].children.len() >= 2, "{label}: {fractures:?}");
+        // The engine only knows the bodies it has: the beam is reported once, with every
+        // piece it ended as (pieces that split again within the frame resolved), so the
+        // pieces carry all of its mass (to the rounding of summing ten chunk masses).
+        let beam: Vec<&Fracture> = fractures.iter().copied().filter(|f| f.parent == id).collect();
+        assert_eq!(beam.len(), 1, "{label}: {fractures:?}");
+        let pieces: f64 = beam[0].children.iter().map(|c| c.mass).sum();
+        assert!((pieces - mass0).abs() <= 20.0 * f64::EPSILON * mass0, "{label}: pieces weigh {pieces}, the beam {mass0}");
         let reports = engine.bond_reports(0);
         assert!(reports.iter().any(|r| r.broken && r.damage >= 1.0), "{label}");
         assert!(reports.iter().all(|r| (0.0..=1.0).contains(&r.damage) && r.utilization >= 0.0), "{label}");

@@ -7,7 +7,7 @@
 Gate (default): runs every cell of the matrix
 
     scene (scenes/*.json, scenes/showcases/*.json)
-      x methods  {default, layer_contact+scaled_step_bound}
+      x methods  {default (the proven methods), established}
       x threads  {1, all}
       + solve modes {adaptive, quasi_static, implicit} on a subset
 
@@ -23,7 +23,8 @@ import argparse, json, os, re, subprocess, sys, time
 from concurrent.futures import ThreadPoolExecutor
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-METHODS = {"default": None, "layer": "layer_contact,scaled_step_bound"}
+# The default methods (the proven set since cd112933c) and the established ones.
+METHODS = {"default": None, "established": "established"}
 MODE_SUBSET = ["b2_cantilever", "b4_support_loss_sudden", "b8_frame_sudden", "b9_panel_high", "s_floor_static", "s_arch_keystone_removed", "b7_masonry_v15"]
 MODES = ["adaptive", "quasi_static", "implicit"]
 BENCH = ["b1_bond_tension", "b2_cantilever", "b3_bar_wave", "b4_support_loss_sudden", "b5_wall_impact_v10", "b8_frame_sudden",

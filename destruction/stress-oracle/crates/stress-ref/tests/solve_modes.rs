@@ -101,7 +101,8 @@ fn mass_scaling_raises_the_substep_without_touching_statics() {
     let w1 = World::new(&scaled);
     let dt1 = w1.solver.stable_dt();
     println!("stable dt {dt0:.3e} -> {dt1:.3e}, added mass {:.1}%", 100.0 * w1.added_mass_fraction);
-    assert!(dt1 >= 0.99 * 4.0 * dt0, "{dt1} vs {}", 4.0 * dt0);
+    // Exactly: the scaling meets its target substep (no allowance).
+    assert!(dt1 >= 4.0 * dt0, "{dt1} vs {}", 4.0 * dt0);
     assert!(w1.added_mass_fraction > 0.0);
     let (o0, o1) = (common::run(&beam), common::run(&scaled));
     let tip = |o: &stress_ref::observation::Observation| o.probes["tip"].v[0];

@@ -408,8 +408,9 @@ pub struct SimDesc {
     #[serde(default)]
     pub features: Features,
     /// Methods under evaluation, each against the established one (see `IMPROVEMENTS.md`).
-    /// Written only when one is switched on, so a written scene follows `STRESS_METHODS`.
-    #[serde(default, skip_serializing_if = "Methods::is_established")]
+    /// Written only when they differ from the built-in default, so a written scene
+    /// follows `STRESS_METHODS`.
+    #[serde(default, skip_serializing_if = "Methods::is_proven")]
     pub methods: Methods,
 }
 
@@ -448,18 +449,42 @@ pub struct Methods {
     /// Off: once at the start, every chunk pressed against the stiffest material on all
     /// six faces whether or not anything ever touches it.
     pub frame_contact_step: bool,
+    /// The floating frame's drift removal keeps every chunk's world position,
+    /// orientation, velocity and spin exactly (they are re-expressed in the moved frame).
+    /// Off: hidden displacements, rotations and velocities are corrected linearly, which
+    /// moves chunks by O(phi^2) and their velocities by O(phi v) when the folded rotation
+    /// `phi` is finite (the first fold after a split), changing angular momentum and
+    /// energy by amounts that do not vanish with the substep.
+    pub exact_frame_transfer: bool,
+    /// With `layer_contact`: a chunk pair's contact crushes where the layer's pressure
+    /// `k''_f s` exceeds the weaker material's compressive strength (its permanent
+    /// indentation ratchets to the depth where the peak pressure is the strength). Off:
+    /// the contact that replaces a broken joint has the joint's stiffness but unlimited
+    /// strength, so hinges between fragments never crush (over-strong arching).
+    pub contact_crushing: bool,
 }
 
 impl Default for Methods {
-    /// The established methods, or those named in the environment variable
-    /// `STRESS_METHODS` (comma-separated switch names): the A/B hook that runs the whole
-    /// test suite and catalogue with a switch on, without editing any scene or test.
-    /// Scenes that set `sim.methods` explicitly keep their setting.
+    /// The proven methods (`Methods::proven`), adjusted by the environment variable
+    /// `STRESS_METHODS` (comma-separated: `NAME` or `NAME=on` switches one on, `-NAME` or
+    /// `NAME=off` off, `established` starts from every established method): the A/B
+    /// hook that runs the whole test suite and catalogue with switches changed, without
+    /// editing any scene or test. Scenes that set `sim.methods` explicitly keep their
+    /// setting.
     fn default() -> Self {
-        let mut m = Methods { layer_contact: false, scaled_step_bound: false, exact_joint_patch: false, patch_after_damage: false, exact_rate_filter: false, frame_contact_step: false };
+        let mut m = Methods::proven();
         if let Ok(list) = std::env::var("STRESS_METHODS") {
-            for name in list.split(',').map(str::trim).filter(|n| !n.is_empty()) {
-                m.set(name, true).unwrap_or_else(|e| panic!("STRESS_METHODS: {e}"));
+            for item in list.split(',').map(str::trim).filter(|n| !n.is_empty()) {
+                if item == "established" {
+                    m = Methods::established();
+                    continue;
+                }
+                let (name, on) = match (item.strip_prefix('-'), item.split_once('=')) {
+                    (Some(n), _) => (n, false),
+                    (None, Some((n, v))) => (n, matches!(v, "on" | "true")),
+                    (None, None) => (item, true),
+                };
+                m.set(name, on).unwrap_or_else(|e| panic!("STRESS_METHODS: {e}"));
             }
         }
         m
@@ -467,13 +492,41 @@ impl Default for Methods {
 }
 
 impl Methods {
+    /// Every switch at the established method.
+    pub const fn established() -> Methods {
+        Methods {
+            layer_contact: false,
+            scaled_step_bound: false,
+            exact_joint_patch: false,
+            patch_after_damage: false,
+            exact_rate_filter: false,
+            frame_contact_step: false,
+            exact_frame_transfer: false,
+            contact_crushing: false,
+        }
+    }
+
+    /// The default: the replacements that met their bar (IMPROVEMENTS.md, DECISIONS.md
+    /// 40-41): the whole test suite's exact targets, the oracle goldens and the
+    /// analytic benchmarks pass with them; the established methods fail the exact
+    /// targets (contact equilibrium, sticking, Coulomb sliding and stopping, unit
+    /// rescaling, convergence, angular momentum, motion kept through a split).
+    pub const fn proven() -> Methods {
+        Methods { layer_contact: true, scaled_step_bound: true, exact_frame_transfer: true, contact_crushing: true, ..Methods::established() }
+    }
+
     /// Every switch at the established method (whatever `STRESS_METHODS` says).
     pub fn is_established(&self) -> bool {
-        *self == Methods { layer_contact: false, scaled_step_bound: false, exact_joint_patch: false, patch_after_damage: false, exact_rate_filter: false, frame_contact_step: false }
+        *self == Methods::established()
+    }
+
+    /// The built-in default (`proven`), whatever `STRESS_METHODS` says.
+    pub fn is_proven(&self) -> bool {
+        *self == Methods::proven()
     }
 
     /// Names of every switch, in declaration order.
-    pub const NAMES: [&'static str; 6] = ["layer_contact", "scaled_step_bound", "exact_joint_patch", "patch_after_damage", "exact_rate_filter", "frame_contact_step"];
+    pub const NAMES: [&'static str; 8] = ["layer_contact", "scaled_step_bound", "exact_joint_patch", "patch_after_damage", "exact_rate_filter", "frame_contact_step", "exact_frame_transfer", "contact_crushing"];
 
     /// Set a switch by name.
     pub fn set(&mut self, name: &str, on: bool) -> Result<(), String> {
@@ -484,6 +537,8 @@ impl Methods {
             "patch_after_damage" => &mut self.patch_after_damage,
             "exact_rate_filter" => &mut self.exact_rate_filter,
             "frame_contact_step" => &mut self.frame_contact_step,
+            "exact_frame_transfer" => &mut self.exact_frame_transfer,
+            "contact_crushing" => &mut self.contact_crushing,
             _ => return Err(format!("unknown method '{name}' (known: {})", Self::NAMES.join(", "))),
         };
         *slot = on;
