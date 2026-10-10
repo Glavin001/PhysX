@@ -247,6 +247,9 @@ def options_from(scene, cli):
         # at the plastic strain that dissipates G_c per area over one element):
         # off reproduces the committed goldens (elastic chunks, /MAT/LAW1).
         "chunk_crushing": False,
+        # Chunk solids as concrete (/MAT/LAW124, CDPM2: damage-plasticity with tensile and
+        # compressive softening regularised by the fracture energies): off by default.
+        "chunk_cdpm2": False,
     }
     for k, v in hints.items():
         if k in o:
@@ -299,12 +302,36 @@ def export(scene, outdir, opts):
     elastic_mat = {}
 
     def solid_mat(name, element_size):
-        key = (name, element_size if opts.get("chunk_crushing") else None)
+        key = (name, element_size if (opts.get("chunk_crushing") or opts.get("chunk_cdpm2")) else None)
         if key in elastic_mat:
             return elastic_mat[key]
         mt = mats[name]
         mid = m.new("mat")
-        if opts.get("chunk_crushing"):
+        if opts.get("chunk_cdpm2"):
+            # CDPM2 (Grassl et al. 2013): the scene's E, nu, f_t, f_c; tensile softening
+            # linear to the crack opening 2 G_f / f_t; compressive softening at the
+            # inelastic strain G_c / (f_c h) (the compressive fracture energy over one
+            # element, as the reference's crushing); shape, hardening and damage
+            # constants at the law's defaults (zeros); damaged elements deleted.
+            ft, fc = mt["tensile_strength"], mt["compressive_strength"]
+            wf = 2.0 * mt["fracture_energy"]["tension"] / ft
+            efc = mt["fracture_energy"]["compression"] / (fc * element_size)
+            m.mats[mid] = "\n".join([
+                f"/MAT/LAW124/{mid}", f"{name} (concrete, CDPM2)",
+                "#              RHO_I", fnum(mt["density"] * RHO),
+                "#                  E                  NU                IDEL               IRATE                FCUT",
+                fnum(mt["youngs_modulus"] * scale * P) + fnum(mt["poisson_ratio"]) + f"{'':10s}{1:10d}{'':10s}{0:10d}" + fnum(0.0),
+                "#                ECC                 QH0                  FT                  FC                  HP",
+                fnum(0.0) + fnum(0.0) + fnum(ft * P) + fnum(fc * P) + fnum(0.0),
+                "#                 AH                  BH                  CH                  DH",
+                fnum(0.0) + fnum(0.0) + fnum(0.0) + fnum(0.0),
+                "#                 AS                  BS                  DF               DFLAG     DTYPE      IREG",
+                fnum(0.0) + fnum(0.0) + fnum(0.0) + f"{'':10s}{0:10d}{0:10d}{0:10d}",
+                "#                 WF                 WF1                 FT1                 EFC",
+                fnum(wf * L) + fnum(0.0) + fnum(0.0) + fnum(efc),
+            ])
+            notes.append(f"{name}: chunk solids CDPM2 (f_t {ft:g}, f_c {fc:g} Pa, w_f {wf:.3g} m, e_fc {efc:.4g}, h {element_size:g} m)")
+        elif opts.get("chunk_crushing"):
             # Crushing: von Mises plasticity at the uniaxial compressive strength (no
             # hardening, no rate effect), the element eroded once its plastic strain
             # reaches G_c / (f_c h): a crushed band one element thick has then dissipated
@@ -1066,7 +1093,7 @@ def export(scene, outdir, opts):
         f"{0.0:20.12g}{dt_max:20.12g}",
         "/PARITH/ON",
     ]
-    if opts.get("chunk_crushing"):
+    if opts.get("chunk_crushing") or opts.get("chunk_cdpm2"):
         # Crushed elements collapse volumetrically (J2 plasticity does not resist it) and
         # invert before their plastic strain reaches the erosion limit at high impact
         # speed (b5 at 40 m/s stopped with an inverted element in the contact). Standard

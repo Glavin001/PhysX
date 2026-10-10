@@ -55,6 +55,8 @@ def main(argv=None):
     ap.add_argument("--elements-per-chunk", type=int)
     ap.add_argument("--cohesive-thickness", type=float)
     ap.add_argument("--threads", type=int)
+    ap.add_argument("--chunk-cdpm2", action="store_true",
+                    help="chunk solids as concrete (CDPM2, /MAT/LAW124): written as oracle `opencourant_cdpm2`")
     ap.add_argument("--chunk-crushing", action="store_true",
                     help="chunk solids crush at f_c (J2, eroded at G_c per area): written as oracle `opencourant_crushing`")
     ap.add_argument("--rundir")
@@ -81,7 +83,8 @@ def main(argv=None):
         scene = json.load(open(scene_path))
 
     cli = {"elements_per_chunk": a.elements_per_chunk, "cohesive_thickness": a.cohesive_thickness,
-           "threads": a.threads, "chunk_crushing": True if a.chunk_crushing else None}
+           "threads": a.threads, "chunk_crushing": True if a.chunk_crushing else None,
+           "chunk_cdpm2": True if a.chunk_cdpm2 else None}
     opts = export.options_from(scene, cli)
     meta = export.export(scene, rundir, opts)
     info = runner.run(rundir, name, threads=int(opts["threads"]))
@@ -92,7 +95,7 @@ def main(argv=None):
 
     out_dir = os.path.join(a.golden, name)
     os.makedirs(out_dir, exist_ok=True)
-    oracle = "opencourant_crushing" if opts.get("chunk_crushing") else "opencourant"
+    oracle = "opencourant_cdpm2" if opts.get("chunk_cdpm2") else "opencourant_crushing" if opts.get("chunk_crushing") else "opencourant"
     if oracle != "opencourant":
         obs["solver"] = oracle
     out = os.path.join(out_dir, f"{oracle}{suffix}.json")
