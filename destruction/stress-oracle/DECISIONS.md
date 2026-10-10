@@ -306,3 +306,14 @@ cited textbook factor, or the oracle's own uncertainty.
     proven and left off: `exact_joint_patch`, `patch_after_damage`, `exact_rate_filter`,
     `frame_contact_step`. Open before the next round: the catalogue-wide A/B
     (`stress-ref ab`) of the new default, and co-rotational bonds (36).
+42. **Catalogue A/B of the new default** (`stress-ref ab scenes golden`, B = every
+    proven switch off): gated metrics against the oracles pass A 87/91, B 87/91, the
+    same four failing on both sides, all the README's known b5 gaps: at 2 m/s the
+    push-over is not converged at the default substep (speed lost A 51.6 %, B 41.2 %
+    off); at 40 m/s the oracle itself is not converged (its mesh study: far-field
+    cracks keep growing with refinement, no crushing in its elastic chunks) and both
+    make a hole where it pushes the wall over (speed lost A 49 %, B 33 % off). No
+    metric passes with the established methods and fails with the new default. Cost:
+    wall time 339 s against 162 s over the catalogue (the layer contact; the perf plan
+    covers it). The b5 speed-lost gap is a lead for the next round: the new default is
+    further from the (unconverged) oracle there.

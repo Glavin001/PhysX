@@ -235,7 +235,8 @@ chunks, the signature of the small-strain floating-frame coupling that also keep
 angular momentum from being conserved (DECISIONS.md 26-27). Both are exact targets now
 and fail until that coupling is made exact.
 
-**Status:** catalogue A/B rerun pending.
+**Status:** default on. Catalogue A/B against the established methods: 87/91 gated
+metrics both ways, the same four known b5 gaps failing (DECISIONS.md 42).
 
 ### `scaled_step_bound` (fix, step change)
 
