@@ -60,14 +60,14 @@ max_threads_per_threadgroup = 1024
 code_bytes = 13800
 
 [kernels.island_frame]
-instructions = 12424
+instructions = 11204
 temp_registers = 96
 spilled_bytes = 1040
 threads_per_threadgroup = 256
 spilled_bytes_x_threads = 266240
 static_threadgroup_memory = 1056
 max_threads_per_threadgroup = 1024
-code_bytes = 90746
+code_bytes = 80748
 
 [kernels.island_statics]
 instructions = 5925
@@ -90,24 +90,24 @@ max_threads_per_threadgroup = 1024
 code_bytes = 22064
 
 [kernels.wide_bonds]
-instructions = 4569
+instructions = 4035
 temp_registers = 96
-spilled_bytes = 528
+spilled_bytes = 544
 threads_per_threadgroup = 256
-spilled_bytes_x_threads = 135168
+spilled_bytes_x_threads = 139264
 static_threadgroup_memory = 1040
 max_threads_per_threadgroup = 1024
-code_bytes = 34140
+code_bytes = 29810
 
 [kernels.wide_chunks]
-instructions = 2452
-temp_registers = 95
-spilled_bytes = 0
+instructions = 1890
+temp_registers = 96
+spilled_bytes = 32
 threads_per_threadgroup = 256
-spilled_bytes_x_threads = 0
+spilled_bytes_x_threads = 8192
 static_threadgroup_memory = 1072
 max_threads_per_threadgroup = 1024
-code_bytes = 18792
+code_bytes = 13966
 
 [kernels.wide_drift]
 instructions = 412
@@ -140,11 +140,11 @@ max_threads_per_threadgroup = 1024
 code_bytes = 22802
 
 [kernels.wide_wake]
-instructions = 1008
-temp_registers = 62
+instructions = 1046
+temp_registers = 59
 spilled_bytes = 0
 threads_per_threadgroup = 256
 spilled_bytes_x_threads = 0
 static_threadgroup_memory = 560
 max_threads_per_threadgroup = 1024
-code_bytes = 7832
+code_bytes = 8024

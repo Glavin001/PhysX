@@ -1220,19 +1220,30 @@ void ground_contact(uint c, bool account, inout float3 f, inout float3 t)
 // about the chunk centre), in the order the reference adds it: scripted loads, then
 // contacts (impactors, ground, chunk pairs). `account` books the ground dissipation
 // (once per substep).
-void chunk_external(uint c, ChunkStatic ch, Quat rot, uint k, float dt, bool contact, out float3 f, out float3 t)
+// A chunk's load terms in one pass: the external loads (world force `f` and torque `t`,
+// at substep k), and the replacement loads' body-frame force `rf` and moment `rm`
+// (evaluated `rep_shift` later). One pass and one inlined `eval_function` per call site:
+// the per-substep kernels carry this code at every site (instruction-cache budget).
+void chunk_loads(uint c, ChunkStatic ch, Quat rot, uint k, float dt, bool contact, float rep_shift, out float3 f, out float3 t, out float3 rf, out float3 rm)
 {
     f = float3(0.0);
     t = float3(0.0);
+    rf = float3(0.0);
+    rm = float3(0.0);
     for (uint term = ch.load_range.x; term < ch.load_range.y; term++)
     {
         g_seen[SEEN_LOAD] = 1;
         uint4 info = asuint(loads[5 * term]);
-        if (info.y == LOAD_REPLACEMENT)
-            continue;
+        bool replacement = info.y == LOAD_REPLACEMENT;
         float4 dir = loads[5 * term + 1];
         float4 arm = loads[5 * term + 2];
-        float value = eval_function(term, k, dt, 0.0);
+        float value = eval_function(term, k, dt, replacement ? rep_shift : 0.0);
+        if (replacement)
+        {
+            rf += dir.xyz * value;
+            rm += arm.xyz * value;
+            continue;
+        }
         float3 fw = (info.y == LOAD_WORLD_FORCE || info.y == LOAD_POINT) ? dir.xyz * value : rotate(rot, dir.xyz) * (-value * dir.w);
         float3 lever = info.y == LOAD_POINT ? arm.xyz - state[4 * c].xyz : arm.xyz;
         f += fw;
@@ -1247,6 +1258,13 @@ void chunk_external(uint c, ChunkStatic ch, Quat rot, uint k, float dt, bool con
             t += scratch[params.seg_base + 2 * g + 1].xyz;
         }
     }
+}
+
+void chunk_external(uint c, ChunkStatic ch, Quat rot, uint k, float dt, bool contact, out float3 f, out float3 t)
+{
+    float3 rf;
+    float3 rm;
+    chunk_loads(c, ch, rot, k, dt, contact, 0.0, f, t, rf, rm);
 }
 
 // The contact loads of a chunk in the reference's order (impactors, ground, chunk
@@ -1440,7 +1458,9 @@ void chunk_update(uint c, Island isl, Rigid rg, float dt, bool rml, uint step, b
     float3 r_world = rotate(rg.rot, ch.center.xyz + u - isl.com.xyz);
     float3 f_load;
     float3 t_load;
-    chunk_external(c, ch, rg.rot, step, dt, contact, f_load, t_load);
+    float3 rep_f;
+    float3 rep_m;
+    chunk_loads(c, ch, rg.rot, step, dt, contact, dt, f_load, t_load, rep_f, rep_m);
     record_chunk_load(c, f_load, t_load);
     float3 f_world = f_load + params.gravity.xyz * mass;
     float3 t_world = t_load;
@@ -1462,14 +1482,8 @@ void chunk_update(uint c, Island isl, Rigid rg, float dt, bool rml, uint step, b
         m_ext -= cross(wb, i_w) + cross(w, i_wb) + cross(w, i_w);
     }
     // Replacement loads (body frame), evaluated at t + dt as `frame_loads` is.
-    for (uint term = ch.load_range.x; term < ch.load_range.y; term++)
-    {
-        if (asuint(loads[5 * term]).y != LOAD_REPLACEMENT)
-            continue;
-        float kf = eval_function(term, step, dt, dt);
-        f_ext += loads[5 * term + 1].xyz * kf;
-        m_ext += loads[5 * term + 2].xyz * kf;
-    }
+    f_ext += rep_f;
+    m_ext += rep_m;
     // Central differences by support kind (solver.rs `integrate_cluster`).
     float3 f = f_ext + fi;
     float3 m = m_ext + mi;
@@ -1586,20 +1600,19 @@ void net_load(uint c, Island isl, Rigid rg, uint k, float dt, bool contact, inou
     ChunkStatic ch = chunks[c];
     float3 fl;
     float3 tl;
-    chunk_external(c, ch, rg.rot, k, dt, contact, fl, tl);
+    float3 rep_f;
+    float3 rep_m;
+    chunk_loads(c, ch, rg.rot, k, dt, contact, 0.0, fl, tl, rep_f, rep_m);
     float3 fc = fl + params.gravity.xyz * ch.center.w;
     float3 r = rotate(rg.rot, ch.center.xyz + state[4 * c].xyz - isl.com.xyz);
     f += fc;
     t += cross(r, fc) + tl;
     // Replacement loads (solver.rs `net_load`), at the substep start.
-    for (uint term = ch.load_range.x; term < ch.load_range.y; term++)
+    if (ch.load_range.y > ch.load_range.x)
     {
-        if (asuint(loads[5 * term]).y != LOAD_REPLACEMENT)
-            continue;
-        float kf = eval_function(term, k, dt, 0.0);
-        float3 fw = rotate(rg.rot, loads[5 * term + 1].xyz * kf);
+        float3 fw = rotate(rg.rot, rep_f);
         f += fw;
-        t += cross(rotate(rg.rot, ch.center.xyz - isl.com.xyz), fw) + rotate(rg.rot, loads[5 * term + 2].xyz * kf);
+        t += cross(rotate(rg.rot, ch.center.xyz - isl.com.xyz), fw) + rotate(rg.rot, rep_m);
     }
 }
 
