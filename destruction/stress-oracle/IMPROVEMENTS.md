@@ -931,11 +931,19 @@ Hertz peak pressure over the target's compressive strength.
 | cars | 49-54 |
 | b7 | 26-44 |
 
-It ranks the one failure first. But one failing case cannot place a threshold, and
-every impact here exceeds the strength by an order of magnitude or more (all crush
-locally). Calibrating it needs more impact scenes between v10 and v40 (speed, mass,
-radius), each judged explicit against implicit with `scripts/fidelity.py`. That is
-open for the GPU tiering; the oracle now has the tools.
+It ranks the one failure first. A speed sweep of the same 1000 kg box ram (b5's scene
+at 10-40 m/s, explicit against implicit, fidelity's judge) places the threshold:
+
+| Speed | Explicit (the truth) | Implicit |
+|---|---|---|
+| 10, 15 m/s | push-over: the whole wall falls (800 chunks) | same failure mode; pieces differ (58 -> 4 at 15 m/s) |
+| 20, 25, 30, 35, 40 m/s | punch-through: 32 chunks out at about the ram's speed | nothing detaches; the collapse flag is lost |
+
+So tier 2 fails exactly where punch-through begins, between 15 and 20 m/s. There
+`p0 / f_c` is about 145-160 (it grows as `v^0.4`: 123 at 10 m/s, 214 at 40). The wave
+ratios barely move over the sweep (`t_c` goes as `v^-1/5`), so they cannot place it.
+For the GPU tiering: a punch-through criterion (contact pressure against strength,
+calibrated on more rams and walls this way) where the analysis has `t_c <= T_w`.
 Blast loads and dropped bodies have no `t_c` here yet.
 
 GPU-only items are out of scope for the CPU oracle: shared-memory windows, cooperative
