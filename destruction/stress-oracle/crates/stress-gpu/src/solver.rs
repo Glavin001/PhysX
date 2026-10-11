@@ -45,6 +45,30 @@ const WIDE_GROUP: usize = 256;
 fn wide_threshold() -> usize {
     std::env::var("STRESS_GPU_WIDE_CHUNKS").ok().and_then(|v| v.parse().ok()).unwrap_or(192)
 }
+/// Scheduling knobs (GPU only, no physics change), read per call like
+/// `STRESS_GPU_WIDE_CHUNKS`: they force rare scheduling paths in tests (`gate::Knobs`).
+///
+/// `STRESS_GPU_BATCH_ROUNDS=n`: at most `n` per-substep rounds per submission (1: a batch
+/// boundary after every round).
+fn batch_cap() -> usize {
+    std::env::var("STRESS_GPU_BATCH_ROUNDS").ok().and_then(|v| v.parse::<usize>().ok()).filter(|&n| n > 0).map_or(MAX_BATCH_ROUNDS, |n| n.min(MAX_BATCH_ROUNDS))
+}
+
+/// The batch length after a split (and at the start), capped by `batch_cap`.
+fn batch_start() -> usize {
+    16.min(batch_cap())
+}
+
+/// `STRESS_GPU_PLAN_STEPS=x`: steps a contact plan covers (1: re-plan every step).
+fn plan_steps() -> f64 {
+    std::env::var("STRESS_GPU_PLAN_STEPS").ok().and_then(|v| v.parse::<f64>().ok()).filter(|&x| x > 0.0).unwrap_or(PLAN_STEPS)
+}
+
+/// `STRESS_GPU_SYNC_EACH_STEP=1`: bring the mirror's bonds up to the GPU's after every
+/// `step` instead of lazily.
+fn sync_each_step() -> bool {
+    std::env::var("STRESS_GPU_SYNC_EACH_STEP").is_ok_and(|v| v == "1")
+}
 const ISLAND_HALTED: u32 = 1;
 const STOP_NOW: u32 = 1;
 
@@ -298,7 +322,8 @@ pub const KERNEL_NAMES: [&str; 12] = [
 ];
 /// Contact contributions per segment (`contact_sums`, one thread each).
 const SEGMENT: usize = 8;
-/// Steps a contact plan covers (re-planned sooner when a chunk leaves its budget).
+/// Steps a contact plan covers (re-planned sooner when a chunk leaves its budget;
+/// `STRESS_GPU_PLAN_STEPS` overrides, `plan_steps`).
 const PLAN_STEPS: f64 = 4.0;
 /// Most per-substep rounds per submission.
 const MAX_BATCH_ROUNDS: usize = 2048;
@@ -491,7 +516,7 @@ impl GpuSolver {
             plan_until: f64::NEG_INFINITY,
             extra_terms: Vec::new(),
             own_contacts: true,
-            batch_rounds: 16,
+            batch_rounds: batch_start(),
             replans: 0,
             profile: Profile::default(),
         })
@@ -1108,7 +1133,7 @@ impl GpuSolver {
             // outruns its budget.
             let t = std::time::Instant::now();
             let full = stride > self.buffers.params.probe_stride;
-            let horizon = if self.contacts_possible() { horizon * PLAN_STEPS } else { 0.0 };
+            let horizon = if self.contacts_possible() { horizon * plan_steps() } else { 0.0 };
             self.plan_until = start_time + horizon;
             if full {
                 self.sync(gpu);
@@ -1146,7 +1171,7 @@ impl GpuSolver {
         // Pipeline substeps per submission: a halt (split, re-plan) stops the rest of a
         // submission, whose dispatches still launch; small chunks after a halt, growing
         // while none occurs.
-        let mut chunk = self.batch_rounds;
+        let mut chunk = self.batch_rounds.min(batch_cap());
         // Impactor velocity and position after every substep (for the impactor probes).
         let mut impactor_records = vec![vec![(Vec3::splat(f64::NAN), Vec3::splat(f64::NAN)); substeps]; self.impactors.len()];
         loop {
@@ -1345,7 +1370,7 @@ impl GpuSolver {
                     break;
                 }
                 // The pipeline ran a full chunk without a halt: continue with a larger one.
-                chunk = (chunk * 2).min(MAX_BATCH_ROUNDS);
+                chunk = (chunk * 2).min(batch_cap());
                 self.batch_rounds = chunk;
                 continue;
             }
@@ -1355,7 +1380,7 @@ impl GpuSolver {
                 self.resumed_halts += halted.len() as u64;
                 continue;
             }
-            chunk = 16;
+            chunk = batch_start();
             self.batch_rounds = chunk;
             // Split the halted clusters on the host mirror, at the time they reached;
             // re-plan contacts from the state reached.
@@ -1397,6 +1422,9 @@ impl GpuSolver {
         self.profile.download += t.elapsed().as_secs_f64();
         self.mirror.time = self.step_times[start + substeps];
         self.mirror.substeps = (start + substeps) as u64;
+        if sync_each_step() {
+            self.sync(gpu);
+        }
         // Each probe's value: the sum of its items (NaN without any); impactor probes from
         // the impactor records.
         let probes = self.loads.as_ref().map(|l| l.scene.probes.len()).unwrap_or(0);

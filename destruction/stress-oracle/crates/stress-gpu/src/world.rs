@@ -98,8 +98,9 @@ impl GpuWorld {
         Ok(w)
     }
 
-    /// Run `f` with the mirror in the shell `World`.
-    fn with_shell<R>(&mut self, f: impl FnOnce(&World) -> R) -> R {
+    /// Run `f` with the mirror in the shell `World` (e.g. its energy terms,
+    /// `World::mechanical_energy`; the mirror's bonds must be synced for those).
+    pub fn with_shell<R>(&mut self, f: impl FnOnce(&World) -> R) -> R {
         self.shell.impactors = self.solver.impactors.clone();
         self.shell.contact.dissipated = self.solver.contact_dissipated;
         self.shell.contact.crush = self.solver.crush_energy;

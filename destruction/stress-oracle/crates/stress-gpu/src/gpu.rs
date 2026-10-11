@@ -19,7 +19,8 @@ pub enum ShaderPath {
     Wgsl,
 }
 
-/// A GPU device and its queue.
+/// A GPU device and its queue (cloning shares the device: wgpu handles).
+#[derive(Clone)]
 pub struct Gpu {
     pub adapter: wgpu::Adapter,
     pub device: wgpu::Device,

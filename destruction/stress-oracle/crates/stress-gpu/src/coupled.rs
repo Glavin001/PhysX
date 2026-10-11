@@ -306,7 +306,11 @@ pub struct GpuStressSolverApi {
 
 impl GpuStressSolverApi {
     pub fn new(scene: &Scene) -> Result<GpuStressSolverApi, String> {
-        let gpu = Gpu::new()?;
+        Self::with_gpu(Gpu::new()?, scene)
+    }
+
+    /// On a device the caller already has (one device for many runs: the test tiers).
+    pub fn with_gpu(gpu: Gpu, scene: &Scene) -> Result<GpuStressSolverApi, String> {
         let coupled = GpuCoupledSolver::new(&gpu, scene)?;
         Ok(GpuStressSolverApi { gpu, coupled })
     }
