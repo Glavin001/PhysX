@@ -277,17 +277,37 @@ The full entry is in `IMPROVEMENTS.md`.
 | T2 structural dynamics | Below the calibrated critical impact speed, support loss, sway | Explicit intact kernel at the true step |
 | T3 explicit full law | Hot bonds, damage, punch-through and spall | Full-law island kernel; local windows later |
 
-## D. Roadmap
+## D. Roadmap, revised by the measurements
+
+What the measurements (A1–A8) change:
+
+- **Destruction frames in the standalone GPU world are dominated by debris contact at the stress substep (A5).** In production that contact is PhysX's. The real-time path is therefore the engine-coupled solver, and its missing piece is stress-owned impact islands. That piece is also what makes fast loading (punch-through) right (`tier2_velocity`).
+- **The cost of one awake building is its true substeps times the per-substep latency** (A5, A6): 1,264 × 25 µs ≈ 32 ms for house-1story on M3. Three measured levers multiply:
+
+  | Lever | Factor | Status |
+  |---|---|---|
+  | Intact-only kernel | ×2.5–6 | measured with the existing intact kernel |
+  | Sliver elimination | ×1.6–4.5 | a step and model change to prove in the oracle |
+  | Per-island step | ×1 on single buildings; pays in mixed towns | |
+
+  Together they bring an awake house to about 2–4 ms. So a few awake buildings fit per frame on M3, and everything else must sleep or be quasi-static.
+- **Idle is already cheap** (100 intact houses 3.4 ms median, one coupled house 1.6 ms), apart from the startup frame (93 ms).
+- **Certificates can pass on well-calibrated buildings:** the small packs and the Shardwright building (max 0.50 at rest). The multi-storey packs are over strength at rest and need their calibration fixed first. Shardwright's own fix is a design check that reinforces bonds to 2× their self-weight load.
+- **Member condensation is exact but gives no explicit-step gain** (A3, A7). It moves to later, as an intact-statics and bounds tool.
 
 | Phase | Content | Gate |
 |---|---|---|
-| 0 | Baselines and blockers: done here (A1–A4, import fix) | |
-| 1 | `patch_after_damage` and `exact_rate_filter` A/B; frame-level class A skip; intact kernel with escalation; per-island n_i | Intact floor ≤ 1 µs and 100 houses ≤ 3 ms → explicit plus sleeping |
-| 1b | Sliver elimination (A3) on the GPU's step | Step gain at bounded fidelity cost |
-| 2 | GPU impact islands; GPU connectivity and splits | The `tier2_velocity` cases through the GPU path |
-| 3 | E_safe and settling certificates (shadow first) | Never contradicted |
-| 4 | Proven methods on the GPU (layer contact with bounded cohorts) | GPU gate against `proven` |
-| 5 | Impact router (critical speed / P–I maps) | `fidelity.py` |
-| 6 | Multigrid; HHT; GPU implicit | |
-| 7 | IMEX windows; cascade screens; corotational | |
+| 0 | Baselines and blockers | done: A1–A8, import fix, tools |
+| 1 | **GPU impact islands in the coupled solver** (port `world_coupling` `select_islands` and stress-owned contacts), with debris contact left to the engine | b5/b7 speed sweeps through the GPU coupled path reproduce push-over against punch-through (`tier2_velocity` cases); destruction frame time measured idle and at peak |
+| 2 | **Awake-building cost:** adopt `patch_after_damage` (review); intact island kernel with escalation to the full law; sliver elimination as an oracle switch, then on the GPU; per-island step | `fidelity.py` on the switch; one awake house ≤ 4 ms on M3 |
+| 3 | Faithful sleeping: class A frame skip, E_safe and settling certificates (shadow first); the startup frame | Never contradicted in shadow; first frame visible and bounded |
+| 4 | Asset calibration: a design check for the packs (as Shardwright's), or their materials | No bond over strength at rest |
+| 5 | GPU connectivity and splits (no host mirror inside a frame); contact-state memory bounded (the 4.87 GB crash) | Cascades with no host round trip |
+| 6 | Proven oracle methods on the GPU (contact crushing, layer contact with bounded cohorts) | GPU gate against `proven` |
+| 7 | Impact router (critical speed / P–I maps); multigrid; HHT; condensed intact statics and influence bounds | Each by its IMPROVEMENTS class |
 | 8 | CUDA host at `PxgDestructionRuntime`; 4090 qualification | AGENTS.md idle plus peak complete-step rules |
+
+**Open bugs found here** (separate tasks):
+- the oracle's convex hull is not robust to f32-coplanar input (A7);
+- GPU `contact state` buffer overflow on collapse (A4);
+- the certified step's damping term (A1).
