@@ -96,10 +96,18 @@ fn main() {
         let mut solver = GpuSolver::new(&gpu, reference, None, Vec::new()).expect("GPU solver");
         let substeps = 2000;
         solver.step(&gpu, dt, substeps).expect("warm-up");
+        // The GPU is shared with other work: the minimum over repeats is the
+        // uncontended cost (`STRESS_GPU_REPEAT`, default 5).
+        let repeats: usize = std::env::var("STRESS_GPU_REPEAT").ok().and_then(|v| v.parse().ok()).unwrap_or(5);
         let before = solver.profile.clone();
-        let t = Instant::now();
-        solver.step(&gpu, dt, substeps).expect("step");
-        let us = t.elapsed().as_secs_f64() / substeps as f64 * 1e6;
+        let mut best = f64::INFINITY;
+        for _ in 0..repeats {
+            let t = Instant::now();
+            solver.step(&gpu, dt, substeps).expect("step");
+            best = best.min(t.elapsed().as_secs_f64());
+        }
+        let us = best / substeps as f64 * 1e6;
+        let substeps = substeps * repeats;
         let p = &solver.profile;
         let per = |x: f64| x / substeps as f64 * 1e6;
         println!(
