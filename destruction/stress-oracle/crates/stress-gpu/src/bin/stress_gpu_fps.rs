@@ -8,6 +8,12 @@
 //! the 8 ms and 16.67 ms budgets, and substeps per frame.
 //!
 //!   stress-gpu-fps [--frames N] [--config authored|realtime] [--ref-cap SECONDS] [--only NAME]
+//!                  [--town PACK:COUNT[:RAMS] ...] [--gpu-only]
+//!
+//! `--town PACK:COUNT:RAMS`: instead of the default scenes, `COUNT` copies of a scene
+//! pack on a grid (`scenes::pack_town`); its destruction regime rams the first `RAMS`
+//! buildings (default 1), each with the same 400 kg box at 12 m/s. `--gpu-only` skips
+//! the reference (towns are too slow for it).
 //!
 //! `--config realtime`: the GPU at the true stable step in adaptive mode (sleeping); the
 //! reference stays at its own settings (its accuracy baseline).
@@ -41,12 +47,32 @@ fn bounds(scene: &Scene) -> (Vec3, Vec3) {
 }
 
 /// A 400 kg box rammed at 12 m/s into the middle of the structure's -x face.
-fn rammed(mut scene: Scene) -> Scene {
+fn rammed(scene: Scene) -> Scene {
     let (lo, hi) = bounds(&scene);
+    ram_at(scene, "ram", lo, hi)
+}
+
+/// `rams` of the town's buildings (bodies named `*_{i}`) each rammed as `rammed` does.
+fn bombarded(mut town: Scene, rams: usize) -> Scene {
+    for i in 0..rams {
+        let suffix = format!("_{i}");
+        let mut one = town.clone();
+        one.bodies.retain(|b| b.name.ends_with(&suffix));
+        if one.bodies.is_empty() {
+            break;
+        }
+        let (lo, hi) = bounds(&one);
+        town = ram_at(town, &format!("ram{i}"), lo, hi);
+    }
+    town.name = format!("{} ({rams} rammed)", town.name);
+    town
+}
+
+fn ram_at(mut scene: Scene, name: &str, lo: Vec3, hi: Vec3) -> Scene {
     let mid = (lo + hi) * 0.5;
     let material = scene.bodies[0].chunks[0].material.clone();
     scene.impactors.push(ImpactorDesc {
-        name: "ram".into(),
+        name: name.into(),
         shape: ImpactorShape::Box { half_extents: [0.15, 0.3, 0.3] },
         mass: 400.0,
         position: [lo.x - 0.35, mid.y, mid.z],
@@ -148,6 +174,8 @@ fn main() {
     let mut realtime = false;
     let mut cap = 120.0;
     let mut only: Option<String> = None;
+    let mut towns: Vec<(String, usize, usize)> = Vec::new();
+    let mut gpu_only = false;
     let mut args = std::env::args().skip(1);
     while let Some(a) = args.next() {
         match a.as_str() {
@@ -155,6 +183,14 @@ fn main() {
             "--config" => realtime = args.next().as_deref() == Some("realtime"),
             "--ref-cap" => cap = args.next().and_then(|v| v.parse().ok()).expect("--ref-cap S"),
             "--only" => only = args.next(),
+            "--gpu-only" => gpu_only = true,
+            "--town" => {
+                let spec = args.next().expect("--town PACK:COUNT[:RAMS]");
+                let parts: Vec<&str> = spec.split(':').collect();
+                let count = parts.get(1).and_then(|v| v.parse().ok()).expect("--town PACK:COUNT[:RAMS]");
+                let rams = parts.get(2).and_then(|v| v.parse().ok()).unwrap_or(1);
+                towns.push((parts[0].to_string(), count, rams));
+            }
             other => panic!("unknown argument {other}"),
         }
     }
@@ -162,22 +198,30 @@ fn main() {
     let named = |n: &str| catalogue.iter().find(|s| s.name == n).cloned().unwrap_or_else(|| panic!("no scene {n}"));
     let packs = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../../blast/blast-stress-demo-rs/assets/scenes");
     let pack = |p: &str| stress_ref::scene_pack::import(&packs.join(format!("{p}.json")), p, "structure").expect("pack");
-    let scenes: Vec<Scene> = vec![
-        named("b5_wall_impact_v10"),
-        named("b9_panel_high"),
-        named("s_house_car"),
-        rammed(pack("house-1story")),
-        rammed(pack("villa-savoye")),
-    ];
+    // (scene, its idle regime, its destruction regime)
+    let scenes: Vec<(Scene, Scene, Scene)> = if towns.is_empty() {
+        vec![named("b5_wall_impact_v10"), named("b9_panel_high"), named("s_house_car"), rammed(pack("house-1story")), rammed(pack("villa-savoye"))]
+            .into_iter()
+            .map(|s| (s.clone(), idle(&s), s))
+            .collect()
+    } else {
+        towns
+            .iter()
+            .map(|(p, count, rams)| {
+                let town = stress_gpu::scenes::pack_town(&pack(p), *count, 2.0);
+                (town.clone(), idle(&town), bombarded(town, *rams))
+            })
+            .collect()
+    };
     let gpu = Gpu::new().expect("GPU");
     println!("{} ({:?}); {frames} frames of the scene's frame_dt; config {}", gpu.adapter_info.name, gpu.adapter_info.backend, if realtime { "realtime (GPU: true step, adaptive)" } else { "authored" });
     println!("| scene | regime | solver | chunks / bonds / broken | first frame ms | median ms | worst ms | worst-case FPS | >8 ms | >16.7 ms | substeps/frame | setup |");
     println!("|---|---|---|---|---|---|---|---|---|---|---|---|");
-    for scene in scenes {
+    for (scene, idle_scene, destruction) in scenes {
         if only.as_ref().is_some_and(|o| !scene.name.starts_with(o.as_str())) {
             continue;
         }
-        for (regime, s) in [("idle", idle(&scene)), ("destruction", scene.clone())] {
+        for (regime, s) in [("idle", idle_scene), ("destruction", destruction)] {
             let mut g = s.clone();
             if realtime {
                 g = g.with_override("sim.solve_mode", "\"adaptive\"").expect("mode");
@@ -187,7 +231,9 @@ fn main() {
                 Ok(f) => report(&scene.name, regime, "GPU", &f),
                 Err(e) => println!("| {} | {regime} | GPU | error: {e} |", scene.name),
             }
-            report(&scene.name, regime, "stress-ref", &run_ref(&s, frames, cap));
+            if !gpu_only {
+                report(&scene.name, regime, "stress-ref", &run_ref(&s, frames, cap));
+            }
         }
     }
 }
