@@ -8,7 +8,7 @@
 //!    top mode's kinetic energy (the few light chunks that set the step), and report the
 //!    step gain after 1, 2, 4, ... chunks.
 //!
-//!   cargo run --release -p stress-reduce --example condense_report -- [--iters N] <pack.json> ...
+//!   cargo run --release -p stress-reduce --example condense_report -- [--iters N] [--slivers N] <pack.json> ...
 
 use std::time::Instant;
 
@@ -18,11 +18,13 @@ use stress_ref::solver::ReferenceSolver;
 
 fn main() {
     let mut iters = 1500usize;
+    let mut max_slivers = 16usize;
     let mut paths = Vec::new();
     let mut args = std::env::args().skip(1);
     while let Some(a) = args.next() {
         match a.as_str() {
             "--iters" => iters = args.next().and_then(|v| v.parse().ok()).expect("--iters N"),
+            "--slivers" => max_slivers = args.next().and_then(|v| v.parse().ok()).expect("--slivers N"),
             _ => paths.push(a),
         }
     }
@@ -81,7 +83,7 @@ fn main() {
         let mut line = Vec::new();
         let st = &m.structures[m.clusters[ci].structure];
         let mut first = Vec::new();
-        for count in 1..=16usize {
+        for count in 1..=max_slivers {
             let red = Reduced::new(&net, &eliminate);
             let (_, x) = top_eigen(&red.k, &red.m, iters);
             let mx = red.m.mul(&x);

@@ -88,8 +88,52 @@ The network assembled from the oracle's bonds reproduces the oracle's gravity eq
 | 256 | 14% | 3.2 MB | 323 | ×1.00 |
 
 - **Partitioning shrinks the static system** (86% of DOFs gone at 256-chunk parts).
-- **It gives no explicit-step gain:** the chunk that sets the step is a boundary chunk.
-- **Eliminating the step-setting slivers themselves:** see the sliver study.
+- **It gives no explicit-step gain:** the chunk that sets the step is a boundary chunk. Results by pack:
+  - house-1story ×1.00 at every part size;
+  - house-2story ×1.04 up to parts of 128, ×1.25 at 256;
+  - brick-building ×1.00.
+
+**Sliver elimination.** The study greedily eliminates the retained chunk carrying most of the current top mode, then reports the Guyan step gain:
+
+| Pack | 1 | 2 | 4 | 8 | 16 chunks eliminated | First eliminated |
+|---|---|---|---|---|---|---|
+| house-1story (319 chunks) | ×1.00 | ×1.33 | ×1.34 | ×1.48 | **×4.51** | 66–67 kg timber beams, then 16 kg timber posts |
+| house-2story (599 chunks) | ×1.00 | ×1.03 | ×1.04 | ×1.04 | ×1.66 | 3.2–3.4 kg timber stair pieces |
+| brick-building (248 chunks) | ×1.00 | ×1.00 | ×1.00 | ×1.01 | ×1.02 | uniform bricks: nothing to gain |
+
+- **On house-1story, 5% of the chunks are worth ×4.5 in the explicit step.**
+- **What the eliminated chunks lose:**
+  - They follow their neighbours quasi-statically. Their own vibration, at 15–20 kHz, has no gameplay meaning.
+  - Their bonds' forces are recovered exactly in the static limit.
+  - Their inertia moves to the retained neighbours (`M~`).
+- **Status:** a step and model change, so it must be proven as an oracle switch against explicit (`fidelity.py`) before the GPU uses it. Queued as Phase 1b.
+
+### A6. Cost of an intact-only kernel per substep (`stress-gpu-bench`)
+
+Both kernels run the whole segment in one dispatch (narrow islands), or one round of dispatches per substep (wide), whichever is faster. Packs are timed with rebar stripped, because the intact kernel has no rebar and on an intact bond rebar is only added stiffness.
+
+| Scene | Chunks / bonds | Full model (`GpuSolver`) | Intact kernel (`GpuStress`) | Gain |
+|---|---|---|---|---|
+| slab 12×6×2 | 144 / 324 | 14.4 µs | 2.4 µs | ×6.0 |
+| slab 16×8×2 | 256 / 592 | 22.8 µs | 5.8 µs | ×3.9 |
+| brick-building | 248 / 494 | 23.0 µs | 5.8 µs | ×4.0 |
+| house-1story | 319 / 877 | 24.9 µs | 9.4 µs | ×2.6 |
+| house-2story | 599 / 1,652 | 25.4 µs | 10.0 µs | ×2.5 |
+| villa-savoye | 1,045 / 2,464 | 23.5 µs | 7.8 µs | ×3.0 |
+
+- **The full model sits at a ~24 µs floor for every pack size.** That is latency (code size, spills, A2), not work.
+- **An intact-only path gains ×2.5–6.**
+- **Even the intact kernel is latency-bound on Metal:**
+  - one threadgroup is too narrow above ~250 chunks;
+  - a dispatch per substep costs ~1 µs each, plus a device-memory exchange.
+- **Per awake house-1story on M3:**
+  - today: 1,264 substeps × 25 µs = 32 ms;
+  - intact kernel: × 9.4 µs ≈ 12 ms;
+  - intact kernel plus sliver elimination (÷4.5): **≈ 2.6 ms**.
+- **Phase 1 gate** (intact floor ≤ 1 µs): **not met** on Metal with this kernel. The architecture there is therefore:
+  - a few awake explicit buildings per frame;
+  - everything else asleep or quasi-static behind certificates;
+  - slivers eliminated.
 
 ### A4. GPU frame times on pack towns (M3 Max, true step, adaptive mode)
 

@@ -8,7 +8,7 @@
 //!
 //!   versus       the full model against the f64 reference, time per substep
 //!
-//!   stress-gpu-bench [--substeps N] [--full] [--versus] [--world MODE --frames N]
+//!   stress-gpu-bench [--substeps N] [--full] [--versus] [--world MODE --frames N] [--pack PATH ...]
 
 use std::time::Instant;
 
@@ -25,6 +25,7 @@ fn main() {
     let mut vs = false;
     let mut world_mode: Option<String> = None;
     let mut frames = 60usize;
+    let mut packs: Vec<String> = Vec::new();
     let mut args = std::env::args().skip(1);
     while let Some(a) = args.next() {
         match a.as_str() {
@@ -33,12 +34,13 @@ fn main() {
             "--versus" => vs = true,
             "--world" => world_mode = args.next(),
             "--frames" => frames = args.next().and_then(|v| v.parse().ok()).expect("--frames N"),
+            "--pack" => packs.push(args.next().expect("--pack PATH")),
             other => panic!("unknown argument {other}"),
         }
     }
     let gpu = Gpu::new().expect("GPU");
     eprintln!("{} ({:?}), shaders {:?}, {substeps} substeps per run", gpu.adapter_info.name, gpu.adapter_info.backend, gpu.shader_path);
-    let cases: Vec<(&str, Scene)> = vec![
+    let mut cases: Vec<(&str, Scene)> = vec![
         ("slab 12x6x2", scenes::slab([12, 6, 2])),
         ("slab 16x8x2", scenes::slab([16, 8, 2])),
         ("slab 24x12x2", scenes::slab([24, 12, 2])),
@@ -48,6 +50,15 @@ fn main() {
         ("town 64 x (12x6x2)", scenes::town(64, [12, 6, 2])),
         ("town 512 x (12x6x2)", scenes::town(512, [12, 6, 2])),
     ];
+    // `--pack PATH`: scene packs instead of the built-in slabs.
+    if !packs.is_empty() {
+        cases.clear();
+        for p in &packs {
+            let path = std::path::Path::new(p);
+            let name: &'static str = Box::leak(path.file_stem().unwrap().to_string_lossy().to_string().into_boxed_str());
+            cases.push((name, stress_ref::scene_pack::import(path, name, "structure").expect("pack")));
+        }
+    }
     if full {
         return full_model(&gpu, cases, substeps);
     }
@@ -61,6 +72,8 @@ fn main() {
     for (name, mut scene) in cases {
         scene.sim.fracture = false;
         scene.sim.solve_mode = SolveMode::Explicit;
+        // The intact kernels have no rebar: timing only, rebar adds only stiffness.
+        scene.bodies.iter_mut().flat_map(|b| b.bonds.iter_mut()).for_each(|b| b.rebar = None);
         let reference = ReferenceSolver::new(&scene);
         let mut solver = GpuStress::new(&gpu, &reference).expect("GPU solver");
         let time = |f: &mut dyn FnMut()| {
