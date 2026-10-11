@@ -191,6 +191,9 @@ pub struct World {
     pub static_unconverged_frames: usize,
     /// Contact force magnitude received by each chunk during the current substep.
     contact_hits: Vec<Vec<f64>>,
+    /// `sim.methods.implicit_contact_steps`: the contact load summed over bonded
+    /// clusters' chunks up to the last substep.
+    implicit_contact_seen: f64,
     /// Pre-existing overlap per sample point of chunk pairs in contact (NaN = point not
     /// in contact); dropped when the pair separates.
     pair_offsets: std::collections::HashMap<ChunkPair, Vec<(f64, Vec3)>>,
@@ -380,6 +383,7 @@ impl World {
             engine_body_frames: 0,
             island_body_frames: 0,
             redone_frames: 0,
+            implicit_contact_seen: 0.0,
             scene: scene.clone(),
             solver,
         };
@@ -1596,7 +1600,21 @@ impl World {
         self.implicit_loads = acc;
         self.implicit_elapsed += dt;
         let step = self.scene.sim.implicit_dt.unwrap_or(self.scene.sim.frame_dt);
-        if self.implicit_elapsed < step * (1.0 - 1e-9) && !frame_end {
+        // `implicit_contact_steps`: a contact on a bonded cluster this substep steps now.
+        let contact = self.scene.sim.methods.implicit_contact_steps && {
+            let mut sum = 0.0;
+            for (s, hits) in self.contact_hits.iter().enumerate() {
+                for (c, &h) in hits.iter().enumerate() {
+                    if !self.solver.clusters[self.solver.chunks[s][c].cluster].bonds.is_empty() {
+                        sum += h;
+                    }
+                }
+            }
+            let hit = sum > self.implicit_contact_seen;
+            self.implicit_contact_seen = sum;
+            hit
+        };
+        if self.implicit_elapsed < step * (1.0 - 1e-9) && !frame_end && !contact {
             return;
         }
         let elapsed = self.implicit_elapsed;

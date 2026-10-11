@@ -997,8 +997,8 @@ hard impacts above about 10 m/s belong in explicit windows.
   `implicit_dt` (here the 1/60 s frame), and `implicit_predict` moves the hidden DOFs
   under the contact loads with no bond resistance in between. During a hard impact
   that coupling creates energy: 0.3 m brick at 15 m/s reached chunks at 1e18 m/s,
-  contact dissipation -3e7 J; b7_v15 implicit books -1.55e6 J. It is a limit of
-  explicit contact against implicit bonds at a frame-long step, not of step acceptance.
+  contact dissipation -3e7 J; b5_v40 -3.1e7 J; b7_v15 -1.55e6 J. **Fixed by
+  `implicit_contact_steps` (default on, below).**
 - The analysis's tier 2 takes impacts as velocity conditions
   (`ImpactModel::VelocityCondition`, momentum exact). That model lives only in the
   engine API (`api.rs`), so this calibration measures tier 2 with explicit contacts.
@@ -1016,6 +1016,28 @@ that converges is unchanged.
 | b8_frame_sudden established | 0.52 -> 1e-9 | 53 -> 28 |
 | b7_v15 | 0.30 -> 1e-9 | 280 -> 285 |
 | b9_panel_high (default) | 5e-4 -> 1e-9 | unchanged |
+
+**`implicit_contact_steps` (default on).** A bonded cluster takes its implicit step at
+the end of every substep in which a contact acts on it. That is the mode's own
+condition that `implicit_dt` resolve the dynamics that matter; a contact's do while it
+lasts.
+
+| Case | Before | After |
+|---|---|---|
+| 0.3 m brick at 15 m/s | chunks at 1e18 m/s, contact dissipation -3.0e7 J | at most 26.8 m/s, +2.3e4 J |
+| b5_v40 implicit | -3.1e7 J | +5.4e4 J |
+| b7_v15 implicit (gate cell) | -1.55e6 J | -2.0e4 J |
+
+- Switch off: 182/182 identical.
+- Implicit A/B: 69/91 -> 72/91, no regression. b5's failure mode and hole area and
+  b6's back-face velocity now pass against OpenCourant.
+- As the default it changes only the four default-method implicit cells. Suite 126/126.
+
+**Open:** b7_v15 implicit still books -2.0e4 J. A substep trace finds 17 substeps with
+a falling contact ledger. The largest, -1.49e5 J at 9.62 ms, is a contact substep that
+also took an implicit step: more than the impact's input (about 3.4 kJ), and booked
+back later. A split or handover inside that step handing the contact a large state is
+the suspect.
 
 **Contact bound on hulls** (`contact_lattice ... hull | hull_rotated`): equal cubes as
 convex hulls, through the hull contact path, behave as the boxes do. Aligned: stable to

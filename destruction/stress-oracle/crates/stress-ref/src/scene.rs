@@ -495,6 +495,16 @@ pub struct Methods {
     /// a margin under 5 % where 0.9 means 10 %. On (the default): stable at 1.0, CPU
     /// +1 %.
     pub lattice_contact_step: bool,
+    /// Implicit mode: a bonded cluster takes its implicit step at the end of every
+    /// substep in which a contact acts on it, not only once per `implicit_dt`. Contacts
+    /// act every substep while bonds advance once per implicit step, and in between the
+    /// predictor moves the hidden DOFs under the contact loads with no bond resistance:
+    /// an impactor meets a wall that gives way, then the step puts the wall back into it
+    /// and the overlap is energy from nothing (a 0.3 m brick wall struck at 15 m/s
+    /// reached chunks at 1e18 m/s). The mode's own condition is that `implicit_dt`
+    /// resolves the dynamics that matter; a contact's do, while it lasts. Off: one step
+    /// per `implicit_dt` whatever acts.
+    pub implicit_contact_steps: bool,
 }
 
 impl Default for Methods {
@@ -539,6 +549,7 @@ impl Methods {
             tangent_statics: false,
             true_step: false,
             lattice_contact_step: false,
+            implicit_contact_steps: false,
         }
     }
 
@@ -548,7 +559,7 @@ impl Methods {
     /// targets (contact equilibrium, sticking, Coulomb sliding and stopping, unit
     /// rescaling, convergence, angular momentum, motion kept through a split).
     pub const fn proven() -> Methods {
-        Methods { layer_contact: true, scaled_step_bound: true, exact_frame_transfer: true, contact_crushing: true, tangent_statics: true, lattice_contact_step: true, ..Methods::established() }
+        Methods { layer_contact: true, scaled_step_bound: true, exact_frame_transfer: true, contact_crushing: true, tangent_statics: true, lattice_contact_step: true, implicit_contact_steps: true, ..Methods::established() }
     }
 
     /// Every switch at the established method (whatever `STRESS_METHODS` says).
@@ -562,7 +573,7 @@ impl Methods {
     }
 
     /// Names of every switch, in declaration order.
-    pub const NAMES: [&'static str; 11] = ["layer_contact", "scaled_step_bound", "exact_joint_patch", "patch_after_damage", "exact_rate_filter", "frame_contact_step", "exact_frame_transfer", "contact_crushing", "tangent_statics", "true_step", "lattice_contact_step"];
+    pub const NAMES: [&'static str; 12] = ["layer_contact", "scaled_step_bound", "exact_joint_patch", "patch_after_damage", "exact_rate_filter", "frame_contact_step", "exact_frame_transfer", "contact_crushing", "tangent_statics", "true_step", "lattice_contact_step", "implicit_contact_steps"];
 
     /// Set a switch by name.
     pub fn set(&mut self, name: &str, on: bool) -> Result<(), String> {
@@ -578,6 +589,7 @@ impl Methods {
             "tangent_statics" => &mut self.tangent_statics,
             "true_step" => &mut self.true_step,
             "lattice_contact_step" => &mut self.lattice_contact_step,
+            "implicit_contact_steps" => &mut self.implicit_contact_steps,
             _ => return Err(format!("unknown method '{name}' (known: {})", Self::NAMES.join(", "))),
         };
         *slot = on;
