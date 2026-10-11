@@ -404,13 +404,33 @@ The quasi_static A/B stays at 53/91 with no regression. b9's fragment speed move
 115 of 308 solves, all on free fragments, in two kinds:
 - **At rest within round-off** (bond forces about 1e-15 N under a 1e-15 N load). They are
   already in equilibrium, but no residual relative to round-off can say so.
-- **Stalled:** bonds relaxed by about 8 orders of magnitude (7e4 to 6e-4 N), then no
-  descent from either direction, most likely at contact kinks.
+- **Converging linearly, cut off at 60 steps.** A traced 13-chunk fragment falls from 1
+  to 5.7e-9 at about x0.7 per step, against a tolerance of 1e-10. A finite-difference
+  check of every joint at its last iterate finds them all heavily cracked (D 0.65 to
+  1) and opened about 1e-13 m: the no-tension contact patch's kink, faces just
+  touching. The force law is not differentiable there, so no tangent is consistent,
+  and Newton goes linear. These fragments sit on a continuum of zero-force equilibria.
 
-`equilibrate_or_keep` then keeps the previous state, which is further from
-equilibrium than the stalled iterate. Accepting either kind needs an acceptance test
-other than the relative residual (an absolute force floor, or the round-off bound of
-the residual's own sums). That is a model choice, left open.
+`equilibrate_or_keep` then keeps the previous state, which is further from equilibrium
+than the last iterate. Accepting either kind needs an acceptance test other than the
+relative residual (an absolute force floor, or the round-off bound of the residual's
+own sums), or a semismooth Newton for the patch. That is a model choice, left open.
+
+**Tangent consistency:** `JointModel::tangent` against central differences of
+`evaluate`:
+- **Rebar (fixed):** the tangent used the bars' elastic stiffness even where
+  `return_map` caps the force (yielded in tension, slipped in dowel), whose derivative
+  there is zero. Now the derivative of the return map. Bars exist only in imported
+  scene packs (reinforced concrete), so the catalogue is unchanged (182/182 against
+  15853356b). The villa's outcome agrees to 1e-12 and its time is unchanged. Test:
+  `rebar_tangent_is_the_derivative_of_the_force`; the old tangent fails it (6.854e10
+  against 6.763e10 for a yielded dowel).
+- **Open:** sliding friction, `cap = mu nc`. The sliding shear and torsion forces scale
+  with the patch's normal force, a coupling the tangent omits. It is non-symmetric, so
+  neither the PCG nor the Cholesky can take it; a non-symmetric solver (GMRES, or LU of
+  the band) would. The tangent's positivity floor `1e-6 k` keeps the matrix definite.
+  It is not in the force, and makes Newton linear wherever it dominates (fully opened
+  joints).
 
 **Finding corrected:** "Finding for the solver" below concluded that b9's failing solves
 have no equilibrium (a mechanism), because a line search on the secant held the

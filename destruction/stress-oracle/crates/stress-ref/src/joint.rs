@@ -745,7 +745,9 @@ impl<'a> JointModel<'a> {
     /// *active* springs, `sum k_i g_i g_i^T` over the compressed springs with
     /// `g_i = d(spring)/d(lin.z, ang.x, ang.y)`, which couples the normal force with the
     /// rocking moments; sticking friction at the shear/torsion stiffness, sliding
-    /// friction with the radial-return tangent `ks (cap/trial) (I - s s^T)`; plus rebar.
+    /// friction with the radial-return tangent `ks (cap/trial) (I - s s^T)` (without the
+    /// cap's non-symmetric dependence on the normal force); plus rebar, elastic within
+    /// its capacity and free once yielded (the return map's derivative).
     pub fn tangent(&self, state: &JointState, d: &Local6) -> Mat6 {
         let k = self.stiffness;
         let s = self.strength;
@@ -818,7 +820,17 @@ impl<'a> JointModel<'a> {
         }
         if let Some(rb) = self.rebar {
             if !state.rebar_broken {
-                m = m.add_diag(&Local6 { lin: Vec3::new(rb.k_dowel, rb.k_dowel, rb.k_axial), ang: Vec3::ZERO });
+                // The derivative of `return_map` (as `evaluate` applies it): the bar's
+                // stiffness inside its capacity, none once it yields or slips.
+                let stiff = |k: f64, total: f64, plastic: f64, cap: f64| if (k * (total - plastic)).abs() <= cap { k } else { 0.0 };
+                m = m.add_diag(&Local6 {
+                    lin: Vec3::new(
+                        stiff(rb.k_dowel, d.lin.x, state.rebar_slip[0], rb.dowel_capacity),
+                        stiff(rb.k_dowel, d.lin.y, state.rebar_slip[1], rb.dowel_capacity),
+                        stiff(rb.k_axial, d.lin.z, state.rebar_plastic, rb.yield_force),
+                    ),
+                    ang: Vec3::ZERO,
+                });
             }
         }
         // Keep every component minimally positive (a fully opened, unbonded joint).
@@ -914,6 +926,49 @@ mod tests {
                 }
                 assert_eq!(d, 1.0);
                 assert!((total - r).abs() < 1e-3, "{kind:?} steps {steps}: {total}");
+            }
+        }
+    }
+
+    /// The tangent of an intact joint with rebar is the derivative of its force, the bar
+    /// elastic or yielded (away from the yield point, where the force is linear in each
+    /// component): central differences of `evaluate` match `tangent` less its positivity
+    /// floor to the differences' round-off, `4 eps (|f(d+h)| + |f(d-h)|) / 2h`.
+    #[test]
+    fn rebar_tangent_is_the_derivative_of_the_force() {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../../blast/blast-stress-demo-rs/assets/scenes");
+        let path = dir.join("rig-portal.json");
+        if !path.exists() {
+            eprintln!("{} not found; skipping", path.display());
+            return;
+        }
+        let scene = crate::scene_pack::import(&path, "rig-portal", "structure").unwrap();
+        let world = crate::world::World::new(&scene);
+        let b = world.solver.bonds.iter().flatten().find(|b| b.model().rebar.is_some()).expect("a reinforced joint");
+        let m = b.model();
+        let rb = *m.rebar.unwrap();
+        let k = m.stiffness;
+        let st = JointState::default();
+        let floor = [k.ks, k.ks, k.kn, k.kb_t1, k.kb_t2, k.kt].map(|v| 1e-6 * v);
+        let arr = |l: &Local6| [l.lin.x, l.lin.y, l.lin.z, l.ang.x, l.ang.y, l.ang.z];
+        let local = |v: [f64; 6]| Local6 { lin: Vec3::new(v[0], v[1], v[2]), ang: Vec3::new(v[3], v[4], v[5]) };
+        // Bar within its capacity, then yielded in tension and slipped in both dowels
+        // (opening, so the intact joint is linear too).
+        for (name, scale) in [("elastic", 0.25), ("yielded", 4.0)] {
+            let d = [scale * rb.dowel_capacity / rb.k_dowel, -scale * rb.dowel_capacity / rb.k_dowel, scale * rb.yield_force / rb.k_axial, 1e-7, -2e-7, 3e-7];
+            let kt = m.tangent(&st, &local(d));
+            for j in 0..6 {
+                let h = 1e-3 * d[j].abs();
+                let (mut dp, mut dm) = (d, d);
+                dp[j] += h;
+                dm[j] -= h;
+                let (fp, fm) = (arr(&m.evaluate(&st, &local(dp), 0.0, false).force), arr(&m.evaluate(&st, &local(dm), 0.0, false).force));
+                for i in 0..6 {
+                    let fd = (fp[i] - fm[i]) / (2.0 * h);
+                    let analytic = kt.0[i][j] - if i == j { floor[i] } else { 0.0 };
+                    let bound = 4.0 * f64::EPSILON * (fp[i].abs() + fm[i].abs()) / (2.0 * h);
+                    assert!((fd - analytic).abs() <= bound, "{name}: d f{i} / d d{j}: difference {fd:.6e}, tangent {analytic:.6e} (bound {bound:.3e})");
+                }
             }
         }
     }
