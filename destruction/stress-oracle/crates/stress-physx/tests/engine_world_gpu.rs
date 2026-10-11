@@ -429,3 +429,92 @@ fn gpu_contact_safety_convergence() {
         }
     }
 }
+
+/// Study (`--ignored --nocapture`): what runs in real time with PhysX GPU at the
+/// realtime_peak settings (established methods, certified true step, contact safety
+/// 0.35, stress 0.5, adaptive). Idle towns of house-1story (fresh, intact) and a free
+/// concrete wall (1.0 x 0.2 x 1.1 m) cut into chunks of 0.1 / 0.2 / 0.33 m, rammed at 40
+/// and 10 m/s: frame times (first, median, worst), frames over 8 / 16.67 ms, substeps
+/// per frame, chunks and bonds, over 0.5 s.
+#[test]
+#[ignore]
+fn realtime_envelope() {
+    let Ok(gpu) = Gpu::new() else { return };
+    let configure = |mut s: Scene| {
+        s.sim.methods = stress_ref::scene::Methods::established();
+        s.sim.methods.true_step = true;
+        s.sim.courant_safety = 0.35;
+        s.sim.stress_courant_safety = Some(0.5);
+        s.sim.solve_mode = stress_ref::scene::SolveMode::Adaptive;
+        s.sim.duration = 0.5;
+        s
+    };
+    let run = |label: &str, scene: Scene| {
+        let engine = PhysxEngine::boxed_gpu(Vec3::from_array(scene.gravity)).expect("PhysX GPU");
+        let mut w = GpuWorld::with_engine(&gpu, &scene, engine).expect("GPU world");
+        let chunks: usize = w.solver.mirror.structures.iter().map(|s| s.chunks.len()).sum();
+        let bonds: usize = w.solver.mirror.bonds.iter().map(|b| b.len()).sum();
+        let frames = (scene.sim.duration / scene.sim.frame_dt).round() as usize;
+        let mut times = Vec::new();
+        let mut subs = Vec::new();
+        for _ in 0..frames {
+            let s0 = w.solver.mirror.substeps;
+            let t = std::time::Instant::now();
+            w.step_frame(&gpu).expect("frame");
+            times.push(t.elapsed().as_secs_f64() * 1e3);
+            subs.push(w.solver.mirror.substeps - s0);
+        }
+        w.solver.sync(&gpu);
+        let o = w.observation();
+        let mut rest = times[1..].to_vec();
+        rest.sort_by(f64::total_cmp);
+        let over = |b: f64| times[1..].iter().filter(|&&t| t > b).count();
+        let worst_at = times.iter().enumerate().skip(1).max_by(|a, b| a.1.total_cmp(b.1)).map_or(0, |(i, _)| i);
+        println!(
+            "| {label} | {chunks} / {bonds} | {:.1} | {:.1} | {:.1} (frame {worst_at}) | {} | {} | {} (max {}) | {} fragments, {} broken |",
+            times[0],
+            rest[rest.len() / 2],
+            rest[rest.len() - 1],
+            over(8.0),
+            over(1000.0 / 60.0),
+            subs.iter().sum::<u64>() / subs.len() as u64,
+            subs.iter().max().unwrap(),
+            o.values["fragments"],
+            o.values["broken_bonds"]
+        );
+    };
+    println!("| scene | chunks / bonds | first ms | median ms | worst ms | >8 ms | >16.7 ms | substeps/frame mean (max) | outcome |");
+    println!("|---|---|---|---|---|---|---|---|---|");
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../../blast/blast-stress-demo-rs/assets/scenes/house-1story.json");
+    let house = stress_ref::scene_pack::import(&path, "house-1story", "structure").unwrap();
+    for n in [1usize, 4, 16, 64] {
+        let town = stress_gpu::scenes::pack_town(&house, n, 2.0);
+        run(&format!("idle town, {n} houses"), configure(town));
+    }
+    use stress_ref::builders::*;
+    use stress_ref::scene::*;
+    for size in [0.1f64, 0.2, 1.0 / 3.0] {
+        for speed in [40.0f64, 10.0] {
+            let mut s = new_scene("wall_ram", "free concrete wall hit by a steel ram");
+            s.gravity = [0.0; 3];
+            s.materials.insert("concrete".into(), oracle_concrete(None));
+            s.materials.insert("steel".into(), elastic_steel());
+            let n = [(1.0 / size).round() as usize, (0.2 / size).round().max(1.0) as usize, (1.1 / size).round() as usize];
+            let chunks = grid(Vec3::new(-0.5, 0.0, -0.1), n, Vec3::splat(size), "concrete");
+            let bonds = auto_bonds(&chunks, |_, _| "concrete".into());
+            s.bodies.push(body("wall", chunks, bonds));
+            s.impactors.push(ImpactorDesc {
+                name: "ram".into(),
+                shape: ImpactorShape::Box { half_extents: [0.1, 0.1, 0.1] },
+                mass: 200.0,
+                position: [0.0, -0.15, 0.5],
+                orientation: [1.0, 0.0, 0.0, 0.0],
+                velocity: [0.0, speed, 0.0],
+                angular_velocity: [0.0; 3],
+                material: "steel".into(),
+                crush: None,
+            });
+            run(&format!("wall, {size:.2} m chunks, ram {speed} m/s"), configure(s));
+        }
+    }
+}
