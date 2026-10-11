@@ -169,6 +169,25 @@ fn physx_impact_impulse_vs_reference_world() {
     }
 }
 
+/// Diagnostic (run with `--ignored --nocapture`): the correction as the native pipeline
+/// describes it: rewind, apply the trial's whole fracture (every bond it broke), re-step.
+#[test]
+#[ignore]
+fn correction_accepts_whole_fracture() {
+    let scene = ram_into_free_wall();
+    for (limit, sub) in [(1usize, 1usize), (2, 1), (4, 1), (1, 16)] {
+        let Some(mut sim) = PhysxDestruction::new(&scene) else { return };
+        sim.correction_limit = limit;
+        sim.front_window = f64::INFINITY;
+        let mut corrections = 0;
+        for _ in 0..30 * sub {
+            sim.step(1.0 / (60.0 * sub as f64));
+            corrections += sim.last_corrections;
+        }
+        println!("whole fracture, dt 1/{}, limit {limit}: ram {:.2} m/s, {} bodies, {corrections} corrections, momentum {:?}", 60 * sub, sim.impactor_state(0).1.y, sim.cluster_bodies(), sim.momentum());
+    }
+}
+
 /// Diagnostic (run with `--ignored --nocapture`): the ram through the free wall with the
 /// correction accepting a fixed front window (established) or the trial's breaks up to
 /// its first split (`front_to_split`), at growing correction limits and two steps.

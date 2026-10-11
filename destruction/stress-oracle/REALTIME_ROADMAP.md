@@ -259,6 +259,18 @@ The same case runs through PhysX CPU and the oracle (`stress-physx`, `ram_into_f
 1. **Acceptance granularity.** In the impact frame each trial breaks 70–100 bonds, but a pass accepts only those within one chunk wave-transit of the first: 1–3 bonds. They separate nothing, so PhysX's bodies and contact are unchanged and the redo repeats the same trial. With limits 4 and 16 the wall is still one body after the passes; it first splits at pass 17. With 64 passes the ram reaches 14.7 m/s. Under the native rule of at most one correction, punch-through cannot happen.
 2. **The trial's input.** Each trial's fracture comes from PhysX's impulse against the intact rigid wall: a perfectly inelastic whole-wall collision, about 5.8× the real impulse, spread over the wall. Accepting the trial's breaks up to its first split (`front_to_split`, experiment, off) moves the ram only from 10.93 to 12.7–13.4 m/s at limits 1–16. That first split is a push-over-type break, not the plug: the ram still exchanges momentum with about 430 kg. Smaller engine steps give better trials (1/960 s, 4 corrections: 20.5 m/s), because each step's rigid impulse is smaller and closer to the true local load.
 
+3. **Applying the trial's whole fracture** (the design the native pipeline describes: rewind, apply every bond the trial broke, re-step; `front_window = inf`, test `correction_accepts_whole_fracture`):
+
+   | Correction | Ram after | Bodies |
+   |---|---|---|
+   | 1/60 s, limit 1 | 18.6 m/s | 86 |
+   | 1/60 s, limit 2 | 20.8 m/s | 140 |
+   | 1/60 s, limit 4 | 23.8 m/s | 179 |
+   | 1/960 s, limit 1 | 18.7 m/s | 97 |
+   | reference | 36.0 m/s | 3 |
+
+   Momentum is exact in every run. The ram now cuts through, so this is far better than the first-front rule (10.93 m/s). But the wall shatters into 86–179 pieces instead of 3: the trial's fracture was computed from the whole-wall rigid impulse, so applying all of it breaks the wall everywhere that impulse loaded. More corrections break more without converging.
+
 **Conclusion.** A correction can converge only if its trial's input resembles the real load, and a rigid contact gives the whole-body load until the plug is already free. Stress-owned impact islands break this circle: the stress solver resolves the chunk-level contact while bonds fail, and is right on the first pass (35.05 m/s, 6 fragments). The native pipeline, which uses Blast's CGNR solver with PhysX contact impulses and one correction, likely shares this limitation; not measured here.
 
 ## B. Review of the two documents
