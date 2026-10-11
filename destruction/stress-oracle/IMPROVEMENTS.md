@@ -1045,6 +1045,11 @@ the contact's work: the contact evaluated against the implicit solution, or the
 contact load inside the Newton solve (its stiffness in the tangent). That is a redesign
 of how implicit mode couples bonds and contacts; open.
 
+It is one event, not a steady error. At the scene's safety (0.5) b7_v15 implicit books
+-2.0e4 J; at 0.9, 0.45 and 0.225 it books +2026, +1656 and +1271 J. It is
+thread-independent: the forced implicit, quasi_static and adaptive cells of b4, b7, b8
+and b9 are identical at 1 and 8 threads (the gate checks the forced modes only at 1).
+
 **Contact bound on hulls** (`contact_lattice ... hull | hull_rotated`): equal cubes as
 convex hulls, through the hull contact path, behave as the boxes do. Aligned: stable to
 safety 1.0, blows up at 1.1. Rotated: stable throughout.
