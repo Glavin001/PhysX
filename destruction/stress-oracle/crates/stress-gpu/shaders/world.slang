@@ -175,6 +175,63 @@ bool stopped()
     return (sentinel.info.z & STOP_NOW) != 0 || sentinel.info.y != 0;
 }
 
+// ------------------------------------------------------------------ path coverage
+//
+// Which code paths ran (COV_*, common.slang), for the test tiers; never read by the
+// physics. Island kernels collect per-thread events in group flags (every writer stores
+// 1, so no atomics) and their thread 0 ORs them into `Island.coverage`; wide groups and
+// kernels without an island (sentinel island) OR into device memory, atomically on Metal
+// and CUDA and with a plain store on WGSL (which has no atomics on plain fields: a bit
+// can be lost there, debug-only imprecision). A bit the word already holds is not
+// written again: the host seeds the words with what it has seen, so each path costs an
+// atomic about once.
+
+groupshared uint g_seen[5];
+static const uint SEEN_LOAD = 0;
+static const uint SEEN_BLAST = 1;
+static const uint SEEN_PULSE = 2;
+static const uint SEEN_CRACK = 3;
+static const uint SEEN_CREAK = 4;
+
+// Clear the group flags (before the group's first barrier).
+void seen_clear(uint tid)
+{
+    if (tid < 5)
+        g_seen[tid] = 0;
+}
+
+// The group flags as COV_* bits (after a barrier).
+uint seen_bits()
+{
+    return (g_seen[SEEN_LOAD] != 0 ? COV_LOAD_TERMS : 0) | (g_seen[SEEN_BLAST] != 0 ? COV_BLAST : 0) | (g_seen[SEEN_PULSE] != 0 ? COV_PULSE : 0)
+        | (g_seen[SEEN_CRACK] != 0 ? COV_CRACKED : 0) | (g_seen[SEEN_CREAK] != 0 ? COV_CREAKED : 0);
+}
+
+void cov_or(uint island, uint bits)
+{
+    __target_switch
+    {
+    case metal:
+    case cuda:
+        InterlockedOr(islands[island].coverage, bits);
+    default:
+        islands[island].coverage = islands[island].coverage | bits;
+    }
+}
+
+// OR the bits `seen` (the island's word as read) lacks.
+void cov_mark(uint island, uint seen, uint bits)
+{
+    if ((bits & ~seen) != 0)
+        cov_or(island, bits);
+}
+
+// Coverage of the kernels without an island: the sentinel's word.
+void sentinel_mark(uint bits)
+{
+    cov_mark(params.halt_index, islands[params.halt_index].coverage, bits);
+}
+
 // ------------------------------------------------------------------ group reductions
 
 groupshared float4 g_red_a[THREADS];
@@ -753,6 +810,8 @@ void pair_contact(uint i)
     ledger.x = stored_sum;
     ledger.w = asfloat((has_state ? 1u : 0u) | (loaded ? 2u : 0u));
     scratch[params.ledger_base + i] = ledger;
+    if (loaded)
+        sentinel_mark(COV_PAIR_CONTACT);
 }
 
 // The forces of impactor candidate k on its chunk, and their reaction on the impactor.
@@ -765,6 +824,7 @@ void impactor_candidate_forces(uint k)
     float dt = params.dt;
     float3 f_sum = float3(0.0), t_sum = float3(0.0), imp_f = float3(0.0), imp_t = float3(0.0);
     float4 data = scratch[params.cand_base + 3 * k];
+    bool hit = false;
     if (imp.cand.z == 0)
     {
         float3 rel = world_diff(chunk_world(c), impactor_point(imp));
@@ -791,6 +851,7 @@ void impactor_candidate_forces(uint k)
                 float dep;
                 if (!impactor_contact(imp, imp.geom.y, shrunk, b, j, p, nrm, dep))
                     continue;
+                hit = true;
                 float3 v_chunk = vc + cross(wc, p - b.center);
                 float3 v_i = v_imp + cross(imp.angular_velocity.xyz, p);
                 float stored;
@@ -809,6 +870,8 @@ void impactor_candidate_forces(uint k)
     scratch[params.cand_base + 3 * k] = data;
     scratch[params.cand_base + 3 * k + 1] = float4(imp_f, 0.0);
     scratch[params.cand_base + 3 * k + 2] = float4(imp_t, 0.0);
+    if (hit)
+        sentinel_mark(COV_IMPACTOR_CONTACT);
 }
 
 // A contact chunk outside its candidate budget stops the batch (the host re-plans).
@@ -823,6 +886,7 @@ void travel_check(uint c)
     {
         // Every writer stores the same bit: no atomics needed.
         islands[params.halt_index].info.z = islands[params.halt_index].info.z | STOP_NOW;
+        sentinel_mark(COV_STOP_NOW);
     }
 }
 
@@ -957,6 +1021,8 @@ void impactor_integrate(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
             if (above + p.z < 0.0)
                 below++;
         }
+        if (below > 0)
+            sentinel_mark(COV_IMPACTOR_GROUND);
         for (uint s = 0; s < total_points; s++)
         {
             float3 p = imp.shape.x == 0.0 ? float3(0.0, 0.0, -imp.shape.y) : sample_point(ib, s);
@@ -1084,6 +1150,7 @@ float eval_function(uint term, uint k, float dt, float shift)
         return table_eval(info.w, asuint(p.x), tau);
     if (kind == FN_BLAST)
     {
+        g_seen[SEEN_BLAST] = 1;
         if (tau < 0.0)
             return 0.0;
         float sn = tau / p.x;
@@ -1095,6 +1162,7 @@ float eval_function(uint term, uint k, float dt, float shift)
     if (kind == FN_PULSE)
     {
         // p: plateau force, plateau time, half-sine peak, half-sine duration.
+        g_seen[SEEN_PULSE] = 1;
         if (tau < 0.0)
             return 0.0;
         if (tau < p.y)
@@ -1125,6 +1193,7 @@ void ground_contact(uint c, bool account, inout float3 f, inout float3 t)
             n++;
     if (n == 0)
         return;
+    sentinel_mark(COV_GROUND_CONTACT);
     float3 vc;
     float3 wc;
     chunk_velocity(c, vc, wc);
@@ -1157,6 +1226,7 @@ void chunk_external(uint c, ChunkStatic ch, Quat rot, uint k, float dt, bool con
     t = float3(0.0);
     for (uint term = ch.load_range.x; term < ch.load_range.y; term++)
     {
+        g_seen[SEEN_LOAD] = 1;
         uint4 info = asuint(loads[5 * term]);
         if (info.y == LOAD_REPLACEMENT)
             continue;
@@ -1224,8 +1294,9 @@ float3 to_body(BondStatic b, float3 l)
     return b.t1.xyz * l.x + b.t2.xyz * l.y + b.normal.xyz * l.z;
 }
 
-// Returns whether the bond disconnected.
-bool bond_update(uint i, float dt, bool fracture, uint abs_step)
+// Returns whether the bond disconnected. `wide`: a wide island's (coverage to device
+// memory, not the group's flags).
+bool bond_update(uint i, float dt, bool fracture, uint abs_step, bool wide)
 {
     BondStatic b = bonds[i];
     BondDyn bd = bond_dyn[i];
@@ -1265,9 +1336,19 @@ bool bond_update(uint i, float dt, bool fracture, uint abs_step)
     {
         bd.events.x = abs_step;
         bd.events.w = resp.state.mode;
+        if (wide)
+            cov_or(b.law.ids.w, COV_CRACKED);
+        else
+            g_seen[SEEN_CRACK] = 1;
     }
     if (bd.events.y == 0 && fatigue_factor(mat, previous.life) > 0.99 && fatigue_factor(mat, resp.state.life) <= 0.99)
+    {
         bd.events.y = abs_step;
+        if (wide)
+            cov_or(b.law.ids.w, COV_CREAKED);
+        else
+            g_seen[SEEN_CREAK] = 1;
+    }
     if (resp.disconnected)
         bd.events.z = abs_step;
     bd.js = resp.state;
@@ -1616,6 +1697,7 @@ void island_frame(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
     bool contact_island = (isl.info.x & ISLAND_CONTACT) != 0;
     bool settled = (isl.info.x & ISLAND_SETTLED) != 0;
     bool woke = false;
+    seen_clear(tid);
     // Batch control: read once, uniformly for the whole group. Wide islands run in
     // their own kernels.
     if (tid == 0)
@@ -1686,7 +1768,7 @@ void island_frame(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
         }
         // 2. Bonds.
         for (uint i = isl.range.z + tid; i < isl.range.w; i += THREADS)
-            if (bond_update(i, dt, fracture, abs_step))
+            if (bond_update(i, dt, fracture, abs_step, false))
                 g_halt = 1;
         AllMemoryBarrierWithGroupSync();
         // 3. Chunks.
@@ -1742,7 +1824,7 @@ void island_frame(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
         isl.angular_velocity = float4(rg.w, 0.0);
         isl.momentum = float4(rg.l, 0.0);
         isl.momentum_err = float4(rg.l_err, 0.0);
-        isl.done.x = done;
+        isl.done = done;
         isl.info.y -= done;
         if (g_halt != 0 && contact_island)
             contact_split_at(isl.info.w + done);
@@ -1751,6 +1833,16 @@ void island_frame(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
         isl.info.w += done;
         if (g_halt != 0)
             isl.info.z |= ISLAND_HALTED;
+        uint cov = seen_bits() | (g_halt != 0 ? COV_DISCONNECTED : 0) | (woke ? COV_WOKE : 0);
+        if (done > 0)
+        {
+            bool quiet = (isl.info.x & ISLAND_QUIET) != 0;
+            cov |= quiet ? COV_QUIET : 0;
+            cov |= (isl.info.x & ISLAND_SETTLED) != 0 && !quiet ? COV_SETTLED : 0;
+            cov |= params.contact_mode == 1 ? COV_CONTACT_PIPELINE : 0;
+            cov |= isl.probes.y > isl.probes.x ? COV_PROBES : 0;
+        }
+        isl.coverage |= cov;
         if (woke)
         {
             isl.info.x &= ~ISLAND_SETTLED;
@@ -1772,7 +1864,7 @@ void island_frame(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
 //                first group also moves the rigid frame;
 //   wide_end     the island's first group: substep bookkeeping, work, probes.
 // Partials: 8 float4 per chunk group at `wide_base` (net force, net torque, drift
-// translation, momentum, angular drift (2), work, -). Each group sums its island's
+// translation, momentum, angular drift (2), work, load coverage flags). Each group sums its island's
 // partials in group order, so every group and every run gets identical sums.
 
 static const uint ISLAND_HALT_PENDING = 2;   // status: a bond disconnected this substep
@@ -1830,6 +1922,7 @@ void wide_store(uint slot, uint p, float3 a, float3 b)
 // Every group reads the island's state once; the result is uniform over the group.
 bool wide_enter(uint tid, Island isl)
 {
+    seen_clear(tid);
     if (tid == 0)
         g_wide_run = wide_runs(isl) ? 1 : 0;
     GroupMemoryBarrierWithGroupSync();
@@ -1861,11 +1954,16 @@ void wide_wake(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
     for (uint c = isl.range.x + tid; c < isl.range.y; c += THREADS)
         norm.x += settled_chunk_load(c, rot, wide_step(isl), params.dt, contact);
     group_sum3<THREADS>(tid, norm, unused);
-    if (tid == 0 && params.solve_mode == MODE_ADAPTIVE && abs(norm.x - isl.energy.z) > isl.energy.w)
+    if (tid != 0)
+        return;
+    uint cov = COV_SETTLED_WIDE | seen_bits();
+    if (params.solve_mode == MODE_ADAPTIVE && abs(norm.x - isl.energy.z) > isl.energy.w)
     {
         islands[wg.island].info.x = isl.info.x & ~ISLAND_SETTLED;
         islands[wg.island].info.z = isl.info.z | ISLAND_WOKE;
+        cov |= COV_WOKE;
     }
+    cov_mark(wg.island, isl.coverage, cov);
 }
 
 [shader("compute")]
@@ -1884,7 +1982,7 @@ void wide_bonds(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
         if ((isl.info.x & ISLAND_SETTLED) != 0)
             return;
         uint i = wg.begin + tid;
-        if (i < wg.end && bond_update(i, params.dt, params.fracture != 0, isl.info.w + 1))
+        if (i < wg.end && bond_update(i, params.dt, params.fracture != 0, isl.info.w + 1, true))
             islands[wg.island].info.z = isl.info.z | ISLAND_HALT_PENDING;
         return;
     }
@@ -1908,7 +2006,7 @@ Rigid wide_rigid_frame(uint tid, Island isl, WideGroup wg)
     {
         float3 f;
         float3 t;
-        wide_partials(tid, wg.first, isl.done.z, 0, f, t);
+        wide_partials(tid, wg.first, isl.wide_groups, 0, f, t);
         rigid_acceleration(isl, rg, f, t);
     }
     return rg;
@@ -1953,6 +2051,8 @@ void wide_chunks(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
         scratch[params.wide_base + 8 * group.x + 6] = float4(wsum, 0.0);
         if (!anchored)
             wide_store(group.x, 2, tu, pv);
+        // The load flags in the free partial slot (summed by `wide_end`): no atomics.
+        scratch[params.wide_base + 8 * group.x + 7] = float4(float(g_seen[SEEN_LOAD]), float(g_seen[SEEN_BLAST]), float(g_seen[SEEN_PULSE]), 0.0);
     }
 }
 
@@ -1967,7 +2067,7 @@ void wide_drift(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
         return;
     float3 tu;
     float3 pv;
-    wide_partials(tid, wg.first, isl.done.z, 2, tu, pv);
+    wide_partials(tid, wg.first, isl.wide_groups, 2, tu, pv);
     float3 tr = tu / isl.wcom.w;
     float3 dv = pv / isl.wcom.w;
     float3 lu = float3(0.0);
@@ -2011,10 +2111,10 @@ void wide_rigid(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
     }
     float3 tu;
     float3 pv;
-    wide_partials(tid, wg.first, isl.done.z, 2, tu, pv);
+    wide_partials(tid, wg.first, isl.wide_groups, 2, tu, pv);
     float3 lu;
     float3 lv;
-    wide_partials(tid, wg.first, isl.done.z, 4, lu, lv);
+    wide_partials(tid, wg.first, isl.wide_groups, 4, lu, lv);
     float3 tr = tu / isl.wcom.w;
     float3 dv = pv / isl.wcom.w;
     float3 phi = rows_mul(isl.winv0, isl.winv1, isl.winv2, lu);
@@ -2058,8 +2158,8 @@ void wide_end(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
     if (!wide_enter(tid, isl))
         return;
     float3 work;
-    float3 unused;
-    wide_partials(tid, wg.first, isl.done.z, 6, work, unused);
+    float3 flags;
+    wide_partials(tid, wg.first, isl.wide_groups, 6, work, flags);
     if (tid != 0)
         return;
     uint k = wide_step(isl);
@@ -2070,11 +2170,14 @@ void wide_end(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
         contact_split_at(isl.info.w + 1);
     comp_add1(isl.energy.x, isl.energy.y, work.x);
     isl.energy.y += work.y;
-    isl.done.x += 1;
+    isl.done += 1;
     isl.info.y -= 1;
     isl.info.w += 1;
     if (halt)
         isl.info.z = (isl.info.z & ~ISLAND_HALT_PENDING) | ISLAND_HALTED;
+    isl.coverage |= COV_WIDE | (halt ? COV_DISCONNECTED : 0) | (isl.probes.y > isl.probes.x ? COV_PROBES : 0)
+        | ((isl.info.x & ISLAND_CONTACT) != 0 ? COV_CONTACT_PIPELINE : 0)
+        | (flags.x > 0.0 ? COV_LOAD_TERMS : 0) | (flags.y > 0.0 ? COV_BLAST : 0) | (flags.z > 0.0 ? COV_PULSE : 0);
     islands[wg.island] = isl;
 }
 
@@ -2649,6 +2752,7 @@ void settled_fatigue(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
     if ((isl.info.x & ISLAND_SETTLED) == 0 || isl.range.w == isl.range.z)
         return;
     // Group flags (every writer stores the same value): damage grew, a bond disconnected.
+    seen_clear(tid);
     if (tid == 0)
     {
         g_halt = 0;
@@ -2679,9 +2783,13 @@ void settled_fatigue(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
         {
             bd.events.x = abs_step;
             bd.events.w = resp.state.mode;
+            g_seen[SEEN_CRACK] = 1;
         }
         if (bd.events.y == 0 && fatigue_factor(mat, previous.life) > 0.99 && fatigue_factor(mat, resp.state.life) <= 0.99)
+        {
             bd.events.y = abs_step;
+            g_seen[SEEN_CREAK] = 1;
+        }
         if (resp.disconnected)
         {
             bd.events.z = abs_step;
@@ -2696,6 +2804,9 @@ void settled_fatigue(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
             g_run = 1;
     }
     GroupMemoryBarrierWithGroupSync();
-    if (tid == 0 && (g_halt | g_run) != 0)
+    if (tid != 0)
+        return;
+    if ((g_halt | g_run) != 0)
         islands[group.x].info.z = isl.info.z | (g_halt != 0 ? ISLAND_DAMAGED : 0) | (g_run != 0 ? ISLAND_DISCONNECTED : 0);
+    islands[group.x].coverage = isl.coverage | COV_SETTLED_FATIGUE | seen_bits() | (g_run != 0 ? COV_DISCONNECTED : 0);
 }

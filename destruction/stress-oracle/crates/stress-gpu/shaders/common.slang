@@ -27,6 +27,31 @@ public static const uint ISLAND_QUIET = 32;
 public static const uint ISLAND_DAMAGED = 16;
 public static const uint ISLAND_DISCONNECTED = 32;
 
+// Path coverage (src/coverage.rs mirrors these): which code paths ran, OR-ed into
+// `Island.coverage` (kernels without an island: the sentinel island's). For tests only:
+// never read by the physics.
+public static const uint COV_PAIR_CONTACT = 1u << 0;     // a chunk pair pushed (penalty force)
+public static const uint COV_IMPACTOR_CONTACT = 1u << 1; // an impactor touched a chunk
+public static const uint COV_GROUND_CONTACT = 1u << 2;   // a chunk touched the ground
+public static const uint COV_IMPACTOR_GROUND = 1u << 3;  // an impactor touched the ground
+public static const uint COV_CRUSH = 1u << 4;            // an impactor's crush cap acted
+public static const uint COV_CRACKED = 1u << 5;          // a bond's first damage (crack event)
+public static const uint COV_CREAKED = 1u << 6;          // static fatigue's creak event
+public static const uint COV_DISCONNECTED = 1u << 7;     // a bond disconnected
+public static const uint COV_WIDE = 1u << 8;             // a wide island ran a substep
+public static const uint COV_SETTLED = 1u << 9;          // a settled narrow island moved rigidly
+public static const uint COV_SETTLED_WIDE = 1u << 10;    // a settled wide island checked its loads
+public static const uint COV_WOKE = 1u << 11;            // a settled island woke on the GPU
+public static const uint COV_QUIET = 1u << 12;           // a quiet island kept count only
+public static const uint COV_STATICS = 1u << 13;         // a static solve ran (host: from its result)
+public static const uint COV_SETTLED_FATIGUE = 1u << 14; // settled bonds' static fatigue ran
+public static const uint COV_LOAD_TERMS = 1u << 15;      // a scripted or engine load term was evaluated
+public static const uint COV_BLAST = 1u << 16;           // a blast time function was evaluated
+public static const uint COV_PULSE = 1u << 17;           // an engine impact pulse was evaluated
+public static const uint COV_PROBES = 1u << 18;          // probe items were recorded
+public static const uint COV_CONTACT_PIPELINE = 1u << 19; // an island ran in the per-substep pipeline
+public static const uint COV_STOP_NOW = 1u << 20;        // the travel check stopped the batch
+
 // Static data of a chunk (body frame of its cluster), with its contact data.
 public struct ChunkStatic
 {
@@ -72,7 +97,12 @@ public struct Island
     public float4 velocity;   // com velocity, compensated with velocity_err
     public float4 velocity_err;
     public float4 angular_velocity;
-    public uint4 done;        // x: substeps run (narrow: in the last dispatch); z: wide chunk groups
+    // One uint4 on the host (`done`): scalars so that `coverage` has an address (Metal
+    // atomics take none of a vector element).
+    public uint done;         // substeps run (narrow: in the last dispatch)
+    public uint coverage;     // path coverage (COV_*)
+    public uint wide_groups;  // wide chunk groups
+    public uint done_pad;
     public uint4 probes;      // probe items [x, y) in `loads`
     public float4 energy;     // external work (compensated: x + y); settled: z load norm when it settled, w the change that wakes it
     public float4 rotation_err; // rotation = (rotation + rotation_err): see `turn_left`

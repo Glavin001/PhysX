@@ -10,6 +10,7 @@ pub mod gpu;
 pub mod gate;
 pub mod contacts;
 pub mod coupled;
+pub mod coverage;
 pub mod joint;
 pub mod loads;
 

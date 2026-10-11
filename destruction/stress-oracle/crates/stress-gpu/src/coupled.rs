@@ -254,6 +254,9 @@ impl GpuCoupledSolver {
         for &ci in &may_wake {
             self.solver.mirror.clusters[ci].activity = Activity::Settled;
         }
+        if !may_wake.is_empty() {
+            self.solver.coverage |= crate::coverage::COUPLED_MAY_WAKE;
+        }
         let n = (input.dt / dt_sub).ceil().max(1.0) as usize;
         let h = input.dt / n as f64;
         self.solver.step(gpu, h, n)?;

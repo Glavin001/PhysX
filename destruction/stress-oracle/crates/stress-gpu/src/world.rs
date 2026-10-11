@@ -173,6 +173,9 @@ impl GpuWorld {
         while done < n {
             let t = self.solver.mirror.time;
             let changed = self.process_events(gpu, t);
+            if changed {
+                self.solver.coverage |= crate::coverage::REBUILD_EVENT;
+            }
             let blast = self.blasts_starting(t);
             if changed || blast {
                 self.solver.sync(gpu);
@@ -272,6 +275,9 @@ impl GpuWorld {
         let dt = self.scene.sim.frame_dt;
         let mut converged = true;
         for pass in 0..StaticOptions::default().max_cascade.max(1) {
+            if pass > 0 {
+                self.solver.coverage |= crate::coverage::QS_CASCADE;
+            }
             let clusters: Vec<usize> = (0..self.solver.mirror.clusters.len()).filter(|&ci| !self.solver.mirror.clusters[ci].bonds.is_empty()).collect();
             let results = self.equilibrate(gpu, &clusters, loads);
             let m = &mut self.solver.mirror;

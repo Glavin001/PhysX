@@ -21,6 +21,7 @@ use stress_ref::scene::{ImpactorShape, Scene, SolveMode, Support};
 use stress_ref::solver::{Activity, ChunkLoads, ReferenceSolver, SolverEvent};
 use stress_ref::world::Impactor;
 
+use crate::coverage;
 use crate::contacts::{modulus, plan, sample_count, PairKey, PairState, Plan, NAN_STATE};
 use crate::gpu::{Binding, Gpu, Kernel};
 use crate::joint::{bond_law, from_gpu_state, mode_of, to_gpu_state, GpuJointBond, GpuJointMaterial, GpuJointState, MaterialTable};
@@ -206,6 +207,7 @@ pub struct Island {
     pub velocity: [f32; 4],
     pub velocity_err: [f32; 4],
     pub angular_velocity: [f32; 4],
+    /// Substeps run, path coverage (`coverage`, device bits), wide chunk groups, -.
     pub done: [u32; 4],
     pub probes: [u32; 4],
     pub energy: [f32; 4],
@@ -466,6 +468,9 @@ pub struct GpuSolver {
     batch_rounds: usize,
     pub replans: u64,
     pub profile: Profile,
+    /// The code paths that ran so far (`coverage`): the device's words OR-ed after every
+    /// readback, and the host's rare paths. Tests only; nothing reads it.
+    pub coverage: u64,
 }
 
 impl GpuSolver {
@@ -519,6 +524,7 @@ impl GpuSolver {
             batch_rounds: batch_start(),
             replans: 0,
             profile: Profile::default(),
+            coverage: 0,
         })
     }
 
@@ -1178,8 +1184,11 @@ impl GpuSolver {
             let mut any = false;
             let mut contact_left = 0usize;
             let mut wide_left = 0usize;
+            // The coverage words start with what was seen (a path costs an atomic once).
+            let seen = (self.coverage & coverage::DEVICE) as u32;
             for (ci, isl) in self.layout.islands.iter_mut().enumerate() {
                 let left = remaining[&self.mirror.clusters[ci].id];
+                isl.done[1] |= seen;
                 isl.info[1] = left as u32;
                 isl.info[2] = 0;
                 isl.info[3] = (start + substeps - left) as u32;
@@ -1203,7 +1212,7 @@ impl GpuSolver {
                 break;
             }
             let mut islands_gpu = self.layout.islands.clone();
-            islands_gpu.push(Island::default());
+            islands_gpu.push(Island { done: [0, seen, 0, 0], ..Default::default() });
             gpu.queue.write_buffer(&self.buffers.islands, 0, bytemuck::cast_slice(&islands_gpu));
             if !self.layout.gpu_impactors.is_empty() {
                 // Impactors count their integrated substeps from where the pipeline is.
@@ -1324,6 +1333,7 @@ impl GpuSolver {
             let t_read = std::time::Instant::now();
             let mut islands: Vec<Island> = gpu.read(&self.buffers.islands);
             let sentinel = islands.pop().unwrap_or_default();
+            self.coverage |= islands.iter().chain([&sentinel]).fold(0, |a, i| a | i.done[1]) as u64;
             let scratch: Vec<[f32; 4]> = if !self.layout.items.is_empty() || !self.impactors.is_empty() { gpu.read(&self.buffers.scratch) } else { Vec::new() };
             // Probe outputs of the substeps each island ran.
             if !self.layout.items.is_empty() {
@@ -1378,6 +1388,7 @@ impl GpuSolver {
             // (`split_cluster` returns): those islands resume without a host round trip.
             if !replan && halted.iter().all(|&ci| self.still_connected(gpu, ci)) {
                 self.resumed_halts += halted.len() as u64;
+                self.coverage |= coverage::RESUMED_HALT;
                 continue;
             }
             chunk = batch_start();
@@ -1396,6 +1407,7 @@ impl GpuSolver {
                 let before = self.mirror.clusters.len();
                 self.mirror.split_cluster(ci);
                 self.host_splits += 1;
+                self.coverage |= coverage::HOST_SPLIT;
                 for c in &self.mirror.clusters[before.saturating_sub(1)..] {
                     remaining.entry(c.id).or_insert(left);
                 }
@@ -1407,6 +1419,7 @@ impl GpuSolver {
             }
             if replan {
                 self.replans += 1;
+                self.coverage |= coverage::REPLAN;
             }
             self.mirror.time = self.step_times[start];
             let left_now = remaining.values().copied().max().unwrap_or(0).max(pipeline_left);
@@ -1543,6 +1556,7 @@ impl GpuSolver {
         }
         let mut islands: Vec<Island> = gpu.read(&self.buffers.islands);
         let sentinel = islands.pop().unwrap_or_default();
+        self.coverage |= islands.iter().fold(0, |a, i| a | i.done[1]) as u64;
         let m = &mut self.mirror;
         // Settled islands' chunks and bonds never change on the GPU: the mirror keeps its
         // own (f64) equilibrium for them, which the next static solve starts from.
@@ -1598,6 +1612,10 @@ impl GpuSolver {
                 let r = imp.pose.rotation.to_mat3();
                 let l = joined(g.momentum, g.momentum_err);
                 imp.angular_velocity = (r * imp.inertia * r.transpose()).inverse().map_or(vec3(g.angular_velocity), |inv| inv * l);
+                if g.crush[2] > imp.crush_used as f32 {
+                    // Only the crush cap (impactor_crush) spends crush energy.
+                    self.coverage |= coverage::CRUSH;
+                }
                 imp.crush_used = g.crush[2] as f64;
                 imp.crush_depth = g.crush[3] as f64;
                 self.contact_dissipated += g.ledger[0] as f64 + g.ledger[1] as f64;
@@ -1850,6 +1868,9 @@ impl GpuSolver {
         for &ci in clusters {
             let r = results[ci];
             let eq = crate::statics::Equilibrium { converged: r[3] != 0.0, residual: r[0] as f64, newton_iterations: r[1].to_bits(), cg_iterations: r[2].to_bits() };
+            if eq.newton_iterations > 0 {
+                self.coverage |= coverage::STATICS;
+            }
             let isl = self.layout.islands[ci];
             let (c0, c1) = (isl.range[0] as usize, isl.range[1] as usize);
             if eq.converged {
@@ -1941,6 +1962,7 @@ impl GpuSolver {
             m.clusters[ci].activity = Activity::Settled;
             let cl = &m.clusters[ci];
             m.clusters[ci].settled_load_norm = cl.chunks.iter().map(|&c| loads.force[cl.structure][c].norm()).sum();
+            self.coverage |= coverage::SETTLE;
         }
         true
     }
@@ -2005,6 +2027,7 @@ impl GpuSolver {
         self.bonds_stale = true;
         let mut read: Vec<Island> = gpu.read(&self.buffers.islands);
         read.pop();
+        self.coverage |= read.iter().fold(0, |a, i| a | i.done[1]) as u64;
         let damaged = (0..read.len()).filter(|&ci| read[ci].info[2] & ISLAND_DAMAGED != 0).collect();
         let disconnected = (0..read.len()).filter(|&ci| read[ci].info[2] & ISLAND_DISCONNECTED != 0).collect();
         self.layout.islands = islands;
