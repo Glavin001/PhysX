@@ -343,6 +343,15 @@ Setup: CuMetal PhysX GPU, established methods, certified true step at safety 0.2
 | 12 | narrow islands too | discarded (749) | Only 2–8 narrow resumed halts per frame here, and the 16 KB label array lowers `island_frame` occupancy. Combined with wide threshold 400: wall 578 vs 678 ms, house fracture 783 vs 775 ms, so PEAK unchanged |
 | 13 | impactor candidates on a SIMD group each | **624** | Two serial loops over about 28 slots per candidate thread: fracture 695 → 625 ms, debris 450 → 410 ms |
 | 14 | no snapshot per island-frame segment | discarded (629) | Download time unchanged (37 ms, from per-step motion syncs and split downloads) |
+| 15 | persistent contact pipeline in one threadgroup (`contact_frames`) | discarded (1932) | Outcomes match the rounds (wall identical, house 32 fragments and 185 bonds), but house debris 395 → 1761 ms. One core runs it all, and the per-island sums by an owner thread serialize device latency (about 100 µs per sum over the 290-chunk house). Even with SIMD-parallel sums, one core bounds it at about 60–90 µs per substep against about 90 now across 40 cores |
+| 16 | wide bond groups with the sums when no wide island is free or settled | 565 | 4 dispatches per contact substep for anchored wide islands (house debris 395 → 348 ms) |
+| 17 | **narrow islands up to one chunk per thread** (wide threshold 192 → 257), with their own 512-label GPU connectivity check | 524 | The 220-chunk wall runs narrow (3 dispatches instead of 7): wall impact 572 → 473 ms. Micro coverage kept: `RESUMED_ON_DEVICE`, and `resumed_halt_host` for the host fallback |
+| 18 | **host readbacks gathered into one round trip** (`Gpu::read_ranges`) | **448** | A download took up to ten blocking reads and a batch three, including the whole scratch buffer. Fracture frame host time about 170 → 77 ms |
+| 19 | chunk-level island criterion | discarded | Islands unchanged (32–33). The debris frames hold about 66 genuine chunk-level approaches at 0.5–3 m/s with peak force above the weakest bond's capacity: the collapse is in motion. Releasing debris needs a damage-free certificate with influence bounds (the weakest-bond comparison is not conservative under lever arms) |
+| 20 | separate stress safety (GPU-only probe) | parked | At 0.5: house 3.04 m/s, 35 fragments, 196 bonds (reference 3.04, 34, 196); house worst 448 → 302 ms, wall median 125 → 64 ms. PEAK held by the contact-bound wall impact frame. At 0.9: 2.62 m/s, drifting. Adoption needs an oracle convergence study (stress safety separate from contact safety) and a decision on the benchmark's configured safety |
+| 21 | rigid-rotation contact plans; adaptive shorter plan horizons | discarded | Rotation: same substeps and batches (the wall impact is bound by the punched plug sweeping past 15–79 hole-edge chunks per horizon, not by budgets), while +32 B per chunk and the rotation in `travel_check` cost about 10%. Horizons: tiny segments, 14 s; needs a cost model |
+| 22 | contact-plan fields (64 B) out of `ChunkStatic` into the scratch | about −5% (A/B) | Same-session A/B under other jobs' GPU and CPU load: house worst 605/597 → 564/572 ms, wall impact 564/556 → 498/530 ms |
+| 23 | `ChunkStatic` read field by field instead of copied whole | discarded | No difference: the compiler already loads only the fields used. #22 gained from the smaller per-chunk footprint |
 
 **The certification gap found at #7.**
 - Rows 1–6 bounded the contacts of a fresh one-frame plan whose travel budgets nothing enforced. The GPU ran its own four-frame plan, with larger budgets and more pairs.
@@ -357,7 +366,19 @@ Setup: CuMetal PhysX GPU, established methods, certified true step at safety 0.2
    - `step_times` kept the times of a state's earlier run. A state restored and run at another step size had stale times: `mirror.time`, probes, and the new plan clock (it looped forever).
    - After a host split, the plan horizon took the substeps left of clusters already split away (2.8× too long).
 
-**Where the peak is now, after #13 (PEAK about 620 ms).**
+**Where the peak is now, after #22 (PEAK about 448 ms uncontended).**
+- **House ram, fracture frame (about 444 ms).** About 83% GPU: 4,420 substeps at about 83 µs over 4 dispatches.
+- **Wall ram, impact frame (about 444 ms).** About 5,800 substeps. Contact-bound while the punched plug sweeps the hole edge.
+- **Debris frames (about 330 ms).** The collapse is genuinely in motion.
+- **Idle house.** Median 3.5 ms.
+
+Remaining levers:
+1. A separate stress safety (#20): needs an oracle convergence study and a configuration decision.
+2. A cost-model plan horizon for fast fragments (#21).
+3. Restructuring the island kernel (#15 shows one-core persistence cannot win; dispatches are at their floor without a device-scope fence on macOS 14.4).
+4. Moving host splits onto the GPU (20 per fracture frame, about 2.5 ms each).
+
+**Where the peak was, after #13 (PEAK about 620 ms).**
 - **Wall ram, frame 0, about 600 ms.** About 5,800 substeps, mostly at contact steps of 2.1–3.8e-6 s from fragments in contact.
 - **House ram, fracture frame 1, about 610 ms.** 4,420 substeps at the stress step, 20 host splits.
 - **Debris frames about 400 ms.** Per substep (timed): islands with wide chunks 36 µs, contact forces 27, wide bonds 18, sums with impactors 15, wide end 8.
