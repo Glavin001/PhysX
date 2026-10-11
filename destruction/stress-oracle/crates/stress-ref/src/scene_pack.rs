@@ -48,7 +48,7 @@ fn is_reinforced_concrete(asset: &str) -> bool {
 }
 
 /// Code-minimum reinforcement ratio of a section (EN 1992-1-1 9.2.1.1).
-fn minimum_reinforcement(concrete: &Material, steel: &Material) -> f64 {
+pub(crate) fn minimum_reinforcement(concrete: &Material, steel: &Material) -> f64 {
     (0.26 * concrete.tensile_strength / steel.tensile_strength).max(0.0013)
 }
 
@@ -68,7 +68,7 @@ fn map_material(asset: &str) -> Result<(&'static str, &'static str), String> {
     })
 }
 
-fn material_preset(name: &str) -> Material {
+pub(crate) fn material_preset(name: &str) -> Material {
     match name {
         "concrete" => Material::concrete(),
         "brick" => Material::brick(),
@@ -107,6 +107,10 @@ fn points(v: &Value) -> Vec<Vec3> {
 pub fn import(path: &std::path::Path, name: &str, body_name: &str) -> Result<Scene, String> {
     let text = std::fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))?;
     let json: Value = serde_json::from_str(&text).map_err(|e| format!("{}: {e}", path.display()))?;
+    // A Shardwright export (`shardwright.rs`) is imported by its own reader.
+    if json["format"] == "shardwright-stress/1" {
+        return crate::shardwright::import(path, name);
+    }
     let sc = &json["scenario"];
     let nodes = sc["nodes"].as_array().ok_or("pack has no nodes")?;
     let colliders = sc["nodeColliders"].as_array().ok_or("pack has no nodeColliders")?;

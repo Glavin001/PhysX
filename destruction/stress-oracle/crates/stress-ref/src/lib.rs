@@ -38,6 +38,7 @@ pub mod refine;
 pub mod rng;
 pub mod scene;
 pub mod scene_pack;
+pub mod shardwright;
 pub mod showcases;
 pub mod snapshot;
 pub mod solver;

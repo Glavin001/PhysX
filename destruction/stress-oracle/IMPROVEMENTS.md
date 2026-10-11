@@ -535,6 +535,27 @@ direction, not the physics, was the obstacle.
 
 **Status:** default on. `STRESS_METHODS=-tangent_statics` restores the secant verdict.
 
+### `patch_after_damage` (model change, switch off)
+
+**Replaces** evaluating the cracked-joint contact patch on every joint: today an
+uncracked joint (damage 0) runs the patch's 36 springs and commits friction slip on an
+interface that does not exist until the joint cracks.
+
+**Why now:** the GPU's cold-bond path (REALTIME_ROADMAP.md, Part A6) can be exact only if
+an intact joint carries no patch state.
+
+**A/B** (`stress-ref ab scenes golden --feature patch_after_damage=on`, 2026-10-11, base
+`c84658baf` plus the pack-import fix):
+- Gated metrics 87/91 both ways (the same four long-standing failures), no regression.
+- Elastic benchmarks unchanged to the printed digits.
+- Catalogue wall time 178 -> 156 s.
+- Broken bonds: b5 v02 +0.8 %, v40 +2 %; b7 v04 +4 % (fragments 25 -> 29), v15 -0.9 %;
+  **b8_frame_sudden 23 -> 11 (fragments 22 -> 11)**. b8's sudden collapse is chaotic: the
+  GPU gate's reference ensemble already admits 17-29 broken bonds there.
+
+**Status:** evidence recorded. Adoption is a model change and needs a person's review
+(the b8 difference judged against its ensemble spread); then `scripts/fidelity.py`.
+
 ## Runtime (bit-exact, no switch)
 
 Speedups that change no result take no switch. Each must reproduce the established

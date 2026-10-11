@@ -15,7 +15,7 @@ fn load(path: &str) -> Result<Scene, String> {
     let p = std::path::Path::new(path);
     let name = p.file_stem().unwrap().to_string_lossy().to_string();
     let json: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(p).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
-    if json.get("scenario").is_some() {
+    if json.get("scenario").is_some() || json["format"] == "shardwright-stress/1" {
         stress_ref::scene_pack::import(p, &name, "structure")
     } else {
         Scene::load(p)

@@ -189,6 +189,44 @@ Host side: 225 splits (+106 resumed), 0.7 s split, 0.3 s readback.
   - how many buildings are awake (sleeping already brings idle to 1.6 ms).
 - **Debris contact must stay with PhysX:** impact islands only (Phase 2).
 
+### A7. A Shardwright building with a real L0/L1/L2 hierarchy
+
+The compendium's example is the 1,182-chunk two-storey building from Shardwright:
+- 48 L0 components, 618 L1 fragments, 1,182 L2 chunks;
+- 3,657 L2 bonds, 23 of them anchors.
+
+**Import.**
+- The `.fracphys` file is exported to `shardwright-stress/1` JSON by a small converter on Shardwright's `frac-io`: fragments of levels 0–2 with their parents, and L2 bonds with area, frame, second moments, joint kind and rebar.
+- `stress-ref/src/shardwright.rs` reads it, and `scene_pack::import` dispatches to it.
+- Each chunk keeps its ancestry as groups: `member:<L0>`, `l1:<id>`, and its role.
+- 80% of the L2 fragments are compounds of 2–16 convex hulls (non-convex chunks), while an oracle chunk holds one hull. Chunks are therefore equivalent-inertia boxes: the asset's centre of mass, principal axes and principal moments per unit mass.
+- In production the stress solver needs only mass, inertia and bonds, because PhysX owns the compound shapes and contact. Compound chunks in the oracle (for its standalone world) are a separate task.
+- The asset's L2 mass, 115.6 t, matches the reference solve's anchor reactions: 1.136 MN against a weight of 1.134 MN.
+
+**Found while importing:** the oracle's `ConvexHull::new` is not robust to f32-coplanar input. A clean 12-point Shardwright hull re-hulled after a translation alternates between 15 and 14 faces, with volumes differing by 2.6%. Separate task.
+
+**Measurements:**
+
+| | Value |
+|---|---|
+| True step | 570 substeps per frame (reference: 2,212), set by a 1.4 kg brick wall sliver (100% of the top mode) |
+| Utilization at rest | max 0.50; 0.1% of bonds above 0.4; none above 1. Well calibrated: certificates can pass here. |
+| Condensation by L0 members (48) | 62% of DOFs kept, gravity PCG 1,816 → 1,491 iterations, 4.3 MB, explicit step ×1.00 |
+| Condensation by L1 (618) | 96% kept, ×1.00 |
+| Coordinate bisection, parts of 64 / 256 | 57% / 34% kept, step ×1.30 |
+| Slivers eliminated: 8 / 16 / 32 | step ×1.34 / ×1.45 / ×1.63 |
+
+- **With a real member hierarchy, member condensation is exact but modest:** it removes 38% of DOFs. Walls and slabs are bonded to their neighbours along whole edges, so most of their chunks are boundary.
+- **It does not raise the explicit step.** Its value is precomputed intact statics and location-aware bounds, not dynamics.
+
+### A8. `patch_after_damage` A/B (prerequisite of an exact cold-bond path)
+
+The full entry is in `IMPROVEMENTS.md`.
+- 87/91 gated metrics both ways, with no regression.
+- Catalogue wall time 178 → 156 s.
+- Broken bonds move by under 4% except on b8_frame_sudden (23 → 11), a chaotic collapse whose reference ensemble already admits 17–29.
+- Adoption is a model change awaiting review.
+
 ## B. Review of the two documents
 
 ### Compendium

@@ -58,18 +58,34 @@ fn main() {
         );
         println!("  | parts of | dofs kept | components | storage MB (f32) | gravity PCG | step gain | build s |");
         println!("  |---|---|---|---|---|---|---|");
-        for target in [8usize, 16, 32, 64, 128, 256] {
-            if target >= 2 * net.chunks.len() {
-                break;
+        // Authored partitions where the asset has them (Shardwright `member:` = L0,
+        // `l1:`; scene packs' pieces would be `piece:`), then coordinate bisection.
+        let st0 = &m.structures[m.clusters[ci].structure];
+        let mut partitions: Vec<(String, Vec<usize>)> = Vec::new();
+        for prefix in ["member:", "l1:", "piece:"] {
+            let keys: Vec<Option<String>> = net.chunks.iter().map(|&c| st0.chunks[c].groups.iter().find(|g| g.starts_with(prefix)).cloned()).collect();
+            if keys.iter().all(Option::is_some) {
+                let mut ids = std::collections::BTreeMap::new();
+                let part: Vec<usize> = keys.iter().map(|k| {
+                    let n = ids.len();
+                    *ids.entry(k.clone().unwrap()).or_insert(n)
+                }).collect();
+                partitions.push((format!("{} ({} parts)", prefix.trim_end_matches(':'), ids.len()), part));
             }
+        }
+        for target in [8usize, 16, 32, 64, 128, 256] {
+            if target < 2 * net.chunks.len() {
+                partitions.push((target.to_string(), rcb(&net.centers, target)));
+            }
+        }
+        for (label, part) in partitions {
             let t = Instant::now();
-            let part = rcb(&net.centers, target);
             let red = Reduced::new(&net, &interior_of(&net, &part));
             let build = t.elapsed().as_secs_f64();
             let (_, cg) = pcg(&red.k, &red.load(&net.gravity), 1e-10, 1_000_000);
             let (lam, _) = top_eigen(&red.k, &red.m, iters);
             println!(
-                "  | {target} | {} ({:.0}%) | {} | {:.1} | {cg} | x{:.2} | {build:.1} |",
+                "  | {label} | {} ({:.0}%) | {} | {:.1} | {cg} | x{:.2} | {build:.1} |",
                 red.nr,
                 100.0 * red.nr as f64 / net.n as f64,
                 red.components.len(),
