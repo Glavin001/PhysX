@@ -8522,6 +8522,25 @@ void island_frame_at_0(uint gi_0, uint tid_20, KernelContext_0 thread* kernelCon
             record_probes_0(&_S1420, &_S1421, k_24, kernelContext_96);
         }
         uint _S1422 = done_1 + 1U;
+        bool _S1423;
+        if((*kernelContext_96->g_halt_0) != 0U)
+        {
+            thread Island_0 _S1424 = isl_28;
+            bool _S1425 = island_connected_0(tid_20, &_S1424, kernelContext_96);
+            _S1423 = _S1425;
+        }
+        else
+        {
+            _S1423 = false;
+        }
+        if(_S1423)
+        {
+            if(_S1393)
+            {
+                *kernelContext_96->g_halt_0 = 0U;
+            }
+            threadgroup_barrier(mem_flags::mem_threadgroup);
+        }
         if((*kernelContext_96->g_halt_0) != 0U)
         {
             done_1 = _S1422;
@@ -8535,9 +8554,9 @@ void island_frame_at_0(uint gi_0, uint tid_20, KernelContext_0 thread* kernelCon
     group_sum3_0(tid_20, &wsum_0, &unused_3, kernelContext_96);
     if(_S1393)
     {
-        thread Quat_0 _S1423 = (&rg_16)->rot_1;
-        float4 _S1424 = quat_vec_0(&_S1423);
-        (&isl_28)->rotation_0 = _S1424;
+        thread Quat_0 _S1426 = (&rg_16)->rot_1;
+        float4 _S1427 = quat_vec_0(&_S1426);
+        (&isl_28)->rotation_0 = _S1427;
         (&isl_28)->rotation_err_0 = (&rg_16)->rot_err_0;
         (&isl_28)->position_0 = float4((&rg_16)->pos_0, 0.0f);
         (&isl_28)->position_err_0 = float4((&rg_16)->pos_err_0, 0.0f);
@@ -8560,18 +8579,18 @@ void island_frame_at_0(uint gi_0, uint tid_20, KernelContext_0 thread* kernelCon
         {
             contact_split_at_0((&isl_28)->info_0.w + done_1, kernelContext_96);
         }
-        float _S1425 = wsum_0.x;
-        thread float _S1426 = (&isl_28)->energy_0.x;
-        thread float _S1427 = (&isl_28)->energy_0.y;
-        comp_add1_0(&_S1426, &_S1427, _S1425);
-        (&isl_28)->energy_0.x = _S1426;
-        (&isl_28)->energy_0.y = _S1427 + wsum_0.y;
+        float _S1428 = wsum_0.x;
+        thread float _S1429 = (&isl_28)->energy_0.x;
+        thread float _S1430 = (&isl_28)->energy_0.y;
+        comp_add1_0(&_S1429, &_S1430, _S1428);
+        (&isl_28)->energy_0.x = _S1429;
+        (&isl_28)->energy_0.y = _S1430 + wsum_0.y;
         (&isl_28)->info_0.w = (&isl_28)->info_0.w + done_1;
         if((*kernelContext_96->g_halt_0) != 0U)
         {
             (&isl_28)->info_0.z = ((&isl_28)->info_0.z) | 1U;
         }
-        uint _S1428 = seen_bits_0(kernelContext_96);
+        uint _S1431 = seen_bits_0(kernelContext_96);
         if((*kernelContext_96->g_halt_0) != 0U)
         {
             cov_2 = 128U;
@@ -8580,7 +8599,7 @@ void island_frame_at_0(uint gi_0, uint tid_20, KernelContext_0 thread* kernelCon
         {
             cov_2 = 0U;
         }
-        uint _S1429 = _S1428 | cov_2;
+        uint _S1432 = _S1431 | cov_2;
         if(woke_0)
         {
             cov_2 = 2048U;
@@ -8589,7 +8608,7 @@ void island_frame_at_0(uint gi_0, uint tid_20, KernelContext_0 thread* kernelCon
         {
             cov_2 = 0U;
         }
-        uint cov_3 = _S1429 | cov_2;
+        uint cov_3 = _S1432 | cov_2;
         if(done_1 > 0U)
         {
             bool quiet_1 = (((&isl_28)->info_0.x) & 32U) != 0U;
@@ -8648,35 +8667,35 @@ void island_frame_at_0(uint gi_0, uint tid_20, KernelContext_0 thread* kernelCon
             (&isl_28)->info_0.x = ((&isl_28)->info_0.x) & 4294967279U;
             (&isl_28)->info_0.z = ((&isl_28)->info_0.z) | 4U;
         }
-        Island_natural_0 device* _S1430 = kernelContext_96->islands_0+gi_0;
-        _S1430->range_0 = packed_uint4(isl_28.range_0) ;
-        _S1430->info_0 = packed_uint4(isl_28.info_0) ;
-        _S1430->com_0 = packed_float4(isl_28.com_0) ;
-        _S1430->inertia0_0 = packed_float4(isl_28.inertia0_0) ;
-        _S1430->inertia1_0 = packed_float4(isl_28.inertia1_0) ;
-        _S1430->inertia2_0 = packed_float4(isl_28.inertia2_0) ;
-        _S1430->inv0_0 = packed_float4(isl_28.inv0_0) ;
-        _S1430->inv1_0 = packed_float4(isl_28.inv1_0) ;
-        _S1430->inv2_0 = packed_float4(isl_28.inv2_0) ;
-        _S1430->wcom_0 = packed_float4(isl_28.wcom_0) ;
-        _S1430->winv0_0 = packed_float4(isl_28.winv0_0) ;
-        _S1430->winv1_0 = packed_float4(isl_28.winv1_0) ;
-        _S1430->winv2_0 = packed_float4(isl_28.winv2_0) ;
-        _S1430->rotation_0 = packed_float4(isl_28.rotation_0) ;
-        _S1430->position_0 = packed_float4(isl_28.position_0) ;
-        _S1430->position_err_0 = packed_float4(isl_28.position_err_0) ;
-        _S1430->velocity_0 = packed_float4(isl_28.velocity_0) ;
-        _S1430->velocity_err_0 = packed_float4(isl_28.velocity_err_0) ;
-        _S1430->angular_velocity_0 = packed_float4(isl_28.angular_velocity_0) ;
-        _S1430->done_0 = isl_28.done_0;
-        _S1430->coverage_0 = isl_28.coverage_0;
-        _S1430->wide_groups_0 = isl_28.wide_groups_0;
-        _S1430->done_pad_0 = isl_28.done_pad_0;
-        _S1430->probes_0 = packed_uint4(isl_28.probes_0) ;
-        _S1430->energy_0 = packed_float4(isl_28.energy_0) ;
-        _S1430->rotation_err_0 = packed_float4(isl_28.rotation_err_0) ;
-        _S1430->momentum_0 = packed_float4(isl_28.momentum_0) ;
-        _S1430->momentum_err_0 = packed_float4(isl_28.momentum_err_0) ;
+        Island_natural_0 device* _S1433 = kernelContext_96->islands_0+gi_0;
+        _S1433->range_0 = packed_uint4(isl_28.range_0) ;
+        _S1433->info_0 = packed_uint4(isl_28.info_0) ;
+        _S1433->com_0 = packed_float4(isl_28.com_0) ;
+        _S1433->inertia0_0 = packed_float4(isl_28.inertia0_0) ;
+        _S1433->inertia1_0 = packed_float4(isl_28.inertia1_0) ;
+        _S1433->inertia2_0 = packed_float4(isl_28.inertia2_0) ;
+        _S1433->inv0_0 = packed_float4(isl_28.inv0_0) ;
+        _S1433->inv1_0 = packed_float4(isl_28.inv1_0) ;
+        _S1433->inv2_0 = packed_float4(isl_28.inv2_0) ;
+        _S1433->wcom_0 = packed_float4(isl_28.wcom_0) ;
+        _S1433->winv0_0 = packed_float4(isl_28.winv0_0) ;
+        _S1433->winv1_0 = packed_float4(isl_28.winv1_0) ;
+        _S1433->winv2_0 = packed_float4(isl_28.winv2_0) ;
+        _S1433->rotation_0 = packed_float4(isl_28.rotation_0) ;
+        _S1433->position_0 = packed_float4(isl_28.position_0) ;
+        _S1433->position_err_0 = packed_float4(isl_28.position_err_0) ;
+        _S1433->velocity_0 = packed_float4(isl_28.velocity_0) ;
+        _S1433->velocity_err_0 = packed_float4(isl_28.velocity_err_0) ;
+        _S1433->angular_velocity_0 = packed_float4(isl_28.angular_velocity_0) ;
+        _S1433->done_0 = isl_28.done_0;
+        _S1433->coverage_0 = isl_28.coverage_0;
+        _S1433->wide_groups_0 = isl_28.wide_groups_0;
+        _S1433->done_pad_0 = isl_28.done_pad_0;
+        _S1433->probes_0 = packed_uint4(isl_28.probes_0) ;
+        _S1433->energy_0 = packed_float4(isl_28.energy_0) ;
+        _S1433->rotation_err_0 = packed_float4(isl_28.rotation_err_0) ;
+        _S1433->momentum_0 = packed_float4(isl_28.momentum_0) ;
+        _S1433->momentum_err_0 = packed_float4(isl_28.momentum_err_0) ;
     }
     return;
 }
@@ -8718,16 +8737,16 @@ void island_frame_at_0(uint gi_0, uint tid_20, KernelContext_0 thread* kernelCon
 
 void wide_chunks_at_0(uint gx_0, uint tid_21, KernelContext_0 thread* kernelContext_98)
 {
-    WideGroup_0 _S1431 = wide_group_0(kernelContext_98->params_0->wide_chunk_table_0, gx_0, kernelContext_98);
-    thread Island_natural_0 _S1432 = *(kernelContext_98->islands_0+_S1431.island_3);
-    bool _S1433 = wide_enter_1(tid_21, _S1431.island_3, kernelContext_98);
-    if(!_S1433)
+    WideGroup_0 _S1434 = wide_group_0(kernelContext_98->params_0->wide_chunk_table_0, gx_0, kernelContext_98);
+    thread Island_natural_0 _S1435 = *(kernelContext_98->islands_0+_S1434.island_3);
+    bool _S1436 = wide_enter_1(tid_21, _S1434.island_3, kernelContext_98);
+    if(!_S1436)
     {
         return;
     }
-    uint _S1434 = (uint4((&_S1432)->info_0) ).x;
-    bool anchored_0 = (_S1434 & 1U) != 0U;
-    if((_S1434 & 16U) != 0U)
+    uint _S1437 = (uint4((&_S1435)->info_0) ).x;
+    bool anchored_0 = (_S1437 & 1U) != 0U;
+    if((_S1437 & 16U) != 0U)
     {
         if(tid_21 == 0U)
         {
@@ -8735,44 +8754,44 @@ void wide_chunks_at_0(uint gx_0, uint tid_21, KernelContext_0 thread* kernelCont
         }
         return;
     }
-    thread WideGroup_0 _S1435 = _S1431;
-    Rigid_0 _S1436 = wide_rigid_frame_1(tid_21, &_S1432, &_S1435, kernelContext_98);
+    thread WideGroup_0 _S1438 = _S1434;
+    Rigid_0 _S1439 = wide_rigid_frame_1(tid_21, &_S1435, &_S1438, kernelContext_98);
     thread float work_5 = 0.0f;
     thread float work_err_3 = 0.0f;
-    float3 _S1437 = float3(0.0f) ;
-    thread float3 tu_4 = _S1437;
-    thread float3 pv_4 = _S1437;
-    uint c_47 = _S1431.begin_0 + tid_21;
-    if(c_47 < (_S1431.end_0))
+    float3 _S1440 = float3(0.0f) ;
+    thread float3 tu_4 = _S1440;
+    thread float3 pv_4 = _S1440;
+    uint c_47 = _S1434.begin_0 + tid_21;
+    if(c_47 < (_S1434.end_0))
     {
-        float _S1438 = kernelContext_98->params_0->dt_0;
-        bool _S1439 = (kernelContext_98->params_0->rigid_motion_loads_0) != 0U;
-        uint _S1440 = wide_step_1(&_S1432, kernelContext_98);
-        bool _S1441 = (_S1434 & 4U) != 0U;
-        thread Rigid_0 _S1442 = _S1436;
-        chunk_update_0(c_47, &_S1432, &_S1442, _S1438, _S1439, _S1440, _S1441, &work_5, &work_err_3, kernelContext_98);
+        float _S1441 = kernelContext_98->params_0->dt_0;
+        bool _S1442 = (kernelContext_98->params_0->rigid_motion_loads_0) != 0U;
+        uint _S1443 = wide_step_1(&_S1435, kernelContext_98);
+        bool _S1444 = (_S1437 & 4U) != 0U;
+        thread Rigid_0 _S1445 = _S1439;
+        chunk_update_0(c_47, &_S1435, &_S1445, _S1441, _S1442, _S1443, _S1444, &work_5, &work_err_3, kernelContext_98);
         if(!anchored_0)
         {
             drift_moments_0(c_47, &tu_4, &pv_4, kernelContext_98);
         }
     }
     thread float3 wsum_1 = float3(work_5, work_err_3, 0.0f);
-    thread float3 unused_4 = _S1437;
+    thread float3 unused_4 = _S1440;
     group_sum3_0(tid_21, &wsum_1, &unused_4, kernelContext_98);
-    bool _S1443 = !anchored_0;
-    if(_S1443)
+    bool _S1446 = !anchored_0;
+    if(_S1446)
     {
         group_sum3_0(tid_21, &tu_4, &pv_4, kernelContext_98);
     }
     if(tid_21 == 0U)
     {
-        uint _S1444 = 8U * gx_0;
-        *(kernelContext_98->scratch_0+(kernelContext_98->params_0->wide_base_0 + _S1444 + 6U)) = packed_float4(float4(wsum_1, 0.0f)) ;
-        if(_S1443)
+        uint _S1447 = 8U * gx_0;
+        *(kernelContext_98->scratch_0+(kernelContext_98->params_0->wide_base_0 + _S1447 + 6U)) = packed_float4(float4(wsum_1, 0.0f)) ;
+        if(_S1446)
         {
             wide_store_0(gx_0, 2U, tu_4, pv_4, kernelContext_98);
         }
-        *(kernelContext_98->scratch_0+(kernelContext_98->params_0->wide_base_0 + _S1444 + 7U)) = packed_float4(float4(float((*kernelContext_98->g_seen_0)[0U]), float((*kernelContext_98->g_seen_0)[1U]), float((*kernelContext_98->g_seen_0)[2U]), 0.0f)) ;
+        *(kernelContext_98->scratch_0+(kernelContext_98->params_0->wide_base_0 + _S1447 + 7U)) = packed_float4(float4(float((*kernelContext_98->g_seen_0)[0U]), float((*kernelContext_98->g_seen_0)[1U]), float((*kernelContext_98->g_seen_0)[2U]), 0.0f)) ;
     }
     return;
 }
@@ -8844,14 +8863,14 @@ void wide_chunks_at_0(uint gx_0, uint tid_21, KernelContext_0 thread* kernelCont
     threadgroup uint g_run_15;
     (&kernelContext_100)->g_run_0 = &g_run_15;
     uint sums_groups_0 = (params_15->seg_count_0 + 255U) / 256U;
-    uint _S1445 = group_11.x;
-    if(_S1445 < sums_groups_0)
+    uint _S1448 = group_11.x;
+    if(_S1448 < sums_groups_0)
     {
-        contact_sum_at_0(_S1445 * 256U + thread_11.x, &kernelContext_100);
+        contact_sum_at_0(_S1448 * 256U + thread_11.x, &kernelContext_100);
     }
     else
     {
-        impactor_integrate_at_0(_S1445 - sums_groups_0, thread_11.x, &kernelContext_100);
+        impactor_integrate_at_0(_S1448 - sums_groups_0, thread_11.x, &kernelContext_100);
     }
     return;
 }
@@ -8887,14 +8906,14 @@ void wide_chunks_at_0(uint gx_0, uint tid_21, KernelContext_0 thread* kernelCont
     (&kernelContext_101)->g_halt_0 = &g_halt_16;
     threadgroup uint g_run_16;
     (&kernelContext_101)->g_run_0 = &g_run_16;
-    uint _S1446 = group_12.x;
-    if(_S1446 < (params_16->halt_index_0))
+    uint _S1449 = group_12.x;
+    if(_S1449 < (params_16->halt_index_0))
     {
-        island_frame_at_0(_S1446, thread_12.x, &kernelContext_101);
+        island_frame_at_0(_S1449, thread_12.x, &kernelContext_101);
     }
     else
     {
-        wide_chunks_at_0(_S1446 - params_16->halt_index_0, thread_12.x, &kernelContext_101);
+        wide_chunks_at_0(_S1449 - params_16->halt_index_0, thread_12.x, &kernelContext_101);
     }
     return;
 }
