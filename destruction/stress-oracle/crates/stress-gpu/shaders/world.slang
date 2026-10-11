@@ -2120,13 +2120,10 @@ void wide_wake(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
     cov_mark(wg.island, isl.coverage, cov);
 }
 
-[shader("compute")]
-[numthreads(256, 1, 1)]
-void wide_bonds(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
+void wide_bonds_at(uint gx, uint tid)
 {
-    uint tid = thread.x;
-    bool bond_group = group.x < params.wide_bond_groups;
-    WideGroup wg = bond_group ? wide_group(params.wide_bond_table, group.x) : wide_group(params.wide_chunk_table, group.x - params.wide_bond_groups);
+    bool bond_group = gx < params.wide_bond_groups;
+    WideGroup wg = bond_group ? wide_group(params.wide_bond_table, gx) : wide_group(params.wide_chunk_table, gx - params.wide_bond_groups);
     Island isl = islands[wg.island];
     if (!wide_enter(tid, isl))
         return;
@@ -2149,7 +2146,7 @@ void wide_bonds(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
         net_load(c, isl, rigid_of(isl), k, params.dt, (isl.info.x & ISLAND_CONTACT) != 0, f, t);
     group_sum3<THREADS>(tid, f, t);
     if (tid == 0)
-        wide_store(group.x - params.wide_bond_groups, 0, f, t);
+        wide_store(gx - params.wide_bond_groups, 0, f, t);
 }
 
 // The island's rigid frame at the substep start with its acceleration.
@@ -3092,4 +3089,28 @@ void islands_and_wide_chunks(uint3 group: SV_GroupID, uint3 thread: SV_GroupThre
         island_frame_at(group.x, thread.x);
     else
         wide_chunks_at(group.x - params.halt_index, thread.x);
+}
+
+[shader("compute")]
+[numthreads(256, 1, 1)]
+void wide_bonds(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
+{
+    wide_bonds_at(group.x, thread.x);
+}
+
+// sums_and_impactors with the wide islands' bond groups, when every wide island is
+// anchored and awake (their chunk groups then have no net load to sum, and no wake
+// pass precedes the joint law): the bonds read only the previous substep's state.
+[shader("compute")]
+[numthreads(256, 1, 1)]
+void sums_impactors_bonds(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
+{
+    uint sums_groups = (params.seg_count + 255u) / 256u;
+    uint imp_groups = max(params.impactor_count, 1u);
+    if (group.x < sums_groups)
+        contact_sum_at(group.x * 256u + thread.x);
+    else if (group.x < sums_groups + imp_groups)
+        impactor_integrate_at(group.x - sums_groups, thread.x);
+    else
+        wide_bonds_at(group.x - sums_groups - imp_groups, thread.x);
 }
