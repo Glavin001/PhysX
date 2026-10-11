@@ -27,6 +27,14 @@ not an intact-idle measurement. Missing either regime means incomplete qualifica
 Run isolated GPU jobs sequentially without stopping other developers' services.
 These instructions apply to destruction work, not unrelated upstream modules.
 
+Physical accuracy is not traded for convenience. Never use arbitrary caps, clamps,
+thresholds or tuned constants to make a result look right or pass a gate (for
+example capping a contact impulse). Every bound or correction must follow from the
+physics (stress-owned contact where the rigid-body assumption fails, derived
+stability bounds, certificates) and be measured against the stress-ref oracle
+(`destruction/stress-oracle`). Intentional approximations for speed are allowed only
+when named, switchable and their accuracy cost is measured by the oracle.
+
 ## ovphysx (primary AI-agent use case)
 
 Self-contained Python/C library for USD-based physics simulation — the fastest
