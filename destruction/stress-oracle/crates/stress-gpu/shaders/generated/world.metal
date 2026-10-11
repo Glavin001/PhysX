@@ -9935,9 +9935,9 @@ void wide_bonds_at_0(uint gx_1, uint tid_23, KernelContext_0 thread* kernelConte
     return;
 }
 
-void contact_bonds_at_0(uint gx_2, uint tid_24, KernelContext_0 thread* kernelContext_108)
+void bond_group_at_0(uint table_1, uint gx_2, uint tid_24, KernelContext_0 thread* kernelContext_108)
 {
-    WideGroup_0 _S1552 = wide_group_0(kernelContext_108->params_0->contact_bond_table_0, gx_2, kernelContext_108);
+    WideGroup_0 _S1552 = wide_group_0(table_1, gx_2, kernelContext_108);
     Island_natural_0 isl_31 = *(kernelContext_108->islands_0+_S1552.island_3);
     bool _S1553 = wide_enter_1(tid_24, _S1552.island_3, kernelContext_108);
     bool _S1554;
@@ -10014,21 +10014,33 @@ void contact_bonds_at_0(uint gx_2, uint tid_24, KernelContext_0 thread* kernelCo
     }
     else
     {
-        uint _S1558 = sums_groups_1 + _S1556;
-        if(_S1557 < _S1558)
+        if(_S1557 < (sums_groups_1 + _S1556))
         {
             impactor_integrate_at_0(_S1557 - sums_groups_1, thread_15.x, &kernelContext_109);
         }
         else
         {
-            if(_S1557 < (_S1558 + (&kernelContext_109)->params_0->contact_bond_groups_0))
+            uint gb_0 = _S1557 - sums_groups_1 - _S1556;
+            bool narrow_0 = gb_0 < ((&kernelContext_109)->params_0->contact_bond_groups_0);
+            uint _S1558;
+            if(narrow_0)
             {
-                contact_bonds_at_0(_S1557 - sums_groups_1 - _S1556, thread_15.x, &kernelContext_109);
+                _S1558 = (&kernelContext_109)->params_0->contact_bond_table_0;
             }
             else
             {
-                wide_bonds_at_0(_S1557 - sums_groups_1 - _S1556 - (&kernelContext_109)->params_0->contact_bond_groups_0, thread_15.x, &kernelContext_109);
+                _S1558 = (&kernelContext_109)->params_0->wide_bond_table_0;
             }
+            uint _S1559;
+            if(narrow_0)
+            {
+                _S1559 = gb_0;
+            }
+            else
+            {
+                _S1559 = gb_0 - (&kernelContext_109)->params_0->contact_bond_groups_0;
+            }
+            bond_group_at_0(_S1558, _S1559, thread_15.x, &kernelContext_109);
         }
     }
     return;

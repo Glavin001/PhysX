@@ -10220,38 +10220,37 @@ extern "C" __global__ void wide_bonds()
     return;
 }
 
-static __device__ void contact_bonds_at_0(uint gx_2, uint tid_23)
+static __device__ void bond_group_at_0(uint table_1, uint gx_2, uint tid_23)
 {
-    uint _S2512 = __ldg(&globalParams_0->params_0->contact_bond_table_0);
-    WideGroup_0 wg_7 = wide_group_0(_S2512, gx_2);
+    WideGroup_0 wg_7 = wide_group_0(table_1, gx_2);
     Island_0 isl_26 = *(&(globalParams_0->islands_0)[wg_7.island_2]);
-    bool _S2513 = wide_enter_1(tid_23, wg_7.island_2);
-    bool _S2514;
-    if(!_S2513)
+    bool _S2512 = wide_enter_1(tid_23, wg_7.island_2);
+    bool _S2513;
+    if(!_S2512)
     {
-        _S2514 = true;
+        _S2513 = true;
     }
     else
     {
-        _S2514 = ((isl_26.info_1.x) & 16U) != 0U;
+        _S2513 = ((isl_26.info_1.x) & 16U) != 0U;
     }
-    if(_S2514)
+    if(_S2513)
     {
         return;
     }
     uint i_30 = wg_7.begin_0 + tid_23;
     if(i_30 < (wg_7.end_0))
     {
-        float _S2515 = __ldg(&globalParams_0->params_0->dt_0);
-        uint _S2516 = __ldg(&globalParams_0->params_0->fracture_0);
-        bool _S2517 = bond_update_0(i_30, _S2515, _S2516 != 0U, isl_26.info_1.w + 1U, true);
-        _S2514 = _S2517;
+        float _S2514 = __ldg(&globalParams_0->params_0->dt_0);
+        uint _S2515 = __ldg(&globalParams_0->params_0->fracture_0);
+        bool _S2516 = bond_update_0(i_30, _S2514, _S2515 != 0U, isl_26.info_1.w + 1U, true);
+        _S2513 = _S2516;
     }
     else
     {
-        _S2514 = false;
+        _S2513 = false;
     }
-    if(_S2514)
+    if(_S2513)
     {
         *&((&(&(globalParams_0->islands_0)[wg_7.island_2])->info_1)->z) = (isl_26.info_1.z) | 2U;
     }
@@ -10260,47 +10259,55 @@ static __device__ void contact_bonds_at_0(uint gx_2, uint tid_23)
 
 extern "C" __global__ void sums_impactors_bonds()
 {
-    uint _S2518 = __ballot_sync(4294967295U, true);
-    uint _S2519 = __ldg(&globalParams_0->params_0->seg_count_0);
-    uint sums_groups_1 = (_S2519 + 255U) / 256U;
-    uint _S2520 = __ldg(&globalParams_0->params_0->impactor_count_0);
-    uint _S2521 = (U32_max((_S2520), (1U)));
-    uint _S2522 = blockIdx.x;
-    bool _S2523 = _S2522 < sums_groups_1;
-    uint _S2524 = __ballot_sync(_S2518, _S2523);
-    if(_S2523)
+    uint _S2517 = __ballot_sync(4294967295U, true);
+    uint _S2518 = __ldg(&globalParams_0->params_0->seg_count_0);
+    uint sums_groups_1 = (_S2518 + 255U) / 256U;
+    uint _S2519 = __ldg(&globalParams_0->params_0->impactor_count_0);
+    uint _S2520 = (U32_max((_S2519), (1U)));
+    uint _S2521 = blockIdx.x;
+    bool _S2522 = _S2521 < sums_groups_1;
+    uint _S2523 = __ballot_sync(_S2517, _S2522);
+    if(_S2522)
     {
-        contact_sum_at_0(_S2522 * 256U + threadIdx.x);
+        contact_sum_at_0(_S2521 * 256U + threadIdx.x);
     }
     else
     {
-        uint _S2525 = _S2518 & (~_S2524);
-        uint _S2526 = sums_groups_1 + _S2521;
-        bool _S2527 = _S2522 < _S2526;
-        uint _S2528 = __ballot_sync(_S2525, _S2527);
-        if(_S2527)
+        uint _S2524 = _S2517 & (~_S2523);
+        bool _S2525 = _S2521 < (sums_groups_1 + _S2520);
+        uint _S2526 = __ballot_sync(_S2524, _S2525);
+        if(_S2525)
         {
-            impactor_integrate_at_0(_S2522 - sums_groups_1, threadIdx.x, _S2528);
-            uint _S2529 = __ballot_sync(_S2525, true);
+            impactor_integrate_at_0(_S2521 - sums_groups_1, threadIdx.x, _S2526);
+            uint _S2527 = __ballot_sync(_S2524, true);
         }
         else
         {
-            uint _S2530 = _S2525 & (~_S2528);
-            uint _S2531 = __ldg(&globalParams_0->params_0->contact_bond_groups_0);
-            bool _S2532 = _S2522 < (_S2526 + _S2531);
-            uint _S2533 = __ballot_sync(_S2530, _S2532);
-            if(_S2532)
+            uint gb_0 = _S2521 - sums_groups_1 - _S2520;
+            uint _S2528 = __ldg(&globalParams_0->params_0->contact_bond_groups_0);
+            bool narrow_0 = gb_0 < _S2528;
+            uint _S2529;
+            if(narrow_0)
             {
-                contact_bonds_at_0(_S2522 - sums_groups_1 - _S2521, threadIdx.x);
+                uint _S2530 = __ldg(&globalParams_0->params_0->contact_bond_table_0);
+                _S2529 = _S2530;
             }
             else
             {
-                uint _S2534 = _S2530 & (~_S2533);
-                uint _S2535 = _S2522 - sums_groups_1 - _S2521;
-                uint _S2536 = __ldg(&globalParams_0->params_0->contact_bond_groups_0);
-                wide_bonds_at_0(_S2535 - _S2536, threadIdx.x, _S2534);
-                uint _S2537 = __ballot_sync(_S2530, true);
+                uint _S2531 = __ldg(&globalParams_0->params_0->wide_bond_table_0);
+                _S2529 = _S2531;
             }
+            uint _S2532;
+            if(narrow_0)
+            {
+                _S2532 = gb_0;
+            }
+            else
+            {
+                uint _S2533 = __ldg(&globalParams_0->params_0->contact_bond_groups_0);
+                _S2532 = gb_0 - _S2533;
+            }
+            bond_group_at_0(_S2529, _S2532, threadIdx.x);
         }
     }
     return;

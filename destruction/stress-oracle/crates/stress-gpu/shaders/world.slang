@@ -3252,17 +3252,21 @@ void sums_impactors_bonds(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadI
         contact_sum_at(group.x * 256u + thread.x);
     else if (group.x < sums_groups + imp_groups)
         impactor_integrate_at(group.x - sums_groups, thread.x);
-    else if (group.x < sums_groups + imp_groups + params.contact_bond_groups)
-        contact_bonds_at(group.x - sums_groups - imp_groups, thread.x);
     else
-        wide_bonds_at(group.x - sums_groups - imp_groups - params.contact_bond_groups, thread.x);
+    {
+        // One joint-law call site for both kinds of bond group (code size).
+        uint gb = group.x - sums_groups - imp_groups;
+        bool narrow = gb < params.contact_bond_groups;
+        bond_group_at(narrow ? params.contact_bond_table : params.wide_bond_table, narrow ? gb : gb - params.contact_bond_groups, thread.x);
+    }
 }
 
-// A group of a narrow contact island's bonds (`contact_bond_table`, as the wide bond
-// groups): the joint law of this substep, a disconnection reported to the island.
-void contact_bonds_at(uint gx, uint tid)
+// A group of bonds of one island (a table of `(island, begin, end, -)` rows: the narrow
+// contact islands' `contact_bond_table` or the wide islands' bond groups): the joint law
+// of this substep, a disconnection reported to the island (ISLAND_HALT_PENDING).
+void bond_group_at(uint table, uint gx, uint tid)
 {
-    WideGroup wg = wide_group(params.contact_bond_table, gx);
+    WideGroup wg = wide_group(table, gx);
     Island isl = islands[wg.island];
     if (!wide_enter(tid, isl) || (isl.info.x & ISLAND_SETTLED) != 0)
         return;
