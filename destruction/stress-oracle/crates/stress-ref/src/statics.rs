@@ -39,6 +39,9 @@ const DIRECT_AFTER: usize = 10;
 /// thousands of iterations there); the accepted state is decided by the residual test.
 const DIRECT_MAX_BAND: usize = 1200;
 const DIRECT_MAX_ENTRIES: usize = 8_000_000;
+/// Secant steps of a static solve before the `tangent_statics` re-solve takes over: the
+/// PCG's DIRECT_AFTER, then ten direct steps.
+const SECANT_STEPS: usize = DIRECT_AFTER + 10;
 /// Rows of a Cholesky column per parallel task (each an inner product of up to a band).
 const CHOLESKY_ROWS_PER_TASK: usize = 64;
 /// Halvings of a globalised (`tangent_statics`) Newton step before its direction is given
@@ -657,11 +660,14 @@ impl ReferenceSolver {
         }
         let scale = dot6(&f_ext, &f_ext).sqrt().max(1e-300);
         let start: Vec<(Vec3, Vec3)> = lay.chunks.iter().map(|&c| (self.chunks[s][c].u, self.chunks[s][c].th)).collect();
-        let mut report = self.newton(ci, &lay, &f_ext, free, scale, opts, false);
+        // `tangent_statics`: the secant iteration has SECANT_STEPS before the re-solve.
+        let cap = if self.config.methods.tangent_statics { opts.max_newton.min(SECANT_STEPS) } else { opts.max_newton };
+        let mut report = self.newton(ci, &lay, &f_ext, free, scale, opts, false, 0..cap);
         if !report.converged && self.config.methods.tangent_statics {
-            // `sim.methods.tangent_statics`: the secant iteration stopped short; solve
-            // again from the same start with tangent steps. A solve the secant
-            // converges is unchanged.
+            // `sim.methods.tangent_statics`: the secant iteration has not converged;
+            // solve again from the same start with tangent steps. A solve the secant
+            // converges within SECANT_STEPS is unchanged.
+            let secant: Vec<(Vec3, Vec3)> = lay.chunks.iter().map(|&c| (self.chunks[s][c].u, self.chunks[s][c].th)).collect();
             for (i, &c) in lay.chunks.iter().enumerate() {
                 (self.chunks[s][c].u, self.chunks[s][c].th) = start[i];
             }
@@ -671,13 +677,30 @@ impl ReferenceSolver {
             // after the rigid modes are projected out) relaxes its bonds, and that
             // equilibrium is reached when their forces have fallen by the tolerance.
             let r0 = self.static_residual(ci, &lay, &f_ext, free);
+            let report_scale = scale;
             let scale = scale.max(dot6(&r0, &r0).sqrt());
-            let second = self.newton(ci, &lay, &f_ext, free, scale, opts, true);
+            let second = self.newton(ci, &lay, &f_ext, free, scale, opts, true, 0..opts.max_newton);
+            let first = report;
             report = StaticReport {
-                newton_iterations: report.newton_iterations + second.newton_iterations,
-                cg_iterations: report.cg_iterations + second.cg_iterations,
+                newton_iterations: first.newton_iterations + second.newton_iterations,
+                cg_iterations: first.cg_iterations + second.cg_iterations,
                 ..second
             };
+            // Where the re-solve fails too, the secant iteration resumes where it
+            // stopped, its remaining steps exactly as without the re-solve: every solve
+            // it converges by the step limit still converges. (A non-finite residual
+            // never comes back.)
+            if !second.converged && first.residual.is_finite() && cap < opts.max_newton {
+                for (i, &c) in lay.chunks.iter().enumerate() {
+                    (self.chunks[s][c].u, self.chunks[s][c].th) = secant[i];
+                }
+                let third = self.newton(ci, &lay, &f_ext, free, report_scale, opts, false, cap..opts.max_newton);
+                report = StaticReport {
+                    newton_iterations: report.newton_iterations + third.newton_iterations - cap,
+                    cg_iterations: report.cg_iterations + third.cg_iterations,
+                    ..third
+                };
+            }
         }
         // Equilibrium: no deformation velocity; refresh the stored bond forces.
         for &c in &lay.chunks {
@@ -705,10 +728,10 @@ impl ReferenceSolver {
     /// The Newton iteration of `equilibrate` from the cluster's current displacements:
     /// secant steps, or with `tangent` globalised tangent (else secant) steps.
     #[allow(clippy::too_many_arguments)]
-    fn newton(&mut self, ci: usize, lay: &Layout, f_ext: &[V6], free: bool, scale: f64, opts: &StaticOptions, tangent: bool) -> StaticReport {
+    fn newton(&mut self, ci: usize, lay: &Layout, f_ext: &[V6], free: bool, scale: f64, opts: &StaticOptions, tangent: bool, steps: std::ops::Range<usize>) -> StaticReport {
         let s = self.clusters[ci].structure;
         let mut report = StaticReport::default();
-        for it in 0..opts.max_newton {
+        for it in steps {
             let r = self.static_residual(ci, lay, f_ext, free);
             let res = dot6(&r, &r).sqrt() / scale;
             report.residual = res;

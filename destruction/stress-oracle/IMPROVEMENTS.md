@@ -400,6 +400,33 @@ already changed above:
 The quasi_static A/B stays at 53/91 with no regression. b9's fragment speed moves from
 25.6 % to 18.7 % off OpenCourant, and its peak displacement from 11.2 % to 11.9 %.
 
+**Secant steps before the re-solve:** the secant iteration now gets 20 steps
+(`SECANT_STEPS`: the PCG's 10, then 10 direct) before the re-solve, not 60. Traced on b9
+quasi_static, the secant solves that converge almost all do so within 12 steps (1068 at
+0, 52 at 1-5, 50 at 10-12, then single solves at 19 and 52). The 580 that fail spend
+34,800 of the 39,336 Newton steps running out the 60.
+
+Where the re-solve fails too, the secant resumes at step 20, its remaining steps
+exactly as before (no history is committed in between). So every solve it converged
+still converges. The only difference: a solve the secant would converge after step 20
+takes the re-solve's equilibrium instead. Both pass the same residual test; the first
+such b9 solve gives the same displacement to 7 digits, with residual 5.6e-14 against
+9.0e-11.
+
+Gate against 7499bee20: only the three default quasi_static cells change.
+
+| Cell | CPU | Change |
+|---|---|---|
+| b9_panel_high | 48.2 -> 28.1 s | same broken bonds; unconverged frames 6 -> 15 |
+| s_arch_keystone_removed | 2.1 -> 1.15 s | broken bonds 6 -> 4 |
+| b7_masonry_v15 | 11.0 -> 9.6 s | broken bonds 190 -> 191 |
+
+The extra b9 unconverged frames come from the run's divergence after that first
+solve. They are 7- and 9-chunk free fragments under 1e-3 N loads, the open class below;
+the uncapped run's failures are the same class. Quasi_static A/B: 53/91 with the same
+nine flips and no regression; B wall 505 -> 394 s. Villa (3 quasi_static frames):
+1079 -> 706 s, observation identical.
+
 **Open (a model decision, not taken):** b5_wall_impact_v40 in quasi_static still fails
 115 of 308 solves, all on free fragments, in two kinds:
 - **At rest within round-off** (bond forces about 1e-15 N under a 1e-15 N load). They are
@@ -653,6 +680,30 @@ adopted. A direct sparse solve would only make these failing iterations cheaper,
 mode three tests use once each, at round-off cost to exactness. Not pursued. (Corrected: the
 globalised *tangent* Newton of `tangent_statics` finds equilibria for most of these
 solves; it was the secant direction that failed, not the existence of an equilibrium.)
+
+## Queue (from the real-time performance analysis, 2026-10-10)
+
+Each oracle-applicable idea, with its class. Exact ones go in directly. Step and model
+changes go behind `sim.methods` switches, off by default, each with measured fidelity:
+- the catalogue A/B against the goldens;
+- discrete outcomes (fails or not, where, when, how, pieces log-binned, debris speed);
+- momentum and energy ledgers;
+- runtime.
+
+| Idea | Class | Status |
+|---|---|---|
+| True stable step: power iteration on `M^-1 K` with the top mode's damping, the bound of the intact cluster (every fragment's is lower). 5-41x the Gershgorin step | Step change | to do (switch `true_step`) |
+| Gameplay-fidelity comparison: fails or not, where, when, how, pieces log-binned, debris speed +-30 %, momentum exact, energy never gained | Tooling | to do |
+| Multirate (subcycling) explicit: per-chunk steps in powers of two (2.5-3.5x on authored packs, none on uniform grids) | Integration change | to do (switch) |
+| Influence-line wake test for the adaptive mode: a load change accepted without a solve when `utilisation + influence x load < threshold - margin` | Skip decision | shadow mode first |
+| Hierarchy import (L0/L1/L2 with parent links) | Exact (L2 unchanged) | to do |
+| L0 members as statically condensed super-elements (exact for statics), exact recovery of each L2 bond | Exact for statics | to do, after the import |
+| Cold-bond fast path with closed-form fatigue | Approximation | exact variant rejected (slower); approximate one to do (switch) |
+| Reduction cadence for free islands (rigid acceleration, drift removal) | Approximation | to do (item 6) |
+| Regime map (contact time against wave transit and fundamental period) | Analysis | to do |
+
+GPU-only items are out of scope for the CPU oracle: shared-memory windows, cooperative
+launch, temporal blocking, Morton order, CUDA graphs.
 
 ## Open (from the audit and `CPU Oracle Improvements to Prove First`)
 
