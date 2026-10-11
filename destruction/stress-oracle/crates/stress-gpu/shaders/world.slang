@@ -504,6 +504,29 @@ bool may_overlap(Box a, Box b)
     return true;
 }
 
+// `may_overlap` on a pair's lanes: lane i tests axis i (the 15 axes over the first 15
+// lanes), and the boxes may overlap unless some lane separates them. The same verdict
+// on every lane.
+bool may_overlap_lanes(Box a, Box b, uint lane, uint lanes)
+{
+    bool separated = false;
+    for (uint i = lane; i < 15; i += lanes)
+    {
+        float3 d = b.center - a.center;
+        float margin = 1e-5 * (length(a.half) + length(b.half));
+        float3 axes[6] = { a.axis0, a.axis1, a.axis2, b.axis0, b.axis1, b.axis2 };
+        float3 l = i < 6 ? axes[i] : cross(axes[(i - 6) / 3], axes[3 + (i - 6) % 3]);
+        float len = length(l);
+        if (len <= 1e-6)
+            continue;
+        float ra = a.half.x * abs(dot(a.axis0, l)) + a.half.y * abs(dot(a.axis1, l)) + a.half.z * abs(dot(a.axis2, l));
+        float rb = b.half.x * abs(dot(b.axis0, l)) + b.half.y * abs(dot(b.axis1, l)) + b.half.z * abs(dot(b.axis2, l));
+        if (abs(dot(d, l)) > ra + rb + margin * len)
+            separated = true;
+    }
+    return !pair_any(separated, lanes);
+}
+
 // world.rs `half_thickness_and_area`.
 float2 half_thickness_and_area(Box b, float3 d)
 {
@@ -808,7 +831,7 @@ void pair_contact(uint i, uint lane, uint lanes)
     float stored_sum = 0.0;
     float diss_sum = 0.0;
     bool has_state = false;
-    if (may_overlap(ba, bb))
+    if (lanes > 1 ? may_overlap_lanes(ba, bb, lane, lanes) : may_overlap(ba, bb))
     {
         float3 va0, wa0, vb0, wb0;
         chunk_velocity(ca, va0, wa0);
