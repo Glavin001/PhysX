@@ -14,6 +14,7 @@
 //! The reference runs (the truth) are cached (`gate::cached`).
 //!
 //! `--gpu-only`: skip the stress-ref runs (timing only; accuracy is the tests' job).
+//! `STRESS_GPU_FRAME_TIMES=1`: print every frame's time (stderr).
 //! `--pace`: start each frame on its 1/60 s tick (a game loop: the GPU idles between
 //! frames); without it frames run back to back.
 
@@ -95,6 +96,9 @@ fn run(scene: &Scene, solver: &mut dyn StressSolverApi, setup: f64, frames: usiz
         let t = Instant::now();
         solver.step(&input);
         times.push(t.elapsed().as_secs_f64());
+        if std::env::var("STRESS_GPU_FRAME_TIMES").is_ok() {
+            eprintln!("frame {f}: {:.2} ms", times[f] * 1e3);
+        }
         if start.elapsed().as_secs_f64() > cap {
             break;
         }

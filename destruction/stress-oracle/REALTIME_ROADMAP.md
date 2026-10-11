@@ -227,6 +227,27 @@ The full entry is in `IMPROVEMENTS.md`.
 - Broken bonds move by under 4% except on b8_frame_sudden (23 → 11), a chaotic collapse whose reference ensemble already admits 17–29.
 - Adoption is a model change awaiting review.
 
+### A9. Null results: the mechanism, and when to revisit
+
+A change that shows no gain is not rejected until the reason is known. It may act on
+something that is not yet on the longest path, and becomes worth having once other
+costs fall. Each null or negative result here, from this branch or others:
+
+| Idea | Result | Mechanism (measured) | Revisit when |
+|---|---|---|---|
+| Partition / member condensation for the explicit step | step ×1.00 (packs, Shardwright members) | It eliminates 0 of the top-mode carriers (0/2 house-1story, 0/1 Shardwright): those slivers are always boundary chunks | **Already pays after sliver elimination:** house-1story 16 slivers ×4.51; + parts of 32–128 ×5.22; + parts of 256 ×7.65 (12% of DOFs kept). On the Shardwright building the gain stays at ×1.48: the next carriers (column pieces) are boundary too |
+| Member condensation for statics | Gravity PCG 1,816 → 1,491 iterations (Shardwright); 769 → 323 (house, parts of 256) | Keeps the boundary graph's diameter, which sets block-Jacobi PCG's count | When the quasi-static tier (T1) and influence bounds are on the path: condensed intact statics as a precomputed GEMV |
+| Eliminating one sliver | ×1.00 (house-1story, Shardwright ×1.01) | The top of the spectrum is a cluster: house-1story needs about 16 chunks treated for ×4.5. This reconciles `8c2851e` (mass scaling: "top mode spread") with A1 (one beam carries 100% of the top mode): the next modes are nearly equal | Any per-chunk lever (mass scaling, multirate, elimination) must treat the cluster, not the top chunk |
+| Per-island stepping | ×1.00 on single-island packs | One island, one step | It pays on multi-island scenes: neighbourhood ×1.37, skyline ×1.29, skyline-stable ×1.09; more in towns that mix assets (brick-building 179 against a house's 1,264 substeps) |
+| Damping off | ×1.02–1.09 | The top mode's own damping ratio is 0.02–0.09 | The *certified* step's damping (β_max · ω) costs ×3–6 on houses and ×1000+ on steel and stone packs (A1); a certified ρ(M⁻¹C) recovers it |
+| Rotational inertia ×4 | ×1.0–2.1 | Top modes are partly rotational on slivers | After sliver elimination, re-measure (the remaining top modes may be translational) |
+| Intact kernel, whole segment in one threadgroup | slower than a dispatch per substep above ~250 chunks (house-1story 12.4 against 9.4 µs) | One 256-thread group runs every bond: about 3.4 bonds per thread in series | A multi-group intact kernel, or CUDA cooperative launch (one SM per partition) |
+| Cold-bond exact variant on the CPU oracle (`perf/oracle-runtime`) | 11% slower | CPU: an extra branch on a bond evaluation that is already about 100 ns | GPU: the cost is latency and code size (A2), and the intact-only path gains ×2.5–6 (A6). Not rejected for the GPU |
+| Influence-line wake test (`perf/oracle-runtime`) | not pursued | No catalogue scene runs adaptive, so the oracle has no idle cost to save | GPU T0/T1 tiers (Phase 3) |
+| Reduction cadence for free islands (`perf/oracle-runtime`) | < 1.5% of the oracle's time | The oracle has no barriers | GPU: each reduction is a barrier (about 110–130 ns) per substep on Metal |
+| `frame_contact_step` (`perf/oracle-runtime`) | 7–20× *more* substeps | Its Gershgorin contact bound is looser than the global lattice bound | Not a lever: in the engine-coupled path the stress step has no contact term outside impact islands |
+| Coupled "true + sleep" in destruction | 36 ms median against 33 ms for "true"; sleeping saves nothing while loaded | Traced frame by frame: (1) the push changes the loads every frame, so the house stays active; the earlier 60-frame run's cheap half was the timer settle (`active_time` 0.5 s) firing at frame 30. (2) Adaptive mode dispatched `wide_wake` on every wide substep, but no wide island is ever settled (settled islands are built narrow; the micro tier lists `SETTLED_WIDE` as uncovered): an empty dispatch, about 3 µs per substep | **Fixed:** `wide_wake` only when a wide island is settled. 35.8 → 33.6 ms, bit-identical (quick gate 13/13; micro-tier GPU snapshots unchanged). The remaining +4% (0.9 µs per substep) is the per-chunk load recording that wake decisions need. A settling *certificate* (Phase 3) is what lets a loaded-but-safe building sleep before 0.5 s |
+
 ## B. Review of the two documents
 
 ### Compendium
@@ -308,6 +329,7 @@ What the measurements (A1–A8) change:
 | 8 | CUDA host at `PxgDestructionRuntime`; 4090 qualification | AGENTS.md idle plus peak complete-step rules |
 
 **Open bugs found here** (separate tasks):
+- micro tier: `coupled_impulse` and `coupled_sleeping` fail on the integration base itself (GPU 4 fractures against the reference's 1), before any change here;
 - the oracle's convex hull is not robust to f32-coplanar input (A7);
 - GPU `contact state` buffer overflow on collapse (A4);
 - the certified step's damping term (A1).

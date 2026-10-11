@@ -391,6 +391,10 @@ struct Buffers {
     /// Some wide island is free (not anchored): its rounds need the drift and rigid
     /// passes, which anchored islands skip.
     wide_free: bool,
+    /// Some wide island is settled (its loads checked by `wide_wake` every substep). The
+    /// build never makes a settled island wide, so this is false today and `wide_wake` is
+    /// not dispatched.
+    wide_settled: bool,
 }
 
 /// Where each GPU chunk and bond lives in the mirror, the probe items by slot, the
@@ -976,6 +980,7 @@ impl GpuSolver {
         let wide_bond_groups = (bond_table.len() / 4) as u32;
         let wide_chunk_groups = (chunk_table.len() / 4) as u32;
         let wide_free = islands.iter().any(|i| i.info[0] & ISLAND_WIDE != 0 && i.info[0] & ISLAND_ANCHORED == 0);
+        let wide_settled = islands.iter().any(|i| i.info[0] & ISLAND_WIDE != 0 && i.info[0] & ISLAND_SETTLED != 0);
         let wide_bond_table = index.len() as u32;
         index.extend(bond_table);
         let wide_chunk_table = index.len() as u32;
@@ -1121,6 +1126,7 @@ impl GpuSolver {
                 crush,
                 wide_chunk_groups,
                 wide_free,
+                wide_settled,
             },
         ))
     }
@@ -1257,7 +1263,8 @@ impl GpuSolver {
                     ops.push((K_ISLAND, islands_n, true));
                 }
                 if wide_groups > 0 {
-                    if p.solve_mode != 0 {
+                    // wide_wake returns at once unless its island is settled.
+                    if p.solve_mode != 0 && self.buffers.wide_settled {
                         ops.push((K_WAKE, wide_groups, true));
                     }
                     ops.push((K_WIDE[0], p.wide_bond_groups + wide_groups, true));

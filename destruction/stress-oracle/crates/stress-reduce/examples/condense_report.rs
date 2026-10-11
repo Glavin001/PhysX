@@ -46,7 +46,12 @@ fn main() {
         };
         let t = Instant::now();
         let net = Network::of_cluster(&m, ci, Vec3::from_array(scene.gravity));
-        let (lam_full, _) = top_eigen(&net.k, &net.m, iters);
+        let (lam_full, x_full) = top_eigen(&net.k, &net.m, iters);
+        // The chunks carrying the full model's top mode (kinetic share), largest first.
+        let mx_full = net.m.mul(&x_full);
+        let mut carriers: Vec<(usize, f64)> = (0..net.chunks.len()).map(|c| (c, net.dofs_of(c).map(|d| x_full[d] * mx_full[d]).sum::<f64>())).collect();
+        carriers.sort_by(|a, b| b.1.total_cmp(&a.1));
+        let carriers: Vec<usize> = carriers.iter().take_while(|e| e.1 > 0.01).map(|e| e.0).collect();
         let (_, full_cg) = pcg(&net.k, &net.gravity, 1e-10, 1_000_000);
         println!(
             "{name}: {} chunks, {} bonds, {} free dofs; full top {:.0} Hz, gravity PCG {full_cg} iterations [{:.1} s]",
@@ -56,8 +61,9 @@ fn main() {
             lam_full.sqrt() / std::f64::consts::TAU,
             t.elapsed().as_secs_f64()
         );
-        println!("  | parts of | dofs kept | components | storage MB (f32) | gravity PCG | step gain | build s |");
-        println!("  |---|---|---|---|---|---|---|");
+        println!("  top-mode carriers (>1% of its kinetic energy): {} chunks", carriers.len());
+        println!("  | parts of | dofs kept | components | storage MB (f32) | gravity PCG | step gain | carriers eliminated | build s |");
+        println!("  |---|---|---|---|---|---|---|---|");
         // Authored partitions where the asset has them (Shardwright `member:` = L0,
         // `l1:`; scene packs' pieces would be `piece:`), then coordinate bisection.
         let st0 = &m.structures[m.clusters[ci].structure];
@@ -78,20 +84,25 @@ fn main() {
                 partitions.push((target.to_string(), rcb(&net.centers, target)));
             }
         }
+        let mut interiors = Vec::new();
         for (label, part) in partitions {
             let t = Instant::now();
-            let red = Reduced::new(&net, &interior_of(&net, &part));
+            let interior = interior_of(&net, &part);
+            let red = Reduced::new(&net, &interior);
+            let hit = carriers.iter().filter(|&&c| interior[c]).count();
             let build = t.elapsed().as_secs_f64();
             let (_, cg) = pcg(&red.k, &red.load(&net.gravity), 1e-10, 1_000_000);
             let (lam, _) = top_eigen(&red.k, &red.m, iters);
             println!(
-                "  | {label} | {} ({:.0}%) | {} | {:.1} | {cg} | x{:.2} | {build:.1} |",
+                "  | {label} | {} ({:.0}%) | {} | {:.1} | {cg} | x{:.2} | {hit}/{} | {build:.1} |",
                 red.nr,
                 100.0 * red.nr as f64 / net.n as f64,
                 red.components.len(),
                 red.floats() as f64 * 4.0 / 1e6,
-                (lam_full / lam).sqrt()
+                (lam_full / lam).sqrt(),
+                carriers.len()
             );
+            interiors.push((label, interior));
         }
         // Slivers: greedy elimination of the top mode's carriers.
         let mut eliminate = vec![false; net.chunks.len()];
@@ -122,6 +133,16 @@ fn main() {
             }
         }
         println!("  slivers eliminated -> step gain  {}", line.join("   "));
+        // Partitions and slivers together: does condensing the interiors add to the
+        // slivers' gain (the eliminated set grows, the step can only improve)?
+        let mut combined = Vec::new();
+        for (label, interior) in &interiors {
+            let both: Vec<bool> = interior.iter().zip(&eliminate).map(|(a, b)| *a || *b).collect();
+            let red = Reduced::new(&net, &both);
+            let (lam, _) = top_eigen(&red.k, &red.m, iters);
+            combined.push(format!("{label}: x{:.2} ({:.0}% kept)", (lam_full / lam).sqrt(), 100.0 * red.nr as f64 / net.n as f64));
+        }
+        println!("  partition + the {} slivers -> {}", eliminate.iter().filter(|&&e| e).count(), combined.join("   "));
         println!("  first eliminated: {}", first.join("; "));
     }
 }
