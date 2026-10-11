@@ -352,6 +352,7 @@ Setup: CuMetal PhysX GPU, established methods, certified true step at safety 0.2
 | 21 | rigid-rotation contact plans; adaptive shorter plan horizons | discarded | Rotation: same substeps and batches (the wall impact is bound by the punched plug sweeping past 15–79 hole-edge chunks per horizon, not by budgets), while +32 B per chunk and the rotation in `travel_check` cost about 10%. Horizons: tiny segments, 14 s; needs a cost model |
 | 22 | contact-plan fields (64 B) out of `ChunkStatic` into the scratch | about −5% (A/B) | Same-session A/B under other jobs' GPU and CPU load: house worst 605/597 → 564/572 ms, wall impact 564/556 → 498/530 ms |
 | 23 | `ChunkStatic` read field by field instead of copied whole | discarded | No difference: the compiler already loads only the fields used. #22 gained from the smaller per-chunk footprint |
+| 24 | **benchmark: stress step safety 0.5, contact 0.25** (`sim.stress_courant_safety`, user-approved) | 443 (PEAK now the wall impact) | Study below; house worst about 448 → 298 ms |
 
 **The certification gap found at #7.**
 - Rows 1–6 bounded the contacts of a fresh one-frame plan whose travel budgets nothing enforced. The GPU ran its own four-frame plan, with larger budgets and more pairs.
@@ -366,7 +367,31 @@ Setup: CuMetal PhysX GPU, established methods, certified true step at safety 0.2
    - `step_times` kept the times of a state's earlier run. A state restored and run at another step size had stale times: `mirror.time`, probes, and the new plan clock (it looped forever).
    - After a host split, the plan horizon took the substeps left of clusters already split away (2.8× too long).
 
-**Where the peak is now, after #22 (PEAK about 448 ms uncontended).**
+**Stress-step safety study (#24).** stress-ref gained `sim.stress_courant_safety` (optional and never serialized, so existing scenes and caches are unchanged): the bond network's fraction of its certified critical step, while contacts keep `courant_safety`. Refinement and spread runs halve both (`SimDesc::scale_safety`).
+
+The reference coupled to PhysX CPU (test `stress_safety_convergence`), house ram after 0.25 s:
+
+| Stress safety | Ram speed | Fragments | Broken bonds | Note |
+|---|---|---|---|---|
+| 0.125 | 2.63 m/s | 37 | 195 | stress step binds |
+| 0.25 / 0.5 / 0.9 | 3.04 m/s | 34 | 196 | contact-bound: identical |
+| 0.25, ram +1e-4 | 3.02 m/s | 34 | 197 | |
+
+The wall ram is identical at every safety (contact-bound).
+
+The GPU world (test `gpu_stress_safety_convergence`), house ram:
+
+| Stress safety | Ram speed | Fragments | Broken bonds |
+|---|---|---|---|
+| 0.125 | 3.06 m/s | 34 | 189 |
+| 0.25 | 2.99 m/s | 32 | 185 |
+| 0.5 | 3.04 m/s | 35 | 196 |
+| 0.5, ram +1e-4 | 3.05 m/s | 36 | 195 |
+| 0.9 | 2.62 m/s | 36 | 200 |
+
+From 0.125 to 0.5 the GPU outcomes lie within the reference's own step spread, and 0.5 is closest to the reference. 0.9 lands on the 2.6 m/s branch. The benchmark now runs stress 0.5 and contact 0.25, and the guard's references and spreads were rebuilt for it.
+
+**Where the peak was, after #22 (PEAK about 448 ms uncontended).**
 - **House ram, fracture frame (about 444 ms).** About 83% GPU: 4,420 substeps at about 83 µs over 4 dispatches.
 - **Wall ram, impact frame (about 444 ms).** About 5,800 substeps. Contact-bound while the punched plug sweeps the hole edge.
 - **Debris frames (about 330 ms).** The collapse is genuinely in motion.
