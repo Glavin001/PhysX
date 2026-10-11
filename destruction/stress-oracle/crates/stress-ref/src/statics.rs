@@ -47,6 +47,8 @@ const SECANT_STEPS: usize = DIRECT_AFTER + 10;
 /// Newton converges linearly (b5 quasi_static fragments: about x0.7 per step), so it
 /// gets room the secant's limit does not give; where no descent remains it stops at once.
 const RESOLVE_STEPS_FACTOR: usize = 3;
+/// Largest cluster (chunks) whose re-solve takes the full tangent by a dense LU.
+const DENSE_MAX_CHUNKS: usize = 64;
 /// Rows of a Cholesky column per parallel task (each an inner product of up to a band).
 const CHOLESKY_ROWS_PER_TASK: usize = 64;
 /// Halvings of a globalised (`tangent_statics`) Newton step before its direction is given
@@ -782,8 +784,16 @@ impl ReferenceSolver {
             let saved: Vec<(Vec3, Vec3)> = lay.chunks.iter().map(|&c| (self.chunks[s][c].u, self.chunks[s][c].th)).collect();
             let mut accepted = false;
             'directions: for use_tangent in [true, false] {
-                let k = self.newton_stiffness(ci, use_tangent);
-                let dx = self.newton_step(ci, lay, &k, &r, it, free, opts, &mut report);
+                // A small cluster's tangent step is the consistent one: the full
+                // (non-symmetric) tangent by a dense LU.
+                let dense = if use_tangent { self.dense_tangent_solve(ci, lay, free, &r) } else { None };
+                let dx = match dense {
+                    Some(dx) => dx,
+                    None => {
+                        let k = self.newton_stiffness(ci, use_tangent);
+                        self.newton_step(ci, lay, &k, &r, it, free, opts, &mut report)
+                    }
+                };
                 let mut alpha = 1.0;
                 for _ in 0..LINE_SEARCH_HALVINGS {
                     for (i, &c) in lay.chunks.iter().enumerate() {
@@ -905,6 +915,122 @@ impl ReferenceSolver {
             }
         }
         floor
+    }
+
+    /// `K dx = r` for a cluster of at most DENSE_MAX_CHUNKS chunks with every joint's full
+    /// tangent (`JointModel::tangent_full`, the sliding friction's dependence on the
+    /// normal force included, so not symmetric), by LU with partial pivoting. Held DOFs
+    /// are identity rows and columns (as the banded solve). A free cluster's rigid modes
+    /// are fixed by the constraints `project_displacement` imposes (no net momentum-like
+    /// sums), `[K G^T; G 0]`: `G dx = 0`, and `G^T` spans the rigid load fields
+    /// `project_load` removes. None for a larger cluster or a singular system.
+    fn dense_tangent_solve(&self, ci: usize, lay: &Layout, free: bool, r: &[V6]) -> Option<Vec<V6>> {
+        let cl = &self.clusters[ci];
+        let s = cl.structure;
+        let m = lay.chunks.len();
+        if m > DENSE_MAX_CHUNKS {
+            return None;
+        }
+        let nk = 6 * m;
+        let n = if free { nk + 6 } else { nk };
+        let mut a = vec![0.0f64; n * n];
+        for &bi in &cl.bonds {
+            let b = &self.bonds[s][bi];
+            let g = &b.geometry;
+            let (sa, sb) = (&self.chunks[s][g.a], &self.chunks[s][g.b]);
+            let d = g.kinematics(sa.u, sa.th, sb.u, sb.th);
+            let t = b.model().tangent_full(&b.joint, &d);
+            let axes = [g.t1, g.t2, g.normal];
+            let rows: [[f64; 12]; 6] = std::array::from_fn(|comp| {
+                let ax = axes[comp % 3];
+                let (ra, rb) = if comp < 3 { (join(-ax, -(g.ra.cross(ax))), join(ax, g.rb.cross(ax))) } else { (join(Vec3::ZERO, -ax), join(Vec3::ZERO, ax)) };
+                std::array::from_fn(|x| if x < 6 { ra[x] } else { rb[x - 6] })
+            });
+            // B^T T B on the pair's 12 DOFs.
+            let tb: [[f64; 12]; 6] = std::array::from_fn(|p| std::array::from_fn(|y| (0..6).map(|q| t.0[p][q] * rows[q][y]).sum()));
+            let base = [6 * lay.local[g.a], 6 * lay.local[g.b]];
+            for x in 0..12 {
+                for y in 0..12 {
+                    let v: f64 = (0..6).map(|p| rows[p][x] * tb[p][y]).sum();
+                    a[(base[x / 6] + x % 6) * n + base[y / 6] + y % 6] += v;
+                }
+            }
+        }
+        for (i, f) in lay.fixed.iter().enumerate() {
+            for d in 0..6 {
+                if f[d] {
+                    let gi = 6 * i + d;
+                    for j in 0..n {
+                        a[gi * n + j] = 0.0;
+                        a[j * n + gi] = 0.0;
+                    }
+                    a[gi * n + gi] = 1.0;
+                }
+            }
+        }
+        if free {
+            // G: the net linear and angular momentum-like sums of a displacement field.
+            let st = &self.structures[s];
+            for (i, &c) in lay.chunks.iter().enumerate() {
+                let ch = &st.chunks[c];
+                let rr = ch.center - cl.com;
+                for k in 0..3 {
+                    let e = Vec3::from_array(std::array::from_fn(|q| if q == k { 1.0 } else { 0.0 }));
+                    // Linear: sum m u_k.
+                    a[(nk + k) * n + 6 * i + k] = ch.mass;
+                    a[(6 * i + k) * n + nk + k] = ch.mass;
+                    // Angular: sum m (r x u)_k + (I th)_k.
+                    for q in 0..3 {
+                        let eq = Vec3::from_array(std::array::from_fn(|w| if w == q { 1.0 } else { 0.0 }));
+                        let lin = ch.mass * rr.cross(eq).dot(e);
+                        let ang = e.dot(ch.inertia * eq);
+                        a[(nk + 3 + k) * n + 6 * i + q] = lin;
+                        a[(nk + 3 + k) * n + 6 * i + 3 + q] = ang;
+                        a[(6 * i + q) * n + nk + 3 + k] = lin;
+                        a[(6 * i + 3 + q) * n + nk + 3 + k] = ang;
+                    }
+                }
+            }
+        }
+        let mut rhs = vec![0.0f64; n];
+        for (i, v) in r.iter().enumerate() {
+            rhs[6 * i..6 * i + 6].copy_from_slice(v);
+        }
+        // LU with partial pivoting.
+        let scale = a.iter().fold(0.0f64, |m, v| m.max(v.abs()));
+        let mut perm: Vec<usize> = (0..n).collect();
+        for col in 0..n {
+            let piv = (col..n).max_by(|&x, &y| a[perm[x] * n + col].abs().total_cmp(&a[perm[y] * n + col].abs()))?;
+            if !(a[perm[piv] * n + col].abs() > 1e-14 * scale) {
+                return None;
+            }
+            perm.swap(col, piv);
+            let pr = perm[col];
+            for row in col + 1..n {
+                let rr = perm[row];
+                let f = a[rr * n + col] / a[pr * n + col];
+                if f != 0.0 {
+                    a[rr * n + col] = f;
+                    for j in col + 1..n {
+                        a[rr * n + j] -= f * a[pr * n + j];
+                    }
+                }
+            }
+        }
+        let mut y = vec![0.0f64; n];
+        for i in 0..n {
+            let pi = perm[i];
+            y[i] = rhs[pi] - (0..i).map(|j| a[pi * n + j] * y[j]).sum::<f64>();
+        }
+        let mut x = vec![0.0f64; n];
+        for i in (0..n).rev() {
+            let pi = perm[i];
+            x[i] = (y[i] - (i + 1..n).map(|j| a[pi * n + j] * x[j]).sum::<f64>()) / a[pi * n + i];
+        }
+        if !x.iter().all(|v| v.is_finite()) {
+            return None;
+        }
+        Some((0..m).map(|i| std::array::from_fn(|d| x[6 * i + d])).collect())
     }
 
     /// Out-of-balance loads of a cluster at its current displacements (external plus bond

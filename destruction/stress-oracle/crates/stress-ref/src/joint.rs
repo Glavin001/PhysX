@@ -838,6 +838,68 @@ impl<'a> JointModel<'a> {
         m.add_diag(&floor)
     }
 
+    /// [`tangent`](Self::tangent) with the sliding friction's dependence on the normal
+    /// force: a sliding patch carries `mu nc` in the slip direction and `mu nc r_f` in
+    /// torsion, `nc` the patch's normal compression, so those rows take `mu` times
+    /// `nc`'s derivative in the normal and rocking displacements (the compressed springs',
+    /// or the exact patch's compressed region). Not symmetric: for a direct solve.
+    pub fn tangent_full(&self, state: &JointState, d: &Local6) -> Mat6 {
+        let mut m = self.tangent(state, d);
+        let s = self.strength;
+        let dmg = state.damage;
+        if !(dmg > 0.0 && s.crack_contact) {
+            return m;
+        }
+        let k = self.stiffness;
+        let g = self.geometry;
+        let kn = k.kn * (1.0 - state.crush);
+        // nc and its derivative in (lin.z, ang.x, ang.y).
+        let (nc, dnc) = if s.exact_patch {
+            let [a, c1, c2, ..] = compressed_region(g.width, d.lin.z, d.ang.x, d.ang.y);
+            let kp = kn / (g.width[0] * g.width[1]);
+            (-no_tension_patch(kn, g.width, d.lin.z, d.ang.x, d.ang.y).0, [-kp * a, -kp * a * c2, kp * a * c1])
+        } else {
+            let n = CONTACT_SPRINGS;
+            let ki = kn / (n * n) as f64;
+            let (o1, o2) = (spring_offsets(g.width[0]), spring_offsets(g.width[1]));
+            let (mut nc, mut dnc) = (0.0, [0.0f64; 3]);
+            for &s1 in &o1 {
+                for &s2 in &o2 {
+                    let di = d.lin.z + d.ang.x * s2 - d.ang.y * s1;
+                    if di < 0.0 {
+                        nc -= ki * di;
+                        dnc[0] -= ki;
+                        dnc[1] -= ki * s2;
+                        dnc[2] += ki * s1;
+                    }
+                }
+            }
+            (nc, dnc)
+        };
+        if !(nc > 0.0) {
+            return m;
+        }
+        let p: Local6 = state.plastic.into();
+        let trial = Vec3::new(k.ks * (d.lin.x - p.lin.x), k.ks * (d.lin.y - p.lin.y), 0.0);
+        let cap = s.friction * nc;
+        let tn = trial.norm();
+        if tn > cap && tn > 0.0 {
+            let dirs = [trial.x / tn, trial.y / tn];
+            for i in 0..2 {
+                for j in 0..3 {
+                    m.0[i][2 + j] += dmg * dirs[i] * s.friction * dnc[j];
+                }
+            }
+        }
+        let twist = k.kt * (d.ang.z - p.ang.z);
+        if twist.abs() > cap * g.friction_radius {
+            for j in 0..3 {
+                m.0[5][2 + j] += dmg * twist.signum() * s.friction * g.friction_radius * dnc[j];
+            }
+        }
+        m
+    }
+
     /// Secant stiffness (diagonal): an upper bound of [`tangent`](Self::tangent) for
     /// the contact patch, so a correction with it always descends.
     pub fn secant(&self, state: &JointState, d: &Local6) -> Mat6 {
@@ -971,6 +1033,62 @@ mod tests {
                 }
             }
         }
+    }
+
+    /// `tangent_full` of a cracked joint whose patch is fully compressed and which slides
+    /// in shear and torsion: in the normal and rocking displacements the force is linear
+    /// there (the springs' compression, the sliding force `mu nc`), so central
+    /// differences of `evaluate` match those columns of the tangent (less its positivity
+    /// floor) to their round-off, `4 eps S / 2h` with `S` the forces' magnitudes times
+    /// (1 + the patch width) (the moments' lever arms). The symmetric
+    /// `tangent` misses the sliding rows' dependence on the normal force.
+    #[test]
+    fn full_tangent_is_the_derivative_of_a_sliding_cracked_joint() {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../../blast/blast-stress-demo-rs/assets/scenes");
+        let path = dir.join("rig-portal.json");
+        if !path.exists() {
+            eprintln!("{} not found; skipping", path.display());
+            return;
+        }
+        let scene = crate::scene_pack::import(&path, "rig-portal", "structure").unwrap();
+        let world = crate::world::World::new(&scene);
+        let b = world.solver.bonds.iter().flatten().find(|b| b.model().strength.crack_contact).expect("a joint with a contact patch");
+        let m = b.model();
+        let k = m.stiffness;
+        let w = m.geometry.width;
+        let st = JointState { damage: 0.8, ..JointState::default() };
+        // Compressed everywhere (|rocking x half width| well below the closure), sliding
+        // in shear and in torsion.
+        let dz: f64 = -1e-4;
+        let (ax, ay) = (0.1 * dz.abs() / w[1], -0.1 * dz.abs() / w[0]);
+        let nc = k.kn * dz.abs();
+        let slip = 10.0 * m.strength.friction * nc / k.ks;
+        let twist = 10.0 * m.strength.friction * nc * m.geometry.friction_radius / k.kt;
+        let d = [0.6 * slip, -0.8 * slip, dz, ax, ay, twist];
+        let local = |v: [f64; 6]| Local6 { lin: Vec3::new(v[0], v[1], v[2]), ang: Vec3::new(v[3], v[4], v[5]) };
+        let arr = |l: &Local6| [l.lin.x, l.lin.y, l.lin.z, l.ang.x, l.ang.y, l.ang.z];
+        let full = m.tangent_full(&st, &local(d));
+        let plain = m.tangent(&st, &local(d));
+        let floor = [k.ks, k.ks, k.kn, k.kb_t1, k.kb_t2, k.kt].map(|v| 1e-6 * v);
+        let mut plain_misses = false;
+        for j in 2..5 {
+            let h = 1e-3 * d[j].abs();
+            let (mut dp, mut dm) = (d, d);
+            dp[j] += h;
+            dm[j] -= h;
+            let (fp, fm) = (arr(&m.evaluate(&st, &local(dp), 0.0, false).force), arr(&m.evaluate(&st, &local(dm), 0.0, false).force));
+            for i in 0..6 {
+                let fd = (fp[i] - fm[i]) / (2.0 * h);
+                // The moments sum spring forces times lever arms that cancel: their
+                // rounding scales with the forces times the patch width.
+                let terms = (0..6).map(|q| fp[q].abs() + fm[q].abs()).sum::<f64>() * (1.0 + w[0].max(w[1]));
+                let bound = 4.0 * f64::EPSILON * terms / (2.0 * h);
+                let fl = if i == j { floor[i] } else { 0.0 };
+                assert!((fd - (full.0[i][j] - fl)).abs() <= bound, "d f{i} / d d{j}: difference {fd:.6e}, full tangent {:.6e} (bound {bound:.3e})", full.0[i][j] - fl);
+                plain_misses |= (fd - (plain.0[i][j] - fl)).abs() > bound;
+            }
+        }
+        assert!(plain_misses, "the symmetric tangent should miss the sliding rows' normal dependence");
     }
 
     #[test]

@@ -472,9 +472,27 @@ tested and ruled out on b5_v40 quasi_static:
   Newton iterations.
 - **The tangent's positivity floor.** At 1e-9, 1e-4 and 1e-3 x k (against 1e-6),
   96.1 %, 94.2 % and 93.5 % converged (against 93.9 %), with no trend.
-The remaining suspect is the friction cap's dependence on the normal force
-(non-symmetric, so neither the PCG nor the banded Cholesky can take it; a dense LU
-would, for these small free fragments). Open.
+**The friction cap's dependence on the normal force (fixed).** A sliding patch carries
+`mu nc` in shear and `mu nc r_f` in torsion, so those rows depend on the normal and
+rocking displacements through `nc`. `JointModel::tangent_full` adds that coupling
+(`nc`'s derivative from the compressed springs, or the exact patch's region). It is not
+symmetric, so the re-solve's tangent step for a cluster of at most 64 chunks is now a
+dense LU of the full tangent, with a free cluster's rigid modes fixed by the
+constraints `project_displacement` imposes (`[K G^T; G 0]`).
+
+Test `full_tangent_is_the_derivative_of_a_sliding_cracked_joint`: central differences
+in the linear columns match within round-off, and the symmetric tangent fails them.
+
+Effect:
+- b9 quasi_static: every solve converges (2763/2763, against 1765/1774).
+- b5_v40: 375/396 (against 372/396).
+- Gate against 995bd44a9: the three default quasi_static cells. b9's unconverged frames
+  go 8 -> 0, b7's 3 -> 2, and the arch's collapse diverges (broken bonds 4 -> 8).
+- Quasi_static A/B: 53/91, no regression (b9 fragment speed 18.6 % off, peak
+  displacement 11.6 %).
+- Suite 125/125.
+
+The b5 fragments still failing (5 %) are not this.
 
 **Rejected (exact, measured):** computing a cracked joint's spring patch once per
 `evaluate`. It is the second hottest function in a sampled b5_v10 run, and the frozen
