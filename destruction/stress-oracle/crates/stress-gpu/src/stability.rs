@@ -31,6 +31,13 @@ fn stiffness6(b: &stress_ref::solver::RtBond) -> Local6 {
 /// Power iteration on M^-1 K of cluster `ci` (`iters` steps; the estimate converges
 /// from below, so callers add a margin).
 pub fn top_mode(m: &ReferenceSolver, ci: usize, iters: usize) -> Option<TopMode> {
+    top_mode_detail(m, ci, iters, 1.0).map(|(mode, _)| mode)
+}
+
+/// `top_mode` with every chunk's rotational inertia multiplied by `rot_scale` (1 is
+/// `top_mode` exactly: the factor multiplies by one), also returning the mode shape
+/// (per chunk: translation, rotation; mass-normalised; zero outside the cluster).
+pub fn top_mode_detail(m: &ReferenceSolver, ci: usize, iters: usize, rot_scale: f64) -> Option<(TopMode, Vec<(Vec3, Vec3)>)> {
     let cl = &m.clusters[ci];
     if cl.bonds.is_empty() {
         return None;
@@ -72,11 +79,11 @@ pub fn top_mode(m: &ReferenceSolver, ci: usize, iters: usize) -> Option<TopMode>
             let ch = &st.chunks[c];
             // M^-1 K x.
             let v = y[c].0 * (1.0 / (ch.mass * i_scale(c)));
-            let w = (ch.inv_inertia * y[c].1) * (1.0 / i_scale(c));
+            let w = (ch.inv_inertia * y[c].1) * (1.0 / (i_scale(c) * rot_scale));
             next[c] = (v, w);
             // Rayleigh quotient x^T K x / x^T M x.
             num += x[c].0.dot(y[c].0) + x[c].1.dot(y[c].1);
-            den += x[c].0.norm2() * ch.mass * i_scale(c) + x[c].1.dot(ch.inertia * x[c].1) * i_scale(c);
+            den += x[c].0.norm2() * ch.mass * i_scale(c) + x[c].1.dot(ch.inertia * x[c].1) * (i_scale(c) * rot_scale);
         }
         lambda = if den > 0.0 { num / den } else { 0.0 };
         // Normalise in the mass norm.
@@ -85,7 +92,7 @@ pub fn top_mode(m: &ReferenceSolver, ci: usize, iters: usize) -> Option<TopMode>
             .iter()
             .map(|&c| {
                 let ch = &st.chunks[c];
-                next[c].0.norm2() * ch.mass * i_scale(c) + next[c].1.dot(ch.inertia * next[c].1) * i_scale(c)
+                next[c].0.norm2() * ch.mass * i_scale(c) + next[c].1.dot(ch.inertia * next[c].1) * (i_scale(c) * rot_scale)
             })
             .sum::<f64>()
             .sqrt();
@@ -111,7 +118,7 @@ pub fn top_mode(m: &ReferenceSolver, ci: usize, iters: usize) -> Option<TopMode>
         den += e;
     }
     let zeta = if den > 0.0 { 0.5 * omega * num / den } else { 0.0 };
-    Some(TopMode { omega, zeta })
+    Some((TopMode { omega, zeta }, x))
 }
 
 /// The damped central-difference step for a mode, with safety `s`.

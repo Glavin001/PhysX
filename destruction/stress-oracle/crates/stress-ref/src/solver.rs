@@ -860,7 +860,7 @@ impl ReferenceSolver {
     /// largest dashpot-to-stiffness ratio of any bond component, so the step
     /// `(2 / w) (sqrt(1 + z^2) - z)` with `z = beta w / 2` is a lower bound of every
     /// mode's.
-    fn structure_true_step(&self, s: usize) -> f64 {
+    pub fn structure_true_step(&self, s: usize) -> f64 {
         let Some((w2, _)) = self.structure_frequency_bound(s) else { return f64::INFINITY };
         let beta = (0..self.bonds[s].len())
             .filter(|&b| self.bonds[s][b].alive)
@@ -886,7 +886,7 @@ impl ReferenceSolver {
     /// `|A|` is `A` up to the signs of a diagonal similarity and the bound is the
     /// eigenvalue itself. Supports are treated as free (holding a degree of freedom only
     /// lowers the spectrum). None without stiffness.
-    fn structure_frequency_bound(&self, s: usize) -> Option<(f64, f64)> {
+    pub fn structure_frequency_bound(&self, s: usize) -> Option<(f64, f64)> {
         const ITERATIONS: usize = 2000;
         const CONVERGED: f64 = 1e-4;
         type Block = [[f64; 6]; 6];
