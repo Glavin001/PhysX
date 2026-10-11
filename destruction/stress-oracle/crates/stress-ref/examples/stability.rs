@@ -47,11 +47,14 @@ fn growth(scene: &Scene) -> (f64, u64) {
             cs.th += Vec3::new(rnd(), rnd(), rnd()) * 1e-6;
         }
     }
-    // The bonds' stored energy is what their last evaluation found: the reference is the
-    // deformation energy after the first frame has seen the perturbation.
-    let start = w.solver.substeps;
-    w.step_frame();
+    // The bonds' stored energy is what their last evaluation found: evaluated at the
+    // perturbed state, it is the reference before any step. (Taken after the first
+    // frame, a run that blew up within that frame read as stable.)
+    for ci in 0..w.solver.clusters.len() {
+        w.solver.refresh_bond_forces(ci);
+    }
     let e0 = (w.solver.elastic_energy() + w.solver.kinetic_energy()).max(1e-300);
+    let start = w.solver.substeps;
     let mut worst: f64 = 1.0;
     while w.solver.substeps - start < SUBSTEPS {
         w.step_frame();

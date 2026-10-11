@@ -484,6 +484,16 @@ pub struct Methods {
     /// with the step. Contact usually binds the step, so the gain is about 9 % of CPU over
     /// the catalogue (`scripts/fidelity.py`: 34/35 scenes pass every gameplay metric).
     pub true_step: bool,
+    /// With `layer_contact`: the global contact substep from the densest contact network,
+    /// a chunk pressed on all six faces by equal neighbours moving against it. Along each
+    /// box axis `d` its two faces' normal layers and its four other faces' tangential
+    /// layers act, `w^2 = 1.02 max_d (4 k_d + 4 sum_(e != d) k_t,e) / m`. The 2 % is the
+    /// rotation coupling, from Bloch waves on a cube lattice (at most 1.25 %, at nu = 0).
+    /// Off: `6 k / m`, which leaves out the tangential layers. The cube lattice's top
+    /// eigenvalue is 7.48 k/m at nu = 0.15 (brick, mortar): on fully broken masonry that
+    /// step holds at safety 0.9 but blows up at 0.95 (`examples/contact_lattice`, 12^3),
+    /// a margin under 5 % where 0.9 means 10 %. On: stable at 1.0, CPU +1 %.
+    pub lattice_contact_step: bool,
 }
 
 impl Default for Methods {
@@ -527,6 +537,7 @@ impl Methods {
             contact_crushing: false,
             tangent_statics: false,
             true_step: false,
+            lattice_contact_step: false,
         }
     }
 
@@ -550,7 +561,7 @@ impl Methods {
     }
 
     /// Names of every switch, in declaration order.
-    pub const NAMES: [&'static str; 10] = ["layer_contact", "scaled_step_bound", "exact_joint_patch", "patch_after_damage", "exact_rate_filter", "frame_contact_step", "exact_frame_transfer", "contact_crushing", "tangent_statics", "true_step"];
+    pub const NAMES: [&'static str; 11] = ["layer_contact", "scaled_step_bound", "exact_joint_patch", "patch_after_damage", "exact_rate_filter", "frame_contact_step", "exact_frame_transfer", "contact_crushing", "tangent_statics", "true_step", "lattice_contact_step"];
 
     /// Set a switch by name.
     pub fn set(&mut self, name: &str, on: bool) -> Result<(), String> {
@@ -565,6 +576,7 @@ impl Methods {
             "contact_crushing" => &mut self.contact_crushing,
             "tangent_statics" => &mut self.tangent_statics,
             "true_step" => &mut self.true_step,
+            "lattice_contact_step" => &mut self.lattice_contact_step,
             _ => return Err(format!("unknown method '{name}' (known: {})", Self::NAMES.join(", "))),
         };
         *slot = on;

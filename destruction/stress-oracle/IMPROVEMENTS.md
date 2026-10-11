@@ -724,7 +724,7 @@ changes go behind `sim.methods` switches, off by default, each with measured fid
 |---|---|---|
 | True stable step: a certified bound on the highest frequency of the intact network (every fragment's is lower) | Step change | switch `true_step` (off); see below |
 | Gameplay-fidelity comparison: fails or not, where, when, pieces log-binned, debris speed +-30 % | Tooling | `scripts/fidelity.py` |
-| True combined step: bonds plus the contacts that can engage, warm-started each frame (contact sets the step in every catalogue scene) | Step change | research. A certified contact block needs a bound over unknown contact points (lever arm up to the radius) and over pairs engaging within the frame. The default global bound (`6 k / m`, every chunk on six faces) ignores rotation, so it is not certified either, and a certified bound may come out *below* it. `frame_contact_step`'s Gershgorin sum is 7-20x below it |
+| True combined step: bonds plus the contacts that can engage, warm-started each frame (contact sets the step in every catalogue scene) | Step change | `lattice_contact_step` covers the densest network (below). Beyond that, research. A certified contact block needs a bound over unknown contact points (lever arm up to the radius) and over pairs engaging within the frame. The default global bound (`6 k / m`, every chunk on six faces) ignores rotation, so it is not certified either, and a certified bound may come out *below* it. `frame_contact_step`'s Gershgorin sum is 7-20x below it |
 | Multirate (subcycling) explicit: per-chunk steps in powers of two (2.5-3.5x on authored packs, none on uniform grids) | Integration change | to do (switch) |
 | Influence-line wake test for the adaptive mode: a load change accepted without a solve when `utilisation + influence x load < threshold - margin` | Skip decision | no catalogue scene runs adaptive (only the gate's forced cells), so the oracle has no idle cost to save; a GPU concern |
 | Hierarchy import (L0/L1/L2 with parent links) | Exact (L2 unchanged) | the packs carry one level: `nodePieces` (authored parts; villa 243 over 1045 chunks, house-2story 135 over 599), and `nodeGroups` is trivial. No L1 level |
@@ -772,6 +772,51 @@ an estimate, not a certificate.
 
 **Status:** off by default. It is a step change for 9 %; the larger lever is the
 contact bound (queued).
+
+### Contact step on the densest network: `lattice_contact_step` (switch, off)
+
+**The global contact bound leaves out the tangential layers.** The default bound is
+`w^2 = 6 k / m` per chunk ("buried in rubble on six faces", normal stiffness only). In
+the densest network, a lattice of equal cubes in face contact, each cube in the
+alternating mode feels, along an axis:
+- its two faces' normal layers (`4 k`);
+- its four other faces' tangential layers (`8 k_t`, with `k_t / k = G / E' = (1 - nu) / 2`).
+
+**Bloch waves.** Using the code's own layer moduli at the face centres (normal,
+tangential, rocking `k'' I_A`, torsion `k_t'' J`), the top eigenvalue is
+7.48 k/m at nu = 0.15 (brick, mortar), 7.27 at 0.2 (concrete), 6.85 at 0.3 (steel),
+8.10 at 0. Safety 0.9 absorbs up to 7.41 k/m.
+
+**Measured** (`examples/contact_lattice`: unbonded cubes pressed together with the
+outer shell held, no damping, random velocities):
+
+| Lattice | Predicted critical safety | Observed |
+|---|---|---|
+| 6^3 brick | 0.904 | stable at 0.9, blows up at 1.0 |
+| 12^3 brick | 0.898 | stable at 0.9 for 40,000 substeps, blows up at 0.95 |
+
+So the default holds at 0.9 (the friction caps and finite size give a little), but
+its margin on fully broken masonry is under about 5 %, not the 10 % that safety 0.9 is
+meant to give.
+
+**Switch.** `w^2 = 1.02 max_d (4 k_d + 4 sum_(e != d) k_t,e) / m`, each chunk's own faces
+along each axis. The 2 % is the rotation coupling (Bloch: at most 1.25 %, at nu = 0).
+Measured:
+- 6^3 brick and concrete: stable at 1.0, blows up at 1.1 (the bound is tight);
+- switch off: 182/182 against 96ef867e6;
+- switch on: fidelity 34/35 (b8_frame_sudden's collapse differs: 8 -> 22 fragments),
+  catalogue CPU +1 %, A/B 87/91 both ways.
+
+**Status:** off by default, pending a decision. It costs about 1 % and restores the
+stability margin for rubble; it changes outcomes as any step change does.
+
+**Stability harness fixed.** `examples/stability` took its reference energy after the
+first frame, so a run that blew up within that frame read as stable. It now evaluates
+the bonds' stored energy at the perturbed state before any step. Re-run:
+- the default bounds hold at 0.9-2.0 on almost every scene (contact binds the step);
+- `frame_contact_step` holds at 0.9;
+- the certified `true_step` holds at 0.9 and blows up at 1.0-1.1 on many scenes, as a
+  tight bound should.
 
 GPU-only items are out of scope for the CPU oracle: shared-memory windows, cooperative
 launch, temporal blocking, Morton order, CUDA graphs.

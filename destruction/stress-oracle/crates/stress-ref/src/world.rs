@@ -258,6 +258,20 @@ fn contact_stiffness(a: &Material, box_a: &OBox, b: &Material, box_b: &OBox, dir
     aa.min(ab) / (ha / e(a) + hb / e(b))
 }
 
+/// `contact_stiffness` of the tangential layer (shear moduli, as `layer_moduli`).
+fn contact_shear_stiffness(a: &Material, box_a: &OBox, b: &Material, box_b: &OBox, dir: Vec3, scale: f64) -> f64 {
+    let g = |m: &Material| m.shear_modulus() * scale;
+    let d = dir.normalized();
+    let (ha, aa) = half_thickness_and_area(box_a, d);
+    let (hb, ab) = half_thickness_and_area(box_b, d);
+    aa.min(ab) / (ha / g(a) + hb / g(b))
+}
+
+/// `sim.methods.lattice_contact_step`: the rotation coupling's share of the densest
+/// contact network's top frequency squared, above its translational part (Bloch waves on
+/// a cube lattice in face contact: 1.0 % at nu = 0.15, 1.25 % at nu = 0).
+const LATTICE_ROTATION_MARGIN: f64 = 1.02;
+
 /// Half-thickness of a box along a unit direction and its area projected on the
 /// plane perpendicular to it.
 fn half_thickness_and_area(b: &OBox, d: Vec3) -> (f64, f64) {
@@ -430,13 +444,22 @@ impl World {
         for (s, st) in self.solver.structures.iter().enumerate() {
             for (c, ch) in st.chunks.iter().enumerate() {
                 let b = OBox { center: Vec3::ZERO, rotation: ch.rotation, half: ch.half_extents, hull: ch.hull.clone() };
-                let k = (0..3)
-                    .map(|axis| contact_stiffness(self.chunk_material(s, c), &b, stiffest, &b, ch.rotation.col(axis), scale))
-                    .fold(0.0, f64::max);
-                // A face pair engages ~10 sample points of k/10 each (total k); a chunk
-                // buried in rubble can touch on all six faces. Contact loads drive the
-                // chunk's deformation inertia (scaled under mass scaling).
-                w2 = w2.max(6.0 * k / (ch.mass * self.solver.chunks[s][c].inertia_scale));
+                let mat = self.chunk_material(s, c);
+                let kn: [f64; 3] = std::array::from_fn(|axis| contact_stiffness(mat, &b, stiffest, &b, ch.rotation.col(axis), scale));
+                let stiffness = if self.scene.sim.methods.lattice_contact_step && self.scene.sim.methods.layer_contact {
+                    // The densest network: along axis d, two normal layers and four
+                    // tangential ones, each doubled by a neighbour moving the other way.
+                    let kt: [f64; 3] = std::array::from_fn(|axis| contact_shear_stiffness(mat, &b, stiffest, &b, ch.rotation.col(axis), scale));
+                    let lattice = (0..3).map(|d| 4.0 * kn[d] + 4.0 * (0..3).filter(|&e| e != d).map(|e| kt[e]).sum::<f64>()).fold(0.0, f64::max);
+                    LATTICE_ROTATION_MARGIN * lattice
+                } else {
+                    // A face pair engages ~10 sample points of k/10 each (total k); a chunk
+                    // buried in rubble can touch on all six faces.
+                    6.0 * kn.iter().copied().fold(0.0, f64::max)
+                };
+                // Contact loads drive the chunk's deformation inertia (scaled under mass
+                // scaling).
+                w2 = w2.max(stiffness / (ch.mass * self.solver.chunks[s][c].inertia_scale));
             }
         }
         for imp in &self.impactors {
