@@ -56,7 +56,9 @@ impl SolverConfig {
             fracture: scene.sim.fracture,
             mode: scene.sim.solve_mode,
             integrate_rigid: true,
-            courant_safety: scene.sim.courant_safety,
+            // The stress bound's fraction (`stable_dt`, mass scaling); contacts take
+            // `sim.courant_safety` (world.rs).
+            courant_safety: scene.sim.stress_courant_safety.unwrap_or(scene.sim.courant_safety),
             refine_utilization: scene.sim.refine_utilization,
             active_time: 0.5,
             wake_threshold: 0.02,

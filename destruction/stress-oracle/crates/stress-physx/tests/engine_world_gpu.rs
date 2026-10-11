@@ -206,6 +206,7 @@ fn house_ram_profile() {
     s.sim.methods = stress_ref::scene::Methods::established();
     s.sim.methods.true_step = true;
     s.sim.courant_safety = 0.25;
+    s.sim.stress_courant_safety = Some(0.5);
     s.sim.solve_mode = stress_ref::scene::SolveMode::Adaptive;
     s.sim.duration = 0.25;
     let Ok(gpu) = Gpu::new() else { return };
@@ -252,6 +253,7 @@ fn wall_ram_profile() {
     s.sim.methods = stress_ref::scene::Methods::established();
     s.sim.methods.true_step = true;
     s.sim.courant_safety = 0.25;
+    s.sim.stress_courant_safety = Some(0.5);
     s.sim.solve_mode = stress_ref::scene::SolveMode::Adaptive;
     let Ok(gpu) = Gpu::new() else { return };
     let engine = PhysxEngine::boxed_gpu(Vec3::from_array(s.gravity)).or_else(|| PhysxEngine::boxed(Vec3::from_array(s.gravity))).expect("PhysX");
@@ -277,5 +279,102 @@ fn wall_ram_profile() {
             w.solver.mirror.clusters.len(),
             w.solver.impactors[0].velocity.norm()
         );
+    }
+}
+
+/// Study (`--ignored --nocapture`): the reference coupled to PhysX CPU, configured as
+/// `examples/realtime_peak.rs` (established methods, certified true step, contact safety
+/// 0.25, adaptive), with the stress step's own safety (`sim.stress_courant_safety`) at
+/// 0.125, 0.25, 0.5 and 0.9: ram speed, fragments and broken bonds of the wall ram and
+/// the house ram after 0.25 s, against a ram 1e-4 faster at 0.25 (chaos).
+#[test]
+#[ignore]
+fn stress_safety_convergence() {
+    let configure = |mut s: Scene, stress: Option<f64>| {
+        s.sim.methods = stress_ref::scene::Methods::established();
+        s.sim.methods.true_step = true;
+        s.sim.courant_safety = 0.25;
+        s.sim.stress_courant_safety = stress;
+        s.sim.solve_mode = stress_ref::scene::SolveMode::Adaptive;
+        s.sim.duration = 0.25;
+        s
+    };
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../../blast/blast-stress-demo-rs/assets/scenes/house-1story.json");
+    let house = stress_gpu::scenes::rammed(stress_ref::scene_pack::import(&path, "house-1story", "structure").unwrap());
+    for (name, base) in [("wall ram", ram_scene()), ("house ram", house)] {
+        let mut faster = base.clone();
+        for imp in &mut faster.impactors {
+            imp.velocity = imp.velocity.map(|v| v * (1.0 + 1e-4));
+        }
+        for (label, scene) in [
+            ("stress 0.125", configure(base.clone(), Some(0.125))),
+            ("stress 0.25", configure(base.clone(), None)),
+            ("stress 0.25, ram +1e-4", configure(faster.clone(), None)),
+            ("stress 0.5", configure(base.clone(), Some(0.5))),
+            ("stress 0.9", configure(base.clone(), Some(0.9))),
+        ] {
+            let t = std::time::Instant::now();
+            let mut w = stress_ref::world::World::with_engine(&scene, PhysxEngine::boxed(Vec3::from_array(scene.gravity)).expect("PhysX CPU"));
+            let o = w.run();
+            println!(
+                "{name} {label}: ram {:.3} m/s, {} fragments, {} broken bonds, substeps {} ({:.0} s)",
+                w.impactors[0].velocity.norm(),
+                o.values["fragments"],
+                o.values["broken_bonds"],
+                w.solver.substeps,
+                t.elapsed().as_secs_f64()
+            );
+        }
+    }
+}
+
+/// Study (`--ignored --nocapture`): `stress_safety_convergence` on the GPU world with
+/// PhysX GPU (its engaged contact bounds let the stress step bind), with frame times.
+#[test]
+#[ignore]
+fn gpu_stress_safety_convergence() {
+    let Ok(gpu) = Gpu::new() else { return };
+    let configure = |mut s: Scene, stress: Option<f64>| {
+        s.sim.methods = stress_ref::scene::Methods::established();
+        s.sim.methods.true_step = true;
+        s.sim.courant_safety = 0.25;
+        s.sim.stress_courant_safety = stress;
+        s.sim.solve_mode = stress_ref::scene::SolveMode::Adaptive;
+        s.sim.duration = 0.25;
+        s
+    };
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../../blast/blast-stress-demo-rs/assets/scenes/house-1story.json");
+    let house = stress_gpu::scenes::rammed(stress_ref::scene_pack::import(&path, "house-1story", "structure").unwrap());
+    for (name, base) in [("wall ram", ram_scene()), ("house ram", house)] {
+        let mut faster = base.clone();
+        for imp in &mut faster.impactors {
+            imp.velocity = imp.velocity.map(|v| v * (1.0 + 1e-4));
+        }
+        for (label, scene) in [
+            ("stress 0.125", configure(base.clone(), Some(0.125))),
+            ("stress 0.25", configure(base.clone(), None)),
+            ("stress 0.25, ram +1e-4", configure(faster.clone(), None)),
+            ("stress 0.5", configure(base.clone(), Some(0.5))),
+            ("stress 0.5, ram +1e-4", configure(faster.clone(), Some(0.5))),
+            ("stress 0.9", configure(base.clone(), Some(0.9))),
+        ] {
+            let engine = PhysxEngine::boxed_gpu(Vec3::from_array(scene.gravity)).or_else(|| PhysxEngine::boxed(Vec3::from_array(scene.gravity))).expect("PhysX");
+            let mut w = GpuWorld::with_engine(&gpu, &scene, engine).expect("GPU world");
+            let frames = (scene.sim.duration / scene.sim.frame_dt).round() as usize;
+            let mut worst: f64 = 0.0;
+            for _ in 0..frames {
+                let t = std::time::Instant::now();
+                w.step_frame(&gpu).expect("frame");
+                worst = worst.max(t.elapsed().as_secs_f64() * 1e3);
+            }
+            w.solver.sync(&gpu);
+            let o = w.observation();
+            println!(
+                "GPU {name} {label}: ram {:.3} m/s, {} fragments, {} broken bonds; worst frame {worst:.0} ms",
+                w.solver.impactors[0].velocity.norm(),
+                o.values["fragments"],
+                o.values["broken_bonds"]
+            );
+        }
     }
 }

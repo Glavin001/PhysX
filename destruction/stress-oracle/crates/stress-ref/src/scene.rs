@@ -376,6 +376,12 @@ pub struct SimDesc {
     /// Fraction of the critical explicit timestep used.
     #[serde(default = "default_courant")]
     pub courant_safety: f64,
+    /// The stress (bond network) step's own fraction of its critical step, the contact
+    /// step keeping `courant_safety`: the two converge at different fractions (a
+    /// fracturing impact needs the penalty contact well resolved; the certified stress
+    /// bound is a stability limit). None: `courant_safety` for both.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stress_courant_safety: Option<f64>,
     /// Upper bound on the substep (for timestep-convergence studies).
     #[serde(default)]
     pub max_substep: Option<f64>,
@@ -709,6 +715,16 @@ fn default_courant() -> f64 {
     0.5
 }
 
+impl SimDesc {
+    /// Both step fractions scaled by `factor` (refinement and spread runs).
+    pub fn scale_safety(&mut self, factor: f64) {
+        self.courant_safety *= factor;
+        if let Some(s) = self.stress_courant_safety.as_mut() {
+            *s *= factor;
+        }
+    }
+}
+
 impl Default for SimDesc {
     fn default() -> Self {
         SimDesc {
@@ -719,6 +735,7 @@ impl Default for SimDesc {
             solve_mode: SolveMode::Explicit,
             gravity_prestress: true,
             courant_safety: default_courant(),
+            stress_courant_safety: None,
             max_substep: None,
             fracture: true,
             sample_interval: None,

@@ -51,7 +51,7 @@ fn main() {
         println!("reference eps {eps:+.0e}: {}", outcome(&World::new(&perturbed(&scene, eps)).run()));
     }
     let mut half = scene.clone();
-    half.sim.courant_safety *= 0.5;
+    half.sim.scale_safety(0.5);
     println!("reference half step:  {}", outcome(&World::new(&half).run()));
     let gpu = Gpu::new().expect("GPU");
     let o = GpuWorld::new(&gpu, &scene).and_then(|mut w| w.run(&gpu)).expect("GPU world");

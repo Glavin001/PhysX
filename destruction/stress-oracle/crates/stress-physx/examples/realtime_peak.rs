@@ -4,9 +4,12 @@
 //!   house idle   house-1story, fresh and intact, nothing touching it
 //!   wall ram     a 200 kg ram at 40 m/s through a free concrete wall
 //!   house ram    house-1story struck by a 400 kg box at 12 m/s
-//! all in the adaptive mode (sleeping), at the certified true step with safety 0.25 (the
-//! reference's refinement: converged on the wall, see engine_world_gpu.rs), the
-//! established methods (penalty contact, as on the GPU).
+//! all in the adaptive mode (sleeping), at the certified true step, the contact step at
+//! safety 0.25 (the reference's refinement: converged on the wall, see
+//! engine_world_gpu.rs) and the stress step at 0.5 (`sim.stress_courant_safety`: the GPU
+//! outcomes from 0.125 to 0.5 lie within the reference's own step spread, test
+//! `gpu_stress_safety_convergence`), the established methods (penalty contact, as on
+//! the GPU).
 //!
 //! Prints each regime's frames and `PEAK_MS <ms>`: the worst complete frame of any
 //! regime, first frames included, the minimum over `--repeats` runs (default 1; the GPU
@@ -36,6 +39,7 @@ fn configure(mut s: Scene, seconds: f64) -> Scene {
     s.sim.methods = Methods::established();
     s.sim.methods.true_step = true;
     s.sim.courant_safety = 0.25;
+    s.sim.stress_courant_safety = Some(0.5);
     s.sim.solve_mode = SolveMode::Adaptive;
     s.sim.duration = seconds;
     s
@@ -129,7 +133,7 @@ fn reference(scene: &Scene) -> Reference {
     };
     let at = run(scene);
     let mut half = scene.clone();
-    half.sim.courant_safety *= 0.5;
+    half.sim.scale_safety(0.5);
     let mut faster = scene.clone();
     for imp in &mut faster.impactors {
         imp.velocity = imp.velocity.map(|v| v * (1.0 + 1e-4));

@@ -101,7 +101,7 @@ pub fn spread_difference(reference: &Observation, spreads: &[Observation]) -> (f
 /// The scene at half the reference's substep (its Courant safety halved).
 pub fn refined(scene: &Scene) -> Scene {
     let mut s = scene.clone();
-    s.sim.courant_safety *= 0.5;
+    s.sim.scale_safety(0.5);
     s
 }
 

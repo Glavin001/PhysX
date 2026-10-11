@@ -57,7 +57,7 @@ fn main() {
         };
         let (base, t_base) = run(&scene);
         let mut fine = scene.clone();
-        fine.sim.courant_safety *= 0.5;
+        fine.sim.scale_safety(0.5);
         let (half, _) = run(&fine);
         let mut coarse: Scene = scene.clone();
         coarse.sim.courant_safety *= ratio;
