@@ -127,11 +127,6 @@ struct Params {
     /// Lanes per candidate pair in `contact_forces`: a SIMD group of 32 on the Metal
     /// shaders (lanes over the pair's sample points), one thread on WGSL.
     pair_lanes: u32,
-    /// `contact_frames`: substeps to run, its per-chunk and per-island scratch, bonds.
-    pc_steps: u32,
-    pc_base: u32,
-    pi_base: u32,
-    bond_count: u32,
 }
 
 #[repr(C)]
@@ -321,16 +316,8 @@ const K_WAKE: usize = 11;
 const K_SUMS_INTEGRATE: usize = 12;
 /// `island_frame` and `wide_chunks` in one dispatch.
 const K_ISLAND_WIDE: usize = 13;
-/// The contact pipeline's rounds in one dispatch (`contact_frames`).
-const K_FRAMES: usize = 14;
-
-/// `STRESS_GPU_PERSISTENT=0`: the contact pipeline as rounds of dispatches instead of
-/// `contact_frames` (scheduling only).
-fn persistent_contact() -> bool {
-    std::env::var("STRESS_GPU_PERSISTENT").map_or(true, |v| v != "0")
-}
 /// Kernel names by `K_*` index.
-pub const KERNEL_NAMES: [&str; 15] = [
+pub const KERNEL_NAMES: [&str; 14] = [
     "island_frame",
     "contact_forces",
     "impactor_shares",
@@ -345,7 +332,6 @@ pub const KERNEL_NAMES: [&str; 15] = [
     "wide_wake",
     "sums_and_impactors",
     "islands_and_wide_chunks",
-    "contact_frames",
 ];
 /// Contact contributions per segment (`contact_sums`, one thread each).
 const SEGMENT: usize = 8;
@@ -374,7 +360,6 @@ struct Kernels {
     wake: Kernel,
     sums_integrate: Kernel,
     island_wide: Kernel,
-    frames: Kernel,
     statics: Kernel,
     fatigue: Kernel,
 }
@@ -455,8 +440,8 @@ pub struct Profile {
     pub max_chunk_contacts: usize,
     pub max_island_contacts: usize,
     /// GPU time (s) and dispatches per kernel (`KERNEL_NAMES`), with `STRESS_GPU_TIMING=1`.
-    pub kernels: [f64; 15],
-    pub kernel_dispatches: [u64; 15],
+    pub kernels: [f64; 14],
+    pub kernel_dispatches: [u64; 14],
 }
 
 /// The host copy of everything a frame changes (`GpuSolver::snapshot`): to solve the
@@ -548,7 +533,6 @@ impl GpuSolver {
             wake: gpu.compute(&shaders::WORLD, "wide_wake", &WORLD_BINDINGS),
             sums_integrate: gpu.compute(&shaders::WORLD, "sums_and_impactors", &WORLD_BINDINGS),
             island_wide: gpu.compute(&shaders::WORLD, "islands_and_wide_chunks", &WORLD_BINDINGS),
-            frames: gpu.compute(&shaders::WORLD, "contact_frames", &WORLD_BINDINGS),
             statics: gpu.compute(&shaders::WORLD, "island_statics", &WORLD_BINDINGS),
             fatigue: gpu.compute(&shaders::WORLD, "settled_fatigue", &WORLD_BINDINGS),
         };
@@ -1113,10 +1097,7 @@ impl GpuSolver {
         let cframe_base = cload_base + 2 * n;
         // Static solves: 23 float4 per chunk, 2 per bond, 1 per island.
         let statics_base = cframe_base + 2 * n;
-        // contact_frames: 2 float4 per chunk, 16 per island.
-        let pc_base = statics_base + 23 * n + 2 * bonds.len() + islands.len() + 1;
-        let pi_base = pc_base + 2 * n;
-        let scratch_len = pi_base + 16 * islands.len().max(1);
+        let scratch_len = statics_base + 23 * n + 2 * bonds.len() + islands.len() + 1;
 
         let (gravity, ground) = (m.config.gravity, scene.as_ref().and_then(|s| s.ground.clone()));
         let (g_hi, g_lo) = split1(ground.as_ref().map_or(0.0, |g| g.height));
@@ -1166,9 +1147,6 @@ impl GpuSolver {
             statics_cg: 20_000,
             statics_tol: std::env::var("STRESS_GPU_STATICS_TOL").ok().and_then(|v| v.parse().ok()).unwrap_or(1e-5),
             pair_lanes: if gpu.shader_path == crate::gpu::ShaderPath::Wgsl { 1 } else { 32 },
-            pc_base: pc_base as u32,
-            pi_base: pi_base as u32,
-            bond_count: bonds.len() as u32,
             ..Default::default()
         };
 
@@ -1372,18 +1350,7 @@ impl GpuSolver {
                 gpu.queue.write_buffer(&self.buffers.impactors, 0, bytemuck::cast_slice(&imps));
             }
             gpu.queue.write_buffer(&self.buffers.params_segment, 0, bytemuck::bytes_of(&dispatch_params(&self.buffers, false)));
-            // The contact pipeline's rounds in one dispatch (`contact_frames`): every wide
-            // island in it (the others need their own rounds), no crush pass, SIMD lanes.
-            let persistent = persistent_contact()
-                && pipeline
-                && pipeline_steps > 0
-                && rounds == pipeline_steps
-                && !self.buffers.crush
-                && self.buffers.params.pair_lanes > 1
-                && self.layout.islands.len() <= 1024
-                && self.layout.islands.iter().all(|i| i.info[0] & ISLAND_WIDE == 0 || i.info[0] & ISLAND_CONTACT != 0);
-            let contact_params = Params { pc_steps: pipeline_steps as u32, ..dispatch_params(&self.buffers, true) };
-            gpu.queue.write_buffer(&self.buffers.params_contact, 0, bytemuck::bytes_of(&contact_params));
+            gpu.queue.write_buffer(&self.buffers.params_contact, 0, bytemuck::bytes_of(&dispatch_params(&self.buffers, true)));
             // The batch's dispatches: (kernel, workgroups, per-substep params).
             let islands_n = self.layout.islands.len().max(1) as u32;
             // Islands that touch nothing: every substep in one dispatch.
@@ -1394,10 +1361,7 @@ impl GpuSolver {
             let groups = |count: u32| count.div_ceil(64).max(1);
             let impactors_n = self.impactors.len().max(1) as u32;
             let wide_groups = self.buffers.wide_chunk_groups;
-            if persistent {
-                ops.push((K_FRAMES, 1, true));
-            }
-            for r in 0..if persistent { 0 } else { rounds } {
+            for r in 0..rounds {
                 let contact = pipeline && r < pipeline_steps;
                 // A round: contact_forces; the sums with the impactors' integration (both
                 // read only its outputs); wide_bonds (its free islands' net loads need the
@@ -1452,7 +1416,6 @@ impl GpuSolver {
                 &self.kernels.wake,
                 &self.kernels.sums_integrate,
                 &self.kernels.island_wide,
-                &self.kernels.frames,
             ];
             let bind = |contact: bool| if contact { &self.buffers.bind_contact } else { &self.buffers.bind_segment };
             let mut encoder = gpu.device.create_command_encoder(&Default::default());
@@ -1490,7 +1453,7 @@ impl GpuSolver {
             if let Some(timing) = &self.timing {
                 let stamps: Vec<u64> = gpu.read(&timing.resolve);
                 let period = gpu.queue.get_timestamp_period() as f64 * 1e-9;
-                let mut batch = [(0.0f64, 0.0f64, 0u32); 15];
+                let mut batch = [(0.0f64, 0.0f64, 0u32); 14];
                 for (q, &(k, ..)) in ops.iter().enumerate() {
                     let secs = stamps[2 * q + 1].saturating_sub(stamps[2 * q]) as f64 * period;
                     self.profile.kernels[k] += secs;

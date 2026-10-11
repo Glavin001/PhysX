@@ -66,7 +66,6 @@ pub mod shaders {
             ("settled_fatigue", (256, 1, 1)),
             ("sums_and_impactors", (256, 1, 1)),
             ("islands_and_wide_chunks", (256, 1, 1)),
-            ("contact_frames", (256, 1, 1)),
         ]);
     pub const STRESS_RENDER: ShaderSet = shader_set!("stress_render", [("stress_vs", (1, 1, 1)), ("stress_fs", (1, 1, 1))]);
 }
