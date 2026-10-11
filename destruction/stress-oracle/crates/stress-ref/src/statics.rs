@@ -1033,6 +1033,60 @@ impl ReferenceSolver {
         Some((0..m).map(|i| std::array::from_fn(|d| x[6 * i + d])).collect())
     }
 
+    /// Fundamental period (s) of an anchored cluster at full stiffness, by inverse
+    /// iteration `y = K^-1 M x` (the banded direct solve of `banded_tangent_solve`, held
+    /// DOFs fixed) with the Rayleigh quotient, to a relative change of 1e-10. None for
+    /// a free cluster, one without bonds, or one whose band the direct solve does not
+    /// take.
+    pub fn fundamental_period(&self, ci: usize) -> Option<f64> {
+        let cl = &self.clusters[ci];
+        if !cl.anchored || cl.bonds.is_empty() {
+            return None;
+        }
+        let lay = self.layout(ci);
+        let st = &self.structures[cl.structure];
+        let k: Vec<Mat6> = cl.bonds.iter().map(|&bi| Mat6::diag(&{
+            let b = &self.bonds[cl.structure][bi];
+            let mut k = b.stiffness.as_local();
+            if let Some(rb) = &b.rebar {
+                k.lin += Vec3::new(rb.k_dowel, rb.k_dowel, rb.k_axial);
+            }
+            k
+        })).collect();
+        let mass = |i: usize, x: &V6| -> V6 {
+            let c = lay.chunks[i];
+            let ch = &st.chunks[c];
+            let mu = self.chunks[cl.structure][c].inertia_scale;
+            let (u, th) = split(x);
+            let mut out = join(u * (ch.mass * mu), (ch.inertia * th) * mu);
+            for d in 0..6 {
+                if lay.fixed[i][d] {
+                    out[d] = 0.0;
+                }
+            }
+            out
+        };
+        let mut x: Vec<V6> = (0..lay.chunks.len()).map(|i| std::array::from_fn(|d| if lay.fixed[i][d] { 0.0 } else { 1.0 + 0.1 * ((i * 6 + d) as f64 * 0.618_033_988_75).fract() })).collect();
+        let mut lambda_prev = 0.0;
+        for _ in 0..500 {
+            let mx: Vec<V6> = x.iter().enumerate().map(|(i, v)| mass(i, v)).collect();
+            let y = self.banded_tangent_solve(ci, &lay, &k, &mx)?;
+            // Rayleigh quotient x^T M x / x^T M y (y = K^-1 M x).
+            let (xmx, xmy) = x.iter().zip(&mx).zip(&y).fold((0.0, 0.0), |(a, b), ((xi, mxi), yi)| (a + dot6(std::slice::from_ref(xi), std::slice::from_ref(mxi)), b + dot6(std::slice::from_ref(mxi), std::slice::from_ref(yi))));
+            if !(xmy > 0.0) {
+                return None;
+            }
+            let lambda = xmx / xmy;
+            let norm = y.iter().enumerate().map(|(i, v)| dot6(std::slice::from_ref(v), std::slice::from_ref(&mass(i, v)))).sum::<f64>().sqrt();
+            x = y.iter().map(|v| v.map(|c| c / norm)).collect();
+            if (lambda - lambda_prev).abs() <= 1e-10 * lambda {
+                return Some(2.0 * std::f64::consts::PI / lambda.sqrt());
+            }
+            lambda_prev = lambda;
+        }
+        Some(2.0 * std::f64::consts::PI / lambda_prev.sqrt())
+    }
+
     /// Out-of-balance loads of a cluster at its current displacements (external plus bond
     /// forces, held DOFs zeroed, rigid modes projected out of a free cluster).
     fn static_residual(&self, ci: usize, lay: &Layout, f_ext: &[V6], free: bool) -> Vec<V6> {
@@ -1183,6 +1237,20 @@ mod tests {
     /// `n gamma(4b + 2)`, `gamma(m) = m u / (1 - m u)`: Higham, Accuracy and Stability of
     /// Numerical Algorithms, Thm 10.4 (`gamma(3b + 1)` for the factor and both
     /// substitutions, `| |R^T| |R| | <= n |K|`) plus `gamma(b)` for the residual's sums.
+    /// The cantilever's fundamental period by inverse iteration is Euler-Bernoulli's first
+    /// bending mode, `f1 = 1.875^2 / (2 pi) sqrt(EI / (rho A L^4))`, within the 1 % the
+    /// chunk model holds it to (its `first_frequency` metric, also OpenSees').
+    #[test]
+    fn fundamental_period_is_the_first_bending_mode() {
+        let scene = crate::builders::cantilever(20, "cantilever");
+        let sv = ReferenceSolver::new(&scene);
+        let period = sv.fundamental_period(0).expect("anchored cluster");
+        let f1 = scene.metrics.iter().find(|m| m.name == "first_frequency").and_then(|m| m.expected.as_ref()).and_then(|v| v.as_f64()).expect("expected frequency");
+        let f = 1.0 / period;
+        println!("fundamental frequency {f:.6} Hz, Euler-Bernoulli {f1:.6} Hz");
+        assert!((f - f1).abs() <= 0.01 * f1, "{f} Hz against {f1} Hz");
+    }
+
     #[test]
     fn reordered_direct_solve_solves_the_same_system() {
         let scene = crate::builders::pressure_panel(300e3, "panel");

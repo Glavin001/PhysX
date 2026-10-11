@@ -769,8 +769,8 @@ changes go behind `sim.methods` switches, off by default, each with measured fid
 | Hierarchy import (L0/L1/L2 with parent links) | Exact (L2 unchanged) | the packs carry one level: `nodePieces` (authored parts; villa 243 over 1045 chunks, house-2story 135 over 599), and `nodeGroups` is trivial. No L1 level |
 | L0 members as statically condensed super-elements (exact for statics), exact recovery of each L2 bond | Exact for statics | low payoff on these packs: pieces average 4-5 chunks, so most chunks are interface DOFs and condensation barely shrinks the system. The banded direct solve (310a2c14f) already takes the villa |
 | Cold-bond fast path with closed-form fatigue | Approximation | exact variant rejected (slower). Bond responses are 39 % of b5_v10 at one thread (137 ns per bond-substep). The approximate path would skip the strain-rate filter, whose history sets the dynamic increase factor (strengths up to 2-3x under impact): not adopted without an exact filter update |
-| Reduction cadence for free islands (rigid acceleration, drift removal) | Approximation | to do (item 6) |
-| Regime map (contact time against wave transit and fundamental period) | Analysis | to do |
+| Reduction cadence for free islands (rigid acceleration, drift removal) | Approximation | not pursued for the oracle: on b5_v10 at one thread, rigid accelerations are below 0.1 % of the run and `fold_rigid_drift` about 1.5 % of samples. Their cost is the GPU's per-substep barriers, which the oracle does not have |
+| Regime map (contact time against wave transit and fundamental period) | Analysis | `examples/regime_map` (below) |
 
 ### `true_step` (switch, off)
 
@@ -873,6 +873,37 @@ the bonds' stored energy at the perturbed state before any step. Re-run:
 - `frame_contact_step` holds at 0.9;
 - the certified `true_step` holds at 0.9 and blows up at 1.0-1.1 on many scenes, as a
   tight bound should.
+
+### Regime map (`examples/regime_map`)
+
+Per scene, the three times that decide a solver tier (the real-time analysis, section 8.2):
+- `t_c`: an impactor's Hertz contact time, a load's rise or pulse time, or a removal's
+  duration;
+- `T_w`: the wave transit across the structure's largest extent;
+- `T_1`: the fundamental period, by inverse iteration with the banded direct solve
+  (`ReferenceSolver::fundamental_period`; the cantilever's is Euler-Bernoulli's first
+  mode to 0.1 %, test `fundamental_period_is_the_first_bending_mode`).
+
+Selected rows (tiers by the analysis's rules, `>>` read as 10x):
+
+| Scene | t_c | T_w | T_1 | Tier |
+|---|---|---|---|---|
+| b5_wall_impact_v02 / v10 / v40 | 3.7 / 2.6 / 2.0 ms | 0.59 ms | 37 ms | 2 |
+| b7_masonry_v04 / v15 | 1.6 / 1.3 ms | 1.2 ms | 119 ms | 2, at the edge of 3 |
+| b9_panel (pressure) | 10 ms | 0.62 ms | 12 ms | 2 |
+| s_car_brick, s_house_car | 5.9, 5.7 ms | 1.4, 1.8 ms | 84, 61 ms | 2 |
+| b8_frame_gradual, s_house_settlement | 1 s | 2.6, 1.8 ms | 373, 61 ms | 2, 1 |
+| sudden removals (b4, b8, keystone) | 0 | | | 3 |
+
+Packs, T_1 only (no loading): house-2story 65 ms, house-1story 43 ms, brick-building
+36 ms, villa-savoye 1.28 s.
+
+**Finding for the tiering.** By these rules even the 40 m/s ram is tier 2: the
+impactor's Hertz time is 3.4 wave transits across the wall. Yet the wall breaches
+locally. A `T_w` across the whole structure misses the local wave physics, so the rule
+likely needs the struck member's thickness. That is the calibration the analysis plans
+against the oracle, and this gives it its inputs. Blast loads and dropped bodies have
+no `t_c` here yet.
 
 GPU-only items are out of scope for the CPU oracle: shared-memory windows, cooperative
 launch, temporal blocking, Morton order, CUDA graphs.
