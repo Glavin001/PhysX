@@ -60,14 +60,14 @@ max_threads_per_threadgroup = 1024
 code_bytes = 13800
 
 [kernels.island_frame]
-instructions = 11204
+instructions = 9645
 temp_registers = 96
 spilled_bytes = 1040
 threads_per_threadgroup = 256
 spilled_bytes_x_threads = 266240
 static_threadgroup_memory = 1056
 max_threads_per_threadgroup = 1024
-code_bytes = 80748
+code_bytes = 70434
 
 [kernels.island_statics]
 instructions = 5925

@@ -1748,16 +1748,13 @@ void island_frame(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
     {
         uint abs_step = isl.info.w + s + 1;
         uint k = abs_step - 1 - params.step_start; // substeps since the host's step began
-        if ((isl.info.x & ISLAND_QUIET) != 0)
-        {
-            if (tid == 0 && isl.probes.y > isl.probes.x)
-                record_probes(isl, rg, k);
-            done = s + 1;
-            continue;
-        }
+        // Each phase has one call site (quiet and settled substeps skip phases rather
+        // than repeat the tail): the per-substep kernel carries its code once
+        // (instruction-cache budget).
+        bool quiet = (isl.info.x & ISLAND_QUIET) != 0;
         // 0. A settled island (world.rs `wake_loaded_clusters`): its loads recorded;
         // it wakes, and takes this substep explicitly, when they changed.
-        if (settled)
+        if (settled && !quiet)
         {
             float3 norm = float3(0.0);
             float3 unused0 = float3(0.0);
@@ -1771,7 +1768,7 @@ void island_frame(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
             }
         }
         // 1. Rigid acceleration of a free cluster.
-        if (!anchored)
+        if (!anchored && !quiet)
         {
             float3 f = float3(0.0);
             float3 t = float3(0.0);
@@ -1780,29 +1777,24 @@ void island_frame(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
             group_sum3<THREADS>(tid, f, t);
             rigid_acceleration(isl, rg, f, t);
         }
-        if (settled)
+        // A settled island moves rigidly only (solver.rs `advance_rigid_only`).
+        bool explicit_step = !settled && !quiet;
+        if (explicit_step)
         {
-            // Rigid motion only (solver.rs `advance_rigid_only`).
-            if (free_motion)
-                integrate_rigid(isl, rg, dt);
-            if (tid == 0 && isl.probes.y > isl.probes.x)
-                record_probes(isl, rg, k);
-            done = s + 1;
-            continue;
+            // 2. Bonds.
+            for (uint i = isl.range.z + tid; i < isl.range.w; i += THREADS)
+                if (bond_update(i, dt, fracture, abs_step, false))
+                    g_halt = 1;
+            AllMemoryBarrierWithGroupSync();
+            // 3. Chunks.
+            for (uint c = isl.range.x + tid; c < isl.range.y; c += THREADS)
+                chunk_update(c, isl, rg, dt, rml, k, contact_island, work, work_err);
+            AllMemoryBarrierWithGroupSync();
         }
-        // 2. Bonds.
-        for (uint i = isl.range.z + tid; i < isl.range.w; i += THREADS)
-            if (bond_update(i, dt, fracture, abs_step, false))
-                g_halt = 1;
-        AllMemoryBarrierWithGroupSync();
-        // 3. Chunks.
-        for (uint c = isl.range.x + tid; c < isl.range.y; c += THREADS)
-            chunk_update(c, isl, rg, dt, rml, k, contact_island, work, work_err);
-        AllMemoryBarrierWithGroupSync();
         // 4. Rigid integration.
-        if (free_motion)
+        if (free_motion && !quiet)
             integrate_rigid(isl, rg, dt);
-        if (!anchored)
+        if (!anchored && explicit_step)
         {
             // 5. Drift removal.
             float3 wcom = isl.wcom.xyz;
