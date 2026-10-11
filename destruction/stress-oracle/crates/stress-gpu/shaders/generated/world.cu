@@ -48,6 +48,10 @@ struct Params_0
     uint statics_cg_0;
     float statics_tol_0;
     uint pair_lanes_0;
+    uint pc_steps_0;
+    uint pc_base_0;
+    uint pi_base_0;
+    uint bond_count_0;
 };
 
 struct JointMaterial_0
@@ -9103,6 +9107,2200 @@ extern "C" __global__ void islands_and_wide_chunks()
         uint _S2222 = __ldg(&globalParams_0->params_0->halt_index_0);
         wide_chunks_at_0(_S2216 - _S2222, threadIdx.x, _S2221);
         uint _S2223 = __ballot_sync(_S2215, true);
+    }
+    return;
+}
+
+__device__ __shared__ uint g_flag_0;
+
+__device__ __shared__ FixedArray<uint, 1024>  g_mode_0;
+
+static __device__ uint pc_k_0(Island_0 * isl_24)
+{
+    uint _S2224 = isl_24->info_1.w;
+    uint _S2225 = __ldg(&globalParams_0->params_0->step_start_0);
+    return _S2224 - _S2225;
+}
+
+static __device__ void pc_store_rigid_0(uint i_30, Rigid_0 * rg_10)
+{
+    uint _S2226 = __ldg(&globalParams_0->params_0->pi_base_0);
+    uint at_7 = _S2226 + 16U * i_30;
+    float4  * _S2227 = (&(globalParams_0->scratch_0)[at_7]);
+    float4  _S2228 = quat_vec_0(&rg_10->rot_1);
+    *_S2227 = _S2228;
+    *(&(globalParams_0->scratch_0)[at_7 + 1U]) = rg_10->rot_err_0;
+    *(&(globalParams_0->scratch_0)[at_7 + 2U]) = make_float4 (rg_10->pos_0.x, rg_10->pos_0.y, rg_10->pos_0.z, 0.0f);
+    *(&(globalParams_0->scratch_0)[at_7 + 3U]) = make_float4 (rg_10->pos_err_0.x, rg_10->pos_err_0.y, rg_10->pos_err_0.z, 0.0f);
+    *(&(globalParams_0->scratch_0)[at_7 + 4U]) = make_float4 (rg_10->vel_0.x, rg_10->vel_0.y, rg_10->vel_0.z, 0.0f);
+    *(&(globalParams_0->scratch_0)[at_7 + 5U]) = make_float4 (rg_10->vel_err_0.x, rg_10->vel_err_0.y, rg_10->vel_err_0.z, 0.0f);
+    *(&(globalParams_0->scratch_0)[at_7 + 6U]) = make_float4 (rg_10->w_5.x, rg_10->w_5.y, rg_10->w_5.z, 0.0f);
+    *(&(globalParams_0->scratch_0)[at_7 + 7U]) = make_float4 (rg_10->l_1.x, rg_10->l_1.y, rg_10->l_1.z, 0.0f);
+    *(&(globalParams_0->scratch_0)[at_7 + 8U]) = make_float4 (rg_10->l_err_0.x, rg_10->l_err_0.y, rg_10->l_err_0.z, 0.0f);
+    *(&(globalParams_0->scratch_0)[at_7 + 9U]) = make_float4 (rg_10->torque_0.x, rg_10->torque_0.y, rg_10->torque_0.z, 0.0f);
+    *(&(globalParams_0->scratch_0)[at_7 + 10U]) = make_float4 (rg_10->a_13.x, rg_10->a_13.y, rg_10->a_13.z, 0.0f);
+    *(&(globalParams_0->scratch_0)[at_7 + 11U]) = make_float4 (rg_10->alpha_0.x, rg_10->alpha_0.y, rg_10->alpha_0.z, 0.0f);
+    return;
+}
+
+static __device__ Rigid_0 pc_load_rigid_0(uint i_31)
+{
+    uint _S2229 = __ldg(&globalParams_0->params_0->pi_base_0);
+    uint at_8 = _S2229 + 16U * i_31;
+    Rigid_0 rg_11;
+    (&rg_11)->rot_1 = quat_of_0(*(&(globalParams_0->scratch_0)[at_8]));
+    (&rg_11)->rot_err_0 = *(&(globalParams_0->scratch_0)[at_8 + 1U]);
+    float4  _S2230 = *(&(globalParams_0->scratch_0)[at_8 + 2U]);
+    (&rg_11)->pos_0 = float3 {_S2230.x, _S2230.y, _S2230.z};
+    float4  _S2231 = *(&(globalParams_0->scratch_0)[at_8 + 3U]);
+    (&rg_11)->pos_err_0 = float3 {_S2231.x, _S2231.y, _S2231.z};
+    float4  _S2232 = *(&(globalParams_0->scratch_0)[at_8 + 4U]);
+    (&rg_11)->vel_0 = float3 {_S2232.x, _S2232.y, _S2232.z};
+    float4  _S2233 = *(&(globalParams_0->scratch_0)[at_8 + 5U]);
+    (&rg_11)->vel_err_0 = float3 {_S2233.x, _S2233.y, _S2233.z};
+    float4  _S2234 = *(&(globalParams_0->scratch_0)[at_8 + 6U]);
+    (&rg_11)->w_5 = float3 {_S2234.x, _S2234.y, _S2234.z};
+    float4  _S2235 = *(&(globalParams_0->scratch_0)[at_8 + 7U]);
+    (&rg_11)->l_1 = float3 {_S2235.x, _S2235.y, _S2235.z};
+    float4  _S2236 = *(&(globalParams_0->scratch_0)[at_8 + 8U]);
+    (&rg_11)->l_err_0 = float3 {_S2236.x, _S2236.y, _S2236.z};
+    float4  _S2237 = *(&(globalParams_0->scratch_0)[at_8 + 9U]);
+    (&rg_11)->torque_0 = float3 {_S2237.x, _S2237.y, _S2237.z};
+    float4  _S2238 = *(&(globalParams_0->scratch_0)[at_8 + 10U]);
+    (&rg_11)->a_13 = float3 {_S2238.x, _S2238.y, _S2238.z};
+    float4  _S2239 = *(&(globalParams_0->scratch_0)[at_8 + 11U]);
+    (&rg_11)->alpha_0 = float3 {_S2239.x, _S2239.y, _S2239.z};
+    return rg_11;
+}
+
+static __device__ bool contact_stopped_1(uint _S2240)
+{
+    Island_0 * _S2241 = (&(globalParams_0->islands_0)[_S2240]);
+    uint _S2242 = __ldg(&globalParams_0->params_0->halt_index_0);
+    uint4  _S2243 = (&(globalParams_0->islands_0)[_S2242])->info_1;
+    bool _S2244;
+    if((((&(globalParams_0->islands_0)[_S2242])->info_1.z) & 1U) != 0U)
+    {
+        _S2244 = true;
+    }
+    else
+    {
+        uint _S2245 = _S2243.y;
+        if(_S2245 != 0U)
+        {
+            _S2244 = _S2245 <= (_S2241->info_1.w);
+        }
+        else
+        {
+            _S2244 = false;
+        }
+    }
+    return _S2244;
+}
+
+static __device__ uint pc_k_1(uint _S2246)
+{
+    uint _S2247 = (&(globalParams_0->islands_0)[_S2246])->info_1.w;
+    uint _S2248 = __ldg(&globalParams_0->params_0->step_start_0);
+    return _S2247 - _S2248;
+}
+
+static __device__ void pc_sum_0(uint _S2249, float3  * _S2250, float3  * _S2251)
+{
+    uint4  _S2252 = (&(globalParams_0->islands_0)[_S2249])->range_0;
+    uint c_47 = (&(globalParams_0->islands_0)[_S2249])->range_0.x;
+    for(;;)
+    {
+        if(c_47 < (_S2252.y))
+        {
+        }
+        else
+        {
+            break;
+        }
+        uint _S2253 = __ldg(&globalParams_0->params_0->pc_base_0);
+        uint _S2254 = 2U * c_47;
+        float4  _S2255 = *(&(globalParams_0->scratch_0)[_S2253 + _S2254]);
+        *_S2250 = *_S2250 + float3 {_S2255.x, _S2255.y, _S2255.z};
+        uint _S2256 = __ldg(&globalParams_0->params_0->pc_base_0);
+        float4  _S2257 = *(&(globalParams_0->scratch_0)[_S2256 + _S2254 + 1U]);
+        *_S2251 = *_S2251 + float3 {_S2257.x, _S2257.y, _S2257.z};
+        c_47 = c_47 + 1U;
+    }
+    return;
+}
+
+static __device__ Rigid_0 rigid_of_1(uint _S2258)
+{
+    Island_0 * _S2259 = (&(globalParams_0->islands_0)[_S2258]);
+    Rigid_0 rg_12;
+    (&rg_12)->rot_1 = quat_of_0(_S2259->rotation_0);
+    (&rg_12)->rot_err_0 = _S2259->rotation_err_0;
+    float4  _S2260 = _S2259->position_0;
+    (&rg_12)->pos_0 = float3 {_S2260.x, _S2260.y, _S2260.z};
+    float4  _S2261 = _S2259->position_err_0;
+    (&rg_12)->pos_err_0 = float3 {_S2261.x, _S2261.y, _S2261.z};
+    float4  _S2262 = _S2259->velocity_0;
+    (&rg_12)->vel_0 = float3 {_S2262.x, _S2262.y, _S2262.z};
+    float4  _S2263 = _S2259->velocity_err_0;
+    (&rg_12)->vel_err_0 = float3 {_S2263.x, _S2263.y, _S2263.z};
+    float4  _S2264 = _S2259->angular_velocity_0;
+    (&rg_12)->w_5 = float3 {_S2264.x, _S2264.y, _S2264.z};
+    float4  _S2265 = _S2259->momentum_0;
+    (&rg_12)->l_1 = float3 {_S2265.x, _S2265.y, _S2265.z};
+    float4  _S2266 = _S2259->momentum_err_0;
+    (&rg_12)->l_err_0 = float3 {_S2266.x, _S2266.y, _S2266.z};
+    float3  _S2267 = make_float3 (0.0f);
+    (&rg_12)->torque_0 = _S2267;
+    (&rg_12)->a_13 = _S2267;
+    (&rg_12)->alpha_0 = _S2267;
+    return rg_12;
+}
+
+static __device__ void net_load_1(uint _S2268, uint _S2269, Rigid_0 * _S2270, uint _S2271, float _S2272, bool _S2273, float3  * _S2274, float3  * _S2275)
+{
+    Island_0 _S2276 = *(&(globalParams_0->islands_0)[_S2269]);
+    ChunkStatic_0 * _S2277 = (&(globalParams_0->chunks_0)[_S2268]);
+    float3  fl_1;
+    float3  tl_1;
+    float3  rep_f_2;
+    float3  rep_m_2;
+    chunk_loads_0(_S2268, _S2268, &_S2270->rot_1, _S2271, _S2272, _S2273, 0.0f, &fl_1, &tl_1, &rep_f_2, &rep_m_2);
+    float3  _S2278 = fl_1;
+    float4  _S2279 = __ldg(&globalParams_0->params_0->gravity_0);
+    float3  _S2280 = float3 {_S2279.x, _S2279.y, _S2279.z};
+    float4  _S2281 = __ldg(&_S2277->center_0);
+    float3  fc_4 = _S2278 + _S2280 * make_float3 (_S2281.w);
+    float3  _S2282 = float3 {_S2281.x, _S2281.y, _S2281.z};
+    float4  _S2283 = *(&(globalParams_0->state_0)[4U * _S2268]);
+    float4  _S2284 = _S2276.com_0;
+    float3  _S2285 = float3 {_S2284.x, _S2284.y, _S2284.z};
+    float3  _S2286 = rotate_0(&_S2270->rot_1, _S2282 + float3 {_S2283.x, _S2283.y, _S2283.z} - _S2285);
+    *_S2274 = *_S2274 + fc_4;
+    *_S2275 = *_S2275 + (cross_0(_S2286, fc_4) + tl_1);
+    uint4  _S2287 = __ldg(&_S2277->load_range_0);
+    if((_S2287.y) > (_S2287.x))
+    {
+        float3  _S2288 = rotate_0(&_S2270->rot_1, rep_f_2);
+        *_S2274 = *_S2274 + _S2288;
+        float3  _S2289 = rotate_0(&_S2270->rot_1, _S2282 - _S2285);
+        float3  _S2290 = cross_0(_S2289, _S2288);
+        float3  _S2291 = rotate_0(&_S2270->rot_1, rep_m_2);
+        *_S2275 = *_S2275 + (_S2290 + _S2291);
+    }
+    return;
+}
+
+static __device__ void chunk_update_1(uint _S2292, uint _S2293, Rigid_0 * _S2294, float _S2295, bool _S2296, uint _S2297, bool _S2298, float * _S2299, float * _S2300)
+{
+    Island_0 * _S2301 = (&(globalParams_0->islands_0)[_S2293]);
+    ChunkStatic_0 * _S2302 = (&(globalParams_0->chunks_0)[_S2292]);
+    float3  _S2303 = make_float3 (0.0f);
+    uint _S2304 = __ldg((&(globalParams_0->index_0)[_S2292]));
+    float peak_1 = 0.0f;
+    uint e_8 = _S2304;
+    float3  fi_6 = _S2303;
+    float3  mi_7 = _S2303;
+    for(;;)
+    {
+        uint _S2305 = __ldg((&(globalParams_0->index_0)[_S2292 + 1U]));
+        if(e_8 < _S2305)
+        {
+        }
+        else
+        {
+            break;
+        }
+        uint _S2306 = __ldg((&(globalParams_0->index_0)[e_8]));
+        uint _S2307 = 3U * (_S2306 >> int(1));
+        float4  fa_3 = *(&(globalParams_0->scratch_0)[_S2307]);
+        if((_S2306 & 1U) == 0U)
+        {
+            float4  _S2308 = *(&(globalParams_0->scratch_0)[_S2307 + 1U]);
+            float3  mi_8 = mi_7 + float3 {_S2308.x, _S2308.y, _S2308.z};
+            fi_6 = fi_6 + float3 {fa_3.x, fa_3.y, fa_3.z};
+            mi_7 = mi_8;
+        }
+        else
+        {
+            float4  _S2309 = *(&(globalParams_0->scratch_0)[_S2307 + 2U]);
+            float3  mi_9 = mi_7 + float3 {_S2309.x, _S2309.y, _S2309.z};
+            fi_6 = fi_6 + - float3 {fa_3.x, fa_3.y, fa_3.z};
+            mi_7 = mi_9;
+        }
+        float _S2310 = (F32_max((peak_1), (fa_3.w)));
+        uint _S2311 = e_8 + 1U;
+        peak_1 = _S2310;
+        e_8 = _S2311;
+    }
+    uint _S2312 = 4U * _S2292;
+    float4  _S2313 = *(&(globalParams_0->state_0)[_S2312]);
+    float3  u_5 = float3 {_S2313.x, _S2313.y, _S2313.z};
+    uint _S2314 = _S2312 + 1U;
+    float4  _S2315 = *(&(globalParams_0->state_0)[_S2314]);
+    float3  th_7 = float3 {_S2315.x, _S2315.y, _S2315.z};
+    uint _S2316 = _S2312 + 2U;
+    float4  _S2317 = *(&(globalParams_0->state_0)[_S2316]);
+    float3  v_14 = float3 {_S2317.x, _S2317.y, _S2317.z};
+    uint _S2318 = _S2312 + 3U;
+    float4  _S2319 = *(&(globalParams_0->state_0)[_S2318]);
+    float3  w_9 = float3 {_S2319.x, _S2319.y, _S2319.z};
+    float4  _S2320 = __ldg(&_S2302->center_0);
+    float mass_1 = _S2320.w;
+    float3  _S2321 = float3 {_S2320.x, _S2320.y, _S2320.z};
+    float4  _S2322 = _S2301->com_0;
+    float3  _S2323 = float3 {_S2322.x, _S2322.y, _S2322.z};
+    float3  _S2324 = rotate_0(&_S2294->rot_1, _S2321 + u_5 - _S2323);
+    float3  f_load_1;
+    float3  t_load_1;
+    float3  rep_f_3;
+    float3  rep_m_3;
+    chunk_loads_0(_S2292, _S2292, &_S2294->rot_1, _S2297, _S2295, _S2298, _S2295, &f_load_1, &t_load_1, &rep_f_3, &rep_m_3);
+    record_chunk_load_0(_S2292, f_load_1, t_load_1);
+    float3  _S2325 = f_load_1;
+    float4  _S2326 = __ldg(&globalParams_0->params_0->gravity_0);
+    float3  f_world_3 = _S2325 + float3 {_S2326.x, _S2326.y, _S2326.z} * make_float3 (mass_1);
+    float3  t_world_3 = t_load_1;
+    float3  f_world_4;
+    float3  t_world_4;
+    if(_S2296)
+    {
+        float3  _S2327 = _S2294->alpha_0;
+        float3  _S2328 = _S2294->w_5;
+        float3  f_world_5 = f_world_3 - (_S2294->a_13 + cross_0(_S2294->alpha_0, _S2324) + cross_0(_S2294->w_5, cross_0(_S2294->w_5, _S2324))) * make_float3 (mass_1);
+        float4  _S2329 = __ldg(&_S2302->inertia0_0);
+        float4  _S2330 = __ldg(&_S2302->inertia1_0);
+        float4  _S2331 = __ldg(&_S2302->inertia2_0);
+        float3  _S2332 = world_mul_0(&_S2294->rot_1, _S2329, _S2330, _S2331, _S2327);
+        float3  _S2333 = world_mul_0(&_S2294->rot_1, _S2329, _S2330, _S2331, _S2328);
+        float3  t_world_5 = t_world_3 - (_S2332 + cross_0(_S2328, _S2333));
+        f_world_4 = f_world_5;
+        t_world_4 = t_world_5;
+    }
+    else
+    {
+        f_world_4 = f_world_3;
+        t_world_4 = t_world_3;
+    }
+    float3  _S2334 = inverse_rotate_0(&_S2294->rot_1, f_world_4);
+    float3  _S2335 = inverse_rotate_0(&_S2294->rot_1, t_world_4);
+    float3  f_ext_2;
+    float3  m_ext_2;
+    if(_S2296)
+    {
+        float3  _S2336 = inverse_rotate_0(&_S2294->rot_1, _S2294->w_5);
+        float3  f_ext_3 = _S2334 - cross_0(_S2336, v_14) * make_float3 (2.0f * mass_1);
+        float4  _S2337 = __ldg(&_S2302->inertia0_0);
+        float4  _S2338 = __ldg(&_S2302->inertia1_0);
+        float4  _S2339 = __ldg(&_S2302->inertia2_0);
+        float3  i_w_1 = rows_mul_0(_S2337, _S2338, _S2339, w_9);
+        float3  m_ext_3 = _S2335 - (cross_0(_S2336, i_w_1) + cross_0(w_9, rows_mul_0(_S2337, _S2338, _S2339, _S2336)) + cross_0(w_9, i_w_1));
+        f_ext_2 = f_ext_3;
+        m_ext_2 = m_ext_3;
+    }
+    else
+    {
+        f_ext_2 = _S2334;
+        m_ext_2 = _S2335;
+    }
+    float3  f_19 = f_ext_2 + rep_f_3 + fi_6;
+    float3  m_9 = m_ext_2 + rep_m_3 + mi_7;
+    uint4  _S2340 = __ldg(&_S2302->info_0);
+    uint support_2 = _S2340.x;
+    float3  _S2341 = make_float3 ((*(&(globalParams_0->state_0)[_S2314])).w, (*(&(globalParams_0->state_0)[_S2316])).w, (*(&(globalParams_0->state_0)[_S2318])).w);
+    float3  reaction_2;
+    float3  u_6;
+    float3  th_8;
+    float3  v_15;
+    float3  w_10;
+    if(support_2 == 1U)
+    {
+        reaction_2 = - f_19;
+        u_6 = u_5;
+        th_8 = th_7;
+        v_15 = _S2303;
+        w_10 = _S2303;
+    }
+    else
+    {
+        float4  _S2342 = __ldg(&_S2302->inv0_0);
+        float4  _S2343 = __ldg(&_S2302->inv1_0);
+        float4  _S2344 = __ldg(&_S2302->inv2_0);
+        float3  _S2345 = rows_mul_0(_S2342, _S2343, _S2344, m_9);
+        float4  _S2346 = __ldg(&_S2302->scale_0);
+        float3  w_11 = w_9 + _S2345 * make_float3 (_S2295 * _S2346.z);
+        float3  th_9 = th_7 + w_11 * make_float3 (_S2295);
+        if(support_2 == 2U)
+        {
+            reaction_2 = - f_19;
+            u_6 = u_5;
+            th_8 = _S2303;
+        }
+        else
+        {
+            float3  v_16 = v_14 + f_19 * make_float3 (_S2295 * _S2346.y);
+            float3  u_7 = u_5 + v_16 * make_float3 (_S2295);
+            reaction_2 = _S2341;
+            u_6 = u_7;
+            th_8 = v_16;
+        }
+        float3  _S2347 = th_8;
+        th_8 = th_9;
+        v_15 = _S2347;
+        w_10 = w_11;
+    }
+    *(&(globalParams_0->state_0)[_S2312]) = make_float4 (u_6.x, u_6.y, u_6.z, peak_1);
+    *(&(globalParams_0->state_0)[_S2314]) = make_float4 (th_8.x, th_8.y, th_8.z, reaction_2.x);
+    *(&(globalParams_0->state_0)[_S2316]) = make_float4 (v_15.x, v_15.y, v_15.z, reaction_2.y);
+    *(&(globalParams_0->state_0)[_S2318]) = make_float4 (w_10.x, w_10.y, w_10.z, reaction_2.z);
+    float3  _S2348 = rotate_0(&_S2294->rot_1, _S2321 + u_6 - _S2323);
+    float3  _S2349 = _S2294->vel_0 + _S2294->vel_err_0 + cross_0(_S2294->w_5, _S2348);
+    float3  _S2350 = rotate_0(&_S2294->rot_1, v_15);
+    float3  v_world_1 = _S2349 + _S2350;
+    float3  _S2351 = rotate_0(&_S2294->rot_1, w_10);
+    comp_add1_0(_S2299, _S2300, (dot_0(f_load_1, v_world_1) + dot_0(t_load_1, _S2294->w_5 + _S2351)) * _S2295);
+    return;
+}
+
+extern "C" __global__ void contact_frames()
+{
+    uint p_17;
+    uint _S2352;
+    uint q_14;
+    uint _S2353;
+    uint c_48;
+    uint mode_1;
+    uint g_4;
+    uint _S2354;
+    uint mode_2;
+    uint _S2355;
+    uint c_49;
+    uint mode_3;
+    bool contact_4;
+    bool _S2356;
+    uint _S2357;
+    uint _S2358;
+    uint _S2359;
+    uint _S2360;
+    uint _S2361;
+    uint _S2362;
+    uint _S2363;
+    uint c_50;
+    uint _S2364;
+    uint _S2365;
+    uint b_32;
+    uint _S2366;
+    uint _S2367;
+    uint _S2368;
+    uint c_51;
+    uint _S2369;
+    uint _S2370;
+    uint _S2371;
+    uint _S2372;
+    uint _S2373;
+    uint _S2374;
+    uint _S2375;
+    uint _S2376;
+    uint _S2377;
+    uint _S2378;
+    uint _S2379;
+    uint _S2380;
+    uint _S2381;
+    uint _S2382 = __ballot_sync(4294967295U, true);
+    uint _S2383 = threadIdx.x;
+    uint _S2384 = __ldg(&globalParams_0->params_0->halt_index_0);
+    float _S2385 = __ldg(&globalParams_0->params_0->dt_0);
+    uint _S2386 = __ldg(&globalParams_0->params_0->fracture_0);
+    bool _S2387 = _S2386 != 0U;
+    uint _S2388 = __ldg(&globalParams_0->params_0->rigid_motion_loads_0);
+    bool _S2389 = _S2388 != 0U;
+    uint _S2390 = __ldg(&globalParams_0->params_0->solve_mode_0);
+    bool _S2391 = _S2390 == 1U;
+    uint s_13 = 0U;
+    uint _S2392 = _S2382;
+    for(;;)
+    {
+        uint _S2393 = 0U;
+        uint _S2394 = __ldg(&globalParams_0->params_0->pc_steps_0);
+        bool _S2395 = s_13 < _S2394;
+        uint _S2396 = __ballot_sync(_S2392, _S2395);
+        if(_S2395)
+        {
+            uint _S2397 = __ballot_sync(_S2392, true);
+            _S2393 = _S2397;
+        }
+        else
+        {
+            break;
+        }
+        seen_clear_0(_S2383);
+        bool _S2398 = _S2383 == 0U;
+        uint _S2399 = __ballot_sync(_S2393, _S2398);
+        uint _S2400;
+        if(_S2398)
+        {
+            *&g_flag_0 = 0U;
+            uint _S2401 = __ballot_sync(_S2393, true);
+            _S2400 = _S2401;
+        }
+        else
+        {
+            uint _S2402 = __ballot_sync(_S2393, true);
+            _S2400 = _S2402;
+        }
+        __syncthreads();
+        uint i_32 = _S2383;
+        uint _S2403 = _S2400;
+        for(;;)
+        {
+            uint _S2404 = 0U;
+            bool _S2405 = i_32 < _S2384;
+            uint _S2406 = __ballot_sync(_S2403, _S2405);
+            if(_S2405)
+            {
+                uint _S2407 = __ballot_sync(_S2403, true);
+                _S2404 = _S2407;
+            }
+            else
+            {
+                uint _S2408 = __ballot_sync(_S2403, false);
+                uint _S2409 = __ballot_sync(_S2403, false);
+                uint _S2410 = __ballot_sync(_S2400, true);
+                _S2357 = _S2410;
+                break;
+            }
+            uint4  _S2411 = (&(globalParams_0->islands_0)[i_32])->info_1;
+            uint x_26 = (&(globalParams_0->islands_0)[i_32])->info_1.x;
+            bool _S2412 = (x_26 & 4U) != 0U;
+            uint _S2413 = __ballot_sync(_S2404, _S2412);
+            if(_S2412)
+            {
+                bool _S2414 = (x_26 & 2U) == 0U;
+                uint _S2415 = __ballot_sync(_S2404, true);
+                contact_4 = _S2414;
+                p_17 = _S2415;
+            }
+            else
+            {
+                uint _S2416 = __ballot_sync(_S2404, true);
+                contact_4 = false;
+                p_17 = _S2416;
+            }
+            uint _S2417 = __ballot_sync(p_17, contact_4);
+            if(contact_4)
+            {
+                bool _S2418 = ((_S2411.z) & 1U) == 0U;
+                uint _S2419 = __ballot_sync(p_17, true);
+                _S2356 = _S2418;
+                _S2352 = _S2419;
+            }
+            else
+            {
+                uint _S2420 = __ballot_sync(p_17, true);
+                _S2356 = false;
+                _S2352 = _S2420;
+            }
+            uint _S2421 = __ballot_sync(_S2352, _S2356);
+            bool _S2422;
+            if(_S2356)
+            {
+                bool _S2423 = (_S2411.y) > 0U;
+                uint _S2424 = __ballot_sync(_S2352, true);
+                _S2422 = _S2423;
+                q_14 = _S2424;
+            }
+            else
+            {
+                uint _S2425 = __ballot_sync(_S2352, true);
+                _S2422 = false;
+                q_14 = _S2425;
+            }
+            uint _S2426 = __ballot_sync(q_14, _S2422);
+            bool _S2427;
+            if(_S2422)
+            {
+                bool _S2428 = contact_stopped_1(i_32);
+                bool _S2429 = !_S2428;
+                uint _S2430 = __ballot_sync(q_14, true);
+                _S2427 = _S2429;
+                _S2353 = _S2430;
+            }
+            else
+            {
+                uint _S2431 = __ballot_sync(q_14, true);
+                _S2427 = false;
+                _S2353 = _S2431;
+            }
+            uint _S2432 = __ballot_sync(_S2353, _S2427);
+            if(_S2427)
+            {
+                bool quiet_2 = (x_26 & 32U) != 0U;
+                bool settled_1 = (x_26 & 16U) != 0U;
+                bool _S2433 = !((x_26 & 1U) != 0U);
+                uint _S2434 = __ballot_sync(_S2432, _S2433);
+                bool _S2435;
+                if(_S2433)
+                {
+                    bool _S2436 = !quiet_2;
+                    uint _S2437 = __ballot_sync(_S2432, true);
+                    _S2435 = _S2436;
+                    c_48 = _S2437;
+                }
+                else
+                {
+                    uint _S2438 = __ballot_sync(_S2432, true);
+                    _S2435 = false;
+                    c_48 = _S2438;
+                }
+                uint _S2439 = __ballot_sync(c_48, _S2435);
+                if(_S2435)
+                {
+                    uint _S2440 = __ballot_sync(c_48, true);
+                    mode_1 = 13U;
+                    g_4 = _S2440;
+                }
+                else
+                {
+                    uint _S2441 = __ballot_sync(c_48, true);
+                    mode_1 = 1U;
+                    g_4 = _S2441;
+                }
+                bool _S2442 = !settled_1;
+                uint _S2443 = __ballot_sync(g_4, _S2442);
+                bool _S2444;
+                if(_S2442)
+                {
+                    bool _S2445 = !quiet_2;
+                    uint _S2446 = __ballot_sync(g_4, true);
+                    _S2444 = _S2445;
+                    _S2354 = _S2446;
+                }
+                else
+                {
+                    uint _S2447 = __ballot_sync(g_4, true);
+                    _S2444 = false;
+                    _S2354 = _S2447;
+                }
+                uint _S2448 = __ballot_sync(_S2354, _S2444);
+                if(_S2444)
+                {
+                    uint mode_4 = mode_1 | 2U;
+                    uint _S2449 = __ballot_sync(_S2354, true);
+                    mode_2 = mode_4;
+                    _S2355 = _S2449;
+                }
+                else
+                {
+                    uint _S2450 = __ballot_sync(_S2354, true);
+                    mode_2 = mode_1;
+                    _S2355 = _S2450;
+                }
+                uint _S2451 = __ballot_sync(_S2355, settled_1);
+                bool _S2452;
+                if(settled_1)
+                {
+                    bool _S2453 = !quiet_2;
+                    uint _S2454 = __ballot_sync(_S2355, true);
+                    _S2452 = _S2453;
+                    c_49 = _S2454;
+                }
+                else
+                {
+                    uint _S2455 = __ballot_sync(_S2355, true);
+                    _S2452 = false;
+                    c_49 = _S2455;
+                }
+                uint _S2456 = __ballot_sync(c_49, _S2452);
+                if(_S2452)
+                {
+                    uint mode_5 = mode_2 | 128U;
+                    uint _S2457 = __ballot_sync(c_49, true);
+                    mode_3 = mode_5;
+                }
+                else
+                {
+                    uint _S2458 = __ballot_sync(c_49, true);
+                    mode_3 = mode_2;
+                }
+                *&g_flag_0 = 1U;
+                uint _S2459 = __ballot_sync(_S2353, true);
+                mode_1 = mode_3;
+            }
+            else
+            {
+                uint _S2460 = __ballot_sync(_S2353, true);
+                mode_1 = 0U;
+            }
+            (*&g_mode_0)[i_32] = mode_1;
+            uint _S2461 = __ballot_sync(_S2403, true);
+            i_32 = i_32 + 256U;
+            _S2403 = _S2461;
+        }
+        uint _S2462 = 0U;
+        __syncthreads();
+        bool _S2463 = (*&g_flag_0) == 0U;
+        uint _S2464 = __ballot_sync(_S2357, _S2463);
+        if(_S2463)
+        {
+            break;
+        }
+        else
+        {
+            uint _S2465 = __ballot_sync(_S2357, true);
+            _S2462 = _S2465;
+        }
+        uint _S2466 = _S2383 % 32U;
+        p_17 = _S2383 / 32U;
+        _S2352 = _S2462;
+        for(;;)
+        {
+            uint _S2467 = 0U;
+            uint _S2468 = __ldg(&globalParams_0->params_0->pair_count_0);
+            bool _S2469 = p_17 < _S2468;
+            uint _S2470 = __ballot_sync(_S2352, _S2469);
+            if(_S2469)
+            {
+                uint _S2471 = __ballot_sync(_S2352, true);
+                _S2467 = _S2471;
+            }
+            else
+            {
+                uint _S2472 = __ballot_sync(_S2352, false);
+                uint _S2473 = __ballot_sync(_S2352, false);
+                uint _S2474 = __ballot_sync(_S2462, true);
+                _S2358 = _S2474;
+                break;
+            }
+            bool _S2475 = pair_any_0(stopped_0(), 32U, _S2467);
+            bool _S2476 = !_S2475;
+            uint _S2477 = __ballot_sync(_S2467, _S2476);
+            if(_S2476)
+            {
+                pair_contact_0(p_17, _S2466, 32U, _S2477);
+                uint _S2478 = __ballot_sync(_S2467, true);
+            }
+            else
+            {
+                uint _S2479 = __ballot_sync(_S2467, true);
+            }
+            uint _S2480 = __ballot_sync(_S2352, true);
+            p_17 = p_17 + 8U;
+            _S2352 = _S2480;
+        }
+        q_14 = _S2383 / 32U;
+        _S2353 = _S2358;
+        for(;;)
+        {
+            uint _S2481 = 0U;
+            uint _S2482 = __ldg(&globalParams_0->params_0->cand_count_0);
+            bool _S2483 = q_14 < _S2482;
+            uint _S2484 = __ballot_sync(_S2353, _S2483);
+            if(_S2483)
+            {
+                uint _S2485 = __ballot_sync(_S2353, true);
+                _S2481 = _S2485;
+            }
+            else
+            {
+                uint _S2486 = __ballot_sync(_S2353, false);
+                uint _S2487 = __ballot_sync(_S2353, false);
+                uint _S2488 = __ballot_sync(_S2358, true);
+                _S2359 = _S2488;
+                break;
+            }
+            bool _S2489 = pair_any_0(stopped_0(), 32U, _S2481);
+            bool _S2490 = !_S2489;
+            uint _S2491 = __ballot_sync(_S2481, _S2490);
+            if(_S2490)
+            {
+                impactor_candidate_forces_0(q_14, _S2466, 32U, _S2491);
+                uint _S2492 = __ballot_sync(_S2481, true);
+            }
+            else
+            {
+                uint _S2493 = __ballot_sync(_S2481, true);
+            }
+            uint _S2494 = __ballot_sync(_S2353, true);
+            q_14 = q_14 + 8U;
+            _S2353 = _S2494;
+        }
+        c_48 = _S2383;
+        mode_1 = _S2359;
+        for(;;)
+        {
+            uint _S2495 = __ldg(&globalParams_0->params_0->chunk_count_0);
+            bool _S2496 = c_48 < _S2495;
+            uint _S2497 = __ballot_sync(mode_1, _S2496);
+            if(_S2496)
+            {
+                uint _S2498 = __ballot_sync(mode_1, true);
+            }
+            else
+            {
+                uint _S2499 = __ballot_sync(mode_1, false);
+                uint _S2500 = __ballot_sync(mode_1, false);
+                uint _S2501 = __ballot_sync(_S2359, true);
+                _S2360 = _S2501;
+                break;
+            }
+            travel_check_0(c_48);
+            uint _S2502 = __ballot_sync(mode_1, true);
+            c_48 = c_48 + 256U;
+            mode_1 = _S2502;
+        }
+        uint _S2503 = 0U;
+        __syncthreads();
+        uint _S2504 = __ldg(&globalParams_0->params_0->halt_index_0);
+        bool _S2505 = (((&(globalParams_0->islands_0)[_S2504])->info_1.z) & 1U) != 0U;
+        uint _S2506 = __ballot_sync(_S2360, _S2505);
+        if(_S2505)
+        {
+            break;
+        }
+        else
+        {
+            uint _S2507 = __ballot_sync(_S2360, true);
+            _S2503 = _S2507;
+        }
+        g_4 = _S2383;
+        _S2354 = _S2503;
+        for(;;)
+        {
+            uint _S2508 = __ldg(&globalParams_0->params_0->seg_count_0);
+            bool _S2509 = g_4 < _S2508;
+            uint _S2510 = __ballot_sync(_S2354, _S2509);
+            if(_S2509)
+            {
+                uint _S2511 = __ballot_sync(_S2354, true);
+            }
+            else
+            {
+                uint _S2512 = __ballot_sync(_S2354, false);
+                uint _S2513 = __ballot_sync(_S2354, false);
+                uint _S2514 = __ballot_sync(_S2503, true);
+                _S2361 = _S2514;
+                break;
+            }
+            contact_sum_at_0(g_4);
+            uint _S2515 = __ballot_sync(_S2354, true);
+            g_4 = g_4 + 256U;
+            _S2354 = _S2515;
+        }
+        mode_2 = 0U;
+        _S2355 = _S2361;
+        for(;;)
+        {
+            uint _S2516 = 0U;
+            uint _S2517 = __ldg(&globalParams_0->params_0->impactor_count_0);
+            bool _S2518 = mode_2 < _S2517;
+            uint _S2519 = __ballot_sync(_S2355, _S2518);
+            if(_S2518)
+            {
+                uint _S2520 = __ballot_sync(_S2355, true);
+                _S2516 = _S2520;
+            }
+            else
+            {
+                uint _S2521 = __ballot_sync(_S2355, false);
+                uint _S2522 = __ballot_sync(_S2355, false);
+                uint _S2523 = __ballot_sync(_S2361, true);
+                _S2362 = _S2523;
+                break;
+            }
+            impactor_integrate_at_0(mode_2, _S2383, _S2516);
+            __syncthreads();
+            uint _S2524 = __ballot_sync(_S2355, true);
+            mode_2 = mode_2 + 1U;
+            _S2355 = _S2524;
+        }
+        __syncthreads();
+        c_49 = _S2383;
+        mode_3 = _S2362;
+        for(;;)
+        {
+            uint _S2525 = 0U;
+            uint _S2526 = __ldg(&globalParams_0->params_0->chunk_count_0);
+            bool _S2527 = c_49 < _S2526;
+            uint _S2528 = __ballot_sync(mode_3, _S2527);
+            if(_S2527)
+            {
+                uint _S2529 = __ballot_sync(mode_3, true);
+                _S2525 = _S2529;
+            }
+            else
+            {
+                uint _S2530 = __ballot_sync(mode_3, false);
+                uint _S2531 = __ballot_sync(mode_3, false);
+                uint _S2532 = __ballot_sync(_S2362, true);
+                _S2363 = _S2532;
+                break;
+            }
+            uint4  _S2533 = __ldg(&(&(globalParams_0->chunks_0)[c_49])->info_0);
+            uint i_33 = _S2533.y;
+            bool _S2534 = (((*&g_mode_0)[i_33]) & 128U) == 0U;
+            uint _S2535 = __ballot_sync(_S2525, _S2534);
+            if(_S2534)
+            {
+                uint _S2536 = __ballot_sync(_S2525, false);
+                uint _S2537 = __ballot_sync(mode_3, true);
+                mode_3 = _S2537;
+                c_49 = c_49 + 256U;
+                continue;
+            }
+            else
+            {
+                uint _S2538 = __ballot_sync(_S2525, true);
+            }
+            Quat_0 _S2539 = quat_of_0((&(globalParams_0->islands_0)[i_33])->rotation_0);
+            uint _S2540 = pc_k_1(i_33);
+            Quat_0 _S2541 = _S2539;
+            float _S2542 = settled_chunk_load_0(c_49, &_S2541, _S2540, _S2385, true);
+            uint _S2543 = __ldg(&globalParams_0->params_0->pc_base_0);
+            uint _S2544 = 2U * c_49;
+            *(&(globalParams_0->scratch_0)[_S2543 + _S2544]) = make_float4 (_S2542, 0.0f, 0.0f, 0.0f);
+            uint _S2545 = __ldg(&globalParams_0->params_0->pc_base_0);
+            *(&(globalParams_0->scratch_0)[_S2545 + _S2544 + 1U]) = make_float4 (0.0f);
+            uint _S2546 = __ballot_sync(mode_3, true);
+            mode_3 = _S2546;
+            c_49 = c_49 + 256U;
+        }
+        __syncthreads();
+        uint i_34 = _S2383;
+        uint _S2547 = _S2363;
+        for(;;)
+        {
+            uint _S2548 = 0U;
+            bool _S2549 = i_34 < _S2384;
+            uint _S2550 = __ballot_sync(_S2547, _S2549);
+            if(_S2549)
+            {
+                uint _S2551 = __ballot_sync(_S2547, true);
+                _S2548 = _S2551;
+            }
+            else
+            {
+                uint _S2552 = __ballot_sync(_S2547, false);
+                uint _S2553 = __ballot_sync(_S2547, false);
+                uint _S2554 = __ballot_sync(_S2363, true);
+                _S2364 = _S2554;
+                break;
+            }
+            uint _S2555 = 0U;
+            uint mode_6 = (*&g_mode_0)[i_34];
+            bool _S2556 = (((*&g_mode_0)[i_34]) & 128U) == 0U;
+            uint _S2557 = __ballot_sync(_S2548, _S2556);
+            if(_S2556)
+            {
+                uint _S2558 = __ballot_sync(_S2548, false);
+                uint _S2559 = __ballot_sync(_S2547, true);
+                _S2547 = _S2559;
+                i_34 = i_34 + 256U;
+                continue;
+            }
+            else
+            {
+                uint _S2560 = __ballot_sync(_S2548, true);
+                _S2555 = _S2560;
+            }
+            Island_0 isl_25 = *(&(globalParams_0->islands_0)[i_34]);
+            float3  _S2561 = make_float3 (0.0f);
+            float3  norm_2 = _S2561;
+            float3  unused_5 = _S2561;
+            pc_sum_0(i_34, &norm_2, &unused_5);
+            uint _S2562 = __ballot_sync(_S2555, _S2391);
+            if(_S2391)
+            {
+                bool _S2563 = (F32_abs((norm_2.x - isl_25.energy_1.z))) > (isl_25.energy_1.w);
+                uint _S2564 = __ballot_sync(_S2555, true);
+                contact_4 = _S2563;
+                c_50 = _S2564;
+            }
+            else
+            {
+                uint _S2565 = __ballot_sync(_S2555, true);
+                contact_4 = false;
+                c_50 = _S2565;
+            }
+            uint _S2566 = __ballot_sync(c_50, contact_4);
+            if(contact_4)
+            {
+                (*&g_mode_0)[i_34] = (mode_6 | 2U) | 64U;
+                uint _S2567 = __ballot_sync(c_50, true);
+            }
+            else
+            {
+                uint _S2568 = __ballot_sync(c_50, true);
+            }
+            uint _S2569 = __ballot_sync(_S2547, true);
+            _S2547 = _S2569;
+            i_34 = i_34 + 256U;
+        }
+        __syncthreads();
+        c_50 = _S2383;
+        uint _S2570 = _S2364;
+        for(;;)
+        {
+            uint _S2571 = 0U;
+            uint _S2572 = __ldg(&globalParams_0->params_0->chunk_count_0);
+            bool _S2573 = c_50 < _S2572;
+            uint _S2574 = __ballot_sync(_S2570, _S2573);
+            if(_S2573)
+            {
+                uint _S2575 = __ballot_sync(_S2570, true);
+                _S2571 = _S2575;
+            }
+            else
+            {
+                uint _S2576 = __ballot_sync(_S2570, false);
+                uint _S2577 = __ballot_sync(_S2570, false);
+                uint _S2578 = __ballot_sync(_S2364, true);
+                _S2365 = _S2578;
+                break;
+            }
+            uint4  _S2579 = __ldg(&(&(globalParams_0->chunks_0)[c_50])->info_0);
+            uint i_35 = _S2579.y;
+            bool _S2580 = (((*&g_mode_0)[i_35]) & 4U) == 0U;
+            uint _S2581 = __ballot_sync(_S2571, _S2580);
+            if(_S2580)
+            {
+                uint _S2582 = __ballot_sync(_S2571, false);
+                uint _S2583 = __ballot_sync(_S2570, true);
+                _S2570 = _S2583;
+                c_50 = c_50 + 256U;
+                continue;
+            }
+            else
+            {
+                uint _S2584 = __ballot_sync(_S2571, true);
+            }
+            float3  _S2585 = make_float3 (0.0f);
+            float3  f_20 = _S2585;
+            float3  t_17 = _S2585;
+            Rigid_0 _S2586 = rigid_of_1(i_35);
+            uint _S2587 = pc_k_1(i_35);
+            Rigid_0 _S2588 = _S2586;
+            net_load_1(c_50, i_35, &_S2588, _S2587, _S2385, true, &f_20, &t_17);
+            uint _S2589 = __ldg(&globalParams_0->params_0->pc_base_0);
+            uint _S2590 = 2U * c_50;
+            *(&(globalParams_0->scratch_0)[_S2589 + _S2590]) = make_float4 (f_20.x, f_20.y, f_20.z, 0.0f);
+            uint _S2591 = __ldg(&globalParams_0->params_0->pc_base_0);
+            *(&(globalParams_0->scratch_0)[_S2591 + _S2590 + 1U]) = make_float4 (t_17.x, t_17.y, t_17.z, 0.0f);
+            uint _S2592 = __ballot_sync(_S2570, true);
+            _S2570 = _S2592;
+            c_50 = c_50 + 256U;
+        }
+        __syncthreads();
+        uint i_36 = _S2383;
+        uint _S2593 = _S2365;
+        for(;;)
+        {
+            uint _S2594 = 0U;
+            bool _S2595 = i_36 < _S2384;
+            uint _S2596 = __ballot_sync(_S2593, _S2595);
+            if(_S2595)
+            {
+                uint _S2597 = __ballot_sync(_S2593, true);
+                _S2594 = _S2597;
+            }
+            else
+            {
+                uint _S2598 = __ballot_sync(_S2593, false);
+                uint _S2599 = __ballot_sync(_S2593, false);
+                uint _S2600 = __ballot_sync(_S2365, true);
+                _S2366 = _S2600;
+                break;
+            }
+            uint _S2601 = 0U;
+            uint mode_7 = (*&g_mode_0)[i_36];
+            bool _S2602 = (((*&g_mode_0)[i_36]) & 1U) == 0U;
+            uint _S2603 = __ballot_sync(_S2594, _S2602);
+            if(_S2602)
+            {
+                uint _S2604 = __ballot_sync(_S2594, false);
+                uint _S2605 = __ballot_sync(_S2593, true);
+                _S2593 = _S2605;
+                i_36 = i_36 + 256U;
+                continue;
+            }
+            else
+            {
+                uint _S2606 = __ballot_sync(_S2594, true);
+                _S2601 = _S2606;
+            }
+            Island_0 isl_26 = *(&(globalParams_0->islands_0)[i_36]);
+            Rigid_0 rg_13 = rigid_of_1(i_36);
+            bool _S2607 = (mode_7 & 4U) != 0U;
+            uint _S2608 = __ballot_sync(_S2601, _S2607);
+            if(_S2607)
+            {
+                float3  _S2609 = make_float3 (0.0f);
+                float3  f_21 = _S2609;
+                float3  t_18 = _S2609;
+                pc_sum_0(i_36, &f_21, &t_18);
+                Island_0 _S2610 = isl_26;
+                rigid_acceleration_0(&_S2610, &rg_13, f_21, t_18);
+                uint _S2611 = __ballot_sync(_S2601, true);
+                b_32 = _S2611;
+            }
+            else
+            {
+                uint _S2612 = __ballot_sync(_S2601, true);
+                b_32 = _S2612;
+            }
+            Rigid_0 _S2613 = rg_13;
+            pc_store_rigid_0(i_36, &_S2613);
+            bool _S2614 = (mode_7 & 6U) == 6U;
+            uint _S2615 = __ballot_sync(b_32, _S2614);
+            if(_S2614)
+            {
+                (*&g_mode_0)[i_36] = mode_7 | 16U;
+                uint _S2616 = __ballot_sync(b_32, true);
+            }
+            else
+            {
+                uint _S2617 = __ballot_sync(b_32, true);
+            }
+            uint _S2618 = __ballot_sync(_S2593, true);
+            _S2593 = _S2618;
+            i_36 = i_36 + 256U;
+        }
+        __syncthreads();
+        b_32 = _S2383;
+        uint _S2619 = _S2366;
+        for(;;)
+        {
+            uint _S2620 = 0U;
+            uint _S2621 = __ldg(&globalParams_0->params_0->bond_count_0);
+            bool _S2622 = b_32 < _S2621;
+            uint _S2623 = __ballot_sync(_S2619, _S2622);
+            if(_S2622)
+            {
+                uint _S2624 = __ballot_sync(_S2619, true);
+                _S2620 = _S2624;
+            }
+            else
+            {
+                uint _S2625 = __ballot_sync(_S2619, false);
+                uint _S2626 = __ballot_sync(_S2619, false);
+                uint _S2627 = __ballot_sync(_S2366, true);
+                _S2367 = _S2627;
+                break;
+            }
+            uint _S2628 = 0U;
+            JointBond_0 _S2629 = slang_ldg_0(&(&(globalParams_0->bonds_0)[b_32])->law_0);
+            uint i_37 = _S2629.ids_0.w;
+            uint mode_8 = (*&g_mode_0)[i_37];
+            bool _S2630 = (((*&g_mode_0)[i_37]) & 2U) == 0U;
+            uint _S2631 = __ballot_sync(_S2620, _S2630);
+            if(_S2630)
+            {
+                uint _S2632 = __ballot_sync(_S2620, false);
+                uint _S2633 = __ballot_sync(_S2619, true);
+                _S2619 = _S2633;
+                b_32 = b_32 + 256U;
+                continue;
+            }
+            else
+            {
+                uint _S2634 = __ballot_sync(_S2620, true);
+                _S2628 = _S2634;
+            }
+            bool _S2635 = bond_update_0(b_32, _S2385, _S2387, (&(globalParams_0->islands_0)[i_37])->info_1.w + 1U, (((&(globalParams_0->islands_0)[i_37])->info_1.x) & 8U) != 0U);
+            uint _S2636 = __ballot_sync(_S2628, _S2635);
+            if(_S2635)
+            {
+                (*&g_mode_0)[i_37] = mode_8 | 32U;
+                uint _S2637 = __ballot_sync(_S2628, true);
+            }
+            else
+            {
+                uint _S2638 = __ballot_sync(_S2628, true);
+            }
+            uint _S2639 = __ballot_sync(_S2619, true);
+            _S2619 = _S2639;
+            b_32 = b_32 + 256U;
+        }
+        __syncthreads();
+        uint c_52 = _S2383;
+        uint _S2640 = _S2367;
+        for(;;)
+        {
+            uint _S2641 = 0U;
+            uint _S2642 = __ldg(&globalParams_0->params_0->chunk_count_0);
+            bool _S2643 = c_52 < _S2642;
+            uint _S2644 = __ballot_sync(_S2640, _S2643);
+            if(_S2643)
+            {
+                uint _S2645 = __ballot_sync(_S2640, true);
+                _S2641 = _S2645;
+            }
+            else
+            {
+                uint _S2646 = __ballot_sync(_S2640, false);
+                uint _S2647 = __ballot_sync(_S2640, false);
+                uint _S2648 = __ballot_sync(_S2367, true);
+                _S2368 = _S2648;
+                break;
+            }
+            uint4  _S2649 = __ldg(&(&(globalParams_0->chunks_0)[c_52])->info_0);
+            uint i_38 = _S2649.y;
+            bool _S2650 = (((*&g_mode_0)[i_38]) & 2U) == 0U;
+            uint _S2651 = __ballot_sync(_S2641, _S2650);
+            if(_S2650)
+            {
+                uint _S2652 = __ballot_sync(_S2641, false);
+                uint _S2653 = __ballot_sync(_S2640, true);
+                _S2640 = _S2653;
+                c_52 = c_52 + 256U;
+                continue;
+            }
+            else
+            {
+                uint _S2654 = __ballot_sync(_S2641, true);
+            }
+            float work_5 = 0.0f;
+            float work_err_3 = 0.0f;
+            Rigid_0 _S2655 = pc_load_rigid_0(i_38);
+            uint _S2656 = pc_k_1(i_38);
+            Rigid_0 _S2657 = _S2655;
+            chunk_update_1(c_52, i_38, &_S2657, _S2385, _S2389, _S2656, true, &work_5, &work_err_3);
+            uint _S2658 = __ldg(&globalParams_0->params_0->pc_base_0);
+            uint _S2659 = 2U * c_52;
+            *(&(globalParams_0->scratch_0)[_S2658 + _S2659]) = make_float4 (work_5, work_err_3, 0.0f, 0.0f);
+            uint _S2660 = __ldg(&globalParams_0->params_0->pc_base_0);
+            *(&(globalParams_0->scratch_0)[_S2660 + _S2659 + 1U]) = make_float4 (0.0f);
+            uint _S2661 = __ballot_sync(_S2640, true);
+            _S2640 = _S2661;
+            c_52 = c_52 + 256U;
+        }
+        __syncthreads();
+        uint i_39 = _S2383;
+        uint _S2662 = _S2368;
+        for(;;)
+        {
+            uint _S2663 = 0U;
+            bool _S2664 = i_39 < _S2384;
+            uint _S2665 = __ballot_sync(_S2662, _S2664);
+            if(_S2664)
+            {
+                uint _S2666 = __ballot_sync(_S2662, true);
+                _S2663 = _S2666;
+            }
+            else
+            {
+                uint _S2667 = __ballot_sync(_S2662, false);
+                uint _S2668 = __ballot_sync(_S2662, false);
+                uint _S2669 = __ballot_sync(_S2368, true);
+                _S2370 = _S2669;
+                break;
+            }
+            uint _S2670 = 0U;
+            uint mode_9 = (*&g_mode_0)[i_39];
+            bool _S2671 = (((*&g_mode_0)[i_39]) & 1U) == 0U;
+            uint _S2672 = __ballot_sync(_S2663, _S2671);
+            if(_S2671)
+            {
+                uint _S2673 = __ballot_sync(_S2663, false);
+                uint _S2674 = __ballot_sync(_S2662, true);
+                _S2662 = _S2674;
+                i_39 = i_39 + 256U;
+                continue;
+            }
+            else
+            {
+                uint _S2675 = __ballot_sync(_S2663, true);
+                _S2670 = _S2675;
+            }
+            Island_0 isl_27 = *(&(globalParams_0->islands_0)[i_39]);
+            Rigid_0 rg_14 = pc_load_rigid_0(i_39);
+            bool _S2676 = (mode_9 & 2U) != 0U;
+            uint _S2677 = __ballot_sync(_S2670, _S2676);
+            if(_S2676)
+            {
+                float work_6 = 0.0f;
+                float work_err_4 = 0.0f;
+                c_51 = (&isl_27)->range_0.x;
+                _S2369 = _S2677;
+                for(;;)
+                {
+                    bool _S2678 = c_51 < ((&isl_27)->range_0.y);
+                    uint _S2679 = __ballot_sync(_S2369, _S2678);
+                    if(_S2678)
+                    {
+                        uint _S2680 = __ballot_sync(_S2369, true);
+                    }
+                    else
+                    {
+                        uint _S2681 = __ballot_sync(_S2369, false);
+                        uint _S2682 = __ballot_sync(_S2369, false);
+                        uint _S2683 = __ballot_sync(_S2677, true);
+                        break;
+                    }
+                    uint _S2684 = __ldg(&globalParams_0->params_0->pc_base_0);
+                    float4  * _S2685 = (&(globalParams_0->scratch_0)[_S2684 + 2U * c_51]);
+                    comp_add1_0(&work_6, &work_err_4, (*_S2685).x);
+                    work_err_4 = work_err_4 + (*_S2685).y;
+                    uint _S2686 = __ballot_sync(_S2369, true);
+                    c_51 = c_51 + 1U;
+                    _S2369 = _S2686;
+                }
+                comp_add1_0(&((&(&isl_27)->energy_1)->x), &((&(&isl_27)->energy_1)->y), work_6);
+                *&((&(&isl_27)->energy_1)->y) = *&((&(&isl_27)->energy_1)->y) + work_err_4;
+                (&(globalParams_0->islands_0)[i_39])->energy_1 = (&isl_27)->energy_1;
+                uint _S2687 = __ballot_sync(_S2670, true);
+                c_51 = _S2687;
+            }
+            else
+            {
+                uint _S2688 = __ballot_sync(_S2670, true);
+                c_51 = _S2688;
+            }
+            bool _S2689 = (mode_9 & 8U) != 0U;
+            uint _S2690 = __ballot_sync(c_51, _S2689);
+            if(_S2689)
+            {
+                Island_0 _S2691 = isl_27;
+                integrate_rigid_0(&_S2691, &rg_14, _S2385);
+                uint _S2692 = __ballot_sync(c_51, true);
+            }
+            else
+            {
+                uint _S2693 = __ballot_sync(c_51, true);
+            }
+            Rigid_0 _S2694 = rg_14;
+            pc_store_rigid_0(i_39, &_S2694);
+            uint _S2695 = __ballot_sync(_S2662, true);
+            _S2662 = _S2695;
+            i_39 = i_39 + 256U;
+        }
+        __syncthreads();
+        c_51 = _S2383;
+        _S2369 = _S2370;
+        for(;;)
+        {
+            uint _S2696 = 0U;
+            uint _S2697 = __ldg(&globalParams_0->params_0->chunk_count_0);
+            bool _S2698 = c_51 < _S2697;
+            uint _S2699 = __ballot_sync(_S2369, _S2698);
+            if(_S2698)
+            {
+                uint _S2700 = __ballot_sync(_S2369, true);
+                _S2696 = _S2700;
+            }
+            else
+            {
+                uint _S2701 = __ballot_sync(_S2369, false);
+                uint _S2702 = __ballot_sync(_S2369, false);
+                uint _S2703 = __ballot_sync(_S2370, true);
+                _S2371 = _S2703;
+                break;
+            }
+            uint4  _S2704 = __ldg(&(&(globalParams_0->chunks_0)[c_51])->info_0);
+            bool _S2705 = (((*&g_mode_0)[_S2704.y]) & 16U) == 0U;
+            uint _S2706 = __ballot_sync(_S2696, _S2705);
+            if(_S2705)
+            {
+                uint _S2707 = __ballot_sync(_S2696, false);
+                uint _S2708 = __ballot_sync(_S2369, true);
+                _S2369 = _S2708;
+                c_51 = c_51 + 256U;
+                continue;
+            }
+            else
+            {
+                uint _S2709 = __ballot_sync(_S2696, true);
+            }
+            float3  _S2710 = make_float3 (0.0f);
+            float3  tu_5 = _S2710;
+            float3  pv_5 = _S2710;
+            drift_moments_0(c_51, &tu_5, &pv_5);
+            uint _S2711 = __ldg(&globalParams_0->params_0->pc_base_0);
+            uint _S2712 = 2U * c_51;
+            *(&(globalParams_0->scratch_0)[_S2711 + _S2712]) = make_float4 (tu_5.x, tu_5.y, tu_5.z, 0.0f);
+            uint _S2713 = __ldg(&globalParams_0->params_0->pc_base_0);
+            *(&(globalParams_0->scratch_0)[_S2713 + _S2712 + 1U]) = make_float4 (pv_5.x, pv_5.y, pv_5.z, 0.0f);
+            uint _S2714 = __ballot_sync(_S2369, true);
+            _S2369 = _S2714;
+            c_51 = c_51 + 256U;
+        }
+        __syncthreads();
+        uint i_40 = _S2383;
+        uint _S2715 = _S2371;
+        for(;;)
+        {
+            uint _S2716 = 0U;
+            bool _S2717 = i_40 < _S2384;
+            uint _S2718 = __ballot_sync(_S2715, _S2717);
+            if(_S2717)
+            {
+                uint _S2719 = __ballot_sync(_S2715, true);
+                _S2716 = _S2719;
+            }
+            else
+            {
+                uint _S2720 = __ballot_sync(_S2715, false);
+                uint _S2721 = __ballot_sync(_S2715, false);
+                uint _S2722 = __ballot_sync(_S2371, true);
+                _S2372 = _S2722;
+                break;
+            }
+            bool _S2723 = (((*&g_mode_0)[i_40]) & 16U) == 0U;
+            uint _S2724 = __ballot_sync(_S2716, _S2723);
+            if(_S2723)
+            {
+                uint _S2725 = __ballot_sync(_S2716, false);
+                uint _S2726 = __ballot_sync(_S2715, true);
+                _S2715 = _S2726;
+                i_40 = i_40 + 256U;
+                continue;
+            }
+            else
+            {
+                uint _S2727 = __ballot_sync(_S2716, true);
+            }
+            Island_0 isl_28 = *(&(globalParams_0->islands_0)[i_40]);
+            float3  _S2728 = make_float3 (0.0f);
+            float3  tu_6 = _S2728;
+            float3  pv_6 = _S2728;
+            pc_sum_0(i_40, &tu_6, &pv_6);
+            uint _S2729 = __ldg(&globalParams_0->params_0->pi_base_0);
+            uint _S2730 = 16U * i_40;
+            float _S2731 = isl_28.wcom_0.w;
+            *(&(globalParams_0->scratch_0)[_S2729 + _S2730 + 12U]) = make_float4 ((tu_6 / make_float3 (_S2731)).x, (tu_6 / make_float3 (_S2731)).y, (tu_6 / make_float3 (_S2731)).z, 0.0f);
+            uint _S2732 = __ldg(&globalParams_0->params_0->pi_base_0);
+            *(&(globalParams_0->scratch_0)[_S2732 + _S2730 + 13U]) = make_float4 ((pv_6 / make_float3 (_S2731)).x, (pv_6 / make_float3 (_S2731)).y, (pv_6 / make_float3 (_S2731)).z, 0.0f);
+            uint _S2733 = __ballot_sync(_S2715, true);
+            _S2715 = _S2733;
+            i_40 = i_40 + 256U;
+        }
+        __syncthreads();
+        uint c_53 = _S2383;
+        uint _S2734 = _S2372;
+        for(;;)
+        {
+            uint _S2735 = 0U;
+            uint _S2736 = __ldg(&globalParams_0->params_0->chunk_count_0);
+            bool _S2737 = c_53 < _S2736;
+            uint _S2738 = __ballot_sync(_S2734, _S2737);
+            if(_S2737)
+            {
+                uint _S2739 = __ballot_sync(_S2734, true);
+                _S2735 = _S2739;
+            }
+            else
+            {
+                uint _S2740 = __ballot_sync(_S2734, false);
+                uint _S2741 = __ballot_sync(_S2734, false);
+                uint _S2742 = __ballot_sync(_S2372, true);
+                _S2373 = _S2742;
+                break;
+            }
+            uint4  _S2743 = __ldg(&(&(globalParams_0->chunks_0)[c_53])->info_0);
+            uint i_41 = _S2743.y;
+            bool _S2744 = (((*&g_mode_0)[i_41]) & 16U) == 0U;
+            uint _S2745 = __ballot_sync(_S2735, _S2744);
+            if(_S2744)
+            {
+                uint _S2746 = __ballot_sync(_S2735, false);
+                uint _S2747 = __ballot_sync(_S2734, true);
+                _S2734 = _S2747;
+                c_53 = c_53 + 256U;
+                continue;
+            }
+            else
+            {
+                uint _S2748 = __ballot_sync(_S2735, true);
+            }
+            float3  _S2749 = make_float3 (0.0f);
+            float3  lu_4 = _S2749;
+            float3  lv_4 = _S2749;
+            float4  _S2750 = (&(globalParams_0->islands_0)[i_41])->wcom_0;
+            float3  _S2751 = float3 {_S2750.x, _S2750.y, _S2750.z};
+            uint _S2752 = __ldg(&globalParams_0->params_0->pi_base_0);
+            uint _S2753 = 16U * i_41;
+            float4  _S2754 = *(&(globalParams_0->scratch_0)[_S2752 + _S2753 + 12U]);
+            float3  _S2755 = float3 {_S2754.x, _S2754.y, _S2754.z};
+            uint _S2756 = __ldg(&globalParams_0->params_0->pi_base_0);
+            float4  _S2757 = *(&(globalParams_0->scratch_0)[_S2756 + _S2753 + 13U]);
+            drift_angular_0(c_53, _S2751, _S2755, float3 {_S2757.x, _S2757.y, _S2757.z}, &lu_4, &lv_4);
+            uint _S2758 = __ldg(&globalParams_0->params_0->pc_base_0);
+            uint _S2759 = 2U * c_53;
+            *(&(globalParams_0->scratch_0)[_S2758 + _S2759]) = make_float4 (lu_4.x, lu_4.y, lu_4.z, 0.0f);
+            uint _S2760 = __ldg(&globalParams_0->params_0->pc_base_0);
+            *(&(globalParams_0->scratch_0)[_S2760 + _S2759 + 1U]) = make_float4 (lv_4.x, lv_4.y, lv_4.z, 0.0f);
+            uint _S2761 = __ballot_sync(_S2734, true);
+            _S2734 = _S2761;
+            c_53 = c_53 + 256U;
+        }
+        __syncthreads();
+        uint i_42 = _S2383;
+        uint _S2762 = _S2373;
+        for(;;)
+        {
+            uint _S2763 = 0U;
+            bool _S2764 = i_42 < _S2384;
+            uint _S2765 = __ballot_sync(_S2762, _S2764);
+            if(_S2764)
+            {
+                uint _S2766 = __ballot_sync(_S2762, true);
+                _S2763 = _S2766;
+            }
+            else
+            {
+                uint _S2767 = __ballot_sync(_S2762, false);
+                uint _S2768 = __ballot_sync(_S2762, false);
+                uint _S2769 = __ballot_sync(_S2373, true);
+                _S2374 = _S2769;
+                break;
+            }
+            bool _S2770 = (((*&g_mode_0)[i_42]) & 16U) == 0U;
+            uint _S2771 = __ballot_sync(_S2763, _S2770);
+            if(_S2770)
+            {
+                uint _S2772 = __ballot_sync(_S2763, false);
+                uint _S2773 = __ballot_sync(_S2762, true);
+                _S2762 = _S2773;
+                i_42 = i_42 + 256U;
+                continue;
+            }
+            else
+            {
+                uint _S2774 = __ballot_sync(_S2763, true);
+            }
+            Island_0 isl_29 = *(&(globalParams_0->islands_0)[i_42]);
+            float3  _S2775 = make_float3 (0.0f);
+            float3  lu_5 = _S2775;
+            float3  lv_5 = _S2775;
+            pc_sum_0(i_42, &lu_5, &lv_5);
+            uint _S2776 = __ldg(&globalParams_0->params_0->pi_base_0);
+            uint _S2777 = 16U * i_42;
+            *(&(globalParams_0->scratch_0)[_S2776 + _S2777 + 14U]) = make_float4 (rows_mul_0(isl_29.winv0_0, isl_29.winv1_0, isl_29.winv2_0, lu_5).x, rows_mul_0(isl_29.winv0_0, isl_29.winv1_0, isl_29.winv2_0, lu_5).y, rows_mul_0(isl_29.winv0_0, isl_29.winv1_0, isl_29.winv2_0, lu_5).z, 0.0f);
+            uint _S2778 = __ldg(&globalParams_0->params_0->pi_base_0);
+            *(&(globalParams_0->scratch_0)[_S2778 + _S2777 + 15U]) = make_float4 (rows_mul_0(isl_29.winv0_0, isl_29.winv1_0, isl_29.winv2_0, lv_5).x, rows_mul_0(isl_29.winv0_0, isl_29.winv1_0, isl_29.winv2_0, lv_5).y, rows_mul_0(isl_29.winv0_0, isl_29.winv1_0, isl_29.winv2_0, lv_5).z, 0.0f);
+            uint _S2779 = __ballot_sync(_S2762, true);
+            _S2762 = _S2779;
+            i_42 = i_42 + 256U;
+        }
+        __syncthreads();
+        uint c_54 = _S2383;
+        uint _S2780 = _S2374;
+        for(;;)
+        {
+            uint _S2781 = 0U;
+            uint _S2782 = __ldg(&globalParams_0->params_0->chunk_count_0);
+            bool _S2783 = c_54 < _S2782;
+            uint _S2784 = __ballot_sync(_S2780, _S2783);
+            if(_S2783)
+            {
+                uint _S2785 = __ballot_sync(_S2780, true);
+                _S2781 = _S2785;
+            }
+            else
+            {
+                uint _S2786 = __ballot_sync(_S2780, false);
+                uint _S2787 = __ballot_sync(_S2780, false);
+                uint _S2788 = __ballot_sync(_S2374, true);
+                _S2375 = _S2788;
+                break;
+            }
+            uint4  _S2789 = __ldg(&(&(globalParams_0->chunks_0)[c_54])->info_0);
+            uint i_43 = _S2789.y;
+            bool _S2790 = (((*&g_mode_0)[i_43]) & 16U) == 0U;
+            uint _S2791 = __ballot_sync(_S2781, _S2790);
+            if(_S2790)
+            {
+                uint _S2792 = __ballot_sync(_S2781, false);
+                uint _S2793 = __ballot_sync(_S2780, true);
+                _S2780 = _S2793;
+                c_54 = c_54 + 256U;
+                continue;
+            }
+            else
+            {
+                uint _S2794 = __ballot_sync(_S2781, true);
+            }
+            uint _S2795 = __ldg(&globalParams_0->params_0->pi_base_0);
+            uint at_9 = _S2795 + 16U * i_43;
+            float4  _S2796 = (&(globalParams_0->islands_0)[i_43])->wcom_0;
+            float4  _S2797 = *(&(globalParams_0->scratch_0)[at_9 + 12U]);
+            float4  _S2798 = *(&(globalParams_0->scratch_0)[at_9 + 14U]);
+            float4  _S2799 = *(&(globalParams_0->scratch_0)[at_9 + 13U]);
+            float4  _S2800 = *(&(globalParams_0->scratch_0)[at_9 + 15U]);
+            drift_apply_0(c_54, float3 {_S2796.x, _S2796.y, _S2796.z}, float3 {_S2797.x, _S2797.y, _S2797.z}, float3 {_S2798.x, _S2798.y, _S2798.z}, float3 {_S2799.x, _S2799.y, _S2799.z}, float3 {_S2800.x, _S2800.y, _S2800.z});
+            uint _S2801 = __ballot_sync(_S2780, true);
+            _S2780 = _S2801;
+            c_54 = c_54 + 256U;
+        }
+        __syncthreads();
+        uint _S2802 = __ballot_sync(_S2375, _S2398);
+        uint _S2803;
+        if(_S2398)
+        {
+            *&g_flag_0 = 0U;
+            uint _S2804 = __ballot_sync(_S2375, true);
+            _S2803 = _S2804;
+        }
+        else
+        {
+            uint _S2805 = __ballot_sync(_S2375, true);
+            _S2803 = _S2805;
+        }
+        __syncthreads();
+        uint i_44 = _S2383;
+        uint _S2806 = _S2803;
+        for(;;)
+        {
+            uint _S2807 = 0U;
+            bool _S2808 = i_44 < _S2384;
+            uint _S2809 = __ballot_sync(_S2806, _S2808);
+            if(_S2808)
+            {
+                uint _S2810 = __ballot_sync(_S2806, true);
+                _S2807 = _S2810;
+            }
+            else
+            {
+                uint _S2811 = __ballot_sync(_S2806, false);
+                uint _S2812 = __ballot_sync(_S2806, false);
+                uint _S2813 = __ballot_sync(_S2803, true);
+                _S2376 = _S2813;
+                break;
+            }
+            bool _S2814 = (((*&g_mode_0)[i_44]) & 32U) != 0U;
+            uint _S2815 = __ballot_sync(_S2807, _S2814);
+            if(_S2814)
+            {
+                *&g_flag_0 = 1U;
+                uint _S2816 = __ballot_sync(_S2807, true);
+            }
+            else
+            {
+                uint _S2817 = __ballot_sync(_S2807, true);
+            }
+            uint _S2818 = __ballot_sync(_S2806, true);
+            i_44 = i_44 + 256U;
+            _S2806 = _S2818;
+        }
+        __syncthreads();
+        bool halts_0 = (*&g_flag_0) != 0U;
+        uint _S2819 = __ballot_sync(_S2376, halts_0);
+        uint c_55;
+        uint _S2820;
+        uint pass_1;
+        uint _S2821;
+        uint _S2822;
+        uint i_45;
+        uint _S2823;
+        uint c_56;
+        uint e_9;
+        uint _S2824;
+        uint other_1;
+        if(halts_0)
+        {
+            c_55 = _S2383;
+            _S2820 = _S2819;
+            for(;;)
+            {
+                uint _S2825 = 0U;
+                uint _S2826 = __ldg(&globalParams_0->params_0->chunk_count_0);
+                bool _S2827 = c_55 < _S2826;
+                uint _S2828 = __ballot_sync(_S2820, _S2827);
+                if(_S2827)
+                {
+                    uint _S2829 = __ballot_sync(_S2820, true);
+                    _S2825 = _S2829;
+                }
+                else
+                {
+                    uint _S2830 = __ballot_sync(_S2820, false);
+                    uint _S2831 = __ballot_sync(_S2820, false);
+                    uint _S2832 = __ballot_sync(_S2819, true);
+                    _S2377 = _S2832;
+                    break;
+                }
+                uint4  _S2833 = __ldg(&(&(globalParams_0->chunks_0)[c_55])->info_0);
+                bool _S2834 = (((*&g_mode_0)[_S2833.y]) & 32U) != 0U;
+                uint _S2835 = __ballot_sync(_S2825, _S2834);
+                if(_S2834)
+                {
+                    uint _S2836 = __ldg(&globalParams_0->params_0->pc_base_0);
+                    *(&(globalParams_0->scratch_0)[_S2836 + 2U * c_55]) = make_float4 ((U32_asfloat((c_55))), 0.0f, 0.0f, 0.0f);
+                    uint _S2837 = __ballot_sync(_S2825, true);
+                }
+                else
+                {
+                    uint _S2838 = __ballot_sync(_S2825, true);
+                }
+                uint _S2839 = __ballot_sync(_S2820, true);
+                c_55 = c_55 + 256U;
+                _S2820 = _S2839;
+            }
+            __syncthreads();
+            pass_1 = 0U;
+            _S2821 = _S2377;
+            for(;;)
+            {
+                uint _S2840 = 0U;
+                uint _S2841 = __ldg(&globalParams_0->params_0->chunk_count_0);
+                bool _S2842 = pass_1 <= _S2841;
+                uint _S2843 = __ballot_sync(_S2821, _S2842);
+                if(_S2842)
+                {
+                    uint _S2844 = __ballot_sync(_S2821, true);
+                    _S2840 = _S2844;
+                }
+                else
+                {
+                    uint _S2845 = __ballot_sync(_S2821, false);
+                    uint _S2846 = __ballot_sync(_S2821, false);
+                    uint _S2847 = __ballot_sync(_S2377, true);
+                    _S2822 = _S2847;
+                    break;
+                }
+                uint _S2848 = __ballot_sync(_S2840, _S2398);
+                if(_S2398)
+                {
+                    *&g_flag_0 = 0U;
+                    uint _S2849 = __ballot_sync(_S2840, true);
+                    _S2822 = _S2849;
+                }
+                else
+                {
+                    uint _S2850 = __ballot_sync(_S2840, true);
+                    _S2822 = _S2850;
+                }
+                __syncthreads();
+                i_45 = _S2383;
+                _S2823 = _S2822;
+                for(;;)
+                {
+                    uint _S2851 = 0U;
+                    uint _S2852 = __ldg(&globalParams_0->params_0->chunk_count_0);
+                    bool _S2853 = i_45 < _S2852;
+                    uint _S2854 = __ballot_sync(_S2823, _S2853);
+                    if(_S2853)
+                    {
+                        uint _S2855 = __ballot_sync(_S2823, true);
+                        _S2851 = _S2855;
+                    }
+                    else
+                    {
+                        uint _S2856 = __ballot_sync(_S2823, false);
+                        uint _S2857 = __ballot_sync(_S2823, false);
+                        uint _S2858 = __ballot_sync(_S2822, true);
+                        _S2379 = _S2858;
+                        break;
+                    }
+                    uint _S2859 = 0U;
+                    uint4  _S2860 = __ldg(&(&(globalParams_0->chunks_0)[i_45])->info_0);
+                    bool _S2861 = (((*&g_mode_0)[_S2860.y]) & 32U) == 0U;
+                    uint _S2862 = __ballot_sync(_S2851, _S2861);
+                    if(_S2861)
+                    {
+                        uint _S2863 = __ballot_sync(_S2851, false);
+                        uint _S2864 = __ballot_sync(_S2823, true);
+                        _S2823 = _S2864;
+                        i_45 = i_45 + 256U;
+                        continue;
+                    }
+                    else
+                    {
+                        uint _S2865 = __ballot_sync(_S2851, true);
+                        _S2859 = _S2865;
+                    }
+                    uint _S2866 = __ldg(&globalParams_0->params_0->pc_base_0);
+                    uint _S2867 = 2U * i_45;
+                    uint _S2868 = (F32_asuint(((*(&(globalParams_0->scratch_0)[_S2866 + _S2867])).x)));
+                    uint _S2869 = __ldg((&(globalParams_0->index_0)[i_45]));
+                    c_56 = _S2868;
+                    e_9 = _S2869;
+                    _S2824 = _S2859;
+                    for(;;)
+                    {
+                        uint _S2870 = 0U;
+                        uint _S2871 = __ldg((&(globalParams_0->index_0)[i_45 + 1U]));
+                        bool _S2872 = e_9 < _S2871;
+                        uint _S2873 = __ballot_sync(_S2824, _S2872);
+                        if(_S2872)
+                        {
+                            uint _S2874 = __ballot_sync(_S2824, true);
+                            _S2870 = _S2874;
+                        }
+                        else
+                        {
+                            uint _S2875 = __ballot_sync(_S2824, false);
+                            uint _S2876 = __ballot_sync(_S2824, false);
+                            uint _S2877 = __ballot_sync(_S2859, true);
+                            _S2378 = _S2877;
+                            break;
+                        }
+                        uint _S2878 = 0U;
+                        uint _S2879 = __ldg((&(globalParams_0->index_0)[e_9]));
+                        uint bond_2 = _S2879 >> int(1);
+                        JointBond_0 _S2880 = slang_ldg_0(&(&(globalParams_0->bonds_0)[bond_2])->law_0);
+                        bool _S2881 = (_S2880.stiff1_0.w) != 0.0f;
+                        JointState_0 _S2882 = (&(globalParams_0->bond_dyn_0)[bond_2])->js_0;
+                        bool _S2883 = connected_0(&_S2882, _S2881);
+                        bool _S2884 = !_S2883;
+                        uint _S2885 = __ballot_sync(_S2870, _S2884);
+                        if(_S2884)
+                        {
+                            uint _S2886 = __ballot_sync(_S2870, false);
+                            uint _S2887 = __ballot_sync(_S2824, true);
+                            _S2824 = _S2887;
+                            e_9 = e_9 + 1U;
+                            continue;
+                        }
+                        else
+                        {
+                            uint _S2888 = __ballot_sync(_S2870, true);
+                            _S2878 = _S2888;
+                        }
+                        bool _S2889 = (_S2879 & 1U) == 0U;
+                        uint _S2890 = __ballot_sync(_S2878, _S2889);
+                        if(_S2889)
+                        {
+                            JointBond_0 _S2891 = slang_ldg_0(&(&(globalParams_0->bonds_0)[bond_2])->law_0);
+                            uint _S2892 = _S2891.ids_0.z;
+                            uint _S2893 = __ballot_sync(_S2878, true);
+                            other_1 = _S2892;
+                        }
+                        else
+                        {
+                            JointBond_0 _S2894 = slang_ldg_0(&(&(globalParams_0->bonds_0)[bond_2])->law_0);
+                            uint _S2895 = _S2894.ids_0.y;
+                            uint _S2896 = __ballot_sync(_S2878, true);
+                            other_1 = _S2895;
+                        }
+                        uint _S2897 = __ldg(&globalParams_0->params_0->pc_base_0);
+                        uint _S2898 = (U32_min((c_56), ((F32_asuint(((*(&(globalParams_0->scratch_0)[_S2897 + 2U * other_1])).x))))));
+                        uint _S2899 = __ballot_sync(_S2824, true);
+                        c_56 = _S2898;
+                        _S2824 = _S2899;
+                        e_9 = e_9 + 1U;
+                    }
+                    uint _S2900 = __ldg(&globalParams_0->params_0->pc_base_0);
+                    uint _S2901 = (U32_min((c_56), ((F32_asuint(((*(&(globalParams_0->scratch_0)[_S2900 + 2U * c_56])).x))))));
+                    uint _S2902 = __ldg(&globalParams_0->params_0->pc_base_0);
+                    bool _S2903 = _S2901 < (F32_asuint(((*(&(globalParams_0->scratch_0)[_S2902 + _S2867])).x)));
+                    uint _S2904 = __ballot_sync(_S2378, _S2903);
+                    if(_S2903)
+                    {
+                        uint _S2905 = __ldg(&globalParams_0->params_0->pc_base_0);
+                        *(&(globalParams_0->scratch_0)[_S2905 + _S2867]) = make_float4 ((U32_asfloat((_S2901))), 0.0f, 0.0f, 0.0f);
+                        *&g_flag_0 = 1U;
+                        uint _S2906 = __ballot_sync(_S2378, true);
+                    }
+                    else
+                    {
+                        uint _S2907 = __ballot_sync(_S2378, true);
+                    }
+                    uint _S2908 = __ballot_sync(_S2823, true);
+                    _S2823 = _S2908;
+                    i_45 = i_45 + 256U;
+                }
+                __syncthreads();
+                bool changed_0 = (*&g_flag_0) != 0U;
+                __syncthreads();
+                bool _S2909 = !changed_0;
+                uint _S2910 = __ballot_sync(_S2379, _S2909);
+                if(_S2909)
+                {
+                    uint _S2911 = __ballot_sync(_S2379, false);
+                    uint _S2912 = __ballot_sync(_S2821, false);
+                    uint _S2913 = __ballot_sync(_S2377, true);
+                    _S2822 = _S2913;
+                    break;
+                }
+                else
+                {
+                    uint _S2914 = __ballot_sync(_S2379, true);
+                }
+                uint _S2915 = __ballot_sync(_S2821, true);
+                pass_1 = pass_1 + 1U;
+                _S2821 = _S2915;
+            }
+            i_45 = _S2383;
+            _S2823 = _S2822;
+            for(;;)
+            {
+                uint _S2916 = 0U;
+                bool _S2917 = i_45 < _S2384;
+                uint _S2918 = __ballot_sync(_S2823, _S2917);
+                if(_S2917)
+                {
+                    uint _S2919 = __ballot_sync(_S2823, true);
+                    _S2916 = _S2919;
+                }
+                else
+                {
+                    uint _S2920 = __ballot_sync(_S2823, false);
+                    uint _S2921 = __ballot_sync(_S2823, false);
+                    uint _S2922 = __ballot_sync(_S2822, true);
+                    break;
+                }
+                uint _S2923 = 0U;
+                bool _S2924 = (((*&g_mode_0)[i_45]) & 32U) == 0U;
+                uint _S2925 = __ballot_sync(_S2916, _S2924);
+                if(_S2924)
+                {
+                    uint _S2926 = __ballot_sync(_S2916, false);
+                    uint _S2927 = __ballot_sync(_S2823, true);
+                    _S2823 = _S2927;
+                    i_45 = i_45 + 256U;
+                    continue;
+                }
+                else
+                {
+                    uint _S2928 = __ballot_sync(_S2916, true);
+                    _S2923 = _S2928;
+                }
+                uint4  _S2929 = (&(globalParams_0->islands_0)[i_45])->range_0;
+                uint _S2930 = (&(globalParams_0->islands_0)[i_45])->range_0.x;
+                contact_4 = true;
+                c_56 = _S2930;
+                e_9 = _S2923;
+                for(;;)
+                {
+                    uint _S2931 = 0U;
+                    bool _S2932 = c_56 < (_S2929.y);
+                    uint _S2933 = __ballot_sync(e_9, _S2932);
+                    if(_S2932)
+                    {
+                        uint _S2934 = __ballot_sync(e_9, true);
+                        _S2931 = _S2934;
+                    }
+                    else
+                    {
+                        uint _S2935 = __ballot_sync(e_9, false);
+                        uint _S2936 = __ballot_sync(e_9, false);
+                        uint _S2937 = __ballot_sync(_S2923, true);
+                        _S2380 = _S2937;
+                        break;
+                    }
+                    uint _S2938 = __ballot_sync(_S2931, contact_4);
+                    if(contact_4)
+                    {
+                        uint _S2939 = __ldg(&globalParams_0->params_0->pc_base_0);
+                        bool _S2940 = (F32_asuint(((*(&(globalParams_0->scratch_0)[_S2939 + 2U * c_56])).x))) == _S2930;
+                        uint _S2941 = __ballot_sync(_S2931, true);
+                        contact_4 = _S2940;
+                    }
+                    else
+                    {
+                        uint _S2942 = __ballot_sync(_S2931, true);
+                        contact_4 = false;
+                    }
+                    uint _S2943 = __ballot_sync(e_9, true);
+                    c_56 = c_56 + 1U;
+                    e_9 = _S2943;
+                }
+                bool _S2944 = !contact_4;
+                uint _S2945 = __ballot_sync(_S2380, _S2944);
+                if(_S2944)
+                {
+                    (*&g_mode_0)[i_45] = ((*&g_mode_0)[i_45]) | 256U;
+                    uint _S2946 = __ballot_sync(_S2380, true);
+                }
+                else
+                {
+                    uint _S2947 = __ballot_sync(_S2380, true);
+                }
+                uint _S2948 = __ballot_sync(_S2823, true);
+                _S2823 = _S2948;
+                i_45 = i_45 + 256U;
+            }
+            __syncthreads();
+            uint _S2949 = __ballot_sync(_S2376, true);
+            c_55 = _S2949;
+        }
+        else
+        {
+            uint _S2950 = __ballot_sync(_S2376, true);
+            c_55 = _S2950;
+        }
+        uint _S2951 = __ballot_sync(c_55, _S2398);
+        if(_S2398)
+        {
+            *&g_flag_0 = 0U;
+            uint _S2952 = __ballot_sync(c_55, true);
+            _S2820 = _S2952;
+        }
+        else
+        {
+            uint _S2953 = __ballot_sync(c_55, true);
+            _S2820 = _S2953;
+        }
+        __syncthreads();
+        uint _S2954 = seen_bits_0();
+        i_45 = _S2383;
+        pass_1 = _S2820;
+        for(;;)
+        {
+            uint _S2955 = 0U;
+            bool _S2956 = i_45 < _S2384;
+            uint _S2957 = __ballot_sync(pass_1, _S2956);
+            if(_S2956)
+            {
+                uint _S2958 = __ballot_sync(pass_1, true);
+                _S2955 = _S2958;
+            }
+            else
+            {
+                uint _S2959 = __ballot_sync(pass_1, false);
+                uint _S2960 = __ballot_sync(pass_1, false);
+                uint _S2961 = __ballot_sync(_S2820, true);
+                _S2381 = _S2961;
+                break;
+            }
+            uint _S2962 = 0U;
+            uint mode_10 = (*&g_mode_0)[i_45];
+            bool _S2963 = (((*&g_mode_0)[i_45]) & 1U) == 0U;
+            uint _S2964 = __ballot_sync(_S2955, _S2963);
+            if(_S2963)
+            {
+                uint _S2965 = __ballot_sync(_S2955, false);
+                uint _S2966 = __ballot_sync(pass_1, true);
+                pass_1 = _S2966;
+                i_45 = i_45 + 256U;
+                continue;
+            }
+            else
+            {
+                uint _S2967 = __ballot_sync(_S2955, true);
+                _S2962 = _S2967;
+            }
+            Island_0 isl_30 = *(&(globalParams_0->islands_0)[i_45]);
+            Rigid_0 rg_15 = pc_load_rigid_0(i_45);
+            bool _S2968 = (mode_10 & 16U) != 0U;
+            uint _S2969 = __ballot_sync(_S2962, _S2968);
+            if(_S2968)
+            {
+                bool _S2970 = (((&isl_30)->info_1.x) & 2U) == 0U;
+                uint _S2971 = __ballot_sync(_S2962, true);
+                contact_4 = _S2970;
+                _S2821 = _S2971;
+            }
+            else
+            {
+                uint _S2972 = __ballot_sync(_S2962, true);
+                contact_4 = false;
+                _S2821 = _S2972;
+            }
+            uint _S2973 = __ballot_sync(_S2821, contact_4);
+            if(contact_4)
+            {
+                uint _S2974 = __ldg(&globalParams_0->params_0->pi_base_0);
+                uint at_10 = _S2974 + 16U * i_45;
+                float4  _S2975 = *(&(globalParams_0->scratch_0)[at_10 + 12U]);
+                float3  _S2976 = float3 {_S2975.x, _S2975.y, _S2975.z};
+                float4  _S2977 = *(&(globalParams_0->scratch_0)[at_10 + 14U]);
+                float3  _S2978 = float3 {_S2977.x, _S2977.y, _S2977.z};
+                float4  _S2979 = *(&(globalParams_0->scratch_0)[at_10 + 13U]);
+                float3  _S2980 = float3 {_S2979.x, _S2979.y, _S2979.z};
+                float4  _S2981 = *(&(globalParams_0->scratch_0)[at_10 + 15U]);
+                float3  _S2982 = float3 {_S2981.x, _S2981.y, _S2981.z};
+                Island_0 _S2983 = isl_30;
+                drift_rigid_0(&_S2983, &rg_15, _S2976, _S2978, _S2980, _S2982);
+                uint _S2984 = __ballot_sync(_S2821, true);
+                _S2822 = _S2984;
+            }
+            else
+            {
+                uint _S2985 = __ballot_sync(_S2821, true);
+                _S2822 = _S2985;
+            }
+            Quat_0 _S2986 = (&rg_15)->rot_1;
+            float4  _S2987 = quat_vec_0(&_S2986);
+            (&isl_30)->rotation_0 = _S2987;
+            (&isl_30)->rotation_err_0 = (&rg_15)->rot_err_0;
+            (&isl_30)->position_0 = make_float4 ((&rg_15)->pos_0.x, (&rg_15)->pos_0.y, (&rg_15)->pos_0.z, 0.0f);
+            (&isl_30)->position_err_0 = make_float4 ((&rg_15)->pos_err_0.x, (&rg_15)->pos_err_0.y, (&rg_15)->pos_err_0.z, 0.0f);
+            (&isl_30)->velocity_0 = make_float4 ((&rg_15)->vel_0.x, (&rg_15)->vel_0.y, (&rg_15)->vel_0.z, 0.0f);
+            (&isl_30)->velocity_err_0 = make_float4 ((&rg_15)->vel_err_0.x, (&rg_15)->vel_err_0.y, (&rg_15)->vel_err_0.z, 0.0f);
+            (&isl_30)->angular_velocity_0 = make_float4 ((&rg_15)->w_5.x, (&rg_15)->w_5.y, (&rg_15)->w_5.z, 0.0f);
+            (&isl_30)->momentum_0 = make_float4 ((&rg_15)->l_1.x, (&rg_15)->l_1.y, (&rg_15)->l_1.z, 0.0f);
+            (&isl_30)->momentum_err_0 = make_float4 ((&rg_15)->l_err_0.x, (&rg_15)->l_err_0.y, (&rg_15)->l_err_0.z, 0.0f);
+            bool _S2988 = ((&isl_30)->probes_0.y) > ((&isl_30)->probes_0.x);
+            uint _S2989 = __ballot_sync(_S2822, _S2988);
+            if(_S2988)
+            {
+                Island_0 _S2990 = isl_30;
+                uint _S2991 = pc_k_0(&_S2990);
+                Island_0 _S2992 = isl_30;
+                Rigid_0 _S2993 = rg_15;
+                record_probes_0(&_S2992, &_S2993, _S2991);
+                uint _S2994 = __ballot_sync(_S2822, true);
+                _S2823 = _S2994;
+            }
+            else
+            {
+                uint _S2995 = __ballot_sync(_S2822, true);
+                _S2823 = _S2995;
+            }
+            (&isl_30)->done_0 = (&isl_30)->done_0 + 1U;
+            *&((&(&isl_30)->info_1)->y) = *&((&(&isl_30)->info_1)->y) - 1U;
+            *&((&(&isl_30)->info_1)->w) = *&((&(&isl_30)->info_1)->w) + 1U;
+            bool quiet_3 = (((&isl_30)->info_1.x) & 32U) != 0U;
+            uint _S2996 = _S2954 | 524288U;
+            bool _S2997 = (((&isl_30)->info_1.x) & 8U) != 0U;
+            uint _S2998 = __ballot_sync(_S2823, _S2997);
+            if(_S2997)
+            {
+                uint _S2999 = __ballot_sync(_S2823, true);
+                c_56 = 256U;
+                e_9 = _S2999;
+            }
+            else
+            {
+                uint _S3000 = __ballot_sync(_S2823, true);
+                c_56 = 0U;
+                e_9 = _S3000;
+            }
+            uint _S3001 = _S2996 | c_56;
+            bool _S3002 = ((&isl_30)->probes_0.y) > ((&isl_30)->probes_0.x);
+            uint _S3003 = __ballot_sync(e_9, _S3002);
+            if(_S3002)
+            {
+                uint _S3004 = __ballot_sync(e_9, true);
+                _S2824 = 262144U;
+                other_1 = _S3004;
+            }
+            else
+            {
+                uint _S3005 = __ballot_sync(e_9, true);
+                _S2824 = 0U;
+                other_1 = _S3005;
+            }
+            uint _S3006 = _S3001 | _S2824;
+            uint _S3007 = __ballot_sync(other_1, quiet_3);
+            uint _S3008;
+            uint _S3009;
+            if(quiet_3)
+            {
+                uint _S3010 = __ballot_sync(other_1, true);
+                _S3008 = 4096U;
+                _S3009 = _S3010;
+            }
+            else
+            {
+                uint _S3011 = __ballot_sync(other_1, true);
+                _S3008 = 0U;
+                _S3009 = _S3011;
+            }
+            uint _S3012 = _S3006 | _S3008;
+            bool _S3013 = (mode_10 & 128U) != 0U;
+            uint _S3014 = __ballot_sync(_S3009, _S3013);
+            uint _S3015;
+            if(_S3013)
+            {
+                bool _S3016 = (mode_10 & 64U) == 0U;
+                uint _S3017 = __ballot_sync(_S3009, true);
+                _S2356 = _S3016;
+                _S3015 = _S3017;
+            }
+            else
+            {
+                uint _S3018 = __ballot_sync(_S3009, true);
+                _S2356 = false;
+                _S3015 = _S3018;
+            }
+            uint _S3019 = __ballot_sync(_S3015, _S2356);
+            uint _S3020;
+            uint _S3021;
+            if(_S2356)
+            {
+                uint _S3022 = __ballot_sync(_S3015, true);
+                _S3020 = 512U;
+                _S3021 = _S3022;
+            }
+            else
+            {
+                uint _S3023 = __ballot_sync(_S3015, true);
+                _S3020 = 0U;
+                _S3021 = _S3023;
+            }
+            uint _S3024 = _S3012 | _S3020;
+            bool _S3025 = (mode_10 & 32U) != 0U;
+            uint _S3026 = __ballot_sync(_S3021, _S3025);
+            uint _S3027;
+            uint _S3028;
+            if(_S3025)
+            {
+                uint _S3029 = __ballot_sync(_S3021, true);
+                _S3027 = 128U;
+                _S3028 = _S3029;
+            }
+            else
+            {
+                uint _S3030 = __ballot_sync(_S3021, true);
+                _S3027 = 0U;
+                _S3028 = _S3030;
+            }
+            uint _S3031 = _S3024 | _S3027;
+            bool _S3032 = (mode_10 & 64U) != 0U;
+            uint _S3033 = __ballot_sync(_S3028, _S3032);
+            uint _S3034;
+            uint _S3035;
+            if(_S3032)
+            {
+                uint _S3036 = __ballot_sync(_S3028, true);
+                _S3034 = 2048U;
+                _S3035 = _S3036;
+            }
+            else
+            {
+                uint _S3037 = __ballot_sync(_S3028, true);
+                _S3034 = 0U;
+                _S3035 = _S3037;
+            }
+            (&isl_30)->coverage_0 = ((&isl_30)->coverage_0) | (_S3031 | _S3034);
+            uint _S3038 = __ballot_sync(_S3035, _S3032);
+            uint _S3039;
+            if(_S3032)
+            {
+                *&((&(&isl_30)->info_1)->x) = (*&((&(&isl_30)->info_1)->x)) & 4294967279U;
+                *&((&(&isl_30)->info_1)->z) = (*&((&(&isl_30)->info_1)->z)) | 4U;
+                uint _S3040 = __ballot_sync(_S3035, true);
+                _S3039 = _S3040;
+            }
+            else
+            {
+                uint _S3041 = __ballot_sync(_S3035, true);
+                _S3039 = _S3041;
+            }
+            bool _S3042 = (mode_10 & 256U) != 0U;
+            uint _S3043 = __ballot_sync(_S3039, _S3042);
+            if(_S3042)
+            {
+                contact_split_at_0((&isl_30)->info_1.w);
+                *&((&(&isl_30)->info_1)->z) = (*&((&(&isl_30)->info_1)->z)) | 1U;
+                *&g_flag_0 = 1U;
+                uint _S3044 = __ballot_sync(_S3039, true);
+            }
+            else
+            {
+                uint _S3045 = __ballot_sync(_S3039, true);
+            }
+            *(&(globalParams_0->islands_0)[i_45]) = isl_30;
+            uint _S3046 = __ballot_sync(pass_1, true);
+            pass_1 = _S3046;
+            i_45 = i_45 + 256U;
+        }
+        __syncthreads();
+        bool _S3047 = (*&g_flag_0) != 0U;
+        uint _S3048 = __ballot_sync(_S2381, _S3047);
+        if(_S3047)
+        {
+            break;
+        }
+        else
+        {
+            uint _S3049 = __ballot_sync(_S2381, true);
+        }
+        uint _S3050 = __ballot_sync(_S2392, true);
+        s_13 = s_13 + 1U;
+        _S2392 = _S3050;
     }
     return;
 }
