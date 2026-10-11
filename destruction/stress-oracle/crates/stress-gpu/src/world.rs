@@ -190,6 +190,8 @@ impl GpuWorld {
     fn step_frame_coupled(&mut self, gpu: &Gpu) -> Result<(), String> {
         let fdt = self.scene.sim.frame_dt;
         let mut forced: std::collections::HashSet<BodyKey> = std::collections::HashSet::new();
+        // The contact step a plan made within an earlier attempt needed.
+        let mut contact_cap = f64::INFINITY;
         let frozen = loop {
             let saved = self.solver.snapshot(gpu);
             let saved_host = (self.frame, self.events_done.clone(), self.blasts_active.clone(), self.probes.clone(), self.next_sample, self.filter.clone());
@@ -204,21 +206,35 @@ impl GpuWorld {
                 let dt = self.stress_dt().min(fdt);
                 n = (fdt / dt).ceil().max(1.0) as usize;
                 h = fdt / n as f64;
-            } else if self.engaged_contact_step && !f.frozen.is_empty() {
-                let contact = self.engaged_contact_dt(fdt);
-                let stress = self.stress_dt();
-                let dt = if self.scene.sim.methods.scaled_step_bound { 1.0 / (stress.powi(-2) + contact.powi(-2)).sqrt() } else { stress.min(contact) };
-                let mut dt = dt.min(fdt);
-                if let Some(m) = self.scene.sim.max_substep {
-                    dt = dt.min(m);
-                }
+            }
+            let engaged = self.engaged_contact_step && !f.frozen.is_empty();
+            let stress0 = self.stress_dt();
+            if engaged {
+                // The frame's contacts planned over the frame; the step bounds them.
+                self.solver.plan_for(gpu, fdt)?;
+                let view = self.solver.plan_view();
+                let contact = self.plan_contact_dt(&view).min(contact_cap);
+                let dt = self.combined_dt(stress0, contact, fdt);
                 n = (fdt / dt).ceil().max(1.0) as usize;
                 h = fdt / n as f64;
+                self.solver.plan_log = Some(Vec::new());
             }
             if std::env::var("STRESS_GPU_COUPLED_TRACE").is_ok() {
                 eprintln!("coupled frame {}: start, {n} substeps of {h:.2e} s, {} frozen", self.frame, f.frozen.len());
             }
             self.advance(gpu, h, n)?;
+            // Plans made within the frame (a chunk outran its budget, a split) let other
+            // contacts touch: the step must bound them too, or the frame is solved again
+            // at the step they need.
+            let mut outrun = None;
+            if let Some(log) = self.solver.plan_log.take() {
+                for view in &log {
+                    let c = self.plan_contact_dt(view).min(contact_cap);
+                    if self.combined_dt(stress0, c, fdt) < h * (1.0 - 1e-9) {
+                        outrun = Some(outrun.map_or(c, |o: f64| o.min(c)));
+                    }
+                }
+            }
             self.solver.sync(gpu);
             let since = &self.solver.mirror.events[saved.mirror().events.len()..];
             let broke = fractured_since(saved.mirror(), since, &f.driven);
@@ -237,6 +253,18 @@ impl GpuWorld {
                     self.solver.host_splits,
                     self.solver.profile.batches
                 );
+            }
+            if let Some(c) = outrun {
+                if std::env::var("STRESS_GPU_COUPLED_TRACE").is_ok() {
+                    eprintln!("coupled frame {}: a plan within the frame needs a contact step of {c:.2e} s: solved again", self.frame);
+                }
+                self.solver.restore(gpu, saved)?;
+                (self.frame, self.events_done, self.blasts_active, self.probes, self.next_sample, self.filter) = saved_host;
+                (self.shell.island_frames, self.shell.max_island_bodies, self.shell.engine_body_frames, self.shell.island_body_frames) = saved_counts;
+                self.with_shell_mut(|w| w.engine_restore());
+                self.shell.redone_frames += 1;
+                contact_cap = contact_cap.min(c);
+                continue;
             }
             if broke.is_empty() || broke.is_subset(&forced) {
                 self.with_shell_mut(|w| w.engine_discard());
@@ -281,35 +309,44 @@ impl GpuWorld {
         dt * m.config.courant_safety
     }
 
-    /// The contact bound over this frame's engagements (`engaged_contact_step`): the
-    /// contact plan over the frame, each engaged chunk with the materials it can touch.
-    fn engaged_contact_dt(&mut self, fdt: f64) -> f64 {
-        let m = &self.solver.mirror;
-        let order = self.solver.chunk_order().to_vec();
-        let plan = crate::contacts::plan(&self.scene, m, &self.solver.impactors, &order, fdt);
+    /// The contact bound over a contact plan (`engaged_contact_step`): every pair,
+    /// impactor candidate and ground chunk the plan lets touch (world_coupling.rs
+    /// `engaged_contact_dt`). The GPU enforces the plan's travel budgets (it re-plans
+    /// when a chunk leaves its budget), so the plan bounds every contact while it stands.
+    fn plan_contact_dt(&mut self, view: &crate::contacts::PlanView) -> f64 {
         use stress_ref::world::ContactPartner;
         let mut partners: std::collections::BTreeMap<(usize, usize), Vec<ContactPartner>> = std::collections::BTreeMap::new();
-        for &(_, a, b, _, _) in &plan.pairs {
-            let (sa, sb) = (order[a as usize], order[b as usize]);
-            partners.entry(sa).or_default().push(ContactPartner::Chunk(sb.0, sb.1));
-            partners.entry(sb).or_default().push(ContactPartner::Chunk(sa.0, sa.1));
+        for &(sa, ca, sb, cb) in &view.pairs {
+            partners.entry((sa, ca)).or_default().push(ContactPartner::Chunk(sb, cb));
+            partners.entry((sb, cb)).or_default().push(ContactPartner::Chunk(sa, ca));
         }
         let mut impactors = Vec::new();
-        for (i, list) in plan.impactor_chunks.iter().enumerate() {
-            for &k in list {
-                partners.entry(order[k as usize]).or_default().push(ContactPartner::Impactor(i));
+        for (i, list) in view.impactor_chunks.iter().enumerate() {
+            for &sc in list {
+                partners.entry(sc).or_default().push(ContactPartner::Impactor(i));
             }
             if !list.is_empty() {
-                impactors.push((i, list.iter().map(|&k| order[k as usize]).collect::<Vec<_>>()));
+                impactors.push((i, list.clone()));
             }
         }
         if self.scene.ground.is_some() {
-            for &k in &plan.ground {
-                partners.entry(order[k as usize]).or_default().push(ContactPartner::Ground);
+            for &sc in &view.ground {
+                partners.entry(sc).or_default().push(ContactPartner::Ground);
             }
         }
         let chunks: Vec<((usize, usize), Vec<ContactPartner>)> = partners.into_iter().collect();
         self.with_shell_mut(|w| w.engaged_contact_dt(&chunks, &impactors))
+    }
+
+    /// The substep from the stress and contact bounds (`scaled_step_bound` combines
+    /// them as the reference does), capped by the frame and `sim.max_substep`.
+    fn combined_dt(&self, stress: f64, contact: f64, fdt: f64) -> f64 {
+        let dt = if self.scene.sim.methods.scaled_step_bound { 1.0 / (stress.powi(-2) + contact.powi(-2)).sqrt() } else { stress.min(contact) };
+        let mut dt = dt.min(fdt);
+        if let Some(m) = self.scene.sim.max_substep {
+            dt = dt.min(m);
+        }
+        dt
     }
 
     /// Apply scripted events due at time `t` (world.rs `process_events`). True if any.

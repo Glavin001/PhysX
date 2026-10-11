@@ -496,6 +496,9 @@ pub struct GpuSolver {
     /// occurs (kept across steps).
     batch_rounds: usize,
     pub replans: u64,
+    /// When set, every contact plan built inside `step` (re-plans, host splits) is
+    /// recorded here, for a step bound to be checked against them.
+    pub plan_log: Option<Vec<crate::contacts::PlanView>>,
     pub profile: Profile,
     /// The code paths that ran so far (`coverage`): the device's words OR-ed after every
     /// readback, and the host's rare paths. Tests only; nothing reads it.
@@ -547,6 +550,7 @@ impl GpuSolver {
             host_splits: 0,
             resumed_halts: 0,
             bonds_stale: false,
+            plan_log: None,
             plan_until: f64::NEG_INFINITY,
             extra_terms: Vec::new(),
             own_contacts: true,
@@ -571,6 +575,31 @@ impl GpuSolver {
         self.layout = layout;
         self.buffers = buffers;
         Ok(())
+    }
+
+    /// Contacts planned afresh for the next `horizon` seconds from the current state,
+    /// keeping the GPU's state and bond history resident (as `step` re-plans).
+    pub fn plan_for(&mut self, gpu: &Gpu, horizon: f64) -> Result<(), String> {
+        let stride = self.buffers.params.probe_stride;
+        let horizon = if self.contacts_possible() { horizon } else { 0.0 };
+        self.plan_until = self.mirror.time + horizon;
+        let (layout, buffers) =
+            Self::build(gpu, &self.kernels, &self.mirror, self.loads.as_mut(), &self.impactors, &self.pair_memory, stride, horizon, Some(&self.buffers), &self.extra_terms)?;
+        self.layout = layout;
+        self.buffers = buffers;
+        Ok(())
+    }
+
+    /// The current contact plan by (structure, chunk).
+    pub fn plan_view(&self) -> crate::contacts::PlanView {
+        crate::contacts::PlanView::of(&self.layout.plan, &self.layout.chunks)
+    }
+
+    fn log_plan(&mut self) {
+        if self.plan_log.is_some() {
+            let view = self.plan_view();
+            self.plan_log.as_mut().unwrap().push(view);
+        }
     }
 
     fn scene(&self) -> Option<&Scene> {
@@ -1208,6 +1237,7 @@ impl GpuSolver {
             let (layout, buffers) = Self::build(gpu, &self.kernels, &self.mirror, self.loads.as_mut(), &self.impactors, &self.pair_memory, stride, horizon, keep, &self.extra_terms)?;
             self.layout = layout;
             self.buffers = buffers;
+            self.log_plan();
             self.profile.build += t.elapsed().as_secs_f64();
         }
         self.profile.substeps += substeps as u64;
@@ -1491,6 +1521,7 @@ impl GpuSolver {
             let (layout, buffers) = Self::build(gpu, &self.kernels, &self.mirror, self.loads.as_mut(), &self.impactors, &self.pair_memory, self.buffers.params.probe_stride, dt * left_now as f64, None, &self.extra_terms)?;
             self.layout = layout;
             self.buffers = buffers;
+            self.log_plan();
             self.profile.split += t_split.elapsed().as_secs_f64();
         }
         let t = std::time::Instant::now();

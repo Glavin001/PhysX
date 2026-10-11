@@ -49,6 +49,29 @@ pub struct Plan {
     pub rotation_checked: Vec<bool>,
 }
 
+/// What a contact plan lets touch, by (structure, chunk), and each chunk's travel budget
+/// (enforced on the GPU by `travel_check`): the contacts a step bound must cover while
+/// the plan stands.
+#[derive(Clone, Debug, Default)]
+pub struct PlanView {
+    pub pairs: Vec<PairKey>,
+    /// Per impactor: the chunks it may touch.
+    pub impactor_chunks: Vec<Vec<(usize, usize)>>,
+    pub ground: Vec<(usize, usize)>,
+    pub budget: HashMap<(usize, usize), f64>,
+}
+
+impl PlanView {
+    pub fn of(plan: &Plan, order: &[(usize, usize)]) -> PlanView {
+        PlanView {
+            pairs: plan.pairs.iter().map(|p| p.0).collect(),
+            impactor_chunks: plan.impactor_chunks.iter().map(|l| l.iter().map(|&k| order[k as usize]).collect()).collect(),
+            ground: plan.ground.iter().map(|&k| order[k as usize]).collect(),
+            budget: order.iter().copied().zip(plan.budget.iter().copied()).collect(),
+        }
+    }
+}
+
 /// Plane-strain modulus (scaled) of a material, as world.rs uses it for contacts.
 pub fn modulus(scene: &Scene, material: &str) -> f64 {
     let m = scene.material(material);
