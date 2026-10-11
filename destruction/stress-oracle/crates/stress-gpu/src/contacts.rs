@@ -47,6 +47,8 @@ pub struct Plan {
     /// not): the GPU also checks how far they turn (`travel_check`), since a box, unlike
     /// a sphere, does not bound the chunk at another orientation.
     pub rotation_checked: Vec<bool>,
+    /// Pose (centre, box rotation) of every chunk in a candidate pair when planned.
+    pub poses: HashMap<u32, (Vec3, stress_ref::math::Mat3)>,
 }
 
 /// What a contact plan lets touch, by (structure, chunk), and each chunk's travel budget
@@ -59,6 +61,8 @@ pub struct PlanView {
     pub impactor_chunks: Vec<Vec<(usize, usize)>>,
     pub ground: Vec<(usize, usize)>,
     pub budget: HashMap<(usize, usize), f64>,
+    /// The planned pose and budget of every chunk in a pair.
+    pub poses: HashMap<(usize, usize), stress_ref::world::PlannedPose>,
 }
 
 impl PlanView {
@@ -68,6 +72,11 @@ impl PlanView {
             impactor_chunks: plan.impactor_chunks.iter().map(|l| l.iter().map(|&k| order[k as usize]).collect()).collect(),
             ground: plan.ground.iter().map(|&k| order[k as usize]).collect(),
             budget: order.iter().copied().zip(plan.budget.iter().copied()).collect(),
+            poses: plan
+                .poses
+                .iter()
+                .map(|(&k, &(center, rotation))| (order[k as usize], stress_ref::world::PlannedPose { center, rotation, budget: plan.budget[k as usize] }))
+                .collect(),
         }
     }
 }
@@ -136,11 +145,17 @@ pub fn plan(scene: &Scene, m: &ReferenceSolver, impactors: &[Impactor], chunk_or
                     if (pos[a] - pos[b]).norm() > radius[a] + radius[b] + plan.budget[a] + plan.budget[b] {
                         continue;
                     }
-                    if !swept_box(a, plan.budget[a]).may_overlap(&swept_box(b, plan.budget[b])) {
-                        plan.rotation_checked[a] = true;
-                        plan.rotation_checked[b] = true;
+                    let (box_a, box_b) = (swept_box(a, plan.budget[a]), swept_box(b, plan.budget[b]));
+                    // Every pair chunk's turn is bounded on the GPU: a ruled-out pair
+                    // relies on it, and so does the step bound of a kept one (its
+                    // stiffness over the directions it can press along).
+                    plan.rotation_checked[a] = true;
+                    plan.rotation_checked[b] = true;
+                    if !box_a.may_overlap(&box_b) {
                         continue;
                     }
+                    plan.poses.insert(ka, (box_a.center, box_a.rotation));
+                    plan.poses.insert(kb, (box_b.center, box_b.rotation));
                     let (sa, chunk_a) = chunk_order[a];
                     let (sb, chunk_b) = chunk_order[b];
                     let (ma, mb) = (m.structures[sa].chunks[chunk_a].mass, m.structures[sb].chunks[chunk_b].mass);

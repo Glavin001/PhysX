@@ -29,7 +29,7 @@ use crate::statics::StaticOptions;
 
 #[path = "world_coupling.rs"]
 mod coupling;
-pub use coupling::{fractured_since, ContactPartner, CoupledFrame};
+pub use coupling::{fractured_since, ContactPartner, CoupledFrame, PlannedPose};
 
 /// Friction regularisation speed (m/s): below it friction scales linearly with slip speed.
 const FRICTION_REGULARIZATION: f64 = 1e-3;

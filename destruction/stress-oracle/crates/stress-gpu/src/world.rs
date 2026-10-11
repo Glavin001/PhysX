@@ -83,6 +83,10 @@ pub struct GpuWorld {
     damped_steps: Vec<f64>,
 }
 
+/// Segments of an island frame, each checked against the contact plans made within it
+/// (`step_frame_coupled`): a plan that needs a smaller step costs one segment again.
+const FRAME_SEGMENTS: usize = 4;
+
 /// Why a scene cannot run on the GPU yet.
 pub fn unsupported(scene: &Scene) -> Option<String> {
     if scene.sim.solve_mode == SolveMode::Implicit {
@@ -222,19 +226,38 @@ impl GpuWorld {
             if std::env::var("STRESS_GPU_COUPLED_TRACE").is_ok() {
                 eprintln!("coupled frame {}: start, {n} substeps of {h:.2e} s, {} frozen", self.frame, f.frozen.len());
             }
-            self.advance(gpu, h, n)?;
             // Plans made within the frame (a chunk outran its budget, a split) let other
-            // contacts touch: the step must bound them too, or the frame is solved again
-            // at the step they need.
-            let mut outrun = None;
-            if let Some(log) = self.solver.plan_log.take() {
-                for view in &log {
-                    let c = self.plan_contact_dt(view).min(contact_cap);
-                    if self.combined_dt(stress0, c, fdt) < h * (1.0 - 1e-9) {
-                        outrun = Some(outrun.map_or(c, |o: f64| o.min(c)));
+            // contacts touch: the step must bound them too. The frame runs in segments;
+            // a segment in which a plan needs a smaller step is solved again from its
+            // start, and the rest of the frame continues at that step.
+            self.begin_frame_loads();
+            let t_end = self.solver.mirror.time + fdt;
+            let (mut step, mut left) = (h, n);
+            let mut taken = 0;
+            while left > 0 {
+                let len = if engaged { n.div_ceil(FRAME_SEGMENTS).min(left) } else { left };
+                let checkpoint = engaged.then(|| (self.solver.snapshot(gpu), (self.events_done.clone(), self.blasts_active.clone(), self.probes.clone(), self.next_sample, self.filter.clone())));
+                self.advance_substeps(gpu, step, len)?;
+                let need = self.solver.plan_log.replace(Vec::new()).into_iter().flatten().map(|view| self.plan_contact_dt(&view)).fold(f64::INFINITY, f64::min);
+                let needed = self.combined_dt(stress0, need.min(contact_cap), fdt);
+                if let (true, Some((snap, host))) = (needed < step * (1.0 - 1e-9), checkpoint) {
+                    if std::env::var("STRESS_GPU_COUPLED_TRACE").is_ok() {
+                        eprintln!("coupled frame {}: a plan within the frame needs a contact step of {need:.2e} s: segment solved again", self.frame);
                     }
+                    self.solver.restore(gpu, snap)?;
+                    (self.events_done, self.blasts_active, self.probes, self.next_sample, self.filter) = host;
+                    self.shell.redone_frames += 1;
+                    contact_cap = contact_cap.min(need);
+                    let rest = t_end - self.solver.mirror.time;
+                    left = (rest / needed).ceil().max(1.0) as usize;
+                    step = rest / left as f64;
+                    continue;
                 }
+                left -= len;
+                taken += len;
             }
+            self.solver.plan_log = None;
+            self.finish_frame(gpu, taken)?;
             self.solver.sync(gpu);
             let since = &self.solver.mirror.events[saved.mirror().events.len()..];
             let broke = fractured_since(saved.mirror(), since, &f.driven);
@@ -253,18 +276,6 @@ impl GpuWorld {
                     self.solver.host_splits,
                     self.solver.profile.batches
                 );
-            }
-            if let Some(c) = outrun {
-                if std::env::var("STRESS_GPU_COUPLED_TRACE").is_ok() {
-                    eprintln!("coupled frame {}: a plan within the frame needs a contact step of {c:.2e} s: solved again", self.frame);
-                }
-                self.solver.restore(gpu, saved)?;
-                (self.frame, self.events_done, self.blasts_active, self.probes, self.next_sample, self.filter) = saved_host;
-                (self.shell.island_frames, self.shell.max_island_bodies, self.shell.engine_body_frames, self.shell.island_body_frames) = saved_counts;
-                self.with_shell_mut(|w| w.engine_restore());
-                self.shell.redone_frames += 1;
-                contact_cap = contact_cap.min(c);
-                continue;
             }
             if broke.is_empty() || broke.is_subset(&forced) {
                 self.with_shell_mut(|w| w.engine_discard());
@@ -335,7 +346,7 @@ impl GpuWorld {
             }
         }
         let chunks: Vec<((usize, usize), Vec<ContactPartner>)> = partners.into_iter().collect();
-        self.with_shell_mut(|w| w.engaged_contact_dt(&chunks, &impactors))
+        self.with_shell_mut(|w| w.engaged_contact_dt(&chunks, &impactors, &view.poses))
     }
 
     /// The substep from the stress and contact bounds (`scaled_step_bound` combines
@@ -413,9 +424,19 @@ impl GpuWorld {
 
     /// A frame of `n` substeps of `dt` on the GPU, with its events, probes and tail.
     fn advance(&mut self, gpu: &Gpu, dt: f64, n: usize) -> Result<(), String> {
+        self.begin_frame_loads();
+        self.advance_substeps(gpu, dt, n)?;
+        self.finish_frame(gpu, n)
+    }
+
+    fn begin_frame_loads(&mut self) {
         let sum = &mut self.solver.frame_load_sum;
         sum.ensure_shape(&self.solver.mirror);
         sum.clear();
+    }
+
+    /// `n` substeps of `dt` within the frame (events, blasts, probes).
+    fn advance_substeps(&mut self, gpu: &Gpu, dt: f64, n: usize) -> Result<(), String> {
         let mut done = 0;
         while done < n {
             let t = self.solver.mirror.time;
@@ -459,6 +480,11 @@ impl GpuWorld {
             }
             done += len;
         }
+        Ok(())
+    }
+
+    /// The end of a frame of `n` substeps: the solve mode's tail (statics, settling).
+    fn finish_frame(&mut self, gpu: &Gpu, n: usize) -> Result<(), String> {
         self.frame += 1;
         let tail = std::time::Instant::now();
         // The host's static work needs the mirror's bonds current: always in quasi-static

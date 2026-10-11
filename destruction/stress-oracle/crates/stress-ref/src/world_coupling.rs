@@ -520,7 +520,11 @@ impl World {
     /// standalone bound, which instead presses every chunk on six faces by a copy of
     /// itself in the scene's stiffest material. Penalty contact (not the layer
     /// contact's lattice bound). Infinite with nothing engaged.
-    pub fn engaged_contact_dt(&self, chunks: &[((usize, usize), Vec<ContactPartner>)], impactors: &[(usize, Vec<(usize, usize)>)]) -> f64 {
+    ///
+    /// A chunk pair whose two chunks both have a `PlannedPose` is bounded over the
+    /// directions it can press along while the plan stands (`pair_stiffness_within`)
+    /// instead of every direction.
+    pub fn engaged_contact_dt(&self, chunks: &[((usize, usize), Vec<ContactPartner>)], impactors: &[(usize, Vec<(usize, usize)>)], poses: &HashMap<(usize, usize), PlannedPose>) -> f64 {
         let scale = self.scene.sim.stiffness_scale;
         let chunk_box = |s: usize, c: usize| {
             let ch = &self.solver.structures[s].chunks[c];
@@ -538,7 +542,11 @@ impl World {
                 sum += match *p {
                     ContactPartner::Chunk(ps, pc) => {
                         let (pb, pm) = chunk_box(ps, pc);
-                        row(pair_stiffness_bound(mat, &b, self.chunk_material(ps, pc), &pb, scale), m, pm)
+                        let k = match (poses.get(&(s, c)), poses.get(&(ps, pc))) {
+                            (Some(pa), Some(pp)) => pair_stiffness_within(mat, &b.half, pa, self.chunk_material(ps, pc), &pb.half, pp, scale),
+                            _ => pair_stiffness_bound(mat, &b, self.chunk_material(ps, pc), &pb, scale),
+                        };
+                        row(k, m, pm)
                     }
                     ContactPartner::Impactor(i) => {
                         let imp = &self.impactors[i];
@@ -746,4 +754,53 @@ fn pair_stiffness_bound(a: &Material, box_a: &OBox, b: &Material, box_b: &OBox, 
     let area = |x: &OBox| Vec3::new(x.half.y * x.half.z, x.half.x * x.half.z, x.half.x * x.half.y).norm() * 4.0;
     let thin = |x: &OBox| x.half.x.min(x.half.y).min(x.half.z);
     area(box_a).min(area(box_b)) / (thin(box_a) / e(a) + thin(box_b) / e(b))
+}
+
+/// A chunk's pose when a contact plan was made and its travel budget under it: no point
+/// of the chunk moves more than `budget` while the plan stands (the GPU's travel check:
+/// centre travel plus turn angle times the bounding radius).
+#[derive(Clone, Copy, Debug)]
+pub struct PlannedPose {
+    pub center: Vec3,
+    /// World rotation of the chunk's box (world.rs `chunk_box`).
+    pub rotation: Mat3,
+    pub budget: f64,
+}
+
+/// world.rs `contact_stiffness` of a chunk pair bounded over the directions it can press
+/// along while the plan stands: the line between the centres turns by at most
+/// `phi = asin((budget_a + budget_b) / distance)`, and each box by at most
+/// `budget / bounding radius`, so in a box's frame the direction is within
+/// `psi = phi + turn` of where it was, and each direction cosine within `psi` of its
+/// planned value (a chord is shorter than its arc). The projected area
+/// `sum |d_k| A_k` and half-thickness `sum |d_k| h_k` are bounded with those cosines
+/// (and by `pair_stiffness_bound`'s direction-free limits). Falls back to every
+/// direction when the budgets could bring the centres together.
+fn pair_stiffness_within(a: &Material, half_a: &Vec3, pa: &PlannedPose, b: &Material, half_b: &Vec3, pb: &PlannedPose, scale: f64) -> f64 {
+    let e = |m: &Material| m.youngs_modulus * scale / (1.0 - m.poisson_ratio * m.poisson_ratio);
+    let line = pb.center - pa.center;
+    let distance = line.norm();
+    let slack = pa.budget + pb.budget;
+    let phi = if distance > slack { (slack / distance).asin() } else { std::f64::consts::PI };
+    let d0 = if distance > 0.0 { line * (1.0 / distance) } else { Vec3::Z };
+    let reach = |half: &Vec3, pose: &PlannedPose| -> (f64, f64) {
+        let areas = [4.0 * half.y * half.z, 4.0 * half.x * half.z, 4.0 * half.x * half.y];
+        let free_area = Vec3::new(areas[0], areas[1], areas[2]).norm();
+        let thin = half.x.min(half.y).min(half.z);
+        let psi = phi + pose.budget / half.norm();
+        if psi >= std::f64::consts::FRAC_PI_2 {
+            return (free_area, thin);
+        }
+        let mut area = 0.0;
+        let mut h = 0.0;
+        for k in 0..3 {
+            let c0 = d0.dot(pose.rotation.col(k)).abs();
+            area += (c0 + psi).min(1.0) * areas[k];
+            h += (c0 - psi).max(0.0) * half[k];
+        }
+        (area.min(free_area), h.max(thin))
+    };
+    let (area_a, h_a) = reach(half_a, pa);
+    let (area_b, h_b) = reach(half_b, pb);
+    area_a.min(area_b) / (h_a / e(a) + h_b / e(b))
 }
