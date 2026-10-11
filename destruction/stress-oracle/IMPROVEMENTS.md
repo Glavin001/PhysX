@@ -492,7 +492,19 @@ Effect:
   displacement 11.6 %).
 - Suite 125/125.
 
-The b5 fragments still failing (5 %) are not this.
+The dense limit is 128 chunks (`DENSE_MAX_CHUNKS`). At 64, the 102- and 116-chunk b5
+fragments kept the symmetric tangent and relaxed slowly. At 128, b5_v40 quasi_static
+converges 308/314 in 14 s (against 375/396 in 22 s), and b9 is unchanged (2763/2763).
+At 256, b9's run diverges onto a path with 7 failures. Gate against 178dca904: only b7_v15
+quasi_static changes. Its larger clusters now take the consistent tangent, and the
+cascade follows other equilibria: broken bonds 190 -> 346, fragments 44 -> 90 (its
+explicit run: 82), unconverged frames unchanged at 2. No quasi_static reference exists for
+it. A/B 53/91, suite 125/125.
+
+What still fails in b5 is the no-equilibrium kind. A two-chunk fragment on one cracked
+joint cannot carry its load: the re-solve finds no descent at step 0, with 1e-11 N of
+internal force against 8-44 N of load, or the joint saturates (564 N against 598 N).
+Keeping the previous state is the right verdict there.
 
 **Rejected (exact, measured):** computing a cracked joint's spring patch once per
 `evaluate`. It is the second hottest function in a sampled b5_v10 run, and the frozen

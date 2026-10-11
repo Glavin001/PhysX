@@ -48,7 +48,7 @@ const SECANT_STEPS: usize = DIRECT_AFTER + 10;
 /// gets room the secant's limit does not give; where no descent remains it stops at once.
 const RESOLVE_STEPS_FACTOR: usize = 3;
 /// Largest cluster (chunks) whose re-solve takes the full tangent by a dense LU.
-const DENSE_MAX_CHUNKS: usize = 64;
+const DENSE_MAX_CHUNKS: usize = 128;
 /// Rows of a Cholesky column per parallel task (each an inner product of up to a band).
 const CHOLESKY_ROWS_PER_TASK: usize = 64;
 /// Halvings of a globalised (`tangent_statics`) Newton step before its direction is given
