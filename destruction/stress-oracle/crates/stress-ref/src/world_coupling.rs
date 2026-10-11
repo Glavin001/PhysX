@@ -543,7 +543,7 @@ impl World {
                     ContactPartner::Chunk(ps, pc) => {
                         let (pb, pm) = chunk_box(ps, pc);
                         let k = match (poses.get(&(s, c)), poses.get(&(ps, pc))) {
-                            (Some(pa), Some(pp)) => pair_stiffness_within(mat, &b.half, pa, self.chunk_material(ps, pc), &pb.half, pp, scale),
+                            (Some(pa), Some(pp)) => pair_stiffness_within(mat, &b.half, pa, self.chunk_material(ps, pc), &pb.half, pp, Vec3::from_array(self.scene.gravity).norm(), scale),
                             _ => pair_stiffness_bound(mat, &b, self.chunk_material(ps, pc), &pb, scale),
                         };
                         row(k, m, pm)
@@ -756,31 +756,41 @@ fn pair_stiffness_bound(a: &Material, box_a: &OBox, b: &Material, box_b: &OBox, 
     area(box_a).min(area(box_b)) / (thin(box_a) / e(a) + thin(box_b) / e(b))
 }
 
-/// A chunk's pose when a contact plan was made and its travel budget under it: no point
-/// of the chunk moves more than `budget` while the plan stands (the GPU's travel check:
-/// centre travel plus turn angle times the bounding radius).
+/// A chunk's pose and motion when a contact plan was made, and its budget under it: no
+/// point of the chunk strays more than `budget` from its ballistic path
+/// `center + velocity t + g t^2 / 2` (gravity if it `falls`) within `horizon` (the GPU's
+/// travel check: deviation of the centre plus turn angle times the bounding radius).
 #[derive(Clone, Copy, Debug)]
 pub struct PlannedPose {
     pub center: Vec3,
     /// World rotation of the chunk's box (world.rs `chunk_box`).
     pub rotation: Mat3,
     pub budget: f64,
+    pub velocity: Vec3,
+    pub falls: bool,
+    pub horizon: f64,
 }
 
 /// world.rs `contact_stiffness` of a chunk pair bounded over the directions it can press
-/// along while the plan stands: the line between the centres turns by at most
-/// `phi = asin((budget_a + budget_b) / distance)`, and each box by at most
+/// along while the plan stands: the line between the centres follows the pair's relative
+/// path `rel + dv t + dg t^2 / 2` (`dg`: gravity on one of the two only) give or take
+/// both budgets, so it stays within `slack` of the path's middle `m` and within
+/// `phi = asin(slack / |m|)` of its direction; each box turns by at most
 /// `budget / bounding radius`, so in a box's frame the direction is within
-/// `psi = phi + turn` of where it was, and each direction cosine within `psi` of its
-/// planned value (a chord is shorter than its arc). The projected area
-/// `sum |d_k| A_k` and half-thickness `sum |d_k| h_k` are bounded with those cosines
-/// (and by `pair_stiffness_bound`'s direction-free limits). Falls back to every
-/// direction when the budgets could bring the centres together.
-fn pair_stiffness_within(a: &Material, half_a: &Vec3, pa: &PlannedPose, b: &Material, half_b: &Vec3, pb: &PlannedPose, scale: f64) -> f64 {
+/// `psi = phi + turn` of `m`'s, and each direction cosine within `psi` of its value
+/// there (a chord is shorter than its arc). The projected area `sum |d_k| A_k` and
+/// half-thickness `sum |d_k| h_k` are bounded with those cosines (and by
+/// `pair_stiffness_bound`'s direction-free limits). Every direction when the slack could
+/// bring the centres together.
+#[allow(clippy::too_many_arguments)]
+fn pair_stiffness_within(a: &Material, half_a: &Vec3, pa: &PlannedPose, b: &Material, half_b: &Vec3, pb: &PlannedPose, g: f64, scale: f64) -> f64 {
     let e = |m: &Material| m.youngs_modulus * scale / (1.0 - m.poisson_ratio * m.poisson_ratio);
-    let line = pb.center - pa.center;
+    let horizon = pa.horizon.max(pb.horizon);
+    let dv = pb.velocity - pa.velocity;
+    let dg = if pa.falls == pb.falls { 0.0 } else { g };
+    let line = pb.center - pa.center + dv * (0.5 * horizon);
     let distance = line.norm();
-    let slack = pa.budget + pb.budget;
+    let slack = pa.budget + pb.budget + 0.5 * dv.norm() * horizon + 0.5 * dg * horizon * horizon;
     let phi = if distance > slack { (slack / distance).asin() } else { std::f64::consts::PI };
     let d0 = if distance > 0.0 { line * (1.0 / distance) } else { Vec3::Z };
     let reach = |half: &Vec3, pose: &PlannedPose| -> (f64, f64) {

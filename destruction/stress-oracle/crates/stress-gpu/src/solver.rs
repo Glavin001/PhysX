@@ -170,6 +170,7 @@ struct ChunkStatic {
     start_lo: [f32; 4],
     cinfo: [u32; 4],
     start_rot: [f32; 4],
+    start_vel: [f32; 4],
 }
 
 #[repr(C)]
@@ -531,7 +532,7 @@ impl GpuSolver {
         let step_times = vec![mirror.time];
         let mut loads = loads;
         let pair_memory = HashMap::new();
-        let (layout, buffers) = Self::build(gpu, &kernels, &mirror, loads.as_mut(), &impactors, &pair_memory, 4, 0.0, None, &[])?;
+        let (layout, buffers) = Self::build(gpu, &kernels, &mirror, loads.as_mut(), &impactors, &pair_memory, 4, 0.0, mirror.time, None, &[])?;
         Ok(GpuSolver {
             mirror,
             loads,
@@ -571,7 +572,7 @@ impl GpuSolver {
         }
         let stride = self.buffers.params.probe_stride;
         self.plan_until = self.mirror.time + horizon;
-        let (layout, buffers) = Self::build(gpu, &self.kernels, &self.mirror, self.loads.as_mut(), &self.impactors, &self.pair_memory, stride, horizon, None, &self.extra_terms)?;
+        let (layout, buffers) = Self::build(gpu, &self.kernels, &self.mirror, self.loads.as_mut(), &self.impactors, &self.pair_memory, stride, horizon, self.mirror.time, None, &self.extra_terms)?;
         self.layout = layout;
         self.buffers = buffers;
         Ok(())
@@ -584,7 +585,7 @@ impl GpuSolver {
         let horizon = if self.contacts_possible() { horizon } else { 0.0 };
         self.plan_until = self.mirror.time + horizon;
         let (layout, buffers) =
-            Self::build(gpu, &self.kernels, &self.mirror, self.loads.as_mut(), &self.impactors, &self.pair_memory, stride, horizon, Some(&self.buffers), &self.extra_terms)?;
+            Self::build(gpu, &self.kernels, &self.mirror, self.loads.as_mut(), &self.impactors, &self.pair_memory, stride, horizon, self.mirror.time, Some(&self.buffers), &self.extra_terms)?;
         self.layout = layout;
         self.buffers = buffers;
         Ok(())
@@ -617,6 +618,7 @@ impl GpuSolver {
         pair_memory: &HashMap<PairKey, PairState>,
         probe_stride: u32,
         horizon: f64,
+        plan_time: f64,
         keep: Option<&Buffers>,
         extra_terms: &[LoadTerm],
     ) -> Result<(Layout, Buffers), String> {
@@ -936,7 +938,13 @@ impl GpuSolver {
             cs.cmat = [e as f32, mu as f32, f32::from_bits(hull_of[k].0), f32::from_bits(hull_of[k].1)];
             cs.start_hi = [start_hi[0], start_hi[1], start_hi[2], plan.budget[k] as f32];
             cs.start_lo = start_lo;
-            cs.cinfo = [begin, (segments.len() / 3) as u32, plan.contact_clusters[ci] as u32, plan.rotation_checked.get(k).copied().unwrap_or(false) as u32];
+            let falls = plan.falls.get(k).copied().unwrap_or(false);
+            cs.cinfo = [begin, (segments.len() / 3) as u32, plan.contact_clusters[ci] as u32, plan.rotation_checked.get(k).copied().unwrap_or(false) as u32 | (falls as u32) << 1];
+            // The ballistic path the budget is measured from: velocity, and the time the
+            // plan started (compensated pair, with start_lo.w).
+            let (t_hi, t_lo) = split1(plan_time);
+            cs.start_vel = v4(plan.velocity.get(k).copied().unwrap_or(Vec3::ZERO), t_hi as f64);
+            cs.start_lo[3] = t_lo;
             // Orientation at the segment start (cluster rotation x hidden rotation), x y z w.
             let st = &m.chunks[s][c];
             let q = m.clusters[ci].pose.rotation;
@@ -1234,7 +1242,7 @@ impl GpuSolver {
             }
             let stride = stride.max(self.buffers.params.probe_stride);
             let keep = if full { None } else { Some(&self.buffers) };
-            let (layout, buffers) = Self::build(gpu, &self.kernels, &self.mirror, self.loads.as_mut(), &self.impactors, &self.pair_memory, stride, horizon, keep, &self.extra_terms)?;
+            let (layout, buffers) = Self::build(gpu, &self.kernels, &self.mirror, self.loads.as_mut(), &self.impactors, &self.pair_memory, stride, horizon, start_time, keep, &self.extra_terms)?;
             self.layout = layout;
             self.buffers = buffers;
             self.log_plan();
@@ -1244,6 +1252,9 @@ impl GpuSolver {
         self.profile.max_pairs = self.profile.max_pairs.max(self.layout.plan.pairs.len());
         self.profile.max_impactor_candidates = self.profile.max_impactor_candidates.max(self.buffers.params.cand_count as usize);
         let start = self.mirror.substeps as usize;
+        // Times from `start` on are this step's: a restored state may run them again at
+        // another step size.
+        self.step_times.truncate(start + 1);
         while self.step_times.len() <= start + substeps {
             let t = *self.step_times.last().unwrap() + dt;
             self.step_times.push(t);
@@ -1516,9 +1527,10 @@ impl GpuSolver {
                 self.coverage |= coverage::REPLAN;
             }
             self.mirror.time = self.step_times[start];
-            let left_now = remaining.values().copied().max().unwrap_or(0).max(pipeline_left);
+            // The live clusters' (the map keeps the ids of clusters split away).
+            let left_now = self.mirror.clusters.iter().filter_map(|c| remaining.get(&c.id).copied()).max().unwrap_or(0).max(pipeline_left);
             self.plan_until = self.mirror.time + dt * left_now as f64;
-            let (layout, buffers) = Self::build(gpu, &self.kernels, &self.mirror, self.loads.as_mut(), &self.impactors, &self.pair_memory, self.buffers.params.probe_stride, dt * left_now as f64, None, &self.extra_terms)?;
+            let (layout, buffers) = Self::build(gpu, &self.kernels, &self.mirror, self.loads.as_mut(), &self.impactors, &self.pair_memory, self.buffers.params.probe_stride, dt * left_now as f64, self.step_times[start + substeps - left_now], None, &self.extra_terms)?;
             self.layout = layout;
             self.buffers = buffers;
             self.log_plan();
@@ -1935,7 +1947,7 @@ impl GpuSolver {
         let stride = self.buffers.params.probe_stride;
         self.plan_until = self.mirror.time;
         let (layout, buffers) =
-            Self::build(gpu, &self.kernels, &self.mirror, self.loads.as_mut(), &self.impactors, &self.pair_memory, stride, 0.0, Some(&self.buffers), &self.extra_terms)?;
+            Self::build(gpu, &self.kernels, &self.mirror, self.loads.as_mut(), &self.impactors, &self.pair_memory, stride, 0.0, self.mirror.time, Some(&self.buffers), &self.extra_terms)?;
         self.layout = layout;
         self.buffers = buffers;
         Ok(())

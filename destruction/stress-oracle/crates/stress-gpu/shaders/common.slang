@@ -72,8 +72,9 @@ public struct ChunkStatic
     public float4 cmat;       // contact: E' (scaled), friction, -, -
     public float4 start_hi;   // world position at the segment start; w: travel budget
     public float4 start_lo;
-    public uint4 cinfo;       // contact contributions [x, y) in `index`; z: 1 = in contact; w: 1 = turn checked
+    public uint4 cinfo;       // contact contributions [x, y) in `index`; z: 1 = in contact; w: 1 = turn checked, 2 = falls
     public float4 start_rot;  // orientation at the segment start (island x hidden rotation), x y z w
+    public float4 start_vel;  // velocity at the plan's start; w: its time (start_lo.w: the rounding)
 };
 
 // An island (cluster): static mass data and dynamic rigid state.

@@ -240,3 +240,41 @@ fn house_ram_profile() {
         }
     }
 }
+
+/// Diagnostic (`--ignored --nocapture`): the wall ram as `examples/realtime_peak.rs`
+/// runs it (established methods, certified true step, safety 0.25, adaptive), frame by
+/// frame with the GPU solver's profile.
+#[test]
+#[ignore]
+fn wall_ram_profile() {
+    let mut s = ram_scene();
+    s.sim.methods = stress_ref::scene::Methods::established();
+    s.sim.methods.true_step = true;
+    s.sim.courant_safety = 0.25;
+    s.sim.solve_mode = stress_ref::scene::SolveMode::Adaptive;
+    let Ok(gpu) = Gpu::new() else { return };
+    let engine = PhysxEngine::boxed_gpu(Vec3::from_array(s.gravity)).or_else(|| PhysxEngine::boxed(Vec3::from_array(s.gravity))).expect("PhysX");
+    let mut w = GpuWorld::with_engine(&gpu, &s, engine).expect("GPU world");
+    for f in 0..6 {
+        let p0 = w.solver.profile.clone();
+        let splits0 = w.solver.host_splits;
+        let t = std::time::Instant::now();
+        w.step_frame(&gpu).expect("frame");
+        let p = &w.solver.profile;
+        eprintln!(
+            "frame {f}: {:.0} ms; substeps {}, batches {}, host splits {}, max pairs {}; build {:.0} ms, gpu {:.0}, readback {:.0}, split {:.0}, download {:.0}; clusters {}; ram {:.2} m/s",
+            t.elapsed().as_secs_f64() * 1e3,
+            p.substeps - p0.substeps,
+            p.batches - p0.batches,
+            w.solver.host_splits - splits0,
+            p.max_pairs,
+            (p.build - p0.build) * 1e3,
+            (p.gpu - p0.gpu) * 1e3,
+            (p.readback - p0.readback) * 1e3,
+            (p.split - p0.split) * 1e3,
+            (p.download - p0.download) * 1e3,
+            w.solver.mirror.clusters.len(),
+            w.solver.impactors[0].velocity.norm()
+        );
+    }
+}

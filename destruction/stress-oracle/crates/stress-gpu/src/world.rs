@@ -194,8 +194,6 @@ impl GpuWorld {
     fn step_frame_coupled(&mut self, gpu: &Gpu) -> Result<(), String> {
         let fdt = self.scene.sim.frame_dt;
         let mut forced: std::collections::HashSet<BodyKey> = std::collections::HashSet::new();
-        // The contact step a plan made within an earlier attempt needed.
-        let mut contact_cap = f64::INFINITY;
         let frozen = loop {
             let saved = self.solver.snapshot(gpu);
             let saved_host = (self.frame, self.events_done.clone(), self.blasts_active.clone(), self.probes.clone(), self.next_sample, self.filter.clone());
@@ -212,49 +210,56 @@ impl GpuWorld {
                 h = fdt / n as f64;
             }
             let engaged = self.engaged_contact_step && !f.frozen.is_empty();
-            let stress0 = self.stress_dt();
-            if engaged {
-                // The frame's contacts planned over the frame; the step bounds them.
-                self.solver.plan_for(gpu, fdt)?;
-                let view = self.solver.plan_view();
-                let contact = self.plan_contact_dt(&view).min(contact_cap);
-                let dt = self.combined_dt(stress0, contact, fdt);
-                n = (fdt / dt).ceil().max(1.0) as usize;
-                h = fdt / n as f64;
-                self.solver.plan_log = Some(Vec::new());
-            }
             if std::env::var("STRESS_GPU_COUPLED_TRACE").is_ok() {
-                eprintln!("coupled frame {}: start, {n} substeps of {h:.2e} s, {} frozen", self.frame, f.frozen.len());
+                eprintln!("coupled frame {}: start, {} frozen{}", self.frame, f.frozen.len(), if engaged { String::new() } else { format!(", {n} substeps of {h:.2e} s") });
             }
-            // Plans made within the frame (a chunk outran its budget, a split) let other
-            // contacts touch: the step must bound them too. The frame runs in segments;
-            // a segment in which a plan needs a smaller step is solved again from its
-            // start, and the rest of the frame continues at that step.
             self.begin_frame_loads();
-            let t_end = self.solver.mirror.time + fdt;
-            let (mut step, mut left) = (h, n);
             let mut taken = 0;
-            while left > 0 {
-                let len = if engaged { n.div_ceil(FRAME_SEGMENTS).min(left) } else { left };
-                let checkpoint = engaged.then(|| (self.solver.snapshot(gpu), (self.events_done.clone(), self.blasts_active.clone(), self.probes.clone(), self.next_sample, self.filter.clone())));
-                self.advance_substeps(gpu, step, len)?;
-                let need = self.solver.plan_log.replace(Vec::new()).into_iter().flatten().map(|view| self.plan_contact_dt(&view)).fold(f64::INFINITY, f64::min);
-                let needed = self.combined_dt(stress0, need.min(contact_cap), fdt);
-                if let (true, Some((snap, host))) = (needed < step * (1.0 - 1e-9), checkpoint) {
-                    if std::env::var("STRESS_GPU_COUPLED_TRACE").is_ok() {
-                        eprintln!("coupled frame {}: a plan within the frame needs a contact step of {need:.2e} s: segment solved again", self.frame);
-                    }
-                    self.solver.restore(gpu, snap)?;
-                    (self.events_done, self.blasts_active, self.probes, self.next_sample, self.filter) = host;
-                    self.shell.redone_frames += 1;
-                    contact_cap = contact_cap.min(need);
+            if !engaged {
+                self.advance_substeps(gpu, h, n)?;
+                taken = n;
+            } else {
+                // Island frames run in segments, each with its contacts planned over the
+                // segment and its step bounding that plan (budgets, and so candidates and
+                // the directions pairs can press along, shrink with the horizon). Plans
+                // made within a segment (a chunk outran its budget, a split) let other
+                // contacts touch: a segment whose step one of them does not bound is
+                // solved again from its start at the step it needs.
+                let t_end = self.solver.mirror.time + fdt;
+                let span = fdt / FRAME_SEGMENTS as f64;
+                let mut cap = f64::INFINITY;
+                while t_end - self.solver.mirror.time > 1e-3 * span {
                     let rest = t_end - self.solver.mirror.time;
-                    left = (rest / needed).ceil().max(1.0) as usize;
-                    step = rest / left as f64;
-                    continue;
+                    let horizon = if rest < 1.5 * span { rest } else { span };
+                    let snap = self.solver.snapshot(gpu);
+                    let host = (self.events_done.clone(), self.blasts_active.clone(), self.probes.clone(), self.next_sample, self.filter.clone());
+                    self.solver.plan_for(gpu, horizon)?;
+                    let view = self.solver.plan_view();
+                    let stress = self.stress_dt();
+                    let contact = self.plan_contact_dt(&view).min(cap);
+                    let dt = self.combined_dt(stress, contact, fdt);
+                    let len = (horizon / dt).ceil().max(1.0) as usize;
+                    let step = horizon / len as f64;
+                    self.solver.plan_log = Some(Vec::new());
+                    self.advance_substeps(gpu, step, len)?;
+                    let log = self.solver.plan_log.take().unwrap_or_default();
+                    let need = log.iter().map(|v| self.plan_contact_dt(v)).fold(f64::INFINITY, f64::min);
+                    if self.combined_dt(stress, need.min(cap), fdt) < step * (1.0 - 1e-9) {
+                        if std::env::var("STRESS_GPU_COUPLED_TRACE").is_ok() {
+                            eprintln!("coupled frame {}: a plan within a segment needs a contact step of {need:.2e} s (segment at {step:.2e} s): solved again", self.frame);
+                        }
+                        self.solver.restore(gpu, snap)?;
+                        (self.events_done, self.blasts_active, self.probes, self.next_sample, self.filter) = host;
+                        self.shell.redone_frames += 1;
+                        cap = cap.min(need);
+                        continue;
+                    }
+                    if std::env::var("STRESS_GPU_COUPLED_TRACE").is_ok() {
+                        eprintln!("coupled frame {}: segment of {len} substeps of {step:.2e} s ({} pairs)", self.frame, view.pairs.len());
+                    }
+                    taken += len;
+                    cap = f64::INFINITY;
                 }
-                left -= len;
-                taken += len;
             }
             self.solver.plan_log = None;
             self.finish_frame(gpu, taken)?;

@@ -967,8 +967,12 @@ void travel_check(uint c)
         return;
     WorldPoint wp = chunk_world(c);
     float3 moved = ((wp.hi - ch.start_hi.xyz) + (wp.lo - ch.start_lo.xyz)) + wp.rel;
-    float travel = length(moved);
-    if (ch.cinfo.w != 0)
+    // Seconds since the plan: to the host step's start, then the island's substeps since.
+    float since = ((params.t_hi - ch.start_vel.w) + (params.t_lo - ch.start_lo.w)) + float(islands[ch.info.y].info.w - params.step_start) * params.dt;
+    // Deviation from the ballistic path the plan expects (contacts.rs `plan`).
+    float3 expected = ch.start_vel.xyz * since + ((ch.cinfo.w & 2u) != 0 ? 0.5 * params.gravity.xyz * since * since : float3(0.0));
+    float travel = length(moved - expected);
+    if ((ch.cinfo.w & 1u) != 0)
     {
         // Its box ruled out a pair at the start orientation: a point at most the bounding
         // radius from the centre moves at most (turn angle) x radius more.

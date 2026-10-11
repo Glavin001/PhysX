@@ -49,6 +49,12 @@ pub struct Plan {
     pub rotation_checked: Vec<bool>,
     /// Pose (centre, box rotation) of every chunk in a candidate pair when planned.
     pub poses: HashMap<u32, (Vec3, stress_ref::math::Mat3)>,
+    /// Each chunk's velocity when planned, and whether gravity moves it (its cluster is
+    /// free): the budget bounds how far it strays from `x0 + v0 t + g t^2 / 2`.
+    pub velocity: Vec<Vec3>,
+    pub falls: Vec<bool>,
+    /// Seconds the plan covers.
+    pub horizon: f64,
 }
 
 /// What a contact plan lets touch, by (structure, chunk), and each chunk's travel budget
@@ -75,7 +81,10 @@ impl PlanView {
             poses: plan
                 .poses
                 .iter()
-                .map(|(&k, &(center, rotation))| (order[k as usize], stress_ref::world::PlannedPose { center, rotation, budget: plan.budget[k as usize] }))
+                .map(|(&k, &(center, rotation))| {
+                    let k = k as usize;
+                    (order[k], stress_ref::world::PlannedPose { center, rotation, budget: plan.budget[k], velocity: plan.velocity[k], falls: plan.falls[k], horizon: plan.horizon })
+                })
                 .collect(),
         }
     }
@@ -88,41 +97,67 @@ pub fn modulus(scene: &Scene, material: &str) -> f64 {
 }
 
 /// Candidates for the next `duration` seconds from the mirror's current state.
+///
+/// Each chunk is expected on its ballistic path `x0 + v0 t + g t^2 / 2` (gravity for free
+/// clusters) and its budget bounds how far any of its points strays from it (the GPU's
+/// `travel_check` halts the batch beyond, and the host re-plans): twice the surface
+/// speed its spin gives it about its cluster's centre and its own, a fall from rest
+/// (a supported chunk strays from free fall by up to that), and a margin. Pairs are
+/// swept along their relative path, on which fragments flying together barely move.
 pub fn plan(scene: &Scene, m: &ReferenceSolver, impactors: &[Impactor], chunk_order: &[(usize, usize)], duration: f64) -> Plan {
-    let g = m.config.gravity.norm();
+    let gravity = m.config.gravity;
+    let g = gravity.norm();
     let n = chunk_order.len();
     let mut gpu_index: HashMap<(usize, usize), u32> = HashMap::new();
     for (k, &sc) in chunk_order.iter().enumerate() {
         gpu_index.insert(sc, k as u32);
     }
-    // Bounds and travel budgets of every active chunk.
+    // Bounds, motion and deviation budgets of every active chunk.
     let mut pos = vec![Vec3::ZERO; n];
     let mut radius = vec![0.0; n];
     let mut budget = vec![0.0; n];
+    let mut velocity = vec![Vec3::ZERO; n];
+    let mut falls = vec![false; n];
+    // How far a chunk may get from where it is (impactor and ground candidates).
+    let mut reach_abs = vec![0.0; n];
     for (k, &(s, c)) in chunk_order.iter().enumerate() {
         let r = m.structures[s].chunks[c].half_extents.norm();
         let (v, w) = m.chunk_velocity(s, c);
-        let speed = v.norm() + w.norm() * r;
+        let cl = &m.clusters[m.chunks[s][c].cluster];
         pos[k] = m.chunk_position(s, c);
+        let arm = (pos[k] - cl.com_world()).norm();
         radius[k] = r;
-        budget[k] = 2.0 * speed * duration + g * duration * duration + 0.05 * r + 1e-3;
+        velocity[k] = v;
+        falls[k] = !cl.anchored;
+        budget[k] = 2.0 * w.norm() * (arm + r) * duration + g * duration * duration + 0.05 * r + 1e-3;
+        reach_abs[k] = v.norm() * duration + if falls[k] { 0.5 * g * duration * duration } else { 0.0 } + budget[k];
     }
-    let mut plan = Plan { contact_clusters: vec![false; m.clusters.len()], budget, rotation_checked: vec![false; n], ..Default::default() };
-    // Each chunk's box (world.rs `chunk_box`) grown by its travel budget on every side:
-    // it holds the chunk anywhere within the budget at its current orientation (the
+    let mut plan = Plan {
+        contact_clusters: vec![false; m.clusters.len()],
+        budget,
+        rotation_checked: vec![false; n],
+        velocity: velocity.clone(),
+        falls: falls.clone(),
+        horizon: duration,
+        ..Default::default()
+    };
+    // Each chunk's box (world.rs `chunk_box`) grown by its budget on every side: it holds
+    // the chunk anywhere within the budget of its path at its current orientation (the
     // budget's ball fits in the cube of the same half-size).
-    let mut swept: Vec<Option<stress_ref::contact::OBox>> = vec![None; n];
-    let mut swept_box = |k: usize, budget: f64| -> stress_ref::contact::OBox {
-        swept[k]
+    let mut grown: Vec<Option<stress_ref::contact::OBox>> = vec![None; n];
+    let mut grown_box = |k: usize, grow: f64| -> stress_ref::contact::OBox {
+        let mut b = grown[k]
             .get_or_insert_with(|| {
                 let (s, c) = chunk_order[k];
                 let ch = &m.structures[s].chunks[c];
                 let st = &m.chunks[s][c];
                 let hidden = stress_ref::math::Quat::from_axis_angle(st.th, st.th.norm()).to_mat3();
                 let rotation = m.clusters[st.cluster].rotation() * hidden * ch.rotation;
-                stress_ref::contact::OBox { center: pos[k], rotation, half: ch.half_extents + Vec3::splat(budget), hull: None }
+                stress_ref::contact::OBox { center: pos[k], rotation, half: ch.half_extents, hull: None }
             })
-            .clone()
+            .clone();
+        b.half += Vec3::splat(grow);
+        b
     };
     // Chunk pairs of different clusters (world.rs `apply_contacts`, any substep).
     let by_cluster: Vec<Vec<u32>> = m.clusters.iter().map(|cl| cl.chunks.iter().map(|&c| gpu_index[&(cl.structure, c)]).collect()).collect();
@@ -142,20 +177,28 @@ pub fn plan(scene: &Scene, m: &ReferenceSolver, impactors: &[Impactor], chunk_or
             for &ka in &sorted_by_cluster[ca] {
                 for &kb in &sorted_by_cluster[cb] {
                     let (a, b) = (ka as usize, kb as usize);
-                    if (pos[a] - pos[b]).norm() > radius[a] + radius[b] + plan.budget[a] + plan.budget[b] {
+                    // b relative to a over the plan: from `rel` along `dv t + dg t^2 / 2`,
+                    // within `sweep` of the middle of its path, give or take the budgets.
+                    let dv = velocity[b] - velocity[a];
+                    let dg = if falls[b] == falls[a] { 0.0 } else { g };
+                    let middle = pos[b] - pos[a] + dv * (0.5 * duration);
+                    let sweep = 0.5 * dv.norm() * duration + 0.5 * dg * duration * duration;
+                    if middle.norm() > radius[a] + radius[b] + plan.budget[a] + plan.budget[b] + sweep {
                         continue;
                     }
-                    let (box_a, box_b) = (swept_box(a, plan.budget[a]), swept_box(b, plan.budget[b]));
                     // Every pair chunk's turn is bounded on the GPU: a ruled-out pair
                     // relies on it, and so does the step bound of a kept one (its
                     // stiffness over the directions it can press along).
                     plan.rotation_checked[a] = true;
                     plan.rotation_checked[b] = true;
+                    let box_a = grown_box(a, plan.budget[a]);
+                    let mut box_b = grown_box(b, plan.budget[b] + sweep);
+                    box_b.center = pos[a] + middle;
                     if !box_a.may_overlap(&box_b) {
                         continue;
                     }
-                    plan.poses.insert(ka, (box_a.center, box_a.rotation));
-                    plan.poses.insert(kb, (box_b.center, box_b.rotation));
+                    plan.poses.insert(ka, (pos[a], box_a.rotation));
+                    plan.poses.insert(kb, (pos[b], box_b.rotation));
                     let (sa, chunk_a) = chunk_order[a];
                     let (sb, chunk_b) = chunk_order[b];
                     let (ma, mb) = (m.structures[sa].chunks[chunk_a].mass, m.structures[sb].chunks[chunk_b].mass);
@@ -185,7 +228,7 @@ pub fn plan(scene: &Scene, m: &ReferenceSolver, impactors: &[Impactor], chunk_or
                     continue;
                 }
                 let kk = k as usize;
-                if (pos[kk] - imp.pose.position).norm() <= reach + radius[kk] + plan.budget[kk] + imp_budget {
+                if (pos[kk] - imp.pose.position).norm() <= reach + radius[kk] + reach_abs[kk] + imp_budget {
                     list.push(k);
                     plan.contact_clusters[ci] = true;
                 }
@@ -202,7 +245,10 @@ pub fn plan(scene: &Scene, m: &ReferenceSolver, impactors: &[Impactor], chunk_or
                 continue;
             }
             let kk = k as usize;
-            if pos[kk].z - radius[kk] - plan.budget[kk] <= ground.height {
+            // The lowest its path gets within the plan, give or take its budget.
+            let (z0, vz, az) = (pos[kk].z, velocity[kk].z, if falls[kk] { gravity.z } else { 0.0 });
+            let lowest = [0.0, duration, if az != 0.0 { (-vz / az).clamp(0.0, duration) } else { 0.0 }].iter().map(|&t| z0 + vz * t + 0.5 * az * t * t).fold(f64::INFINITY, f64::min);
+            if lowest - radius[kk] - plan.budget[kk] <= ground.height {
                 plan.ground.push(k);
                 plan.contact_clusters[m.chunks[s][c].cluster] = true;
             }
