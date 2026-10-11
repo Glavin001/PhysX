@@ -116,10 +116,15 @@ fn ram_into_free_wall() -> Scene {
     s
 }
 
-/// Correction passes (rewind, accept the trial's first failure front, re-solve) keep
-/// momentum exact. They do not fix the impact: the rigid contact still hands over the
-/// whole-wall impulse (the ram ends near 11 m/s either way, see the next test); the
-/// fix is stress-owned impact islands (`engine_world.rs`).
+/// Correction passes (rewind positions and momenta, accept the trial's first failure
+/// front, re-solve) keep momentum exact. They do not fix the impact (the ram ends near
+/// 11 m/s either way, see the next test), and not because momentum is spent: the
+/// rollback restores it. Traced (`correction_front_to_split`, `STRESS_PHYSX_TRACE=1`):
+/// each pass accepts 1-3 of the trial's ~100 broken bonds, which separate nothing, so
+/// the redo is the same trial (the wall first splits at pass 17); and every trial's
+/// fracture is computed from PhysX's impulse against the intact rigid wall (~5.8x the
+/// real one, spread over the wall), so its first split is not the punch-through plug.
+/// The fix is stress-owned impact islands (`engine_world.rs`).
 #[test]
 fn physx_correction_passes_conserve_momentum() {
     let scene = ram_into_free_wall();
@@ -161,5 +166,30 @@ fn physx_impact_impulse_vs_reference_world() {
             sim.step(1.0 / (60.0 * sub as f64));
         }
         println!("PhysX dt 1/{} corrections {limit}: ram {:.2} m/s, {} bodies", 60 * sub, sim.impactor_state(0).1.y, sim.cluster_bodies());
+    }
+}
+
+/// Diagnostic (run with `--ignored --nocapture`): the ram through the free wall with the
+/// correction accepting a fixed front window (established) or the trial's breaks up to
+/// its first split (`front_to_split`), at growing correction limits and two steps.
+#[test]
+#[ignore]
+fn correction_front_to_split() {
+    let scene = ram_into_free_wall();
+    let mut w = stress_ref::world::World::new(&scene);
+    let o = w.run();
+    println!("reference world: ram {:.2} m/s, {} fragments", w.impactors[0].velocity.y, o.values["fragments"]);
+    for to_split in [false, true] {
+        for (limit, sub) in [(1usize, 1usize), (4, 1), (16, 1), (1, 16), (4, 16)] {
+            let Some(mut sim) = PhysxDestruction::new(&scene) else { return };
+            sim.correction_limit = limit;
+            sim.front_to_split = to_split;
+            let mut corrections = 0;
+            for _ in 0..30 * sub {
+                sim.step(1.0 / (60.0 * sub as f64));
+                corrections += sim.last_corrections;
+            }
+            println!("front_to_split {to_split}, dt 1/{}, limit {limit}: ram {:.2} m/s, {} bodies, {corrections} corrections", 60 * sub, sim.impactor_state(0).1.y, sim.cluster_bodies());
+        }
     }
 }

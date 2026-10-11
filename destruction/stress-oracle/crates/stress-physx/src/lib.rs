@@ -79,6 +79,11 @@ pub struct PhysxDestruction {
     pub last_corrections: usize,
     /// Time window of a failure front: the longest wave transit across one chunk.
     pub front_window: f64,
+    /// Experiment: a correction accepts the trial's breaks up to its first split (plus
+    /// `front_window`). Bonds that break without separating a body leave PhysX's bodies,
+    /// and so its contacts, unchanged: accepting only some of them re-solves the same
+    /// trial. Off: the first `front_window` of breaks.
+    pub front_to_split: bool,
     /// Contact impulses handed to the stress solver in the last frame, and their total.
     pub last_contact_count: usize,
     pub last_contact_impulse: f64,
@@ -102,6 +107,7 @@ impl PhysxDestruction {
             correction_limit: 0,
             last_corrections: 0,
             front_window: chunk_transit_time(scene),
+            front_to_split: false,
             last_contact_count: 0,
             last_contact_impulse: 0.0,
         };
@@ -214,6 +220,11 @@ impl PhysxDestruction {
             let mut trial = self.stress.clone();
             let out = trial.step(&input);
             let verdict = self.failure_front(&out.events);
+            if std::env::var("STRESS_PHYSX_TRACE").is_ok() {
+                let broken = out.events.iter().filter(|e| matches!(e, SolverEvent::Broken { .. })).count();
+                let ram = if self.impactors.is_empty() { 0.0 } else { self.impactor_state(0).1.y };
+                eprintln!("  pass {pass}: trial ram {ram:.2} m/s, {} contacts, {broken} bonds broken in the trial, front {} bonds, {} bodies", input.contacts.len(), verdict.len(), self.cluster_bodies());
+            }
             if verdict.is_empty() || pass == self.correction_limit {
                 self.stress = trial;
                 for f in &out.fractures {
@@ -257,7 +268,17 @@ impl PhysxDestruction {
             })
             .collect();
         let Some(first) = broken.iter().map(|b| b.0).reduce(f64::min) else { return Vec::new() };
-        broken.iter().filter(|b| b.0 <= first + self.front_window).map(|b| (b.1, b.2)).collect()
+        let mut until = first + self.front_window;
+        if self.front_to_split {
+            let split = events.iter().filter_map(|e| match e {
+                SolverEvent::Split { time, .. } => Some(*time),
+                _ => None,
+            });
+            if let Some(t) = split.reduce(f64::min) {
+                until = until.max(t + self.front_window);
+            }
+        }
+        broken.iter().filter(|b| b.0 <= until).map(|b| (b.1, b.2)).collect()
     }
 
     /// The engine state after a PhysX step: cluster motion and contact impulses on chunks.
