@@ -492,7 +492,8 @@ pub struct Methods {
     /// Off: `6 k / m`, which leaves out the tangential layers. The cube lattice's top
     /// eigenvalue is 7.48 k/m at nu = 0.15 (brick, mortar): on fully broken masonry that
     /// step holds at safety 0.9 but blows up at 0.95 (`examples/contact_lattice`, 12^3),
-    /// a margin under 5 % where 0.9 means 10 %. On: stable at 1.0, CPU +1 %.
+    /// a margin under 5 % where 0.9 means 10 %. On (the default): stable at 1.0, CPU
+    /// +1 %.
     pub lattice_contact_step: bool,
 }
 
@@ -547,7 +548,7 @@ impl Methods {
     /// targets (contact equilibrium, sticking, Coulomb sliding and stopping, unit
     /// rescaling, convergence, angular momentum, motion kept through a split).
     pub const fn proven() -> Methods {
-        Methods { layer_contact: true, scaled_step_bound: true, exact_frame_transfer: true, contact_crushing: true, tangent_statics: true, ..Methods::established() }
+        Methods { layer_contact: true, scaled_step_bound: true, exact_frame_transfer: true, contact_crushing: true, tangent_statics: true, lattice_contact_step: true, ..Methods::established() }
     }
 
     /// Every switch at the established method (whatever `STRESS_METHODS` says).

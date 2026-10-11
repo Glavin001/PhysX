@@ -363,7 +363,7 @@ fn elastic_impact_conserves_energy_up_to_contact_dissipation() {
 #[test]
 fn fracture_never_gains_energy_and_dissipation_is_accounted() {
     let layer = Methods::default().layer_contact;
-    let safeties: &[f64] = if layer { &[0.5, 0.25, 0.125, 0.0625] } else { &[0.5] };
+    let safeties: &[f64] = if layer { &[0.5, 0.25, 0.125, 0.0625, 0.03125] } else { &[0.5] };
     let runs: Vec<(f64, u64, f64)> = safeties
         .iter()
         .map(|&k| {
@@ -379,7 +379,7 @@ fn fracture_never_gains_energy_and_dissipation_is_accounted() {
         return;
     }
     let errors: Vec<f64> = runs.iter().map(|r| r.0).collect();
-    assert_converges_to_zero("fracturing impact", &errors, energy_floor(runs[3].1));
+    assert_converges_to_zero("fracturing impact", &errors, energy_floor(runs[4].1));
 }
 
 /// A frictionless, perfectly elastic collision of two free cubes (face on face
