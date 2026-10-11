@@ -66,6 +66,13 @@ pub struct GpuWorld {
     /// global contact bound in every frame. A step change (measured against the
     /// reference by its refinement); on by default, off for like-for-like comparisons.
     pub stress_step_outside_islands: bool,
+    /// Coupled to an engine, in a frame with impact islands: the contact bound over the
+    /// contacts that can engage within the frame (the contact plan's chunk pairs,
+    /// impactor candidates and ground chunks, each against the stiffest material it can
+    /// touch; world_coupling.rs `engaged_contact_dt`) instead of the reference's global
+    /// bound, which presses every chunk of the scene with the scene's stiffest material.
+    /// A step change (measured against the reference); on by default.
+    pub engaged_contact_step: bool,
 }
 
 /// Why a scene cannot run on the GPU yet.
@@ -114,6 +121,7 @@ impl GpuWorld {
             tail_seconds: 0.0,
             filter: crate::coupled::LoadFilter::default(),
             stress_step_outside_islands: true,
+            engaged_contact_step: true,
         };
         let values: Vec<f64> = (0..scene.probes.len()).map(|p| w.probe_value(p)).collect();
         w.record(w.solver.mirror.time, &values, true);
@@ -182,6 +190,16 @@ impl GpuWorld {
                 let dt = self.solver.mirror.stable_dt().min(fdt);
                 n = (fdt / dt).ceil().max(1.0) as usize;
                 h = fdt / n as f64;
+            } else if self.engaged_contact_step && !f.frozen.is_empty() {
+                let contact = self.engaged_contact_dt(fdt);
+                let stress = self.solver.mirror.stable_dt();
+                let dt = if self.scene.sim.methods.scaled_step_bound { 1.0 / (stress.powi(-2) + contact.powi(-2)).sqrt() } else { stress.min(contact) };
+                let mut dt = dt.min(fdt);
+                if let Some(m) = self.scene.sim.max_substep {
+                    dt = dt.min(m);
+                }
+                n = (fdt / dt).ceil().max(1.0) as usize;
+                h = fdt / n as f64;
             }
             if std::env::var("STRESS_GPU_COUPLED_TRACE").is_ok() {
                 eprintln!("coupled frame {}: start, {n} substeps of {h:.2e} s, {} frozen", self.frame, f.frozen.len());
@@ -226,6 +244,40 @@ impl GpuWorld {
             w.coupled_write_back(&frozen);
         });
         self.solver.refresh(gpu)
+    }
+
+    /// The contact bound over this frame's engagements (`engaged_contact_step`): the
+    /// contact plan over the frame, each engaged chunk with the materials it can touch.
+    fn engaged_contact_dt(&mut self, fdt: f64) -> f64 {
+        let m = &self.solver.mirror;
+        let order = self.solver.chunk_order().to_vec();
+        let plan = crate::contacts::plan(&self.scene, m, &self.solver.impactors, &order, fdt);
+        let mat = |k: u32| {
+            let (s, c) = order[k as usize];
+            m.structures[s].chunks[c].material.clone()
+        };
+        let mut partners: std::collections::BTreeMap<(usize, usize), Vec<String>> = std::collections::BTreeMap::new();
+        for &(_, a, b, _, _) in &plan.pairs {
+            partners.entry(order[a as usize]).or_default().push(mat(b));
+            partners.entry(order[b as usize]).or_default().push(mat(a));
+        }
+        let mut impactors = Vec::new();
+        for (i, list) in plan.impactor_chunks.iter().enumerate() {
+            let imp_mat = self.scene.impactors[i].material.clone();
+            for &k in list {
+                partners.entry(order[k as usize]).or_default().push(imp_mat.clone());
+            }
+            if !list.is_empty() {
+                impactors.push((i, list.iter().map(|&k| mat(k)).collect::<Vec<_>>()));
+            }
+        }
+        if let Some(g) = &self.scene.ground {
+            for &k in &plan.ground {
+                partners.entry(order[k as usize]).or_default().push(g.material.clone());
+            }
+        }
+        let chunks: Vec<((usize, usize), Vec<String>)> = partners.into_iter().collect();
+        self.with_shell_mut(|w| w.engaged_contact_dt(&chunks, &impactors))
     }
 
     /// Apply scripted events due at time `t` (world.rs `process_events`). True if any.

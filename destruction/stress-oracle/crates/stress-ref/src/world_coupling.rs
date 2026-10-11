@@ -510,6 +510,39 @@ impl World {
         self.coupling.as_mut().expect("coupled").engine.restore();
     }
 
+    /// world.rs `contact_stable_dt` over the contacts that can engage this frame only:
+    /// each listed chunk pressed on six faces by the stiffest of the materials it can
+    /// touch (`partners`, by name), each listed impactor likewise. The standalone bound
+    /// presses every chunk of the scene with the scene's stiffest material (rebar steel
+    /// included) whether or not anything can touch it. Penalty contact (not the layer
+    /// contact's lattice bound). Infinite with nothing engaged.
+    pub fn engaged_contact_dt(&self, chunks: &[((usize, usize), Vec<String>)], impactors: &[(usize, Vec<String>)]) -> f64 {
+        let scale = self.scene.sim.stiffness_scale;
+        let stiffest = |names: &[String]| names.iter().map(|n| self.scene.material(n)).max_by(|a, b| a.youngs_modulus.total_cmp(&b.youngs_modulus));
+        let mut w2: f64 = 0.0;
+        for ((s, c), partners) in chunks {
+            let Some(partner) = stiffest(partners) else { continue };
+            let ch = &self.solver.structures[*s].chunks[*c];
+            let b = OBox { center: Vec3::ZERO, rotation: ch.rotation, half: ch.half_extents, hull: ch.hull.clone() };
+            let mat = self.chunk_material(*s, *c);
+            let kn: [f64; 3] = std::array::from_fn(|axis| contact_stiffness(mat, &b, partner, &b, ch.rotation.col(axis), scale));
+            let stiffness = 6.0 * kn.iter().copied().fold(0.0, f64::max);
+            w2 = w2.max(stiffness / (ch.mass * self.solver.chunks[*s][*c].inertia_scale));
+        }
+        for (i, partners) in impactors {
+            let Some(partner) = stiffest(partners) else { continue };
+            let imp = &self.impactors[*i];
+            let b = imp.obox();
+            let k = (0..3).map(|axis| contact_stiffness(&imp.material, &b, partner, &b, b.rotation.col(axis), scale)).fold(0.0, f64::max);
+            w2 = w2.max(k / imp.mass);
+        }
+        if w2 <= 0.0 {
+            f64::INFINITY
+        } else {
+            2.0 / w2.sqrt() * self.scene.sim.courant_safety
+        }
+    }
+
     /// The end of a coupled frame: island bodies that still exist go back to the engine
     /// with the world's state; new fragments are created by the sync with theirs.
     pub fn coupled_write_back(&mut self, frozen: &[BodyKey]) {

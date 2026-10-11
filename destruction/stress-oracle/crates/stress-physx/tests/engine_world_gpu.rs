@@ -194,3 +194,49 @@ fn physx_gpu_and_stress_gpu_ram() {
         times.iter().copied().fold(0.0, f64::max)
     );
 }
+
+/// Diagnostic (`--ignored --nocapture`; with STRESS_GPU_COUPLED_TRACE=1 and
+/// STRESS_GPU_TIMING=1): house-1story rammed (the realtime_peak regime), PhysX GPU,
+/// frame by frame, with the GPU solver's profile.
+#[test]
+#[ignore]
+fn house_ram_profile() {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../../blast/blast-stress-demo-rs/assets/scenes/house-1story.json");
+    let mut s = stress_gpu::scenes::rammed(stress_ref::scene_pack::import(&path, "house-1story", "structure").unwrap());
+    s.sim.methods = stress_ref::scene::Methods::established();
+    s.sim.methods.true_step = true;
+    s.sim.courant_safety = 0.25;
+    s.sim.solve_mode = stress_ref::scene::SolveMode::Adaptive;
+    s.sim.duration = 0.25;
+    let Ok(gpu) = Gpu::new() else { return };
+    let engine = PhysxEngine::boxed_gpu(Vec3::from_array(s.gravity)).or_else(|| PhysxEngine::boxed(Vec3::from_array(s.gravity))).expect("PhysX");
+    let mut w = GpuWorld::with_engine(&gpu, &s, engine).expect("GPU world");
+    for f in 0..15 {
+        let p0 = w.solver.profile.clone();
+        let (splits0, tail0) = (w.solver.host_splits, w.tail_seconds);
+        let t = std::time::Instant::now();
+        w.step_frame(&gpu).expect("frame");
+        let p = &w.solver.profile;
+        eprintln!(
+            "frame {f}: {:.0} ms; substeps {}, batches {}, host splits {}, max pairs {}; build {:.0} ms, gpu {:.0}, readback {:.0}, split {:.0}, download {:.0}, tails {:.0}; clusters {}",
+            t.elapsed().as_secs_f64() * 1e3,
+            p.substeps - p0.substeps,
+            p.batches - p0.batches,
+            w.solver.host_splits - splits0,
+            p.max_pairs,
+            (p.build - p0.build) * 1e3,
+            (p.gpu - p0.gpu) * 1e3,
+            (p.readback - p0.readback) * 1e3,
+            (p.split - p0.split) * 1e3,
+            (p.download - p0.download) * 1e3,
+            (w.tail_seconds - tail0) * 1e3,
+            w.solver.mirror.clusters.len()
+        );
+        for (k, name) in stress_gpu::solver::KERNEL_NAMES.iter().enumerate() {
+            let d = p.kernel_dispatches[k] - p0.kernel_dispatches[k];
+            if d > 0 {
+                eprintln!("    {name:<20} {:8.1} ms over {d} dispatches", (p.kernels[k] - p0.kernels[k]) * 1e3);
+            }
+        }
+    }
+}
