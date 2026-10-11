@@ -273,6 +273,48 @@ The same case runs through PhysX CPU and the oracle (`stress-physx`, `ram_into_f
 
 **Conclusion.** A correction can converge only if its trial's input resembles the real load, and a rigid contact gives the whole-body load until the plug is already free. Stress-owned impact islands break this circle: the stress solver resolves the chunk-level contact while bonds fail, and is right on the first pass (35.05 m/s, 6 fragments). The native pipeline, which uses Blast's CGNR solver with PhysX contact impulses and one correction, likely shares this limitation; not measured here.
 
+### A11. Impact islands on the GPU (`GpuWorld::with_engine`), and which step is converged
+
+The GPU world runs the reference's coupled frame on its mirror:
+- the reference's own island selection;
+- the engine step with island bodies frozen;
+- the engine's contacts on driven clusters as GPU load terms;
+- island bodies simulated by the GPU's chunk-level contact;
+- verify-and-redo from a host snapshot.
+
+Ram (200 kg, 40 m/s) through a free concrete wall, PhysX CPU, established methods (test `stress-physx/tests/engine_world_gpu.rs`):
+
+| Step | Reference + PhysX | GPU + PhysX | GPU frames: impact / median / worst |
+|---|---|---|---|
+| established bound, safety 0.5 (default) | 35.05 m/s, 6 fragments, 24 bonds | 35.02 m/s, 6, 26 | 902 / 365 / 368 ms |
+| **certified true step, safety 0.25 (converged)** | **35.07 m/s, 6, 24** | **35.07 m/s, 6, 24** | **539 / 186 / 188 ms** |
+| certified true step, safety 0.5 | 34.84 m/s, 14, 93 | 34.84 m/s, 14, 90 | 381 / 140 / 167 ms |
+| `with_true_step` (safety ×7.4 on stress *and* contact) | 33.15 m/s, 55, 240 | 31.64 m/s, 78, 272 | 701 / 60 / 87 ms |
+
+For contrast, PhysX without islands gives 10.9 m/s.
+
+**The GPU reproduces the reference coupled world at every step**, so the remaining differences between rows come from the step.
+
+**Which step is converged** (`reference_refinement`, standalone reference, 0.1 s):
+- Established bound at safety 0.5 / 0.25 / 0.125 / 0.0625: 6 fragments and 24–25 bonds at every safety. 39,876 substeps at 0.5.
+- Certified true step at safety 0.5: 14 fragments, 93 bonds. **Not converged.**
+- Certified true step at 0.25 / 0.125 / 0.0625: 6 fragments, 24 bonds. 23,394 substeps at 0.25, 1.7× fewer than the default.
+
+**Mechanism.** Raising the stress bound leaves the penalty contact's global bound binding in island frames. At safety 0.5 that bound does not resolve a fracturing impact; it had looked converged only because the conservative stress bound sat below it.
+
+**Consequences:**
+1. The stress and contact bounds need separate safety factors, as v2 proposed. Here the contact needs about 0.25 and the stress bound 0.9 for stability.
+2. **`stress_gpu::stability::with_true_step` is wrong for scenes with contact.** It scales the shared Courant safety, so contacts run 7.4× past their bound and the wall shatters (55–78 fragments instead of 6). The real-time harnesses (`stress-gpu-fps --config realtime`, `stress-gpu-coupled-fps`) use it, so their destruction fidelity is suspect. Use the certified `true_step` method with converged safeties instead.
+
+**Exact cleanups found on the way** (bit-identical elsewhere: quick gate 13/13, micro-tier snapshots unchanged):
+- A driven impactor did not count its substeps, so a frame in which the engine drove every impactor never ended.
+- The contact pipeline ran whenever impactors existed, even when the engine drove all of them. It now runs only for bodies the stress solver owns: 460 → 365 ms per empty frame.
+
+**Remaining cost.** The frames after the impact are 186 ms, with nothing breaking: about 3,900 substeps on the wall's largest fragment (a wide island at about 48 µs per substep). The levers:
+- Sleep the fragments. Adaptive mode with a settling certificate, since a timer waits 0.5 s.
+- Per-island steps for the fragments.
+- The awake-cluster kernel cost (A6).
+
 ## B. Review of the two documents
 
 ### Compendium

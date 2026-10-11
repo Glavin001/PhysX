@@ -835,7 +835,8 @@ impl GpuSolver {
         // With any contact or impactor, every island advances in lockstep through the
         // per-substep pipeline (a split then stops all of them at the same substep); only
         // the planned chunks receive contact loads.
-        let pipeline = !impactors.is_empty() || plan.contact_clusters.iter().any(|&c| c);
+        // Impactors the solver integrates (under an engine, those in impact islands).
+        let pipeline = impactors.iter().any(|i| !i.driven) || plan.contact_clusters.iter().any(|&c| c);
         if pipeline {
             for island in islands.iter_mut() {
                 island.info[0] |= ISLAND_CONTACT;
@@ -1152,14 +1153,18 @@ impl GpuSolver {
         ))
     }
 
-    /// Whether anything can touch: a free (or driven) cluster, or an impactor (anchored
-    /// clusters touch neither each other nor the ground in the reference's contact).
+    /// Whether anything can touch in the solver's own contact: an impactor, or a free
+    /// cluster (anchored clusters touch neither each other nor the ground in the
+    /// reference's contact). Under an engine, only the bodies it does not drive (the
+    /// impact islands) take part (contacts.rs skips every pair with a driven body); with
+    /// none, there is no contact pipeline to run.
     fn contacts_possible(&self) -> bool {
         if !self.own_contacts {
             return false;
         }
-        let free = self.mirror.clusters.iter().any(|c| !c.anchored);
-        !self.impactors.is_empty() || (free && (self.mirror.clusters.len() > 1 || self.scene().is_some_and(|s| s.ground.is_some())))
+        let owned = self.mirror.clusters.iter().filter(|c| !c.driven).count();
+        let free = self.mirror.clusters.iter().any(|c| !c.anchored && !c.driven);
+        self.impactors.iter().any(|i| !i.driven) || (free && (owned > 1 || self.scene().is_some_and(|s| s.ground.is_some())))
     }
 
     /// Advance every cluster by `substeps` explicit substeps of `dt` (splits and
@@ -1211,8 +1216,10 @@ impl GpuSolver {
         // Probe values per item (by identity) and substep.
         let mut values: HashMap<(usize, u32, Target, u32), Vec<f64>> = HashMap::new();
         let mut remaining: HashMap<u64, usize> = self.mirror.clusters.iter().map(|c| (c.id, substeps)).collect();
-        // Substeps the contact pipeline (impactors) still has to run.
-        let mut pipeline_left = substeps;
+        // Substeps the contact pipeline (impactors the solver integrates; driven ones are
+        // the engine's) still has to run.
+        let owned_impactors = self.impactors.iter().any(|i| !i.driven);
+        let mut pipeline_left = if owned_impactors { substeps } else { 0 };
         // Pipeline substeps per submission: a halt (split, re-plan) stops the rest of a
         // submission, whose dispatches still launch; small chunks after a halt, growing
         // while none occurs.
@@ -1239,8 +1246,8 @@ impl GpuSolver {
                     wide_left = wide_left.max(left);
                 }
             }
-            let pipeline = !self.impactors.is_empty() || contact_left > 0;
-            let mut pipeline_steps = if !self.impactors.is_empty() { pipeline_left.max(contact_left) } else { contact_left }.min(chunk);
+            let pipeline = owned_impactors || contact_left > 0;
+            let mut pipeline_steps = if owned_impactors { pipeline_left.max(contact_left) } else { contact_left }.min(chunk);
             // Rounds of per-substep dispatches: the contact pipeline and the wide islands.
             let mut rounds = pipeline_steps.max(wide_left.min(chunk));
             if self.timing.is_some() {
@@ -1296,7 +1303,7 @@ impl GpuSolver {
                         }
                     }
                 }
-                if contact && !self.impactors.is_empty() {
+                if contact && owned_impactors {
                     ops.push((K_INTEGRATE, impactors_n, true));
                 }
             }
@@ -1393,7 +1400,7 @@ impl GpuSolver {
                     }
                 }
             }
-            if !self.impactors.is_empty() {
+            if owned_impactors {
                 // Impactor records of the substeps the pipeline ran.
                 let (base, stride) = (self.buffers.params.record_base as usize, self.buffers.params.record_stride as usize);
                 let first = substeps - pipeline_left;

@@ -60,6 +60,12 @@ pub struct GpuWorld {
     pub tail_seconds: f64,
     /// Coupled to an engine: its contacts on driven clusters, as GPU load terms.
     filter: crate::coupled::LoadFilter,
+    /// Coupled to an engine, in a frame without impact islands (no contact in the stress
+    /// solve): substeps at the stress step alone, as the engine-coupled solver takes them
+    /// (`coupled.rs`), instead of the reference coupled world's substep, which keeps the
+    /// global contact bound in every frame. A step change (measured against the
+    /// reference by its refinement); on by default, off for like-for-like comparisons.
+    pub stress_step_outside_islands: bool,
 }
 
 /// Why a scene cannot run on the GPU yet.
@@ -107,6 +113,7 @@ impl GpuWorld {
             sample_interval: scene.sim.sample_interval.unwrap_or(scene.sim.frame_dt),
             tail_seconds: 0.0,
             filter: crate::coupled::LoadFilter::default(),
+            stress_step_outside_islands: true,
         };
         let values: Vec<f64> = (0..scene.probes.len()).map(|p| w.probe_value(p)).collect();
         w.record(w.solver.mirror.time, &values, true);
@@ -170,10 +177,16 @@ impl GpuWorld {
             self.filter.ingest(&self.solver.mirror, f.t0, fdt, &f.impulses);
             self.solver.extra_terms = self.filter.terms(&self.solver.mirror);
             self.solver.refresh(gpu)?;
-            if std::env::var("STRESS_GPU_COUPLED_TRACE").is_ok() {
-                eprintln!("coupled frame {}: start, {} substeps of {:.2e} s, {} frozen", self.frame, f.n, f.h, f.frozen.len());
+            let (mut n, mut h) = (f.n, f.h);
+            if self.stress_step_outside_islands && f.frozen.is_empty() {
+                let dt = self.solver.mirror.stable_dt().min(fdt);
+                n = (fdt / dt).ceil().max(1.0) as usize;
+                h = fdt / n as f64;
             }
-            self.advance(gpu, f.h, f.n)?;
+            if std::env::var("STRESS_GPU_COUPLED_TRACE").is_ok() {
+                eprintln!("coupled frame {}: start, {n} substeps of {h:.2e} s, {} frozen", self.frame, f.frozen.len());
+            }
+            self.advance(gpu, h, n)?;
             self.solver.sync(gpu);
             let since = &self.solver.mirror.events[saved.mirror().events.len()..];
             let broke = fractured_since(saved.mirror(), since, &f.driven);

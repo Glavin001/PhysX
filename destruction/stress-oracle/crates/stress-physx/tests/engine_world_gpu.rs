@@ -88,3 +88,75 @@ fn gpu_coupled_trace() {
         eprintln!("  frame took {:.1} ms; ram {:.2} m/s", t.elapsed().as_secs_f64() * 1e3, w.solver.impactors[0].velocity.y);
     }
 }
+
+/// Diagnostic (`--ignored --nocapture`): the ram through the free wall at the true
+/// stable step (`stability::with_true_step`, safety 0.9), the reference coupled world and
+/// the GPU coupled world both at that step, against the reference coupled world at its
+/// own step (the truth); frame times of the GPU world.
+#[test]
+#[ignore]
+fn gpu_coupled_true_step() {
+    let scene = ram_scene();
+    let (scaled, ratio) = stress_gpu::stability::with_true_step(&scene, 0.9);
+    println!("with_true_step: safety x{ratio:.1} (stress and contact steps)");
+    // The oracle's certified true step: the stress bound only; contacts keep theirs.
+    let mut certified = scene.clone();
+    certified.sim.methods.true_step = true;
+    // Converged by the reference's refinement (`reference_refinement`): safety 0.25.
+    let mut converged = certified.clone();
+    converged.sim.courant_safety = 0.25;
+    let Ok(gpu) = Gpu::new() else { return };
+    let ram = |o: &stress_ref::observation::Observation, v: f64| format!("ram {v:.2} m/s, {} fragments, {} broken bonds", o.values["fragments"], o.values["broken_bonds"]);
+    for (label, s) in [("reference step", &scene), ("certified true step, safety 0.25 (converged)", &converged), ("certified true step (stress only)", &certified), ("with_true_step (stress and contact)", &scaled)] {
+        let mut reference = World::with_engine(s, PhysxEngine::boxed(Vec3::from_array(s.gravity)).expect("PhysX"));
+        let ro = reference.run();
+        println!("{label}: reference + PhysX: {}", ram(&ro, reference.impactors[0].velocity.y));
+        let mut w = GpuWorld::with_engine(&gpu, s, PhysxEngine::boxed(Vec3::from_array(s.gravity)).expect("PhysX")).expect("GPU world");
+        let mut times = Vec::new();
+        let frames = (s.sim.duration / s.sim.frame_dt).round() as usize;
+        for _ in 0..frames {
+            let t = std::time::Instant::now();
+            w.step_frame(&gpu).expect("frame");
+            times.push(t.elapsed().as_secs_f64() * 1e3);
+        }
+        w.solver.sync(&gpu);
+        let go = w.observation();
+        let mut sorted = times[1..].to_vec();
+        sorted.sort_by(f64::total_cmp);
+        println!(
+            "{label}: GPU + PhysX: {}; frames: first {:.1} ms, median {:.1}, worst {:.1}",
+            ram(&go, w.solver.impactors[0].velocity.y),
+            times[0],
+            sorted[sorted.len() / 2],
+            sorted[sorted.len() - 1]
+        );
+    }
+}
+
+/// Diagnostic (`--ignored --nocapture`): the standalone reference's own refinement of the
+/// ram through the free wall (which step is converged): Courant safety halved, with the
+/// established bound and with the certified true step.
+#[test]
+#[ignore]
+fn reference_refinement() {
+    let scene = ram_scene();
+    for true_step in [false, true] {
+        for safety in [0.5, 0.25, 0.125, 0.0625] {
+            let mut s = scene.clone();
+            s.sim.methods.true_step = true_step;
+            s.sim.courant_safety = safety;
+            s.sim.duration = 0.1;
+            let mut w = World::new(&s);
+            let t = std::time::Instant::now();
+            let o = w.run();
+            println!(
+                "true_step {true_step}, safety {safety}: ram {:.2} m/s, {} fragments, {} broken bonds, {} substeps ({:.0} s)",
+                w.impactors[0].velocity.y,
+                o.values["fragments"],
+                o.values["broken_bonds"],
+                o.values["substeps"],
+                t.elapsed().as_secs_f64()
+            );
+        }
+    }
+}
