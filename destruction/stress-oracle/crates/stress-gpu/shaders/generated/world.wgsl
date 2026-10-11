@@ -5412,7 +5412,7 @@ fn record_probes_0( isl_14 : Island_0,  rg_12 : Rigid_0,  k_20 : u32)
         var value_2 : f32;
         if(kind_5 == u32(0))
         {
-            value_2 = dot(rg_12.pos_1 - b_40.xyz + (rg_12.pos_err_1 - c4_0.xyz) + rotate_0(rg_12.rot_0, chunks_0[i_9].center_0.xyz + state_0[u32(4) * i_9].xyz), a_17.xyz);
+            value_2 = dot(rg_12.pos_1 - b_40.xyz + rotate_0(rg_12.rot_0, chunks_0[i_9].center_0.xyz) + (rg_12.pos_err_1 - c4_0.xyz + rotate_0(rg_12.rot_0, state_0[u32(4) * i_9].xyz + vec3<f32>(a_17.w, b_40.w, c4_0.w))), a_17.xyz);
         }
         else
         {

@@ -765,8 +765,20 @@ impl GpuSolver {
                 let (_, idx, it) = &placed[cursor];
                 let slot = layout_items.len() as u32;
                 packed.push([f32::from_bits(it.kind), f32::from_bits(*idx), f32::from_bits(it.side), f32::from_bits(slot)]);
-                packed.push(v4(it.a, 0.0));
-                let (hi, lo) = split(it.x0);
+                // Displacement items: the chunk centre's f32 rounding error (body frame) in
+                // the w lanes, so the probe resolves displacements far below the ulp of
+                // the centre (world.slang `record_probes`).
+                let centre_lo = match it.target {
+                    Target::Chunk(s, c) if it.kind == crate::loads::PROBE_DISPLACEMENT => {
+                        let x = m.structures[s].chunks[c].center;
+                        x - vec3(v4(x, 0.0))
+                    }
+                    _ => Vec3::ZERO,
+                };
+                packed.push(v4(it.a, centre_lo.x));
+                let (mut hi, mut lo) = split(it.x0);
+                hi[3] = centre_lo.y as f32;
+                lo[3] = centre_lo.z as f32;
                 packed.push(if it.kind == crate::loads::PROBE_SECTION_BOND { v4(it.b, 0.0) } else { hi });
                 packed.push(lo);
                 layout_items.push(it.clone());

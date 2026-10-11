@@ -13,6 +13,7 @@ pub mod coupled;
 pub mod coverage;
 pub mod joint;
 pub mod loads;
+pub mod micro;
 
 /// The generated shaders of one Slang file, in every form the runtime can load.
 #[derive(Clone, Copy, Debug)]

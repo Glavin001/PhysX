@@ -294,6 +294,19 @@ pub fn cases() -> Vec<Case> {
 /// The quick tier: a representative subset that runs in a few minutes (elastic
 /// benchmarks, fracture, contact, the solve modes, a pack), for iterating; the full
 /// set before a commit.
+/// Fuzz scene seeds that once failed (`stress-gpu-gate --fuzz` prints them ready to paste):
+/// always run with `--micro` (`micro::fuzz_scene`).
+pub const FUZZ_REGRESSIONS: &[u64] = &[
+    // Displacement probes rounded to the f32 ulp of the chunk position (fixed in record_probes):
+    0x5e8c87468dcf66d3, // stone wall, prestressed sag only
+    0x814cac4f3e95b960, // timber, box impactor
+    0x34cac5489fdc078a, // steel, adaptive
+    // A probe the reference holds at exactly zero (f32 noise of 1e-14 m judged absolutely):
+    0x3c31cba91af8fb74, // glass slab resting on the ground
+];
+
+pub use crate::micro::{fuzz_scene, micro_cases, micro_reference, with_knobs, Knobs, MicroCase};
+
 pub const QUICK: [&str; 13] = [
     "b1_bond_tension",
     "b2_cantilever",
@@ -323,7 +336,7 @@ pub struct ReferenceSet {
 }
 
 /// 64-bit FNV-1a (stable across runs and toolchains, unlike `DefaultHasher`).
-fn fnv(bytes: &[u8], mut h: u64) -> u64 {
+pub(crate) fn fnv(bytes: &[u8], mut h: u64) -> u64 {
     for &b in bytes {
         h ^= b as u64;
         h = h.wrapping_mul(0x100000001b3);
@@ -466,13 +479,39 @@ fn map_set(set: &mut ReferenceSet, f: impl Fn(f64) -> f64 + Copy) {
     }
 }
 
-fn encode(mut set: ReferenceSet) -> ReferenceSet {
-    map_set(&mut set, |x| if x.is_nan() { NAN_SENTINEL } else if x == f64::INFINITY { INF_SENTINEL } else if x == f64::NEG_INFINITY { NEG_INF_SENTINEL } else { x });
+/// A value as stored in a cache file (NaN and infinities as sentinels).
+pub(crate) fn enc(x: f64) -> f64 {
+    if x.is_nan() {
+        NAN_SENTINEL
+    } else if x == f64::INFINITY {
+        INF_SENTINEL
+    } else if x == f64::NEG_INFINITY {
+        NEG_INF_SENTINEL
+    } else {
+        x
+    }
+}
+
+/// A value read from a cache file (`enc` undone).
+pub(crate) fn dec(x: f64) -> f64 {
+    if x == NAN_SENTINEL {
+        f64::NAN
+    } else if x == INF_SENTINEL {
+        f64::INFINITY
+    } else if x == NEG_INF_SENTINEL {
+        f64::NEG_INFINITY
+    } else {
+        x
+    }
+}
+
+pub(crate) fn encode(mut set: ReferenceSet) -> ReferenceSet {
+    map_set(&mut set, enc);
     set
 }
 
-fn decode(mut set: ReferenceSet) -> ReferenceSet {
-    map_set(&mut set, |x| if x == NAN_SENTINEL { f64::NAN } else if x == INF_SENTINEL { f64::INFINITY } else if x == NEG_INF_SENTINEL { f64::NEG_INFINITY } else { x });
+pub(crate) fn decode(mut set: ReferenceSet) -> ReferenceSet {
+    map_set(&mut set, dec);
     set
 }
 
