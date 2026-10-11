@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/stress-ref", "crates/stress-physx", "crates/stress-viz"]
+members = ["crates/stress-ref", "crates/stress-physx", "crates/stress-viz", "crates/stress-gpu"]
 # stress-physx links the PhysX SDK (needs PHYSX_ROOT); build it explicitly with -p.
 # stress-viz (debug renderer, needs ffmpeg at run time) is built explicitly with -p too.
 default-members = ["crates/stress-ref"]
