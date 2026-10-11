@@ -971,9 +971,55 @@ At 500 kg and 20 m/s, implicit gives the wrong mode: the whole wall pushes over 
 chunks) where the truth punches 32 out. Its failure flags agree, so fidelity's
 `fails` metric misses it; `where` catches it.
 
-For the GPU tiering, the rule `t_c <= T_w` does not find punch-through. A
-critical-speed criterion per wall (material and thickness), calibrated on the oracle
-by this sweep, does: for b5's 0.2 m concrete wall, 15-20 m/s.
+**Walls** (`examples/wall_variants`: b5's ram against walls 1-4 chunks of 0.1 m thick,
+concrete and brick, 10-60 m/s). "Partial" is chunks detached short of a push-over (for
+the thicker walls, large partial failures):
+
+| Wall | Explicit (the truth) | Implicit agrees at |
+|---|---|---|
+| concrete 0.1 m | a 16-chunk hole at every speed, 10-60 m/s | no speed |
+| concrete 0.2 m (b5) | push-over to 15 m/s, punch-through from 20 | 10-15 m/s |
+| concrete 0.3, 0.4 m | push-over at 10 m/s, partial failure (760-1120 chunks) from 15 | 10 m/s |
+| brick 0.2 m | push-over at 10 m/s, punch-through from 15 | 10 m/s |
+| brick 0.3 m | partial failure from 10 m/s | no speed |
+
+The critical speed depends on the wall: under 10 m/s for 0.1 m concrete and 0.3 m
+brick, 10-15 m/s for 0.2 m brick and 0.3-0.4 m concrete, 15-20 m/s for 0.2 m
+concrete. It is not monotonic in thickness. Implicit at the frame step reproduces
+only push-over.
+
+For the GPU tiering: the rule `t_c <= T_w` does not find these regimes. A critical
+impact speed per wall type, calibrated by this sweep, does; without a calibration,
+hard impacts above about 10 m/s belong in explicit windows.
+
+**Caveats:**
+- In the oracle's implicit mode, contacts act every substep but bonds advance once per
+  `implicit_dt` (here the 1/60 s frame), and `implicit_predict` moves the hidden DOFs
+  under the contact loads with no bond resistance in between. During a hard impact
+  that coupling creates energy: 0.3 m brick at 15 m/s reached chunks at 1e18 m/s,
+  contact dissipation -3e7 J; b7_v15 implicit books -1.55e6 J. It is a limit of
+  explicit contact against implicit bonds at a frame-long step, not of step acceptance.
+- The analysis's tier 2 takes impacts as velocity conditions
+  (`ImpactModel::VelocityCondition`, momentum exact). That model lives only in the
+  engine API (`api.rs`), so this calibration measures tier 2 with explicit contacts.
+  Calibrating with velocity conditions needs a driver through that API: open.
+
+**Implicit steps that do not converge (fixed).** `newmark_step` committed its best
+state when Newton stalled, with relative residuals up to 0.52 in the gate's implicit
+cells. `newmark_step_subdivided` now rejects such a step: the cluster returns to the
+step's start and takes two half steps under the same averaged loads, recursively, at
+most 6 deep (1/64). Every implicit cell's worst residual is now about 1e-9; a step
+that converges is unchanged.
+
+| Cell | Worst residual | Broken bonds |
+|---|---|---|
+| b8_frame_sudden established | 0.52 -> 1e-9 | 53 -> 28 |
+| b7_v15 | 0.30 -> 1e-9 | 280 -> 285 |
+| b9_panel_high (default) | 5e-4 -> 1e-9 | unchanged |
+
+**Contact bound on hulls** (`contact_lattice ... hull | hull_rotated`): equal cubes as
+convex hulls, through the hull contact path, behave as the boxes do. Aligned: stable to
+safety 1.0, blows up at 1.1. Rotated: stable throughout.
 Blast loads and dropped bodies have no `t_c` here yet.
 
 GPU-only items are out of scope for the CPU oracle: shared-memory windows, cooperative

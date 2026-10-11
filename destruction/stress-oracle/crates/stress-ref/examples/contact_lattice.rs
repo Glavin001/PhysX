@@ -6,7 +6,7 @@
 //! step bound stays bounded at 0.9.
 //!
 //! ```text
-//! cargo run --release -p stress-ref --example contact_lattice [material] [n] [cube|layers|rotated]
+//! cargo run --release -p stress-ref --example contact_lattice [material] [n] [cube|layers|rotated|hull|hull_rotated]
 //! ```
 
 use stress_ref::builders::{body, chunk, new_scene};
@@ -19,7 +19,8 @@ const SAFETIES: [f64; 4] = [0.8, 0.9, 1.0, 1.1];
 
 /// `variant`: `cube` (equal cubes, face to face), `layers` (cubes alternating with plates a
 /// quarter as thick, so thin and thick chunks press face to face), `rotated` (cubes
-/// turned +-10 degrees about z in a checkerboard, touching corner to face).
+/// turned +-10 degrees about z in a checkerboard, touching corner to face), `hull` and
+/// `hull_rotated` (the same cubes as convex hulls, through the hull contact path).
 fn lattice(material: &str, n: usize, safety: f64, variant: &str) -> Scene {
     let mut s = new_scene("contact_lattice", "dense lattice of unbonded cubes in face contact");
     s.gravity = [0.0; 3];
@@ -39,9 +40,14 @@ fn lattice(material: &str, n: usize, safety: f64, variant: &str) -> Scene {
         z += tz - side * (1.0 - squeeze);
         for j in 0..n {
             for i in 0..n {
-                let pitch = if variant == "rotated" { side * (turn.cos() + turn.sin()) * squeeze } else { side * squeeze };
-                let mut c = chunk(Vec3::new(i as f64 * pitch, j as f64 * pitch, if variant == "rotated" { k as f64 * side * squeeze } else { zc }), Vec3::new(0.5 * side, 0.5 * side, 0.5 * tz), material);
-                if variant == "rotated" {
+                let rotated = variant == "rotated" || variant == "hull_rotated";
+                let pitch = if rotated { side * (turn.cos() + turn.sin()) * squeeze } else { side * squeeze };
+                let mut c = chunk(Vec3::new(i as f64 * pitch, j as f64 * pitch, if rotated { k as f64 * side * squeeze } else { zc }), Vec3::new(0.5 * side, 0.5 * side, 0.5 * tz), material);
+                if variant.starts_with("hull") {
+                    let h = 0.5 * side;
+                    c.hull = Some((0..8).map(|b| [if b & 1 == 0 { -h } else { h }, if b & 2 == 0 { -h } else { h }, if b & 4 == 0 { -0.5 * tz } else { 0.5 * tz }]).collect());
+                }
+                if rotated {
                     let a = if (i + j) % 2 == 0 { turn } else { -turn };
                     c.orientation = [(0.5 * a).cos(), 0.0, 0.0, (0.5 * a).sin()];
                 }

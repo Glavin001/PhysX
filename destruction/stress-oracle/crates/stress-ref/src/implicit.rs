@@ -53,6 +53,10 @@ pub struct ImplicitReport {
     pub converged: bool,
 }
 
+/// Halvings of an implicit step whose Newton iteration does not converge (down to
+/// 1/64 of it); a step still unconverged there is kept as the best state.
+const STEP_HALVINGS: usize = 6;
+
 /// Relative residual at which a step's Newton iteration stops.
 pub const IMPLICIT_TOLERANCE: f64 = 1e-9;
 const MAX_NEWTON: usize = 60;
@@ -109,7 +113,7 @@ impl ReferenceSolver {
             if self.clusters[ci].bonds.is_empty() {
                 continue;
             }
-            let r = self.newmark_step(ci, loads, dt);
+            let r = self.newmark_step_subdivided(ci, loads, dt, STEP_HALVINGS);
             // Fold the hidden field's rigid motion into the frame before any split, so
             // children inherit each momentum once.
             if !self.clusters[ci].anchored {
@@ -159,6 +163,42 @@ impl ReferenceSolver {
             coeffs.push(c);
         }
         (out, coeffs, power)
+    }
+
+    /// `newmark_step`, rejecting a step whose Newton iteration does not converge: the
+    /// cluster goes back to the step's start and takes two half steps under the same
+    /// (time-averaged) loads, each subdivided the same way, at most `halvings` deep.
+    /// Committing an unconverged step commits a state that is no solution of the
+    /// step's equations of motion (a 0.3 m brick wall struck at 15 m/s accepted relative
+    /// residuals near 1 and reached chunks at 1e18 m/s); a step that converges is
+    /// unchanged.
+    fn newmark_step_subdivided(&mut self, ci: usize, loads: &ChunkLoads, dt: f64, halvings: usize) -> ImplicitReport {
+        let s = self.clusters[ci].structure;
+        let chunks = self.clusters[ci].chunks.clone();
+        let saved: Vec<([Vec3; 4], Vec3, Vec3)> = chunks.iter().map(|&c| (self.chunks[s][c].step_start, self.chunks[s][c].a, self.chunks[s][c].alpha)).collect();
+        let damping = self.energy.damping_dissipation;
+        let r = self.newmark_step(ci, loads, dt);
+        if r.converged || halvings == 0 {
+            return r;
+        }
+        for (&c, (start, a, alpha)) in chunks.iter().zip(&saved) {
+            let st = &mut self.chunks[s][c];
+            [st.u, st.th, st.v, st.w] = *start;
+            (st.a, st.alpha) = (*a, *alpha);
+        }
+        self.energy.damping_dissipation = damping;
+        let first = self.newmark_step_subdivided(ci, loads, 0.5 * dt, halvings - 1);
+        for &c in &chunks {
+            let st = &mut self.chunks[s][c];
+            st.step_start = [st.u, st.th, st.v, st.w];
+        }
+        let second = self.newmark_step_subdivided(ci, loads, 0.5 * dt, halvings - 1);
+        ImplicitReport {
+            newton_iterations: r.newton_iterations + first.newton_iterations + second.newton_iterations,
+            cg_iterations: r.cg_iterations + first.cg_iterations + second.cg_iterations,
+            residual: first.residual.max(second.residual),
+            converged: first.converged && second.converged,
+        }
     }
 
     /// One Newmark step of cluster `ci` (damage frozen; see the module docs).
