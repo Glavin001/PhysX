@@ -1960,6 +1960,14 @@ void island_frame_at(uint gi, uint tid)
         if (tid == 0 && isl.probes.y > isl.probes.x)
             record_probes(isl, rg, k);
         done = s + 1;
+        // A disconnection that leaves the island in one piece changes nothing (the host's
+        // resumed halt, without the round trip).
+        if (g_halt != 0 && island_connected_narrow(tid, isl))
+        {
+            if (tid == 0)
+                g_halt = 0;
+            GroupMemoryBarrierWithGroupSync();
+        }
         if (g_halt != 0)
             break;
     }
@@ -2357,6 +2365,66 @@ bool island_connected(uint tid, Island isl)
             g_changed = 1;
     GroupMemoryBarrierWithGroupSync();
     return g_changed == 0;
+}
+
+// `island_connected` for a narrow island, with labels for at most CONNECT_NARROW chunks
+// (its own small array: the narrow kernel's occupancy).
+static const uint CONNECT_NARROW = 512;
+groupshared uint g_label_narrow[CONNECT_NARROW];
+groupshared uint g_changed_narrow;
+
+bool island_connected_narrow(uint tid, Island isl)
+{
+    uint first = isl.range.x;
+    uint n = isl.range.y - isl.range.x;
+    if (n > CONNECT_NARROW)
+        return false;
+    for (uint c = tid; c < n; c += THREADS)
+        g_label_narrow[c] = c;
+    GroupMemoryBarrierWithGroupSync();
+    bool converged = false;
+    for (uint pass = 0; pass <= n; pass++)
+    {
+        if (tid == 0)
+            g_changed_narrow = 0;
+        GroupMemoryBarrierWithGroupSync();
+        for (uint c = tid; c < n; c += THREADS)
+        {
+            uint l = g_label_narrow[c];
+            uint gc = first + c;
+            for (uint e = index[gc]; e < index[gc + 1]; e++)
+            {
+                uint entry = index[e];
+                uint bond = entry >> 1;
+                if (!connected(bond_dyn[bond].js, bonds[bond].law.stiff1.w != 0.0))
+                    continue;
+                uint other = (entry & 1) == 0 ? bonds[bond].law.ids.z : bonds[bond].law.ids.y;
+                l = min(l, g_label_narrow[other - first]);
+            }
+            l = min(l, g_label_narrow[l]);
+            if (l < g_label_narrow[c])
+            {
+                g_label_narrow[c] = l;
+                // Every writer stores the same value.
+                g_changed_narrow = 1;
+            }
+        }
+        GroupMemoryBarrierWithGroupSync();
+        converged = g_changed_narrow == 0;
+        GroupMemoryBarrierWithGroupSync();
+        if (converged)
+            break;
+    }
+    if (!converged)
+        return false;
+    if (tid == 0)
+        g_changed_narrow = 0;
+    GroupMemoryBarrierWithGroupSync();
+    for (uint c = tid; c < n; c += THREADS)
+        if (g_label_narrow[c] != 0)
+            g_changed_narrow = 1;
+    GroupMemoryBarrierWithGroupSync();
+    return g_changed_narrow == 0;
 }
 
 [shader("compute")]

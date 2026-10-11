@@ -42,9 +42,11 @@ const ISLAND_DISCONNECTED: u32 = 32;
 const WIDE_GROUP: usize = 256;
 
 /// Islands with at least this many chunks spread over many threadgroups
-/// (`STRESS_GPU_WIDE_CHUNKS` overrides; 0 disables).
+/// (`STRESS_GPU_WIDE_CHUNKS` overrides; 0 disables): above one chunk per thread of a
+/// narrow island's group (a narrow island takes fewer dispatches per contact substep,
+/// three against four to seven; a bigger one loops its chunks and bonds in one group).
 fn wide_threshold() -> usize {
-    std::env::var("STRESS_GPU_WIDE_CHUNKS").ok().and_then(|v| v.parse().ok()).unwrap_or(192)
+    std::env::var("STRESS_GPU_WIDE_CHUNKS").ok().and_then(|v| v.parse().ok()).unwrap_or(WIDE_GROUP + 1)
 }
 /// Scheduling knobs (GPU only, no physics change), read per call like
 /// `STRESS_GPU_WIDE_CHUNKS`: they force rare scheduling paths in tests (`gate::Knobs`).
