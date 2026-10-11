@@ -694,12 +694,12 @@ changes go behind `sim.methods` switches, off by default, each with measured fid
 |---|---|---|
 | True stable step: a certified bound on the highest frequency of the intact network (every fragment's is lower) | Step change | switch `true_step` (off); see below |
 | Gameplay-fidelity comparison: fails or not, where, when, pieces log-binned, debris speed +-30 % | Tooling | `scripts/fidelity.py` |
-| True combined step: bonds plus the contacts that can engage, warm-started each frame (contact sets the step in every catalogue scene) | Step change | to do |
+| True combined step: bonds plus the contacts that can engage, warm-started each frame (contact sets the step in every catalogue scene) | Step change | research. A certified contact block needs a bound over unknown contact points (lever arm up to the radius) and over pairs engaging within the frame. The default global bound (`6 k / m`, every chunk on six faces) ignores rotation, so it is not certified either, and a certified bound may come out *below* it. `frame_contact_step`'s Gershgorin sum is 7-20x below it |
 | Multirate (subcycling) explicit: per-chunk steps in powers of two (2.5-3.5x on authored packs, none on uniform grids) | Integration change | to do (switch) |
-| Influence-line wake test for the adaptive mode: a load change accepted without a solve when `utilisation + influence x load < threshold - margin` | Skip decision | shadow mode first |
-| Hierarchy import (L0/L1/L2 with parent links) | Exact (L2 unchanged) | to do |
-| L0 members as statically condensed super-elements (exact for statics), exact recovery of each L2 bond | Exact for statics | to do, after the import |
-| Cold-bond fast path with closed-form fatigue | Approximation | exact variant rejected (slower); approximate one to do (switch) |
+| Influence-line wake test for the adaptive mode: a load change accepted without a solve when `utilisation + influence x load < threshold - margin` | Skip decision | no catalogue scene runs adaptive (only the gate's forced cells), so the oracle has no idle cost to save; a GPU concern |
+| Hierarchy import (L0/L1/L2 with parent links) | Exact (L2 unchanged) | the packs carry one level: `nodePieces` (authored parts; villa 243 over 1045 chunks, house-2story 135 over 599), and `nodeGroups` is trivial. No L1 level |
+| L0 members as statically condensed super-elements (exact for statics), exact recovery of each L2 bond | Exact for statics | low payoff on these packs: pieces average 4-5 chunks, so most chunks are interface DOFs and condensation barely shrinks the system. The banded direct solve (310a2c14f) already takes the villa |
+| Cold-bond fast path with closed-form fatigue | Approximation | exact variant rejected (slower). Bond responses are 39 % of b5_v10 at one thread (137 ns per bond-substep). The approximate path would skip the strain-rate filter, whose history sets the dynamic increase factor (strengths up to 2-3x under impact): not adopted without an exact filter update |
 | Reduction cadence for free islands (rigid acceleration, drift removal) | Approximation | to do (item 6) |
 | Regime map (contact time against wave transit and fundamental period) | Analysis | to do |
 
