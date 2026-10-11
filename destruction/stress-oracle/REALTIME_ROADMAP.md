@@ -353,6 +353,13 @@ Setup: CuMetal PhysX GPU, established methods, certified true step at safety 0.2
 | 22 | contact-plan fields (64 B) out of `ChunkStatic` into the scratch | about −5% (A/B) | Same-session A/B under other jobs' GPU and CPU load: house worst 605/597 → 564/572 ms, wall impact 564/556 → 498/530 ms |
 | 23 | `ChunkStatic` read field by field instead of copied whole | discarded | No difference: the compiler already loads only the fields used. #22 gained from the smaller per-chunk footprint |
 | 24 | **benchmark: stress step safety 0.5, contact 0.25** (`sim.stress_courant_safety`, user-approved) | 443 (PEAK now the wall impact) | Study below; house worst about 448 → 298 ms |
+| 25 | contact-bound segments weigh shorter plan horizons by measured cost | 395 | Host-only plan previews; a shorter horizon is taken while it lowers (cost per substep)/step + (cost per segment)/horizon. The punched plug sweeps past fewer hole-edge chunks: wall impact 451 → about 390 ms. A version maximizing the step alone collapsed into tiny segments (14 s) |
+| 26 | **benchmark: contact step safety 0.35**; the guard's reference held at its converged 0.25 | 302 | GPU study `gpu_contact_safety_convergence`: outcomes the same from 0.125 to 0.5 (wall 6 fragments, 24–26 bonds, 34.99–35.08 m/s; house 3.03–3.06 m/s, 33–35 fragments, 188–195 bonds). 0.35 keeps the wall ram's speed clear of the tolerance. The coupled reference's global contact bound is not converged at 0.5 (A11), so the GPU is checked against the converged truth |
+| 27 | **fix: impactors' travel budget enforced on the GPU** (`impactor_travel_check`) | 293 | Impactor candidates assumed travel within 2× speed × horizon, unchecked. The sharper variant (ballistic impactor plans, relative sweeps, direction-aware impactor bounds) failed the guard: wall ram 34.98 vs 35.07 ± 0.085 m/s, with post-punch contact steps about 20% larger, as contact safety 0.5 did |
+| 28 | **narrow contact islands' bonds in the sums dispatch** | 250 | Bond groups of up to 256 bonds (as wide islands have); the contact path's island kernel is the bond-free instantiation (`island_frame_at<0>`). The 220-chunk wall had 2 joint laws per thread in one group: wall impact 295 → 240 ms, house worst 268 → 248 ms, outcomes identical. (A first version cleared wide islands' halt flags in the narrow kernel's tail: no splits, caught by the house ram) |
+| 29 | one joint-law call site for narrow and wide bond groups | 249 | `sums_impactors_bonds` 65 → 45 KB code, spill 1008 → 832 B |
+| 30 | narrow islands up to their connectivity check's 512 chunks | 233 | The 319-chunk house runs narrow (3 dispatches per contact substep): house worst 245 → 231 ms |
+| 31 | a pair's separating-axis test spread over its lanes | about −3% (A/B) | Wall 235 → 224–230 ms, house median 139 → 134 ms |
 
 **The certification gap found at #7.**
 - Rows 1–6 bounded the contacts of a fresh one-frame plan whose travel budgets nothing enforced. The GPU ran its own four-frame plan, with larger budgets and more pairs.
@@ -366,6 +373,17 @@ Setup: CuMetal PhysX GPU, established methods, certified true step at safety 0.2
 4. **Pre-existing bugs fixed.**
    - `step_times` kept the times of a state's earlier run. A state restored and run at another step size had stale times: `mirror.time`, probes, and the new plan clock (it looped forever).
    - After a host split, the plan horizon took the substeps left of clusters already split away (2.8× too long).
+
+**Where the peak is now, after #31 (PEAK about 228 ms; 31× the baseline).**
+- **Wall impact and house fracture frames, about 225 ms each.**
+- **House fracture frame.** About 2,210 substeps at the stress step, about 70% GPU (about 60–74 µs per substep over 3 dispatches: contact forces 20–25 µs, island kernel 23 µs, sums and bond groups 15–17 µs). Host about 30%: 21 host splits with their downloads, rebuilds and readbacks.
+- **House debris frames, about 134 ms median.** Wall debris frames 64 ms; idle median 3.2 ms.
+
+Remaining levers:
+- **Splits on the GPU.** About 20 ms of split work per fracture frame, plus readbacks.
+- **Cold-bond fast path.** Needs the `patch_after_damage` review.
+- **Kernel micro-architecture.** `contact_islands` is still 48 KB with 432 B spill; GPU counters would guide it.
+- **Per-island multirate steps; certificates for sleeping and debris release.**
 
 **Stress-step safety study (#24).** stress-ref gained `sim.stress_courant_safety` (optional and never serialized, so existing scenes and caches are unchanged): the bond network's fraction of its certified critical step, while contacts keep `courant_safety`. Refinement and spread runs halve both (`SimDesc::scale_safety`).
 
