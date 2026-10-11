@@ -900,7 +900,10 @@ void pair_contact(uint i, uint lane, uint lanes)
 }
 
 // The forces of impactor candidate k on its chunk, and their reaction on the impactor.
-void impactor_candidate_forces(uint k)
+// The forces of impactor candidate k, on `lanes` lanes (this one `lane`, as
+// `pair_contact`): the contact points are partitioned over the lanes, the point count
+// and the loads summed over them, and lane 0 writes the candidate's outputs.
+void impactor_candidate_forces(uint k, uint lane, uint lanes)
 {
     uint at = params.cand_index + 3 * k;
     uint c = index[at];
@@ -919,7 +922,16 @@ void impactor_candidate_forces(uint k)
             Box b = chunk_box(c, rel);
             float kc = contact_stiffness(imp.mat.x, ib, chunks[c].cmat.x, b, b.center - ib.center);
             Box shrunk = impactor_shrunk(imp, imp.geom.y, ib);
-            uint n = impactor_contact_count(imp, imp.geom.y, shrunk, b);
+            uint n = 0;
+            for (uint j = lane; j < impactor_slots(imp, b); j += lanes)
+            {
+                float3 p;
+                float3 nrm;
+                float dep;
+                if (impactor_contact(imp, imp.geom.y, shrunk, b, j, p, nrm, dep))
+                    n++;
+            }
+            n = pair_count_sum(n, lanes);
             float kp = imp.shape.x == 0.0 ? kc : kc / max(float(n), FACE_PAIR_POINTS);
             uint points = imp.shape.x == 0.0 ? 1 : n;
             float m = chunks[c].center.w;
@@ -929,7 +941,8 @@ void impactor_candidate_forces(uint k)
             float3 vc;
             float3 wc;
             chunk_velocity(c, vc, wc);
-            for (uint j = 0; n > 0 && j < impactor_slots(imp, b); j++)
+            float diss_sum = 0.0;
+            for (uint j = lane; n > 0 && j < impactor_slots(imp, b); j += lanes)
             {
                 float3 p;
                 float3 nrm;
@@ -946,10 +959,20 @@ void impactor_candidate_forces(uint k)
                 t_sum += cross(p - b.center, f);
                 imp_f -= f;
                 imp_t -= cross(p, f);
-                comp_add1(data.z, data.w, diss);
+                diss_sum += diss;
             }
+            f_sum = pair_sum3(f_sum, lanes);
+            t_sum = pair_sum3(t_sum, lanes);
+            imp_f = pair_sum3(imp_f, lanes);
+            imp_t = pair_sum3(imp_t, lanes);
+            diss_sum = pair_sum(diss_sum, lanes);
+            hit = pair_any(hit, lanes);
+            if (n > 0)
+                comp_add1(data.z, data.w, diss_sum);
         }
     }
+    if (lane != 0)
+        return;
     scratch[params.slot_base + 2 * slot] = float4(f_sum, 0.0);
     scratch[params.slot_base + 2 * slot + 1] = float4(t_sum, 0.0);
     scratch[params.cand_base + 3 * k] = data;
@@ -1004,13 +1027,17 @@ void contact_forces(uint3 id: SV_DispatchThreadID)
             pair_contact(i / lanes, i % lanes, lanes);
         return;
     }
-    if (stopped())
-        return;
     uint j = i - pair_threads;
-    if (j < params.cand_count)
-        impactor_candidate_forces(j);
-    else if (j < params.cand_count + params.chunk_count)
-        travel_check(j - params.cand_count);
+    uint cand_threads = params.cand_count * lanes;
+    if (j < cand_threads)
+    {
+        // A candidate's lanes stop together, as a pair's.
+        if (!pair_any(stopped(), lanes))
+            impactor_candidate_forces(j / lanes, j % lanes, lanes);
+        return;
+    }
+    if (j - cand_threads < params.chunk_count && !stopped())
+        travel_check(j - cand_threads);
 }
 
 // Crush cap, first pass: each candidate's share of its impactor's elastic force.

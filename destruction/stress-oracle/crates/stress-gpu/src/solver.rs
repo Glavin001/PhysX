@@ -1372,7 +1372,7 @@ impl GpuSolver {
                         ops.push((K_SHARES, groups(p.cand_count), true));
                         ops.push((K_CRUSH, impactors_n, true));
                     }
-                    ops.push((K_FORCES, groups(p.pair_count * p.pair_lanes.max(1) + p.cand_count + p.chunk_count), true));
+                    ops.push((K_FORCES, groups((p.pair_count + p.cand_count) * p.pair_lanes.max(1) + p.chunk_count), true));
                     if owned_impactors {
                         ops.push((K_SUMS_INTEGRATE, p.seg_count.div_ceil(256) + impactors_n, true));
                     } else {
@@ -1958,7 +1958,7 @@ impl GpuSolver {
         let kernels: [(&'static str, &Kernel, u32); 5] = [
             ("impactor_shares", &self.kernels.shares, groups(p.cand_count)),
             ("impactor_crush", &self.kernels.crush, impactors_n),
-            ("contact_forces", &self.kernels.forces, groups(p.pair_count * p.pair_lanes.max(1) + p.cand_count + p.chunk_count)),
+            ("contact_forces", &self.kernels.forces, groups((p.pair_count + p.cand_count) * p.pair_lanes.max(1) + p.chunk_count)),
             ("island_frame (1 substep)", &self.kernels.island, self.layout.islands.len().max(1) as u32),
             ("impactor_integrate", &self.kernels.integrate, impactors_n),
         ];
