@@ -427,21 +427,51 @@ the uncapped run's failures are the same class. Quasi_static A/B: 53/91 with the
 nine flips and no regression; B wall 505 -> 394 s. Villa (3 quasi_static frames):
 1079 -> 706 s, observation identical.
 
-**Open (a model decision, not taken):** b5_wall_impact_v40 in quasi_static still fails
-115 of 308 solves, all on free fragments, in two kinds:
-- **At rest within round-off** (bond forces about 1e-15 N under a 1e-15 N load). They are
-  already in equilibrium, but no residual relative to round-off can say so.
-- **Converging linearly, cut off at 60 steps.** A traced 13-chunk fragment falls from 1
-  to 5.7e-9 at about x0.7 per step, against a tolerance of 1e-10. A finite-difference
-  check of every joint at its last iterate finds them all heavily cracked (D 0.65 to
-  1) and opened about 1e-13 m: the no-tension contact patch's kink, faces just
-  touching. The force law is not differentiable there, so no tangent is consistent,
-  and Newton goes linear. These fragments sit on a continuum of zero-force equilibria.
+**Equilibrium at working precision (re-solve only).** b5_wall_impact_v40 in quasi_static
+failed 115 of 308 solves, all on free fragments. Two kinds:
 
-`equilibrate_or_keep` then keeps the previous state, which is further from equilibrium
-than the last iterate. Accepting either kind needs an acceptance test other than the
-relative residual (an absolute force floor, or the round-off bound of the residual's
-own sums), or a semismooth Newton for the patch. That is a model choice, left open.
+- **At rest within round-off.** Bond forces of about 1e-15 N under a 1e-15 N load: no
+  residual relative to a load of round-off can certify them.
+  - The re-solve now also accepts an iterate whose every residual component is within
+    the rounding error of computing it (`residual_floor`, derived per operation):
+    - a bond's relative displacement in local axes errs by at most `gamma_7 |D|`, with
+      `D = |u_a| + |u_b| + |th_a| x |r_a| + |th_b| x |r_b|`: large rigid motions cancel;
+    - its rotation by `gamma_4`;
+    - the force by the stiffness times that, plus `gamma_20 |q|` for the joint law;
+    - loads and moments by `gamma_3` plus the propagated errors;
+    - the sums over a chunk's bonds by `gamma_(n+1)`;
+    - a free cluster's rigid-mode projection by `gamma_(N+10)` of the absolute sum.
+  - Such an iterate is an equilibrium to working precision; no f64 iterate does
+    better. Scale: a fragment 3.6 m from home on 1e10 N/m bonds has a floor of about
+    3e-5 N, 3e-7 m/s^2 on a 100 kg chunk.
+- **Converging linearly, cut off.** A traced 13-chunk fragment falls from 1 to 5.7e-9
+  at about x0.7 per step, against 1e-10.
+  - A finite-difference check of every joint at the last iterate finds them heavily
+    cracked (D 0.65-1) and opened about 1e-13 m: the no-tension patch's kink, faces just
+    touching. The force law is not differentiable there, so Newton goes linear.
+  - The re-solve's step limit is now 3 x `max_newton` (`RESOLVE_STEPS_FACTOR`). Where
+    no descent remains it still stops at once, so a mechanism costs nothing extra.
+
+Effect:
+- b5_v40 quasi_static: converged 193/308 -> 372/396 (84, then 158, at round-off); the
+  run diverges after the first changed solve, so solve counts differ. Newton iterations
+  20,741 -> 12,157; push-over and hole area unchanged.
+- Gate against 41a88904d:
+  - b9 quasi_static: unconverged frames 15 -> 8, displacements within 7e-14 m;
+  - b7_v15 quasi_static: one more solve converges, then the run diverges (broken bonds
+    191 -> 182), CPU 9.2 -> 8.1 s;
+  - all other cells identical.
+- Quasi_static A/B: 53/91, same flips, no regression.
+
+`equilibrate_or_keep` still keeps the previous state for what fails: 6 % of b5_v40's
+solves, kink fragments past even the larger limit. A semismooth Newton for the patch
+would take them; open.
+
+**Rejected (exact, measured):** computing a cracked joint's spring patch once per
+`evaluate`. It is the second hottest function in a sampled b5_v10 run, and the frozen
+energy, the crushing probe and the final force evaluate it at the same crush. The
+gate is 182/182, but CPU is 16.3 -> 16.2 s on b5_v10 and 9.6 -> 9.6 s on b7_v15: most
+damaged joints never take the probe paths. Not worth the code.
 
 **Tangent consistency:** `JointModel::tangent` against central differences of
 `evaluate`:

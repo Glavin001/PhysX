@@ -42,6 +42,11 @@ const DIRECT_MAX_ENTRIES: usize = 8_000_000;
 /// Secant steps of a static solve before the `tangent_statics` re-solve takes over: the
 /// PCG's DIRECT_AFTER, then ten direct steps.
 const SECANT_STEPS: usize = DIRECT_AFTER + 10;
+/// Step limit of the `tangent_statics` re-solve, in multiples of `max_newton`: near a
+/// cracked joint's contact kink the force law is not differentiable and the globalised
+/// Newton converges linearly (b5 quasi_static fragments: about x0.7 per step), so it
+/// gets room the secant's limit does not give; where no descent remains it stops at once.
+const RESOLVE_STEPS_FACTOR: usize = 3;
 /// Rows of a Cholesky column per parallel task (each an inner product of up to a band).
 const CHOLESKY_ROWS_PER_TASK: usize = 64;
 /// Halvings of a globalised (`tangent_statics`) Newton step before its direction is given
@@ -679,7 +684,7 @@ impl ReferenceSolver {
             let r0 = self.static_residual(ci, &lay, &f_ext, free);
             let report_scale = scale;
             let scale = scale.max(dot6(&r0, &r0).sqrt());
-            let second = self.newton(ci, &lay, &f_ext, free, scale, opts, true, 0..opts.max_newton);
+            let second = self.newton(ci, &lay, &f_ext, free, scale, opts, true, 0..RESOLVE_STEPS_FACTOR * opts.max_newton);
             let first = report;
             report = StaticReport {
                 newton_iterations: first.newton_iterations + second.newton_iterations,
@@ -739,6 +744,18 @@ impl ReferenceSolver {
             if res <= opts.tolerance {
                 report.converged = true;
                 break;
+            }
+            // The re-solve also accepts an iterate whose out-of-balance force is within
+            // the rounding error of computing it: an equilibrium to working precision,
+            // which a residual relative to a load of round-off (a free fragment at rest)
+            // can never certify.
+            if tangent && res.is_finite() {
+                let floor = self.residual_floor(ci, lay, f_ext, free);
+                if r.iter().zip(&floor).all(|(ri, fi)| (0..6).all(|d| ri[d].abs() <= fi[d])) {
+                    report.converged = true;
+                    crate::profile::count(crate::profile::Counter::StaticAtRoundoff, 1);
+                    break;
+                }
             }
             // A non-finite residual never comes back (every later iterate is NaN or
             // infinite). Under `tangent_statics` the secant's unconverged state is
@@ -813,6 +830,81 @@ impl ReferenceSolver {
         };
         report.cg_iterations += cg;
         dx
+    }
+
+    /// Bound of the rounding error of `static_residual` at the current displacements, per
+    /// local chunk and component (`gamma_n = n u / (1 - n u)`, `u` the unit roundoff):
+    /// - a bond's relative displacement `(u_b + th_b x r_b) - (u_a + th_a x r_a)` in local
+    ///   axes errs by at most `gamma_7 |D|`, `D = |u_a| + |u_b| + |th_a| x |r_a| +
+    ///   |th_b| x |r_b|` (the cancellation of large rigid motions), its rotation by
+    ///   `gamma_4 ||th_a| + |th_b||`;
+    /// - its force by the stiffness times that, plus `gamma_20 |q|` for the joint law;
+    /// - the chunk loads by `gamma_3` of their terms plus the propagated errors (lever
+    ///   arms included), and the sum over a chunk's bonds and its load by
+    ///   `gamma_(n+1)` of the absolute sum;
+    /// - a free cluster's projection of the rigid modes by `gamma_(N+10)` of the absolute
+    ///   sum over the cluster.
+    fn residual_floor(&self, ci: usize, lay: &Layout, f_ext: &[V6], free: bool) -> Vec<V6> {
+        let gamma = |n: f64| {
+            let u = f64::EPSILON / 2.0;
+            n * u / (1.0 - n * u)
+        };
+        let cl = &self.clusters[ci];
+        let s = cl.structure;
+        let m = lay.chunks.len();
+        let mut prop = vec![[0.0f64; 6]; m];
+        let mut abs_sum: Vec<V6> = f_ext.iter().map(|f| f.map(f64::abs)).collect();
+        let mut count = vec![1.0f64; m];
+        let abs_cross = |a: Vec3, b: Vec3| Vec3::new(a.y.abs() * b.z.abs() + a.z.abs() * b.y.abs(), a.z.abs() * b.x.abs() + a.x.abs() * b.z.abs(), a.x.abs() * b.y.abs() + a.y.abs() * b.x.abs());
+        let r3 = 3f64.sqrt();
+        for &bi in &cl.bonds {
+            let b = &self.bonds[s][bi];
+            let g = &b.geometry;
+            let (sa, sb) = (&self.chunks[s][g.a], &self.chunks[s][g.b]);
+            let d = g.kinematics(sa.u, sa.th, sb.u, sb.th);
+            let q = b.model().evaluate(&b.joint, &d, 0.0, false).force;
+            let (fa, ma, fb, mb) = g.chunk_loads(&q);
+            let dabs = sa.u.abs() + sb.u.abs() + abs_cross(sa.th, g.ra) + abs_cross(sb.th, g.rb);
+            let err_lin = gamma(7.0) * dabs.norm();
+            let err_ang = gamma(4.0) * (sa.th.abs() + sb.th.abs()).norm();
+            let mut k = b.stiffness.as_local();
+            if let Some(rb) = &b.rebar {
+                k.lin += Vec3::new(rb.k_dowel, rb.k_dowel, rb.k_axial);
+            }
+            let eq_lin = k.lin.norm() * err_lin + gamma(20.0) * q.lin.norm();
+            let eq_ang = k.ang.norm() * err_ang + gamma(20.0) * q.ang.norm();
+            let ef = gamma(3.0) * r3 * q.lin.norm() + r3 * eq_lin;
+            let em = gamma(3.0) * r3 * q.ang.norm() + r3 * eq_ang;
+            let (ia, ib) = (lay.local[g.a], lay.local[g.b]);
+            for (i, f, mo, r) in [(ia, fa, ma, g.ra), (ib, fb, mb, g.rb)] {
+                let em_i = em + gamma(3.0) * (q.ang.norm() + r.norm() * f.norm()) + r.norm() * ef;
+                for t in 0..3 {
+                    prop[i][t] += ef;
+                    prop[i][3 + t] += em_i;
+                    abs_sum[i][t] += f.to_array()[t].abs();
+                    abs_sum[i][3 + t] += mo.to_array()[t].abs();
+                }
+                count[i] += 1.0;
+            }
+        }
+        let mut floor: Vec<V6> = (0..m).map(|i| std::array::from_fn(|d| prop[i][d] + gamma(count[i] + 1.0) * abs_sum[i][d])).collect();
+        if free {
+            let total: f64 = abs_sum.iter().flat_map(|v| v.iter()).sum();
+            let extra = gamma(m as f64 + 10.0) * total;
+            for f in floor.iter_mut() {
+                for v in f.iter_mut() {
+                    *v += extra;
+                }
+            }
+        }
+        for (i, f) in lay.fixed.iter().enumerate() {
+            for d in 0..6 {
+                if f[d] {
+                    floor[i][d] = 0.0;
+                }
+            }
+        }
+        floor
     }
 
     /// Out-of-balance loads of a cluster at its current displacements (external plus bond
