@@ -510,31 +510,61 @@ impl World {
         self.coupling.as_mut().expect("coupled").engine.restore();
     }
 
-    /// world.rs `contact_stable_dt` over the contacts that can engage this frame only:
-    /// each listed chunk pressed on six faces by the stiffest of the materials it can
-    /// touch (`partners`, by name), each listed impactor likewise. The standalone bound
-    /// presses every chunk of the scene with the scene's stiffest material (rebar steel
-    /// included) whether or not anything can touch it. Penalty contact (not the layer
+    /// world.rs `contact_stable_dt` over the contacts that can engage this frame only: a
+    /// block Gershgorin bound on the mass-normalised penalty stiffness. Each listed chunk
+    /// (and impactor) adds, for every partner it may touch, the pair's largest total
+    /// stiffness `k` over `k / m_a + k / sqrt(m_a m_b)` (the ground is immovable). A
+    /// penalty pair never exceeds its face-pair stiffness (`k / max(points, 10)` per
+    /// point; the ground `k / max(points, 5)`), and `pair_stiffness_bound` bounds that
+    /// over every direction the pair can press along. Same deformation inertia as the
+    /// standalone bound, which instead presses every chunk on six faces by a copy of
+    /// itself in the scene's stiffest material. Penalty contact (not the layer
     /// contact's lattice bound). Infinite with nothing engaged.
-    pub fn engaged_contact_dt(&self, chunks: &[((usize, usize), Vec<String>)], impactors: &[(usize, Vec<String>)]) -> f64 {
+    pub fn engaged_contact_dt(&self, chunks: &[((usize, usize), Vec<ContactPartner>)], impactors: &[(usize, Vec<(usize, usize)>)]) -> f64 {
         let scale = self.scene.sim.stiffness_scale;
-        let stiffest = |names: &[String]| names.iter().map(|n| self.scene.material(n)).max_by(|a, b| a.youngs_modulus.total_cmp(&b.youngs_modulus));
+        let chunk_box = |s: usize, c: usize| {
+            let ch = &self.solver.structures[s].chunks[c];
+            (OBox { center: Vec3::ZERO, rotation: ch.rotation, half: ch.half_extents, hull: None }, ch.mass * self.solver.chunks[s][c].inertia_scale)
+        };
+        let ground = self.scene.ground.as_ref().map(|g| self.scene.material(&g.material));
+        let row = |k: f64, ma: f64, mb: f64| k / ma + if mb.is_finite() { k / (ma * mb).sqrt() } else { 0.0 };
         let mut w2: f64 = 0.0;
         for ((s, c), partners) in chunks {
-            let Some(partner) = stiffest(partners) else { continue };
-            let ch = &self.solver.structures[*s].chunks[*c];
-            let b = OBox { center: Vec3::ZERO, rotation: ch.rotation, half: ch.half_extents, hull: ch.hull.clone() };
-            let mat = self.chunk_material(*s, *c);
-            let kn: [f64; 3] = std::array::from_fn(|axis| contact_stiffness(mat, &b, partner, &b, ch.rotation.col(axis), scale));
-            let stiffness = 6.0 * kn.iter().copied().fold(0.0, f64::max);
-            w2 = w2.max(stiffness / (ch.mass * self.solver.chunks[*s][*c].inertia_scale));
+            let (s, c) = (*s, *c);
+            let (b, m) = chunk_box(s, c);
+            let mat = self.chunk_material(s, c);
+            let mut sum = 0.0;
+            for p in partners {
+                sum += match *p {
+                    ContactPartner::Chunk(ps, pc) => {
+                        let (pb, pm) = chunk_box(ps, pc);
+                        row(pair_stiffness_bound(mat, &b, self.chunk_material(ps, pc), &pb, scale), m, pm)
+                    }
+                    ContactPartner::Impactor(i) => {
+                        let imp = &self.impactors[i];
+                        row(pair_stiffness_bound(mat, &b, &imp.material, &imp.obox(), scale), m, imp.mass)
+                    }
+                    // The ground presses with the chunk's own box on its side (world.rs).
+                    ContactPartner::Ground => ground.map_or(0.0, |g| row(pair_stiffness_bound(mat, &b, g, &b, scale), m, f64::INFINITY)),
+                };
+            }
+            w2 = w2.max(sum);
         }
-        for (i, partners) in impactors {
-            let Some(partner) = stiffest(partners) else { continue };
+        for (i, touched) in impactors {
             let imp = &self.impactors[*i];
-            let b = imp.obox();
-            let k = (0..3).map(|axis| contact_stiffness(&imp.material, &b, partner, &b, b.rotation.col(axis), scale)).fold(0.0, f64::max);
-            w2 = w2.max(k / imp.mass);
+            let ib = imp.obox();
+            let mut sum: f64 = touched
+                .iter()
+                .map(|&(s, c)| {
+                    let (b, m) = chunk_box(s, c);
+                    row(pair_stiffness_bound(&imp.material, &ib, self.chunk_material(s, c), &b, scale), imp.mass, m)
+                })
+                .sum();
+            // On the ground a box presses up to its 8 corners at `k / min(points, 5)` each.
+            if let Some(g) = ground {
+                sum += 8.0 / 5.0 * row(pair_stiffness_bound(&imp.material, &ib, g, &ib, scale), imp.mass, f64::INFINITY);
+            }
+            w2 = w2.max(sum);
         }
         if w2 <= 0.0 {
             f64::INFINITY
@@ -698,4 +728,22 @@ fn rotation_of(m: &Mat3) -> Quat {
         Quat { w: (a[1][0] - a[0][1]) / s, x: (a[0][2] + a[2][0]) / s, y: (a[1][2] + a[2][1]) / s, z: 0.25 * s }
     };
     q.normalized()
+}
+
+/// A body a chunk may touch within a frame (`World::engaged_contact_dt`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum ContactPartner {
+    Chunk(usize, usize),
+    Impactor(usize),
+    Ground,
+}
+
+/// The largest world.rs `contact_stiffness` of two boxes over every direction: along a
+/// unit `d` a box's projected area `sum |d_k| A_k` is at most `|A|` (Cauchy-Schwarz) and
+/// its half-thickness `sum |d_k| h_k` at least its smallest half-extent (`sum |d_k| >= 1`).
+fn pair_stiffness_bound(a: &Material, box_a: &OBox, b: &Material, box_b: &OBox, scale: f64) -> f64 {
+    let e = |m: &Material| m.youngs_modulus * scale / (1.0 - m.poisson_ratio * m.poisson_ratio);
+    let area = |x: &OBox| Vec3::new(x.half.y * x.half.z, x.half.x * x.half.z, x.half.x * x.half.y).norm() * 4.0;
+    let thin = |x: &OBox| x.half.x.min(x.half.y).min(x.half.z);
+    area(box_a).min(area(box_b)) / (thin(box_a) / e(a) + thin(box_b) / e(b))
 }

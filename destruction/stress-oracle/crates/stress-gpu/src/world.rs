@@ -252,31 +252,28 @@ impl GpuWorld {
         let m = &self.solver.mirror;
         let order = self.solver.chunk_order().to_vec();
         let plan = crate::contacts::plan(&self.scene, m, &self.solver.impactors, &order, fdt);
-        let mat = |k: u32| {
-            let (s, c) = order[k as usize];
-            m.structures[s].chunks[c].material.clone()
-        };
-        let mut partners: std::collections::BTreeMap<(usize, usize), Vec<String>> = std::collections::BTreeMap::new();
+        use stress_ref::world::ContactPartner;
+        let mut partners: std::collections::BTreeMap<(usize, usize), Vec<ContactPartner>> = std::collections::BTreeMap::new();
         for &(_, a, b, _, _) in &plan.pairs {
-            partners.entry(order[a as usize]).or_default().push(mat(b));
-            partners.entry(order[b as usize]).or_default().push(mat(a));
+            let (sa, sb) = (order[a as usize], order[b as usize]);
+            partners.entry(sa).or_default().push(ContactPartner::Chunk(sb.0, sb.1));
+            partners.entry(sb).or_default().push(ContactPartner::Chunk(sa.0, sa.1));
         }
         let mut impactors = Vec::new();
         for (i, list) in plan.impactor_chunks.iter().enumerate() {
-            let imp_mat = self.scene.impactors[i].material.clone();
             for &k in list {
-                partners.entry(order[k as usize]).or_default().push(imp_mat.clone());
+                partners.entry(order[k as usize]).or_default().push(ContactPartner::Impactor(i));
             }
             if !list.is_empty() {
-                impactors.push((i, list.iter().map(|&k| mat(k)).collect::<Vec<_>>()));
+                impactors.push((i, list.iter().map(|&k| order[k as usize]).collect::<Vec<_>>()));
             }
         }
-        if let Some(g) = &self.scene.ground {
+        if self.scene.ground.is_some() {
             for &k in &plan.ground {
-                partners.entry(order[k as usize]).or_default().push(g.material.clone());
+                partners.entry(order[k as usize]).or_default().push(ContactPartner::Ground);
             }
         }
-        let chunks: Vec<((usize, usize), Vec<String>)> = partners.into_iter().collect();
+        let chunks: Vec<((usize, usize), Vec<ContactPartner>)> = partners.into_iter().collect();
         self.with_shell_mut(|w| w.engaged_contact_dt(&chunks, &impactors))
     }
 
