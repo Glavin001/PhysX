@@ -8,11 +8,12 @@ MTLComputePipelineReflection.performanceStatistics); a value of -1 means it was 
 and that comparison is skipped.
 
 usage: budget.py --stats stats.tsv --code code.txt --slang world.slang --limits limits.toml
-                 --baseline kernel_budget.toml [--update] [--margin 5] [--meta k=v ...]
+                 --baseline kernel_budget.toml [--update] [--margin 5] [--meta k=v ...] [--json out.json]
 exit: 0 ok, 1 regression beyond the margin (unless --update), 2 usage/input error
 """
 import argparse
 import datetime
+import json
 import os
 import re
 import sys
@@ -75,6 +76,7 @@ def main():
     ap.add_argument("--update", action="store_true")
     ap.add_argument("--margin", type=float, default=5.0, help="percent growth allowed for instructions and code bytes")
     ap.add_argument("--meta", action="append", default=[])
+    ap.add_argument("--json", help="also write the per-kernel numbers and the limits used (tests/kernel_limits.rs)")
     a = ap.parse_args()
 
     threads = numthreads(a.slang)
@@ -134,6 +136,24 @@ def main():
         print(f"{name:20s} {k['instructions']:6d} {k['temp_registers']:4d} {k['spilled_bytes']:6d} {k['threads_per_threadgroup']:4d} "
               f"{k['spilled_bytes_x_threads']:9d} {k['static_threadgroup_memory']:5d} {k['max_threads_per_threadgroup']:6d} {k['code_bytes']:7d} "
               f"{ratio(k['code_bytes'], icache_bytes):>11s} {ratio(k['spilled_bytes_x_threads'], stack_bytes):>10s}")
+
+    if a.json:
+        ic_mixed = (ic.get("mixed_knee_code_bytes") or [None])[0]
+        lr = lim.get("live_registers", {})
+        dev = lim.get("device", {})
+        with open(a.json, "w") as f:
+            json.dump({
+                "limits_file": a.limits,
+                "limits": {
+                    "icache_code_bytes": icache_bytes,
+                    "icache_instructions": icache_instr,
+                    "icache_mixed_code_bytes": ic_mixed if not isinstance(ic_mixed, str) else None,
+                    "stack_bytes_per_threadgroup": stack_bytes,
+                    "max_temp_registers": lr.get("max_temp_registers_seen"),
+                    "max_threadgroup_memory_bytes": dev.get("max_threadgroup_memory_bytes"),
+                },
+                "kernels": kernels,
+            }, f, indent=1)
 
     base = read_toml(a.baseline).get("kernels", {})
     problems, notes = [], []

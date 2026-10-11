@@ -19,9 +19,11 @@
 #   scripts/kernel_budget.sh --update        accept the current numbers as the baseline
 #   scripts/kernel_budget.sh --margin 10     allow +10%
 #   scripts/kernel_budget.sh --limits limits/m3_max.toml
+#   scripts/kernel_budget.sh --json out.json    also write per-kernel numbers (tests/kernel_limits.rs)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 update=()
+json=()
 margin=5
 limits=""
 while [ $# -gt 0 ]; do
@@ -29,6 +31,7 @@ while [ $# -gt 0 ]; do
     --update) update=(--update) ;;
     --margin) margin=$2; shift ;;
     --limits) limits=$2; shift ;;
+    --json) json=(--json "$2"); shift ;;
     *) echo "unknown argument $1" >&2; exit 2 ;;
   esac
   shift
@@ -54,4 +57,4 @@ python3 tools/limits/codesize.py --arch "$arch" "$work/world.metallib" $(grep -v
 python3 tools/limits/budget.py --stats "$work/stats.tsv" --code "$work/code.txt" --slang shaders/world.slang \
   --limits "$limits" --baseline limits/kernel_budget.toml --margin "$margin" \
   --meta "architecture=$arch" --meta "os=$(sw_vers -productVersion)" \
-  --meta "metal=$(xcrun -sdk macosx metal --version 2>/dev/null | head -1)" ${update[@]+"${update[@]}"}
+  --meta "metal=$(xcrun -sdk macosx metal --version 2>/dev/null | head -1)" ${update[@]+"${update[@]}"} ${json[@]+"${json[@]}"}
