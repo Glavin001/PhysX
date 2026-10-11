@@ -10,14 +10,14 @@ metal = "Apple metal version 32023.155 (metalfe-32023.155)"
 date = "2026-10-11"
 
 [kernels.contact_forces]
-instructions = 7542
+instructions = 8093
 temp_registers = 96
 spilled_bytes = 512
 threads_per_threadgroup = 64
 spilled_bytes_x_threads = 32768
 static_threadgroup_memory = 0
 max_threads_per_threadgroup = 1024
-code_bytes = 53594
+code_bytes = 57546
 
 [kernels.contact_sums]
 instructions = 1241
@@ -40,14 +40,14 @@ max_threads_per_threadgroup = 1024
 code_bytes = 2190
 
 [kernels.impactor_integrate]
-instructions = 1575
+instructions = 1595
 temp_registers = 96
-spilled_bytes = 320
+spilled_bytes = 352
 threads_per_threadgroup = 256
-spilled_bytes_x_threads = 81920
+spilled_bytes_x_threads = 90112
 static_threadgroup_memory = 1024
 max_threads_per_threadgroup = 1024
-code_bytes = 11770
+code_bytes = 11838
 
 [kernels.impactor_shares]
 instructions = 1943
