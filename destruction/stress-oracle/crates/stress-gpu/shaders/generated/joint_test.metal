@@ -747,6 +747,7 @@ struct JointResponse_0
     float overshoot_0;
     float stored_0;
     bool disconnected_0;
+    float fatigue_before_0;
     Measures_0 measures_0;
 };
 
@@ -800,32 +801,31 @@ JointResponse_0 joint_evaluate_0(const JointMaterial_natural_0 thread* mat_6, co
         dif_1 = 1.0f;
     }
     float weibull_0 = (float4(b_4->geom1_0) ).w;
-    float _S117 = weibull_0 * dif_1;
-    float _S118 = fatigue_factor_0(mat_6, (&st_1)->life_0);
-    float multiplier_1 = _S117 * _S118;
-    thread Measures_0 _S119 = _S110;
-    float4 _S120 = failure_indices_0(mat_6, b_4, &_S119, multiplier_1);
-    float _S121 = _S120.x;
-    float _S122 = _S120.y;
-    (&st_1)->utilization_0 = max(max(_S121, _S122), max(_S120.z, _S120.w));
-    float _S123 = d_lin_2.x;
-    float _S124 = d_lin_2.y;
-    float _S125 = ks_2 * (sq_0(_S123) + sq_0(_S124)) + kb1_0 * sq_0(d_ang_2.x) + kb2_0 * sq_0(d_ang_2.y) + kt_2 * sq_0(d_ang_2.z);
-    float _S126 = d_lin_2.z;
-    bool _S127 = _S126 > 0.0f;
-    if(_S127)
+    float _S117 = fatigue_factor_0(mat_6, (&st_1)->life_0);
+    float multiplier_1 = weibull_0 * dif_1 * _S117;
+    thread Measures_0 _S118 = _S110;
+    float4 _S119 = failure_indices_0(mat_6, b_4, &_S118, multiplier_1);
+    float _S120 = _S119.x;
+    float _S121 = _S119.y;
+    (&st_1)->utilization_0 = max(max(_S120, _S121), max(_S119.z, _S119.w));
+    float _S122 = d_lin_2.x;
+    float _S123 = d_lin_2.y;
+    float _S124 = ks_2 * (sq_0(_S122) + sq_0(_S123)) + kb1_0 * sq_0(d_ang_2.x) + kb2_0 * sq_0(d_ang_2.y) + kt_2 * sq_0(d_ang_2.z);
+    float _S125 = d_lin_2.z;
+    bool _S126 = _S125 > 0.0f;
+    if(_S126)
     {
-        dif_1 = kn_3 * sq_0(_S126);
+        dif_1 = kn_3 * sq_0(_S125);
     }
     else
     {
         dif_1 = 0.0f;
     }
-    float psi_ts_0 = 0.5f * (_S125 + dif_1);
+    float psi_ts_0 = 0.5f * (_S124 + dif_1);
     float psi_c_0;
-    if(_S126 < 0.0f)
+    if(_S125 < 0.0f)
     {
-        psi_c_0 = 0.5f * kn_3 * sq_0(_S126);
+        psi_c_0 = 0.5f * kn_3 * sq_0(_S125);
     }
     else
     {
@@ -837,21 +837,21 @@ JointResponse_0 joint_evaluate_0(const JointMaterial_natural_0 thread* mat_6, co
     float intact_normal_0;
     float dissipated_2;
     float overshoot_1;
-    bool _S128;
+    bool _S127;
     float3 qc_lin_0;
     if(fracture_0)
     {
-        bool _S129 = _S121 >= _S122;
-        if(_S129)
+        bool _S128 = _S120 >= _S121;
+        if(_S128)
         {
-            diss_contact_0 = _S121;
+            diss_contact_0 = _S120;
         }
         else
         {
-            diss_contact_0 = _S122;
+            diss_contact_0 = _S121;
         }
         uint mode_ts_0;
-        if(_S129)
+        if(_S128)
         {
             mode_ts_0 = 1U;
         }
@@ -861,22 +861,22 @@ JointResponse_0 joint_evaluate_0(const JointMaterial_natural_0 thread* mat_6, co
         }
         if(diss_contact_0 > ((&st_1)->kappa_0))
         {
-            _S128 = diss_contact_0 > 1.0f;
+            _S127 = diss_contact_0 > 1.0f;
         }
         else
         {
-            _S128 = false;
+            _S127 = false;
         }
-        if(_S128)
+        if(_S127)
         {
-            _S128 = psi_ts_0 > 0.0f;
+            _S127 = psi_ts_0 > 0.0f;
         }
         else
         {
-            _S128 = false;
+            _S127 = false;
         }
         uint mode_c_0;
-        if(_S128)
+        if(_S127)
         {
             if(mode_ts_0 == 1U)
             {
@@ -888,8 +888,8 @@ JointResponse_0 joint_evaluate_0(const JointMaterial_natural_0 thread* mat_6, co
             }
             if(softening_0)
             {
-                float _S130 = (metal::fast::divide((psi_contact_0 * (float4(b_4->geom0_0) ).x * diss_contact_0 * diss_contact_0), (psi_ts_0)));
-                intact_normal_0 = _S130;
+                float _S129 = (metal::fast::divide((psi_contact_0 * (float4(b_4->geom0_0) ).x * diss_contact_0 * diss_contact_0), (psi_ts_0)));
+                intact_normal_0 = _S129;
             }
             else
             {
@@ -905,17 +905,17 @@ JointResponse_0 joint_evaluate_0(const JointMaterial_natural_0 thread* mat_6, co
                 mode_c_0 = 0U;
             }
             float2 inc_0 = damage_increment_0(mode_c_0, (&st_1)->kappa_0, diss_contact_0, intact_normal_0, (&st_1)->damage_0, psi_ts_0);
-            float _S131 = inc_0.x;
-            if(_S131 > ((&st_1)->damage_0))
+            float _S130 = inc_0.x;
+            if(_S130 > ((&st_1)->damage_0))
             {
-                Contact_0 _S132 = contact_part_0(mat_6, b_4, (&st_1)->crush_0, plastic_4, d_lin_2, d_ang_2);
-                float _S133 = max(_S132.energy_1 - (1.0f - (&st_1)->crush_0) * psi_c_0, 0.0f);
-                float _S134 = max(inc_0.y - _S133 * (_S131 - (&st_1)->damage_0), 0.0f);
-                float _S135 = max((psi_ts_0 - _S133) * (_S131 - (&st_1)->damage_0) - _S134, 0.0f);
-                (&st_1)->damage_0 = _S131;
+                Contact_0 _S131 = contact_part_0(mat_6, b_4, (&st_1)->crush_0, plastic_4, d_lin_2, d_ang_2);
+                float _S132 = max(_S131.energy_1 - (1.0f - (&st_1)->crush_0) * psi_c_0, 0.0f);
+                float _S133 = max(inc_0.y - _S132 * (_S130 - (&st_1)->damage_0), 0.0f);
+                float _S134 = max((psi_ts_0 - _S132) * (_S130 - (&st_1)->damage_0) - _S133, 0.0f);
+                (&st_1)->damage_0 = _S130;
                 (&st_1)->mode_0 = mode_ts_0;
-                dissipated_2 = _S134;
-                overshoot_1 = _S135;
+                dissipated_2 = _S133;
+                overshoot_1 = _S134;
             }
             else
             {
@@ -929,31 +929,31 @@ JointResponse_0 joint_evaluate_0(const JointMaterial_natural_0 thread* mat_6, co
             overshoot_1 = 0.0f;
         }
         (&st_1)->kappa_0 = max((&st_1)->kappa_0, diss_contact_0);
-        float _S136 = state_1->damage_0;
+        float _S135 = state_1->damage_0;
         if((state_1->damage_0) > 0.0f)
         {
-            Contact_0 _S137 = contact_part_0(mat_6, b_4, state_1->crush_0, float3(state_1->plastic_x_0, state_1->plastic_y_0, state_1->plastic_t_0), d_lin_2, d_ang_2);
-            qc_lin_0 = qe_ang_0 * float3((1.0f - _S136))  + _S137.q_ang_1 * float3(_S136) ;
+            Contact_0 _S136 = contact_part_0(mat_6, b_4, state_1->crush_0, float3(state_1->plastic_x_0, state_1->plastic_y_0, state_1->plastic_t_0), d_lin_2, d_ang_2);
+            qc_lin_0 = qe_ang_0 * float3((1.0f - _S135))  + _S136.q_ang_1 * float3(_S135) ;
         }
         else
         {
             qc_lin_0 = qe_ang_0;
         }
-        Measures_0 _S138 = stress_measures_0(b_4, float3(0.0f, 0.0f, min(qe_lin_0.z, 0.0f)), qc_lin_0);
-        thread Measures_0 _S139 = _S138;
-        float4 _S140 = failure_indices_0(mat_6, b_4, &_S139, multiplier_1);
-        float _S141 = _S140.z;
-        float _S142 = _S140.w;
-        bool _S143 = _S141 >= _S142;
-        if(_S143)
+        Measures_0 _S137 = stress_measures_0(b_4, float3(0.0f, 0.0f, min(qe_lin_0.z, 0.0f)), qc_lin_0);
+        thread Measures_0 _S138 = _S137;
+        float4 _S139 = failure_indices_0(mat_6, b_4, &_S138, multiplier_1);
+        float _S140 = _S139.z;
+        float _S141 = _S139.w;
+        bool _S142 = _S140 >= _S141;
+        if(_S142)
         {
-            psi_contact_0 = _S141;
+            psi_contact_0 = _S140;
         }
         else
         {
-            psi_contact_0 = _S142;
+            psi_contact_0 = _S141;
         }
-        if(_S143)
+        if(_S142)
         {
             mode_c_0 = 3U;
         }
@@ -963,26 +963,26 @@ JointResponse_0 joint_evaluate_0(const JointMaterial_natural_0 thread* mat_6, co
         }
         if(psi_contact_0 > ((&st_1)->kappa_c_0))
         {
-            _S128 = psi_contact_0 > 1.0f;
+            _S127 = psi_contact_0 > 1.0f;
         }
         else
         {
-            _S128 = false;
+            _S127 = false;
         }
-        if(_S128)
+        if(_S127)
         {
-            _S128 = psi_c_0 > 0.0f;
+            _S127 = psi_c_0 > 0.0f;
         }
         else
         {
-            _S128 = false;
+            _S127 = false;
         }
-        if(_S128)
+        if(_S127)
         {
             if(softening_0)
             {
-                float _S144 = (metal::fast::divide(((float4(mat_6->energy_0) ).w * (float4(b_4->geom0_0) ).x * psi_contact_0 * psi_contact_0), (psi_c_0)));
-                intact_normal_0 = _S144;
+                float _S143 = (metal::fast::divide(((float4(mat_6->energy_0) ).w * (float4(b_4->geom0_0) ).x * psi_contact_0 * psi_contact_0), (psi_c_0)));
+                intact_normal_0 = _S143;
             }
             else
             {
@@ -1007,23 +1007,23 @@ JointResponse_0 joint_evaluate_0(const JointMaterial_natural_0 thread* mat_6, co
                 law_0 = mode_ts_0;
             }
             float2 inc_1 = damage_increment_0(law_0, (&st_1)->kappa_c_0, psi_contact_0, intact_normal_0, (&st_1)->crush_0, psi_c_0);
-            float _S145 = inc_1.x;
-            if(_S145 > ((&st_1)->crush_0))
+            float _S144 = inc_1.x;
+            if(_S144 > ((&st_1)->crush_0))
             {
-                float _S146 = inc_1.y;
-                float dissipated_3 = dissipated_2 + _S146;
-                float overshoot_2 = overshoot_1 + max(psi_c_0 * (_S145 - (&st_1)->crush_0) - _S146, 0.0f);
-                (&st_1)->crush_0 = _S145;
+                float _S145 = inc_1.y;
+                float dissipated_3 = dissipated_2 + _S145;
+                float overshoot_2 = overshoot_1 + max(psi_c_0 * (_S144 - (&st_1)->crush_0) - _S145, 0.0f);
+                (&st_1)->crush_0 = _S144;
                 (&st_1)->mode_0 = mode_c_0;
-                if(_S145 >= 1.0f)
+                if(_S144 >= 1.0f)
                 {
-                    _S128 = ((&st_1)->damage_0) < 1.0f;
+                    _S127 = ((&st_1)->damage_0) < 1.0f;
                 }
                 else
                 {
-                    _S128 = false;
+                    _S127 = false;
                 }
-                if(_S128)
+                if(_S127)
                 {
                     float dissipated_4 = dissipated_3 + psi_ts_0 * (1.0f - (&st_1)->damage_0);
                     (&st_1)->damage_0 = 1.0f;
@@ -1044,90 +1044,90 @@ JointResponse_0 joint_evaluate_0(const JointMaterial_natural_0 thread* mat_6, co
         overshoot_1 = 0.0f;
     }
     float dmg_0 = (&st_1)->damage_0;
-    float3 _S147 = float3(0.0f) ;
+    float3 _S146 = float3(0.0f) ;
     float3 qc_ang_0;
     if(((&st_1)->damage_0) == 0.0f)
     {
         if((flags_0 & 8U) == 0U)
         {
-            float3 _S148 = contact_offsets_0(mat_6, b_4, (&st_1)->crush_0, plastic_4, d_lin_2, d_ang_2);
-            (&st_1)->plastic_x_0 = _S148.x;
-            (&st_1)->plastic_y_0 = _S148.y;
-            (&st_1)->plastic_t_0 = _S148.z;
+            float3 _S147 = contact_offsets_0(mat_6, b_4, (&st_1)->crush_0, plastic_4, d_lin_2, d_ang_2);
+            (&st_1)->plastic_x_0 = _S147.x;
+            (&st_1)->plastic_y_0 = _S147.y;
+            (&st_1)->plastic_t_0 = _S147.z;
         }
         diss_contact_0 = 0.0f;
-        qc_lin_0 = _S147;
-        qc_ang_0 = _S147;
+        qc_lin_0 = _S146;
+        qc_ang_0 = _S146;
         psi_contact_0 = 0.0f;
     }
     else
     {
-        Contact_0 _S149 = contact_part_0(mat_6, b_4, (&st_1)->crush_0, plastic_4, d_lin_2, d_ang_2);
-        (&st_1)->plastic_x_0 = _S149.plastic_1.x;
-        (&st_1)->plastic_y_0 = _S149.plastic_1.y;
-        (&st_1)->plastic_t_0 = _S149.plastic_1.z;
-        diss_contact_0 = _S149.diss_0;
-        qc_lin_0 = _S149.q_lin_1;
-        qc_ang_0 = _S149.q_ang_1;
-        psi_contact_0 = _S149.energy_1;
+        Contact_0 _S148 = contact_part_0(mat_6, b_4, (&st_1)->crush_0, plastic_4, d_lin_2, d_ang_2);
+        (&st_1)->plastic_x_0 = _S148.plastic_1.x;
+        (&st_1)->plastic_y_0 = _S148.plastic_1.y;
+        (&st_1)->plastic_t_0 = _S148.plastic_1.z;
+        diss_contact_0 = _S148.diss_0;
+        qc_lin_0 = _S148.q_lin_1;
+        qc_ang_0 = _S148.q_ang_1;
+        psi_contact_0 = _S148.energy_1;
     }
     float dissipated_5 = dissipated_2 + dmg_0 * diss_contact_0;
-    if(_S127)
+    if(_S126)
     {
-        intact_normal_0 = kn_3 * _S126;
+        intact_normal_0 = kn_3 * _S125;
     }
     else
     {
-        intact_normal_0 = (1.0f - (&st_1)->crush_0) * kn_3 * _S126;
+        intact_normal_0 = (1.0f - (&st_1)->crush_0) * kn_3 * _S125;
     }
-    float _S150 = 1.0f - dmg_0;
-    float3 force_lin_1 = float3(_S150 * qe_lin_0.x + dmg_0 * qc_lin_0.x, _S150 * qe_lin_0.y + dmg_0 * qc_lin_0.y, _S150 * intact_normal_0 + dmg_0 * qc_lin_0.z);
-    float3 force_ang_1 = qe_ang_0 * float3(_S150)  + qc_ang_0 * float3(dmg_0) ;
-    float stored_1 = _S150 * (psi_ts_0 + (1.0f - (&st_1)->crush_0) * psi_c_0) + dmg_0 * psi_contact_0;
+    float _S149 = 1.0f - dmg_0;
+    float3 force_lin_1 = float3(_S149 * qe_lin_0.x + dmg_0 * qc_lin_0.x, _S149 * qe_lin_0.y + dmg_0 * qc_lin_0.y, _S149 * intact_normal_0 + dmg_0 * qc_lin_0.z);
+    float3 force_ang_1 = qe_ang_0 * float3(_S149)  + qc_ang_0 * float3(dmg_0) ;
+    float stored_1 = _S149 * (psi_ts_0 + (1.0f - (&st_1)->crush_0) * psi_c_0) + dmg_0 * psi_contact_0;
     if(has_rebar_1)
     {
-        _S128 = ((&st_1)->rebar_broken_0) == 0.0f;
+        _S127 = ((&st_1)->rebar_broken_0) == 0.0f;
     }
     else
     {
-        _S128 = false;
+        _S127 = false;
     }
     float stored_2;
     float3 force_lin_2;
-    if(_S128)
+    if(_S127)
     {
-        float4 _S151 = float4(b_4->rebar0_0) ;
-        float k_axial_0 = _S151.x;
-        float k_dowel_0 = _S151.y;
-        float yield_force_0 = _S151.z;
-        float dowel_capacity_0 = _S151.w;
-        float2 nr_0 = return_map_0(k_axial_0, _S126, (&st_1)->rebar_plastic_0, yield_force_0);
-        float2 v1_0 = return_map_0(k_dowel_0, _S123, (&st_1)->rebar_slip0_0, dowel_capacity_0);
-        float2 v2_0 = return_map_0(k_dowel_0, _S124, (&st_1)->rebar_slip1_0, dowel_capacity_0);
-        float _S152 = nr_0.y;
-        float _S153 = v1_0.y;
-        float _S154 = v2_0.y;
-        float work_0 = yield_force_0 * abs(_S152) + dowel_capacity_0 * (abs(_S153) + abs(_S154));
-        (&st_1)->rebar_plastic_0 = (&st_1)->rebar_plastic_0 + _S152;
-        (&st_1)->rebar_slip0_0 = (&st_1)->rebar_slip0_0 + _S153;
-        (&st_1)->rebar_slip1_0 = (&st_1)->rebar_slip1_0 + _S154;
+        float4 _S150 = float4(b_4->rebar0_0) ;
+        float k_axial_0 = _S150.x;
+        float k_dowel_0 = _S150.y;
+        float yield_force_0 = _S150.z;
+        float dowel_capacity_0 = _S150.w;
+        float2 nr_0 = return_map_0(k_axial_0, _S125, (&st_1)->rebar_plastic_0, yield_force_0);
+        float2 v1_0 = return_map_0(k_dowel_0, _S122, (&st_1)->rebar_slip0_0, dowel_capacity_0);
+        float2 v2_0 = return_map_0(k_dowel_0, _S123, (&st_1)->rebar_slip1_0, dowel_capacity_0);
+        float _S151 = nr_0.y;
+        float _S152 = v1_0.y;
+        float _S153 = v2_0.y;
+        float work_0 = yield_force_0 * abs(_S151) + dowel_capacity_0 * (abs(_S152) + abs(_S153));
+        (&st_1)->rebar_plastic_0 = (&st_1)->rebar_plastic_0 + _S151;
+        (&st_1)->rebar_slip0_0 = (&st_1)->rebar_slip0_0 + _S152;
+        (&st_1)->rebar_slip1_0 = (&st_1)->rebar_slip1_0 + _S153;
         (&st_1)->rebar_work_0 = (&st_1)->rebar_work_0 + work_0;
         float dissipated_6 = dissipated_5 + work_0;
-        float _S155 = nr_0.x;
-        float _S156 = (metal::fast::divide((sq_0(_S155)), (k_axial_0)));
-        float _S157 = v1_0.x;
-        float _S158 = v2_0.x;
-        float _S159 = (metal::fast::divide((sq_0(_S157) + sq_0(_S158)), (k_dowel_0)));
-        float elastic_0 = 0.5f * (_S156 + _S159);
+        float _S154 = nr_0.x;
+        float _S155 = (metal::fast::divide((sq_0(_S154)), (k_axial_0)));
+        float _S156 = v1_0.x;
+        float _S157 = v2_0.x;
+        float _S158 = (metal::fast::divide((sq_0(_S156) + sq_0(_S157)), (k_dowel_0)));
+        float elastic_0 = 0.5f * (_S155 + _S158);
         if(fracture_0)
         {
-            _S128 = ((&st_1)->rebar_work_0) >= ((float4(b_4->rebar1_0) ).x);
+            _S127 = ((&st_1)->rebar_work_0) >= ((float4(b_4->rebar1_0) ).x);
         }
         else
         {
-            _S128 = false;
+            _S127 = false;
         }
-        if(_S128)
+        if(_S127)
         {
             (&st_1)->rebar_broken_0 = 1.0f;
             float dissipated_7 = dissipated_6 + elastic_0;
@@ -1138,7 +1138,7 @@ JointResponse_0 joint_evaluate_0(const JointMaterial_natural_0 thread* mat_6, co
         else
         {
             float stored_3 = stored_1 + elastic_0;
-            force_lin_2 = force_lin_1 + float3(_S157, _S158, _S155);
+            force_lin_2 = force_lin_1 + float3(_S156, _S157, _S154);
             dissipated_2 = dissipated_6;
             stored_2 = stored_3;
         }
@@ -1151,27 +1151,27 @@ JointResponse_0 joint_evaluate_0(const JointMaterial_natural_0 thread* mat_6, co
     }
     if(fracture_0)
     {
-        _S128 = _S112;
+        _S127 = _S112;
     }
     else
     {
-        _S128 = false;
+        _S127 = false;
     }
-    if(_S128)
+    if(_S127)
     {
-        _S128 = (flags_0 & 64U) != 0U;
+        _S127 = (flags_0 & 64U) != 0U;
     }
     else
     {
-        _S128 = false;
+        _S127 = false;
     }
-    if(_S128)
+    if(_S127)
     {
-        Measures_0 _S160 = stress_measures_0(b_4, force_lin_2, force_ang_1);
-        thread Measures_0 _S161 = _S160;
-        float4 _S162 = failure_indices_0(mat_6, b_4, &_S161, weibull_0);
-        float _S163 = life_rate_0(mat_6, max(max(_S162.x, _S162.y), _S162.z));
-        (&st_1)->life_0 = max((&st_1)->life_0 - _S163 * dt_0, 0.0f);
+        Measures_0 _S159 = stress_measures_0(b_4, force_lin_2, force_ang_1);
+        thread Measures_0 _S160 = _S159;
+        float4 _S161 = failure_indices_0(mat_6, b_4, &_S160, weibull_0);
+        float _S162 = life_rate_0(mat_6, max(max(_S161.x, _S161.y), _S161.z));
+        (&st_1)->life_0 = max((&st_1)->life_0 - _S162 * dt_0, 0.0f);
     }
     (&st_1)->dissipated_0 = (&st_1)->dissipated_0 + dissipated_2;
     thread JointResponse_0 resp_0;
@@ -1183,34 +1183,35 @@ JointResponse_0 joint_evaluate_0(const JointMaterial_natural_0 thread* mat_6, co
     (&resp_0)->stored_0 = stored_2;
     if(_S109)
     {
-        thread JointState_0 _S164 = st_1;
-        bool _S165 = connected_0(&_S164, has_rebar_1);
-        _S128 = !_S165;
+        thread JointState_0 _S163 = st_1;
+        bool _S164 = connected_0(&_S163, has_rebar_1);
+        _S127 = !_S164;
     }
     else
     {
-        _S128 = false;
+        _S127 = false;
     }
-    (&resp_0)->disconnected_0 = _S128;
+    (&resp_0)->disconnected_0 = _S127;
+    (&resp_0)->fatigue_before_0 = _S117;
     (&resp_0)->measures_0 = _S110;
     return resp_0;
 }
 
 void secant_factors_0(const JointBond_natural_0 thread* b_5, const JointState_0 thread* st_2, float3 d_lin_3, float3 thread* f_lin_0, float3 thread* f_ang_0)
 {
-    float _S166 = st_2->damage_0;
+    float _S165 = st_2->damage_0;
     bool compressed_0 = (d_lin_3.z) < 0.0f;
     float contact_0;
     if(compressed_0)
     {
-        contact_0 = _S166;
+        contact_0 = _S165;
     }
     else
     {
         contact_0 = 0.0f;
     }
-    float _S167 = 1.0f - _S166;
-    float _S168 = max(_S167 + contact_0, 9.99999997475242708e-07f);
+    float _S166 = 1.0f - _S165;
+    float _S167 = max(_S166 + contact_0, 9.99999997475242708e-07f);
     float normal_0;
     if(compressed_0)
     {
@@ -1218,31 +1219,31 @@ void secant_factors_0(const JointBond_natural_0 thread* b_5, const JointState_0 
     }
     else
     {
-        normal_0 = max(_S167, 9.99999997475242708e-07f);
+        normal_0 = max(_S166, 9.99999997475242708e-07f);
     }
-    *f_lin_0 = float3(_S168, _S168, normal_0);
-    *f_ang_0 = float3(_S168) ;
-    bool _S169;
+    *f_lin_0 = float3(_S167, _S167, normal_0);
+    *f_ang_0 = float3(_S167) ;
+    bool _S168;
     if(((float4(b_5->stiff1_0) ).w) != 0.0f)
     {
-        _S169 = (st_2->rebar_broken_0) == 0.0f;
+        _S168 = (st_2->rebar_broken_0) == 0.0f;
     }
     else
     {
-        _S169 = false;
+        _S168 = false;
     }
-    if(_S169)
+    if(_S168)
     {
-        float4 _S170 = float4(b_5->rebar0_0) ;
-        float4 _S171 = float4(b_5->stiff0_0) ;
-        float _S172 = (metal::fast::divide((_S170.x), (_S171.x)));
-        (*f_lin_0).z = (*f_lin_0).z + _S172;
+        float4 _S169 = float4(b_5->rebar0_0) ;
+        float4 _S170 = float4(b_5->stiff0_0) ;
+        float _S171 = (metal::fast::divide((_S169.x), (_S170.x)));
+        (*f_lin_0).z = (*f_lin_0).z + _S171;
+        float _S172 = _S169.y;
         float _S173 = _S170.y;
-        float _S174 = _S171.y;
-        float _S175 = (metal::fast::divide((_S173), (_S174)));
-        (*f_lin_0).x = (*f_lin_0).x + _S175;
-        float _S176 = (metal::fast::divide((_S173), (_S174)));
-        (*f_lin_0).y = (*f_lin_0).y + _S176;
+        float _S174 = (metal::fast::divide((_S172), (_S173)));
+        (*f_lin_0).x = (*f_lin_0).x + _S174;
+        float _S175 = (metal::fast::divide((_S172), (_S173)));
+        (*f_lin_0).y = (*f_lin_0).y + _S175;
     }
     return;
 }
@@ -1282,41 +1283,41 @@ struct KernelContext_0
         return;
     }
     JointBond_natural_0 b_6 = (&kernelContext_0)->bonds_0[i_3];
-    thread JointBond_natural_0 _S177 = b_6;
-    uint _S178 = 2U * i_3;
-    float4 _S179 = float4(*((&kernelContext_0)->inputs_0+_S178)) ;
-    float4 _S180 = float4(*((&kernelContext_0)->inputs_0+(_S178 + 1U))) ;
-    JointState_0 _S181 = (&kernelContext_0)->states_in_0[i_3];
+    thread JointBond_natural_0 _S176 = b_6;
+    uint _S177 = 2U * i_3;
+    float4 _S178 = float4(*((&kernelContext_0)->inputs_0+_S177)) ;
+    float4 _S179 = float4(*((&kernelContext_0)->inputs_0+(_S177 + 1U))) ;
+    JointState_0 _S180 = (&kernelContext_0)->states_in_0[i_3];
+    float3 _S181 = _S178.xyz;
     float3 _S182 = _S179.xyz;
-    float3 _S183 = _S180.xyz;
-    float _S184 = _S179.w;
-    bool _S185 = (_S180.w) != 0.0f;
-    thread JointMaterial_natural_0 _S186 = (&kernelContext_0)->materials_0[(uint4((&_S177)->ids_0) ).x];
-    _S177 = b_6;
-    thread JointState_0 _S187 = _S181;
-    JointResponse_0 _S188 = joint_evaluate_0(&_S186, &_S177, &_S187, _S182, _S183, _S184, _S185);
-    thread JointState_0 _S189 = _S188.state_0;
+    float _S183 = _S178.w;
+    bool _S184 = (_S179.w) != 0.0f;
+    thread JointMaterial_natural_0 _S185 = (&kernelContext_0)->materials_0[(uint4((&_S176)->ids_0) ).x];
+    _S176 = b_6;
+    thread JointState_0 _S186 = _S180;
+    JointResponse_0 _S187 = joint_evaluate_0(&_S185, &_S176, &_S186, _S181, _S182, _S183, _S184);
+    thread JointState_0 _S188 = _S187.state_0;
     thread float3 f_lin_1;
     thread float3 f_ang_1;
-    secant_factors_0(&_S177, &_S189, _S182, &f_lin_1, &f_ang_1);
-    *((&kernelContext_0)->states_out_0+i_3) = _S188.state_0;
-    uint _S190 = 5U * i_3;
-    *((&kernelContext_0)->outputs_0+_S190) = packed_float4(float4(_S188.force_lin_0, _S188.dissipated_1)) ;
-    *((&kernelContext_0)->outputs_0+(_S190 + 1U)) = packed_float4(float4(_S188.force_ang_0, _S188.overshoot_0)) ;
-    *((&kernelContext_0)->outputs_0+(_S190 + 2U)) = packed_float4(float4(f_lin_1, _S188.stored_0)) ;
-    packed_float4 device* _S191 = (&kernelContext_0)->outputs_0+(_S190 + 3U);
-    float3 _S192 = f_ang_1;
-    float _S193;
-    if(_S188.disconnected_0)
+    secant_factors_0(&_S176, &_S188, _S181, &f_lin_1, &f_ang_1);
+    *((&kernelContext_0)->states_out_0+i_3) = _S187.state_0;
+    uint _S189 = 5U * i_3;
+    *((&kernelContext_0)->outputs_0+_S189) = packed_float4(float4(_S187.force_lin_0, _S187.dissipated_1)) ;
+    *((&kernelContext_0)->outputs_0+(_S189 + 1U)) = packed_float4(float4(_S187.force_ang_0, _S187.overshoot_0)) ;
+    *((&kernelContext_0)->outputs_0+(_S189 + 2U)) = packed_float4(float4(f_lin_1, _S187.stored_0)) ;
+    packed_float4 device* _S190 = (&kernelContext_0)->outputs_0+(_S189 + 3U);
+    float3 _S191 = f_ang_1;
+    float _S192;
+    if(_S187.disconnected_0)
     {
-        _S193 = 1.0f;
+        _S192 = 1.0f;
     }
     else
     {
-        _S193 = 0.0f;
+        _S192 = 0.0f;
     }
-    *_S191 = packed_float4(float4(_S192, _S193)) ;
-    *((&kernelContext_0)->outputs_0+(_S190 + 4U)) = packed_float4(float4(_S188.measures_0.tension_0, _S188.measures_0.shear_0, _S188.measures_0.compression_0, _S188.measures_0.compressive_force_0)) ;
+    *_S190 = packed_float4(float4(_S191, _S192)) ;
+    *((&kernelContext_0)->outputs_0+(_S189 + 4U)) = packed_float4(float4(_S187.measures_0.tension_0, _S187.measures_0.shear_0, _S187.measures_0.compression_0, _S187.measures_0.compressive_force_0)) ;
     return;
 }
 

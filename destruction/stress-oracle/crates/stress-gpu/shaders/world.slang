@@ -1298,21 +1298,32 @@ float3 to_body(BondStatic b, float3 l)
 // memory, not the group's flags).
 bool bond_update(uint i, float dt, bool fracture, uint abs_step, bool wide)
 {
+    // Register pressure: the bond's static data and dynamic record are read again after
+    // the law instead of being held live across it (device writes in between keep the
+    // compiler from re-reading them itself, so held copies spill).
+    float3 d_lin, d_ang, r_lin, r_ang;
+    {
+        BondStatic b = bonds[i];
+        uint ca = b.law.ids.y;
+        uint cb = b.law.ids.z;
+        float3 ra = b.ra.xyz;
+        float3 rb = b.rb.xyz;
+        float3 ua = state[4 * ca].xyz, ta = state[4 * ca + 1].xyz, va = state[4 * ca + 2].xyz, wa = state[4 * ca + 3].xyz;
+        float3 ub = state[4 * cb].xyz, tb = state[4 * cb + 1].xyz, vb = state[4 * cb + 2].xyz, wb = state[4 * cb + 3].xyz;
+        d_lin = to_local(b, (ub + cross(tb, rb)) - (ua + cross(ta, ra)));
+        d_ang = to_local(b, tb - ta);
+        r_lin = to_local(b, (vb + cross(wb, rb)) - (va + cross(wa, ra)));
+        r_ang = to_local(b, wb - wa);
+    }
+    JointMaterial mat = materials.m[bonds[i].law.ids.x];
+    JointState previous = bond_dyn[i].js;
+    bool was_damaged = is_damaged(previous);
+    float previous_life = previous.life;
+    JointResponse resp = joint_evaluate(mat, bonds[i].law, previous, d_lin, d_ang, dt, fracture);
     BondStatic b = bonds[i];
     BondDyn bd = bond_dyn[i];
-    uint ca = b.law.ids.y;
-    uint cb = b.law.ids.z;
     float3 ra = b.ra.xyz;
     float3 rb = b.rb.xyz;
-    float3 ua = state[4 * ca].xyz, ta = state[4 * ca + 1].xyz, va = state[4 * ca + 2].xyz, wa = state[4 * ca + 3].xyz;
-    float3 ub = state[4 * cb].xyz, tb = state[4 * cb + 1].xyz, vb = state[4 * cb + 2].xyz, wb = state[4 * cb + 3].xyz;
-    float3 d_lin = to_local(b, (ub + cross(tb, rb)) - (ua + cross(ta, ra)));
-    float3 d_ang = to_local(b, tb - ta);
-    float3 r_lin = to_local(b, (vb + cross(wb, rb)) - (va + cross(wa, ra)));
-    float3 r_ang = to_local(b, wb - wa);
-    JointMaterial mat = materials.m[b.law.ids.x];
-    JointState previous = bd.js;
-    JointResponse resp = joint_evaluate(mat, b.law, previous, d_lin, d_ang, dt, fracture);
     float3 f_lin;
     float3 f_ang;
     secant_factors(b.law, resp.state, d_lin, f_lin, f_ang);
@@ -1332,7 +1343,7 @@ bool bond_update(uint i, float dt, bool fracture, uint abs_step, bool wide)
     comp_add1(bd.sums.z, bd.comps.z, damped);
     bd.force_lin = float4(q_lin, resp.stored);
     bd.force_ang = float4(q_ang, max(bd.force_ang.w, resp.state.utilization));
-    if (!is_damaged(previous) && is_damaged(resp.state) && bd.events.x == 0)
+    if (!was_damaged && is_damaged(resp.state) && bd.events.x == 0)
     {
         bd.events.x = abs_step;
         bd.events.w = resp.state.mode;
@@ -1341,7 +1352,7 @@ bool bond_update(uint i, float dt, bool fracture, uint abs_step, bool wide)
         else
             g_seen[SEEN_CRACK] = 1;
     }
-    if (bd.events.y == 0 && fatigue_factor(mat, previous.life) > 0.99 && fatigue_factor(mat, resp.state.life) <= 0.99)
+    if (bd.events.y == 0 && resp.state.life != previous_life && resp.fatigue_before > 0.99 && fatigue_factor(mat, resp.state.life) <= 0.99)
     {
         bd.events.y = abs_step;
         if (wide)
@@ -2785,7 +2796,7 @@ void settled_fatigue(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
             bd.events.w = resp.state.mode;
             g_seen[SEEN_CRACK] = 1;
         }
-        if (bd.events.y == 0 && fatigue_factor(mat, previous.life) > 0.99 && fatigue_factor(mat, resp.state.life) <= 0.99)
+        if (bd.events.y == 0 && resp.state.life != previous.life && resp.fatigue_before > 0.99 && fatigue_factor(mat, resp.state.life) <= 0.99)
         {
             bd.events.y = abs_step;
             g_seen[SEEN_CREAK] = 1;

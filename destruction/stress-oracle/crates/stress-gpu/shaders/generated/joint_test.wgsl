@@ -781,6 +781,7 @@ struct JointResponse_0
      overshoot_0 : f32,
      stored_0 : f32,
      disconnected_0 : bool,
+     fatigue_before_0 : f32,
      measures_0 : Measures_0,
 };
 
@@ -849,31 +850,30 @@ fn joint_evaluate_0( mat_6 : ptr<function, JointMaterial_std430_0>,  b_6 : ptr<f
         dif_1 = 1.0f;
     }
     var weibull_0 : f32 = (*b_6).geom1_0.w;
-    var _S74 : f32 = weibull_0 * dif_1;
-    var _S75 : f32 = fatigue_factor_0(&((*mat_6)), st_2.life_0);
-    var multiplier_1 : f32 = _S74 * _S75;
-    var _S76 : vec4<f32> = failure_indices_0(&((*mat_6)), &((*b_6)), _S70, multiplier_1);
-    var _S77 : f32 = _S76.x;
-    var _S78 : f32 = _S76.y;
-    st_2.utilization_0 = max(max(_S77, _S78), max(_S76.z, _S76.w));
-    var _S79 : f32 = d_lin_2.x;
-    var _S80 : f32 = d_lin_2.y;
-    var _S81 : f32 = ks_2 * (sq_0(_S79) + sq_0(_S80)) + kb1_0 * sq_0(d_ang_2.x) + kb2_0 * sq_0(d_ang_2.y) + kt_2 * sq_0(d_ang_2.z);
-    var _S82 : f32 = d_lin_2.z;
-    var _S83 : bool = _S82 > 0.0f;
-    if(_S83)
+    var _S74 : f32 = fatigue_factor_0(&((*mat_6)), st_2.life_0);
+    var multiplier_1 : f32 = weibull_0 * dif_1 * _S74;
+    var _S75 : vec4<f32> = failure_indices_0(&((*mat_6)), &((*b_6)), _S70, multiplier_1);
+    var _S76 : f32 = _S75.x;
+    var _S77 : f32 = _S75.y;
+    st_2.utilization_0 = max(max(_S76, _S77), max(_S75.z, _S75.w));
+    var _S78 : f32 = d_lin_2.x;
+    var _S79 : f32 = d_lin_2.y;
+    var _S80 : f32 = ks_2 * (sq_0(_S78) + sq_0(_S79)) + kb1_0 * sq_0(d_ang_2.x) + kb2_0 * sq_0(d_ang_2.y) + kt_2 * sq_0(d_ang_2.z);
+    var _S81 : f32 = d_lin_2.z;
+    var _S82 : bool = _S81 > 0.0f;
+    if(_S82)
     {
-        dif_1 = kn_3 * sq_0(_S82);
+        dif_1 = kn_3 * sq_0(_S81);
     }
     else
     {
         dif_1 = 0.0f;
     }
-    var psi_ts_0 : f32 = 0.5f * (_S81 + dif_1);
+    var psi_ts_0 : f32 = 0.5f * (_S80 + dif_1);
     var psi_c_0 : f32;
-    if(_S82 < 0.0f)
+    if(_S81 < 0.0f)
     {
-        psi_c_0 = 0.5f * kn_3 * sq_0(_S82);
+        psi_c_0 = 0.5f * kn_3 * sq_0(_S81);
     }
     else
     {
@@ -885,21 +885,21 @@ fn joint_evaluate_0( mat_6 : ptr<function, JointMaterial_std430_0>,  b_6 : ptr<f
     var intact_normal_0 : f32;
     var dissipated_2 : f32;
     var overshoot_1 : f32;
-    var _S84 : bool;
+    var _S83 : bool;
     var qc_lin_0 : vec3<f32>;
     if(fracture_0)
     {
-        var _S85 : bool = _S77 >= _S78;
-        if(_S85)
+        var _S84 : bool = _S76 >= _S77;
+        if(_S84)
         {
-            diss_contact_0 = _S77;
+            diss_contact_0 = _S76;
         }
         else
         {
-            diss_contact_0 = _S78;
+            diss_contact_0 = _S77;
         }
         var mode_ts_0 : u32;
-        if(_S85)
+        if(_S84)
         {
             mode_ts_0 = u32(1);
         }
@@ -909,22 +909,22 @@ fn joint_evaluate_0( mat_6 : ptr<function, JointMaterial_std430_0>,  b_6 : ptr<f
         }
         if(diss_contact_0 > (st_2.kappa_0))
         {
-            _S84 = diss_contact_0 > 1.0f;
+            _S83 = diss_contact_0 > 1.0f;
         }
         else
         {
-            _S84 = false;
+            _S83 = false;
         }
-        if(_S84)
+        if(_S83)
         {
-            _S84 = psi_ts_0 > 0.0f;
+            _S83 = psi_ts_0 > 0.0f;
         }
         else
         {
-            _S84 = false;
+            _S83 = false;
         }
         var mode_c_0 : u32;
-        if(_S84)
+        if(_S83)
         {
             if(mode_ts_0 == u32(1))
             {
@@ -952,17 +952,17 @@ fn joint_evaluate_0( mat_6 : ptr<function, JointMaterial_std430_0>,  b_6 : ptr<f
                 mode_c_0 = u32(0);
             }
             var inc_0 : vec2<f32> = damage_increment_0(mode_c_0, st_2.kappa_0, diss_contact_0, intact_normal_0, st_2.damage_0, psi_ts_0);
-            var _S86 : f32 = inc_0.x;
-            if(_S86 > (st_2.damage_0))
+            var _S85 : f32 = inc_0.x;
+            if(_S85 > (st_2.damage_0))
             {
-                var _S87 : Contact_0 = contact_part_0(&((*mat_6)), &((*b_6)), st_2.crush_0, plastic_4, d_lin_2, d_ang_2);
-                var _S88 : f32 = max(_S87.energy_1 - (1.0f - st_2.crush_0) * psi_c_0, 0.0f);
-                var _S89 : f32 = max(inc_0.y - _S88 * (_S86 - st_2.damage_0), 0.0f);
-                var _S90 : f32 = max((psi_ts_0 - _S88) * (_S86 - st_2.damage_0) - _S89, 0.0f);
-                st_2.damage_0 = _S86;
+                var _S86 : Contact_0 = contact_part_0(&((*mat_6)), &((*b_6)), st_2.crush_0, plastic_4, d_lin_2, d_ang_2);
+                var _S87 : f32 = max(_S86.energy_1 - (1.0f - st_2.crush_0) * psi_c_0, 0.0f);
+                var _S88 : f32 = max(inc_0.y - _S87 * (_S85 - st_2.damage_0), 0.0f);
+                var _S89 : f32 = max((psi_ts_0 - _S87) * (_S85 - st_2.damage_0) - _S88, 0.0f);
+                st_2.damage_0 = _S85;
                 st_2.mode_0 = mode_ts_0;
-                dissipated_2 = _S89;
-                overshoot_1 = _S90;
+                dissipated_2 = _S88;
+                overshoot_1 = _S89;
             }
             else
             {
@@ -976,30 +976,30 @@ fn joint_evaluate_0( mat_6 : ptr<function, JointMaterial_std430_0>,  b_6 : ptr<f
             overshoot_1 = 0.0f;
         }
         st_2.kappa_0 = max(st_2.kappa_0, diss_contact_0);
-        var _S91 : f32 = (*state_1).damage_0;
+        var _S90 : f32 = (*state_1).damage_0;
         if(((*state_1).damage_0) > 0.0f)
         {
-            var _S92 : Contact_0 = contact_part_0(&((*mat_6)), &((*b_6)), (*state_1).crush_0, vec3<f32>((*state_1).plastic_x_0, (*state_1).plastic_y_0, (*state_1).plastic_t_0), d_lin_2, d_ang_2);
-            qc_lin_0 = qe_ang_0 * vec3<f32>((1.0f - _S91)) + _S92.q_ang_1 * vec3<f32>(_S91);
+            var _S91 : Contact_0 = contact_part_0(&((*mat_6)), &((*b_6)), (*state_1).crush_0, vec3<f32>((*state_1).plastic_x_0, (*state_1).plastic_y_0, (*state_1).plastic_t_0), d_lin_2, d_ang_2);
+            qc_lin_0 = qe_ang_0 * vec3<f32>((1.0f - _S90)) + _S91.q_ang_1 * vec3<f32>(_S90);
         }
         else
         {
             qc_lin_0 = qe_ang_0;
         }
-        var _S93 : Measures_0 = stress_measures_0(&((*b_6)), vec3<f32>(0.0f, 0.0f, min(qe_lin_0.z, 0.0f)), qc_lin_0);
-        var _S94 : vec4<f32> = failure_indices_0(&((*mat_6)), &((*b_6)), _S93, multiplier_1);
-        var _S95 : f32 = _S94.z;
-        var _S96 : f32 = _S94.w;
-        var _S97 : bool = _S95 >= _S96;
-        if(_S97)
+        var _S92 : Measures_0 = stress_measures_0(&((*b_6)), vec3<f32>(0.0f, 0.0f, min(qe_lin_0.z, 0.0f)), qc_lin_0);
+        var _S93 : vec4<f32> = failure_indices_0(&((*mat_6)), &((*b_6)), _S92, multiplier_1);
+        var _S94 : f32 = _S93.z;
+        var _S95 : f32 = _S93.w;
+        var _S96 : bool = _S94 >= _S95;
+        if(_S96)
         {
-            psi_contact_0 = _S95;
+            psi_contact_0 = _S94;
         }
         else
         {
-            psi_contact_0 = _S96;
+            psi_contact_0 = _S95;
         }
-        if(_S97)
+        if(_S96)
         {
             mode_c_0 = u32(3);
         }
@@ -1009,21 +1009,21 @@ fn joint_evaluate_0( mat_6 : ptr<function, JointMaterial_std430_0>,  b_6 : ptr<f
         }
         if(psi_contact_0 > (st_2.kappa_c_0))
         {
-            _S84 = psi_contact_0 > 1.0f;
+            _S83 = psi_contact_0 > 1.0f;
         }
         else
         {
-            _S84 = false;
+            _S83 = false;
         }
-        if(_S84)
+        if(_S83)
         {
-            _S84 = psi_c_0 > 0.0f;
+            _S83 = psi_c_0 > 0.0f;
         }
         else
         {
-            _S84 = false;
+            _S83 = false;
         }
-        if(_S84)
+        if(_S83)
         {
             if(softening_0)
             {
@@ -1052,23 +1052,23 @@ fn joint_evaluate_0( mat_6 : ptr<function, JointMaterial_std430_0>,  b_6 : ptr<f
                 law_0 = mode_ts_0;
             }
             var inc_1 : vec2<f32> = damage_increment_0(law_0, st_2.kappa_c_0, psi_contact_0, intact_normal_0, st_2.crush_0, psi_c_0);
-            var _S98 : f32 = inc_1.x;
-            if(_S98 > (st_2.crush_0))
+            var _S97 : f32 = inc_1.x;
+            if(_S97 > (st_2.crush_0))
             {
-                var _S99 : f32 = inc_1.y;
-                var dissipated_3 : f32 = dissipated_2 + _S99;
-                var overshoot_2 : f32 = overshoot_1 + max(psi_c_0 * (_S98 - st_2.crush_0) - _S99, 0.0f);
-                st_2.crush_0 = _S98;
+                var _S98 : f32 = inc_1.y;
+                var dissipated_3 : f32 = dissipated_2 + _S98;
+                var overshoot_2 : f32 = overshoot_1 + max(psi_c_0 * (_S97 - st_2.crush_0) - _S98, 0.0f);
+                st_2.crush_0 = _S97;
                 st_2.mode_0 = mode_c_0;
-                if(_S98 >= 1.0f)
+                if(_S97 >= 1.0f)
                 {
-                    _S84 = (st_2.damage_0) < 1.0f;
+                    _S83 = (st_2.damage_0) < 1.0f;
                 }
                 else
                 {
-                    _S84 = false;
+                    _S83 = false;
                 }
-                if(_S84)
+                if(_S83)
                 {
                     var dissipated_4 : f32 = dissipated_3 + psi_ts_0 * (1.0f - st_2.damage_0);
                     st_2.damage_0 = 1.0f;
@@ -1089,87 +1089,87 @@ fn joint_evaluate_0( mat_6 : ptr<function, JointMaterial_std430_0>,  b_6 : ptr<f
         overshoot_1 = 0.0f;
     }
     var dmg_0 : f32 = st_2.damage_0;
-    var _S100 : vec3<f32> = vec3<f32>(0.0f);
+    var _S99 : vec3<f32> = vec3<f32>(0.0f);
     var qc_ang_0 : vec3<f32>;
     if((st_2.damage_0) == 0.0f)
     {
         if(((flags_0 & (u32(8)))) == u32(0))
         {
-            var _S101 : vec3<f32> = contact_offsets_0(&((*mat_6)), &((*b_6)), st_2.crush_0, plastic_4, d_lin_2, d_ang_2);
-            st_2.plastic_x_0 = _S101.x;
-            st_2.plastic_y_0 = _S101.y;
-            st_2.plastic_t_0 = _S101.z;
+            var _S100 : vec3<f32> = contact_offsets_0(&((*mat_6)), &((*b_6)), st_2.crush_0, plastic_4, d_lin_2, d_ang_2);
+            st_2.plastic_x_0 = _S100.x;
+            st_2.plastic_y_0 = _S100.y;
+            st_2.plastic_t_0 = _S100.z;
         }
         diss_contact_0 = 0.0f;
-        qc_lin_0 = _S100;
-        qc_ang_0 = _S100;
+        qc_lin_0 = _S99;
+        qc_ang_0 = _S99;
         psi_contact_0 = 0.0f;
     }
     else
     {
-        var _S102 : Contact_0 = contact_part_0(&((*mat_6)), &((*b_6)), st_2.crush_0, plastic_4, d_lin_2, d_ang_2);
-        st_2.plastic_x_0 = _S102.plastic_1.x;
-        st_2.plastic_y_0 = _S102.plastic_1.y;
-        st_2.plastic_t_0 = _S102.plastic_1.z;
-        diss_contact_0 = _S102.diss_0;
-        qc_lin_0 = _S102.q_lin_1;
-        qc_ang_0 = _S102.q_ang_1;
-        psi_contact_0 = _S102.energy_1;
+        var _S101 : Contact_0 = contact_part_0(&((*mat_6)), &((*b_6)), st_2.crush_0, plastic_4, d_lin_2, d_ang_2);
+        st_2.plastic_x_0 = _S101.plastic_1.x;
+        st_2.plastic_y_0 = _S101.plastic_1.y;
+        st_2.plastic_t_0 = _S101.plastic_1.z;
+        diss_contact_0 = _S101.diss_0;
+        qc_lin_0 = _S101.q_lin_1;
+        qc_ang_0 = _S101.q_ang_1;
+        psi_contact_0 = _S101.energy_1;
     }
     var dissipated_5 : f32 = dissipated_2 + dmg_0 * diss_contact_0;
-    if(_S83)
+    if(_S82)
     {
-        intact_normal_0 = kn_3 * _S82;
+        intact_normal_0 = kn_3 * _S81;
     }
     else
     {
-        intact_normal_0 = (1.0f - st_2.crush_0) * kn_3 * _S82;
+        intact_normal_0 = (1.0f - st_2.crush_0) * kn_3 * _S81;
     }
-    var _S103 : f32 = 1.0f - dmg_0;
-    var force_lin_1 : vec3<f32> = vec3<f32>(_S103 * qe_lin_0.x + dmg_0 * qc_lin_0.x, _S103 * qe_lin_0.y + dmg_0 * qc_lin_0.y, _S103 * intact_normal_0 + dmg_0 * qc_lin_0.z);
-    var force_ang_1 : vec3<f32> = qe_ang_0 * vec3<f32>(_S103) + qc_ang_0 * vec3<f32>(dmg_0);
-    var stored_1 : f32 = _S103 * (psi_ts_0 + (1.0f - st_2.crush_0) * psi_c_0) + dmg_0 * psi_contact_0;
+    var _S102 : f32 = 1.0f - dmg_0;
+    var force_lin_1 : vec3<f32> = vec3<f32>(_S102 * qe_lin_0.x + dmg_0 * qc_lin_0.x, _S102 * qe_lin_0.y + dmg_0 * qc_lin_0.y, _S102 * intact_normal_0 + dmg_0 * qc_lin_0.z);
+    var force_ang_1 : vec3<f32> = qe_ang_0 * vec3<f32>(_S102) + qc_ang_0 * vec3<f32>(dmg_0);
+    var stored_1 : f32 = _S102 * (psi_ts_0 + (1.0f - st_2.crush_0) * psi_c_0) + dmg_0 * psi_contact_0;
     if(has_rebar_2)
     {
-        _S84 = (st_2.rebar_broken_0) == 0.0f;
+        _S83 = (st_2.rebar_broken_0) == 0.0f;
     }
     else
     {
-        _S84 = false;
+        _S83 = false;
     }
     var stored_2 : f32;
     var force_lin_2 : vec3<f32>;
-    if(_S84)
+    if(_S83)
     {
         var k_axial_0 : f32 = (*b_6).rebar0_0.x;
         var k_dowel_0 : f32 = (*b_6).rebar0_0.y;
         var yield_force_0 : f32 = (*b_6).rebar0_0.z;
         var dowel_capacity_0 : f32 = (*b_6).rebar0_0.w;
-        var nr_0 : vec2<f32> = return_map_0(k_axial_0, _S82, st_2.rebar_plastic_0, yield_force_0);
-        var v1_0 : vec2<f32> = return_map_0(k_dowel_0, _S79, st_2.rebar_slip0_0, dowel_capacity_0);
-        var v2_0 : vec2<f32> = return_map_0(k_dowel_0, _S80, st_2.rebar_slip1_0, dowel_capacity_0);
-        var _S104 : f32 = nr_0.y;
-        var _S105 : f32 = v1_0.y;
-        var _S106 : f32 = v2_0.y;
-        var work_0 : f32 = yield_force_0 * abs(_S104) + dowel_capacity_0 * (abs(_S105) + abs(_S106));
-        st_2.rebar_plastic_0 = st_2.rebar_plastic_0 + _S104;
-        st_2.rebar_slip0_0 = st_2.rebar_slip0_0 + _S105;
-        st_2.rebar_slip1_0 = st_2.rebar_slip1_0 + _S106;
+        var nr_0 : vec2<f32> = return_map_0(k_axial_0, _S81, st_2.rebar_plastic_0, yield_force_0);
+        var v1_0 : vec2<f32> = return_map_0(k_dowel_0, _S78, st_2.rebar_slip0_0, dowel_capacity_0);
+        var v2_0 : vec2<f32> = return_map_0(k_dowel_0, _S79, st_2.rebar_slip1_0, dowel_capacity_0);
+        var _S103 : f32 = nr_0.y;
+        var _S104 : f32 = v1_0.y;
+        var _S105 : f32 = v2_0.y;
+        var work_0 : f32 = yield_force_0 * abs(_S103) + dowel_capacity_0 * (abs(_S104) + abs(_S105));
+        st_2.rebar_plastic_0 = st_2.rebar_plastic_0 + _S103;
+        st_2.rebar_slip0_0 = st_2.rebar_slip0_0 + _S104;
+        st_2.rebar_slip1_0 = st_2.rebar_slip1_0 + _S105;
         st_2.rebar_work_0 = st_2.rebar_work_0 + work_0;
         var dissipated_6 : f32 = dissipated_5 + work_0;
-        var _S107 : f32 = nr_0.x;
-        var _S108 : f32 = v1_0.x;
-        var _S109 : f32 = v2_0.x;
-        var elastic_0 : f32 = 0.5f * (fdiv_0(sq_0(_S107), k_axial_0) + fdiv_0(sq_0(_S108) + sq_0(_S109), k_dowel_0));
+        var _S106 : f32 = nr_0.x;
+        var _S107 : f32 = v1_0.x;
+        var _S108 : f32 = v2_0.x;
+        var elastic_0 : f32 = 0.5f * (fdiv_0(sq_0(_S106), k_axial_0) + fdiv_0(sq_0(_S107) + sq_0(_S108), k_dowel_0));
         if(fracture_0)
         {
-            _S84 = (st_2.rebar_work_0) >= ((*b_6).rebar1_0.x);
+            _S83 = (st_2.rebar_work_0) >= ((*b_6).rebar1_0.x);
         }
         else
         {
-            _S84 = false;
+            _S83 = false;
         }
-        if(_S84)
+        if(_S83)
         {
             st_2.rebar_broken_0 = 1.0f;
             var dissipated_7 : f32 = dissipated_6 + elastic_0;
@@ -1180,7 +1180,7 @@ fn joint_evaluate_0( mat_6 : ptr<function, JointMaterial_std430_0>,  b_6 : ptr<f
         else
         {
             var stored_3 : f32 = stored_1 + elastic_0;
-            force_lin_2 = force_lin_1 + vec3<f32>(_S108, _S109, _S107);
+            force_lin_2 = force_lin_1 + vec3<f32>(_S107, _S108, _S106);
             dissipated_2 = dissipated_6;
             stored_2 = stored_3;
         }
@@ -1193,26 +1193,26 @@ fn joint_evaluate_0( mat_6 : ptr<function, JointMaterial_std430_0>,  b_6 : ptr<f
     }
     if(fracture_0)
     {
-        _S84 = _S72;
+        _S83 = _S72;
     }
     else
     {
-        _S84 = false;
+        _S83 = false;
     }
-    if(_S84)
+    if(_S83)
     {
-        _S84 = ((flags_0 & (u32(64)))) != u32(0);
+        _S83 = ((flags_0 & (u32(64)))) != u32(0);
     }
     else
     {
-        _S84 = false;
+        _S83 = false;
     }
-    if(_S84)
+    if(_S83)
     {
-        var _S110 : Measures_0 = stress_measures_0(&((*b_6)), force_lin_2, force_ang_1);
-        var _S111 : vec4<f32> = failure_indices_0(&((*mat_6)), &((*b_6)), _S110, weibull_0);
-        var _S112 : f32 = life_rate_0(&((*mat_6)), max(max(_S111.x, _S111.y), _S111.z));
-        st_2.life_0 = max(st_2.life_0 - _S112 * dt_0, 0.0f);
+        var _S109 : Measures_0 = stress_measures_0(&((*b_6)), force_lin_2, force_ang_1);
+        var _S110 : vec4<f32> = failure_indices_0(&((*mat_6)), &((*b_6)), _S109, weibull_0);
+        var _S111 : f32 = life_rate_0(&((*mat_6)), max(max(_S110.x, _S110.y), _S110.z));
+        st_2.life_0 = max(st_2.life_0 - _S111 * dt_0, 0.0f);
     }
     st_2.dissipated_0 = st_2.dissipated_0 + dissipated_2;
     var resp_0 : JointResponse_0;
@@ -1224,13 +1224,14 @@ fn joint_evaluate_0( mat_6 : ptr<function, JointMaterial_std430_0>,  b_6 : ptr<f
     resp_0.stored_0 = stored_2;
     if(_S69)
     {
-        _S84 = !connected_1(st_2, has_rebar_2);
+        _S83 = !connected_1(st_2, has_rebar_2);
     }
     else
     {
-        _S84 = false;
+        _S83 = false;
     }
-    resp_0.disconnected_0 = _S84;
+    resp_0.disconnected_0 = _S83;
+    resp_0.fatigue_before_0 = _S74;
     resp_0.measures_0 = _S70;
     return resp_0;
 }
@@ -1247,8 +1248,8 @@ fn secant_factors_0( b_7 : ptr<function, JointBond_std430_0>,  st_3 : JointState
     {
         contact_0 = 0.0f;
     }
-    var _S113 : f32 = 1.0f - st_3.damage_0;
-    var _S114 : f32 = max(_S113 + contact_0, 9.99999997475242708e-07f);
+    var _S112 : f32 = 1.0f - st_3.damage_0;
+    var _S113 : f32 = max(_S112 + contact_0, 9.99999997475242708e-07f);
     var normal_0 : f32;
     if(compressed_0)
     {
@@ -1256,27 +1257,27 @@ fn secant_factors_0( b_7 : ptr<function, JointBond_std430_0>,  st_3 : JointState
     }
     else
     {
-        normal_0 = max(_S113, 9.99999997475242708e-07f);
+        normal_0 = max(_S112, 9.99999997475242708e-07f);
     }
-    (*f_lin_0) = vec3<f32>(_S114, _S114, normal_0);
-    (*f_ang_0) = vec3<f32>(_S114);
-    var _S115 : bool;
+    (*f_lin_0) = vec3<f32>(_S113, _S113, normal_0);
+    (*f_ang_0) = vec3<f32>(_S113);
+    var _S114 : bool;
     if(((*b_7).stiff1_0.w) != 0.0f)
     {
-        _S115 = (st_3.rebar_broken_0) == 0.0f;
+        _S114 = (st_3.rebar_broken_0) == 0.0f;
     }
     else
     {
-        _S115 = false;
+        _S114 = false;
     }
-    if(_S115)
+    if(_S114)
     {
-        var _S116 : vec4<f32> = (*b_7).rebar0_0;
-        var _S117 : vec4<f32> = (*b_7).stiff0_0;
+        var _S115 : vec4<f32> = (*b_7).rebar0_0;
+        var _S116 : vec4<f32> = (*b_7).stiff0_0;
         (*f_lin_0)[i32(2)] = (*f_lin_0)[i32(2)] + fdiv_0((*b_7).rebar0_0.x, (*b_7).stiff0_0.x);
-        var _S118 : f32 = fdiv_0(_S116.y, _S117.y);
-        (*f_lin_0)[i32(0)] = (*f_lin_0)[i32(0)] + _S118;
-        (*f_lin_0)[i32(1)] = (*f_lin_0)[i32(1)] + _S118;
+        var _S117 : f32 = fdiv_0(_S115.y, _S116.y);
+        (*f_lin_0)[i32(0)] = (*f_lin_0)[i32(0)] + _S117;
+        (*f_lin_0)[i32(1)] = (*f_lin_0)[i32(1)] + _S117;
     }
     return;
 }
@@ -1290,53 +1291,53 @@ fn joint_eval_test(@builtin(global_invocation_id) id_0 : vec3<u32>)
     {
         return;
     }
-    var _S119 : JointBond_std430_0 = bonds_0[i_3];
-    var _S120 : JointMaterial_std430_0 = materials_0[_S119.ids_0.x];
-    var _S121 : u32 = u32(2) * i_3;
-    var a_6 : vec4<f32> = inputs_0[_S121];
-    var c_1 : vec4<f32> = inputs_0[_S121 + u32(1)];
-    var _S122 : JointState_std430_0 = states_in_0[i_3];
-    var _S123 : vec3<f32> = a_6.xyz;
-    var _S124 : JointResponse_0 = joint_evaluate_0(&(_S120), &(_S119), &(_S122), _S123, c_1.xyz, a_6.w, (c_1.w) != 0.0f);
+    var _S118 : JointBond_std430_0 = bonds_0[i_3];
+    var _S119 : JointMaterial_std430_0 = materials_0[_S118.ids_0.x];
+    var _S120 : u32 = u32(2) * i_3;
+    var a_6 : vec4<f32> = inputs_0[_S120];
+    var c_1 : vec4<f32> = inputs_0[_S120 + u32(1)];
+    var _S121 : JointState_std430_0 = states_in_0[i_3];
+    var _S122 : vec3<f32> = a_6.xyz;
+    var _S123 : JointResponse_0 = joint_evaluate_0(&(_S119), &(_S118), &(_S121), _S122, c_1.xyz, a_6.w, (c_1.w) != 0.0f);
     var f_lin_1 : vec3<f32>;
     var f_ang_1 : vec3<f32>;
-    secant_factors_0(&(_S119), _S124.state_0, _S123, &(f_lin_1), &(f_ang_1));
-    states_out_0[i_3].damage_0 = _S124.state_0.damage_0;
-    states_out_0[i_3].crush_0 = _S124.state_0.crush_0;
-    states_out_0[i_3].kappa_0 = _S124.state_0.kappa_0;
-    states_out_0[i_3].kappa_c_0 = _S124.state_0.kappa_c_0;
-    states_out_0[i_3].ductility_0 = _S124.state_0.ductility_0;
-    states_out_0[i_3].ductility_c_0 = _S124.state_0.ductility_c_0;
-    states_out_0[i_3].life_0 = _S124.state_0.life_0;
-    states_out_0[i_3].plastic_x_0 = _S124.state_0.plastic_x_0;
-    states_out_0[i_3].plastic_y_0 = _S124.state_0.plastic_y_0;
-    states_out_0[i_3].plastic_t_0 = _S124.state_0.plastic_t_0;
-    states_out_0[i_3].rebar_plastic_0 = _S124.state_0.rebar_plastic_0;
-    states_out_0[i_3].rebar_slip0_0 = _S124.state_0.rebar_slip0_0;
-    states_out_0[i_3].rebar_slip1_0 = _S124.state_0.rebar_slip1_0;
-    states_out_0[i_3].rebar_work_0 = _S124.state_0.rebar_work_0;
-    states_out_0[i_3].rebar_broken_0 = _S124.state_0.rebar_broken_0;
-    states_out_0[i_3].strain_rate_0 = _S124.state_0.strain_rate_0;
-    states_out_0[i_3].governing_stress_0 = _S124.state_0.governing_stress_0;
-    states_out_0[i_3].dissipated_0 = _S124.state_0.dissipated_0;
-    states_out_0[i_3].utilization_0 = _S124.state_0.utilization_0;
-    states_out_0[i_3].mode_0 = _S124.state_0.mode_0;
-    var _S125 : u32 = u32(5) * i_3;
-    outputs_0[_S125] = vec4<f32>(_S124.force_lin_0, _S124.dissipated_1);
-    outputs_0[_S125 + u32(1)] = vec4<f32>(_S124.force_ang_0, _S124.overshoot_0);
-    outputs_0[_S125 + u32(2)] = vec4<f32>(f_lin_1, _S124.stored_0);
-    var _S126 : vec3<f32> = f_ang_1;
-    var _S127 : f32;
-    if(_S124.disconnected_0)
+    secant_factors_0(&(_S118), _S123.state_0, _S122, &(f_lin_1), &(f_ang_1));
+    states_out_0[i_3].damage_0 = _S123.state_0.damage_0;
+    states_out_0[i_3].crush_0 = _S123.state_0.crush_0;
+    states_out_0[i_3].kappa_0 = _S123.state_0.kappa_0;
+    states_out_0[i_3].kappa_c_0 = _S123.state_0.kappa_c_0;
+    states_out_0[i_3].ductility_0 = _S123.state_0.ductility_0;
+    states_out_0[i_3].ductility_c_0 = _S123.state_0.ductility_c_0;
+    states_out_0[i_3].life_0 = _S123.state_0.life_0;
+    states_out_0[i_3].plastic_x_0 = _S123.state_0.plastic_x_0;
+    states_out_0[i_3].plastic_y_0 = _S123.state_0.plastic_y_0;
+    states_out_0[i_3].plastic_t_0 = _S123.state_0.plastic_t_0;
+    states_out_0[i_3].rebar_plastic_0 = _S123.state_0.rebar_plastic_0;
+    states_out_0[i_3].rebar_slip0_0 = _S123.state_0.rebar_slip0_0;
+    states_out_0[i_3].rebar_slip1_0 = _S123.state_0.rebar_slip1_0;
+    states_out_0[i_3].rebar_work_0 = _S123.state_0.rebar_work_0;
+    states_out_0[i_3].rebar_broken_0 = _S123.state_0.rebar_broken_0;
+    states_out_0[i_3].strain_rate_0 = _S123.state_0.strain_rate_0;
+    states_out_0[i_3].governing_stress_0 = _S123.state_0.governing_stress_0;
+    states_out_0[i_3].dissipated_0 = _S123.state_0.dissipated_0;
+    states_out_0[i_3].utilization_0 = _S123.state_0.utilization_0;
+    states_out_0[i_3].mode_0 = _S123.state_0.mode_0;
+    var _S124 : u32 = u32(5) * i_3;
+    outputs_0[_S124] = vec4<f32>(_S123.force_lin_0, _S123.dissipated_1);
+    outputs_0[_S124 + u32(1)] = vec4<f32>(_S123.force_ang_0, _S123.overshoot_0);
+    outputs_0[_S124 + u32(2)] = vec4<f32>(f_lin_1, _S123.stored_0);
+    var _S125 : vec3<f32> = f_ang_1;
+    var _S126 : f32;
+    if(_S123.disconnected_0)
     {
-        _S127 = 1.0f;
+        _S126 = 1.0f;
     }
     else
     {
-        _S127 = 0.0f;
+        _S126 = 0.0f;
     }
-    outputs_0[_S125 + u32(3)] = vec4<f32>(_S126, _S127);
-    outputs_0[_S125 + u32(4)] = vec4<f32>(_S124.measures_0.tension_0, _S124.measures_0.shear_0, _S124.measures_0.compression_0, _S124.measures_0.compressive_force_0);
+    outputs_0[_S124 + u32(3)] = vec4<f32>(_S125, _S126);
+    outputs_0[_S124 + u32(4)] = vec4<f32>(_S123.measures_0.tension_0, _S123.measures_0.shear_0, _S123.measures_0.compression_0, _S123.measures_0.compressive_force_0);
     return;
 }
 

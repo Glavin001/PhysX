@@ -91,6 +91,7 @@ public struct JointResponse
     public float overshoot;
     public float stored;
     public bool disconnected;
+    public float fatigue_before; // fatigue_factor at the evaluation's starting life
     public Measures measures;
 };
 
@@ -565,7 +566,8 @@ public JointResponse joint_evaluate(JointMaterial mat, JointBond b, JointState s
     }
     float dif = (flags & FLAG_DIF) != 0 ? dif_factor(mat, st.strain_rate) : 1.0;
     float weibull = b.geom1.w;
-    float multiplier = weibull * dif * fatigue_factor(mat, st.life);
+    float fatigue_before = fatigue_factor(mat, st.life);
+    float multiplier = weibull * dif * fatigue_before;
     float4 idx = failure_indices(mat, b, measures, multiplier);
     st.utilization = max(max(idx.x, idx.y), max(idx.z, idx.w));
 
@@ -718,6 +720,7 @@ public JointResponse joint_evaluate(JointMaterial mat, JointBond b, JointState s
     resp.overshoot = overshoot;
     resp.stored = stored;
     resp.disconnected = was_connected && !connected(st, has_rebar);
+    resp.fatigue_before = fatigue_before;
     resp.measures = measures;
     return resp;
 }
