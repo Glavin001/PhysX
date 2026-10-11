@@ -898,12 +898,31 @@ Selected rows (tiers by the analysis's rules, `>>` read as 10x):
 Packs, T_1 only (no loading): house-2story 65 ms, house-1story 43 ms, brick-building
 36 ms, villa-savoye 1.28 s.
 
-**Finding for the tiering.** By these rules even the 40 m/s ram is tier 2: the
-impactor's Hertz time is 3.4 wave transits across the wall. Yet the wall breaches
-locally. A `T_w` across the whole structure misses the local wave physics, so the rule
-likely needs the struck member's thickness. That is the calibration the analysis plans
-against the oracle, and this gives it its inputs. Blast loads and dropped bodies have
-no `t_c` here yet.
+Impacts also print `T_w,member`, the transit across the structure's extent along the
+impact (the wall's thickness): b5's Hertz time is 35-65 of them, b7's 20-27.
+
+**Tier-2 calibration** (`scripts/fidelity.py --b-set 'sim.solve_mode="implicit"'`).
+Every scene explicit (the truth) against the oracle's implicit solve (Newmark with
+Newton on the joints' tangent). In that mode contacts still set the substep, so this is
+implicit bond integration at about the explicit substep: tier 2's best case. The
+implicit step alone (1/60 s against the scene's frame step) changes nothing.
+
+Results:
+- **17/35 scenes pass every gameplay metric:** analytic benchmarks, cantilevers, bar
+  waves, support loss (gradual and sudden), elastic frames, the arch standing,
+  overhangs, the static floor and house.
+- **Fast-impact failures are missed:**
+  - b5_wall_impact_v40 does not breach: failure flags differ, 32 -> 0 chunks detached;
+  - b6_spall does not spall: 720 -> 0 detached.
+- **The rest differ in pieces and debris speed:** the slower impacts, b7, the cars, and
+  the collapses (keystone, house settlement, house car).
+
+So the oracle supports the analysis's intent: punch-through and spall need explicit
+windows. But the stated rule (`t_c <= T_w` for tier 3) puts b5_v40 in tier 2 with either
+transit time. A breach is local punching and bending, not a through-thickness wave.
+The criterion needs another measure, for example the Hertz contact pressure against the
+member's strength. That is open for the GPU tiering; the oracle now has the tools.
+Blast loads and dropped bodies have no `t_c` here yet.
 
 GPU-only items are out of scope for the CPU oracle: shared-memory windows, cooperative
 launch, temporal blocking, Morton order, CUDA graphs.

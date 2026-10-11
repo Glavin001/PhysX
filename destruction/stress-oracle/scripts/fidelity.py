@@ -4,6 +4,7 @@ reference, and B) with one build, and B judged on the outcomes a player sees.
 
     scripts/fidelity.py --bin target/release/stress-ref --b true_step --out DIR [--a ""]
                         [--jobs N] [--only SUBSTRING] [--set dotted.path=JSON]...
+                        [--b-set dotted.path=JSON]...  (B only: another solve mode, say)
 
 Per scene:
   fails     the outcome flags (any bond broken, collapse, ...) are equal
@@ -71,11 +72,12 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--bin', required=True)
     ap.add_argument('--a', default='', help='STRESS_METHODS of the reference side')
-    ap.add_argument('--b', required=True, help='STRESS_METHODS of the judged side')
+    ap.add_argument('--b', default='', help='STRESS_METHODS of the judged side')
     ap.add_argument('--out', required=True)
     ap.add_argument('--jobs', type=int, default=max(1, (os.cpu_count() or 2) // 2))
     ap.add_argument('--only')
-    ap.add_argument('--set', action='append', default=[])
+    ap.add_argument('--set', action='append', default=[], help='--set override for both sides')
+    ap.add_argument('--b-set', action='append', default=[], help='--set override for the judged side only (e.g. sim.solve_mode)')
     args = ap.parse_args()
     binary = os.path.abspath(args.bin)
     os.makedirs(os.path.join(args.out, 'a'), exist_ok=True)
@@ -85,9 +87,9 @@ def main():
     def both(scene):
         name = os.path.basename(scene)[:-5]
         res = {}
-        for side, methods in [('a', args.a), ('b', args.b)]:
+        for side, methods, sets in [('a', args.a, args.set), ('b', args.b, args.set + args.b_set)]:
             out = os.path.join(args.out, side, name + '.json')
-            res[side] = run(binary, methods, scene, out, args.set)
+            res[side] = run(binary, methods, scene, out, sets)
         return name, res
 
     with ThreadPoolExecutor(args.jobs) as pool:

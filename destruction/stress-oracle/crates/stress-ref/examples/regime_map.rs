@@ -3,7 +3,8 @@
 //! - `t_c`, the loading time: an impactor's Hertz contact time
 //!   `2.87 (m^2 / (R E*^2 v))^(1/5)` (a box impactor: `R` its smallest half extent),
 //!   a load's rise or pulse time, a removal's duration (0: sudden);
-//! - `T_w`, the wave transit across the structure's largest extent at `sqrt(E / rho)`;
+//! - `T_w`, the wave transit across the structure's largest extent at `sqrt(E / rho)`, and
+//!   (impacts) `T_w,member` across its extent along the impact (a wall's thickness);
 //! - `T_1`, the structure's fundamental period (inverse iteration, intact, its largest
 //!   anchored cluster).
 //!
@@ -96,10 +97,26 @@ fn report(s: &Scene) {
         *counts.entry(ch.material.as_str()).or_default() += 1;
     }
     let extent = (0..3).map(|d| hi[d] - lo[d]).fold(0.0, f64::max);
+    // The struck member's thickness: the structure's extent along the first moving
+    // impactor's velocity (the wall's thickness for a ram).
+    let member = s.impactors.iter().find(|i| i.velocity.iter().any(|&v| v != 0.0)).map(|imp| {
+        let v = stress_ref::math::Vec3::from_array(imp.velocity).normalized();
+        let (mut a, mut b) = (f64::INFINITY, f64::NEG_INFINITY);
+        for &c in &sv.clusters[ci].chunks {
+            let ch = &st.chunks[c];
+            let reach: f64 = (0..3).map(|k| (ch.rotation.col(k).dot(v)).abs() * ch.half_extents.to_array()[k]).sum();
+            let x = ch.center.dot(v);
+            a = a.min(x - reach);
+            b = b.max(x + reach);
+        }
+        b - a
+    });
     let main = counts.iter().max_by_key(|e| *e.1).map(|e| *e.0).unwrap_or("");
     let m = s.material(main);
-    let t_w = extent / (m.youngs_modulus * s.sim.stiffness_scale / m.density).sqrt();
+    let wave_speed = (m.youngs_modulus * s.sim.stiffness_scale / m.density).sqrt();
+    let t_w = extent / wave_speed;
     let t_1 = sv.fundamental_period(ci);
+    let t_m = member.map(|thickness| thickness / wave_speed);
     let tc = loading_time(s);
     let tier = match (tc, t_1) {
         (Some((t, _)), Some(p)) if t >= 10.0 * p => "1 quasi-static",
@@ -109,14 +126,19 @@ fn report(s: &Scene) {
     };
     let f = |x: Option<f64>| x.map_or("-".to_string(), |v| format!("{v:.3e}"));
     println!(
-        "{:28} {:5} chunks  t_c {:>10} ({:8})  T_w {:.3e}  T_1 {:>10}  t_c/T_w {:>9}  t_c/T_1 {:>9}  tier {}",
+        "{:28} {:5} chunks  t_c {:>10} ({:8})  T_w {:.3e}  T_w,member {:>10}  T_1 {:>10}  t_c/T_w {:>9}  t_c/T_w,member {:>9}  t_c/T_1 {:>9}  tier {}",
         s.name,
         sv.clusters[ci].chunks.len(),
         f(tc.map(|x| x.0)),
         tc.map_or("-", |x| x.1),
         t_w,
+        f(t_m),
         f(t_1),
         tc.map_or("-".into(), |x| format!("{:.2}", x.0 / t_w)),
+        match (tc, t_m) {
+            (Some(x), Some(tm)) => format!("{:.2}", x.0 / tm),
+            _ => "-".into(),
+        },
         match (tc, t_1) {
             (Some(x), Some(p)) => format!("{:.3}", x.0 / p),
             _ => "-".into(),
