@@ -431,6 +431,27 @@ pub struct Profile {
     pub kernel_dispatches: [u64; 12],
 }
 
+/// The host copy of everything a frame changes (`GpuSolver::snapshot`): to solve the
+/// frame again after an engine-coupled frame's verification found a body the engine
+/// moved fractured (world_coupling.rs `step_frame_coupled`).
+#[derive(Clone)]
+pub struct HostSnapshot {
+    mirror: ReferenceSolver,
+    impactors: Vec<Impactor>,
+    contact_dissipated: f64,
+    crush_energy: f64,
+    last_loads: ChunkLoads,
+    frame_load_sum: ChunkLoads,
+    pair_memory: HashMap<PairKey, PairState>,
+}
+
+impl HostSnapshot {
+    /// The mirror at the snapshot.
+    pub fn mirror(&self) -> &ReferenceSolver {
+        &self.mirror
+    }
+}
+
 pub struct GpuSolver {
     /// The host mirror: topology and history, current after `download`.
     pub mirror: ReferenceSolver,
@@ -1535,6 +1556,34 @@ impl GpuSolver {
             }
         }
         seen.len() == cl.chunks.len()
+    }
+
+    /// Everything a frame changes, downloaded into a host copy (`restore` undoes the
+    /// frame).
+    pub fn snapshot(&mut self, gpu: &Gpu) -> HostSnapshot {
+        self.download(gpu);
+        HostSnapshot {
+            mirror: self.mirror.clone(),
+            impactors: self.impactors.clone(),
+            contact_dissipated: self.contact_dissipated,
+            crush_energy: self.crush_energy,
+            last_loads: self.last_loads.clone(),
+            frame_load_sum: self.frame_load_sum.clone(),
+            pair_memory: self.pair_memory.clone(),
+        }
+    }
+
+    /// Return to a snapshot: the host state, then every buffer rebuilt from it.
+    pub fn restore(&mut self, gpu: &Gpu, s: HostSnapshot) -> Result<(), String> {
+        self.mirror = s.mirror;
+        self.impactors = s.impactors;
+        self.contact_dissipated = s.contact_dissipated;
+        self.crush_energy = s.crush_energy;
+        self.last_loads = s.last_loads;
+        self.frame_load_sum = s.frame_load_sum;
+        self.pair_memory = s.pair_memory;
+        self.bonds_stale = false;
+        self.rebuild(gpu, 0.0)
     }
 
     /// Copy the GPU state into the mirror: hidden state, reactions, bond history and

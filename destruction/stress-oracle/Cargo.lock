@@ -1691,6 +1691,7 @@ name = "stress-physx"
 version = "0.1.0"
 dependencies = [
  "blast-stress-solver",
+ "stress-gpu",
  "stress-ref",
 ]
 

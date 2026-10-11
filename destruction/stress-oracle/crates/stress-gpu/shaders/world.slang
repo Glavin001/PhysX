@@ -989,8 +989,16 @@ void impactor_integrate(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
     Impactor imp = impactors[ii];
     // cand.w: substeps integrated so far. Integrate through the substep of a split
     // (it completes), not past it; nothing after a re-plan stop.
-    if (imp.cand.z != 0 || (sentinel.info.z & STOP_NOW) != 0 || (sentinel.info.y != 0 && imp.cand.w >= sentinel.info.y))
+    if ((sentinel.info.z & STOP_NOW) != 0 || (sentinel.info.y != 0 && imp.cand.w >= sentinel.info.y))
         return;
+    // A driven impactor (an engine moves it, world_coupling.rs) is not integrated; it
+    // still counts the substep, which is how the host follows the pipeline's progress.
+    if (imp.cand.z != 0)
+    {
+        if (tid == 0)
+            impactors[ii].cand.w = imp.cand.w + 1;
+        return;
+    }
     // The contact reactions of the candidates (strided, then a tree).
     float4 rf = float4(0.0);
     float4 rt = float4(0.0);

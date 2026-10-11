@@ -13,13 +13,25 @@
 //! GPU solver's mirror. Scripted structural events (removals) run the reference's own
 //! code on the mirror at the start of the substep they fall in; segments start there and
 //! where a blast first acts, so blast faces are cached with that moment's geometry.
+//!
+//! Coupled to a rigid-body engine (`GpuWorld::with_engine`), the world runs the
+//! reference's coupled frame (world_coupling.rs) with the substeps on the GPU: the
+//! reference's own code selects the impact islands, steps the engine with the island
+//! bodies frozen and takes its contacts on the clusters it drove, on the mirror; the GPU
+//! then simulates the islands with its own chunk-level contact, and the frame is
+//! verified and redone as the reference's is. Approximation (named, measured against the
+//! reference's coupled world): driven clusters keep their start-of-frame motion through
+//! the frame's substeps (the reference interpolates it to the engine's end state); it
+//! enters only their rigid-frame loads, since nothing in an island touches a driven body
+//! within the frame.
 
 use stress_ref::math::Vec3;
 use stress_ref::observation::{Observation, ProbeSeries};
 use stress_ref::scene::{EventDesc, LoadDesc, ProbeKind, Scene, SectionComponent, SolveMode};
 use stress_ref::solver::{Activity, ChunkLoads, ReferenceSolver};
 use stress_ref::statics::StaticOptions;
-use stress_ref::world::World;
+use stress_ref::engine::{BodyKey, RigidEngine};
+use stress_ref::world::{fractured_since, World};
 
 use crate::gpu::Gpu;
 use crate::loads::WorldLoads;
@@ -46,6 +58,8 @@ pub struct GpuWorld {
     sample_interval: f64,
     /// Host time (s) in the frame tails (static solves on the mirror, rebuilds).
     pub tail_seconds: f64,
+    /// Coupled to an engine: its contacts on driven clusters, as GPU load terms.
+    filter: crate::coupled::LoadFilter,
 }
 
 /// Why a scene cannot run on the GPU yet.
@@ -92,6 +106,7 @@ impl GpuWorld {
             next_sample: 0.0,
             sample_interval: scene.sim.sample_interval.unwrap_or(scene.sim.frame_dt),
             tail_seconds: 0.0,
+            filter: crate::coupled::LoadFilter::default(),
         };
         let values: Vec<f64> = (0..scene.probes.len()).map(|p| w.probe_value(p)).collect();
         w.record(w.solver.mirror.time, &values, true);
@@ -108,6 +123,96 @@ impl GpuWorld {
         let r = f(&self.shell);
         std::mem::swap(&mut self.shell.solver, &mut self.solver.mirror);
         r
+    }
+
+    /// The world coupled to a rigid-body engine (world_coupling.rs `World::with_engine`):
+    /// the engine owns rigid motion and contact except in impact islands, which the GPU
+    /// simulates with its own chunk-level contact.
+    pub fn with_engine(gpu: &Gpu, scene: &Scene, engine: Box<dyn RigidEngine>) -> Result<GpuWorld, String> {
+        if !matches!(scene.sim.solve_mode, SolveMode::Explicit | SolveMode::Adaptive) {
+            return Err("the engine-coupled world runs the explicit or adaptive solve".into());
+        }
+        let mut w = GpuWorld::new(gpu, scene)?;
+        w.solver.sync(gpu);
+        w.with_shell_mut(|shell| shell.attach_engine(engine));
+        Ok(w)
+    }
+
+    /// Whether the world is coupled to an engine.
+    pub fn coupled(&self) -> bool {
+        self.shell.engine_name().is_some()
+    }
+
+    /// Run `f` on the shell `World` holding the mirror and the impactors (the
+    /// reference's own code acting on the GPU world's host state).
+    fn with_shell_mut<R>(&mut self, f: impl FnOnce(&mut World) -> R) -> R {
+        self.shell.impactors = std::mem::take(&mut self.solver.impactors);
+        std::mem::swap(&mut self.shell.solver, &mut self.solver.mirror);
+        let r = f(&mut self.shell);
+        std::mem::swap(&mut self.shell.solver, &mut self.solver.mirror);
+        self.solver.impactors = std::mem::take(&mut self.shell.impactors);
+        r
+    }
+
+    /// One engine-coupled frame (world_coupling.rs `step_frame_coupled`): islands and the
+    /// engine's step by the reference's code on the mirror, the substeps on the GPU,
+    /// verification (the frame solved again with more islands when a body the engine
+    /// moved fractured), and the write-back to the engine.
+    fn step_frame_coupled(&mut self, gpu: &Gpu) -> Result<(), String> {
+        let fdt = self.scene.sim.frame_dt;
+        let mut forced: std::collections::HashSet<BodyKey> = std::collections::HashSet::new();
+        let frozen = loop {
+            let saved = self.solver.snapshot(gpu);
+            let saved_host = (self.frame, self.events_done.clone(), self.blasts_active.clone(), self.probes.clone(), self.next_sample, self.filter.clone());
+            let saved_counts = (self.shell.island_frames, self.shell.max_island_bodies, self.shell.engine_body_frames, self.shell.island_body_frames);
+            self.with_shell_mut(|w| w.engine_save());
+            let f = self.with_shell_mut(|w| w.coupled_prepare(&forced));
+            self.filter.ingest(&self.solver.mirror, f.t0, fdt, &f.impulses);
+            self.solver.extra_terms = self.filter.terms(&self.solver.mirror);
+            self.solver.refresh(gpu)?;
+            if std::env::var("STRESS_GPU_COUPLED_TRACE").is_ok() {
+                eprintln!("coupled frame {}: start, {} substeps of {:.2e} s, {} frozen", self.frame, f.n, f.h, f.frozen.len());
+            }
+            self.advance(gpu, f.h, f.n)?;
+            self.solver.sync(gpu);
+            let since = &self.solver.mirror.events[saved.mirror().events.len()..];
+            let broke = fractured_since(saved.mirror(), since, &f.driven);
+            if std::env::var("STRESS_GPU_COUPLED_TRACE").is_ok() {
+                let broken = since.iter().filter(|e| matches!(e, stress_ref::solver::SolverEvent::Broken { .. })).count();
+                eprintln!(
+                    "coupled frame {} (forced {}): {} substeps of {:.2e} s, {} frozen, {} driven clusters, {} engine impulses, {broken} bonds broken, {} driven fractured; host splits {}, batches {}",
+                    self.frame,
+                    forced.len(),
+                    f.n,
+                    f.h,
+                    f.frozen.len(),
+                    f.driven.len(),
+                    f.impulses.len(),
+                    broke.len(),
+                    self.solver.host_splits,
+                    self.solver.profile.batches
+                );
+            }
+            if broke.is_empty() || broke.is_subset(&forced) {
+                self.with_shell_mut(|w| w.engine_discard());
+                break f.frozen;
+            }
+            // The engine's assumption failed for these bodies: solve the frame again with
+            // them in islands.
+            self.solver.restore(gpu, saved)?;
+            (self.frame, self.events_done, self.blasts_active, self.probes, self.next_sample, self.filter) = saved_host;
+            (self.shell.island_frames, self.shell.max_island_bodies, self.shell.engine_body_frames, self.shell.island_body_frames) = saved_counts;
+            self.with_shell_mut(|w| w.engine_restore());
+            self.shell.redone_frames += 1;
+            forced.extend(broke);
+        };
+        // Driven bodies at the engine's end of the frame; island bodies back to the engine.
+        self.solver.download(gpu);
+        self.with_shell_mut(|w| {
+            w.set_driven_motion(1.0);
+            w.coupled_write_back(&frozen);
+        });
+        self.solver.refresh(gpu)
     }
 
     /// Apply scripted events due at time `t` (world.rs `process_events`). True if any.
@@ -164,8 +269,16 @@ impl GpuWorld {
 
     /// Advance one frame (`sim.frame_dt`).
     pub fn step_frame(&mut self, gpu: &Gpu) -> Result<(), String> {
+        if self.coupled() {
+            return self.step_frame_coupled(gpu);
+        }
         let dt = self.with_shell(|w| w.substep_dt());
         let n = (self.scene.sim.frame_dt / dt).round().max(1.0) as usize;
+        self.advance(gpu, dt, n)
+    }
+
+    /// A frame of `n` substeps of `dt` on the GPU, with its events, probes and tail.
+    fn advance(&mut self, gpu: &Gpu, dt: f64, n: usize) -> Result<(), String> {
         let sum = &mut self.solver.frame_load_sum;
         sum.ensure_shape(&self.solver.mirror);
         sum.clear();

@@ -128,18 +128,26 @@ fn interpolate(a: &BodyMotion, b: &BodyMotion, s: f64) -> (Pose, Vec3, Vec3) {
 impl World {
     /// The world coupled to an external rigid-body engine, which then owns rigid motion
     /// and contact except in impact islands (see `engine.rs`). Runs the explicit solve.
-    pub fn with_engine(scene: &Scene, mut engine: Box<dyn RigidEngine>) -> World {
+    pub fn with_engine(scene: &Scene, engine: Box<dyn RigidEngine>) -> World {
         assert!(
             matches!(scene.sim.solve_mode, SolveMode::Explicit | SolveMode::Adaptive),
             "the engine-coupled world runs the explicit or adaptive solve"
         );
         let mut w = World::new(scene);
-        if let Some(g) = &scene.ground {
+        w.attach_engine(engine);
+        w
+    }
+
+    /// Couple this world (at its current state) to an engine: the ground, then a body per
+    /// cluster and impactor. Another solver can run the world's coupled frames on its own
+    /// state through this world (`coupled_prepare`), as the GPU world does with its
+    /// mirror.
+    pub fn attach_engine(&mut self, mut engine: Box<dyn RigidEngine>) {
+        if let Some(g) = &self.scene.ground {
             engine.add_ground(g.height);
         }
-        w.coupling = Some(Coupling { engine: EngineCell(Some(engine)), filter: ContactLoadFilter::new(), start: HashMap::new(), end: HashMap::new() });
-        w.sync_engine_bodies();
-        w
+        self.coupling = Some(Coupling { engine: EngineCell(Some(engine)), filter: ContactLoadFilter::new(), start: HashMap::new(), end: HashMap::new() });
+        self.sync_engine_bodies();
     }
 
     /// Name of the coupled engine, if any.
@@ -404,7 +412,7 @@ impl World {
     }
 
     /// Driven bodies at fraction `s` of the frame, between the engine's start and end.
-    fn set_driven_motion(&mut self, s: f64) {
+    pub fn set_driven_motion(&mut self, s: f64) {
         let c = self.coupling.as_ref().expect("coupled");
         for cl in self.solver.clusters.iter_mut().filter(|c| c.driven && !c.anchored) {
             let key = BodyKey::Cluster(cl.id);
@@ -466,11 +474,11 @@ impl World {
         let mut forced: HashSet<BodyKey> = HashSet::new();
         let frozen = loop {
             let saved = self.clone();
-            self.coupling.as_mut().expect("coupled").engine.save();
+            self.engine_save();
             let (frozen, driven) = self.coupled_attempt(&forced);
             let broke = self.fractured_since(&saved, &driven);
             if broke.is_empty() || broke.is_subset(&forced) {
-                self.coupling.as_mut().expect("coupled").engine.discard();
+                self.engine_discard();
                 break frozen;
             }
             // The engine's assumption failed for these bodies: solve the frame again
@@ -483,8 +491,28 @@ impl World {
             self.redone_frames += 1;
             forced.extend(broke);
         };
-        // Island bodies that still exist go back to the engine with the world's state;
-        // new fragments are created by the sync with theirs.
+        self.coupled_write_back(&frozen);
+    }
+
+    /// Remember the engine's motion (the start of a frame that may be redone).
+    pub fn engine_save(&mut self) {
+        self.coupling.as_mut().expect("coupled").engine.save();
+    }
+
+    /// Forget the engine's saved motion.
+    pub fn engine_discard(&mut self) {
+        self.coupling.as_mut().expect("coupled").engine.discard();
+    }
+
+    /// Return the engine to its saved motion (the world's own state is restored by the
+    /// caller).
+    pub fn engine_restore(&mut self) {
+        self.coupling.as_mut().expect("coupled").engine.restore();
+    }
+
+    /// The end of a coupled frame: island bodies that still exist go back to the engine
+    /// with the world's state; new fragments are created by the sync with theirs.
+    pub fn coupled_write_back(&mut self, frozen: &[BodyKey]) {
         let motion = self.world_motion();
         let back: Vec<BodyMotion> = frozen.iter().filter_map(|k| motion.get(k).copied()).collect();
         self.coupling.as_mut().expect("coupled").engine.set_motion(&back);
@@ -494,22 +522,43 @@ impl World {
     /// Bodies (by their key at the start of the frame, in `driven`) with a bond broken
     /// since `saved`.
     fn fractured_since(&self, saved: &World, driven: &HashSet<BodyKey>) -> HashSet<BodyKey> {
-        self.solver.events[saved.solver.events.len()..]
-            .iter()
-            .filter_map(|e| match e {
-                SolverEvent::Broken { structure, bond, .. } => {
-                    let chunk = saved.solver.bonds[*structure][*bond].geometry.a;
-                    let key = BodyKey::Cluster(saved.solver.clusters[saved.solver.chunks[*structure][chunk].cluster].id);
-                    driven.contains(&key).then_some(key)
-                }
-                _ => None,
-            })
-            .collect()
+        fractured_since(&saved.solver, &self.solver.events[saved.solver.events.len()..], driven)
     }
 
     /// One attempt at the frame. Returns the bodies held frozen in the engine and the
     /// clusters it drove.
     fn coupled_attempt(&mut self, forced: &HashSet<BodyKey>) -> (Vec<BodyKey>, HashSet<BodyKey>) {
+        let f = self.coupled_prepare(forced);
+        self.frame_loads.resize(&self.solver);
+        let splits_before = self.solver.events.len();
+        for i in 0..f.n {
+            self.set_driven_motion((i + 1) as f64 / f.n as f64);
+            self.substep(f.h);
+            let mut fl = std::mem::take(&mut self.frame_loads);
+            fl.add_scaled(&self.loads, 1.0 / f.n as f64);
+            self.frame_loads = fl;
+        }
+        self.frame += 1;
+        if self.solver.events.len() != splits_before {
+            self.topology_version += 1;
+        }
+        if self.scene.sim.solve_mode == SolveMode::Adaptive {
+            self.settle_quiet_clusters();
+            self.advance_settled_fatigue();
+        }
+        if let Some(u) = self.scene.sim.refine_utilization {
+            self.refine_where_needed(u);
+        }
+        self.frame_loads.clear();
+        (f.frozen, f.driven)
+    }
+
+    /// The first half of a coupled frame, before its substeps: the impact islands, the
+    /// engine's step with the island bodies frozen, and the engine's contacts on driven
+    /// clusters taken into the load filter. The substeps (`n` of `h`) then follow the
+    /// driven bodies' motion (`set_driven_motion`) and simulate the islands; another
+    /// solver (the GPU's) can run them on its own state, as this world's do.
+    pub fn coupled_prepare(&mut self, forced: &HashSet<BodyKey>) -> CoupledFrame {
         let fdt = self.scene.sim.frame_dt;
         let t0 = self.solver.time;
         let island_bodies = self.select_islands(fdt, forced);
@@ -538,7 +587,6 @@ impl World {
         // (Taking only the stress limit without islands gave a larger step than the
         // standalone world's under `scaled_step_bound`, and b3's reflected tension moved
         // 0.6 % with it; with the established bound the two coincided.)
-        let _ = island_bodies;
         let mut dt = self.substep_dt().min(fdt);
         if let Some(m) = self.scene.sim.max_substep {
             dt = dt.min(m);
@@ -564,30 +612,39 @@ impl World {
         let impulses_in = self.engine_contacts_to_impulses(&contacts);
         let coupling = self.coupling.as_mut().expect("coupled");
         coupling.filter.ingest(&self.solver, t0, fdt, &impulses_in);
-
-        self.frame_loads.resize(&self.solver);
-        let splits_before = self.solver.events.len();
-        for i in 0..n {
-            self.set_driven_motion((i + 1) as f64 / n as f64);
-            self.substep(h);
-            let mut fl = std::mem::take(&mut self.frame_loads);
-            fl.add_scaled(&self.loads, 1.0 / n as f64);
-            self.frame_loads = fl;
-        }
-        self.frame += 1;
-        if self.solver.events.len() != splits_before {
-            self.topology_version += 1;
-        }
-        if self.scene.sim.solve_mode == SolveMode::Adaptive {
-            self.settle_quiet_clusters();
-            self.advance_settled_fatigue();
-        }
-        if let Some(u) = self.scene.sim.refine_utilization {
-            self.refine_where_needed(u);
-        }
-        self.frame_loads.clear();
-        (frozen, driven)
+        CoupledFrame { t0, n, h, frozen, driven, impulses: impulses_in }
     }
+}
+
+/// A coupled frame's schedule after the engine stepped (`World::coupled_prepare`).
+#[derive(Clone, Debug)]
+pub struct CoupledFrame {
+    pub t0: f64,
+    /// Substeps of the frame and their length.
+    pub n: usize,
+    pub h: f64,
+    /// Bodies the engine held frozen (the impact islands).
+    pub frozen: Vec<BodyKey>,
+    /// Clusters the engine drove.
+    pub driven: HashSet<BodyKey>,
+    /// The engine's contact impulses on driven clusters, as the load filter took them.
+    pub impulses: Vec<ContactImpulse>,
+}
+
+/// Driven bodies (by their key in `saved`, at the start of the frame) with a bond broken
+/// among `events` (those since `saved`).
+pub fn fractured_since(saved: &ReferenceSolver, events: &[SolverEvent], driven: &HashSet<BodyKey>) -> HashSet<BodyKey> {
+    events
+        .iter()
+        .filter_map(|e| match e {
+            SolverEvent::Broken { structure, bond, .. } => {
+                let chunk = saved.bonds[*structure][*bond].geometry.a;
+                let key = BodyKey::Cluster(saved.clusters[saved.chunks[*structure][chunk].cluster].id);
+                driven.contains(&key).then_some(key)
+            }
+            _ => None,
+        })
+        .collect()
 }
 
 /// Unit quaternion of an orthonormal rotation matrix.
