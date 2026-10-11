@@ -1,0 +1,150 @@
+# Kernel budget baseline: world.metallib built like build.rs (precise math).
+# Regenerate with scripts/kernel_budget.sh --update after an intended change.
+# instructions/temp_registers/spilled_bytes: driver statistics (PRIVATE Metal pipeline option 0x40000);
+# code_bytes: __TEXT,__text of the AGX binary from Xcode's applegpu-nt; -1 = unavailable.
+
+[meta]
+architecture = "applegpu_g15s"
+os = "14.4"
+metal = "Apple metal version 32023.155 (metalfe-32023.155)"
+date = "2026-10-11"
+
+[kernels.contact_forces]
+instructions = 7481
+temp_registers = 96
+spilled_bytes = 512
+threads_per_threadgroup = 64
+spilled_bytes_x_threads = 32768
+static_threadgroup_memory = 0
+max_threads_per_threadgroup = 1024
+code_bytes = 52920
+
+[kernels.contact_sums]
+instructions = 1214
+temp_registers = 83
+spilled_bytes = 112
+threads_per_threadgroup = 64
+spilled_bytes_x_threads = 7168
+static_threadgroup_memory = 0
+max_threads_per_threadgroup = 1024
+code_bytes = 9070
+
+[kernels.impactor_crush]
+instructions = 240
+temp_registers = 95
+spilled_bytes = 48
+threads_per_threadgroup = 256
+spilled_bytes_x_threads = 12288
+static_threadgroup_memory = 512
+max_threads_per_threadgroup = 1024
+code_bytes = 2190
+
+[kernels.impactor_integrate]
+instructions = 1573
+temp_registers = 96
+spilled_bytes = 336
+threads_per_threadgroup = 256
+spilled_bytes_x_threads = 86016
+static_threadgroup_memory = 1024
+max_threads_per_threadgroup = 1024
+code_bytes = 11748
+
+[kernels.impactor_shares]
+instructions = 1943
+temp_registers = 96
+spilled_bytes = 208
+threads_per_threadgroup = 64
+spilled_bytes_x_threads = 13312
+static_threadgroup_memory = 0
+max_threads_per_threadgroup = 1024
+code_bytes = 13800
+
+[kernels.island_frame]
+instructions = 12424
+temp_registers = 96
+spilled_bytes = 1104
+threads_per_threadgroup = 256
+spilled_bytes_x_threads = 282624
+static_threadgroup_memory = 1040
+max_threads_per_threadgroup = 1024
+code_bytes = 90570
+
+[kernels.island_statics]
+instructions = 5925
+temp_registers = 96
+spilled_bytes = 944
+threads_per_threadgroup = 256
+spilled_bytes_x_threads = 241664
+static_threadgroup_memory = 1024
+max_threads_per_threadgroup = 1024
+code_bytes = 45976
+
+[kernels.settled_fatigue]
+instructions = 2924
+temp_registers = 96
+spilled_bytes = 480
+threads_per_threadgroup = 256
+spilled_bytes_x_threads = 122880
+static_threadgroup_memory = 16
+max_threads_per_threadgroup = 1024
+code_bytes = 21870
+
+[kernels.wide_bonds]
+instructions = 4715
+temp_registers = 96
+spilled_bytes = 608
+threads_per_threadgroup = 256
+spilled_bytes_x_threads = 155648
+static_threadgroup_memory = 1040
+max_threads_per_threadgroup = 1024
+code_bytes = 35342
+
+[kernels.wide_chunks]
+instructions = 2435
+temp_registers = 95
+spilled_bytes = 0
+threads_per_threadgroup = 256
+spilled_bytes_x_threads = 0
+static_threadgroup_memory = 1040
+max_threads_per_threadgroup = 1024
+code_bytes = 18822
+
+[kernels.wide_drift]
+instructions = 422
+temp_registers = 81
+spilled_bytes = 0
+threads_per_threadgroup = 256
+spilled_bytes_x_threads = 0
+static_threadgroup_memory = 1040
+max_threads_per_threadgroup = 1024
+code_bytes = 3352
+
+[kernels.wide_end]
+instructions = 563
+temp_registers = 95
+spilled_bytes = 192
+threads_per_threadgroup = 256
+spilled_bytes_x_threads = 49152
+static_threadgroup_memory = 528
+max_threads_per_threadgroup = 1024
+code_bytes = 4368
+
+[kernels.wide_rigid]
+instructions = 3127
+temp_registers = 96
+spilled_bytes = 144
+threads_per_threadgroup = 256
+spilled_bytes_x_threads = 36864
+static_threadgroup_memory = 1040
+max_threads_per_threadgroup = 1024
+code_bytes = 22882
+
+[kernels.wide_wake]
+instructions = 970
+temp_registers = 56
+spilled_bytes = 0
+threads_per_threadgroup = 256
+spilled_bytes_x_threads = 0
+static_threadgroup_memory = 528
+max_threads_per_threadgroup = 1024
+code_bytes = 7530
