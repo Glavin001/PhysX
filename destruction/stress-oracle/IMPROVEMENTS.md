@@ -1002,7 +1002,35 @@ hard impacts above about 10 m/s belong in explicit windows.
 - The analysis's tier 2 takes impacts as velocity conditions
   (`ImpactModel::VelocityCondition`, momentum exact). That model lives only in the
   engine API (`api.rs`), so this calibration measures tier 2 with explicit contacts.
-  Calibrating with velocity conditions needs a driver through that API: open.
+  Calibrating with velocity conditions needs a driver through that API: done below.
+
+**Tier 2 with velocity conditions, through PhysX** (`stress-physx` example
+`tier2_velocity`, PhysX CPU from a macOS install via `PHYSX_ROOT`). The same walls and
+ram as above, 6 frames of 1/60 s, three ways:
+- the standalone world, explicit (the truth);
+- PhysX with Hertz pulses and the explicit solve;
+- PhysX with velocity conditions and the implicit solve (the analysis's tier 2).
+
+Both PhysX runs allow at most one correction. "Detached" counts chunks off the anchored
+body; "fast" counts those moving at over half the ram's initial speed.
+
+| Wall, speed | Truth | PhysX explicit | PhysX tier 2 | Ram after (truth / PhysX) |
+|---|---|---|---|---|
+| concrete 0.2 m, 10 m/s | push-over (800) | push-over | push-over | 8.4 / 0.8-0.9 m/s |
+| concrete 0.2 m, 20 m/s | punch-through: 32 out, all fast | 800, none fast | 800, none fast | 18.1 / 1.0 |
+| concrete 0.2 m, 40 m/s | punch-through: 32 fast | 800, none fast | 800, none fast | 37.0 / 1.2-11.6 |
+| brick 0.2 m, 15 m/s | punch-through: 32 fast | 800, none fast | 800, 19 fast | 14.0 / 0.3-0.7 |
+| brick 0.2 m, 30 m/s | 719 out, 40 fast | 61, none fast | 800, 149 fast | 27.4 / 2.0-10.9 |
+
+No PhysX configuration punches through at any speed, explicit or tier 2, with 0, 1 or
+4 corrections. PhysX resolves the ram against the rigid anchored wall and stops it
+within a frame; the stress solver then receives the whole ram's momentum, and the wall
+shatters. That is the handover `stress-physx`'s own documentation names: a correction
+pass cannot shorten a rigid contact. So through the engine API, tier 2 cannot be
+calibrated apart from the coupling: the coupling's error is larger than the tier's at
+every speed. The coupled world (`World::with_engine`) avoids it by solving impacts in
+impact islands with the world's own contacts. That is the route for a tiered pipeline,
+and the oracle's explicit-against-implicit sweep above remains the tier calibration.
 
 **Implicit steps that do not converge (fixed).** `newmark_step` committed its best
 state when Newton stalled, with relative residuals up to 0.52 in the gate's implicit
