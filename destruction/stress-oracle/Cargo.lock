@@ -1695,6 +1695,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "stress-reduce"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "stress-ref",
+]
+
+[[package]]
 name = "stress-ref"
 version = "0.1.0"
 dependencies = [

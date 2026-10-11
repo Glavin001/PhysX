@@ -118,6 +118,31 @@ fn run_gpu(gpu: &Gpu, scene: &Scene, frames: usize) -> Result<Frames, String> {
         substeps.push(world.solver.mirror.substeps - before);
     }
     world.solver.sync(gpu);
+    // Where the frames went (stderr, beside the table): host activity over the run and,
+    // with STRESS_GPU_TIMING=1, GPU time per kernel.
+    let p = &world.solver.profile;
+    eprintln!(
+        "{}: {:.2} s over {frames} frames; substeps {}, batches {}, host splits {} (+{} resumed), re-plans {}, max pairs {}; build {:.2} s, gpu {:.2} s, readback {:.2} s, split {:.2} s, download {:.2} s, frame tails {:.2} s",
+        scene.name,
+        times.iter().sum::<f64>(),
+        p.substeps,
+        p.batches,
+        world.solver.host_splits,
+        world.solver.resumed_halts,
+        world.solver.replans,
+        p.max_pairs,
+        p.build,
+        p.gpu,
+        p.readback,
+        p.split,
+        p.download,
+        world.tail_seconds
+    );
+    for (k, name) in stress_gpu::solver::KERNEL_NAMES.iter().enumerate() {
+        if p.kernel_dispatches[k] > 0 {
+            eprintln!("  {name:<20} {:8.3} s GPU over {:>7} dispatches ({:6.1} us each)", p.kernels[k], p.kernel_dispatches[k], p.kernels[k] / p.kernel_dispatches[k] as f64 * 1e6);
+        }
+    }
     let (chunks, bonds, broken) = counts(&world.solver.mirror);
     Ok(Frames { times, substeps, setup, chunks, bonds, broken })
 }
