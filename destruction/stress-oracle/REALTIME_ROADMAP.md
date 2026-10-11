@@ -337,6 +337,12 @@ Setup: CuMetal PhysX GPU, established methods, certified true step at safety 0.2
 | 6 | a resumed halt starts short batches too | 1467 | Bond breaks that leave the cluster connected left long batches launching empty: 14.4k rounds for 4,418 substeps |
 | 7 | **fix: the step bounds the GPU's own, enforced contact plan** | 6087 | See below |
 | 8 | pair stiffness over reachable directions; plans per quarter frame on ballistic paths; segment redo; two bookkeeping fixes | **2059** | See below |
+| 9 | contact step from the contact network's certified radius; the solver stops at every plan it makes and the world re-steps | 1004 | Collatz–Wielandt on the block-norm network B (λmax(A) ≤ ρ(B)): a 200 kg ram on about 230 light candidates is a star, where row sums overstate ρ about 7.5× (test `network_tests`). Plans made within a step (split, re-plan, stride rebuild) stop it before anything runs under them, so there is no segment redo. Re-plan test made relative to the step's span |
+| 10 | five dispatches per contact substep instead of seven | 1103 (noise) | sums with impactors, narrow islands with wide chunks (one kernel per threadgroup). Debris frames 540 → 450 ms. PEAK held by the fracture frame's 256 host round trips |
+| 11 | **wide islands check their connectivity on the GPU** | 717 | Label propagation with label jumping in threadgroup memory (up to 4096 chunks). The fracture frame had 130 resumed halts (bond broke, cluster whole), each stopping every island for a host round trip: 256 → 80 batches, 1000 → 695 ms |
+| 12 | narrow islands too | discarded (749) | Only 2–8 narrow resumed halts per frame here, and the 16 KB label array lowers `island_frame` occupancy. Combined with wide threshold 400: wall 578 vs 678 ms, house fracture 783 vs 775 ms, so PEAK unchanged |
+| 13 | impactor candidates on a SIMD group each | **624** | Two serial loops over about 28 slots per candidate thread: fracture 695 → 625 ms, debris 450 → 410 ms |
+| 14 | no snapshot per island-frame segment | discarded (629) | Download time unchanged (37 ms, from per-step motion syncs and split downloads) |
 
 **The certification gap found at #7.**
 - Rows 1–6 bounded the contacts of a fresh one-frame plan whose travel budgets nothing enforced. The GPU ran its own four-frame plan, with larger budgets and more pairs.
@@ -351,7 +357,15 @@ Setup: CuMetal PhysX GPU, established methods, certified true step at safety 0.2
    - `step_times` kept the times of a state's earlier run. A state restored and run at another step size had stale times: `mirror.time`, probes, and the new plan clock (it looped forever).
    - After a host split, the plan horizon took the substeps left of clusters already split away (2.8× too long).
 
-**Where the peak is now** (profiles `house_ram_profile`, `wall_ram_profile`):
+**Where the peak is now, after #13 (PEAK about 620 ms).**
+- **Wall ram, frame 0, about 600 ms.** About 5,800 substeps, mostly at contact steps of 2.1–3.8e-6 s from fragments in contact.
+- **House ram, fracture frame 1, about 610 ms.** 4,420 substeps at the stress step, 20 host splits.
+- **Debris frames about 400 ms.** Per substep (timed): islands with wide chunks 36 µs, contact forces 27, wide bonds 18, sums with impactors 15, wide end 8.
+- **Idle house.** First frame 18 ms, median 4.5 ms.
+
+The substep counts are now set by the physics (certified stress and contact steps at safety 0.25). The cost per substep (about 90 µs across 5 dependent dispatches) is the remaining multiplier. The next architectural step is lever (a) below: the contact pipeline of every contact island (contacts, sums, bonds, chunks, rigid motion, connectivity) in one persistent threadgroup over many substeps, barriers instead of dispatches. A2's per-substep floor (about 8 µs) suggests 5–8× on these frames.
+
+**Earlier profile, after #8:**
 - **House ram.** Every island frame runs at the stress step (4,420 substeps of 3.77e-6 s) with no redo. Fracture frame 1.05 s; debris frames about 0.54 s (about 120 µs per substep over 7 dispatches).
 - **Wall ram, frame 0, 2.4 s.** The impact segment's plans still need 8.4e-7 s once the wall shatters at 46 m/s. Later frames: 0.22 s at the stress step outside islands.
 - **Idle house.** First frame 39 ms, median 8.7 ms.
