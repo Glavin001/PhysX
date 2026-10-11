@@ -86,6 +86,7 @@ struct Params
     float statics_tol;       // relative residual of an equilibrium
     uint pair_lanes;         // lanes per candidate pair in contact_forces (0: one)
     uint device_connect;     // islands check a disconnection's connectivity themselves
+    uint cplan_base;         // scratch: each chunk's contact plan, 4 float4 (`travel_check`)
 };
 
 static const uint MODE_EXPLICIT = 0;
@@ -989,12 +990,20 @@ void travel_check(uint c)
     ChunkStatic ch = chunks[c];
     if (ch.cinfo.z == 0)
         return;
+    // The plan (kept out of ChunkStatic, which every kernel loads): start position hi
+    // with the budget, lo with the plan time's rounding, orientation, velocity with the
+    // plan time.
+    uint at = params.cplan_base + 4 * c;
+    float4 start_hi = scratch[at];
+    float4 start_lo = scratch[at + 1];
+    float4 start_rot = scratch[at + 2];
+    float4 start_vel = scratch[at + 3];
     WorldPoint wp = chunk_world(c);
-    float3 moved = ((wp.hi - ch.start_hi.xyz) + (wp.lo - ch.start_lo.xyz)) + wp.rel;
+    float3 moved = ((wp.hi - start_hi.xyz) + (wp.lo - start_lo.xyz)) + wp.rel;
     // Seconds since the plan: to the host step's start, then the island's substeps since.
-    float since = ((params.t_hi - ch.start_vel.w) + (params.t_lo - ch.start_lo.w)) + float(islands[ch.info.y].info.w - params.step_start) * params.dt;
+    float since = ((params.t_hi - start_vel.w) + (params.t_lo - start_lo.w)) + float(islands[ch.info.y].info.w - params.step_start) * params.dt;
     // Deviation from the ballistic path the plan expects (contacts.rs `plan`).
-    float3 expected = ch.start_vel.xyz * since + ((ch.cinfo.w & 2u) != 0 ? 0.5 * params.gravity.xyz * since * since : float3(0.0));
+    float3 expected = start_vel.xyz * since + ((ch.cinfo.w & 2u) != 0 ? 0.5 * params.gravity.xyz * since * since : float3(0.0));
     float travel = length(moved - expected);
     if ((ch.cinfo.w & 1u) != 0)
     {
@@ -1002,11 +1011,11 @@ void travel_check(uint c)
         // radius from the centre moves at most (turn angle) x radius more.
         float3 th = state[4 * c + 1].xyz;
         Quat now = quat_mul(quat_of(islands[ch.info.y].rotation), from_axis_angle(th, length(th)));
-        Quat start = quat_of(float4(-ch.start_rot.xyz, ch.start_rot.w));
+        Quat start = quat_of(float4(-start_rot.xyz, start_rot.w));
         Quat turn = quat_mul(start, now);
         travel += 2.0 * atan2(length(float3(turn.x, turn.y, turn.z)), abs(turn.w)) * ch.half.w;
     }
-    if (travel > ch.start_hi.w)
+    if (travel > start_hi.w)
     {
         // Every writer stores the same bit: no atomics needed.
         islands[params.halt_index].info.z = islands[params.halt_index].info.z | STOP_NOW;

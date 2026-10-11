@@ -47,6 +47,7 @@ struct Params_std140_0
     @align(4) statics_tol_0 : f32,
     @align(16) pair_lanes_0 : u32,
     @align(4) device_connect_0 : u32,
+    @align(8) cplan_base_0 : u32,
 };
 
 @binding(0) @group(0) var<uniform> params_0 : Params_std140_0;
@@ -103,11 +104,7 @@ struct ChunkStatic_std430_0
     @align(16) crot1_0 : vec4<f32>,
     @align(16) crot2_0 : vec4<f32>,
     @align(16) cmat_0 : vec4<f32>,
-    @align(16) start_hi_0 : vec4<f32>,
-    @align(16) start_lo_0 : vec4<f32>,
     @align(16) cinfo_0 : vec4<u32>,
-    @align(16) start_rot_0 : vec4<f32>,
-    @align(16) start_vel_0 : vec4<f32>,
 };
 
 @binding(3) @group(0) var<storage, read> chunks_0 : array<ChunkStatic_std430_0>;
@@ -1930,12 +1927,15 @@ fn travel_check_0( c_6 : u32)
     {
         return;
     }
+    var _S148 : u32 = u32(4) * c_6;
+    var at_2 : u32 = params_0.cplan_base_0 + _S148;
+    var start_hi_0 : vec4<f32> = scratch_0[at_2];
+    var start_rot_0 : vec4<f32> = scratch_0[at_2 + u32(2)];
     var wp_0 : WorldPoint_0 = chunk_world_0(c_6);
-    var _S148 : vec4<f32> = chunks_0[c_6].start_hi_0;
-    var moved_0 : vec3<f32> = wp_0.hi_0 - chunks_0[c_6].start_hi_0.xyz + (wp_0.lo_0 - chunks_0[c_6].start_lo_0.xyz) + wp_0.rel_0;
+    var moved_0 : vec3<f32> = wp_0.hi_0 - scratch_0[at_2].xyz + (wp_0.lo_0 - scratch_0[at_2 + u32(1)].xyz) + wp_0.rel_0;
     var _S149 : u32 = chunks_0[c_6].info_1.y;
-    var _S150 : vec3<f32> = vec3<f32>((params_0.t_hi_0 - chunks_0[c_6].start_vel_0.w + (params_0.t_lo_0 - chunks_0[c_6].start_lo_0.w) + f32(islands_0[_S149].info_0.w - params_0.step_start_0) * params_0.dt_0));
-    var _S151 : vec3<f32> = chunks_0[c_6].start_vel_0.xyz * _S150;
+    var _S150 : vec3<f32> = vec3<f32>((params_0.t_hi_0 - scratch_0[at_2 + u32(3)].w + (params_0.t_lo_0 - scratch_0[at_2 + u32(1)].w) + f32(islands_0[_S149].info_0.w - params_0.step_start_0) * params_0.dt_0));
+    var _S151 : vec3<f32> = scratch_0[at_2 + u32(3)].xyz * _S150;
     var _S152 : u32 = _S147.w;
     var _S153 : vec3<f32>;
     if(((_S152 & (u32(2)))) != u32(0))
@@ -1950,15 +1950,15 @@ fn travel_check_0( c_6 : u32)
     var travel_1 : f32;
     if(((_S152 & (u32(1)))) != u32(0))
     {
-        var th_1 : vec3<f32> = state_0[u32(4) * c_6 + u32(1)].xyz;
-        var turn_0 : Quat_0 = quat_mul_0(quat_of_0(vec4<f32>((vec3<f32>(0) - chunks_0[c_6].start_rot_0.xyz), chunks_0[c_6].start_rot_0.w)), quat_mul_0(quat_of_0(islands_0[_S149].rotation_0), from_axis_angle_0(th_1, length(th_1))));
+        var th_1 : vec3<f32> = state_0[_S148 + u32(1)].xyz;
+        var turn_0 : Quat_0 = quat_mul_0(quat_of_0(vec4<f32>((vec3<f32>(0) - start_rot_0.xyz), start_rot_0.w)), quat_mul_0(quat_of_0(islands_0[_S149].rotation_0), from_axis_angle_0(th_1, length(th_1))));
         travel_1 = travel_0 + 2.0f * atan2(length(vec3<f32>(turn_0.x_3, turn_0.y_2, turn_0.z_0)), abs(turn_0.w_0)) * chunks_0[c_6].half_0.w;
     }
     else
     {
         travel_1 = travel_0;
     }
-    if(travel_1 > (_S148.w))
+    if(travel_1 > (start_hi_0.w))
     {
         islands_0[params_0.halt_index_0].info_0[i32(2)] = ((islands_0[params_0.halt_index_0].info_0.z) | (u32(1)));
         sentinel_mark_0(u32(1048576));
@@ -2058,9 +2058,9 @@ fn impactor_shares(@builtin(global_invocation_id) id_1 : vec3<u32>)
         return;
     }
     var _S167 : u32 = u32(3) * k_9;
-    var at_2 : u32 = params_0.cand_index_0 + _S167;
-    var c_7 : u32 = index_0[at_2];
-    var _S168 : u32 = index_0[at_2 + u32(2)];
+    var at_3 : u32 = params_0.cand_index_0 + _S167;
+    var c_7 : u32 = index_0[at_3];
+    var _S168 : u32 = index_0[at_3 + u32(2)];
     var _S169 : Impactor_std430_0 = impactors_0[_S168];
     if((_S169.cand_0.z) == u32(0))
     {
@@ -3911,29 +3911,29 @@ fn island_connected_0( tid_16 : u32,  isl_23 : Island_0) -> bool
 
 fn write_probe_0( slot_2 : u32,  k_14 : u32,  value_1 : f32)
 {
-    var at_3 : u32 = params_0.probe_base_0 * u32(4) + slot_2 * params_0.probe_stride_0 + k_14;
-    var v_9 : vec4<f32> = scratch_0[at_3 / u32(4)];
-    v_9[at_3 % u32(4)] = value_1;
-    scratch_0[at_3 / u32(4)] = v_9;
+    var at_4 : u32 = params_0.probe_base_0 * u32(4) + slot_2 * params_0.probe_stride_0 + k_14;
+    var v_9 : vec4<f32> = scratch_0[at_4 / u32(4)];
+    v_9[at_4 % u32(4)] = value_1;
+    scratch_0[at_4 / u32(4)] = v_9;
     return;
 }
 
 fn record_probes_0( isl_24 : Island_0,  rg_14 : Rigid_0,  k_15 : u32)
 {
-    var at_4 : u32 = isl_24.probes_0.x;
+    var at_5 : u32 = isl_24.probes_0.x;
     loop
     {
-        if(at_4 < (isl_24.probes_0.y))
+        if(at_5 < (isl_24.probes_0.y))
         {
         }
         else
         {
             break;
         }
-        var info_3 : vec4<u32> = (bitcast<vec4<u32>>((loads_0[at_4])));
-        var a_17 : vec4<f32> = loads_0[at_4 + u32(1)];
-        var b_34 : vec4<f32> = loads_0[at_4 + u32(2)];
-        var c4_0 : vec4<f32> = loads_0[at_4 + u32(3)];
+        var info_3 : vec4<u32> = (bitcast<vec4<u32>>((loads_0[at_5])));
+        var a_17 : vec4<f32> = loads_0[at_5 + u32(1)];
+        var b_34 : vec4<f32> = loads_0[at_5 + u32(2)];
+        var c4_0 : vec4<f32> = loads_0[at_5 + u32(3)];
         var kind_1 : u32 = info_3.x;
         var i_5 : u32 = info_3.y;
         var value_2 : f32;
@@ -3983,22 +3983,22 @@ fn record_probes_0( isl_24 : Island_0,  rg_14 : Rigid_0,  k_15 : u32)
             }
         }
         write_probe_0(info_3.w, k_15, value_2);
-        at_4 = at_4 + u32(4);
+        at_5 = at_5 + u32(4);
     }
     return;
 }
 
-fn contact_split_at_0( at_5 : u32)
+fn contact_split_at_0( at_6 : u32)
 {
     var previous_0 : u32 = islands_0[params_0.halt_index_0].info_0.y;
     var _S380 : u32;
     if(previous_0 == u32(0))
     {
-        _S380 = at_5;
+        _S380 = at_6;
     }
     else
     {
-        _S380 = min(previous_0, at_5);
+        _S380 = min(previous_0, at_6);
     }
     islands_0[params_0.halt_index_0].info_0[i32(1)] = _S380;
     return;
@@ -8431,9 +8431,9 @@ fn impactor_integrate_at_0( ii_2 : u32,  tid_23 : u32)
     var k_24 : u32 = imp_6.cand_0.w - u32(1) - params_0.step_start_0;
     if(k_24 < (params_0.record_stride_0))
     {
-        var at_6 : u32 = params_0.record_base_0 + u32(2) * (ii_2 * params_0.record_stride_0 + k_24);
-        scratch_0[at_6] = vec4<f32>(vel_1 + vel_err_1, 0.0f);
-        scratch_0[at_6 + u32(1)] = vec4<f32>(pos_1 + pos_err_1, 0.0f);
+        var at_7 : u32 = params_0.record_base_0 + u32(2) * (ii_2 * params_0.record_stride_0 + k_24);
+        scratch_0[at_7] = vec4<f32>(vel_1 + vel_err_1, 0.0f);
+        scratch_0[at_7 + u32(1)] = vec4<f32>(pos_1 + pos_err_1, 0.0f);
     }
     return;
 }

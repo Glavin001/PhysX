@@ -132,6 +132,9 @@ struct Params {
     /// Islands check a disconnection's connectivity themselves (0:
     /// `STRESS_GPU_DEVICE_CONNECT=0`, always the host's).
     device_connect: u32,
+    /// Scratch: each chunk's contact plan (start position hi with its budget, lo with
+    /// the plan time's rounding, orientation, velocity with the plan time), 4 float4.
+    cplan_base: u32,
 }
 
 #[repr(C)]
@@ -171,11 +174,7 @@ struct ChunkStatic {
     half: [f32; 4],
     crot: [[f32; 4]; 3],
     cmat: [f32; 4],
-    start_hi: [f32; 4],
-    start_lo: [f32; 4],
     cinfo: [u32; 4],
-    start_rot: [f32; 4],
-    start_vel: [f32; 4],
 }
 
 #[repr(C)]
@@ -945,6 +944,8 @@ impl GpuSolver {
             contributions[*b as usize].push((2 * i + 1) as u32);
         }
         let mut segments: Vec<u32> = Vec::new();
+        // Each chunk's contact plan, for the scratch (`cplan_base`).
+        let mut chunk_plan = vec![[[0f32; 4]; 4]; chunks.len()];
         for (k, &(s, c)) in chunks.iter().enumerate() {
             let ci = m.chunks[s][c].cluster;
             let data = &m.structures[s].chunks[c];
@@ -964,25 +965,25 @@ impl GpuSolver {
             cs.half = v4(data.half_extents, data.half_extents.norm());
             cs.crot = rows(&data.rotation);
             cs.cmat = [e as f32, mu as f32, f32::from_bits(hull_of[k].0), f32::from_bits(hull_of[k].1)];
-            cs.start_hi = [start_hi[0], start_hi[1], start_hi[2], plan.budget[k] as f32];
-            cs.start_lo = start_lo;
+            let mut start_lo = start_lo;
             let falls = plan.falls.get(k).copied().unwrap_or(false);
             cs.cinfo = [begin, (segments.len() / 3) as u32, plan.contact_clusters[ci] as u32, plan.rotation_checked.get(k).copied().unwrap_or(false) as u32 | (falls as u32) << 1];
             // The ballistic path the budget is measured from: velocity, and the time the
             // plan started (compensated pair, with start_lo.w).
             let (t_hi, t_lo) = split1(plan_time);
-            cs.start_vel = v4(plan.velocity.get(k).copied().unwrap_or(Vec3::ZERO), t_hi as f64);
-            cs.start_lo[3] = t_lo;
+            let start_vel = v4(plan.velocity.get(k).copied().unwrap_or(Vec3::ZERO), t_hi as f64);
+            start_lo[3] = t_lo;
             // Orientation at the segment start (cluster rotation x hidden rotation), x y z w.
             let st = &m.chunks[s][c];
             let q = m.clusters[ci].pose.rotation;
             let h = stress_ref::math::Quat::from_axis_angle(st.th, st.th.norm());
-            cs.start_rot = [
+            let start_rot = [
                 (q.w * h.x + q.x * h.w + q.y * h.z - q.z * h.y) as f32,
                 (q.w * h.y - q.x * h.z + q.y * h.w + q.z * h.x) as f32,
                 (q.w * h.z + q.x * h.y - q.y * h.x + q.z * h.w) as f32,
                 (q.w * h.w - q.x * h.x - q.y * h.y - q.z * h.z) as f32,
             ];
+            chunk_plan[k] = [[start_hi[0], start_hi[1], start_hi[2], plan.budget[k] as f32], start_lo, start_rot, start_vel];
         }
         if std::env::var("STRESS_GPU_CONTACT_STATS").is_ok() {
             let per_chunk = contributions.iter().map(|c| c.len()).max().unwrap_or(0);
@@ -1107,7 +1108,8 @@ impl GpuSolver {
         let cframe_base = cload_base + 2 * n;
         // Static solves: 23 float4 per chunk, 2 per bond, 1 per island.
         let statics_base = cframe_base + 2 * n;
-        let scratch_len = statics_base + 23 * n + 2 * bonds.len() + islands.len() + 1;
+        let cplan_base = statics_base + 23 * n + 2 * bonds.len() + islands.len() + 1;
+        let scratch_len = cplan_base + 4 * n;
 
         let (gravity, ground) = (m.config.gravity, scene.as_ref().and_then(|s| s.ground.clone()));
         let (g_hi, g_lo) = split1(ground.as_ref().map_or(0.0, |g| g.height));
@@ -1157,6 +1159,7 @@ impl GpuSolver {
             statics_cg: 20_000,
             statics_tol: std::env::var("STRESS_GPU_STATICS_TOL").ok().and_then(|v| v.parse().ok()).unwrap_or(1e-5),
             pair_lanes: if gpu.shader_path == crate::gpu::ShaderPath::Wgsl { 1 } else { 32 },
+            cplan_base: cplan_base as u32,
             device_connect: std::env::var("STRESS_GPU_DEVICE_CONNECT").map_or(1, |v| (v != "0") as u32),
             ..Default::default()
         };
@@ -1184,6 +1187,9 @@ impl GpuSolver {
             None => gpu.storage("bond dyn", &bond_dyn),
         };
         let mut scratch_init = vec![[0f32; 4]; scratch_len];
+        for (k, rows) in chunk_plan.iter().enumerate() {
+            scratch_init[cplan_base + 4 * k..cplan_base + 4 * k + 4].copy_from_slice(rows);
+        }
         // Bond loads from the mirror's forces: settled islands keep them (their bonds are
         // not evaluated) for the section probes.
         for (i, &(s, bi)) in bonds.iter().enumerate() {
