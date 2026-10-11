@@ -14,6 +14,8 @@
 //! The reference runs (the truth) are cached (`gate::cached`).
 //!
 //! `--gpu-only`: skip the stress-ref runs (timing only; accuracy is the tests' job).
+//! `--pace`: start each frame on its 1/60 s tick (a game loop: the GPU idles between
+//! frames); without it frames run back to back.
 
 use std::time::Instant;
 
@@ -75,10 +77,20 @@ fn contacts(scene: &Scene, frame: usize, destruction: bool) -> Vec<ContactImpuls
     }]
 }
 
+/// Paced frames (`--pace`): each starts on its 1/60 s tick, as in a game loop, so the
+/// GPU idles between frames (and may lower its clock) unless a frame overruns.
+static PACE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
 fn run(scene: &Scene, solver: &mut dyn StressSolverApi, setup: f64, frames: usize, destruction: bool, cap: f64) -> Run {
     let mut times = Vec::new();
     let start = Instant::now();
     for f in 0..frames {
+        if PACE.load(std::sync::atomic::Ordering::Relaxed) {
+            let tick = std::time::Duration::from_secs_f64(f as f64 / 60.0);
+            if let Some(wait) = tick.checked_sub(start.elapsed()) {
+                std::thread::sleep(wait);
+            }
+        }
         let input = FrameInput { dt: 1.0 / 60.0, motion: Vec::new(), contacts: contacts(scene, f, destruction) };
         let t = Instant::now();
         solver.step(&input);
@@ -134,6 +146,7 @@ fn main() {
             "--ref-cap" => cap = args.next().and_then(|v| v.parse().ok()).expect("--ref-cap S"),
             "--only" => only = args.next(),
             "--gpu-only" => gpu_only = true,
+            "--pace" => PACE.store(true, std::sync::atomic::Ordering::Relaxed),
             other => panic!("unknown argument {other}"),
         }
     }

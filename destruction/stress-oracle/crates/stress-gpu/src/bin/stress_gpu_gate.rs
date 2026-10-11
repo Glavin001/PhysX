@@ -85,7 +85,25 @@ fn main() {
         let gpu_s = t.elapsed().as_secs_f64();
         let (err, _) = difference(&refs.reference, &ours);
         let allowed = allowed_error(&refs.reference, &refs.half, &refs.spreads);
-        let fails = gate(&refs.reference, &ours, &refs.half, &refs.spreads);
+        let mut fails = gate(&refs.reference, &ours, &refs.half, &refs.spreads);
+        let mut verdict = "pass".to_string();
+        if !fails.is_empty() && stress_gpu::gate::is_chaotic(&refs) {
+            // A chaotic case: judge the GPU's distribution over the same input changes.
+            let mut runs = vec![ours.clone()];
+            for e in stress_gpu::gate::perturbations() {
+                let s = stress_gpu::gate::perturbed_by(&c.scene, e);
+                match GpuWorld::new(&gpu, &s).and_then(|mut w| w.run(&gpu)) {
+                    Ok(o) => runs.push(o),
+                    Err(e) => eprintln!("  {}: ensemble run failed: {e}", c.name),
+                }
+            }
+            let ensemble = stress_gpu::gate::ensemble_gate(&refs, &runs);
+            if ensemble.is_empty() {
+                let b: Vec<String> = runs.iter().map(|o| format!("{}", o.values.get("broken_bonds").copied().unwrap_or(0.0))).collect();
+                verdict = format!("pass (chaotic; GPU ensemble broken bonds {})", b.join(","));
+            }
+            fails = ensemble;
+        }
         let v = |o: &stress_ref::observation::Observation, k: &str| o.values.get(k).copied().unwrap_or(0.0);
         println!(
             "| {} | {:.2} s | {err:.1e} | {allowed:.1e} | {}/{} | {}/{} | {gpu_s:.1} | {:.1} | {} |",
@@ -96,7 +114,7 @@ fn main() {
             v(&refs.reference, "fragments"),
             v(&ours, "fragments"),
             refs.reference_seconds,
-            if fails.is_empty() { "pass".to_string() } else { format!("FAIL: {}", fails.join("; ")) }
+            if fails.is_empty() { verdict } else { format!("FAIL: {}", fails.join("; ")) }
         );
         if !fails.is_empty() {
             // Where it differs, beside the reference's own spread and half step.

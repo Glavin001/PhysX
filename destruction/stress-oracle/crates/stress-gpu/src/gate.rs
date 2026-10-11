@@ -73,19 +73,24 @@ pub fn perturbed_by(scene: &Scene, eps: f64) -> Scene {
     s
 }
 
-/// The input perturbation of the spread runs (`STRESS_GPU_PERTURB` overrides).
-pub fn perturbation() -> f64 {
-    std::env::var("STRESS_GPU_PERTURB").ok().and_then(|v| v.parse::<f64>().ok()).unwrap_or(1e-4)
+/// The input perturbations of the spread runs: +-1e-6, +-1e-5, +-1e-4
+/// (`STRESS_GPU_PERTURB=e` restricts them to +-e). One pair is not enough: on a chaotic
+/// cascade (b8_frame_sudden, adaptive) the reference's broken bonds range over 18-35
+/// for input changes from 1e-7 to 1e-3, while +-1e-4 alone happened to give 22-24.
+pub fn perturbations() -> Vec<f64> {
+    match std::env::var("STRESS_GPU_PERTURB").ok().and_then(|v| v.parse::<f64>().ok()) {
+        Some(e) => vec![e, -e],
+        None => vec![1e-6, -1e-6, 1e-5, -1e-5, 1e-4, -1e-4],
+    }
 }
 
-/// The reference's sensitivity to its inputs: the runs with its inputs perturbed by
-/// +-1e-4. That is the size of the GPU's own perturbation: f32 arithmetic moves even
-/// smooth, intact runs by 1e-5 to 5e-4 of their range over thousands of substeps, so
-/// wherever the reference separates under a 1e-4 change (fracture cascades, fatigue and
-/// settling thresholds), the GPU may separate as far.
+/// The reference's sensitivity to its inputs: the runs with its inputs perturbed
+/// (`perturbations`). That is the size of the GPU's own perturbation: f32 arithmetic
+/// moves even smooth, intact runs by 1e-5 to 5e-4 of their range over thousands of
+/// substeps, so wherever the reference separates under such changes (fracture
+/// cascades, fatigue and settling thresholds), the GPU may separate as far.
 pub fn spread_run(scene: &Scene, _reference: &Observation) -> Vec<Observation> {
-    let eps = perturbation();
-    [eps, -eps].iter().map(|&e| World::new(&perturbed_by(scene, e)).run()).collect()
+    perturbations().iter().map(|&e| World::new(&perturbed_by(scene, e)).run()).collect()
 }
 
 /// The largest of the spread runs' differences from the reference (with its notes).
@@ -125,6 +130,51 @@ pub fn gate(reference: &Observation, ours: &Observation, half: &Observation, spr
         if d > allowed {
             fails.push(format!("{key} {} vs {r} (allowed {allowed})", value(ours, key)));
         }
+    }
+    fails
+}
+
+/// The counts of the reference's ensemble: the reference run, the half step and the
+/// perturbed runs.
+fn ensemble_counts(refs: &ReferenceSet, key: &str) -> Vec<f64> {
+    std::iter::once(&refs.reference).chain(std::iter::once(&refs.half)).chain(refs.spreads.iter()).map(|o| value(o, key)).collect()
+}
+
+/// A chaotic case: the reference's own ensemble scatters its broken bonds or fragments
+/// by at least 10% (and 3). One GPU run against one reference run is then a draw from
+/// each distribution, not a comparison (b8_frame_sudden adaptive: the reference gives
+/// 18-35 broken bonds and the GPU 16-33 under 1e-7..1e-3 input changes, while single
+/// runs gave 23 and 43).
+pub fn is_chaotic(refs: &ReferenceSet) -> bool {
+    ["broken_bonds", "fragments"].iter().any(|k| {
+        let r = value(&refs.reference, k);
+        let dev = ensemble_counts(refs, k).iter().map(|c| (c - r).abs()).fold(0.0, f64::max);
+        dev >= (0.1 * r).max(3.0)
+    })
+}
+
+/// The ensemble judgement of a chaotic case: the GPU run on the same input changes as
+/// the reference's ensemble (`perturbations`, plus the unperturbed run); its median
+/// broken bonds and fragments must lie within the reference ensemble's range, and its
+/// median probe error within the allowed error. Returns what fails.
+pub fn ensemble_gate(refs: &ReferenceSet, gpu: &[Observation]) -> Vec<String> {
+    let median = |mut v: Vec<f64>| {
+        v.sort_by(f64::total_cmp);
+        v[v.len() / 2]
+    };
+    let mut fails = Vec::new();
+    for key in ["broken_bonds", "fragments"] {
+        let c = ensemble_counts(refs, key);
+        let (lo, hi) = (c.iter().copied().fold(f64::INFINITY, f64::min), c.iter().copied().fold(f64::NEG_INFINITY, f64::max));
+        let m = median(gpu.iter().map(|o| value(o, key)).collect());
+        if m < lo || m > hi {
+            fails.push(format!("{key}: GPU median {m} outside the reference's {lo}-{hi}"));
+        }
+    }
+    let allowed = allowed_error(&refs.reference, &refs.half, &refs.spreads);
+    let err = median(gpu.iter().map(|o| difference(&refs.reference, o).0).collect());
+    if !(err <= allowed) {
+        fails.push(format!("median probes {err:.1e} > {allowed:.1e}"));
     }
     fails
 }
@@ -301,7 +351,8 @@ pub fn reference_fingerprint() -> u64 {
         files.sort();
         let mut h = 0xcbf29ce484222325;
         for f in files {
-            h = fnv(f.to_string_lossy().as_bytes(), h);
+            // Relative paths: every checkout of the same sources shares the cache.
+            h = fnv(f.strip_prefix(&root).unwrap_or(&f).to_string_lossy().as_bytes(), h);
             h = fnv(&std::fs::read(&f).unwrap_or_default(), h);
         }
         h
@@ -377,12 +428,14 @@ fn store_at<T: serde::Serialize>(path: &Path, value: &T) {
     }
 }
 
-/// The reference set's cache file: the scene's JSON, the perturbation and stress-ref's
+/// The reference set's cache file: the scene's JSON, the perturbations and stress-ref's
 /// fingerprint.
 fn reference_path(scene: &Scene) -> PathBuf {
     let json = serde_json::to_string(scene).expect("scene json");
     let mut h = fnv(json.as_bytes(), 0xcbf29ce484222325);
-    h = fnv(&perturbation().to_bits().to_le_bytes(), h);
+    for e in perturbations() {
+        h = fnv(&e.to_bits().to_le_bytes(), h);
+    }
     h = fnv(&reference_fingerprint().to_le_bytes(), h);
     cache_dir().join(format!("{}-{h:016x}.json", scene.name))
 }
@@ -423,7 +476,7 @@ fn decode(mut set: ReferenceSet) -> ReferenceSet {
     set
 }
 
-/// The case's reference set from the cache, or computed (its four runs in parallel) and
+/// The case's reference set from the cache, or computed (its runs in parallel) and
 /// stored. `compute`: false returns None on a miss instead of running the reference.
 pub fn reference_set(scene: &Scene, compute: bool) -> Option<ReferenceSet> {
     let path = reference_path(scene);
@@ -433,19 +486,18 @@ pub fn reference_set(scene: &Scene, compute: bool) -> Option<ReferenceSet> {
     if !compute {
         return None;
     }
-    let eps = perturbation();
-    let (reference, half, plus, minus) = std::thread::scope(|sc| {
+    let eps = perturbations();
+    let (reference, half, spreads) = std::thread::scope(|sc| {
         let r = sc.spawn(|| {
             let t = std::time::Instant::now();
             let o = World::new(scene).run();
             (o, t.elapsed().as_secs_f64())
         });
         let h = sc.spawn(|| World::new(&refined(scene)).run());
-        let p = sc.spawn(|| World::new(&perturbed_by(scene, eps)).run());
-        let m = sc.spawn(|| World::new(&perturbed_by(scene, -eps)).run());
-        (r.join().unwrap(), h.join().unwrap(), p.join().unwrap(), m.join().unwrap())
+        let ps: Vec<_> = eps.iter().map(|&e| sc.spawn(move || World::new(&perturbed_by(scene, e)).run())).collect();
+        (r.join().unwrap(), h.join().unwrap(), ps.into_iter().map(|p| p.join().unwrap()).collect::<Vec<_>>())
     });
-    let set = ReferenceSet { reference: reference.0, half, spreads: vec![plus, minus], reference_seconds: reference.1 };
+    let set = ReferenceSet { reference: reference.0, half, spreads, reference_seconds: reference.1 };
     let set = encode(set);
     store_at(&path, &set);
     Some(decode(set))
