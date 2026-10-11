@@ -866,6 +866,18 @@ settles both:
 No tolerance is chosen; the test takes about 30 s longer. Suite 125/125 with the
 switch on.
 
+**Other contact geometries** (`examples/contact_lattice MATERIAL N VARIANT`, 6^3, brick
+and concrete, safeties 0.8-1.1):
+- **`rotated`** (cubes turned +-10 degrees in a checkerboard, corner to face): stable
+  at every safety under both bounds (energy growth at most 1.02 with the lattice bound,
+  1.23 with the old one). Corner contacts are softer than faces.
+- **`layers`** (cubes alternating with plates a quarter as thick, every contact the
+  same overlap): stable at every safety under both bounds. A thin plate between thick
+  blocks sees a layer of `h_thin + h_thick`; the bound assumes an equal neighbour
+  (`2 h_thin`), here 2.5x stiffer.
+The densest equal-cube face packing stays the critical case, and the per-chunk lattice
+bound covers it (stable at 1.0, above).
+
 **Stability harness fixed.** `examples/stability` took its reference energy after the
 first frame, so a run that blew up within that frame read as stable. It now evaluates
 the bonds' stored energy at the perturbed state before any step. Re-run:
@@ -939,11 +951,29 @@ at 10-40 m/s, explicit against implicit, fidelity's judge) places the threshold:
 | 10, 15 m/s | push-over: the whole wall falls (800 chunks) | same failure mode; pieces differ (58 -> 4 at 15 m/s) |
 | 20, 25, 30, 35, 40 m/s | punch-through: 32 chunks out at about the ram's speed | nothing detaches; the collapse flag is lost |
 
-So tier 2 fails exactly where punch-through begins, between 15 and 20 m/s. There
-`p0 / f_c` is about 145-160 (it grows as `v^0.4`: 123 at 10 m/s, 214 at 40). The wave
-ratios barely move over the sweep (`t_c` goes as `v^-1/5`), so they cannot place it.
-For the GPU tiering: a punch-through criterion (contact pressure against strength,
-calibrated on more rams and walls this way) where the analysis has `t_c <= T_w`.
+So tier 2 fails exactly where punch-through begins, between 15 and 20 m/s.
+
+**More rams and walls:**
+
+| Ram | Explicit punch-through starts | `p0 / f_c` across the boundary |
+|---|---|---|
+| 500 kg on b5's wall | 20 m/s | 126 -> 141 |
+| 1000 kg | 20 m/s | about 145 -> 160 |
+| 2000 kg | 20 m/s | 166 -> 187 |
+| b7's brick wall, 30 kg ram, 4-40 m/s | never: the whole wall collapses | implicit matches the failure at every speed (pieces differ) |
+
+A fourfold change in ram mass leaves the boundary at the same speed, while the
+pressure ratio across it spans 126-187. So for this wall the punch-through criterion is
+the impact speed, not the contact pressure. The wave ratios barely move with speed
+either (`t_c` goes as `v^-1/5`).
+
+At 500 kg and 20 m/s, implicit gives the wrong mode: the whole wall pushes over (800
+chunks) where the truth punches 32 out. Its failure flags agree, so fidelity's
+`fails` metric misses it; `where` catches it.
+
+For the GPU tiering, the rule `t_c <= T_w` does not find punch-through. A
+critical-speed criterion per wall (material and thickness), calibrated on the oracle
+by this sweep, does: for b5's 0.2 m concrete wall, 15-20 m/s.
 Blast loads and dropped bodies have no `t_c` here yet.
 
 GPU-only items are out of scope for the CPU oracle: shared-memory windows, cooperative

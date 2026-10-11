@@ -6,7 +6,7 @@
 //! step bound stays bounded at 0.9.
 //!
 //! ```text
-//! cargo run --release -p stress-ref --example contact_lattice [material] [n]
+//! cargo run --release -p stress-ref --example contact_lattice [material] [n] [cube|layers|rotated]
 //! ```
 
 use stress_ref::builders::{body, chunk, new_scene};
@@ -17,17 +17,34 @@ use stress_ref::world::World;
 const SUBSTEPS: u64 = 20_000;
 const SAFETIES: [f64; 4] = [0.8, 0.9, 1.0, 1.1];
 
-fn lattice(material: &str, n: usize, safety: f64) -> Scene {
+/// `variant`: `cube` (equal cubes, face to face), `layers` (cubes alternating with plates a
+/// quarter as thick, so thin and thick chunks press face to face), `rotated` (cubes
+/// turned +-10 degrees about z in a checkerboard, touching corner to face).
+fn lattice(material: &str, n: usize, safety: f64, variant: &str) -> Scene {
     let mut s = new_scene("contact_lattice", "dense lattice of unbonded cubes in face contact");
     s.gravity = [0.0; 3];
     s.materials.insert(material.into(), stress_ref::material::preset(material).expect("material"));
     let side = 0.25;
-    let pitch = side * (1.0 - 1e-5);
+    let turn = 10f64.to_radians();
+    let squeeze = 1.0 - 1e-5;
     let mut chunks = Vec::new();
+    // Layer heights (z) for `layers`: side and side / 4 alternating.
+    let thickness = |k: usize| if variant == "layers" && k % 2 == 1 { 0.25 * side } else { side };
+    let mut z = 0.0;
     for k in 0..n {
+        // Every contact the same overlap (an unequal one would push a plate harder on
+        // one face than the other: no equilibrium to perturb).
+        let tz = thickness(k);
+        let zc = z + 0.5 * tz;
+        z += tz - side * (1.0 - squeeze);
         for j in 0..n {
             for i in 0..n {
-                let mut c = chunk(Vec3::new(i as f64, j as f64, k as f64) * pitch, Vec3::splat(0.5 * side), material);
+                let pitch = if variant == "rotated" { side * (turn.cos() + turn.sin()) * squeeze } else { side * squeeze };
+                let mut c = chunk(Vec3::new(i as f64 * pitch, j as f64 * pitch, if variant == "rotated" { k as f64 * side * squeeze } else { zc }), Vec3::new(0.5 * side, 0.5 * side, 0.5 * tz), material);
+                if variant == "rotated" {
+                    let a = if (i + j) % 2 == 0 { turn } else { -turn };
+                    c.orientation = [(0.5 * a).cos(), 0.0, 0.0, (0.5 * a).sin()];
+                }
                 if [i, j, k].iter().any(|&x| x == 0 || x == n - 1) {
                     c.support = Support::Fixed;
                 }
@@ -81,10 +98,11 @@ fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let material = args.first().map(String::as_str).unwrap_or("brick");
     let n: usize = args.get(1).and_then(|v| v.parse().ok()).unwrap_or(6);
+    let variant = args.get(2).map(String::as_str).unwrap_or("cube");
     let row: Vec<String> = SAFETIES
         .iter()
         .map(|&s| {
-            let (g, k) = growth(&lattice(material, n, s));
+            let (g, k) = growth(&lattice(material, n, s, variant));
             if g > 1e6 {
                 format!("{:>12}", format!("BLOW@{k}"))
             } else {
@@ -92,5 +110,5 @@ fn main() {
             }
         })
         .collect();
-    println!("{material} n={n}: kinetic energy growth at safety {:?}: {}", SAFETIES, row.join(""));
+    println!("{material} n={n} {variant}: kinetic energy growth at safety {:?}: {}", SAFETIES, row.join(""));
 }
