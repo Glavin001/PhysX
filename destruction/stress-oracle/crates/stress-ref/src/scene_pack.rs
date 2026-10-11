@@ -162,6 +162,7 @@ pub fn import(path: &std::path::Path, name: &str, body_name: &str) -> Result<Sce
 
     let mut bonds = Vec::new();
     let mut fallback = 0usize;
+    let mut degenerate = 0usize;
     for b in sc["bonds"].as_array().ok_or("pack has no bonds")? {
         let (a, bb) = (b["node0"].as_u64().ok_or("bad bond")? as usize, b["node1"].as_u64().ok_or("bad bond")? as usize);
         let asset_material = b["m"].as_u64().and_then(|m| pack_materials.get(m as usize)).cloned().unwrap_or_else(|| node_materials[a].clone());
@@ -183,6 +184,12 @@ pub fn import(path: &std::path::Path, name: &str, body_name: &str) -> Result<Sce
             }
         };
         if area <= 0.0 {
+            continue;
+        }
+        // A patch with no width in one direction (two faces meeting along an edge, or a
+        // sliver of shared face) has no section to bend about: not a bond.
+        if !(width[0] > 0.0 && width[1] > 0.0) {
+            degenerate += 1;
             continue;
         }
         let rebar = is_reinforced_concrete(&asset_material).then(|| {
@@ -207,6 +214,9 @@ pub fn import(path: &std::path::Path, name: &str, body_name: &str) -> Result<Sce
     }
     if fallback > 0 {
         scene.description = format!("{} ({fallback} of {} bond patches from the asset's area, no shared face found)", scene.description, bonds.len());
+    }
+    if degenerate > 0 {
+        scene.description = format!("{} ({degenerate} asset bonds left out: their shared face has no width)", scene.description);
     }
 
     scene.materials.entry("concrete".into()).or_insert_with(Material::concrete);

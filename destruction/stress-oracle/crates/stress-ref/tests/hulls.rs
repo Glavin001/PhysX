@@ -112,3 +112,19 @@ fn scene_packs_import_and_stand() {
         assert!(o.values["broken_bonds"] <= 0.005 * b_bonds, "{file}: {} joints fail under self-weight", o.values["broken_bonds"]);
     }
 }
+
+/// Asset bonds whose shared face has no width (faces meeting along an edge) are left out
+/// on import and counted; before, the whole pack failed validation. Packs without such
+/// bonds import byte for byte as before.
+#[test]
+fn scene_packs_leave_out_bonds_without_width() {
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../../blast/blast-stress-demo-rs/assets/scenes");
+    let path = dir.join("petronas.json");
+    if !path.exists() {
+        eprintln!("{} not found; skipping", path.display());
+        return;
+    }
+    let s = stress_ref::scene_pack::import(&path, "petronas", "structure").unwrap();
+    assert!(s.description.contains("(11 asset bonds left out: their shared face has no width)"), "{}", s.description);
+    assert!(s.bodies[0].bonds.iter().all(|b| b.area > 0.0 && b.width[0] > 0.0 && b.width[1] > 0.0));
+}
