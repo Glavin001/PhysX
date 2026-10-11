@@ -618,6 +618,17 @@ impl GpuSolver {
         Ok(())
     }
 
+    /// The contact plan `plan_for(horizon)` would make, on the host only (nothing is
+    /// built or uploaded): for weighing horizons before building one.
+    pub fn plan_preview(&self, horizon: f64) -> crate::contacts::PlanView {
+        let chunks = &self.layout.chunks;
+        let plan = match self.scene() {
+            Some(scene) if self.contacts_possible() && horizon > 0.0 => crate::contacts::plan(scene, &self.mirror, &self.impactors, chunks, horizon),
+            _ => crate::contacts::Plan::default(),
+        };
+        crate::contacts::PlanView::of(&plan, chunks)
+    }
+
     /// The current contact plan by (structure, chunk).
     pub fn plan_view(&self) -> crate::contacts::PlanView {
         crate::contacts::PlanView::of(&self.layout.plan, &self.layout.chunks)

@@ -81,6 +81,11 @@ pub struct GpuWorld {
     pub own_dashpot_step: bool,
     /// Those steps by structure (computed when the world is coupled).
     damped_steps: Vec<f64>,
+    /// Measured costs of island frames (seconds, count): per substep, and per segment
+    /// set-up (snapshot, contact plan, its bound). They choose how far a contact-bound
+    /// segment plans (`step_frame_coupled`).
+    cost_substep: (f64, u64),
+    cost_segment: (f64, u64),
 }
 
 /// Segments of an island frame, each checked against the contact plans made within it
@@ -136,6 +141,8 @@ impl GpuWorld {
             engaged_contact_step: true,
             own_dashpot_step: true,
             damped_steps: Vec::new(),
+            cost_substep: (0.0, 0),
+            cost_segment: (0.0, 0),
         };
         let values: Vec<f64> = (0..scene.probes.len()).map(|p| w.probe_value(p)).collect();
         w.record(w.solver.mirror.time, &values, true);
@@ -231,15 +238,44 @@ impl GpuWorld {
                 self.solver.stop_at_plan = true;
                 while t_end - self.solver.mirror.time > 1e-3 * span {
                     let rest = t_end - self.solver.mirror.time;
-                    let horizon = if rest < 1.5 * span { rest } else { span };
-                    let seg_end = self.solver.mirror.time + horizon;
+                    let mut horizon = if rest < 1.5 * span { rest } else { span };
+                    let t_setup = std::time::Instant::now();
                     let snap = self.solver.snapshot(gpu);
                     let host = (self.events_done.clone(), self.blasts_active.clone(), self.probes.clone(), self.next_sample, self.filter.clone());
                     let seg_taken = taken;
+                    let stress = self.stress_dt();
+                    // A contact-bound segment weighs shorter horizons (host-only plans)
+                    // while that lowers the predicted cost per simulated second,
+                    // (cost per substep) / step + (cost per segment) / horizon, both as
+                    // measured so far: candidates, sweeps and the directions pairs can press
+                    // along shrink with the horizon (a fast fragment sweeps past fewer
+                    // chunks), at the price of more segments. The segment then ends there.
+                    if self.cost_substep.1 > 0 && self.cost_segment.1 > 0 {
+                        let per_sub = self.cost_substep.0 / self.cost_substep.1 as f64;
+                        let per_seg = self.cost_segment.0 / self.cost_segment.1 as f64;
+                        let cost = |w: &Self, h: f64, c: f64| per_sub / w.combined_dt(stress, c, fdt) + per_seg / h;
+                        let mut contact = self.plan_contact_dt(&self.solver.plan_preview(horizon)).min(cap);
+                        while contact < stress {
+                            let shorter = 0.5 * horizon;
+                            if shorter < self.combined_dt(stress, contact, fdt) {
+                                break;
+                            }
+                            let c = self.plan_contact_dt(&self.solver.plan_preview(shorter)).min(cap);
+                            if cost(self, shorter, c) < cost(self, horizon, contact) {
+                                (horizon, contact) = (shorter, c);
+                            } else {
+                                break;
+                            }
+                        }
+                    }
+                    // The plan the GPU enforces, and its bound (the step's certificate).
                     self.solver.plan_for(gpu, horizon)?;
                     let view = self.solver.plan_view();
-                    let stress = self.stress_dt();
                     let mut contact = self.plan_contact_dt(&view).min(cap);
+                    let setup = t_setup.elapsed().as_secs_f64();
+                    let seg_end = self.solver.mirror.time + horizon;
+                    self.cost_segment.0 += setup;
+                    self.cost_segment.1 += 1;
                     let mut violated = None;
                     // The segment, re-stepped whenever the solver stops at a new plan
                     // (nothing has run under it yet).
@@ -252,7 +288,12 @@ impl GpuWorld {
                         let len = (left / dt).ceil().max(1.0) as usize;
                         let step = left / len as f64;
                         self.solver.plan_log = Some(Vec::new());
+                        let t_run = std::time::Instant::now();
                         let ran = self.advance_substeps(gpu, step, len)?;
+                        if ran > 0 {
+                            self.cost_substep.0 += t_run.elapsed().as_secs_f64();
+                            self.cost_substep.1 += ran as u64;
+                        }
                         taken += ran;
                         let log = self.solver.plan_log.take().unwrap_or_default();
                         let need = log.iter().map(|v| self.plan_contact_dt(v)).fold(f64::INFINITY, f64::min);
