@@ -73,6 +73,14 @@ pub struct GpuWorld {
     /// bound, which presses every chunk of the scene with the scene's stiffest material.
     /// A step change (measured against the reference); on by default.
     pub engaged_contact_step: bool,
+    /// Coupled to an engine, with `sim.methods.true_step`: each structure's certified
+    /// stress step from the dashpots its bonds actually have
+    /// (`stability::certified_damped_step`) instead of the oracle's, which pairs the
+    /// largest dashpot-to-stiffness ratio of any bond with the stiffest mode. Exact class
+    /// (a sharper certificate of the same scheme); on by default.
+    pub own_dashpot_step: bool,
+    /// Those steps by structure (computed when the world is coupled).
+    damped_steps: Vec<f64>,
 }
 
 /// Why a scene cannot run on the GPU yet.
@@ -122,6 +130,8 @@ impl GpuWorld {
             filter: crate::coupled::LoadFilter::default(),
             stress_step_outside_islands: true,
             engaged_contact_step: true,
+            own_dashpot_step: true,
+            damped_steps: Vec::new(),
         };
         let values: Vec<f64> = (0..scene.probes.len()).map(|p| w.probe_value(p)).collect();
         w.record(w.solver.mirror.time, &values, true);
@@ -149,6 +159,10 @@ impl GpuWorld {
         }
         let mut w = GpuWorld::new(gpu, scene)?;
         w.solver.sync(gpu);
+        if scene.sim.methods.true_step {
+            let m = &w.solver.mirror;
+            w.damped_steps = (0..m.structures.len()).map(|s| crate::stability::certified_damped_step(m, s)).collect();
+        }
         w.with_shell_mut(|shell| shell.attach_engine(engine));
         Ok(w)
     }
@@ -187,12 +201,12 @@ impl GpuWorld {
             self.solver.refresh(gpu)?;
             let (mut n, mut h) = (f.n, f.h);
             if self.stress_step_outside_islands && f.frozen.is_empty() {
-                let dt = self.solver.mirror.stable_dt().min(fdt);
+                let dt = self.stress_dt().min(fdt);
                 n = (fdt / dt).ceil().max(1.0) as usize;
                 h = fdt / n as f64;
             } else if self.engaged_contact_step && !f.frozen.is_empty() {
                 let contact = self.engaged_contact_dt(fdt);
-                let stress = self.solver.mirror.stable_dt();
+                let stress = self.stress_dt();
                 let dt = if self.scene.sim.methods.scaled_step_bound { 1.0 / (stress.powi(-2) + contact.powi(-2)).sqrt() } else { stress.min(contact) };
                 let mut dt = dt.min(fdt);
                 if let Some(m) = self.scene.sim.max_substep {
@@ -244,6 +258,27 @@ impl GpuWorld {
             w.coupled_write_back(&frozen);
         });
         self.solver.refresh(gpu)
+    }
+
+    /// The reference's `stable_dt` with each structure's certified step from its own
+    /// dashpots (`own_dashpot_step`): the larger of the chunk Gershgorin step and that,
+    /// over the clusters integrated explicitly, times the safety.
+    fn stress_dt(&self) -> f64 {
+        let m = &self.solver.mirror;
+        if !self.own_dashpot_step || self.damped_steps.is_empty() {
+            return m.stable_dt();
+        }
+        let mut dt = f64::INFINITY;
+        for ci in 0..m.clusters.len() {
+            let cl = &m.clusters[ci];
+            let settled = m.config.mode == SolveMode::Adaptive && cl.activity != stress_ref::solver::Activity::Active;
+            if cl.bonds.is_empty() || settled {
+                continue;
+            }
+            let gershgorin = m.chunk_stable_dts(ci).iter().map(|&(_, d)| d).fold(f64::INFINITY, f64::min);
+            dt = dt.min(gershgorin.max(self.damped_steps[cl.structure]));
+        }
+        dt * m.config.courant_safety
     }
 
     /// The contact bound over this frame's engagements (`engaged_contact_step`): the

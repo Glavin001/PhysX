@@ -160,3 +160,164 @@ pub fn with_true_step(scene: &stress_ref::scene::Scene, safety: f64) -> (stress_
     s.sim.courant_safety *= ratio;
     (s, ratio)
 }
+
+/// Certified upper bound of the spectral radius of `M^-1 (K + (2/h) C)` over structure
+/// `s`'s live bonds (`h` infinite: `M^-1 K`), with each bond at full stiffness (rebar
+/// included) and its dashpots at their full rate (`secant_factors` only lower them):
+/// the oracle's `structure_frequency_bound` (Collatz-Wielandt on `|L^-1 X L^-T|`, chunk
+/// blocks, supports free) with the dashpots on the same kinematic rows as the springs.
+pub fn certified_radius(m: &ReferenceSolver, s: usize, h: f64) -> Option<f64> {
+    const ITERATIONS: usize = 2000;
+    const CONVERGED: f64 = 1e-4;
+    type Block = [[f64; 6]; 6];
+    let st = &m.structures[s];
+    let n = st.chunks.len();
+    let bonds: Vec<usize> = (0..m.bonds[s].len()).filter(|&b| m.bonds[s][b].alive).collect();
+    if bonds.is_empty() {
+        return None;
+    }
+    let linv: Vec<Block> = (0..n)
+        .map(|c| {
+            let ch = &st.chunks[c];
+            let mu = m.chunks[s][c].inertia_scale;
+            let mut out = [[0.0f64; 6]; 6];
+            for t in 0..3 {
+                out[t][t] = 1.0 / (ch.mass * mu).sqrt();
+            }
+            let a: [[f64; 3]; 3] = std::array::from_fn(|i| std::array::from_fn(|j| ch.inertia.m[i][j] * mu));
+            let mut l = [[0.0f64; 3]; 3];
+            for i in 0..3 {
+                for j in 0..=i {
+                    let sum: f64 = (0..j).map(|p| l[i][p] * l[j][p]).sum();
+                    l[i][j] = if i == j { (a[i][i] - sum).max(0.0).sqrt() } else { (a[i][j] - sum) / l[j][j] };
+                }
+            }
+            for i in 0..3 {
+                out[3 + i][3 + i] = 1.0 / l[i][i];
+                for j in 0..i {
+                    let sum: f64 = (j..i).map(|p| l[i][p] * out[3 + p][3 + j]).sum();
+                    out[3 + i][3 + j] = -sum / l[i][i];
+                }
+            }
+            out
+        })
+        .collect();
+    let congruent = |la: &Block, x: &Block, lb: &Block| -> Block {
+        let t: Block = std::array::from_fn(|i| std::array::from_fn(|j| (0..6).map(|p| la[i][p] * x[p][j]).sum()));
+        std::array::from_fn(|i| std::array::from_fn(|j| (0..6).map(|p| t[i][p] * lb[j][p]).sum()))
+    };
+    let mut diag = vec![[[0.0f64; 6]; 6]; n];
+    let mut off: Vec<((usize, usize), Block)> = Vec::with_capacity(bonds.len());
+    for &bi in &bonds {
+        let b = &m.bonds[s][bi];
+        let g = &b.geometry;
+        let (k, c) = (stiffness6(b), b.damping);
+        let rate = if h.is_finite() { 2.0 / h } else { 0.0 };
+        let ks = [k.lin.x + rate * c.lin.x, k.lin.y + rate * c.lin.y, k.lin.z + rate * c.lin.z, k.ang.x + rate * c.ang.x, k.ang.y + rate * c.ang.y, k.ang.z + rate * c.ang.z];
+        let axes = [g.t1, g.t2, g.normal];
+        let rows: [[f64; 12]; 6] = std::array::from_fn(|comp| {
+            let t = axes[comp % 3];
+            let r: [Vec3; 4] = if comp < 3 { [-t, -(g.ra.cross(t)), t, g.rb.cross(t)] } else { [Vec3::ZERO, -t, Vec3::ZERO, t] };
+            std::array::from_fn(|x| r[x / 3].to_array()[x % 3])
+        });
+        let kb: [[f64; 12]; 12] = std::array::from_fn(|x| std::array::from_fn(|y| (0..6).map(|c| ks[c] * rows[c][x] * rows[c][y]).sum()));
+        let blk = |r0: usize, c0: usize| -> Block { std::array::from_fn(|i| std::array::from_fn(|j| kb[r0 + i][c0 + j])) };
+        let (a, bb) = (g.a, g.b);
+        let aa = congruent(&linv[a], &blk(0, 0), &linv[a]);
+        let bbk = congruent(&linv[bb], &blk(6, 6), &linv[bb]);
+        for i in 0..6 {
+            for j in 0..6 {
+                diag[a][i][j] += aa[i][j];
+                diag[bb][i][j] += bbk[i][j];
+            }
+        }
+        let (lo, hi, x) = if a < bb { (a, bb, blk(0, 6)) } else { (bb, a, blk(6, 0)) };
+        off.push(((lo, hi), congruent(&linv[lo], &x, &linv[hi])));
+    }
+    off.sort_by_key(|e| e.0);
+    let mut merged: Vec<((usize, usize), Block)> = Vec::with_capacity(off.len());
+    for (key, x) in off {
+        match merged.last_mut() {
+            Some((k, acc)) if *k == key => {
+                for i in 0..6 {
+                    for j in 0..6 {
+                        acc[i][j] += x[i][j];
+                    }
+                }
+            }
+            _ => merged.push((key, x)),
+        }
+    }
+    let abs = |x: &Block| -> Block { x.map(|r| r.map(f64::abs)) };
+    let diag: Vec<Block> = diag.iter().map(abs).collect();
+    let merged: Vec<((usize, usize), Block)> = merged.iter().map(|(k, x)| (*k, abs(x))).collect();
+    let apply = |v: &[[f64; 6]]| -> Vec<[f64; 6]> {
+        let mut y = vec![[0.0f64; 6]; n];
+        for c in 0..n {
+            for i in 0..6 {
+                y[c][i] = (0..6).map(|j| diag[c][i][j] * v[c][j]).sum();
+            }
+        }
+        for &((a, b), x) in &merged {
+            for i in 0..6 {
+                for j in 0..6 {
+                    y[a][i] += x[i][j] * v[b][j];
+                    y[b][j] += x[i][j] * v[a][i];
+                }
+            }
+        }
+        y
+    };
+    let mut v = vec![[1.0f64; 6]; n];
+    let mut bound = f64::INFINITY;
+    for _ in 0..ITERATIONS {
+        let y = apply(&v);
+        let (mut hi, mut lo, mut top) = (0.0f64, f64::INFINITY, 0.0f64);
+        for c in 0..n {
+            for d in 0..6 {
+                if y[c][d] > 0.0 {
+                    let ratio = if v[c][d] > 0.0 { y[c][d] / v[c][d] } else { f64::INFINITY };
+                    hi = hi.max(ratio);
+                    lo = lo.min(ratio);
+                }
+                top = top.max(y[c][d]);
+            }
+        }
+        bound = bound.min(hi);
+        if !(top > 0.0) || hi - lo <= CONVERGED * hi {
+            break;
+        }
+        v = y.iter().map(|r| r.map(|x| x / top)).collect();
+    }
+    (bound > 0.0 && bound.is_finite()).then_some(bound)
+}
+
+/// The certified stable central-difference substep of structure `s` (before the safety
+/// factor) from the dashpots each bond actually has. Leapfrog with dashpots on the lagged
+/// velocity is stable while `(h^2 / 4) K + (h / 2) C < M`, i.e. while
+/// `h <= 2 / sqrt(rho(M^-1 (K + (2/h) C)))` (one mode: `(2/w)(sqrt(1 + z^2) - z)`).
+/// The oracle's `structure_true_step` bounds `C <= beta K` with `beta` the largest
+/// dashpot-to-stiffness ratio of any bond, which pairs the most damped bond with the
+/// stiffest mode. Here `h <- 2 / sqrt(rho(h))` from the oracle's certified step: each
+/// iterate is checked against its own certified radius, so every returned step is
+/// certified; the iteration rises monotonically to the fixed point.
+pub fn certified_damped_step(m: &ReferenceSolver, s: usize) -> f64 {
+    let start = m.structure_true_step(s);
+    if !start.is_finite() {
+        return start;
+    }
+    let mut h = start;
+    let Some(mut rho) = certified_radius(m, s, h) else { return h };
+    for _ in 0..32 {
+        let next = 2.0 / rho.sqrt();
+        if next <= h * (1.0 + 1e-3) {
+            break;
+        }
+        // `next` is certified only if it holds against its own (smaller) radius.
+        match certified_radius(m, s, next) {
+            Some(r) if next * next * r <= 4.0 => (h, rho) = (next, r),
+            _ => break,
+        }
+    }
+    h
+}

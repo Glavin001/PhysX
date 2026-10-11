@@ -134,6 +134,9 @@ fn levers(scene: &Scene, iters: usize) {
         per_frame(SAFETY * 2.0 / certified_w),
         certified_w
     );
+    let td = std::time::Instant::now();
+    let damped = (0..m.structures.len()).map(|s| stress_gpu::stability::certified_damped_step(&m, s) * SAFETY).fold(f64::INFINITY, f64::min);
+    println!("  certified with each bond's own dashpots {:>6.0} substeps/frame ({:.2} s)", per_frame(damped), td.elapsed().as_secs_f64());
     println!(
         "  island steps     min {:.3e}  median {:.3e}  max {:.3e} s   per-island stepping saves x{:.2}",
         dts[0],
