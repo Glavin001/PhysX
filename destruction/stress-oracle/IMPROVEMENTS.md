@@ -920,8 +920,22 @@ Results:
 So the oracle supports the analysis's intent: punch-through and spall need explicit
 windows. But the stated rule (`t_c <= T_w` for tier 3) puts b5_v40 in tier 2 with either
 transit time. A breach is local punching and bending, not a through-thickness wave.
-The criterion needs another measure, for example the Hertz contact pressure against the
-member's strength. That is open for the GPU tiering; the oracle now has the tools.
+The criterion needs another measure. A candidate, now in the regime map: the elastic
+Hertz peak pressure over the target's compressive strength.
+
+| Scene | `p0 / f_c` |
+|---|---|
+| b5_v40 (implicit misses the breach) | 214 |
+| b5_v10 | 123 |
+| b5_v02 | 65 |
+| cars | 49-54 |
+| b7 | 26-44 |
+
+It ranks the one failure first. But one failing case cannot place a threshold, and
+every impact here exceeds the strength by an order of magnitude or more (all crush
+locally). Calibrating it needs more impact scenes between v10 and v40 (speed, mass,
+radius), each judged explicit against implicit with `scripts/fidelity.py`. That is
+open for the GPU tiering; the oracle now has the tools.
 Blast loads and dropped bodies have no `t_c` here yet.
 
 GPU-only items are out of scope for the CPU oracle: shared-memory windows, cooperative

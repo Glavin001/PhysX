@@ -77,6 +77,33 @@ fn loading_time(s: &Scene) -> Option<(f64, &'static str)> {
     best
 }
 
+/// Peak Hertz contact pressure of the strongest impact over the target's compressive
+/// strength: `delta = (15 m v^2 / (16 E* sqrt R))^(2/5)`, `F = 4/3 E* sqrt R delta^(3/2)`,
+/// `p0 = (6 F E*^2 / (pi^3 R^2))^(1/3)`.
+fn contact_pressure_ratio(s: &Scene) -> Option<f64> {
+    s.impactors
+        .iter()
+        .filter_map(|imp| {
+            let v = imp.velocity.iter().map(|x| x * x).sum::<f64>().sqrt();
+            if v <= 0.0 {
+                return None;
+            }
+            let r = match imp.shape {
+                ImpactorShape::Sphere { radius } => radius,
+                ImpactorShape::Box { half_extents } => half_extents.iter().copied().fold(f64::INFINITY, f64::min),
+            };
+            let mi = s.material(&imp.material);
+            let target = s.bodies.first().and_then(|b| b.chunks.first()).map(|c| s.material(&c.material))?;
+            let es = |m: &stress_ref::material::Material| (1.0 - m.poisson_ratio * m.poisson_ratio) / (m.youngs_modulus * s.sim.stiffness_scale);
+            let e_star = 1.0 / (es(mi) + es(target));
+            let delta = (15.0 * imp.mass * v * v / (16.0 * e_star * r.sqrt())).powf(0.4);
+            let force = 4.0 / 3.0 * e_star * r.sqrt() * delta.powf(1.5);
+            let p0 = (6.0 * force * e_star * e_star / (std::f64::consts::PI.powi(3) * r * r)).cbrt();
+            Some(p0 / target.compressive_strength)
+        })
+        .reduce(f64::max)
+}
+
 fn report(s: &Scene) {
     let sv = ReferenceSolver::new(s);
     // The largest anchored cluster's structure.
@@ -126,7 +153,7 @@ fn report(s: &Scene) {
     };
     let f = |x: Option<f64>| x.map_or("-".to_string(), |v| format!("{v:.3e}"));
     println!(
-        "{:28} {:5} chunks  t_c {:>10} ({:8})  T_w {:.3e}  T_w,member {:>10}  T_1 {:>10}  t_c/T_w {:>9}  t_c/T_w,member {:>9}  t_c/T_1 {:>9}  tier {}",
+        "{:28} {:5} chunks  t_c {:>10} ({:8})  T_w {:.3e}  T_w,member {:>10}  T_1 {:>10}  t_c/T_w {:>9}  t_c/T_w,member {:>9}  t_c/T_1 {:>9}  p0/f_c {:>7}  tier {}",
         s.name,
         sv.clusters[ci].chunks.len(),
         f(tc.map(|x| x.0)),
@@ -143,6 +170,7 @@ fn report(s: &Scene) {
             (Some(x), Some(p)) => format!("{:.3}", x.0 / p),
             _ => "-".into(),
         },
+        contact_pressure_ratio(s).map_or("-".into(), |x| format!("{x:.1}")),
         tier
     );
 }
