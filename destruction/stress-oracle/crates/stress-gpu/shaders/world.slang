@@ -1085,12 +1085,8 @@ void impactor_crush(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
     impactors[ii] = imp;
 }
 
-[shader("compute")]
-[numthreads(256, 1, 1)]
-void impactor_integrate(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
+void impactor_integrate_at(uint ii, uint tid)
 {
-    uint ii = group.x;
-    uint tid = thread.x;
     if (ii >= params.impactor_count)
         return;
     Island sentinel = islands[params.halt_index];
@@ -1386,11 +1382,8 @@ void chunk_external(uint c, ChunkStatic ch, Quat rot, uint k, float dt, bool con
 // The contact loads of a chunk in the reference's order (impactors, ground, chunk
 // pairs), summed in segments of a few entries, one thread each: a chunk in a pile can
 // have hundreds of candidates, too long a chain for one thread.
-[shader("compute")]
-[numthreads(64, 1, 1)]
-void contact_sums(uint3 id: SV_DispatchThreadID)
+void contact_sum_at(uint g)
 {
-    uint g = id.x;
     if (g >= params.seg_count || stopped())
         return;
     uint c = index[params.seg_index + 3 * g];
@@ -1830,12 +1823,9 @@ void contact_split_at(uint at)
 
 // ------------------------------------------------------------------ narrow islands
 
-[shader("compute")]
-[numthreads(256, 1, 1)]
-void island_frame(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
+void island_frame_at(uint gi, uint tid)
 {
-    uint tid = thread.x;
-    Island isl = islands[group.x];
+    Island isl = islands[gi];
     bool anchored = (isl.info.x & ISLAND_ANCHORED) != 0;
     bool driven = (isl.info.x & ISLAND_DRIVEN) != 0;
     bool free_motion = !anchored && !driven;
@@ -1985,7 +1975,7 @@ void island_frame(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
             isl.info.x &= ~ISLAND_SETTLED;
             isl.info.z |= ISLAND_WOKE;
         }
-        islands[group.x] = isl;
+        islands[gi] = isl;
     }
 }
 
@@ -2149,12 +2139,9 @@ Rigid wide_rigid_frame(uint tid, Island isl, WideGroup wg)
     return rg;
 }
 
-[shader("compute")]
-[numthreads(256, 1, 1)]
-void wide_chunks(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
+void wide_chunks_at(uint gx, uint tid)
 {
-    uint tid = thread.x;
-    WideGroup wg = wide_group(params.wide_chunk_table, group.x);
+    WideGroup wg = wide_group(params.wide_chunk_table, gx);
     Island isl = islands[wg.island];
     if (!wide_enter(tid, isl))
         return;
@@ -2163,7 +2150,7 @@ void wide_chunks(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
     {
         // Rigid motion only; its loads were recorded by `wide_wake`.
         if (tid == 0)
-            scratch[params.wide_base + 8 * group.x + 6] = float4(0.0);
+            scratch[params.wide_base + 8 * gx + 6] = float4(0.0);
         return;
     }
     Rigid rg = wide_rigid_frame(tid, isl, wg);
@@ -2185,11 +2172,11 @@ void wide_chunks(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
         group_sum3<THREADS>(tid, tu, pv);
     if (tid == 0)
     {
-        scratch[params.wide_base + 8 * group.x + 6] = float4(wsum, 0.0);
+        scratch[params.wide_base + 8 * gx + 6] = float4(wsum, 0.0);
         if (!anchored)
-            wide_store(group.x, 2, tu, pv);
+            wide_store(gx, 2, tu, pv);
         // The load flags in the free partial slot (summed by `wide_end`): no atomics.
-        scratch[params.wide_base + 8 * group.x + 7] = float4(float(g_seen[SEEN_LOAD]), float(g_seen[SEEN_BLAST]), float(g_seen[SEEN_PULSE]), 0.0);
+        scratch[params.wide_base + 8 * gx + 7] = float4(float(g_seen[SEEN_LOAD]), float(g_seen[SEEN_BLAST]), float(g_seen[SEEN_PULSE]), 0.0);
     }
 }
 
@@ -2946,4 +2933,62 @@ void settled_fatigue(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
     if ((g_halt | g_run) != 0)
         islands[group.x].info.z = isl.info.z | (g_halt != 0 ? ISLAND_DAMAGED : 0) | (g_run != 0 ? ISLAND_DISCONNECTED : 0);
     islands[group.x].coverage = isl.coverage | COV_SETTLED_FATIGUE | seen_bits() | (g_run != 0 ? COV_DISCONNECTED : 0);
+}
+
+// ------------------------------------------------------------------ kernel entries
+
+[shader("compute")]
+[numthreads(256, 1, 1)]
+void impactor_integrate(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
+{
+    impactor_integrate_at(group.x, thread.x);
+}
+
+[shader("compute")]
+[numthreads(64, 1, 1)]
+void contact_sums(uint3 id: SV_DispatchThreadID)
+{
+    contact_sum_at(id.x);
+}
+
+[shader("compute")]
+[numthreads(256, 1, 1)]
+void island_frame(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
+{
+    island_frame_at(group.x, thread.x);
+}
+
+[shader("compute")]
+[numthreads(256, 1, 1)]
+void wide_chunks(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
+{
+    wide_chunks_at(group.x, thread.x);
+}
+
+// A substep's contact pipeline with fewer dispatches (each removes a launch's latency):
+// kernels that read only what earlier dispatches wrote share one, each threadgroup
+// running one of them (its barriers stay uniform).
+// After contact_forces: the contact sums (groups of 256 segments) and the impactors'
+// integration (one group each), both reading only contact_forces' outputs.
+[shader("compute")]
+[numthreads(256, 1, 1)]
+void sums_and_impactors(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
+{
+    uint sums_groups = (params.seg_count + 255u) / 256u;
+    if (group.x < sums_groups)
+        contact_sum_at(group.x * 256u + thread.x);
+    else
+        impactor_integrate_at(group.x - sums_groups, thread.x);
+}
+
+// After wide_bonds: the narrow islands' substep (one group each, `halt_index` of them)
+// and the wide islands' chunks; the two act on different islands.
+[shader("compute")]
+[numthreads(256, 1, 1)]
+void islands_and_wide_chunks(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
+{
+    if (group.x < params.halt_index)
+        island_frame_at(group.x, thread.x);
+    else
+        wide_chunks_at(group.x - params.halt_index, thread.x);
 }
