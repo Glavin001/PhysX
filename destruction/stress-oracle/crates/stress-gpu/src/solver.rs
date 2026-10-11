@@ -1448,13 +1448,15 @@ impl GpuSolver {
             }
             // A disconnection that leaves its cluster in one piece changes nothing
             // (`split_cluster` returns): those islands resume without a host round trip.
+            // A halt (resumed or split) starts short batches again: breaks come in runs,
+            // and each halt leaves the rest of its batch's dispatches launching empty.
+            chunk = batch_start();
+            self.batch_rounds = chunk;
             if !replan && halted.iter().all(|&ci| self.still_connected(gpu, ci)) {
                 self.resumed_halts += halted.len() as u64;
                 self.coverage |= coverage::RESUMED_HALT;
                 continue;
             }
-            chunk = batch_start();
-            self.batch_rounds = chunk;
             // Split the halted clusters on the host mirror, at the time they reached;
             // re-plan contacts from the state reached.
             let t_split = std::time::Instant::now();
