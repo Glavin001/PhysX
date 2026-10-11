@@ -882,7 +882,18 @@ void travel_check(uint c)
         return;
     WorldPoint wp = chunk_world(c);
     float3 moved = ((wp.hi - ch.start_hi.xyz) + (wp.lo - ch.start_lo.xyz)) + wp.rel;
-    if (length(moved) > ch.start_hi.w)
+    float travel = length(moved);
+    if (ch.cinfo.w != 0)
+    {
+        // Its box ruled out a pair at the start orientation: a point at most the bounding
+        // radius from the centre moves at most (turn angle) x radius more.
+        float3 th = state[4 * c + 1].xyz;
+        Quat now = quat_mul(quat_of(islands[ch.info.y].rotation), from_axis_angle(th, length(th)));
+        Quat start = quat_of(float4(-ch.start_rot.xyz, ch.start_rot.w));
+        Quat turn = quat_mul(start, now);
+        travel += 2.0 * atan2(length(float3(turn.x, turn.y, turn.z)), abs(turn.w)) * ch.half.w;
+    }
+    if (travel > ch.start_hi.w)
     {
         // Every writer stores the same bit: no atomics needed.
         islands[params.halt_index].info.z = islands[params.halt_index].info.z | STOP_NOW;

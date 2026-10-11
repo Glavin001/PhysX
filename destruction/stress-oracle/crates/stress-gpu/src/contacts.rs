@@ -43,6 +43,10 @@ pub struct Plan {
     pub contact_clusters: Vec<bool>,
     /// Travel budget per gpu chunk (m).
     pub budget: Vec<f64>,
+    /// Gpu chunks with a pair that only their boxes rule out (the bounding spheres would
+    /// not): the GPU also checks how far they turn (`travel_check`), since a box, unlike
+    /// a sphere, does not bound the chunk at another orientation.
+    pub rotation_checked: Vec<bool>,
 }
 
 /// Plane-strain modulus (scaled) of a material, as world.rs uses it for contacts.
@@ -71,7 +75,23 @@ pub fn plan(scene: &Scene, m: &ReferenceSolver, impactors: &[Impactor], chunk_or
         radius[k] = r;
         budget[k] = 2.0 * speed * duration + g * duration * duration + 0.05 * r + 1e-3;
     }
-    let mut plan = Plan { contact_clusters: vec![false; m.clusters.len()], budget, ..Default::default() };
+    let mut plan = Plan { contact_clusters: vec![false; m.clusters.len()], budget, rotation_checked: vec![false; n], ..Default::default() };
+    // Each chunk's box (world.rs `chunk_box`) grown by its travel budget on every side:
+    // it holds the chunk anywhere within the budget at its current orientation (the
+    // budget's ball fits in the cube of the same half-size).
+    let mut swept: Vec<Option<stress_ref::contact::OBox>> = vec![None; n];
+    let mut swept_box = |k: usize, budget: f64| -> stress_ref::contact::OBox {
+        swept[k]
+            .get_or_insert_with(|| {
+                let (s, c) = chunk_order[k];
+                let ch = &m.structures[s].chunks[c];
+                let st = &m.chunks[s][c];
+                let hidden = stress_ref::math::Quat::from_axis_angle(st.th, st.th.norm()).to_mat3();
+                let rotation = m.clusters[st.cluster].rotation() * hidden * ch.rotation;
+                stress_ref::contact::OBox { center: pos[k], rotation, half: ch.half_extents + Vec3::splat(budget), hull: None }
+            })
+            .clone()
+    };
     // Chunk pairs of different clusters (world.rs `apply_contacts`, any substep).
     let by_cluster: Vec<Vec<u32>> = m.clusters.iter().map(|cl| cl.chunks.iter().map(|&c| gpu_index[&(cl.structure, c)]).collect()).collect();
     let mut sorted_by_cluster: Vec<Vec<u32>> = by_cluster.clone();
@@ -91,6 +111,11 @@ pub fn plan(scene: &Scene, m: &ReferenceSolver, impactors: &[Impactor], chunk_or
                 for &kb in &sorted_by_cluster[cb] {
                     let (a, b) = (ka as usize, kb as usize);
                     if (pos[a] - pos[b]).norm() > radius[a] + radius[b] + plan.budget[a] + plan.budget[b] {
+                        continue;
+                    }
+                    if !swept_box(a, plan.budget[a]).may_overlap(&swept_box(b, plan.budget[b])) {
+                        plan.rotation_checked[a] = true;
+                        plan.rotation_checked[b] = true;
                         continue;
                     }
                     let (sa, chunk_a) = chunk_order[a];

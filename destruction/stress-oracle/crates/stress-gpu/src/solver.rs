@@ -166,6 +166,7 @@ struct ChunkStatic {
     start_hi: [f32; 4],
     start_lo: [f32; 4],
     cinfo: [u32; 4],
+    start_rot: [f32; 4],
 }
 
 #[repr(C)]
@@ -903,7 +904,17 @@ impl GpuSolver {
             cs.cmat = [e as f32, mu as f32, f32::from_bits(hull_of[k].0), f32::from_bits(hull_of[k].1)];
             cs.start_hi = [start_hi[0], start_hi[1], start_hi[2], plan.budget[k] as f32];
             cs.start_lo = start_lo;
-            cs.cinfo = [begin, (segments.len() / 3) as u32, plan.contact_clusters[ci] as u32, 0];
+            cs.cinfo = [begin, (segments.len() / 3) as u32, plan.contact_clusters[ci] as u32, plan.rotation_checked.get(k).copied().unwrap_or(false) as u32];
+            // Orientation at the segment start (cluster rotation x hidden rotation), x y z w.
+            let st = &m.chunks[s][c];
+            let q = m.clusters[ci].pose.rotation;
+            let h = stress_ref::math::Quat::from_axis_angle(st.th, st.th.norm());
+            cs.start_rot = [
+                (q.w * h.x + q.x * h.w + q.y * h.z - q.z * h.y) as f32,
+                (q.w * h.y - q.x * h.z + q.y * h.w + q.z * h.x) as f32,
+                (q.w * h.z + q.x * h.y - q.y * h.x + q.z * h.w) as f32,
+                (q.w * h.w - q.x * h.x - q.y * h.y - q.z * h.z) as f32,
+            ];
         }
         if std::env::var("STRESS_GPU_CONTACT_STATS").is_ok() {
             let per_chunk = contributions.iter().map(|c| c.len()).max().unwrap_or(0);
