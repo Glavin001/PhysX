@@ -215,6 +215,43 @@ impl Gpu {
         self.read_range(buffer, 0, buffer.size() as usize / std::mem::size_of::<T>())
     }
 
+    /// Byte ranges `(buffer, offset, size)` read back with one submission and one wait
+    /// (each `read_range` costs a round trip of its own).
+    pub fn read_ranges(&self, parts: &[(&wgpu::Buffer, u64, u64)]) -> Vec<Vec<u8>> {
+        let sizes: Vec<u64> = parts.iter().map(|p| p.2.div_ceil(4) * 4).collect();
+        let total: u64 = sizes.iter().sum();
+        if total == 0 {
+            return parts.iter().map(|_| Vec::new()).collect();
+        }
+        let staging = self.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("readback"),
+            size: total,
+            usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let mut encoder = self.device.create_command_encoder(&Default::default());
+        let mut at = 0;
+        for (p, &size) in parts.iter().zip(&sizes) {
+            if size > 0 {
+                encoder.copy_buffer_to_buffer(p.0, p.1, &staging, at, size);
+            }
+            at += size;
+        }
+        self.queue.submit([encoder.finish()]);
+        staging.map_async(wgpu::MapMode::Read, .., |r| r.expect("map readback"));
+        self.device.poll(wgpu::PollType::wait_indefinitely()).expect("poll");
+        let view = staging.get_mapped_range(..).expect("mapped readback");
+        let mut out = Vec::with_capacity(parts.len());
+        let mut at = 0usize;
+        for (p, &size) in parts.iter().zip(&sizes) {
+            out.push(view[at..at + p.2 as usize].to_vec());
+            at += size as usize;
+        }
+        drop(view);
+        staging.unmap();
+        out
+    }
+
     /// Elements `[first, first + count)` of a buffer of `T`.
     pub fn read_range<T: bytemuck::Pod>(&self, buffer: &wgpu::Buffer, first: usize, count: usize) -> Vec<T> {
         let offset = (first * std::mem::size_of::<T>()) as u64;
