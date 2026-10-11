@@ -17,6 +17,14 @@ stress-gpu = { path = "../stress-gpu", optional = true }
 [features]
 gpu = ["dep:stress-gpu"]
 
+[dev-dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[[example]]
+name = "realtime_peak"
+required-features = ["gpu"]
+
 [[bin]]
 name = "stress-physx"
 path = "src/bin/stress_physx.rs"

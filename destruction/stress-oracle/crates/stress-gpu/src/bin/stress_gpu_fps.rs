@@ -22,8 +22,7 @@ use std::time::Instant;
 
 use stress_gpu::gpu::Gpu;
 use stress_gpu::world::GpuWorld;
-use stress_ref::math::Vec3;
-use stress_ref::scene::{ImpactorDesc, ImpactorShape, Scene};
+use stress_ref::scene::Scene;
 use stress_ref::world::World;
 
 struct Frames {
@@ -35,55 +34,7 @@ struct Frames {
     broken: usize,
 }
 
-fn bounds(scene: &Scene) -> (Vec3, Vec3) {
-    let mut lo = Vec3::splat(f64::INFINITY);
-    let mut hi = Vec3::splat(f64::NEG_INFINITY);
-    for c in scene.bodies.iter().flat_map(|b| b.chunks.iter()) {
-        let p = Vec3::from_array(c.center);
-        lo = lo.component_min(p);
-        hi = hi.component_max(p);
-    }
-    (lo, hi)
-}
-
-/// A 400 kg box rammed at 12 m/s into the middle of the structure's -x face.
-fn rammed(scene: Scene) -> Scene {
-    let (lo, hi) = bounds(&scene);
-    ram_at(scene, "ram", lo, hi)
-}
-
-/// `rams` of the town's buildings (bodies named `*_{i}`) each rammed as `rammed` does.
-fn bombarded(mut town: Scene, rams: usize) -> Scene {
-    for i in 0..rams {
-        let suffix = format!("_{i}");
-        let mut one = town.clone();
-        one.bodies.retain(|b| b.name.ends_with(&suffix));
-        if one.bodies.is_empty() {
-            break;
-        }
-        let (lo, hi) = bounds(&one);
-        town = ram_at(town, &format!("ram{i}"), lo, hi);
-    }
-    town.name = format!("{} ({rams} rammed)", town.name);
-    town
-}
-
-fn ram_at(mut scene: Scene, name: &str, lo: Vec3, hi: Vec3) -> Scene {
-    let mid = (lo + hi) * 0.5;
-    let material = scene.bodies[0].chunks[0].material.clone();
-    scene.impactors.push(ImpactorDesc {
-        name: name.into(),
-        shape: ImpactorShape::Box { half_extents: [0.15, 0.3, 0.3] },
-        mass: 400.0,
-        position: [lo.x - 0.35, mid.y, mid.z],
-        orientation: [0.0, 0.0, 0.0, 1.0],
-        velocity: [12.0, 0.0, 0.0],
-        angular_velocity: [0.0; 3],
-        material,
-        crush: None,
-    });
-    scene
-}
+use stress_gpu::scenes::{bombarded, rammed};
 
 fn idle(scene: &Scene) -> Scene {
     let mut s = scene.clone();

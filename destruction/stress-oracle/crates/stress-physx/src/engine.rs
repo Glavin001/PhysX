@@ -77,8 +77,27 @@ pub struct PhysxEngine {
 impl PhysxEngine {
     /// A PhysX CPU scene with the given gravity; `None` if PhysX cannot be created.
     pub fn new(gravity: Vec3) -> Option<PhysxEngine> {
+        Self::with_world(PhysXWorld::new_cpu(pv(gravity), 1)?)
+    }
+
+    /// A PhysX scene with GPU dynamics (CUDA, or CuMetal on macOS); `None` if no GPU
+    /// scene can be created (the SDK has no GPU module, or no device).
+    pub fn new_gpu(gravity: Vec3) -> Option<PhysxEngine> {
+        let world = PhysXWorld::new_gpu(pv(gravity), 1)?;
+        if !world.gpu_active() {
+            return None;
+        }
+        Self::with_world(world)
+    }
+
+    /// The GPU engine boxed (`new_gpu`).
+    pub fn boxed_gpu(gravity: Vec3) -> Option<Box<dyn RigidEngine>> {
+        PhysxEngine::new_gpu(gravity).map(|e| Box::new(e) as Box<dyn RigidEngine>)
+    }
+
+    fn with_world(world: PhysXWorld) -> Option<PhysxEngine> {
         Some(PhysxEngine {
-            world: PhysXWorld::new_cpu(pv(gravity), 1)?,
+            world,
             bodies: HashMap::new(),
             owners: HashMap::new(),
             contacts: ContactBatch::default(),

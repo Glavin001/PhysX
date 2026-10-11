@@ -389,6 +389,12 @@ pub fn cache_dir() -> PathBuf {
     std::env::var_os("STRESS_GATE_CACHE").map(PathBuf::from).unwrap_or_else(|| Path::new(env!("CARGO_MANIFEST_DIR")).join("../../target/stress-gate-cache"))
 }
 
+/// The cache file of a computation keyed by `key` (with stress-ref's fingerprint), for
+/// tools outside the gate that cache reference runs (`label` is readable).
+pub fn cached_path(label: &str, key: &str) -> PathBuf {
+    cache_path(label, &key)
+}
+
 /// The cache file of a computation: `label` (readable), its inputs `key` (serialized,
 /// hashed with stress-ref's fingerprint).
 fn cache_path<K: serde::Serialize>(label: &str, key: &K) -> PathBuf {

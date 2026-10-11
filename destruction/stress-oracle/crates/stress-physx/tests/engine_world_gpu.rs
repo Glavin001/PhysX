@@ -160,3 +160,37 @@ fn reference_refinement() {
         }
     }
 }
+
+/// PhysX with GPU dynamics (CUDA, or CuMetal on macOS: build with `PHYSX_ROOT` at a GPU
+/// SDK) and the GPU stress solver, the ram through the free wall at the converged step;
+/// against the reference coupled to PhysX CPU. Skips without a GPU PhysX scene.
+#[test]
+#[ignore]
+fn physx_gpu_and_stress_gpu_ram() {
+    let mut scene = ram_scene();
+    scene.sim.methods.true_step = true;
+    scene.sim.courant_safety = 0.25;
+    let Ok(gpu) = Gpu::new() else { return };
+    let Some(engine) = PhysxEngine::boxed_gpu(Vec3::from_array(scene.gravity)) else {
+        eprintln!("no PhysX GPU scene; skipping");
+        return;
+    };
+    let mut w = GpuWorld::with_engine(&gpu, &scene, engine).expect("GPU world");
+    let frames = (scene.sim.duration / scene.sim.frame_dt).round() as usize;
+    let mut times = Vec::new();
+    for _ in 0..frames {
+        let t = std::time::Instant::now();
+        w.step_frame(&gpu).expect("frame");
+        times.push(t.elapsed().as_secs_f64() * 1e3);
+    }
+    w.solver.sync(&gpu);
+    let o = w.observation();
+    println!(
+        "PhysX GPU + stress GPU: ram {:.2} m/s, {} fragments, {} broken bonds; frames first {:.1} ms, worst {:.1} ms",
+        w.solver.impactors[0].velocity.y,
+        o.values["fragments"],
+        o.values["broken_bonds"],
+        times[0],
+        times.iter().copied().fold(0.0, f64::max)
+    );
+}
