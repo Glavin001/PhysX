@@ -124,6 +124,9 @@ struct Params {
     statics_newton: u32,
     statics_cg: u32,
     statics_tol: f32,
+    /// Lanes per candidate pair in `contact_forces`: a SIMD group of 32 on the Metal
+    /// shaders (lanes over the pair's sample points), one thread on WGSL.
+    pair_lanes: u32,
 }
 
 #[repr(C)]
@@ -1088,6 +1091,7 @@ impl GpuSolver {
             statics_newton: 60,
             statics_cg: 20_000,
             statics_tol: std::env::var("STRESS_GPU_STATICS_TOL").ok().and_then(|v| v.parse().ok()).unwrap_or(1e-5),
+            pair_lanes: if gpu.shader_path == crate::gpu::ShaderPath::Wgsl { 1 } else { 32 },
             ..Default::default()
         };
 
@@ -1297,7 +1301,7 @@ impl GpuSolver {
                         ops.push((K_SHARES, groups(p.cand_count), true));
                         ops.push((K_CRUSH, impactors_n, true));
                     }
-                    ops.push((K_FORCES, groups(p.pair_count + p.cand_count + p.chunk_count), true));
+                    ops.push((K_FORCES, groups(p.pair_count * p.pair_lanes.max(1) + p.cand_count + p.chunk_count), true));
                     ops.push((K_SUMS, groups(p.seg_count), true));
                     ops.push((K_ISLAND, islands_n, true));
                 }
@@ -1860,7 +1864,7 @@ impl GpuSolver {
         let kernels: [(&'static str, &Kernel, u32); 5] = [
             ("impactor_shares", &self.kernels.shares, groups(p.cand_count)),
             ("impactor_crush", &self.kernels.crush, impactors_n),
-            ("contact_forces", &self.kernels.forces, groups(p.pair_count + p.cand_count + p.chunk_count)),
+            ("contact_forces", &self.kernels.forces, groups(p.pair_count * p.pair_lanes.max(1) + p.cand_count + p.chunk_count)),
             ("island_frame (1 substep)", &self.kernels.island, self.layout.islands.len().max(1) as u32),
             ("impactor_integrate", &self.kernels.integrate, impactors_n),
         ];

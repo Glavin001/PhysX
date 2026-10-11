@@ -84,6 +84,7 @@ struct Params
     uint statics_newton;     // Newton iterations at most
     uint statics_cg;         // conjugate-gradient iterations per Newton step at most
     float statics_tol;       // relative residual of an equilibrium
+    uint pair_lanes;         // lanes per candidate pair in contact_forces (0: one)
 };
 
 static const uint MODE_EXPLICIT = 0;
@@ -687,7 +688,75 @@ bool pair_point(Box ba, Box bb, uint na, uint e, out float3 p, out float3 n, out
     return true;
 }
 
-void pair_contact(uint i)
+// Sums over the lanes of a candidate pair (`params.pair_lanes`: one SIMD group of 32
+// lanes per pair on Metal and CUDA, aligned to the group; one thread elsewhere).
+float pair_sum(float x, uint lanes)
+{
+    __target_switch
+    {
+    case metal:
+    case cuda:
+        return lanes > 1 ? WaveActiveSum(x) : x;
+    default:
+        return x;
+    }
+}
+
+float3 pair_sum3(float3 x, uint lanes)
+{
+    __target_switch
+    {
+    case metal:
+    case cuda:
+        return lanes > 1 ? WaveActiveSum(x) : x;
+    default:
+        return x;
+    }
+}
+
+// Lanes per pair: as the host asks on Metal and CUDA; one elsewhere (extra threads of a
+// larger dispatch then find nothing to do).
+uint pair_lane_count()
+{
+    __target_switch
+    {
+    case metal:
+    case cuda:
+        return max(params.pair_lanes, 1u);
+    default:
+        return 1u;
+    }
+}
+
+bool pair_any(bool x, uint lanes)
+{
+    __target_switch
+    {
+    case metal:
+    case cuda:
+        return lanes > 1 ? WaveActiveAnyTrue(x) : x;
+    default:
+        return x;
+    }
+}
+
+uint pair_count_sum(uint x, uint lanes)
+{
+    __target_switch
+    {
+    case metal:
+    case cuda:
+        return lanes > 1 ? WaveActiveSum(x) : x;
+    default:
+        return x;
+    }
+}
+
+// Candidate pair i, on `lanes` lanes (this one `lane`): every lane takes the sample
+// points e = lane, lane + lanes, ... (the serial order's points, partitioned), the
+// engaged count and the loads are summed over the lanes, and lane 0 writes the pair's
+// outputs. Every branch on pair data is taken by all its lanes alike.
+void pair_contact(uint i, uint lane, uint lanes)
 {
     uint at = params.pair_index + 6 * i;
     uint ca = index[at];
@@ -713,22 +782,26 @@ void pair_contact(uint i)
         // Far apart (most candidates): forget the pair's overlap, clear its outputs,
         // and write nothing when there is nothing to clear.
         if ((flags & 1) != 0)
-            for (uint e = 0; e < entries; e++)
+            for (uint e = lane; e < entries; e += lanes)
                 contact_state[st + e] = float4(NAN_OFFSET, 0.0, 0.0, 0.0);
-        if ((flags & 2) != 0)
-            for (uint e = 0; e < 4; e++)
-                scratch[out + e] = float4(0.0);
-        if (flags != 0 || ledger.x != 0.0)
+        if (lane == 0)
         {
-            ledger.x = 0.0;
-            ledger.w = asfloat(0u);
-            scratch[params.ledger_base + i] = ledger;
+            if ((flags & 2) != 0)
+                for (uint e = 0; e < 4; e++)
+                    scratch[out + e] = float4(0.0);
+            if (flags != 0 || ledger.x != 0.0)
+            {
+                ledger.x = 0.0;
+                ledger.w = asfloat(0u);
+                scratch[params.ledger_base + i] = ledger;
+            }
         }
         return;
     }
     uint na = sample_count(ba);
     float3 fa = float3(0.0), ta = float3(0.0), fb = float3(0.0), tb = float3(0.0);
     float stored_sum = 0.0;
+    float diss_sum = 0.0;
     bool has_state = false;
     if (may_overlap(ba, bb))
     {
@@ -740,7 +813,7 @@ void pair_contact(uint i)
         // ratchets down); the points outside forget theirs.
         uint count = 0;
         uint engaged = 0;
-        for (uint e = 0; e < entries; e++)
+        for (uint e = lane; e < entries; e += lanes)
         {
             float3 p;
             float3 n;
@@ -765,6 +838,8 @@ void pair_contact(uint i)
             if (d - entry.x > 0.0)
                 engaged++;
         }
+        count = pair_count_sum(count, lanes);
+        engaged = pair_count_sum(engaged, lanes);
         if (count > 0)
         {
             has_state = true;
@@ -772,7 +847,7 @@ void pair_contact(uint i)
             // same values, without per-point storage).
             float k_pair = contact_stiffness(chunks[ca].cmat.x, ba, chunks[cb].cmat.x, bb, bb.center - ba.center);
             float k = k_pair / max(float(engaged), FACE_PAIR_POINTS);
-            for (uint e = 0; e < entries; e++)
+            for (uint e = lane; e < entries; e += lanes)
             {
                 float3 p;
                 float3 n;
@@ -792,13 +867,23 @@ void pair_contact(uint i)
                 fb += -f;
                 tb += cross(p - bb.center, -f);
                 stored_sum += stored;
-                comp_add1(ledger.y, ledger.z, diss);
+                diss_sum += diss;
             }
+            fa = pair_sum3(fa, lanes);
+            ta = pair_sum3(ta, lanes);
+            fb = pair_sum3(fb, lanes);
+            tb = pair_sum3(tb, lanes);
+            stored_sum = pair_sum(stored_sum, lanes);
+            diss_sum = pair_sum(diss_sum, lanes);
         }
     }
     if (!has_state && (flags & 1) != 0)
-        for (uint e = 0; e < entries; e++)
+        for (uint e = lane; e < entries; e += lanes)
             contact_state[st + e] = float4(NAN_OFFSET, 0.0, 0.0, 0.0);
+    if (lane != 0)
+        return;
+    if (has_state)
+        comp_add1(ledger.y, ledger.z, diss_sum);
     bool loaded = any(fa != 0.0) || any(ta != 0.0) || any(fb != 0.0) || any(tb != 0.0);
     if (loaded || (flags & 2) != 0)
     {
@@ -906,14 +991,22 @@ void travel_check(uint c)
 void contact_forces(uint3 id: SV_DispatchThreadID)
 {
     uint i = id.x;
+    uint lanes = pair_lane_count();
+    uint pair_threads = params.pair_count * lanes;
+    if (i < pair_threads)
+    {
+        // A pair's lanes stop together (the stop bit can be set during the dispatch).
+        if (!pair_any(stopped(), lanes))
+            pair_contact(i / lanes, i % lanes, lanes);
+        return;
+    }
     if (stopped())
         return;
-    if (i < params.pair_count)
-        pair_contact(i);
-    else if (i < params.pair_count + params.cand_count)
-        impactor_candidate_forces(i - params.pair_count);
-    else if (i < params.pair_count + params.cand_count + params.chunk_count)
-        travel_check(i - params.pair_count - params.cand_count);
+    uint j = i - pair_threads;
+    if (j < params.cand_count)
+        impactor_candidate_forces(j);
+    else if (j < params.cand_count + params.chunk_count)
+        travel_check(j - params.cand_count);
 }
 
 // Crush cap, first pass: each candidate's share of its impactor's elastic force.
