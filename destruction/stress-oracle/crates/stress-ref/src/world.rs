@@ -369,6 +369,7 @@ impl World {
             scene: scene.clone(),
             solver,
         };
+        w.solver.refresh_true_steps();
         if let Some(target) = scene.sim.mass_scaling_dt {
             w.added_mass_fraction = w.solver.apply_mass_scaling(target);
         }
@@ -1766,6 +1767,8 @@ impl World {
             for c in candidates {
                 self.solver.refine_chunk(s, c);
                 self.topology_version += 1;
+                // Finer chunks are lighter and their bonds new: the bound is recomputed.
+                self.solver.refresh_true_steps();
             }
         }
     }

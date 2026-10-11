@@ -692,8 +692,9 @@ changes go behind `sim.methods` switches, off by default, each with measured fid
 
 | Idea | Class | Status |
 |---|---|---|
-| True stable step: power iteration on `M^-1 K` with the top mode's damping, the bound of the intact cluster (every fragment's is lower). 5-41x the Gershgorin step | Step change | to do (switch `true_step`) |
-| Gameplay-fidelity comparison: fails or not, where, when, how, pieces log-binned, debris speed +-30 %, momentum exact, energy never gained | Tooling | to do |
+| True stable step: a certified bound on the highest frequency of the intact network (every fragment's is lower) | Step change | switch `true_step` (off); see below |
+| Gameplay-fidelity comparison: fails or not, where, when, pieces log-binned, debris speed +-30 % | Tooling | `scripts/fidelity.py` |
+| True combined step: bonds plus the contacts that can engage, warm-started each frame (contact sets the step in every catalogue scene) | Step change | to do |
 | Multirate (subcycling) explicit: per-chunk steps in powers of two (2.5-3.5x on authored packs, none on uniform grids) | Integration change | to do (switch) |
 | Influence-line wake test for the adaptive mode: a load change accepted without a solve when `utilisation + influence x load < threshold - margin` | Skip decision | shadow mode first |
 | Hierarchy import (L0/L1/L2 with parent links) | Exact (L2 unchanged) | to do |
@@ -701,6 +702,46 @@ changes go behind `sim.methods` switches, off by default, each with measured fid
 | Cold-bond fast path with closed-form fatigue | Approximation | exact variant rejected (slower); approximate one to do (switch) |
 | Reduction cadence for free islands (rigid acceleration, drift removal) | Approximation | to do (item 6) |
 | Regime map (contact time against wave transit and fundamental period) | Analysis | to do |
+
+### `true_step` (switch, off)
+
+**Which bound sets the step.** In every catalogue scene measured (b5, b7, b8, b9,
+s_house_car), the contact bound is below the stress bound, and the two combine as
+`1/dt^2 = 1/dt_s^2 + 1/dt_c^2`. The analysis's 5-41x was measured against the
+unscaled Gershgorin step; the default scaled bound is 2.5-8x below the true step.
+`frame_contact_step` (the contact bound from the contacts that can engage) gives 7-20x
+*more* substeps in impact runs (b5_v10 11,327 -> 216,555): not a speed lever.
+
+**A Ritz value is not a bound.** Power iteration's Ritz value plus its residual bounds
+only the eigenvalue nearest it. Taken as a bound on the top one, it gave 1.37e8 on the
+cantilever against the true 1.99e8 (dense Jacobi), and the stability harness blew up at
+safety 0.9 on nearly every scene. A fixed iteration count with a margin (the GPU's
+`true_stable_dt`, 3 %) converges here, about 300 iterations to the top mode. But it is
+an estimate, not a certificate.
+
+**Certified bound.**
+- `A = L^-1 K L^-T` is similar to `M^-1 K`, and `lambda_max(A) <= rho(|A|) <= max_i
+  (|A| v)_i / v_i` for any positive `v` (Collatz-Wielandt). Every power-iteration iterate
+  on `|A|` is therefore a bound, starting from the row sums.
+- On networks bonded face to face, `|A|` is `A` up to a diagonal sign similarity, so the
+  bound is the eigenvalue itself: 1.988831e8 on the cantilever, against 3.18e8 for
+  Gershgorin. Test: `true_step_bounds_the_highest_frequency`.
+- Damping enters at the structure's largest dashpot-to-stiffness ratio.
+- A cluster takes the larger of this step and its own Gershgorin step.
+
+**Measured.**
+- **Stability harness** (with `frame_contact_step`, so the stress bound sets the step):
+  stable at safety 0.9 on every scene; most blow up from 1.1, so the bound is close to
+  the real limit.
+- **Switch off:** 182/182 against aef673ef7.
+- **Switch on:**
+  - `scripts/fidelity.py`: 34/35 scenes pass every gameplay metric.
+    s_arch_keystone_removed's collapse differs: 8 -> 14 fragments, debris 0.29 -> 0.82 m/s.
+  - Substeps 0.74-1.0x; catalogue CPU 557 -> 506 s (-9 %).
+  - A/B: 87/91 both ways.
+
+**Status:** off by default. It is a step change for 9 %; the larger lever is the
+contact bound (queued).
 
 GPU-only items are out of scope for the CPU oracle: shared-memory windows, cooperative
 launch, temporal blocking, Morton order, CUDA graphs.

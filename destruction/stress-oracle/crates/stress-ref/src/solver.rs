@@ -345,6 +345,9 @@ pub struct ReferenceSolver {
     pub substeps: u64,
     /// Largest bond failure index seen so far (meaningful with fracture disabled too).
     pub max_utilization: f64,
+    /// `sim.methods.true_step`: each structure's stable stress substep (before the safety
+    /// factor) from its bond network as last refreshed.
+    true_steps: Vec<f64>,
 }
 
 impl ReferenceSolver {
@@ -367,6 +370,7 @@ impl ReferenceSolver {
             pending_split: Vec::new(),
             substeps: 0,
             max_utilization: 0.0,
+            true_steps: Vec::new(),
             structures,
         };
         for si in 0..solver.structures.len() {
@@ -812,6 +816,7 @@ impl ReferenceSolver {
                 total += m;
             }
         }
+        self.refresh_true_steps();
         if total > 0.0 {
             added / total
         } else {
@@ -828,9 +833,191 @@ impl ReferenceSolver {
             if self.clusters[ci].bonds.is_empty() || settled {
                 continue;
             }
-            dt = self.chunk_stable_dts(ci).iter().map(|&(_, d)| d).fold(dt, f64::min);
+            let gershgorin = self.chunk_stable_dts(ci).iter().map(|&(_, d)| d).fold(f64::INFINITY, f64::min);
+            // Both are stable steps of this cluster: the larger holds.
+            let own = match self.true_steps.get(self.clusters[ci].structure) {
+                Some(&t) if self.config.methods.true_step => gershgorin.max(t),
+                _ => gershgorin,
+            };
+            dt = dt.min(own);
         }
         dt * self.config.courant_safety
+    }
+
+    /// `sim.methods.true_step`: refresh every structure's stable stress substep from its
+    /// active chunks and live bonds (called where stiffness can grow or inertia change:
+    /// at the start, after mass scaling and after refinement).
+    pub fn refresh_true_steps(&mut self) {
+        if !self.config.methods.true_step {
+            return;
+        }
+        self.true_steps = (0..self.structures.len()).map(|s| self.structure_true_step(s)).collect();
+    }
+
+    /// The stable central-difference substep of structure `s`'s bond network at full
+    /// stiffness (rebar included), before the safety factor, from the certified frequency
+    /// bound of `structure_frequency_bound`. Damping: `C <= beta K` with `beta` the
+    /// largest dashpot-to-stiffness ratio of any bond component, so the step
+    /// `(2 / w) (sqrt(1 + z^2) - z)` with `z = beta w / 2` is a lower bound of every
+    /// mode's.
+    fn structure_true_step(&self, s: usize) -> f64 {
+        let Some((w2, _)) = self.structure_frequency_bound(s) else { return f64::INFINITY };
+        let beta = (0..self.bonds[s].len())
+            .filter(|&b| self.bonds[s][b].alive)
+            .flat_map(|b| {
+                let k = Self::bond_stiffness6(&self.bonds[s][b]);
+                let c = &self.bonds[s][b].damping;
+                let c6 = [c.lin.x, c.lin.y, c.lin.z, c.ang.x, c.ang.y, c.ang.z];
+                (0..6).filter(move |&d| k[d] > 0.0).map(move |d| c6[d] / k[d])
+            })
+            .fold(0.0f64, f64::max);
+        let w = w2.sqrt();
+        let z = 0.5 * beta * w;
+        2.0 / w * ((1.0 + z * z).sqrt() - z)
+    }
+
+    /// Certified upper bound of the highest squared natural frequency of structure `s`'s
+    /// live bond network at full stiffness, and the scaled Gershgorin bound for
+    /// comparison. `A = L^-1 K L^-T` (`M = L L^T` chunk by chunk: `sqrt(m)` and the
+    /// Cholesky factor of the inertia, both scaled) is similar to `M^-1 K`, and for any
+    /// positive `v`, `lambda_max(A) <= rho(|A|) <= max_i (|A| v)_i / v_i`
+    /// (Collatz-Wielandt), so every power-iteration iterate on `|A|` gives a bound, from
+    /// its row sums (`v = 1`) down towards `rho(|A|)`. On networks bonded face to face
+    /// `|A|` is `A` up to the signs of a diagonal similarity and the bound is the
+    /// eigenvalue itself. Supports are treated as free (holding a degree of freedom only
+    /// lowers the spectrum). None without stiffness.
+    fn structure_frequency_bound(&self, s: usize) -> Option<(f64, f64)> {
+        const ITERATIONS: usize = 2000;
+        const CONVERGED: f64 = 1e-4;
+        type Block = [[f64; 6]; 6];
+        let st = &self.structures[s];
+        let n = st.chunks.len();
+        let bonds: Vec<usize> = (0..self.bonds[s].len()).filter(|&b| self.bonds[s][b].alive).collect();
+        if bonds.is_empty() {
+            return None;
+        }
+        // L^-1 per chunk.
+        let linv: Vec<Block> = (0..n)
+            .map(|c| {
+                let ch = &st.chunks[c];
+                let mu = self.chunks[s][c].inertia_scale;
+                let mut out = [[0.0f64; 6]; 6];
+                for t in 0..3 {
+                    out[t][t] = 1.0 / (ch.mass * mu).sqrt();
+                }
+                let a: [[f64; 3]; 3] = std::array::from_fn(|i| std::array::from_fn(|j| ch.inertia.m[i][j] * mu));
+                let mut l = [[0.0f64; 3]; 3];
+                for i in 0..3 {
+                    for j in 0..=i {
+                        let sum: f64 = (0..j).map(|p| l[i][p] * l[j][p]).sum();
+                        l[i][j] = if i == j { (a[i][i] - sum).max(0.0).sqrt() } else { (a[i][j] - sum) / l[j][j] };
+                    }
+                }
+                for i in 0..3 {
+                    out[3 + i][3 + i] = 1.0 / l[i][i];
+                    for j in 0..i {
+                        let sum: f64 = (j..i).map(|p| l[i][p] * out[3 + p][3 + j]).sum();
+                        out[3 + i][3 + j] = -sum / l[i][i];
+                    }
+                }
+                out
+            })
+            .collect();
+        // (L_a^-1 X L_b^-T).
+        let congruent = |la: &Block, x: &Block, lb: &Block| -> Block {
+            let t: Block = std::array::from_fn(|i| std::array::from_fn(|j| (0..6).map(|p| la[i][p] * x[p][j]).sum()));
+            std::array::from_fn(|i| std::array::from_fn(|j| (0..6).map(|p| t[i][p] * lb[j][p]).sum()))
+        };
+        // Each bond's B^T k B as four 6 x 6 blocks, transformed and gathered by chunk pair.
+        let mut diag = vec![[[0.0f64; 6]; 6]; n];
+        let mut off: Vec<((usize, usize), Block)> = Vec::with_capacity(bonds.len());
+        for &bi in &bonds {
+            let b = &self.bonds[s][bi];
+            let g = &b.geometry;
+            let ks = Self::bond_stiffness6(b);
+            let axes = [g.t1, g.t2, g.normal];
+            let rows: [[f64; 12]; 6] = std::array::from_fn(|comp| {
+                let t = axes[comp % 3];
+                let r: [Vec3; 4] = if comp < 3 { [-t, -(g.ra.cross(t)), t, g.rb.cross(t)] } else { [Vec3::ZERO, -t, Vec3::ZERO, t] };
+                std::array::from_fn(|x| r[x / 3].to_array()[x % 3])
+            });
+            let kb: [[f64; 12]; 12] = std::array::from_fn(|x| std::array::from_fn(|y| (0..6).map(|c| ks[c] * rows[c][x] * rows[c][y]).sum()));
+            let blk = |r0: usize, c0: usize| -> Block { std::array::from_fn(|i| std::array::from_fn(|j| kb[r0 + i][c0 + j])) };
+            let (a, bb) = (g.a, g.b);
+            let aa = congruent(&linv[a], &blk(0, 0), &linv[a]);
+            let bbk = congruent(&linv[bb], &blk(6, 6), &linv[bb]);
+            for i in 0..6 {
+                for j in 0..6 {
+                    diag[a][i][j] += aa[i][j];
+                    diag[bb][i][j] += bbk[i][j];
+                }
+            }
+            // The block (row chunk, column chunk) with row chunk < column chunk.
+            let (lo, hi, x) = if a < bb { (a, bb, blk(0, 6)) } else { (bb, a, blk(6, 0)) };
+            off.push(((lo, hi), congruent(&linv[lo], &x, &linv[hi])));
+        }
+        off.sort_by_key(|e| e.0);
+        let mut merged: Vec<((usize, usize), Block)> = Vec::with_capacity(off.len());
+        for (key, x) in off {
+            match merged.last_mut() {
+                Some((k, acc)) if *k == key => {
+                    for i in 0..6 {
+                        for j in 0..6 {
+                            acc[i][j] += x[i][j];
+                        }
+                    }
+                }
+                _ => merged.push((key, x)),
+            }
+        }
+        let abs = |x: &Block| -> Block { x.map(|r| r.map(f64::abs)) };
+        let diag: Vec<Block> = diag.iter().map(abs).collect();
+        let merged: Vec<((usize, usize), Block)> = merged.iter().map(|(k, x)| (*k, abs(x))).collect();
+        let apply = |v: &[[f64; 6]]| -> Vec<[f64; 6]> {
+            let mut y = vec![[0.0f64; 6]; n];
+            for c in 0..n {
+                for i in 0..6 {
+                    y[c][i] = (0..6).map(|j| diag[c][i][j] * v[c][j]).sum();
+                }
+            }
+            for &((a, b), x) in &merged {
+                for i in 0..6 {
+                    for j in 0..6 {
+                        y[a][i] += x[i][j] * v[b][j];
+                        y[b][j] += x[i][j] * v[a][i];
+                    }
+                }
+            }
+            y
+        };
+        let mut v = vec![[1.0f64; 6]; n];
+        let mut bound = f64::INFINITY;
+        for _ in 0..ITERATIONS {
+            let y = apply(&v);
+            let (mut hi, mut lo, mut top) = (0.0f64, f64::INFINITY, 0.0f64);
+            for c in 0..n {
+                for d in 0..6 {
+                    if y[c][d] > 0.0 {
+                        // A positive row with a zero entry of v gives no bound this round.
+                        let ratio = if v[c][d] > 0.0 { y[c][d] / v[c][d] } else { f64::INFINITY };
+                        hi = hi.max(ratio);
+                        lo = lo.min(ratio);
+                    }
+                    top = top.max(y[c][d]);
+                }
+            }
+            bound = bound.min(hi);
+            if !(top > 0.0) || hi - lo <= CONVERGED * hi {
+                break;
+            }
+            v = y.iter().map(|r| r.map(|x| x / top)).collect();
+        }
+        let gershgorin = (0..self.clusters.len())
+            .filter(|&ci| self.clusters[ci].structure == s && !self.clusters[ci].bonds.is_empty())
+            .flat_map(|ci| self.normalized_gershgorin_rows(ci, &self.clusters[ci].bonds, Self::bond_stiffness6))
+            .flat_map(|row| row.into_iter())
+            .fold(0.0f64, f64::max);
+        (bound > 0.0 && bound.is_finite()).then_some((bound, gershgorin))
     }
 
     // ------------------------------------------------------------------ substep
@@ -1626,4 +1813,123 @@ pub fn smallest_principal_moment(m: &Mat3) -> f64 {
     let r = (b.det() / 2.0).clamp(-1.0, 1.0);
     let phi = r.acos() / 3.0;
     q + 2.0 * p * (phi + 2.0 * std::f64::consts::PI / 3.0).cos()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// `true_step`'s frequency bound on the cantilever (21 chunks, 126 degrees of
+    /// freedom) lies between the highest eigenvalue of `K x = lambda M x`, found
+    /// independently (dense cyclic Jacobi on `L^-1 K L^-T`, `M = L L^T` per chunk), and the
+    /// Gershgorin bound. (A Ritz value plus its residual bounds only the eigenvalue
+    /// nearest it: from this start it gave 1.37e8 against the true 1.99e8.)
+    #[test]
+    fn true_step_bounds_the_highest_frequency() {
+        let mut scene = crate::builders::cantilever(20, "cantilever");
+        scene.sim.methods.true_step = true;
+        let sv = ReferenceSolver::new(&scene);
+        let (bound, gershgorin) = sv.structure_frequency_bound(0).expect("bonds");
+        let st = &sv.structures[0];
+        let m = st.chunks.len();
+        let n = 6 * m;
+        // K's columns from unit displacements (full bond stiffness, rebar included).
+        let mut k = vec![vec![0.0f64; n]; n];
+        for j in 0..n {
+            let mut x = vec![(Vec3::ZERO, Vec3::ZERO); m];
+            let mut e = [0.0; 6];
+            e[j % 6] = 1.0;
+            x[j / 6] = (Vec3::new(e[0], e[1], e[2]), Vec3::new(e[3], e[4], e[5]));
+            for b in sv.bonds[0].iter().filter(|b| b.alive) {
+                let g = &b.geometry;
+                let d = g.kinematics(x[g.a].0, x[g.a].1, x[g.b].0, x[g.b].1);
+                let k6 = ReferenceSolver::bond_stiffness6(b);
+                let q = crate::bond::Local6 { lin: Vec3::new(k6[0] * d.lin.x, k6[1] * d.lin.y, k6[2] * d.lin.z), ang: Vec3::new(k6[3] * d.ang.x, k6[4] * d.ang.y, k6[5] * d.ang.z) };
+                let (fa, ma, fb, mb) = g.chunk_loads(&q);
+                for (c, f, mo) in [(g.a, fa, ma), (g.b, fb, mb)] {
+                    for t in 0..3 {
+                        k[6 * c + t][j] -= f.to_array()[t];
+                        k[6 * c + 3 + t][j] -= mo.to_array()[t];
+                    }
+                }
+            }
+        }
+        // L^-1 per chunk: 1/sqrt(m) and the inverse Cholesky factor of the inertia.
+        let mut linv = vec![[[0.0f64; 6]; 6]; m];
+        for c in 0..m {
+            let ch = &st.chunks[c];
+            let mu = sv.chunks[0][c].inertia_scale;
+            for t in 0..3 {
+                linv[c][t][t] = 1.0 / (ch.mass * mu).sqrt();
+            }
+            let a: [[f64; 3]; 3] = std::array::from_fn(|i| std::array::from_fn(|j| ch.inertia.m[i][j] * mu));
+            let mut l = [[0.0f64; 3]; 3];
+            for i in 0..3 {
+                for j in 0..=i {
+                    let s: f64 = (0..j).map(|p| l[i][p] * l[j][p]).sum();
+                    l[i][j] = if i == j { (a[i][i] - s).sqrt() } else { (a[i][j] - s) / l[j][j] };
+                }
+            }
+            // Inverse of the lower-triangular factor.
+            let mut li = [[0.0f64; 3]; 3];
+            for i in 0..3 {
+                li[i][i] = 1.0 / l[i][i];
+                for j in 0..i {
+                    let s: f64 = (j..i).map(|p| l[i][p] * li[p][j]).sum();
+                    li[i][j] = -s / l[i][i];
+                }
+            }
+            for i in 0..3 {
+                for j in 0..3 {
+                    linv[c][3 + i][3 + j] = li[i][j];
+                }
+            }
+        }
+        let lmat = |r: usize, c: usize| if r / 6 == c / 6 { linv[r / 6][r % 6][c % 6] } else { 0.0 };
+        // A = L^-1 K L^-T.
+        let mut tmp = vec![vec![0.0f64; n]; n];
+        for i in 0..n {
+            for j in 0..n {
+                tmp[i][j] = (6 * (i / 6)..6 * (i / 6) + 6).map(|p| lmat(i, p) * k[p][j]).sum();
+            }
+        }
+        let mut a = vec![vec![0.0f64; n]; n];
+        for i in 0..n {
+            for j in 0..n {
+                a[i][j] = (6 * (j / 6)..6 * (j / 6) + 6).map(|p| tmp[i][p] * lmat(j, p)).sum();
+            }
+        }
+        // Cyclic Jacobi.
+        for _ in 0..30 {
+            let off: f64 = (0..n).flat_map(|i| (0..n).filter(move |&j| j != i).map(move |j| (i, j))).map(|(i, j)| a[i][j] * a[i][j]).sum();
+            if off < 1e-30 * (0..n).map(|i| a[i][i] * a[i][i]).sum::<f64>() {
+                break;
+            }
+            for p in 0..n {
+                for q in p + 1..n {
+                    if a[p][q] == 0.0 {
+                        continue;
+                    }
+                    let theta = (a[q][q] - a[p][p]) / (2.0 * a[p][q]);
+                    let t = if theta == 0.0 { 1.0 } else { theta.signum() / (theta.abs() + (theta * theta + 1.0).sqrt()) };
+                    let c = 1.0 / (t * t + 1.0).sqrt();
+                    let s = t * c;
+                    for r in 0..n {
+                        let (arp, arq) = (a[r][p], a[r][q]);
+                        a[r][p] = c * arp - s * arq;
+                        a[r][q] = s * arp + c * arq;
+                    }
+                    for r in 0..n {
+                        let (apr, aqr) = (a[p][r], a[q][r]);
+                        a[p][r] = c * apr - s * aqr;
+                        a[q][r] = s * apr + c * aqr;
+                    }
+                }
+            }
+        }
+        let top = (0..n).map(|i| a[i][i]).fold(f64::MIN, f64::max);
+        println!("top eigenvalue {top:.6e}, bound {bound:.6e}, Gershgorin {gershgorin:.6e}");
+        assert!(bound >= top * (1.0 - 1e-9), "bound {bound:.6e} below the top eigenvalue {top:.6e}");
+        assert!(bound <= gershgorin * (1.0 + 1e-12));
+    }
 }

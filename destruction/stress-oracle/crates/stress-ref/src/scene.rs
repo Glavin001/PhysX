@@ -473,6 +473,17 @@ pub struct Methods {
     /// of 2089 with the re-solve). Every solve the secant converges is unchanged, and
     /// either way a solve is accepted only by the same residual test.
     pub tangent_statics: bool,
+    /// The explicit stress substep from a certified bound on the highest natural frequency
+    /// of each structure's intact bond network: Collatz-Wielandt power iteration on
+    /// `|L^-1 K L^-T|` (`M = L L^T`), every iterate an upper bound, and exact on networks
+    /// bonded face to face (the cantilever: the eigenvalue itself, against 1.6x for
+    /// Gershgorin). Every bond's dashpot-to-stiffness ratio is taken at the structure's
+    /// largest. Damage, cracks and splits only remove stiffness, so the bound holds for
+    /// every later fragment; a cluster takes the larger of it and its own Gershgorin
+    /// step. Off: the Gershgorin rows alone. A step change: the truncation error grows
+    /// with the step. Contact usually binds the step, so the gain is about 9 % of CPU over
+    /// the catalogue (`scripts/fidelity.py`: 34/35 scenes pass every gameplay metric).
+    pub true_step: bool,
 }
 
 impl Default for Methods {
@@ -515,6 +526,7 @@ impl Methods {
             exact_frame_transfer: false,
             contact_crushing: false,
             tangent_statics: false,
+            true_step: false,
         }
     }
 
@@ -538,7 +550,7 @@ impl Methods {
     }
 
     /// Names of every switch, in declaration order.
-    pub const NAMES: [&'static str; 9] = ["layer_contact", "scaled_step_bound", "exact_joint_patch", "patch_after_damage", "exact_rate_filter", "frame_contact_step", "exact_frame_transfer", "contact_crushing", "tangent_statics"];
+    pub const NAMES: [&'static str; 10] = ["layer_contact", "scaled_step_bound", "exact_joint_patch", "patch_after_damage", "exact_rate_filter", "frame_contact_step", "exact_frame_transfer", "contact_crushing", "tangent_statics", "true_step"];
 
     /// Set a switch by name.
     pub fn set(&mut self, name: &str, on: bool) -> Result<(), String> {
@@ -552,6 +564,7 @@ impl Methods {
             "exact_frame_transfer" => &mut self.exact_frame_transfer,
             "contact_crushing" => &mut self.contact_crushing,
             "tangent_statics" => &mut self.tangent_statics,
+            "true_step" => &mut self.true_step,
             _ => return Err(format!("unknown method '{name}' (known: {})", Self::NAMES.join(", "))),
         };
         *slot = on;
