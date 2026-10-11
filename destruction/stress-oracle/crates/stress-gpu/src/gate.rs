@@ -296,7 +296,14 @@ pub fn cases() -> Vec<Case> {
 /// set before a commit.
 /// Fuzz scene seeds that once failed (`stress-gpu-gate --fuzz` prints them ready to paste):
 /// always run with `--micro` (`micro::fuzz_scene`).
-pub const FUZZ_REGRESSIONS: &[u64] = &[];
+pub const FUZZ_REGRESSIONS: &[u64] = &[
+    // Displacement probes rounded to the f32 ulp of the chunk position (fixed in record_probes):
+    0x5e8c87468dcf66d3, // stone wall, prestressed sag only
+    0x814cac4f3e95b960, // timber, box impactor
+    0x34cac5489fdc078a, // steel, adaptive
+    // A probe the reference holds at exactly zero (f32 noise of 1e-14 m judged absolutely):
+    0x3c31cba91af8fb74, // glass slab resting on the ground
+];
 
 pub use crate::micro::{fuzz_scene, micro_cases, micro_reference, with_knobs, Knobs, MicroCase};
 

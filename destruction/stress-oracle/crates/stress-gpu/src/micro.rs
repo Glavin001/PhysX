@@ -42,7 +42,7 @@ use crate::gpu::Gpu;
 use crate::world::GpuWorld;
 
 /// Bump when the reference computation of the micro cases changes (cache key).
-const MICRO_VERSION: u32 = 1;
+const MICRO_VERSION: u32 = 2;
 
 // ------------------------------------------------------------------ knobs
 
@@ -542,6 +542,22 @@ pub fn micro_cases() -> Vec<MicroCase> {
         vec![Knobs::batch(1), Knobs::wide(2)],
     ));
 
+    let mut s = scene("probe_resolution", "A short cantilever's prestressed sag (1e-7 m), probed at its tip.", true);
+    let mut arm = bar("arm", [3, 1, 1], &[0]);
+    arm.position = [0.7, 0.0, 0.3];
+    s.bodies.push(arm);
+    s.probes.push(disp("tip_z", "arm", 2, z));
+    s.probes.push(disp("mid_z", "arm", 1, z));
+    s.probes.push(disp("tip_x", "arm", 2, x));
+    s.sim.duration = 0.004;
+    out.push(MicroCase::world(
+        "probe_resolution",
+        "displacement probes resolve 1e-7 m far below the f32 ulp of the chunk's position (3e-8..1e-7 m)",
+        s,
+        expect(cov::PROBES),
+        vec![],
+    ));
+
     // ---- rigid motion
     let mut s = scene("rotation_precision", "A free bonded pair spinning at 11 rad/s for 26 ms.", false);
     let mut pair = bar("pair", [2, 1, 1], &[]);
@@ -598,17 +614,17 @@ pub fn micro_cases() -> Vec<MicroCase> {
         .with_tweak(Tweak { id: "active_10ms", apply: active_10ms }),
     );
 
-    let mut s = scene("quasi_static_cascade", "A quasi-static cantilever loaded past its root capacity.", true);
+    let mut s = scene("quasi_static_cascade", "A quasi-static cantilever under a step load past its root capacity.", true);
     s.sim.solve_mode = SolveMode::QuasiStatic;
     s.bodies.push(bar("arm", [3, 1, 1], &[0]));
-    s.loads.push(point_force("arm", 2, [0.0, 0.0, -1.0], TimeFunction::Ramp { t0: 0.0, t1: 0.04, value: 20000.0 }));
+    s.loads.push(point_force("arm", 2, [0.0, 0.0, -1.0], TimeFunction::Table { points: vec![[0.0, 0.0], [0.01, 0.0], [0.0101, 20000.0]] }));
     s.probes.push(disp("tip_z", "arm", 2, z));
     s.sim.duration = 0.05;
     out.push(MicroCase::world(
         "quasi_static_cascade",
-        "at quasi-static equilibrium a failing root splits the arm and the same-step cascade re-solves",
+        "a step load cracks the root at quasi-static equilibrium: damage is committed there and the same-step cascade re-solves (past the peak no equilibrium exists: both keep the last one)",
         s,
-        Expect { cover: cov::STATICS | cov::QS_CASCADE | cov::SETTLED | cov::LOAD_TERMS, min_events: vec![(EvKind::Broken, 1)], ..Default::default() },
+        Expect { cover: cov::STATICS | cov::QS_CASCADE | cov::SETTLED | cov::LOAD_TERMS, min_events: vec![(EvKind::Cracked, 1)], ..Default::default() },
         vec![],
     ));
 
@@ -724,7 +740,15 @@ pub fn fuzz_scene(seed: u64) -> Scene {
     let materials = ["concrete", "brick", "glass", "timber", "stone", "steel"];
     let mat = materials[pick(3, materials.len())];
     let mut s = new_scene(&format!("fuzz-{seed:016x}"), "Seeded fuzz scene.");
-    s.materials.insert(mat.into(), stress_ref::material::preset(mat).expect("preset"));
+    let material = match mat {
+        "concrete" => Material::concrete(),
+        "brick" => Material::brick(),
+        "glass" => Material::glass(),
+        "timber" => Material::timber(),
+        "stone" => Material::stone(),
+        _ => Material::steel(),
+    };
+    s.materials.insert(mat.into(), material);
     let mut chunks = grid(Vec3::new(0.0, 0.0, 0.0), n, Vec3::splat(0.2), mat);
     match pick(4, 3) {
         0 => {
@@ -838,6 +862,29 @@ fn case_key(case: &MicroCase) -> serde_json::Value {
     serde_json::json!({ "case": base, "tweak": case.tweak.map(|t| t.id), "perturbations": gate::perturbations(), "version": MICRO_VERSION })
 }
 
+/// The scene with its inputs scaled by `1 + eps`: `gate::perturbed_by` (gravity, impactor
+/// and body velocities) and the scripted loads' magnitudes too. A scene driven by loads
+/// alone (no gravity, nothing moving) is otherwise not perturbed at all, and its
+/// reference ensemble would claim no sensitivity to the f32-sized input changes the GPU
+/// makes (a fatigue life is ~n = 16 times as sensitive to its load).
+pub fn perturbed(scene: &Scene, eps: f64) -> Scene {
+    let mut s = gate::perturbed_by(scene, eps);
+    let k = 1.0 + eps;
+    let scale = |f: &mut TimeFunction| match f {
+        TimeFunction::Constant { value } | TimeFunction::Ramp { value, .. } => *value *= k,
+        TimeFunction::HalfSine { peak, .. } | TimeFunction::Friedlander { peak, .. } => *peak *= k,
+        TimeFunction::Table { points } => points.iter_mut().for_each(|p| p[1] *= k),
+    };
+    for l in &mut s.loads {
+        match l {
+            LoadDesc::PointForce { magnitude, .. } => scale(magnitude),
+            LoadDesc::Pressure { pressure, .. } => scale(pressure),
+            LoadDesc::Blast { tnt_mass, .. } => *tnt_mass *= k,
+        }
+    }
+    s
+}
+
 /// The reference World run of a scene with the case's tweak.
 fn reference_run(scene: &Scene, tweak: Option<Tweak>) -> (Observation, Semantics) {
     let mut w = World::new(scene);
@@ -876,6 +923,14 @@ fn drive(c: &CoupledScript, solver: &mut dyn StressSolverApi, scale: f64) -> (Ve
     (rows, fractures, events)
 }
 
+/// The substep of a coupled frame (coupled.rs `step_gpu`: the stable substep fitted to
+/// the frame).
+fn coupled_dt(c: &CoupledScript) -> f64 {
+    let frame = 1.0 / 60.0;
+    let n = (frame / ReferenceSolver::new(&c.scene).stable_dt().min(frame)).ceil().max(1.0);
+    frame / n
+}
+
 fn compute_reference(case: &MicroCase) -> MicroReference {
     match &case.script {
         Script::World(scene) => {
@@ -888,7 +943,7 @@ fn compute_reference(case: &MicroCase) -> MicroReference {
                     (o, t.elapsed().as_secs_f64())
                 });
                 let h = sc.spawn(|| reference_run(&gate::refined(scene), tweak));
-                let ps: Vec<_> = eps.iter().map(|&e| sc.spawn(move || reference_run(&gate::perturbed_by(scene, e), tweak))).collect();
+                let ps: Vec<_> = eps.iter().map(|&e| sc.spawn(move || reference_run(&perturbed(scene, e), tweak))).collect();
                 (r.join().unwrap(), h.join().unwrap(), ps.into_iter().map(|p| p.join().unwrap()).collect::<Vec<_>>())
             });
             let mut semantics = vec![r.0 .1, h.1];
@@ -902,10 +957,11 @@ fn compute_reference(case: &MicroCase) -> MicroReference {
                 hs.into_iter().map(|h| h.join().unwrap()).collect()
             });
             let mut out = MicroReference { set: None, rows: Vec::new(), fractures: Vec::new(), semantics: Vec::new() };
+            let dt = coupled_dt(c);
             for (rows, fractures, events) in runs {
                 out.rows.push(rows);
                 out.fractures.push(fractures);
-                out.semantics.push(Semantics { events, ..Default::default() });
+                out.semantics.push(Semantics { events, dt, ..Default::default() });
             }
             out
         }
@@ -1003,7 +1059,7 @@ fn run_coupled(gpu: &Gpu, c: &CoupledScript) -> Result<GpuRun, String> {
         obs: None,
         rows,
         fractures,
-        sem: Semantics { events, ..Default::default() },
+        sem: Semantics { events, dt: coupled_dt(c), ..Default::default() },
         coverage: s.coverage,
         state: state_hash(&s.mirror, &s.impactors),
         seconds: t.elapsed().as_secs_f64(),
@@ -1172,15 +1228,36 @@ fn count(evs: &[Ev], kind: EvKind) -> usize {
     evs.iter().filter(|e| e.kind == kind).count()
 }
 
+/// Absolute resolution (m, m/s, N) below which a probe the reference holds at exactly
+/// zero counts as zero on the GPU too.
+pub const ZERO_PROBE: f64 = 1e-12;
+
+/// `ours` with every probe the reference holds at exactly zero (by symmetry: a sideways
+/// displacement of a straight push, an anchored chunk's) taken as the reference's when
+/// the GPU's stays within `ZERO_PROBE`: such a probe has no range, so the gate's relative
+/// error (range floor 1e-30) would judge f32 noise of 1e-31..1e-14 as a 1e16 error.
+/// Anything larger still fails.
+fn without_zero_probes(reference: &Observation, ours: &Observation) -> Observation {
+    let mut out = ours.clone();
+    for (name, r) in &reference.probes {
+        let Some(g) = out.probes.get_mut(name) else { continue };
+        if r.v.iter().all(|x| *x == 0.0) && g.v.len() == r.v.len() && g.v.iter().all(|x| x.abs() <= ZERO_PROBE) {
+            *g = r.clone();
+        }
+    }
+    out
+}
+
 /// The accuracy gate, with the chaotic-case ensemble judgement (`stress-gpu-gate`).
-pub fn accuracy(gpu: &Gpu, scene: &Scene, tweak: Option<Tweak>, knobs: &Knobs, set: &ReferenceSet, ours: &Observation) -> Vec<String> {
+pub fn accuracy(gpu: &Gpu, scene: &Scene, tweak: Option<Tweak>, knobs: &Knobs, perturb: fn(&Scene, f64) -> Scene, set: &ReferenceSet, ours: &Observation) -> Vec<String> {
+    let ours = &without_zero_probes(&set.reference, ours);
     let fails = gate::gate(&set.reference, ours, &set.half, &set.spreads);
     if fails.is_empty() || !gate::is_chaotic(set) {
         return fails.into_iter().map(|f| format!("accuracy: {f}")).collect();
     }
     let mut runs = vec![ours.clone()];
     for e in gate::perturbations() {
-        let s = gate::perturbed_by(scene, e);
+        let s = perturb(scene, e);
         if let Ok(r) = with_knobs(knobs, || run_world(gpu, &s, tweak)) {
             runs.extend(r.obs);
         }
@@ -1233,7 +1310,7 @@ pub fn check_case(gpu: &Gpu, case: &MicroCase, refs: &MicroReference, run: &GpuR
     }
     match (&refs.set, &run.obs) {
         (Some(set), Some(obs)) => {
-            fails.extend(accuracy(gpu, case.scene(), case.tweak, &case.base, set, obs));
+            fails.extend(accuracy(gpu, case.scene(), case.tweak, &case.base, perturbed, set, obs));
             fails.extend(check_fragments(set, obs));
             if case.expect.velocities {
                 fails.extend(check_velocities(set, obs));
@@ -1344,7 +1421,7 @@ pub fn metamorphic(gpu: &Gpu, case: &MicroCase, refs: Option<&MicroReference>, b
         if let (Some(set), Some(obs)) = (refs.and_then(|r| r.set.as_ref()), &other.obs) {
             let (spread, _) = gate::spread_difference(&set.reference, &set.spreads);
             if spread > BOUNDED_PROBES {
-                let g = accuracy(gpu, case.scene(), case.tweak, knobs, set, obs);
+                let g = accuracy(gpu, case.scene(), case.tweak, knobs, perturbed, set, obs);
                 return g.into_iter().map(|f| format!("{f} (sensitive scene: reference spread {spread:.1e}, judged by the gate)")).collect();
             }
         }
@@ -1358,8 +1435,9 @@ pub fn metamorphic(gpu: &Gpu, case: &MicroCase, refs: Option<&MicroReference>, b
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Snapshot {
     pub probes: u64,
-    pub values: BTreeMap<String, f64>,
-    pub events: Vec<Ev>,
+    // Bits: JSON floats need not read back exactly.
+    pub values: BTreeMap<String, u64>,
+    pub events: Vec<(EvKind, usize, usize, u64)>,
     pub state: u64,
     pub rows: u64,
     pub coverage: u64,
@@ -1376,7 +1454,7 @@ impl Snapshot {
                     h = gate::fnv(&x.to_bits().to_le_bytes(), h);
                 }
             }
-            values = o.values.iter().map(|(k, v)| (k.clone(), gate::enc(*v))).collect();
+            values = o.values.iter().map(|(k, v)| (k.clone(), v.to_bits())).collect();
         }
         let mut r = 0xcbf29ce484222325;
         for row in &run.rows {
@@ -1384,7 +1462,8 @@ impl Snapshot {
                 r = gate::fnv(&x.to_bits().to_le_bytes(), r);
             }
         }
-        Snapshot { probes: h, values, events: run.sem.events.clone(), state: run.state, rows: r, coverage: run.coverage }
+        let events = run.sem.events.iter().map(|e| (e.kind, e.structure, e.bond, e.time.to_bits())).collect();
+        Snapshot { probes: h, values, events, state: run.state, rows: r, coverage: run.coverage }
     }
 
     /// The fields that differ from `other`.
@@ -1507,6 +1586,10 @@ pub fn run_micro(gpu: &Gpu, only: Option<&[String]>, accept: bool, explain: bool
             eprintln!("{}: {}", case.name, case.semantic);
             eprintln!("  reference events: {}", describe(&keyed(&refs.semantics[0].events)));
             eprintln!("  gpu events:       {}", describe(&keyed(&base.sem.events)));
+            for (i, s) in refs.semantics.iter().enumerate().skip(1) {
+                let t: Vec<String> = s.events.iter().map(|e| format!("{:?}{}@{:.6}", e.kind, e.bond, e.time)).collect();
+                eprintln!("    ensemble {i}: {}", t.join(" "));
+            }
             for e in &refs.semantics[0].events {
                 eprintln!("    ref {:?} s{} b{} t={:.6}", e.kind, e.structure, e.bond, e.time);
             }
@@ -1524,6 +1607,8 @@ pub fn run_micro(gpu: &Gpu, only: Option<&[String]>, accept: bool, explain: bool
             eprintln!("  energy closure: reference {r:.2e}, gpu {g:.2e} of {s:.3e} J");
         }
         let mut coverage = base.coverage;
+        // Snapshots per case and scene: editing a case starts a new one.
+        let tag = format!("{}-{:08x}", case.name, gate::fnv(case_key(case).to_string().as_bytes(), 0xcbf29ce484222325) as u32);
         let mut runs = Vec::new();
         for k in &case.knob_runs {
             match run_gpu(gpu, case, k) {
@@ -1535,11 +1620,11 @@ pub fn run_micro(gpu: &Gpu, only: Option<&[String]>, accept: bool, explain: bool
             }
         }
         let fails = check_case(gpu, case, &refs, &base, coverage);
-        let snap = snapshot(gpu, case.name, &case.base, &base, accept);
+        let snap = snapshot(gpu, &tag, &case.base, &base, accept);
         report.rows.push(Row { case: case.name.into(), knobs: case.base.label(), seconds: base.seconds, coverage: base.coverage, fails, snapshot: Some(snap), missing: false });
         for (k, r) in runs {
             let (fails, seconds, c, snap) = match r {
-                Ok(r) => (metamorphic(gpu, case, Some(&refs), &base, &r, &k), r.seconds, r.coverage, Some(snapshot(gpu, case.name, &k, &r, accept))),
+                Ok(r) => (metamorphic(gpu, case, Some(&refs), &base, &r, &k), r.seconds, r.coverage, Some(snapshot(gpu, &tag, &k, &r, accept))),
                 Err(e) => (vec![format!("GPU error: {e}")], 0.0, 0, None),
             };
             report.rows.push(Row { case: case.name.into(), knobs: k.label(), seconds, coverage: c, fails, snapshot: snap, missing: false });
@@ -1573,10 +1658,21 @@ pub fn run_fuzz(gpu: &Gpu, seeds: &[u64], accept: bool) -> Report {
                 continue;
             }
         };
-        let fails = accuracy(gpu, &scene, None, &default, &set, base.obs.as_ref().unwrap());
+        let fails = accuracy(gpu, &scene, None, &default, gate::perturbed_by, &set, base.obs.as_ref().unwrap());
+        if !fails.is_empty() {
+            let b = &scene.bodies[0];
+            let supports = b.chunks.iter().filter(|c| c.support != Support::None).count();
+            eprintln!("{name}: {} chunks of {}, {supports} fixed, ground {}, {:?}, impactor {:?}", b.chunks.len(), b.chunks[0].material, scene.ground.is_some(), scene.sim.solve_mode, scene.impactors.first().map(|i| (&i.shape, i.mass, i.velocity)));
+            let (_, notes) = gate::difference(&set.reference, base.obs.as_ref().unwrap());
+            let (_, spread) = gate::spread_difference(&set.reference, &set.spreads);
+            eprintln!("  gpu: {}", notes.join("; "));
+            eprintln!("  ref spread: {}", spread.join("; "));
+        }
         let snap = snapshot(gpu, &name, &default, &base, accept);
         report.rows.push(Row { case: name.clone(), knobs: "default".into(), seconds: base.seconds, coverage: base.coverage, fails, snapshot: Some(snap), missing: false });
-        for k in [Knobs::batch(1), Knobs::wide(2)] {
+        // Batches of 3 rounds: boundaries at every phase of the contact pipeline at a third
+        // of the host round trips of batch=1 (the micro catalogue runs batch=1).
+        for k in [Knobs::batch(3), Knobs::wide(2)] {
             let r = with_knobs(&k, || run_world(gpu, &scene, None));
             let (fails, seconds, c) = match r {
                 Ok(r) => {
@@ -1584,7 +1680,7 @@ pub fn run_fuzz(gpu: &Gpu, seeds: &[u64], accept: bool) -> Report {
                         let case = MicroCase::world("fuzz", "", scene.clone(), Expect::default(), vec![]);
                         metamorphic(gpu, &case, None, &base, &r, &k)
                     } else {
-                        accuracy(gpu, &scene, None, &k, &set, r.obs.as_ref().unwrap())
+                        accuracy(gpu, &scene, None, &k, gate::perturbed_by, &set, r.obs.as_ref().unwrap())
                     };
                     (f, r.seconds, r.coverage)
                 }
