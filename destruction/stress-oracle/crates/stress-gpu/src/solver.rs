@@ -138,6 +138,10 @@ struct Params {
     /// Scratch: each impactor's contact plan, 4 float4 as a chunk's (`cplan_base`); a zero
     /// budget: none (driven).
     iplan_base: u32,
+    /// Narrow contact islands' bond groups run in the sums dispatch this batch (0: their
+    /// bonds run inline in the island kernel), and their table in `index`.
+    contact_bond_groups: u32,
+    contact_bond_table: u32,
 }
 
 #[repr(C)]
@@ -324,8 +328,12 @@ const K_SUMS_INTEGRATE: usize = 12;
 const K_ISLAND_WIDE: usize = 13;
 /// `contact_sums`, `impactor_integrate` and the wide bond groups in one dispatch.
 const K_SUMS_BONDS: usize = 14;
+/// The contact path's narrow islands without their bonds (run in the sums dispatch), and
+/// that with the wide islands' chunks.
+const K_CONTACT_ISLANDS: usize = 15;
+const K_CONTACT_ISLAND_WIDE: usize = 16;
 /// Kernel names by `K_*` index.
-pub const KERNEL_NAMES: [&str; 15] = [
+pub const KERNEL_NAMES: [&str; 17] = [
     "island_frame",
     "contact_forces",
     "impactor_shares",
@@ -341,6 +349,8 @@ pub const KERNEL_NAMES: [&str; 15] = [
     "sums_and_impactors",
     "islands_and_wide_chunks",
     "sums_impactors_bonds",
+    "contact_islands",
+    "contact_islands_and_wide_chunks",
 ];
 /// Contact contributions per segment (`contact_sums`, one thread each).
 const SEGMENT: usize = 8;
@@ -370,6 +380,8 @@ struct Kernels {
     sums_integrate: Kernel,
     island_wide: Kernel,
     sums_bonds: Kernel,
+    contact_islands: Kernel,
+    contact_island_wide: Kernel,
     statics: Kernel,
     fatigue: Kernel,
 }
@@ -418,6 +430,10 @@ struct Buffers {
     /// build never makes a settled island wide, so this is false today and `wide_wake` is
     /// not dispatched.
     wide_settled: bool,
+    /// Bond groups of the narrow contact islands (for the sums dispatch), and whether
+    /// one of them is settled (its wake check must precede its bonds: they run inline).
+    contact_bond_groups: u32,
+    contact_settled: bool,
 }
 
 /// Where each GPU chunk and bond lives in the mirror, the probe items by slot, the
@@ -450,8 +466,8 @@ pub struct Profile {
     pub max_chunk_contacts: usize,
     pub max_island_contacts: usize,
     /// GPU time (s) and dispatches per kernel (`KERNEL_NAMES`), with `STRESS_GPU_TIMING=1`.
-    pub kernels: [f64; 15],
-    pub kernel_dispatches: [u64; 15],
+    pub kernels: [f64; 17],
+    pub kernel_dispatches: [u64; 17],
 }
 
 /// The host copy of everything a frame changes (`GpuSolver::snapshot`): to solve the
@@ -544,6 +560,8 @@ impl GpuSolver {
             sums_integrate: gpu.compute(&shaders::WORLD, "sums_and_impactors", &WORLD_BINDINGS),
             island_wide: gpu.compute(&shaders::WORLD, "islands_and_wide_chunks", &WORLD_BINDINGS),
             sums_bonds: gpu.compute(&shaders::WORLD, "sums_impactors_bonds", &WORLD_BINDINGS),
+            contact_islands: gpu.compute(&shaders::WORLD, "contact_islands", &WORLD_BINDINGS),
+            contact_island_wide: gpu.compute(&shaders::WORLD, "contact_islands_and_wide_chunks", &WORLD_BINDINGS),
             statics: gpu.compute(&shaders::WORLD, "island_statics", &WORLD_BINDINGS),
             fatigue: gpu.compute(&shaders::WORLD, "settled_fatigue", &WORLD_BINDINGS),
         };
@@ -1100,6 +1118,21 @@ impl GpuSolver {
         index.extend(bond_table);
         let wide_chunk_table = index.len() as u32;
         index.extend(chunk_table);
+        // Narrow contact islands' bonds in groups (the contact rounds run them in the sums
+        // dispatch, `contact_bonds_at`).
+        let mut contact_bond_list = Vec::new();
+        for (ci, island) in islands.iter().enumerate() {
+            if island.info[0] & ISLAND_CONTACT == 0 || island.info[0] & ISLAND_WIDE != 0 {
+                continue;
+            }
+            for b in (island.range[2]..island.range[3]).step_by(WIDE_GROUP) {
+                contact_bond_list.extend([ci as u32, b, (b + WIDE_GROUP as u32).min(island.range[3]), 0]);
+            }
+        }
+        let contact_settled = islands.iter().any(|i| i.info[0] & ISLAND_CONTACT != 0 && i.info[0] & ISLAND_WIDE == 0 && i.info[0] & ISLAND_SETTLED != 0);
+        let contact_bond_groups = (contact_bond_list.len() / 4) as u32;
+        let contact_bond_table = index.len() as u32;
+        index.extend(contact_bond_list);
         // The sentinel island (batch control) after the islands.
         let halt_index = islands.len() as u32;
         let mut islands_gpu = islands.clone();
@@ -1175,6 +1208,7 @@ impl GpuSolver {
             pair_lanes: if gpu.shader_path == crate::gpu::ShaderPath::Wgsl { 1 } else { 32 },
             cplan_base: cplan_base as u32,
             iplan_base: iplan_base as u32,
+            contact_bond_table,
             device_connect: std::env::var("STRESS_GPU_DEVICE_CONNECT").map_or(1, |v| (v != "0") as u32),
             ..Default::default()
         };
@@ -1262,6 +1296,8 @@ impl GpuSolver {
                 wide_chunk_groups,
                 wide_free,
                 wide_settled,
+                contact_bond_groups,
+                contact_settled,
             },
         ))
     }
@@ -1393,7 +1429,11 @@ impl GpuSolver {
                 gpu.queue.write_buffer(&self.buffers.impactors, 0, bytemuck::cast_slice(&imps));
             }
             gpu.queue.write_buffer(&self.buffers.params_segment, 0, bytemuck::bytes_of(&dispatch_params(&self.buffers, false)));
-            gpu.queue.write_buffer(&self.buffers.params_contact, 0, bytemuck::bytes_of(&dispatch_params(&self.buffers, true)));
+            // Narrow contact islands' bonds in the sums dispatch (they read only the last
+            // substep's state), unless one is settled (its wake check comes first).
+            let bonds_external = self.buffers.contact_bond_groups > 0 && !self.buffers.contact_settled && std::env::var("STRESS_GPU_INLINE_BONDS").map_or(true, |v| v != "1");
+            let contact_params = Params { contact_bond_groups: if bonds_external { self.buffers.contact_bond_groups } else { 0 }, ..dispatch_params(&self.buffers, true) };
+            gpu.queue.write_buffer(&self.buffers.params_contact, 0, bytemuck::bytes_of(&contact_params));
             // The batch's dispatches: (kernel, workgroups, per-substep params).
             let islands_n = self.layout.islands.len().max(1) as u32;
             // Islands that touch nothing: every substep in one dispatch.
@@ -1419,8 +1459,10 @@ impl GpuSolver {
                         ops.push((K_CRUSH, impactors_n, true));
                     }
                     ops.push((K_FORCES, groups((p.pair_count + p.cand_count) * p.pair_lanes.max(1) + p.chunk_count + p.impactor_count), true));
-                    if bonds_with_sums {
-                        ops.push((K_SUMS_BONDS, p.seg_count.div_ceil(256) + impactors_n + p.wide_bond_groups, true));
+                    if bonds_with_sums || bonds_external {
+                        let narrow = if bonds_external { self.buffers.contact_bond_groups } else { 0 };
+                        let wide = if bonds_with_sums { p.wide_bond_groups } else { 0 };
+                        ops.push((K_SUMS_BONDS, p.seg_count.div_ceil(256) + impactors_n + narrow + wide, true));
                     } else if owned_impactors {
                         ops.push((K_SUMS_INTEGRATE, p.seg_count.div_ceil(256) + impactors_n, true));
                     } else {
@@ -1436,7 +1478,7 @@ impl GpuSolver {
                         ops.push((K_WIDE[0], p.wide_bond_groups + wide_groups, true));
                     }
                     if contact {
-                        ops.push((K_ISLAND_WIDE, islands_n + wide_groups, true));
+                        ops.push((if bonds_external { K_CONTACT_ISLAND_WIDE } else { K_ISLAND_WIDE }, islands_n + wide_groups, true));
                     } else {
                         ops.push((K_WIDE[1], wide_groups, true));
                     }
@@ -1447,7 +1489,7 @@ impl GpuSolver {
                         }
                     }
                 } else if contact {
-                    ops.push((K_ISLAND, islands_n, true));
+                    ops.push((if bonds_external { K_CONTACT_ISLANDS } else { K_ISLAND }, islands_n, true));
                 }
             }
             let w = &self.kernels.wide;
@@ -1467,6 +1509,8 @@ impl GpuSolver {
                 &self.kernels.sums_integrate,
                 &self.kernels.island_wide,
                 &self.kernels.sums_bonds,
+                &self.kernels.contact_islands,
+                &self.kernels.contact_island_wide,
             ];
             let bind = |contact: bool| if contact { &self.buffers.bind_contact } else { &self.buffers.bind_segment };
             let mut encoder = gpu.device.create_command_encoder(&Default::default());
@@ -1504,7 +1548,7 @@ impl GpuSolver {
             if let Some(timing) = &self.timing {
                 let stamps: Vec<u64> = gpu.read(&timing.resolve);
                 let period = gpu.queue.get_timestamp_period() as f64 * 1e-9;
-                let mut batch = [(0.0f64, 0.0f64, 0u32); 15];
+                let mut batch = [(0.0f64, 0.0f64, 0u32); 17];
                 for (q, &(k, ..)) in ops.iter().enumerate() {
                     let secs = stamps[2 * q + 1].saturating_sub(stamps[2 * q]) as f64 * period;
                     self.profile.kernels[k] += secs;

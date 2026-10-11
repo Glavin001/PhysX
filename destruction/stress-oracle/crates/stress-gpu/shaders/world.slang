@@ -88,6 +88,8 @@ struct Params
     uint device_connect;     // islands check a disconnection's connectivity themselves
     uint cplan_base;         // scratch: each chunk's contact plan, 4 float4 (`travel_check`)
     uint iplan_base;         // scratch: each impactor's contact plan, 4 float4 (zero budget: none)
+    uint contact_bond_groups; // narrow contact islands' bond groups in the sums dispatch (0: inline)
+    uint contact_bond_table;  // index: those groups (island, begin, end, -)
 };
 
 static const uint MODE_EXPLICIT = 0;
@@ -1888,7 +1890,10 @@ void contact_split_at(uint at)
 
 // ------------------------------------------------------------------ narrow islands
 
-void island_frame_at(uint gi, uint tid)
+// INLINE_BONDS 0: a contact island whose bonds ran this substep in the sums dispatch
+// (`contact_bonds_at`), a disconnection reported by ISLAND_HALT_PENDING; the joint law
+// then is not compiled into this kernel.
+void island_frame_at<let INLINE_BONDS : uint>(uint gi, uint tid)
 {
     Island isl = islands[gi];
     bool anchored = (isl.info.x & ISLAND_ANCHORED) != 0;
@@ -1959,9 +1964,14 @@ void island_frame_at(uint gi, uint tid)
         if (explicit_step)
         {
             // 2. Bonds.
-            for (uint i = isl.range.z + tid; i < isl.range.w; i += THREADS)
-                if (bond_update(i, dt, fracture, abs_step, false))
-                    g_halt = 1;
+            if (INLINE_BONDS != 0)
+            {
+                for (uint i = isl.range.z + tid; i < isl.range.w; i += THREADS)
+                    if (bond_update(i, dt, fracture, abs_step, false))
+                        g_halt = 1;
+            }
+            else if (tid == 0 && (islands[gi].info.z & ISLAND_HALT_PENDING) != 0)
+                g_halt = 1;
             AllMemoryBarrierWithGroupSync();
             // 3. Chunks.
             for (uint c = isl.range.x + tid; c < isl.range.y; c += THREADS)
@@ -2033,6 +2043,10 @@ void island_frame_at(uint gi, uint tid)
         comp_add1(isl.energy.x, isl.energy.y, wsum.x);
         isl.energy.y += wsum.y;
         isl.info.w += done;
+        // A narrow island took its bonds' disconnection report (a wide island's is
+        // wide_end's, later in the round).
+        if ((isl.info.x & ISLAND_WIDE) == 0)
+            isl.info.z &= ~ISLAND_HALT_PENDING;
         if (g_halt != 0)
             isl.info.z |= ISLAND_HALTED;
         uint cov = seen_bits() | (g_halt != 0 ? COV_DISCONNECTED : 0) | (woke ? COV_WOKE : 0) | (resumed ? COV_DISCONNECTED | COV_RESUMED_ON_DEVICE : 0);
@@ -3161,7 +3175,15 @@ void contact_sums(uint3 id: SV_DispatchThreadID)
 [numthreads(256, 1, 1)]
 void island_frame(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
 {
-    island_frame_at(group.x, thread.x);
+    island_frame_at<1>(group.x, thread.x);
+}
+
+// The contact path's narrow islands with their bonds run in the sums dispatch.
+[shader("compute")]
+[numthreads(256, 1, 1)]
+void contact_islands(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
+{
+    island_frame_at<0>(group.x, thread.x);
 }
 
 [shader("compute")]
@@ -3194,7 +3216,18 @@ void sums_and_impactors(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
 void islands_and_wide_chunks(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
 {
     if (group.x < params.halt_index)
-        island_frame_at(group.x, thread.x);
+        island_frame_at<1>(group.x, thread.x);
+    else
+        wide_chunks_at(group.x - params.halt_index, thread.x);
+}
+
+// `islands_and_wide_chunks` with the narrow islands' bonds run in the sums dispatch.
+[shader("compute")]
+[numthreads(256, 1, 1)]
+void contact_islands_and_wide_chunks(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
+{
+    if (group.x < params.halt_index)
+        island_frame_at<0>(group.x, thread.x);
     else
         wide_chunks_at(group.x - params.halt_index, thread.x);
 }
@@ -3219,6 +3252,21 @@ void sums_impactors_bonds(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadI
         contact_sum_at(group.x * 256u + thread.x);
     else if (group.x < sums_groups + imp_groups)
         impactor_integrate_at(group.x - sums_groups, thread.x);
+    else if (group.x < sums_groups + imp_groups + params.contact_bond_groups)
+        contact_bonds_at(group.x - sums_groups - imp_groups, thread.x);
     else
-        wide_bonds_at(group.x - sums_groups - imp_groups, thread.x);
+        wide_bonds_at(group.x - sums_groups - imp_groups - params.contact_bond_groups, thread.x);
+}
+
+// A group of a narrow contact island's bonds (`contact_bond_table`, as the wide bond
+// groups): the joint law of this substep, a disconnection reported to the island.
+void contact_bonds_at(uint gx, uint tid)
+{
+    WideGroup wg = wide_group(params.contact_bond_table, gx);
+    Island isl = islands[wg.island];
+    if (!wide_enter(tid, isl) || (isl.info.x & ISLAND_SETTLED) != 0)
+        return;
+    uint i = wg.begin + tid;
+    if (i < wg.end && bond_update(i, params.dt, params.fracture != 0, isl.info.w + 1, true))
+        islands[wg.island].info.z = isl.info.z | ISLAND_HALT_PENDING;
 }
