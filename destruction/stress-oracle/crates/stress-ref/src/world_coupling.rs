@@ -511,12 +511,11 @@ impl World {
     }
 
     /// world.rs `contact_stable_dt` over the contacts that can engage this frame only: a
-    /// block Gershgorin bound on the mass-normalised penalty stiffness. Each listed chunk
-    /// (and impactor) adds, for every partner it may touch, the pair's largest total
-    /// stiffness `k` over `k / m_a + k / sqrt(m_a m_b)` (the ground is immovable). A
-    /// penalty pair never exceeds its face-pair stiffness (`k / max(points, 10)` per
-    /// point; the ground `k / max(points, 5)`), and `pair_stiffness_bound` bounds that
-    /// over every direction the pair can press along. Same deformation inertia as the
+    /// certified bound on the spectral radius of the mass-normalised penalty stiffness
+    /// (`contact_network_radius`), each pair at its largest total stiffness `k` (the
+    /// ground immovable). A penalty pair never exceeds its face-pair stiffness
+    /// (`k / max(points, 10)` per point; the ground `k / max(points, 5)`), and
+    /// `pair_stiffness_bound` bounds that over every direction the pair can press along. Same deformation inertia as the
     /// standalone bound, which instead presses every chunk on six faces by a copy of
     /// itself in the scene's stiffest material. Penalty contact (not the layer
     /// contact's lattice bound). Infinite with nothing engaged.
@@ -531,49 +530,71 @@ impl World {
             (OBox { center: Vec3::ZERO, rotation: ch.rotation, half: ch.half_extents, hull: None }, ch.mass * self.solver.chunks[s][c].inertia_scale)
         };
         let ground = self.scene.ground.as_ref().map(|g| self.scene.material(&g.material));
-        let row = |k: f64, ma: f64, mb: f64| k / ma + if mb.is_finite() { k / (ma * mb).sqrt() } else { 0.0 };
-        let mut w2: f64 = 0.0;
+        // The contact network as a graph of bodies: `diag` the sum of each body's contact
+        // stiffnesses over its mass, `edges` each pair's `k / sqrt(m_a m_b)` once.
+        let mut node: HashMap<ContactPartner, usize> = HashMap::new();
+        let mut mass: Vec<f64> = Vec::new();
+        let mut index = |p: ContactPartner, m: f64, mass: &mut Vec<f64>| -> usize {
+            *node.entry(p).or_insert_with(|| {
+                mass.push(m);
+                mass.len() - 1
+            })
+        };
+        let mut diag: Vec<f64> = Vec::new();
+        let mut edges: Vec<(usize, usize, f64)> = Vec::new();
+        let mut add = |i: usize, j: Option<usize>, k: f64, mass: &Vec<f64>, diag: &mut Vec<f64>| {
+            diag.resize(mass.len(), 0.0);
+            diag[i] += k / mass[i];
+            if let Some(j) = j {
+                diag[j] += k / mass[j];
+                edges.push((i, j, k / (mass[i] * mass[j]).sqrt()));
+            }
+        };
+        let g = Vec3::from_array(self.scene.gravity).norm();
         for ((s, c), partners) in chunks {
             let (s, c) = (*s, *c);
             let (b, m) = chunk_box(s, c);
             let mat = self.chunk_material(s, c);
-            let mut sum = 0.0;
+            let i = index(ContactPartner::Chunk(s, c), m, &mut mass);
             for p in partners {
-                sum += match *p {
-                    ContactPartner::Chunk(ps, pc) => {
+                match *p {
+                    // Each pair once (both chunks list it).
+                    ContactPartner::Chunk(ps, pc) if (s, c) < (ps, pc) => {
                         let (pb, pm) = chunk_box(ps, pc);
                         let k = match (poses.get(&(s, c)), poses.get(&(ps, pc))) {
-                            (Some(pa), Some(pp)) => pair_stiffness_within(mat, &b.half, pa, self.chunk_material(ps, pc), &pb.half, pp, Vec3::from_array(self.scene.gravity).norm(), scale),
+                            (Some(pa), Some(pp)) => pair_stiffness_within(mat, &b.half, pa, self.chunk_material(ps, pc), &pb.half, pp, g, scale),
                             _ => pair_stiffness_bound(mat, &b, self.chunk_material(ps, pc), &pb, scale),
                         };
-                        row(k, m, pm)
+                        let j = index(ContactPartner::Chunk(ps, pc), pm, &mut mass);
+                        add(i, Some(j), k, &mass, &mut diag);
                     }
-                    ContactPartner::Impactor(i) => {
-                        let imp = &self.impactors[i];
-                        row(pair_stiffness_bound(mat, &b, &imp.material, &imp.obox(), scale), m, imp.mass)
+                    ContactPartner::Chunk(..) => {}
+                    ContactPartner::Impactor(ii) => {
+                        let imp = &self.impactors[ii];
+                        let k = pair_stiffness_bound(mat, &b, &imp.material, &imp.obox(), scale);
+                        let j = index(ContactPartner::Impactor(ii), imp.mass, &mut mass);
+                        add(i, Some(j), k, &mass, &mut diag);
                     }
                     // The ground presses with the chunk's own box on its side (world.rs).
-                    ContactPartner::Ground => ground.map_or(0.0, |g| row(pair_stiffness_bound(mat, &b, g, &b, scale), m, f64::INFINITY)),
-                };
+                    ContactPartner::Ground => {
+                        if let Some(gm) = ground {
+                            add(i, None, pair_stiffness_bound(mat, &b, gm, &b, scale), &mass, &mut diag);
+                        }
+                    }
+                }
             }
-            w2 = w2.max(sum);
         }
-        for (i, touched) in impactors {
-            let imp = &self.impactors[*i];
-            let ib = imp.obox();
-            let mut sum: f64 = touched
-                .iter()
-                .map(|&(s, c)| {
-                    let (b, m) = chunk_box(s, c);
-                    row(pair_stiffness_bound(&imp.material, &ib, self.chunk_material(s, c), &b, scale), imp.mass, m)
-                })
-                .sum();
+        for (ii, _) in impactors {
+            let imp = &self.impactors[*ii];
+            let i = index(ContactPartner::Impactor(*ii), imp.mass, &mut mass);
             // On the ground a box presses up to its 8 corners at `k / min(points, 5)` each.
-            if let Some(g) = ground {
-                sum += 8.0 / 5.0 * row(pair_stiffness_bound(&imp.material, &ib, g, &ib, scale), imp.mass, f64::INFINITY);
+            if let Some(gm) = ground {
+                let ib = imp.obox();
+                add(i, None, 8.0 / 5.0 * pair_stiffness_bound(&imp.material, &ib, gm, &ib, scale), &mass, &mut diag);
             }
-            w2 = w2.max(sum);
         }
+        diag.resize(mass.len(), 0.0);
+        let w2 = contact_network_radius(&diag, &edges);
         if w2 <= 0.0 {
             f64::INFINITY
         } else {
@@ -739,7 +760,7 @@ fn rotation_of(m: &Mat3) -> Quat {
 }
 
 /// A body a chunk may touch within a frame (`World::engaged_contact_dt`).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum ContactPartner {
     Chunk(usize, usize),
     Impactor(usize),
@@ -813,4 +834,68 @@ fn pair_stiffness_within(a: &Material, half_a: &Vec3, pa: &PlannedPose, b: &Mate
     let (area_a, h_a) = reach(half_a, pa);
     let (area_b, h_b) = reach(half_b, pb);
     area_a.min(area_b) / (h_a / e(a) + h_b / e(b))
+}
+
+/// Certified upper bound of the largest eigenvalue of the mass-normalised contact
+/// stiffness `M^-1/2 K M^-1/2`, from the network's scalar form `B` (`diag`: each body's
+/// `sum k / m`; `edges`: each pair's `k / sqrt(m_a m_b)`). A pair's 3 x 3 blocks are
+/// `k n n^T` scaled, of norm at most those entries, and for a symmetric block matrix
+/// `lambda_max(A) <= rho(B)` (`x^T A x <= y^T B y` with `y_i = |x_i|`). For any positive
+/// `v`, `rho(B) <= max_i (B v)_i / v_i` (Collatz-Wielandt): the first iterate (`v = 1`)
+/// is the Gershgorin row bound, and power iteration sharpens it towards `rho(B)`; every
+/// iterate's bound holds, the smallest is kept. A heavy impactor on many light chunks (a
+/// star) is the case where rows overstate most.
+pub(crate) fn contact_network_radius(diag: &[f64], edges: &[(usize, usize, f64)]) -> f64 {
+    const ITERATIONS: usize = 200;
+    const CONVERGED: f64 = 1e-3;
+    let n = diag.len();
+    if n == 0 {
+        return 0.0;
+    }
+    let mut v = vec![1.0f64; n];
+    let mut bound = f64::INFINITY;
+    for _ in 0..ITERATIONS {
+        let mut y: Vec<f64> = (0..n).map(|i| diag[i] * v[i]).collect();
+        for &(i, j, w) in edges {
+            y[i] += w * v[j];
+            y[j] += w * v[i];
+        }
+        let (mut hi, mut lo, mut top) = (0.0f64, f64::INFINITY, 0.0f64);
+        for i in 0..n {
+            if y[i] > 0.0 {
+                let ratio = if v[i] > 0.0 { y[i] / v[i] } else { f64::INFINITY };
+                hi = hi.max(ratio);
+                lo = lo.min(ratio);
+            }
+            top = top.max(y[i]);
+        }
+        bound = bound.min(hi);
+        if !(top > 0.0) || hi - lo <= CONVERGED * hi {
+            break;
+        }
+        v = y.iter().map(|x| x / top).collect();
+    }
+    if bound.is_finite() { bound } else { 0.0 }
+}
+
+#[cfg(test)]
+mod network_tests {
+    use super::contact_network_radius;
+
+    /// A heavy body on n light ones (a ram on a wall): the bound lies between the star's
+    /// exact largest eigenvalue and the Gershgorin row bound, close to the former.
+    #[test]
+    fn star_bound_is_certified_and_sharp() {
+        let (k, mh, ml, n) = (8e9, 200.0, 2.4, 230usize);
+        let mut diag = vec![n as f64 * k / mh];
+        diag.extend(std::iter::repeat_n(k / ml, n));
+        let edges: Vec<(usize, usize, f64)> = (1..=n).map(|j| (0, j, k / (mh * ml).sqrt())).collect();
+        let (a, b) = (diag[0], diag[1]);
+        let exact = 0.5 * (a + b) + (0.25 * (a - b) * (a - b) + n as f64 * k * k / (mh * ml)).sqrt();
+        let rows = a + n as f64 * k / (mh * ml).sqrt();
+        let bound = contact_network_radius(&diag, &edges);
+        assert!(bound >= exact * (1.0 - 1e-12), "{bound} below the exact {exact}");
+        assert!(bound <= exact * 1.002, "{bound} not sharp against {exact} (rows {rows})");
+        assert!(rows > 5.0 * exact);
+    }
 }

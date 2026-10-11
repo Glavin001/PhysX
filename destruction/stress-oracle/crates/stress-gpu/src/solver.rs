@@ -500,6 +500,12 @@ pub struct GpuSolver {
     /// When set, every contact plan built inside `step` (re-plans, host splits) is
     /// recorded here, for a step bound to be checked against them.
     pub plan_log: Option<Vec<crate::contacts::PlanView>>,
+    /// When set, `step` returns as soon as it makes a contact plan within the step (a
+    /// re-plan or a host split) while every island stands at the same substep: nothing has
+    /// run under the plan yet, so the caller may pick the step it needs.
+    /// `stopped_at_plan` tells whether the last `step` did.
+    pub stop_at_plan: bool,
+    pub stopped_at_plan: bool,
     pub profile: Profile,
     /// The code paths that ran so far (`coverage`): the device's words OR-ed after every
     /// readback, and the host's rare paths. Tests only; nothing reads it.
@@ -552,6 +558,8 @@ impl GpuSolver {
             resumed_halts: 0,
             bonds_stale: false,
             plan_log: None,
+            stop_at_plan: false,
+            stopped_at_plan: false,
             plan_until: f64::NEG_INFINITY,
             extra_terms: Vec::new(),
             own_contacts: true,
@@ -1226,8 +1234,10 @@ impl GpuSolver {
         let stride = (substeps as u32).div_ceil(4) * 4;
         let horizon = dt * substeps as f64;
         let start_time = self.mirror.time;
-        let replan = self.contacts_possible() && start_time + horizon > self.plan_until * (1.0 + 1e-12) + 1e-12;
-        if stride > self.buffers.params.probe_stride || replan {
+        // (A plan that covers this step up to the rounding of its substeps' sum stands.)
+        let replan = self.contacts_possible() && start_time + horizon > self.plan_until + 1e-9 * horizon;
+        let planned_now = stride > self.buffers.params.probe_stride || replan;
+        if planned_now {
             // A longer probe stride re-lays the scratch: a full rebuild from the synced
             // mirror. Otherwise a contact re-plan, from the positions the GPU reached
             // (synced after every step), keeping state and bond history resident. Plans
@@ -1251,6 +1261,9 @@ impl GpuSolver {
         self.profile.substeps += substeps as u64;
         self.profile.max_pairs = self.profile.max_pairs.max(self.layout.plan.pairs.len());
         self.profile.max_impactor_candidates = self.profile.max_impactor_candidates.max(self.buffers.params.cand_count as usize);
+        // Substeps run (fewer when the step stops at a plan; none when it made one first).
+        self.stopped_at_plan = self.stop_at_plan && planned_now && self.contacts_possible();
+        let mut ran = if self.stopped_at_plan { 0 } else { substeps };
         let start = self.mirror.substeps as usize;
         // Times from `start` on are this step's: a restored state may run them again at
         // another step size.
@@ -1283,6 +1296,9 @@ impl GpuSolver {
         // Impactor velocity and position after every substep (for the impactor probes).
         let mut impactor_records = vec![vec![(Vec3::splat(f64::NAN), Vec3::splat(f64::NAN)); substeps]; self.impactors.len()];
         loop {
+            if self.stopped_at_plan {
+                break;
+            }
             let mut any = false;
             let mut contact_left = 0usize;
             let mut wide_left = 0usize;
@@ -1529,19 +1545,26 @@ impl GpuSolver {
             self.mirror.time = self.step_times[start];
             // The live clusters' (the map keeps the ids of clusters split away).
             let left_now = self.mirror.clusters.iter().filter_map(|c| remaining.get(&c.id).copied()).max().unwrap_or(0).max(pipeline_left);
-            self.plan_until = self.mirror.time + dt * left_now as f64;
-            let (layout, buffers) = Self::build(gpu, &self.kernels, &self.mirror, self.loads.as_mut(), &self.impactors, &self.pair_memory, self.buffers.params.probe_stride, dt * left_now as f64, self.step_times[start + substeps - left_now], None, &self.extra_terms)?;
+            let reached = self.step_times[start + substeps - left_now];
+            self.plan_until = reached + dt * left_now as f64;
+            let (layout, buffers) = Self::build(gpu, &self.kernels, &self.mirror, self.loads.as_mut(), &self.impactors, &self.pair_memory, self.buffers.params.probe_stride, dt * left_now as f64, reached, None, &self.extra_terms)?;
             self.layout = layout;
             self.buffers = buffers;
             self.log_plan();
             self.profile.split += t_split.elapsed().as_secs_f64();
+            let lockstep = self.mirror.clusters.iter().all(|c| remaining.get(&c.id).is_none_or(|&l| l == left_now)) && (!owned_impactors || pipeline_left == left_now);
+            if self.stop_at_plan && left_now > 0 && lockstep && self.contacts_possible() {
+                ran = substeps - left_now;
+                self.stopped_at_plan = true;
+                break;
+            }
         }
         let t = std::time::Instant::now();
         self.sync_motion(gpu);
         self.bonds_stale = true;
         self.profile.download += t.elapsed().as_secs_f64();
-        self.mirror.time = self.step_times[start + substeps];
-        self.mirror.substeps = (start + substeps) as u64;
+        self.mirror.time = self.step_times[start + ran];
+        self.mirror.substeps = (start + ran) as u64;
         if sync_each_step() {
             self.sync(gpu);
         }
@@ -1586,6 +1609,9 @@ impl GpuSolver {
                 }
                 out[key.0][k] += row[k];
             }
+        }
+        for row in &mut out {
+            row.truncate(ran);
         }
         Ok(out)
     }

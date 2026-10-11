@@ -228,38 +228,67 @@ impl GpuWorld {
                 let t_end = self.solver.mirror.time + fdt;
                 let span = fdt / FRAME_SEGMENTS as f64;
                 let mut cap = f64::INFINITY;
+                self.solver.stop_at_plan = true;
                 while t_end - self.solver.mirror.time > 1e-3 * span {
                     let rest = t_end - self.solver.mirror.time;
                     let horizon = if rest < 1.5 * span { rest } else { span };
+                    let seg_end = self.solver.mirror.time + horizon;
                     let snap = self.solver.snapshot(gpu);
                     let host = (self.events_done.clone(), self.blasts_active.clone(), self.probes.clone(), self.next_sample, self.filter.clone());
+                    let seg_taken = taken;
                     self.solver.plan_for(gpu, horizon)?;
                     let view = self.solver.plan_view();
                     let stress = self.stress_dt();
-                    let contact = self.plan_contact_dt(&view).min(cap);
-                    let dt = self.combined_dt(stress, contact, fdt);
-                    let len = (horizon / dt).ceil().max(1.0) as usize;
-                    let step = horizon / len as f64;
-                    self.solver.plan_log = Some(Vec::new());
-                    self.advance_substeps(gpu, step, len)?;
-                    let log = self.solver.plan_log.take().unwrap_or_default();
-                    let need = log.iter().map(|v| self.plan_contact_dt(v)).fold(f64::INFINITY, f64::min);
-                    if self.combined_dt(stress, need.min(cap), fdt) < step * (1.0 - 1e-9) {
+                    let mut contact = self.plan_contact_dt(&view).min(cap);
+                    let mut violated = None;
+                    // The segment, re-stepped whenever the solver stops at a new plan
+                    // (nothing has run under it yet).
+                    loop {
+                        let left = seg_end - self.solver.mirror.time;
+                        if left <= 1e-6 * horizon {
+                            break;
+                        }
+                        let dt = self.combined_dt(stress, contact, fdt);
+                        let len = (left / dt).ceil().max(1.0) as usize;
+                        let step = left / len as f64;
+                        self.solver.plan_log = Some(Vec::new());
+                        let ran = self.advance_substeps(gpu, step, len)?;
+                        taken += ran;
+                        let log = self.solver.plan_log.take().unwrap_or_default();
+                        let need = log.iter().map(|v| self.plan_contact_dt(v)).fold(f64::INFINITY, f64::min);
                         if std::env::var("STRESS_GPU_COUPLED_TRACE").is_ok() {
-                            eprintln!("coupled frame {}: a plan within a segment needs a contact step of {need:.2e} s (segment at {step:.2e} s): solved again", self.frame);
+                            eprintln!("coupled frame {}: {ran} substeps of {step:.2e} s ({} pairs){}", self.frame, view.pairs.len(), if self.solver.stopped_at_plan { format!(", stopped at a plan needing {need:.2e} s") } else { String::new() });
+                        }
+                        if self.solver.stopped_at_plan {
+                            // Only the last plan stands for what follows; those before it
+                            // were run under and must hold for this step.
+                            let (last, before) = log.split_last().map_or((f64::INFINITY, f64::INFINITY), |(l, b)| (self.plan_contact_dt(l), b.iter().map(|v| self.plan_contact_dt(v)).fold(f64::INFINITY, f64::min)));
+                            if self.combined_dt(stress, before.min(cap), fdt) < step * (1.0 - 1e-9) {
+                                violated = Some(before);
+                                break;
+                            }
+                            contact = last.min(cap);
+                            continue;
+                        }
+                        if self.combined_dt(stress, need.min(cap), fdt) < step * (1.0 - 1e-9) {
+                            violated = Some(need);
+                        }
+                        break;
+                    }
+                    if let Some(need) = violated {
+                        if std::env::var("STRESS_GPU_COUPLED_TRACE").is_ok() {
+                            eprintln!("coupled frame {}: a plan within a segment needs a contact step of {need:.2e} s: solved again", self.frame);
                         }
                         self.solver.restore(gpu, snap)?;
                         (self.events_done, self.blasts_active, self.probes, self.next_sample, self.filter) = host;
                         self.shell.redone_frames += 1;
+                        taken = seg_taken;
                         cap = cap.min(need);
                         continue;
                     }
-                    if std::env::var("STRESS_GPU_COUPLED_TRACE").is_ok() {
-                        eprintln!("coupled frame {}: segment of {len} substeps of {step:.2e} s ({} pairs)", self.frame, view.pairs.len());
-                    }
-                    taken += len;
                     cap = f64::INFINITY;
                 }
+                self.solver.stop_at_plan = false;
             }
             self.solver.plan_log = None;
             self.finish_frame(gpu, taken)?;
@@ -440,8 +469,9 @@ impl GpuWorld {
         sum.clear();
     }
 
-    /// `n` substeps of `dt` within the frame (events, blasts, probes).
-    fn advance_substeps(&mut self, gpu: &Gpu, dt: f64, n: usize) -> Result<(), String> {
+    /// `n` substeps of `dt` within the frame (events, blasts, probes). Returns the
+    /// substeps run: fewer when the solver stopped at a contact plan (`stop_at_plan`).
+    fn advance_substeps(&mut self, gpu: &Gpu, dt: f64, n: usize) -> Result<usize, String> {
         let mut done = 0;
         while done < n {
             let t = self.solver.mirror.time;
@@ -478,14 +508,18 @@ impl GpuWorld {
             }
             let start = self.solver.mirror.substeps as usize;
             let values = self.solver.step(gpu, dt, len)?;
-            for k in 0..len {
+            let ran = self.solver.mirror.substeps as usize - start;
+            for k in 0..ran {
                 let t = self.solver.time_after(start + k + 1);
                 let row: Vec<f64> = values.iter().map(|v| v[k]).collect();
                 self.record(t, &row, false);
             }
-            done += len;
+            done += ran;
+            if self.solver.stopped_at_plan {
+                break;
+            }
         }
-        Ok(())
+        Ok(done)
     }
 
     /// The end of a frame of `n` substeps: the solve mode's tail (statics, settling).
