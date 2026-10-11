@@ -10,14 +10,14 @@ metal = "Apple metal version 32023.155 (metalfe-32023.155)"
 date = "2026-10-11"
 
 [kernels.contact_forces]
-instructions = 8125
+instructions = 8312
 temp_registers = 96
 spilled_bytes = 512
 threads_per_threadgroup = 64
 spilled_bytes_x_threads = 32768
 static_threadgroup_memory = 0
 max_threads_per_threadgroup = 1024
-code_bytes = 57818
+code_bytes = 58876
 
 [kernels.contact_sums]
 instructions = 1241
@@ -60,14 +60,14 @@ max_threads_per_threadgroup = 1024
 code_bytes = 13800
 
 [kernels.island_frame]
-instructions = 9619
+instructions = 9831
 temp_registers = 96
 spilled_bytes = 1040
 threads_per_threadgroup = 256
 spilled_bytes_x_threads = 266240
-static_threadgroup_memory = 1056
+static_threadgroup_memory = 3104
 max_threads_per_threadgroup = 1024
-code_bytes = 70068
+code_bytes = 71866
 
 [kernels.island_statics]
 instructions = 5925
@@ -80,14 +80,14 @@ max_threads_per_threadgroup = 1024
 code_bytes = 46040
 
 [kernels.islands_and_wide_chunks]
-instructions = 11659
+instructions = 11853
 temp_registers = 96
-spilled_bytes = 1040
+spilled_bytes = 1056
 threads_per_threadgroup = 256
-spilled_bytes_x_threads = 266240
-static_threadgroup_memory = 1056
+spilled_bytes_x_threads = 270336
+static_threadgroup_memory = 3120
 max_threads_per_threadgroup = 1024
-code_bytes = 85028
+code_bytes = 86466
 
 [kernels.settled_fatigue]
 instructions = 2938
@@ -108,6 +108,16 @@ spilled_bytes_x_threads = 114688
 static_threadgroup_memory = 1024
 max_threads_per_threadgroup = 1024
 code_bytes = 21492
+
+[kernels.sums_impactors_bonds]
+instructions = 6909
+temp_registers = 96
+spilled_bytes = 864
+threads_per_threadgroup = 256
+spilled_bytes_x_threads = 221184
+static_threadgroup_memory = 1040
+max_threads_per_threadgroup = 1024
+code_bytes = 51756
 
 [kernels.wide_bonds]
 instructions = 4035
@@ -140,14 +150,14 @@ max_threads_per_threadgroup = 1024
 code_bytes = 3278
 
 [kernels.wide_end]
-instructions = 780
+instructions = 754
 temp_registers = 96
-spilled_bytes = 208
+spilled_bytes = 176
 threads_per_threadgroup = 256
-spilled_bytes_x_threads = 53248
+spilled_bytes_x_threads = 45056
 static_threadgroup_memory = 17424
 max_threads_per_threadgroup = 1024
-code_bytes = 6128
+code_bytes = 6010
 
 [kernels.wide_rigid]
 instructions = 3117
