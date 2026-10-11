@@ -135,6 +135,9 @@ struct Params {
     /// Scratch: each chunk's contact plan (start position hi with its budget, lo with
     /// the plan time's rounding, orientation, velocity with the plan time), 4 float4.
     cplan_base: u32,
+    /// Scratch: each impactor's contact plan, 4 float4 as a chunk's (`cplan_base`); a zero
+    /// budget: none (driven).
+    iplan_base: u32,
 }
 
 #[repr(C)]
@@ -312,7 +315,6 @@ const K_ISLAND: usize = 0;
 const K_FORCES: usize = 1;
 const K_SHARES: usize = 2;
 const K_CRUSH: usize = 3;
-const K_INTEGRATE: usize = 4;
 const K_WIDE: [usize; 5] = [5, 6, 7, 8, 9];
 const K_SUMS: usize = 10;
 const K_WAKE: usize = 11;
@@ -1120,7 +1122,8 @@ impl GpuSolver {
         // Static solves: 23 float4 per chunk, 2 per bond, 1 per island.
         let statics_base = cframe_base + 2 * n;
         let cplan_base = statics_base + 23 * n + 2 * bonds.len() + islands.len() + 1;
-        let scratch_len = cplan_base + 4 * n;
+        let iplan_base = cplan_base + 4 * n;
+        let scratch_len = iplan_base + 4 * impactors.len().max(1);
 
         let (gravity, ground) = (m.config.gravity, scene.as_ref().and_then(|s| s.ground.clone()));
         let (g_hi, g_lo) = split1(ground.as_ref().map_or(0.0, |g| g.height));
@@ -1171,6 +1174,7 @@ impl GpuSolver {
             statics_tol: std::env::var("STRESS_GPU_STATICS_TOL").ok().and_then(|v| v.parse().ok()).unwrap_or(1e-5),
             pair_lanes: if gpu.shader_path == crate::gpu::ShaderPath::Wgsl { 1 } else { 32 },
             cplan_base: cplan_base as u32,
+            iplan_base: iplan_base as u32,
             device_connect: std::env::var("STRESS_GPU_DEVICE_CONNECT").map_or(1, |v| (v != "0") as u32),
             ..Default::default()
         };
@@ -1200,6 +1204,17 @@ impl GpuSolver {
         let mut scratch_init = vec![[0f32; 4]; scratch_len];
         for (k, rows) in chunk_plan.iter().enumerate() {
             scratch_init[cplan_base + 4 * k..cplan_base + 4 * k + 4].copy_from_slice(rows);
+        }
+        let (t_hi, t_lo) = split1(plan_time);
+        for (i, p) in plan.impactor_plan.iter().enumerate() {
+            if let Some(p) = p {
+                let (hi, lo) = split(p.position);
+                let q = p.rotation;
+                scratch_init[iplan_base + 4 * i] = [hi[0], hi[1], hi[2], p.budget as f32];
+                scratch_init[iplan_base + 4 * i + 1] = [lo[0], lo[1], lo[2], t_lo];
+                scratch_init[iplan_base + 4 * i + 2] = [q.x as f32, q.y as f32, q.z as f32, q.w as f32];
+                scratch_init[iplan_base + 4 * i + 3] = v4(p.velocity, t_hi as f64);
+            }
         }
         // Bond loads from the mirror's forces: settled islands keep them (their bonds are
         // not evaluated) for the section probes.
@@ -1403,7 +1418,7 @@ impl GpuSolver {
                         ops.push((K_SHARES, groups(p.cand_count), true));
                         ops.push((K_CRUSH, impactors_n, true));
                     }
-                    ops.push((K_FORCES, groups((p.pair_count + p.cand_count) * p.pair_lanes.max(1) + p.chunk_count), true));
+                    ops.push((K_FORCES, groups((p.pair_count + p.cand_count) * p.pair_lanes.max(1) + p.chunk_count + p.impactor_count), true));
                     if bonds_with_sums {
                         ops.push((K_SUMS_BONDS, p.seg_count.div_ceil(256) + impactors_n + p.wide_bond_groups, true));
                     } else if owned_impactors {
@@ -2046,7 +2061,7 @@ impl GpuSolver {
         let kernels: [(&'static str, &Kernel, u32); 5] = [
             ("impactor_shares", &self.kernels.shares, groups(p.cand_count)),
             ("impactor_crush", &self.kernels.crush, impactors_n),
-            ("contact_forces", &self.kernels.forces, groups((p.pair_count + p.cand_count) * p.pair_lanes.max(1) + p.chunk_count)),
+            ("contact_forces", &self.kernels.forces, groups((p.pair_count + p.cand_count) * p.pair_lanes.max(1) + p.chunk_count + p.impactor_count)),
             ("island_frame (1 substep)", &self.kernels.island, self.layout.islands.len().max(1) as u32),
             ("impactor_integrate", &self.kernels.integrate, impactors_n),
         ];

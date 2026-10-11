@@ -523,7 +523,13 @@ impl World {
     /// A chunk pair whose two chunks both have a `PlannedPose` is bounded over the
     /// directions it can press along while the plan stands (`pair_stiffness_within`)
     /// instead of every direction.
-    pub fn engaged_contact_dt(&self, chunks: &[((usize, usize), Vec<ContactPartner>)], impactors: &[(usize, Vec<(usize, usize)>)], poses: &HashMap<(usize, usize), PlannedPose>) -> f64 {
+    pub fn engaged_contact_dt(
+        &self,
+        chunks: &[((usize, usize), Vec<ContactPartner>)],
+        impactors: &[(usize, Vec<(usize, usize)>)],
+        poses: &HashMap<(usize, usize), PlannedPose>,
+        impactor_poses: &HashMap<usize, PlannedPose>,
+    ) -> f64 {
         let scale = self.scene.sim.stiffness_scale;
         let chunk_box = |s: usize, c: usize| {
             let ch = &self.solver.structures[s].chunks[c];
@@ -571,7 +577,11 @@ impl World {
                     ContactPartner::Chunk(..) => {}
                     ContactPartner::Impactor(ii) => {
                         let imp = &self.impactors[ii];
-                        let k = pair_stiffness_bound(mat, &b, &imp.material, &imp.obox(), scale);
+                        let ib = imp.obox();
+                        let k = match (poses.get(&(s, c)), impactor_poses.get(&ii)) {
+                            (Some(pa), Some(pi)) => pair_stiffness_within(mat, &b.half, pa, &imp.material, &ib.half, pi, g, scale),
+                            _ => pair_stiffness_bound(mat, &b, &imp.material, &ib, scale),
+                        };
                         let j = index(ContactPartner::Impactor(ii), imp.mass, &mut mass);
                         add(i, Some(j), k, &mass, &mut diag);
                     }

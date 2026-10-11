@@ -87,6 +87,7 @@ struct Params
     uint pair_lanes;         // lanes per candidate pair in contact_forces (0: one)
     uint device_connect;     // islands check a disconnection's connectivity themselves
     uint cplan_base;         // scratch: each chunk's contact plan, 4 float4 (`travel_check`)
+    uint iplan_base;         // scratch: each impactor's contact plan, 4 float4 (zero budget: none)
 };
 
 static const uint MODE_EXPLICIT = 0;
@@ -1023,6 +1024,31 @@ void travel_check(uint c)
     }
 }
 
+// An impactor outside its plan's budget stops the batch (the host re-plans): its
+// deviation from its ballistic path plus its turn at its bounding radius, as a chunk's.
+void impactor_travel_check(uint ii)
+{
+    Impactor imp = impactors[ii];
+    uint at = params.iplan_base + 4 * ii;
+    float4 start_hi = scratch[at];
+    if (imp.cand.z != 0 || start_hi.w <= 0.0)
+        return;
+    float4 start_lo = scratch[at + 1];
+    float4 start_rot = scratch[at + 2];
+    float4 start_vel = scratch[at + 3];
+    float since = ((params.t_hi - start_vel.w) + (params.t_lo - start_lo.w)) + float(imp.cand.w - params.step_start) * params.dt;
+    float3 moved = (imp.position.xyz - start_hi.xyz) + (imp.position_err.xyz - start_lo.xyz);
+    float3 expected = start_vel.xyz * since + 0.5 * params.gravity.xyz * since * since;
+    Quat start = quat_of(float4(-start_rot.xyz, start_rot.w));
+    Quat turn = quat_mul(start, quat_of(imp.rotation));
+    float travel = length(moved - expected) + 2.0 * atan2(length(float3(turn.x, turn.y, turn.z)), abs(turn.w)) * imp.half.w;
+    if (travel > start_hi.w)
+    {
+        islands[params.halt_index].info.z = islands[params.halt_index].info.z | STOP_NOW;
+        sentinel_mark(COV_STOP_NOW);
+    }
+}
+
 [shader("compute")]
 [numthreads(64, 1, 1)]
 void contact_forces(uint3 id: SV_DispatchThreadID)
@@ -1048,6 +1074,8 @@ void contact_forces(uint3 id: SV_DispatchThreadID)
     }
     if (j - cand_threads < params.chunk_count && !stopped())
         travel_check(j - cand_threads);
+    else if (j - cand_threads - params.chunk_count < params.impactor_count && !stopped())
+        impactor_travel_check(j - cand_threads - params.chunk_count);
 }
 
 // Crush cap, first pass: each candidate's share of its impactor's elastic force.

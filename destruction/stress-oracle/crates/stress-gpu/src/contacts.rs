@@ -55,6 +55,18 @@ pub struct Plan {
     pub falls: Vec<bool>,
     /// Seconds the plan covers.
     pub horizon: f64,
+    /// Per impactor: its plan (as a chunk's: its ballistic path from where it is, the
+    /// budget of its deviation, checked on the GPU), None for a driven one.
+    pub impactor_plan: Vec<Option<ImpactorPlan>>,
+}
+
+/// An impactor's place in a contact plan.
+#[derive(Clone, Copy, Debug)]
+pub struct ImpactorPlan {
+    pub position: Vec3,
+    pub velocity: Vec3,
+    pub rotation: stress_ref::math::Quat,
+    pub budget: f64,
 }
 
 /// What a contact plan lets touch, by (structure, chunk), and each chunk's travel budget
@@ -67,8 +79,10 @@ pub struct PlanView {
     pub impactor_chunks: Vec<Vec<(usize, usize)>>,
     pub ground: Vec<(usize, usize)>,
     pub budget: HashMap<(usize, usize), f64>,
-    /// The planned pose and budget of every chunk in a pair.
+    /// The planned pose and budget of every chunk in a pair or an impactor's candidate.
     pub poses: HashMap<(usize, usize), stress_ref::world::PlannedPose>,
+    /// The planned pose and budget of every impactor the solver integrates.
+    pub impactor_poses: HashMap<usize, stress_ref::world::PlannedPose>,
 }
 
 impl PlanView {
@@ -78,6 +92,7 @@ impl PlanView {
             impactor_chunks: plan.impactor_chunks.iter().map(|l| l.iter().map(|&k| order[k as usize]).collect()).collect(),
             ground: plan.ground.iter().map(|&k| order[k as usize]).collect(),
             budget: order.iter().copied().zip(plan.budget.iter().copied()).collect(),
+            impactor_poses: HashMap::new(),
             poses: plan
                 .poses
                 .iter()
@@ -118,8 +133,6 @@ pub fn plan(scene: &Scene, m: &ReferenceSolver, impactors: &[Impactor], chunk_or
     let mut budget = vec![0.0; n];
     let mut velocity = vec![Vec3::ZERO; n];
     let mut falls = vec![false; n];
-    // How far a chunk may get from where it is (impactor and ground candidates).
-    let mut reach_abs = vec![0.0; n];
     for (k, &(s, c)) in chunk_order.iter().enumerate() {
         let r = m.structures[s].chunks[c].half_extents.norm();
         let (v, w) = m.chunk_velocity(s, c);
@@ -130,7 +143,6 @@ pub fn plan(scene: &Scene, m: &ReferenceSolver, impactors: &[Impactor], chunk_or
         velocity[k] = v;
         falls[k] = !cl.anchored;
         budget[k] = 2.0 * w.norm() * (arm + r) * duration + g * duration * duration + 0.05 * r + 1e-3;
-        reach_abs[k] = v.norm() * duration + if falls[k] { 0.5 * g * duration * duration } else { 0.0 } + budget[k];
     }
     let mut plan = Plan {
         contact_clusters: vec![false; m.clusters.len()],
@@ -220,7 +232,10 @@ pub fn plan(scene: &Scene, m: &ReferenceSolver, impactors: &[Impactor], chunk_or
                 ImpactorShape::Sphere { radius } => radius * 3f64.sqrt(),
                 ImpactorShape::Box { half_extents } => Vec3::from_array(half_extents).norm(),
             };
+            // Its travel from where it is (about a free fall from rest), budgeted twice its
+            // surface speed; the GPU's `impactor_travel_check` re-plans beyond.
             let imp_budget = 2.0 * (imp.velocity.norm() + imp.angular_velocity.norm() * reach) * duration + g * duration * duration + 1e-3;
+            plan.impactor_plan.push(Some(ImpactorPlan { position: imp.pose.position, velocity: Vec3::ZERO, rotation: imp.pose.rotation, budget: imp_budget }));
             for &k in &active_order {
                 let (s, c) = chunk_order[k as usize];
                 let ci = m.chunks[s][c].cluster;
@@ -228,11 +243,15 @@ pub fn plan(scene: &Scene, m: &ReferenceSolver, impactors: &[Impactor], chunk_or
                     continue;
                 }
                 let kk = k as usize;
-                if (pos[kk] - imp.pose.position).norm() <= reach + radius[kk] + reach_abs[kk] + imp_budget {
+                // The chunk's reach: its path's farthest point plus its budget.
+                let chunk_reach = velocity[kk].norm() * duration + if falls[kk] { 0.5 * g * duration * duration } else { 0.0 } + plan.budget[kk];
+                if (pos[kk] - imp.pose.position).norm() <= reach + radius[kk] + chunk_reach + imp_budget {
                     list.push(k);
                     plan.contact_clusters[ci] = true;
                 }
             }
+        } else {
+            plan.impactor_plan.push(None);
         }
         plan.impactor_chunks.push(list);
     }

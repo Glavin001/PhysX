@@ -421,7 +421,7 @@ impl GpuWorld {
             }
         }
         let chunks: Vec<((usize, usize), Vec<ContactPartner>)> = partners.into_iter().collect();
-        self.with_shell_mut(|w| w.engaged_contact_dt(&chunks, &impactors, &view.poses))
+        self.with_shell_mut(|w| w.engaged_contact_dt(&chunks, &impactors, &view.poses, &view.impactor_poses))
     }
 
     /// The substep from the stress and contact bounds (`scaled_step_bound` combines
