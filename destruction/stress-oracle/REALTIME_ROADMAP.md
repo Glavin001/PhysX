@@ -315,6 +315,52 @@ For contrast, PhysX without islands gives 10.9 m/s.
 - Per-island steps for the fragments.
 - The awake-cluster kernel cost (A6).
 
+### A12. End-to-end peak with PhysX GPU (autoresearch, `examples/realtime_peak.rs`)
+
+**Metric.** `PEAK_MS` is the worst complete frame over three regimes:
+- house-1story fresh and idle;
+- the 200 kg / 40 m/s wall ram;
+- house-1story rammed by a 400 kg box at 12 m/s.
+
+Setup: CuMetal PhysX GPU, established methods, certified true step at safety 0.25, adaptive mode, 0.25 s simulated, first frames included. This is an M3 Max proxy.
+
+**Guard.** Each regime's ram speed, fragments and broken bonds stay within twice the spread of the reference coupled to PhysX CPU. The GPU gate's quick tier must pass 13/13, and the micro tier may not gain a failure (two predate this work). Every row below passes the guard. Log: `target/autoresearch-results.tsv`.
+
+| # | Change | PEAK_MS | Mechanism (measured) |
+|---|---|---|---|
+| 0 | baseline | 7186 | House ram island frames: 17–19k substeps at the global contact bound |
+| 1 | island frames bound only the contacts that can engage | 6039 | The global bound presses every chunk with the scene's stiffest material (rebar steel) |
+| 2 | that bound as a block Gershgorin row over each chunk's actual partners (k/mₐ + k/√(mₐm_b)), pair stiffness direction-free | 4987 | The binding chunk was a 24 mm glass pane pressed by six copies of itself |
+| 3 | **certified stress step from each bond's own dashpots** | 3050 | Leapfrog with lagged dashpots is stable while (h²/4)K + (h/2)C ≺ M. The certified radius of M⁻¹(K + (2/h)C) is iterated to its fixed point. The oracle's C ≤ βK (worst bond's β at the top frequency) cost ×3.4–6.1 substeps on the mixed packs: house-1story 4,730 → 1,228 per frame at safety 0.9, undamped 1,124 |
+| 4 | contact plan rules out pairs by their swept boxes (15-axis test), with a run-time turn check | 2615 | Sphere candidates gave a flat pane 21–25 partners |
+| 5 | a SIMD group per contact pair, lanes over its sample points | 2026 | One thread looped twice over about 28 points: about 125 µs per substep, latency-bound. Kernel budget accepted (+7.4 % code) |
+| 6 | a resumed halt starts short batches too | 1467 | Bond breaks that leave the cluster connected left long batches launching empty: 14.4k rounds for 4,418 substeps |
+| 7 | **fix: the step bounds the GPU's own, enforced contact plan** | 6087 | See below |
+| 8 | pair stiffness over reachable directions; plans per quarter frame on ballistic paths; segment redo; two bookkeeping fixes | **2059** | See below |
+
+**The certification gap found at #7.**
+- Rows 1–6 bounded the contacts of a fresh one-frame plan whose travel budgets nothing enforced. The GPU ran its own four-frame plan, with larger budgets and more pairs.
+- Logging every plan made inside a frame (re-plans, host splits) showed real violations. In the house ram fracture frames, splits created pairs that needed 2.66e-6 down to 1.27e-6 s, while those frames ran 3.77e-6 to 3.0e-6 s.
+- The outcomes had stayed within the reference's spread, but the step was not certified. Since #7 the step bounds the plan the GPU enforces (`travel_check` halts, then the host re-plans). Every plan made within the frame is checked, and a violated segment is solved again at the step it needs.
+
+**What #8 changed to win the cost back (all exact):**
+1. **Directions.** A pair's penalty stiffness follows the line between the centres. Within a plan, that line stays within asin(slack / distance) of the middle of the pair's relative path. Each box turns by at most budget/radius, which the GPU checks for every pair chunk. Each direction cosine is therefore within ψ of its planned value, and the projected areas and half-thicknesses are bounded with it. Coplanar panes split along an edge no longer count as pressed through their 24 mm thickness.
+2. **Ballistic budgets.** Budgets bound deviation from x₀ + v₀t + ½gt², not absolute travel. Pairs sweep their relative path, so fragments flying together are not candidates. Wall ram: 1,718 → 472 candidate pairs.
+3. **Plans per segment.** Each quarter frame plans and bounds its own contacts, so budgets shrink with the horizon. A violated segment is redone alone.
+4. **Pre-existing bugs fixed.**
+   - `step_times` kept the times of a state's earlier run. A state restored and run at another step size had stale times: `mirror.time`, probes, and the new plan clock (it looped forever).
+   - After a host split, the plan horizon took the substeps left of clusters already split away (2.8× too long).
+
+**Where the peak is now** (profiles `house_ram_profile`, `wall_ram_profile`):
+- **House ram.** Every island frame runs at the stress step (4,420 substeps of 3.77e-6 s) with no redo. Fracture frame 1.05 s; debris frames about 0.54 s (about 120 µs per substep over 7 dispatches).
+- **Wall ram, frame 0, 2.4 s.** The impact segment's plans still need 8.4e-7 s once the wall shatters at 46 m/s. Later frames: 0.22 s at the stress step outside islands.
+- **Idle house.** First frame 39 ms, median 8.7 ms.
+
+**Next levers, by expected size:**
+- **(a) Persistent multi-substep kernel for small contact islands.** All debris (about 30 clusters, about 220 pairs) fits in one threadgroup. Today each substep costs 7 dispatches of about 15 µs latency.
+- **(b) Debris islands for the rest of the run.** The island criterion seeds an island whenever the Hertz contact time is below the struck body's wave round trip, which holds for any resting contact on the anchored house. Changing it changes the oracle's model, so it needs the standalone oracle as the truth, not the coupled reference the guard uses.
+- **(c) The impact segment's contact bound.** Per-pair Gershgorin over many sample-point partners. A sample-point-level bound would be sharper.
+
 ## B. Review of the two documents
 
 ### Compendium
