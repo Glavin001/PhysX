@@ -10,14 +10,14 @@ metal = "Apple metal version 32023.155 (metalfe-32023.155)"
 date = "2026-10-11"
 
 [kernels.contact_forces]
-instructions = 8312
+instructions = 8625
 temp_registers = 96
-spilled_bytes = 512
+spilled_bytes = 528
 threads_per_threadgroup = 64
-spilled_bytes_x_threads = 32768
+spilled_bytes_x_threads = 33792
 static_threadgroup_memory = 0
 max_threads_per_threadgroup = 1024
-code_bytes = 58876
+code_bytes = 61432
 
 [kernels.contact_sums]
 instructions = 1241
