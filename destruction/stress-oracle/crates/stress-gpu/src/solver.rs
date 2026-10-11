@@ -42,12 +42,17 @@ const ISLAND_DISCONNECTED: u32 = 32;
 const WIDE_GROUP: usize = 256;
 
 /// Islands with at least this many chunks spread over many threadgroups
-/// (`STRESS_GPU_WIDE_CHUNKS` overrides; 0 disables): above one chunk per thread of a
-/// narrow island's group (a narrow island takes fewer dispatches per contact substep,
-/// three against four to seven; a bigger one loops its chunks and bonds in one group).
+/// (`STRESS_GPU_WIDE_CHUNKS` overrides; 0 disables): above what a narrow island's own
+/// connectivity check holds (`CONNECT_NARROW` labels in world.slang). A narrow island
+/// takes fewer dispatches per contact substep (three against four to seven), and its
+/// contact-path bonds run in groups of their own, so only its chunk updates share its
+/// group's threads.
 fn wide_threshold() -> usize {
-    std::env::var("STRESS_GPU_WIDE_CHUNKS").ok().and_then(|v| v.parse().ok()).unwrap_or(WIDE_GROUP + 1)
+    std::env::var("STRESS_GPU_WIDE_CHUNKS").ok().and_then(|v| v.parse().ok()).unwrap_or(CONNECT_NARROW + 1)
 }
+
+/// world.slang `CONNECT_NARROW`: the chunks a narrow island's connectivity check holds.
+const CONNECT_NARROW: usize = 512;
 /// Scheduling knobs (GPU only, no physics change), read per call like
 /// `STRESS_GPU_WIDE_CHUNKS`: they force rare scheduling paths in tests (`gate::Knobs`).
 ///
