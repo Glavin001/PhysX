@@ -58,6 +58,9 @@ pub struct Knobs {
     pub plan_steps: Option<f64>,
     /// `STRESS_GPU_SYNC_EACH_STEP`: bonds synced after every step.
     pub sync_each_step: bool,
+    /// `STRESS_GPU_DEVICE_CONNECT=0`: a disconnection always halts for the host's
+    /// connectivity check (the path of islands too big for the device's).
+    pub host_connect: bool,
 }
 
 impl Knobs {
@@ -72,6 +75,9 @@ impl Knobs {
     }
     pub fn sync() -> Knobs {
         Knobs { sync_each_step: true, ..Default::default() }
+    }
+    pub fn host_connect() -> Knobs {
+        Knobs { host_connect: true, ..Default::default() }
     }
 
     pub fn label(&self) -> String {
@@ -88,6 +94,9 @@ impl Knobs {
         if self.sync_each_step {
             parts.push("sync".into());
         }
+        if self.host_connect {
+            parts.push("host-connect".into());
+        }
         if parts.is_empty() {
             "default".into()
         } else {
@@ -102,12 +111,13 @@ impl Knobs {
         self.wide_chunks.is_none() && self.plan_steps.is_none()
     }
 
-    fn vars(&self) -> [(&'static str, Option<String>); 4] {
+    fn vars(&self) -> [(&'static str, Option<String>); 5] {
         [
             ("STRESS_GPU_WIDE_CHUNKS", self.wide_chunks.map(|n| n.to_string())),
             ("STRESS_GPU_BATCH_ROUNDS", self.batch_rounds.map(|n| n.to_string())),
             ("STRESS_GPU_PLAN_STEPS", self.plan_steps.map(|x| x.to_string())),
             ("STRESS_GPU_SYNC_EACH_STEP", self.sync_each_step.then(|| "1".to_string())),
+            ("STRESS_GPU_DEVICE_CONNECT", self.host_connect.then(|| "0".to_string())),
         ]
     }
 }
@@ -536,11 +546,26 @@ pub fn micro_cases() -> Vec<MicroCase> {
     s.sim.duration = 0.006;
     out.push(MicroCase::world(
         "resumed_halt",
-        "a bond breaks but its cluster stays one piece: the GPU resumes without a split",
+        "a bond breaks but its cluster stays one piece: the island's own connectivity check on the GPU finds it whole, no split",
         s,
-        Expect { cover: cov::RESUMED_HALT | cov::DISCONNECTED | cov::CRACKED, min_events: vec![(EvKind::Broken, 1)], ..Default::default() },
+        Expect { cover: cov::RESUMED_ON_DEVICE | cov::DISCONNECTED | cov::CRACKED, min_events: vec![(EvKind::Broken, 1)], ..Default::default() },
         vec![Knobs::batch(1), Knobs::wide(2)],
     ));
+    let mut s = scene("resumed_halt_host", "A 2x2 ring of cubes: one bond is pulled apart, the ring holds.", false);
+    s.bodies.push(bar("ring", [2, 2, 1], &[0]));
+    s.loads.push(point_force("ring", 1, x, TimeFunction::Table { points: vec![[0.0, 0.0], [0.003, 3.3e5], [0.0035, 0.0]] }));
+    s.probes.push(disp("pulled_x", "ring", 1, x));
+    s.sim.duration = 0.006;
+    out.push(
+        MicroCase::world(
+            "resumed_halt_host",
+            "as resumed_halt with the device's connectivity check off: the island halts, the host finds it whole, the GPU resumes without a split",
+            s,
+            Expect { cover: cov::RESUMED_HALT | cov::DISCONNECTED | cov::CRACKED, min_events: vec![(EvKind::Broken, 1)], ..Default::default() },
+            vec![Knobs::wide(2)],
+        )
+        .with_base(Knobs::host_connect()),
+    );
 
     let mut s = scene("probe_resolution", "A short cantilever's prestressed sag (1e-7 m), probed at its tip.", true);
     let mut arm = bar("arm", [3, 1, 1], &[0]);

@@ -51,10 +51,14 @@ pub const PROBES: u64 = 1 << 18;
 pub const CONTACT_PIPELINE: u64 = 1 << 19;
 /// The travel check stopped a batch (a chunk left its contact budget).
 pub const STOP_NOW: u64 = 1 << 20;
+/// A disconnection left its island whole, found by the island's own connectivity check
+/// on the GPU (no halt, no host round trip).
+pub const RESUMED_ON_DEVICE: u64 = 1 << 21;
 
 /// The host split a cluster (`ReferenceSolver::split_cluster` after a GPU halt).
 pub const HOST_SPLIT: u64 = 1 << 32;
-/// A halt whose disconnections left the cluster whole resumed on the GPU.
+/// A halt whose disconnections left the cluster whole resumed on the GPU after the host's
+/// check (islands too big for the device's check).
 pub const RESUMED_HALT: u64 = 1 << 33;
 /// The contact plan was rebuilt mid-step (travel check).
 pub const REPLAN: u64 = 1 << 34;
@@ -68,10 +72,10 @@ pub const QS_CASCADE: u64 = 1 << 37;
 pub const COUPLED_MAY_WAKE: u64 = 1 << 38;
 
 /// The device's bits (the island words).
-pub const DEVICE: u64 = (1 << 21) - 1;
+pub const DEVICE: u64 = (1 << 22) - 1;
 
 /// Every bit with its name, in bit order.
-pub const NAMES: [(u64, &str); 28] = [
+pub const NAMES: [(u64, &str); 29] = [
     (PAIR_CONTACT, "PAIR_CONTACT"),
     (IMPACTOR_CONTACT, "IMPACTOR_CONTACT"),
     (GROUND_CONTACT, "GROUND_CONTACT"),
@@ -93,6 +97,7 @@ pub const NAMES: [(u64, &str); 28] = [
     (PROBES, "PROBES"),
     (CONTACT_PIPELINE, "CONTACT_PIPELINE"),
     (STOP_NOW, "STOP_NOW"),
+    (RESUMED_ON_DEVICE, "RESUMED_ON_DEVICE"),
     (HOST_SPLIT, "HOST_SPLIT"),
     (RESUMED_HALT, "RESUMED_HALT"),
     (REPLAN, "REPLAN"),

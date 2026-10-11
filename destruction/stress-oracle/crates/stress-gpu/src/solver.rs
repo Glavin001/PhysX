@@ -129,6 +129,9 @@ struct Params {
     /// Lanes per candidate pair in `contact_forces`: a SIMD group of 32 on the Metal
     /// shaders (lanes over the pair's sample points), one thread on WGSL.
     pair_lanes: u32,
+    /// Islands check a disconnection's connectivity themselves (0:
+    /// `STRESS_GPU_DEVICE_CONNECT=0`, always the host's).
+    device_connect: u32,
 }
 
 #[repr(C)]
@@ -1154,6 +1157,7 @@ impl GpuSolver {
             statics_cg: 20_000,
             statics_tol: std::env::var("STRESS_GPU_STATICS_TOL").ok().and_then(|v| v.parse().ok()).unwrap_or(1e-5),
             pair_lanes: if gpu.shader_path == crate::gpu::ShaderPath::Wgsl { 1 } else { 32 },
+            device_connect: std::env::var("STRESS_GPU_DEVICE_CONNECT").map_or(1, |v| (v != "0") as u32),
             ..Default::default()
         };
 

@@ -51,6 +51,7 @@ public static const uint COV_PULSE = 1u << 17;           // an engine impact pul
 public static const uint COV_PROBES = 1u << 18;          // probe items were recorded
 public static const uint COV_CONTACT_PIPELINE = 1u << 19; // an island ran in the per-substep pipeline
 public static const uint COV_STOP_NOW = 1u << 20;        // the travel check stopped the batch
+public static const uint COV_RESUMED_ON_DEVICE = 1u << 21; // a disconnection left its island whole (checked on the GPU)
 
 // Static data of a chunk (body frame of its cluster), with its contact data.
 public struct ChunkStatic

@@ -85,6 +85,7 @@ struct Params
     uint statics_cg;         // conjugate-gradient iterations per Newton step at most
     float statics_tol;       // relative residual of an equilibrium
     uint pair_lanes;         // lanes per candidate pair in contact_forces (0: one)
+    uint device_connect;     // islands check a disconnection's connectivity themselves
 };
 
 static const uint MODE_EXPLICIT = 0;
@@ -1859,6 +1860,7 @@ void island_frame_at(uint gi, uint tid)
     bool contact_island = (isl.info.x & ISLAND_CONTACT) != 0;
     bool settled = (isl.info.x & ISLAND_SETTLED) != 0;
     bool woke = false;
+    bool resumed = false;
     seen_clear(tid);
     // Batch control: read once, uniformly for the whole group. Wide islands run in
     // their own kernels.
@@ -1964,6 +1966,7 @@ void island_frame_at(uint gi, uint tid)
         // resumed halt, without the round trip).
         if (g_halt != 0 && island_connected_narrow(tid, isl))
         {
+            resumed = true;
             if (tid == 0)
                 g_halt = 0;
             GroupMemoryBarrierWithGroupSync();
@@ -1995,7 +1998,7 @@ void island_frame_at(uint gi, uint tid)
         isl.info.w += done;
         if (g_halt != 0)
             isl.info.z |= ISLAND_HALTED;
-        uint cov = seen_bits() | (g_halt != 0 ? COV_DISCONNECTED : 0) | (woke ? COV_WOKE : 0);
+        uint cov = seen_bits() | (g_halt != 0 ? COV_DISCONNECTED : 0) | (woke ? COV_WOKE : 0) | (resumed ? COV_DISCONNECTED | COV_RESUMED_ON_DEVICE : 0);
         if (done > 0)
         {
             bool quiet = (isl.info.x & ISLAND_QUIET) != 0;
@@ -2317,7 +2320,7 @@ bool island_connected(uint tid, Island isl)
 {
     uint first = isl.range.x;
     uint n = isl.range.y - isl.range.x;
-    if (n > CONNECT_MAX)
+    if (n > CONNECT_MAX || params.device_connect == 0)
         return false;
     for (uint c = tid; c < n; c += THREADS)
         g_label[c] = c;
@@ -2377,7 +2380,7 @@ bool island_connected_narrow(uint tid, Island isl)
 {
     uint first = isl.range.x;
     uint n = isl.range.y - isl.range.x;
-    if (n > CONNECT_NARROW)
+    if (n > CONNECT_NARROW || params.device_connect == 0)
         return false;
     for (uint c = tid; c < n; c += THREADS)
         g_label_narrow[c] = c;
@@ -2451,7 +2454,7 @@ void wide_end(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
     {
         halt = false;
         isl.info.z &= ~ISLAND_HALT_PENDING;
-        isl.coverage |= COV_DISCONNECTED;
+        isl.coverage |= COV_DISCONNECTED | COV_RESUMED_ON_DEVICE;
     }
     uint k = wide_step(isl);
     if (isl.probes.y > isl.probes.x)
