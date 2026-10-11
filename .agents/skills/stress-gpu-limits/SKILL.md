@@ -20,9 +20,18 @@ Correctness first, then cost. All three are fast because the slow parts are cach
 1. Accuracy against stress-ref (cached reference runs; from `destruction/stress-oracle`):
    ```
    cargo build --release -p stress-gpu --bin stress-gpu-gate
+   ./target/release/stress-gpu-gate --micro      # 25 targeted scenes + knob runs, ~12 s, after every edit
    ./target/release/stress-gpu-gate --quick      # 13 cases, ~30 s, while iterating
    ./target/release/stress-gpu-gate              # 47 cases at full duration, ~4-5 min, before a commit
+   ./target/release/stress-gpu-gate --fuzz 30    # seeded scenes, ~1 min, after kernel or scheduling changes
    ```
+   `--micro` names the broken semantic (events, fragments, momentum, energy closure) and
+   proves each case's code path ran (coverage matrix, `src/coverage.rs`). It also checks
+   that batch boundaries and sync cadence change nothing (bitwise), and that wide islands
+   and plan horizons stay within 1e-5. Its GPU snapshots report any change. After an
+   intended one, run `--accept-snapshots`, which passes the quick gate first.
+   `--micro --explain --only NAME` shows a case's events and coverage. Details and how to
+   add a case: PLAN.md, "Test tiers".
    The cache (`target/stress-gate-cache`) is keyed by each case's scene and a fingerprint
    of stress-ref's sources, so it refreshes itself when either changes. Missing entries:
    `--build` (CPU only, ~20 min from empty). Force: `--refresh` or `STRESS_GATE_REFRESH=1`.

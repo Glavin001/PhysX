@@ -61,6 +61,34 @@ Status as of 2026-10-10 (Apple M3 Max). Every accuracy gate runs in `cargo test 
 
 The accuracy gate (`tests/common`) holds each probe within 1e-3 of its range, or within twice the reference's own spread. That spread is the larger of timestep halving and +-1e-4 input perturbations, the size of the GPU's f32 drift. Broken bonds and fragments must be within 10%, or within twice the spread's deviation.
 
+## Test tiers
+
+Every reference run is cached under `target/stress-gate-cache` (keyed by the scene and stress-ref's source fingerprint); a tier costs only its GPU runs. Run from `destruction/stress-oracle`.
+
+| tier | command | what it covers | wall time (M3 Max, shared GPU, warm) | when |
+|---|---|---|---|---|
+| micro | `stress-gpu-gate --micro` | 25 tiny scenes from t = 0 through the production path (`GpuWorld`, `GpuSolver`, `GpuCoupledSolver`), each for one semantic; knob runs; GPU snapshots; fuzz regressions | ~12 s | after every edit |
+| quick | `stress-gpu-gate --quick` | 13 representative gate cases at full duration | ~35 s | while iterating |
+| full | `stress-gpu-gate` | 47 gate cases (catalogue, solve modes, packs) | ~5 min | before a commit |
+| fuzz | `stress-gpu-gate --fuzz N [--seed S]` | N seeded scenes (grid, material, supports, impactor, solve mode) | ~55 s for 30 | after kernel or scheduling changes |
+
+Missing references: `stress-gpu-gate --build --micro` or `--build --fuzz N` (CPU only, seconds). `cargo test --release -p stress-gpu` runs the micro tier too (`tests/micro.rs`; cases without a reference are skipped with a message).
+
+**What a micro case checks** (`src/micro.rs`, `micro_cases`), beside the gate:
+- events as sorted (kind, bond) multisets equal to the reference's, times within one substep or twice the reference ensemble's scatter;
+- the fragment partition;
+- chunk velocities (momentum exchange) for collision cases;
+- energy closure `E0 + W_ext = mechanical + dissipated` where contacts hold no energy at the end;
+- path coverage: the bits the case exists for (`src/coverage.rs`, `COV_*` in `shaders/common.slang`) must have been set by the GPU or the host, so a case cannot pass without running its path. `--micro` prints the matrix of paths by case. `SETTLED_WIDE` is uncovered by construction: `GpuSolver::build` never makes a settled island wide, so `wide_wake` and the settled branches of `wide_chunks`/`wide_rigid` cannot run.
+
+The micro references perturb the scripted loads as well as gravity and velocities (`micro::perturbed`), so load-driven scenes have an ensemble too.
+
+**Knob runs (metamorphic, no reference).** `STRESS_GPU_BATCH_ROUNDS`, `STRESS_GPU_SYNC_EACH_STEP`, `STRESS_GPU_PLAN_STEPS` and `STRESS_GPU_WIDE_CHUNKS` change only scheduling (`micro::Knobs`). Batch boundaries and sync cadence must reproduce the case's own run bit for bit (state hash, probes, events). Only the f32 per-sync energy sums may move, within 1e-4 relative. Wide islands and plan horizons re-associate f32 sums: probes within 1e-5 of their range, equal counts and (kind, bond) events, times within one substep. A scene whose own reference scatters beyond that is judged by the gate instead. Fuzz scenes run batch=3 (bitwise) and wide=2 (gate).
+
+**Snapshots.** Every micro and fuzz run's outcome is recorded per case, knobs and GPU adapter under `gpu-snapshots/`: probes, values, events, state hash and coverage, as bits. The GPU is deterministic, so `--micro` reports any change. An intended change (a kernel, a schedule) is accepted with `stress-gpu-gate --accept-snapshots`, which runs the quick gate in-process first and writes nothing unless it passes.
+
+**Adding a micro case.** Build the scene in `micro_cases` from the stress-ref builders, a few chunks and a duration just past the event. Name its semantic, its `Expect` (coverage bits, minimum events, velocity and energy checks) and the knob runs that force its rare paths. Configuration that is not a scene field (`active_time`, `wake_threshold`) goes in a `Tweak`, applied to both solvers. Then run `--build --micro` and `--micro --explain --only NAME` (events, coverage, differences) to check that the reference shows the semantic. A failing fuzz seed is printed ready to paste into `gate::FUZZ_REGRESSIONS`.
+
 ## Departures from the analysis
 
 - **No cooperative launch or grid barrier on Metal or WebGPU.** That rules out the analysis's multi-SM neighbour-flag partitions as a correctness-safe design. Big islands are measured on single-threadgroup and dispatch-per-substep designs first.
