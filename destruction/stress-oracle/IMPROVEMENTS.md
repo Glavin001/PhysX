@@ -464,8 +464,17 @@ Effect:
 - Quasi_static A/B: 53/91, same flips, no regression.
 
 `equilibrate_or_keep` still keeps the previous state for what fails: 6 % of b5_v40's
-solves, kink fragments past even the larger limit. A semismooth Newton for the patch
-would take them; open.
+solves, fragments converging linearly past even the larger limit. Two causes were
+tested and ruled out on b5_v40 quasi_static:
+- **The kink's Jacobian element** (semismooth Newton). Counting a contact spring
+  active up to an opening of 1e-12, 1e-10 or 1e-8 m, rather than by the opening's sign,
+  converged fewer solves (321/413, 277/396, 1001/1435, against 372/396) in 2.5-8x the
+  Newton iterations.
+- **The tangent's positivity floor.** At 1e-9, 1e-4 and 1e-3 x k (against 1e-6),
+  96.1 %, 94.2 % and 93.5 % converged (against 93.9 %), with no trend.
+The remaining suspect is the friction cap's dependence on the normal force
+(non-symmetric, so neither the PCG nor the banded Cholesky can take it; a dense LU
+would, for these small free fragments). Open.
 
 **Rejected (exact, measured):** computing a cracked joint's spring patch once per
 `evaluate`. It is the second hottest function in a sampled b5_v10 run, and the frozen
@@ -725,7 +734,7 @@ changes go behind `sim.methods` switches, off by default, each with measured fid
 | True stable step: a certified bound on the highest frequency of the intact network (every fragment's is lower) | Step change | switch `true_step` (off); see below |
 | Gameplay-fidelity comparison: fails or not, where, when, pieces log-binned, debris speed +-30 % | Tooling | `scripts/fidelity.py` |
 | True combined step: bonds plus the contacts that can engage, warm-started each frame (contact sets the step in every catalogue scene) | Step change | `lattice_contact_step` covers the densest network (below). Beyond that, research. A certified contact block needs a bound over unknown contact points (lever arm up to the radius) and over pairs engaging within the frame. The default global bound (`6 k / m`, every chunk on six faces) ignores rotation, so it is not certified either, and a certified bound may come out *below* it. `frame_contact_step`'s Gershgorin sum is 7-20x below it |
-| Multirate (subcycling) explicit: per-chunk steps in powers of two (2.5-3.5x on authored packs, none on uniform grids) | Integration change | to do (switch) |
+| Multirate (subcycling) explicit: per-chunk steps in powers of two (2.5-3.5x on authored packs, none on uniform grids) | Integration change | not pursued for the oracle. No catalogue scene gains (uniform grids, and contact sets the step), and partitioned explicit integrators need interface treatment (Belytschko-Smolinski-Liu) whose error the ground truth would carry. It belongs to the GPU's impact windows |
 | Influence-line wake test for the adaptive mode: a load change accepted without a solve when `utilisation + influence x load < threshold - margin` | Skip decision | no catalogue scene runs adaptive (only the gate's forced cells), so the oracle has no idle cost to save; a GPU concern |
 | Hierarchy import (L0/L1/L2 with parent links) | Exact (L2 unchanged) | the packs carry one level: `nodePieces` (authored parts; villa 243 over 1045 chunks, house-2story 135 over 599), and `nodeGroups` is trivial. No L1 level |
 | L0 members as statically condensed super-elements (exact for statics), exact recovery of each L2 bond | Exact for statics | low payoff on these packs: pieces average 4-5 chunks, so most chunks are interface DOFs and condensation barely shrinks the system. The banded direct solve (310a2c14f) already takes the villa |
@@ -807,8 +816,15 @@ Measured:
 - switch on: fidelity 34/35 (b8_frame_sudden's collapse differs: 8 -> 22 fragments),
   catalogue CPU +1 %, A/B 87/91 both ways.
 
-**Status:** off by default, pending a decision. It costs about 1 % and restores the
-stability margin for rubble; it changes outcomes as any step change does.
+**Status:** off. It does not meet the proven set's bar (the whole suite passes).
+With it as the default, `fracture_never_gains_energy_and_dissipation_is_accounted`
+fails, though it gains no energy:
+- the energy error still halves with every refinement (4.20e-2, 2.04e-2, 9.95e-3,
+  4.91e-3);
+- the ratios approach 2 slowly (2.06, 2.05, 2.03), so Aitken's limit from the last three
+  (1.9e-4) lies outside how far the estimates moved (1.0e-4).
+The gate with it as the default changes 80 cells (every contact-bound explicit run).
+It costs about 1 % and restores the stability margin for rubble.
 
 **Stability harness fixed.** `examples/stability` took its reference energy after the
 first frame, so a run that blew up within that frame read as stable. It now evaluates
