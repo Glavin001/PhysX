@@ -213,16 +213,17 @@ fn house_ram_profile() {
     let mut w = GpuWorld::with_engine(&gpu, &s, engine).expect("GPU world");
     for f in 0..15 {
         let p0 = w.solver.profile.clone();
-        let (splits0, tail0) = (w.solver.host_splits, w.tail_seconds);
+        let (splits0, tail0, resumed0) = (w.solver.host_splits, w.tail_seconds, w.solver.resumed_halts);
         let t = std::time::Instant::now();
         w.step_frame(&gpu).expect("frame");
         let p = &w.solver.profile;
         eprintln!(
-            "frame {f}: {:.0} ms; substeps {}, batches {}, host splits {}, max pairs {}; build {:.0} ms, gpu {:.0}, readback {:.0}, split {:.0}, download {:.0}, tails {:.0}; clusters {}",
+            "frame {f}: {:.0} ms; substeps {}, batches {}, host splits {} (+{} resumed), max pairs {}; build {:.0} ms, gpu {:.0}, readback {:.0}, split {:.0}, download {:.0}, tails {:.0}; clusters {}",
             t.elapsed().as_secs_f64() * 1e3,
             p.substeps - p0.substeps,
             p.batches - p0.batches,
             w.solver.host_splits - splits0,
+            w.solver.resumed_halts - resumed0,
             p.max_pairs,
             (p.build - p0.build) * 1e3,
             (p.gpu - p0.gpu) * 1e3,

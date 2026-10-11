@@ -2270,6 +2270,71 @@ void wide_rigid(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
     islands[wg.island].momentum_err = float4(rg.l_err, 0.0);
 }
 
+// Chunks of an island whose connectivity the GPU checks (`island_connected`); larger
+// islands halt for the host's check.
+static const uint CONNECT_MAX = 4096;
+groupshared uint g_label[CONNECT_MAX];
+groupshared uint g_changed;
+
+// Whether island `isl` is still one piece over its connected bonds (solver.rs
+// `still_connected`, on the GPU; the whole group calls it): every chunk takes the
+// smallest label among itself, its bond neighbours and its label's label, until a pass
+// changes none. Each thread writes only its own chunks' labels and labels only shrink
+// within their piece, so concurrent reads see a valid label either way.
+bool island_connected(uint tid, Island isl)
+{
+    uint first = isl.range.x;
+    uint n = isl.range.y - isl.range.x;
+    if (n > CONNECT_MAX)
+        return false;
+    for (uint c = tid; c < n; c += THREADS)
+        g_label[c] = c;
+    GroupMemoryBarrierWithGroupSync();
+    bool converged = false;
+    for (uint pass = 0; pass <= n; pass++)
+    {
+        if (tid == 0)
+            g_changed = 0;
+        GroupMemoryBarrierWithGroupSync();
+        for (uint c = tid; c < n; c += THREADS)
+        {
+            uint l = g_label[c];
+            uint gc = first + c;
+            for (uint e = index[gc]; e < index[gc + 1]; e++)
+            {
+                uint entry = index[e];
+                uint bond = entry >> 1;
+                if (!connected(bond_dyn[bond].js, bonds[bond].law.stiff1.w != 0.0))
+                    continue;
+                uint other = (entry & 1) == 0 ? bonds[bond].law.ids.z : bonds[bond].law.ids.y;
+                l = min(l, g_label[other - first]);
+            }
+            l = min(l, g_label[l]);
+            if (l < g_label[c])
+            {
+                g_label[c] = l;
+                // Every writer stores the same value.
+                g_changed = 1;
+            }
+        }
+        GroupMemoryBarrierWithGroupSync();
+        converged = g_changed == 0;
+        GroupMemoryBarrierWithGroupSync();
+        if (converged)
+            break;
+    }
+    if (!converged)
+        return false;
+    if (tid == 0)
+        g_changed = 0;
+    GroupMemoryBarrierWithGroupSync();
+    for (uint c = tid; c < n; c += THREADS)
+        if (g_label[c] != 0)
+            g_changed = 1;
+    GroupMemoryBarrierWithGroupSync();
+    return g_changed == 0;
+}
+
 [shader("compute")]
 [numthreads(256, 1, 1)]
 void wide_end(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
@@ -2284,12 +2349,21 @@ void wide_end(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
     float3 work;
     float3 flags;
     wide_partials(tid, wg.first, isl.wide_groups, 6, work, flags);
+    // A disconnection that leaves the island in one piece changes nothing (the host's
+    // resumed halt, without the round trip).
+    bool halt = (isl.info.z & ISLAND_HALT_PENDING) != 0;
+    bool whole = halt && island_connected(tid, isl);
     if (tid != 0)
         return;
+    if (whole)
+    {
+        halt = false;
+        isl.info.z &= ~ISLAND_HALT_PENDING;
+        isl.coverage |= COV_DISCONNECTED;
+    }
     uint k = wide_step(isl);
     if (isl.probes.y > isl.probes.x)
         record_probes(isl, rigid_of(isl), k);
-    bool halt = (isl.info.z & ISLAND_HALT_PENDING) != 0;
     if (halt && (isl.info.x & ISLAND_CONTACT) != 0)
         contact_split_at(isl.info.w + 1);
     comp_add1(isl.energy.x, isl.energy.y, work.x);
