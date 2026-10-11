@@ -1036,8 +1036,14 @@ lasts.
 **Open:** b7_v15 implicit still books -2.0e4 J. A substep trace finds 17 substeps with
 a falling contact ledger. The largest, -1.49e5 J at 9.62 ms, is a contact substep that
 also took an implicit step: more than the impact's input (about 3.4 kJ), and booked
-back later. A split or handover inside that step handing the contact a large state is
-the suspect.
+back later. Traced further: no split, handover or split release in that substep. The
+contact's stored energy rose 1.466e5 J as its dissipation fell 1.488e5 J. The implicit
+step at the substep's end relocated the chunks after their contact force was evaluated,
+so the overlap deepened without the contact doing that work, and the ledger books the
+stored energy as negative dissipation. Closing it needs the step's displacement inside
+the contact's work: the contact evaluated against the implicit solution, or the
+contact load inside the Newton solve (its stiffness in the tangent). That is a redesign
+of how implicit mode couples bonds and contacts; open.
 
 **Contact bound on hulls** (`contact_lattice ... hull | hull_rotated`): equal cubes as
 convex hulls, through the hull contact path, behave as the boxes do. Aligned: stable to
