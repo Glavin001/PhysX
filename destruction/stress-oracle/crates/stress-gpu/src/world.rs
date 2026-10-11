@@ -194,6 +194,9 @@ impl GpuWorld {
     fn step_frame_coupled(&mut self, gpu: &Gpu) -> Result<(), String> {
         let fdt = self.scene.sim.frame_dt;
         let mut forced: std::collections::HashSet<BodyKey> = std::collections::HashSet::new();
+        // The contact step a plan made within an earlier attempt needed (the frame is
+        // solved again at it: the rare case of a plan the solver could not stop at).
+        let mut contact_cap = f64::INFINITY;
         let frozen = loop {
             let saved = self.solver.snapshot(gpu);
             let saved_host = (self.frame, self.events_done.clone(), self.blasts_active.clone(), self.probes.clone(), self.next_sample, self.filter.clone());
@@ -215,6 +218,7 @@ impl GpuWorld {
             }
             self.begin_frame_loads();
             let mut taken = 0;
+            let mut outrun: Option<f64> = None;
             if !engaged {
                 self.advance_substeps(gpu, h, n)?;
                 taken = n;
@@ -227,15 +231,12 @@ impl GpuWorld {
                 // solved again from its start at the step it needs.
                 let t_end = self.solver.mirror.time + fdt;
                 let span = fdt / FRAME_SEGMENTS as f64;
-                let mut cap = f64::INFINITY;
+                let cap = contact_cap;
                 self.solver.stop_at_plan = true;
                 while t_end - self.solver.mirror.time > 1e-3 * span {
                     let rest = t_end - self.solver.mirror.time;
                     let horizon = if rest < 1.5 * span { rest } else { span };
                     let seg_end = self.solver.mirror.time + horizon;
-                    let snap = self.solver.snapshot(gpu);
-                    let host = (self.events_done.clone(), self.blasts_active.clone(), self.probes.clone(), self.next_sample, self.filter.clone());
-                    let seg_taken = taken;
                     self.solver.plan_for(gpu, horizon)?;
                     let view = self.solver.plan_view();
                     let stress = self.stress_dt();
@@ -275,22 +276,26 @@ impl GpuWorld {
                         }
                         break;
                     }
-                    if let Some(need) = violated {
-                        if std::env::var("STRESS_GPU_COUPLED_TRACE").is_ok() {
-                            eprintln!("coupled frame {}: a plan within a segment needs a contact step of {need:.2e} s: solved again", self.frame);
-                        }
-                        self.solver.restore(gpu, snap)?;
-                        (self.events_done, self.blasts_active, self.probes, self.next_sample, self.filter) = host;
-                        self.shell.redone_frames += 1;
-                        taken = seg_taken;
-                        cap = cap.min(need);
-                        continue;
+                    if violated.is_some() {
+                        outrun = violated;
+                        break;
                     }
-                    cap = f64::INFINITY;
                 }
                 self.solver.stop_at_plan = false;
             }
             self.solver.plan_log = None;
+            if let Some(need) = outrun {
+                if std::env::var("STRESS_GPU_COUPLED_TRACE").is_ok() {
+                    eprintln!("coupled frame {}: a plan within the frame needs a contact step of {need:.2e} s: solved again", self.frame);
+                }
+                self.solver.restore(gpu, saved)?;
+                (self.frame, self.events_done, self.blasts_active, self.probes, self.next_sample, self.filter) = saved_host;
+                (self.shell.island_frames, self.shell.max_island_bodies, self.shell.engine_body_frames, self.shell.island_body_frames) = saved_counts;
+                self.with_shell_mut(|w| w.engine_restore());
+                self.shell.redone_frames += 1;
+                contact_cap = contact_cap.min(need);
+                continue;
+            }
             self.finish_frame(gpu, taken)?;
             self.solver.sync(gpu);
             let since = &self.solver.mirror.events[saved.mirror().events.len()..];
