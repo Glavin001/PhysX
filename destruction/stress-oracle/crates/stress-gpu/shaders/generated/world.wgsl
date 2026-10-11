@@ -2635,7 +2635,7 @@ fn record_probes_0( isl_4 : Island_0,  rg_2 : Rigid_0,  k_13 : u32)
         var value_1 : f32;
         if(kind_0 == u32(0))
         {
-            value_1 = dot(rg_2.pos_1 - b_27.xyz + (rg_2.pos_err_1 - c4_0.xyz) + rotate_0(rg_2.rot_0, chunks_0[i_4].center_0.xyz + state_0[u32(4) * i_4].xyz), a_9.xyz);
+            value_1 = dot(rg_2.pos_1 - b_27.xyz + rotate_0(rg_2.rot_0, chunks_0[i_4].center_0.xyz) + (rg_2.pos_err_1 - c4_0.xyz + rotate_0(rg_2.rot_0, state_0[u32(4) * i_4].xyz + vec3<f32>(a_9.w, b_27.w, c4_0.w))), a_9.xyz);
         }
         else
         {

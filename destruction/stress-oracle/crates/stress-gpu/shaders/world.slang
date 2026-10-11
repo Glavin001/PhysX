@@ -1518,7 +1518,12 @@ void record_probes(Island isl, Rigid rg, uint k)
         if (kind == PROBE_DISPLACEMENT)
         {
             ChunkStatic ch = chunks[i];
-            float3 x = ((rg.pos - b.xyz) + (rg.pos_err - c4.xyz)) + rotate(rg.rot, ch.center.xyz + state[4 * i].xyz);
+            // The large terms cancel first, then the small ones join: `center + u` in f32
+            // would round the hidden displacement to the ulp of the chunk's position in
+            // its body frame (3e-8 m at 0.3 m; a prestressed sag of 1e-7 m read 30% off).
+            // The w lanes hold the centre's own f32 rounding error (body frame).
+            float3 small = state[4 * i].xyz + float3(a.w, b.w, c4.w);
+            float3 x = ((rg.pos - b.xyz) + rotate(rg.rot, ch.center.xyz)) + ((rg.pos_err - c4.xyz) + rotate(rg.rot, small));
             value = dot(x, a.xyz);
         }
         else if (kind == PROBE_VELOCITY)
