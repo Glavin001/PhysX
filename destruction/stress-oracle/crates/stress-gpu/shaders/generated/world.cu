@@ -7993,6 +7993,11 @@ static __device__ void hold_0(uint mask_0, float4  * lin_0, float4  * ang_0, flo
     return;
 }
 
+static __device__ bool is_finite_0(float x_25)
+{
+    return ((F32_asuint((x_25))) & 2147483647U) < 2139095040U;
+}
+
 static __device__ uint statics_bond_slot_0(uint i_19)
 {
     uint _S1908 = __ldg(&globalParams_0->params_0->statics_base_0);
@@ -8177,13 +8182,13 @@ static __device__ void store_inverse_0(uint c_37, FixedArray<float, 36>  * a_18)
                 y_6[i_20] = s_6 / l_6[i_20 * 6U + i_20];
                 i_20 = i_20 + 1U;
             }
-            FixedArray<float, 6>  x_25;
-            x_25[int(0)] = 0.0f;
-            x_25[int(1)] = 0.0f;
-            x_25[int(2)] = 0.0f;
-            x_25[int(3)] = 0.0f;
-            x_25[int(4)] = 0.0f;
-            x_25[int(5)] = 0.0f;
+            FixedArray<float, 6>  x_26;
+            x_26[int(0)] = 0.0f;
+            x_26[int(1)] = 0.0f;
+            x_26[int(2)] = 0.0f;
+            x_26[int(3)] = 0.0f;
+            x_26[int(4)] = 0.0f;
+            x_26[int(5)] = 0.0f;
             uint ii_2 = 0U;
             for(;;)
             {
@@ -8206,11 +8211,11 @@ static __device__ void store_inverse_0(uint c_37, FixedArray<float, 36>  * a_18)
                     {
                         break;
                     }
-                    float s_8 = sum_4 - l_6[k_18 * 6U + i_21] * x_25[k_18];
+                    float s_8 = sum_4 - l_6[k_18 * 6U + i_21] * x_26[k_18];
                     k_18 = k_18 + 1U;
                     sum_4 = s_8;
                 }
-                x_25[i_21] = sum_4 / l_6[i_21 * 6U + i_21];
+                x_26[i_21] = sum_4 / l_6[i_21 * 6U + i_21];
                 ii_2 = ii_2 + 1U;
             }
             uint i_22 = 0U;
@@ -8223,7 +8228,7 @@ static __device__ void store_inverse_0(uint c_37, FixedArray<float, 36>  * a_18)
                 {
                     break;
                 }
-                inv_0[i_22 * 6U + j_8] = x_25[i_22];
+                inv_0[i_22 * 6U + j_8] = x_26[i_22];
                 i_22 = i_22 + 1U;
             }
             j_8 = j_8 + 1U;
@@ -8699,6 +8704,7 @@ extern "C" __global__ void island_statics()
     uint _S2040 = __ldg(&globalParams_0->params_0->statics_cg_0);
     uint _S2041 = (U32_min((_S2040), (20U * (c1_1 - c0_1) * 6U + 200U)));
     float previous_2 = 1.00000001504746622e+30f;
+    float start_0 = 1.00000001504746622e+30f;
     float residual_0 = 0.0f;
     newton_0 = 0U;
     uint cg_total_0 = 0U;
@@ -8800,36 +8806,77 @@ extern "C" __global__ void island_statics()
         float _S2072 = island_dot_0(tid_18, c0_1, c1_1, 4U, 4U, _S2068);
         float residual_1 = (F32_sqrt((_S2072))) / _S2038;
         float _S2073 = (F32_max((0.00100000004749745f), (3.83999986297567375e-06f * (F32_sqrt((magnitude_0.x))) / _S2038)));
-        bool _S2074 = residual_1 <= _S2039;
+        bool _S2074 = newton_0 == 0U;
         uint _S2075 = __ballot_sync(_S2068, _S2074);
         uint _S2076;
         if(_S2074)
         {
             uint _S2077 = __ballot_sync(_S2068, true);
-            converged_4 = true;
+            start_0 = residual_1;
             _S2076 = _S2077;
         }
         else
         {
-            uint _S2078 = _S2068 & (~_S2075);
-            bool _S2079 = residual_1 <= _S2073;
-            uint _S2080 = __ballot_sync(_S2078, _S2079);
-            if(_S2079)
+            uint _S2078 = __ballot_sync(_S2068, true);
+            _S2076 = _S2078;
+        }
+        bool _S2079 = is_finite_0(residual_1);
+        uint _S2080 = __ballot_sync(_S2076, _S2079);
+        uint _S2081;
+        bool _S2082;
+        if(_S2079)
+        {
+            bool _S2083 = residual_1 <= _S2039;
+            uint _S2084 = __ballot_sync(_S2080, _S2083);
+            if(_S2083)
             {
-                bool _S2081 = residual_1 > (0.5f * previous_2);
-                uint _S2082 = __ballot_sync(_S2078, true);
-                converged_4 = _S2081;
+                uint _S2085 = __ballot_sync(_S2080, true);
+                converged_4 = true;
             }
             else
             {
-                uint _S2083 = __ballot_sync(_S2078, true);
-                converged_4 = false;
+                uint _S2086 = _S2080 & (~_S2084);
+                bool _S2087 = residual_1 <= _S2073;
+                uint _S2088 = __ballot_sync(_S2086, _S2087);
+                if(_S2087)
+                {
+                    bool _S2089 = residual_1 > (0.5f * previous_2);
+                    uint _S2090 = __ballot_sync(_S2086, true);
+                    converged_4 = _S2089;
+                    _S2081 = _S2090;
+                }
+                else
+                {
+                    uint _S2091 = __ballot_sync(_S2086, true);
+                    converged_4 = false;
+                    _S2081 = _S2091;
+                }
+                uint _S2092 = __ballot_sync(_S2081, converged_4);
+                if(converged_4)
+                {
+                    bool _S2093 = residual_1 <= start_0;
+                    uint _S2094 = __ballot_sync(_S2081, true);
+                    _S2082 = _S2093;
+                }
+                else
+                {
+                    uint _S2095 = __ballot_sync(_S2081, true);
+                    _S2082 = false;
+                }
+                uint _S2096 = __ballot_sync(_S2080, true);
+                converged_4 = _S2082;
             }
-            uint _S2084 = __ballot_sync(_S2068, true);
-            _S2076 = _S2084;
+            uint _S2097 = __ballot_sync(_S2076, true);
+            _S2081 = _S2097;
         }
-        uint _S2085 = 0U;
-        uint _S2086 = __ballot_sync(_S2076, converged_4);
+        else
+        {
+            uint _S2098 = __ballot_sync(_S2076, true);
+            converged_4 = false;
+            _S2081 = _S2098;
+        }
+        uint _S2099 = 0U;
+        uint _S2100 = __ballot_sync(_S2081, converged_4);
         if(converged_4)
         {
             residual_0 = residual_1;
@@ -8838,231 +8885,244 @@ extern "C" __global__ void island_statics()
         }
         else
         {
-            uint _S2087 = __ballot_sync(_S2076, true);
-            _S2085 = _S2087;
+            uint _S2101 = __ballot_sync(_S2081, true);
+            _S2099 = _S2101;
+        }
+        uint _S2102 = 0U;
+        bool _S2103 = !_S2079;
+        uint _S2104 = __ballot_sync(_S2099, _S2103);
+        if(_S2103)
+        {
+            residual_0 = residual_1;
+            converged_4 = false;
+            break;
+        }
+        else
+        {
+            uint _S2105 = __ballot_sync(_S2099, true);
+            _S2102 = _S2105;
         }
         uint i_28 = _S2047;
-        uint _S2088;
-        _S2088 = _S2085;
+        uint _S2106;
+        _S2106 = _S2102;
         for(;;)
         {
-            bool _S2089 = i_28 < _S2023;
-            uint _S2090 = __ballot_sync(_S2088, _S2089);
-            if(_S2089)
+            bool _S2107 = i_28 < _S2023;
+            uint _S2108 = __ballot_sync(_S2106, _S2107);
+            if(_S2107)
             {
-                uint _S2091 = __ballot_sync(_S2088, true);
+                uint _S2109 = __ballot_sync(_S2106, true);
             }
             else
             {
-                uint _S2092 = __ballot_sync(_S2088, false);
-                uint _S2093 = __ballot_sync(_S2088, false);
-                uint _S2094 = __ballot_sync(_S2085, true);
-                _S2007 = _S2094;
+                uint _S2110 = __ballot_sync(_S2106, false);
+                uint _S2111 = __ballot_sync(_S2106, false);
+                uint _S2112 = __ballot_sync(_S2102, true);
+                _S2007 = _S2112;
                 break;
             }
-            BondStatic_0 * _S2095 = (&(globalParams_0->bonds_0)[i_28]);
+            BondStatic_0 * _S2113 = (&(globalParams_0->bonds_0)[i_28]);
             float3  d_lin_5;
             float3  d_ang_4;
             static_kinematics_0(i_28, &d_lin_5, &d_ang_4);
-            JointBond_0 _S2096 = slang_ldg_0(&_S2095->law_0);
-            JointBond_0 _S2097 = _S2096;
-            JointState_0 _S2098 = (&(globalParams_0->bond_dyn_0)[i_28])->js_0;
+            JointBond_0 _S2114 = slang_ldg_0(&_S2113->law_0);
+            JointBond_0 _S2115 = _S2114;
+            JointState_0 _S2116 = (&(globalParams_0->bond_dyn_0)[i_28])->js_0;
             float3  f_lin_2;
             float3  f_ang_2;
-            secant_factors_0(&_S2097, &_S2098, d_lin_5, &f_lin_2, &f_ang_2);
-            uint _S2099 = statics_bond_slot_0(i_28);
-            float _S2100 = _S2096.stiff0_0.y;
-            *(&(globalParams_0->scratch_0)[_S2099]) = make_float4 (_S2100 * f_lin_2.x, _S2100 * f_lin_2.y, _S2096.stiff0_0.x * f_lin_2.z, 0.0f);
-            *(&(globalParams_0->scratch_0)[_S2099 + 1U]) = make_float4 (_S2096.stiff0_0.z * f_ang_2.x, _S2096.stiff0_0.w * f_ang_2.y, _S2096.stiff1_0.x * f_ang_2.z, 0.0f);
-            uint _S2101 = __ballot_sync(_S2088, true);
+            secant_factors_0(&_S2115, &_S2116, d_lin_5, &f_lin_2, &f_ang_2);
+            uint _S2117 = statics_bond_slot_0(i_28);
+            float _S2118 = _S2114.stiff0_0.y;
+            *(&(globalParams_0->scratch_0)[_S2117]) = make_float4 (_S2118 * f_lin_2.x, _S2118 * f_lin_2.y, _S2114.stiff0_0.x * f_lin_2.z, 0.0f);
+            *(&(globalParams_0->scratch_0)[_S2117 + 1U]) = make_float4 (_S2114.stiff0_0.z * f_ang_2.x, _S2114.stiff0_0.w * f_ang_2.y, _S2114.stiff1_0.x * f_ang_2.z, 0.0f);
+            uint _S2119 = __ballot_sync(_S2106, true);
             i_28 = i_28 + 256U;
-            _S2088 = _S2101;
+            _S2106 = _S2119;
         }
         __syncthreads();
         uint c_45 = _S2024;
-        uint _S2102 = _S2007;
+        uint _S2120 = _S2007;
         for(;;)
         {
-            bool _S2103 = c_45 < c1_1;
-            uint _S2104 = __ballot_sync(_S2102, _S2103);
-            if(_S2103)
+            bool _S2121 = c_45 < c1_1;
+            uint _S2122 = __ballot_sync(_S2120, _S2121);
+            if(_S2121)
             {
-                uint _S2105 = __ballot_sync(_S2102, true);
+                uint _S2123 = __ballot_sync(_S2120, true);
             }
             else
             {
-                uint _S2106 = __ballot_sync(_S2102, false);
-                uint _S2107 = __ballot_sync(_S2102, false);
-                uint _S2108 = __ballot_sync(_S2007, true);
-                _S2008 = _S2108;
+                uint _S2124 = __ballot_sync(_S2120, false);
+                uint _S2125 = __ballot_sync(_S2120, false);
+                uint _S2126 = __ballot_sync(_S2007, true);
+                _S2008 = _S2126;
                 break;
             }
             assemble_block_0(c_45);
             *(&(globalParams_0->scratch_0)[sv_0(c_45, 2U)]) = _S2056;
             *(&(globalParams_0->scratch_0)[sv_0(c_45, 3U)]) = _S2056;
-            uint _S2109 = __ballot_sync(_S2102, true);
+            uint _S2127 = __ballot_sync(_S2120, true);
             c_45 = c_45 + 256U;
-            _S2102 = _S2109;
+            _S2120 = _S2127;
         }
         __syncthreads();
         uint c_46 = _S2024;
-        uint _S2110 = _S2008;
+        uint _S2128 = _S2008;
         for(;;)
         {
-            bool _S2111 = c_46 < c1_1;
-            uint _S2112 = __ballot_sync(_S2110, _S2111);
-            if(_S2111)
+            bool _S2129 = c_46 < c1_1;
+            uint _S2130 = __ballot_sync(_S2128, _S2129);
+            if(_S2129)
             {
-                uint _S2113 = __ballot_sync(_S2110, true);
+                uint _S2131 = __ballot_sync(_S2128, true);
             }
             else
             {
-                uint _S2114 = __ballot_sync(_S2110, false);
-                uint _S2115 = __ballot_sync(_S2110, false);
-                uint _S2116 = __ballot_sync(_S2008, true);
-                _S2009 = _S2116;
+                uint _S2132 = __ballot_sync(_S2128, false);
+                uint _S2133 = __ballot_sync(_S2128, false);
+                uint _S2134 = __ballot_sync(_S2008, true);
+                _S2009 = _S2134;
                 break;
             }
             precondition_0(c_46);
-            uint _S2117 = __ballot_sync(_S2110, true);
+            uint _S2135 = __ballot_sync(_S2128, true);
             c_46 = c_46 + 256U;
-            _S2110 = _S2117;
+            _S2128 = _S2135;
         }
         __syncthreads();
-        uint _S2118 = __ballot_sync(_S2009, free_0);
-        uint _S2119;
+        uint _S2136 = __ballot_sync(_S2009, free_0);
+        uint _S2137;
         if(free_0)
         {
-            Island_0 _S2120 = isl_22;
-            project_displacement_slot_0(tid_18, &_S2120, 6U, _S2118);
-            uint _S2121 = __ballot_sync(_S2009, true);
-            _S2119 = _S2121;
+            Island_0 _S2138 = isl_22;
+            project_displacement_slot_0(tid_18, &_S2138, 6U, _S2136);
+            uint _S2139 = __ballot_sync(_S2009, true);
+            _S2137 = _S2139;
         }
         else
         {
-            uint _S2122 = __ballot_sync(_S2009, true);
-            _S2119 = _S2122;
+            uint _S2140 = __ballot_sync(_S2009, true);
+            _S2137 = _S2140;
         }
         uint c_47 = _S2024;
-        uint _S2123 = _S2119;
+        uint _S2141 = _S2137;
         for(;;)
         {
-            bool _S2124 = c_47 < c1_1;
-            uint _S2125 = __ballot_sync(_S2123, _S2124);
-            if(_S2124)
+            bool _S2142 = c_47 < c1_1;
+            uint _S2143 = __ballot_sync(_S2141, _S2142);
+            if(_S2142)
             {
-                uint _S2126 = __ballot_sync(_S2123, true);
+                uint _S2144 = __ballot_sync(_S2141, true);
             }
             else
             {
-                uint _S2127 = __ballot_sync(_S2123, false);
-                uint _S2128 = __ballot_sync(_S2123, false);
-                uint _S2129 = __ballot_sync(_S2119, true);
-                _S2010 = _S2129;
+                uint _S2145 = __ballot_sync(_S2141, false);
+                uint _S2146 = __ballot_sync(_S2141, false);
+                uint _S2147 = __ballot_sync(_S2137, true);
+                _S2010 = _S2147;
                 break;
             }
             *(&(globalParams_0->scratch_0)[sv_0(c_47, 8U)]) = *(&(globalParams_0->scratch_0)[sv_0(c_47, 6U)]);
             *(&(globalParams_0->scratch_0)[sv_0(c_47, 9U)]) = *(&(globalParams_0->scratch_0)[sv_0(c_47, 7U)]);
-            uint _S2130 = __ballot_sync(_S2123, true);
+            uint _S2148 = __ballot_sync(_S2141, true);
             c_47 = c_47 + 256U;
-            _S2123 = _S2130;
+            _S2141 = _S2148;
         }
         __syncthreads();
-        float _S2131 = island_dot_0(tid_18, c0_1, c1_1, 4U, 6U, _S2010);
-        float _S2132 = island_dot_0(tid_18, c0_1, c1_1, 4U, 4U, _S2010);
-        float _S2133 = (F32_sqrt((_S2132)));
-        float rz_0 = _S2131;
+        float _S2149 = island_dot_0(tid_18, c0_1, c1_1, 4U, 6U, _S2010);
+        float _S2150 = island_dot_0(tid_18, c0_1, c1_1, 4U, 4U, _S2010);
+        float _S2151 = (F32_sqrt((_S2150)));
+        float rz_0 = _S2149;
         uint k_21 = 0U;
         uint cg_total_1 = cg_total_0;
-        uint _S2134 = _S2010;
+        uint _S2152 = _S2010;
         for(;;)
         {
-            bool _S2135 = k_21 < _S2041;
-            uint _S2136 = __ballot_sync(_S2134, _S2135);
-            uint _S2137;
-            bool _S2138;
-            if(_S2135)
+            bool _S2153 = k_21 < _S2041;
+            uint _S2154 = __ballot_sync(_S2152, _S2153);
+            uint _S2155;
+            if(_S2153)
             {
-                bool _S2139 = _S2133 > 0.0f;
-                uint _S2140 = __ballot_sync(_S2134, true);
-                _S2138 = _S2139;
-                _S2137 = _S2140;
+                bool _S2156 = _S2151 > 0.0f;
+                uint _S2157 = __ballot_sync(_S2152, true);
+                _S2082 = _S2156;
+                _S2155 = _S2157;
             }
             else
             {
-                uint _S2141 = __ballot_sync(_S2134, true);
-                _S2138 = false;
-                _S2137 = _S2141;
+                uint _S2158 = __ballot_sync(_S2152, true);
+                _S2082 = false;
+                _S2155 = _S2158;
             }
-            uint _S2142 = 0U;
-            uint _S2143 = __ballot_sync(_S2137, _S2138);
-            if(_S2138)
+            uint _S2159 = 0U;
+            uint _S2160 = __ballot_sync(_S2155, _S2082);
+            if(_S2082)
             {
-                uint _S2144 = __ballot_sync(_S2137, true);
-                _S2142 = _S2144;
+                uint _S2161 = __ballot_sync(_S2155, true);
+                _S2159 = _S2161;
             }
             else
             {
-                uint _S2145 = __ballot_sync(_S2137, false);
-                uint _S2146 = __ballot_sync(_S2134, false);
-                uint _S2147 = __ballot_sync(_S2010, true);
+                uint _S2162 = __ballot_sync(_S2155, false);
+                uint _S2163 = __ballot_sync(_S2152, false);
+                uint _S2164 = __ballot_sync(_S2010, true);
                 cg_total_0 = cg_total_1;
-                i_27 = _S2147;
+                i_27 = _S2164;
                 break;
             }
             i_27 = _S2047;
-            _S2011 = _S2142;
+            _S2011 = _S2159;
             for(;;)
             {
-                bool _S2148 = i_27 < _S2023;
-                uint _S2149 = __ballot_sync(_S2011, _S2148);
-                if(_S2148)
+                bool _S2165 = i_27 < _S2023;
+                uint _S2166 = __ballot_sync(_S2011, _S2165);
+                if(_S2165)
                 {
-                    uint _S2150 = __ballot_sync(_S2011, true);
+                    uint _S2167 = __ballot_sync(_S2011, true);
                 }
                 else
                 {
-                    uint _S2151 = __ballot_sync(_S2011, false);
-                    uint _S2152 = __ballot_sync(_S2011, false);
-                    uint _S2153 = __ballot_sync(_S2142, true);
-                    _S2012 = _S2153;
+                    uint _S2168 = __ballot_sync(_S2011, false);
+                    uint _S2169 = __ballot_sync(_S2011, false);
+                    uint _S2170 = __ballot_sync(_S2159, true);
+                    _S2012 = _S2170;
                     break;
                 }
-                JointBond_0 _S2154 = slang_ldg_0(&(&(globalParams_0->bonds_0)[i_27])->law_0);
-                uint ca_2 = _S2154.ids_0.y;
-                uint cb_2 = _S2154.ids_0.z;
-                float4  _S2155 = *(&(globalParams_0->scratch_0)[sv_0(ca_2, 8U)]);
-                float4  _S2156 = *(&(globalParams_0->scratch_0)[sv_0(ca_2, 9U)]);
-                float4  _S2157 = *(&(globalParams_0->scratch_0)[sv_0(cb_2, 8U)]);
-                float4  _S2158 = *(&(globalParams_0->scratch_0)[sv_0(cb_2, 9U)]);
+                JointBond_0 _S2171 = slang_ldg_0(&(&(globalParams_0->bonds_0)[i_27])->law_0);
+                uint ca_2 = _S2171.ids_0.y;
+                uint cb_2 = _S2171.ids_0.z;
+                float4  _S2172 = *(&(globalParams_0->scratch_0)[sv_0(ca_2, 8U)]);
+                float4  _S2173 = *(&(globalParams_0->scratch_0)[sv_0(ca_2, 9U)]);
+                float4  _S2174 = *(&(globalParams_0->scratch_0)[sv_0(cb_2, 8U)]);
+                float4  _S2175 = *(&(globalParams_0->scratch_0)[sv_0(cb_2, 9U)]);
                 float3  d_lin_6;
                 float3  d_ang_5;
-                bond_kinematics_0(i_27, float3 {_S2155.x, _S2155.y, _S2155.z}, float3 {_S2156.x, _S2156.y, _S2156.z}, float3 {_S2157.x, _S2157.y, _S2157.z}, float3 {_S2158.x, _S2158.y, _S2158.z}, &d_lin_6, &d_ang_5);
-                uint _S2159 = statics_bond_slot_0(i_27);
-                float4  _S2160 = *(&(globalParams_0->scratch_0)[_S2159]);
-                float4  _S2161 = *(&(globalParams_0->scratch_0)[_S2159 + 1U]);
-                write_bond_loads_0(i_27, i_27, d_lin_6 * float3 {_S2160.x, _S2160.y, _S2160.z}, d_ang_5 * float3 {_S2161.x, _S2161.y, _S2161.z}, 0.0f);
-                uint _S2162 = __ballot_sync(_S2011, true);
+                bond_kinematics_0(i_27, float3 {_S2172.x, _S2172.y, _S2172.z}, float3 {_S2173.x, _S2173.y, _S2173.z}, float3 {_S2174.x, _S2174.y, _S2174.z}, float3 {_S2175.x, _S2175.y, _S2175.z}, &d_lin_6, &d_ang_5);
+                uint _S2176 = statics_bond_slot_0(i_27);
+                float4  _S2177 = *(&(globalParams_0->scratch_0)[_S2176]);
+                float4  _S2178 = *(&(globalParams_0->scratch_0)[_S2176 + 1U]);
+                write_bond_loads_0(i_27, i_27, d_lin_6 * float3 {_S2177.x, _S2177.y, _S2177.z}, d_ang_5 * float3 {_S2178.x, _S2178.y, _S2178.z}, 0.0f);
+                uint _S2179 = __ballot_sync(_S2011, true);
                 i_27 = i_27 + 256U;
-                _S2011 = _S2162;
+                _S2011 = _S2179;
             }
             __syncthreads();
             c_42 = _S2024;
-            uint _S2163 = _S2012;
+            uint _S2180 = _S2012;
             for(;;)
             {
-                bool _S2164 = c_42 < c1_1;
-                uint _S2165 = __ballot_sync(_S2163, _S2164);
-                if(_S2164)
+                bool _S2181 = c_42 < c1_1;
+                uint _S2182 = __ballot_sync(_S2180, _S2181);
+                if(_S2181)
                 {
-                    uint _S2166 = __ballot_sync(_S2163, true);
+                    uint _S2183 = __ballot_sync(_S2180, true);
                 }
                 else
                 {
-                    uint _S2167 = __ballot_sync(_S2163, false);
-                    uint _S2168 = __ballot_sync(_S2163, false);
-                    uint _S2169 = __ballot_sync(_S2012, true);
-                    _S2013 = _S2169;
+                    uint _S2184 = __ballot_sync(_S2180, false);
+                    uint _S2185 = __ballot_sync(_S2180, false);
+                    uint _S2186 = __ballot_sync(_S2012, true);
+                    _S2013 = _S2186;
                     break;
                 }
                 float3  fi_4;
@@ -9073,215 +9133,215 @@ extern "C" __global__ void island_statics()
                 hold_0(fixed_mask_0(c_42), &ap_lin_0, &ap_ang_0, *(&(globalParams_0->scratch_0)[sv_0(c_42, 8U)]), *(&(globalParams_0->scratch_0)[sv_0(c_42, 9U)]));
                 *(&(globalParams_0->scratch_0)[sv_0(c_42, 10U)]) = ap_lin_0;
                 *(&(globalParams_0->scratch_0)[sv_0(c_42, 11U)]) = ap_ang_0;
-                uint _S2170 = __ballot_sync(_S2163, true);
+                uint _S2187 = __ballot_sync(_S2180, true);
                 c_42 = c_42 + 256U;
-                _S2163 = _S2170;
+                _S2180 = _S2187;
             }
-            uint _S2171 = 0U;
+            uint _S2188 = 0U;
             __syncthreads();
-            float _S2172 = island_dot_0(tid_18, c0_1, c1_1, 8U, 10U, _S2013);
-            uint _S2173 = cg_total_1 + 1U;
-            bool _S2174 = _S2172 <= 0.0f;
-            uint _S2175 = __ballot_sync(_S2013, _S2174);
-            if(_S2174)
+            float _S2189 = island_dot_0(tid_18, c0_1, c1_1, 8U, 10U, _S2013);
+            uint _S2190 = cg_total_1 + 1U;
+            bool _S2191 = _S2189 <= 0.0f;
+            uint _S2192 = __ballot_sync(_S2013, _S2191);
+            if(_S2191)
             {
-                uint _S2176 = __ballot_sync(_S2013, false);
-                uint _S2177 = __ballot_sync(_S2134, false);
-                uint _S2178 = __ballot_sync(_S2010, true);
-                cg_total_0 = _S2173;
-                i_27 = _S2178;
+                uint _S2193 = __ballot_sync(_S2013, false);
+                uint _S2194 = __ballot_sync(_S2152, false);
+                uint _S2195 = __ballot_sync(_S2010, true);
+                cg_total_0 = _S2190;
+                i_27 = _S2195;
                 break;
             }
             else
             {
-                uint _S2179 = __ballot_sync(_S2013, true);
-                _S2171 = _S2179;
+                uint _S2196 = __ballot_sync(_S2013, true);
+                _S2188 = _S2196;
             }
-            float _S2180 = rz_0 / _S2172;
+            float _S2197 = rz_0 / _S2189;
             uint c_48 = _S2024;
-            uint _S2181;
-            _S2181 = _S2171;
+            uint _S2198;
+            _S2198 = _S2188;
             for(;;)
             {
-                bool _S2182 = c_48 < c1_1;
-                uint _S2183 = __ballot_sync(_S2181, _S2182);
-                if(_S2182)
+                bool _S2199 = c_48 < c1_1;
+                uint _S2200 = __ballot_sync(_S2198, _S2199);
+                if(_S2199)
                 {
-                    uint _S2184 = __ballot_sync(_S2181, true);
+                    uint _S2201 = __ballot_sync(_S2198, true);
                 }
                 else
                 {
-                    uint _S2185 = __ballot_sync(_S2181, false);
-                    uint _S2186 = __ballot_sync(_S2181, false);
-                    uint _S2187 = __ballot_sync(_S2171, true);
-                    _S2014 = _S2187;
+                    uint _S2202 = __ballot_sync(_S2198, false);
+                    uint _S2203 = __ballot_sync(_S2198, false);
+                    uint _S2204 = __ballot_sync(_S2188, true);
+                    _S2014 = _S2204;
                     break;
                 }
-                uint _S2188 = sv_0(c_48, 2U);
-                float4  _S2189 = *(&(globalParams_0->scratch_0)[_S2188]);
-                float4  _S2190 = *(&(globalParams_0->scratch_0)[sv_0(c_48, 8U)]);
-                *(&(globalParams_0->scratch_0)[_S2188]) = make_float4 ((float3 {_S2189.x, _S2189.y, _S2189.z} + make_float3 (_S2180) * float3 {_S2190.x, _S2190.y, _S2190.z}).x, (float3 {_S2189.x, _S2189.y, _S2189.z} + make_float3 (_S2180) * float3 {_S2190.x, _S2190.y, _S2190.z}).y, (float3 {_S2189.x, _S2189.y, _S2189.z} + make_float3 (_S2180) * float3 {_S2190.x, _S2190.y, _S2190.z}).z, 0.0f);
-                uint _S2191 = sv_0(c_48, 3U);
-                float4  _S2192 = *(&(globalParams_0->scratch_0)[_S2191]);
-                float4  _S2193 = *(&(globalParams_0->scratch_0)[sv_0(c_48, 9U)]);
-                *(&(globalParams_0->scratch_0)[_S2191]) = make_float4 ((float3 {_S2192.x, _S2192.y, _S2192.z} + make_float3 (_S2180) * float3 {_S2193.x, _S2193.y, _S2193.z}).x, (float3 {_S2192.x, _S2192.y, _S2192.z} + make_float3 (_S2180) * float3 {_S2193.x, _S2193.y, _S2193.z}).y, (float3 {_S2192.x, _S2192.y, _S2192.z} + make_float3 (_S2180) * float3 {_S2193.x, _S2193.y, _S2193.z}).z, 0.0f);
-                uint _S2194 = sv_0(c_48, 4U);
-                float4  _S2195 = *(&(globalParams_0->scratch_0)[_S2194]);
-                float4  _S2196 = *(&(globalParams_0->scratch_0)[sv_0(c_48, 10U)]);
-                *(&(globalParams_0->scratch_0)[_S2194]) = make_float4 ((float3 {_S2195.x, _S2195.y, _S2195.z} - make_float3 (_S2180) * float3 {_S2196.x, _S2196.y, _S2196.z}).x, (float3 {_S2195.x, _S2195.y, _S2195.z} - make_float3 (_S2180) * float3 {_S2196.x, _S2196.y, _S2196.z}).y, (float3 {_S2195.x, _S2195.y, _S2195.z} - make_float3 (_S2180) * float3 {_S2196.x, _S2196.y, _S2196.z}).z, 0.0f);
-                uint _S2197 = sv_0(c_48, 5U);
-                float4  _S2198 = *(&(globalParams_0->scratch_0)[_S2197]);
-                float4  _S2199 = *(&(globalParams_0->scratch_0)[sv_0(c_48, 11U)]);
-                *(&(globalParams_0->scratch_0)[_S2197]) = make_float4 ((float3 {_S2198.x, _S2198.y, _S2198.z} - make_float3 (_S2180) * float3 {_S2199.x, _S2199.y, _S2199.z}).x, (float3 {_S2198.x, _S2198.y, _S2198.z} - make_float3 (_S2180) * float3 {_S2199.x, _S2199.y, _S2199.z}).y, (float3 {_S2198.x, _S2198.y, _S2198.z} - make_float3 (_S2180) * float3 {_S2199.x, _S2199.y, _S2199.z}).z, 0.0f);
-                uint _S2200 = __ballot_sync(_S2181, true);
+                uint _S2205 = sv_0(c_48, 2U);
+                float4  _S2206 = *(&(globalParams_0->scratch_0)[_S2205]);
+                float4  _S2207 = *(&(globalParams_0->scratch_0)[sv_0(c_48, 8U)]);
+                *(&(globalParams_0->scratch_0)[_S2205]) = make_float4 ((float3 {_S2206.x, _S2206.y, _S2206.z} + make_float3 (_S2197) * float3 {_S2207.x, _S2207.y, _S2207.z}).x, (float3 {_S2206.x, _S2206.y, _S2206.z} + make_float3 (_S2197) * float3 {_S2207.x, _S2207.y, _S2207.z}).y, (float3 {_S2206.x, _S2206.y, _S2206.z} + make_float3 (_S2197) * float3 {_S2207.x, _S2207.y, _S2207.z}).z, 0.0f);
+                uint _S2208 = sv_0(c_48, 3U);
+                float4  _S2209 = *(&(globalParams_0->scratch_0)[_S2208]);
+                float4  _S2210 = *(&(globalParams_0->scratch_0)[sv_0(c_48, 9U)]);
+                *(&(globalParams_0->scratch_0)[_S2208]) = make_float4 ((float3 {_S2209.x, _S2209.y, _S2209.z} + make_float3 (_S2197) * float3 {_S2210.x, _S2210.y, _S2210.z}).x, (float3 {_S2209.x, _S2209.y, _S2209.z} + make_float3 (_S2197) * float3 {_S2210.x, _S2210.y, _S2210.z}).y, (float3 {_S2209.x, _S2209.y, _S2209.z} + make_float3 (_S2197) * float3 {_S2210.x, _S2210.y, _S2210.z}).z, 0.0f);
+                uint _S2211 = sv_0(c_48, 4U);
+                float4  _S2212 = *(&(globalParams_0->scratch_0)[_S2211]);
+                float4  _S2213 = *(&(globalParams_0->scratch_0)[sv_0(c_48, 10U)]);
+                *(&(globalParams_0->scratch_0)[_S2211]) = make_float4 ((float3 {_S2212.x, _S2212.y, _S2212.z} - make_float3 (_S2197) * float3 {_S2213.x, _S2213.y, _S2213.z}).x, (float3 {_S2212.x, _S2212.y, _S2212.z} - make_float3 (_S2197) * float3 {_S2213.x, _S2213.y, _S2213.z}).y, (float3 {_S2212.x, _S2212.y, _S2212.z} - make_float3 (_S2197) * float3 {_S2213.x, _S2213.y, _S2213.z}).z, 0.0f);
+                uint _S2214 = sv_0(c_48, 5U);
+                float4  _S2215 = *(&(globalParams_0->scratch_0)[_S2214]);
+                float4  _S2216 = *(&(globalParams_0->scratch_0)[sv_0(c_48, 11U)]);
+                *(&(globalParams_0->scratch_0)[_S2214]) = make_float4 ((float3 {_S2215.x, _S2215.y, _S2215.z} - make_float3 (_S2197) * float3 {_S2216.x, _S2216.y, _S2216.z}).x, (float3 {_S2215.x, _S2215.y, _S2215.z} - make_float3 (_S2197) * float3 {_S2216.x, _S2216.y, _S2216.z}).y, (float3 {_S2215.x, _S2215.y, _S2215.z} - make_float3 (_S2197) * float3 {_S2216.x, _S2216.y, _S2216.z}).z, 0.0f);
+                uint _S2217 = __ballot_sync(_S2198, true);
                 c_48 = c_48 + 256U;
-                _S2181 = _S2200;
+                _S2198 = _S2217;
             }
-            uint _S2201 = 0U;
+            uint _S2218 = 0U;
             __syncthreads();
-            float _S2202 = island_dot_0(tid_18, c0_1, c1_1, 4U, 4U, _S2014);
-            bool _S2203 = (F32_sqrt((_S2202))) <= (0.00009999999747379f * _S2133);
-            uint _S2204 = __ballot_sync(_S2014, _S2203);
-            if(_S2203)
+            float _S2219 = island_dot_0(tid_18, c0_1, c1_1, 4U, 4U, _S2014);
+            bool _S2220 = (F32_sqrt((_S2219))) <= (0.00009999999747379f * _S2151);
+            uint _S2221 = __ballot_sync(_S2014, _S2220);
+            if(_S2220)
             {
-                uint _S2205 = __ballot_sync(_S2014, false);
-                uint _S2206 = __ballot_sync(_S2134, false);
-                uint _S2207 = __ballot_sync(_S2010, true);
-                cg_total_0 = _S2173;
-                i_27 = _S2207;
+                uint _S2222 = __ballot_sync(_S2014, false);
+                uint _S2223 = __ballot_sync(_S2152, false);
+                uint _S2224 = __ballot_sync(_S2010, true);
+                cg_total_0 = _S2190;
+                i_27 = _S2224;
                 break;
             }
             else
             {
-                uint _S2208 = __ballot_sync(_S2014, true);
-                _S2201 = _S2208;
+                uint _S2225 = __ballot_sync(_S2014, true);
+                _S2218 = _S2225;
             }
             uint c_49 = _S2024;
-            uint _S2209;
-            _S2209 = _S2201;
+            uint _S2226;
+            _S2226 = _S2218;
             for(;;)
             {
-                bool _S2210 = c_49 < c1_1;
-                uint _S2211 = __ballot_sync(_S2209, _S2210);
-                if(_S2210)
+                bool _S2227 = c_49 < c1_1;
+                uint _S2228 = __ballot_sync(_S2226, _S2227);
+                if(_S2227)
                 {
-                    uint _S2212 = __ballot_sync(_S2209, true);
+                    uint _S2229 = __ballot_sync(_S2226, true);
                 }
                 else
                 {
-                    uint _S2213 = __ballot_sync(_S2209, false);
-                    uint _S2214 = __ballot_sync(_S2209, false);
-                    uint _S2215 = __ballot_sync(_S2201, true);
-                    _S2015 = _S2215;
+                    uint _S2230 = __ballot_sync(_S2226, false);
+                    uint _S2231 = __ballot_sync(_S2226, false);
+                    uint _S2232 = __ballot_sync(_S2218, true);
+                    _S2015 = _S2232;
                     break;
                 }
                 precondition_0(c_49);
-                uint _S2216 = __ballot_sync(_S2209, true);
+                uint _S2233 = __ballot_sync(_S2226, true);
                 c_49 = c_49 + 256U;
-                _S2209 = _S2216;
+                _S2226 = _S2233;
             }
             __syncthreads();
-            uint _S2217 = __ballot_sync(_S2015, free_0);
-            uint _S2218;
+            uint _S2234 = __ballot_sync(_S2015, free_0);
+            uint _S2235;
             if(free_0)
             {
-                Island_0 _S2219 = isl_22;
-                project_displacement_slot_0(tid_18, &_S2219, 6U, _S2217);
-                uint _S2220 = __ballot_sync(_S2015, true);
-                _S2218 = _S2220;
+                Island_0 _S2236 = isl_22;
+                project_displacement_slot_0(tid_18, &_S2236, 6U, _S2234);
+                uint _S2237 = __ballot_sync(_S2015, true);
+                _S2235 = _S2237;
             }
             else
             {
-                uint _S2221 = __ballot_sync(_S2015, true);
-                _S2218 = _S2221;
+                uint _S2238 = __ballot_sync(_S2015, true);
+                _S2235 = _S2238;
             }
-            float _S2222 = island_dot_0(tid_18, c0_1, c1_1, 4U, 6U, _S2218);
-            float _S2223 = _S2222 / rz_0;
+            float _S2239 = island_dot_0(tid_18, c0_1, c1_1, 4U, 6U, _S2235);
+            float _S2240 = _S2239 / rz_0;
             uint c_50 = _S2024;
-            uint _S2224 = _S2218;
+            uint _S2241 = _S2235;
             for(;;)
             {
-                bool _S2225 = c_50 < c1_1;
-                uint _S2226 = __ballot_sync(_S2224, _S2225);
-                if(_S2225)
+                bool _S2242 = c_50 < c1_1;
+                uint _S2243 = __ballot_sync(_S2241, _S2242);
+                if(_S2242)
                 {
-                    uint _S2227 = __ballot_sync(_S2224, true);
+                    uint _S2244 = __ballot_sync(_S2241, true);
                 }
                 else
                 {
-                    uint _S2228 = __ballot_sync(_S2224, false);
-                    uint _S2229 = __ballot_sync(_S2224, false);
-                    uint _S2230 = __ballot_sync(_S2218, true);
+                    uint _S2245 = __ballot_sync(_S2241, false);
+                    uint _S2246 = __ballot_sync(_S2241, false);
+                    uint _S2247 = __ballot_sync(_S2235, true);
                     break;
                 }
-                uint _S2231 = sv_0(c_50, 8U);
-                float4  _S2232 = *(&(globalParams_0->scratch_0)[sv_0(c_50, 6U)]);
-                float4  _S2233 = *(&(globalParams_0->scratch_0)[_S2231]);
-                *(&(globalParams_0->scratch_0)[_S2231]) = make_float4 ((float3 {_S2232.x, _S2232.y, _S2232.z} + make_float3 (_S2223) * float3 {_S2233.x, _S2233.y, _S2233.z}).x, (float3 {_S2232.x, _S2232.y, _S2232.z} + make_float3 (_S2223) * float3 {_S2233.x, _S2233.y, _S2233.z}).y, (float3 {_S2232.x, _S2232.y, _S2232.z} + make_float3 (_S2223) * float3 {_S2233.x, _S2233.y, _S2233.z}).z, 0.0f);
-                uint _S2234 = sv_0(c_50, 9U);
-                float4  _S2235 = *(&(globalParams_0->scratch_0)[sv_0(c_50, 7U)]);
-                float4  _S2236 = *(&(globalParams_0->scratch_0)[_S2234]);
-                *(&(globalParams_0->scratch_0)[_S2234]) = make_float4 ((float3 {_S2235.x, _S2235.y, _S2235.z} + make_float3 (_S2223) * float3 {_S2236.x, _S2236.y, _S2236.z}).x, (float3 {_S2235.x, _S2235.y, _S2235.z} + make_float3 (_S2223) * float3 {_S2236.x, _S2236.y, _S2236.z}).y, (float3 {_S2235.x, _S2235.y, _S2235.z} + make_float3 (_S2223) * float3 {_S2236.x, _S2236.y, _S2236.z}).z, 0.0f);
-                uint _S2237 = __ballot_sync(_S2224, true);
+                uint _S2248 = sv_0(c_50, 8U);
+                float4  _S2249 = *(&(globalParams_0->scratch_0)[sv_0(c_50, 6U)]);
+                float4  _S2250 = *(&(globalParams_0->scratch_0)[_S2248]);
+                *(&(globalParams_0->scratch_0)[_S2248]) = make_float4 ((float3 {_S2249.x, _S2249.y, _S2249.z} + make_float3 (_S2240) * float3 {_S2250.x, _S2250.y, _S2250.z}).x, (float3 {_S2249.x, _S2249.y, _S2249.z} + make_float3 (_S2240) * float3 {_S2250.x, _S2250.y, _S2250.z}).y, (float3 {_S2249.x, _S2249.y, _S2249.z} + make_float3 (_S2240) * float3 {_S2250.x, _S2250.y, _S2250.z}).z, 0.0f);
+                uint _S2251 = sv_0(c_50, 9U);
+                float4  _S2252 = *(&(globalParams_0->scratch_0)[sv_0(c_50, 7U)]);
+                float4  _S2253 = *(&(globalParams_0->scratch_0)[_S2251]);
+                *(&(globalParams_0->scratch_0)[_S2251]) = make_float4 ((float3 {_S2252.x, _S2252.y, _S2252.z} + make_float3 (_S2240) * float3 {_S2253.x, _S2253.y, _S2253.z}).x, (float3 {_S2252.x, _S2252.y, _S2252.z} + make_float3 (_S2240) * float3 {_S2253.x, _S2253.y, _S2253.z}).y, (float3 {_S2252.x, _S2252.y, _S2252.z} + make_float3 (_S2240) * float3 {_S2253.x, _S2253.y, _S2253.z}).z, 0.0f);
+                uint _S2254 = __ballot_sync(_S2241, true);
                 c_50 = c_50 + 256U;
-                _S2224 = _S2237;
+                _S2241 = _S2254;
             }
             __syncthreads();
-            uint _S2238 = __ballot_sync(_S2134, true);
-            uint _S2239 = k_21 + 1U;
-            rz_0 = _S2222;
-            k_21 = _S2239;
-            cg_total_1 = _S2173;
-            _S2134 = _S2238;
+            uint _S2255 = __ballot_sync(_S2152, true);
+            uint _S2256 = k_21 + 1U;
+            rz_0 = _S2239;
+            k_21 = _S2256;
+            cg_total_1 = _S2190;
+            _S2152 = _S2255;
         }
         c_42 = _S2024;
         _S2011 = i_27;
         for(;;)
         {
-            bool _S2240 = c_42 < c1_1;
-            uint _S2241 = __ballot_sync(_S2011, _S2240);
-            if(_S2240)
+            bool _S2257 = c_42 < c1_1;
+            uint _S2258 = __ballot_sync(_S2011, _S2257);
+            if(_S2257)
             {
-                uint _S2242 = __ballot_sync(_S2011, true);
+                uint _S2259 = __ballot_sync(_S2011, true);
             }
             else
             {
-                uint _S2243 = __ballot_sync(_S2011, false);
-                uint _S2244 = __ballot_sync(_S2011, false);
-                uint _S2245 = __ballot_sync(i_27, true);
+                uint _S2260 = __ballot_sync(_S2011, false);
+                uint _S2261 = __ballot_sync(_S2011, false);
+                uint _S2262 = __ballot_sync(i_27, true);
                 break;
             }
-            uint _S2246 = 4U * c_42;
-            float4  _S2247 = *(&(globalParams_0->state_0)[_S2246]);
-            float3  u_4 = float3 {_S2247.x, _S2247.y, _S2247.z};
-            uint _S2248 = sv_0(c_42, 21U);
-            float4  _S2249 = *(&(globalParams_0->scratch_0)[_S2248]);
-            float3  u_lo_0 = float3 {_S2249.x, _S2249.y, _S2249.z};
-            uint _S2250 = _S2246 + 1U;
-            float4  _S2251 = *(&(globalParams_0->state_0)[_S2250]);
-            float3  th_6 = float3 {_S2251.x, _S2251.y, _S2251.z};
-            uint _S2252 = sv_0(c_42, 22U);
-            float4  _S2253 = *(&(globalParams_0->scratch_0)[_S2252]);
-            float3  th_lo_0 = float3 {_S2253.x, _S2253.y, _S2253.z};
-            float4  _S2254 = *(&(globalParams_0->scratch_0)[sv_0(c_42, 2U)]);
-            comp_add_0(&u_4, &u_lo_0, float3 {_S2254.x, _S2254.y, _S2254.z});
-            float4  _S2255 = *(&(globalParams_0->scratch_0)[sv_0(c_42, 3U)]);
-            comp_add_0(&th_6, &th_lo_0, float3 {_S2255.x, _S2255.y, _S2255.z});
-            *(&(globalParams_0->state_0)[_S2246]) = make_float4 (u_4.x, u_4.y, u_4.z, (*(&(globalParams_0->state_0)[_S2246])).w);
-            *(&(globalParams_0->state_0)[_S2250]) = make_float4 (th_6.x, th_6.y, th_6.z, (*(&(globalParams_0->state_0)[_S2250])).w);
-            *(&(globalParams_0->scratch_0)[_S2248]) = make_float4 (u_lo_0.x, u_lo_0.y, u_lo_0.z, 0.0f);
-            *(&(globalParams_0->scratch_0)[_S2252]) = make_float4 (th_lo_0.x, th_lo_0.y, th_lo_0.z, 0.0f);
-            uint _S2256 = __ballot_sync(_S2011, true);
+            uint _S2263 = 4U * c_42;
+            float4  _S2264 = *(&(globalParams_0->state_0)[_S2263]);
+            float3  u_4 = float3 {_S2264.x, _S2264.y, _S2264.z};
+            uint _S2265 = sv_0(c_42, 21U);
+            float4  _S2266 = *(&(globalParams_0->scratch_0)[_S2265]);
+            float3  u_lo_0 = float3 {_S2266.x, _S2266.y, _S2266.z};
+            uint _S2267 = _S2263 + 1U;
+            float4  _S2268 = *(&(globalParams_0->state_0)[_S2267]);
+            float3  th_6 = float3 {_S2268.x, _S2268.y, _S2268.z};
+            uint _S2269 = sv_0(c_42, 22U);
+            float4  _S2270 = *(&(globalParams_0->scratch_0)[_S2269]);
+            float3  th_lo_0 = float3 {_S2270.x, _S2270.y, _S2270.z};
+            float4  _S2271 = *(&(globalParams_0->scratch_0)[sv_0(c_42, 2U)]);
+            comp_add_0(&u_4, &u_lo_0, float3 {_S2271.x, _S2271.y, _S2271.z});
+            float4  _S2272 = *(&(globalParams_0->scratch_0)[sv_0(c_42, 3U)]);
+            comp_add_0(&th_6, &th_lo_0, float3 {_S2272.x, _S2272.y, _S2272.z});
+            *(&(globalParams_0->state_0)[_S2263]) = make_float4 (u_4.x, u_4.y, u_4.z, (*(&(globalParams_0->state_0)[_S2263])).w);
+            *(&(globalParams_0->state_0)[_S2267]) = make_float4 (th_6.x, th_6.y, th_6.z, (*(&(globalParams_0->state_0)[_S2267])).w);
+            *(&(globalParams_0->scratch_0)[_S2265]) = make_float4 (u_lo_0.x, u_lo_0.y, u_lo_0.z, 0.0f);
+            *(&(globalParams_0->scratch_0)[_S2269]) = make_float4 (th_lo_0.x, th_lo_0.y, th_lo_0.z, 0.0f);
+            uint _S2273 = __ballot_sync(_S2011, true);
             c_42 = c_42 + 256U;
-            _S2011 = _S2256;
+            _S2011 = _S2273;
         }
         __syncthreads();
-        uint _S2257 = newton_0 + 1U;
-        uint _S2258 = __ballot_sync(c_43, true);
+        uint _S2274 = newton_0 + 1U;
+        uint _S2275 = __ballot_sync(c_43, true);
         previous_2 = residual_1;
         residual_0 = residual_1;
-        newton_0 = _S2257;
-        c_43 = _S2258;
+        newton_0 = _S2274;
+        c_43 = _S2275;
     }
     i_26 = b0_0 + tid_18;
     for(;;)
@@ -9318,27 +9378,27 @@ extern "C" __global__ void island_statics()
         float3  reaction_1;
         if((fixed_mask_0(c_42)) != 0U)
         {
-            float4  _S2259 = *(&(globalParams_0->scratch_0)[sv_0(c_42, 0U)]);
-            reaction_1 = - (float3 {_S2259.x, _S2259.y, _S2259.z} + fi_5);
+            float4  _S2276 = *(&(globalParams_0->scratch_0)[sv_0(c_42, 0U)]);
+            reaction_1 = - (float3 {_S2276.x, _S2276.y, _S2276.z} + fi_5);
         }
         else
         {
-            uint _S2260 = 4U * c_42;
-            reaction_1 = make_float3 ((*(&(globalParams_0->state_0)[_S2260 + 1U])).w, (*(&(globalParams_0->state_0)[_S2260 + 2U])).w, (*(&(globalParams_0->state_0)[_S2260 + 3U])).w);
+            uint _S2277 = 4U * c_42;
+            reaction_1 = make_float3 ((*(&(globalParams_0->state_0)[_S2277 + 1U])).w, (*(&(globalParams_0->state_0)[_S2277 + 2U])).w, (*(&(globalParams_0->state_0)[_S2277 + 3U])).w);
         }
-        uint _S2261 = 4U * c_42;
-        uint _S2262 = _S2261 + 1U;
-        float4  _S2263 = *(&(globalParams_0->state_0)[_S2262]);
-        *(&(globalParams_0->state_0)[_S2262]) = make_float4 (float3 {_S2263.x, _S2263.y, _S2263.z}.x, float3 {_S2263.x, _S2263.y, _S2263.z}.y, float3 {_S2263.x, _S2263.y, _S2263.z}.z, reaction_1.x);
-        *(&(globalParams_0->state_0)[_S2261 + 2U]) = make_float4 (0.0f, 0.0f, 0.0f, reaction_1.y);
-        *(&(globalParams_0->state_0)[_S2261 + 3U]) = make_float4 (0.0f, 0.0f, 0.0f, reaction_1.z);
+        uint _S2278 = 4U * c_42;
+        uint _S2279 = _S2278 + 1U;
+        float4  _S2280 = *(&(globalParams_0->state_0)[_S2279]);
+        *(&(globalParams_0->state_0)[_S2279]) = make_float4 (float3 {_S2280.x, _S2280.y, _S2280.z}.x, float3 {_S2280.x, _S2280.y, _S2280.z}.y, float3 {_S2280.x, _S2280.y, _S2280.z}.z, reaction_1.x);
+        *(&(globalParams_0->state_0)[_S2278 + 2U]) = make_float4 (0.0f, 0.0f, 0.0f, reaction_1.y);
+        *(&(globalParams_0->state_0)[_S2278 + 3U]) = make_float4 (0.0f, 0.0f, 0.0f, reaction_1.z);
         c_42 = c_42 + 256U;
     }
     if(tid_18 == 0U)
     {
-        float4  * _S2264 = (&(globalParams_0->scratch_0)[statics_result_slot_0(_S2017)]);
-        float _S2265 = (U32_asfloat((newton_0)));
-        float _S2266 = (U32_asfloat((cg_total_0)));
+        float4  * _S2281 = (&(globalParams_0->scratch_0)[statics_result_slot_0(_S2017)]);
+        float _S2282 = (U32_asfloat((newton_0)));
+        float _S2283 = (U32_asfloat((cg_total_0)));
         if(converged_4)
         {
             previous_2 = 1.0f;
@@ -9347,7 +9407,7 @@ extern "C" __global__ void island_statics()
         {
             previous_2 = 0.0f;
         }
-        *_S2264 = make_float4 (residual_0, _S2265, _S2266, previous_2);
+        *_S2281 = make_float4 (residual_0, _S2282, _S2283, previous_2);
         *&((&(&(globalParams_0->islands_0)[_S2017])->info_1)->z) = _S2019 & 4294967287U;
     }
     return;
@@ -9356,19 +9416,19 @@ extern "C" __global__ void island_statics()
 extern "C" __global__ void settled_fatigue()
 {
     uint tid_19 = threadIdx.x;
-    uint _S2267 = blockIdx.x;
-    Island_0 * _S2268 = (&(globalParams_0->islands_0)[_S2267]);
-    Island_0 isl_23 = *_S2268;
-    bool _S2269;
-    if((((*_S2268).info_1.x) & 16U) == 0U)
+    uint _S2284 = blockIdx.x;
+    Island_0 * _S2285 = (&(globalParams_0->islands_0)[_S2284]);
+    Island_0 isl_23 = *_S2285;
+    bool _S2286;
+    if((((*_S2285).info_1.x) & 16U) == 0U)
     {
-        _S2269 = true;
+        _S2286 = true;
     }
     else
     {
-        _S2269 = (isl_23.range_0.w) == (isl_23.range_0.z);
+        _S2286 = (isl_23.range_0.w) == (isl_23.range_0.z);
     }
-    if(_S2269)
+    if(_S2286)
     {
         return;
     }
@@ -9379,7 +9439,7 @@ extern "C" __global__ void settled_fatigue()
         *&g_run_0 = 0U;
     }
     __syncthreads();
-    uint _S2270 = isl_23.info_1.w;
+    uint _S2287 = isl_23.info_1.w;
     uint i_29 = isl_23.range_0.z + tid_19;
     for(;;)
     {
@@ -9390,37 +9450,37 @@ extern "C" __global__ void settled_fatigue()
         {
             break;
         }
-        BondStatic_0 * _S2271 = (&(globalParams_0->bonds_0)[i_29]);
+        BondStatic_0 * _S2288 = (&(globalParams_0->bonds_0)[i_29]);
         BondDyn_0 bd_2 = *(&(globalParams_0->bond_dyn_0)[i_29]);
-        JointBond_0 _S2272 = slang_ldg_0(&_S2271->law_0);
-        uint _S2273 = 4U * _S2272.ids_0.y;
-        float4  _S2274 = *(&(globalParams_0->state_0)[_S2273]);
-        float4  _S2275 = *(&(globalParams_0->state_0)[_S2273 + 1U]);
-        uint _S2276 = 4U * _S2272.ids_0.z;
-        float4  _S2277 = *(&(globalParams_0->state_0)[_S2276]);
-        float4  _S2278 = *(&(globalParams_0->state_0)[_S2276 + 1U]);
+        JointBond_0 _S2289 = slang_ldg_0(&_S2288->law_0);
+        uint _S2290 = 4U * _S2289.ids_0.y;
+        float4  _S2291 = *(&(globalParams_0->state_0)[_S2290]);
+        float4  _S2292 = *(&(globalParams_0->state_0)[_S2290 + 1U]);
+        uint _S2293 = 4U * _S2289.ids_0.z;
+        float4  _S2294 = *(&(globalParams_0->state_0)[_S2293]);
+        float4  _S2295 = *(&(globalParams_0->state_0)[_S2293 + 1U]);
         float3  d_lin_7;
         float3  d_ang_6;
-        bond_kinematics_0(i_29, float3 {_S2274.x, _S2274.y, _S2274.z}, float3 {_S2275.x, _S2275.y, _S2275.z}, float3 {_S2277.x, _S2277.y, _S2277.z}, float3 {_S2278.x, _S2278.y, _S2278.z}, &d_lin_7, &d_ang_6);
+        bond_kinematics_0(i_29, float3 {_S2291.x, _S2291.y, _S2291.z}, float3 {_S2292.x, _S2292.y, _S2292.z}, float3 {_S2294.x, _S2294.y, _S2294.z}, float3 {_S2295.x, _S2295.y, _S2295.z}, &d_lin_7, &d_ang_6);
         JointState_0 previous_3 = (&bd_2)->js_0;
-        float3  _S2279 = d_lin_7;
-        float3  _S2280 = d_ang_6;
-        float _S2281 = __ldg(&globalParams_0->params_0->dt_0);
-        uint _S2282 = __ldg(&globalParams_0->params_0->fracture_0);
-        bool _S2283 = _S2282 != 0U;
-        JointBond_0 _S2284 = _S2272;
-        JointState_0 _S2285 = previous_3;
-        JointResponse_0 _S2286 = joint_evaluate_0(&globalParams_0->materials_0->m_0[_S2272.ids_0.x], &_S2284, &_S2285, _S2279, _S2280, _S2281, _S2283);
-        if((_S2286.state_1.damage_0) > (previous_3.damage_0 + 9.99999971718068537e-10f))
+        float3  _S2296 = d_lin_7;
+        float3  _S2297 = d_ang_6;
+        float _S2298 = __ldg(&globalParams_0->params_0->dt_0);
+        uint _S2299 = __ldg(&globalParams_0->params_0->fracture_0);
+        bool _S2300 = _S2299 != 0U;
+        JointBond_0 _S2301 = _S2289;
+        JointState_0 _S2302 = previous_3;
+        JointResponse_0 _S2303 = joint_evaluate_0(&globalParams_0->materials_0->m_0[_S2289.ids_0.x], &_S2301, &_S2302, _S2296, _S2297, _S2298, _S2300);
+        if((_S2303.state_1.damage_0) > (previous_3.damage_0 + 9.99999971718068537e-10f))
         {
-            _S2269 = true;
+            _S2286 = true;
         }
         else
         {
-            _S2269 = (_S2286.state_1.crush_0) > (previous_3.crush_0 + 9.99999971718068537e-10f);
+            _S2286 = (_S2303.state_1.crush_0) > (previous_3.crush_0 + 9.99999971718068537e-10f);
         }
         uint flags_3;
-        if(_S2269)
+        if(_S2286)
         {
             flags_3 = 16U;
         }
@@ -9428,84 +9488,84 @@ extern "C" __global__ void settled_fatigue()
         {
             flags_3 = 0U;
         }
-        comp_add1_0(&((&(&bd_2)->sums_0)->x), &((&(&bd_2)->comps_0)->x), _S2286.dissipated_1);
-        comp_add1_0(&((&(&bd_2)->sums_0)->y), &((&(&bd_2)->comps_0)->y), _S2286.overshoot_0);
-        (&bd_2)->force_lin_0 = make_float4 (_S2286.force_lin_1.x, _S2286.force_lin_1.y, _S2286.force_lin_1.z, _S2286.stored_0);
-        (&bd_2)->force_ang_0 = make_float4 (_S2286.force_ang_1.x, _S2286.force_ang_1.y, _S2286.force_ang_1.z, (F32_max(((&bd_2)->force_ang_0.w), (_S2286.state_1.utilization_0))));
-        JointState_0 _S2287 = previous_3;
-        bool _S2288 = is_damaged_0(&_S2287);
-        bool _S2289;
-        if(!_S2288)
+        comp_add1_0(&((&(&bd_2)->sums_0)->x), &((&(&bd_2)->comps_0)->x), _S2303.dissipated_1);
+        comp_add1_0(&((&(&bd_2)->sums_0)->y), &((&(&bd_2)->comps_0)->y), _S2303.overshoot_0);
+        (&bd_2)->force_lin_0 = make_float4 (_S2303.force_lin_1.x, _S2303.force_lin_1.y, _S2303.force_lin_1.z, _S2303.stored_0);
+        (&bd_2)->force_ang_0 = make_float4 (_S2303.force_ang_1.x, _S2303.force_ang_1.y, _S2303.force_ang_1.z, (F32_max(((&bd_2)->force_ang_0.w), (_S2303.state_1.utilization_0))));
+        JointState_0 _S2304 = previous_3;
+        bool _S2305 = is_damaged_0(&_S2304);
+        bool _S2306;
+        if(!_S2305)
         {
-            JointState_0 _S2290 = _S2286.state_1;
-            bool _S2291 = is_damaged_0(&_S2290);
-            _S2289 = _S2291;
+            JointState_0 _S2307 = _S2303.state_1;
+            bool _S2308 = is_damaged_0(&_S2307);
+            _S2306 = _S2308;
         }
         else
         {
-            _S2289 = false;
+            _S2306 = false;
         }
-        bool _S2292;
-        if(_S2289)
+        bool _S2309;
+        if(_S2306)
         {
-            _S2292 = ((&bd_2)->events_0.x) == 0U;
+            _S2309 = ((&bd_2)->events_0.x) == 0U;
         }
         else
         {
-            _S2292 = false;
+            _S2309 = false;
         }
-        if(_S2292)
+        if(_S2309)
         {
-            *&((&(&bd_2)->events_0)->x) = _S2270;
-            *&((&(&bd_2)->events_0)->w) = _S2286.state_1.mode_0;
+            *&((&(&bd_2)->events_0)->x) = _S2287;
+            *&((&(&bd_2)->events_0)->w) = _S2303.state_1.mode_0;
             (*&g_seen_0)[3U] = 1U;
         }
-        bool _S2293;
+        bool _S2310;
         if(((&bd_2)->events_0.y) == 0U)
         {
-            _S2293 = (_S2286.state_1.life_0) != (previous_3.life_0);
+            _S2310 = (_S2303.state_1.life_0) != (previous_3.life_0);
         }
         else
         {
-            _S2293 = false;
+            _S2310 = false;
         }
-        bool _S2294;
-        if(_S2293)
+        bool _S2311;
+        if(_S2310)
         {
-            _S2294 = (_S2286.fatigue_before_0) > 0.99000000953674316f;
-        }
-        else
-        {
-            _S2294 = false;
-        }
-        bool _S2295;
-        if(_S2294)
-        {
-            float _S2296 = fatigue_factor_0(&globalParams_0->materials_0->m_0[_S2272.ids_0.x], _S2286.state_1.life_0);
-            _S2295 = _S2296 <= 0.99000000953674316f;
+            _S2311 = (_S2303.fatigue_before_0) > 0.99000000953674316f;
         }
         else
         {
-            _S2295 = false;
+            _S2311 = false;
         }
-        if(_S2295)
+        bool _S2312;
+        if(_S2311)
         {
-            *&((&(&bd_2)->events_0)->y) = _S2270;
+            float _S2313 = fatigue_factor_0(&globalParams_0->materials_0->m_0[_S2289.ids_0.x], _S2303.state_1.life_0);
+            _S2312 = _S2313 <= 0.99000000953674316f;
+        }
+        else
+        {
+            _S2312 = false;
+        }
+        if(_S2312)
+        {
+            *&((&(&bd_2)->events_0)->y) = _S2287;
             (*&g_seen_0)[4U] = 1U;
         }
         uint flags_4;
-        if(_S2286.disconnected_0)
+        if(_S2303.disconnected_0)
         {
-            *&((&(&bd_2)->events_0)->z) = _S2270;
+            *&((&(&bd_2)->events_0)->z) = _S2287;
             flags_4 = flags_3 | 32U;
         }
         else
         {
             flags_4 = flags_3;
         }
-        (&bd_2)->js_0 = _S2286.state_1;
+        (&bd_2)->js_0 = _S2303.state_1;
         *(&(globalParams_0->bond_dyn_0)[i_29]) = bd_2;
-        write_bond_loads_0(i_29, i_29, _S2286.force_lin_1, _S2286.force_ang_1, (F32_max((_S2286.measures_0.tension_0), (_S2286.measures_0.compression_0))));
+        write_bond_loads_0(i_29, i_29, _S2303.force_lin_1, _S2303.force_ang_1, (F32_max((_S2303.measures_0.tension_0), (_S2303.measures_0.compression_0))));
         if((flags_4 & 16U) != 0U)
         {
             *&g_halt_0 = 1U;
@@ -9523,7 +9583,7 @@ extern "C" __global__ void settled_fatigue()
     }
     if(((*&g_halt_0) | (*&g_run_0)) != 0U)
     {
-        uint _S2297 = isl_23.info_1.z;
+        uint _S2314 = isl_23.info_1.z;
         if((*&g_halt_0) != 0U)
         {
             i_29 = 16U;
@@ -9532,7 +9592,7 @@ extern "C" __global__ void settled_fatigue()
         {
             i_29 = 0U;
         }
-        uint _S2298 = _S2297 | i_29;
+        uint _S2315 = _S2314 | i_29;
         if((*&g_run_0) != 0U)
         {
             i_29 = 32U;
@@ -9541,9 +9601,9 @@ extern "C" __global__ void settled_fatigue()
         {
             i_29 = 0U;
         }
-        *&((&(&(globalParams_0->islands_0)[_S2267])->info_1)->z) = _S2298 | i_29;
+        *&((&(&(globalParams_0->islands_0)[_S2284])->info_1)->z) = _S2315 | i_29;
     }
-    uint _S2299 = ((isl_23.coverage_0) | 16384U) | (seen_bits_0());
+    uint _S2316 = ((isl_23.coverage_0) | 16384U) | (seen_bits_0());
     if((*&g_run_0) != 0U)
     {
         i_29 = 128U;
@@ -9552,76 +9612,76 @@ extern "C" __global__ void settled_fatigue()
     {
         i_29 = 0U;
     }
-    (&(globalParams_0->islands_0)[_S2267])->coverage_0 = _S2299 | i_29;
+    (&(globalParams_0->islands_0)[_S2284])->coverage_0 = _S2316 | i_29;
     return;
 }
 
-static __device__ void impactor_integrate_at_0(uint ii_3, uint tid_20, uint _S2300)
+static __device__ void impactor_integrate_at_0(uint ii_3, uint tid_20, uint _S2317)
 {
-    uint _S2301 = 0U;
-    uint _S2302;
+    uint _S2318 = 0U;
+    uint _S2319;
     float3  p_16;
-    uint _S2303 = __ldg(&globalParams_0->params_0->impactor_count_0);
-    bool _S2304 = ii_3 >= _S2303;
-    uint _S2305 = __ballot_sync(_S2300, _S2304);
-    if(_S2304)
+    uint _S2320 = __ldg(&globalParams_0->params_0->impactor_count_0);
+    bool _S2321 = ii_3 >= _S2320;
+    uint _S2322 = __ballot_sync(_S2317, _S2321);
+    if(_S2321)
     {
         return;
     }
     else
     {
-        uint _S2306 = __ballot_sync(_S2300, true);
-        _S2301 = _S2306;
+        uint _S2323 = __ballot_sync(_S2317, true);
+        _S2318 = _S2323;
     }
-    uint _S2307 = __ldg(&globalParams_0->params_0->halt_index_0);
-    Island_0 * _S2308 = (&(globalParams_0->islands_0)[_S2307]);
+    uint _S2324 = __ldg(&globalParams_0->params_0->halt_index_0);
+    Island_0 * _S2325 = (&(globalParams_0->islands_0)[_S2324]);
     Impactor_0 imp_6 = *(&(globalParams_0->impactors_0)[ii_3]);
-    uint4  _S2309 = _S2308->info_1;
-    bool _S2310 = ((_S2308->info_1.z) & 1U) != 0U;
-    uint _S2311 = __ballot_sync(_S2301, _S2310);
-    bool _S2312;
+    uint4  _S2326 = _S2325->info_1;
+    bool _S2327 = ((_S2325->info_1.z) & 1U) != 0U;
+    uint _S2328 = __ballot_sync(_S2318, _S2327);
+    bool _S2329;
     uint k_22;
-    if(_S2310)
+    if(_S2327)
     {
-        uint _S2313 = __ballot_sync(_S2301, true);
-        _S2312 = true;
-        k_22 = _S2313;
+        uint _S2330 = __ballot_sync(_S2318, true);
+        _S2329 = true;
+        k_22 = _S2330;
     }
     else
     {
-        uint _S2314 = _S2301 & (~_S2311);
-        uint _S2315 = _S2309.y;
-        bool _S2316 = _S2315 != 0U;
-        uint _S2317 = __ballot_sync(_S2314, _S2316);
-        if(_S2316)
+        uint _S2331 = _S2318 & (~_S2328);
+        uint _S2332 = _S2326.y;
+        bool _S2333 = _S2332 != 0U;
+        uint _S2334 = __ballot_sync(_S2331, _S2333);
+        if(_S2333)
         {
-            bool _S2318 = ((&imp_6)->cand_0.w) >= _S2315;
-            uint _S2319 = __ballot_sync(_S2314, true);
-            _S2312 = _S2318;
+            bool _S2335 = ((&imp_6)->cand_0.w) >= _S2332;
+            uint _S2336 = __ballot_sync(_S2331, true);
+            _S2329 = _S2335;
         }
         else
         {
-            uint _S2320 = __ballot_sync(_S2314, true);
-            _S2312 = false;
+            uint _S2337 = __ballot_sync(_S2331, true);
+            _S2329 = false;
         }
-        uint _S2321 = __ballot_sync(_S2301, true);
-        k_22 = _S2321;
+        uint _S2338 = __ballot_sync(_S2318, true);
+        k_22 = _S2338;
     }
-    uint _S2322 = 0U;
-    uint _S2323 = __ballot_sync(k_22, _S2312);
-    if(_S2312)
+    uint _S2339 = 0U;
+    uint _S2340 = __ballot_sync(k_22, _S2329);
+    if(_S2329)
     {
         return;
     }
     else
     {
-        uint _S2324 = __ballot_sync(k_22, true);
-        _S2322 = _S2324;
+        uint _S2341 = __ballot_sync(k_22, true);
+        _S2339 = _S2341;
     }
-    uint _S2325 = 0U;
-    bool _S2326 = ((&imp_6)->cand_0.z) != 0U;
-    uint _S2327 = __ballot_sync(_S2322, _S2326);
-    if(_S2326)
+    uint _S2342 = 0U;
+    bool _S2343 = ((&imp_6)->cand_0.z) != 0U;
+    uint _S2344 = __ballot_sync(_S2339, _S2343);
+    if(_S2343)
     {
         if(tid_20 == 0U)
         {
@@ -9631,73 +9691,73 @@ static __device__ void impactor_integrate_at_0(uint ii_3, uint tid_20, uint _S23
     }
     else
     {
-        uint _S2328 = __ballot_sync(_S2322, true);
-        _S2325 = _S2328;
+        uint _S2345 = __ballot_sync(_S2339, true);
+        _S2342 = _S2345;
     }
-    float4  _S2329 = make_float4 (0.0f);
-    float4  rf_1 = _S2329;
-    float4  rt_0 = _S2329;
+    float4  _S2346 = make_float4 (0.0f);
+    float4  rf_1 = _S2346;
+    float4  rt_0 = _S2346;
     k_22 = (&imp_6)->cand_0.x + tid_20;
     uint total_points_0;
-    total_points_0 = _S2325;
+    total_points_0 = _S2342;
     for(;;)
     {
-        bool _S2330 = k_22 < ((&imp_6)->cand_0.y);
-        uint _S2331 = __ballot_sync(total_points_0, _S2330);
-        if(_S2330)
+        bool _S2347 = k_22 < ((&imp_6)->cand_0.y);
+        uint _S2348 = __ballot_sync(total_points_0, _S2347);
+        if(_S2347)
         {
-            uint _S2332 = __ballot_sync(total_points_0, true);
+            uint _S2349 = __ballot_sync(total_points_0, true);
         }
         else
         {
-            uint _S2333 = __ballot_sync(total_points_0, false);
-            uint _S2334 = __ballot_sync(total_points_0, false);
-            uint _S2335 = __ballot_sync(_S2325, true);
-            _S2302 = _S2335;
+            uint _S2350 = __ballot_sync(total_points_0, false);
+            uint _S2351 = __ballot_sync(total_points_0, false);
+            uint _S2352 = __ballot_sync(_S2342, true);
+            _S2319 = _S2352;
             break;
         }
-        uint _S2336 = __ldg(&globalParams_0->params_0->cand_base_0);
-        uint _S2337 = 3U * k_22;
-        rf_1 = rf_1 + *(&(globalParams_0->scratch_0)[_S2336 + _S2337 + 1U]);
-        uint _S2338 = __ldg(&globalParams_0->params_0->cand_base_0);
-        rt_0 = rt_0 + *(&(globalParams_0->scratch_0)[_S2338 + _S2337 + 2U]);
-        uint _S2339 = __ballot_sync(total_points_0, true);
+        uint _S2353 = __ldg(&globalParams_0->params_0->cand_base_0);
+        uint _S2354 = 3U * k_22;
+        rf_1 = rf_1 + *(&(globalParams_0->scratch_0)[_S2353 + _S2354 + 1U]);
+        uint _S2355 = __ldg(&globalParams_0->params_0->cand_base_0);
+        rt_0 = rt_0 + *(&(globalParams_0->scratch_0)[_S2355 + _S2354 + 2U]);
+        uint _S2356 = __ballot_sync(total_points_0, true);
         k_22 = k_22 + 256U;
-        total_points_0 = _S2339;
+        total_points_0 = _S2356;
     }
-    group_sum2_0(tid_20, &rf_1, &rt_0, _S2302);
-    bool _S2340 = tid_20 != 0U;
-    uint _S2341 = __ballot_sync(_S2302, _S2340);
-    if(_S2340)
+    group_sum2_0(tid_20, &rf_1, &rt_0, _S2319);
+    bool _S2357 = tid_20 != 0U;
+    uint _S2358 = __ballot_sync(_S2319, _S2357);
+    if(_S2357)
     {
         return;
     }
-    float _S2342 = __ldg(&globalParams_0->params_0->dt_0);
-    float3  _S2343 = make_float3 (0.0f);
-    uint _S2344 = __ldg(&globalParams_0->params_0->has_ground_0);
+    float _S2359 = __ldg(&globalParams_0->params_0->dt_0);
+    float3  _S2360 = make_float3 (0.0f);
+    uint _S2361 = __ldg(&globalParams_0->params_0->has_ground_0);
     float3  load_f_0;
     float3  load_t_0;
-    if(_S2344 != 0U)
+    if(_S2361 != 0U)
     {
-        float4  _S2345 = (&imp_6)->half_1;
-        float3  _S2346 = float3 {_S2345.x, _S2345.y, _S2345.z};
-        Impactor_0 _S2347 = imp_6;
-        Box_0 _S2348 = impactor_box_0(&_S2347, _S2343, _S2346);
-        float4  _S2349 = (&imp_6)->velocity_1;
-        float4  _S2350 = (&imp_6)->velocity_err_1;
-        float3  _S2351 = float3 {_S2349.x, _S2349.y, _S2349.z} + float3 {_S2350.x, _S2350.y, _S2350.z};
-        float _S2352 = __ldg(&globalParams_0->params_0->ground_modulus_0);
-        float _S2353 = (&imp_6)->mat_0.x;
-        float3  _S2354 = make_float3 (0.0f, 0.0f, 1.0f);
-        Box_0 _S2355 = _S2348;
-        Box_0 _S2356 = _S2348;
-        float _S2357 = contact_stiffness_0(_S2352, &_S2355, _S2353, &_S2356, _S2354);
-        float _S2358 = (&imp_6)->position_1.z;
-        float _S2359 = __ldg(&globalParams_0->params_0->ground_hi_0);
-        float _S2360 = _S2358 - _S2359;
-        float _S2361 = (&imp_6)->position_err_1.z;
-        float _S2362 = __ldg(&globalParams_0->params_0->ground_lo_0);
-        float _S2363 = _S2360 + (_S2361 - _S2362);
+        float4  _S2362 = (&imp_6)->half_1;
+        float3  _S2363 = float3 {_S2362.x, _S2362.y, _S2362.z};
+        Impactor_0 _S2364 = imp_6;
+        Box_0 _S2365 = impactor_box_0(&_S2364, _S2360, _S2363);
+        float4  _S2366 = (&imp_6)->velocity_1;
+        float4  _S2367 = (&imp_6)->velocity_err_1;
+        float3  _S2368 = float3 {_S2366.x, _S2366.y, _S2366.z} + float3 {_S2367.x, _S2367.y, _S2367.z};
+        float _S2369 = __ldg(&globalParams_0->params_0->ground_modulus_0);
+        float _S2370 = (&imp_6)->mat_0.x;
+        float3  _S2371 = make_float3 (0.0f, 0.0f, 1.0f);
+        Box_0 _S2372 = _S2365;
+        Box_0 _S2373 = _S2365;
+        float _S2374 = contact_stiffness_0(_S2369, &_S2372, _S2370, &_S2373, _S2371);
+        float _S2375 = (&imp_6)->position_1.z;
+        float _S2376 = __ldg(&globalParams_0->params_0->ground_hi_0);
+        float _S2377 = _S2375 - _S2376;
+        float _S2378 = (&imp_6)->position_err_1.z;
+        float _S2379 = __ldg(&globalParams_0->params_0->ground_lo_0);
+        float _S2380 = _S2377 + (_S2378 - _S2379);
         if(((&imp_6)->shape_0.x) == 0.0f)
         {
             total_points_0 = 1U;
@@ -9706,7 +9766,7 @@ static __device__ void impactor_integrate_at_0(uint ii_3, uint tid_20, uint _S23
         {
             total_points_0 = 14U;
         }
-        float _S2364 = _S2357 / float((U32_min((total_points_0), (5U))));
+        float _S2381 = _S2374 / float((U32_min((total_points_0), (5U))));
         uint s_11 = 0U;
         uint below_0 = 0U;
         for(;;)
@@ -9724,11 +9784,11 @@ static __device__ void impactor_integrate_at_0(uint ii_3, uint tid_20, uint _S23
             }
             else
             {
-                Box_0 _S2365 = _S2348;
-                float3  _S2366 = sample_point_0(&_S2365, s_11);
-                p_16 = _S2366;
+                Box_0 _S2382 = _S2365;
+                float3  _S2383 = sample_point_0(&_S2382, s_11);
+                p_16 = _S2383;
             }
-            if((_S2363 + p_16.z) < 0.0f)
+            if((_S2380 + p_16.z) < 0.0f)
             {
                 below_0 = below_0 + 1U;
             }
@@ -9739,8 +9799,8 @@ static __device__ void impactor_integrate_at_0(uint ii_3, uint tid_20, uint _S23
             sentinel_mark_0(8U);
         }
         s_11 = 0U;
-        load_f_0 = _S2343;
-        load_t_0 = _S2343;
+        load_f_0 = _S2360;
+        load_t_0 = _S2360;
         for(;;)
         {
             if(s_11 < total_points_0)
@@ -9756,23 +9816,23 @@ static __device__ void impactor_integrate_at_0(uint ii_3, uint tid_20, uint _S23
             }
             else
             {
-                Box_0 _S2367 = _S2348;
-                float3  _S2368 = sample_point_0(&_S2367, s_11);
-                p_16 = _S2368;
+                Box_0 _S2384 = _S2365;
+                float3  _S2385 = sample_point_0(&_S2384, s_11);
+                p_16 = _S2385;
             }
-            float depth_3 = - (_S2363 + p_16.z);
+            float depth_3 = - (_S2380 + p_16.z);
             if(depth_3 <= 0.0f)
             {
                 s_11 = s_11 + 1U;
                 continue;
             }
-            float4  _S2369 = (&imp_6)->angular_velocity_1;
-            float3  v_12 = _S2351 + cross_0(float3 {_S2369.x, _S2369.y, _S2369.z}, p_16);
-            float _S2370 = (&imp_6)->mat_0.z;
-            float _S2371 = __ldg(&globalParams_0->params_0->ground_friction_0);
+            float4  _S2386 = (&imp_6)->angular_velocity_1;
+            float3  v_12 = _S2368 + cross_0(float3 {_S2386.x, _S2386.y, _S2386.z}, p_16);
+            float _S2387 = (&imp_6)->mat_0.z;
+            float _S2388 = __ldg(&globalParams_0->params_0->ground_friction_0);
             float stored_7;
             float diss_5;
-            float3  f_16 = penalty_force_0(_S2364, _S2370, _S2371, depth_3, _S2354, v_12, _S2342, below_0, &stored_7, &diss_5);
+            float3  f_16 = penalty_force_0(_S2381, _S2387, _S2388, depth_3, _S2371, v_12, _S2359, below_0, &stored_7, &diss_5);
             float3  load_f_1 = load_f_0 + f_16;
             float3  load_t_1 = load_t_0 + cross_0(p_16, f_16);
             comp_add1_0(&((&(&imp_6)->ledger_0)->x), &((&(&imp_6)->ledger_0)->y), diss_5);
@@ -9783,44 +9843,44 @@ static __device__ void impactor_integrate_at_0(uint ii_3, uint tid_20, uint _S23
     }
     else
     {
-        load_f_0 = _S2343;
-        load_t_0 = _S2343;
+        load_f_0 = _S2360;
+        load_t_0 = _S2360;
     }
-    float4  _S2372 = rf_1;
-    float3  load_f_2 = float3 {_S2372.x, _S2372.y, _S2372.z} + load_f_0;
-    float4  _S2373 = rt_0;
-    float3  load_t_2 = float3 {_S2373.x, _S2373.y, _S2373.z} + load_t_0;
+    float4  _S2389 = rf_1;
+    float3  load_f_2 = float3 {_S2389.x, _S2389.y, _S2389.z} + load_f_0;
+    float4  _S2390 = rt_0;
+    float3  load_t_2 = float3 {_S2390.x, _S2390.y, _S2390.z} + load_t_0;
     float m_8 = (&imp_6)->mat_0.z;
-    float4  _S2374 = (&imp_6)->velocity_1;
-    float3  vel_2 = float3 {_S2374.x, _S2374.y, _S2374.z};
-    float4  _S2375 = (&imp_6)->velocity_err_1;
-    float3  vel_err_1 = float3 {_S2375.x, _S2375.y, _S2375.z};
-    float3  _S2376 = load_f_2 / make_float3 (m_8);
-    float4  _S2377 = __ldg(&globalParams_0->params_0->gravity_0);
-    comp_add_0(&vel_2, &vel_err_1, (_S2376 + float3 {_S2377.x, _S2377.y, _S2377.z}) * make_float3 (_S2342));
-    Quat_0 _S2378 = quat_of_0((&imp_6)->rotation_1);
-    Quat_0 q_13 = _S2378;
+    float4  _S2391 = (&imp_6)->velocity_1;
+    float3  vel_2 = float3 {_S2391.x, _S2391.y, _S2391.z};
+    float4  _S2392 = (&imp_6)->velocity_err_1;
+    float3  vel_err_1 = float3 {_S2392.x, _S2392.y, _S2392.z};
+    float3  _S2393 = load_f_2 / make_float3 (m_8);
+    float4  _S2394 = __ldg(&globalParams_0->params_0->gravity_0);
+    comp_add_0(&vel_2, &vel_err_1, (_S2393 + float3 {_S2394.x, _S2394.y, _S2394.z}) * make_float3 (_S2359));
+    Quat_0 _S2395 = quat_of_0((&imp_6)->rotation_1);
+    Quat_0 q_13 = _S2395;
     float4  q_err_0 = (&imp_6)->rotation_err_1;
-    float4  _S2379 = (&imp_6)->momentum_1;
-    float3  l_hi_0 = float3 {_S2379.x, _S2379.y, _S2379.z};
-    float4  _S2380 = (&imp_6)->momentum_err_1;
-    float3  l_err_1 = float3 {_S2380.x, _S2380.y, _S2380.z};
-    comp_add_0(&l_hi_0, &l_err_1, load_t_2 * make_float3 (_S2342));
+    float4  _S2396 = (&imp_6)->momentum_1;
+    float3  l_hi_0 = float3 {_S2396.x, _S2396.y, _S2396.z};
+    float4  _S2397 = (&imp_6)->momentum_err_1;
+    float3  l_err_1 = float3 {_S2397.x, _S2397.y, _S2397.z};
+    comp_add_0(&l_hi_0, &l_err_1, load_t_2 * make_float3 (_S2359));
     float3  l_8 = l_hi_0 + l_err_1;
-    Quat_0 _S2381 = _S2378;
-    float3  _S2382 = world_mul_0(&_S2381, (&imp_6)->inv0_2, (&imp_6)->inv1_2, (&imp_6)->inv2_2, l_8);
-    float4  _S2383 = (&imp_6)->position_1;
-    float3  pos_1 = float3 {_S2383.x, _S2383.y, _S2383.z};
-    float4  _S2384 = (&imp_6)->position_err_1;
-    float3  pos_err_1 = float3 {_S2384.x, _S2384.y, _S2384.z};
-    comp_add_0(&pos_1, &pos_err_1, (vel_2 + vel_err_1) * make_float3 (_S2342));
-    turn_left_0(&q_13, &q_err_0, _S2382, _S2342);
-    Quat_0 _S2385 = q_13;
-    float3  _S2386 = world_mul_0(&_S2385, (&imp_6)->inv0_2, (&imp_6)->inv1_2, (&imp_6)->inv2_2, l_8);
-    (&imp_6)->angular_velocity_1 = make_float4 (_S2386.x, _S2386.y, _S2386.z, 0.0f);
-    Quat_0 _S2387 = q_13;
-    float4  _S2388 = quat_vec_0(&_S2387);
-    (&imp_6)->rotation_1 = _S2388;
+    Quat_0 _S2398 = _S2395;
+    float3  _S2399 = world_mul_0(&_S2398, (&imp_6)->inv0_2, (&imp_6)->inv1_2, (&imp_6)->inv2_2, l_8);
+    float4  _S2400 = (&imp_6)->position_1;
+    float3  pos_1 = float3 {_S2400.x, _S2400.y, _S2400.z};
+    float4  _S2401 = (&imp_6)->position_err_1;
+    float3  pos_err_1 = float3 {_S2401.x, _S2401.y, _S2401.z};
+    comp_add_0(&pos_1, &pos_err_1, (vel_2 + vel_err_1) * make_float3 (_S2359));
+    turn_left_0(&q_13, &q_err_0, _S2399, _S2359);
+    Quat_0 _S2402 = q_13;
+    float3  _S2403 = world_mul_0(&_S2402, (&imp_6)->inv0_2, (&imp_6)->inv1_2, (&imp_6)->inv2_2, l_8);
+    (&imp_6)->angular_velocity_1 = make_float4 (_S2403.x, _S2403.y, _S2403.z, 0.0f);
+    Quat_0 _S2404 = q_13;
+    float4  _S2405 = quat_vec_0(&_S2404);
+    (&imp_6)->rotation_1 = _S2405;
     (&imp_6)->rotation_err_1 = q_err_0;
     (&imp_6)->momentum_1 = make_float4 (l_hi_0.x, l_hi_0.y, l_hi_0.z, 0.0f);
     (&imp_6)->momentum_err_1 = make_float4 (l_err_1.x, l_err_1.y, l_err_1.z, 0.0f);
@@ -9831,15 +9891,15 @@ static __device__ void impactor_integrate_at_0(uint ii_3, uint tid_20, uint _S23
     *&((&(&imp_6)->cand_0)->w) = *&((&(&imp_6)->cand_0)->w) + 1U;
     (&imp_6)->geom_0 = make_float4 (1.0f, (&imp_6)->crush_1.w, 0.0f, 0.0f);
     *(&(globalParams_0->impactors_0)[ii_3]) = imp_6;
-    uint _S2389 = (&imp_6)->cand_0.w - 1U;
-    uint _S2390 = __ldg(&globalParams_0->params_0->step_start_0);
-    uint k_23 = _S2389 - _S2390;
-    uint _S2391 = __ldg(&globalParams_0->params_0->record_stride_0);
-    if(k_23 < _S2391)
+    uint _S2406 = (&imp_6)->cand_0.w - 1U;
+    uint _S2407 = __ldg(&globalParams_0->params_0->step_start_0);
+    uint k_23 = _S2406 - _S2407;
+    uint _S2408 = __ldg(&globalParams_0->params_0->record_stride_0);
+    if(k_23 < _S2408)
     {
-        uint _S2392 = __ldg(&globalParams_0->params_0->record_base_0);
-        uint _S2393 = __ldg(&globalParams_0->params_0->record_stride_0);
-        uint at_8 = _S2392 + 2U * (ii_3 * _S2393 + k_23);
+        uint _S2409 = __ldg(&globalParams_0->params_0->record_base_0);
+        uint _S2410 = __ldg(&globalParams_0->params_0->record_stride_0);
+        uint at_8 = _S2409 + 2U * (ii_3 * _S2410 + k_23);
         *(&(globalParams_0->scratch_0)[at_8]) = make_float4 ((vel_2 + vel_err_1).x, (vel_2 + vel_err_1).y, (vel_2 + vel_err_1).z, 0.0f);
         *(&(globalParams_0->scratch_0)[at_8 + 1U]) = make_float4 ((pos_1 + pos_err_1).x, (pos_1 + pos_err_1).y, (pos_1 + pos_err_1).z, 0.0f);
     }
@@ -9848,50 +9908,50 @@ static __device__ void impactor_integrate_at_0(uint ii_3, uint tid_20, uint _S23
 
 extern "C" __global__ void impactor_integrate()
 {
-    uint _S2394 = __ballot_sync(4294967295U, true);
-    impactor_integrate_at_0(blockIdx.x, threadIdx.x, _S2394);
+    uint _S2411 = __ballot_sync(4294967295U, true);
+    impactor_integrate_at_0(blockIdx.x, threadIdx.x, _S2411);
     return;
 }
 
 static __device__ void ground_contact_0(uint c_51, bool account_0, float3  * f_17, float3  * t_15)
 {
-    ChunkStatic_0 * _S2395 = (&(globalParams_0->chunks_0)[c_51]);
+    ChunkStatic_0 * _S2412 = (&(globalParams_0->chunks_0)[c_51]);
     WorldPoint_0 wp_1 = chunk_world_0(c_51);
-    float _S2396 = wp_1.hi_3.z;
-    float _S2397 = __ldg(&globalParams_0->params_0->ground_hi_0);
-    float _S2398 = _S2396 - _S2397;
-    float _S2399 = wp_1.lo_3.z;
-    float _S2400 = __ldg(&globalParams_0->params_0->ground_lo_0);
-    float above_0 = _S2398 + (_S2399 - _S2400) + wp_1.rel_0.z;
-    float4  _S2401 = __ldg(&_S2395->half_0);
-    if((above_0 - _S2401.w) > 0.0f)
+    float _S2413 = wp_1.hi_3.z;
+    float _S2414 = __ldg(&globalParams_0->params_0->ground_hi_0);
+    float _S2415 = _S2413 - _S2414;
+    float _S2416 = wp_1.lo_3.z;
+    float _S2417 = __ldg(&globalParams_0->params_0->ground_lo_0);
+    float above_0 = _S2415 + (_S2416 - _S2417) + wp_1.rel_0.z;
+    float4  _S2418 = __ldg(&_S2412->half_0);
+    if((above_0 - _S2418.w) > 0.0f)
     {
         return;
     }
     Box_0 b_32 = chunk_box_0(c_51, make_float3 (0.0f));
-    float _S2402 = __ldg(&globalParams_0->params_0->ground_modulus_0);
-    float4  _S2403 = __ldg(&_S2395->cmat_0);
-    float _S2404 = _S2403.x;
-    float3  _S2405 = make_float3 (0.0f, 0.0f, 1.0f);
-    Box_0 _S2406 = b_32;
-    Box_0 _S2407 = b_32;
-    float _S2408 = contact_stiffness_0(_S2402, &_S2406, _S2404, &_S2407, _S2405);
-    Box_0 _S2409 = b_32;
-    uint _S2410 = sample_count_0(&_S2409);
+    float _S2419 = __ldg(&globalParams_0->params_0->ground_modulus_0);
+    float4  _S2420 = __ldg(&_S2412->cmat_0);
+    float _S2421 = _S2420.x;
+    float3  _S2422 = make_float3 (0.0f, 0.0f, 1.0f);
+    Box_0 _S2423 = b_32;
+    Box_0 _S2424 = b_32;
+    float _S2425 = contact_stiffness_0(_S2419, &_S2423, _S2421, &_S2424, _S2422);
+    Box_0 _S2426 = b_32;
+    uint _S2427 = sample_count_0(&_S2426);
     uint s_12 = 0U;
     uint n_10 = 0U;
     for(;;)
     {
-        if(s_12 < _S2410)
+        if(s_12 < _S2427)
         {
         }
         else
         {
             break;
         }
-        Box_0 _S2411 = b_32;
-        float3  _S2412 = sample_point_0(&_S2411, s_12);
-        if((above_0 + _S2412.z) < 0.0f)
+        Box_0 _S2428 = b_32;
+        float3  _S2429 = sample_point_0(&_S2428, s_12);
+        if((above_0 + _S2429.z) < 0.0f)
         {
             n_10 = n_10 + 1U;
         }
@@ -9905,108 +9965,108 @@ static __device__ void ground_contact_0(uint c_51, bool account_0, float3  * f_1
     float3  vc_1;
     float3  wc_1;
     chunk_velocity_0(c_51, &vc_1, &wc_1);
-    uint _S2413 = __ldg(&globalParams_0->params_0->ledger_base_0);
-    uint _S2414 = __ldg(&globalParams_0->params_0->pair_count_0);
-    float4  ledger_2 = *(&(globalParams_0->scratch_0)[_S2413 + _S2414 + c_51]);
+    uint _S2430 = __ldg(&globalParams_0->params_0->ledger_base_0);
+    uint _S2431 = __ldg(&globalParams_0->params_0->pair_count_0);
+    float4  ledger_2 = *(&(globalParams_0->scratch_0)[_S2430 + _S2431 + c_51]);
     s_12 = 0U;
     for(;;)
     {
-        if(s_12 < _S2410)
+        if(s_12 < _S2427)
         {
         }
         else
         {
             break;
         }
-        Box_0 _S2415 = b_32;
-        float3  _S2416 = sample_point_0(&_S2415, s_12);
-        float _S2417 = above_0 + _S2416.z;
-        if(!(_S2417 < 0.0f))
+        Box_0 _S2432 = b_32;
+        float3  _S2433 = sample_point_0(&_S2432, s_12);
+        float _S2434 = above_0 + _S2433.z;
+        if(!(_S2434 < 0.0f))
         {
             s_12 = s_12 + 1U;
             continue;
         }
-        float depth_4 = - _S2417;
-        float3  v_13 = vc_1 + cross_0(wc_1, _S2416);
-        float _S2418 = _S2408 / float((U32_max((n_10), (5U))));
-        float4  _S2419 = __ldg(&_S2395->center_0);
-        float _S2420 = _S2419.w;
-        float _S2421 = __ldg(&globalParams_0->params_0->ground_friction_0);
-        float _S2422 = __ldg(&globalParams_0->params_0->dt_0);
+        float depth_4 = - _S2434;
+        float3  v_13 = vc_1 + cross_0(wc_1, _S2433);
+        float _S2435 = _S2425 / float((U32_max((n_10), (5U))));
+        float4  _S2436 = __ldg(&_S2412->center_0);
+        float _S2437 = _S2436.w;
+        float _S2438 = __ldg(&globalParams_0->params_0->ground_friction_0);
+        float _S2439 = __ldg(&globalParams_0->params_0->dt_0);
         float stored_8;
         float diss_6;
-        float3  g_2 = penalty_force_0(_S2418, _S2420, _S2421, depth_4, _S2405, v_13, _S2422, n_10, &stored_8, &diss_6);
+        float3  g_2 = penalty_force_0(_S2435, _S2437, _S2438, depth_4, _S2422, v_13, _S2439, n_10, &stored_8, &diss_6);
         *f_17 = *f_17 + g_2;
-        *t_15 = *t_15 + cross_0(_S2416, g_2);
+        *t_15 = *t_15 + cross_0(_S2433, g_2);
         comp_add1_0(&((&ledger_2)->y), &((&ledger_2)->z), diss_6);
         s_12 = s_12 + 1U;
     }
     if(account_0)
     {
-        uint _S2423 = __ldg(&globalParams_0->params_0->ledger_base_0);
-        uint _S2424 = __ldg(&globalParams_0->params_0->pair_count_0);
-        *(&(globalParams_0->scratch_0)[_S2423 + _S2424 + c_51]) = ledger_2;
+        uint _S2440 = __ldg(&globalParams_0->params_0->ledger_base_0);
+        uint _S2441 = __ldg(&globalParams_0->params_0->pair_count_0);
+        *(&(globalParams_0->scratch_0)[_S2440 + _S2441 + c_51]) = ledger_2;
     }
     return;
 }
 
 static __device__ void contact_sum_at_0(uint g_3)
 {
-    uint _S2425 = __ldg(&globalParams_0->params_0->seg_count_0);
-    bool _S2426;
-    if(g_3 >= _S2425)
+    uint _S2442 = __ldg(&globalParams_0->params_0->seg_count_0);
+    bool _S2443;
+    if(g_3 >= _S2442)
     {
-        _S2426 = true;
+        _S2443 = true;
     }
     else
     {
-        _S2426 = stopped_0();
+        _S2443 = stopped_0();
     }
-    if(_S2426)
+    if(_S2443)
     {
         return;
     }
-    uint _S2427 = __ldg(&globalParams_0->params_0->seg_index_0);
-    uint _S2428 = 3U * g_3;
-    uint _S2429 = __ldg((&(globalParams_0->index_0)[_S2427 + _S2428]));
-    uint _S2430 = __ldg(&globalParams_0->params_0->seg_index_0);
-    uint _S2431 = __ldg((&(globalParams_0->index_0)[_S2430 + _S2428 + 1U]));
-    uint _S2432 = __ldg(&globalParams_0->params_0->seg_index_0);
-    uint _S2433 = __ldg((&(globalParams_0->index_0)[_S2432 + _S2428 + 2U]));
-    float3  _S2434 = make_float3 (0.0f);
-    float3  f_18 = _S2434;
-    float3  t_16 = _S2434;
-    uint e_8 = _S2431;
+    uint _S2444 = __ldg(&globalParams_0->params_0->seg_index_0);
+    uint _S2445 = 3U * g_3;
+    uint _S2446 = __ldg((&(globalParams_0->index_0)[_S2444 + _S2445]));
+    uint _S2447 = __ldg(&globalParams_0->params_0->seg_index_0);
+    uint _S2448 = __ldg((&(globalParams_0->index_0)[_S2447 + _S2445 + 1U]));
+    uint _S2449 = __ldg(&globalParams_0->params_0->seg_index_0);
+    uint _S2450 = __ldg((&(globalParams_0->index_0)[_S2449 + _S2445 + 2U]));
+    float3  _S2451 = make_float3 (0.0f);
+    float3  f_18 = _S2451;
+    float3  t_16 = _S2451;
+    uint e_8 = _S2448;
     for(;;)
     {
-        if(e_8 < _S2433)
+        if(e_8 < _S2450)
         {
         }
         else
         {
             break;
         }
-        uint _S2435 = __ldg((&(globalParams_0->index_0)[e_8]));
-        if(_S2435 == 2147483648U)
+        uint _S2452 = __ldg((&(globalParams_0->index_0)[e_8]));
+        if(_S2452 == 2147483648U)
         {
-            ground_contact_0(_S2429, true, &f_18, &t_16);
+            ground_contact_0(_S2446, true, &f_18, &t_16);
             e_8 = e_8 + 1U;
             continue;
         }
-        uint _S2436 = __ldg(&globalParams_0->params_0->slot_base_0);
-        uint _S2437 = 2U * _S2435;
-        float4  _S2438 = *(&(globalParams_0->scratch_0)[_S2436 + _S2437]);
-        f_18 = f_18 + float3 {_S2438.x, _S2438.y, _S2438.z};
-        uint _S2439 = __ldg(&globalParams_0->params_0->slot_base_0);
-        float4  _S2440 = *(&(globalParams_0->scratch_0)[_S2439 + _S2437 + 1U]);
-        t_16 = t_16 + float3 {_S2440.x, _S2440.y, _S2440.z};
+        uint _S2453 = __ldg(&globalParams_0->params_0->slot_base_0);
+        uint _S2454 = 2U * _S2452;
+        float4  _S2455 = *(&(globalParams_0->scratch_0)[_S2453 + _S2454]);
+        f_18 = f_18 + float3 {_S2455.x, _S2455.y, _S2455.z};
+        uint _S2456 = __ldg(&globalParams_0->params_0->slot_base_0);
+        float4  _S2457 = *(&(globalParams_0->scratch_0)[_S2456 + _S2454 + 1U]);
+        t_16 = t_16 + float3 {_S2457.x, _S2457.y, _S2457.z};
         e_8 = e_8 + 1U;
     }
-    uint _S2441 = __ldg(&globalParams_0->params_0->seg_base_0);
-    uint _S2442 = 2U * g_3;
-    *(&(globalParams_0->scratch_0)[_S2441 + _S2442]) = make_float4 (f_18.x, f_18.y, f_18.z, 0.0f);
-    uint _S2443 = __ldg(&globalParams_0->params_0->seg_base_0);
-    *(&(globalParams_0->scratch_0)[_S2443 + _S2442 + 1U]) = make_float4 (t_16.x, t_16.y, t_16.z, 0.0f);
+    uint _S2458 = __ldg(&globalParams_0->params_0->seg_base_0);
+    uint _S2459 = 2U * g_3;
+    *(&(globalParams_0->scratch_0)[_S2458 + _S2459]) = make_float4 (f_18.x, f_18.y, f_18.z, 0.0f);
+    uint _S2460 = __ldg(&globalParams_0->params_0->seg_base_0);
+    *(&(globalParams_0->scratch_0)[_S2460 + _S2459 + 1U]) = make_float4 (t_16.x, t_16.y, t_16.z, 0.0f);
     return;
 }
 
@@ -10018,236 +10078,236 @@ extern "C" __global__ void contact_sums()
 
 extern "C" __global__ void island_frame()
 {
-    uint _S2444 = __ballot_sync(4294967295U, true);
-    island_frame_at_1(blockIdx.x, threadIdx.x, _S2444);
+    uint _S2461 = __ballot_sync(4294967295U, true);
+    island_frame_at_1(blockIdx.x, threadIdx.x, _S2461);
     return;
 }
 
 extern "C" __global__ void contact_islands()
 {
-    uint _S2445 = __ballot_sync(4294967295U, true);
-    island_frame_at_0(blockIdx.x, threadIdx.x, _S2445);
+    uint _S2462 = __ballot_sync(4294967295U, true);
+    island_frame_at_0(blockIdx.x, threadIdx.x, _S2462);
     return;
 }
 
-static __device__ void wide_chunks_at_0(uint gx_0, uint tid_21, uint _S2446)
+static __device__ void wide_chunks_at_0(uint gx_0, uint tid_21, uint _S2463)
 {
-    uint _S2447 = 0U;
-    uint _S2448 = __ldg(&globalParams_0->params_0->wide_chunk_table_0);
-    WideGroup_0 wg_5 = wide_group_0(_S2448, gx_0);
+    uint _S2464 = 0U;
+    uint _S2465 = __ldg(&globalParams_0->params_0->wide_chunk_table_0);
+    WideGroup_0 wg_5 = wide_group_0(_S2465, gx_0);
     Island_0 isl_24 = *(&(globalParams_0->islands_0)[wg_5.island_2]);
-    bool _S2449 = wide_enter_1(tid_21, wg_5.island_2);
-    bool _S2450 = !_S2449;
-    uint _S2451 = __ballot_sync(_S2446, _S2450);
-    if(_S2450)
+    bool _S2466 = wide_enter_1(tid_21, wg_5.island_2);
+    bool _S2467 = !_S2466;
+    uint _S2468 = __ballot_sync(_S2463, _S2467);
+    if(_S2467)
     {
         return;
     }
     else
     {
-        uint _S2452 = __ballot_sync(_S2446, true);
-        _S2447 = _S2452;
+        uint _S2469 = __ballot_sync(_S2463, true);
+        _S2464 = _S2469;
     }
-    uint _S2453 = 0U;
-    uint _S2454 = isl_24.info_1.x;
-    bool anchored_0 = (_S2454 & 1U) != 0U;
-    bool _S2455 = (_S2454 & 16U) != 0U;
-    uint _S2456 = __ballot_sync(_S2447, _S2455);
-    if(_S2455)
+    uint _S2470 = 0U;
+    uint _S2471 = isl_24.info_1.x;
+    bool anchored_0 = (_S2471 & 1U) != 0U;
+    bool _S2472 = (_S2471 & 16U) != 0U;
+    uint _S2473 = __ballot_sync(_S2464, _S2472);
+    if(_S2472)
     {
         if(tid_21 == 0U)
         {
-            uint _S2457 = __ldg(&globalParams_0->params_0->wide_base_0);
-            *(&(globalParams_0->scratch_0)[_S2457 + 8U * gx_0 + 6U]) = make_float4 (0.0f);
+            uint _S2474 = __ldg(&globalParams_0->params_0->wide_base_0);
+            *(&(globalParams_0->scratch_0)[_S2474 + 8U * gx_0 + 6U]) = make_float4 (0.0f);
         }
         return;
     }
     else
     {
-        uint _S2458 = __ballot_sync(_S2447, true);
-        _S2453 = _S2458;
+        uint _S2475 = __ballot_sync(_S2464, true);
+        _S2470 = _S2475;
     }
-    Island_0 _S2459 = isl_24;
-    WideGroup_0 _S2460 = wg_5;
-    Rigid_0 _S2461 = wide_rigid_frame_0(tid_21, &_S2459, &_S2460, _S2453);
+    Island_0 _S2476 = isl_24;
+    WideGroup_0 _S2477 = wg_5;
+    Rigid_0 _S2478 = wide_rigid_frame_0(tid_21, &_S2476, &_S2477, _S2470);
     float work_5 = 0.0f;
     float work_err_3 = 0.0f;
-    float3  _S2462 = make_float3 (0.0f);
-    float3  tu_5 = _S2462;
-    float3  pv_5 = _S2462;
+    float3  _S2479 = make_float3 (0.0f);
+    float3  tu_5 = _S2479;
+    float3  pv_5 = _S2479;
     uint c_52 = wg_5.begin_0 + tid_21;
-    bool _S2463 = c_52 < (wg_5.end_0);
-    uint _S2464 = __ballot_sync(_S2453, _S2463);
-    uint _S2465;
-    if(_S2463)
+    bool _S2480 = c_52 < (wg_5.end_0);
+    uint _S2481 = __ballot_sync(_S2470, _S2480);
+    uint _S2482;
+    if(_S2480)
     {
-        float _S2466 = __ldg(&globalParams_0->params_0->dt_0);
-        uint _S2467 = __ldg(&globalParams_0->params_0->rigid_motion_loads_0);
-        bool _S2468 = _S2467 != 0U;
-        Island_0 _S2469 = isl_24;
-        uint _S2470 = wide_step_0(&_S2469);
-        bool _S2471 = (_S2454 & 4U) != 0U;
-        Island_0 _S2472 = isl_24;
-        Rigid_0 _S2473 = _S2461;
-        chunk_update_0(c_52, &_S2472, &_S2473, _S2466, _S2468, _S2470, _S2471, &work_5, &work_err_3);
-        bool _S2474 = !anchored_0;
-        uint _S2475 = __ballot_sync(_S2464, _S2474);
-        if(_S2474)
+        float _S2483 = __ldg(&globalParams_0->params_0->dt_0);
+        uint _S2484 = __ldg(&globalParams_0->params_0->rigid_motion_loads_0);
+        bool _S2485 = _S2484 != 0U;
+        Island_0 _S2486 = isl_24;
+        uint _S2487 = wide_step_0(&_S2486);
+        bool _S2488 = (_S2471 & 4U) != 0U;
+        Island_0 _S2489 = isl_24;
+        Rigid_0 _S2490 = _S2478;
+        chunk_update_0(c_52, &_S2489, &_S2490, _S2483, _S2485, _S2487, _S2488, &work_5, &work_err_3);
+        bool _S2491 = !anchored_0;
+        uint _S2492 = __ballot_sync(_S2481, _S2491);
+        if(_S2491)
         {
             drift_moments_0(c_52, &tu_5, &pv_5);
-            uint _S2476 = __ballot_sync(_S2464, true);
+            uint _S2493 = __ballot_sync(_S2481, true);
         }
         else
         {
-            uint _S2477 = __ballot_sync(_S2464, true);
+            uint _S2494 = __ballot_sync(_S2481, true);
         }
-        uint _S2478 = __ballot_sync(_S2453, true);
-        _S2465 = _S2478;
+        uint _S2495 = __ballot_sync(_S2470, true);
+        _S2482 = _S2495;
     }
     else
     {
-        uint _S2479 = __ballot_sync(_S2453, true);
-        _S2465 = _S2479;
+        uint _S2496 = __ballot_sync(_S2470, true);
+        _S2482 = _S2496;
     }
     float3  wsum_2 = make_float3 (work_5, work_err_3, 0.0f);
-    float3  unused_5 = _S2462;
-    group_sum3_0(tid_21, &wsum_2, &unused_5, _S2465);
-    bool _S2480 = !anchored_0;
-    uint _S2481 = __ballot_sync(_S2465, _S2480);
-    if(_S2480)
+    float3  unused_5 = _S2479;
+    group_sum3_0(tid_21, &wsum_2, &unused_5, _S2482);
+    bool _S2497 = !anchored_0;
+    uint _S2498 = __ballot_sync(_S2482, _S2497);
+    if(_S2497)
     {
-        group_sum3_0(tid_21, &tu_5, &pv_5, _S2481);
-        uint _S2482 = __ballot_sync(_S2465, true);
+        group_sum3_0(tid_21, &tu_5, &pv_5, _S2498);
+        uint _S2499 = __ballot_sync(_S2482, true);
     }
     if(tid_21 == 0U)
     {
-        uint _S2483 = __ldg(&globalParams_0->params_0->wide_base_0);
-        uint _S2484 = 8U * gx_0;
-        *(&(globalParams_0->scratch_0)[_S2483 + _S2484 + 6U]) = make_float4 (wsum_2.x, wsum_2.y, wsum_2.z, 0.0f);
-        if(_S2480)
+        uint _S2500 = __ldg(&globalParams_0->params_0->wide_base_0);
+        uint _S2501 = 8U * gx_0;
+        *(&(globalParams_0->scratch_0)[_S2500 + _S2501 + 6U]) = make_float4 (wsum_2.x, wsum_2.y, wsum_2.z, 0.0f);
+        if(_S2497)
         {
             wide_store_0(gx_0, 2U, tu_5, pv_5);
         }
-        uint _S2485 = __ldg(&globalParams_0->params_0->wide_base_0);
-        *(&(globalParams_0->scratch_0)[_S2485 + _S2484 + 7U]) = make_float4 (float((*&g_seen_0)[0U]), float((*&g_seen_0)[1U]), float((*&g_seen_0)[2U]), 0.0f);
+        uint _S2502 = __ldg(&globalParams_0->params_0->wide_base_0);
+        *(&(globalParams_0->scratch_0)[_S2502 + _S2501 + 7U]) = make_float4 (float((*&g_seen_0)[0U]), float((*&g_seen_0)[1U]), float((*&g_seen_0)[2U]), 0.0f);
     }
     return;
 }
 
 extern "C" __global__ void wide_chunks()
 {
-    uint _S2486 = __ballot_sync(4294967295U, true);
-    wide_chunks_at_0(blockIdx.x, threadIdx.x, _S2486);
+    uint _S2503 = __ballot_sync(4294967295U, true);
+    wide_chunks_at_0(blockIdx.x, threadIdx.x, _S2503);
     return;
 }
 
 extern "C" __global__ void sums_and_impactors()
 {
-    uint _S2487 = __ballot_sync(4294967295U, true);
-    uint _S2488 = __ldg(&globalParams_0->params_0->seg_count_0);
-    uint sums_groups_0 = (_S2488 + 255U) / 256U;
-    uint _S2489 = blockIdx.x;
-    bool _S2490 = _S2489 < sums_groups_0;
-    uint _S2491 = __ballot_sync(_S2487, _S2490);
-    if(_S2490)
+    uint _S2504 = __ballot_sync(4294967295U, true);
+    uint _S2505 = __ldg(&globalParams_0->params_0->seg_count_0);
+    uint sums_groups_0 = (_S2505 + 255U) / 256U;
+    uint _S2506 = blockIdx.x;
+    bool _S2507 = _S2506 < sums_groups_0;
+    uint _S2508 = __ballot_sync(_S2504, _S2507);
+    if(_S2507)
     {
-        contact_sum_at_0(_S2489 * 256U + threadIdx.x);
+        contact_sum_at_0(_S2506 * 256U + threadIdx.x);
     }
     else
     {
-        impactor_integrate_at_0(_S2489 - sums_groups_0, threadIdx.x, _S2487 & (~_S2491));
-        uint _S2492 = __ballot_sync(_S2487, true);
+        impactor_integrate_at_0(_S2506 - sums_groups_0, threadIdx.x, _S2504 & (~_S2508));
+        uint _S2509 = __ballot_sync(_S2504, true);
     }
     return;
 }
 
 extern "C" __global__ void islands_and_wide_chunks()
 {
-    uint _S2493 = __ballot_sync(4294967295U, true);
-    uint _S2494 = blockIdx.x;
-    uint _S2495 = __ldg(&globalParams_0->params_0->halt_index_0);
-    bool _S2496 = _S2494 < _S2495;
-    uint _S2497 = __ballot_sync(_S2493, _S2496);
-    if(_S2496)
+    uint _S2510 = __ballot_sync(4294967295U, true);
+    uint _S2511 = blockIdx.x;
+    uint _S2512 = __ldg(&globalParams_0->params_0->halt_index_0);
+    bool _S2513 = _S2511 < _S2512;
+    uint _S2514 = __ballot_sync(_S2510, _S2513);
+    if(_S2513)
     {
-        island_frame_at_1(_S2494, threadIdx.x, _S2497);
-        uint _S2498 = __ballot_sync(_S2493, true);
+        island_frame_at_1(_S2511, threadIdx.x, _S2514);
+        uint _S2515 = __ballot_sync(_S2510, true);
     }
     else
     {
-        uint _S2499 = _S2493 & (~_S2497);
-        uint _S2500 = __ldg(&globalParams_0->params_0->halt_index_0);
-        wide_chunks_at_0(_S2494 - _S2500, threadIdx.x, _S2499);
-        uint _S2501 = __ballot_sync(_S2493, true);
+        uint _S2516 = _S2510 & (~_S2514);
+        uint _S2517 = __ldg(&globalParams_0->params_0->halt_index_0);
+        wide_chunks_at_0(_S2511 - _S2517, threadIdx.x, _S2516);
+        uint _S2518 = __ballot_sync(_S2510, true);
     }
     return;
 }
 
 extern "C" __global__ void contact_islands_and_wide_chunks()
 {
-    uint _S2502 = __ballot_sync(4294967295U, true);
-    uint _S2503 = blockIdx.x;
-    uint _S2504 = __ldg(&globalParams_0->params_0->halt_index_0);
-    bool _S2505 = _S2503 < _S2504;
-    uint _S2506 = __ballot_sync(_S2502, _S2505);
-    if(_S2505)
+    uint _S2519 = __ballot_sync(4294967295U, true);
+    uint _S2520 = blockIdx.x;
+    uint _S2521 = __ldg(&globalParams_0->params_0->halt_index_0);
+    bool _S2522 = _S2520 < _S2521;
+    uint _S2523 = __ballot_sync(_S2519, _S2522);
+    if(_S2522)
     {
-        island_frame_at_0(_S2503, threadIdx.x, _S2506);
-        uint _S2507 = __ballot_sync(_S2502, true);
+        island_frame_at_0(_S2520, threadIdx.x, _S2523);
+        uint _S2524 = __ballot_sync(_S2519, true);
     }
     else
     {
-        uint _S2508 = _S2502 & (~_S2506);
-        uint _S2509 = __ldg(&globalParams_0->params_0->halt_index_0);
-        wide_chunks_at_0(_S2503 - _S2509, threadIdx.x, _S2508);
-        uint _S2510 = __ballot_sync(_S2502, true);
+        uint _S2525 = _S2519 & (~_S2523);
+        uint _S2526 = __ldg(&globalParams_0->params_0->halt_index_0);
+        wide_chunks_at_0(_S2520 - _S2526, threadIdx.x, _S2525);
+        uint _S2527 = __ballot_sync(_S2519, true);
     }
     return;
 }
 
-static __device__ void wide_bonds_at_0(uint gx_1, uint tid_22, uint _S2511)
+static __device__ void wide_bonds_at_0(uint gx_1, uint tid_22, uint _S2528)
 {
-    uint _S2512 = __ldg(&globalParams_0->params_0->wide_bond_groups_0);
-    bool bond_group_0 = gx_1 < _S2512;
-    uint _S2513 = __ballot_sync(_S2511, bond_group_0);
+    uint _S2529 = __ldg(&globalParams_0->params_0->wide_bond_groups_0);
+    bool bond_group_0 = gx_1 < _S2529;
+    uint _S2530 = __ballot_sync(_S2528, bond_group_0);
     WideGroup_0 wg_6;
-    uint _S2514;
+    uint _S2531;
     if(bond_group_0)
     {
-        uint _S2515 = __ldg(&globalParams_0->params_0->wide_bond_table_0);
-        WideGroup_0 _S2516 = wide_group_0(_S2515, gx_1);
-        uint _S2517 = __ballot_sync(_S2511, true);
-        wg_6 = _S2516;
-        _S2514 = _S2517;
+        uint _S2532 = __ldg(&globalParams_0->params_0->wide_bond_table_0);
+        WideGroup_0 _S2533 = wide_group_0(_S2532, gx_1);
+        uint _S2534 = __ballot_sync(_S2528, true);
+        wg_6 = _S2533;
+        _S2531 = _S2534;
     }
     else
     {
-        uint _S2518 = __ldg(&globalParams_0->params_0->wide_chunk_table_0);
-        uint _S2519 = __ldg(&globalParams_0->params_0->wide_bond_groups_0);
-        WideGroup_0 _S2520 = wide_group_0(_S2518, gx_1 - _S2519);
-        uint _S2521 = __ballot_sync(_S2511, true);
-        wg_6 = _S2520;
-        _S2514 = _S2521;
+        uint _S2535 = __ldg(&globalParams_0->params_0->wide_chunk_table_0);
+        uint _S2536 = __ldg(&globalParams_0->params_0->wide_bond_groups_0);
+        WideGroup_0 _S2537 = wide_group_0(_S2535, gx_1 - _S2536);
+        uint _S2538 = __ballot_sync(_S2528, true);
+        wg_6 = _S2537;
+        _S2531 = _S2538;
     }
-    uint _S2522 = 0U;
-    WideGroup_0 _S2523 = wg_6;
+    uint _S2539 = 0U;
+    WideGroup_0 _S2540 = wg_6;
     Island_0 isl_25 = *(&(globalParams_0->islands_0)[wg_6.island_2]);
-    bool _S2524 = wide_enter_1(tid_22, wg_6.island_2);
-    bool _S2525 = !_S2524;
-    uint _S2526 = __ballot_sync(_S2514, _S2525);
-    if(_S2525)
+    bool _S2541 = wide_enter_1(tid_22, wg_6.island_2);
+    bool _S2542 = !_S2541;
+    uint _S2543 = __ballot_sync(_S2531, _S2542);
+    if(_S2542)
     {
         return;
     }
     else
     {
-        uint _S2527 = __ballot_sync(_S2514, true);
-        _S2522 = _S2527;
+        uint _S2544 = __ballot_sync(_S2531, true);
+        _S2539 = _S2544;
     }
-    uint _S2528 = 0U;
-    Island_0 _S2529 = isl_25;
-    uint _S2530 = wide_step_0(&_S2529);
-    uint _S2531 = __ballot_sync(_S2522, bond_group_0);
+    uint _S2545 = 0U;
+    Island_0 _S2546 = isl_25;
+    uint _S2547 = wide_step_0(&_S2546);
+    uint _S2548 = __ballot_sync(_S2539, bond_group_0);
     if(bond_group_0)
     {
         if(((isl_25.info_1.x) & 16U) != 0U)
@@ -10255,80 +10315,80 @@ static __device__ void wide_bonds_at_0(uint gx_1, uint tid_22, uint _S2511)
             return;
         }
         uint i_30 = wg_6.begin_0 + tid_22;
-        bool _S2532;
+        bool _S2549;
         if(i_30 < (wg_6.end_0))
         {
-            float _S2533 = __ldg(&globalParams_0->params_0->dt_0);
-            uint _S2534 = __ldg(&globalParams_0->params_0->fracture_0);
-            bool _S2535 = bond_update_0(i_30, _S2533, _S2534 != 0U, isl_25.info_1.w + 1U, true);
-            _S2532 = _S2535;
+            float _S2550 = __ldg(&globalParams_0->params_0->dt_0);
+            uint _S2551 = __ldg(&globalParams_0->params_0->fracture_0);
+            bool _S2552 = bond_update_0(i_30, _S2550, _S2551 != 0U, isl_25.info_1.w + 1U, true);
+            _S2549 = _S2552;
         }
         else
         {
-            _S2532 = false;
+            _S2549 = false;
         }
-        if(_S2532)
+        if(_S2549)
         {
-            *&((&(&(globalParams_0->islands_0)[_S2523.island_2])->info_1)->z) = (isl_25.info_1.z) | 2U;
+            *&((&(&(globalParams_0->islands_0)[_S2540.island_2])->info_1)->z) = (isl_25.info_1.z) | 2U;
         }
         return;
     }
     else
     {
-        uint _S2536 = __ballot_sync(_S2522, true);
-        _S2528 = _S2536;
+        uint _S2553 = __ballot_sync(_S2539, true);
+        _S2545 = _S2553;
     }
-    uint _S2537 = 0U;
-    uint _S2538 = isl_25.info_1.x;
-    bool _S2539 = (_S2538 & 1U) != 0U;
-    uint _S2540 = __ballot_sync(_S2528, _S2539);
-    if(_S2539)
+    uint _S2554 = 0U;
+    uint _S2555 = isl_25.info_1.x;
+    bool _S2556 = (_S2555 & 1U) != 0U;
+    uint _S2557 = __ballot_sync(_S2545, _S2556);
+    if(_S2556)
     {
         return;
     }
     else
     {
-        uint _S2541 = __ballot_sync(_S2528, true);
-        _S2537 = _S2541;
+        uint _S2558 = __ballot_sync(_S2545, true);
+        _S2554 = _S2558;
     }
-    float3  _S2542 = make_float3 (0.0f);
-    float3  f_19 = _S2542;
-    float3  t_17 = _S2542;
+    float3  _S2559 = make_float3 (0.0f);
+    float3  f_19 = _S2559;
+    float3  t_17 = _S2559;
     uint c_53 = wg_6.begin_0 + tid_22;
-    bool _S2543 = c_53 < (wg_6.end_0);
-    uint _S2544 = __ballot_sync(_S2537, _S2543);
-    if(_S2543)
+    bool _S2560 = c_53 < (wg_6.end_0);
+    uint _S2561 = __ballot_sync(_S2554, _S2560);
+    if(_S2560)
     {
-        Island_0 _S2545 = isl_25;
-        Rigid_0 _S2546 = rigid_of_0(&_S2545);
-        float _S2547 = __ldg(&globalParams_0->params_0->dt_0);
-        bool _S2548 = (_S2538 & 4U) != 0U;
-        Island_0 _S2549 = isl_25;
-        Rigid_0 _S2550 = _S2546;
-        net_load_0(c_53, &_S2549, &_S2550, _S2530, _S2547, _S2548, &f_19, &t_17);
-        uint _S2551 = __ballot_sync(_S2537, true);
-        _S2514 = _S2551;
+        Island_0 _S2562 = isl_25;
+        Rigid_0 _S2563 = rigid_of_0(&_S2562);
+        float _S2564 = __ldg(&globalParams_0->params_0->dt_0);
+        bool _S2565 = (_S2555 & 4U) != 0U;
+        Island_0 _S2566 = isl_25;
+        Rigid_0 _S2567 = _S2563;
+        net_load_0(c_53, &_S2566, &_S2567, _S2547, _S2564, _S2565, &f_19, &t_17);
+        uint _S2568 = __ballot_sync(_S2554, true);
+        _S2531 = _S2568;
     }
     else
     {
-        uint _S2552 = __ballot_sync(_S2537, true);
-        _S2514 = _S2552;
+        uint _S2569 = __ballot_sync(_S2554, true);
+        _S2531 = _S2569;
     }
-    group_sum3_0(tid_22, &f_19, &t_17, _S2514);
-    bool _S2553 = tid_22 == 0U;
-    uint _S2554 = __ballot_sync(_S2514, _S2553);
-    if(_S2553)
+    group_sum3_0(tid_22, &f_19, &t_17, _S2531);
+    bool _S2570 = tid_22 == 0U;
+    uint _S2571 = __ballot_sync(_S2531, _S2570);
+    if(_S2570)
     {
-        uint _S2555 = __ldg(&globalParams_0->params_0->wide_bond_groups_0);
-        wide_store_0(gx_1 - _S2555, 0U, f_19, t_17);
+        uint _S2572 = __ldg(&globalParams_0->params_0->wide_bond_groups_0);
+        wide_store_0(gx_1 - _S2572, 0U, f_19, t_17);
     }
     return;
 }
 
 extern "C" __global__ void wide_bonds()
 {
-    uint _S2556 = __ballot_sync(4294967295U, true);
-    wide_bonds_at_0(blockIdx.x, threadIdx.x, _S2556);
+    uint _S2573 = __ballot_sync(4294967295U, true);
+    wide_bonds_at_0(blockIdx.x, threadIdx.x, _S2573);
     return;
 }
 
@@ -10336,33 +10396,33 @@ static __device__ void bond_group_at_0(uint table_1, uint gx_2, uint tid_23)
 {
     WideGroup_0 wg_7 = wide_group_0(table_1, gx_2);
     Island_0 isl_26 = *(&(globalParams_0->islands_0)[wg_7.island_2]);
-    bool _S2557 = wide_enter_1(tid_23, wg_7.island_2);
-    bool _S2558;
-    if(!_S2557)
+    bool _S2574 = wide_enter_1(tid_23, wg_7.island_2);
+    bool _S2575;
+    if(!_S2574)
     {
-        _S2558 = true;
+        _S2575 = true;
     }
     else
     {
-        _S2558 = ((isl_26.info_1.x) & 16U) != 0U;
+        _S2575 = ((isl_26.info_1.x) & 16U) != 0U;
     }
-    if(_S2558)
+    if(_S2575)
     {
         return;
     }
     uint i_31 = wg_7.begin_0 + tid_23;
     if(i_31 < (wg_7.end_0))
     {
-        float _S2559 = __ldg(&globalParams_0->params_0->dt_0);
-        uint _S2560 = __ldg(&globalParams_0->params_0->fracture_0);
-        bool _S2561 = bond_update_0(i_31, _S2559, _S2560 != 0U, isl_26.info_1.w + 1U, true);
-        _S2558 = _S2561;
+        float _S2576 = __ldg(&globalParams_0->params_0->dt_0);
+        uint _S2577 = __ldg(&globalParams_0->params_0->fracture_0);
+        bool _S2578 = bond_update_0(i_31, _S2576, _S2577 != 0U, isl_26.info_1.w + 1U, true);
+        _S2575 = _S2578;
     }
     else
     {
-        _S2558 = false;
+        _S2575 = false;
     }
-    if(_S2558)
+    if(_S2575)
     {
         *&((&(&(globalParams_0->islands_0)[wg_7.island_2])->info_1)->z) = (isl_26.info_1.z) | 2U;
     }
@@ -10371,55 +10431,55 @@ static __device__ void bond_group_at_0(uint table_1, uint gx_2, uint tid_23)
 
 extern "C" __global__ void sums_impactors_bonds()
 {
-    uint _S2562 = __ballot_sync(4294967295U, true);
-    uint _S2563 = __ldg(&globalParams_0->params_0->seg_count_0);
-    uint sums_groups_1 = (_S2563 + 255U) / 256U;
-    uint _S2564 = __ldg(&globalParams_0->params_0->impactor_count_0);
-    uint _S2565 = (U32_max((_S2564), (1U)));
-    uint _S2566 = blockIdx.x;
-    bool _S2567 = _S2566 < sums_groups_1;
-    uint _S2568 = __ballot_sync(_S2562, _S2567);
-    if(_S2567)
+    uint _S2579 = __ballot_sync(4294967295U, true);
+    uint _S2580 = __ldg(&globalParams_0->params_0->seg_count_0);
+    uint sums_groups_1 = (_S2580 + 255U) / 256U;
+    uint _S2581 = __ldg(&globalParams_0->params_0->impactor_count_0);
+    uint _S2582 = (U32_max((_S2581), (1U)));
+    uint _S2583 = blockIdx.x;
+    bool _S2584 = _S2583 < sums_groups_1;
+    uint _S2585 = __ballot_sync(_S2579, _S2584);
+    if(_S2584)
     {
-        contact_sum_at_0(_S2566 * 256U + threadIdx.x);
+        contact_sum_at_0(_S2583 * 256U + threadIdx.x);
     }
     else
     {
-        uint _S2569 = _S2562 & (~_S2568);
-        bool _S2570 = _S2566 < (sums_groups_1 + _S2565);
-        uint _S2571 = __ballot_sync(_S2569, _S2570);
-        if(_S2570)
+        uint _S2586 = _S2579 & (~_S2585);
+        bool _S2587 = _S2583 < (sums_groups_1 + _S2582);
+        uint _S2588 = __ballot_sync(_S2586, _S2587);
+        if(_S2587)
         {
-            impactor_integrate_at_0(_S2566 - sums_groups_1, threadIdx.x, _S2571);
-            uint _S2572 = __ballot_sync(_S2569, true);
+            impactor_integrate_at_0(_S2583 - sums_groups_1, threadIdx.x, _S2588);
+            uint _S2589 = __ballot_sync(_S2586, true);
         }
         else
         {
-            uint gb_0 = _S2566 - sums_groups_1 - _S2565;
-            uint _S2573 = __ldg(&globalParams_0->params_0->contact_bond_groups_0);
-            bool narrow_0 = gb_0 < _S2573;
-            uint _S2574;
+            uint gb_0 = _S2583 - sums_groups_1 - _S2582;
+            uint _S2590 = __ldg(&globalParams_0->params_0->contact_bond_groups_0);
+            bool narrow_0 = gb_0 < _S2590;
+            uint _S2591;
             if(narrow_0)
             {
-                uint _S2575 = __ldg(&globalParams_0->params_0->contact_bond_table_0);
-                _S2574 = _S2575;
+                uint _S2592 = __ldg(&globalParams_0->params_0->contact_bond_table_0);
+                _S2591 = _S2592;
             }
             else
             {
-                uint _S2576 = __ldg(&globalParams_0->params_0->wide_bond_table_0);
-                _S2574 = _S2576;
+                uint _S2593 = __ldg(&globalParams_0->params_0->wide_bond_table_0);
+                _S2591 = _S2593;
             }
-            uint _S2577;
+            uint _S2594;
             if(narrow_0)
             {
-                _S2577 = gb_0;
+                _S2594 = gb_0;
             }
             else
             {
-                uint _S2578 = __ldg(&globalParams_0->params_0->contact_bond_groups_0);
-                _S2577 = gb_0 - _S2578;
+                uint _S2595 = __ldg(&globalParams_0->params_0->contact_bond_groups_0);
+                _S2594 = gb_0 - _S2595;
             }
-            bond_group_at_0(_S2574, _S2577, threadIdx.x);
+            bond_group_at_0(_S2591, _S2594, threadIdx.x);
         }
     }
     return;

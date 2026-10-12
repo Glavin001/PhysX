@@ -8644,6 +8644,11 @@ fn hold_0( mask_0 : u32,  lin_0 : ptr<function, vec4<f32>>,  ang_0 : ptr<functio
     return;
 }
 
+fn is_finite_0( x_24 : f32) -> bool
+{
+    return (((bitcast<u32>((x_24))) & (u32(2147483647)))) < u32(2139095040);
+}
+
 fn secant_factors_1( b_52 : ptr<function, JointBond_std430_0>,  st_11 : ptr<function, JointState_std430_0>,  d_lin_9 : vec3<f32>,  f_lin_2 : ptr<function, vec3<f32>>,  f_ang_2 : ptr<function, vec3<f32>>)
 {
     var _S796 : f32 = (*st_11).damage_0;
@@ -8872,13 +8877,13 @@ fn store_inverse_0( c_36 : u32,  a_27 : array<f32, i32(36)>)
                 y_7[i_15] = s_12 / l_7[i_15 * u32(6) + i_15];
                 i_15 = i_15 + u32(1);
             }
-            var x_24 : array<f32, i32(6)>;
-            x_24[i32(0)] = 0.0f;
-            x_24[i32(1)] = 0.0f;
-            x_24[i32(2)] = 0.0f;
-            x_24[i32(3)] = 0.0f;
-            x_24[i32(4)] = 0.0f;
-            x_24[i32(5)] = 0.0f;
+            var x_25 : array<f32, i32(6)>;
+            x_25[i32(0)] = 0.0f;
+            x_25[i32(1)] = 0.0f;
+            x_25[i32(2)] = 0.0f;
+            x_25[i32(3)] = 0.0f;
+            x_25[i32(4)] = 0.0f;
+            x_25[i32(5)] = 0.0f;
             var ii_2 : u32 = u32(0);
             loop
             {
@@ -8901,11 +8906,11 @@ fn store_inverse_0( c_36 : u32,  a_27 : array<f32, i32(36)>)
                     {
                         break;
                     }
-                    var s_14 : f32 = sum_9 - l_7[k_22 * u32(6) + i_16] * x_24[k_22];
+                    var s_14 : f32 = sum_9 - l_7[k_22 * u32(6) + i_16] * x_25[k_22];
                     k_22 = k_22 + u32(1);
                     sum_9 = s_14;
                 }
-                x_24[i_16] = sum_9 / l_7[i_16 * u32(6) + i_16];
+                x_25[i_16] = sum_9 / l_7[i_16 * u32(6) + i_16];
                 ii_2 = ii_2 + u32(1);
             }
             var i_17 : u32 = u32(0);
@@ -8918,7 +8923,7 @@ fn store_inverse_0( c_36 : u32,  a_27 : array<f32, i32(36)>)
                 {
                     break;
                 }
-                inv_0[i_17 * u32(6) + j_11] = x_24[i_17];
+                inv_0[i_17 * u32(6) + j_11] = x_25[i_17];
                 i_17 = i_17 + u32(1);
             }
             j_11 = j_11 + u32(1);
@@ -9315,6 +9320,7 @@ fn island_statics(@builtin(workgroup_id) group_5 : vec3<u32>, @builtin(local_inv
     var _S863 : f32 = params_0.statics_tol_0;
     var _S864 : u32 = min(params_0.statics_cg_0, u32(20) * (c1_1 - c0_1) * u32(6) + u32(200));
     var previous_1 : f32 = 1.00000001504746622e+30f;
+    var start_0 : f32 = 1.00000001504746622e+30f;
     var residual_0 : f32 = 0.0f;
     var newton_0 : u32 = u32(0);
     var cg_total_0 : u32 = u32(0);
@@ -9377,25 +9383,53 @@ fn island_statics(@builtin(workgroup_id) group_5 : vec3<u32>, @builtin(local_inv
         var _S867 : f32 = island_dot_0(tid_26, c0_1, c1_1, u32(4), u32(4));
         var residual_1 : f32 = sqrt(_S867) / _S862;
         var _S868 : f32 = max(0.00100000004749745f, 3.83999986297567375e-06f * sqrt(magnitude_0.x) / _S862);
-        if(residual_1 <= _S863)
+        if(newton_0 == u32(0))
         {
-            converged_4 = true;
+            start_0 = residual_1;
         }
-        else
+        var _S869 : bool = is_finite_0(residual_1);
+        var _S870 : bool;
+        if(_S869)
         {
-            if(residual_1 <= _S868)
+            if(residual_1 <= _S863)
             {
-                converged_4 = residual_1 > (0.5f * previous_1);
+                converged_4 = true;
             }
             else
             {
-                converged_4 = false;
+                if(residual_1 <= _S868)
+                {
+                    converged_4 = residual_1 > (0.5f * previous_1);
+                }
+                else
+                {
+                    converged_4 = false;
+                }
+                if(converged_4)
+                {
+                    _S870 = residual_1 <= start_0;
+                }
+                else
+                {
+                    _S870 = false;
+                }
+                converged_4 = _S870;
             }
+        }
+        else
+        {
+            converged_4 = false;
         }
         if(converged_4)
         {
             residual_0 = residual_1;
             converged_4 = true;
+            break;
+        }
+        if(!_S869)
+        {
+            residual_0 = residual_1;
+            converged_4 = false;
             break;
         }
         var i_22 : u32 = _S865;
@@ -9411,15 +9445,15 @@ fn island_statics(@builtin(workgroup_id) group_5 : vec3<u32>, @builtin(local_inv
             var d_lin_10 : vec3<f32>;
             var d_ang_8 : vec3<f32>;
             static_kinematics_1(i_22, &(d_lin_10), &(d_ang_8));
-            var _S869 : JointBond_std430_0 = bonds_0[i_22].law_0;
-            var _S870 : JointState_std430_0 = bond_dyn_0[i_22].js_0;
+            var _S871 : JointBond_std430_0 = bonds_0[i_22].law_0;
+            var _S872 : JointState_std430_0 = bond_dyn_0[i_22].js_0;
             var f_lin_3 : vec3<f32>;
             var f_ang_3 : vec3<f32>;
-            secant_factors_1(&(_S869), &(_S870), d_lin_10, &(f_lin_3), &(f_ang_3));
-            var _S871 : u32 = statics_bond_slot_0(i_22);
-            var _S872 : f32 = _S869.stiff0_0.y;
-            scratch_0[_S871] = vec4<f32>(_S872 * f_lin_3.x, _S872 * f_lin_3.y, _S869.stiff0_0.x * f_lin_3.z, 0.0f);
-            scratch_0[_S871 + u32(1)] = vec4<f32>(_S869.stiff0_0.z * f_ang_3.x, _S869.stiff0_0.w * f_ang_3.y, _S869.stiff1_0.x * f_ang_3.z, 0.0f);
+            secant_factors_1(&(_S871), &(_S872), d_lin_10, &(f_lin_3), &(f_ang_3));
+            var _S873 : u32 = statics_bond_slot_0(i_22);
+            var _S874 : f32 = _S871.stiff0_0.y;
+            scratch_0[_S873] = vec4<f32>(_S874 * f_lin_3.x, _S874 * f_lin_3.y, _S871.stiff0_0.x * f_lin_3.z, 0.0f);
+            scratch_0[_S873 + u32(1)] = vec4<f32>(_S871.stiff0_0.z * f_ang_3.x, _S871.stiff0_0.w * f_ang_3.y, _S871.stiff1_0.x * f_ang_3.z, 0.0f);
             i_22 = i_22 + u32(256);
         }
         storageBarrier(); textureBarrier(); workgroupBarrier();;
@@ -9472,24 +9506,23 @@ fn island_statics(@builtin(workgroup_id) group_5 : vec3<u32>, @builtin(local_inv
             c_45 = c_45 + u32(256);
         }
         storageBarrier(); textureBarrier(); workgroupBarrier();;
-        var _S873 : f32 = island_dot_0(tid_26, c0_1, c1_1, u32(4), u32(6));
-        var _S874 : f32 = island_dot_0(tid_26, c0_1, c1_1, u32(4), u32(4));
-        var _S875 : f32 = sqrt(_S874);
-        var rz_0 : f32 = _S873;
+        var _S875 : f32 = island_dot_0(tid_26, c0_1, c1_1, u32(4), u32(6));
+        var _S876 : f32 = island_dot_0(tid_26, c0_1, c1_1, u32(4), u32(4));
+        var _S877 : f32 = sqrt(_S876);
+        var rz_0 : f32 = _S875;
         var k_25 : u32 = u32(0);
         var cg_total_1 : u32 = cg_total_0;
         loop
         {
-            var _S876 : bool;
             if(k_25 < _S864)
             {
-                _S876 = _S875 > 0.0f;
+                _S870 = _S877 > 0.0f;
             }
             else
             {
-                _S876 = false;
+                _S870 = false;
             }
-            if(_S876)
+            if(_S870)
             {
             }
             else
@@ -9512,8 +9545,8 @@ fn island_statics(@builtin(workgroup_id) group_5 : vec3<u32>, @builtin(local_inv
                 var d_lin_11 : vec3<f32>;
                 var d_ang_9 : vec3<f32>;
                 bond_kinematics_0(i_23, scratch_0[sv_0(ca_3, u32(8))].xyz, scratch_0[sv_0(ca_3, u32(9))].xyz, scratch_0[sv_0(cb_6, u32(8))].xyz, scratch_0[sv_0(cb_6, u32(9))].xyz, &(d_lin_11), &(d_ang_9));
-                var _S877 : u32 = statics_bond_slot_0(i_23);
-                write_bond_loads_0(i_23, i_23, d_lin_11 * scratch_0[_S877].xyz, d_ang_9 * scratch_0[_S877 + u32(1)].xyz, 0.0f);
+                var _S878 : u32 = statics_bond_slot_0(i_23);
+                write_bond_loads_0(i_23, i_23, d_lin_11 * scratch_0[_S878].xyz, d_ang_9 * scratch_0[_S878 + u32(1)].xyz, 0.0f);
                 i_23 = i_23 + u32(256);
             }
             storageBarrier(); textureBarrier(); workgroupBarrier();;
@@ -9539,13 +9572,13 @@ fn island_statics(@builtin(workgroup_id) group_5 : vec3<u32>, @builtin(local_inv
             }
             storageBarrier(); textureBarrier(); workgroupBarrier();;
             var pap_0 : f32 = island_dot_0(tid_26, c0_1, c1_1, u32(8), u32(10));
-            var _S878 : u32 = cg_total_1 + u32(1);
+            var _S879 : u32 = cg_total_1 + u32(1);
             if(pap_0 <= 0.0f)
             {
-                cg_total_0 = _S878;
+                cg_total_0 = _S879;
                 break;
             }
-            var _S879 : f32 = rz_0 / pap_0;
+            var _S880 : f32 = rz_0 / pap_0;
             var c_46 : u32 = _S859;
             loop
             {
@@ -9556,22 +9589,22 @@ fn island_statics(@builtin(workgroup_id) group_5 : vec3<u32>, @builtin(local_inv
                 {
                     break;
                 }
-                var _S880 : u32 = sv_0(c_46, u32(2));
-                var _S881 : vec3<f32> = vec3<f32>(_S879);
-                scratch_0[_S880] = vec4<f32>(scratch_0[_S880].xyz + _S881 * scratch_0[sv_0(c_46, u32(8))].xyz, 0.0f);
-                var _S882 : u32 = sv_0(c_46, u32(3));
-                scratch_0[_S882] = vec4<f32>(scratch_0[_S882].xyz + _S881 * scratch_0[sv_0(c_46, u32(9))].xyz, 0.0f);
-                var _S883 : u32 = sv_0(c_46, u32(4));
-                scratch_0[_S883] = vec4<f32>(scratch_0[_S883].xyz - _S881 * scratch_0[sv_0(c_46, u32(10))].xyz, 0.0f);
-                var _S884 : u32 = sv_0(c_46, u32(5));
-                scratch_0[_S884] = vec4<f32>(scratch_0[_S884].xyz - _S881 * scratch_0[sv_0(c_46, u32(11))].xyz, 0.0f);
+                var _S881 : u32 = sv_0(c_46, u32(2));
+                var _S882 : vec3<f32> = vec3<f32>(_S880);
+                scratch_0[_S881] = vec4<f32>(scratch_0[_S881].xyz + _S882 * scratch_0[sv_0(c_46, u32(8))].xyz, 0.0f);
+                var _S883 : u32 = sv_0(c_46, u32(3));
+                scratch_0[_S883] = vec4<f32>(scratch_0[_S883].xyz + _S882 * scratch_0[sv_0(c_46, u32(9))].xyz, 0.0f);
+                var _S884 : u32 = sv_0(c_46, u32(4));
+                scratch_0[_S884] = vec4<f32>(scratch_0[_S884].xyz - _S882 * scratch_0[sv_0(c_46, u32(10))].xyz, 0.0f);
+                var _S885 : u32 = sv_0(c_46, u32(5));
+                scratch_0[_S885] = vec4<f32>(scratch_0[_S885].xyz - _S882 * scratch_0[sv_0(c_46, u32(11))].xyz, 0.0f);
                 c_46 = c_46 + u32(256);
             }
             storageBarrier(); textureBarrier(); workgroupBarrier();;
-            var _S885 : f32 = island_dot_0(tid_26, c0_1, c1_1, u32(4), u32(4));
-            if((sqrt(_S885)) <= (0.00009999999747379f * _S875))
+            var _S886 : f32 = island_dot_0(tid_26, c0_1, c1_1, u32(4), u32(4));
+            if((sqrt(_S886)) <= (0.00009999999747379f * _S877))
             {
-                cg_total_0 = _S878;
+                cg_total_0 = _S879;
                 break;
             }
             var c_47 : u32 = _S859;
@@ -9593,7 +9626,7 @@ fn island_statics(@builtin(workgroup_id) group_5 : vec3<u32>, @builtin(local_inv
                 project_displacement_slot_0(tid_26, &(_S855), u32(6));
             }
             var rz_new_0 : f32 = island_dot_0(tid_26, c0_1, c1_1, u32(4), u32(6));
-            var _S886 : f32 = rz_new_0 / rz_0;
+            var _S887 : f32 = rz_new_0 / rz_0;
             var c_48 : u32 = _S859;
             loop
             {
@@ -9604,18 +9637,18 @@ fn island_statics(@builtin(workgroup_id) group_5 : vec3<u32>, @builtin(local_inv
                 {
                     break;
                 }
-                var _S887 : u32 = sv_0(c_48, u32(8));
-                var _S888 : vec3<f32> = vec3<f32>(_S886);
-                scratch_0[_S887] = vec4<f32>(scratch_0[sv_0(c_48, u32(6))].xyz + _S888 * scratch_0[_S887].xyz, 0.0f);
-                var _S889 : u32 = sv_0(c_48, u32(9));
-                scratch_0[_S889] = vec4<f32>(scratch_0[sv_0(c_48, u32(7))].xyz + _S888 * scratch_0[_S889].xyz, 0.0f);
+                var _S888 : u32 = sv_0(c_48, u32(8));
+                var _S889 : vec3<f32> = vec3<f32>(_S887);
+                scratch_0[_S888] = vec4<f32>(scratch_0[sv_0(c_48, u32(6))].xyz + _S889 * scratch_0[_S888].xyz, 0.0f);
+                var _S890 : u32 = sv_0(c_48, u32(9));
+                scratch_0[_S890] = vec4<f32>(scratch_0[sv_0(c_48, u32(7))].xyz + _S889 * scratch_0[_S890].xyz, 0.0f);
                 c_48 = c_48 + u32(256);
             }
             storageBarrier(); textureBarrier(); workgroupBarrier();;
-            var _S890 : u32 = k_25 + u32(1);
+            var _S891 : u32 = k_25 + u32(1);
             rz_0 = rz_new_0;
-            k_25 = _S890;
-            cg_total_1 = _S878;
+            k_25 = _S891;
+            cg_total_1 = _S879;
         }
         c_41 = _S859;
         loop
@@ -9627,27 +9660,27 @@ fn island_statics(@builtin(workgroup_id) group_5 : vec3<u32>, @builtin(local_inv
             {
                 break;
             }
-            var _S891 : u32 = u32(4) * c_41;
-            var u_4 : vec3<f32> = state_0[_S891].xyz;
-            var _S892 : u32 = sv_0(c_41, u32(21));
-            var u_lo_0 : vec3<f32> = scratch_0[_S892].xyz;
-            var _S893 : u32 = _S891 + u32(1);
-            var th_6 : vec3<f32> = state_0[_S893].xyz;
-            var _S894 : u32 = sv_0(c_41, u32(22));
-            var th_lo_0 : vec3<f32> = scratch_0[_S894].xyz;
+            var _S892 : u32 = u32(4) * c_41;
+            var u_4 : vec3<f32> = state_0[_S892].xyz;
+            var _S893 : u32 = sv_0(c_41, u32(21));
+            var u_lo_0 : vec3<f32> = scratch_0[_S893].xyz;
+            var _S894 : u32 = _S892 + u32(1);
+            var th_6 : vec3<f32> = state_0[_S894].xyz;
+            var _S895 : u32 = sv_0(c_41, u32(22));
+            var th_lo_0 : vec3<f32> = scratch_0[_S895].xyz;
             comp_add_0(&(u_4), &(u_lo_0), scratch_0[sv_0(c_41, u32(2))].xyz);
             comp_add_0(&(th_6), &(th_lo_0), scratch_0[sv_0(c_41, u32(3))].xyz);
-            state_0[_S891] = vec4<f32>(u_4, state_0[_S891].w);
-            state_0[_S893] = vec4<f32>(th_6, state_0[_S893].w);
-            scratch_0[_S892] = vec4<f32>(u_lo_0, 0.0f);
-            scratch_0[_S894] = vec4<f32>(th_lo_0, 0.0f);
+            state_0[_S892] = vec4<f32>(u_4, state_0[_S892].w);
+            state_0[_S894] = vec4<f32>(th_6, state_0[_S894].w);
+            scratch_0[_S893] = vec4<f32>(u_lo_0, 0.0f);
+            scratch_0[_S895] = vec4<f32>(th_lo_0, 0.0f);
             c_41 = c_41 + u32(256);
         }
         storageBarrier(); textureBarrier(); workgroupBarrier();;
-        var _S895 : u32 = newton_0 + u32(1);
+        var _S896 : u32 = newton_0 + u32(1);
         previous_1 = residual_1;
         residual_0 = residual_1;
-        newton_0 = _S895;
+        newton_0 = _S896;
     }
     i_21 = b0_0 + tid_26;
     loop
@@ -9660,9 +9693,9 @@ fn island_statics(@builtin(workgroup_id) group_5 : vec3<u32>, @builtin(local_inv
             break;
         }
         var resp_4 : JointResponse_0 = static_response_0(i_21);
-        var _S896 : JointState_0 = JointState_0( bond_dyn_0[i_21].js_0.damage_0, bond_dyn_0[i_21].js_0.crush_1, bond_dyn_0[i_21].js_0.kappa_0, bond_dyn_0[i_21].js_0.kappa_c_0, bond_dyn_0[i_21].js_0.ductility_0, bond_dyn_0[i_21].js_0.ductility_c_0, bond_dyn_0[i_21].js_0.life_0, bond_dyn_0[i_21].js_0.plastic_x_0, bond_dyn_0[i_21].js_0.plastic_y_0, bond_dyn_0[i_21].js_0.plastic_t_0, bond_dyn_0[i_21].js_0.rebar_plastic_0, bond_dyn_0[i_21].js_0.rebar_slip0_0, bond_dyn_0[i_21].js_0.rebar_slip1_0, bond_dyn_0[i_21].js_0.rebar_work_0, bond_dyn_0[i_21].js_0.rebar_broken_0, bond_dyn_0[i_21].js_0.strain_rate_0, bond_dyn_0[i_21].js_0.governing_stress_0, bond_dyn_0[i_21].js_0.dissipated_0, bond_dyn_0[i_21].js_0.utilization_0, bond_dyn_0[i_21].js_0.mode_0 );
+        var _S897 : JointState_0 = JointState_0( bond_dyn_0[i_21].js_0.damage_0, bond_dyn_0[i_21].js_0.crush_1, bond_dyn_0[i_21].js_0.kappa_0, bond_dyn_0[i_21].js_0.kappa_c_0, bond_dyn_0[i_21].js_0.ductility_0, bond_dyn_0[i_21].js_0.ductility_c_0, bond_dyn_0[i_21].js_0.life_0, bond_dyn_0[i_21].js_0.plastic_x_0, bond_dyn_0[i_21].js_0.plastic_y_0, bond_dyn_0[i_21].js_0.plastic_t_0, bond_dyn_0[i_21].js_0.rebar_plastic_0, bond_dyn_0[i_21].js_0.rebar_slip0_0, bond_dyn_0[i_21].js_0.rebar_slip1_0, bond_dyn_0[i_21].js_0.rebar_work_0, bond_dyn_0[i_21].js_0.rebar_broken_0, bond_dyn_0[i_21].js_0.strain_rate_0, bond_dyn_0[i_21].js_0.governing_stress_0, bond_dyn_0[i_21].js_0.dissipated_0, bond_dyn_0[i_21].js_0.utilization_0, bond_dyn_0[i_21].js_0.mode_0 );
         var bd_1 : BondDyn_0;
-        bd_1.js_0 = _S896;
+        bd_1.js_0 = _S897;
         bd_1.force_lin_0 = bond_dyn_0[i_21].force_lin_0;
         bd_1.force_ang_0 = bond_dyn_0[i_21].force_ang_0;
         bd_1.sums_0 = bond_dyn_0[i_21].sums_0;
@@ -9719,20 +9752,20 @@ fn island_statics(@builtin(workgroup_id) group_5 : vec3<u32>, @builtin(local_inv
         }
         else
         {
-            var _S897 : u32 = u32(4) * c_42;
-            reaction_1 = vec3<f32>(state_0[_S897 + u32(1)].w, state_0[_S897 + u32(2)].w, state_0[_S897 + u32(3)].w);
+            var _S898 : u32 = u32(4) * c_42;
+            reaction_1 = vec3<f32>(state_0[_S898 + u32(1)].w, state_0[_S898 + u32(2)].w, state_0[_S898 + u32(3)].w);
         }
-        var _S898 : u32 = u32(4) * c_42;
-        var _S899 : u32 = _S898 + u32(1);
-        state_0[_S899] = vec4<f32>(state_0[_S899].xyz, reaction_1.x);
-        state_0[_S898 + u32(2)] = vec4<f32>(0.0f, 0.0f, 0.0f, reaction_1.y);
-        state_0[_S898 + u32(3)] = vec4<f32>(0.0f, 0.0f, 0.0f, reaction_1.z);
+        var _S899 : u32 = u32(4) * c_42;
+        var _S900 : u32 = _S899 + u32(1);
+        state_0[_S900] = vec4<f32>(state_0[_S900].xyz, reaction_1.x);
+        state_0[_S899 + u32(2)] = vec4<f32>(0.0f, 0.0f, 0.0f, reaction_1.y);
+        state_0[_S899 + u32(3)] = vec4<f32>(0.0f, 0.0f, 0.0f, reaction_1.z);
         c_42 = c_42 + u32(256);
     }
     if(tid_26 == u32(0))
     {
-        var _S900 : f32 = (bitcast<f32>((newton_0)));
-        var _S901 : f32 = (bitcast<f32>((cg_total_0)));
+        var _S901 : f32 = (bitcast<f32>((newton_0)));
+        var _S902 : f32 = (bitcast<f32>((cg_total_0)));
         if(converged_4)
         {
             previous_1 = 1.0f;
@@ -9741,7 +9774,7 @@ fn island_statics(@builtin(workgroup_id) group_5 : vec3<u32>, @builtin(local_inv
         {
             previous_1 = 0.0f;
         }
-        scratch_0[statics_result_slot_0(_S854)] = vec4<f32>(residual_0, _S900, _S901, previous_1);
+        scratch_0[statics_result_slot_0(_S854)] = vec4<f32>(residual_0, _S901, _S902, previous_1);
         islands_0[_S854].info_0[i32(2)] = (_S857 & (u32(4294967287)));
     }
     return;
@@ -9752,18 +9785,18 @@ fn island_statics(@builtin(workgroup_id) group_5 : vec3<u32>, @builtin(local_inv
 fn settled_fatigue(@builtin(workgroup_id) group_6 : vec3<u32>, @builtin(local_invocation_id) thread_6 : vec3<u32>)
 {
     var tid_27 : u32 = thread_6.x;
-    var _S902 : u32 = group_6.x;
-    var isl_34 : Island_std430_0 = islands_0[_S902];
-    var _S903 : bool;
-    if((((islands_0[_S902].info_0.x) & (u32(16)))) == u32(0))
+    var _S903 : u32 = group_6.x;
+    var isl_34 : Island_std430_0 = islands_0[_S903];
+    var _S904 : bool;
+    if((((islands_0[_S903].info_0.x) & (u32(16)))) == u32(0))
     {
-        _S903 = true;
+        _S904 = true;
     }
     else
     {
-        _S903 = (isl_34.range_0.w) == (isl_34.range_0.z);
+        _S904 = (isl_34.range_0.w) == (isl_34.range_0.z);
     }
-    if(_S903)
+    if(_S904)
     {
         return;
     }
@@ -9774,7 +9807,7 @@ fn settled_fatigue(@builtin(workgroup_id) group_6 : vec3<u32>, @builtin(local_in
         g_run_0 = u32(0);
     }
     workgroupBarrier();
-    var _S904 : u32 = isl_34.info_0.w;
+    var _S905 : u32 = isl_34.info_0.w;
     var i_24 : u32 = isl_34.range_0.z + tid_27;
     loop
     {
@@ -9785,33 +9818,33 @@ fn settled_fatigue(@builtin(workgroup_id) group_6 : vec3<u32>, @builtin(local_in
         {
             break;
         }
-        var _S905 : JointState_0 = JointState_0( bond_dyn_0[i_24].js_0.damage_0, bond_dyn_0[i_24].js_0.crush_1, bond_dyn_0[i_24].js_0.kappa_0, bond_dyn_0[i_24].js_0.kappa_c_0, bond_dyn_0[i_24].js_0.ductility_0, bond_dyn_0[i_24].js_0.ductility_c_0, bond_dyn_0[i_24].js_0.life_0, bond_dyn_0[i_24].js_0.plastic_x_0, bond_dyn_0[i_24].js_0.plastic_y_0, bond_dyn_0[i_24].js_0.plastic_t_0, bond_dyn_0[i_24].js_0.rebar_plastic_0, bond_dyn_0[i_24].js_0.rebar_slip0_0, bond_dyn_0[i_24].js_0.rebar_slip1_0, bond_dyn_0[i_24].js_0.rebar_work_0, bond_dyn_0[i_24].js_0.rebar_broken_0, bond_dyn_0[i_24].js_0.strain_rate_0, bond_dyn_0[i_24].js_0.governing_stress_0, bond_dyn_0[i_24].js_0.dissipated_0, bond_dyn_0[i_24].js_0.utilization_0, bond_dyn_0[i_24].js_0.mode_0 );
+        var _S906 : JointState_0 = JointState_0( bond_dyn_0[i_24].js_0.damage_0, bond_dyn_0[i_24].js_0.crush_1, bond_dyn_0[i_24].js_0.kappa_0, bond_dyn_0[i_24].js_0.kappa_c_0, bond_dyn_0[i_24].js_0.ductility_0, bond_dyn_0[i_24].js_0.ductility_c_0, bond_dyn_0[i_24].js_0.life_0, bond_dyn_0[i_24].js_0.plastic_x_0, bond_dyn_0[i_24].js_0.plastic_y_0, bond_dyn_0[i_24].js_0.plastic_t_0, bond_dyn_0[i_24].js_0.rebar_plastic_0, bond_dyn_0[i_24].js_0.rebar_slip0_0, bond_dyn_0[i_24].js_0.rebar_slip1_0, bond_dyn_0[i_24].js_0.rebar_work_0, bond_dyn_0[i_24].js_0.rebar_broken_0, bond_dyn_0[i_24].js_0.strain_rate_0, bond_dyn_0[i_24].js_0.governing_stress_0, bond_dyn_0[i_24].js_0.dissipated_0, bond_dyn_0[i_24].js_0.utilization_0, bond_dyn_0[i_24].js_0.mode_0 );
         var bd_2 : BondDyn_0;
-        bd_2.js_0 = _S905;
+        bd_2.js_0 = _S906;
         bd_2.force_lin_0 = bond_dyn_0[i_24].force_lin_0;
         bd_2.force_ang_0 = bond_dyn_0[i_24].force_ang_0;
         bd_2.sums_0 = bond_dyn_0[i_24].sums_0;
         bd_2.comps_0 = bond_dyn_0[i_24].comps_0;
         bd_2.events_0 = bond_dyn_0[i_24].events_0;
-        var _S906 : JointBond_std430_0 = bonds_0[i_24].law_0;
-        var _S907 : u32 = u32(4) * _S906.ids_0.y;
-        var _S908 : u32 = u32(4) * _S906.ids_0.z;
+        var _S907 : JointBond_std430_0 = bonds_0[i_24].law_0;
+        var _S908 : u32 = u32(4) * _S907.ids_0.y;
+        var _S909 : u32 = u32(4) * _S907.ids_0.z;
         var d_lin_12 : vec3<f32>;
         var d_ang_10 : vec3<f32>;
-        bond_kinematics_0(i_24, state_0[_S907].xyz, state_0[_S907 + u32(1)].xyz, state_0[_S908].xyz, state_0[_S908 + u32(1)].xyz, &(d_lin_12), &(d_ang_10));
-        var _S909 : JointMaterial_std140_0 = materials_0.m_0.data_0[_S906.ids_0.x];
+        bond_kinematics_0(i_24, state_0[_S908].xyz, state_0[_S908 + u32(1)].xyz, state_0[_S909].xyz, state_0[_S909 + u32(1)].xyz, &(d_lin_12), &(d_ang_10));
+        var _S910 : JointMaterial_std140_0 = materials_0.m_0.data_0[_S907.ids_0.x];
         var previous_2 : JointState_0 = bd_2.js_0;
-        var _S910 : JointResponse_0 = joint_evaluate_2(&(_S909), &(_S906), bd_2.js_0, d_lin_12, d_ang_10, params_0.dt_0, (params_0.fracture_0) != u32(0));
-        if((_S910.state_1.damage_0) > (bd_2.js_0.damage_0 + 9.99999971718068537e-10f))
+        var _S911 : JointResponse_0 = joint_evaluate_2(&(_S910), &(_S907), bd_2.js_0, d_lin_12, d_ang_10, params_0.dt_0, (params_0.fracture_0) != u32(0));
+        if((_S911.state_1.damage_0) > (bd_2.js_0.damage_0 + 9.99999971718068537e-10f))
         {
-            _S903 = true;
+            _S904 = true;
         }
         else
         {
-            _S903 = (_S910.state_1.crush_1) > (previous_2.crush_1 + 9.99999971718068537e-10f);
+            _S904 = (_S911.state_1.crush_1) > (previous_2.crush_1 + 9.99999971718068537e-10f);
         }
         var flags_5 : u32;
-        if(_S903)
+        if(_S904)
         {
             flags_5 = u32(16);
         }
@@ -9819,55 +9852,46 @@ fn settled_fatigue(@builtin(workgroup_id) group_6 : vec3<u32>, @builtin(local_in
         {
             flags_5 = u32(0);
         }
-        var _S911 : f32 = bd_2.sums_0[i32(0)];
-        var _S912 : f32 = bd_2.comps_0[i32(0)];
-        comp_add1_0(&(_S911), &(_S912), _S910.dissipated_1);
-        bd_2.sums_0[i32(0)] = _S911;
-        bd_2.comps_0[i32(0)] = _S912;
-        var _S913 : f32 = bd_2.sums_0[i32(1)];
-        var _S914 : f32 = bd_2.comps_0[i32(1)];
-        comp_add1_0(&(_S913), &(_S914), _S910.overshoot_0);
-        bd_2.sums_0[i32(1)] = _S913;
-        bd_2.comps_0[i32(1)] = _S914;
-        bd_2.force_lin_0 = vec4<f32>(_S910.force_lin_1, _S910.stored_0);
-        bd_2.force_ang_0 = vec4<f32>(_S910.force_ang_1, max(bd_2.force_ang_0.w, _S910.state_1.utilization_0));
-        var _S915 : bool;
+        var _S912 : f32 = bd_2.sums_0[i32(0)];
+        var _S913 : f32 = bd_2.comps_0[i32(0)];
+        comp_add1_0(&(_S912), &(_S913), _S911.dissipated_1);
+        bd_2.sums_0[i32(0)] = _S912;
+        bd_2.comps_0[i32(0)] = _S913;
+        var _S914 : f32 = bd_2.sums_0[i32(1)];
+        var _S915 : f32 = bd_2.comps_0[i32(1)];
+        comp_add1_0(&(_S914), &(_S915), _S911.overshoot_0);
+        bd_2.sums_0[i32(1)] = _S914;
+        bd_2.comps_0[i32(1)] = _S915;
+        bd_2.force_lin_0 = vec4<f32>(_S911.force_lin_1, _S911.stored_0);
+        bd_2.force_ang_0 = vec4<f32>(_S911.force_ang_1, max(bd_2.force_ang_0.w, _S911.state_1.utilization_0));
+        var _S916 : bool;
         if(!is_damaged_1(previous_2))
         {
-            _S915 = is_damaged_1(_S910.state_1);
-        }
-        else
-        {
-            _S915 = false;
-        }
-        var _S916 : bool;
-        if(_S915)
-        {
-            _S916 = (bd_2.events_0.x) == u32(0);
+            _S916 = is_damaged_1(_S911.state_1);
         }
         else
         {
             _S916 = false;
         }
+        var _S917 : bool;
         if(_S916)
         {
-            bd_2.events_0[i32(0)] = _S904;
-            bd_2.events_0[i32(3)] = _S910.state_1.mode_0;
-            g_seen_0[u32(3)] = u32(1);
-        }
-        var _S917 : bool;
-        if((bd_2.events_0.y) == u32(0))
-        {
-            _S917 = (_S910.state_1.life_0) != (previous_2.life_0);
+            _S917 = (bd_2.events_0.x) == u32(0);
         }
         else
         {
             _S917 = false;
         }
-        var _S918 : bool;
         if(_S917)
         {
-            _S918 = (_S910.fatigue_before_0) > 0.99000000953674316f;
+            bd_2.events_0[i32(0)] = _S905;
+            bd_2.events_0[i32(3)] = _S911.state_1.mode_0;
+            g_seen_0[u32(3)] = u32(1);
+        }
+        var _S918 : bool;
+        if((bd_2.events_0.y) == u32(0))
+        {
+            _S918 = (_S911.state_1.life_0) != (previous_2.life_0);
         }
         else
         {
@@ -9876,29 +9900,38 @@ fn settled_fatigue(@builtin(workgroup_id) group_6 : vec3<u32>, @builtin(local_in
         var _S919 : bool;
         if(_S918)
         {
-            var _S920 : f32 = fatigue_factor_2(&(_S909), _S910.state_1.life_0);
-            _S919 = _S920 <= 0.99000000953674316f;
+            _S919 = (_S911.fatigue_before_0) > 0.99000000953674316f;
         }
         else
         {
             _S919 = false;
         }
+        var _S920 : bool;
         if(_S919)
         {
-            bd_2.events_0[i32(1)] = _S904;
+            var _S921 : f32 = fatigue_factor_2(&(_S910), _S911.state_1.life_0);
+            _S920 = _S921 <= 0.99000000953674316f;
+        }
+        else
+        {
+            _S920 = false;
+        }
+        if(_S920)
+        {
+            bd_2.events_0[i32(1)] = _S905;
             g_seen_0[u32(4)] = u32(1);
         }
         var flags_6 : u32;
-        if(_S910.disconnected_0)
+        if(_S911.disconnected_0)
         {
-            bd_2.events_0[i32(2)] = _S904;
+            bd_2.events_0[i32(2)] = _S905;
             flags_6 = (flags_5 | (u32(32)));
         }
         else
         {
             flags_6 = flags_5;
         }
-        bd_2.js_0 = _S910.state_1;
+        bd_2.js_0 = _S911.state_1;
         bond_dyn_0[i_24].js_0.damage_0 = bd_2.js_0.damage_0;
         bond_dyn_0[i_24].js_0.crush_1 = bd_2.js_0.crush_1;
         bond_dyn_0[i_24].js_0.kappa_0 = bd_2.js_0.kappa_0;
@@ -9924,7 +9957,7 @@ fn settled_fatigue(@builtin(workgroup_id) group_6 : vec3<u32>, @builtin(local_in
         bond_dyn_0[i_24].sums_0 = bd_2.sums_0;
         bond_dyn_0[i_24].comps_0 = bd_2.comps_0;
         bond_dyn_0[i_24].events_0 = bd_2.events_0;
-        write_bond_loads_0(i_24, i_24, _S910.force_lin_1, _S910.force_ang_1, max(_S910.measures_0.tension_0, _S910.measures_0.compression_0));
+        write_bond_loads_0(i_24, i_24, _S911.force_lin_1, _S911.force_ang_1, max(_S911.measures_0.tension_0, _S911.measures_0.compression_0));
         if(((flags_6 & (u32(16)))) != u32(0))
         {
             g_halt_0 = u32(1);
@@ -9942,7 +9975,7 @@ fn settled_fatigue(@builtin(workgroup_id) group_6 : vec3<u32>, @builtin(local_in
     }
     if(((g_halt_0 | (g_run_0))) != u32(0))
     {
-        var _S921 : u32 = isl_34.info_0.z;
+        var _S922 : u32 = isl_34.info_0.z;
         if(g_halt_0 != u32(0))
         {
             i_24 = u32(16);
@@ -9951,7 +9984,7 @@ fn settled_fatigue(@builtin(workgroup_id) group_6 : vec3<u32>, @builtin(local_in
         {
             i_24 = u32(0);
         }
-        var _S922 : u32 = (_S921 | (i_24));
+        var _S923 : u32 = (_S922 | (i_24));
         if(g_run_0 != u32(0))
         {
             i_24 = u32(32);
@@ -9960,9 +9993,9 @@ fn settled_fatigue(@builtin(workgroup_id) group_6 : vec3<u32>, @builtin(local_in
         {
             i_24 = u32(0);
         }
-        islands_0[_S902].info_0[i32(2)] = (_S922 | (i_24));
+        islands_0[_S903].info_0[i32(2)] = (_S923 | (i_24));
     }
-    var _S923 : u32 = ((((isl_34.coverage_0) | (u32(16384)))) | ((seen_bits_0())));
+    var _S924 : u32 = ((((isl_34.coverage_0) | (u32(16384)))) | ((seen_bits_0())));
     if(g_run_0 != u32(0))
     {
         i_24 = u32(128);
@@ -9971,7 +10004,7 @@ fn settled_fatigue(@builtin(workgroup_id) group_6 : vec3<u32>, @builtin(local_in
     {
         i_24 = u32(0);
     }
-    islands_0[_S902].coverage_0 = (_S923 | (i_24));
+    islands_0[_S903].coverage_0 = (_S924 | (i_24));
     return;
 }
 
@@ -10005,25 +10038,25 @@ fn impactor_integrate_at_0( ii_3 : u32,  tid_28 : u32)
     imp_6.cand_0 = impactors_0[ii_3].cand_0;
     imp_6.momentum_1 = impactors_0[ii_3].momentum_1;
     imp_6.momentum_err_1 = impactors_0[ii_3].momentum_err_1;
-    var _S924 : vec4<u32> = islands_0[params_0.halt_index_0].info_0;
-    var _S925 : bool;
+    var _S925 : vec4<u32> = islands_0[params_0.halt_index_0].info_0;
+    var _S926 : bool;
     if((((islands_0[params_0.halt_index_0].info_0.z) & (u32(1)))) != u32(0))
     {
-        _S925 = true;
+        _S926 = true;
     }
     else
     {
-        var _S926 : u32 = _S924.y;
-        if(_S926 != u32(0))
+        var _S927 : u32 = _S925.y;
+        if(_S927 != u32(0))
         {
-            _S925 = (imp_6.cand_0.w) >= _S926;
+            _S926 = (imp_6.cand_0.w) >= _S927;
         }
         else
         {
-            _S925 = false;
+            _S926 = false;
         }
     }
-    if(_S925)
+    if(_S926)
     {
         return;
     }
@@ -10035,9 +10068,9 @@ fn impactor_integrate_at_0( ii_3 : u32,  tid_28 : u32)
         }
         return;
     }
-    var _S927 : vec4<f32> = vec4<f32>(0.0f);
-    var rf_1 : vec4<f32> = _S927;
-    var rt_0 : vec4<f32> = _S927;
+    var _S928 : vec4<f32> = vec4<f32>(0.0f);
+    var rf_1 : vec4<f32> = _S928;
+    var rt_0 : vec4<f32> = _S928;
     var k_26 : u32 = imp_6.cand_0.x + tid_28;
     loop
     {
@@ -10048,9 +10081,9 @@ fn impactor_integrate_at_0( ii_3 : u32,  tid_28 : u32)
         {
             break;
         }
-        var _S928 : u32 = u32(3) * k_26;
-        rf_1 = rf_1 + scratch_0[params_0.cand_base_0 + _S928 + u32(1)];
-        rt_0 = rt_0 + scratch_0[params_0.cand_base_0 + _S928 + u32(2)];
+        var _S929 : u32 = u32(3) * k_26;
+        rf_1 = rf_1 + scratch_0[params_0.cand_base_0 + _S929 + u32(1)];
+        rt_0 = rt_0 + scratch_0[params_0.cand_base_0 + _S929 + u32(2)];
         k_26 = k_26 + u32(256);
     }
     group_sum2_3(tid_28, &(rf_1), &(rt_0));
@@ -10059,16 +10092,16 @@ fn impactor_integrate_at_0( ii_3 : u32,  tid_28 : u32)
         return;
     }
     var dt_18 : f32 = params_0.dt_0;
-    var _S929 : vec3<f32> = vec3<f32>(0.0f);
+    var _S930 : vec3<f32> = vec3<f32>(0.0f);
     var load_f_0 : vec3<f32>;
     var load_t_0 : vec3<f32>;
     if((params_0.has_ground_0) != u32(0))
     {
-        var ib_0 : Box_0 = impactor_box_0(imp_6, _S929, imp_6.half_1.xyz);
-        var _S930 : vec3<f32> = imp_6.velocity_1.xyz + imp_6.velocity_err_1.xyz;
-        const _S931 : vec3<f32> = vec3<f32>(0.0f, 0.0f, 1.0f);
-        var kc_2 : f32 = contact_stiffness_0(params_0.ground_modulus_0, ib_0, imp_6.mat_0.x, ib_0, _S931);
-        var _S932 : f32 = imp_6.position_1.z - params_0.ground_hi_0 + (imp_6.position_err_1.z - params_0.ground_lo_0);
+        var ib_0 : Box_0 = impactor_box_0(imp_6, _S930, imp_6.half_1.xyz);
+        var _S931 : vec3<f32> = imp_6.velocity_1.xyz + imp_6.velocity_err_1.xyz;
+        const _S932 : vec3<f32> = vec3<f32>(0.0f, 0.0f, 1.0f);
+        var kc_2 : f32 = contact_stiffness_0(params_0.ground_modulus_0, ib_0, imp_6.mat_0.x, ib_0, _S932);
+        var _S933 : f32 = imp_6.position_1.z - params_0.ground_hi_0 + (imp_6.position_err_1.z - params_0.ground_lo_0);
         var total_points_0 : u32;
         if((imp_6.shape_0.x) == 0.0f)
         {
@@ -10078,7 +10111,7 @@ fn impactor_integrate_at_0( ii_3 : u32,  tid_28 : u32)
         {
             total_points_0 = u32(14);
         }
-        var _S933 : f32 = kc_2 / f32(min(total_points_0, u32(5)));
+        var _S934 : f32 = kc_2 / f32(min(total_points_0, u32(5)));
         var s_17 : u32 = u32(0);
         var below_0 : u32 = u32(0);
         loop
@@ -10098,7 +10131,7 @@ fn impactor_integrate_at_0( ii_3 : u32,  tid_28 : u32)
             {
                 p_23 = sample_point_0(ib_0, s_17);
             }
-            if((_S932 + p_23.z) < 0.0f)
+            if((_S933 + p_23.z) < 0.0f)
             {
                 below_0 = below_0 + u32(1);
             }
@@ -10109,8 +10142,8 @@ fn impactor_integrate_at_0( ii_3 : u32,  tid_28 : u32)
             sentinel_mark_0(u32(8));
         }
         s_17 = u32(0);
-        load_f_0 = _S929;
-        load_t_0 = _S929;
+        load_f_0 = _S930;
+        load_t_0 = _S930;
         loop
         {
             if(s_17 < total_points_0)
@@ -10128,7 +10161,7 @@ fn impactor_integrate_at_0( ii_3 : u32,  tid_28 : u32)
             {
                 p_23 = sample_point_0(ib_0, s_17);
             }
-            var depth_6 : f32 = - (_S932 + p_23.z);
+            var depth_6 : f32 = - (_S933 + p_23.z);
             if(depth_6 <= 0.0f)
             {
                 s_17 = s_17 + u32(1);
@@ -10136,14 +10169,14 @@ fn impactor_integrate_at_0( ii_3 : u32,  tid_28 : u32)
             }
             var stored_15 : f32;
             var diss_7 : f32;
-            var f_21 : vec3<f32> = penalty_force_0(_S933, imp_6.mat_0.z, params_0.ground_friction_0, depth_6, _S931, _S930 + cross(imp_6.angular_velocity_1.xyz, p_23), dt_18, below_0, &(stored_15), &(diss_7));
+            var f_21 : vec3<f32> = penalty_force_0(_S934, imp_6.mat_0.z, params_0.ground_friction_0, depth_6, _S932, _S931 + cross(imp_6.angular_velocity_1.xyz, p_23), dt_18, below_0, &(stored_15), &(diss_7));
             var load_f_1 : vec3<f32> = load_f_0 + f_21;
             var load_t_1 : vec3<f32> = load_t_0 + cross(p_23, f_21);
-            var _S934 : f32 = imp_6.ledger_0[i32(0)];
-            var _S935 : f32 = imp_6.ledger_0[i32(1)];
-            comp_add1_3(&(_S934), &(_S935), diss_7);
-            imp_6.ledger_0[i32(0)] = _S934;
-            imp_6.ledger_0[i32(1)] = _S935;
+            var _S935 : f32 = imp_6.ledger_0[i32(0)];
+            var _S936 : f32 = imp_6.ledger_0[i32(1)];
+            comp_add1_3(&(_S935), &(_S936), diss_7);
+            imp_6.ledger_0[i32(0)] = _S935;
+            imp_6.ledger_0[i32(1)] = _S936;
             load_f_0 = load_f_1;
             load_t_0 = load_t_1;
             s_17 = s_17 + u32(1);
@@ -10151,27 +10184,27 @@ fn impactor_integrate_at_0( ii_3 : u32,  tid_28 : u32)
     }
     else
     {
-        load_f_0 = _S929;
-        load_t_0 = _S929;
+        load_f_0 = _S930;
+        load_t_0 = _S930;
     }
     var load_f_2 : vec3<f32> = rf_1.xyz + load_f_0;
     var load_t_2 : vec3<f32> = rt_0.xyz + load_t_0;
     var m_9 : f32 = imp_6.mat_0.z;
     var vel_1 : vec3<f32> = imp_6.velocity_1.xyz;
     var vel_err_1 : vec3<f32> = imp_6.velocity_err_1.xyz;
-    var _S936 : vec3<f32> = vec3<f32>(dt_18);
-    comp_add_1(&(vel_1), &(vel_err_1), (load_f_2 / vec3<f32>(m_9) + params_0.gravity_0.xyz) * _S936);
-    var _S937 : Quat_0 = quat_of_0(imp_6.rotation_1);
-    var q_14 : Quat_0 = _S937;
+    var _S937 : vec3<f32> = vec3<f32>(dt_18);
+    comp_add_1(&(vel_1), &(vel_err_1), (load_f_2 / vec3<f32>(m_9) + params_0.gravity_0.xyz) * _S937);
+    var _S938 : Quat_0 = quat_of_0(imp_6.rotation_1);
+    var q_14 : Quat_0 = _S938;
     var q_err_0 : vec4<f32> = imp_6.rotation_err_1;
     var l_hi_0 : vec3<f32> = imp_6.momentum_1.xyz;
     var l_err_1 : vec3<f32> = imp_6.momentum_err_1.xyz;
-    comp_add_1(&(l_hi_0), &(l_err_1), load_t_2 * _S936);
+    comp_add_1(&(l_hi_0), &(l_err_1), load_t_2 * _S937);
     var l_9 : vec3<f32> = l_hi_0 + l_err_1;
-    var w_mid_2 : vec3<f32> = world_mul_0(_S937, imp_6.inv0_2, imp_6.inv1_2, imp_6.inv2_2, l_9);
+    var w_mid_2 : vec3<f32> = world_mul_0(_S938, imp_6.inv0_2, imp_6.inv1_2, imp_6.inv2_2, l_9);
     var pos_1 : vec3<f32> = imp_6.position_1.xyz;
     var pos_err_1 : vec3<f32> = imp_6.position_err_1.xyz;
-    comp_add_1(&(pos_1), &(pos_err_1), (vel_1 + vel_err_1) * _S936);
+    comp_add_1(&(pos_1), &(pos_err_1), (vel_1 + vel_err_1) * _S937);
     turn_left_1(&(q_14), &(q_err_0), w_mid_2, dt_18);
     imp_6.angular_velocity_1 = vec4<f32>(world_mul_0(q_14, imp_6.inv0_2, imp_6.inv1_2, imp_6.inv2_2, l_9), 0.0f);
     imp_6.rotation_1 = quat_vec_0(q_14);
@@ -10233,14 +10266,14 @@ fn ground_contact_0( c_49 : u32,  account_0 : bool,  f_22 : ptr<function, vec3<f
         return;
     }
     var b_53 : Box_0 = chunk_box_0(c_49, vec3<f32>(0.0f));
-    const _S938 : vec3<f32> = vec3<f32>(0.0f, 0.0f, 1.0f);
-    var _S939 : f32 = contact_stiffness_0(params_0.ground_modulus_0, b_53, chunks_0[c_49].cmat_0.x, b_53, _S938);
-    var _S940 : u32 = sample_count_0(b_53);
+    const _S939 : vec3<f32> = vec3<f32>(0.0f, 0.0f, 1.0f);
+    var _S940 : f32 = contact_stiffness_0(params_0.ground_modulus_0, b_53, chunks_0[c_49].cmat_0.x, b_53, _S939);
+    var _S941 : u32 = sample_count_0(b_53);
     var s_18 : u32 = u32(0);
     var n_12 : u32 = u32(0);
     loop
     {
-        if(s_18 < _S940)
+        if(s_18 < _S941)
         {
         }
         else
@@ -10265,7 +10298,7 @@ fn ground_contact_0( c_49 : u32,  account_0 : bool,  f_22 : ptr<function, vec3<f
     s_18 = u32(0);
     loop
     {
-        if(s_18 < _S940)
+        if(s_18 < _S941)
         {
         }
         else
@@ -10273,22 +10306,22 @@ fn ground_contact_0( c_49 : u32,  account_0 : bool,  f_22 : ptr<function, vec3<f
             break;
         }
         var p_24 : vec3<f32> = sample_point_0(b_53, s_18);
-        var _S941 : f32 = above_0 + p_24.z;
-        if(!(_S941 < 0.0f))
+        var _S942 : f32 = above_0 + p_24.z;
+        if(!(_S942 < 0.0f))
         {
             s_18 = s_18 + u32(1);
             continue;
         }
         var stored_16 : f32;
         var diss_8 : f32;
-        var g_3 : vec3<f32> = penalty_force_2(_S939 / f32(max(n_12, u32(5))), chunks_0[c_49].center_0.w, params_0.ground_friction_0, - _S941, _S938, vc_1 + cross(wc_1, p_24), params_0.dt_0, n_12, &(stored_16), &(diss_8));
+        var g_3 : vec3<f32> = penalty_force_2(_S940 / f32(max(n_12, u32(5))), chunks_0[c_49].center_0.w, params_0.ground_friction_0, - _S942, _S939, vc_1 + cross(wc_1, p_24), params_0.dt_0, n_12, &(stored_16), &(diss_8));
         (*f_22) = (*f_22) + g_3;
         (*t_23) = (*t_23) + cross(p_24, g_3);
-        var _S942 : f32 = ledger_2[i32(1)];
-        var _S943 : f32 = ledger_2[i32(2)];
-        comp_add1_0(&(_S942), &(_S943), diss_8);
-        ledger_2[i32(1)] = _S942;
-        ledger_2[i32(2)] = _S943;
+        var _S943 : f32 = ledger_2[i32(1)];
+        var _S944 : f32 = ledger_2[i32(2)];
+        comp_add1_0(&(_S943), &(_S944), diss_8);
+        ledger_2[i32(1)] = _S943;
+        ledger_2[i32(2)] = _S944;
         s_18 = s_18 + u32(1);
     }
     if(account_0)
@@ -10300,30 +10333,30 @@ fn ground_contact_0( c_49 : u32,  account_0 : bool,  f_22 : ptr<function, vec3<f
 
 fn contact_sum_at_0( g_4 : u32)
 {
-    var _S944 : bool;
+    var _S945 : bool;
     if(g_4 >= (params_0.seg_count_0))
     {
-        _S944 = true;
+        _S945 = true;
     }
     else
     {
-        _S944 = stopped_0();
+        _S945 = stopped_0();
     }
-    if(_S944)
+    if(_S945)
     {
         return;
     }
-    var _S945 : u32 = u32(3) * g_4;
-    var _S946 : u32 = index_0[params_0.seg_index_0 + _S945];
-    var begin_1 : u32 = index_0[params_0.seg_index_0 + _S945 + u32(1)];
-    var _S947 : u32 = index_0[params_0.seg_index_0 + _S945 + u32(2)];
-    var _S948 : vec3<f32> = vec3<f32>(0.0f);
-    var f_23 : vec3<f32> = _S948;
-    var t_24 : vec3<f32> = _S948;
+    var _S946 : u32 = u32(3) * g_4;
+    var _S947 : u32 = index_0[params_0.seg_index_0 + _S946];
+    var begin_1 : u32 = index_0[params_0.seg_index_0 + _S946 + u32(1)];
+    var _S948 : u32 = index_0[params_0.seg_index_0 + _S946 + u32(2)];
+    var _S949 : vec3<f32> = vec3<f32>(0.0f);
+    var f_23 : vec3<f32> = _S949;
+    var t_24 : vec3<f32> = _S949;
     var e_8 : u32 = begin_1;
     loop
     {
-        if(e_8 < _S947)
+        if(e_8 < _S948)
         {
         }
         else
@@ -10333,18 +10366,18 @@ fn contact_sum_at_0( g_4 : u32)
         var entry_7 : u32 = index_0[e_8];
         if(entry_7 == u32(2147483648))
         {
-            ground_contact_0(_S946, true, &(f_23), &(t_24));
+            ground_contact_0(_S947, true, &(f_23), &(t_24));
             e_8 = e_8 + u32(1);
             continue;
         }
-        var _S949 : u32 = u32(2) * entry_7;
-        f_23 = f_23 + scratch_0[params_0.slot_base_0 + _S949].xyz;
-        t_24 = t_24 + scratch_0[params_0.slot_base_0 + _S949 + u32(1)].xyz;
+        var _S950 : u32 = u32(2) * entry_7;
+        f_23 = f_23 + scratch_0[params_0.slot_base_0 + _S950].xyz;
+        t_24 = t_24 + scratch_0[params_0.slot_base_0 + _S950 + u32(1)].xyz;
         e_8 = e_8 + u32(1);
     }
-    var _S950 : u32 = u32(2) * g_4;
-    scratch_0[params_0.seg_base_0 + _S950] = vec4<f32>(f_23, 0.0f);
-    scratch_0[params_0.seg_base_0 + _S950 + u32(1)] = vec4<f32>(t_24, 0.0f);
+    var _S951 : u32 = u32(2) * g_4;
+    scratch_0[params_0.seg_base_0 + _S951] = vec4<f32>(f_23, 0.0f);
+    scratch_0[params_0.seg_base_0 + _S951 + u32(1)] = vec4<f32>(t_24, 0.0f);
     return;
 }
 
@@ -10364,28 +10397,28 @@ fn net_load_1( c_50 : u32,  isl_35 : ptr<function, Island_std430_0>,  rg_19 : Ri
     var rep_m_2 : vec3<f32>;
     chunk_loads_1(c_50, c_50, rg_19.rot_0, k_28, dt_19, contact_5, 0.0f, &(fl_1), &(tl_1), &(rep_f_2), &(rep_m_2));
     var fc_5 : vec3<f32> = fl_1 + params_0.gravity_0.xyz * vec3<f32>(chunks_0[c_50].center_0.w);
-    var _S951 : vec3<f32> = chunks_0[c_50].center_0.xyz;
-    var _S952 : vec3<f32> = (*isl_35).com_0.xyz;
-    var r_17 : vec3<f32> = rotate_0(rg_19.rot_0, _S951 + state_0[u32(4) * c_50].xyz - _S952);
+    var _S952 : vec3<f32> = chunks_0[c_50].center_0.xyz;
+    var _S953 : vec3<f32> = (*isl_35).com_0.xyz;
+    var r_17 : vec3<f32> = rotate_0(rg_19.rot_0, _S952 + state_0[u32(4) * c_50].xyz - _S953);
     (*f_24) = (*f_24) + fc_5;
     (*t_25) = (*t_25) + (cross(r_17, fc_5) + tl_1);
     if((chunks_0[c_50].load_range_0.y) > (chunks_0[c_50].load_range_0.x))
     {
         var fw_3 : vec3<f32> = rotate_0(rg_19.rot_0, rep_f_2);
         (*f_24) = (*f_24) + fw_3;
-        (*t_25) = (*t_25) + (cross(rotate_0(rg_19.rot_0, _S951 - _S952), fw_3) + rotate_0(rg_19.rot_0, rep_m_2));
+        (*t_25) = (*t_25) + (cross(rotate_0(rg_19.rot_0, _S952 - _S953), fw_3) + rotate_0(rg_19.rot_0, rep_m_2));
     }
     return;
 }
 
 fn chunk_update_1( c_51 : u32,  isl_36 : ptr<function, Island_std430_0>,  rg_20 : Rigid_0,  dt_20 : f32,  rml_1 : bool,  step_1 : u32,  contact_6 : bool,  work_7 : ptr<function, f32>,  work_err_3 : ptr<function, f32>)
 {
-    var _S953 : vec3<f32> = vec3<f32>(0.0f);
-    var _S954 : u32 = index_0[c_51];
+    var _S954 : vec3<f32> = vec3<f32>(0.0f);
+    var _S955 : u32 = index_0[c_51];
     var peak_1 : f32 = 0.0f;
-    var e_9 : u32 = _S954;
-    var fi_6 : vec3<f32> = _S953;
-    var mi_7 : vec3<f32> = _S953;
+    var e_9 : u32 = _S955;
+    var fi_6 : vec3<f32> = _S954;
+    var mi_7 : vec3<f32> = _S954;
     loop
     {
         if(e_9 < index_0[c_51 + u32(1)])
@@ -10396,52 +10429,52 @@ fn chunk_update_1( c_51 : u32,  isl_36 : ptr<function, Island_std430_0>,  rg_20 
             break;
         }
         var entry_8 : u32 = index_0[e_9];
-        var _S955 : u32 = u32(3) * ((entry_8 >> (u32(1))));
-        var fa_2 : vec4<f32> = scratch_0[_S955];
+        var _S956 : u32 = u32(3) * ((entry_8 >> (u32(1))));
+        var fa_2 : vec4<f32> = scratch_0[_S956];
         if(((entry_8 & (u32(1)))) == u32(0))
         {
-            var mi_8 : vec3<f32> = mi_7 + scratch_0[_S955 + u32(1)].xyz;
+            var mi_8 : vec3<f32> = mi_7 + scratch_0[_S956 + u32(1)].xyz;
             fi_6 = fi_6 + fa_2.xyz;
             mi_7 = mi_8;
         }
         else
         {
-            var mi_9 : vec3<f32> = mi_7 + scratch_0[_S955 + u32(2)].xyz;
+            var mi_9 : vec3<f32> = mi_7 + scratch_0[_S956 + u32(2)].xyz;
             fi_6 = fi_6 + (vec3<f32>(0) - fa_2.xyz);
             mi_7 = mi_9;
         }
-        var _S956 : f32 = max(peak_1, fa_2.w);
-        var _S957 : u32 = e_9 + u32(1);
-        peak_1 = _S956;
-        e_9 = _S957;
+        var _S957 : f32 = max(peak_1, fa_2.w);
+        var _S958 : u32 = e_9 + u32(1);
+        peak_1 = _S957;
+        e_9 = _S958;
     }
-    var _S958 : u32 = u32(4) * c_51;
-    var u_5 : vec3<f32> = state_0[_S958].xyz;
-    var _S959 : u32 = _S958 + u32(1);
-    var th_7 : vec3<f32> = state_0[_S959].xyz;
-    var _S960 : u32 = _S958 + u32(2);
-    var v_13 : vec3<f32> = state_0[_S960].xyz;
-    var _S961 : u32 = _S958 + u32(3);
-    var w_9 : vec3<f32> = state_0[_S961].xyz;
+    var _S959 : u32 = u32(4) * c_51;
+    var u_5 : vec3<f32> = state_0[_S959].xyz;
+    var _S960 : u32 = _S959 + u32(1);
+    var th_7 : vec3<f32> = state_0[_S960].xyz;
+    var _S961 : u32 = _S959 + u32(2);
+    var v_13 : vec3<f32> = state_0[_S961].xyz;
+    var _S962 : u32 = _S959 + u32(3);
+    var w_9 : vec3<f32> = state_0[_S962].xyz;
     var mass_1 : f32 = chunks_0[c_51].center_0.w;
-    var _S962 : vec3<f32> = chunks_0[c_51].center_0.xyz;
-    var _S963 : vec3<f32> = (*isl_36).com_0.xyz;
-    var r_world_1 : vec3<f32> = rotate_0(rg_20.rot_0, _S962 + u_5 - _S963);
+    var _S963 : vec3<f32> = chunks_0[c_51].center_0.xyz;
+    var _S964 : vec3<f32> = (*isl_36).com_0.xyz;
+    var r_world_1 : vec3<f32> = rotate_0(rg_20.rot_0, _S963 + u_5 - _S964);
     var f_load_1 : vec3<f32>;
     var t_load_1 : vec3<f32>;
     var rep_f_3 : vec3<f32>;
     var rep_m_3 : vec3<f32>;
     chunk_loads_1(c_51, c_51, rg_20.rot_0, step_1, dt_20, contact_6, dt_20, &(f_load_1), &(t_load_1), &(rep_f_3), &(rep_m_3));
     record_chunk_load_0(c_51, f_load_1, t_load_1);
-    var _S964 : vec3<f32> = vec3<f32>(mass_1);
-    var f_world_2 : vec3<f32> = f_load_1 + params_0.gravity_0.xyz * _S964;
+    var _S965 : vec3<f32> = vec3<f32>(mass_1);
+    var f_world_2 : vec3<f32> = f_load_1 + params_0.gravity_0.xyz * _S965;
     var t_world_3 : vec3<f32> = t_load_1;
     var f_world_3 : vec3<f32>;
     var t_world_4 : vec3<f32>;
     if(rml_1)
     {
         var t_world_5 : vec3<f32> = t_world_3 - (world_mul_0(rg_20.rot_0, chunks_0[c_51].inertia0_1, chunks_0[c_51].inertia1_1, chunks_0[c_51].inertia2_1, rg_20.alpha_0) + cross(rg_20.w_1, world_mul_0(rg_20.rot_0, chunks_0[c_51].inertia0_1, chunks_0[c_51].inertia1_1, chunks_0[c_51].inertia2_1, rg_20.w_1)));
-        f_world_3 = f_world_2 - (rg_20.a_0 + cross(rg_20.alpha_0, r_world_1) + cross(rg_20.w_1, cross(rg_20.w_1, r_world_1))) * _S964;
+        f_world_3 = f_world_2 - (rg_20.a_0 + cross(rg_20.alpha_0, r_world_1) + cross(rg_20.w_1, cross(rg_20.w_1, r_world_1))) * _S965;
         t_world_4 = t_world_5;
     }
     else
@@ -10469,7 +10502,7 @@ fn chunk_update_1( c_51 : u32,  isl_36 : ptr<function, Island_std430_0>,  rg_20 
     var f_25 : vec3<f32> = f_ext_3 + rep_f_3 + fi_6;
     var m_10 : vec3<f32> = m_ext_4 + rep_m_3 + mi_7;
     var support_2 : u32 = chunks_0[c_51].info_1.x;
-    var _S965 : vec3<f32> = vec3<f32>(state_0[_S959].w, state_0[_S960].w, state_0[_S961].w);
+    var _S966 : vec3<f32> = vec3<f32>(state_0[_S960].w, state_0[_S961].w, state_0[_S962].w);
     var reaction_2 : vec3<f32>;
     var u_6 : vec3<f32>;
     var th_8 : vec3<f32>;
@@ -10480,48 +10513,48 @@ fn chunk_update_1( c_51 : u32,  isl_36 : ptr<function, Island_std430_0>,  rg_20 
         reaction_2 = (vec3<f32>(0) - f_25);
         u_6 = u_5;
         th_8 = th_7;
-        v_14 = _S953;
-        w_10 = _S953;
+        v_14 = _S954;
+        w_10 = _S954;
     }
     else
     {
-        var _S966 : vec4<f32> = chunks_0[c_51].scale_0;
+        var _S967 : vec4<f32> = chunks_0[c_51].scale_0;
         var w_11 : vec3<f32> = w_9 + rows_mul_0(chunks_0[c_51].inv0_1, chunks_0[c_51].inv1_1, chunks_0[c_51].inv2_1, m_10) * vec3<f32>((dt_20 * chunks_0[c_51].scale_0.z));
-        var _S967 : vec3<f32> = vec3<f32>(dt_20);
-        var th_9 : vec3<f32> = th_7 + w_11 * _S967;
+        var _S968 : vec3<f32> = vec3<f32>(dt_20);
+        var th_9 : vec3<f32> = th_7 + w_11 * _S968;
         if(support_2 == u32(2))
         {
             reaction_2 = (vec3<f32>(0) - f_25);
             u_6 = u_5;
-            th_8 = _S953;
+            th_8 = _S954;
         }
         else
         {
-            var v_15 : vec3<f32> = v_13 + f_25 * vec3<f32>((dt_20 * _S966.y));
-            var u_7 : vec3<f32> = u_5 + v_15 * _S967;
-            reaction_2 = _S965;
+            var v_15 : vec3<f32> = v_13 + f_25 * vec3<f32>((dt_20 * _S967.y));
+            var u_7 : vec3<f32> = u_5 + v_15 * _S968;
+            reaction_2 = _S966;
             u_6 = u_7;
             th_8 = v_15;
         }
-        var _S968 : vec3<f32> = th_8;
+        var _S969 : vec3<f32> = th_8;
         th_8 = th_9;
-        v_14 = _S968;
+        v_14 = _S969;
         w_10 = w_11;
     }
-    state_0[_S958] = vec4<f32>(u_6, peak_1);
-    state_0[_S959] = vec4<f32>(th_8, reaction_2.x);
-    state_0[_S960] = vec4<f32>(v_14, reaction_2.y);
-    state_0[_S961] = vec4<f32>(w_10, reaction_2.z);
-    comp_add1_0(&((*work_7)), &((*work_err_3)), (dot(f_load_1, rg_20.vel_0 + rg_20.vel_err_0 + cross(rg_20.w_1, rotate_0(rg_20.rot_0, _S962 + u_6 - _S963)) + rotate_0(rg_20.rot_0, v_14)) + dot(t_load_1, rg_20.w_1 + rotate_0(rg_20.rot_0, w_10))) * dt_20);
+    state_0[_S959] = vec4<f32>(u_6, peak_1);
+    state_0[_S960] = vec4<f32>(th_8, reaction_2.x);
+    state_0[_S961] = vec4<f32>(v_14, reaction_2.y);
+    state_0[_S962] = vec4<f32>(w_10, reaction_2.z);
+    comp_add1_0(&((*work_7)), &((*work_err_3)), (dot(f_load_1, rg_20.vel_0 + rg_20.vel_err_0 + cross(rg_20.w_1, rotate_0(rg_20.rot_0, _S963 + u_6 - _S964)) + rotate_0(rg_20.rot_0, v_14)) + dot(t_load_1, rg_20.w_1 + rotate_0(rg_20.rot_0, w_10))) * dt_20);
     return;
 }
 
 fn drift_moments_1( c_52 : u32,  tu_5 : ptr<function, vec3<f32>>,  pv_5 : ptr<function, vec3<f32>>)
 {
-    var _S969 : u32 = u32(4) * c_52;
-    var _S970 : vec3<f32> = vec3<f32>((chunks_0[c_52].center_0.w * chunks_0[c_52].scale_0.x));
-    (*tu_5) = (*tu_5) + state_0[_S969].xyz * _S970;
-    (*pv_5) = (*pv_5) + state_0[_S969 + u32(2)].xyz * _S970;
+    var _S970 : u32 = u32(4) * c_52;
+    var _S971 : vec3<f32> = vec3<f32>((chunks_0[c_52].center_0.w * chunks_0[c_52].scale_0.x));
+    (*tu_5) = (*tu_5) + state_0[_S970].xyz * _S971;
+    (*pv_5) = (*pv_5) + state_0[_S970 + u32(2)].xyz * _S971;
     return;
 }
 
@@ -10544,15 +10577,15 @@ fn contact_islands(@builtin(workgroup_id) group_9 : vec3<u32>, @builtin(local_in
 fn wide_chunks_at_0( gx_0 : u32,  tid_29 : u32)
 {
     var wg_6 : WideGroup_0 = wide_group_0(params_0.wide_chunk_table_0, gx_0);
-    var _S971 : Island_std430_0 = islands_0[wg_6.island_2];
-    var _S972 : bool = wide_enter_1(tid_29, wg_6.island_2);
-    if(!_S972)
+    var _S972 : Island_std430_0 = islands_0[wg_6.island_2];
+    var _S973 : bool = wide_enter_1(tid_29, wg_6.island_2);
+    if(!_S973)
     {
         return;
     }
-    var _S973 : u32 = _S971.info_0.x;
-    var anchored_0 : bool = ((_S973 & (u32(1)))) != u32(0);
-    if(((_S973 & (u32(16)))) != u32(0))
+    var _S974 : u32 = _S972.info_0.x;
+    var anchored_0 : bool = ((_S974 & (u32(1)))) != u32(0);
+    if(((_S974 & (u32(16)))) != u32(0))
     {
         if(tid_29 == u32(0))
         {
@@ -10560,40 +10593,40 @@ fn wide_chunks_at_0( gx_0 : u32,  tid_29 : u32)
         }
         return;
     }
-    var _S974 : Rigid_0 = wide_rigid_frame_0(tid_29, &(_S971), wg_6);
+    var _S975 : Rigid_0 = wide_rigid_frame_0(tid_29, &(_S972), wg_6);
     var work_8 : f32 = 0.0f;
     var work_err_4 : f32 = 0.0f;
-    var _S975 : vec3<f32> = vec3<f32>(0.0f);
-    var tu_6 : vec3<f32> = _S975;
-    var pv_6 : vec3<f32> = _S975;
+    var _S976 : vec3<f32> = vec3<f32>(0.0f);
+    var tu_6 : vec3<f32> = _S976;
+    var pv_6 : vec3<f32> = _S976;
     var c_53 : u32 = wg_6.begin_0 + tid_29;
     if(c_53 < (wg_6.end_0))
     {
-        var _S976 : bool = (params_0.rigid_motion_loads_0) != u32(0);
-        var _S977 : u32 = wide_step_0(&(_S971));
-        chunk_update_1(c_53, &(_S971), _S974, params_0.dt_0, _S976, _S977, ((_S973 & (u32(4)))) != u32(0), &(work_8), &(work_err_4));
+        var _S977 : bool = (params_0.rigid_motion_loads_0) != u32(0);
+        var _S978 : u32 = wide_step_0(&(_S972));
+        chunk_update_1(c_53, &(_S972), _S975, params_0.dt_0, _S977, _S978, ((_S974 & (u32(4)))) != u32(0), &(work_8), &(work_err_4));
         if(!anchored_0)
         {
             drift_moments_1(c_53, &(tu_6), &(pv_6));
         }
     }
     var wsum_2 : vec3<f32> = vec3<f32>(work_8, work_err_4, 0.0f);
-    var unused_5 : vec3<f32> = _S975;
+    var unused_5 : vec3<f32> = _S976;
     group_sum3_1(tid_29, &(wsum_2), &(unused_5));
-    var _S978 : bool = !anchored_0;
-    if(_S978)
+    var _S979 : bool = !anchored_0;
+    if(_S979)
     {
         group_sum3_1(tid_29, &(tu_6), &(pv_6));
     }
     if(tid_29 == u32(0))
     {
-        var _S979 : u32 = u32(8) * gx_0;
-        scratch_0[params_0.wide_base_0 + _S979 + u32(6)] = vec4<f32>(wsum_2, 0.0f);
-        if(_S978)
+        var _S980 : u32 = u32(8) * gx_0;
+        scratch_0[params_0.wide_base_0 + _S980 + u32(6)] = vec4<f32>(wsum_2, 0.0f);
+        if(_S979)
         {
             wide_store_0(gx_0, u32(2), tu_6, pv_6);
         }
-        scratch_0[params_0.wide_base_0 + _S979 + u32(7)] = vec4<f32>(f32(g_seen_0[u32(0)]), f32(g_seen_0[u32(1)]), f32(g_seen_0[u32(2)]), 0.0f);
+        scratch_0[params_0.wide_base_0 + _S980 + u32(7)] = vec4<f32>(f32(g_seen_0[u32(0)]), f32(g_seen_0[u32(1)]), f32(g_seen_0[u32(2)]), 0.0f);
     }
     return;
 }
@@ -10611,14 +10644,14 @@ fn wide_chunks(@builtin(workgroup_id) group_10 : vec3<u32>, @builtin(local_invoc
 fn sums_and_impactors(@builtin(workgroup_id) group_11 : vec3<u32>, @builtin(local_invocation_id) thread_11 : vec3<u32>)
 {
     var sums_groups_0 : u32 = (params_0.seg_count_0 + u32(255)) / u32(256);
-    var _S980 : u32 = group_11.x;
-    if(_S980 < sums_groups_0)
+    var _S981 : u32 = group_11.x;
+    if(_S981 < sums_groups_0)
     {
-        contact_sum_at_0(_S980 * u32(256) + thread_11.x);
+        contact_sum_at_0(_S981 * u32(256) + thread_11.x);
     }
     else
     {
-        impactor_integrate_at_0(_S980 - sums_groups_0, thread_11.x);
+        impactor_integrate_at_0(_S981 - sums_groups_0, thread_11.x);
     }
     return;
 }
@@ -10627,14 +10660,14 @@ fn sums_and_impactors(@builtin(workgroup_id) group_11 : vec3<u32>, @builtin(loca
 @workgroup_size(256, 1, 1)
 fn islands_and_wide_chunks(@builtin(workgroup_id) group_12 : vec3<u32>, @builtin(local_invocation_id) thread_12 : vec3<u32>)
 {
-    var _S981 : u32 = group_12.x;
-    if(_S981 < (params_0.halt_index_0))
+    var _S982 : u32 = group_12.x;
+    if(_S982 < (params_0.halt_index_0))
     {
-        island_frame_at_1(_S981, thread_12.x);
+        island_frame_at_1(_S982, thread_12.x);
     }
     else
     {
-        wide_chunks_at_0(_S981 - params_0.halt_index_0, thread_12.x);
+        wide_chunks_at_0(_S982 - params_0.halt_index_0, thread_12.x);
     }
     return;
 }
@@ -10643,14 +10676,14 @@ fn islands_and_wide_chunks(@builtin(workgroup_id) group_12 : vec3<u32>, @builtin
 @workgroup_size(256, 1, 1)
 fn contact_islands_and_wide_chunks(@builtin(workgroup_id) group_13 : vec3<u32>, @builtin(local_invocation_id) thread_13 : vec3<u32>)
 {
-    var _S982 : u32 = group_13.x;
-    if(_S982 < (params_0.halt_index_0))
+    var _S983 : u32 = group_13.x;
+    if(_S983 < (params_0.halt_index_0))
     {
-        island_frame_at_0(_S982, thread_13.x);
+        island_frame_at_0(_S983, thread_13.x);
     }
     else
     {
-        wide_chunks_at_0(_S982 - params_0.halt_index_0, thread_13.x);
+        wide_chunks_at_0(_S983 - params_0.halt_index_0, thread_13.x);
     }
     return;
 }
@@ -10667,51 +10700,51 @@ fn wide_bonds_at_0( gx_1 : u32,  tid_30 : u32)
     {
         wg_7 = wide_group_0(params_0.wide_chunk_table_0, gx_1 - params_0.wide_bond_groups_0);
     }
-    var _S983 : WideGroup_0 = wg_7;
-    var _S984 : Island_std430_0 = islands_0[wg_7.island_2];
-    var _S985 : bool = wide_enter_1(tid_30, wg_7.island_2);
-    if(!_S985)
+    var _S984 : WideGroup_0 = wg_7;
+    var _S985 : Island_std430_0 = islands_0[wg_7.island_2];
+    var _S986 : bool = wide_enter_1(tid_30, wg_7.island_2);
+    if(!_S986)
     {
         return;
     }
-    var _S986 : u32 = wide_step_1(&(_S984));
+    var _S987 : u32 = wide_step_1(&(_S985));
     if(bond_group_0)
     {
-        var _S987 : vec4<u32> = _S984.info_0;
-        if((((_S984.info_0.x) & (u32(16)))) != u32(0))
+        var _S988 : vec4<u32> = _S985.info_0;
+        if((((_S985.info_0.x) & (u32(16)))) != u32(0))
         {
             return;
         }
         var i_25 : u32 = wg_7.begin_0 + tid_30;
-        var _S988 : bool;
+        var _S989 : bool;
         if(i_25 < (wg_7.end_0))
         {
-            var _S989 : bool = bond_update_0(i_25, params_0.dt_0, (params_0.fracture_0) != u32(0), _S987.w + u32(1), true);
-            _S988 = _S989;
+            var _S990 : bool = bond_update_0(i_25, params_0.dt_0, (params_0.fracture_0) != u32(0), _S988.w + u32(1), true);
+            _S989 = _S990;
         }
         else
         {
-            _S988 = false;
+            _S989 = false;
         }
-        if(_S988)
+        if(_S989)
         {
-            islands_0[_S983.island_2].info_0[i32(2)] = ((_S987.z) | (u32(2)));
+            islands_0[_S984.island_2].info_0[i32(2)] = ((_S988.z) | (u32(2)));
         }
         return;
     }
-    var _S990 : u32 = _S984.info_0.x;
-    if(((_S990 & (u32(1)))) != u32(0))
+    var _S991 : u32 = _S985.info_0.x;
+    if(((_S991 & (u32(1)))) != u32(0))
     {
         return;
     }
-    var _S991 : vec3<f32> = vec3<f32>(0.0f);
-    var f_26 : vec3<f32> = _S991;
-    var t_26 : vec3<f32> = _S991;
+    var _S992 : vec3<f32> = vec3<f32>(0.0f);
+    var f_26 : vec3<f32> = _S992;
+    var t_26 : vec3<f32> = _S992;
     var c_54 : u32 = wg_7.begin_0 + tid_30;
     if(c_54 < (wg_7.end_0))
     {
-        var _S992 : Rigid_0 = rigid_of_2(&(_S984));
-        net_load_1(c_54, &(_S984), _S992, _S986, params_0.dt_0, ((_S990 & (u32(4)))) != u32(0), &(f_26), &(t_26));
+        var _S993 : Rigid_0 = rigid_of_2(&(_S985));
+        net_load_1(c_54, &(_S985), _S993, _S987, params_0.dt_0, ((_S991 & (u32(4)))) != u32(0), &(f_26), &(t_26));
     }
     group_sum3_2(tid_30, &(f_26), &(t_26));
     if(tid_30 == u32(0))
@@ -10733,31 +10766,31 @@ fn bond_group_at_0( table_1 : u32,  gx_2 : u32,  tid_31 : u32)
 {
     var wg_8 : WideGroup_0 = wide_group_0(table_1, gx_2);
     var isl_37 : Island_std430_0 = islands_0[wg_8.island_2];
-    var _S993 : bool = wide_enter_1(tid_31, wg_8.island_2);
-    var _S994 : bool;
-    if(!_S993)
+    var _S994 : bool = wide_enter_1(tid_31, wg_8.island_2);
+    var _S995 : bool;
+    if(!_S994)
     {
-        _S994 = true;
+        _S995 = true;
     }
     else
     {
-        _S994 = (((isl_37.info_0.x) & (u32(16)))) != u32(0);
+        _S995 = (((isl_37.info_0.x) & (u32(16)))) != u32(0);
     }
-    if(_S994)
+    if(_S995)
     {
         return;
     }
     var i_26 : u32 = wg_8.begin_0 + tid_31;
     if(i_26 < (wg_8.end_0))
     {
-        var _S995 : bool = bond_update_0(i_26, params_0.dt_0, (params_0.fracture_0) != u32(0), isl_37.info_0.w + u32(1), true);
-        _S994 = _S995;
+        var _S996 : bool = bond_update_0(i_26, params_0.dt_0, (params_0.fracture_0) != u32(0), isl_37.info_0.w + u32(1), true);
+        _S995 = _S996;
     }
     else
     {
-        _S994 = false;
+        _S995 = false;
     }
-    if(_S994)
+    if(_S995)
     {
         islands_0[wg_8.island_2].info_0[i32(2)] = ((isl_37.info_0.z) | (u32(2)));
     }
@@ -10769,41 +10802,41 @@ fn bond_group_at_0( table_1 : u32,  gx_2 : u32,  tid_31 : u32)
 fn sums_impactors_bonds(@builtin(workgroup_id) group_15 : vec3<u32>, @builtin(local_invocation_id) thread_15 : vec3<u32>)
 {
     var sums_groups_1 : u32 = (params_0.seg_count_0 + u32(255)) / u32(256);
-    var _S996 : u32 = max(params_0.impactor_count_0, u32(1));
-    var _S997 : u32 = group_15.x;
-    if(_S997 < sums_groups_1)
+    var _S997 : u32 = max(params_0.impactor_count_0, u32(1));
+    var _S998 : u32 = group_15.x;
+    if(_S998 < sums_groups_1)
     {
-        contact_sum_at_0(_S997 * u32(256) + thread_15.x);
+        contact_sum_at_0(_S998 * u32(256) + thread_15.x);
     }
     else
     {
-        if(_S997 < (sums_groups_1 + _S996))
+        if(_S998 < (sums_groups_1 + _S997))
         {
-            impactor_integrate_at_0(_S997 - sums_groups_1, thread_15.x);
+            impactor_integrate_at_0(_S998 - sums_groups_1, thread_15.x);
         }
         else
         {
-            var gb_0 : u32 = _S997 - sums_groups_1 - _S996;
+            var gb_0 : u32 = _S998 - sums_groups_1 - _S997;
             var narrow_0 : bool = gb_0 < (params_0.contact_bond_groups_0);
-            var _S998 : u32;
-            if(narrow_0)
-            {
-                _S998 = params_0.contact_bond_table_0;
-            }
-            else
-            {
-                _S998 = params_0.wide_bond_table_0;
-            }
             var _S999 : u32;
             if(narrow_0)
             {
-                _S999 = gb_0;
+                _S999 = params_0.contact_bond_table_0;
             }
             else
             {
-                _S999 = gb_0 - params_0.contact_bond_groups_0;
+                _S999 = params_0.wide_bond_table_0;
             }
-            bond_group_at_0(_S998, _S999, thread_15.x);
+            var _S1000 : u32;
+            if(narrow_0)
+            {
+                _S1000 = gb_0;
+            }
+            else
+            {
+                _S1000 = gb_0 - params_0.contact_bond_groups_0;
+            }
+            bond_group_at_0(_S999, _S1000, thread_15.x);
         }
     }
     return;

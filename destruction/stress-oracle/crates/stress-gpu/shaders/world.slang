@@ -700,6 +700,12 @@ bool is_nan(float x)
     return (asuint(x) & 0x7fffffffu) > 0x7f800000u;
 }
 
+// Finite (neither infinite nor NaN) by its bits, as `is_nan`.
+bool is_finite(float x)
+{
+    return (asuint(x) & 0x7fffffffu) < 0x7f800000u;
+}
+
 // A sample point of the pair (entry e: a's samples, then b's) inside the other chunk:
 // its point, the normal pushing a out of b, and the depth.
 bool pair_point(Box ba, Box bb, uint na, uint e, out float3 p, out float3 n, out float d)
@@ -2921,6 +2927,8 @@ void island_statics(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
     uint cg_total = 0;
     bool converged = false;
     float previous = 1e30;
+    // The residual the solve starts from (its first iterate's).
+    float start = 1e30;
     uint max_cg = min(params.statics_cg, 20 * (c1 - c0) * 6 + 200);
     for (uint it = 0; it < params.statics_newton; it++)
     {
@@ -2954,15 +2962,25 @@ void island_statics(uint3 group: SV_GroupID, uint3 thread: SV_GroupThreadID)
         // the chunks' own loads by orders of magnitude (a long cantilever's root).
         float floor_level = max(STATICS_FLOOR, STATICS_ULPS * 6e-8 * sqrt(magnitude.x) / scale);
         newton = it;
+        if (it == 0)
+            start = residual;
         // Converged at the tolerance, or at f32's floor: the residual of a structure
         // in equilibrium stops falling at a level set by rounding (displacements far
         // larger than the bond deformations they differ into); a mechanism's stays at
-        // the size of its loads.
-        if (residual <= tol || (residual <= floor_level && residual > 0.5 * previous))
+        // the size of its loads. The floor is measured from the iterate's own bond
+        // loads, so it certifies only an iterate the solve reached by lowering the
+        // residual (as the reference's floor test, statics.rs `newton`, sees only
+        // iterates its line search accepted, each below the residual it started from):
+        // a diverging iterate's bond loads, and with them its floor, grow without bound.
+        // Only a finite residual certifies anything (statics.rs: `res.is_finite()`).
+        if (is_finite(residual) && (residual <= tol || (residual <= floor_level && residual > 0.5 * previous && residual <= start)))
         {
             converged = true;
             break;
         }
+        // A non-finite residual never comes back (statics.rs `newton`): unconverged.
+        if (!is_finite(residual))
+            break;
         previous = residual;
         // The secant system and its preconditioner.
         for (uint i = b0 + tid; i < b1; i += THREADS)
