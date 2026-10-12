@@ -25,7 +25,7 @@ fn tilted_cube(position: Vec3, q: Quat) -> Scene {
     b.position = position.to_array();
     b.orientation = q.to_wxyz();
     s.bodies.push(b);
-    s.sim.methods = stress_ref::scene::Methods::established();
+    s.sim.methods = if std::env::var("BLOWUP_METHODS").is_ok_and(|v| v == "proven") { stress_ref::scene::Methods::proven() } else { stress_ref::scene::Methods::established() };
     s.sim.solve_mode = SolveMode::Adaptive;
     s
 }
@@ -132,7 +132,7 @@ fn cubes(poses: &[(Vec3, Quat)]) -> Scene {
         b.orientation = q.to_wxyz();
         s.bodies.push(b);
     }
-    s.sim.methods = stress_ref::scene::Methods::established();
+    s.sim.methods = if std::env::var("BLOWUP_METHODS").is_ok_and(|v| v == "proven") { stress_ref::scene::Methods::proven() } else { stress_ref::scene::Methods::established() };
     s.sim.solve_mode = SolveMode::Adaptive;
     s
 }

@@ -16,7 +16,7 @@ fn env_usize(k: &str, d: usize) -> usize {
 }
 
 pub fn configure(mut s: Scene, seconds: f64) -> Scene {
-    s.sim.methods = stress_ref::scene::Methods::established();
+    s.sim.methods = if std::env::var("BLOWUP_METHODS").is_ok_and(|v| v == "proven") { stress_ref::scene::Methods::proven() } else { stress_ref::scene::Methods::established() };
     s.sim.methods.true_step = true;
     s.sim.courant_safety = 0.35;
     s.sim.stress_courant_safety = Some(0.5);
