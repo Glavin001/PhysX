@@ -709,6 +709,19 @@ impl World {
         let coupling = self.coupling.as_mut().expect("coupled");
         let contacts = coupling.engine.step(fdt, &frozen, &impulses);
         let end: HashMap<BodyKey, BodyMotion> = coupling.engine.motion().into_iter().map(|m| (m.key, m)).collect();
+        if let Some(watch) = std::env::var("STRESS_REF_WATCH_ENGINE_CHUNK").ok().and_then(|v| v.parse::<usize>().ok()) {
+            // Diagnostic: the engine's contacts on one chunk (structure 0) this frame.
+            for c in contacts.iter().filter(|c| c.structure == 0 && c.chunk == watch) {
+                eprintln!(
+                    "engine contact t {t0:.4}: chunk {watch} at {:?}, impulse {:?} N s (|J| {:.3e}), other {:?}, approach {:.3e} m/s",
+                    c.point.to_array(),
+                    c.impulse.to_array(),
+                    c.impulse.norm(),
+                    c.other,
+                    c.approach_speed
+                );
+            }
+        }
         coupling.start = start;
         coupling.end = end;
         let impulses_in = self.engine_contacts_to_impulses(&contacts);
