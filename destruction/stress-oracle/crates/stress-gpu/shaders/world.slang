@@ -1890,7 +1890,10 @@ void drift_rigid(Island isl, inout Rigid rg, float3 tr, float3 phi, float3 dv, f
 {
     float3 wcom = isl.wcom.xyz;
     Quat rot = rg.rot;
-    comp_add(rg.pos, rg.pos_err, rotate(rot, tr - cross(phi, wcom)));
+    // The turn is about the fold's centre (solver.rs `fold_rigid_drift`):
+    // `(exp(phi) - I) wcom` exactly, not `phi x wcom`, whose error grows with the
+    // distance from the body origin.
+    comp_add(rg.pos, rg.pos_err, rotate(rot, tr - turn_difference(phi, 1.0, wcom)));
     // The momentum the reference's next Iw w has: the turn phi changes Iw by
     // R (phi x I - I phi x) R^T (first order), and w gains R dw.
     float3 b = inverse_rotate(rot, rg.w);

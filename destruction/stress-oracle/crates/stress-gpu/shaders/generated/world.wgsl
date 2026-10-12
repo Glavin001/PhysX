@@ -1201,7 +1201,7 @@ fn drift_rigid_0( isl_6 : Island_0,  rg_5 : ptr<function, Rigid_0>,  tr_2 : vec3
 {
     var wcom_3 : vec3<f32> = isl_6.wcom_0.xyz;
     var rot_2 : Quat_0 = (*rg_5).rot_0;
-    var _S111 : vec3<f32> = rotate_0((*rg_5).rot_0, tr_2 - cross(phi_2, wcom_3));
+    var _S111 : vec3<f32> = rotate_0((*rg_5).rot_0, tr_2 - turn_difference_0(phi_2, 1.0f, wcom_3));
     var _S112 : vec3<f32> = (*rg_5).pos_0;
     var _S113 : vec3<f32> = (*rg_5).pos_err_0;
     comp_add_0(&(_S112), &(_S113), _S111);
@@ -6677,7 +6677,7 @@ fn drift_rigid_1( isl_29 : ptr<function, Island_std430_0>,  rg_17 : ptr<function
 {
     var wcom_5 : vec3<f32> = (*isl_29).wcom_0.xyz;
     var rot_3 : Quat_0 = (*rg_17).rot_0;
-    var _S597 : vec3<f32> = rotate_0((*rg_17).rot_0, tr_7 - cross(phi_5, wcom_5));
+    var _S597 : vec3<f32> = rotate_0((*rg_17).rot_0, tr_7 - turn_difference_0(phi_5, 1.0f, wcom_5));
     var _S598 : vec3<f32> = (*rg_17).pos_0;
     var _S599 : vec3<f32> = (*rg_17).pos_err_0;
     comp_add_0(&(_S598), &(_S599), _S597);

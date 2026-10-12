@@ -1528,9 +1528,15 @@ impl ReferenceSolver {
             cs.w -= dw;
         }
         if self.config.integrate_rigid && !self.clusters[ci].driven {
+            // The frame turns by `phi` about the fold's centre `com`, not about the body
+            // origin: `(exp(phi) - I) com` exactly (Rodrigues), where the first-order
+            // `phi x com` left every chunk off by `1/2 phi x (phi x c)`, `c` its distance
+            // from the body origin, an arbitrary choice of the scene (9.5 cm for a split
+            // child's 0.09 rad at 23.6 m in fractured-bridge). The chunks' hidden
+            // correction above is first order about `com` either way.
             let cl = &mut self.clusters[ci];
             let rot = cl.pose.rotation;
-            cl.pose.position += rot.rotate(t - phi.cross(com));
+            cl.pose.position += rot.rotate(t - turn_difference(phi, com));
             cl.pose.rotation = (rot * Quat::from_axis_angle(phi, phi.norm())).normalized();
             // The removed velocity field `dv + dw x (x - com)` evaluated at the true com.
             cl.velocity += rot.rotate(dv + dw.cross(true_com - com));
@@ -1815,6 +1821,20 @@ pub fn smallest_principal_moment(m: &Mat3) -> f64 {
     let r = (b.det() / 2.0).clamp(-1.0, 1.0);
     let phi = r.acos() / 3.0;
     q + 2.0 * p * (phi + 2.0 * std::f64::consts::PI / 3.0).cos()
+}
+
+/// `exp(phi) v - v` for the turn by the rotation vector `phi` (Rodrigues), without the
+/// cancellation of the difference of a rotated (possibly long) vector and itself; zero
+/// for no turn. world.slang `turn_difference`.
+pub fn turn_difference(phi: Vec3, v: Vec3) -> Vec3 {
+    let angle = phi.norm();
+    if angle == 0.0 {
+        return Vec3::ZERO;
+    }
+    let a = phi / angle;
+    let s = (0.5 * angle).sin();
+    let av = a.cross(v);
+    av * angle.sin() + a.cross(av) * (2.0 * s * s)
 }
 
 #[cfg(test)]

@@ -1158,7 +1158,7 @@ void drift_rigid_0(const Island_0 thread* isl_6, Rigid_0 thread* rg_5, float3 tr
 {
     float3 wcom_3 = isl_6->wcom_0.xyz;
     Quat_0 rot_2 = rg_5->rot_0;
-    float3 _S159 = tr_2 - cross(phi_2, wcom_3);
+    float3 _S159 = tr_2 - turn_difference_0(phi_2, 1.0f, wcom_3);
     thread Quat_0 _S160 = rg_5->rot_0;
     float3 _S161 = rotate_0(&_S160, _S159);
     comp_add_0(&rg_5->pos_0, &rg_5->pos_err_0, _S161);
@@ -6700,7 +6700,7 @@ void drift_rigid_1(const Island_natural_0 thread* isl_23, Rigid_0 thread* rg_14,
 {
     float3 wcom_4 = (float4(isl_23->wcom_0) ).xyz;
     Quat_0 rot_3 = rg_14->rot_0;
-    float3 _S1045 = tr_6 - cross(phi_5, wcom_4);
+    float3 _S1045 = tr_6 - turn_difference_0(phi_5, 1.0f, wcom_4);
     thread Quat_0 _S1046 = rg_14->rot_0;
     float3 _S1047 = rotate_0(&_S1046, _S1045);
     comp_add_0(&rg_14->pos_0, &rg_14->pos_err_0, _S1047);

@@ -1288,7 +1288,7 @@ static __device__ void drift_rigid_0(Island_0 * isl_6, Rigid_0 * rg_5, float3  t
     float4  _S233 = isl_6->wcom_0;
     float3  wcom_3 = float3 {_S233.x, _S233.y, _S233.z};
     Quat_0 rot_2 = rg_5->rot_0;
-    float3  _S234 = tr_2 - cross_0(phi_2, wcom_3);
+    float3  _S234 = tr_2 - turn_difference_0(phi_2, 1.0f, wcom_3);
     Quat_0 _S235 = rg_5->rot_0;
     float3  _S236 = rotate_0(&_S235, _S234);
     comp_add_0(&rg_5->pos_0, &rg_5->pos_err_0, _S236);
