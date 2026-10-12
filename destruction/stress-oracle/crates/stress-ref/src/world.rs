@@ -1447,6 +1447,19 @@ impl World {
     /// force, raised if needed so it stores no more energy than the joint did; the rest
     /// of the joint's stored energy is booked as released at the split. A joint in
     /// tension leaves no overlap to hand over.
+    /// Break bond `b` of structure `s` now (its damage complete), between substeps, as a
+    /// substep breaking it would: its cluster splits and, with layer contact, the joints
+    /// between the children hand their compression over to the contact before any
+    /// contact is evaluated again. For tests and scripted breaks.
+    pub fn break_bond(&mut self, s: usize, b: usize) {
+        self.solver.bonds[s][b].joint.damage = 1.0;
+        let ci = self.solver.chunks[s][self.solver.bonds[s][b].geometry.a].cluster;
+        self.solver.split_cluster(ci);
+        if self.scene.sim.methods.layer_contact {
+            self.hand_over_split_joints();
+        }
+    }
+
     fn hand_over_split_joints(&mut self) {
         let handovers = std::mem::take(&mut self.solver.handovers);
         let scale = self.scene.sim.stiffness_scale;
